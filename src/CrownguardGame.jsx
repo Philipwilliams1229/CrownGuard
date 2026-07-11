@@ -6,6 +6,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { W, H, GRASS, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
 import { TOWERS } from "./data/towers.js";
+import { ENEMIES } from "./data/enemies.js";
 import { WAVES } from "./data/waves.js";
 import { getStats } from "./engine/towers.js";
 import {
@@ -15,6 +16,21 @@ import {
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
 import PixelIcon from "./ui/PixelIcon.jsx";
+import EnemyIcon from "./ui/EnemyIcon.jsx";
+
+// Aggregate a wave's spawn list into { type, count } entries, keeping the
+// order each enemy type first appears. Used by the next-wave preview.
+function waveComposition(waveIndex) {
+  const spec = WAVES[waveIndex];
+  if (!spec) return [];
+  const out = [];
+  for (const [type, count] of spec) {
+    const found = out.find((c) => c.type === type);
+    if (found) found.count += count;
+    else out.push({ type, count });
+  }
+  return out;
+}
 
 export default function Crownguard() {
   const canvasRef = useRef(null);
@@ -295,6 +311,23 @@ export default function Crownguard() {
                 Restart<br />Wave
               </button>
             </div>
+
+            {ui.phase === "build" && ui.wave < WAVES.length && (
+              <div style={panel}>
+                <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>INCOMING — WAVE {ui.wave + 1}</div>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+                  {waveComposition(ui.wave).map(({ type, count }) => (
+                    <div key={type} title={ENEMIES[type].name}
+                      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                      <EnemyIcon type={type} box={ENEMIES[type].boss ? 42 : 28} />
+                      <span style={{ fontSize: 11, color: ENEMIES[type].boss ? "#e07a72" : "#e8e0c8" }}>
+                        <span style={{ opacity: 0.6 }}>×</span>{count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={panel}>
               <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>RAISE DEFENSES</div>
