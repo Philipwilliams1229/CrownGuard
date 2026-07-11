@@ -9,3 +9,6 @@ dist
 
 # macOS junk
 .DS_Store
+
+# Local, per-machine Claude Code settings (not shared)
+.claude/settings.local.json

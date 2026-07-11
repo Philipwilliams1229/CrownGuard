@@ -40,6 +40,7 @@ export default function Crownguard() {
   const [ui, setUi] = useState({ gold: 0, lives: 0, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1 });
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoverEnemy, setHoverEnemy] = useState(null);
+  const [buildOpen, setBuildOpen] = useState(false);
   const uiRef = useRef(ui);
   uiRef.current = ui;
 
@@ -49,10 +50,22 @@ export default function Crownguard() {
       towers: [], enemies: [], projectiles: [], effects: [],
       spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
       selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
-      cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null,
+      cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false,
     };
+    setBuildOpen(false);
     setUi({ gold: 250, lives: CASTLE_HP, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1 });
   }, []);
+
+  // Mirror the build-drawer open state into the game so the update loop can
+  // apply the tactical half-speed while the player is building.
+  useEffect(() => {
+    if (G.current) G.current.buildMenuOpen = buildOpen;
+  }, [buildOpen]);
+
+  // Only one side panel at a time: selecting a tower closes the build drawer.
+  useEffect(() => {
+    if (ui.selected) setBuildOpen(false);
+  }, [ui.selected]);
 
   // ============ MAIN LOOP ============
   useEffect(() => {
@@ -182,6 +195,14 @@ export default function Crownguard() {
   };
   const disabled = { opacity: 0.45, cursor: "not-allowed" };
   const statLabel = { fontSize: 9, letterSpacing: 1, opacity: 0.6, marginRight: 3 };
+  const overlayPanel = {
+    background: "rgba(38,42,52,0.97)", border: "3px solid #10131a", boxSizing: "border-box",
+  };
+
+  // The build drawer covers the board's right side, so it slides out of the way
+  // while a tower is actively being placed (buildMode set) or a tower is selected
+  // (its pop-up takes over), keeping the board clear and one panel showing at a time.
+  const drawerVisible = buildOpen && !ui.buildMode && !sel;
 
   return (
     <div style={{ minHeight: "100vh", background: "#20242c", color: "#e8e0c8", fontFamily: FONT, padding: 12, boxSizing: "border-box" }}>
@@ -245,98 +266,69 @@ export default function Crownguard() {
             <b>The castle has 20 HP</b>, carried between waves. Goblins &amp; wolves cost 1, orcs &amp; ironclads 2, trolls 3, the dragon 5. It cracks, smokes, and burns as it weakens.<br /><br />
             Towers reach Lv 3, then <b>evolve down one of several paths</b>.<br /><br />
             After a wave, the next <b>auto-starts in 30s</b>. Sound the horn early for bonus gold.<br /><br />
+            <b>Building or selecting a tower</b> slows the battle to half-speed so you have time to think.<br /><br />
             <b>Zoom</b> with the -/+ buttons; drag the map to pan while zoomed.
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div style={{ position: "relative", flex: "1 1 560px", minWidth: 320 }}>
-            <div style={{ display: "flex", gap: 14, padding: "6px 10px", background: "#2c313c", border: "3px solid #10131a", borderBottom: "none", fontSize: 13, flexWrap: "wrap", alignItems: "center", boxShadow: "inset 0 0 0 2px #454c5a" }}>
-              <span><span style={statLabel}>GOLD</span><b style={{ color: "#e8d47a" }}>{ui.gold}</b></span>
-              <span><span style={statLabel}>CASTLE</span><b style={{ color: ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.6 }}>/{CASTLE_HP}</span></span>
-              <span><span style={statLabel}>WAVE</span><b>{ui.wave}</b><span style={{ opacity: 0.6 }}>/{WAVES.length}</span></span>
-              <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                <button title="Zoom out" style={{ ...btn, padding: "2px 9px", fontSize: 12 }} onClick={() => setZoom((G.current?.cam.zoom || 1) / 1.3)}>-</button>
-                <button title="Zoom in" style={{ ...btn, padding: "2px 9px", fontSize: 12 }} onClick={() => setZoom((G.current?.cam.zoom || 1) * 1.3)}>+</button>
-                {ui.zoom > 1 && <button title="Reset view" style={{ ...btn, padding: "2px 9px", fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
-                <button title={ui.paused ? "Resume" : "Pause"} style={{ ...btn, padding: "2px 10px", fontSize: 11, ...(ui.paused ? { background: "#5a4f2c" } : {}) }}
-                  onClick={() => { if (G.current) G.current.paused = !G.current.paused; }}>
-                  {ui.paused ? "resume" : "pause"}
-                </button>
-                <button style={{ ...btn, padding: "2px 10px", fontSize: 11, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
-                  onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
-                  {ui.speed}x
-                </button>
-              </span>
-            </div>
+        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          {/* stat bar */}
+          <div style={{ display: "flex", gap: 14, padding: "6px 10px", background: "#2c313c", border: "3px solid #10131a", borderBottom: "none", fontSize: 13, flexWrap: "wrap", alignItems: "center", boxShadow: "inset 0 0 0 2px #454c5a" }}>
+            <span><span style={statLabel}>GOLD</span><b style={{ color: "#e8d47a" }}>{ui.gold}</b></span>
+            <span><span style={statLabel}>CASTLE</span><b style={{ color: ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.6 }}>/{CASTLE_HP}</span></span>
+            <span><span style={statLabel}>WAVE</span><b>{ui.wave}</b><span style={{ opacity: 0.6 }}>/{WAVES.length}</span></span>
+            <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+              <button title="Zoom out" style={{ ...btn, padding: "2px 9px", fontSize: 12 }} onClick={() => setZoom((G.current?.cam.zoom || 1) / 1.3)}>-</button>
+              <button title="Zoom in" style={{ ...btn, padding: "2px 9px", fontSize: 12 }} onClick={() => setZoom((G.current?.cam.zoom || 1) * 1.3)}>+</button>
+              {ui.zoom > 1 && <button title="Reset view" style={{ ...btn, padding: "2px 9px", fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
+              <button title={ui.paused ? "Resume" : "Pause"} style={{ ...btn, padding: "2px 10px", fontSize: 11, ...(ui.paused ? { background: "#5a4f2c" } : {}) }}
+                onClick={() => { if (G.current) G.current.paused = !G.current.paused; }}>
+                {ui.paused ? "resume" : "pause"}
+              </button>
+              <button style={{ ...btn, padding: "2px 10px", fontSize: 11, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
+                onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
+                {ui.speed}x
+              </button>
+            </span>
+          </div>
+
+          {/* board + in-window overlays */}
+          <div style={{ position: "relative", overflow: "hidden" }}>
             <canvas
               ref={canvasRef} width={W} height={H}
               onMouseDown={onCanvasDown} onMouseMove={onCanvasMove} onMouseUp={onCanvasUp}
               onMouseLeave={() => { if (G.current) G.current.hover = null; dragRef.current.down = false; }}
               style={{ width: "100%", display: "block", border: "3px solid #10131a", background: GRASS, cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", imageRendering: "pixelated" }}
             />
-            {(ui.result === "won" || ui.result === "lost") && (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(12,12,16,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, textAlign: "center" }}>
-                <div style={{ fontSize: 20, letterSpacing: 3, color: ui.result === "won" ? "#e8d47a" : "#e07a72", textShadow: "2px 2px 0 #10131a" }}>
-                  {ui.result === "won" ? "THE REALM STANDS" : "THE CASTLE HAS FALLEN"}
-                </div>
-                <div style={{ fontSize: 12, opacity: 0.85, maxWidth: 340 }}>
-                  {ui.result === "won"
-                    ? "The dragon is slain and the road is quiet. A victory earned — not bought."
-                    : `You fell on wave ${ui.wave}. Retry the wave with your gold and towers restored, or start fresh.`}
-                </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  {ui.result === "lost" && ui.canRestart && (
-                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", background: "#5a4f2c" }} onClick={() => restartWave(G.current)}>Retry Wave {ui.wave}</button>
-                  )}
-                  <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={initGame}>New Campaign</button>
-                </div>
-              </div>
+
+            {/* open-build-menu tab (right edge) */}
+            {ui.result == null && !buildOpen && (
+              <button aria-label="Open build menu"
+                onClick={() => { setBuildOpen(true); if (G.current) G.current.selectedId = null; }}
+                style={{ ...btn, position: "absolute", top: 10, right: 10, zIndex: 20, display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", fontSize: 12 }}>
+                <PixelIcon kind="archer" size={18} /> Build
+              </button>
             )}
-          </div>
 
-          <div style={{ flex: "1 1 520px", minWidth: 300, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
-            <div style={{ flex: "1 1 240px", minWidth: 240, display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                style={{ ...btn, flex: 1, fontSize: 13, textAlign: "center", padding: "12px 8px", ...(ui.phase === "build" && ui.wave < WAVES.length ? { background: "#5a4f2c" } : {}), ...(ui.phase !== "build" ? disabled : {}) }}
-                onClick={() => startWave(G.current)} disabled={ui.phase !== "build"}>
-                {ui.phase === "combat" ? `Wave ${ui.wave} in progress...`
-                  : ui.wave >= WAVES.length ? "Campaign complete"
-                  : ui.cdSec != null ? (<>Start Wave {ui.wave + 1} <span style={{ color: "#e8d47a" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span><div style={{ fontSize: 10, opacity: 0.75 }}>auto-starts in {ui.cdSec}s</div></>)
-                  : `Start Wave ${ui.wave + 1}`}
-              </button>
-              <button
-                title="Restart the current/last wave with gold, castle HP, and towers restored to how they were when it began"
-                style={{ ...btn, fontSize: 11, textAlign: "center", ...(ui.canRestart ? {} : disabled) }}
-                onClick={() => restartWave(G.current)} disabled={!ui.canRestart}>
-                Restart<br />Wave
-              </button>
-            </div>
-
-            {ui.phase === "build" && ui.wave < WAVES.length && (
-              <div style={panel}>
-                <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>INCOMING — WAVE {ui.wave + 1}</div>
-                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
-                  {waveComposition(ui.wave).map(({ type, count }) => (
-                    <div key={type}
-                      onMouseEnter={() => setHoverEnemy(type)}
-                      onMouseLeave={() => setHoverEnemy((cur) => (cur === type ? null : cur))}
-                      onClick={() => setHoverEnemy((cur) => (cur === type ? null : type))}
-                      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
-                      {hoverEnemy === type && <EnemyTooltip type={type} />}
-                      <EnemyIcon type={type} box={ENEMIES[type].boss ? 42 : 28} />
-                      <span style={{ fontSize: 11, color: ENEMIES[type].boss ? "#e07a72" : "#e8e0c8" }}>
-                        <span style={{ opacity: 0.6 }}>×</span>{count}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+            {/* placement hint (shown while a tower is chosen and the drawer is tucked away) */}
+            {ui.buildMode && (
+              <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 22, ...overlayPanel, borderWidth: 2, padding: "6px 10px", fontSize: 11, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "92%" }}>
+                <span>Placing <b style={{ color: "#e8d47a" }}>{TOWERS[ui.buildMode].name}</b> — click the grass.{ui.buildMode === "knight" ? " Knights muster south of the hall." : ""}</span>
+                <button aria-label="Cancel placement" onClick={() => { if (G.current) G.current.buildMode = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
               </div>
             )}
 
-            <div style={panel}>
-              <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>RAISE DEFENSES</div>
+            {/* build drawer (right side) */}
+            <div style={{
+              position: "absolute", top: 0, right: 0, bottom: 0, width: "72%", maxWidth: 264, zIndex: 30,
+              ...overlayPanel, border: "none", borderLeft: "3px solid #10131a",
+              padding: 12, overflowY: "auto",
+              transform: drawerVisible ? "translateX(0)" : "translateX(103%)", transition: "transform 0.22s ease",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75 }}>RAISE DEFENSES</div>
+                <button aria-label="Close build menu" onClick={() => setBuildOpen(false)} style={{ ...btn, padding: "2px 9px", fontSize: 13 }}>✕</button>
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {Object.entries(TOWERS).map(([key, def]) => {
                   const can = ui.gold >= def.cost;
@@ -355,16 +347,19 @@ export default function Crownguard() {
                   );
                 })}
               </div>
-              {ui.buildMode && <div style={{ fontSize: 10, marginTop: 8, color: "#a8d88c" }}>Click the grass to build. {ui.buildMode === "knight" ? "Knights muster just south of the hall." : ""} Click again to cancel.</div>}
-            </div>
+              <div style={{ fontSize: 10, marginTop: 10, opacity: 0.6 }}>Time runs at half-speed while you build or manage a tower.</div>
             </div>
 
-            <div style={{ flex: "1 1 240px", minWidth: 240, display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* selected tower pop-up (left side) */}
             {sel && selDef && (
-              <div style={{ ...panel, boxShadow: "inset 0 0 0 2px #7a6a3c" }}>
+              <div style={{
+                position: "absolute", top: 10, left: 10, width: "72%", maxWidth: 264, zIndex: 25,
+                ...overlayPanel, boxShadow: "inset 0 0 0 2px #7a6a3c",
+                padding: 10, maxHeight: "calc(100% - 20px)", overflowY: "auto",
+              }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <PixelIcon kind={sel.kind} branch={sel.branch} size={34} />
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: "bold", color: "#e8d47a", fontSize: 13 }}>
                       {sel.branch ? selDef.branches[sel.branch].name : `${selDef.name} - Lv ${sel.level}`}
                     </div>
@@ -379,6 +374,7 @@ export default function Crownguard() {
                       })()}
                     </div>
                   </div>
+                  <button aria-label="Deselect tower" onClick={() => { if (G.current) G.current.selectedId = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 12 }}>✕</button>
                 </div>
 
                 {sel.kind === "knight" && (
@@ -431,14 +427,65 @@ export default function Crownguard() {
               </div>
             )}
 
-            {!sel && (
-              <div style={{ ...panel, fontSize: 10.5, lineHeight: 1.6, opacity: 0.85 }}>
-                <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.8, marginBottom: 6 }}>COMMAND POST</div>
-                Select a tower on the field to upgrade, evolve, or sell it here.<br />
-                Enemy lore, tactics, and game options live in the <b>menu</b>, top left.
+            {(ui.result === "won" || ui.result === "lost") && (
+              <div style={{ position: "absolute", inset: 0, background: "rgba(12,12,16,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, textAlign: "center", zIndex: 45 }}>
+                <div style={{ fontSize: 20, letterSpacing: 3, color: ui.result === "won" ? "#e8d47a" : "#e07a72", textShadow: "2px 2px 0 #10131a" }}>
+                  {ui.result === "won" ? "THE REALM STANDS" : "THE CASTLE HAS FALLEN"}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.85, maxWidth: 340 }}>
+                  {ui.result === "won"
+                    ? "The dragon is slain and the road is quiet. A victory earned — not bought."
+                    : `You fell on wave ${ui.wave}. Retry the wave with your gold and towers restored, or start fresh.`}
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {ui.result === "lost" && ui.canRestart && (
+                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", background: "#5a4f2c" }} onClick={() => restartWave(G.current)}>Retry Wave {ui.wave}</button>
+                  )}
+                  <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={initGame}>New Campaign</button>
+                </div>
               </div>
             )}
+          </div>
+
+          {/* wave controls + next-wave preview */}
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                style={{ ...btn, flex: 1, fontSize: 13, textAlign: "center", padding: "12px 8px", ...(ui.phase === "build" && ui.wave < WAVES.length ? { background: "#5a4f2c" } : {}), ...(ui.phase !== "build" ? disabled : {}) }}
+                onClick={() => startWave(G.current)} disabled={ui.phase !== "build"}>
+                {ui.phase === "combat" ? `Wave ${ui.wave} in progress...`
+                  : ui.wave >= WAVES.length ? "Campaign complete"
+                  : ui.cdSec != null ? (<>Start Wave {ui.wave + 1} <span style={{ color: "#e8d47a" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span><div style={{ fontSize: 10, opacity: 0.75 }}>auto-starts in {ui.cdSec}s</div></>)
+                  : `Start Wave ${ui.wave + 1}`}
+              </button>
+              <button
+                title="Restart the current/last wave with gold, castle HP, and towers restored to how they were when it began"
+                style={{ ...btn, fontSize: 11, textAlign: "center", ...(ui.canRestart ? {} : disabled) }}
+                onClick={() => restartWave(G.current)} disabled={!ui.canRestart}>
+                Restart<br />Wave
+              </button>
             </div>
+
+            {ui.phase === "build" && ui.wave < WAVES.length && (
+              <div style={panel}>
+                <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>INCOMING — WAVE {ui.wave + 1}</div>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+                  {waveComposition(ui.wave).map(({ type, count }) => (
+                    <div key={type}
+                      onMouseEnter={() => setHoverEnemy(type)}
+                      onMouseLeave={() => setHoverEnemy((cur) => (cur === type ? null : cur))}
+                      onClick={() => setHoverEnemy((cur) => (cur === type ? null : type))}
+                      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
+                      {hoverEnemy === type && <EnemyTooltip type={type} />}
+                      <EnemyIcon type={type} box={ENEMIES[type].boss ? 42 : 28} />
+                      <span style={{ fontSize: 11, color: ENEMIES[type].boss ? "#e07a72" : "#e8e0c8" }}>
+                        <span style={{ opacity: 0.6 }}>×</span>{count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

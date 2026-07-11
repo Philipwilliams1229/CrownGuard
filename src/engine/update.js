@@ -13,7 +13,12 @@ import { getStats, syncUnits, unitSlots } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave } from "./actions.js";
 
 export function updateGame(g, dt) {
-  const sdt = g.paused ? 0 : dt * g.speed;
+  // Tactical half-speed: during combat, while the player is managing — the
+  // build drawer is open, a tower is being placed, or a tower is selected —
+  // time runs at 50% so there's room to think.
+  const managing = g.phase === "combat" && (g.buildMenuOpen || g.buildMode || g.selectedId);
+  const speed = g.speed * (managing ? 0.5 : 1);
+  const sdt = g.paused ? 0 : dt * speed;
   g.time += sdt;
   const tms = g.time * 1000;
 
