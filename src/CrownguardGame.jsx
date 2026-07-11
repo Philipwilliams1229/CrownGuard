@@ -45,15 +45,18 @@ export default function Crownguard() {
   uiRef.current = ui;
 
   const initGame = useCallback(() => {
+    // SANDBOX MODE: unlimited gold while the owner explores the tech trees.
+    // Restore to 250 for the real economy.
+    const START_GOLD = 999999;
     G.current = {
-      gold: 250, lives: CASTLE_HP, wave: 0, phase: "build",
+      gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build",
       towers: [], enemies: [], projectiles: [], effects: [],
       spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
       selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
       cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false,
     };
     setBuildOpen(false);
-    setUi({ gold: 250, lives: CASTLE_HP, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1 });
+    setUi({ gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1 });
   }, []);
 
   // Mirror the build-drawer open state into the game so the update loop can
@@ -136,7 +139,14 @@ export default function Crownguard() {
   const handleTap = (x, y) => {
     const g = G.current;
     if (!g || g.phase === "won" || g.phase === "lost" || g.paused) return;
-    if (g.buildMode) { placeTower(g, g.buildMode, x, y); return; }
+    if (g.buildMode) {
+      placeTower(g, g.buildMode, x, y);
+      // placeTower clears buildMode on success — close the drawer with it
+      if (!g.buildMode) setBuildOpen(false);
+      return;
+    }
+    // tapping the field outside a menu dismisses the build drawer
+    setBuildOpen(false);
     const t = towerNear(g, x, y);
     if (t) { g.selectedId = t.id; return; }
     // selected garrison: click inside its circle to move the rally flag
