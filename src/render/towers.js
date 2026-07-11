@@ -6,6 +6,9 @@ import { INK, CELL, S } from "../data/constants.js";
 import { MINI, ARCHER_PALS, WIZ_PALS, PRIEST_PALS, drawSprite } from "../sprites/sprites.js";
 import { getStats } from "../engine/towers.js";
 
+// leather-hooded crew engineer who works the catapult
+const CREW_PAL = { o: INK, h: "#7a5a34", b: "#6e4c28", s: "#e0b088", w: "#4a3018" };
+
 export const drawArcherTower = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
@@ -122,6 +125,100 @@ export const drawWizardSpire = (ctx, t, time) => {
       ctx.fillRect(cx - CELL, cy, CELL * 3, CELL);
     }
   }
+};
+
+export const drawCatapult = (ctx, t, time) => {
+  const x = S(t.x), y = S(t.y);
+  const lvl = t.level;
+  const treb = t.branch === "a";
+  const scat = t.branch === "b";
+  const wood = treb ? "#6e4c28" : "#8a6238";
+  const woodLt = treb ? "#7d5a34" : "#a0754a";
+  const dark = "#4a3018";
+  const bc = treb ? "#4a6a92" : scat ? "#a0473a" : "#a04a3f";
+  const hw = 12 + lvl * 2;
+  ctx.fillStyle = "rgba(20,20,26,0.3)";
+  ctx.fillRect(x - hw - 2, y + 14, (hw + 2) * 2, 4);
+  // wooden deck
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - hw - 2, y + 2, hw * 2 + 4, 14);
+  ctx.fillStyle = wood;
+  ctx.fillRect(x - hw, y + 4, hw * 2, 10);
+  ctx.fillStyle = woodLt;
+  ctx.fillRect(x - hw, y + 4, hw * 2, 3);
+  ctx.fillStyle = dark;
+  for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * 8 - 1, y + 4, 2, 10);
+  // wheels
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - hw - 3, y + 8, 6, 8);
+  ctx.fillRect(x + hw - 3, y + 8, 6, 8);
+  ctx.fillStyle = "#33291a";
+  ctx.fillRect(x - hw - 2, y + 9, 4, 6);
+  ctx.fillRect(x + hw - 2, y + 9, 4, 6);
+  // A-frame uprights (trebuchet stands much taller)
+  const fh = treb ? 30 : 16 + lvl * 2;
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 7, y + 4 - fh, 5, fh);
+  ctx.fillRect(x + 3, y + 4 - fh, 5, fh);
+  ctx.fillStyle = wood;
+  ctx.fillRect(x - 6, y + 4 - fh + 1, 3, fh - 2);
+  ctx.fillRect(x + 4, y + 4 - fh + 1, 3, fh - 2);
+  // crossbeam at pivot
+  const py = y + 4 - fh + 2;
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 9, py - 2, 18, 5);
+  ctx.fillStyle = woodLt;
+  ctx.fillRect(x - 8, py - 1, 16, 3);
+  // throwing arm: cocked back while loading, swung forward right after a shot
+  const fired = t.anim > 0.45;
+  const dir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
+  const steps = 4 + (treb ? 2 : 0);
+  ctx.fillStyle = dark;
+  for (let i = 1; i <= steps; i++) {
+    const ax = x + (fired ? dir : -dir) * i * 3;
+    const ay = py - i * 3;
+    ctx.fillRect(S(ax) - 1, S(ay) - 1, 4, 4);
+  }
+  const tipX = x + (fired ? dir : -dir) * steps * 3;
+  const tipY = py - steps * 3;
+  if (treb) {
+    // counterweight box swings opposite the arm
+    const cwX = x + (fired ? -dir : dir) * 8;
+    ctx.fillStyle = INK;
+    ctx.fillRect(S(cwX) - 5, py + 2, 10, 10);
+    ctx.fillStyle = "#5f5a4d";
+    ctx.fillRect(S(cwX) - 4, py + 3, 8, 8);
+  }
+  // cup with rock(s) when loaded
+  ctx.fillStyle = INK;
+  ctx.fillRect(S(tipX) - 4, S(tipY) - 2, 8, 4);
+  if (!fired) {
+    if (scat) {
+      ctx.fillStyle = "#b8b8c0";
+      ctx.fillRect(S(tipX) - 5, S(tipY) - 6, 4, 4);
+      ctx.fillRect(S(tipX) - 1, S(tipY) - 7, 4, 4);
+      ctx.fillRect(S(tipX) + 3, S(tipY) - 5, 3, 3);
+    } else {
+      ctx.fillStyle = "#8a8a92";
+      ctx.fillRect(S(tipX) - 3, S(tipY) - (treb ? 9 : 7), treb ? 8 : 6, treb ? 8 : 6);
+      ctx.fillStyle = "#a2a2aa";
+      ctx.fillRect(S(tipX) - 2, S(tipY) - (treb ? 8 : 6), 2, 2);
+    }
+  }
+  // spare boulder pile beside the deck
+  ctx.fillStyle = "#8a8a92";
+  ctx.fillRect(x - hw - 8, y + 10, 5, 5);
+  ctx.fillRect(x - hw - 12, y + 12, 4, 4);
+  if (lvl >= 2 || t.branch) ctx.fillRect(x - hw - 10, y + 6, 4, 4);
+  // banner
+  const wave = Math.round(Math.sin(time * 5 + t.id)) * CELL;
+  ctx.fillStyle = "#5f4326";
+  ctx.fillRect(x + hw + 4, y - 14, 2, 28);
+  ctx.fillStyle = bc;
+  ctx.fillRect(x + hw + 6, y - 14, 8 + wave, 3);
+  ctx.fillRect(x + hw + 6, y - 11, 5 + wave, 3);
+  // crew engineer working the winch
+  drawSprite(ctx, MINI.archer, CREW_PAL, 0, x + hw + 2, y - 2, dir < 0);
 };
 
 export const drawGarrison = (ctx, t, time) => {

@@ -14,7 +14,7 @@ import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
-import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower } from "./towers.js";
+import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult } from "./towers.js";
 import { drawTree, drawCastle, drawCave } from "./scenery.js";
 
 export function draw(g, canvas, bufRef) {
@@ -106,6 +106,11 @@ export function draw(g, canvas, bufRef) {
     ctx.fillRect(S(hx) - 20, S(hy) - 20, 40, 40);
     ctx.strokeStyle = ok ? "rgba(140,224,140,0.6)" : "rgba(224,110,100,0.6)";
     ctx.beginPath(); ctx.arc(S(hx), S(hy), radius, 0, 7); ctx.stroke();
+    const minR = TOWERS[g.buildMode].levels[0].minRange;
+    if (minR) {
+      ctx.strokeStyle = "rgba(224,110,100,0.55)";
+      ctx.beginPath(); ctx.arc(S(hx), S(hy), minR, 0, 7); ctx.stroke();
+    }
   }
 
   const sel = g.towers.find((t) => t.id === g.selectedId);
@@ -115,6 +120,10 @@ export function draw(g, canvas, bufRef) {
     ctx.fillStyle = "rgba(216,179,74,0.1)";
     ctx.strokeStyle = "rgba(216,179,74,0.6)";
     ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), radius, 0, 7); ctx.fill(); ctx.stroke();
+    if (st.minRange) {
+      ctx.strokeStyle = "rgba(224,110,100,0.55)";
+      ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), st.minRange, 0, 7); ctx.stroke();
+    }
   }
 
   const drawables = [];
@@ -126,6 +135,7 @@ export function draw(g, canvas, bufRef) {
         if (t.kind === "archer") drawArcherTower(ctx, t, g.time);
         else if (t.kind === "wizard") drawWizardSpire(ctx, t, g.time);
         else if (t.kind === "support") drawSupportTower(ctx, t, g.time);
+        else if (t.kind === "catapult") drawCatapult(ctx, t, g.time);
         else drawGarrison(ctx, t, g.time);
         if (!t.branch) {
           ctx.fillStyle = "#e8d47a";
@@ -150,7 +160,21 @@ export function draw(g, canvas, bufRef) {
 
   for (const p of g.projectiles) {
     if (p.delay > 0) continue;
-    if (p.kind === "arrow") {
+    if (p.kind === "rock") {
+      // boulder lobbed in an arc: shadow tracks the ground, rock rises above it
+      const remaining = Math.hypot(p.tx - p.x, p.ty - p.y);
+      const prog = p.total > 0 ? 1 - remaining / p.total : 1;
+      const arcH = Math.sin(Math.min(1, Math.max(0, prog)) * Math.PI) * Math.min(64, p.total * 0.24);
+      const r = p.big ? 6 : 4;
+      ctx.fillStyle = "rgba(20,20,26,0.35)";
+      ctx.fillRect(S(p.x) - r + 1, S(p.y) - 2, (r - 1) * 2, 4);
+      ctx.fillStyle = INK;
+      ctx.beginPath(); ctx.arc(S(p.x), S(p.y - arcH), r + 1, 0, 7); ctx.fill();
+      ctx.fillStyle = "#8a8a92";
+      ctx.beginPath(); ctx.arc(S(p.x), S(p.y - arcH), r, 0, 7); ctx.fill();
+      ctx.fillStyle = "#a2a2aa";
+      ctx.fillRect(S(p.x) - 2, S(p.y - arcH) - 2, 3, 2);
+    } else if (p.kind === "arrow") {
       ctx.fillStyle = p.pierce ? "#e8d47a" : "#d2c6a2";
       const dx = Math.cos(p.angle || 0), dy = Math.sin(p.angle || 0);
       for (let i = -2; i <= 2; i++) ctx.fillRect(S(p.x + dx * i * 3), S(p.y + dy * i * 3), CELL, CELL);
@@ -175,6 +199,21 @@ export function draw(g, canvas, bufRef) {
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
       ctx.lineWidth = 1;
+    } else if (fx.type === "dust") {
+      // rock impact: an earthy shockwave ring plus tumbling grit
+      const r = fx.r * (1 - a * 0.3);
+      ctx.fillStyle = `rgba(150,132,100,${a * 0.3})`;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.fill();
+      ctx.strokeStyle = `rgba(120,104,78,${a * 0.8})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = `rgba(178,164,136,${a})`;
+      for (let i = 0; i < 6; i++) {
+        const ang = i * 1.05 + 0.3;
+        const rr = r * 0.7;
+        ctx.fillRect(S(fx.x + Math.cos(ang) * rr), S(fx.y + Math.sin(ang) * rr * 0.7 - (1 - a) * 6), CELL, CELL);
+      }
     } else if (fx.type === "coin") {
       ctx.fillStyle = `rgba(232,212,122,${a})`;
       ctx.font = fx.big ? "bold 16px monospace" : "bold 12px monospace";

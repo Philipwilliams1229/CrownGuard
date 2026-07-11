@@ -323,6 +323,28 @@ export const MINI = {
   },
 };
 
+MINI.catapult = {
+  frames: [[
+    "...oo.........",
+    "..oddo........",
+    "..odrro.......",
+    "...od.o.......",
+    "....od........",
+    ".....od.......",
+    "..oooowdoooo..",
+    ".owwwwwwwwwwo.",
+    "..ow.o..o.wo..",
+    ".oddoo..ooddo.",
+    "..oo......oo..",
+  ]],
+};
+
+export const CATAPULT_PALS = {
+  base: { o: INK, w: "#8a6238", d: "#5f4326", r: "#8a8a92" },
+  a: { o: INK, w: "#6e4c28", d: "#4a3018", r: "#7d7768" },
+  b: { o: INK, w: "#8a6238", d: "#5f4326", r: "#b8b8c0" },
+};
+
 export const ARCHER_PALS = {
   base: { o: INK, h: "#54703f", b: "#6e4c28", s: "#e0b088", w: "#4a3018" },
   a: { o: INK, h: "#3f6a34", b: "#4a7a3c", s: "#e0b088", w: "#4a3018" },

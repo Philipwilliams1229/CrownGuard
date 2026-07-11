@@ -260,6 +260,7 @@ export default function Crownguard() {
             <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.8, marginBottom: 6 }}>FIELD GUIDE</div>
             <b>Knights</b> march out and each pin one enemy in melee — the rest push past. Fallen knights respawn in 7s. Knights muster just south of their hall; select the hall and click inside its circle to move the rally flag.<br /><br />
             <b>Warden Priests</b> slow every enemy in their aura. Their paths: mend knights, deepen the slow, or raise a Battle Standard so knights strike 50% harder.<br /><br />
+            <b>Catapults</b> lob boulders in a high arc — heavy physical splash at long range, but they cannot strike foes inside their inner red circle. Rocks land where the enemy was <i>headed</i>, so fast runners can slip the blast.<br /><br />
             <b>Ironclads</b> (shield badge) shrug off half of all physical damage — magic ignores armor.<br /><br />
             <b>Dire wolves</b> are fast; blocking, slows, and stuns tame them.<br /><br />
             <b>Trolls</b> regenerate and hit knights hard — burst them down.<br /><br />
@@ -389,7 +390,7 @@ export default function Crownguard() {
                         const st = getStats(t);
                         if (t.kind === "knight") return `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}`;
                         if (t.kind === "support") return `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.buff ? ` · knights +${Math.round(st.buff * 100)}% dmg` : ""}`;
-                        return `${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
+                        return `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""} · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
                       })()}
                     </div>
                   </div>

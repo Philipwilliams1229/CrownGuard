@@ -172,7 +172,7 @@ export function updateGame(g, dt) {
       for (const e of g.enemies) {
         if (e.dead) continue;
         const d = Math.hypot(e.x - t.x, e.y - t.y);
-        if (d <= st.range && e.dist > best) { best = e.dist; target = e; }
+        if (d <= st.range && d >= (st.minRange || 0) && e.dist > best) { best = e.dist; target = e; }
       }
       if (!target) continue;
       t.cd = st.rate;
@@ -199,6 +199,32 @@ export function updateGame(g, dt) {
             burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow",
           });
         });
+      } else if (t.kind === "catapult") {
+        // Rocks lob toward where the target is HEADED — a fixed landing point,
+        // no homing. Lead the shot by projecting the enemy along the road for
+        // the rock's flight time (fast enemies can dodge; clumps get crushed).
+        const rockSpeed = t.branch === "a" ? 270 : 240;
+        const d0 = Math.hypot(target.x - t.x, target.y - t.y);
+        const slowNow = Math.max(target.slowUntil > tms ? target.slowPct : 0, target.auraSlow || 0);
+        const lead = Math.min(target.dist + target.speed * (1 - slowNow) * (d0 / rockSpeed) * 0.85, TOTAL_LEN - 1);
+        const [lx, ly] = posAt(lead);
+        const la = angleAt(lead);
+        const ax = lx + Math.cos(la + Math.PI / 2) * target.lane;
+        const ay = ly + Math.sin(la + Math.PI / 2) * target.lane;
+        const shots = st.shots || 1;
+        for (let i = 0; i < shots; i++) {
+          const ox = shots > 1 ? (Math.random() - 0.5) * 46 : 0;
+          const oy = shots > 1 ? (Math.random() - 0.5) * 34 : 0;
+          const sx = t.x, sy = t.y - 24;
+          g.projectiles.push({
+            id: nextId(), x: sx, y: sy, sx, sy, targetId: null,
+            tx: ax + ox, ty: ay + oy, speed: rockSpeed, delay: i * 130,
+            dmg: st.dmg, dtype: st.dtype, pierce: false, splash: st.splash || 0,
+            burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "rock",
+            total: Math.hypot(ax + ox - sx, ay + oy - sy),
+            big: t.branch === "a",
+          });
+        }
       } else {
         g.projectiles.push({
           id: nextId(), x: t.x, y: t.y - 30, targetId: target.id,
@@ -220,7 +246,7 @@ export function updateGame(g, dt) {
       if (d <= stepLen + 4) {
         p.done = true;
         if (p.splash > 0) {
-          g.effects.push({ type: p.burn ? "boom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
+          g.effects.push({ type: p.kind === "rock" ? "dust" : p.burn ? "boom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
           for (const e of g.enemies) {
             if (e.dead) continue;
             const dd = Math.hypot(e.x - p.tx, e.y - p.ty);

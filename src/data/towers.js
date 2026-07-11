@@ -41,6 +41,19 @@ export const TOWERS = {
       b: { name: "Frost Archmage", cost: 250, stats: { dmg: 36, rate: 1150, range: 140, splash: 80, slow: 0.45, slowDur: 2000 }, desc: "Glacial bursts chill everything hit, slowing the horde by 45%." },
     },
   },
+  catapult: {
+    name: "Catapult", cost: 120, dtype: "phys", proj: "rock",
+    blurb: "Lobs boulders in a high arc — heavy splash at long range, but blind up close.",
+    levels: [
+      { dmg: 36, rate: 2600, range: 190, minRange: 70, splash: 58 },
+      { dmg: 58, rate: 2500, range: 205, minRange: 70, splash: 64, cost: 110, label: "Reinforced Arm" },
+      { dmg: 84, rate: 2400, range: 220, minRange: 70, splash: 70, cost: 160, label: "Master Engineers" },
+    ],
+    branches: {
+      a: { name: "Trebuchet", cost: 240, stats: { dmg: 200, rate: 4200, range: 460, minRange: 100, splash: 88 }, desc: "One colossal counterweighted arm. Boulders fall from the sky across nearly the whole field — but its blind circle grows." },
+      b: { name: "Scattershot", cost: 240, stats: { dmg: 30, rate: 2300, range: 190, minRange: 60, splash: 42, shots: 3 }, desc: "Hurls a fan of THREE stones every volley, blanketing the road in overlapping blasts. Melts tight packs." },
+    },
+  },
   support: {
     name: "Warden Priest", cost: 110, dtype: "magic", proj: "aura",
     blurb: "A priest on an altar rains blessings — every enemy in the aura is slowed.",
