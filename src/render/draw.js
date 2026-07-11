@@ -13,6 +13,7 @@ import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR } from "../data
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
+import { SPRITES } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult } from "./towers.js";
 import { drawTree, drawCastle, drawCave } from "./scenery.js";
@@ -86,6 +87,25 @@ export function draw(g, canvas, bufRef) {
     ctx.fillRect(-4, -6, 3, 3); ctx.fillRect(-1, -3, 3, 3); ctx.fillRect(2, 0, 3, 3);
     ctx.fillRect(-1, 3, 3, 3); ctx.fillRect(-4, 6, 3, 3);
     ctx.restore();
+  }
+
+  // lingering ground effects: pools of living lava
+  if (g.grounds) {
+    const tmsG = g.time * 1000;
+    for (const gr of g.grounds) {
+      const fade = Math.min(1, (gr.until - tmsG) / 600);
+      ctx.fillStyle = `rgba(125,51,41,${0.75 * fade})`;
+      ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.9, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(216,118,58,${0.8 * fade})`;
+      for (let i = 0; i < 5; i++) {
+        const ang = g.time * 1.4 + i * 1.26;
+        const rr = gr.r * (0.25 + 0.45 * ((i * 37) % 10) / 10);
+        const bub = Math.sin(g.time * 6 + i * 2.4) > 0.3 ? CELL : 0;
+        ctx.fillRect(S(gr.x + Math.cos(ang) * rr) - 1, S(gr.y + Math.sin(ang) * rr * 0.8) - 1 - bub, CELL + 1, CELL + 1);
+      }
+      ctx.fillStyle = `rgba(232,193,74,${0.9 * fade})`;
+      ctx.fillRect(S(gr.x + Math.sin(g.time * 3) * gr.r * 0.3), S(gr.y + Math.cos(g.time * 2.2) * gr.r * 0.25), CELL, CELL);
+    }
   }
 
   drawCave(ctx, g.time);
@@ -165,7 +185,7 @@ export function draw(g, canvas, bufRef) {
       const remaining = Math.hypot(p.tx - p.x, p.ty - p.y);
       const prog = p.total > 0 ? 1 - remaining / p.total : 1;
       const arcH = Math.sin(Math.min(1, Math.max(0, prog)) * Math.PI) * Math.min(64, p.total * 0.24);
-      const r = p.big ? 6 : 4;
+      const r = p.mini ? 2.5 : p.big ? 6 : 4;
       ctx.fillStyle = "rgba(20,20,26,0.35)";
       ctx.fillRect(S(p.x) - r + 1, S(p.y) - 2, (r - 1) * 2, 4);
       ctx.fillStyle = INK;
@@ -220,6 +240,99 @@ export function draw(g, canvas, bufRef) {
         const ang = i * 1.05 + 0.3;
         const rr = r * 0.7;
         ctx.fillRect(S(fx.x + Math.cos(ang) * rr), S(fx.y + Math.sin(ang) * rr * 0.7 - (1 - a) * 6), CELL, CELL);
+      }
+    } else if (fx.type === "bolt") {
+      // chain lightning: jagged white-hot segments between struck foes
+      for (let s2 = 0; s2 < fx.pts.length - 1; s2++) {
+        const [x1, y1] = fx.pts[s2];
+        const [x2, y2] = fx.pts[s2 + 1];
+        const steps = 6;
+        for (let i = 0; i <= steps; i++) {
+          const u2 = i / steps;
+          const mid = Math.sin(u2 * Math.PI);
+          const jit = Math.sin(i * 2.7 + (fx.seed || 0) * 9 + s2 * 5) * 5 * mid;
+          const nx2 = -(y2 - y1), ny2 = (x2 - x1);
+          const nl = Math.hypot(nx2, ny2) || 1;
+          const px2 = x1 + (x2 - x1) * u2 + (nx2 / nl) * jit;
+          const py2 = y1 + (y2 - y1) * u2 + (ny2 / nl) * jit;
+          ctx.fillStyle = `rgba(240,224,104,${a * 0.8})`;
+          ctx.fillRect(S(px2) - 2, S(py2) - 2, 5, 5);
+          ctx.fillStyle = `rgba(252,252,240,${a})`;
+          ctx.fillRect(S(px2) - 1, S(py2) - 1, 3, 3);
+        }
+      }
+    } else if (fx.type === "frostnova") {
+      // expanding ring of biting cold
+      const prog = 1 - fx.ttl / 500;
+      const r = prog * fx.r;
+      ctx.strokeStyle = `rgba(124,212,212,${a * 0.9})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = `rgba(200,236,244,${a})`;
+      for (let i = 0; i < 8; i++) {
+        const ang = i * 0.785 + 0.3;
+        ctx.fillRect(S(fx.x + Math.cos(ang) * r), S(fx.y + Math.sin(ang) * r * 0.9), CELL, CELL);
+      }
+    } else if (fx.type === "shrapnel") {
+      // actual flying shards: fling out, then rain down
+      const prog = 1 - fx.ttl / fx.life;
+      for (let i = 0; i < 7; i++) {
+        const ang = i * 0.9 + 0.35;
+        const dist = prog * (22 + (i % 3) * 9);
+        const fall = prog * prog * 26 - prog * 12;
+        ctx.fillStyle = i % 2 ? `rgba(184,184,192,${a})` : `rgba(138,138,146,${a})`;
+        ctx.fillRect(S(fx.x + Math.cos(ang) * dist), S(fx.y + Math.sin(ang) * dist * 0.6 + fall), i % 3 === 0 ? 3 : 2, 2);
+      }
+    } else if (fx.type === "shrapnelhit") {
+      // small sharp puff where a shard lands
+      ctx.fillStyle = `rgba(170,160,140,${a * 0.5})`;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), 8 * (1 - a * 0.4), 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(190,186,176,${a})`;
+      for (let i = 0; i < 3; i++) {
+        const ang = i * 2.1 + 0.5;
+        ctx.fillRect(S(fx.x + Math.cos(ang) * 7), S(fx.y + Math.sin(ang) * 5), 2, 2);
+      }
+    } else if (fx.type === "death") {
+      // flash white, then crumble into drifting pixels
+      const spr = SPRITES[fx.etype];
+      if (spr) {
+        const prog = 1 - fx.ttl / fx.life;
+        if (prog < 0.22) {
+          ctx.globalAlpha = 0.9;
+          const map = spr.frames[0];
+          const w2 = map[0].length, h2 = map.length;
+          const ox2 = Math.round((fx.x - (w2 * CELL) / 2) / CELL) * CELL;
+          const oy2 = Math.round((fx.y - (h2 * CELL) / 2) / CELL) * CELL;
+          ctx.fillStyle = "#f4f2ea";
+          for (let rr = 0; rr < h2; rr++) {
+            for (let cc = 0; cc < w2; cc++) {
+              if (map[rr][fx.face < 0 ? w2 - 1 - cc : cc] !== ".") ctx.fillRect(ox2 + cc * CELL, oy2 + rr * CELL, CELL, CELL);
+            }
+          }
+          ctx.globalAlpha = 1;
+        } else {
+          const p2 = (prog - 0.22) / 0.78;
+          const map = spr.frames[0];
+          const w2 = map[0].length, h2 = map.length;
+          const ox2 = fx.x - (w2 * CELL) / 2, oy2 = fx.y - (h2 * CELL) / 2;
+          ctx.globalAlpha = 1 - p2;
+          for (let rr = 0; rr < h2; rr++) {
+            for (let cc = 0; cc < w2; cc++) {
+              const ch = map[rr][fx.face < 0 ? w2 - 1 - cc : cc];
+              if (ch === "." || ch === undefined) continue;
+              const hash = ((rr * 31 + cc * 17) % 13) / 13;
+              if (hash < p2 * 1.15) continue; // pixels crumble away over time
+              const col = spr.pal?.[ch];
+              if (!col) continue;
+              const scatter = p2 * (hash - 0.5) * 26;
+              const fall = p2 * p2 * (18 + hash * 22);
+              ctx.fillStyle = col;
+              ctx.fillRect(S(ox2 + cc * CELL + scatter), S(oy2 + rr * CELL + fall), CELL, CELL);
+            }
+          }
+          ctx.globalAlpha = 1;
+        }
       }
     } else if (fx.type === "coin") {
       ctx.fillStyle = `rgba(232,212,122,${a})`;

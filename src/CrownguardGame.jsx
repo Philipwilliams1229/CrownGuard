@@ -193,6 +193,25 @@ export default function Crownguard() {
   const sel = ui.selected;
   const selDef = sel ? TOWERS[sel.kind] : null;
 
+  // enemy chips (icon + count + hover tooltip) shared by both wave panels;
+  // panelKey keeps hover state independent when a type appears in both.
+  const waveChips = (comp, panelKey) => comp.map(({ type, count }) => {
+    const hk = `${panelKey}:${type}`;
+    return (
+      <div key={hk}
+        onMouseEnter={() => setHoverEnemy(hk)}
+        onMouseLeave={() => setHoverEnemy((cur) => (cur === hk ? null : cur))}
+        onClick={() => setHoverEnemy((cur) => (cur === hk ? null : hk))}
+        style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
+        {hoverEnemy === hk && <EnemyTooltip type={type} />}
+        <EnemyIcon type={type} box={ENEMIES[type].boss ? 42 : 28} />
+        <span style={{ fontSize: 11, color: ENEMIES[type].boss ? "#e07a72" : "#e8e0c8" }}>
+          <span style={{ opacity: 0.6 }}>×</span>{count}
+        </span>
+      </div>
+    );
+  });
+
   const FONT = "Verdana, Geneva, sans-serif";
   const btn = {
     fontFamily: FONT, cursor: "pointer", border: "2px solid #10131a",
@@ -269,7 +288,8 @@ export default function Crownguard() {
           <div style={{ borderTop: "2px solid #10131a", paddingTop: 12, fontSize: 11, lineHeight: 1.65, opacity: 0.9 }}>
             <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.8, marginBottom: 6 }}>FIELD GUIDE</div>
             <b>Knights</b> march out and each pin one enemy in melee — the rest push past. Fallen knights respawn in 7s. Knights muster just south of their hall; select the hall and click inside its circle to move the rally flag.<br /><br />
-            <b>Warden Priests</b> slow every enemy in their aura. Their paths: mend knights, deepen the slow, or raise a Battle Standard so knights strike 50% harder.<br /><br />
+            <b>Warden Mages</b> chill every enemy in their aura. Their paths: call deep winter (frost novas that flash-freeze) or bind life (mending and warding knights).<br /><br />
+            <b>Wizards</b> are pure offense — fire that burns and spreads, or storm-lightning that chains down the line. Both ignore armor.<br /><br />
             <b>Catapults</b> lob boulders in a high arc — heavy physical splash at long range, but they cannot strike foes inside their inner red circle. Rocks land where the enemy was <i>headed</i>, so fast runners can slip the blast.<br /><br />
             <b>Ironclads</b> (shield badge) shrug off half of all physical damage — magic ignores armor.<br /><br />
             <b>Dire wolves</b> are fast; blocking, slows, and stuns tame them.<br /><br />
@@ -400,9 +420,9 @@ export default function Crownguard() {
                         const t = G.current?.towers.find((x) => x.id === sel.id);
                         if (!t) return "";
                         const st = getStats(t);
-                        if (t.kind === "knight") return `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}`;
-                        if (t.kind === "support") return `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.buff ? ` · knights +${Math.round(st.buff * 100)}% dmg` : ""}`;
-                        return `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""} · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
+                        if (t.kind === "knight") return `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
+                        if (t.kind === "support") return `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
+                        return `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""} · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.poolDps ? " · lava pools" : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
                       })()}
                     </div>
                   </div>
@@ -520,26 +540,24 @@ export default function Crownguard() {
               </button>
             </div>
 
-            {ui.phase === "build" && ui.wave < WAVES.length && (
-              <div style={panel}>
-                <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>INCOMING — WAVE {ui.wave + 1}</div>
-                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
-                  {waveComposition(ui.wave).map(({ type, count }) => (
-                    <div key={type}
-                      onMouseEnter={() => setHoverEnemy(type)}
-                      onMouseLeave={() => setHoverEnemy((cur) => (cur === type ? null : cur))}
-                      onClick={() => setHoverEnemy((cur) => (cur === type ? null : type))}
-                      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
-                      {hoverEnemy === type && <EnemyTooltip type={type} />}
-                      <EnemyIcon type={type} box={ENEMIES[type].boss ? 42 : 28} />
-                      <span style={{ fontSize: 11, color: ENEMIES[type].boss ? "#e07a72" : "#e8e0c8" }}>
-                        <span style={{ opacity: 0.6 }}>×</span>{count}
-                      </span>
-                    </div>
-                  ))}
+            <div style={{ display: "flex", gap: 10, alignItems: "stretch" }}>
+              {ui.wave >= 1 && (
+                <div style={{ ...panel, flex: 1 }}>
+                  <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>THIS WAVE — {ui.wave}</div>
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+                    {waveChips(waveComposition(ui.wave - 1), "cur")}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              {ui.phase === "build" && ui.wave < WAVES.length && (
+                <div style={{ ...panel, flex: 1 }}>
+                  <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>INCOMING — WAVE {ui.wave + 1}</div>
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+                    {waveChips(waveComposition(ui.wave), "next")}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

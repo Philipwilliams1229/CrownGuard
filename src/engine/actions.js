@@ -113,11 +113,16 @@ export const sellTower = (g, t) => {
 export const dealDamage = (g, e, amount, dtype, pierce) => {
   let dmg = amount;
   if (dtype === "phys" && !pierce) dmg *= 1 - e.armor;
+  // Permafrost brittleness: frozen-through flesh takes extra physical damage
+  if (dtype === "phys" && e.brittleUntil > g.time * 1000) dmg *= 1 + (e.brittleAmp || 0.35);
   e.hp -= dmg;
+  // brief white flash on solid hits (DoT ticks are too small to strobe)
+  if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;
   if (e.hp <= 0 && !e.dead) {
     e.dead = true;
     g.gold += e.bounty;
     g.effects.push({ type: "coin", x: e.x, y: e.y - 14, ttl: 700, text: `+${e.bounty}` });
-    g.effects.push({ type: "poof", x: e.x, y: e.y, ttl: 350 });
+    // death animation: flash white, then crumble into pixels
+    g.effects.push({ type: "death", etype: e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550 });
   }
 };

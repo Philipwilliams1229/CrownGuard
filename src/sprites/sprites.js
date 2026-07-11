@@ -252,6 +252,7 @@ export const KNIGHT_PALS = {
   base: { o: INK, a: "#8a8f9a", d: "#5f636d", s: "#e0b088", p: "#b04a3c", h: "#a04a3f" },
   paladin: { o: INK, a: "#d8cfae", d: "#b0a67f", s: "#e0b088", p: "#e0c070", h: "#d8b34a" },
   berserk: { o: INK, a: "#8a5f3f", d: "#63432b", s: "#e0b088", p: "#b04a3c" },
+  champion: { o: INK, a: "#e8e0c4", d: "#c8b878", s: "#e0b088", p: "#e8c14a", h: "#d8b34a" },
 };
 
 // little characters that stand on towers (and serve as menu icons)
@@ -376,15 +377,38 @@ export const BALLISTA_PAL = { o: INK, b: "#6e4c28", w: "#8a6238", d: "#5f4326", 
 export const WIZ_PALS = {
   base: { o: INK, h: "#5f4a86", b: "#6a5a94", s: "#e0b088", t: "#5f4326", g: "#b08ad8" },
   a: { o: INK, h: "#a0473a", b: "#8a4034", s: "#e0b088", t: "#5f4326", g: "#d8763a" },
-  b: { o: INK, h: "#4a7aa0", b: "#3f6a8e", s: "#e0b088", t: "#5f4326", g: "#9fd4e8" },
+  b: { o: INK, h: "#7a7434", b: "#98883c", s: "#e0b088", t: "#5f4326", g: "#f0e068" },
+  // rank-4 finals: lava, wildfire, tempest, thunder
+  aa: { o: INK, h: "#7d2f1a", b: "#a0473a", s: "#e0b088", t: "#5f4326", g: "#e8c14a" },
+  ab: { o: INK, h: "#c05a28", b: "#a0473a", s: "#e0b088", t: "#5f4326", g: "#e88a3a" },
+  ba: { o: INK, h: "#8a883c", b: "#a8a04c", s: "#e0b088", t: "#5f4326", g: "#f8f0a0" },
+  bb: { o: INK, h: "#4a4458", b: "#5c5470", s: "#e0b088", t: "#5f4326", g: "#f0f0e0" },
 };
 
+// Warden Mage: frost-touched at base; deep ice (a) and warm life (b) branches
 export const PRIEST_PALS = {
-  base: { o: INK, m: "#e0d6ba", r: "#c8c2ae", s: "#e0b088", c: "#d8b34a" },
-  a: { o: INK, m: "#bee8b0", r: "#5cae5c", s: "#e0b088", c: "#e8e4d8" },
-  b: { o: INK, m: "#c8ecec", r: "#4a8aa0", s: "#e0b088", c: "#7cd4d4" },
-  c: { o: INK, m: "#e0c070", r: "#a0473a", s: "#e0b088", c: "#d8b34a" },
+  base: { o: INK, m: "#d8ecf0", r: "#8fb4c4", s: "#e0b088", c: "#7cd4d4" },
+  a: { o: INK, m: "#c8ecec", r: "#4a8aa0", s: "#dcecf4", c: "#7cd4d4" },
+  b: { o: INK, m: "#bee8b0", r: "#5cae5c", s: "#e0b088", c: "#e8e4d8" },
+  // rank-4 finals
+  aa: { o: INK, m: "#e8f8fc", r: "#3a7a94", s: "#dcecf4", c: "#b8f0f8" },
+  ab: { o: INK, m: "#b8dce8", r: "#2c5a74", s: "#dcecf4", c: "#8cd4e8" },
+  ba: { o: INK, m: "#f0ecc8", r: "#b0a04c", s: "#e0b088", c: "#e8d47a" },
+  bb: { o: INK, m: "#f4f0e0", r: "#a0473a", s: "#e0b088", c: "#d8b34a" },
 };
+
+// A palette where every key maps to bone-white — used for hit flashes and
+// the first beat of death animations. Cached per source palette.
+const whiteCache = new WeakMap();
+export function whitePal(pal) {
+  let w = whiteCache.get(pal);
+  if (!w) {
+    w = {};
+    for (const k of Object.keys(pal)) w[k] = "#f4f2ea";
+    whiteCache.set(pal, w);
+  }
+  return w;
+}
 
 export function drawSprite(ctx, spr, pal, frame, x, y, flip) {
   const map = spr.frames[frame % spr.frames.length];

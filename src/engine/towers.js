@@ -32,7 +32,7 @@ export const syncUnits = (t) => {
   while (t.units.length < n) {
     const slots = unitSlots(t);
     const i = t.units.length;
-    t.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, x: slots[i][0], y: slots[i][1], state: "rally", targetId: null, atkCd: 0, respawn: 0, face: 1, swing: 0, healGlow: 0, atkBuff: 0 });
+    t.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, x: slots[i][0], y: slots[i][1], state: "rally", targetId: null, atkCd: 0, respawn: 0, face: 1, swing: 0, healGlow: 0, atkBuff: 0, shield: false, shieldCd: 0, frenzy: 0 });
   }
   for (const u of t.units) { u.maxHp = st.hp; if (u.state !== "dead") u.hp = Math.min(u.hp, u.maxHp); }
 };

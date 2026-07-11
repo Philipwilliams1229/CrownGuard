@@ -130,7 +130,29 @@ export const drawArcherTower = (ctx, t, time) => {
 export const drawWizardSpire = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
-  const pal = WIZ_PALS[t.branch || "base"];
+  const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
+  const pal = WIZ_PALS[r4 && WIZ_PALS[r4] ? r4 : t.branch || "base"];
+  // rank-4 flourishes: lava glow, drifting embers, crackling static
+  if (r4 === "aa") {
+    ctx.fillStyle = `rgba(216,118,58,${0.35 + 0.15 * Math.sin(time * 4 + t.id)})`;
+    ctx.beginPath(); ctx.arc(x, y + 10, 16, 0, 7); ctx.fill();
+  }
+  if (r4 === "ab") {
+    ctx.fillStyle = "#e88a3a";
+    for (let i = 0; i < 3; i++) {
+      const ey2 = y + 8 - ((time * 26 + i * 14 + t.id * 7) % 44);
+      ctx.fillRect(S(x - 10 + i * 10 + Math.sin(time * 3 + i) * 3), S(ey2), CELL, CELL);
+    }
+  }
+  if (r4 === "ba" || r4 === "bb" || t.branch === "b") {
+    if (Math.sin(time * 11 + t.id) > 0.55) {
+      ctx.fillStyle = "#f8f0a0";
+      const ang = time * 5 + t.id;
+      const zx = S(x + Math.cos(ang) * 13), zy = S(y - 18 + Math.sin(ang) * 8);
+      ctx.fillRect(zx, zy, 2, 4);
+      ctx.fillRect(zx + 2, zy + 3, 2, 4);
+    }
+  }
   const trim = pal.h;
   const orbCol = pal.g;
   const bodyH = 16 + lvl * 5;
@@ -266,6 +288,35 @@ export const drawCatapult = (ctx, t, time) => {
       ctx.fillRect(S(tipX) - 2, S(tipY) - (treb ? 8 : 6), 2, 2);
     }
   }
+  // rank-4 flourishes
+  const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
+  if (r4 === "ab" && !fired) {
+    // Comet Sling: the loaded stone burns
+    const fl = Math.sin(time * 12 + t.id) > 0 ? 2 : 0;
+    ctx.fillStyle = "#d8763a";
+    ctx.fillRect(S(tipX) - 2, S(tipY) - 13 - fl, 5, 4 + fl);
+    ctx.fillStyle = "#e8d47a";
+    ctx.fillRect(S(tipX), S(tipY) - 11 - fl, 2, 2);
+  }
+  if (r4 === "aa") {
+    // Earthshaker: the ground around it is cracked
+    ctx.fillStyle = "#4f4636";
+    ctx.fillRect(x - hw - 6, y + 16, 8, 2);
+    ctx.fillRect(x + hw + 1, y + 17, 7, 2);
+    ctx.fillRect(x - 2, y + 18, 5, 2);
+  }
+  if (r4 === "ba") {
+    // Rockstorm Battery: a ready drum of stones on the deck
+    ctx.fillStyle = "#b8b8c0";
+    for (let i = 0; i < 5; i++) ctx.fillRect(x - 8 + i * 4, y + 5, 3, 3);
+  }
+  if (r4 === "bb") {
+    // Grapeshot: iron-banded frame
+    ctx.fillStyle = "#9aa0ac";
+    ctx.fillRect(x - 7, y + 4 - fh + 4, 4, 2);
+    ctx.fillRect(x + 3, y + 4 - fh + 4, 4, 2);
+    ctx.fillRect(x - hw + 2, y + 6, 3, 8);
+  }
   // spare boulder pile beside the deck
   ctx.fillStyle = "#8a8a92";
   ctx.fillRect(x - hw - 8, y + 10, 5, 5);
@@ -388,16 +439,18 @@ export const drawGarrison = (ctx, t, time) => {
 export const drawSupportTower = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
-  const key = t.branch || "base";
+  const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
+  const key = r4 && PRIEST_PALS[r4] ? r4 : t.branch || "base";
   const pal = PRIEST_PALS[key];
   const st = getStats(t);
-  const auraCol = key === "a" ? "140,224,140" : key === "b" ? "124,212,212" : key === "c" ? "216,179,74" : "224,214,186";
+  const ice = !t.branch || t.branch === "a";
+  const auraCol = r4 === "aa" ? "184,240,248" : r4 === "ba" ? "232,212,122" : r4 === "bb" ? "216,179,74"
+    : t.branch === "b" ? "140,224,140" : ice ? "124,212,212" : "200,232,240";
+  // a single pulsing ring reads the aura; no constant outer circle
   const pr = ((time * 34 + t.id * 40) % st.range);
   ctx.strokeStyle = `rgba(${auraCol},${0.4 * (1 - pr / st.range)})`;
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(x, y, pr, 0, 7); ctx.stroke();
-  ctx.strokeStyle = `rgba(${auraCol},0.16)`;
-  ctx.beginPath(); ctx.arc(x, y, st.range, 0, 7); ctx.stroke();
   ctx.lineWidth = 1;
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   ctx.fillRect(x - 13, y + 14, 26, 4);
@@ -425,33 +478,50 @@ export const drawSupportTower = (ctx, t, time) => {
       ctx.fillRect(px - 1, y - 19 - fl, 2, 3 + fl);
     }
   }
-  // battle standard: banner pole behind the priest
-  if (key === "c") {
-    const wave = Math.round(Math.sin(time * 5 + t.id)) * CELL;
-    ctx.fillStyle = "#5f4326";
-    ctx.fillRect(x + 8, y - 42, 2, 42);
-    ctx.fillStyle = "#a0473a";
-    ctx.fillRect(x + 10, y - 42, 13 + wave, 5);
-    ctx.fillRect(x + 10, y - 37, 9 + wave, 4);
-    ctx.fillStyle = "#d8b34a";
-    ctx.fillRect(x + 11, y - 41, 5, 2);
-  }
-  // chronomancer: floating hourglass
-  if (key === "b") {
+  // ice branch: a floating shard of never-melting ice
+  if (t.branch === "a") {
     const hy = S(y - 34 + Math.sin(time * 2.5 + t.id) * 3);
-    ctx.fillStyle = "#7cd4d4";
-    ctx.fillRect(x + 9, hy, 6, 2);
-    ctx.fillRect(x + 10, hy + 2, 4, 2);
-    ctx.fillRect(x + 11, hy + 4, 2, 2);
-    ctx.fillRect(x + 10, hy + 6, 4, 2);
-    ctx.fillRect(x + 9, hy + 8, 6, 2);
+    ctx.fillStyle = "#8ce8f0";
+    ctx.fillRect(x + 10, hy, 2, 2);
+    ctx.fillRect(x + 9, hy + 2, 4, 4);
+    ctx.fillRect(x + 10, hy + 6, 2, 3);
+    ctx.fillStyle = "#e8f8fc";
+    ctx.fillRect(x + 10, hy + 2, 2, 2);
+    // Absolute Zero: a second shard orbits; Permafrost: frost creeps up the altar
+    if (r4 === "aa") {
+      const ang = time * 2.2 + t.id;
+      ctx.fillStyle = "#b8f0f8";
+      ctx.fillRect(S(x + Math.cos(ang) * 14), S(y - 30 + Math.sin(ang) * 4), 3, 4);
+    }
+    if (r4 === "ab") {
+      ctx.fillStyle = "#c8ecf4";
+      for (const side of [-1, 1]) {
+        ctx.fillRect(x + side * (pw + 2) - 1, y - 4, 2, 4);
+        ctx.fillRect(x + side * (pw - 3) - 1, y - 6, 2, 6);
+      }
+    }
+  }
+  // life branch rank-4 accents: a golden ward, or the cathedral's gilded spire
+  if (r4 === "ba") {
+    const hy = S(y - 36 + Math.sin(time * 2.5 + t.id) * 3);
+    ctx.fillStyle = "#e8d47a";
+    ctx.fillRect(x + 9, hy, 2, 2);
+    ctx.fillRect(x + 7, hy + 2, 6, 2);
+    ctx.fillRect(x + 9, hy + 4, 2, 2);
+  }
+  if (r4 === "bb") {
+    ctx.fillStyle = "#5f4326";
+    ctx.fillRect(x + 9, y - 44, 2, 30);
+    ctx.fillStyle = "#d8b34a";
+    ctx.fillRect(x + 7, y - 40, 6, 2);
+    ctx.fillRect(x + 9, y - 46, 2, 8);
   }
   // the priest, raising arms to cast blessings
   const raising = ((time * 0.9 + t.id * 0.7) % 1.6) < 0.55;
   drawSprite(ctx, MINI.priest, pal, raising ? 1 : 0, x, y - 14, false);
   // halo (Lv3+)
   if (lvl >= 3 || t.branch) {
-    ctx.fillStyle = key === "a" ? "#bee8b0" : key === "b" ? "#c8ecec" : "#e8d47a";
+    ctx.fillStyle = pal.c;
     const hy = S(y - 30 + Math.sin(time * 2 + t.id) * 2);
     ctx.fillRect(x - 7, hy, 14, 2);
   }

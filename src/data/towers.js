@@ -31,13 +31,25 @@ export const TOWERS = {
     name: "Knight Garrison", cost: 80, dtype: "phys", proj: "units",
     blurb: "A knight marches out to hold an enemy in melee. Upgrades add more swords.",
     levels: [
-      { dmg: 16, rate: 800, range: 100, hp: 110, count: 1 },
-      { dmg: 21, rate: 760, range: 105, hp: 150, count: 2, cost: 90, label: "Second Sword" },
-      { dmg: 28, rate: 720, range: 110, hp: 200, count: 3, cost: 130, label: "Shield Brothers" },
+      { dmg: 16, rate: 800, range: 70, hp: 110, count: 1 },
+      { dmg: 21, rate: 760, range: 75, hp: 150, count: 2, cost: 90, label: "Second Sword" },
+      { dmg: 28, rate: 720, range: 80, hp: 200, count: 3, cost: 130, label: "Shield Brothers" },
     ],
     branches: {
-      a: { name: "Paladin Order", cost: 230, stats: { dmg: 36, rate: 800, range: 115, hp: 280, count: 3, magic: true, stun: 0.25, stunDur: 900, heal: 7 }, desc: "Three radiant paladins: MAGIC blows that ignore armor, chance to stun, and they mend their own wounds." },
-      b: { name: "Berserker Hall", cost: 230, stats: { dmg: 20, rate: 320, range: 115, hp: 150, count: 4 }, desc: "FOUR berserkers with whirling axes. Frailer than knights, but a storm of steel." },
+      a: {
+        name: "Paladin Order", cost: 230, stats: { dmg: 36, rate: 800, range: 80, hp: 280, count: 3, magic: true, stun: 0.25, stunDur: 900, heal: 7 }, desc: "Three radiant paladins: MAGIC blows that ignore armor, chance to stun, and they mend their own wounds.",
+        rank4: {
+          a: { name: "Grand Champion", cost: 380, stats: { dmg: 110, rate: 900, range: 85, hp: 950, count: 1, magic: true, stun: 0.35, stunDur: 1100, heal: 18, giant: true }, desc: "The three paladins kneel — and ONE colossal champion rises: a living fortress whose hammer falls like a star." },
+          b: { name: "Radiant Basilica", cost: 380, stats: { dmg: 44, rate: 780, range: 85, hp: 340, count: 3, magic: true, stun: 0.25, stunDur: 900, heal: 10, sear: 14 }, desc: "Holy ground follows the paladins' boots — enemies near them smolder in sacred light." },
+        },
+      },
+      b: {
+        name: "Berserker Hall", cost: 230, stats: { dmg: 20, rate: 320, range: 80, hp: 150, count: 4 }, desc: "FOUR berserkers with whirling axes. Frailer than knights, but a storm of steel.",
+        rank4: {
+          a: { name: "Wolf Lodge", cost: 380, stats: { dmg: 24, rate: 300, range: 130, hp: 175, count: 4, unitSpeed: 150, respawnMs: 4000, rider: true }, desc: "Berserkers astride great wolves: faster than anything on the road, and back from the dead in a heartbeat." },
+          b: { name: "Blood Frenzy", cost: 380, stats: { dmg: 22, rate: 300, range: 80, hp: 160, count: 4, frenzy: true, lifesteal: 0.6 }, desc: "Every wound they deal feeds them — and the longer they fight, the faster the axes swing." },
+        },
+      },
     },
   },
   wizard: {
@@ -49,8 +61,20 @@ export const TOWERS = {
       { dmg: 52, rate: 1200, range: 136, splash: 66, cost: 150, label: "High Sorcery" },
     ],
     branches: {
-      a: { name: "Pyromancer", cost: 250, stats: { dmg: 46, rate: 1200, range: 140, splash: 90, burn: 14, burnDur: 3000 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time." },
-      b: { name: "Frost Archmage", cost: 250, stats: { dmg: 36, rate: 1150, range: 140, splash: 80, slow: 0.45, slowDur: 2000 }, desc: "Glacial bursts chill everything hit, slowing the horde by 45%." },
+      a: {
+        name: "Pyromancer", cost: 250, stats: { dmg: 46, rate: 1200, range: 140, splash: 90, burn: 14, burnDur: 3000 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
+        rank4: {
+          a: { name: "Volcanic Throne", cost: 360, stats: { dmg: 60, rate: 1250, range: 145, splash: 95, burn: 16, burnDur: 3000, poolDps: 26, poolDur: 3200, poolR: 34 }, desc: "Every blast births a pool of living lava that scorches all who wade through it." },
+          b: { name: "Wildfire Court", cost: 360, stats: { dmg: 52, rate: 1150, range: 145, splash: 90, burn: 18, burnDur: 3200, burnSpread: true }, desc: "Flames leap hungrily from burning foes to their neighbors — one spark can eat a whole warband." },
+        },
+      },
+      b: {
+        name: "Stormcaller", cost: 250, stats: { dmg: 42, rate: 1300, range: 150, arc: 3, arcRange: 95, arcFall: 0.7 }, desc: "Lightning lashes the frontrunner and arcs down the line — no armor, no escape.",
+        rank4: {
+          a: { name: "Tempest Court", cost: 360, stats: { dmg: 46, rate: 1200, range: 160, arc: 6, arcRange: 110, arcFall: 0.8 }, desc: "The storm dances: bolts leap SIX times, scouring entire columns of the horde." },
+          b: { name: "Thunder Sovereign", cost: 360, stats: { dmg: 88, rate: 1500, range: 160, arc: 2, arcRange: 95, arcFall: 0.75, zapStun: 0.3, zapStunDur: 700 }, desc: "Heaven's own hammer: fewer, crueler bolts that can lock victims rigid with shock." },
+        },
+      },
     },
   },
   catapult: {
@@ -62,22 +86,45 @@ export const TOWERS = {
       { dmg: 84, rate: 2400, range: 220, minRange: 70, splash: 70, cost: 160, label: "Master Engineers" },
     ],
     branches: {
-      a: { name: "Trebuchet", cost: 240, stats: { dmg: 200, rate: 4200, range: 460, minRange: 100, splash: 88 }, desc: "One colossal counterweighted arm. Boulders fall from the sky across nearly the whole field — but its blind circle grows." },
-      b: { name: "Scattershot", cost: 240, stats: { dmg: 30, rate: 2300, range: 190, minRange: 60, splash: 42, shots: 3 }, desc: "Hurls a fan of THREE stones every volley, blanketing the road in overlapping blasts. Melts tight packs." },
+      a: {
+        name: "Trebuchet", cost: 240, stats: { dmg: 200, rate: 4200, range: 460, minRange: 100, splash: 88 }, desc: "One colossal counterweighted arm. Boulders fall from the sky across nearly the whole field — but its blind circle grows.",
+        rank4: {
+          a: { name: "Earthshaker", cost: 380, stats: { dmg: 260, rate: 4400, range: 470, minRange: 100, splash: 105, slow: 0.3, slowDur: 1600 }, desc: "Boulders that crack the very road — survivors stagger through the rubble, slowed." },
+          b: { name: "Comet Sling", cost: 380, stats: { dmg: 230, rate: 4200, range: 480, minRange: 100, splash: 90, burn: 20, burnDur: 2600, targeting: "strongest" }, desc: "Burning pitch-wrapped stones flung at the MIGHTIEST foe on the field, wherever it hides." },
+        },
+      },
+      b: {
+        name: "Scattershot", cost: 240, stats: { dmg: 30, rate: 2300, range: 190, minRange: 60, splash: 42, shots: 3 }, desc: "Hurls a fan of THREE stones every volley, blanketing the road in overlapping blasts. Melts tight packs.",
+        rank4: {
+          a: { name: "Rockstorm Battery", cost: 380, stats: { dmg: 26, rate: 1500, range: 200, minRange: 60, splash: 40, shots: 5 }, desc: "A drum-fed nightmare: FIVE stones per volley, near-continuous bombardment." },
+          b: { name: "Grapeshot", cost: 380, stats: { dmg: 34, rate: 2200, range: 195, minRange: 60, splash: 44, shots: 3, frag: true }, desc: "Each stone bursts on impact into a spray of shrapnel — blasts within blasts." },
+        },
+      },
     },
   },
   support: {
-    name: "Warden Priest", cost: 110, dtype: "magic", proj: "aura",
-    blurb: "A priest on an altar rains blessings — every enemy in the aura is slowed.",
+    name: "Warden Mage", cost: 110, dtype: "magic", proj: "aura",
+    blurb: "A frost-touched mage on an altar — biting cold slows every enemy in the aura.",
     levels: [
       { slow: 0.15, range: 100, rate: 0 },
-      { slow: 0.2, range: 110, rate: 0, cost: 80, label: "Consecrated Altar" },
-      { slow: 0.25, range: 120, rate: 0, cost: 120, label: "High Sanctum" },
+      { slow: 0.2, range: 110, rate: 0, cost: 80, label: "Deepening Chill" },
+      { slow: 0.25, range: 120, rate: 0, cost: 120, label: "Heart of Winter" },
     ],
     branches: {
-      a: { name: "Sanctuary of Mending", cost: 220, stats: { slow: 0.12, heal: 22, range: 135 }, desc: "Holy light: a faint slow, but wounded knights standing in it are mended (22 hp/s)." },
-      b: { name: "Chronomancer", cost: 220, stats: { slow: 0.4, range: 135 }, desc: "Time thickens — every enemy in the aura is slowed by 40%." },
-      c: { name: "Battle Standard", cost: 220, stats: { slow: 0.1, buff: 0.5, range: 135 }, desc: "A war banner: knights fighting in its light strike 50% HARDER. Keeps a slight slow." },
+      a: {
+        name: "Rimecaller", cost: 220, stats: { slow: 0.4, range: 135, nova: 10, novaFreeze: 900, novaEvery: 7000 }, desc: "Deep cold thickens the air — and every few heartbeats a frost nova flash-freezes the whole aura.",
+        rank4: {
+          a: { name: "Absolute Zero", cost: 340, stats: { slow: 0.5, range: 145, colddps: 11, nova: 16, novaFreeze: 1100, novaEvery: 6000 }, desc: "The air itself turns lethal: everything in the aura slows to a crawl and freezes by inches." },
+          b: { name: "Permafrost Heart", cost: 340, stats: { slow: 0.38, range: 145, nova: 10, novaFreeze: 900, novaEvery: 6000, brittle: 0.35, brittleDur: 4000 }, desc: "Novas leave foes BRITTLE — frozen flesh takes a third more from every arrow, blade, and stone." },
+        },
+      },
+      b: {
+        name: "Lifebinder", cost: 220, stats: { slow: 0.12, heal: 24, range: 135 }, desc: "Warm light within the cold: wounded knights standing in the aura are mended swiftly.",
+        rank4: {
+          a: { name: "Guardian's Grace", cost: 340, stats: { slow: 0.12, heal: 26, range: 145, shield: true }, desc: "Knights in the light carry a shimmering ward that swallows one blow whole, then slowly reforms." },
+          b: { name: "High Cathedral", cost: 340, stats: { slow: 0.12, heal: 30, range: 150, mend: 1 }, desc: "A wave survived is a wall reborn: each cleared wave, the cathedral restores 1 castle HP." },
+        },
+      },
     },
   },
 };

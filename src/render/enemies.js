@@ -3,7 +3,7 @@
 // bar, armor badge) and a knight unit (weapon, buffs, heal glow, health bar).
 
 import { INK, CELL, S } from "../data/constants.js";
-import { SPRITES, KNIGHT_PALS, drawSprite } from "../sprites/sprites.js";
+import { SPRITES, KNIGHT_PALS, drawSprite, whitePal } from "../sprites/sprites.js";
 
 export const drawEnemy = (ctx, e, time, tms) => {
   const spr = SPRITES[e.type];
@@ -14,8 +14,24 @@ export const drawEnemy = (ctx, e, time, tms) => {
   const shw = Math.round(e.size * 0.6 / CELL) * CELL;
   ctx.fillRect(S(e.x - shw), S(e.y + e.size * 0.55), shw * 2, CELL * 2);
   const lunge = e.atkAnim > 0 ? CELL * e.face : 0;
-  const hover = e.type === "dragon" ? S(Math.sin(time * 3 + e.id) * 3) - 10 : 0;
+  // dragons hover; small quick critters get a lively hop on their off-frame
+  let hover = e.type === "dragon" ? S(Math.sin(time * 3 + e.id) * 3) - 10 : 0;
+  if ((e.type === "goblin" || e.type === "wolf") && frame === 1 && !fighting) hover -= CELL;
   drawSprite(ctx, spr, spr.pal, frame, e.x + lunge, e.y + hover, e.face < 0);
+  // white flash on solid hits
+  if (e.hitFlash > tms) {
+    ctx.globalAlpha = 0.7;
+    drawSprite(ctx, spr, whitePal(spr.pal), frame, e.x + lunge, e.y + hover, e.face < 0);
+    ctx.globalAlpha = 1;
+  }
+  // Permafrost brittleness: pale cracks across the body
+  if (e.brittleUntil > tms) {
+    ctx.fillStyle = "#c8ecf4";
+    ctx.fillRect(S(e.x - 4), S(e.y - 6), CELL, CELL);
+    ctx.fillRect(S(e.x - 2), S(e.y - 3), CELL, CELL);
+    ctx.fillRect(S(e.x + 3), S(e.y - 1), CELL, CELL);
+    ctx.fillRect(S(e.x + 1), S(e.y + 4), CELL, CELL);
+  }
   if (e.slowUntil > tms || e.auraSlow > 0) {
     ctx.fillStyle = "#9fd4e8";
     for (let i = 0; i < 3; i++) {
@@ -60,13 +76,48 @@ export const drawEnemy = (ctx, e, time, tms) => {
 
 export const drawKnightUnit = (ctx, u, t, time) => {
   if (u.state === "dead") return;
+  const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
   const berserk = t.branch === "b";
   const paladin = t.branch === "a";
-  const pal = paladin ? KNIGHT_PALS.paladin : berserk ? KNIGHT_PALS.berserk : KNIGHT_PALS.base;
+  const giant = r4 === "aa";
+  const rider = r4 === "ba";
+  const pal = giant ? KNIGHT_PALS.champion : paladin ? KNIGHT_PALS.paladin : berserk ? KNIGHT_PALS.berserk : KNIGHT_PALS.base;
   const frame = u.state === "moving" ? Math.floor(time * 8 + u.id) % 2 : 0;
   ctx.fillStyle = "rgba(20,20,26,0.3)";
-  ctx.fillRect(S(u.x - 6), S(u.y + 9), 12, CELL);
-  drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 2, u.face < 0);
+  ctx.fillRect(S(u.x - (giant ? 9 : rider ? 10 : 6)), S(u.y + 9), giant ? 18 : rider ? 20 : 12, CELL);
+  if (rider) {
+    // Wolf Lodge: a great wolf carries the berserker
+    drawSprite(ctx, SPRITES.wolf, SPRITES.wolf.pal, frame, u.x, u.y + 3, u.face < 0);
+    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 9, u.face < 0);
+  } else if (giant) {
+    // Grand Champion: double-stacked bulk, crowned in gold
+    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 1, u.face < 0);
+    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 7, u.face < 0);
+    ctx.fillStyle = "#e8c14a";
+    ctx.fillRect(S(u.x) - 3, S(u.y - 20), 6, 2);
+    ctx.fillRect(S(u.x) - 3, S(u.y - 23), 2, 3);
+    ctx.fillRect(S(u.x) + 1, S(u.y - 23), 2, 3);
+    ctx.fillRect(S(u.x) - 1, S(u.y - 24), 2, 4);
+  } else {
+    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 2, u.face < 0);
+  }
+  // Guardian's Grace ward: a shimmering diamond overhead
+  if (u.shield) {
+    const wy2 = S(u.y - (giant ? 30 : 24) + Math.sin(time * 3 + u.id) * 2);
+    ctx.fillStyle = "#8ce8f0";
+    ctx.fillRect(S(u.x) - 1, wy2 - 2, 2, 2);
+    ctx.fillRect(S(u.x) - 3, wy2, 6, 2);
+    ctx.fillRect(S(u.x) - 1, wy2 + 2, 2, 2);
+  }
+  // Blood Frenzy: rising red motes as the stacks build
+  if (r4 === "bb" && u.frenzy > 0) {
+    ctx.fillStyle = "#e05248";
+    const n = Math.min(3, Math.ceil(u.frenzy / 3));
+    for (let i = 0; i < n; i++) {
+      const fy = u.y - 14 - ((time * 26 + i * 8 + u.id * 5) % 12);
+      ctx.fillRect(S(u.x - 6 + i * 6), S(fy), CELL, CELL);
+    }
+  }
   const raised = u.swing > 90;
   const wx = S(u.x + (u.face < 0 ? -8 : 6));
   const wy = S(u.y - (raised ? 14 : 6));
