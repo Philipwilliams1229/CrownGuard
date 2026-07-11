@@ -17,6 +17,7 @@ import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
 import PixelIcon from "./ui/PixelIcon.jsx";
 import EnemyIcon from "./ui/EnemyIcon.jsx";
+import EnemyTooltip from "./ui/EnemyTooltip.jsx";
 
 // Aggregate a wave's spawn list into { type, count } entries, keeping the
 // order each enemy type first appears. Used by the next-wave preview.
@@ -38,6 +39,7 @@ export default function Crownguard() {
   const G = useRef(null);
   const [ui, setUi] = useState({ gold: 0, lives: 0, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1 });
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hoverEnemy, setHoverEnemy] = useState(null);
   const uiRef = useRef(ui);
   uiRef.current = ui;
 
@@ -317,8 +319,12 @@ export default function Crownguard() {
                 <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>INCOMING — WAVE {ui.wave + 1}</div>
                 <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
                   {waveComposition(ui.wave).map(({ type, count }) => (
-                    <div key={type} title={ENEMIES[type].name}
-                      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                    <div key={type}
+                      onMouseEnter={() => setHoverEnemy(type)}
+                      onMouseLeave={() => setHoverEnemy((cur) => (cur === type ? null : cur))}
+                      onClick={() => setHoverEnemy((cur) => (cur === type ? null : type))}
+                      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
+                      {hoverEnemy === type && <EnemyTooltip type={type} />}
                       <EnemyIcon type={type} box={ENEMIES[type].boss ? 42 : 28} />
                       <span style={{ fontSize: 11, color: ENEMIES[type].boss ? "#e07a72" : "#e8e0c8" }}>
                         <span style={{ opacity: 0.6 }}>×</span>{count}
