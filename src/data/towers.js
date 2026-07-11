@@ -11,8 +11,20 @@ export const TOWERS = {
       { dmg: 42, rate: 650, range: 150, cost: 120, label: "Archer Trio" },
     ],
     branches: {
-      a: { name: "Ranger Company", cost: 210, stats: { dmg: 13, rate: 155, range: 120 }, desc: "Rangers loose a blinding storm of arrows in relay. Melts swarms; struggles vs. heavy armor." },
-      b: { name: "Master Longbowman", cost: 210, stats: { dmg: 210, rate: 2100, range: 275, pierce: true }, desc: "One legendary archer. Slow, colossal shots that pierce any armor, from across the map." },
+      a: {
+        name: "Ranger Company", cost: 210, stats: { dmg: 13, rate: 155, range: 120 }, desc: "Rangers loose a blinding storm of arrows in relay. Melts swarms; struggles vs. heavy armor.",
+        rank4: {
+          a: { name: "Briar Rangers", cost: 320, stats: { dmg: 13, rate: 150, range: 130, poison: 9, poisonDur: 2600, poisonCap: 36 }, desc: "Arrows dipped in briar venom: every hit stacks a poison that gnaws through armor and regeneration alike." },
+          b: { name: "Hawkeye Conclave", cost: 320, stats: { dmg: 15, rate: 160, range: 145, chain: 1, chainRange: 95 }, desc: "Impossible shots — every arrow ricochets off its mark into a second foe nearby." },
+        },
+      },
+      b: {
+        name: "Master Longbowman", cost: 210, stats: { dmg: 210, rate: 2100, range: 275, pierce: true }, desc: "One legendary archer. Slow, colossal shots that pierce any armor, from across the map.",
+        rank4: {
+          a: { name: "Ballista", cost: 340, stats: { dmg: 540, rate: 3600, range: 900, pierce: true, bolt: true, targeting: "strongest" }, desc: "A colossal siege bow. Slow, screaming bolts that always hunt the MIGHTIEST enemy on the field — anywhere on the field." },
+          b: { name: "Dragonslayer", cost: 340, stats: { dmg: 230, rate: 2000, range: 300, pierce: true, crit: 3, critMult: 3 }, desc: "Forged to fell wyrms: every THIRD shot is a devastating triple-damage heartseeker." },
+        },
+      },
     },
   },
   knight: {

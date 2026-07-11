@@ -33,7 +33,7 @@ export function updateGame(g, dt) {
         boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
         lane: d.boss ? 0 : (Math.random() - 0.5) * PATH_HALF * 1.15,
         x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
-        slowUntil: 0, slowPct: 0, burnUntil: 0, burnDps: 0,
+        slowUntil: 0, slowPct: 0, burnUntil: 0, burnDps: 0, poisonUntil: 0, poisonDps: 0,
         stunUntil: 0, dead: false, blockedBy: null, engaged: false, meleeCd: 0,
       });
     }
@@ -62,6 +62,7 @@ export function updateGame(g, dt) {
       if (e.dead) continue;
       if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen * sdt);
       if (e.burnUntil > tms) dealDamage(g, e, e.burnDps * sdt, "magic");
+      if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic");
       if (e.dead) continue;
       e.atkAnim = Math.max(0, e.atkAnim - sdt * 1000);
       const stunned = e.stunUntil > tms;
@@ -172,7 +173,9 @@ export function updateGame(g, dt) {
       for (const e of g.enemies) {
         if (e.dead) continue;
         const d = Math.hypot(e.x - t.x, e.y - t.y);
-        if (d <= st.range && d >= (st.minRange || 0) && e.dist > best) { best = e.dist; target = e; }
+        // default: frontmost enemy in range; "strongest" (Ballista): highest HP
+        const metric = st.targeting === "strongest" ? e.hp : e.dist;
+        if (d <= st.range && d >= (st.minRange || 0) && metric > best) { best = metric; target = e; }
       }
       if (!target) continue;
       t.cd = st.rate;
@@ -190,13 +193,22 @@ export function updateGame(g, dt) {
         } else {
           offs = t.level === 1 ? [[0, -3]] : t.level === 2 ? [[-7, -2], [7, -3]] : [[-9, -1], [9, -2], [0, -8]];
         }
+        // Dragonslayer: every st.crit-th shot is a heartseeker at critMult damage
+        let dmgMul = 1;
+        if (st.crit) {
+          t.critIdx = ((t.critIdx || 0) + 1) % st.crit;
+          if (t.critIdx === 0) dmgMul = st.critMult || 3;
+        }
         const per = t.branch ? st.dmg : Math.round(st.dmg / offs.length);
         offs.forEach(([ox, oy], i) => {
           g.projectiles.push({
             id: nextId(), x: t.x + ox, y: t.y - hgt + oy - 6, targetId: target.id,
-            tx: target.x, ty: target.y, speed: 460, delay: i * 90,
-            dmg: per, dtype: st.dtype, pierce: !!st.pierce, splash: 0,
+            tx: target.x, ty: target.y, speed: st.bolt ? 560 : 460, delay: i * 90,
+            dmg: Math.round(per * dmgMul), dtype: st.dtype, pierce: !!st.pierce, splash: 0,
             burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow",
+            big: !!st.bolt || dmgMul > 1,
+            poison: st.poison || 0, poisonDur: st.poisonDur || 0, poisonCap: st.poisonCap || 0,
+            chain: st.chain || 0, chainRange: st.chainRange || 0,
           });
         });
       } else if (t.kind === "catapult") {
@@ -259,6 +271,31 @@ export function updateGame(g, dt) {
         } else if (target) {
           dealDamage(g, target, p.dmg, p.dtype, p.pierce);
           if (p.pierce) g.effects.push({ type: "pierce", x: p.tx, y: p.ty, ttl: 250 });
+          // Briar Rangers: each hit stacks poison dps (capped), refreshing duration
+          if (p.poison && !target.dead) {
+            const cur = target.poisonUntil > tms ? target.poisonDps : 0;
+            target.poisonDps = Math.min(p.poisonCap || p.poison, cur + p.poison);
+            target.poisonUntil = tms + p.poisonDur;
+          }
+          // Hawkeye Conclave: the arrow ricochets to one more enemy nearby
+          if (p.chain > 0) {
+            let next = null, nd = Infinity;
+            for (const e of g.enemies) {
+              if (e.dead || e.id === p.targetId) continue;
+              const dd = Math.hypot(e.x - p.tx, e.y - p.ty);
+              if (dd <= p.chainRange && dd < nd) { nd = dd; next = e; }
+            }
+            if (next) {
+              g.projectiles.push({
+                id: nextId(), x: p.tx, y: p.ty, targetId: next.id,
+                tx: next.x, ty: next.y, speed: 460, delay: 0,
+                dmg: Math.max(1, Math.round(p.dmg * 0.6)), dtype: p.dtype, pierce: p.pierce, splash: 0,
+                burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow",
+                poison: p.poison, poisonDur: p.poisonDur, poisonCap: p.poisonCap,
+                chain: p.chain - 1, chainRange: p.chainRange,
+              });
+            }
+          }
         }
       } else {
         p.x += (dx / d) * stepLen;

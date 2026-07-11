@@ -31,6 +31,13 @@ export const drawEnemy = (ctx, e, time, tms) => {
       ctx.fillRect(S(fx), S(fy), CELL, CELL * 2);
     }
   }
+  if (e.poisonUntil > tms) {
+    ctx.fillStyle = "#7cc85c";
+    for (let i = 0; i < 2; i++) {
+      const py = e.y - 4 + ((time * 22 + i * 9 + e.id * 3) % 12);
+      ctx.fillRect(S(e.x - 7 + i * 13), S(py), CELL, CELL * 2);
+    }
+  }
   if (e.stunUntil > tms) {
     ctx.fillStyle = "#e8d47a";
     for (let i = 0; i < 3; i++) {

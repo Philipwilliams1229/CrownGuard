@@ -10,7 +10,7 @@ import { ENEMIES } from "./data/enemies.js";
 import { WAVES } from "./data/waves.js";
 import { getStats } from "./engine/towers.js";
 import {
-  towerNear, placeTower, upgradeTower, branchTower, sellTower,
+  towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
   startWave, restartWave,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
@@ -85,14 +85,14 @@ export default function Crownguard() {
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
       const sel = g.towers.find((t) => t.id === g.selectedId) || null;
-      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}` : null;
+      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
       const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
       if (u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY) {
         setUi({
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
-          selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, invested: sel.invested } : null,
+          selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested } : null,
           selKey, buildMode: g.buildMode, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY,
           result: g.phase === "won" ? "won" : g.phase === "lost" ? "lost" : null,
         });
@@ -266,7 +266,7 @@ export default function Crownguard() {
             <b>Trolls</b> regenerate and hit knights hard — burst them down.<br /><br />
             The <b>dragon</b> flies — knights cannot block it.<br /><br />
             <b>The castle has 20 HP</b>, carried between waves. Goblins &amp; wolves cost 1, orcs &amp; ironclads 2, trolls 3, the dragon 5. It cracks, smokes, and burns as it weakens.<br /><br />
-            Towers reach Lv 3, then <b>evolve down one of several paths</b>.<br /><br />
+            Towers reach Lv 3, then <b>evolve down one of several paths</b> — and some evolutions can <b>ascend once more</b> into a final form. The archer line leads the way.<br /><br />
             After a wave, the next <b>auto-starts in 30s</b>. Sound the horn early for bonus gold.<br /><br />
             <b>Building or selecting a tower</b> slows the battle to half-speed so you have time to think.<br /><br />
             <b>Zoom</b> with the -/+ buttons; drag the map to pan while zoomed.
@@ -378,10 +378,12 @@ export default function Crownguard() {
                 padding: 10, overflowY: "auto", ...anchor,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <PixelIcon kind={sel.kind} branch={sel.branch} size={34} />
+                  <PixelIcon kind={sel.kind} branch={sel.branch} rank4={sel.rank4} size={34} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: "bold", color: "#e8d47a", fontSize: 13 }}>
-                      {sel.branch ? selDef.branches[sel.branch].name : `${selDef.name} - Lv ${sel.level}`}
+                      {sel.rank4 ? selDef.branches[sel.branch].rank4[sel.rank4].name
+                        : sel.branch ? selDef.branches[sel.branch].name
+                        : `${selDef.name} - Lv ${sel.level}`}
                     </div>
                     <div style={{ fontSize: 10, opacity: 0.75 }}>
                       {(() => {
@@ -432,6 +434,27 @@ export default function Crownguard() {
                             <span>
                               <div style={{ fontWeight: "bold", fontSize: 12 }}>{br.name} — <span style={{ color: "#e8d47a" }}>{br.cost}g</span></div>
                               <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{br.desc}</div>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {sel.branch && !sel.rank4 && selDef.branches[sel.branch].rank4 && (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 10, letterSpacing: 2, color: "#e8d47a", marginBottom: 6 }}>FINAL ASCENSION — PERMANENT</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {Object.entries(selDef.branches[sel.branch].rank4).map(([rk, r4]) => {
+                        const can = ui.gold >= r4.cost;
+                        return (
+                          <button key={rk} style={{ ...btn, display: "flex", gap: 8, alignItems: "flex-start", ...(!can ? disabled : {}) }} disabled={!can}
+                            onClick={() => { const t = G.current?.towers.find((x) => x.id === sel.id); if (t) ascendTower(G.current, t, rk); }}>
+                            <PixelIcon kind={sel.kind} branch={sel.branch} rank4={rk} size={26} />
+                            <span>
+                              <div style={{ fontWeight: "bold", fontSize: 12 }}>{r4.name} — <span style={{ color: "#e8d47a" }}>{r4.cost}g</span></div>
+                              <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{r4.desc}</div>
                             </span>
                           </button>
                         );

@@ -5,12 +5,14 @@
 import { TOWERS } from "../data/towers.js";
 import { nextId } from "./ids.js";
 
-// The active stats for a tower: its branch stats if evolved, else its level stats.
+// The active stats for a tower: its rank-4 form if ascended, else its branch
+// stats if evolved, else its level stats.
 export const getStats = (t) => {
   const def = TOWERS[t.kind];
   if (t.branch) {
     const b = def.branches[t.branch];
-    return { ...b.stats, dtype: b.stats.magic ? "magic" : def.dtype };
+    const src = t.rank4 && b.rank4 ? b.rank4[t.rank4].stats : b.stats;
+    return { ...src, dtype: src.magic ? "magic" : def.dtype };
   }
   return { ...def.levels[t.level - 1], dtype: def.dtype };
 };
@@ -36,10 +38,10 @@ export const syncUnits = (t) => {
 };
 
 // Build a fresh tower object; knights also muster a rally point south of the hall.
-export const makeTower = (kind, x, y, level = 1, branch = null, invested = null) => {
+export const makeTower = (kind, x, y, level = 1, branch = null, invested = null, rank4 = null) => {
   const t = {
-    id: nextId(), kind, x, y, level, branch, cd: 0,
-    invested: invested ?? TOWERS[kind].cost, lastAim: -Math.PI / 2, anim: 0, shotIdx: 0,
+    id: nextId(), kind, x, y, level, branch, rank4, cd: 0,
+    invested: invested ?? TOWERS[kind].cost, lastAim: -Math.PI / 2, anim: 0, shotIdx: 0, critIdx: 0,
   };
   if (kind === "knight") {
     // knights muster just south of their hall by default

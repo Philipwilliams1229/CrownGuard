@@ -175,9 +175,16 @@ export function draw(g, canvas, bufRef) {
       ctx.fillStyle = "#a2a2aa";
       ctx.fillRect(S(p.x) - 2, S(p.y - arcH) - 2, 3, 2);
     } else if (p.kind === "arrow") {
-      ctx.fillStyle = p.pierce ? "#e8d47a" : "#d2c6a2";
+      ctx.fillStyle = p.poison ? "#7cc85c" : p.pierce ? "#e8d47a" : "#d2c6a2";
       const dx = Math.cos(p.angle || 0), dy = Math.sin(p.angle || 0);
-      for (let i = -2; i <= 2; i++) ctx.fillRect(S(p.x + dx * i * 3), S(p.y + dy * i * 3), CELL, CELL);
+      if (p.big) {
+        // ballista bolt / heartseeker crit: longer, thicker, screaming
+        for (let i = -3; i <= 3; i++) ctx.fillRect(S(p.x + dx * i * 3), S(p.y + dy * i * 3), CELL * 2, CELL * 2);
+        ctx.fillStyle = "rgba(232,212,122,0.4)";
+        for (let i = -5; i <= -4; i++) ctx.fillRect(S(p.x + dx * i * 3), S(p.y + dy * i * 3), CELL, CELL);
+      } else {
+        for (let i = -2; i <= 2; i++) ctx.fillRect(S(p.x + dx * i * 3), S(p.y + dy * i * 3), CELL, CELL);
+      }
     } else {
       const col = p.burn ? "#d8763a" : p.slow ? "#9fd4e8" : "#b08ad8";
       ctx.fillStyle = INK;

@@ -27,7 +27,7 @@ export const startWave = (g) => {
   if (!g || g.phase !== "build" || g.wave >= WAVES.length) return;
   g.snapshot = {
     wave: g.wave, gold: g.gold, lives: g.lives,
-    towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, invested: t.invested })),
+    towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, rank4: t.rank4, invested: t.invested })),
   };
   if (g.buildUntil != null) {
     const rem = Math.max(0, g.buildUntil - g.time);
@@ -55,7 +55,7 @@ export const restartWave = (g) => {
   if (!g || !g.snapshot) return;
   const s = g.snapshot;
   g.wave = s.wave; g.gold = s.gold; g.lives = s.lives;
-  g.towers = s.towers.map((td) => makeTower(td.kind, td.x, td.y, td.level, td.branch, td.invested));
+  g.towers = s.towers.map((td) => makeTower(td.kind, td.x, td.y, td.level, td.branch, td.invested, td.rank4));
   g.enemies = []; g.projectiles = []; g.effects = []; g.spawnQueue = [];
   g.phase = "build"; g.selectedId = null; g.buildMode = null; g.paused = false; g.buildUntil = null;
 };
@@ -87,6 +87,18 @@ export const branchTower = (g, t, key) => {
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
   g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1100, life: 1100, gold: true });
   g.effects.push({ type: "flash", x: t.x, y: t.y - 10, ttl: 450 });
+};
+
+// Rank-4 "Final Ascension": a branched tower evolves once more, permanently.
+export const ascendTower = (g, t, key) => {
+  if (!t.branch || t.rank4) return;
+  const r4 = TOWERS[t.kind].branches[t.branch].rank4?.[key];
+  if (!r4 || g.gold < r4.cost) return;
+  g.gold -= r4.cost; t.rank4 = key; t.invested += r4.cost;
+  if (t.kind === "knight") { syncUnits(t); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
+  g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
+  g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1300, life: 1300, gold: true });
+  g.effects.push({ type: "flash", x: t.x, y: t.y - 10, ttl: 550 });
 };
 
 export const releaseEnemy = (g, e) => { if (!e) return; e.blockedBy = null; e.engaged = false; };

@@ -40,29 +40,90 @@ export const drawArcherTower = (ctx, t, time) => {
   ctx.fillRect(x - pw, y - h + 2, pw * 2, 2);
   ctx.fillStyle = "#5f4326";
   for (let i = -2; i <= 2; i++) ctx.fillRect(x + i * S(pw / 2.2) - 2, y - h - 4, 4, 6);
-  const bc = t.branch === "a" ? "#5c8a44" : t.branch === "b" ? "#4a6a92" : "#a04a3f";
+  const r4 = t.rank4 ? t.branch + t.rank4 : null;
+  const bc = r4 === "aa" ? "#7cc85c" : r4 === "ab" ? "#9fc4dc" : r4 === "ba" ? "#c4c8d0" : r4 === "bb" ? "#d8b34a"
+    : t.branch === "a" ? "#5c8a44" : t.branch === "b" ? "#4a6a92" : "#a04a3f";
   const wave = Math.round(Math.sin(time * 5 + t.id)) * CELL;
   ctx.fillStyle = "#5f4326";
   ctx.fillRect(x + pw - 2, y - h - 16, 2, 14);
   ctx.fillStyle = bc;
   ctx.fillRect(x + pw, y - h - 16, 8 + wave, 3);
   ctx.fillRect(x + pw, y - h - 13, 5 + wave, 3);
-  // pixel archers on the platform
+  // Briar Rangers: thorned vines climb the tower
+  if (r4 === "aa") {
+    ctx.fillStyle = "#3c6a34";
+    for (let i = 0; i < Math.floor(h / 6); i++) {
+      const vy = y + 8 - i * 6;
+      ctx.fillRect(x - wdt - 2 + (i % 2) * 2, vy, CELL, 4);
+      ctx.fillRect(x + wdt - (i % 2) * 2, vy - 3, CELL, 4);
+    }
+    ctx.fillStyle = "#7cc85c";
+    for (let i = 0; i < 3; i++) ctx.fillRect(x - wdt - 2 + (i % 2) * 2, y + 2 - i * 11, CELL, CELL);
+  }
   const recoil = t.anim > 0.4 ? CELL : 0;
-  const pal = ARCHER_PALS[t.branch || "base"];
   const dir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
-  const drawGuy = (gx, gy, big) => {
-    const ax = t.x + gx, ay = t.y - h + gy - 8;
-    drawSprite(ctx, MINI.archer, pal, 0, ax, ay, dir < 0);
-    const bx = S(ax + dir * (7 - recoil));
-    ctx.fillStyle = "#4a3018";
-    ctx.fillRect(bx, S(ay - (big ? 10 : 7)), 2, big ? 18 : 13);
-  };
-  if (t.branch === "a") { drawGuy(-9, -1); drawGuy(8, -2); drawGuy(0, -8); }
-  else if (t.branch === "b") drawGuy(0, -4, true);
-  else {
-    const spots = lvl === 1 ? [[0, -3]] : lvl === 2 ? [[-7, -2], [7, -3]] : [[-9, -1], [9, -2], [0, -8]];
-    for (const [dx, dy] of spots) drawGuy(dx, dy);
+  if (r4 === "ba") {
+    // Ballista: a mounted siege bow replaces the archer entirely
+    const my = y - h - 6;
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - 3, my - 2, 6, 10);
+    ctx.fillStyle = "#5f4326";
+    ctx.fillRect(x - 2, my - 1, 4, 8);
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = INK;
+      for (let i = 0; i < 4; i++) ctx.fillRect(x + side * (3 + i * 3) - 1, my - 4 - i * 3, 4, 5);
+      ctx.fillStyle = "#6e4c28";
+      for (let i = 0; i < 4; i++) ctx.fillRect(x + side * (3 + i * 3), my - 3 - i * 3, 2, 3);
+    }
+    // bowstring + loaded steel bolt (recoils when fired)
+    ctx.fillStyle = "#d2c6a2";
+    ctx.fillRect(x - 12, my - 12 + recoil * 2, 24, 1);
+    ctx.fillStyle = "#c4c8d0";
+    ctx.fillRect(x - 1 + dir * recoil, my - 14, 2, 12);
+    ctx.fillRect(x - 2 + dir * recoil, my - 15, 4, 3);
+    // crew engineer at the winch
+    drawSprite(ctx, MINI.archer, CREW_PAL, 0, x + 12, y - h - 2, dir < 0);
+  } else {
+    const pal = ARCHER_PALS[r4 && ARCHER_PALS[r4] ? r4 : t.branch || "base"];
+    const drawGuy = (gx, gy, big) => {
+      const ax = t.x + gx, ay = t.y - h + gy - 8;
+      drawSprite(ctx, MINI.archer, pal, 0, ax, ay, dir < 0);
+      const bx = S(ax + dir * (7 - recoil));
+      ctx.fillStyle = r4 === "bb" ? "#8a2f24" : "#4a3018";
+      ctx.fillRect(bx, S(ay - (big ? 10 : 7)), 2, big ? 18 : 13);
+    };
+    if (t.branch === "a") { drawGuy(-9, -1); drawGuy(8, -2); drawGuy(0, -8); }
+    else if (t.branch === "b") drawGuy(0, -4, true);
+    else {
+      const spots = lvl === 1 ? [[0, -3]] : lvl === 2 ? [[-7, -2], [7, -3]] : [[-9, -1], [9, -2], [0, -8]];
+      for (const [dx, dy] of spots) drawGuy(dx, dy);
+    }
+    // Dragonslayer: a bleached dragon-skull trophy on the platform edge
+    if (r4 === "bb") {
+      const sx2 = x - pw + 2, sy2 = y - h - 6;
+      ctx.fillStyle = INK;
+      ctx.fillRect(sx2 - 1, sy2 - 1, 9, 7);
+      ctx.fillStyle = "#ece0c4";
+      ctx.fillRect(sx2, sy2, 7, 5);
+      ctx.fillStyle = INK;
+      ctx.fillRect(sx2 + 1, sy2 + 1, 2, 2);
+      ctx.fillRect(sx2 + 4, sy2 + 1, 2, 2);
+      ctx.fillStyle = "#ece0c4";
+      ctx.fillRect(sx2 - 2, sy2 - 3, 2, 3);
+      ctx.fillRect(sx2 + 7, sy2 - 3, 2, 3);
+    }
+    // Hawkeye Conclave: a hawk wheels above the tower
+    if (r4 === "ab") {
+      const ang = time * 1.6 + t.id;
+      const hx2 = S(x + Math.cos(ang) * 18);
+      const hy2 = S(y - h - 22 + Math.sin(ang) * 5);
+      const flap = Math.sin(time * 9) > 0;
+      ctx.fillStyle = INK;
+      ctx.fillRect(hx2 - 1, hy2, 4, 2);
+      ctx.fillStyle = "#8a6f4a";
+      ctx.fillRect(hx2 - 4, hy2 - (flap ? 2 : 0), 4, 2);
+      ctx.fillRect(hx2 + 2, hy2 - (flap ? 2 : 0), 4, 2);
+    }
   }
 };
 

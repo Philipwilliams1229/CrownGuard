@@ -349,7 +349,29 @@ export const ARCHER_PALS = {
   base: { o: INK, h: "#54703f", b: "#6e4c28", s: "#e0b088", w: "#4a3018" },
   a: { o: INK, h: "#3f6a34", b: "#4a7a3c", s: "#e0b088", w: "#4a3018" },
   b: { o: INK, h: "#2c3e54", b: "#3a5474", s: "#e0b088", w: "#4a3018" },
+  // rank-4 finals: briar (venom green), hawkeye (pale sky), dragonslayer (crimson)
+  aa: { o: INK, h: "#2f5230", b: "#3c6a34", s: "#c8d8a0", w: "#4a3018" },
+  ab: { o: INK, h: "#9fc4dc", b: "#5a7a94", s: "#e0b088", w: "#4a3018" },
+  bb: { o: INK, h: "#8e2f2a", b: "#a0473a", s: "#e0b088", w: "#d8b34a" },
 };
+
+// the mounted siege bow of the Ballista ascension
+MINI.ballista = {
+  frames: [[
+    ".o.........o.",
+    "obo.......obo",
+    "obbo.....obbo",
+    ".obbo...obbo.",
+    "..obboooobb..",
+    "...oomwoo....",
+    "..owwwmwwwo..",
+    "....odmdo....",
+    "....od.do....",
+    "...oddoddo...",
+    "....o...o....",
+  ]],
+};
+export const BALLISTA_PAL = { o: INK, b: "#6e4c28", w: "#8a6238", d: "#5f4326", m: "#c4c8d0" };
 
 export const WIZ_PALS = {
   base: { o: INK, h: "#5f4a86", b: "#6a5a94", s: "#e0b088", t: "#5f4326", g: "#b08ad8" },
