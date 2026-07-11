@@ -8,20 +8,28 @@ import { SPRITES, KNIGHT_PALS, drawSprite, whitePal } from "../sprites/sprites.j
 export const drawEnemy = (ctx, e, time, tms) => {
   const spr = SPRITES[e.type];
   const fighting = e.blockedBy && e.engaged;
-  const rate = e.type === "wolf" ? 8 : e.type === "goblin" || e.type === "orc" ? 5 : 4;
-  const frame = fighting && e.type !== "dragon" ? Math.floor(time * 8) % 2 : Math.floor(time * rate + e.id) % 2;
+  // sprites may define any number of walk frames (spr.frames), an optional
+  // dedicated fight cycle (spr.fight), and their own animation rate (spr.rate)
+  const walkRate = spr.rate || (e.type === "wolf" ? 8 : e.type === "goblin" || e.type === "orc" ? 5 : 4);
+  let sheet = spr, frame;
+  if (fighting && e.type !== "dragon") {
+    if (spr.fight) { sheet = { frames: spr.fight }; frame = Math.floor(time * 7 + e.id) % spr.fight.length; }
+    else frame = Math.floor(time * 8) % spr.frames.length;
+  } else {
+    frame = Math.floor(time * walkRate + e.id) % spr.frames.length;
+  }
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   const shw = Math.round(e.size * 0.6 / CELL) * CELL;
   ctx.fillRect(S(e.x - shw), S(e.y + e.size * 0.55), shw * 2, CELL * 2);
   const lunge = e.atkAnim > 0 ? CELL * e.face : 0;
-  // dragons hover; small quick critters get a lively hop on their off-frame
+  // dragons hover; small quick critters get a lively hop on their off-frames
   let hover = e.type === "dragon" ? S(Math.sin(time * 3 + e.id) * 3) - 10 : 0;
-  if ((e.type === "goblin" || e.type === "wolf") && frame === 1 && !fighting) hover -= CELL;
-  drawSprite(ctx, spr, spr.pal, frame, e.x + lunge, e.y + hover, e.face < 0);
+  if ((e.type === "goblin" || e.type === "wolf") && frame % 2 === 1 && !fighting) hover -= CELL;
+  drawSprite(ctx, sheet, spr.pal, frame, e.x + lunge, e.y + hover, e.face < 0);
   // white flash on solid hits
   if (e.hitFlash > tms) {
     ctx.globalAlpha = 0.7;
-    drawSprite(ctx, spr, whitePal(spr.pal), frame, e.x + lunge, e.y + hover, e.face < 0);
+    drawSprite(ctx, sheet, whitePal(spr.pal), frame, e.x + lunge, e.y + hover, e.face < 0);
     ctx.globalAlpha = 1;
   }
   // Permafrost brittleness: pale cracks across the body
