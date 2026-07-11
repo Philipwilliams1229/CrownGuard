@@ -88,11 +88,12 @@ export default function Crownguard() {
       const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
-      if (u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom) {
+      const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
+      if (u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY) {
         setUi({
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, invested: sel.invested } : null,
-          selKey, buildMode: g.buildMode, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom,
+          selKey, buildMode: g.buildMode, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY,
           result: g.phase === "won" ? "won" : g.phase === "lost" ? "lost" : null,
         });
       }
@@ -350,12 +351,30 @@ export default function Crownguard() {
               <div style={{ fontSize: 10, marginTop: 10, opacity: 0.6 }}>Time runs at half-speed while you build or manage a tower.</div>
             </div>
 
-            {/* selected tower pop-up (left side) */}
-            {sel && selDef && (
+            {/* selected tower pop-up, anchored beside the tower itself:
+                above & to the right by default, flipping left near the right
+                edge and below near the top so it always stays on the board. */}
+            {sel && selDef && (() => {
+              const g = G.current;
+              const t = g?.towers.find((x) => x.id === sel.id);
+              if (!t) return null;
+              const sx = ((t.x - g.cam.x) * g.cam.zoom) / W;
+              const sy = ((t.y - g.cam.y) * g.cam.zoom) / H;
+              const flipX = sx > 0.55;
+              const below = sy < 0.5;
+              const anchor = {
+                ...(flipX
+                  ? { right: `${Math.max(1, (1 - sx) * 100 + 2).toFixed(1)}%` }
+                  : { left: `${Math.max(1, sx * 100 + 2).toFixed(1)}%` }),
+                ...(below
+                  ? { top: `${(sy * 100 + 4).toFixed(1)}%`, maxHeight: `${Math.max(30, (1 - sy) * 100 - 8).toFixed(1)}%` }
+                  : { bottom: `${((1 - sy) * 100 + 4).toFixed(1)}%`, maxHeight: `${Math.max(30, sy * 100 - 8).toFixed(1)}%` }),
+              };
+              return (
               <div style={{
-                position: "absolute", top: 10, left: 10, width: "72%", maxWidth: 264, zIndex: 25,
+                position: "absolute", width: "72%", maxWidth: 264, zIndex: 25,
                 ...overlayPanel, boxShadow: "inset 0 0 0 2px #7a6a3c",
-                padding: 10, maxHeight: "calc(100% - 20px)", overflowY: "auto",
+                padding: 10, overflowY: "auto", ...anchor,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <PixelIcon kind={sel.kind} branch={sel.branch} size={34} />
@@ -425,7 +444,8 @@ export default function Crownguard() {
                   Sell for {Math.floor(sel.invested * 0.7)}g
                 </button>
               </div>
-            )}
+              );
+            })()}
 
             {(ui.result === "won" || ui.result === "lost") && (
               <div style={{ position: "absolute", inset: 0, background: "rgba(12,12,16,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, textAlign: "center", zIndex: 45 }}>
