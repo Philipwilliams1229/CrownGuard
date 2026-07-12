@@ -158,6 +158,17 @@ export const drawWizardSpire = (ctx, t, time) => {
   const bodyH = 16 + lvl * 5;
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   ctx.fillRect(x - 13, y + 14, 26, 4);
+  // orbiting runes (Lv2+): the back half of the ring hides behind the spire,
+  // so those are painted before the body and the rest after.
+  const runes = [];
+  if (lvl >= 2 || t.branch) {
+    for (let i = 0; i < 6; i++) {
+      const ang = time * 0.9 + (i / 6) * Math.PI * 2;
+      runes.push({ rx: S(x + Math.cos(ang) * 16), ry: S(y - bodyH / 2 + Math.sin(ang) * 5), front: Math.sin(ang) >= 0 });
+    }
+    ctx.fillStyle = "#b8a2d8";
+    for (const r of runes) if (!r.front) ctx.fillRect(r.rx, r.ry, CELL, CELL);
+  }
   ctx.fillStyle = INK;
   ctx.fillRect(x - 12, y - bodyH - 2, 24, bodyH + 18);
   ctx.fillStyle = "#8a8496";
@@ -179,35 +190,42 @@ export const drawWizardSpire = (ctx, t, time) => {
   ctx.fillStyle = trim;
   ctx.fillRect(x - 14, y - bodyH - 8, 3, 4);
   ctx.fillRect(x + 11, y - bodyH - 8, 3, 4);
-  if (lvl >= 2 || t.branch) {
+  if (runes.length) {
     ctx.fillStyle = "#b8a2d8";
-    for (let i = 0; i < 6; i++) {
-      const ang = time * 0.9 + (i / 6) * Math.PI * 2;
-      ctx.fillRect(S(x + Math.cos(ang) * 16), S(y - bodyH / 2 + Math.sin(ang) * 5), CELL, CELL);
-    }
+    for (const r of runes) if (r.front) ctx.fillRect(r.rx, r.ry, CELL, CELL);
   }
-  // the little mage on top
+  // the mage grows with his tower: apprentice -> staff-bearer -> long-beard
   const flipped = Math.cos(t.lastAim) < 0;
   const my = y - bodyH - 18;
-  drawSprite(ctx, MINI.wizard, pal, 0, x - 1, my, flipped);
-  // orb above the staff, flares when casting
-  const bob = S(Math.sin(time * 2.5 + t.id) * 2);
-  const big = t.anim > 0.4 ? CELL : 0;
-  const orbX = x + (flipped ? -9 : 9);
-  ctx.fillStyle = INK;
-  ctx.beginPath(); ctx.arc(orbX, my - 12 + bob, 4 + big, 0, 7); ctx.fill();
-  ctx.fillStyle = orbCol;
-  ctx.beginPath(); ctx.arc(orbX, my - 12 + bob, 3 + big, 0, 7); ctx.fill();
+  const mspr = t.branch || lvl >= 3 ? MINI.wizardLv3 : lvl === 2 ? MINI.wizardLv2 : MINI.wizardLv1;
+  // spinning star-charms (Lv3+): the back arc passes BEHIND the mage
+  const stars = [];
   if (lvl >= 3 || t.branch) {
-    ctx.fillStyle = orbCol;
     for (let i = 0; i < 3; i++) {
       const ang = time * 1.7 + i * 2.09 + t.id;
-      const cx = S(x + Math.cos(ang) * 15);
-      const cy = S(my - 4 + Math.sin(ang) * 5);
-      ctx.fillRect(cx, cy - 2, CELL, CELL * 3);
-      ctx.fillRect(cx - CELL, cy, CELL * 3, CELL);
+      stars.push({ cx: S(x + Math.cos(ang) * 15), cy: S(my - 4 + Math.sin(ang) * 5), front: Math.sin(ang) >= 0 });
     }
   }
+  const drawStar = (s) => {
+    ctx.fillStyle = orbCol;
+    ctx.fillRect(s.cx, s.cy - 2, CELL, CELL * 3);
+    ctx.fillRect(s.cx - CELL, s.cy, CELL * 3, CELL);
+  };
+  for (const s of stars) if (!s.front) drawStar(s);
+  drawSprite(ctx, mspr, pal, 0, x - 1, my, flipped);
+  // casting orb: apprentices conjure it bare-handed; staff-bearers carry it
+  // at the staff tip. It flares when casting.
+  const bob = S(Math.sin(time * 2.5 + t.id) * 2);
+  const big = t.anim > 0.4 ? CELL : 0;
+  const hasStaff = lvl >= 2 || t.branch;
+  const orbX = hasStaff ? x - 1 + (flipped ? -7 : 7) : x + (flipped ? -9 : 9);
+  const orbY = (hasStaff ? my - 12 : my - 4) + bob;
+  const rOut = (t.branch || lvl >= 3 ? 4.5 : lvl === 2 ? 3.5 : 3) + big;
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.arc(orbX, orbY, rOut, 0, 7); ctx.fill();
+  ctx.fillStyle = orbCol;
+  ctx.beginPath(); ctx.arc(orbX, orbY, rOut - 1.2, 0, 7); ctx.fill();
+  for (const s of stars) if (s.front) drawStar(s);
 };
 
 export const drawCatapult = (ctx, t, time) => {

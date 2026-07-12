@@ -343,21 +343,61 @@ export const MINI = {
       ".oo.oo....",
     ]],
   },
-  wizard: {
+  // the spire mage grows with his tower: Lv1 apprentice (bare hands, stubble),
+  // Lv2 journeyman (staff, proper beard), Lv3+ archmage (hat charm, long
+  // beard flowing down the robe). w = beard, t = staff.
+  wizardLv1: {
     frames: [[
-      ".....o....",
-      "....oho...",
-      "...ohhho..",
-      "..ohhhhho.",
-      "...osso..g",
-      "..obbbo.tg",
-      "..obbbbot.",
-      ".obbbbbot.",
-      ".obbbbbot.",
-      ".obbbbbot.",
-      "..obbbot..",
-      "..od.dot..",
-      "..oo.oot..",
+      "....o.......",
+      "....oho.....",
+      "...ohhho....",
+      "..ohhhhho...",
+      ".ohhhhhhho..",
+      "...osso.....",
+      "...owwo.....",
+      ".obbbbbo....",
+      ".obbbbbo....",
+      ".obbbbbo....",
+      ".obbbbbo....",
+      ".obbbbbo....",
+      "..obbbo.....",
+      "..od.do.....",
+    ]],
+  },
+  wizardLv2: {
+    frames: [[
+      "....o.......",
+      "....oho.....",
+      "...ohhho....",
+      "..ohhhhho...",
+      ".ohhhhhhho..",
+      "...osso..t..",
+      "..owwwwo.t..",
+      ".obwwwbo.t..",
+      ".obbwbbo.t..",
+      ".obbbbbost..",
+      ".obbbbbo.t..",
+      ".obbbbbo.t..",
+      "..obbbo..t..",
+      "..od.do..t..",
+    ]],
+  },
+  wizardLv3: {
+    frames: [[
+      "....o.......",
+      "....oho.....",
+      "...ohhho....",
+      "..ohhghho...",
+      ".ohhhhhhho..",
+      "...osso..t..",
+      "..owwwwo.t..",
+      ".obwwwbo.t..",
+      ".obwwwbo.t..",
+      ".obwwwbost..",
+      ".obbwwbo.t..",
+      ".obbwbbo.t..",
+      "..obbbo..t..",
+      "..od.do..t..",
     ]],
   },
   priest: {
@@ -393,6 +433,9 @@ export const MINI = {
     ],
   },
 };
+
+// menu icons show the full archmage
+MINI.wizard = MINI.wizardLv3;
 
 MINI.catapult = {
   frames: [[
@@ -445,14 +488,14 @@ MINI.ballista = {
 export const BALLISTA_PAL = { o: INK, b: "#6e4c28", w: "#8a6238", d: "#5f4326", m: "#c4c8d0" };
 
 export const WIZ_PALS = {
-  base: { o: INK, h: "#5f4a86", b: "#6a5a94", s: "#e0b088", t: "#5f4326", g: "#b08ad8" },
-  a: { o: INK, h: "#a0473a", b: "#8a4034", s: "#e0b088", t: "#5f4326", g: "#d8763a" },
-  b: { o: INK, h: "#7a7434", b: "#98883c", s: "#e0b088", t: "#5f4326", g: "#f0e068" },
+  base: { o: INK, h: "#5f4a86", b: "#6a5a94", s: "#e0b088", t: "#5f4326", g: "#b08ad8", w: "#e2ded2" },
+  a: { o: INK, h: "#a0473a", b: "#8a4034", s: "#e0b088", t: "#5f4326", g: "#d8763a", w: "#e2ded2" },
+  b: { o: INK, h: "#7a7434", b: "#98883c", s: "#e0b088", t: "#5f4326", g: "#f0e068", w: "#e2ded2" },
   // rank-4 finals: lava, wildfire, tempest, thunder
-  aa: { o: INK, h: "#7d2f1a", b: "#a0473a", s: "#e0b088", t: "#5f4326", g: "#e8c14a" },
-  ab: { o: INK, h: "#c05a28", b: "#a0473a", s: "#e0b088", t: "#5f4326", g: "#e88a3a" },
-  ba: { o: INK, h: "#8a883c", b: "#a8a04c", s: "#e0b088", t: "#5f4326", g: "#f8f0a0" },
-  bb: { o: INK, h: "#4a4458", b: "#5c5470", s: "#e0b088", t: "#5f4326", g: "#f0f0e0" },
+  aa: { o: INK, h: "#7d2f1a", b: "#a0473a", s: "#e0b088", t: "#5f4326", g: "#e8c14a", w: "#d8ccc0" },
+  ab: { o: INK, h: "#c05a28", b: "#a0473a", s: "#e0b088", t: "#5f4326", g: "#e88a3a", w: "#d8ccc0" },
+  ba: { o: INK, h: "#8a883c", b: "#a8a04c", s: "#e0b088", t: "#5f4326", g: "#f8f0a0", w: "#ecead8" },
+  bb: { o: INK, h: "#4a4458", b: "#5c5470", s: "#e0b088", t: "#5f4326", g: "#f0f0e0", w: "#e8e8ea" },
 };
 
 // Warden Mage: frost-touched at base; deep ice (a) and warm life (b) branches
