@@ -5,7 +5,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { W, H, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
-import { GRASS } from "./data/maps.js";
+import { REALMS, REALM, selectRealm } from "./data/maps.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { WAVES } from "./data/waves.js";
@@ -42,6 +42,8 @@ export default function Crownguard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoverEnemy, setHoverEnemy] = useState(null);
   const [buildOpen, setBuildOpen] = useState(false);
+  const [realmId, setRealmId] = useState(REALM.id);
+  const [realmOpen, setRealmOpen] = useState(true);
   const uiRef = useRef(ui);
   uiRef.current = ui;
 
@@ -59,6 +61,15 @@ export default function Crownguard() {
     setBuildOpen(false);
     setUi({ gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1 });
   }, []);
+
+  // Swap the battlefield: rebuild road + scenery for the realm, then start a
+  // fresh campaign on it.
+  const chooseRealm = (id) => {
+    selectRealm(id);
+    setRealmId(id);
+    initGame();
+    setRealmOpen(false);
+  };
 
   // Mirror the build-drawer open state into the game so the update loop can
   // apply the tactical half-speed while the player is building.
@@ -242,7 +253,9 @@ export default function Crownguard() {
           <button aria-label="Open settings menu" onClick={() => setMenuOpen(true)}
             style={{ ...btn, fontSize: 16, padding: "4px 12px", lineHeight: 1 }}>☰</button>
           <h1 style={{ margin: 0, fontSize: 22, letterSpacing: 4, color: "#d8b34a", textShadow: "2px 2px 0 #10131a" }}>CROWNGUARD</h1>
-          <span style={{ fontSize: 11, opacity: 0.7 }}>Hold the road. The castle must not fall.</span>
+          <span style={{ fontSize: 11, opacity: 0.7 }}>
+            <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> — hold the road. The castle must not fall.
+          </span>
         </div>
 
         {menuOpen && (
@@ -281,8 +294,8 @@ export default function Crownguard() {
               Restart Wave
             </button>
             <button style={{ ...btn, textAlign: "center" }}
-              onClick={() => { initGame(); setMenuOpen(false); }}>
-              New Campaign
+              onClick={() => { setRealmOpen(true); setMenuOpen(false); }}>
+              New Campaign...
             </button>
           </div>
 
@@ -331,7 +344,7 @@ export default function Crownguard() {
               ref={canvasRef} width={W} height={H}
               onMouseDown={onCanvasDown} onMouseMove={onCanvasMove} onMouseUp={onCanvasUp}
               onMouseLeave={() => { if (G.current) G.current.hover = null; dragRef.current.down = false; }}
-              style={{ width: "100%", display: "block", border: "3px solid #10131a", background: GRASS, cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", imageRendering: "pixelated" }}
+              style={{ width: "100%", display: "block", border: "3px solid #10131a", background: REALMS[realmId].GRASS, cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", imageRendering: "pixelated" }}
             />
 
             {/* open-build-menu tab (right edge) */}
@@ -502,6 +515,43 @@ export default function Crownguard() {
               );
             })()}
 
+            {/* realm select: shown at first load and when starting a new campaign */}
+            {realmOpen && (
+              <div style={{ position: "absolute", inset: 0, background: "rgba(12,12,16,0.88)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, zIndex: 48, padding: 14, boxSizing: "border-box", overflowY: "auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ fontSize: 16, letterSpacing: 3, color: "#d8b34a", textShadow: "2px 2px 0 #10131a" }}>CHOOSE YOUR REALM</div>
+                  <button aria-label="Close realm select" onClick={() => setRealmOpen(false)} style={{ ...btn, padding: "2px 9px", fontSize: 13 }}>✕</button>
+                </div>
+                <div style={{ fontSize: 10, opacity: 0.7, marginTop: -4 }}>Choosing a realm begins a new campaign.</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, width: "100%", maxWidth: 620 }}>
+                  {Object.values(REALMS).map((r) => (
+                    <button key={r.id} onClick={() => chooseRealm(r.id)}
+                      style={{ ...btn, display: "flex", gap: 10, padding: 8, alignItems: "stretch", ...(r.id === realmId ? { boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}>
+                      <svg viewBox="0 0 150 100" width="108" height="72" style={{ flexShrink: 0, border: "2px solid #10131a", imageRendering: "pixelated" }}>
+                        <rect x="0" y="0" width="150" height="100" fill={r.GRASS} />
+                        <polyline points={r.path.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
+                          fill="none" stroke={r.PATH_EDGE} strokeWidth="9" strokeLinejoin="round" strokeLinecap="round" />
+                        <polyline points={r.path.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
+                          fill="none" stroke={r.PATH_MAIN} strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" />
+                        {r.ponds.map((p, i) => (
+                          <rect key={i} x={(p.x - p.w / 2) * 150 / W} y={(p.y - p.h / 2) * 100 / H} width={p.w * 150 / W} height={p.h * 100 / H}
+                            fill={p.t === "lava" ? "#c05a32" : p.t === "ice" ? "#b8d4e0" : "#2c4638"} />
+                        ))}
+                        <circle cx={r.path[0][0] * 10 + 5} cy={r.path[0][1] * 10 + 5} r="4" fill="#e05248" />
+                        <rect x={r.path[r.path.length - 1][0] * 10 - 1} y={r.path[r.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
+                      </svg>
+                      <span style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "left" }}>
+                        <span style={{ fontWeight: "bold", fontSize: 13, color: "#e8e0c8" }}>
+                          {r.name} <span style={{ fontSize: 9, letterSpacing: 1, color: r.tagColor, marginLeft: 4 }}>{r.tag}</span>
+                        </span>
+                        <span style={{ fontSize: 10, opacity: 0.8, lineHeight: 1.45 }}>{r.blurb}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {(ui.result === "won" || ui.result === "lost") && (
               <div style={{ position: "absolute", inset: 0, background: "rgba(12,12,16,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, textAlign: "center", zIndex: 45 }}>
                 <div style={{ fontSize: 20, letterSpacing: 3, color: ui.result === "won" ? "#e8d47a" : "#e07a72", textShadow: "2px 2px 0 #10131a" }}>
@@ -516,7 +566,7 @@ export default function Crownguard() {
                   {ui.result === "lost" && ui.canRestart && (
                     <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", background: "#5a4f2c" }} onClick={() => restartWave(G.current)}>Retry Wave {ui.wave}</button>
                   )}
-                  <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={initGame}>New Campaign</button>
+                  <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={() => setRealmOpen(true)}>New Campaign...</button>
                 </div>
               </div>
             )}

@@ -5,7 +5,7 @@
 // depth-sorted actors, projectiles, floating effects, and the pause overlay.
 
 import { W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE, PATH_HALF } from "../data/constants.js";
-import { GRASS, GRASS_DK, GRASS_LT, PATH_MAIN, PATH_DK, PATH_EDGE } from "../data/maps.js";
+import { REALM } from "../data/maps.js";
 import { PTS } from "../engine/path.js";
 import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR, PONDS } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
@@ -14,7 +14,7 @@ import { buildableAt } from "../engine/actions.js";
 import { SPRITES } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult } from "./towers.js";
-import { drawTree, drawCastle, drawCave } from "./scenery.js";
+import { drawTree, drawPond, drawCastle, drawCave } from "./scenery.js";
 
 export function draw(g, canvas, bufRef) {
   const cv = canvas;
@@ -35,28 +35,14 @@ export function draw(g, canvas, bufRef) {
   ctx.translate(-g.cam.x, -g.cam.y);
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
 
-  ctx.fillStyle = GRASS;
+  ctx.fillStyle = REALM.GRASS;
   ctx.fillRect(0, 0, W, H);
   for (const p of GRASS_PATCHES) {
-    ctx.fillStyle = p.s > 0.5 ? GRASS_LT : GRASS_DK;
+    ctx.fillStyle = p.s > 0.5 ? REALM.GRASS_LT : REALM.GRASS_DK;
     ctx.fillRect(S(p.x - p.r), S(p.y - p.r * 0.6), S(p.r * 2), S(p.r * 1.2));
   }
-  // ponds: still water with a drifting shimmer
-  for (const p of PONDS) {
-    ctx.fillStyle = INK;
-    ctx.fillRect(S(p.x - p.w / 2) - 2, S(p.y - p.h / 2) - 2, S(p.w) + 4, S(p.h) + 4);
-    ctx.fillStyle = "#4a7a94";
-    ctx.fillRect(S(p.x - p.w / 2), S(p.y - p.h / 2), S(p.w), S(p.h));
-    ctx.fillStyle = "#5f92ac";
-    ctx.fillRect(S(p.x - p.w / 2), S(p.y - p.h / 2), S(p.w), CELL * 2);
-    ctx.fillStyle = "#8cc4d8";
-    for (let i = 0; i < 3; i++) {
-      const sx2 = p.x - p.w / 2 + 6 + ((g.time * 9 + i * 23) % Math.max(8, p.w - 14));
-      const sy2 = p.y - p.h / 2 + 5 + i * Math.max(4, (p.h - 10) / 3);
-      ctx.fillRect(S(sx2), S(sy2), CELL * 3, CELL);
-    }
-  }
-  ctx.fillStyle = GRASS_DK;
+  for (const p of PONDS) drawPond(ctx, p, g.time);
+  ctx.fillStyle = REALM.TUFT;
   for (const tf of TUFTS) {
     const sway = Math.sin(g.time * 1.8 + tf.p) > 0 ? CELL : 0;
     ctx.fillRect(S(tf.x) + sway, S(tf.y - 5 * tf.s), CELL, S(5 * tf.s));
@@ -65,7 +51,7 @@ export function draw(g, canvas, bufRef) {
   // wildflowers
   for (const f of FLOWERS) {
     const sway = Math.sin(g.time * 1.5 + f.p) > 0 ? CELL : 0;
-    ctx.fillStyle = GRASS_DK;
+    ctx.fillStyle = REALM.TUFT;
     ctx.fillRect(S(f.x) + 1, S(f.y) + 2, CELL, CELL * 2);
     ctx.fillStyle = f.c;
     ctx.fillRect(S(f.x) + sway, S(f.y) - 2, CELL * 2, CELL * 2);
@@ -83,12 +69,12 @@ export function draw(g, canvas, bufRef) {
     for (let i = 1; i < PTS.length; i++) ctx.lineTo(PTS[i][0], PTS[i][1]);
     ctx.stroke();
   };
-  strokePath(PATH_HALF * 2 + 10, PATH_EDGE);
-  strokePath(PATH_HALF * 2 + 4, PATH_DK);
-  strokePath(PATH_HALF * 2 - 4, PATH_MAIN);
+  strokePath(PATH_HALF * 2 + 10, REALM.PATH_EDGE);
+  strokePath(PATH_HALF * 2 + 4, REALM.PATH_DK);
+  strokePath(PATH_HALF * 2 - 4, REALM.PATH_MAIN);
   ctx.lineWidth = 1;
   for (const pb of PEBBLES) {
-    ctx.fillStyle = pb.s > 0.6 ? PATH_DK : "#d2ba8e";
+    ctx.fillStyle = pb.s > 0.6 ? REALM.PATH_DK : REALM.PEBBLE;
     ctx.fillRect(S(pb.x), S(pb.y), S(pb.r * 2) || CELL, S(pb.r * 1.4) || CELL);
   }
   for (const ch of CHEVRONS) {
@@ -96,7 +82,7 @@ export function draw(g, canvas, bufRef) {
     ctx.save();
     ctx.translate(S(ch.x), S(ch.y));
     ctx.rotate(Math.round(ch.a / (Math.PI / 2)) * (Math.PI / 2));
-    ctx.fillStyle = on ? "rgba(60,46,28,0.55)" : "rgba(60,46,28,0.28)";
+    ctx.fillStyle = on ? `rgba(${REALM.CHEVRON},0.55)` : `rgba(${REALM.CHEVRON},0.28)`;
     ctx.fillRect(-4, -6, 3, 3); ctx.fillRect(-1, -3, 3, 3); ctx.fillRect(2, 0, 3, 3);
     ctx.fillRect(-1, 3, 3, 3); ctx.fillRect(-4, 6, 3, 3);
     ctx.restore();
@@ -388,6 +374,51 @@ export function draw(g, canvas, bufRef) {
     } else if (fx.type === "pierce") {
       ctx.fillStyle = `rgba(232,212,122,${a * 0.7})`;
       ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), 8, 0, 7); ctx.fill();
+    }
+  }
+
+  // ---- ambient weather (per realm, purely cosmetic) ----
+  // All particles are derived from g.time, so there is no state to keep.
+  if (REALM.ambient === "snow") {
+    for (let i = 0; i < 54; i++) {
+      const sp = 16 + (i % 5) * 7;
+      const y = (i * 97.3 + g.time * sp) % H;
+      const x = (((i * 143.7 + Math.sin(g.time * 0.7 + i) * 14 + g.time * 6) % W) + W) % W;
+      ctx.fillStyle = i % 4 === 0 ? "rgba(255,255,255,0.85)" : "rgba(238,246,252,0.6)";
+      ctx.fillRect(S(x), S(y), i % 3 ? 2 : 3, i % 3 ? 2 : 3);
+    }
+  } else if (REALM.ambient === "embers") {
+    for (let i = 0; i < 34; i++) {
+      const sp = 20 + (i % 4) * 9;
+      const rise = (i * 83.7 + g.time * sp) % (H + 40);
+      const y = H + 20 - rise;
+      const x = (((i * 191.3 + Math.sin(g.time * 1.3 + i * 2) * 9) % W) + W) % W;
+      const a2 = Math.max(0, 1 - rise / (H + 40));
+      ctx.fillStyle = i % 3 === 0 ? `rgba(240,170,90,${0.35 + 0.5 * a2})` : `rgba(216,100,60,${0.25 + 0.45 * a2})`;
+      ctx.fillRect(S(x), S(y), 2, 2);
+    }
+  } else if (REALM.ambient === "fireflies") {
+    // slow bands of marsh fog...
+    for (let i = 0; i < 3; i++) {
+      const fx2 = ((g.time * (5 + i * 3) + i * 300) % (W + 360)) - 180;
+      const grad = ctx.createLinearGradient(fx2 - 130, 0, fx2 + 130, 0);
+      grad.addColorStop(0, "rgba(196,212,188,0)");
+      grad.addColorStop(0.5, "rgba(196,212,188,0.07)");
+      grad.addColorStop(1, "rgba(196,212,188,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(fx2 - 130, 0, 260, H);
+    }
+    // ...and fireflies blinking as they wander
+    for (let i = 0; i < 16; i++) {
+      const bx = W / 2 + Math.sin(g.time * 0.22 + i * 2.4) * W * 0.46;
+      const by = H / 2 + Math.sin(g.time * 0.31 + i * 1.7 + 2) * H * 0.42;
+      const blink = Math.sin(g.time * (1.6 + (i % 5) * 0.3) + i * 3);
+      if (blink > 0.2) {
+        ctx.fillStyle = `rgba(200,232,120,${(blink - 0.2) * 0.3})`;
+        ctx.fillRect(S(bx) - 2, S(by) - 2, 6, 6);
+        ctx.fillStyle = `rgba(216,244,140,${(blink - 0.2) * 1.1})`;
+        ctx.fillRect(S(bx), S(by), 2, 2);
+      }
     }
   }
   ctx.restore();
