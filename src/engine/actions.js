@@ -5,7 +5,7 @@
 
 import { W, H, BLOCK_DIST } from "../data/constants.js";
 import { PTS, nearestOnPath } from "./path.js";
-import { DECOR } from "../data/terrain.js";
+import { DECOR, PONDS } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { WAVES, waveHpMult } from "../data/waves.js";
 import { makeTower, syncUnits } from "./towers.js";
@@ -19,6 +19,7 @@ export const buildableAt = (g, x, y) => {
   const [csx, csy] = PTS[PTS.length - 1];
   if (Math.hypot(x - cvx, y - cvy) < 50 || Math.hypot(x - (csx + 6), y - csy) < 62) return false;
   for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < 26 * d.s) return false;
+  for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
   if (towerNear(g, x, y)) return false;
   return true;
 };

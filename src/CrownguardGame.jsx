@@ -4,7 +4,8 @@
 // React state for the panels, handles mouse input, and renders the UI.
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { W, H, GRASS, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
+import { W, H, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
+import { GRASS } from "./data/maps.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { WAVES } from "./data/waves.js";

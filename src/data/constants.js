@@ -16,19 +16,16 @@ export const RESPAWN_MS = 7000;
 export const CELL = 2;
 
 // ---- Palette ----
+// Ground & road colors now live per-realm in data/maps.js. Only the shared
+// outline ink stays here.
 export const INK = "#2b2a33";
-export const GRASS = "#69874e";
-export const GRASS_DK = "#57713f";
-export const GRASS_LT = "#7a9a5c";
-export const PATH_MAIN = "#bfa476";
-export const PATH_DK = "#93794f";
-export const PATH_EDGE = "#63512f";
 
 // Snap a coordinate to the pixel grid (used all over the renderer).
 export const S = (v) => Math.round(v / CELL) * CELL;
 
-// Deterministic pseudo-random generator, seeded so the map's scenery is
-// laid out identically every run.
+// Deterministic pseudo-random generator. Each realm seeds its own instance
+// (see data/terrain.js) so every map's scenery is laid out identically on
+// every run.
 export function mulberry32(a) {
   return function () {
     a |= 0; a = (a + 0x6d2b79f5) | 0;
@@ -37,4 +34,3 @@ export function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-export const rng = mulberry32(20260710);

@@ -4,12 +4,10 @@
 // visible canvas. Handles camera zoom/pan, terrain, path, build previews,
 // depth-sorted actors, projectiles, floating effects, and the pause overlay.
 
-import {
-  W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE,
-  GRASS, GRASS_DK, GRASS_LT, PATH_HALF, PATH_MAIN, PATH_DK, PATH_EDGE,
-} from "../data/constants.js";
+import { W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE, PATH_HALF } from "../data/constants.js";
+import { GRASS, GRASS_DK, GRASS_LT, PATH_MAIN, PATH_DK, PATH_EDGE } from "../data/maps.js";
 import { PTS } from "../engine/path.js";
-import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR } from "../data/terrain.js";
+import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR, PONDS } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
@@ -42,6 +40,21 @@ export function draw(g, canvas, bufRef) {
   for (const p of GRASS_PATCHES) {
     ctx.fillStyle = p.s > 0.5 ? GRASS_LT : GRASS_DK;
     ctx.fillRect(S(p.x - p.r), S(p.y - p.r * 0.6), S(p.r * 2), S(p.r * 1.2));
+  }
+  // ponds: still water with a drifting shimmer
+  for (const p of PONDS) {
+    ctx.fillStyle = INK;
+    ctx.fillRect(S(p.x - p.w / 2) - 2, S(p.y - p.h / 2) - 2, S(p.w) + 4, S(p.h) + 4);
+    ctx.fillStyle = "#4a7a94";
+    ctx.fillRect(S(p.x - p.w / 2), S(p.y - p.h / 2), S(p.w), S(p.h));
+    ctx.fillStyle = "#5f92ac";
+    ctx.fillRect(S(p.x - p.w / 2), S(p.y - p.h / 2), S(p.w), CELL * 2);
+    ctx.fillStyle = "#8cc4d8";
+    for (let i = 0; i < 3; i++) {
+      const sx2 = p.x - p.w / 2 + 6 + ((g.time * 9 + i * 23) % Math.max(8, p.w - 14));
+      const sy2 = p.y - p.h / 2 + 5 + i * Math.max(4, (p.h - 10) / 3);
+      ctx.fillRect(S(sx2), S(sy2), CELL * 3, CELL);
+    }
   }
   ctx.fillStyle = GRASS_DK;
   for (const tf of TUFTS) {

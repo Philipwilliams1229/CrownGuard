@@ -1,14 +1,17 @@
 // ============ PATH MATH ============
 // The enemy road: a handful of corner points, smoothed into a curve, then
 // measured so we can ask "where am I at distance N along the road?".
+// Each realm supplies its own corner points (see data/maps.js); buildPath()
+// rebuilds everything in place, and because ES module exports are live
+// bindings, every importer sees the new road immediately.
 
 import { TILE } from "../data/constants.js";
 
-const RAW = [
-  [0.9, 2], [3, 2], [3, 6], [7, 6], [7, 1], [11, 1], [11, 7], [5, 7], [5, 9], [13, 9], [13, 4], [13.7, 4],
-].map(([c, r]) => [c * TILE + TILE / 2, r * TILE + TILE / 2]);
+export let PTS = [];
+export let SEGS = [];
+export let TOTAL_LEN = 0;
 
-function buildSmooth() {
+function buildSmooth(RAW) {
   const out = [RAW[0]];
   const R = 34;
   for (let i = 1; i < RAW.length - 1; i++) {
@@ -33,16 +36,20 @@ function buildSmooth() {
   return out;
 }
 
-export const PTS = buildSmooth();
-export const SEGS = [];
-export let TOTAL_LEN = 0;
-for (let i = 0; i < PTS.length - 1; i++) {
-  const [x1, y1] = PTS[i];
-  const [x2, y2] = PTS[i + 1];
-  const len = Math.hypot(x2 - x1, y2 - y1);
-  if (len < 0.001) continue;
-  SEGS.push({ x1, y1, x2, y2, len, start: TOTAL_LEN });
-  TOTAL_LEN += len;
+// rawGrid: waypoints in [col, row] grid units (fractions allowed at the edges).
+export function buildPath(rawGrid) {
+  const RAW = rawGrid.map(([c, r]) => [c * TILE + TILE / 2, r * TILE + TILE / 2]);
+  PTS = buildSmooth(RAW);
+  SEGS = [];
+  TOTAL_LEN = 0;
+  for (let i = 0; i < PTS.length - 1; i++) {
+    const [x1, y1] = PTS[i];
+    const [x2, y2] = PTS[i + 1];
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 0.001) continue;
+    SEGS.push({ x1, y1, x2, y2, len, start: TOTAL_LEN });
+    TOTAL_LEN += len;
+  }
 }
 
 export function posAt(dist) {
