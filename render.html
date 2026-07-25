@@ -1,0 +1,119 @@
+<!doctype html>
+<!--
+  Dev tool: draws every tower (each level, branch and ascension) and every
+  scenery piece with the real render functions, on grass, magnified. Open
+  /render.html with the dev server running. Not linked from the game.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — render lab</title>
+    <style>
+      body { background: #20242c; color: #e8e0c8; font-family: Verdana, sans-serif; margin: 0; padding: 16px; }
+      h2 { font-size: 13px; letter-spacing: 2px; color: #d8b34a; margin: 20px 0 8px; }
+      .grid { display: flex; flex-wrap: wrap; gap: 10px; }
+      .cell { border: 2px solid #10131a; text-align: center; }
+      .cap { font-size: 9px; opacity: 0.7; padding: 2px 0 3px; background: #2c313c; }
+      canvas { image-rendering: pixelated; display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="out"></div>
+    <script type="module">
+      import { REALM, selectRealm } from "/src/data/maps.js";
+      import {
+        drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower,
+        drawCatapult, drawBladewheel,
+      } from "/src/render/towers.js";
+      import { drawTree, drawPond, drawCastle, drawCave } from "/src/render/scenery.js";
+
+      const SCALE = 3;
+      const CW = 90, CH = 90;          // world box per cell
+      const out = document.getElementById("out");
+      let t = 0;
+
+      const draws = [];   // {ctx, fn}
+
+      function cell(label, fn, w = CW, h = CH, ground = null) {
+        const wrap = document.createElement("div");
+        wrap.className = "cell";
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.style.width = w * SCALE + "px";
+        cv.style.height = h * SCALE + "px";
+        const ctx = cv.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        wrap.appendChild(cv);
+        const cap = document.createElement("div");
+        cap.className = "cap";
+        cap.textContent = label;
+        wrap.appendChild(cap);
+        out.lastElementChild.appendChild(wrap);
+        draws.push({ ctx, fn, w, h, ground });
+      }
+
+      function section(title) {
+        const h = document.createElement("h2");
+        h.textContent = title;
+        out.appendChild(h);
+        const g = document.createElement("div");
+        g.className = "grid";
+        out.appendChild(g);
+      }
+
+      // a stand-in tower the render functions are happy with
+      const T = (kind, o = {}) => ({
+        id: 3, kind, x: CW / 2, y: CH / 2 + 8, level: 3, branch: null, rank4: null,
+        cd: 0, aim: "first", anim: 0, lastAim: -Math.PI / 2, shotIdx: 0, critIdx: 0,
+        rally: { x: CW / 2, y: CH / 2 + 30 }, units: [], invested: 100, ...o,
+      });
+
+      const TOWERS = [
+        ["archer", drawArcherTower], ["wizard", drawWizardSpire], ["knight", drawGarrison],
+        ["support", drawSupportTower], ["catapult", drawCatapult], ["spiker", drawBladewheel],
+      ];
+
+      for (const [kind, fn] of TOWERS) {
+        section(kind);
+        for (const lvl of [1, 2, 3]) cell(`lv ${lvl}`, (ctx, time) => fn(ctx, T(kind, { level: lvl }), time));
+        for (const br of ["a", "b"]) {
+          cell(`branch ${br}`, (ctx, time) => fn(ctx, T(kind, { branch: br }), time));
+          for (const r4 of ["a", "b"]) {
+            cell(`${br}${r4}`, (ctx, time) => fn(ctx, T(kind, { branch: br, rank4: r4 }), time));
+          }
+        }
+      }
+
+      section("scenery — greenwood");
+      for (const type of ["pine", "tree", "rock"]) {
+        for (const s of [0.85, 1.15]) {
+          cell(`${type} ${s}`, (ctx, time) => drawTree(ctx, { x: CW / 2, y: CH / 2 + 6, t: type, s }, time));
+        }
+      }
+      section("scenery — other biomes");
+      for (const type of ["snowpine", "icerock", "crystal", "deadtree", "vent", "obsidian", "willow", "mushroom", "reeds"]) {
+        cell(type, (ctx, time) => drawTree(ctx, { x: CW / 2, y: CH / 2 + 6, t: type, s: 1.05 }, time));
+      }
+      section("ponds");
+      for (const type of ["water", "ice", "lava", "swamp"]) {
+        cell(type, (ctx, time) => drawPond(ctx, { x: CW / 2, y: CH / 2, w: 62, h: 34, t: type }, time));
+      }
+      section("castle & cave");
+      cell("castle", (ctx, time) => drawCastle(ctx, 20, CH / 2 - 10, 20, time), 120, 110);
+      cell("cave", (ctx, time) => drawCave(ctx, time), 200, 130);
+
+      function frame(now) {
+        t = now / 1000;
+        for (const d of draws) {
+          d.ctx.fillStyle = REALM.GRASS;
+          d.ctx.fillRect(0, 0, d.w, d.h);
+          d.ctx.save();
+          try { d.fn(d.ctx, t); } catch (e) { /* keep the sheet alive */ }
+          d.ctx.restore();
+        }
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>

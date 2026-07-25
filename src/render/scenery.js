@@ -7,44 +7,130 @@
 import { INK, CELL, S } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
 
-// A pine silhouette: three stacked tiers over a trunk, in the given greens.
-// `caps` (optional) paints a strip of snow along the top of each tier.
-const pineShape = (ctx, x, y, s, greens, caps) => {
-  ctx.fillStyle = "#5f4326";
-  ctx.fillRect(x - 2, y + 8, 4, 8);
-  ctx.fillStyle = INK;
-  for (let i = 0; i < 3; i++) {
-    const wRow = S((13 - i * 3) * s);
-    ctx.fillRect(x - wRow - 1, y + 8 - (i + 1) * S(9 * s), wRow * 2 + 2, S(9 * s) + 2);
-  }
-  for (let i = 0; i < 3; i++) {
-    const wRow = S((12 - i * 3) * s);
-    ctx.fillStyle = greens[i];
-    ctx.fillRect(x - wRow, y + 7 - (i + 1) * S(9 * s), wRow * 2, S(9 * s));
-    if (caps) {
-      ctx.fillStyle = caps;
-      ctx.fillRect(x - wRow, y + 7 - (i + 1) * S(9 * s), wRow * 2, 3);
-    }
+// ---- shape kit -------------------------------------------------------
+// Organic scenery used to be stacks of rectangles, which read as furniture
+// once the board went to full resolution. These build the same silhouettes
+// out of rows so the edges can actually curve, taper and fray.
+
+const hash = (a, b) => ((a * 73856093) ^ (b * 19349663)) >>> 0;
+
+// A squashed disc, drawn row by row.
+const blob = (ctx, cx, cy, rx, ry) => {
+  const h = Math.max(2, Math.round(ry * 2));
+  for (let i = 0; i < h; i++) {
+    const t = ((i + 0.5) / h) * 2 - 1;
+    const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - t * t)));
+    if (w > 0) ctx.fillRect(cx - w, Math.round(cy - ry) + i, w * 2, 1);
   }
 };
 
-// A rounded pixel boulder: stacked dome rows in the given palette.
-const boulderShape = (ctx, x, y, s, base, top, glint) => {
-  const rows = [[10, 0], [9, 1], [8, 2], [6, 3], [4, 4]];
+// One conifer tier: a cone drawn row by row, inked a pixel outside each row
+// so the silhouette stays crisp, with the odd frayed needle on the edge.
+const coneTier = (ctx, x, bottom, halfW, h, fill, shade) => {
+  const w = [];
+  for (let i = 0; i < h; i++) {
+    let v = Math.max(1, Math.round((halfW * (i + 1)) / h));
+    if (i > 2 && hash(i, halfW) % 4 === 0) v += 1;
+    w.push(v);
+  }
   ctx.fillStyle = INK;
-  for (const [wr, i] of rows) {
-    const wRow = S(wr * s);
-    ctx.fillRect(x - wRow - 2, y + 8 - (i + 1) * 5, wRow * 2 + 4, 7);
+  for (let i = 0; i < h; i++) {
+    ctx.fillRect(x - w[i] - 1, bottom - h + i, 1, 1);
+    ctx.fillRect(x + w[i], bottom - h + i, 1, 1);
   }
-  for (const [wr, i] of rows) {
-    const wRow = S(wr * s);
-    ctx.fillStyle = i >= 3 ? top : base;
-    ctx.fillRect(x - wRow, y + 8 - (i + 1) * 5, wRow * 2, 5);
+  ctx.fillRect(x - w[h - 1] - 1, bottom, w[h - 1] * 2 + 2, 1);
+  ctx.fillStyle = fill;
+  for (let i = 0; i < h; i++) ctx.fillRect(x - w[i], bottom - h + i, w[i] * 2, 1);
+  // the shaded half, right of centre
+  ctx.fillStyle = shade;
+  for (let i = 0; i < h; i++) {
+    const half = Math.max(1, Math.round(w[i] * 0.55));
+    ctx.fillRect(x + w[i] - half, bottom - h + i, half, 1);
   }
-  ctx.fillStyle = glint;
-  ctx.fillRect(x - S(5 * s), y - 10, S(4 * s), 4);
+};
+
+// A trunk with bark: two tones and a few horizontal scars.
+const trunk = (ctx, x, top, h, w, mid = "#5f4326", lit = "#7a5a34", dark = "#3c2a18") => {
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - w / 2 - 1, top, w + 2, h);
+  ctx.fillStyle = mid;
+  ctx.fillRect(x - w / 2, top, w, h);
+  ctx.fillStyle = lit;
+  ctx.fillRect(x - w / 2, top, 1, h);
+  ctx.fillStyle = dark;
+  for (let i = 2; i < h; i += 4) ctx.fillRect(x - w / 2 + 1, top + i, w - 1, 1);
+};
+
+// A pine: three cones stacked into a spire over a bark trunk.
+const pineShape = (ctx, x, y, s, greens, caps) => {
+  trunk(ctx, x, y + 4, 12, 4);
+  const tiers = [
+    { halfW: S(12 * s), h: S(13 * s), bottom: y + 8 },
+    { halfW: S(9 * s), h: S(12 * s), bottom: y + 8 - S(9 * s) },
+    { halfW: S(6 * s), h: S(11 * s), bottom: y + 8 - S(17 * s) },
+  ];
+  tiers.forEach((tr, i) => {
+    coneTier(ctx, x, tr.bottom, tr.halfW, tr.h, greens[i], greens[Math.max(0, i - 1)]);
+    if (caps) {
+      ctx.fillStyle = caps;
+      for (let r = 0; r < 4; r++) {
+        const w = Math.max(1, Math.round((tr.halfW * (r + 1)) / tr.h));
+        ctx.fillRect(x - w, tr.bottom - tr.h + r, w * 2, 1);
+      }
+    }
+  });
+};
+
+// A boulder: a domed mass with a facet cut across it, a shaded flank, and
+// a couple of cracks so it isn't a loaf of bread.
+const boulderShape = (ctx, x, y, s, base, top, glint) => {
+  const rx = S(11 * s), ry = S(9 * s);
+  const cy = y + 4;
+  ctx.fillStyle = INK;
+  blob(ctx, x, cy, rx + 1, ry + 1);
   ctx.fillStyle = base;
-  ctx.fillRect(x + S(11 * s), y + 6, 5, 4);
+  blob(ctx, x, cy, rx, ry);
+  // upper facet catches the light
+  ctx.fillStyle = top;
+  blob(ctx, x - Math.round(rx * 0.2), cy - Math.round(ry * 0.35), Math.round(rx * 0.7), Math.round(ry * 0.45));
+  // shaded flank
+  ctx.fillStyle = INK;
+  ctx.globalAlpha = 0.18;
+  blob(ctx, x + Math.round(rx * 0.45), cy + Math.round(ry * 0.3), Math.round(rx * 0.5), Math.round(ry * 0.6));
+  ctx.globalAlpha = 1;
+  // cracks
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - Math.round(rx * 0.1), cy - 1, 1, Math.round(ry * 0.7));
+  ctx.fillRect(x - Math.round(rx * 0.1), cy + Math.round(ry * 0.4), Math.round(rx * 0.35), 1);
+  ctx.fillStyle = glint;
+  ctx.fillRect(x - Math.round(rx * 0.5), cy - Math.round(ry * 0.55), 3, 2);
+};
+
+// A broadleaf canopy: overlapping clumps rather than one slab, lit on the
+// crown, shaded underneath, with a fork of trunk showing through.
+const leafShape = (ctx, x, y, s, mid, lit, dark) => {
+  const r = S(12 * s);
+  const cy = y - S(9 * s);
+  trunk(ctx, x, y - S(4 * s), S(14 * s), 5);
+  ctx.fillStyle = INK;   // branch fork
+  ctx.fillRect(x - S(5 * s), cy + S(4 * s), 3, S(6 * s));
+  ctx.fillRect(x + S(3 * s), cy + S(4 * s), 3, S(6 * s));
+  const clumps = [
+    [0, -Math.round(r * 0.25), r * 0.95, r * 0.8],
+    [-Math.round(r * 0.6), Math.round(r * 0.15), r * 0.6, r * 0.55],
+    [Math.round(r * 0.6), Math.round(r * 0.1), r * 0.62, r * 0.58],
+    [Math.round(r * 0.1), Math.round(r * 0.45), r * 0.7, r * 0.45],
+  ];
+  ctx.fillStyle = INK;
+  for (const [dx, dy, rx, ry] of clumps) blob(ctx, x + dx, cy + dy, rx + 1, ry + 1);
+  ctx.fillStyle = mid;
+  for (const [dx, dy, rx, ry] of clumps) blob(ctx, x + dx, cy + dy, rx, ry);
+  // sun across the crown, shadow under the far side — bands, not discs
+  ctx.fillStyle = lit;
+  blob(ctx, x - Math.round(r * 0.2), cy - Math.round(r * 0.5), r * 0.62, r * 0.22);
+  blob(ctx, x - Math.round(r * 0.5), cy - Math.round(r * 0.2), r * 0.3, r * 0.16);
+  ctx.fillStyle = dark;
+  blob(ctx, x + Math.round(r * 0.3), cy + Math.round(r * 0.52), r * 0.5, r * 0.22);
 };
 
 export const drawTree = (ctx, d, time) => {
@@ -174,14 +260,7 @@ export const drawTree = (ctx, d, time) => {
       }
     });
   } else if (d.t === "tree") {
-    ctx.fillStyle = "#5f4326";
-    ctx.fillRect(x - 2, y + 2, 5, 14);
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - S(11 * s) - 1, y - S(16 * s) - 1, S(22 * s) + 2, S(16 * s) + 2);
-    ctx.fillStyle = "#557a46";
-    ctx.fillRect(x - S(11 * s), y - S(16 * s), S(22 * s), S(16 * s));
-    ctx.fillStyle = "#628a50";
-    ctx.fillRect(x - S(11 * s), y - S(16 * s), S(9 * s), S(7 * s));
+    leafShape(ctx, x, y, s, "#557a46", "#6d9459", "#3f5c34");
   } else {
     boulderShape(ctx, x, y, s, "#8a8a92", "#a2a2aa", "#b8b8c0");
   }

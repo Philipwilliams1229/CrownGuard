@@ -9,6 +9,98 @@ import { getStats } from "../engine/towers.js";
 // leather-hooded crew engineer who works the catapult
 const CREW_PAL = { o: INK, h: "#7a5a34", b: "#6e4c28", s: "#e0b088", w: "#4a3018" };
 
+// ============ SURFACES ============
+// Flat fills read as filing cabinets now that the board renders at full
+// resolution, so walls are laid as courses of blocks and decks as planks.
+// Everything is keyed off position rather than randomness, so a given tower
+// looks the same every frame.
+
+const STONE = { mid: "#9a958a", lit: "#b5b0a2", shade: "#7a756c", mortar: "#615d56", dark: "#8a857b" };
+const PALE_STONE = { mid: "#d8d2be", lit: "#ece7d6", shade: "#b0aa96", mortar: "#8f8a78", dark: "#c8c2ae" };
+const DAUB = { mid: "#9a7a52", lit: "#ae8c60", shade: "#7a5e3e", mortar: "#5f4326", dark: "#8c6e49" };
+const DARKWOOD_WALL = { mid: "#6a4634", lit: "#7d5540", shade: "#523528", mortar: "#3c2419", dark: "#5f3f2f" };
+const ALTAR = { mid: "#948c80", lit: "#bcb4a6", shade: "#786f64", mortar: "#5c554c", dark: "#8a8276" };
+const SPIRE = { mid: "#8a8496", lit: "#a29cb2", shade: "#6c6678", mortar: "#544f60", dark: "#7d7788" };
+
+const hash2 = (a, b) => ((a * 73856093) ^ (b * 19349663)) >>> 0;
+
+// slow candle flicker behind a spire window
+const pulseWin = (time, id) => Math.sin(time * 1.7 + id) > -0.4;
+
+// A block wall: courses about six pixels deep, joints staggered course by
+// course, one stone in six laid darker, and the sunward edge picked out.
+export const stoneWall = (ctx, x, top, w, h, pal = STONE) => {
+  if (w <= 0 || h <= 0) return;
+  ctx.fillStyle = pal.mid;
+  ctx.fillRect(x, top, w, h);
+  const ch = 6;
+  const bw = Math.max(6, Math.floor(w / 2));
+  for (let cy = top, row = 0; cy < top + h; cy += ch, row++) {
+    const rh = Math.min(ch, top + h - cy);
+    const off = row % 2 ? 0 : Math.floor(bw / 2);
+    // the odd darker block
+    for (let bx = x - off; bx < x + w; bx += bw) {
+      if (hash2(row, Math.floor(bx / bw)) % 6 === 0) {
+        const x0 = Math.max(x, bx), x1 = Math.min(x + w, bx + bw - 1);
+        if (x1 > x0) { ctx.fillStyle = pal.dark; ctx.fillRect(x0, cy, x1 - x0, rh - 1); }
+      }
+    }
+    ctx.fillStyle = pal.mortar;
+    if (rh > 1) ctx.fillRect(x, cy + rh - 1, w, 1);          // bed joint
+    for (let bx = x - off + bw; bx < x + w; bx += bw) {       // head joints
+      ctx.fillRect(bx, cy, 1, rh - 1);
+    }
+  }
+  ctx.fillStyle = pal.lit;
+  ctx.fillRect(x, top, 2, h);
+  ctx.fillStyle = pal.shade;
+  ctx.fillRect(x + w - 3, top, 3, h);
+};
+
+// Sawn planks, laid across. `vert` stands them on end for a palisade or shaft.
+export const plankFace = (ctx, x, top, w, h, mid = "#8a6238", lit = "#a0754a", dark = "#5f4326", vert = false) => {
+  if (w <= 0 || h <= 0) return;
+  ctx.fillStyle = mid;
+  ctx.fillRect(x, top, w, h);
+  ctx.fillStyle = dark;
+  if (vert) {
+    for (let px = x + 5; px < x + w - 1; px += 6) ctx.fillRect(px, top, 1, h);
+    for (let px = x + 2; px < x + w - 1; px += 6) {           // grain
+      ctx.fillRect(px, top + 2 + (hash2(px, 1) % 4), 1, 3);
+    }
+  } else {
+    for (let py = top + 4; py < top + h - 1; py += 5) ctx.fillRect(x, py, w, 1);
+    for (let py = top + 1; py < top + h - 1; py += 5) {
+      const gx = x + 2 + (hash2(py, 3) % Math.max(1, w - 6));
+      ctx.fillRect(gx, py, 3, 1);
+    }
+  }
+  ctx.fillStyle = lit;
+  ctx.fillRect(x, top, vert ? 2 : w, vert ? h : 2);
+};
+
+// A stepped footing so a tower sits on the ground instead of ending at it.
+export const plinth = (ctx, x, baseY, halfW, pal = STONE) => {
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - halfW - 4, baseY - 5, (halfW + 4) * 2, 7);
+  ctx.fillStyle = pal.mid;
+  ctx.fillRect(x - halfW - 3, baseY - 4, (halfW + 3) * 2, 5);
+  ctx.fillStyle = pal.lit;
+  ctx.fillRect(x - halfW - 3, baseY - 4, (halfW + 3) * 2, 1);
+  ctx.fillStyle = pal.shade;
+  ctx.fillRect(x - halfW - 3, baseY, (halfW + 3) * 2, 1);
+  ctx.fillStyle = pal.mortar;
+  for (let i = -halfW; i < halfW; i += 8) ctx.fillRect(x + i, baseY - 4, 1, 5);
+};
+
+// Corbels: the little brackets that carry a platform over a shaft.
+export const corbels = (ctx, x, y, halfW, col = "#5f4326") => {
+  ctx.fillStyle = INK;
+  for (const s of [-1, 1]) ctx.fillRect(x + s * halfW - (s < 0 ? 5 : 0), y, 5, 6);
+  ctx.fillStyle = col;
+  for (const s of [-1, 1]) ctx.fillRect(x + s * halfW - (s < 0 ? 4 : 0), y + 1, 3, 4);
+};
+
 export const drawArcherTower = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
@@ -20,26 +112,19 @@ export const drawArcherTower = (ctx, t, time) => {
   const wood = lvl === 1 && !t.branch;
   ctx.fillStyle = INK;
   ctx.fillRect(x - wdt - 2, y - h + 6, wdt * 2 + 4, h + 10);
-  ctx.fillStyle = wood ? "#8a6238" : "#9a958a";
-  ctx.fillRect(x - wdt, y - h + 8, wdt * 2, h + 6);
-  ctx.fillStyle = wood ? "#a0754a" : "#b5b0a2";
-  ctx.fillRect(x - wdt, y - h + 8, 4, h + 6);
-  if (wood) {
-    ctx.fillStyle = "#6e4c28";
-    for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * 6, y - h + 8, 2, h + 6);
-  } else {
-    ctx.fillStyle = "#7d786e";
-    for (let i = 0; i < 3; i++) ctx.fillRect(x - wdt, y - h + 14 + i * 8, wdt * 2, 2);
-  }
+  if (wood) plankFace(ctx, x - wdt, y - h + 8, wdt * 2, h + 6, "#8a6238", "#a0754a", "#5f4326", true);
+  else stoneWall(ctx, x - wdt, y - h + 8, wdt * 2, h + 6);
+  plinth(ctx, x, y + 14, wdt, wood ? DAUB : STONE);
   const pw = 14 + lvl * 2;
+  corbels(ctx, x, y - h + 8, wdt + 2);
   ctx.fillStyle = INK;
   ctx.fillRect(x - pw - 2, y - h, (pw + 2) * 2, 11);
-  ctx.fillStyle = "#8a6238";
-  ctx.fillRect(x - pw, y - h + 2, pw * 2, 7);
-  ctx.fillStyle = "#a0754a";
-  ctx.fillRect(x - pw, y - h + 2, pw * 2, 2);
+  plankFace(ctx, x - pw, y - h + 2, pw * 2, 7);
+  // rail posts around the platform edge
   ctx.fillStyle = "#5f4326";
   for (let i = -2; i <= 2; i++) ctx.fillRect(x + i * S(pw / 2.2) - 2, y - h - 4, 4, 6);
+  ctx.fillStyle = "#4a3018";
+  for (let i = -2; i <= 2; i++) ctx.fillRect(x + i * S(pw / 2.2) - 2, y - h - 4, 1, 6);
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
   const bc = r4 === "aa" ? "#7cc85c" : r4 === "ab" ? "#9fc4dc" : r4 === "ba" ? "#c4c8d0" : r4 === "bb" ? "#d8b34a"
     : t.branch === "a" ? "#5c8a44" : t.branch === "b" ? "#4a6a92" : "#a04a3f";
@@ -171,10 +256,16 @@ export const drawWizardSpire = (ctx, t, time) => {
   }
   ctx.fillStyle = INK;
   ctx.fillRect(x - 12, y - bodyH - 2, 24, bodyH + 18);
-  ctx.fillStyle = "#8a8496";
-  ctx.fillRect(x - 10, y - bodyH, 20, bodyH + 14);
-  ctx.fillStyle = "#a29cb2";
-  ctx.fillRect(x - 10, y - bodyH, 4, bodyH + 14);
+  stoneWall(ctx, x - 10, y - bodyH, 20, bodyH + 14, SPIRE);
+  plinth(ctx, x, y + 14, 11, SPIRE);
+  // an arched window part way up, lit from within
+  const winY = y - bodyH + 10;
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 4, winY, 8, 10);
+  ctx.fillStyle = "#3a3448";
+  ctx.fillRect(x - 3, winY + 1, 6, 8);
+  ctx.fillStyle = pulseWin(time, t.id) ? "#e8d47a" : "#8a7a4a";
+  ctx.fillRect(x - 2, winY + 3, 4, 5);
   ctx.fillStyle = trim;
   ctx.fillRect(x - 10, y - bodyH, 20, 3);
   const pulse = Math.sin(time * 3 + t.id) > 0;
@@ -243,12 +334,11 @@ export const drawCatapult = (ctx, t, time) => {
   // wooden deck
   ctx.fillStyle = INK;
   ctx.fillRect(x - hw - 2, y + 2, hw * 2 + 4, 14);
-  ctx.fillStyle = wood;
-  ctx.fillRect(x - hw, y + 4, hw * 2, 10);
-  ctx.fillStyle = woodLt;
-  ctx.fillRect(x - hw, y + 4, hw * 2, 3);
-  ctx.fillStyle = dark;
+  plankFace(ctx, x - hw, y + 4, hw * 2, 10, wood, woodLt, dark);
+  ctx.fillStyle = dark;   // iron straps across the deck
   for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * 8 - 1, y + 4, 2, 10);
+  ctx.fillStyle = "#9aa0ac";
+  for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * 8 - 1, y + 5, 1, 8);
   // wheels
   ctx.fillStyle = INK;
   ctx.fillRect(x - hw - 3, y + 8, 6, 8);
@@ -261,9 +351,8 @@ export const drawCatapult = (ctx, t, time) => {
   ctx.fillStyle = INK;
   ctx.fillRect(x - 7, y + 4 - fh, 5, fh);
   ctx.fillRect(x + 3, y + 4 - fh, 5, fh);
-  ctx.fillStyle = wood;
-  ctx.fillRect(x - 6, y + 4 - fh + 1, 3, fh - 2);
-  ctx.fillRect(x + 4, y + 4 - fh + 1, 3, fh - 2);
+  plankFace(ctx, x - 6, y + 4 - fh + 1, 3, fh - 2, wood, woodLt, dark, true);
+  plankFace(ctx, x + 4, y + 4 - fh + 1, 3, fh - 2, wood, woodLt, dark, true);
   // crossbeam at pivot
   const py = y + 4 - fh + 2;
   ctx.fillStyle = INK;
@@ -382,14 +471,14 @@ export const drawGarrison = (ctx, t, time) => {
     }
   }
   // walls
-  const wall = paladin ? "#d8d2be" : berserk ? "#6a4634" : "#9a7a52";
-  const wallLt = paladin ? "#e8e0cc" : berserk ? "#7d5540" : "#ae8c60";
+  const wallPal = paladin ? PALE_STONE : berserk ? DARKWOOD_WALL : DAUB;
   ctx.fillStyle = INK;
   ctx.fillRect(x - hw - 2, baseY - wallH - 2, hw * 2 + 4, wallH + 2);
-  ctx.fillStyle = wall;
-  ctx.fillRect(x - hw, baseY - wallH, hw * 2, wallH);
-  ctx.fillStyle = wallLt;
-  ctx.fillRect(x - hw, baseY - wallH, 4, wallH);
+  if (berserk) plankFace(ctx, x - hw, baseY - wallH, hw * 2, wallH, wallPal.mid, wallPal.lit, wallPal.mortar, true);
+  else stoneWall(ctx, x - hw, baseY - wallH, hw * 2, wallH, wallPal);
+  // sill course along the foot of the wall
+  ctx.fillStyle = wallPal.shade;
+  ctx.fillRect(x - hw, baseY - 2, hw * 2, 2);
   // pitched roof, stepped
   const roofCol = paladin ? "#d8b34a" : berserk ? "#48291f" : "#a0503c";
   const roofLt = paladin ? "#e8c968" : berserk ? "#5c3a2c" : "#b46450";
@@ -402,8 +491,17 @@ export const drawGarrison = (ctx, t, time) => {
   for (let i = 0; i < rows; i++) {
     const wRow = hw + 3 - Math.round(((i + 1) / rows) * (hw + 2));
     if (wRow <= 0) break;
+    const ry = baseY - wallH - 3 - i * 4;
     ctx.fillStyle = i === 0 ? roofLt : roofCol;
-    ctx.fillRect(x - wRow, baseY - wallH - 3 - i * 4, wRow * 2, 4);
+    ctx.fillRect(x - wRow, ry, wRow * 2, 4);
+    // shingle butts: a lit top edge and a notched shadow line below it
+    ctx.fillStyle = roofLt;
+    ctx.fillRect(x - wRow, ry, wRow * 2, 1);
+    ctx.fillStyle = "rgba(20,20,26,0.28)";
+    ctx.fillRect(x - wRow, ry + 3, wRow * 2, 1);
+    for (let sx = x - wRow + (i % 2 ? 2 : 5); sx < x + wRow - 1; sx += 6) {
+      ctx.fillRect(sx, ry + 1, 1, 2);
+    }
   }
   // south-facing door (knights muster out of it)
   ctx.fillStyle = INK;
@@ -467,18 +565,22 @@ export const drawBladewheel = (ctx, t, time) => {
     ctx.fillStyle = `rgba(216,118,58,${0.22 + 0.12 * Math.sin(time * 5 + t.id)})`;
     ctx.beginPath(); ctx.arc(x, y + 8, r4 ? 18 : 14, 0, 7); ctx.fill();
   }
-  // stone ring base
+  // stone ring base, laid in blocks with a dressed cap
   ctx.fillStyle = INK;
   ctx.fillRect(x - 13, y + 2, 26, 14);
-  ctx.fillStyle = "#948c80";
-  ctx.fillRect(x - 11, y + 4, 22, 10);
-  ctx.fillStyle = "#bcb4a6";
-  ctx.fillRect(x - 11, y + 4, 22, 3);
-  // center post
+  stoneWall(ctx, x - 11, y + 4, 22, 10, ALTAR);
+  ctx.fillStyle = ALTAR.lit;
+  ctx.fillRect(x - 11, y + 4, 22, 2);
+  ctx.fillStyle = ALTAR.shade;
+  ctx.fillRect(x - 11, y + 12, 22, 2);
+  // center post: a squared oak beam with an iron collar
   ctx.fillStyle = INK;
   ctx.fillRect(x - 3, y - 10, 6, 16);
-  ctx.fillStyle = "#5f4326";
-  ctx.fillRect(x - 2, y - 9, 4, 14);
+  plankFace(ctx, x - 2, y - 9, 4, 14, "#5f4326", "#7a5a34", "#3c2a18", true);
+  ctx.fillStyle = "#9aa0ac";
+  ctx.fillRect(x - 3, y - 4, 6, 2);
+  ctx.fillStyle = "#6c727e";
+  ctx.fillRect(x - 3, y - 2, 6, 1);
   // the wheel: a flat spinning disc of blades atop the post (squashed for depth)
   const spin = time * (gale ? 10 : fire ? 3 : 4.5) + t.id;
   const wy = y - 12;
@@ -577,23 +679,34 @@ export const drawSupportTower = (ctx, t, time) => {
   ctx.fillRect(x - 13, y + 14, 26, 4);
   // stone altar platform (grows with level)
   const pw = 8 + lvl * 2;
+  // stepped footing, block-laid body, and a dressed slab across the top
   ctx.fillStyle = INK;
   ctx.fillRect(x - pw - 4, y + 4, (pw + 4) * 2, 12);
-  ctx.fillStyle = "#948c80";
-  ctx.fillRect(x - pw - 3, y + 6, (pw + 3) * 2, 8);
+  stoneWall(ctx, x - pw - 3, y + 6, (pw + 3) * 2, 8, ALTAR);
   ctx.fillStyle = INK;
   ctx.fillRect(x - pw - 1, y - 2, (pw + 1) * 2, 8);
-  ctx.fillStyle = "#a8a094";
+  ctx.fillStyle = ALTAR.mid;
   ctx.fillRect(x - pw, y, pw * 2, 6);
-  ctx.fillStyle = "#bcb4a6";
-  ctx.fillRect(x - pw, y, 4, 6);
+  ctx.fillStyle = ALTAR.lit;
+  ctx.fillRect(x - pw, y, pw * 2, 2);
+  ctx.fillStyle = ALTAR.shade;
+  ctx.fillRect(x - pw, y + 5, pw * 2, 1);
+  // a rune cut into the face of the slab
+  ctx.fillStyle = ALTAR.mortar;
+  ctx.fillRect(x - 3, y + 2, 7, 1);
+  ctx.fillRect(x, y + 1, 1, 4);
   // pillars + candles (Lv2+)
   if (lvl >= 2 || t.branch) {
     for (const side of [-1, 1]) {
       const px = x + side * (pw + 6);
       ctx.fillStyle = INK; ctx.fillRect(px - 3, y - 14, 6, 22);
-      ctx.fillStyle = "#948c80"; ctx.fillRect(px - 2, y - 12, 4, 18);
-      ctx.fillStyle = "#bcb4a6"; ctx.fillRect(px - 3, y - 15, 6, 3);
+      ctx.fillStyle = ALTAR.mid; ctx.fillRect(px - 2, y - 12, 4, 18);
+      ctx.fillStyle = ALTAR.lit; ctx.fillRect(px - 2, y - 12, 1, 18);   // fluting
+      ctx.fillStyle = ALTAR.shade; ctx.fillRect(px + 1, y - 12, 1, 18);
+      ctx.fillStyle = ALTAR.mortar;
+      for (let i = 0; i < 3; i++) ctx.fillRect(px - 2, y - 8 + i * 6, 4, 1);
+      ctx.fillStyle = ALTAR.lit; ctx.fillRect(px - 3, y - 15, 6, 3);    // capital
+      ctx.fillStyle = ALTAR.shade; ctx.fillRect(px - 3, y - 12, 6, 1);
       const fl = Math.sin(time * 12 + side + t.id) > 0 ? CELL : 0;
       ctx.fillStyle = "#e8d47a";
       ctx.fillRect(px - 1, y - 19 - fl, 2, 3 + fl);
