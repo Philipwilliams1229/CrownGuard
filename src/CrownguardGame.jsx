@@ -6,10 +6,13 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { W, H, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
+import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
-import { WAVES } from "./data/waves.js";
-import { getStats } from "./engine/towers.js";
+import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
+import { loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById } from "./data/campaign.js";
+import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
+import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
   startWave, restartWave,
@@ -19,11 +22,18 @@ import { draw } from "./render/draw.js";
 import PixelIcon from "./ui/PixelIcon.jsx";
 import EnemyIcon from "./ui/EnemyIcon.jsx";
 import EnemyTooltip from "./ui/EnemyTooltip.jsx";
+import HomeScreen from "./ui/HomeScreen.jsx";
+import CampaignMap from "./ui/CampaignMap.jsx";
+import WarCouncil from "./ui/WarCouncil.jsx";
+import FieldGuide from "./ui/FieldGuide.jsx";
+import { BookIcon, PauseIcon, FlagIcon, Star } from "./ui/Glyphs.jsx";
+import { FONT, btn, panel, disabled, overlayPanel, title } from "./ui/theme.js";
 
 // Aggregate a wave's spawn list into { type, count } entries, keeping the
 // order each enemy type first appears. Used by the next-wave preview.
-function waveComposition(waveIndex) {
-  const spec = WAVES[waveIndex];
+function waveComposition(waveNum) {
+  if (waveNum < 1) return [];
+  const spec = waveSpec(waveNum);
   if (!spec) return [];
   const out = [];
   for (const [type, count] of spec) {
@@ -38,38 +48,113 @@ export default function Crownguard() {
   const canvasRef = useRef(null);
   const bufRef = useRef(null);
   const G = useRef(null);
-  const [ui, setUi] = useState({ gold: 0, lives: 0, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1 });
+  const [ui, setUi] = useState({ gold: 0, lives: 0, wave: 0, phase: "build", selected: null, buildMode: null, rallyFor: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
   const [menuOpen, setMenuOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [hoverEnemy, setHoverEnemy] = useState(null);
   const [buildOpen, setBuildOpen] = useState(false);
   const [realmId, setRealmId] = useState(REALM.id);
-  const [realmOpen, setRealmOpen] = useState(true);
+  const [factionId, setFactionId] = useState(FACTION.id);
+  const [realmOpen, setRealmOpen] = useState(false);
+  // where backing out of realm select should land you
+  const [realmReturn, setRealmReturn] = useState("home");
+  // "home" = title screen, "map" = the campaign continent, "game" = battlefield
+  const [screen, setScreen] = useState("home");
+  // "campaign" = one level of the war, "free" = pick-a-realm endless run
+  const [mode, setMode] = useState("free");
+  const [levelId, setLevelId] = useState(null);
+  const [progress, setProgress] = useState(loadProgress);
+  const [profile, setProfile] = useState(loadProfile);
+  // what the level just ended awarded: { rating, newStars, xp }
+  const [award, setAward] = useState(null);
+  const level = levelId ? levelById(levelId) : null;
   const uiRef = useRef(ui);
   uiRef.current = ui;
 
-  const initGame = useCallback(() => {
-    // SANDBOX MODE: unlimited gold while the owner explores the tech trees.
-    // Restore to 250 for the real economy.
-    const START_GOLD = 999999;
+  const initGame = useCallback((startGold = 250) => {
+    const START_GOLD = startGold;
     G.current = {
+      // tallies for the profile — banked when the level ends
+      run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 },
       gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build",
       towers: [], enemies: [], projectiles: [], effects: [],
       spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
       selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
-      cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false,
+      cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false,
     };
     setBuildOpen(false);
-    setUi({ gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1 });
+    setUi({ gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
   }, []);
 
   // Swap the battlefield: rebuild road + scenery for the realm, then start a
-  // fresh campaign on it.
+  // fresh Free Play run on it — full fifteen waves, then the Endless March.
   const chooseRealm = (id) => {
     selectRealm(id);
+    selectFaction(factionId);
+    setWaveWindow(null);
     setRealmId(id);
+    setMode("free");
+    setLevelId(null);
     initGame();
     setRealmOpen(false);
+    setScreen("game");
   };
+
+  // Ride out on one campaign level: its map, its army, its slice of the wave
+  // script, and the war chest it starts you with.
+  const startLevel = (lv) => {
+    selectRealm(lv.realm);
+    selectFaction(lv.chapter.faction);
+    setWaveWindow(lv.window);
+    setRealmId(lv.realm);
+    setFactionId(lv.chapter.faction);
+    setMode("campaign");
+    setLevelId(lv.id);
+    setAward(null);
+    initGame(lv.gold);
+    setRealmOpen(false);
+    setMenuOpen(false);
+    setScreen("game");
+  };
+
+  const openMap = () => {
+    if (G.current) G.current.paused = false;
+    setMenuOpen(false);
+    setRealmOpen(false);
+    setProgress(loadProgress());
+    setScreen("map");
+  };
+
+  // The side menu IS the pause screen: opening it halts the battle, and every
+  // way out of it (Resume, ✕, tapping the board) starts things moving again.
+  const openMenu = () => {
+    if (G.current) G.current.paused = true;
+    setMenuOpen(true);
+  };
+  const closeMenu = () => {
+    if (G.current) G.current.paused = false;
+    setMenuOpen(false);
+  };
+  // Reading the guide holds the battle too — but if the pause menu is behind it,
+  // that menu stays in charge of un-pausing.
+  const openGuide = () => {
+    if (G.current) G.current.paused = true;
+    setGuideOpen(true);
+  };
+  const closeGuide = () => {
+    if (G.current && !menuOpen) G.current.paused = false;
+    setGuideOpen(false);
+  };
+  const goHome = () => {
+    if (G.current) G.current.paused = false;
+    setMenuOpen(false);
+    setRealmOpen(false);
+    setScreen("home");
+  };
+  // Open realm select, remembering whether cancelling means "back to the
+  // title screen" or "back to the battle already in progress".
+  const openRealmSelect = (from) => { setRealmReturn(from); setRealmOpen(true); };
+  const closeRealmSelect = () => (realmReturn === "home" ? goHome() : setRealmOpen(false));
 
   // Mirror the build-drawer open state into the game so the update loop can
   // apply the tactical half-speed while the player is building.
@@ -81,6 +166,32 @@ export default function Crownguard() {
   useEffect(() => {
     if (ui.selected) setBuildOpen(false);
   }, [ui.selected]);
+
+  // The moment a campaign level ends, bank it: all-time tallies either way,
+  // and on a win the stars, the XP and the next stretch of road. g.run is
+  // zeroed afterwards so retrying a lost wave can't count its kills twice.
+  useEffect(() => {
+    if (!ui.result) return;
+    const g = G.current;
+    // a Free Play run has no level to rate, but its tallies still count
+    if (mode !== "campaign" || !levelId) {
+      setProfile({ ...bankFreeRun(profile, { waves: Math.max(0, ui.wave - (ui.result === "won" ? 0 : 1)), run: g?.run }) });
+      if (g) g.run = { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 };
+      return;
+    }
+    const lv = levelById(levelId);
+    if (!lv) return;
+    const won = ui.result === "won";
+    setAward(bankLevel(profile, lv, {
+      livesLeft: ui.lives, maxLives: CASTLE_HP,
+      waves: won ? lv.window.count : Math.max(0, ui.wave - 1),
+      run: g?.run, won,
+    }));
+    if (g) g.run = { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 };
+    setProfile(loadProfile());
+    if (won) setProgress(markCleared(levelId));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ui.result, mode, levelId]);
 
   // ============ MAIN LOOP ============
   useEffect(() => {
@@ -95,20 +206,23 @@ export default function Crownguard() {
       last = now;
 
       updateGame(g, dt);
+      // a garrison sold mid-move takes its rally prompt with it
+      if (g.rallyFor != null && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
       draw(g, canvasRef.current, bufRef);
 
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
       const sel = g.towers.find((t) => t.id === g.selectedId) || null;
-      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}` : null;
+      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
       const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
-      if (u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY) {
+      const rallyFor = g.rallyFor ?? null;
+      if (u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush) {
         setUi({
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
-          selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested } : null,
-          selKey, buildMode: g.buildMode, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY,
+          selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim } : null,
+          selKey, buildMode: g.buildMode, rallyFor, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY, rush: g.rush,
           result: g.phase === "won" ? "won" : g.phase === "lost" ? "lost" : null,
         });
       }
@@ -148,9 +262,26 @@ export default function Crownguard() {
     g.cam.y = wy - (H / 2) / z;
     clampCam(g);
   };
+  // Posting a rally flag: the garrison's panel steps aside so the whole circle
+  // is reachable, and a click anywhere plants the flag — outside the circle it
+  // slides to the nearest spot on the rim rather than missing.
+  const postRally = (g, t, x, y) => {
+    const dx = x - t.x, dy = y - t.y;
+    const d = Math.hypot(dx, dy);
+    const k = d > RALLY_RANGE ? RALLY_RANGE / d : 1;
+    t.rally = { x: t.x + dx * k, y: t.y + dy * k };
+    g.effects.push({ type: "levelup", x: t.rally.x, y: t.rally.y, ttl: 500 });
+    g.rallyFor = null;
+  };
   const handleTap = (x, y) => {
     const g = G.current;
     if (!g || g.phase === "won" || g.phase === "lost" || g.paused) return;
+    if (g.rallyFor != null) {
+      const t = g.towers.find((tt) => tt.id === g.rallyFor);
+      if (t) postRally(g, t, x, y);
+      else g.rallyFor = null;
+      return;
+    }
     if (g.buildMode) {
       placeTower(g, g.buildMode, x, y);
       // placeTower clears buildMode on success — close the drawer with it
@@ -163,12 +294,9 @@ export default function Crownguard() {
     if (t) { g.selectedId = t.id; return; }
     // selected garrison: click inside its circle to move the rally flag
     const selT = g.towers.find((tt) => tt.id === g.selectedId);
-    if (selT && selT.kind === "knight") {
-      if (Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE) {
-        selT.rally = { x, y };
-        g.effects.push({ type: "levelup", x, y, ttl: 500 });
-        return;
-      }
+    if (selT && selT.kind === "knight" && Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE) {
+      postRally(g, selT, x, y);
+      return;
     }
     g.selectedId = null;
   };
@@ -224,116 +352,128 @@ export default function Crownguard() {
     );
   });
 
-  const FONT = "Verdana, Geneva, sans-serif";
-  const btn = {
-    fontFamily: FONT, cursor: "pointer", border: "2px solid #10131a",
-    background: "#3a4150", color: "#e8e0c8", borderRadius: 0,
-    padding: "8px 10px", fontSize: 12, textAlign: "left",
-    boxShadow: "inset -2px -2px 0 #262b36, inset 2px 2px 0 #545c6e",
-  };
-  const panel = {
-    background: "#2c313c", border: "3px solid #10131a", borderRadius: 0, padding: 10,
-    boxShadow: "inset 0 0 0 2px #454c5a",
-  };
-  const disabled = { opacity: 0.45, cursor: "not-allowed" };
   const statLabel = { fontSize: 9, letterSpacing: 1, opacity: 0.6, marginRight: 3 };
-  const overlayPanel = {
-    background: "rgba(38,42,52,0.97)", border: "3px solid #10131a", boxSizing: "border-box",
-  };
 
   // The build drawer covers the board's right side, so it slides out of the way
   // while a tower is actively being placed (buildMode set) or a tower is selected
   // (its pop-up takes over), keeping the board clear and one panel showing at a time.
   const drawerVisible = buildOpen && !ui.buildMode && !sel;
 
+  // Title screen: the campaign goes through the map, Free Play through realm select.
+  if (screen === "home") {
+    return (
+      <HomeScreen
+        progress={progress}
+        profile={profile}
+        onContinue={openMap}
+        onNewCampaign={() => { setProgress(resetProgress()); setScreen("map"); }}
+        onFreePlay={() => { setMode("free"); setLevelId(null); openRealmSelect("home"); setScreen("game"); }}
+        onCouncil={() => setScreen("council")}
+      />
+    );
+  }
+
+  // Where stars are spent: the permanent per-tower skill trees.
+  if (screen === "council") {
+    return <WarCouncil profile={profile} setProfile={setProfile} onBack={() => setScreen("home")} />;
+  }
+
+  // The continent: where the campaign is chosen from and returned to.
+  if (screen === "map") {
+    return (
+      <CampaignMap
+        progress={progress}
+        profile={profile}
+        onStart={startLevel}
+        onBack={() => setScreen("home")}
+        onReset={() => setProgress(resetProgress())}
+      />
+    );
+  }
+
   return (
-    <div style={{ minHeight: "100vh", background: "#20242c", color: "#e8e0c8", fontFamily: FONT, padding: 12, boxSizing: "border-box" }}>
+    <div style={{ minHeight: "100dvh", background: "#20242c", color: "#e8e0c8", fontFamily: FONT, padding: 12, boxSizing: "border-box" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
-          <button aria-label="Open settings menu" onClick={() => setMenuOpen(true)}
-            style={{ ...btn, fontSize: 16, padding: "4px 12px", lineHeight: 1 }}>☰</button>
-          <h1 style={{ margin: 0, fontSize: 22, letterSpacing: 4, color: "#d8b34a", textShadow: "2px 2px 0 #10131a" }}>CROWNGUARD</h1>
-          <span style={{ fontSize: 11, opacity: 0.7 }}>
-            <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> — hold the road. The castle must not fall.
-          </span>
-        </div>
-
+        {/* ---- PAUSE MENU ---- fills the screen, the battle dim behind it ---- */}
         {menuOpen && (
-          <div onClick={() => setMenuOpen(false)}
-            style={{ position: "fixed", inset: 0, background: "rgba(12,12,16,0.6)", zIndex: 40 }} />
-        )}
-        <div style={{
-          position: "fixed", top: 0, left: 0, bottom: 0, width: 300, maxWidth: "85vw", zIndex: 50,
-          background: "#2c313c", borderRight: "3px solid #10131a", padding: 16, boxSizing: "border-box",
-          overflowY: "auto", transform: menuOpen ? "translateX(0)" : "translateX(-105%)",
-          transition: "transform 0.25s ease",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <div style={{ fontSize: 13, letterSpacing: 3, color: "#d8b34a" }}>SETTINGS</div>
-            <button aria-label="Close settings menu" onClick={() => setMenuOpen(false)} style={{ ...btn, padding: "2px 10px", fontSize: 13 }}>✕</button>
-          </div>
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            background: "rgba(20,23,30,0.86)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            gap: 6, padding: 20, boxSizing: "border-box", overflowY: "auto",
+          }}>
+            <div style={{ ...title(24), fontSize: "clamp(20px, 6.5vw, 30px)" }}>CROWNGUARD</div>
+            <div style={{ fontSize: 10, letterSpacing: 3, opacity: 0.55, marginBottom: 16 }}>PAUSED</div>
 
-          <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 6 }}>GAME SPEED</div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            {[1, 2, 4].map((s) => (
-              <button key={s}
-                style={{ ...btn, flex: 1, textAlign: "center", ...(ui.speed === s ? { background: "#5a4f2c", boxShadow: "inset 2px 2px 0 #3a3420, inset -2px -2px 0 #7a6a3c" } : {}) }}
-                onClick={() => { if (G.current) G.current.speed = s; }}>
-                {s}x
+            <div style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", maxWidth: 320 }}>
+              <button style={{ ...btn, textAlign: "center", padding: "15px 10px", fontSize: 14, letterSpacing: 1, background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" }}
+                onClick={closeMenu}>
+                Resume
               </button>
-            ))}
-          </div>
+              <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }}
+                onClick={openGuide}>
+                Field Guide
+              </button>
+              <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13, ...(ui.canRestart ? {} : disabled) }} disabled={!ui.canRestart}
+                onClick={() => { restartWave(G.current); closeMenu(); }}>
+                Restart Wave
+              </button>
+              {mode === "campaign" ? (
+                <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }} onClick={openMap}>
+                  Campaign Map
+                </button>
+              ) : (
+                <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }}
+                  onClick={() => { openRealmSelect("game"); closeMenu(); }}>
+                  Choose Realm...
+                </button>
+              )}
+              <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }} onClick={goHome}>
+                Main Menu
+              </button>
+            </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
-            <button style={{ ...btn, textAlign: "center" }}
-              onClick={() => { if (G.current) G.current.paused = !G.current.paused; }}>
-              {ui.paused ? "Resume" : "Pause"}
-            </button>
-            <button style={{ ...btn, textAlign: "center", ...(ui.canRestart ? {} : disabled) }} disabled={!ui.canRestart}
-              onClick={() => { restartWave(G.current); setMenuOpen(false); }}>
-              Restart Wave
-            </button>
-            <button style={{ ...btn, textAlign: "center" }}
-              onClick={() => { setRealmOpen(true); setMenuOpen(false); }}>
-              New Campaign...
-            </button>
+            <div style={{ fontSize: 10, opacity: 0.5, marginTop: 16 }}>
+              {level && <span style={{ opacity: 0.8 }}>Chapter {level.chapter.numeral} · </span>}
+              <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{scriptedWaves()}
+            </div>
           </div>
+        )}
 
-          <div style={{ borderTop: "2px solid #10131a", paddingTop: 12, fontSize: 11, lineHeight: 1.65, opacity: 0.9 }}>
-            <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.8, marginBottom: 6 }}>FIELD GUIDE</div>
-            <b>Knights</b> march out and each pin one enemy in melee — the rest push past. Fallen knights respawn in 7s. Knights muster just south of their hall; select the hall and click inside its circle to move the rally flag.<br /><br />
-            <b>Warden Mages</b> chill every enemy in their aura. Their paths: call deep winter (frost novas that flash-freeze) or bind life (mending and warding knights).<br /><br />
-            <b>Wizards</b> are pure offense — fire that burns and spreads, or storm-lightning that chains down the line. Both ignore armor.<br /><br />
-            <b>Catapults</b> lob boulders in a high arc — heavy physical splash at long range, but they cannot strike foes inside their inner red circle. Rocks land where the enemy was <i>headed</i>, so fast runners can slip the blast.<br /><br />
-            <b>Ironclads</b> (shield badge) shrug off half of all physical damage — magic ignores armor.<br /><br />
-            <b>Dire wolves</b> are fast; blocking, slows, and stuns tame them.<br /><br />
-            <b>Trolls</b> regenerate and hit knights hard — burst them down.<br /><br />
-            The <b>dragon</b> flies — knights cannot block it.<br /><br />
-            <b>The castle has 20 HP</b>, carried between waves. Goblins &amp; wolves cost 1, orcs &amp; ironclads 2, trolls 3, the dragon 5. It cracks, smokes, and burns as it weakens.<br /><br />
-            Towers reach Lv 3, then <b>evolve down one of several paths</b> — and some evolutions can <b>ascend once more</b> into a final form. The archer line leads the way.<br /><br />
-            After a wave, the next <b>auto-starts in 30s</b>. Sound the horn early for bonus gold.<br /><br />
-            <b>Building or selecting a tower</b> slows the battle to half-speed so you have time to think.<br /><br />
-            <b>Zoom</b> with the -/+ buttons; drag the map to pan while zoomed.
-          </div>
-        </div>
+        {guideOpen && <FieldGuide onClose={closeGuide} />}
 
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
+          {/* where in the war you are standing */}
+          {level && (
+            <div style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 10, letterSpacing: 1, padding: "0 2px 6px" }}>
+              <span style={{ color: "#d8b34a" }}>CHAPTER {level.chapter.numeral}</span>
+              <span style={{ opacity: 0.85 }}>{level.name}</span>
+              <span style={{ marginLeft: "auto", opacity: 0.5 }}>{level.chapter.name}</span>
+            </div>
+          )}
+
           {/* stat bar */}
           <div style={{ display: "flex", gap: 14, padding: "6px 10px", background: "#2c313c", border: "3px solid #10131a", borderBottom: "none", fontSize: 13, flexWrap: "wrap", alignItems: "center", boxShadow: "inset 0 0 0 2px #454c5a" }}>
             <span><span style={statLabel}>GOLD</span><b style={{ color: "#e8d47a" }}>{ui.gold}</b></span>
             <span><span style={statLabel}>CASTLE</span><b style={{ color: ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.6 }}>/{CASTLE_HP}</span></span>
-            <span><span style={statLabel}>WAVE</span><b>{ui.wave}</b><span style={{ opacity: 0.6 }}>/{WAVES.length}</span></span>
+            <span><span style={statLabel}>WAVE</span><b>{ui.wave}</b><span style={{ opacity: 0.6 }}>/{ui.wave > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
             <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
               <button title="Zoom out" style={{ ...btn, padding: "2px 9px", fontSize: 12 }} onClick={() => setZoom((G.current?.cam.zoom || 1) / 1.3)}>-</button>
               <button title="Zoom in" style={{ ...btn, padding: "2px 9px", fontSize: 12 }} onClick={() => setZoom((G.current?.cam.zoom || 1) * 1.3)}>+</button>
               {ui.zoom > 1 && <button title="Reset view" style={{ ...btn, padding: "2px 9px", fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
-              <button title={ui.paused ? "Resume" : "Pause"} style={{ ...btn, padding: "2px 10px", fontSize: 11, ...(ui.paused ? { background: "#5a4f2c" } : {}) }}
-                onClick={() => { if (G.current) G.current.paused = !G.current.paused; }}>
-                {ui.paused ? "resume" : "pause"}
-              </button>
-              <button style={{ ...btn, padding: "2px 10px", fontSize: 11, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
+              <button title="Game speed" style={{ ...btn, padding: "2px 10px", fontSize: 11, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
                 onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
                 {ui.speed}x
+              </button>
+              <button title="Field guide" aria-label="Open the field guide"
+                style={{ ...btn, padding: "4px 10px", display: "flex", alignItems: "center", ...(guideOpen ? { background: "#5a4f2c" } : {}) }}
+                onClick={openGuide}>
+                <BookIcon />
+              </button>
+              <button title="Pause and open the menu" aria-label="Pause and open the menu"
+                style={{ ...btn, padding: "4px 11px", display: "flex", alignItems: "center", ...(menuOpen ? { background: "#5a4f2c" } : {}) }}
+                onClick={openMenu}>
+                <PauseIcon />
               </button>
             </span>
           </div>
@@ -364,6 +504,15 @@ export default function Crownguard() {
               </div>
             )}
 
+            {/* rally hint — the garrison's panel is hidden meanwhile, so the
+                whole circle is free to click */}
+            {ui.rallyFor != null && (
+              <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 22, ...overlayPanel, borderWidth: 2, padding: "6px 10px", fontSize: 11, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "92%" }}>
+                <span>Posting the <b style={{ color: "#e8d47a" }}>rally flag</b> — click where the knights should stand.</span>
+                <button aria-label="Cancel rally move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
+              </div>
+            )}
+
             {/* build drawer (right side) */}
             <div style={{
               position: "absolute", top: 0, right: 0, bottom: 0, width: "72%", maxWidth: 264, zIndex: 30,
@@ -375,20 +524,23 @@ export default function Crownguard() {
                 <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75 }}>RAISE DEFENSES</div>
                 <button aria-label="Close build menu" onClick={() => setBuildOpen(false)} style={{ ...btn, padding: "2px 9px", fontSize: 13 }}>✕</button>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {/* sprite tiles, two to a row — same shape as the field guide's grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 {Object.entries(TOWERS).map(([key, def]) => {
                   const can = ui.gold >= def.cost;
                   const active = ui.buildMode === key;
                   return (
-                    <button key={key}
-                      style={{ ...btn, display: "flex", gap: 8, alignItems: "center", ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}) }}
+                    <button key={key} title={def.blurb}
+                      style={{
+                        ...btn, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
+                        gap: 5, padding: "10px 4px 8px", textAlign: "center", minHeight: 92,
+                        ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}),
+                      }}
                       onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.selectedId = null; }}
                       disabled={!can}>
-                      <PixelIcon kind={key} />
-                      <span style={{ flex: 1 }}>
-                        <div style={{ fontWeight: "bold", fontSize: 12 }}>{def.name} <span style={{ color: "#e8d47a" }}>{def.cost}g</span></div>
-                        <div style={{ fontSize: 10, opacity: 0.75 }}>{def.blurb}</div>
-                      </span>
+                      <PixelIcon kind={key} size={34} />
+                      <span style={{ fontSize: 10.5, fontWeight: "bold", lineHeight: 1.25 }}>{def.name}</span>
+                      <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
                     </button>
                   );
                 })}
@@ -399,7 +551,7 @@ export default function Crownguard() {
             {/* selected tower pop-up, anchored beside the tower itself:
                 above & to the right by default, flipping left near the right
                 edge and below near the top so it always stays on the board. */}
-            {sel && selDef && (() => {
+            {sel && selDef && ui.rallyFor == null && (() => {
               const g = G.current;
               const t = g?.towers.find((x) => x.id === sel.id);
               if (!t) return null;
@@ -433,10 +585,15 @@ export default function Crownguard() {
                       {(() => {
                         const t = G.current?.towers.find((x) => x.id === sel.id);
                         if (!t) return "";
-                        const st = getStats(t);
+                        // perks leave stats fractional on purpose — round for the panel
+                        const raw = getStats(t);
+                        const st = { ...raw };
+                        for (const k of ["dmg", "hp", "range", "splash", "heal", "colddps"]) {
+                          if (typeof st[k] === "number") st[k] = Math.round(st[k]);
+                        }
                         if (t.kind === "knight") return `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
                         if (t.kind === "support") return `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
-                        return `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""} · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.poolDps ? " · lava pools" : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
+                        return `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""}${st.spikes ? ` ×${st.spikes} spikes, all directions` : ""}${st.nova ? " · flame ring hits ALL in reach" : ""}${st.spikePierce > 1 ? " · spikes skewer through" : ""} · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.poolDps ? " · lava pools" : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
                       })()}
                     </div>
                   </div>
@@ -444,10 +601,47 @@ export default function Crownguard() {
                 </div>
 
                 {sel.kind === "knight" && (
-                  <div style={{ fontSize: 10, marginTop: 6, color: "#a8d88c" }}>
-                    Click anywhere inside the circle to move the rally flag.
-                  </div>
+                  <button style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
+                    <FlagIcon /> Move Rally Flag
+                  </button>
                 )}
+
+                {/* standing orders: who this tower shoots at */}
+                {(() => {
+                  const st = getStats(t);
+                  const modes = aimModes(t, st);
+                  if (!modes.length) return null;
+                  const forced = forcedAim(st);
+                  return (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 10, letterSpacing: 2, color: "#e8d47a", marginBottom: 5 }}>TARGETS</div>
+                      {forced ? (
+                        <div style={{ fontSize: 10, opacity: 0.75 }}>
+                          Sworn to the hunt — always takes <b style={{ color: "#e8e0c8" }}>the mightiest foe</b>.
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {modes.map((m) => (
+                              <button key={m.id} title={m.hint}
+                                style={{
+                                  ...btn, flex: "1 1 auto", padding: "5px 6px", fontSize: 10, textAlign: "center",
+                                  ...(sel.aim === m.id ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}),
+                                }}
+                                onClick={() => { const tt = G.current?.towers.find((x) => x.id === sel.id); if (tt) tt.aim = m.id; }}>
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>
+                            {(modes.find((m) => m.id === sel.aim) || modes[0]).hint}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {!sel.branch && sel.level < 3 && (() => {
                   const nxt = selDef.levels[sel.level];
@@ -517,13 +711,35 @@ export default function Crownguard() {
 
             {/* realm select: shown at first load and when starting a new campaign */}
             {realmOpen && (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(12,12,16,0.88)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, zIndex: 48, padding: 14, boxSizing: "border-box", overflowY: "auto" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ position: "fixed", inset: 0, background: "rgba(12,12,16,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", gap: 10, zIndex: 55, padding: 16, boxSizing: "border-box", overflowY: "auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: "auto" }}>
                   <div style={{ fontSize: 16, letterSpacing: 3, color: "#d8b34a", textShadow: "2px 2px 0 #10131a" }}>CHOOSE YOUR REALM</div>
-                  <button aria-label="Close realm select" onClick={() => setRealmOpen(false)} style={{ ...btn, padding: "2px 9px", fontSize: 13 }}>✕</button>
+                  <button aria-label="Back" onClick={closeRealmSelect} style={{ ...btn, padding: "4px 12px", fontSize: 14 }}>✕</button>
                 </div>
-                <div style={{ fontSize: 10, opacity: 0.7, marginTop: -4 }}>Choosing a realm begins a new campaign.</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, width: "100%", maxWidth: 620 }}>
+                <div style={{ fontSize: 10, opacity: 0.7, marginTop: -4 }}>Pick who you're fighting, then a realm to fight them on.</div>
+
+                {/* which army marches — the campaign's chapter, in miniature */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 10, width: "100%", maxWidth: 620 }}>
+                  {Object.values(FACTIONS).map((f) => (
+                    <button key={f.id} onClick={() => setFactionId(f.id)}
+                      style={{
+                        ...btn, display: "flex", flexDirection: "column", gap: 5, padding: 8, textAlign: "left",
+                        ...(f.id === factionId
+                          ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" }
+                          : {}),
+                      }}>
+                      <span style={{ fontWeight: "bold", fontSize: 13, color: "#e8e0c8" }}>
+                        {f.name} <span style={{ fontSize: 9, letterSpacing: 1, color: f.tagColor, marginLeft: 4 }}>{f.tag}</span>
+                      </span>
+                      <span style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 30 }}>
+                        {f.types.map((ty) => <EnemyIcon key={ty} type={ty} box={26} />)}
+                      </span>
+                      <span style={{ fontSize: 10, opacity: 0.8, lineHeight: 1.45 }}>{f.blurb}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 10, width: "100%", maxWidth: 620, marginBottom: "auto" }}>
                   {Object.values(REALMS).map((r) => (
                     <button key={r.id} onClick={() => chooseRealm(r.id)}
                       style={{ ...btn, display: "flex", gap: 10, padding: 8, alignItems: "stretch", ...(r.id === realmId ? { boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}>
@@ -552,36 +768,87 @@ export default function Crownguard() {
               </div>
             )}
 
-            {(ui.result === "won" || ui.result === "lost") && (
+            {(ui.result === "won" || ui.result === "lost") && (() => {
+              const campaign = mode === "campaign" && level;
+              const nxt = campaign ? nextLevel(level.id) : null;
+              const lastOfChapter = campaign && level.index === level.chapter.levels.length - 1;
+              return (
               <div style={{ position: "absolute", inset: 0, background: "rgba(12,12,16,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, textAlign: "center", zIndex: 45 }}>
                 <div style={{ fontSize: 20, letterSpacing: 3, color: ui.result === "won" ? "#e8d47a" : "#e07a72", textShadow: "2px 2px 0 #10131a" }}>
-                  {ui.result === "won" ? "THE REALM STANDS" : "THE CASTLE HAS FALLEN"}
+                  {ui.result === "lost" ? "THE CASTLE HAS FALLEN"
+                    : campaign ? (lastOfChapter ? `${level.chapter.name.toUpperCase()} IS FREE` : `${level.name.toUpperCase()} HELD`)
+                    : "THE REALM STANDS"}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.85, maxWidth: 340 }}>
-                  {ui.result === "won"
-                    ? "The dragon is slain and the road is quiet. A victory earned — not bought."
-                    : `You fell on wave ${ui.wave}. Retry the wave with your gold and towers restored, or start fresh.`}
+                {/* stars won, and what they were worth */}
+                {campaign && ui.result === "won" && award && (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {[1, 2, 3].map((i) => <Star key={i} lit={i <= award.rating} size={30} />)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#e8d47a" }}>
+                      +{award.xp} XP
+                      {award.newStars > 0
+                        ? ` · +${award.newStars} star${award.newStars > 1 ? "s" : ""} banked`
+                        : " · no new stars — you'd already done better"}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ fontSize: 12, opacity: 0.85, maxWidth: 360, padding: "0 12px" }}>
+                  {ui.result === "lost"
+                    ? `You fell on wave ${ui.wave}. Retry the wave with your gold and towers restored, or take the level again from the start.`
+                    : campaign
+                      ? (nxt
+                          ? (lastOfChapter
+                              ? `The chapter is closed — but word of it travels. ${nxt.chapter.name} is stirring, and ${nxt.name} lies ahead.`
+                              : `The road is yours as far as ${nxt.name}. The army does not wait.`)
+                          : "The Iron throne is taken and the whole continent is yours. The war is won.")
+                      : "The dragon is slain and the road is quiet... for now. Beyond the pass, the horde has no end — march on if you dare."}
                 </div>
-                <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", padding: "0 12px" }}>
+                  {ui.result === "won" && campaign && nxt && (
+                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", background: "#5a4f2c" }}
+                      onClick={() => startLevel(nxt)}>
+                      March On — {nxt.name}
+                    </button>
+                  )}
+                  {ui.result === "won" && !campaign && (
+                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", background: "#5a4f2c" }}
+                      onClick={() => { const g = G.current; if (g) { g.phase = "build"; g.buildUntil = g.time + 30; } }}>
+                      March On — Endless
+                    </button>
+                  )}
                   {ui.result === "lost" && ui.canRestart && (
                     <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", background: "#5a4f2c" }} onClick={() => restartWave(G.current)}>Retry Wave {ui.wave}</button>
                   )}
-                  <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={() => setRealmOpen(true)}>New Campaign...</button>
+                  {ui.result === "lost" && campaign && (
+                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={() => startLevel(level)}>Restart Level</button>
+                  )}
+                  {campaign
+                    ? <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={openMap}>Campaign Map</button>
+                    : <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={() => openRealmSelect("game")}>Choose Realm...</button>}
+                  <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={goHome}>Main Menu</button>
                 </div>
               </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* wave controls + next-wave preview */}
           <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", gap: 8 }}>
               <button
-                style={{ ...btn, flex: 1, fontSize: 13, textAlign: "center", padding: "12px 8px", ...(ui.phase === "build" && ui.wave < WAVES.length ? { background: "#5a4f2c" } : {}), ...(ui.phase !== "build" ? disabled : {}) }}
+                style={{ ...btn, flex: 1, fontSize: 13, textAlign: "center", padding: "12px 8px", ...(ui.phase === "build" ? { background: "#5a4f2c" } : {}), ...(ui.phase !== "build" ? disabled : {}) }}
                 onClick={() => startWave(G.current)} disabled={ui.phase !== "build"}>
                 {ui.phase === "combat" ? `Wave ${ui.wave} in progress...`
-                  : ui.wave >= WAVES.length ? "Campaign complete"
                   : ui.cdSec != null ? (<>Start Wave {ui.wave + 1} <span style={{ color: "#e8d47a" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span><div style={{ fontSize: 10, opacity: 0.75 }}>auto-starts in {ui.cdSec}s</div></>)
                   : `Start Wave ${ui.wave + 1}`}
+              </button>
+              <button
+                title="Rush: automatically sound the horn the moment a wave is cleared, collecting the full early-start gold bonus every time"
+                style={{ ...btn, fontSize: 11, textAlign: "center", ...(ui.rush ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
+                onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
+                ⚡ Rush<br />{ui.rush ? "ON" : "OFF"}
               </button>
               <button
                 title="Restart the current/last wave with gold, castle HP, and towers restored to how they were when it began"
@@ -596,15 +863,15 @@ export default function Crownguard() {
                 <div style={{ ...panel, flex: 1 }}>
                   <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>THIS WAVE — {ui.wave}</div>
                   <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
-                    {waveChips(waveComposition(ui.wave - 1), "cur")}
+                    {waveChips(waveComposition(ui.wave), "cur")}
                   </div>
                 </div>
               )}
-              {ui.phase === "build" && ui.wave < WAVES.length && (
+              {ui.phase === "build" && (
                 <div style={{ ...panel, flex: 1 }}>
-                  <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>INCOMING — WAVE {ui.wave + 1}</div>
+                  <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>INCOMING — WAVE {ui.wave + 1}{ui.wave >= scriptedWaves() ? " · ENDLESS MARCH" : ""}</div>
                   <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
-                    {waveChips(waveComposition(ui.wave), "next")}
+                    {waveChips(waveComposition(ui.wave + 1), "next")}
                   </div>
                 </div>
               )}
