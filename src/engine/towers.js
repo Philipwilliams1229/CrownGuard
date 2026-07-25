@@ -3,18 +3,92 @@
 // knight units, keeping the unit roster in sync, and creating new towers.
 
 import { TOWERS } from "../data/towers.js";
+import { PERK_MODS } from "../data/profile.js";
 import { nextId } from "./ids.js";
 
+// Which stats the permanent skill trees are allowed to touch, and which way
+// is "better". `rate` is a reload time, so its multiplier goes DOWN to make a
+// tower faster; everything else goes up. A stat the tower doesn't have is
+// skipped, so a shared node like "+8% range" is safe on any tower.
+const PERK_STATS = ["dmg", "range", "hp", "splash", "slow", "heal", "rate"];
+
+// Fold the player's permanent upgrades for this tower kind into its stats.
+const withPerks = (kind, st) => {
+  const mods = PERK_MODS[kind];
+  if (!mods) return st;
+  // Kept exact on purpose: rounding here would swallow a +5% rank on a small
+  // stat (14 dmg +5% and +10% would both show as 15 and hit the same). The
+  // panels round for display instead.
+  for (const k of PERK_STATS) {
+    if (mods[k] == null || st[k] == null) continue;
+    st[k] = st[k] * mods[k];
+  }
+  return st;
+};
+
 // The active stats for a tower: its rank-4 form if ascended, else its branch
-// stats if evolved, else its level stats.
+// stats if evolved, else its level stats — with permanent upgrades applied.
 export const getStats = (t) => {
   const def = TOWERS[t.kind];
   if (t.branch) {
     const b = def.branches[t.branch];
     const src = t.rank4 && b.rank4 ? b.rank4[t.rank4].stats : b.stats;
-    return { ...src, dtype: src.magic ? "magic" : def.dtype };
+    return withPerks(t.kind, { ...src, dtype: src.magic ? "magic" : def.dtype });
   }
-  return { ...def.levels[t.level - 1], dtype: def.dtype };
+  return withPerks(t.kind, { ...def.levels[t.level - 1], dtype: def.dtype });
+};
+
+// ---- targeting ----
+// Every shooting tower carries an aim mode the player can flip at any time.
+// "first" is the classic default: whoever is furthest along the road, i.e.
+// closest to the castle.
+export const AIM_MODES = [
+  { id: "first", label: "First", hint: "the foe closest to your castle" },
+  { id: "last", label: "Last", hint: "the foe furthest back down the road" },
+  { id: "strong", label: "Strong", hint: "the most health left" },
+  { id: "weak", label: "Weak", hint: "the least health left — finish them off" },
+  { id: "most", label: "Most", hint: "wherever the blast catches the biggest crowd" },
+];
+
+// Which modes a given tower may use: "Most" only means something for a tower
+// whose shots splash, and towers that hit everything at once (spike rings,
+// flame novas) never pick a foe at all.
+export const aimModes = (t, st) => {
+  if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker") return [];
+  return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0);
+};
+
+// Some evolutions hunt by decree — the Ballista and Comet Sling always take
+// the mightiest foe, and the player can't talk them out of it.
+export const forcedAim = (st) => (st.targeting === "strongest" ? "strong" : null);
+
+// How many foes a splash of radius r centred on `e` would also catch.
+const crowdAt = (g, e, r) => {
+  let n = 0;
+  for (const o of g.enemies) if (!o.dead && Math.hypot(o.x - e.x, o.y - e.y) <= r) n++;
+  return n;
+};
+
+// The foe a tower shoots this volley, or null if nothing is in reach.
+// Each mode is a score to maximise, so the scan stays a single pass.
+export const pickTarget = (g, t, st) => {
+  const mode = forcedAim(st) || t.aim || "first";
+  const min = st.minRange || 0;
+  let best = null, bestScore = -Infinity;
+  for (const e of g.enemies) {
+    if (e.dead) continue;
+    const d = Math.hypot(e.x - t.x, e.y - t.y);
+    if (d > st.range || d < min) continue;
+    let score;
+    if (mode === "last") score = -e.dist;
+    else if (mode === "strong") score = e.hp;
+    else if (mode === "weak") score = -e.hp;
+    // crowd first, then the frontmost of equally crowded spots
+    else if (mode === "most") score = crowdAt(g, e, st.splash) * 1e6 + e.dist;
+    else score = e.dist;
+    if (score > bestScore) { bestScore = score; best = e; }
+  }
+  return best;
 };
 
 // World positions where a garrison's knights stand, around its rally flag.
@@ -25,10 +99,20 @@ export const unitSlots = (t) => {
 };
 
 // Ensure a garrison has the right number of knight units, and refresh their max HP.
-export const syncUnits = (t) => {
+// Pass `g` when enemies may be engaged, so trimmed units release their foes.
+export const syncUnits = (t, g) => {
   const st = getStats(t);
   const n = st.count || 1;
   if (!t.units) t.units = [];
+  if (t.units.length > n) {
+    // count shrank (e.g. Grand Champion): living units stay, extras stand down
+    t.units.sort((a, b) => (a.state === "dead") - (b.state === "dead"));
+    for (const u of t.units.slice(n)) {
+      const e = g?.enemies.find((x) => x.blockedBy === u.id);
+      if (e) { e.blockedBy = null; e.engaged = false; }
+    }
+    t.units.length = n;
+  }
   while (t.units.length < n) {
     const slots = unitSlots(t);
     const i = t.units.length;
@@ -40,7 +124,7 @@ export const syncUnits = (t) => {
 // Build a fresh tower object; knights also muster a rally point south of the hall.
 export const makeTower = (kind, x, y, level = 1, branch = null, invested = null, rank4 = null) => {
   const t = {
-    id: nextId(), kind, x, y, level, branch, rank4, cd: 0,
+    id: nextId(), kind, x, y, level, branch, rank4, cd: 0, aim: "first",
     invested: invested ?? TOWERS[kind].cost, lastAim: -Math.PI / 2, anim: 0, shotIdx: 0, critIdx: 0,
   };
   if (kind === "knight") {

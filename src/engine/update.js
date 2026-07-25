@@ -4,20 +4,57 @@
 // clears, the build-phase auto-start horn, and effect/shake decay.
 // `dt` is the raw (already clamped) seconds since the last frame.
 
-import { PATH_HALF, RESPAWN_MS, W, BUILD_TIME, CASTLE_HP } from "../data/constants.js";
+import { PATH_HALF, RESPAWN_MS, W, BUILD_TIME, CASTLE_HP, BASE_SPEED } from "../data/constants.js";
 import { ENEMIES } from "../data/enemies.js";
-import { WAVES, waveBonus } from "../data/waves.js";
+import { scriptedWaves, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave } from "./actions.js";
+
+// Build a fresh enemy instance of `type` with wave HP multiplier `mult`.
+// Used by the spawn queue and by necromancers raising the dead.
+const makeEnemy = (type, mult) => {
+  const d = ENEMIES[type];
+  return {
+    id: nextId(), type, hp: d.hp * mult, maxHp: d.hp * mult, dist: 0,
+    speed: d.speed, armor: d.armor, mres: d.mres || 0, bounty: d.bounty, regen: d.regen || 0,
+    boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
+    lane: d.boss ? 0 : (Math.random() - 0.5) * PATH_HALF * 1.15,
+    // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
+    flying: !!d.flying, guard: d.guard || 0, guardFlash: 0,
+    immSlow: !!d.immSlow, immStun: !!d.immStun,
+    trampleLeft: d.trample || 0, trampleMax: d.trample || 0, trampleEvery: d.trampleEvery || 0, trampleCd: null,
+    rangedAtk: d.rangedAtk || 0, rangedRange: d.rangedRange || 0, rangedRate: d.rangedRate || 0, rangedCd: 0,
+    wardEvery: d.wardEvery || 0, wardHits: d.wardHits || 0, wardRange: d.wardRange || 0, wardCd: null,
+    bannerRange: d.bannerRange || 0, bannerSpeedAmt: d.bannerSpeed || 0, bannerArmorAmt: d.bannerArmor || 0,
+    bannerSpeed: 0, bannerArmor: 0,
+    x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
+    slowUntil: 0, slowPct: 0, burnUntil: 0, burnDps: 0, poisonUntil: 0, poisonDps: 0,
+    brittleUntil: 0, brittleAmp: 0, burnSpread: false,
+    stunUntil: 0, dead: false, blockedBy: null, engaged: false, meleeCd: 0,
+    healAmt: d.heal ? d.heal * Math.sqrt(mult) : 0, healEvery: d.healEvery || 0, healCd: null,
+    raiseEvery: d.raiseEvery || 0, raiseCd: null, revived: false, healedFlash: 0,
+  };
+};
+
+// A knight falls: it drops whatever it was holding and starts its respawn
+// clock. Shared by melee deaths and crossbow bolts.
+const killUnit = (g, t, u) => {
+  u.state = "dead";
+  u.respawn = getStats(t).respawnMs || RESPAWN_MS;
+  u.targetId = null;
+  u.shield = false;
+  releaseEnemy(g, g.enemies.find((x) => x.blockedBy === u.id));
+  g.effects.push({ type: "poof", x: u.x, y: u.y, ttl: 400 });
+};
 
 export function updateGame(g, dt) {
   // Tactical half-speed: during combat, while the player is managing — the
   // build drawer is open, a tower is being placed, or a tower is selected —
   // time runs at 50% so there's room to think.
   const managing = g.phase === "combat" && (g.buildMenuOpen || g.buildMode || g.selectedId);
-  const speed = g.speed * (managing ? 0.5 : 1);
+  const speed = g.speed * BASE_SPEED * (managing ? 0.5 : 1);
   const sdt = g.paused ? 0 : dt * speed;
   g.time += sdt;
   const tms = g.time * 1000;
@@ -27,19 +64,20 @@ export function updateGame(g, dt) {
     g.spawnTimer += sdt * 1000;
     while (g.spawnQueue.length && g.spawnQueue[0].at <= g.spawnTimer) {
       const s = g.spawnQueue.shift();
-      const d = ENEMIES[s.type];
-      g.enemies.push({
-        id: nextId(), type: s.type, hp: d.hp * s.mult, maxHp: d.hp * s.mult, dist: 0,
-        speed: d.speed, armor: d.armor, bounty: d.bounty, regen: d.regen || 0,
-        boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
-        lane: d.boss ? 0 : (Math.random() - 0.5) * PATH_HALF * 1.15,
-        x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
-        slowUntil: 0, slowPct: 0, burnUntil: 0, burnDps: 0, poisonUntil: 0, poisonDps: 0,
-        brittleUntil: 0, brittleAmp: 0, burnSpread: false,
-        stunUntil: 0, dead: false, blockedBy: null, engaged: false, meleeCd: 0,
-      });
+      g.enemies.push(makeEnemy(s.type, s.mult));
     }
-    for (const e of g.enemies) e.auraSlow = 0;
+    if (!g.corpses) g.corpses = []; // fresh kills a necromancer may raise
+    for (const e of g.enemies) { e.auraSlow = 0; e.bannerSpeed = 0; e.bannerArmor = 0; }
+    // A Lord Marshal's banner drives everything marching near it: quicker feet
+    // and harder plate for as long as he is on his.
+    for (const b of g.enemies) {
+      if (b.dead || !b.bannerRange) continue;
+      for (const e of g.enemies) {
+        if (e.dead || Math.hypot(e.x - b.x, e.y - b.y) > b.bannerRange) continue;
+        e.bannerSpeed = Math.max(e.bannerSpeed, b.bannerSpeedAmt);
+        e.bannerArmor = Math.max(e.bannerArmor, b.bannerArmorAmt);
+      }
+    }
     for (const t of g.towers) if (t.units) for (const u of t.units) u.atkBuff = 0;
     for (const t of g.towers) {
       if (t.kind !== "support") continue;
@@ -49,7 +87,7 @@ export function updateGame(g, dt) {
         if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range) {
           e.auraSlow = Math.max(e.auraSlow, st.slow);
           // Absolute Zero: the aura itself bites, dealing cold damage
-          if (st.colddps) dealDamage(g, e, st.colddps * sdt, "magic");
+          if (st.colddps) dealDamage(g, e, st.colddps * sdt, "magic", false, true);
         }
       }
       // Rimecaller frost nova: periodically flash-freeze everything in the aura
@@ -86,8 +124,62 @@ export function updateGame(g, dt) {
     for (const e of g.enemies) {
       if (e.dead) continue;
       if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen * sdt);
+      // Goblin Shaman: a rhythmic chant mends the WHOLE warband
+      if (e.healAmt) {
+        e.healCd = (e.healCd ?? e.healEvery * 0.6) - sdt * 1000;
+        if (e.healCd <= 0) {
+          e.healCd = e.healEvery;
+          g.effects.push({ type: "healwave", x: e.x, y: e.y, ttl: 550, r: 64 });
+          for (const e2 of g.enemies) {
+            if (e2.dead || e2.hp >= e2.maxHp) continue;
+            e2.hp = Math.min(e2.maxHp, e2.hp + e.healAmt);
+            e2.healedFlash = tms + 450;
+          }
+        }
+      }
+      // A Lord Marshal gathers himself and charges again — no line holds him
+      // for long, however many swords step up.
+      if (e.trampleEvery && e.trampleLeft < e.trampleMax) {
+        e.trampleCd = (e.trampleCd ?? e.trampleEvery) - sdt * 1000;
+        if (e.trampleCd <= 0) { e.trampleCd = e.trampleEvery; e.trampleLeft += 1; }
+      }
+      // Battle Chaplain: lays a ward over the soldiers around him that eats one
+      // blow each. Re-cast on a rhythm, so killing him is the only real answer.
+      if (e.wardEvery) {
+        e.wardCd = (e.wardCd ?? e.wardEvery * 0.5) - sdt * 1000;
+        if (e.wardCd <= 0) {
+          e.wardCd = e.wardEvery;
+          g.effects.push({ type: "wardwave", x: e.x, y: e.y, ttl: 550, r: e.wardRange });
+          for (const e2 of g.enemies) {
+            if (e2.dead || Math.hypot(e2.x - e.x, e2.y - e.y) > e.wardRange) continue;
+            e2.guard = Math.max(e2.guard, e.wardHits);
+            e2.guardFlash = tms + 400;
+          }
+        }
+      }
+      // Necromancer: calls nearby fallen back to their feet at half strength
+      if (e.raiseEvery) {
+        e.raiseCd = (e.raiseCd ?? e.raiseEvery * 0.5) - sdt * 1000;
+        if (e.raiseCd <= 0) {
+          e.raiseCd = e.raiseEvery;
+          let raised = 0;
+          for (let ci = g.corpses.length - 1; ci >= 0 && raised < 3; ci--) {
+            const c = g.corpses[ci];
+            if (c.until <= tms || Math.hypot(c.x - e.x, c.y - e.y) > 150) continue;
+            g.corpses.splice(ci, 1);
+            raised++;
+            const u = makeEnemy(c.type, 1);
+            u.hp = u.maxHp = Math.max(1, Math.round(c.hp0 * 0.5));
+            u.dist = c.dist; u.lane = c.lane; u.x = c.x; u.y = c.y;
+            u.bounty = Math.ceil(u.bounty / 2);
+            u.revived = true;
+            g.enemies.push(u);
+            g.effects.push({ type: "raise", x: c.x, y: c.y, ttl: 600, life: 600 });
+          }
+        }
+      }
       if (e.burnUntil > tms) {
-        dealDamage(g, e, e.burnDps * sdt, "magic");
+        dealDamage(g, e, e.burnDps * sdt, "magic", false, true);
         // Wildfire Court: flames leap from burning foes to nearby unburned ones
         if (e.burnSpread) {
           for (const e2 of g.enemies) {
@@ -99,30 +191,63 @@ export function updateGame(g, dt) {
           }
         }
       }
-      if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic");
+      if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic", false, true);
       // Volcanic Throne: lava pools scorch anyone standing in them
       if (!e.dead) {
         for (const gr of g.grounds) {
-          if (gr.until > tms && Math.hypot(e.x - gr.x, e.y - gr.y) <= gr.r) dealDamage(g, e, gr.dps * sdt, "magic");
+          if (gr.until > tms && Math.hypot(e.x - gr.x, e.y - gr.y) <= gr.r) dealDamage(g, e, gr.dps * sdt, "magic", false, true);
         }
       }
       if (e.dead) continue;
       e.atkAnim = Math.max(0, e.atkAnim - sdt * 1000);
-      const stunned = e.stunUntil > tms;
+      // discipline and dead weight: sergeants and rams shrug off the chill and
+      // the shock that stop everything else
+      const stunned = e.stunUntil > tms && !e.immStun;
       const held = e.blockedBy && e.engaged;
       if (!stunned && !held) {
-        const slow = Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
-        e.dist += e.speed * (1 - slow) * sdt;
+        const slow = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
+        e.dist += e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
       }
       const [px, py] = posAt(e.dist);
       const a = angleAt(e.dist);
       e.x = px + Math.cos(a + Math.PI / 2) * e.lane;
       e.y = py + Math.sin(a + Math.PI / 2) * e.lane;
       if (!held && Math.abs(Math.cos(a)) > 0.3) e.face = Math.cos(a) >= 0 ? 1 : -1;
+      // Crossbowmen: they shoot your knights from outside sword reach and
+      // never break stride to do it. Nothing blocks this — only killing them.
+      if (e.rangedAtk && !stunned) {
+        e.rangedCd -= sdt * 1000;
+        if (e.rangedCd <= 0) {
+          let mark = null, markTower = null, bd = e.rangedRange;
+          for (const t of g.towers) {
+            if (!t.units) continue;
+            for (const u of t.units) {
+              if (u.state === "dead") continue;
+              const d = Math.hypot(u.x - e.x, u.y - e.y);
+              if (d < bd) { bd = d; mark = u; markTower = t; }
+            }
+          }
+          if (mark) {
+            e.rangedCd = e.rangedRate;
+            e.atkAnim = 220;
+            e.face = mark.x >= e.x ? 1 : -1;
+            g.effects.push({ type: "bolt", x: e.x, y: e.y - 6, tx: mark.x, ty: mark.y - 8, ttl: 170 });
+            if (mark.shield) {
+              mark.shield = false; mark.shieldCd = 6500;
+              g.effects.push({ type: "flash", x: mark.x, y: mark.y - 6, ttl: 300 });
+            } else {
+              mark.hp -= e.rangedAtk;
+              g.effects.push({ type: "hit", x: mark.x, y: mark.y - 10, ttl: 200 });
+              if (mark.hp <= 0) killUnit(g, markTower, mark);
+            }
+          }
+        }
+      }
       if (e.dist >= TOTAL_LEN) {
         e.dead = true;
         const dmgC = e.castleDmg || 1;
         g.lives -= dmgC;
+        if (g.run) g.run.leaks += 1;
         g.shake = 5 + dmgC * 2.5;
         g.effects.push({ type: "leak", x: e.x - 10, y: e.y, ttl: 700, text: `-${dmgC}` });
         if (g.lives <= 0) { g.lives = 0; g.phase = "lost"; }
@@ -132,7 +257,7 @@ export function updateGame(g, dt) {
 
     for (const t of g.towers) {
       if (t.kind !== "knight") continue;
-      syncUnits(t);
+      syncUnits(t, g);
       const st = getStats(t);
       const slots = unitSlots(t);
       t.units.forEach((u, i) => {
@@ -155,7 +280,7 @@ export function updateGame(g, dt) {
         if (!target) {
           let best = null, bestDist = -1;
           for (const e of g.enemies) {
-            if (e.dead || e.boss || e.blockedBy) continue;
+            if (e.dead || e.flying || e.blockedBy) continue;
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
           if (best) { best.blockedBy = u.id; u.targetId = best.id; u.state = "moving"; target = best; }
@@ -172,6 +297,19 @@ export function updateGame(g, dt) {
             u.state = "moving";
           } else {
             target.engaged = true;
+            // Cavalier: the charge rides its first blocker down and gallops on.
+            // Whoever steps up second is the one who actually holds him.
+            if (target.trampleLeft > 0) {
+              target.trampleLeft -= 1;
+              u.hp -= target.atk * 2;
+              g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
+              g.shake = Math.max(g.shake, 3);
+              releaseEnemy(g, target);
+              u.targetId = null;
+              u.state = "rally";
+              if (u.hp <= 0) killUnit(g, t, u);
+              return;
+            }
             u.state = "fighting";
             u.face = dx >= 0 ? 1 : -1;
             target.face = -u.face;
@@ -201,11 +339,7 @@ export function updateGame(g, dt) {
                   u.hp -= target.atk;
                   g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
                 }
-                if (u.hp <= 0) {
-                  u.state = "dead"; u.respawn = st.respawnMs || RESPAWN_MS; u.targetId = null;
-                  releaseEnemy(g, target);
-                  g.effects.push({ type: "poof", x: u.x, y: u.y, ttl: 400 });
-                }
+                if (u.hp <= 0) killUnit(g, t, u);
               }
             }
           }
@@ -223,7 +357,7 @@ export function updateGame(g, dt) {
           if (u.state === "dead") continue;
           for (const e of g.enemies) {
             if (e.dead) continue;
-            if (Math.hypot(e.x - u.x, e.y - u.y) <= 42) dealDamage(g, e, st.sear * sdt, "magic");
+            if (Math.hypot(e.x - u.x, e.y - u.y) <= 42) dealDamage(g, e, st.sear * sdt, "magic", false, true);
           }
         }
       }
@@ -235,14 +369,7 @@ export function updateGame(g, dt) {
       t.cd -= sdt * 1000;
       if (t.cd > 0) continue;
       const st = getStats(t);
-      let target = null, best = -1;
-      for (const e of g.enemies) {
-        if (e.dead) continue;
-        const d = Math.hypot(e.x - t.x, e.y - t.y);
-        // default: frontmost enemy in range; "strongest" (Ballista): highest HP
-        const metric = st.targeting === "strongest" ? e.hp : e.dist;
-        if (d <= st.range && d >= (st.minRange || 0) && metric > best) { best = metric; target = e; }
-      }
+      const target = pickTarget(g, t, st);
       if (!target) continue;
       t.cd = st.rate;
       t.anim = 1;
@@ -304,6 +431,35 @@ export function updateGame(g, dt) {
             big: t.branch === "a",
           });
         }
+      } else if (t.kind === "spiker") {
+        if (st.nova) {
+          // Brazier Wheel: a ring of flame scorches everything in reach
+          g.effects.push({ type: "firenova", x: t.x, y: t.y, ttl: 450, r: st.range });
+          for (const e of g.enemies) {
+            if (e.dead) continue;
+            if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
+            dealDamage(g, e, st.dmg, st.dtype);
+            if (!e.dead && st.burn) {
+              e.burnUntil = tms + st.burnDur;
+              e.burnDps = st.burn;
+              if (st.burnSpread) e.burnSpread = true;
+            }
+          }
+        } else {
+          // a full ring of spikes, the whole ring rotating a little each volley
+          const n = st.spikes || 8;
+          t.spinOff = (t.spinOff || 0) + 0.37;
+          for (let i = 0; i < n; i++) {
+            const ang = (i / n) * Math.PI * 2 + t.spinOff;
+            g.projectiles.push({
+              id: nextId(), x: t.x, y: t.y - 8, targetId: null,
+              tx: t.x + Math.cos(ang) * st.range, ty: t.y - 8 + Math.sin(ang) * st.range,
+              speed: 360, delay: 0, dmg: st.dmg, dtype: st.dtype, pierce: false, splash: 0,
+              burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
+              kind: "spike", hitsLeft: st.spikePierce || 1, hitIds: [], angle: ang,
+            });
+          }
+        }
       } else if (st.arc) {
         // Stormcaller: lightning strikes instantly and arcs down the line
         let cur = target, mult = 1;
@@ -340,6 +496,19 @@ export function updateGame(g, dt) {
 
     for (const p of g.projectiles) {
       if (p.delay > 0) { p.delay -= sdt * 1000; continue; }
+      // spikes skewer whatever they pass through (no homing, no arrival hit)
+      if (p.kind === "spike") {
+        for (const e of g.enemies) {
+          if (e.dead || p.hitIds.includes(e.id)) continue;
+          if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) {
+            dealDamage(g, e, p.dmg, p.dtype);
+            p.hitIds.push(e.id);
+            if (!e.dead && p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = Math.max(e.slowPct, p.slow); }
+            if (--p.hitsLeft <= 0) { p.done = true; break; }
+          }
+        }
+        if (p.done) continue;
+      }
       const target = g.enemies.find((e) => e.id === p.targetId && !e.dead);
       if (target) { p.tx = target.x; p.ty = target.y; }
       const dx = p.tx - p.x, dy = p.ty - p.y;
@@ -416,18 +585,22 @@ export function updateGame(g, dt) {
 
     if (!g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
       g.gold += waveBonus(g.wave);
+      if (g.run) g.run.goldEarned += waveBonus(g.wave);
       g.effects.push({ type: "coin", x: W / 2, y: 40, ttl: 1200, text: `Wave cleared! +${waveBonus(g.wave)}g`, big: true });
       // High Cathedral: each cleared wave rebuilds one castle HP
       if (g.lives < CASTLE_HP && g.towers.some((t) => t.kind === "support" && t.branch === "b" && t.rank4 === "b")) {
         g.lives += 1;
         g.effects.push({ type: "coin", x: W / 2, y: 64, ttl: 1300, text: "The Cathedral mends the walls +1", big: true });
       }
-      if (g.wave >= WAVES.length) g.phase = "won";
+      // the campaign is won at wave 15 — once — then the Endless March is open
+      if (g.wave === scriptedWaves() && !g.victory) { g.victory = true; g.phase = "won"; }
       else { g.phase = "build"; g.buildUntil = g.time + BUILD_TIME; }
     }
   }
 
-  if (!g.paused && g.phase === "build" && g.buildUntil != null && g.time >= g.buildUntil) {
+  // rush mode sounds the horn the moment the build phase opens, banking the
+  // full early-start bonus; otherwise the horn waits out the 30s timer
+  if (!g.paused && g.phase === "build" && g.buildUntil != null && (g.rush || g.time >= g.buildUntil)) {
     startWave(g);
   }
 
@@ -435,6 +608,7 @@ export function updateGame(g, dt) {
     for (const fx of g.effects) fx.ttl -= sdt * 1000;
     g.effects = g.effects.filter((fx) => fx.ttl > 0);
     g.grounds = g.grounds.filter((gr) => gr.until > tms);
+    if (g.corpses) g.corpses = g.corpses.filter((c) => c.until > tms);
     if (g.shake > 0) g.shake = Math.max(0, g.shake - dt * 30);
   }
 }

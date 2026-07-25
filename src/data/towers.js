@@ -102,6 +102,31 @@ export const TOWERS = {
       },
     },
   },
+  spiker: {
+    name: "Bladewheel", cost: 110, dtype: "phys", proj: "spike",
+    blurb: "A spinning wheel that flings spikes in EVERY direction. Blind beyond arm's reach — deadly on corners and doubled-back road.",
+    levels: [
+      { dmg: 12, rate: 900, range: 85, spikes: 8 },
+      { dmg: 18, rate: 820, range: 92, spikes: 8, cost: 90, label: "Whetted Steel" },
+      { dmg: 26, rate: 740, range: 100, spikes: 10, cost: 140, label: "Twin Rims" },
+    ],
+    branches: {
+      a: {
+        name: "Razor Gale", cost: 230, stats: { dmg: 15, rate: 300, range: 105, spikes: 10 }, desc: "The wheel screams — a near-constant storm of steel shreds everything that hugs it.",
+        rank4: {
+          a: { name: "Steel Tempest", cost: 360, stats: { dmg: 17, rate: 260, range: 115, spikes: 12, spikePierce: 2 }, desc: "Spikes forged to skewer: every sliver punches THROUGH its first victim and into the next." },
+          b: { name: "Hamstringer", cost: 360, stats: { dmg: 15, rate: 280, range: 110, spikes: 10, slow: 0.3, slowDur: 1300 }, desc: "Barbed spikes lodge in legs and paws — everything struck hobbles away slowed." },
+        },
+      },
+      b: {
+        name: "Brazier Wheel", cost: 230, stats: { dmg: 38, rate: 1500, range: 100, nova: true, magic: true, burn: 10, burnDur: 2400 }, desc: "The rim is set alight: instead of spikes, rhythmic rings of flame scorch everything in reach. MAGIC — ignores armor.",
+        rank4: {
+          a: { name: "Solar Crown", cost: 360, stats: { dmg: 62, rate: 1450, range: 115, nova: true, magic: true, burn: 15, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
+          b: { name: "Wildheart Pyre", cost: 360, stats: { dmg: 44, rate: 1400, range: 105, nova: true, magic: true, burn: 14, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
+        },
+      },
+    },
+  },
   support: {
     name: "Warden Mage", cost: 110, dtype: "magic", proj: "aura",
     blurb: "A frost-touched mage on an altar — biting cold slows every enemy in the aura.",
