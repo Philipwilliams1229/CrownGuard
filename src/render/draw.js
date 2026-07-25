@@ -13,14 +13,14 @@
 import { W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE, PATH_HALF } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { PTS } from "../engine/path.js";
-import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR, PONDS } from "../data/terrain.js";
+import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR, PONDS, SPECKS } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel } from "./towers.js";
-import { drawTree, drawPond, drawCastle, drawCave } from "./scenery.js";
+import { drawTree, drawPond, drawCastle, drawSpawn } from "./scenery.js";
 
 export function draw(g, canvas, bufRef) {
   const cv = canvas;
@@ -45,6 +45,17 @@ export function draw(g, canvas, bufRef) {
   for (const p of GRASS_PATCHES) {
     ctx.fillStyle = p.s > 0.5 ? REALM.GRASS_LT : REALM.GRASS_DK;
     ctx.fillRect(S(p.x - p.r), S(p.y - p.r * 0.6), S(p.r * 2), S(p.r * 1.2));
+  }
+  // a second, smaller patch layer breaks up the first one's edges
+  for (const p of GRASS_PATCHES) {
+    if (p.s > 0.72) continue;
+    ctx.fillStyle = p.s > 0.36 ? REALM.GRASS_DK : REALM.GRASS_LT;
+    ctx.fillRect(S(p.x - p.r * 0.4), S(p.y - p.r * 0.3), S(p.r * 0.8), S(p.r * 0.5));
+  }
+  // stones, twigs and dry clumps on the turf
+  for (const sp of SPECKS) {
+    ctx.fillStyle = sp.k > 0.62 ? REALM.GRASS_DK : sp.k > 0.3 ? REALM.TUFT : REALM.GRASS_LT;
+    ctx.fillRect(S(sp.x), S(sp.y), sp.w, sp.h);
   }
   for (const p of PONDS) drawPond(ctx, p, g.time);
   ctx.fillStyle = REALM.TUFT;
@@ -112,7 +123,7 @@ export function draw(g, canvas, bufRef) {
     }
   }
 
-  drawCave(ctx, g.time);
+  drawSpawn(ctx, g.time, REALM.spawn);
 
   const [lsx, lsy] = PTS[0];
   const bounce = Math.sin(g.time * 4) > 0 ? CELL : 0;

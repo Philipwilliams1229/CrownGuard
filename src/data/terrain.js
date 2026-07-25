@@ -13,6 +13,7 @@ export let PEBBLES = [];
 export let GRASS_PATCHES = [];
 export let TUFTS = [];
 export let FLOWERS = [];
+export let SPECKS = [];
 export let DECOR = [];
 export let PONDS = [];
 
@@ -55,6 +56,17 @@ export function regenTerrain(map) {
     if (nearestOnPath(x, y).d < PATH_HALF + 8) continue;
     if (inPond(PONDS, x, y)) continue;
     TUFTS.push({ x, y, s: 0.7 + rng() * 0.7, p: rng() * 6 });
+  }
+
+  // Ground specks: little stones, twigs and dry clumps scattered over the
+  // turf. Cheap, static, and they stop big fields of grass reading as felt.
+  SPECKS = [];
+  const nSpeck = sc.specks ?? Math.round(sc.patches * 2.2);
+  for (let i = 0; i < nSpeck; i++) {
+    const x = rng() * W, y = rng() * H;
+    if (nearestOnPath(x, y).d < PATH_HALF + 4) continue;
+    if (inPond(PONDS, x, y)) continue;
+    SPECKS.push({ x, y, k: rng(), w: 1 + Math.round(rng() * 2), h: 1 + Math.round(rng()) });
   }
 
   FLOWERS = [];

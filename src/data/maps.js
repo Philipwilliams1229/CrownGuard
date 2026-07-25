@@ -20,6 +20,7 @@ export const REALMS = {
     tagColor: "#a8d88c",
     blurb: "Rolling meadows and a long, winding country road. The realm as you know it.",
     ambient: "none",
+    spawn: "grove",     // the horde shoulders out of the thicket
     // ground & road palette
     GRASS: "#69874e",
     GRASS_DK: "#57713f",
@@ -37,16 +38,25 @@ export const REALMS = {
     // scenery: seeded scatter recipe + fixed decor
     seed: 20260710,
     scatter: {
-      patches: 46,
-      tufts: 55,
-      flowers: 26,
+      patches: 58,
+      tufts: 88,
+      flowers: 34,
       flowerCols: ["#d88aa0", "#e0c070", "#e8e4d8", "#b08ad8"],
     },
+    // A proper wood, not a few specimens — stands cluster and overlap.
     decor: [
-      { x: 24, y: 30, t: "pine", s: 1.1 }, { x: 70, y: 420, t: "pine", s: 1 }, { x: 690, y: 26, t: "pine", s: 1.2 },
-      { x: 606, y: 116, t: "pine", s: 0.9 }, { x: 60, y: 250, t: "tree", s: 1 }, { x: 452, y: 410, t: "tree", s: 1.05 },
-      { x: 700, y: 330, t: "pine", s: 1 }, { x: 250, y: 22, t: "rock", s: 1 }, { x: 460, y: 170, t: "rock", s: 1.2 },
+      { x: 24, y: 30, t: "pine", s: 1.1 }, { x: 48, y: 62, t: "pine", s: 0.85 },
+      { x: 70, y: 420, t: "pine", s: 1 }, { x: 44, y: 392, t: "tree", s: 0.9 },
+      { x: 690, y: 26, t: "pine", s: 1.2 }, { x: 660, y: 58, t: "pine", s: 0.9 },
+      { x: 606, y: 116, t: "pine", s: 0.9 }, { x: 636, y: 146, t: "tree", s: 0.85 },
+      { x: 60, y: 250, t: "tree", s: 1 }, { x: 32, y: 214, t: "pine", s: 0.95 },
+      { x: 452, y: 410, t: "tree", s: 1.05 }, { x: 500, y: 410, t: "pine", s: 0.9 },
+      { x: 700, y: 330, t: "pine", s: 1 }, { x: 704, y: 300, t: "tree", s: 0.95 },
+      { x: 250, y: 22, t: "rock", s: 1 }, { x: 282, y: 40, t: "rock", s: 0.7 },
+      { x: 460, y: 170, t: "rock", s: 1.2 }, { x: 430, y: 190, t: "rock", s: 0.75 },
       { x: 26, y: 460, t: "rock", s: 0.9 }, { x: 210, y: 465, t: "pine", s: 0.85 },
+      { x: 178, y: 438, t: "tree", s: 0.9 }, { x: 604, y: 316, t: "tree", s: 1 },
+      { x: 700, y: 158, t: "pine", s: 0.8 }, { x: 108, y: 200, t: "tree", s: 0.95 },
     ],
     ponds: [],
   },
@@ -181,8 +191,9 @@ export const REALMS = {
 // Everything green: the same meadow as Greenwood Vale, a different road.
 const greenwoodVariant = (id, name, tag, blurb, seed, path, extra = {}) => ({
   ...REALMS.greenwood, id, name, tag, blurb, seed, path,
+  spawn: "grove",
   decor: undefined,
-  decorRecipe: { count: 13, types: ["pine", "tree", "pine", "rock"] },
+  decorRecipe: { count: 22, types: ["pine", "tree", "pine", "tree", "rock"] },
   ponds: [],
   ...extra,
 });
@@ -242,7 +253,7 @@ Object.assign(REALMS, {
     "The mouth of the horde's home burrow. The road coils like a gut — and the dragon that guards it is awake.",
     20260717,
     [[0.9, 1], [4, 1], [4, 4], [1, 4], [1, 7], [5, 7], [5, 9], [9, 9], [9, 5], [7, 5], [7, 2], [11, 2], [11, 5], [13, 5], [13, 8], [13.7, 8]],
-    { decorRecipe: { count: 16, types: ["pine", "pine", "tree", "rock"] } },
+    { decorRecipe: { count: 26, types: ["pine", "pine", "tree", "rock"] } },
   ),
 
   // ---- Chapter II: The Iron Marches ----

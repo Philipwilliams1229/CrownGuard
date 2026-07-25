@@ -25,7 +25,8 @@
         drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower,
         drawCatapult, drawBladewheel,
       } from "/src/render/towers.js";
-      import { drawTree, drawPond, drawCastle, drawCave } from "/src/render/scenery.js";
+      import { drawTree, drawPond, drawCastle, drawSpawn } from "/src/render/scenery.js";
+      import { PTS } from "/src/engine/path.js";
       import { drawEnemy } from "/src/render/enemies.js";
       import { ENEMIES } from "/src/data/enemies.js";
 
@@ -141,9 +142,24 @@
         });
       }
 
-      section("castle & cave");
-      cell("castle", (ctx, time) => drawCastle(ctx, 20, CH / 2 - 10, 20, time), 120, 110);
-      cell("cave", (ctx, time) => drawCave(ctx, time), 200, 130);
+      // The castle and the spawn draw themselves at the ends of the real road,
+      // so the lab shifts the world under them to bring them into the cell.
+      section("castle — full, hurt, badly hurt, burning");
+      for (const hp of [1, 0.7, 0.45, 0.2]) {
+        cell(`${Math.round(hp * 100)}%`, (ctx, time) => {
+          const [ex, ey] = PTS[PTS.length - 1];
+          ctx.translate(150 / 2 - ex - 6, 150 * 0.62 - ey);
+          drawCastle(ctx, time, hp);
+        }, 150, 150);
+      }
+      section("spawn");
+      for (const kind of ["grove", "cave"]) {
+        cell(kind, (ctx, time) => {
+          const [sx0, sy0] = PTS[0];
+          ctx.translate(170 / 2 - sx0, 150 * 0.68 - sy0);
+          drawSpawn(ctx, time, kind);
+        }, 170, 150);
+      }
 
       function frame(now) {
         t = now / 1000;
