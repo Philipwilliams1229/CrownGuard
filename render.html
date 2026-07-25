@@ -26,6 +26,8 @@
         drawCatapult, drawBladewheel,
       } from "/src/render/towers.js";
       import { drawTree, drawPond, drawCastle, drawCave } from "/src/render/scenery.js";
+      import { drawEnemy } from "/src/render/enemies.js";
+      import { ENEMIES } from "/src/data/enemies.js";
 
       const SCALE = 3;
       const CW = 90, CH = 90;          // world box per cell
@@ -98,6 +100,44 @@
       for (const type of ["water", "ice", "lava", "swamp"]) {
         cell(type, (ctx, time) => drawPond(ctx, { x: CW / 2, y: CH / 2, w: 62, h: 34, t: type }, time));
       }
+      section("the roster, at true board scale");
+      {
+        // one strip, everyone standing on the same line, drawn with the real
+        // enemy renderer — the only honest way to compare sizes
+        const names = Object.keys(ENEMIES);
+        const wrap = document.createElement("div");
+        wrap.className = "cell";
+        const cv = document.createElement("canvas");
+        cv.width = 700; cv.height = 90;
+        cv.style.width = 700 * 2 + "px";
+        cv.style.height = 90 * 2 + "px";
+        const ctx = cv.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        wrap.appendChild(cv);
+        const cap = document.createElement("div");
+        cap.className = "cap";
+        cap.textContent = names.join("  ·  ");
+        wrap.appendChild(cap);
+        out.lastElementChild.appendChild(wrap);
+        draws.push({
+          ctx, w: 700, h: 90,
+          fn: (c, time) => {
+            let x = 30;
+            for (const type of names) {
+              const d = ENEMIES[type];
+              const e = {
+                id: 1, type, x, y: 64, size: d.size, face: 1, hp: d.hp, maxHp: d.hp,
+                dist: 0, armor: d.armor || 0, flying: d.flying, boss: d.boss,
+                slowUntil: 0, stunUntil: 0, burnUntil: 0, hitFlash: 0, atkAnim: 0,
+                guard: 0, guardFlash: 0, healedFlash: 0, brittleUntil: 0,
+              };
+              drawEnemy(c, e, time, time * 1000);
+              x += Math.max(34, d.size * 2.6);
+            }
+          },
+        });
+      }
+
       section("castle & cave");
       cell("castle", (ctx, time) => drawCastle(ctx, 20, CH / 2 - 10, 20, time), 120, 110);
       cell("cave", (ctx, time) => drawCave(ctx, time), 200, 130);
