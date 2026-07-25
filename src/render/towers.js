@@ -128,6 +128,27 @@ export const drawArcherTower = (ctx, t, time) => {
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
   const bc = r4 === "aa" ? "#7cc85c" : r4 === "ab" ? "#9fc4dc" : r4 === "ba" ? "#c4c8d0" : r4 === "bb" ? "#d8b34a"
     : t.branch === "a" ? "#5c8a44" : t.branch === "b" ? "#4a6a92" : "#a04a3f";
+  // A fully raised tower gets a shingled cap over the shooting deck — the
+  // clearest read at a glance that this one is finished.
+  if (lvl >= 3 || t.branch) {
+    const ry = y - h - 20;      // clear of the archers' heads
+    const roofCol = t.branch === "a" ? "#4a6a3a" : t.branch === "b" ? "#3f5a7c" : "#8a4a3c";
+    const roofLt = t.branch === "a" ? "#5c8a44" : t.branch === "b" ? "#527398" : "#a45c4a";
+    for (let i = 0; i < 5; i++) {
+      const wRow = pw + 2 - Math.round(((i + 1) / 5) * (pw - 1));
+      ctx.fillStyle = INK;
+      ctx.fillRect(x - wRow - 1, ry - i * 3 - 1, wRow * 2 + 2, 4);
+      ctx.fillStyle = i === 0 ? roofLt : roofCol;
+      ctx.fillRect(x - wRow, ry - i * 3, wRow * 2, 3);
+      ctx.fillStyle = "rgba(20,20,26,0.25)";
+      for (let sx2 = x - wRow + (i % 2 ? 1 : 4); sx2 < x + wRow - 1; sx2 += 6) ctx.fillRect(sx2, ry - i * 3, 1, 2);
+    }
+    // corner posts carrying it down to the deck
+    ctx.fillStyle = INK;
+    for (const sgn of [-1, 1]) ctx.fillRect(x + sgn * (pw - 3) - 1, ry + 1, 4, 22);
+    ctx.fillStyle = "#5f4326";
+    for (const sgn of [-1, 1]) ctx.fillRect(x + sgn * (pw - 3), ry + 1, 2, 21);
+  }
   const wave = Math.round(Math.sin(time * 5 + t.id)) * CELL;
   ctx.fillStyle = "#5f4326";
   ctx.fillRect(x + pw - 2, y - h - 16, 2, 14);
@@ -170,12 +191,40 @@ export const drawArcherTower = (ctx, t, time) => {
     drawSprite(ctx, MINI.archer, CREW_PAL, 0, x + 12, y - h - 2, dir < 0);
   } else {
     const pal = ARCHER_PALS[r4 && ARCHER_PALS[r4] ? r4 : t.branch || "base"];
+    // t.anim runs 1 -> 0 over a quarter second after a shot, so `draw` runs
+    // 0 -> 1 as the archer hauls the string back to full draw again.
+    const draw = 1 - t.anim;
+    const bowCol = r4 === "bb" ? "#8a2f24" : "#4a3018";
     const drawGuy = (gx, gy, big) => {
       const ax = t.x + gx, ay = t.y - h + gy - 8;
       drawSprite(ctx, MINI.archer, pal, 0, ax, ay, dir < 0);
       const bx = S(ax + dir * (7 - recoil));
-      ctx.fillStyle = r4 === "bb" ? "#8a2f24" : "#4a3018";
-      ctx.fillRect(bx, S(ay - (big ? 10 : 7)), 2, big ? 18 : 13);
+      // NB: drawn on whole pixels, not through S() — snapping each row to the
+      // two-pixel grid collapses neighbouring rows and shreds the curve.
+      const ry = Math.round(ay);
+      const half = big ? 9 : 6;                       // half the bow's height
+      const belly = big ? 4 : 3;                      // how far the limbs bow out
+      ctx.fillStyle = bowCol;
+      for (let i = -half; i <= half; i++) {
+        const k = 1 - Math.abs(i) / half;             // 0 at the tips, 1 at the grip
+        const out = Math.round(belly * Math.sqrt(k));
+        ctx.fillRect(bx + dir * out, ry + i, 2, 1);
+      }
+      // string: nearly straight when loosed, hauled into a V at full draw
+      const pull = Math.round(draw * (big ? 7 : 5));
+      ctx.fillStyle = "#e8e0c8";
+      for (let i = -half; i <= half; i++) {
+        const k = 1 - Math.abs(i) / half;
+        ctx.fillRect(bx - dir * Math.round(pull * k), ry + i, 1, 1);
+      }
+      // a nocked arrow, once the string is more than half drawn
+      if (draw > 0.45) {
+        const len = big ? 12 : 9;
+        ctx.fillStyle = "#c4c8d0";
+        ctx.fillRect(dir > 0 ? bx - pull : bx - len + pull, ry, len, 1);
+        ctx.fillStyle = bowCol;                       // fletching at the nock
+        ctx.fillRect(bx - dir * (pull + 1), ry - 1, 2, 3);
+      }
     };
     if (t.branch === "a") { drawGuy(-9, -1); drawGuy(8, -2); drawGuy(0, -8); }
     else if (t.branch === "b") drawGuy(0, -4, true);
@@ -316,6 +365,15 @@ export const drawWizardSpire = (ctx, t, time) => {
   ctx.beginPath(); ctx.arc(orbX, orbY, rOut, 0, 7); ctx.fill();
   ctx.fillStyle = orbCol;
   ctx.beginPath(); ctx.arc(orbX, orbY, rOut - 1.2, 0, 7); ctx.fill();
+  // a white core, and a ring blown off the orb as the spell leaves it
+  if (t.anim > 0.05) {
+    ctx.fillStyle = `rgba(248,244,232,${t.anim * 0.9})`;
+    ctx.beginPath(); ctx.arc(orbX, orbY, (rOut - 2) * t.anim, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(${pal.g === "#8ce8f0" ? "140,232,240" : "216,196,255"},${t.anim * 0.7})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(orbX, orbY, rOut + (1 - t.anim) * 12, 0, 7); ctx.stroke();
+    ctx.lineWidth = 1;
+  }
   for (const s of stars) if (s.front) drawStar(s);
 };
 
@@ -359,30 +417,59 @@ export const drawCatapult = (ctx, t, time) => {
   ctx.fillRect(x - 9, py - 2, 18, 5);
   ctx.fillStyle = woodLt;
   ctx.fillRect(x - 8, py - 1, 16, 3);
-  // throwing arm: cocked back while loading, swung forward right after a shot
-  const fired = t.anim > 0.45;
+  // Throwing arm: it sweeps. t.anim is 1 the instant the arm lets go and
+  // decays to 0 as the crew winch it back, so the whole arc gets drawn
+  // rather than the old two-position flip.
   const dir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
+  const swing = t.anim * t.anim;                 // snap forward, ease back
+  const ang = -2.2 + 2.8 * swing;                // radians from straight up
   const steps = 4 + (treb ? 2 : 0);
+  const seg = treb ? 3.4 : 3;
+  const armX = (len) => x + Math.sin(ang) * len * dir;
+  const armY = (len) => py - Math.cos(ang) * len;
   ctx.fillStyle = dark;
   for (let i = 1; i <= steps; i++) {
-    const ax = x + (fired ? dir : -dir) * i * 3;
-    const ay = py - i * 3;
-    ctx.fillRect(S(ax) - 1, S(ay) - 1, 4, 4);
+    ctx.fillRect(S(armX(i * seg)) - 1, S(armY(i * seg)) - 1, 4, 4);
   }
-  const tipX = x + (fired ? dir : -dir) * steps * 3;
-  const tipY = py - steps * 3;
+  ctx.fillStyle = woodLt;                         // lit edge along the beam
+  for (let i = 1; i <= steps; i++) {
+    ctx.fillRect(S(armX(i * seg)) - 1, S(armY(i * seg)) - 1, 2, 2);
+  }
+  const tipX = armX(steps * seg);
+  const tipY = armY(steps * seg);
+  // the rope from the tip back down to the winch drum
+  ctx.fillStyle = "#d2c6a2";
+  const wx = x - dir * (hw - 4), wy2 = y + 6;
+  const rope = 6;
+  for (let i = 0; i <= rope; i++) {
+    const k = i / rope;
+    ctx.fillRect(S(tipX + (wx - tipX) * k), S(tipY + (wy2 - tipY) * k), 1, 1);
+  }
+  // winch drum on the deck
+  ctx.fillStyle = INK;
+  ctx.fillRect(S(wx) - 4, wy2 - 3, 8, 7);
+  ctx.fillStyle = "#5f4326";
+  ctx.fillRect(S(wx) - 3, wy2 - 2, 6, 5);
+  ctx.fillStyle = "#9aa0ac";
+  ctx.fillRect(S(wx) - 3, wy2 - 2 + ((Math.floor(time * 6) + t.id) % 5), 6, 1);
   if (treb) {
-    // counterweight box swings opposite the arm
-    const cwX = x + (fired ? -dir : dir) * 8;
+    // counterweight box swings opposite the arm, and it is heavy
+    const cwAng = ang + Math.PI;
+    const cwX = x + Math.sin(cwAng) * 9 * dir;
+    const cwY = py - Math.cos(cwAng) * 9;
     ctx.fillStyle = INK;
-    ctx.fillRect(S(cwX) - 5, py + 2, 10, 10);
+    ctx.fillRect(S(cwX) - 6, S(cwY) - 5, 12, 12);
     ctx.fillStyle = "#5f5a4d";
-    ctx.fillRect(S(cwX) - 4, py + 3, 8, 8);
+    ctx.fillRect(S(cwX) - 5, S(cwY) - 4, 10, 10);
+    ctx.fillStyle = "#43403a";
+    ctx.fillRect(S(cwX) - 5, S(cwY) + 1, 10, 2);
+    ctx.fillStyle = "#7a766c";
+    ctx.fillRect(S(cwX) - 5, S(cwY) - 4, 10, 2);
   }
   // cup with rock(s) when loaded
   ctx.fillStyle = INK;
   ctx.fillRect(S(tipX) - 4, S(tipY) - 2, 8, 4);
-  if (!fired) {
+  if (swing < 0.25) {
     if (scat) {
       ctx.fillStyle = "#b8b8c0";
       ctx.fillRect(S(tipX) - 5, S(tipY) - 6, 4, 4);
@@ -397,7 +484,7 @@ export const drawCatapult = (ctx, t, time) => {
   }
   // rank-4 flourishes
   const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
-  if (r4 === "ab" && !fired) {
+  if (r4 === "ab" && swing < 0.25) {
     // Comet Sling: the loaded stone burns
     const fl = Math.sin(time * 12 + t.id) > 0 ? 2 : 0;
     ctx.fillStyle = "#d8763a";
@@ -424,11 +511,23 @@ export const drawCatapult = (ctx, t, time) => {
     ctx.fillRect(x + 3, y + 4 - fh + 4, 4, 2);
     ctx.fillRect(x - hw + 2, y + 6, 3, 8);
   }
-  // spare boulder pile beside the deck
-  ctx.fillStyle = "#8a8a92";
-  ctx.fillRect(x - hw - 8, y + 10, 5, 5);
-  ctx.fillRect(x - hw - 12, y + 12, 4, 4);
-  if (lvl >= 2 || t.branch) ctx.fillRect(x - hw - 10, y + 6, 4, 4);
+  // spare boulder pile beside the deck, in a crate once the crew are properly
+  // supplied — the quickest read on how far this engine has been built up
+  if (lvl >= 3 || t.branch) {
+    const cx2 = x - hw - 11, cy2 = y + 4;
+    ctx.fillStyle = INK;
+    ctx.fillRect(cx2 - 1, cy2 - 1, 14, 13);
+    plankFace(ctx, cx2, cy2, 12, 11, "#7a5a34", "#8f6c40", "#4a3018");
+    ctx.fillStyle = "#8a8a92";
+    for (let i = 0; i < 3; i++) ctx.fillRect(cx2 + 1 + i * 4, cy2 - 3, 3, 3);
+    ctx.fillStyle = "#a2a2aa";
+    for (let i = 0; i < 3; i++) ctx.fillRect(cx2 + 1 + i * 4, cy2 - 3, 1, 1);
+  } else {
+    ctx.fillStyle = "#8a8a92";
+    ctx.fillRect(x - hw - 8, y + 10, 5, 5);
+    ctx.fillRect(x - hw - 12, y + 12, 4, 4);
+    if (lvl >= 2) ctx.fillRect(x - hw - 10, y + 6, 4, 4);
+  }
   // banner
   const wave = Math.round(Math.sin(time * 5 + t.id)) * CELL;
   ctx.fillStyle = "#5f4326";
@@ -533,6 +632,23 @@ export const drawGarrison = (ctx, t, time) => {
     ctx.fillStyle = "#e8d47a";
     ctx.fillRect(fx - 1, fy - 3 - fl, 2, 3 + fl);
   }
+  // chimney on the roof slope, smoking away — the hall is manned
+  {
+    const chx = x - hw + 4, chy = baseY - wallH - 12;
+    ctx.fillStyle = INK;
+    ctx.fillRect(chx - 1, chy - 1, 8, 12);
+    stoneWall(ctx, chx, chy, 6, 10, wallPal);
+    ctx.fillStyle = wallPal.lit;
+    ctx.fillRect(chx - 1, chy - 1, 8, 2);
+    for (let i = 0; i < 4; i++) {
+      const t2 = ((time * 9 + i * 5 + t.id * 2) % 20);
+      const sy2 = chy - 3 - t2;
+      const drift = Math.round(Math.sin(time * 1.6 + i) * 3 + t2 * 0.25);
+      ctx.fillStyle = `rgba(198,198,190,${Math.max(0, 0.45 - t2 * 0.022)})`;
+      const sz = 2 + Math.round(t2 / 7);
+      ctx.fillRect(chx + 1 + drift, sy2, sz, sz);
+    }
+  }
   // banner at the roof peak
   const wave = Math.round(Math.sin(time * 5 + t.id)) * CELL;
   const peakY = baseY - wallH - 3 - rows * 4;
@@ -577,20 +693,23 @@ export const drawBladewheel = (ctx, t, time) => {
   ctx.fillStyle = INK;
   ctx.fillRect(x - 3, y - 10, 6, 16);
   plankFace(ctx, x - 2, y - 9, 4, 14, "#5f4326", "#7a5a34", "#3c2a18", true);
-  ctx.fillStyle = "#9aa0ac";
-  ctx.fillRect(x - 3, y - 4, 6, 2);
-  ctx.fillStyle = "#6c727e";
-  ctx.fillRect(x - 3, y - 2, 6, 1);
+  // an iron collar per level bolted to the post — countable at a glance
+  for (let i = 0; i < lvl; i++) {
+    ctx.fillStyle = "#9aa0ac";
+    ctx.fillRect(x - 3, y - 4 + i * 4, 6, 2);
+    ctx.fillStyle = "#6c727e";
+    ctx.fillRect(x - 3, y - 2 + i * 4, 6, 1);
+  }
   // the wheel: a flat spinning disc of blades atop the post (squashed for depth)
   const spin = time * (gale ? 10 : fire ? 3 : 4.5) + t.id;
-  const wy = y - 12;
+  const wy = y - 12 + Math.round(t.anim * 2);   // it kicks down as it bites
   const rr = 9 + lvl + (t.branch ? 1 : 0);
   ctx.fillStyle = INK;
   ctx.beginPath(); ctx.ellipse(x, wy, rr - 1, (rr - 1) * 0.55, 0, 0, 7); ctx.fill();
   ctx.fillStyle = fire ? "#8a5a3a" : gale ? "#b8bcc4" : "#9aa0ac";
   ctx.beginPath(); ctx.ellipse(x, wy, rr - 2.5, (rr - 2.5) * 0.55, 0, 0, 7); ctx.fill();
   // spikes riding the rim
-  const nSpk = lvl >= 3 || t.branch ? 10 : 8;
+  const nSpk = t.branch ? 12 : 4 + lvl * 2;      // 6 / 8 / 10 blades, 12 evolved
   const tipCol = fire ? "#e8c14a" : r4 === "aa" ? "#e8d47a" : r4 === "ab" ? "#8ce8f0" : "#dde2ea";
   for (let i = 0; i < nSpk; i++) {
     const ang = spin + (i / nSpk) * Math.PI * 2;
@@ -605,7 +724,14 @@ export const drawBladewheel = (ctx, t, time) => {
       ctx.fillRect(S(x + Math.cos(ang) * (rr - 5)), S(wy + Math.sin(ang) * (rr - 5) * 0.55), CELL, CELL);
     }
   }
-  // hub
+  // hub, with gear teeth that turn against the rim
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.arc(x, wy, 4.4, 0, 7); ctx.fill();
+  ctx.fillStyle = "#6c727e";
+  for (let i = 0; i < 8; i++) {
+    const ang = -spin * 0.6 + (i / 8) * Math.PI * 2;
+    ctx.fillRect(S(x + Math.cos(ang) * 5) - 1, S(wy + Math.sin(ang) * 5 * 0.55) - 1, 2, 2);
+  }
   ctx.fillStyle = INK;
   ctx.beginPath(); ctx.arc(x, wy, 3.4, 0, 7); ctx.fill();
   ctx.fillStyle = fire ? "#e8c14a" : "#6e4c28";
@@ -712,6 +838,49 @@ export const drawSupportTower = (ctx, t, time) => {
       ctx.fillRect(px - 1, y - 19 - fl, 2, 3 + fl);
     }
   }
+  // A stone arch over the altar once the shrine is fully raised — the clearest
+  // read that this warden is finished, and something for the censer to hang from.
+  if (lvl >= 3 || t.branch) {
+    const ah = 30, aw = pw + 7;
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - aw - 1, y - ah - 5, aw * 2 + 2, 6);
+    ctx.fillStyle = ALTAR.mid;
+    ctx.fillRect(x - aw, y - ah - 4, aw * 2, 4);
+    ctx.fillStyle = ALTAR.lit;
+    ctx.fillRect(x - aw, y - ah - 4, aw * 2, 1);
+    ctx.fillStyle = ALTAR.shade;
+    ctx.fillRect(x - aw, y - ah - 1, aw * 2, 1);
+    // the two piers, with a shadowed inner face
+    for (const sgn of [-1, 1]) {
+      const px2 = x + sgn * aw - (sgn < 0 ? 0 : 4);
+      ctx.fillStyle = INK;
+      ctx.fillRect(px2 - 1, y - ah - 1, 6, ah - 4);
+      ctx.fillStyle = ALTAR.mid;
+      ctx.fillRect(px2, y - ah, 4, ah - 6);
+      ctx.fillStyle = sgn < 0 ? ALTAR.lit : ALTAR.shade;
+      ctx.fillRect(px2, y - ah, 1, ah - 6);
+    }
+    // a censer on a chain, swinging under the keystone
+    const sw = Math.sin(time * 1.6 + t.id) * 7;
+    const cx2 = S(x + sw), cy2 = y - ah + 9 + Math.abs(sw) * 0.25;
+    ctx.fillStyle = "#6c727e";
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(S(x + sw * (i / 5)), y - ah + i * 2, 1, 2);
+    }
+    ctx.fillStyle = INK;
+    ctx.fillRect(cx2 - 4, S(cy2), 8, 7);
+    ctx.fillStyle = "#d8b34a";
+    ctx.fillRect(cx2 - 3, S(cy2) + 1, 6, 5);
+    ctx.fillStyle = "#8a6f28";
+    ctx.fillRect(cx2 - 3, S(cy2) + 4, 6, 2);
+    // incense curling up out of it
+    for (let i = 0; i < 3; i++) {
+      const py2 = S(cy2) - 3 - ((time * 12 + i * 6 + t.id * 3) % 14);
+      ctx.fillStyle = `rgba(216,230,240,${0.5 - i * 0.12})`;
+      ctx.fillRect(cx2 - 1 + Math.round(Math.sin(time * 3 + i) * 2), py2, 2, 2);
+    }
+  }
+
   // ice branch: a floating shard of never-melting ice
   if (t.branch === "a") {
     const hy = S(y - 34 + Math.sin(time * 2.5 + t.id) * 3);

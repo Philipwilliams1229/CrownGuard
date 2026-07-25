@@ -29,8 +29,8 @@
       import { drawEnemy } from "/src/render/enemies.js";
       import { ENEMIES } from "/src/data/enemies.js";
 
-      const SCALE = 3;
-      const CW = 90, CH = 90;          // world box per cell
+      const SCALE = 2.4;
+      const CW = 96, CH = 124;         // world box per cell (tall enough for a roofed tower)
       const out = document.getElementById("out");
       let t = 0;
 
@@ -63,10 +63,13 @@
         out.appendChild(g);
       }
 
-      // a stand-in tower the render functions are happy with
-      const T = (kind, o = {}) => ({
+      // A stand-in tower the render functions are happy with. `anim` is
+      // driven off the clock so firing animations actually play here: it
+      // snaps to 1 once a second and decays the way the engine decays it.
+      const T = (kind, time, o = {}) => ({
         id: 3, kind, x: CW / 2, y: CH / 2 + 8, level: 3, branch: null, rank4: null,
-        cd: 0, aim: "first", anim: 0, lastAim: -Math.PI / 2, shotIdx: 0, critIdx: 0,
+        cd: 0, aim: "first", lastAim: 0, shotIdx: 0, critIdx: 0,
+        anim: Math.max(0, 1 - (time % 1.4) * 4),
         rally: { x: CW / 2, y: CH / 2 + 30 }, units: [], invested: 100, ...o,
       });
 
@@ -77,11 +80,11 @@
 
       for (const [kind, fn] of TOWERS) {
         section(kind);
-        for (const lvl of [1, 2, 3]) cell(`lv ${lvl}`, (ctx, time) => fn(ctx, T(kind, { level: lvl }), time));
+        for (const lvl of [1, 2, 3]) cell(`lv ${lvl}`, (ctx, time) => fn(ctx, T(kind, time, { level: lvl }), time));
         for (const br of ["a", "b"]) {
-          cell(`branch ${br}`, (ctx, time) => fn(ctx, T(kind, { branch: br }), time));
+          cell(`branch ${br}`, (ctx, time) => fn(ctx, T(kind, time, { branch: br }), time));
           for (const r4 of ["a", "b"]) {
-            cell(`${br}${r4}`, (ctx, time) => fn(ctx, T(kind, { branch: br, rank4: r4 }), time));
+            cell(`${br}${r4}`, (ctx, time) => fn(ctx, T(kind, time, { branch: br, rank4: r4 }), time));
           }
         }
       }
