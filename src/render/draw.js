@@ -1,8 +1,14 @@
 // ============ MASTER RENDER ============
-// Paints one whole frame into a half-resolution buffer (for the crisp
-// low-res pixel look), then upscales it — with smoothing off — onto the
-// visible canvas. Handles camera zoom/pan, terrain, path, build previews,
-// depth-sorted actors, projectiles, floating effects, and the pause overlay.
+// Paints one whole frame into an off-screen buffer, then blits it — with
+// smoothing off — onto the visible canvas. Handles camera zoom/pan, terrain,
+// path, build previews, depth-sorted actors, projectiles, floating effects,
+// and the pause overlay.
+//
+// The buffer is FULL board resolution (one world pixel to one buffer pixel).
+// It used to be half that and get doubled on the way out, which cost every
+// piece of art half its detail — a 13-cell-wide goblin landed on screen as 13
+// actual pixels. Sprites that opt into `px: 1` (see sprites.js) now get four
+// times the pixels inside the same footprint.
 
 import { W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE, PATH_HALF } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
@@ -11,25 +17,24 @@ import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR, PONDS } from "
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
-import { SPRITES } from "../sprites/sprites.js";
+import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
-import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult } from "./towers.js";
+import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel } from "./towers.js";
 import { drawTree, drawPond, drawCastle, drawCave } from "./scenery.js";
 
 export function draw(g, canvas, bufRef) {
   const cv = canvas;
   if (!cv) return;
   let buf = bufRef.current;
-  if (!buf) {
+  if (!buf || buf.width !== W) {
     buf = document.createElement("canvas");
-    buf.width = W / 2; buf.height = H / 2;
+    buf.width = W; buf.height = H;
     bufRef.current = buf;
   }
   const ctx = buf.getContext("2d");
   ctx.save();
   ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, W / 2, H / 2);
-  ctx.scale(0.5, 0.5);
+  ctx.clearRect(0, 0, W, H);
   if (g.shake > 0) ctx.translate(S((Math.random() - 0.5) * g.shake), S((Math.random() - 0.5) * g.shake));
   ctx.scale(g.cam.zoom, g.cam.zoom);
   ctx.translate(-g.cam.x, -g.cam.y);
@@ -155,6 +160,7 @@ export function draw(g, canvas, bufRef) {
         else if (t.kind === "wizard") drawWizardSpire(ctx, t, g.time);
         else if (t.kind === "support") drawSupportTower(ctx, t, g.time);
         else if (t.kind === "catapult") drawCatapult(ctx, t, g.time);
+        else if (t.kind === "spiker") drawBladewheel(ctx, t, g.time);
         else drawGarrison(ctx, t, g.time);
         if (!t.branch) {
           ctx.fillStyle = "#e8d47a";
@@ -204,6 +210,13 @@ export function draw(g, canvas, bufRef) {
       } else {
         for (let i = -2; i <= 2; i++) ctx.fillRect(S(p.x + dx * i * 3), S(p.y + dy * i * 3), CELL, CELL);
       }
+    } else if (p.kind === "spike") {
+      // a flung steel sliver, oriented along its flight
+      const dx = Math.cos(p.angle || 0), dy = Math.sin(p.angle || 0);
+      ctx.fillStyle = p.slow ? "#8ce8f0" : p.hitsLeft > 1 ? "#e8d47a" : "#c4c8d0";
+      ctx.fillRect(S(p.x - dx * 2), S(p.y - dy * 2), CELL, CELL);
+      ctx.fillRect(S(p.x), S(p.y), CELL, CELL);
+      ctx.fillRect(S(p.x + dx * 2), S(p.y + dy * 2), 2, 2);
     } else {
       const col = p.burn ? "#d8763a" : p.slow ? "#9fd4e8" : "#b08ad8";
       ctx.fillStyle = INK;
@@ -273,6 +286,70 @@ export function draw(g, canvas, bufRef) {
         const ang = i * 0.785 + 0.3;
         ctx.fillRect(S(fx.x + Math.cos(ang) * r), S(fx.y + Math.sin(ang) * r * 0.9), CELL, CELL);
       }
+    } else if (fx.type === "firenova") {
+      // the Brazier Wheel's expanding ring of flame
+      const prog = 1 - fx.ttl / 450;
+      const r = prog * fx.r;
+      ctx.strokeStyle = `rgba(216,118,58,${a * 0.9})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = `rgba(232,193,74,${a})`;
+      for (let i = 0; i < 8; i++) {
+        const ang = i * 0.785 + 0.5;
+        ctx.fillRect(S(fx.x + Math.cos(ang) * r), S(fx.y + Math.sin(ang) * r * 0.9) - CELL, CELL, CELL * 2);
+      }
+    } else if (fx.type === "healwave") {
+      // the shaman's mending chant washing outward
+      const prog = 1 - fx.ttl / 550;
+      const r = prog * fx.r;
+      ctx.strokeStyle = `rgba(140,224,140,${a * 0.8})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = `rgba(190,232,176,${a})`;
+      for (let i = 0; i < 4; i++) {
+        const ang = i * 1.57 + 0.8;
+        const px2 = S(fx.x + Math.cos(ang) * r), py2 = S(fx.y + Math.sin(ang) * r * 0.85);
+        ctx.fillRect(px2 - CELL, py2, CELL * 3, CELL);
+        ctx.fillRect(px2, py2 - CELL, CELL, CELL * 3);
+      }
+    } else if (fx.type === "wardwave") {
+      // a chaplain's ward washing out over the column — cold blue, not green
+      const prog = 1 - fx.ttl / 550;
+      const r = prog * fx.r;
+      ctx.strokeStyle = `rgba(150,190,235,${a * 0.85})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ctx.lineWidth = 1;
+      // little shield glyphs riding the wavefront
+      ctx.fillStyle = `rgba(210,228,245,${a})`;
+      for (let i = 0; i < 4; i++) {
+        const ang = i * 1.57 + 0.4;
+        const px2 = S(fx.x + Math.cos(ang) * r), py2 = S(fx.y + Math.sin(ang) * r * 0.85);
+        ctx.fillRect(px2 - CELL, py2 - CELL, CELL * 3, CELL * 2);
+        ctx.fillRect(px2, py2 + CELL, CELL, CELL);
+      }
+    } else if (fx.type === "bolt") {
+      // a crossbow quarrel in flight, drawn as the streak it leaves
+      const prog = 1 - fx.ttl / 170;
+      const hx = fx.x + (fx.tx - fx.x) * prog, hy = fx.y + (fx.ty - fx.y) * prog;
+      const bx = fx.x + (fx.tx - fx.x) * Math.max(0, prog - 0.35);
+      const by = fx.y + (fx.ty - fx.y) * Math.max(0, prog - 0.35);
+      ctx.strokeStyle = `rgba(232,224,200,${a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(S(bx), S(by)); ctx.lineTo(S(hx), S(hy)); ctx.stroke();
+      ctx.lineWidth = 1;
+    } else if (fx.type === "raise") {
+      // grave-light: witch-fire motes rising as a corpse claws back up
+      const prog = 1 - fx.ttl / fx.life;
+      ctx.fillStyle = `rgba(176,138,216,${a * 0.4})`;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), 12 * (1 - prog * 0.5), 0, 7); ctx.fill();
+      for (let i = 0; i < 5; i++) {
+        const rise = prog * (14 + (i % 3) * 8);
+        ctx.fillStyle = i % 2 ? `rgba(124,200,92,${a})` : `rgba(176,138,216,${a})`;
+        ctx.fillRect(S(fx.x - 8 + i * 4), S(fx.y + 2 - rise), CELL, CELL * 2);
+      }
     } else if (fx.type === "shrapnel") {
       // actual flying shards: fling out, then rain down
       const prog = 1 - fx.ttl / fx.life;
@@ -296,17 +373,18 @@ export function draw(g, canvas, bufRef) {
       // flash white, then crumble into drifting pixels
       const spr = SPRITES[fx.etype];
       if (spr) {
+        const sp = spr.px || CELL;   // hi-res sprites crumble on their own grid
         const prog = 1 - fx.ttl / fx.life;
         if (prog < 0.22) {
           ctx.globalAlpha = 0.9;
           const map = spr.frames[0];
           const w2 = map[0].length, h2 = map.length;
-          const ox2 = Math.round((fx.x - (w2 * CELL) / 2) / CELL) * CELL;
-          const oy2 = Math.round((fx.y - (h2 * CELL) / 2) / CELL) * CELL;
+          const ox2 = Math.round((fx.x - (w2 * sp) / 2) / sp) * sp;
+          const oy2 = Math.round((fx.y - (h2 * sp) / 2) / sp) * sp;
           ctx.fillStyle = "#f4f2ea";
           for (let rr = 0; rr < h2; rr++) {
             for (let cc = 0; cc < w2; cc++) {
-              if (map[rr][fx.face < 0 ? w2 - 1 - cc : cc] !== ".") ctx.fillRect(ox2 + cc * CELL, oy2 + rr * CELL, CELL, CELL);
+              if (map[rr][fx.face < 0 ? w2 - 1 - cc : cc] !== ".") ctx.fillRect(ox2 + cc * sp, oy2 + rr * sp, sp, sp);
             }
           }
           ctx.globalAlpha = 1;
@@ -314,7 +392,7 @@ export function draw(g, canvas, bufRef) {
           const p2 = (prog - 0.22) / 0.78;
           const map = spr.frames[0];
           const w2 = map[0].length, h2 = map.length;
-          const ox2 = fx.x - (w2 * CELL) / 2, oy2 = fx.y - (h2 * CELL) / 2;
+          const ox2 = fx.x - (w2 * sp) / 2, oy2 = fx.y - (h2 * sp) / 2;
           ctx.globalAlpha = 1 - p2;
           for (let rr = 0; rr < h2; rr++) {
             for (let cc = 0; cc < w2; cc++) {
@@ -322,12 +400,13 @@ export function draw(g, canvas, bufRef) {
               if (ch === "." || ch === undefined) continue;
               const hash = ((rr * 31 + cc * 17) % 13) / 13;
               if (hash < p2 * 1.15) continue; // pixels crumble away over time
-              const col = spr.pal?.[ch];
+              const dpal = fx.revived && UNDEAD_PALS[fx.etype] ? UNDEAD_PALS[fx.etype] : spr.pal;
+              const col = dpal?.[ch];
               if (!col) continue;
               const scatter = p2 * (hash - 0.5) * 26;
               const fall = p2 * p2 * (18 + hash * 22);
               ctx.fillStyle = col;
-              ctx.fillRect(S(ox2 + cc * CELL + scatter), S(oy2 + rr * CELL + fall), CELL, CELL);
+              ctx.fillRect(S(ox2 + cc * sp + scatter), S(oy2 + rr * sp + fall), sp, sp);
             }
           }
           ctx.globalAlpha = 1;

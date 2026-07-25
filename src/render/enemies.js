@@ -3,17 +3,19 @@
 // bar, armor badge) and a knight unit (weapon, buffs, heal glow, health bar).
 
 import { INK, CELL, S } from "../data/constants.js";
-import { SPRITES, KNIGHT_PALS, drawSprite, whitePal } from "../sprites/sprites.js";
+import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal } from "../sprites/sprites.js";
 
 export const drawEnemy = (ctx, e, time, tms) => {
   const spr = SPRITES[e.type];
+  // necromancer-raised foes wear grave-pale colors with witch-fire eyes
+  const pal = e.revived && UNDEAD_PALS[e.type] ? UNDEAD_PALS[e.type] : spr.pal;
   const fighting = e.blockedBy && e.engaged;
   // sprites may define any number of walk frames (spr.frames), an optional
   // dedicated fight cycle (spr.fight), and their own animation rate (spr.rate)
   const walkRate = spr.rate || (e.type === "wolf" ? 8 : e.type === "goblin" || e.type === "orc" ? 5 : 4);
   let sheet = spr, frame;
   if (fighting && e.type !== "dragon") {
-    if (spr.fight) { sheet = { frames: spr.fight }; frame = Math.floor(time * 7 + e.id) % spr.fight.length; }
+    if (spr.fight) { sheet = { frames: spr.fight, px: spr.px }; frame = Math.floor(time * 7 + e.id) % spr.fight.length; }
     else frame = Math.floor(time * 8) % spr.frames.length;
   } else {
     frame = Math.floor(time * walkRate + e.id) % spr.frames.length;
@@ -25,12 +27,20 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // dragons hover; small quick critters get a lively hop on their off-frames
   let hover = e.type === "dragon" ? S(Math.sin(time * 3 + e.id) * 3) - 10 : 0;
   if ((e.type === "goblin" || e.type === "wolf") && frame % 2 === 1 && !fighting) hover -= CELL;
-  drawSprite(ctx, sheet, spr.pal, frame, e.x + lunge, e.y + hover, e.face < 0);
+  drawSprite(ctx, sheet, pal, frame, e.x + lunge, e.y + hover, e.face < 0);
   // white flash on solid hits
   if (e.hitFlash > tms) {
     ctx.globalAlpha = 0.7;
-    drawSprite(ctx, sheet, whitePal(spr.pal), frame, e.x + lunge, e.y + hover, e.face < 0);
+    drawSprite(ctx, sheet, whitePal(pal), frame, e.x + lunge, e.y + hover, e.face < 0);
     ctx.globalAlpha = 1;
+  }
+  // shaman's mending: green motes drift up off freshly-healed foes
+  if (e.healedFlash > tms) {
+    ctx.fillStyle = "#8ce08c";
+    for (let i = 0; i < 2; i++) {
+      const gy = e.y - e.size - 2 - ((time * 18 + i * 7 + e.id) % 9);
+      ctx.fillRect(S(e.x - 6 + i * 12), S(gy), CELL, CELL);
+    }
   }
   // Permafrost brittleness: pale cracks across the body
   if (e.brittleUntil > tms) {
@@ -79,6 +89,22 @@ export const drawEnemy = (ctx, e, time, tms) => {
     ctx.fillStyle = "#9aa0ac";
     ctx.fillRect(e.x + w / 2 + 4, e.y - e.size - 12, 4, 4);
     ctx.fillRect(e.x + w / 2 + 5, e.y - e.size - 8, 2, 2);
+  }
+  // rune-ward badge: magic resistance
+  if (e.mres >= 0.3) {
+    ctx.fillStyle = "#b08ad8";
+    ctx.fillRect(e.x - w / 2 - 8, e.y - e.size - 12, 4, 4);
+    ctx.fillRect(e.x - w / 2 - 7, e.y - e.size - 8, 2, 2);
+  }
+  // raised shields / chaplain wards: one pip per blow still to be swallowed,
+  // sitting just under the health bar so you can see them being spent
+  if (e.guard > 0) {
+    ctx.fillStyle = e.guardFlash > tms ? "#eaf2ff" : "#9ab6d8";
+    for (let i = 0; i < Math.min(4, e.guard); i++) {
+      const gx = e.x - w / 2 + i * 6;
+      ctx.fillRect(S(gx), S(e.y - e.size - 5), CELL * 2, CELL * 2);
+      ctx.fillRect(S(gx + 1), S(e.y - e.size - 3), CELL, CELL);
+    }
   }
 };
 

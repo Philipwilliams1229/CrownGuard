@@ -1,0 +1,69 @@
+<!doctype html>
+<!--
+  Dev tool: a contact sheet of every sprite in the game, blown up so the art
+  can actually be judged. Open /sprites.html while the dev server is running.
+  Not linked from the game.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — sprite sheet</title>
+    <style>
+      body { background: #20242c; color: #e8e0c8; font-family: Verdana, sans-serif; margin: 0; padding: 16px; }
+      h2 { font-size: 13px; letter-spacing: 2px; color: #d8b34a; margin: 18px 0 8px; }
+      .grid { display: flex; flex-wrap: wrap; gap: 14px; }
+      .cell { background: #69874e; border: 2px solid #10131a; padding: 6px; text-align: center; }
+      .cell.dark { background: #2c313c; }
+      .cap { font-size: 9px; opacity: 0.75; margin-top: 4px; }
+      canvas { image-rendering: pixelated; display: block; margin: 0 auto; }
+    </style>
+  </head>
+  <body>
+    <div id="out"></div>
+    <script type="module">
+      import { SPRITES, MINI, KNIGHT_PALS, drawSprite } from "/src/sprites/sprites.js";
+
+      const SCALE = 6;
+      const out = document.getElementById("out");
+
+      function sheet(title, entries) {
+        const h = document.createElement("h2");
+        h.textContent = title;
+        out.appendChild(h);
+        const grid = document.createElement("div");
+        grid.className = "grid";
+        out.appendChild(grid);
+        for (const { name, spr, pal, frames } of entries) {
+          for (let f = 0; f < frames.length; f++) {
+            const map = frames[f];
+            const px = spr.px || 2;
+            const w = map[0].length * px, hh = map.length * px;
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            const cv = document.createElement("canvas");
+            cv.width = w; cv.height = hh;
+            cv.style.width = w * SCALE + "px";
+            cv.style.height = hh * SCALE + "px";
+            const ctx = cv.getContext("2d");
+            ctx.imageSmoothingEnabled = false;
+            drawSprite(ctx, { frames: [map], px }, pal, 0, w / 2, hh / 2, false);
+            cell.appendChild(cv);
+            const cap = document.createElement("div");
+            cap.className = "cap";
+            cap.textContent = `${name} ${f} · ${map[0].length}x${map.length} @${px}`;
+            cell.appendChild(cap);
+            grid.appendChild(cell);
+          }
+        }
+      }
+
+      for (const [name, spr] of Object.entries(SPRITES)) {
+        sheet(name, [{ name: "walk", spr, pal: spr.pal, frames: spr.frames }]);
+        if (spr.fight) sheet(name + " — fight", [{ name: "fight", spr, pal: spr.pal, frames: spr.fight }]);
+      }
+      for (const [name, spr] of Object.entries(MINI)) {
+        sheet("mini: " + name, [{ name, spr, pal: spr.pal || KNIGHT_PALS.base, frames: spr.frames }]);
+      }
+    </script>
+  </body>
+</html>

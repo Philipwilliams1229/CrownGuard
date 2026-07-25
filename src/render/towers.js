@@ -454,6 +454,109 @@ export const drawGarrison = (ctx, t, time) => {
   }
 };
 
+export const drawBladewheel = (ctx, t, time) => {
+  const x = S(t.x), y = S(t.y);
+  const lvl = t.level;
+  const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
+  const fire = t.branch === "b";
+  const gale = t.branch === "a";
+  ctx.fillStyle = "rgba(20,20,26,0.3)";
+  ctx.fillRect(x - 14, y + 14, 28, 4);
+  // Solar Crown / Wildheart: heat shimmer on the ground
+  if (fire) {
+    ctx.fillStyle = `rgba(216,118,58,${0.22 + 0.12 * Math.sin(time * 5 + t.id)})`;
+    ctx.beginPath(); ctx.arc(x, y + 8, r4 ? 18 : 14, 0, 7); ctx.fill();
+  }
+  // stone ring base
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 13, y + 2, 26, 14);
+  ctx.fillStyle = "#948c80";
+  ctx.fillRect(x - 11, y + 4, 22, 10);
+  ctx.fillStyle = "#bcb4a6";
+  ctx.fillRect(x - 11, y + 4, 22, 3);
+  // center post
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 3, y - 10, 6, 16);
+  ctx.fillStyle = "#5f4326";
+  ctx.fillRect(x - 2, y - 9, 4, 14);
+  // the wheel: a flat spinning disc of blades atop the post (squashed for depth)
+  const spin = time * (gale ? 10 : fire ? 3 : 4.5) + t.id;
+  const wy = y - 12;
+  const rr = 9 + lvl + (t.branch ? 1 : 0);
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.ellipse(x, wy, rr - 1, (rr - 1) * 0.55, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = fire ? "#8a5a3a" : gale ? "#b8bcc4" : "#9aa0ac";
+  ctx.beginPath(); ctx.ellipse(x, wy, rr - 2.5, (rr - 2.5) * 0.55, 0, 0, 7); ctx.fill();
+  // spikes riding the rim
+  const nSpk = lvl >= 3 || t.branch ? 10 : 8;
+  const tipCol = fire ? "#e8c14a" : r4 === "aa" ? "#e8d47a" : r4 === "ab" ? "#8ce8f0" : "#dde2ea";
+  for (let i = 0; i < nSpk; i++) {
+    const ang = spin + (i / nSpk) * Math.PI * 2;
+    ctx.fillStyle = fire && i % 2 ? "#d8763a" : tipCol;
+    ctx.fillRect(S(x + Math.cos(ang) * rr) - 1, S(wy + Math.sin(ang) * rr * 0.55) - 1, 3, 3);
+  }
+  // Twin Rims (Lv3) / Steel Tempest: an inner counter-rotating ring
+  if (lvl >= 3 && !fire) {
+    for (let i = 0; i < 6; i++) {
+      const ang = -spin * 1.3 + (i / 6) * Math.PI * 2;
+      ctx.fillStyle = r4 === "aa" ? "#e8d47a" : "#c4c8d0";
+      ctx.fillRect(S(x + Math.cos(ang) * (rr - 5)), S(wy + Math.sin(ang) * (rr - 5) * 0.55), CELL, CELL);
+    }
+  }
+  // hub
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.arc(x, wy, 3.4, 0, 7); ctx.fill();
+  ctx.fillStyle = fire ? "#e8c14a" : "#6e4c28";
+  ctx.beginPath(); ctx.arc(x, wy, 2, 0, 7); ctx.fill();
+  // Brazier: flames licking off the rim
+  if (fire) {
+    for (let i = 0; i < 4; i++) {
+      const ang = time * 2 + i * 1.57;
+      const fl = Math.sin(time * 11 + i * 2) > 0 ? 2 : 0;
+      ctx.fillStyle = i % 2 ? "#e8d47a" : "#d8763a";
+      ctx.fillRect(S(x + Math.cos(ang) * rr), S(wy + Math.sin(ang) * rr * 0.55) - 3 - fl, 2, 3 + fl);
+    }
+  }
+  // Solar Crown: a golden halo hangs above the wheel
+  if (r4 === "ba") {
+    const hy = S(wy - 12 + Math.sin(time * 2.5 + t.id) * 2);
+    ctx.fillStyle = "#e8d47a";
+    ctx.fillRect(x - 5, hy, 10, 2);
+    ctx.fillRect(x - 3, hy - 2, 6, 2);
+  }
+  // Wildheart Pyre: embers drift upward
+  if (r4 === "bb") {
+    ctx.fillStyle = "#e88a3a";
+    for (let i = 0; i < 3; i++) {
+      const ey2 = wy - ((time * 24 + i * 13 + t.id * 7) % 30);
+      ctx.fillRect(S(x - 8 + i * 8 + Math.sin(time * 3 + i) * 3), S(ey2), CELL, CELL);
+    }
+  }
+  // Hamstringer: barbed snares staked around the base
+  if (r4 === "ab") {
+    ctx.fillStyle = "#8ce8f0";
+    ctx.fillRect(x - 16, y + 10, 2, 4);
+    ctx.fillRect(x + 14, y + 8, 2, 4);
+    ctx.fillRect(x + 17, y + 12, 2, 3);
+  }
+  // spare spike bundle beside the base
+  ctx.fillStyle = "#6e4c28";
+  ctx.fillRect(x - 19, y + 8, 6, 6);
+  ctx.fillStyle = tipCol;
+  ctx.fillRect(x - 18, y + 5, 2, 4);
+  ctx.fillRect(x - 15, y + 4, 2, 5);
+  // banner
+  const wave = Math.round(Math.sin(time * 5 + t.id)) * CELL;
+  const bc = r4 && SPIKE_BANNER[r4] ? SPIKE_BANNER[r4] : gale ? "#7a94b8" : fire ? "#c05a28" : "#a04a3f";
+  ctx.fillStyle = "#5f4326";
+  ctx.fillRect(x + 14, y - 16, 2, 28);
+  ctx.fillStyle = bc;
+  ctx.fillRect(x + 16, y - 16, 8 + wave, 3);
+  ctx.fillRect(x + 16, y - 13, 5 + wave, 3);
+};
+
+const SPIKE_BANNER = { aa: "#e8d47a", ab: "#8ce8f0", ba: "#e8c14a", bb: "#e88a3a" };
+
 export const drawSupportTower = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;

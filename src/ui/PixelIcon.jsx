@@ -5,7 +5,7 @@
 import { useRef, useEffect } from "react";
 import {
   SPRITES, MINI, drawSprite,
-  KNIGHT_PALS, ARCHER_PALS, WIZ_PALS, PRIEST_PALS, CATAPULT_PALS, BALLISTA_PAL,
+  KNIGHT_PALS, ARCHER_PALS, WIZ_PALS, PRIEST_PALS, CATAPULT_PALS, BALLISTA_PAL, SPIKER_PALS,
 } from "../sprites/sprites.js";
 
 export default function PixelIcon({ kind, branch = null, rank4 = null, size = 30 }) {
@@ -23,6 +23,7 @@ export default function PixelIcon({ kind, branch = null, rank4 = null, size = 30
     else if (kind === "archer") { spr = MINI.archer; pal = ARCHER_PALS[r4 && ARCHER_PALS[r4] ? r4 : branch || "base"]; }
     else if (kind === "wizard") { spr = MINI.wizard; pal = WIZ_PALS[r4 && WIZ_PALS[r4] ? r4 : branch || "base"]; }
     else if (kind === "catapult") { spr = MINI.catapult; pal = CATAPULT_PALS[branch || "base"]; }
+    else if (kind === "spiker") { spr = MINI.spiker; pal = SPIKER_PALS[r4 && SPIKER_PALS[r4] ? r4 : branch || "base"]; }
     else { spr = MINI.priest; pal = PRIEST_PALS[r4 && PRIEST_PALS[r4] ? r4 : branch || "base"]; }
     drawSprite(ctx, spr, pal, 0, size / 2, size / 2 + 1, false);
   }, [kind, branch, rank4, size]);

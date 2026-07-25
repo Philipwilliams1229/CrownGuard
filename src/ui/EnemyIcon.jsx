@@ -4,15 +4,16 @@
 // down with CSS (smoothing off) so it stays crisp and fits a target box.
 
 import { useRef, useEffect } from "react";
-import { CELL } from "../data/constants.js";
 import { SPRITES, drawSprite } from "../sprites/sprites.js";
 
 export default function EnemyIcon({ type, box = 26 }) {
   const ref = useRef(null);
   const spr = SPRITES[type];
   const map = spr.frames[0];
-  const w = map[0].length * CELL;
-  const h = map.length * CELL;
+  // one cell is `px` world pixels — hi-res sprites use 1, the coarse ones 2
+  const px = spr.px || 2;
+  const w = map[0].length * px;
+  const h = map.length * px;
   const scale = box / Math.max(w, h);
 
   useEffect(() => {
