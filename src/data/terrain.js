@@ -24,7 +24,7 @@ const inPond = (ponds, x, y) =>
 export function regenTerrain(map) {
   const rng = mulberry32(map.seed);
   const sc = map.scatter;
-  DECOR = map.decor;
+  DECOR = map.decor ? [...map.decor] : [];
   PONDS = map.ponds || [];
 
   CHEVRONS = [];
@@ -63,5 +63,19 @@ export function regenTerrain(map) {
     if (nearestOnPath(x, y).d < PATH_HALF + 10) continue;
     if (inPond(PONDS, x, y)) continue;
     FLOWERS.push({ x, y, c: sc.flowerCols[Math.floor(rng() * sc.flowerCols.length)], p: rng() * 6 });
+  }
+
+  // Scattered landmarks (trees, boulders...) for realms that describe their
+  // decor as a recipe instead of hand-placing every item. Runs LAST so adding
+  // a recipe to a map never shifts the scatter above it.
+  const rec = map.decorRecipe;
+  if (rec) {
+    for (let tries = 0; tries < rec.count * 30 && DECOR.length < rec.count; tries++) {
+      const x = 20 + rng() * (W - 40), y = 24 + rng() * (H - 44);
+      if (nearestOnPath(x, y).d < PATH_HALF + 20) continue;
+      if (inPond(PONDS, x, y)) continue;
+      if (DECOR.some((d) => Math.hypot(d.x - x, d.y - y) < 42)) continue;
+      DECOR.push({ x, y, t: rec.types[Math.floor(rng() * rec.types.length)], s: 0.82 + rng() * 0.42 });
+    }
   }
 }

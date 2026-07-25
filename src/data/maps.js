@@ -171,6 +171,122 @@ export const REALMS = {
   },
 };
 
+// ============ CAMPAIGN REALMS ============
+// The maps the campaign marches through. They share a biome's palette and
+// scatter recipe and differ only in the road, the seed, and the landmarks —
+// so a chapter feels like one country seen from five different valleys.
+// Landmarks come from `decorRecipe` (see terrain.js): the generator scatters
+// them itself and keeps them off the road, so no hand-placing is needed.
+
+// Everything green: the same meadow as Greenwood Vale, a different road.
+const greenwoodVariant = (id, name, tag, blurb, seed, path, extra = {}) => ({
+  ...REALMS.greenwood, id, name, tag, blurb, seed, path,
+  decor: undefined,
+  decorRecipe: { count: 13, types: ["pine", "tree", "pine", "rock"] },
+  ponds: [],
+  ...extra,
+});
+
+// The Iron Kingdom's country: cropped highland turf and a paved military road.
+const IRON_GROUND = {
+  tag: "IRON MARCHES",
+  tagColor: "#9ab6d8",
+  ambient: "none",
+  GRASS: "#5a6557",
+  GRASS_DK: "#4a5448",
+  GRASS_LT: "#6a7566",
+  TUFT: "#444e42",
+  PATH_MAIN: "#9c9c96",
+  PATH_DK: "#7c7c78",
+  PATH_EDGE: "#4a4a48",
+  PEBBLE: "#bcbcb6",
+  CHEVRON: "48,48,52",
+  scatter: {
+    patches: 40,
+    tufts: 34,
+    flowers: 12,
+    flowerCols: ["#d8d4c0", "#c8b898", "#a8b8c8"],
+  },
+};
+const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
+  ...IRON_GROUND, id, name, blurb, seed, path,
+  decorRecipe: { count: 10, types: ["rock", "pine", "rock", "tree"] },
+  ponds: [],
+  ...extra,
+});
+
+Object.assign(REALMS, {
+  // ---- Chapter I: Greenwood Vale ----
+  thornbrook: greenwoodVariant(
+    "thornbrook", "Thornbrook Ford", "OPEN GROUND",
+    "Wide meadows either side of a shallow brook. Room to build — use it, because the road here is long.",
+    20260714,
+    [[0.9, 8], [3, 8], [3, 3], [6, 3], [6, 8], [9, 8], [9, 2], [12, 2], [12, 6], [13.7, 6]],
+    { ponds: [{ x: 372, y: 264, w: 58, h: 32 }] },
+  ),
+  oakmere: greenwoodVariant(
+    "oakmere", "Oakmere Hollow", "TIGHT TURNS",
+    "A sunken hollow ringed with old oaks. The road folds back on itself twice — one good tower covers both lanes.",
+    20260715,
+    [[2, 0.8], [2, 4], [6, 4], [6, 1], [10, 1], [10, 6], [4, 6], [4, 8], [13, 8], [13.7, 8]],
+    { ponds: [{ x: 612, y: 396, w: 66, h: 34 }] },
+  ),
+  barrowfields: greenwoodVariant(
+    "barrowfields", "The Barrowfields", "HAUNTED GROUND",
+    "Burial mounds under long grass. The goblins have been digging here, and something is answering.",
+    20260716,
+    [[0.9, 1], [6, 1], [6, 4], [2, 4], [2, 7], [8, 7], [8, 4], [11, 4], [11, 9], [13.7, 9]],
+  ),
+  warrens: greenwoodVariant(
+    "warrens", "The Goblin Warrens", "THE LAIR",
+    "The mouth of the horde's home burrow. The road coils like a gut — and the dragon that guards it is awake.",
+    20260717,
+    [[0.9, 1], [4, 1], [4, 4], [1, 4], [1, 7], [5, 7], [5, 9], [9, 9], [9, 5], [7, 5], [7, 2], [11, 2], [11, 5], [13, 5], [13, 8], [13.7, 8]],
+    { decorRecipe: { count: 16, types: ["pine", "pine", "tree", "rock"] } },
+  ),
+
+  // ---- Chapter II: The Iron Marches ----
+  kingsroad: ironVariant(
+    "kingsroad", "The King's Road",
+    "The border highway, paved and straight. The first Iron column is already on it — and it marches in step.",
+    20260721,
+    [[0.9, 5], [5, 5], [5, 2], [9, 2], [9, 7], [13, 7], [13, 4], [13.7, 4]],
+  ),
+  stonewatch: ironVariant(
+    "stonewatch", "Stonewatch",
+    "A ruined border fort on bare rock. Three long lanes, no cover, and crossbows that shoot back at your knights.",
+    20260722,
+    [[0.9, 2], [3, 2], [3, 7], [7, 7], [7, 2], [11, 2], [11, 7], [13.7, 7]],
+  ),
+  ironford: ironVariant(
+    "ironford", "Ironford",
+    "The river crossing. Water eats the buildable ground and the siege rams come through anyway.",
+    20260723,
+    [[0.9, 8], [4, 8], [4, 4], [8, 4], [8, 8], [11, 8], [11, 3], [13.7, 3]],
+    {
+      ponds: [
+        { x: 300, y: 120, w: 74, h: 38 },
+        { x: 540, y: 300, w: 62, h: 34 },
+        { x: 132, y: 300, w: 54, h: 30 },
+      ],
+    },
+  ),
+  greyhelm: ironVariant(
+    "greyhelm", "Greyhelm Pass",
+    "The climb into the Iron heartland. Switchbacks all the way up — and the whole army is coming down.",
+    20260724,
+    [[1, 0.8], [1, 4], [6, 4], [6, 1], [10, 1], [10, 6], [4, 6], [4, 9], [13, 9], [13, 5], [13.7, 5]],
+    { decorRecipe: { count: 13, types: ["rock", "rock", "pine"] } },
+  ),
+  citadel: ironVariant(
+    "citadel", "The Citadel Gate",
+    "The last mile before the Iron throne. A gauntlet of a road, and the Lord Marshal himself at the end of it.",
+    20260725,
+    [[0.9, 1], [5, 1], [5, 4], [1, 4], [1, 7], [5, 7], [5, 9], [9, 9], [9, 6], [7, 6], [7, 3], [11, 3], [11, 6], [13, 6], [13, 2], [13.7, 2]],
+    { decorRecipe: { count: 12, types: ["rock", "pine", "rock"] } },
+  ),
+});
+
 // the active realm (live binding — reassigned by selectRealm)
 export let REALM = REALMS.greenwood;
 
