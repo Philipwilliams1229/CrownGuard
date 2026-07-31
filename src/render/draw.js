@@ -23,6 +23,52 @@ import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawC
 import { drawTree, drawPond, drawCastle, drawSpawn } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 
+// The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
+// buffer space over the finished board, so it reads at any camera zoom. It's
+// the one piece of type on the field, so it stays short and gets out of the way.
+const BANNER_LIFE = 2.4;
+
+function drawBanner(ctx, g) {
+  const b = g.banner;
+  if (!b) return;
+  const age = g.time - b.t0;
+  if (age < 0 || age > BANNER_LIFE) return;
+  // ease in over a fifth of a second, hold, then fade out over the last half
+  const inP = Math.min(1, age / 0.22);
+  const out = Math.max(0, (age - (BANNER_LIFE - 0.5)) / 0.5);
+  const a = (1 - out) * inP;
+  const slide = (1 - inP) * (1 - inP) * 120;
+  const cy = Math.round(H * 0.3);
+  const hh = b.sub ? 26 : 18;
+
+  ctx.save();
+  ctx.translate(-slide, 0);
+  // the ribbon: dark bar, a bright rule top and bottom, ends bleeding off-board
+  // drawn wider than the board so the slide never uncovers its own edge
+  ctx.fillStyle = `rgba(14,12,18,${a * 0.72})`;
+  ctx.fillRect(-160, cy - hh, W + 320, hh * 2);
+  const edge = b.boss ? "224,90,80" : "216,179,74";
+  ctx.fillStyle = `rgba(${edge},${a * 0.85})`;
+  ctx.fillRect(-160, cy - hh, W + 320, 2);
+  ctx.fillRect(-160, cy + hh - 2, W + 320, 2);
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = `rgba(${b.boss ? "240,168,160" : "240,224,168"},${a})`;
+  ctx.font = "bold 22px monospace";
+  // letter-spacing the hard way: canvas has no such property here
+  const chars = [...b.text];
+  const gap = 22 * 0.72 + 5;
+  let px = W / 2 - ((chars.length - 1) * gap) / 2;
+  for (const ch of chars) { ctx.fillText(ch, Math.round(px), cy + (b.sub ? -7 : 0)); px += gap; }
+  if (b.sub) {
+    ctx.font = "11px monospace";
+    ctx.fillStyle = `rgba(196,190,176,${a * 0.85})`;
+    ctx.fillText(b.sub, W / 2, cy + 13);
+  }
+  ctx.restore();
+}
+
 export function draw(g, canvas, bufRef) {
   const cv = canvas;
   if (!cv) return;
@@ -562,6 +608,7 @@ export function draw(g, canvas, bufRef) {
   // The realm's light, laid over the finished board in buffer space so camera
   // zoom and screen shake can't drag the vignette around with them.
   drawGrade(ctx);
+  drawBanner(ctx, g);
 
   const sc = cv.getContext("2d");
   sc.imageSmoothingEnabled = false;

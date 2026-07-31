@@ -242,6 +242,21 @@
         }));
       }
 
+      // ---- 8. the wave announcement -----------------------------------------
+      {
+        const s = section("the banner", "Sweeps in over a fifth of a second, holds, clears. Bosses get named.");
+        for (const [label, age] of [["sweeping in", 0.1], ["held", 1.0], ["clearing", 2.15]]) {
+          frame(s, `wave 7 — ${label}`, base(age, {
+            banner: { text: "WAVE 7", sub: null, boss: false, t0: 0 },
+            enemies: [enemy("orc", 0.3), enemy("goblin", 0.4)],
+          }));
+        }
+        frame(s, "a boss is announced", base(1.0, {
+          banner: { text: "DRAGON", sub: "the horde has brought its champion", boss: true, t0: 0 },
+          enemies: [enemy("dragon", 0.12, { size: 27, boss: true })],
+        }));
+      }
+
       if (skipped.length) {
         const p = document.createElement("p");
         p.className = "note";

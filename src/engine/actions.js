@@ -8,6 +8,7 @@ import { PTS, nearestOnPath } from "./path.js";
 import { DECOR, PONDS } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { waveSpec, waveHpMult } from "../data/waves.js";
+import { ENEMIES } from "../data/enemies.js";
 import { makeTower, syncUnits } from "./towers.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
@@ -51,6 +52,15 @@ export const startWave = (g) => {
   }
   g.spawnQueue = queue;
   g.spawnTimer = 0;
+  // Announce it on the board. A wave with a boss in it says so by name —
+  // there should never be a moment where a dragon arrives unheralded.
+  const champion = queue.map((s) => s.type).find((t) => ENEMIES[t]?.boss);
+  g.banner = {
+    text: champion ? ENEMIES[champion].name.toUpperCase() : `WAVE ${g.wave}`,
+    sub: champion ? "the horde has brought its champion" : null,
+    boss: !!champion,
+    t0: g.time,
+  };
 };
 
 export const restartWave = (g) => {
@@ -73,6 +83,9 @@ export const placeTower = (g, kind, x, y) => {
   g.towers.push(makeTower(kind, x, y));
   if (g.run) g.run.towersBuilt += 1;
   g.buildMode = null;
+  // it lands: a ring of dust off the footings and a knock through the ground
+  g.effects.push({ type: "dust", x, y: y + 10, ttl: 380, r: 26 });
+  g.shake = Math.max(g.shake, 3);
 };
 
 export const upgradeTower = (g, t) => {

@@ -257,6 +257,9 @@ export function updateGame(g, dt) {
         if (g.run) g.run.leaks += 1;
         g.shake = 5 + dmgC * 2.5;
         g.effects.push({ type: "leak", x: e.x - 10, y: e.y, ttl: 700, text: `-${dmgC}` });
+        // something got through the gate: stone dust and a hit on the wall
+        g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 400, r: 18 + dmgC * 5 });
+        g.effects.push({ type: "flash", x: e.x, y: e.y - 8, ttl: 320 });
         if (g.lives <= 0) { g.lives = 0; g.phase = "lost"; }
       }
     }
