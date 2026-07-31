@@ -98,11 +98,23 @@ export const drawEnemy = (ctx, e, time, tms) => {
       ctx.fillRect(S(e.x - 7 + i * 13), S(py), CELL, CELL * 2);
     }
   }
+  // Stun is the one status worth interrupting a plan for, so it gets more
+  // than a speck: three little stars circling the head, drawn as crosses so
+  // they read as stars and not as stray pixels.
   if (e.stunUntil > tms) {
-    ctx.fillStyle = "#e8d47a";
     for (let i = 0; i < 3; i++) {
-      const ang = time * 6 + i * 2.09;
-      ctx.fillRect(S(e.x + Math.cos(ang) * 11), S(e.y - e.size - 6 + Math.sin(ang) * 3), CELL, CELL);
+      const ang = time * 5 + i * 2.09;
+      const sx = S(e.x + Math.cos(ang) * 12);
+      // clear of the health bar, which lives at -size-12 and is not negotiable
+      const sy = S(e.y - e.size - 32 + Math.sin(ang) * 4);
+      const near = Math.sin(ang) > 0;                  // the one in front is brighter
+      ctx.fillStyle = near ? "#f4e8a8" : "#c8a83c";
+      ctx.fillRect(sx - CELL, sy, CELL * 3, CELL);
+      ctx.fillRect(sx, sy - CELL, CELL, CELL * 3);
+      if (near) {
+        ctx.fillStyle = "#fffbe8";
+        ctx.fillRect(sx, sy, CELL, CELL);
+      }
     }
   }
   const w = e.boss ? 44 : 26;
