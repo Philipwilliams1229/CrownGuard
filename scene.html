@@ -242,7 +242,16 @@
         }));
       }
 
-      // ---- 8. the wave announcement -----------------------------------------
+      // ---- 8. the spawn marker ----------------------------------------------
+      {
+        const s = section(
+          "the spawn marker",
+          "Loud while you lay out a defence, faint once the horde speaks for itself. Try ?cam=2.5,130,90.",
+        );
+        for (const phase of ["build", "combat"]) frame(s, `phase: ${phase}`, base(1.4, { phase }));
+      }
+
+      // ---- 9. the wave announcement -----------------------------------------
       {
         const s = section("the banner", "Sweeps in over a fifth of a second, holds, clears. Bosses get named.");
         for (const [label, age] of [["sweeping in", 0.1], ["held", 1.0], ["clearing", 2.15]]) {

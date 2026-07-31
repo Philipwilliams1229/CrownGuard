@@ -199,13 +199,20 @@ export function draw(g, canvas, bufRef) {
 
   drawSpawn(ctx, g.time, REALM.spawn);
 
-  const [lsx, lsy] = PTS[0];
-  const bounce = Math.sin(g.time * 4) > 0 ? CELL : 0;
-  ctx.fillStyle = "#e07a72";
-  ctx.font = "bold 11px monospace";
-  ctx.fillText("THEY COME", S(lsx), S(lsy) - 48);
-  ctx.fillRect(S(lsx) - 5, S(lsy) - 42 + bounce, 10, 3);
-  ctx.fillRect(S(lsx) - 2, S(lsy) - 39 + bounce, 4, 4);
+  // A range ring, drawn as a slowly turning ring of ticks rather than a solid
+  // hairline. It reads as a live area of control instead of a drawn-on circle,
+  // and the rotation tells you which ring is following the cursor.
+  // Tick count comes from the circumference, not a fixed number: a catapult's
+  // ring is three times a garrison's, and 44 dots around it is confetti.
+  const rangeRing = (cx, cy, radius, color, spin) => {
+    const ticks = Math.max(24, Math.round((Math.PI * 2 * radius) / 5));
+    ctx.fillStyle = color;
+    for (let i = 0; i < ticks; i++) {
+      if (i % 4 >= 2) continue;                         // two on, two off
+      const ang = (i / ticks) * Math.PI * 2 + spin;
+      ctx.fillRect(S(cx + Math.cos(ang) * radius) - 1, S(cy + Math.sin(ang) * radius) - 1, CELL + 1, CELL + 1);
+    }
+  };
 
   if (g.buildMode && g.hover) {
     const [hx, hy] = g.hover;
@@ -213,13 +220,11 @@ export function draw(g, canvas, bufRef) {
     const radius = g.buildMode === "knight" ? RALLY_RANGE : TOWERS[g.buildMode].levels[0].range;
     ctx.fillStyle = ok ? "rgba(140,224,140,0.25)" : "rgba(224,110,100,0.28)";
     ctx.fillRect(S(hx) - 20, S(hy) - 20, 40, 40);
-    ctx.strokeStyle = ok ? "rgba(140,224,140,0.6)" : "rgba(224,110,100,0.6)";
-    ctx.beginPath(); ctx.arc(S(hx), S(hy), radius, 0, 7); ctx.stroke();
+    ctx.fillStyle = ok ? "rgba(140,224,140,0.09)" : "rgba(224,110,100,0.09)";
+    ctx.beginPath(); ctx.arc(S(hx), S(hy), radius, 0, 7); ctx.fill();
+    rangeRing(hx, hy, radius, ok ? "rgba(150,232,150,0.85)" : "rgba(232,120,110,0.85)", g.time * 0.5);
     const minR = TOWERS[g.buildMode].levels[0].minRange;
-    if (minR) {
-      ctx.strokeStyle = "rgba(224,110,100,0.55)";
-      ctx.beginPath(); ctx.arc(S(hx), S(hy), minR, 0, 7); ctx.stroke();
-    }
+    if (minR) rangeRing(hx, hy, minR, "rgba(232,120,110,0.7)", -g.time * 0.7);
   }
 
   const sel = g.towers.find((t) => t.id === g.selectedId);
@@ -227,12 +232,9 @@ export function draw(g, canvas, bufRef) {
     const st = getStats(sel);
     const radius = sel.kind === "knight" ? RALLY_RANGE : st.range;
     ctx.fillStyle = "rgba(216,179,74,0.1)";
-    ctx.strokeStyle = "rgba(216,179,74,0.6)";
-    ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), radius, 0, 7); ctx.fill(); ctx.stroke();
-    if (st.minRange) {
-      ctx.strokeStyle = "rgba(224,110,100,0.55)";
-      ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), st.minRange, 0, 7); ctx.stroke();
-    }
+    ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), radius, 0, 7); ctx.fill();
+    rangeRing(sel.x, sel.y, radius, "rgba(232,196,90,0.9)", g.time * 0.5);
+    if (st.minRange) rangeRing(sel.x, sel.y, st.minRange, "rgba(232,120,110,0.7)", -g.time * 0.7);
   }
 
   // Paints one tower of `kind` at (x, y). Used both for the real thing and
@@ -289,6 +291,37 @@ export function draw(g, canvas, bufRef) {
   for (const d of drawables) d.fn();
 
   drawCastle(ctx, g.time, Math.max(0, g.lives) / CASTLE_HP);
+
+  // ---- the spawn marker ----
+  // Drawn after everything standing, because it used to sit under the pines
+  // beside the thicket and read as "EY COME". Loud while you're laying out
+  // your defence, faint once the fighting starts and the horde speaks for
+  // itself.
+  {
+    const [lsx, lsy] = PTS[0];
+    const mx = S(lsx), my = S(lsy) - 46;
+    const a = g.phase === "combat" ? 0.3 : 0.95;
+    // Three chevrons above the plate, lighting in sequence so the eye is
+    // walked downward into the mouth of the road. They live above rather than
+    // below because below is canopy, and a marker you can't see is no marker.
+    for (let k = 0; k < 3; k++) {
+      const lit = 0.3 + 0.7 * Math.max(0, Math.sin(g.time * 4 - k * 1.05));
+      const yy = my - 30 + k * 7;
+      ctx.fillStyle = `rgba(224,110,100,${a * lit})`;
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(mx - 6 + i * CELL, yy + i * CELL, CELL, CELL);
+        ctx.fillRect(mx + 4 - i * CELL, yy + i * CELL, CELL, CELL);
+      }
+    }
+    ctx.fillStyle = `rgba(18,14,18,${a * 0.72})`;
+    ctx.fillRect(mx - 34, my - 8, 68, 15);
+    ctx.fillStyle = `rgba(224,122,114,${a * 0.55})`;
+    ctx.fillRect(mx - 34, my - 8, 68, 1);
+    ctx.fillRect(mx - 34, my + 6, 68, 1);
+    ctx.fillStyle = `rgba(232,138,128,${a})`;
+    ctx.font = "bold 10px monospace";
+    ctx.fillText("THEY COME", mx, my);
+  }
 
   for (const p of g.projectiles) {
     if (p.delay > 0) continue;
