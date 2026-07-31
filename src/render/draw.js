@@ -21,6 +21,7 @@ import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel } from "./towers.js";
 import { drawTree, drawPond, drawCastle, drawSpawn } from "./scenery.js";
+import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 
 export function draw(g, canvas, bufRef) {
   const cv = canvas;
@@ -102,6 +103,26 @@ export function draw(g, canvas, bufRef) {
     ctx.fillRect(-4, -6, 3, 3); ctx.fillRect(-1, -3, 3, 3); ctx.fillRect(2, 0, 3, 3);
     ctx.fillRect(-1, 3, 3, 3); ctx.fillRect(-4, 6, 3, 3);
     ctx.restore();
+  }
+
+  // clouds crossing the sun — over the ground, under everything standing on it
+  drawCloudShadows(ctx, g.time);
+
+  // scorch marks: blasts leave the turf blackened for a few seconds. Drawn
+  // here, before the actors, so troops walk over the burn rather than under it.
+  for (const fx of g.effects) {
+    if (fx.type !== "scorch") continue;
+    const a = Math.min(1, fx.ttl / fx.life) * 0.55;
+    const r = fx.r;
+    ctx.fillStyle = fx.frost ? `rgba(150,205,225,${a * 0.65})` : `rgba(34,26,24,${a})`;
+    ctx.beginPath(); ctx.ellipse(S(fx.x), S(fx.y), r, r * 0.62, 0, 0, 7); ctx.fill();
+    // a ragged fringe so the mark doesn't read as a clean circle
+    ctx.fillStyle = fx.frost ? `rgba(196,232,244,${a * 0.5})` : `rgba(54,42,36,${a * 0.8})`;
+    for (let i = 0; i < 7; i++) {
+      const ang = i * 0.9 + (fx.seed || 0);
+      const rr = r * (0.72 + ((i * 37) % 10) / 32);
+      ctx.fillRect(S(fx.x + Math.cos(ang) * rr), S(fx.y + Math.sin(ang) * rr * 0.62), CELL * 2, CELL * 2);
+    }
   }
 
   // lingering ground effects: pools of living lava
@@ -202,6 +223,17 @@ export function draw(g, canvas, bufRef) {
       const prog = p.total > 0 ? 1 - remaining / p.total : 1;
       const arcH = Math.sin(Math.min(1, Math.max(0, prog)) * Math.PI) * Math.min(64, p.total * 0.24);
       const r = p.mini ? 2.5 : p.big ? 6 : 4;
+      // dust torn off the stone, thinning out behind it along the same arc
+      if (!p.mini && p.sx !== undefined) {
+        for (let i = 1; i <= 4; i++) {
+          const u = Math.max(0, prog - i * 0.055);
+          const px = p.sx + (p.tx - p.sx) * u;
+          const py = p.sy + (p.ty - p.sy) * u;
+          const ph = Math.sin(u * Math.PI) * Math.min(64, p.total * 0.24);
+          ctx.fillStyle = `rgba(168,158,140,${0.3 - i * 0.06})`;
+          ctx.fillRect(S(px) - i, S(py - ph) - i, CELL + i, CELL + i);
+        }
+      }
       ctx.fillStyle = "rgba(20,20,26,0.35)";
       ctx.fillRect(S(p.x) - r + 1, S(p.y) - 2, (r - 1) * 2, 4);
       ctx.fillStyle = INK;
@@ -210,6 +242,10 @@ export function draw(g, canvas, bufRef) {
       ctx.beginPath(); ctx.arc(S(p.x), S(p.y - arcH), r, 0, 7); ctx.fill();
       ctx.fillStyle = "#a2a2aa";
       ctx.fillRect(S(p.x) - 2, S(p.y - arcH) - 2, 3, 2);
+      // the stone tumbles: a dark facet rolling around its own face
+      ctx.fillStyle = "#6e6e78";
+      const roll = g.time * 7 + p.id;
+      ctx.fillRect(S(p.x + Math.cos(roll) * r * 0.45), S(p.y - arcH + Math.sin(roll) * r * 0.45), CELL, CELL);
     } else if (p.kind === "arrow") {
       ctx.fillStyle = p.poison ? "#7cc85c" : p.pierce ? "#e8d47a" : "#d2c6a2";
       const dx = Math.cos(p.angle || 0), dy = Math.sin(p.angle || 0);
@@ -230,10 +266,23 @@ export function draw(g, canvas, bufRef) {
       ctx.fillRect(S(p.x + dx * 2), S(p.y + dy * 2), 2, 2);
     } else {
       const col = p.burn ? "#d8763a" : p.slow ? "#9fd4e8" : "#b08ad8";
+      const rgb = p.burn ? "216,118,58" : p.slow ? "159,212,232" : "176,138,216";
+      // a comet tail behind the orb, laid back along its heading
+      const dx = Math.cos(p.angle || 0), dy = Math.sin(p.angle || 0);
+      for (let i = 5; i >= 1; i--) {
+        const wob = Math.sin(g.time * 14 + i * 1.1 + p.id) * i * 0.6;
+        ctx.fillStyle = `rgba(${rgb},${0.42 - i * 0.06})`;
+        ctx.fillRect(S(p.x - dx * i * 4 - dy * wob) - 2, S(p.y - dy * i * 4 + dx * wob) - 2, 6 - i * 0.6, 6 - i * 0.6);
+      }
+      // halo, outline, core — the orb itself reads brightest
+      ctx.fillStyle = `rgba(${rgb},0.28)`;
+      ctx.beginPath(); ctx.arc(S(p.x), S(p.y), 8 + Math.sin(g.time * 12 + p.id) * 1.2, 0, 7); ctx.fill();
       ctx.fillStyle = INK;
       ctx.beginPath(); ctx.arc(S(p.x), S(p.y), 5, 0, 7); ctx.fill();
       ctx.fillStyle = col;
       ctx.beginPath(); ctx.arc(S(p.x), S(p.y), 3.5, 0, 7); ctx.fill();
+      ctx.fillStyle = "#f4f0e4";
+      ctx.fillRect(S(p.x) - CELL, S(p.y) - CELL, CELL, CELL);
     }
   }
 
@@ -468,50 +517,14 @@ export function draw(g, canvas, bufRef) {
   }
 
   // ---- ambient weather (per realm, purely cosmetic) ----
-  // All particles are derived from g.time, so there is no state to keep.
-  if (REALM.ambient === "snow") {
-    for (let i = 0; i < 54; i++) {
-      const sp = 16 + (i % 5) * 7;
-      const y = (i * 97.3 + g.time * sp) % H;
-      const x = (((i * 143.7 + Math.sin(g.time * 0.7 + i) * 14 + g.time * 6) % W) + W) % W;
-      ctx.fillStyle = i % 4 === 0 ? "rgba(255,255,255,0.85)" : "rgba(238,246,252,0.6)";
-      ctx.fillRect(S(x), S(y), i % 3 ? 2 : 3, i % 3 ? 2 : 3);
-    }
-  } else if (REALM.ambient === "embers") {
-    for (let i = 0; i < 34; i++) {
-      const sp = 20 + (i % 4) * 9;
-      const rise = (i * 83.7 + g.time * sp) % (H + 40);
-      const y = H + 20 - rise;
-      const x = (((i * 191.3 + Math.sin(g.time * 1.3 + i * 2) * 9) % W) + W) % W;
-      const a2 = Math.max(0, 1 - rise / (H + 40));
-      ctx.fillStyle = i % 3 === 0 ? `rgba(240,170,90,${0.35 + 0.5 * a2})` : `rgba(216,100,60,${0.25 + 0.45 * a2})`;
-      ctx.fillRect(S(x), S(y), 2, 2);
-    }
-  } else if (REALM.ambient === "fireflies") {
-    // slow bands of marsh fog...
-    for (let i = 0; i < 3; i++) {
-      const fx2 = ((g.time * (5 + i * 3) + i * 300) % (W + 360)) - 180;
-      const grad = ctx.createLinearGradient(fx2 - 130, 0, fx2 + 130, 0);
-      grad.addColorStop(0, "rgba(196,212,188,0)");
-      grad.addColorStop(0.5, "rgba(196,212,188,0.07)");
-      grad.addColorStop(1, "rgba(196,212,188,0)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(fx2 - 130, 0, 260, H);
-    }
-    // ...and fireflies blinking as they wander
-    for (let i = 0; i < 16; i++) {
-      const bx = W / 2 + Math.sin(g.time * 0.22 + i * 2.4) * W * 0.46;
-      const by = H / 2 + Math.sin(g.time * 0.31 + i * 1.7 + 2) * H * 0.42;
-      const blink = Math.sin(g.time * (1.6 + (i % 5) * 0.3) + i * 3);
-      if (blink > 0.2) {
-        ctx.fillStyle = `rgba(200,232,120,${(blink - 0.2) * 0.3})`;
-        ctx.fillRect(S(bx) - 2, S(by) - 2, 6, 6);
-        ctx.fillStyle = `rgba(216,244,140,${(blink - 0.2) * 1.1})`;
-        ctx.fillRect(S(bx), S(by), 2, 2);
-      }
-    }
-  }
+  // Snow, embers, fireflies, leaves, blown grit — all of it derived from
+  // g.time in render/atmosphere.js, so there is no state to keep.
+  drawAmbient(ctx, g.time);
   ctx.restore();
+
+  // The realm's light, laid over the finished board in buffer space so camera
+  // zoom and screen shake can't drag the vignette around with them.
+  drawGrade(ctx);
 
   const sc = cv.getContext("2d");
   sc.imageSmoothingEnabled = false;

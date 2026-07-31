@@ -19,7 +19,10 @@ export const REALMS = {
     tag: "BALANCED",
     tagColor: "#a8d88c",
     blurb: "Rolling meadows and a long, winding country road. The realm as you know it.",
-    ambient: "none",
+    ambient: "leaves",
+    clouds: true,
+    // late-afternoon sun: a touch of gold, corners falling into shade
+    light: { tint: "255,238,206", amount: 0.1, vignette: 0.26 },
     spawn: "grove",     // the horde shoulders out of the thicket
     // ground & road palette
     GRASS: "#69874e",
@@ -68,6 +71,9 @@ export const REALMS = {
     tagColor: "#9fd4e8",
     blurb: "A frozen mountain pass. The road doubles back on itself — towers between the lanes cover two stretches at once.",
     ambient: "snow",
+    clouds: true,
+    // flat overcast bouncing off the snow — cold, bright, low contrast
+    light: { tint: "212,230,250", amount: 0.13, vignette: 0.3 },
     GRASS: "#c9d6de",
     GRASS_DK: "#b2c2cd",
     GRASS_LT: "#e2ecf2",
@@ -105,6 +111,8 @@ export const REALMS = {
     tagColor: "#c8a8e8",
     blurb: "A drowned marsh where fireflies drift through the fog. Ponds squeeze the buildable ground — plan your footing.",
     ambient: "fireflies",
+    // dusk under a canopy: sickly green, and very dark at the edges
+    light: { tint: "150,192,152", amount: 0.2, vignette: 0.46 },
     GRASS: "#4e5c3c",
     GRASS_DK: "#424f32",
     GRASS_LT: "#5c6c47",
@@ -147,6 +155,8 @@ export const REALMS = {
     tagColor: "#e07a72",
     blurb: "Scorched badlands and a short, straight warpath. Half the road means half the time — every shot must count.",
     ambient: "embers",
+    // lit from the ground up: hot orange wash rising off the scorched rock
+    light: { tint: "255,196,140", amount: 0.16, vignette: 0.46, glow: "196,92,40", glowAmount: 0.1 },
     GRASS: "#4a3e3a",
     GRASS_DK: "#3c322e",
     GRASS_LT: "#584a44",
@@ -202,7 +212,10 @@ const greenwoodVariant = (id, name, tag, blurb, seed, path, extra = {}) => ({
 const IRON_GROUND = {
   tag: "IRON MARCHES",
   tagColor: "#9ab6d8",
-  ambient: "none",
+  ambient: "dust",
+  clouds: true,
+  // a steel overcast with no sun in it — colder and flatter than the Vale
+  light: { tint: "214,224,240", amount: 0.13, vignette: 0.34 },
   GRASS: "#5a6557",
   GRASS_DK: "#4a5448",
   GRASS_LT: "#6a7566",

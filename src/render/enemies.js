@@ -3,7 +3,21 @@
 // bar, armor badge) and a knight unit (weapon, buffs, heal glow, health bar).
 
 import { INK, CELL, S } from "../data/constants.js";
+import { REALM } from "../data/maps.js";
 import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal } from "../sprites/sprites.js";
+
+// A puff kicked up where a foot lands. The whole thing is a function of the
+// walker's own gait phase, so it needs no state and it stays in step with the
+// sprite's animation — heavy things land, light things skim.
+const footfall = (ctx, x, y, face, rate, phase, weight, time) => {
+  const step = (time * rate * 0.5 + phase) % 1;
+  if (step > 0.55) return;
+  const a = (1 - step / 0.55) * weight;
+  const spread = 3 + (1 - a / weight) * 9;
+  ctx.fillStyle = `${REALM.PEBBLE}${Math.round(Math.max(0, a) * 90).toString(16).padStart(2, "0")}`;
+  ctx.fillRect(S(x - face * spread) - spread / 2, S(y - (1 - a / weight) * 4), spread, CELL * 2);
+  ctx.fillRect(S(x - face * spread * 1.5), S(y - (1 - a / weight) * 6), CELL * 2, CELL);
+};
 
 export const drawEnemy = (ctx, e, time, tms) => {
   const spr = SPRITES[e.type];
@@ -19,6 +33,10 @@ export const drawEnemy = (ctx, e, time, tms) => {
     else frame = Math.floor(time * 8) % spr.frames.length;
   } else {
     frame = Math.floor(time * walkRate + e.id) % spr.frames.length;
+  }
+  // dust first, so the shadow sits on top of it and the foot stays grounded
+  if (!fighting && e.type !== "dragon") {
+    footfall(ctx, e.x, e.y + e.size * 0.55, e.face, walkRate, e.id, e.size >= 15 || e.boss ? 0.55 : 0.28, time);
   }
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   const shw = Math.round(e.size * 0.6 / CELL) * CELL;
@@ -117,6 +135,7 @@ export const drawKnightUnit = (ctx, u, t, time) => {
   const rider = r4 === "ba";
   const pal = giant ? KNIGHT_PALS.champion : paladin ? KNIGHT_PALS.paladin : berserk ? KNIGHT_PALS.berserk : KNIGHT_PALS.base;
   const frame = u.state === "moving" ? Math.floor(time * 8 + u.id) % 2 : 0;
+  if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, giant || rider ? 0.5 : 0.3, time);
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   ctx.fillRect(S(u.x - (giant ? 9 : rider ? 10 : 6)), S(u.y + 9), giant ? 18 : rider ? 20 : 12, CELL);
   if (rider) {

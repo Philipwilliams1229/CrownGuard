@@ -518,6 +518,13 @@ export function updateGame(g, dt) {
         p.done = true;
         if (p.splash > 0) {
           g.effects.push({ type: p.kind === "rock" ? (p.mini ? "shrapnelhit" : "dust") : p.burn ? "boom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
+          // a mark on the ground that outlives the blast: soot, or a rime of frost
+          if (!p.mini) {
+            g.effects.push({
+              type: "scorch", x: p.tx, y: p.ty, ttl: 2600, life: 2600,
+              r: Math.max(12, p.splash * 0.62), frost: !!p.slow && !p.burn, seed: Math.random() * 6,
+            });
+          }
           for (const e of g.enemies) {
             if (e.dead) continue;
             const dd = Math.hypot(e.x - p.tx, e.y - p.ty);
