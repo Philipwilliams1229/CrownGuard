@@ -41,16 +41,24 @@ export const drawEnemy = (ctx, e, time, tms) => {
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   const shw = Math.round(e.size * 0.6 / CELL) * CELL;
   ctx.fillRect(S(e.x - shw), S(e.y + e.size * 0.55), shw * 2, CELL * 2);
-  const lunge = e.atkAnim > 0 ? CELL * e.face : 0;
+  // Fresh arrivals resolve out of the shadow of the wood over a third of a
+  // second, so nothing ever simply blinks into being at the spawn point.
+  const age = e.born === undefined ? 999 : tms - e.born;
+  const emerging = age < 340;
+  const baseAlpha = emerging ? Math.max(0.05, age / 340) : 1;
+  if (emerging) ctx.globalAlpha = baseAlpha;
+  // a solid hit knocks them back a pixel or two before they lean in again
+  const knock = e.hitFlash > tms ? -e.face * CELL : 0;
+  const lunge = (e.atkAnim > 0 ? CELL * e.face : 0) + knock;
   // dragons hover; small quick critters get a lively hop on their off-frames
   let hover = e.type === "dragon" ? S(Math.sin(time * 3 + e.id) * 3) - 10 : 0;
   if ((e.type === "goblin" || e.type === "wolf") && frame % 2 === 1 && !fighting) hover -= CELL;
   drawSprite(ctx, sheet, pal, frame, e.x + lunge, e.y + hover, e.face < 0);
   // white flash on solid hits
   if (e.hitFlash > tms) {
-    ctx.globalAlpha = 0.7;
+    ctx.globalAlpha = 0.7 * baseAlpha;
     drawSprite(ctx, sheet, whitePal(pal), frame, e.x + lunge, e.y + hover, e.face < 0);
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = baseAlpha;
   }
   // shaman's mending: green motes drift up off freshly-healed foes
   if (e.healedFlash > tms) {
@@ -124,6 +132,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
       ctx.fillRect(S(gx + 1), S(e.y - e.size - 3), CELL, CELL);
     }
   }
+  if (emerging) ctx.globalAlpha = 1;
 };
 
 export const drawKnightUnit = (ctx, u, t, time) => {

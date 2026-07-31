@@ -112,16 +112,23 @@ export function draw(g, canvas, bufRef) {
   // here, before the actors, so troops walk over the burn rather than under it.
   for (const fx of g.effects) {
     if (fx.type !== "scorch") continue;
-    const a = Math.min(1, fx.ttl / fx.life) * 0.55;
-    const r = fx.r;
-    ctx.fillStyle = fx.frost ? `rgba(150,205,225,${a * 0.65})` : `rgba(34,26,24,${a})`;
-    ctx.beginPath(); ctx.ellipse(S(fx.x), S(fx.y), r, r * 0.62, 0, 0, 7); ctx.fill();
-    // a ragged fringe so the mark doesn't read as a clean circle
-    ctx.fillStyle = fx.frost ? `rgba(196,232,244,${a * 0.5})` : `rgba(54,42,36,${a * 0.8})`;
-    for (let i = 0; i < 7; i++) {
-      const ang = i * 0.9 + (fx.seed || 0);
-      const rr = r * (0.72 + ((i * 37) % 10) / 32);
-      ctx.fillRect(S(fx.x + Math.cos(ang) * rr), S(fx.y + Math.sin(ang) * rr * 0.62), CELL * 2, CELL * 2);
+    const a = Math.min(1, fx.ttl / fx.life) * 0.42;
+    const r = fx.r, ry = r * 0.6, step = CELL * 2;
+    const core = fx.frost ? `rgba(168,214,232,${a})` : `rgba(38,29,26,${a})`;
+    const rim = fx.frost ? `rgba(214,240,248,${a * 0.7})` : `rgba(64,50,42,${a * 0.75})`;
+    // Stamped cell by cell rather than filled as an ellipse: a smooth vector
+    // blob is the one shape on this board that isn't made of pixels, and the
+    // eye goes straight to it. The hash gives the edge a burnt raggedness.
+    const ox = S(fx.x), oy = S(fx.y);
+    for (let dy = -ry; dy <= ry; dy += step) {
+      for (let dx = -r; dx <= r; dx += step) {
+        const n = (dx * dx) / (r * r) + (dy * dy) / (ry * ry);
+        if (n > 1) continue;
+        const h = ((((dx | 0) * 73856093) ^ ((dy | 0) * 19349663) ^ ((fx.seed * 977) | 0)) >>> 0) % 64 / 64;
+        if (n > 0.42 && h < (n - 0.42) / 0.58) continue;   // crumbling outer edge
+        ctx.fillStyle = n < 0.34 ? core : rim;
+        ctx.fillRect(ox + S(dx), oy + S(dy), step, step);
+      }
     }
   }
 
@@ -182,18 +189,40 @@ export function draw(g, canvas, bufRef) {
     }
   }
 
+  // Paints one tower of `kind` at (x, y). Used both for the real thing and
+  // for the ghost under the cursor, so what you preview is what you get.
+  const paintTower = (t) => {
+    if (t.kind === "archer") drawArcherTower(ctx, t, g.time);
+    else if (t.kind === "wizard") drawWizardSpire(ctx, t, g.time);
+    else if (t.kind === "support") drawSupportTower(ctx, t, g.time);
+    else if (t.kind === "catapult") drawCatapult(ctx, t, g.time);
+    else if (t.kind === "spiker") drawBladewheel(ctx, t, g.time);
+    else drawGarrison(ctx, t, g.time);
+  };
+
   const drawables = [];
   for (const d of DECOR) drawables.push({ y: d.y + 14, fn: () => drawTree(ctx, d, g.time) });
+  // the tower you're about to buy, standing on the spot at half weight
+  if (g.buildMode && g.hover) {
+    const [hx, hy] = g.hover;
+    const ghost = {
+      kind: g.buildMode, x: S(hx), y: S(hy), level: 1,
+      branch: null, rank4: null, id: 0, anim: 0, lastAim: 0, rally: null, range: 0,
+    };
+    drawables.push({
+      y: hy + 14,
+      fn: () => {
+        ctx.globalAlpha = 0.45 + Math.sin(g.time * 4) * 0.08;
+        paintTower(ghost);
+        ctx.globalAlpha = 1;
+      },
+    });
+  }
   for (const t of g.towers) {
     drawables.push({
       y: t.y + 14,
       fn: () => {
-        if (t.kind === "archer") drawArcherTower(ctx, t, g.time);
-        else if (t.kind === "wizard") drawWizardSpire(ctx, t, g.time);
-        else if (t.kind === "support") drawSupportTower(ctx, t, g.time);
-        else if (t.kind === "catapult") drawCatapult(ctx, t, g.time);
-        else if (t.kind === "spiker") drawBladewheel(ctx, t, g.time);
-        else drawGarrison(ctx, t, g.time);
+        paintTower(t);
         if (!t.branch) {
           ctx.fillStyle = "#e8d47a";
           for (let i = 0; i < t.level; i++) ctx.fillRect(S(t.x) - 10 + i * 10, S(t.y) + 20, 4, 4);
@@ -223,29 +252,37 @@ export function draw(g, canvas, bufRef) {
       const prog = p.total > 0 ? 1 - remaining / p.total : 1;
       const arcH = Math.sin(Math.min(1, Math.max(0, prog)) * Math.PI) * Math.min(64, p.total * 0.24);
       const r = p.mini ? 2.5 : p.big ? 6 : 4;
-      // dust torn off the stone, thinning out behind it along the same arc
+      // A motion trail of the stone itself, shrinking back along the arc.
+      // (It used to be dust-coloured, which was invisible: the road is dust.)
       if (!p.mini && p.sx !== undefined) {
-        for (let i = 1; i <= 4; i++) {
-          const u = Math.max(0, prog - i * 0.055);
+        for (let i = 4; i >= 1; i--) {
+          const u = prog - i * 0.05;
+          if (u <= 0.02) continue;              // still leaving the throwing arm
           const px = p.sx + (p.tx - p.sx) * u;
           const py = p.sy + (p.ty - p.sy) * u;
           const ph = Math.sin(u * Math.PI) * Math.min(64, p.total * 0.24);
-          ctx.fillStyle = `rgba(168,158,140,${0.3 - i * 0.06})`;
-          ctx.fillRect(S(px) - i, S(py - ph) - i, CELL + i, CELL + i);
+          ctx.fillStyle = `rgba(122,122,132,${0.42 - i * 0.08})`;
+          ctx.beginPath(); ctx.arc(S(px), S(py - ph), r * (1 - i * 0.16), 0, 7); ctx.fill();
         }
       }
+      const cy = S(p.y - arcH);
       ctx.fillStyle = "rgba(20,20,26,0.35)";
       ctx.fillRect(S(p.x) - r + 1, S(p.y) - 2, (r - 1) * 2, 4);
       ctx.fillStyle = INK;
-      ctx.beginPath(); ctx.arc(S(p.x), S(p.y - arcH), r + 1, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(S(p.x), cy, r + 1, 0, 7); ctx.fill();
       ctx.fillStyle = "#8a8a92";
-      ctx.beginPath(); ctx.arc(S(p.x), S(p.y - arcH), r, 0, 7); ctx.fill();
-      ctx.fillStyle = "#a2a2aa";
-      ctx.fillRect(S(p.x) - 2, S(p.y - arcH) - 2, 3, 2);
-      // the stone tumbles: a dark facet rolling around its own face
-      ctx.fillStyle = "#6e6e78";
-      const roll = g.time * 7 + p.id;
-      ctx.fillRect(S(p.x + Math.cos(roll) * r * 0.45), S(p.y - arcH + Math.sin(roll) * r * 0.45), CELL, CELL);
+      ctx.beginPath(); ctx.arc(S(p.x), cy, r, 0, 7); ctx.fill();
+      // lit from the upper left, in shadow at the lower right
+      ctx.fillStyle = "#62626c";
+      ctx.beginPath(); ctx.arc(S(p.x) + r * 0.34, cy + r * 0.34, r * 0.68, 0, 7); ctx.fill();
+      ctx.fillStyle = "#a8a8b2";
+      ctx.beginPath(); ctx.arc(S(p.x) - r * 0.3, cy - r * 0.32, r * 0.5, 0, 7); ctx.fill();
+      // and it tumbles: one dark chip circling the face as the stone rolls
+      if (!p.mini) {
+        const roll = g.time * 7 + p.id;
+        ctx.fillStyle = "#4e4e58";
+        ctx.fillRect(S(p.x + Math.cos(roll) * r * 0.42) - CELL, S(p.y - arcH + Math.sin(roll) * r * 0.42) - CELL, CELL * 2, CELL * 2);
+      }
     } else if (p.kind === "arrow") {
       ctx.fillStyle = p.poison ? "#7cc85c" : p.pierce ? "#e8d47a" : "#d2c6a2";
       const dx = Math.cos(p.angle || 0), dy = Math.sin(p.angle || 0);

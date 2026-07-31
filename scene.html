@@ -1,0 +1,253 @@
+<!doctype html>
+<!--
+  Dev tool: full board frames, painted with the real draw() against a made-up
+  game state, at fixed times. Open /scene.html with the dev server running.
+
+  Why fixed times rather than a clock: this sheet is for judging things that
+  only exist for a moment — a boulder mid-arc, an orb's tail, a blast fading
+  off the turf, the build ghost under the cursor — and for comparing one realm
+  against another side by side. A filmstrip you can stare at beats a loop you
+  have to catch. Nothing here animates; reload to redraw. Not linked from the game.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — scene lab</title>
+    <style>
+      body { background: #14171d; color: #e8e0c8; font-family: Verdana, sans-serif; margin: 0; padding: 16px 20px 40px; }
+      h2 { font-size: 13px; letter-spacing: 2px; color: #d8b34a; margin: 26px 0 4px; }
+      p.note { font-size: 11px; opacity: 0.6; margin: 0 0 10px; max-width: 62em; line-height: 1.5; }
+      .strip { display: flex; flex-wrap: wrap; gap: 12px; }
+      .cell { border: 2px solid #0c0e13; }
+      .cap { font-size: 10px; opacity: 0.75; padding: 3px 6px; background: #262b34; letter-spacing: 1px; }
+      canvas { image-rendering: pixelated; display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="out"></div>
+    <script type="module">
+      import { REALMS, selectRealm } from "/src/data/maps.js";
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { PTS, TOTAL_LEN, posAt } from "/src/engine/path.js";
+      import { draw } from "/src/render/draw.js";
+
+      // 1 = true board pixels; ?zoom=3 blows them up (nearest-neighbour, so the
+      // art stays honest) when you need to look at a two-pixel dust trail.
+      const SCALE = Number(new URLSearchParams(location.search).get("zoom")) || 1;
+      const out = document.getElementById("out");
+
+      // ?only=ghost shows just the sections whose title contains "ghost".
+      // Handy when one strip is what you're working on — and necessary in any
+      // viewer that only paints what's on screen when the page first loads.
+      // ...and ?pick=troll narrows further, to frames whose caption matches.
+      const ONLY = new URLSearchParams(location.search).get("only");
+      const PICK = new URLSearchParams(location.search).get("pick");
+      const skipped = [];
+
+      function section(title, note) {
+        if (ONLY && !title.toLowerCase().includes(ONLY.toLowerCase())) {
+          skipped.push(title);
+          return null;                    // frame() ignores a null strip
+        }
+        const h = document.createElement("h2");
+        h.textContent = title;
+        out.appendChild(h);
+        if (note) {
+          const p = document.createElement("p");
+          p.className = "note";
+          p.textContent = note;
+          out.appendChild(p);
+        }
+        const s = document.createElement("div");
+        s.className = "strip";
+        out.appendChild(s);
+        return s;
+      }
+
+      function frame(strip, label, g) {
+        if (!strip) return;
+        if (PICK && !label.toLowerCase().includes(PICK.toLowerCase())) return;
+        const wrap = document.createElement("div");
+        wrap.className = "cell";
+        const cv = document.createElement("canvas");
+        cv.width = W; cv.height = H;
+        cv.style.width = W * SCALE + "px";
+        cv.style.height = H * SCALE + "px";
+        wrap.appendChild(cv);
+        const cap = document.createElement("div");
+        cap.className = "cap";
+        cap.textContent = label;
+        wrap.appendChild(cap);
+        strip.appendChild(wrap);
+        try { draw(g, cv, { current: null }); } catch (e) {
+          cap.textContent = `${label} — ${e.message}`;
+          cap.style.color = "#e07a72";
+        }
+      }
+
+      // ---- the stand-in game state -----------------------------------------
+      // Only the fields draw() actually reads. Kept in one place so a renderer
+      // that starts reading something new fails here loudly, not silently.
+      const tower = (kind, at, o = {}) => {
+        const [x, y] = posAt(TOTAL_LEN * at);
+        return {
+          id: Math.round(at * 100), kind, x: x + 46, y: y - 42, level: 3,
+          branch: null, rank4: null, anim: 0, lastAim: 0, invested: 200,
+          rally: null, units: [], ...o,
+        };
+      };
+
+      const enemy = (type, at, o = {}) => {
+        const d = ENEMY_SIZES[type] || { size: 13, hp: 100 };
+        const [x, y] = posAt(TOTAL_LEN * at);
+        return {
+          id: Math.round(at * 997), type, x, y, size: d.size, face: 1,
+          hp: d.hp * 0.62, maxHp: d.hp, dist: TOTAL_LEN * at, armor: 0, mres: 0,
+          dead: false, boss: false, born: 0, hitFlash: 0, atkAnim: 0, auraSlow: 0,
+          slowUntil: 0, stunUntil: 0, burnUntil: 0, poisonUntil: 0, brittleUntil: 0,
+          healedFlash: 0, guard: 0, guardFlash: 0, blockedBy: null, engaged: false, ...o,
+        };
+      };
+
+      const ENEMY_SIZES = Object.fromEntries(
+        Object.entries(await import("/src/data/enemies.js").then((m) => m.ENEMIES))
+          .map(([k, v]) => [k, { size: v.size, hp: v.hp }]),
+      );
+
+      // ?cam=3,300,180 pushes the in-game camera in on a spot in every frame,
+      // for looking closely at something small without leaving the real
+      // renderer (and without a magnifier that lies about the pixels).
+      const CAM = (new URLSearchParams(location.search).get("cam") || "").split(",").map(Number);
+      // the three numbers are zoom and the world point to put in the middle
+      const camera = () => (CAM.length === 3 && CAM.every((n) => !Number.isNaN(n))
+        ? { zoom: CAM[0], x: CAM[1] - W / (2 * CAM[0]), y: CAM[2] - H / (2 * CAM[0]) }
+        : { zoom: 1, x: 0, y: 0 });
+
+      const base = (time, o = {}) => ({
+        time, shake: 0, cam: camera(), grounds: [],
+        buildMode: null, hover: null, gold: 500, selectedId: null,
+        towers: [], enemies: [], projectiles: [], effects: [],
+        lives: CASTLE_HP, paused: false, phase: "combat", ...o,
+      });
+
+      // ---- 1. every realm, same moment --------------------------------------
+      {
+        const s = section(
+          "the realms",
+          "Same frame in each realm — check the light, the weather and the cloud shadows against one another.",
+        );
+        for (const id of ["greenwood", "frostfang", "mistmoor", "ember", "kingsroad"]) {
+          selectRealm(id);
+          frame(s, `${REALMS[id].name} — ${REALMS[id].ambient}`, base(3.1, {
+            towers: [tower("archer", 0.18), tower("wizard", 0.44), tower("catapult", 0.7, { branch: "a" })],
+            enemies: [enemy("goblin", 0.3), enemy("orc", 0.55), enemy("wolf", 0.82)],
+          }));
+        }
+        selectRealm("greenwood");
+      }
+
+      // ---- 2. the castle taking a beating -----------------------------------
+      {
+        const s = section("the castle, wearing down", "Cracks, then rubble and smoke, then fire and a struck banner.");
+        for (const hp of [20, 13, 8, 3]) {
+          frame(s, `${hp}/20 lives`, base(2.4, { lives: hp }));
+        }
+      }
+
+      // ---- 3. projectiles in flight -----------------------------------------
+      {
+        const s = section(
+          "shots in the air",
+          "Boulders lob (dust trail + tumble), orbs run a comet tail, arrows streak, spikes fly flat.",
+        );
+        const shot = (prog) => {
+          const [sx, sy] = posAt(TOTAL_LEN * 0.2);
+          const [tx, ty] = posAt(TOTAL_LEN * 0.36);
+          const total = Math.hypot(tx - sx, ty - sy);
+          return {
+            id: 5, kind: "rock", sx, sy, tx, ty, total, delay: 0, big: true,
+            x: sx + (tx - sx) * prog, y: sy + (ty - sy) * prog,
+          };
+        };
+        for (const prog of [0.15, 0.5, 0.85]) {
+          frame(s, `boulder ${Math.round(prog * 100)}% of the way`, base(1.2, {
+            towers: [tower("catapult", 0.2)],
+            projectiles: [shot(prog)],
+            enemies: [enemy("troll", 0.36)],
+          }));
+        }
+        const [ox, oy] = posAt(TOTAL_LEN * 0.5);
+        frame(s, "orbs: arcane / fire / frost", base(1.2, {
+          towers: [tower("wizard", 0.4)],
+          projectiles: [
+            { id: 1, kind: "orb", x: ox - 60, y: oy - 30, tx: ox, ty: oy, angle: 0.5, delay: 0 },
+            { id: 2, kind: "orb", x: ox - 60, y: oy, tx: ox, ty: oy, angle: 0, delay: 0, burn: 4 },
+            { id: 3, kind: "orb", x: ox - 60, y: oy + 30, tx: ox, ty: oy, angle: -0.5, delay: 0, slow: 0.4 },
+          ],
+        }));
+      }
+
+      // ---- 4. what a blast leaves behind ------------------------------------
+      {
+        const s = section("marks on the ground", "Scorch and rime fade over about two and a half seconds.");
+        const [bx, by] = posAt(TOTAL_LEN * 0.45);
+        for (const [label, ttl] of [["fresh", 2600], ["half gone", 1300], ["nearly clear", 400]]) {
+          frame(s, `scorch — ${label}`, base(2, {
+            effects: [
+              { type: "scorch", x: bx, y: by, ttl, life: 2600, r: 30, seed: 1.2 },
+              { type: "scorch", x: bx + 44, y: by + 16, ttl, life: 2600, r: 22, frost: true, seed: 3.4 },
+            ],
+          }));
+        }
+      }
+
+      // ---- 5. the build ghost -----------------------------------------------
+      {
+        const s = section(
+          "the build ghost",
+          "What you're about to buy, standing on the spot at half weight — on buildable turf and on the road.",
+        );
+        // open ground inside the Greenwood's big loop, clear of the road
+        const spot = [400, 252];
+        for (const kind of ["archer", "wizard", "catapult", "knight", "spiker", "support"]) {
+          frame(s, `${kind} — clear ground`, base(2.6, { gold: 999, buildMode: kind, hover: spot }));
+        }
+        frame(s, "archer — on the road (refused)", base(2.6, {
+          gold: 999, buildMode: "archer", hover: posAt(TOTAL_LEN * 0.35),
+        }));
+      }
+
+      // ---- 6. enemies arriving ----------------------------------------------
+      {
+        const s = section("arrival", "Fresh spawns resolve out of the wood over a third of a second.");
+        for (const age of [40, 150, 300, 900]) {
+          frame(s, `${age}ms old`, base(1, {
+            enemies: [enemy("orc", 0.02, { born: 1000 - age }), enemy("goblin", 0.06, { born: 1000 - age })],
+          }));
+        }
+      }
+
+      // ---- 7. status and impact ---------------------------------------------
+      {
+        const s = section("status, all at once", "Burn, poison, frost, stun, brittle, ward pips, and a hit landing.");
+        frame(s, "the full spread", base(2.2, {
+          enemies: [
+            enemy("orc", 0.24, { burnUntil: 9e9 }),
+            enemy("goblin", 0.34, { poisonUntil: 9e9 }),
+            enemy("troll", 0.46, { slowUntil: 9e9, brittleUntil: 9e9 }),
+            enemy("wolf", 0.58, { stunUntil: 9e9 }),
+            enemy("armored", 0.7, { guard: 3, guardFlash: 9e9, armor: 0.5, mres: 0.4 }),
+            enemy("orc", 0.8, { hitFlash: 9e9 }),
+          ],
+        }));
+      }
+
+      if (skipped.length) {
+        const p = document.createElement("p");
+        p.className = "note";
+        p.textContent = `Filtered by ?only=${ONLY}. Hidden: ${skipped.join(", ")}. Drop the query to see everything.`;
+        out.appendChild(p);
+      }
+    </script>
+  </body>
+</html>

@@ -64,7 +64,14 @@ export function updateGame(g, dt) {
     g.spawnTimer += sdt * 1000;
     while (g.spawnQueue.length && g.spawnQueue[0].at <= g.spawnTimer) {
       const s = g.spawnQueue.shift();
-      g.enemies.push(makeEnemy(s.type, s.mult));
+      const e = makeEnemy(s.type, s.mult);
+      e.born = tms;                       // the renderer fades them out of the wood
+      g.enemies.push(e);
+      // something that size doesn't arrive quietly
+      if (e.boss) {
+        g.shake = Math.max(g.shake, 6);
+        g.effects.push({ type: "dust", x: e.x, y: e.y + 6, ttl: 420, r: 40 });
+      }
     }
     if (!g.corpses) g.corpses = []; // fresh kills a necromancer may raise
     for (const e of g.enemies) { e.auraSlow = 0; e.bannerSpeed = 0; e.bannerArmor = 0; }
