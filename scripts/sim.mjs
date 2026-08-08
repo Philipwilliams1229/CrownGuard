@@ -31,7 +31,8 @@ const mulberry = (a) => () => {
   t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
-let rng = mulberry(20260808);
+const SEED = Number(after("seed")) || 20260808;
+let rng = mulberry(SEED);
 Math.random = () => rng();
 
 const { W, H, CASTLE_HP, RALLY_RANGE } = await import("../src/data/constants.js");
@@ -191,7 +192,7 @@ const freshGame = (gold) => ({
 const DT = 1 / 30;
 
 function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, planName) {
-  rng = mulberry(20260808);          // same dice for every level
+  rng = mulberry(SEED);              // same dice for every level
   PLAN = PLANS[planName];
   selectRealm(realm);
   selectFaction(faction);

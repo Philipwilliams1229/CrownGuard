@@ -73,7 +73,7 @@ export const CHAPTERS = [
       },
       {
         id: "ir3", name: "Ironford", realm: "ironford",
-        window: { start: 6, count: 7 }, gold: 1000, pos: [304, 140],
+        window: { start: 6, count: 7 }, gold: 1100, pos: [304, 140],
         blurb: "The river eats half your ground, cavaliers ride the first blocker down, and the siege rams come through the ford anyway.",
       },
       {

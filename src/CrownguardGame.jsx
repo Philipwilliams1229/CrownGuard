@@ -10,7 +10,7 @@ import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
-import { loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById } from "./data/campaign.js";
 import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
@@ -739,8 +739,20 @@ export default function Crownguard() {
                   ))}
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 10, width: "100%", maxWidth: 620, marginBottom: "auto" }}>
-                  {Object.values(REALMS).map((r) => (
+                {/* realms, grouped the way the war is: the four free realms
+                    first, then each chapter's battlefields under its banner */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", maxWidth: 620, marginBottom: "auto" }}>
+                {[
+                  { name: "THE FREE REALMS", ids: ["greenwood", "frostfang", "mistmoor", "ember"] },
+                  ...CHAPTERS.map((ch) => ({
+                    name: `${ch.numeral}. ${ch.name.toUpperCase()}`,
+                    ids: ch.levels.map((l) => l.realm).filter((id) => id !== "greenwood"),
+                  })),
+                ].map((grp) => (
+                <div key={grp.name}>
+                <div style={{ fontSize: 10, letterSpacing: 2, color: "#d8b34a", margin: "10px 0 6px" }}>{grp.name}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 10 }}>
+                  {grp.ids.map((id) => REALMS[id]).filter(Boolean).map((r) => (
                     <button key={r.id} onClick={() => chooseRealm(r.id)}
                       style={{ ...btn, display: "flex", gap: 10, padding: 8, alignItems: "stretch", ...(r.id === realmId ? { boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}>
                       <svg viewBox="0 0 150 100" width="108" height="72" style={{ flexShrink: 0, border: "2px solid #10131a", imageRendering: "pixelated" }}>
@@ -769,6 +781,9 @@ export default function Crownguard() {
                       </span>
                     </button>
                   ))}
+                </div>
+                </div>
+                ))}
                 </div>
               </div>
             )}
