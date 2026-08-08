@@ -307,6 +307,119 @@ export const drawTree = (ctx, d, time) => {
   }
 };
 
+// ---- running water ---------------------------------------------------
+// A river is drawn like the road is: banks first, then the body, then life —
+// shine ticks that actually travel downstream, so the water reads as moving
+// even from across the room.
+
+const DEFAULT_WATER = { deep: "#3a6478", edge: "#4d7a90", shine: "#7cb4cc" };
+
+export const drawRiver = (ctx, rv, time, water) => {
+  const wa = water || DEFAULT_WATER;
+  const stroke = (width, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(rv.pts[0][0], rv.pts[0][1]);
+    for (let i = 1; i < rv.pts.length; i++) ctx.lineTo(rv.pts[i][0], rv.pts[i][1]);
+    ctx.stroke();
+  };
+  stroke(rv.w + 6, INK);
+  stroke(rv.w + 2, wa.edge);
+  stroke(rv.w - 4, wa.deep);
+  ctx.lineWidth = 1;
+  // downstream shine: ticks spaced along the centerline, all drifting the
+  // same way, each with a small lateral wobble so the current braids
+  let total = 0;
+  for (const s of rv.segs) total += s.len;
+  const n = Math.max(6, Math.round(total / 26));
+  for (let i = 0; i < n; i++) {
+    const d = ((i / n) * total + time * 22) % total;
+    let acc = 0, sx = 0, sy = 0, ang = 0;
+    for (const s of rv.segs) {
+      if (d <= acc + s.len) {
+        const t = (d - acc) / s.len;
+        sx = s.x1 + (s.x2 - s.x1) * t;
+        sy = s.y1 + (s.y2 - s.y1) * t;
+        ang = Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
+        break;
+      }
+      acc += s.len;
+    }
+    const side = Math.sin(i * 2.7 + time * 0.9) * (rv.w * 0.26);
+    const px = sx + Math.cos(ang + Math.PI / 2) * side;
+    const py = sy + Math.sin(ang + Math.PI / 2) * side;
+    ctx.fillStyle = i % 3 === 0 ? wa.shine : wa.edge;
+    // the tick lies along the flow
+    ctx.fillRect(S(px - Math.cos(ang) * 3), S(py - Math.sin(ang) * 3), CELL * 3, CELL);
+  }
+};
+
+// The road's answer to a river: a timber span. Deck planks laid across the
+// roadway, rails along both edges, and heavier piles where it meets the bank.
+const DEFAULT_BRIDGE = { beam: "#4a3018", plank: "#8a6238", plankDk: "#6e4c28", rail: "#5f4326" };
+
+export const drawBridge = (ctx, b, time, posAt, angleAt, pal) => {
+  const bp = pal || DEFAULT_BRIDGE;
+  const half = 30;     // deck half-width — a shade wider than the road
+  // one dark underslab the length of the span, so gaps between planks read
+  // as shadow and not as water showing through at road height
+  ctx.save();
+  ctx.translate(S(b.x), S(b.y));
+  ctx.rotate(b.a);
+  const len = b.d1 - b.d0;
+  ctx.fillStyle = INK;
+  ctx.fillRect(-len / 2 - 3, -half - 3, len + 6, half * 2 + 6);
+  ctx.fillStyle = bp.beam;
+  ctx.fillRect(-len / 2 - 2, -half - 2, len + 4, half * 2 + 4);
+  ctx.restore();
+  // planks, one by one along the road's true curve through the span
+  for (let d = b.d0 + 2; d < b.d1 - 1; d += 6) {
+    const [px, py] = posAt(d);
+    const a = angleAt(d);
+    ctx.save();
+    ctx.translate(S(px), S(py));
+    ctx.rotate(a);
+    const k = Math.floor(d / 6);
+    ctx.fillStyle = k % 3 === 0 ? bp.plankDk : bp.plank;
+    ctx.fillRect(-2, -half, 4, half * 2);
+    // worn top edge on every other plank
+    if (k % 2 === 0) {
+      ctx.fillStyle = bp.rail;
+      ctx.fillRect(-2, -half + 4, 4, 2);
+    }
+    ctx.restore();
+  }
+  // rails and end-posts
+  for (const side of [-1, 1]) {
+    for (let d = b.d0; d <= b.d1; d += 5) {
+      const [px, py] = posAt(d);
+      const a = angleAt(d) + Math.PI / 2;
+      const rx = px + Math.cos(a) * half * side;
+      const ry = py + Math.sin(a) * half * side;
+      ctx.fillStyle = INK;
+      ctx.fillRect(S(rx) - 2, S(ry) - 5, 5, 7);
+      ctx.fillStyle = bp.rail;
+      ctx.fillRect(S(rx) - 1, S(ry) - 4, 3, 5);
+    }
+    // piles at both ends, driven into the banks
+    for (const dEnd of [b.d0, b.d1]) {
+      const [px, py] = posAt(dEnd);
+      const a = angleAt(dEnd) + Math.PI / 2;
+      const rx = px + Math.cos(a) * half * side;
+      const ry = py + Math.sin(a) * half * side;
+      ctx.fillStyle = INK;
+      ctx.fillRect(S(rx) - 3, S(ry) - 8, 7, 12);
+      ctx.fillStyle = bp.beam;
+      ctx.fillRect(S(rx) - 2, S(ry) - 7, 5, 10);
+      ctx.fillStyle = bp.plank;
+      ctx.fillRect(S(rx) - 2, S(ry) - 7, 2, 10);
+    }
+  }
+};
+
 // Themed still water. Ice is frozen solid (cracks + glint), lava glows and
 // bubbles, swamp/plain water shimmers.
 export const drawPond = (ctx, p, time) => {

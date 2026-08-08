@@ -12,15 +12,15 @@
 
 import { W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE, PATH_HALF } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
-import { PTS } from "../engine/path.js";
-import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR, PONDS, SPECKS } from "../data/terrain.js";
+import { PTS, posAt, angleAt } from "../engine/path.js";
+import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR, PONDS, SPECKS, RIVERS, BRIDGES } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel } from "./towers.js";
-import { drawTree, drawPond, drawCastle, drawSpawn } from "./scenery.js";
+import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawSpawn } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 
 // The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
@@ -105,6 +105,7 @@ export function draw(g, canvas, bufRef) {
     ctx.fillRect(S(sp.x), S(sp.y), sp.w, sp.h);
   }
   for (const p of PONDS) drawPond(ctx, p, g.time);
+  for (const rv of RIVERS) drawRiver(ctx, rv, g.time, REALM.water);
   ctx.fillStyle = REALM.TUFT;
   for (const tf of TUFTS) {
     const sway = Math.sin(g.time * 1.8 + tf.p) > 0 ? CELL : 0;
@@ -150,6 +151,10 @@ export function draw(g, canvas, bufRef) {
     ctx.fillRect(-1, 3, 3, 3); ctx.fillRect(-4, 6, 3, 3);
     ctx.restore();
   }
+
+  // timber spans wherever the road wades a river — over the road texture,
+  // under everything that walks
+  for (const b of BRIDGES) drawBridge(ctx, b, g.time, posAt, angleAt, REALM.bridge);
 
   // clouds crossing the sun — over the ground, under everything standing on it
   drawCloudShadows(ctx, g.time);

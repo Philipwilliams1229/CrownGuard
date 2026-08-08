@@ -14,6 +14,10 @@
 //   ranged*        it shoots your knights from outside their reach
 //   ward*          it hands out `guard` to nearby allies
 //   banner*        it buffs the speed and armor of everything around it
+//   summon*        it conjures fresh enemies onto the road as it walks
+//   splitInto      [type, count] — cut it down and it comes apart into these
+//   deathBurst     {r, dmg, dps, dur} — dies violently: hurts knights in r,
+//                  and leaves plague ground that keeps hurting them
 
 export const ENEMIES = {
   // ---- THE GREENWOOD HORDE ----
@@ -24,6 +28,22 @@ export const ENEMIES = {
   troll: { faction: "greenwood", hp: 490, speed: 40, bounty: 26, armor: 0.15, regen: 8, size: 21, name: "Troll", atk: 38, atkRate: 1100, castleDmg: 3, note: "Regenerates health and hits knights hard. Burst it down fast." },
   shaman: { faction: "greenwood", hp: 132, speed: 60, bounty: 16, armor: 0, mres: 0.6, size: 16, name: "Goblin Shaman", atk: 8, atkRate: 1000, castleDmg: 2, heal: 12, healEvery: 2600, note: "Rune-warded — most magic fizzles against him. His chant mends the WHOLE warband. Silence the healer first." },
   necro: { faction: "greenwood", hp: 420, speed: 42, bounty: 45, armor: 0.1, mres: 0.35, size: 20, name: "Necromancer", atk: 16, atkRate: 1100, castleDmg: 3, raiseEvery: 6000, note: "Where he walks, the fallen rise: slain goblins, wolves, and orcs return as half-strength undead. Fell him before the dead outnumber the living." },
+  bat: {
+    faction: "greenwood", hp: 30, speed: 135, bounty: 4, armor: 0, size: 12,
+    name: "Fell Bat", flying: true, atk: 0, atkRate: 0, castleDmg: 1,
+    note: "A shrieking scrap of wing and teeth. It flies clean over your knights — but almost anything that hits it, ends it.",
+  },
+  boarrider: {
+    faction: "greenwood", hp: 140, speed: 108, bounty: 13, armor: 0.1, size: 19,
+    name: "Boar Rider", atk: 20, atkRate: 800, castleDmg: 2, trample: 1,
+    note: "A goblin lancer on an angry boar. The charge flattens the first knight who steps up and thunders on — only the second blocker holds it.",
+  },
+  hobgoblin: {
+    faction: "greenwood", hp: 330, speed: 56, bounty: 32, armor: 0.2, size: 20,
+    name: "Hobgoblin Warchief", atk: 30, atkRate: 900, castleDmg: 3,
+    bannerRange: 90, bannerSpeed: 0.22, bannerArmor: 0.12,
+    note: "The big one with the totem stick. Every goblin, wolf and boar marching near him is faster and harder to kill. Break the totem and the party breaks with it.",
+  },
   dragon: { faction: "greenwood", hp: 3800, speed: 34, bounty: 200, armor: 0.3, size: 27, name: "DRAGON", boss: true, flying: true, atk: 0, atkRate: 0, castleDmg: 5, note: "Boss. Flies over the road — knights cannot block it." },
 
   // ---- THE IRON KINGDOM ----
@@ -60,10 +80,69 @@ export const ENEMIES = {
     name: "Siege Ram", atk: 30, atkRate: 1200, castleDmg: 4, immSlow: true, immStun: true,
     note: "Oak and iron on six wheels. Nothing slows it, nothing stuns it, and it takes four bites out of your gate. There is no trick — kill it.",
   },
+  gryphon: {
+    faction: "iron", hp: 220, speed: 92, bounty: 24, armor: 0.2, size: 21,
+    name: "Gryphon Knight", flying: true, atk: 0, atkRate: 0, castleDmg: 2,
+    note: "A knight on a warbred gryphon, armored wing to talon. It sails over every blocker you have, and its plate turns arrows — magic pulls it out of the sky fastest.",
+  },
   marshal: {
     faction: "iron", hp: 4200, speed: 48, bounty: 180, armor: 0.35, size: 24,
     name: "LORD MARSHAL", boss: true, atk: 44, atkRate: 1000, castleDmg: 5, trample: 2, trampleEvery: 3200,
     bannerRange: 115, bannerSpeed: 0.3, bannerArmor: 0.2,
     note: "Boss. His banner drives the whole column faster and harder — every soldier near him is quicker and better armored, and he rides down the first two knights that try to hold him. Cut down the banner and the army falters.",
+  },
+
+  // ---- THE HOLLOW COURT ----
+  // The dead of a drowned kingdom. They come in floods, they keep coming
+  // while their callers stand, and killing some of them is its own mistake.
+  skeleton: {
+    faction: "hollow", hp: 44, speed: 70, bounty: 5, armor: 0, mres: 0.15, size: 15,
+    name: "Risen", atk: 9, atkRate: 850, castleDmg: 1,
+    note: "A dead soldier walking under someone else's orders. Worth almost nothing, stops almost nothing — and arrives in floods that do not end.",
+  },
+  ghoul: {
+    faction: "hollow", hp: 72, speed: 124, bounty: 8, armor: 0, size: 16,
+    name: "Ghoul", atk: 14, atkRate: 700, castleDmg: 1,
+    note: "It remembers being hungry, and nothing else. Comes on all fours, fast as a wolf, and does not tire.",
+  },
+  bonearcher: {
+    faction: "hollow", hp: 66, speed: 68, bounty: 10, armor: 0, mres: 0.15, size: 16,
+    name: "Barrow Archer", atk: 8, atkRate: 1000, castleDmg: 1,
+    rangedAtk: 10, rangedRange: 80, rangedRate: 2000,
+    note: "Grave-cold fingers on a yew bow, loosing at your knights from outside sword reach. Dead men need no fletching lessons.",
+  },
+  wraith: {
+    faction: "hollow", hp: 95, speed: 78, bounty: 14, armor: 0, mres: 0.55, size: 17,
+    name: "Wraith", flying: true, atk: 0, atkRate: 0, castleDmg: 2,
+    note: "A drowned soul that drifts over blades and blockers alike, and most magic passes through it like mist. Plain honest arrows are what it fears.",
+  },
+  ghast: {
+    faction: "hollow", hp: 175, speed: 52, bounty: 16, armor: 0, size: 18,
+    name: "Plague Ghast", atk: 16, atkRate: 900, castleDmg: 2,
+    deathBurst: { r: 55, dmg: 26, dps: 12, dur: 3500 },
+    note: "Swollen with grave-rot. Kill it at arm's length and it bursts — scalding every knight nearby and leaving a pool of filth that keeps eating at them. Kill it FAR from your line, or let the towers do it.",
+  },
+  crypt: {
+    faction: "hollow", hp: 560, speed: 40, bounty: 30, armor: 0.45, mres: 0.25, guard: 2, size: 21,
+    name: "Crypt Warden", atk: 34, atkRate: 1000, castleDmg: 3,
+    note: "It carries its own sarcophagus lid as a shield: the first two blows from any tower glance off it, and the plate under it turns half of what follows. Patience, and something heavy.",
+  },
+  gravecaller: {
+    faction: "hollow", hp: 230, speed: 55, bounty: 26, armor: 0, mres: 0.4, size: 18,
+    name: "Gravecaller", atk: 10, atkRate: 1000, castleDmg: 2,
+    summonEvery: 5600, summonType: "skeleton", summonCount: 2,
+    note: "A robed thing with a bell. Every toll pulls two more Risen up out of the road itself — the flood has a source, and this is it. Silence the bell.",
+  },
+  amalgam: {
+    faction: "hollow", hp: 790, speed: 36, bounty: 40, armor: 0.2, size: 23,
+    name: "Grave Amalgam", atk: 30, atkRate: 1100, castleDmg: 3,
+    splitInto: ["ghoul", 3],
+    note: "Many dead things stitched into one slow tide of a body. Cutting it down is half the work: it comes apart into three ghouls at a sprint.",
+  },
+  hollowking: {
+    faction: "hollow", hp: 4400, speed: 42, bounty: 220, armor: 0.25, mres: 0.5, immStun: true, size: 26,
+    name: "THE HOLLOW KING", boss: true, atk: 40, atkRate: 1000, castleDmg: 5,
+    summonEvery: 4400, summonType: "skeleton", summonCount: 2,
+    note: "Boss. The drowned crown itself. Stuns break against his will, half your magic drowns in him — and every few heartbeats he calls more dead out of the ground to walk in front of him. The court dies when the King does.",
   },
 };

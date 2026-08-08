@@ -36,28 +36,30 @@ const mulberry32 = (a) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
-// Waves past the scripted 15: a growing point budget spent on 2-3 warband
-// groups, with the faction's champion leading every 5th wave.
+// Waves past the scripted 18: a growing point budget spent on 2-4 warband
+// groups, with the faction's champion leading every 5th wave. The budget grew
+// when the scripts did — the Endless March should never feel thinner than the
+// war that preceded it.
 export function genWave(w) {
   const rand = mulberry32(w * 7919);
   const past = w - scriptedWaves();
-  let budget = 60 + past * 14 + past * past * 0.6;
+  let budget = 78 + past * 16 + past * past * 0.7;
   const spec = [];
   if (w % 5 === 0) {
     spec.push([FACTION.endlessBoss, 1 + Math.floor(past / 10), 2600]);
     budget *= 0.55;
   }
-  const picks = 2 + Math.floor(rand() * 2);
+  const picks = 2 + Math.floor(rand() * 3);
   const pool = [...FACTION.roster];
   for (let i = 0; i < picks && budget > 0 && pool.length; i++) {
     const grp = pool.splice(Math.floor(rand() * pool.length), 1)[0];
-    const share = i === picks - 1 ? budget : budget * (0.35 + rand() * 0.4);
+    const share = i === picks - 1 ? budget : budget * (0.3 + rand() * 0.4);
     let count = Math.max(1, Math.round(share / grp.cost));
     if (grp.cap) count = Math.min(count, grp.cap + Math.floor(past / 8));
-    count = Math.min(count, 26);
+    count = Math.min(count, 32);
     budget -= count * grp.cost;
     // spawn gaps tighten as the march deepens, but never into a solid wall
-    const gap = Math.max(260, Math.round(grp.gap * (1 - Math.min(0.4, past * 0.015))));
+    const gap = Math.max(240, Math.round(grp.gap * (1 - Math.min(0.45, past * 0.015))));
     spec.push([grp.type, count, gap]);
   }
   return spec;

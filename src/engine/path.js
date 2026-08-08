@@ -11,7 +11,8 @@ export let PTS = [];
 export let SEGS = [];
 export let TOTAL_LEN = 0;
 
-function buildSmooth(RAW) {
+// Also used by terrain.js to bend rivers the same way roads bend.
+export function buildSmooth(RAW) {
   const out = [RAW[0]];
   const R = 34;
   for (let i = 1; i < RAW.length - 1; i++) {

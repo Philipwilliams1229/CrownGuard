@@ -17,7 +17,7 @@ import { dealDamage, releaseEnemy, startWave } from "./actions.js";
 const makeEnemy = (type, mult) => {
   const d = ENEMIES[type];
   return {
-    id: nextId(), type, hp: d.hp * mult, maxHp: d.hp * mult, dist: 0,
+    id: nextId(), type, hp: d.hp * mult, maxHp: d.hp * mult, mult, dist: 0,
     speed: d.speed, armor: d.armor, mres: d.mres || 0, bounty: d.bounty, regen: d.regen || 0,
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: d.boss ? 0 : (Math.random() - 0.5) * PATH_HALF * 1.15,
@@ -29,6 +29,9 @@ const makeEnemy = (type, mult) => {
     wardEvery: d.wardEvery || 0, wardHits: d.wardHits || 0, wardRange: d.wardRange || 0, wardCd: null,
     bannerRange: d.bannerRange || 0, bannerSpeedAmt: d.bannerSpeed || 0, bannerArmorAmt: d.bannerArmor || 0,
     bannerSpeed: 0, bannerArmor: 0,
+    // Hollow Court traits: bells that summon, bodies that split or burst
+    summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonCd: null,
+    splitInto: d.splitInto || null, deathBurst: d.deathBurst || null, deathDone: false,
     x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
     slowUntil: 0, slowPct: 0, burnUntil: 0, burnDps: 0, poisonUntil: 0, poisonDps: 0,
     brittleUntil: 0, brittleAmp: 0, burnSpread: false,
@@ -36,6 +39,21 @@ const makeEnemy = (type, mult) => {
     healAmt: d.heal ? d.heal * Math.sqrt(mult) : 0, healEvery: d.healEvery || 0, healCd: null,
     raiseEvery: d.raiseEvery || 0, raiseCd: null, revived: false, healedFlash: 0,
   };
+};
+
+// Drop a fresh enemy onto the road at distance `dist`, already walking.
+// Shared by gravecaller bells and amalgams coming apart.
+const spawnAt = (g, type, mult, dist, tms) => {
+  const u = makeEnemy(type, mult);
+  u.dist = Math.max(0, dist);
+  u.lane = (Math.random() - 0.5) * PATH_HALF * 1.15;
+  const [px, py] = posAt(u.dist);
+  const a = angleAt(u.dist);
+  u.x = px + Math.cos(a + Math.PI / 2) * u.lane;
+  u.y = py + Math.sin(a + Math.PI / 2) * u.lane;
+  u.born = tms;
+  g.enemies.push(u);
+  return u;
 };
 
 // A knight falls: it drops whatever it was holding and starts its respawn
@@ -164,6 +182,21 @@ export function updateGame(g, dt) {
           }
         }
       }
+      // Gravecaller / Hollow King: the bell tolls, and fresh dead climb out of
+      // the road itself just behind the caller. No corpses required — this is
+      // where the flood comes from, and why the caller dies first.
+      if (e.summonEvery) {
+        e.summonCd = (e.summonCd ?? e.summonEvery * 0.6) - sdt * 1000;
+        if (e.summonCd <= 0) {
+          e.summonCd = e.summonEvery;
+          for (let i = 0; i < e.summonCount; i++) {
+            const u = spawnAt(g, e.summonType, e.mult * 0.8, e.dist - 14 - i * 12, tms);
+            u.bounty = Math.max(1, Math.ceil(u.bounty / 2)); // conjured chaff pays half
+            g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: 600, life: 600 });
+          }
+          g.effects.push({ type: "toll", x: e.x, y: e.y, ttl: 550, r: 46 });
+        }
+      }
       // Necromancer: calls nearby fallen back to their feet at half strength
       if (e.raiseEvery) {
         e.raiseCd = (e.raiseCd ?? e.raiseEvery * 0.5) - sdt * 1000;
@@ -199,9 +232,11 @@ export function updateGame(g, dt) {
         }
       }
       if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic", false, true);
-      // Volcanic Throne: lava pools scorch anyone standing in them
+      // Volcanic Throne: lava pools scorch anyone standing in them. Plague
+      // ground is the dead's own filth — it only troubles the living knights.
       if (!e.dead) {
         for (const gr of g.grounds) {
+          if (gr.kind === "plague") continue;
           if (gr.until > tms && Math.hypot(e.x - gr.x, e.y - gr.y) <= gr.r) dealDamage(g, e, gr.dps * sdt, "magic", false, true);
         }
       }
@@ -263,6 +298,39 @@ export function updateGame(g, dt) {
         if (g.lives <= 0) { g.lives = 0; g.phase = "lost"; }
       }
     }
+    // ---- deaths with consequences ----
+    // Amalgams come apart into ghouls; plague ghasts burst over the line.
+    // Handled here, just before the fallen leave the array, so a wave can
+    // never be declared clear while its last body still owes children.
+    for (const e of g.enemies) {
+      if (!e.dead || e.deathDone) continue;
+      e.deathDone = true;
+      if (e.splitInto) {
+        const [type, n] = e.splitInto;
+        for (let i = 0; i < n; i++) spawnAt(g, type, e.mult, e.dist - 4 - i * 9, tms);
+        g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 380, r: 30 });
+        g.shake = Math.max(g.shake, 2);
+      }
+      if (e.deathBurst) {
+        const b = e.deathBurst;
+        g.effects.push({ type: "plagueburst", x: e.x, y: e.y, ttl: 500, r: b.r });
+        g.grounds.push({ x: e.x, y: e.y, r: b.r * 0.8, dps: b.dps, until: tms + b.dur, kind: "plague" });
+        for (const t of g.towers) {
+          if (!t.units) continue;
+          for (const u of t.units) {
+            if (u.state === "dead" || Math.hypot(u.x - e.x, u.y - e.y) > b.r) continue;
+            if (u.shield) {
+              u.shield = false; u.shieldCd = 6500;
+              g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
+            } else {
+              u.hp -= b.dmg;
+              g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 220 });
+            }
+            if (u.hp <= 0) killUnit(g, t, u);
+          }
+        }
+      }
+    }
     g.enemies = g.enemies.filter((e) => !e.dead);
 
     for (const t of g.towers) {
@@ -281,6 +349,12 @@ export function updateGame(g, dt) {
         u.swing = Math.max(0, u.swing - sdt * 1000);
         u.healGlow = Math.max(0, (u.healGlow || 0) - sdt * 1000);
         u.shieldCd = Math.max(0, (u.shieldCd || 0) - sdt * 1000);
+        // plague ground eats at any knight who stands his post in it
+        for (const gr of g.grounds) {
+          if (gr.kind !== "plague" || gr.until <= tms) continue;
+          if (Math.hypot(u.x - gr.x, u.y - gr.y) <= gr.r) u.hp -= gr.dps * sdt;
+        }
+        if (u.hp <= 0) { killUnit(g, t, u); return; }
 
         let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
         // tight leash: knights break off quickly once a foe leaves the rally circle

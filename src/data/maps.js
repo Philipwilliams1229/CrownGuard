@@ -202,6 +202,7 @@ export const REALMS = {
 const greenwoodVariant = (id, name, tag, blurb, seed, path, extra = {}) => ({
   ...REALMS.greenwood, id, name, tag, blurb, seed, path,
   spawn: "grove",
+  water: { deep: "#3a6a7c", edge: "#4a8094", shine: "#8cc4d8" },
   decor: undefined,
   decorRecipe: { count: 22, types: ["pine", "tree", "pine", "tree", "rock"] },
   ponds: [],
@@ -234,6 +235,7 @@ const IRON_GROUND = {
 };
 const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
   ...IRON_GROUND, id, name, blurb, seed, path,
+  water: { deep: "#33505e", edge: "#43647a", shine: "#7aa4bc" },
   decorRecipe: { count: 10, types: ["rock", "pine", "rock", "tree"] },
   ponds: [],
   ...extra,
@@ -242,11 +244,11 @@ const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
 Object.assign(REALMS, {
   // ---- Chapter I: Greenwood Vale ----
   thornbrook: greenwoodVariant(
-    "thornbrook", "Thornbrook Ford", "OPEN GROUND",
-    "Wide meadows either side of a shallow brook. Room to build — use it, because the road here is long.",
+    "thornbrook", "Thornbrook Ford", "THE BROOK",
+    "Wide meadows cut in half by a living brook. One timber bridge carries the road over — the water carries nothing anywhere.",
     20260714,
     [[0.9, 8], [3, 8], [3, 3], [6, 3], [6, 8], [9, 8], [9, 2], [12, 2], [12, 6], [13.7, 6]],
-    { ponds: [{ x: 372, y: 264, w: 58, h: 32 }] },
+    { rivers: [{ pts: [[7.5, -0.5], [7.2, 3.5], [7.7, 6.5], [7.4, 10.5]], w: 28 }] },
   ),
   oakmere: greenwoodVariant(
     "oakmere", "Oakmere Hollow", "TIGHT TURNS",
@@ -284,15 +286,12 @@ Object.assign(REALMS, {
   ),
   ironford: ironVariant(
     "ironford", "Ironford",
-    "The river crossing. Water eats the buildable ground and the siege rams come through anyway.",
+    "A real river this time, crossed twice. The water eats your buildable ground, and the siege rams take the bridges like they own them.",
     20260723,
     [[0.9, 8], [4, 8], [4, 4], [8, 4], [8, 8], [11, 8], [11, 3], [13.7, 3]],
     {
-      ponds: [
-        { x: 300, y: 120, w: 74, h: 38 },
-        { x: 540, y: 300, w: 62, h: 34 },
-        { x: 132, y: 300, w: 54, h: 30 },
-      ],
+      rivers: [{ pts: [[6.3, -0.5], [6.4, 4.8], [9.5, 6.8], [9.6, 10.5]], w: 34 }],
+      ponds: [{ x: 132, y: 300, w: 54, h: 30 }],
     },
   ),
   greyhelm: ironVariant(
@@ -308,6 +307,103 @@ Object.assign(REALMS, {
     20260725,
     [[0.9, 1], [5, 1], [5, 4], [1, 4], [1, 7], [5, 7], [5, 9], [9, 9], [9, 6], [7, 6], [7, 3], [11, 3], [11, 6], [13, 6], [13, 2], [13.7, 2]],
     { decorRecipe: { count: 12, types: ["rock", "pine", "rock"] } },
+  ),
+});
+
+// ============ CHAPTER III: THE HOLLOWFEN ============
+// The drowned country. Black-green turf, a road of pale bone-dust, standing
+// water everywhere, and a moon that never quite rises. The dead walk out of
+// barrows instead of woods, and the water is the map's real opponent: rivers
+// and meres eat the buildable ground on every one of these boards.
+
+const HOLLOW_GROUND = {
+  tag: "THE FEN",
+  tagColor: "#b08ad8",
+  ambient: "wisps",
+  // a drowned moon: cold blue-grey light, edges falling away into the dark
+  light: { tint: "168,186,224", amount: 0.2, vignette: 0.5 },
+  spawn: "barrow",       // the dead come up out of the ground, not the trees
+  GRASS: "#3e4438",
+  GRASS_DK: "#333930",
+  GRASS_LT: "#4a5142",
+  TUFT: "#2c332a",
+  // bone-dust road: pale enough to read at night
+  PATH_MAIN: "#948b76",
+  PATH_DK: "#776f5c",
+  PATH_EDGE: "#46402f",
+  PEBBLE: "#b0a88e",
+  CHEVRON: "26,22,20",
+  water: { deep: "#22302c", edge: "#2f423c", shine: "#4a6a58" },
+  bridge: { beam: "#3c3428", plank: "#6e6656", plankDk: "#565040", rail: "#4a4438" },
+  scatter: {
+    patches: 50,
+    tufts: 64,
+    flowers: 14,
+    flowerCols: ["#9a8ec4", "#b0a88e", "#7a8a6a"],
+  },
+};
+const hollowVariant = (id, name, tag, blurb, seed, path, extra = {}) => ({
+  ...HOLLOW_GROUND, id, name, tag, blurb, seed, path,
+  decorRecipe: { count: 16, types: ["gravestone", "cairn", "deadtree", "gravestone", "boneheap"] },
+  ponds: [],
+  ...extra,
+});
+
+Object.assign(REALMS, {
+  graveroad: hollowVariant(
+    "graveroad", "The Grave Road", "FIRST CROSSING",
+    "The old causeway into the fen, crossing the Weepwater twice. The dead walk it in floods — hold both bridges and bleed them the whole way.",
+    20260801,
+    [[0.9, 2], [4, 2], [4, 5], [8, 5], [8, 2], [12, 2], [12, 7], [6, 7], [6, 9], [13.7, 9]],
+    { rivers: [{ pts: [[9.5, -0.5], [9.6, 3.5], [10.4, 6.2], [10.4, 10.5]], w: 30 }] },
+  ),
+  sunkencauseway: hollowVariant(
+    "sunkencauseway", "The Sunken Causeway", "DROWNED GROUND",
+    "Three black meres and a dead-straight moat, and between them barely enough dry ground to raise a tower. Every footing here has to earn its keep.",
+    20260802,
+    [[0.9, 8], [3, 8], [3, 4], [6, 4], [6, 1], [10, 1], [10, 6], [13, 6], [13, 3], [13.7, 3]],
+    {
+      ponds: [
+        { x: 410, y: 200, w: 120, h: 64, t: "swamp" },
+        { x: 120, y: 120, w: 90, h: 56, t: "swamp" },
+        { x: 600, y: 430, w: 120, h: 56, t: "swamp" },
+      ],
+      rivers: [{ pts: [[-0.5, 9.4], [7, 9.3], [15.5, 9.4]], w: 24 }],
+    },
+  ),
+  wightwood: hollowVariant(
+    "wightwood", "Wightwood", "TIGHT TURNS",
+    "A drowned forest of white, dead trees. The road coils through them like something lost — one well-set tower here watches four lanes at once.",
+    20260803,
+    [[1, 0.8], [1, 4], [4, 4], [4, 1], [7, 1], [7, 6], [2, 6], [2, 9], [9, 9], [9, 4], [12, 4], [12, 7], [13.7, 7]],
+    {
+      ponds: [
+        { x: 560, y: 90, w: 74, h: 42, t: "swamp" },
+        { x: 320, y: 350, w: 56, h: 32, t: "swamp" },
+      ],
+      decorRecipe: { count: 22, types: ["deadtree", "deadtree", "gravestone", "cairn", "reeds"] },
+    },
+  ),
+  cairnfields: hollowVariant(
+    "cairnfields", "The Cairnfields", "THREE BRIDGES",
+    "A river straight through the burial fields, and the road forced over it three times. Every cairn is a door, and the bells know your name.",
+    20260804,
+    [[0.9, 1], [4, 1], [4, 7], [8, 7], [8, 3], [12, 3], [12, 9], [13.7, 9]],
+    {
+      rivers: [{ pts: [[-0.5, 5.4], [5, 5.6], [10, 5.3], [15.5, 5.5]], w: 28 }],
+      decorRecipe: { count: 20, types: ["cairn", "cairn", "gravestone", "boneheap", "deadtree"] },
+    },
+  ),
+  thronedust: hollowVariant(
+    "thronedust", "The Throne of Dust", "THE COURT",
+    "The drowned throne itself, ringed by the Weepwater. The longest road in the fen — and the Hollow King walking it home.",
+    20260805,
+    [[0.9, 8], [4, 8], [4, 5], [1, 5], [1, 2], [6, 2], [6, 6], [9, 6], [9, 1], [12, 1], [12, 6], [13.7, 6]],
+    {
+      rivers: [{ pts: [[-0.5, 6.5], [3.5, 7], [7, 9.2], [15.5, 9.4]], w: 26 }],
+      ponds: [{ x: 660, y: 130, w: 70, h: 44, t: "swamp" }],
+      decorRecipe: { count: 18, types: ["obelisk", "gravestone", "cairn", "boneheap", "deadtree"] },
+    },
   ),
 });
 
