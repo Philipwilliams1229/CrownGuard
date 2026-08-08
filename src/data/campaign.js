@@ -95,7 +95,7 @@ export const CHAPTERS = [
     faction: "hollow",
     color: "#6a5a8c",
     colorDk: "#453a5e",
-    label: [182, 166],
+    label: [300, 234],
     blurb: "The war woke something under the fen. The drowned kingdom remembers it was a kingdom — and its dead want the crown back.",
     region: "M104,190 C112,174 134,166 158,170 C174,173 192,166 210,172 C232,179 248,186 252,200 C256,214 244,226 222,230 C196,234 168,232 142,228 C120,224 100,210 104,190 Z",
     levels: [
