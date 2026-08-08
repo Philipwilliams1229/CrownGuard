@@ -198,6 +198,43 @@ export const drawAmbient = (ctx, time) => {
     return;
   }
 
+  if (kind === "wisps") {
+    // ground fog first: low, slow sheets dragging across the fen
+    for (let i = 0; i < 3; i++) {
+      const gx = ((time * (16 + i * 7) + i * 380) % (W + 360)) - 180;
+      const gy = 120 + i * 140 + Math.sin(time * 0.3 + i * 2) * 18;
+      ctx.fillStyle = "rgba(178,196,188,0.05)";
+      for (let k = 0; k < 11; k++) ctx.fillRect(S(gx + k * 20), S(gy + Math.sin(k * 0.6 + time * 0.7) * 8), 18, 4);
+    }
+    // the dead's own candles: pale motes that rise, drift, and gutter out
+    for (let i = 0; i < 20; i++) {
+      const life = ((time * (7 + (i % 4) * 3) + i * 61) % 90) / 90;
+      const x = (((i * 167.3 + Math.sin(time * 0.4 + i * 1.9) * 30) % W) + W) % W;
+      const y = H - 20 - life * (H * 0.65) - Math.sin(time * 0.8 + i) * 6;
+      const a = life < 0.15 ? life / 0.15 : life > 0.75 ? (1 - life) / 0.25 : 1;
+      const flicker = 0.5 + 0.5 * Math.sin(time * (2.2 + (i % 3)) + i * 2.6);
+      ctx.fillStyle = `rgba(124,224,184,${a * flicker * 0.22})`;
+      ctx.fillRect(S(x) - 2, S(y) - 2, 6, 6);
+      ctx.fillStyle = `rgba(188,244,216,${a * flicker * 0.8})`;
+      ctx.fillRect(S(x), S(y), 2, 2);
+    }
+    // and one great slow soul crossing the board, once in a while
+    const soulT = (time * 9) % (W + 500);
+    if (soulT < W + 100) {
+      const sx2 = soulT - 50;
+      const sy2 = H * 0.35 + Math.sin(time * 0.6) * 40;
+      ctx.fillStyle = "rgba(124,224,184,0.1)";
+      ctx.beginPath(); ctx.arc(S(sx2), S(sy2), 9, 0, 7); ctx.fill();
+      ctx.fillStyle = "rgba(188,244,216,0.35)";
+      ctx.fillRect(S(sx2) - 1, S(sy2) - 1, 3, 3);
+      for (let t2 = 1; t2 <= 4; t2++) {
+        ctx.fillStyle = `rgba(124,224,184,${0.18 - t2 * 0.04})`;
+        ctx.fillRect(S(sx2 - t2 * 7), S(sy2 + Math.sin(time * 2 + t2) * 3), 3, 3);
+      }
+    }
+    return;
+  }
+
   if (kind === "dust") {
     // the Iron Marches: hard wind, cropped turf, grit moving in straight lines
     for (let i = 0; i < 38; i++) {

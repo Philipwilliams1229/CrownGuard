@@ -39,6 +39,23 @@ const Keep = ({ x, y, s = 1 }) => (
   </g>
 );
 
+// A dead tree and a leaning stone, for the drowned isle.
+const DeadTree = ({ x, y, s = 1 }) => (
+  <g transform={`translate(${x} ${y}) scale(${s})`}>
+    <rect x="-1" y="-9" width="2" height="13" fill="#5a473a" />
+    <rect x="-5" y="-7" width="4" height="2" fill="#5a473a" />
+    <rect x="1" y="-5" width="5" height="2" fill="#5a473a" />
+    <rect x="3" y="-8" width="2" height="3" fill="#5a473a" />
+  </g>
+);
+const Stone = ({ x, y, s = 1 }) => (
+  <g transform={`translate(${x} ${y}) scale(${s})`}>
+    <rect x="-3" y="-6" width="6" height="9" fill="#8a8478" />
+    <rect x="-3" y="-6" width="2" height="9" fill="#a19a88" />
+    <rect x="-1" y="-4" width="2" height="4" fill="#55504a" />
+  </g>
+);
+
 export default function CampaignMap({ progress, profile, onStart, onBack, onReset }) {
   const rating = (id) => profile?.stars?.[id] || 0;
   const [selId, setSelId] = useState(() => currentLevel(progress).id);
@@ -100,6 +117,13 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
           <g opacity="0.9">
             <Keep x={266} y={122} s={0.9} /><Keep x={316} y={188} s={0.8} />
             <Keep x={360} y={116} s={0.85} /><Keep x={300} y={70} s={0.8} />
+          </g>
+        )}
+        {isUnlocked("hl1", progress) && (
+          <g opacity="0.9">
+            <DeadTree x={128} y={210} s={0.9} /><DeadTree x={222} y={208} s={0.8} />
+            <DeadTree x={186} y={222} s={0.85} /><Stone x={158} y={186} s={0.9} />
+            <Stone x={218} y={224} s={0.8} /><Stone x={130} y={188} s={0.75} />
           </g>
         )}
 
@@ -175,13 +199,13 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
         })}
 
         {/* country names, tucked into the coast */}
-        {CHAPTERS.map((ch, i) => {
+        {CHAPTERS.map((ch) => {
           const open = isUnlocked(ch.levels[0].id, progress);
           return (
-            <text key={ch.id} x={i === 0 ? 92 : 302} y={i === 0 ? 226 : 24} textAnchor="middle"
+            <text key={ch.id} x={ch.label[0]} y={ch.label[1]} textAnchor="middle"
               fontSize="10" letterSpacing="2" fontFamily={FONT} fill={open ? "#d8b34a" : "#78808e"}
               stroke={INK} strokeWidth="3" paintOrder="stroke" strokeLinejoin="round">
-              {open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : "II. SEALED"}
+              {open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`}
             </text>
           );
         })}
@@ -193,6 +217,11 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
           {/* a thumbnail of the actual road you'll be defending */}
           <svg viewBox="0 0 150 100" width="128" height="86" style={{ flexShrink: 0, border: `2px solid ${INK}`, imageRendering: "pixelated", filter: selUnlocked ? "none" : "grayscale(1) brightness(0.6)" }}>
             <rect x="0" y="0" width="150" height="100" fill={selRealm.GRASS} />
+            {(selRealm.rivers || []).map((rv, i) => (
+              <polyline key={`rv${i}`} points={rv.pts.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
+                fill="none" stroke={selRealm.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}
+                strokeLinejoin="round" strokeLinecap="round" />
+            ))}
             <polyline points={selRealm.path.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
               fill="none" stroke={selRealm.PATH_EDGE} strokeWidth="9" strokeLinejoin="round" strokeLinecap="round" />
             <polyline points={selRealm.path.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}

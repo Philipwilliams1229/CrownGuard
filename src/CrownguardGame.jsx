@@ -745,6 +745,11 @@ export default function Crownguard() {
                       style={{ ...btn, display: "flex", gap: 10, padding: 8, alignItems: "stretch", ...(r.id === realmId ? { boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}>
                       <svg viewBox="0 0 150 100" width="108" height="72" style={{ flexShrink: 0, border: "2px solid #10131a", imageRendering: "pixelated" }}>
                         <rect x="0" y="0" width="150" height="100" fill={r.GRASS} />
+                        {(r.rivers || []).map((rv, i) => (
+                          <polyline key={`rv${i}`} points={rv.pts.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
+                            fill="none" stroke={r.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}
+                            strokeLinejoin="round" strokeLinecap="round" />
+                        ))}
                         <polyline points={r.path.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
                           fill="none" stroke={r.PATH_EDGE} strokeWidth="9" strokeLinejoin="round" strokeLinecap="round" />
                         <polyline points={r.path.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}

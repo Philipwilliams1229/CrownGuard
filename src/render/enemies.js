@@ -24,22 +24,25 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // necromancer-raised foes wear grave-pale colors with witch-fire eyes
   const pal = e.revived && UNDEAD_PALS[e.type] ? UNDEAD_PALS[e.type] : spr.pal;
   const fighting = e.blockedBy && e.engaged;
+  // anything flying rides the air the way the dragon always has: no footfall,
+  // no fight cycle, a slow bob, and a shadow that stays down on the road
+  const airborne = !!e.flying;
   // sprites may define any number of walk frames (spr.frames), an optional
   // dedicated fight cycle (spr.fight), and their own animation rate (spr.rate)
   const walkRate = spr.rate || (e.type === "wolf" ? 8 : e.type === "goblin" || e.type === "orc" ? 5 : 4);
   let sheet = spr, frame;
-  if (fighting && e.type !== "dragon") {
+  if (fighting && !airborne) {
     if (spr.fight) { sheet = { frames: spr.fight, px: spr.px }; frame = Math.floor(time * 7 + e.id) % spr.fight.length; }
     else frame = Math.floor(time * 8) % spr.frames.length;
   } else {
     frame = Math.floor(time * walkRate + e.id) % spr.frames.length;
   }
   // dust first, so the shadow sits on top of it and the foot stays grounded
-  if (!fighting && e.type !== "dragon") {
+  if (!fighting && !airborne) {
     footfall(ctx, e.x, e.y + e.size * 0.55, e.face, walkRate, e.id, e.size >= 15 || e.boss ? 0.55 : 0.28, time);
   }
-  ctx.fillStyle = "rgba(20,20,26,0.3)";
-  const shw = Math.round(e.size * 0.6 / CELL) * CELL;
+  ctx.fillStyle = airborne ? "rgba(20,20,26,0.22)" : "rgba(20,20,26,0.3)";
+  const shw = Math.round(e.size * (airborne ? 0.45 : 0.6) / CELL) * CELL;
   ctx.fillRect(S(e.x - shw), S(e.y + e.size * 0.55), shw * 2, CELL * 2);
   // Fresh arrivals resolve out of the shadow of the wood over a third of a
   // second, so nothing ever simply blinks into being at the spawn point.
@@ -50,9 +53,9 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // a solid hit knocks them back a pixel or two before they lean in again
   const knock = e.hitFlash > tms ? -e.face * CELL : 0;
   const lunge = (e.atkAnim > 0 ? CELL * e.face : 0) + knock;
-  // dragons hover; small quick critters get a lively hop on their off-frames
-  let hover = e.type === "dragon" ? S(Math.sin(time * 3 + e.id) * 3) - 10 : 0;
-  if ((e.type === "goblin" || e.type === "wolf") && frame % 2 === 1 && !fighting) hover -= CELL;
+  // fliers hover; small quick critters get a lively hop on their off-frames
+  let hover = airborne ? S(Math.sin(time * 3 + e.id) * 3) - (e.boss ? 10 : 7) : 0;
+  if ((e.type === "goblin" || e.type === "wolf" || e.type === "ghoul") && frame % 2 === 1 && !fighting) hover -= CELL;
   drawSprite(ctx, sheet, pal, frame, e.x + lunge, e.y + hover, e.face < 0);
   // white flash on solid hits
   if (e.hitFlash > tms) {

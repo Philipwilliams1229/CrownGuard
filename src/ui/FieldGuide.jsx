@@ -203,6 +203,9 @@ function EnemyDetail({ type }) {
         {e.heal ? <Row label="Heals warband">{e.heal} per chant</Row> : null}
         {e.wardHits ? <Row label="Wards allies">{e.wardHits} blow each</Row> : null}
         {e.bannerRange ? <Row label="Banner">+{Math.round(e.bannerSpeed * 100)}% speed, +{Math.round(e.bannerArmor * 100)}% armor</Row> : null}
+        {e.summonEvery ? <Row label="Summons">{e.summonCount} {ENEMIES[e.summonType]?.name || e.summonType}{e.summonCount > 1 ? "s" : ""} / {(e.summonEvery / 1000).toFixed(1)}s</Row> : null}
+        {e.splitInto ? <Row label="On death">splits into {e.splitInto[1]} {ENEMIES[e.splitInto[0]]?.name || e.splitInto[0]}s</Row> : null}
+        {e.deathBurst ? <Row label="On death">bursts — {e.deathBurst.dmg} dmg to knights + plague ground</Row> : null}
         <Row label="Castle damage">{e.castleDmg}</Row>
       </div>
 
@@ -221,11 +224,14 @@ function Basics() {
   return (
     <div style={{ fontSize: 11.5, lineHeight: 1.7 }}>
       <Heading>THE CASTLE</Heading>
-      Your castle has <b>20 HP</b>, carried between waves. Anything that reaches it takes a bite: goblins and wolves cost 1, orcs, ironclads and shamans 2, trolls and necromancers 3, the dragon 5. It cracks, smokes, and burns as it weakens.
+      Your castle has <b>20 HP</b>, carried between waves. Anything that reaches it takes a bite — small things cost 1, bruisers 2 or 3, and a faction's champion 5. It cracks, smokes, and burns as it weakens.
 
       <Heading>WAVES</Heading>
-      Fifteen scripted waves stand between you and the dragon. After each one the next <b>auto-starts in 30 seconds</b> — sound the horn early and you pocket bonus gold for every second you skip. <b>Rush</b> does that automatically, every time.<br /><br />
-      Slay the dragon on wave 15 to save the realm, then <b>March On</b> into the <b>Endless March</b>: ever-larger warbands, a dragon every 5th wave, and foes that only grow stronger.
+      Eighteen scripted waves stand between you and each faction's champion — and they open with proper grunt floods, so build for volume early. After each wave the next <b>auto-starts in 30 seconds</b> — sound the horn early and you pocket bonus gold for every second you skip. <b>Rush</b> does that automatically, every time.<br /><br />
+      Slay the champion on wave 18 to save the realm, then <b>March On</b> into the <b>Endless March</b>: ever-larger warbands, the champion returning every 5th wave, and foes that only grow stronger.
+
+      <Heading>THE THREE ARMIES</Heading>
+      <b>The Greenwood Horde</b> is numbers and teeth: swarms, fast wolves, bats over your blockers, and shamans mending the whole warband. <b>The Iron Kingdom</b> is discipline: shields that swallow blows, crossbows and gryphons, chaplain wards, siege rams nothing slows. <b>The Hollow Court</b> is the dead in floods — wraiths your knights can't touch, ghasts that burst over your line, and gravecallers whose bells raise more. Each army wants a different castle: read the wave preview, and build against what's actually coming.
 
       <Heading>BUILDING</Heading>
       Towers reach <b>Lv 3</b>, then <b>evolve down one of two paths</b> — and each path can <b>ascend once more</b> into a final form. Both choices are permanent, so read them before you spend.<br /><br />

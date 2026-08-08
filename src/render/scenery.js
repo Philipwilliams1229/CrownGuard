@@ -300,6 +300,98 @@ export const drawTree = (ctx, d, time) => {
         ctx.fillRect(sx + sway - 1, y + 8 - sh - 4, 4, 5);
       }
     });
+  } else if (d.t === "gravestone") {
+    // a leaning slab, moss at the foot, a worn cross or line of script
+    const lean = ((d.x * 7) % 3) - 1;       // each stone settles its own way
+    const hh = S(14 * s);
+    ctx.save();
+    ctx.translate(x, y + 8);
+    ctx.rotate(lean * 0.08);
+    ctx.fillStyle = INK;
+    ctx.fillRect(-S(5 * s) - 1, -hh - 1, S(10 * s) + 2, hh + 2);
+    for (let i = 0; i < 3; i++) ctx.fillRect(-S(5 * s) + i - 1, -hh - 1 - (3 - i), S(10 * s) + 2 - i * 2, 3);
+    ctx.fillStyle = "#8a8478";
+    ctx.fillRect(-S(5 * s), -hh, S(10 * s), hh);
+    for (let i = 0; i < 3; i++) ctx.fillRect(-S(5 * s) + i, -hh - (3 - i), S(10 * s) - i * 2, 3);
+    ctx.fillStyle = "#a19a88";
+    ctx.fillRect(-S(5 * s), -hh, 2, hh);
+    ctx.fillStyle = "#6e6859";
+    if ((d.x | 0) % 2) {                    // a cross...
+      ctx.fillRect(-1, -hh + 3, 2, 7);
+      ctx.fillRect(-3, -hh + 5, 6, 2);
+    } else {                                // ...or lines no one can read now
+      ctx.fillRect(-S(3 * s), -hh + 4, S(6 * s), 1);
+      ctx.fillRect(-S(3 * s), -hh + 7, S(5 * s), 1);
+    }
+    ctx.restore();
+    ctx.fillStyle = "#4a5142";
+    ctx.fillRect(x - S(4 * s), y + 6, S(3 * s), 2);
+  } else if (d.t === "cairn") {
+    // stacked stones over somebody. The stack narrows as it climbs.
+    const rows2 = [[8, 0, "#767060"], [6, 1, "#8a8478"], [4, 2, "#9a9484"], [2, 3, "#a8a190"]];
+    for (const [wr, i, col] of rows2) {
+      const wRow = S(wr * s);
+      ctx.fillStyle = INK;
+      ctx.fillRect(x - wRow - 1, y + 8 - (i + 1) * 6 - 1, wRow * 2 + 2, 8);
+    }
+    for (const [wr, i, col] of rows2) {
+      const wRow = S(wr * s);
+      ctx.fillStyle = col;
+      ctx.fillRect(x - wRow, y + 8 - (i + 1) * 6, wRow * 2, 6);
+      ctx.fillStyle = "#55504a";
+      ctx.fillRect(x - wRow + 2, y + 8 - i * 6 - 1, wRow * 2 - 4, 1);
+    }
+  } else if (d.t === "boneheap") {
+    // what the fen didn't finish burying: bones scattered flat on the turf,
+    // not piled — a dark stain, some long bones, a rib bow, and one skull
+    ctx.fillStyle = "rgba(24,26,20,0.35)";
+    blob(ctx, x, y + 4, S(10 * s), S(4 * s));
+    // long bones at angles, each a shaft with knobbed ends
+    const bones = [[-7, 2, 7, 1], [1, 5, 6, 1], [-3, 7, 5, 1]];
+    for (const [bx, by, len, thick] of bones) {
+      ctx.fillStyle = "#a89f8c";
+      ctx.fillRect(x + S(bx * s), y + by, S(len * s), thick + 1);
+      ctx.fillStyle = "#c8c2b0";
+      ctx.fillRect(x + S(bx * s) - 1, y + by - 1, 2, thick + 3);
+      ctx.fillRect(x + S(bx * s) + S(len * s) - 1, y + by - 1, 2, thick + 3);
+    }
+    // a rib bow, still half-sunk
+    ctx.fillStyle = "#b8b09c";
+    ctx.fillRect(x + S(4 * s), y - 1, 1, 4);
+    ctx.fillRect(x + S(6 * s), y - 2, 1, 5);
+    ctx.fillRect(x + S(8 * s), y - 1, 1, 4);
+    // the skull, watching sideways
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - S(5 * s) - 1, y - 3, 8, 7);
+    ctx.fillStyle = "#d8d2c0";
+    ctx.fillRect(x - S(5 * s), y - 2, 6, 5);
+    ctx.fillStyle = "#a89f8c";
+    ctx.fillRect(x - S(5 * s) + 1, y + 2, 4, 1);
+    ctx.fillStyle = "#2b2a33";
+    ctx.fillRect(x - S(5 * s) + 1, y - 1, 2, 2);
+    ctx.fillRect(x - S(5 * s) + 4, y - 1, 1, 2);
+  } else if (d.t === "obelisk") {
+    // a cracked black needle, runes guttering up its face
+    const hh = S(24 * s);
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - 5, y + 8 - hh - 3, 10, hh + 12);
+    ctx.fillStyle = "#2e2838";
+    ctx.fillRect(x - 4, y + 8 - hh, 8, hh + 8);
+    ctx.fillStyle = "#443a52";
+    ctx.fillRect(x - 4, y + 8 - hh, 3, hh + 8);
+    // the crack
+    ctx.fillStyle = "#1c1824";
+    ctx.fillRect(x, y + 8 - hh + 4, 1, S(6 * s));
+    ctx.fillRect(x - 2, y + 8 - hh + 4 + S(6 * s), 2, 1);
+    // runes breathing witch-light, out of phase with each other
+    for (let i = 0; i < 3; i++) {
+      const glow = Math.sin(time * 1.6 + i * 2.1 + d.x) > 0.1;
+      ctx.fillStyle = glow ? "#7ce0b8" : "#3c5a4e";
+      ctx.fillRect(x - 1, y + 4 - i * S(7 * s), 2, 3);
+    }
+    // capstone
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - 3, y + 8 - hh - 4, 6, 3);
   } else if (d.t === "tree") {
     leafShape(ctx, x, y, s, "#557a46", "#6d9459", "#3f5c34", sway);
   } else {
@@ -392,17 +484,18 @@ export const drawBridge = (ctx, b, time, posAt, angleAt, pal) => {
     }
     ctx.restore();
   }
-  // rails and end-posts
+  // rails and end-posts — posts spaced wide so the rail reads as a rail,
+  // not as a solid timber wall
   for (const side of [-1, 1]) {
-    for (let d = b.d0; d <= b.d1; d += 5) {
+    for (let d = b.d0 + 2; d <= b.d1 - 1; d += 10) {
       const [px, py] = posAt(d);
       const a = angleAt(d) + Math.PI / 2;
       const rx = px + Math.cos(a) * half * side;
       const ry = py + Math.sin(a) * half * side;
       ctx.fillStyle = INK;
-      ctx.fillRect(S(rx) - 2, S(ry) - 5, 5, 7);
+      ctx.fillRect(S(rx) - 1, S(ry) - 4, 4, 6);
       ctx.fillStyle = bp.rail;
-      ctx.fillRect(S(rx) - 1, S(ry) - 4, 3, 5);
+      ctx.fillRect(S(rx), S(ry) - 3, 2, 4);
     }
     // piles at both ends, driven into the banks
     for (const dEnd of [b.d0, b.d1]) {
@@ -425,6 +518,53 @@ export const drawBridge = (ctx, b, time, posAt, angleAt, pal) => {
 export const drawPond = (ctx, p, time) => {
   const x = S(p.x), y = S(p.y), w = S(p.w), h = S(p.h);
   const lx = x - w / 2, ty = y - h / 2;
+
+  // A big pond is a MERE, and a mere gets a real shoreline: an irregular
+  // blob instead of a slab, banks that catch light, shimmer, and reeds where
+  // the water meets the turf. Small ponds keep the classic rectangle.
+  if (p.w >= 80) {
+    const deep = p.t === "swamp" ? "#26382e" : "#39586c";
+    const edge = p.t === "swamp" ? "#35503c" : "#4a7086";
+    const shine = p.t === "swamp" ? "#4d7050" : "#7cacc4";
+    const rx = w / 2, ry = h / 2;
+    ctx.fillStyle = INK;
+    blob(ctx, x, y, rx + 3, ry + 3);
+    // two overlapping lobes so the shore wanders instead of tracing an oval
+    blob(ctx, x - rx * 0.45, y + ry * 0.25, rx * 0.6, ry * 0.7);
+    blob(ctx, x + rx * 0.5, y - ry * 0.2, rx * 0.55, ry * 0.66);
+    ctx.fillStyle = edge;
+    blob(ctx, x, y, rx + 1, ry + 1);
+    blob(ctx, x - rx * 0.45, y + ry * 0.25, rx * 0.58, ry * 0.66);
+    blob(ctx, x + rx * 0.5, y - ry * 0.2, rx * 0.53, ry * 0.62);
+    ctx.fillStyle = deep;
+    blob(ctx, x, y + 1, rx - 2, ry - 2);
+    blob(ctx, x - rx * 0.45, y + ry * 0.25 + 1, rx * 0.5, ry * 0.55);
+    blob(ctx, x + rx * 0.5, y - ry * 0.2 + 1, rx * 0.46, ry * 0.5);
+    // slow shimmer drifting across the surface
+    ctx.fillStyle = shine;
+    for (let i = 0; i < 5; i++) {
+      const sx2 = p.x - rx + 8 + ((time * 6 + i * 41) % Math.max(10, p.w - 20));
+      const sy2 = p.y - ry * 0.5 + i * Math.max(4, (p.h - 12) / 5);
+      ctx.fillRect(S(sx2), S(sy2), CELL * 3, CELL);
+    }
+    if (p.t === "swamp") {
+      // lilies and a stand of reeds on the near shore
+      ctx.fillStyle = "#5a7a46";
+      ctx.fillRect(S(p.x - rx * 0.4), S(p.y + ry * 0.3), 7, 4);
+      ctx.fillRect(S(p.x + rx * 0.35), S(p.y - ry * 0.25), 6, 4);
+      ctx.fillRect(S(p.x + rx * 0.1), S(p.y + ry * 0.5), 5, 3);
+      ctx.fillStyle = "#6d8c56";
+      ctx.fillRect(S(p.x - rx * 0.4), S(p.y + ry * 0.3), 3, 2);
+      const swy = Math.sin(time * 1.6 + p.x) > 0 ? CELL : 0;
+      ctx.fillStyle = "#56663c";
+      ctx.fillRect(S(p.x - rx * 0.75) + swy, S(p.y - ry * 0.6) - 8, 2, 10);
+      ctx.fillRect(S(p.x - rx * 0.68) + swy, S(p.y - ry * 0.5) - 6, 2, 8);
+      ctx.fillStyle = "#6a4a2e";
+      ctx.fillRect(S(p.x - rx * 0.75) + swy - 1, S(p.y - ry * 0.6) - 12, 4, 5);
+    }
+    return;
+  }
+
   const rim = p.t === "lava" ? "#2e2826" : INK;
   ctx.fillStyle = rim;
   ctx.fillRect(lx - 2, ty - 2, w + 4, h + 4);
@@ -621,10 +761,78 @@ export const drawCastle = (ctx, time, hpPct) => {
 
 
 // Where the enemies come from. Each realm names its own — the Greenwood has
-// them shoulder their way out of a thicket rather than a cave mouth.
+// them shoulder their way out of a thicket, the Hollowfen out of the ground.
 export const drawSpawn = (ctx, time, kind) => {
   if (kind === "grove") drawGrove(ctx, time);
+  else if (kind === "barrow") drawBarrow(ctx, time);
   else drawCave(ctx, time);
+};
+
+// A great burial mound with its doorway stones pushed open. Turf grows over
+// the top; the doorway is framed by two uprights and a lintel, and the dark
+// behind them breathes witch-light instead of eyes.
+export const drawBarrow = (ctx, time) => {
+  const [psx, psy] = PTS[0];
+  const sx = S(psx), sy = S(psy);
+  ctx.fillStyle = "rgba(20,20,26,0.32)";
+  ctx.fillRect(sx - 38, sy + 24, 76, 5);
+  // the mound: turf-grown dome in the fen's own greens
+  ctx.fillStyle = INK;
+  for (let i = 0; i < 8; i++) {
+    const wRow = 38 - i * 4.6;
+    ctx.fillRect(S(sx - wRow) - 2, sy + 26 - (i + 1) * 6, S(wRow * 2) + 4, 7);
+  }
+  for (let i = 0; i < 8; i++) {
+    const wRow = 36 - i * 4.6;
+    if (wRow <= 0) break;
+    ctx.fillStyle = i > 4 ? "#4a5142" : "#3e4438";
+    ctx.fillRect(S(sx - wRow), sy + 26 - (i + 1) * 6, S(wRow * 2), 6);
+  }
+  // patchy turf and one stubborn wildflower up top
+  ctx.fillStyle = "#4a5142";
+  ctx.fillRect(sx - 20, sy - 8, 9, 3);
+  ctx.fillRect(sx + 10, sy - 2, 11, 3);
+  ctx.fillStyle = "#9a8ec4";
+  ctx.fillRect(sx + 3, sy - 19, 2, 2);
+  // doorway: uprights, lintel, and the dark
+  ctx.fillStyle = INK;
+  ctx.fillRect(sx - 15, sy - 6, 30, 32);
+  ctx.fillStyle = "#767060";
+  ctx.fillRect(sx - 14, sy - 4, 5, 30);
+  ctx.fillRect(sx + 9, sy - 4, 5, 30);
+  ctx.fillStyle = "#8a8478";
+  ctx.fillRect(sx - 14, sy - 4, 2, 30);
+  ctx.fillRect(sx + 9, sy - 4, 2, 30);
+  ctx.fillStyle = "#55504a";
+  ctx.fillRect(sx - 16, sy - 8, 32, 5);
+  ctx.fillStyle = "#8a8478";
+  ctx.fillRect(sx - 16, sy - 8, 32, 2);
+  // the dark within, and the light that should not be in it
+  ctx.fillStyle = "#14100c";
+  ctx.fillRect(sx - 9, sy - 3, 18, 29);
+  const breathe = 0.4 + 0.3 * Math.sin(time * 1.3);
+  ctx.fillStyle = `rgba(124,224,184,${breathe * 0.25})`;
+  ctx.fillRect(sx - 9, sy + 10, 18, 16);
+  if (Math.sin(time * 1.1) > -0.8) {
+    ctx.fillStyle = Math.sin(time * 5) > 0 ? "#7ce0b8" : "#4a8a70";
+    ctx.fillRect(sx - 5, sy + 2, 3, 3);
+    ctx.fillRect(sx + 3, sy + 2, 3, 3);
+  }
+  // the doorway stones, shoved aside when the dead first walked out
+  ctx.fillStyle = INK;
+  ctx.fillRect(sx - 33, sy + 14, 12, 12);
+  ctx.fillStyle = "#767060";
+  ctx.fillRect(sx - 32, sy + 15, 10, 10);
+  ctx.fillStyle = "#8a8478";
+  ctx.fillRect(sx - 32, sy + 15, 4, 10);
+  ctx.fillStyle = INK;
+  ctx.fillRect(sx + 22, sy + 18, 10, 8);
+  ctx.fillStyle = "#6e6859";
+  ctx.fillRect(sx + 23, sy + 19, 8, 6);
+  // bone-dust spilling out of the mouth onto the road
+  ctx.fillStyle = "#b0a88e";
+  ctx.fillRect(sx - 8, sy + 24, 6, 2);
+  ctx.fillRect(sx + 3, sy + 26, 8, 2);
 };
 
 // A wall of old trees with a dark track worn through it. The canopy is drawn

@@ -2,8 +2,8 @@
 // One continuous war, told as a chain of levels across a continent. A CHAPTER
 // is a country: one faction, one biome, and the handful of maps you fight
 // through before the border moves. A LEVEL is one map plus a slice of that
-// faction's fifteen scripted waves — so the difficulty of level 4 is the
-// difficulty of wave 9 onwards, not a fresh start every time.
+// faction's eighteen scripted waves — so the difficulty of level 4 is the
+// difficulty of wave 10 onwards, not a fresh start every time.
 //
 // `window: { start, count }` reads as "script waves start+1 … start+count".
 // The last level of a chapter always ends on the faction's boss wave.
@@ -19,6 +19,7 @@ export const CHAPTERS = [
     faction: "greenwood",
     color: "#7ba85e",
     colorDk: "#4e6b3c",
+    label: [88, 26],
     blurb: "Goblins out of the deep wood have come down into the farms.",
     region: "M28,142 C20,116 22,86 44,64 C60,48 84,38 106,44 C122,48 134,40 146,52 C160,66 170,84 164,104 C158,124 176,140 160,162 C146,182 118,196 92,194 C64,192 40,178 28,142 Z",
     levels: [
@@ -40,7 +41,7 @@ export const CHAPTERS = [
       {
         id: "gw4", name: "The Barrowfields", realm: "barrowfields",
         window: { start: 9, count: 7 }, gold: 1600, pos: [104, 62],
-        blurb: "Trolls out of the mounds, shamans chanting the wounded whole — and one night the whole wood empties at once. Kill the healers first.",
+        blurb: "Trolls out of the mounds, shamans chanting the wounded whole. Kill the healers first, and save something heavy for the trolls.",
       },
       {
         id: "gw5", name: "The Goblin Warrens", realm: "warrens",
@@ -56,6 +57,7 @@ export const CHAPTERS = [
     faction: "iron",
     color: "#8496ac",
     colorDk: "#56647a",
+    label: [302, 24],
     blurb: "With the horde broken, the Iron Kingdom claims the vale. This time it is an army.",
     region: "M218,126 C212,96 224,62 252,44 C272,31 300,26 320,36 C336,44 352,32 366,46 C384,64 394,90 386,118 C378,148 372,176 342,192 C312,208 262,206 236,184 C222,172 220,146 218,126 Z",
     levels: [
@@ -93,32 +95,33 @@ export const CHAPTERS = [
     faction: "hollow",
     color: "#6a5a8c",
     colorDk: "#453a5e",
+    label: [182, 166],
     blurb: "The war woke something under the fen. The drowned kingdom remembers it was a kingdom — and its dead want the crown back.",
-    region: "M104,196 C112,180 134,172 158,176 C174,179 192,172 210,178 C232,185 248,192 252,206 C256,220 244,232 222,236 C196,240 168,238 142,234 C120,230 100,216 104,196 Z",
+    region: "M104,190 C112,174 134,166 158,170 C174,173 192,166 210,172 C232,179 248,186 252,200 C256,214 244,226 222,230 C196,234 168,232 142,228 C120,224 100,210 104,190 Z",
     levels: [
       {
         id: "hl1", name: "The Grave Road", realm: "graveroad",
-        window: { start: 0, count: 6 }, gold: 900, pos: [120, 212],
+        window: { start: 0, count: 6 }, gold: 900, pos: [236, 190],
         blurb: "The causeway into the fen, and the dead walking it in floods. They are worth almost nothing — and there are so, so many.",
       },
       {
         id: "hl2", name: "The Sunken Causeway", realm: "sunkencauseway",
-        window: { start: 3, count: 7 }, gold: 1000, pos: [152, 196],
+        window: { start: 3, count: 7 }, gold: 1000, pos: [204, 214],
         blurb: "Black water either side, wraiths drifting over your blockers, and barrow archers loosing at your knights. The dry ground is all there is.",
       },
       {
         id: "hl3", name: "Wightwood", realm: "wightwood",
-        window: { start: 6, count: 7 }, gold: 1200, pos: [184, 220],
+        window: { start: 6, count: 7 }, gold: 1200, pos: [172, 192],
         blurb: "A drowned forest of white trees. Plague ghasts burst over your line here — kill them far from your knights, or regret it.",
       },
       {
         id: "hl4", name: "The Cairnfields", realm: "cairnfields",
-        window: { start: 9, count: 7 }, gold: 1400, pos: [216, 202],
+        window: { start: 9, count: 7 }, gold: 1400, pos: [140, 216],
         blurb: "Every cairn a door, and gravecallers ringing them open. The flood has a source: silence the bells.",
       },
       {
         id: "hl5", name: "The Throne of Dust", realm: "thronedust",
-        window: { start: 11, count: 7 }, gold: 1500, pos: [242, 222],
+        window: { start: 11, count: 7 }, gold: 1500, pos: [114, 194],
         blurb: "The drowned throne itself. Crypt wardens, amalgams that will not stay dead — and the Hollow King, calling his court out of the ground.",
       },
     ],

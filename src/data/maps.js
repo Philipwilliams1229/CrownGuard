@@ -368,7 +368,7 @@ Object.assign(REALMS, {
         { x: 120, y: 120, w: 90, h: 56, t: "swamp" },
         { x: 600, y: 430, w: 120, h: 56, t: "swamp" },
       ],
-      rivers: [{ pts: [[-0.5, 9.4], [7, 9.3], [15.5, 9.4]], w: 24 }],
+      rivers: [{ pts: [[-0.5, 9.15], [7, 9.0], [15.5, 9.15]], w: 22 }],
     },
   ),
   wightwood: hollowVariant(
@@ -400,7 +400,7 @@ Object.assign(REALMS, {
     20260805,
     [[0.9, 8], [4, 8], [4, 5], [1, 5], [1, 2], [6, 2], [6, 6], [9, 6], [9, 1], [12, 1], [12, 6], [13.7, 6]],
     {
-      rivers: [{ pts: [[-0.5, 6.5], [3.5, 7], [7, 9.2], [15.5, 9.4]], w: 26 }],
+      rivers: [{ pts: [[-0.5, 6.2], [2.4, 6.8], [3.2, 8.9], [6.5, 9.5], [15.5, 9.3]], w: 26 }],
       ponds: [{ x: 660, y: 130, w: 70, h: 44, t: "swamp" }],
       decorRecipe: { count: 18, types: ["obelisk", "gravestone", "cairn", "boneheap", "deadtree"] },
     },

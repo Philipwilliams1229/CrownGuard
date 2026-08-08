@@ -183,11 +183,28 @@ export function draw(g, canvas, bufRef) {
     }
   }
 
-  // lingering ground effects: pools of living lava
+  // lingering ground effects: pools of living lava, and the ghasts' plague
   if (g.grounds) {
     const tmsG = g.time * 1000;
     for (const gr of g.grounds) {
       const fade = Math.min(1, (gr.until - tmsG) / 600);
+      if (gr.kind === "plague") {
+        // grave-rot: a dull green slick with rising blister bubbles. It only
+        // troubles knights, so it reads sickly rather than hot.
+        ctx.fillStyle = `rgba(74,96,52,${0.6 * fade})`;
+        ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.95, 0, 7); ctx.fill();
+        ctx.fillStyle = `rgba(112,138,70,${0.55 * fade})`;
+        ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.6, 0, 7); ctx.fill();
+        ctx.fillStyle = `rgba(168,196,110,${0.85 * fade})`;
+        for (let i = 0; i < 6; i++) {
+          const ang = i * 1.05 + ((i * 53) % 7);
+          const rr = gr.r * (0.2 + 0.6 * ((i * 41) % 10) / 10);
+          const pop = (g.time * 1.6 + i * 0.9) % 1;
+          if (pop > 0.55) continue;                    // burst, gone, reforms
+          ctx.fillRect(S(gr.x + Math.cos(ang) * rr) - 1, S(gr.y + Math.sin(ang) * rr * 0.8) - 1 - pop * 4, CELL + 1, CELL + 1);
+        }
+        continue;
+      }
       ctx.fillStyle = `rgba(125,51,41,${0.75 * fade})`;
       ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.9, 0, 7); ctx.fill();
       ctx.fillStyle = `rgba(216,118,58,${0.8 * fade})`;
@@ -494,6 +511,34 @@ export function draw(g, canvas, bufRef) {
         const px2 = S(fx.x + Math.cos(ang) * r), py2 = S(fx.y + Math.sin(ang) * r * 0.85);
         ctx.fillRect(px2 - CELL, py2, CELL * 3, CELL);
         ctx.fillRect(px2, py2 - CELL, CELL, CELL * 3);
+      }
+    } else if (fx.type === "toll") {
+      // the gravecaller's bell: two witch-purple rings, one chasing the other
+      const prog = 1 - fx.ttl / 550;
+      ctx.strokeStyle = `rgba(176,138,216,${a * 0.8})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), prog * fx.r, 0, 7); ctx.stroke();
+      if (prog > 0.3) {
+        ctx.strokeStyle = `rgba(124,224,184,${a * 0.5})`;
+        ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), (prog - 0.3) * fx.r, 0, 7); ctx.stroke();
+      }
+      ctx.lineWidth = 1;
+    } else if (fx.type === "plagueburst") {
+      // a ghast going up: a burst ring of rot with gobbets flung outward
+      const prog = 1 - fx.ttl / 500;
+      const r = prog * fx.r;
+      ctx.fillStyle = `rgba(112,138,70,${a * 0.3})`;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.fill();
+      ctx.strokeStyle = `rgba(140,168,88,${a * 0.85})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = `rgba(196,220,130,${a})`;
+      for (let i = 0; i < 7; i++) {
+        const ang = i * 0.9 + 0.4;
+        const rr = r * (0.5 + (i % 3) * 0.25);
+        const fall = prog * prog * 18;
+        ctx.fillRect(S(fx.x + Math.cos(ang) * rr), S(fx.y + Math.sin(ang) * rr * 0.7 + fall - prog * 10), i % 2 ? CELL : CELL + 1, CELL + 1);
       }
     } else if (fx.type === "wardwave") {
       // a chaplain's ward washing out over the column — cold blue, not green

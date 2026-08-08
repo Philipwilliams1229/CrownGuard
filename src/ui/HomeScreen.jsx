@@ -77,8 +77,9 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
       </div>
 
       <div style={{ fontSize: 10, opacity: 0.45, textAlign: "center", maxWidth: 320, lineHeight: 1.6 }}>
-        March the campaign from the Greenwood to the Iron throne — or pick any
-        realm and army in Free Play and hold out against the Endless March.
+        March the campaign from the Greenwood, through the Iron Marches, and
+        down into the drowned Hollowfen — or pick any realm and army in Free
+        Play and hold out against the Endless March.
       </div>
 
       {guideOpen && <FieldGuide onClose={() => setGuideOpen(false)} />}

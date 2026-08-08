@@ -1,0 +1,64 @@
+<!doctype html>
+<!--
+  Dev tool: programmatic board screenshots. Open /shots.html with the dev
+  server running, then call window.crownShot(realmId, marchers, extra) from
+  the console — it returns a base64 PNG of one composed frame, drawn by the
+  real draw() against the real realm. Everything is imported statically in
+  ONE module graph, so selectRealm here is the same live binding draw() reads
+  (a split module graph after HMR was exactly the bug that motivated this).
+
+  marchers: [[type, roadFraction, laneOffset], ...]
+  extra:    fields merged into the game state (e.g. grounds, effects, time)
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — shot lab</title>
+    <style>body { background: #14171d; color: #e8e0c8; font-family: monospace; padding: 20px; }</style>
+  </head>
+  <body>
+    <div id="status">shot lab ready — call window.crownShot(realmId, marchers, extra)</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { W, H } from "/src/data/constants.js";
+      import { posAt, angleAt, TOTAL_LEN } from "/src/engine/path.js";
+      import { draw } from "/src/render/draw.js";
+      import { ENEMIES } from "/src/data/enemies.js";
+
+      const mk = (type, dist, lane = 0) => {
+        const d = ENEMIES[type];
+        const [px, py] = posAt(dist);
+        const a = angleAt(dist);
+        return {
+          id: Math.floor(dist), type, hp: d.hp * 0.7, maxHp: d.hp, dist,
+          x: px + Math.cos(a + Math.PI / 2) * lane, y: py + Math.sin(a + Math.PI / 2) * lane,
+          face: Math.cos(a) >= 0 ? 1 : -1, size: d.size, armor: d.armor, mres: d.mres || 0,
+          guard: d.guard || 0, guardFlash: 0, flying: !!d.flying, boss: !!d.boss,
+          atkAnim: 0, stunUntil: 0, slowUntil: 0, slowPct: 0, auraSlow: 0,
+          burnUntil: 0, poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: 0,
+          blockedBy: null, engaged: false, dead: false, revived: false,
+        };
+      };
+
+      window.crownShot = (realmId, marchers = [], extra = {}) => {
+        selectRealm(realmId);
+        const g = {
+          time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5,
+          towers: [], projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [],
+          enemies: marchers.map(([t, frac, lane]) => mk(t, TOTAL_LEN * frac, lane)),
+          phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null,
+          paused: false, buildUntil: null, ...extra,
+        };
+        const cv = document.createElement("canvas");
+        cv.width = W; cv.height = H;
+        draw(g, cv, { current: null });
+        return cv.toDataURL("image/png").slice(22);
+      };
+
+      window.crownShots = (list) => JSON.stringify(list.map(([name, realmId, marchers, extra]) =>
+        ({ name, b64: window.crownShot(realmId, marchers, extra) })));
+
+      document.getElementById("status").textContent += " ✓";
+    </script>
+  </body>
+</html>

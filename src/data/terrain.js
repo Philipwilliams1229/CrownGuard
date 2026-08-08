@@ -64,18 +64,20 @@ export function regenTerrain(map) {
     return { pts, w: rv.w || 32, segs };
   });
   // Wherever the road wades in, a bridge carries it: walk the road in small
-  // steps, find each stretch inside a river band, and span it with margin.
+  // steps, find each stretch inside a river band, and span it with a small
+  // margin. The margin stays tight — a diagonal crossing already runs long,
+  // and an over-long bridge reads as a boardwalk instead of a crossing.
   BRIDGES = [];
   for (const rv of RIVERS) {
     let inside = false, d0 = 0;
     for (let d = 0; d <= TOTAL_LEN; d += 4) {
       const [x, y] = posAt(d);
-      const wet = distToSegs(rv.segs, x, y) < rv.w / 2 + 8;
+      const wet = distToSegs(rv.segs, x, y) < rv.w / 2 + 3;
       if (wet && !inside) { inside = true; d0 = d; }
       if (inside && (!wet || d + 4 > TOTAL_LEN)) {
         inside = false;
         const mid = (d0 + d) / 2;
-        const span = (d - d0) + 30;
+        const span = (d - d0) + 16;
         const [bx, by] = posAt(mid);
         BRIDGES.push({ x: bx, y: by, a: angleAt(mid), d0: mid - span / 2, d1: mid + span / 2 });
       }
