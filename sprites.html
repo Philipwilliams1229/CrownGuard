@@ -58,8 +58,11 @@
       }
 
       for (const [name, spr] of Object.entries(SPRITES)) {
-        sheet(name, [{ name: "walk", spr, pal: spr.pal, frames: spr.frames }]);
-        if (spr.fight) sheet(name + " — fight", [{ name: "fight", spr, pal: spr.pal, frames: spr.fight }]);
+        // the knight ships without a pal of its own (it wears KNIGHT_PALS);
+        // falling back keeps one bad entry from killing the whole sheet
+        const pal = spr.pal || KNIGHT_PALS.base;
+        sheet(name, [{ name: "walk", spr, pal, frames: spr.frames }]);
+        if (spr.fight) sheet(name + " — fight", [{ name: "fight", spr, pal, frames: spr.fight }]);
       }
       for (const [name, spr] of Object.entries(MINI)) {
         sheet("mini: " + name, [{ name, spr, pal: spr.pal || KNIGHT_PALS.base, frames: spr.frames }]);

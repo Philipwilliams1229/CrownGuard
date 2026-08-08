@@ -4,6 +4,8 @@
 // that paints a sprite map onto a canvas one pixel-cell at a time.
 
 import { INK, CELL } from "../data/constants.js";
+import { BEAST_SPRITES } from "./beasts.js";
+import { UNDEAD_SPRITES } from "./undead.js";
 
 export const SPRITES = {
   // Hi-res goblin (26x26 @ px 1): domed head, heavy brow, close-set red
@@ -2826,6 +2828,10 @@ export const SPRITES = {
     ],
   },
 };
+
+// The newer rosters live in their own files, one per army, and merge in here
+// so every consumer keeps a single SPRITES table to look things up in.
+Object.assign(SPRITES, BEAST_SPRITES, UNDEAD_SPRITES);
 
 export const KNIGHT_PALS = {
   base: { o: INK, a: "#8a8f9a", d: "#5f636d", s: "#e0b088", p: "#b04a3c", h: "#a04a3f" },
