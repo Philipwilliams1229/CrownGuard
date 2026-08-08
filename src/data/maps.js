@@ -243,6 +243,20 @@ const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
 
 Object.assign(REALMS, {
   // ---- Chapter I: Greenwood Vale ----
+  foxmere: greenwoodVariant(
+    "foxmere", "Foxmere", "THE LAKE",
+    "One deep mere and a road that owes it a full circle. Everything you raise on the inner shore watches two lanes at once.",
+    20260809,
+    [[0.9, 3], [4, 3], [4, 1], [11, 1], [11, 5], [7, 5], [7, 8], [13.7, 8]],
+    { ponds: [{ x: 345, y: 160, w: 190, h: 80 }] },
+  ),
+  wolfrun: greenwoodVariant(
+    "wolfrun", "Wolfrun Ford", "FOUR FORDS",
+    "The Wolfrun crosses the road four times — or the road crosses it, nobody in the vale agrees. Hold the bridges; the water holds everything else.",
+    20260810,
+    [[1, 0.8], [1, 3.5], [4, 3.5], [4, 8], [7, 8], [7, 2], [10, 2], [10, 8], [13, 8], [13, 3], [13.7, 3]],
+    { rivers: [{ pts: [[-0.5, 5.5], [5, 5.4], [10, 5.6], [15.5, 5.5]], w: 28 }] },
+  ),
   thornbrook: greenwoodVariant(
     "thornbrook", "Thornbrook Ford", "THE BROOK",
     "Wide meadows cut in half by a living brook. One timber bridge carries the road over — the water carries nothing anywhere.",
@@ -283,6 +297,29 @@ Object.assign(REALMS, {
     "A ruined border fort on bare rock. Three long lanes, no cover, and crossbows that shoot back at your knights.",
     20260722,
     [[0.9, 2], [3, 2], [3, 7], [7, 7], [7, 2], [11, 2], [11, 7], [13.7, 7]],
+  ),
+  muster: ironVariant(
+    "muster", "The Muster",
+    "The Kingdom drills its cavalry on this field: three long straights made for a charge, and precious little in the way. Look up — the first gryphons wheel here.",
+    20260811,
+    [[0.9, 1], [12, 1], [12, 4], [2, 4], [2, 7], [13.7, 7]],
+    {
+      ponds: [
+        { x: 500, y: 270, w: 60, h: 34 },
+        { x: 180, y: 130, w: 56, h: 30 },
+      ],
+      decorRecipe: { count: 12, types: ["rock", "rock", "pine", "tree"] },
+    },
+  ),
+  undercliff: ironVariant(
+    "undercliff", "Undercliff",
+    "A shelf of road folded twice under the mountain. One well-set tower watches three lanes — and the Kingdom sends everything it has up all of them at once.",
+    20260812,
+    [[0.9, 8], [5, 8], [5, 5], [1, 5], [1, 2], [8, 2], [8, 6], [11, 6], [11, 3], [13.7, 3]],
+    {
+      ponds: [{ x: 640, y: 430, w: 70, h: 40 }],
+      decorRecipe: { count: 16, types: ["rock", "rock", "rock", "pine"] },
+    },
   ),
   ironford: ironVariant(
     "ironford", "Ironford",
@@ -369,6 +406,17 @@ Object.assign(REALMS, {
         { x: 600, y: 430, w: 120, h: 56, t: "swamp" },
       ],
       rivers: [{ pts: [[-0.5, 9.15], [7, 9.0], [15.5, 9.15]], w: 22 }],
+    },
+  ),
+  bellmarsh: hollowVariant(
+    "bellmarsh", "Bellmarsh", "THE BELLS",
+    "Every standing stone in this marsh rings when struck, and the court has struck them all. The fen's whole household walks here, one after another.",
+    20260813,
+    [[0.9, 5], [3.5, 5], [3.5, 2], [8, 2], [8, 7], [12, 7], [12, 4], [13.7, 4]],
+    {
+      rivers: [{ pts: [[5.9, -0.5], [5.7, 4], [5.9, 10.5]], w: 26 }],
+      ponds: [{ x: 250, y: 390, w: 96, h: 54, t: "swamp" }],
+      decorRecipe: { count: 18, types: ["obelisk", "gravestone", "cairn", "obelisk", "deadtree", "reeds"] },
     },
   ),
   wightwood: hollowVariant(

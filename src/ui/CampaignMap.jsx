@@ -7,7 +7,7 @@
 // The map is one SVG in a fixed 400x240 space that scales to the window, so
 // the same picture works on a phone and on a desktop.
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { CHAPTERS, LEVELS, levelById, isUnlocked, currentLevel } from "../data/campaign.js";
 import { FACTIONS } from "../data/factions.js";
 import { REALMS } from "../data/maps.js";
@@ -61,6 +61,18 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
   const [selId, setSelId] = useState(() => currentLevel(progress).id);
   const sel = levelById(selId);
   const upTo = currentLevel(progress);
+
+  // The map is taller than its window. On arrival, scroll the view to the
+  // front line — wherever the next uncleared level waits.
+  const mapRef = useRef(null);
+  useEffect(() => {
+    const el = mapRef.current;
+    if (!el) return;
+    const svgH = el.clientWidth * (360 / 400);
+    const yFrac = (upTo.pos[1] + 120) / 360;
+    el.scrollTop = Math.max(0, yFrac * svgH - el.clientHeight / 2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const clearedCount = LEVELS.filter((l) => progress.cleared[l.id]).length;
 
   const selUnlocked = sel ? isUnlocked(sel.id, progress) : false;
@@ -83,11 +95,15 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
         </div>
       </div>
 
-      {/* ---- the continent ---- */}
-      <svg viewBox="0 0 400 240" style={{ width: "100%", maxWidth: 780, maxHeight: "52dvh", border: `3px solid ${INK}`, background: SEA, display: "block", imageRendering: "pixelated" }}>
+      {/* ---- the continent ----
+          Taller than the window and scrollable: the war marches NORTH up the
+          map (Greenwood south, the Marches east, the Hollowfen above them
+          across a strait), and the view opens on wherever the front line is. */}
+      <div ref={mapRef} style={{ width: "100%", maxWidth: 780, maxHeight: "52dvh", overflowY: "auto", border: `3px solid ${INK}`, background: SEA }}>
+      <svg viewBox="0 -120 400 360" style={{ width: "100%", display: "block", imageRendering: "pixelated" }}>
         {/* sea, with a few lazy swells */}
-        {Array.from({ length: 14 }, (_, i) => (
-          <rect key={i} x={(i * 53) % 380} y={12 + ((i * 71) % 214)} width={16} height={2} fill="#2c4055" />
+        {Array.from({ length: 22 }, (_, i) => (
+          <rect key={i} x={(i * 53) % 380} y={-108 + ((i * 71) % 334)} width={16} height={2} fill="#2c4055" />
         ))}
 
         {/* the isthmus: the only land road from the Greenwood into the Marches */}
@@ -121,9 +137,8 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
         )}
         {isUnlocked("hl1", progress) && (
           <g opacity="0.9">
-            <DeadTree x={128} y={210} s={0.9} /><DeadTree x={222} y={208} s={0.8} />
-            <DeadTree x={186} y={222} s={0.85} /><Stone x={158} y={186} s={0.9} />
-            <Stone x={218} y={224} s={0.8} /><Stone x={130} y={188} s={0.75} />
+            <DeadTree x={282} y={-58} s={0.85} /><Stone x={348} y={-54} s={0.8} />
+            <DeadTree x={262} y={-8} s={0.75} />
           </g>
         )}
 
@@ -188,11 +203,13 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
                 <rect key={i} x={x - 7 + i * 5} y={y - r - 7} width="4" height="4"
                   fill={i < rating(lv.id) ? "#e8d47a" : "#3c4250"} stroke={INK} strokeWidth="1" />
               ))}
-              {/* ink-outlined so a name reads over land, sea or mountain alike */}
-              <text x={x} y={y + r + 12} textAnchor="middle" fontSize="8.5" fill={open ? "#f0e8d0" : "#98a0b0"}
+              {/* ink-outlined so a name reads over land, sea or mountain alike.
+                  Crowded coasts use lv.short, and lv.labelAbove lifts a name
+                  over its dot when the row below is spoken for. */}
+              <text x={x} y={lv.labelAbove ? y - r - 12 : y + r + 12} textAnchor="middle" fontSize="8.5" fill={open ? "#f0e8d0" : "#98a0b0"}
                 fontFamily={FONT} stroke={INK} strokeWidth="3" paintOrder="stroke" strokeLinejoin="round"
                 style={{ pointerEvents: "none" }}>
-                {lv.name}
+                {lv.short || lv.name}
               </text>
             </g>
           );
@@ -203,13 +220,14 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
           const open = isUnlocked(ch.levels[0].id, progress);
           return (
             <text key={ch.id} x={ch.label[0]} y={ch.label[1]} textAnchor="middle"
-              fontSize="10" letterSpacing="2" fontFamily={FONT} fill={open ? "#d8b34a" : "#78808e"}
+              fontSize={ch.labelSize || 10} letterSpacing="2" fontFamily={FONT} fill={open ? "#d8b34a" : "#78808e"}
               stroke={INK} strokeWidth="3" paintOrder="stroke" strokeLinejoin="round">
               {open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`}
             </text>
           );
         })}
       </svg>
+      </div>
 
       {/* ---- the selected waypoint ---- */}
       {sel && (
