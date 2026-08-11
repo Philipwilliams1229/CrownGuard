@@ -291,12 +291,14 @@ Object.assign(REALMS, {
     "The border highway, paved and straight. The first Iron column is already on it — and it marches in step.",
     20260721,
     [[0.9, 5], [5, 5], [5, 2], [9, 2], [9, 7], [13, 7], [13, 4], [13.7, 4]],
+    { decorRecipe: { count: 14, types: ["banner", "tree", "pine", "banner", "rock", "watchtower"] } },
   ),
   stonewatch: ironVariant(
     "stonewatch", "Stonewatch",
     "A ruined border fort on bare rock. Three long lanes, no cover, and crossbows that shoot back at your knights.",
     20260722,
     [[0.9, 2], [3, 2], [3, 7], [7, 7], [7, 2], [11, 2], [11, 7], [13.7, 7]],
+    { decorRecipe: { count: 13, types: ["watchtower", "rock", "rock", "watchtower", "pine"] } },
   ),
   muster: ironVariant(
     "muster", "The Muster",
@@ -308,7 +310,7 @@ Object.assign(REALMS, {
         { x: 500, y: 270, w: 60, h: 34 },
         { x: 180, y: 130, w: 56, h: 30 },
       ],
-      decorRecipe: { count: 12, types: ["rock", "rock", "pine", "tree"] },
+      decorRecipe: { count: 16, types: ["tent", "tent", "tent", "banner", "rock", "tent"] },
     },
   ),
   undercliff: ironVariant(
@@ -318,7 +320,7 @@ Object.assign(REALMS, {
     [[0.9, 8], [5, 8], [5, 5], [1, 5], [1, 2], [8, 2], [8, 6], [11, 6], [11, 3], [13.7, 3]],
     {
       ponds: [{ x: 640, y: 430, w: 70, h: 40 }],
-      decorRecipe: { count: 16, types: ["rock", "rock", "rock", "pine"] },
+      decorRecipe: { count: 16, types: ["rock", "rock", "watchtower", "pine", "rock"] },
     },
   ),
   ironford: ironVariant(
@@ -329,6 +331,7 @@ Object.assign(REALMS, {
     {
       rivers: [{ pts: [[6.3, -0.5], [6.4, 4.8], [9.5, 6.8], [9.6, 10.5]], w: 34 }],
       ponds: [{ x: 132, y: 300, w: 54, h: 30 }],
+      decorRecipe: { count: 11, types: ["rock", "pine", "watchtower", "tree", "banner"] },
     },
   ),
   greyhelm: ironVariant(
@@ -336,14 +339,14 @@ Object.assign(REALMS, {
     "The climb into the Iron heartland. Switchbacks all the way up — and the whole army is coming down.",
     20260724,
     [[1, 0.8], [1, 4], [6, 4], [6, 1], [10, 1], [10, 6], [4, 6], [4, 9], [13, 9], [13, 5], [13.7, 5]],
-    { decorRecipe: { count: 13, types: ["rock", "rock", "pine"] } },
+    { decorRecipe: { count: 13, types: ["rock", "rock", "watchtower", "pine"] } },
   ),
   citadel: ironVariant(
     "citadel", "The Citadel Gate",
     "The last mile before the Iron throne. A gauntlet of a road, and the Lord Marshal himself at the end of it.",
     20260725,
     [[0.9, 1], [5, 1], [5, 4], [1, 4], [1, 7], [5, 7], [5, 9], [9, 9], [9, 6], [7, 6], [7, 3], [11, 3], [11, 6], [13, 6], [13, 2], [13.7, 2]],
-    { decorRecipe: { count: 12, types: ["rock", "pine", "rock"] } },
+    { decorRecipe: { count: 14, types: ["banner", "watchtower", "rock", "banner", "pine"] } },
   ),
 });
 

@@ -392,6 +392,81 @@ export const drawTree = (ctx, d, time) => {
     // capstone
     ctx.fillStyle = INK;
     ctx.fillRect(x - 3, y + 8 - hh - 4, 6, 3);
+  } else if (d.t === "watchtower") {
+    // a border tower of the Marches: dressed stone, a lit arrow slit, and
+    // the Kingdom's pennant taking the wind off the peaks
+    const w2 = S(7 * s), hh = S(20 * s);
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - w2 - 2, y + 8 - hh - 2, w2 * 2 + 4, hh + 12);
+    blocks(ctx, x - w2, y + 8 - hh, w2 * 2, hh + 8, CASTLE_STONE);
+    // crenellations
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - w2 - 3, y + 8 - hh - 6, w2 * 2 + 6, 6);
+    for (let i = 0; i < 3; i++) {
+      const cx2 = x - w2 + i * (w2 - 1);
+      blocks(ctx, cx2, y + 8 - hh - 9, 5, 6, CASTLE_STONE);
+    }
+    // arrow slit with torchlight behind it
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - 2, y - S(6 * s), 4, 9);
+    ctx.fillStyle = pulseWindow(time, d.x) ? "#e8d47a" : "#2a2a30";
+    ctx.fillRect(x - 1, y - S(6 * s) + 2, 2, 5);
+    // the pennant
+    const wv = Math.sin(time * 4 + d.x) > 0 ? 2 : 0;
+    ctx.fillStyle = "#5f4326";
+    ctx.fillRect(x - 1, y + 8 - hh - 17, 2, 9);
+    ctx.fillStyle = "#3a5474";
+    ctx.fillRect(x + 1, y + 8 - hh - 17, 7 + wv, 3);
+    ctx.fillRect(x + 1, y + 8 - hh - 14, 5 + wv, 2);
+  } else if (d.t === "tent") {
+    // a soldier's tent in the Kingdom's blue: ridge pole, canvas, dark mouth
+    const w2 = S(9 * s), hh = S(10 * s);
+    ctx.fillStyle = INK;
+    for (let i = 0; i <= hh; i++) {
+      const rw = Math.round((w2 * i) / hh);
+      ctx.fillRect(x - rw - 1, y + 8 - hh + i - 1, rw * 2 + 2, 2);
+    }
+    for (let i = 0; i <= hh; i++) {
+      const rw = Math.round((w2 * i) / hh);
+      ctx.fillStyle = i < 2 ? "#4d6a94" : "#3a5474";
+      ctx.fillRect(x - rw, y + 8 - hh + i, rw * 2, 1);
+      ctx.fillStyle = "#2c3e54";
+      ctx.fillRect(x + Math.max(0, rw - 3), y + 8 - hh + i, Math.min(3, rw), 1);
+    }
+    // the mouth, and a seam of light canvas up the ridge
+    ctx.fillStyle = "#1c1c22";
+    for (let i = 0; i < 5; i++) ctx.fillRect(x - 4 + i, y + 4 + Math.abs(2 - i), 1, 4 - Math.abs(2 - i));
+    ctx.fillStyle = "#4d6a94";
+    ctx.fillRect(x, y + 8 - hh, 1, hh - 4);
+    // a stake either side
+    ctx.fillStyle = "#5f4326";
+    ctx.fillRect(x - w2 - 3, y + 6, 2, 3);
+    ctx.fillRect(x + w2 + 1, y + 6, 2, 3);
+  } else if (d.t === "banner") {
+    // a marching banner planted by the road: tall pole, swallow-tailed blue
+    const hh = S(22 * s);
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - 2, y + 8 - hh - 1, 4, hh + 9);
+    ctx.fillStyle = "#5f4326";
+    ctx.fillRect(x - 1, y + 8 - hh, 2, hh + 8);
+    ctx.fillStyle = "#7a5a34";
+    ctx.fillRect(x - 1, y + 8 - hh, 1, hh + 8);
+    const wv = Math.sin(time * 3 + d.x * 0.2) > 0 ? 2 : 0;
+    const ty = y + 8 - hh;
+    // swallow-tailed: an upper prong, a lower prong, and the fork between —
+    // drawn as shapes, so no ground color ever has to patch the notch
+    ctx.fillStyle = INK;
+    ctx.fillRect(x + 1, ty - 1, 12 + wv, 6);       // upper prong + outline
+    ctx.fillRect(x + 1, ty + 5, 9 + wv, 6);        // lower prong, shorter
+    ctx.fillStyle = "#3a5474";
+    ctx.fillRect(x + 1, ty, 11 + wv, 4);
+    ctx.fillRect(x + 1, ty + 6, 8 + wv, 4);
+    ctx.fillStyle = "#4d6a94";
+    ctx.fillRect(x + 1, ty, 11 + wv, 2);
+    // the pale device
+    ctx.fillStyle = "#e8e4d8";
+    ctx.fillRect(x + 4, ty + 3, 3, 3);
+    ctx.fillRect(x + 5, ty + 2, 1, 5);
   } else if (d.t === "tree") {
     leafShape(ctx, x, y, s, "#557a46", "#6d9459", "#3f5c34", sway);
   } else {
