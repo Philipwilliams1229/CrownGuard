@@ -60,7 +60,7 @@ export const ENEMIES = {
   // A real army: drilled, shielded, and it shoots back.
   levy: {
     faction: "iron", hp: 54, speed: 78, bounty: 7, armor: 0.1, size: 16,
-    name: "Levy Spearman", atk: 14, atkRate: 850, castleDmg: 1, guard: 2,
+    name: "Iron Levy", atk: 14, atkRate: 850, castleDmg: 1, guard: 2,
     note: "Raised shields turn the first two blows from any tower into a scratch. A hail of small arrows wastes itself here — hit them with something heavy.",
   },
   crossbow: {
