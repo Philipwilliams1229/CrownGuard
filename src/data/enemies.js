@@ -21,7 +21,17 @@
 
 export const ENEMIES = {
   // ---- THE GREENWOOD HORDE ----
-  goblin: { faction: "greenwood", hp: 48, speed: 82, bounty: 6, armor: 0, size: 15, name: "Goblin", atk: 10, atkRate: 800, castleDmg: 1, note: "Fragile foot soldier — dangerous only in a swarm." },
+  goblin: {
+    faction: "greenwood", hp: 48, speed: 82, bounty: 6, armor: 0, size: 15,
+    name: "Goblin Raider", atk: 10, atkRate: 800, castleDmg: 1,
+    // a raiding party is a mix: hooded cutpurses who run ahead, and
+    // bare-eared footpads who keep the pace. Picked per spawn.
+    variants: [
+      { sprite: "goblin", speedMul: 1.15 },
+      { sprite: "goblinBare", speedMul: 1 },
+    ],
+    note: "Fragile foot-thieves, dangerous only in a party — and a party is what they travel in. The hooded ones run ahead.",
+  },
   wolf: { faction: "greenwood", hp: 37, speed: 145, bounty: 6, armor: 0, size: 15, name: "Dire Wolf", atk: 12, atkRate: 650, castleDmg: 1, note: "Extremely fast. Slows and stuns bring it to heel." },
   orc: { faction: "greenwood", hp: 118, speed: 62, bounty: 10, armor: 0, size: 18, name: "Orc", atk: 22, atkRate: 900, castleDmg: 2, note: "A heavy bruiser with a big pool of health." },
   armored: { faction: "greenwood", hp: 185, speed: 55, bounty: 14, armor: 0.5, size: 17, name: "Ironclad", atk: 18, atkRate: 900, castleDmg: 2, note: "Half of all physical damage bounces off — magic ignores its armor." },

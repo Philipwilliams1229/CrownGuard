@@ -1,0 +1,396 @@
+// ============ GOBLIN REDESIGN CONCEPTS ============
+// Four candidate directions for the base goblin, one static frame each —
+// the chosen one gets its full walk/fight cycles built afterwards. Not
+// imported by the game; rendered side-by-side by the concept sheet.
+
+import { INK } from "../src/data/constants.js";
+
+// the vale's goblin greens, shared by every concept
+const G = "#6aa04f", L = "#86ba64", D = "#4d7639";
+const EYE = "#c8453a", TEETH = "#ece0c4";
+
+export const GOBLIN_CONCEPTS = {
+  // ---- A. THE RAIDER ----
+  // A thief with a job: leather hood down to the brow, rusty long-knife
+  // carried low and mean, wicker buckler on the lead arm. Leans into the
+  // road like he's already stealing it.
+  raiderA: {
+    pal: { o: INK, g: G, l: L, d: D, e: EYE, t: TEETH, h: "#5f4326", b: "#8a6238", m: "#8a8a92", r: "#6e5a3a", k: "#3c2a18" },
+    px: 1,
+    frames: [
+      [
+        "..........oooooooo........",
+        ".......oohhhhhhhhoo.......",
+        "......ohhhhhhhhhhhho......",
+        ".....ohhhhhhhhhhhhkho.....",
+        ".....ohhkhhhhhhhhkkho.....",
+        "....ollgookhhhhkoogdo.....",
+        "....olgggeoggggoegggo.....",
+        "....olggeeggggggeeggdo....",
+        ".....oggggdggdgggggdo.....",
+        ".....olggdtoodtggggdo.....",
+        "......oggttttttgggdo......",
+        ".......odggggggggdo.......",
+        "....oolggggggggggggoo.....",
+        "..oolggggobbbbbbogggloo...",
+        ".olggggdobbbbbbbbdggggdo..",
+        ".olggdo.obrbbbrbbo.oggdo..",
+        ".olgdo..obbbbbbrbo..ogdo..",
+        ".oggdoo.obbrbbbbbo..oggo..",
+        ".odo.oo.okkkkkkkko...odo..",
+        ".ommmoo..obbbbbbo...ommo..",
+        ".ommmmo..odggggdo...omdo..",
+        "..ooo...olggoogglo...oo...",
+        "........olgdo.ogdo........",
+        "........olgdo.ogdo........",
+        ".......odggdo.odggdo......",
+        ".......oddoo...oddoo......",
+      ],
+    ],
+  },
+
+  // ---- B. THE WRETCH ----
+  // The wood's own vermin: ears like torn sails, an underbitten jaw of
+  // needle teeth, knuckles on the ground and ribs like a washboard. Owns
+  // nothing, wants everything.
+  wretchB: {
+    pal: { o: INK, g: G, l: L, d: D, e: EYE, t: TEETH, c: "#6e4c28", k: "#3f5c30" },
+    px: 1,
+    frames: [
+      [
+        "............................",
+        "..oo.....oooooooo.....oo....",
+        ".olgo..oolgggggloo...ogdo...",
+        ".olggooggggggggggoo.oggdo...",
+        ".olggggggggggggggggoggddo...",
+        "..olgggggggggggggggggddo....",
+        "...ogggggggggggggggggdo.....",
+        "....ogoeeoggggggoeeogo......",
+        "....ogeeeegggggeeeeegdo.....",
+        "....oggggggddggggggggdo.....",
+        ".....ogggdgggggdggggdo......",
+        ".....otdtgtdtgtdtgtdo.......",
+        "....ottttttttttttttdo.......",
+        ".....oggggggggggggdo........",
+        "....olgggddggddgggggo.......",
+        "...olggodggggggdoggggo......",
+        "..olggdo..oggggo..ogggdo....",
+        "..olggo...oggo....oggdo.....",
+        ".olggo...occco.....oggo.....",
+        ".olgo....occco......ogdo....",
+        ".oggo...odggdo......oggo....",
+        ".odgo...olggdo.......ogo....",
+        ".oddoo..olgdo........odoo...",
+        "..oooo..oddoo........oooo...",
+        "........oooo................",
+        "............................",
+      ],
+    ],
+  },
+
+  // ---- C. THE MOSS-GOB ----
+  // Something the deep wood grew on purpose: a toadstool cap worn like a
+  // helmet, moss on the shoulders, amber eyes, and a flint-tip spear taller
+  // than he is. The Greenwood's goblin, not just A goblin.
+  mossC: {
+    pal: { o: INK, g: G, l: L, d: D, a: "#e8a83a", t: TEETH, m: "#a0473a", w: "#c8b89a", s: "#3f6a34", b: "#6e4c28", f: "#8a8a92" },
+    px: 1,
+    frames: [
+      [
+        "......................off...",
+        "......oooooooo.......offfo..",
+        "....oommmmmmmmoo.....obbo...",
+        "...ommmmwmmmmmmmo....obbo...",
+        "..ommwmmmmmmwmmmmo...obbo...",
+        ".ommmmmmwmmmmmmmmmo..obbo...",
+        ".owwmmmmmmmmmmwmmmo..obbo...",
+        "..oommmmmmmmmmmmoo...obbo...",
+        "....olggggggggdo.....obbo...",
+        "....ogoaoggggoaogo...obbo...",
+        "....ogaaaggggaaagdo..obbo...",
+        ".....ogggddddggggd.oobbo....",
+        ".....olggdtotdggdo.osbbo....",
+        "......oggggggggdo.ossbo.....",
+        "....osslgggggggggossgo......",
+        "..oosssggggggggggssgdoo.....",
+        ".olsssgdoggggggossssggdo....",
+        ".olggdo.oggggggo.oosggdo....",
+        ".olgdo..odggggdo...oggdo....",
+        ".oggo...ogdggdgo....ogdo....",
+        ".odo....ogodggoo.....odo....",
+        "..o.....ogo.oggo......o.....",
+        "........ogo..oggo...........",
+        ".......odgo..odggo..........",
+        ".......oddo...oddo..........",
+        "........oo.....oo...........",
+      ],
+    ],
+  },
+
+  // ---- D. THE WAR-GOB ----
+  // The warchief's little cousin: a stolen pot for a helm, one iron
+  // pauldron that never matched anything, and a cleaver with opinions.
+  // Makes the whole party read as one army-in-training.
+  warD: {
+    pal: { o: INK, g: G, l: L, d: D, e: EYE, t: TEETH, m: "#6a6a72", n: "#8a8a92", b: "#6e4c28", r: "#b0483c", k: "#3c2a18" },
+    px: 1,
+    frames: [
+      [
+        "..........ooooooo.........",
+        "........oommmmmmmoo.......",
+        ".......ommmmnmmmmmmo......",
+        "......ommnmmmmmmmmmmo.....",
+        "......ommmmmmmmmmmmmo.....",
+        "......oommmmmmmmmmoo......",
+        ".....okgokmmmmmmokgko.....",
+        "....ollgeogggggoeggddo....",
+        "....olggeeggggggeeggdo....",
+        ".....oggggdggdggggggo.....",
+        ".....olggdtoodtgggdo......",
+        "......oggttttttggdo.......",
+        ".......odgggggggdo........",
+        "...oonnoggggggggggoo......",
+        "..onnnnnoggggggggggloo....",
+        ".onnmmnnogkkkkkkkogggdo...",
+        ".onnmmnobkkbbbbkkbogggdo..",
+        ".oonnnob.okbbbbko.oogdoo..",
+        "..oooo.o.okkbbkko..onno...",
+        "..omo....obbkkbbo..onnno..",
+        "..ommo...okkkkkko...onno..",
+        "..ommmo.olggoogglo..ooo...",
+        "...ooo..olgdo.ogdo........",
+        "........olgdo.ogdo........",
+        ".......odggdo.odggdo......",
+        ".......oddoo...oddoo......",
+      ],
+    ],
+  },
+};
+
+
+// ---- SLIM CONCEPTS ----
+// Round two, after the owner's direction: Hollow Court proportions for the
+// living — small heads, lanky limbs, identity carried by ears and gear
+// instead of skull size. H is a levy soldier in the same grammar, as proof
+// for what the Iron line would become.
+export const SLIM_CONCEPTS = {
+  slimWretchE: {
+    pal: { o: INK, g: G, l: L, d: D, e: EYE, t: TEETH, k: "#3f5c30", c: "#6e4c28" },
+    px: 1,
+    frames: [
+      [
+        "...........oooooo...........",
+        "..........olggggdo..........",
+        "..oo.....olggggggdo.........",
+        "..oggoooolggggggggo.........",
+        "...ogggggggoeggoeggo........",
+        "....ooggggggeggggegdo.......",
+        "..oo...oggddgggggggdo.......",
+        "..oggooogtdtdtdtggdo........",
+        "...oggggodggggggdo..........",
+        ".......oo.ogggdo............",
+        "......ooolggggggoo..........",
+        ".....olgglgggggggdoo........",
+        "....olgo.olgggggdo.ogdo.....",
+        "....ogo..olgkgkgo..ogdo.....",
+        "....ogo..olgggggo..oggo.....",
+        "...odgo..olgkgkgo...ogdo....",
+        "...odo...olgggggo...odgdo...",
+        "..odgo....ogggdo....oddgo...",
+        "..oggo....ocggco.....oggo...",
+        "..odo.....occcco......odo...",
+        "...o.....odggggdo......o....",
+        ".........olggogdo...........",
+        ".........olgo.ogdo..........",
+        "........olgo...ogdo.........",
+        "........olgo...ogdo.........",
+        ".......odggo...odggo........",
+        ".......oddoo....oddoo.......",
+      ],
+    ],
+  },
+  slimRaiderF: {
+    pal: { o: INK, g: G, l: L, d: D, e: EYE, t: TEETH, h: "#5f4326", b: "#8a6238", r: "#6e5a3a", k: "#3c2a18", m: "#8a8a92" },
+    px: 1,
+    frames: [
+      [
+        "...........oooooo...........",
+        "..........ohhhhhho..........",
+        ".........ohhhhhhhho.........",
+        ".........ohhhhhhhkho........",
+        "..oo.....ohkhhhhhkho........",
+        "..oggoooolggoeggoego........",
+        "...ogggggolggeggggego.......",
+        ".....ooggggdgggggggdo.......",
+        "......ogggtodtoggggo........",
+        ".......odggggggggdo.........",
+        ".........ogggggdo...........",
+        "......ooobbbbbbbboo.........",
+        ".....obbbrbbbbbbbrbdo.......",
+        "....olgo.obbbbbbbo.ogdo.....",
+        "....ogo..obrbbbbdo..ogdo....",
+        "....ogo..obbbbbrbo..oggo....",
+        "...odgo..okkkkkkko...omo....",
+        "...odo...obbbbbbbo...ommo...",
+        "..odgo....obbbbbo....ommmo..",
+        "..oggo....odggggdo....omo...",
+        "..odo.....olggogdo.....o....",
+        "...o......olgo.ogdo.........",
+        "..........olgo.ogdo.........",
+        ".........olgo...ogdo........",
+        ".........olgo...ogdo........",
+        "........odggo...odggo.......",
+        "........oddoo....oddoo......",
+      ],
+    ],
+  },
+  slimStalkerG: {
+    pal: { o: INK, g: G, l: L, d: D, a: "#e8a83a", t: TEETH, s: "#3f6a34", c: "#6e4c28", b: "#6e4c28", f: "#8a8a92" },
+    px: 1,
+    frames: [
+      [
+        "....................off.....",
+        "...........oooooo...offo....",
+        "..........olggggdo..obbo....",
+        "..oo.....olggggggdo.obbo....",
+        "..oggoooolggggggggo.obbo....",
+        "...ogggggggoaggoago.obbo....",
+        "....ooggggggagggagdoobbo....",
+        ".......oggddggggggdoobbo....",
+        "......oggstodtogggdoobbo....",
+        ".......odsgggggggdo.obbo....",
+        ".........osggggdo...obbo....",
+        "......oosssgggggoo..obbo....",
+        ".....ossssslgggggdoobbbo....",
+        "....olssssogggggggobbbo.....",
+        "....ogossso.ogggggbbbo......",
+        "....ogo.osso.ogggobbo.......",
+        "...odgo..oo..olggggdo.......",
+        "...odo.......olgggo.o.......",
+        "..odgo.......ogggdo.........",
+        "..oggo......ocgggco.........",
+        "..odo.......occccco.........",
+        "...o.......odgggggdo........",
+        "...........olggoggdo........",
+        "...........olgo.ogdo........",
+        "..........olgo...ogdo.......",
+        "..........olgo...ogdo.......",
+        ".........odggo...odggo......",
+        ".........oddoo....oddoo.....",
+      ],
+    ],
+  },
+  slimLevyH: {
+    pal: { o: INK, a: "#8a8f9a", s: "#e0b088", g: "#5f636d", c: "#3a5474", b: "#2c3e54", l: "#c4c8d0", d: "#4a3018", m: "#c4c8d0", w: "#8a6238" },
+    px: 1,
+    frames: [
+      [
+        "...........oooooo........ow.",
+        "..........oaaaaaao.......owo",
+        ".........oaaaaaaaao......owo",
+        "........ooaaaaaaaaoo.....owo",
+        ".......oaaaaaaaaaaaao...omwo",
+        ".......oooooooooooooo...omwo",
+        "..........osgsgso.......owo.",
+        "..........osgggso.......owo.",
+        "...........odggdo.......owo.",
+        "...........ogggdo.......owo.",
+        ".......ooocccccccoo.....owo.",
+        "......occccbccccccdo....owo.",
+        ".....occo.ocbcccco.oo...owo.",
+        ".....oco.occccccccoswo..ow..",
+        "....odo..occbccbcools...wo..",
+        "....odo..occcccccoosswwwo...",
+        "...odgo..olllllllo..osso....",
+        "...odo...obbbbbbbo...oo.....",
+        "..........occcco............",
+        ".........occcccco...........",
+        ".........odggogdo...........",
+        ".........olgo.ogdo..........",
+        ".........olgo.ogdo..........",
+        "........olgo...ogdo.........",
+        "........olgo...ogdo.........",
+        ".......odggo...odggo........",
+        ".......oddoo....oddoo.......",
+      ],
+    ],
+  },
+};
+
+
+// ---- THE RAIDER, HIGH-FIDELITY ----
+// The chosen direction at Hollow Court fidelity: skeleton-grade anatomy,
+// leather with three tones, a long-knife with one honest glint. Two heads
+// over one shared body: deep hood, or bare with torn ears and a headband.
+export const RAIDER_HIFI = {
+  raiderHooded: {
+    pal: { o: INK, g: G, l: L, d: D, e: EYE, t: TEETH, h: "#5f4326", i: "#7a5a34", j: "#3c2a18", b: "#8a6238", r: "#6e5a3a", m: "#9aa0ac", n: "#c4c8d0", k: "#2c2418" },
+    px: 1,
+    frames: [
+      [
+        "............................",
+        "......oo....oooo............",
+        ".....ohhoooohhhhoo..........",
+        "......ohhhhhhhhhhho.........",
+        "......oohihhhhhhhhho........",
+        ".....oohihjkkkkkhhho........",
+        "....ohhhhjkeggkegkho........",
+        "....ohhhhjkgggggggho........",
+        ".....ohhhjggdtdggdho........",
+        "......oohjdggggdjoo.........",
+        "......ooojbbbbboo...........",
+        ".....olggobbbbbbboo.........",
+        "....olggdobrbbbbbbdo........",
+        "....olgo.obbrbbbbbdoo.......",
+        "....ogo..obbbrbbbdoggo......",
+        "....ogo..obbbbrbbdoggdo.....",
+        "...odgo..ojjjjjjjdoggdo.....",
+        "...oddo..ohjhhhhjdo.ogo.....",
+        "...ogdo..ohhhhhhho..ojjo....",
+        "....oo...odggggdo..ojnmo....",
+        ".........olggogdo...onmmo...",
+        ".........olgo.ogdo..onmmo...",
+        "........olgo...ogdo..onmmo..",
+        "........olgo...ogdo...onmo..",
+        ".......odggo...odggo...oo...",
+        ".......olggo...olggo........",
+        "......oddoo.....oddoo.......",
+      ],
+    ],
+  },
+  raiderBare: {
+    pal: { o: INK, g: G, l: L, d: D, e: EYE, t: TEETH, h: "#5f4326", i: "#7a5a34", j: "#3c2a18", b: "#8a6238", r: "#6e5a3a", m: "#9aa0ac", n: "#c4c8d0", k: "#2c2418" },
+    px: 1,
+    frames: [
+      [
+        "...........ooooo............",
+        "..........olgggdo...........",
+        "..oooo...olggggggo..........",
+        ".olggggooolggggggggo........",
+        "..ooogggggrrrrrrggdo........",
+        "...oooggggoeggoeggdo........",
+        "..olgggggggeggggegdo........",
+        "...ooooggdggggggggdo........",
+        "......ogggdtdtdggdo.........",
+        ".......odgggggggdoo.........",
+        "......ooojbbbbboo...........",
+        ".....olggobbbbbbboo.........",
+        "....olggdobrbbbbbbdo........",
+        "....olgo.obbrbbbbbdoo.......",
+        "....ogo..obbbrbbbdoggo......",
+        "....ogo..obbbbrbbdoggdo.....",
+        "...odgo..ojjjjjjjdoggdo.....",
+        "...oddo..ohjhhhhjdo.ogo.....",
+        "...ogdo..ohhhhhhho..ojjo....",
+        "....oo...odggggdo..ojnmo....",
+        ".........olggogdo...onmmo...",
+        ".........olgo.ogdo..onmmo...",
+        "........olgo...ogdo..onmmo..",
+        "........olgo...ogdo...onmo..",
+        ".......odggo...odggo...oo...",
+        ".......olggo...olggo........",
+        "......oddoo.....oddoo.......",
+      ],
+    ],
+  },
+};

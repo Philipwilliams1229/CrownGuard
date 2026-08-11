@@ -161,12 +161,13 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick) => {
     g.gold += e.bounty;
     if (g.run) { g.run.kills += 1; g.run.goldEarned += e.bounty; }
     g.effects.push({ type: "coin", x: e.x, y: e.y - 14, ttl: 700, text: `+${e.bounty}` });
-    // death animation: flash white, then crumble into pixels
-    g.effects.push({ type: "death", etype: e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived });
+    // death animation: flash white, then crumble into pixels — a mixed-party
+    // foe crumbles in the look it actually wore
+    g.effects.push({ type: "death", etype: e.sprite || e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived });
     // the fallen linger a moment — a necromancer may call them back (once)
     if (!e.revived && CORPSE_TYPES.has(e.type)) {
       if (!g.corpses) g.corpses = [];
-      g.corpses.push({ type: e.type, x: e.x, y: e.y, dist: e.dist, lane: e.lane, hp0: e.maxHp, until: g.time * 1000 + 12000 });
+      g.corpses.push({ type: e.type, sprite: e.sprite, x: e.x, y: e.y, dist: e.dist, lane: e.lane, hp0: e.maxHp, until: g.time * 1000 + 12000 });
       if (g.corpses.length > 50) g.corpses.shift();
     }
   }

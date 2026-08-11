@@ -20,9 +20,12 @@ const footfall = (ctx, x, y, face, rate, phase, weight, time) => {
 };
 
 export const drawEnemy = (ctx, e, time, tms) => {
-  const spr = SPRITES[e.type];
+  // mixed-party foes carry their drawn look on e.sprite; everyone else
+  // wears their type's sheet
+  const skin = e.sprite || e.type;
+  const spr = SPRITES[skin];
   // necromancer-raised foes wear grave-pale colors with witch-fire eyes
-  const pal = e.revived && UNDEAD_PALS[e.type] ? UNDEAD_PALS[e.type] : spr.pal;
+  const pal = e.revived && UNDEAD_PALS[skin] ? UNDEAD_PALS[skin] : spr.pal;
   const fighting = e.blockedBy && e.engaged;
   // anything flying rides the air the way the dragon always has: no footfall,
   // no fight cycle, a slow bob, and a shadow that stays down on the road

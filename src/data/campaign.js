@@ -55,7 +55,7 @@ export const CHAPTERS = [
       },
       {
         id: "gw5", name: "The Goblin Warrens", realm: "warrens", short: "The Warrens",
-        window: { start: 12, count: 6 }, gold: 1700, pos: [146, 110],
+        window: { start: 12, count: 6 }, gold: 1800, pos: [146, 110],
         blurb: "The mouth of the burrow. Necromancers raise your kills against you — and the dragon is home.",
       },
     ],

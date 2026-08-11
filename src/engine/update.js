@@ -16,9 +16,12 @@ import { dealDamage, releaseEnemy, startWave } from "./actions.js";
 // Used by the spawn queue and by necromancers raising the dead.
 const makeEnemy = (type, mult) => {
   const d = ENEMIES[type];
+  // some foes field a mixed party: each spawn draws one look (and its pace)
+  const v = d.variants ? d.variants[Math.floor(Math.random() * d.variants.length)] : null;
   return {
-    id: nextId(), type, hp: d.hp * mult, maxHp: d.hp * mult, mult, dist: 0,
-    speed: d.speed, armor: d.armor, mres: d.mres || 0, bounty: d.bounty, regen: d.regen || 0,
+    id: nextId(), type, sprite: v ? v.sprite : null,
+    hp: d.hp * mult, maxHp: d.hp * mult, mult, dist: 0,
+    speed: d.speed * (v?.speedMul || 1), armor: d.armor, mres: d.mres || 0, bounty: d.bounty, regen: d.regen || 0,
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: d.boss ? 0 : (Math.random() - 0.5) * PATH_HALF * 1.15,
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
@@ -213,6 +216,7 @@ export function updateGame(g, dt) {
             u.dist = c.dist; u.lane = c.lane; u.x = c.x; u.y = c.y;
             u.bounty = Math.ceil(u.bounty / 2);
             u.revived = true;
+            if (c.sprite) u.sprite = c.sprite;   // it rises in the look it fell in
             g.enemies.push(u);
             g.effects.push({ type: "raise", x: c.x, y: c.y, ttl: 600, life: 600 });
           }
