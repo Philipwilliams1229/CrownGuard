@@ -5,7 +5,7 @@
 
 import { W, H, BLOCK_DIST } from "../data/constants.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
-import { DECOR, PONDS, inRiver } from "../data/terrain.js";
+import { DECOR, PONDS, inRiver, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { waveSpec, waveHpMult } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
@@ -21,7 +21,7 @@ export const buildableAt = (g, x, y) => {
   const [cvx, cvy] = PTS[0];
   const [csx, csy] = PTS[PTS.length - 1];
   if (Math.hypot(x - cvx, y - cvy) < 50 || Math.hypot(x - (csx + 6), y - csy) < 62) return false;
-  for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < 26 * d.s) return false;
+  for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
   for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
   if (inRiver(x, y, 14)) return false;   // no towers in running water
   if (towerNear(g, x, y)) return false;

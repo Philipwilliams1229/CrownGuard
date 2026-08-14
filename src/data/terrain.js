@@ -146,4 +146,36 @@ export function regenTerrain(map) {
       DECOR.push({ x, y, t: rec.types[Math.floor(rng() * rec.types.length)], s: 0.82 + rng() * 0.42 });
     }
   }
+
+  // ---- the grounding pass ----
+  // Nothing floats. Every tree, rock and tent — recipe-scattered OR hand-
+  // placed — must stand with its whole footprint on honest ground: clear of
+  // the road, the water, and both gates. Offenders get walked away from the
+  // road a few steps; whatever can't find footing is cleared away entirely.
+  const [gx0, gy0] = posAt(0);
+  const [gx1, gy1] = posAt(TOTAL_LEN);
+  DECOR = DECOR.filter((d) => {
+    const rad = decorFootprint(d);
+    for (let step = 0; step < 8; step++) {
+      const near = nearestOnPath(d.x, d.y);
+      const clearRoad = near.d >= PATH_HALF + rad;
+      const wet = inPond(PONDS, d.x, d.y) || inRiver(d.x, d.y, rad);
+      const gate = Math.hypot(d.x - gx0, d.y - gy0) < 46 + rad || Math.hypot(d.x - gx1, d.y - gy1) < 40 + rad;
+      if (clearRoad && !wet && !gate) return true;
+      const dd = Math.max(1, Math.hypot(d.x - near.x, d.y - near.y));
+      d.x = Math.min(W - 16, Math.max(16, d.x + ((d.x - near.x) / dd) * 10));
+      d.y = Math.min(H - 20, Math.max(20, d.y + ((d.y - near.y) / dd) * 10));
+    }
+    return false;
+  });
 }
+
+// How wide a decor piece really stands, so blocking and grounding match the
+// art instead of one loose circle for everything: boulders are stones, not
+// oaks, and a banner pole is barely wider than its shadow.
+const FOOTPRINT = {
+  tree: 15, pine: 12, snowpine: 12, willow: 17, deadtree: 11,
+  rock: 9, icerock: 9, obsidian: 10, crystal: 9, cairn: 9, gravestone: 7,
+  mushroom: 8, reeds: 8, vent: 11, banner: 6, watchtower: 14, tent: 14,
+};
+export const decorFootprint = (d) => Math.round((FOOTPRINT[d.t] ?? 13) * (d.s || 1));
