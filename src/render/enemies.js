@@ -197,9 +197,10 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     }
   }
   if (rider) {
-    // Wolf Lodge: a great wolf carries the berserker
+    // Wolf Lodge: a great wolf carries the berserker — seated at the
+    // shoulder, not the haunches, wherever the wolf is headed
     drawSprite(ctx, SPRITES.wolf, SPRITES.wolf.pal, frame, u.x, u.y + 3, u.face < 0);
-    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 9, u.face < 0);
+    drawSprite(ctx, SPRITES.knight, pal, frame, u.x + u.face * 4, u.y - 9, u.face < 0);
   } else if (giant) {
     // Grand Champion: double-stacked bulk, crowned in gold
     drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 1, u.face < 0);
