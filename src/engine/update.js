@@ -36,8 +36,8 @@ const makeEnemy = (type, mult) => {
     // Hollow Court traits: bells that summon, bodies that split or burst
     summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonCd: null,
     splitInto: d.splitInto || null, deathBurst: d.deathBurst || null, deathDone: false,
-    // falconry marks, alchemical shred, and the roc's grip
-    markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0, carryUntil: 0, carryBack: 0,
+    // falconry marks and alchemical shred
+    markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0,
     x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
     slowUntil: 0, slowPct: 0, burnUntil: 0, burnDps: 0, poisonUntil: 0, poisonDps: 0,
     brittleUntil: 0, brittleAmp: 0, burnSpread: false,
@@ -111,7 +111,8 @@ export function updateGame(g, dt) {
           if (spread > bestSpread) { bestSpread = spread; best = [px, py]; }
         }
         if (best) {
-          g.traps.push({ x: best[0], y: best[1], byTower: t.id, branch: t.branch, rank4: t.rank4 });
+          const sky = !!(st.balloon && ((t.layIdx = (t.layIdx || 0) + 1) % st.balloon === 0));
+          g.traps.push({ x: best[0], y: best[1], byTower: t.id, branch: t.branch, rank4: t.rank4, sky });
           t.charges -= 1;
           t.layCd = 650;
           g.effects.push({ type: "dust", x: best[0], y: best[1], ttl: 300, r: 14 });
@@ -216,24 +217,89 @@ export function updateGame(g, dt) {
       }
       break;
     }
+    // The Skyknight: one rider, one war-eagle, one enemy of the air at a time
+    for (const t of g.towers) {
+      if (t.kind !== "falconry") continue;
+      const st = getStats(t);
+      if (!st.skyknight) continue;
+      if (!t.eagle) t.eagle = { id: nextId(), hp: st.eagleHp, maxHp: st.eagleHp, x: t.x, y: t.y - 44, targetId: null, atkCd: 0, respawn: 0, hurtCd: 0 };
+      const eg = t.eagle;
+      eg.maxHp = st.eagleHp;
+      if (eg.respawn > 0) {
+        eg.respawn -= sdt * 1000;
+        if (eg.respawn <= 0) { eg.hp = eg.maxHp; eg.x = t.x; eg.y = t.y - 44; eg.targetId = null; }
+        continue;
+      }
+      let target = eg.targetId ? g.enemies.find((e) => e.id === eg.targetId && !e.dead) : null;
+      if (!target) {
+        eg.targetId = null;
+        let best = null;
+        for (const e of g.enemies) {
+          if (e.dead || !e.flying) continue;
+          if (e.blockedBy && e.blockedBy !== eg.id) continue;
+          if (Math.hypot(e.x - t.x, e.y - t.y) > st.range + 40) continue;
+          if (!best || e.hp > best.hp) best = e;
+        }
+        if (best) { eg.targetId = best.id; target = best; }
+      }
+      if (!target) {
+        // no war in the sky: wheel home above the roost
+        const wx = t.x + Math.cos(g.time * 1.1 + t.id) * 24;
+        const wy = t.y - 44 + Math.sin(g.time * 1.1 + t.id) * 8;
+        eg.x += (wx - eg.x) * Math.min(1, sdt * 3);
+        eg.y += (wy - eg.y) * Math.min(1, sdt * 3);
+        continue;
+      }
+      const dxE = target.x - eg.x, dyE = target.y - 12 - eg.y;
+      const dE = Math.hypot(dxE, dyE);
+      if (dE > 14) {
+        const v = 130 * sdt;
+        eg.x += (dxE / dE) * Math.min(v, dE);
+        eg.y += (dyE / dE) * Math.min(v, dE);
+        if (target.blockedBy === eg.id) { target.blockedBy = null; target.engaged = false; }
+      } else {
+        // talons in: the enemy is HELD — dragon or no dragon
+        if (target.blockedBy == null || target.blockedBy === eg.id) {
+          if (target.blockedBy !== eg.id || !target.engaged) { sfx.play("roc"); g.effects.push({ type: "spark", x: target.x, y: target.y - 12, ttl: 300, gold: true }); }
+          target.blockedBy = eg.id; target.engaged = true;
+        }
+        eg.x = target.x; eg.y = target.y - 12;
+        eg.atkCd -= sdt * 1000;
+        if (eg.atkCd <= 0) { eg.atkCd = st.eagleRate; dealDamage(g, target, st.eagleDmg, "phys", false); }
+        // the held thing fights back — with its own arms, or by sheer thrashing
+        eg.hurtCd -= sdt * 1000;
+        if (eg.hurtCd <= 0) {
+          eg.hurtCd = target.atkRate > 0 ? target.atkRate : 800;
+          eg.hp -= target.atk > 0 ? target.atk : (target.boss ? 30 : 9);
+          if (eg.hp <= 0) {
+            releaseEnemy(g, target);
+            eg.targetId = null;
+            eg.respawn = st.eagleRespawn;
+            g.effects.push({ type: "poof", x: eg.x, y: eg.y, ttl: 450 });
+            sfx.play("falcon");
+          }
+        }
+      }
+    }
     // The armed road: any foot on a trap springs it
     for (let ti = g.traps.length - 1; ti >= 0; ti--) {
       const tr = g.traps[ti];
       const owner = g.towers.find((tw) => tw.id === tr.byTower);
       const st = owner ? getStats(owner) : { trapDmg: 60, splash: 34, slow: 0.3, slowDur: 1400 };
+      const wantsFly = !!tr.sky;
       let victim = null;
       for (const e of g.enemies) {
-        if (e.dead || e.flying) continue;
-        if (Math.hypot(e.x - tr.x, e.y - tr.y) < 15) { victim = e; break; }
+        if (e.dead || (wantsFly ? !e.flying : e.flying)) continue;
+        if (Math.hypot(e.x - tr.x, e.y - tr.y) < (wantsFly ? 20 : 15)) { victim = e; break; }
       }
       if (!victim) continue;
       g.traps.splice(ti, 1);
       const r4 = tr.branch ? tr.branch + (tr.rank4 || "") : "";
-      g.effects.push({ type: tr.branch === "b" ? "boom" : "dust", x: tr.x, y: tr.y, ttl: 340, r: st.splash || 34 });
+      g.effects.push({ type: tr.branch === "b" ? "boom" : "dust", x: tr.x, y: tr.y - (wantsFly ? 14 : 0), ttl: 340, r: st.splash || 34 });
       sfx.play(tr.branch === "b" ? "boom" : "trapSnap");
       g.shake = Math.max(g.shake, tr.branch === "b" ? 4 : 2);
       for (const e of g.enemies) {
-        if (e.dead || e.flying) continue;
+        if (e.dead || (wantsFly ? !e.flying : e.flying)) continue;
         const dd = Math.hypot(e.x - tr.x, e.y - tr.y);
         if (dd > (st.splash || 34)) continue;
         // the springer eats the full bite; the splash takes the rest
@@ -359,11 +425,7 @@ export function updateGame(g, dt) {
       // the shock that stop everything else
       const stunned = e.stunUntil > tms && !e.immStun;
       const held = e.blockedBy && e.engaged;
-      if (e.carryUntil > tms) {
-        // in the roc's grip: hauled back down the road, past all argument
-        e.dist = Math.max(0, e.dist - e.carryBack * sdt);
-        releaseEnemy(g, e);
-      } else if (!stunned && !held) {
+      if (!stunned && !held) {
         const slow = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
         e.dist += e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
       }
@@ -573,27 +635,6 @@ export function updateGame(g, dt) {
       t.anim = Math.max(0, t.anim - sdt * 4);
       if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith") continue;
       if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger
-      // Roc Keeper: the whistle, and something enormous answers it
-      if (t.kind === "falconry") {
-        const stR = getStats(t);
-        if (stR.roc) {
-          t.rocCd = (t.rocCd ?? stR.roc) - sdt * 1000;
-          if (t.rocCd <= 0) {
-            let big = null;
-            for (const e of g.enemies) {
-              if (e.dead || e.boss || e.flying || e.carryUntil > tms) continue;
-              if (Math.hypot(e.x - t.x, e.y - t.y) <= stR.range && (!big || e.hp > big.hp)) big = e;
-            }
-            if (big) {
-              t.rocCd = stR.roc;
-              big.carryUntil = tms + 1500;
-              big.carryBack = stR.rocDrag;
-              g.effects.push({ type: "roc", x1: t.x, y1: t.y - 42, x2: big.x, y2: big.y, ttl: 520 });
-              sfx.play("roc");
-            } else t.rocCd = 600;
-          }
-        }
-      }
       // The Sunforge holds its beam instead of firing: same target, growing
       // heat; a new target starts the focus from cold.
       if (t.kind === "sunforge") {

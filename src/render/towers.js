@@ -1078,20 +1078,24 @@ export const drawTrapsmith = (ctx, t, time) => {
 
 // the mistress herself, transcribed pixel-for-pixel from the approved concept
 const LADY_MAP = [
-  " GG        ",
-  " KG        ",
-  "  K   KKK  ",
-  "  K  KHHHK ",
-  "  K  KHFFHK",
-  "  KK KHFFHK",
-  "   K KFFFK ",
-  "   KKDDDKH ",
-  "   KDDDDKH ",
-  "  KDDDDDKh ",
-  "  KdDDDdK  ",
-  "  KdDDDdK  ",
-  "   KDDDK   ",
-  "   KK KK   ",
+  "  GG          ",
+  "  KGgK        ",
+  "  KDEK  KKKK  ",
+  "  KDDK KHHHHK ",
+  "  KDDK KHxHHK ",
+  "   KDK KHHHHHK",
+  "   KDKKHFKFfHK",
+  "   KKDKHFFFfKH",
+  "    KDKhFFfKHH",
+  "     KDKFfKKHH",
+  "    KDDDDDKKHh",
+  "    KDEDDDDKh ",
+  "   KDdDDDDdKh ",
+  "   KDdDDDDdK  ",
+  "   KdDDYDDdK  ",
+  "    KdDDDdK   ",
+  "    KDDKDDK   ",
+  "    KKK KKK   ",
 ];
 
 const drawOrbitBird = (ctx, bx, by, up, court) => {
@@ -1154,14 +1158,21 @@ export const drawFalconry = (ctx, t, time) => {
   // the falcon-mistress on the rim, gauntlet raised to the wheel
   const dress = court ? "#5a4a8c" : aviary ? "#7a3c30" : "#2e6e6a";
   const dressD = court ? "#403470" : aviary ? "#582a22" : "#1d4a48";
-  const pal = { K: INK, G: "#b08858", H: "#a05a2c", h: "#7a401e", F: "#e8c9a2", D: dress, d: dressD };
+  const dressE = court ? "#7a68b0" : aviary ? "#96524a" : "#3c8c84";
+  const pal = { K: INK, G: "#b08858", g: "#8c6c46", H: "#b06630", h: "#8a4a22", x: "#d08c50",
+    F: "#e8c9a2", f: "#cca67c", D: dress, d: dressD, E: dressE, Y: "#e0b855" };
   for (let r = 0; r < LADY_MAP.length; r++) {
     for (let c = 0; c < LADY_MAP[r].length; c++) {
       const ch = LADY_MAP[r][c];
       if (ch === " ") continue;
       ctx.fillStyle = pal[ch];
-      ctx.fillRect(x - 6 + c, y - 42 + r, 1, 1);
+      ctx.fillRect(x - 7 + c, y - 46 + r, 1, 1);
     }
+  }
+  // while the war-eagle is down, the mistress whistles for the next
+  if (t.eagle && t.eagle.respawn > 0 && Math.sin(time * 6) > 0) {
+    ctx.fillStyle = "#e0b855";
+    ctx.fillRect(x + 4, y - 48, 2, 2);
   }
 
   for (const w of wheel) {

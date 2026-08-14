@@ -45,7 +45,8 @@ const NUMBERS = [
   ["dps", (v) => `${v}/s beam`],
   ["rampMax", (v) => `focus ramps to ×${v}`],
   ["beams", (v) => `${v} beams`],
-  ["roc", (v) => `the roc strikes every ${(v / 1000).toFixed(0)}s`],
+  ["eagleHp", (v) => `war-eagle: ${v} health`],
+  ["eagleDmg", (v) => `${v} eagle talon damage`],
   ["autoSeed", (v) => `self-seeds ${v} mines per wave`],
 ];
 
@@ -84,6 +85,8 @@ const TRAITS = [
   ["igniteBurn", "at full focus the beam ignites"],
   ["beamSlow", "the held foe is slowed"],
   ["beamSplash", "at full focus the light spills over"],
+  ["skyknight", "a rider on a war-eagle HOLDS one flier at a time — even dragons"],
+  ["balloon", "every 3rd charge rises on a balloon — a bomb for fliers"],
 ];
 
 export function describe(s) {

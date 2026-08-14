@@ -169,10 +169,10 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Blastworks", cost: 230, stats: { trapDmg: 190, splash: 62, maxCharges: 3, chargeEvery: 7000, range: 195, burn: 14, burnDur: 2600, rate: 0 }, desc: "Pressure mines. Big blasts, burning shrapnel, and a column that learns to fear its own road.",
+        name: "Blastworks", cost: 230, stats: { balloon: 3, trapDmg: 190, splash: 62, maxCharges: 3, chargeEvery: 7000, range: 195, burn: 14, burnDur: 2600, rate: 0 }, desc: "Pressure mines. Big blasts, burning shrapnel, and a column that learns to fear its own road.",
         rank4: {
-          a: { name: "Minefield Doctrine", cost: 370, stats: { trapDmg: 200, splash: 64, maxCharges: 4, chargeEvery: 6000, autoSeed: 3, burn: 14, burnDur: 2600, range: 205, rate: 0 }, desc: "The smiths work through the horn: up to three mines seed THEMSELVES onto the road as each wave begins." },
-          b: { name: "Doomsday Charge", cost: 370, stats: { trapDmg: 480, splash: 95, maxCharges: 1, chargeEvery: 11000, stunAll: 900, burn: 18, burnDur: 3000, range: 205, rate: 0 }, desc: "One charge. One crater. Everything that survives it stands stunned in the smoke." },
+          a: { name: "Minefield Doctrine", cost: 370, stats: { balloon: 3, trapDmg: 200, splash: 64, maxCharges: 4, chargeEvery: 6000, autoSeed: 3, burn: 14, burnDur: 2600, range: 205, rate: 0 }, desc: "The smiths work through the horn: up to three mines seed THEMSELVES onto the road as each wave begins." },
+          b: { name: "Doomsday Charge", cost: 370, stats: { balloon: 3, trapDmg: 480, splash: 95, maxCharges: 1, chargeEvery: 11000, stunAll: 900, burn: 18, burnDur: 3000, range: 205, rate: 0 }, desc: "One charge. One crater. Everything that survives it stands stunned in the smoke." },
         },
       },
     },
@@ -189,7 +189,7 @@ export const TOWERS = {
       a: {
         name: "Royal Aviary", cost: 240, stats: { dmg: 58, rate: 750, range: 175, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500 }, desc: "A whole mews of hunting birds: near-constant dives that can knock foes senseless.",
         rank4: {
-          a: { name: "Roc Keeper", cost: 370, stats: { dmg: 68, rate: 750, range: 185, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500, roc: 8000, rocDrag: 90 }, desc: "Something enormous answers the whistle: every eight seconds it seizes the mightiest lesser foe and CARRIES IT BACK down the road." },
+          a: { name: "Skyknight", cost: 370, stats: { dmg: 68, rate: 750, range: 185, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500, skyknight: true, eagleHp: 720, eagleDmg: 34, eagleRate: 700, eagleRespawn: 9000 }, desc: "A rider on a war-eagle half a dragon's span. She meets the sky's worst in single combat and HOLDS it there — gryphons, wraith-wings, even dragons." },
           b: { name: "Storm Falcons", cost: 370, stats: { dmg: 66, rate: 700, range: 180, airMult: 2.4, mark: 0.25, markDur: 3000, diveStun: 0.25, diveStunDur: 600, chain: 1, chainRange: 90 }, desc: "Dives that crack like weather — each strike ricochets to a second victim." },
         },
       },

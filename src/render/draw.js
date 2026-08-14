@@ -172,6 +172,28 @@ export function draw(g, canvas, bufRef) {
   if (g.traps) {
     for (const tr of g.traps) {
       const tx = S(tr.x), ty = S(tr.y);
+      if (tr.sky) {
+        // a bomb on a balloon, bobbing at flier height above its road anchor
+        const by = ty - 13 + Math.sin(g.time * 2 + tr.x) * 1.5;
+        ctx.fillStyle = "rgba(20,20,26,0.25)";
+        ctx.fillRect(tx - 2, ty + 1, 5, 2);
+        ctx.strokeStyle = "rgba(16,19,26,0.7)";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(tx + 0.5, ty); ctx.lineTo(tx + 0.5, by + 4); ctx.stroke();
+        ctx.fillStyle = INK;
+        ctx.fillRect(tx - 2, by - 5, 6, 6);
+        ctx.fillStyle = "#c05848";
+        ctx.fillRect(tx - 1, by - 4, 4, 4);
+        ctx.fillStyle = "#e8927a";
+        ctx.fillRect(tx - 1, by - 4, 1, 2);
+        ctx.fillStyle = INK;
+        ctx.fillRect(tx - 1, by + 1, 4, 3);
+        ctx.fillStyle = "#5f636d";
+        ctx.fillRect(tx, by + 2, 2, 2);
+        ctx.fillStyle = Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a";
+        ctx.fillRect(tx, by + 2, 1, 1);
+        continue;
+      }
       if (tr.branch === "b") {
         // a pressure mine: steel disc, and a patient red eye
         ctx.fillStyle = INK;
@@ -407,6 +429,37 @@ export function draw(g, canvas, bufRef) {
     if (t.beamId2 != null) beamTo(t.beamId2, 0.55);
   }
 
+  // Skyknight war-eagles fly free of their roosts, so they paint above the fray
+  for (const t of g.towers) {
+    if (t.kind !== "falconry" || !t.eagle) continue;
+    const eg = t.eagle;
+    if (eg.respawn > 0) continue;   // the mistress whistles a new bird soon
+    const ex = S(eg.x), ey = S(eg.y);
+    const beat = Math.sin(g.time * 10 + t.id) > 0;
+    const fighting = !!eg.targetId;
+    ctx.fillStyle = "rgba(20,20,26,0.25)";
+    ctx.fillRect(ex - 6, ey + 16, 12, 3);
+    ctx.fillStyle = INK;
+    if (beat) { ctx.fillRect(ex - 7, ey - 4, 5, 3); ctx.fillRect(ex + 2, ey - 4, 5, 3); }
+    else { ctx.fillRect(ex - 8, ey - 1, 5, 3); ctx.fillRect(ex + 3, ey - 1, 5, 3); }
+    ctx.fillRect(ex - 3, ey - 3, 6, 7);
+    ctx.fillStyle = "#96764a";
+    ctx.fillRect(ex - 2, ey - 2, 4, 5);
+    ctx.fillStyle = "#ded6c4";
+    if (beat) { ctx.fillRect(ex - 7, ey - 4, 2, 2); ctx.fillRect(ex + 5, ey - 4, 2, 2); }
+    else { ctx.fillRect(ex - 8, ey - 1, 2, 2); ctx.fillRect(ex + 6, ey - 1, 2, 2); }
+    ctx.fillRect(ex - 2, ey + 3, 4, 2);
+    ctx.fillStyle = "#c04838";
+    ctx.fillRect(ex - 1, ey - 3, 2, 3);
+    ctx.fillStyle = "#e0b855";
+    ctx.fillRect(ex - 1, ey + 2, 2, 1);
+    if (fighting) { ctx.fillRect(ex - 3, ey + 5, 2, 2); ctx.fillRect(ex + 1, ey + 5, 2, 2); }
+    if (eg.hp < eg.maxHp) {
+      ctx.fillStyle = INK; ctx.fillRect(ex - 7, ey - 9, 14, 3);
+      ctx.fillStyle = "#7fc95e"; ctx.fillRect(ex - 6, ey - 8, Math.max(1, Math.round(12 * eg.hp / eg.maxHp)), 1);
+    }
+  }
+
   drawCastle(ctx, g.time, Math.max(0, g.lives) / CASTLE_HP);
 
   // ---- the spawn marker ----
@@ -608,43 +661,49 @@ export function draw(g, canvas, bufRef) {
         ctx.fillRect(px2, py2 - CELL, CELL, CELL * 3);
       }
     } else if (fx.type === "talon") {
-      // the stoop and the return: the falcon rides its own streak down and home
+      // the stoop is a curve, not a line: out wide, down hard, and home again
       const life = fx.life || 520;
       const prog = 1 - fx.ttl / life;
-      const out = Math.min(1, prog / 0.55);
-      const back = Math.max(0, (prog - 0.55) / 0.45);
-      const lerp = back > 0 ? 1 - back : out;
-      const hx = fx.x1 + (fx.x2 - fx.x1) * lerp;
-      const hy = fx.y1 + (fx.y2 - fx.y1) * lerp - (back > 0 ? Math.sin(back * Math.PI) * 10 : 0);
-      if (back === 0) {
-        ctx.strokeStyle = `rgba(240,234,216,${a * 0.8})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(S(fx.x1), S(fx.y1)); ctx.lineTo(S(hx), S(hy)); ctx.stroke();
+      const side = ((Math.round(fx.x1 + fx.y1)) & 2) - 1;
+      const cx = (fx.x1 + fx.x2) / 2 + side * 26;
+      const cy = (fx.y1 + fx.y2) / 2 - 14;
+      const bez = (t2) => {
+        const u = 1 - t2;
+        return [u * u * fx.x1 + 2 * u * t2 * cx + t2 * t2 * fx.x2,
+                u * u * fx.y1 + 2 * u * t2 * cy + t2 * t2 * fx.y2];
+      };
+      const out = Math.min(1, prog / 0.5);
+      const back = Math.max(0, (prog - 0.5) / 0.5);
+      const tt = back > 0 ? 1 - back * back * (3 - 2 * back) : out * out;
+      const lift = back > 0 ? Math.sin(back * Math.PI) * 9 : 0;
+      const [hx, hy] = bez(tt);
+      // ghost wingbeats trailing the flight
+      for (let gi = 1; gi <= 2; gi++) {
+        const gtt = back > 0 ? Math.min(1, tt + gi * 0.09) : Math.max(0, tt - gi * 0.09);
+        const [gx, gy] = bez(gtt);
+        ctx.fillStyle = `rgba(232,226,212,${(0.28 - gi * 0.11) * a})`;
+        ctx.fillRect(S(gx) - 2, S(gy) - lift - 1, 5, 2);
       }
-      if (out === 1 && back < 0.25) {
-        ctx.fillStyle = `rgba(224,184,85,${0.9 - back * 3})`;
+      if (out === 1 && back < 0.2) {
+        ctx.fillStyle = `rgba(224,184,85,${0.9 - back * 4})`;
         ctx.fillRect(S(fx.x2) - 2, S(fx.y2) - 2, 5, 5);
       }
-      const bx = S(hx), by = S(hy);
-      ctx.fillStyle = `rgba(16,19,26,${Math.min(1, a + 0.2)})`;
-      if (back > 0) { ctx.fillRect(bx - 3, by - 2, 2, 2); ctx.fillRect(bx + 1, by - 2, 2, 2); ctx.fillRect(bx - 2, by, 4, 2); }
-      else { ctx.fillRect(bx - 1, by - 2, 2, 2); ctx.fillRect(bx - 2, by, 4, 2); }
-      ctx.fillStyle = `rgba(160,130,88,${a})`;
-      ctx.fillRect(bx - 1, by, 2, 1);
-    } else if (fx.type === "roc") {
-      // something with a wingspan passes low over the road
-      const prog = 1 - fx.ttl / 520;
-      const hx = fx.x1 + (fx.x2 - fx.x1) * prog;
-      const hy = fx.y1 + (fx.y2 - fx.y1) * prog - Math.sin(prog * Math.PI) * 18;
-      ctx.fillStyle = `rgba(20,20,26,${a * 0.35})`;
-      ctx.fillRect(S(hx) - 8, S(fx.y2) + 4, 16, 3);
-      ctx.fillStyle = `rgba(160,130,88,${a})`;
-      ctx.fillRect(S(hx) - 9, S(hy), 18, 3);
-      ctx.fillRect(S(hx) - 3, S(hy) - 3, 7, 8);
-      ctx.fillStyle = `rgba(232,226,212,${a})`;
-      ctx.fillRect(S(hx) - 9, S(hy) + 1, 18, 1);
-      ctx.fillStyle = `rgba(224,184,85,${a})`;
-      ctx.fillRect(S(hx) + 4, S(hy), 2, 2);
+      const bx = S(hx), by = S(hy) - lift;
+      const ink = `rgba(16,19,26,${Math.min(1, a + 0.2)})`;
+      ctx.fillStyle = ink;
+      if (back === 0) {
+        // wings swept for the dive
+        ctx.fillRect(bx - 2, by - 3, 2, 3); ctx.fillRect(bx + 1, by - 3, 2, 3);
+        ctx.fillRect(bx - 1, by - 1, 3, 3);
+      } else {
+        // the climb home, wings beating
+        const upstroke = Math.sin(prog * 26) > 0;
+        if (upstroke) { ctx.fillRect(bx - 4, by - 2, 3, 2); ctx.fillRect(bx + 2, by - 2, 3, 2); }
+        else { ctx.fillRect(bx - 5, by, 3, 2); ctx.fillRect(bx + 3, by, 3, 2); }
+        ctx.fillRect(bx - 1, by - 1, 3, 3);
+      }
+      ctx.fillStyle = `rgba(160,130,88,${a})`; ctx.fillRect(bx - 1, by, 2, 1);
+      ctx.fillStyle = `rgba(232,226,212,${a})`; ctx.fillRect(bx - 1, by + 1, 2, 1);
     } else if (fx.type === "midas") {
       // the golden mistake: a ring of mint-light and rising coins
       const prog = 1 - fx.ttl / fx.life;

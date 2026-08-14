@@ -68,7 +68,8 @@ export const startWave = (g) => {
       const [px, py] = posAt(d);
       if (Math.hypot(px - t.x, py - t.y) > st.range) continue;
       if (g.traps.some((tr) => Math.hypot(tr.x - px, tr.y - py) < 30)) continue;
-      g.traps.push({ x: px, y: py, byTower: t.id, branch: t.branch, rank4: t.rank4 });
+      const sky = !!(st.balloon && ((t.layIdx = (t.layIdx || 0) + 1) % st.balloon === 0));
+      g.traps.push({ x: px, y: py, byTower: t.id, branch: t.branch, rank4: t.rank4, sky });
       t.charges -= 1;
       seeded++;
     }
@@ -246,6 +247,7 @@ export const releaseEnemy = (g, e) => { if (!e) return; e.blockedBy = null; e.en
 
 export const sellTower = (g, t) => {
   if (t.units) for (const u of t.units) { const e = g.enemies.find((x) => x.blockedBy === u.id); releaseEnemy(g, e); }
+  if (t.eagle) releaseEnemy(g, g.enemies.find((x) => x.blockedBy === t.eagle.id));
   g.gold += Math.floor(t.invested * 0.7);
   sfx.play("sell");
   g.towers = g.towers.filter((x) => x.id !== t.id);
