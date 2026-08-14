@@ -35,6 +35,18 @@ const NUMBERS = [
   ["arc", (v) => `lightning leaps ${v}×`],
   ["chain", (v) => `ricochets to ${v} more`],
   ["nova", (v) => `${v} nova damage`],
+  ["income", (v) => `pays ${v}g per wave held`],
+  ["compound", (v) => `payout grows +${v} each wave`],
+  ["bountyAura", (v) => `kills nearby pay +${Math.round(v * 100)}%`],
+  ["maxCharges", (v) => `holds ${v} trap charges`],
+  ["trapDmg", (v) => `${v} trap damage`],
+  ["airMult", (v) => `×${v} vs fliers`],
+  ["mark", (v) => `marks prey +${Math.round(v * 100)}% from all towers`],
+  ["dps", (v) => `${v}/s beam`],
+  ["rampMax", (v) => `focus ramps to ×${v}`],
+  ["beams", (v) => `${v} beams`],
+  ["roc", (v) => `the roc strikes every ${(v / 1000).toFixed(0)}s`],
+  ["autoSeed", (v) => `self-seeds ${v} mines per wave`],
 ];
 
 // Flags that change how a tower behaves, phrased as short traits.
@@ -57,6 +69,21 @@ const TRAITS = [
   ["bolt", "screaming siege bolt"],
   ["novaFreeze", "novas flash-freeze"],
   ["targeting", "always hunts the mightiest foe"],
+  ["hoard", "pays double — or nothing if the castle bled"],
+  ["mend", "restores 1 castle HP per wave"],
+  ["shredAura", "aura strips armor"],
+  ["midas", "every 12th shot turns a lesser foe to gold"],
+  ["root", "traps hold lesser foes fast"],
+  ["execute", "finishes the nearly-dead outright"],
+  ["caltrops", "sprung traps leave slowing ground"],
+  ["stunAll", "the blast stuns everything it touches"],
+  ["markShred", "marks also strip armor"],
+  ["diveStun", "dives can stun"],
+  ["kingsight", "the mightiest foe is always marked"],
+  ["wellRoot", "at full focus the beam pins its victim"],
+  ["igniteBurn", "at full focus the beam ignites"],
+  ["beamSlow", "the held foe is slowed"],
+  ["beamSplash", "at full focus the light spills over"],
 ];
 
 function describe(s) {

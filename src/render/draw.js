@@ -19,7 +19,7 @@ import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
-import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel } from "./towers.js";
+import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawSpawn } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 
@@ -168,6 +168,48 @@ export function draw(g, canvas, bufRef) {
   // under everything that walks
   for (const b of BRIDGES) drawBridge(ctx, b, g.time, posAt, angleAt, REALM.bridge);
 
+  // the trapsmith's work, waiting flush with the road
+  if (g.traps) {
+    for (const tr of g.traps) {
+      const tx = S(tr.x), ty = S(tr.y);
+      if (tr.branch === "b") {
+        // a pressure mine: steel disc, and a patient red eye
+        ctx.fillStyle = INK;
+        ctx.beginPath(); ctx.arc(tx, ty, 6, 0, 7); ctx.fill();
+        ctx.fillStyle = "#5f636d";
+        ctx.beginPath(); ctx.arc(tx, ty, 5, 0, 7); ctx.fill();
+        ctx.fillStyle = "#8a8f9a";
+        ctx.fillRect(tx - 3, ty - 3, 3, 2);
+        ctx.fillStyle = Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a";
+        ctx.fillRect(tx - 1, ty - 1, 2, 2);
+      } else if (tr.branch === "a") {
+        // bear-iron: open jaws, teeth up
+        ctx.fillStyle = INK;
+        ctx.fillRect(tx - 8, ty - 2, 16, 5);
+        ctx.fillStyle = "#8a8f9a";
+        ctx.fillRect(tx - 7, ty - 1, 14, 3);
+        ctx.fillStyle = "#b8bcc4";
+        for (let i = 0; i < 4; i++) {
+          ctx.fillRect(tx - 7 + i * 4, ty - 3, 2, 3);
+          ctx.fillRect(tx - 6 + i * 4, ty + 2, 2, 3);
+        }
+        ctx.fillStyle = "#3c2a18";
+        ctx.fillRect(tx - 1, ty, 2, 2);
+      } else {
+        // a spike snare: wooden ring, whetted points
+        ctx.fillStyle = INK;
+        ctx.beginPath(); ctx.arc(tx, ty, 6, 0, 7); ctx.fill();
+        ctx.fillStyle = "#6e4c28";
+        ctx.beginPath(); ctx.arc(tx, ty, 5, 0, 7); ctx.fill();
+        ctx.fillStyle = "#c4c8d0";
+        for (let i = 0; i < 4; i++) {
+          const ang = i * 1.57 + 0.78;
+          ctx.fillRect(S(tx + Math.cos(ang) * 3), S(ty + Math.sin(ang) * 3), 2, 2);
+        }
+      }
+    }
+  }
+
   // clouds crossing the sun — over the ground, under everything standing on it
   drawCloudShadows(ctx, g.time);
 
@@ -279,6 +321,10 @@ export function draw(g, canvas, bufRef) {
     else if (t.kind === "support") drawSupportTower(ctx, t, g.time);
     else if (t.kind === "catapult") drawCatapult(ctx, t, g.time);
     else if (t.kind === "spiker") drawBladewheel(ctx, t, g.time);
+    else if (t.kind === "goldworks") drawGoldworks(ctx, t, g.time);
+    else if (t.kind === "trapsmith") drawTrapsmith(ctx, t, g.time);
+    else if (t.kind === "falconry") drawFalconry(ctx, t, g.time);
+    else if (t.kind === "sunforge") drawSunforge(ctx, t, g.time);
     else drawGarrison(ctx, t, g.time);
   };
 
@@ -330,6 +376,36 @@ export function draw(g, canvas, bufRef) {
   }
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();
+
+  // the Sunforge's held light: drawn over the fray so the line of the beam
+  // is never lost, its width and fury growing with the focus
+  for (const t of g.towers) {
+    if (t.kind !== "sunforge" || t.beamId == null) continue;
+    const st = getStats(t);
+    const heat = ((t.ramp || 1) - 1) / Math.max(1, (st.rampMax || 3) - 1);
+    const moon = t.branch === "b";
+    const glowC = moon ? "168,196,240" : "232,193,74";
+    const coreC = moon ? "236,244,252" : "252,244,220";
+    const beamTo = (id, dim) => {
+      const e = g.enemies.find((en) => en.id === id && !en.dead);
+      if (!e) return;
+      const x1 = S(t.x), y1 = S(t.y) - 16, x2 = S(e.x), y2 = S(e.y) - 6;
+      ctx.strokeStyle = `rgba(${glowC},${(0.2 + heat * 0.35) * dim})`;
+      ctx.lineWidth = 5 + heat * 5;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.strokeStyle = `rgba(${coreC},${(0.55 + heat * 0.45) * dim})`;
+      ctx.lineWidth = 1 + heat * 2;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.lineWidth = 1;
+      // the burn-point
+      ctx.fillStyle = `rgba(${glowC},${0.5 * dim})`;
+      ctx.beginPath(); ctx.arc(x2, y2, 4 + heat * 4 + Math.sin(g.time * 14) * heat * 2, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(${coreC},${0.9 * dim})`;
+      ctx.fillRect(x2 - 1, y2 - 1, 3, 3);
+    };
+    beamTo(t.beamId, 1);
+    if (t.beamId2 != null) beamTo(t.beamId2, 0.55);
+  }
 
   drawCastle(ctx, g.time, Math.max(0, g.lives) / CASTLE_HP);
 
@@ -530,6 +606,45 @@ export function draw(g, canvas, bufRef) {
         const px2 = S(fx.x + Math.cos(ang) * r), py2 = S(fx.y + Math.sin(ang) * r * 0.85);
         ctx.fillRect(px2 - CELL, py2, CELL * 3, CELL);
         ctx.fillRect(px2, py2 - CELL, CELL, CELL * 3);
+      }
+    } else if (fx.type === "talon") {
+      // the stoop: a pale streak with a glint of gold at the strike
+      const prog = 1 - fx.ttl / 170;
+      const hx = fx.x1 + (fx.x2 - fx.x1) * Math.min(1, prog * 1.6);
+      const hy = fx.y1 + (fx.y2 - fx.y1) * Math.min(1, prog * 1.6);
+      const bx = fx.x1 + (fx.x2 - fx.x1) * Math.max(0, prog * 1.6 - 0.4);
+      const by = fx.y1 + (fx.y2 - fx.y1) * Math.max(0, prog * 1.6 - 0.4);
+      ctx.strokeStyle = `rgba(240,234,216,${a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(S(bx), S(by)); ctx.lineTo(S(hx), S(hy)); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = `rgba(224,184,85,${a})`;
+      ctx.fillRect(S(hx) - 1, S(hy) - 1, 3, 3);
+    } else if (fx.type === "roc") {
+      // something with a wingspan passes low over the road
+      const prog = 1 - fx.ttl / 520;
+      const hx = fx.x1 + (fx.x2 - fx.x1) * prog;
+      const hy = fx.y1 + (fx.y2 - fx.y1) * prog - Math.sin(prog * Math.PI) * 18;
+      ctx.fillStyle = `rgba(20,20,26,${a * 0.35})`;
+      ctx.fillRect(S(hx) - 8, S(fx.y2) + 4, 16, 3);
+      ctx.fillStyle = `rgba(160,130,88,${a})`;
+      ctx.fillRect(S(hx) - 9, S(hy), 18, 3);
+      ctx.fillRect(S(hx) - 3, S(hy) - 3, 7, 8);
+      ctx.fillStyle = `rgba(232,226,212,${a})`;
+      ctx.fillRect(S(hx) - 9, S(hy) + 1, 18, 1);
+      ctx.fillStyle = `rgba(224,184,85,${a})`;
+      ctx.fillRect(S(hx) + 4, S(hy), 2, 2);
+    } else if (fx.type === "midas") {
+      // the golden mistake: a ring of mint-light and rising coins
+      const prog = 1 - fx.ttl / fx.life;
+      ctx.strokeStyle = `rgba(232,193,74,${a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), prog * 26, 0, 7); ctx.stroke();
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) {
+        const ang = i * 1.26 + 0.4;
+        ctx.fillStyle = i % 2 ? `rgba(240,216,133,${a})` : `rgba(216,179,74,${a})`;
+        ctx.fillRect(S(fx.x + Math.cos(ang) * prog * 18), S(fx.y + Math.sin(ang) * prog * 12 - prog * 14), 3, 3);
       }
     } else if (fx.type === "toll") {
       // the gravecaller's bell: two witch-purple rings, one chasing the other

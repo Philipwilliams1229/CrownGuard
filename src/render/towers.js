@@ -944,3 +944,239 @@ export const drawSupportTower = (ctx, t, time) => {
     ctx.fillRect(S(bx), S(by) - CELL, CELL, CELL * 3);
   }
 };
+
+// ============ THE NEW WORKSHOPS ============
+// Four towers that arrived together: the mint, the trap bench, the mews,
+// and the captive sun. Same construction kit as the old six.
+
+const FORGE_STONE = { mid: "#8a8072", lit: "#a89e8c", shade: "#6e6558", mortar: "#514a40", dark: "#7d7466" };
+
+export const drawGoldworks = (ctx, t, time) => {
+  const x = S(t.x), y = S(t.y);
+  const lvl = t.level;
+  const alch = t.branch === "b";
+  const hoard = t.branch === "a" && t.rank4 === "a";
+  const stone = t.branch === "a" && t.rank4 === "b";
+  ctx.fillStyle = "rgba(20,20,26,0.3)";
+  ctx.fillRect(x - 14, y + 14, 28, 4);
+  // the counting-house: squat stone furnace with a working mouth
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 13, y - 12, 26, 26);
+  stoneWall(ctx, x - 11, y - 10, 22, 22, FORGE_STONE);
+  // furnace mouth, breathing
+  const hot = 0.6 + 0.4 * Math.sin(time * 5 + t.id);
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 5, y + 2, 10, 9);
+  ctx.fillStyle = `rgba(216,118,58,${hot})`;
+  ctx.fillRect(x - 4, y + 3, 8, 7);
+  ctx.fillStyle = `rgba(232,193,74,${hot})`;
+  ctx.fillRect(x - 2, y + 5, 4, 4);
+  // chimney with gold-fleck smoke
+  ctx.fillStyle = INK;
+  ctx.fillRect(x + 4, y - 24, 8, 14);
+  stoneWall(ctx, x + 5, y - 23, 6, 12, FORGE_STONE);
+  for (let i = 0; i < 3; i++) {
+    const rise = (time * 16 + i * 9 + t.id) % 26;
+    ctx.fillStyle = i % 2 ? `rgba(232,193,74,${0.7 - rise / 40})` : `rgba(150,140,120,${0.5 - rise / 60})`;
+    ctx.fillRect(S(x + 7 + Math.sin(time * 2 + i) * 2), S(y - 24 - rise), 2, 2);
+  }
+  // the takings: coin stacks that grow with the level
+  const stacks = hoard ? 5 : lvl + (t.branch === "a" ? 1 : 0);
+  for (let i = 0; i < stacks; i++) {
+    const sx2 = x - 12 + i * 6, hgt = 3 + ((i * 7) % 3) * 2 + (hoard ? 2 : 0);
+    ctx.fillStyle = INK;
+    ctx.fillRect(sx2 - 1, y + 12 - hgt - 1, 6, hgt + 2);
+    ctx.fillStyle = "#d8b34a";
+    ctx.fillRect(sx2, y + 12 - hgt, 4, hgt);
+    ctx.fillStyle = "#f0d885";
+    ctx.fillRect(sx2, y + 12 - hgt, 4, 1);
+  }
+  if (alch) {
+    // the transmuter's alembic, bubbling green on its stand
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - 14, y - 20, 10, 14);
+    ctx.fillStyle = "#4a7a4a";
+    ctx.fillRect(x - 13, y - 19, 8, 10);
+    ctx.fillStyle = "#7cc85c";
+    ctx.fillRect(x - 12, y - 18, 6, 5);
+    const bub = Math.sin(time * 7 + t.id) > 0.4 ? 1 : 0;
+    ctx.fillStyle = "#b8f0a0";
+    ctx.fillRect(x - 10, y - 18 - bub, 2, 2);
+    ctx.fillStyle = "#3c2a18";
+    ctx.fillRect(x - 14, y - 7, 10, 2);
+  }
+  if (stone) {
+    // the philosopher's stone, hovering above the works
+    const bob = Math.sin(time * 2 + t.id) * 2;
+    ctx.fillStyle = `rgba(176,138,216,0.3)`;
+    ctx.beginPath(); ctx.arc(x, S(y - 26 + bob), 7, 0, 7); ctx.fill();
+    ctx.fillStyle = "#e8d8f4";
+    ctx.fillRect(x - 2, S(y - 28 + bob), 4, 4);
+    ctx.fillStyle = "#b08ad8";
+    ctx.fillRect(x - 1, S(y - 27 + bob), 2, 2);
+  }
+};
+
+export const drawTrapsmith = (ctx, t, time) => {
+  const x = S(t.x), y = S(t.y);
+  const st = getStats(t);
+  const blast = t.branch === "b";
+  ctx.fillStyle = "rgba(20,20,26,0.3)";
+  ctx.fillRect(x - 15, y + 14, 30, 4);
+  // an open-fronted work shed: posts, plank roof, bench in shadow
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 14, y - 14, 28, 28);
+  ctx.fillStyle = "#3c2a18";
+  ctx.fillRect(x - 12, y - 10, 24, 22);
+  ctx.fillStyle = "#2a1d10";
+  ctx.fillRect(x - 10, y - 8, 20, 18);
+  // roof
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 16, y - 18, 32, 7);
+  ctx.fillStyle = "#6e4c28";
+  ctx.fillRect(x - 15, y - 17, 30, 5);
+  ctx.fillStyle = "#8a6238";
+  ctx.fillRect(x - 15, y - 17, 30, 2);
+  // the bench, and the little forge glowing on it
+  ctx.fillStyle = "#5f4326";
+  ctx.fillRect(x - 9, y + 2, 18, 4);
+  const glow = 0.5 + 0.5 * Math.sin(time * 6 + t.id);
+  ctx.fillStyle = `rgba(216,118,58,${glow * 0.9})`;
+  ctx.fillRect(x + 3, y - 2, 5, 4);
+  // hanging jaws and tongs
+  ctx.fillStyle = "#8a8f9a";
+  ctx.fillRect(x - 8, y - 8, 2, 5);
+  ctx.fillRect(x - 4, y - 9, 2, 6);
+  ctx.fillStyle = "#b8bcc4";
+  ctx.fillRect(x - 8, y - 4, 4, 2);
+  if (blast) {
+    // powder kegs stacked beside the shed
+    for (const [ox, oy] of [[-16, 6], [-16, -1]]) {
+      ctx.fillStyle = INK;
+      ctx.fillRect(x + ox - 1, y + oy - 1, 8, 8);
+      ctx.fillStyle = "#6e4c28";
+      ctx.fillRect(x + ox, y + oy, 6, 6);
+      ctx.fillStyle = "#3c2a18";
+      ctx.fillRect(x + ox, y + oy + 2, 6, 1);
+    }
+  }
+  // the rack: one hung trap per ready charge — the shop's own ammo counter
+  const charges = t.charges || 0;
+  for (let i = 0; i < Math.min(5, st.maxCharges || 2); i++) {
+    const rx = x - 12 + i * 6;
+    const ready = i < charges;
+    ctx.fillStyle = INK;
+    ctx.fillRect(rx - 1, y - 15 + 1, 5, 5);
+    ctx.fillStyle = ready ? (blast ? "#c05a28" : "#b8bcc4") : "#4a4640";
+    ctx.fillRect(rx, y - 13, 3, 3);
+    if (ready && blast) {
+      ctx.fillStyle = Math.sin(time * 8 + i) > 0 ? "#e05248" : "#7d2f1a";
+      ctx.fillRect(rx + 1, y - 12, 1, 1);
+    }
+  }
+};
+
+export const drawFalconry = (ctx, t, time) => {
+  const x = S(t.x), y = S(t.y);
+  const aviary = t.branch === "a";
+  const court = t.branch === "b";
+  ctx.fillStyle = "rgba(20,20,26,0.3)";
+  ctx.fillRect(x - 12, y + 14, 24, 4);
+  // the perch: one tall post, a crossbar, and weathered guy-ropes
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 3, y - 34, 6, 48);
+  ctx.fillStyle = "#6e4c28";
+  ctx.fillRect(x - 2, y - 33, 4, 46);
+  ctx.fillStyle = "#8a6238";
+  ctx.fillRect(x - 2, y - 33, 1, 46);
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 14, y - 32, 28, 5);
+  ctx.fillStyle = "#8a6238";
+  ctx.fillRect(x - 13, y - 31, 26, 3);
+  ctx.strokeStyle = "rgba(60,42,24,0.8)";
+  ctx.beginPath(); ctx.moveTo(x - 13, y - 29); ctx.lineTo(x - 9, y + 12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + 13, y - 29); ctx.lineTo(x + 9, y + 12); ctx.stroke();
+  // the handler's block and feed bucket
+  ctx.fillStyle = INK;
+  ctx.fillRect(x + 6, y + 4, 8, 9);
+  ctx.fillStyle = "#7a5a34";
+  ctx.fillRect(x + 7, y + 5, 6, 7);
+  // the bird itself — gone from the perch for the instant of a strike
+  const striking = t.anim > 0.5;
+  const birds = aviary ? 2 : 1;
+  for (let b = 0; b < birds; b++) {
+    if (striking && b === 0) continue;
+    const bx = x + (birds > 1 ? (b === 0 ? -7 : 7) : -6);
+    const flap = Math.sin(time * 3 + t.id + b * 2) > 0.85;
+    ctx.fillStyle = INK;
+    ctx.fillRect(bx - 3, y - 40, 7, 9);
+    ctx.fillStyle = court ? "#8a6a44" : "#a08258";
+    ctx.fillRect(bx - 2, y - 39, 5, 7);
+    ctx.fillStyle = "#e8e2d4";
+    ctx.fillRect(bx - 2, y - 36, 5, 2);
+    ctx.fillStyle = "#e0b855";
+    ctx.fillRect(bx + 3, y - 38, 2, 2);
+    ctx.fillStyle = "#2b2a33";
+    ctx.fillRect(bx + 1, y - 38, 1, 1);
+    if (flap) {
+      ctx.fillStyle = court ? "#8a6a44" : "#a08258";
+      ctx.fillRect(bx - 6, y - 41, 4, 2);
+      ctx.fillRect(bx + 3, y - 41, 4, 2);
+    }
+  }
+  // a drifting feather, now and then
+  const fall = (time * 9 + t.id * 3) % 40;
+  if (fall < 26) {
+    ctx.fillStyle = "rgba(232,226,212,0.8)";
+    ctx.fillRect(S(x + 8 + Math.sin(time * 3) * 3), S(y - 30 + fall), 2, 1);
+  }
+};
+
+export const drawSunforge = (ctx, t, time) => {
+  const x = S(t.x), y = S(t.y);
+  const moon = t.branch === "b";
+  const ramp = t.ramp || 1;
+  const st = getStats(t);
+  const heat = (ramp - 1) / Math.max(1, (st.rampMax || 3) - 1);   // 0..1 focus
+  ctx.fillStyle = "rgba(20,20,26,0.3)";
+  ctx.fillRect(x - 13, y + 14, 26, 4);
+  // an obsidian ring altar, cut with a channel that carries the light
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 13, y + 2, 26, 12);
+  ctx.fillStyle = "#352e40";
+  ctx.fillRect(x - 12, y + 3, 24, 10);
+  ctx.fillStyle = "#443a52";
+  ctx.fillRect(x - 12, y + 3, 24, 3);
+  ctx.fillStyle = "#241f30";
+  ctx.fillRect(x - 8, y + 6, 16, 2);
+  // two obsidian prongs holding the sky open
+  for (const sgn of [-1, 1]) {
+    ctx.fillStyle = INK;
+    ctx.fillRect(x + sgn * 10 - 2, y - 22, 5, 26);
+    ctx.fillStyle = "#352e40";
+    ctx.fillRect(x + sgn * 10 - 1, y - 21, 3, 24);
+    ctx.fillStyle = "#6a5c84";
+    ctx.fillRect(x + sgn * 10 - 1, y - 21, 1, 24);
+  }
+  // the captive shard, turning; its halo breathes with the focus
+  const spin = time * 2 + t.id;
+  const core = moon ? "#dce8f4" : "#f4e6b4";
+  const glowC = moon ? "168,196,240" : "232,193,74";
+  ctx.fillStyle = `rgba(${glowC},${0.12 + heat * 0.3})`;
+  ctx.beginPath(); ctx.arc(x, y - 16, 9 + heat * 6 + Math.sin(time * 6) * (heat * 2), 0, 7); ctx.fill();
+  const wob = Math.sin(spin) * 3;
+  ctx.fillStyle = INK;
+  ctx.fillRect(S(x - 1 + wob / 2) - 2, y - 22, 6, 12);
+  ctx.fillStyle = core;
+  ctx.fillRect(S(x - 1 + wob / 2) - 1, y - 21, 4, 10);
+  ctx.fillStyle = moon ? "#8cb4e0" : "#e0b855";
+  ctx.fillRect(S(x - 1 + wob / 2), y - 18, 2, 4);
+  // sparks shed at high focus
+  if (heat > 0.5) {
+    for (let i = 0; i < 3; i++) {
+      const ang = time * 4 + i * 2.1;
+      ctx.fillStyle = `rgba(${glowC},${heat})`;
+      ctx.fillRect(S(x + Math.cos(ang) * 10), S(y - 16 + Math.sin(ang) * 8), 2, 2);
+    }
+  }
+};

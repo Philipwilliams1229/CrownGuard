@@ -82,6 +82,16 @@ export const drawEnemy = (ctx, e, time, tms) => {
     ctx.fillRect(S(e.x + 3), S(e.y - 1), CELL, CELL);
     ctx.fillRect(S(e.x + 1), S(e.y + 4), CELL, CELL);
   }
+  // the falconer's mark: four gold corners closing on the prey
+  if (e.markUntil > tms) {
+    const mr = e.size * 0.7 + 3 + Math.sin(time * 6) * 1.5;
+    ctx.fillStyle = "rgba(224,184,85,0.9)";
+    for (const [sx2, sy2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const cx2 = S(e.x + sx2 * mr), cy2 = S(e.y - 4 + sy2 * mr * 0.8);
+      ctx.fillRect(cx2 - (sx2 > 0 ? CELL : 0), cy2, CELL * 2, CELL / 2 + 1);
+      ctx.fillRect(cx2 - (sx2 > 0 ? 1 : 0), cy2 - (sy2 > 0 ? CELL : 0), CELL / 2 + 1, CELL * 2);
+    }
+  }
   if (e.slowUntil > tms || e.auraSlow > 0) {
     ctx.fillStyle = "#9fd4e8";
     for (let i = 0; i < 3; i++) {

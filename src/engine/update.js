@@ -36,6 +36,8 @@ const makeEnemy = (type, mult) => {
     // Hollow Court traits: bells that summon, bodies that split or burst
     summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonCd: null,
     splitInto: d.splitInto || null, deathBurst: d.deathBurst || null, deathDone: false,
+    // falconry marks, alchemical shred, and the roc's grip
+    markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0, carryUntil: 0, carryBack: 0,
     x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
     slowUntil: 0, slowPct: 0, burnUntil: 0, burnDps: 0, poisonUntil: 0, poisonDps: 0,
     brittleUntil: 0, brittleAmp: 0, burnSpread: false,
@@ -81,6 +83,7 @@ export function updateGame(g, dt) {
   g.time += sdt;
   const tms = g.time * 1000;
   if (!g.grounds) g.grounds = []; // lingering ground effects (lava pools)
+  if (!g.traps) g.traps = [];     // the trapsmith's armed road
 
   if (!g.paused && g.phase === "combat") {
     g.spawnTimer += sdt * 1000;
@@ -97,7 +100,7 @@ export function updateGame(g, dt) {
       }
     }
     if (!g.corpses) g.corpses = []; // fresh kills a necromancer may raise
-    for (const e of g.enemies) { e.auraSlow = 0; e.bannerSpeed = 0; e.bannerArmor = 0; }
+    for (const e of g.enemies) { e.auraSlow = 0; e.bannerSpeed = 0; e.bannerArmor = 0; e.shredAura = 0; }
     // A Lord Marshal's banner drives everything marching near it: quicker feet
     // and harder plate for as long as he is on his.
     for (const b of g.enemies) {
@@ -151,6 +154,77 @@ export function updateGame(g, dt) {
           }
         }
       }
+    }
+    // The trapsmith's bench: charges accumulate whether or not anyone watches
+    for (const t of g.towers) {
+      if (t.kind !== "trapsmith") continue;
+      const st = getStats(t);
+      if ((t.charges || 0) < st.maxCharges) {
+        t.chargeCd = (t.chargeCd ?? st.chargeEvery) - sdt * 1000;
+        if (t.chargeCd <= 0) { t.charges = (t.charges || 0) + 1; t.chargeCd = st.chargeEvery; }
+      }
+      // level-ups can raise the ceiling; never hold more than it allows
+      t.charges = Math.min(t.charges || 0, st.maxCharges);
+    }
+    // Lead to Gold: the transmuter's aura eats armor off everything inside it
+    for (const t of g.towers) {
+      if (t.kind !== "goldworks" || t.branch !== "b") continue;
+      const st = getStats(t);
+      if (!st.shredAura) continue;
+      for (const e of g.enemies) {
+        if (e.dead) continue;
+        if (Math.hypot(e.x - t.x, e.y - t.y) <= st.auraRange) e.shredAura = Math.max(e.shredAura, st.shredAura);
+      }
+    }
+    // Kingsight: the court's eye rests on the mightiest foe alive, always
+    for (const t of g.towers) {
+      if (t.kind !== "falconry" || !t.branch || !(t.branch + (t.rank4 || "") === "ba")) continue;
+      const st = getStats(t);
+      if (!st.kingsight) continue;
+      let big = null;
+      for (const e of g.enemies) if (!e.dead && (!big || e.hp > big.hp)) big = e;
+      if (big) {
+        big.markUntil = Math.max(big.markUntil, tms + 400);
+        big.markAmp = Math.max(big.markAmp, st.mark);
+        big.markShredAmt = Math.max(big.markShredAmt, st.markShred || 0);
+      }
+      break;
+    }
+    // The armed road: any foot on a trap springs it
+    for (let ti = g.traps.length - 1; ti >= 0; ti--) {
+      const tr = g.traps[ti];
+      const owner = g.towers.find((tw) => tw.id === tr.byTower);
+      const st = owner ? getStats(owner) : { trapDmg: 60, splash: 34, slow: 0.3, slowDur: 1400 };
+      let victim = null;
+      for (const e of g.enemies) {
+        if (e.dead || e.flying) continue;
+        if (Math.hypot(e.x - tr.x, e.y - tr.y) < 15) { victim = e; break; }
+      }
+      if (!victim) continue;
+      g.traps.splice(ti, 1);
+      const r4 = tr.branch ? tr.branch + (tr.rank4 || "") : "";
+      g.effects.push({ type: tr.branch === "b" ? "boom" : "dust", x: tr.x, y: tr.y, ttl: 340, r: st.splash || 34 });
+      sfx.play(tr.branch === "b" ? "boom" : "trapSnap");
+      g.shake = Math.max(g.shake, tr.branch === "b" ? 4 : 2);
+      for (const e of g.enemies) {
+        if (e.dead || e.flying) continue;
+        const dd = Math.hypot(e.x - tr.x, e.y - tr.y);
+        if (dd > (st.splash || 34)) continue;
+        // the springer eats the full bite; the splash takes the rest
+        const full = e === victim;
+        // a guillotine finishes the nearly-dead outright
+        if (full && st.execute && !e.boss && e.hp / e.maxHp <= st.execute) {
+          dealDamage(g, e, e.hp + 9999, "phys", true);
+          continue;
+        }
+        dealDamage(g, e, st.trapDmg * (full ? 1 : 0.6), "phys", false);
+        if (e.dead) continue;
+        if (full && st.root && !e.boss) e.stunUntil = Math.max(e.stunUntil, tms + st.root);
+        if (st.stunAll) e.stunUntil = Math.max(e.stunUntil, tms + st.stunAll);
+        if (st.burn) { e.burnUntil = tms + st.burnDur; e.burnDps = st.burn; }
+        if (st.slow) { e.slowUntil = tms + st.slowDur; e.slowPct = Math.max(e.slowPct, st.slow); }
+      }
+      if (st.caltrops) g.grounds.push({ x: tr.x, y: tr.y, r: 40, dps: 0, slowPct: st.caltropSlow || 0.35, until: tms + st.caltrops, kind: "caltrops" });
     }
     for (const e of g.enemies) {
       if (e.dead) continue;
@@ -248,7 +322,9 @@ export function updateGame(g, dt) {
       if (!e.dead) {
         for (const gr of g.grounds) {
           if (gr.kind === "plague") continue;
-          if (gr.until > tms && Math.hypot(e.x - gr.x, e.y - gr.y) <= gr.r) dealDamage(g, e, gr.dps * sdt, "magic", false, true);
+          if (gr.until <= tms || Math.hypot(e.x - gr.x, e.y - gr.y) > gr.r) continue;
+          if (gr.kind === "caltrops") { e.auraSlow = Math.max(e.auraSlow, gr.slowPct || 0.35); continue; }
+          dealDamage(g, e, gr.dps * sdt, "magic", false, true);
         }
       }
       if (e.dead) continue;
@@ -257,7 +333,11 @@ export function updateGame(g, dt) {
       // the shock that stop everything else
       const stunned = e.stunUntil > tms && !e.immStun;
       const held = e.blockedBy && e.engaged;
-      if (!stunned && !held) {
+      if (e.carryUntil > tms) {
+        // in the roc's grip: hauled back down the road, past all argument
+        e.dist = Math.max(0, e.dist - e.carryBack * sdt);
+        releaseEnemy(g, e);
+      } else if (!stunned && !held) {
         const slow = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
         e.dist += e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
       }
@@ -465,7 +545,79 @@ export function updateGame(g, dt) {
 
     for (const t of g.towers) {
       t.anim = Math.max(0, t.anim - sdt * 4);
-      if (t.kind === "knight" || t.kind === "support") continue;
+      if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith") continue;
+      if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger
+      // Roc Keeper: the whistle, and something enormous answers it
+      if (t.kind === "falconry") {
+        const stR = getStats(t);
+        if (stR.roc) {
+          t.rocCd = (t.rocCd ?? stR.roc) - sdt * 1000;
+          if (t.rocCd <= 0) {
+            let big = null;
+            for (const e of g.enemies) {
+              if (e.dead || e.boss || e.flying || e.carryUntil > tms) continue;
+              if (Math.hypot(e.x - t.x, e.y - t.y) <= stR.range && (!big || e.hp > big.hp)) big = e;
+            }
+            if (big) {
+              t.rocCd = stR.roc;
+              big.carryUntil = tms + 1500;
+              big.carryBack = stR.rocDrag;
+              g.effects.push({ type: "roc", x1: t.x, y1: t.y - 42, x2: big.x, y2: big.y, ttl: 520 });
+              sfx.play("roc");
+            } else t.rocCd = 600;
+          }
+        }
+      }
+      // The Sunforge holds its beam instead of firing: same target, growing
+      // heat; a new target starts the focus from cold.
+      if (t.kind === "sunforge") {
+        const st = getStats(t);
+        let tgt = t.beamId != null ? g.enemies.find((e) => e.id === t.beamId && !e.dead) : null;
+        if (tgt && Math.hypot(tgt.x - t.x, tgt.y - t.y) > st.range) tgt = null;
+        if (!tgt) {
+          let best = null;
+          for (const e of g.enemies) {
+            if (e.dead) continue;
+            if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range && (!best || e.hp > best.hp)) best = e;
+          }
+          tgt = best;
+          t.beamId = best ? best.id : null;
+          t.ramp = 1;
+        }
+        t.beamId2 = null;
+        if (tgt) {
+          t.ramp = Math.min(st.rampMax, (t.ramp || 1) + ((sdt * 1000) / st.rampTime) * (st.rampMax - 1));
+          const atMax = t.ramp >= st.rampMax - 0.01;
+          t.lastAim = Math.atan2(tgt.y - t.y, tgt.x - t.x);
+          dealDamage(g, tgt, st.dps * t.ramp * sdt, "magic", false, true);
+          if (!tgt.dead) {
+            if (st.beamSlow) { tgt.slowUntil = tms + 200; tgt.slowPct = Math.max(tgt.slowPct, atMax && st.wellRoot ? 0.95 : st.beamSlow); }
+            if (atMax && st.igniteBurn) { tgt.burnUntil = tms + st.igniteDur; tgt.burnDps = st.igniteBurn; }
+          }
+          if (atMax && st.beamSplash) {
+            for (const e of g.enemies) {
+              if (e.dead || e === tgt) continue;
+              if (Math.hypot(e.x - tgt.x, e.y - tgt.y) <= st.beamSplash) dealDamage(g, e, st.dps * 0.5 * sdt, "magic", false, true);
+            }
+          }
+          if (st.beams > 1) {
+            let second = null;
+            for (const e of g.enemies) {
+              if (e.dead || e === tgt) continue;
+              if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range && (!second || e.hp > second.hp)) second = e;
+            }
+            if (second) {
+              dealDamage(g, second, st.dps * Math.max(1, t.ramp * 0.5) * sdt, "magic", false, true);
+              if (!second.dead) {
+                t.beamId2 = second.id;
+                if (st.beamSlow) { second.slowUntil = tms + 200; second.slowPct = Math.max(second.slowPct, st.beamSlow); }
+              }
+            }
+          }
+          if (tgt.dead) { t.beamId = null; t.ramp = 1; }
+        }
+        continue;
+      }
       t.cd -= sdt * 1000;
       if (t.cd > 0) continue;
       const st = getStats(t);
@@ -564,6 +716,41 @@ export function updateGame(g, dt) {
             });
           }
         }
+      } else if (t.kind === "falconry") {
+        // the bird stoops: instant talons, a mark left behind, and — for the
+        // storm mews — a ricochet into the next victim
+        const hits = [target];
+        if (st.shots > 1) {
+          for (const e of g.enemies) {
+            if (hits.length >= st.shots) break;
+            if (e.dead || hits.includes(e)) continue;
+            if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range) hits.push(e);
+          }
+        }
+        for (const v of hits) {
+          g.effects.push({ type: "talon", x1: t.x, y1: t.y - 30, x2: v.x, y2: v.y - 6, ttl: 170 });
+          dealDamage(g, v, st.dmg * (v.flying ? st.airMult : 1), "phys", false);
+          if (!v.dead) {
+            v.markUntil = tms + st.markDur;
+            v.markAmp = Math.max(v.markAmp, st.mark);
+            v.markShredAmt = Math.max(v.markShredAmt, st.markShred || 0);
+            if (st.diveStun && Math.random() < st.diveStun) v.stunUntil = tms + st.diveStunDur;
+          }
+          if (st.chain) {
+            let nxt = null, nd = Infinity;
+            for (const e of g.enemies) {
+              if (e.dead || e === v || hits.includes(e)) continue;
+              const dd = Math.hypot(e.x - v.x, e.y - v.y);
+              if (dd <= st.chainRange && dd < nd) { nd = dd; nxt = e; }
+            }
+            if (nxt) {
+              g.effects.push({ type: "talon", x1: v.x, y1: v.y - 6, x2: nxt.x, y2: nxt.y - 6, ttl: 150 });
+              dealDamage(g, nxt, st.dmg * 0.5 * (nxt.flying ? st.airMult : 1), "phys", false);
+              if (!nxt.dead) { nxt.markUntil = tms + st.markDur; nxt.markAmp = Math.max(nxt.markAmp, st.mark); }
+            }
+          }
+        }
+        sfx.play("falcon");
       } else if (st.arc) {
         // Stormcaller: lightning strikes instantly and arcs down the line
         let cur = target, mult = 1;
@@ -587,13 +774,19 @@ export function updateGame(g, dt) {
         g.effects.push({ type: "bolt", pts, ttl: 220, seed: Math.random() * 10 });
       sfx.play("zap");
       } else {
+        // Midas Cannon: count the shots — every Nth flies gilded
+        let midas = false;
+        if (st.midas) {
+          t.midasIdx = ((t.midasIdx || 0) + 1) % st.midas;
+          midas = t.midasIdx === 0;
+        }
         g.projectiles.push({
           id: nextId(), x: t.x, y: t.y - 30, targetId: target.id,
           tx: target.x, ty: target.y, speed: 300, delay: 0,
           dmg: st.dmg, dtype: st.dtype, pierce: !!st.pierce, splash: st.splash || 0,
           burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
           poolDps: st.poolDps || 0, poolDur: st.poolDur || 0, poolR: st.poolR || 0,
-          burnSpreads: !!st.burnSpread,
+          burnSpreads: !!st.burnSpread, midas,
           kind: "orb",
         });
       }
@@ -660,7 +853,15 @@ export function updateGame(g, dt) {
             }
           }
         } else if (target) {
-          dealDamage(g, target, p.dmg, p.dtype, p.pierce);
+          if (p.midas && !target.boss) {
+            // turned to gold where it stood: killed outright, worth triple
+            target.bounty = target.bounty * 3;
+            g.effects.push({ type: "midas", x: p.tx, y: p.ty, ttl: 650, life: 650 });
+            sfx.play("midas");
+            dealDamage(g, target, target.hp + 99999, "magic", true);
+          } else {
+            dealDamage(g, target, p.dmg, p.dtype, p.pierce);
+          }
           if (p.pierce) g.effects.push({ type: "pierce", x: p.tx, y: p.ty, ttl: 250 });
           // Briar Rangers: each hit stacks poison dps (capped), refreshing duration
           if (p.poison && !target.dead) {
@@ -700,6 +901,24 @@ export function updateGame(g, dt) {
       g.gold += waveBonus(g.wave);
       sfx.play("waveClear");
       if (g.run) g.run.goldEarned += waveBonus(g.wave);
+      // the Gold Works pay out on every wave held
+      for (const t of g.towers) {
+        if (t.kind !== "goldworks") continue;
+        const st = getStats(t);
+        if (!st.income) continue;
+        let pay = st.income + (t.mintBonus || 0);
+        if (st.hoard) pay = g.lives >= (g.livesAtWaveStart ?? g.lives) ? pay * 2 : 0;
+        if (st.compound) t.mintBonus = (t.mintBonus || 0) + st.compound;
+        if (st.mend && g.lives < CASTLE_HP) g.lives += 1;
+        if (pay > 0) {
+          g.gold += pay;
+          if (g.run) g.run.goldEarned += pay;
+          g.effects.push({ type: "coin", x: t.x, y: t.y - 26, ttl: 1100, text: `+${pay}g` });
+          sfx.play("payout");
+        } else if (st.hoard) {
+          g.effects.push({ type: "coin", x: t.x, y: t.y - 26, ttl: 1100, text: "the hoard withholds" });
+        }
+      }
       g.effects.push({ type: "coin", x: W / 2, y: 40, ttl: 1200, text: `Wave cleared! +${waveBonus(g.wave)}g`, big: true });
       // High Cathedral: each cleared wave rebuilds one castle HP
       if (g.lives < CASTLE_HP && g.towers.some((t) => t.kind === "support" && t.branch === "b" && t.rank4 === "b")) {

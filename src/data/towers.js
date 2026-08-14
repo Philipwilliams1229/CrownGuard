@@ -127,6 +127,106 @@ export const TOWERS = {
       },
     },
   },
+  goldworks: {
+    name: "Gold Works", cost: 120, dtype: "magic", proj: "none",
+    blurb: "Mints gold instead of arrows: a payout every wave it stands. Greed early, or guns early — you can't have both.",
+    levels: [
+      { income: 10, range: 0, rate: 0 },
+      { income: 18, range: 0, rate: 0, cost: 80, label: "Second Furnace" },
+      { income: 28, range: 0, rate: 0, cost: 120, label: "Master Minters" },
+    ],
+    branches: {
+      a: {
+        name: "Royal Mint", cost: 230, stats: { income: 40, compound: 2, range: 0, rate: 0 }, desc: "Pure compounding wealth: every wave it survives, its payout grows by 2. Plant it early and let time do the arithmetic.",
+        rank4: {
+          a: { name: "Dragon's Hoard", cost: 360, stats: { income: 60, compound: 3, hoard: true, range: 0, rate: 0 }, desc: "Doubled payouts — but a wave where the castle bleeds pays NOTHING. Greed with a heartbeat." },
+          b: { name: "Philosopher's Stone", cost: 360, stats: { income: 45, compound: 2, mend: 1, range: 0, rate: 0 }, desc: "Gold into life itself: each wave held also restores 1 castle HP." },
+        },
+      },
+      b: {
+        name: "Transmuter", cost: 230, stats: { dmg: 34, rate: 1300, range: 130, magic: true, bountyAura: 0.25, auraRange: 120 }, desc: "The alchemist takes the field: acid vials that melt armor's owners, and an aura where every kill pays a quarter more.",
+        rank4: {
+          a: { name: "Midas Cannon", cost: 380, stats: { dmg: 40, rate: 1250, range: 135, magic: true, midas: 12, bountyAura: 0.25, auraRange: 120 }, desc: "Every 12th shot turns a lesser foe to solid gold — killed outright, and worth triple." },
+          b: { name: "Lead to Gold", cost: 380, stats: { dmg: 36, rate: 1300, range: 130, magic: true, bountyAura: 0.3, auraRange: 130, shredAura: 0.25 }, desc: "The aura transmutes armor itself: everything inside it wears a quarter less plate." },
+        },
+      },
+    },
+  },
+  trapsmith: {
+    name: "Trapsmith", cost: 110, dtype: "phys", proj: "trap",
+    blurb: "Arms the ROAD itself. Stockpiles charges; select the shop, then click the road to set a trap where they'll walk.",
+    levels: [
+      { trapDmg: 60, splash: 34, maxCharges: 2, chargeEvery: 9000, range: 150, slow: 0.3, slowDur: 1400, rate: 0 },
+      { trapDmg: 95, splash: 36, maxCharges: 3, chargeEvery: 8000, range: 165, slow: 0.3, slowDur: 1500, rate: 0, cost: 90, label: "Sharper Springs" },
+      { trapDmg: 135, splash: 40, maxCharges: 4, chargeEvery: 7000, range: 180, slow: 0.35, slowDur: 1600, rate: 0, cost: 130, label: "Double Stockpile" },
+    ],
+    branches: {
+      a: {
+        name: "Springworks", cost: 230, stats: { trapDmg: 125, splash: 36, maxCharges: 4, chargeEvery: 6500, range: 195, root: 2200, rate: 0 }, desc: "Bear-iron jaws: the first lesser foe to step in is HELD FAST — a block with no knight in it.",
+        rank4: {
+          a: { name: "Guillotine Gate", cost: 360, stats: { trapDmg: 160, splash: 38, maxCharges: 4, chargeEvery: 6000, range: 200, root: 2400, execute: 0.22, rate: 0 }, desc: "Anything under a fifth of its health that touches the trap is simply finished." },
+          b: { name: "Caltrop Field", cost: 360, stats: { trapDmg: 130, splash: 40, maxCharges: 5, chargeEvery: 6000, range: 200, root: 2000, caltrops: 6000, caltropSlow: 0.35, rate: 0 }, desc: "Sprung traps leave a bed of caltrops — ground that keeps slowing the column long after the snap." },
+        },
+      },
+      b: {
+        name: "Blastworks", cost: 230, stats: { trapDmg: 190, splash: 62, maxCharges: 3, chargeEvery: 7000, range: 195, burn: 14, burnDur: 2600, rate: 0 }, desc: "Pressure mines. Big blasts, burning shrapnel, and a column that learns to fear its own road.",
+        rank4: {
+          a: { name: "Minefield Doctrine", cost: 370, stats: { trapDmg: 200, splash: 64, maxCharges: 4, chargeEvery: 6000, autoSeed: 3, burn: 14, burnDur: 2600, range: 205, rate: 0 }, desc: "The smiths work through the horn: up to three mines seed THEMSELVES onto the road as each wave begins." },
+          b: { name: "Doomsday Charge", cost: 370, stats: { trapDmg: 480, splash: 95, maxCharges: 1, chargeEvery: 11000, stunAll: 900, burn: 18, burnDur: 3000, range: 205, rate: 0 }, desc: "One charge. One crater. Everything that survives it stands stunned in the smoke." },
+        },
+      },
+    },
+  },
+  falconry: {
+    name: "Falconry", cost: 130, dtype: "phys", proj: "talon",
+    blurb: "A falcon that owns the sky: double talons against fliers, and every strike MARKS its prey to take more from all your towers.",
+    levels: [
+      { dmg: 16, rate: 850, range: 150, airMult: 2, mark: 0.2, markDur: 2500 },
+      { dmg: 26, rate: 820, range: 160, airMult: 2, mark: 0.2, markDur: 2500, cost: 90, label: "Second Falcon" },
+      { dmg: 38, rate: 800, range: 170, airMult: 2, mark: 0.25, markDur: 3000, cost: 140, label: "Master Falconer" },
+    ],
+    branches: {
+      a: {
+        name: "Royal Aviary", cost: 240, stats: { dmg: 34, rate: 430, range: 175, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500 }, desc: "A whole mews of hunting birds: near-constant dives that can knock foes senseless.",
+        rank4: {
+          a: { name: "Roc Keeper", cost: 370, stats: { dmg: 40, rate: 430, range: 185, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500, roc: 8000, rocDrag: 90 }, desc: "Something enormous answers the whistle: every eight seconds it seizes the mightiest lesser foe and CARRIES IT BACK down the road." },
+          b: { name: "Storm Falcons", cost: 370, stats: { dmg: 38, rate: 390, range: 180, airMult: 2.4, mark: 0.25, markDur: 3000, diveStun: 0.25, diveStunDur: 600, chain: 1, chainRange: 90 }, desc: "Dives that crack like weather — each strike ricochets to a second victim." },
+        },
+      },
+      b: {
+        name: "Warhawk Court", cost: 240, stats: { dmg: 30, rate: 800, range: 180, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3 }, desc: "The marks turn surgical: marked foes also lose a third of their armor. The tower that turns your arrows back ON.",
+        rank4: {
+          a: { name: "Kingsight", cost: 370, stats: { dmg: 36, rate: 780, range: 190, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3, kingsight: true }, desc: "The court's eye never closes: the mightiest foe on the field is ALWAYS marked, everywhere, forever." },
+          b: { name: "Talon Rain", cost: 370, stats: { dmg: 30, rate: 800, range: 190, airMult: 2.2, mark: 0.3, markDur: 3200, markShred: 0.3, shots: 3 }, desc: "Three birds aloft at once — every volley marks three different victims." },
+        },
+      },
+    },
+  },
+  sunforge: {
+    name: "Sunforge", cost: 150, dtype: "magic", proj: "beam",
+    blurb: "A captive shard of sun that holds ONE foe in its beam — and the longer it holds, the hotter it burns. Melts champions; ignores crowds.",
+    levels: [
+      { dps: 26, range: 130, rampMax: 3, rampTime: 3500, rate: 0 },
+      { dps: 42, range: 138, rampMax: 3, rampTime: 3200, rate: 0, cost: 110, label: "Focused Array" },
+      { dps: 62, range: 145, rampMax: 3.5, rampTime: 3000, rate: 0, cost: 160, label: "Perfect Facets" },
+    ],
+    branches: {
+      a: {
+        name: "Solar Lance", cost: 250, stats: { dps: 85, range: 150, rampMax: 4, rampTime: 2800, igniteBurn: 18, igniteDur: 2000, rate: 0 }, desc: "Hotter, faster, crueler — and at full focus the beam sets its victim alight.",
+        rank4: {
+          a: { name: "Noon Eternal", cost: 380, stats: { dps: 92, range: 155, rampMax: 4, rampTime: 2600, igniteBurn: 20, igniteDur: 2200, beamSplash: 42, rate: 0 }, desc: "At full focus the light overflows — everything near the victim burns in the spill." },
+          b: { name: "Sun Spear", cost: 380, stats: { dps: 85, range: 160, rampMax: 6, rampTime: 3000, igniteBurn: 20, igniteDur: 2200, rate: 0 }, desc: "No ceiling worth the name: the ramp climbs to SIX times, if you have the patience to hold it." },
+        },
+      },
+      b: {
+        name: "Moon Prism", cost: 250, stats: { dps: 70, range: 150, rampMax: 3.5, rampTime: 2800, beamSlow: 0.3, rate: 0 }, desc: "Cold light: the held foe wades against it, slowed the whole while.",
+        rank4: {
+          a: { name: "Gravity Well", cost: 380, stats: { dps: 74, range: 155, rampMax: 3.5, rampTime: 2600, beamSlow: 0.35, wellRoot: true, rate: 0 }, desc: "At full focus the beam becomes a fist: the victim STOPS, pinned in the light. Yes — even him." },
+          b: { name: "Eclipse", cost: 380, stats: { dps: 66, range: 160, rampMax: 3.5, rampTime: 2800, beamSlow: 0.3, beams: 2, rate: 0 }, desc: "Two beams, sun and shadow — a second foe held at half focus." },
+        },
+      },
+    },
+  },
   support: {
     name: "Warden Mage", cost: 110, dtype: "magic", proj: "aura",
     blurb: "A frost-touched mage on an altar — biting cold slows every enemy in the aura.",

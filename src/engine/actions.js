@@ -4,12 +4,12 @@
 // and the shared damage helper. Each takes `g` explicitly.
 
 import { W, H, BLOCK_DIST } from "../data/constants.js";
-import { PTS, nearestOnPath } from "./path.js";
+import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { waveSpec, waveHpMult } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
-import { makeTower, syncUnits } from "./towers.js";
+import { makeTower, syncUnits, getStats } from "./towers.js";
 import { sfx } from "../audio/sfx.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
@@ -54,6 +54,24 @@ export const startWave = (g) => {
   }
   g.spawnQueue = queue;
   g.spawnTimer = 0;
+  g.livesAtWaveStart = g.lives;      // the Dragon's Hoard pays only clean waves
+  // Minefield Doctrine: the smiths seed the road themselves as the horn blows
+  if (!g.traps) g.traps = [];
+  for (const t of g.towers) {
+    if (t.kind !== "trapsmith") continue;
+    const st = getStats(t);
+    if (!st.autoSeed) continue;
+    let seeded = 0;
+    for (let tries = 0; tries < 60 && seeded < st.autoSeed && t.charges > 0; tries++) {
+      const d = Math.random() * TOTAL_LEN;
+      const [px, py] = posAt(d);
+      if (Math.hypot(px - t.x, py - t.y) > st.range) continue;
+      if (g.traps.some((tr) => Math.hypot(tr.x - px, tr.y - py) < 30)) continue;
+      g.traps.push({ x: px, y: py, byTower: t.id, branch: t.branch, rank4: t.rank4 });
+      t.charges -= 1;
+      seeded++;
+    }
+  }
   sfx.play("horn");
   // Announce it on the board. A wave with a boss in it says so by name —
   // there should never be a moment where a dragon arrives unheralded.
@@ -66,6 +84,24 @@ export const startWave = (g) => {
   };
 };
 
+// The Trapsmith's whole trade: a charge spent to arm a spot of road. The
+// click must land on the road, within the shop's reach, and clear of any
+// trap already waiting there.
+export const placeTrap = (g, t, x, y) => {
+  if (!t || t.kind !== "trapsmith" || (t.charges || 0) <= 0) return false;
+  const st = getStats(t);
+  const near = nearestOnPath(x, y);
+  if (near.d > 30) return false;                       // not on the road
+  if (Math.hypot(near.x - t.x, near.y - t.y) > st.range) return false;
+  if (!g.traps) g.traps = [];
+  if (g.traps.some((tr) => Math.hypot(tr.x - near.x, tr.y - near.y) < 26)) return false;
+  g.traps.push({ x: near.x, y: near.y, byTower: t.id, branch: t.branch, rank4: t.rank4 });
+  t.charges -= 1;
+  g.effects.push({ type: "dust", x: near.x, y: near.y, ttl: 300, r: 14 });
+  sfx.play("place");
+  return true;
+};
+
 export const restartWave = (g) => {
   if (!g || !g.snapshot) return;
   const s = g.snapshot;
@@ -75,7 +111,7 @@ export const restartWave = (g) => {
     t.aim = td.aim || "first";  // a retried wave keeps the orders you gave
     return t;
   });
-  g.enemies = []; g.projectiles = []; g.effects = []; g.spawnQueue = []; g.corpses = [];
+  g.enemies = []; g.projectiles = []; g.effects = []; g.spawnQueue = []; g.corpses = []; g.traps = [];
   g.phase = "build"; g.selectedId = null; g.buildMode = null; g.rallyFor = null; g.paused = false; g.buildUntil = null;
 };
 
@@ -154,8 +190,13 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick) => {
     dmg = Math.min(dmg, 1);
     sfx.play("tink");
   }
-  // a marshal's banner hardens everything marching under it
-  const armor = Math.min(0.85, e.armor + (e.bannerArmor || 0));
+  const tmsD = g.time * 1000;
+  // a falconer's mark: everything hits the marked harder
+  if (e.markUntil > tmsD) dmg *= 1 + (e.markAmp || 0);
+  // a marshal's banner hardens everything marching under it; marks and
+  // alchemy strip it back off
+  const shred = (e.markUntil > tmsD ? e.markShredAmt || 0 : 0) + (e.shredAura || 0);
+  const armor = Math.min(0.85, Math.max(0, e.armor - shred + (e.bannerArmor || 0)));
   if (dtype === "phys" && !pierce) dmg *= 1 - armor;
   // rune wards: magic fizzles against warded foes
   if (dtype === "magic") dmg *= 1 - (e.mres || 0);
@@ -166,6 +207,16 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick) => {
   if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;
   if (e.hp <= 0 && !e.dead) {
     e.dead = true;
+    // a transmuter's aura makes every nearby death pay better
+    let pay = e.bounty;
+    for (const tw of g.towers) {
+      if (tw.kind !== "goldworks" || tw.branch !== "b") continue;
+      const stB = getStats(tw);
+      if (stB.bountyAura && Math.hypot(tw.x - e.x, tw.y - e.y) <= stB.auraRange) {
+        pay = Math.max(pay, Math.ceil(e.bounty * (1 + stB.bountyAura)));
+      }
+    }
+    e.bounty = pay;
     g.gold += e.bounty;
     sfx.play("crunch");
     sfx.play("coin");

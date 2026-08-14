@@ -15,7 +15,7 @@ import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextL
 import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
-  towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
+  towerNear, placeTower, placeTrap, upgradeTower, branchTower, ascendTower, sellTower,
   startWave, restartWave,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
@@ -210,21 +210,24 @@ export default function Crownguard() {
       updateGame(g, dt);
       // a garrison sold mid-move takes its rally prompt with it
       if (g.rallyFor != null && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
+      if (g.trapFor != null && !g.towers.some((t) => t.id === g.trapFor)) g.trapFor = null;
       draw(g, canvasRef.current, bufRef);
 
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
       const sel = g.towers.find((t) => t.id === g.selectedId) || null;
-      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}` : null;
+      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${sel.charges ?? ""}-${g.trapFor != null}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
       const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
       const rallyFor = g.rallyFor ?? null;
-      if (u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush) {
+      if (u.trapArming !== (g.trapFor != null) || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush) {
         setUi({
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim } : null,
           selKey, buildMode: g.buildMode, rallyFor, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY, rush: g.rush,
+          trapArming: g.trapFor != null,
+          trapCharges: g.trapFor != null ? (g.towers.find((t) => t.id === g.trapFor)?.charges || 0) : 0,
           result: g.phase === "won" ? "won" : g.phase === "lost" ? "lost" : null,
         });
       }
@@ -278,6 +281,14 @@ export default function Crownguard() {
   const handleTap = (x, y) => {
     const g = G.current;
     if (!g || g.phase === "won" || g.phase === "lost" || g.paused) return;
+    if (g.trapFor != null) {
+      // the trapsmith's trade: each click on the road arms one charge
+      const t = g.towers.find((tt) => tt.id === g.trapFor);
+      if (!t) { g.trapFor = null; return; }
+      placeTrap(g, t, x, y);
+      if ((t.charges || 0) <= 0) g.trapFor = null;
+      return;
+    }
     if (g.rallyFor != null) {
       const t = g.towers.find((tt) => tt.id === g.rallyFor);
       if (t) postRally(g, t, x, y);
@@ -519,6 +530,12 @@ export default function Crownguard() {
                 <button aria-label="Cancel rally move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
               </div>
             )}
+            {ui.trapArming && (
+              <div style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", background: "rgba(16,14,20,0.9)", border: "2px solid #10131a", padding: "5px 10px", fontSize: 11, display: "flex", gap: 8, alignItems: "center", zIndex: 30 }}>
+                <span>Click the <b style={{ color: "#e8d47a" }}>road</b> to set a trap — {ui.trapCharges} charge{ui.trapCharges === 1 ? "" : "s"} ready.</span>
+                <button aria-label="Stop placing traps" onClick={() => { if (G.current) G.current.trapFor = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
+              </div>
+            )}
 
             {/* build drawer (right side) */}
             <div style={{
@@ -613,6 +630,22 @@ export default function Crownguard() {
                     <FlagIcon /> Move Rally Flag
                   </button>
                 )}
+
+                {sel.kind === "trapsmith" && (() => {
+                  const tt = G.current?.towers.find((x) => x.id === sel.id);
+                  const charges = tt?.charges || 0;
+                  return (
+                    <button
+                      style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, ...(charges <= 0 ? disabled : {}), ...(ui.trapArming ? { background: "#5a4f2c" } : {}) }}
+                      onClick={() => {
+                        const g2 = G.current;
+                        if (!g2 || charges <= 0) return;
+                        g2.trapFor = g2.trapFor === sel.id ? null : sel.id;
+                      }}>
+                      🪤 Set Traps ({charges} ready)
+                    </button>
+                  );
+                })()}
 
                 {/* standing orders: who this tower shoots at */}
                 {(() => {

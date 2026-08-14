@@ -106,6 +106,50 @@ export const SKILLS = {
       { id: "u5", tier: 3, name: "Winter's Warden", needs: ["u3", "u4"], per: { slow: P, heal: P }, desc: "+5% slow AND +5% mending a rank." },
     ],
   },
+  goldworks: {
+    name: "Gold Works",
+    blurb: "Compounding interest, in tower form. Every rank pays for itself.",
+    nodes: [
+      { id: "m1", tier: 1, name: "Finer Scales", per: { income: P }, desc: "+5% payout a rank." },
+      { id: "m2", tier: 1, name: "Longer Ledgers", per: { range: P }, desc: "+5% aura reach a rank." },
+      { id: "m3", tier: 2, name: "Hotter Crucibles", needs: ["m1"], per: { income: P }, desc: "A further +5% payout a rank." },
+      { id: "m4", tier: 2, name: "Sharper Vials", needs: ["m2"], per: { dmg: P }, desc: "+5% transmuter damage a rank." },
+      { id: "m5", tier: 3, name: "Royal Charter", needs: ["m3", "m4"], per: { income: P, dmg: P }, desc: "+5% payout AND +5% damage a rank." },
+    ],
+  },
+  trapsmith: {
+    name: "Trapsmith",
+    blurb: "The road is the weapon. Sharpen it.",
+    nodes: [
+      { id: "p1", tier: 1, name: "Whetted Teeth", per: { trapDmg: P }, desc: "+5% trap damage a rank." },
+      { id: "p2", tier: 1, name: "Long Reach", per: { range: P }, desc: "+5% placing reach a rank." },
+      { id: "p3", tier: 2, name: "Wider Springs", needs: ["p1"], per: { splash: P }, desc: "+5% trap blast a rank." },
+      { id: "p4", tier: 2, name: "Tireless Bench", needs: ["p2"], per: { trapDmg: P }, desc: "A further +5% trap damage a rank." },
+      { id: "p5", tier: 3, name: "Master Smith", needs: ["p3", "p4"], per: { trapDmg: P, range: P }, desc: "+5% damage AND +5% reach a rank." },
+    ],
+  },
+  falconry: {
+    name: "Falconry",
+    blurb: "Sharper eyes, crueler talons, a sky that belongs to you.",
+    nodes: [
+      { id: "b1", tier: 1, name: "Honed Talons", per: { dmg: P }, desc: "+5% strike damage a rank." },
+      { id: "b2", tier: 1, name: "High Circling", per: { range: P }, desc: "+5% hunting range a rank." },
+      { id: "b3", tier: 2, name: "Swift Return", needs: ["b1"], per: { rate: P }, desc: "Strikes 5% faster a rank." },
+      { id: "b4", tier: 2, name: "Keen Eyes", needs: ["b2"], per: { dmg: P }, desc: "A further +5% damage a rank." },
+      { id: "b5", tier: 3, name: "The Grand Mews", needs: ["b3", "b4"], per: { dmg: P, rate: P }, desc: "+5% damage AND 5% faster a rank." },
+    ],
+  },
+  sunforge: {
+    name: "Sunforge",
+    blurb: "More light, held longer, focused finer.",
+    nodes: [
+      { id: "z1", tier: 1, name: "Purer Shard", per: { dps: P }, desc: "+5% beam damage a rank." },
+      { id: "z2", tier: 1, name: "Taller Prongs", per: { range: P }, desc: "+5% reach a rank." },
+      { id: "z3", tier: 2, name: "Deeper Focus", needs: ["z1"], per: { dps: P }, desc: "A further +5% beam damage a rank." },
+      { id: "z4", tier: 2, name: "Wider Facets", needs: ["z2"], per: { range: P }, desc: "A further +5% reach a rank." },
+      { id: "z5", tier: 3, name: "The Second Dawn", needs: ["z3", "z4"], per: { dps: P, range: P }, desc: "+5% beam AND +5% reach a rank." },
+    ],
+  },
 };
 
 export const skillNode = (kind, id) => SKILLS[kind]?.nodes.find((n) => n.id === id) || null;

@@ -10,7 +10,7 @@ import { nextId } from "./ids.js";
 // is "better". `rate` is a reload time, so its multiplier goes DOWN to make a
 // tower faster; everything else goes up. A stat the tower doesn't have is
 // skipped, so a shared node like "+8% range" is safe on any tower.
-const PERK_STATS = ["dmg", "range", "hp", "splash", "slow", "heal", "rate"];
+const PERK_STATS = ["dmg", "range", "hp", "splash", "slow", "heal", "rate", "income", "trapDmg", "dps"];
 
 // Fold the player's permanent upgrades for this tower kind into its stats.
 const withPerks = (kind, st) => {
@@ -54,7 +54,10 @@ export const AIM_MODES = [
 // whose shots splash, and towers that hit everything at once (spike rings,
 // flame novas) never pick a foe at all.
 export const aimModes = (t, st) => {
-  if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker") return [];
+  // no aim orders for towers that don't pick a foe: knights hold ground,
+  // auras and traps don't aim, the sunforge beam swears itself to the
+  // mightiest, and the gold works only aims at your purse
+  if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge") return [];
   return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0);
 };
 
@@ -86,6 +89,8 @@ export const pickTarget = (g, t, st) => {
     // crowd first, then the frontmost of equally crowded spots
     else if (mode === "most") score = crowdAt(g, e, st.splash) * 1e6 + e.dist;
     else score = e.dist;
+    // a falconer's bird takes the sky before anything on the ground
+    if (st.airMult && e.flying) score += 1e9;
     if (score > bestScore) { bestScore = score; best = e; }
   }
   return best;
@@ -132,5 +137,7 @@ export const makeTower = (kind, x, y, level = 1, branch = null, invested = null,
     t.rally = { x, y: y + 28 };
     syncUnits(t);
   }
+  if (kind === "trapsmith") { t.charges = 1; t.chargeCd = 0; }   // one trap ready at ribbon-cutting
+  if (kind === "sunforge") { t.ramp = 1; t.beamId = null; }
   return t;
 };

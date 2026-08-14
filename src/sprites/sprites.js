@@ -510,6 +510,59 @@ export const KNIGHT_PALS = {
 
 // little characters that stand on towers (and serve as menu icons)
 export const MINI = {
+  goldworks: {
+    pal: { o: "#2b2a33", g: "#d8b34a", l: "#f0d885", s: "#8a8072", f: "#d8763a" },
+    frames: [[
+      "....oooo....",
+      "...osssso...",
+      "...osffso...",
+      "...osssso...",
+      "..oggogggo..",
+      "..ogloglgo..",
+      "..oggogggo..",
+      "..ogloglgo..",
+      "...oooooo...",
+    ]],
+  },
+  trapsmith: {
+    pal: { o: "#2b2a33", m: "#8a8f9a", n: "#b8bcc4", w: "#6e4c28" },
+    frames: [[
+      "on..o..o..no",
+      "ono.o..o.ono",
+      ".omoooooomo.",
+      "..ommmmmmo..",
+      "...owwwwo...",
+      "..owwwwwwo..",
+      "...oooooo...",
+    ]],
+  },
+  falconry: {
+    pal: { o: "#2b2a33", b: "#a08258", f: "#e8e2d4", k: "#e0b855", w: "#6e4c28" },
+    frames: [[
+      "....obbo....",
+      "...obbbbкo..",
+      "...obfbbo...",
+      "...obffbo...",
+      "....obbo....",
+      "..ooowwooo..",
+      "....owwo....",
+      "....owwo....",
+    ]],
+  },
+  sunforge: {
+    pal: { o: "#2b2a33", g: "#f4e6b4", k: "#e0b855", d: "#443a52" },
+    frames: [[
+      "....ogo.....",
+      "..oogggoo...",
+      "..oggkggo...",
+      "..ogkkkgo...",
+      "..oggkggo...",
+      "...ogggo....",
+      "..odogodo...",
+      "..odooodo...",
+    ]],
+  },
+
   archer: {
     frames: [[
       "...oo.....",
