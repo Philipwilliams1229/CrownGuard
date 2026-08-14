@@ -11,6 +11,7 @@ import { PTS, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave } from "./actions.js";
+import { sfx } from "../audio/sfx.js";
 
 // Build a fresh enemy instance of `type` with wave HP multiplier `mult`.
 // Used by the spawn queue and by necromancers raising the dead.
@@ -91,6 +92,7 @@ export function updateGame(g, dt) {
       // something that size doesn't arrive quietly
       if (e.boss) {
         g.shake = Math.max(g.shake, 6);
+        sfx.play("bossHorn");
         g.effects.push({ type: "dust", x: e.x, y: e.y + 6, ttl: 420, r: 40 });
       }
     }
@@ -124,6 +126,7 @@ export function updateGame(g, dt) {
         if (t.novaCd <= 0) {
           t.novaCd = st.novaEvery;
           g.effects.push({ type: "frostnova", x: t.x, y: t.y, ttl: 500, r: st.range });
+          sfx.play("nova");
           for (const e of g.enemies) {
             if (e.dead) continue;
             if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
@@ -158,6 +161,7 @@ export function updateGame(g, dt) {
         if (e.healCd <= 0) {
           e.healCd = e.healEvery;
           g.effects.push({ type: "healwave", x: e.x, y: e.y, ttl: 550, r: 64 });
+          sfx.play("chant");
           for (const e2 of g.enemies) {
             if (e2.dead || e2.hp >= e2.maxHp) continue;
             e2.hp = Math.min(e2.maxHp, e2.hp + e.healAmt);
@@ -178,6 +182,7 @@ export function updateGame(g, dt) {
         if (e.wardCd <= 0) {
           e.wardCd = e.wardEvery;
           g.effects.push({ type: "wardwave", x: e.x, y: e.y, ttl: 550, r: e.wardRange });
+          sfx.play("ward");
           for (const e2 of g.enemies) {
             if (e2.dead || Math.hypot(e2.x - e.x, e2.y - e.y) > e.wardRange) continue;
             e2.guard = Math.max(e2.guard, e.wardHits);
@@ -198,6 +203,7 @@ export function updateGame(g, dt) {
             g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: 600, life: 600 });
           }
           g.effects.push({ type: "toll", x: e.x, y: e.y, ttl: 550, r: 46 });
+          sfx.play("toll");
         }
       }
       // Necromancer: calls nearby fallen back to their feet at half strength
@@ -219,6 +225,7 @@ export function updateGame(g, dt) {
             if (c.sprite) u.sprite = c.sprite;   // it rises in the look it fell in
             g.enemies.push(u);
             g.effects.push({ type: "raise", x: c.x, y: c.y, ttl: 600, life: 600 });
+            sfx.play("raise");
           }
         }
       }
@@ -278,6 +285,7 @@ export function updateGame(g, dt) {
             e.atkAnim = 220;
             e.face = mark.x >= e.x ? 1 : -1;
             g.effects.push({ type: "bolt", x: e.x, y: e.y - 6, tx: mark.x, ty: mark.y - 8, ttl: 170 });
+            sfx.play("enemyBolt");
             if (mark.shield) {
               mark.shield = false; mark.shieldCd = 6500;
               g.effects.push({ type: "flash", x: mark.x, y: mark.y - 6, ttl: 300 });
@@ -296,10 +304,11 @@ export function updateGame(g, dt) {
         if (g.run) g.run.leaks += 1;
         g.shake = 5 + dmgC * 2.5;
         g.effects.push({ type: "leak", x: e.x - 10, y: e.y, ttl: 700, text: `-${dmgC}` });
+        sfx.play("leak");
         // something got through the gate: stone dust and a hit on the wall
         g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 400, r: 18 + dmgC * 5 });
         g.effects.push({ type: "flash", x: e.x, y: e.y - 8, ttl: 320 });
-        if (g.lives <= 0) { g.lives = 0; g.phase = "lost"; }
+        if (g.lives <= 0) { g.lives = 0; g.phase = "lost"; sfx.play("lost"); }
       }
     }
     // ---- deaths with consequences ----
@@ -318,6 +327,7 @@ export function updateGame(g, dt) {
       if (e.deathBurst) {
         const b = e.deathBurst;
         g.effects.push({ type: "plagueburst", x: e.x, y: e.y, ttl: 500, r: b.r });
+        sfx.play("plague");
         g.grounds.push({ x: e.x, y: e.y, r: b.r * 0.8, dps: b.dps, until: tms + b.dur, kind: "plague" });
         for (const t of g.towers) {
           if (!t.units) continue;
@@ -408,6 +418,7 @@ export function updateGame(g, dt) {
               u.swing = 180;
               const dealt = st.dmg * (1 + (u.atkBuff || 0));
               dealDamage(g, target, dealt, st.magic ? "magic" : "phys", st.magic);
+              sfx.play("clink");
               if (st.frenzy) u.frenzy = (u.frenzy || 0) + 1;
               if (st.lifesteal && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
               g.effects.push({ type: "spark", x: target.x, y: target.y - 6, ttl: 160, gold: !!st.magic || u.atkBuff > 0 });
@@ -426,6 +437,7 @@ export function updateGame(g, dt) {
                 } else {
                   u.hp -= target.atk;
                   g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
+                  sfx.play("hit");
                 }
                 if (u.hp <= 0) killUnit(g, t, u);
               }
@@ -463,6 +475,7 @@ export function updateGame(g, dt) {
       t.anim = 1;
       t.lastAim = Math.atan2(target.y - t.y, target.x - t.x);
       if (t.kind === "archer") {
+        sfx.play(getStats(t).bolt ? "bolt" : "arrow");
         const hgt = t.branch === "b" ? 38 : 14 + t.level * 6;
         let offs;
         if (t.branch === "a") {
@@ -497,6 +510,7 @@ export function updateGame(g, dt) {
         // no homing. Lead the shot by projecting the enemy along the road for
         // the rock's flight time (fast enemies can dodge; clumps get crushed).
         const rockSpeed = t.branch === "a" ? 270 : 240;
+        sfx.play("catapult");
         const d0 = Math.hypot(target.x - t.x, target.y - t.y);
         const slowNow = Math.max(target.slowUntil > tms ? target.slowPct : 0, target.auraSlow || 0);
         const lead = Math.min(target.dist + target.speed * (1 - slowNow) * (d0 / rockSpeed) * 0.85, TOTAL_LEN - 1);
@@ -523,6 +537,7 @@ export function updateGame(g, dt) {
         if (st.nova) {
           // Brazier Wheel: a ring of flame scorches everything in reach
           g.effects.push({ type: "firenova", x: t.x, y: t.y, ttl: 450, r: st.range });
+          sfx.play("firenova");
           for (const e of g.enemies) {
             if (e.dead) continue;
             if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
@@ -536,6 +551,7 @@ export function updateGame(g, dt) {
         } else {
           // a full ring of spikes, the whole ring rotating a little each volley
           const n = st.spikes || 8;
+          sfx.play("spike");
           t.spinOff = (t.spinOff || 0) + 0.37;
           for (let i = 0; i < n; i++) {
             const ang = (i / n) * Math.PI * 2 + t.spinOff;
@@ -569,6 +585,7 @@ export function updateGame(g, dt) {
           cur = nxt;
         }
         g.effects.push({ type: "bolt", pts, ttl: 220, seed: Math.random() * 10 });
+      sfx.play("zap");
       } else {
         g.projectiles.push({
           id: nextId(), x: t.x, y: t.y - 30, targetId: target.id,
@@ -605,6 +622,7 @@ export function updateGame(g, dt) {
       if (d <= stepLen + 4) {
         p.done = true;
         if (p.splash > 0) {
+          if (!p.mini) sfx.play(p.kind === "rock" ? "rock" : p.burn ? "boom" : p.slow ? "frost" : "arcane");
           g.effects.push({ type: p.kind === "rock" ? (p.mini ? "shrapnelhit" : "dust") : p.burn ? "boom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
           // a mark on the ground that outlives the blast: soot, or a rime of frost
           if (!p.mini) {
@@ -680,6 +698,7 @@ export function updateGame(g, dt) {
 
     if (!g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
       g.gold += waveBonus(g.wave);
+      sfx.play("waveClear");
       if (g.run) g.run.goldEarned += waveBonus(g.wave);
       g.effects.push({ type: "coin", x: W / 2, y: 40, ttl: 1200, text: `Wave cleared! +${waveBonus(g.wave)}g`, big: true });
       // High Cathedral: each cleared wave rebuilds one castle HP
@@ -688,7 +707,7 @@ export function updateGame(g, dt) {
         g.effects.push({ type: "coin", x: W / 2, y: 64, ttl: 1300, text: "The Cathedral mends the walls +1", big: true });
       }
       // the campaign is won at wave 15 — once — then the Endless March is open
-      if (g.wave === scriptedWaves() && !g.victory) { g.victory = true; g.phase = "won"; }
+      if (g.wave === scriptedWaves() && !g.victory) { g.victory = true; g.phase = "won"; sfx.play("won"); }
       else { g.phase = "build"; g.buildUntil = g.time + BUILD_TIME; }
     }
   }

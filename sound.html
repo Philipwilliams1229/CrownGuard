@@ -1,0 +1,59 @@
+<!doctype html>
+<!--
+  Dev tool: the sound lab. Every synthesized effect in the game as a button,
+  plus the master volume. Open /sound.html with the dev server running and
+  click around — the first click also unlocks the AudioContext, as browsers
+  require. Not linked from the game.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — sound lab</title>
+    <style>
+      body { background: #20242c; color: #e8e0c8; font-family: Verdana, sans-serif; margin: 0; padding: 20px; }
+      h1 { font-size: 15px; letter-spacing: 2px; color: #d8b34a; }
+      p { font-size: 11px; opacity: 0.65; max-width: 52em; line-height: 1.5; }
+      .grid { display: flex; flex-wrap: wrap; gap: 8px; max-width: 760px; margin-top: 14px; }
+      button {
+        background: #3a4150; color: #e8e0c8; border: 2px solid #10131a; padding: 10px 14px;
+        font-family: inherit; font-size: 12px; cursor: pointer; box-shadow: inset -2px -2px 0 #262b34, inset 2px 2px 0 #4c5566;
+      }
+      button:active { box-shadow: inset 2px 2px 0 #262b34; }
+      label { font-size: 12px; display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+      input[type=range] { width: 220px; }
+    </style>
+  </head>
+  <body>
+    <h1>SOUND LAB</h1>
+    <p>
+      Every effect the game can make, straight from the synthesizer — no audio
+      files anywhere. Gates are bypassed here so rapid clicks always sound.
+      In the game these fire from the engine: the horn on every wave, the bell
+      when a gravecaller tolls, the fanfare when the realm stands.
+    </p>
+    <div class="grid" id="grid"></div>
+    <label>
+      volume
+      <input id="vol" type="range" min="0" max="100" />
+      <button id="mute" style="padding: 6px 10px"></button>
+    </label>
+    <script type="module">
+      import { sfx } from "/src/audio/sfx.js";
+
+      const grid = document.getElementById("grid");
+      for (const name of sfx.names()) {
+        const b = document.createElement("button");
+        b.textContent = name;
+        b.onclick = () => sfx.play(name, true);
+        grid.appendChild(b);
+      }
+      const vol = document.getElementById("vol");
+      vol.value = Math.round(sfx.volume * 100);
+      vol.oninput = () => sfx.setVolume(vol.value / 100);
+      const mute = document.getElementById("mute");
+      const paint = () => { mute.textContent = sfx.muted ? "🔇 muted" : "🔊 on"; };
+      mute.onclick = () => { sfx.setMuted(!sfx.muted); paint(); };
+      paint();
+    </script>
+  </body>
+</html>

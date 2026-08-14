@@ -6,6 +6,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { W, H, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
+import { sfx } from "./audio/sfx.js";
 import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
@@ -58,6 +59,7 @@ export default function Crownguard() {
   const [realmOpen, setRealmOpen] = useState(false);
   // where backing out of realm select should land you
   const [realmReturn, setRealmReturn] = useState("home");
+  const [sndMuted, setSndMuted] = useState(sfx.muted);
   // "home" = title screen, "map" = the campaign continent, "game" = battlefield
   const [screen, setScreen] = useState("home");
   // "campaign" = one level of the war, "free" = pick-a-realm endless run
@@ -464,6 +466,11 @@ export default function Crownguard() {
               <button title="Game speed" style={{ ...btn, padding: "2px 10px", fontSize: 11, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
                 onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
                 {ui.speed}x
+              </button>
+              <button title={sndMuted ? "Sound: off" : "Sound: on"} aria-label={sndMuted ? "Unmute sound" : "Mute sound"}
+                style={{ ...btn, padding: "2px 10px", fontSize: 12, ...(sndMuted ? {} : { background: "#5a4f2c" }) }}
+                onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
+                {sndMuted ? "🔇" : "🔊"}
               </button>
               <button title="Field guide" aria-label="Open the field guide"
                 style={{ ...btn, padding: "4px 10px", display: "flex", alignItems: "center", ...(guideOpen ? { background: "#5a4f2c" } : {}) }}

@@ -10,6 +10,7 @@ import { TOWERS } from "../data/towers.js";
 import { waveSpec, waveHpMult } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
 import { makeTower, syncUnits } from "./towers.js";
+import { sfx } from "../audio/sfx.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
 
@@ -53,6 +54,7 @@ export const startWave = (g) => {
   }
   g.spawnQueue = queue;
   g.spawnTimer = 0;
+  sfx.play("horn");
   // Announce it on the board. A wave with a boss in it says so by name —
   // there should never be a moment where a dragon arrives unheralded.
   const champion = queue.map((s) => s.type).find((t) => ENEMIES[t]?.boss);
@@ -84,6 +86,7 @@ export const placeTower = (g, kind, x, y) => {
   g.towers.push(makeTower(kind, x, y));
   if (g.run) g.run.towersBuilt += 1;
   g.buildMode = null;
+  sfx.play("place");
   // it lands: a ring of dust off the footings and a knock through the ground
   g.effects.push({ type: "dust", x, y: y + 10, ttl: 380, r: 26 });
   g.shake = Math.max(g.shake, 3);
@@ -95,6 +98,7 @@ export const upgradeTower = (g, t) => {
   const cost = def.levels[t.level].cost;
   if (g.gold < cost) return;
   g.gold -= cost; t.level += 1; t.invested += cost;
+  sfx.play("upgrade");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   g.effects.push({ type: "levelup", x: t.x, y: t.y, ttl: 600 });
   g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 700, life: 700, gold: false });
@@ -104,6 +108,7 @@ export const branchTower = (g, t, key) => {
   const br = TOWERS[t.kind].branches[key];
   if (t.branch || t.level < 3 || g.gold < br.cost) return;
   g.gold -= br.cost; t.branch = key; t.invested += br.cost;
+  sfx.play("evolve");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
   g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1100, life: 1100, gold: true });
@@ -116,6 +121,7 @@ export const ascendTower = (g, t, key) => {
   const r4 = TOWERS[t.kind].branches[t.branch].rank4?.[key];
   if (!r4 || g.gold < r4.cost) return;
   g.gold -= r4.cost; t.rank4 = key; t.invested += r4.cost;
+  sfx.play("ascend");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
   g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1300, life: 1300, gold: true });
@@ -127,6 +133,7 @@ export const releaseEnemy = (g, e) => { if (!e) return; e.blockedBy = null; e.en
 export const sellTower = (g, t) => {
   if (t.units) for (const u of t.units) { const e = g.enemies.find((x) => x.blockedBy === u.id); releaseEnemy(g, e); }
   g.gold += Math.floor(t.invested * 0.7);
+  sfx.play("sell");
   g.towers = g.towers.filter((x) => x.id !== t.id);
   g.selectedId = null;
 };
@@ -145,6 +152,7 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick) => {
     e.guard -= 1;
     e.guardFlash = g.time * 1000 + 300;
     dmg = Math.min(dmg, 1);
+    sfx.play("tink");
   }
   // a marshal's banner hardens everything marching under it
   const armor = Math.min(0.85, e.armor + (e.bannerArmor || 0));
@@ -159,6 +167,8 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick) => {
   if (e.hp <= 0 && !e.dead) {
     e.dead = true;
     g.gold += e.bounty;
+    sfx.play("crunch");
+    sfx.play("coin");
     if (g.run) { g.run.kills += 1; g.run.goldEarned += e.bounty; }
     g.effects.push({ type: "coin", x: e.x, y: e.y - 14, ttl: 700, text: `+${e.bounty}` });
     // death animation: flash white, then crumble into pixels — a mixed-party
