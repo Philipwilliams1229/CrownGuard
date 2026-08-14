@@ -143,12 +143,24 @@ export function draw(g, canvas, bufRef) {
   }
   for (const ch of CHEVRONS) {
     const on = Math.sin(g.time * 2.2 - ch.d * 0.045) > 0;
+    // the road lights up under a marching column: chevrons within a stride
+    // of any foe burn bright, so the board itself reads the advance
+    let near = false;
+    for (const e of g.enemies) {
+      if (!e.dead && Math.abs(e.dist - ch.d) < 60) { near = true; break; }
+    }
     ctx.save();
     ctx.translate(S(ch.x), S(ch.y));
     ctx.rotate(Math.round(ch.a / (Math.PI / 2)) * (Math.PI / 2));
-    ctx.fillStyle = on ? `rgba(${REALM.CHEVRON},0.55)` : `rgba(${REALM.CHEVRON},0.28)`;
+    ctx.fillStyle = near
+      ? `rgba(${REALM.CHEVRON},${on ? 0.95 : 0.7})`
+      : on ? `rgba(${REALM.CHEVRON},0.55)` : `rgba(${REALM.CHEVRON},0.28)`;
     ctx.fillRect(-4, -6, 3, 3); ctx.fillRect(-1, -3, 3, 3); ctx.fillRect(2, 0, 3, 3);
     ctx.fillRect(-1, 3, 3, 3); ctx.fillRect(-4, 6, 3, 3);
+    if (near) {                      // a hot core on the lit ones
+      ctx.fillStyle = "rgba(255,240,200,0.5)";
+      ctx.fillRect(-1, -3, 3, 3); ctx.fillRect(2, 0, 3, 3);
+    }
     ctx.restore();
   }
 
@@ -289,6 +301,13 @@ export function draw(g, canvas, bufRef) {
     });
   }
   for (const t of g.towers) {
+    // wardens read the crowd inside their cold before they draw it
+    if (t.kind === "support") {
+      const stA = getStats(t);
+      let n = 0;
+      for (const e of g.enemies) if (!e.dead && Math.hypot(e.x - t.x, e.y - t.y) <= stA.range) n++;
+      t._auraLive = n;
+    }
     drawables.push({
       y: t.y + 14,
       fn: () => {

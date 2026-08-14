@@ -795,12 +795,18 @@ export const drawSupportTower = (ctx, t, time) => {
   const ice = !t.branch || t.branch === "a";
   const auraCol = r4 === "aa" ? "184,240,248" : r4 === "ba" ? "232,212,122" : r4 === "bb" ? "216,179,74"
     : t.branch === "b" ? "140,224,140" : ice ? "124,212,212" : "200,232,240";
-  // a single pulsing ring reads the aura; no constant outer circle
-  const pr = ((time * 34 + t.id * 40) % st.range);
-  ctx.strokeStyle = `rgba(${auraCol},${0.4 * (1 - pr / st.range)})`;
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(x, y, pr, 0, 7); ctx.stroke();
-  ctx.lineWidth = 1;
+  // The aura only SHOWS itself while it's working: no enemies inside, no
+  // ring — a dozen idle wardens used to paper the whole board in circles.
+  // With foes in the cold, a pulse sweeps out, brightening with the crowd.
+  const live = t._auraLive || 0;
+  if (live > 0) {
+    const pr = ((time * 34 + t.id * 40) % st.range);
+    const strength = 0.22 + Math.min(0.4, live * 0.07);
+    ctx.strokeStyle = `rgba(${auraCol},${strength * (1 - pr / st.range)})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, pr, 0, 7); ctx.stroke();
+    ctx.lineWidth = 1;
+  }
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   ctx.fillRect(x - 13, y + 14, 26, 4);
   // stone altar platform (grows with level)

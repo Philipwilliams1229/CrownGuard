@@ -162,9 +162,30 @@ export const drawKnightUnit = (ctx, u, t, time) => {
   const rider = r4 === "ba";
   const pal = giant ? KNIGHT_PALS.champion : paladin ? KNIGHT_PALS.paladin : berserk ? KNIGHT_PALS.berserk : KNIGHT_PALS.base;
   const frame = u.state === "moving" ? Math.floor(time * 8 + u.id) % 2 : 0;
+  // Bored soldiers: a rallied knight with nothing to fight will, every so
+  // often, stoop for a blade of grass, toe a pebble down the field, or
+  // glance back over his shoulder. Kids at the far end of the pitch.
+  let stoop = 0, glance = false, fidget = -1, fp = 0;
+  if (u.state === "rally" && !rider) {
+    const cyc = ((time / 8.4) + u.id * 0.618) % 1;
+    if (cyc < 0.16) { fidget = u.id % 3; fp = cyc / 0.16; }
+    if (fidget === 0) stoop = Math.round((fp < 0.5 ? fp : 1 - fp) * 2) * 2;
+    if (fidget === 2 && fp > 0.25 && fp < 0.75) glance = true;
+  }
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, giant || rider ? 0.5 : 0.3, time);
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   ctx.fillRect(S(u.x - (giant ? 9 : rider ? 10 : 6)), S(u.y + 9), giant ? 18 : rider ? 20 : 12, CELL);
+  if (fidget === 1 && fp > 0.3) {
+    // the pebble, skittering off and settling
+    const roll = Math.min(1, (fp - 0.3) / 0.5);
+    const slide = (1 - (1 - roll) * (1 - roll)) * 10;
+    ctx.fillStyle = "#8a8a92";
+    ctx.fillRect(S(u.x + u.face * (5 + slide)), S(u.y + 8), 2, 2);
+    if (fp < 0.45) {
+      ctx.fillStyle = `rgba(${"178,164,136"},0.7)`;
+      ctx.fillRect(S(u.x + u.face * 5), S(u.y + 6), CELL, CELL);
+    }
+  }
   if (rider) {
     // Wolf Lodge: a great wolf carries the berserker
     drawSprite(ctx, SPRITES.wolf, SPRITES.wolf.pal, frame, u.x, u.y + 3, u.face < 0);
@@ -179,7 +200,17 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     ctx.fillRect(S(u.x) + 1, S(u.y - 23), 2, 3);
     ctx.fillRect(S(u.x) - 1, S(u.y - 24), 2, 4);
   } else {
-    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 2, u.face < 0);
+    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 2 + stoop, (u.face < 0) !== glance);
+    if (fidget === 0 && fp >= 0.3 && fp < 0.62) {
+      // down among the stems: a couple of blades coming loose
+      ctx.fillStyle = "#6a8a3e";
+      ctx.fillRect(S(u.x + u.face * 6), S(u.y + 5), CELL, CELL);
+      ctx.fillRect(S(u.x + u.face * 8), S(u.y + 3), CELL, CELL);
+    } else if (fidget === 0 && fp >= 0.62) {
+      // and one kept, held up for inspection
+      ctx.fillStyle = "#6a8a3e";
+      ctx.fillRect(S(u.x + u.face * 6), S(u.y - 6), CELL, CELL * 2);
+    }
   }
   // Guardian's Grace ward: a shimmering diamond overhead
   if (u.shield) {
