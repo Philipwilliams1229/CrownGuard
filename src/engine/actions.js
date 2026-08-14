@@ -10,6 +10,7 @@ import { TOWERS } from "../data/towers.js";
 import { waveSpec, waveHpMult } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
 import { makeTower, syncUnits, getStats } from "./towers.js";
+import { recordFavored, favoredFor } from "../data/profile.js";
 import { sfx } from "../audio/sfx.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
@@ -128,6 +129,70 @@ export const placeTower = (g, kind, x, y) => {
   g.shake = Math.max(g.shake, 3);
 };
 
+// ---- Master Builds ----
+// One click, one finished tower. The plan replays the paths the player last
+// chose by hand (per kind, per branch), defaulting to the first of each.
+export const masterPlan = (kind, lockBranch = null) => {
+  const def = TOWERS[kind];
+  const fav = favoredFor(kind);
+  const branch = lockBranch || (def.branches[fav.branch] ? fav.branch : "a");
+  const br = def.branches[branch];
+  const keys = br.rank4 ? Object.keys(br.rank4) : [];
+  const pick = fav.rank4?.[branch];
+  const rank4 = keys.length ? (keys.includes(pick) ? pick : keys[0]) : null;
+  const cost = def.cost + def.levels[1].cost + def.levels[2].cost + br.cost + (rank4 ? br.rank4[rank4].cost : 0);
+  return { branch, rank4, cost, name: rank4 ? br.rank4[rank4].name : br.name };
+};
+
+// The cheapest possible full build — the "money has gotten crazy" threshold
+// past which the Master Builds toggle first shows itself.
+export const MASTER_MIN = Math.min(...Object.keys(TOWERS).map((k) => {
+  const def = TOWERS[k];
+  const br = def.branches.a;
+  const r4 = br.rank4 ? br.rank4[Object.keys(br.rank4)[0]].cost : 0;
+  return def.cost + def.levels[1].cost + def.levels[2].cost + br.cost + r4;
+}));
+
+export const placeMasterTower = (g, kind, x, y) => {
+  const plan = masterPlan(kind);
+  if (g.gold < plan.cost || !buildableAt(g, x, y)) return;
+  g.gold -= plan.cost;
+  g.towers.push(makeTower(kind, x, y, 3, plan.branch, plan.cost, plan.rank4));
+  if (g.run) g.run.towersBuilt += 1;
+  g.buildMode = null;
+  sfx.play("ascend");
+  g.effects.push({ type: "dust", x, y: y + 10, ttl: 380, r: 26 });
+  g.effects.push({ type: "evolve", x, y, ttl: 900 });
+  g.effects.push({ type: "burst", x, y: y - 12, ttl: 1300, life: 1300, gold: true });
+  g.effects.push({ type: "flash", x, y: y - 10, ttl: 550 });
+  g.shake = Math.max(g.shake, 4);
+};
+
+// Everything a standing tower still lacks, bought in one stroke. A chosen
+// branch is respected; whatever is unchosen follows the favored plan.
+export const completionCost = (t) => {
+  const def = TOWERS[t.kind];
+  const plan = masterPlan(t.kind, t.branch);
+  let cost = 0;
+  for (let l = t.level; l < 3; l++) cost += def.levels[l].cost;
+  if (!t.branch) cost += def.branches[plan.branch].cost;
+  if (!t.rank4 && plan.rank4) cost += def.branches[plan.branch].rank4[plan.rank4].cost;
+  return { ...plan, cost };
+};
+
+export const completeTower = (g, t) => {
+  if (t.rank4) return;
+  const c = completionCost(t);
+  if (g.gold < c.cost) return;
+  g.gold -= c.cost; t.invested += c.cost;
+  t.level = 3; t.branch = t.branch || c.branch; t.rank4 = c.rank4;
+  sfx.play("ascend");
+  if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
+  g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
+  g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1300, life: 1300, gold: true });
+  g.effects.push({ type: "flash", x: t.x, y: t.y - 10, ttl: 550 });
+};
+
 export const upgradeTower = (g, t) => {
   const def = TOWERS[t.kind];
   if (t.branch || t.level >= 3) return;
@@ -144,6 +209,7 @@ export const branchTower = (g, t, key) => {
   const br = TOWERS[t.kind].branches[key];
   if (t.branch || t.level < 3 || g.gold < br.cost) return;
   g.gold -= br.cost; t.branch = key; t.invested += br.cost;
+  recordFavored(t.kind, { branch: key });
   sfx.play("evolve");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
@@ -157,6 +223,7 @@ export const ascendTower = (g, t, key) => {
   const r4 = TOWERS[t.kind].branches[t.branch].rank4?.[key];
   if (!r4 || g.gold < r4.cost) return;
   g.gold -= r4.cost; t.rank4 = key; t.invested += r4.cost;
+  recordFavored(t.kind, { rank4: { [t.branch]: key } });
   sfx.play("ascend");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });

@@ -19,6 +19,9 @@ const EMPTY = () => ({
   stars: {},
   // { towerKind: { nodeId: rank } } — rank 1..3, missing means untouched
   perks: {},
+  // { towerKind: { branch, rank4: { a: "aa", b: "bb" } } } — the paths the
+  // player last chose by hand; Master Builds replay them in one click
+  favored: {},
   stats: {
     levelsCleared: 0,   // clears, including repeats
     levelsLost: 0,
@@ -39,6 +42,7 @@ export function loadProfile() {
       ...p, ...raw,
       stars: raw.stars && typeof raw.stars === "object" ? raw.stars : {},
       perks: raw.perks && typeof raw.perks === "object" ? raw.perks : {},
+      favored: raw.favored && typeof raw.favored === "object" ? raw.favored : {},
       stats: { ...p.stats, ...(raw.stats || {}) },
     };
     // Skills used to be a flat list of bought nodes; they are ranked now.
@@ -63,6 +67,21 @@ export function saveProfile(p) {
 export function resetProfile() {
   return saveProfile(EMPTY());
 }
+
+// Remember a path the player chose by hand, so Master Builds can replay it.
+// pick is { branch } or { rank4: { [branch]: key } }. Written straight to
+// storage, NOT via saveProfile: favored paths can't change perks, and the
+// headless sim injects veterancy into PERK_MODS that a recompute from an
+// empty polyfilled store would wipe mid-battle.
+export function recordFavored(kind, pick) {
+  const p = loadProfile();
+  const f = p.favored[kind] || (p.favored[kind] = {});
+  if (pick.branch) f.branch = pick.branch;
+  if (pick.rank4) f.rank4 = { ...(f.rank4 || {}), ...pick.rank4 };
+  try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* private mode — play on */ }
+}
+
+export const favoredFor = (kind) => loadProfile().favored[kind] || {};
 
 // ---- stars ----
 

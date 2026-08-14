@@ -16,7 +16,7 @@ import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, placeTrap, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave,
+  startWave, restartWave, masterPlan, placeMasterTower, completionCost, completeTower, MASTER_MIN,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -73,8 +73,11 @@ export default function Crownguard() {
   const uiRef = useRef(ui);
   uiRef.current = ui;
 
-  const initGame = useCallback((startGold = 250) => {
-    const START_GOLD = startGold;
+  const initGame = useCallback((startGold = 250, freeplay = true) => {
+    // dev-server playtest knob: /?gold=5000 pads the war chest. Stripped from
+    // production builds, so the shipped game can't be talked into it.
+    const devGold = import.meta.env.DEV ? Math.max(0, Number(new URLSearchParams(window.location.search).get("gold")) || 0) : 0;
+    const START_GOLD = startGold + devGold;
     G.current = {
       // tallies for the profile — banked when the level ends
       run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 },
@@ -83,6 +86,9 @@ export default function Crownguard() {
       spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
       selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
       cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false,
+      // Master Builds: free play and the endless march only, and only once
+      // the coffers have seen real money — masterSeen keeps it from blinking
+      freeplay, masterBuild: false, masterSeen: false,
     };
     setBuildOpen(false);
     setUi({ gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
@@ -113,7 +119,7 @@ export default function Crownguard() {
     setMode("campaign");
     setLevelId(lv.id);
     setAward(null);
-    initGame(lv.gold);
+    initGame(lv.gold, false);
     setRealmOpen(false);
     setMenuOpen(false);
     setScreen("game");
@@ -221,11 +227,16 @@ export default function Crownguard() {
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
       const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
       const rallyFor = g.rallyFor ?? null;
-      if (u.trapArming !== (g.trapFor != null) || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush) {
+      // Master Builds surfaces once the coffers could cover a full build, and
+      // stays surfaced for the rest of the run so it doesn't blink in and out
+      if ((g.freeplay || g.victory) && g.gold >= MASTER_MIN) g.masterSeen = true;
+      const masterShow = (g.freeplay || g.victory) && g.masterSeen;
+      if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.trapArming !== (g.trapFor != null) || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush) {
         setUi({
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim } : null,
           selKey, buildMode: g.buildMode, rallyFor, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY, rush: g.rush,
+          masterShow, masterOn: !!g.masterBuild,
           trapArming: g.trapFor != null,
           trapCharges: g.trapFor != null ? (g.towers.find((t) => t.id === g.trapFor)?.charges || 0) : 0,
           result: g.phase === "won" ? "won" : g.phase === "lost" ? "lost" : null,
@@ -296,8 +307,9 @@ export default function Crownguard() {
       return;
     }
     if (g.buildMode) {
-      placeTower(g, g.buildMode, x, y);
-      // placeTower clears buildMode on success — close the drawer with it
+      if (g.masterBuild && (g.freeplay || g.victory)) placeMasterTower(g, g.buildMode, x, y);
+      else placeTower(g, g.buildMode, x, y);
+      // placement clears buildMode on success — close the drawer with it
       if (!g.buildMode) setBuildOpen(false);
       return;
     }
@@ -548,10 +560,26 @@ export default function Crownguard() {
                 <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75 }}>RAISE DEFENSES</div>
                 <button aria-label="Close build menu" onClick={() => setBuildOpen(false)} style={{ ...btn, padding: "2px 9px", fontSize: 13 }}>✕</button>
               </div>
+              {/* rich-run shortcut: place towers already ascended, one click */}
+              {ui.masterShow && (
+                <button
+                  style={{ ...btn, width: "100%", marginBottom: 8, padding: "7px 8px", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, ...(ui.masterOn ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #d8b34a" } : {}) }}
+                  onClick={() => { const gg = G.current; if (gg) gg.masterBuild = !gg.masterBuild; }}>
+                  ⚡ Master Builds — {ui.masterOn ? "ON" : "OFF"}
+                </button>
+              )}
+              {ui.masterShow && ui.masterOn && (
+                <div style={{ fontSize: 10, opacity: 0.7, marginBottom: 8, lineHeight: 1.5 }}>
+                  Towers arrive fully ascended, along the paths you favor. Choosing paths by hand teaches it new favorites.
+                </div>
+              )}
               {/* sprite tiles, two to a row — same shape as the field guide's grid */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 {Object.entries(TOWERS).map(([key, def]) => {
-                  const can = ui.gold >= def.cost;
+                  const master = ui.masterShow && ui.masterOn;
+                  const plan = master ? masterPlan(key) : null;
+                  const cost = master ? plan.cost : def.cost;
+                  const can = ui.gold >= cost;
                   const active = ui.buildMode === key;
                   return (
                     <button key={key} title={def.blurb}
@@ -562,9 +590,9 @@ export default function Crownguard() {
                       }}
                       onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.selectedId = null; }}
                       disabled={!can}>
-                      <PixelIcon kind={key} size={34} />
-                      <span style={{ fontSize: 10.5, fontWeight: "bold", lineHeight: 1.25 }}>{def.name}</span>
-                      <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
+                      <PixelIcon kind={key} branch={plan?.branch} rank4={plan?.rank4} size={34} />
+                      <span style={{ fontSize: 10.5, fontWeight: "bold", lineHeight: 1.25 }}>{master ? plan.name : def.name}</span>
+                      <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{master ? "⚡" : ""}{cost}g</span>
                     </button>
                   );
                 })}
@@ -630,6 +658,20 @@ export default function Crownguard() {
                     <FlagIcon /> Move Rally Flag
                   </button>
                 )}
+
+                {/* rich-run shortcut: buy every remaining rank in one stroke */}
+                {ui.masterShow && !sel.rank4 && (() => {
+                  const c = completionCost(t);
+                  const can = ui.gold >= c.cost;
+                  return (
+                    <button
+                      style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, ...(can ? {} : disabled) }}
+                      onClick={() => { if (can && G.current) completeTower(G.current, t); }}
+                      disabled={!can}>
+                      ⚡ Complete — {c.name} ({c.cost}g)
+                    </button>
+                  );
+                })()}
 
                 {sel.kind === "trapsmith" && (() => {
                   const tt = G.current?.towers.find((x) => x.id === sel.id);
