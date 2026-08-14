@@ -15,8 +15,8 @@ import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextL
 import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
-  towerNear, placeTower, placeTrap, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, placeMasterTower, completionCost, completeTower, MASTER_MIN,
+  towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -88,7 +88,7 @@ export default function Crownguard() {
       cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false,
       // Master Builds: free play and the endless march only, and only once
       // the coffers have seen real money — masterSeen keeps it from blinking
-      freeplay, masterBuild: false, masterSeen: false,
+      freeplay, masterBuild: false, masterSeen: false, masterPick: null,
     };
     setBuildOpen(false);
     setUi({ gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
@@ -216,13 +216,12 @@ export default function Crownguard() {
       updateGame(g, dt);
       // a garrison sold mid-move takes its rally prompt with it
       if (g.rallyFor != null && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
-      if (g.trapFor != null && !g.towers.some((t) => t.id === g.trapFor)) g.trapFor = null;
       draw(g, canvasRef.current, bufRef);
 
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
       const sel = g.towers.find((t) => t.id === g.selectedId) || null;
-      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${sel.charges ?? ""}-${g.trapFor != null}` : null;
+      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
       const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
@@ -231,14 +230,14 @@ export default function Crownguard() {
       // stays surfaced for the rest of the run so it doesn't blink in and out
       if ((g.freeplay || g.victory) && g.gold >= MASTER_MIN) g.masterSeen = true;
       const masterShow = (g.freeplay || g.victory) && g.masterSeen;
-      if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.trapArming !== (g.trapFor != null) || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush) {
+      const pickKey = g.masterPick ? `${g.masterPick.kind}:${g.masterPick.branch}${g.masterPick.rank4 || ""}` : null;
+      if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush) {
         setUi({
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim } : null,
           selKey, buildMode: g.buildMode, rallyFor, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY, rush: g.rush,
           masterShow, masterOn: !!g.masterBuild,
-          trapArming: g.trapFor != null,
-          trapCharges: g.trapFor != null ? (g.towers.find((t) => t.id === g.trapFor)?.charges || 0) : 0,
+          masterPick: pickKey, masterPickName: g.masterPick?.name || null,
           result: g.phase === "won" ? "won" : g.phase === "lost" ? "lost" : null,
         });
       }
@@ -292,14 +291,6 @@ export default function Crownguard() {
   const handleTap = (x, y) => {
     const g = G.current;
     if (!g || g.phase === "won" || g.phase === "lost" || g.paused) return;
-    if (g.trapFor != null) {
-      // the trapsmith's trade: each click on the road arms one charge
-      const t = g.towers.find((tt) => tt.id === g.trapFor);
-      if (!t) { g.trapFor = null; return; }
-      placeTrap(g, t, x, y);
-      if ((t.charges || 0) <= 0) g.trapFor = null;
-      return;
-    }
     if (g.rallyFor != null) {
       const t = g.towers.find((tt) => tt.id === g.rallyFor);
       if (t) postRally(g, t, x, y);
@@ -307,10 +298,12 @@ export default function Crownguard() {
       return;
     }
     if (g.buildMode) {
-      if (g.masterBuild && (g.freeplay || g.victory)) placeMasterTower(g, g.buildMode, x, y);
-      else placeTower(g, g.buildMode, x, y);
+      if (g.masterBuild && (g.freeplay || g.victory)) {
+        const pick = g.masterPick && g.masterPick.kind === g.buildMode ? g.masterPick : null;
+        placeMasterTower(g, g.buildMode, x, y, pick);
+      } else placeTower(g, g.buildMode, x, y);
       // placement clears buildMode on success — close the drawer with it
-      if (!g.buildMode) setBuildOpen(false);
+      if (!g.buildMode) { g.masterPick = null; setBuildOpen(false); }
       return;
     }
     // tapping the field outside a menu dismisses the build drawer
@@ -529,7 +522,7 @@ export default function Crownguard() {
             {/* placement hint (shown while a tower is chosen and the drawer is tucked away) */}
             {ui.buildMode && (
               <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 22, ...overlayPanel, borderWidth: 2, padding: "6px 10px", fontSize: 11, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "92%" }}>
-                <span>Placing <b style={{ color: "#e8d47a" }}>{TOWERS[ui.buildMode].name}</b> — click the grass.{ui.buildMode === "knight" ? " Knights muster south of the hall." : ""}</span>
+                <span>Placing <b style={{ color: "#e8d47a" }}>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — click the grass.{ui.buildMode === "knight" ? " Knights muster south of the hall." : ""}</span>
                 <button aria-label="Cancel placement" onClick={() => { if (G.current) G.current.buildMode = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
               </div>
             )}
@@ -542,12 +535,7 @@ export default function Crownguard() {
                 <button aria-label="Cancel rally move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
               </div>
             )}
-            {ui.trapArming && (
-              <div style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", background: "rgba(16,14,20,0.9)", border: "2px solid #10131a", padding: "5px 10px", fontSize: 11, display: "flex", gap: 8, alignItems: "center", zIndex: 30 }}>
-                <span>Click the <b style={{ color: "#e8d47a" }}>road</b> to set a trap — {ui.trapCharges} charge{ui.trapCharges === 1 ? "" : "s"} ready.</span>
-                <button aria-label="Stop placing traps" onClick={() => { if (G.current) G.current.trapFor = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
-              </div>
-            )}
+
 
             {/* build drawer (right side) */}
             <div style={{
@@ -564,22 +552,54 @@ export default function Crownguard() {
               {ui.masterShow && (
                 <button
                   style={{ ...btn, width: "100%", marginBottom: 8, padding: "7px 8px", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, ...(ui.masterOn ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #d8b34a" } : {}) }}
-                  onClick={() => { const gg = G.current; if (gg) gg.masterBuild = !gg.masterBuild; }}>
+                  onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; }}>
                   ⚡ Master Builds — {ui.masterOn ? "ON" : "OFF"}
                 </button>
               )}
               {ui.masterShow && ui.masterOn && (
                 <div style={{ fontSize: 10, opacity: 0.7, marginBottom: 8, lineHeight: 1.5 }}>
-                  Towers arrive fully ascended, along the paths you favor. Choosing paths by hand teaches it new favorites.
+                  Every final form, bought whole — pick one, then click the grass.
                 </div>
               )}
-              {/* sprite tiles, two to a row — same shape as the field guide's grid */}
+              {ui.masterShow && ui.masterOn ? (
+                /* the master menu: each tower's every ascension, bought outright */
+                Object.entries(TOWERS).map(([key, def]) => (
+                  <div key={key} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 9.5, letterSpacing: 1.5, color: "#d8b34a", margin: "2px 0 5px" }}>{def.name.toUpperCase()}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      {masterPlans(key).map((plan) => {
+                        const pk = `${key}:${plan.branch}${plan.rank4 || ""}`;
+                        const can = ui.gold >= plan.cost;
+                        const active = ui.buildMode === key && ui.masterPick === pk;
+                        return (
+                          <button key={pk} title={def.branches[plan.branch].desc}
+                            style={{
+                              ...btn, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
+                              gap: 4, padding: "8px 4px 7px", textAlign: "center", minHeight: 80,
+                              ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}),
+                            }}
+                            onClick={() => {
+                              const gg = G.current;
+                              if (!gg) return;
+                              gg.buildMode = active ? null : key;
+                              gg.masterPick = active ? null : { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name };
+                              gg.selectedId = null;
+                            }}
+                            disabled={!can}>
+                            <PixelIcon kind={key} branch={plan.branch} rank4={plan.rank4} size={30} />
+                            <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.25 }}>{plan.name}</span>
+                            <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>⚡{plan.cost}g</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+              /* sprite tiles, two to a row — same shape as the field guide's grid */
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 {Object.entries(TOWERS).map(([key, def]) => {
-                  const master = ui.masterShow && ui.masterOn;
-                  const plan = master ? masterPlan(key) : null;
-                  const cost = master ? plan.cost : def.cost;
-                  const can = ui.gold >= cost;
+                  const can = ui.gold >= def.cost;
                   const active = ui.buildMode === key;
                   return (
                     <button key={key} title={def.blurb}
@@ -588,15 +608,16 @@ export default function Crownguard() {
                         gap: 5, padding: "10px 4px 8px", textAlign: "center", minHeight: 92,
                         ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}),
                       }}
-                      onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.selectedId = null; }}
+                      onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; }}
                       disabled={!can}>
-                      <PixelIcon kind={key} branch={plan?.branch} rank4={plan?.rank4} size={34} />
-                      <span style={{ fontSize: 10.5, fontWeight: "bold", lineHeight: 1.25 }}>{master ? plan.name : def.name}</span>
-                      <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{master ? "⚡" : ""}{cost}g</span>
+                      <PixelIcon kind={key} size={34} />
+                      <span style={{ fontSize: 10.5, fontWeight: "bold", lineHeight: 1.25 }}>{def.name}</span>
+                      <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
                     </button>
                   );
                 })}
               </div>
+              )}
               <div style={{ fontSize: 10, marginTop: 10, opacity: 0.6 }}>Time runs at half-speed while you build or manage a tower.</div>
             </div>
 
@@ -645,6 +666,9 @@ export default function Crownguard() {
                         }
                         if (t.kind === "knight") return `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
                         if (t.kind === "support") return `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
+                        if (t.kind === "trapsmith") return `${Math.round(st.trapDmg)} trap dmg · ${st.maxCharges} charge${st.maxCharges > 1 ? "s" : ""}, one per ${(st.chargeEvery / 1000).toFixed(0)}s · ${st.range}rng${st.root ? " · jaws hold fast" : ""}${st.execute ? " · finishes the weak" : ""}${st.burn ? " · burning mines" : ""}${st.stunAll ? " · stunning blasts" : ""}${st.autoSeed ? " · reseeds each wave" : ""}`;
+                        if (t.kind === "goldworks") return `pays ${Math.round(st.income)}g per wave held${st.compound ? ` · grows +${st.compound} each wave` : ""}${st.hoard ? " · hoard doubles or withholds" : ""}${st.mend ? " · mends the castle" : ""}${st.bountyAura ? ` · kills nearby pay +${Math.round(st.bountyAura * 100)}%` : ""}${st.shredAura ? " · aura strips armor" : ""}${st.midas ? " · midas shots" : ""}`;
+                        if (t.kind === "sunforge") return `${Math.round(st.dps)}/s beam, ramps to ×${st.rampMax} · ${st.range}rng${st.beams > 1 ? ` · ${st.beams} beams` : ""}${st.igniteBurn ? " · ignites at full focus" : ""}${st.beamSplash ? " · spills over at focus" : ""}${st.wellRoot ? " · pins its victim" : ""}${st.beamSlow ? " · slows the held" : ""}`;
                         return `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""}${st.spikes ? ` ×${st.spikes} spikes, all directions` : ""}${st.nova ? " · flame ring hits ALL in reach" : ""}${st.spikePierce > 1 ? " · spikes skewer through" : ""} · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.poolDps ? " · lava pools" : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
                       })()}
                     </div>
@@ -673,21 +697,11 @@ export default function Crownguard() {
                   );
                 })()}
 
-                {sel.kind === "trapsmith" && (() => {
-                  const tt = G.current?.towers.find((x) => x.id === sel.id);
-                  const charges = tt?.charges || 0;
-                  return (
-                    <button
-                      style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, ...(charges <= 0 ? disabled : {}), ...(ui.trapArming ? { background: "#5a4f2c" } : {}) }}
-                      onClick={() => {
-                        const g2 = G.current;
-                        if (!g2 || charges <= 0) return;
-                        g2.trapFor = g2.trapFor === sel.id ? null : sel.id;
-                      }}>
-                      🪤 Set Traps ({charges} ready)
-                    </button>
-                  );
-                })()}
+                {sel.kind === "trapsmith" && (
+                  <div style={{ fontSize: 10, opacity: 0.75, marginTop: 8, lineHeight: 1.5 }}>
+                    🪤 The smith arms the road himself — each finished charge is laid into the widest gap in his reach.
+                  </div>
+                )}
 
                 {/* standing orders: who this tower shoots at */}
                 {(() => {

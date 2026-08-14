@@ -85,6 +85,43 @@ export function updateGame(g, dt) {
   if (!g.grounds) g.grounds = []; // lingering ground effects (lava pools)
   if (!g.traps) g.traps = [];     // the trapsmith's armed road
 
+  // The trapsmith's bench runs in the quiet of the build phase as much as in
+  // battle: charges accumulate whether or not anyone watches, and the smith
+  // walks his stretch of road and arms it himself — one charge at a beat,
+  // always into the widest uncovered gap in his reach.
+  if (!g.paused && (g.phase === "combat" || g.phase === "build")) {
+    for (const t of g.towers) {
+      if (t.kind !== "trapsmith") continue;
+      const st = getStats(t);
+      if ((t.charges || 0) < st.maxCharges) {
+        t.chargeCd = (t.chargeCd ?? st.chargeEvery) - sdt * 1000;
+        if (t.chargeCd <= 0) { t.charges = (t.charges || 0) + 1; t.chargeCd = st.chargeEvery; }
+      }
+      // level-ups can raise the ceiling; never hold more than it allows
+      t.charges = Math.min(t.charges || 0, st.maxCharges);
+      t.layCd = Math.max(0, (t.layCd || 0) - sdt * 1000);
+      if ((t.charges || 0) > 0 && t.layCd <= 0) {
+        let best = null, bestSpread = 26;   // a spot only counts clear of the 26px spacing
+        for (let d = 12; d < TOTAL_LEN - 8; d += 14) {
+          const [px, py] = posAt(d);
+          if (Math.hypot(px - t.x, py - t.y) > st.range) continue;
+          let near = Infinity;
+          for (const tr of g.traps) near = Math.min(near, Math.hypot(tr.x - px, tr.y - py));
+          const spread = Math.min(near, 80);
+          if (spread > bestSpread) { bestSpread = spread; best = [px, py]; }
+        }
+        if (best) {
+          g.traps.push({ x: best[0], y: best[1], byTower: t.id, branch: t.branch, rank4: t.rank4 });
+          t.charges -= 1;
+          t.layCd = 650;
+          g.effects.push({ type: "dust", x: best[0], y: best[1], ttl: 300, r: 14 });
+          sfx.play("place");
+        }
+        // his whole reach already has teeth — bank the charge until one springs
+      }
+    }
+  }
+
   if (!g.paused && g.phase === "combat") {
     g.spawnTimer += sdt * 1000;
     while (g.spawnQueue.length && g.spawnQueue[0].at <= g.spawnTimer) {
@@ -154,17 +191,6 @@ export function updateGame(g, dt) {
           }
         }
       }
-    }
-    // The trapsmith's bench: charges accumulate whether or not anyone watches
-    for (const t of g.towers) {
-      if (t.kind !== "trapsmith") continue;
-      const st = getStats(t);
-      if ((t.charges || 0) < st.maxCharges) {
-        t.chargeCd = (t.chargeCd ?? st.chargeEvery) - sdt * 1000;
-        if (t.chargeCd <= 0) { t.charges = (t.charges || 0) + 1; t.chargeCd = st.chargeEvery; }
-      }
-      // level-ups can raise the ceiling; never hold more than it allows
-      t.charges = Math.min(t.charges || 0, st.maxCharges);
     }
     // Lead to Gold: the transmuter's aura eats armor off everything inside it
     for (const t of g.towers) {

@@ -85,24 +85,6 @@ export const startWave = (g) => {
   };
 };
 
-// The Trapsmith's whole trade: a charge spent to arm a spot of road. The
-// click must land on the road, within the shop's reach, and clear of any
-// trap already waiting there.
-export const placeTrap = (g, t, x, y) => {
-  if (!t || t.kind !== "trapsmith" || (t.charges || 0) <= 0) return false;
-  const st = getStats(t);
-  const near = nearestOnPath(x, y);
-  if (near.d > 30) return false;                       // not on the road
-  if (Math.hypot(near.x - t.x, near.y - t.y) > st.range) return false;
-  if (!g.traps) g.traps = [];
-  if (g.traps.some((tr) => Math.hypot(tr.x - near.x, tr.y - near.y) < 26)) return false;
-  g.traps.push({ x: near.x, y: near.y, byTower: t.id, branch: t.branch, rank4: t.rank4 });
-  t.charges -= 1;
-  g.effects.push({ type: "dust", x: near.x, y: near.y, ttl: 300, r: 14 });
-  sfx.play("place");
-  return true;
-};
-
 export const restartWave = (g) => {
   if (!g || !g.snapshot) return;
   const s = g.snapshot;
@@ -153,11 +135,40 @@ export const MASTER_MIN = Math.min(...Object.keys(TOWERS).map((k) => {
   return def.cost + def.levels[1].cost + def.levels[2].cost + br.cost + r4;
 }));
 
-export const placeMasterTower = (g, kind, x, y) => {
-  const plan = masterPlan(kind);
+// Every final form a tower can be bought as, in menu order: each branch's
+// two ascensions (or the branch itself where no ascension exists).
+export const masterPlans = (kind) => {
+  const def = TOWERS[kind];
+  const out = [];
+  for (const bk of Object.keys(def.branches)) {
+    const br = def.branches[bk];
+    const base = def.cost + def.levels[1].cost + def.levels[2].cost + br.cost;
+    if (br.rank4) {
+      for (const rk of Object.keys(br.rank4)) out.push({ branch: bk, rank4: rk, cost: base + br.rank4[rk].cost, name: br.rank4[rk].name });
+    } else {
+      out.push({ branch: bk, rank4: null, cost: base, name: br.name });
+    }
+  }
+  return out;
+};
+
+export const placeMasterTower = (g, kind, x, y, pick = null) => {
+  const def = TOWERS[kind];
+  let plan = masterPlan(kind);
+  if (pick && def.branches[pick.branch]) {
+    const br = def.branches[pick.branch];
+    const rank4 = br.rank4 ? (br.rank4[pick.rank4] ? pick.rank4 : Object.keys(br.rank4)[0]) : null;
+    plan = {
+      branch: pick.branch, rank4,
+      cost: def.cost + def.levels[1].cost + def.levels[2].cost + br.cost + (rank4 ? br.rank4[rank4].cost : 0),
+      name: rank4 ? br.rank4[rank4].name : br.name,
+    };
+  }
   if (g.gold < plan.cost || !buildableAt(g, x, y)) return;
   g.gold -= plan.cost;
   g.towers.push(makeTower(kind, x, y, 3, plan.branch, plan.cost, plan.rank4));
+  // a master purchase is as deliberate as a hand-built one — remember it
+  recordFavored(kind, { branch: plan.branch, ...(plan.rank4 ? { rank4: { [plan.branch]: plan.rank4 } } : {}) });
   if (g.run) g.run.towersBuilt += 1;
   g.buildMode = null;
   sfx.play("ascend");

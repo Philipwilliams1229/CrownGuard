@@ -154,7 +154,7 @@ export const TOWERS = {
   },
   trapsmith: {
     name: "Trapsmith", cost: 110, dtype: "phys", proj: "trap",
-    blurb: "Arms the ROAD itself. Stockpiles charges; select the shop, then click the road to set a trap where they'll walk.",
+    blurb: "Arms the ROAD itself. Stockpiles charges and lays them out on his own — always into the widest bare stretch he can reach.",
     levels: [
       { trapDmg: 60, splash: 34, maxCharges: 2, chargeEvery: 9000, range: 150, slow: 0.3, slowDur: 1400, rate: 0 },
       { trapDmg: 95, splash: 36, maxCharges: 3, chargeEvery: 8000, range: 165, slow: 0.3, slowDur: 1500, rate: 0, cost: 90, label: "Sharper Springs" },
