@@ -33,17 +33,20 @@ export const stoneWall = (ctx, x, top, w, h, pal = STONE) => {
   if (w <= 0 || h <= 0) return;
   ctx.fillStyle = pal.mid;
   ctx.fillRect(x, top, w, h);
-  const ch = 6;
-  const bw = Math.max(6, Math.floor(w / 2));
+  const ch = 5;                                 // finer courses
+  const bw = Math.max(5, Math.floor(w / 3));    // smaller blocks
   for (let cy = top, row = 0; cy < top + h; cy += ch, row++) {
     const rh = Math.min(ch, top + h - cy);
     const off = row % 2 ? 0 : Math.floor(bw / 2);
-    // the odd darker block
     for (let bx = x - off; bx < x + w; bx += bw) {
-      if (hash2(row, Math.floor(bx / bw)) % 6 === 0) {
-        const x0 = Math.max(x, bx), x1 = Math.min(x + w, bx + bw - 1);
-        if (x1 > x0) { ctx.fillStyle = pal.dark; ctx.fillRect(x0, cy, x1 - x0, rh - 1); }
-      }
+      const hb = hash2(row, Math.floor(bx / bw));
+      const x0 = Math.max(x, bx), x1 = Math.min(x + w, bx + bw - 1);
+      if (x1 <= x0) continue;
+      // every block leans a little light or a little dark — no two alike
+      if (hb % 6 === 0) { ctx.fillStyle = pal.dark; ctx.fillRect(x0, cy, x1 - x0, rh - 1); }
+      else if (hb % 7 === 1 && pal.lit) { ctx.fillStyle = pal.lit; ctx.fillRect(x0, cy, x1 - x0, 1); }
+      // the odd chipped corner
+      if (hb % 11 === 3) { ctx.fillStyle = pal.dark; ctx.fillRect(x1 - 1, cy + rh - 2, 1, 1); }
     }
     ctx.fillStyle = pal.mortar;
     if (rh > 1) ctx.fillRect(x, cy + rh - 1, w, 1);          // bed joint
@@ -64,15 +67,21 @@ export const plankFace = (ctx, x, top, w, h, mid = "#8a6238", lit = "#a0754a", d
   ctx.fillRect(x, top, w, h);
   ctx.fillStyle = dark;
   if (vert) {
-    for (let px = x + 5; px < x + w - 1; px += 6) ctx.fillRect(px, top, 1, h);
-    for (let px = x + 2; px < x + w - 1; px += 6) {           // grain
+    for (let px = x + 4; px < x + w - 1; px += 5) ctx.fillRect(px, top, 1, h);
+    for (let px = x + 2; px < x + w - 1; px += 5) {           // grain
       ctx.fillRect(px, top + 2 + (hash2(px, 1) % 4), 1, 3);
+      // a knot in the odd board
+      if (hash2(px, 9) % 5 === 2 && h > 6) ctx.fillRect(px, top + 1 + (hash2(px, 4) % (h - 3)), 1, 1);
     }
+    ctx.fillStyle = lit;
+    for (let px = x + 1; px < x + w - 1; px += 5) ctx.fillRect(px, top, 1, 1);
   } else {
-    for (let py = top + 4; py < top + h - 1; py += 5) ctx.fillRect(x, py, w, 1);
-    for (let py = top + 1; py < top + h - 1; py += 5) {
+    for (let py = top + 3; py < top + h - 1; py += 4) ctx.fillRect(x, py, w, 1);
+    for (let py = top + 1; py < top + h - 1; py += 4) {
       const gx = x + 2 + (hash2(py, 3) % Math.max(1, w - 6));
       ctx.fillRect(gx, py, 3, 1);
+      // nail heads where the boards meet their battens
+      if (hash2(py, 7) % 3 === 0) { ctx.fillStyle = lit; ctx.fillRect(x + 1 + (hash2(py, 5) % Math.max(1, w - 3)), py + 1, 1, 1); ctx.fillStyle = dark; }
     }
   }
   ctx.fillStyle = lit;
