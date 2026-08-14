@@ -192,6 +192,13 @@ export default function Crownguard() {
     const lv = levelById(levelId);
     if (!lv) return;
     const won = ui.result === "won";
+    // a fall AFTER the level was already won is the Endless March ending,
+    // not the level being lost — bank the extra waves like a free run's tail
+    if (!won && g?.victory) {
+      setProfile({ ...bankFreeRun(profile, { waves: Math.max(0, ui.wave - 1 - lv.window.count), run: g.run }) });
+      g.run = { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 };
+      return;
+    }
     setAward(bankLevel(profile, lv, {
       livesLeft: ui.lives, maxLives: CASTLE_HP,
       waves: won ? lv.window.count : Math.max(0, ui.wave - 1),
@@ -943,9 +950,9 @@ export default function Crownguard() {
                     : campaign
                       ? (nxt
                           ? (lastOfChapter
-                              ? `The chapter is closed — but word of it travels. ${nxt.chapter.name} is stirring, and ${nxt.name} lies ahead.`
-                              : `The road is yours as far as ${nxt.name}. The army does not wait.`)
-                          : "The Iron throne is taken and the whole continent is yours. The war is won.")
+                              ? `The chapter is closed — but word of it travels. ${nxt.chapter.name} is stirring, and ${nxt.name} lies ahead. Or dig in here and see how long this ground can hold.`
+                              : `The road is yours as far as ${nxt.name}. March on — or hold this ground against the Endless March.`)
+                          : "The Iron throne is taken and the whole continent is yours. The war is won — unless you'd rather see how long you can hold it.")
                       : "The dragon is slain and the road is quiet... for now. Beyond the pass, the horde has no end — march on if you dare."}
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", padding: "0 12px" }}>
@@ -955,9 +962,9 @@ export default function Crownguard() {
                       March On — {nxt.name}
                     </button>
                   )}
-                  {ui.result === "won" && !campaign && (
-                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", background: "#5a4f2c" }}
-                      onClick={() => { const g = G.current; if (g) { g.phase = "build"; g.buildUntil = g.time + 30; } }}>
+                  {ui.result === "won" && (
+                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", ...(campaign && nxt ? {} : { background: "#5a4f2c" }) }}
+                      onClick={() => { const g = G.current; if (g) { g.phase = "build"; g.buildUntil = g.time + 30; } setAward(null); }}>
                       March On — Endless
                     </button>
                   )}

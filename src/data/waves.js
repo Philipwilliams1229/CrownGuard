@@ -44,6 +44,10 @@ export function genWave(w) {
   const rand = mulberry32(w * 7919);
   const past = w - scriptedWaves();
   let budget = 78 + past * 16 + past * past * 0.7;
+  // a level that ends early in the script fields a gentler march than the
+  // full war does: scale the warband budget by where the level left off.
+  // Free Play (no window) lands exactly at 1.0 — unchanged.
+  budget *= 0.45 + 0.55 * (absWave(scriptedWaves()) / FACTION.waves.length);
   const spec = [];
   if (w % 5 === 0) {
     spec.push([FACTION.endlessBoss, 1 + Math.floor(past / 10), 2600]);
