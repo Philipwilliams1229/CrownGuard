@@ -392,6 +392,14 @@ export function draw(g, canvas, bufRef) {
       for (const e of g.enemies) if (!e.dead && Math.hypot(e.x - t.x, e.y - t.y) <= stA.range) n++;
       t._auraLive = n;
     }
+    // idle detection: no living foe in reach, and the soldiers find small
+    // things to do with their hands — see each tower's own habits
+    {
+      const stI = getStats(t);
+      let busy = false;
+      for (const e of g.enemies) { if (!e.dead && Math.hypot(e.x - t.x, e.y - t.y) <= stI.range) { busy = true; break; } }
+      t._idle = !busy;
+    }
     drawables.push({
       y: t.y + 14,
       fn: () => {
@@ -931,6 +939,38 @@ export function draw(g, canvas, bufRef) {
     } else if (fx.type === "pierce") {
       ctx.fillStyle = `rgba(232,212,122,${a * 0.7})`;
       ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), 8, 0, 7); ctx.fill();
+    }
+  }
+
+  // ---- passing life (purely cosmetic) ----
+  // now and then a pair of birds crosses the high sky — not over the fens
+  if (REALM.ambient !== "wisps") {
+    const cyc = ((g.time + 7) % 23) / 23;
+    if (cyc < 0.42) {
+      const bx = -20 + cyc / 0.42 * (W + 40);
+      for (let bi = 0; bi < 2; bi++) {
+        const wx = S(bx - bi * 14);
+        const wy = S(40 + bi * 9 + Math.sin(g.time * 2.4 + bi) * 3);
+        const up = Math.sin(g.time * 8 + bi * 1.7) > 0;
+        ctx.fillStyle = "rgba(26,30,38,0.55)";
+        if (up) { ctx.fillRect(wx - 2, wy - 1, 2, 1); ctx.fillRect(wx + 1, wy - 1, 2, 1); ctx.fillRect(wx, wy, 1, 1); }
+        else { ctx.fillRect(wx - 2, wy + 1, 2, 1); ctx.fillRect(wx + 1, wy + 1, 2, 1); ctx.fillRect(wx, wy, 1, 1); }
+      }
+    }
+  }
+  // butterflies work the greenwood meadows
+  if (REALM.ambient === "leaves") {
+    for (let i = 0; i < 3; i++) {
+      const ax = (i * 173 + 89) % W, ay = (i * 131 + 60) % (H - 80) + 30;
+      const fx2 = ax + Math.sin(g.time * 0.7 + i * 2.4) * 34 + Math.sin(g.time * 1.9 + i) * 10;
+      const fy2 = ay + Math.cos(g.time * 0.53 + i * 1.8) * 22 + Math.sin(g.time * 2.6 + i) * 5;
+      const open = Math.sin(g.time * 11 + i * 2) > 0;
+      const col = i % 2 ? "#e8dcc0" : "#e0a050";
+      ctx.fillStyle = col;
+      if (open) { ctx.fillRect(S(fx2) - 2, S(fy2) - 1, 2, 2); ctx.fillRect(S(fx2) + 1, S(fy2) - 1, 2, 2); }
+      else ctx.fillRect(S(fx2) - 1, S(fy2) - 1, 3, 2);
+      ctx.fillStyle = "rgba(16,19,26,0.8)";
+      ctx.fillRect(S(fx2), S(fy2), 1, 2);
     }
   }
 

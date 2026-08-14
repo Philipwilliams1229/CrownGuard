@@ -167,7 +167,13 @@ export const drawArcherTower = (ctx, t, time) => {
     for (let i = 0; i < 3; i++) ctx.fillRect(x - wdt - 2 + (i % 2) * 2, y + 2 - i * 11, CELL, CELL);
   }
   const recoil = t.anim > 0.4 ? CELL : 0;
-  const dir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
+  // at ease, the crew sweeps the horizon slowly instead of holding an aim —
+  // and someone up there has a spyglass that catches the light
+  const dir = t._idle ? (Math.sin(time * 0.55 + t.id) >= 0 ? 1 : -1) : (Math.cos(t.lastAim) >= 0 ? 1 : -1);
+  if (t._idle && Math.sin(time * 1.3 + t.id * 2.7) > 0.93) {
+    ctx.fillStyle = "#f4f0e4";
+    ctx.fillRect(x + dir * (pw - 4), y - h - 10, 2, 2);
+  }
   if (r4 === "ba") {
     // Ballista: a mounted siege bow replaces the archer entirely
     const my = y - h - 6;
@@ -289,6 +295,21 @@ export const drawWizardSpire = (ctx, t, time) => {
   }
   const trim = pal.h;
   const orbCol = pal.g;
+  // between battles the wizard reads: a small tome hangs open by the spire,
+  // its pages flicking on a lazy rhythm
+  if (t._idle) {
+    const cycW = ((time / 9) + t.id * 0.37) % 1;
+    if (cycW < 0.45) {
+      const ty2 = y - 30 + Math.sin(time * 1.6) * 2;
+      ctx.fillStyle = INK;
+      ctx.fillRect(x + 12, ty2 - 1, 8, 6);
+      ctx.fillStyle = "#d8ceb4";
+      ctx.fillRect(x + 13, ty2, 3, 4);
+      ctx.fillRect(x + 16, ty2, 3, 4);
+      ctx.fillStyle = "#a89c7c";
+      ctx.fillRect(x + 15 + (Math.sin(time * 7) > 0.6 ? 1 : 0), ty2, 1, 4);
+    }
+  }
   const bodyH = 16 + lvl * 5;
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   ctx.fillRect(x - 13, y + 14, 26, 4);
@@ -417,6 +438,24 @@ export const drawCatapult = (ctx, t, time) => {
   ctx.fillRect(x - 9, py - 2, 18, 5);
   ctx.fillStyle = woodLt;
   ctx.fillRect(x - 8, py - 1, 16, 3);
+  // idle upkeep: a crewman taps down the frame joints, hammer and habit
+  if (t._idle) {
+    const cycC = ((time / 7) + t.id * 0.61) % 1;
+    if (cycC < 0.3) {
+      const hx2 = x + (t.id % 2 ? 9 : -13);
+      const tap = Math.sin(time * 10) > 0 ? 0 : 2;
+      ctx.fillStyle = "#c8a888";
+      ctx.fillRect(hx2 + 2, y + 1, 2, 3);
+      ctx.fillStyle = INK;
+      ctx.fillRect(hx2 + 3, y - 2 + tap, 4, 2);
+      ctx.fillStyle = "#9aa0ac";
+      ctx.fillRect(hx2 + 5, y - 3 + tap, 2, 3);
+      if (tap && Math.sin(time * 10) < -0.85) {
+        ctx.fillStyle = "rgba(200,190,160,0.7)";
+        ctx.fillRect(hx2 + 5, y + 2, 1, 1);
+      }
+    }
+  }
   // Throwing arm: it sweeps. t.anim is 1 the instant the arm lets go and
   // decays to 0 as the crew winch it back, so the whole arc gets drawn
   // rather than the old two-position flip.
@@ -701,7 +740,12 @@ export const drawBladewheel = (ctx, t, time) => {
     ctx.fillRect(x - 3, y - 2 + i * 4, 6, 1);
   }
   // the wheel: a flat spinning disc of blades atop the post (squashed for depth)
-  const spin = time * (gale ? 10 : fire ? 3 : 4.5) + t.id;
+  const spin = time * (gale ? 10 : fire ? 3 : 4.5) * (t._idle ? 0.3 : 1) + t.id;
+  // idle: someone runs a whetstone along a blade — a spark now and then
+  if (t._idle && Math.sin(time * 3.1 + t.id * 1.9) > 0.9) {
+    ctx.fillStyle = "#f0d885";
+    ctx.fillRect(x + 8, y - 14, 2, 1);
+  }
   const wy = y - 12 + Math.round(t.anim * 2);   // it kicks down as it bites
   const rr = 9 + lvl + (t.branch ? 1 : 0);
   ctx.fillStyle = INK;
@@ -809,6 +853,14 @@ export const drawSupportTower = (ctx, t, time) => {
   }
   ctx.fillStyle = "rgba(20,20,26,0.3)";
   ctx.fillRect(x - 13, y + 14, 26, 4);
+  // at rest the crystal breathes: a single mote climbs off it and fades
+  if (t._idle) {
+    const cycS = ((time / 4) + t.id * 0.29) % 1;
+    if (cycS < 0.6) {
+      ctx.fillStyle = `rgba(${auraCol},${0.8 * (1 - cycS / 0.6)})`;
+      ctx.fillRect(S(t.x + Math.sin(time * 1.3 + t.id) * 3), S(t.y - 26 - cycS * 20), 2, 2);
+    }
+  }
   // stone altar platform (grows with level)
   const pw = 8 + lvl * 2;
   // stepped footing, block-laid body, and a dressed slab across the top
@@ -980,6 +1032,16 @@ export const drawGoldworks = (ctx, t, time) => {
     ctx.fillStyle = i % 2 ? `rgba(232,193,74,${0.7 - rise / 40})` : `rgba(150,140,120,${0.5 - rise / 60})`;
     ctx.fillRect(S(x + 7 + Math.sin(time * 2 + i) * 2), S(y - 24 - rise), 2, 2);
   }
+  // an idle clerk flips a coin off a thumb, catches it, does it again
+  if (t._idle) {
+    const cycG = ((time / 5) + t.id * 0.43) % 1;
+    if (cycG < 0.36) {
+      const ph = cycG / 0.36;
+      const coinY = y - 2 - Math.sin(ph * Math.PI) * 12;
+      ctx.fillStyle = ph % 0.3 > 0.15 ? "#f0d885" : "#d8b34a";
+      ctx.fillRect(x - 9, S(coinY), 2, 2);
+    }
+  }
   // the takings: coin stacks that grow with the level
   const stacks = hoard ? 5 : lvl + (t.branch === "a" ? 1 : 0);
   for (let i = 0; i < stacks; i++) {
@@ -1019,6 +1081,17 @@ export const drawGoldworks = (ctx, t, time) => {
 
 export const drawTrapsmith = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
+  // the bench never truly rests: hammer-sparks off the anvil on a work rhythm
+  {
+    const cycT = ((time / 3.2) + t.id * 0.53) % 1;
+    if (cycT < 0.12) {
+      ctx.fillStyle = "#f0a050";
+      const n = 2 + (t.id % 2);
+      for (let i = 0; i < n; i++) {
+        ctx.fillRect(x - 2 + i * 3, y - 16 - Math.round(cycT * 30) - i * 2, 1, 1);
+      }
+    }
+  }
   const st = getStats(t);
   const blast = t.branch === "b";
   ctx.fillStyle = "rgba(20,20,26,0.3)";
@@ -1194,9 +1267,25 @@ export const drawFalconry = (ctx, t, time) => {
   const birds = st.shots >= 3 ? 3 : (aviary || t.level >= 2) ? 2 : 1;
   const striking = t.anim > 0.35;
   const skip = striking ? (t.shotIdx || 0) % birds : -1;
+  // at ease, the first bird comes down to her gauntlet and folds its wings
+  const perchCyc = t._idle ? ((time / 11) + t.id * 0.71) % 1 : 1;
+  const perched = perchCyc < 0.5;
   const wheel = [];
   for (let b = 0; b < birds; b++) {
     if (b === skip) continue; // that one is away on the stoop
+    if (b === 0 && perched) {
+      // folded on the glove, head tucking now and then
+      const gx = x - 5, gy = y - 47;
+      ctx.fillStyle = INK;
+      ctx.fillRect(gx - 2, gy - 3, 5, 5);
+      ctx.fillStyle = court ? "#8a6a44" : "#a08258";
+      ctx.fillRect(gx - 1, gy - 2, 3, 3);
+      ctx.fillStyle = "#e8e2d4";
+      ctx.fillRect(gx - 1, gy, 3, 1);
+      ctx.fillStyle = "#e0b855";
+      ctx.fillRect(gx + 2, gy - 2 + (Math.sin(time * 1.1 + t.id) > 0.7 ? 1 : 0), 1, 1);
+      continue;
+    }
     const ang = time * 1.7 + t.id * 0.7 + (b / birds) * Math.PI * 2;
     wheel.push({
       bx: Math.round(x + Math.cos(ang) * 15),
