@@ -1108,6 +1108,79 @@ const drawOrbitBird = (ctx, bx, by, up, court) => {
   ctx.fillStyle = "#e0b855"; ctx.fillRect(bx + 2, by - 1, 1, 1);
 };
 
+export const drawAssassin = (ctx, t, time) => {
+  const x = S(t.x), y = S(t.y);
+  const court = t.branch === "a";
+  const guild = t.branch === "b";
+  ctx.fillStyle = "rgba(20,20,26,0.3)";
+  ctx.fillRect(x - 11, y + 12, 22, 4);
+  // a low dark covert: canvas stretched over bent poles, entrance like a cut
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.moveTo(x - 13, y + 12); ctx.lineTo(x - 9, y - 12); ctx.lineTo(x, y - 18);
+  ctx.lineTo(x + 9, y - 12); ctx.lineTo(x + 13, y + 12); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = court ? "#2e2a40" : guild ? "#28322c" : "#2c2c38";
+  ctx.beginPath();
+  ctx.moveTo(x - 11, y + 11); ctx.lineTo(x - 8, y - 10); ctx.lineTo(x, y - 16);
+  ctx.lineTo(x + 8, y - 10); ctx.lineTo(x + 11, y + 11); ctx.closePath(); ctx.fill();
+  // seams in the canvas
+  ctx.strokeStyle = "rgba(16,19,26,0.6)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x - 4, y - 13); ctx.lineTo(x - 6, y + 11); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + 4, y - 13); ctx.lineTo(x + 6, y + 11); ctx.stroke();
+  // the cut of a doorway, deeper than any night
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.moveTo(x - 3, y + 11); ctx.lineTo(x, y - 4); ctx.lineTo(x + 3, y + 11); ctx.closePath(); ctx.fill();
+  // knife board by the door: three thrown blades
+  ctx.fillStyle = "#544a3a";
+  ctx.fillRect(x - 11, y - 2, 5, 9);
+  ctx.fillStyle = "#b8bcc4";
+  for (let i = 0; i < 3; i++) ctx.fillRect(x - 10 + (i % 2), y + i * 3 - 1, 3, 1);
+  // the blade on watch: hooded, still, gone when the work is on
+  const away = t.anim > 0.4;
+  if (!away) {
+    const px = x + 7, py = y - 3;
+    ctx.fillStyle = INK;
+    ctx.fillRect(px - 2, py - 7, 6, 11);
+    ctx.fillStyle = court ? "#544a68" : guild ? "#3f5a48" : "#4a4a5e";
+    ctx.fillRect(px - 1, py - 6, 4, 9);
+    ctx.fillStyle = "#1c1a26";
+    ctx.fillRect(px - 1, py - 5, 4, 2);          // the hood's hollow
+    ctx.fillStyle = "#c8a888";
+    ctx.fillRect(px, py - 4, 2, 1);              // a chin, nothing more
+    // the whetstone pass: a knife tip glinting on a rhythm
+    if (Math.sin(time * 2.4 + t.id) > 0.55) {
+      ctx.fillStyle = "#e8e2d4";
+      ctx.fillRect(px + 3, py - 1, 3, 1);
+    }
+  }
+  // guild covens hang venom vials; the court hangs a single gold seal
+  if (guild) {
+    ctx.fillStyle = "#6a9a52";
+    ctx.fillRect(x - 8, y - 9, 2, 3);
+    ctx.fillRect(x + 6, y - 11, 2, 3);
+    ctx.fillStyle = "#8ac06a";
+    ctx.fillRect(x - 8, y - 9, 1, 1);
+  }
+  if (court) {
+    ctx.fillStyle = "#e0b855";
+    ctx.fillRect(x - 1, y - 20, 3, 3);
+    ctx.fillStyle = INK;
+    ctx.fillRect(x, y - 19, 1, 1);
+  }
+  // rank-4 marks: the Kingslayer's crown nail / the Quiet Blade's hush,
+  // the Widow's veil / the Plague Bearer's spore lantern
+  if (t.rank4 && court) {
+    ctx.fillStyle = t.rank4 === "a" ? "#e0b855" : "#c8ccd6";
+    ctx.fillRect(x - 10, y - 13, 2, 2);
+  }
+  if (t.rank4 && guild) {
+    ctx.fillStyle = t.rank4 === "a" ? "#d8a0c0" : "#b09ad8";
+    ctx.fillRect(x + 8, y - 14, 2, 2);
+  }
+};
+
 export const drawFalconry = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const st = getStats(t);

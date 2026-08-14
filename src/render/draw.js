@@ -19,7 +19,7 @@ import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
-import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge } from "./towers.js";
+import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawSpawn } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 
@@ -281,6 +281,21 @@ export function draw(g, canvas, bufRef) {
         }
         continue;
       }
+      if (gr.kind === "spores") {
+        // the Plague Bearer's harvest: a pale toxin haze that hunts the LIVING column
+        ctx.fillStyle = `rgba(96,74,120,${0.5 * fade})`;
+        ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.95, 0, 7); ctx.fill();
+        ctx.fillStyle = `rgba(140,110,168,${0.45 * fade})`;
+        ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.55, 0, 7); ctx.fill();
+        ctx.fillStyle = `rgba(196,170,220,${0.8 * fade})`;
+        for (let i = 0; i < 7; i++) {
+          const ang = g.time * 0.8 + i * 0.9;
+          const rr = gr.r * (0.25 + 0.55 * ((i * 31) % 10) / 10);
+          const drift = ((g.time * 0.7 + i * 0.37) % 1) * 6;
+          ctx.fillRect(S(gr.x + Math.cos(ang) * rr) - 1, S(gr.y + Math.sin(ang) * rr * 0.8) - 1 - drift, CELL, CELL);
+        }
+        continue;
+      }
       ctx.fillStyle = `rgba(125,51,41,${0.75 * fade})`;
       ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.9, 0, 7); ctx.fill();
       ctx.fillStyle = `rgba(216,118,58,${0.8 * fade})`;
@@ -345,6 +360,7 @@ export function draw(g, canvas, bufRef) {
     else if (t.kind === "spiker") drawBladewheel(ctx, t, g.time);
     else if (t.kind === "goldworks") drawGoldworks(ctx, t, g.time);
     else if (t.kind === "trapsmith") drawTrapsmith(ctx, t, g.time);
+    else if (t.kind === "assassin") drawAssassin(ctx, t, g.time);
     else if (t.kind === "falconry") drawFalconry(ctx, t, g.time);
     else if (t.kind === "sunforge") drawSunforge(ctx, t, g.time);
     else drawGarrison(ctx, t, g.time);
@@ -659,6 +675,38 @@ export function draw(g, canvas, bufRef) {
         const px2 = S(fx.x + Math.cos(ang) * r), py2 = S(fx.y + Math.sin(ang) * r * 0.85);
         ctx.fillRect(px2 - CELL, py2, CELL * 3, CELL);
         ctx.fillRect(px2, py2 - CELL, CELL, CELL * 3);
+      }
+    } else if (fx.type === "silence") {
+      // the stolen voice: a chant-note crossed out, rising off the silenced
+      const rise = (1 - fx.ttl / 900) * 8;
+      ctx.fillStyle = `rgba(200,204,214,${a})`;
+      ctx.fillRect(S(fx.x) + 2, S(fx.y) - rise - 5, 2, 6);
+      ctx.fillRect(S(fx.x), S(fx.y) - rise, 4, 3);
+      ctx.strokeStyle = `rgba(224,82,72,${a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(S(fx.x) - 3, S(fx.y) - rise + 4); ctx.lineTo(S(fx.x) + 7, S(fx.y) - rise - 7); ctx.stroke();
+    } else if (fx.type === "shadowstep") {
+      // the Covert at work: a ripple of shadow crosses, a blade-cross lands
+      const life = fx.life || 380;
+      const prog = 1 - fx.ttl / life;
+      const step = Math.min(1, prog * 2.2);
+      const hx = fx.x1 + (fx.x2 - fx.x1) * step;
+      const hy = fx.y1 + (fx.y2 - fx.y1) * step;
+      ctx.fillStyle = `rgba(30,26,44,${0.55 * a})`;
+      for (let gi = 0; gi < 3; gi++) {
+        const gt = Math.max(0, step - gi * 0.16);
+        ctx.fillRect(S(fx.x1 + (fx.x2 - fx.x1) * gt) - 2, S(fx.y1 + (fx.y2 - fx.y1) * gt) - 3, 4, 6);
+      }
+      if (step >= 1) {
+        // the cross of the cut, gold for marked prey, steel for the rest
+        const flash = Math.max(0, 1 - (prog - 0.45) * 3);
+        ctx.strokeStyle = fx.prey ? `rgba(232,193,74,${flash})` : `rgba(222,214,196,${flash})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(S(fx.x2) - 5, S(fx.y2) - 5); ctx.lineTo(S(fx.x2) + 5, S(fx.y2) + 5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(S(fx.x2) + 5, S(fx.y2) - 5); ctx.lineTo(S(fx.x2) - 5, S(fx.y2) + 5); ctx.stroke();
+      } else {
+        ctx.fillStyle = `rgba(30,26,44,${0.8 * a})`;
+        ctx.fillRect(S(hx) - 2, S(hy) - 4, 5, 8);
       }
     } else if (fx.type === "talon") {
       // the stoop is a curve, not a line: out wide, down hard, and home again

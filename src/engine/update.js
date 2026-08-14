@@ -9,7 +9,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots, pickTarget } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget, isPrey } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 
@@ -42,6 +42,7 @@ const makeEnemy = (type, mult) => {
     slowUntil: 0, slowPct: 0, burnUntil: 0, burnDps: 0, poisonUntil: 0, poisonDps: 0,
     brittleUntil: 0, brittleAmp: 0, burnSpread: false,
     stunUntil: 0, dead: false, blockedBy: null, engaged: false, meleeCd: 0,
+    silencedUntil: 0, noHealUntil: 0, sporeOn: null,
     healAmt: d.heal ? d.heal * Math.sqrt(mult) : 0, healEvery: d.healEvery || 0, healCd: null,
     raiseEvery: d.raiseEvery || 0, raiseCd: null, revived: false, healedFlash: 0,
   };
@@ -142,7 +143,7 @@ export function updateGame(g, dt) {
     // A Lord Marshal's banner drives everything marching near it: quicker feet
     // and harder plate for as long as he is on his.
     for (const b of g.enemies) {
-      if (b.dead || !b.bannerRange) continue;
+      if (b.dead || !b.bannerRange || b.silencedUntil > tms) continue;
       for (const e of g.enemies) {
         if (e.dead || Math.hypot(e.x - b.x, e.y - b.y) > b.bannerRange) continue;
         e.bannerSpeed = Math.max(e.bannerSpeed, b.bannerSpeedAmt);
@@ -322,14 +323,14 @@ export function updateGame(g, dt) {
       if (e.dead) continue;
       if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen * sdt);
       // Goblin Shaman: a rhythmic chant mends the WHOLE warband
-      if (e.healAmt) {
+      if (e.healAmt && e.silencedUntil <= tms) {
         e.healCd = (e.healCd ?? e.healEvery * 0.6) - sdt * 1000;
         if (e.healCd <= 0) {
           e.healCd = e.healEvery;
           g.effects.push({ type: "healwave", x: e.x, y: e.y, ttl: 550, r: 64 });
           sfx.play("chant");
           for (const e2 of g.enemies) {
-            if (e2.dead || e2.hp >= e2.maxHp) continue;
+            if (e2.dead || e2.hp >= e2.maxHp || e2.noHealUntil > tms) continue;
             e2.hp = Math.min(e2.maxHp, e2.hp + e.healAmt);
             e2.healedFlash = tms + 450;
           }
@@ -343,7 +344,7 @@ export function updateGame(g, dt) {
       }
       // Battle Chaplain: lays a ward over the soldiers around him that eats one
       // blow each. Re-cast on a rhythm, so killing him is the only real answer.
-      if (e.wardEvery) {
+      if (e.wardEvery && e.silencedUntil <= tms) {
         e.wardCd = (e.wardCd ?? e.wardEvery * 0.5) - sdt * 1000;
         if (e.wardCd <= 0) {
           e.wardCd = e.wardEvery;
@@ -359,7 +360,7 @@ export function updateGame(g, dt) {
       // Gravecaller / Hollow King: the bell tolls, and fresh dead climb out of
       // the road itself just behind the caller. No corpses required — this is
       // where the flood comes from, and why the caller dies first.
-      if (e.summonEvery) {
+      if (e.summonEvery && e.silencedUntil <= tms) {
         e.summonCd = (e.summonCd ?? e.summonEvery * 0.6) - sdt * 1000;
         if (e.summonCd <= 0) {
           e.summonCd = e.summonEvery;
@@ -373,7 +374,7 @@ export function updateGame(g, dt) {
         }
       }
       // Necromancer: calls nearby fallen back to their feet at half strength
-      if (e.raiseEvery) {
+      if (e.raiseEvery && e.silencedUntil <= tms) {
         e.raiseCd = (e.raiseCd ?? e.raiseEvery * 0.5) - sdt * 1000;
         if (e.raiseCd <= 0) {
           e.raiseCd = e.raiseEvery;
@@ -486,6 +487,11 @@ export function updateGame(g, dt) {
     for (const e of g.enemies) {
       if (!e.dead || e.deathDone) continue;
       e.deathDone = true;
+      // Plague Bearer: whoever dies carrying the guild's venom bursts
+      if (e.sporeOn) {
+        g.grounds.push({ x: e.x, y: e.y, r: e.sporeOn.r, dps: e.sporeOn.dps, until: tms + e.sporeOn.dur, kind: "spores" });
+        g.effects.push({ type: "boom", x: e.x, y: e.y, ttl: 300, r: e.sporeOn.r * 0.7 });
+      }
       if (e.splitInto) {
         const [type, n] = e.splitInto;
         for (let i = 0; i < n; i++) spawnAt(g, type, e.mult, e.dist - 4 - i * 9, tms);
@@ -783,6 +789,27 @@ export function updateGame(g, dt) {
             });
           }
         }
+      } else if (t.kind === "assassin") {
+        // the Covert strikes from nowhere: no projectile, only the wound
+        const prey = isPrey(target);
+        let dmg = st.dmg * (prey ? st.preyMult : 1);
+        // a blade of the Court finishes what is already dying
+        if (st.cull && !target.boss && target.hp / target.maxHp <= st.cull) dmg = target.hp + 99999;
+        // the venom rides the blade in — even a killing cut leaves it in the corpse
+        if (st.venom) {
+          const cur = target.poisonUntil > tms ? target.poisonDps : 0;
+          target.poisonDps = Math.max(cur, st.venom);
+          target.poisonUntil = tms + st.venomDur;
+          if (st.venomNoHeal) target.noHealUntil = tms + st.venomDur;
+          if (st.spores) target.sporeOn = { dps: st.spores, r: st.sporeR, dur: st.sporeDur };
+        }
+        dealDamage(g, target, dmg, "phys", !!st.pierce);
+        if (!target.dead && st.silence) {
+          target.silencedUntil = tms + st.silence;
+          g.effects.push({ type: "silence", x: target.x, y: target.y - target.size - 6, ttl: 900 });
+        }
+        g.effects.push({ type: "shadowstep", x1: t.x, y1: t.y - 14, x2: target.x, y2: target.y, ttl: 380, life: 380, prey });
+        sfx.play("stab");
       } else if (t.kind === "falconry") {
         // the bird stoops: instant talons, a mark left behind, and — for the
         // storm mews — a ricochet into the next victim

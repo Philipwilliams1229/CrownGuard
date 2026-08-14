@@ -536,6 +536,19 @@ export const MINI = {
       "...oooooo...",
     ]],
   },
+  assassin: {
+    pal: { o: "#2b2a33", c: "#3a3448", h: "#544a68", f: "#c8a888", s: "#b8bcc4", v: "#6a9a52" },
+    frames: [[
+      "....oooo....",
+      "...occcco...",
+      "..occhhcco..",
+      "..ochffho...",
+      "..ochffho...",
+      "...ohccho...",
+      "..os.oo.vo..",
+      "...o....o...",
+    ]],
+  },
   falconry: {
     pal: { o: "#2b2a33", b: "#a08258", f: "#e8e2d4", k: "#e0b855", w: "#6e4c28" },
     frames: [[

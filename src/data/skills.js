@@ -139,6 +139,17 @@ export const SKILLS = {
       { id: "b5", tier: 3, name: "The Grand Mews", needs: ["b3", "b4"], per: { dmg: P, rate: P }, desc: "+5% damage AND 5% faster a rank." },
     ],
   },
+  assassin: {
+    name: "Assassin's Covert",
+    blurb: "Sharper knives for more important throats.",
+    nodes: [
+      { id: "k1", tier: 1, name: "Keener Edges", per: { dmg: P }, desc: "+5% strike damage a rank." },
+      { id: "k2", tier: 1, name: "Longer Shadows", per: { range: P }, desc: "+5% reach a rank." },
+      { id: "k3", tier: 2, name: "Quicker Steps", needs: ["k1"], per: { rate: P }, desc: "Strikes 5% sooner a rank." },
+      { id: "k4", tier: 2, name: "Deeper Cuts", needs: ["k2"], per: { dmg: P }, desc: "A further +5% damage a rank." },
+      { id: "k5", tier: 3, name: "The Unseen Hand", needs: ["k3", "k4"], per: { dmg: P, rate: P }, desc: "+5% damage AND 5% sooner a rank." },
+    ],
+  },
   sunforge: {
     name: "Sunforge",
     blurb: "More light, held longer, focused finer.",

@@ -57,9 +57,13 @@ export const aimModes = (t, st) => {
   // no aim orders for towers that don't pick a foe: knights hold ground,
   // auras and traps don't aim, the sunforge beam swears itself to the
   // mightiest, and the gold works only aims at your purse
-  if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge") return [];
+  if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge" || t.kind === "assassin") return [];
   return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0);
 };
+
+// The Assassin's law: the foes that keep the rest alive — healers, raisers,
+// bell-ringers, banner-lords, ward-chanters — die first, no matter the crowd.
+export const isPrey = (e) => !!(e.healAmt || e.raiseEvery || e.summonEvery || e.bannerRange || e.wardEvery);
 
 // Some evolutions hunt by decree — the Ballista and Comet Sling always take
 // the mightiest foe, and the player can't talk them out of it.
@@ -81,6 +85,15 @@ export const pickTarget = (g, t, st) => {
   for (const e of g.enemies) {
     if (e.dead) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y);
+    // the covert's own law: prey first (anywhere, for a Kingslayer), then
+    // whoever carries the fattest purse — the player gets no say
+    if (st.preyMult) {
+      const prey = isPrey(e);
+      if (d > st.range && !(prey && st.preyAnywhere)) continue;
+      const score = prey ? 2e9 + e.hp : e.bounty * 1e3 + e.dist;
+      if (score > bestScore) { bestScore = score; best = e; }
+      continue;
+    }
     if (d > st.range || d < min) continue;
     let score;
     if (mode === "last") score = -e.dist;
