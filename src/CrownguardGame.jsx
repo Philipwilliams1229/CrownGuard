@@ -26,7 +26,7 @@ import EnemyTooltip from "./ui/EnemyTooltip.jsx";
 import HomeScreen from "./ui/HomeScreen.jsx";
 import CampaignMap from "./ui/CampaignMap.jsx";
 import WarCouncil from "./ui/WarCouncil.jsx";
-import FieldGuide from "./ui/FieldGuide.jsx";
+import FieldGuide, { describe } from "./ui/FieldGuide.jsx";
 import { BookIcon, PauseIcon, FlagIcon, Star } from "./ui/Glyphs.jsx";
 import { FONT, btn, panel, disabled, overlayPanel, title } from "./ui/theme.js";
 
@@ -69,6 +69,8 @@ export default function Crownguard() {
   const [profile, setProfile] = useState(loadProfile);
   // what the level just ended awarded: { rating, newStars, xp }
   const [award, setAward] = useState(null);
+  // which master-menu final the player is reading about: {kind, branch, rank4, name, cost, desc, stats}
+  const [masterInfo, setMasterInfo] = useState(null);
   const level = levelId ? levelById(levelId) : null;
   const uiRef = useRef(ui);
   uiRef.current = ui;
@@ -552,7 +554,7 @@ export default function Crownguard() {
               {ui.masterShow && (
                 <button
                   style={{ ...btn, width: "100%", marginBottom: 8, padding: "7px 8px", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, ...(ui.masterOn ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #d8b34a" } : {}) }}
-                  onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; }}>
+                  onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; setMasterInfo(null); }}>
                   ⚡ Master Builds — {ui.masterOn ? "ON" : "OFF"}
                 </button>
               )}
@@ -561,6 +563,23 @@ export default function Crownguard() {
                   Every final form, bought whole — pick one, then click the grass.
                 </div>
               )}
+              {ui.masterShow && ui.masterOn && masterInfo && (() => {
+                const { nums, traits } = describe(masterInfo.stats);
+                return (
+                  <div style={{ background: "#2c313c", border: "2px solid #10131a", boxShadow: "inset 0 0 0 2px #7a6a3c", padding: 9, marginBottom: 8 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <PixelIcon kind={masterInfo.kind} branch={masterInfo.branch} rank4={masterInfo.rank4} size={30} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: "bold", color: "#e8d47a", fontSize: 12 }}>{masterInfo.name} — ⚡{masterInfo.cost}g</div>
+                        <div style={{ fontSize: 10, opacity: 0.85, marginTop: 3, lineHeight: 1.5 }}>{masterInfo.desc}</div>
+                        <div style={{ fontSize: 10, opacity: 0.85, marginTop: 4, lineHeight: 1.55 }}>{nums.join(" · ")}</div>
+                        {traits.length > 0 && <div style={{ fontSize: 10, color: "#a8d88c", marginTop: 2, lineHeight: 1.5 }}>{traits.join(" · ")}</div>}
+                      </div>
+                      <button aria-label="Close info" onClick={() => setMasterInfo(null)} style={{ ...btn, padding: "1px 7px", fontSize: 11 }}>✕</button>
+                    </div>
+                  </div>
+                );
+              })()}
               {ui.masterShow && ui.masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
                 Object.entries(TOWERS).map(([key, def]) => (
@@ -574,7 +593,7 @@ export default function Crownguard() {
                         return (
                           <button key={pk} title={def.branches[plan.branch].desc}
                             style={{
-                              ...btn, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
+                              ...btn, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
                               gap: 4, padding: "8px 4px 7px", textAlign: "center", minHeight: 80,
                               ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}),
                             }}
@@ -586,6 +605,14 @@ export default function Crownguard() {
                               gg.selectedId = null;
                             }}
                             disabled={!can}>
+                            <span role="button" aria-label={`About ${plan.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const br = def.branches[plan.branch];
+                                const stats = plan.rank4 ? br.rank4[plan.rank4].stats : br.stats;
+                                setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
+                              }}
+                              style={{ position: "absolute", top: 2, right: 6, fontSize: 11, opacity: 0.65, pointerEvents: "auto" }}>ⓘ</span>
                             <PixelIcon kind={key} branch={plan.branch} rank4={plan.rank4} size={30} />
                             <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.25 }}>{plan.name}</span>
                             <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>⚡{plan.cost}g</span>
@@ -667,7 +694,7 @@ export default function Crownguard() {
                         if (t.kind === "knight") return `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
                         if (t.kind === "support") return `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
                         if (t.kind === "trapsmith") return `${Math.round(st.trapDmg)} trap dmg · ${st.maxCharges} charge${st.maxCharges > 1 ? "s" : ""}, one per ${(st.chargeEvery / 1000).toFixed(0)}s · ${st.range}rng${st.root ? " · jaws hold fast" : ""}${st.execute ? " · finishes the weak" : ""}${st.burn ? " · burning mines" : ""}${st.stunAll ? " · stunning blasts" : ""}${st.autoSeed ? " · reseeds each wave" : ""}`;
-                        if (t.kind === "goldworks") return `pays ${Math.round(st.income)}g per wave held${st.compound ? ` · grows +${st.compound} each wave` : ""}${st.hoard ? " · hoard doubles or withholds" : ""}${st.mend ? " · mends the castle" : ""}${st.bountyAura ? ` · kills nearby pay +${Math.round(st.bountyAura * 100)}%` : ""}${st.shredAura ? " · aura strips armor" : ""}${st.midas ? " · midas shots" : ""}`;
+                        if (t.kind === "goldworks") return `pays ${Math.round(st.income + (t.mintBonus || 0))}g per wave held${st.compound ? ` · grows +${st.compound} each wave` : ""}${st.hoard ? " · hoard doubles or withholds" : ""}${st.mend ? " · mends the castle" : ""}${st.bountyAura ? ` · kills nearby pay +${Math.round(st.bountyAura * 100)}%` : ""}${st.shredAura ? " · aura strips armor" : ""}${st.midas ? " · midas shots" : ""} · has paid ${Math.round(t.paidTotal || 0)}g this run`;
                         if (t.kind === "sunforge") return `${Math.round(st.dps)}/s beam, ramps to ×${st.rampMax} · ${st.range}rng${st.beams > 1 ? ` · ${st.beams} beams` : ""}${st.igniteBurn ? " · ignites at full focus" : ""}${st.beamSplash ? " · spills over at focus" : ""}${st.wellRoot ? " · pins its victim" : ""}${st.beamSlow ? " · slows the held" : ""}`;
                         return `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""}${st.spikes ? ` ×${st.spikes} spikes, all directions` : ""}${st.nova ? " · flame ring hits ALL in reach" : ""}${st.spikePierce > 1 ? " · spikes skewer through" : ""} · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.poolDps ? " · lava pools" : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
                       })()}

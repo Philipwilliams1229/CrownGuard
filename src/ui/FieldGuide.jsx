@@ -86,7 +86,7 @@ const TRAITS = [
   ["beamSplash", "at full focus the light spills over"],
 ];
 
-function describe(s) {
+export function describe(s) {
   const nums = NUMBERS.filter(([k]) => s[k] != null).map(([k, f]) => f(s[k]));
   const traits = TRAITS.filter(([k]) => s[k]).map(([, t]) => t);
   return { nums, traits };

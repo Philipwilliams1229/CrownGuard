@@ -181,23 +181,23 @@ export const TOWERS = {
     name: "Falconry", cost: 130, dtype: "phys", proj: "talon",
     blurb: "A falcon that owns the sky: double talons against fliers, and every strike MARKS its prey to take more from all your towers.",
     levels: [
-      { dmg: 16, rate: 850, range: 150, airMult: 2, mark: 0.2, markDur: 2500 },
-      { dmg: 26, rate: 820, range: 160, airMult: 2, mark: 0.2, markDur: 2500, cost: 90, label: "Second Falcon" },
-      { dmg: 38, rate: 800, range: 170, airMult: 2, mark: 0.25, markDur: 3000, cost: 140, label: "Master Falconer" },
+      { dmg: 26, rate: 1400, range: 150, airMult: 2, mark: 0.2, markDur: 2500 },
+      { dmg: 42, rate: 1350, range: 160, airMult: 2, mark: 0.2, markDur: 2500, cost: 90, label: "Second Falcon" },
+      { dmg: 62, rate: 1300, range: 170, airMult: 2, mark: 0.25, markDur: 3000, cost: 140, label: "Master Falconer" },
     ],
     branches: {
       a: {
-        name: "Royal Aviary", cost: 240, stats: { dmg: 34, rate: 430, range: 175, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500 }, desc: "A whole mews of hunting birds: near-constant dives that can knock foes senseless.",
+        name: "Royal Aviary", cost: 240, stats: { dmg: 58, rate: 750, range: 175, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500 }, desc: "A whole mews of hunting birds: near-constant dives that can knock foes senseless.",
         rank4: {
-          a: { name: "Roc Keeper", cost: 370, stats: { dmg: 40, rate: 430, range: 185, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500, roc: 8000, rocDrag: 90 }, desc: "Something enormous answers the whistle: every eight seconds it seizes the mightiest lesser foe and CARRIES IT BACK down the road." },
-          b: { name: "Storm Falcons", cost: 370, stats: { dmg: 38, rate: 390, range: 180, airMult: 2.4, mark: 0.25, markDur: 3000, diveStun: 0.25, diveStunDur: 600, chain: 1, chainRange: 90 }, desc: "Dives that crack like weather — each strike ricochets to a second victim." },
+          a: { name: "Roc Keeper", cost: 370, stats: { dmg: 68, rate: 750, range: 185, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500, roc: 8000, rocDrag: 90 }, desc: "Something enormous answers the whistle: every eight seconds it seizes the mightiest lesser foe and CARRIES IT BACK down the road." },
+          b: { name: "Storm Falcons", cost: 370, stats: { dmg: 66, rate: 700, range: 180, airMult: 2.4, mark: 0.25, markDur: 3000, diveStun: 0.25, diveStunDur: 600, chain: 1, chainRange: 90 }, desc: "Dives that crack like weather — each strike ricochets to a second victim." },
         },
       },
       b: {
-        name: "Warhawk Court", cost: 240, stats: { dmg: 30, rate: 800, range: 180, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3 }, desc: "The marks turn surgical: marked foes also lose a third of their armor. The tower that turns your arrows back ON.",
+        name: "Warhawk Court", cost: 240, stats: { dmg: 48, rate: 1250, range: 180, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3 }, desc: "The marks turn surgical: marked foes also lose a third of their armor. The tower that turns your arrows back ON.",
         rank4: {
-          a: { name: "Kingsight", cost: 370, stats: { dmg: 36, rate: 780, range: 190, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3, kingsight: true }, desc: "The court's eye never closes: the mightiest foe on the field is ALWAYS marked, everywhere, forever." },
-          b: { name: "Talon Rain", cost: 370, stats: { dmg: 30, rate: 800, range: 190, airMult: 2.2, mark: 0.3, markDur: 3200, markShred: 0.3, shots: 3 }, desc: "Three birds aloft at once — every volley marks three different victims." },
+          a: { name: "Kingsight", cost: 370, stats: { dmg: 58, rate: 1200, range: 190, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3, kingsight: true }, desc: "The court's eye never closes: the mightiest foe on the field is ALWAYS marked, everywhere, forever." },
+          b: { name: "Talon Rain", cost: 370, stats: { dmg: 48, rate: 1250, range: 190, airMult: 2.2, mark: 0.3, markDur: 3200, markShred: 0.3, shots: 3 }, desc: "Three birds aloft at once — every volley marks three different victims." },
         },
       },
     },

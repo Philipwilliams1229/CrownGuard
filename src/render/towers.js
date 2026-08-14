@@ -1076,59 +1076,104 @@ export const drawTrapsmith = (ctx, t, time) => {
   }
 };
 
+// the mistress herself, transcribed pixel-for-pixel from the approved concept
+const LADY_MAP = [
+  " GG        ",
+  " KG        ",
+  "  K   KKK  ",
+  "  K  KHHHK ",
+  "  K  KHFFHK",
+  "  KK KHFFHK",
+  "   K KFFFK ",
+  "   KKDDDKH ",
+  "   KDDDDKH ",
+  "  KDDDDDKh ",
+  "  KdDDDdK  ",
+  "  KdDDDdK  ",
+  "   KDDDK   ",
+  "   KK KK   ",
+];
+
+const drawOrbitBird = (ctx, bx, by, up, court) => {
+  ctx.fillStyle = INK;
+  if (up) { ctx.fillRect(bx - 3, by - 2, 2, 2); ctx.fillRect(bx + 1, by - 2, 2, 2); ctx.fillRect(bx - 2, by, 4, 2); }
+  else { ctx.fillRect(bx - 4, by, 3, 2); ctx.fillRect(bx + 1, by, 3, 2); ctx.fillRect(bx - 2, by - 1, 4, 2); }
+  ctx.fillStyle = court ? "#8a6a44" : "#a08258";
+  ctx.fillRect(bx - 1, by, 2, 1);
+  ctx.fillStyle = "#e8e2d4"; ctx.fillRect(bx - 1, by + (up ? 1 : 0), 2, 1);
+  ctx.fillStyle = "#e0b855"; ctx.fillRect(bx + 2, by - 1, 1, 1);
+};
+
 export const drawFalconry = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
+  const st = getStats(t);
   const aviary = t.branch === "a";
   const court = t.branch === "b";
   ctx.fillStyle = "rgba(20,20,26,0.3)";
-  ctx.fillRect(x - 12, y + 14, 24, 4);
-  // the perch: one tall post, a crossbar, and weathered guy-ropes
-  ctx.fillStyle = INK;
-  ctx.fillRect(x - 3, y - 34, 6, 48);
-  ctx.fillStyle = "#6e4c28";
-  ctx.fillRect(x - 2, y - 33, 4, 46);
-  ctx.fillStyle = "#8a6238";
-  ctx.fillRect(x - 2, y - 33, 1, 46);
-  ctx.fillStyle = INK;
-  ctx.fillRect(x - 14, y - 32, 28, 5);
-  ctx.fillStyle = "#8a6238";
-  ctx.fillRect(x - 13, y - 31, 26, 3);
-  ctx.strokeStyle = "rgba(60,42,24,0.8)";
-  ctx.beginPath(); ctx.moveTo(x - 13, y - 29); ctx.lineTo(x - 9, y + 12); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x + 13, y - 29); ctx.lineTo(x + 9, y + 12); ctx.stroke();
-  // the handler's block and feed bucket
-  ctx.fillStyle = INK;
-  ctx.fillRect(x + 6, y + 4, 8, 9);
-  ctx.fillStyle = "#7a5a34";
-  ctx.fillRect(x + 7, y + 5, 6, 7);
-  // the bird itself — gone from the perch for the instant of a strike
-  const striking = t.anim > 0.5;
-  const birds = aviary ? 2 : 1;
+  ctx.fillRect(x - 11, y + 14, 22, 4);
+
+  // the wheel of wings: her birds circle her like the wizard's runes, the
+  // back half of the orbit passing behind her, the front half before her
+  const birds = st.shots >= 3 ? 3 : (aviary || t.level >= 2) ? 2 : 1;
+  const striking = t.anim > 0.35;
+  const skip = striking ? (t.shotIdx || 0) % birds : -1;
+  const wheel = [];
   for (let b = 0; b < birds; b++) {
-    if (striking && b === 0) continue;
-    const bx = x + (birds > 1 ? (b === 0 ? -7 : 7) : -6);
-    const flap = Math.sin(time * 3 + t.id + b * 2) > 0.85;
-    ctx.fillStyle = INK;
-    ctx.fillRect(bx - 3, y - 40, 7, 9);
-    ctx.fillStyle = court ? "#8a6a44" : "#a08258";
-    ctx.fillRect(bx - 2, y - 39, 5, 7);
-    ctx.fillStyle = "#e8e2d4";
-    ctx.fillRect(bx - 2, y - 36, 5, 2);
-    ctx.fillStyle = "#e0b855";
-    ctx.fillRect(bx + 3, y - 38, 2, 2);
-    ctx.fillStyle = "#2b2a33";
-    ctx.fillRect(bx + 1, y - 38, 1, 1);
-    if (flap) {
-      ctx.fillStyle = court ? "#8a6a44" : "#a08258";
-      ctx.fillRect(bx - 6, y - 41, 4, 2);
-      ctx.fillRect(bx + 3, y - 41, 4, 2);
+    if (b === skip) continue; // that one is away on the stoop
+    const ang = time * 1.7 + t.id * 0.7 + (b / birds) * Math.PI * 2;
+    wheel.push({
+      bx: Math.round(x + Math.cos(ang) * 15),
+      by: Math.round(y - 37 + Math.sin(ang) * 5),
+      up: Math.sin(time * 9 + b * 2.1) > 0,
+      front: Math.sin(ang) >= 0,
+      king: court && t.rank4 === "a" && b === 0,
+    });
+  }
+  for (const w of wheel) if (!w.front) drawOrbitBird(ctx, w.bx, w.by, w.up, court);
+
+  // the roost: a round stone tower with a crenellated rim
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 9, y - 22, 18, 36);
+  ctx.fillStyle = "#5f6470";
+  ctx.fillRect(x - 8, y - 21, 16, 34);
+  ctx.fillStyle = "#494f5c";
+  for (let i = 0; i < 5; i++) ctx.fillRect(x - 8 + ((i * 7) % 14), y - 18 + i * 6, 4, 2);
+  ctx.fillStyle = "#3a3f4a";
+  for (let i = 0; i < 3; i++) ctx.fillRect(x - 6 + i * 5, y - 14 + (i % 2) * 9, 2, 1);
+  ctx.fillStyle = INK; ctx.fillRect(x - 3, y + 5, 6, 9);
+  ctx.fillStyle = "#6e4c28"; ctx.fillRect(x - 2, y + 6, 4, 8);
+  ctx.fillStyle = INK; ctx.fillRect(x - 11, y - 26, 22, 5);
+  ctx.fillStyle = "#6a7080"; ctx.fillRect(x - 10, y - 25, 20, 3);
+  ctx.fillStyle = "#575d6a";
+  for (let i = -9; i <= 8; i += 4) ctx.fillRect(x + i, y - 28, 2, 3);
+  // her banner, dyed by the path she keeps
+  ctx.fillStyle = INK; ctx.fillRect(x + 9, y - 36, 1, 10);
+  ctx.fillStyle = court ? "#8a6ad8" : "#c04838";
+  ctx.fillRect(x + 10, y - 36, 4, 3); ctx.fillRect(x + 10, y - 33, 2, 1);
+
+  // the falcon-mistress on the rim, gauntlet raised to the wheel
+  const dress = court ? "#5a4a8c" : aviary ? "#7a3c30" : "#2e6e6a";
+  const dressD = court ? "#403470" : aviary ? "#582a22" : "#1d4a48";
+  const pal = { K: INK, G: "#b08858", H: "#a05a2c", h: "#7a401e", F: "#e8c9a2", D: dress, d: dressD };
+  for (let r = 0; r < LADY_MAP.length; r++) {
+    for (let c = 0; c < LADY_MAP[r].length; c++) {
+      const ch = LADY_MAP[r][c];
+      if (ch === " ") continue;
+      ctx.fillStyle = pal[ch];
+      ctx.fillRect(x - 6 + c, y - 42 + r, 1, 1);
     }
   }
+
+  for (const w of wheel) {
+    if (w.front) drawOrbitBird(ctx, w.bx, w.by, w.up, court);
+    if (w.king) { ctx.fillStyle = "#e8c14a"; ctx.fillRect(w.bx + 2, w.by - 2, 1, 1); }
+  }
+
   // a drifting feather, now and then
   const fall = (time * 9 + t.id * 3) % 40;
   if (fall < 26) {
     ctx.fillStyle = "rgba(232,226,212,0.8)";
-    ctx.fillRect(S(x + 8 + Math.sin(time * 3) * 3), S(y - 30 + fall), 2, 1);
+    ctx.fillRect(x + 8 + Math.round(Math.sin(time * 3) * 3), y - 30 + Math.round(fall), 2, 1);
   }
 };
 

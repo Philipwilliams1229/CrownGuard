@@ -608,18 +608,29 @@ export function draw(g, canvas, bufRef) {
         ctx.fillRect(px2, py2 - CELL, CELL, CELL * 3);
       }
     } else if (fx.type === "talon") {
-      // the stoop: a pale streak with a glint of gold at the strike
-      const prog = 1 - fx.ttl / 170;
-      const hx = fx.x1 + (fx.x2 - fx.x1) * Math.min(1, prog * 1.6);
-      const hy = fx.y1 + (fx.y2 - fx.y1) * Math.min(1, prog * 1.6);
-      const bx = fx.x1 + (fx.x2 - fx.x1) * Math.max(0, prog * 1.6 - 0.4);
-      const by = fx.y1 + (fx.y2 - fx.y1) * Math.max(0, prog * 1.6 - 0.4);
-      ctx.strokeStyle = `rgba(240,234,216,${a})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(S(bx), S(by)); ctx.lineTo(S(hx), S(hy)); ctx.stroke();
-      ctx.lineWidth = 1;
-      ctx.fillStyle = `rgba(224,184,85,${a})`;
-      ctx.fillRect(S(hx) - 1, S(hy) - 1, 3, 3);
+      // the stoop and the return: the falcon rides its own streak down and home
+      const life = fx.life || 520;
+      const prog = 1 - fx.ttl / life;
+      const out = Math.min(1, prog / 0.55);
+      const back = Math.max(0, (prog - 0.55) / 0.45);
+      const lerp = back > 0 ? 1 - back : out;
+      const hx = fx.x1 + (fx.x2 - fx.x1) * lerp;
+      const hy = fx.y1 + (fx.y2 - fx.y1) * lerp - (back > 0 ? Math.sin(back * Math.PI) * 10 : 0);
+      if (back === 0) {
+        ctx.strokeStyle = `rgba(240,234,216,${a * 0.8})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(S(fx.x1), S(fx.y1)); ctx.lineTo(S(hx), S(hy)); ctx.stroke();
+      }
+      if (out === 1 && back < 0.25) {
+        ctx.fillStyle = `rgba(224,184,85,${0.9 - back * 3})`;
+        ctx.fillRect(S(fx.x2) - 2, S(fx.y2) - 2, 5, 5);
+      }
+      const bx = S(hx), by = S(hy);
+      ctx.fillStyle = `rgba(16,19,26,${Math.min(1, a + 0.2)})`;
+      if (back > 0) { ctx.fillRect(bx - 3, by - 2, 2, 2); ctx.fillRect(bx + 1, by - 2, 2, 2); ctx.fillRect(bx - 2, by, 4, 2); }
+      else { ctx.fillRect(bx - 1, by - 2, 2, 2); ctx.fillRect(bx - 2, by, 4, 2); }
+      ctx.fillStyle = `rgba(160,130,88,${a})`;
+      ctx.fillRect(bx - 1, by, 2, 1);
     } else if (fx.type === "roc") {
       // something with a wingspan passes low over the road
       const prog = 1 - fx.ttl / 520;

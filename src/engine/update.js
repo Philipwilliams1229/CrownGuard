@@ -754,7 +754,7 @@ export function updateGame(g, dt) {
           }
         }
         for (const v of hits) {
-          g.effects.push({ type: "talon", x1: t.x, y1: t.y - 30, x2: v.x, y2: v.y - 6, ttl: 170 });
+          g.effects.push({ type: "talon", x1: t.x, y1: t.y - 38, x2: v.x, y2: v.y - 6, ttl: 520, life: 520 });
           dealDamage(g, v, st.dmg * (v.flying ? st.airMult : 1), "phys", false);
           if (!v.dead) {
             v.markUntil = tms + st.markDur;
@@ -770,7 +770,7 @@ export function updateGame(g, dt) {
               if (dd <= st.chainRange && dd < nd) { nd = dd; nxt = e; }
             }
             if (nxt) {
-              g.effects.push({ type: "talon", x1: v.x, y1: v.y - 6, x2: nxt.x, y2: nxt.y - 6, ttl: 150 });
+              g.effects.push({ type: "talon", x1: v.x, y1: v.y - 6, x2: nxt.x, y2: nxt.y - 6, ttl: 420, life: 420 });
               dealDamage(g, nxt, st.dmg * 0.5 * (nxt.flying ? st.airMult : 1), "phys", false);
               if (!nxt.dead) { nxt.markUntil = tms + st.markDur; nxt.markAmp = Math.max(nxt.markAmp, st.mark); }
             }
@@ -938,6 +938,7 @@ export function updateGame(g, dt) {
         if (st.mend && g.lives < CASTLE_HP) g.lives += 1;
         if (pay > 0) {
           g.gold += pay;
+          t.paidTotal = (t.paidTotal || 0) + pay;
           if (g.run) g.run.goldEarned += pay;
           g.effects.push({ type: "coin", x: t.x, y: t.y - 26, ttl: 1100, text: `+${pay}g` });
           sfx.play("payout");
