@@ -484,7 +484,7 @@ export function draw(g, canvas, bufRef) {
     }
   }
 
-  drawCastle(ctx, g.time, Math.max(0, g.lives) / CASTLE_HP);
+  drawCastle(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
 
   // ---- the spawn marker ----
   // Drawn after everything standing, because it used to sit under the pines

@@ -1003,7 +1003,7 @@ export function updateGame(g, dt) {
         let pay = st.income + (t.mintBonus || 0);
         if (st.hoard) pay = g.lives >= (g.livesAtWaveStart ?? g.lives) ? pay * 2 : 0;
         if (st.compound) t.mintBonus = (t.mintBonus || 0) + st.compound;
-        if (st.mend && g.lives < CASTLE_HP) g.lives += 1;
+        if (st.mend && g.lives < 100) g.lives += 1;   // masons can raise the walls past their old strength
         if (pay > 0) {
           g.gold += pay;
           t.paidTotal = (t.paidTotal || 0) + pay;
@@ -1015,10 +1015,11 @@ export function updateGame(g, dt) {
         }
       }
       g.effects.push({ type: "coin", x: W / 2, y: 40, ttl: 1200, text: `Wave cleared! +${waveBonus(g.wave)}g`, big: true });
-      // High Cathedral: each cleared wave rebuilds one castle HP
-      if (g.lives < CASTLE_HP && g.towers.some((t) => t.kind === "support" && t.branch === "b" && t.rank4 === "b")) {
+      // High Cathedral: each cleared wave rebuilds one castle HP — and its
+      // masons don't stop at the old walls: they raise them, up to 100
+      if (g.lives < 100 && g.towers.some((t) => t.kind === "support" && t.branch === "b" && t.rank4 === "b")) {
         g.lives += 1;
-        g.effects.push({ type: "coin", x: W / 2, y: 64, ttl: 1300, text: "The Cathedral mends the walls +1", big: true });
+        g.effects.push({ type: "coin", x: W / 2, y: 64, ttl: 1300, text: g.lives > CASTLE_HP ? "The Cathedral raises the walls +1" : "The Cathedral mends the walls +1", big: true });
       }
       // the campaign is won at wave 15 — once — then the Endless March is open
       if (g.wave === scriptedWaves() && !g.victory) { g.victory = true; g.phase = "won"; sfx.play("won"); }

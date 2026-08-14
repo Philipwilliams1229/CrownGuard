@@ -482,12 +482,14 @@ export default function Crownguard() {
           {/* stat bar */}
           <div style={{ display: "flex", gap: 14, padding: "6px 10px", background: "#2c313c", border: "3px solid #10131a", borderBottom: "none", fontSize: 13, flexWrap: "wrap", alignItems: "center", boxShadow: "inset 0 0 0 2px #454c5a" }}>
             <span><span style={statLabel}>GOLD</span><b style={{ color: "#e8d47a" }}>{ui.gold}</b></span>
-            <span><span style={statLabel}>CASTLE</span><b style={{ color: ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.6 }}>/{CASTLE_HP}</span></span>
+            <span><span style={statLabel}>CASTLE</span><b style={{ color: ui.lives > CASTLE_HP ? "#e8c14a" : ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.6 }}>/{CASTLE_HP}</span></span>
             <span><span style={statLabel}>WAVE</span><b>{ui.wave}</b><span style={{ opacity: 0.6 }}>/{ui.wave > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
             <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+              {/* reset grows LEFT out of the right-anchored row, so +/- and
+                  everything after them never shift underneath the cursor */}
+              {ui.zoom > 1 && <button title="Reset view" style={{ ...btn, padding: "2px 9px", fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
               <button title="Zoom out" style={{ ...btn, padding: "2px 9px", fontSize: 12 }} onClick={() => setZoom((G.current?.cam.zoom || 1) / 1.3)}>-</button>
               <button title="Zoom in" style={{ ...btn, padding: "2px 9px", fontSize: 12 }} onClick={() => setZoom((G.current?.cam.zoom || 1) * 1.3)}>+</button>
-              {ui.zoom > 1 && <button title="Reset view" style={{ ...btn, padding: "2px 9px", fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
               <button title="Game speed" style={{ ...btn, padding: "2px 10px", fontSize: 11, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
                 onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
                 {ui.speed}x
