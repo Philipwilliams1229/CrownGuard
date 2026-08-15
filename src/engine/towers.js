@@ -210,6 +210,11 @@ export const makeTower = (kind, x, y, level = 1, branch = null, invested = null,
     t.rally = { x, y: y + 28 };
     syncUnits(t);
   }
+  if (kind === "catapult") {
+    // the roller's bearing flag — harmless on the lobbing path, essential on
+    // the rolling one; set downroad by default so a fresh roller still works
+    t.rally = { x, y: y + 40 };
+  }
   if (kind === "assassin") {
     // the covert's blades muster in the grass a little downroad of the tent
     t.rally = { x, y: y + 30 };

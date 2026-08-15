@@ -4,7 +4,7 @@
 // clears, the build-phase auto-start horn, and effect/shake decay.
 // `dt` is the raw (already clamped) seconds since the last frame.
 
-import { PATH_HALF, RESPAWN_MS, W, BUILD_TIME, CASTLE_HP, BASE_SPEED } from "../data/constants.js";
+import { PATH_HALF, RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED } from "../data/constants.js";
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
@@ -1020,6 +1020,29 @@ export function updateGame(g, dt) {
       t.cd = st.rate;
       t.anim = 1;
       t.lastAim = Math.atan2(target.y - t.y, target.x - t.x);
+      if (st.roller) {
+        // ---- the Log Roller ----
+        // It does not aim at a foe; it aims at a BEARING, the one you set with
+        // its flag. The log leaves the cradle and grinds on until it is off the
+        // board, taking everything it touches with it.
+        const bearing = t.logAim != null ? t.logAim : (t.rally
+          ? Math.atan2(t.rally.y - t.y, t.rally.x - t.x)
+          : 0);
+        if (!g.logs) g.logs = [];
+        g.logs.push({
+          id: nextId(), src: t.id, x: t.x, y: t.y, a: bearing,
+          speed: st.logSpeed || 118, dmg: st.logDmg || 120, w: st.logWidth || 22,
+          stun: st.logStun || 0, slow: st.logSlow || 0, slowDur: st.logSlowDur || 0,
+          burn: st.logBurn || 0, burnDur: st.logBurnDur || 0,
+          blast: st.logBlast || 0, blastDmg: st.logBlastDmg || 0,
+          hitIds: [], spin: 0,
+        });
+        sfx.play("rock");
+        g.shake = Math.max(g.shake, 3);
+        t.anim = 1;
+        t.lastAim = bearing;
+        continue;
+      }
       if (t.kind === "archer") {
         sfx.play(getStats(t).bolt ? "bolt" : "arrow");
         const hgt = t.branch === "b" ? 38 : 14 + t.level * 6;
@@ -1186,6 +1209,49 @@ export function updateGame(g, dt) {
           kind: "orb", src: t.id,
         });
       }
+    }
+
+    // ---- rolling logs ----
+    // A log is not a projectile: it never arrives anywhere. It rolls a straight
+    // bearing, crushes what it overlaps ONCE each, and dies at the board edge.
+    if (g.logs && g.logs.length) {
+      for (const lg of g.logs) {
+        const step = lg.speed * sdt;
+        lg.x += Math.cos(lg.a) * step;
+        lg.y += Math.sin(lg.a) * step;
+        lg.spin += step * 0.09;
+        for (const e of g.enemies) {
+          if (e.dead || e.flying || lg.hitIds.includes(e.id)) continue;
+          // distance from the enemy to the log's axle line, across its width
+          const dx = e.x - lg.x, dy = e.y - lg.y;
+          const along = dx * Math.cos(lg.a) + dy * Math.sin(lg.a);
+          const across = Math.abs(-dx * Math.sin(lg.a) + dy * Math.cos(lg.a));
+          if (Math.abs(along) > 10 || across > lg.w * 0.5 + (e.size || 14) * 0.5) continue;
+          lg.hitIds.push(e.id);
+          dealDamage(g, e, lg.dmg, "phys", true, false, lg.src);
+          g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 260, r: 16 });
+          if (!e.dead) {
+            if (lg.stun && !e.immStun) e.stunUntil = Math.max(e.stunUntil, tms + lg.stun);
+            if (lg.slow && !e.immSlow) { e.slowUntil = tms + lg.slowDur; e.slowPct = Math.max(e.slowPct, lg.slow); }
+            if (lg.burn) { e.burnUntil = tms + lg.burnDur; e.burnDps = lg.burn; e.burnSrc = lg.src; }
+          }
+        }
+        // off the board: the powder keg makes its point on the way out
+        if (lg.x < -40 || lg.x > W + 40 || lg.y < -40 || lg.y > H + 40) {
+          lg.done = true;
+          if (lg.blast) {
+            const bx = Math.max(0, Math.min(W, lg.x)), by = Math.max(0, Math.min(H, lg.y));
+            g.effects.push({ type: "boom", x: bx, y: by, ttl: 420, r: lg.blast });
+            g.shake = Math.max(g.shake, 6);
+            sfx.play("boom");
+            for (const e of g.enemies) {
+              if (e.dead || Math.hypot(e.x - bx, e.y - by) > lg.blast) continue;
+              dealDamage(g, e, lg.blastDmg, "phys", false, false, lg.src);
+            }
+          }
+        }
+      }
+      g.logs = g.logs.filter((lg) => !lg.done);
     }
 
     for (const p of g.projectiles) {

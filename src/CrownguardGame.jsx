@@ -293,6 +293,15 @@ export default function Crownguard() {
   // is reachable, and a click anywhere plants the flag — outside the circle it
   // slides to the nearest spot on the rim rather than missing.
   const postRally = (g, t, x, y) => {
+    // a Log Roller is not mustering anyone: the flag is a BEARING, and it may
+    // be planted anywhere, because the log will roll until it leaves the board
+    if (t.kind === "catapult") {
+      t.logAim = Math.atan2(y - t.y, x - t.x);
+      t.rally = { x, y };
+      g.effects.push({ type: "levelup", x, y, ttl: 500 });
+      g.rallyFor = null;
+      return;
+    }
     const dx = x - t.x, dy = y - t.y;
     const d = Math.hypot(dx, dy);
     const k = d > RALLY_RANGE ? RALLY_RANGE / d : 1;
@@ -324,7 +333,7 @@ export default function Crownguard() {
     if (t) { g.selectedId = t.id; return; }
     // selected garrison: click inside its circle to move the rally flag
     const selT = g.towers.find((tt) => tt.id === g.selectedId);
-    if (selT && (selT.kind === "knight" || selT.kind === "assassin") && Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE) {
+    if (selT && (selT.kind === "knight" || selT.kind === "assassin" || (selT.kind === "catapult" && getStats(selT).roller)) && Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE * 1.6) {
       postRally(g, selT, x, y);
       return;
     }
@@ -736,6 +745,12 @@ export default function Crownguard() {
                   <button aria-label="Deselect tower" onClick={() => { if (G.current) G.current.selectedId = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 12 }}>✕</button>
                 </div>
 
+                {sel.kind === "catapult" && getStats(t).roller && (
+                  <button style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
+                    <FlagIcon /> Aim the Roll
+                  </button>
+                )}
                 {(sel.kind === "knight" || sel.kind === "assassin") && (
                   <button style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                     onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>

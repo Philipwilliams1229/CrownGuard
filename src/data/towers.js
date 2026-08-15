@@ -79,7 +79,7 @@ export const TOWERS = {
   },
   catapult: {
     name: "Catapult", cost: 120, dtype: "phys", proj: "rock",
-    blurb: "Lobs boulders in a high arc — heavy splash at long range, but blind up close.",
+    blurb: "Lobs boulders in a high arc — heavy splash at long range, but blind up close. At level three it chooses: keep throwing things UP, or start rolling them ALONG.",
     levels: [
       { dmg: 36, rate: 2600, range: 190, minRange: 70, splash: 58 },
       { dmg: 58, rate: 2500, range: 205, minRange: 70, splash: 64, cost: 110, label: "Reinforced Arm" },
@@ -94,10 +94,10 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Scattershot", cost: 240, stats: { dmg: 30, rate: 2300, range: 190, minRange: 60, splash: 42, shots: 3 }, desc: "Hurls a fan of THREE stones every volley, blanketing the road in overlapping blasts. Melts tight packs.",
+        name: "The Log Roller", cost: 240, stats: { logDmg: 120, rate: 5200, range: 999, minRange: 0, logSpeed: 118, logWidth: 22, splash: 0, roller: true }, desc: "Stops throwing and starts ROLLING. A great trimmed log is released down a bearing YOU choose, crushing everything it touches and grinding on until it leaves the board. Point it along a lane and it eats the lane.",
         rank4: {
-          a: { name: "Rockstorm Battery", cost: 380, stats: { dmg: 26, rate: 1500, range: 200, minRange: 60, splash: 40, shots: 5 }, desc: "A drum-fed nightmare: FIVE stones per volley, near-continuous bombardment." },
-          b: { name: "Grapeshot", cost: 380, stats: { dmg: 34, rate: 2200, range: 195, minRange: 60, splash: 44, shots: 3, frag: true }, desc: "Each stone bursts on impact into a spray of shrapnel — blasts within blasts." },
+          a: { name: "The Iron Drum", cost: 380, stats: { logDmg: 210, rate: 5000, range: 999, minRange: 0, logSpeed: 126, logWidth: 28, splash: 0, roller: true, logStun: 900, logSlow: 0.4, logSlowDur: 2000 }, desc: "An iron-banded drum twice the weight: heavier, wider, and what it fails to kill it leaves stunned and staggering in the ruts." },
+          b: { name: "The Powder Keg Run", cost: 380, stats: { logDmg: 150, rate: 4800, range: 999, minRange: 0, logSpeed: 132, logWidth: 24, splash: 0, roller: true, logBurn: 26, logBurnDur: 3000, logBlast: 96, logBlastDmg: 220 }, desc: "The log is packed with powder and lit at the release: it burns everything it grinds past, and when it finally leaves the field it goes up." },
         },
       },
     },

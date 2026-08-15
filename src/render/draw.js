@@ -557,6 +557,68 @@ export function draw(g, canvas, bufRef) {
     }
   }
 
+  // ---- rolling logs ----
+  // Drawn above the fray because a two-ton trimmed oak going down the lane is
+  // the most important thing on the board while it lasts.
+  if (g.logs) {
+    for (const lg of g.logs) {
+      const lx = S(lg.x), ly = S(lg.y);
+      const px = Math.cos(lg.a), py = Math.sin(lg.a);
+      const nx = -py, ny = px;              // across the barrel
+      const half = lg.w * 0.5;
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(lg.a + Math.PI / 2);
+      // the dust it kicks up, behind
+      ctx.fillStyle = "rgba(178,164,136,0.5)";
+      for (let i = 0; i < 4; i++) {
+        const o = (lg.spin * 9 + i * 5) % 16;
+        ctx.fillRect(-half + i * (lg.w / 4), 9 + o * 0.5, 3, 2);
+      }
+      ctx.fillStyle = "rgba(20,20,26,0.3)";
+      ctx.fillRect(-half - 1, 7, lg.w + 2, 4);
+      // the barrel itself
+      ctx.fillStyle = INK;
+      ctx.fillRect(-half - 2, -8, lg.w + 4, 16);
+      ctx.fillStyle = "#8a6238";
+      ctx.fillRect(-half, -7, lg.w, 14);
+      ctx.fillStyle = "#a0754a";
+      ctx.fillRect(-half, -7, lg.w, 3);
+      ctx.fillStyle = "#5f4326";
+      ctx.fillRect(-half, 4, lg.w, 3);
+      // bark grain that TURNS, so the thing visibly rolls
+      ctx.fillStyle = "#4a3018";
+      for (let i = 0; i < 4; i++) {
+        const gy = -7 + ((i * 4 + lg.spin * 7) % 14);
+        ctx.fillRect(-half + 1, gy, lg.w - 2, 1);
+      }
+      // iron banding on the drum, powder-red on the keg
+      if (lg.stun) {
+        ctx.fillStyle = "#8a8f9a";
+        ctx.fillRect(-half, -7, 3, 14);
+        ctx.fillRect(half - 3, -7, 3, 14);
+      }
+      if (lg.blast) {
+        ctx.fillStyle = "#c05848";
+        ctx.fillRect(-half + 2, -3, lg.w - 4, 2);
+        ctx.fillStyle = Math.sin(g.time * 24) > 0 ? "#f4e08a" : "#e8933a";
+        ctx.fillRect(half - 2, -9, 2, 2);
+      }
+      // cut ends
+      ctx.fillStyle = "#c8a878";
+      ctx.fillRect(-half - 2, -8, 2, 16);
+      ctx.fillRect(half, -8, 2, 16);
+      ctx.restore();
+      if (lg.burn) {
+        for (let i = 0; i < 3; i++) {
+          const fx2 = lg.x + nx * (i - 1) * 7, fy2 = lg.y + ny * (i - 1) * 7;
+          ctx.fillStyle = i === 1 ? "#e8c14a" : "#d8763a";
+          ctx.fillRect(S(fx2), S(fy2 - 8 - ((g.time * 30 + i * 7) % 8)), CELL, CELL * 2);
+        }
+      }
+    }
+  }
+
   drawCastle(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
 
   // ---- the spawn marker ----
