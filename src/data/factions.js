@@ -42,7 +42,7 @@ export const FACTIONS = {
       [["boarrider", 6, 900], ["goblin", 14, 420]],
       [["orc", 12, 750], ["armored", 6, 900], ["shaman", 2, 4500]],
       [["troll", 3, 2200], ["goblin", 16, 400], ["shaman", 2, 5000]],
-      [["bat", 14, 320], ["wolf", 12, 400], ["boarrider", 5, 1000], ["rafter", 5, 900]],
+      [["bat", 14, 320], ["wolf", 12, 400], ["boarrider", 5, 1000]],
       // III. the warchiefs take the field
       [["hobgoblin", 2, 6000], ["orc", 12, 600], ["armored", 6, 800]],
       [["goblin", 30, 260], ["wolf", 14, 340], ["necro", 1, 0]],
@@ -57,7 +57,6 @@ export const FACTIONS = {
       { type: "wolf", cost: 1.6, gap: 420 },
       { type: "orc", cost: 3, gap: 650 },
       { type: "boarrider", cost: 3.6, gap: 700 },
-      { type: "rafter", cost: 2.4, gap: 620 },
       { type: "armored", cost: 4.5, gap: 800 },
       { type: "shaman", cost: 8, gap: 4200, cap: 3 },
       { type: "troll", cost: 9, gap: 1700 },

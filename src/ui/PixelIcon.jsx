@@ -27,6 +27,7 @@ export default function PixelIcon({ kind, branch = null, rank4 = null, size = 30
     else if (kind === "goldworks") { spr = MINI.goldworks; pal = MINI.goldworks.pal; }
     else if (kind === "trapsmith") { spr = MINI.trapsmith; pal = MINI.trapsmith.pal; }
     else if (kind === "assassin") { spr = MINI.assassin; pal = MINI.assassin.pal; }
+    else if (kind === "riverwatch") { spr = MINI.riverwatch; pal = MINI.riverwatch.pal; }
     else if (kind === "falconry") { spr = MINI.falconry; pal = MINI.falconry.pal; }
     else if (kind === "sunforge") { spr = MINI.sunforge; pal = MINI.sunforge.pal; }
     else { spr = MINI.priest; pal = PRIEST_PALS[r4 && PRIEST_PALS[r4] ? r4 : branch || "base"]; }

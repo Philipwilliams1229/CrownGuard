@@ -199,8 +199,32 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   }
 };
 
+// A crown skiff on patrol: hull, wake, and the lantern that says the watch
+// is awake. It never touches the ground, so it never casts a ground shadow.
+const drawSkiff = (ctx, u, t, time) => {
+  const frame = Math.floor(time * 5 + u.id) % 2;
+  ctx.fillStyle = "rgba(226,240,246,0.45)";
+  for (let i = 0; i < 3; i++) {
+    const back = -u.face * (11 + i * 7);
+    const spread = 4 + i * 3;
+    ctx.fillRect(S(u.x + back - spread), S(u.y + 5 + Math.sin(time * 3 + u.id + i) * 1.5), spread * 2, CELL);
+  }
+  drawSprite(ctx, SPRITES.skiff, SPRITES.skiff.pal, frame, u.x, u.y + S(Math.sin(time * 2.2 + u.id) * 2), u.face < 0);
+  if (u.swing > 0) {
+    ctx.fillStyle = "#e8e2d4";
+    ctx.fillRect(S(u.x + u.face * 12), S(u.y - 6), 4, 2);
+  }
+  if (u.hp < u.maxHp) {
+    ctx.fillStyle = INK;
+    ctx.fillRect(S(u.x) - 8, S(u.y - 16), 16, 4);
+    ctx.fillStyle = "#7fc95e";
+    ctx.fillRect(S(u.x) - 7, S(u.y - 15), Math.max(1, Math.round(14 * u.hp / u.maxHp)), 2);
+  }
+};
+
 export const drawKnightUnit = (ctx, u, t, time) => {
   if (u.state === "dead") return;
+  if (t.kind === "riverwatch") { drawSkiff(ctx, u, t, time); return; }
   if (t.kind === "assassin") { drawAssassinUnit(ctx, u, t, time); return; }
   const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
   const berserk = t.branch === "b";

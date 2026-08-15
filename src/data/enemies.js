@@ -54,6 +54,11 @@ export const ENEMIES = {
     bannerRange: 90, bannerSpeed: 0.22, bannerArmor: 0.12,
     note: "The big one with the totem stick. Every goblin, wolf and boar marching near him is faster and harder to kill. Break the totem and the party breaks with it.",
   },
+  // MOTHBALLED, not retired: the raft goblin is built, drawn and working —
+  // it simply isn't fielded. To bring it back, add ["rafter", 5, 900] to a
+  // greenwood wave in factions.js and/or { type: "rafter", cost: 2.4, gap: 620 }
+  // to that faction's endless roster. The `swims` engine seam it rides on is
+  // shared with the player's river craft and stays live either way.
   rafter: {
     faction: "greenwood", hp: 96, speed: 94, bounty: 9, armor: 0, size: 17,
     name: "Raft Goblin", atk: 10, atkRate: 900, castleDmg: 2, swims: true,

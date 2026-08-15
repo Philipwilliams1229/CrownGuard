@@ -15,7 +15,10 @@ import { sfx } from "../audio/sfx.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
 
-export const buildableAt = (g, x, y) => {
+export const buildableAt = (g, x, y, kind = null) => {
+  // A hall that floats has the opposite requirement to every other: it MUST
+  // stand in running water, and nothing else may.
+  const afloat = !!(kind && TOWERS[kind] && TOWERS[kind].water);
   if (x < 18 || x > W - 18 || y < 22 || y > H - 16) return false;
   if (nearestOnPath(x, y).d < BLOCK_DIST) return false;
   const [cvx, cvy] = PTS[0];
@@ -23,7 +26,8 @@ export const buildableAt = (g, x, y) => {
   if (Math.hypot(x - cvx, y - cvy) < 50 || Math.hypot(x - (csx + 6), y - csy) < 62) return false;
   for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
   for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
-  if (inRiver(x, y, 14)) return false;   // no towers in running water
+  if (afloat) { if (!inRiver(x, y, 8)) return false; }   // moor it in the river
+  else if (inRiver(x, y, 14)) return false;              // no one else builds in it
   if (towerNear(g, x, y)) return false;
   return true;
 };
@@ -101,7 +105,7 @@ export const restartWave = (g) => {
 
 export const placeTower = (g, kind, x, y) => {
   const def = TOWERS[kind];
-  if (g.gold < def.cost || !buildableAt(g, x, y)) return;
+  if (g.gold < def.cost || !buildableAt(g, x, y, kind)) return;
   g.gold -= def.cost;
   g.towers.push(makeTower(kind, x, y));
   if (g.run) g.run.towersBuilt += 1;
@@ -165,7 +169,7 @@ export const placeMasterTower = (g, kind, x, y, pick = null) => {
       name: rank4 ? br.rank4[rank4].name : br.name,
     };
   }
-  if (g.gold < plan.cost || !buildableAt(g, x, y)) return;
+  if (g.gold < plan.cost || !buildableAt(g, x, y, kind)) return;
   g.gold -= plan.cost;
   g.towers.push(makeTower(kind, x, y, 3, plan.branch, plan.cost, plan.rank4));
   // a master purchase is as deliberate as a hand-built one — remember it

@@ -329,7 +329,7 @@ export function draw(g, canvas, bufRef) {
 
   if (g.buildMode && g.hover) {
     const [hx, hy] = g.hover;
-    const ok = buildableAt(g, hx, hy) && g.gold >= TOWERS[g.buildMode].cost;
+    const ok = buildableAt(g, hx, hy, g.buildMode) && g.gold >= TOWERS[g.buildMode].cost;
     const radius = g.buildMode === "knight" ? RALLY_RANGE : TOWERS[g.buildMode].levels[0].range;
     ctx.fillStyle = ok ? "rgba(140,224,140,0.25)" : "rgba(224,110,100,0.28)";
     ctx.fillRect(S(hx) - 20, S(hy) - 20, 40, 40);

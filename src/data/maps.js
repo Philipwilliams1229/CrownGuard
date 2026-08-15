@@ -272,7 +272,7 @@ Object.assign(REALMS, {
   ),
   thornbrook: greenwoodVariant(
     "thornbrook", "Thornbrook Ford", "THE BROOK",
-    "Wide meadows cut in half by a living brook. One timber bridge carries the road over — the water carries nothing anywhere.",
+    "Wide meadows cut in half by a living brook. One timber bridge carries the road over — and the brook itself will carry a River Watch, if you moor one.",
     20260714,
     [[0.9, 8], [3, 8], [3, 3], [6, 3], [6, 8], [9, 8], [9, 2], [12, 2], [12, 6], [13.7, 6]],
     { rivers: [{ pts: [[7.5, -0.5], [7.2, 3.5], [7.7, 6.5], [7.4, 10.5]], w: 28 }] },

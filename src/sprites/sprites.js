@@ -10,6 +10,51 @@ import { IRONHOST_SPRITES } from "./ironhost.js";
 import { WILDHOST_SPRITES } from "./wildhost.js";
 
 export const SPRITES = {
+  // A crown skiff (24x16 @ px 1): planked hull, a watchman with a harpoon,
+  // a lantern at the prow, the oar working between frames.
+  skiff: {
+    pal: { o: INK, w: "#8a6238", d: "#5f4326", h: "#4a5a7c", f: "#e8c9a2", c: "#3a4a68", k: "#78603f", l: "#e8c14a" },
+    px: 1,
+    rate: 5,
+    frames: [
+      [
+        "...........oo...........",
+        "..........ohho..........",
+        "..........ohho..........",
+        ".........ohffho.........",
+        ".........ohffho.........",
+        "..........occo..........",
+        "......oo.occcco...ll....",
+        ".....okko.occco..ollo...",
+        "....okko..occo...ollo...",
+        "...okko..occcco..ollo...",
+        "..oooooooooooooooooooo..",
+        ".owwwwwwwwwwwwwwwwwwwwo.",
+        ".owdwwwdwwwwwdwwwwdwwwo.",
+        "..oowwwwwwwwwwwwwwwwoo..",
+        "....oooooooooooooooo....",
+        "........................",
+      ],
+      [
+        "...........oo...........",
+        "..........ohho..........",
+        "..........ohho..........",
+        ".........ohffho.........",
+        ".........ohffho.........",
+        "..........occo..........",
+        "......oo.occcco...ll....",
+        ".....okko.occco..ollo...",
+        ".....okko.occo...ollo...",
+        "......okkocccco..ollo...",
+        "..oooooooooooooooooooo..",
+        ".owwwwwwwwwwwwwwwwwwwwo.",
+        ".owdwwwdwwwwwdwwwwdwwwo.",
+        "..oowwwwwwwwwwwwwwwwoo..",
+        "....oooooooooooooooo....",
+        "........................",
+      ],
+    ],
+  },
   // The Covert's blade afield (16x22 @ px 1): hooded, strapped, a vial at
   // the belt and steel at the hip. Same box as the knight.
   assassinUnit: {
@@ -510,6 +555,20 @@ export const MINI = {
       "...owwwwo...",
       "..owwwwwwo..",
       "...oooooo...",
+    ]],
+  },
+  riverwatch: {
+    pal: { o: "#2b2a33", w: "#8a6238", d: "#5f4326", h: "#4a5a7c", l: "#e8c14a", b: "#5a86a8" },
+    frames: [[
+      "....oo......",
+      "...ohho.....",
+      "...ohho..lo.",
+      "..ohhhho.llo",
+      "...oddo..llo",
+      ".oooooooooo.",
+      "owwwwwwwwwwo",
+      ".oowwwwwwoo.",
+      "..bbbbbbbb..",
     ]],
   },
   assassin: {

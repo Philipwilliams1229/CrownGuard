@@ -202,6 +202,31 @@ export const TOWERS = {
       },
     },
   },
+  riverwatch: {
+    name: "River Watch", cost: 130, dtype: "phys", proj: "harpoon", water: true,
+    blurb: "BUILT ON THE WATER — the only hall that can be. Its skiffs row the river under their own orders, carrying harpoons to stretches of bank no tower can reach.",
+    levels: [
+      { dmg: 30, rate: 950, range: 125, hp: 130, count: 1, rowSpeed: 74 },
+      { dmg: 40, rate: 900, range: 135, hp: 165, count: 2, rowSpeed: 78, cost: 100, label: "Second Skiff" },
+      { dmg: 56, rate: 860, range: 145, hp: 210, count: 2, rowSpeed: 82, cost: 150, label: "The River Watch" },
+    ],
+    branches: {
+      a: {
+        name: "Harbour Patrol", cost: 250, stats: { dmg: 64, rate: 620, range: 155, hp: 250, count: 3, rowSpeed: 96 }, desc: "THREE swift skiffs working the whole length of the water, loosing twice as fast as any watchman ashore.",
+        rank4: {
+          a: { name: "The Crown Navy", cost: 370, stats: { dmg: 70, rate: 600, range: 165, hp: 290, count: 4, rowSpeed: 104 }, desc: "FOUR skiffs under a admiral's pennant — the river belongs to the crown and everything on its banks knows it." },
+          b: { name: "Harpooners", cost: 370, stats: { dmg: 96, rate: 700, range: 170, hp: 270, count: 3, rowSpeed: 96, pierce: true, slow: 0.35, slowDur: 1600 }, desc: "Barbed iron on a line: the harpoons punch through any armor and drag what they catch to a crawl." },
+        },
+      },
+      b: {
+        name: "Fireship Wharf", cost: 250, stats: { dmg: 52, rate: 1250, range: 150, hp: 230, count: 2, rowSpeed: 76, splash: 58, burn: 16, burnDur: 2800 }, desc: "Pitch pots slung from the mast: slower shots, but they burst in flame across the bank.",
+        rank4: {
+          a: { name: "The Hellburner", cost: 370, stats: { dmg: 68, rate: 1300, range: 160, hp: 260, count: 2, rowSpeed: 76, splash: 84, burn: 22, burnDur: 3200, poolDps: 20, poolDur: 2600, poolR: 30 }, desc: "A hull packed with powder and pitch: every pot leaves the shore burning behind it." },
+          b: { name: "The Chain Boom", cost: 370, stats: { dmg: 58, rate: 1200, range: 165, hp: 300, count: 3, rowSpeed: 80, splash: 60, burn: 14, burnDur: 2400, stun: 0.3, stunDur: 900 }, desc: "A chain slung between the skiffs and a shot that rings it — what the boom catches stands stunned in the shallows." },
+        },
+      },
+    },
+  },
   assassin: {
     name: "Assassin's Covert", cost: 140, dtype: "phys", proj: "shadow",
     blurb: "Sends BLADES into the field, not volleys from a wall. They hold no ground — the column walks right past them — and they kill by standing order: healers, bell-ringers, banner-lords, whoever you name.",

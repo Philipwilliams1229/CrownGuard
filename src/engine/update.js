@@ -672,6 +672,96 @@ export function updateGame(g, dt) {
     }
 
 
+    // ---- the River Watch ----
+    // Boats, not battlements. The skiffs row their own river looking for
+    // anything walking the banks, and they can bring a harpoon to stretches
+    // of ground no tower will ever be allowed to stand on. If the water is
+    // quiet they spread out and hold station.
+    for (const t of g.towers) {
+      if (t.kind !== "riverwatch") continue;
+      const st = getStats(t);
+      const rt = RIVER_ROUTE;
+      if (!rt) continue;                         // no water, no watch
+      const n = st.count || 1;
+      if (!t.units) t.units = [];
+      while (t.units.length < n) {
+        const idx = t.units.length;
+        t.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, sd: (rt.total * (idx + 1)) / (n + 1),
+          x: t.x, y: t.y, face: 1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
+      }
+      if (t.units.length > n) t.units.length = n;
+      // where the river runs nearest a given spot, as a distance along it
+      const nearOnRiver = (x, y) => {
+        let bd = Infinity, bq = 0;
+        for (let q = 0; q <= rt.total; q += 10) {
+          const [px, py] = rt.at(q);
+          const dd = Math.hypot(px - x, py - y);
+          if (dd < bd) { bd = dd; bq = q; }
+        }
+        return { q: bq, d: bd };
+      };
+      t.units.forEach((u, i) => {
+        u.maxHp = st.hp;
+        if (u.state === "dead") {
+          u.respawn -= sdt * 1000;
+          if (u.respawn <= 0) { u.state = "rally"; u.hp = st.hp; u.sd = (rt.total * (i + 1)) / (n + 1); u.targetId = null; }
+          return;
+        }
+        u.atkCd -= sdt * 1000;
+        u.swing = Math.max(0, u.swing - sdt * 1000);
+        if (u.hp <= 0) { killUnit(g, t, u); return; }
+
+        // pick the foe furthest along the road that a boat can actually reach
+        let mark = null, markQ = 0, markScore = -Infinity;
+        for (const e of g.enemies) {
+          if (e.dead || e.flying || e.swimming) continue;
+          const nr = nearOnRiver(e.x, e.y);
+          if (nr.d > st.range) continue;
+          const mode = t.aim || "first";
+          const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
+          if (score > markScore) { markScore = score; mark = e; markQ = nr.q; }
+        }
+        const home = (rt.total * (i + 1)) / (n + 1);
+        const want = mark ? markQ : home;
+        const row = (st.rowSpeed || 78) * sdt;
+        if (Math.abs(want - u.sd) > 1) u.sd += Math.sign(want - u.sd) * Math.min(row, Math.abs(want - u.sd));
+        u.sd = Math.max(0, Math.min(rt.total, u.sd));
+        const [bx, by] = rt.at(u.sd);
+        const [nx] = rt.at(Math.min(rt.total, u.sd + 6));
+        u.x = bx; u.y = by;
+        u.state = mark ? "moving" : "rally";
+        if (!mark) { u.face = nx >= bx ? 1 : -1; return; }
+        u.face = mark.x >= u.x ? 1 : -1;
+        if (Math.hypot(mark.x - u.x, mark.y - u.y) > st.range || u.atkCd > 0) return;
+        // the harpoon goes out
+        u.atkCd = st.rate;
+        u.swing = 200;
+        u.targetId = mark.id;
+        g.effects.push({ type: "bolt", x: u.x, y: u.y - 6, tx: mark.x, ty: mark.y - 6, ttl: 190 });
+        sfx.play(st.splash ? "boom" : "bolt");
+        dealDamage(g, mark, st.dmg, "phys", !!st.pierce);
+        if (st.splash) {
+          for (const e2 of g.enemies) {
+            if (e2.dead || e2 === mark || e2.flying) continue;
+            if (Math.hypot(e2.x - mark.x, e2.y - mark.y) > st.splash) continue;
+            dealDamage(g, e2, st.dmg * 0.55, "phys", false);
+          }
+        }
+        for (const e2 of g.enemies) {
+          if (e2.dead || e2.flying) continue;
+          const dd = Math.hypot(e2.x - mark.x, e2.y - mark.y);
+          if (dd > (st.splash || 1)) continue;
+          if (st.burn) { e2.burnUntil = tms + st.burnDur; e2.burnDps = st.burn; }
+          if (st.stun && Math.random() < st.stun) e2.stunUntil = tms + st.stunDur;
+        }
+        if (!mark.dead) {
+          if (st.slow) { mark.slowUntil = tms + st.slowDur; mark.slowPct = Math.max(mark.slowPct, st.slow); }
+          if (st.burn && !st.splash) { mark.burnUntil = tms + st.burnDur; mark.burnDps = st.burn; }
+        }
+        if (st.poolDps) g.grounds.push({ x: mark.x, y: mark.y, r: st.poolR || 30, dps: st.poolDps, until: tms + (st.poolDur || 2600), kind: "lava" });
+      });
+    }
+
     // ---- the Covert's blades ----
     // Troops, not a volley. They walk out, take the mark their standing order
     // names, and cut. Nothing blocks for them and nothing blocks them: the
@@ -763,7 +853,7 @@ export function updateGame(g, dt) {
     }
     for (const t of g.towers) {
       t.anim = Math.max(0, t.anim - sdt * 4);
-      if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin") continue;
+      if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin" || t.kind === "riverwatch") continue;
       if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger
       // The Sunforge holds its beam instead of firing: same target, growing
       // heat; a new target starts the focus from cold.
