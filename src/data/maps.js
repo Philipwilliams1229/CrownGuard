@@ -242,6 +242,19 @@ const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
 });
 
 Object.assign(REALMS, {
+  // ---- The Proving Field ----
+  // A workshop, not a battlefield. The road folds back on itself five times
+  // across open meadow, so a single tower in the gaps covers two lanes at
+  // once and everything you raise gets three times the shooting it would get
+  // anywhere else. No water, no tight corners, no tricks — and a fat purse to
+  // start. This is where you go to find out what a build actually does.
+  proving: greenwoodVariant(
+    "proving", "The Proving Field", "SANDBOX",
+    "A testing ground: one long serpentine road through open meadow, and gold to burn. Every tower between the lanes covers two stretches at once — build whatever you like and watch it work.",
+    20260814,
+    [[0.9, 1], [13, 1], [13, 2.9], [1.6, 2.9], [1.6, 4.8], [13, 4.8], [13, 6.7], [1.6, 6.7], [1.6, 8.5], [13.7, 8.5]],
+    { startGold: 900, decorRecipe: { count: 9, types: ["tree", "pine", "rock"] } },
+  ),
   // ---- Chapter I: Greenwood Vale ----
   foxmere: greenwoodVariant(
     "foxmere", "Foxmere", "THE LAKE",

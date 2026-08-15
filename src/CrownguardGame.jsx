@@ -105,7 +105,8 @@ export default function Crownguard() {
     setRealmId(id);
     setMode("free");
     setLevelId(null);
-    initGame();
+    // a realm may open its gates with a heavier purse — the Proving Field does
+    initGame(REALMS[id]?.startGold ?? 250);
     setRealmOpen(false);
     setScreen("game");
   };
@@ -876,7 +877,7 @@ export default function Crownguard() {
                     first, then each chapter's battlefields under its banner */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", maxWidth: 620, marginBottom: "auto" }}>
                 {[
-                  { name: "THE FREE REALMS", ids: ["greenwood", "frostfang", "mistmoor", "ember"] },
+                  { name: "THE FREE REALMS", ids: ["proving", "greenwood", "frostfang", "mistmoor", "ember"] },
                   ...CHAPTERS.map((ch) => ({
                     name: `${ch.numeral}. ${ch.name.toUpperCase()}`,
                     ids: ch.levels.map((l) => l.realm).filter((id) => id !== "greenwood"),
