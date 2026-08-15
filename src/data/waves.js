@@ -59,7 +59,7 @@ export function genWave(w) {
     const grp = pool.splice(Math.floor(rand() * pool.length), 1)[0];
     const share = i === picks - 1 ? budget : budget * (0.3 + rand() * 0.4);
     let count = Math.max(1, Math.round(share / grp.cost));
-    if (grp.cap) count = Math.min(count, grp.cap + Math.floor(past / 8));
+    if (grp.cap) count = Math.min(count, grp.cap + Math.floor(past / 10));
     count = Math.min(count, 32);
     budget -= count * grp.cost;
     // spawn gaps tighten as the march deepens, but never into a solid wall
@@ -75,6 +75,9 @@ export const waveSpec = (w) => (w <= scriptedWaves() ? FACTION.waves[absWave(w) 
 export const waveHpMult = (w) => {
   const a = absWave(w);
   const past = Math.max(0, a - FACTION.waves.length);
-  return 1 + (a - 1) * 0.10 + past * past * 0.013; // endless waves steepen
+  // The march must end — but it was ending by arithmetic rather than by
+  // anything the player could answer: at wave 85 the quadratic had outrun
+  // every purse on the board. Eased so deep runs are decided by the board.
+  return 1 + (a - 1) * 0.10 + past * past * 0.011;
 };
 export const waveBonus = (w) => 55 + absWave(w) * 9;

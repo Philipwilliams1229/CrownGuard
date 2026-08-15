@@ -34,10 +34,10 @@ export const ENEMIES = {
   },
   wolf: { faction: "greenwood", hp: 37, speed: 145, bounty: 6, armor: 0, size: 15, name: "Dire Wolf", atk: 12, atkRate: 650, castleDmg: 1, note: "Extremely fast. Slows and stuns bring it to heel." },
   orc: { faction: "greenwood", hp: 118, speed: 62, bounty: 10, armor: 0, size: 18, name: "Orc", atk: 22, atkRate: 900, castleDmg: 2, note: "A heavy bruiser with a big pool of health." },
-  armored: { faction: "greenwood", hp: 185, speed: 55, bounty: 14, armor: 0.5, size: 17, name: "Ironclad", atk: 18, atkRate: 900, castleDmg: 2, note: "Half of all physical damage bounces off — magic ignores its armor." },
-  troll: { faction: "greenwood", hp: 490, speed: 40, bounty: 26, armor: 0.15, regen: 8, size: 21, name: "Troll", atk: 38, atkRate: 1100, castleDmg: 3, note: "Regenerates health and hits knights hard. Burst it down fast." },
-  shaman: { faction: "greenwood", hp: 132, speed: 60, bounty: 16, armor: 0, mres: 0.6, size: 16, name: "Goblin Shaman", atk: 8, atkRate: 1000, castleDmg: 2, heal: 12, healEvery: 2600, note: "Rune-warded — most magic fizzles against him. His chant mends the WHOLE warband. Silence the healer first." },
-  necro: { faction: "greenwood", hp: 420, speed: 42, bounty: 45, armor: 0.1, mres: 0.35, size: 20, name: "Necromancer", atk: 16, atkRate: 1100, castleDmg: 3, raiseEvery: 6000, note: "Where he walks, the fallen rise: slain goblins, wolves, and orcs return as half-strength undead. Fell him before the dead outnumber the living." },
+  armored: { faction: "greenwood", hp: 185, speed: 55, bounty: 14, armor: 0.42, size: 17, name: "Ironclad", atk: 18, atkRate: 900, castleDmg: 2, note: "Half of all physical damage bounces off — magic ignores its armor." },
+  troll: { faction: "greenwood", hp: 430, speed: 40, bounty: 26, armor: 0.15, regen: 5, size: 21, name: "Troll", atk: 38, atkRate: 1100, castleDmg: 3, note: "Regenerates health and hits knights hard. Burst it down fast." },
+  shaman: { faction: "greenwood", hp: 132, speed: 60, bounty: 16, armor: 0, mres: 0.6, size: 16, name: "Goblin Shaman", atk: 8, atkRate: 1000, castleDmg: 2, heal: 8, healEvery: 3400, note: "Rune-warded — most magic fizzles against him. His chant mends the WHOLE warband. Silence the healer first." },
+  necro: { faction: "greenwood", hp: 420, speed: 52, bounty: 45, armor: 0.1, mres: 0.35, size: 20, name: "Necromancer", atk: 16, atkRate: 1100, castleDmg: 3, raiseEvery: 6000, note: "Where he walks, the fallen rise: slain goblins, wolves, and orcs return as half-strength undead. Fell him before the dead outnumber the living." },
   bat: {
     faction: "greenwood", hp: 30, speed: 135, bounty: 4, armor: 0, size: 12,
     name: "Fell Bat", flying: true, atk: 0, atkRate: 0, castleDmg: 1,
@@ -49,9 +49,9 @@ export const ENEMIES = {
     note: "A goblin lancer on an angry boar. The charge flattens the first knight who steps up and thunders on — only the second blocker holds it.",
   },
   hobgoblin: {
-    faction: "greenwood", hp: 330, speed: 56, bounty: 32, armor: 0.2, size: 20,
+    faction: "greenwood", hp: 330, speed: 64, bounty: 32, armor: 0.2, size: 20,
     name: "Hobgoblin Warchief", atk: 30, atkRate: 900, castleDmg: 3,
-    bannerRange: 90, bannerSpeed: 0.22, bannerArmor: 0.12,
+    bannerRange: 130, bannerSpeed: 0.22, bannerArmor: 0.12,
     note: "The big one with the totem stick. Every goblin, wolf and boar marching near him is faster and harder to kill. Break the totem and the party breaks with it.",
   },
   // MOTHBALLED, not retired: the raft goblin is built, drawn and working —
