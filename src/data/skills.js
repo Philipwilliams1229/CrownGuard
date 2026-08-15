@@ -150,6 +150,17 @@ export const SKILLS = {
       { id: "k5", tier: 3, name: "The Unseen Hand", needs: ["k3", "k4"], per: { dmg: P, rate: P }, desc: "+5% damage AND 5% sooner a rank." },
     ],
   },
+  gunpowder: {
+    name: "Powder Works",
+    blurb: "More powder in the charge, more powder behind the ball.",
+    nodes: [
+      { id: "g1", tier: 1, name: "Coarser Grind", per: { dmg: P }, desc: "+5% bomb damage a rank." },
+      { id: "g2", tier: 1, name: "Longer Barrels", per: { range: P }, desc: "+5% reach a rank." },
+      { id: "g3", tier: 2, name: "Wider Bursts", needs: ["g1"], per: { splash: P }, desc: "+5% blast a rank." },
+      { id: "g4", tier: 2, name: "Rifled Bores", needs: ["g2"], per: { dmg: P }, desc: "A further +5% damage a rank." },
+      { id: "g5", tier: 3, name: "The Master Gunner", needs: ["g3", "g4"], per: { dmg: P, rate: P }, desc: "+5% damage AND 5% faster a rank." },
+    ],
+  },
   sunforge: {
     name: "Sunforge",
     blurb: "More light, held longer, focused finer.",

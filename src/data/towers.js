@@ -202,6 +202,31 @@ export const TOWERS = {
       },
     },
   },
+  gunpowder: {
+    name: "Powder Works", cost: 145, dtype: "phys", proj: "shell",
+    blurb: "TWO MEN, TWO WEAPONS, ALWAYS. A bombardier lobs powder charges into whatever is close, while beside him a musketeer takes one slow, heavy, armor-splitting shot at something further out. Both work whatever path you take.",
+    levels: [
+      { dmg: 34, rate: 2400, range: 92, splash: 46, mDmg: 58, mRate: 2900, mRange: 168, count: 2 },
+      { dmg: 52, rate: 2300, range: 100, splash: 50, mDmg: 92, mRate: 2800, mRange: 180, count: 2, cost: 110, label: "Better Powder" },
+      { dmg: 76, rate: 2200, range: 108, splash: 55, mDmg: 138, mRate: 2700, mRange: 192, count: 2, cost: 160, label: "The Powder Works" },
+    ],
+    branches: {
+      a: {
+        name: "The Bombard Yard", cost: 250, stats: { dmg: 150, rate: 2100, range: 122, splash: 78, burn: 16, burnDur: 2600, mDmg: 150, mRate: 2700, mRange: 196, count: 2 }, desc: "The bombardier gets the budget: fat powder charges with a wide, burning blast. The musket keeps its post beside him regardless.",
+        rank4: {
+          a: { name: "The Grand Battery", cost: 380, stats: { dmg: 200, rate: 2000, range: 132, splash: 96, burn: 20, burnDur: 3000, shells: 2, mDmg: 170, mRate: 2600, mRange: 200, count: 2 }, desc: "TWO charges to a throw, falling wide apart — the bombardier stops aiming at foes and starts aiming at stretches of road." },
+          b: { name: "Dragon's Breath", cost: 380, stats: { dmg: 165, rate: 2050, range: 128, splash: 86, burn: 34, burnDur: 3600, burnSpread: true, mDmg: 165, mRate: 2650, mRange: 198, count: 2 }, desc: "Powder cut with pitch and something worse: the fire it leaves leaps from body to body down the column." },
+        },
+      },
+      b: {
+        name: "The Long Muskets", cost: 250, stats: { dmg: 92, rate: 2200, range: 112, splash: 58, mDmg: 300, mRate: 2600, mRange: 250, mPierce: true, count: 2 }, desc: "The musketeer gets the budget: a long barrel that reaches most of the field and punches clean through any armor. The bombardier keeps lobbing regardless.",
+        rank4: {
+          a: { name: "The Sharpshooters", cost: 380, stats: { dmg: 105, rate: 2150, range: 116, splash: 60, mDmg: 420, mRate: 2500, mRange: 290, mPierce: true, mCrit: 3, count: 2 }, desc: "One eye, one barrel, one held breath: every THIRD shot from the musket lands triple." },
+          b: { name: "The Grapeshot Crew", cost: 380, stats: { dmg: 100, rate: 2150, range: 116, splash: 58, mDmg: 190, mRate: 2400, mRange: 240, mPierce: true, mShots: 4, mSpread: 0.26, count: 2 }, desc: "The musket is bored out into a scattergun: FOUR balls in a spreading fan, every one of them still punching armor." },
+        },
+      },
+    },
+  },
   riverwatch: {
     name: "River Watch", cost: 130, dtype: "phys", proj: "harpoon", water: true,
     blurb: "BUILT ON THE WATER — the only hall that can be. Its skiffs row the river under their own orders, carrying harpoons to stretches of bank no tower can reach.",

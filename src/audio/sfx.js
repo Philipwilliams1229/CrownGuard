@@ -165,6 +165,8 @@ const LIB = {
   falcon:    { ms: 120, fn: () => { tone({ type: "triangle", f: drift(2300), to: 1500, dur: 0.07, gain: 0.09 }); tone({ type: "triangle", f: drift(1900), to: 1000, dur: 0.09, gain: 0.08, delay: 0.06 }); } },
   // the covert: a whisper of steel, in and out before the ear believes it
   stab:      { ms: 130, fn: () => { noise({ dur: 0.05, gain: 0.16, type: "highpass", from: 3200, to: 6200 }); tone({ type: "sine", f: 1250, to: 520, dur: 0.08, gain: 0.11 }); tone({ type: "triangle", f: 340, to: 170, dur: 0.06, gain: 0.1, delay: 0.03 }); } },
+  // a crude musket: the crack, then the roll of it off the hills
+  musket:    { ms: 320, fn: () => { noise({ dur: 0.06, gain: 0.3, type: "highpass", from: 1800, to: 600 }); tone({ type: "square", f: 160, to: 48, dur: 0.12, gain: 0.22 }); noise({ dur: 0.22, gain: 0.1, type: "lowpass", from: 700, to: 160, delay: 0.05 }); } },
   roc:       { ms: 600, fn: () => { tone({ type: "sawtooth", f: 950, to: 280, dur: 0.4, gain: 0.13 }); noise({ dur: 0.35, gain: 0.08, type: "bandpass", from: 1400, to: 400, q: 2 }); } },
   midas:     { ms: 300, fn: () => { [784, 988, 1175].forEach((f, i) => tone({ f, dur: 0.1, gain: 0.1, delay: i * 0.05 })); bell(1568, 0.8, 0.09); } },
   payout:    { ms: 250, fn: () => { [1976, 1568, 2349].forEach((f, i) => tone({ f: drift(f, 0.02), dur: 0.06, gain: 0.08, delay: i * 0.06 })); } },

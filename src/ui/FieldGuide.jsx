@@ -48,6 +48,11 @@ const NUMBERS = [
   ["eagleHp", (v) => `war-eagle: ${v} health`],
   ["eagleDmg", (v) => `${v} eagle talon damage`],
   ["autoSeed", (v) => `self-seeds ${v} mines as the horn blows`],
+  ["mDmg", (v) => `musket: ${v} damage`],
+  ["mRate", (v) => `musket fires every ${(v / 1000).toFixed(2)}s`],
+  ["mRange", (v) => `musket reaches ${v}`],
+  ["mShots", (v) => `${v} balls in a fan`],
+  ["shells", (v) => `${v} charges to a throw`],
   ["trapKind", (v) => `lays ${v === "spike" ? "road spikes" : v === "jaws" ? "bear-iron jaws" : v === "caltrop" ? "caltrop beds" : "pressure mines"}`],
   ["preyMult", (v) => `×${v} vs the class under contract`],
   ["venom", (v) => `${v}/s venom`],
@@ -96,6 +101,8 @@ const TRAITS = [
   ["preyAnywhere", "the named class is hunted ANYWHERE on the field"],
   ["venomNoHeal", "the envenomed cannot be healed"],
   ["openContract", "takes ANY foe, on ordinary standing orders"],
+  ["mPierce", "the musket punches through any armor"],
+  ["mCrit", "every 3rd musket ball lands triple"],
 ];
 
 export function describe(s) {

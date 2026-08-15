@@ -557,6 +557,20 @@ export const MINI = {
       "...oooooo...",
     ]],
   },
+  gunpowder: {
+    pal: { o: "#2b2a33", w: "#6e4c28", d: "#4a3018", m: "#6c727e", s: "#b8bcc4", f: "#e8933a", y: "#f4e08a" },
+    frames: [[
+      "......y.....",
+      ".....yf.....",
+      "....ofo.....",
+      "...oooo.....",
+      "..owwwwo.mmm",
+      ".owdwwdwoss.",
+      ".owwwwwwo...",
+      ".owdwwdwo...",
+      "..oooooo....",
+    ]],
+  },
   riverwatch: {
     pal: { o: "#2b2a33", w: "#8a6238", d: "#5f4326", h: "#4a5a7c", l: "#e8c14a", b: "#5a86a8" },
     frames: [[

@@ -683,6 +683,82 @@ export function updateGame(g, dt) {
     }
 
 
+    // ---- the Powder Works ----
+    // Two men on one platform who do NOT share a trigger: the bombardier lobs
+    // powder into whatever is close while the musketeer takes his own slow,
+    // deliberate shot at something much further out. Every path funds one of
+    // them harder, and neither is ever laid off.
+    for (const t of g.towers) {
+      if (t.kind !== "gunpowder") continue;
+      const st = getStats(t);
+      // --- the bombardier: short, fat, splashing ---
+      t.cd = (t.cd || 0) - sdt * 1000;
+      if (t.cd <= 0) {
+        let near = null, nearScore = -Infinity;
+        for (const e of g.enemies) {
+          if (e.dead || e.flying) continue;
+          if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
+          // he throws where the crowd is thickest, being a man with a bucket of powder
+          let crowd = 0;
+          for (const o of g.enemies) if (!o.dead && Math.hypot(o.x - e.x, o.y - e.y) <= st.splash) crowd++;
+          const score = crowd * 1e6 + e.dist;
+          if (score > nearScore) { nearScore = score; near = e; }
+        }
+        if (near) {
+          t.cd = st.rate;
+          t.anim = 1;
+          t.lastAim = Math.atan2(near.y - t.y, near.x - t.x);
+          const throws = st.shells || 1;
+          for (let i = 0; i < throws; i++) {
+            const sp = throws > 1 ? (i - (throws - 1) / 2) * 34 : 0;
+            g.projectiles.push({
+              x: t.x, y: t.y - 16, tx: near.x + sp, ty: near.y + (i % 2 ? -12 : 12) * (throws > 1 ? 1 : 0),
+              t: 0, speed: 200, delay: 0, dmg: st.dmg, dtype: "phys", pierce: false, splash: st.splash,
+              burn: st.burn || 0, burnDur: st.burnDur || 0, slow: 0, slowDur: 0,
+              burnSpreads: !!st.burnSpread, kind: "shell", src: t.id, arc: true,
+            });
+          }
+          sfx.play("boom");
+          g.shake = Math.max(g.shake, 2);
+        }
+      }
+      // --- the musketeer: long, slow, and it goes through plate ---
+      t.mCd = (t.mCd || 0) - sdt * 1000;
+      if (t.mCd <= 0) {
+        let far = null, farScore = -Infinity;
+        for (const e of g.enemies) {
+          if (e.dead) continue;
+          if (Math.hypot(e.x - t.x, e.y - t.y) > st.mRange) continue;
+          const mode = t.aim || "first";
+          const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
+          if (score > farScore) { farScore = score; far = e; }
+        }
+        if (far) {
+          t.mCd = st.mRate;
+          t.mAnim = 1;
+          t.mAim = Math.atan2(far.y - t.y, far.x - t.x);
+          const balls = st.mShots || 1;
+          // one held breath in three lands triple
+          t.mShotIdx = ((t.mShotIdx || 0) + 1) % (st.mCrit || 1);
+          const crit = st.mCrit && t.mShotIdx === 0 ? 3 : 1;
+          for (let i = 0; i < balls; i++) {
+            const spread = balls > 1 ? (i - (balls - 1) / 2) * (st.mSpread || 0.2) : 0;
+            const a2 = t.mAim + spread;
+            const reach = st.mRange;
+            g.projectiles.push({
+              x: t.x + 6, y: t.y - 20, tx: t.x + Math.cos(a2) * reach, ty: t.y - 20 + Math.sin(a2) * reach,
+              t: 0, speed: 620, delay: 0, dmg: st.mDmg * crit / (balls > 1 ? 1 : 1), dtype: "phys",
+              pierce: !!st.mPierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0,
+              kind: "ball", src: t.id, hitsLeft: balls > 1 ? 1 : 2, hitIds: [],
+            });
+          }
+          sfx.play("musket");
+          g.shake = Math.max(g.shake, crit > 1 ? 3 : 1);
+        }
+      }
+      t.mAnim = Math.max(0, (t.mAnim || 0) - sdt * 3.2);
+    }
+
     // ---- the River Watch ----
     // Boats, not battlements. The skiffs row their own river looking for
     // anything walking the banks, and they can bring a harpoon to stretches
@@ -865,7 +941,7 @@ export function updateGame(g, dt) {
     }
     for (const t of g.towers) {
       t.anim = Math.max(0, t.anim - sdt * 4);
-      if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin" || t.kind === "riverwatch") continue;
+      if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin" || t.kind === "riverwatch" || t.kind === "gunpowder") continue;
       if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger
       // The Sunforge holds its beam instead of firing: same target, growing
       // heat; a new target starts the focus from cold.
@@ -1094,7 +1170,7 @@ export function updateGame(g, dt) {
     for (const p of g.projectiles) {
       if (p.delay > 0) { p.delay -= sdt * 1000; continue; }
       // spikes skewer whatever they pass through (no homing, no arrival hit)
-      if (p.kind === "spike") {
+      if (p.kind === "spike" || p.kind === "ball") {
         for (const e of g.enemies) {
           if (e.dead || p.hitIds.includes(e.id)) continue;
           if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) {
@@ -1114,8 +1190,8 @@ export function updateGame(g, dt) {
       if (d <= stepLen + 4) {
         p.done = true;
         if (p.splash > 0) {
-          if (!p.mini) sfx.play(p.kind === "rock" ? "rock" : p.burn ? "boom" : p.slow ? "frost" : "arcane");
-          g.effects.push({ type: p.kind === "rock" ? (p.mini ? "shrapnelhit" : "dust") : p.burn ? "boom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
+          if (!p.mini) sfx.play(p.kind === "rock" ? "rock" : p.kind === "shell" || p.burn ? "boom" : p.slow ? "frost" : "arcane");
+          g.effects.push({ type: p.kind === "rock" ? (p.mini ? "shrapnelhit" : "dust") : p.kind === "shell" || p.burn ? "boom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
           // a mark on the ground that outlives the blast: soot, or a rime of frost
           if (!p.mini) {
             g.effects.push({

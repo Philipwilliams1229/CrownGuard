@@ -19,7 +19,7 @@ import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
-import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall } from "./towers.js";
+import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawSpawn } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 
@@ -371,6 +371,7 @@ export function draw(g, canvas, bufRef) {
     else if (t.kind === "falconry") drawFalconry(ctx, t, g.time);
     else if (t.kind === "sunforge") drawSunforge(ctx, t, g.time);
     else if (t.kind === "riverwatch") drawRiverwatchHall(ctx, t, g.time);
+    else if (t.kind === "gunpowder") drawGunpowder(ctx, t, g.time);
     else drawGarrison(ctx, t, g.time);
   };
 
@@ -527,6 +528,43 @@ export function draw(g, canvas, bufRef) {
 
   for (const p of g.projectiles) {
     if (p.delay > 0) continue;
+    if (p.kind === "ball") {
+      // a musket ball: a hot streak with a lead dot at its head
+      const a2 = Math.atan2(p.ty - p.y, p.tx - p.x);
+      ctx.strokeStyle = "rgba(240,226,190,0.75)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(S(p.x - Math.cos(a2) * 13), S(p.y - Math.sin(a2) * 13));
+      ctx.lineTo(S(p.x), S(p.y));
+      ctx.stroke();
+      ctx.fillStyle = "#3a3a42";
+      ctx.fillRect(S(p.x) - 1, S(p.y) - 1, 3, 3);
+      ctx.fillStyle = "#e8d8a8";
+      ctx.fillRect(S(p.x), S(p.y), 1, 1);
+      continue;
+    }
+    if (p.kind === "shell") {
+      // a powder charge lobbed short and fat, fuse trailing sparks
+      const remaining = Math.hypot(p.tx - p.x, p.ty - p.y);
+      const tot = Math.max(1, Math.hypot(p.tx - (p.sx ?? p.x), p.ty - (p.sy ?? p.y)));
+      const prog = Math.min(1, Math.max(0, 1 - remaining / tot));
+      const arcH = Math.sin(prog * Math.PI) * 26;
+      const cy = S(p.y - arcH);
+      ctx.fillStyle = "rgba(20,20,26,0.3)";
+      ctx.fillRect(S(p.x) - 3, S(p.y) + 2, 6, 2);
+      ctx.fillStyle = INK;
+      ctx.beginPath(); ctx.arc(S(p.x), cy, 4, 0, 7); ctx.fill();
+      ctx.fillStyle = "#4a4a52";
+      ctx.beginPath(); ctx.arc(S(p.x), cy, 3, 0, 7); ctx.fill();
+      ctx.fillStyle = "#6c6c76";
+      ctx.fillRect(S(p.x) - 2, cy - 2, 2, 1);
+      // the fuse, spitting
+      ctx.fillStyle = Math.sin(g.time * 30 + p.x) > 0 ? "#f4e08a" : "#e8933a";
+      ctx.fillRect(S(p.x) + 1, cy - 5, 1, 2);
+      ctx.fillStyle = "rgba(232,147,58,0.75)";
+      ctx.fillRect(S(p.x) + 2, cy - 7, 1, 1);
+      continue;
+    }
     if (p.kind === "rock") {
       // boulder lobbed in an arc: shadow tracks the ground, rock rises above it
       const remaining = Math.hypot(p.tx - p.x, p.ty - p.y);

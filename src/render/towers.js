@@ -1436,6 +1436,98 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   ctx.fillRect(x + 6, y + 4, 3, 1);
 };
 
+// The Powder Works: a timber platform with a powder store beneath it, and two
+// men who never share a job. The bombardier stoops over his charges on the
+// left; the musketeer stands braced at the rail on the right, and each of them
+// visibly recoils on his OWN cadence — the whole point of the tower.
+export const drawGunpowder = (ctx, t, time) => {
+  const x = S(t.x), y = S(t.y);
+  const bomb = t.branch === "a";
+  const musket = t.branch === "b";
+  ctx.fillStyle = "rgba(20,20,26,0.3)";
+  ctx.fillRect(x - 15, y + 13, 30, 4);
+  // the powder store: a low stone box with a banded door
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 14, y - 4, 28, 18);
+  stoneWall(ctx, x - 12, y - 2, 24, 15, FORGE_STONE);
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 4, y + 3, 9, 11);
+  ctx.fillStyle = "#5f4326";
+  ctx.fillRect(x - 3, y + 4, 7, 10);
+  ctx.fillStyle = "#3a3a42";
+  ctx.fillRect(x - 3, y + 6, 7, 1);
+  ctx.fillRect(x - 3, y + 10, 7, 1);
+  // barrels of powder stacked against the wall
+  for (let i = 0; i < 2; i++) {
+    const bx = x + 7 + i * 6, by = y + 2 + (i % 2) * 3;
+    ctx.fillStyle = INK; ctx.fillRect(bx - 3, by, 6, 9);
+    ctx.fillStyle = "#6e4c28"; ctx.fillRect(bx - 2, by + 1, 4, 7);
+    ctx.fillStyle = "#3a3a42"; ctx.fillRect(bx - 2, by + 3, 4, 1);
+  }
+  // the platform they work from
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 17, y - 12, 34, 9);
+  plankFace(ctx, x - 16, y - 11, 32, 7, "#8a6238", "#a0754a", "#5f4326");
+  ctx.fillStyle = "#5f4326";
+  for (const sx of [-15, -1, 13]) ctx.fillRect(x + sx, y - 14, 3, 3);
+
+  // --- the bombardier, left: stooped over a charge, fuse lit ---
+  const throwing = t.anim > 0.45;
+  const bx0 = x - 9;
+  ctx.fillStyle = INK;
+  ctx.fillRect(bx0 - 3, y - 26, 7, 14);
+  ctx.fillStyle = bomb ? "#8a4a3c" : "#5a5040";
+  ctx.fillRect(bx0 - 2, y - 25, 5, 12);
+  ctx.fillStyle = "#e8c9a2";
+  ctx.fillRect(bx0 - 2, y - 24, 4, 3);
+  ctx.fillStyle = "#3a3028";                     // soot on the face
+  ctx.fillRect(bx0 - 2, y - 22, 4, 1);
+  // the charge in his hands, raised to throw or held low
+  const chx = bx0 + (throwing ? 5 : 2), chy = y - (throwing ? 31 : 22);
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.arc(chx, chy, 3.5, 0, 7); ctx.fill();
+  ctx.fillStyle = "#4a4a52";
+  ctx.beginPath(); ctx.arc(chx, chy, 2.5, 0, 7); ctx.fill();
+  ctx.fillStyle = Math.sin(time * 26 + t.id) > 0 ? "#f4e08a" : "#e8933a";
+  ctx.fillRect(chx + 1, chy - 5, 1, 2);
+
+  // --- the musketeer, right: braced, barrel out, recoiling on his own beat ---
+  const kick = (t.mAnim || 0) > 0.5 ? 2 : 0;
+  const mx0 = x + 8;
+  const dir = Math.cos(t.mAim ?? -0.4) >= 0 ? 1 : -1;
+  ctx.fillStyle = INK;
+  ctx.fillRect(mx0 - 3 - dir * kick, y - 27, 7, 15);
+  ctx.fillStyle = musket ? "#3f5a7c" : "#4a4a5e";
+  ctx.fillRect(mx0 - 2 - dir * kick, y - 26, 5, 13);
+  ctx.fillStyle = "#e8c9a2";
+  ctx.fillRect(mx0 - 2 - dir * kick, y - 25, 4, 3);
+  // a wide brimmed hat, because he is the one who has to stand still
+  ctx.fillStyle = INK;
+  ctx.fillRect(mx0 - 5 - dir * kick, y - 28, 11, 2);
+  ctx.fillRect(mx0 - 3 - dir * kick, y - 30, 6, 2);
+  // the barrel
+  const by0 = y - 22;
+  ctx.fillStyle = "#2b2a33";
+  ctx.fillRect(mx0 + (dir > 0 ? 2 : -12) - dir * kick, by0, 11, 2);
+  ctx.fillStyle = "#6c727e";
+  ctx.fillRect(mx0 + (dir > 0 ? 3 : -11) - dir * kick, by0, 9, 1);
+  ctx.fillStyle = "#5f4326";                      // the stock
+  ctx.fillRect(mx0 + (dir > 0 ? -1 : 1) - dir * kick, by0 + 1, 4, 3);
+  // muzzle smoke, hanging a moment after the shot
+  if ((t.mAnim || 0) > 0.15) {
+    const puff = 1 - (t.mAnim || 0);
+    ctx.fillStyle = `rgba(198,198,190,${0.55 * (t.mAnim || 0)})`;
+    ctx.beginPath();
+    ctx.arc(mx0 + dir * (14 + puff * 8), by0 - puff * 5, 3 + puff * 4, 0, 7);
+    ctx.fill();
+  }
+  // at rest one of them is always fussing with something
+  if (t._idle && Math.sin(time * 1.7 + t.id) > 0.86) {
+    ctx.fillStyle = "#e8933a";
+    ctx.fillRect(bx0 + 4, y - 18, 1, 1);
+  }
+};
+
 // The same dispatch the board uses, exposed so menus can show a hall as it
 // will really look — a Dragon's Hoard should not wear the plain mint's icon.
 export const drawTowerPortrait = (ctx, t, time) => {
@@ -1450,5 +1542,6 @@ export const drawTowerPortrait = (ctx, t, time) => {
   else if (t.kind === "falconry") drawFalconry(ctx, t, time);
   else if (t.kind === "sunforge") drawSunforge(ctx, t, time);
   else if (t.kind === "riverwatch") drawRiverwatchHall(ctx, t, time);
+  else if (t.kind === "gunpowder") drawGunpowder(ctx, t, time);
   else drawGarrison(ctx, t, time);
 };
