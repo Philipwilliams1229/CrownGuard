@@ -580,14 +580,14 @@ export function updateGame(g, dt) {
 
         let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
         // tight leash: knights break off quickly once a foe leaves the rally circle
-        if (target && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 6) { releaseEnemy(g, target); target = null; u.targetId = null; }
+        if (target && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 12) { releaseEnemy(g, target); target = null; u.targetId = null; }
         if (!target && u.targetId) u.targetId = null;
 
         if (!target) {
           let best = null, bestDist = -1;
           for (const e of g.enemies) {
             if (e.dead || e.flying || e.swimming || e.blockedBy) continue;
-            if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.85 && e.dist > bestDist) { bestDist = e.dist; best = e; }
+            if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
           if (best) { best.blockedBy = u.id; u.targetId = best.id; u.state = "moving"; target = best; }
         }
