@@ -36,7 +36,8 @@ export const startWave = (g) => {
   if (!g || g.phase !== "build") return;
   g.snapshot = {
     wave: g.wave, gold: g.gold, lives: g.lives,
-    towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, rank4: t.rank4, invested: t.invested, aim: t.aim })),
+    towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, rank4: t.rank4, invested: t.invested, aim: t.aim,
+      kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0 })),
   };
   if (g.buildUntil != null) {
     const rem = Math.max(0, g.buildUntil - g.time);
@@ -97,6 +98,7 @@ export const restartWave = (g) => {
   g.towers = s.towers.map((td) => {
     const t = makeTower(td.kind, td.x, td.y, td.level, td.branch, td.invested, td.rank4);
     t.aim = td.aim || "first";  // a retried wave keeps the orders you gave
+    t.kills = td.kills || 0; t.dmgOut = td.dmgOut || 0; t.liveTime = td.liveTime || 0;
     return t;
   });
   g.enemies = []; g.projectiles = []; g.effects = []; g.spawnQueue = []; g.corpses = []; g.traps = [];
@@ -263,7 +265,9 @@ const CORPSE_TYPES = new Set(["goblin", "wolf", "orc"]);
 
 // `tick` marks the slow bleed of fire, poison and standing in lava — it is
 // passed so that shields can tell a blow from a burn.
-export const dealDamage = (g, e, amount, dtype, pierce, tick) => {
+// `srcId` is the tower that owns this damage, so a long run can be read back
+// as a ledger: who actually earned their footprint and who was decoration.
+export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
   let dmg = amount;
   // Raised shields and chaplain wards swallow one discrete blow apiece, whole,
   // however big it was. A hail of small arrows is exactly what they're for —
@@ -286,10 +290,15 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick) => {
   if (dtype === "magic") dmg *= 1 - (e.mres || 0);
   // Permafrost brittleness: frozen-through flesh takes extra physical damage
   if (dtype === "phys" && e.brittleUntil > g.time * 1000) dmg *= 1 + (e.brittleAmp || 0.35);
+  // credit the ledger before the body falls, so the killing blow counts
+  const credited = Math.max(0, Math.min(dmg, e.hp));
+  const src = srcId != null && g._towerById ? g._towerById.get(srcId) : null;
+  if (src) src.dmgOut = (src.dmgOut || 0) + credited;
   e.hp -= dmg;
   // brief white flash on solid hits (DoT ticks are too small to strobe)
   if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;
   if (e.hp <= 0 && !e.dead) {
+    if (src) src.kills = (src.kills || 0) + 1;
     e.dead = true;
     // a transmuter's aura makes every nearby death pay better
     let pay = e.bounty;

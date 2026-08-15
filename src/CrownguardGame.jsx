@@ -231,7 +231,7 @@ export default function Crownguard() {
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
       const sel = g.towers.find((t) => t.id === g.selectedId) || null;
-      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}` : null;
+      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${sel.kills || 0}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
       const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
@@ -244,7 +244,8 @@ export default function Crownguard() {
       if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush) {
         setUi({
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
-          selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim } : null,
+          selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
+            kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, liveTime: sel.liveTime || 0 } : null,
           selKey, buildMode: g.buildMode, rallyFor, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY, rush: g.rush,
           masterShow, masterOn: !!g.masterBuild,
           masterPick: pickKey, masterPickName: g.masterPick?.name || null,
@@ -727,6 +728,19 @@ export default function Crownguard() {
                     <FlagIcon /> Move Rally Flag
                   </button>
                 )}
+
+                {/* the service record: what this hall has actually done for you */}
+                {(sel.kills > 0 || sel.dmgOut > 0) && (() => {
+                  const dps = sel.dmgOut / Math.max(1, sel.liveTime);
+                  const num = (v) => (v >= 10000 ? (v / 1000).toFixed(1) + "k" : Math.round(v).toLocaleString());
+                  return (
+                    <div style={{ display: "flex", gap: 10, marginTop: 7, padding: "5px 7px", background: "#23262f", border: "2px solid #10131a", fontSize: 10.5 }}>
+                      <span title="foes this tower struck down"><b style={{ color: "#e8d47a" }}>{sel.kills}</b> <span style={{ opacity: 0.65 }}>kills</span></span>
+                      <span title="total damage dealt this run"><b style={{ color: "#e8d47a" }}>{num(sel.dmgOut)}</b> <span style={{ opacity: 0.65 }}>dmg</span></span>
+                      <span title="damage per second of battle — build time excluded"><b style={{ color: "#a8d88c" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> <span style={{ opacity: 0.65 }}>dps</span></span>
+                    </div>
+                  );
+                })()}
 
                 {/* rich-run shortcut: buy every remaining rank in one stroke */}
                 {ui.masterShow && !sel.rank4 && (() => {

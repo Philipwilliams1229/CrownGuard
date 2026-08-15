@@ -86,6 +86,9 @@ export function updateGame(g, dt) {
   const sdt = g.paused ? 0 : dt * speed;
   g.time += sdt;
   const tms = g.time * 1000;
+  // who owns which id this frame — the damage ledger resolves through this
+  g._towerById = new Map(g.towers.map((t) => [t.id, t]));
+  if (g.phase === "combat" && !g.paused) for (const t of g.towers) t.liveTime = (t.liveTime || 0) + sdt;
   if (!g.grounds) g.grounds = []; // lingering ground effects (lava pools)
   if (!g.traps) g.traps = [];     // the trapsmith's armed road
 
@@ -170,7 +173,7 @@ export function updateGame(g, dt) {
         if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range) {
           e.auraSlow = Math.max(e.auraSlow, st.slow);
           // Absolute Zero: the aura itself bites, dealing cold damage
-          if (st.colddps) dealDamage(g, e, st.colddps * sdt, "magic", false, true);
+          if (st.colddps) dealDamage(g, e, st.colddps * sdt, "magic", false, true, t.id);
         }
       }
       // Rimecaller frost nova: periodically flash-freeze everything in the aura
@@ -183,7 +186,7 @@ export function updateGame(g, dt) {
           for (const e of g.enemies) {
             if (e.dead) continue;
             if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
-            dealDamage(g, e, st.nova, "magic");
+            dealDamage(g, e, st.nova, "magic", false, false, t.id);
             if (!e.dead) {
               e.stunUntil = Math.max(e.stunUntil, tms + st.novaFreeze);
               if (st.brittle) { e.brittleUntil = tms + (st.brittleDur || 4000); e.brittleAmp = st.brittle; }
@@ -277,7 +280,7 @@ export function updateGame(g, dt) {
         }
         eg.x = target.x; eg.y = target.y - 12;
         eg.atkCd -= sdt * 1000;
-        if (eg.atkCd <= 0) { eg.atkCd = st.eagleRate; dealDamage(g, target, st.eagleDmg, "phys", false); }
+        if (eg.atkCd <= 0) { eg.atkCd = st.eagleRate; dealDamage(g, target, st.eagleDmg, "phys", false, false, t.id); }
         // the held thing fights back — with its own arms, or by sheer thrashing
         eg.hurtCd -= sdt * 1000;
         if (eg.hurtCd <= 0) {
@@ -318,17 +321,17 @@ export function updateGame(g, dt) {
         const full = e === victim;
         // a guillotine finishes the nearly-dead outright
         if (full && st.execute && !e.boss && e.hp / e.maxHp <= st.execute) {
-          dealDamage(g, e, e.hp + 9999, "phys", true);
+          dealDamage(g, e, e.hp + 9999, "phys", true, false, tr.byTower);
           continue;
         }
-        dealDamage(g, e, st.trapDmg * (full ? 1 : 0.6), "phys", false);
+        dealDamage(g, e, st.trapDmg * (full ? 1 : 0.6), "phys", false, false, tr.byTower);
         if (e.dead) continue;
         if (full && st.root && !e.boss) e.stunUntil = Math.max(e.stunUntil, tms + st.root);
         if (st.stunAll) e.stunUntil = Math.max(e.stunUntil, tms + st.stunAll);
-        if (st.burn) { e.burnUntil = tms + st.burnDur; e.burnDps = st.burn; }
+        if (st.burn) { e.burnUntil = tms + st.burnDur; e.burnDps = st.burn; e.burnSrc = tr.byTower; }
         if (st.slow) { e.slowUntil = tms + st.slowDur; e.slowPct = Math.max(e.slowPct, st.slow); }
       }
-      if (st.caltrops) g.grounds.push({ x: tr.x, y: tr.y, r: 40, dps: 0, slowPct: st.caltropSlow || 0.35, until: tms + st.caltrops, kind: "caltrops" });
+      if (st.caltrops) g.grounds.push({ src: tr.byTower, x: tr.x, y: tr.y, r: 40, dps: 0, slowPct: st.caltropSlow || 0.35, until: tms + st.caltrops, kind: "caltrops" });
     }
     for (const e of g.enemies) {
       if (e.dead) continue;
@@ -408,7 +411,7 @@ export function updateGame(g, dt) {
         }
       }
       if (e.burnUntil > tms) {
-        dealDamage(g, e, e.burnDps * sdt, "magic", false, true);
+        dealDamage(g, e, e.burnDps * sdt, "magic", false, true, e.burnSrc);
         // Wildfire Court: flames leap from burning foes to nearby unburned ones
         if (e.burnSpread) {
           for (const e2 of g.enemies) {
@@ -420,7 +423,7 @@ export function updateGame(g, dt) {
           }
         }
       }
-      if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic", false, true);
+      if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic", false, true, e.poisonSrc);
       // Volcanic Throne: lava pools scorch anyone standing in them. Plague
       // ground is the dead's own filth — it only troubles the living knights.
       if (!e.dead) {
@@ -428,7 +431,7 @@ export function updateGame(g, dt) {
           if (gr.kind === "plague") continue;
           if (gr.until <= tms || Math.hypot(e.x - gr.x, e.y - gr.y) > gr.r) continue;
           if (gr.kind === "caltrops") { e.auraSlow = Math.max(e.auraSlow, gr.slowPct || 0.35); continue; }
-          dealDamage(g, e, gr.dps * sdt, "magic", false, true);
+          dealDamage(g, e, gr.dps * sdt, "magic", false, true, gr.src);
         }
       }
       if (e.dead) continue;
@@ -523,7 +526,7 @@ export function updateGame(g, dt) {
       e.deathDone = true;
       // Plague Bearer: whoever dies carrying the guild's venom bursts
       if (e.sporeOn) {
-        g.grounds.push({ x: e.x, y: e.y, r: e.sporeOn.r, dps: e.sporeOn.dps, until: tms + e.sporeOn.dur, kind: "spores" });
+        g.grounds.push({ src: e.sporeOn.src, x: e.x, y: e.y, r: e.sporeOn.r, dps: e.sporeOn.dps, until: tms + e.sporeOn.dur, kind: "spores" });
         g.effects.push({ type: "boom", x: e.x, y: e.y, ttl: 300, r: e.sporeOn.r * 0.7 });
       }
       if (e.splitInto) {
@@ -625,7 +628,7 @@ export function updateGame(g, dt) {
               u.atkCd = st.rate * frenzyMul;
               u.swing = 180;
               const dealt = st.dmg * (1 + (u.atkBuff || 0));
-              dealDamage(g, target, dealt, st.magic ? "magic" : "phys", st.magic);
+              dealDamage(g, target, dealt, st.magic ? "magic" : "phys", st.magic, false, t.id);
               sfx.play("clink");
               if (st.frenzy) u.frenzy = (u.frenzy || 0) + 1;
               if (st.lifesteal && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
@@ -665,7 +668,7 @@ export function updateGame(g, dt) {
           if (u.state === "dead") continue;
           for (const e of g.enemies) {
             if (e.dead) continue;
-            if (Math.hypot(e.x - u.x, e.y - u.y) <= 42) dealDamage(g, e, st.sear * sdt, "magic", false, true);
+            if (Math.hypot(e.x - u.x, e.y - u.y) <= 42) dealDamage(g, e, st.sear * sdt, "magic", false, true, t.id);
           }
         }
       }
@@ -739,26 +742,26 @@ export function updateGame(g, dt) {
         u.targetId = mark.id;
         g.effects.push({ type: "bolt", x: u.x, y: u.y - 6, tx: mark.x, ty: mark.y - 6, ttl: 190 });
         sfx.play(st.splash ? "boom" : "bolt");
-        dealDamage(g, mark, st.dmg, "phys", !!st.pierce);
+        dealDamage(g, mark, st.dmg, "phys", !!st.pierce, false, t.id);
         if (st.splash) {
           for (const e2 of g.enemies) {
             if (e2.dead || e2 === mark || e2.flying) continue;
             if (Math.hypot(e2.x - mark.x, e2.y - mark.y) > st.splash) continue;
-            dealDamage(g, e2, st.dmg * 0.55, "phys", false);
+            dealDamage(g, e2, st.dmg * 0.55, "phys", false, false, t.id);
           }
         }
         for (const e2 of g.enemies) {
           if (e2.dead || e2.flying) continue;
           const dd = Math.hypot(e2.x - mark.x, e2.y - mark.y);
           if (dd > (st.splash || 1)) continue;
-          if (st.burn) { e2.burnUntil = tms + st.burnDur; e2.burnDps = st.burn; }
+          if (st.burn) { e2.burnUntil = tms + st.burnDur; e2.burnDps = st.burn; e2.burnSrc = t.id; }
           if (st.stun && Math.random() < st.stun) e2.stunUntil = tms + st.stunDur;
         }
         if (!mark.dead) {
           if (st.slow) { mark.slowUntil = tms + st.slowDur; mark.slowPct = Math.max(mark.slowPct, st.slow); }
-          if (st.burn && !st.splash) { mark.burnUntil = tms + st.burnDur; mark.burnDps = st.burn; }
+          if (st.burn && !st.splash) { mark.burnUntil = tms + st.burnDur; mark.burnDps = st.burn; mark.burnSrc = t.id; }
         }
-        if (st.poolDps) g.grounds.push({ x: mark.x, y: mark.y, r: st.poolR || 30, dps: st.poolDps, until: tms + (st.poolDur || 2600), kind: "lava" });
+        if (st.poolDps) g.grounds.push({ src: t.id, x: mark.x, y: mark.y, r: st.poolR || 30, dps: st.poolDps, until: tms + (st.poolDur || 2600), kind: "lava" });
       });
     }
 
@@ -836,10 +839,11 @@ export function updateGame(g, dt) {
               const cur = target.poisonUntil > tms ? target.poisonDps : 0;
               target.poisonDps = Math.max(cur, st.venom);
               target.poisonUntil = tms + st.venomDur;
+              target.poisonSrc = t.id;
               if (st.venomNoHeal) target.noHealUntil = tms + st.venomDur;
-              if (st.spores) target.sporeOn = { dps: st.spores, r: st.sporeR, dur: st.sporeDur };
+              if (st.spores) target.sporeOn = { dps: st.spores, r: st.sporeR, dur: st.sporeDur, src: t.id };
             }
-            dealDamage(g, target, dmg, "phys", !!st.pierce);
+            dealDamage(g, target, dmg, "phys", !!st.pierce, false, t.id);
             if (!target.dead && st.silence) {
               target.silencedUntil = tms + st.silence;
               g.effects.push({ type: "silence", x: target.x, y: target.y - target.size - 6, ttl: 900 });
@@ -876,15 +880,15 @@ export function updateGame(g, dt) {
           t.ramp = Math.min(st.rampMax, (t.ramp || 1) + ((sdt * 1000) / st.rampTime) * (st.rampMax - 1));
           const atMax = t.ramp >= st.rampMax - 0.01;
           t.lastAim = Math.atan2(tgt.y - t.y, tgt.x - t.x);
-          dealDamage(g, tgt, st.dps * t.ramp * sdt, "magic", false, true);
+          dealDamage(g, tgt, st.dps * t.ramp * sdt, "magic", false, true, t.id);
           if (!tgt.dead) {
             if (st.beamSlow) { tgt.slowUntil = tms + 200; tgt.slowPct = Math.max(tgt.slowPct, atMax && st.wellRoot ? 0.95 : st.beamSlow); }
-            if (atMax && st.igniteBurn) { tgt.burnUntil = tms + st.igniteDur; tgt.burnDps = st.igniteBurn; }
+            if (atMax && st.igniteBurn) { tgt.burnUntil = tms + st.igniteDur; tgt.burnDps = st.igniteBurn; tgt.burnSrc = t.id; }
           }
           if (atMax && st.beamSplash) {
             for (const e of g.enemies) {
               if (e.dead || e === tgt) continue;
-              if (Math.hypot(e.x - tgt.x, e.y - tgt.y) <= st.beamSplash) dealDamage(g, e, st.dps * 0.5 * sdt, "magic", false, true);
+              if (Math.hypot(e.x - tgt.x, e.y - tgt.y) <= st.beamSplash) dealDamage(g, e, st.dps * 0.5 * sdt, "magic", false, true, t.id);
             }
           }
           if (st.beams > 1) {
@@ -894,7 +898,7 @@ export function updateGame(g, dt) {
               if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range && (!second || e.hp > second.hp)) second = e;
             }
             if (second) {
-              dealDamage(g, second, st.dps * Math.max(1, t.ramp * 0.5) * sdt, "magic", false, true);
+              dealDamage(g, second, st.dps * Math.max(1, t.ramp * 0.5) * sdt, "magic", false, true, t.id);
               if (!second.dead) {
                 t.beamId2 = second.id;
                 if (st.beamSlow) { second.slowUntil = tms + 200; second.slowPct = Math.max(second.slowPct, st.beamSlow); }
@@ -938,7 +942,7 @@ export function updateGame(g, dt) {
             id: nextId(), x: t.x + ox, y: t.y - hgt + oy - 6, targetId: target.id,
             tx: target.x, ty: target.y, speed: st.bolt ? 560 : 460, delay: i * 90,
             dmg: Math.round(per * dmgMul), dtype: st.dtype, pierce: !!st.pierce, splash: 0,
-            burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow",
+            burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: t.id,
             big: !!st.bolt || dmgMul > 1,
             poison: st.poison || 0, poisonDur: st.poisonDur || 0, poisonCap: st.poisonCap || 0,
             chain: st.chain || 0, chainRange: st.chainRange || 0,
@@ -967,7 +971,7 @@ export function updateGame(g, dt) {
             tx: ax + ox, ty: ay + oy, speed: rockSpeed, delay: i * 130,
             dmg: st.dmg, dtype: st.dtype, pierce: false, splash: st.splash || 0,
             burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
-            kind: "rock", frag: !!st.frag,
+            kind: "rock", src: t.id, frag: !!st.frag,
             total: Math.hypot(ax + ox - sx, ay + oy - sy),
             big: t.branch === "a",
           });
@@ -980,7 +984,7 @@ export function updateGame(g, dt) {
           for (const e of g.enemies) {
             if (e.dead) continue;
             if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
-            dealDamage(g, e, st.dmg, st.dtype);
+            dealDamage(g, e, st.dmg, st.dtype, false, false, t.id);
             if (!e.dead && st.burn) {
               e.burnUntil = tms + st.burnDur;
               e.burnDps = st.burn;
@@ -999,7 +1003,7 @@ export function updateGame(g, dt) {
               tx: t.x + Math.cos(ang) * st.range, ty: t.y - 8 + Math.sin(ang) * st.range,
               speed: 360, delay: 0, dmg: st.dmg, dtype: st.dtype, pierce: false, splash: 0,
               burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
-              kind: "spike", hitsLeft: st.spikePierce || 1, hitIds: [], angle: ang,
+              kind: "spike", src: t.id, hitsLeft: st.spikePierce || 1, hitIds: [], angle: ang,
             });
           }
         }
@@ -1016,7 +1020,7 @@ export function updateGame(g, dt) {
         }
         for (const v of hits) {
           g.effects.push({ type: "talon", x1: t.x, y1: t.y - 38, x2: v.x, y2: v.y - 6, ttl: 520, life: 520 });
-          dealDamage(g, v, st.dmg * (v.flying ? st.airMult : 1), "phys", false);
+          dealDamage(g, v, st.dmg * (v.flying ? st.airMult : 1), "phys", false, false, t.id);
           if (!v.dead) {
             v.markUntil = tms + st.markDur;
             v.markAmp = Math.max(v.markAmp, st.mark);
@@ -1032,7 +1036,7 @@ export function updateGame(g, dt) {
             }
             if (nxt) {
               g.effects.push({ type: "talon", x1: v.x, y1: v.y - 6, x2: nxt.x, y2: nxt.y - 6, ttl: 420, life: 420 });
-              dealDamage(g, nxt, st.dmg * 0.5 * (nxt.flying ? st.airMult : 1), "phys", false);
+              dealDamage(g, nxt, st.dmg * 0.5 * (nxt.flying ? st.airMult : 1), "phys", false, false, t.id);
               if (!nxt.dead) { nxt.markUntil = tms + st.markDur; nxt.markAmp = Math.max(nxt.markAmp, st.mark); }
             }
           }
@@ -1044,7 +1048,7 @@ export function updateGame(g, dt) {
         const hitIds = new Set();
         const pts = [[t.x, t.y - 34]];
         for (let j = 0; j < st.arc && cur; j++) {
-          dealDamage(g, cur, st.dmg * mult, "magic");
+          dealDamage(g, cur, st.dmg * mult, "magic", false, false, t.id);
           if (st.zapStun && !cur.dead && Math.random() < st.zapStun) cur.stunUntil = tms + (st.zapStunDur || 600);
           hitIds.add(cur.id);
           pts.push([cur.x, cur.y - 6]);
@@ -1074,7 +1078,7 @@ export function updateGame(g, dt) {
           burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
           poolDps: st.poolDps || 0, poolDur: st.poolDur || 0, poolR: st.poolR || 0,
           burnSpreads: !!st.burnSpread, midas,
-          kind: "orb",
+          kind: "orb", src: t.id,
         });
       }
     }
@@ -1086,7 +1090,7 @@ export function updateGame(g, dt) {
         for (const e of g.enemies) {
           if (e.dead || p.hitIds.includes(e.id)) continue;
           if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) {
-            dealDamage(g, e, p.dmg, p.dtype);
+            dealDamage(g, e, p.dmg, p.dtype, false, false, p.src);
             p.hitIds.push(e.id);
             if (!e.dead && p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = Math.max(e.slowPct, p.slow); }
             if (--p.hitsLeft <= 0) { p.done = true; break; }
@@ -1115,14 +1119,14 @@ export function updateGame(g, dt) {
             if (e.dead) continue;
             const dd = Math.hypot(e.x - p.tx, e.y - p.ty);
             if (dd <= p.splash) {
-              dealDamage(g, e, p.dmg * (1 - 0.55 * (dd / p.splash)), p.dtype, p.pierce);
+              dealDamage(g, e, p.dmg * (1 - 0.55 * (dd / p.splash)), p.dtype, p.pierce, false, p.src);
               if (e.dead) continue;
               if (p.burn) { e.burnUntil = tms + p.burnDur; e.burnDps = p.burn; if (p.burnSpreads) e.burnSpread = true; }
               if (p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = p.slow; }
             }
           }
           // Volcanic Throne: the blast leaves a pool of living lava
-          if (p.poolDps) g.grounds.push({ x: p.tx, y: p.ty, r: p.poolR || 32, dps: p.poolDps, until: tms + (p.poolDur || 3000), kind: "lava" });
+          if (p.poolDps) g.grounds.push({ src: p.src, x: p.tx, y: p.ty, r: p.poolR || 32, dps: p.poolDps, until: tms + (p.poolDur || 3000), kind: "lava" });
           // Grapeshot: the stone bursts into a spray of shrapnel
           if (p.frag) {
             g.effects.push({ type: "shrapnel", x: p.tx, y: p.ty, ttl: 420, life: 420 });
@@ -1135,7 +1139,7 @@ export function updateGame(g, dt) {
                 tx: nx, ty: ny, speed: 190, delay: k * 40,
                 dmg: Math.max(1, Math.round(p.dmg * 0.4)), dtype: "phys", pierce: false,
                 splash: Math.round(p.splash * 0.55), burn: 0, burnDur: 0, slow: 0, slowDur: 0,
-                kind: "rock", mini: true, total: Math.hypot(nx - p.tx, ny - p.ty),
+                kind: "rock", mini: true, src: p.src, total: Math.hypot(nx - p.tx, ny - p.ty),
               });
             }
           }
@@ -1145,9 +1149,9 @@ export function updateGame(g, dt) {
             target.bounty = target.bounty * 3;
             g.effects.push({ type: "midas", x: p.tx, y: p.ty, ttl: 650, life: 650 });
             sfx.play("midas");
-            dealDamage(g, target, target.hp + 99999, "magic", true);
+            dealDamage(g, target, target.hp + 99999, "magic", true, false, p.src);
           } else {
-            dealDamage(g, target, p.dmg, p.dtype, p.pierce);
+            dealDamage(g, target, p.dmg, p.dtype, p.pierce, false, p.src);
           }
           if (p.pierce) g.effects.push({ type: "pierce", x: p.tx, y: p.ty, ttl: 250 });
           // Briar Rangers: each hit stacks poison dps (capped), refreshing duration
@@ -1155,6 +1159,7 @@ export function updateGame(g, dt) {
             const cur = target.poisonUntil > tms ? target.poisonDps : 0;
             target.poisonDps = Math.min(p.poisonCap || p.poison, cur + p.poison);
             target.poisonUntil = tms + p.poisonDur;
+            target.poisonSrc = p.src;
           }
           // Hawkeye Conclave: the arrow ricochets to one more enemy nearby
           if (p.chain > 0) {
@@ -1169,7 +1174,7 @@ export function updateGame(g, dt) {
                 id: nextId(), x: p.tx, y: p.ty, targetId: next.id,
                 tx: next.x, ty: next.y, speed: 460, delay: 0,
                 dmg: Math.max(1, Math.round(p.dmg * 0.6)), dtype: p.dtype, pierce: p.pierce, splash: 0,
-                burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow",
+                burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: t.id,
                 poison: p.poison, poisonDur: p.poisonDur, poisonCap: p.poisonCap,
                 chain: p.chain - 1, chainRange: p.chainRange,
               });
