@@ -253,6 +253,25 @@ export function updateGame(g, dt) {
         if (eg.respawn <= 0) { eg.hp = eg.maxHp; eg.x = t.x; eg.y = t.y - 44; eg.targetId = null; }
         continue;
       }
+      // anything that mends knights mends the eagle: it is a unit on the field,
+      // not a projectile, and a wounded bird is the whole tower being wounded
+      for (const h of g.towers) {
+        if (h.kind !== "support") continue;
+        const hs = getStats(h);
+        if (!hs.heal || eg.hp >= eg.maxHp) continue;
+        if (Math.hypot(h.x - eg.x, h.y - eg.y) > hs.range) continue;
+        eg.hp = Math.min(eg.maxHp, eg.hp + hs.heal * sdt);
+        eg.healGlow = 220;
+      }
+      for (const kt of g.towers) {
+        if (kt.kind !== "knight" || eg.hp >= eg.maxHp) continue;
+        const ks = getStats(kt);
+        if (!ks.heal || !kt.rally) continue;
+        if (Math.hypot(kt.rally.x - eg.x, kt.rally.y - eg.y) > ks.range + 20) continue;
+        eg.hp = Math.min(eg.maxHp, eg.hp + ks.heal * 0.5 * sdt);
+        eg.healGlow = 220;
+      }
+      eg.healGlow = Math.max(0, (eg.healGlow || 0) - sdt * 1000);
       let target = eg.targetId ? g.enemies.find((e) => e.id === eg.targetId && !e.dead) : null;
       if (!target) {
         eg.targetId = null;
@@ -1092,6 +1111,8 @@ export function updateGame(g, dt) {
           }
         }
       } else if (t.kind === "falconry") {
+        // a Skyknight's mews has no birds left to throw — she is riding it
+        if (st.skyknight) { t.cd = 400; continue; }
         // the bird stoops: instant talons, a mark left behind, and — for the
         // storm mews — a ricochet into the next victim
         const hits = [target];

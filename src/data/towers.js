@@ -189,7 +189,7 @@ export const TOWERS = {
       a: {
         name: "Royal Aviary", cost: 240, stats: { dmg: 58, rate: 750, range: 175, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500 }, desc: "A whole mews of hunting birds: near-constant dives that can knock foes senseless.",
         rank4: {
-          a: { name: "Skyknight", cost: 370, stats: { dmg: 68, rate: 750, range: 185, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500, skyknight: true, eagleHp: 720, eagleDmg: 34, eagleRate: 700, eagleRespawn: 9000 }, desc: "A rider on a war-eagle half a dragon's span. She meets the sky's worst in single combat and HOLDS it there — gryphons, wraith-wings, even dragons." },
+          a: { name: "Skyknight", cost: 370, stats: { range: 205, rate: 0, skyknight: true, eagleHp: 1500, eagleDmg: 96, eagleRate: 620, eagleRespawn: 11000 }, desc: "The mews becomes a NEST, and the mistress stops throwing birds: she mounts a war-eagle half a dragon's span and takes the sky herself. It is the only thing this tower does — no more volleys, no more marks — and what it does is meet the worst thing flying in single combat and HOLD it there. Healers who mend knights will mend the eagle too." },
           b: { name: "Storm Falcons", cost: 370, stats: { dmg: 66, rate: 700, range: 180, airMult: 2.4, mark: 0.25, markDur: 3000, diveStun: 0.25, diveStunDur: 600, chain: 1, chainRange: 90 }, desc: "Dives that crack like weather — each strike ricochets to a second victim." },
         },
       },

@@ -1266,6 +1266,54 @@ export const drawAssassin = (ctx, t, time) => {
 export const drawFalconry = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const st = getStats(t);
+  // ---- the Skyknight's nest ----
+  // Once she rides, the mews is not a mews: the rim is torn out and built up
+  // into a great nest of branches, and the tower stands empty while she flies.
+  if (st.skyknight) {
+    ctx.fillStyle = "rgba(20,20,26,0.3)";
+    ctx.fillRect(x - 12, y + 14, 24, 4);
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - 9, y - 18, 18, 32);
+    ctx.fillStyle = "#5f6470";
+    ctx.fillRect(x - 8, y - 17, 16, 30);
+    ctx.fillStyle = "#494f5c";
+    for (let i = 0; i < 5; i++) ctx.fillRect(x - 8 + ((i * 7) % 14), y - 14 + i * 6, 4, 2);
+    ctx.fillStyle = INK; ctx.fillRect(x - 3, y + 5, 6, 9);
+    ctx.fillStyle = "#6e4c28"; ctx.fillRect(x - 2, y + 6, 4, 8);
+    // the nest itself: a wide bowl of branches, wider than the tower
+    ctx.fillStyle = INK;
+    ctx.fillRect(x - 16, y - 26, 32, 9);
+    ctx.fillStyle = "#6e4c28";
+    ctx.fillRect(x - 15, y - 25, 30, 7);
+    ctx.fillStyle = "#8a6238";
+    for (let i = 0; i < 9; i++) {
+      const bx = x - 15 + i * 3.6, tilt = (i % 3) - 1;
+      ctx.fillRect(bx, y - 25 + (i % 2), 4, 1);
+      ctx.fillRect(bx + tilt, y - 22 + (i % 3), 3, 1);
+    }
+    ctx.fillStyle = "#4a3018";
+    for (let i = 0; i < 5; i++) ctx.fillRect(x - 13 + i * 6, y - 19, 5, 1);
+    // straw and down in the bowl, and a moulted feather on the rim
+    ctx.fillStyle = "#a89a72";
+    ctx.fillRect(x - 6, y - 21, 12, 2);
+    ctx.fillStyle = "#ded6c4";
+    ctx.fillRect(x + 8 + Math.round(Math.sin(time * 1.3) * 1), y - 27, 3, 1);
+    // she is away on the bird — unless the bird is down, when she waits here
+    if (t.eagle && t.eagle.respawn > 0) {
+      const pal = { K: INK, G: "#b08858", g: "#8c6c46", H: "#b06630", h: "#8a4a22", x: "#d08c50",
+        F: "#e8c9a2", f: "#cca67c", D: "#7a3c30", d: "#582a22", E: "#96524a", Y: "#e0b855" };
+      for (let r = 0; r < LADY_MAP.length; r++) {
+        for (let c = 0; c < LADY_MAP[r].length; c++) {
+          const ch = LADY_MAP[r][c];
+          if (ch === " ") continue;
+          ctx.fillStyle = pal[ch];
+          ctx.fillRect(x - 7 + c, y - 44 + r, 1, 1);
+        }
+      }
+      if (Math.sin(time * 6) > 0) { ctx.fillStyle = "#e0b855"; ctx.fillRect(x + 4, y - 46, 2, 2); }
+    }
+    return;
+  }
   const aviary = t.branch === "a";
   const court = t.branch === "b";
   ctx.fillStyle = "rgba(20,20,26,0.3)";

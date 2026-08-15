@@ -462,34 +462,98 @@ export function draw(g, canvas, bufRef) {
     if (t.beamId2 != null) beamTo(t.beamId2, 0.55);
   }
 
-  // Skyknight war-eagles fly free of their roosts, so they paint above the fray
+  // Skyknight war-eagles fly free of their roosts, so they paint above the
+  // fray — and at half a dragon's span, with the mistress on its back.
   for (const t of g.towers) {
     if (t.kind !== "falconry" || !t.eagle) continue;
     const eg = t.eagle;
     if (eg.respawn > 0) continue;   // the mistress whistles a new bird soon
     const ex = S(eg.x), ey = S(eg.y);
-    const beat = Math.sin(g.time * 10 + t.id) > 0;
+    const beat = Math.sin(g.time * 6 + t.id) > 0;
     const fighting = !!eg.targetId;
-    ctx.fillStyle = "rgba(20,20,26,0.25)";
-    ctx.fillRect(ex - 6, ey + 16, 12, 3);
+    // a shadow the size of the thing casting it
+    ctx.fillStyle = "rgba(20,20,26,0.24)";
+    ctx.fillRect(ex - 14, ey + 20, 28, 4);
+    // ---- the wings: four ribbed fingers a side, a dragon's half ----
+    for (const side of [-1, 1]) {
+      const lift = beat ? -6 : 3;
+      for (let f = 0; f < 4; f++) {
+        const len = 26 - f * 5;
+        const ang = side < 0 ? Math.PI - (0.28 + f * 0.26) : 0.28 + f * 0.26;
+        const tx2 = ex + Math.cos(ang) * len;
+        const ty2 = ey + Math.sin(ang) * len * 0.5 + lift + f * 2;
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(ex + side * 3, ey); ctx.lineTo(tx2, ty2); ctx.stroke();
+      }
+      // the membrane between the fingers
+      ctx.fillStyle = beat ? "#8a6a44" : "#96764a";
+      ctx.beginPath();
+      ctx.moveTo(ex + side * 3, ey);
+      for (let f = 0; f < 4; f++) {
+        const len = 26 - f * 5;
+        const ang = side < 0 ? Math.PI - (0.28 + f * 0.26) : 0.28 + f * 0.26;
+        ctx.lineTo(ex + Math.cos(ang) * len, ey + Math.sin(ang) * len * 0.5 + (beat ? -6 : 3) + f * 2);
+      }
+      ctx.closePath(); ctx.fill();
+      // pale primaries along the leading edge
+      ctx.fillStyle = "#ded6c4";
+      const tipA = side < 0 ? Math.PI - 0.28 : 0.28;
+      ctx.fillRect(S(ex + Math.cos(tipA) * 25) - 2, S(ey + Math.sin(tipA) * 12 + (beat ? -6 : 3)) - 1, 4, 3);
+    }
+    // ---- the body ----
     ctx.fillStyle = INK;
-    if (beat) { ctx.fillRect(ex - 7, ey - 4, 5, 3); ctx.fillRect(ex + 2, ey - 4, 5, 3); }
-    else { ctx.fillRect(ex - 8, ey - 1, 5, 3); ctx.fillRect(ex + 3, ey - 1, 5, 3); }
-    ctx.fillRect(ex - 3, ey - 3, 6, 7);
+    ctx.fillRect(ex - 6, ey - 6, 12, 16);
     ctx.fillStyle = "#96764a";
-    ctx.fillRect(ex - 2, ey - 2, 4, 5);
+    ctx.fillRect(ex - 5, ey - 5, 10, 14);
+    ctx.fillStyle = "#7a5f3a";
+    ctx.fillRect(ex - 5, ey + 4, 10, 4);
+    // tail fan
+    ctx.fillStyle = INK;
+    ctx.fillRect(ex - 7, ey + 9, 14, 5);
     ctx.fillStyle = "#ded6c4";
-    if (beat) { ctx.fillRect(ex - 7, ey - 4, 2, 2); ctx.fillRect(ex + 5, ey - 4, 2, 2); }
-    else { ctx.fillRect(ex - 8, ey - 1, 2, 2); ctx.fillRect(ex + 6, ey - 1, 2, 2); }
-    ctx.fillRect(ex - 2, ey + 3, 4, 2);
-    ctx.fillStyle = "#c04838";
-    ctx.fillRect(ex - 1, ey - 3, 2, 3);
+    ctx.fillRect(ex - 6, ey + 10, 12, 3);
+    // ---- the head: hooked, white-hooded, gold-beaked ----
+    ctx.fillStyle = INK;
+    ctx.fillRect(ex - 5, ey - 13, 10, 9);
+    ctx.fillStyle = "#ece4d2";
+    ctx.fillRect(ex - 4, ey - 12, 8, 7);
     ctx.fillStyle = "#e0b855";
-    ctx.fillRect(ex - 1, ey + 2, 2, 1);
-    if (fighting) { ctx.fillRect(ex - 3, ey + 5, 2, 2); ctx.fillRect(ex + 1, ey + 5, 2, 2); }
+    ctx.fillRect(ex - 1, ey - 8, 5, 3);
+    ctx.fillRect(ex + 3, ey - 7, 2, 2);
+    ctx.fillStyle = INK;
+    ctx.fillRect(ex - 3, ey - 11, 2, 2);
+    ctx.fillStyle = fighting ? "#e05248" : "#c8a83c";
+    ctx.fillRect(ex - 2, ey - 10, 1, 1);
+    // ---- the mistress, seated between the wings ----
+    ctx.fillStyle = INK;
+    ctx.fillRect(ex - 3, ey - 6, 6, 8);
+    ctx.fillStyle = t.branch === "b" ? "#5a4a8c" : "#7a3c30";
+    ctx.fillRect(ex - 2, ey - 5, 4, 6);
+    ctx.fillStyle = "#e8c9a2";
+    ctx.fillRect(ex - 2, ey - 7, 3, 2);
+    ctx.fillStyle = "#b06630";
+    ctx.fillRect(ex + 1, ey - 7, 2, 3);
+    // her lance, couched, dipping when the talons go in
+    ctx.fillStyle = "#5f4326";
+    ctx.fillRect(ex + 3, ey - (fighting ? 1 : 4), 12, 2);
+    ctx.fillStyle = "#c4c8d0";
+    ctx.fillRect(ex + 14, ey - (fighting ? 1 : 4) - 1, 4, 3);
+    // ---- talons out when it has something ----
+    if (fighting) {
+      ctx.fillStyle = "#e0b855";
+      ctx.fillRect(ex - 5, ey + 12, 3, 4);
+      ctx.fillRect(ex + 2, ey + 12, 3, 4);
+    }
+    // ---- wounds, and the mending of them ----
+    if (eg.healGlow > 0) {
+      ctx.fillStyle = "rgba(140,224,140,0.7)";
+      for (let i2 = 0; i2 < 3; i2++) ctx.fillRect(ex - 8 + i2 * 8, ey - 18 - ((g.time * 22 + i2 * 6) % 10), 2, 2);
+    }
     if (eg.hp < eg.maxHp) {
-      ctx.fillStyle = INK; ctx.fillRect(ex - 7, ey - 9, 14, 3);
-      ctx.fillStyle = "#7fc95e"; ctx.fillRect(ex - 6, ey - 8, Math.max(1, Math.round(12 * eg.hp / eg.maxHp)), 1);
+      ctx.fillStyle = INK; ctx.fillRect(ex - 12, ey - 22, 24, 5);
+      ctx.fillStyle = eg.hp / eg.maxHp > 0.4 ? "#7fc95e" : "#e07a72";
+      ctx.fillRect(ex - 11, ey - 21, Math.max(1, Math.round(22 * eg.hp / eg.maxHp)), 3);
     }
   }
 
