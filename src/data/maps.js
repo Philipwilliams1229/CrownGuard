@@ -250,10 +250,10 @@ Object.assign(REALMS, {
   // start. This is where you go to find out what a build actually does.
   proving: greenwoodVariant(
     "proving", "The Proving Field", "SANDBOX",
-    "A testing ground: one long serpentine road through open meadow, and gold to burn. Every tower between the lanes covers two stretches at once — build whatever you like and watch it work.",
+    "A testing ground: one long serpentine road through open meadow, and 2,500 gold to burn. Every tower between the lanes covers two stretches at once — build whatever you like and watch it work.",
     20260814,
     [[0.9, 1], [13, 1], [13, 2.9], [1.6, 2.9], [1.6, 4.8], [13, 4.8], [13, 6.7], [1.6, 6.7], [1.6, 8.5], [13.7, 8.5]],
-    { startGold: 900, decorRecipe: { count: 9, types: ["tree", "pine", "rock"] } },
+    { startGold: 2500, decorRecipe: { count: 9, types: ["tree", "pine", "rock"] } },
   ),
   // ---- Chapter I: Greenwood Vale ----
   foxmere: greenwoodVariant(
