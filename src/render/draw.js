@@ -19,7 +19,7 @@ import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
-import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin } from "./towers.js";
+import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawSpawn } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 
@@ -370,6 +370,7 @@ export function draw(g, canvas, bufRef) {
     else if (t.kind === "assassin") drawAssassin(ctx, t, g.time);
     else if (t.kind === "falconry") drawFalconry(ctx, t, g.time);
     else if (t.kind === "sunforge") drawSunforge(ctx, t, g.time);
+    else if (t.kind === "riverwatch") drawRiverwatchHall(ctx, t, g.time);
     else drawGarrison(ctx, t, g.time);
   };
 

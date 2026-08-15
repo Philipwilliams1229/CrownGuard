@@ -1407,3 +1407,48 @@ export const drawSunforge = (ctx, t, time) => {
     }
   }
 };
+
+// The River Watch's own hall: a mooring post, a plank jetty and a lantern.
+export const drawRiverwatchHall = (ctx, t, time) => {
+  const x = S(t.x), y = S(t.y);
+  ctx.fillStyle = "rgba(20,20,26,0.25)";
+  ctx.fillRect(x - 12, y + 12, 24, 4);
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 13, y - 2, 26, 14);
+  plankFace(ctx, x - 12, y - 1, 24, 12, "#8a6238", "#a0754a", "#5f4326");
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 4, y - 20, 3, 20);
+  ctx.fillRect(x + 3, y - 16, 3, 16);
+  ctx.fillStyle = "#6e4c28";
+  ctx.fillRect(x - 3, y - 19, 1, 19);
+  ctx.fillRect(x + 4, y - 15, 1, 15);
+  // the watch lantern, burning against the water
+  const lit = 0.7 + 0.3 * Math.sin(time * 3 + t.id);
+  ctx.fillStyle = INK;
+  ctx.fillRect(x - 6, y - 25, 7, 7);
+  ctx.fillStyle = `rgba(232,193,74,${lit})`;
+  ctx.fillRect(x - 5, y - 24, 5, 5);
+  ctx.fillStyle = "#f4e6b4";
+  ctx.fillRect(x - 4, y - 23, 2, 2);
+  // a coil of rope on the jetty
+  ctx.fillStyle = "#a89a72";
+  ctx.fillRect(x + 5, y + 2, 5, 2);
+  ctx.fillRect(x + 6, y + 4, 3, 1);
+};
+
+// The same dispatch the board uses, exposed so menus can show a hall as it
+// will really look — a Dragon's Hoard should not wear the plain mint's icon.
+export const drawTowerPortrait = (ctx, t, time) => {
+  if (t.kind === "archer") drawArcherTower(ctx, t, time);
+  else if (t.kind === "wizard") drawWizardSpire(ctx, t, time);
+  else if (t.kind === "support") drawSupportTower(ctx, t, time);
+  else if (t.kind === "catapult") drawCatapult(ctx, t, time);
+  else if (t.kind === "spiker") drawBladewheel(ctx, t, time);
+  else if (t.kind === "goldworks") drawGoldworks(ctx, t, time);
+  else if (t.kind === "trapsmith") drawTrapsmith(ctx, t, time);
+  else if (t.kind === "assassin") drawAssassin(ctx, t, time);
+  else if (t.kind === "falconry") drawFalconry(ctx, t, time);
+  else if (t.kind === "sunforge") drawSunforge(ctx, t, time);
+  else if (t.kind === "riverwatch") drawRiverwatchHall(ctx, t, time);
+  else drawGarrison(ctx, t, time);
+};

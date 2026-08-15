@@ -21,6 +21,7 @@ import {
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
 import PixelIcon from "./ui/PixelIcon.jsx";
+import TowerPortrait from "./ui/TowerPortrait.jsx";
 import EnemyIcon from "./ui/EnemyIcon.jsx";
 import EnemyTooltip from "./ui/EnemyTooltip.jsx";
 import HomeScreen from "./ui/HomeScreen.jsx";
@@ -580,23 +581,6 @@ export default function Crownguard() {
                   Every final form, bought whole — pick one, then click the grass.
                 </div>
               )}
-              {ui.masterShow && ui.masterOn && masterInfo && (() => {
-                const { nums, traits } = describe(masterInfo.stats);
-                return (
-                  <div style={{ background: "#2c313c", border: "2px solid #10131a", boxShadow: "inset 0 0 0 2px #7a6a3c", padding: 9, marginBottom: 8 }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <PixelIcon kind={masterInfo.kind} branch={masterInfo.branch} rank4={masterInfo.rank4} size={30} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: "bold", color: "#e8d47a", fontSize: 12 }}>{masterInfo.name} — ⚡{masterInfo.cost}g</div>
-                        <div style={{ fontSize: 10, opacity: 0.85, marginTop: 3, lineHeight: 1.5 }}>{masterInfo.desc}</div>
-                        <div style={{ fontSize: 10, opacity: 0.85, marginTop: 4, lineHeight: 1.55 }}>{nums.join(" · ")}</div>
-                        {traits.length > 0 && <div style={{ fontSize: 10, color: "#a8d88c", marginTop: 2, lineHeight: 1.5 }}>{traits.join(" · ")}</div>}
-                      </div>
-                      <button aria-label="Close info" onClick={() => setMasterInfo(null)} style={{ ...btn, padding: "1px 7px", fontSize: 11 }}>✕</button>
-                    </div>
-                  </div>
-                );
-              })()}
               {ui.masterShow && ui.masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
                 Object.entries(TOWERS).map(([key, def]) => (
@@ -611,7 +595,7 @@ export default function Crownguard() {
                           <button key={pk} title={def.branches[plan.branch].desc}
                             style={{
                               ...btn, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
-                              gap: 4, padding: "8px 4px 7px", textAlign: "center", minHeight: 80,
+                              gap: 4, padding: "8px 4px 7px", textAlign: "center", minHeight: 94,
                               ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}),
                             }}
                             onClick={() => {
@@ -630,7 +614,7 @@ export default function Crownguard() {
                                 setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
                               }}
                               style={{ position: "absolute", top: 2, right: 6, fontSize: 11, opacity: 0.65, pointerEvents: "auto" }}>ⓘ</span>
-                            <PixelIcon kind={key} branch={plan.branch} rank4={plan.rank4} size={30} />
+                            <TowerPortrait kind={key} branch={plan.branch} rank4={plan.rank4} size={38} />
                             <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.25 }}>{plan.name}</span>
                             <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>⚡{plan.cost}g</span>
                           </button>
@@ -664,6 +648,35 @@ export default function Crownguard() {
               )}
               <div style={{ fontSize: 10, marginTop: 10, opacity: 0.6 }}>Time runs at half-speed while you build or manage a tower.</div>
             </div>
+
+            {/* the Master Builds reader: a card that opens BESIDE the drawer, so
+                studying a final never costs you your place in the list */}
+            {drawerVisible && ui.masterShow && ui.masterOn && masterInfo && (() => {
+              const { nums, traits } = describe(masterInfo.stats);
+              return (
+                <div style={{
+                  // anchored to the BOARD's left edge, not to a percentage of it:
+                  // the drawer caps at 264px, so a percentage offset shoved this
+                  // card off the map on a narrow board
+                  position: "absolute", top: 12, left: 8, zIndex: 31,
+                  maxWidth: "min(250px, calc(100% - 286px))", minWidth: 150,
+                  ...overlayPanel, boxShadow: "inset 0 0 0 2px #7a6a3c",
+                  padding: 10, maxHeight: "76%", overflowY: "auto",
+                }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                    <TowerPortrait kind={masterInfo.kind} branch={masterInfo.branch} rank4={masterInfo.rank4} size={40} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: "bold", color: "#e8d47a", fontSize: 12 }}>{masterInfo.name}</div>
+                      <div style={{ fontSize: 10, color: "#e8d47a", opacity: 0.8 }}>⚡{masterInfo.cost}g · {TOWERS[masterInfo.kind].name}</div>
+                    </div>
+                    <button aria-label="Close info" onClick={() => setMasterInfo(null)} style={{ ...btn, padding: "1px 7px", fontSize: 11 }}>✕</button>
+                  </div>
+                  <div style={{ fontSize: 10.5, opacity: 0.9, marginTop: 6, lineHeight: 1.55 }}>{masterInfo.desc}</div>
+                  <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 6, lineHeight: 1.6 }}>{nums.join(" · ")}</div>
+                  {traits.length > 0 && <div style={{ fontSize: 10.5, color: "#a8d88c", marginTop: 3, lineHeight: 1.55 }}>{traits.join(" · ")}</div>}
+                </div>
+              );
+            })()}
 
             {/* selected tower pop-up, anchored beside the tower itself:
                 above & to the right by default, flipping left near the right
