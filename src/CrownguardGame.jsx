@@ -533,16 +533,22 @@ export default function Crownguard() {
 
             {/* placement hint (shown while a tower is chosen and the drawer is tucked away) */}
             {ui.buildMode && (
-              <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 22, ...overlayPanel, borderWidth: 2, padding: "6px 10px", fontSize: 11, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "92%" }}>
+              <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 22, ...overlayPanel, borderWidth: 2, padding: "6px 10px", fontSize: 11, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "92%",
+                // the hint must never cost you the ground beneath it: clicks fall
+                // straight through the banner to the meadow, and only the ✕ catches
+                pointerEvents: "none", opacity: 0.94 }}>
                 <span>Placing <b style={{ color: "#e8d47a" }}>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — click the {TOWERS[ui.buildMode].water ? "river" : "grass"}.{ui.buildMode === "knight" ? " Knights muster south of the hall." : ""}</span>
-                <button aria-label="Cancel placement" onClick={() => { if (G.current) G.current.buildMode = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
+                <button aria-label="Cancel placement" onClick={() => { if (G.current) G.current.buildMode = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11, pointerEvents: "auto" }}>✕</button>
               </div>
             )}
 
             {/* rally hint — the garrison's panel is hidden meanwhile, so the
                 whole circle is free to click */}
             {ui.rallyFor != null && (
-              <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 22, ...overlayPanel, borderWidth: 2, padding: "6px 10px", fontSize: 11, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "92%" }}>
+              <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 22, ...overlayPanel, borderWidth: 2, padding: "6px 10px", fontSize: 11, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "92%",
+                // the hint must never cost you the ground beneath it: clicks fall
+                // straight through the banner to the meadow, and only the ✕ catches
+                pointerEvents: "none", opacity: 0.94 }}>
                 <span>Posting the <b style={{ color: "#e8d47a" }}>rally flag</b> — click where the knights should stand.</span>
                 <button aria-label="Cancel rally move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
               </div>

@@ -580,14 +580,14 @@ export function updateGame(g, dt) {
 
         let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
         // tight leash: knights break off quickly once a foe leaves the rally circle
-        if (target && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 25) { releaseEnemy(g, target); target = null; u.targetId = null; }
+        if (target && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 6) { releaseEnemy(g, target); target = null; u.targetId = null; }
         if (!target && u.targetId) u.targetId = null;
 
         if (!target) {
           let best = null, bestDist = -1;
           for (const e of g.enemies) {
             if (e.dead || e.flying || e.swimming || e.blockedBy) continue;
-            if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range && e.dist > bestDist) { bestDist = e.dist; best = e; }
+            if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.85 && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
           if (best) { best.blockedBy = u.id; u.targetId = best.id; u.state = "moving"; target = best; }
         }
@@ -1196,7 +1196,6 @@ export function updateGame(g, dt) {
         let pay = st.income + (t.mintBonus || 0);
         if (st.hoard) pay = g.lives >= (g.livesAtWaveStart ?? g.lives) ? pay * 2 : 0;
         if (st.compound) t.mintBonus = (t.mintBonus || 0) + st.compound;
-        if (st.mend && g.lives < 100) g.lives += 1;   // masons can raise the walls past their old strength
         if (pay > 0) {
           g.gold += pay;
           t.paidTotal = (t.paidTotal || 0) + pay;
@@ -1210,9 +1209,13 @@ export function updateGame(g, dt) {
       g.effects.push({ type: "coin", x: W / 2, y: 40, ttl: 1200, text: `Wave cleared! +${waveBonus(g.wave)}g`, big: true });
       // High Cathedral: each cleared wave rebuilds one castle HP — and its
       // masons don't stop at the old walls: they raise them, up to 100
-      if (g.lives < 100 && g.towers.some((t) => t.kind === "support" && t.branch === "b" && t.rank4 === "b")) {
-        g.lives += 1;
-        g.effects.push({ type: "coin", x: W / 2, y: 64, ttl: 1300, text: g.lives > CASTLE_HP ? "The Cathedral raises the walls +1" : "The Cathedral mends the walls +1", big: true });
+      // EVERY cathedral sends its masons — the old code asked whether ANY
+      // existed and then laid a single stone, so the second one was decoration
+      const masons = g.towers.filter((t) => t.kind === "support" && t.branch === "b" && t.rank4 === "b").length;
+      if (masons > 0 && g.lives < 100) {
+        const laid = Math.min(masons, 100 - g.lives);
+        g.lives += laid;
+        g.effects.push({ type: "coin", x: W / 2, y: 64, ttl: 1300, text: `${g.lives > CASTLE_HP ? "The Cathedrals raise the walls" : "The Cathedrals mend the walls"} +${laid}`, big: true });
       }
       // the campaign is won at wave 15 — once — then the Endless March is open
       if (g.wave === scriptedWaves() && !g.victory) { g.victory = true; g.phase = "won"; sfx.play("won"); }

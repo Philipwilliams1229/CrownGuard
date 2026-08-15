@@ -10,7 +10,7 @@ export const H = ROWS * TILE;
 export const PATH_HALF = 26;
 export const BLOCK_DIST = 38;
 export const CASTLE_HP = 20;
-export const RALLY_RANGE = 140;
+export const RALLY_RANGE = 96;
 export const BUILD_TIME = 30;
 // global pacing: <1 slows the whole simulation (enemies, shots, cooldowns)
 // without touching balance — the 1x/2x/4x button multiplies on top

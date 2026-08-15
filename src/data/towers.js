@@ -140,7 +140,7 @@ export const TOWERS = {
         name: "Royal Mint", cost: 230, stats: { income: 40, compound: 2, range: 0, rate: 0 }, desc: "Pure compounding wealth: every wave it survives, its payout grows by 2. Plant it early and let time do the arithmetic.",
         rank4: {
           a: { name: "Dragon's Hoard", cost: 360, stats: { income: 60, compound: 3, hoard: true, range: 0, rate: 0 }, desc: "Doubled payouts — but a wave where the castle bleeds pays NOTHING. Greed with a heartbeat." },
-          b: { name: "Philosopher's Stone", cost: 360, stats: { income: 45, compound: 2, mend: 1, range: 0, rate: 0 }, desc: "Gold into life itself: each wave held also restores 1 castle HP." },
+          b: { name: "Philosopher's Stone", cost: 360, stats: { income: 55, compound: 3, range: 0, rate: 0 }, desc: "Lead into gold and gold into more gold: the richest single wage on the board, compounding every wave it holds." },
         },
       },
       b: {
@@ -231,23 +231,23 @@ export const TOWERS = {
     name: "Assassin's Covert", cost: 140, dtype: "phys", proj: "shadow",
     blurb: "Sends BLADES into the field, not volleys from a wall. They hold no ground — the column walks right past them — and they kill by standing order: healers, bell-ringers, banner-lords, whoever you name.",
     levels: [
-      { dmg: 46, rate: 2000, range: 130, hp: 70, count: 1, unitSpeed: 118, preyMult: 1.5 },
-      { dmg: 52, rate: 1950, range: 140, hp: 90, count: 2, unitSpeed: 122, preyMult: 1.5, cost: 100, label: "Second Blade" },
-      { dmg: 76, rate: 1900, range: 150, hp: 115, count: 2, unitSpeed: 126, preyMult: 1.75, cost: 150, label: "Master of the Order" },
+      { dmg: 46, rate: 2000, range: 96, hp: 70, count: 1, unitSpeed: 118, preyMult: 1.5 },
+      { dmg: 52, rate: 1950, range: 104, hp: 90, count: 2, unitSpeed: 122, preyMult: 1.5, cost: 100, label: "Second Blade" },
+      { dmg: 76, rate: 1900, range: 112, hp: 115, count: 2, unitSpeed: 126, preyMult: 1.75, cost: 150, label: "Master of the Order" },
     ],
     branches: {
       a: {
-        name: "The Silent Court", cost: 260, stats: { dmg: 120, rate: 1850, range: 160, hp: 150, count: 2, unitSpeed: 128, preyMult: 2, pierce: true, cull: 0.18 }, desc: "Two blades of the Court afield: they pierce any armor, strike support foes TWICE as hard, and finish the nearly-dead outright.",
+        name: "The Silent Court", cost: 260, stats: { dmg: 120, rate: 1850, range: 118, hp: 150, count: 2, unitSpeed: 128, preyMult: 2, pierce: true, cull: 0.18 }, desc: "Two blades of the Court afield: they pierce any armor, strike support foes TWICE as hard, and finish the nearly-dead outright.",
         rank4: {
-          a: { name: "Kingslayer", cost: 390, stats: { dmg: 150, rate: 1850, range: 165, hp: 175, count: 2, unitSpeed: 132, preyMult: 2.2, pierce: true, cull: 0.22, preyAnywhere: true }, desc: "No healer, herald or bell-ringer is safe ANYWHERE on the field — the Court's knives cross the map for them." },
-          b: { name: "The Quiet Blade", cost: 390, stats: { dmg: 126, rate: 1800, range: 165, hp: 165, count: 2, unitSpeed: 130, preyMult: 2, pierce: true, cull: 0.2, silence: 4000 }, desc: "A cut that steals the voice: struck foes are SILENCED — no healing chants, no raising, no bells, no banners — for four long seconds." },
+          a: { name: "Kingslayer", cost: 390, stats: { dmg: 150, rate: 1850, range: 122, hp: 175, count: 2, unitSpeed: 132, preyMult: 2.2, pierce: true, cull: 0.22, preyAnywhere: true }, desc: "No healer, herald or bell-ringer is safe ANYWHERE on the field — the Court's knives cross the map for them." },
+          b: { name: "The Quiet Blade", cost: 390, stats: { dmg: 126, rate: 1800, range: 122, hp: 165, count: 2, unitSpeed: 130, preyMult: 2, pierce: true, cull: 0.2, silence: 4000 }, desc: "A cut that steals the voice: struck foes are SILENCED — no healing chants, no raising, no bells, no banners — for four long seconds." },
         },
       },
       b: {
-        name: "Nightshade Guild", cost: 260, stats: { dmg: 62, rate: 1750, range: 155, hp: 130, count: 3, unitSpeed: 130, preyMult: 1.75, venom: 26, venomDur: 3200 }, desc: "THREE envenomed guildsmen in the grass. The wound is only the beginning — the poison does the collecting.",
+        name: "Nightshade Guild", cost: 260, stats: { dmg: 62, rate: 1750, range: 116, hp: 130, count: 3, unitSpeed: 130, preyMult: 1.75, venom: 26, venomDur: 3200 }, desc: "THREE envenomed guildsmen in the grass. The wound is only the beginning — the poison does the collecting.",
         rank4: {
-          a: { name: "Widow's Kiss", cost: 390, stats: { dmg: 76, rate: 1750, range: 165, hp: 150, count: 3, unitSpeed: 134, preyMult: 2, venom: 40, venomDur: 3600, venomNoHeal: true }, desc: "A venom no chant can outsing: while it burns, the victim CANNOT BE HEALED — by shaman, chaplain, or anything else that prays." },
-          b: { name: "Plague Bearer", cost: 390, stats: { dmg: 70, rate: 1750, range: 165, hp: 150, count: 3, unitSpeed: 134, preyMult: 2, venom: 30, venomDur: 3200, spores: 26, sporeR: 44, sporeDur: 2600 }, desc: "What the venom touches, it keeps: whoever dies with the poison in them BURSTS into a lingering spore-cloud that sickens the column marching through." },
+          a: { name: "Widow's Kiss", cost: 390, stats: { dmg: 76, rate: 1750, range: 122, hp: 150, count: 3, unitSpeed: 134, preyMult: 2, venom: 40, venomDur: 3600, venomNoHeal: true }, desc: "A venom no chant can outsing: while it burns, the victim CANNOT BE HEALED — by shaman, chaplain, or anything else that prays." },
+          b: { name: "Plague Bearer", cost: 390, stats: { dmg: 70, rate: 1750, range: 122, hp: 150, count: 3, unitSpeed: 134, preyMult: 2, venom: 30, venomDur: 3200, spores: 26, sporeR: 44, sporeDur: 2600 }, desc: "What the venom touches, it keeps: whoever dies with the poison in them BURSTS into a lingering spore-cloud that sickens the column marching through." },
         },
       },
     },
@@ -256,23 +256,23 @@ export const TOWERS = {
     name: "Sunforge", cost: 150, dtype: "magic", proj: "beam",
     blurb: "A captive shard of sun that holds ONE foe in its beam — and the longer it holds, the hotter it burns. Melts champions; ignores crowds.",
     levels: [
-      { dps: 26, range: 130, rampMax: 3, rampTime: 3500, rate: 0 },
-      { dps: 42, range: 138, rampMax: 3, rampTime: 3200, rate: 0, cost: 110, label: "Focused Array" },
-      { dps: 62, range: 145, rampMax: 3.5, rampTime: 3000, rate: 0, cost: 160, label: "Perfect Facets" },
+      { dps: 26, range: 100, rampMax: 3, rampTime: 3500, rate: 0 },
+      { dps: 42, range: 108, rampMax: 3, rampTime: 3200, rate: 0, cost: 110, label: "Focused Array" },
+      { dps: 62, range: 116, rampMax: 3.5, rampTime: 3000, rate: 0, cost: 160, label: "Perfect Facets" },
     ],
     branches: {
       a: {
-        name: "Solar Lance", cost: 250, stats: { dps: 85, range: 150, rampMax: 4, rampTime: 2800, igniteBurn: 18, igniteDur: 2000, rate: 0 }, desc: "Hotter, faster, crueler — and at full focus the beam sets its victim alight.",
+        name: "Solar Lance", cost: 250, stats: { dps: 85, range: 124, rampMax: 4, rampTime: 2800, igniteBurn: 18, igniteDur: 2000, rate: 0 }, desc: "Hotter, faster, crueler — and at full focus the beam sets its victim alight.",
         rank4: {
-          a: { name: "Noon Eternal", cost: 380, stats: { dps: 92, range: 155, rampMax: 4, rampTime: 2600, igniteBurn: 20, igniteDur: 2200, beamSplash: 42, rate: 0 }, desc: "At full focus the light overflows — everything near the victim burns in the spill." },
-          b: { name: "Sun Spear", cost: 380, stats: { dps: 85, range: 160, rampMax: 6, rampTime: 3000, igniteBurn: 20, igniteDur: 2200, rate: 0 }, desc: "No ceiling worth the name: the ramp climbs to SIX times, if you have the patience to hold it." },
+          a: { name: "Noon Eternal", cost: 380, stats: { dps: 92, range: 132, rampMax: 4, rampTime: 2600, igniteBurn: 20, igniteDur: 2200, beamSplash: 42, rate: 0 }, desc: "At full focus the light overflows — everything near the victim burns in the spill." },
+          b: { name: "Sun Spear", cost: 380, stats: { dps: 85, range: 130, rampMax: 6, rampTime: 3000, igniteBurn: 20, igniteDur: 2200, rate: 0 }, desc: "No ceiling worth the name: the ramp climbs to SIX times, if you have the patience to hold it." },
         },
       },
       b: {
-        name: "Moon Prism", cost: 250, stats: { dps: 70, range: 150, rampMax: 3.5, rampTime: 2800, beamSlow: 0.3, rate: 0 }, desc: "Cold light: the held foe wades against it, slowed the whole while.",
+        name: "Moon Prism", cost: 250, stats: { dps: 70, range: 124, rampMax: 3.5, rampTime: 2800, beamSlow: 0.3, rate: 0 }, desc: "Cold light: the held foe wades against it, slowed the whole while.",
         rank4: {
-          a: { name: "Gravity Well", cost: 380, stats: { dps: 74, range: 155, rampMax: 3.5, rampTime: 2600, beamSlow: 0.35, wellRoot: true, rate: 0 }, desc: "At full focus the beam becomes a fist: the victim STOPS, pinned in the light. Yes — even him." },
-          b: { name: "Eclipse", cost: 380, stats: { dps: 66, range: 160, rampMax: 3.5, rampTime: 2800, beamSlow: 0.3, beams: 2, rate: 0 }, desc: "Two beams, sun and shadow — a second foe held at half focus." },
+          a: { name: "Gravity Well", cost: 380, stats: { dps: 74, range: 132, rampMax: 3.5, rampTime: 2600, beamSlow: 0.35, wellRoot: true, rate: 0 }, desc: "At full focus the beam becomes a fist: the victim STOPS, pinned in the light. Yes — even him." },
+          b: { name: "Eclipse", cost: 380, stats: { dps: 66, range: 130, rampMax: 3.5, rampTime: 2800, beamSlow: 0.3, beams: 2, rate: 0 }, desc: "Two beams, sun and shadow — a second foe held at half focus." },
         },
       },
     },
