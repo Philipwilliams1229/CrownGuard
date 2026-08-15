@@ -54,6 +54,11 @@ export const ENEMIES = {
     bannerRange: 90, bannerSpeed: 0.22, bannerArmor: 0.12,
     note: "The big one with the totem stick. Every goblin, wolf and boar marching near him is faster and harder to kill. Break the totem and the party breaks with it.",
   },
+  rafter: {
+    faction: "greenwood", hp: 96, speed: 94, bounty: 9, armor: 0, size: 17,
+    name: "Raft Goblin", atk: 10, atkRate: 900, castleDmg: 2, swims: true,
+    note: "Where there is a river, they take it — paddling past your whole line to climb out at the bridge. No sword reaches them on the water; only shot does. Where there is no river, they simply run.",
+  },
   dragon: { faction: "greenwood", hp: 3800, speed: 34, bounty: 200, armor: 0.3, size: 27, name: "DRAGON", boss: true, flying: true, atk: 0, atkRate: 0, castleDmg: 5, note: "Boss. Flies over the road — knights cannot block it." },
 
   // ---- THE IRON KINGDOM ----

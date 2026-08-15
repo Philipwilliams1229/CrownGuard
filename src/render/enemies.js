@@ -41,8 +41,20 @@ export const drawEnemy = (ctx, e, time, tms) => {
     frame = Math.floor(time * walkRate + e.id) % spr.frames.length;
   }
   // dust first, so the shadow sits on top of it and the foot stays grounded
-  if (!fighting && !airborne) {
+  if (!fighting && !airborne && !e.swimming) {
     footfall(ctx, e.x, e.y + e.size * 0.55, e.face, walkRate, e.id, e.size >= 15 || e.boss ? 0.55 : 0.28, time);
+  }
+  // riding the current: a spreading wake instead of a shadow on the road
+  if (e.swimming) {
+    ctx.fillStyle = "rgba(226,240,246,0.5)";
+    for (let i = 0; i < 3; i++) {
+      const back = -e.face * (10 + i * 7);
+      const spread = 4 + i * 3;
+      const bob = Math.sin(time * 3 + e.id + i) * 1.5;
+      ctx.fillRect(S(e.x + back - spread), S(e.y + 5 + bob), spread * 2, CELL);
+    }
+    ctx.fillStyle = "rgba(180,214,228,0.55)";
+    ctx.fillRect(S(e.x - 9), S(e.y + 7), 18, CELL);
   }
   ctx.fillStyle = airborne ? "rgba(20,20,26,0.22)" : "rgba(20,20,26,0.3)";
   const shw = Math.round(e.size * (airborne ? 0.45 : 0.6) / CELL) * CELL;
@@ -58,6 +70,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
   const lunge = (e.atkAnim > 0 ? CELL * e.face : 0) + knock;
   // fliers hover; small quick critters get a lively hop on their off-frames
   let hover = airborne ? S(Math.sin(time * 3 + e.id) * 3) - (e.boss ? 10 : 7) : 0;
+  if (e.swimming) hover = S(Math.sin(time * 2.4 + e.id) * 2);
   if ((e.type === "goblin" || e.type === "wolf" || e.type === "ghoul") && frame % 2 === 1 && !fighting) hover -= CELL;
   drawSprite(ctx, sheet, pal, frame, e.x + lunge, e.y + hover, e.face < 0);
   // white flash on solid hits

@@ -5,6 +5,7 @@
 // `dt` is the raw (already clamped) seconds since the last frame.
 
 import { PATH_HALF, RESPAWN_MS, W, BUILD_TIME, CASTLE_HP, BASE_SPEED } from "../data/constants.js";
+import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, TOTAL_LEN } from "./path.js";
@@ -43,6 +44,8 @@ const makeEnemy = (type, mult) => {
     brittleUntil: 0, brittleAmp: 0, burnSpread: false,
     stunUntil: 0, dead: false, blockedBy: null, engaged: false, meleeCd: 0,
     silencedUntil: 0, noHealUntil: 0, sporeOn: null,
+    // things that take the water instead of the road
+    swims: !!d.swims, swimming: false, swimD: 0, swimDir: 1,
     healAmt: d.heal ? d.heal * Math.sqrt(mult) : 0, healEvery: d.healEvery || 0, healCd: null,
     raiseEvery: d.raiseEvery || 0, raiseCd: null, revived: false, healedFlash: 0,
   };
@@ -130,6 +133,14 @@ export function updateGame(g, dt) {
       const s = g.spawnQueue.shift();
       const e = makeEnemy(s.type, s.mult);
       e.born = tms;                       // the renderer fades them out of the wood
+      // a swimmer puts in at the bank nearest the gate and takes the river
+      if (e.swims && RIVER_ROUTE) {
+        e.swimming = true;
+        e.swimD = RIVER_ROUTE.entry;
+        e.swimDir = RIVER_ROUTE.dir;
+        const [wx, wy] = RIVER_ROUTE.at(e.swimD);
+        e.x = wx; e.y = wy; e.lane = 0;
+      }
       g.enemies.push(e);
       // something that size doesn't arrive quietly
       if (e.boss) {
@@ -426,6 +437,29 @@ export function updateGame(g, dt) {
       // the shock that stop everything else
       const stunned = e.stunUntil > tms && !e.immStun;
       const held = e.blockedBy && e.engaged;
+      // ---- the river road ----
+      // A swimmer answers to the current, not the highway: it paddles to the
+      // crossing, climbs the bank there, and joins the march already past
+      // everything you built between the gate and the bridge.
+      if (e.swimming) {
+        if (!stunned) {
+          const slowW = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
+          e.swimD += e.speed * 0.85 * (1 - slowW) * sdt * e.swimDir;
+        }
+        const done = e.swimDir > 0 ? e.swimD >= RIVER_ROUTE.exitSwim : e.swimD <= RIVER_ROUTE.exitSwim;
+        if (done) {
+          e.swimming = false;
+          e.dist = RIVER_ROUTE.exitRoad;
+          e.lane = (Math.random() - 0.5) * PATH_HALF;
+          g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 420, r: 20 });
+        } else {
+          const [wx, wy] = RIVER_ROUTE.at(e.swimD);
+          const [nx] = RIVER_ROUTE.at(e.swimD + e.swimDir * 6);
+          e.x = wx; e.y = wy;
+          e.face = nx >= wx ? 1 : -1;
+          continue;                       // no road position, no leak check
+        }
+      }
       if (!stunned && !held) {
         const slow = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
         e.dist += e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
@@ -552,7 +586,7 @@ export function updateGame(g, dt) {
         if (!target) {
           let best = null, bestDist = -1;
           for (const e of g.enemies) {
-            if (e.dead || e.flying || e.blockedBy) continue;
+            if (e.dead || e.flying || e.swimming || e.blockedBy) continue;
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
           if (best) { best.blockedBy = u.id; u.targetId = best.id; u.state = "moving"; target = best; }

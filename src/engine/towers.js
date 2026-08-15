@@ -98,7 +98,7 @@ export const pickPrey = (g, t, st) => {
   const cx = t.rally ? t.rally.x : t.x, cy = t.rally ? t.rally.y : t.y;
   let best = null, bestScore = -Infinity;
   for (const e of g.enemies) {
-    if (e.dead || e.flying) continue;             // blades don't reach the sky
+    if (e.dead || e.flying || e.swimming) continue;   // no blade reaches sky or water
     const marked = filter ? filter(e) : false;
     const d = Math.hypot(e.x - cx, e.y - cy);
     if (d > st.range && !(marked && st.preyAnywhere)) continue;

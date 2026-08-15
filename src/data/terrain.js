@@ -17,6 +17,10 @@ export let SPECKS = [];
 export let DECOR = [];
 export let PONDS = [];
 export let RIVERS = [];   // [{ pts, w, segs }] — living water, in world px
+// The first river as a ROUTE something can actually swim: cumulative lengths
+// along its centerline, plus where it passes under the road. Swimmers enter at
+// whichever bank-end lies nearest the spawn and climb out at the crossing.
+export let RIVER_ROUTE = null;
 export let BRIDGES = [];  // [{ x, y, a, d0, d1 }] — where the road spans it
 
 // Keep scatter out of the water: true if (x,y) falls inside a pond (plus a
@@ -63,6 +67,48 @@ export function regenTerrain(map) {
     }
     return { pts, w: rv.w || 32, segs };
   });
+  // A river you can travel: measure its centerline, then find where the road
+  // crosses it. That crossing is the only place a swimmer can climb out.
+  RIVER_ROUTE = null;
+  if (RIVERS.length) {
+    const rv = RIVERS[0];
+    const cum = [0];
+    for (const sg of rv.segs) cum.push(cum[cum.length - 1] + sg.len);
+    const total = cum[cum.length - 1];
+    if (total > 60) {
+      let crossD = 0, crossBest = Infinity;
+      for (let d = 0; d <= TOTAL_LEN; d += 4) {
+        const [x, y] = posAt(d);
+        const dd = distToSegs(rv.segs, x, y);
+        if (dd < crossBest) { crossBest = dd; crossD = d; }
+      }
+      // where along the water that crossing sits
+      const [cx, cy] = posAt(crossD);
+      let swimAt = 0, swimBest = Infinity;
+      for (let i = 0; i < rv.segs.length; i++) {
+        const sg = rv.segs[i];
+        for (let t = 0; t <= 1; t += 0.1) {
+          const px = sg.x1 + (sg.x2 - sg.x1) * t, py = sg.y1 + (sg.y2 - sg.y1) * t;
+          const dd = Math.hypot(px - cx, py - cy);
+          if (dd < swimBest) { swimBest = dd; swimAt = cum[i] + sg.len * t; }
+        }
+      }
+      const at = (d) => {
+        const q = Math.max(0, Math.min(total, d));
+        let i = 0;
+        while (i < rv.segs.length - 1 && cum[i + 1] < q) i++;
+        const sg = rv.segs[i];
+        const t = sg.len > 0 ? (q - cum[i]) / sg.len : 0;
+        return [sg.x1 + (sg.x2 - sg.x1) * t, sg.y1 + (sg.y2 - sg.y1) * t];
+      };
+      // enter from the bank-end nearest the horde's own gate
+      const [sx, sy] = posAt(0);
+      const [ax, ay] = at(0), [bx, by] = at(total);
+      const fromStart = Math.hypot(ax - sx, ay - sy) <= Math.hypot(bx - sx, by - sy);
+      RIVER_ROUTE = { total, at, entry: fromStart ? 0 : total, exitSwim: swimAt, exitRoad: Math.min(TOTAL_LEN - 8, crossD + 10), dir: fromStart ? 1 : -1 };
+    }
+  }
+
   // Wherever the road wades in, a bridge carries it: walk the road in small
   // steps, find each stretch inside a river band, and span it with a small
   // margin. The margin stays tight — a diagonal crossing already runs long,

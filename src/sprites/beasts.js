@@ -6,6 +6,56 @@
 import { INK } from "../data/constants.js";
 
 export const BEAST_SPRITES = {
+  // A goblin riding a lashed-log raft (26x18 @ px 1) — only what rides above
+  // the waterline, the paddle changing hands between frames.
+  rafter: {
+    pal: { o: INK, g: "#7aa056", h: "#5a783e", e: "#d85040", w: "#8a6238", d: "#5f4326" },
+    px: 1,
+    rate: 6,
+    frames: [
+      [
+        "..........oooo............",
+        ".........ohhhho...........",
+        ".........ohggho...........",
+        "........ohgggho...........",
+        "........ohgeegho..........",
+        ".........oggggo...........",
+        "..........oggo............",
+        ".....oo..ogggo............",
+        "....owwo.ogggo............",
+        "....owwoogggggo...........",
+        ".....oooggggggo...........",
+        "...ooooooooooooooooooo....",
+        "..owwwwwwwwwwwwwwwwwwwo...",
+        "..owdwwdwwwwdwwwwdwwwwo...",
+        "..owwwwwwwwwwwwwwwwwwwo...",
+        "...ooooooooooooooooooo....",
+        "..........................",
+        "..........................",
+      ],
+      [
+        "..........oooo............",
+        ".........ohhhho...........",
+        ".........ohggho...........",
+        "........ohgggho...........",
+        "........ohgeegho..........",
+        ".........oggggo...........",
+        "..........oggo............",
+        ".........oggggo..oo.......",
+        ".........ogggo..owwo......",
+        "........ogggggo.owwo......",
+        "........oggggggooo........",
+        "...ooooooooooooooooooo....",
+        "..owwwwwwwwwwwwwwwwwwwo...",
+        "..owdwwdwwwwdwwwwdwwwwo...",
+        "..owwwwwwwwwwwwwwwwwwwo...",
+        "...ooooooooooooooooooo....",
+        "..........................",
+        "..........................",
+      ],
+    ],
+  },
+
   // ---- GOBLIN RAIDER, HOODED (28x27): the new base goblin. Skeleton-grade
   // anatomy, deep hood, long-knife. The quick ones of the party.
   goblin: {
