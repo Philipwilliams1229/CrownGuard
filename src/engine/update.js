@@ -108,24 +108,28 @@ export function updateGame(g, dt) {
       t.charges = Math.min(t.charges || 0, st.maxCharges);
       t.layCd = Math.max(0, (t.layCd || 0) - sdt * 1000);
       if ((t.charges || 0) > 0 && t.layCd <= 0) {
-        let best = null, bestSpread = 26;   // a spot only counts clear of the 26px spacing
-        for (let d = 12; d < TOTAL_LEN - 8; d += 14) {
+        // Density is the smith's whole argument now: he fills his stretch of
+        // road rather than rationing it, so the only limit is how fast the
+        // bench works. He still prefers bare ground, but 6px is "bare".
+        let best = null, bestSpread = 6;
+        for (let d = 10; d < TOTAL_LEN - 8; d += 7) {
           const [px, py] = posAt(d);
           if (Math.hypot(px - t.x, py - t.y) > st.range) continue;
           let near = Infinity;
           for (const tr of g.traps) near = Math.min(near, Math.hypot(tr.x - px, tr.y - py));
-          const spread = Math.min(near, 80);
+          const spread = Math.min(near, 60);
           if (spread > bestSpread) { bestSpread = spread; best = [px, py]; }
         }
         if (best) {
-          const sky = !!(st.balloon && ((t.layIdx = (t.layIdx || 0) + 1) % st.balloon === 0));
-          g.traps.push({ x: best[0], y: best[1], byTower: t.id, branch: t.branch, rank4: t.rank4, sky });
+          // a yard with aerostats floats every Nth charge instead of burying it
+          const floats = !!(st.balloon && ((t.layIdx = (t.layIdx || 0) + 1) % st.balloon === 0));
+          g.traps.push({ x: best[0], y: best[1], byTower: t.id, branch: t.branch, rank4: t.rank4,
+            kind: floats ? "balloon" : (st.trapKind || "spike"), sky: floats });
           t.charges -= 1;
-          t.layCd = 650;
+          t.layCd = 420;
           g.effects.push({ type: "dust", x: best[0], y: best[1], ttl: 300, r: 14 });
           sfx.play("place");
         }
-        // his whole reach already has teeth — bank the charge until one springs
       }
     }
   }
@@ -301,7 +305,7 @@ export function updateGame(g, dt) {
       const tr = g.traps[ti];
       const owner = g.towers.find((tw) => tw.id === tr.byTower);
       const st = owner ? getStats(owner) : { trapDmg: 60, splash: 34, slow: 0.3, slowDur: 1400 };
-      const wantsFly = !!tr.sky;
+      const wantsFly = !!tr.sky || tr.kind === "balloon";
       let victim = null;
       for (const e of g.enemies) {
         if (e.dead || (wantsFly ? !e.flying : e.flying)) continue;
@@ -1211,6 +1215,13 @@ export function updateGame(g, dt) {
           g.effects.push({ type: "coin", x: t.x, y: t.y - 26, ttl: 1100, text: "the hoard withholds" });
         }
       }
+      // the road is swept between waves: whatever never sprang is picked up,
+      // and the smiths lay a fresh field for whatever comes next
+      if (g.traps && g.traps.length) {
+        for (const tr of g.traps) g.effects.push({ type: "dust", x: tr.x, y: tr.y, ttl: 260, r: 10 });
+        g.traps = [];
+      }
+      for (const t of g.towers) if (t.kind === "trapsmith") { t.layCd = 0; t.layIdx = 0; }
       g.effects.push({ type: "coin", x: W / 2, y: 40, ttl: 1200, text: `Wave cleared! +${waveBonus(g.wave)}g`, big: true });
       // High Cathedral: each cleared wave rebuilds one castle HP — and its
       // masons don't stop at the old walls: they raise them, up to 100

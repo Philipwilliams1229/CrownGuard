@@ -172,7 +172,8 @@ export function draw(g, canvas, bufRef) {
   if (g.traps) {
     for (const tr of g.traps) {
       const tx = S(tr.x), ty = S(tr.y);
-      if (tr.sky) {
+      const kind = tr.kind || (tr.sky ? "balloon" : tr.branch === "b" ? "mine" : "jaws");
+      if (kind === "balloon") {
         // a bomb on a balloon, bobbing at flier height above its road anchor
         const by = ty - 13 + Math.sin(g.time * 2 + tr.x) * 1.5;
         ctx.fillStyle = "rgba(20,20,26,0.25)";
@@ -180,21 +181,41 @@ export function draw(g, canvas, bufRef) {
         ctx.strokeStyle = "rgba(16,19,26,0.7)";
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(tx + 0.5, ty); ctx.lineTo(tx + 0.5, by + 4); ctx.stroke();
-        ctx.fillStyle = INK;
-        ctx.fillRect(tx - 2, by - 5, 6, 6);
-        ctx.fillStyle = "#c05848";
-        ctx.fillRect(tx - 1, by - 4, 4, 4);
-        ctx.fillStyle = "#e8927a";
-        ctx.fillRect(tx - 1, by - 4, 1, 2);
-        ctx.fillStyle = INK;
-        ctx.fillRect(tx - 1, by + 1, 4, 3);
-        ctx.fillStyle = "#5f636d";
-        ctx.fillRect(tx, by + 2, 2, 2);
+        ctx.fillStyle = INK; ctx.fillRect(tx - 2, by - 5, 6, 6);
+        ctx.fillStyle = "#c05848"; ctx.fillRect(tx - 1, by - 4, 4, 4);
+        ctx.fillStyle = "#e8927a"; ctx.fillRect(tx - 1, by - 4, 1, 2);
+        ctx.fillStyle = INK; ctx.fillRect(tx - 1, by + 1, 4, 3);
+        ctx.fillStyle = "#5f636d"; ctx.fillRect(tx, by + 2, 2, 2);
         ctx.fillStyle = Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a";
         ctx.fillRect(tx, by + 2, 1, 1);
-        continue;
-      }
-      if (tr.branch === "b") {
+      } else if (kind === "spike") {
+        // road spikes: a low iron strip with teeth standing up out of it
+        ctx.fillStyle = INK;
+        ctx.fillRect(tx - 7, ty - 1, 15, 4);
+        ctx.fillStyle = "#6c727e";
+        ctx.fillRect(tx - 6, ty, 13, 2);
+        ctx.fillStyle = "#c4c8d0";
+        for (let i2 = 0; i2 < 5; i2++) {
+          const sx = tx - 6 + i2 * 3;
+          ctx.fillRect(sx, ty - 3, 1, 3);
+          ctx.fillRect(sx, ty - 4, 1, 1);
+        }
+        ctx.fillStyle = "#8a8f9a";
+        ctx.fillRect(tx - 6, ty + 2, 13, 1);
+      } else if (kind === "caltrop") {
+        // a scatter of four-pointed iron, too many to count
+        ctx.fillStyle = INK;
+        for (let i2 = 0; i2 < 4; i2++) {
+          const cx2 = tx - 5 + ((i2 * 7) % 11), cy2 = ty - 2 + ((i2 * 5) % 6);
+          ctx.fillRect(cx2 - 2, cy2, 5, 1);
+          ctx.fillRect(cx2, cy2 - 2, 1, 5);
+        }
+        ctx.fillStyle = "#b8bcc4";
+        for (let i2 = 0; i2 < 4; i2++) {
+          const cx2 = tx - 5 + ((i2 * 7) % 11), cy2 = ty - 2 + ((i2 * 5) % 6);
+          ctx.fillRect(cx2, cy2, 1, 1);
+        }
+      } else if (kind === "mine") {
         // a pressure mine: steel disc, and a patient red eye
         ctx.fillStyle = INK;
         ctx.beginPath(); ctx.arc(tx, ty, 6, 0, 7); ctx.fill();
@@ -204,30 +225,16 @@ export function draw(g, canvas, bufRef) {
         ctx.fillRect(tx - 3, ty - 3, 3, 2);
         ctx.fillStyle = Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a";
         ctx.fillRect(tx - 1, ty - 1, 2, 2);
-      } else if (tr.branch === "a") {
+      } else {
         // bear-iron: open jaws, teeth up
         ctx.fillStyle = INK;
         ctx.fillRect(tx - 8, ty - 2, 16, 5);
         ctx.fillStyle = "#8a8f9a";
         ctx.fillRect(tx - 7, ty - 1, 14, 3);
         ctx.fillStyle = "#b8bcc4";
-        for (let i = 0; i < 4; i++) {
-          ctx.fillRect(tx - 7 + i * 4, ty - 3, 2, 3);
-          ctx.fillRect(tx - 6 + i * 4, ty + 2, 2, 3);
-        }
-        ctx.fillStyle = "#3c2a18";
-        ctx.fillRect(tx - 1, ty, 2, 2);
-      } else {
-        // a spike snare: wooden ring, whetted points
-        ctx.fillStyle = INK;
-        ctx.beginPath(); ctx.arc(tx, ty, 6, 0, 7); ctx.fill();
-        ctx.fillStyle = "#6e4c28";
-        ctx.beginPath(); ctx.arc(tx, ty, 5, 0, 7); ctx.fill();
-        ctx.fillStyle = "#c4c8d0";
-        for (let i = 0; i < 4; i++) {
-          const ang = i * 1.57 + 0.78;
-          ctx.fillRect(S(tx + Math.cos(ang) * 3), S(ty + Math.sin(ang) * 3), 2, 2);
-        }
+        for (let i2 = 0; i2 < 4; i2++) ctx.fillRect(tx - 7 + i2 * 4, ty - 3, 2, 3);
+        ctx.fillStyle = "#6c727e";
+        ctx.fillRect(tx - 2, ty, 4, 2);
       }
     }
   }
