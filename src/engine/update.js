@@ -9,7 +9,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots, pickTarget, isPrey } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 
@@ -637,9 +637,99 @@ export function updateGame(g, dt) {
       }
     }
 
+
+    // ---- the Covert's blades ----
+    // Troops, not a volley. They walk out, take the mark their standing order
+    // names, and cut. Nothing blocks for them and nothing blocks them: the
+    // column walks straight past while the work is done in the grass. Only a
+    // crossbow bolt or grave-rot ever finds one.
+    for (const t of g.towers) {
+      if (t.kind !== "assassin") continue;
+      syncUnits(t, g);
+      const st = getStats(t);
+      const slots = unitSlots(t);
+      t.units.forEach((u, i) => {
+        if (u.state === "dead") {
+          u.respawn -= sdt * 1000;
+          if (u.respawn <= 0) { u.state = "rally"; u.hp = st.hp; u.x = slots[i][0]; u.y = slots[i][1]; u.targetId = null; }
+          return;
+        }
+        u.atkCd -= sdt * 1000;
+        u.swing = Math.max(0, u.swing - sdt * 1000);
+        for (const gr of g.grounds) {
+          if (gr.kind !== "plague" || gr.until <= tms) continue;
+          if (Math.hypot(u.x - gr.x, u.y - gr.y) <= gr.r) u.hp -= gr.dps * sdt;
+        }
+        if (u.hp <= 0) { killUnit(g, t, u); return; }
+
+        let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
+        // a blade keeps its mark only while the mark keeps to the ground it hunts
+        if (target && !st.preyAnywhere && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 30) { target = null; u.targetId = null; }
+        // and an ORDER outranks whatever the blade happens to be doing: the
+        // moment a named foe walks into reach, the current throat is forgotten
+        const order = orderFilter(t);
+        if (target && order && !order(target)) {
+          const named = pickPrey(g, t, st);
+          if (named && order(named)) { target = named; u.targetId = named.id; }
+        }
+        if (!target) {
+          target = pickPrey(g, t, st);
+          u.targetId = target ? target.id : null;
+        }
+        if (!target) {
+          // no orders worth walking for: melt back to the muster
+          const [sx, sy] = slots[i];
+          const dx0 = sx - u.x, dy0 = sy - u.y, d0 = Math.hypot(dx0, dy0);
+          if (d0 > 2) {
+            const sp = (st.unitSpeed || 120) * sdt;
+            u.x += (dx0 / d0) * Math.min(sp, d0);
+            u.y += (dy0 / d0) * Math.min(sp, d0);
+            u.face = dx0 >= 0 ? 1 : -1;
+            u.state = "moving";
+          } else u.state = "rally";
+          return;
+        }
+
+        const dx = target.x - u.x, dy = target.y - u.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 15) {
+          const sp = (st.unitSpeed || 120) * sdt;
+          u.x += (dx / d) * sp; u.y += (dy / d) * sp;
+          u.face = dx >= 0 ? 1 : -1;
+          u.state = "moving";
+        } else {
+          u.state = "fighting";
+          u.face = dx >= 0 ? 1 : -1;
+          if (u.atkCd <= 0) {
+            u.atkCd = st.rate;
+            u.swing = 200;
+            const prey = isPrey(target);
+            let dmg = st.dmg * (prey ? st.preyMult : 1);
+            // a blade of the Court finishes what is already dying
+            if (st.cull && !target.boss && target.hp / target.maxHp <= st.cull) dmg = target.hp + 99999;
+            // the venom rides the blade in — even a killing cut leaves it behind
+            if (st.venom) {
+              const cur = target.poisonUntil > tms ? target.poisonDps : 0;
+              target.poisonDps = Math.max(cur, st.venom);
+              target.poisonUntil = tms + st.venomDur;
+              if (st.venomNoHeal) target.noHealUntil = tms + st.venomDur;
+              if (st.spores) target.sporeOn = { dps: st.spores, r: st.sporeR, dur: st.sporeDur };
+            }
+            dealDamage(g, target, dmg, "phys", !!st.pierce);
+            if (!target.dead && st.silence) {
+              target.silencedUntil = tms + st.silence;
+              g.effects.push({ type: "silence", x: target.x, y: target.y - target.size - 6, ttl: 900 });
+            }
+            g.effects.push({ type: "shadowstep", x1: u.x, y1: u.y - 8, x2: target.x, y2: target.y - 4, ttl: 260, life: 260, prey });
+            sfx.play("stab");
+            if (target.dead) u.targetId = null;
+          }
+        }
+      });
+    }
     for (const t of g.towers) {
       t.anim = Math.max(0, t.anim - sdt * 4);
-      if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith") continue;
+      if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin") continue;
       if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger
       // The Sunforge holds its beam instead of firing: same target, growing
       // heat; a new target starts the focus from cold.
@@ -789,27 +879,6 @@ export function updateGame(g, dt) {
             });
           }
         }
-      } else if (t.kind === "assassin") {
-        // the Covert strikes from nowhere: no projectile, only the wound
-        const prey = isPrey(target);
-        let dmg = st.dmg * (prey ? st.preyMult : 1);
-        // a blade of the Court finishes what is already dying
-        if (st.cull && !target.boss && target.hp / target.maxHp <= st.cull) dmg = target.hp + 99999;
-        // the venom rides the blade in — even a killing cut leaves it in the corpse
-        if (st.venom) {
-          const cur = target.poisonUntil > tms ? target.poisonDps : 0;
-          target.poisonDps = Math.max(cur, st.venom);
-          target.poisonUntil = tms + st.venomDur;
-          if (st.venomNoHeal) target.noHealUntil = tms + st.venomDur;
-          if (st.spores) target.sporeOn = { dps: st.spores, r: st.sporeR, dur: st.sporeDur };
-        }
-        dealDamage(g, target, dmg, "phys", !!st.pierce);
-        if (!target.dead && st.silence) {
-          target.silencedUntil = tms + st.silence;
-          g.effects.push({ type: "silence", x: target.x, y: target.y - target.size - 6, ttl: 900 });
-        }
-        g.effects.push({ type: "shadowstep", x1: t.x, y1: t.y - 14, x2: target.x, y2: target.y, ttl: 380, life: 380, prey });
-        sfx.play("stab");
       } else if (t.kind === "falconry") {
         // the bird stoops: instant talons, a mark left behind, and — for the
         // storm mews — a ricochet into the next victim

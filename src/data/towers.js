@@ -204,25 +204,25 @@ export const TOWERS = {
   },
   assassin: {
     name: "Assassin's Covert", cost: 140, dtype: "phys", proj: "shadow",
-    blurb: "Sees through the crowd. Always strikes the healers, bell-ringers and banner-lords FIRST — the foes that keep the rest alive. No other tower hunts this way.",
+    blurb: "Sends BLADES into the field, not volleys from a wall. They hold no ground — the column walks right past them — and they kill by standing order: healers, bell-ringers, banner-lords, whoever you name.",
     levels: [
-      { dmg: 48, rate: 2200, range: 140, preyMult: 1.5 },
-      { dmg: 80, rate: 2100, range: 150, preyMult: 1.5, cost: 100, label: "Second Blade" },
-      { dmg: 120, rate: 2000, range: 160, preyMult: 1.75, cost: 150, label: "Master of the Order" },
+      { dmg: 46, rate: 2000, range: 130, hp: 70, count: 1, unitSpeed: 118, preyMult: 1.5 },
+      { dmg: 52, rate: 1950, range: 140, hp: 90, count: 2, unitSpeed: 122, preyMult: 1.5, cost: 100, label: "Second Blade" },
+      { dmg: 76, rate: 1900, range: 150, hp: 115, count: 2, unitSpeed: 126, preyMult: 1.75, cost: 150, label: "Master of the Order" },
     ],
     branches: {
       a: {
-        name: "The Silent Court", cost: 260, stats: { dmg: 165, rate: 1900, range: 170, preyMult: 2, pierce: true, cull: 0.18 }, desc: "Blades for the irreplaceable: pierces any armor, strikes support foes TWICE as hard, and finishes the nearly-dead outright.",
+        name: "The Silent Court", cost: 260, stats: { dmg: 120, rate: 1850, range: 160, hp: 150, count: 2, unitSpeed: 128, preyMult: 2, pierce: true, cull: 0.18 }, desc: "Two blades of the Court afield: they pierce any armor, strike support foes TWICE as hard, and finish the nearly-dead outright.",
         rank4: {
-          a: { name: "Kingslayer", cost: 390, stats: { dmg: 210, rate: 1900, range: 175, preyMult: 2.2, pierce: true, cull: 0.22, preyAnywhere: true }, desc: "No healer, herald or bell-ringer is safe ANYWHERE on the field — the Court's knives cross the map for them." },
-          b: { name: "The Quiet Blade", cost: 390, stats: { dmg: 175, rate: 1800, range: 175, preyMult: 2, pierce: true, cull: 0.2, silence: 4000 }, desc: "A cut that steals the voice: struck foes are SILENCED — no healing chants, no raising, no bells, no banners — for four long seconds." },
+          a: { name: "Kingslayer", cost: 390, stats: { dmg: 150, rate: 1850, range: 165, hp: 175, count: 2, unitSpeed: 132, preyMult: 2.2, pierce: true, cull: 0.22, preyAnywhere: true }, desc: "No healer, herald or bell-ringer is safe ANYWHERE on the field — the Court's knives cross the map for them." },
+          b: { name: "The Quiet Blade", cost: 390, stats: { dmg: 126, rate: 1800, range: 165, hp: 165, count: 2, unitSpeed: 130, preyMult: 2, pierce: true, cull: 0.2, silence: 4000 }, desc: "A cut that steals the voice: struck foes are SILENCED — no healing chants, no raising, no bells, no banners — for four long seconds." },
         },
       },
       b: {
-        name: "Nightshade Guild", cost: 260, stats: { dmg: 95, rate: 1800, range: 165, preyMult: 1.75, venom: 26, venomDur: 3200 }, desc: "Envenomed steel. The wound is only the beginning — the poison does the collecting.",
+        name: "Nightshade Guild", cost: 260, stats: { dmg: 62, rate: 1750, range: 155, hp: 130, count: 3, unitSpeed: 130, preyMult: 1.75, venom: 26, venomDur: 3200 }, desc: "THREE envenomed guildsmen in the grass. The wound is only the beginning — the poison does the collecting.",
         rank4: {
-          a: { name: "Widow's Kiss", cost: 390, stats: { dmg: 115, rate: 1800, range: 175, preyMult: 2, venom: 40, venomDur: 3600, venomNoHeal: true }, desc: "A venom no chant can outsing: while it burns, the victim CANNOT BE HEALED — by shaman, chaplain, or anything else that prays." },
-          b: { name: "Plague Bearer", cost: 390, stats: { dmg: 105, rate: 1800, range: 175, preyMult: 2, venom: 30, venomDur: 3200, spores: 26, sporeR: 44, sporeDur: 2600 }, desc: "What the venom touches, it keeps: whoever dies with the poison in them BURSTS into a lingering spore-cloud that sickens the column marching through." },
+          a: { name: "Widow's Kiss", cost: 390, stats: { dmg: 76, rate: 1750, range: 165, hp: 150, count: 3, unitSpeed: 134, preyMult: 2, venom: 40, venomDur: 3600, venomNoHeal: true }, desc: "A venom no chant can outsing: while it burns, the victim CANNOT BE HEALED — by shaman, chaplain, or anything else that prays." },
+          b: { name: "Plague Bearer", cost: 390, stats: { dmg: 70, rate: 1750, range: 165, hp: 150, count: 3, unitSpeed: 134, preyMult: 2, venom: 30, venomDur: 3200, spores: 26, sporeR: 44, sporeDur: 2600 }, desc: "What the venom touches, it keeps: whoever dies with the poison in them BURSTS into a lingering spore-cloud that sickens the column marching through." },
         },
       },
     },

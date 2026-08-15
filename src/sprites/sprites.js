@@ -10,6 +10,61 @@ import { IRONHOST_SPRITES } from "./ironhost.js";
 import { WILDHOST_SPRITES } from "./wildhost.js";
 
 export const SPRITES = {
+  // The Covert's blade afield (16x22 @ px 1): hooded, strapped, a vial at
+  // the belt and steel at the hip. Same box as the knight.
+  assassinUnit: {
+    px: 1,
+    frames: [
+      [
+        ".....oooo.......",
+        "....occcco......",
+        "...occcccco.....",
+        "...ochhhhco.....",
+        "...ochffhco.....",
+        "...occhhcco.....",
+        "....occcco......",
+        "..oocccccoo.....",
+        ".occccccccco....",
+        ".occbccccccso...",
+        ".occbccccccso...",
+        ".occcccccccso...",
+        "..occcccccco....",
+        "..occvccccco....",
+        "...occcccco.....",
+        "...occcccco.....",
+        "...occo.occo....",
+        "...occo.occo....",
+        "...occo.occo....",
+        "..oo.....oo.....",
+        "................",
+        "................",
+      ],
+      [
+        ".....oooo.......",
+        "....occcco......",
+        "...occcccco.....",
+        "...ochhhhco.....",
+        "...ochffhco.....",
+        "...occhhcco.....",
+        "....occcco......",
+        "..oocccccoo.....",
+        ".occccccccco....",
+        ".occbccccccso...",
+        ".occbccccccso...",
+        ".occcccccccso...",
+        "..occcccccco....",
+        "..occvccccco....",
+        "...occcccco.....",
+        "...occcccco.....",
+        "...occo.occ.....",
+        "..occo...occ....",
+        "..occo...occ....",
+        "..oo.......oo...",
+        "................",
+        "................",
+      ],
+    ],
+  },
   // Hi-res dire wolf (40x24 @ px 1): long and low, streaming tail.
   wolf: {
     pal: { o: INK, w: "#8f929c", d: "#63666f", l: "#aab0ba", e: "#d8b34a", n: "#2b2a33", t: "#ece0c4" },
@@ -415,6 +470,12 @@ export const SPRITES = {
 // The newer rosters live in their own files, one per army, and merge in here
 // so every consumer keeps a single SPRITES table to look things up in.
 Object.assign(SPRITES, BEAST_SPRITES, UNDEAD_SPRITES, IRONHOST_SPRITES, WILDHOST_SPRITES);
+
+export const ASSASSIN_PALS = {
+  base: { o: INK, c: "#3a3448", h: "#1c1a26", f: "#c8a888", s: "#b8bcc4", b: "#78603f", v: "#6a9a52" },
+  a: { o: INK, c: "#463c60", h: "#221e30", f: "#c8a888", s: "#d8cfae", b: "#8a7444", v: "#e0b855" },
+  b: { o: INK, c: "#2e4038", h: "#18221e", f: "#c8a888", s: "#b8bcc4", b: "#6a5a34", v: "#8ac06a" },
+};
 
 export const KNIGHT_PALS = {
   base: { o: INK, a: "#8a8f9a", d: "#5f636d", s: "#e0b088", p: "#b04a3c", h: "#a04a3f" },

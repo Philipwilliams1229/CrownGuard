@@ -4,7 +4,7 @@
 
 import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
-import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal } from "../sprites/sprites.js";
+import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS } from "../sprites/sprites.js";
 
 // A puff kicked up where a foot lands. The whole thing is a function of the
 // walker's own gait phase, so it needs no state and it stays in step with the
@@ -163,8 +163,32 @@ export const drawEnemy = (ctx, e, time, tms) => {
   if (emerging) ctx.globalAlpha = 1;
 };
 
+// A blade of the Covert in the grass: no shield wall, no banner — a hooded
+// figure that walks to its mark, cuts, and looks for the next one.
+const drawAssassinUnit = (ctx, u, t, time) => {
+  const pal = ASSASSIN_PALS[t.branch || "base"] || ASSASSIN_PALS.base;
+  const frame = u.state === "moving" ? Math.floor(time * 9 + u.id) % 2 : 0;
+  if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 7, u.id, 0.22, time);
+  ctx.fillStyle = "rgba(20,20,26,0.28)";
+  ctx.fillRect(S(u.x - 5), S(u.y + 9), 10, CELL);
+  drawSprite(ctx, SPRITES.assassinUnit, pal, frame, u.x, u.y - 2, u.face < 0);
+  // the cut itself: a short bright arc thrown out on the swing
+  if (u.swing > 0) {
+    const reach = u.face < 0 ? -9 : 9;
+    ctx.fillStyle = t.branch === "b" ? "#8ac06a" : "#e8e2d4";
+    ctx.fillRect(S(u.x + reach), S(u.y - 6), 3, 2);
+    ctx.fillRect(S(u.x + reach * 0.7), S(u.y - 9), 2, 3);
+  }
+  // a guildsman under orders wears a small mark of them
+  if (u.targetId != null && u.state === "fighting") {
+    ctx.fillStyle = "rgba(232,193,74,0.85)";
+    ctx.fillRect(S(u.x) - 1, S(u.y - 22), 2, 2);
+  }
+};
+
 export const drawKnightUnit = (ctx, u, t, time) => {
   if (u.state === "dead") return;
+  if (t.kind === "assassin") { drawAssassinUnit(ctx, u, t, time); return; }
   const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
   const berserk = t.branch === "b";
   const paladin = t.branch === "a";

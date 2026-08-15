@@ -321,7 +321,7 @@ export default function Crownguard() {
     if (t) { g.selectedId = t.id; return; }
     // selected garrison: click inside its circle to move the rally flag
     const selT = g.towers.find((tt) => tt.id === g.selectedId);
-    if (selT && selT.kind === "knight" && Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE) {
+    if (selT && (selT.kind === "knight" || selT.kind === "assassin") && Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE) {
       postRally(g, selT, x, y);
       return;
     }
@@ -702,7 +702,7 @@ export default function Crownguard() {
                         }
                         if (t.kind === "knight") return `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
                         if (t.kind === "support") return `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
-                        if (t.kind === "assassin") return `${Math.round(st.dmg)} dmg · ×${st.preyMult} vs support · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.pierce ? " · pierces armor" : ""}${st.cull ? " · culls the weak" : ""}${st.silence ? " · silences" : ""}${st.venom ? ` · ${st.venom}/s venom` : ""}${st.venomNoHeal ? " · unhealable venom" : ""}${st.spores ? " · spore clouds" : ""} · hunts healers first`;
+                        if (t.kind === "assassin") return `${st.count || 1} blade${(st.count || 1) > 1 ? "s" : ""} afield · ${Math.round(st.dmg)} dmg · ×${st.preyMult} vs support · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp each${st.pierce ? " · pierces armor" : ""}${st.cull ? " · culls the weak" : ""}${st.silence ? " · silences" : ""}${st.venom ? ` · ${st.venom}/s venom` : ""}${st.venomNoHeal ? " · unhealable venom" : ""}${st.spores ? " · spore clouds" : ""} · never blocks`;
                         if (t.kind === "trapsmith") return `${Math.round(st.trapDmg)} trap dmg · ${st.maxCharges} charge${st.maxCharges > 1 ? "s" : ""}, one per ${(st.chargeEvery / 1000).toFixed(0)}s · ${st.range}rng${st.root ? " · jaws hold fast" : ""}${st.execute ? " · finishes the weak" : ""}${st.burn ? " · burning mines" : ""}${st.stunAll ? " · stunning blasts" : ""}${st.autoSeed ? " · reseeds each wave" : ""}`;
                         if (t.kind === "goldworks") return `pays ${Math.round(st.income + (t.mintBonus || 0))}g per wave held${st.compound ? ` · grows +${st.compound} each wave` : ""}${st.hoard ? " · hoard doubles or withholds" : ""}${st.mend ? " · mends the castle" : ""}${st.bountyAura ? ` · kills nearby pay +${Math.round(st.bountyAura * 100)}%` : ""}${st.shredAura ? " · aura strips armor" : ""}${st.midas ? " · midas shots" : ""} · has paid ${Math.round(t.paidTotal || 0)}g this run`;
                         if (t.kind === "sunforge") return `${Math.round(st.dps)}/s beam, ramps to ×${st.rampMax} · ${st.range}rng${st.beams > 1 ? ` · ${st.beams} beams` : ""}${st.igniteBurn ? " · ignites at full focus" : ""}${st.beamSplash ? " · spills over at focus" : ""}${st.wellRoot ? " · pins its victim" : ""}${st.beamSlow ? " · slows the held" : ""}`;
@@ -713,7 +713,7 @@ export default function Crownguard() {
                   <button aria-label="Deselect tower" onClick={() => { if (G.current) G.current.selectedId = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 12 }}>✕</button>
                 </div>
 
-                {sel.kind === "knight" && (
+                {(sel.kind === "knight" || sel.kind === "assassin") && (
                   <button style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                     onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
                     <FlagIcon /> Move Rally Flag

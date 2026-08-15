@@ -48,7 +48,7 @@ const NUMBERS = [
   ["eagleHp", (v) => `war-eagle: ${v} health`],
   ["eagleDmg", (v) => `${v} eagle talon damage`],
   ["autoSeed", (v) => `self-seeds ${v} mines per wave`],
-  ["preyMult", (v) => `×${v} vs healers & support`],
+  ["preyMult", (v) => `×${v} vs the class you name`],
   ["venom", (v) => `${v}/s venom`],
   ["silence", (v) => `silences for ${(v / 1000).toFixed(0)}s`],
   ["spores", (v) => `${v}/s spore cloud`],
@@ -92,7 +92,7 @@ const TRAITS = [
   ["skyknight", "a rider on a war-eagle HOLDS one flier at a time — even dragons"],
   ["balloon", "every 3rd charge rises on a balloon — a bomb for fliers"],
   ["cull", "finishes the nearly-dead outright"],
-  ["preyAnywhere", "support foes are prey ANYWHERE on the field"],
+  ["preyAnywhere", "the named class is hunted ANYWHERE on the field"],
   ["venomNoHeal", "the envenomed cannot be healed"],
 ];
 

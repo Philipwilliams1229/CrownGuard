@@ -57,13 +57,57 @@ export const aimModes = (t, st) => {
   // no aim orders for towers that don't pick a foe: knights hold ground,
   // auras and traps don't aim, the sunforge beam swears itself to the
   // mightiest, and the gold works only aims at your purse
-  if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge" || t.kind === "assassin") return [];
+  // the Covert takes standing orders no other tower understands
+  if (t.kind === "assassin") return ASSASSIN_AIM;
+  if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge") return [];
   return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0);
 };
 
 // The Assassin's law: the foes that keep the rest alive — healers, raisers,
 // bell-ringers, banner-lords, ward-chanters — die first, no matter the crowd.
 export const isPrey = (e) => !!(e.healAmt || e.raiseEvery || e.summonEvery || e.bannerRange || e.wardEvery);
+
+// Standing orders the Covert can be given. Each names a CLASS of foe to hunt
+// before all others; when none is in reach the blades take the frontmost
+// instead, so an order never leaves a guildsman idle.
+export const PREY_FILTERS = {
+  prey: isPrey,
+  healer: (e) => !!(e.healAmt || e.wardEvery),
+  raiser: (e) => !!(e.raiseEvery || e.summonEvery),
+  banner: (e) => !!e.bannerRange,
+  brute: (e) => !!(e.boss || e.armor >= 0.3 || e.trampleMax),
+};
+
+export const ASSASSIN_AIM = [
+  { id: "prey", label: "Support", hint: "healers, bells and banners — anything that props the rest up" },
+  { id: "healer", label: "Healers", hint: "chant-singers and ward-casters, before anything else" },
+  { id: "raiser", label: "Raisers", hint: "necromancers and bell-ringers, before anything else" },
+  { id: "banner", label: "Banners", hint: "banner-lords and warchiefs, before anything else" },
+  { id: "brute", label: "Armor", hint: "the armored and the mighty — bosses, plate, chargers" },
+  { id: "first", label: "First", hint: "no orders — whoever is closest to your castle" },
+];
+
+// The class a tower's standing order names, or null when it hunts by position.
+export const orderFilter = (t) => PREY_FILTERS[t && t.aim] || null;
+
+// Which foe a blade goes for, by its tower's standing order. Priority-class
+// foes outrank everything; a Kingslayer's order reaches the whole field.
+export const pickPrey = (g, t, st) => {
+  const mode = t.aim && (PREY_FILTERS[t.aim] || t.aim === "first") ? t.aim : "prey";
+  const filter = PREY_FILTERS[mode] || null;
+  const cx = t.rally ? t.rally.x : t.x, cy = t.rally ? t.rally.y : t.y;
+  let best = null, bestScore = -Infinity;
+  for (const e of g.enemies) {
+    if (e.dead || e.flying) continue;             // blades don't reach the sky
+    const marked = filter ? filter(e) : false;
+    const d = Math.hypot(e.x - cx, e.y - cy);
+    if (d > st.range && !(marked && st.preyAnywhere)) continue;
+    // a named class outranks the field; otherwise take the frontmost
+    const score = marked ? 2e9 + e.hp : e.dist;
+    if (score > bestScore) { bestScore = score; best = e; }
+  }
+  return best;
+};
 
 // Some evolutions hunt by decree — the Ballista and Comet Sling always take
 // the mightiest foe, and the player can't talk them out of it.
@@ -85,15 +129,6 @@ export const pickTarget = (g, t, st) => {
   for (const e of g.enemies) {
     if (e.dead) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y);
-    // the covert's own law: prey first (anywhere, for a Kingslayer), then
-    // whoever carries the fattest purse — the player gets no say
-    if (st.preyMult) {
-      const prey = isPrey(e);
-      if (d > st.range && !(prey && st.preyAnywhere)) continue;
-      const score = prey ? 2e9 + e.hp : e.bounty * 1e3 + e.dist;
-      if (score > bestScore) { bestScore = score; best = e; }
-      continue;
-    }
     if (d > st.range || d < min) continue;
     let score;
     if (mode === "last") score = -e.dist;
@@ -148,6 +183,12 @@ export const makeTower = (kind, x, y, level = 1, branch = null, invested = null,
   if (kind === "knight") {
     // knights muster just south of their hall by default
     t.rally = { x, y: y + 28 };
+    syncUnits(t);
+  }
+  if (kind === "assassin") {
+    // the covert's blades muster in the grass a little downroad of the tent
+    t.rally = { x, y: y + 30 };
+    t.aim = "prey";
     syncUnits(t);
   }
   if (kind === "trapsmith") { t.charges = 1; t.chargeCd = 0; }   // one trap ready at ribbon-cutting
