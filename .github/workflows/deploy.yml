@@ -27,9 +27,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # Pages is enabled on the repo itself (Settings -> Pages -> Source:
+      # GitHub Actions). Asking the workflow to enable it needs a token
+      # permission the default one doesn't carry, and fails the build.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
