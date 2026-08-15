@@ -58,7 +58,8 @@ export const aimModes = (t, st) => {
   // auras and traps don't aim, the sunforge beam swears itself to the
   // mightiest, and the gold works only aims at your purse
   // the Covert takes standing orders no other tower understands
-  if (t.kind === "assassin") return ASSASSIN_AIM;
+  // an Open Contract guild takes ordinary orders; every other covert takes a class
+  if (t.kind === "assassin") return st.openContract ? ASSASSIN_OPEN_AIM : ASSASSIN_AIM;
   if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge") return [];
   return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0);
 };
@@ -78,32 +79,56 @@ export const PREY_FILTERS = {
   brute: (e) => !!(e.boss || e.armor >= 0.3 || e.trampleMax),
 };
 
+// A covert's order is a CONTRACT, not a preference: the guild takes the
+// named class and NOTHING else, and stands idle when none is on the board.
+// Only the Open Contract ascension will touch a common soldier.
 export const ASSASSIN_AIM = [
-  { id: "prey", label: "Support", hint: "healers, bells and banners — anything that props the rest up" },
-  { id: "healer", label: "Healers", hint: "chant-singers and ward-casters, before anything else" },
-  { id: "raiser", label: "Raisers", hint: "necromancers and bell-ringers, before anything else" },
-  { id: "banner", label: "Banners", hint: "banner-lords and warchiefs, before anything else" },
-  { id: "brute", label: "Armor", hint: "the armored and the mighty — bosses, plate, chargers" },
-  { id: "first", label: "First", hint: "no orders — whoever is closest to your castle" },
+  { id: "prey", label: "Support", hint: "healers, bells and banners — and no one else" },
+  { id: "healer", label: "Healers", hint: "chant-singers and ward-casters ONLY" },
+  { id: "raiser", label: "Raisers", hint: "necromancers and bell-ringers ONLY" },
+  { id: "banner", label: "Banners", hint: "banner-lords and warchiefs ONLY" },
+  { id: "brute", label: "Armor", hint: "the armored and the mighty ONLY — bosses, plate, chargers" },
+];
+
+// what an Open Contract may be told instead: the ordinary orders any tower takes
+export const ASSASSIN_OPEN_AIM = [
+  { id: "first", label: "First", hint: "the foe closest to your castle" },
+  { id: "last", label: "Last", hint: "the foe furthest back down the road" },
+  { id: "strong", label: "Strong", hint: "the most health left" },
+  { id: "weak", label: "Weak", hint: "the least health left — finish them off" },
 ];
 
 // The class a tower's standing order names, or null when it hunts by position.
-export const orderFilter = (t) => PREY_FILTERS[t && t.aim] || null;
+export const orderFilter = (t, st) => (st && st.openContract ? null : PREY_FILTERS[t && t.aim] || PREY_FILTERS.prey);
 
 // Which foe a blade goes for, by its tower's standing order. Priority-class
 // foes outrank everything; a Kingslayer's order reaches the whole field.
 export const pickPrey = (g, t, st) => {
-  const mode = t.aim && (PREY_FILTERS[t.aim] || t.aim === "first") ? t.aim : "prey";
-  const filter = PREY_FILTERS[mode] || null;
+  // An Open Contract hunts like any other tower: everything is fair, and the
+  // player's standing order decides which of them dies first.
+  if (st.openContract) {
+    const mode = t.aim || "first";
+    const cx0 = t.rally ? t.rally.x : t.x, cy0 = t.rally ? t.rally.y : t.y;
+    let open = null, openScore = -Infinity;
+    for (const e of g.enemies) {
+      if (e.dead || e.flying || e.swimming) continue;
+      if (Math.hypot(e.x - cx0, e.y - cy0) > st.range) continue;
+      const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
+      if (score > openScore) { openScore = score; open = e; }
+    }
+    return open;
+  }
+  // Everyone else is under contract: the named class or nobody. A guild with
+  // no valid mark on the board simply waits — that is what you paid for.
+  const filter = PREY_FILTERS[t.aim] || PREY_FILTERS.prey;
   const cx = t.rally ? t.rally.x : t.x, cy = t.rally ? t.rally.y : t.y;
   let best = null, bestScore = -Infinity;
   for (const e of g.enemies) {
     if (e.dead || e.flying || e.swimming) continue;   // no blade reaches sky or water
-    const marked = filter ? filter(e) : false;
+    if (!filter(e)) continue;                          // not on the contract
     const d = Math.hypot(e.x - cx, e.y - cy);
-    if (d > st.range && !(marked && st.preyAnywhere)) continue;
-    // a named class outranks the field; otherwise take the frontmost
-    const score = marked ? 2e9 + e.hp : e.dist;
+    if (d > st.range && !st.preyAnywhere) continue;
+    const score = e.dist;                              // frontmost of the marked
     if (score > bestScore) { bestScore = score; best = e; }
   }
   return best;

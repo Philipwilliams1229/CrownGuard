@@ -791,7 +791,7 @@ export function updateGame(g, dt) {
         if (target && !st.preyAnywhere && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 30) { target = null; u.targetId = null; }
         // and an ORDER outranks whatever the blade happens to be doing: the
         // moment a named foe walks into reach, the current throat is forgotten
-        const order = orderFilter(t);
+        const order = orderFilter(t, st);
         if (target && order && !order(target)) {
           const named = pickPrey(g, t, st);
           if (named && order(named)) { target = named; u.targetId = named.id; }

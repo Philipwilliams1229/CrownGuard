@@ -240,7 +240,7 @@ export const TOWERS = {
         name: "The Silent Court", cost: 260, stats: { dmg: 120, rate: 1850, range: 118, hp: 150, count: 2, unitSpeed: 128, preyMult: 2, pierce: true, cull: 0.18 }, desc: "Two blades of the Court afield: they pierce any armor, strike support foes TWICE as hard, and finish the nearly-dead outright.",
         rank4: {
           a: { name: "Kingslayer", cost: 390, stats: { dmg: 150, rate: 1850, range: 122, hp: 175, count: 2, unitSpeed: 132, preyMult: 2.2, pierce: true, cull: 0.22, preyAnywhere: true }, desc: "No healer, herald or bell-ringer is safe ANYWHERE on the field — the Court's knives cross the map for them." },
-          b: { name: "The Quiet Blade", cost: 390, stats: { dmg: 126, rate: 1800, range: 122, hp: 165, count: 2, unitSpeed: 130, preyMult: 2, pierce: true, cull: 0.2, silence: 4000 }, desc: "A cut that steals the voice: struck foes are SILENCED — no healing chants, no raising, no bells, no banners — for four long seconds." },
+          b: { name: "The Open Contract", cost: 390, stats: { dmg: 104, rate: 1750, range: 122, hp: 175, count: 3, unitSpeed: 132, preyMult: 1.4, pierce: true, cull: 0.2, silence: 3000, openContract: true }, desc: "The guild tears up its charter and takes ANY name offered. Three blades, ordinary standing orders — first, last, strongest, weakest — and they still hold no ground and block nothing. The cut still steals the voice." },
         },
       },
       b: {

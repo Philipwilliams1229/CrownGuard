@@ -48,7 +48,7 @@ const NUMBERS = [
   ["eagleHp", (v) => `war-eagle: ${v} health`],
   ["eagleDmg", (v) => `${v} eagle talon damage`],
   ["autoSeed", (v) => `self-seeds ${v} mines per wave`],
-  ["preyMult", (v) => `×${v} vs the class you name`],
+  ["preyMult", (v) => `×${v} vs the class under contract`],
   ["venom", (v) => `${v}/s venom`],
   ["silence", (v) => `silences for ${(v / 1000).toFixed(0)}s`],
   ["spores", (v) => `${v}/s spore cloud`],
@@ -94,6 +94,7 @@ const TRAITS = [
   ["cull", "finishes the nearly-dead outright"],
   ["preyAnywhere", "the named class is hunted ANYWHERE on the field"],
   ["venomNoHeal", "the envenomed cannot be healed"],
+  ["openContract", "takes ANY foe, on ordinary standing orders"],
 ];
 
 export function describe(s) {
