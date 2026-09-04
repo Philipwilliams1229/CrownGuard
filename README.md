@@ -1,8 +1,8 @@
 # Crownguard
 
-A retro, pixel-art tower defense game — Kingdom Rush-style, with a Game Boy
-Color-inspired palette and hand-made sprite art. Hold the winding road across
-15 waves; the castle must not fall.
+A plush, painterly tower defense game — Kingdom Rush-style, drawn in soft,
+rounded, outline-free shapes under one warm sun. Hold the three-lane road
+across 18 waves; the castle must not fall.
 
 Every tower levels **1 → 2 → 3**, then permanently **evolves** down one of two
 or three branches that change how it *works*, not just its numbers. All
