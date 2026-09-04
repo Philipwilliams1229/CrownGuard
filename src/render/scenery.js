@@ -578,8 +578,15 @@ export const drawPond = (ctx, p, time) => {
 const drum = (ctx, cx, cy, r, time, dire) => {
   const S1 = CASTLE_STONE;
   const bh = r * 2.3;
-  shadow(ctx, cx + 5, cy + bh * 0.5 + 4, r * 1.3, r * 0.5, 0.3);
-  masonry(ctx, cx - r, cy - bh * 0.5, r * 2, bh, S1, { r: r * 0.45, course: 6, block: r * 0.9 });
+  const foot = cy + bh * 0.5;
+  // it stands on the wall: a dark pool where it meets the walkway, a splayed
+  // footing course, and square-bottomed masonry above that
+  soft(ctx, cx + 2, foot + 1, r * 1.5, r * 0.42, [[0, "rgba(28,20,30,0.55)"], [0.6, "rgba(28,20,30,0.3)"], [1, "rgba(28,20,30,0)"]]);
+  masonry(ctx, cx - r, cy - bh * 0.5, r * 2, bh - 3, S1, { r: r * 0.45, course: 6, block: r * 0.9 });
+  ctx.fillStyle = darken(S1, 0.05);
+  ctx.fillRect(cx - r, foot - 9, r * 2, 6);
+  cylinder(ctx, cx - r - 2.5, foot - 5, r * 2 + 5, 5.5, darken(S1, 0.14), { r: 1.5, hi: 0.28, lo: 0.45 });
+  cylinder(ctx, cx - r - 4, foot - 1.5, r * 2 + 8, 3, darken(S1, 0.28), { r: 1.2, hi: 0.2, lo: 0.45 });
   cylinder(ctx, cx - r - 2, cy - bh * 0.5 - 4, r * 2 + 4, 4.5, lighten(S1, 0.1), { r: 1.5, hi: 0.35, lo: 0.4 });
   ctx.fillStyle = "#2a2430";
   roundRect(ctx, cx - 1.6, cy - 4, 3.2, 11, 1.4); ctx.fill();
@@ -638,7 +645,7 @@ export const drawCastle = (ctx, time, hpPct) => {
   wallRun(ctx, WB, W + 4, gy + G + 20, H + 10);
   // lesser drums along its length
   for (let y = 70; y < H; y += 150) {
-    if (Math.abs(y - gy) < G + 66) continue;
+    if (Math.abs(y - gy) < G + 92) continue;   // never stacked on a gate drum's roof
     drum(ctx, WB + 18, y, 15, time, dire);
   }
 
