@@ -7,8 +7,19 @@ export const COLS = 15;
 export const ROWS = 10;
 export const W = COLS * TILE;
 export const H = ROWS * TILE;
-export const PATH_HALF = 26;
-export const BLOCK_DIST = 38;
+// The road is three lanes wide now: 64px, with a marching lane down the
+// middle and one either side. PATH_HALF is half that width; LANE_OFF is how
+// far the outer lanes sit from the centreline.
+export const PATH_HALF = 32;
+export const LANE_OFF = 21;
+export const BLOCK_DIST = 42;
+// Pick a lane for something stepping onto the road: bosses take the crown of
+// the road, everyone else draws one of the three and wanders a step in it.
+export const pickLane = (boss = false) =>
+  boss ? 0 : (Math.floor(Math.random() * 3) - 1) * LANE_OFF + (Math.random() - 0.5) * 6;
+// How many buffer pixels one world pixel gets. The board is painted at this
+// scale so curves stay curved and zooming in reveals detail instead of squares.
+export const RES = 3;
 export const CASTLE_HP = 20;
 export const RALLY_RANGE = 96;
 export const BUILD_TIME = 30;

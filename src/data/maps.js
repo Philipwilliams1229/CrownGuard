@@ -22,18 +22,18 @@ export const REALMS = {
     ambient: "leaves",
     clouds: true,
     // late-afternoon sun: a touch of gold, corners falling into shade
-    light: { tint: "255,238,206", amount: 0.1, vignette: 0.26 },
+    light: { tint: "255,236,200", amount: 0.08, vignette: 0.2 },
     spawn: "grove",     // the horde shoulders out of the thicket
-    // ground & road palette
-    GRASS: "#69874e",
-    GRASS_DK: "#57713f",
-    GRASS_LT: "#7a9a5c",
-    TUFT: "#57713f",
-    PATH_MAIN: "#bfa476",
-    PATH_DK: "#93794f",
-    PATH_EDGE: "#63512f",
-    PEBBLE: "#d2ba8e",
-    CHEVRON: "60,46,28",
+    // ground & road palette — a warm summer meadow, lit from the upper left
+    GRASS: "#82b256",
+    GRASS_DK: "#628f3d",
+    GRASS_LT: "#a4d06c",
+    TUFT: "#5b8a3a",
+    PATH_MAIN: "#c9a46c",
+    PATH_DK: "#9e7d4e",
+    PATH_EDGE: "#74593a",
+    PEBBLE: "#e6cf9c",
+    CHEVRON: "84,62,36",
     // the road, as [col, row] waypoints on the tile grid
     path: [
       [0.9, 2], [3, 2], [3, 6], [7, 6], [7, 1], [11, 1], [11, 7], [5, 7], [5, 9], [13, 9], [13, 4], [13.7, 4],

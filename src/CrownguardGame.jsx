@@ -4,7 +4,7 @@
 // React state for the panels, handles mouse input, and renders the UI.
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { W, H, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
+import { W, H, RES, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
 import { sfx } from "./audio/sfx.js";
 import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
@@ -262,6 +262,30 @@ export default function Crownguard() {
   // ---- input ----
   const dragRef = useRef({ down: false, panned: false, sx: 0, sy: 0, cx: 0, cy: 0 });
 
+  // The mouse wheel zooms toward the cursor. A native listener, because the
+  // page must not scroll while the board is under the pointer.
+  useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const onWheel = (ev) => {
+      const g = G.current;
+      if (!g) return;
+      ev.preventDefault();
+      const rect = cv.getBoundingClientRect();
+      const px = ((ev.clientX - rect.left) / rect.width) * W;
+      const py = ((ev.clientY - rect.top) / rect.height) * H;
+      const z0 = g.cam.zoom;
+      const z = Math.min(3, Math.max(1, z0 * Math.exp(-ev.deltaY * 0.0022)));
+      if (z === z0) return;
+      const wx = g.cam.x + px / z0, wy = g.cam.y + py / z0;
+      g.cam.zoom = z;
+      g.cam.x = Math.min(Math.max(0, wx - px / z), W - W / z);
+      g.cam.y = Math.min(Math.max(0, wy - py / z), H - H / z);
+    };
+    cv.addEventListener("wheel", onWheel, { passive: false });
+    return () => cv.removeEventListener("wheel", onWheel);
+  }, []);
+
   const screenPos = (ev) => {
     const cv = canvasRef.current;
     const rect = cv.getBoundingClientRect();
@@ -282,7 +306,7 @@ export default function Crownguard() {
     const g = G.current;
     if (!g) return;
     const z0 = g.cam.zoom;
-    const z = Math.min(2.5, Math.max(1, nz));
+    const z = Math.min(3, Math.max(1, nz));
     const wx = g.cam.x + (W / 2) / z0, wy = g.cam.y + (H / 2) / z0;
     g.cam.zoom = z;
     g.cam.x = wx - (W / 2) / z;
@@ -527,10 +551,10 @@ export default function Crownguard() {
           {/* board + in-window overlays */}
           <div style={{ position: "relative", overflow: "hidden" }}>
             <canvas
-              ref={canvasRef} width={W} height={H}
+              ref={canvasRef} width={W * RES} height={H * RES}
               onMouseDown={onCanvasDown} onMouseMove={onCanvasMove} onMouseUp={onCanvasUp}
               onMouseLeave={() => { if (G.current) G.current.hover = null; dragRef.current.down = false; }}
-              style={{ width: "100%", display: "block", border: "3px solid #10131a", background: REALMS[realmId].GRASS, cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", imageRendering: "pixelated" }}
+              style={{ width: "100%", display: "block", border: "3px solid #10131a", background: REALMS[realmId].GRASS, cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none" }}
             />
 
             {/* open-build-menu tab (right edge) */}

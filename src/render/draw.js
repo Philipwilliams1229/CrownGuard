@@ -10,10 +10,11 @@
 // actual pixels. Sprites that opt into `px: 1` (see sprites.js) now get four
 // times the pixels inside the same footprint.
 
-import { W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE, PATH_HALF } from "../data/constants.js";
+import { W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE, RES } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { PTS, posAt, angleAt } from "../engine/path.js";
-import { GRASS_PATCHES, TUFTS, FLOWERS, PEBBLES, CHEVRONS, DECOR, PONDS, SPECKS, RIVERS, BRIDGES } from "../data/terrain.js";
+import { DECOR, PONDS, RIVERS, BRIDGES } from "../data/terrain.js";
+import { groundLayer, drawRoadLive } from "./world.js";
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
@@ -72,97 +73,33 @@ function drawBanner(ctx, g) {
 export function draw(g, canvas, bufRef) {
   const cv = canvas;
   if (!cv) return;
+  // The buffer is RES times the board on each side: everything below draws
+  // in world units and the transform does the rest, so curves come out curved.
+  if (cv.width !== W * RES) { cv.width = W * RES; cv.height = H * RES; }
   let buf = bufRef.current;
-  if (!buf || buf.width !== W) {
+  if (!buf || buf.width !== W * RES) {
     buf = document.createElement("canvas");
-    buf.width = W; buf.height = H;
+    buf.width = W * RES; buf.height = H * RES;
     bufRef.current = buf;
   }
   const ctx = buf.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W * RES, H * RES);
   ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.scale(RES, RES);
   if (g.shake > 0) ctx.translate(S((Math.random() - 0.5) * g.shake), S((Math.random() - 0.5) * g.shake));
   ctx.scale(g.cam.zoom, g.cam.zoom);
   ctx.translate(-g.cam.x, -g.cam.y);
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
 
-  ctx.fillStyle = REALM.GRASS;
-  ctx.fillRect(0, 0, W, H);
-  for (const p of GRASS_PATCHES) {
-    ctx.fillStyle = p.s > 0.5 ? REALM.GRASS_LT : REALM.GRASS_DK;
-    ctx.fillRect(S(p.x - p.r), S(p.y - p.r * 0.6), S(p.r * 2), S(p.r * 1.2));
-  }
-  // a second, smaller patch layer breaks up the first one's edges
-  for (const p of GRASS_PATCHES) {
-    if (p.s > 0.72) continue;
-    ctx.fillStyle = p.s > 0.36 ? REALM.GRASS_DK : REALM.GRASS_LT;
-    ctx.fillRect(S(p.x - p.r * 0.4), S(p.y - p.r * 0.3), S(p.r * 0.8), S(p.r * 0.5));
-  }
-  // stones, twigs and dry clumps on the turf
-  for (const sp of SPECKS) {
-    ctx.fillStyle = sp.k > 0.62 ? REALM.GRASS_DK : sp.k > 0.3 ? REALM.TUFT : REALM.GRASS_LT;
-    ctx.fillRect(S(sp.x), S(sp.y), sp.w, sp.h);
-  }
+  // the ground, painted once per realm at full detail, then the water that
+  // lives on it and the road's kindling chevrons
+  ctx.drawImage(groundLayer(), 0, 0, W, H);
   for (const p of PONDS) drawPond(ctx, p, g.time);
   for (const rv of RIVERS) drawRiver(ctx, rv, g.time, REALM.water);
-  ctx.fillStyle = REALM.TUFT;
-  for (const tf of TUFTS) {
-    const sway = Math.sin(g.time * 1.8 + tf.p) > 0 ? CELL : 0;
-    ctx.fillRect(S(tf.x) + sway, S(tf.y - 5 * tf.s), CELL, S(5 * tf.s));
-    ctx.fillRect(S(tf.x) + CELL * 2 + sway, S(tf.y - 4 * tf.s), CELL, S(4 * tf.s));
-  }
-  // wildflowers
-  for (const f of FLOWERS) {
-    const sway = Math.sin(g.time * 1.5 + f.p) > 0 ? CELL : 0;
-    ctx.fillStyle = REALM.TUFT;
-    ctx.fillRect(S(f.x) + 1, S(f.y) + 2, CELL, CELL * 2);
-    ctx.fillStyle = f.c;
-    ctx.fillRect(S(f.x) + sway, S(f.y) - 2, CELL * 2, CELL * 2);
-    ctx.fillStyle = "#e8d47a";
-    ctx.fillRect(S(f.x) + sway + 1, S(f.y) - 1, 2, 2);
-  }
-
-  const strokePath = (width, color) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(PTS[0][0], PTS[0][1]);
-    for (let i = 1; i < PTS.length; i++) ctx.lineTo(PTS[i][0], PTS[i][1]);
-    ctx.stroke();
-  };
-  strokePath(PATH_HALF * 2 + 10, REALM.PATH_EDGE);
-  strokePath(PATH_HALF * 2 + 4, REALM.PATH_DK);
-  strokePath(PATH_HALF * 2 - 4, REALM.PATH_MAIN);
-  ctx.lineWidth = 1;
-  for (const pb of PEBBLES) {
-    ctx.fillStyle = pb.s > 0.6 ? REALM.PATH_DK : REALM.PEBBLE;
-    ctx.fillRect(S(pb.x), S(pb.y), S(pb.r * 2) || CELL, S(pb.r * 1.4) || CELL);
-  }
-  for (const ch of CHEVRONS) {
-    const on = Math.sin(g.time * 2.2 - ch.d * 0.045) > 0;
-    // the road lights up under a marching column: chevrons within a stride
-    // of any foe burn bright, so the board itself reads the advance
-    let near = false;
-    for (const e of g.enemies) {
-      if (!e.dead && Math.abs(e.dist - ch.d) < 60) { near = true; break; }
-    }
-    ctx.save();
-    ctx.translate(S(ch.x), S(ch.y));
-    ctx.rotate(Math.round(ch.a / (Math.PI / 2)) * (Math.PI / 2));
-    ctx.fillStyle = near
-      ? `rgba(${REALM.CHEVRON},${on ? 0.95 : 0.7})`
-      : on ? `rgba(${REALM.CHEVRON},0.55)` : `rgba(${REALM.CHEVRON},0.28)`;
-    ctx.fillRect(-4, -6, 3, 3); ctx.fillRect(-1, -3, 3, 3); ctx.fillRect(2, 0, 3, 3);
-    ctx.fillRect(-1, 3, 3, 3); ctx.fillRect(-4, 6, 3, 3);
-    if (near) {                      // a hot core on the lit ones
-      ctx.fillStyle = "rgba(255,240,200,0.5)";
-      ctx.fillRect(-1, -3, 3, 3); ctx.fillRect(2, 0, 3, 3);
-    }
-    ctx.restore();
-  }
+  drawRoadLive(ctx, g);
 
   // timber spans wherever the road wades a river — over the road texture,
   // under everything that walks
@@ -1154,20 +1091,27 @@ export function draw(g, canvas, bufRef) {
 
   // The realm's light, laid over the finished board in buffer space so camera
   // zoom and screen shake can't drag the vignette around with them.
+  ctx.save();
+  ctx.scale(RES, RES);
   drawGrade(ctx);
   drawBanner(ctx, g);
+  ctx.restore();
 
   const sc = cv.getContext("2d");
-  sc.imageSmoothingEnabled = false;
-  sc.clearRect(0, 0, W, H);
-  sc.drawImage(buf, 0, 0, W, H);
+  sc.setTransform(1, 0, 0, 1, 0, 0);
+  sc.imageSmoothingEnabled = true;
+  sc.clearRect(0, 0, W * RES, H * RES);
+  sc.drawImage(buf, 0, 0);
 
   if (g.paused && g.phase !== "won" && g.phase !== "lost") {
+    sc.save();
+    sc.scale(RES, RES);
     sc.fillStyle = "rgba(16,14,20,0.5)";
     sc.fillRect(0, 0, W, H);
     sc.fillStyle = "#e8d47a";
     sc.font = "bold 24px monospace";
     sc.textAlign = "center"; sc.textBaseline = "middle";
     sc.fillText("* PAUSED *", W / 2, H / 2);
+    sc.restore();
   }
 }

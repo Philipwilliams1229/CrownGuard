@@ -1,507 +1,398 @@
 // ============ RENDER: SCENERY ============
-// Static map dressing per realm: trees/rocks and each realm's exotic decor
-// (snow pines, ice, dead trees, lava vents, willows, glowing mushrooms,
-// reeds), ponds, the castle (which cracks, smokes, and burns as its HP
-// falls), and the enemy spawn cave.
+// Everything that stands on the ground and isn't a tower or a soldier: the
+// trees and stones of each realm (and the fen's graves, the Marches' tents),
+// still water, running water and the bridges over it, the castle, and the
+// gate the enemy comes in by.
+//
+// All of it is drawn with the paint kit: lit, rounded, outline-free forms
+// with soft shadows falling away from one sun. Nothing here is a rectangle
+// unless a carpenter made it.
 
-import { INK, CELL, S, W } from "../data/constants.js";
+import { W } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
+import {
+  lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
+  blade, tuft, strokePts, blobPath, masonry, hash, ellipse, SUN,
+} from "./paint.js";
 
-// ---- shape kit -------------------------------------------------------
-// Organic scenery used to be stacks of rectangles, which read as furniture
-// once the board went to full resolution. These build the same silhouettes
-// out of rows so the edges can actually curve, taper and fray.
+// ---- palettes ---------------------------------------------------------
+const OAK = { leaf: "#5e9f45", trunk: "#7a5334" };
+const PINE = { leaf: "#4a8c4d", trunk: "#6a4a30" };
+const SNOWPINE = { leaf: "#3f6f5a", trunk: "#5a4634" };
+const STONE = "#9a9284";
+const CASTLE_STONE = "#a19a8a";
+const ROOF = "#a8505c";
 
-const hash = (a, b) => ((a * 73856093) ^ (b * 19349663)) >>> 0;
+// ---- trees ------------------------------------------------------------
 
-// Castle masonry — big dressed blocks, laid in staggered courses.
-const CASTLE_STONE = { mid: "#8a8474", lit: "#a19a88", shade: "#6e6859", mortar: "#4f4a3e", dark: "#7d7768" };
-
-const blocks = (ctx, x, top, w, h, pal) => {
-  ctx.fillStyle = pal.mid;
-  ctx.fillRect(x, top, w, h);
-  const ch = 7, bw = Math.max(7, Math.floor(w / 3));
-  for (let cy = top, row = 0; cy < top + h; cy += ch, row++) {
-    const rh = Math.min(ch, top + h - cy);
-    const off = row % 2 ? 0 : Math.floor(bw / 2);
-    for (let bx = x - off; bx < x + w; bx += bw) {
-      if (hash(row, Math.floor(bx / bw)) % 5 === 0) {
-        const x0 = Math.max(x, bx), x1 = Math.min(x + w, bx + bw - 1);
-        if (x1 > x0) { ctx.fillStyle = pal.dark; ctx.fillRect(x0, cy, x1 - x0, rh - 1); }
-      }
-    }
-    ctx.fillStyle = pal.mortar;
-    if (rh > 1) ctx.fillRect(x, cy + rh - 1, w, 1);
-    for (let bx = x - off + bw; bx < x + w; bx += bw) ctx.fillRect(bx, cy, 1, rh - 1);
-  }
-  ctx.fillStyle = pal.lit;
-  ctx.fillRect(x, top, 2, h);
-  ctx.fillStyle = pal.shade;
-  ctx.fillRect(x + w - 3, top, 3, h);
-};
-
-// torchlight behind an arrow slit
-const pulseWindow = (time, seed) => Math.sin(time * 1.9 + seed * 2) > -0.5;
-
-// A squashed disc, drawn row by row.
-const blob = (ctx, cx, cy, rx, ry) => {
-  const h = Math.max(2, Math.round(ry * 2));
-  for (let i = 0; i < h; i++) {
-    const t = ((i + 0.5) / h) * 2 - 1;
-    const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - t * t)));
-    if (w > 0) ctx.fillRect(cx - w, Math.round(cy - ry) + i, w * 2, 1);
-  }
-};
-
-// One conifer tier: a cone drawn row by row, inked a pixel outside each row
-// so the silhouette stays crisp, with the odd frayed needle on the edge.
-const coneTier = (ctx, x, bottom, halfW, h, fill, shade) => {
-  const w = [];
-  for (let i = 0; i < h; i++) {
-    let v = Math.max(1, Math.round((halfW * (i + 1)) / h));
-    if (i > 2 && hash(i, halfW) % 4 === 0) v += 1;
-    w.push(v);
-  }
-  ctx.fillStyle = INK;
-  for (let i = 0; i < h; i++) {
-    ctx.fillRect(x - w[i] - 1, bottom - h + i, 1, 1);
-    ctx.fillRect(x + w[i], bottom - h + i, 1, 1);
-  }
-  ctx.fillRect(x - w[h - 1] - 1, bottom, w[h - 1] * 2 + 2, 1);
-  ctx.fillStyle = fill;
-  for (let i = 0; i < h; i++) ctx.fillRect(x - w[i], bottom - h + i, w[i] * 2, 1);
-  // the shaded half, right of centre
-  ctx.fillStyle = shade;
-  for (let i = 0; i < h; i++) {
-    const half = Math.max(1, Math.round(w[i] * 0.55));
-    ctx.fillRect(x + w[i] - half, bottom - h + i, half, 1);
-  }
-};
-
-// A trunk with bark: two tones and a few horizontal scars.
-const trunk = (ctx, x, top, h, w, mid = "#5f4326", lit = "#7a5a34", dark = "#3c2a18") => {
-  ctx.fillStyle = INK;
-  ctx.fillRect(x - w / 2 - 1, top, w + 2, h);
-  ctx.fillStyle = mid;
-  ctx.fillRect(x - w / 2, top, w, h);
-  ctx.fillStyle = lit;
-  ctx.fillRect(x - w / 2, top, 1, h);
-  ctx.fillStyle = dark;
-  for (let i = 2; i < h; i += 4) ctx.fillRect(x - w / 2 + 1, top + i, w - 1, 1);
-};
-
-// A pine: three cones stacked into a spire over a bark trunk.
-const pineShape = (ctx, x, y, s, greens, caps, sway = 0) => {
-  trunk(ctx, x, y + 4, 12, 4);
-  const tiers = [
-    { halfW: S(12 * s), h: S(13 * s), bottom: y + 8 },
-    { halfW: S(9 * s), h: S(12 * s), bottom: y + 8 - S(9 * s) },
-    { halfW: S(6 * s), h: S(11 * s), bottom: y + 8 - S(17 * s) },
+// A broadleaf: a trunk and a canopy of lit lobes, with leaf-cluster dabs on
+// the sunny side so it reads as foliage up close.
+const leafyTree = (ctx, x, y, s, pal, sway, seed) => {
+  shadow(ctx, x + 6 * s, y + 11, 17 * s, 6.5 * s, 0.3);
+  // trunk: a tapered cylinder with two root flares
+  const tw = 6 * s;
+  ctx.beginPath();
+  ctx.moveTo(x - tw * 0.9, y + 11);
+  ctx.quadraticCurveTo(x - tw * 0.45, y + 2, x - tw * 0.42, y - 10 * s);
+  ctx.lineTo(x + tw * 0.42, y - 10 * s);
+  ctx.quadraticCurveTo(x + tw * 0.45, y + 2, x + tw * 0.9, y + 11);
+  ctx.closePath();
+  const tg = ctx.createLinearGradient(x - tw, 0, x + tw, 0);
+  tg.addColorStop(0, lighten(pal.trunk, 0.3));
+  tg.addColorStop(0.5, pal.trunk);
+  tg.addColorStop(1, darken(pal.trunk, 0.55));
+  ctx.fillStyle = tg;
+  ctx.fill();
+  // canopy: a dark under-mass, then the lobes, lowest first
+  const cx = x + sway;
+  soft(ctx, cx, y - 12 * s, 18 * s, 14 * s, [[0, darken(pal.leaf, 0.45)], [0.8, darken(pal.leaf, 0.5)], [1, rgba(darken(pal.leaf, 0.5), 0)]]);
+  const lobes = [
+    [-11, -11, 11.5, 0], [11, -12, 11, 0.2], [0, -8, 12.5, -0.1],
+    [-5.5, -21, 10.5, 1], [6.5, -22, 10, 1.2], [0, -17, 13, 0.6],
   ];
-  tiers.forEach((tr, i) => {
-    // the crown leans further than the base, so the whole tree bends
-    const lean = Math.round(sway * (i + 1) * 0.7);
-    coneTier(ctx, x + lean, tr.bottom, tr.halfW, tr.h, greens[i], greens[Math.max(0, i - 1)]);
-    if (caps) {
-      ctx.fillStyle = caps;
-      for (let r = 0; r < 4; r++) {
-        const w = Math.max(1, Math.round((tr.halfW * (r + 1)) / tr.h));
-        ctx.fillRect(x + lean - w, tr.bottom - tr.h + r, w * 2, 1);
-      }
+  for (const [dx, dy, r, top] of lobes) {
+    const sx = cx + top * sway * 0.8;
+    ball(ctx, sx + dx * s, y + dy * s, r * s, r * 0.9 * s, mix(pal.leaf, darken(pal.leaf, 0.2), dy > -12 ? 0.35 : 0), { hi: 0.5, lo: 0.45 });
+  }
+  // leaf clusters: small bright dabs where the sun lands, dark ones underneath
+  for (let i = 0; i < 14; i++) {
+    const L = lobes[Math.floor(hash(seed, i) * lobes.length)];
+    const a = hash(seed, i + 30) * Math.PI * 2;
+    const rr = L[2] * s * (0.35 + hash(seed, i + 60) * 0.5);
+    const px = cx + L[3] * sway * 0.8 + L[0] * s + Math.cos(a) * rr;
+    const py = y + L[1] * s + Math.sin(a) * rr * 0.9;
+    const sunny = (Math.cos(a) * SUN.x + Math.sin(a) * SUN.y) > 0.1;
+    ball(ctx, px, py, 2.4 * s, 2 * s, sunny ? lighten(pal.leaf, 0.22) : darken(pal.leaf, 0.22), { hi: 0.4, lo: 0.3 });
+  }
+};
+
+// A conifer: three plush tiers over a short trunk, each tier shading the one
+// below it. `caps` adds snow.
+const pineTree = (ctx, x, y, s, pal, sway, caps = null) => {
+  shadow(ctx, x + 5 * s, y + 10, 12 * s, 5 * s, 0.3);
+  cylinder(ctx, x - 2 * s, y - 2, 4 * s, 12, pal.trunk, { r: 1.5 });
+  const tiers = [
+    { halfW: 13, h: 14, bottom: 7, col: darken(pal.leaf, 0.12) },
+    { halfW: 10, h: 13, bottom: 7 - 9, col: pal.leaf },
+    { halfW: 7, h: 12, bottom: 7 - 17, col: lighten(pal.leaf, 0.1) },
+  ];
+  tiers.forEach((t, i) => {
+    const lean = sway * (i + 1) * 0.6;
+    const bottom = y + t.bottom * s + (i === 0 ? 0 : 0);
+    if (i > 0) {
+      // the tier above throws a soft shadow onto this one
+      soft(ctx, x + lean, bottom + 1.5, t.halfW * s * 1.05, 3.2 * s, [[0, rgba(darken(pal.leaf, 0.6), 0.5)], [1, rgba(darken(pal.leaf, 0.6), 0)]]);
     }
+    cone(ctx, x + lean, bottom - t.h * s, t.halfW * s, t.h * s, t.col, { scallops: 3, sag: 2.6 * s });
+    if (caps) cone(ctx, x + lean, bottom - t.h * s, t.halfW * s * 0.55, t.h * s * 0.42, caps, { scallops: 2, sag: 1.6 * s, hi: 0.2, lo: 0.2 });
   });
 };
 
-// A boulder: a domed mass with a facet cut across it, a shaded flank, and
-// a couple of cracks so it isn't a loaf of bread.
-const boulderShape = (ctx, x, y, s, base, top, glint, moss = null) => {
-  const rx = S(11 * s), ry = S(9 * s);
-  const cy = y + 4;
-  ctx.fillStyle = INK;
-  blob(ctx, x, cy, rx + 1, ry + 1);
-  ctx.fillStyle = base;
-  blob(ctx, x, cy, rx, ry);
-  // upper facet catches the light
-  ctx.fillStyle = top;
-  blob(ctx, x - Math.round(rx * 0.2), cy - Math.round(ry * 0.35), Math.round(rx * 0.7), Math.round(ry * 0.45));
-  // shaded flank
-  ctx.fillStyle = INK;
-  ctx.globalAlpha = 0.18;
-  blob(ctx, x + Math.round(rx * 0.45), cy + Math.round(ry * 0.3), Math.round(rx * 0.5), Math.round(ry * 0.6));
-  ctx.globalAlpha = 1;
-  // cracks
-  ctx.fillStyle = INK;
-  ctx.fillRect(x - Math.round(rx * 0.1), cy - 1, 1, Math.round(ry * 0.7));
-  ctx.fillRect(x - Math.round(rx * 0.1), cy + Math.round(ry * 0.4), Math.round(rx * 0.35), 1);
-  ctx.fillStyle = glint;
-  ctx.fillRect(x - Math.round(rx * 0.5), cy - Math.round(ry * 0.55), 3, 2);
-  // lichen creeping over the shoulder and skirting the base
+// A boulder: a lit ellipsoid with a facet, a couple of soft cracks and moss.
+const boulder = (ctx, x, y, s, base, moss = null, seed = 0) => {
+  const rx = 11 * s, ry = 8.5 * s;
+  shadow(ctx, x + 4 * s, y + 8, rx * 1.15, ry * 0.6, 0.3);
+  ball(ctx, x, y + 2, rx, ry, base, { hi: 0.5, lo: 0.55 });
+  soft(ctx, x - rx * 0.28, y - ry * 0.25, rx * 0.5, ry * 0.36, [[0, rgba(lighten(base, 0.7), 0.4)], [1, rgba(lighten(base, 0.7), 0)]]);
+  ctx.strokeStyle = rgba(darken(base, 0.7), 0.3);
+  ctx.lineWidth = 0.9 * s;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x - rx * 0.1, y - ry * 0.3);
+  ctx.quadraticCurveTo(x + rx * 0.05, y + ry * 0.1, x - rx * 0.15, y + ry * 0.55);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + rx * 0.3, y + ry * 0.2);
+  ctx.quadraticCurveTo(x + rx * 0.5, y + ry * 0.35, x + rx * 0.45, y + ry * 0.7);
+  ctx.stroke();
   if (moss) {
-    ctx.fillStyle = moss;
-    blob(ctx, x - Math.round(rx * 0.45), cy - Math.round(ry * 0.15), rx * 0.3, ry * 0.22);
-    blob(ctx, x + Math.round(rx * 0.3), cy + Math.round(ry * 0.55), rx * 0.35, ry * 0.16);
-    ctx.fillRect(x - rx, cy + ry - 3, Math.round(rx * 0.8), 2);
+    soft(ctx, x - rx * 0.4, y - ry * 0.45, rx * 0.5, ry * 0.4, [[0, rgba(moss, 0.85)], [0.7, rgba(moss, 0.55)], [1, rgba(moss, 0)]]);
+    soft(ctx, x + rx * 0.35 + hash(seed, 1) * 3, y + ry * 0.6, rx * 0.35, ry * 0.3, [[0, rgba(moss, 0.7)], [1, rgba(moss, 0)]]);
   }
 };
 
-// A broadleaf canopy: overlapping clumps rather than one slab, lit on the
-// crown, shaded underneath, with a fork of trunk showing through.
-const leafShape = (ctx, x, y, s, mid, lit, dark, sway = 0) => {
-  const r = S(12 * s);
-  const cy = y - S(9 * s);
-  const lean = Math.round(sway);
-  trunk(ctx, x, y - S(4 * s), S(14 * s), 5);
-  ctx.fillStyle = INK;   // branch fork
-  ctx.fillRect(x - S(5 * s), cy + S(4 * s), 3, S(6 * s));
-  ctx.fillRect(x + S(3 * s), cy + S(4 * s), 3, S(6 * s));
-  const clumps = [
-    [0, -Math.round(r * 0.25), r * 0.95, r * 0.8],
-    [-Math.round(r * 0.6), Math.round(r * 0.15), r * 0.6, r * 0.55],
-    [Math.round(r * 0.6), Math.round(r * 0.1), r * 0.62, r * 0.58],
-    [Math.round(r * 0.1), Math.round(r * 0.45), r * 0.7, r * 0.45],
-  ];
-  ctx.fillStyle = INK;
-  for (const [dx, dy, rx, ry] of clumps) blob(ctx, x + dx + lean, cy + dy, rx + 1, ry + 1);
-  ctx.fillStyle = mid;
-  for (const [dx, dy, rx, ry] of clumps) blob(ctx, x + dx + lean, cy + dy, rx, ry);
-  // sun across the crown, shadow under the far side — bands, not discs
-  ctx.fillStyle = lit;
-  blob(ctx, x + lean - Math.round(r * 0.2), cy - Math.round(r * 0.5), r * 0.62, r * 0.22);
-  blob(ctx, x + lean - Math.round(r * 0.5), cy - Math.round(r * 0.2), r * 0.3, r * 0.16);
-  ctx.fillStyle = dark;
-  blob(ctx, x + lean + Math.round(r * 0.3), cy + Math.round(r * 0.52), r * 0.5, r * 0.22);
+const deadTree = (ctx, x, y, s) => {
+  shadow(ctx, x + 4 * s, y + 10, 8 * s, 3.5 * s, 0.28);
+  const col = "#5a473a";
+  cylinder(ctx, x - 2.5 * s, y - 18 * s, 5 * s, 18 * s + 16, col, { r: 2, hi: 0.35, lo: 0.55 });
+  ctx.lineCap = "round";
+  const limbs = [[-1, -14, -9, -5], [1, -10, 9, -4], [-1, -5, -7, -3], [1, -16, 5, -6]];
+  for (const [, ly, lx, up] of limbs) {
+    const g = ctx.createLinearGradient(x, 0, x + lx * s, 0);
+    g.addColorStop(0, lighten(col, lx < 0 ? 0.25 : 0));
+    g.addColorStop(1, darken(col, lx < 0 ? 0.1 : 0.4));
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 2.6 * s;
+    ctx.beginPath();
+    ctx.moveTo(x, y + ly * s);
+    ctx.quadraticCurveTo(x + lx * s * 0.5, y + (ly + up * 0.3) * s, x + lx * s, y + (ly + up) * s);
+    ctx.stroke();
+    ctx.lineWidth = 1.3 * s;
+    ctx.beginPath();
+    ctx.moveTo(x + lx * s, y + (ly + up) * s);
+    ctx.lineTo(x + lx * s * 1.25, y + (ly + up - 3) * s);
+    ctx.stroke();
+  }
+};
+
+const willow = (ctx, x, y, s, sway) => {
+  shadow(ctx, x + 6 * s, y + 12, 16 * s, 6 * s, 0.3);
+  cylinder(ctx, x - 3 * s, y + 1, 6 * s, 15, "#5a4230", { r: 2 });
+  const leaf = "#4f7a3c";
+  ball(ctx, x + sway * 0.4, y - 13 * s, 15 * s, 11 * s, leaf, { hi: 0.5, lo: 0.45 });
+  ball(ctx, x + sway * 0.8 - 3 * s, y - 20 * s, 9 * s, 6.5 * s, lighten(leaf, 0.08), { hi: 0.5, lo: 0.4 });
+  for (let i = 0; i < 11; i++) {
+    const ox = (-13 + i * 2.6) * s;
+    const len = (9 + ((i * 13) % 4) * 3.5) * s;
+    const col = i % 2 ? leaf : darken(leaf, 0.22);
+    const top = y - 8 * s - Math.abs(ox) * 0.2;
+    blade(ctx, x + ox + sway * 0.6, top, x + ox + sway * 1.2 + 1.5 * s, top + len, 0.9 * s, col, lighten(col, 0.25), 0.4);
+  }
+};
+
+const mushroom = (ctx, x, y, s, time) => {
+  const pulse = 0.5 + 0.5 * Math.sin(time * 1.8 + x);
+  glow(ctx, x, y - 5 * s, 17 * s, "#c88ce8", 0.1 + pulse * 0.1);
+  shadow(ctx, x + 3 * s, y + 9, 8 * s, 3 * s, 0.26);
+  cylinder(ctx, x - 2.4 * s, y - 4 * s, 4.8 * s, 4 * s + 14, "#d8cfb8", { r: 2, hi: 0.25, lo: 0.4 });
+  const cap = "#9a56c0";
+  ball(ctx, x, y - 6 * s, 10 * s, 6.5 * s, cap, { hi: 0.5, lo: 0.5 });
+  soft(ctx, x, y - 2 * s, 9.5 * s, 2.2 * s, [[0, rgba(darken(cap, 0.55), 0.5)], [1, rgba(darken(cap, 0.55), 0)]]);
+  for (const [dx, dy, r] of [[-5, -8, 1.6], [3, -10, 1.3], [-1, -5, 1.2], [6, -6, 1.1]]) {
+    ball(ctx, x + dx * s, y + dy * s, r * s, r * 0.8 * s, "#eedaf6", { hi: 0.3, lo: 0.15 });
+  }
+};
+
+const reeds = (ctx, x, y, s, time) => {
+  const sway = Math.sin(time * 1.6 + x) * 1.2;
+  const stalks = [[-6, 13], [-2, 18], [2, 15], [6, 11], [0, 10]];
+  stalks.forEach(([ox, hh], i) => {
+    const col = i % 2 ? "#6a8448" : "#54703c";
+    const sx = x + ox * s, sh = hh * s;
+    blade(ctx, sx, y + 8, sx + sway + 1.5 * s, y + 8 - sh, 0.8 * s, darken(col, 0.2), lighten(col, 0.2), 0.45);
+    if (i % 2 === 0) ball(ctx, sx + sway + 1.2 * s, y + 8 - sh + 2.5 * s, 1.5 * s, 3.2 * s, "#6a4a2e", { hi: 0.35, lo: 0.35 });
+  });
+};
+
+const crystal = (ctx, x, y, s, time) => {
+  shadow(ctx, x + 3 * s, y + 9, 9 * s, 3 * s, 0.24);
+  const shards = [[-6, 9, 3, "#5a94b0"], [6, 11, 3, "#7cc4e0"], [0, 16, 4, "#8fd0e8"]];
+  for (const [ox, hh, ww, col] of shards) {
+    const sx = x + ox * s, sh = hh * s, w = ww * s;
+    ctx.beginPath();
+    ctx.moveTo(sx, y + 8 - sh);
+    ctx.lineTo(sx + w, y + 8 - sh * 0.3);
+    ctx.lineTo(sx + w * 0.8, y + 9);
+    ctx.lineTo(sx - w * 0.8, y + 9);
+    ctx.lineTo(sx - w, y + 8 - sh * 0.35);
+    ctx.closePath();
+    const g = ctx.createLinearGradient(sx - w, y + 8 - sh, sx + w, y + 9);
+    g.addColorStop(0, lighten(col, 0.6));
+    g.addColorStop(0.45, col);
+    g.addColorStop(1, darken(col, 0.45));
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+  if (Math.sin(time * 3 + x) > 0.85) glow(ctx, x, y + 8 - 15 * s, 4 * s, "#ffffff", 0.9);
+};
+
+const vent = (ctx, x, y, s, time) => {
+  shadow(ctx, x + 4 * s, y + 10, 11 * s, 4 * s, 0.3);
+  ball(ctx, x, y + 2, 11 * s, 7 * s, "#3d3437", { hi: 0.3, lo: 0.5 });
+  ball(ctx, x, y - 3 * s, 6 * s, 3.5 * s, "#4a3e42", { hi: 0.3, lo: 0.4 });
+  const hot = 0.6 + 0.4 * Math.sin(time * 4 + x);
+  soft(ctx, x, y - 4 * s, 4 * s, 2.2 * s, [[0, `rgba(255,214,120,${hot})`], [0.4, `rgba(232,96,52,${hot * 0.9})`], [1, "rgba(160,50,30,0)"]]);
+  glow(ctx, x, y - 4 * s, 10 * s, "#e8703a", 0.18 * hot);
+  const rise = (time * 14 + x) % 22;
+  glow(ctx, x + Math.sin(time * 2 + x) * 3, y - 10 - rise, 2.2, "#f0a04a", Math.max(0, 0.9 - rise / 22));
+};
+
+// ---- the fen's dead and the Marches' camp ----------------------------
+
+const gravestone = (ctx, x, y, s, seed) => {
+  const lean = ((seed * 7) % 3) - 1;
+  const hh = 14 * s, hw = 5 * s;
+  shadow(ctx, x + 3 * s, y + 8, 7 * s, 2.5 * s, 0.26);
+  ctx.save();
+  ctx.translate(x, y + 8);
+  ctx.rotate(lean * 0.08);
+  ctx.beginPath();
+  ctx.moveTo(-hw, 0);
+  ctx.lineTo(-hw, -hh + hw);
+  ctx.arc(0, -hh + hw, hw, Math.PI, 0);
+  ctx.lineTo(hw, 0);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(-hw, 0, hw, 0);
+  g.addColorStop(0, lighten(STONE, 0.28));
+  g.addColorStop(0.55, STONE);
+  g.addColorStop(1, darken(STONE, 0.45));
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = rgba(darken(STONE, 0.6), 0.35);
+  ctx.lineWidth = 1.1;
+  ctx.lineCap = "round";
+  if (seed % 2) {
+    ctx.beginPath(); ctx.moveTo(0, -hh + 3); ctx.lineTo(0, -hh + 9); ctx.moveTo(-2.5, -hh + 5); ctx.lineTo(2.5, -hh + 5); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(-3 * s, -hh + 5); ctx.lineTo(3 * s, -hh + 5); ctx.moveTo(-3 * s, -hh + 8); ctx.lineTo(2 * s, -hh + 8); ctx.stroke();
+  }
+  ctx.restore();
+  soft(ctx, x - 3 * s, y + 7, 4 * s, 1.8 * s, [[0, "rgba(74,90,60,0.8)"], [1, "rgba(74,90,60,0)"]]);
+};
+
+const cairn = (ctx, x, y, s) => {
+  shadow(ctx, x + 4 * s, y + 9, 9 * s, 3 * s, 0.28);
+  const tiers = [[8, 0, 0], [6, 1, 0.08], [4.5, 2, 0.16], [3, 3, 0.24]];
+  for (const [wr, i, lt] of tiers) {
+    ball(ctx, x + (i % 2 ? 1 : -1) * s, y + 6 - i * 5 * s, wr * s, 3.4 * s, lighten(STONE, lt), { hi: 0.45, lo: 0.5 });
+  }
+};
+
+const boneheap = (ctx, x, y, s) => {
+  soft(ctx, x, y + 4, 11 * s, 4.5 * s, [[0, "rgba(24,26,20,0.4)"], [1, "rgba(24,26,20,0)"]]);
+  ctx.lineCap = "round";
+  const bones = [[-7, 2, 7, 0.3], [1, 5, 6, -0.4], [-3, 7, 5, 0.1]];
+  for (const [bx, by, len, ang] of bones) {
+    const x0 = x + bx * s, y0 = y + by, x1 = x0 + Math.cos(ang) * len * s, y1 = y0 + Math.sin(ang) * len * s * 0.5;
+    ctx.strokeStyle = "#cfc5ae";
+    ctx.lineWidth = 2 * s;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ball(ctx, x0, y0, 1.6 * s, 1.4 * s, "#ddd5c0", { hi: 0.3, lo: 0.4 });
+    ball(ctx, x1, y1, 1.6 * s, 1.4 * s, "#ddd5c0", { hi: 0.3, lo: 0.4 });
+  }
+  ball(ctx, x - 5 * s, y - 1, 3.6 * s, 3.1 * s, "#e0d8c4", { hi: 0.35, lo: 0.4 });
+  ctx.fillStyle = "#2b2430";
+  ellipse(ctx, x - 6.2 * s, y - 1.2, 0.9 * s, 1.1 * s); ctx.fill();
+  ellipse(ctx, x - 3.9 * s, y - 1.2, 0.9 * s, 1.1 * s); ctx.fill();
+};
+
+const obelisk = (ctx, x, y, s, time) => {
+  const hh = 24 * s;
+  shadow(ctx, x + 4 * s, y + 9, 7 * s, 2.6 * s, 0.3);
+  ctx.beginPath();
+  ctx.moveTo(x - 4 * s, y + 9); ctx.lineTo(x - 2.4 * s, y + 8 - hh); ctx.lineTo(x + 2.4 * s, y + 8 - hh); ctx.lineTo(x + 4 * s, y + 9);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(x - 4 * s, 0, x + 4 * s, 0);
+  g.addColorStop(0, "#4a4058"); g.addColorStop(0.5, "#2e2838"); g.addColorStop(1, "#1a1622");
+  ctx.fillStyle = g; ctx.fill();
+  ball(ctx, x, y + 8 - hh, 2.4 * s, 1.6 * s, "#3a3248", { hi: 0.35, lo: 0.4 });
+  for (let i = 0; i < 3; i++) {
+    const on = Math.sin(time * 1.6 + i * 2.1 + x) > 0.1;
+    glow(ctx, x, y + 4 - i * 7 * s, 2.6 * s, "#7ce0b8", on ? 0.9 : 0.25);
+  }
+};
+
+const watchtower = (ctx, x, y, s, time) => {
+  const w2 = 7 * s, hh = 20 * s;
+  shadow(ctx, x + 5 * s, y + 10, 11 * s, 4 * s, 0.32);
+  masonry(ctx, x - w2, y + 8 - hh, w2 * 2, hh + 8, CASTLE_STONE, { course: 5, block: 7 });
+  for (let i = 0; i < 3; i++) {
+    const cx2 = x - w2 + i * (w2 - 1.5) + 0.5;
+    cylinder(ctx, cx2, y + 8 - hh - 5, 4.5, 6, CASTLE_STONE, { r: 1 });
+  }
+  const lit = Math.sin(time * 1.9 + x * 2) > -0.5;
+  ctx.fillStyle = "#2a2430";
+  roundRect(ctx, x - 1.6, y - 6 * s, 3.2, 9, 1.2); ctx.fill();
+  if (lit) glow(ctx, x, y - 6 * s + 4.5, 3.5, "#ffd070", 0.8);
+  cylinder(ctx, x - 0.8, y + 8 - hh - 17, 1.6, 12, "#6a4a2e", { r: 0.8 });
+  const wv = Math.sin(time * 4 + x) * 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x + 0.8, y + 8 - hh - 17);
+  ctx.quadraticCurveTo(x + 5, y + 8 - hh - 18 + wv, x + 9 + wv, y + 8 - hh - 15.5);
+  ctx.quadraticCurveTo(x + 5, y + 8 - hh - 13 + wv, x + 0.8, y + 8 - hh - 12);
+  ctx.closePath();
+  ctx.fillStyle = "#3e5c84"; ctx.fill();
+};
+
+const tent = (ctx, x, y, s) => {
+  const w2 = 10 * s, hh = 11 * s;
+  shadow(ctx, x + 4 * s, y + 9, 12 * s, 4 * s, 0.3);
+  cone(ctx, x, y + 8 - hh, w2, hh, "#456a94", { scallops: 2, sag: 1.5, hi: 0.4, lo: 0.5 });
+  // the open mouth
+  ctx.beginPath();
+  ctx.moveTo(x, y + 8 - hh * 0.55);
+  ctx.lineTo(x + 4 * s, y + 9);
+  ctx.lineTo(x - 4 * s, y + 9);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, y - hh * 0.5, 0, y + 9);
+  g.addColorStop(0, "#1a1c24"); g.addColorStop(1, "#2c2a30");
+  ctx.fillStyle = g; ctx.fill();
+  for (const sx of [x - w2 - 2.5, x + w2 + 1]) cylinder(ctx, sx, y + 5, 1.6, 4, "#6a4a2e", { r: 0.8 });
+};
+
+const banner = (ctx, x, y, s, time) => {
+  const hh = 22 * s;
+  shadow(ctx, x + 2, y + 9, 4 * s, 1.6 * s, 0.26);
+  cylinder(ctx, x - 1, y + 8 - hh, 2.2, hh + 8, "#6a4a2e", { r: 1 });
+  const wv = Math.sin(time * 3 + x * 0.2) * 2;
+  const ty = y + 8 - hh;
+  ctx.beginPath();
+  ctx.moveTo(x + 1, ty);
+  ctx.quadraticCurveTo(x + 7, ty - 1 + wv * 0.5, x + 13 + wv, ty + 1);
+  ctx.lineTo(x + 9 + wv * 0.6, ty + 5.5);
+  ctx.lineTo(x + 13 + wv, ty + 10);
+  ctx.quadraticCurveTo(x + 7, ty + 11 + wv * 0.5, x + 1, ty + 10);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(x, ty, x + 12, ty + 10);
+  g.addColorStop(0, "#5a7cac"); g.addColorStop(1, "#2e4666");
+  ctx.fillStyle = g; ctx.fill();
+  ball(ctx, x + 5.5, ty + 5, 1.8, 1.8, "#e8e4d8", { hi: 0.3, lo: 0.2 });
 };
 
 export const drawTree = (ctx, d, time) => {
-  const x = S(d.x), y = S(d.y);
-  const s = d.s;
-  ctx.fillStyle = "rgba(20,20,26,0.3)";
-  ctx.fillRect(x - S(10 * s), y + 14, S(20 * s), 4);
-  // every tree keeps its own phase, so a stand of them ripples
-  const sway = Math.sin(time * 0.8 + d.x * 0.06 + d.y * 0.03) * 1.6;
-  if (d.t === "pine") {
-    pineShape(ctx, x, y, s, ["#4a6a3e", "#557a46", "#628a50"], null, sway);
-  } else if (d.t === "snowpine") {
-    pineShape(ctx, x, y, s, ["#3a5648", "#446454", "#4f7260"], "#e8f2f6", sway * 0.5);
-  } else if (d.t === "icerock") {
-    boulderShape(ctx, x, y, s, "#9cb4c4", "#c4d8e4", "#ecf4f8");
-  } else if (d.t === "obsidian") {
-    boulderShape(ctx, x, y, s, "#352e40", "#443a52", "#6a5c84");
-  } else if (d.t === "crystal") {
-    // a cluster of ice shards, tallest in the middle, with a blinking glint
-    const shards = [[-6, 9, 3, "#5a94b0"], [0, 16, 4, "#8fd0e8"], [6, 11, 3, "#7cc4e0"]];
-    for (const [ox, hh, ww, col] of shards) {
-      const sx = x + S(ox * s), sh = S(hh * s);
-      ctx.fillStyle = INK;
-      ctx.fillRect(sx - ww / 2 - 1, y + 8 - sh - 2, ww + 2, sh + 2);
-      ctx.fillStyle = col;
-      ctx.fillRect(sx - ww / 2, y + 8 - sh, ww, sh);
-      ctx.fillStyle = "#c8ecf8";
-      ctx.fillRect(sx - ww / 2, y + 8 - sh, 2, S(5 * s));
-    }
-    if (Math.sin(time * 3 + d.x) > 0.85) {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(x - 1, y + 8 - S(16 * s), 2, 2);
-    }
-  } else if (d.t === "deadtree") {
-    // a bare, charred snag with a few reaching branch stubs
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - 3, y - S(18 * s) - 1, 6, S(18 * s) + 17);
-    ctx.fillStyle = "#4a3a30";
-    ctx.fillRect(x - 2, y - S(18 * s), 4, S(18 * s) + 16);
-    ctx.fillStyle = "#5a473a";
-    ctx.fillRect(x - 2, y - S(18 * s), 2, S(18 * s) + 16);
-    const limbs = [[-1, -14, -8, 6], [1, -10, 8, 5], [-1, -4, -7, 4]];
-    for (const [dir, ly, lx, lw] of limbs) {
-      ctx.fillStyle = INK;
-      ctx.fillRect(x + (dir < 0 ? S(lx * s) - 1 : 1), y + S(ly * s) - 1, S(Math.abs(lx) * s) + 2, 4);
-      ctx.fillStyle = "#4a3a30";
-      ctx.fillRect(x + (dir < 0 ? S(lx * s) : 2), y + S(ly * s), S(Math.abs(lx) * s), 2);
-      ctx.fillStyle = "#4a3a30";
-      ctx.fillRect(x + S(lx * s) - (dir < 0 ? 0 : 2), y + S(ly * s) - lw, 2, lw);
-    }
-  } else if (d.t === "vent") {
-    // a low volcanic mound with a glowing throat and a drifting ember
-    const rows = [[9, 0], [7, 1], [5, 2]];
-    ctx.fillStyle = INK;
-    for (const [wr, i] of rows) {
-      const wRow = S(wr * s);
-      ctx.fillRect(x - wRow - 2, y + 8 - (i + 1) * 5, wRow * 2 + 4, 7);
-    }
-    for (const [wr, i] of rows) {
-      const wRow = S(wr * s);
-      ctx.fillStyle = i >= 2 ? "#4a3e42" : "#3a3234";
-      ctx.fillRect(x - wRow, y + 8 - (i + 1) * 5, wRow * 2, 5);
-    }
-    const hot = Math.sin(time * 4 + d.x) > 0;
-    ctx.fillStyle = hot ? "#e05a3a" : "#b0442e";
-    ctx.fillRect(x - S(3 * s), y - 8, S(6 * s), 4);
-    ctx.fillStyle = "#f0a04a";
-    ctx.fillRect(x - 1, y - 7, 2, 2);
-    const rise = (time * 14 + d.x) % 22;
-    ctx.fillStyle = `rgba(240,160,80,${Math.max(0, 0.8 - rise / 22)})`;
-    ctx.fillRect(x + Math.round(Math.sin(time * 2 + d.x) * 3), y - 10 - S(rise), 2, 2);
-  } else if (d.t === "willow") {
-    // a weeping willow: a tall domed canopy with strands hanging past the trunk
-    ctx.fillStyle = "#3a2c1e";
-    ctx.fillRect(x - 3, y + 2, 6, 14);
-    ctx.fillStyle = "#4a3826";
-    ctx.fillRect(x - 3, y + 2, 3, 14);
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - S(14 * s) - 2, y - S(14 * s) - 2, S(28 * s) + 4, S(12 * s) + 4);
-    ctx.fillRect(x - S(10 * s) - 2, y - S(21 * s) - 2, S(20 * s) + 4, S(9 * s) + 4);
-    ctx.fillStyle = "#37502e";
-    ctx.fillRect(x - S(14 * s), y - S(14 * s), S(28 * s), S(12 * s));
-    ctx.fillStyle = "#47653a";
-    ctx.fillRect(x - S(10 * s), y - S(21 * s), S(20 * s), S(9 * s));
-    ctx.fillStyle = "#5d8050";
-    ctx.fillRect(x - S(8 * s), y - S(20 * s), S(9 * s), S(4 * s));
-    const sway = Math.sin(time * 1.4 + d.x) > 0 ? CELL : 0;
-    for (let i = 0; i < 7; i++) {
-      const ox = -S(13 * s) + i * S(4.4 * s);
-      const len = S((10 + ((i * 13) % 3) * 4) * s);
-      ctx.fillStyle = i % 2 ? "#37502e" : "#2c4026";
-      ctx.fillRect(x + ox + (i % 2 ? sway : 0), y - S(4 * s), CELL, len);
-    }
-  } else if (d.t === "mushroom") {
-    // an overgrown glowing toadstool, pulsing faintly in the murk
-    const pulse = 0.5 + 0.5 * Math.sin(time * 1.8 + d.x);
-    ctx.fillStyle = `rgba(200,140,232,${0.08 + pulse * 0.08})`;
-    ctx.beginPath(); ctx.arc(x, y - S(6 * s), S(16 * s), 0, 7); ctx.fill();
-    ctx.fillStyle = "#cfc4ae";
-    ctx.fillRect(x - 2, y - S(4 * s), 5, S(4 * s) + 14);
-    ctx.fillStyle = "#b0a68e";
-    ctx.fillRect(x + 1, y - S(4 * s), 2, S(4 * s) + 14);
-    const rows = [[9, 0], [8, 1], [5, 2]];
-    ctx.fillStyle = INK;
-    for (const [wr, i] of rows) {
-      const wRow = S(wr * s);
-      ctx.fillRect(x - wRow - 1, y - S(4 * s) - (i + 1) * 5 - 1, wRow * 2 + 2, 7);
-    }
-    for (const [wr, i] of rows) {
-      const wRow = S(wr * s);
-      ctx.fillStyle = i >= 2 ? "#b878dc" : "#9a54c0";
-      ctx.fillRect(x - wRow, y - S(4 * s) - (i + 1) * 5, wRow * 2, 5);
-    }
-    ctx.fillStyle = "#e8d0f4";
-    ctx.fillRect(x - S(5 * s), y - S(4 * s) - 9, 2, 2);
-    ctx.fillRect(x + S(3 * s), y - S(4 * s) - 12, 2, 2);
-    ctx.fillRect(x - 1, y - S(4 * s) - 6, 2, 2);
-  } else if (d.t === "reeds") {
-    // a stand of marsh reeds with cattail tips, swaying together
-    const sway = Math.sin(time * 1.6 + d.x) > 0 ? CELL : 0;
-    const stalks = [[-5, 12], [-1, 17], [3, 14], [7, 10]];
-    stalks.forEach(([ox, hh], i) => {
-      const sx = x + S(ox * s), sh = S(hh * s);
-      ctx.fillStyle = i % 2 ? "#6a7a4a" : "#56663c";
-      ctx.fillRect(sx + sway, y + 8 - sh, 2, sh);
-      if (i % 2 === 0) {
-        ctx.fillStyle = "#6a4a2e";
-        ctx.fillRect(sx + sway - 1, y + 8 - sh - 4, 4, 5);
-      }
-    });
-  } else if (d.t === "gravestone") {
-    // a leaning slab, moss at the foot, a worn cross or line of script
-    const lean = ((d.x * 7) % 3) - 1;       // each stone settles its own way
-    const hh = S(14 * s);
-    ctx.save();
-    ctx.translate(x, y + 8);
-    ctx.rotate(lean * 0.08);
-    ctx.fillStyle = INK;
-    ctx.fillRect(-S(5 * s) - 1, -hh - 1, S(10 * s) + 2, hh + 2);
-    for (let i = 0; i < 3; i++) ctx.fillRect(-S(5 * s) + i - 1, -hh - 1 - (3 - i), S(10 * s) + 2 - i * 2, 3);
-    ctx.fillStyle = "#8a8478";
-    ctx.fillRect(-S(5 * s), -hh, S(10 * s), hh);
-    for (let i = 0; i < 3; i++) ctx.fillRect(-S(5 * s) + i, -hh - (3 - i), S(10 * s) - i * 2, 3);
-    ctx.fillStyle = "#a19a88";
-    ctx.fillRect(-S(5 * s), -hh, 2, hh);
-    ctx.fillStyle = "#6e6859";
-    if ((d.x | 0) % 2) {                    // a cross...
-      ctx.fillRect(-1, -hh + 3, 2, 7);
-      ctx.fillRect(-3, -hh + 5, 6, 2);
-    } else {                                // ...or lines no one can read now
-      ctx.fillRect(-S(3 * s), -hh + 4, S(6 * s), 1);
-      ctx.fillRect(-S(3 * s), -hh + 7, S(5 * s), 1);
-    }
-    ctx.restore();
-    ctx.fillStyle = "#4a5142";
-    ctx.fillRect(x - S(4 * s), y + 6, S(3 * s), 2);
-  } else if (d.t === "cairn") {
-    // stacked stones over somebody. The stack narrows as it climbs.
-    const rows2 = [[8, 0, "#767060"], [6, 1, "#8a8478"], [4, 2, "#9a9484"], [2, 3, "#a8a190"]];
-    for (const [wr, i, col] of rows2) {
-      const wRow = S(wr * s);
-      ctx.fillStyle = INK;
-      ctx.fillRect(x - wRow - 1, y + 8 - (i + 1) * 6 - 1, wRow * 2 + 2, 8);
-    }
-    for (const [wr, i, col] of rows2) {
-      const wRow = S(wr * s);
-      ctx.fillStyle = col;
-      ctx.fillRect(x - wRow, y + 8 - (i + 1) * 6, wRow * 2, 6);
-      ctx.fillStyle = "#55504a";
-      ctx.fillRect(x - wRow + 2, y + 8 - i * 6 - 1, wRow * 2 - 4, 1);
-    }
-  } else if (d.t === "boneheap") {
-    // what the fen didn't finish burying: bones scattered flat on the turf,
-    // not piled — a dark stain, some long bones, a rib bow, and one skull
-    ctx.fillStyle = "rgba(24,26,20,0.35)";
-    blob(ctx, x, y + 4, S(10 * s), S(4 * s));
-    // long bones at angles, each a shaft with knobbed ends
-    const bones = [[-7, 2, 7, 1], [1, 5, 6, 1], [-3, 7, 5, 1]];
-    for (const [bx, by, len, thick] of bones) {
-      ctx.fillStyle = "#a89f8c";
-      ctx.fillRect(x + S(bx * s), y + by, S(len * s), thick + 1);
-      ctx.fillStyle = "#c8c2b0";
-      ctx.fillRect(x + S(bx * s) - 1, y + by - 1, 2, thick + 3);
-      ctx.fillRect(x + S(bx * s) + S(len * s) - 1, y + by - 1, 2, thick + 3);
-    }
-    // a rib bow, still half-sunk
-    ctx.fillStyle = "#b8b09c";
-    ctx.fillRect(x + S(4 * s), y - 1, 1, 4);
-    ctx.fillRect(x + S(6 * s), y - 2, 1, 5);
-    ctx.fillRect(x + S(8 * s), y - 1, 1, 4);
-    // the skull, watching sideways
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - S(5 * s) - 1, y - 3, 8, 7);
-    ctx.fillStyle = "#d8d2c0";
-    ctx.fillRect(x - S(5 * s), y - 2, 6, 5);
-    ctx.fillStyle = "#a89f8c";
-    ctx.fillRect(x - S(5 * s) + 1, y + 2, 4, 1);
-    ctx.fillStyle = "#2b2a33";
-    ctx.fillRect(x - S(5 * s) + 1, y - 1, 2, 2);
-    ctx.fillRect(x - S(5 * s) + 4, y - 1, 1, 2);
-  } else if (d.t === "obelisk") {
-    // a cracked black needle, runes guttering up its face
-    const hh = S(24 * s);
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - 5, y + 8 - hh - 3, 10, hh + 12);
-    ctx.fillStyle = "#2e2838";
-    ctx.fillRect(x - 4, y + 8 - hh, 8, hh + 8);
-    ctx.fillStyle = "#443a52";
-    ctx.fillRect(x - 4, y + 8 - hh, 3, hh + 8);
-    // the crack
-    ctx.fillStyle = "#1c1824";
-    ctx.fillRect(x, y + 8 - hh + 4, 1, S(6 * s));
-    ctx.fillRect(x - 2, y + 8 - hh + 4 + S(6 * s), 2, 1);
-    // runes breathing witch-light, out of phase with each other
-    for (let i = 0; i < 3; i++) {
-      const glow = Math.sin(time * 1.6 + i * 2.1 + d.x) > 0.1;
-      ctx.fillStyle = glow ? "#7ce0b8" : "#3c5a4e";
-      ctx.fillRect(x - 1, y + 4 - i * S(7 * s), 2, 3);
-    }
-    // capstone
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - 3, y + 8 - hh - 4, 6, 3);
-  } else if (d.t === "watchtower") {
-    // a border tower of the Marches: dressed stone, a lit arrow slit, and
-    // the Kingdom's pennant taking the wind off the peaks
-    const w2 = S(7 * s), hh = S(20 * s);
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - w2 - 2, y + 8 - hh - 2, w2 * 2 + 4, hh + 12);
-    blocks(ctx, x - w2, y + 8 - hh, w2 * 2, hh + 8, CASTLE_STONE);
-    // crenellations
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - w2 - 3, y + 8 - hh - 6, w2 * 2 + 6, 6);
-    for (let i = 0; i < 3; i++) {
-      const cx2 = x - w2 + i * (w2 - 1);
-      blocks(ctx, cx2, y + 8 - hh - 9, 5, 6, CASTLE_STONE);
-    }
-    // arrow slit with torchlight behind it
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - 2, y - S(6 * s), 4, 9);
-    ctx.fillStyle = pulseWindow(time, d.x) ? "#e8d47a" : "#2a2a30";
-    ctx.fillRect(x - 1, y - S(6 * s) + 2, 2, 5);
-    // the pennant
-    const wv = Math.sin(time * 4 + d.x) > 0 ? 2 : 0;
-    ctx.fillStyle = "#5f4326";
-    ctx.fillRect(x - 1, y + 8 - hh - 17, 2, 9);
-    ctx.fillStyle = "#3a5474";
-    ctx.fillRect(x + 1, y + 8 - hh - 17, 7 + wv, 3);
-    ctx.fillRect(x + 1, y + 8 - hh - 14, 5 + wv, 2);
-  } else if (d.t === "tent") {
-    // a soldier's tent in the Kingdom's blue: ridge pole, canvas, dark mouth
-    const w2 = S(9 * s), hh = S(10 * s);
-    ctx.fillStyle = INK;
-    for (let i = 0; i <= hh; i++) {
-      const rw = Math.round((w2 * i) / hh);
-      ctx.fillRect(x - rw - 1, y + 8 - hh + i - 1, rw * 2 + 2, 2);
-    }
-    for (let i = 0; i <= hh; i++) {
-      const rw = Math.round((w2 * i) / hh);
-      ctx.fillStyle = i < 2 ? "#4d6a94" : "#3a5474";
-      ctx.fillRect(x - rw, y + 8 - hh + i, rw * 2, 1);
-      ctx.fillStyle = "#2c3e54";
-      ctx.fillRect(x + Math.max(0, rw - 3), y + 8 - hh + i, Math.min(3, rw), 1);
-    }
-    // the mouth, and a seam of light canvas up the ridge
-    ctx.fillStyle = "#1c1c22";
-    for (let i = 0; i < 5; i++) ctx.fillRect(x - 4 + i, y + 4 + Math.abs(2 - i), 1, 4 - Math.abs(2 - i));
-    ctx.fillStyle = "#4d6a94";
-    ctx.fillRect(x, y + 8 - hh, 1, hh - 4);
-    // a stake either side
-    ctx.fillStyle = "#5f4326";
-    ctx.fillRect(x - w2 - 3, y + 6, 2, 3);
-    ctx.fillRect(x + w2 + 1, y + 6, 2, 3);
-  } else if (d.t === "banner") {
-    // a marching banner planted by the road: tall pole, swallow-tailed blue
-    const hh = S(22 * s);
-    ctx.fillStyle = INK;
-    ctx.fillRect(x - 2, y + 8 - hh - 1, 4, hh + 9);
-    ctx.fillStyle = "#5f4326";
-    ctx.fillRect(x - 1, y + 8 - hh, 2, hh + 8);
-    ctx.fillStyle = "#7a5a34";
-    ctx.fillRect(x - 1, y + 8 - hh, 1, hh + 8);
-    const wv = Math.sin(time * 3 + d.x * 0.2) > 0 ? 2 : 0;
-    const ty = y + 8 - hh;
-    // swallow-tailed: an upper prong, a lower prong, and the fork between —
-    // drawn as shapes, so no ground color ever has to patch the notch
-    ctx.fillStyle = INK;
-    ctx.fillRect(x + 1, ty - 1, 12 + wv, 6);       // upper prong + outline
-    ctx.fillRect(x + 1, ty + 5, 9 + wv, 6);        // lower prong, shorter
-    ctx.fillStyle = "#3a5474";
-    ctx.fillRect(x + 1, ty, 11 + wv, 4);
-    ctx.fillRect(x + 1, ty + 6, 8 + wv, 4);
-    ctx.fillStyle = "#4d6a94";
-    ctx.fillRect(x + 1, ty, 11 + wv, 2);
-    // the pale device
-    ctx.fillStyle = "#e8e4d8";
-    ctx.fillRect(x + 4, ty + 3, 3, 3);
-    ctx.fillRect(x + 5, ty + 2, 1, 5);
-  } else if (d.t === "tree") {
-    leafShape(ctx, x, y, s, "#557a46", "#6d9459", "#3f5c34", sway);
-  } else {
-    boulderShape(ctx, x, y, s, "#8a8a92", "#a2a2aa", "#b8b8c0", "#4f6b3a");
+  const x = d.x, y = d.y, s = d.s || 1;
+  const seed = Math.round(d.x * 3 + d.y * 7);
+  const sway = Math.sin(time * 0.8 + d.x * 0.06 + d.y * 0.03) * 1.4;
+  switch (d.t) {
+    case "pine": pineTree(ctx, x, y, s, PINE, sway); break;
+    case "snowpine": pineTree(ctx, x, y, s, SNOWPINE, sway * 0.5, "#eef5f8"); break;
+    case "rock": boulder(ctx, x, y, s, "#9a978f", "#5f8a3a", seed); break;
+    case "icerock": boulder(ctx, x, y, s, "#aac2d0", null, seed); break;
+    case "obsidian": boulder(ctx, x, y, s, "#3c3448", null, seed); break;
+    case "crystal": crystal(ctx, x, y, s, time); break;
+    case "deadtree": deadTree(ctx, x, y, s); break;
+    case "vent": vent(ctx, x, y, s, time); break;
+    case "willow": willow(ctx, x, y, s, sway); break;
+    case "mushroom": mushroom(ctx, x, y, s, time); break;
+    case "reeds": reeds(ctx, x, y, s, time); break;
+    case "gravestone": gravestone(ctx, x, y, s, seed); break;
+    case "cairn": cairn(ctx, x, y, s); break;
+    case "boneheap": boneheap(ctx, x, y, s); break;
+    case "obelisk": obelisk(ctx, x, y, s, time); break;
+    case "watchtower": watchtower(ctx, x, y, s, time); break;
+    case "tent": tent(ctx, x, y, s); break;
+    case "banner": banner(ctx, x, y, s, time); break;
+    case "tree": leafyTree(ctx, x, y, s, OAK, sway, seed); break;
+    default: boulder(ctx, x, y, s, "#9a978f", "#5f8a3a", seed);
   }
 };
 
-// ---- running water ---------------------------------------------------
-// A river is drawn like the road is: banks first, then the body, then life —
-// shine ticks that actually travel downstream, so the water reads as moving
-// even from across the room.
+// ---- water ------------------------------------------------------------
 
-const DEFAULT_WATER = { deep: "#3a6478", edge: "#4d7a90", shine: "#7cb4cc" };
+const DEFAULT_WATER = { deep: "#3a6a86", edge: "#5590a8", shine: "#a8d8e8" };
+
+// A drifting glint on the surface.
+const glint = (ctx, x, y, len, ang, col, a) => {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  soft(ctx, 0, 0, len, 1.1, [[0, rgba(col, a)], [1, rgba(col, 0)]]);
+  ctx.restore();
+};
 
 export const drawRiver = (ctx, rv, time, water) => {
   const wa = water || DEFAULT_WATER;
-  const stroke = (width, color) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(rv.pts[0][0], rv.pts[0][1]);
-    for (let i = 1; i < rv.pts.length; i++) ctx.lineTo(rv.pts[i][0], rv.pts[i][1]);
-    ctx.stroke();
-  };
-  stroke(rv.w + 6, INK);
-  stroke(rv.w + 2, wa.edge);
-  stroke(rv.w - 4, wa.deep);
+  const bank = mix(wa.edge, "#6a5a40", 0.5);
+  strokePts(ctx, rv.pts, rv.w + 10, rgba(darken(bank, 0.3), 0.28));
+  strokePts(ctx, rv.pts, rv.w + 4, bank);
+  strokePts(ctx, rv.pts, rv.w, wa.edge);
+  strokePts(ctx, rv.pts, rv.w - 7, wa.deep);
+  strokePts(ctx, rv.pts, rv.w * 0.4, rgba(lighten(wa.deep, 0.18), 0.5));
   ctx.lineWidth = 1;
-  // downstream shine: ticks spaced along the centerline, all drifting the
-  // same way, each with a small lateral wobble so the current braids
+  // the current: glints travelling downstream, braiding side to side
   let total = 0;
   for (const s of rv.segs) total += s.len;
-  const n = Math.max(6, Math.round(total / 26));
+  const n = Math.max(6, Math.round(total / 22));
   for (let i = 0; i < n; i++) {
     const d = ((i / n) * total + time * 22) % total;
     let acc = 0, sx = 0, sy = 0, ang = 0;
@@ -515,495 +406,344 @@ export const drawRiver = (ctx, rv, time, water) => {
       }
       acc += s.len;
     }
-    const side = Math.sin(i * 2.7 + time * 0.9) * (rv.w * 0.26);
+    const side = Math.sin(i * 2.7 + time * 0.9) * (rv.w * 0.28);
     const px = sx + Math.cos(ang + Math.PI / 2) * side;
     const py = sy + Math.sin(ang + Math.PI / 2) * side;
-    ctx.fillStyle = i % 3 === 0 ? wa.shine : wa.edge;
-    // the tick lies along the flow
-    ctx.fillRect(S(px - Math.cos(ang) * 3), S(py - Math.sin(ang) * 3), CELL * 3, CELL);
+    glint(ctx, px, py, 5 + (i % 3) * 2, ang, i % 3 === 0 ? wa.shine : lighten(wa.edge, 0.3), i % 3 === 0 ? 0.55 : 0.35);
   }
 };
 
-// The road's answer to a river: a timber span. Deck planks laid across the
-// roadway, rails along both edges, and heavier piles where it meets the bank.
-const DEFAULT_BRIDGE = { beam: "#4a3018", plank: "#8a6238", plankDk: "#6e4c28", rail: "#5f4326" };
+const DEFAULT_BRIDGE = { beam: "#4a3018", plank: "#8f6a3e", plankDk: "#75512c", rail: "#5f4326" };
 
 export const drawBridge = (ctx, b, time, posAt, angleAt, pal) => {
   const bp = pal || DEFAULT_BRIDGE;
-  const half = 30;     // deck half-width — a shade wider than the road
-  // one dark underslab the length of the span, so gaps between planks read
-  // as shadow and not as water showing through at road height
-  ctx.save();
-  ctx.translate(S(b.x), S(b.y));
-  ctx.rotate(b.a);
+  const half = 35;
   const len = b.d1 - b.d0;
-  ctx.fillStyle = INK;
-  ctx.fillRect(-len / 2 - 3, -half - 3, len + 6, half * 2 + 6);
+  // the span's shadow on the water, then the beams
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.rotate(b.a);
+  soft(ctx, 2, 5, len / 2 + 4, half + 4, [[0, "rgba(20,16,24,0.3)"], [0.8, "rgba(20,16,24,0.18)"], [1, "rgba(20,16,24,0)"]]);
   ctx.fillStyle = bp.beam;
-  ctx.fillRect(-len / 2 - 2, -half - 2, len + 4, half * 2 + 4);
+  roundRect(ctx, -len / 2 - 2, -half - 2, len + 4, half * 2 + 4, 2);
+  ctx.fill();
   ctx.restore();
-  // planks, one by one along the road's true curve through the span
+  // planks along the road's real curve
   for (let d = b.d0 + 2; d < b.d1 - 1; d += 6) {
     const [px, py] = posAt(d);
     const a = angleAt(d);
     ctx.save();
-    ctx.translate(S(px), S(py));
+    ctx.translate(px, py);
     ctx.rotate(a);
     const k = Math.floor(d / 6);
-    ctx.fillStyle = k % 3 === 0 ? bp.plankDk : bp.plank;
-    ctx.fillRect(-2, -half, 4, half * 2);
-    // worn top edge on every other plank
-    if (k % 2 === 0) {
-      ctx.fillStyle = bp.rail;
-      ctx.fillRect(-2, -half + 4, 4, 2);
-    }
+    const col = k % 3 === 0 ? bp.plankDk : bp.plank;
+    const g = ctx.createLinearGradient(-2.5, 0, 2.5, 0);
+    g.addColorStop(0, lighten(col, 0.22)); g.addColorStop(0.5, col); g.addColorStop(1, darken(col, 0.3));
+    ctx.fillStyle = g;
+    roundRect(ctx, -2.6, -half, 5.2, half * 2, 1);
+    ctx.fill();
     ctx.restore();
   }
-  // rails and end-posts — posts spaced wide so the rail reads as a rail,
-  // not as a solid timber wall
+  // rails: posts every few paces, a beam along the top
   for (const side of [-1, 1]) {
+    const railPts = [];
     for (let d = b.d0 + 2; d <= b.d1 - 1; d += 10) {
       const [px, py] = posAt(d);
       const a = angleAt(d) + Math.PI / 2;
-      const rx = px + Math.cos(a) * half * side;
-      const ry = py + Math.sin(a) * half * side;
-      ctx.fillStyle = INK;
-      ctx.fillRect(S(rx) - 1, S(ry) - 4, 4, 6);
-      ctx.fillStyle = bp.rail;
-      ctx.fillRect(S(rx), S(ry) - 3, 2, 4);
+      const rx = px + Math.cos(a) * half * side, ry = py + Math.sin(a) * half * side;
+      cylinder(ctx, rx - 1.4, ry - 6, 2.8, 7, bp.rail, { r: 1 });
+      railPts.push([rx, ry - 5.5]);
     }
-    // piles at both ends, driven into the banks
+    if (railPts.length > 1) strokePts(ctx, railPts, 1.8, lighten(bp.rail, 0.15));
     for (const dEnd of [b.d0, b.d1]) {
       const [px, py] = posAt(dEnd);
       const a = angleAt(dEnd) + Math.PI / 2;
-      const rx = px + Math.cos(a) * half * side;
-      const ry = py + Math.sin(a) * half * side;
-      ctx.fillStyle = INK;
-      ctx.fillRect(S(rx) - 3, S(ry) - 8, 7, 12);
-      ctx.fillStyle = bp.beam;
-      ctx.fillRect(S(rx) - 2, S(ry) - 7, 5, 10);
-      ctx.fillStyle = bp.plank;
-      ctx.fillRect(S(rx) - 2, S(ry) - 7, 2, 10);
+      const rx = px + Math.cos(a) * half * side, ry = py + Math.sin(a) * half * side;
+      cylinder(ctx, rx - 2.5, ry - 8, 5, 11, bp.beam, { r: 1.5 });
     }
   }
 };
 
-// Themed still water. Ice is frozen solid (cracks + glint), lava glows and
-// bubbles, swamp/plain water shimmers.
+// Still water: a wandering shoreline, a lit bank, deep water with a soft
+// inner shadow, and glints drifting across. Ice and lava keep their moods.
 export const drawPond = (ctx, p, time) => {
-  const x = S(p.x), y = S(p.y), w = S(p.w), h = S(p.h);
-  const lx = x - w / 2, ty = y - h / 2;
-
-  // A big pond is a MERE, and a mere gets a real shoreline: an irregular
-  // blob instead of a slab, banks that catch light, shimmer, and reeds where
-  // the water meets the turf. Small ponds keep the classic rectangle.
-  if (p.w >= 80) {
-    const deep = p.t === "swamp" ? "#26382e" : "#39586c";
-    const edge = p.t === "swamp" ? "#35503c" : "#4a7086";
-    const shine = p.t === "swamp" ? "#4d7050" : "#7cacc4";
-    const rx = w / 2, ry = h / 2;
-    ctx.fillStyle = INK;
-    blob(ctx, x, y, rx + 3, ry + 3);
-    // two overlapping lobes so the shore wanders instead of tracing an oval
-    blob(ctx, x - rx * 0.45, y + ry * 0.25, rx * 0.6, ry * 0.7);
-    blob(ctx, x + rx * 0.5, y - ry * 0.2, rx * 0.55, ry * 0.66);
-    ctx.fillStyle = edge;
-    blob(ctx, x, y, rx + 1, ry + 1);
-    blob(ctx, x - rx * 0.45, y + ry * 0.25, rx * 0.58, ry * 0.66);
-    blob(ctx, x + rx * 0.5, y - ry * 0.2, rx * 0.53, ry * 0.62);
-    ctx.fillStyle = deep;
-    blob(ctx, x, y + 1, rx - 2, ry - 2);
-    blob(ctx, x - rx * 0.45, y + ry * 0.25 + 1, rx * 0.5, ry * 0.55);
-    blob(ctx, x + rx * 0.5, y - ry * 0.2 + 1, rx * 0.46, ry * 0.5);
-    // slow shimmer drifting across the surface
-    ctx.fillStyle = shine;
-    for (let i = 0; i < 5; i++) {
-      const sx2 = p.x - rx + 8 + ((time * 6 + i * 41) % Math.max(10, p.w - 20));
-      const sy2 = p.y - ry * 0.5 + i * Math.max(4, (p.h - 12) / 5);
-      ctx.fillRect(S(sx2), S(sy2), CELL * 3, CELL);
+  const x = p.x, y = p.y, rx = p.w / 2, ry = p.h / 2;
+  const seed = Math.round(x * 3 + y);
+  const big = p.w >= 80;
+  const wobble = big ? 0.14 : 0.1;
+  if (p.t === "lava") {
+    blobPath(ctx, x, y, rx + 5, ry + 5, seed, wobble);
+    ctx.fillStyle = "#2a2422"; ctx.fill();
+    blobPath(ctx, x, y, rx, ry, seed, wobble);
+    ctx.fillStyle = "#6a2a20"; ctx.fill();
+    ctx.save(); blobPath(ctx, x, y, rx, ry, seed, wobble); ctx.clip();
+    soft(ctx, x, y, rx * 0.9, ry * 0.9, [[0, "#ffd070"], [0.3, "#f08a3a"], [0.7, "#a03a24"], [1, "rgba(120,40,30,0)"]]);
+    for (let i = 0; i < 4; i++) {
+      const bub = 0.5 + 0.5 * Math.sin(time * 5 + i * 2.1 + x);
+      const bx = x - rx * 0.6 + ((i * 37) % Math.max(8, p.w - 14)), by = y - ry * 0.5 + ((i * 23) % Math.max(4, p.h - 12));
+      ball(ctx, bx, by - bub * 1.5, 2.2, 1.8, "#e8702a", { hi: 0.6, lo: 0.2 });
     }
-    if (p.t === "swamp") {
-      // lilies and a stand of reeds on the near shore
-      ctx.fillStyle = "#5a7a46";
-      ctx.fillRect(S(p.x - rx * 0.4), S(p.y + ry * 0.3), 7, 4);
-      ctx.fillRect(S(p.x + rx * 0.35), S(p.y - ry * 0.25), 6, 4);
-      ctx.fillRect(S(p.x + rx * 0.1), S(p.y + ry * 0.5), 5, 3);
-      ctx.fillStyle = "#6d8c56";
-      ctx.fillRect(S(p.x - rx * 0.4), S(p.y + ry * 0.3), 3, 2);
-      const swy = Math.sin(time * 1.6 + p.x) > 0 ? CELL : 0;
-      ctx.fillStyle = "#56663c";
-      ctx.fillRect(S(p.x - rx * 0.75) + swy, S(p.y - ry * 0.6) - 8, 2, 10);
-      ctx.fillRect(S(p.x - rx * 0.68) + swy, S(p.y - ry * 0.5) - 6, 2, 8);
-      ctx.fillStyle = "#6a4a2e";
-      ctx.fillRect(S(p.x - rx * 0.75) + swy - 1, S(p.y - ry * 0.6) - 12, 4, 5);
-    }
+    ctx.restore();
+    glow(ctx, x, y, rx * 1.3, "#f08a3a", 0.16);
     return;
   }
-
-  const rim = p.t === "lava" ? "#2e2826" : INK;
-  ctx.fillStyle = rim;
-  ctx.fillRect(lx - 2, ty - 2, w + 4, h + 4);
   if (p.t === "ice") {
-    ctx.fillStyle = "#b8d4e0";
-    ctx.fillRect(lx, ty, w, h);
-    ctx.fillStyle = "#cee4ee";
-    ctx.fillRect(lx, ty, w, CELL * 2);
-    ctx.fillStyle = "#e8f4f8";
-    ctx.fillRect(lx + w * 0.2, ty + h * 0.3, w * 0.4, CELL);
-    ctx.fillRect(lx + w * 0.5, ty + h * 0.55, w * 0.3, CELL);
-    ctx.fillRect(lx + w * 0.55, ty + h * 0.3, CELL, h * 0.3);
-    if (Math.sin(time * 2.4 + p.x) > 0.8) {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(lx + w * 0.3, ty + h * 0.4, 3, 3);
-    }
-  } else if (p.t === "lava") {
-    // dark cooled crust ringing a molten heart
-    ctx.fillStyle = "#241f1d";
-    ctx.fillRect(lx - 3, ty - 3, w + 6, h + 6);
-    ctx.fillStyle = "#6a2a20";
-    ctx.fillRect(lx, ty, w, h);
-    ctx.fillStyle = "#8e3a28";
-    ctx.fillRect(lx + 4, ty + 4, w - 8, h - 8);
-    ctx.fillStyle = "#d8763a";
-    for (let i = 0; i < 4; i++) {
-      const bub = Math.sin(time * 5 + i * 2.1 + p.x) > 0.2 ? CELL : 0;
-      const bx = lx + 6 + ((i * 37) % Math.max(8, w - 14));
-      const by = ty + 5 + ((i * 23) % Math.max(4, h - 12));
-      ctx.fillRect(S(bx), S(by) - bub, CELL + 1, CELL + 1);
-    }
-    ctx.fillStyle = "#e8c14a";
-    ctx.fillRect(S(lx + w / 2 + Math.sin(time * 2.2 + p.x) * w * 0.2), S(y), CELL, CELL);
-    // faint heat shimmer above the crust
-    ctx.fillStyle = "rgba(240,140,60,0.12)";
-    ctx.fillRect(lx - 4, ty - 6, w + 8, h + 8);
-  } else {
-    const deep = p.t === "swamp" ? "#2c4638" : "#4a7a94";
-    const edge = p.t === "swamp" ? "#3a563f" : "#5f92ac";
-    const shine = p.t === "swamp" ? "#527a58" : "#8cc4d8";
-    ctx.fillStyle = deep;
-    ctx.fillRect(lx, ty, w, h);
-    ctx.fillStyle = edge;
-    ctx.fillRect(lx, ty, w, CELL * 2);
-    ctx.fillStyle = shine;
-    for (let i = 0; i < 3; i++) {
-      const sx2 = p.x - p.w / 2 + 6 + ((time * 9 + i * 23) % Math.max(8, p.w - 14));
-      const sy2 = p.y - p.h / 2 + 5 + i * Math.max(4, (p.h - 10) / 3);
-      ctx.fillRect(S(sx2), S(sy2), CELL * 3, CELL);
-    }
-    if (p.t === "swamp") {
-      // lily pads
-      ctx.fillStyle = "#5a7a46";
-      ctx.fillRect(S(p.x - p.w * 0.28), S(p.y + p.h * 0.12), 7, 4);
-      ctx.fillRect(S(p.x + p.w * 0.18), S(p.y - p.h * 0.18), 6, 4);
-      ctx.fillStyle = "#6d8c56";
-      ctx.fillRect(S(p.x - p.w * 0.28), S(p.y + p.h * 0.12), 3, 2);
+    blobPath(ctx, x, y, rx + 3, ry + 3, seed, wobble);
+    ctx.fillStyle = "#9fb8c6"; ctx.fill();
+    blobPath(ctx, x, y, rx, ry, seed, wobble);
+    const g = ctx.createLinearGradient(x - rx, y - ry, x + rx, y + ry);
+    g.addColorStop(0, "#e4f2f8"); g.addColorStop(0.5, "#c2dbe6"); g.addColorStop(1, "#9cbccb");
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.lineWidth = 1;
+    ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x - rx * 0.5, y + ry * 0.2); ctx.lineTo(x - rx * 0.1, y - ry * 0.1); ctx.lineTo(x + rx * 0.35, y + ry * 0.3); ctx.stroke();
+    if (Math.sin(time * 2.4 + p.x) > 0.8) glow(ctx, x - rx * 0.2, y - ry * 0.1, 5, "#ffffff", 0.9);
+    return;
+  }
+  const swamp = p.t === "swamp";
+  const deep = swamp ? "#2c4a3c" : "#3a6c88";
+  const edge = swamp ? "#3d5c44" : "#5896ad";
+  const shine = swamp ? "#7aa078" : "#b0e0ee";
+  const bank = swamp ? "#4f5a3c" : "#8a7a58";
+  // the bank: a soft dark ring on the turf, a lit lip on the far side
+  ctx.save(); ctx.translate(2, 3);
+  blobPath(ctx, x, y, rx + 6, ry + 5, seed, wobble);
+  ctx.fillStyle = "rgba(30,22,30,0.22)"; ctx.fill();
+  ctx.restore();
+  blobPath(ctx, x, y, rx + 4, ry + 3.5, seed, wobble);
+  ctx.fillStyle = bank; ctx.fill();
+  blobPath(ctx, x, y, rx, ry, seed, wobble);
+  ctx.fillStyle = edge; ctx.fill();
+  ctx.save();
+  blobPath(ctx, x, y, rx, ry, seed, wobble);
+  ctx.clip();
+  soft(ctx, x, y + ry * 0.1, rx * 0.95, ry * 0.9, [[0, deep], [0.75, deep], [1, rgba(edge, 0)]]);
+  // the bank throws its shadow onto the near water
+  soft(ctx, x - rx * 0.2, y - ry * 0.9, rx * 1.1, ry * 0.55, [[0, "rgba(20,24,30,0.32)"], [1, "rgba(20,24,30,0)"]]);
+  // sky in the water: a pale sheen toward the sun
+  soft(ctx, x - rx * 0.3, y - ry * 0.2, rx * 0.55, ry * 0.4, [[0, rgba(shine, 0.22)], [1, rgba(shine, 0)]]);
+  const nG = big ? 7 : 3;
+  for (let i = 0; i < nG; i++) {
+    const gx = x - rx + 8 + ((time * 6 + i * 41) % Math.max(10, p.w - 16));
+    const gy = y - ry * 0.55 + i * Math.max(4, (p.h - 10) / nG);
+    glint(ctx, gx, gy, 4 + (i % 3) * 2, 0.05, shine, 0.5);
+  }
+  if (swamp) {
+    for (const [dx, dy, r] of [[-0.4, 0.3, 3.4], [0.35, -0.25, 3], [0.1, 0.5, 2.5]]) {
+      ball(ctx, x + rx * dx, y + ry * dy, r, r * 0.7, "#5f8a48", { hi: 0.4, lo: 0.3 });
     }
   }
+  ctx.restore();
+  if (swamp || big) reeds(ctx, x - rx * 0.72, y - ry * 0.55, 0.9, time);
 };
+
+// ---- the castle -------------------------------------------------------
 
 export const drawCastle = (ctx, time, hpPct) => {
   const [ex, ey] = PTS[PTS.length - 1];
-  // the gatehouse is 90 wide now — keep its far tower on the board
-  const x = S(Math.min(ex + 6, W - 46)), y = S(ey);
+  const x = Math.min(ex + 6, W - 46), y = ey;
   const hurt = hpPct < 0.75, bad = hpPct < 0.5, dire = hpPct < 0.25;
+  const S1 = CASTLE_STONE;
 
-  ctx.fillStyle = "rgba(20,20,26,0.32)";
-  ctx.fillRect(x - 40, y + 24, 80, 6);
+  shadow(ctx, x + 10, y + 26, 52, 9, 0.34);
 
-  // ---- curtain wall between the towers
-  ctx.fillStyle = INK;
-  ctx.fillRect(x - 26, y - 34, 52, 62);
-  blocks(ctx, x - 24, y - 32, 48, 58, CASTLE_STONE);
-
-  // ---- the gate arch, recessed and dark
-  ctx.fillStyle = INK;
-  ctx.fillRect(x - 13, y - 12, 26, 40);
-  ctx.fillStyle = "#231c14";
-  ctx.fillRect(x - 11, y - 10, 22, 38);
-  for (let i = 0; i < 5; i++) {           // arched head
-    const w = 11 - i * 2;
-    ctx.fillRect(x - w, y - 12 - i, w * 2, 1);
-  }
-  // portcullis, raised just enough to let the road through
-  ctx.fillStyle = "#6c727e";
-  for (let i = -9; i <= 9; i += 4) ctx.fillRect(x + i, y - 12, 2, 16);
-  for (let j = 0; j < 3; j++) ctx.fillRect(x - 10, y - 10 + j * 6, 20, 2);
-  ctx.fillStyle = "#8f95a2";
-  for (let i = -9; i <= 9; i += 4) ctx.fillRect(x + i, y - 12, 1, 16);
-
-  // ---- crenellations along the wall head
-  ctx.fillStyle = INK;
-  ctx.fillRect(x - 27, y - 41, 54, 9);
+  // curtain wall
+  masonry(ctx, x - 24, y - 32, 48, 58, S1, { course: 6, block: 12, r: 2 });
+  // crenellations
   for (let i = 0; i < 5; i++) {
     const cx2 = x - 24 + i * 11;
-    if (bad && i === 1) { blocks(ctx, cx2, y - 36, 8, 4, CASTLE_STONE); continue; }
-    if (dire && i === 3) continue;         // blown clean off
-    blocks(ctx, cx2, y - 40, 8, 8, CASTLE_STONE);
+    if (dire && i === 3) continue;
+    const h = bad && i === 1 ? 4 : 8;
+    cylinder(ctx, cx2, y - 32 - h, 8, h + 2, S1, { r: 1.5, hi: 0.3, lo: 0.4 });
   }
+  // gate arch, recessed and dark
+  ctx.beginPath();
+  ctx.moveTo(x - 12, y + 26);
+  ctx.lineTo(x - 12, y - 10);
+  ctx.arc(x, y - 10, 12, Math.PI, 0);
+  ctx.lineTo(x + 12, y + 26);
+  ctx.closePath();
+  const gg = ctx.createLinearGradient(0, y - 22, 0, y + 26);
+  gg.addColorStop(0, "#1a1418"); gg.addColorStop(1, "#3a2c22");
+  ctx.fillStyle = gg; ctx.fill();
+  ctx.strokeStyle = rgba(darken(S1, 0.5), 0.5);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // portcullis
+  ctx.strokeStyle = "#7c828e";
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = "round";
+  for (let i = -9; i <= 9; i += 4.5) { ctx.beginPath(); ctx.moveTo(x + i, y - 16); ctx.lineTo(x + i, y); ctx.stroke(); }
+  for (let j = 0; j < 3; j++) { ctx.beginPath(); ctx.moveTo(x - 10, y - 12 + j * 6); ctx.lineTo(x + 10, y - 12 + j * 6); ctx.stroke(); }
 
-  // ---- flanking towers, each with a conical roof
+  // flanking towers: round, capped
   for (const sgn of [-1, 1]) {
     const tx = x + sgn * 32;
-    ctx.fillStyle = INK;
-    ctx.fillRect(tx - 12, y - 30, 24, 58);
-    blocks(ctx, tx - 10, y - 28, 20, 54, CASTLE_STONE);
+    masonry(ctx, tx - 10, y - 28, 20, 54, S1, { course: 6, block: 9, r: 4 });
+    // machicolation course
+    cylinder(ctx, tx - 12, y - 33, 24, 4, lighten(S1, 0.1), { r: 1.5, hi: 0.35, lo: 0.4 });
     // arrow slit
-    ctx.fillStyle = INK;
-    ctx.fillRect(tx - 2, y - 18, 4, 11);
-    ctx.fillStyle = pulseWindow(time, sgn) && !dire ? "#e8d47a" : "#2a2a30";
-    ctx.fillRect(tx - 1, y - 16, 2, 7);
-    // machicolation course under the roof
-    ctx.fillStyle = INK;
-    ctx.fillRect(tx - 13, y - 34, 26, 5);
-    ctx.fillStyle = CASTLE_STONE.lit;
-    ctx.fillRect(tx - 12, y - 33, 24, 3);
-    ctx.fillStyle = CASTLE_STONE.mortar;
-    for (let i = -10; i < 12; i += 4) ctx.fillRect(tx + i, y - 33, 1, 3);
+    ctx.fillStyle = "#2a2430";
+    roundRect(ctx, tx - 1.6, y - 18, 3.2, 11, 1.4); ctx.fill();
+    if (Math.sin(time * 1.9 + sgn * 2) > -0.5 && !dire) glow(ctx, tx, y - 13, 4, "#ffd070", 0.8);
     // conical roof
-    const roof = dire ? "#4a3a30" : "#7c3f4a";
-    const roofLt = dire ? "#5a473a" : "#96505c";
-    for (let i = 0; i < 7; i++) {
-      const w = 13 - i * 2;
-      if (w <= 0) break;
-      ctx.fillStyle = INK;
-      ctx.fillRect(tx - w - 1, y - 36 - i * 3 - 1, w * 2 + 2, 4);
-      ctx.fillStyle = i === 0 ? roofLt : roof;
-      ctx.fillRect(tx - w, y - 36 - i * 3, w * 2, 3);
-      ctx.fillStyle = "rgba(20,20,26,0.25)";
-      for (let sx2 = tx - w + (i % 2 ? 1 : 3); sx2 < tx + w - 1; sx2 += 5) ctx.fillRect(sx2, y - 36 - i * 3, 1, 2);
-    }
-    // pennant on each turret
-    const wv = Math.round(Math.sin(time * 5 + sgn)) * CELL;
-    ctx.fillStyle = "#5f4326";
-    ctx.fillRect(tx - 1, y - 66, 2, 12);
+    cone(ctx, tx, y - 55, 14, 22, dire ? "#4a3a30" : ROOF, { scallops: 3, sag: 2, hi: 0.4, lo: 0.5 });
+    ball(ctx, tx, y - 55, 1.8, 1.8, "#d8b34a", { hi: 0.5, lo: 0.3 });
+    // pennant
+    cylinder(ctx, tx - 0.8, y - 68, 1.6, 13, "#6a4a2e", { r: 0.8 });
     if (!dire) {
-      ctx.fillStyle = "#d8b34a";
-      ctx.fillRect(tx + 1, y - 66, 7 + wv, 3);
-      ctx.fillRect(tx + 1, y - 63, 5 + wv, 2);
+      const wv = Math.sin(time * 5 + sgn) * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(tx + 0.8, y - 68);
+      ctx.quadraticCurveTo(tx + 5, y - 68.5 + wv, tx + 9 + wv, y - 66.5);
+      ctx.quadraticCurveTo(tx + 5, y - 64 + wv, tx + 0.8, y - 63);
+      ctx.closePath();
+      ctx.fillStyle = "#e0bb48"; ctx.fill();
     }
   }
 
-  // ---- battle damage: cracks, then rubble at the foot
+  // damage: cracks, then rubble at the foot
   if (hurt) {
-    ctx.fillStyle = "#3a352c";
-    ctx.fillRect(x - 16, y - 30, 2, 9); ctx.fillRect(x - 14, y - 21, 2, 7);
-    ctx.fillRect(x - 17, y - 14, 2, 6); ctx.fillRect(x + 14, y - 6, 2, 9);
+    ctx.strokeStyle = "rgba(40,32,28,0.6)";
+    ctx.lineWidth = 1.4;
+    ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x - 16, y - 30); ctx.lineTo(x - 14, y - 21); ctx.lineTo(x - 17, y - 14); ctx.lineTo(x - 15, y - 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + 14, y - 6); ctx.lineTo(x + 16, y + 3); ctx.stroke();
   }
   if (bad) {
-    ctx.fillStyle = "#3a352c";
-    ctx.fillRect(x + 4, y - 32, 2, 13); ctx.fillRect(x + 1, y - 19, 2, 10); ctx.fillRect(x + 6, y - 9, 2, 12);
-    ctx.fillStyle = CASTLE_STONE.shade;
-    ctx.fillRect(x - 30, y + 22, 7, 5); ctx.fillRect(x + 20, y + 23, 6, 4);
-    ctx.fillRect(x - 22, y + 25, 4, 3);
+    ctx.strokeStyle = "rgba(40,32,28,0.65)";
+    ctx.beginPath(); ctx.moveTo(x + 4, y - 32); ctx.lineTo(x + 1, y - 19); ctx.lineTo(x + 6, y - 9); ctx.lineTo(x + 3, y + 3); ctx.stroke();
+    for (const [dx, dy, r] of [[-30, 23, 3.5], [21, 24, 3], [-22, 26, 2], [26, 27, 2.2]]) ball(ctx, x + dx, y + dy, r, r * 0.75, darken(S1, 0.15), { hi: 0.4, lo: 0.45 });
   }
-  // smoke, then fire
   if (bad) {
     for (let i = 0; i < 3; i++) {
       const prog = ((time * 20 + i * 14) % 42) / 42;
-      ctx.fillStyle = `rgba(110,108,104,${(1 - prog) * 0.45})`;
-      const smx = S(x - 10 + i * 12 + Math.sin(time * 2 + i * 3) * 4);
-      ctx.beginPath(); ctx.arc(smx, S(y - 46 - prog * 30), 4 + prog * 5, 0, 7); ctx.fill();
+      const smx = x - 10 + i * 12 + Math.sin(time * 2 + i * 3) * 4;
+      soft(ctx, smx, y - 46 - prog * 30, 4 + prog * 7, 4 + prog * 6, [[0, `rgba(120,116,112,${(1 - prog) * 0.5})`], [1, "rgba(120,116,112,0)"]]);
     }
   }
   if (dire) {
     for (let i = 0; i < 3; i++) {
       const fx = x - 16 + i * 16;
-      const fl = Math.sin(time * 14 + i * 2) > 0 ? 4 : 0;
-      ctx.fillStyle = "#d8763a";
-      ctx.fillRect(fx - 3, y - 42 - fl, 6, 9 + fl);
-      ctx.fillStyle = "#e8d47a";
-      ctx.fillRect(fx - 1, y - 38 - fl, 2, 5 + fl);
+      const fl = 0.5 + 0.5 * Math.sin(time * 14 + i * 2);
+      soft(ctx, fx, y - 40 - fl * 3, 4.5, 7 + fl * 4, [[0, "#ffe08a"], [0.35, "#f0903a"], [0.8, "rgba(200,60,30,0.7)"], [1, "rgba(200,60,30,0)"]], 0, 0.3);
     }
   }
 
-  // ---- the great banner over the gate
-  ctx.fillStyle = "#5f4326";
-  ctx.fillRect(x - 1, y - 62, 2, 20);
+  // the great banner over the gate
+  cylinder(ctx, x - 1, y - 62, 2, 20, "#6a4a2e", { r: 1 });
   if (!dire) {
-    const wave = Math.round(Math.sin(time * 5)) * CELL;
-    ctx.fillStyle = "#d8b34a";
-    if (bad) {
-      ctx.fillRect(x - 10 - wave, y - 62, 10, 4);
-      ctx.fillRect(x - 7 - wave, y - 58, 7, 3);
-    } else {
-      ctx.fillRect(x - 16 - wave, y - 62, 16, 5);
-      ctx.fillRect(x - 12 - wave, y - 57, 12, 4);
-      ctx.fillStyle = "#8a6f28";
-      ctx.fillRect(x - 12 - wave, y - 60, 8, 2);
-    }
+    const wave = Math.sin(time * 5) * 1.6;
+    const bw = bad ? 10 : 16, bh = bad ? 6 : 9;
+    ctx.beginPath();
+    ctx.moveTo(x - 1, y - 62);
+    ctx.quadraticCurveTo(x - bw * 0.5, y - 63 - wave, x - bw - wave, y - 61);
+    ctx.lineTo(x - bw * 0.7 - wave, y - 62 + bh * 0.55);
+    ctx.lineTo(x - bw - wave, y - 62 + bh);
+    ctx.quadraticCurveTo(x - bw * 0.5, y - 61 + bh - wave, x - 1, y - 62 + bh);
+    ctx.closePath();
+    const bg = ctx.createLinearGradient(x - bw, 0, x, 0);
+    bg.addColorStop(0, "#c89a34"); bg.addColorStop(1, "#ecc95a");
+    ctx.fillStyle = bg; ctx.fill();
+    if (!bad) ball(ctx, x - 8, y - 57.5, 2.2, 2.2, "#7c3f4a", { hi: 0.4, lo: 0.3 });
   }
 };
 
+// ---- the enemy's gate -------------------------------------------------
 
-// Where the enemies come from. Each realm names its own — the Greenwood has
-// them shoulder their way out of a thicket, the Hollowfen out of the ground.
 export const drawSpawn = (ctx, time, kind) => {
   if (kind === "grove") drawGrove(ctx, time);
   else if (kind === "barrow") drawBarrow(ctx, time);
   else drawCave(ctx, time);
 };
 
-// A great burial mound with its doorway stones pushed open. Turf grows over
-// the top; the doorway is framed by two uprights and a lintel, and the dark
-// behind them breathes witch-light instead of eyes.
-export const drawBarrow = (ctx, time) => {
-  const [psx, psy] = PTS[0];
-  const sx = S(psx), sy = S(psy);
-  ctx.fillStyle = "rgba(20,20,26,0.32)";
-  ctx.fillRect(sx - 38, sy + 24, 76, 5);
-  // the mound: turf-grown dome in the fen's own greens
-  ctx.fillStyle = INK;
-  for (let i = 0; i < 8; i++) {
-    const wRow = 38 - i * 4.6;
-    ctx.fillRect(S(sx - wRow) - 2, sy + 26 - (i + 1) * 6, S(wRow * 2) + 4, 7);
-  }
-  for (let i = 0; i < 8; i++) {
-    const wRow = 36 - i * 4.6;
-    if (wRow <= 0) break;
-    ctx.fillStyle = i > 4 ? "#4a5142" : "#3e4438";
-    ctx.fillRect(S(sx - wRow), sy + 26 - (i + 1) * 6, S(wRow * 2), 6);
-  }
-  // patchy turf and one stubborn wildflower up top
-  ctx.fillStyle = "#4a5142";
-  ctx.fillRect(sx - 20, sy - 8, 9, 3);
-  ctx.fillRect(sx + 10, sy - 2, 11, 3);
-  ctx.fillStyle = "#9a8ec4";
-  ctx.fillRect(sx + 3, sy - 19, 2, 2);
-  // doorway: uprights, lintel, and the dark
-  ctx.fillStyle = INK;
-  ctx.fillRect(sx - 15, sy - 6, 30, 32);
-  ctx.fillStyle = "#767060";
-  ctx.fillRect(sx - 14, sy - 4, 5, 30);
-  ctx.fillRect(sx + 9, sy - 4, 5, 30);
-  ctx.fillStyle = "#8a8478";
-  ctx.fillRect(sx - 14, sy - 4, 2, 30);
-  ctx.fillRect(sx + 9, sy - 4, 2, 30);
-  ctx.fillStyle = "#55504a";
-  ctx.fillRect(sx - 16, sy - 8, 32, 5);
-  ctx.fillStyle = "#8a8478";
-  ctx.fillRect(sx - 16, sy - 8, 32, 2);
-  // the dark within, and the light that should not be in it
-  ctx.fillStyle = "#14100c";
-  ctx.fillRect(sx - 9, sy - 3, 18, 29);
-  const breathe = 0.4 + 0.3 * Math.sin(time * 1.3);
-  ctx.fillStyle = `rgba(124,224,184,${breathe * 0.25})`;
-  ctx.fillRect(sx - 9, sy + 10, 18, 16);
+const eyes = (ctx, sx, sy, time, col) => {
   if (Math.sin(time * 1.1) > -0.8) {
-    ctx.fillStyle = Math.sin(time * 5) > 0 ? "#7ce0b8" : "#4a8a70";
-    ctx.fillRect(sx - 5, sy + 2, 3, 3);
-    ctx.fillRect(sx + 3, sy + 2, 3, 3);
+    const a = Math.sin(time * 5) > 0 ? 0.95 : 0.5;
+    glow(ctx, sx - 5, sy - 1, 3, col, a);
+    glow(ctx, sx + 5, sy - 1, 3, col, a);
   }
-  // the doorway stones, shoved aside when the dead first walked out
-  ctx.fillStyle = INK;
-  ctx.fillRect(sx - 33, sy + 14, 12, 12);
-  ctx.fillStyle = "#767060";
-  ctx.fillRect(sx - 32, sy + 15, 10, 10);
-  ctx.fillStyle = "#8a8478";
-  ctx.fillRect(sx - 32, sy + 15, 4, 10);
-  ctx.fillStyle = INK;
-  ctx.fillRect(sx + 22, sy + 18, 10, 8);
-  ctx.fillStyle = "#6e6859";
-  ctx.fillRect(sx + 23, sy + 19, 8, 6);
-  // bone-dust spilling out of the mouth onto the road
-  ctx.fillStyle = "#b0a88e";
-  ctx.fillRect(sx - 8, sy + 24, 6, 2);
-  ctx.fillRect(sx + 3, sy + 26, 8, 2);
 };
 
-// A wall of old trees with a dark track worn through it. The canopy is drawn
-// in two depths so the gap reads as a tunnel, and the leaves rustle where
-// something is pushing through.
+// A burial mound with its doorway stones pushed open.
+export const drawBarrow = (ctx, time) => {
+  const [sx, sy] = PTS[0];
+  shadow(ctx, sx + 6, sy + 26, 40, 7, 0.32);
+  ball(ctx, sx, sy + 4, 38, 24, "#48503f", { hi: 0.35, lo: 0.5, fy: -0.7 });
+  soft(ctx, sx - 12, sy - 8, 14, 5, [[0, "rgba(90,104,76,0.6)"], [1, "rgba(90,104,76,0)"]]);
+  soft(ctx, sx + 14, sy - 2, 12, 4, [[0, "rgba(90,104,76,0.5)"], [1, "rgba(90,104,76,0)"]]);
+  ball(ctx, sx + 4, sy - 19, 1.4, 1.4, "#9a8ec4", { hi: 0.3, lo: 0.2 });
+  // doorway
+  ctx.fillStyle = "#14100c";
+  roundRect(ctx, sx - 10, sy - 4, 20, 30, 2); ctx.fill();
+  const breathe = 0.4 + 0.3 * Math.sin(time * 1.3);
+  glow(ctx, sx, sy + 16, 12, "#7ce0b8", breathe * 0.3);
+  cylinder(ctx, sx - 15, sy - 4, 5.5, 30, "#7d7666", { r: 1.5 });
+  cylinder(ctx, sx + 9.5, sy - 4, 5.5, 30, "#7d7666", { r: 1.5 });
+  cylinder(ctx, sx - 17, sy - 9, 34, 6, "#8a8478", { r: 2, hi: 0.3, lo: 0.35 });
+  eyes(ctx, sx, sy + 3, time, "#7ce0b8");
+  ball(ctx, sx - 27, sy + 21, 6, 5, "#7d7666", { hi: 0.4, lo: 0.5 });
+  ball(ctx, sx + 27, sy + 23, 5, 3.5, "#6e6859", { hi: 0.4, lo: 0.5 });
+  soft(ctx, sx - 2, sy + 26, 10, 2.5, [[0, "rgba(190,180,150,0.6)"], [1, "rgba(190,180,150,0)"]]);
+};
+
+// A wall of old trees with a dark track worn through it.
 export const drawGrove = (ctx, time) => {
-  const [psx, psy] = PTS[0];
-  const sx = S(psx), sy = S(psy);
-  ctx.fillStyle = "rgba(20,20,26,0.32)";
-  ctx.fillRect(sx - 40, sy + 22, 80, 5);
-
+  const [sx, sy] = PTS[0];
+  shadow(ctx, sx + 6, sy + 24, 44, 8, 0.34);
   // the dark of the wood behind the gap
-  ctx.fillStyle = "#14180f";
-  ctx.fillRect(sx - 20, sy - 20, 40, 44);
-  ctx.fillStyle = "#0d1009";
-  ctx.fillRect(sx - 14, sy - 14, 28, 38);
-
+  soft(ctx, sx, sy - 2, 24, 30, [[0, "#0a0d08"], [0.5, "#121a0e"], [1, "rgba(18,26,14,0)"]]);
   // trunks either side of the track
   for (const sgn of [-1, 1]) {
-    trunk(ctx, sx + sgn * 22, sy - 6, 30, 7, "#4a3524", "#5f4630", "#2e2116");
-    trunk(ctx, sx + sgn * 34, sy - 2, 26, 5, "#42301f", "#55402a", "#281c12");
+    cylinder(ctx, sx + sgn * 22 - 3.5, sy - 8, 7, 32, "#4d3826", { r: 3, hi: 0.3, lo: 0.6 });
+    cylinder(ctx, sx + sgn * 34 - 2.5, sy - 4, 5, 28, "#43301f", { r: 2, hi: 0.3, lo: 0.6 });
   }
-
-  // canopy: a back row in near-black, a front row in the realm's greens, with
-  // the middle left open so the road disappears into shadow
+  const dark = "#2a4022", leaf = OAK.leaf;
   const back = [[-34, -26, 15], [-14, -32, 13], [14, -32, 13], [34, -26, 15]];
-  for (const [ox, oy, r] of back) {
-    ctx.fillStyle = INK;
-    blob(ctx, sx + ox, sy + oy, r + 1, r * 0.8 + 1);
-    ctx.fillStyle = "#2a3a22";
-    blob(ctx, sx + ox, sy + oy, r, r * 0.8);
-  }
+  for (const [ox, oy, r] of back) ball(ctx, sx + ox, sy + oy, r, r * 0.8, dark, { hi: 0.25, lo: 0.4 });
   const front = [[-40, -14, 14], [-26, -20, 15], [26, -20, 15], [40, -14, 14], [0, -38, 16]];
-  for (const [ox, oy, r] of front) {
-    const sway = Math.round(Math.sin(time * 0.9 + ox * 0.2) * 1.5);
-    ctx.fillStyle = INK;
-    blob(ctx, sx + ox + sway, sy + oy, r + 1, r * 0.78 + 1);
-    ctx.fillStyle = "#3f5c30";
-    blob(ctx, sx + ox + sway, sy + oy, r, r * 0.78);
-    ctx.fillStyle = "#4f7038";
-    blob(ctx, sx + ox + sway - Math.round(r * 0.3), sy + oy - Math.round(r * 0.35), r * 0.5, r * 0.24);
-  }
-
+  front.forEach(([ox, oy, r], i) => {
+    const sway = Math.sin(time * 0.9 + ox * 0.2) * 1.5;
+    ball(ctx, sx + ox + sway, sy + oy, r, r * 0.8, darken(leaf, 0.15), { hi: 0.5, lo: 0.5 });
+    for (let k = 0; k < 4; k++) {
+      const a = hash(i, k) * Math.PI * 2;
+      const sunny = (Math.cos(a) * SUN.x + Math.sin(a) * SUN.y) > 0.1;
+      ball(ctx, sx + ox + sway + Math.cos(a) * r * 0.55, sy + oy + Math.sin(a) * r * 0.45, 2.6, 2.2, sunny ? lighten(leaf, 0.15) : darken(leaf, 0.3), { hi: 0.4, lo: 0.3 });
+    }
+  });
   // leaves shaken loose where something is coming through
   for (let i = 0; i < 4; i++) {
     const t2 = (time * 14 + i * 9) % 34;
-    const lx = sx - 16 + ((i * 11) % 32);
-    ctx.fillStyle = i % 2 ? "#4f7038" : "#6a8a3e";
-    ctx.fillRect(S(lx + Math.sin(time * 2 + i) * 4), S(sy - 24 + t2), 2, 2);
+    const lx = sx - 16 + ((i * 11) % 32) + Math.sin(time * 2 + i) * 4;
+    ball(ctx, lx, sy - 24 + t2, 1.4, 1, i % 2 ? "#5f8a3a" : "#8fb04a", { hi: 0.3, lo: 0.2 });
   }
-  // eyes in the dark
-  if (Math.sin(time * 1.1) > -0.8) {
-    ctx.fillStyle = Math.sin(time * 5) > 0 ? "#e05248" : "#a03a32";
-    ctx.fillRect(sx - 6, sy - 2, 3, 3);
-    ctx.fillRect(sx + 4, sy - 2, 3, 3);
-  }
-  // trampled ground at the mouth
-  ctx.fillStyle = "#5a4a30";
-  ctx.fillRect(sx - 16, sy + 20, 10, 3);
-  ctx.fillRect(sx + 4, sy + 22, 12, 3);
+  eyes(ctx, sx, sy - 1, time, "#e05248");
+  soft(ctx, sx - 6, sy + 21, 12, 3, [[0, "rgba(90,74,48,0.6)"], [1, "rgba(90,74,48,0)"]]);
+  soft(ctx, sx + 10, sy + 23, 10, 2.5, [[0, "rgba(90,74,48,0.5)"], [1, "rgba(90,74,48,0)"]]);
 };
 
 export const drawCave = (ctx, time) => {
-  const [psx, psy] = PTS[0];
-  const sx = S(psx), sy = S(psy);
-  ctx.fillStyle = "rgba(20,20,26,0.3)";
-  ctx.fillRect(sx - 36, sy + 24, 72, 4);
-  ctx.fillStyle = INK;
-  for (let i = 0; i < 8; i++) {
-    const wRow = 38 - i * 4;
-    ctx.fillRect(sx - wRow - 1, sy + 26 - (i + 1) * 7, wRow * 2 + 2, 8);
-  }
-  for (let i = 0; i < 8; i++) {
-    const wRow = 36 - i * 4;
-    if (wRow <= 0) break;
-    ctx.fillStyle = i > 4 ? "#4f6340" : "#6a6152";
-    ctx.fillRect(sx - wRow, sy + 26 - (i + 1) * 7, wRow * 2, 7);
-  }
-  ctx.fillStyle = "#7a7264";
-  ctx.fillRect(sx - 30, sy + 4, 10, 8);
-  ctx.fillRect(sx + 20, sy - 2, 8, 8);
-  ctx.fillStyle = "#14100c";
-  for (let i = 0; i < 6; i++) {
-    const wRow = 17 - i * 2;
-    ctx.fillRect(sx - wRow, sy + 26 - (i + 1) * 7, wRow * 2, 8);
-  }
-  ctx.fillStyle = "#8a8272";
+  const [sx, sy] = PTS[0];
+  shadow(ctx, sx + 6, sy + 26, 38, 6, 0.3);
+  ball(ctx, sx, sy + 2, 37, 26, "#6d6556", { hi: 0.35, lo: 0.55, fy: -0.7 });
+  soft(ctx, sx - 10, sy - 14, 18, 7, [[0, "rgba(96,120,72,0.6)"], [1, "rgba(96,120,72,0)"]]);
+  ball(ctx, sx - 25, sy + 8, 6, 4.5, "#7d7566", { hi: 0.4, lo: 0.5 });
+  ball(ctx, sx + 24, sy + 2, 5, 4.5, "#7d7566", { hi: 0.4, lo: 0.5 });
+  // the mouth
+  ctx.beginPath();
+  ctx.moveTo(sx - 17, sy + 26);
+  ctx.quadraticCurveTo(sx - 18, sy - 8, sx, sy - 14);
+  ctx.quadraticCurveTo(sx + 18, sy - 8, sx + 17, sy + 26);
+  ctx.closePath();
+  const mg = ctx.createLinearGradient(0, sy - 14, 0, sy + 26);
+  mg.addColorStop(0, "#0e0b09"); mg.addColorStop(1, "#241c16");
+  ctx.fillStyle = mg; ctx.fill();
   const rim = [[-19, 4], [-17, -6], [-9, -13], [1, -16], [10, -12], [17, -5], [19, 4]];
-  for (const [rx, ry] of rim) ctx.fillRect(S(sx + rx) - 3, S(sy + ry) - 2, 7, 5);
-  if (Math.sin(time * 1.1) > -0.8) {
-    ctx.fillStyle = Math.sin(time * 5) > 0 ? "#e05248" : "#a03a32";
-    ctx.fillRect(sx - 6, sy, 3, 3);
-    ctx.fillRect(sx + 4, sy, 3, 3);
-  }
-  ctx.fillStyle = "#e0d6ba";
-  ctx.fillRect(sx - 26, sy + 20, 8, 2);
-  ctx.fillRect(sx + 19, sy + 22, 8, 2);
-  ctx.fillRect(sx + 21, sy + 25, 4, 4);
+  for (const [rx, ry] of rim) ball(ctx, sx + rx, sy + ry, 4, 3, "#8a8272", { hi: 0.45, lo: 0.5 });
+  eyes(ctx, sx, sy + 1, time, "#e05248");
+  for (const [bx, by, r] of [[-22, 21, 4], [23, 23, 4], [23, 27, 2.2]]) ball(ctx, sx + bx, sy + by, r, r * 0.55, "#e0d6ba", { hi: 0.3, lo: 0.3 });
 };
+
+// Re-export the odd helper the render lab likes to borrow.
+export { tuft };

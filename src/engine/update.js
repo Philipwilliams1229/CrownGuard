@@ -4,7 +4,7 @@
 // clears, the build-phase auto-start horn, and effect/shake decay.
 // `dt` is the raw (already clamped) seconds since the last frame.
 
-import { PATH_HALF, RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED } from "../data/constants.js";
+import { RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED, pickLane } from "../data/constants.js";
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
@@ -29,7 +29,7 @@ const makeEnemy = (type, mult) => {
     // troll. The purse now follows the meat, at a quarter of its rate.
     bounty: Math.max(1, Math.round(d.bounty * (1 + Math.max(0, mult - 1) * 0.25))),
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
-    lane: d.boss ? 0 : (Math.random() - 0.5) * PATH_HALF * 1.15,
+    lane: pickLane(d.boss),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
     flying: !!d.flying, guard: d.guard || 0, guardFlash: 0,
     immSlow: !!d.immSlow, immStun: !!d.immStun,
@@ -60,7 +60,7 @@ const makeEnemy = (type, mult) => {
 const spawnAt = (g, type, mult, dist, tms) => {
   const u = makeEnemy(type, mult);
   u.dist = Math.max(0, dist);
-  u.lane = (Math.random() - 0.5) * PATH_HALF * 1.15;
+  u.lane = pickLane(u.boss);
   const [px, py] = posAt(u.dist);
   const a = angleAt(u.dist);
   u.x = px + Math.cos(a + Math.PI / 2) * u.lane;
@@ -480,7 +480,7 @@ export function updateGame(g, dt) {
         if (done) {
           e.swimming = false;
           e.dist = RIVER_ROUTE.exitRoad;
-          e.lane = (Math.random() - 0.5) * PATH_HALF;
+          e.lane = pickLane(e.boss);
           g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 420, r: 20 });
         } else {
           const [wx, wy] = RIVER_ROUTE.at(e.swimD);
