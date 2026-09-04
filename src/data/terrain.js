@@ -5,7 +5,7 @@
 // generator seeded per realm, and consumes it IN THIS EXACT ORDER — that is
 // what keeps each map identical on every run, so do not reorder these blocks.
 
-import { W, H, PATH_HALF, TILE, mulberry32 } from "./constants.js";
+import { W, H, PATH_HALF, TILE, WALL_W, mulberry32 } from "./constants.js";
 import { TOTAL_LEN, posAt, angleAt, nearestOnPath, buildSmooth } from "../engine/path.js";
 
 export let CHEVRONS = [];
@@ -22,6 +22,15 @@ export let RIVERS = [];   // [{ pts, w, segs }] — living water, in world px
 // whichever bank-end lies nearest the spawn and climb out at the crossing.
 export let RIVER_ROUTE = null;
 export let BRIDGES = [];  // [{ x, y, a, d0, d1 }] — where the road spans it
+// The wood the horde marches out of: a band of forest along the board edge
+// nearest the spawn, with a wandering inner boundary. Null where the enemy
+// comes out of a cave or a barrow instead.
+export let FOREST = null;  // { edge: "left" | "top", seed }
+const forestBound = (t, seed) =>
+  74 + 20 * Math.sin(t * 0.019 + seed) + 12 * Math.sin(t * 0.047 + seed * 1.7) + 7 * Math.sin(t * 0.11 + seed * 0.3);
+// How far inside the forest (x, y) stands; negative means open ground.
+export const forestDepthAt = (x, y) =>
+  !FOREST ? -999 : FOREST.edge === "left" ? forestBound(y, FOREST.seed) - x : forestBound(x, FOREST.seed) - y;
 
 // Keep scatter out of the water: true if (x,y) falls inside a pond (plus a
 // small shoreline margin).
@@ -207,13 +216,44 @@ export function regenTerrain(map) {
       const clearRoad = near.d >= PATH_HALF + rad;
       const wet = inPond(PONDS, d.x, d.y) || inRiver(d.x, d.y, rad);
       const gate = Math.hypot(d.x - gx0, d.y - gy0) < 46 + rad || Math.hypot(d.x - gx1, d.y - gy1) < 40 + rad;
-      if (clearRoad && !wet && !gate) return true;
+      const wall = d.x > W - WALL_W - rad;
+      if (clearRoad && !wet && !gate && !wall) return true;
       const dd = Math.max(1, Math.hypot(d.x - near.x, d.y - near.y));
-      d.x = Math.min(W - 16, Math.max(16, d.x + ((d.x - near.x) / dd) * 10));
+      d.x = Math.min(W - WALL_W - rad, Math.max(16, d.x + ((d.x - near.x) / dd) * 10 - (wall ? 10 : 0)));
       d.y = Math.min(H - 20, Math.max(20, d.y + ((d.y - near.y) / dd) * 10));
     }
     return false;
   });
+
+  // ---- the forest ----
+  // Where the horde comes out of the trees, the trees are real: a wood that
+  // fills the board edge behind the spawn and runs its whole length, dense
+  // at the edge and thinning toward a wandering treeline. The road is the
+  // only way through it. Placed after grounding on purpose — these are
+  // meant to crowd the gate.
+  FOREST = null;
+  if (map.spawn === "grove") {
+    const edge = gx0 < 100 ? "left" : gy0 < 100 ? "top" : null;
+    if (edge) {
+      FOREST = { edge, seed: (map.seed % 97) * 0.37 };
+      const frng = mulberry32((map.seed ^ 0xf03e57) >>> 0);
+      const span = edge === "left" ? H : W;
+      for (let u = -12; u < span + 12; u += 25) {
+        const bound = forestBound(u, FOREST.seed);
+        for (let dpt = -16; dpt < bound + 4; dpt += 25) {
+          const ju = (frng() - 0.5) * 10, jd = (frng() - 0.5) * 10;
+          const x = edge === "left" ? dpt + jd : u + ju;
+          const y = edge === "left" ? u + ju : dpt + jd;
+          if (nearestOnPath(x, y).d < PATH_HALF + 12) continue;
+          if (inPond(PONDS, x, y) || inRiver(x, y, 6)) continue;
+          if (x > W - WALL_W - 6) continue;
+          const deep = 1 - Math.max(0, dpt) / Math.max(1, bound);
+          const s = 0.95 + frng() * 0.35 + deep * 0.3;
+          DECOR.push({ x, y, t: frng() < 0.68 ? "tree" : "pine", s: s * (frng() < 0.2 ? 1.2 : 1), forest: true });
+        }
+      }
+    }
+  }
 }
 
 // How wide a decor piece really stands, so blocking and grounding match the

@@ -3,7 +3,7 @@
 // placement checks, build / upgrade / evolve / sell, wave start & restart,
 // and the shared damage helper. Each takes `g` explicitly.
 
-import { W, H, BLOCK_DIST } from "../data/constants.js";
+import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
@@ -19,11 +19,10 @@ export const buildableAt = (g, x, y, kind = null) => {
   // A hall that floats has the opposite requirement to every other: it MUST
   // stand in running water, and nothing else may.
   const afloat = !!(kind && TOWERS[kind] && TOWERS[kind].water);
-  if (x < 18 || x > W - 18 || y < 22 || y > H - 16) return false;
+  if (x < 18 || x > W - WALL_W || y < 22 || y > H - 16) return false;
   if (nearestOnPath(x, y).d < BLOCK_DIST) return false;
   const [cvx, cvy] = PTS[0];
-  const [csx, csy] = PTS[PTS.length - 1];
-  if (Math.hypot(x - cvx, y - cvy) < 50 || Math.hypot(x - (csx + 6), y - csy) < 62) return false;
+  if (Math.hypot(x - cvx, y - cvy) < 50) return false;
   for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
   for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
   if (afloat) { if (!inRiver(x, y, 8)) return false; }   // moor it in the river

@@ -13,6 +13,9 @@ export const H = ROWS * TILE;
 export const PATH_HALF = 32;
 export const LANE_OFF = 21;
 export const BLOCK_DIST = 42;
+// The crown's curtain wall runs the whole right edge of every board; nothing
+// is built inside this many pixels of it.
+export const WALL_W = 62;
 // Pick a lane for something stepping onto the road: bosses take the crown of
 // the road, everyone else draws one of the three and wanders a step in it.
 export const pickLane = (boss = false) =>

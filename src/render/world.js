@@ -9,7 +9,7 @@
 import { W, H, PATH_HALF, LANE_OFF, RES, mulberry32 } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { PTS, nearestOnPath } from "../engine/path.js";
-import { GRASS_PATCHES, TUFTS, FLOWERS, SPECKS, PEBBLES, PONDS, CHEVRONS, inRiver } from "../data/terrain.js";
+import { GRASS_PATCHES, TUFTS, FLOWERS, SPECKS, PEBBLES, PONDS, CHEVRONS, inRiver, FOREST, forestDepthAt } from "../data/terrain.js";
 import { lighten, darken, mix, rgba, soft, tuft, flower, stone, clover, strokePts, offsetPts, hash, ball } from "./paint.js";
 
 let layer = null;
@@ -19,7 +19,7 @@ const inPond = (x, y, m = 0) =>
   PONDS.some((p) => Math.abs(x - p.x) < p.w / 2 + 6 + m && Math.abs(y - p.y) < p.h / 2 + 6 + m);
 
 // Open turf: off the road, out of the water.
-const clear = (x, y, m) => nearestOnPath(x, y).d > PATH_HALF + m && !inPond(x, y, m) && !inRiver(x, y, m);
+const clear = (x, y, m) => nearestOnPath(x, y).d > PATH_HALF + m && !inPond(x, y, m) && !inRiver(x, y, m) && forestDepthAt(x, y) < -6;
 
 // ---- the turf ----------------------------------------------------------
 function paintTurf(ctx) {
@@ -49,6 +49,31 @@ function paintTurf(ctx) {
   const base = mix(R.GRASS_DK, R.GRASS, 0.25);
   const tip = lighten(R.GRASS_LT, 0.22);
   const deep = darken(R.GRASS_DK, 0.2);
+
+  // the forest floor: shade under the canopy, feathered at the treeline,
+  // with leaf litter and roots where the grass gives up
+  if (FOREST) {
+    const floor = darken(R.GRASS_DK, 0.5);
+    const line = [];
+    const span = FOREST.edge === "left" ? H : W;
+    for (let u = -20; u <= span + 20; u += 6) {
+      line.push(FOREST.edge === "left" ? [forestDepthAt(0, u), u] : [u, forestDepthAt(u, 0)]);
+    }
+    ctx.beginPath();
+    if (FOREST.edge === "left") { ctx.moveTo(-20, -20); for (const [bx, by] of line) ctx.lineTo(bx, by); ctx.lineTo(-20, span + 20); }
+    else { ctx.moveTo(-20, -20); for (const [bx, by] of line) ctx.lineTo(bx, by); ctx.lineTo(span + 20, -20); }
+    ctx.closePath();
+    ctx.fillStyle = rgba(floor, 0.72);
+    ctx.fill();
+    for (const [w, a] of [[40, 0.1], [26, 0.12], [14, 0.16], [6, 0.2]]) strokePts(ctx, line, w, rgba(floor, a));
+    for (let i = 0; i < 160; i++) {
+      const x = rng() * W, y = rng() * H;
+      const dpt = forestDepthAt(x, y);
+      if (dpt < 2 || nearestOnPath(x, y).d < PATH_HALF + 2) continue;
+      const col = i % 3 === 0 ? "#6a4a2c" : i % 3 === 1 ? "#4a5a2c" : "#7a6234";
+      soft(ctx, x, y, 2 + rng() * 2.5, 1.2 + rng() * 1.4, [[0, rgba(col, 0.55)], [1, rgba(col, 0)]]);
+    }
+  }
 
   // clover and low leaves, the carpet under everything else
   for (let i = 0; i < 220; i++) {
@@ -89,11 +114,11 @@ function paintRoad(ctx) {
   strokePts(ctx, PTS, wide + 3, mix(main, edge, 0.45));
   // the road is worn a little below the turf: its sunward edge sits in
   // shadow, the far edge catches light
-  ctx.save(); ctx.translate(-1.6, -1.6);
-  strokePts(ctx, PTS, wide + 1, darken(dk, 0.18));
+  ctx.save(); ctx.translate(-1.2, -1.2);
+  strokePts(ctx, PTS, wide + 2, rgba(darken(dk, 0.2), 0.4));
   ctx.restore();
-  ctx.save(); ctx.translate(1.6, 1.6);
-  strokePts(ctx, PTS, wide + 1, lighten(main, 0.28));
+  ctx.save(); ctx.translate(1.2, 1.2);
+  strokePts(ctx, PTS, wide + 2, rgba(lighten(main, 0.3), 0.45));
   ctx.restore();
   // the body, with a paler crown down the middle
   strokePts(ctx, PTS, wide - 2, main);

@@ -8,8 +8,9 @@
 // with soft shadows falling away from one sun. Nothing here is a rectangle
 // unless a carpenter made it.
 
-import { W } from "../data/constants.js";
+import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
+import { FOREST } from "../data/terrain.js";
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
   blade, tuft, strokePts, blobPath, masonry, hash, ellipse, SUN,
@@ -54,15 +55,16 @@ const leafyTree = (ctx, x, y, s, pal, sway, seed) => {
     const sx = cx + top * sway * 0.8;
     ball(ctx, sx + dx * s, y + dy * s, r * s, r * 0.9 * s, mix(pal.leaf, darken(pal.leaf, 0.2), dy > -12 ? 0.35 : 0), { hi: 0.5, lo: 0.45 });
   }
-  // leaf clusters: small bright dabs where the sun lands, dark ones underneath
-  for (let i = 0; i < 14; i++) {
+  // leaf clusters: a few soft masses where the sun lands, shade underneath
+  for (let i = 0; i < 9; i++) {
     const L = lobes[Math.floor(hash(seed, i) * lobes.length)];
     const a = hash(seed, i + 30) * Math.PI * 2;
-    const rr = L[2] * s * (0.35 + hash(seed, i + 60) * 0.5);
+    const rr = L[2] * s * (0.3 + hash(seed, i + 60) * 0.45);
     const px = cx + L[3] * sway * 0.8 + L[0] * s + Math.cos(a) * rr;
     const py = y + L[1] * s + Math.sin(a) * rr * 0.9;
     const sunny = (Math.cos(a) * SUN.x + Math.sin(a) * SUN.y) > 0.1;
-    ball(ctx, px, py, 2.4 * s, 2 * s, sunny ? lighten(pal.leaf, 0.22) : darken(pal.leaf, 0.22), { hi: 0.4, lo: 0.3 });
+    const col = sunny ? lighten(pal.leaf, 0.3) : darken(pal.leaf, 0.3);
+    soft(ctx, px, py, 3.6 * s, 2.6 * s, [[0, rgba(col, 0.75)], [0.6, rgba(col, 0.35)], [1, rgba(col, 0)]]);
   }
 };
 
@@ -339,7 +341,35 @@ const banner = (ctx, x, y, s, time) => {
   ball(ctx, x + 5.5, ty + 5, 1.8, 1.8, "#e8e4d8", { hi: 0.3, lo: 0.2 });
 };
 
+// Forest trees are many and they don't sway: each distinct (type, size,
+// variant) is painted once at full resolution and stamped from then on.
+const FOREST_SPRITES = new Map();
+const forestSprite = (d) => {
+  const s = Math.round((d.s || 1) * 10) / 10;
+  const v = ((Math.round(d.x * 3 + d.y * 7) % 4) + 4) % 4;
+  const key = `${d.t}|${s}|${v}`;
+  let sp = FOREST_SPRITES.get(key);
+  if (sp) return sp;
+  const hw = Math.ceil(36 * s + 8), top = Math.ceil(40 * s + 8), bot = 22;
+  const cv = document.createElement("canvas");
+  cv.width = hw * 2 * RES; cv.height = (top + bot) * RES;
+  const c = cv.getContext("2d");
+  c.scale(RES, RES);
+  const tints = ["#5e9f45", "#6aa64a", "#4f8e42", "#5a9a50"];
+  soft(c, hw, top - 14 * s, 30 * s, 26 * s, [[0, "rgba(14,24,10,0.5)"], [0.7, "rgba(14,24,10,0.35)"], [1, "rgba(14,24,10,0)"]]);
+  if (d.t === "pine") pineTree(c, hw, top, s, { leaf: v % 2 ? "#4a8c4d" : "#43824a", trunk: PINE.trunk }, 0);
+  else leafyTree(c, hw, top, s, { leaf: tints[v], trunk: OAK.trunk }, 0, v * 131 + 7);
+  sp = { cv, hw, top, bot };
+  FOREST_SPRITES.set(key, sp);
+  return sp;
+};
+
 export const drawTree = (ctx, d, time) => {
+  if (d.forest && typeof document !== "undefined") {
+    const sp = forestSprite(d);
+    ctx.drawImage(sp.cv, d.x - sp.hw, d.y - sp.top, sp.hw * 2, sp.top + sp.bot);
+    return;
+  }
   const x = d.x, y = d.y, s = d.s || 1;
   const seed = Math.round(d.x * 3 + d.y * 7);
   const sway = Math.sin(time * 0.8 + d.x * 0.06 + d.y * 0.03) * 1.4;
@@ -539,114 +569,146 @@ export const drawPond = (ctx, p, time) => {
 };
 
 // ---- the castle -------------------------------------------------------
+// The crown's curtain wall runs the whole right edge of the board. Seen from
+// above it is a walkway between two battlemented parapets, studded with round
+// drum towers; where the road arrives, two great drums flank a gate as wide
+// as the road itself, a bridge of wall crossing over it and a portcullis
+// under that. The road runs into the dark beneath and the board ends.
+
+const drum = (ctx, cx, cy, r, time, dire) => {
+  const S1 = CASTLE_STONE;
+  const bh = r * 2.3;
+  shadow(ctx, cx + 5, cy + bh * 0.5 + 4, r * 1.3, r * 0.5, 0.3);
+  masonry(ctx, cx - r, cy - bh * 0.5, r * 2, bh, S1, { r: r * 0.45, course: 6, block: r * 0.9 });
+  cylinder(ctx, cx - r - 2, cy - bh * 0.5 - 4, r * 2 + 4, 4.5, lighten(S1, 0.1), { r: 1.5, hi: 0.35, lo: 0.4 });
+  ctx.fillStyle = "#2a2430";
+  roundRect(ctx, cx - 1.6, cy - 4, 3.2, 11, 1.4); ctx.fill();
+  if (Math.sin(time * 1.9 + cx * 0.3 + cy * 0.7) > -0.5 && !dire) glow(ctx, cx, cy + 1, 4, "#ffd070", 0.75);
+  const apex = cy - bh * 0.5 - 4 - r * 1.5;
+  cone(ctx, cx, apex, r * 1.15, r * 1.5, dire ? "#4a3a30" : ROOF, { scallops: 3, sag: 2, hi: 0.4, lo: 0.5 });
+  ball(ctx, cx, apex, 1.8, 1.8, "#d8b34a", { hi: 0.5, lo: 0.3 });
+  return apex;
+};
+
+// A run of top-down wall between y0 and y1: walkway, flagstones, parapets.
+const wallRun = (ctx, x0, x1, y0, y1, vertical = true) => {
+  const S1 = CASTLE_STONE;
+  const g = vertical ? ctx.createLinearGradient(x0, 0, x1, 0) : ctx.createLinearGradient(0, y0, 0, y1);
+  g.addColorStop(0, lighten(S1, 0.3)); g.addColorStop(0.5, lighten(S1, 0.14)); g.addColorStop(1, darken(S1, 0.12));
+  ctx.fillStyle = g;
+  ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  ctx.strokeStyle = rgba(darken(S1, 0.6), 0.16);
+  ctx.lineWidth = 0.8;
+  if (vertical) for (let y = y0 + 6; y < y1; y += 9) { ctx.beginPath(); ctx.moveTo(x0 + 8, y); ctx.lineTo(x1 - 8, y); ctx.stroke(); }
+  else for (let x = x0 + 6; x < x1; x += 9) { ctx.beginPath(); ctx.moveTo(x, y0 + 8); ctx.lineTo(x, y1 - 8); ctx.stroke(); }
+  // parapets: a raised course each side, notched with crenels
+  const pw = 7;
+  const sides = vertical ? [[x0, y0, pw, y1 - y0], [x1 - pw, y0, pw, y1 - y0]] : [[x0, y0, x1 - x0, pw], [x0, y1 - pw, x1 - x0, pw]];
+  for (const [px, py, w, h] of sides) {
+    cylinder(ctx, px, py, w, h, S1, { r: 1, hi: 0.32, lo: 0.42 });
+    ctx.fillStyle = darken(S1, 0.5);
+    if (vertical) for (let y = py + 5; y < py + h - 4; y += 12) ctx.fillRect(px + 1.5, y, w - 3, 4);
+    else for (let x = px + 5; x < px + w - 4; x += 12) ctx.fillRect(x, py + 1.5, 4, h - 3);
+  }
+};
 
 export const drawCastle = (ctx, time, hpPct) => {
-  const [ex, ey] = PTS[PTS.length - 1];
-  const x = Math.min(ex + 6, W - 46), y = ey;
+  const [gx, gy] = PTS[PTS.length - 1];
   const hurt = hpPct < 0.75, bad = hpPct < 0.5, dire = hpPct < 0.25;
   const S1 = CASTLE_STONE;
+  const WB = W - 44;
+  const G = 70;                                   // gate drums sit this far off the road's centre
 
-  shadow(ctx, x + 10, y + 26, 52, 9, 0.34);
-
-  // curtain wall
-  masonry(ctx, x - 24, y - 32, 48, 58, S1, { course: 6, block: 12, r: 2 });
-  // crenellations
-  for (let i = 0; i < 5; i++) {
-    const cx2 = x - 24 + i * 11;
-    if (dire && i === 3) continue;
-    const h = bad && i === 1 ? 4 : 8;
-    cylinder(ctx, cx2, y - 32 - h, 8, h + 2, S1, { r: 1.5, hi: 0.3, lo: 0.4 });
-  }
-  // gate arch, recessed and dark
-  ctx.beginPath();
-  ctx.moveTo(x - 12, y + 26);
-  ctx.lineTo(x - 12, y - 10);
-  ctx.arc(x, y - 10, 12, Math.PI, 0);
-  ctx.lineTo(x + 12, y + 26);
-  ctx.closePath();
-  const gg = ctx.createLinearGradient(0, y - 22, 0, y + 26);
-  gg.addColorStop(0, "#1a1418"); gg.addColorStop(1, "#3a2c22");
-  ctx.fillStyle = gg; ctx.fill();
-  ctx.strokeStyle = rgba(darken(S1, 0.5), 0.5);
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  // portcullis
-  ctx.strokeStyle = "#7c828e";
-  ctx.lineWidth = 1.6;
-  ctx.lineCap = "round";
-  for (let i = -9; i <= 9; i += 4.5) { ctx.beginPath(); ctx.moveTo(x + i, y - 16); ctx.lineTo(x + i, y); ctx.stroke(); }
-  for (let j = 0; j < 3; j++) { ctx.beginPath(); ctx.moveTo(x - 10, y - 12 + j * 6); ctx.lineTo(x + 10, y - 12 + j * 6); ctx.stroke(); }
-
-  // flanking towers: round, capped
-  for (const sgn of [-1, 1]) {
-    const tx = x + sgn * 32;
-    masonry(ctx, tx - 10, y - 28, 20, 54, S1, { course: 6, block: 9, r: 4 });
-    // machicolation course
-    cylinder(ctx, tx - 12, y - 33, 24, 4, lighten(S1, 0.1), { r: 1.5, hi: 0.35, lo: 0.4 });
-    // arrow slit
-    ctx.fillStyle = "#2a2430";
-    roundRect(ctx, tx - 1.6, y - 18, 3.2, 11, 1.4); ctx.fill();
-    if (Math.sin(time * 1.9 + sgn * 2) > -0.5 && !dire) glow(ctx, tx, y - 13, 4, "#ffd070", 0.8);
-    // conical roof
-    cone(ctx, tx, y - 55, 14, 22, dire ? "#4a3a30" : ROOF, { scallops: 3, sag: 2, hi: 0.4, lo: 0.5 });
-    ball(ctx, tx, y - 55, 1.8, 1.8, "#d8b34a", { hi: 0.5, lo: 0.3 });
-    // pennant
-    cylinder(ctx, tx - 0.8, y - 68, 1.6, 13, "#6a4a2e", { r: 0.8 });
-    if (!dire) {
-      const wv = Math.sin(time * 5 + sgn) * 1.5;
-      ctx.beginPath();
-      ctx.moveTo(tx + 0.8, y - 68);
-      ctx.quadraticCurveTo(tx + 5, y - 68.5 + wv, tx + 9 + wv, y - 66.5);
-      ctx.quadraticCurveTo(tx + 5, y - 64 + wv, tx + 0.8, y - 63);
-      ctx.closePath();
-      ctx.fillStyle = "#e0bb48"; ctx.fill();
-    }
+  // the wall's foot: the ground darkens under it
+  const ao = ctx.createLinearGradient(WB - 34, 0, WB, 0);
+  ao.addColorStop(0, "rgba(28,20,30,0)"); ao.addColorStop(1, "rgba(28,20,30,0.38)");
+  ctx.fillStyle = ao;
+  ctx.fillRect(WB - 34, -10, 34, H + 20);
+  // the road runs into the dark of the gate passage
+  const pass = ctx.createLinearGradient(gx - 24, 0, gx + 18, 0);
+  pass.addColorStop(0, "rgba(16,12,16,0)"); pass.addColorStop(1, "rgba(16,12,16,0.85)");
+  ctx.fillStyle = pass;
+  ctx.fillRect(gx - 24, gy - PATH_HALF - 3, W - gx + 24, PATH_HALF * 2 + 6);
+  if (bad) {
+    for (const [dx, dy, r] of [[-14, -22, 3.5], [-6, 20, 3], [-20, 6, 2.2], [2, -8, 2.6]]) ball(ctx, gx + dx, gy + dy, r, r * 0.75, darken(S1, 0.15), { hi: 0.4, lo: 0.45 });
   }
 
-  // damage: cracks, then rubble at the foot
+  // the curtain wall, north and south of the gate
+  wallRun(ctx, WB, W + 4, -10, gy - G - 20);
+  wallRun(ctx, WB, W + 4, gy + G + 20, H + 10);
+  // lesser drums along its length
+  for (let y = 70; y < H; y += 150) {
+    if (Math.abs(y - gy) < G + 66) continue;
+    drum(ctx, WB + 18, y, 15, time, dire);
+  }
+
+  // the gate: a bridge of wall over the road, the portcullis under it
+  wallRun(ctx, gx + 14, W + 4, gy - PATH_HALF - 7, gy + PATH_HALF + 7, false);
+  ctx.fillStyle = "rgba(16,12,16,0.7)";
+  ctx.fillRect(gx + 7, gy - PATH_HALF, 8, PATH_HALF * 2);
+  ctx.fillStyle = "#8a909c";
+  for (let y = gy - PATH_HALF + 3; y < gy + PATH_HALF - 2; y += 6) roundRect(ctx, gx + 8, y, 5.5, 2.4, 1), ctx.fill();
+  ctx.fillStyle = "#b8bcc6";
+  roundRect(ctx, gx + 8, gy - PATH_HALF - 1, 5.5, 3, 1); ctx.fill();
+  roundRect(ctx, gx + 8, gy + PATH_HALF - 2, 5.5, 3, 1); ctx.fill();
+  // the two great drums
+  const apexN = drum(ctx, gx + 24, gy - G, 25, time, dire);
+  const apexS = drum(ctx, gx + 24, gy + G, 25, time, dire);
+
+  // battle damage: cracks in the drums, then smoke, then fire
   if (hurt) {
     ctx.strokeStyle = "rgba(40,32,28,0.6)";
     ctx.lineWidth = 1.4;
     ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(x - 16, y - 30); ctx.lineTo(x - 14, y - 21); ctx.lineTo(x - 17, y - 14); ctx.lineTo(x - 15, y - 8); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x + 14, y - 6); ctx.lineTo(x + 16, y + 3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(gx + 12, gy - G - 16); ctx.lineTo(gx + 15, gy - G - 4); ctx.lineTo(gx + 11, gy - G + 8); ctx.lineTo(gx + 14, gy - G + 20); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(gx + 36, gy + G - 12); ctx.lineTo(gx + 33, gy + G + 2); ctx.lineTo(gx + 37, gy + G + 14); ctx.stroke();
   }
   if (bad) {
     ctx.strokeStyle = "rgba(40,32,28,0.65)";
-    ctx.beginPath(); ctx.moveTo(x + 4, y - 32); ctx.lineTo(x + 1, y - 19); ctx.lineTo(x + 6, y - 9); ctx.lineTo(x + 3, y + 3); ctx.stroke();
-    for (const [dx, dy, r] of [[-30, 23, 3.5], [21, 24, 3], [-22, 26, 2], [26, 27, 2.2]]) ball(ctx, x + dx, y + dy, r, r * 0.75, darken(S1, 0.15), { hi: 0.4, lo: 0.45 });
-  }
-  if (bad) {
+    ctx.beginPath(); ctx.moveTo(gx + 30, gy - G - 20); ctx.lineTo(gx + 27, gy - G - 6); ctx.lineTo(gx + 32, gy - G + 8); ctx.stroke();
     for (let i = 0; i < 3; i++) {
       const prog = ((time * 20 + i * 14) % 42) / 42;
-      const smx = x - 10 + i * 12 + Math.sin(time * 2 + i * 3) * 4;
-      soft(ctx, smx, y - 46 - prog * 30, 4 + prog * 7, 4 + prog * 6, [[0, `rgba(120,116,112,${(1 - prog) * 0.5})`], [1, "rgba(120,116,112,0)"]]);
+      const smx = gx + 14 + i * 10 + Math.sin(time * 2 + i * 3) * 4;
+      soft(ctx, smx, apexN - 4 - prog * 30, 4 + prog * 7, 4 + prog * 6, [[0, `rgba(120,116,112,${(1 - prog) * 0.5})`], [1, "rgba(120,116,112,0)"]]);
     }
   }
   if (dire) {
     for (let i = 0; i < 3; i++) {
-      const fx = x - 16 + i * 16;
+      const fx = gx + 18 + i * 12;
       const fl = 0.5 + 0.5 * Math.sin(time * 14 + i * 2);
-      soft(ctx, fx, y - 40 - fl * 3, 4.5, 7 + fl * 4, [[0, "#ffe08a"], [0.35, "#f0903a"], [0.8, "rgba(200,60,30,0.7)"], [1, "rgba(200,60,30,0)"]], 0, 0.3);
+      soft(ctx, fx, gy + G - 30 - fl * 3, 4.5, 7 + fl * 4, [[0, "#ffe08a"], [0.35, "#f0903a"], [0.8, "rgba(200,60,30,0.7)"], [1, "rgba(200,60,30,0)"]], 0, 0.3);
     }
   }
 
-  // the great banner over the gate
-  cylinder(ctx, x - 1, y - 62, 2, 20, "#6a4a2e", { r: 1 });
+  // pennants on the drums, and the great banner over the gate
+  for (const [ax, ay, k] of [[gx + 24, apexN, 1], [gx + 24, apexS, -1]]) {
+    cylinder(ctx, ax - 0.8, ay - 13, 1.6, 13, "#6a4a2e", { r: 0.8 });
+    if (!dire) {
+      const wv = Math.sin(time * 5 + k) * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(ax - 0.8, ay - 13);
+      ctx.quadraticCurveTo(ax - 5, ay - 13.5 + wv, ax - 9 - wv, ay - 11.5);
+      ctx.quadraticCurveTo(ax - 5, ay - 9 + wv, ax - 0.8, ay - 8);
+      ctx.closePath();
+      ctx.fillStyle = "#e0bb48"; ctx.fill();
+    }
+  }
+  cylinder(ctx, W - 12, gy - 24, 2.2, 24, "#6a4a2e", { r: 1 });
   if (!dire) {
-    const wave = Math.sin(time * 5) * 1.6;
-    const bw = bad ? 10 : 16, bh = bad ? 6 : 9;
+    const wave = Math.sin(time * 4) * 1.8;
+    const bw = bad ? 12 : 20, bh = bad ? 7 : 11;
+    const px = W - 11, py = gy - 24;
     ctx.beginPath();
-    ctx.moveTo(x - 1, y - 62);
-    ctx.quadraticCurveTo(x - bw * 0.5, y - 63 - wave, x - bw - wave, y - 61);
-    ctx.lineTo(x - bw * 0.7 - wave, y - 62 + bh * 0.55);
-    ctx.lineTo(x - bw - wave, y - 62 + bh);
-    ctx.quadraticCurveTo(x - bw * 0.5, y - 61 + bh - wave, x - 1, y - 62 + bh);
+    ctx.moveTo(px, py);
+    ctx.quadraticCurveTo(px - bw * 0.5, py - 1 - wave, px - bw - wave, py + 1);
+    ctx.lineTo(px - bw * 0.7 - wave, py + bh * 0.55);
+    ctx.lineTo(px - bw - wave, py + bh);
+    ctx.quadraticCurveTo(px - bw * 0.5, py + bh + 1 - wave, px, py + bh);
     ctx.closePath();
-    const bg = ctx.createLinearGradient(x - bw, 0, x, 0);
+    const bg = ctx.createLinearGradient(px - bw, 0, px, 0);
     bg.addColorStop(0, "#c89a34"); bg.addColorStop(1, "#ecc95a");
     ctx.fillStyle = bg; ctx.fill();
-    if (!bad) ball(ctx, x - 8, y - 57.5, 2.2, 2.2, "#7c3f4a", { hi: 0.4, lo: 0.3 });
+    if (!bad) ball(ctx, px - 9, py + 5.5, 2.4, 2.4, "#7c3f4a", { hi: 0.4, lo: 0.3 });
   }
 };
 
@@ -688,39 +750,38 @@ export const drawBarrow = (ctx, time) => {
   soft(ctx, sx - 2, sy + 26, 10, 2.5, [[0, "rgba(190,180,150,0.6)"], [1, "rgba(190,180,150,0)"]]);
 };
 
-// A wall of old trees with a dark track worn through it.
+// The mouth of the wood. The forest itself is real trees (terrain.js grows
+// them along the board edge); this is only the dark the road runs into, the
+// canopy closing over it, and what watches from inside.
 export const drawGrove = (ctx, time) => {
   const [sx, sy] = PTS[0];
-  shadow(ctx, sx + 6, sy + 24, 44, 8, 0.34);
-  // the dark of the wood behind the gap
-  soft(ctx, sx, sy - 2, 24, 30, [[0, "#0a0d08"], [0.5, "#121a0e"], [1, "rgba(18,26,14,0)"]]);
-  // trunks either side of the track
-  for (const sgn of [-1, 1]) {
-    cylinder(ctx, sx + sgn * 22 - 3.5, sy - 8, 7, 32, "#4d3826", { r: 3, hi: 0.3, lo: 0.6 });
-    cylinder(ctx, sx + sgn * 34 - 2.5, sy - 4, 5, 28, "#43301f", { r: 2, hi: 0.3, lo: 0.6 });
+  const left = !FOREST || FOREST.edge !== "top";
+  const g = left ? ctx.createLinearGradient(sx + 40, 0, sx - 14, 0) : ctx.createLinearGradient(0, sy + 40, 0, sy - 14);
+  g.addColorStop(0, "rgba(8,12,6,0)"); g.addColorStop(0.5, "rgba(8,12,6,0.7)"); g.addColorStop(1, "rgba(8,12,6,0.97)");
+  ctx.fillStyle = g;
+  if (left) ctx.fillRect(sx - 60, sy - PATH_HALF - 5, 100, PATH_HALF * 2 + 10);
+  else ctx.fillRect(sx - PATH_HALF - 5, sy - 60, PATH_HALF * 2 + 10, 100);
+  // boughs closing over the mouth
+  const dark = "#17240f";
+  if (left) {
+    ball(ctx, sx - 12, sy - PATH_HALF - 6, 26, 15, dark, { hi: 0.25, lo: 0.45 });
+    ball(ctx, sx - 10, sy + PATH_HALF + 8, 26, 15, dark, { hi: 0.25, lo: 0.45 });
+    ball(ctx, sx - 30, sy - 8, 22, 18, dark, { hi: 0.2, lo: 0.4 });
+  } else {
+    ball(ctx, sx - PATH_HALF - 6, sy - 12, 15, 26, dark, { hi: 0.25, lo: 0.45 });
+    ball(ctx, sx + PATH_HALF + 8, sy - 10, 15, 26, dark, { hi: 0.25, lo: 0.45 });
+    ball(ctx, sx - 8, sy - 30, 18, 22, dark, { hi: 0.2, lo: 0.4 });
   }
-  const dark = "#2a4022", leaf = OAK.leaf;
-  const back = [[-34, -26, 15], [-14, -32, 13], [14, -32, 13], [34, -26, 15]];
-  for (const [ox, oy, r] of back) ball(ctx, sx + ox, sy + oy, r, r * 0.8, dark, { hi: 0.25, lo: 0.4 });
-  const front = [[-40, -14, 14], [-26, -20, 15], [26, -20, 15], [40, -14, 14], [0, -38, 16]];
-  front.forEach(([ox, oy, r], i) => {
-    const sway = Math.sin(time * 0.9 + ox * 0.2) * 1.5;
-    ball(ctx, sx + ox + sway, sy + oy, r, r * 0.8, darken(leaf, 0.15), { hi: 0.5, lo: 0.5 });
-    for (let k = 0; k < 4; k++) {
-      const a = hash(i, k) * Math.PI * 2;
-      const sunny = (Math.cos(a) * SUN.x + Math.sin(a) * SUN.y) > 0.1;
-      ball(ctx, sx + ox + sway + Math.cos(a) * r * 0.55, sy + oy + Math.sin(a) * r * 0.45, 2.6, 2.2, sunny ? lighten(leaf, 0.15) : darken(leaf, 0.3), { hi: 0.4, lo: 0.3 });
-    }
-  });
   // leaves shaken loose where something is coming through
   for (let i = 0; i < 4; i++) {
-    const t2 = (time * 14 + i * 9) % 34;
-    const lx = sx - 16 + ((i * 11) % 32) + Math.sin(time * 2 + i) * 4;
-    ball(ctx, lx, sy - 24 + t2, 1.4, 1, i % 2 ? "#5f8a3a" : "#8fb04a", { hi: 0.3, lo: 0.2 });
+    const t2 = (time * 14 + i * 9) % 30;
+    const lx = sx - 10 + ((i * 11) % 32) + Math.sin(time * 2 + i) * 4;
+    ball(ctx, left ? lx : sx - 16 + ((i * 11) % 32), left ? sy - 20 + t2 : sy - 26 + t2, 1.4, 1, i % 2 ? "#5f8a3a" : "#8fb04a", { hi: 0.3, lo: 0.2 });
   }
-  eyes(ctx, sx, sy - 1, time, "#e05248");
-  soft(ctx, sx - 6, sy + 21, 12, 3, [[0, "rgba(90,74,48,0.6)"], [1, "rgba(90,74,48,0)"]]);
-  soft(ctx, sx + 10, sy + 23, 10, 2.5, [[0, "rgba(90,74,48,0.5)"], [1, "rgba(90,74,48,0)"]]);
+  eyes(ctx, left ? sx - 10 : sx, left ? sy - 1 : sy - 12, time, "#e05248");
+  // trampled mud at the mouth
+  soft(ctx, sx + 8, sy + (left ? 18 : 22), 14, 3.5, [[0, "rgba(90,74,48,0.55)"], [1, "rgba(90,74,48,0)"]]);
+  soft(ctx, sx + 22, sy - (left ? 16 : -26), 10, 3, [[0, "rgba(90,74,48,0.45)"], [1, "rgba(90,74,48,0)"]]);
 };
 
 export const drawCave = (ctx, time) => {
