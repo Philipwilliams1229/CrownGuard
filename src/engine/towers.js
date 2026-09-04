@@ -225,3 +225,16 @@ export const makeTower = (kind, x, y, level = 1, branch = null, invested = null,
   if (kind === "sunforge") { t.ramp = 1; t.beamId = null; }
   return t;
 };
+
+// ---- the archer tower's shape ----
+// Where the deck sits and where each archer stands on it, shared by the
+// painter and the engine so an arrow always leaves the bow that loosed it.
+// `h` is the deck's height above the ground anchor; `spots` are [dx, dy]
+// offsets from the deck's centre.
+export const archerLayout = (t) => {
+  if (t.branch === "b") return { h: 52, hw: 10, pw: 14, big: true, spots: [[0, -3]] };
+  if (t.branch === "a") return { h: 40, hw: 12, pw: 18, big: false, spots: [[-10, 0], [9, -1], [0, -8]] };
+  if (t.level === 1) return { h: 24, hw: 10, pw: 13, big: false, spots: [[0, -2]] };
+  if (t.level === 2) return { h: 32, hw: 11, pw: 15, big: false, spots: [[-6, -1], [6, -2]] };
+  return { h: 40, hw: 12, pw: 17, big: false, spots: [[-10, 0], [9, -1], [0, -7]] };
+};

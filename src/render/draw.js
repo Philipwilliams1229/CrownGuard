@@ -15,6 +15,7 @@ import { REALM } from "../data/maps.js";
 import { PTS, posAt, angleAt } from "../engine/path.js";
 import { DECOR, PONDS, RIVERS, BRIDGES } from "../data/terrain.js";
 import { groundLayer, drawRoadLive } from "./world.js";
+import { ball as pip } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
@@ -350,13 +351,13 @@ export function draw(g, canvas, bufRef) {
       y: t.y + 14,
       fn: () => {
         paintTower(t);
+        // rank pips: one gold stud per level, a small crown once evolved
         if (!t.branch) {
-          ctx.fillStyle = "#e8d47a";
-          for (let i = 0; i < t.level; i++) ctx.fillRect(S(t.x) - 10 + i * 10, S(t.y) + 20, 4, 4);
+          for (let i = 0; i < t.level; i++) pip(ctx, t.x - (t.level - 1) * 4 + i * 8, t.y + 21, 2.2, 2.2, "#e8c14a");
         } else {
-          ctx.fillStyle = "#e8d47a";
-          ctx.fillRect(S(t.x) - 2, S(t.y) + 19, 4, 4);
-          ctx.fillRect(S(t.x) - 4, S(t.y) + 21, 8, 2);
+          pip(ctx, t.x, t.y + 20, 2.6, 2.6, "#e8c14a");
+          pip(ctx, t.x - 5, t.y + 21.5, 1.6, 1.6, "#e8c14a");
+          pip(ctx, t.x + 5, t.y + 21.5, 1.6, 1.6, "#e8c14a");
         }
       },
     });

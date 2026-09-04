@@ -10,7 +10,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 
@@ -1045,16 +1045,14 @@ export function updateGame(g, dt) {
       }
       if (t.kind === "archer") {
         sfx.play(getStats(t).bolt ? "bolt" : "arrow");
-        const hgt = t.branch === "b" ? 38 : 14 + t.level * 6;
+        const lay = archerLayout(t);
+        const hgt = lay.h;
         let offs;
         if (t.branch === "a") {
-          const spots = [[-9, -1], [8, -2], [0, -8]];
           t.shotIdx = (t.shotIdx + 1) % 3;
-          offs = [spots[t.shotIdx]];
-        } else if (t.branch === "b") {
-          offs = [[0, -4]];
+          offs = [lay.spots[t.shotIdx]];
         } else {
-          offs = t.level === 1 ? [[0, -3]] : t.level === 2 ? [[-7, -2], [7, -3]] : [[-9, -1], [9, -2], [0, -8]];
+          offs = lay.spots;
         }
         // Dragonslayer: every st.crit-th shot is a heartseeker at critMult damage
         let dmgMul = 1;
@@ -1065,7 +1063,7 @@ export function updateGame(g, dt) {
         const per = t.branch ? st.dmg : Math.round(st.dmg / offs.length);
         offs.forEach(([ox, oy], i) => {
           g.projectiles.push({
-            id: nextId(), x: t.x + ox, y: t.y - hgt + oy - 6, targetId: target.id,
+            id: nextId(), x: t.x + ox, y: t.y - hgt + oy - 12, targetId: target.id,
             tx: target.x, ty: target.y, speed: st.bolt ? 560 : 460, delay: i * 90,
             dmg: Math.round(per * dmgMul), dtype: st.dtype, pierce: !!st.pierce, splash: 0,
             burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: t.id,

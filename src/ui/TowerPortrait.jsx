@@ -16,13 +16,16 @@ export default function TowerPortrait({ kind, branch = null, rank4 = null, size 
     const c = ref.current;
     if (!c) return;
     const ctx = c.getContext("2d");
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, size, size);
-    // A hall occupies roughly 46px of height around its anchor, most of it
+    // drawn at double density so the new smooth carpentry stays crisp
+    const dpr = 2;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.clearRect(0, 0, size * dpr, size * dpr);
+    // A hall occupies roughly 60px of height around its anchor, most of it
     // above; sit the footing low in the tile and scale the rest to fit.
-    const scale = size / 58;
+    const scale = (size / 76) * dpr;
     ctx.save();
-    ctx.translate(size / 2, size * 0.78);
+    ctx.translate((size / 2) * dpr, size * 0.84 * dpr);
     ctx.scale(scale, scale);
     // a stand-in tower, fully grown, holding every field a painter may read
     const t = {
@@ -42,7 +45,7 @@ export default function TowerPortrait({ kind, branch = null, rank4 = null, size 
 
   if (failed.current) return <PixelIcon kind={kind} branch={branch} rank4={rank4} size={size} />;
   return (
-    <canvas ref={ref} width={size} height={size}
-      style={{ width: size, height: size, imageRendering: "pixelated", flexShrink: 0 }} />
+    <canvas ref={ref} width={size * 2} height={size * 2}
+      style={{ width: size, height: size, flexShrink: 0 }} />
   );
 }

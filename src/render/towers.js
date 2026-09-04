@@ -5,6 +5,8 @@
 import { INK, CELL, S } from "../data/constants.js";
 import { MINI, ARCHER_PALS, WIZ_PALS, PRIEST_PALS, drawSprite } from "../sprites/sprites.js";
 import { getStats } from "../engine/towers.js";
+import { drawArcherTower } from "./halls/archer.js";
+export { drawArcherTower };
 
 // leather-hooded crew engineer who works the catapult
 const CREW_PAL = { o: INK, h: "#7a5a34", b: "#6e4c28", s: "#e0b088", w: "#4a3018" };
@@ -110,7 +112,8 @@ export const corbels = (ctx, x, y, halfW, col = "#5f4326") => {
   for (const s of [-1, 1]) ctx.fillRect(x + s * halfW - (s < 0 ? 4 : 0), y + 1, 3, 4);
 };
 
-export const drawArcherTower = (ctx, t, time) => {
+// The pixel original, kept for the side-by-side lab (towers.html).
+export const drawArcherTowerPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
   const tall = t.branch === "b";

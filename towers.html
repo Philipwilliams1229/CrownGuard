@@ -1,0 +1,93 @@
+<!doctype html>
+<!--
+  Dev tool: every form of a hall, the pixel original beside the new
+  carpentry, animated as if in a fight. Open /towers.html with the dev server
+  running. ?kind=archer picks the hall. Not linked from the game.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — hall lab</title>
+    <style>
+      body { background: #20242c; color: #e8e0c8; font-family: Verdana, sans-serif; margin: 0; padding: 16px; }
+      h2 { font-size: 13px; letter-spacing: 2px; color: #d8b34a; margin: 20px 0 8px; }
+      p.note { font-size: 11px; opacity: 0.6; margin: 0 0 10px; max-width: 62em; line-height: 1.5; }
+      .grid { display: flex; flex-wrap: wrap; gap: 12px; }
+      .pair { display: flex; gap: 2px; border: 2px solid #10131a; }
+      .cell { text-align: center; }
+      .cap { font-size: 9px; opacity: 0.7; padding: 2px 0 3px; background: #2c313c; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="out"></div>
+    <script type="module">
+      import { RES } from "/src/data/constants.js";
+      import { selectRealm, REALM } from "/src/data/maps.js";
+      import * as T from "/src/render/towers.js";
+      import { groundLayer } from "/src/render/world.js";
+
+      selectRealm("greenwood");
+      const KIND = new URLSearchParams(location.search).get("kind") || "archer";
+      const CW = 110, CH = 130;          // world box per cell
+      const SCALE = 2.4;                 // css pixels per world pixel
+      const out = document.getElementById("out");
+      const cells = [];
+
+      const forms = [
+        { label: "level 1", level: 1 }, { label: "level 2", level: 2 }, { label: "level 3", level: 3 },
+        { label: "branch a", level: 3, branch: "a" }, { label: "final aa", level: 3, branch: "a", rank4: "a" }, { label: "final ab", level: 3, branch: "a", rank4: "b" },
+        { label: "branch b", level: 3, branch: "b" }, { label: "final ba", level: 3, branch: "b", rank4: "a" }, { label: "final bb", level: 3, branch: "b", rank4: "b" },
+      ];
+      const painters = { archer: [T.drawArcherTowerPixel, T.drawArcherTower] };
+
+      const h2 = document.createElement("h2"); h2.textContent = `${KIND} — pixel original (left) beside the new carpentry (right)`; out.appendChild(h2);
+      const note = document.createElement("p"); note.className = "note"; note.textContent = "Both animate as if fighting: the crew looses every second and a half and turns to face a target that circles the tower. Same anchor, same scale."; out.appendChild(note);
+      const grid = document.createElement("div"); grid.className = "grid"; out.appendChild(grid);
+
+      const ground = groundLayer();
+      for (const f of forms) {
+        const pair = document.createElement("div"); pair.className = "pair";
+        painters[KIND].forEach((fn, i) => {
+          const cell = document.createElement("div"); cell.className = "cell";
+          const cv = document.createElement("canvas");
+          cv.width = CW * RES; cv.height = CH * RES;
+          cv.style.width = CW * SCALE + "px"; cv.style.height = CH * SCALE + "px";
+          cell.appendChild(cv);
+          const cap = document.createElement("div"); cap.className = "cap"; cap.textContent = `${f.label} · ${i ? "new" : "pixel"}`;
+          cell.appendChild(cap);
+          pair.appendChild(cell);
+          cells.push({ ctx: cv.getContext("2d"), fn, f, id: cells.length + 3 });
+        });
+        grid.appendChild(pair);
+      }
+
+      let last = performance.now();
+      let time = 0;
+      const frame = (now) => {
+        requestAnimationFrame(frame);
+        time += (now - last) / 1000; last = now;
+        const shot = (time * 1.5) % 1.6;              // a loosing every 1.6s
+        const anim = Math.max(0, 1 - shot / 0.25);
+        for (const c of cells) {
+          const { ctx, fn, f } = c;
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, CW * RES, CH * RES);
+          ctx.save();
+          ctx.scale(RES, RES);
+          ctx.imageSmoothingEnabled = true;
+          // a patch of the real meadow as the ground
+          ctx.drawImage(ground, 120 * RES, 200 * RES, CW * RES, CH * RES, 0, 0, CW, CH);
+          const t = {
+            id: c.id, kind: KIND, x: CW / 2, y: CH * 0.72, level: f.level, branch: f.branch || null, rank4: f.rank4 || null,
+            cd: 0, aim: "first", lastAim: time * 0.9 + c.id, anim, shotIdx: 0, critIdx: 0, invested: 0, units: [],
+            rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: false,
+          };
+          fn(ctx, t, time);
+          ctx.restore();
+        }
+      };
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
