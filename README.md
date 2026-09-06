@@ -35,6 +35,18 @@ npm run preview # preview that optimized build locally
   when the wave began (also offered after a loss).
 - Zoom with the **-/+** buttons and drag to pan while zoomed. Speed 1×/2×/4×,
   pause, and the field guide live in the **☰ menu**, top-left.
+- **The hero** (bottom-right) rides with the crown: tap the card or the hero
+  himself, then tap the ground to send him there. He levels with the kills
+  around him and keeps those levels between roads. Choose Sir Aldric (a
+  blocker) or Wren (a huntress) in the pause menu.
+- **Militia** (bottom-right): two farmers with pitchforks, free, wherever you
+  tap, for fifteen seconds. Then the horn needs a moment before it sounds again.
+- **Castle works** (🏰, top-right): bowmen, ballistae, a gate guard and masons
+  built on the wall itself. Dear, but bought once for a whole region — in the
+  campaign they stand at every level of that chapter.
+- **Towers are earned**: you start with the Archer Tower, Knight Garrison,
+  Wizard Spire and Warden Mage. Each of the others opens when a named campaign
+  level is cleared (`TOWER_UNLOCKS` in `src/data/campaign.js`).
 
 ## Where each system lives
 

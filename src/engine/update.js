@@ -111,7 +111,7 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
     const hx = slots[i][0], hy = slots[i][1];
     const dx = hx - u.x, dy = hy - u.y;
     const d = Math.hypot(dx, dy);
-    if (d > 3) { const sp = (st.unitSpeed || 100) * sdt; u.x += (dx / d) * sp; u.y += (dy / d) * sp; u.face = dx >= 0 ? 1 : -1; u.state = "moving"; return; }
+    if (d > 3) { const sp = Math.min(d, (st.unitSpeed || 100) * sdt); u.x += (dx / d) * sp; u.y += (dy / d) * sp; u.face = dx >= 0 ? 1 : -1; u.state = "moving"; return; }
     u.state = "rally";
     let best = null, bd = st.range;
     for (const e of g.enemies) {
@@ -125,7 +125,7 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
     if (u.atkCd > 0) return;
     u.atkCd = st.rate;
     u.swing = 160;
-    g.projectiles.push({ id: nextId(), x: u.x, y: u.y - 14, targetId: best.id, tx: best.x, ty: best.y, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: b.id });
+    g.projectiles.push({ id: nextId(), x: u.x, y: u.y - 14, targetId: best.id, tx: best.x, ty: best.y, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0, kind: "arrow", src: b.id });
     sfx.play("arrow");
   });
 };
@@ -229,7 +229,9 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
           const hx = slots[i][0], hy = slots[i][1];
           const dx = hx - u.x, dy = hy - u.y;
           const d = Math.hypot(dx, dy);
-          if (d > 3) { const sp = (st.unitSpeed ? st.unitSpeed * 0.9 : 85) * sdt; u.x += (dx / d) * sp; u.y += (dy / d) * sp; u.face = dx >= 0 ? 1 : -1; u.state = "moving"; }
+          // never step past the post: a fast unit at 4x speed would otherwise
+          // overshoot it every tick and jitter there forever
+          if (d > 3) { const sp = Math.min(d, (st.unitSpeed ? st.unitSpeed * 0.9 : 85) * sdt); u.x += (dx / d) * sp; u.y += (dy / d) * sp; u.face = dx >= 0 ? 1 : -1; u.state = "moving"; }
           else { u.state = "rally"; u.frenzy = 0; }
         }
       });

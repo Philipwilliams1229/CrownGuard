@@ -222,9 +222,25 @@ export function resetProgress() {
 export const hasProgress = (p) => Object.keys(p.cleared).length > 0;
 
 // ---- TESTING: every level open ----
-// Temporary while the campaign is being play-tested. Flip to false to put the
-// chain back: level 1 open, everything else behind the level before it.
-export const UNLOCK_ALL = true;
+// Flip to true while play-testing to open every level. Off, the chain holds:
+// level 1 open, everything else behind the level before it.
+export const UNLOCK_ALL = false;
+
+// ---- the towers, earned ----
+// The crown marches out with four halls. The rest are learned on the road:
+// clear the named level and the hall is yours everywhere, Free Play too.
+export const TOWER_UNLOCKS = {
+  catapult: "gw1", spiker: "gw2", riverwatch: "foxmere", goldworks: "gw3", trapsmith: "gw4", falconry: "wolfrun",
+  gunpowder: "gw5", assassin: "ir1", sunforge: "ir3",
+};
+export const towerUnlocked = (kind, p) => {
+  const need = TOWER_UNLOCKS[kind];
+  return !need || !!p?.cleared?.[need];
+};
+// What a level's clearing opens, for the victory card.
+export const unlocksFor = (levelId) => Object.keys(TOWER_UNLOCKS).filter((k) => TOWER_UNLOCKS[k] === levelId);
+// The level a locked hall is waiting on.
+export const unlockLevel = (kind) => levelById(TOWER_UNLOCKS[kind]) || null;
 
 // Levels open in order: the first is always open, the rest need the one
 // before them cleared.

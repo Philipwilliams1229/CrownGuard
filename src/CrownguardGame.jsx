@@ -11,7 +11,7 @@ import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
-import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, saveHero } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, saveHero, towerUnlocked, unlocksFor, unlockLevel } from "./data/campaign.js";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
 import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL } from "./data/bands.js";
 import { PTS } from "./engine/path.js";
@@ -1104,6 +1104,19 @@ export default function Crownguard() {
                   </div>
                 )}
 
+                {campaign && ui.result === "won" && unlocksFor(level.id).length > 0 && (
+                  <div style={{ ...hud, display: "flex", alignItems: "center", gap: 10, padding: "8px 14px" }}>
+                    {unlocksFor(level.id).map((k) => (
+                      <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <TowerPortrait kind={k} size={40} />
+                        <div style={{ textAlign: "left" }}>
+                          <div style={{ fontSize: 9, letterSpacing: 2, color: "#e8d47a" }}>NEW HALL</div>
+                          <div style={{ fontSize: 12, fontWeight: "bold" }}>{TOWERS[k].name}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ fontSize: 12, opacity: 0.85, maxWidth: 360, padding: "0 12px" }}>
                   {ui.result === "lost"
                     ? `You fell on wave ${ui.wave}. Retry the wave with your gold and towers restored, or take the level again from the start.`
@@ -1209,7 +1222,7 @@ export default function Crownguard() {
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 10px", WebkitOverflowScrolling: "touch" }}>
           {masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
-                Object.entries(TOWERS).map(([key, def]) => (
+                Object.entries(TOWERS).filter(([key]) => towerUnlocked(key, progress)).map(([key, def]) => (
                   <div key={key} style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 9.5, letterSpacing: 1.5, color: "#d8b34a", margin: "2px 0 5px" }}>{def.name.toUpperCase()}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
@@ -1253,15 +1266,19 @@ export default function Crownguard() {
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
               {Object.entries(TOWERS).map(([key, def]) => {
-                const can = ui.gold >= def.cost;
+                const open = towerUnlocked(key, progress);
+                const can = open && ui.gold >= def.cost;
                 const active = ui.buildMode === key;
+                const need = open ? null : unlockLevel(key);
                 return (
-                  <button key={key} title={def.blurb} style={tile(active, can)}
+                  <button key={key} title={open ? def.blurb : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`} style={{ ...tile(active, can), ...(open ? {} : { opacity: 0.55, filter: "grayscale(0.8)" }) }}
                     onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); }}
                     disabled={!can}>
                     <TowerPortrait kind={key} size={44} />
                     <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.15 }}>{def.name}</span>
-                    <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
+                    {open
+                      ? <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
+                      : <span style={{ fontSize: 8.5, opacity: 0.85, lineHeight: 1.2 }}>🔒 {need ? need.short || need.name : "campaign"}</span>}
                   </button>
                 );
               })}

@@ -48,7 +48,16 @@ const { PTS } = await import("../src/engine/path.js");
 // because a real player always has one). --no-militia skips the free farmers.
 const HERO = after("hero") || "aldric";
 const MILITIA_ON = !flag("no-militia");
-const { CHAPTERS, LEVELS } = await import("../src/data/campaign.js");
+const { CHAPTERS, LEVELS, towerUnlocked } = await import("../src/data/campaign.js");
+// which halls the commander may raise on this level: everything earned by
+// clearing the levels before it (free play: everything)
+let UNLOCKED = null;
+const setUnlocksFor = (levelId) => {
+  if (!levelId) { UNLOCKED = null; return; }
+  const cleared = {};
+  for (const l of LEVELS) { if (l.id === levelId) break; cleared[l.id] = true; }
+  UNLOCKED = new Set(Object.keys(TOWERS).filter((k) => towerUnlocked(k, { cleared })));
+};
 const { recomputePerks } = await import("../src/data/profile.js");
 const { SKILLS } = await import("../src/data/skills.js");
 
@@ -145,7 +154,8 @@ const nextStep = (g, t) => {
 // Place the plan's next tower with a player's touches: knights rally ON the
 // road, splash towers watch for the thickest crowd.
 const placeNext = (g) => {
-  const next = PLAN.build[g.towers.length];
+  const wanted = PLAN.build.filter((k) => !UNLOCKED || UNLOCKED.has(k));
+  const next = wanted[g.towers.length];
   if (!next || g.gold < TOWERS[next].cost) return false;
   const r = next === "knight" ? 120 : TOWERS[next].levels[0].range;
   const spot = bestSpot(g, r, next === "knight" ? 0.35 : 0);
@@ -177,7 +187,8 @@ const commander = (g) => {
     }
     if (best) { best[1](); acted = true; continue; }
     // 3. only fat surplus buys breadth — a new tower plus change for its levels
-    if (PLAN.build[g.towers.length] && g.gold >= TOWERS[PLAN.build[g.towers.length]].cost + 250) {
+    const wantedNext = PLAN.build.filter((k) => !UNLOCKED || UNLOCKED.has(k))[g.towers.length];
+    if (wantedNext && g.gold >= TOWERS[wantedNext].cost + 250) {
       if (placeNext(g)) acted = true;
     }
   }
@@ -236,7 +247,8 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
       if (!quiet) {
         const leaked = livesBefore - g.lives;
         const mark = leaked === 0 ? "  " : leaked <= 2 ? "! " : "!!";
-        console.log(`  ${mark} wave ${String(g.wave).padStart(2)}/${total}  leaked ${String(leaked).padStart(2)}  lives ${String(g.lives).padStart(2)}  gold ${Math.round(g.gold)}`);
+        const hb0 = heroBand(g);
+        console.log(`  ${mark} wave ${String(g.wave).padStart(2)}/${total}  leaked ${String(leaked).padStart(2)}  lives ${String(g.lives).padStart(2)}  gold ${Math.round(g.gold)}${hb0 ? `  hero L${hb0.level} k${hb0.kills || 0} ${hb0.units[0].state}` : ""}`);
       }
     } else {
       updateGame(g, DT);
@@ -273,6 +285,7 @@ const results = [];
 if (flag("all")) {
   for (const lv of LEVELS) {
     const idx = LEVELS.findIndex((l) => l.id === lv.id);
+    setUnlocksFor(lv.id);
     results.push(runLevel({
       realm: lv.realm, faction: lv.chapter.faction, window: lv.window,
       gold: lv.gold, name: `${lv.id} ${lv.name}`, vet: Math.floor(idx / 2),
@@ -293,6 +306,7 @@ if (flag("all")) {
   const lv = LEVELS.find((l) => l.id === after("level"));
   if (!lv) { console.error(`no such level: ${after("level")} — ids are ${LEVELS.map((l) => l.id).join(", ")}`); process.exit(1); }
   const idx = LEVELS.findIndex((l) => l.id === lv.id);
+  setUnlocksFor(lv.id);
   runLevel({
     realm: lv.realm, faction: lv.chapter.faction, window: lv.window,
     gold: lv.gold, name: `${lv.id} ${lv.name}`, vet: Math.floor(idx / 2),

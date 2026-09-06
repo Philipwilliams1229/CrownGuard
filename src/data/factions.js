@@ -33,7 +33,7 @@ export const FACTIONS = {
       [["goblin", 14, 650]],
       [["goblin", 18, 520]],
       [["goblin", 12, 480], ["wolf", 6, 550]],
-      [["bat", 10, 400], ["goblin", 10, 520]],
+      [["bat", 7, 520], ["goblin", 10, 520]],
       [["orc", 10, 850]],
       [["goblin", 16, 420], ["wolf", 10, 450]],
       // II. the horde proper — armor, riders, and the first healers
