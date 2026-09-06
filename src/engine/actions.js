@@ -5,12 +5,14 @@
 
 import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier } from "../data/castle.js";
+import { MILITIA, HEROES, heroStats } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { waveSpec, waveHpMult } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
 import { makeTower, syncUnits, getStats } from "./towers.js";
+import { nextId } from "./ids.js";
 import { recordFavored, favoredFor } from "../data/profile.js";
 import { sfx } from "../audio/sfx.js";
 
@@ -38,6 +40,10 @@ export const startWave = (g) => {
     wave: g.wave, gold: g.gold, lives: g.lives,
     towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, rank4: t.rank4, invested: t.invested, aim: t.aim,
       kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0 })),
+    // the castle's works and the hero as they stood; the militia goes home
+    castle: g.castle ? { ...g.castle } : null,
+    militiaCd: g.militiaCd || 0,
+    hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, rally: { ...b.rally } } : null; })(),
   };
   if (g.buildUntil != null) {
     const rem = Math.max(0, g.buildUntil - g.time);
@@ -103,6 +109,10 @@ export const restartWave = (g) => {
     return t;
   });
   g.enemies = []; g.projectiles = []; g.effects = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];
+  if (s.castle) g.castle = { ...s.castle };
+  g.militiaCd = s.militiaCd || 0;
+  g.bands = [];
+  if (s.hero) { const b = fieldHero(g, s.hero.key, s.hero.level, s.hero.rally.x, s.hero.rally.y); if (b) b.xp = s.hero.xp; }
   g.phase = "build"; g.selectedId = null; g.buildMode = null; g.rallyFor = null; g.paused = false; g.buildUntil = null;
 };
 
@@ -300,6 +310,13 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
   if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;
   if (e.hp <= 0 && !e.dead) {
     if (src) src.kills = (src.kills || 0) + 1;
+    // the hero learns from every death he had a hand in: his own kills, and
+    // any that fall within a few strides of him
+    {
+      const hb = g.bands?.find((b) => b.kind === "hero");
+      const hu = hb?.units[0];
+      if (hb && (src === hb || (hu && hu.state !== "dead" && Math.hypot(hu.x - e.x, hu.y - e.y) < 90))) hb.xp = (hb.xp || 0) + (e.boss ? 6 : 1) + (src === hb ? 1 : 0);
+    }
     e.dead = true;
     // a transmuter's aura makes every nearby death pay better
     let pay = e.bounty;
@@ -347,3 +364,36 @@ export const buyCastleWork = (g, key) => {
   g.effects.push({ type: "coin", x: gx - 30, y: gy - 30, ttl: 1200, text: `${CASTLE_WORKS[key].name} — ${next.label}` });
   return next;
 };
+
+
+// ---- bands ----
+// Call the militia to a spot: two farmers, for a while, for nothing.
+export const callMilitia = (g, x, y) => {
+  if (!g || (g.militiaCd || 0) > 0) return false;
+  if (!g.bands) g.bands = [];
+  const id = nextId();
+  const units = [];
+  for (let i = 0; i < MILITIA.count; i++) {
+    units.push({ id: nextId(), hp: MILITIA.hp, maxHp: MILITIA.hp, x: x + (i ? 12 : -12), y: y + 6, face: 1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
+  }
+  g.bands.push({ id, kind: "militia", st: { ...MILITIA }, rally: { x, y }, units, life: MILITIA.life });
+  g.militiaCd = MILITIA.cooldown;
+  g.effects.push({ type: "levelup", x, y, ttl: 500 });
+  g.effects.push({ type: "dust", x, y: y + 6, ttl: 400 });
+  return true;
+};
+
+// Put the hero on the field at the level's start.
+export const fieldHero = (g, key, level = 1, x, y) => {
+  const h = HEROES[key];
+  if (!h || !g) return null;
+  if (!g.bands) g.bands = [];
+  const st = heroStats(key, level);
+  const band = {
+    id: nextId(), kind: "hero", hero: key, name: h.name, level, xp: 0, st, rally: { x, y }, home: { x, y },
+    units: [{ id: nextId(), hp: st.hp, maxHp: st.hp, x, y, face: -1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null }],
+  };
+  g.bands.push(band);
+  return band;
+};
+export const heroBand = (g) => g?.bands?.find((b) => b.kind === "hero") || null;

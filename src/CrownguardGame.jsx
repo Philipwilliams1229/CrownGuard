@@ -11,13 +11,15 @@ import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
-import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, saveHero } from "./data/campaign.js";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
+import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL } from "./data/bands.js";
+import { PTS } from "./engine/path.js";
 import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork, callMilitia, fieldHero, heroBand,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -59,6 +61,9 @@ export default function Crownguard() {
   // the incoming-wave chip folds down to a small arrow when the board needs the room
   const [infoOpen, setInfoOpen] = useState(false);
   const [castleOpen, setCastleOpen] = useState(false);
+  // which hero rides with the crown; chosen in the pause menu, kept in the browser
+  const [heroKey, setHeroKey] = useState(() => { try { return HEROES[localStorage.getItem("crownguard.hero")] ? localStorage.getItem("crownguard.hero") : "aldric"; } catch { return "aldric"; } });
+  const pickHero = (key) => { setHeroKey(key); try { localStorage.setItem("crownguard.hero", key); } catch { /* private mode */ } };
   // which castle the works belong to: a campaign chapter, or a free-play realm
   const castleScope = useRef(null);
   const [realmId, setRealmId] = useState(REALM.id);
@@ -118,6 +123,7 @@ export default function Crownguard() {
   }, [screen, wide]);
 
   const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks()) => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     // dev-server playtest knob: /?gold=5000 pads the war chest. Stripped from
     // production builds, so the shipped game can't be talked into it.
     const devGold = import.meta.env.DEV ? Math.max(0, Number(new URLSearchParams(window.location.search).get("gold")) || 0) : 0;
@@ -128,6 +134,7 @@ export default function Crownguard() {
       gold: START_GOLD, lives: CASTLE_HP + worksBonusHp(castle), wave: 0, phase: "build",
       // the works built on this castle: they came with the region, and stay
       castle: { ...castle },
+      bands: [], militiaCd: 0,
       towers: [], enemies: [], projectiles: [], effects: [],
       spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
       selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
@@ -136,10 +143,17 @@ export default function Crownguard() {
       // the coffers have seen real money — masterSeen keeps it from blinking
       freeplay, masterBuild: false, masterSeen: false, masterPick: null,
     };
+    // the hero rides out and waits before the gate; the level he reached
+    // on earlier roads comes with him
+    {
+      const [gx, gy] = PTS[PTS.length - 1];
+      const saved = loadProgress().heroes?.[heroKey] || {};
+      fieldHero(G.current, heroKey, saved.level || 1, gx - 70, gy + (gy > H / 2 ? -50 : 50));
+    }
     setBuildOpen(false);
     setCastleOpen(false);
     setUi({ gold: START_GOLD, lives: CASTLE_HP + worksBonusHp(castle), wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
-  }, []);
+  }, [heroKey]);
 
   // Swap the battlefield: rebuild road + scenery for the realm, then start a
   // fresh Free Play run on it — full fifteen waves, then the Endless March.
@@ -265,6 +279,8 @@ export default function Crownguard() {
     if (g) g.run = { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 };
     setProfile(loadProfile());
     if (won) setProgress(markCleared(levelId));
+    // the hero keeps what he learned on this road, won or lost
+    { const hb = heroBand(g); if (hb) saveHero(hb.hero, hb.level); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.result, mode, levelId]);
 
@@ -279,10 +295,12 @@ export default function Crownguard() {
       if (!g) return;
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
+      // dev-server playtest handle: the live game object, for poking from the console
+      if (import.meta.env.DEV) window.__g = g;
 
       updateGame(g, dt);
       // a garrison sold mid-move takes its rally prompt with it
-      if (g.rallyFor != null && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
+      if (g.rallyFor != null && g.rallyFor !== "hero" && g.rallyFor !== "militia" && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
       draw(g, canvasRef.current, bufRef);
 
       // mirror a snapshot of state into React so the panels update
@@ -299,8 +317,14 @@ export default function Crownguard() {
       const masterShow = (g.freeplay || g.victory) && g.masterSeen;
       const pickKey = g.masterPick ? `${g.masterPick.kind}:${g.masterPick.branch}${g.masterPick.rank4 || ""}` : null;
       const castleKey = g.castle ? `${g.castle.archers}${g.castle.ballista}${g.castle.guards}${g.castle.masons}` : "";
-      if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey) {
+      const hb = heroBand(g);
+      const hu = hb?.units[0];
+      const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}` : "";
+      const militiaSec = Math.ceil((g.militiaCd || 0) / 1000);
+      if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey || u.heroKey !== heroKeyUi || u.militiaSec !== militiaSec) {
         setUi({
+          heroKey: heroKeyUi, militiaSec,
+          hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0 } : null,
           castleKey, castle: { ...(g.castle || emptyWorks()) }, maxLives: CASTLE_HP + worksBonusHp(g.castle),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
@@ -396,6 +420,17 @@ export default function Crownguard() {
   const handleTap = (x, y) => {
     const g = G.current;
     if (!g || g.phase === "won" || g.phase === "lost" || g.paused) return;
+    if (g.rallyFor === "hero") {
+      const b = heroBand(g);
+      if (b) { b.rally = { x, y }; g.effects.push({ type: "levelup", x, y, ttl: 500 }); }
+      g.rallyFor = null;
+      return;
+    }
+    if (g.rallyFor === "militia") {
+      if (callMilitia(g, x, y)) sfx.play("horn");
+      g.rallyFor = null;
+      return;
+    }
     if (g.rallyFor != null) {
       const t = g.towers.find((tt) => tt.id === g.rallyFor);
       if (t) postRally(g, t, x, y);
@@ -415,6 +450,12 @@ export default function Crownguard() {
     setBuildOpen(false);
     const t = towerNear(g, x, y);
     if (t) { g.selectedId = t.id; return; }
+    // tapping the hero himself asks where he should go
+    {
+      const b = heroBand(g);
+      const u = b?.units[0];
+      if (u && u.state !== "dead" && Math.hypot(x - u.x, y - (u.y - 6)) < 16) { g.rallyFor = "hero"; g.selectedId = null; return; }
+    }
     // selected garrison: click inside its circle to move the rally flag
     const selT = g.towers.find((tt) => tt.id === g.selectedId);
     if (selT && (selT.kind === "knight" || selT.kind === "assassin" || (selT.kind === "catapult" && getStats(selT).roller)) && Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE * 1.6) {
@@ -611,6 +652,14 @@ export default function Crownguard() {
                 onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
                 Sound: {sndMuted ? "Off" : "On"}
               </button>
+              <div style={{ display: "flex", gap: 6 }}>
+                {Object.entries(HEROES).map(([key, h]) => (
+                  <button key={key} title={h.blurb} style={{ ...btn, flex: 1, textAlign: "center", padding: "10px 6px", fontSize: 11, lineHeight: 1.3, ...(heroKey === key ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
+                    onClick={() => pickHero(key)}>
+                    {h.icon} {h.name}<br /><span style={{ fontSize: 9, opacity: 0.7 }}>{heroKey === key ? "riding with you" : "next level"}</span>
+                  </button>
+                ))}
+              </div>
               <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13, ...(ui.canRestart ? {} : disabled) }} disabled={!ui.canRestart}
                 onClick={() => { restartWave(G.current); closeMenu(); }}>
                 Restart Wave
@@ -702,10 +751,52 @@ export default function Crownguard() {
               <button aria-label="Cancel placement" onClick={() => { if (G.current) G.current.buildMode = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
             </div>
           )}
-          {ui.rallyFor != null && (
+          {ui.rallyFor === "hero" && (
+            <div style={prompt}>
+              <span><b style={{ color: "#e8d47a" }}>{ui.hero?.name}</b> awaits your word — tap where the hero should go.</span>
+              <button aria-label="Cancel hero move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
+            </div>
+          )}
+          {ui.rallyFor === "militia" && (
+            <div style={prompt}>
+              <span>Sounding for the <b style={{ color: "#e8d47a" }}>militia</b> — tap where the farmers should stand.</span>
+              <button aria-label="Cancel militia call" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
+            </div>
+          )}
+          {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && (
             <div style={prompt}>
               <span>Posting the <b style={{ color: "#e8d47a" }}>rally flag</b> — tap where the knights should stand.</span>
               <button aria-label="Cancel rally move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
+            </div>
+          )}
+
+          {/* bottom-right: the hero and the militia horn */}
+          {ui.result == null && (
+            <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 6, zIndex: 20, alignItems: "flex-end" }}>
+              <button aria-label="Call the militia" title={MILITIA.blurb}
+                style={{ ...hudBtn, minHeight: 58, minWidth: 64, flexDirection: "column", gap: 2, padding: "0 10px", ...(ui.rallyFor === "militia" ? { background: "#5a4f2c" } : {}), ...(ui.militiaSec > 0 ? disabled : {}) }}
+                disabled={ui.militiaSec > 0}
+                onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
+                <span style={{ fontSize: 16 }}>{MILITIA.icon}</span>
+                <span style={{ fontSize: 10 }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
+              </button>
+              {ui.hero && (
+                <button aria-label="Move the hero" title={HEROES[ui.hero.key]?.blurb}
+                  style={{ ...hudBtn, minHeight: 58, minWidth: 120, flexDirection: "column", gap: 3, padding: "0 10px", alignItems: "stretch", ...(ui.rallyFor === "hero" ? { background: "#5a4f2c" } : {}), ...(ui.hero.dead ? { opacity: 0.7 } : {}) }}
+                  onClick={() => { const g = G.current; if (!g || ui.hero.dead) return; g.rallyFor = g.rallyFor === "hero" ? null : "hero"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
+                  <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: "bold" }}>{HEROES[ui.hero.key]?.icon} {ui.hero.name}</span>
+                    <span style={{ fontSize: 10, color: "#e8d47a" }}>Lv {ui.hero.level}</span>
+                  </span>
+                  <span style={{ height: 5, background: "#2a2e38", boxShadow: "inset 0 0 0 1px #10131a", position: "relative" }}>
+                    <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.round(100 * ui.hero.hp / ui.hero.maxHp)}%`, background: ui.hero.hp / ui.hero.maxHp > 0.5 ? "#7ad06a" : ui.hero.hp / ui.hero.maxHp > 0.25 ? "#e8c14a" : "#e07a72" }} />
+                  </span>
+                  <span style={{ fontSize: 9, opacity: 0.75, display: "flex", justifyContent: "space-between" }}>
+                    <span>{ui.hero.dead ? `back in ${ui.hero.respawn}s` : `${ui.hero.hp}/${ui.hero.maxHp}`}</span>
+                    <span>{ui.hero.level >= HERO_MAX_LEVEL ? "MAX" : `xp ${ui.hero.xp}/${ui.hero.next}`}</span>
+                  </span>
+                </button>
+              )}
             </div>
           )}
 

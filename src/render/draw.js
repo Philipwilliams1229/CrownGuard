@@ -22,7 +22,7 @@ import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { hasRig, rigPixels, drawRig } from "./rigs.js";
 import { ENEMIES } from "../data/enemies.js";
-import { drawEnemy, drawKnightUnit } from "./enemies.js";
+import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
@@ -329,6 +329,16 @@ export function draw(g, canvas, bufRef) {
       },
     });
     if (t.units) for (const u of t.units) drawables.push({ y: u.y + 9, fn: () => drawKnightUnit(ctx, u, t, g.time) });
+  }
+  if (g.bands) for (const b of g.bands) {
+    for (const u of b.units) drawables.push({ y: u.y + 9, fn: () => drawBandUnit(ctx, u, b, g.time) });
+    // a fallen hero's ghost of a marker, and the militia's dwindling time
+    if (b.kind === "hero" && b.units[0].state === "dead") drawables.push({ y: b.rally.y, fn: () => {
+      const left = Math.max(0, Math.ceil(b.units[0].respawn / 1000));
+      ctx.fillStyle = "rgba(20,16,20,0.6)"; ctx.fillRect(b.rally.x - 12, b.rally.y - 4, 24, 9);
+      ctx.fillStyle = "#e8d47a"; ctx.font = "bold 7px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(`${left}s`, b.rally.x, b.rally.y + 0.5);
+    } });
   }
   const tms = g.time * 1000;
   for (const e of g.enemies) {

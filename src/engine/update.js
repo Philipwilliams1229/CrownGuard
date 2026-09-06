@@ -6,6 +6,7 @@
 
 import { RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED, pickLane } from "../data/constants.js";
 import { workTier, worksBonusHp, bowmenSpots } from "../data/castle.js";
+import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL } from "../data/bands.js";
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
@@ -73,13 +74,165 @@ const spawnAt = (g, type, mult, dist, tms) => {
 
 // A knight falls: it drops whatever it was holding and starts its respawn
 // clock. Shared by melee deaths and crossbow bolts.
+// Anyone who fields units: a tower with a garrison, or a band (militia, hero).
+export const hostStats = (h) => h.st || getStats(h);
+export const unitHosts = (g) => {
+  const out = [];
+  for (const t of g.towers) if (t.units) out.push(t);
+  if (g.bands) for (const b of g.bands) out.push(b);
+  return out;
+};
 const killUnit = (g, t, u) => {
   u.state = "dead";
-  u.respawn = getStats(t).respawnMs || RESPAWN_MS;
+  u.respawn = hostStats(t).respawnMs || RESPAWN_MS;
   u.targetId = null;
   u.shield = false;
   releaseEnemy(g, g.enemies.find((x) => x.blockedBy === u.id));
   g.effects.push({ type: "poof", x: u.x, y: u.y, ttl: 400 });
+};
+
+// A ranged band (the huntress): holds the rally point, shoots the nearest
+// foe in range, never blocks. Wounded by crossbowmen and plague like anyone.
+const runRangedBand = (g, b, st, slots, sdt, tms) => {
+  b.units.forEach((u, i) => {
+    if (u.state === "dead") {
+      u.respawn -= sdt * 1000;
+      if (u.respawn <= 0) { u.state = "rally"; u.hp = st.hp; u.x = slots[i][0]; u.y = slots[i][1]; u.targetId = null; }
+      return;
+    }
+    u.atkCd -= sdt * 1000;
+    u.swing = Math.max(0, u.swing - sdt * 1000);
+    u.healGlow = Math.max(0, (u.healGlow || 0) - sdt * 1000);
+    for (const gr of g.grounds) {
+      if (gr.kind !== "plague" || gr.until <= tms) continue;
+      if (Math.hypot(u.x - gr.x, u.y - gr.y) <= gr.r) u.hp -= gr.dps * sdt;
+    }
+    if (u.hp <= 0) { killUnit(g, b, u); return; }
+    const hx = slots[i][0], hy = slots[i][1];
+    const dx = hx - u.x, dy = hy - u.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 3) { const sp = (st.unitSpeed || 100) * sdt; u.x += (dx / d) * sp; u.y += (dy / d) * sp; u.face = dx >= 0 ? 1 : -1; u.state = "moving"; return; }
+    u.state = "rally";
+    let best = null, bd = st.range;
+    for (const e of g.enemies) {
+      if (e.dead) continue;
+      const dd = Math.hypot(e.x - u.x, e.y - u.y);
+      if (dd < bd) { bd = dd; best = e; }
+    }
+    if (!best) return;
+    u.face = best.x >= u.x ? 1 : -1;
+    u.state = "fighting";
+    if (u.atkCd > 0) return;
+    u.atkCd = st.rate;
+    u.swing = 160;
+    g.projectiles.push({ id: nextId(), x: u.x, y: u.y - 14, targetId: best.id, tx: best.x, ty: best.y, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: b.id });
+    sfx.play("arrow");
+  });
+};
+
+// One garrison's (or band's) fighters for one tick: respawn, hold the rally
+// point, seize a passing foe, walk to it, trade blows. Shared by the Knight
+// Garrison, the militia and the melee hero.
+const runMelee = (g, t, st, slots, sdt, tms) => {
+      t.units.forEach((u, i) => {
+        if (u.state === "dead") {
+          u.respawn -= sdt * 1000;
+          if (u.respawn <= 0) { u.state = "rally"; u.hp = st.hp; u.x = slots[i][0]; u.y = slots[i][1]; u.targetId = null; u.frenzy = 0; u.shield = false; u.shieldCd = 0; }
+          return;
+        }
+        if (st.heal && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + st.heal * sdt);
+        u.atkCd -= sdt * 1000;
+        u.swing = Math.max(0, u.swing - sdt * 1000);
+        u.healGlow = Math.max(0, (u.healGlow || 0) - sdt * 1000);
+        u.shieldCd = Math.max(0, (u.shieldCd || 0) - sdt * 1000);
+        // plague ground eats at any knight who stands his post in it
+        for (const gr of g.grounds) {
+          if (gr.kind !== "plague" || gr.until <= tms) continue;
+          if (Math.hypot(u.x - gr.x, u.y - gr.y) <= gr.r) u.hp -= gr.dps * sdt;
+        }
+        if (u.hp <= 0) { killUnit(g, t, u); return; }
+
+        let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
+        // tight leash: knights break off quickly once a foe leaves the rally circle
+        if (target && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 12) { releaseEnemy(g, target); target = null; u.targetId = null; }
+        if (!target && u.targetId) u.targetId = null;
+
+        if (!target) {
+          let best = null, bestDist = -1;
+          for (const e of g.enemies) {
+            if (e.dead || e.flying || e.swimming || e.blockedBy) continue;
+            if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
+          }
+          if (best) { best.blockedBy = u.id; u.targetId = best.id; u.state = "moving"; target = best; }
+        }
+
+        if (target) {
+          const dx = target.x - u.x, dy = target.y - u.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 17) {
+            target.engaged = d < 30;
+            const sp = (st.unitSpeed || 95) * sdt;
+            u.x += (dx / d) * sp; u.y += (dy / d) * sp;
+            u.face = dx >= 0 ? 1 : -1;
+            u.state = "moving";
+          } else {
+            target.engaged = true;
+            // Cavalier: the charge rides its first blocker down and gallops on.
+            // Whoever steps up second is the one who actually holds him.
+            if (target.trampleLeft > 0) {
+              target.trampleLeft -= 1;
+              u.hp -= target.atk * 2;
+              g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
+              g.shake = Math.max(g.shake, 3);
+              releaseEnemy(g, target);
+              u.targetId = null;
+              u.state = "rally";
+              if (u.hp <= 0) killUnit(g, t, u);
+              return;
+            }
+            u.state = "fighting";
+            u.face = dx >= 0 ? 1 : -1;
+            target.face = -u.face;
+            if (u.atkCd <= 0) {
+              // Blood Frenzy: each hit stacks attack speed and feeds the berserker
+              const frenzyMul = st.frenzy ? 1 - Math.min(0.45, (u.frenzy || 0) * 0.06) : 1;
+              u.atkCd = st.rate * frenzyMul;
+              u.swing = 180;
+              const dealt = st.dmg * (1 + (u.atkBuff || 0));
+              dealDamage(g, target, dealt, st.magic ? "magic" : "phys", st.magic, false, t.id);
+              sfx.play("clink");
+              if (st.frenzy) u.frenzy = (u.frenzy || 0) + 1;
+              if (st.lifesteal && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
+              g.effects.push({ type: "spark", x: target.x, y: target.y - 6, ttl: 160, gold: !!st.magic || u.atkBuff > 0 });
+              if (st.stun && Math.random() < st.stun) target.stunUntil = tms + st.stunDur;
+              if (target.dead) { u.targetId = null; u.state = "rally"; }
+            }
+            if (!target.dead && target.stunUntil <= tms && target.atk > 0) {
+              target.meleeCd -= sdt * 1000;
+              if (target.meleeCd <= 0) {
+                target.meleeCd = target.atkRate;
+                target.atkAnim = 200;
+                if (u.shield) {
+                  // Guardian's Grace: the ward swallows the blow whole
+                  u.shield = false; u.shieldCd = 6500;
+                  g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
+                } else {
+                  u.hp -= target.atk;
+                  g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
+                  sfx.play("hit");
+                }
+                if (u.hp <= 0) killUnit(g, t, u);
+              }
+            }
+          }
+        } else {
+          const hx = slots[i][0], hy = slots[i][1];
+          const dx = hx - u.x, dy = hy - u.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 3) { const sp = (st.unitSpeed ? st.unitSpeed * 0.9 : 85) * sdt; u.x += (dx / d) * sp; u.y += (dy / d) * sp; u.face = dx >= 0 ? 1 : -1; u.state = "moving"; }
+          else { u.state = "rally"; u.frenzy = 0; }
+        }
+      });
 };
 
 export function updateGame(g, dt) {
@@ -93,6 +246,7 @@ export function updateGame(g, dt) {
   const tms = g.time * 1000;
   // who owns which id this frame — the damage ledger resolves through this
   g._towerById = new Map(g.towers.map((t) => [t.id, t]));
+  if (g.bands) for (const b of g.bands) g._towerById.set(b.id, b);
   if (g.phase === "combat" && !g.paused) for (const t of g.towers) t.liveTime = (t.liveTime || 0) + sdt;
   if (!g.grounds) g.grounds = []; // lingering ground effects (lava pools)
   if (!g.traps) g.traps = [];     // the trapsmith's armed road
@@ -102,6 +256,43 @@ export function updateGame(g, dt) {
   // walks his stretch of road and arms it himself — one charge at a beat,
   // always into the widest uncovered gap in his reach.
   if (!g.paused && (g.phase === "combat" || g.phase === "build")) {
+    // ---- the bands: militia and the hero ----
+    if (g.bands) {
+      g.militiaCd = Math.max(0, (g.militiaCd || 0) - sdt * 1000);
+      for (const b of g.bands) {
+        if (b.kind === "militia") {
+          b.life -= sdt * 1000;
+          if (b.life <= 0) {
+            for (const u of b.units) { if (u.state !== "dead") { releaseEnemy(g, g.enemies.find((x) => x.blockedBy === u.id)); g.effects.push({ type: "poof", x: u.x, y: u.y, ttl: 350 }); } }
+            b.gone = true;
+            continue;
+          }
+        }
+        if (b.kind === "hero") {
+          b.st = heroStats(b.hero, b.level);
+          const u = b.units[0];
+          u.maxHp = b.st.hp;
+          // levelling: a new level tops the hero up and makes him a little more
+          while (b.level < HERO_MAX_LEVEL && b.xp >= heroXpFor(b.level)) {
+            b.xp -= heroXpFor(b.level); b.level += 1;
+            b.st = heroStats(b.hero, b.level);
+            u.maxHp = b.st.hp; u.hp = b.st.hp;
+            g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 700 });
+            g.effects.push({ type: "coin", x: u.x, y: u.y - 26, ttl: 1200, text: `${b.name} — level ${b.level}`, big: true });
+            sfx.play("ascend");
+          }
+          if (u.state === "dead") b.deadFor = (b.deadFor || 0) + sdt * 1000;
+        }
+        const st = b.st;
+        const n = st.count || 1;
+        const base = [[0, -8], [-12, 6], [12, 6]];
+        const slots = base.slice(0, n).map(([dx, dy]) => [b.rally.x + dx, b.rally.y + dy]);
+        if (st.ranged) runRangedBand(g, b, st, slots, sdt, tms);
+        else runMelee(g, b, st, slots, sdt, tms);
+      }
+      g.bands = g.bands.filter((b) => !b.gone);
+    }
+
     for (const t of g.towers) {
       if (t.kind !== "trapsmith") continue;
       const st = getStats(t);
@@ -173,7 +364,7 @@ export function updateGame(g, dt) {
         e.bannerArmor = Math.max(e.bannerArmor, b.bannerArmorAmt);
       }
     }
-    for (const t of g.towers) if (t.units) for (const u of t.units) u.atkBuff = 0;
+    for (const t of unitHosts(g)) for (const u of t.units) u.atkBuff = 0;
     for (const t of g.towers) {
       if (t.kind !== "support") continue;
       const st = getStats(t);
@@ -204,8 +395,7 @@ export function updateGame(g, dt) {
         }
       }
       if (st.heal || st.buff || st.shield) {
-        for (const t2 of g.towers) {
-          if (!t2.units) continue;
+        for (const t2 of unitHosts(g)) {
           for (const u of t2.units) {
             if (u.state === "dead") continue;
             if (Math.hypot(u.x - t.x, u.y - t.y) > st.range) continue;
@@ -515,8 +705,7 @@ export function updateGame(g, dt) {
         e.rangedCd -= sdt * 1000;
         if (e.rangedCd <= 0) {
           let mark = null, markTower = null, bd = e.rangedRange;
-          for (const t of g.towers) {
-            if (!t.units) continue;
+          for (const t of unitHosts(g)) {
             for (const u of t.units) {
               if (u.state === "dead") continue;
               const d = Math.hypot(u.x - e.x, u.y - e.y);
@@ -628,8 +817,7 @@ export function updateGame(g, dt) {
         g.effects.push({ type: "plagueburst", x: e.x, y: e.y, ttl: 500, r: b.r });
         sfx.play("plague");
         g.grounds.push({ x: e.x, y: e.y, r: b.r * 0.8, dps: b.dps, until: tms + b.dur, kind: "plague" });
-        for (const t of g.towers) {
-          if (!t.units) continue;
+        for (const t of unitHosts(g)) {
           for (const u of t.units) {
             if (u.state === "dead" || Math.hypot(u.x - e.x, u.y - e.y) > b.r) continue;
             if (u.shield) {
@@ -651,105 +839,7 @@ export function updateGame(g, dt) {
       syncUnits(t, g);
       const st = getStats(t);
       const slots = unitSlots(t);
-      t.units.forEach((u, i) => {
-        if (u.state === "dead") {
-          u.respawn -= sdt * 1000;
-          if (u.respawn <= 0) { u.state = "rally"; u.hp = st.hp; u.x = slots[i][0]; u.y = slots[i][1]; u.targetId = null; u.frenzy = 0; u.shield = false; u.shieldCd = 0; }
-          return;
-        }
-        if (st.heal && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + st.heal * sdt);
-        u.atkCd -= sdt * 1000;
-        u.swing = Math.max(0, u.swing - sdt * 1000);
-        u.healGlow = Math.max(0, (u.healGlow || 0) - sdt * 1000);
-        u.shieldCd = Math.max(0, (u.shieldCd || 0) - sdt * 1000);
-        // plague ground eats at any knight who stands his post in it
-        for (const gr of g.grounds) {
-          if (gr.kind !== "plague" || gr.until <= tms) continue;
-          if (Math.hypot(u.x - gr.x, u.y - gr.y) <= gr.r) u.hp -= gr.dps * sdt;
-        }
-        if (u.hp <= 0) { killUnit(g, t, u); return; }
-
-        let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
-        // tight leash: knights break off quickly once a foe leaves the rally circle
-        if (target && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 12) { releaseEnemy(g, target); target = null; u.targetId = null; }
-        if (!target && u.targetId) u.targetId = null;
-
-        if (!target) {
-          let best = null, bestDist = -1;
-          for (const e of g.enemies) {
-            if (e.dead || e.flying || e.swimming || e.blockedBy) continue;
-            if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
-          }
-          if (best) { best.blockedBy = u.id; u.targetId = best.id; u.state = "moving"; target = best; }
-        }
-
-        if (target) {
-          const dx = target.x - u.x, dy = target.y - u.y;
-          const d = Math.hypot(dx, dy);
-          if (d > 17) {
-            target.engaged = d < 30;
-            const sp = (st.unitSpeed || 95) * sdt;
-            u.x += (dx / d) * sp; u.y += (dy / d) * sp;
-            u.face = dx >= 0 ? 1 : -1;
-            u.state = "moving";
-          } else {
-            target.engaged = true;
-            // Cavalier: the charge rides its first blocker down and gallops on.
-            // Whoever steps up second is the one who actually holds him.
-            if (target.trampleLeft > 0) {
-              target.trampleLeft -= 1;
-              u.hp -= target.atk * 2;
-              g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
-              g.shake = Math.max(g.shake, 3);
-              releaseEnemy(g, target);
-              u.targetId = null;
-              u.state = "rally";
-              if (u.hp <= 0) killUnit(g, t, u);
-              return;
-            }
-            u.state = "fighting";
-            u.face = dx >= 0 ? 1 : -1;
-            target.face = -u.face;
-            if (u.atkCd <= 0) {
-              // Blood Frenzy: each hit stacks attack speed and feeds the berserker
-              const frenzyMul = st.frenzy ? 1 - Math.min(0.45, (u.frenzy || 0) * 0.06) : 1;
-              u.atkCd = st.rate * frenzyMul;
-              u.swing = 180;
-              const dealt = st.dmg * (1 + (u.atkBuff || 0));
-              dealDamage(g, target, dealt, st.magic ? "magic" : "phys", st.magic, false, t.id);
-              sfx.play("clink");
-              if (st.frenzy) u.frenzy = (u.frenzy || 0) + 1;
-              if (st.lifesteal && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
-              g.effects.push({ type: "spark", x: target.x, y: target.y - 6, ttl: 160, gold: !!st.magic || u.atkBuff > 0 });
-              if (st.stun && Math.random() < st.stun) target.stunUntil = tms + st.stunDur;
-              if (target.dead) { u.targetId = null; u.state = "rally"; }
-            }
-            if (!target.dead && target.stunUntil <= tms && target.atk > 0) {
-              target.meleeCd -= sdt * 1000;
-              if (target.meleeCd <= 0) {
-                target.meleeCd = target.atkRate;
-                target.atkAnim = 200;
-                if (u.shield) {
-                  // Guardian's Grace: the ward swallows the blow whole
-                  u.shield = false; u.shieldCd = 6500;
-                  g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
-                } else {
-                  u.hp -= target.atk;
-                  g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
-                  sfx.play("hit");
-                }
-                if (u.hp <= 0) killUnit(g, t, u);
-              }
-            }
-          }
-        } else {
-          const hx = slots[i][0], hy = slots[i][1];
-          const dx = hx - u.x, dy = hy - u.y;
-          const d = Math.hypot(dx, dy);
-          if (d > 3) { const sp = (st.unitSpeed ? st.unitSpeed * 0.9 : 85) * sdt; u.x += (dx / d) * sp; u.y += (dy / d) * sp; u.face = dx >= 0 ? 1 : -1; u.state = "moving"; }
-          else { u.state = "rally"; u.frenzy = 0; }
-        }
-      });
+      runMelee(g, t, st, slots, sdt, tms);
       // Radiant Basilica: holy ground around each living paladin sears nearby foes
       if (st.sear) {
         for (const u of t.units) {

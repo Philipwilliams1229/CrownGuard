@@ -339,3 +339,39 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     ctx.fillRect(u.x - 9, u.y - 17, Math.round(18 * pct / CELL) * CELL, 3);
   }
 };
+
+
+// ---- the bands: militia farmers and the hero ----
+export const drawBandUnit = (ctx, u, b, time) => {
+  if (u.state === "dead") return;
+  const hero = b.kind === "hero";
+  const kind = hero ? (b.hero === "wren" ? "heroHunter" : "heroKnight") : "farmer";
+  const fighting = u.state === "fighting";
+  const sheet = fighting && !b.st?.ranged ? "fight" : "walk";
+  const frame = u.state === "moving" ? Math.floor(time * 7 + u.id) % 4 : fighting && !b.st?.ranged ? (u.swing > 90 ? 0 : 1) : 0;
+  if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, 0.3, time);
+  softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3);
+  // the hero stands in a ring of gold so he can be found in a crowd
+  if (hero) {
+    ctx.strokeStyle = `rgba(232,196,90,${0.45 + 0.2 * Math.sin(time * 4)})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(u.x + 1, u.y + 9, 11, 4.2, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  drawRig(ctx, kind, u.x, u.y + 9, u.face, sheet, frame);
+  // the huntress at the string: a short pull when she has just loosed
+  if (u.healGlow > 0) { ctx.fillStyle = "rgba(150,224,150,0.5)"; ctx.fillRect(S(u.x - 4), S(u.y - 26), CELL * 4, CELL); }
+  // health: the hero always shows his, a farmer only once hurt
+  if (hero || u.hp < u.maxHp) {
+    const w = hero ? 18 : 12, x0 = u.x - w / 2, y0 = u.y - (hero ? 27 : 22);
+    ctx.fillStyle = "rgba(20,16,20,0.75)"; ctx.fillRect(x0 - 1, y0 - 1, w + 2, 4);
+    const pct = Math.max(0, u.hp / u.maxHp);
+    ctx.fillStyle = pct > 0.5 ? "#7ad06a" : pct > 0.25 ? "#e8c14a" : "#e07a72";
+    ctx.fillRect(x0, y0, w * pct, 2);
+  }
+  if (hero) {
+    // the level, on a small shield below the bar
+    ctx.fillStyle = "#e8c14a"; ctx.fillRect(u.x - 12, u.y - 31, 5, 5);
+    ctx.fillStyle = "#2a1c2c"; ctx.font = "bold 4px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(String(b.level), u.x - 9.5, u.y - 28.3);
+  }
+};

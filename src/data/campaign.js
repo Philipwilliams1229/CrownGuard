@@ -175,10 +175,18 @@ export function loadProgress() {
       cleared: raw.cleared && typeof raw.cleared === "object" ? raw.cleared : {},
       // castle works, by chapter: { greenwood: { archers: 2, ... } }
       castle: raw.castle && typeof raw.castle === "object" ? raw.castle : {},
+      // the heroes' levels: { aldric: { level: 4 } }
+      heroes: raw.heroes && typeof raw.heroes === "object" ? raw.heroes : {},
     };
   } catch {
-    return { cleared: {}, castle: {} };
+    return { cleared: {}, castle: {}, heroes: {} };
   }
+}
+export function saveHero(key, level) {
+  const p = loadProgress();
+  p.heroes[key] = { level: Math.max(level, p.heroes[key]?.level || 1) };
+  save(p);
+  return p;
 }
 
 // The works built on a region's castle so far.
@@ -205,7 +213,7 @@ export function markCleared(levelId) {
 }
 
 export function resetProgress() {
-  const p = { cleared: {}, castle: {} };
+  const p = { cleared: {}, castle: {}, heroes: {} };
   save(p);
   return p;
 }

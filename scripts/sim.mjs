@@ -42,7 +42,12 @@ const { setWaveWindow, scriptedWaves } = await import("../src/data/waves.js");
 const { TOWERS } = await import("../src/data/towers.js");
 const { TOTAL_LEN, posAt, nearestOnPath } = await import("../src/engine/path.js");
 const { updateGame } = await import("../src/engine/update.js");
-const { startWave, placeTower, upgradeTower, branchTower, ascendTower, buildableAt } = await import("../src/engine/actions.js");
+const { startWave, placeTower, upgradeTower, branchTower, ascendTower, buildableAt, fieldHero, callMilitia, heroBand } = await import("../src/engine/actions.js");
+const { PTS } = await import("../src/engine/path.js");
+// --hero aldric|wren|none : who rides with the commander (default: Sir Aldric,
+// because a real player always has one). --no-militia skips the free farmers.
+const HERO = after("hero") || "aldric";
+const MILITIA_ON = !flag("no-militia");
 const { CHAPTERS, LEVELS } = await import("../src/data/campaign.js");
 const { recomputePerks } = await import("../src/data/profile.js");
 const { SKILLS } = await import("../src/data/skills.js");
@@ -187,6 +192,7 @@ const freshGame = (gold) => ({
   spawnQueue: [], spawnTimer: 0, speed: 4, paused: false,
   selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
   cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false,
+  bands: [], militiaCd: 0,
 });
 
 const DT = 1 / 30;
@@ -200,6 +206,14 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
   applyVeterancy(Math.min(3, vet), Math.max(0, vet - 3));
   sampleRoad();
   const g = freshGame(gold);
+  // the hero waits before the gate, like the game puts him; the commander
+  // parks him a little up the road so he meets what the towers let through
+  const [gx, gy] = PTS[PTS.length - 1];
+  if (HERO !== "none") {
+    const b = fieldHero(g, HERO, 1, gx - 70, gy + (gy > H / 2 ? -50 : 50));
+    const [hx, hy] = posAt(TOTAL_LEN - 110);
+    if (b) b.rally = { x: hx, y: hy };
+  }
   const total = waves ?? scriptedWaves();
   let ticks = 0;
   const MAX_TICKS = 30 * 60 * 60; // one simulated hour — a stuck run bails out
@@ -210,7 +224,15 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
       const livesBefore = g.lives;
       startWave(g);
       // fight the whole wave
-      while (g.phase === "combat" && ticks < MAX_TICKS) { updateGame(g, DT); ticks++; }
+      while (g.phase === "combat" && ticks < MAX_TICKS) {
+        updateGame(g, DT); ticks++;
+        // the militia horn, blown at the road's last bend whenever it's ready
+        // and something is on the road worth blowing it for
+        if (MILITIA_ON && (g.militiaCd || 0) <= 0 && g.enemies.some((e) => !e.dead && e.dist > TOTAL_LEN * 0.5)) {
+          const [mx, my] = posAt(TOTAL_LEN - 150);
+          callMilitia(g, mx, my);
+        }
+      }
       if (!quiet) {
         const leaked = livesBefore - g.lives;
         const mark = leaked === 0 ? "  " : leaked <= 2 ? "! " : "!!";
@@ -223,7 +245,8 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
   }
 
   const result = g.victory ? "WON" : g.phase === "lost" ? "LOST" : "STUCK";
-  const towers = g.towers.map((t) => `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`).join(" ");
+  const hb = heroBand(g);
+  const towers = g.towers.map((t) => `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`).join(" ") + (hb ? ` + ${hb.name} L${hb.level}` : "");
   return { result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName };
 }
 
@@ -238,7 +261,7 @@ function runLevel(opts, quiet) {
     if (r2.result === "WON" || r2.lives > r.lives || (r2.lives === r.lives && r2.wave > r.wave)) r = r2;
   }
   const { name } = opts;
-  console.log(`${r.result === "WON" ? "✔" : "✘"} ${name} [${r.plan}]: ${r.result} — wave ${r.wave}/${r.total}, lives ${r.lives}/${CASTLE_HP} (leaked ${r.leaked}), army: ${quiet ? r.towers.split(" ").length + " towers" : r.towers}`);
+  console.log(`${r.result === "WON" ? "✔" : "✘"} ${name} [${r.plan}]: ${r.result} — wave ${r.wave}/${r.total}, lives ${r.lives}/${CASTLE_HP} (leaked ${r.leaked}), army: ${quiet ? r.towers.split(" + ")[0].split(" ").length + " towers" + (r.towers.includes(" + ") ? " + " + r.towers.split(" + ")[1] : "") : r.towers}`);
   return { name, ...r };
 }
 
