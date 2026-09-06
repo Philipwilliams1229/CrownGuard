@@ -495,9 +495,18 @@ export function updateGame(g, dt) {
         e.dist += e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
       }
       const [px, py] = posAt(e.dist);
-      const a = angleAt(e.dist);
-      e.x = px + Math.cos(a + Math.PI / 2) * e.lane;
-      e.y = py + Math.sin(a + Math.PI / 2) * e.lane;
+      // a smoothed heading — the tangent across a short stretch of road — so a
+      // lane offset doesn't jitter through a corner's short segments
+      const [ax, ay] = posAt(Math.max(0, e.dist - 6));
+      const [bx, by] = posAt(Math.min(TOTAL_LEN, e.dist + 6));
+      const a = Math.hypot(bx - ax, by - ay) > 0.01 ? Math.atan2(by - ay, bx - ax) : angleAt(e.dist);
+      const nx = px + Math.cos(a + Math.PI / 2) * e.lane;
+      const ny = py + Math.sin(a + Math.PI / 2) * e.lane;
+      // the walk cycle follows the ground actually covered: inside lanes step
+      // slower round a corner, outside lanes quicker, and no foot ever slides
+      if (e.px != null) e.gait = (e.gait || 0) + Math.hypot(nx - e.px, ny - e.py) / 14;
+      e.px = nx; e.py = ny;
+      e.x = nx; e.y = ny;
       if (!held && Math.abs(Math.cos(a)) > 0.3) e.face = Math.cos(a) >= 0 ? 1 : -1;
       // Crossbowmen: they shoot your knights from outside sword reach and
       // never break stride to do it. Nothing blocks this — only killing them.

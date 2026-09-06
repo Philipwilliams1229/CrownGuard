@@ -83,8 +83,10 @@ export const drawEnemy = (ctx, e, time, tms) => {
     const rsheet = fighting && !airborne ? "fight" : "walk";
     const n = rsheet === "fight" ? 2 : 4;
     const def = rigDef(skin);
-    const rate = rsheet === "fight" ? 5 : def.kind === "beast" ? 9 : def.fly ? 8 : 6;
-    const rframe = Math.floor(time * rate + e.id) % n;
+    // walkers step to the ground they cover; fliers and fighters keep time
+    const rframe = rsheet === "walk" && !def.fly
+      ? Math.floor((e.gait || 0) * (def.kind === "beast" ? 1.6 : 1.2) + e.id) % n
+      : Math.floor(time * (rsheet === "fight" ? 5 : 8) + e.id) % n;
     const feet = e.y + e.size * 0.55 + hover;
     const variant = e.revived ? "revived" : "";
     drawRig(ctx, skin, e.x + lunge, feet, e.face, rsheet, rframe, variant);
