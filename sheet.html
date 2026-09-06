@@ -1,0 +1,202 @@
+<!doctype html>
+<!--
+  Dev tool: EVERYTHING on one canvas — every creature rig, every tower in
+  every form, the castle with all its works, the spawn mouths, the scenery.
+  For handing the art to someone (or something) that can't run the game.
+  Open /sheet.html with the dev server running. The page exposes
+  window.__sheet (the canvas) so it can be saved from a script.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — the whole sprite sheet</title>
+    <style>
+      body { background: #20242c; color: #e8e0c8; font-family: Verdana, sans-serif; margin: 0; padding: 12px; }
+      canvas { display: block; image-rendering: pixelated; max-width: 100%; }
+      p { font-size: 12px; opacity: 0.8; }
+    </style>
+  </head>
+  <body>
+    <p id="status">painting…</p>
+    <script type="module">
+      import { PX } from "/src/render/paint.js";
+      import { RIGS, rigFrame } from "/src/render/rigs.js";
+      import * as T from "/src/render/towers.js";
+      import { TOWERS } from "/src/data/towers.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { groundLayer } from "/src/render/world.js";
+      import { W, H } from "/src/data/constants.js";
+      import { PTS } from "/src/engine/path.js";
+      import { drawCastle, drawCastleWorks, drawSpawn, drawTree } from "/src/render/scenery.js";
+      import { drawArcher, drawCrew, drawHalberdier, drawMason, drawStander, drawMage, drawPriest, drawSmith, drawHooded, drawMistress, drawBomber, drawMusketeer, ARCHER_FOLK, MAGE_FOLK, PRIEST_FOLK, CREW_FOLK, WALL_FOLK } from "/src/render/folk.js";
+
+      selectRealm("greenwood");
+      const RES = PX;                       // art pixels per world unit (the game's own)
+      const SW = 1000;                      // sheet width in world units
+      const rows = [];                      // [{ h, paint(ctx, y) }] — measured then painted
+      const label = (ctx, x, y, text, big) => {
+        ctx.font = `${big ? "bold 9px" : "6px"} Verdana, sans-serif`;
+        ctx.textAlign = "left"; ctx.textBaseline = "top";
+        ctx.fillStyle = big ? "#e8c14a" : "#e8e0c8";
+        ctx.fillText(text, x, y);
+      };
+      const heading = (text) => rows.push({ h: 18, paint: (ctx, y) => label(ctx, 8, y + 5, text.toUpperCase(), true) });
+      const meadow = groundLayer();
+
+      // ---- 1. every creature: walk 0 / walk 2 / fight 0 --------------------
+      heading("Creatures and soldiers — walk frame, walk frame, fight frame");
+      {
+        const names = Object.keys(RIGS);
+        const CELL = 46, GROUP = CELL * 3 + 6, PER = Math.floor((SW - 16) / GROUP);
+        for (let i = 0; i < names.length; i += PER) {
+          const slice = names.slice(i, i + PER);
+          const boxes = slice.map((n) => RIGS[n].box);
+          const up = Math.max(...boxes.map((b) => b.up)), down = Math.max(...boxes.map((b) => b.down));
+          const h = up + down + 14;
+          rows.push({ h, paint: (ctx, y) => {
+            slice.forEach((name, k) => {
+              const gx = 8 + k * GROUP;
+              label(ctx, gx, y + 1, name);
+              [["walk", 0], ["walk", 2], ["fight", 0]].forEach(([sheet, f], j) => {
+                const { cv, ax, ay } = rigFrame(name, sheet, f, "");
+                // anchor: feet at the row's baseline, centred in the cell
+                const cx = gx + j * CELL + CELL / 2, feet = y + 10 + up;
+                ctx.drawImage(cv, cx - ax, feet - ay, cv.width / RES, cv.height / RES);
+              });
+            });
+          } });
+        }
+      }
+
+      // ---- 2. the crews (the folk who stand on the halls) --------------------
+      heading("Crew figures — who stands on the towers and the wall");
+      {
+        const folk = [
+          ["archer", (c, x, y) => drawArcher(c, x, y, 1, ARCHER_FOLK.base, 1)],
+          ["archer a", (c, x, y) => drawArcher(c, x, y, 1, ARCHER_FOLK.a, 1)],
+          ["archer b", (c, x, y) => drawArcher(c, x, y, 1, ARCHER_FOLK.b, 1, { big: true })],
+          ["crossbow", (c, x, y) => drawArcher(c, x, y, 1, ARCHER_FOLK.bb, 1, { big: true, bowCol: "#3a3a44" })],
+          ["crew", (c, x, y) => drawCrew(c, x, y, 1, ARCHER_FOLK.crew, 0.3)],
+          ["stander", (c, x, y) => drawStander(c, x, y, 1, ARCHER_FOLK.base)],
+          ["mage 1", (c, x, y) => drawMage(c, x, y, 1, MAGE_FOLK.base, 1)],
+          ["mage 3", (c, x, y) => drawMage(c, x, y, 1, MAGE_FOLK.base, 3)],
+          ["priest", (c, x, y) => drawPriest(c, x, y, 1, PRIEST_FOLK.base, true)],
+          ["smith", (c, x, y) => drawSmith(c, x, y, 1, CREW_FOLK.smith, 0.5)],
+          ["hooded", (c, x, y) => drawHooded(c, x, y, 1, CREW_FOLK.blade)],
+          ["mistress", (c, x, y) => drawMistress(c, x, y, 1, CREW_FOLK.mistress)],
+          ["bomber", (c, x, y) => drawBomber(c, x, y, 1, CREW_FOLK.bomber, true)],
+          ["musketeer", (c, x, y) => drawMusketeer(c, x, y, 1, CREW_FOLK.musketeer, 0.4)],
+          ["wall bowman", (c, x, y) => drawArcher(c, x, y, 1, WALL_FOLK.bowman, 1)],
+          ["halberdier", (c, x, y) => drawHalberdier(c, x, y, 1, WALL_FOLK.guard)],
+          ["mason", (c, x, y) => drawMason(c, x, y, 1, WALL_FOLK.mason, 1)],
+        ];
+        const CELL = 54, PER = Math.floor((SW - 16) / CELL);
+        for (let i = 0; i < folk.length; i += PER) {
+          const slice = folk.slice(i, i + PER);
+          rows.push({ h: 58, paint: (ctx, y) => {
+            slice.forEach(([name, fn], k) => {
+              const x = 8 + k * CELL;
+              label(ctx, x, y + 1, name);
+              try { fn(ctx, x + CELL / 2, y + 50); } catch (e) { label(ctx, x, y + 20, "×"); }
+            });
+          } });
+        }
+      }
+
+      // ---- 3. every tower in every form -------------------------------------
+      const forms = [
+        { label: "level 1", level: 1 }, { label: "level 2", level: 2 }, { label: "level 3", level: 3 },
+        { label: "branch a", level: 3, branch: "a" }, { label: "final aa", level: 3, branch: "a", rank4: "a" }, { label: "final ab", level: 3, branch: "a", rank4: "b" },
+        { label: "branch b", level: 3, branch: "b" }, { label: "final ba", level: 3, branch: "b", rank4: "a" }, { label: "final bb", level: 3, branch: "b", rank4: "b" },
+      ];
+      const painters = {
+        archer: T.drawArcherTower, knight: T.drawGarrison, wizard: T.drawWizardSpire, support: T.drawSupportTower,
+        catapult: T.drawCatapult, spiker: T.drawBladewheel, goldworks: T.drawGoldworks, trapsmith: T.drawTrapsmith,
+        falconry: T.drawFalconry, gunpowder: T.drawGunpowder, riverwatch: T.drawRiverwatchHall, assassin: T.drawAssassin, sunforge: T.drawSunforge,
+      };
+      const CW = 108, CH = 126;
+      let id = 100;
+      for (const [kind, fn] of Object.entries(painters)) {
+        heading(`${TOWERS[kind].name} (${kind})`);
+        rows.push({ h: CH + 12, paint: (ctx, y) => {
+          forms.forEach((f, k) => {
+            const x = 8 + k * (CW + 2);
+            label(ctx, x, y + 1, f.label);
+            ctx.save();
+            ctx.beginPath(); ctx.rect(x, y + 9, CW, CH); ctx.clip();
+            ctx.drawImage(meadow, 120 * RES, 200 * RES, CW * RES, CH * RES, x, y + 9, CW, CH);
+            const t = {
+              id: id++, kind, x: x + CW / 2, y: y + 9 + CH * 0.72, level: f.level, branch: f.branch || null, rank4: f.rank4 || null,
+              cd: 0, aim: "first", lastAim: -0.6, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [],
+              rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: false, charges: 3, ramp: 0, mAnim: 0, eagle: null,
+            };
+            try { fn(ctx, t, 1.3); } catch (e) { label(ctx, x + 4, y + 40, "×"); }
+            ctx.restore();
+          });
+        } });
+      }
+
+      // ---- 4. the castle with every work, and the spawn mouths ---------------
+      heading("The castle (every work built) · the spawn mouths · scenery");
+      {
+        const field = document.createElement("canvas");
+        field.width = W * RES; field.height = H * RES;
+        const fc = field.getContext("2d");
+        fc.scale(RES, RES); fc.imageSmoothingEnabled = false;
+        fc.drawImage(meadow, 0, 0, W, H);
+        drawCastle(fc, 1.2, 1);
+        drawCastleWorks(fc, { time: 1.2, castle: { archers: 3, ballista: 3, guards: 3, masons: 2 }, castleCd: { archers: 0, ballista: 900, shot: 0 } });
+        fc.save(); fc.globalAlpha = 1; drawSpawn(fc, 1.2, "grove"); fc.restore();
+        const [sx, sy] = PTS[0];
+        const trees = [
+          ["tree", 1], ["tree", 1.3], ["pine", 1], ["pine", 1.3], ["rock", 1], ["rock", 1.4], ["deadtree", 1], ["willow", 1],
+          ["snowpine", 1], ["icerock", 1], ["obsidian", 1], ["gravestone", 1], ["cairn", 1], ["boneheap", 1], ["tent", 1], ["mushroom", 1], ["crystal", 1],
+        ];
+        rows.push({ h: H + 12, paint: (ctx, y) => {
+          // the wall, the full board's height
+          ctx.drawImage(field, (W - 170) * RES, 0, 170 * RES, H * RES, 8, y + 9, 170, H);
+          // the spawn mouth, a window around the road's start
+          const wx = Math.max(0, sx - 60), wy = Math.max(0, sy - 100);
+          ctx.drawImage(field, wx * RES, wy * RES, 180 * RES, 200 * RES, 190, y + 9, 180, 200);
+          label(ctx, 190, y + 1, "spawn (grove)");
+          // scenery
+          let tx = 190, ty = y + 240;
+          trees.forEach(([t, s], k) => {
+            const x = tx + (k % 10) * 62, yy = ty + Math.floor(k / 10) * 120;
+            label(ctx, x - 20, yy - 62, `${t} ×${s}`);
+            try { drawTree(ctx, { t, x, y: yy, s }, 1.2); } catch (e) { label(ctx, x, yy, "×"); }
+          });
+        } });
+        for (const kind of ["cave", "barrow"]) {
+          rows.push({ h: 210, paint: (ctx, y) => {
+            const f2 = document.createElement("canvas"); f2.width = W * RES; f2.height = H * RES;
+            const c2 = f2.getContext("2d"); c2.scale(RES, RES); c2.imageSmoothingEnabled = false;
+            c2.drawImage(meadow, 0, 0, W, H);
+            drawSpawn(c2, 1.2, kind);
+            const wx = Math.max(0, sx - 60), wy = Math.max(0, sy - 100);
+            ctx.drawImage(f2, wx * RES, wy * RES, 180 * RES, 200 * RES, 8, y + 9, 180, 200);
+            label(ctx, 8, y + 1, `spawn (${kind})`);
+          } });
+        }
+      }
+
+      // ---- paint it all ------------------------------------------------------
+      const total = rows.reduce((a, r) => a + r.h + 4, 0) + 8;
+      const sheet = document.createElement("canvas");
+      sheet.width = SW * RES; sheet.height = total * RES;
+      const ctx = sheet.getContext("2d");
+      ctx.scale(RES, RES);
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = "#2c313c"; ctx.fillRect(0, 0, SW, total);
+      let y = 4;
+      for (const r of rows) {
+        ctx.fillStyle = "#333945"; ctx.fillRect(4, y, SW - 8, r.h);
+        ctx.save(); r.paint(ctx, y); ctx.restore();
+        y += r.h + 4;
+      }
+      document.body.appendChild(sheet);
+      window.__sheet = sheet;
+      document.getElementById("status").textContent = `${sheet.width}×${sheet.height} art pixels (${SW}×${total} world units at ${RES}×). window.__sheet holds it.`;
+    </script>
+  </body>
+</html>
