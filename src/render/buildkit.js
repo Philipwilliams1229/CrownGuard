@@ -8,7 +8,7 @@
 // downward, so "top" is the smallest y of a part and things stack by
 // subtracting their heights.
 
-import { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash, tuft, lin, rad } from "./paint.js";
+import { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash, tuft, lin, rad, part } from "./paint.js";
 
 export const TIMBER = "#8a6238";
 export const OAKWOOD = "#6f4a2a";
@@ -30,7 +30,7 @@ export const pad = (ctx, x, y, r, seed = 0) => {
 // Upright planks between corner posts, the whole face shaded across.
 export const timberWall = (ctx, x, top, w, h, col = TIMBER) => {
   const x0 = x - w / 2;
-  cylinder(ctx, x0, top, w, h, col, { r: 1.5, hi: 0.28, lo: 0.5 });
+  part(ctx, (c) => cylinder(c, x0, top, w, h, col, { r: 1.5, hi: 0.28, lo: 0.5 }));
   ctx.save();
   roundRect(ctx, x0, top, w, h, 1.5);
   ctx.clip();
@@ -48,18 +48,20 @@ export const timberWall = (ctx, x, top, w, h, col = TIMBER) => {
   }
   ctx.restore();
   // corner posts
-  cylinder(ctx, x0 - 1.2, top - 1, 2.8, h + 2, darken(col, 0.2), { r: 1, hi: 0.3, lo: 0.5 });
-  cylinder(ctx, x0 + w - 1.6, top - 1, 2.8, h + 2, darken(col, 0.2), { r: 1, hi: 0.3, lo: 0.5 });
+  part(ctx, (c) => {
+    cylinder(c, x0 - 1.2, top - 1, 2.8, h + 2, darken(col, 0.2), { r: 1, hi: 0.3, lo: 0.5 });
+    cylinder(c, x0 + w - 1.6, top - 1, 2.8, h + 2, darken(col, 0.2), { r: 1, hi: 0.3, lo: 0.5 });
+  });
 };
 
 // Dressed stone with a wider footing course and a string course near the top.
 export const stoneBody = (ctx, x, top, w, h, col = GREY_STONE) => {
   const x0 = x - w / 2;
-  masonry(ctx, x0, top, w, h, col, { r: 2, course: 5.5, block: Math.max(6, w / 2.6), hi: 0.3, lo: 0.45 });
+  part(ctx, (c) => masonry(c, x0, top, w, h, col, { r: 2, course: 5.5, block: Math.max(6, w / 2.6), hi: 0.3, lo: 0.45 }));
   // string course
-  cylinder(ctx, x0 - 1, top + 3, w + 2, 2.4, lighten(col, 0.12), { r: 1, hi: 0.35, lo: 0.4 });
+  part(ctx, (c) => cylinder(c, x0 - 1, top + 3, w + 2, 2.4, lighten(col, 0.12), { r: 1, hi: 0.35, lo: 0.4 }));
   // footing
-  cylinder(ctx, x0 - 2, top + h - 5, w + 4, 5, darken(col, 0.12), { r: 1.5, hi: 0.28, lo: 0.45 });
+  part(ctx, (c) => cylinder(c, x0 - 2, top + h - 5, w + 4, 5, darken(col, 0.12), { r: 1.5, hi: 0.28, lo: 0.45 }));
 };
 
 // A slit window with torchlight behind it.
@@ -83,34 +85,37 @@ export const deck = (ctx, x, y, hw, col = TIMBER, depth = 6) => {
     ctx.closePath();
     ctx.fill();
   }
-  const g = lin(ctx, 0, y, 0, y + depth, [[0, lighten(col, 0.3)], [0.55, col], [1, darken(col, 0.4)]]);
-  roundRect(ctx, x - hw, y, hw * 2, depth, 1.5);
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.save();
-  roundRect(ctx, x - hw, y, hw * 2, depth, 1.5);
-  ctx.clip();
-  ctx.fillStyle = rgba(darken(col, 0.5), 0.3);
-  for (let px = x - hw + 4; px < x + hw; px += 4.5) ctx.fillRect(px, y, 0.7, depth);
-  ctx.restore();
+  part(ctx, (c) => {
+    roundRect(c, x - hw, y, hw * 2, depth, 1.5);
+    c.fillStyle = lin(c, 0, y, 0, y + depth, [[0, lighten(col, 0.3)], [0.55, col], [1, darken(col, 0.4)]]);
+    c.fill();
+    c.save();
+    roundRect(c, x - hw, y, hw * 2, depth, 1.5);
+    c.clip();
+    c.fillStyle = rgba(darken(col, 0.5), 0.3);
+    for (let px = x - hw + 4; px < x + hw; px += 4.5) c.fillRect(px, y, 0.7, depth);
+    c.restore();
+  });
 };
 
 // Rail posts and a top rail along the deck's front edge.
 export const rail = (ctx, x, y, hw, col = OAKWOOD, n = 5) => {
-  for (let i = 0; i < n; i++) {
-    const px = x - hw + 1 + (i / (n - 1)) * (hw * 2 - 2);
-    cylinder(ctx, px - 1.1, y - 6, 2.2, 7, col, { r: 0.9, hi: 0.3, lo: 0.5 });
-  }
-  ctx.strokeStyle = lighten(col, 0.1);
-  ctx.lineWidth = 1.4;
-  ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(x - hw + 1, y - 5); ctx.lineTo(x + hw - 1, y - 5); ctx.stroke();
+  part(ctx, (c) => {
+    for (let i = 0; i < n; i++) {
+      const px = x - hw + 1 + (i / (n - 1)) * (hw * 2 - 2);
+      cylinder(c, px - 1.1, y - 6, 2.2, 7, col, { r: 0.9, hi: 0.3, lo: 0.5 });
+    }
+    c.strokeStyle = lighten(col, 0.1);
+    c.lineWidth = 1.4;
+    c.lineCap = "round";
+    c.beginPath(); c.moveTo(x - hw + 1, y - 5); c.lineTo(x + hw - 1, y - 5); c.stroke();
+  });
 };
 
 // Stone merlons along a wall head.
 export const battlement = (ctx, x, y, hw, col = GREY_STONE, step = 7) => {
   for (let px = x - hw; px < x + hw - 2; px += step) {
-    cylinder(ctx, px, y - 5, Math.min(4.2, x + hw - px), 6, col, { r: 1, hi: 0.32, lo: 0.42 });
+    part(ctx, (c) => cylinder(c, px, y - 5, Math.min(4.2, x + hw - px), 6, col, { r: 1, hi: 0.32, lo: 0.42 }));
   }
 };
 
@@ -118,6 +123,7 @@ export const battlement = (ctx, x, y, hw, col = GREY_STONE, step = 7) => {
 // A hipped roof of shingles: wide at the eaves, a short ridge, lit from above.
 export const hipRoof = (ctx, x, eave, hw, ridgeHW, h, col) => {
   soft(ctx, x, eave + 2, hw, 2.5, [[0, "rgba(28,20,30,0.5)"], [1, "rgba(28,20,30,0)"]]);
+  part(ctx, (ctx) => {
   ctx.beginPath();
   ctx.moveTo(x - hw - 1, eave);
   ctx.quadraticCurveTo(x - hw * 0.7, eave - h * 0.55, x - ridgeHW, eave - h);
@@ -136,20 +142,21 @@ export const hipRoof = (ctx, x, eave, hw, ridgeHW, h, col) => {
     ctx.fillRect(x - hw - 2, ry - 0.9, hw * 2 + 4, 0.8);
   }
   ctx.restore();
+  });
   // ridge beam
-  cylinder(ctx, x - ridgeHW - 1, eave - h - 1.2, ridgeHW * 2 + 2, 2.2, darken(col, 0.25), { r: 1, hi: 0.35, lo: 0.4 });
+  part(ctx, (c) => cylinder(c, x - ridgeHW - 1, eave - h - 1.2, ridgeHW * 2 + 2, 2.2, darken(col, 0.25), { r: 1, hi: 0.35, lo: 0.4 }));
 };
 
 // A pointed cap, for slender towers.
 export const coneRoof = (ctx, x, eave, hw, h, col) => {
   soft(ctx, x, eave + 2, hw, 2.5, [[0, "rgba(28,20,30,0.5)"], [1, "rgba(28,20,30,0)"]]);
-  cone(ctx, x, eave - h, hw + 1, h, col, { scallops: 3, sag: 2, hi: 0.42, lo: 0.5 });
-  ball(ctx, x, eave - h, 1.7, 1.7, "#d8b34a", { hi: 0.5, lo: 0.3 });
+  part(ctx, (c) => cone(c, x, eave - h, hw + 1, h, col, { scallops: 3, sag: 2, hi: 0.42, lo: 0.5 }));
+  part(ctx, (c) => ball(c, x, eave - h, 1.7, 1.7, "#d8b34a", { hi: 0.5, lo: 0.3 }));
 };
 
 // Posts carrying a roof down to a deck.
 export const roofPosts = (ctx, x, top, bottom, hw, col = OAKWOOD) => {
-  for (const sgn of [-1, 1]) cylinder(ctx, x + sgn * hw - 1.3, top, 2.6, bottom - top, col, { r: 1, hi: 0.3, lo: 0.5 });
+  for (const sgn of [-1, 1]) part(ctx, (c) => cylinder(c, x + sgn * hw - 1.3, top, 2.6, bottom - top, col, { r: 1, hi: 0.3, lo: 0.5 }));
 };
 
 // ---- dressings ---------------------------------------------------------

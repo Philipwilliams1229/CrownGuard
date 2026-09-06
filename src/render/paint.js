@@ -19,7 +19,7 @@ export const PIXEL = true;
 // The style dials. `line` is the ink outline's thickness in art pixels (0 =
 // none); `bands` is how many flat tones a shaded shape gets (0 = keep each
 // shape's own stops). The lab pages turn these; the game keeps PX = RES.
-export const STYLE = { line: 1, bands: 0 };
+export const STYLE = { line: 2, bands: 3, inner: 1 };
 export const setStyle = (o) => { Object.assign(STYLE, o); if (o.px) PX = o.px; };
 // the lab pages try other densities; the game itself keeps PX = RES
 export const setPX = (v) => { PX = v; };
@@ -328,7 +328,7 @@ export const masonry = (ctx, x, top, w, h, col, o = {}) => {
 // Bake a drawing into an offscreen canvas at art resolution and ink its
 // silhouette: every transparent pixel touching a painted one turns to ink.
 // `draw(ctx)` paints in world units with (0,0) at the sprite's top-left.
-export const inkOutline = (cv, ink = INK_LINE) => {
+export const inkOutline = (cv, ink = INK_LINE, passes = STYLE.line) => {
   const c = cv.getContext("2d");
   const w = cv.width, h = cv.height;
   const img = c.getImageData(0, 0, w, h);
@@ -339,7 +339,7 @@ export const inkOutline = (cv, ink = INK_LINE) => {
   const [r, g, b] = rgb(ink);
   // grow the silhouette outward `line` times, inking each new ring
   let ring = solid;
-  for (let pass = 0; pass < STYLE.line; pass++) {
+  for (let pass = 0; pass < passes; pass++) {
     const next = new Uint8Array(ring);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -355,6 +355,8 @@ export const inkOutline = (cv, ink = INK_LINE) => {
   return cv;
 };
 
+// While a sprite bakes, `part()` can ink each piece of it separately.
+let BAKING = null;
 export const bakeSprite = (w, h, draw, outline = true) => {
   const cv = document.createElement("canvas");
   cv.width = Math.ceil(w * PX);
@@ -362,7 +364,28 @@ export const bakeSprite = (w, h, draw, outline = true) => {
   const c = cv.getContext("2d");
   c.imageSmoothingEnabled = false;
   c.scale(PX, PX);
-  draw(c);
+  const outer = BAKING;
+  BAKING = { w: cv.width, h: cv.height };
+  try { draw(c); } finally { BAKING = outer; }
   if (outline && PIXEL && STYLE.line > 0) inkOutline(cv);
   return cv;
+};
+
+// One piece of a sprite — a trunk, a leaf lobe, a roof, a limb. While
+// baking with the inner dial on, the piece is painted on its own layer,
+// given a thin ink edge, and laid over what came before, so lines appear
+// wherever pieces meet. Outside a bake it simply paints.
+export const part = (ctx, fn) => {
+  if (!BAKING || !PIXEL || STYLE.inner <= 0) { fn(ctx); return; }
+  const layer = document.createElement("canvas");
+  layer.width = BAKING.w; layer.height = BAKING.h;
+  const c = layer.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.setTransform(ctx.getTransform());
+  fn(c);
+  inkOutline(layer, INK_LINE, STYLE.inner);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(layer, 0, 0);
+  ctx.restore();
 };

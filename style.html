@@ -22,7 +22,7 @@
   </head>
   <body>
     <h2>the style dials</h2>
-    <p class="note">Every cell is the same scene. <b>px</b> = art pixels per world unit (the chunk size). <b>line</b> = ink outline thickness in art pixels. <b>tones</b> = how many flat shades a shape gets. Name the cell you like.</p>
+    <p class="note">Every cell is the same scene. <b>px</b> = art pixels per world unit (the chunk size). <b>line</b> = ink outline thickness in art pixels. <b>inner</b> = the ink between a thing's own parts (trunk against leaves, roof against posts, arm against coat), in art pixels. <b>tones</b> = how many flat shades a shape gets. Name the cell you like.</p>
     <div id="out" class="grid"></div>
     <script type="module">
       import { setStyle } from "/src/render/paint.js";
@@ -36,9 +36,9 @@
       const out = document.getElementById("out");
 
       const cells = [
-        ["A1", { px: 1, line: 1, bands: 3 }], ["A2", { px: 1, line: 1, bands: 0 }], ["A3", { px: 1, line: 2, bands: 3 }],
-        ["B1", { px: 2, line: 1, bands: 0 }], ["B2", { px: 2, line: 1, bands: 3 }], ["B3", { px: 2, line: 2, bands: 3 }], ["B4", { px: 2, line: 2, bands: 2 }], ["B5", { px: 2, line: 1, bands: 5 }],
-        ["C1", { px: 4, line: 2, bands: 3 }], ["C2", { px: 4, line: 3, bands: 2 }], ["C3", { px: 4, line: 2, bands: 0 }],
+        ["D1", { px: 2, line: 2, bands: 3, inner: 0 }], ["D2", { px: 2, line: 2, bands: 3, inner: 1 }],
+        ["D3", { px: 2, line: 1, bands: 3, inner: 1 }], ["D4", { px: 2, line: 2, bands: 3, inner: 2 }],
+        ["D5", { px: 1, line: 1, bands: 3, inner: 1 }], ["D6", { px: 2, line: 2, bands: 2, inner: 1 }],
       ];
 
       const tower = (level, branch, rank4) => ({
@@ -69,12 +69,12 @@
         drawArcherTower(ctx, { ...tower(3, null, null), x: 82, y: 86 }, 1.3);
         wrap.appendChild(cv);
         const cap = document.createElement("div"); cap.className = "cap";
-        cap.innerHTML = `<b>${label}</b> px ${st.px} · line ${st.line} · tones ${st.bands || "own"}`;
+        cap.innerHTML = `<b>${label}</b> px ${st.px} · line ${st.line} · inner ${st.inner} · tones ${st.bands || "own"}`;
         wrap.appendChild(cap);
         out.appendChild(wrap);
       }
       // leave the game's own settings behind for any other page in this tab
-      setStyle({ px: 2, line: 1, bands: 0 });
+      setStyle({ px: 2, line: 2, bands: 3, inner: 1 });
     </script>
   </body>
 </html>

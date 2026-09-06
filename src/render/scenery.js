@@ -13,7 +13,7 @@ import { PTS } from "../engine/path.js";
 import { FOREST } from "../data/terrain.js";
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
-  blade, tuft, strokePts, blobPath, blobBall, masonry, hash, ellipse, SUN, lin, rad, bakeSprite, PIXEL } from "./paint.js";
+  blade, tuft, strokePts, blobPath, blobBall, masonry, hash, ellipse, SUN, lin, rad, bakeSprite, PIXEL, part } from "./paint.js";
 
 // ---- palettes ---------------------------------------------------------
 const OAK = { leaf: "#5e9f45", trunk: "#7a5334" };
@@ -39,8 +39,15 @@ const leafyTree = (ctx, x, y, s, pal, sway, seed) => {
   ctx.quadraticCurveTo(x + tw * 0.45 + lean * 0.3, y + 2, x + tw * 0.9, y + 11);
   ctx.closePath();
   const tg = lin(ctx, x - tw, 0, x + tw, 0, [[0, lighten(pal.trunk, 0.3)], [0.5, pal.trunk], [1, darken(pal.trunk, 0.55)]]);
-  ctx.fillStyle = tg;
-  ctx.fill();
+  const trunkPath = (c) => {
+    c.beginPath();
+    c.moveTo(x - tw * 0.9, y + 11);
+    c.quadraticCurveTo(x - tw * 0.45 + lean * 0.3, y + 2, x - tw * 0.42 + lean, y - 10 * s);
+    c.lineTo(x + tw * 0.42 + lean, y - 10 * s);
+    c.quadraticCurveTo(x + tw * 0.45 + lean * 0.3, y + 2, x + tw * 0.9, y + 11);
+    c.closePath();
+  };
+  part(ctx, (c) => { trunkPath(c); c.fillStyle = tg; c.fill(); });
   // canopy: a dark under-mass, then the lobes, lowest first
   const cx = x + sway;
   soft(ctx, cx, y - 12 * s, 18 * s, 14 * s, [[0, darken(pal.leaf, 0.45)], [0.8, darken(pal.leaf, 0.5)], [1, rgba(darken(pal.leaf, 0.5), 0)]]);
@@ -52,7 +59,7 @@ const leafyTree = (ctx, x, y, s, pal, sway, seed) => {
   ];
   lobes.forEach(([dx, dy, r, top], i) => {
     const sx = cx + top * sway * 0.8;
-    blobBall(ctx, sx + dx * s, y + dy * s, r * s, r * 0.9 * s, mix(pal.leaf, darken(pal.leaf, 0.2), dy > -12 ? 0.35 : 0), seed * 3 + i, { hi: 0.5, lo: 0.45, wobble: 0.14, n: 11 });
+    part(ctx, (c) => blobBall(c, sx + dx * s, y + dy * s, r * s, r * 0.9 * s, mix(pal.leaf, darken(pal.leaf, 0.2), dy > -12 ? 0.35 : 0), seed * 3 + i, { hi: 0.5, lo: 0.45, wobble: 0.14, n: 11 }));
   });
   // leaf clusters: a few soft masses where the sun lands, shade underneath
   for (let i = 0; i < 9; i++) {
@@ -71,7 +78,7 @@ const leafyTree = (ctx, x, y, s, pal, sway, seed) => {
 // below it. `caps` adds snow.
 const pineTree = (ctx, x, y, s, pal, sway, caps = null) => {
   shadow(ctx, x + 5 * s, y + 10, 12 * s, 5 * s, 0.3);
-  cylinder(ctx, x - 2 * s, y - 2, 4 * s, 12, pal.trunk, { r: 1.5 });
+  part(ctx, (c) => cylinder(c, x - 2 * s, y - 2, 4 * s, 12, pal.trunk, { r: 1.5 }));
   const tiers = [
     { halfW: 13, h: 14, bottom: 7, col: darken(pal.leaf, 0.12) },
     { halfW: 10, h: 13, bottom: 7 - 9, col: pal.leaf },
@@ -86,8 +93,8 @@ const pineTree = (ctx, x, y, s, pal, sway, caps = null) => {
       // the tier above throws a soft shadow onto this one
       soft(ctx, x + lean, bottom + 1.5, t.halfW * s * 1.05, 3.2 * s, [[0, rgba(darken(pal.leaf, 0.6), 0.5)], [1, rgba(darken(pal.leaf, 0.6), 0)]]);
     }
-    cone(ctx, x + lean, bottom - t.h * s, t.halfW * s, t.h * s, t.col, { scallops: 3, sag: 2.6 * s });
-    if (caps) cone(ctx, x + lean, bottom - t.h * s, t.halfW * s * 0.55, t.h * s * 0.42, caps, { scallops: 2, sag: 1.6 * s, hi: 0.2, lo: 0.2 });
+    part(ctx, (c) => cone(c, x + lean, bottom - t.h * s, t.halfW * s, t.h * s, t.col, { scallops: 3, sag: 2.6 * s }));
+    if (caps) part(ctx, (c) => cone(c, x + lean, bottom - t.h * s, t.halfW * s * 0.55, t.h * s * 0.42, caps, { scallops: 2, sag: 1.6 * s, hi: 0.2, lo: 0.2 }));
   });
 };
 
@@ -95,9 +102,9 @@ const pineTree = (ctx, x, y, s, pal, sway, caps = null) => {
 const boulder = (ctx, x, y, s, base, moss = null, seed = 0) => {
   const rx = 11 * s, ry = 8.5 * s;
   shadow(ctx, x + 4 * s, y + 8, rx * 1.15, ry * 0.6, 0.3);
-  blobBall(ctx, x, y + 2, rx, ry, base, seed, { hi: 0.5, lo: 0.55, wobble: 0.2, n: 9 });
+  part(ctx, (c) => blobBall(c, x, y + 2, rx, ry, base, seed, { hi: 0.5, lo: 0.55, wobble: 0.2, n: 9 }));
   // a second lump leaning on the first, and a flat facet that catches the sun
-  blobBall(ctx, x + rx * (0.45 + hash(seed, 3) * 0.3), y + 2 + ry * 0.3, rx * 0.5, ry * 0.5, darken(base, 0.06), seed + 5, { hi: 0.4, lo: 0.5, wobble: 0.22, n: 8 });
+  part(ctx, (c) => blobBall(c, x + rx * (0.45 + hash(seed, 3) * 0.3), y + 2 + ry * 0.3, rx * 0.5, ry * 0.5, darken(base, 0.06), seed + 5, { hi: 0.4, lo: 0.5, wobble: 0.22, n: 8 }));
   ctx.save();
   blobPath(ctx, x - rx * 0.25, y - ry * 0.3, rx * 0.55, ry * 0.4, seed + 9, 0.25, 7);
   ctx.clip();
@@ -584,16 +591,18 @@ const drum = (ctx, cx, cy, r, time, dire) => {
   // it stands on the wall: a dark pool where it meets the walkway, a splayed
   // footing course, and square-bottomed masonry above that
   soft(ctx, cx + 2, foot + 1, r * 1.5, r * 0.42, [[0, "rgba(28,20,30,0.55)"], [0.6, "rgba(28,20,30,0.3)"], [1, "rgba(28,20,30,0)"]]);
-  masonry(ctx, cx - r, cy - bh * 0.5, r * 2, bh - 3, S1, { r: r * 0.45, course: 6, block: r * 0.9 });
-  ctx.fillStyle = darken(S1, 0.05);
-  ctx.fillRect(cx - r, foot - 9, r * 2, 6);
-  cylinder(ctx, cx - r - 2.5, foot - 5, r * 2 + 5, 5.5, darken(S1, 0.14), { r: 1.5, hi: 0.28, lo: 0.45 });
-  cylinder(ctx, cx - r - 4, foot - 1.5, r * 2 + 8, 3, darken(S1, 0.28), { r: 1.2, hi: 0.2, lo: 0.45 });
-  cylinder(ctx, cx - r - 2, cy - bh * 0.5 - 4, r * 2 + 4, 4.5, lighten(S1, 0.1), { r: 1.5, hi: 0.35, lo: 0.4 });
+  part(ctx, (c) => {
+    masonry(c, cx - r, cy - bh * 0.5, r * 2, bh - 3, S1, { r: r * 0.45, course: 6, block: r * 0.9 });
+    c.fillStyle = darken(S1, 0.05);
+    c.fillRect(cx - r, foot - 9, r * 2, 6);
+  });
+  part(ctx, (c) => cylinder(c, cx - r - 2.5, foot - 5, r * 2 + 5, 5.5, darken(S1, 0.14), { r: 1.5, hi: 0.28, lo: 0.45 }));
+  part(ctx, (c) => cylinder(c, cx - r - 4, foot - 1.5, r * 2 + 8, 3, darken(S1, 0.28), { r: 1.2, hi: 0.2, lo: 0.45 }));
+  part(ctx, (c) => cylinder(c, cx - r - 2, cy - bh * 0.5 - 4, r * 2 + 4, 4.5, lighten(S1, 0.1), { r: 1.5, hi: 0.35, lo: 0.4 }));
   ctx.fillStyle = "#2a2430";
   roundRect(ctx, cx - 1.6, cy - 4, 3.2, 11, 1.4); ctx.fill();
   const apex = cy - bh * 0.5 - 4 - r * 1.5;
-  cone(ctx, cx, apex, r * 1.15, r * 1.5, dire ? "#4a3a30" : ROOF, { scallops: 3, sag: 2, hi: 0.4, lo: 0.5 });
+  part(ctx, (c) => cone(c, cx, apex, r * 1.15, r * 1.5, dire ? "#4a3a30" : ROOF, { scallops: 3, sag: 2, hi: 0.4, lo: 0.5 }));
   ball(ctx, cx, apex, 1.8, 1.8, "#d8b34a", { hi: 0.5, lo: 0.3 });
   return apex;
 };
@@ -613,7 +622,7 @@ const wallRun = (ctx, x0, x1, y0, y1, vertical = true) => {
   const pw = 7;
   const sides = vertical ? [[x0, y0, pw, y1 - y0], [x1 - pw, y0, pw, y1 - y0]] : [[x0, y0, x1 - x0, pw], [x0, y1 - pw, x1 - x0, pw]];
   for (const [px, py, w, h] of sides) {
-    cylinder(ctx, px, py, w, h, S1, { r: 1, hi: 0.32, lo: 0.42 });
+    part(ctx, (c) => cylinder(c, px, py, w, h, S1, { r: 1, hi: 0.32, lo: 0.42 }));
     ctx.fillStyle = darken(S1, 0.5);
     if (vertical) for (let y = py + 5; y < py + h - 4; y += 12) ctx.fillRect(px + 1.5, y, w - 3, 4);
     else for (let x = px + 5; x < px + w - 4; x += 12) ctx.fillRect(x, py + 1.5, 4, h - 3);

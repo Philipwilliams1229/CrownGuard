@@ -7,23 +7,24 @@
 // Every figure faces +x in its own space and is mirrored by `dir`. A
 // palette names the visible materials: skin, hood, coat, boots, trim.
 
-import { lighten, darken, rgba, soft, shadow, ball, roundRect, cylinder, lin, rad } from "./paint.js";
+import { lighten, darken, rgba, soft, shadow, ball, roundRect, cylinder, lin, rad, part } from "./paint.js";
 
 // A rounded limb between two points.
-const limb = (ctx, x0, y0, x1, y1, w, col) => {
-  const g = lin(ctx, x0 - w, y0, x0 + w, y0, [[0, lighten(col, 0.3)], [0.5, col], [1, darken(col, 0.45)]]);
-  ctx.strokeStyle = g;
-  ctx.lineWidth = w;
-  ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-};
+const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => {
+  c.strokeStyle = lin(c, x0 - w, y0, x0 + w, y0, [[0, lighten(col, 0.3)], [0.5, col], [1, darken(col, 0.45)]]);
+  c.lineWidth = w;
+  c.lineCap = "round";
+  c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+});
 
 const head = (ctx, x, y, pal, o = {}) => {
-  ball(ctx, x, y, 3.3, 3.5, pal.skin, { hi: 0.45, lo: 0.4 });
+  part(ctx, (c) => ball(c, x, y, 3.3, 3.5, pal.skin, { hi: 0.45, lo: 0.4 }));
   // a hood or cap, sitting over the crown and hanging down the back
   if (o.hood !== false) {
-    ball(ctx, x - 0.4, y - 1.4, 3.7, 2.6, pal.hood, { hi: 0.45, lo: 0.45 });
-    ball(ctx, x - 2.2, y + 0.6, 2.2, 3.2, pal.hood, { hi: 0.3, lo: 0.5 });
+    part(ctx, (c) => {
+      ball(c, x - 0.4, y - 1.4, 3.7, 2.6, pal.hood, { hi: 0.45, lo: 0.45 });
+      ball(c, x - 2.2, y + 0.6, 2.2, 3.2, pal.hood, { hi: 0.3, lo: 0.5 });
+    });
   }
   // the eye that faces us
   ctx.fillStyle = "#2a2230";
@@ -31,14 +32,13 @@ const head = (ctx, x, y, pal, o = {}) => {
 };
 
 // Torso: a coat with a belt.
-const torso = (ctx, x, top, h, w, pal) => {
-  const g = lin(ctx, x - w / 2, 0, x + w / 2, 0, [[0, lighten(pal.coat, 0.32)], [0.45, pal.coat], [1, darken(pal.coat, 0.5)]]);
-  roundRect(ctx, x - w / 2, top, w, h, w * 0.4);
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.fillStyle = rgba(darken(pal.trim || pal.boots, 0.2), 0.9);
-  ctx.fillRect(x - w / 2 + 0.5, top + h * 0.62, w - 1, 1.4);
-};
+const torso = (ctx, x, top, h, w, pal) => part(ctx, (c) => {
+  roundRect(c, x - w / 2, top, w, h, w * 0.4);
+  c.fillStyle = lin(c, x - w / 2, 0, x + w / 2, 0, [[0, lighten(pal.coat, 0.32)], [0.45, pal.coat], [1, darken(pal.coat, 0.5)]]);
+  c.fill();
+  c.fillStyle = rgba(darken(pal.trim || pal.boots, 0.2), 0.9);
+  c.fillRect(x - w / 2 + 0.5, top + h * 0.62, w - 1, 1.4);
+});
 
 const legs = (ctx, x, y, pal, stride = 0) => {
   limb(ctx, x - 1.6 - stride, y - 7.5, x - 1.9 - stride * 1.5, y - 0.5, 2.6, pal.boots);
