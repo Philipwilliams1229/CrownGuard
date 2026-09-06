@@ -201,4 +201,4 @@ export const skirt = (ctx, x, y, hw, seed = 0) => {
   }
 };
 
-export { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash, lin, rad };
+export { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash, lin, rad, part };

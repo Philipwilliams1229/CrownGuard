@@ -14,9 +14,9 @@
 
 import { archerLayout } from "../../engine/towers.js";
 import {
-  pad, timberWall, stoneBody, slit, deck, rail, battlement, hipRoof, coneRoof, roofPosts,
+  pad, timberWall, stoneBody, slit, deck, rail, battlement,
   pennant, vine, skirt, TIMBER, OAKWOOD, GREY_STONE,
-  lighten, darken, soft, shadow, ball, glow, roundRect, cylinder, lin,
+  lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, lin, part,
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
 import { drawArcher, drawCrew, ARCHER_FOLK } from "../folk.js";
@@ -138,28 +138,41 @@ const paintBody = (ctx, t, x, y) => {
     vine(ctx, x - hw + 1, bodyTop + 6, y - bodyTop - 2, -1, seed, r4 === "aa" ? "#3c6a34" : "#4f8a3c", r4 === "aa" ? "#c8383a" : null);
     if (r4 === "aa") vine(ctx, x + hw - 1, bodyTop + 10, y - bodyTop - 6, 1, seed + 3, "#3c6a34", "#c8383a");
   }
+  // what stands at the BACK of the deck, behind the crew: the level-three
+  // read, without ever roofing the archers in
+  const grown = lvl >= 3 || !!t.branch;
+  if (grown && t.branch === "a") {
+    // rangers: a lean-to awning at the back, sloping up and away, mossed over
+    const roof = ROOFS[key] || ROOFS.a;
+    part(ctx, (c) => {
+      c.beginPath();
+      c.moveTo(x - pw + 1, deckY - 9);
+      c.lineTo(x - pw + 3, deckY - 24);
+      c.lineTo(x + pw - 3, deckY - 24);
+      c.lineTo(x + pw - 1, deckY - 9);
+      c.closePath();
+      c.fillStyle = lin(c, x - pw, deckY - 24, x + pw * 0.6, deckY - 9, [[0, lighten(roof, 0.35)], [0.45, roof], [1, darken(roof, 0.4)]]);
+      c.fill();
+      c.fillStyle = rgba(darken(roof, 0.5), 0.25);
+      for (let ry = deckY - 12; ry > deckY - 24; ry -= 3) c.fillRect(x - pw + 2, ry, pw * 2 - 4, 0.9);
+    });
+    for (const sgn of [-1, 1]) part(ctx, (c) => cylinder(c, x + sgn * (pw - 3) - 1.2, deckY - 24, 2.4, 25, OAKWOOD, { r: 1, hi: 0.3, lo: 0.5 }));
+    soft(ctx, x - pw * 0.4, deckY - 20, pw * 0.4, 2.5, [[0, "rgba(120,170,80,0.55)"], [1, "rgba(120,170,80,0)"]]);
+    if (r4 === "ab") part(ctx, (c) => { cylinder(c, x - 0.9, deckY - 40, 1.8, 17, OAKWOOD, { r: 0.8 }); cylinder(c, x - 5, deckY - 40.5, 10, 1.8, OAKWOOD, { r: 0.8 }); });
+  } else if (grown && t.branch === "b") {
+    // the master's tower: two slender pinnacles at the back corners
+    for (const sgn of [-1, 1]) {
+      const px = x + sgn * (pw - 3);
+      part(ctx, (c) => cylinder(c, px - 2, deckY - 18, 4, 19, GREY_STONE, { r: 1.2, hi: 0.32, lo: 0.45 }));
+      part(ctx, (c) => cone(c, px, deckY - 27, 3.4, 9, ROOFS[key] || ROOFS.b, { scallops: 2, sag: 1, hi: 0.4, lo: 0.5 }));
+    }
+  } else if (grown) {
+    // the finished tower: a crenellated back parapet
+    battlement(ctx, x, deckY - 1, pw - 2, GREY_STONE, 6);
+  }
   deck(ctx, x, deckY, pw, TIMBER, 6);
   if (r4 !== "ba") rail(ctx, x, deckY + 1, pw - 2, OAKWOOD, big ? 4 : 5);
   else battlement(ctx, x, deckY + 1, pw - 1, GREY_STONE);
-  const roofed = (lvl >= 3 || t.branch) && r4 !== "ba";
-  const eave = deckY - 24;
-  if (roofed) {
-    if (t.branch === "b") {
-      roofPosts(ctx, x, eave - 2, deckY, pw - 4);
-      coneRoof(ctx, x, eave, pw + 1, 18, ROOFS[key] || ROOFS.b);
-    } else {
-      roofPosts(ctx, x, eave - 2, deckY, pw - 3);
-      hipRoof(ctx, x, eave, pw + 3, pw * 0.4, 12, ROOFS[key] || ROOFS.base);
-      if (green) {
-        soft(ctx, x - pw * 0.5, eave - 4, pw * 0.5, 3, [[0, "rgba(120,170,80,0.55)"], [1, "rgba(120,170,80,0)"]]);
-        soft(ctx, x + pw * 0.35, eave - 7, pw * 0.35, 2.4, [[0, "rgba(120,170,80,0.45)"], [1, "rgba(120,170,80,0)"]]);
-      }
-      if (r4 === "ab") {
-        cylinder(ctx, x - 0.9, eave - 26, 1.8, 15, OAKWOOD, { r: 0.8, hi: 0.3, lo: 0.5 });
-        cylinder(ctx, x - 5, eave - 26.5, 10, 1.8, OAKWOOD, { r: 0.8, hi: 0.3, lo: 0.5 });
-      }
-    }
-  }
   if (r4 === "bb") dragonSkull(ctx, x - pw + 4, deckY - 3);
 };
 
@@ -174,13 +187,11 @@ export const drawArcherTower = (ctx, t, time) => {
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
   const key = r4 || t.branch || "base";
   const deckY = y - h;
-  const eave = deckY - 24;
-  const roofed = (lvl >= 3 || t.branch) && r4 !== "ba";
 
-  // ---- the still part, baked
-  if (typeof document !== "undefined") {
-    const sk = `body|${lvl}|${t.branch}|${t.rank4}|${t.id % 5}`;
-    const cv = baked(sk, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBody(c, { ...t, id: t.id % 5 }, BOX.left, BOX.up));
+  // ---- the still part, baked; the crew stands in front of it
+  const canBake = typeof document !== "undefined";
+  if (canBake) {
+    const cv = baked(`lower|${lvl}|${t.branch}|${t.rank4}|${t.id % 5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBody(c, { ...t, id: t.id % 5 }, BOX.left, BOX.up));
     stamp(ctx, cv, x, y, BOX.left, BOX.up);
   } else paintBody(ctx, t, x, y);
 
@@ -189,11 +200,6 @@ export const drawArcherTower = (ctx, t, time) => {
     if (h >= 32 && (!t._idle || Math.sin(time * 1.7 + t.id) > -0.4)) glow(ctx, x, deckY + 17, 3.2, "#ffd070", 0.75);
     if (h >= 44) glow(ctx, x, deckY + 33.5, 3.2, "#ffd070", 0.75);
   }
-  // ---- the pennant
-  const flagTop = roofed ? (t.branch === "b" ? eave - 20 : eave - 14) : deckY - 16;
-  const flagX = roofed ? x + (t.branch === "b" ? 0 : pw * 0.4) : x + pw - 2;
-  pennant(ctx, flagX, flagTop, roofed ? 8 : 15, FLAGS[key] || FLAGS.base, time, t.id, 1);
-
   // ---- the crew, from baked frames
   const recoil = t.anim > 0.4 ? 1 : 0;
   const dir = t._idle ? (Math.sin(time * 0.55 + t.id) >= 0 ? 1 : -1) : (Math.cos(t.lastAim) >= 0 ? 1 : -1);
@@ -220,6 +226,9 @@ export const drawArcherTower = (ctx, t, time) => {
     const spots = [...lay.spots].sort((a, b) => a[1] - b[1]);
     for (const [dx, dy] of spots) stamp(ctx, fcv, x + dx, deckY + 3 + dy, 12, 29, dir);
     if (t._idle && Math.sin(time * 1.3 + t.id * 2.7) > 0.93) glow(ctx, x + dir * (pw - 5), deckY - 12, 2.5, "#ffffff", 0.9);
-    if (r4 === "ab") hawk(ctx, x, eave - 34, time, t.id);
   }
+  // ---- the standard, flying from the back corner of the deck
+  const grown = lvl >= 3 || !!t.branch;
+  pennant(ctx, x + pw - 2, deckY - (grown ? 30 : 16), grown ? 29 : 15, FLAGS[key] || FLAGS.base, time, t.id, 1);
+  if (r4 === "ab") hawk(ctx, x, deckY - 48, time, t.id);
 };

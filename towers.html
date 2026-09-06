@@ -42,7 +42,7 @@
         { label: "branch a", level: 3, branch: "a" }, { label: "final aa", level: 3, branch: "a", rank4: "a" }, { label: "final ab", level: 3, branch: "a", rank4: "b" },
         { label: "branch b", level: 3, branch: "b" }, { label: "final ba", level: 3, branch: "b", rank4: "a" }, { label: "final bb", level: 3, branch: "b", rank4: "b" },
       ];
-      const painters = { archer: [T.drawArcherTowerPixel, T.drawArcherTower] };
+      const painters = { archer: [T.drawArcherTowerPixel, T.drawArcherTower], knight: [T.drawGarrisonPixel, T.drawGarrison], wizard: [T.drawWizardSpirePixel, T.drawWizardSpire], support: [T.drawSupportTowerPixel, T.drawSupportTower] };
 
       const h2 = document.createElement("h2"); h2.textContent = `${KIND} — pixel original (left) beside the new carpentry (right) — ${RES} art px per world unit`; out.appendChild(h2);
       const note = document.createElement("p"); note.className = "note"; note.textContent = "Both animate as if fighting: the crew looses every second and a half and turns to face a target that circles the tower. Same anchor, same scale."; out.appendChild(note);

@@ -6,7 +6,10 @@ import { INK, CELL, S } from "../data/constants.js";
 import { MINI, ARCHER_PALS, WIZ_PALS, PRIEST_PALS, drawSprite } from "../sprites/sprites.js";
 import { getStats } from "../engine/towers.js";
 import { drawArcherTower } from "./halls/archer.js";
-export { drawArcherTower };
+import { drawGarrison } from "./halls/garrison.js";
+import { drawWizardSpire } from "./halls/wizard.js";
+import { drawSupportTower } from "./halls/warden.js";
+export { drawArcherTower, drawGarrison, drawWizardSpire, drawSupportTower };
 
 // leather-hooded crew engineer who works the catapult
 const CREW_PAL = { o: INK, h: "#7a5a34", b: "#6e4c28", s: "#e0b088", w: "#4a3018" };
@@ -279,7 +282,7 @@ export const drawArcherTowerPixel = (ctx, t, time) => {
   }
 };
 
-export const drawWizardSpire = (ctx, t, time) => {
+export const drawWizardSpirePixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
   const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
@@ -590,7 +593,7 @@ export const drawCatapult = (ctx, t, time) => {
   drawSprite(ctx, MINI.archer, CREW_PAL, 0, x + hw + 2, y - 2, dir < 0);
 };
 
-export const drawGarrison = (ctx, t, time) => {
+export const drawGarrisonPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
   const paladin = t.branch === "a";
@@ -841,7 +844,7 @@ export const drawBladewheel = (ctx, t, time) => {
 
 const SPIKE_BANNER = { aa: "#e8d47a", ab: "#8ce8f0", ba: "#e8c14a", bb: "#e88a3a" };
 
-export const drawSupportTower = (ctx, t, time) => {
+export const drawSupportTowerPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
   const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
