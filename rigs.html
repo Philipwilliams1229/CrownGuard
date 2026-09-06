@@ -1,0 +1,51 @@
+<!doctype html>
+<!--
+  Dev tool: every creature rig, walk and fight frames, at the game's pixel
+  density, magnified. Open /rigs.html with the dev server running.
+  ?only=goblin narrows to names containing that text. Not linked from the game.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — rig sheet</title>
+    <style>
+      body { background: #20242c; color: #e8e0c8; font-family: Verdana, sans-serif; margin: 0; padding: 16px; }
+      h2 { font-size: 13px; letter-spacing: 2px; color: #d8b34a; margin: 18px 0 6px; }
+      .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; }
+      .cell { border: 2px solid #10131a; background: #69874e; }
+      .cap { font-size: 9px; opacity: 0.7; padding: 2px 4px; background: #2c313c; text-align: center; }
+      canvas { display: block; image-rendering: pixelated; }
+    </style>
+  </head>
+  <body>
+    <div id="out"></div>
+    <script type="module">
+      import { RIGS, rigFrame } from "/src/render/rigs.js";
+      import { PX } from "/src/render/paint.js";
+      const ONLY = new URLSearchParams(location.search).get("only");
+      const SCALE = 3;
+      const out = document.getElementById("out");
+      for (const [name, def] of Object.entries(RIGS)) {
+        if (ONLY && !name.includes(ONLY)) continue;
+        const h2 = document.createElement("h2"); h2.textContent = name; out.appendChild(h2);
+        const row = document.createElement("div"); row.className = "row"; out.appendChild(row);
+        const sheets = [["walk", 4], ["fight", 2]];
+        if (name === "goblin" || name === "wolf" || name === "orc") sheets.push(["walk", 4, "revived"]);
+        for (const [sheet, n, variant] of sheets) {
+          for (let f = 0; f < n; f++) {
+            const { cv } = rigFrame(name, sheet, f, variant || "");
+            const wrap = document.createElement("div"); wrap.className = "cell";
+            const c2 = document.createElement("canvas");
+            c2.width = cv.width; c2.height = cv.height;
+            c2.style.width = (cv.width / PX) * SCALE + "px"; c2.style.height = (cv.height / PX) * SCALE + "px";
+            c2.getContext("2d").drawImage(cv, 0, 0);
+            wrap.appendChild(c2);
+            const cap = document.createElement("div"); cap.className = "cap"; cap.textContent = `${variant ? variant + " " : ""}${sheet} ${f}`;
+            wrap.appendChild(cap);
+            row.appendChild(wrap);
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

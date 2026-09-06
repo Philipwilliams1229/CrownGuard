@@ -5,6 +5,8 @@
 import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS } from "../sprites/sprites.js";
+import { hasRig, rigDef, drawRig } from "./rigs.js";
+import { shadow as softShadow } from "./paint.js";
 
 // A puff kicked up where a foot lands. The whole thing is a function of the
 // walker's own gait phase, so it needs no state and it stays in step with the
@@ -23,7 +25,8 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // mixed-party foes carry their drawn look on e.sprite; everyone else
   // wears their type's sheet
   const skin = e.sprite || e.type;
-  const spr = SPRITES[skin];
+  const rigged = hasRig(skin);
+  const spr = SPRITES[skin] || { frames: [[""]], rate: 6 };
   // necromancer-raised foes wear grave-pale colors with witch-fire eyes
   const pal = e.revived && UNDEAD_PALS[skin] ? UNDEAD_PALS[skin] : spr.pal;
   const fighting = e.blockedBy && e.engaged;
@@ -56,9 +59,12 @@ export const drawEnemy = (ctx, e, time, tms) => {
     ctx.fillStyle = "rgba(180,214,228,0.55)";
     ctx.fillRect(S(e.x - 9), S(e.y + 7), 18, CELL);
   }
-  ctx.fillStyle = airborne ? "rgba(20,20,26,0.22)" : "rgba(20,20,26,0.3)";
-  const shw = Math.round(e.size * (airborne ? 0.45 : 0.6) / CELL) * CELL;
-  ctx.fillRect(S(e.x - shw), S(e.y + e.size * 0.55), shw * 2, CELL * 2);
+  if (rigged) softShadow(ctx, e.x + 1.5, e.y + e.size * 0.55, e.size * (airborne ? 0.45 : 0.62), e.size * 0.22, airborne ? 0.22 : 0.3);
+  else {
+    ctx.fillStyle = airborne ? "rgba(20,20,26,0.22)" : "rgba(20,20,26,0.3)";
+    const shw = Math.round(e.size * (airborne ? 0.45 : 0.6) / CELL) * CELL;
+    ctx.fillRect(S(e.x - shw), S(e.y + e.size * 0.55), shw * 2, CELL * 2);
+  }
   // Fresh arrivals resolve out of the shadow of the wood over a third of a
   // second, so nothing ever simply blinks into being at the spawn point.
   const age = e.born === undefined ? 999 : tms - e.born;
@@ -71,13 +77,26 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // fliers hover; small quick critters get a lively hop on their off-frames
   let hover = airborne ? S(Math.sin(time * 3 + e.id) * 3) - (e.boss ? 10 : 7) : 0;
   if (e.swimming) hover = S(Math.sin(time * 2.4 + e.id) * 2);
-  if ((e.type === "goblin" || e.type === "wolf" || e.type === "ghoul") && frame % 2 === 1 && !fighting) hover -= CELL;
-  drawSprite(ctx, sheet, pal, frame, e.x + lunge, e.y + hover, e.face < 0);
-  // white flash on solid hits
-  if (e.hitFlash > tms) {
-    ctx.globalAlpha = 0.7 * baseAlpha;
-    drawSprite(ctx, sheet, whitePal(pal), frame, e.x + lunge, e.y + hover, e.face < 0);
-    ctx.globalAlpha = baseAlpha;
+  if (!rigged && (e.type === "goblin" || e.type === "wolf" || e.type === "ghoul") && frame % 2 === 1 && !fighting) hover -= CELL;
+  if (rigged) {
+    // rigged foes: baked frames, feet on the ground line, mirrored to face
+    const rsheet = fighting && !airborne ? "fight" : "walk";
+    const n = rsheet === "fight" ? 2 : 4;
+    const def = rigDef(skin);
+    const rate = rsheet === "fight" ? 5 : def.kind === "beast" ? 9 : def.fly ? 8 : 6;
+    const rframe = Math.floor(time * rate + e.id) % n;
+    const feet = e.y + e.size * 0.55 + hover;
+    const variant = e.revived ? "revived" : "";
+    drawRig(ctx, skin, e.x + lunge, feet, e.face, rsheet, rframe, variant);
+    if (e.hitFlash > tms) drawRig(ctx, skin, e.x + lunge, feet, e.face, rsheet, rframe, "white", 0.7);
+  } else {
+    drawSprite(ctx, sheet, pal, frame, e.x + lunge, e.y + hover, e.face < 0);
+    // white flash on solid hits
+    if (e.hitFlash > tms) {
+      ctx.globalAlpha = 0.7 * baseAlpha;
+      drawSprite(ctx, sheet, whitePal(pal), frame, e.x + lunge, e.y + hover, e.face < 0);
+      ctx.globalAlpha = baseAlpha;
+    }
   }
   // shaman's mending: green motes drift up off freshly-healed foes
   if (e.healedFlash > tms) {
@@ -184,7 +203,7 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 7, u.id, 0.22, time);
   ctx.fillStyle = "rgba(20,20,26,0.28)";
   ctx.fillRect(S(u.x - 5), S(u.y + 9), 10, CELL);
-  drawSprite(ctx, SPRITES.assassinUnit, pal, frame, u.x, u.y - 2, u.face < 0);
+  drawRig(ctx, "assassinUnit", u.x, u.y + 9, u.face, u.state === "fighting" ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 7 + u.id) % 4 : u.state === "fighting" ? (u.swing > 0 ? 1 : 0) : 0);
   // the cut itself: a short bright arc thrown out on the swing
   if (u.swing > 0) {
     const reach = u.face < 0 ? -9 : 9;
@@ -209,7 +228,7 @@ const drawSkiff = (ctx, u, t, time) => {
     const spread = 4 + i * 3;
     ctx.fillRect(S(u.x + back - spread), S(u.y + 5 + Math.sin(time * 3 + u.id + i) * 1.5), spread * 2, CELL);
   }
-  drawSprite(ctx, SPRITES.skiff, SPRITES.skiff.pal, frame, u.x, u.y + S(Math.sin(time * 2.2 + u.id) * 2), u.face < 0);
+  drawRig(ctx, "skiff", u.x, u.y + 6 + Math.sin(time * 2.2 + u.id) * 1.5, u.face, "walk", Math.floor(time * 5 + u.id) % 4);
   if (u.swing > 0) {
     ctx.fillStyle = "#e8e2d4";
     ctx.fillRect(S(u.x + u.face * 12), S(u.y - 6), 4, 2);
@@ -244,8 +263,7 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     if (fidget === 2 && fp > 0.25 && fp < 0.75) glance = true;
   }
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, giant || rider ? 0.5 : 0.3, time);
-  ctx.fillStyle = "rgba(20,20,26,0.3)";
-  ctx.fillRect(S(u.x - (giant ? 9 : rider ? 10 : 6)), S(u.y + 9), giant ? 18 : rider ? 20 : 12, CELL);
+  softShadow(ctx, u.x + 1, u.y + 9, giant ? 10 : rider ? 11 : 6, giant ? 3.5 : 2.4, 0.3);
   if (fidget === 1 && fp > 0.3) {
     // the pebble, skittering off and settling
     const roll = Math.min(1, (fp - 0.3) / 0.5);
@@ -257,22 +275,13 @@ export const drawKnightUnit = (ctx, u, t, time) => {
       ctx.fillRect(S(u.x + u.face * 5), S(u.y + 6), CELL, CELL);
     }
   }
-  if (rider) {
-    // Wolf Lodge: a great wolf carries the berserker — seated at the
-    // shoulder, not the haunches, wherever the wolf is headed
-    drawSprite(ctx, SPRITES.wolf, SPRITES.wolf.pal, frame, u.x, u.y + 3, u.face < 0);
-    drawSprite(ctx, SPRITES.knight, pal, frame, u.x + u.face * 4, u.y - 9, u.face < 0);
-  } else if (giant) {
-    // Grand Champion: double-stacked bulk, crowned in gold
-    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 1, u.face < 0);
-    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 7, u.face < 0);
-    ctx.fillStyle = "#e8c14a";
-    ctx.fillRect(S(u.x) - 3, S(u.y - 20), 6, 2);
-    ctx.fillRect(S(u.x) - 3, S(u.y - 23), 2, 3);
-    ctx.fillRect(S(u.x) + 1, S(u.y - 23), 2, 3);
-    ctx.fillRect(S(u.x) - 1, S(u.y - 24), 2, 4);
-  } else {
-    drawSprite(ctx, SPRITES.knight, pal, frame, u.x, u.y - 2 + stoop, (u.face < 0) !== glance);
+  {
+    const kind = rider ? "wolfrider" : giant ? "champion" : paladin ? "paladin" : berserk ? "berserk" : "knight";
+    const fighting = u.state === "fighting";
+    const rsheet = fighting ? "fight" : "walk";
+    const rframe = u.state === "moving" ? Math.floor(time * (rider ? 9 : 7) + u.id) % 4 : fighting ? (u.swing > 90 ? 0 : 1) : 0;
+    const face = (u.face < 0) !== glance ? -1 : 1;
+    drawRig(ctx, kind, u.x, u.y + 9 + stoop, face, rsheet, rframe);
     if (fidget === 0 && fp >= 0.3 && fp < 0.62) {
       // down among the stems: a couple of blades coming loose
       ctx.fillStyle = "#6a8a3e";
@@ -300,20 +309,6 @@ export const drawKnightUnit = (ctx, u, t, time) => {
       const fy = u.y - 14 - ((time * 26 + i * 8 + u.id * 5) % 12);
       ctx.fillRect(S(u.x - 6 + i * 6), S(fy), CELL, CELL);
     }
-  }
-  const raised = u.swing > 90;
-  const wx = S(u.x + (u.face < 0 ? -8 : 6));
-  const wy = S(u.y - (raised ? 14 : 6));
-  if (berserk) {
-    ctx.fillStyle = "#5f4326";
-    ctx.fillRect(wx, wy, CELL, 10);
-    ctx.fillStyle = "#b8bcc4";
-    ctx.fillRect(wx + (u.face < 0 ? -CELL * 2 : CELL), wy, CELL * 2, 6);
-  } else {
-    ctx.fillStyle = paladin ? "#e8d47a" : "#c4c8d0";
-    ctx.fillRect(wx, wy - 4, CELL, 12);
-    ctx.fillStyle = "#8a7444";
-    ctx.fillRect(wx - CELL, wy + 6, CELL * 3, CELL);
   }
   if (paladin && u.swing > 120) {
     ctx.fillStyle = "rgba(232,212,122,0.35)";

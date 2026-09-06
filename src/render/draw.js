@@ -20,6 +20,8 @@ import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
+import { hasRig, rigPixels, drawRig } from "./rigs.js";
+import { ENEMIES } from "../data/enemies.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawSpawn } from "./scenery.js";
@@ -965,6 +967,27 @@ export function draw(g, canvas, bufRef) {
       for (let i = 0; i < 3; i++) {
         const ang = i * 2.1 + 0.5;
         ctx.fillRect(S(fx.x + Math.cos(ang) * 7), S(fx.y + Math.sin(ang) * 5), 2, 2);
+      }
+    } else if (fx.type === "death" && hasRig(fx.etype)) {
+      // a rigged foe: flash white, then come apart pixel by pixel
+      const prog = 1 - fx.ttl / fx.life;
+      const feet = fx.y + (ENEMIES[fx.etype]?.size || 15) * 0.55;
+      const variant = fx.revived ? "revived" : "";
+      if (prog < 0.22) drawRig(ctx, fx.etype, fx.x, feet, fx.face, "walk", 0, "white", 0.9);
+      else {
+        const p2 = (prog - 0.22) / 0.78;
+        const px = rigPixels(fx.etype, variant);
+        ctx.globalAlpha = 1 - p2;
+        for (let i = 0; i < px.length; i++) {
+          const [dx, dy, col] = px[i];
+          const hh = ((i * 7919) % 13) / 13;
+          if (hh < p2 * 1.15) continue;
+          const scatter = p2 * (hh - 0.5) * 26;
+          const fall = p2 * p2 * (18 + hh * 22);
+          ctx.fillStyle = col;
+          ctx.fillRect(fx.x + dx * fx.face + scatter, feet + dy + fall, 1, 1);
+        }
+        ctx.globalAlpha = 1;
       }
     } else if (fx.type === "death") {
       // flash white, then crumble into drifting pixels
