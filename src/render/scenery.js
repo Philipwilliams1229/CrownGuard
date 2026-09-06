@@ -737,7 +737,10 @@ const eyes = (ctx, sx, sy, time, col) => {
 
 // A burial mound with its doorway stones pushed open.
 export const drawBarrow = (ctx, time) => {
-  const [sx, sy] = PTS[0];
+  // the road starts at the board edge; the mouth it comes out of sits a
+  // little inside it
+  const [psx, psy] = PTS[0];
+  const sx = psx < 60 ? psx + 30 : psx, sy = psy < 60 ? psy + 30 : psy;
   shadow(ctx, sx + 6, sy + 26, 40, 7, 0.32);
   ball(ctx, sx, sy + 4, 38, 24, "#48503f", { hi: 0.35, lo: 0.5, fy: -0.7 });
   soft(ctx, sx - 12, sy - 8, 14, 5, [[0, "rgba(90,104,76,0.6)"], [1, "rgba(90,104,76,0)"]]);
@@ -763,21 +766,23 @@ export const drawBarrow = (ctx, time) => {
 export const drawGrove = (ctx, time) => {
   const [sx, sy] = PTS[0];
   const left = !FOREST || FOREST.edge !== "top";
-  const g = left ? ctx.createLinearGradient(sx + 40, 0, sx - 14, 0) : ctx.createLinearGradient(0, sy + 40, 0, sy - 14);
-  g.addColorStop(0, "rgba(8,12,6,0)"); g.addColorStop(0.5, "rgba(8,12,6,0.7)"); g.addColorStop(1, "rgba(8,12,6,0.97)");
+  // the road darkens the whole way through the wood
+  const reach = 104;
+  const g = left ? ctx.createLinearGradient(sx + reach, 0, sx + 26, 0) : ctx.createLinearGradient(0, sy + reach, 0, sy + 26);
+  g.addColorStop(0, "rgba(8,12,6,0)"); g.addColorStop(0.5, "rgba(8,12,6,0.72)"); g.addColorStop(1, "rgba(8,12,6,0.97)");
   ctx.fillStyle = g;
-  if (left) ctx.fillRect(sx - 60, sy - PATH_HALF - 5, 100, PATH_HALF * 2 + 10);
-  else ctx.fillRect(sx - PATH_HALF - 5, sy - 60, PATH_HALF * 2 + 10, 100);
+  if (left) ctx.fillRect(sx - 60, sy - PATH_HALF - 5, reach + 60, PATH_HALF * 2 + 10);
+  else ctx.fillRect(sx - PATH_HALF - 5, sy - 60, PATH_HALF * 2 + 10, reach + 60);
   // boughs closing over the mouth
   const dark = "#17240f";
   if (left) {
-    ball(ctx, sx - 12, sy - PATH_HALF - 6, 26, 15, dark, { hi: 0.25, lo: 0.45 });
-    ball(ctx, sx - 10, sy + PATH_HALF + 8, 26, 15, dark, { hi: 0.25, lo: 0.45 });
-    ball(ctx, sx - 30, sy - 8, 22, 18, dark, { hi: 0.2, lo: 0.4 });
+    ball(ctx, sx + 30, sy - PATH_HALF - 8, 30, 15, dark, { hi: 0.25, lo: 0.45 });
+    ball(ctx, sx + 34, sy + PATH_HALF + 10, 30, 15, dark, { hi: 0.25, lo: 0.45 });
+    ball(ctx, sx + 2, sy - 6, 26, 20, dark, { hi: 0.2, lo: 0.4 });
   } else {
-    ball(ctx, sx - PATH_HALF - 6, sy - 12, 15, 26, dark, { hi: 0.25, lo: 0.45 });
-    ball(ctx, sx + PATH_HALF + 8, sy - 10, 15, 26, dark, { hi: 0.25, lo: 0.45 });
-    ball(ctx, sx - 8, sy - 30, 18, 22, dark, { hi: 0.2, lo: 0.4 });
+    ball(ctx, sx - PATH_HALF - 8, sy + 30, 15, 30, dark, { hi: 0.25, lo: 0.45 });
+    ball(ctx, sx + PATH_HALF + 10, sy + 34, 15, 30, dark, { hi: 0.25, lo: 0.45 });
+    ball(ctx, sx - 6, sy + 2, 20, 26, dark, { hi: 0.2, lo: 0.4 });
   }
   // leaves shaken loose where something is coming through
   for (let i = 0; i < 4; i++) {
@@ -785,14 +790,17 @@ export const drawGrove = (ctx, time) => {
     const lx = sx - 10 + ((i * 11) % 32) + Math.sin(time * 2 + i) * 4;
     ball(ctx, left ? lx : sx - 16 + ((i * 11) % 32), left ? sy - 20 + t2 : sy - 26 + t2, 1.4, 1, i % 2 ? "#5f8a3a" : "#8fb04a", { hi: 0.3, lo: 0.2 });
   }
-  eyes(ctx, left ? sx - 10 : sx, left ? sy - 1 : sy - 12, time, "#e05248");
+  eyes(ctx, left ? sx + 34 : sx, left ? sy - 1 : sy + 34, time, "#e05248");
   // trampled mud at the mouth
   soft(ctx, sx + 8, sy + (left ? 18 : 22), 14, 3.5, [[0, "rgba(90,74,48,0.55)"], [1, "rgba(90,74,48,0)"]]);
   soft(ctx, sx + 22, sy - (left ? 16 : -26), 10, 3, [[0, "rgba(90,74,48,0.45)"], [1, "rgba(90,74,48,0)"]]);
 };
 
 export const drawCave = (ctx, time) => {
-  const [sx, sy] = PTS[0];
+  // the road starts at the board edge; the mouth it comes out of sits a
+  // little inside it
+  const [psx, psy] = PTS[0];
+  const sx = psx < 60 ? psx + 30 : psx, sy = psy < 60 ? psy + 30 : psy;
   shadow(ctx, sx + 6, sy + 26, 38, 6, 0.3);
   ball(ctx, sx, sy + 2, 37, 26, "#6d6556", { hi: 0.35, lo: 0.55, fy: -0.7 });
   soft(ctx, sx - 10, sy - 14, 18, 7, [[0, "rgba(96,120,72,0.6)"], [1, "rgba(96,120,72,0)"]]);

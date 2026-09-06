@@ -5,7 +5,7 @@
 // generator seeded per realm, and consumes it IN THIS EXACT ORDER — that is
 // what keeps each map identical on every run, so do not reorder these blocks.
 
-import { W, H, PATH_HALF, TILE, WALL_W, mulberry32 } from "./constants.js";
+import { W, H, PATH_HALF, WALL_W, MX, MY, tileX, tileY, mulberry32 } from "./constants.js";
 import { TOTAL_LEN, posAt, angleAt, nearestOnPath, buildSmooth } from "../engine/path.js";
 
 export let CHEVRONS = [];
@@ -27,7 +27,7 @@ export let BRIDGES = [];  // [{ x, y, a, d0, d1 }] — where the road spans it
 // comes out of a cave or a barrow instead.
 export let FOREST = null;  // { edge: "left" | "top", seed }
 const forestBound = (t, seed) =>
-  74 + 20 * Math.sin(t * 0.019 + seed) + 12 * Math.sin(t * 0.047 + seed * 1.7) + 7 * Math.sin(t * 0.11 + seed * 0.3);
+  (FOREST && FOREST.edge === "top" ? MY : MX) + 58 + 20 * Math.sin(t * 0.019 + seed) + 12 * Math.sin(t * 0.047 + seed * 1.7) + 7 * Math.sin(t * 0.11 + seed * 0.3);
 // How far inside the forest (x, y) stands; negative means open ground.
 export const forestDepthAt = (x, y) =>
   !FOREST ? -999 : FOREST.edge === "left" ? forestBound(y, FOREST.seed) - x : forestBound(x, FOREST.seed) - y;
@@ -58,15 +58,20 @@ export const inRiver = (x, y, margin = 0) =>
 export function regenTerrain(map) {
   const rng = mulberry32(map.seed);
   const sc = map.scatter;
-  DECOR = map.decor ? [...map.decor] : [];
-  PONDS = map.ponds || [];
+  // hand-placed pieces are written in grid pixels; the border shifts them
+  DECOR = map.decor ? map.decor.map((d) => ({ ...d, x: d.x + MX, y: d.y + MY })) : [];
+  PONDS = (map.ponds || []).map((p) => ({ ...p, x: p.x + MX, y: p.y + MY }));
 
   // ---- rivers & their bridges ----
   // A river is corner points on the same grid as the road, smoothed the same
   // way, carrying a width. Built FIRST (and with no randomness) so the
   // scatter below can keep its feet dry without its rng stream shifting.
   RIVERS = (map.rivers || []).map((rv) => {
-    const pts = buildSmooth(rv.pts.map(([c, r]) => [c * TILE + TILE / 2, r * TILE + TILE / 2]));
+    // a river that leaves the grid leaves the board too, border and all
+    const pts = buildSmooth(rv.pts.map(([c, r]) => [
+      c < 0.2 ? -12 : c > 14.8 ? W + 12 : tileX(c),
+      r < 0.2 ? -12 : r > 9.8 ? H + 12 : tileY(r),
+    ]));
     const segs = [];
     for (let i = 0; i < pts.length - 1; i++) {
       const [x1, y1] = pts[i];

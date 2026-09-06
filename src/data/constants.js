@@ -5,8 +5,16 @@
 export const TILE = 48;
 export const COLS = 15;
 export const ROWS = 10;
-export const W = COLS * TILE;
-export const H = ROWS * TILE;
+// A border of open ground around the map grid, so no road ever runs along a
+// screen edge and the floating HUD has ground to sit on. The grid's [col, row]
+// lands at (MX + col*TILE, MY + row*TILE); the forest and the castle wall
+// live in the border.
+export const MX = 40;
+export const MY = 40;
+export const W = COLS * TILE + MX * 2;
+export const H = ROWS * TILE + MY * 2;
+export const tileX = (c) => MX + c * TILE + TILE / 2;
+export const tileY = (r) => MY + r * TILE + TILE / 2;
 // The road is three lanes wide now: 64px, with a marching lane down the
 // middle and one either side. PATH_HALF is half that width; LANE_OFF is how
 // far the outer lanes sit from the centreline.

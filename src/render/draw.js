@@ -566,7 +566,8 @@ export function draw(g, canvas, bufRef) {
   // itself.
   {
     const [lsx, lsy] = PTS[0];
-    const mx = S(lsx), my = S(lsy) - 46;
+    // the sign stands at the wood's mouth, clear of the board edge
+    const mx = S(Math.max(lsx, 60)), my = lsy < 60 ? S(lsy) + 70 : S(lsy) - 46;
     const a = g.phase === "combat" ? 0.3 : 0.95;
     // Three chevrons above the plate, lighting in sequence so the eye is
     // walked downward into the mouth of the road. They live above rather than
