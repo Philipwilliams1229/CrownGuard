@@ -7,7 +7,7 @@ export const FONT = "Verdana, Geneva, sans-serif";
 export const btn = {
   fontFamily: FONT, cursor: "pointer", border: "2px solid #10131a",
   background: "#3a4150", color: "#e8e0c8", borderRadius: 0,
-  padding: "8px 10px", fontSize: 12, textAlign: "left",
+  padding: "10px 12px", fontSize: 13, textAlign: "left", minHeight: 40,
   boxShadow: "inset -2px -2px 0 #262b36, inset 2px 2px 0 #545c6e",
 };
 
