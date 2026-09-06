@@ -16,6 +16,11 @@ export const SUN = { x: -0.42, y: -0.58 };
 // outline, and shapes snap to the art grid.
 export let PX = 2;
 export const PIXEL = true;
+// The style dials. `line` is the ink outline's thickness in art pixels (0 =
+// none); `bands` is how many flat tones a shaded shape gets (0 = keep each
+// shape's own stops). The lab pages turn these; the game keeps PX = RES.
+export const STYLE = { line: 1, bands: 0 };
+export const setStyle = (o) => { Object.assign(STYLE, o); if (o.px) PX = o.px; };
 // the lab pages try other densities; the game itself keeps PX = RES
 export const setPX = (v) => { PX = v; };
 export const INK_LINE = "#241a26";
@@ -23,8 +28,31 @@ export const snap = (v) => Math.round(v * PX) / PX;
 
 // Smooth stops → hard bands. Each colour owns the stretch between the
 // midpoints to its neighbours, so the darkest and lightest tones survive.
+const isHex = (c) => typeof c === "string" && c[0] === "#";
+// the colour a smooth gradient would show at t
+const sampleStops = (stops, t) => {
+  if (t <= stops[0][0]) return stops[0][1];
+  for (let i = 1; i < stops.length; i++) {
+    if (t <= stops[i][0]) {
+      const [t0, c0] = stops[i - 1], [t1, c1] = stops[i];
+      return mix(c0, c1, t1 > t0 ? (t - t0) / (t1 - t0) : 0);
+    }
+  }
+  return stops[stops.length - 1][1];
+};
+// Smooth stops → hard bands. With the tones dial set, the gradient is cut
+// into that many equal tones; otherwise each colour owns the stretch between
+// the midpoints to its neighbours, so the darkest and lightest tones survive.
 const bandStops = (stops) => {
   const out = [];
+  if (STYLE.bands > 0 && stops.every(([, c]) => isHex(c))) {
+    const n = STYLE.bands;
+    for (let i = 0; i < n; i++) {
+      const c = sampleStops(stops, (i + 0.5) / n);
+      out.push([i / n, c], [Math.min(1, (i + 1) / n - 0.0001), c]);
+    }
+    return out;
+  }
   for (let i = 0; i < stops.length; i++) {
     const [t, c] = stops[i];
     const t0 = i === 0 ? 0 : (stops[i - 1][0] + t) / 2;
@@ -309,13 +337,19 @@ export const inkOutline = (cv, ink = INK_LINE) => {
   // translucent ground shadows are not part of the silhouette
   for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 110 ? 1 : 0;
   const [r, g, b] = rgb(ink);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (solid[i]) continue;
-      const near = (x > 0 && solid[i - 1]) || (x < w - 1 && solid[i + 1]) || (y > 0 && solid[i - w]) || (y < h - 1 && solid[i + w]);
-      if (near) { d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 235; }
+  // grow the silhouette outward `line` times, inking each new ring
+  let ring = solid;
+  for (let pass = 0; pass < STYLE.line; pass++) {
+    const next = new Uint8Array(ring);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (ring[i]) continue;
+        const near = (x > 0 && ring[i - 1]) || (x < w - 1 && ring[i + 1]) || (y > 0 && ring[i - w]) || (y < h - 1 && ring[i + w]);
+        if (near) { d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 235; next[i] = 1; }
+      }
     }
+    ring = next;
   }
   c.putImageData(img, 0, 0);
   return cv;
@@ -329,6 +363,6 @@ export const bakeSprite = (w, h, draw, outline = true) => {
   c.imageSmoothingEnabled = false;
   c.scale(PX, PX);
   draw(c);
-  if (outline && PIXEL) inkOutline(cv);
+  if (outline && PIXEL && STYLE.line > 0) inkOutline(cv);
   return cv;
 };

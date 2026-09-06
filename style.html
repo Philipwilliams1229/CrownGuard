@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+  Dev tool: the style dials. The same little scene — an archer tower, an oak,
+  a pine, a boulder — painted at several pixel densities, outline weights
+  and tone counts, each cell labelled. Open /style.html with the dev server
+  running. Not linked from the game.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — style lab</title>
+    <style>
+      body { background: #20242c; color: #e8e0c8; font-family: Verdana, sans-serif; margin: 0; padding: 16px; }
+      h2 { font-size: 13px; letter-spacing: 2px; color: #d8b34a; margin: 20px 0 8px; }
+      p.note { font-size: 11px; opacity: 0.6; margin: 0 0 10px; max-width: 62em; line-height: 1.5; }
+      .grid { display: flex; flex-wrap: wrap; gap: 12px; }
+      .cell { border: 2px solid #10131a; }
+      .cap { font-size: 11px; padding: 4px 8px; background: #2c313c; letter-spacing: 1px; }
+      .cap b { color: #d8b34a; font-size: 13px; margin-right: 8px; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <h2>the style dials</h2>
+    <p class="note">Every cell is the same scene. <b>px</b> = art pixels per world unit (the chunk size). <b>line</b> = ink outline thickness in art pixels. <b>tones</b> = how many flat shades a shape gets. Name the cell you like.</p>
+    <div id="out" class="grid"></div>
+    <script type="module">
+      import { setStyle } from "/src/render/paint.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { drawTree, resetSceneryBakes } from "/src/render/scenery.js";
+      import { drawArcherTower, resetArcherBakes } from "/src/render/halls/archer.js";
+      import { tuft } from "/src/render/paint.js";
+
+      selectRealm("greenwood");
+      const CW = 190, CH = 120, SCALE = 2.2;
+      const out = document.getElementById("out");
+
+      const cells = [
+        ["A1", { px: 1, line: 1, bands: 3 }], ["A2", { px: 1, line: 1, bands: 0 }], ["A3", { px: 1, line: 2, bands: 3 }],
+        ["B1", { px: 2, line: 1, bands: 0 }], ["B2", { px: 2, line: 1, bands: 3 }], ["B3", { px: 2, line: 2, bands: 3 }], ["B4", { px: 2, line: 2, bands: 2 }], ["B5", { px: 2, line: 1, bands: 5 }],
+        ["C1", { px: 4, line: 2, bands: 3 }], ["C2", { px: 4, line: 3, bands: 2 }], ["C3", { px: 4, line: 2, bands: 0 }],
+      ];
+
+      const tower = (level, branch, rank4) => ({
+        id: 7, kind: "archer", x: 0, y: 0, level, branch, rank4, cd: 0, aim: "first", lastAim: 0.4, anim: 0.2,
+        shotIdx: 0, critIdx: 0, invested: 0, units: [], rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: false,
+      });
+
+      for (const [label, st] of cells) {
+        setStyle(st);
+        resetSceneryBakes();
+        resetArcherBakes();
+        const px = st.px;
+        const wrap = document.createElement("div"); wrap.className = "cell";
+        const cv = document.createElement("canvas");
+        cv.width = CW * px; cv.height = CH * px;
+        cv.style.width = CW * SCALE + "px"; cv.style.height = CH * SCALE + "px";
+        cv.style.imageRendering = "pixelated";
+        const ctx = cv.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        ctx.scale(px, px);
+        // a patch of meadow
+        ctx.fillStyle = "#82b256"; ctx.fillRect(0, 0, CW, CH);
+        ctx.fillStyle = "#c9a46c"; ctx.fillRect(0, 96, CW, 24);
+        for (let i = 0; i < 26; i++) tuft(ctx, 8 + (i * 37) % (CW - 16), 10 + (i * 53) % 84, 0.8, "#628f3d", "#b5d878", i);
+        drawTree(ctx, { x: 30, y: 70, t: "tree", s: 1.05 }, 1);
+        drawTree(ctx, { x: 158, y: 66, t: "pine", s: 1.1 }, 1);
+        drawTree(ctx, { x: 128, y: 86, t: "rock", s: 0.9 }, 1);
+        drawArcherTower(ctx, { ...tower(3, null, null), x: 82, y: 86 }, 1.3);
+        wrap.appendChild(cv);
+        const cap = document.createElement("div"); cap.className = "cap";
+        cap.innerHTML = `<b>${label}</b> px ${st.px} · line ${st.line} · tones ${st.bands || "own"}`;
+        wrap.appendChild(cap);
+        out.appendChild(wrap);
+      }
+      // leave the game's own settings behind for any other page in this tab
+      setStyle({ px: 2, line: 1, bands: 0 });
+    </script>
+  </body>
+</html>

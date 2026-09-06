@@ -342,6 +342,7 @@ const banner = (ctx, x, y, s, time) => {
 // size, variant) — and stamped from then on. Things that glow, flicker or
 // fly a flag are painted live so they keep moving.
 const SPRITES = new Map();
+export const resetSceneryBakes = () => { SPRITES.clear(); CASTLE.key = ""; };
 const LIVE = new Set(["mushroom", "crystal", "vent", "obelisk", "watchtower", "banner", "reeds"]);
 const paintDecor = (ctx, d, time) => {
   const x = d.x, y = d.y, s = d.s || 1;

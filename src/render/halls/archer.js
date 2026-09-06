@@ -30,6 +30,7 @@ const FLAGS = {
 
 // ---- sprites ---------------------------------------------------------
 const CACHE = new Map();
+export const resetArcherBakes = () => CACHE.clear();
 const baked = (key, w, h, draw) => {
   let sp = CACHE.get(key);
   if (!sp) { sp = bakeSprite(w, h, draw); CACHE.set(key, sp); }
