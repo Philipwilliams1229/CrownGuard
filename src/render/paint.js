@@ -256,6 +256,16 @@ export const blobPath = (ctx, x, y, rx, ry, seed, wobble = 0.12, n = 12) => {
   ctx.closePath();
 };
 
+// A lit blob with a wandering edge: the ball, clipped to a blobPath. Rocks,
+// leaf masses, anything nature made rather than a mason.
+export const blobBall = (ctx, x, y, rx, ry, col, seed, o = {}) => {
+  ctx.save();
+  blobPath(ctx, x, y, rx, ry, seed, o.wobble ?? 0.16, o.n ?? 10);
+  ctx.clip();
+  ball(ctx, x, y, rx * 1.12, ry * 1.12, col, o);
+  ctx.restore();
+};
+
 // Soft stone: block courses drawn as low-contrast seams over a lit slab, so
 // a wall reads as masonry without a single hard line.
 export const masonry = (ctx, x, top, w, h, col, o = {}) => {
@@ -294,7 +304,8 @@ export const inkOutline = (cv, ink = INK_LINE) => {
   const img = c.getImageData(0, 0, w, h);
   const d = img.data;
   const solid = new Uint8Array(w * h);
-  for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 60 ? 1 : 0;
+  // translucent ground shadows are not part of the silhouette
+  for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 110 ? 1 : 0;
   const [r, g, b] = rgb(ink);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {

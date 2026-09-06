@@ -18,7 +18,7 @@ export const PALE_STONE = "#c8c0ac";
 // ---- the ground a hall stands on ---------------------------------------
 // Trodden earth and a few flagstones: the grass gives way where people work.
 export const pad = (ctx, x, y, r, seed = 0) => {
-  soft(ctx, x, y + 2, r * 1.25, r * 0.55, [[0, "rgba(96,74,48,0.5)"], [0.6, "rgba(96,74,48,0.3)"], [1, "rgba(96,74,48,0)"]]);
+  soft(ctx, x, y + 2, r * 1.25, r * 0.55, [[0, "rgba(96,74,48,0.4)"], [0.6, "rgba(96,74,48,0.24)"], [1, "rgba(96,74,48,0)"]]);
   for (let i = 0; i < 6; i++) {
     const a = hash(seed, i) * Math.PI * 2, d = r * (0.45 + hash(seed, i + 9) * 0.5);
     const sx = x + Math.cos(a) * d, sy = y + 2 + Math.sin(a) * d * 0.42;
