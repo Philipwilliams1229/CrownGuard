@@ -55,6 +55,8 @@ export default function Crownguard() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [hoverEnemy, setHoverEnemy] = useState(null);
   const [buildOpen, setBuildOpen] = useState(false);
+  // the incoming-wave chip folds down to a small arrow when the board needs the room
+  const [infoOpen, setInfoOpen] = useState(true);
   const [realmId, setRealmId] = useState(REALM.id);
   const [factionId, setFactionId] = useState(FACTION.id);
   const [realmOpen, setRealmOpen] = useState(false);
@@ -547,7 +549,6 @@ export default function Crownguard() {
   // floats over the field in small panels, the way a tablet game is laid
   // out. Nothing on this screen scrolls except the dock's own list.
   const masterOn = !!(ui.masterShow && ui.masterOn);
-  const DOCK = masterOn ? 250 : 96;
   const hud = { ...overlayPanel, borderWidth: 2, boxShadow: "inset 0 0 0 1px #454c5a" };
   const chip = { ...hud, padding: "6px 10px", fontSize: 13, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" };
   const hudBtn = { ...btn, minHeight: 44, minWidth: 44, padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: 13 };
@@ -650,6 +651,12 @@ export default function Crownguard() {
           {/* top-right: speed and pause */}
           <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 20 }}>
             {ui.zoom > 1 && <button title="Reset view" style={{ ...hudBtn, fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
+            {ui.result == null && (
+              <button aria-label="Open build menu" style={{ ...hudBtn, gap: 6, ...(buildOpen ? { background: "#5a4f2c" } : {}) }}
+                onClick={() => { setBuildOpen((o) => !o); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } }}>
+                <PixelIcon kind="archer" size={18} /> Build
+              </button>
+            )}
             <button title="Game speed" style={{ ...hudBtn, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
               onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
               {ui.speed}x
@@ -673,28 +680,40 @@ export default function Crownguard() {
             </div>
           )}
 
-          {/* bottom-left: the horn, and who is coming */}
-          <div style={{ position: "absolute", left: 8, bottom: 8, display: "flex", alignItems: "flex-end", gap: 8, zIndex: 20, maxWidth: "calc(100% - 16px)" }}>
-            <button
-              style={{ ...hudBtn, minHeight: 58, minWidth: 148, fontSize: 15, flexDirection: "column", gap: 2, padding: "0 16px", ...(ui.phase === "build" ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}), ...(ui.phase !== "build" ? disabled : {}) }}
-              onClick={() => startWave(G.current)} disabled={ui.phase !== "build"}>
-              {ui.phase === "combat" ? <span>Wave {ui.wave}…</span>
-                : ui.cdSec != null ? (<><span>Start Wave {ui.wave + 1} <span style={{ color: "#e8d47a" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span></span><span style={{ fontSize: 10, opacity: 0.75, fontWeight: "normal" }}>auto in {ui.cdSec}s</span></>)
-                : <span>Start Wave {ui.wave + 1}</span>}
-            </button>
-            <button
-              title="Rush: sound the horn the moment a wave is cleared, for the full early-start bonus every time"
-              style={{ ...hudBtn, minHeight: 58, fontSize: 11, flexDirection: "column", gap: 1, ...(ui.rush ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
-              onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
-              <span>⚡ Rush</span><span style={{ fontSize: 10, opacity: 0.8 }}>{ui.rush ? "ON" : "OFF"}</span>
-            </button>
-            {(ui.phase === "build" ? ui.wave + 1 : ui.wave) >= 1 && (
-              <div style={{ ...chip, padding: "5px 10px", gap: 10, alignItems: "flex-end", overflowX: "auto", whiteSpace: "normal" }}>
-                <span style={{ fontSize: 9, letterSpacing: 2, opacity: 0.7, alignSelf: "flex-start", marginTop: 2 }}>{ui.phase === "build" ? `NEXT${ui.wave >= scriptedWaves() ? " · ENDLESS" : ""}` : "NOW"}</span>
-                {ui.phase === "build" ? waveChips(waveComposition(ui.wave + 1), "next") : waveChips(waveComposition(ui.wave), "cur")}
+          {/* bottom-left: the horn, the rush switch, and who is coming — small, and foldable */}
+          {(() => {
+            const nextWave = ui.phase === "build" ? ui.wave + 1 : ui.wave;
+            const comp = nextWave >= 1 ? waveComposition(nextWave) : [];
+            const total = comp.reduce((n, c) => n + c.count, 0);
+            const label = ui.phase === "build" ? (ui.wave >= scriptedWaves() ? "ENDLESS" : "NEXT") : "NOW";
+            return (
+              <div style={{ position: "absolute", left: 8, bottom: 8, display: "flex", alignItems: "center", gap: 6, zIndex: 20, maxWidth: "calc(100% - 16px)" }}>
+                <button
+                  style={{ ...hudBtn, padding: "0 14px", gap: 8, ...(ui.phase === "build" ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}), ...(ui.phase !== "build" ? disabled : {}) }}
+                  onClick={() => startWave(G.current)} disabled={ui.phase !== "build"}>
+                  {ui.phase === "combat" ? <span>Wave {ui.wave}…</span>
+                    : <><span>▶ Wave {ui.wave + 1}</span>{ui.cdSec != null && <span style={{ color: "#e8d47a" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span>}{ui.cdSec != null && <span style={{ fontSize: 10, opacity: 0.7 }}>{ui.cdSec}s</span>}</>}
+                </button>
+                <button
+                  title="Rush: sound the horn the moment a wave is cleared, for the full early-start bonus every time" aria-label="Rush"
+                  style={{ ...hudBtn, minWidth: 44, padding: 0, fontSize: 16, ...(ui.rush ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : { opacity: 0.85 }) }}
+                  onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
+                  ⚡
+                </button>
+                {comp.length > 0 && (infoOpen ? (
+                  <div style={{ ...chip, padding: "3px 6px 3px 10px", gap: 8, alignItems: "flex-end", whiteSpace: "normal" }}>
+                    <span style={{ fontSize: 9, letterSpacing: 2, opacity: 0.7, alignSelf: "center" }}>{label}</span>
+                    {waveChips(comp, ui.phase === "build" ? "next" : "cur")}
+                    <button aria-label="Hide wave info" onClick={() => setInfoOpen(false)} style={{ ...btn, minHeight: 30, minWidth: 30, padding: "0 6px", fontSize: 12, alignSelf: "center" }}>◂</button>
+                  </div>
+                ) : (
+                  <button aria-label="Show wave info" onClick={() => setInfoOpen(true)} style={{ ...hudBtn, padding: "0 10px", fontSize: 11, gap: 6 }}>
+                    ▸ <span style={{ letterSpacing: 1, opacity: 0.8 }}>{label}</span> ×{total}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
             {!ui.buildMode && !sel && ui.masterShow && ui.masterOn && masterInfo && (() => {
               const { nums, traits } = describe(masterInfo.stats);
@@ -989,16 +1008,24 @@ export default function Crownguard() {
         </div>
       </div>
 
-      {/* ---- the dock: every hall the kingdom can raise, one tap to arm ---- */}
-      <div style={{ width: DOCK, flexShrink: 0, display: "flex", flexDirection: "column", background: "rgba(30,33,42,0.98)", borderLeft: "3px solid #10131a", zIndex: 25, transition: "width 0.2s ease" }}>
-        <div style={{ fontSize: 9, letterSpacing: 2, opacity: 0.7, textAlign: "center", padding: "8px 4px 4px" }}>BUILD</div>
-        {ui.masterShow && (
-          <button title="Master Builds: place any final form whole" style={{ ...btn, margin: "0 6px 6px", padding: "6px 4px", fontSize: 11, textAlign: "center", minHeight: 36, ...(masterOn ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
-            onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; setMasterInfo(null); }}>
-            ⚡ {masterOn ? "Master ON" : "Master"}
-          </button>
-        )}
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 6px 8px", display: "flex", flexDirection: "column", gap: 6, WebkitOverflowScrolling: "touch" }}>
+      {/* ---- the build panel: opens over the right of the screen from the Build button ---- */}
+      <div style={{
+        position: "fixed", top: 0, right: 0, bottom: 0, width: masterOn ? 310 : 244, zIndex: 40, boxSizing: "border-box",
+        display: "flex", flexDirection: "column", background: "rgba(30,33,42,0.98)", borderLeft: "3px solid #10131a",
+        paddingTop: "env(safe-area-inset-top)", paddingRight: "env(safe-area-inset-right)",
+        transform: buildOpen ? "translateX(0)" : "translateX(104%)", transition: "transform 0.2s ease",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px 6px" }}>
+          <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1 }}>RAISE DEFENSES</span>
+          {ui.masterShow && (
+            <button title="Master Builds: place any final form whole" style={{ ...hudBtn, minHeight: 36, padding: "0 10px", fontSize: 11, ...(masterOn ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
+              onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; setMasterInfo(null); }}>
+              ⚡ Master
+            </button>
+          )}
+          <button aria-label="Close build menu" onClick={() => setBuildOpen(false)} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px" }}>✕</button>
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 10px", WebkitOverflowScrolling: "touch" }}>
           {masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
                 Object.entries(TOWERS).map(([key, def]) => (
@@ -1022,6 +1049,7 @@ export default function Crownguard() {
                               gg.buildMode = active ? null : key;
                               gg.masterPick = active ? null : { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name };
                               gg.selectedId = null;
+                              if (!active) setBuildOpen(false);
                             }}
                             disabled={!can}>
                             <span role="button" aria-label={`About ${plan.name}`}
@@ -1041,19 +1069,23 @@ export default function Crownguard() {
                     </div>
                   </div>
                 ))
-          ) : Object.entries(TOWERS).map(([key, def]) => {
-            const can = ui.gold >= def.cost;
-            const active = ui.buildMode === key;
-            return (
-              <button key={key} title={def.blurb} style={tile(active, can)}
-                onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; }}
-                disabled={!can}>
-                <PixelIcon kind={key} size={30} />
-                <span style={{ fontSize: 9, fontWeight: "bold", lineHeight: 1.15 }}>{def.name}</span>
-                <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
-              </button>
-            );
-          })}
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              {Object.entries(TOWERS).map(([key, def]) => {
+                const can = ui.gold >= def.cost;
+                const active = ui.buildMode === key;
+                return (
+                  <button key={key} title={def.blurb} style={tile(active, can)}
+                    onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); }}
+                    disabled={!can}>
+                    <PixelIcon kind={key} size={30} />
+                    <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.15 }}>{def.name}</span>
+                    <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
