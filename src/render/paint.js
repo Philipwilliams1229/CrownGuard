@@ -328,7 +328,10 @@ export const masonry = (ctx, x, top, w, h, col, o = {}) => {
 // Bake a drawing into an offscreen canvas at art resolution and ink its
 // silhouette: every transparent pixel touching a painted one turns to ink.
 // `draw(ctx)` paints in world units with (0,0) at the sprite's top-left.
-export const inkOutline = (cv, ink = INK_LINE, passes = STYLE.line) => {
+// `only` = "under" keeps just the line along a piece's underside — the
+// pixels whose neighbour above is painted — for leaf clusters and the like,
+// where a full ring would cut the thing into balls.
+export const inkOutline = (cv, ink = INK_LINE, passes = STYLE.line, only = null) => {
   const c = cv.getContext("2d");
   const w = cv.width, h = cv.height;
   const img = c.getImageData(0, 0, w, h);
@@ -345,7 +348,9 @@ export const inkOutline = (cv, ink = INK_LINE, passes = STYLE.line) => {
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
         if (ring[i]) continue;
-        const near = (x > 0 && ring[i - 1]) || (x < w - 1 && ring[i + 1]) || (y > 0 && ring[i - w]) || (y < h - 1 && ring[i + w]);
+        const near = only === "under"
+          ? (y > 0 && ring[i - w]) || (y > 0 && x > 0 && ring[i - w - 1] && x < w - 1 && !ring[i + 1]) || (y > 0 && x < w - 1 && ring[i - w + 1] && x > 0 && !ring[i - 1])
+          : (x > 0 && ring[i - 1]) || (x < w - 1 && ring[i + 1]) || (y > 0 && ring[i - w]) || (y < h - 1 && ring[i + w]);
         if (near) { d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 235; next[i] = 1; }
       }
     }
@@ -375,7 +380,7 @@ export const bakeSprite = (w, h, draw, outline = true) => {
 // baking with the inner dial on, the piece is painted on its own layer,
 // given a thin ink edge, and laid over what came before, so lines appear
 // wherever pieces meet. Outside a bake it simply paints.
-export const part = (ctx, fn) => {
+export const part = (ctx, fn, o = {}) => {
   if (!BAKING || !PIXEL || STYLE.inner <= 0) { fn(ctx); return; }
   const layer = document.createElement("canvas");
   layer.width = BAKING.w; layer.height = BAKING.h;
@@ -383,7 +388,7 @@ export const part = (ctx, fn) => {
   c.imageSmoothingEnabled = false;
   c.setTransform(ctx.getTransform());
   fn(c);
-  inkOutline(layer, INK_LINE, STYLE.inner);
+  inkOutline(layer, INK_LINE, STYLE.inner, o.ink || null);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(layer, 0, 0);

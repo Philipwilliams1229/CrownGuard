@@ -59,7 +59,7 @@ const leafyTree = (ctx, x, y, s, pal, sway, seed) => {
   ];
   lobes.forEach(([dx, dy, r, top], i) => {
     const sx = cx + top * sway * 0.8;
-    part(ctx, (c) => blobBall(c, sx + dx * s, y + dy * s, r * s, r * 0.9 * s, mix(pal.leaf, darken(pal.leaf, 0.2), dy > -12 ? 0.35 : 0), seed * 3 + i, { hi: 0.5, lo: 0.45, wobble: 0.14, n: 11 }));
+    part(ctx, (c) => blobBall(c, sx + dx * s, y + dy * s, r * s, r * 0.9 * s, mix(pal.leaf, darken(pal.leaf, 0.2), dy > -12 ? 0.35 : 0), seed * 3 + i, { hi: 0.5, lo: 0.45, wobble: 0.14, n: 11 }), { ink: "under" });
   });
   // leaf clusters: a few soft masses where the sun lands, shade underneath
   for (let i = 0; i < 9; i++) {
@@ -93,7 +93,7 @@ const pineTree = (ctx, x, y, s, pal, sway, caps = null) => {
       // the tier above throws a soft shadow onto this one
       soft(ctx, x + lean, bottom + 1.5, t.halfW * s * 1.05, 3.2 * s, [[0, rgba(darken(pal.leaf, 0.6), 0.5)], [1, rgba(darken(pal.leaf, 0.6), 0)]]);
     }
-    part(ctx, (c) => cone(c, x + lean, bottom - t.h * s, t.halfW * s, t.h * s, t.col, { scallops: 3, sag: 2.6 * s }));
+    part(ctx, (c) => cone(c, x + lean, bottom - t.h * s, t.halfW * s, t.h * s, t.col, { scallops: 3, sag: 2.6 * s }), { ink: "under" });
     if (caps) part(ctx, (c) => cone(c, x + lean, bottom - t.h * s, t.halfW * s * 0.55, t.h * s * 0.42, caps, { scallops: 2, sag: 1.6 * s, hi: 0.2, lo: 0.2 }));
   });
 };
