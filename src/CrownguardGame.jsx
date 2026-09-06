@@ -11,7 +11,8 @@ import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
-import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, saveHero, towerUnlocked, unlocksFor, unlockLevel } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, saveHero, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
+import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
 import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL } from "./data/bands.js";
 import { PTS } from "./engine/path.js";
@@ -19,7 +20,7 @@ import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork, callMilitia, fieldHero, heroBand,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -61,6 +62,7 @@ export default function Crownguard() {
   // the incoming-wave chip folds down to a small arrow when the board needs the room
   const [infoOpen, setInfoOpen] = useState(false);
   const [castleOpen, setCastleOpen] = useState(false);
+  const [banked, setBanked] = useState(0);   // gold carried home from the last won level
   // which hero rides with the crown; chosen in the pause menu, kept in the browser
   const [heroKey, setHeroKey] = useState(() => { try { return HEROES[localStorage.getItem("crownguard.hero")] ? localStorage.getItem("crownguard.hero") : "aldric"; } catch { return "aldric"; } });
   const pickHero = (key) => { setHeroKey(key); try { localStorage.setItem("crownguard.hero", key); } catch { /* private mode */ } };
@@ -189,11 +191,21 @@ export default function Crownguard() {
     setScreen("game");
   };
 
-  // Buy the next tier of a castle work. What is bought stays with the region.
+  // Buy the next tier of a castle work. In the campaign the crown's
+  // treasury pays and the work stays with the region; in free play the
+  // run's purse pays and it stays with the realm.
   const buyWork = (key) => {
     const g = G.current;
     if (!g) return;
-    const got = buyCastleWork(g, key);
+    let got = null;
+    if (mode === "campaign") {
+      const next = nextCastleWork(g, key);
+      if (!next) return;
+      const p = spendTreasury(next.cost);
+      if (!p) return;
+      setProgress(p);
+      got = raiseCastleWork(g, key);
+    } else got = buyCastleWork(g, key);
     if (!got) return;
     sfx.play("evolve");
     if (castleScope.current) saveCastle(castleScope.current, g.castle);
@@ -278,7 +290,9 @@ export default function Crownguard() {
     }));
     if (g) g.run = { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 };
     setProfile(loadProfile());
-    if (won) setProgress(markCleared(levelId));
+    if (won) markCleared(levelId);
+    // the gold left in the purse goes home to the crown's treasury
+    if (won && g) { const carried = Math.floor(g.gold) + Math.floor((g.run?.goldEarned || 0) * 0.15); setBanked(carried); setProgress(bankTreasury(carried)); }
     // the hero keeps what he learned on this road, won or lost
     { const hb = heroBand(g); if (hb) saveHero(hb.hero, hb.level); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -604,6 +618,14 @@ export default function Crownguard() {
         onStart={startLevel}
         onBack={() => setScreen("home")}
         onReset={() => setProgress(resetProgress())}
+        onBuyWork={(chapterId, key, next) => {
+          const p = spendTreasury(next.cost);
+          if (!p) return;
+          const works = loadCastle(chapterId);
+          works[key] = (works[key] || 0) + 1;
+          saveCastle(chapterId, works);
+          setProgress(loadProgress());
+        }}
       />
     );
   }
@@ -1104,6 +1126,9 @@ export default function Crownguard() {
                   </div>
                 )}
 
+                {campaign && ui.result === "won" && banked > 0 && (
+                  <div style={{ fontSize: 11, color: "#e8d47a" }}>🪙 {banked.toLocaleString("en-US")} gold to the treasury (what was left, and a tithe of what was earned) · {(progress.treasury || 0).toLocaleString("en-US")} banked</div>
+                )}
                 {campaign && ui.result === "won" && unlocksFor(level.id).length > 0 && (
                   <div style={{ ...hud, display: "flex", alignItems: "center", gap: 10, padding: "8px 14px" }}>
                     {unlocksFor(level.id).map((k) => (
@@ -1169,36 +1194,15 @@ export default function Crownguard() {
           <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1 }}>🏰 CASTLE WORKS</span>
           <button aria-label="Close castle works" onClick={() => setCastleOpen(false)} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px" }}>✕</button>
         </div>
-        <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.4, padding: "0 12px 8px" }}>
-          Built on the wall itself. Dear — but what you raise here stands for every road in {mode === "campaign" && level ? `the ${level.chapter.name}` : "this realm"}.
-        </div>
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 10px", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", gap: 8 }}>
-          {Object.entries(CASTLE_WORKS).map(([key, def]) => {
-            const have = ui.castle?.[key] || 0;
-            const cur = have > 0 ? def.tiers[have - 1] : null;
-            const next = def.tiers[have] || null;
-            const can = !!next && ui.gold >= next.cost;
-            return (
-              <div key={key} style={{ ...hud, padding: "8px 10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 18 }}>{def.icon}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: "bold" }}>{def.name}</div>
-                    <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
-                      {def.tiers.map((_, i) => <span key={i} style={{ width: 14, height: 5, background: i < have ? "#e8c14a" : "#3a3f4c", boxShadow: "inset 0 0 0 1px #10131a" }} />)}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 10.5, opacity: 0.72, lineHeight: 1.4, margin: "6px 0" }}>{cur ? <span><b style={{ color: "#a8d88c" }}>{cur.label}</b> stands on the wall.</span> : def.blurb}</div>
-                {next ? (
-                  <button style={{ ...btn, width: "100%", boxSizing: "border-box", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", fontSize: 11, minHeight: 40, ...(!can ? disabled : {}) }}
-                    disabled={!can} onClick={() => buyWork(key)}>
-                    <span>{have ? "Raise: " : "Build: "}{next.label}</span><b style={{ color: can ? "#e8d47a" : "#e07a72" }}>{next.cost}g</b>
-                  </button>
-                ) : <div style={{ fontSize: 10, letterSpacing: 1.5, opacity: 0.6, textAlign: "center", padding: 6 }}>COMPLETE</div>}
-              </div>
-            );
-          })}
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 10px", WebkitOverflowScrolling: "touch" }}>
+          <CastleWorksList
+            works={ui.castle}
+            purse={mode === "campaign" ? progress.treasury || 0 : ui.gold}
+            purseLabel={mode === "campaign" ? "THE CROWN'S TREASURY" : "THIS RUN'S PURSE"}
+            note={mode === "campaign"
+              ? `Built on the wall itself, paid from the treasury: the gold you carry home from every level you hold. What you raise here stands for every road in the ${level?.chapter.name || "region"}.`
+              : "Built on the wall itself, paid from the purse. What you raise here stands for every run in this realm."}
+            onBuy={buyWork} />
         </div>
       </div>
 

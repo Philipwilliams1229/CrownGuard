@@ -29,7 +29,7 @@ const makeEnemy = (type, mult) => {
     // A foe's purse used to be fixed while its health inflated forever, so by
     // the eightieth wave you were paid a wave-one wage to kill a wave-eighty
     // troll. The purse now follows the meat, at a quarter of its rate.
-    bounty: Math.max(1, Math.round(d.bounty * (1 + Math.max(0, mult - 1) * 0.25))),
+    bounty: Math.max(1, Math.round(d.bounty * (1 + Math.max(0, mult - 1) * 0.15))),
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: pickLane(d.boss),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners

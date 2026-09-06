@@ -41,9 +41,15 @@ npm run preview # preview that optimized build locally
   blocker) or Wren (a huntress) in the pause menu.
 - **Militia** (bottom-right): two farmers with pitchforks, free, wherever you
   tap, for fifteen seconds. Then the horn needs a moment before it sounds again.
-- **Castle works** (🏰, top-right): bowmen, ballistae, a gate guard and masons
-  built on the wall itself. Dear, but bought once for a whole region — in the
-  campaign they stand at every level of that chapter.
+- **Castle works** (🏰, top-right, and on the campaign map): bowmen,
+  ballistae, a gate guard and masons built on the wall itself. In the
+  campaign they are paid from the **crown's treasury**: every level you hold
+  sends home the gold you finished with plus a tithe of everything you
+  earned. Works cost 10,000, then 15,000, then 25,000, and stand at every
+  level of that chapter. Free play pays from the run's purse.
+- **Levels grow**: ten waves to open a region, twenty-five to close it. Each
+  level samples a stretch of the faction's war, so it starts a little
+  deeper than the last, and the chapter's final level ends with its boss.
 - **Towers are earned**: you start with the Archer Tower, Knight Garrison,
   Wizard Spire and Warden Mage. Each of the others opens when a named campaign
   level is cleared (`TOWER_UNLOCKS` in `src/data/campaign.js`).

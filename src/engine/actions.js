@@ -47,7 +47,7 @@ export const startWave = (g) => {
   };
   if (g.buildUntil != null) {
     const rem = Math.max(0, g.buildUntil - g.time);
-    const bonus = Math.min(45, Math.ceil(rem * 1.5));
+    const bonus = Math.min(25, Math.ceil(rem * 1.0));
     if (bonus > 0) {
       g.gold += bonus;
       if (g.run) g.run.goldEarned += bonus;
@@ -347,14 +347,19 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
 
 
 // ---- castle works ----
-// Buy the next tier of a work on the castle. Returns the tier bought, or null.
-export const buyCastleWork = (g, key) => {
+// The next tier of a work and what it costs, or null when it is complete.
+export const nextCastleWork = (g, key) => {
   if (!g || !CASTLE_WORKS[key]) return null;
+  const n = g.castle?.[key] || 0;
+  return CASTLE_WORKS[key].tiers[n] || null;
+};
+// Raise the next tier. The caller has already paid — from the treasury in
+// the campaign, from the purse in free play.
+export const raiseCastleWork = (g, key) => {
+  const next = nextCastleWork(g, key);
+  if (!next) return null;
   g.castle = g.castle || emptyWorks();
   const n = g.castle[key] || 0;
-  const next = CASTLE_WORKS[key].tiers[n];
-  if (!next || g.gold < next.cost) return null;
-  g.gold -= next.cost;
   g.castle[key] = n + 1;
   // a thicker gate is thicker at once
   const before = workTier({ ...g.castle, [key]: n }, key)?.hp || 0;
@@ -364,7 +369,13 @@ export const buyCastleWork = (g, key) => {
   g.effects.push({ type: "coin", x: gx - 30, y: gy - 30, ttl: 1200, text: `${CASTLE_WORKS[key].name} — ${next.label}` });
   return next;
 };
-
+// Free Play: pay from the purse and raise it.
+export const buyCastleWork = (g, key) => {
+  const next = nextCastleWork(g, key);
+  if (!next || g.gold < next.cost) return null;
+  g.gold -= next.cost;
+  return raiseCastleWork(g, key);
+};
 
 // ---- bands ----
 // Call the militia to a spot: two farmers, for a while, for nothing.

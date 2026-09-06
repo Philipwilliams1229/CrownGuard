@@ -1,8 +1,10 @@
 // ============ CASTLE WORKS ============
-// Defences built on the castle itself rather than on the field. Expensive,
-// bought with the run's gold, and in the campaign they stay built for the
-// whole of a region: take the wall archers on the Vale Road and they are on
-// the wall at Thornbrook too. Four works, each in tiers.
+// Defences built on the castle itself rather than on the field. In the
+// campaign they are bought from the crown's TREASURY — the gold carried home
+// from every won level — and stay built for the whole of a region: take the
+// wall archers on the Vale Road and they are on the wall at Thornbrook too.
+// Free Play pays from the run's purse. Four works, each in tiers, priced to
+// be fought for.
 
 import { H } from "./constants.js";
 
@@ -11,35 +13,35 @@ export const CASTLE_WORKS = {
     name: "Wall Archers", icon: "🏹",
     blurb: "Bowmen on the walk above the gate. They shoot whatever comes within a long bowshot of the wall.",
     tiers: [
-      { cost: 320, label: "Two bowmen", dmg: 16, rate: 900, range: 170, count: 2 },
-      { cost: 520, label: "Four bowmen, longbows", dmg: 24, rate: 800, range: 190, count: 4 },
-      { cost: 840, label: "Heavy crossbows", dmg: 44, rate: 1100, range: 200, count: 4, pierce: true },
+      { cost: 10000, label: "Two bowmen", dmg: 16, rate: 900, range: 170, count: 2 },
+      { cost: 15000, label: "Four bowmen, longbows", dmg: 24, rate: 800, range: 190, count: 4 },
+      { cost: 25000, label: "Heavy crossbows", dmg: 44, rate: 1100, range: 200, count: 4, pierce: true },
     ],
   },
   ballista: {
     name: "Gate Ballista", icon: "⚙",
     blurb: "A siege bow on the bridge over the gate: slow, screaming bolts at the mightiest foe in reach of the wall.",
     tiers: [
-      { cost: 480, label: "One ballista", dmg: 220, rate: 3200, range: 220 },
-      { cost: 720, label: "Twin ballistae", dmg: 240, rate: 3000, range: 240, twin: true },
-      { cost: 1050, label: "Fire bolts", dmg: 280, rate: 2800, range: 260, twin: true, burn: 22, burnDur: 3000 },
+      { cost: 10000, label: "One ballista", dmg: 220, rate: 3200, range: 220 },
+      { cost: 15000, label: "Twin ballistae", dmg: 240, rate: 3000, range: 240, twin: true },
+      { cost: 25000, label: "Fire bolts", dmg: 280, rate: 2800, range: 260, twin: true, burn: 22, burnDur: 3000 },
     ],
   },
   guards: {
     name: "Gate Guard", icon: "🛡",
     blurb: "Halberdiers at the portcullis hold a foe that reaches the gate for a moment — one last chance for the towers.",
     tiers: [
-      { cost: 260, label: "Halberdiers", hold: 1600 },
-      { cost: 460, label: "A thicker gate", hold: 2000, hp: 5 },
-      { cost: 780, label: "Boiling oil", hold: 2400, hp: 5, oil: 45 },
+      { cost: 10000, label: "Halberdiers", hold: 1600 },
+      { cost: 15000, label: "A thicker gate", hold: 2000, hp: 5 },
+      { cost: 25000, label: "Boiling oil", hold: 2400, hp: 5, oil: 45 },
     ],
   },
   masons: {
     name: "Masons' Guild", icon: "🧱",
     blurb: "Masons on the wall mend the castle after every wave, and shore up its foot.",
     tiers: [
-      { cost: 360, label: "Mend one life a wave", mend: 1 },
-      { cost: 620, label: "Mend two, shore the wall", mend: 2, hp: 3 },
+      { cost: 10000, label: "Mend one life a wave", mend: 1 },
+      { cost: 15000, label: "Mend two, shore the wall", mend: 2, hp: 3 },
     ],
   },
 };

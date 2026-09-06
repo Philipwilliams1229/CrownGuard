@@ -64,7 +64,7 @@ export const ENEMIES = {
     name: "Raft Goblin", atk: 10, atkRate: 900, castleDmg: 2, swims: true,
     note: "Where there is a river, they take it — paddling past your whole line to climb out at the bridge. No sword reaches them on the water; only shot does. Where there is no river, they simply run.",
   },
-  dragon: { faction: "greenwood", hp: 3800, speed: 34, bounty: 200, armor: 0.3, size: 27, name: "DRAGON", boss: true, flying: true, atk: 0, atkRate: 0, castleDmg: 5, note: "Boss. Flies over the road — knights cannot block it." },
+  dragon: { faction: "greenwood", hp: 3800, speed: 34, bounty: 120, armor: 0.3, size: 27, name: "DRAGON", boss: true, flying: true, atk: 0, atkRate: 0, castleDmg: 5, note: "Boss. Flies over the road — knights cannot block it." },
 
   // ---- THE IRON KINGDOM ----
   // A real army: drilled, shielded, and it shoots back.
@@ -106,7 +106,7 @@ export const ENEMIES = {
     note: "A knight on a warbred gryphon, armored wing to talon. It sails over every blocker you have, and its plate turns arrows — magic pulls it out of the sky fastest.",
   },
   marshal: {
-    faction: "iron", hp: 4200, speed: 48, bounty: 180, armor: 0.35, size: 24,
+    faction: "iron", hp: 4200, speed: 48, bounty: 110, armor: 0.35, size: 24,
     name: "LORD MARSHAL", boss: true, atk: 44, atkRate: 1000, castleDmg: 5, trample: 2, trampleEvery: 3200,
     bannerRange: 115, bannerSpeed: 0.3, bannerArmor: 0.2,
     note: "Boss. His banner drives the whole column faster and harder — every soldier near him is quicker and better armored, and he rides down the first two knights that try to hold him. Cut down the banner and the army falters.",
@@ -160,7 +160,7 @@ export const ENEMIES = {
     note: "Many dead things stitched into one slow tide of a body. Cutting it down is half the work: it comes apart into three ghouls at a sprint.",
   },
   hollowking: {
-    faction: "hollow", hp: 4400, speed: 42, bounty: 220, armor: 0.25, mres: 0.5, immStun: true, size: 26,
+    faction: "hollow", hp: 4400, speed: 42, bounty: 130, armor: 0.25, mres: 0.5, immStun: true, size: 26,
     name: "THE HOLLOW KING", boss: true, atk: 40, atkRate: 1000, castleDmg: 5,
     summonEvery: 4400, summonType: "skeleton", summonCount: 2,
     note: "Boss. The drowned crown itself. Stuns break against his will, half your magic drowns in him — and every few heartbeats he calls more dead out of the ground to walk in front of him. The court dies when the King does.",

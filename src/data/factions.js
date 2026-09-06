@@ -46,9 +46,9 @@ export const FACTIONS = {
       // III. the warchiefs take the field
       [["hobgoblin", 2, 6000], ["orc", 12, 600], ["armored", 6, 800]],
       [["necro", 1, 0], ["goblin", 30, 260], ["wolf", 14, 340]],
-      [["troll", 4, 1800], ["armored", 10, 700], ["shaman", 3, 4200]],
+      [["troll", 3, 1800], ["armored", 8, 700], ["shaman", 3, 4200]],
       [["boarrider", 8, 700], ["hobgoblin", 2, 5000], ["wolf", 12, 380], ["troll", 2, 2200]],
-      [["necro", 2, 0], ["troll", 5, 1500], ["orc", 14, 500], ["shaman", 3, 4200]],
+      [["necro", 2, 0], ["troll", 4, 1500], ["orc", 12, 500], ["shaman", 3, 4200]],
       [["goblin", 16, 320], ["hobgoblin", 2, 4000], ["armored", 10, 700], ["necro", 2, 5200], ["shaman", 2, 4200], ["dragon", 1, 0]],
     ],
     roster: [

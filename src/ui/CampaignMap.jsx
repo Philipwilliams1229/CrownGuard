@@ -8,7 +8,8 @@
 // the same picture works on a phone and on a desktop.
 
 import { useState, useRef, useEffect } from "react";
-import { CHAPTERS, LEVELS, levelById, isUnlocked, currentLevel } from "../data/campaign.js";
+import { CHAPTERS, LEVELS, levelById, isUnlocked, currentLevel, loadCastle } from "../data/campaign.js";
+import CastleWorksList from "./CastleWorks.jsx";
 import { FACTIONS } from "../data/factions.js";
 import { REALMS } from "../data/maps.js";
 import { W, H } from "../data/constants.js";
@@ -56,9 +57,10 @@ const Stone = ({ x, y, s = 1 }) => (
   </g>
 );
 
-export default function CampaignMap({ progress, profile, onStart, onBack, onReset }) {
+export default function CampaignMap({ progress, profile, onStart, onBack, onReset, onBuyWork }) {
   const rating = (id) => profile?.stars?.[id] || 0;
   const [selId, setSelId] = useState(() => currentLevel(progress).id);
+  const [worksOpen, setWorksOpen] = useState(false);
   const sel = levelById(selId);
   const upTo = currentLevel(progress);
 
@@ -90,10 +92,32 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
       <div style={{ width: "100%", maxWidth: 780, display: "flex", alignItems: "center", gap: 10 }}>
         <button style={{ ...btn, padding: "6px 12px", fontSize: 12 }} onClick={onBack}>◀ Menu</button>
         <div style={{ ...title(15), fontSize: 15, flex: 1, textAlign: "center" }}>THE CAMPAIGN</div>
-        <div style={{ fontSize: 10, opacity: 0.6, minWidth: 78, textAlign: "right" }}>
+        <div style={{ fontSize: 10, opacity: 0.6, textAlign: "right" }}>
           {clearedCount}/{LEVELS.length} cleared
         </div>
+        <button title="The crown's treasury and the castle's works" style={{ ...btn, padding: "6px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setWorksOpen(true)}>
+          🏰 <b style={{ color: "#e8d47a" }}>{(progress.treasury || 0).toLocaleString("en-US")}</b>
+        </button>
       </div>
+
+      {/* the castle works, bought here between levels from the treasury */}
+      {worksOpen && sel && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(12,12,16,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}
+          onClick={() => setWorksOpen(false)}>
+          <div style={{ ...panel, width: "100%", maxWidth: 360, maxHeight: "90dvh", overflowY: "auto", padding: 12, boxSizing: "border-box" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1 }}>🏰 CASTLE WORKS — {sel.chapter.name.toUpperCase()}</span>
+              <button aria-label="Close" style={{ ...btn, padding: "4px 10px", fontSize: 12 }} onClick={() => setWorksOpen(false)}>✕</button>
+            </div>
+            <CastleWorksList
+              works={loadCastle(sel.chapter.id)}
+              purse={progress.treasury || 0}
+              purseLabel="THE CROWN'S TREASURY"
+              note={`Every level you hold sends its leftover gold home. Spend it here on the ${sel.chapter.name}'s castle: what you build stands at every level of the chapter.`}
+              onBuy={(key, next) => onBuyWork(sel.chapter.id, key, next)} />
+          </div>
+        </div>
+      )}
 
       {/* ---- the continent ----
           Taller than the window and scrollable: the war marches NORTH up the

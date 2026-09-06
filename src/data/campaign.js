@@ -5,7 +5,11 @@
 // faction's eighteen scripted waves — so the difficulty of level 4 is the
 // difficulty of wave 10 onwards, not a fresh start every time.
 //
-// `window: { start, count }` reads as "script waves start+1 … start+count".
+// `window: { from, to, count }` reads as "count waves, climbing from war-wave
+// `from` to war-wave `to`" — the war being the faction's eighteen scripted
+// waves and then generated ones. `boss: true` puts the faction's champion on
+// the last wave. Levels grow: ten waves to open a region, twenty-five to
+// close it, and each one starts a little deeper into the war than the last.
 // The last level of a chapter always ends on the faction's boss wave.
 //
 // `pos` is the level's dot on the continent map (see ui/CampaignMap.jsx), in
@@ -25,37 +29,37 @@ export const CHAPTERS = [
     levels: [
       {
         id: "gw1", name: "The Vale Road", realm: "greenwood", short: "Vale Road",
-        window: { start: 0, count: 5 }, gold: 250, pos: [44, 168],
+        window: { from: 1, to: 8, count: 10 }, gold: 250, pos: [44, 168],
         blurb: "Goblin raiding parties on the country road — a flood of small blades, badly led. Hold the lane and learn the ground.",
       },
       {
         id: "gw2", name: "Thornbrook Ford", realm: "thornbrook", short: "Thornbrook",
-        window: { start: 2, count: 5 }, gold: 500, pos: [88, 146],
+        window: { from: 2, to: 11, count: 12 }, gold: 350, pos: [88, 146],
         blurb: "Wolves run ahead of the horde now, and fell bats ride over your knights' heads. The brook is the only thing here that stops for anyone.",
       },
       {
         id: "foxmere", name: "Foxmere", realm: "foxmere", labelAbove: true,
-        window: { start: 4, count: 6 }, gold: 750, pos: [106, 118],
+        window: { from: 3, to: 14, count: 15 }, gold: 450, pos: [106, 118],
         blurb: "The road owes the mere a full circle, and the horde walks every step of it. Orcs in plate now — and the first shamans, chanting the warband whole.",
       },
       {
         id: "gw3", name: "Oakmere Hollow", realm: "oakmere", short: "Oakmere",
-        window: { start: 6, count: 6 }, gold: 1000, pos: [52, 100],
+        window: { from: 4, to: 17, count: 18 }, gold: 550, pos: [52, 100],
         blurb: "Ironclads march with the orcs and boar riders flatten your line — then one night the wood empties all at once. Bring magic.",
       },
       {
         id: "gw4", name: "The Barrowfields", realm: "barrowfields", short: "Barrowfields",
-        window: { start: 8, count: 6 }, gold: 1300, pos: [104, 62],
+        window: { from: 5, to: 20, count: 20 }, gold: 650, pos: [104, 62],
         blurb: "Trolls out of the mounds, shamans chanting the wounded whole. Kill the healers first, and save something heavy for the trolls.",
       },
       {
         id: "wolfrun", name: "Wolfrun Ford", realm: "wolfrun", short: "Wolfrun", labelAbove: true,
-        window: { start: 10, count: 6 }, gold: 1500, pos: [150, 70],
+        window: { from: 6, to: 24, count: 22 }, gold: 750, pos: [150, 70],
         blurb: "Four bridges over one cold river, and a warchief's totem driving the party across all of them. The fords decide who holds the vale.",
       },
       {
         id: "gw5", name: "The Goblin Warrens", realm: "warrens", short: "The Warrens",
-        window: { start: 12, count: 6 }, gold: 1800, pos: [146, 110],
+        window: { from: 7, to: 30, count: 25, boss: true }, gold: 850, pos: [146, 110],
         blurb: "The mouth of the burrow. Necromancers raise your kills against you — and the dragon is home.",
       },
     ],
@@ -73,37 +77,37 @@ export const CHAPTERS = [
     levels: [
       {
         id: "ir1", name: "The King's Road", realm: "kingsroad", short: "King's Road",
-        window: { start: 0, count: 5 }, gold: 800, pos: [232, 150],
+        window: { from: 1, to: 8, count: 10 }, gold: 450, pos: [232, 150],
         blurb: "A levy column in step behind raised shields. The first two blows off any tower are wasted — hit them heavy.",
       },
       {
         id: "muster", name: "The Muster", realm: "muster",
-        window: { start: 2, count: 5 }, gold: 850, pos: [244, 112], labelAbove: true,
+        window: { from: 2, to: 11, count: 12 }, gold: 500, pos: [244, 112], labelAbove: true,
         blurb: "The Kingdom's drill field: long straights made for a cavalry charge, and the first gryphons wheeling overhead. Look up.",
       },
       {
         id: "ir2", name: "Stonewatch", realm: "stonewatch",
-        window: { start: 4, count: 6 }, gold: 950, pos: [268, 186],
+        window: { from: 3, to: 14, count: 15 }, gold: 600, pos: [268, 186],
         blurb: "Crossbowmen shoot your knights down from outside their reach, and gryphons pass clean over the walls. Nothing here fights fair.",
       },
       {
         id: "ir3", name: "Ironford", realm: "ironford",
-        window: { start: 6, count: 6 }, gold: 1100, pos: [304, 140],
+        window: { from: 4, to: 17, count: 18 }, gold: 700, pos: [304, 140],
         blurb: "The river eats half your ground, cavaliers ride the first blocker down, and the siege rams come through the ford anyway.",
       },
       {
         id: "ir4", name: "Greyhelm Pass", realm: "greyhelm", short: "Greyhelm",
-        window: { start: 8, count: 6 }, gold: 1250, pos: [330, 86],
+        window: { from: 5, to: 20, count: 20 }, gold: 800, pos: [330, 86],
         blurb: "Chaplains ward the whole column against chip damage. Break the ward with something that hits once and hits hard.",
       },
       {
         id: "undercliff", name: "Undercliff", realm: "undercliff",
-        window: { start: 10, count: 6 }, gold: 1450, pos: [356, 122],
+        window: { from: 6, to: 24, count: 22 }, gold: 900, pos: [356, 122],
         blurb: "A shelf of road folded twice under the mountain. Your towers watch three lanes at once — and the Kingdom fills all three.",
       },
       {
         id: "ir5", name: "The Citadel Gate", realm: "citadel", short: "The Citadel",
-        window: { start: 12, count: 6 }, gold: 1600, pos: [352, 48],
+        window: { from: 7, to: 30, count: 25, boss: true }, gold: 1000, pos: [352, 48],
         blurb: "The last mile. The Lord Marshal's banner drives the army faster and harder — cut down the banner.",
       },
     ],
@@ -123,32 +127,32 @@ export const CHAPTERS = [
     levels: [
       {
         id: "hl1", name: "The Grave Road", realm: "graveroad", short: "Grave Road",
-        window: { start: 0, count: 5 }, gold: 900, pos: [368, -36],
+        window: { from: 1, to: 8, count: 10 }, gold: 500, pos: [368, -36],
         blurb: "Across the strait and into the fen, and the dead walking its causeway in floods. They are worth almost nothing — and there are so, so many.",
       },
       {
         id: "hl2", name: "The Sunken Causeway", realm: "sunkencauseway", short: "Causeway",
-        window: { start: 2, count: 6 }, gold: 1000, pos: [310, -36],
+        window: { from: 2, to: 11, count: 13 }, gold: 600, pos: [310, -36],
         blurb: "Black water either side, wraiths drifting over your blockers, and barrow archers loosing at your knights. The dry ground is all there is.",
       },
       {
         id: "bellmarsh", name: "Bellmarsh", realm: "bellmarsh",
-        window: { start: 5, count: 6 }, gold: 1150, pos: [252, -36],
+        window: { from: 3, to: 15, count: 16 }, gold: 700, pos: [252, -36],
         blurb: "Every standing stone here rings when struck, and the court has struck them all. Wraiths, ghasts, wardens — the fen's whole household, one after another.",
       },
       {
         id: "hl3", name: "Wightwood", realm: "wightwood", labelAbove: true,
-        window: { start: 8, count: 6 }, gold: 1300, pos: [252, -88],
+        window: { from: 4, to: 19, count: 20 }, gold: 800, pos: [252, -88],
         blurb: "A drowned forest of white trees. Plague ghasts burst over your line here — kill them far from your knights, or regret it.",
       },
       {
         id: "hl4", name: "The Cairnfields", realm: "cairnfields", short: "Cairnfields", labelAbove: true,
-        window: { start: 10, count: 6 }, gold: 1450, pos: [316, -88],
+        window: { from: 5, to: 24, count: 23 }, gold: 900, pos: [316, -88],
         blurb: "Every cairn a door, and gravecallers ringing them open. The flood has a source: silence the bells.",
       },
       {
         id: "hl5", name: "The Throne of Dust", realm: "thronedust", short: "Throne of Dust",
-        window: { start: 12, count: 6 }, gold: 1550, pos: [358, -88],
+        window: { from: 7, to: 30, count: 25, boss: true }, gold: 1000, pos: [358, -88],
         blurb: "The drowned throne itself. Crypt wardens, amalgams that will not stay dead — and the Hollow King, calling his court out of the ground.",
       },
     ],
@@ -177,10 +181,26 @@ export function loadProgress() {
       castle: raw.castle && typeof raw.castle === "object" ? raw.castle : {},
       // the heroes' levels: { aldric: { level: 4 } }
       heroes: raw.heroes && typeof raw.heroes === "object" ? raw.heroes : {},
+      // the crown's treasury: gold carried home from won levels, spent only
+      // on the castle's works
+      treasury: Number.isFinite(raw.treasury) ? raw.treasury : 0,
     };
   } catch {
-    return { cleared: {}, castle: {}, heroes: {} };
+    return { cleared: {}, castle: {}, heroes: {}, treasury: 0 };
   }
+}
+export function bankTreasury(amount) {
+  const p = loadProgress();
+  p.treasury = Math.max(0, Math.floor(p.treasury + amount));
+  save(p);
+  return p;
+}
+export function spendTreasury(amount) {
+  const p = loadProgress();
+  if (p.treasury < amount) return null;
+  p.treasury -= amount;
+  save(p);
+  return p;
 }
 export function saveHero(key, level) {
   const p = loadProgress();
@@ -213,7 +233,7 @@ export function markCleared(levelId) {
 }
 
 export function resetProgress() {
-  const p = { cleared: {}, castle: {}, heroes: {} };
+  const p = { cleared: {}, castle: {}, heroes: {}, treasury: 0 };
   save(p);
   return p;
 }

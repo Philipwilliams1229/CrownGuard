@@ -119,12 +119,12 @@ const bestSpot = (g, r, frontBias = 0) => {
 //   burst — few colossal blows; cracks shields, wards and champions
 const PLANS = {
   swarm: {
-    build: ["archer", "knight", "wizard", "archer", "catapult", "support", "wizard", "archer", "knight", "catapult", "spiker", "wizard"],
+    build: ["archer", "knight", "wizard", "archer", "catapult", "support", "wizard", "archer", "knight", "catapult", "spiker", "wizard", "archer", "wizard", "spiker", "catapult", "support", "archer", "wizard", "knight"],
     branch: { archer: "a", knight: "a", wizard: "a", catapult: "b", spiker: "a", support: "a" },
     ascend: { archer: "a", knight: "b", wizard: "b", catapult: "a", spiker: "a", support: "a" },
   },
   burst: {
-    build: ["archer", "knight", "wizard", "catapult", "archer", "support", "wizard", "catapult", "knight", "archer", "wizard", "catapult"],
+    build: ["archer", "knight", "wizard", "catapult", "archer", "support", "wizard", "catapult", "knight", "archer", "wizard", "catapult", "archer", "wizard", "catapult", "support", "archer", "wizard", "knight", "catapult"],
     branch: { archer: "b", knight: "a", wizard: "b", catapult: "a", spiker: "b", support: "a" },
     ascend: { archer: "b", knight: "a", wizard: "b", catapult: "b", spiker: "a", support: "b" },
   },
@@ -259,7 +259,7 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
   const result = g.victory ? "WON" : g.phase === "lost" ? "LOST" : "STUCK";
   const hb = heroBand(g);
   const towers = g.towers.map((t) => `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`).join(" ") + (hb ? ` + ${hb.name} L${hb.level}` : "");
-  return { result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName };
+  return { result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName, gold: Math.round(g.gold), earned: Math.round(g.run?.goldEarned || 0) };
 }
 
 // A level gets a real player's persistence: the faction's natural doctrine
@@ -273,7 +273,7 @@ function runLevel(opts, quiet) {
     if (r2.result === "WON" || r2.lives > r.lives || (r2.lives === r.lives && r2.wave > r.wave)) r = r2;
   }
   const { name } = opts;
-  console.log(`${r.result === "WON" ? "✔" : "✘"} ${name} [${r.plan}]: ${r.result} — wave ${r.wave}/${r.total}, lives ${r.lives}/${CASTLE_HP} (leaked ${r.leaked}), army: ${quiet ? r.towers.split(" + ")[0].split(" ").length + " towers" + (r.towers.includes(" + ") ? " + " + r.towers.split(" + ")[1] : "") : r.towers}`);
+  console.log(`${r.result === "WON" ? "✔" : "✘"} ${name} [${r.plan}]: ${r.result} — wave ${r.wave}/${r.total}, lives ${r.lives}/${CASTLE_HP} (leaked ${r.leaked}), gold left ${r.gold} of ${r.earned} earned, army: ${quiet ? r.towers.split(" + ")[0].split(" ").length + " towers" + (r.towers.includes(" + ") ? " + " + r.towers.split(" + ")[1] : "") : r.towers}`);
   return { name, ...r };
 }
 
