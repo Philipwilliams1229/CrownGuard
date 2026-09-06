@@ -196,6 +196,69 @@
       }
       document.body.appendChild(sheet);
       window.__sheet = sheet;
+
+      // ---- ?export=1: reference crops, magnified, posted to a local drop box ----
+      // One PNG per creature (its three frames), per tower kind (all nine
+      // forms), plus the crews, the castle and the scenery — each at ZOOM
+      // times the game's pixels so an image model can actually see them.
+      if (new URLSearchParams(location.search).get("export")) {
+        const ZOOM = 4, BOX = "http://localhost:5199/";
+        const post = async (name, cv) => {
+          const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
+          await fetch(BOX + name, { method: "POST", body: blob });
+        };
+        const crop = (src, x, y, w, h, bg) => {
+          // src in world units on the sheet; output magnified, nearest neighbour
+          const c = document.createElement("canvas");
+          c.width = w * ZOOM; c.height = h * ZOOM;
+          const cc = c.getContext("2d");
+          cc.imageSmoothingEnabled = false;
+          if (bg) { cc.fillStyle = bg; cc.fillRect(0, 0, c.width, c.height); }
+          cc.drawImage(sheet, x * RES, y * RES, w * RES, h * RES, 0, 0, c.width, c.height);
+          return c;
+        };
+        (async () => {
+          // creatures: re-bake each one big, on its own
+          for (const name of Object.keys(RIGS)) {
+            const b = RIGS[name].box;
+            const frames = [["walk", 0], ["walk", 1], ["walk", 2], ["walk", 3], ["fight", 0], ["fight", 1]];
+            const cw = b.hw * 2 + 8, ch = b.up + b.down + 8;
+            const c = document.createElement("canvas");
+            c.width = cw * frames.length * ZOOM; c.height = (ch + 8) * ZOOM;
+            const cc = c.getContext("2d");
+            cc.imageSmoothingEnabled = false;
+            cc.fillStyle = "#2c313c"; cc.fillRect(0, 0, c.width, c.height);
+            frames.forEach(([sheetName, f], j) => {
+              const { cv, ax, ay } = rigFrame(name, sheetName, f, "");
+              const x0 = (j * cw + 4) * ZOOM, y0 = 4 * ZOOM;
+              cc.drawImage(cv, x0 + (b.hw - ax) * ZOOM, y0 + (b.up - ay) * ZOOM, cv.width / RES * ZOOM, cv.height / RES * ZOOM);
+              cc.fillStyle = "#e8e0c8"; cc.font = `${5 * ZOOM}px Verdana`; cc.textBaseline = "top";
+              cc.fillText(`${sheetName} ${f}`, x0, (ch + 2) * ZOOM);
+            });
+            await post(`creatures/${name}.png`, c);
+          }
+          // the sheet's own rows, cut by heading
+          let yy = 4, idx = 0;
+          const towerKinds = Object.keys(painters);
+          for (const r of rows) {
+            const isTower = r.h === CH + 12;
+            if (isTower) await post(`towers/${towerKinds[idx++]}.png`, crop(sheet, 4, yy, SW - 8, r.h, "#2c313c"));
+            yy += r.h + 4;
+          }
+          // crews, castle+scenery, cave, barrow: find them by height
+          yy = 4;
+          const named = [];
+          for (const r of rows) { named.push({ y: yy, h: r.h }); yy += r.h + 4; }
+          const crewRows = named.filter((r) => r.h === 58);
+          if (crewRows.length) await post("crew.png", crop(sheet, 4, crewRows[0].y, SW - 8, crewRows.reduce((a, r) => a + r.h + 4, 0), "#2c313c"));
+          const big = named.find((r) => r.h === H + 12);
+          if (big) {
+            await post("castle.png", crop(sheet, 4, big.y, 180, big.h, "#2c313c"));
+            await post("scenery.png", crop(sheet, 186, big.y, SW - 190, big.h, "#2c313c"));
+          }
+          document.getElementById("status").textContent += " — export done.";
+        })();
+      }
       document.getElementById("status").textContent = `${sheet.width}×${sheet.height} art pixels (${SW}×${total} world units at ${RES}×). window.__sheet holds it.`;
     </script>
   </body>
