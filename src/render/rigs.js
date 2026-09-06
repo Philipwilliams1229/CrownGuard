@@ -239,6 +239,21 @@ const amalgam = (ctx, p) => {
   limb(ctx, -11 * s, -16 * s + bob, -16 * s, -20 * s + bob, 2.6 * s, p.col);
 };
 
+const eagle = (ctx, p) => {
+  const s = (p.len ?? 30) / 30;
+  const f = (p.frame || 0) % 4;
+  const flap = f === 0 ? 1 : f === 1 ? 0.3 : f === 2 ? -0.6 : 0.3;
+  const y = -8 * s;
+  part(ctx, (c) => { c.beginPath(); c.moveTo(-3 * s, y - 2 * s); c.quadraticCurveTo(-9 * s, y - 12 * s * flap - 4 * s, -20 * s, y - 9 * s * flap - 2 * s); c.lineTo(-13 * s, y + 2 * s); c.closePath(); c.fillStyle = darken(p.wing, 0.2); c.fill(); });
+  part(ctx, (c) => ball(c, 0, y, 9 * s, 5 * s, p.col, { hi: 0.4, lo: 0.45 }));
+  part(ctx, (c) => { c.fillStyle = "#ded6c4"; c.beginPath(); c.moveTo(-8 * s, y); c.lineTo(-14 * s, y - 2 * s); c.lineTo(-14 * s, y + 3 * s); c.closePath(); c.fill(); });
+  part(ctx, (c) => { ball(c, 9 * s, y - 4 * s, 4 * s, 3.4 * s, "#ece4d2", { hi: 0.4, lo: 0.4 }); c.fillStyle = "#e0b855"; c.beginPath(); c.moveTo(12 * s, y - 4.5 * s); c.lineTo(16 * s, y - 2.5 * s); c.lineTo(12 * s, y - 1.5 * s); c.closePath(); c.fill(); });
+  eye(ctx, 10.5 * s, y - 5 * s, "#2a2230", 0.7 * s);
+  for (const lx of [-3, 3]) limb(ctx, lx * s, y + 3 * s, lx * s + 1 * s, y + 7 * s, 1.6 * s, "#e0b855");
+  if (p.rider) { ctx.save(); ctx.translate(-2 * s, y - 2 * s); biped(ctx, { ...p.rider, pose: "walk", frame: 0 }); ctx.restore(); }
+  part(ctx, (c) => { c.beginPath(); c.moveTo(1 * s, y - 3 * s); c.quadraticCurveTo(7 * s, y - 16 * s * flap - 5 * s, 1 * s, y - 18 * s * flap - 3 * s); c.lineTo(-7 * s, y - 14 * s * flap - 2 * s); c.lineTo(-11 * s, y - 3 * s); c.closePath(); c.fillStyle = lit(c, -4 * s, 14 * s, p.wing); c.fill(); });
+};
+
 const skiff = (ctx, p) => {
   const s = 1;
   const f = p.frame || 0;
@@ -289,9 +304,10 @@ export const RIGS = {
   wolfrider: { kind: "beast", box: { hw: 22, up: 32, down: 4 }, p: { len: 30, h: 12, col: "#8f929c", belly: "#aab0ba", head: "wolf", eyes: "#d8b34a", rider: { h: 16, skin: "#e8b990", cloth: "#6a3a2a", head: "hair", hair: "#a04a3f", weapon: "axe", wcol: "#b8bcc4" } } },
   assassinUnit: { kind: "biped", box: { hw: 14, up: 28, down: 4 }, p: { h: 22, skin: "#e8b990", cloth: "#3a3244", cloth2: "#6a5a80", head: "hood", hair: "#2a2434", weapon: "knife", wcol: "#c4c8d0" } },
   skiff: { kind: "skiff", box: { hw: 18, up: 26, down: 6 }, p: {} },
+  eagle: { kind: "eagle", fly: true, box: { hw: 24, up: 36, down: 6 }, p: { len: 30, col: "#96764a", wing: "#7a5a34", rider: { h: 15, skin: "#e8b990", cloth: "#7a3c30", head: "hood", hair: "#5a2c24", weapon: "spear", wcol: "#c4c8d0" } } },
 };
 
-const PAINTERS = { biped, beast, bat, wraith, dragon, gryphon, ram, amalgam, skiff };
+const PAINTERS = { biped, beast, bat, wraith, dragon, gryphon, ram, amalgam, skiff, eagle };
 
 // necromancer-raised foes wear grave-pale colours and witch-fire eyes
 const revive = (p) => {

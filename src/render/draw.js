@@ -15,7 +15,7 @@ import { REALM } from "../data/maps.js";
 import { PTS, posAt, angleAt } from "../engine/path.js";
 import { DECOR, PONDS, RIVERS, BRIDGES } from "../data/terrain.js";
 import { groundLayer, drawRoadLive } from "./world.js";
-import { ball as pip } from "./paint.js";
+import { ball as pip, glow as glowFx, shadow as softShadow, cylinder } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
 import { buildableAt } from "../engine/actions.js";
@@ -111,70 +111,35 @@ export function draw(g, canvas, bufRef) {
   // the trapsmith's work, waiting flush with the road
   if (g.traps) {
     for (const tr of g.traps) {
-      const tx = S(tr.x), ty = S(tr.y);
+      const tx = tr.x, ty = tr.y;
       const kind = tr.kind || (tr.sky ? "balloon" : tr.branch === "b" ? "mine" : "jaws");
       if (kind === "balloon") {
-        // a bomb on a balloon, bobbing at flier height above its road anchor
         const by = ty - 13 + Math.sin(g.time * 2 + tr.x) * 1.5;
-        ctx.fillStyle = "rgba(20,20,26,0.25)";
-        ctx.fillRect(tx - 2, ty + 1, 5, 2);
-        ctx.strokeStyle = "rgba(16,19,26,0.7)";
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(tx + 0.5, ty); ctx.lineTo(tx + 0.5, by + 4); ctx.stroke();
-        ctx.fillStyle = INK; ctx.fillRect(tx - 2, by - 5, 6, 6);
-        ctx.fillStyle = "#c05848"; ctx.fillRect(tx - 1, by - 4, 4, 4);
-        ctx.fillStyle = "#e8927a"; ctx.fillRect(tx - 1, by - 4, 1, 2);
-        ctx.fillStyle = INK; ctx.fillRect(tx - 1, by + 1, 4, 3);
-        ctx.fillStyle = "#5f636d"; ctx.fillRect(tx, by + 2, 2, 2);
-        ctx.fillStyle = Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a";
-        ctx.fillRect(tx, by + 2, 1, 1);
+        softShadow(ctx, tx, ty + 1, 3, 1.2, 0.25);
+        ctx.strokeStyle = "rgba(16,19,26,0.7)"; ctx.lineWidth = 0.7;
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, by + 4); ctx.stroke();
+        pip(ctx, tx, by, 3.2, 3.6, "#c05848", { hi: 0.5, lo: 0.45 });
+        pip(ctx, tx, by + 4.5, 1.6, 1.4, "#3a3028", { hi: 0.3, lo: 0.4 });
+        glowFx(ctx, tx + 0.6, by + 4.5, 1.2, Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a", 0.9);
       } else if (kind === "spike") {
-        // road spikes: a low iron strip with teeth standing up out of it
-        ctx.fillStyle = INK;
-        ctx.fillRect(tx - 7, ty - 1, 15, 4);
-        ctx.fillStyle = "#6c727e";
-        ctx.fillRect(tx - 6, ty, 13, 2);
+        ctx.fillStyle = "#6c727e"; ctx.fillRect(tx - 7, ty - 0.5, 14, 2.4);
         ctx.fillStyle = "#c4c8d0";
-        for (let i2 = 0; i2 < 5; i2++) {
-          const sx = tx - 6 + i2 * 3;
-          ctx.fillRect(sx, ty - 3, 1, 3);
-          ctx.fillRect(sx, ty - 4, 1, 1);
-        }
-        ctx.fillStyle = "#8a8f9a";
-        ctx.fillRect(tx - 6, ty + 2, 13, 1);
+        for (let i2 = 0; i2 < 5; i2++) { const sx = tx - 6 + i2 * 3; ctx.beginPath(); ctx.moveTo(sx - 0.8, ty); ctx.lineTo(sx, ty - 3.5); ctx.lineTo(sx + 0.8, ty); ctx.closePath(); ctx.fill(); }
       } else if (kind === "caltrop") {
-        // a scatter of four-pointed iron, too many to count
-        ctx.fillStyle = INK;
         for (let i2 = 0; i2 < 4; i2++) {
           const cx2 = tx - 5 + ((i2 * 7) % 11), cy2 = ty - 2 + ((i2 * 5) % 6);
-          ctx.fillRect(cx2 - 2, cy2, 5, 1);
-          ctx.fillRect(cx2, cy2 - 2, 1, 5);
-        }
-        ctx.fillStyle = "#b8bcc4";
-        for (let i2 = 0; i2 < 4; i2++) {
-          const cx2 = tx - 5 + ((i2 * 7) % 11), cy2 = ty - 2 + ((i2 * 5) % 6);
-          ctx.fillRect(cx2, cy2, 1, 1);
+          ctx.strokeStyle = "#8a8f9a"; ctx.lineWidth = 0.9; ctx.lineCap = "round";
+          ctx.beginPath(); ctx.moveTo(cx2 - 2, cy2 + 1); ctx.lineTo(cx2 + 2, cy2 + 1); ctx.moveTo(cx2, cy2 + 1); ctx.lineTo(cx2, cy2 - 2.4); ctx.moveTo(cx2, cy2 + 1); ctx.lineTo(cx2 + 1.4, cy2 + 2.4); ctx.stroke();
         }
       } else if (kind === "mine") {
-        // a pressure mine: steel disc, and a patient red eye
-        ctx.fillStyle = INK;
-        ctx.beginPath(); ctx.arc(tx, ty, 6, 0, 7); ctx.fill();
-        ctx.fillStyle = "#5f636d";
-        ctx.beginPath(); ctx.arc(tx, ty, 5, 0, 7); ctx.fill();
-        ctx.fillStyle = "#8a8f9a";
-        ctx.fillRect(tx - 3, ty - 3, 3, 2);
-        ctx.fillStyle = Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a";
-        ctx.fillRect(tx - 1, ty - 1, 2, 2);
+        pip(ctx, tx, ty, 5.5, 4, "#5f636d", { hi: 0.45, lo: 0.5 });
+        glowFx(ctx, tx, ty - 0.5, 1.2, Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a", 0.9);
       } else {
         // bear-iron: open jaws, teeth up
-        ctx.fillStyle = INK;
-        ctx.fillRect(tx - 8, ty - 2, 16, 5);
-        ctx.fillStyle = "#8a8f9a";
-        ctx.fillRect(tx - 7, ty - 1, 14, 3);
+        ctx.fillStyle = "#6c727e"; ctx.fillRect(tx - 8, ty - 1, 16, 3.4);
         ctx.fillStyle = "#b8bcc4";
-        for (let i2 = 0; i2 < 4; i2++) ctx.fillRect(tx - 7 + i2 * 4, ty - 3, 2, 3);
-        ctx.fillStyle = "#6c727e";
-        ctx.fillRect(tx - 2, ty, 4, 2);
+        for (let i2 = 0; i2 < 4; i2++) { const sx = tx - 6.5 + i2 * 4; ctx.beginPath(); ctx.moveTo(sx - 1, ty - 1); ctx.lineTo(sx, ty - 3.5); ctx.lineTo(sx + 1, ty - 1); ctx.closePath(); ctx.fill(); }
+        pip(ctx, tx, ty + 0.5, 2, 1.4, "#3a3e48", { hi: 0.3, lo: 0.4 });
       }
     }
   }
@@ -403,103 +368,23 @@ export function draw(g, canvas, bufRef) {
   }
 
   // Skyknight war-eagles fly free of their roosts, so they paint above the
-  // fray — and at half a dragon's span, with the mistress on its back.
+  // fray, the mistress on their backs.
   for (const t of g.towers) {
     if (t.kind !== "falconry" || !t.eagle) continue;
     const eg = t.eagle;
-    if (eg.respawn > 0) continue;   // the mistress whistles a new bird soon
-    const ex = S(eg.x), ey = S(eg.y);
-    const beat = Math.sin(g.time * 6 + t.id) > 0;
-    const fighting = !!eg.targetId;
-    // a shadow the size of the thing casting it
-    ctx.fillStyle = "rgba(20,20,26,0.24)";
-    ctx.fillRect(ex - 14, ey + 20, 28, 4);
-    // ---- the wings: four ribbed fingers a side, a dragon's half ----
-    for (const side of [-1, 1]) {
-      const lift = beat ? -6 : 3;
-      for (let f = 0; f < 4; f++) {
-        const len = 26 - f * 5;
-        const ang = side < 0 ? Math.PI - (0.28 + f * 0.26) : 0.28 + f * 0.26;
-        const tx2 = ex + Math.cos(ang) * len;
-        const ty2 = ey + Math.sin(ang) * len * 0.5 + lift + f * 2;
-        ctx.strokeStyle = INK;
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(ex + side * 3, ey); ctx.lineTo(tx2, ty2); ctx.stroke();
-      }
-      // the membrane between the fingers
-      ctx.fillStyle = beat ? "#8a6a44" : "#96764a";
-      ctx.beginPath();
-      ctx.moveTo(ex + side * 3, ey);
-      for (let f = 0; f < 4; f++) {
-        const len = 26 - f * 5;
-        const ang = side < 0 ? Math.PI - (0.28 + f * 0.26) : 0.28 + f * 0.26;
-        ctx.lineTo(ex + Math.cos(ang) * len, ey + Math.sin(ang) * len * 0.5 + (beat ? -6 : 3) + f * 2);
-      }
-      ctx.closePath(); ctx.fill();
-      // pale primaries along the leading edge
-      ctx.fillStyle = "#ded6c4";
-      const tipA = side < 0 ? Math.PI - 0.28 : 0.28;
-      ctx.fillRect(S(ex + Math.cos(tipA) * 25) - 2, S(ey + Math.sin(tipA) * 12 + (beat ? -6 : 3)) - 1, 4, 3);
-    }
-    // ---- the body ----
-    ctx.fillStyle = INK;
-    ctx.fillRect(ex - 6, ey - 6, 12, 16);
-    ctx.fillStyle = "#96764a";
-    ctx.fillRect(ex - 5, ey - 5, 10, 14);
-    ctx.fillStyle = "#7a5f3a";
-    ctx.fillRect(ex - 5, ey + 4, 10, 4);
-    // tail fan
-    ctx.fillStyle = INK;
-    ctx.fillRect(ex - 7, ey + 9, 14, 5);
-    ctx.fillStyle = "#ded6c4";
-    ctx.fillRect(ex - 6, ey + 10, 12, 3);
-    // ---- the head: hooked, white-hooded, gold-beaked ----
-    ctx.fillStyle = INK;
-    ctx.fillRect(ex - 5, ey - 13, 10, 9);
-    ctx.fillStyle = "#ece4d2";
-    ctx.fillRect(ex - 4, ey - 12, 8, 7);
-    ctx.fillStyle = "#e0b855";
-    ctx.fillRect(ex - 1, ey - 8, 5, 3);
-    ctx.fillRect(ex + 3, ey - 7, 2, 2);
-    ctx.fillStyle = INK;
-    ctx.fillRect(ex - 3, ey - 11, 2, 2);
-    ctx.fillStyle = fighting ? "#e05248" : "#c8a83c";
-    ctx.fillRect(ex - 2, ey - 10, 1, 1);
-    // ---- the mistress, seated between the wings ----
-    ctx.fillStyle = INK;
-    ctx.fillRect(ex - 3, ey - 6, 6, 8);
-    ctx.fillStyle = t.branch === "b" ? "#5a4a8c" : "#7a3c30";
-    ctx.fillRect(ex - 2, ey - 5, 4, 6);
-    ctx.fillStyle = "#e8c9a2";
-    ctx.fillRect(ex - 2, ey - 7, 3, 2);
-    ctx.fillStyle = "#b06630";
-    ctx.fillRect(ex + 1, ey - 7, 2, 3);
-    // her lance, couched, dipping when the talons go in
-    ctx.fillStyle = "#5f4326";
-    ctx.fillRect(ex + 3, ey - (fighting ? 1 : 4), 12, 2);
-    ctx.fillStyle = "#c4c8d0";
-    ctx.fillRect(ex + 14, ey - (fighting ? 1 : 4) - 1, 4, 3);
-    // ---- talons out when it has something ----
-    if (fighting) {
-      ctx.fillStyle = "#e0b855";
-      ctx.fillRect(ex - 5, ey + 12, 3, 4);
-      ctx.fillRect(ex + 2, ey + 12, 3, 4);
-    }
-    // ---- wounds, and the mending of them ----
-    if (eg.healGlow > 0) {
-      ctx.fillStyle = "rgba(140,224,140,0.7)";
-      for (let i2 = 0; i2 < 3; i2++) ctx.fillRect(ex - 8 + i2 * 8, ey - 18 - ((g.time * 22 + i2 * 6) % 10), 2, 2);
-    }
+    if (eg.respawn > 0) continue;
+    const face = eg.targetId ? (Math.cos(Math.atan2(0, 1)) >= 0 ? 1 : 1) : 1;
+    const dir = (eg.vx ?? 1) < 0 ? -1 : 1;
+    softShadow(ctx, eg.x + 4, eg.y + 22, 12, 3, 0.24);
+    drawRig(ctx, "eagle", eg.x, eg.y + 10, dir, "walk", Math.floor(g.time * 8 + t.id) % 4);
+    if (eg.healGlow > 0) for (let i2 = 0; i2 < 3; i2++) glowFx(ctx, eg.x - 8 + i2 * 8, eg.y - 18 - ((g.time * 22 + i2 * 6) % 10), 1.4, "#8ce08c", 0.8);
     if (eg.hp < eg.maxHp) {
-      ctx.fillStyle = INK; ctx.fillRect(ex - 12, ey - 22, 24, 5);
+      ctx.fillStyle = INK; ctx.fillRect(eg.x - 12, eg.y - 22, 24, 5);
       ctx.fillStyle = eg.hp / eg.maxHp > 0.4 ? "#7fc95e" : "#e07a72";
-      ctx.fillRect(ex - 11, ey - 21, Math.max(1, Math.round(22 * eg.hp / eg.maxHp)), 3);
+      ctx.fillRect(eg.x - 11, eg.y - 21, Math.max(1, Math.round(22 * eg.hp / eg.maxHp)), 3);
     }
   }
 
-  // ---- rolling logs ----
-  // Drawn above the fray because a two-ton trimmed oak going down the lane is
-  // the most important thing on the board while it lasts.
   if (g.logs) {
     for (const lg of g.logs) {
       const lx = S(lg.x), ly = S(lg.y);
@@ -569,143 +454,86 @@ export function draw(g, canvas, bufRef) {
   {
     const [lsx, lsy] = PTS[0];
     // the sign stands at the wood's mouth, clear of the board edge
-    const mx = S(Math.max(lsx, 60)), my = lsy < 60 ? S(lsy) + 70 : S(lsy) - 46;
+    const mx = Math.max(lsx, 60), my = lsy < 60 ? lsy + 70 : lsy - 46;
     const a = g.phase === "combat" ? 0.3 : 0.95;
-    // Three chevrons above the plate, lighting in sequence so the eye is
-    // walked downward into the mouth of the road. They live above rather than
-    // below because below is canopy, and a marker you can't see is no marker.
+    ctx.save();
+    ctx.globalAlpha = a;
+    cylinder(ctx, mx - 30, my - 4, 2.4, 22, "#5f4326", { r: 1 });
+    cylinder(ctx, mx + 28, my - 4, 2.4, 22, "#5f4326", { r: 1 });
+    cylinder(ctx, mx - 34, my - 8, 68, 14, "#6e4c28", { r: 1.5, hi: 0.28, lo: 0.45 });
+    ctx.fillStyle = "rgba(20,14,18,0.35)"; ctx.fillRect(mx - 32, my - 6, 64, 10);
+    ctx.fillStyle = "#e8a08a";
+    ctx.font = "bold 9px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("THEY COME", mx, my - 0.5);
     for (let k = 0; k < 3; k++) {
       const lit = 0.3 + 0.7 * Math.max(0, Math.sin(g.time * 4 - k * 1.05));
+      ctx.strokeStyle = `rgba(224,110,100,${lit})`; ctx.lineWidth = 1.4; ctx.lineCap = "round";
       const yy = my - 30 + k * 7;
-      ctx.fillStyle = `rgba(224,110,100,${a * lit})`;
-      for (let i = 0; i < 3; i++) {
-        ctx.fillRect(mx - 6 + i * CELL, yy + i * CELL, CELL, CELL);
-        ctx.fillRect(mx + 4 - i * CELL, yy + i * CELL, CELL, CELL);
-      }
+      ctx.beginPath(); ctx.moveTo(mx - 6, yy); ctx.lineTo(mx, yy + 5); ctx.lineTo(mx + 6, yy); ctx.stroke();
     }
-    ctx.fillStyle = `rgba(18,14,18,${a * 0.72})`;
-    ctx.fillRect(mx - 34, my - 8, 68, 15);
-    ctx.fillStyle = `rgba(224,122,114,${a * 0.55})`;
-    ctx.fillRect(mx - 34, my - 8, 68, 1);
-    ctx.fillRect(mx - 34, my + 6, 68, 1);
-    ctx.fillStyle = `rgba(232,138,128,${a})`;
-    ctx.font = "bold 10px monospace";
-    ctx.fillText("THEY COME", mx, my);
+    ctx.restore();
   }
 
   for (const p of g.projectiles) {
     if (p.delay > 0) continue;
+    const ang = p.angle ?? Math.atan2(p.ty - p.y, p.tx - p.x);
+    const dx = Math.cos(ang), dy = Math.sin(ang);
     if (p.kind === "ball") {
-      // a musket ball: a hot streak with a lead dot at its head
-      const a2 = Math.atan2(p.ty - p.y, p.tx - p.x);
-      ctx.strokeStyle = "rgba(240,226,190,0.75)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(S(p.x - Math.cos(a2) * 13), S(p.y - Math.sin(a2) * 13));
-      ctx.lineTo(S(p.x), S(p.y));
-      ctx.stroke();
-      ctx.fillStyle = "#3a3a42";
-      ctx.fillRect(S(p.x) - 1, S(p.y) - 1, 3, 3);
-      ctx.fillStyle = "#e8d8a8";
-      ctx.fillRect(S(p.x), S(p.y), 1, 1);
+      // a musket ball and its trace
+      ctx.strokeStyle = "rgba(240,226,190,0.7)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(p.x - dx * 12, p.y - dy * 12); ctx.lineTo(p.x, p.y); ctx.stroke();
+      pip(ctx, p.x, p.y, 1.4, 1.4, "#4a4a52", { hi: 0.5, lo: 0.4 });
       continue;
     }
     if (p.kind === "shell") {
-      // a powder charge lobbed short and fat, fuse trailing sparks
       const remaining = Math.hypot(p.tx - p.x, p.ty - p.y);
       const tot = Math.max(1, Math.hypot(p.tx - (p.sx ?? p.x), p.ty - (p.sy ?? p.y)));
       const prog = Math.min(1, Math.max(0, 1 - remaining / tot));
       const arcH = Math.sin(prog * Math.PI) * 26;
-      const cy = S(p.y - arcH);
-      ctx.fillStyle = "rgba(20,20,26,0.3)";
-      ctx.fillRect(S(p.x) - 3, S(p.y) + 2, 6, 2);
-      ctx.fillStyle = INK;
-      ctx.beginPath(); ctx.arc(S(p.x), cy, 4, 0, 7); ctx.fill();
-      ctx.fillStyle = "#4a4a52";
-      ctx.beginPath(); ctx.arc(S(p.x), cy, 3, 0, 7); ctx.fill();
-      ctx.fillStyle = "#6c6c76";
-      ctx.fillRect(S(p.x) - 2, cy - 2, 2, 1);
-      // the fuse, spitting
-      ctx.fillStyle = Math.sin(g.time * 30 + p.x) > 0 ? "#f4e08a" : "#e8933a";
-      ctx.fillRect(S(p.x) + 1, cy - 5, 1, 2);
-      ctx.fillStyle = "rgba(232,147,58,0.75)";
-      ctx.fillRect(S(p.x) + 2, cy - 7, 1, 1);
+      softShadow(ctx, p.x, p.y + 2, 3, 1.2, 0.3);
+      pip(ctx, p.x, p.y - arcH, 3.2, 3.2, "#4a4a52", { hi: 0.45, lo: 0.5 });
+      glowFx(ctx, p.x + 2, p.y - arcH - 4, 1.6, Math.sin(g.time * 30 + p.x) > 0 ? "#f4e08a" : "#e8933a", 0.9);
       continue;
     }
     if (p.kind === "rock") {
-      // boulder lobbed in an arc: shadow tracks the ground, rock rises above it
       const remaining = Math.hypot(p.tx - p.x, p.ty - p.y);
       const prog = p.total > 0 ? 1 - remaining / p.total : 1;
       const arcH = Math.sin(Math.min(1, Math.max(0, prog)) * Math.PI) * Math.min(64, p.total * 0.24);
-      const r = p.mini ? 2.5 : p.big ? 6 : 4;
-      // A motion trail of the stone itself, shrinking back along the arc.
-      // (It used to be dust-coloured, which was invisible: the road is dust.)
+      const r = p.mini ? 2.2 : p.big ? 5.5 : 3.8;
       if (!p.mini && p.sx !== undefined) {
         for (let i = 4; i >= 1; i--) {
           const u = prog - i * 0.05;
-          if (u <= 0.02) continue;              // still leaving the throwing arm
-          const px = p.sx + (p.tx - p.sx) * u;
-          const py = p.sy + (p.ty - p.sy) * u;
+          if (u <= 0.02) continue;
+          const px = p.sx + (p.tx - p.sx) * u, py = p.sy + (p.ty - p.sy) * u;
           const ph = Math.sin(u * Math.PI) * Math.min(64, p.total * 0.24);
           ctx.fillStyle = `rgba(122,122,132,${0.42 - i * 0.08})`;
-          ctx.beginPath(); ctx.arc(S(px), S(py - ph), r * (1 - i * 0.16), 0, 7); ctx.fill();
+          ctx.beginPath(); ctx.arc(px, py - ph, r * (1 - i * 0.16), 0, 7); ctx.fill();
         }
       }
-      const cy = S(p.y - arcH);
-      ctx.fillStyle = "rgba(20,20,26,0.35)";
-      ctx.fillRect(S(p.x) - r + 1, S(p.y) - 2, (r - 1) * 2, 4);
-      ctx.fillStyle = INK;
-      ctx.beginPath(); ctx.arc(S(p.x), cy, r + 1, 0, 7); ctx.fill();
-      ctx.fillStyle = "#8a8a92";
-      ctx.beginPath(); ctx.arc(S(p.x), cy, r, 0, 7); ctx.fill();
-      // lit from the upper left, in shadow at the lower right
-      ctx.fillStyle = "#62626c";
-      ctx.beginPath(); ctx.arc(S(p.x) + r * 0.34, cy + r * 0.34, r * 0.68, 0, 7); ctx.fill();
-      ctx.fillStyle = "#a8a8b2";
-      ctx.beginPath(); ctx.arc(S(p.x) - r * 0.3, cy - r * 0.32, r * 0.5, 0, 7); ctx.fill();
-      // and it tumbles: one dark chip circling the face as the stone rolls
-      if (!p.mini) {
-        const roll = g.time * 7 + p.id;
-        ctx.fillStyle = "#4e4e58";
-        ctx.fillRect(S(p.x + Math.cos(roll) * r * 0.42) - CELL, S(p.y - arcH + Math.sin(roll) * r * 0.42) - CELL, CELL * 2, CELL * 2);
-      }
+      softShadow(ctx, p.x, p.y + 1, r, r * 0.4, 0.32);
+      pip(ctx, p.x, p.y - arcH, r, r * 0.9, "#8a8a92", { hi: 0.5, lo: 0.5 });
     } else if (p.kind === "arrow") {
-      ctx.fillStyle = p.poison ? "#7cc85c" : p.pierce ? "#e8d47a" : "#d2c6a2";
-      const dx = Math.cos(p.angle || 0), dy = Math.sin(p.angle || 0);
-      if (p.big) {
-        // ballista bolt / heartseeker crit: longer, thicker, screaming
-        for (let i = -3; i <= 3; i++) ctx.fillRect(S(p.x + dx * i * 3), S(p.y + dy * i * 3), CELL * 2, CELL * 2);
-        ctx.fillStyle = "rgba(232,212,122,0.4)";
-        for (let i = -5; i <= -4; i++) ctx.fillRect(S(p.x + dx * i * 3), S(p.y + dy * i * 3), CELL, CELL);
-      } else {
-        for (let i = -2; i <= 2; i++) ctx.fillRect(S(p.x + dx * i * 3), S(p.y + dy * i * 3), CELL, CELL);
-      }
+      const col = p.poison ? "#7cc85c" : p.pierce ? "#e8d47a" : "#d2c6a2";
+      const len = p.big ? 14 : 9;
+      ctx.strokeStyle = col; ctx.lineWidth = p.big ? 1.6 : 1; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(p.x - dx * len, p.y - dy * len); ctx.lineTo(p.x, p.y); ctx.stroke();
+      ctx.fillStyle = "#c4c8d0";
+      ctx.beginPath(); ctx.moveTo(p.x + dx * 2.5, p.y + dy * 2.5); ctx.lineTo(p.x - dy * 1.3, p.y + dx * 1.3); ctx.lineTo(p.x + dy * 1.3, p.y - dx * 1.3); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = p.poison ? "#4a7a34" : "#a04a3f";
+      ctx.fillRect(p.x - dx * len - 0.8, p.y - dy * len - 0.8, 1.6, 1.6);
+      if (p.big) { ctx.strokeStyle = "rgba(232,212,122,0.35)"; ctx.beginPath(); ctx.moveTo(p.x - dx * (len + 8), p.y - dy * (len + 8)); ctx.lineTo(p.x - dx * len, p.y - dy * len); ctx.stroke(); }
     } else if (p.kind === "spike") {
-      // a flung steel sliver, oriented along its flight
-      const dx = Math.cos(p.angle || 0), dy = Math.sin(p.angle || 0);
       ctx.fillStyle = p.slow ? "#8ce8f0" : p.hitsLeft > 1 ? "#e8d47a" : "#c4c8d0";
-      ctx.fillRect(S(p.x - dx * 2), S(p.y - dy * 2), CELL, CELL);
-      ctx.fillRect(S(p.x), S(p.y), CELL, CELL);
-      ctx.fillRect(S(p.x + dx * 2), S(p.y + dy * 2), 2, 2);
+      ctx.beginPath(); ctx.moveTo(p.x + dx * 3, p.y + dy * 3); ctx.lineTo(p.x - dx * 3 - dy * 1.2, p.y - dy * 3 + dx * 1.2); ctx.lineTo(p.x - dx * 3 + dy * 1.2, p.y - dy * 3 - dx * 1.2); ctx.closePath(); ctx.fill();
     } else {
       const col = p.burn ? "#d8763a" : p.slow ? "#9fd4e8" : "#b08ad8";
-      const rgb = p.burn ? "216,118,58" : p.slow ? "159,212,232" : "176,138,216";
-      // a comet tail behind the orb, laid back along its heading
-      const dx = Math.cos(p.angle || 0), dy = Math.sin(p.angle || 0);
       for (let i = 5; i >= 1; i--) {
         const wob = Math.sin(g.time * 14 + i * 1.1 + p.id) * i * 0.6;
-        ctx.fillStyle = `rgba(${rgb},${0.42 - i * 0.06})`;
-        ctx.fillRect(S(p.x - dx * i * 4 - dy * wob) - 2, S(p.y - dy * i * 4 + dx * wob) - 2, 6 - i * 0.6, 6 - i * 0.6);
+        glowFx(ctx, p.x - dx * i * 4 - dy * wob, p.y - dy * i * 4 + dx * wob, 2.6 - i * 0.3, col, 0.45 - i * 0.06);
       }
-      // halo, outline, core — the orb itself reads brightest
-      ctx.fillStyle = `rgba(${rgb},0.28)`;
-      ctx.beginPath(); ctx.arc(S(p.x), S(p.y), 8 + Math.sin(g.time * 12 + p.id) * 1.2, 0, 7); ctx.fill();
-      ctx.fillStyle = INK;
-      ctx.beginPath(); ctx.arc(S(p.x), S(p.y), 5, 0, 7); ctx.fill();
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(S(p.x), S(p.y), 3.5, 0, 7); ctx.fill();
-      ctx.fillStyle = "#f4f0e4";
-      ctx.fillRect(S(p.x) - CELL, S(p.y) - CELL, CELL, CELL);
+      glowFx(ctx, p.x, p.y, 8 + Math.sin(g.time * 12 + p.id) * 1.2, col, 0.35);
+      pip(ctx, p.x, p.y, 3.4, 3.4, col, { hi: 0.6, lo: 0.3 });
+      ctx.fillStyle = "#f4f0e4"; ctx.fillRect(p.x - 1.4, p.y - 1.4, 1.4, 1.4);
     }
   }
 

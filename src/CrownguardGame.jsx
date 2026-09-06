@@ -1096,7 +1096,7 @@ export default function Crownguard() {
                   <button key={key} title={def.blurb} style={tile(active, can)}
                     onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); }}
                     disabled={!can}>
-                    <PixelIcon kind={key} size={30} />
+                    <TowerPortrait kind={key} size={44} />
                     <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.15 }}>{def.name}</span>
                     <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
                   </button>
