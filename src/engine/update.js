@@ -5,6 +5,7 @@
 // `dt` is the raw (already clamped) seconds since the last frame.
 
 import { RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED, pickLane } from "../data/constants.js";
+import { workTier, worksBonusHp, bowmenSpots } from "../data/castle.js";
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
@@ -539,6 +540,20 @@ export function updateGame(g, dt) {
           }
         }
       }
+      // the gate guard: a foe that reaches the portcullis is held there a
+      // moment — and, with the oil on, scalded while it waits
+      const guard = workTier(g.castle, "guards");
+      if (guard && !e.flying) {
+        if (!e.gateHeld && e.dist >= TOTAL_LEN - 3) {
+          e.gateHeld = true; e.holdUntil = tms + guard.hold;
+          g.effects.push({ type: "spark", x: e.x, y: e.y - 8, ttl: 300 });
+        }
+        if (e.gateHeld && e.holdUntil > tms) {
+          e.dist = TOTAL_LEN - 3;
+          if (guard.oil) dealDamage(g, e, guard.oil * sdt, "magic", true, true, null);
+          if (guard.oil && Math.random() < sdt * 6) g.effects.push({ type: "hit", x: e.x + (Math.random() - 0.5) * 8, y: e.y - 6, ttl: 200 });
+        }
+      }
       if (e.dist >= TOTAL_LEN) {
         e.dead = true;
         const dmgC = e.castleDmg || 1;
@@ -551,6 +566,43 @@ export function updateGame(g, dt) {
         g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 400, r: 18 + dmgC * 5 });
         g.effects.push({ type: "flash", x: e.x, y: e.y - 8, ttl: 320 });
         if (g.lives <= 0) { g.lives = 0; g.phase = "lost"; sfx.play("lost"); }
+      }
+    }
+    // ---- the castle's own works: bowmen on the walk, ballistae on the drums ----
+    if (g.castle) {
+      const [gx, gy] = PTS[PTS.length - 1];
+      g.castleCd = g.castleCd || { archers: 0, ballista: 0, shot: 0 };
+      const cd = g.castleCd;
+      const bows = workTier(g.castle, "archers");
+      if (bows) {
+        cd.archers -= sdt * 1000;
+        if (cd.archers <= 0) {
+          let best = null, bd = Infinity;
+          for (const e of g.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bows.range && d < bd) { bd = d; best = e; } }
+          if (best) {
+            cd.archers = bows.rate / bows.count;
+            cd.shot = (cd.shot + 1) % bows.count;
+            const spots = bowmenSpots(gy, bows.count);
+            const sy = spots[cd.shot % spots.length] ?? gy;
+            g.projectiles.push({ id: nextId(), x: W - 22, y: sy - 12, targetId: best.id, tx: best.x, ty: best.y, speed: 460, delay: 0, dmg: bows.dmg, dtype: "phys", pierce: !!bows.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: !!bows.pierce });
+            sfx.play("arrow");
+          }
+        }
+      }
+      const bal = workTier(g.castle, "ballista");
+      if (bal) {
+        cd.ballista -= sdt * 1000;
+        if (cd.ballista <= 0) {
+          let best = null, bh = -1;
+          for (const e of g.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bal.range && e.hp > bh) { bh = e.hp; best = e; } }
+          if (best) {
+            cd.ballista = bal.rate / (bal.twin ? 2 : 1);
+            cd.shot = (cd.shot + 1) % 2;
+            const sy = gy + (bal.twin ? (cd.shot ? 18 : -18) : 0) - 20;
+            g.projectiles.push({ id: nextId(), x: gx + 26, y: sy, targetId: best.id, tx: best.x, ty: best.y, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: bal.burn || 0, burnDur: bal.burnDur || 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true });
+            sfx.play("bolt");
+          }
+        }
       }
     }
     // ---- deaths with consequences ----
@@ -1406,6 +1458,13 @@ export function updateGame(g, dt) {
         const laid = Math.min(masons, 100 - g.lives);
         g.lives += laid;
         g.effects.push({ type: "coin", x: W / 2, y: 64, ttl: 1300, text: `${g.lives > CASTLE_HP ? "The Cathedrals raise the walls" : "The Cathedrals mend the walls"} +${laid}`, big: true });
+      }
+      // the castle's own masons
+      const guild = workTier(g.castle, "masons");
+      if (guild) {
+        const cap = CASTLE_HP + worksBonusHp(g.castle);
+        const laid = Math.min(guild.mend, Math.max(0, cap - g.lives));
+        if (laid > 0) { g.lives += laid; g.effects.push({ type: "coin", x: W / 2, y: 88, ttl: 1300, text: `The masons mend the wall +${laid}`, big: true }); }
       }
       // the campaign is won at wave 15 — once — then the Endless March is open
       if (g.wave === scriptedWaves() && !g.victory) { g.victory = true; g.phase = "won"; sfx.play("won"); }

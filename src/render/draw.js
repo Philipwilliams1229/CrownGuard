@@ -24,7 +24,7 @@ import { hasRig, rigPixels, drawRig } from "./rigs.js";
 import { ENEMIES } from "../data/enemies.js";
 import { drawEnemy, drawKnightUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
-import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawSpawn } from "./scenery.js";
+import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 
 // The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
@@ -445,6 +445,7 @@ export function draw(g, canvas, bufRef) {
   }
 
   drawCastle(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
+  drawCastleWorks(ctx, g);
 
   // ---- the spawn marker ----
   // Drawn after everything standing, because it used to sit under the pines

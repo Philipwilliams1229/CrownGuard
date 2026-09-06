@@ -11,6 +11,9 @@
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
 import { FOREST } from "../data/terrain.js";
+import { workTier, bowmenSpots, masonSpots } from "../data/castle.js";
+import { drawArcher, drawHalberdier, drawMason, WALL_FOLK } from "./folk.js";
+import { ballista } from "./halls/archer.js";
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
   blade, tuft, strokePts, blobPath, blobBall, masonry, hash, ellipse, SUN, lin, rad, bakeSprite, PIXEL, part } from "./paint.js";
@@ -349,7 +352,7 @@ const banner = (ctx, x, y, s, time) => {
 // size, variant) — and stamped from then on. Things that glow, flicker or
 // fly a flag are painted live so they keep moving.
 const SPRITES = new Map();
-export const resetSceneryBakes = () => { SPRITES.clear(); CASTLE.key = ""; };
+export const resetSceneryBakes = () => { SPRITES.clear(); CASTLE.key = ""; WORKS.clear(); };
 const LIVE = new Set(["mushroom", "crystal", "vent", "obelisk", "watchtower", "banner", "reeds"]);
 const paintDecor = (ctx, d, time) => {
   const x = d.x, y = d.y, s = d.s || 1;
@@ -741,6 +744,82 @@ export const drawCastle = (ctx, time, hpPct) => {
     if (!bad) ball(ctx, px - 9, py + 5.5, 2.4, 2.4, "#7c3f4a", { hi: 0.4, lo: 0.3 });
   }
 };
+
+// ---- the castle works ---------------------------------------------------
+// What the crown has paid for stands on the wall in plain sight: bowmen on
+// the walk each side of the gate, ballistae on the great drums, halberdiers
+// at the portcullis and masons at their scaffold. Figures are baked once
+// per pose and stamped; the ballista's recoil and the bowmen's draw follow
+// the works' own cooldowns.
+const WORKS = new Map();
+const workFrame = (key, w, h, fn) => {
+  let cv = WORKS.get(key);
+  if (!cv && typeof document !== "undefined") { cv = bakeSprite(w, h, fn); WORKS.set(key, cv); }
+  return cv;
+};
+export const drawCastleWorks = (ctx, g) => {
+  const works = g.castle;
+  if (!works) return;
+  const [gx, gy] = PTS[PTS.length - 1];
+  const time = g.time;
+  const cd = g.castleCd || {};
+  // the masons first: farthest from the gate, and nothing stands in front of them
+  const guild = workTier(works, "masons");
+  if (guild) {
+    const spots = masonSpots(gy, guild.mend > 1 ? 2 : 1);
+    for (let k = 0; k < spots.length; k++) {
+      const y = spots[k] + 6;
+      cylinder(ctx, W - 40, y - 2, 20, 3, "#8a6a40", { r: 1, hi: 0.3, lo: 0.5 });
+      cylinder(ctx, W - 36, y - 10, 7, 6, "#6e6a60", { r: 1.5, hi: 0.3, lo: 0.5 });
+      ctx.fillStyle = "#d8d0c0"; ctx.fillRect(W - 35, y - 10, 5, 1.2);
+      const fr = Math.floor(((time * 2 + k) % 2));
+      const cv = workFrame(`mason|${fr}`, 30, 36, (c) => drawMason(c, 12, 33, 1, WALL_FOLK.mason, fr));
+      if (cv) ctx.drawImage(cv, W - 24 - 12, y - 33 - 2, 30, 36);
+    }
+  }
+  const bows = workTier(works, "archers");
+  if (bows) {
+    const big = !!bows.pierce;
+    const spots = bowmenSpots(gy, bows.count);
+    for (let i = 0; i < spots.length; i++) {
+      const y = spots[i] + 8;
+      // each bowman draws on his own beat; the one who just loosed is slack
+      const phase = ((time * 1000 / bows.rate) + i / bows.count) % 1;
+      const fr = Math.round(Math.min(1, phase * 1.6) * 3);
+      const cv = workFrame(`bow|${big ? 1 : 0}|${fr}`, 30, 36, (c) => drawArcher(c, 17, 33, -1, WALL_FOLK.bowman, fr / 3, { big, bowCol: big ? "#3a3a44" : undefined }));
+      if (cv) ctx.drawImage(cv, W - 20 - 17, y - 33, 30, 36);
+    }
+  }
+  const bal = workTier(works, "ballista");
+  if (bal) {
+    const spots = bal.twin ? [gy - 18, gy + 18] : [gy];
+    for (let k = 0; k < spots.length; k++) {
+      const y = spots[k] + 12;
+      const left = cd.ballista ?? 0;
+      const recoil = Math.max(0, 1 - (bal.rate - left) / 400);
+      const fr = Math.round(recoil * 2);
+      const cv = workFrame(`bal|${fr}`, 44, 48, (c) => ballista(c, 22, 44, -1, fr / 2));
+      if (cv) ctx.drawImage(cv, gx + 26 - 22, y - 44, 44, 48);
+      if (bal.burn) glow(ctx, gx + 16, y - 24, 3.5, "#ffa040", 0.5 + 0.3 * Math.sin(time * 9 + k));
+    }
+  }
+  const guard = workTier(works, "guards");
+  if (guard) {
+    const cv = workFrame(`guard`, 28, 42, (c) => drawHalberdier(c, 12, 40, 1, WALL_FOLK.guard));
+    for (const y of [gy - 12, gy + 28]) if (cv) ctx.drawImage(cv, gx - 4 - 12, y - 40, 28, 42);
+    if (guard.oil) {
+      // the cauldron over the gate, and its steam
+      const cx = gx + 30, cy = gy - 34;
+      cylinder(ctx, cx - 5, cy - 4, 10, 8, "#3a3a44", { r: 2, hi: 0.35, lo: 0.5 });
+      ctx.fillStyle = "#c86a2a"; ctx.fillRect(cx - 3, cy - 3, 6, 1.5);
+      for (let i = 0; i < 2; i++) {
+        const pr = ((time * 0.6 + i * 0.5) % 1);
+        soft(ctx, cx + Math.sin(time * 3 + i) * 2, cy - 7 - pr * 10, 2.5 + pr * 3, 2 + pr * 2, [[0, `rgba(230,225,215,${(1 - pr) * 0.4})`], [1, "rgba(230,225,215,0)"]]);
+      }
+    }
+  }
+};
+export const resetWorksBakes = () => WORKS.clear();
 
 // ---- the enemy's gate -------------------------------------------------
 

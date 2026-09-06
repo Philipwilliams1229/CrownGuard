@@ -171,10 +171,26 @@ const KEY = "crownguard.campaign.v1";
 export function loadProgress() {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) || "{}");
-    return { cleared: raw.cleared && typeof raw.cleared === "object" ? raw.cleared : {} };
+    return {
+      cleared: raw.cleared && typeof raw.cleared === "object" ? raw.cleared : {},
+      // castle works, by chapter: { greenwood: { archers: 2, ... } }
+      castle: raw.castle && typeof raw.castle === "object" ? raw.castle : {},
+    };
   } catch {
-    return { cleared: {} };
+    return { cleared: {}, castle: {} };
   }
+}
+
+// The works built on a region's castle so far.
+export function loadCastle(chapterId) {
+  const p = loadProgress();
+  return { archers: 0, ballista: 0, guards: 0, masons: 0, ...(p.castle[chapterId] || {}) };
+}
+export function saveCastle(chapterId, works) {
+  const p = loadProgress();
+  p.castle[chapterId] = { ...works };
+  save(p);
+  return p;
 }
 
 function save(p) {
@@ -189,7 +205,7 @@ export function markCleared(levelId) {
 }
 
 export function resetProgress() {
-  const p = { cleared: {} };
+  const p = { cleared: {}, castle: {} };
   save(p);
   return p;
 }

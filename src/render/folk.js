@@ -117,6 +117,51 @@ export const drawCrew = (ctx, x, y, dir, pal, work = 0) => {
   ctx.restore();
 };
 
+// A gate guard: a stander with a halberd grounded beside him.
+export const drawHalberdier = (ctx, x, y, dir, pal) => {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+  shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
+  legs(ctx, 0, 0, pal, 0.3);
+  torso(ctx, 0, -17, 10, 7.5, pal);
+  // the pole, from the ground to well over the helmet
+  cylinder(ctx, 5.2, -34, 1.6, 34, "#6a4a2e", { r: 0.8, hi: 0.3, lo: 0.5 });
+  part(ctx, (c) => {
+    c.fillStyle = lin(c, 3, 0, 9, 0, [[0, "#d8dce4"], [1, "#8a909c"]]);
+    c.beginPath(); c.moveTo(6, -34); c.lineTo(10.5, -30); c.lineTo(6, -25.5); c.closePath(); c.fill();
+    c.fillRect(5.3, -37, 1.4, 4);
+  });
+  limb(ctx, -2.5, -15, -3, -9, 2.4, pal.coat);
+  limb(ctx, 2.5, -15, 5.5, -20, 2.4, pal.coat);
+  ball(ctx, 5.7, -20.5, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
+  head(ctx, 0.4, -20.5, pal, { helm: true });
+  ctx.restore();
+};
+
+// A mason at the wall, trowel up.
+export const drawMason = (ctx, x, y, dir, pal, work = 0) => {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+  shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
+  legs(ctx, 0, 0, pal, 0.5);
+  torso(ctx, 0, -17, 10, 7.5, pal);
+  head(ctx, 0.4, -20.5, pal, { hood: true });
+  limb(ctx, -2.5, -15, -4, -9.5, 2.4, pal.coat);
+  const hx = 6, hy = -18 - work * 3;
+  limb(ctx, 2.5, -15, hx, hy, 2.4, pal.coat);
+  ball(ctx, hx, hy, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
+  part(ctx, (c) => { c.fillStyle = "#b8bcc6"; c.beginPath(); c.moveTo(hx - 1, hy - 1.5); c.lineTo(hx + 5, hy - 3.5); c.lineTo(hx + 3, hy + 0.5); c.closePath(); c.fill(); });
+  ctx.restore();
+};
+
+export const WALL_FOLK = {
+  bowman: { skin: "#e8b990", hood: "#5a4a3a", coat: "#7c3f4a", boots: "#3e2a1a", trim: "#d8b34a" },
+  guard: { skin: "#e8b990", hood: "#8a909c", coat: "#7c3f4a", boots: "#2a2a30", trim: "#d8b34a" },
+  mason: { skin: "#e8b990", hood: "#c8b898", coat: "#8a7a5a", boots: "#3e2a1a", trim: "#5a4a3a" },
+};
+
 // Somebody just standing there, looking about.
 export const drawStander = (ctx, x, y, dir, pal) => {
   ctx.save();

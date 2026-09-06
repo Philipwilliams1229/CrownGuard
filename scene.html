@@ -242,6 +242,19 @@
         }));
       }
 
+      // ---- 7b. the castle works ---------------------------------------------
+      {
+        const s = section(
+          "the castle works",
+          "Bowmen on the walk, ballistae on the drums, halberdiers at the gate, masons at the scaffold. Try ?only=works&cam=3,740,280.",
+        );
+        for (const [label, castle] of [
+          ["nothing built", { archers: 0, ballista: 0, guards: 0, masons: 0 }],
+          ["first tiers", { archers: 1, ballista: 1, guards: 1, masons: 1 }],
+          ["everything", { archers: 3, ballista: 3, guards: 3, masons: 2 }],
+        ]) frame(s, label, base(1.7, { castle, castleCd: { archers: 0, ballista: 900, shot: 0 } }));
+      }
+
       // ---- 8. the spawn marker ----------------------------------------------
       {
         const s = section(

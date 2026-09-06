@@ -11,12 +11,13 @@ import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
-import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle } from "./data/campaign.js";
+import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
 import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -57,6 +58,9 @@ export default function Crownguard() {
   const [buildOpen, setBuildOpen] = useState(false);
   // the incoming-wave chip folds down to a small arrow when the board needs the room
   const [infoOpen, setInfoOpen] = useState(false);
+  const [castleOpen, setCastleOpen] = useState(false);
+  // which castle the works belong to: a campaign chapter, or a free-play realm
+  const castleScope = useRef(null);
   const [realmId, setRealmId] = useState(REALM.id);
   const [factionId, setFactionId] = useState(FACTION.id);
   const [realmOpen, setRealmOpen] = useState(false);
@@ -113,7 +117,7 @@ export default function Crownguard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, wide]);
 
-  const initGame = useCallback((startGold = 250, freeplay = true) => {
+  const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks()) => {
     // dev-server playtest knob: /?gold=5000 pads the war chest. Stripped from
     // production builds, so the shipped game can't be talked into it.
     const devGold = import.meta.env.DEV ? Math.max(0, Number(new URLSearchParams(window.location.search).get("gold")) || 0) : 0;
@@ -121,7 +125,9 @@ export default function Crownguard() {
     G.current = {
       // tallies for the profile — banked when the level ends
       run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 },
-      gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build",
+      gold: START_GOLD, lives: CASTLE_HP + worksBonusHp(castle), wave: 0, phase: "build",
+      // the works built on this castle: they came with the region, and stay
+      castle: { ...castle },
       towers: [], enemies: [], projectiles: [], effects: [],
       spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
       selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
@@ -131,7 +137,8 @@ export default function Crownguard() {
       freeplay, masterBuild: false, masterSeen: false, masterPick: null,
     };
     setBuildOpen(false);
-    setUi({ gold: START_GOLD, lives: CASTLE_HP, wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
+    setCastleOpen(false);
+    setUi({ gold: START_GOLD, lives: CASTLE_HP + worksBonusHp(castle), wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
   }, []);
 
   // Swap the battlefield: rebuild road + scenery for the realm, then start a
@@ -144,7 +151,8 @@ export default function Crownguard() {
     setMode("free");
     setLevelId(null);
     // a realm may open its gates with a heavier purse — the Proving Field does
-    initGame(REALMS[id]?.startGold ?? 250);
+    castleScope.current = `free:${id}`;
+    initGame(REALMS[id]?.startGold ?? 250, true, loadCastle(castleScope.current));
     setRealmOpen(false);
     setScreen("game");
   };
@@ -160,10 +168,21 @@ export default function Crownguard() {
     setMode("campaign");
     setLevelId(lv.id);
     setAward(null);
-    initGame(lv.gold, false);
+    castleScope.current = lv.chapter.id;
+    initGame(lv.gold, false, loadCastle(castleScope.current));
     setRealmOpen(false);
     setMenuOpen(false);
     setScreen("game");
+  };
+
+  // Buy the next tier of a castle work. What is bought stays with the region.
+  const buyWork = (key) => {
+    const g = G.current;
+    if (!g) return;
+    const got = buyCastleWork(g, key);
+    if (!got) return;
+    sfx.play("evolve");
+    if (castleScope.current) saveCastle(castleScope.current, g.castle);
   };
 
   const openMap = () => {
@@ -213,7 +232,7 @@ export default function Crownguard() {
 
   // Only one side panel at a time: selecting a tower closes the build drawer.
   useEffect(() => {
-    if (ui.selected) setBuildOpen(false);
+    if (ui.selected) { setBuildOpen(false); setCastleOpen(false); }
   }, [ui.selected]);
 
   // The moment a campaign level ends, bank it: all-time tallies either way,
@@ -279,8 +298,10 @@ export default function Crownguard() {
       if ((g.freeplay || g.victory) && g.gold >= MASTER_MIN) g.masterSeen = true;
       const masterShow = (g.freeplay || g.victory) && g.masterSeen;
       const pickKey = g.masterPick ? `${g.masterPick.kind}:${g.masterPick.branch}${g.masterPick.rank4 || ""}` : null;
-      if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush) {
+      const castleKey = g.castle ? `${g.castle.archers}${g.castle.ballista}${g.castle.guards}${g.castle.masons}` : "";
+      if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey) {
         setUi({
+          castleKey, castle: { ...(g.castle || emptyWorks()) }, maxLives: CASTLE_HP + worksBonusHp(g.castle),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
             kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, liveTime: sel.liveTime || 0 } : null,
@@ -641,7 +662,7 @@ export default function Crownguard() {
           {/* top-left: the purse, the castle, the wave */}
           <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, zIndex: 20, pointerEvents: "none" }}>
             <div style={chip}><span style={{ opacity: 0.7 }}>🪙</span><b style={{ color: "#e8d47a" }}>{ui.gold}</b></div>
-            <div style={chip}><span style={{ opacity: 0.7 }}>🏰</span><b style={{ color: ui.lives > CASTLE_HP ? "#e8c14a" : ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.55, fontSize: 11 }}>/{CASTLE_HP}</span></div>
+            <div style={chip}><span style={{ opacity: 0.7 }}>🏰</span><b style={{ color: ui.lives > CASTLE_HP ? "#e8c14a" : ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.55, fontSize: 11 }}>/{ui.maxLives || CASTLE_HP}</span></div>
             {level && boardCss.w > 760 && (
               <div style={{ ...chip, fontSize: 10, letterSpacing: 1, opacity: 0.85 }}>
                 <span style={{ color: "#d8b34a" }}>CH. {level.chapter.numeral}</span>{level.name}
@@ -654,8 +675,15 @@ export default function Crownguard() {
             {ui.zoom > 1 && <button title="Reset view" style={{ ...hudBtn, fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
             {ui.result == null && (
               <button aria-label="Open build menu" style={{ ...hudBtn, gap: 6, ...(buildOpen ? { background: "#5a4f2c" } : {}) }}
-                onClick={() => { setBuildOpen((o) => !o); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } }}>
+                onClick={() => { setBuildOpen((o) => !o); setCastleOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } }}>
                 <PixelIcon kind="archer" size={18} /> Build
+              </button>
+            )}
+            {ui.result == null && (
+              <button aria-label="Open the castle works" title="Castle works: defences built on the wall itself, kept for the whole region"
+                style={{ ...hudBtn, ...(castleOpen ? { background: "#5a4f2c" } : {}) }}
+                onClick={() => { setCastleOpen((o) => !o); setBuildOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } }}>
+                🏰
               </button>
             )}
             <button title="Game speed" style={{ ...hudBtn, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
@@ -1023,6 +1051,50 @@ export default function Crownguard() {
               </div>
               );
             })()}
+        </div>
+      </div>
+
+      {/* ---- the castle works: the wall's own defences, bought once for a whole region ---- */}
+      <div style={{
+        position: "fixed", top: 0, right: 0, bottom: 0, width: 300, zIndex: 40, boxSizing: "border-box",
+        display: "flex", flexDirection: "column", background: "rgba(30,33,42,0.98)", borderLeft: "3px solid #10131a",
+        paddingTop: "env(safe-area-inset-top)", paddingRight: "env(safe-area-inset-right)",
+        transform: castleOpen ? "translateX(0)" : "translateX(104%)", transition: "transform 0.2s ease",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px 6px" }}>
+          <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1 }}>🏰 CASTLE WORKS</span>
+          <button aria-label="Close castle works" onClick={() => setCastleOpen(false)} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px" }}>✕</button>
+        </div>
+        <div style={{ fontSize: 11, opacity: 0.7, lineHeight: 1.4, padding: "0 12px 8px" }}>
+          Built on the wall itself. Dear — but what you raise here stands for every road in {mode === "campaign" && level ? `the ${level.chapter.name}` : "this realm"}.
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 10px", WebkitOverflowScrolling: "touch", display: "flex", flexDirection: "column", gap: 8 }}>
+          {Object.entries(CASTLE_WORKS).map(([key, def]) => {
+            const have = ui.castle?.[key] || 0;
+            const cur = have > 0 ? def.tiers[have - 1] : null;
+            const next = def.tiers[have] || null;
+            const can = !!next && ui.gold >= next.cost;
+            return (
+              <div key={key} style={{ ...hud, padding: "8px 10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>{def.icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: "bold" }}>{def.name}</div>
+                    <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
+                      {def.tiers.map((_, i) => <span key={i} style={{ width: 14, height: 5, background: i < have ? "#e8c14a" : "#3a3f4c", boxShadow: "inset 0 0 0 1px #10131a" }} />)}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 10.5, opacity: 0.72, lineHeight: 1.4, margin: "6px 0" }}>{cur ? <span><b style={{ color: "#a8d88c" }}>{cur.label}</b> stands on the wall.</span> : def.blurb}</div>
+                {next ? (
+                  <button style={{ ...btn, width: "100%", boxSizing: "border-box", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", fontSize: 11, minHeight: 40, ...(!can ? disabled : {}) }}
+                    disabled={!can} onClick={() => buyWork(key)}>
+                    <span>{have ? "Raise: " : "Build: "}{next.label}</span><b style={{ color: can ? "#e8d47a" : "#e07a72" }}>{next.cost}g</b>
+                  </button>
+                ) : <div style={{ fontSize: 10, letterSpacing: 1.5, opacity: 0.6, textAlign: "center", padding: 6 }}>COMPLETE</div>}
+              </div>
+            );
+          })}
         </div>
       </div>
 

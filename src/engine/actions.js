@@ -4,6 +4,7 @@
 // and the shared damage helper. Each takes `g` explicitly.
 
 import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
+import { CASTLE_WORKS, emptyWorks, workTier } from "../data/castle.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
@@ -325,4 +326,24 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
       if (g.corpses.length > 50) g.corpses.shift();
     }
   }
+};
+
+
+// ---- castle works ----
+// Buy the next tier of a work on the castle. Returns the tier bought, or null.
+export const buyCastleWork = (g, key) => {
+  if (!g || !CASTLE_WORKS[key]) return null;
+  g.castle = g.castle || emptyWorks();
+  const n = g.castle[key] || 0;
+  const next = CASTLE_WORKS[key].tiers[n];
+  if (!next || g.gold < next.cost) return null;
+  g.gold -= next.cost;
+  g.castle[key] = n + 1;
+  // a thicker gate is thicker at once
+  const before = workTier({ ...g.castle, [key]: n }, key)?.hp || 0;
+  if ((next.hp || 0) > before) g.lives += next.hp - before;
+  const [gx, gy] = PTS[PTS.length - 1];
+  g.effects.push({ type: "evolve", x: gx + 10, y: gy, ttl: 900 });
+  g.effects.push({ type: "coin", x: gx - 30, y: gy - 30, ttl: 1200, text: `${CASTLE_WORKS[key].name} — ${next.label}` });
+  return next;
 };

@@ -48,7 +48,7 @@ const stamp = (ctx, cv, x, y, ax, ay, dir = 1) => {
 };
 
 // The Ballista's siege bow, mounted on the deck.
-const ballista = (ctx, x, y, dir, recoil) => {
+export const ballista = (ctx, x, y, dir, recoil) => {
   cylinder(ctx, x - 7, y - 3, 14, 4, OAKWOOD, { r: 1.5, hi: 0.3, lo: 0.5 });
   ctx.save();
   ctx.translate(x, y - 3);
