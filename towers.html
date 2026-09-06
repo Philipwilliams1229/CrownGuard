@@ -22,7 +22,10 @@
   <body>
     <div id="out"></div>
     <script type="module">
-      import { RES } from "/src/data/constants.js";
+      import { setPX } from "/src/render/paint.js";
+      // ?px=1|2|4 — art pixels per world unit; the cells render at exactly that scale
+      const RES = Number(new URLSearchParams(location.search).get("px")) || 2;
+      setPX(RES);
       import { selectRealm, REALM } from "/src/data/maps.js";
       import * as T from "/src/render/towers.js";
       import { groundLayer } from "/src/render/world.js";
@@ -41,11 +44,11 @@
       ];
       const painters = { archer: [T.drawArcherTowerPixel, T.drawArcherTower] };
 
-      const h2 = document.createElement("h2"); h2.textContent = `${KIND} — pixel original (left) beside the new carpentry (right)`; out.appendChild(h2);
+      const h2 = document.createElement("h2"); h2.textContent = `${KIND} — pixel original (left) beside the new carpentry (right) — ${RES} art px per world unit`; out.appendChild(h2);
       const note = document.createElement("p"); note.className = "note"; note.textContent = "Both animate as if fighting: the crew looses every second and a half and turns to face a target that circles the tower. Same anchor, same scale."; out.appendChild(note);
       const grid = document.createElement("div"); grid.className = "grid"; out.appendChild(grid);
 
-      const ground = groundLayer();
+      const ground = groundLayer();   // painted at the game's own density; only the halls change with ?px
       for (const f of forms) {
         const pair = document.createElement("div"); pair.className = "pair";
         painters[KIND].forEach((fn, i) => {
@@ -75,9 +78,9 @@
           ctx.clearRect(0, 0, CW * RES, CH * RES);
           ctx.save();
           ctx.scale(RES, RES);
-          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingEnabled = false;
           // a patch of the real meadow as the ground
-          ctx.drawImage(ground, 120 * RES, 200 * RES, CW * RES, CH * RES, 0, 0, CW, CH);
+          ctx.drawImage(ground, 120 * 2, 200 * 2, CW * 2, CH * 2, 0, 0, CW, CH);
           const t = {
             id: c.id, kind: KIND, x: CW / 2, y: CH * 0.72, level: f.level, branch: f.branch || null, rank4: f.rank4 || null,
             cd: 0, aim: "first", lastAim: time * 0.9 + c.id, anim, shotIdx: 0, critIdx: 0, invested: 0, units: [],

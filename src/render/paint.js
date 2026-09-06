@@ -14,8 +14,10 @@ export const SUN = { x: -0.42, y: -0.58 };
 // The board is pixel art again, at PX art pixels per world unit. Every
 // gradient collapses into flat tone bands, sprites get a one-pixel ink
 // outline, and shapes snap to the art grid.
-export const PX = 2;
+export let PX = 2;
 export const PIXEL = true;
+// the lab pages try other densities; the game itself keeps PX = RES
+export const setPX = (v) => { PX = v; };
 export const INK_LINE = "#241a26";
 export const snap = (v) => Math.round(v * PX) / PX;
 
