@@ -202,3 +202,21 @@ export const skirt = (ctx, x, y, hw, seed = 0) => {
 };
 
 export { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash, lin, rad, part };
+
+// ---- baked sprites -----------------------------------------------------
+// Every hall keeps a cache of baked pieces keyed by form. `stamp` draws one
+// anchored at (ax, ay) inside it, mirrored when `dir` is negative.
+import { bakeSprite, PX } from "./paint.js";
+export const spriteCache = () => {
+  const m = new Map();
+  return {
+    get: (key, w, h, draw) => { let cv = m.get(key); if (!cv) { cv = bakeSprite(w, h, draw); m.set(key, cv); } return cv; },
+    clear: () => m.clear(),
+  };
+};
+export const stamp = (ctx, cv, x, y, ax, ay, dir = 1) => {
+  const w = cv.width / PX, h = cv.height / PX;
+  if (dir >= 0) { ctx.drawImage(cv, x - ax, y - ay, w, h); return; }
+  ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.drawImage(cv, -ax, -ay, w, h); ctx.restore();
+};
+export const canBake = () => typeof document !== "undefined";

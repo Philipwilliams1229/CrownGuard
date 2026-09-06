@@ -239,3 +239,116 @@ export const PRIEST_FOLK = {
   ba: { skin: "#e8b990", robe: "#e8dcb0", hat: "#f4ecc8", trim: "#d8b34a", gem: "#e8d47a" },
   bb: { skin: "#e8b990", robe: "#e8e0c0", hat: "#f8f2d8", trim: "#d8b34a", gem: "#f0d060" },
 };
+
+// ---- more crews ------------------------------------------------------------
+
+// A smith at the anvil: hammer up (swing 1) or down (swing 0).
+export const drawSmith = (ctx, x, y, dir, pal, swing = 0) => {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+  shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
+  legs(ctx, 0, 0, pal, 0.8);
+  torso(ctx, 0, -17, 10, 8, pal);
+  // leather apron
+  part(ctx, (c) => { c.fillStyle = darken(pal.trim || "#6a4a2e", 0.1); roundRect(c, -3, -15, 6, 8, 1.5); c.fill(); });
+  head(ctx, 0.4, -20.5, pal, { hood: false });
+  part(ctx, (c) => ball(c, 0.2, -22.5, 3.6, 1.6, pal.hood, { hi: 0.4, lo: 0.4 }));   // a flat cap
+  const hx = swing > 0.5 ? 3 : 6.5, hy = swing > 0.5 ? -26 : -12;
+  limb(ctx, 2, -15, hx, hy, 2.4, pal.coat);
+  limb(ctx, -1.5, -15, 4.5, -12, 2.4, pal.coat);
+  // the hammer
+  part(ctx, (c) => {
+    c.strokeStyle = "#6a4a2e"; c.lineWidth = 1.4; c.lineCap = "round";
+    c.beginPath(); c.moveTo(hx, hy); c.lineTo(hx + (swing > 0.5 ? 3 : 4), hy + (swing > 0.5 ? -4 : -1)); c.stroke();
+    c.fillStyle = "#6c727e"; roundRect(c, hx + (swing > 0.5 ? 1.5 : 2.5), hy + (swing > 0.5 ? -6.5 : -3.5), 4, 3, 0.8); c.fill();
+  });
+  ball(ctx, hx, hy, 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
+  ctx.restore();
+};
+
+// A hooded figure standing still, arms folded — the covert's blade on watch.
+export const drawHooded = (ctx, x, y, dir, pal) => {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+  shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
+  legs(ctx, 0, 0, pal, 0.1);
+  torso(ctx, 0, -17, 10, 7.5, pal);
+  limb(ctx, -3, -14, 2.5, -11, 2.2, pal.coat);
+  limb(ctx, 3, -14, -2.5, -11, 2.2, pal.coat);
+  // a deep hood: the face is a hollow
+  part(ctx, (c) => {
+    ball(c, 0.2, -21, 3.8, 4.2, pal.hood, { hi: 0.35, lo: 0.5 });
+    c.fillStyle = "#1a1420";
+    c.beginPath(); c.ellipse(1.4, -20.6, 2, 2.2, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = pal.skin; c.fillRect(0.8, -18.6, 1.6, 0.9);   // a chin, nothing more
+  });
+  ctx.restore();
+};
+
+// The falcon-mistress: gauntlet raised to the wheel of birds.
+export const drawMistress = (ctx, x, y, dir, pal) => {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+  shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
+  legs(ctx, 0, 0, pal, 0.3);
+  torso(ctx, 0, -17, 10, 7.5, pal);
+  limb(ctx, -2.5, -15, -3, -9, 2.2, pal.coat);
+  limb(ctx, 2.5, -15, 8, -21, 2.2, pal.coat);
+  part(ctx, (c) => { c.fillStyle = "#6a4a2e"; roundRect(c, 6.5, -23.5, 4, 3.5, 1); c.fill(); });   // the gauntlet
+  head(ctx, 0.4, -20.5, pal);
+  ctx.restore();
+};
+
+// The bombardier, a lit charge in his hands, raised to throw or held low.
+export const drawBomber = (ctx, x, y, dir, pal, throwing = false) => {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+  shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
+  legs(ctx, 0, 0, pal, 0.7);
+  torso(ctx, 0, -17, 10, 8, pal);
+  head(ctx, 0.4, -20.5, pal, { hood: false });
+  part(ctx, (c) => ball(c, 0.2, -22.8, 3.4, 1.4, pal.hood, { hi: 0.3, lo: 0.4 }));
+  const bx = throwing ? 5 : 5.5, by = throwing ? -24 : -12;
+  limb(ctx, 2, -15, bx - 1, by + 1, 2.4, pal.coat);
+  limb(ctx, -1.5, -15, bx - 2, by + 2, 2.4, pal.coat);
+  part(ctx, (c) => ball(c, bx + 0.5, by - 1, 2.6, 2.6, "#2e2e36", { hi: 0.45, lo: 0.4 }));
+  ctx.restore();
+};
+
+// The musketeer: braced, long gun out, a wide hat because he must stand still.
+export const drawMusketeer = (ctx, x, y, dir, pal, kick = 0) => {
+  ctx.save();
+  ctx.translate(x - kick, y);
+  ctx.scale(dir, 1);
+  shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
+  legs(ctx, 0, 0, pal, 1.2);
+  torso(ctx, 0, -17, 10, 7.5, pal);
+  head(ctx, 0.4, -20.5, pal, { hood: false });
+  part(ctx, (c) => { ball(c, 0.2, -22.6, 5.2, 1.5, pal.hood, { hi: 0.35, lo: 0.4 }); ball(c, 0.2, -24, 2.8, 2, pal.hood, { hi: 0.35, lo: 0.4 }); });
+  // the gun, barrel out front
+  part(ctx, (c) => {
+    c.strokeStyle = "#5f4326"; c.lineWidth = 2.2; c.lineCap = "round";
+    c.beginPath(); c.moveTo(-1, -12.5); c.lineTo(4, -15); c.stroke();
+    c.strokeStyle = "#6c727e"; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(3, -15); c.lineTo(13, -16.5); c.stroke();
+  });
+  limb(ctx, 2, -15, 6, -15, 2.2, pal.coat);
+  limb(ctx, -1.5, -15, 1.5, -13, 2.2, pal.coat);
+  ctx.restore();
+};
+
+export const CREW_FOLK = {
+  engineer: { skin: "#e8b990", hood: "#7a5a34", coat: "#6e4c28", boots: "#3e2a1a", trim: "#4a3018" },
+  smith: { skin: "#e8b990", hood: "#4a3a2e", coat: "#5a4a3c", boots: "#2e2420", trim: "#6a4a2e" },
+  clerk: { skin: "#e8b990", hood: "#3a4a6a", coat: "#4a5a7a", boots: "#2a2a30", trim: "#d8b34a" },
+  blade: { skin: "#e8b990", hood: "#2a2434", coat: "#3a3244", boots: "#1e1a26", trim: "#6a5a80" },
+  bladeGuild: { skin: "#e8b990", hood: "#2e3a2a", coat: "#3a4a34", boots: "#1e241c", trim: "#8a6aa8" },
+  mistress: { skin: "#e8b990", hood: "#7a3c30", coat: "#8a5a3a", boots: "#3e2a1a", trim: "#d8b34a" },
+  mistressCourt: { skin: "#e8b990", hood: "#3a3468", coat: "#5a4a8c", boots: "#2a2a30", trim: "#d8b34a" },
+  bomber: { skin: "#e8b990", hood: "#3a3028", coat: "#5a4a3c", boots: "#2e2420", trim: "#3a3028" },
+  musketeer: { skin: "#e8b990", hood: "#2c2a36", coat: "#3a4a6a", boots: "#2a2a30", trim: "#c8b070" },
+};

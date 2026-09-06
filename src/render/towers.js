@@ -9,7 +9,16 @@ import { drawArcherTower } from "./halls/archer.js";
 import { drawGarrison } from "./halls/garrison.js";
 import { drawWizardSpire } from "./halls/wizard.js";
 import { drawSupportTower } from "./halls/warden.js";
-export { drawArcherTower, drawGarrison, drawWizardSpire, drawSupportTower };
+import { drawCatapult } from "./halls/catapult.js";
+import { drawBladewheel } from "./halls/spiker.js";
+import { drawGoldworks } from "./halls/goldworks.js";
+import { drawTrapsmith } from "./halls/trapsmith.js";
+import { drawFalconry } from "./halls/falconry.js";
+import { drawGunpowder } from "./halls/gunpowder.js";
+import { drawRiverwatchHall } from "./halls/riverwatch.js";
+import { drawAssassin } from "./halls/assassin.js";
+import { drawSunforge } from "./halls/sunforge.js";
+export { drawArcherTower, drawGarrison, drawWizardSpire, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawGunpowder, drawRiverwatchHall, drawAssassin, drawSunforge };
 
 // leather-hooded crew engineer who works the catapult
 const CREW_PAL = { o: INK, h: "#7a5a34", b: "#6e4c28", s: "#e0b088", w: "#4a3018" };
@@ -413,7 +422,7 @@ export const drawWizardSpirePixel = (ctx, t, time) => {
   for (const s of stars) if (s.front) drawStar(s);
 };
 
-export const drawCatapult = (ctx, t, time) => {
+export const drawCatapultPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
   const treb = t.branch === "a";
@@ -722,7 +731,7 @@ export const drawGarrisonPixel = (ctx, t, time) => {
   }
 };
 
-export const drawBladewheel = (ctx, t, time) => {
+export const drawBladewheelPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
   const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
@@ -1018,7 +1027,7 @@ export const drawSupportTowerPixel = (ctx, t, time) => {
 
 const FORGE_STONE = { mid: "#8a8072", lit: "#a89e8c", shade: "#6e6558", mortar: "#514a40", dark: "#7d7466" };
 
-export const drawGoldworks = (ctx, t, time) => {
+export const drawGoldworksPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const lvl = t.level;
   const alch = t.branch === "b";
@@ -1094,7 +1103,7 @@ export const drawGoldworks = (ctx, t, time) => {
   }
 };
 
-export const drawTrapsmith = (ctx, t, time) => {
+export const drawTrapsmithPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   // the bench never truly rests: hammer-sparks off the anvil on a work rhythm
   {
@@ -1196,7 +1205,7 @@ const drawOrbitBird = (ctx, bx, by, up, court) => {
   ctx.fillStyle = "#e0b855"; ctx.fillRect(bx + 2, by - 1, 1, 1);
 };
 
-export const drawAssassin = (ctx, t, time) => {
+export const drawAssassinPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const court = t.branch === "a";
   const guild = t.branch === "b";
@@ -1269,7 +1278,7 @@ export const drawAssassin = (ctx, t, time) => {
   }
 };
 
-export const drawFalconry = (ctx, t, time) => {
+export const drawFalconryPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const st = getStats(t);
   // ---- the Skyknight's nest ----
@@ -1413,7 +1422,7 @@ export const drawFalconry = (ctx, t, time) => {
   }
 };
 
-export const drawSunforge = (ctx, t, time) => {
+export const drawSunforgePixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const moon = t.branch === "b";
   const ramp = t.ramp || 1;
@@ -1463,7 +1472,7 @@ export const drawSunforge = (ctx, t, time) => {
 };
 
 // The River Watch's own hall: a mooring post, a plank jetty and a lantern.
-export const drawRiverwatchHall = (ctx, t, time) => {
+export const drawRiverwatchHallPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   ctx.fillStyle = "rgba(20,20,26,0.25)";
   ctx.fillRect(x - 12, y + 12, 24, 4);
@@ -1494,7 +1503,7 @@ export const drawRiverwatchHall = (ctx, t, time) => {
 // men who never share a job. The bombardier stoops over his charges on the
 // left; the musketeer stands braced at the rail on the right, and each of them
 // visibly recoils on his OWN cadence — the whole point of the tower.
-export const drawGunpowder = (ctx, t, time) => {
+export const drawGunpowderPixel = (ctx, t, time) => {
   const x = S(t.x), y = S(t.y);
   const bomb = t.branch === "a";
   const musket = t.branch === "b";

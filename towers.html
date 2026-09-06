@@ -42,7 +42,11 @@
         { label: "branch a", level: 3, branch: "a" }, { label: "final aa", level: 3, branch: "a", rank4: "a" }, { label: "final ab", level: 3, branch: "a", rank4: "b" },
         { label: "branch b", level: 3, branch: "b" }, { label: "final ba", level: 3, branch: "b", rank4: "a" }, { label: "final bb", level: 3, branch: "b", rank4: "b" },
       ];
-      const painters = { archer: [T.drawArcherTowerPixel, T.drawArcherTower], knight: [T.drawGarrisonPixel, T.drawGarrison], wizard: [T.drawWizardSpirePixel, T.drawWizardSpire], support: [T.drawSupportTowerPixel, T.drawSupportTower] };
+      const painters = {
+        archer: [T.drawArcherTowerPixel, T.drawArcherTower], knight: [T.drawGarrisonPixel, T.drawGarrison], wizard: [T.drawWizardSpirePixel, T.drawWizardSpire], support: [T.drawSupportTowerPixel, T.drawSupportTower],
+        catapult: [T.drawCatapultPixel, T.drawCatapult], spiker: [T.drawBladewheelPixel, T.drawBladewheel], goldworks: [T.drawGoldworksPixel, T.drawGoldworks], trapsmith: [T.drawTrapsmithPixel, T.drawTrapsmith],
+        falconry: [T.drawFalconryPixel, T.drawFalconry], gunpowder: [T.drawGunpowderPixel, T.drawGunpowder], riverwatch: [T.drawRiverwatchHallPixel, T.drawRiverwatchHall], assassin: [T.drawAssassinPixel, T.drawAssassin], sunforge: [T.drawSunforgePixel, T.drawSunforge],
+      };
 
       const h2 = document.createElement("h2"); h2.textContent = `${KIND} — pixel original (left) beside the new carpentry (right) — ${RES} art px per world unit`; out.appendChild(h2);
       const note = document.createElement("p"); note.className = "note"; note.textContent = "Both animate as if fighting: the crew looses every second and a half and turns to face a target that circles the tower. Same anchor, same scale."; out.appendChild(note);
@@ -85,6 +89,7 @@
             id: c.id, kind: KIND, x: CW / 2, y: CH * 0.72, level: f.level, branch: f.branch || null, rank4: f.rank4 || null,
             cd: 0, aim: "first", lastAim: time * 0.9 + c.id, anim, shotIdx: 0, critIdx: 0, invested: 0, units: [],
             rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: false,
+            charges: 3, ramp: 2, mAnim: shot < 0.3 ? 1 - shot / 0.3 : 0, eagle: null,
           };
           fn(ctx, t, time);
           ctx.restore();
