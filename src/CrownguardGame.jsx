@@ -56,7 +56,7 @@ export default function Crownguard() {
   const [hoverEnemy, setHoverEnemy] = useState(null);
   const [buildOpen, setBuildOpen] = useState(false);
   // the incoming-wave chip folds down to a small arrow when the board needs the room
-  const [infoOpen, setInfoOpen] = useState(true);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [realmId, setRealmId] = useState(REALM.id);
   const [factionId, setFactionId] = useState(FACTION.id);
   const [realmOpen, setRealmOpen] = useState(false);
@@ -640,7 +640,6 @@ export default function Crownguard() {
           <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, zIndex: 20, pointerEvents: "none" }}>
             <div style={chip}><span style={{ opacity: 0.7 }}>🪙</span><b style={{ color: "#e8d47a" }}>{ui.gold}</b></div>
             <div style={chip}><span style={{ opacity: 0.7 }}>🏰</span><b style={{ color: ui.lives > CASTLE_HP ? "#e8c14a" : ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.55, fontSize: 11 }}>/{CASTLE_HP}</span></div>
-            <div style={chip}><span style={{ ...statLabel, marginRight: 0 }}>WAVE</span><b>{ui.wave}</b><span style={{ opacity: 0.55, fontSize: 11 }}>/{ui.wave > scriptedWaves() ? "∞" : scriptedWaves()}</span></div>
             {level && boardCss.w > 760 && (
               <div style={{ ...chip, fontSize: 10, letterSpacing: 1, opacity: 0.85 }}>
                 <span style={{ color: "#d8b34a" }}>CH. {level.chapter.numeral}</span>{level.name}
@@ -680,37 +679,54 @@ export default function Crownguard() {
             </div>
           )}
 
-          {/* bottom-left: the horn, the rush switch, and who is coming — small, and foldable */}
+          {/* bottom-left: the horn. One button: "▶ 3/18" with the early-start
+              bonus while the field is quiet, a plain "Wave 3/18" while it
+              fights. Its arrow pops up the wave's makeup and the rush switch. */}
           {(() => {
             const nextWave = ui.phase === "build" ? ui.wave + 1 : ui.wave;
             const comp = nextWave >= 1 ? waveComposition(nextWave) : [];
-            const total = comp.reduce((n, c) => n + c.count, 0);
-            const label = ui.phase === "build" ? (ui.wave >= scriptedWaves() ? "ENDLESS" : "NEXT") : "NOW";
+            const total = ui.wave > scriptedWaves() ? "∞" : scriptedWaves();
+            const fighting = ui.phase !== "build";
+            const small = { fontSize: 10, opacity: 0.6, fontWeight: "normal", marginLeft: 1 };
             return (
-              <div style={{ position: "absolute", left: 8, bottom: 8, display: "flex", alignItems: "center", gap: 6, zIndex: 20, maxWidth: "calc(100% - 16px)" }}>
-                <button
-                  style={{ ...hudBtn, padding: "0 14px", gap: 8, ...(ui.phase === "build" ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}), ...(ui.phase !== "build" ? disabled : {}) }}
-                  onClick={() => startWave(G.current)} disabled={ui.phase !== "build"}>
-                  {ui.phase === "combat" ? <span>Wave {ui.wave}…</span>
-                    : <><span>▶ Wave {ui.wave + 1}</span>{ui.cdSec != null && <span style={{ color: "#e8d47a" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span>}{ui.cdSec != null && <span style={{ fontSize: 10, opacity: 0.7 }}>{ui.cdSec}s</span>}</>}
-                </button>
-                <button
-                  title="Rush: sound the horn the moment a wave is cleared, for the full early-start bonus every time" aria-label="Rush"
-                  style={{ ...hudBtn, minWidth: 44, padding: 0, fontSize: 16, ...(ui.rush ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : { opacity: 0.85 }) }}
-                  onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
-                  ⚡
-                </button>
-                {comp.length > 0 && (infoOpen ? (
-                  <div style={{ ...chip, padding: "3px 6px 3px 10px", gap: 8, alignItems: "flex-end", whiteSpace: "normal" }}>
-                    <span style={{ fontSize: 9, letterSpacing: 2, opacity: 0.7, alignSelf: "center" }}>{label}</span>
-                    {waveChips(comp, ui.phase === "build" ? "next" : "cur")}
-                    <button aria-label="Hide wave info" onClick={() => setInfoOpen(false)} style={{ ...btn, minHeight: 30, minWidth: 30, padding: "0 6px", fontSize: 12, alignSelf: "center" }}>◂</button>
+              <div style={{ position: "absolute", left: 8, bottom: 8, zIndex: 20 }}>
+                {infoOpen && (
+                  <div style={{ ...hud, position: "absolute", left: 0, bottom: "calc(100% + 6px)", padding: "8px 10px", minWidth: 200, maxWidth: 360 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 9, letterSpacing: 2, opacity: 0.75, flex: 1 }}>WAVE INFO — {fighting ? "ON THE FIELD" : ui.wave >= scriptedWaves() ? "NEXT · ENDLESS" : "NEXT"}</span>
+                      <button aria-label="Close wave info" onClick={() => setInfoOpen(false)} style={{ ...btn, minHeight: 28, minWidth: 28, padding: "0 6px", fontSize: 11 }}>✕</button>
+                    </div>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 8 }}>
+                      {comp.length ? waveChips(comp, fighting ? "cur" : "next") : <span style={{ fontSize: 11, opacity: 0.6 }}>Nothing yet.</span>}
+                    </div>
+                    <button
+                      title="Sound the horn the moment a wave is cleared, for the full early-start bonus every time"
+                      style={{ ...btn, width: "100%", minHeight: 36, fontSize: 12, display: "flex", alignItems: "center", gap: 8, ...(ui.rush ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
+                      onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
+                      <span>⚡ Rush</span><span style={{ marginLeft: "auto", opacity: 0.85 }}>{ui.rush ? "ON" : "OFF"}</span>
+                    </button>
                   </div>
-                ) : (
-                  <button aria-label="Show wave info" onClick={() => setInfoOpen(true)} style={{ ...hudBtn, padding: "0 10px", fontSize: 11, gap: 6 }}>
-                    ▸ <span style={{ letterSpacing: 1, opacity: 0.8 }}>{label}</span> ×{total}
+                )}
+                <div style={{ display: "flex", alignItems: "stretch" }}>
+                  <button
+                    style={{ ...hudBtn, padding: "0 14px", gap: 8, minHeight: 46, ...(fighting
+                      ? { background: "#2c313c", cursor: "default", boxShadow: "inset 0 0 0 2px #454c5a" }
+                      : { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" }) }}
+                    onClick={() => { if (!fighting) startWave(G.current); }} disabled={fighting}>
+                    {fighting
+                      ? <span style={{ fontSize: 14 }}>Wave {ui.wave}<span style={small}>/{total}</span></span>
+                      : <>
+                          <span style={{ fontSize: 15 }}>▶ {ui.wave + 1}<span style={small}>/{ui.wave + 1 > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
+                          {ui.cdSec != null && <span style={{ color: "#e8d47a", fontSize: 12 }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span>}
+                          {ui.cdSec != null && <span style={{ fontSize: 10, opacity: 0.6 }}>{ui.cdSec}s</span>}
+                        </>}
                   </button>
-                ))}
+                  <button aria-label={infoOpen ? "Hide wave info" : "Show wave info"}
+                    style={{ ...hudBtn, minWidth: 34, padding: 0, fontSize: 12, borderLeft: "none", minHeight: 46, ...(infoOpen ? { background: "#5a4f2c" } : {}), ...(ui.rush ? { color: "#e8d47a" } : {}) }}
+                    onClick={() => setInfoOpen((o) => !o)}>
+                    {infoOpen ? "▾" : "▴"}
+                  </button>
+                </div>
               </div>
             );
           })()}
