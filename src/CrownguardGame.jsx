@@ -542,104 +542,26 @@ export default function Crownguard() {
     );
   }
 
-  // the build tray is a panel of its own in the wide layout, a drawer over
-  // the board in the narrow one; either way it steps aside while a tower is
-  // being placed or one is selected
-  const trayShown = wide ? !ui.buildMode && !sel && ui.rallyFor == null : drawerVisible;
-  const trayBody = (
-    <>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75 }}>RAISE DEFENSES</div>
-                <button aria-label="Close build menu" onClick={() => setBuildOpen(false)} style={{ ...btn, padding: "2px 9px", fontSize: 13 }}>✕</button>
-              </div>
-              {/* rich-run shortcut: place towers already ascended, one click */}
-              {ui.masterShow && (
-                <button
-                  style={{ ...btn, width: "100%", marginBottom: 8, padding: "7px 8px", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, ...(ui.masterOn ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #d8b34a" } : {}) }}
-                  onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; setMasterInfo(null); }}>
-                  ⚡ Master Builds — {ui.masterOn ? "ON" : "OFF"}
-                </button>
-              )}
-              {ui.masterShow && ui.masterOn && (
-                <div style={{ fontSize: 10, opacity: 0.7, marginBottom: 8, lineHeight: 1.5 }}>
-                  Every final form, bought whole — pick one, then click the grass.
-                </div>
-              )}
-              {ui.masterShow && ui.masterOn ? (
-                /* the master menu: each tower's every ascension, bought outright */
-                Object.entries(TOWERS).map(([key, def]) => (
-                  <div key={key} style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 9.5, letterSpacing: 1.5, color: "#d8b34a", margin: "2px 0 5px" }}>{def.name.toUpperCase()}</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                      {masterPlans(key).map((plan) => {
-                        const pk = `${key}:${plan.branch}${plan.rank4 || ""}`;
-                        const can = ui.gold >= plan.cost;
-                        const active = ui.buildMode === key && ui.masterPick === pk;
-                        return (
-                          <button key={pk} title={def.branches[plan.branch].desc}
-                            style={{
-                              ...btn, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
-                              gap: 4, padding: "8px 4px 7px", textAlign: "center", minHeight: 94,
-                              ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}),
-                            }}
-                            onClick={() => {
-                              const gg = G.current;
-                              if (!gg) return;
-                              gg.buildMode = active ? null : key;
-                              gg.masterPick = active ? null : { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name };
-                              gg.selectedId = null;
-                            }}
-                            disabled={!can}>
-                            <span role="button" aria-label={`About ${plan.name}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const br = def.branches[plan.branch];
-                                const stats = plan.rank4 ? br.rank4[plan.rank4].stats : br.stats;
-                                setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
-                              }}
-                              style={{ position: "absolute", top: 2, right: 6, fontSize: 11, opacity: 0.65, pointerEvents: "auto" }}>ⓘ</span>
-                            <TowerPortrait kind={key} branch={plan.branch} rank4={plan.rank4} size={38} />
-                            <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.25 }}>{plan.name}</span>
-                            <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>⚡{plan.cost}g</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))
-              ) : (
-              /* sprite tiles, two to a row — same shape as the field guide's grid */
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                {Object.entries(TOWERS).map(([key, def]) => {
-                  const can = ui.gold >= def.cost;
-                  const active = ui.buildMode === key;
-                  return (
-                    <button key={key} title={def.blurb}
-                      style={{
-                        ...btn, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
-                        gap: 5, padding: "10px 4px 8px", textAlign: "center", minHeight: 92,
-                        ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}),
-                      }}
-                      onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; }}
-                      disabled={!can}>
-                      <PixelIcon kind={key} size={34} />
-                      <span style={{ fontSize: 10.5, fontWeight: "bold", lineHeight: 1.25 }}>{def.name}</span>
-                      <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
-                    </button>
-                  );
-                })}
-              </div>
-              )}
-              <div style={{ fontSize: 10, marginTop: 10, opacity: 0.6 }}>Time runs at half-speed while you build or manage a tower.</div>
-    </>
-  );
-  const boardFrame = { position: "relative", overflow: "hidden", width: wide ? boardCss.w : "100%", height: wide ? boardCss.h : "auto", aspectRatio: wide ? undefined : "3 / 2", boxSizing: "border-box", border: "3px solid #10131a", background: REALMS[realmId].GRASS };
-  const bar = { ...btn, padding: "0 12px", minHeight: 40, minWidth: 44, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" };
+  // ---- the HUD ----
+  // The board fills the screen beside a dock of towers; everything else
+  // floats over the field in small panels, the way a tablet game is laid
+  // out. Nothing on this screen scrolls except the dock's own list.
+  const masterOn = !!(ui.masterShow && ui.masterOn);
+  const DOCK = masterOn ? 250 : 96;
+  const hud = { ...overlayPanel, borderWidth: 2, boxShadow: "inset 0 0 0 1px #454c5a" };
+  const chip = { ...hud, padding: "6px 10px", fontSize: 13, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" };
+  const hudBtn = { ...btn, minHeight: 44, minWidth: 44, padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: 13 };
+  const prompt = { ...hud, position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 22, padding: "6px 8px 6px 12px", fontSize: 12, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "70%", pointerEvents: "none" };
+  const tile = (active, can) => ({
+    ...btn, width: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    gap: 3, padding: "6px 2px 5px", minHeight: 74, textAlign: "center",
+    ...(active ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}), ...(!can ? disabled : {}),
+  });
 
   return (
     <div style={{
-      height: "100dvh", background: "#20242c", color: "#e8e0c8", fontFamily: FONT, boxSizing: "border-box",
-      display: "flex", flexDirection: "column", overflow: wide ? "hidden" : "auto",
+      height: "100dvh", background: "#12151b", color: "#e8e0c8", fontFamily: FONT, boxSizing: "border-box",
+      display: "flex", overflow: "hidden",
       paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)", paddingBottom: "env(safe-area-inset-bottom)",
     }}>
         {menuOpen && (
@@ -660,6 +582,10 @@ export default function Crownguard() {
               <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }}
                 onClick={openGuide}>
                 Field Guide
+              </button>
+              <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }}
+                onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
+                Sound: {sndMuted ? "Off" : "On"}
               </button>
               <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13, ...(ui.canRestart ? {} : disabled) }} disabled={!ui.canRestart}
                 onClick={() => { restartWave(G.current); closeMenu(); }}>
@@ -698,99 +624,79 @@ export default function Crownguard() {
         </div>
       )}
 
-      {/* ---- top bar: the purse, the castle, the wave; then the controls ---- */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 10px", background: "#2c313c", borderBottom: "3px solid #10131a", boxShadow: "inset 0 0 0 2px #454c5a", flexShrink: 0, minHeight: 50, boxSizing: "border-box", overflowX: "auto" }}>
-        <span style={{ fontSize: 15 }}><span style={statLabel}>GOLD</span><b style={{ color: "#e8d47a" }}>{ui.gold}</b></span>
-        <span style={{ fontSize: 15 }}><span style={statLabel}>CASTLE</span><b style={{ color: ui.lives > CASTLE_HP ? "#e8c14a" : ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.6 }}>/{CASTLE_HP}</span></span>
-        <span style={{ fontSize: 15 }}><span style={statLabel}>WAVE</span><b>{ui.wave}</b><span style={{ opacity: 0.6 }}>/{ui.wave > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
-        {level && wide && (
-          <span style={{ fontSize: 10, letterSpacing: 1, opacity: 0.7, marginLeft: 6, whiteSpace: "nowrap" }}>
-            <span style={{ color: "#d8b34a" }}>CH. {level.chapter.numeral}</span> {level.name}
-          </span>
-        )}
-        <span style={{ marginLeft: "auto", display: "flex", gap: 6, flexShrink: 0 }}>
-          {ui.zoom > 1 && <button title="Reset view" style={{ ...bar, fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
-          <button title="Zoom out" aria-label="Zoom out" style={bar} onClick={() => setZoom((G.current?.cam.zoom || 1) / 1.3)}>−</button>
-          <button title="Zoom in" aria-label="Zoom in" style={bar} onClick={() => setZoom((G.current?.cam.zoom || 1) * 1.3)}>+</button>
-          <button title="Game speed" style={{ ...bar, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
-            onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
-            {ui.speed}x
-          </button>
-          <button title={sndMuted ? "Sound: off" : "Sound: on"} aria-label={sndMuted ? "Unmute sound" : "Mute sound"}
-            style={{ ...bar, ...(sndMuted ? {} : { background: "#5a4f2c" }) }}
-            onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
-            {sndMuted ? "🔇" : "🔊"}
-          </button>
-          <button title="Field guide" aria-label="Open the field guide" style={{ ...bar, ...(guideOpen ? { background: "#5a4f2c" } : {}) }} onClick={openGuide}>
-            <BookIcon />
-          </button>
-          <button title="Pause and open the menu" aria-label="Pause and open the menu" style={{ ...bar, ...(menuOpen ? { background: "#5a4f2c" } : {}) }} onClick={openMenu}>
-            <PauseIcon />
-          </button>
-        </span>
-      </div>
+      {/* ---- the field, letterboxed to 3:2 in whatever is left beside the dock ---- */}
+      <div ref={boardCellRef} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "relative", width: boardCss.w, height: boardCss.h, overflow: "hidden", background: REALMS[realmId].GRASS }}>
+          <canvas
+            ref={canvasRef} width={W * RES} height={H * RES}
+            onPointerDown={onCanvasDown} onPointerMove={onCanvasMove} onPointerUp={onCanvasUp} onPointerCancel={onCanvasCancel}
+            onPointerLeave={(ev) => { if (ev.pointerType === "mouse" && G.current) G.current.hover = null; }}
+            onContextMenu={(ev) => ev.preventDefault()}
+            style={{ width: "100%", height: "100%", display: "block", cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+          />
 
-      {/* ---- the field and its column ---- */}
-      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, padding: 8, gap: 8, boxSizing: "border-box" }}>
-          {!wide && level && (
-            <div style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 10, letterSpacing: 1, padding: "0 2px 6px" }}>
-              <span style={{ color: "#d8b34a" }}>CHAPTER {level.chapter.numeral}</span>
-              <span style={{ opacity: 0.85 }}>{level.name}</span>
-              <span style={{ marginLeft: "auto", opacity: 0.5 }}>{level.chapter.name}</span>
+          {/* top-left: the purse, the castle, the wave */}
+          <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, zIndex: 20, pointerEvents: "none" }}>
+            <div style={chip}><span style={{ opacity: 0.7 }}>🪙</span><b style={{ color: "#e8d47a" }}>{ui.gold}</b></div>
+            <div style={chip}><span style={{ opacity: 0.7 }}>🏰</span><b style={{ color: ui.lives > CASTLE_HP ? "#e8c14a" : ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.55, fontSize: 11 }}>/{CASTLE_HP}</span></div>
+            <div style={chip}><span style={{ ...statLabel, marginRight: 0 }}>WAVE</span><b>{ui.wave}</b><span style={{ opacity: 0.55, fontSize: 11 }}>/{ui.wave > scriptedWaves() ? "∞" : scriptedWaves()}</span></div>
+            {level && boardCss.w > 760 && (
+              <div style={{ ...chip, fontSize: 10, letterSpacing: 1, opacity: 0.85 }}>
+                <span style={{ color: "#d8b34a" }}>CH. {level.chapter.numeral}</span>{level.name}
+              </div>
+            )}
+          </div>
+
+          {/* top-right: speed and pause */}
+          <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 20 }}>
+            {ui.zoom > 1 && <button title="Reset view" style={{ ...hudBtn, fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
+            <button title="Game speed" style={{ ...hudBtn, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
+              onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
+              {ui.speed}x
+            </button>
+            <button title="Pause and open the menu" aria-label="Pause and open the menu" style={{ ...hudBtn, ...(menuOpen ? { background: "#5a4f2c" } : {}) }} onClick={openMenu}>
+              <PauseIcon />
+            </button>
+          </div>
+
+          {/* top centre: what the next tap will do */}
+          {ui.buildMode && (
+            <div style={prompt}>
+              <span>Placing <b style={{ color: "#e8d47a" }}>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — tap the {TOWERS[ui.buildMode].water ? "river" : "grass"}{ui.buildMode === "knight" ? "; knights muster south of the hall" : ""}.</span>
+              <button aria-label="Cancel placement" onClick={() => { if (G.current) G.current.buildMode = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
             </div>
           )}
-          <div ref={boardCellRef} style={{ flex: wide ? 1 : "0 0 auto", minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={boardFrame}>
-              <canvas
-                ref={canvasRef} width={W * RES} height={H * RES}
-                onPointerDown={onCanvasDown} onPointerMove={onCanvasMove} onPointerUp={onCanvasUp} onPointerCancel={onCanvasCancel}
-                onPointerLeave={(ev) => { if (ev.pointerType === "mouse" && G.current) G.current.hover = null; }}
-                onContextMenu={(ev) => ev.preventDefault()}
-                style={{ width: "100%", height: "100%", display: "block", cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
-              />
+          {ui.rallyFor != null && (
+            <div style={prompt}>
+              <span>Posting the <b style={{ color: "#e8d47a" }}>rally flag</b> — tap where the knights should stand.</span>
+              <button aria-label="Cancel rally move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
+            </div>
+          )}
 
-              {!wide && ui.result == null && !buildOpen && (
-              <button aria-label="Open build menu"
-                onClick={() => { setBuildOpen(true); if (G.current) G.current.selectedId = null; }}
-                style={{ ...btn, position: "absolute", top: 10, right: 10, zIndex: 20, display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", fontSize: 12 }}>
-                <PixelIcon kind="archer" size={18} /> Build
-              </button>
-            )}
-
-            {!wide && ui.buildMode && (
-              <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 22, ...overlayPanel, borderWidth: 2, padding: "6px 10px", fontSize: 11, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "92%",
-                // the hint must never cost you the ground beneath it: clicks fall
-                // straight through the banner to the meadow, and only the ✕ catches
-                pointerEvents: "none", opacity: 0.94 }}>
-                <span>Placing <b style={{ color: "#e8d47a" }}>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — click the {TOWERS[ui.buildMode].water ? "river" : "grass"}.{ui.buildMode === "knight" ? " Knights muster south of the hall." : ""}</span>
-                <button aria-label="Cancel placement" onClick={() => { if (G.current) G.current.buildMode = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11, pointerEvents: "auto" }}>✕</button>
+          {/* bottom-left: the horn, and who is coming */}
+          <div style={{ position: "absolute", left: 8, bottom: 8, display: "flex", alignItems: "flex-end", gap: 8, zIndex: 20, maxWidth: "calc(100% - 16px)" }}>
+            <button
+              style={{ ...hudBtn, minHeight: 58, minWidth: 148, fontSize: 15, flexDirection: "column", gap: 2, padding: "0 16px", ...(ui.phase === "build" ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}), ...(ui.phase !== "build" ? disabled : {}) }}
+              onClick={() => startWave(G.current)} disabled={ui.phase !== "build"}>
+              {ui.phase === "combat" ? <span>Wave {ui.wave}…</span>
+                : ui.cdSec != null ? (<><span>Start Wave {ui.wave + 1} <span style={{ color: "#e8d47a" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span></span><span style={{ fontSize: 10, opacity: 0.75, fontWeight: "normal" }}>auto in {ui.cdSec}s</span></>)
+                : <span>Start Wave {ui.wave + 1}</span>}
+            </button>
+            <button
+              title="Rush: sound the horn the moment a wave is cleared, for the full early-start bonus every time"
+              style={{ ...hudBtn, minHeight: 58, fontSize: 11, flexDirection: "column", gap: 1, ...(ui.rush ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
+              onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
+              <span>⚡ Rush</span><span style={{ fontSize: 10, opacity: 0.8 }}>{ui.rush ? "ON" : "OFF"}</span>
+            </button>
+            {(ui.phase === "build" ? ui.wave + 1 : ui.wave) >= 1 && (
+              <div style={{ ...chip, padding: "5px 10px", gap: 10, alignItems: "flex-end", overflowX: "auto", whiteSpace: "normal" }}>
+                <span style={{ fontSize: 9, letterSpacing: 2, opacity: 0.7, alignSelf: "flex-start", marginTop: 2 }}>{ui.phase === "build" ? `NEXT${ui.wave >= scriptedWaves() ? " · ENDLESS" : ""}` : "NOW"}</span>
+                {ui.phase === "build" ? waveChips(waveComposition(ui.wave + 1), "next") : waveChips(waveComposition(ui.wave), "cur")}
               </div>
             )}
+          </div>
 
-            {!wide && ui.rallyFor != null && (
-              <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 22, ...overlayPanel, borderWidth: 2, padding: "6px 10px", fontSize: 11, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "92%",
-                // the hint must never cost you the ground beneath it: clicks fall
-                // straight through the banner to the meadow, and only the ✕ catches
-                pointerEvents: "none", opacity: 0.94 }}>
-                <span>Posting the <b style={{ color: "#e8d47a" }}>rally flag</b> — click where the knights should stand.</span>
-                <button aria-label="Cancel rally move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 11 }}>✕</button>
-              </div>
-            )}
-
-
-              {!wide && (
-                <div style={{
-                  position: "absolute", top: 0, right: 0, bottom: 0, width: "72%", maxWidth: 264, zIndex: 30,
-                  ...overlayPanel, border: "none", borderLeft: "3px solid #10131a",
-                  padding: 12, overflowY: "auto",
-                  transform: drawerVisible ? "translateX(0)" : "translateX(103%)", transition: "transform 0.22s ease",
-                }}>
-                  {trayBody}
-                </div>
-              )}
-
-            {trayShown && ui.masterShow && ui.masterOn && masterInfo && (() => {
+            {!ui.buildMode && !sel && ui.masterShow && ui.masterOn && masterInfo && (() => {
               const { nums, traits } = describe(masterInfo.stats);
               return (
                 <div style={{
@@ -817,7 +723,7 @@ export default function Crownguard() {
               );
             })()}
 
-              {!wide && sel && selDef && ui.rallyFor == null && (() => {
+            {sel && selDef && ui.rallyFor == null && (() => {
               const g = G.current;
               const t = g?.towers.find((x) => x.id === sel.id);
               if (!t) return null;
@@ -834,9 +740,7 @@ export default function Crownguard() {
                   : { bottom: `${((1 - sy) * 100 + 4).toFixed(1)}%`, maxHeight: `${Math.max(30, sy * 100 - 8).toFixed(1)}%` }),
               };
               return (
-              <div style={wide
-                ? { ...overlayPanel, border: "none", boxShadow: "inset 0 0 0 2px #7a6a3c", padding: 12, overflowY: "auto", flex: 1, minHeight: 0 }
-                : { position: "absolute", width: "72%", maxWidth: 264, zIndex: 25, ...overlayPanel, boxShadow: "inset 0 0 0 2px #7a6a3c", padding: 10, overflowY: "auto", ...anchor }}>
+              <div style={{ position: "absolute", width: 300, maxWidth: "48%", zIndex: 25, ...overlayPanel, boxShadow: "inset 0 0 0 2px #7a6a3c", padding: 10, overflowY: "auto", ...anchor }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <PixelIcon kind={sel.kind} branch={sel.branch} rank4={sel.rank4} size={34} />
                   <div style={{ flex: 1 }}>
@@ -1082,276 +986,75 @@ export default function Crownguard() {
               </div>
               );
             })()}
-            </div>
-          </div>
-
-          {/* wave controls + the wave previews, under the field */}
-          <div style={{ flexShrink: 0, display: "flex", flexDirection: wide ? "row" : "column", gap: 8, alignItems: "stretch", width: wide ? boardCss.w : "100%", alignSelf: "center" }}>
-            <div style={{ display: "flex", gap: 8, flex: wide ? "0 0 46%" : "1 1 auto" }}>
-              <button
-                style={{ ...btn, flex: 1, fontSize: 15, textAlign: "center", padding: "12px 8px", minHeight: 52, ...(ui.phase === "build" ? { background: "#5a4f2c" } : {}), ...(ui.phase !== "build" ? disabled : {}) }}
-                onClick={() => startWave(G.current)} disabled={ui.phase !== "build"}>
-                {ui.phase === "combat" ? `Wave ${ui.wave} in progress...`
-                  : ui.cdSec != null ? (<>Start Wave {ui.wave + 1} <span style={{ color: "#e8d47a" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span><div style={{ fontSize: 10, opacity: 0.75 }}>auto-starts in {ui.cdSec}s</div></>)
-                  : `Start Wave ${ui.wave + 1}`}
-              </button>
-              <button
-                title="Rush: automatically sound the horn the moment a wave is cleared, collecting the full early-start gold bonus every time"
-                style={{ ...btn, fontSize: 12, textAlign: "center", minWidth: 64, ...(ui.rush ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
-                onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
-                ⚡ Rush<br />{ui.rush ? "ON" : "OFF"}
-              </button>
-              <button
-                title="Restart the current/last wave with gold, castle HP, and towers restored to how they were when it began"
-                style={{ ...btn, fontSize: 12, textAlign: "center", minWidth: 64, ...(ui.canRestart ? {} : disabled) }}
-                onClick={() => restartWave(G.current)} disabled={!ui.canRestart}>
-                Restart<br />Wave
-              </button>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, alignItems: "stretch", flex: 1, minWidth: 0 }}>
-              {ui.wave >= 1 && (
-                <div style={{ ...panel, flex: 1 }}>
-                  <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>THIS WAVE — {ui.wave}</div>
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
-                    {waveChips(waveComposition(ui.wave), "cur")}
-                  </div>
-                </div>
-              )}
-              {ui.phase === "build" && (
-                <div style={{ ...panel, flex: 1 }}>
-                  <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.7, marginBottom: 8 }}>INCOMING — WAVE {ui.wave + 1}{ui.wave >= scriptedWaves() ? " · ENDLESS MARCH" : ""}</div>
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
-                    {waveChips(waveComposition(ui.wave + 1), "next")}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
+      </div>
 
-        {wide && (
-          <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", minHeight: 0, borderLeft: "3px solid #10131a", background: "rgba(38,42,52,0.97)" }}>
-            {trayShown && (
-              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12 }}>
-                {trayBody}
-              </div>
-            )}
-            {ui.buildMode && (
-              <div style={{ padding: 14, fontSize: 12, lineHeight: 1.6, color: "#a8d88c" }}>
-                Placing <b style={{ color: "#e8d47a" }}>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b>.
-                <div style={{ opacity: 0.8, marginTop: 4 }}>Tap the {TOWERS[ui.buildMode].water ? "river" : "grass"} to raise it{ui.buildMode === "knight" ? " — knights muster south of the hall" : ""}. Drag to try a spot before you let go.</div>
-                <button style={{ ...btn, marginTop: 12, width: "100%", textAlign: "center", minHeight: 44 }} onClick={() => { if (G.current) G.current.buildMode = null; }}>Cancel</button>
-              </div>
-            )}
-            {ui.rallyFor != null && (
-              <div style={{ padding: 14, fontSize: 12, lineHeight: 1.6, color: "#a8d88c" }}>
-                Posting the <b style={{ color: "#e8d47a" }}>rally flag</b> — tap where the knights should stand.
-                <button style={{ ...btn, marginTop: 12, width: "100%", textAlign: "center", minHeight: 44 }} onClick={() => { if (G.current) G.current.rallyFor = null; }}>Cancel</button>
-              </div>
-            )}
-            {sel && selDef && ui.rallyFor == null && (() => {
-              const g = G.current;
-              const t = g?.towers.find((x) => x.id === sel.id);
-              if (!t) return null;
-              const sx = ((t.x - g.cam.x) * g.cam.zoom) / W;
-              const sy = ((t.y - g.cam.y) * g.cam.zoom) / H;
-              const flipX = sx > 0.55;
-              const below = sy < 0.5;
-              const anchor = {
-                ...(flipX
-                  ? { right: `${Math.max(1, (1 - sx) * 100 + 2).toFixed(1)}%` }
-                  : { left: `${Math.max(1, sx * 100 + 2).toFixed(1)}%` }),
-                ...(below
-                  ? { top: `${(sy * 100 + 4).toFixed(1)}%`, maxHeight: `${Math.max(30, (1 - sy) * 100 - 8).toFixed(1)}%` }
-                  : { bottom: `${((1 - sy) * 100 + 4).toFixed(1)}%`, maxHeight: `${Math.max(30, sy * 100 - 8).toFixed(1)}%` }),
-              };
-              return (
-              <div style={wide
-                ? { ...overlayPanel, border: "none", boxShadow: "inset 0 0 0 2px #7a6a3c", padding: 12, overflowY: "auto", flex: 1, minHeight: 0 }
-                : { position: "absolute", width: "72%", maxWidth: 264, zIndex: 25, ...overlayPanel, boxShadow: "inset 0 0 0 2px #7a6a3c", padding: 10, overflowY: "auto", ...anchor }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <PixelIcon kind={sel.kind} branch={sel.branch} rank4={sel.rank4} size={34} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: "bold", color: "#e8d47a", fontSize: 13 }}>
-                      {sel.rank4 ? selDef.branches[sel.branch].rank4[sel.rank4].name
-                        : sel.branch ? selDef.branches[sel.branch].name
-                        : `${selDef.name} - Lv ${sel.level}`}
-                    </div>
-                    <div style={{ fontSize: 10, opacity: 0.75 }}>
-                      {(() => {
-                        const t = G.current?.towers.find((x) => x.id === sel.id);
-                        if (!t) return "";
-                        // perks leave stats fractional on purpose — round for the panel
-                        const raw = getStats(t);
-                        const st = { ...raw };
-                        for (const k of ["dmg", "hp", "range", "splash", "heal", "colddps"]) {
-                          if (typeof st[k] === "number") st[k] = Math.round(st[k]);
-                        }
-                        if (t.kind === "knight") return `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
-                        if (t.kind === "support") return `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
-                        if (t.kind === "gunpowder") return `BOMBARDIER ${Math.round(st.dmg)} dmg · ${st.splash} splash · ${st.range}rng${st.shells > 1 ? ` · ${st.shells} charges` : ""}${st.burn ? " · burning" : ""}${st.burnSpread ? " · fire spreads" : ""}  ·  MUSKET ${Math.round(st.mDmg)} dmg · ${(st.mRate / 1000).toFixed(2)}s · ${st.mRange}rng${st.mPierce ? " · pierces" : ""}${st.mCrit ? " · every 3rd triples" : ""}${st.mShots > 1 ? ` · ${st.mShots}-ball fan` : ""}`;
-                        if (t.kind === "riverwatch") return `${st.count || 1} skiff${(st.count || 1) > 1 ? "s" : ""} on the water · ${Math.round(st.dmg)} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.splash ? ` · ${st.splash} splash` : ""}${st.burn ? " · burning pitch" : ""}${st.pierce ? " · pierces armor" : ""}${st.slow ? " · harpoons drag" : ""}${st.stun ? " · the boom stuns" : ""} · rows the river`;
-                        if (t.kind === "assassin") return `${st.count || 1} blade${(st.count || 1) > 1 ? "s" : ""} afield · ${Math.round(st.dmg)} dmg · ×${st.preyMult} vs support · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp each${st.pierce ? " · pierces armor" : ""}${st.cull ? " · culls the weak" : ""}${st.silence ? " · silences" : ""}${st.venom ? ` · ${st.venom}/s venom` : ""}${st.venomNoHeal ? " · unhealable venom" : ""}${st.spores ? " · spore clouds" : ""} · never blocks`;
-                        if (t.kind === "trapsmith") return `${Math.round(st.trapDmg)} trap dmg · ${st.maxCharges} charge${st.maxCharges > 1 ? "s" : ""}, one per ${(st.chargeEvery / 1000).toFixed(0)}s · ${st.range}rng${st.root ? " · jaws hold fast" : ""}${st.execute ? " · finishes the weak" : ""}${st.burn ? " · burning mines" : ""}${st.stunAll ? " · stunning blasts" : ""}${st.autoSeed ? " · reseeds each wave" : ""}`;
-                        if (t.kind === "goldworks") return `pays ${Math.round(st.income + (t.mintBonus || 0))}g per wave held${st.compound ? ` · grows +${st.compound} each wave` : ""}${st.hoard ? " · hoard doubles or withholds" : ""}${st.mend ? " · mends the castle" : ""}${st.bountyAura ? ` · kills nearby pay +${Math.round(st.bountyAura * 100)}%` : ""}${st.shredAura ? " · aura strips armor" : ""}${st.midas ? " · midas shots" : ""} · has paid ${Math.round(t.paidTotal || 0)}g this run`;
-                        if (t.kind === "sunforge") return `${Math.round(st.dps)}/s beam, ramps to ×${st.rampMax} · ${st.range}rng${st.beams > 1 ? ` · ${st.beams} beams` : ""}${st.igniteBurn ? " · ignites at full focus" : ""}${st.beamSplash ? " · spills over at focus" : ""}${st.wellRoot ? " · pins its victim" : ""}${st.beamSlow ? " · slows the held" : ""}`;
-                        return `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""}${st.spikes ? ` ×${st.spikes} spikes, all directions` : ""}${st.nova ? " · flame ring hits ALL in reach" : ""}${st.spikePierce > 1 ? " · spikes skewer through" : ""} · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.poolDps ? " · lava pools" : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
-                      })()}
-                    </div>
-                  </div>
-                  <button aria-label="Deselect tower" onClick={() => { if (G.current) G.current.selectedId = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 12 }}>✕</button>
-                </div>
-
-                {sel.kind === "catapult" && getStats(t).roller && (
-                  <button style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
-                    <FlagIcon /> Aim the Roll
-                  </button>
-                )}
-                {(sel.kind === "knight" || sel.kind === "assassin") && (
-                  <button style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
-                    <FlagIcon /> Move Rally Flag
-                  </button>
-                )}
-
-                {/* the service record: what this hall has actually done for you */}
-                {(sel.kills > 0 || sel.dmgOut > 0) && (() => {
-                  const dps = sel.dmgOut / Math.max(1, sel.liveTime);
-                  const num = (v) => (v >= 10000 ? (v / 1000).toFixed(1) + "k" : Math.round(v).toLocaleString());
-                  return (
-                    <div style={{ display: "flex", gap: 10, marginTop: 7, padding: "5px 7px", background: "#23262f", border: "2px solid #10131a", fontSize: 10.5 }}>
-                      <span title="foes this tower struck down"><b style={{ color: "#e8d47a" }}>{sel.kills}</b> <span style={{ opacity: 0.65 }}>kills</span></span>
-                      <span title="total damage dealt this run"><b style={{ color: "#e8d47a" }}>{num(sel.dmgOut)}</b> <span style={{ opacity: 0.65 }}>dmg</span></span>
-                      <span title="damage per second of battle — build time excluded"><b style={{ color: "#a8d88c" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> <span style={{ opacity: 0.65 }}>dps</span></span>
-                    </div>
-                  );
-                })()}
-
-                {/* rich-run shortcut: buy every remaining rank in one stroke */}
-                {ui.masterShow && !sel.rank4 && (() => {
-                  const c = completionCost(t);
-                  const can = ui.gold >= c.cost;
-                  return (
-                    <button
-                      style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, ...(can ? {} : disabled) }}
-                      onClick={() => { if (can && G.current) completeTower(G.current, t); }}
-                      disabled={!can}>
-                      ⚡ Complete — {c.name} ({c.cost}g)
-                    </button>
-                  );
-                })()}
-
-                {sel.kind === "trapsmith" && (
-                  <div style={{ fontSize: 10, opacity: 0.75, marginTop: 8, lineHeight: 1.5 }}>
-                    🪤 The smith arms the road himself — each finished charge is laid into the widest gap in his reach.
-                  </div>
-                )}
-
-                {/* standing orders: who this tower shoots at */}
-                {(() => {
-                  const st = getStats(t);
-                  const modes = aimModes(t, st);
-                  if (!modes.length) return null;
-                  const forced = forcedAim(st);
-                  return (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 10, letterSpacing: 2, color: "#e8d47a", marginBottom: 5 }}>TARGETS</div>
-                      {forced ? (
-                        <div style={{ fontSize: 10, opacity: 0.75 }}>
-                          Sworn to the hunt — always takes <b style={{ color: "#e8e0c8" }}>the mightiest foe</b>.
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                            {modes.map((m) => (
-                              <button key={m.id} title={m.hint}
-                                style={{
-                                  ...btn, flex: "1 1 auto", padding: "5px 6px", fontSize: 10, textAlign: "center",
-                                  ...(sel.aim === m.id ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}),
-                                }}
-                                onClick={() => { const tt = G.current?.towers.find((x) => x.id === sel.id); if (tt) tt.aim = m.id; }}>
-                                {m.label}
-                              </button>
-                            ))}
-                          </div>
-                          <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>
-                            {(modes.find((m) => m.id === sel.aim) || modes[0]).hint}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {!sel.branch && sel.level < 3 && (() => {
-                  const nxt = selDef.levels[sel.level];
-                  const can = ui.gold >= nxt.cost;
-                  return (
-                    <button style={{ ...btn, width: "100%", marginTop: 8, ...(!can ? disabled : {}) }} disabled={!can}
-                      onClick={() => { const t = G.current?.towers.find((x) => x.id === sel.id); if (t) upgradeTower(G.current, t); }}>
-                      {nxt.label} — <span style={{ color: "#e8d47a" }}>{nxt.cost}g</span>
-                      <div style={{ fontSize: 10, opacity: 0.75 }}>
-                        {nxt.slow != null
-                          ? `${Math.round(nxt.slow * 100)}% slow · ${nxt.range} range`
-                          : `${nxt.count ? `${nxt.count} knights · ` : ""}${nxt.dmg} dmg · ${(nxt.rate / 1000).toFixed(2)}s${nxt.hp ? ` · ${nxt.hp} hp` : ` · ${nxt.range} range`}`}
-                      </div>
-                    </button>
-                  );
-                })()}
-
-                {!sel.branch && sel.level === 3 && (
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: "#e8d47a", marginBottom: 6 }}>CHOOSE A PATH — PERMANENT</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {Object.entries(selDef.branches).map(([bk, br]) => {
-                        const can = ui.gold >= br.cost;
-                        return (
-                          <button key={bk} style={{ ...btn, display: "flex", gap: 8, alignItems: "flex-start", ...(!can ? disabled : {}) }} disabled={!can}
-                            onClick={() => { const t = G.current?.towers.find((x) => x.id === sel.id); if (t) branchTower(G.current, t, bk); }}>
-                            <PixelIcon kind={sel.kind} branch={bk} size={26} />
-                            <span>
-                              <div style={{ fontWeight: "bold", fontSize: 12 }}>{br.name} — <span style={{ color: "#e8d47a" }}>{br.cost}g</span></div>
-                              <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{br.desc}</div>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {sel.branch && !sel.rank4 && selDef.branches[sel.branch].rank4 && (
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: "#e8d47a", marginBottom: 6 }}>FINAL ASCENSION — PERMANENT</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {Object.entries(selDef.branches[sel.branch].rank4).map(([rk, r4]) => {
-                        const can = ui.gold >= r4.cost;
-                        return (
-                          <button key={rk} style={{ ...btn, display: "flex", gap: 8, alignItems: "flex-start", ...(!can ? disabled : {}) }} disabled={!can}
-                            onClick={() => { const t = G.current?.towers.find((x) => x.id === sel.id); if (t) ascendTower(G.current, t, rk); }}>
-                            <PixelIcon kind={sel.kind} branch={sel.branch} rank4={rk} size={26} />
-                            <span>
-                              <div style={{ fontWeight: "bold", fontSize: 12 }}>{r4.name} — <span style={{ color: "#e8d47a" }}>{r4.cost}g</span></div>
-                              <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{r4.desc}</div>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <button style={{ ...btn, width: "100%", marginTop: 8, textAlign: "center", background: "#4a3228" }}
-                  onClick={() => { const t = G.current?.towers.find((x) => x.id === sel.id); if (t) sellTower(G.current, t); }}>
-                  Sell for {Math.floor(sel.invested * 0.7)}g
-                </button>
-              </div>
-              );
-            })()}
-          </div>
+      {/* ---- the dock: every hall the kingdom can raise, one tap to arm ---- */}
+      <div style={{ width: DOCK, flexShrink: 0, display: "flex", flexDirection: "column", background: "rgba(30,33,42,0.98)", borderLeft: "3px solid #10131a", zIndex: 25, transition: "width 0.2s ease" }}>
+        <div style={{ fontSize: 9, letterSpacing: 2, opacity: 0.7, textAlign: "center", padding: "8px 4px 4px" }}>BUILD</div>
+        {ui.masterShow && (
+          <button title="Master Builds: place any final form whole" style={{ ...btn, margin: "0 6px 6px", padding: "6px 4px", fontSize: 11, textAlign: "center", minHeight: 36, ...(masterOn ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
+            onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; setMasterInfo(null); }}>
+            ⚡ {masterOn ? "Master ON" : "Master"}
+          </button>
         )}
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 6px 8px", display: "flex", flexDirection: "column", gap: 6, WebkitOverflowScrolling: "touch" }}>
+          {masterOn ? (
+                /* the master menu: each tower's every ascension, bought outright */
+                Object.entries(TOWERS).map(([key, def]) => (
+                  <div key={key} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 9.5, letterSpacing: 1.5, color: "#d8b34a", margin: "2px 0 5px" }}>{def.name.toUpperCase()}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      {masterPlans(key).map((plan) => {
+                        const pk = `${key}:${plan.branch}${plan.rank4 || ""}`;
+                        const can = ui.gold >= plan.cost;
+                        const active = ui.buildMode === key && ui.masterPick === pk;
+                        return (
+                          <button key={pk} title={def.branches[plan.branch].desc}
+                            style={{
+                              ...btn, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
+                              gap: 4, padding: "8px 4px 7px", textAlign: "center", minHeight: 94,
+                              ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}),
+                            }}
+                            onClick={() => {
+                              const gg = G.current;
+                              if (!gg) return;
+                              gg.buildMode = active ? null : key;
+                              gg.masterPick = active ? null : { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name };
+                              gg.selectedId = null;
+                            }}
+                            disabled={!can}>
+                            <span role="button" aria-label={`About ${plan.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const br = def.branches[plan.branch];
+                                const stats = plan.rank4 ? br.rank4[plan.rank4].stats : br.stats;
+                                setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
+                              }}
+                              style={{ position: "absolute", top: 2, right: 6, fontSize: 11, opacity: 0.65, pointerEvents: "auto" }}>ⓘ</span>
+                            <TowerPortrait kind={key} branch={plan.branch} rank4={plan.rank4} size={38} />
+                            <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.25 }}>{plan.name}</span>
+                            <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>⚡{plan.cost}g</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+          ) : Object.entries(TOWERS).map(([key, def]) => {
+            const can = ui.gold >= def.cost;
+            const active = ui.buildMode === key;
+            return (
+              <button key={key} title={def.blurb} style={tile(active, can)}
+                onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; }}
+                disabled={!can}>
+                <PixelIcon kind={key} size={30} />
+                <span style={{ fontSize: 9, fontWeight: "bold", lineHeight: 1.15 }}>{def.name}</span>
+                <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
             {realmOpen && (
