@@ -13,8 +13,7 @@ import { PTS } from "../engine/path.js";
 import { FOREST } from "../data/terrain.js";
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
-  blade, tuft, strokePts, blobPath, masonry, hash, ellipse, SUN,
-} from "./paint.js";
+  blade, tuft, strokePts, blobPath, masonry, hash, ellipse, SUN, lin, rad, bakeSprite, PIXEL } from "./paint.js";
 
 // ---- palettes ---------------------------------------------------------
 const OAK = { leaf: "#5e9f45", trunk: "#7a5334" };
@@ -38,10 +37,7 @@ const leafyTree = (ctx, x, y, s, pal, sway, seed) => {
   ctx.lineTo(x + tw * 0.42, y - 10 * s);
   ctx.quadraticCurveTo(x + tw * 0.45, y + 2, x + tw * 0.9, y + 11);
   ctx.closePath();
-  const tg = ctx.createLinearGradient(x - tw, 0, x + tw, 0);
-  tg.addColorStop(0, lighten(pal.trunk, 0.3));
-  tg.addColorStop(0.5, pal.trunk);
-  tg.addColorStop(1, darken(pal.trunk, 0.55));
+  const tg = lin(ctx, x - tw, 0, x + tw, 0, [[0, lighten(pal.trunk, 0.3)], [0.5, pal.trunk], [1, darken(pal.trunk, 0.55)]]);
   ctx.fillStyle = tg;
   ctx.fill();
   // canopy: a dark under-mass, then the lobes, lowest first
@@ -120,9 +116,7 @@ const deadTree = (ctx, x, y, s) => {
   ctx.lineCap = "round";
   const limbs = [[-1, -14, -9, -5], [1, -10, 9, -4], [-1, -5, -7, -3], [1, -16, 5, -6]];
   for (const [, ly, lx, up] of limbs) {
-    const g = ctx.createLinearGradient(x, 0, x + lx * s, 0);
-    g.addColorStop(0, lighten(col, lx < 0 ? 0.25 : 0));
-    g.addColorStop(1, darken(col, lx < 0 ? 0.1 : 0.4));
+    const g = lin(ctx, x, 0, x + lx * s, 0, [[0, lighten(col, lx < 0 ? 0.25 : 0)], [1, darken(col, lx < 0 ? 0.1 : 0.4)]]);
     ctx.strokeStyle = g;
     ctx.lineWidth = 2.6 * s;
     ctx.beginPath();
@@ -188,10 +182,7 @@ const crystal = (ctx, x, y, s, time) => {
     ctx.lineTo(sx - w * 0.8, y + 9);
     ctx.lineTo(sx - w, y + 8 - sh * 0.35);
     ctx.closePath();
-    const g = ctx.createLinearGradient(sx - w, y + 8 - sh, sx + w, y + 9);
-    g.addColorStop(0, lighten(col, 0.6));
-    g.addColorStop(0.45, col);
-    g.addColorStop(1, darken(col, 0.45));
+    const g = lin(ctx, sx - w, y + 8 - sh, sx + w, y + 9, [[0, lighten(col, 0.6)], [0.45, col], [1, darken(col, 0.45)]]);
     ctx.fillStyle = g;
     ctx.fill();
   }
@@ -224,10 +215,7 @@ const gravestone = (ctx, x, y, s, seed) => {
   ctx.arc(0, -hh + hw, hw, Math.PI, 0);
   ctx.lineTo(hw, 0);
   ctx.closePath();
-  const g = ctx.createLinearGradient(-hw, 0, hw, 0);
-  g.addColorStop(0, lighten(STONE, 0.28));
-  g.addColorStop(0.55, STONE);
-  g.addColorStop(1, darken(STONE, 0.45));
+  const g = lin(ctx, -hw, 0, hw, 0, [[0, lighten(STONE, 0.28)], [0.55, STONE], [1, darken(STONE, 0.45)]]);
   ctx.fillStyle = g;
   ctx.fill();
   ctx.strokeStyle = rgba(darken(STONE, 0.6), 0.35);
@@ -274,8 +262,7 @@ const obelisk = (ctx, x, y, s, time) => {
   ctx.beginPath();
   ctx.moveTo(x - 4 * s, y + 9); ctx.lineTo(x - 2.4 * s, y + 8 - hh); ctx.lineTo(x + 2.4 * s, y + 8 - hh); ctx.lineTo(x + 4 * s, y + 9);
   ctx.closePath();
-  const g = ctx.createLinearGradient(x - 4 * s, 0, x + 4 * s, 0);
-  g.addColorStop(0, "#4a4058"); g.addColorStop(0.5, "#2e2838"); g.addColorStop(1, "#1a1622");
+  const g = lin(ctx, x - 4 * s, 0, x + 4 * s, 0, [[0, "#4a4058"], [0.5, "#2e2838"], [1, "#1a1622"]]);
   ctx.fillStyle = g; ctx.fill();
   ball(ctx, x, y + 8 - hh, 2.4 * s, 1.6 * s, "#3a3248", { hi: 0.35, lo: 0.4 });
   for (let i = 0; i < 3; i++) {
@@ -316,8 +303,7 @@ const tent = (ctx, x, y, s) => {
   ctx.lineTo(x + 4 * s, y + 9);
   ctx.lineTo(x - 4 * s, y + 9);
   ctx.closePath();
-  const g = ctx.createLinearGradient(0, y - hh * 0.5, 0, y + 9);
-  g.addColorStop(0, "#1a1c24"); g.addColorStop(1, "#2c2a30");
+  const g = lin(ctx, 0, y - hh * 0.5, 0, y + 9, [[0, "#1a1c24"], [1, "#2c2a30"]]);
   ctx.fillStyle = g; ctx.fill();
   for (const sx of [x - w2 - 2.5, x + w2 + 1]) cylinder(ctx, sx, y + 5, 1.6, 4, "#6a4a2e", { r: 0.8 });
 };
@@ -335,46 +321,22 @@ const banner = (ctx, x, y, s, time) => {
   ctx.lineTo(x + 13 + wv, ty + 10);
   ctx.quadraticCurveTo(x + 7, ty + 11 + wv * 0.5, x + 1, ty + 10);
   ctx.closePath();
-  const g = ctx.createLinearGradient(x, ty, x + 12, ty + 10);
-  g.addColorStop(0, "#5a7cac"); g.addColorStop(1, "#2e4666");
+  const g = lin(ctx, x, ty, x + 12, ty + 10, [[0, "#5a7cac"], [1, "#2e4666"]]);
   ctx.fillStyle = g; ctx.fill();
   ball(ctx, x + 5.5, ty + 5, 1.8, 1.8, "#e8e4d8", { hi: 0.3, lo: 0.2 });
 };
 
-// Forest trees are many and they don't sway: each distinct (type, size,
-// variant) is painted once at full resolution and stamped from then on.
-const FOREST_SPRITES = new Map();
-const forestSprite = (d) => {
-  const s = Math.round((d.s || 1) * 10) / 10;
-  const v = ((Math.round(d.x * 3 + d.y * 7) % 4) + 4) % 4;
-  const key = `${d.t}|${s}|${v}`;
-  let sp = FOREST_SPRITES.get(key);
-  if (sp) return sp;
-  const hw = Math.ceil(36 * s + 8), top = Math.ceil(40 * s + 8), bot = 22;
-  const cv = document.createElement("canvas");
-  cv.width = hw * 2 * RES; cv.height = (top + bot) * RES;
-  const c = cv.getContext("2d");
-  c.scale(RES, RES);
-  const tints = ["#5e9f45", "#6aa64a", "#4f8e42", "#5a9a50"];
-  soft(c, hw, top - 14 * s, 30 * s, 26 * s, [[0, "rgba(14,24,10,0.5)"], [0.7, "rgba(14,24,10,0.35)"], [1, "rgba(14,24,10,0)"]]);
-  if (d.t === "pine") pineTree(c, hw, top, s, { leaf: v % 2 ? "#4a8c4d" : "#43824a", trunk: PINE.trunk }, 0);
-  else leafyTree(c, hw, top, s, { leaf: tints[v], trunk: OAK.trunk }, 0, v * 131 + 7);
-  sp = { cv, hw, top, bot };
-  FOREST_SPRITES.set(key, sp);
-  return sp;
-};
-
-export const drawTree = (ctx, d, time) => {
-  if (d.forest && typeof document !== "undefined") {
-    const sp = forestSprite(d);
-    ctx.drawImage(sp.cv, d.x - sp.hw, d.y - sp.top, sp.hw * 2, sp.top + sp.bot);
-    return;
-  }
+// Still pieces are baked once into inked sprites — every distinct (type,
+// size, variant) — and stamped from then on. Things that glow, flicker or
+// fly a flag are painted live so they keep moving.
+const SPRITES = new Map();
+const LIVE = new Set(["mushroom", "crystal", "vent", "obelisk", "watchtower", "banner", "reeds"]);
+const paintDecor = (ctx, d, time) => {
   const x = d.x, y = d.y, s = d.s || 1;
   const seed = Math.round(d.x * 3 + d.y * 7);
-  const sway = Math.sin(time * 0.8 + d.x * 0.06 + d.y * 0.03) * 1.4;
+  const sway = d.forest ? 0 : Math.sin(time * 0.8 + d.x * 0.06 + d.y * 0.03) * 1.4;
   switch (d.t) {
-    case "pine": pineTree(ctx, x, y, s, PINE, sway); break;
+    case "pine": pineTree(ctx, x, y, s, d.forest ? { leaf: d.v % 2 ? "#4a8c4d" : "#43824a", trunk: PINE.trunk } : PINE, sway); break;
     case "snowpine": pineTree(ctx, x, y, s, SNOWPINE, sway * 0.5, "#eef5f8"); break;
     case "rock": boulder(ctx, x, y, s, "#9a978f", "#5f8a3a", seed); break;
     case "icerock": boulder(ctx, x, y, s, "#aac2d0", null, seed); break;
@@ -392,9 +354,37 @@ export const drawTree = (ctx, d, time) => {
     case "watchtower": watchtower(ctx, x, y, s, time); break;
     case "tent": tent(ctx, x, y, s); break;
     case "banner": banner(ctx, x, y, s, time); break;
-    case "tree": leafyTree(ctx, x, y, s, OAK, sway, seed); break;
+    case "tree": {
+      const tints = ["#5e9f45", "#6aa64a", "#4f8e42", "#5a9a50"];
+      leafyTree(ctx, x, y, s, d.forest ? { leaf: tints[d.v], trunk: OAK.trunk } : OAK, sway, d.forest ? d.v * 131 + 7 : seed);
+      break;
+    }
     default: boulder(ctx, x, y, s, "#9a978f", "#5f8a3a", seed);
   }
+};
+const decorSprite = (d) => {
+  const s = Math.round((d.s || 1) * 10) / 10;
+  const v = ((Math.round(d.x * 3 + d.y * 7) % 4) + 4) % 4;
+  const key = `${d.t}|${s}|${v}|${d.forest ? "f" : ""}`;
+  let sp = SPRITES.get(key);
+  if (sp) return sp;
+  const hw = Math.ceil(38 * s + 8), top = Math.ceil(42 * s + 8), bot = 24;
+  const cv = bakeSprite(hw * 2, top + bot, (c) => {
+    if (d.forest) soft(c, hw, top - 14 * s, 30 * s, 26 * s, [[0, "rgba(14,24,10,0.5)"], [0.7, "rgba(14,24,10,0.35)"], [1, "rgba(14,24,10,0)"]]);
+    paintDecor(c, { ...d, x: hw, y: top, v }, 0);
+  });
+  sp = { cv, hw, top, bot };
+  SPRITES.set(key, sp);
+  return sp;
+};
+
+export const drawTree = (ctx, d, time) => {
+  if (!LIVE.has(d.t) && typeof document !== "undefined") {
+    const sp = decorSprite(d);
+    ctx.drawImage(sp.cv, d.x - sp.hw, d.y - sp.top, sp.hw * 2, sp.top + sp.bot);
+    return;
+  }
+  paintDecor(ctx, { ...d, v: ((Math.round(d.x * 3 + d.y * 7) % 4) + 4) % 4 }, time);
 };
 
 // ---- water ------------------------------------------------------------
@@ -467,8 +457,7 @@ export const drawBridge = (ctx, b, time, posAt, angleAt, pal) => {
     ctx.rotate(a);
     const k = Math.floor(d / 6);
     const col = k % 3 === 0 ? bp.plankDk : bp.plank;
-    const g = ctx.createLinearGradient(-2.5, 0, 2.5, 0);
-    g.addColorStop(0, lighten(col, 0.22)); g.addColorStop(0.5, col); g.addColorStop(1, darken(col, 0.3));
+    const g = lin(ctx, -2.5, 0, 2.5, 0, [[0, lighten(col, 0.22)], [0.5, col], [1, darken(col, 0.3)]]);
     ctx.fillStyle = g;
     roundRect(ctx, -2.6, -half, 5.2, half * 2, 1);
     ctx.fill();
@@ -521,8 +510,7 @@ export const drawPond = (ctx, p, time) => {
     blobPath(ctx, x, y, rx + 3, ry + 3, seed, wobble);
     ctx.fillStyle = "#9fb8c6"; ctx.fill();
     blobPath(ctx, x, y, rx, ry, seed, wobble);
-    const g = ctx.createLinearGradient(x - rx, y - ry, x + rx, y + ry);
-    g.addColorStop(0, "#e4f2f8"); g.addColorStop(0.5, "#c2dbe6"); g.addColorStop(1, "#9cbccb");
+    const g = lin(ctx, x - rx, y - ry, x + rx, y + ry, [[0, "#e4f2f8"], [0.5, "#c2dbe6"], [1, "#9cbccb"]]);
     ctx.fillStyle = g; ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.7)";
     ctx.lineWidth = 1;
@@ -627,13 +615,11 @@ export const drawCastle = (ctx, time, hpPct) => {
   const G = 70;                                   // gate drums sit this far off the road's centre
 
   // the wall's foot: the ground darkens under it
-  const ao = ctx.createLinearGradient(WB - 34, 0, WB, 0);
-  ao.addColorStop(0, "rgba(28,20,30,0)"); ao.addColorStop(1, "rgba(28,20,30,0.38)");
+  const ao = lin(ctx, WB - 34, 0, WB, 0, [[0, "rgba(28,20,30,0)"], [1, "rgba(28,20,30,0.38)"]]);
   ctx.fillStyle = ao;
   ctx.fillRect(WB - 34, -10, 34, H + 20);
   // the road runs into the dark of the gate passage
-  const pass = ctx.createLinearGradient(gx - 24, 0, gx + 18, 0);
-  pass.addColorStop(0, "rgba(16,12,16,0)"); pass.addColorStop(1, "rgba(16,12,16,0.85)");
+  const pass = lin(ctx, gx - 24, 0, gx + 18, 0, [[0, "rgba(16,12,16,0)"], [1, "rgba(16,12,16,0.85)"]]);
   ctx.fillStyle = pass;
   ctx.fillRect(gx - 24, gy - PATH_HALF - 3, W - gx + 24, PATH_HALF * 2 + 6);
   if (bad) {
@@ -712,8 +698,7 @@ export const drawCastle = (ctx, time, hpPct) => {
     ctx.lineTo(px - bw - wave, py + bh);
     ctx.quadraticCurveTo(px - bw * 0.5, py + bh + 1 - wave, px, py + bh);
     ctx.closePath();
-    const bg = ctx.createLinearGradient(px - bw, 0, px, 0);
-    bg.addColorStop(0, "#c89a34"); bg.addColorStop(1, "#ecc95a");
+    const bg = lin(ctx, px - bw, 0, px, 0, [[0, "#c89a34"], [1, "#ecc95a"]]);
     ctx.fillStyle = bg; ctx.fill();
     if (!bad) ball(ctx, px - 9, py + 5.5, 2.4, 2.4, "#7c3f4a", { hi: 0.4, lo: 0.3 });
   }
@@ -812,8 +797,7 @@ export const drawCave = (ctx, time) => {
   ctx.quadraticCurveTo(sx - 18, sy - 8, sx, sy - 14);
   ctx.quadraticCurveTo(sx + 18, sy - 8, sx + 17, sy + 26);
   ctx.closePath();
-  const mg = ctx.createLinearGradient(0, sy - 14, 0, sy + 26);
-  mg.addColorStop(0, "#0e0b09"); mg.addColorStop(1, "#241c16");
+  const mg = lin(ctx, 0, sy - 14, 0, sy + 26, [[0, "#0e0b09"], [1, "#241c16"]]);
   ctx.fillStyle = mg; ctx.fill();
   const rim = [[-19, 4], [-17, -6], [-9, -13], [1, -16], [10, -12], [17, -5], [19, 4]];
   for (const [rx, ry] of rim) ball(ctx, sx + rx, sy + ry, 4, 3, "#8a8272", { hi: 0.45, lo: 0.5 });

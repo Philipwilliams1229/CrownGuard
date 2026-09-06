@@ -28,9 +28,10 @@ export const WALL_W = 62;
 // the road, everyone else draws one of the three and wanders a step in it.
 export const pickLane = (boss = false) =>
   boss ? 0 : (Math.floor(Math.random() * 3) - 1) * LANE_OFF + (Math.random() - 0.5) * 6;
-// How many buffer pixels one world pixel gets. The board is painted at this
-// scale so curves stay curved and zooming in reveals detail instead of squares.
-export const RES = 3;
+// How many buffer pixels one world pixel gets. Pixel art is drawn at two art
+// pixels per world unit (paint.js PX), so RES matches it: one art pixel is
+// exactly one buffer pixel, and zoom scales them whole.
+export const RES = 2;
 export const CASTLE_HP = 20;
 export const RALLY_RANGE = 96;
 export const BUILD_TIME = 30;

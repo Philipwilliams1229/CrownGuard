@@ -87,8 +87,8 @@ export function draw(g, canvas, bufRef) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, W * RES, H * RES);
   ctx.save();
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
+  // cached art is stamped pixel for pixel; zoom scales those pixels whole
+  ctx.imageSmoothingEnabled = false;
   ctx.scale(RES, RES);
   if (g.shake > 0) ctx.translate(S((Math.random() - 0.5) * g.shake), S((Math.random() - 0.5) * g.shake));
   ctx.scale(g.cam.zoom, g.cam.zoom);

@@ -321,7 +321,9 @@ export default function Crownguard() {
     };
     cv.addEventListener("wheel", onWheel, { passive: false });
     return () => cv.removeEventListener("wheel", onWheel);
-  }, []);
+    // the canvas is only mounted on the battle screen, so listen again each time it appears
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
 
   const screenPos = (ev) => {
     const cv = canvasRef.current;

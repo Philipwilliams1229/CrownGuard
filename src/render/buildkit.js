@@ -8,7 +8,7 @@
 // downward, so "top" is the smallest y of a part and things stack by
 // subtracting their heights.
 
-import { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash, tuft } from "./paint.js";
+import { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash, tuft, lin, rad } from "./paint.js";
 
 export const TIMBER = "#8a6238";
 export const OAKWOOD = "#6f4a2a";
@@ -83,10 +83,7 @@ export const deck = (ctx, x, y, hw, col = TIMBER, depth = 6) => {
     ctx.closePath();
     ctx.fill();
   }
-  const g = ctx.createLinearGradient(0, y, 0, y + depth);
-  g.addColorStop(0, lighten(col, 0.3));
-  g.addColorStop(0.55, col);
-  g.addColorStop(1, darken(col, 0.4));
+  const g = lin(ctx, 0, y, 0, y + depth, [[0, lighten(col, 0.3)], [0.55, col], [1, darken(col, 0.4)]]);
   roundRect(ctx, x - hw, y, hw * 2, depth, 1.5);
   ctx.fillStyle = g;
   ctx.fill();
@@ -127,10 +124,7 @@ export const hipRoof = (ctx, x, eave, hw, ridgeHW, h, col) => {
   ctx.lineTo(x + ridgeHW, eave - h);
   ctx.quadraticCurveTo(x + hw * 0.7, eave - h * 0.55, x + hw + 1, eave);
   ctx.closePath();
-  const g = ctx.createLinearGradient(x - hw, eave - h, x + hw * 0.6, eave);
-  g.addColorStop(0, lighten(col, 0.4));
-  g.addColorStop(0.45, col);
-  g.addColorStop(1, darken(col, 0.45));
+  const g = lin(ctx, x - hw, eave - h, x + hw * 0.6, eave, [[0, lighten(col, 0.4)], [0.45, col], [1, darken(col, 0.45)]]);
   ctx.fillStyle = g;
   ctx.fill();
   ctx.save();
@@ -167,8 +161,7 @@ export const pennant = (ctx, x, top, len, col, time, phase = 0, dir = 1) => {
   ctx.quadraticCurveTo(x + dir * 5, top - 0.5 + wv * 0.5, x + dir * (9 + wv), top + 1.5);
   ctx.quadraticCurveTo(x + dir * 5, top + 3.5 + wv * 0.5, x + dir * 0.8, top + 5);
   ctx.closePath();
-  const g = ctx.createLinearGradient(x, 0, x + dir * 9, 0);
-  g.addColorStop(0, lighten(col, 0.25)); g.addColorStop(1, darken(col, 0.2));
+  const g = lin(ctx, x, 0, x + dir * 9, 0, [[0, lighten(col, 0.25)], [1, darken(col, 0.2)]]);
   ctx.fillStyle = g;
   ctx.fill();
 };
@@ -201,4 +194,4 @@ export const skirt = (ctx, x, y, hw, seed = 0) => {
   }
 };
 
-export { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash };
+export { lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, masonry, hash, lin, rad };

@@ -7,14 +7,11 @@
 // Every figure faces +x in its own space and is mirrored by `dir`. A
 // palette names the visible materials: skin, hood, coat, boots, trim.
 
-import { lighten, darken, rgba, soft, shadow, ball, roundRect, cylinder } from "./paint.js";
+import { lighten, darken, rgba, soft, shadow, ball, roundRect, cylinder, lin, rad } from "./paint.js";
 
 // A rounded limb between two points.
 const limb = (ctx, x0, y0, x1, y1, w, col) => {
-  const g = ctx.createLinearGradient(x0 - w, y0, x0 + w, y0);
-  g.addColorStop(0, lighten(col, 0.3));
-  g.addColorStop(0.5, col);
-  g.addColorStop(1, darken(col, 0.45));
+  const g = lin(ctx, x0 - w, y0, x0 + w, y0, [[0, lighten(col, 0.3)], [0.5, col], [1, darken(col, 0.45)]]);
   ctx.strokeStyle = g;
   ctx.lineWidth = w;
   ctx.lineCap = "round";
@@ -35,10 +32,7 @@ const head = (ctx, x, y, pal, o = {}) => {
 
 // Torso: a coat with a belt.
 const torso = (ctx, x, top, h, w, pal) => {
-  const g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
-  g.addColorStop(0, lighten(pal.coat, 0.32));
-  g.addColorStop(0.45, pal.coat);
-  g.addColorStop(1, darken(pal.coat, 0.5));
+  const g = lin(ctx, x - w / 2, 0, x + w / 2, 0, [[0, lighten(pal.coat, 0.32)], [0.45, pal.coat], [1, darken(pal.coat, 0.5)]]);
   roundRect(ctx, x - w / 2, top, w, h, w * 0.4);
   ctx.fillStyle = g;
   ctx.fill();
@@ -72,8 +66,7 @@ export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
   const bx = 7, by = -15;
   const half = big ? 9 : 7, belly = big ? 4.2 : 3.2;
   const bowCol = o.bowCol || "#4a3018";
-  const bg = ctx.createLinearGradient(bx, by - half, bx + belly, by + half);
-  bg.addColorStop(0, lighten(bowCol, 0.35)); bg.addColorStop(0.5, bowCol); bg.addColorStop(1, darken(bowCol, 0.3));
+  const bg = lin(ctx, bx, by - half, bx + belly, by + half, [[0, lighten(bowCol, 0.35)], [0.5, bowCol], [1, darken(bowCol, 0.3)]]);
   ctx.strokeStyle = bg;
   ctx.lineWidth = 1.5;
   ctx.lineCap = "round";

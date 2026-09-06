@@ -14,8 +14,7 @@ import { archerLayout } from "../../engine/towers.js";
 import {
   pad, timberWall, stoneBody, slit, deck, rail, battlement, hipRoof, coneRoof, roofPosts,
   pennant, vine, skirt, TIMBER, OAKWOOD, GREY_STONE,
-  lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder,
-} from "../buildkit.js";
+  lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, lin, rad } from "../buildkit.js";
 import { drawArcher, drawCrew, ARCHER_FOLK } from "../folk.js";
 
 const ROOFS = {
@@ -38,8 +37,7 @@ const ballista = (ctx, x, y, dir, recoil, time) => {
   for (const by of [-14, -6]) cylinder(ctx, -2.8, by, 5.6, 1.8, "#6c727e", { r: 0.8, hi: 0.4, lo: 0.4 });
   // the bow arms: two laminated limbs curving up and out
   for (const side of [-1, 1]) {
-    const g = ctx.createLinearGradient(0, -14, side * 14, -24);
-    g.addColorStop(0, lighten(OAKWOOD, 0.3)); g.addColorStop(1, darken(OAKWOOD, 0.35));
+    const g = lin(ctx, 0, -14, side * 14, -24, [[0, lighten(OAKWOOD, 0.3)], [1, darken(OAKWOOD, 0.35)]]);
     ctx.strokeStyle = g;
     ctx.lineWidth = 3.4;
     ctx.lineCap = "round";
@@ -52,8 +50,7 @@ const ballista = (ctx, x, y, dir, recoil, time) => {
   ctx.strokeStyle = "rgba(240,232,210,0.95)";
   ctx.lineWidth = 0.7;
   ctx.beginPath(); ctx.moveTo(-13, -23); ctx.lineTo(0, -19 + recoil * 4); ctx.lineTo(13, -23); ctx.stroke();
-  const bolt = ctx.createLinearGradient(-1, 0, 1, 0);
-  bolt.addColorStop(0, "#d8dce4"); bolt.addColorStop(1, "#8a909c");
+  const bolt = lin(ctx, -1, 0, 1, 0, [[0, "#d8dce4"], [1, "#8a909c"]]);
   ctx.fillStyle = bolt;
   roundRect(ctx, -1, -30 + recoil * 4, 2, 12, 1); ctx.fill();
   ctx.fillStyle = "#c4c8d0";
@@ -94,8 +91,7 @@ const hawk = (ctx, x, y, time, id) => {
   ball(ctx, hx, hy, 2.6, 1.6, "#7a5a3a", { hi: 0.45, lo: 0.4 });
   ball(ctx, hx + face * 2.4, hy - 0.4, 1.3, 1.1, "#e8dfc6", { hi: 0.4, lo: 0.3 });
   for (const side of [-1, 1]) {
-    const g = ctx.createLinearGradient(hx, hy, hx + side * 8, hy - flap);
-    g.addColorStop(0, "#8a6a44"); g.addColorStop(1, "#5a4028");
+    const g = lin(ctx, hx, hy, hx + side * 8, hy - flap, [[0, "#8a6a44"], [1, "#5a4028"]]);
     ctx.strokeStyle = g;
     ctx.lineWidth = 1.8;
     ctx.lineCap = "round";

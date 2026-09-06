@@ -10,7 +10,7 @@ import { W, H, PATH_HALF, LANE_OFF, RES, mulberry32 } from "../data/constants.js
 import { REALM } from "../data/maps.js";
 import { PTS, nearestOnPath } from "../engine/path.js";
 import { GRASS_PATCHES, TUFTS, FLOWERS, SPECKS, PEBBLES, PONDS, CHEVRONS, inRiver, FOREST, forestDepthAt } from "../data/terrain.js";
-import { lighten, darken, mix, rgba, soft, tuft, flower, stone, clover, strokePts, offsetPts, hash, ball } from "./paint.js";
+import { lighten, darken, mix, rgba, soft, tuft, flower, stone, clover, strokePts, offsetPts, hash, ball, lin, rad } from "./paint.js";
 
 let layer = null;
 let layerKey = "";
@@ -29,20 +29,18 @@ function paintTurf(ctx) {
   ctx.fillRect(0, 0, W, H);
 
   // rolling ground: broad soft swells of lighter and darker turf
+  // in pixel mode these are flat, quiet patches, not polka dots
   for (const p of GRASS_PATCHES) {
     const col = p.s > 0.5 ? R.GRASS_LT : R.GRASS_DK;
-    soft(ctx, p.x, p.y, p.r * 1.7, p.r * 1.05, [[0, rgba(col, 0.6)], [0.6, rgba(col, 0.3)], [1, rgba(col, 0)]]);
+    soft(ctx, p.x, p.y, p.r * 1.5, p.r * 0.95, [[0, rgba(col, 0.32)], [0.75, rgba(col, 0.18)], [1, rgba(col, 0)]]);
   }
   for (let i = 0; i < 70; i++) {
     const x = rng() * W, y = rng() * H, r = 18 + rng() * 40;
     const col = rng() > 0.5 ? R.GRASS_LT : R.GRASS_DK;
-    soft(ctx, x, y, r * 1.5, r, [[0, rgba(col, 0.28)], [1, rgba(col, 0)]]);
+    soft(ctx, x, y, r * 1.4, r * 0.9, [[0, rgba(col, 0.16)], [1, rgba(col, 0)]]);
   }
   // the sun: a warm wash from the upper left, the far corner cooling off
-  const sun = ctx.createLinearGradient(0, 0, W, H);
-  sun.addColorStop(0, "rgba(255,238,190,0.13)");
-  sun.addColorStop(0.5, "rgba(255,238,190,0)");
-  sun.addColorStop(1, "rgba(30,26,60,0.14)");
+  const sun = lin(ctx, 0, 0, W, H, [[0, "rgba(255,238,190,0.13)"], [0.5, "rgba(255,238,190,0)"], [1, "rgba(30,26,60,0.14)"]]);
   ctx.fillStyle = sun;
   ctx.fillRect(0, 0, W, H);
 

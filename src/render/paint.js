@@ -10,6 +10,36 @@
 // Where the light comes from, as a direction across the board.
 export const SUN = { x: -0.42, y: -0.58 };
 
+// ---- pixel mode ------------------------------------------------------
+// The board is pixel art again, at PX art pixels per world unit. Every
+// gradient collapses into flat tone bands, sprites get a one-pixel ink
+// outline, and shapes snap to the art grid.
+export const PX = 2;
+export const PIXEL = true;
+export const INK_LINE = "#241a26";
+export const snap = (v) => Math.round(v * PX) / PX;
+
+// Smooth stops → hard bands. Each colour owns the stretch between the
+// midpoints to its neighbours, so the darkest and lightest tones survive.
+const bandStops = (stops) => {
+  const out = [];
+  for (let i = 0; i < stops.length; i++) {
+    const [t, c] = stops[i];
+    const t0 = i === 0 ? 0 : (stops[i - 1][0] + t) / 2;
+    const t1 = i === stops.length - 1 ? 1 : (t + stops[i + 1][0]) / 2;
+    out.push([t0, c], [Math.min(1, t1 - 0.0001), c]);
+  }
+  return out;
+};
+const fillStops = (g, stops) => {
+  for (const [t, c] of PIXEL ? bandStops(stops) : stops) g.addColorStop(Math.max(0, Math.min(1, t)), c);
+  return g;
+};
+// A linear gradient (banded in pixel mode). `stops` is [[t, colour], ...].
+export const lin = (ctx, x0, y0, x1, y1, stops) => fillStops(ctx.createLinearGradient(x0, y0, x1, y1), stops);
+// A radial gradient (banded in pixel mode).
+export const rad = (ctx, x0, y0, r0, x1, y1, r1, stops) => fillStops(ctx.createRadialGradient(x0, y0, r0, x1, y1, r1), stops);
+
 // ---- colour ----------------------------------------------------------
 const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
 export const rgb = (c) => {
@@ -49,9 +79,7 @@ export const soft = (ctx, x, y, rx, ry, stops, fx = 0, fy = 0, inner = 0) => {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(rx, ry);
-  const g = ctx.createRadialGradient(fx, fy, inner, 0, 0, 1);
-  for (const [t, c] of stops) g.addColorStop(t, c);
-  ctx.fillStyle = g;
+  ctx.fillStyle = rad(ctx, fx, fy, inner, 0, 0, 1, stops);
   ctx.beginPath();
   ctx.arc(0, 0, 1, 0, Math.PI * 2);
   ctx.fill();
@@ -67,6 +95,10 @@ export const shadow = (ctx, x, y, rx, ry, a = 0.28) =>
 export const ball = (ctx, x, y, rx, ry, col, o = {}) => {
   const hi = o.hi ?? 0.55, lo = o.lo ?? 0.5;
   const fx = o.fx ?? SUN.x * 0.62, fy = o.fy ?? SUN.y * 0.62;
+  if (PIXEL) {
+    soft(ctx, x, y, rx, ry, [[0.1, lighten(col, hi * 0.8)], [0.5, col], [0.92, darken(col, lo * 0.8)]], fx, fy, 0);
+    return;
+  }
   soft(ctx, x, y, rx, ry, [
     [0, lighten(col, hi)],
     [0.32, lighten(col, hi * 0.35)],
@@ -98,13 +130,10 @@ export const roundRect = (ctx, x, y, w, h, r) => {
 // width, lit on the sun side. Walls, trunks, posts.
 export const cylinder = (ctx, x, top, w, h, col, o = {}) => {
   const r = o.r ?? Math.min(3, w / 2);
-  const g = ctx.createLinearGradient(x, 0, x + w, 0);
-  g.addColorStop(0, lighten(col, o.hi ?? 0.3));
-  g.addColorStop(0.28, lighten(col, (o.hi ?? 0.3) * 0.5));
-  g.addColorStop(0.62, col);
-  g.addColorStop(1, darken(col, o.lo ?? 0.5));
   roundRect(ctx, x, top, w, h, r);
-  ctx.fillStyle = g;
+  ctx.fillStyle = PIXEL
+    ? lin(ctx, x, 0, x + w, 0, [[0, lighten(col, o.hi ?? 0.3)], [0.5, col], [0.9, darken(col, (o.lo ?? 0.5) * 0.8)]])
+    : lin(ctx, x, 0, x + w, 0, [[0, lighten(col, o.hi ?? 0.3)], [0.28, lighten(col, (o.hi ?? 0.3) * 0.5)], [0.62, col], [1, darken(col, o.lo ?? 0.5)]]);
   ctx.fill();
 };
 
@@ -124,11 +153,7 @@ export const cone = (ctx, x, top, halfW, h, col, o = {}) => {
   }
   ctx.quadraticCurveTo(x - halfW * 0.6, top + h * 0.55, x, top);
   ctx.closePath();
-  const g = ctx.createLinearGradient(x - halfW, top, x + halfW, bottom);
-  g.addColorStop(0, lighten(col, o.hi ?? 0.42));
-  g.addColorStop(0.42, col);
-  g.addColorStop(1, darken(col, o.lo ?? 0.48));
-  ctx.fillStyle = g;
+  ctx.fillStyle = lin(ctx, x - halfW, top, x + halfW, bottom, [[0, lighten(col, o.hi ?? 0.42)], [0.42, col], [0.9, darken(col, o.lo ?? 0.48)]]);
   ctx.fill();
 };
 
@@ -141,10 +166,7 @@ export const blade = (ctx, bx, by, tx, ty, w, base, tip, bow = 0.5) => {
   ctx.quadraticCurveTo(cx - w * 0.5, cy, tx, ty);
   ctx.quadraticCurveTo(cx + w * 0.5, cy, bx + w, by);
   ctx.closePath();
-  const g = ctx.createLinearGradient(bx, by, tx, ty);
-  g.addColorStop(0, base);
-  g.addColorStop(1, tip);
-  ctx.fillStyle = g;
+  ctx.fillStyle = lin(ctx, bx, by, tx, ty, [[0, base], [0.7, tip]]);
   ctx.fill();
 };
 
@@ -260,4 +282,40 @@ export const masonry = (ctx, x, top, w, h, col, o = {}) => {
     ctx.fill();
   }
   ctx.restore();
+};
+
+// ---- sprites ---------------------------------------------------------
+// Bake a drawing into an offscreen canvas at art resolution and ink its
+// silhouette: every transparent pixel touching a painted one turns to ink.
+// `draw(ctx)` paints in world units with (0,0) at the sprite's top-left.
+export const inkOutline = (cv, ink = INK_LINE) => {
+  const c = cv.getContext("2d");
+  const w = cv.width, h = cv.height;
+  const img = c.getImageData(0, 0, w, h);
+  const d = img.data;
+  const solid = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 60 ? 1 : 0;
+  const [r, g, b] = rgb(ink);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (solid[i]) continue;
+      const near = (x > 0 && solid[i - 1]) || (x < w - 1 && solid[i + 1]) || (y > 0 && solid[i - w]) || (y < h - 1 && solid[i + w]);
+      if (near) { d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 235; }
+    }
+  }
+  c.putImageData(img, 0, 0);
+  return cv;
+};
+
+export const bakeSprite = (w, h, draw, outline = true) => {
+  const cv = document.createElement("canvas");
+  cv.width = Math.ceil(w * PX);
+  cv.height = Math.ceil(h * PX);
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.scale(PX, PX);
+  draw(c);
+  if (outline && PIXEL) inkOutline(cv);
+  return cv;
 };
