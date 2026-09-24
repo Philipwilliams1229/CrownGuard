@@ -12,3 +12,4 @@ dist
 
 # Local, per-machine Claude Code settings (not shared)
 .claude/settings.local.json
+.shots/

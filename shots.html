@@ -58,6 +58,40 @@
       window.crownShots = (list) => JSON.stringify(list.map(([name, realmId, marchers, extra]) =>
         ({ name, b64: window.crownShot(realmId, marchers, extra) })));
 
+      // snap(name, realm, marchers, extra, crop?) renders a frame and POSTs it to
+      // the dev server's /__shot sink (.shots/<name>.png). crop = [x, y, w, h,
+      // scale] in world units; scale enlarges nearest-neighbour for inspection.
+      window.snap = async (name, realmId, marchers = [], extra = {}, crop = null) => {
+        let b64 = window.crownShot(realmId, marchers, extra);
+        if (crop) {
+          const [x, y, w, h, sc = 2] = crop;
+          const img = new Image();
+          img.src = "data:image/png;base64," + b64;
+          await img.decode();
+          const k = img.width / W;
+          const cv = document.createElement("canvas");
+          cv.width = w * k * sc; cv.height = h * k * sc;
+          const cx = cv.getContext("2d");
+          cx.imageSmoothingEnabled = false;
+          cx.drawImage(img, x * k, y * k, w * k, h * k, 0, 0, cv.width, cv.height);
+          b64 = cv.toDataURL("image/png").slice(22);
+        }
+        await fetch("/__shot?name=" + encodeURIComponent(name), { method: "POST", body: b64 });
+        return name;
+      };
+
+      // Headless mode: /shots.html?job=<urlencoded JSON [[name, realm, marchers,
+      // extra, crop], ...]> snaps each one and then writes "DONE" into the page,
+      // which is what scripts/shot.mjs (headless Chrome) waits for.
+      const job = new URLSearchParams(location.search).get("job");
+      if (job) {
+        (async () => {
+          try { for (const j of JSON.parse(job)) await window.snap(...j); document.title = "DONE"; }
+          catch (e) { document.title = "FAIL " + e.message; console.error(e); }
+          document.getElementById("status").textContent = document.title;
+        })();
+      }
+
       document.getElementById("status").textContent += " ✓";
     </script>
   </body>
