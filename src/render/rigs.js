@@ -11,6 +11,8 @@
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, blobBall, lin, part, bakeSprite, PX, hash,
 } from "./paint.js";
+import { HORDE_RIGS, HORDE_PAINTERS } from "./rigs-horde.js";
+import { BEAST_RIGS, BEAST_PAINTERS } from "./rigs-beasts.js";
 
 // ---- shared bits -----------------------------------------------------------
 const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => {
@@ -311,7 +313,14 @@ export const RIGS = {
   eagle: { kind: "eagle", fly: true, box: { hw: 24, up: 36, down: 6 }, p: { len: 30, col: "#96764a", wing: "#7a5a34", rider: { h: 15, skin: "#e8b990", cloth: "#7a3c30", head: "hood", hair: "#5a2c24", weapon: "spear", wcol: "#c4c8d0" } } },
 };
 
-const PAINTERS = { biped, beast, bat, wraith, dragon, gryphon, ram, amalgam, skiff, eagle };
+// The Greenwood roster's bespoke bodies live in their own files and override
+// the generic entries above: rigs-horde.js (goblins, orcs, trolls and their
+// casters) and rigs-beasts.js (wolf, boar, bat, dragon).
+Object.assign(RIGS, HORDE_RIGS, BEAST_RIGS);
+const PAINTERS = { biped, beast, bat, wraith, dragon, gryphon, ram, amalgam, skiff, eagle, ...HORDE_PAINTERS, ...BEAST_PAINTERS };
+
+// the shared kit, for the roster files
+export { limb, lit, eye, gait, weapon, shieldOf, biped, beast, bat, dragon };
 
 // necromancer-raised foes wear grave-pale colours and witch-fire eyes
 const revive = (p) => {
@@ -338,7 +347,8 @@ export const rigFrame = (type, sheet, frame, variant = "") => {
   if (variant === "revived") p = revive(p);
   const pose = sheet === "fight" ? "fight" : "walk";
   const cv = bakeSprite(hw * 2, up + down, (c) => { c.translate(hw, up); PAINTERS[def.kind](c, { ...p, pose, frame }); });
-  if (variant === "white") { const c = cv.getContext("2d"); c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height); }
+  // the painter leaves its scale and anchor on the context; flood in pixels
+  if (variant === "white") { const c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height); }
   sp = { cv, ax: hw, ay: up };
   CACHE.set(key, sp);
   return sp;

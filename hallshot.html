@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  Dev tool: a STATIC contact sheet of one hall — all nine forms, each drawn at
+  rest and mid-shot — painted once at load (no rAF, so it works in a hidden
+  tab) and saved by the dev server to .shots/hall_<kind>[_<tag>].png.
+    /hallshot.html?kind=wizard&tag=v2&scale=2
+  scale = extra nearest-neighbour enlargement of the saved PNG (default 1;
+  the base is already 2 art px per world unit).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — hall shot</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import * as T from "/src/render/towers.js";
+      import { groundLayer } from "/src/render/world.js";
+      const q = new URLSearchParams(location.search);
+      const KIND = q.get("kind") || "archer", TAG = q.get("tag"), SC = Number(q.get("scale")) || 1;
+      selectRealm(q.get("realm") || "greenwood");
+      const P = {
+        archer: T.drawArcherTower, knight: T.drawGarrison, wizard: T.drawWizardSpire, support: T.drawSupportTower,
+        catapult: T.drawCatapult, spiker: T.drawBladewheel, goldworks: T.drawGoldworks, trapsmith: T.drawTrapsmith,
+        falconry: T.drawFalconry, gunpowder: T.drawGunpowder, riverwatch: T.drawRiverwatchHall, assassin: T.drawAssassin, sunforge: T.drawSunforge,
+      };
+      const forms = [
+        { level: 1 }, { level: 2 }, { level: 3 },
+        { level: 3, branch: "a" }, { level: 3, branch: "a", rank4: "a" }, { level: 3, branch: "a", rank4: "b" },
+        { level: 3, branch: "b" }, { level: 3, branch: "b", rank4: "a" }, { level: 3, branch: "b", rank4: "b" },
+      ];
+      const CW = 110, CH = 130, R = 2;
+      const cv = document.createElement("canvas");
+      cv.width = CW * R * forms.length; cv.height = CH * R * 2;
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      const ground = groundLayer();
+      forms.forEach((f, i) => [0, 1].forEach((firing) => {
+        ctx.save();
+        ctx.setTransform(R, 0, 0, R, i * CW * R, firing * CH * R);
+        ctx.drawImage(ground, 120 * 2, 200 * 2, CW * 2, CH * 2, 0, 0, CW, CH);
+        const time = 3.2 + i * 0.37;
+        const t = {
+          id: i + 3, kind: KIND, x: CW / 2, y: CH * 0.72, level: f.level, branch: f.branch || null, rank4: f.rank4 || null,
+          cd: 0, aim: "first", lastAim: 0.6 + i, anim: firing ? 0.9 : 0, shotIdx: 0, critIdx: 0, invested: 0, units: [],
+          rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: !firing,
+          charges: 3, ramp: 2, mAnim: firing ? 0.9 : 0, eagle: null,
+        };
+        try { P[KIND](ctx, t, time); } catch (e) { console.error(e); ctx.fillStyle = "red"; ctx.fillText(String(e.message).slice(0, 30), 4, 12); }
+        ctx.restore();
+      }));
+      let out = cv;
+      if (SC !== 1) {
+        out = document.createElement("canvas"); out.width = cv.width * SC; out.height = cv.height * SC;
+        const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.drawImage(cv, 0, 0, out.width, out.height);
+      }
+      const name = `hall_${KIND}${TAG ? "_" + TAG : ""}`;
+      fetch("/__shot?name=" + name, { method: "POST", body: out.toDataURL("image/png").slice(22) })
+        .then(() => { document.title = "DONE"; document.getElementById("status").textContent = "saved .shots/" + name + ".png"; });
+      document.body.appendChild(cv);
+    </script>
+  </body>
+</html>

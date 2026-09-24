@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  Dev tool: a STATIC contact sheet of creature rigs — for each type one row:
+  walk 0-3, fight 0-1, then the revived and hit-flash variants — painted once
+  at load (no rAF, works in a hidden tab) and saved to .shots/rig_<tag>.png.
+    /rigshot.html?types=goblin,orc,wolf&tag=v1&scale=3
+  scale enlarges nearest-neighbour (default 3). Cells are sized per type.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — rig shot</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { RIGS, rigFrame } from "/src/render/rigs.js";
+      import { PX } from "/src/render/paint.js";
+      const q = new URLSearchParams(location.search);
+      const types = (q.get("types") || "goblin").split(",");
+      const TAG = q.get("tag") || types.join("-"), SC = Number(q.get("scale")) || 3;
+      const cells = [["walk", 0], ["walk", 1], ["walk", 2], ["walk", 3], ["fight", 0], ["fight", 1], ["walk", 0, "revived"], ["fight", 1, "white"]];
+      const rows = types.map((t) => {
+        const f = rigFrame(t, "walk", 0);
+        return { t, w: f.cv.width + 8, h: f.cv.height + 8 };
+      });
+      const cw = Math.max(...rows.map((r) => r.w));
+      const H = rows.reduce((a, r) => a + r.h, 0);
+      const cv = document.createElement("canvas");
+      cv.width = cw * cells.length * SC; cv.height = H * SC;
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      let y = 0;
+      for (const r of rows) {
+        cells.forEach(([sheet, fr, variant], i) => {
+          ctx.fillStyle = i % 2 ? "#86b35a" : "#7eab54";
+          ctx.fillRect(i * cw * SC, y * SC, cw * SC, r.h * SC);
+          try {
+            const sp = rigFrame(r.t, sheet, fr, variant || "");
+            ctx.drawImage(sp.cv, (i * cw + (cw - sp.cv.width) / 2) * SC, (y + 4) * SC, sp.cv.width * SC, sp.cv.height * SC);
+          } catch (e) { console.error(e); ctx.fillStyle = "red"; ctx.fillText(r.t + " " + e.message, i * cw * SC + 2, y * SC + 12); }
+        });
+        ctx.fillStyle = "#fff"; ctx.font = "12px monospace"; ctx.fillText(r.t, 3, y * SC + 12);
+        y += r.h;
+      }
+      fetch("/__shot?name=rig_" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) })
+        .then(() => { document.title = "DONE"; document.getElementById("status").textContent = "saved .shots/rig_" + TAG + ".png"; });
+      document.body.appendChild(cv);
+    </script>
+  </body>
+</html>
