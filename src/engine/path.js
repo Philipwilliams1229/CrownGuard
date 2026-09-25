@@ -58,22 +58,38 @@ export function buildPath(rawGrid) {
   }
 }
 
+// the segment holding `dist` (binary search: every foe asks several times a tick)
+function segAt(dist) {
+  let lo = 0, hi = SEGS.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (dist <= SEGS[mid].start + SEGS[mid].len) hi = mid; else lo = mid + 1;
+  }
+  return SEGS[lo];
+}
+
 export function posAt(dist) {
   if (dist <= 0) { const s = SEGS[0]; return [s.x1, s.y1]; }
-  for (const s of SEGS) {
-    if (dist <= s.start + s.len) {
-      const t = (dist - s.start) / s.len;
-      return [s.x1 + (s.x2 - s.x1) * t, s.y1 + (s.y2 - s.y1) * t];
-    }
-  }
-  const l = SEGS[SEGS.length - 1];
-  return [l.x2, l.y2];
+  if (dist >= TOTAL_LEN) { const l = SEGS[SEGS.length - 1]; return [l.x2, l.y2]; }
+  const s = segAt(dist);
+  const t = (dist - s.start) / s.len;
+  return [s.x1 + (s.x2 - s.x1) * t, s.y1 + (s.y2 - s.y1) * t];
 }
 
 export function angleAt(dist) {
-  for (const s of SEGS) if (dist <= s.start + s.len) return Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
-  const l = SEGS[SEGS.length - 1];
-  return Math.atan2(l.y2 - l.y1, l.x2 - l.x1);
+  const s = dist >= TOTAL_LEN ? SEGS[SEGS.length - 1] : segAt(Math.max(0, dist));
+  return Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
+}
+
+// Where a foe in lane `lane` stands at road distance `dist`, and the road's
+// smoothed heading there — the tangent across a short stretch, so a lane
+// offset doesn't jitter through a corner's short segments.
+export function lanePos(dist, lane) {
+  const [px, py] = posAt(dist);
+  const [ax, ay] = posAt(Math.max(0, dist - 6));
+  const [bx, by] = posAt(Math.min(TOTAL_LEN, dist + 6));
+  const a = Math.hypot(bx - ax, by - ay) > 0.01 ? Math.atan2(by - ay, bx - ax) : angleAt(dist);
+  return [px + Math.cos(a + Math.PI / 2) * lane, py + Math.sin(a + Math.PI / 2) * lane, a];
 }
 
 export function nearestOnPath(x, y) {

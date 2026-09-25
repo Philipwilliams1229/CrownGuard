@@ -10,7 +10,7 @@ import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, waveXp } from "../data/b
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
-import { PTS, posAt, angleAt, TOTAL_LEN, nearestOnPath } from "./path.js";
+import { PTS, posAt, angleAt, lanePos, TOTAL_LEN, nearestOnPath } from "./path.js";
 import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
@@ -748,18 +748,22 @@ export function updateGame(g, dt) {
       }
       if (!stunned && !held) {
         const slow = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
-        e.dist += e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
+        const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
+        // every foe walks its OWN lane at its own speed: round a bend the
+        // inside lane is shorter, so a foe on it gains road on its neighbours
+        // and the outside lane loses some — the column staggers itself.
+        // (Stepping the centre line instead made inside lanes crawl.)
+        // `stretch` is how much lane ground one unit of road holds here.
+        let stretch = 1;
+        if (e.lane) {
+          const [x0, y0] = lanePos(e.dist, e.lane);
+          const [x1, y1] = lanePos(Math.min(TOTAL_LEN, e.dist + 4), e.lane);
+          if (e.dist + 4 <= TOTAL_LEN) stretch = Math.max(0.4, Math.min(2.5, Math.hypot(x1 - x0, y1 - y0) / 4));
+        }
+        e.dist += step / stretch;
       }
-      const [px, py] = posAt(e.dist);
-      // a smoothed heading — the tangent across a short stretch of road — so a
-      // lane offset doesn't jitter through a corner's short segments
-      const [ax, ay] = posAt(Math.max(0, e.dist - 6));
-      const [bx, by] = posAt(Math.min(TOTAL_LEN, e.dist + 6));
-      const a = Math.hypot(bx - ax, by - ay) > 0.01 ? Math.atan2(by - ay, bx - ax) : angleAt(e.dist);
-      const nx = px + Math.cos(a + Math.PI / 2) * e.lane;
-      const ny = py + Math.sin(a + Math.PI / 2) * e.lane;
-      // the walk cycle follows the ground actually covered: inside lanes step
-      // slower round a corner, outside lanes quicker, and no foot ever slides
+      const [nx, ny, a] = lanePos(e.dist, e.lane);
+      // the walk cycle follows the ground actually covered, so no foot slides
       if (e.px != null) e.gait = (e.gait || 0) + Math.hypot(nx - e.px, ny - e.py) / 14;
       e.px = nx; e.py = ny;
       e.x = nx; e.y = ny;

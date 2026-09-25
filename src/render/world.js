@@ -1,16 +1,16 @@
 // ============ RENDER: THE GROUND ============
-// The static world — turf, its thousand small details, and the road with its
-// three lanes — painted ONCE per realm into a high-resolution layer, then
+// The static world — turf, its thousand small details, and the road —
+// painted ONCE per realm into a high-resolution layer, then
 // blitted every frame. Nothing here moves, so nothing here costs a frame.
 //
 // The detail is the point: zoomed in, the meadow is blades of grass, clover
-// and daisies, and the road is packed earth with pebbles and worn tracks.
+// and daisies, and the road is packed earth with pebbles and damp patches.
 
-import { W, H, PATH_HALF, LANE_OFF, RES, mulberry32 } from "../data/constants.js";
+import { W, H, PATH_HALF, RES, mulberry32 } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { PTS, nearestOnPath } from "../engine/path.js";
 import { TUFTS, FLOWERS, SPECKS, PEBBLES, PONDS, CHEVRONS, DECOR, inRiver, FOREST, forestDepthAt } from "../data/terrain.js";
-import { lighten, darken, mix, rgba, soft, shadow, tuft, flower, stone, clover, blade, strokePts, offsetPts, hash, ball, blobBall, lin, rad, bakeSprite, part, PX } from "./paint.js";
+import { lighten, darken, mix, rgba, soft, shadow, tuft, flower, stone, clover, blade, strokePts, hash, ball, blobBall, lin, rad, bakeSprite, part, PX } from "./paint.js";
 
 let layer = null;
 let layerKey = "";
@@ -251,15 +251,8 @@ function paintRoad(ctx) {
   // the body, with a paler crown down the middle
   strokePts(ctx, PTS, wide - 2, main);
   strokePts(ctx, PTS, wide - 16, rgba(lt, 0.18));
-  // three lanes: the packed, paler tracks where feet and wheels go, and the
-  // faint ridges of loose dirt between them
-  for (const off of [-LANE_OFF, 0, LANE_OFF]) {
-    strokePts(ctx, offsetPts(PTS, off), 12, rgba(lighten(main, 0.28), 0.2));
-    strokePts(ctx, offsetPts(PTS, off), 5, rgba(lighten(main, 0.4), 0.14));
-  }
-  for (const off of [-LANE_OFF / 2, LANE_OFF / 2]) {
-    strokePts(ctx, offsetPts(PTS, off), 3, rgba(dk, 0.13));
-  }
+  // (the three marching lanes are NOT painted: the owner wants one open
+  // road, and the foes' own spacing shows the lanes well enough)
   // mottling: damp patches and dust
   for (let i = 0; i < 90; i++) {
     const d = rng() * 1;
