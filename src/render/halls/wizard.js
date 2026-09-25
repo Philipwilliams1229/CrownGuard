@@ -45,6 +45,8 @@ const ORB = { base: "#b08ad8", a: "#f0903a", aa: "#ff7a2a", ab: "#f8b040", b: "#
 const TRIM = { base: "#d8b34a", a: "#e8a040", aa: "#e8703a", ab: "#f0c060", b: "#8cc8e0", ba: "#a8e0f0", bb: "#e8c14a" };
 const CLOTH = { base: "#5a4a8c", a: "#a0402e", aa: "#6a1e18", ab: "#c0582a", b: "#2e5a8a", ba: "#24507a", bb: "#4a3a80" };
 const LAVA = "#ff8a2a";
+// things that stand on the ground before the footing (see paintBody)
+const RUNE_DX = 10.5, PILLAR_DX = 10.5, PILLAR_FOOT = 4.5, PILLAR_H = 12;
 
 const spireH = (t) => 18 + t.level * 6 + (t.branch ? 4 : 0);
 const shaftW = (t) => (t.rank4 ? 24 : t.branch ? 22 : 16 + t.level * 2);
@@ -194,23 +196,32 @@ const paintBody = (ctx, t, x, y) => {
   if (r4 === "ab") {
     // flame tongues licking up the shaft's foot
     for (let i = 0; i < 5; i++) part(ctx, (c) => {
-      const fx = x - hw + 2 + i * (sw - 4) / 4, fh = 4 + hash(seed, i) * 4;
+      const fx = x - hw + 4 + i * (sw - 8) / 4, fh = 4 + hash(seed, i) * 4;
       c.fillStyle = i % 2 ? "#e8703a" : "#f0a040";
       c.beginPath(); c.moveTo(fx - 1.6, base - 5); c.quadraticCurveTo(fx - 1, base - 5 - fh * 0.6, fx + 0.5, base - 5 - fh); c.quadraticCurveTo(fx + 1.4, base - 5 - fh * 0.5, fx + 1.6, base - 5); c.closePath(); c.fill();
     }, { ink: "under" });
   }
 
   // ---- the foot
+  // (everything below stands on the open ground in FRONT of the footing,
+  // its foot clearly below the footing's front edge, with its own shadow)
   if (el === "storm") {
-    // rune-stones set round the foot; they hum live
-    for (const s of [-1, 1]) rock(ctx, x + s * (hw + 2.5), base - 1, 2, 3, "#8a90a0", seed + s);
+    // rune-stones set before the foot's corners; they hum live
+    for (const s of [-1, 1]) {
+      shadow(ctx, x + s * RUNE_DX + 0.5, base + 4.8, 2.6, 0.9, 0.4);
+      rock(ctx, x + s * RUNE_DX, base + 2.4, 1.8, 2.6, "#8a90a0", seed + s);
+    }
   }
   if (r4 === "ab") {
-    // a ring of fire-pillars round the foot (their fire is live)
-    for (const [px, py] of [[x - hw - 3.5, base - 3], [x + hw + 3.5, base - 3]]) part(ctx, (c) => { cylinder(c, px - 1.7, py - 9, 3.4, 9, "#7a5a4a", { r: 1, hi: 0.35, lo: 0.5 }); c.fillStyle = "#3a2420"; c.fillRect(px - 2, py - 10, 4, 1.4); });
+    // fire-pillars flanking the door (their fire is live)
+    for (const s of [-1, 1]) {
+      const px = x + s * PILLAR_DX, py = base + PILLAR_FOOT;
+      shadow(ctx, px + 0.6, py, 2.8, 0.9, 0.45);
+      part(ctx, (c) => { cylinder(c, px - 1.7, py - PILLAR_H, 3.4, PILLAR_H, "#7a5a4a", { r: 1, hi: 0.35, lo: 0.5 }); c.fillStyle = "#3a2420"; c.fillRect(px - 2, py - PILLAR_H - 1, 4, 1.4); });
+    }
   }
-  if (r4 === "aa") for (const [rx, ry] of [[-9, 4], [13, 2], [-13, 1]]) rock(ctx, x + rx, base + ry, 2, 1.3, "#3a3038", seed + rx);
-  if (!br) posy(ctx, x - hw - 3, base + 1.5, "#b08ad8", seed);
+  if (r4 === "aa") for (const [rx, ry] of [[-10, 4.5], [11, 4], [-5.5, 7.2]]) rock(ctx, x + rx, base + ry, 2, 1.3, "#3a3038", seed + rx);
+  if (!br) posy(ctx, x - hw, base + 4, "#b08ad8", seed);
 };
 
 // The low gilt balustrade along the front of the walk.
@@ -256,11 +267,11 @@ export const drawWizardSpire = (ctx, t, time) => {
   // the lava pool at the Volcanic Throne's foot breathes under its crust
   if (r4 === "aa") {
     const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + t.id);
-    // (it wells up in front of the door, well inside the hall's footing)
-    glow(ctx, x + 4, base + 2, 8, LAVA, 0.25 + pulse * 0.15);
-    soft(ctx, x + 4, base + 2.5, 6, 2.4, [[0, "#ffe08a"], [0.4, LAVA], [0.85, "#b8321e"], [1, "#6a1e18"]]);
+    // (it wells up on the ground before the door, clear of the footing)
+    glow(ctx, x + 3, base + 4.5, 8, LAVA, 0.25 + pulse * 0.15);
+    soft(ctx, x + 3, base + 5, 6, 2.2, [[0, "#ffe08a"], [0.4, LAVA], [0.85, "#b8321e"], [1, "#6a1e18"]]);
     ctx.fillStyle = "#2a2024";
-    ctx.fillRect(x + 0.5, base + 1.5, 2.5, 1); ctx.fillRect(x + 5, base + 3.5, 3, 1); ctx.fillRect(x + 7.5, base + 1.5, 1.5, 1);
+    ctx.fillRect(x - 0.5, base + 4, 2.5, 1); ctx.fillRect(x + 4, base + 6, 3, 1); ctx.fillRect(x + 6.5, base + 4, 1.5, 1);
   }
 
   // ---- lights in the stone
@@ -271,14 +282,14 @@ export const drawWizardSpire = (ctx, t, time) => {
   if (r4 === "aa") glow(ctx, x, top + bodyH * 0.55, hw + 2, LAVA, 0.12 + 0.1 * Math.sin(time * 2.4 + t.id));
   if (el === "storm") for (const s of [-1, 1]) {
     const on = 0.4 + 0.5 * Math.max(0, Math.sin(time * 3 + s * 1.3 + t.id));
-    glow(ctx, x + s * (hw + 2.5), base - 2, 3, "#8ce8f0", on);
-    ctx.fillStyle = rgba("#e8fcff", on); ctx.fillRect(x + s * (hw + 2.5) - 0.5, base - 3.5, 1, 2.5);
+    glow(ctx, x + s * RUNE_DX, base + 2, 3, "#8ce8f0", on);
+    ctx.fillStyle = rgba("#e8fcff", on); ctx.fillRect(x + s * RUNE_DX - 0.5, base + 0.8, 1, 2.5);
   }
   // ---- fire at the corners and round the foot
   if (el === "fire" && grown) for (const s of [-1, 1]) flame(ctx, x + s * (pw - 2), top - 19.5, r4 ? 0.9 : 0.7, time, t.id + s * 3);
   if (r4 === "ab") {
-    flame(ctx, x - hw - 3.5, base - 12.5, 0.75, time, t.id + 7);
-    flame(ctx, x + hw + 3.5, base - 12.5, 0.75, time, t.id + 11);
+    flame(ctx, x - PILLAR_DX, base + PILLAR_FOOT - PILLAR_H - 0.5, 0.75, time, t.id + 7);
+    flame(ctx, x + PILLAR_DX, base + PILLAR_FOOT - PILLAR_H - 0.5, 0.75, time, t.id + 11);
   }
 
   // ---- the mage: idle between waves, gathering power as the cooldown
@@ -367,7 +378,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   // smoke off the Volcanic Throne; embers up the Wildfire Court
   if (r4 === "aa") for (let i = 0; i < 3; i++) {
     const t2 = (time * 7 + i * 7 + t.id * 2) % 21;
-    soft(ctx, x + 4 + Math.sin(time + i) * 2 + t2 * 0.2, base + 1 - t2 * 1.4, 2 + t2 / 6, 2 + t2 / 6, [[0, `rgba(70,60,64,${Math.max(0, 0.45 - t2 * 0.02)})`], [1, "rgba(70,60,64,0)"]]);
+    soft(ctx, x + 3 + Math.sin(time + i) * 2 + t2 * 0.2, base + 3.5 - t2 * 1.4, 2 + t2 / 6, 2 + t2 / 6, [[0, `rgba(70,60,64,${Math.max(0, 0.45 - t2 * 0.02)})`], [1, "rgba(70,60,64,0)"]]);
   }
   if (r4 === "ab" || r4 === "aa") for (let i = 0; i < 4; i++) {
     const ey = base - ((time * 24 + i * 13 + t.id * 7) % (bodyH + 30));

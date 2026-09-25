@@ -35,21 +35,28 @@ const spec = (t) => {
 // ---- the ground and dais ---------------------------------------------------------
 const paintGround = (ctx, t, x, y) => {
   const s = spec(t);
-  padB(ctx, x, y, t.id, { hw: 13, stones: 5 });
+  padB(ctx, x, y, t.id, { hw: 13, stones: 0 });   // no loose flagstones: the dais covers the pad, and they only peeked out half-buried
   if (s.moon) { ctx.save(); ctx.beginPath(); ctx.ellipse(x, y + 3, 17.5, 12.5, 0, 0, Math.PI * 2); ctx.clip(); soft(ctx, x, y + 3, 16, 8, [[0, "rgba(150,180,230,0.22)"], [1, "rgba(150,180,230,0)"]]); ctx.restore(); }
   skirtB(ctx, x, y, t.id, 3);
 };
 
 // One curved horn from the dais up round the shard. `sgn` its side, `back`
 // the darker pair behind.
-const horn = (ctx, x, y, sgn, top, col, o = {}) => part(ctx, (c) => {
-  const bx = x + sgn * (o.base ?? 10), tx = x + sgn * (o.tip ?? 6.5);
-  const w = o.w ?? 3.4;
+// Each horn is seated in a socket on the dais (a dark print round its round
+// foot) instead of ending in a flat cut across the stone.
+const horn = (ctx, x, y, sgn, top, col, o = {}) => {
+  const bx = x + sgn * (o.base ?? 10.6), w = o.w ?? 3.4;
+  foot(ctx, bx, y + 1.4, w + 0.9, 0.5);
+  hornBody(ctx, x, y, sgn, top, col, o, bx, w);
+};
+const hornBody = (ctx, x, y, sgn, top, col, o, bx, w) => part(ctx, (c) => {
+  const tx = x + sgn * (o.tip ?? 6.5);
   c.beginPath();
   c.moveTo(bx - w, y + 1);
   c.quadraticCurveTo(x + sgn * 14.5 - w * 0.5, y - SY, tx - 0.8, top);
   c.lineTo(tx + 0.8, top - 0.5);
   c.quadraticCurveTo(x + sgn * 14.5 + w * 0.5, y - SY, bx + w, y + 1);
+  c.quadraticCurveTo(bx, y + 2.1, bx - w, y + 1);   // the round foot
   c.closePath();
   c.fillStyle = lin(c, x + sgn * 8, 0, x + sgn * 15, 0, sgn < 0 ? [[0, darken(col, 0.3)], [0.5, col], [1, lighten(col, 0.35)]] : [[0, lighten(col, 0.15)], [0.5, col], [1, darken(col, 0.4)]]);
   c.fill();
@@ -100,7 +107,7 @@ const paintAltar = (ctx, t, x, y) => {
   part(ctx, (c) => ball(c, x, y + 2.5, 15, 6.5, OBS, { hi: 0.35, lo: 0.5 }));
   part(ctx, (c) => ball(c, x, y + 1, 12, 4.6, lighten(OBS, 0.1), { hi: 0.35, lo: 0.45 }));
   part(ctx, (c) => {
-    c.strokeStyle = chan; c.lineWidth = 1.2; c.beginPath(); c.ellipse(x, y + 1, 8.5, 2.8, 0, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = chan; c.lineWidth = 1.2; c.beginPath(); c.ellipse(x, y + 1, 6.8, 2.3, 0, 0, Math.PI * 2); c.stroke();   // inside the horns' feet
     if (lvl >= 3) { c.fillStyle = lighten(chan, 0.4); for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2 + 0.2; c.fillRect(x + Math.cos(a) * 11 - 0.5, y + 1 + Math.sin(a) * 3.8 - 0.4, 1, 0.8); } }
   });
   // far horns (from three)
@@ -111,20 +118,24 @@ const paintAltar = (ctx, t, x, y) => {
     part(ctx, (c) => ball(c, x, y - 4, 5, 1.8, lighten(OBS, 0.2), { hi: 0.3, lo: 0.3 }));
     part(ctx, (c) => { c.fillStyle = chan; c.fillRect(x - 0.6, y - 3.6, 1.2, 4); });
   }
-  // the Moon Prism: crystal clusters on the dais
-  if (s.moon) for (const [dx, dy, w, h, l] of [[-11, 3, 2.6, 5, -0.6], [-8.5, 5, 2, 3.5, 0.3], [9.5, 4.5, 2.4, 4.5, 0.5], [12, 2.5, 1.8, 3, 0]]) crystal(ctx, x + dx, y + dy, w, h, r4 === "ba" ? "#8a80c0" : CRYSTAL, l);
   // the near horns: obsidian, gilded, or grown into crystal pillars
   const bands = s.sun ? [0.2, 0.55, 0.85] : lvl >= 3 ? [0.3, 0.75] : null;
   if (s.moon) for (const sg of [-1, 1]) {
     horn(ctx, x, y, sg, top, hornCol, { bands: [0.15], bandCol: SILVER });
     crystal(ctx, x + sg * 7.5, y - s.ph + 8, 3, 6, CRYSTAL, -sg * 0.8);
   } else for (const sg of [-1, 1]) horn(ctx, x, y, sg, top, hornCol, { bands, facet: s.sun });
+  // the Moon Prism: crystal clusters on the dais rim — in front of the horns'
+  // feet, so drawn after them (each seated on its own dark print)
+  if (s.moon) for (const [dx, dy, w, h, l] of [[-12, 3, 2.6, 5, -0.6], [-8.5, 5.4, 2, 3.5, 0.3], [9, 5, 2.4, 4.5, 0.5], [12.5, 3, 1.8, 3, 0]]) {
+    foot(ctx, x + dx, y + dy, w * 0.7, 0.45);
+    crystal(ctx, x + dx, y + dy, w, h, r4 === "ba" ? "#8a80c0" : CRYSTAL, l);
+  }
   if (s.sun) for (const sg of [-1, 1]) part(ctx, (c) => ball(c, x + sg * 6.5, top - 1.2, 1.5, 1.8, GOLD, { hi: 0.6, lo: 0.3 }));
   // the Solar Lance's mirrors: gold dishes on posts, turned in to the shard
   if (s.sun && r4 !== "ab") for (const sg of [-1, 1]) {
-    const mx = x + sg * 15;
-    foot(ctx, mx, y + 6.5, 2.4);
-    part(ctx, (c) => cylinder(c, mx - 0.8, y - 7, 1.6, 13.5, "#5a4a3a", { r: 0.7 }));
+    const mx = x + sg * 16;   // just off the dais, on the grass, not through its rim
+    foot(ctx, mx, y + 5.5, 1.8);
+    part(ctx, (c) => cylinder(c, mx - 0.8, y - 7, 1.6, 12.5, "#7a6446", { r: 0.7 }));   // lighter than the horns, so the post reads against them
     part(ctx, (c) => {
       c.save(); c.translate(mx, y - 10); c.rotate(-sg * 0.5);
       ball(c, 0, 0, 2, 4.2, "#8a6a2a", { hi: 0.3, lo: 0.4 });

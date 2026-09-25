@@ -28,6 +28,10 @@ export const resetCatapultBakes = () => cache.clear();
 const BOX = { left: 44, right: 44, up: 78, down: 18 };
 const WOOD = "#7a5634", ARM = "#9a6c40", WOOD_DK = "#4e3520", CHAR = "#4a3a34", GRANITE = "#8a8a94";
 const D2R = Math.PI / 180;
+// the winch drum's height above the hall's y (the engineer's hands are here)
+const WINCH_DY = 7;
+// the engineer's feet: on the open ground in front of the near wheel
+const CREW_DY = 7;
 
 // The numbers of one form's engine: where the arm pivots, how long it is,
 // and the angles it rests, cocks and stops at (degrees from straight up,
@@ -134,8 +138,10 @@ const paintBack = (ctx, t, x, y, f) => {
     });
   }
   // the winch at the back of the bed
-  const wx = x - f * (hw - 3), wy = y - 10;
-  part(ctx, (c) => { for (const sgn of [-1, 1]) cylinder(c, wx + sgn * 2.6 - 0.8, wy - 1, 1.6, 6, WOOD_DK, { r: 0.6 }); });
+  // (it sits on the bed's top face at the engineer's hand height; its posts
+  // stop on the planks rather than cutting down the bed's side)
+  const wx = x - f * (hw - 3), wy = y - WINCH_DY;
+  part(ctx, (c) => { for (const sgn of [-1, 1]) cylinder(c, wx + sgn * 2.6 - 0.8, wy - 1, 1.6, 3.4, WOOD_DK, { r: 0.6 }); });
   part(ctx, (c) => {
     cylinder(c, wx - 2.4, wy - 2.2, 4.8, 4.4, WOOD_DK, { r: 1.8, hi: 0.35, lo: 0.45 });
     c.fillStyle = ROPE; c.fillRect(wx - 2.2, wy - 1.2, 4.4, 0.8); c.fillRect(wx - 2.2, wy + 0.4, 4.4, 0.8);
@@ -165,12 +171,15 @@ const paintFront = (ctx, t, x, y, f) => {
     else wheel(ctx, wx, wy, lvl >= 3 ? 5.4 : 5, WOOD, { spokes: lvl >= 3 ? 8 : 6, rot: sgn * 0.4 });
   }
   if (r4 === "aa") {
-    // granite footings chocked under the wheels
-    for (const sgn of [-1, 1]) boulder(ctx, x + sgn * (hw + 1), y + 5, 2.2, GRANITE, sgn);
+    // granite chocks on the ground, against the wheels' outer rims
+    for (const sgn of [-1, 1]) { foot(ctx, x + sgn * (hw + 2.5) + 0.3, y + 6.9, 2.4); boulder(ctx, x + sgn * (hw + 2.5), y + 5.5, 1.8, GRANITE, sgn); }
   }
   if (r4 === "ab") {
-    // pitch pots ready by the wheel
-    for (const [dx, dy] of [[0, 0], [3.4, 1]]) part(ctx, (c) => { ball(c, x + f * (hw - 1 + dx), y + 6 + dy, 2.2, 1.8, "#5a4a44", { hi: 0.35, lo: 0.45 }); ball(c, x + f * (hw - 1 + dx), y + 4.8 + dy, 1.4, 0.6, PITCH, { hi: 0.1, lo: 0.1 }); });
+    // pitch pots ready on the ground before the bed, clear of the wheel
+    for (const [dx, dy] of [[0, 0], [3.6, 0.8]]) {
+      foot(ctx, x + f * (2.6 + dx) + 0.3, y + 11.2 + dy, 2.4);
+      part(ctx, (c) => { ball(c, x + f * (2.6 + dx), y + 9.6 + dy, 2.2, 1.8, "#5a4a44", { hi: 0.35, lo: 0.45 }); ball(c, x + f * (2.6 + dx), y + 8.4 + dy, 1.4, 0.6, PITCH, { hi: 0.1, lo: 0.1 }); });
+    }
   }
 };
 
@@ -381,7 +390,7 @@ export const drawCatapult = (ctx, t, time) => {
     ctx.fillStyle = "#4e3520";
     if (!out) { ctx.fillRect(cx - 1.4, cy - 3, 2.8, 3.6); ctx.fillStyle = "#6a4a2e"; ctx.fillRect(cx - 1.4, cy - 3, 1, 3.6); }
     else { ctx.fillRect(cx - 2, cy + 0.5, 3.6, 1.8); }
-    const hx = x - f * (hw - 4.5), hy = y - 10 + (out ? -3 : 0);
+    const hx = x - f * (hw - 4.5), hy = y + CREW_DY - 13 + (out ? -3 : 0);
     ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(cx - f * 1, cy + 1); ctx.lineTo(hx, hy); ctx.stroke();
     ctx.strokeStyle = "#8a6238"; ctx.lineWidth = 0.9;
@@ -417,12 +426,15 @@ export const drawCatapult = (ctx, t, time) => {
         if (r4 === "ab") comet(ctx, sx, sy - 1.8, time);
       }
       // the winch rope to the arm while it cocks
-      if (anim === 0) rope(ctx, x - f * (hw - 3), y - 10 + jolt, px + ux * s.L * 0.55, py + uy * s.L * 0.55, 0.5, ROPE, 0.7);
+      if (anim === 0) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * 0.55, py + uy * s.L * 0.55, 0.5, ROPE, 0.7);
     } else {
       if (loaded && bake) stamp(ctx, cache.get(`shot|${s.key}`, 10, 10, (c) => boulder(c, 5, 5, 2.5, "#8e8c94", 1)), tx - uy * f * 0.5, ty - 2.2, 5, 5);
-      if (anim === 0 && r < 0.95) rope(ctx, x - f * (hw - 3), y - 10 + jolt, tx, ty, 0.3, ROPE, 0.7);
+      if (anim === 0 && r < 0.95) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, tx, ty, 0.3, ROPE, 0.7);
     }
     layer("f", paintFront);
+    // (the trebuchet's standard goes up before its counterweight, so the
+    // weight swings in front of the pole instead of the pole cutting it)
+    if (s.treb) pennant(ctx, x + f * (hw - 1), y - 36, 28, r4 === "aa" ? "#8a8a94" : r4 === "ab" ? "#d0602a" : "#6a86b0", time, t.id, f);
     // the counterweight hangs plumb from the short end, out in front
     if (s.treb) {
       const wx = px - ux * s.butt, wy = py - uy * s.butt;
@@ -432,14 +444,14 @@ export const drawCatapult = (ctx, t, time) => {
     if (!s.treb && anim === 0 && r >= 0.95 && !t._idle) {
       // cocked and trembling: the rope is taut to the trigger
       ctx.strokeStyle = "rgba(240,224,180,0.95)"; ctx.lineWidth = 0.7;
-      ctx.beginPath(); ctx.moveTo(x - f * (hw - 3), y - 10); ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - f * (hw - 3), y - WINCH_DY); ctx.lineTo(tx, ty); ctx.stroke();
     }
     // a thump of dust at the wheels as it looses
     if (anim > 0.5) for (const sgn of [-1, 1]) soft(ctx, x + sgn * (hw - 1), y + 5, 6 * anim, 2.4, [[0, `rgba(190,170,130,${0.5 * anim})`], [1, "rgba(190,170,130,0)"]]);
   }
   // the standard, at the front of the bed
   const pc = s.treb ? (r4 === "aa" ? "#8a8a94" : r4 === "ab" ? "#d0602a" : "#6a86b0") : s.roller ? (r4 === "ba" ? "#5c626e" : r4 === "bb" ? "#c05848" : "#a0603a") : "#a04a3f";
-  if (t.level >= 2 || t.branch) pennant(ctx, x + f * (hw - 1), y - (s.treb ? 36 : 26), s.treb ? 28 : 18, pc, time, t.id, f);
+  if ((t.level >= 2 || t.branch) && !s.treb) pennant(ctx, x + f * (hw - 1), y - (s.treb ? 36 : 26), s.treb ? 28 : 18, pc, time, t.id, f);
   // Comet Sling: the cauldron smokes and glows under
   if (r4 === "ab") {
     const cx = x - f * (hw - 2);
@@ -450,11 +462,11 @@ export const drawCatapult = (ctx, t, time) => {
   const cranking = !t._idle && anim === 0 && r < 0.8;
   const work = cranking ? Math.round((Math.sin(time * 9 + t.id) + 1) * 1.5)
     : t._idle ? Math.round((Math.sin(time * 1.2 + t.id) + 1) * 0.5) : 2;
-  const ex = x - f * (hw + 1), ey = y + 3;
+  const ex = x - f * (hw + 1), ey = y + CREW_DY;
   if (bake) stamp(ctx, cache.get(`crew|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, CREW_FOLK.engineer, (work - 1.5) * 0.4)), ex, ey, 12, 27, f);
   else drawCrew(ctx, ex, ey, f, CREW_FOLK.engineer, 0);
   // idle upkeep: now and then he taps a peg home and it sparks
-  if (t._idle && Math.sin(time * 3.5 + t.id * 1.7) > 0.93) glow(ctx, x - f * (hw - 2), y - 11, 2.5, "#ffe08a", 0.9);
+  if (t._idle && Math.sin(time * 3.5 + t.id * 1.7) > 0.93) glow(ctx, x - f * (hw - 2), y - WINCH_DY - 1, 2.5, "#ffe08a", 0.9);
 };
 
 // A stone wrapped in burning pitch.

@@ -16,6 +16,7 @@
       import { selectRealm } from "/src/data/maps.js";
       import * as T from "/src/render/towers.js";
       import { groundLayer } from "/src/render/world.js";
+      import { drawGroundBlend } from "/src/render/groundblend.js";
       const q = new URLSearchParams(location.search);
       const KIND = q.get("kind") || "archer", TAG = q.get("tag"), SC = Number(q.get("scale")) || 1;
       selectRealm(q.get("realm") || "greenwood");
@@ -46,7 +47,7 @@
           rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: !firing,
           charges: 3, ramp: 2, mAnim: firing ? 0.9 : 0, eagle: null,
         };
-        try { P[KIND](ctx, t, time); } catch (e) { console.error(e); ctx.fillStyle = "red"; ctx.fillText(String(e.message).slice(0, 30), 4, 12); }
+        try { if (!q.get("noblend")) drawGroundBlend(ctx, t, false); P[KIND](ctx, t, time); if (!q.get("noblend")) drawGroundBlend(ctx, t, true); } catch (e) { console.error(e); ctx.fillStyle = "red"; ctx.fillText(String(e.message).slice(0, 30), 4, 12); }
         ctx.restore();
       }));
       let out = cv;

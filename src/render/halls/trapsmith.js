@@ -28,6 +28,12 @@ export const resetTrapsmithBakes = () => cache.clear();
 const BOX = { left: 42, right: 42, up: 70, down: 18 };
 const CANVAS = "#d8c8a0", BRICK = "#9a5a44", SHINGLE = "#6a5a4e";
 
+// where the level-one fire ring sits (the live glow follows it)
+const FIRE1 = [9.5, 1.6];
+// the guillotine and the windlass stand here; the Doctrine piles its mines here
+const GUIL = [12.5], WINCH = [13.5];
+const MINES = [[-15, 0.6], [-10.6, 1], [-12.8, -3]];
+
 const spec = (t) => ({ lvl: t.branch ? 3 : t.level, r4: t.rank4 ? t.branch + t.rank4 : null, spring: t.branch === "a", blast: t.branch === "b" });
 
 // A sloped plank roof between two eave points, the ridge behind.
@@ -58,9 +64,15 @@ const paintShed = (ctx, t, x, y) => {
       c.fillStyle = rgba(darken(CANVAS, 0.4), 0.4); for (let px = x - 13; px < x + 12; px += 5) c.fillRect(px, y - 24, 0.6, 11);
     });
     rope(ctx, x - 14, y - 24, x - 16.5, y + 3, 1, ROPE, 0.6);
-    // the fire ring with coals, where the iron heats
-    for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; boulder(ctx, x + 7 + Math.cos(a) * 4.4, y - 7 + Math.sin(a) * 1.8, 1.4, "#8a8478", i); }
-    part(ctx, (c) => ball(c, x + 7, y - 7.4, 3, 1.2, "#3a2a26", { hi: 0.2, lo: 0.2 }));
+    // the fire ring with coals, where the iron heats: on the open ground at
+    // the lean-to's mouth, in front of the pole's foot, not sunk behind it
+    const [rx, ry] = FIRE1;
+    foot(ctx, x + rx, y + ry + 0.6, 5.6, 0.3);
+    // back stones, the coals, then the front stones over them
+    const ring = (front) => { for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2 + 0.2; if ((Math.sin(a) > 0) === front) boulder(ctx, x + rx + Math.cos(a) * 4.4, y + ry + Math.sin(a) * 1.8, 1.4, "#8a8478", i); } };
+    ring(false);
+    part(ctx, (c) => ball(c, x + rx, y + ry - 0.4, 3, 1.2, "#3a2a26", { hi: 0.2, lo: 0.2 }));
+    ring(true);
   } else {
     const col = lvl >= 3 ? "#5a4a3c" : TIMBER;
     // back wall
@@ -89,19 +101,17 @@ const paintShed = (ctx, t, x, y) => {
   }
   // ---- what the branches raise over it
   if (spring) {
-    // the great cog on the gable
+    // the great cog on the gable: its post stands on the ridge and the cog
+    // rides clear above the shingles, left of the chimney
+    const gx = x - 3, gy = y - 43.5;
+    beam(ctx, gx, y - 35, gx, gy, 1.6, OAKWOOD, { grain: false });
     part(ctx, (c) => {
-      const gx = x - 1, gy = y - 38, R = 6.5;
+      const R = 6.5;
       c.beginPath();
       for (let i = 0; i < 20; i++) { const a = (i / 20) * Math.PI * 2, rr = i % 2 ? R : R + 1.8; c.lineTo(gx + Math.cos(a) * rr, gy + Math.sin(a) * rr); }
       c.closePath(); c.fillStyle = lin(c, gx - R, gy - R, gx + R, gy + R, [[0, "#b8bcc6"], [0.5, "#7a808c"], [1, "#4a4e58"]]); c.fill();
       c.fillStyle = "#3a3c46"; c.beginPath(); c.arc(gx, gy, 2.2, 0, Math.PI * 2); c.fill();
     });
-    beam(ctx, x - 1, y - 31, x - 1, y - 35, 1.6, OAKWOOD, { grain: false });
-  }
-  if (blast) {
-    // sandbags along the front corner
-    for (const [dx, dy] of [[5.5, 8], [9.8, 7.4], [13.6, 6.2]]) part(ctx, (c) => { ball(c, x + dx, y + dy, 2.6, 1.8, "#b8a078", { hi: 0.35, lo: 0.45 }); c.fillStyle = rgba("#6a5a3a", 0.6); c.fillRect(x + dx - 0.4, y + dy - 1.6, 0.8, 3); });
   }
   // ---- the yard: anvil, kegs, grindstone, rack
   // the anvil: on a stump at one, on an iron block after
@@ -111,32 +121,34 @@ const paintShed = (ctx, t, x, y) => {
     c.beginPath(); c.moveTo(x - 6, y - 7.4); c.lineTo(x + 4, y - 7.4); c.quadraticCurveTo(x + 8, y - 7, x + 9, y - 5.6); c.lineTo(x + 3, y - 5); c.lineTo(x + 2.5, y - 3); c.lineTo(x - 3.5, y - 3); c.lineTo(x - 4, y - 5); c.lineTo(x - 6, y - 5.6); c.closePath();
     c.fillStyle = lin(c, 0, y - 7.4, 0, y - 3, [[0, "#b8bcc6"], [0.35, IRON], [1, "#3a3c46"]]); c.fill();
   });
-  if (lvl >= 3 && !blast) {
-    // a grindstone on its frame
-    beam(ctx, x + 11, y + 3, x + 11, y - 5, 1.4, OAKWOOD, { grain: false });
-    beam(ctx, x + 16, y + 3, x + 16, y - 5, 1.4, OAKWOOD, { grain: false });
-    part(ctx, (c) => ball(c, x + 13.5, y - 6, 4, 4, "#a8a49a", { hi: 0.4, lo: 0.45 }));
-    part(ctx, (c) => { ball(c, x + 13.5, y - 6, 1.1, 1.1, OAKWOOD, { hi: 0.3, lo: 0.4 }); c.fillStyle = OAKWOOD; c.fillRect(x + 16.5, y - 6.5, 2, 1); });
-  }
-  if (blast) {
-    const kegs = r4 ? [[12.5, 1.5]] : [[15.5, -3.5], [13.5, 1.5]];
-    for (const [dx, dy] of kegs) barrel(ctx, x + dx, y + dy, 5.4, 6.5, "#6a4a2e", { mark: blast ? "#c05848" : null });
+  // Everything below stands on the open yard IN FRONT of the shed's posts
+  // (their feet are at y+1), each on its own contact print, back to front.
+  if (lvl >= 3 && !blast && !r4) {
+    // a grindstone on its frame, out in front of the right post
+    const gx = x + 13, gy = y + 7.5;
+    foot(ctx, gx, gy, 3.6, 0.35);
+    beam(ctx, gx - 2.6, gy, gx - 2.6, gy - 8, 1.4, OAKWOOD, { grain: false });
+    part(ctx, (c) => ball(c, gx, gy - 8.5, 3.6, 3.6, "#a8a49a", { hi: 0.4, lo: 0.45 }));
+    part(ctx, (c) => { ball(c, gx, gy - 8.5, 1, 1, OAKWOOD, { hi: 0.3, lo: 0.4 }); c.fillStyle = OAKWOOD; c.fillRect(gx + 2.8, gy - 9, 2, 1); });
+    beam(ctx, gx + 2.6, gy, gx + 2.6, gy - 8, 1.4, OAKWOOD, { grain: false });
   }
   if (r4 === "aa") {
-    // the guillotine: two posts, a crossbar, the slanted blade high
-    const gx = x + 13.5;
-    beam(ctx, gx - 3.5, y + 3, gx - 3.5, y - 28, 2, "#6a3a2a", { grain: false });
-    beam(ctx, gx + 3.5, y + 3, gx + 3.5, y - 28, 2, "#6a3a2a", { grain: false });
-    beam(ctx, gx - 5, y - 28, gx + 5, y - 28, 2.4, "#5a2e22", { grain: false });
-    part(ctx, (c) => { c.beginPath(); c.moveTo(gx - 2.5, y - 25); c.lineTo(gx + 2.5, y - 25); c.lineTo(gx + 2.5, y - 20); c.lineTo(gx - 2.5, y - 17.8); c.closePath(); c.fillStyle = lin(c, gx - 2.5, 0, gx + 2.5, 0, [[0, "#f0f2f6"], [1, "#8a909c"]]); c.fill(); c.fillStyle = "#4a4e58"; c.fillRect(gx - 2.5, y - 26, 5, 1.4); });
-    part(ctx, (c) => { cylinder(c, gx - 3.5, y - 4, 7, 3, "#6a3a2a", { r: 1 }); c.fillStyle = "#2a1c18"; c.beginPath(); c.arc(gx, y - 3.6, 1.4, Math.PI, 0); c.fill(); });
-    rope(ctx, gx + 3.5, y - 26, gx + 5, y - 9, 0.5, ROPE, 0.6);
+    // the guillotine: two posts, a crossbar under the eave, the slanted blade
+    const gx = x + GUIL[0], gy = y + 4;
+    foot(ctx, gx, gy, 5.2, 0.38);
+    beam(ctx, gx - 3.5, gy, gx - 3.5, y - 23.5, 2, "#6a3a2a", { grain: false });
+    part(ctx, (c) => { c.beginPath(); c.moveTo(gx - 2.5, y - 21); c.lineTo(gx + 2.5, y - 21); c.lineTo(gx + 2.5, y - 16); c.lineTo(gx - 2.5, y - 13.8); c.closePath(); c.fillStyle = lin(c, gx - 2.5, 0, gx + 2.5, 0, [[0, "#f0f2f6"], [1, "#8a909c"]]); c.fill(); c.fillStyle = "#4a4e58"; c.fillRect(gx - 2.5, y - 22, 5, 1.4); });
+    part(ctx, (c) => { cylinder(c, gx - 3.5, gy - 3.4, 7, 3.4, "#6a3a2a", { r: 1 }); c.fillStyle = "#2a1c18"; c.beginPath(); c.arc(gx, gy - 2.8, 1.4, Math.PI, 0); c.fill(); });
+    beam(ctx, gx + 3.5, gy, gx + 3.5, y - 23.5, 2, "#6a3a2a", { grain: false });
+    beam(ctx, gx - 5, y - 23.5, gx + 5, y - 23.5, 2.4, "#5a2e22", { grain: false });
+    rope(ctx, gx + 3.5, y - 22, gx + 4.8, gy - 5, 0.5, ROPE, 0.6);
   }
   if (r4 === "ab") {
     // the hopper on legs, caltrops spilling from its chute into a heap
-    const hx = x + 12.5;
-    for (const dx of [-4, 4]) beam(ctx, hx + dx, y + 3, hx + dx * 0.8, y - 12, 1.6, OAKWOOD, { grain: false });
-    for (const [dx, dy] of [[-2, 3], [1.5, 3.4], [0, 1.8], [3, 2], [-3.5, 2.2]]) part(ctx, (c) => { c.fillStyle = "#6a707c"; c.fillRect(hx + dx - 1, y + dy - 0.4, 2.2, 0.8); c.fillRect(hx + dx - 0.4, y + dy - 1, 0.8, 2); });
+    const hx = x + 12.5, gy = y + 4;
+    foot(ctx, hx, gy, 5.4, 0.35);
+    for (const dx of [-4, 4]) beam(ctx, hx + dx, gy, hx + dx * 0.8, y - 12, 1.6, OAKWOOD, { grain: false });
+    for (const [dx, dy] of [[-2, 3.6], [1.5, 4], [0, 2.4], [3, 2.6], [-3.5, 2.8]]) part(ctx, (c) => { c.fillStyle = "#6a707c"; c.fillRect(hx + dx - 1, y + dy - 0.4, 2.2, 0.8); c.fillRect(hx + dx - 0.4, y + dy - 1, 0.8, 2); });
     part(ctx, (c) => {
       c.beginPath(); c.moveTo(hx - 8, y - 22); c.lineTo(hx + 8, y - 22); c.lineTo(hx + 4, y - 11); c.lineTo(hx - 4, y - 11); c.closePath();
       c.fillStyle = lin(c, hx - 8, 0, hx + 8, 0, [[0, lighten(TIMBER, 0.3)], [0.5, TIMBER], [1, darken(TIMBER, 0.4)]]); c.fill();
@@ -147,19 +159,38 @@ const paintShed = (ctx, t, x, y) => {
     part(ctx, (c) => { ball(c, hx, y - 22, 7.6, 1.6, "#4a4e58", { hi: 0.2, lo: 0.2 }); c.fillStyle = STEEL; for (let i = 0; i < 6; i++) c.fillRect(hx - 5 + i * 2, y - 22.6 + (i % 2) * 0.8, 0.8, 0.8); });
   }
   if (r4 === "ba") {
-    // the brass horn on its post, and the map board full of pins
-    beam(ctx, x + 15, y + 3, x + 15, y - 22, 1.8, OAKWOOD, { grain: false });
-    part(ctx, (c) => { c.beginPath(); c.moveTo(x + 14, y - 21); c.lineTo(x + 7, y - 26); c.lineTo(x + 6, y - 20); c.closePath(); c.fillStyle = lin(c, x + 6, 0, x + 14, 0, [[0, "#f0d070"], [1, "#9a7a2a"]]); c.fill(); });
-    beam(ctx, x - 17, y - 14, x - 17, y + 3, 1.4, OAKWOOD, { grain: false });
+    // the brass horn bracketed to the shed's right post, flaring out under
+    // the eave; the map board full of pins stands behind the mine pile
+    part(ctx, (c) => {
+      c.fillStyle = IRON; c.fillRect(x + 12, y - 20, 3.4, 1.1);
+      c.beginPath(); c.moveTo(x + 14.6, y - 19.6); c.lineTo(x + 20.6, y - 23.4); c.lineTo(x + 21.2, y - 16.4); c.closePath();
+      c.fillStyle = lin(c, x + 14, 0, x + 21, 0, [[0, "#9a7a2a"], [0.6, "#e8c060"], [1, "#f0d070"]]); c.fill();
+      c.fillStyle = "#5a4418"; c.fillRect(x + 20.4, y - 22.6, 0.8, 5.6);
+    });
+    foot(ctx, x - 17, y - 1, 1.6, 0.35);
+    beam(ctx, x - 17, y - 14, x - 17, y - 1, 1.4, OAKWOOD, { grain: false });
     part(ctx, (c) => { cylinder(c, x - 22, y - 22, 10, 8, "#d8c8a0", { r: 0.6, hi: 0.2, lo: 0.3 }); c.fillStyle = "#8a7a5a"; c.fillRect(x - 21, y - 18.4, 8, 0.6); c.fillStyle = "#c03a2a"; for (const [dx, dy] of [[-20, -20], [-17, -17], [-15, -20.6], [-18.6, -15.8]]) c.fillRect(x + dx, y + dy, 1, 1); });
+    for (const [dx, dy] of MINES.slice(0, 2)) foot(ctx, x + dx, y + dy + 2.4, 2.6, 0.3);
+  }
+  if (blast) {
+    // bomb-marked kegs by the forge, then sandbags banked in front of them
+    const kegs = r4 === "bb" ? [[8.6, 2.6]] : r4 ? [[12, 3]] : [[10, 2.5], [14.8, 3.5]];
+    for (const [dx, dy] of kegs) { foot(ctx, x + dx, y + dy, 3, 0.35); barrel(ctx, x + dx, y + dy, 5.4, 6.5, "#6a4a2e", { mark: "#c05848" }); }
   }
   if (r4 === "bb") {
-    // the balloon's windlass
-    part(ctx, (c) => { for (const dx of [-3.5, 3.5]) cylinder(c, x + 13 + dx - 0.8, y - 8, 1.6, 10, OAKWOOD, { r: 0.6 }); });
-    part(ctx, (c) => { cylinder(c, x + 8.8, y - 9, 8.4, 4, OAKWOOD, { r: 1.6, hi: 0.35, lo: 0.45 }); c.fillStyle = ROPE; c.fillRect(x + 9.2, y - 8, 7.6, 0.8); c.fillRect(x + 9.2, y - 6.6, 7.6, 0.8); });
+    // the balloon's windlass, out on the yard in front of the kegs
+    const wx = x + WINCH[0], wy = y + 4;
+    foot(ctx, wx, wy, 4.2, 0.35);
+    part(ctx, (c) => { for (const dx of [-3.2, 3.2]) cylinder(c, wx + dx - 0.8, wy - 10, 1.6, 10, OAKWOOD, { r: 0.6 }); });
+    part(ctx, (c) => { cylinder(c, wx - 4.2, wy - 11, 8.4, 4, OAKWOOD, { r: 1.6, hi: 0.35, lo: 0.45 }); c.fillStyle = ROPE; c.fillRect(wx - 3.8, wy - 10, 7.6, 0.8); c.fillRect(wx - 3.8, wy - 8.6, 7.6, 0.8); });
   }
+  if (blast) for (const [dx, dy] of [[5.5, 9], [9.6, 8.4], [13, 6.9]]) part(ctx, (c) => {
+    shadow(c, x + dx + 0.4, y + dy + 1.4, 2.8, 0.9, 0.3);
+    ball(c, x + dx, y + dy, 2.6, 1.8, "#b8a078", { hi: 0.35, lo: 0.45 }); c.fillStyle = rgba("#6a5a3a", 0.6); c.fillRect(x + dx - 0.4, y + dy - 1.6, 0.8, 3);
+  });
   // the rack of traps (what hangs on it is live)
   if (r4 !== "ba") {
+    for (const px of [-17.5, -11]) foot(ctx, x + px, y + 3, 1.8, 0.35);
     beam(ctx, x - 17.5, y + 3, x - 17.5, y - 20, 2.2, OAKWOOD, { grain: false });
     beam(ctx, x - 11, y + 3, x - 11, y - 20, 2.2, OAKWOOD, { grain: false });
     beam(ctx, x - 18.8, y - 19.5, x - 9.8, y - 19.5, 1.6, lighten(OAKWOOD, 0.1), { grain: false });
@@ -197,7 +228,7 @@ export const drawTrapsmith = (ctx, t, time) => {
   else paintShed(ctx, t, x, y);
   // the forge (or fire ring) glows, the bellows breathing it up
   const br = Math.sin(time * 3 + t.id);
-  if (lvl === 1) { glow(ctx, x + 7, y - 8, 5 + br, "#f0903a", 0.85); ctx.fillStyle = "#f4a040"; ctx.fillRect(x + 5, y - 8.2, 4, 1); ctx.fillStyle = "#ffe08a"; ctx.fillRect(x + 6 + (br > 0 ? 1 : 0), y - 9, 1, 1); }
+  if (lvl === 1) { const fx = x + FIRE1[0], fy = y + FIRE1[1]; glow(ctx, fx, fy - 1, 5 + br, "#f0903a", 0.85); ctx.fillStyle = "#f4a040"; ctx.fillRect(fx - 2, fy - 1.2, 4, 1); ctx.fillStyle = "#ffe08a"; ctx.fillRect(fx - 1 + (br > 0 ? 1 : 0), fy - 2, 1, 1); }
   else { glow(ctx, x + 9, y - 8.5, 6 + br, "#f0903a", 0.85); ctx.fillStyle = "#f4a040"; ctx.fillRect(x + 5.6, y - 7.6, 6.8, 1.2); ctx.fillStyle = "#ffe08a"; ctx.fillRect(x + 7 + (br > 0 ? 2 : 0), y - 8.4, 1.4, 0.8); }
   if (lvl >= 3) for (let i = 0; i < 2; i++) { const k = ((time * 0.45 + i * 0.5 + t.id * 0.1) % 1); soft(ctx, x + 10 + Math.sin(time + i) * 1.5, y - 50 - k * 14, 1.6 + k * 3, 1.6 + k * 3, [[0, `rgba(170,164,160,${0.4 * (1 - k)})`], [1, "rgba(170,164,160,0)"]]); }
   // hung traps on the rack, one per ready charge
@@ -206,14 +237,15 @@ export const drawTrapsmith = (ctx, t, time) => {
   if (r4 !== "ba") for (let i = 0; i < 4; i++) hungTrap(ctx, x - 14.2, y - 18 + i * 5, kind, i < charges);
   else {
     // the Doctrine stacks its mines in a pyramid instead
-    const pts = [[-13, 6.5], [-8.5, 7.5], [-11, 3]];
-    for (let i = 0; i < pts.length; i++) if (i < Math.max(charges, 1)) hungTrap(ctx, x + pts[i][0], y + pts[i][1] - 2, "b", true);
+    // (stacked at the left rear, behind the smith, on the rack's old ground)
+    for (let i = 0; i < MINES.length; i++) if (i < Math.max(charges, 1)) hungTrap(ctx, x + MINES[i][0], y + MINES[i][1] - 2, "b", true);
   }
-  if (r4 === "aa" && Math.sin(time * 1.6 + t.id) > 0.9) glint(ctx, x + 12, y - 23, 1, 0.95);
+  if (r4 === "aa" && Math.sin(time * 1.6 + t.id) > 0.9) glint(ctx, x + GUIL[0] - 1.5, y - 19, 1, 0.95);
   // the balloon of the Aerostat Yard, bobbing on its tether
   if (r4 === "bb") {
-    const bx = x + 13 + Math.sin(time * 0.9 + t.id) * 1.2, by = y - 50 + Math.sin(time * 1.4 + t.id) * 2;
-    rope(ctx, x + 13, y - 8, bx, by + 12, 1, "#5a4a3a", 0.6);
+    // it rides off the right of the chimney, its bomb clear of the ridge
+    const bx = x + 19.5 + Math.sin(time * 0.9 + t.id) * 1.2, by = y - 61 + Math.sin(time * 1.4 + t.id) * 2;
+    rope(ctx, x + WINCH[0], y - 5, bx, by + 12, 1, "#5a4a3a", 0.6);
     const cv = bake ? cache.get("balloon", 20, 30, (c) => paintBalloon(c, 10, 10)) : null;
     if (cv) stamp(ctx, cv, bx, by, 10, 10);
     else paintBalloon(ctx, bx, by);

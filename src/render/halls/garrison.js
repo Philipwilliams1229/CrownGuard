@@ -44,8 +44,20 @@ const dims = (t, y = t.y) => {
   // the footing reaches hw + 2, which must stay inside the footprint
   const hw = r4 ? 14.5 : t.branch ? 14 : [11, 12.5, 13.5][lvl - 1];
   const wallH = r4 ? 15 : t.branch ? 14 : 11 + lvl;
-  return { hw, wallH, baseY: y + 7, r4, lvl };
+  // the footing's front edge sits at y + 5, leaving a strip of yard in front
+  // of it (down to y + 15 or so) where the fire and the kit stand clear
+  return { hw, wallH, baseY: y + 5, r4, lvl };
 };
+// Where the yard's things stand (their feet), all on open ground in front of
+// the footing and inside the footprint: the campfire (or the Frenzy's
+// brazier) front-left, the rack, dummy, hammer or drum front-right.
+const yard = (x, y) => ({
+  // (kept inside x ± 9 or so: the shared ground-blend layer paints its
+  // front clumps round the rim at about (x ± 12, y + 8.5), over the hall)
+  fireX: x - 5.5, fireY: y + 12,        // the campfire ring's centre
+  brazX: x - 6, brazY: y + 13.5,        // the brazier's feet
+  kitX: x + 8.5, kitY: y + 12.5,        // the right-hand prop's feet
+});
 const COLORS = (t) => {
   const pal = t.branch === "a", ber = t.branch === "b", r4 = t.rank4 ? t.branch + t.rank4 : null;
   return {
@@ -114,20 +126,33 @@ const palisade = (ctx, x, top, half, col, spikes = false, seed = 0) => {
 };
 
 const paintGround = (ctx, t, x, y) => {
-  const { hw, baseY, r4 } = dims(t, y);
-  const ber = t.branch === "b";
+  const { hw, baseY, r4, lvl } = dims(t, y);
+  const ber = t.branch === "b", pal = t.branch === "a";
+  const grown = lvl >= 3 || !!t.branch;
+  const Y = yard(x, y);
   ctx.save();
   footClip(ctx, x, y);
   groundBed(ctx, x, baseY, hw + 2, t.id, { earth: ber ? "#5e4a36" : "#7c6242" });
   // the trodden mustering yard before the door
-  soft(ctx, x, baseY + 4, 10, 4, [[0, "rgba(124,98,66,0.32)"], [1, "rgba(124,98,66,0)"]]);
+  soft(ctx, x, baseY + 5, 11, 4.5, [[0, "rgba(124,98,66,0.32)"], [1, "rgba(124,98,66,0)"]]);
   if (r4 === "ab") {
     ctx.strokeStyle = "rgba(232,200,90,0.45)"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(x, y + 8, 16, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x, y + 9, 15, 5, 0, 0, Math.PI * 2); ctx.stroke();
   }
+  // contact shadows: each thing in the yard sits on its own patch of shade
+  if (grown && r4 !== "bb") {
+    soft(ctx, Y.fireX, Y.fireY + 0.5, 6, 2.6, [[0, "rgba(40,28,24,0.5)"], [0.7, "rgba(40,28,24,0.3)"], [1, "rgba(40,28,24,0)"]]);   // ash and scorch
+  }
+  if (r4 === "bb") {
+    shadow(ctx, Y.brazX + 0.8, Y.brazY + 0.4, 3.6, 1.3, 0.35);
+    shadow(ctx, Y.kitX + 0.8, Y.kitY + 0.5, 6, 1.5, 0.32);
+  } else if (r4 === "aa") shadow(ctx, Y.kitX + 0.8, Y.kitY + 0.4, 5.6, 1.6, 0.36);
+  else if (!pal && lvl >= 2 || ber) shadow(ctx, Y.kitX + 0.8, Y.kitY + 0.4, 4.6, 1.3, 0.32);
+  if (!pal && !ber && lvl === 1) shadow(ctx, Y.kitX + 0.8, Y.kitY + 0.5, 2.6, 1, 0.32);
+  if (!pal && !ber && lvl === 2) shadow(ctx, Y.fireX + 0.8, Y.kitY + 0.5, 2.6, 1, 0.32);
   ctx.restore();
-  // gnawed bones in the Wolf Lodge's yard
-  if (r4 === "ba") for (const [i, [bx, by]] of [[-6, 12], [1, 13], [7, 12]].entries()) part(ctx, (c) => { c.fillStyle = "#e8dfc6"; c.save(); c.translate(x + bx, y + by); c.rotate(0.5 - i * 0.6); c.fillRect(-2.5, -0.4, 5, 0.8); c.fillRect(-3, -0.8, 1, 1.6); c.fillRect(2, -0.8, 1, 1.6); c.restore(); });
+  // gnawed bones in the Wolf Lodge's yard, between the fire and the rack
+  if (r4 === "ba") for (const [i, [bx, by]] of [[2.8, 14], [1, 15.5]].entries()) part(ctx, (c) => { c.fillStyle = "#e8dfc6"; c.save(); c.translate(x + bx, y + by); c.rotate(0.5 - i * 0.7); c.fillRect(-2.5, -0.4, 5, 0.8); c.fillRect(-3, -0.8, 1, 1.6); c.fillRect(2, -0.8, 1, 1.6); c.restore(); });
 };
 
 const paintHall = (ctx, t, x, y) => {
@@ -141,7 +166,7 @@ const paintHall = (ctx, t, x, y) => {
   // ---- behind the hall: palisade, turret or keep
   // (its feet are behind the hall, where the footprint is narrow: it only
   // shows its sharpened crown over the roof)
-  if (grown) palisade(ctx, x + 1, wallTop - 4, footHalf(y, wallTop) - 2, ber ? (r4 === "bb" ? "#5a2a22" : DARK) : pal ? "#8a7a5a" : OAKWOOD, r4 === "bb", seed);
+  if (grown) palisade(ctx, x + 1, wallTop - 4, footHalf(y, wallTop + 2) - 2, ber ? (r4 === "bb" ? "#5a2a22" : DARK) : pal ? "#8a7a5a" : OAKWOOD, r4 === "bb", seed);
   if (grown && !ber) {
     // a corner watch-turret at the back left; the Champion's is a keep
     const tx = x - hw + 3, keep = r4 === "aa";
@@ -253,42 +278,50 @@ const paintHall = (ctx, t, x, y) => {
     c.fillStyle = darken(pal ? PALE_STONE : "#7a746a", 0.25); c.fillRect(chx - 3, chy - 8, 6, 1.6);
   });
 
-  // ---- the yard: everything stands in front of the walls, inside the
-  // footprint (the dummy's and the rack's feet at y + 10 or so)
-  const fireX = x - Math.min(hw, 13.5) + 6.5, fireY = baseY + 4;
-  if (!ber) {
-    if (r4 === "aa") {
-      // the Champion's hammer: handle driven into a plinth, the great head held high
-      const hx = x + hw - 5.5;
-      ashlar(ctx, hx - 5, baseY - 3, 10, 5, PALE_STONE, seed, { course: 5, block: 5 });
-      part(ctx, (c) => cylinder(c, hx - 1.3, baseY - 23, 2.6, 21, "#6a4a2e", { r: 1 }));
-      part(ctx, (c) => { c.fillStyle = "#d8b34a"; c.fillRect(hx - 1.7, baseY - 9, 3.4, 1.2); c.fillRect(hx - 1.7, baseY - 15, 3.4, 1.2); });
-      part(ctx, (c) => {
-        roundRect(c, hx - 7, baseY - 31, 14, 8, 1.5);
-        c.fillStyle = lin(c, hx - 7, 0, hx + 7, 0, [[0, "#f0f2f8"], [0.5, "#b0b4c0"], [1, "#5a5e6a"]]); c.fill();
-        c.fillStyle = "#d8b34a"; c.fillRect(hx - 7, baseY - 28, 14, 1.2); c.fillRect(hx - 1, baseY - 31, 2, 8);
-      });
-    } else if (!pal && lvl >= 2) rack(ctx, x + hw - 3.5, baseY + 3, "#a04a3f");
-    if (!pal && lvl === 1) dummy(ctx, x + hw - 5, baseY + 4);
-    if (!pal && lvl === 2) dummy(ctx, x - hw + 5, baseY + 4);
-  } else if (r4 === "bb") {
-    // the war-drum on its stand, and a brazier
-    const dx = x + hw - 5.5;
-    beam(ctx, dx - 4, baseY + 1, dx - 3, baseY - 5, 1.2, DARK); beam(ctx, dx + 4, baseY + 1, dx + 3, baseY - 5, 1.2, DARK);
-    part(ctx, (c) => { cylinder(c, dx - 5, baseY - 11, 10, 7, "#8a3a2a", { r: 2, hi: 0.35, lo: 0.5 }); c.fillStyle = "#e8dfc6"; c.fillRect(dx - 5, baseY - 11, 10, 1.2); c.strokeStyle = "#d8ccb0"; c.lineWidth = 0.5; c.beginPath(); for (let k = 0; k < 4; k++) { c.moveTo(dx - 4 + k * 2.6, baseY - 10); c.lineTo(dx - 2.7 + k * 2.6, baseY - 4.5); } c.stroke(); });
-    brazier(ctx, x - hw + 5, baseY + 4, 1);
-  } else rack(ctx, x + hw - 3.5, baseY + 3, "#d8b34a");
-  // the campfire ring (its fire is live)
-  if (grown && r4 !== "bb") {
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      rock(ctx, fireX + Math.cos(a) * 4.5, fireY + Math.sin(a) * 2, 1.6, 1.1, "#8a8478", seed + i);
-    }
-    part(ctx, (c) => { beam(c, fireX - 4, fireY, fireX + 3, fireY - 2, 1.5, "#5f4326"); beam(c, fireX - 3, fireY - 2, fireX + 4, fireY, 1.5, "#4a3018"); });
-  }
   // the standard's pole on the ridge
   part(ctx, (c) => cylinder(c, x - 0.8, wallTop - roofH - (r4 === "ab" ? 18 : 12), 1.6, 12, OAKWOOD, { r: 0.8 }));
-  if (!ber) posy(ctx, x + 9, baseY + 6, "#e8e4d8", seed);
+
+  // ---- the yard: everything stands on open ground in front of the footing
+  // (feet a good step below its front edge), inside the footprint, and is
+  // drawn back to front so nothing cuts into what stands behind it
+  const Y = yard(x, y);
+  const { fireX, fireY } = Y;
+  if (grown && r4 !== "bb") {
+    // the campfire ring (its fire is live): the back stones first, then the
+    // logs, then the front stones over their ends
+    const stones = [...Array(6).keys()].map((i) => (i / 6) * Math.PI * 2 + 0.26);
+    for (const a of stones.filter((a) => Math.sin(a) < 0)) rock(ctx, fireX + Math.cos(a) * 4, fireY + Math.sin(a) * 1.8, 1.4, 1, "#8a8478", seed + a * 10);
+    part(ctx, (c) => { beam(c, fireX - 3.2, fireY + 0.6, fireX + 2.6, fireY - 1.2, 1.4, "#5f4326"); beam(c, fireX - 2.6, fireY - 1.2, fireX + 3.2, fireY + 0.6, 1.4, "#4a3018"); });
+    for (const a of stones.filter((a) => Math.sin(a) >= 0)) rock(ctx, fireX + Math.cos(a) * 4, fireY + Math.sin(a) * 1.8, 1.4, 1, "#8a8478", seed + a * 10);
+  }
+  if (!ber) {
+    if (r4 === "aa") {
+      // the Champion's hammer: handle driven into a stone plinth that stands
+      // in the yard, the great head held high
+      const hx = Y.kitX - 0.5, py = Y.kitY;
+      part(ctx, (c) => cylinder(c, hx - 1.3, y - 16, 2.6, py - 3 - (y - 16), "#6a4a2e", { r: 1 }));
+      part(ctx, (c) => { c.fillStyle = "#d8b34a"; c.fillRect(hx - 1.7, y - 2, 3.4, 1.2); c.fillRect(hx - 1.7, y - 8, 3.4, 1.2); });
+      part(ctx, (c) => {
+        roundRect(c, hx - 7, y - 24, 14, 8, 1.5);
+        c.fillStyle = lin(c, hx - 7, 0, hx + 7, 0, [[0, "#f0f2f8"], [0.5, "#b0b4c0"], [1, "#5a5e6a"]]); c.fill();
+        c.fillStyle = "#d8b34a"; c.fillRect(hx - 7, y - 21, 14, 1.2); c.fillRect(hx - 1, y - 24, 2, 8);
+      });
+      part(ctx, (c) => { roundRect(c, hx - 4.5, py - 5.5, 9, 2.5, 1); c.fillStyle = lighten(PALE_STONE, 0.18); c.fill(); });   // its top
+      ashlar(ctx, hx - 4, py - 3.5, 8, 3.5, PALE_STONE, seed, { course: 3.5, block: 4 });
+      part(ctx, (c) => cylinder(c, hx - 1.3, py - 7, 2.6, 3, "#6a4a2e", { r: 1 }));   // where it bites the stone
+    } else if (!pal && lvl >= 2) rack(ctx, Y.kitX, Y.kitY, "#a04a3f");
+    if (!pal && lvl === 1) dummy(ctx, Y.kitX, Y.kitY + 0.5);
+    if (!pal && lvl === 2) dummy(ctx, fireX, Y.kitY + 0.5);
+  } else if (r4 === "bb") {
+    // the war-drum on its stand, and a brazier, both out in the yard
+    const dx = Y.kitX - 1, dy = Y.kitY;
+    beam(ctx, dx - 4, dy, dx - 3, dy - 6, 1.2, DARK); beam(ctx, dx + 4, dy, dx + 3, dy - 6, 1.2, DARK);
+    part(ctx, (c) => { cylinder(c, dx - 5, dy - 11, 10, 7, "#8a3a2a", { r: 2, hi: 0.35, lo: 0.5 }); c.fillStyle = "#e8dfc6"; c.fillRect(dx - 5, dy - 11, 10, 1.2); c.strokeStyle = "#d8ccb0"; c.lineWidth = 0.5; c.beginPath(); for (let k = 0; k < 4; k++) { c.moveTo(dx - 4 + k * 2.6, dy - 10); c.lineTo(dx - 2.7 + k * 2.6, dy - 4.5); } c.stroke(); });
+    brazier(ctx, Y.brazX, Y.brazY, 1);
+  } else rack(ctx, Y.kitX, Y.kitY, "#d8b34a");
+  // a posy where the yard has room for one
+  if (!ber && !pal && lvl === 1) posy(ctx, x - 6, y + 13, "#e8e4d8", seed);
+  if (pal && r4 !== "aa") posy(ctx, x + 7.5, y + 13, "#e8e4d8", seed);
 };
 
 export const drawGarrison = (ctx, t, time) => {
@@ -301,16 +334,31 @@ export const drawGarrison = (ctx, t, time) => {
   const roofH = 11 + lvl + (t.branch ? 2 : 0) + (ber ? 3 : 0);
   const form = `${lvl}|${t.branch}|${t.rank4}`, v = t.id % 3, tv = { ...t, id: v };
 
-  if (typeof document !== "undefined") {
+  const canBake = typeof document !== "undefined";
+  if (canBake) {
     const g = baked(`ground|${form}|${v}`, BOX.left + BOX.right, 44, (c) => paintGround(c, tv, BOX.left, 16), false);
     ctx.drawImage(g, x - BOX.left, y - 16, g.width / PX, g.height / PX);
+  }
+  if (r4 === "ab") {
+    // holy runes burning in the ring: on the ground, so under the hall and
+    // the yard's things
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + time * 0.25;
+      const on = 0.5 + 0.5 * Math.sin(time * 2.5 + i * 1.7);
+      ctx.fillStyle = rgba("#f8e08a", 0.35 + on * 0.6);
+      const rx = x + Math.cos(a) * 14.5, ry = y + 9 + Math.sin(a) * 4.6;
+      ctx.fillRect(rx - 0.5, ry - 1.5, 1, 3); ctx.fillRect(rx - 1.5, ry - 0.5, 3, 1);
+    }
+  }
+  if (canBake) {
     const cv = baked(`hall|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintHall(c, tv, BOX.left, BOX.up));
     ctx.drawImage(cv, x - BOX.left, y - BOX.up, cv.width / PX, cv.height / PX);
   } else paintHall(ctx, t, x, y);
 
   // ---- fire: the campfire, the Frenzy's brazier
-  if (grown && r4 !== "bb") flame(ctx, x - Math.min(hw, 13.5) + 6.5, baseY + 2.5, 0.75, time, t.id);
-  if (r4 === "bb") flame(ctx, x - hw + 5, baseY - 3, 0.9, time, t.id, ["#ffd0a0", "#e84a2a", "#8a1a18"]);
+  const Y = yard(x, y);
+  if (grown && r4 !== "bb") flame(ctx, Y.fireX, Y.fireY - 0.6, 0.72, time, t.id);
+  if (r4 === "bb") flame(ctx, Y.brazX, Y.brazY - 6.8, 0.9, time, t.id, ["#ffd0a0", "#e84a2a", "#8a1a18"]);
   // the chimney's smoke
   if (!ber && r4 !== "ab") for (let i = 0; i < 4; i++) {
     const t2 = (time * 9 + i * 5 + t.id * 2) % 20;
@@ -326,18 +374,9 @@ export const drawGarrison = (ctx, t, time) => {
     const blink = Math.sin(time * 0.7 + t.id * 1.3) > 0.94;
     if (!blink) { ctx.fillStyle = "#f0d040"; ctx.fillRect(x - 1.8, baseY - 9, 1, 0.8); ctx.fillRect(x + 0.6, baseY - 9, 1, 0.8); }
   }
-  if (r4 === "aa") glow(ctx, x + hw - 5.5, baseY - 27, 9, "#f8e8a0", 0.35 + 0.15 * Math.sin(time * 2 + t.id));
-  if (r4 === "ab") {
-    // the sunburst over the door and holy runes burning in the ring
-    glow(ctx, x, wallTop - 20, 10, "#f8e08a", 0.3 + 0.12 * Math.sin(time * 1.4 + t.id));
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2 + time * 0.25;
-      const on = 0.5 + 0.5 * Math.sin(time * 2.5 + i * 1.7);
-      ctx.fillStyle = rgba("#f8e08a", 0.35 + on * 0.6);
-      const rx = x + Math.cos(a) * 15.5, ry = y + 8 + Math.sin(a) * 5;
-      ctx.fillRect(rx - 0.5, ry - 1.5, 1, 3); ctx.fillRect(rx - 1.5, ry - 0.5, 3, 1);
-    }
-  }
+  if (r4 === "aa") glow(ctx, Y.kitX - 0.5, y - 20, 9, "#f8e8a0", 0.35 + 0.15 * Math.sin(time * 2 + t.id));
+  // the sunburst over the dome
+  if (r4 === "ab") glow(ctx, x, wallTop - 20, 10, "#f8e08a", 0.3 + 0.12 * Math.sin(time * 1.4 + t.id));
   // the standard on the ridge
   pennant(ctx, x, wallTop - roofH - (r4 === "ab" ? 18 : 12), 1, col.flag, time, t.id, 1);
   // rally flag

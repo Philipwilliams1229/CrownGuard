@@ -69,6 +69,20 @@ necromancer's `revived` palette and the white hit-flash still work.
   Tall parts (shafts, roofs, arms, masts, spires) may rise above it. Halls
   stand at least `BLOCK_DIST = 48` from the road's centreline; with this
   footprint nothing spills onto the dirt.
+- **The ground blend** (`src/render/groundblend.js`) is drawn by `draw.js`
+  round EVERY hall: a few realm-matched clumps (meadow tufts, snow drifts,
+  marsh reeds, ash and cinders, highland turf — picked from the realm's
+  `ambient`) on the footprint rim, behind the hall and over its front
+  corners, so no footing ends in a hard line. It leaves the middle of the
+  front clear: that is where doors, crews and campfires go. Don't paint your
+  own green tufts at a hall's feet; they are wrong on snow (kitB's
+  `skirtB` is now a no-op). `hallshot.html?realm=<id>` shows the blend
+  (`&noblend=1` hides it).
+- **Yard props** (campfires, braziers, racks, dummies, barrels, butts)
+  stand on open ground with their feet a good step (~5) below the footing's
+  front edge, with their own contact shadow, and inside `x ± 9`, clear of
+  the blend's corner clumps. Never half-sunk into a footing or wall. A prop
+  that stands in front of the crew is drawn AFTER the crew.
 - **Narrow halls** (the Bladewheel) may stand closer: a hall's `roadClear`
   and `reach` in `src/data/towers.js` override the road gap (42 for the
   Bladewheel) and the spacing to neighbours (reach 12, default 15; two

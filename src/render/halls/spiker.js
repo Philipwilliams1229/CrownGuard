@@ -27,12 +27,17 @@ export const resetSpikerBakes = () => cache.clear();
 const BOX = { left: 36, right: 36, up: 64, down: 18 };
 const STONE = "#8a8478", BRICK = "#9a5a44";
 const SQ = 0.5, PHASES = 4;
+// The wheelwright stands on open ground before the drum (whose front edge is
+// at y + 5), feet inside FOOT_NARROW; the crank he turns sits at his hands.
+const crewSpot = (s) => (s.lvl === 1 && !s.branch ? [-9.5, 6.8] : [-7.5, 8]);
+const CRANK = { x: -4, y: -5 };   // the crank's hub, from (x, y)
+const GRATE = 4;                   // the furnace grate's centre, right of x
 
 const spec = (t) => {
   const lvl = t.level, r4 = t.rank4 ? t.branch + t.rank4 : null;
   const gale = t.branch === "a", fire = t.branch === "b";
   return {
-    lvl, r4, gale, fire,
+    lvl, r4, gale, fire, branch: t.branch,
     rr: 8 + lvl + (t.branch ? 1.5 : 0),
     n: fire ? 8 : t.branch ? 12 : 4 + lvl * 2,
     wy: 22 + lvl + (t.branch ? 2 : 0),        // how high the wheel rides
@@ -54,11 +59,13 @@ const paintBase = (ctx, t, x, y) => {
     beam(ctx, mx + 1.5, y - 1, mx, y - 40, 2.4, darken(OAKWOOD, 0.2));
   }
   // the footing: stakes at one, a stone drum after, a brick furnace for fire
+  // (the drum and furnace keep their front edge at y + 5, inside FOOT_NARROW)
   if (fire) {
-    part(ctx, (c) => masonry(c, x - 13, y - 9, 26, 15, BRICK, { r: 2, course: 3.2, block: 5, hi: 0.3, lo: 0.45 }));
-    part(ctx, (c) => cylinder(c, x - 14, y - 11, 28, 3, "#5a4a44", { r: 1.2, hi: 0.35, lo: 0.4 }));
-    part(ctx, (c) => { c.fillStyle = "#2a1c18"; roundRect(c, x - 5, y - 6, 10, 7, 2); c.fill(); });   // the grate
-    part(ctx, (c) => { c.fillStyle = IRON; for (let i = 0; i < 4; i++) c.fillRect(x - 4 + i * 2.6, y - 6, 0.8, 7); });
+    part(ctx, (c) => masonry(c, x - 12, y - 9, 24, 14, BRICK, { r: 2, course: 3.2, block: 5, hi: 0.3, lo: 0.45 }));
+    part(ctx, (c) => cylinder(c, x - 13, y - 11, 26, 3, "#5a4a44", { r: 1.2, hi: 0.35, lo: 0.4 }));
+    // the grate, right of the crank so the wheelwright doesn't hide it
+    part(ctx, (c) => { c.fillStyle = "#2a1c18"; roundRect(c, x + GRATE - 4.5, y - 6, 9, 7, 2); c.fill(); });
+    part(ctx, (c) => { c.fillStyle = IRON; for (let i = 0; i < 4; i++) c.fillRect(x + GRATE - 3.7 + i * 2.4, y - 6, 0.8, 7); });
   } else if (lvl === 1 && !t.branch) {
     for (let i = 0; i < 7; i++) {
       const a = (i / 7) * Math.PI * 2 + 0.3, sx = x + Math.cos(a) * 9, sy = y - 1 + Math.sin(a) * 3.6;
@@ -67,12 +74,14 @@ const paintBase = (ctx, t, x, y) => {
     part(ctx, (c) => ball(c, x, y + 1, 10, 3.6, "#8a7a5a", { hi: 0.3, lo: 0.45 }));
   } else {
     const hh = lvl >= 3 || t.branch ? 12 : 9;
-    part(ctx, (c) => masonry(c, x - 13, y - hh + 3, 26, hh + 3, STONE, { r: 2, course: 3.6, block: 6.5, hi: 0.3, lo: 0.45 }));
-    part(ctx, (c) => cylinder(c, x - 14, y - hh + 1, 28, 3, lighten(STONE, 0.15), { r: 1.4, hi: 0.35, lo: 0.4 }));
-    if (lvl >= 3 || t.branch) part(ctx, (c) => { c.fillStyle = IRON; for (const dx of [-12, -3, 6]) c.fillRect(x + dx, y - hh + 1, 1.6, 3); });
+    part(ctx, (c) => masonry(c, x - 12, y - hh + 2, 24, hh + 3, STONE, { r: 2, course: 3.6, block: 6.5, hi: 0.3, lo: 0.45 }));
+    part(ctx, (c) => cylinder(c, x - 13, y - hh, 26, 3, lighten(STONE, 0.15), { r: 1.4, hi: 0.35, lo: 0.4 }));
+    if (lvl >= 3 || t.branch) part(ctx, (c) => { c.fillStyle = IRON; for (const dx of [-11, -2, 7]) c.fillRect(x + dx, y - hh, 1.6, 3); });
   }
-  // the post
-  const top = y - s.wy + 1, foot0 = fire ? y - 10 : y - 4;
+  // the post: it stands ON the drum's cap (or in the level-one mound), never
+  // down across the drum's face
+  const hh = lvl >= 3 || t.branch ? 12 : 9;
+  const top = y - s.wy + 1, foot0 = fire ? y - 10 : lvl === 1 && !t.branch ? y + 0.5 : y - hh + 1.5;
   if (r4 === "bb") {
     // a living trunk, gnarled, with roots over the brick
     part(ctx, (c) => {
@@ -90,32 +99,41 @@ const paintBase = (ctx, t, x, y) => {
     const pc = fire ? IRON : r4 === "aa" ? "#6a6a74" : OAKWOOD;
     part(ctx, (c) => cylinder(c, x - 2.4, top, 4.8, foot0 - top + 1, pc, { r: 1.4, hi: 0.35, lo: 0.5 }));
     const collars = t.branch ? 3 : lvl;
-    for (let i = 0; i < collars; i++) part(ctx, (c) => cylinder(c, x - 3.3, foot0 - 3 - i * 5, 6.6, 2.2, r4 === "ba" ? GOLD : IRON, { r: 1, hi: 0.45, lo: 0.4 }));
+    for (let i = 0; i < collars; i++) part(ctx, (c) => cylinder(c, x - 3.3, foot0 - 3 - i * 4, 6.6, 2.2, r4 === "ba" ? GOLD : IRON, { r: 1, hi: 0.45, lo: 0.4 }));
   }
   // the gearbox and its crank, where the wheelwright works
+  // (bolted to the drum's face at his hand height, clear of its foot)
   if (!(lvl === 1 && !t.branch)) {
-    part(ctx, (c) => cylinder(c, x - 11, y - 8 + (fire ? -3 : 0), 7, 6, fire ? "#4a4a52" : darken(OAKWOOD, 0.1), { r: 1.2, hi: 0.3, lo: 0.45 }));
-    part(ctx, (c) => ball(c, x - 7.5, y - 8.5 + (fire ? -3 : 0), 2.4, 2.4, IRON, { hi: 0.45, lo: 0.4 }));
+    part(ctx, (c) => cylinder(c, x + CRANK.x - 3.5, y + CRANK.y + 0.5, 7, 5, fire ? "#4a4a52" : darken(OAKWOOD, 0.1), { r: 1.2, hi: 0.3, lo: 0.45 }));
+    part(ctx, (c) => ball(c, x + CRANK.x, y + CRANK.y, 2.4, 2.4, IRON, { hi: 0.45, lo: 0.4 }));
   }
-  // dressings at the foot
+  // dressings on the ground before the drum: each foot below its front
+  // edge (y + 5), with its own shadow, inside FOOT_NARROW
   if (lvl >= 3 || t.branch) {
     if (!fire) {
       // a whetstone on its frame, for the blades
-      beam(ctx, x + 10.5, y + 4, x + 10.5, y - 3, 1.4, OAKWOOD, { grain: false });
-      part(ctx, (c) => ball(c, x + 12, y - 3, 1.4, 3.6, "#a8a49a", { hi: 0.4, lo: 0.45 }));
+      foot(ctx, x + 8.6, y + 8, 2);
+      beam(ctx, x + 8, y + 8, x + 8, y + 2, 1.4, OAKWOOD, { grain: false });
+      part(ctx, (c) => ball(c, x + 9.3, y + 2, 1.3, 3.2, "#a8a49a", { hi: 0.4, lo: 0.45 }));
     } else {
       // the coal heap
-      for (const [dx, dy, r] of [[8.5, 6.5, 2.4], [11, 6, 1.6], [10, 4.4, 1.8]]) part(ctx, (c) => ball(c, x + dx, y + dy, r, r * 0.8, "#2e2a30", { hi: 0.35, lo: 0.4 }));
+      foot(ctx, x + 6.6, y + 9.2, 3.6);
+      for (const [dx, dy, r] of [[5.5, 7.8, 2], [8.2, 7.6, 1.4], [6.8, 6.3, 1.5]]) part(ctx, (c) => ball(c, x + dx, y + dy, r, r * 0.8, "#2e2a30", { hi: 0.35, lo: 0.4 }));
     }
   }
   if (r4 === "ab") {
-    // snares staked round the base
-    for (const [dx, dy] of [[-8, 7], [7, 7.5], [-0.5, 9.5]]) part(ctx, (c) => {
-      c.strokeStyle = IRON; c.lineWidth = 0.8; c.beginPath(); c.ellipse(x + dx, y + dy, 3, 1.2, 0, 0, Math.PI * 2); c.stroke();
-      c.fillStyle = OAKWOOD; c.fillRect(x + dx + 2.6, y + dy - 3, 1, 3.5);
+    // snares staked on the ground before it
+    for (const [dx, dy] of [[-1.5, 10.8], [4.2, 10]]) part(ctx, (c) => {
+      c.strokeStyle = IRON; c.lineWidth = 0.8; c.beginPath(); c.ellipse(x + dx, y + dy, 2.8, 1.1, 0, 0, Math.PI * 2); c.stroke();
+      c.fillStyle = OAKWOOD; c.fillRect(x + dx + 2.4, y + dy - 3, 1, 3.5);
     });
   }
-  if (r4 === "aa") for (const dx of [9.5, 11.5]) part(ctx, (c) => { c.fillStyle = STEEL; c.fillRect(x + dx, y - 5 + (dx - 9.5), 1, 10); c.fillStyle = "#8a909c"; c.fillRect(x + dx - 0.5, y + 2 + (dx - 9.5), 2, 1.2); });
+  if (r4 === "aa") for (const dx of [3, 5]) {
+    // spare steel blades stood in the ground
+    const b = y + 8 + (dx - 3) * 0.3;
+    foot(ctx, x + dx + 0.5, b, 1.2);
+    part(ctx, (c) => { c.fillStyle = STEEL; c.fillRect(x + dx, b - 10, 1, 10); c.fillStyle = "#8a909c"; c.fillRect(x + dx - 0.5, b - 3, 2, 1.2); });
+  }
   skirtB(ctx, x, y, t.id, 4, FOOT_NARROW);
 };
 
@@ -230,7 +248,7 @@ export const drawBladewheel = (ctx, t, time) => {
   if (bake) stamp(ctx, cache.get(`base|${lvl}|${t.branch}|${t.rank4}|${id5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBase(c, { ...t, id: id5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   else paintBase(ctx, t, x, y);
   // the furnace grate glows
-  if (fire) { glow(ctx, x, y - 3, 6 + Math.sin(time * 5 + t.id), "#f0903a", 0.85); ctx.fillStyle = "#f4c060"; ctx.fillRect(x - 3, y - 1.5, 6, 1.2); }
+  if (fire) { glow(ctx, x + GRATE, y - 3, 6 + Math.sin(time * 5 + t.id), "#f0903a", 0.85); ctx.fillStyle = "#f4c060"; ctx.fillRect(x + GRATE - 3, y - 1.5, 6, 1.2); }
 
   // the wheel: it winds up (rises, quickens) before it bites, and kicks down
   const wind = t._idle ? 0 : r > 0.85 ? (r - 0.85) / 0.15 : 0;
@@ -307,18 +325,19 @@ export const drawBladewheel = (ctx, t, time) => {
   const lvl1 = lvl === 1 && !t.branch;
   const turning = !t._idle;
   const work = turning ? Math.round((Math.sin(time * (gale ? 12 : 8) + t.id) + 1) * 1.5) : Math.round((Math.sin(time * 1.1 + t.id) + 1) * 0.5);
-  const cx0 = x - 10, cy0 = y + (fire ? 4 : 5);   // his feet stay inside the narrow footprint
+  const [cdx, cdy] = crewSpot(s), cx0 = x + cdx, cy0 = y + cdy;   // his feet stay inside the narrow footprint
   if (bake) stamp(ctx, cache.get(`crew|${fire ? "s" : "w"}|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, fire ? STOKER : CREW_FOLK.engineer, (work - 1.5) * 0.4)), cx0, cy0, 12, 27, 1);
   else drawCrew(ctx, cx0, cy0, 1, CREW_FOLK.engineer, 0);
   if (lvl1) {
     // a hand-bar through the post, which he pushes round
     ctx.strokeStyle = "#241a26"; ctx.lineWidth = 2.2; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(cx0 + 5 + (work - 1.5) * 0.6, y - 9 + (work - 1.5) * 0.4); ctx.stroke();
+    const by = cy0 - 13;
+    ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(cx0 + 5 + (work - 1.5) * 0.6, by + (work - 1.5) * 0.4); ctx.stroke();
     ctx.strokeStyle = "#8a6238"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(cx0 + 5 + (work - 1.5) * 0.6, y - 9 + (work - 1.5) * 0.4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(cx0 + 5 + (work - 1.5) * 0.6, by + (work - 1.5) * 0.4); ctx.stroke();
   } else {
     // the crank handle turning in his hands
-    const ca = time * (turning ? 8 : 0.5), hx = x - 7.5 + Math.cos(ca) * 2.2, hy = y - 8.5 + (fire ? -3 : 0) + Math.sin(ca) * 1.2;
+    const ca = time * (turning ? 8 : 0.5), hx = x + CRANK.x + Math.cos(ca) * 2.2, hy = y + CRANK.y + Math.sin(ca) * 1.2;
     ctx.fillStyle = "#241a26"; ctx.fillRect(hx - 1, hy - 1, 2, 2);
     ctx.fillStyle = "#8a909c"; ctx.fillRect(hx - 0.5, hy - 0.5, 1, 1);
   }

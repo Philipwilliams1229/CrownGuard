@@ -23,6 +23,7 @@ import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { hasRig, rigPixels, drawRig } from "./rigs.js";
 import { ENEMIES } from "../data/enemies.js";
 import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
+import { drawGroundBlend } from "./groundblend.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
@@ -291,7 +292,10 @@ export function draw(g, canvas, bufRef) {
     drawables.push({
       y: t.y + 14,
       fn: () => {
+        // the realm's own ground round the footing: behind, then over its front edge
+        drawGroundBlend(ctx, t, false);
         paintTower(t);
+        drawGroundBlend(ctx, t, true);
         // rank pips: one gold stud per level, a small crown once evolved
         if (!t.branch) {
           for (let i = 0; i < t.level; i++) pip(ctx, t.x - (t.level - 1) * 4 + i * 8, t.y + 21, 2.2, 2.2, "#e8c14a");

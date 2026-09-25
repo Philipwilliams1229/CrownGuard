@@ -68,6 +68,10 @@ const mortar = (ctx, mx, gy, f, col, o = {}) => {
 // where a mortar's mouth ends up, for the live flash
 const mouthOf = (mx, gy, f) => [mx + f * 1.6, gy - 10];
 
+// the Grapeshot Crew's bags, heaped on the ground at the front corner
+// (back to front; the third rides on the first two, so casts no print)
+const GRAPE = [[10.2, 6.6, 1], [13.6, 6.8, 1], [11.9, 4.4, 0], [11.2, 9.2, 1]];
+
 const mortarSpots = (s, x, y, f) => s.r4 === "aa" ? [[x - f * 8.5, y + 10], [x + f * 3, y + 12.5]] : s.bomb ? [[x - f * 8, y + 11.5]] : [];
 
 // ---- the store and its deck ------------------------------------------------------
@@ -98,11 +102,6 @@ const paintStore = (ctx, t, x, y, f) => {
       c.beginPath(); c.moveTo(gx - f * 0.5, dY - 4); c.lineTo(gx, dY - 11); c.stroke();
       c.strokeStyle = "#8a909c"; c.lineWidth = 0.9;
       c.beginPath(); c.moveTo(gx, dY - 11); c.lineTo(gx + f * 0.8, dY - 25 - (i % 2) * 2); c.stroke();
-    });
-    if (s.r4 === "bb") for (const [dx, dy] of [[5.5, -7], [7.5, -6]]) part(ctx, (c) => {   // grape bags
-      ball(c, rx + f * dx, dY + dy, 2, 2.2, "#b8a070", { hi: 0.4, lo: 0.45 });
-      c.fillStyle = "#6c727e"; c.fillRect(rx + f * dx - 1.2, dY + dy - 0.2, 0.9, 0.9); c.fillRect(rx + f * dx + 0.2, dY + dy + 0.8, 0.9, 0.9);
-      c.fillStyle = darken(ROPE, 0.4); c.fillRect(rx + f * dx - 0.8, dY + dy - 2.4, 1.6, 0.7);
     });
   }
   // the deck: a plank top seen from above, the store's roof
@@ -143,13 +142,29 @@ const paintStore = (ctx, t, x, y, f) => {
     c.fillStyle = s.dragon ? "#f08a3a" : GOLD;
     c.beginPath(); c.moveTo(dx, y + 4 - dh + 3); c.quadraticCurveTo(dx + 1.6, y + 4 - dh + 5.2, dx, y + 4 - dh + 6.4); c.quadraticCurveTo(dx - 1.6, y + 4 - dh + 5.2, dx, y + 4 - dh + 3); c.fill();
   });
-  // on the ground: kegs on the rear side, shot, cartridges
-  const kx = x - f * 14.5;
-  barrel(ctx, kx, y + 5, 5, 6.5, s.dragon ? PITCH : "#7a5634", { mark: s.dragon ? "#f08a3a" : lvl >= 2 ? "#c04a3a" : null });
-  if (lvl >= 3) barrel(ctx, kx + f * 1, y + 1, 4.6, 6, s.dragon ? PITCH : "#6e4c2e", { mark: s.dragon ? null : "#c04a3a" });
-  if (s.dragon) brazier(ctx, x + f * 12, y + 9.5, 0.85, "#3a3440");
-  else if (lvl >= 3) crate(ctx, x + f * 12, y + 9, 6, 4.5, darken(TIMBER, 0.08));
-  if (lvl >= 2 && !s.bomb) for (const [ox, oy, r] of [[-8, 11, 1.6], [-5, 11.2, 1.6], [-6.5, 9.6, 1.5]]) boulder(ctx, x + f * ox, y + oy, r, "#4a4e58", ox);
+  // on the ground: kegs on the rear side, shot, cartridges. The store's
+  // front face ends at y+4; everything here stands on the ground IN FRONT
+  // of that line (or off its corner), each on its own contact print, drawn
+  // back to front — nothing half-sunk into the stone.
+  const kegCol = s.dragon ? PITCH : "#7a5634";
+  const kegs = lvl >= 3 ? [[14.8, 5.4, 4.6, 6, "#6e4c2e", !s.dragon], [12.4, 8.4, 5, 6.5, kegCol, true]] : [[13.6, 7.4, 5, 6.5, kegCol, true]];
+  for (const [ox, oy, w, h, col, marked] of kegs) {
+    foot(ctx, x - f * ox, y + oy, w * 0.62, 0.38);
+    barrel(ctx, x - f * ox, y + oy, w, h, s.dragon ? PITCH : col, { mark: !marked ? null : s.dragon ? "#f08a3a" : lvl >= 2 ? "#c04a3a" : null });
+  }
+  if (s.dragon) { foot(ctx, x + f * 12, y + 9.6, 3.2, 0.4); brazier(ctx, x + f * 12, y + 9.5, 0.85, "#3a3440"); }
+  else if (s.r4 === "bb") for (const [ox, oy, onGround] of GRAPE) part(ctx, (c) => {   // grape bags heaped on the ground
+    if (onGround) shadow(c, x + f * ox + 0.4, y + oy + 1.8, 2.4, 0.8, 0.32);
+    ball(c, x + f * ox, y + oy, 2, 2.2, "#b8a070", { hi: 0.4, lo: 0.45 });
+    c.fillStyle = "#6c727e"; c.fillRect(x + f * ox - 1.2, y + oy - 0.2, 0.9, 0.9); c.fillRect(x + f * ox + 0.2, y + oy + 0.8, 0.9, 0.9);
+    c.fillStyle = darken(ROPE, 0.4); c.fillRect(x + f * ox - 0.8, y + oy - 2.4, 1.6, 0.7);
+  });
+  else if (lvl >= 3) { foot(ctx, x + f * 12, y + 9, 3.8, 0.4); crate(ctx, x + f * 12, y + 9, 6, 4.5, darken(TIMBER, 0.08)); }
+  if (lvl >= 2 && !s.bomb) {
+    const shot = lvl >= 3 ? [[-7, 11.8, 1.6], [-4, 12, 1.6], [-5.5, 10.4, 1.5]] : [[-8, 11, 1.6], [-5, 11.2, 1.6], [-6.5, 9.6, 1.5]];
+    foot(ctx, x + f * shot[0][0] + f * 1.5, shot[0][1] + y + 1, 3.6, 0.3);
+    for (const [ox, oy, r] of shot) boulder(ctx, x + f * ox, y + oy, r, "#4a4e58", ox);
+  }
   if (s.bomb) {
     const col = s.dragon ? "#3a3440" : BRONZE;
     for (const [mx, gy] of mortarSpots(s, x, y, f)) mortar(ctx, mx, gy, f, col, { band: s.r4 === "aa" ? GOLD : null, mouth: s.dragon ? "#6a2a1a" : null, bed: s.dragon ? "#3a2c28" : null });
@@ -174,7 +189,7 @@ const paintMusketeer = (ctx, gun, kick) => {
   ctx.save(); ctx.translate(12, 29);
   if (gun === "sharp") part(ctx, (c) => {   // the rest stands on the deck, forked at the barrel
     c.strokeStyle = "#5f4326"; c.lineWidth = 1.1; c.lineCap = "round";
-    c.beginPath(); c.moveTo(15.5, 0.5); c.lineTo(15, -15.6); c.moveTo(15, -15.6); c.lineTo(13.8, -17.8); c.moveTo(15, -15.6); c.lineTo(16.4, -17.6); c.stroke();
+    c.beginPath(); c.moveTo(5.2, 0.4); c.lineTo(13, -15.4); c.moveTo(13, -15.4); c.lineTo(11.9, -17.6); c.moveTo(13, -15.4); c.lineTo(14.4, -17.5); c.stroke();
   });
   ctx.restore();
   drawMusketeer(ctx, 12, 29, 1, CREW_FOLK.musketeer, 0);

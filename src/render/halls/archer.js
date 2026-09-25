@@ -183,6 +183,14 @@ const arrowBarrel = (ctx, x, y, n = 5) => {
 
 // ---- the parts of every form -------------------------------------------
 
+// Where the foot-of-the-tower props stand: out on the grass in front of the
+// footing (whose front edge is y + 7), feet a good step below it, inside the
+// footprint — the straw butt front-left, the arrow barrel or the Briar
+// cauldron front-right.
+// (Kept inside x ± 9 or so: the shared ground-blend layer paints its front
+// clumps round the rim at about (x ± 12, y + 8.5), over the hall.)
+const PROPS = (x, y) => ({ buttX: x - 8.5, buttY: y + 13.5, barX: x + 8, barY: y + 13, calX: x + 7.5, calY: y + 13 });
+
 // The walk the crew stand on: its floor seen from above (dy-8 .. dy+2) and
 // its front face (dy+2 .. dy+7). Timber for the posts, flagstones for towers.
 const walkFloor = (ctx, x, dy, pw, stone, col, seed) => {
@@ -235,6 +243,13 @@ const paintGround = (ctx, t, x, y) => {
   ctx.save();
   footClip(ctx, x, y);
   groundBed(ctx, x, y + 7, hw, t.id, { earth: r4 === "aa" ? "#5a5a3a" : "#7c6242" });
+  // contact shadows under the props at the tower's foot
+  const P = PROPS(x, y);
+  const butt = (!t.branch && t.level === 1) || t.branch === "a";
+  const barrel = (!t.branch && t.level === 2) || (t.branch === "a" && r4 !== "aa");
+  if (butt) shadow(ctx, P.buttX + 0.8, P.buttY + 0.3, 3.8, 1.2, 0.32);
+  if (barrel) shadow(ctx, P.barX + 0.8, P.barY + 0.4, 3.8, 1.3, 0.34);
+  if (r4 === "aa") soft(ctx, P.calX, P.calY + 0.3, 5, 2, [[0, "rgba(40,28,24,0.5)"], [0.7, "rgba(40,28,24,0.3)"], [1, "rgba(40,28,24,0)"]]);
   ctx.restore();
 };
 
@@ -266,8 +281,9 @@ const paintBody = (ctx, t, x, y) => {
     // a flagpole lashed to the back corner
     part(ctx, (c) => cylinder(c, x + pw - 3.2, dy - 20, 1.6, 22, OAKWOOD, { r: 0.8 }));
     walkFloor(ctx, x, dy, pw, false, TIMBER, seed);
-    strawButt(ctx, x - 13.5, base + 2);
-    posy(ctx, x + hw + 3, base + 1.5, "#b08ad8", seed);
+    const P = PROPS(x, y);
+    posy(ctx, x + 6.5, y + 13.5, "#b08ad8", seed);
+    strawButt(ctx, P.buttX, P.buttY);
     return;
   }
 
@@ -291,7 +307,8 @@ const paintBody = (ctx, t, x, y) => {
     part(ctx, (c) => cylinder(c, x - pw + 1, dy - 13, pw * 2 - 2, 1.6, lighten(OAKWOOD, 0.1), { r: 0.8 }));
     part(ctx, (c) => cylinder(c, x + pw - 3.2, dy - 26, 1.6, 20, OAKWOOD, { r: 0.8 }));
     walkFloor(ctx, x, dy, pw, false, TIMBER, seed);
-    arrowBarrel(ctx, x + hw + 2, base + 1, 4);
+    const P = PROPS(x, y);
+    arrowBarrel(ctx, P.barX, P.barY, 4);
     return;
   }
 
@@ -414,8 +431,9 @@ const paintBody = (ctx, t, x, y) => {
         c.fillRect(cx - 0.25, cy + 2, 0.5, 2);
       }
     }, { point: true });
-    strawButt(ctx, x - hw - 1.2, base + 2);
-    if (r4 !== "aa") arrowBarrel(ctx, x + hw + 1.5, base, 5);
+    const P = PROPS(x, y);
+    strawButt(ctx, P.buttX, P.buttY);
+    if (r4 !== "aa") arrowBarrel(ctx, P.barX, P.barY, 5);
   }
   if (master) {
     const bcol = r4 === "ba" ? "#3e4048" : r4 === "bb" ? "#8e2a26" : "#3f5a8c";
@@ -431,14 +449,16 @@ const paintBody = (ctx, t, x, y) => {
     }
   }
   if (r4 === "aa") {
-    // the venom cauldron on its fire-stones; the brew is painted live
-    for (let i = 0; i < 3; i++) rock(ctx, x + hw - 1.5 + i * 2.5, base + 0.5, 1.2, 0.9, "#8a8478", seed + i);
+    // the venom cauldron on its fire-stones, out in the grass; the brew is
+    // painted live
+    const { calX: cx, calY: cb } = PROPS(x, y);
     part(ctx, (c) => {
-      c.beginPath(); c.ellipse(x + hw + 1.5, base - 3.2, 3.6, 3.2, 0, 0, Math.PI * 2);
-      c.fillStyle = lin(c, x + hw - 2, 0, x + hw + 5, 0, [[0, "#5a5a66"], [0.5, "#3a3a44"], [1, "#22222a"]]);
+      c.beginPath(); c.ellipse(cx, cb - 3.7, 3.6, 3.2, 0, 0, Math.PI * 2);
+      c.fillStyle = lin(c, cx - 3.5, 0, cx + 3.5, 0, [[0, "#5a5a66"], [0.5, "#3a3a44"], [1, "#22222a"]]);
       c.fill();
-      c.fillStyle = "#6c727e"; c.fillRect(x + hw - 2, base - 6, 7, 1);
+      c.fillStyle = "#6c727e"; c.fillRect(cx - 3.5, cb - 6.5, 7, 1);
     });
+    for (let i = 0; i < 3; i++) rock(ctx, cx - 2.5 + i * 2.5, cb - 0.2 + (i === 1 ? 0.5 : 0), 1.2, 0.9, "#8a8478", seed + i);
   }
 };
 
@@ -498,11 +518,12 @@ export const drawArcherTower = (ctx, t, time) => {
   }
   if (r4 === "aa") {
     // the venom brew: a sick green glow and bubbles that pop at the rim
-    glow(ctx, x + hw + 1.5, base - 6.5, 5, "#8ce05a", 0.35 + 0.1 * Math.sin(time * 3 + t.id));
-    ctx.fillStyle = "#8ce05a"; ctx.fillRect(x + hw - 1.5, base - 6.6, 6, 1);
+    const { calX: cx, calY: cb } = PROPS(x, y);
+    glow(ctx, cx, cb - 7, 5, "#8ce05a", 0.35 + 0.1 * Math.sin(time * 3 + t.id));
+    ctx.fillStyle = "#8ce05a"; ctx.fillRect(cx - 3, cb - 7.1, 6, 1);
     for (let i = 0; i < 3; i++) {
       const ph = (time * 0.9 + i * 0.37 + t.id * 0.1) % 1;
-      const bx = x + hw - 0.5 + i * 2, by = base - 7 - ph * 7;
+      const bx = cx - 2 + i * 2, by = cb - 7.5 - ph * 7;
       ctx.fillStyle = rgba("#b8f08a", 1 - ph);
       ctx.fillRect(bx, by, ph < 0.2 ? 1.5 : 1, ph < 0.2 ? 1.5 : 1);
     }

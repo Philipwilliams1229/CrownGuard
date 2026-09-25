@@ -63,7 +63,12 @@ export const padB = (ctx, x, y, seed = 0, o = {}) => {
 };
 
 // Grass growing back at the edge of the work, inside the footprint.
+// Retired: the realm-aware ground blend (render/groundblend.js) now does
+// this for every hall, in the realm's own colours — these green tufts were
+// wrong on snow and ash. Kept as a no-op so the halls' calls stay harmless.
 export const skirtB = (ctx, x, y, seed = 0, n = 4, F = FOOT_B) => {
+  return;
+  // eslint-disable-next-line no-unreachable
   for (let i = 0; i < n; i++) {
     const sy = y + 5 + hash(seed, i + 7) * 5 * (F.ry / FOOT_B.ry), w = footW(y, sy, F) - 3;
     tuft(ctx, x - w + hash(seed, i) * w * 2, sy, 0.6, "#4f7a34", "#8ab848", seed + i, { n: 3 });

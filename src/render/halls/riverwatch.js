@@ -25,6 +25,7 @@ import { drawStander } from "../folk.js";
 const cache = spriteCache();
 export const resetRiverwatchBakes = () => cache.clear();
 const BOX = { left: 30, right: 30, up: 66, down: 16 };
+const BEACON = -5, CAPSTAN = 7;   // the Hellburner's beacon post and the Chain Boom's capstan (x offsets; live art follows them)
 const DECK = "#9a6e42", PILE = "#5a3e26", SHINGLE = "#4a6a8a", NAVY = "#3a5a8a", PITCHRED = "#a04030";
 const WATCH = {
   base: { skin: "#e8b990", hood: "#3a4a5a", coat: "#4a6a7a", boots: "#2a2a30", trim: "#c8b070" },
@@ -68,31 +69,7 @@ const paintJetty = (ctx, t, x, y) => {
       for (let ry = y - 24; ry > y - 30; ry -= 2.4) c.fillRect(bx - 12, ry, 24, 0.7);
     });
     part(ctx, (c) => { c.fillStyle = "#e8e0c8"; c.beginPath(); c.moveTo(bx - 2.4, y - 23); c.lineTo(bx, y - 26); c.lineTo(bx + 2.4, y - 23); c.closePath(); c.fill(); });
-    if (navy) {
-      // the mast, a crow's nest and a yard
-      beam(ctx, x - 9, y - 6, x - 9, y - 58, 2.6, OAKWOOD, { bands: [0.2, 0.55] });
-      beam(ctx, x - 17, y - 44, x - 1, y - 44, 1.6, OAKWOOD, { grain: false });
-      part(ctx, (c) => { cylinder(c, x - 13, y - 53, 8, 4.5, TIMBER, { r: 1.2, hi: 0.35, lo: 0.45 }); c.fillStyle = GOLD; c.fillRect(x - 13, y - 51.6, 8, 0.9); });
-      rope(ctx, x - 9, y - 56, x + 12, y - 30, 3, ROPE, 0.6);
-      rope(ctx, x - 9, y - 56, x - 12, y - 8, 3, ROPE, 0.6);
-    }
-  } else if (fire) {
-    // the pitch stacked at the back, and the cauldron on its trivet
-    for (const [dx, dy] of [[5, 0], [11, 0], [8, -6]]) barrel(ctx, x + dx, y - 5 + dy, 5.4, 7, "#5a3a2a", { hoop: "#2e2630", mark: r4 === "ba" ? "#e8dcc0" : null });
-    if (r4 === "ba") {
-      // the beacon: an iron basket on a tall post
-      beam(ctx, x - 9, y - 5, x - 9, y - 36, 2.4, darken(OAKWOOD, 0.2), { bands: [0.3, 0.7] });
-      part(ctx, (c) => { c.fillStyle = "#3a3440"; c.beginPath(); c.moveTo(x - 14, y - 42); c.lineTo(x - 4, y - 42); c.lineTo(x - 6.5, y - 36); c.lineTo(x - 11.5, y - 36); c.closePath(); c.fill(); });
-      part(ctx, (c) => { c.fillStyle = IRON; for (const dx of [-12, -9.5, -7]) c.fillRect(x + dx, y - 42, 0.8, 6); });
-    }
-    if (r4 === "bb") {
-      // the capstan and its chain, down into the water
-      part(ctx, (c) => cylinder(c, x - 13, y - 13, 9, 9, "#6a6058", { r: 2.5, hi: 0.35, lo: 0.5 }));
-      part(ctx, (c) => { c.fillStyle = "#3a3c46"; c.fillRect(x - 13, y - 10, 9, 1.4); c.fillRect(x - 13, y - 7, 9, 1.4); });
-      beam(ctx, x - 17, y - 14, x, y - 12, 1.6, OAKWOOD, { grain: false });
-      part(ctx, (c) => ball(c, x - 8.5, y - 13.6, 4.5, 1.6, lighten("#6a6058", 0.2), { hi: 0.3, lo: 0.3 }));
-    }
-  } else if (lvl >= 3) {
+  } else if (lvl >= 3 && !fire) {
     // the watch hut on stilts at the back
     const hx = x + 7;
     for (const dx of [-6, 6]) pile(ctx, hx + dx, y - 16, y - 4, 2.2);
@@ -122,9 +99,42 @@ const paintJetty = (ctx, t, x, y) => {
   if (navy) part(ctx, (c) => masonry(c, x - hw - 1, y - 3, hw * 2 + 2, 5, "#a19a8a", { r: 1, course: 2.5, block: 5, hi: 0.3, lo: 0.45 }));
   else planks(ctx, x - hw - 1, y - 3, hw * 2 + 2, 3, darken(DECK, 0.25), 5, 3);
   if (fire) part(ctx, (c) => { c.fillStyle = rgba("#2a1c1c", 0.45); c.fillRect(x + 2, y - 7, 5, 2); c.fillRect(x - 9, y - 6, 3, 2); });   // scorch
-  // the mooring post, and the lantern on it
+  // ---- on the deck, at the back: everything here stands ON the boards
+  // (drawn after them, feet on the planking) rather than sunk behind them
+  if (fire) {
+    // the pitch stacked at the back
+    for (const [dx, dy] of [[4, 0], [9.5, 0], [6.75, -6.5]]) barrel(ctx, x + dx, y - 6 + dy, 5.4, 7, "#5a3a2a", { hoop: "#2e2630", mark: r4 === "ba" ? "#e8dcc0" : null });
+    if (r4 === "ba") {
+      // the beacon: an iron basket on a tall post, stood clear of the mooring post
+      const bx = x + BEACON;
+      foot(ctx, bx, y - 5.2, 1.8, 0.35);
+      beam(ctx, bx, y - 5.5, bx, y - 36, 2.4, darken(OAKWOOD, 0.2), { bands: [0.3, 0.7] });
+      part(ctx, (c) => { c.fillStyle = "#3a3440"; c.beginPath(); c.moveTo(bx - 5, y - 42); c.lineTo(bx + 5, y - 42); c.lineTo(bx + 2.5, y - 36); c.lineTo(bx - 2.5, y - 36); c.closePath(); c.fill(); });
+      part(ctx, (c) => { c.fillStyle = IRON; for (const dx of [-3, -0.5, 2]) c.fillRect(bx + dx, y - 42, 0.8, 6); });
+    }
+    if (r4 === "bb") {
+      // the capstan on the deck, its bars across the top, the chain off its drum
+      const cx = x + CAPSTAN;
+      foot(ctx, cx, y - 5, 4.6, 0.4);
+      part(ctx, (c) => cylinder(c, cx - 4, y - 13, 8, 8, "#6a6058", { r: 2.5, hi: 0.35, lo: 0.5 }));
+      part(ctx, (c) => { c.fillStyle = "#3a3c46"; c.fillRect(cx - 4, y - 10, 8, 1.4); c.fillRect(cx - 4, y - 7.4, 8, 1.4); });
+      beam(ctx, cx - 7, y - 13.6, cx + 7, y - 12.4, 1.6, OAKWOOD, { grain: false });
+      part(ctx, (c) => ball(c, cx, y - 13.4, 4, 1.5, lighten("#6a6058", 0.2), { hi: 0.3, lo: 0.3 }));
+    }
+  }
+  // the mooring post, and the lantern on it; for the Crown Navy the mast
+  // itself carries the lantern (one timber, not two side by side)
   const lx = x - hw + 2;
-  beam(ctx, lx, y - 2, lx, y - 24, 3, OAKWOOD, { bands: lvl >= 2 ? [0.7] : null });
+  if (navy) {
+    foot(ctx, lx, y - 4.6, 2.2, 0.4);
+    beam(ctx, lx, y - 4.8, lx, y - 58, 2.8, OAKWOOD, { bands: [0.2, 0.55] });
+    beam(ctx, lx - 8, y - 44, lx + 8, y - 44, 1.6, OAKWOOD, { grain: false });
+    part(ctx, (c) => { cylinder(c, lx - 4, y - 53, 8, 4.5, TIMBER, { r: 1.2, hi: 0.35, lo: 0.45 }); c.fillStyle = GOLD; c.fillRect(lx - 4, y - 51.6, 8, 0.9); });
+    rope(ctx, lx, y - 56, x + 15.5, y - 22.5, 3, ROPE, 0.6);   // stayed to the boathouse eave
+  } else {
+    foot(ctx, lx, y - 4.6, 2.2, 0.4);
+    beam(ctx, lx, y - 4.8, lx, y - 24, 3, OAKWOOD, { bands: lvl >= 2 ? [0.7] : null });
+  }
   beam(ctx, lx, y - 22, lx - 5, y - 22, 1.4, OAKWOOD, { grain: false });
   part(ctx, (c) => { c.fillStyle = "#3a3a44"; roundRect(c, lx - 6.4, y - 22, 4.4, 5.6, 1.2); c.fill(); c.fillStyle = "#e8c860"; c.fillRect(lx - 5.4, y - 20.6, 2.4, 3); c.fillStyle = "#3a3a44"; c.fillRect(lx - 5, y - 23.2, 1.6, 1.4); });
   coil(ctx, lx + 3, y - 4.6, 2.4);
@@ -143,7 +153,7 @@ const paintJetty = (ctx, t, x, y) => {
     beam(ctx, x + hw - 7, y - 12.5, x + hw - 3, y - 19, 2, "#6a4a2e", { grain: false });
     beam(ctx, x + hw - 7, y - 12.5, x + hw - 1, y - 7.5, 2, "#6a4a2e", { grain: false });
     part(ctx, (c) => { c.fillStyle = STEEL; c.beginPath(); c.moveTo(x + hw + 4, y - 17); c.lineTo(x + hw + 9, y - 16.4); c.lineTo(x + hw + 4.6, y - 13.6); c.closePath(); c.fill(); c.fillRect(x + hw + 3.5, y - 15.6, 1.5, 0.9); });
-    coil(ctx, x + hw - 12, y - 4.6, 2.8, "#b8a070");
+    coil(ctx, x + hw - 2, y - 4.2, 2.4, "#b8a070");   // at the jetty end, clear of the watchman's feet
   }
   if (navy) {
     // a bronze swivel gun at the jetty end
@@ -156,12 +166,11 @@ const paintJetty = (ctx, t, x, y) => {
     part(ctx, (c) => { ball(c, x + hw - 5, y - 10, 4.4, 3.2, "#3a3440", { hi: 0.35, lo: 0.45 }); ball(c, x + hw - 5, y - 12.3, 3.3, 1, PITCH, { hi: 0.1, lo: 0.1 }); });
   }
   if (r4 === "bb") {
-    // the chain, off the capstan and down over the jetty edge into the river
+    // the chain, off the capstan's drum and down over the jetty edge into the river
     part(ctx, (c) => {
       c.fillStyle = "#3a3c46";
-      for (let i = 0; i < 9; i++) { const k = i / 8; c.fillRect(x - 8 + k * 2 - 1, y - 9 + k * 18, i % 2 ? 1 : 2, 1.6); }
+      for (let i = 0; i < 9; i++) { const k = i / 8; c.fillRect(x + CAPSTAN - 2 + k * 2 - 1, y - 8 + k * 17, i % 2 ? 1 : 2, 1.6); }
     });
-    for (const dx of [hw - 5, hw - 1]) part(ctx, (c) => cylinder(c, x + dx - 1.6, y - 10, 3.2, 5, "#4a4e58", { r: 1.2, hi: 0.4, lo: 0.45 }));   // bollards
   }
 };
 
@@ -172,7 +181,7 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   // ripples where the piles stand, and the current dragging past
   ctx.strokeStyle = "rgba(226,240,246,0.45)"; ctx.lineWidth = 0.8;
   for (const dx of [-hw + 2, 0, hw - 2]) { const r = 3 + ((((time * 6 + dx) % 5) + 5) % 5); ctx.beginPath(); ctx.ellipse(x + dx, y + 7.5, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
-  if (r4 === "bb") { const r = 2 + ((time * 4) % 4); ctx.beginPath(); ctx.ellipse(x - 5, y + 10, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
+  if (r4 === "bb") { const r = 2 + ((time * 4) % 4); ctx.beginPath(); ctx.ellipse(x + CAPSTAN, y + 10, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
   if (bake) stamp(ctx, cache.get(`jetty|${t.level}|${t.branch}|${t.rank4}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintJetty(c, t, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   else paintJetty(ctx, t, x, y);
   // the watch lantern
@@ -186,10 +195,11 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   }
   if (r4 === "ba") {
     const fl = Math.sin(time * 13 + t.id);
-    glow(ctx, x - 9, y - 44, 11, "#f0903a", 0.45 + fl * 0.1);
-    ctx.fillStyle = "#e8602a"; ctx.beginPath(); ctx.moveTo(x - 14, y - 42); ctx.quadraticCurveTo(x - 12 + fl, y - 50, x - 9 + fl, y - 53); ctx.quadraticCurveTo(x - 6, y - 48, x - 4, y - 42); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#f8d060"; ctx.beginPath(); ctx.moveTo(x - 12, y - 42); ctx.quadraticCurveTo(x - 9, y - 47 - fl, x - 6, y - 42); ctx.closePath(); ctx.fill();
-    for (let i = 0; i < 2; i++) { const k = ((time * 0.4 + i * 0.5 + t.id * 0.1) % 1); soft(ctx, x - 9 + k * 6, y - 56 - k * 16, 3 + k * 4, 3 + k * 4, [[0, `rgba(58,50,56,${0.4 * (1 - k)})`], [1, "rgba(58,50,56,0)"]]); }
+    const bx = x + BEACON;
+    glow(ctx, bx, y - 44, 11, "#f0903a", 0.45 + fl * 0.1);
+    ctx.fillStyle = "#e8602a"; ctx.beginPath(); ctx.moveTo(bx - 5, y - 42); ctx.quadraticCurveTo(bx - 3 + fl, y - 50, bx + fl, y - 53); ctx.quadraticCurveTo(bx + 3, y - 48, bx + 5, y - 42); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#f8d060"; ctx.beginPath(); ctx.moveTo(bx - 3, y - 42); ctx.quadraticCurveTo(bx, y - 47 - fl, bx + 3, y - 42); ctx.closePath(); ctx.fill();
+    for (let i = 0; i < 2; i++) { const k = ((time * 0.4 + i * 0.5 + t.id * 0.1) % 1); soft(ctx, bx + k * 6, y - 56 - k * 16, 3 + k * 4, 3 + k * 4, [[0, `rgba(58,50,56,${0.4 * (1 - k)})`], [1, "rgba(58,50,56,0)"]]); }
   }
   // the watchman out on the boards: now and then he raises a glass to the river
   const pal = WATCH[t.branch || "base"];
@@ -207,11 +217,12 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   if (r4 === "aa") {
     const wv = Math.sin(time * 4 + t.id) * 1.5;
     ctx.fillStyle = "#241a26";
-    ctx.beginPath(); ctx.moveTo(x - 8, y - 58.5); ctx.quadraticCurveTo(x + 2, y - 58 + wv, x + 12, y - 56 + wv * 1.4); ctx.lineTo(x - 8, y - 54.5); ctx.closePath(); ctx.fill();
+    const mx = lx + 1;   // the pennant flies off the mast (which stands at the lantern post)
+    ctx.beginPath(); ctx.moveTo(mx, y - 58.5); ctx.quadraticCurveTo(mx + 10, y - 58 + wv, mx + 20, y - 56 + wv * 1.4); ctx.lineTo(mx, y - 54.5); ctx.closePath(); ctx.fill();
     ctx.fillStyle = NAVY;
-    ctx.beginPath(); ctx.moveTo(x - 8, y - 58); ctx.quadraticCurveTo(x + 2, y - 57.5 + wv, x + 11, y - 56 + wv * 1.4); ctx.lineTo(x - 8, y - 55); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = GOLD; ctx.fillRect(x - 6, y - 57.4, 2.6, 1.6); ctx.fillRect(x - 6.3, y - 58.2, 0.8, 0.9); ctx.fillRect(x - 5.1, y - 58.2, 0.8, 0.9); ctx.fillRect(x - 3.9, y - 58.2, 0.8, 0.9);
-    if (Math.sin(time * 1.3 + t.id) > 0.9) glint(ctx, x - 9, y - 58, 1, 0.9);
+    ctx.beginPath(); ctx.moveTo(mx, y - 58); ctx.quadraticCurveTo(mx + 10, y - 57.5 + wv, mx + 19, y - 56 + wv * 1.4); ctx.lineTo(mx, y - 55); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = GOLD; ctx.fillRect(mx + 2, y - 57.4, 2.6, 1.6); ctx.fillRect(mx + 1.7, y - 58.2, 0.8, 0.9); ctx.fillRect(mx + 2.9, y - 58.2, 0.8, 0.9); ctx.fillRect(mx + 4.1, y - 58.2, 0.8, 0.9);
+    if (Math.sin(time * 1.3 + t.id) > 0.9) glint(ctx, lx, y - 58, 1, 0.9);
   } else {
     const pc = t.branch === "b" ? (r4 === "bb" ? "#6a6058" : PITCHRED) : t.branch === "a" ? (r4 === "ab" ? "#8a6a4a" : NAVY) : "#4a5a7c";
     if (t.branch === "a") pennant(ctx, x + 3, y - 41, 10, pc, time, t.id, 1);

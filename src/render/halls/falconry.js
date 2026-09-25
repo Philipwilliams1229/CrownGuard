@@ -38,6 +38,10 @@ const paintRoost = (ctx, t, x, y) => {
   const { lvl, r4, aviary, court, nest, h } = spec(t);
   const stone = r4 === "ab" ? STORM : GREY_STONE;
   padB(ctx, x, y, t.id, { hw: 12 });
+  // Grass at the edge of the work. Under a stone roost it goes down FIRST,
+  // so the footing (front edge y+8) covers the tufts that grow behind it
+  // instead of tufts sprouting out of the stone.
+  if (lvl >= 2) skirtB(ctx, x, y, t.id);
   // ---- behind the roost
   if (lvl >= 3 && !t.branch) {
     // the T-perch mast, a hooded bird asleep on it
@@ -51,11 +55,18 @@ const paintRoost = (ctx, t, x, y) => {
     part(ctx, (c) => { c.fillStyle = "#b08a4a"; c.beginPath(); c.moveTo(x - 10, y - h - 32); c.lineTo(x - 9, y - h - 38); c.lineTo(x - 8, y - h - 32); c.closePath(); c.fill(); });
     part(ctx, (c) => { c.fillStyle = "#b08a4a"; c.fillRect(x - 12, y - h - 24, 6, 1); c.fillRect(x - 11, y - h - 26, 4, 1); });
   }
+  if (aviary && !nest) {
+    // the gallows arm, stepped behind the rim so it rises out from behind
+    // the right merlon rather than being nailed across its face
+    beam(ctx, x + 11, y - h + 2, x + 11, y - h - 12, 1.8, OAKWOOD, { grain: false });
+    beam(ctx, x + 10, y - h - 11, x + 20, y - h - 11, 1.6, OAKWOOD, { grain: false });
+    beam(ctx, x + 11, y - h - 5, x + 16, y - h - 11, 1.2, OAKWOOD, { grain: false });
+  }
   if (r4 === "ba") {
     // the spire and its golden hawk
-    part(ctx, (c) => cylinder(c, x - 14, y - h - 20, 5, 22, stone, { r: 1.2, hi: 0.32, lo: 0.45 }));
+    part(ctx, (c) => cylinder(c, x - 13, y - h - 20, 5, 22, stone, { r: 1.2, hi: 0.32, lo: 0.45 }));
     part(ctx, (c) => {
-      const hx = x - 11.5, hy = y - h - 26;
+      const hx = x - 10.5, hy = y - h - 26;
       c.beginPath(); c.moveTo(hx - 4, hy + 6); c.quadraticCurveTo(hx - 4, hy - 3, hx + 1, hy - 4); c.quadraticCurveTo(hx + 5, hy - 3, hx + 6.5, hy); c.lineTo(hx + 3, hy + 1); c.quadraticCurveTo(hx + 3, hy + 5, hx + 2.5, hy + 6); c.closePath();
       c.fillStyle = lin(c, hx - 4, hy - 4, hx + 6, hy + 6, [[0, "#f8e08a"], [0.5, GOLD], [1, "#8a6a2a"]]); c.fill();
       c.fillStyle = "#8a6a2a"; c.fillRect(hx + 4, hy - 0.4, 2.4, 1);
@@ -98,10 +109,11 @@ const paintRoost = (ctx, t, x, y) => {
     });
     part(ctx, (c) => { ball(c, x + 3, y - h - 6.6, 2.6, 3.2, "#e8e0cc", { hi: 0.5, lo: 0.35 }); c.fillStyle = "#a89a7a"; c.fillRect(x + 2, y - h - 8, 0.8, 0.8); c.fillRect(x + 3.6, y - h - 6, 0.8, 0.8); });   // the egg
     // the empty saddle on its rack, and the lance
-    beam(ctx, x - 14, y - h + 2, x - 14, y - h - 8, 1.4, OAKWOOD, { grain: false });
-    part(ctx, (c) => { c.beginPath(); c.moveTo(x - 18, y - h - 8); c.quadraticCurveTo(x - 14, y - h - 11, x - 10, y - h - 8); c.lineTo(x - 11, y - h - 5.5); c.lineTo(x - 17, y - h - 5.5); c.closePath(); c.fillStyle = lin(c, x - 18, 0, x - 10, 0, [[0, "#b06a3a"], [1, "#6a3a1e"]]); c.fill(); c.fillStyle = GOLD; c.fillRect(x - 16, y - h - 7, 4, 0.8); });
-    beam(ctx, x + 13, y - h + 4, x + 17, y - h - 26, 1.3, OAKWOOD, { grain: false });
-    part(ctx, (c) => { c.fillStyle = STEEL; c.beginPath(); c.moveTo(x + 16.4, y - h - 26); c.lineTo(x + 17.8, y - h - 31); c.lineTo(x + 18.2, y - h - 25.6); c.closePath(); c.fill(); });
+    const sx = x - 11.5;
+    beam(ctx, sx, y - h - 1.5, sx, y - h - 8, 1.4, OAKWOOD, { grain: false });
+    part(ctx, (c) => { c.beginPath(); c.moveTo(sx - 4, y - h - 8); c.quadraticCurveTo(sx, y - h - 11, sx + 4, y - h - 8); c.lineTo(sx + 3, y - h - 5.5); c.lineTo(sx - 3, y - h - 5.5); c.closePath(); c.fillStyle = lin(c, sx - 4, 0, sx + 4, 0, [[0, "#b06a3a"], [1, "#6a3a1e"]]); c.fill(); c.fillStyle = GOLD; c.fillRect(sx - 2, y - h - 7, 4, 0.8); });
+    beam(ctx, x + 10.5, y - h - 1.5, x + 15, y - h - 28, 1.3, OAKWOOD, { grain: false });
+    part(ctx, (c) => { c.fillStyle = STEEL; c.beginPath(); c.moveTo(x + 14.4, y - h - 28); c.lineTo(x + 15.8, y - h - 33); c.lineTo(x + 16.2, y - h - 27.6); c.closePath(); c.fill(); });
   } else if (lvl === 1) {
     // a plank rail round the platform
     for (const dx of [-10, 10]) beam(ctx, x + dx, y - h, x + dx, y - h - 5, 1.2, OAKWOOD, { grain: false });
@@ -114,10 +126,7 @@ const paintRoost = (ctx, t, x, y) => {
     if (!aviary && r4 !== "ba") beam(ctx, x + 13, y - h - 1, x + 16, y - h - 9, 1.2, "#6a4a2e", { grain: false });
   }
   if (aviary && !nest) {
-    // the gallows arm and the gilded birdcage
-    beam(ctx, x + 11, y - h + 6, x + 11, y - h - 12, 1.8, OAKWOOD, { grain: false });
-    beam(ctx, x + 10, y - h - 11, x + 20, y - h - 11, 1.6, OAKWOOD, { grain: false });
-    beam(ctx, x + 11, y - h - 5, x + 16, y - h - 11, 1.2, OAKWOOD, { grain: false });
+    // the gilded birdcage, hung clear of the wall
     rope(ctx, x + 18.5, y - h - 11, x + 18.5, y - h - 7, 0, ROPE, 0.6);
     part(ctx, (c) => {
       const cx = x + 18.5, top = y - h - 7;
@@ -128,7 +137,7 @@ const paintRoost = (ctx, t, x, y) => {
       ball(c, cx - 0.5, top + 8, 1.8, 1.4, "#8a6a4a", { hi: 0.4, lo: 0.4 }); c.fillStyle = "#e8dfc6"; c.fillRect(cx + 0.6, top + 6.8, 1.2, 1);
     });
   }
-  skirtB(ctx, x, y, t.id);
+  if (lvl === 1) skirtB(ctx, x, y, t.id);
 };
 
 // One bird, wings up, level or down.
@@ -169,7 +178,7 @@ export const drawFalconry = (ctx, t, time) => {
   if (lvl >= 2 && Math.sin(time * 1.7 + t.id) > -0.4) glow(ctx, x, y - h + 14.5, 3, "#ffd070", 0.7);
   if (r4 === "ba") {
     // the golden eye that never closes
-    const ex = x - 8.5, ey = y - h - 26.4;
+    const ex = x - 7.5, ey = y - h - 26.4;
     glow(ctx, ex, ey, 4 + Math.sin(time * 3) * 0.8, "#f8d870", 0.8);
     ctx.fillStyle = "#fff3d2"; ctx.fillRect(ex - 0.6, ey - 0.6, 1.2, 1.2);
   }

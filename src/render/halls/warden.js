@@ -89,8 +89,13 @@ const paintGround = (ctx, t, x, y) => {
       }
     }
   }
+  // contact shadows under the pillars' feet and the frost crystals
+  if (t.level >= 2 || t.branch) for (const s of [-1, 1]) shadow(ctx, x + s * pillarX(t) + 0.8, y + 7.6, 3.8, 1.2, 0.34);
+  if (ice) for (const s of [-1, 1]) shadow(ctx, x + s * (pillarX(t) + 0.5) + 0.6, y + 10.2, 2, 0.8, 0.25);
+  if (!t.branch && t.level === 1) shadow(ctx, x + pw + 2.5 + 0.6, y + 10.7, 1.8, 0.7, 0.28);
   ctx.restore();
-  if (t.branch === "b") for (const [i, [fx, fy]] of [[-15, 7], [15, 8], [-11, 12], [11, 12]].entries()) posy(ctx, x + fx, y + fy, i % 2 ? "#f0d060" : "#e8e4d8", t.id + i);
+  // flowers in the grass before the steps (clear of the pillars' feet)
+  if (t.branch === "b") for (const [i, [fx, fy]] of [[-12, 11], [12.5, 11.5], [-6.5, 14], [7, 14.2]].entries()) posy(ctx, x + fx, y + fy, i % 2 ? "#f0d060" : "#e8e4d8", t.id + i);
 };
 
 // The altar, and everything that stands behind the warden.
@@ -165,8 +170,8 @@ const paintBack = (ctx, t, x, y) => {
   });
   // snow on the steps, frosted edges
   if (ice) for (let i = 0; i < 5; i++) part(ctx, (c) => ball(c, x - pw - 2 + i * (pw * 2 + 4) / 4, y + 1 + (i % 2) * 0.5, 2.4, 1.1, "#f0faff", { hi: 0.3, lo: 0.25 }));
-  if (ice) for (const s of [-1, 1]) { crystal(ctx, x + s * (pw + 2), y + 6, 2.6, 7, s); crystal(ctx, x + s * (pw + 4.5), y + 7, 2, 5, s * 1.5); }
-  if (!br && lvl === 1) crystal(ctx, x + pw + 3, y + 6, 2.4, 6, 1);
+  // (the Rimecaller's ground crystals stand in front of the pillars: paintFront)
+  if (!br && lvl === 1) crystal(ctx, x + pw + 2.5, y + 10.5, 2.4, 6, 1);   // out on the grass, clear of the steps
   if (life) {
     vine(ctx, x - pw - 3, y - 2, 8, -1, seed, "#4f8a3c", null);
     vine(ctx, x + pw + 3, y - 1, 7, 1, seed + 2, "#4f8a3c", "#f0d060");
@@ -189,16 +194,23 @@ const paintFront = (ctx, t, x, y) => {
   for (const s of [-1, 1]) {
     const px = x + s * px0;
     // a fluted pillar on a square base, a capital on top
-    part(ctx, (c) => cylinder(c, px - 3, y + 2, 6, 4, darken(col, 0.08), { r: 1 }));
+    // (its square foot stands on the ground at the step's end, its base a
+    // hair below the step's, so it reads in front of it, not sunk into it)
+    part(ctx, (c) => cylinder(c, px - 3, y + 3, 6, 4.6, darken(col, 0.08), { r: 1 }));
     part(ctx, (c) => {
-      cylinder(c, px - 2, ptop, 4, y + 3 - ptop, col, { r: 1, hi: 0.35, lo: 0.5 });
+      cylinder(c, px - 2, ptop, 4, y + 4 - ptop, col, { r: 1, hi: 0.35, lo: 0.5 });
       c.fillStyle = rgba(darken(col, 0.5), 0.5); c.fillRect(px - 0.5, ptop + 2, 0.5, y - ptop - 1); c.fillRect(px + 1, ptop + 2, 0.5, y - ptop - 1);
     });
     part(ctx, (c) => cylinder(c, px - 3, ptop - 2.5, 6, 3, lighten(col, 0.15), { r: 1, hi: 0.3, lo: 0.4 }));
     if (!arch && r4) crystal(ctx, px, ptop - 2, 3, 8, 0);                                            // an ice lamp
     else if (!arch) part(ctx, (c) => { c.fillStyle = "#e8e0c8"; c.fillRect(px - 1, ptop - 6.5, 2, 4); });   // a candle
     if (life) vine(ctx, px + s * 1.5, ptop + 2, y - ptop - 2, s, t.id + s, "#4f8a3c", "#f0a0b8");
-    if (ice && arch) crystal(ctx, px + s * 2.8, y + 5, 2, 6, s);
+  }
+  // frost crystals grown up out of the ground before each pillar's foot
+  if (ice) for (const s of [-1, 1]) {
+    const px = x + s * px0;
+    crystal(ctx, px - s * 3.6, y + 9.6, 2, 4.5, s * 1.2);
+    crystal(ctx, px + s * 0.5, y + 10.2, 2.6, 6.5, s);
   }
   if (!arch) return;
   // the lintel, and a keystone set with a gem

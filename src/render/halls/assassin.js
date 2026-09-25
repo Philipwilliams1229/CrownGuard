@@ -27,6 +27,9 @@ export const resetAssassinBakes = () => cache.clear();
 const BOX = { left: 36, right: 36, up: 64, down: 18 };
 const CANVAS = { l: "#7a6e78", a: "#6a5486", aa: "#4e3e62", ab: "#766e78", b: "#5e7250", ba: "#4c5e44", bb: "#747a4a" };
 const VENOM = "#b050c0", SPORE = "#c8d060", POLE = "#4a3828";
+const LANTERN = 15.5;   // the lantern post's x offset (the live glow follows it)
+// the Plague Bearer's pods [dx, dy, r]: kept off the knife board and the tent's wall
+const PODS = [[-10.5, 9.5, 2.4], [-5.5, 12.5, 1.8], [14.5, 3.5, 2], [-8.5, 5.5, 1.3], [1, 13.5, 1.4]];
 
 const spec = (t) => {
   const lvl = t.branch ? 3 : t.level, r4 = t.rank4 ? t.branch + t.rank4 : null;
@@ -123,7 +126,7 @@ const leanTo = (ctx, x, y, s, f) => {
 
 // A plank knife board with blades stuck in it.
 const knifeBoard = (ctx, bx, gy, n) => {
-  foot(ctx, bx, gy, 3.5);
+  foot(ctx, bx, gy, 2.4);
   part(ctx, (c) => { c.fillStyle = POLE; c.fillRect(bx - 0.6, gy - 11, 1.2, 11); });
   planks(ctx, bx - 3, gy - 12, 6, 7, "#6a5038", 2, 3);
   part(ctx, (c) => {
@@ -134,17 +137,18 @@ const knifeBoard = (ctx, bx, gy, n) => {
 
 // The Open Contract's notice board: two posts, a little roof, names.
 const noticeBoard = (ctx, bx, gy, seed) => {
-  for (const sg of [-1, 1]) { foot(ctx, bx + sg * 3.5, gy, 1.6); part(ctx, (c) => cylinder(c, bx + sg * 3.5 - 0.7, gy - 15, 1.4, 15, POLE, { r: 0.6 })); }
-  planks(ctx, bx - 4.6, gy - 13.5, 9.2, 8, "#7a5a3a", 2.3, seed);
-  part(ctx, (c) => { c.fillStyle = "#4a3828"; c.beginPath(); c.moveTo(bx - 6, gy - 14.5); c.lineTo(bx, gy - 17.5); c.lineTo(bx + 6, gy - 14.5); c.closePath(); c.fill(); });
+  foot(ctx, bx, gy, 4, 0.3);
+  for (const sg of [-1, 1]) { foot(ctx, bx + sg * 3, gy, 1.3); part(ctx, (c) => cylinder(c, bx + sg * 3 - 0.7, gy - 15, 1.4, 15, POLE, { r: 0.6 })); }
+  planks(ctx, bx - 4, gy - 13.5, 8, 8, "#7a5a3a", 2.3, seed);
+  part(ctx, (c) => { c.fillStyle = "#4a3828"; c.beginPath(); c.moveTo(bx - 5.4, gy - 14.5); c.lineTo(bx, gy - 17.5); c.lineTo(bx + 5.4, gy - 14.5); c.closePath(); c.fill(); });
   part(ctx, (c) => {
     for (let i = 0; i < 5; i++) {
-      const px = bx - 3.8 + (i % 3) * 2.6 + hash(seed, i) * 0.6, py = gy - 13 + Math.floor(i / 3) * 3.6 + hash(seed, i + 3) * 0.8;
+      const px = bx - 3.4 + (i % 3) * 2.3 + hash(seed, i) * 0.5, py = gy - 13 + Math.floor(i / 3) * 3.6 + hash(seed, i + 3) * 0.8;
       c.fillStyle = i % 2 ? "#e8dcb8" : "#f4ecd4"; c.fillRect(px, py, 2.2, 2.8);
       c.fillStyle = "#6a5a50"; c.fillRect(px + 0.4, py + 0.8, 1.4, 0.4); c.fillRect(px + 0.4, py + 1.6, 1, 0.4);
       c.fillStyle = "#b03a32"; c.fillRect(px + 1.4, py + 2, 0.7, 0.7);
     }
-    c.fillStyle = STEEL; c.fillRect(bx + 3, gy - 12, 0.8, 3.2); c.fillStyle = "#3a2a20"; c.fillRect(bx + 2.9, gy - 13.4, 1, 1.4);   // the knife that pins the latest
+    c.fillStyle = STEEL; c.fillRect(bx + 2.6, gy - 12, 0.8, 3.2); c.fillStyle = "#3a2a20"; c.fillRect(bx + 2.5, gy - 13.4, 1, 1.4);   // the knife that pins the latest
   });
 };
 
@@ -195,25 +199,32 @@ const paintCovert = (ctx, t, x, y, f) => {
   // the house's sign over the door: a gold seal, or venom vials along the eave
   if (s.court) part(ctx, (c) => { ball(c, x - f * 1, y - 22, 2.2, 2.2, GOLD, { hi: 0.6, lo: 0.4 }); c.fillStyle = darken(GOLD, 0.45); c.fillRect(x - f * 1 - 0.8, y - 22.6, 1.6, 1.2); });
   if (s.guild) for (let i = 0; i < 4; i++) part(ctx, (c) => {
-    const vx = x - s.hw * 0.75 + i * s.hw * 0.5, vy = y - 1.5 + Math.abs(i - 1.5) * 0.3;
-    c.fillStyle = "#8a8f9a"; c.fillRect(vx - 0.3, vy, 0.6, 2);
-    ball(c, vx, vy + 3.2, 1.3, 1.6, i % 2 ? "#a8d060" : "#9a6ac0", { hi: 0.6, lo: 0.3 });
+    const vx = x - s.hw * 0.75 + i * s.hw * 0.5, vy = y - 2.4 + Math.abs(i - 1.5) * 0.3;
+    c.fillStyle = "#8a8f9a"; c.fillRect(vx - 0.3, vy, 0.6, 1.2);
+    ball(c, vx, vy + 2.4, 1.2, 1.4, i % 2 ? "#a8d060" : "#9a6ac0", { hi: 0.6, lo: 0.3 });   // hung off the valance, clear of the ground
   });
-  // by the door: the knife board, or the notice board
-  if (r4 === "ab") noticeBoard(ctx, x - f * 12, y + 6, t.id);
-  else knifeBoard(ctx, x - f * 13, y + 4, lvl + 1);
-  // the lantern post from two (a closed, shaded lamp)
-  if (lvl >= 2 && !s.guild) part(ctx, (c) => {
-    const lx = x + f * 14;
-    c.fillStyle = POLE; c.fillRect(lx - 0.6, y - 13, 1.2, 15); c.fillRect(lx - f * 2.5 - 0.1, y - 13, 3, 1);
-    cylinder(c, lx - f * 2.5 - 1.4, y - 12, 2.8, 3.6, "#2e2a30", { r: 0.8 });
-  });
+  // ---- on the ground in front: every prop stands clear of the tent's wall
+  // on its own shadow, and they draw back to front so none cuts another
+  const props = [];
+  // by the door, stood off to the side: the knife board, or the notice board
+  if (r4 === "ab") props.push([y + 6, () => noticeBoard(ctx, x - f * 13.5, y + 6, t.id)]);
+  else props.push([y + 6, () => knifeBoard(ctx, x - f * 15, y + 6, lvl + 1)]);
+  // the lantern post from two (a closed, shaded lamp), planted in front of the wall's corner
+  if (lvl >= 2 && !s.guild) props.push([y + 4, () => {
+    const lx = x + f * LANTERN;
+    foot(ctx, lx, y + 4, 1.6, 0.35);
+    part(ctx, (c) => {
+      c.fillStyle = POLE; c.fillRect(lx - 0.6, y - 13, 1.2, 17); c.fillRect(Math.min(lx, lx - f * 2.5) - 0.4, y - 13, 3.3, 1);   // the arm, post to lamp either way round
+      cylinder(c, lx - f * 2.5 - 1.4, y - 12, 2.8, 3.6, "#2e2a30", { r: 0.8 });
+    });
+  }]);
   // Widow's Kiss: two vats of venom before the tent
-  if (r4 === "ba") { vat(ctx, x - f * 9, y + 11, 6, 4.6); vat(ctx, x - f * 2.5, y + 13, 4.6, 3.6); }
+  if (r4 === "ba") { props.push([y + 11, () => vat(ctx, x - f * 9, y + 11, 6, 4.6)]); props.push([y + 13, () => vat(ctx, x - f * 2.5, y + 13, 4.6, 3.6)]); }
   // Plague Bearer: spore pods swelling round the tent's foot
-  if (r4 === "bb") for (const [dx, dy, r] of [[-14, 5, 2.6], [-11, 8, 1.8], [-5, 12.5, 2.2], [13.5, 5, 2], [-15.5, 1.5, 1.6], [0.5, 13.5, 1.4]]) pod(ctx, x + f * dx, y + dy, r, dx);
+  if (r4 === "bb") for (const [dx, dy, r] of PODS) props.push([y + dy, () => pod(ctx, x + f * dx, y + dy, r, dx)]);
   // Nightshade (plain): the poisoner's bench with a pestle bowl
-  if (s.guild && !r4) crate(ctx, x - f * 5, y + 12, 5.5, 3.5, "#6a5038");
+  if (s.guild && !r4) props.push([y + 12, () => { foot(ctx, x - f * 5, y + 12, 3.4, 0.4); crate(ctx, x - f * 5, y + 12, 5.5, 3.5, "#6a5038"); }]);
+  props.sort((p, q) => p[0] - q[0]).forEach((p) => p[1]());
 };
 
 // ---- per frame -------------------------------------------------------------------
@@ -238,7 +249,7 @@ export const drawAssassin = (ctx, t, time) => {
     hood(x - f * 2, y + 2.5, f, s.guild ? "g" : "c");
   }
   // live: the lantern's shaded light; the vats bubble; the pods breathe
-  if (s.lvl >= 2 && !s.guild) glow(ctx, x + f * 11.5, y - 9, 3.5, s.court ? "#f0c060" : "#b0a0e0", 0.55 + 0.15 * Math.sin(time * 3 + t.id));
+  if (s.lvl >= 2 && !s.guild) glow(ctx, x + f * (LANTERN - 2.5), y - 9.5, 3.5, s.court ? "#f0c060" : "#b0a0e0", 0.55 + 0.15 * Math.sin(time * 3 + t.id));
   if (r4 === "ba") for (const [vx, vy, i] of [[x - f * 9, y + 6.4, 0], [x - f * 2.5, y + 9.4, 1]]) {
     const k = (time * 1.3 + i * 0.5 + t.id * 0.2) % 1;
     glow(ctx, vx, vy, 3, VENOM, 0.35);
@@ -246,7 +257,7 @@ export const drawAssassin = (ctx, t, time) => {
   }
   if (r4 === "bb") for (let i = 0; i < 4; i++) {
     const k = (time * 0.35 + i * 0.25 + t.id * 0.1) % 1;
-    const px = x + f * [-14, -5, 13.5, -11][i] + Math.sin(time * 1.5 + i) * 2;
+    const px = x + f * PODS[i][0] + Math.sin(time * 1.5 + i) * 2;
     glow(ctx, px, y + 2 - k * 16, 1.6 + k * 1.5, SPORE, 0.7 * (1 - k));
   }
   // ---- the blade on watch out front, facing the road; when the work is on
