@@ -15,9 +15,9 @@
 // Pixel art: the roost is baked per form; birds, the mistress, sparks and
 // the eye are stamped or painted live.
 
-import { pad, skirt, stoneBody, battlement, GREY_STONE, OAKWOOD, pennant, spriteCache, stamp, canBake } from "../buildkit.js";
+import { stoneBody, battlement, GREY_STONE, OAKWOOD, pennant, spriteCache, stamp, canBake } from "../buildkit.js";
 import {
-  IRON, STEEL, GOLD, ROPE, readiness, foot, beam, planks, rope, glint,
+  IRON, STEEL, GOLD, ROPE, readiness, foot, padB, skirtB, beam, planks, rope, glint,
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { getStats } from "../../engine/towers.js";
@@ -37,8 +37,7 @@ const roostH = (t) => spec(t).h;
 const paintRoost = (ctx, t, x, y) => {
   const { lvl, r4, aviary, court, nest, h } = spec(t);
   const stone = r4 === "ab" ? STORM : GREY_STONE;
-  pad(ctx, x, y + 6, 22, t.id);
-  shadow(ctx, x + 6, y + 8, 19, 4.5, 0.34);
+  padB(ctx, x, y, t.id, { hw: 12 });
   // ---- behind the roost
   if (lvl >= 3 && !t.branch) {
     // the T-perch mast, a hooded bird asleep on it
@@ -129,7 +128,7 @@ const paintRoost = (ctx, t, x, y) => {
       ball(c, cx - 0.5, top + 8, 1.8, 1.4, "#8a6a4a", { hi: 0.4, lo: 0.4 }); c.fillStyle = "#e8dfc6"; c.fillRect(cx + 0.6, top + 6.8, 1.2, 1);
     });
   }
-  skirt(ctx, x, y + 7, 14, t.id);
+  skirtB(ctx, x, y, t.id);
 };
 
 // One bird, wings up, level or down.

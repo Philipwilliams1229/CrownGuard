@@ -58,6 +58,7 @@
           const st = getStats(t);
           t.cd = (st.rate || 1000) * row.cdf;
           try { P[KIND](ctx, t, time); } catch (e) { console.error(e); ctx.fillStyle = "red"; ctx.fillText(String(e.message).slice(0, 30), 4, 12); }
+          { if (q.get("ell")) { ctx.strokeStyle = "rgba(255,0,255,0.9)"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(t.x, t.y + 3, 18, 13, 0, 0, 7); ctx.stroke(); ctx.strokeStyle = "rgba(0,255,255,0.7)"; ctx.beginPath(); ctx.arc(t.x, t.y, 16, 0, 7); ctx.stroke(); } }
           ctx.restore();
         }));
         let out = cv;

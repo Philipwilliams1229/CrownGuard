@@ -34,7 +34,7 @@ const WATCH = {
 
 const spec = (t) => {
   const lvl = t.branch ? 3 : t.level;
-  return { lvl, r4: t.rank4 ? t.branch + t.rank4 : null, hw: 11 + lvl + (t.branch ? 2 : 0) };
+  return { lvl, r4: t.rank4 ? t.branch + t.rank4 : null, hw: 9.5 + lvl * 0.5 + (t.branch ? 1 : 0) };   // the deck keeps inside the footprint
 };
 
 // A pile driven into the river: wet and dark below the line.
@@ -47,7 +47,7 @@ const paintJetty = (ctx, t, x, y) => {
   const { lvl, r4, hw } = spec(t);
   const navy = r4 === "aa", fire = t.branch === "b";
   // the dark of the water under the boards
-  shadow(ctx, x + 3, y + 6, hw + 5, 4, 0.34);
+  shadow(ctx, x + 2, y + 6, hw + 2, 4, 0.34);
   // ---- at the back: what the jetty grows
   if (t.branch === "a") {
     // the boathouse: an open-fronted shed, a skiff's nose in the dark
@@ -74,7 +74,7 @@ const paintJetty = (ctx, t, x, y) => {
       beam(ctx, x - 17, y - 44, x - 1, y - 44, 1.6, OAKWOOD, { grain: false });
       part(ctx, (c) => { cylinder(c, x - 13, y - 53, 8, 4.5, TIMBER, { r: 1.2, hi: 0.35, lo: 0.45 }); c.fillStyle = GOLD; c.fillRect(x - 13, y - 51.6, 8, 0.9); });
       rope(ctx, x - 9, y - 56, x + 12, y - 30, 3, ROPE, 0.6);
-      rope(ctx, x - 9, y - 56, x - 20, y - 8, 3, ROPE, 0.6);
+      rope(ctx, x - 9, y - 56, x - 12, y - 8, 3, ROPE, 0.6);
     }
   } else if (fire) {
     // the pitch stacked at the back, and the cauldron on its trivet

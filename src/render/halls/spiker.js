@@ -14,9 +14,9 @@
 // at a few phases of one blade's turn, so it spins in crisp steps. Flames,
 // sparks and chains are painted live.
 
-import { pad, skirt, OAKWOOD, pennant, spriteCache, stamp, canBake } from "../buildkit.js";
+import { OAKWOOD, pennant, spriteCache, stamp, canBake } from "../buildkit.js";
 import {
-  IRON, STEEL, GOLD, ROPE, readiness, foot, beam, planks, barrel, rope, boulder, glint,
+  IRON, STEEL, GOLD, ROPE, readiness, foot, padB, skirtB, beam, planks, barrel, rope, boulder, glint,
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { masonry } from "../buildkit.js";
@@ -43,8 +43,7 @@ const spec = (t) => {
 // ---- the base: footing, post, gearbox ------------------------------------
 const paintBase = (ctx, t, x, y) => {
   const s = spec(t), { lvl, r4, gale, fire } = s;
-  pad(ctx, x, y + 6, 22, t.id);
-  shadow(ctx, x + 5, y + 8, 19, 4.5, 0.32);
+  padB(ctx, x, y, t.id, { hw: 13 });
   if (fire) soft(ctx, x, y + 5, 16, 5, [[0, "rgba(40,30,34,0.3)"], [1, "rgba(40,30,34,0)"]]);   // soot
   // the windmill's mast stands at the back
   if (gale) {
@@ -104,18 +103,18 @@ const paintBase = (ctx, t, x, y) => {
       part(ctx, (c) => ball(c, x + 14.5, y - 4, 1.4, 3.6, "#a8a49a", { hi: 0.4, lo: 0.45 }));
     } else {
       // the coal heap
-      for (const [dx, dy, r] of [[14, 3, 2.6], [17.5, 4, 2], [15.5, 1, 2]]) part(ctx, (c) => ball(c, x + dx, y + dy, r, r * 0.8, "#2e2a30", { hi: 0.35, lo: 0.4 }));
+      for (const [dx, dy, r] of [[11.5, 5.5, 2.4], [14.5, 5.8, 1.8], [13, 3.6, 1.8]]) part(ctx, (c) => ball(c, x + dx, y + dy, r, r * 0.8, "#2e2a30", { hi: 0.35, lo: 0.4 }));
     }
   }
   if (r4 === "ab") {
     // snares staked round the base
-    for (const [dx, dy] of [[-18, 4], [16, 7], [-6, 9]]) part(ctx, (c) => {
+    for (const [dx, dy] of [[-13, 8], [12, 9], [-3, 11.5]]) part(ctx, (c) => {
       c.strokeStyle = IRON; c.lineWidth = 0.8; c.beginPath(); c.ellipse(x + dx, y + dy, 3, 1.2, 0, 0, Math.PI * 2); c.stroke();
       c.fillStyle = OAKWOOD; c.fillRect(x + dx + 2.6, y + dy - 3, 1, 3.5);
     });
   }
   if (r4 === "aa") for (const dx of [12, 15]) part(ctx, (c) => { c.fillStyle = STEEL; c.fillRect(x + dx, y - 6, 1, 10); c.fillStyle = "#8a909c"; c.fillRect(x + dx - 0.5, y + 1, 2, 1.2); });
-  skirt(ctx, x, y + 6, 16, t.id);
+  skirtB(ctx, x, y, t.id);
 };
 
 // ---- the windmill's sails, baked at a few turns -----------------------------
@@ -306,7 +305,7 @@ export const drawBladewheel = (ctx, t, time) => {
   const lvl1 = lvl === 1 && !t.branch;
   const turning = !t._idle;
   const work = turning ? Math.round((Math.sin(time * (gale ? 12 : 8) + t.id) + 1) * 1.5) : Math.round((Math.sin(time * 1.1 + t.id) + 1) * 0.5);
-  const cx0 = lvl1 ? x - 11 : x - 15, cy0 = y + (fire ? 4 : 5);
+  const cx0 = x - 12, cy0 = y + (fire ? 4 : 5);
   if (bake) stamp(ctx, cache.get(`crew|${fire ? "s" : "w"}|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, fire ? STOKER : CREW_FOLK.engineer, (work - 1.5) * 0.4)), cx0, cy0, 12, 27, 1);
   else drawCrew(ctx, cx0, cy0, 1, CREW_FOLK.engineer, 0);
   if (lvl1) {
@@ -325,7 +324,7 @@ export const drawBladewheel = (ctx, t, time) => {
   if (t._idle && Math.sin(time * 3.1 + t.id * 1.9) > 0.9) glow(ctx, x + rr - 2, wy - 2, 2.5, "#ffffff", 0.9);
   if (!fire && Math.sin(time * 1.9 + t.id * 2.1) > 0.97) glint(ctx, x - rr * 0.6, wy - rr * 0.3, 1, 0.9);
   const bc = r4 === "aa" ? "#c4c8d0" : r4 === "ab" ? "#8a4a3a" : r4 === "ba" ? "#e8c14a" : r4 === "bb" ? "#e8703a" : gale ? "#7a94b8" : fire ? "#c05a28" : "#a04a3f";
-  if (lvl >= 2 || t.branch) pennant(ctx, x + 18, y - 22, 20, bc, time, t.id, 1);
+  if ((lvl >= 2 || t.branch) && !gale) pennant(ctx, x + 11, y - (fire ? 31 : 30), 20, bc, time, t.id, 1);
 };
 
 const STOKER = { skin: "#e8b990", hood: "#3a3028", coat: "#6a3a2a", boots: "#2e2420", trim: "#3a2a20" };
