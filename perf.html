@@ -3,6 +3,9 @@
   Dev tool: how long one board frame takes to draw with N foes on the road.
   /perf.html?realm=warrens&n=0,100,300,500 — results land in the page title
   and body as JSON (ms per frame, mean of 30 frames after 5 warm-up frames).
+  &fx=1 adds a heavy fight on top: 24 blasts cycling through their lives,
+  20 scorch marks, 60 shots in flight, chain lightning and coin pops (the
+  warm-up is then long enough to bake every blast frame once).
 -->
 <html><head><meta charset="utf-8" /><title>perf…</title></head>
 <body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:20px"><div id="out">running…</div>
@@ -24,17 +27,42 @@ const mk = (i) => {
     flying: !!d.flying, boss: false, atkAnim: 0, stunUntil: 0, slowUntil: 0, slowPct: 0, auraSlow: 0, burnUntil: i % 4 ? 0 : 1e9,
     poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: 0, blockedBy: null, engaged: false, dead: false, revived: false, born: -1e9 };
 };
+const FX = q.get("fx") === "1";
+const fight = () => {
+  const effects = [], projectiles = [];
+  const kinds = ["boom", "arcane", "frost", "dust"];
+  for (let i = 0; i < 24; i++) {
+    const [x, y] = posAt((i * 97) % TOTAL_LEN);
+    effects.push({ type: kinds[i % 4], x, y, ttl: 20 + (i * 37) % 300, life: 320, r: 36 + (i % 3) * 14 });
+  }
+  for (let i = 0; i < 20; i++) {
+    const [x, y] = posAt((i * 131) % TOTAL_LEN);
+    effects.push({ type: "scorch", x, y, ttl: 200 + (i * 113) % 2400, life: 2600, r: 24 + (i % 3) * 6, seed: i, frost: i % 4 === 2 });
+  }
+  for (let i = 0; i < 10; i++) effects.push({ type: "coin", x: 100 + i * 60, y: 200, ttl: 100 + i * 60, life: 700, text: "+" + (5 + i) });
+  effects.push({ type: "bolt", pts: [[200, 200], [260, 240], [330, 220], [400, 260]], ttl: 200, life: 220, seed: 2 });
+  const pk = ["arrow", "arrow", "orb", "rock", "spike", "shell", "ball"];
+  for (let i = 0; i < 60; i++) {
+    const [x, y] = posAt((i * 53) % TOTAL_LEN);
+    projectiles.push({ id: i, kind: pk[i % pk.length], x, y: y - 20, sx: x - 80, sy: y - 20, tx: x + 60, ty: y + 30, total: 150, angle: pk[i % pk.length] === "spike" ? i : undefined, delay: 0, burn: i % 3 === 0 ? 4 : 0, slow: i % 5 === 0 ? 0.3 : 0, hitsLeft: 1 });
+  }
+  return { effects, projectiles };
+};
+const tick = (g) => {
+  g.time += 0.016;
+  for (const f of g.effects) { f.ttl -= 16; if (f.ttl <= 0) f.ttl += f.life; }
+};
 const res = {};
 for (const N of Ns) {
-  const g = { time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5, towers: [], projectiles: [], effects: [], grounds: [],
+  const g = { time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5, towers: [], projectiles: [], effects: [], grounds: [], ...(FX ? fight() : {}),
     corpses: [], spawnQueue: [], enemies: Array.from({ length: N }, (_, i) => mk(i)), phase: "combat", buildMode: null, hover: null,
     selectedId: null, banner: null, paused: false, buildUntil: null };
   const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES;
   const buf = { current: null };
-  for (let i = 0; i < 5; i++) { g.time += 0.016; draw(g, cv, buf); }
+  for (let i = 0; i < (FX ? 45 : 5); i++) { tick(g); draw(g, cv, buf); }
   cv.getContext("2d").getImageData(0, 0, 1, 1);
   const t0 = performance.now();
-  for (let i = 0; i < 30; i++) { g.time += 0.016; draw(g, cv, buf); }
+  for (let i = 0; i < 30; i++) { tick(g); draw(g, cv, buf); }
   cv.getContext("2d").getImageData(0, 0, 1, 1);
   res[N] = +((performance.now() - t0) / 30).toFixed(2);
 }

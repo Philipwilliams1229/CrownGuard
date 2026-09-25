@@ -26,6 +26,7 @@ import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
+import { isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
 
 // The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
 // buffer space over the finished board, so it reads at any camera zoom. It's
@@ -147,28 +148,14 @@ export function draw(g, canvas, bufRef) {
   // clouds crossing the sun — over the ground, under everything standing on it
   drawCloudShadows(ctx, g.time);
 
-  // scorch marks: blasts leave the turf blackened for a few seconds. Drawn
-  // here, before the actors, so troops walk over the burn rather than under it.
+  // Scorch marks and the ground half of every blast (its shockwave and
+  // wash), drawn here, before the actors, so the crowd stands IN the blast
+  // and walks over the burn rather than under it. All baked in render/fx.js.
   for (const fx of g.effects) {
-    if (fx.type !== "scorch") continue;
-    const a = Math.min(1, fx.ttl / fx.life) * 0.42;
-    const r = fx.r, ry = r * 0.6, step = CELL * 2;
-    const core = fx.frost ? `rgba(168,214,232,${a})` : `rgba(38,29,26,${a})`;
-    const rim = fx.frost ? `rgba(214,240,248,${a * 0.7})` : `rgba(64,50,42,${a * 0.75})`;
-    // Stamped cell by cell rather than filled as an ellipse: a smooth vector
-    // blob is the one shape on this board that isn't made of pixels, and the
-    // eye goes straight to it. The hash gives the edge a burnt raggedness.
-    const ox = S(fx.x), oy = S(fx.y);
-    for (let dy = -ry; dy <= ry; dy += step) {
-      for (let dx = -r; dx <= r; dx += step) {
-        const n = (dx * dx) / (r * r) + (dy * dy) / (ry * ry);
-        if (n > 1) continue;
-        const h = ((((dx | 0) * 73856093) ^ ((dy | 0) * 19349663) ^ ((fx.seed * 977) | 0)) >>> 0) % 64 / 64;
-        if (n > 0.42 && h < (n - 0.42) / 0.58) continue;   // crumbling outer edge
-        ctx.fillStyle = n < 0.34 ? core : rim;
-        ctx.fillRect(ox + S(dx), oy + S(dy), step, step);
-      }
-    }
+    if (fx.type === "scorch") drawScorch(ctx, fx);
+  }
+  for (const fx of g.effects) {
+    if (isBlast(fx.type)) drawBlast(ctx, fx, "g");
   }
 
   // lingering ground effects: pools of living lava, and the ghasts' plague
@@ -462,123 +449,30 @@ export function draw(g, canvas, bufRef) {
   // (and where it stands) lives with the rest of the scenery.
   drawSpawnSign(ctx, g.time, g.phase);
 
+  // shots in flight: arrows, orbs, boulders, shells, spikes, musket balls —
+  // each a cached pixel sprite (render/fx.js)
   for (const p of g.projectiles) {
     if (p.delay > 0) continue;
-    const ang = p.angle ?? Math.atan2(p.ty - p.y, p.tx - p.x);
-    const dx = Math.cos(ang), dy = Math.sin(ang);
-    if (p.kind === "ball") {
-      // a musket ball and its trace
-      ctx.strokeStyle = "rgba(240,226,190,0.7)"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(p.x - dx * 12, p.y - dy * 12); ctx.lineTo(p.x, p.y); ctx.stroke();
-      pip(ctx, p.x, p.y, 1.4, 1.4, "#4a4a52", { hi: 0.5, lo: 0.4 });
-      continue;
-    }
-    if (p.kind === "shell") {
-      const remaining = Math.hypot(p.tx - p.x, p.ty - p.y);
-      const tot = Math.max(1, Math.hypot(p.tx - (p.sx ?? p.x), p.ty - (p.sy ?? p.y)));
-      const prog = Math.min(1, Math.max(0, 1 - remaining / tot));
-      const arcH = Math.sin(prog * Math.PI) * 26;
-      softShadow(ctx, p.x, p.y + 2, 3, 1.2, 0.3);
-      pip(ctx, p.x, p.y - arcH, 3.2, 3.2, "#4a4a52", { hi: 0.45, lo: 0.5 });
-      glowFx(ctx, p.x + 2, p.y - arcH - 4, 1.6, Math.sin(g.time * 30 + p.x) > 0 ? "#f4e08a" : "#e8933a", 0.9);
-      continue;
-    }
-    if (p.kind === "rock") {
-      const remaining = Math.hypot(p.tx - p.x, p.ty - p.y);
-      const prog = p.total > 0 ? 1 - remaining / p.total : 1;
-      const arcH = Math.sin(Math.min(1, Math.max(0, prog)) * Math.PI) * Math.min(64, p.total * 0.24);
-      const r = p.mini ? 2.2 : p.big ? 5.5 : 3.8;
-      if (!p.mini && p.sx !== undefined) {
-        for (let i = 4; i >= 1; i--) {
-          const u = prog - i * 0.05;
-          if (u <= 0.02) continue;
-          const px = p.sx + (p.tx - p.sx) * u, py = p.sy + (p.ty - p.sy) * u;
-          const ph = Math.sin(u * Math.PI) * Math.min(64, p.total * 0.24);
-          ctx.fillStyle = `rgba(122,122,132,${0.42 - i * 0.08})`;
-          ctx.beginPath(); ctx.arc(px, py - ph, r * (1 - i * 0.16), 0, 7); ctx.fill();
-        }
-      }
-      softShadow(ctx, p.x, p.y + 1, r, r * 0.4, 0.32);
-      pip(ctx, p.x, p.y - arcH, r, r * 0.9, "#8a8a92", { hi: 0.5, lo: 0.5 });
-    } else if (p.kind === "arrow") {
-      const col = p.poison ? "#7cc85c" : p.pierce ? "#e8d47a" : "#d2c6a2";
-      const len = p.big ? 14 : 9;
-      ctx.strokeStyle = col; ctx.lineWidth = p.big ? 1.6 : 1; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(p.x - dx * len, p.y - dy * len); ctx.lineTo(p.x, p.y); ctx.stroke();
-      ctx.fillStyle = "#c4c8d0";
-      ctx.beginPath(); ctx.moveTo(p.x + dx * 2.5, p.y + dy * 2.5); ctx.lineTo(p.x - dy * 1.3, p.y + dx * 1.3); ctx.lineTo(p.x + dy * 1.3, p.y - dx * 1.3); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = p.poison ? "#4a7a34" : "#a04a3f";
-      ctx.fillRect(p.x - dx * len - 0.8, p.y - dy * len - 0.8, 1.6, 1.6);
-      if (p.big) { ctx.strokeStyle = "rgba(232,212,122,0.35)"; ctx.beginPath(); ctx.moveTo(p.x - dx * (len + 8), p.y - dy * (len + 8)); ctx.lineTo(p.x - dx * len, p.y - dy * len); ctx.stroke(); }
-    } else if (p.kind === "spike") {
-      ctx.fillStyle = p.slow ? "#8ce8f0" : p.hitsLeft > 1 ? "#e8d47a" : "#c4c8d0";
-      ctx.beginPath(); ctx.moveTo(p.x + dx * 3, p.y + dy * 3); ctx.lineTo(p.x - dx * 3 - dy * 1.2, p.y - dy * 3 + dx * 1.2); ctx.lineTo(p.x - dx * 3 + dy * 1.2, p.y - dy * 3 - dx * 1.2); ctx.closePath(); ctx.fill();
-    } else {
-      const col = p.burn ? "#d8763a" : p.slow ? "#9fd4e8" : "#b08ad8";
-      for (let i = 5; i >= 1; i--) {
-        const wob = Math.sin(g.time * 14 + i * 1.1 + p.id) * i * 0.6;
-        glowFx(ctx, p.x - dx * i * 4 - dy * wob, p.y - dy * i * 4 + dx * wob, 2.6 - i * 0.3, col, 0.45 - i * 0.06);
-      }
-      glowFx(ctx, p.x, p.y, 8 + Math.sin(g.time * 12 + p.id) * 1.2, col, 0.35);
-      pip(ctx, p.x, p.y, 3.4, 3.4, col, { hi: 0.6, lo: 0.3 });
-      ctx.fillStyle = "#f4f0e4"; ctx.fillRect(p.x - 1.4, p.y - 1.4, 1.4, 1.4);
-    }
+    drawProjectile(ctx, p, g.time);
   }
 
   for (const fx of g.effects) {
     const a = Math.min(1, fx.ttl / 300);
-    if (fx.type === "boom" || fx.type === "frost" || fx.type === "arcane") {
-      // round magic, as it should be
-      const col = fx.type === "boom" ? "216,118,58" : fx.type === "frost" ? "159,212,232" : "176,138,216";
-      const r = fx.r * (1 - a * 0.3);
-      ctx.fillStyle = `rgba(${col},${a * 0.35})`;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.fill();
-      ctx.strokeStyle = `rgba(${col},${a * 0.85})`;
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
-      ctx.lineWidth = 1;
-    } else if (fx.type === "dust") {
-      // rock impact: an earthy shockwave ring plus tumbling grit
-      const r = fx.r * (1 - a * 0.3);
-      ctx.fillStyle = `rgba(150,132,100,${a * 0.3})`;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.fill();
-      ctx.strokeStyle = `rgba(120,104,78,${a * 0.8})`;
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
-      ctx.lineWidth = 1;
-      ctx.fillStyle = `rgba(178,164,136,${a})`;
-      for (let i = 0; i < 6; i++) {
-        const ang = i * 1.05 + 0.3;
-        const rr = r * 0.7;
-        ctx.fillRect(S(fx.x + Math.cos(ang) * rr), S(fx.y + Math.sin(ang) * rr * 0.7 - (1 - a) * 6), CELL, CELL);
-      }
+    if (isBlast(fx.type)) {
+      // the air half of a blast (fireball, flash, flying debris); its ground
+      // half went down under the crowd earlier. Shrapnel landings are small dust.
+      drawBlast(ctx, fx, "a");
     } else if (fx.type === "bolt") {
-      // chain lightning: jagged white-hot segments between struck foes
-      for (let s2 = 0; s2 < fx.pts.length - 1; s2++) {
-        const [x1, y1] = fx.pts[s2];
-        const [x2, y2] = fx.pts[s2 + 1];
-        const steps = 6;
-        for (let i = 0; i <= steps; i++) {
-          const u2 = i / steps;
-          const mid = Math.sin(u2 * Math.PI);
-          const jit = Math.sin(i * 2.7 + (fx.seed || 0) * 9 + s2 * 5) * 5 * mid;
-          const nx2 = -(y2 - y1), ny2 = (x2 - x1);
-          const nl = Math.hypot(nx2, ny2) || 1;
-          const px2 = x1 + (x2 - x1) * u2 + (nx2 / nl) * jit;
-          const py2 = y1 + (y2 - y1) * u2 + (ny2 / nl) * jit;
-          ctx.fillStyle = `rgba(240,224,104,${a * 0.8})`;
-          ctx.fillRect(S(px2) - 2, S(py2) - 2, 5, 5);
-          ctx.fillStyle = `rgba(252,252,240,${a})`;
-          ctx.fillRect(S(px2) - 1, S(py2) - 1, 3, 3);
-        }
-      }
+      // chain lightning between struck foes — or, carrying x/tx instead of
+      // pts, a crossbow quarrel or a harpoon in flight
+      if (fx.pts) drawChain(ctx, fx); else drawQuarrel(ctx, fx);
     } else if (fx.type === "frostnova") {
       // expanding ring of biting cold
       const prog = 1 - fx.ttl / 500;
       const r = prog * fx.r;
       ctx.strokeStyle = `rgba(124,212,212,${a * 0.9})`;
       ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ringPx(ctx, fx.x, fx.y, r, r, 2, ctx.strokeStyle);
       ctx.lineWidth = 1;
       ctx.fillStyle = `rgba(200,236,244,${a})`;
       for (let i = 0; i < 8; i++) {
@@ -591,7 +485,7 @@ export function draw(g, canvas, bufRef) {
       const r = prog * fx.r;
       ctx.strokeStyle = `rgba(216,118,58,${a * 0.9})`;
       ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ringPx(ctx, fx.x, fx.y, r, r, 2, ctx.strokeStyle);
       ctx.lineWidth = 1;
       ctx.fillStyle = `rgba(232,193,74,${a})`;
       for (let i = 0; i < 8; i++) {
@@ -604,7 +498,7 @@ export function draw(g, canvas, bufRef) {
       const r = prog * fx.r;
       ctx.strokeStyle = `rgba(140,224,140,${a * 0.8})`;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ringPx(ctx, fx.x, fx.y, r, r, 1.5, ctx.strokeStyle);
       ctx.lineWidth = 1;
       ctx.fillStyle = `rgba(190,232,176,${a})`;
       for (let i = 0; i < 4; i++) {
@@ -694,7 +588,7 @@ export function draw(g, canvas, bufRef) {
       const prog = 1 - fx.ttl / fx.life;
       ctx.strokeStyle = `rgba(232,193,74,${a})`;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), prog * 26, 0, 7); ctx.stroke();
+      ringPx(ctx, fx.x, fx.y, prog * 26, prog * 26, 1.5, ctx.strokeStyle);
       ctx.lineWidth = 1;
       for (let i = 0; i < 5; i++) {
         const ang = i * 1.26 + 0.4;
@@ -706,10 +600,10 @@ export function draw(g, canvas, bufRef) {
       const prog = 1 - fx.ttl / 550;
       ctx.strokeStyle = `rgba(176,138,216,${a * 0.8})`;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), prog * fx.r, 0, 7); ctx.stroke();
+      ringPx(ctx, fx.x, fx.y, prog * fx.r, prog * fx.r, 1.5, ctx.strokeStyle);
       if (prog > 0.3) {
         ctx.strokeStyle = `rgba(124,224,184,${a * 0.5})`;
-        ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), (prog - 0.3) * fx.r, 0, 7); ctx.stroke();
+        ringPx(ctx, fx.x, fx.y, (prog - 0.3) * fx.r, (prog - 0.3) * fx.r, 1.5, ctx.strokeStyle);
       }
       ctx.lineWidth = 1;
     } else if (fx.type === "plagueburst") {
@@ -720,7 +614,7 @@ export function draw(g, canvas, bufRef) {
       ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.fill();
       ctx.strokeStyle = `rgba(140,168,88,${a * 0.85})`;
       ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ringPx(ctx, fx.x, fx.y, r, r, 2, ctx.strokeStyle);
       ctx.lineWidth = 1;
       ctx.fillStyle = `rgba(196,220,130,${a})`;
       for (let i = 0; i < 7; i++) {
@@ -735,7 +629,7 @@ export function draw(g, canvas, bufRef) {
       const r = prog * fx.r;
       ctx.strokeStyle = `rgba(150,190,235,${a * 0.85})`;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
+      ringPx(ctx, fx.x, fx.y, r, r, 1.5, ctx.strokeStyle);
       ctx.lineWidth = 1;
       // little shield glyphs riding the wavefront
       ctx.fillStyle = `rgba(210,228,245,${a})`;
@@ -745,16 +639,6 @@ export function draw(g, canvas, bufRef) {
         ctx.fillRect(px2 - CELL, py2 - CELL, CELL * 3, CELL * 2);
         ctx.fillRect(px2, py2 + CELL, CELL, CELL);
       }
-    } else if (fx.type === "bolt") {
-      // a crossbow quarrel in flight, drawn as the streak it leaves
-      const prog = 1 - fx.ttl / 170;
-      const hx = fx.x + (fx.tx - fx.x) * prog, hy = fx.y + (fx.ty - fx.y) * prog;
-      const bx = fx.x + (fx.tx - fx.x) * Math.max(0, prog - 0.35);
-      const by = fx.y + (fx.ty - fx.y) * Math.max(0, prog - 0.35);
-      ctx.strokeStyle = `rgba(232,224,200,${a})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(S(bx), S(by)); ctx.lineTo(S(hx), S(hy)); ctx.stroke();
-      ctx.lineWidth = 1;
     } else if (fx.type === "raise") {
       // grave-light: witch-fire motes rising as a corpse claws back up
       const prog = 1 - fx.ttl / fx.life;
@@ -774,15 +658,6 @@ export function draw(g, canvas, bufRef) {
         const fall = prog * prog * 26 - prog * 12;
         ctx.fillStyle = i % 2 ? `rgba(184,184,192,${a})` : `rgba(138,138,146,${a})`;
         ctx.fillRect(S(fx.x + Math.cos(ang) * dist), S(fx.y + Math.sin(ang) * dist * 0.6 + fall), i % 3 === 0 ? 3 : 2, 2);
-      }
-    } else if (fx.type === "shrapnelhit") {
-      // small sharp puff where a shard lands
-      ctx.fillStyle = `rgba(170,160,140,${a * 0.5})`;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), 8 * (1 - a * 0.4), 0, 7); ctx.fill();
-      ctx.fillStyle = `rgba(190,186,176,${a})`;
-      for (let i = 0; i < 3; i++) {
-        const ang = i * 2.1 + 0.5;
-        ctx.fillRect(S(fx.x + Math.cos(ang) * 7), S(fx.y + Math.sin(ang) * 5), 2, 2);
       }
     } else if (fx.type === "death" && hasRig(fx.etype)) {
       // a rigged foe: flash white, then come apart pixel by pixel
@@ -854,21 +729,14 @@ export function draw(g, canvas, bufRef) {
         }
       }
     } else if (fx.type === "coin") {
-      ctx.fillStyle = `rgba(232,212,122,${a})`;
-      ctx.font = fx.big ? "bold 16px monospace" : "bold 12px monospace";
-      ctx.fillText(fx.text, fx.x, fx.y - (700 - fx.ttl) * 0.02);
+      // a minted coin and the take, in the little arcade font
+      drawFloatText(ctx, fx);
     } else if (fx.type === "poof") {
-      ctx.fillStyle = `rgba(220,218,210,${a * 0.7})`;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), 12 * (1 - a) + 4, 0, 7); ctx.fill();
+      drawPoof(ctx, fx);
     } else if (fx.type === "hit") {
-      ctx.fillStyle = `rgba(224,110,100,${a})`;
-      ctx.fillRect(S(fx.x) - 2, S(fx.y) - 2, 4, 4);
+      drawSpark(ctx, fx, "hit", 220);
     } else if (fx.type === "spark") {
-      ctx.fillStyle = fx.gold ? `rgba(232,212,122,${a})` : `rgba(240,240,240,${a})`;
-      for (let i = 0; i < 4; i++) {
-        const ang = i * 1.57 + 0.4;
-        ctx.fillRect(S(fx.x + Math.cos(ang) * 6), S(fx.y + Math.sin(ang) * 6), CELL, CELL);
-      }
+      drawSpark(ctx, fx, fx.gold ? "gold" : "white", 200);
     } else if (fx.type === "burst") {
       const prog = 1 - fx.ttl / fx.life;
       ctx.fillStyle = fx.gold ? `rgba(232,196,90,${1 - prog})` : `rgba(150,224,150,${1 - prog})`;
@@ -878,22 +746,17 @@ export function draw(g, canvas, bufRef) {
         ctx.fillRect(S(fx.x + Math.cos(ang) * r), S(fx.y + Math.sin(ang) * r * 0.75 - prog * 8), CELL, CELL);
       }
     } else if (fx.type === "flash") {
-      const fa = fx.ttl / 450;
-      ctx.fillStyle = `rgba(244,240,224,${fa * 0.5})`;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), 34 * (1.4 - fa), 0, 7); ctx.fill();
+      drawFlash(ctx, fx);
     } else if (fx.type === "levelup" || fx.type === "evolve") {
-      ctx.strokeStyle = fx.type === "evolve" ? `rgba(232,196,90,${a})` : `rgba(150,224,150,${a})`;
-      ctx.lineWidth = 3;
       const r = (1 - fx.ttl / (fx.type === "evolve" ? 900 : 600)) * 34 + 10;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), r, 0, 7); ctx.stroke();
-      ctx.lineWidth = 1;
+      ctx.save(); ctx.globalAlpha = Math.ceil(a * 4) / 4;
+      ringPx(ctx, fx.x, fx.y, r, r, 1.5, fx.type === "evolve" ? "#e8c45a" : "#96e096");
+      ringPx(ctx, fx.x, fx.y, r - 1.5, r - 1.5, 0.5, "#fff3d2");
+      ctx.restore();
     } else if (fx.type === "leak") {
-      ctx.fillStyle = `rgba(224,90,80,${a})`;
-      ctx.font = "bold 18px monospace";
-      ctx.fillText(fx.text || "-1", fx.x, fx.y - 14 - (700 - fx.ttl) * 0.02);
+      drawFloatText(ctx, fx, true);
     } else if (fx.type === "pierce") {
-      ctx.fillStyle = `rgba(232,212,122,${a * 0.7})`;
-      ctx.beginPath(); ctx.arc(S(fx.x), S(fx.y), 8, 0, 7); ctx.fill();
+      drawSpark(ctx, fx, "gold", 250);
     }
   }
 

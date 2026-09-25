@@ -1,0 +1,171 @@
+<!doctype html>
+<!--
+  Dev tool (combat effects): renders fixed test scenes through the real
+  draw() and saves them to .shots/. /fx-lab.html?tag=<name>&scenes=blasts,proj,mass
+  Writes "DONE" into the title when every shot is saved.
+-->
+<html><head><meta charset="utf-8" /><title>fx lab…</title></head>
+<body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:20px"><div id="out">running…</div>
+<script type="module">
+import { selectRealm } from "/src/data/maps.js";
+import { W, H, RES } from "/src/data/constants.js";
+import { posAt, angleAt, TOTAL_LEN } from "/src/engine/path.js";
+import { draw } from "/src/render/draw.js";
+import { ENEMIES } from "/src/data/enemies.js";
+
+const q = new URLSearchParams(location.search);
+const tag = q.get("tag") || "x";
+const realm = q.get("realm") || "greenwood";
+const TMS = 100000;
+
+const mk = (type, dist, lane = 0, st = {}) => {
+  const d = ENEMIES[type];
+  const [px, py] = posAt(dist);
+  const a = angleAt(dist);
+  return {
+    id: Math.floor(dist * 7) % 997, type, hp: d.hp * 0.7, maxHp: d.hp, dist,
+    x: px + Math.cos(a + Math.PI / 2) * lane, y: py + Math.sin(a + Math.PI / 2) * lane,
+    face: Math.cos(a) >= 0 ? 1 : -1, size: d.size, armor: d.armor, mres: d.mres || 0,
+    guard: 0, guardFlash: 0, flying: !!d.flying, boss: !!d.boss, gait: dist / 10,
+    atkAnim: 0, stunUntil: 0, slowUntil: 0, slowPct: 0, auraSlow: 0,
+    burnUntil: 0, poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: 0,
+    blockedBy: null, engaged: false, dead: false, revived: false, born: -1e9, ...st,
+  };
+};
+const at = (x, y, type, st = {}) => { const e = mk(type, 10, 0, st); e.x = x; e.y = y; e.face = 1; return e; };
+
+const scene = (enemies, extra) => ({
+  time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5,
+  towers: [], projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [], enemies,
+  phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null,
+  paused: false, buildUntil: null, ...extra,
+});
+
+const SCENES = {
+  // four blast types across their lives (columns = stages), plus scorch & rime ageing
+  blasts() {
+    const fx = [], en = [];
+    const types = ["boom", "arcane", "frost", "dust"];
+    types.forEach((t, row) => {
+      for (let c = 0; c < 6; c++) {
+        const x = 70 + c * 125, y = 80 + row * 125;
+        fx.push({ type: t, x, y, ttl: 320 - (c + 0.5) * (320 / 6.5), life: 320, r: 44 });
+        en.push(at(x + 14, y + 8, "goblin"));
+      }
+    });
+    return scene(en, { effects: fx });
+  },
+  scorch() {
+    const fx = [];
+    for (let c = 0; c < 5; c++) {
+      fx.push({ type: "scorch", x: 80 + c * 150, y: 120, ttl: 2600 - c * 560, life: 2600, r: 30, seed: c + 0.3 });
+      fx.push({ type: "scorch", x: 80 + c * 150, y: 260, ttl: 2600 - c * 560, life: 2600, r: 30, seed: c + 0.3, frost: true });
+      fx.push({ type: "scorch", x: 80 + c * 150, y: 400, ttl: 2600, life: 2600, r: 12 + c * 10, seed: c });
+    }
+    return scene([], { effects: fx });
+  },
+  proj() {
+    const P = [], fx = [], en = [];
+    let id = 1;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2, x = 90, y = 100;
+      const r = 40;
+      P.push({ id: id++, kind: "arrow", x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, tx: x + Math.cos(a) * 200, ty: y + Math.sin(a) * 200, delay: 0 });
+      P.push({ id: id++, kind: "arrow", big: i % 2 === 0, poison: i === 3, pierce: i === 5, burn: i === 6 ? 5 : 0, x: 230 + Math.cos(a) * r, y: y + Math.sin(a) * r, tx: 230 + Math.cos(a) * 200, ty: y + Math.sin(a) * 200, delay: 0 });
+      P.push({ id: id++, kind: "spike", angle: a, slow: i % 3 === 1, hitsLeft: i % 3 === 2 ? 2 : 1, x: 370 + Math.cos(a) * r, y: y + Math.sin(a) * r, tx: 0, ty: 0, delay: 0 });
+      P.push({ id: id++, kind: "ball", x: 510 + Math.cos(a) * r, y: y + Math.sin(a) * r, tx: 510 + Math.cos(a) * 200, ty: y + Math.sin(a) * 200, delay: 0 });
+    }
+    // orbs of each element flying right
+    ["arcane", "fire", "frost", "gold"].forEach((el, i) => {
+      P.push({ id: 90 + i, kind: "orb", x: 640 + i * 0, y: 60 + i * 40, tx: 780, ty: 80 + i * 40, delay: 0,
+        burn: el === "fire" ? 5 : 0, slow: el === "frost" ? 0.3 : 0, midas: el === "gold" });
+    });
+    // rocks / shells along an arc
+    for (let i = 0; i < 6; i++) {
+      const u = (i + 0.5) / 6, sx = 60, sy = 300, tx = 360, ty = 330;
+      P.push({ id: 200 + i, kind: "rock", sx, sy, x: sx + (tx - sx) * u, y: sy + (ty - sy) * u, tx, ty, total: Math.hypot(tx - sx, ty - sy), big: i === 4, mini: i === 5, delay: 0 });
+      P.push({ id: 300 + i, kind: "shell", sx: 60, sy: 440, x: 60 + 300 * u, y: 440 + 20 * u, tx: 360, ty: 460, delay: 0 });
+    }
+    fx.push({ type: "bolt", pts: [[430, 250], [500, 300], [560, 280], [640, 330], [700, 300]], ttl: 200, life: 220, seed: 3 });
+    fx.push({ type: "bolt", pts: [[430, 380], [500, 430], [560, 410]], ttl: 120, life: 220, seed: 5 });
+    fx.push({ type: "bolt", pts: [[600, 400], [660, 460]], ttl: 40, life: 220, seed: 7 });
+    fx.push({ type: "bolt", x: 420, y: 500, tx: 520, ty: 470, ttl: 100, life: 170 });
+    fx.push({ type: "coin", x: 620, y: 480, ttl: 600, life: 700, text: "+14" });
+    fx.push({ type: "coin", x: 700, y: 480, ttl: 300, life: 700, text: "+7" });
+    fx.push({ type: "coin", x: 650, y: 530, ttl: 900, life: 1200, text: "+120g", big: true });
+    fx.push({ type: "coin", x: 400, y: 30, ttl: 900, life: 1200, text: "Wave cleared! +40g", big: true });
+    fx.push({ type: "leak", x: 760, y: 420, ttl: 500, life: 700, text: "-2" });
+    fx.push({ type: "spark", x: 740, y: 250, ttl: 150, gold: true });
+    fx.push({ type: "hit", x: 770, y: 250, ttl: 200 });
+    fx.push({ type: "pierce", x: 740, y: 280, ttl: 200 });
+    fx.push({ type: "poof", x: 770, y: 290, ttl: 250 });
+    return scene(en, { projectiles: P, effects: fx });
+  },
+  status() {
+    const en = [];
+    const S = [{ burnUntil: TMS * 2 }, { slowUntil: TMS * 2 }, { poisonUntil: TMS * 2 }, { brittleUntil: TMS * 2 }, { stunUntil: TMS * 2 }, { healedFlash: TMS * 2 }, { burnUntil: TMS * 2, slowUntil: TMS * 2 }];
+    ["goblin", "orc", "wolf", "boarrider", "armored"].forEach((t, r) => {
+      if (!ENEMIES[t]) return;
+      S.forEach((st, c) => en.push(at(170 + c * 85, 80 + r * 100, t, st)));
+    });
+    return scene(en, {});
+  },
+  misc() {
+    const fx = [];
+    const row = (y, list) => list.forEach((f, i) => fx.push({ x: 200 + i * 110, y, ...f }));
+    row(90, [{ type: "levelup", ttl: 300 }, { type: "evolve", ttl: 450 }, { type: "flash", ttl: 300 }, { type: "burst", ttl: 600, life: 1300, gold: true }, { type: "midas", ttl: 300, life: 650 }]);
+    row(200, [{ type: "hit", ttl: 200 }, { type: "spark", ttl: 150 }, { type: "spark", ttl: 150, gold: true }, { type: "pierce", ttl: 200 }, { type: "poof", ttl: 250 }]);
+    row(330, [{ type: "frostnova", ttl: 250, r: 60 }, { type: "firenova", ttl: 250, r: 60 }, { type: "shrapnel", ttl: 250, life: 420 }, { type: "shrapnelhit", ttl: 200, r: 16 }, { type: "dust", ttl: 250, r: 14 }]);
+    row(450, [{ type: "healwave", ttl: 300, r: 64 }, { type: "toll", ttl: 200, r: 46 }, { type: "wardwave", ttl: 300, r: 50 }, { type: "plagueburst", ttl: 300, r: 40 }, { type: "dust", ttl: 300 }]);
+    return scene([], { effects: fx });
+  },
+  // a crowd under mass AoE: can you still count the goblins?
+  mass() {
+    const en = [];
+    for (let i = 0; i < 220; i++) en.push(mk(i % 5 === 0 ? "orc" : "goblin", (i * 5.3) % (TOTAL_LEN * 0.8) + 40, ((i % 3) - 1) * 18 + ((i * 7) % 5) - 2, { burnUntil: i % 3 ? 0 : TMS * 2, slowUntil: i % 4 ? 0 : TMS * 2 }));
+    const fx = [];
+    for (let i = 0; i < 18; i++) {
+      const [x, y] = posAt(TOTAL_LEN * (0.05 + i * 0.045));
+      const t = ["boom", "arcane", "frost", "dust"][i % 4];
+      fx.push({ type: t, x, y, ttl: 60 + (i * 53) % 260, life: 320, r: 40 + (i % 3) * 12 });
+      fx.push({ type: "scorch", x: x + 20, y: y + 10, ttl: 400 + (i * 331) % 2200, life: 2600, r: 26, seed: i, frost: t === "frost" });
+    }
+    return scene(en, { effects: fx });
+  },
+};
+
+const snap = async (name, g, crop) => {
+  selectRealm(realm);
+  const cv = document.createElement("canvas");
+  cv.width = W * RES; cv.height = H * RES;
+  draw(g, cv, { current: null });
+  let out = cv;
+  if (crop) {
+    const [x, y, w, h, sc = 2] = crop, k = RES;
+    out = document.createElement("canvas");
+    out.width = w * k * sc; out.height = h * k * sc;
+    const c = out.getContext("2d"); c.imageSmoothingEnabled = false;
+    c.drawImage(cv, x * k, y * k, w * k, h * k, 0, 0, out.width, out.height);
+  }
+  await fetch("/__shot?name=" + encodeURIComponent(name), { method: "POST", body: out.toDataURL("image/png").slice(22) });
+};
+
+(async () => {
+  try {
+    const list = (q.get("scenes") || "blasts,proj").split(",");
+    // crop=x,y,w,h,scale — several separated by ";" make several shots
+    const crops = q.get("crop") ? q.get("crop").split(";").map((c) => c.split(",").map(Number)) : [null];
+    for (const s of list) {
+      for (let ci = 0; ci < crops.length; ci++) {
+        selectRealm(realm);
+        const g = SCENES[s]();
+        // statuses are compared against g.time * 1000
+        g.time = TMS / 1000;
+        await snap(`fx_${tag}_${s}${crops.length > 1 ? ci : ""}`, g, crops[ci]);
+      }
+    }
+    document.title = "DONE";
+  } catch (e) { document.title = "FAIL " + e.message; console.error(e); }
+  document.getElementById("out").textContent = document.title;
+})();
+</script></body></html>

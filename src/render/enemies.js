@@ -8,6 +8,7 @@ import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS 
 import { hasRig, rigDef, drawRig, rigFrame } from "./rigs.js";
 import { PX } from "./paint.js";
 import { shadow as softShadow } from "./paint.js";
+import { drawStatus } from "./fx.js";
 
 // A puff kicked up where a foot lands. The whole thing is a function of the
 // walker's own gait phase, so it needs no state and it stays in step with the
@@ -120,21 +121,12 @@ export const drawEnemy = (ctx, e, time, tms) => {
       ctx.globalAlpha = baseAlpha;
     }
   }
-  // shaman's mending: green motes drift up off freshly-healed foes
-  if (e.healedFlash > tms) {
-    ctx.fillStyle = "#8ce08c";
-    for (let i = 0; i < 2; i++) {
-      const gy = e.y - e.size - 2 - ((time * 18 + i * 7 + e.id) % 9);
-      ctx.fillRect(S(e.x - 6 + i * 12), S(gy), CELL, CELL);
-    }
-  }
-  // Permafrost brittleness: pale cracks across the body
-  if (e.brittleUntil > tms) {
-    ctx.fillStyle = "#c8ecf4";
-    ctx.fillRect(S(e.x - 4), S(e.y - 6), CELL, CELL);
-    ctx.fillRect(S(e.x - 2), S(e.y - 3), CELL, CELL);
-    ctx.fillRect(S(e.x + 3), S(e.y - 1), CELL, CELL);
-    ctx.fillRect(S(e.x + 1), S(e.y + 4), CELL, CELL);
+  // Status tells — frost crust at the feet, cracks, licking flames, poison
+  // bubbles, mending motes — each a few cached sprites (render/fx.js), cheap
+  // enough for a crowd of three hundred all on fire.
+  {
+    const feetY = e.y + e.size * 0.55 + hover;
+    drawStatus(ctx, e, time, tms, feetY, rigged ? feetY - headroom(skin) : e.y - e.size * 0.8);
   }
   // the falconer's mark: four gold corners closing on the prey
   if (e.markUntil > tms) {
@@ -144,28 +136,6 @@ export const drawEnemy = (ctx, e, time, tms) => {
       const cx2 = S(e.x + sx2 * mr), cy2 = S(e.y - 4 + sy2 * mr * 0.8);
       ctx.fillRect(cx2 - (sx2 > 0 ? CELL : 0), cy2, CELL * 2, CELL / 2 + 1);
       ctx.fillRect(cx2 - (sx2 > 0 ? 1 : 0), cy2 - (sy2 > 0 ? CELL : 0), CELL / 2 + 1, CELL * 2);
-    }
-  }
-  if (e.slowUntil > tms || e.auraSlow > 0) {
-    ctx.fillStyle = "#9fd4e8";
-    for (let i = 0; i < 3; i++) {
-      const ang = time * 2 + i * 2.1;
-      ctx.fillRect(S(e.x + Math.cos(ang) * 11), S(e.y - 2 + Math.sin(ang) * 4), CELL, CELL * 2);
-    }
-  }
-  if (e.burnUntil > tms) {
-    for (let i = 0; i < 3; i++) {
-      const fx = e.x - 8 + i * 8;
-      const fy = e.y - e.size - 2 - ((time * 30 + i * 7) % 8);
-      ctx.fillStyle = i === 1 ? "#e8c14a" : "#d8763a";
-      ctx.fillRect(S(fx), S(fy), CELL, CELL * 2);
-    }
-  }
-  if (e.poisonUntil > tms) {
-    ctx.fillStyle = "#7cc85c";
-    for (let i = 0; i < 2; i++) {
-      const py = e.y - 4 + ((time * 22 + i * 9 + e.id * 3) % 12);
-      ctx.fillRect(S(e.x - 7 + i * 13), S(py), CELL, CELL * 2);
     }
   }
   // Stun is the one status worth interrupting a plan for, so it gets more
