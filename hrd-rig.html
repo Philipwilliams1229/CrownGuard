@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  Dev tool (horde art): rig frames in a wrapped grid so a close-up stays
+  under ~2000px wide. /hrd-rig.html?types=orc,troll&tag=v1&scale=5&cols=4
+  cells: w0-3 walk, f0-1 fight, r revived, x hit flash (default all)
+  → .shots/hrd_rig_<tag>.png
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — horde rig</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <script type="module">
+      import { rigFrame } from "/src/render/rigs.js";
+      const q = new URLSearchParams(location.search);
+      const types = (q.get("types") || "goblin").split(",");
+      const SC = Number(q.get("scale")) || 5, COLS = Number(q.get("cols")) || 4;
+      const ALL = { w0: ["walk", 0], w1: ["walk", 1], w2: ["walk", 2], w3: ["walk", 3], f0: ["fight", 0], f1: ["fight", 1], r: ["walk", 0, "revived"], x: ["fight", 1, "white"] };
+      const cells = (q.get("cells") || "w0,w1,w2,w3,f0,f1,r,x").split(",").map((k) => ALL[k]);
+      const items = types.flatMap((t) => cells.map((c) => [t, ...c]));
+      const sps = items.map(([t, sh, fr, v]) => rigFrame(t, sh, fr, v || ""));
+      const cw = Math.max(...sps.map((s) => s.cv.width)) + 6, ch = Math.max(...sps.map((s) => s.cv.height)) + 6;
+      const rows = Math.ceil(items.length / COLS);
+      const cv = document.createElement("canvas");
+      cv.width = cw * COLS * SC; cv.height = ch * rows * SC;
+      const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      sps.forEach((sp, i) => {
+        const cx = (i % COLS) * cw, cy = Math.floor(i / COLS) * ch;
+        ctx.fillStyle = i % 2 ? "#c9a878" : "#86b35a"; ctx.fillRect(cx * SC, cy * SC, cw * SC, ch * SC);
+        // the anchor line: feet should sit on it
+        ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(cx * SC, (cy + 3 + sp.ay * 2) * SC, cw * SC, SC);
+        ctx.drawImage(sp.cv, (cx + (cw - sp.cv.width) / 2) * SC, (cy + 3) * SC, sp.cv.width * SC, sp.cv.height * SC);
+      });
+      fetch("/__shot?name=hrd_rig_" + (q.get("tag") || "v"), { method: "POST", body: cv.toDataURL("image/png").slice(22) }).then(() => { document.title = "DONE"; });
+      document.body.appendChild(cv);
+    </script>
+  </body>
+</html>

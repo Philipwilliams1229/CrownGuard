@@ -1,0 +1,74 @@
+<!doctype html>
+<!--
+  Dev tool (horde art): the Greenwood horde on the real board, drawn by the
+  real draw(), at 1x and zoomed. Like shots.html, but marchers may carry
+  options: [type, roadFraction, lane, { sprite, fight, revived, hit }].
+    /hrd-lab.html?tag=v1&realm=greenwood&crop=x,y,w,h,scale
+  Saves .shots/hrd_board_<tag>.png (whole board) and hrd_zoom_<tag>.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — horde lab</title>
+  <style>body { background: #14171d; color: #e8e0c8; font-family: monospace; padding: 20px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { W, H } from "/src/data/constants.js";
+      import { posAt, angleAt, TOTAL_LEN } from "/src/engine/path.js";
+      import { draw } from "/src/render/draw.js";
+      import { ENEMIES } from "/src/data/enemies.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "v", realm = q.get("realm") || "greenwood";
+      const crop = (q.get("crop") || "").split(",").filter(Boolean).map(Number);
+      const DEF = [
+        ["goblin", 0.30, -9], ["goblin", 0.305, 9, { sprite: "goblinBare" }], ["orc", 0.32, 0], ["armored", 0.335, -9],
+        ["troll", 0.355, 7], ["shaman", 0.375, -8], ["necro", 0.39, 8], ["hobgoblin", 0.41, -5],
+        ["rafter", 0.43, 7], ["goblin", 0.445, -4, { fight: true }], ["orc", 0.46, 8, { revived: true }], ["goblin", 0.475, -8, { hit: true }],
+      ];
+      const list = q.get("m") ? JSON.parse(q.get("m")) : DEF;
+      const mk = ([type, frac, lane = 0, o = {}], i) => {
+        const d = ENEMIES[type], dist = TOTAL_LEN * frac;
+        const [px, py] = posAt(dist), a = angleAt(dist);
+        return {
+          id: i * 7 + 1, type, sprite: o.sprite, hp: d.hp * 0.7, maxHp: d.hp, dist, gait: i * 1.3,
+          x: px + Math.cos(a + Math.PI / 2) * lane, y: py + Math.sin(a + Math.PI / 2) * lane,
+          face: Math.cos(a) >= 0 ? 1 : -1, size: d.size, armor: d.armor, mres: d.mres || 0,
+          guard: 0, guardFlash: 0, flying: !!d.flying, boss: !!d.boss,
+          atkAnim: 0, stunUntil: 0, slowUntil: 0, slowPct: 0, auraSlow: 0,
+          burnUntil: 0, poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: o.hit ? 1e12 : 0,
+          blockedBy: o.fight ? 1 : null, engaged: !!o.fight, dead: false, revived: !!o.revived,
+        };
+      };
+      selectRealm(realm);
+      const g = {
+        time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5,
+        towers: [], projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [],
+        enemies: list.map(mk), phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null,
+        paused: false, buildUntil: null,
+      };
+      const cv = document.createElement("canvas");
+      cv.width = W; cv.height = H;
+      draw(g, cv, { current: null });
+      const post = (name, c) => fetch("/__shot?name=" + name, { method: "POST", body: c.toDataURL("image/png").slice(22) });
+      const jobs = [post("hrd_board_" + TAG, cv)];
+      // zoom box: around the marchers unless given
+      let [x, y, w, h, sc] = crop.length ? crop : [0, 0, 0, 0, 3];
+      if (!crop.length) {
+        const xs = g.enemies.map((e) => e.x), ys = g.enemies.map((e) => e.y);
+        x = Math.min(...xs) - 30; y = Math.min(...ys) - 50; w = Math.max(...xs) - x + 30; h = Math.max(...ys) - y + 25;
+      }
+      const k = cv.width / W;
+      const z = document.createElement("canvas");
+      z.width = w * k * sc; z.height = h * k * sc;
+      const zx = z.getContext("2d"); zx.imageSmoothingEnabled = false;
+      zx.drawImage(cv, x * k, y * k, w * k, h * k, 0, 0, z.width, z.height);
+      jobs.push(post("hrd_zoom_" + TAG, z));
+      // and the plain 1x crop, what the player actually sees
+      const o = document.createElement("canvas");
+      o.width = w * k; o.height = h * k;
+      o.getContext("2d").drawImage(cv, x * k, y * k, w * k, h * k, 0, 0, o.width, o.height);
+      jobs.push(post("hrd_crop1x_" + TAG, o));
+      Promise.all(jobs).then(() => { document.title = "DONE"; document.getElementById("status").textContent = `saved (zoom box ${[x, y, w, h].map(Math.round)})`; });
+    </script>
+  </body>
+</html>

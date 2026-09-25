@@ -5,7 +5,8 @@
 import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS } from "../sprites/sprites.js";
-import { hasRig, rigDef, drawRig } from "./rigs.js";
+import { hasRig, rigDef, drawRig, rigFrame } from "./rigs.js";
+import { PX } from "./paint.js";
 import { shadow as softShadow } from "./paint.js";
 
 // A puff kicked up where a foot lands. The whole thing is a function of the
@@ -19,6 +20,25 @@ const footfall = (ctx, x, y, face, rate, phase, weight, time) => {
   ctx.fillStyle = `${REALM.PEBBLE}${Math.round(Math.max(0, a) * 90).toString(16).padStart(2, "0")}`;
   ctx.fillRect(S(x - face * spread) - spread / 2, S(y - (1 - a / weight) * 4), spread, CELL * 2);
   ctx.fillRect(S(x - face * spread * 1.5), S(y - (1 - a / weight) * 6), CELL * 2, CELL);
+};
+
+// How far above its feet a rig's art actually reaches (the topmost inked
+// pixel of its first walk frame), so the health bar sits on each creature's
+// own head instead of at one height for all. Measured once per look.
+const HEADROOM = new Map();
+const headroom = (skin) => {
+  let h = HEADROOM.get(skin);
+  if (h !== undefined) return h;
+  h = 0;
+  try {
+    const { cv, ay } = rigFrame(skin, "walk", 0);
+    const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    let top = cv.height;
+    for (let y = 0; y < cv.height && top === cv.height; y++) for (let x = 0; x < cv.width; x++) if (d[(y * cv.width + x) * 4 + 3] > 100) { top = y; break; }
+    h = ay - top / PX;
+  } catch { h = 0; }
+  HEADROOM.set(skin, h);
+  return h;
 };
 
 export const drawEnemy = (ctx, e, time, tms) => {
@@ -155,8 +175,8 @@ export const drawEnemy = (ctx, e, time, tms) => {
     for (let i = 0; i < 3; i++) {
       const ang = time * 5 + i * 2.09;
       const sx = S(e.x + Math.cos(ang) * 12);
-      // clear of the health bar, which lives at -size-12 and is not negotiable
-      const sy = S(e.y - e.size - 32 + Math.sin(ang) * 4);
+      // circling just over the health bar
+      const sy = S((rigged ? Math.round(e.y + e.size * 0.55 + hover - headroom(skin) - 5) : e.y - e.size - 12) - 8 + Math.sin(ang) * 3);
       const near = Math.sin(ang) > 0;                  // the one in front is brighter
       ctx.fillStyle = near ? "#f4e8a8" : "#c8a83c";
       ctx.fillRect(sx - CELL, sy, CELL * 3, CELL);
@@ -167,31 +187,31 @@ export const drawEnemy = (ctx, e, time, tms) => {
       }
     }
   }
-  const w = e.boss ? 44 : 26;
+  // The health bar: slim, just over the creature's own head, and only once
+  // it has been hurt — a fresh crowd of two hundred shows two hundred goblins,
+  // not two hundred bars. Bosses always wear theirs.
   const pct = Math.max(0, e.hp / e.maxHp);
-  ctx.fillStyle = INK;
-  ctx.fillRect(e.x - w / 2 - 1, e.y - e.size - 12, w + 2, 6);
-  ctx.fillStyle = pct > 0.5 ? "#6fae5c" : pct > 0.25 ? "#d8b34a" : "#c05248";
-  ctx.fillRect(e.x - w / 2, e.y - e.size - 11, Math.round(w * pct / CELL) * CELL, 4);
-  if (e.armor >= 0.3) {
-    ctx.fillStyle = "#9aa0ac";
-    ctx.fillRect(e.x + w / 2 + 4, e.y - e.size - 12, 4, 4);
-    ctx.fillRect(e.x + w / 2 + 5, e.y - e.size - 8, 2, 2);
-  }
-  // rune-ward badge: magic resistance
-  if (e.mres >= 0.3) {
-    ctx.fillStyle = "#b08ad8";
-    ctx.fillRect(e.x - w / 2 - 8, e.y - e.size - 12, 4, 4);
-    ctx.fillRect(e.x - w / 2 - 7, e.y - e.size - 8, 2, 2);
+  const barY = rigged ? Math.round(e.y + e.size * 0.55 + hover - headroom(skin) - 5) : e.y - e.size - 12;
+  if (pct < 0.999 || e.boss) {
+    const w = e.boss ? 40 : Math.max(14, Math.min(22, Math.round(e.size * 1.1)));
+    const x0 = Math.round(e.x - w / 2);
+    ctx.fillStyle = "rgba(36,26,38,0.85)";
+    ctx.fillRect(x0 - 1, barY - 1, w + 2, e.boss ? 5 : 4);
+    ctx.fillStyle = pct > 0.5 ? "#7cc05e" : pct > 0.25 ? "#e0b84a" : "#d0564a";
+    ctx.fillRect(x0, barY, Math.max(1, Math.round(w * pct)), e.boss ? 3 : 2);
+    if (e.boss) { ctx.fillStyle = "rgba(255,243,210,0.35)"; ctx.fillRect(x0, barY, Math.max(1, Math.round(w * pct)), 1); }
+    // armour and rune-ward badges ride the bar's ends
+    if (e.armor >= 0.3) { ctx.fillStyle = "#b4bac6"; ctx.fillRect(x0 + w + 2, barY - 1, 3, 3); ctx.fillRect(x0 + w + 3, barY + 2, 1, 1); }
+    if (e.mres >= 0.3) { ctx.fillStyle = "#b890e0"; ctx.fillRect(x0 - 5, barY - 1, 3, 3); ctx.fillRect(x0 - 4, barY + 2, 1, 1); }
   }
   // raised shields / chaplain wards: one pip per blow still to be swallowed,
   // sitting just under the health bar so you can see them being spent
   if (e.guard > 0) {
     ctx.fillStyle = e.guardFlash > tms ? "#eaf2ff" : "#9ab6d8";
     for (let i = 0; i < Math.min(4, e.guard); i++) {
-      const gx = e.x - w / 2 + i * 6;
-      ctx.fillRect(S(gx), S(e.y - e.size - 5), CELL * 2, CELL * 2);
-      ctx.fillRect(S(gx + 1), S(e.y - e.size - 3), CELL, CELL);
+      const gx = e.x - 10 + i * 6;
+      ctx.fillRect(S(gx), S(barY + 4), CELL * 2, CELL * 2);
+      ctx.fillRect(S(gx + 1), S(barY + 6), CELL, CELL);
     }
   }
   if (emerging) ctx.globalAlpha = 1;
