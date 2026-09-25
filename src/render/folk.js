@@ -317,20 +317,83 @@ export const ARCHER_FOLK = {
 export { soft };
 
 // ---- the spire's mage and the warden's priest ----------------------------
+// Robed figures on the same body: the shoulders, face and small hands of the
+// soldiers, but a gown that falls from a yoke to the ankles, belted at the
+// waist, folds running down it, boot toes showing under the hem, and sleeves
+// that open into bells at the wrist.
 
-// A robe: a coat that widens to the hem, no legs showing.
-const robe = (ctx, x, top, h, wTop, wHem, col, trim) => part(ctx, (c) => {
-  c.beginPath();
-  c.moveTo(x - wTop / 2, top);
-  c.lineTo(x + wTop / 2, top);
-  c.quadraticCurveTo(x + wHem / 2, top + h * 0.6, x + wHem / 2, top + h);
-  c.lineTo(x - wHem / 2, top + h);
-  c.quadraticCurveTo(x - wHem / 2, top + h * 0.6, x - wTop / 2, top);
-  c.closePath();
-  c.fillStyle = lin(c, x - wHem / 2, 0, x + wHem / 2, 0, [[0, lighten(col, 0.32)], [0.45, col], [1, darken(col, 0.5)]]);
-  c.fill();
-  if (trim) { c.fillStyle = trim; c.fillRect(x - wHem / 2 + 0.5, top + h - 1.6, wHem - 1, 1.3); }
-});
+// The gown, feet at y = 0: narrow at the shoulders, drawn in at the belt,
+// flaring to the hem. o.panel paints a front band (a stole or an orphrey)
+// from the collar to the hem; o.belt a cord or sash at the waist.
+const gown = (ctx, x, top, wTop, wHem, col, o = {}) => {
+  const ht = wTop / 2, hh = wHem / 2, waist = top + 7.4;
+  // the boot toes, peeping out under the hem
+  for (const [fx, fc] of [[x - 1.4, darken(o.boots || "#2e2420", 0.15)], [x + 1.9, o.boots || "#2e2420"]]) {
+    blob(ctx, [[fx - 1.2, -1.4], [fx + 1.0, -1.4], [fx + 2.2, -0.3, 1], [fx + 1.8, 0.3, 1], [fx - 1.2, 0.3, 1]], fc, { hi: 0.35 });
+  }
+  blob(ctx, [
+    [x - ht + 0.2, top + 0.2], [x - 0.6, top - 0.9], [x + 1.4, top - 0.8], [x + ht, top + 0.3],
+    [x + ht + 0.4, top + 3.6], [x + ht - 0.2, waist], [x + hh - 0.3, -3.2], [x + hh + 0.3, -0.7, 1], [x + hh - 1.8, -0.2],
+    [x + 0.6, -0.9], [x - hh + 1.6, -0.2], [x - hh - 0.3, -0.7, 1], [x - hh + 0.1, -3.2], [x - ht - 0.2, waist], [x - ht - 0.6, top + 3.8],
+  ], col, {
+    hi: 0.32, lo: 0.48, then: (c) => {
+      // folds: shadowed grooves from the belt down, a lit ridge beside each
+      for (const [fx, fs] of [[-0.55, 0.8], [0.05, 1], [0.6, 0.9]]) {
+        const gx = x + fx * hh;
+        c.strokeStyle = rgba(darken(col, 0.5), 0.55); c.lineWidth = 0.55;
+        c.beginPath(); c.moveTo(gx - fx * 1.2, waist + 1.2); c.quadraticCurveTo(gx + fx * 0.6, waist + 6, gx + fx * 1.4 * fs, -0.8); c.stroke();
+        c.strokeStyle = rgba(lighten(col, 0.35), 0.4); c.lineWidth = 0.4;
+        c.beginPath(); c.moveTo(gx - fx * 1.2 + 0.6, waist + 2); c.quadraticCurveTo(gx + fx * 0.6 + 0.6, waist + 6, gx + fx * 1.4 * fs + 0.6, -1.2); c.stroke();
+      }
+      if (o.panel) {
+        // the front band, widening a touch toward the hem, with an edge line
+        c.fillStyle = o.panel;
+        c.beginPath(); c.moveTo(x + 0.6, top - 0.6); c.lineTo(x + 2.2, top - 0.4); c.lineTo(x + 2.9, 0); c.lineTo(x + 0.7, 0); c.closePath(); c.fill();
+        c.fillStyle = rgba(darken(o.panel, 0.45), 0.8); c.fillRect(x + 2.3, top, 0.45, -top);
+        c.fillStyle = rgba(lighten(o.panel, 0.4), 0.7); c.fillRect(x + 0.7, top, 0.35, -top);
+        if (o.mark) { c.fillStyle = o.mark; c.fillRect(x + 1.25, top + 2.2, 0.8, 3); c.fillRect(x + 0.65, top + 3.0, 2.0, 0.8); c.fillRect(x + 1.25, -5.8, 0.8, 3); c.fillRect(x + 0.65, -5.0, 2.0, 0.8); }
+      }
+      // the hem band
+      if (o.hem) { c.fillStyle = o.hem; c.fillRect(x - hh - 1, -2.0, wHem + 2, 1.1); c.fillStyle = rgba(darken(o.hem, 0.4), 0.8); c.fillRect(x - hh - 1, -0.9, wHem + 2, 0.5); }
+      // the belt: a sash with a knot, or a cord
+      if (o.belt) {
+        c.fillStyle = o.belt; c.fillRect(x - ht - 1, waist - 0.7, wTop + 2, 1.3);
+        c.fillStyle = rgba(darken(o.belt, 0.45), 0.9); c.fillRect(x - ht - 1, waist + 0.4, wTop + 2, 0.4);
+      }
+      // the collar's shadow on the yoke
+      c.fillStyle = rgba(darken(col, 0.55), 0.45); c.fillRect(x - ht, top - 1, wTop, 1.1);
+    },
+  });
+  // the belt's hanging ends
+  if (o.belt) {
+    blob(ctx, [[x + 1.6, waist], [x + 2.8, waist], [x + 2.6, waist + 5.2, 1], [x + 1.9, waist + 5.6, 1]], darken(o.belt, 0.05), { hi: 0.3 });
+    ball(ctx, x + 2.3, waist + 0.1, 0.9, 0.9, o.belt, { hi: 0.4, lo: 0.4 });
+  }
+};
+
+// A sleeved arm: shoulder to elbow in the gown's cloth, then a forearm that
+// widens into a bell sleeve, its mouth trimmed, and the hand out of it.
+// o.bend as arm(); o.cuff trims the bell's mouth.
+const sleeve = (ctx, sx, sy, hx, hy, col, skin, o = {}) => {
+  const dx = hx - sx, dy = hy - sy, L = Math.hypot(dx, dy) || 1;
+  const k = Math.sqrt(Math.max(0, 24 - (L / 2) ** 2)) * 0.8;
+  let nx = -dy / L, ny = dx / L;
+  if ((ny < 0) !== (o.bend === -1)) { nx = -nx; ny = -ny; }
+  const ex = (sx + hx) / 2 + nx * k, ey = (sy + hy) / 2 + ny * k;
+  limb(ctx, sx, sy, ex, ey, 2.8, col);
+  const fx = hx - ex, fy = hy - ey, fl = Math.hypot(fx, fy) || 1, ux = fx / fl, uy = fy / fl, px = -uy, py = ux;
+  const wx = hx - ux * 1.0, wy = hy - uy * 1.0;                      // the sleeve's mouth, just short of the hand
+  const wb = 1.9 + (py > 0 ? 0.5 : 0), wc = 1.9 + (py < 0 ? 0.5 : 0);   // the lower lip hangs a little fuller
+  blob(ctx, [
+    [ex + px * 1.2, ey + py * 1.2], [wx + px * wb, wy + py * wb + 0.3, 1],
+    [wx - px * wc, wy - py * wc + 0.3, 1], [ex - px * 1.2, ey - py * 1.2],
+  ], col, { hi: 0.35, lo: 0.45 });
+  if (o.cuff) part(ctx, (c) => {
+    c.strokeStyle = o.cuff; c.lineWidth = 0.8; c.lineCap = "round";
+    c.beginPath(); c.moveTo(wx + px * (wb - 0.3), wy + py * (wb - 0.3) + 0.3); c.lineTo(wx - px * (wc - 0.3), wy - py * (wc - 0.3) + 0.3); c.stroke();
+  });
+  if (o.hand !== false) hand(ctx, hx, hy, skin);
+};
 
 // The mage: apprentice (bare-handed, small), then a staff-bearer, then the
 // long-beard. `level` 1..3. The orb is drawn by the tower, at mageTip().
@@ -351,69 +414,107 @@ export const drawMage = (ctx, x, y, dir, pal, level = 3, o = {}) => {
   shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
   const tall = level >= 3;
   const lean = pose === "cast" ? 0.8 : 0;
-  robe(ctx, 0, -17, 17, 7, tall ? 12 : 10, pal.robe, pal.trim);
-  // a sash of the trim colour down the front
-  part(ctx, (c) => { c.fillStyle = pal.trim; c.fillRect(1.2, -16.5, 1, 15); });
+  const robeC = pal.robe, dark = darken(robeC, 0.2);
   const [tx, ty] = mageTip(level, pose);
-  // the staff: grounded, upright, or levelled at the foe
+  // the free arm first when it is flung back behind the body
+  const fh = pose === "idle" ? [-3.2, -9.6] : pose === "cast" ? [-5.8, -15] : [-4.6, -20.6];
+  if (pose !== "charge") sleeve(ctx, -1.6 + lean, -15.6, fh[0] + lean, fh[1], dark, darken(pal.skin, 0.1), { cuff: darken(pal.trim, 0.2) });
+  // the gown: a cloak falls behind it from the shoulders, then the robe
+  if (level >= 2) blob(ctx, [[-2.6, -16.6], [-0.4, -17.4], [-4.2, -9], [-5.8 - (tall ? 0.8 : 0), -0.6, 1], [-1.6, -0.6, 1], [-2.2, -9]], darken(pal.hat, 0.05), { hi: 0.25, lo: 0.4 });
+  gown(ctx, 0, -16.6, 7, tall ? 11.5 : 10, robeC, { belt: pal.trim, hem: pal.trim, panel: tall ? darken(robeC, 0.25) : null, boots: "#3a2a22" });
+  // the staff: gnarled wood, grounded, upright, or levelled at the foe
   if (level >= 2) {
+    const [bx, by] = pose === "cast" ? [3, -4] : [tx - 1.5, -0.5];
+    const [ex, ey] = [tx - (pose === "cast" ? 1 : 0.6), ty + 1.5];
     part(ctx, (c) => {
-      c.strokeStyle = lin(c, tx - 1, 0, tx + 1, 0, [[0, "#8a6a44"], [1, "#4a3420"]]);
-      c.lineWidth = 1.6; c.lineCap = "round";
-      c.beginPath();
-      if (pose === "cast") { c.moveTo(3, -4); c.lineTo(tx - 1, ty + 1.5); }
-      else { c.moveTo(tx - 1.5, -0.5); c.lineTo(tx - 0.6, ty + 1.5); }
-      c.stroke();
-      // the head of the staff: a gilt fork that cups the orb
+      c.strokeStyle = lin(c, bx - 1, 0, bx + 1, 0, [[0, "#9a7a50"], [1, "#4a3420"]]);
+      c.lineWidth = 1.5; c.lineCap = "round";
+      c.beginPath(); c.moveTo(bx, by); c.quadraticCurveTo((bx + ex) / 2 + 0.7, (by + ey) / 2, ex, ey); c.stroke();
+      // a knot or two in the wood
+      c.fillStyle = "#3a2818";
+      c.fillRect(bx + (ex - bx) * 0.38 - 0.3, by + (ey - by) * 0.38, 1.1, 0.7);
+      c.fillRect(bx + (ex - bx) * 0.66 - 0.6, by + (ey - by) * 0.66, 1.1, 0.7);
+      // the head of the staff: a gilt fork that cups the orb, and a wrap below it
       c.fillStyle = pal.trim;
       c.fillRect(tx - 2.2, ty + 1, 1, 2); c.fillRect(tx + 0.6, ty + 1, 1, 2); c.fillRect(tx - 2.2, ty + 2.5, 3.8, 1);
+      c.fillStyle = darken(pal.trim, 0.35); c.fillRect(ex - 0.9, ey + 2.2, 1.8, 0.7);
     });
   }
   ctx.translate(lean, 0);
-  // arms: the staff hand, and the free hand conjuring (or resting)
-  const sh = pose === "cast" ? [tx - 4, ty + 3.5] : level >= 2 ? [tx - 1, -13] : pose === "cast" ? [tx - 1, ty] : [5.5, -13];
-  const fh = pose === "idle" ? [-3, -9.5] : pose === "cast" ? [-5.5, -15] : [-4.5, -20.5];
-  if (level < 2 && pose !== "idle") sh[0] = tx - 1, sh[1] = ty + 0.5;
-  arm(ctx, 2, -15.4, sh[0], sh[1], pal, { col: pal.robe });
-  arm(ctx, -2, -15.4, fh[0], fh[1], pal, { col: pal.robe, bend: pose === "charge" ? -1 : 1 });
   // head, beard, hat: the soldiers' face under the wizard's hat
   head(ctx, 0.4, -20.5, pal, { hood: false });
-  if (tall) part(ctx, (c) => { c.beginPath(); c.moveTo(-2.4, -19); c.quadraticCurveTo(0.6, -10, 3.4, -19); c.closePath(); c.fillStyle = pal.beard || "#e8e0d0"; c.fill(); });
-  else if (level === 2) part(ctx, (c) => ball(c, 0.6, -18, 2.2, 1.4, pal.beard || "#c8bca8", { hi: 0.3, lo: 0.3 }));
-  part(ctx, (c) => {
-    // brim, then the point, flopping back
-    ball(c, 0.4, -23, 5.2, 1.5, pal.hat, { hi: 0.4, lo: 0.4 });
-    c.beginPath(); c.moveTo(-3.4, -23); c.quadraticCurveTo(0, -25, 1.8 + (tall ? 1.5 : 0) - (pose === "cast" ? 2.5 : 0), -33 - (tall ? 2 : 0)); c.quadraticCurveTo(3, -26, 3.8, -23); c.closePath();
-    c.fillStyle = lin(c, -3, 0, 4, 0, [[0, lighten(pal.hat, 0.3)], [0.5, pal.hat], [1, darken(pal.hat, 0.45)]]);
-    c.fill();
-    c.fillStyle = pal.trim; c.fillRect(-3, -24, 6.6, 1);
+  const bc = pal.beard || "#e8e0d0";
+  if (tall) {
+    // a long beard to the belt, forked at the tip, a moustache over it
+    blob(ctx, [[-0.6, -20.2], [3.2, -19.8], [3.0, -15.6], [2.4, -11.8, 1], [1.4, -13.2], [0.6, -11.4, 1], [-0.2, -15]], bc, {
+      hi: 0.3, lo: 0.3, then: (c) => { c.strokeStyle = rgba(darken(bc, 0.35), 0.8); c.lineWidth = 0.4; c.beginPath(); c.moveTo(1.2, -18.6); c.lineTo(1.0, -13.4); c.moveTo(2.3, -18.4); c.lineTo(2.2, -13); c.stroke(); },
+    });
+    blob(ctx, [[0.8, -19.4], [3.4, -19.6], [3.8, -18.4, 1], [2.2, -18.9]], lighten(bc, 0.1), { hi: 0.2 });
+  } else if (level === 2) {
+    blob(ctx, [[-0.2, -20], [3.2, -19.8], [2.8, -17.2, 1], [1.2, -16.4, 1], [0, -17.8]], pal.beard || "#c8bca8", { hi: 0.3, lo: 0.3 });
+  }
+  // the hat: a wide soft brim, a crown with a band and buckle, the point
+  // kinked and flopping back (thrown forward on the cast)
+  const tipX = -1.2 + (tall ? 1.5 : 0) - (pose === "cast" ? -1.2 : 0), tipY = -33 - (tall ? 2 : 0);
+  blob(ctx, [[-5.4, -23.6], [-2.6, -25], [2.6, -25.2], [6.0, -23.8], [5.2, -22.8, 1], [0.4, -23.4], [-4.8, -22.8, 1]], pal.hat, { hi: 0.4, lo: 0.45 });
+  blob(ctx, [[-3.4, -24.0, 1], [-2.8, -27.0], [-0.8, -28.8], [tipX + 1.4, tipY + 3.2], [tipX, tipY, 1], [tipX + 2.8, tipY + 2.6], [2.4, -28.2], [3.8, -24.0, 1]], pal.hat, {
+    hi: 0.35, lo: 0.5, then: (c) => {
+      c.fillStyle = pal.trim; c.fillRect(-3.6, -25.6, 7.6, 1.2);
+      c.fillStyle = darken(pal.trim, 0.4); c.fillRect(-3.6, -24.6, 7.6, 0.4);
+      c.fillStyle = lighten(pal.trim, 0.3); c.fillRect(1.2, -25.7, 1.2, 1.4);
+      c.strokeStyle = rgba(darken(pal.hat, 0.5), 0.7); c.lineWidth = 0.45;
+      c.beginPath(); c.moveTo(-1.4, -25.2); c.quadraticCurveTo(-0.4, -28.4, tipX + 1.2, tipY + 3.4); c.stroke();
+    },
   });
+  // the near arm: the staff hand, or the apprentice's conjuring hand
+  let sh = pose === "cast" ? [tx - 4, ty + 3.5] : level >= 2 ? [tx - 1, -13] : [5.5, -13];
+  if (level < 2 && pose !== "idle") sh = [tx - 1, ty + 0.5];
+  if (pose === "charge") sleeve(ctx, -1.8, -15.6, fh[0], fh[1], dark, pal.skin, { bend: -1, cuff: darken(pal.trim, 0.2) });
+  sleeve(ctx, 1.8, -15.6, sh[0] - lean, sh[1], robeC, pal.skin, { bend: level >= 2 ? 1 : -1, cuff: pal.trim });
   ctx.restore();
 };
 
-// The priest: a robe and a mitre, arms raised in blessing or folded.
+// The priest: an alb to the ankles, a coloured stole down the front, a short
+// shoulder cape, the mitre. Arms raised in blessing (the sleeves falling back
+// from the wrists, the hands at ±6, -22.4 where the tower lights them), or a
+// prayer book held at the breast.
 export const drawPriest = (ctx, x, y, dir, pal, raised = false) => {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(dir, 1);
   shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
-  robe(ctx, 0, -17, 17, 7.5, 12, pal.robe, pal.trim);
-  if (raised) {
-    arm(ctx, -2.4, -15.4, -6, -22.4, pal, { col: pal.robe, bend: -1 });
-    arm(ctx, 2.4, -15.4, 6, -22.4, pal, { col: pal.robe, bend: -1 });
-  } else {
-    // hands folded at the breast
-    arm(ctx, -2.4, -15.4, 0.2, -11.4, pal, { col: pal.robe, hand: false });
-    arm(ctx, 2.4, -15.4, 1.2, -11.2, pal, { col: pal.robe });
-  }
-  head(ctx, 0.4, -20.5, pal, { hood: false });
-  // the mitre: a tall split cap with a gem
-  part(ctx, (c) => {
-    c.beginPath(); c.moveTo(-3.2, -22.5); c.lineTo(-1.2, -30); c.lineTo(0.6, -27.5); c.lineTo(2.4, -30); c.lineTo(4, -22.5); c.closePath();
-    c.fillStyle = lin(c, -3, 0, 4, 0, [[0, lighten(pal.hat, 0.3)], [0.5, pal.hat], [1, darken(pal.hat, 0.45)]]);
-    c.fill();
+  const cape = darken(pal.trim, 0.12), robeC = pal.robe;
+  if (raised) sleeve(ctx, -2.2, -15.6, -6, -22.4, darken(robeC, 0.14), pal.skin, { bend: -1, cuff: pal.trim });
+  gown(ctx, 0, -16.6, 7.5, 12, robeC, { panel: pal.trim, mark: pal.gem ? lighten(pal.hat, 0.2) : null, hem: pal.trim, belt: lighten(robeC, 0.25), boots: "#4a3a2e" });
+  // the cape over the shoulders, trimmed, a clasp at the throat
+  blob(ctx, [[-4.0, -15.4], [-2.2, -17.4], [1.4, -17.6], [4.2, -15.8], [4.6, -13.0, 1], [2.4, -11.8], [0.2, -11.6], [-2.2, -12.0], [-4.4, -12.6, 1]], cape, {
+    hi: 0.35, lo: 0.45, then: (c) => {
+      c.fillStyle = rgba(lighten(pal.hat, 0.2), 0.95); c.fillRect(-4.6, -12.9, 9.4, 0.7);
+      c.fillStyle = rgba(darken(cape, 0.5), 0.6); c.fillRect(-4.6, -12.2, 9.4, 0.5);
+    },
   });
-  ball(ctx, 0.5, -25, 0.9, 0.9, pal.gem || "#8ce8f0", { hi: 0.6, lo: 0.2 });
+  ball(ctx, 1.6, -16.2, 0.8, 0.8, pal.gem || "#8ce8f0", { hi: 0.6, lo: 0.2 });
+  head(ctx, 0.4, -20.5, pal, { hood: false });
+  // the mitre: two peaks with a notch between, a gold band and a spine, the gem
+  blob(ctx, [[-3.2, -22.2, 1], [-3.4, -25.6], [-2.2, -28.4], [0.5, -31.4, 1], [3.2, -28.4], [4.3, -25.6], [4.0, -22.2, 1]], pal.hat, {
+    hi: 0.3, lo: 0.45, then: (c) => {
+      c.fillStyle = pal.trim; c.fillRect(-3.4, -23.6, 7.6, 1.3); c.fillRect(0.0, -30.6, 1.0, 7.0);
+      c.fillStyle = rgba(darken(pal.hat, 0.35), 0.6); c.beginPath(); c.moveTo(-2.6, -27.6); c.lineTo(0.5, -30.6); c.lineTo(0.5, -29.6); c.lineTo(-2.2, -26.8); c.closePath(); c.fill();
+      c.fillStyle = rgba(darken(pal.trim, 0.45), 0.8); c.fillRect(-3.4, -22.4, 7.6, 0.35);
+    },
+  });
+  ball(ctx, 0.5, -26.2, 0.9, 0.9, pal.gem || "#8ce8f0", { hi: 0.6, lo: 0.2 });
+  if (raised) sleeve(ctx, 2.2, -15.6, 6, -22.4, robeC, pal.skin, { bend: -1, cuff: pal.trim });
+  else {
+    // the prayer book, clasped in both hands at the breast
+    part(ctx, (c) => {
+      c.fillStyle = lin(c, 1.4, 0, 4.8, 0, [[0, "#8a3a34"], [1, "#4a1c1c"]]); roundRect(c, 1.4, -14.6, 3.4, 4.2, 0.5); c.fill();
+      c.fillStyle = "#f0e8d0"; c.fillRect(4.4, -14.2, 0.5, 3.4);
+      c.fillStyle = "#d8b34a"; c.fillRect(2.5, -13.0, 1.2, 1.0);
+    });
+    hand(ctx, 4.4, -13.4, darken(pal.skin, 0.1));                     // the far hand on the book's edge
+    sleeve(ctx, 2.2, -15.4, 2.6, -11.4, robeC, pal.skin, { cuff: pal.trim });
+  }
   ctx.restore();
 };
 
