@@ -5,7 +5,7 @@
 // `dt` is the raw (already clamped) seconds since the last frame.
 
 import { RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, pickLane } from "../data/constants.js";
-import { workTier, worksBonusHp, bowmenSpots } from "../data/castle.js";
+import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, waveXp } from "../data/bands.js";
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
@@ -856,8 +856,9 @@ export function updateGame(g, dt) {
           if (best) {
             cd.ballista = bal.rate / (bal.twin ? 2 : 1);
             cd.shot = (cd.shot + 1) % 2;
-            const sy = gy + (bal.twin ? (cd.shot ? 18 : -18) : 0) - 20;
-            g.projectiles.push({ id: nextId(), x: gx + 26, y: sy, targetId: best.id, tx: best.x, ty: best.y, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: bal.burn || 0, burnDur: bal.burnDur || 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true });
+            // the bolt leaves the ballista drawn on the gate tower's open top
+            const [bx, by] = ballistaMuzzle(ballistaSpots(gy, bal.twin)[bal.twin ? cd.shot : 0]);
+            g.projectiles.push({ id: nextId(), x: bx, y: by, targetId: best.id, tx: best.x, ty: best.y, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: bal.burn || 0, burnDur: bal.burnDur || 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true });
             sfx.play("bolt");
           }
         }

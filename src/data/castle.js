@@ -98,6 +98,19 @@ export const worksBonusHp = (works, ranks = null) => {
 // at most at a drum's foot in front of it, never on or behind it. Positions are the drums'
 // FEET in world y; the renderer draws them from the same list.
 export const GATE_TOWER_N = -58, GATE_TOWER_S = 90;   // gate towers' feet, from gy
+// Every tower on the wall is square, with an open fighting platform on top.
+// Its footprint runs from `foot - n` to `foot + s` down the wall; it stands
+// `h` tall, so its platform is that footprint lifted `h` up the board. West
+// foot, platform's west edge and platform's east edge are x0, x1, x2.
+export const TOWER = { x0: 744, x1: 753, x2: 797, n: 28, s: 4, h: 16 };
+// the platform a tower's crew stands on, as [x, feet y]
+// (toward its south-west, clear of the stair turret in the far corner)
+export const towerDeck = (foot) => [TOWER.x1 + 18, foot - 17];
+// The Gate Ballista stands on the gate towers' platforms: the north one
+// first, the south one too once there are two. Feet positions, and where
+// the bolt leaves the bow.
+export const ballistaSpots = (gy, twin) => (twin ? [GATE_TOWER_N, GATE_TOWER_S] : [GATE_TOWER_N]).map((d) => towerDeck(gy + d));
+export const ballistaMuzzle = ([x, y]) => [x - 2, y - 26];
 const DRUM_EDGE_N = 34, DRUM_EDGE_S = H - 16, DRUM_STEP = 105, DRUM_MIN = 80;
 const CULVERT_X = 748;
 const wet = (foot) => { for (let y = foot - 14; y <= foot + 14; y += 2) if (inRiver(CULVERT_X, y, 2)) return true; return false; };
@@ -131,8 +144,11 @@ export const wallDrums = (gy) => {
 };
 export const wallSlots = (gy) => {
   // the stretches of walk crews may use: clear of the gate towers
-  const runs = [[26, gy - 112], [gy + GATE_TOWER_S + 30, H - 12]];
-  const blocked = wallDrums(gy).map((f) => [f - 40, f + 30]);
+  // (a crew's feet land 8 below its slot; north of a tower they must stand
+  // clear of its raised platform, which reaches up to foot - n - h - 3)
+  // (and north of the gate the ballista rises off its tower: stand clear of that too)
+  const runs = [[26, gy + GATE_TOWER_N - 63], [gy + GATE_TOWER_S + 30, H - 12]];
+  const blocked = wallDrums(gy).map((f) => [f - TOWER.n - TOWER.h - 10, f + 30]);
   const out = [];
   for (const [a0, b0] of runs) {
     // split the run by the drums standing in it
@@ -155,6 +171,8 @@ export const bowmenSpots = (gy, count) => {
     const pick = (i % 2 === 0 ? n : s).shift() ?? (i % 2 === 0 ? s : n).shift();
     if (pick != null) out.push(pick);
   }
+  // a short wall: the rest go up onto the open tops of the towers nearest the gate
+  for (const f of wallDrums(gy).sort((p, q) => Math.abs(p - gy) - Math.abs(q - gy))) if (out.length < count) out.push(towerDeck(f)[1] - 8);
   return out;
 };
 export const masonSpots = (gy, count) => wallSlots(gy).reverse().slice(0, count);

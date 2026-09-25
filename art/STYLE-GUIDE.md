@@ -48,7 +48,7 @@ copy what the rebuilt pieces do.
 | Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js` |
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type |
 | Ground and road | `src/render/world.js` | cached per realm |
-| Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots` in `src/data/castle.js`) | baked per damage tier |
+| Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots` in `src/data/castle.js`) — SQUARE open-topped towers (paved deck, battlemented rim, a red-roofed stair turret) with the ballistae and spare bowmen ON the gate towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
 | Combat effects, projectiles, ground pools, logs, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
 | HUD skin | `src/ui/hud/` (`hud.css`, `icons.jsx`, `Chips.jsx`) + `src/ui/theme.js` | |
 | Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` | painted once, cached |

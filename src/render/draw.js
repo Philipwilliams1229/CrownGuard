@@ -26,6 +26,7 @@ import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawGroundBlend } from "./groundblend.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
+import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 import { drawGround, drawLog, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
 
@@ -106,6 +107,8 @@ export function draw(g, canvas, bufRef) {
   for (const p of PONDS) drawPond(ctx, p, g.time);
   for (const rv of RIVERS) drawRiver(ctx, rv, g.time, REALM.water);
   drawRoadLive(ctx, g);
+  // the castle's apron and the cobbled threshold go UNDER the foes, who walk right into the gate
+  drawCastleGround(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
 
   // a River Watch skiff in under a bridge is drawn with the water, so the
   // span passes over it; everywhere else it sorts with the other actors
