@@ -395,12 +395,12 @@ export function updateGame(g, dt) {
         // bench works. He still prefers bare ground, but 6px is "bare".
         // (road samples cached per road; traps bucketed in 30px cells, since
         // a late board carries hundreds of them and the scan was quadratic)
-        if (!ROAD7 || ROAD7.len !== TOTAL_LEN) { ROAD7 = []; ROAD7.len = TOTAL_LEN; for (let d = 10; d < TOTAL_LEN - 8; d += 7) ROAD7.push(posAt(d)); }
+        if (!ROAD7 || ROAD7.len !== TOTAL_LEN) { ROAD7 = []; ROAD7.len = TOTAL_LEN; for (let d = 10; d < TOTAL_LEN - 8; d += 7) ROAD7.push([...posAt(d), angleAt(d)]); }
         const grid = new Map();
         for (const tr of g.traps) { const k = ((tr.x / 30) | 0) * 1000 + ((tr.y / 30) | 0); (grid.get(k) || grid.set(k, []).get(k)).push(tr); }
         let best = null, bestSpread = 6;
         const r2 = st.range * st.range;
-        for (const [px, py] of ROAD7) {
+        for (const [px, py, pa] of ROAD7) {
           if ((px - t.x) * (px - t.x) + (py - t.y) * (py - t.y) > r2) continue;
           let near2 = 3600;
           const cx = (px / 30) | 0, cy = (py / 30) | 0;
@@ -409,12 +409,13 @@ export function updateGame(g, dt) {
             if (list) for (const tr of list) { const dd = (tr.x - px) * (tr.x - px) + (tr.y - py) * (tr.y - py); if (dd < near2) near2 = dd; }
           }
           const spread = Math.sqrt(near2);
-          if (spread > bestSpread) { bestSpread = spread; best = [px, py]; }
+          if (spread > bestSpread) { bestSpread = spread; best = [px, py, pa]; }
         }
         if (best) {
           // a yard with aerostats floats every Nth charge instead of burying it
           const floats = !!(st.balloon && ((t.layIdx = (t.layIdx || 0) + 1) % st.balloon === 0));
-          g.traps.push({ x: best[0], y: best[1], byTower: t.id, branch: t.branch, rank4: t.rank4,
+          // `a`: the road's heading there, so a spike plank can lie across it
+          g.traps.push({ x: best[0], y: best[1], a: best[2], byTower: t.id, branch: t.branch, rank4: t.rank4,
             kind: floats ? "balloon" : (st.trapKind || "spike"), sky: floats });
           t.charges -= 1;
           t.layCd = 420;

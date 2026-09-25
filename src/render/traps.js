@@ -124,7 +124,7 @@ const useBank = () => {
   if (k !== bankKey) {
     bankKey = k;
     bank = BANKS.get(k);
-    if (!bank) { bank = { spike: [], jaws: [], caltrop: [], mine: [], anchor: null, balloon: null, tell: null, spark: null }; BANKS.set(k, bank); }
+    if (!bank) { bank = { spike: [], spikeUp: [], jaws: [], caltrop: [], mine: [], anchor: null, balloon: null, tell: null, spark: null }; BANKS.set(k, bank); }
   }
   return bank;
 };
@@ -168,6 +168,48 @@ const bakeSpike = (v) => bake(40, 26, 20, 16, {
     });
   },
   over: (c) => { clods(c, 6, 34, 19, v + 5, 7); const S = soil(); for (const ex of [5, 34]) { P(c, ex, 17, S.loose); P(c, ex, 18, S.turned); P(c, ex + (ex < 20 ? 1 : -1), 18, S.loose); } },
+});
+
+// The same plank for a road running ACROSS the screen: it lies up the screen
+// (across that road), its south end showing, the spikes standing in a file
+// along it, drawn back to front so each tip stands clear of the one behind.
+const bakeSpikeUp = (v) => bake(26, 40, 13, 20, {
+  ground: (c) => { shadowPix(c, 14.5, 21, 6, 13, 0.3); dirt(c, 13, 20, 6.5, 15, 17 + v); },
+  body: (c) => {
+    // the iron strip is dark and oiled so its bright spikes stand off it
+    const iron = v === 2, C = iron ? { hi: STEEL.dk, lt: "#4a4e5a", md: STEEL.dp, dk: "#2a2c34", dp: "#1e2026" } : OAK;
+    const x0 = 9, x1 = 17, y0 = 7, y1 = 31;
+    // the top face (lit west edge), the shaded east side, the south end into the dirt
+    R(c, x0, y0, 1, y1 - y0, C.hi); R(c, x0 + 1, y0, x1 - x0 - 2, y1 - y0, C.lt); R(c, x1 - 1, y0, 1, y1 - y0, C.md);
+    R(c, x1, y0 + 1, 1, y1 - y0, C.dk);
+    R(c, x0, y1, x1 - x0 + 1, 2, C.dk); R(c, x0, y1 + 2, x1 - x0 + 1, 1, C.dp);
+    if (iron) {
+      for (const ry of [y0 + 1, y1 - 2]) for (const rx of [x0 + 1, x1 - 2]) P(c, rx, ry, STEEL.md);
+      P(c, 11, 18, RUST); P(c, 12, 18, RUST); P(c, 15, 28, RUST);
+    } else {
+      for (let y = y0 + 1; y < y1 - 1; y++) if (h2(y, v, 23) > 0.72) P(c, 13, y, C.md);
+      L(c, 11, y0 + 3 + v * 4, 12, y0 + 7 + v * 4, C.dk);
+      for (const ny of [y0 + 1, y1 - 2]) { P(c, x0 + 1, ny, STEEL.dp); P(c, x0 + 1, ny - 1, STEEL.lt); }
+    }
+    // the spikes, staggered in two files, back (north) to front: each sits in
+    // a dark socket and stands with a lit face and a shaded face
+    const spots = [[11, 11], [15, 15], [11, 20], [15, 25], [11, 29]];
+    spots.forEach(([sx, sy], i) => {
+      P(c, sx - 1, sy + 1, "#1e1a1c"); P(c, sx, sy + 1, "#1e1a1c"); P(c, sx + 1, sy + 1, "#1e1a1c");   // the socket
+      if (v === 1 && i === 2) { P(c, sx, sy, STEEL.dk); P(c, sx + 1, sy, STEEL.dp); return; }            // one snapped off
+      const hgt = 5 + ((h2(i, v, 37) * 2) | 0);
+      const top = sy - hgt;
+      for (let y = top; y <= sy; y++) {
+        const k = (y - top) / hgt;
+        if (k < 0.25) P(c, sx, y, y === top ? GLINT : STEEL.hi);
+        else if (k < 0.6) { P(c, sx, y, STEEL.hi); P(c, sx + 1, y, STEEL.md); }
+        else { P(c, sx - 1, y, STEEL.lt); P(c, sx, y, STEEL.hi); P(c, sx + 1, y, STEEL.md); }
+      }
+      if (i === 1 && v !== 2) P(c, sx + 1, top + 3, RUST);
+      P(c, sx + 2, sy, C.dk); P(c, sx + 2, sy - 1, C.md);                                                // its shadow down-right
+    });
+  },
+  over: (c) => { const S = soil(); for (const ey of [6, 34]) { P(c, 12, ey, S.loose); P(c, 14, ey, S.turned); P(c, 13, ey + (ey < 20 ? -1 : 1), S.loose); } },
 });
 
 // ---- bear-iron jaws: the toothed ring laid open, the pan in its middle, a leaf
@@ -417,8 +459,12 @@ export const drawTraps = (ctx, g) => {
     const kind = tr.kind || (tr.sky ? "balloon" : tr.branch === "b" ? "mine" : "jaws");
     const seed = hash(Math.round(tx * 2), Math.round(ty * 2));
     if (kind === "spike") {
+      // the plank lies ACROSS the road: a road running across the screen
+      // gets the upright plank, one running up it the level plank
       const v = (seed * 3) | 0;
-      put(ctx, B.spike[v] || (B.spike[v] = bakeSpike(v)), tx, ty);
+      const across = tr.a != null && Math.abs(Math.cos(tr.a)) > 0.6;
+      if (across) put(ctx, B.spikeUp[v] || (B.spikeUp[v] = bakeSpikeUp(v)), tx, ty);
+      else put(ctx, B.spike[v] || (B.spike[v] = bakeSpike(v)), tx, ty);
     } else if (kind === "mine") {
       const look = MINE_LOOK(tr), i = look * 2 + (seed < 0.5 ? 0 : 1);
       put(ctx, B.mine[i] || (B.mine[i] = bakeMine(look, i & 1)), tx, ty);

@@ -58,6 +58,9 @@ section("traps", [
   ["mines · a balloon", base(1.5, { traps: [
     { x: along(-25, -12)[0], y: along(-25, -12)[1], kind: "mine", branch: "b" }, { x: along(0, 10)[0], y: along(0, 10)[1], kind: "mine", branch: "b" },
     { x: along(28)[0], y: along(28)[1], kind: "balloon", sky: true }] })],
+  ["spikes: road across (a=0) · road up (a=90°)", base(1.2, { traps: [
+    { x: along(-24, -12)[0], y: along(-24, -12)[1], kind: "spike", a: 0 }, { x: along(-24, 12)[0] + 1, y: along(-24, 12)[1], kind: "spike", a: 0 },
+    { x: along(-24, 0)[0] + 3, y: along(-24, 0)[1] + 2, kind: "spike", a: 0 }, { x: along(20)[0], y: along(20)[1], kind: "spike", a: Math.PI / 2 }] })],
   ["a foe stepping on", base(2.1, { traps: [{ x: along(0)[0], y: along(0)[1], kind: "jaws" }, { x: along(24)[0], y: along(24)[1], kind: "mine", branch: "b" }],
     enemies: [foe("goblin", -4)] })],
 ]);

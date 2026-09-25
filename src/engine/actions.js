@@ -6,7 +6,7 @@
 import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
 import { MILITIA, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
-import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
+import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, inSea, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { waveSpec, waveHpMult, CROWD_WEIGHT } from "../data/waves.js";
@@ -106,7 +106,7 @@ export const startWave = (g) => {
       if (Math.hypot(px - t.x, py - t.y) > st.range) continue;
       if (g.traps.some((tr) => Math.hypot(tr.x - px, tr.y - py) < 8)) continue;
       const floats = !!(st.balloon && ((t.layIdx = (t.layIdx || 0) + 1) % st.balloon === 0));
-      g.traps.push({ x: px, y: py, byTower: t.id, branch: t.branch, rank4: t.rank4,
+      g.traps.push({ x: px, y: py, a: angleAt(d), byTower: t.id, branch: t.branch, rank4: t.rank4,
         kind: floats ? "balloon" : (st.trapKind || "spike"), sky: floats });
       t.charges -= 1;
       seeded++;
