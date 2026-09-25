@@ -953,15 +953,24 @@ export function updateGame(g, dt) {
           x: t.x, y: t.y, face: 1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
       }
       if (t.units.length > n) t.units.length = n;
-      // where the river runs nearest a given spot, as a distance along it
-      const nearOnRiver = (x, y) => {
-        let bd = Infinity, bq = 0;
-        for (let q = 0; q <= rt.total; q += 10) {
-          const [px, py] = rt.at(q);
-          const dd = Math.hypot(px - x, py - y);
-          if (dd < bd) { bd = dd; bq = q; }
+      // where the river runs nearest a given spot, as a distance along it.
+      // The river is sampled once per route, and each foe's answer is kept
+      // for the tick — every skiff of every watch asks about every foe, and
+      // scanning the whole river each time was most of a late-game tick.
+      if (rt._samples === undefined) {
+        rt._samples = [];
+        for (let q = 0; q <= rt.total; q += 10) { const [px, py] = rt.at(q); rt._samples.push([q, px, py]); }
+      }
+      const nearOnRiver = (x, y, e) => {
+        if (e && e._rivT === tms) return e._riv;
+        let bd2 = Infinity, bq = 0;
+        for (const [q, px, py] of rt._samples) {
+          const dd = (px - x) * (px - x) + (py - y) * (py - y);
+          if (dd < bd2) { bd2 = dd; bq = q; }
         }
-        return { q: bq, d: bd };
+        const r = { q: bq, d: Math.sqrt(bd2) };
+        if (e) { e._rivT = tms; e._riv = r; }
+        return r;
       };
       t.units.forEach((u, i) => {
         u.maxHp = st.hp;
@@ -978,7 +987,7 @@ export function updateGame(g, dt) {
         let mark = null, markQ = 0, markScore = -Infinity;
         for (const e of g.enemies) {
           if (e.dead || e.flying || e.swimming) continue;
-          const nr = nearOnRiver(e.x, e.y);
+          const nr = nearOnRiver(e.x, e.y, e);
           if (nr.d > st.range) continue;
           const mode = t.aim || "first";
           const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
