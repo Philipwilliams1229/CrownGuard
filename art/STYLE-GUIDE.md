@@ -69,6 +69,12 @@ necromancer's `revived` palette and the white hit-flash still work.
   Tall parts (shafts, roofs, arms, masts, spires) may rise above it. Halls
   stand at least `BLOCK_DIST = 48` from the road's centreline; with this
   footprint nothing spills onto the dirt.
+- **Narrow halls** (the Bladewheel) may stand closer: a hall's `roadClear`
+  and `reach` in `src/data/towers.js` override the road gap (42 for the
+  Bladewheel) and the spacing to neighbours (reach 12, default 15; two
+  halls stand `reachA + reachB` apart). Its ground art must then keep inside
+  `FOOT_NARROW` (`rx 13, ry 9`, kitB.js) — pass `{ foot: FOOT_NARROW }` to
+  `padB` and the same to `skirtB`. Check with `twb-lab.html?kinds=spiker&ell=1`.
 - **Bake** the body once per form (the `baked()` / `stamp()` pattern in
   `halls/archer.js`); only flames, glows, flags and firing poses are live.
 - Engine spawn points must match the art (the wizard's orb leaves the staff

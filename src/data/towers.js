@@ -79,7 +79,9 @@ export const TOWERS = {
   },
   catapult: {
     name: "Catapult", cost: 120, dtype: "phys", proj: "rock",
-    blurb: "Lobs boulders in a high arc — heavy splash at long range, but blind up close. At level three it chooses: keep throwing things UP, or start rolling them ALONG.",
+    // stones and logs never touch a flier — save the Comet Sling (hitsAir)
+    groundOnly: true,
+    blurb: "Lobs boulders in a high arc — heavy splash at long range, but blind up close and to anything that flies. At level three it chooses: keep throwing things UP, or start rolling them ALONG.",
     levels: [
       { dmg: 36, rate: 2600, range: 190, minRange: 70, splash: 58 },
       { dmg: 58, rate: 2500, range: 205, minRange: 70, splash: 64, cost: 110, label: "Reinforced Arm" },
@@ -90,7 +92,7 @@ export const TOWERS = {
         name: "Trebuchet", cost: 340, stats: { dmg: 200, rate: 4200, range: 340, minRange: 100, splash: 88 }, desc: "One colossal counterweighted arm. Boulders fall from the sky across half the field — but its blind circle grows.",
         rank4: {
           a: { name: "Earthshaker", cost: 680, stats: { dmg: 260, rate: 4400, range: 350, minRange: 100, splash: 105, slow: 0.3, slowDur: 1600 }, desc: "Boulders that crack the very road — survivors stagger through the rubble, slowed." },
-          b: { name: "Comet Sling", cost: 680, stats: { dmg: 230, rate: 4200, range: 420, minRange: 100, splash: 80, burn: 12, burnDur: 2400, targeting: "strongest" }, desc: "Burning pitch-wrapped stones flung at the MIGHTIEST foe on the field, wherever it hides." },
+          b: { name: "Comet Sling", cost: 680, stats: { dmg: 230, rate: 4200, range: 420, minRange: 100, splash: 80, burn: 12, burnDur: 2400, targeting: "strongest", hitsAir: true }, desc: "Burning pitch-wrapped stones flung at the MIGHTIEST foe on the field, wherever it hides — even out of the sky, the only catapult that can." },
         },
       },
       b: {
@@ -104,6 +106,10 @@ export const TOWERS = {
   },
   spiker: {
     name: "Bladewheel", cost: 110, dtype: "phys", proj: "spike",
+    // a narrow hall on a post: it may stand 42 from the road's centreline
+    // (not 48) and shoulder closer to its neighbours, so it fits the tight
+    // inside of a bend. Its ground art keeps inside kitB FOOT_NARROW.
+    roadClear: 42, reach: 12,
     blurb: "A spinning wheel that flings spikes in EVERY direction. Blind beyond arm's reach — deadly on corners and doubled-back road.",
     levels: [
       { dmg: 12, rate: 900, range: 88, spikes: 10 },

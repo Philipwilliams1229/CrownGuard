@@ -17,6 +17,9 @@ import { recordFavored, favoredFor } from "../data/profile.js";
 import { sfx } from "../audio/sfx.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
+// How far a hall's footing reaches from its anchor; two halls stand at least
+// their two reaches apart (15 + 15 = 30 for most; a Bladewheel is narrower).
+const reachOf = (kind) => (TOWERS[kind] && TOWERS[kind].reach) || 15;
 
 // The open water of a pond a boat can use: inside its ellipse, clear of the
 // reedy margin; lava pools and frozen tarns don't count.
@@ -27,9 +30,10 @@ export const buildableAt = (g, x, y, kind = null) => {
   // A hall that floats has the opposite requirement to every other: it MUST
   // stand in running water, and nothing else may.
   const afloat = !!(kind && TOWERS[kind] && TOWERS[kind].water);
+  const clear = (kind && TOWERS[kind] && TOWERS[kind].roadClear) || BLOCK_DIST;
   // (a hall's own footing is ~18 wide, so it stops short of the wall's drums)
   if (x < 18 || x > W - WALL_W - 12 || y < 22 || y > H - 16) return false;
-  if (nearestOnPath(x, y).d < BLOCK_DIST) return false;
+  if (nearestOnPath(x, y).d < clear) return false;
   const [cvx, cvy] = PTS[0];
   if (Math.hypot(x - cvx, y - cvy) < 50) return false;
   for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
@@ -40,7 +44,8 @@ export const buildableAt = (g, x, y, kind = null) => {
     for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
     if (inRiver(x, y, 14)) return false;
   }
-  if (towerNear(g, x, y)) return false;
+  const r = reachOf(kind);
+  if (g.towers.some((t) => Math.hypot(t.x - x, t.y - y) < r + reachOf(t.kind))) return false;
   return true;
 };
 

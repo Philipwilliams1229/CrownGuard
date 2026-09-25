@@ -33,9 +33,9 @@ export const getStats = (t) => {
   if (t.branch) {
     const b = def.branches[t.branch];
     const src = t.rank4 && b.rank4 ? b.rank4[t.rank4].stats : b.stats;
-    return withPerks(t.kind, { ...src, dtype: src.magic ? "magic" : def.dtype });
+    return withPerks(t.kind, { ...src, dtype: src.magic ? "magic" : def.dtype, groundOnly: !!def.groundOnly && !src.hitsAir });
   }
-  return withPerks(t.kind, { ...def.levels[t.level - 1], dtype: def.dtype });
+  return withPerks(t.kind, { ...def.levels[t.level - 1], dtype: def.dtype, groundOnly: !!def.groundOnly });
 };
 
 // ---- targeting ----
@@ -152,7 +152,7 @@ export const pickTarget = (g, t, st) => {
   const min = st.minRange || 0;
   let best = null, bestScore = -Infinity, doomed = null, doomedScore = -Infinity;
   for (const e of g.enemies) {
-    if (e.dead) continue;
+    if (e.dead || (st.groundOnly && e.flying)) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y);
     if (d > st.range || d < min) continue;
     // shots already in the air will finish it: look past it, so a crowd

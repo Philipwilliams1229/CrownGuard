@@ -32,24 +32,29 @@ export const readiness = (t) => {
 // puts on the ground stays inside this ellipse round (x, y + 3); only what
 // rises (arms, masts, roofs, balloons) may climb out of it.
 export const FOOT_B = { dy: 3, rx: 18, ry: 13 };
-export const footW = (y, gy) => {
-  const d = (gy - y - FOOT_B.dy) / FOOT_B.ry;
-  return Math.abs(d) >= 1 ? 0 : FOOT_B.rx * Math.sqrt(1 - d * d);
+// A narrow hall that stands closer to the road (the Bladewheel, 42 from the
+// centreline) keeps its ground inside this smaller ellipse instead.
+export const FOOT_NARROW = { dy: 3, rx: 13, ry: 9 };
+export const footW = (y, gy, F = FOOT_B) => {
+  const d = (gy - y - F.dy) / F.ry;
+  return Math.abs(d) >= 1 ? 0 : F.rx * Math.sqrt(1 - d * d);
 };
 
 // The worked ground under a hall: trodden earth, the cast shadow, the dark
-// contact, a few flagstones — all clipped to the footprint.
+// contact, a few flagstones — all clipped to the footprint (o.foot, if the
+// hall has a narrower one; the soft shapes shrink with it).
 export const padB = (ctx, x, y, seed = 0, o = {}) => {
-  const hw = o.hw ?? 14;
+  const hw = o.hw ?? 14, F = o.foot || FOOT_B;
+  const kx = F.rx / FOOT_B.rx, ky = F.ry / FOOT_B.ry;
   ctx.save();
-  ctx.beginPath(); ctx.ellipse(x, y + FOOT_B.dy, FOOT_B.rx - 0.5, FOOT_B.ry - 0.5, 0, 0, Math.PI * 2); ctx.clip();
-  soft(ctx, x, y + 4, 17.5, 8.5, [[0, "rgba(110,84,54,0.4)"], [0.6, "rgba(110,84,54,0.26)"], [1, "rgba(110,84,54,0)"]]);
-  soft(ctx, x + 3, y + 4, Math.min(hw + 3, 16), 5.5, [[0, "rgba(34,24,38,0.36)"], [0.7, "rgba(34,24,38,0.22)"], [1, "rgba(34,24,38,0)"]]);
+  ctx.beginPath(); ctx.ellipse(x, y + F.dy, F.rx - 0.5, F.ry - 0.5, 0, 0, Math.PI * 2); ctx.clip();
+  soft(ctx, x, y + 4, 17.5 * kx, 8.5 * ky, [[0, "rgba(110,84,54,0.4)"], [0.6, "rgba(110,84,54,0.26)"], [1, "rgba(110,84,54,0)"]]);
+  soft(ctx, x + 3 * kx, y + 4, Math.min(hw + 3, 16 * kx), 5.5 * ky, [[0, "rgba(34,24,38,0.36)"], [0.7, "rgba(34,24,38,0.22)"], [1, "rgba(34,24,38,0)"]]);
   soft(ctx, x + 1, y + 2.5, hw + 1, 3, [[0, "rgba(30,20,32,0.45)"], [0.8, "rgba(30,20,32,0.3)"], [1, "rgba(30,20,32,0)"]]);
   const n = o.stones ?? 6;
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + hash(seed, i) * 0.8;
-    const sx = x + Math.cos(a) * 13.5 * (0.8 + hash(seed, i + 9) * 0.2), sy = y + 5 + Math.sin(a) * 6;
+    const sx = x + Math.cos(a) * 13.5 * kx * (0.8 + hash(seed, i + 9) * 0.2), sy = y + 5 + Math.sin(a) * 6 * ky;
     if (sy < y + 2) continue;
     const big = hash(seed, i + 3) > 0.55;
     part(ctx, (c) => ball(c, sx, sy, big ? 2.2 : 1.4, big ? 1.2 : 0.9, mix("#b0a48e", "#8a7e6a", hash(seed, i + 5)), { hi: 0.45, lo: 0.45 }));
@@ -58,9 +63,9 @@ export const padB = (ctx, x, y, seed = 0, o = {}) => {
 };
 
 // Grass growing back at the edge of the work, inside the footprint.
-export const skirtB = (ctx, x, y, seed = 0, n = 4) => {
+export const skirtB = (ctx, x, y, seed = 0, n = 4, F = FOOT_B) => {
   for (let i = 0; i < n; i++) {
-    const sy = y + 5 + hash(seed, i + 7) * 5, w = footW(y, sy) - 3;
+    const sy = y + 5 + hash(seed, i + 7) * 5 * (F.ry / FOOT_B.ry), w = footW(y, sy, F) - 3;
     tuft(ctx, x - w + hash(seed, i) * w * 2, sy, 0.6, "#4f7a34", "#8ab848", seed + i, { n: 3 });
   }
 };

@@ -16,7 +16,7 @@
 
 import { OAKWOOD, pennant, spriteCache, stamp, canBake } from "../buildkit.js";
 import {
-  IRON, STEEL, GOLD, ROPE, readiness, foot, padB, skirtB, beam, planks, barrel, rope, boulder, glint,
+  IRON, STEEL, GOLD, ROPE, FOOT_NARROW, readiness, foot, padB, skirtB, beam, planks, barrel, rope, boulder, glint,
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { masonry } from "../buildkit.js";
@@ -43,13 +43,15 @@ const spec = (t) => {
 // ---- the base: footing, post, gearbox ------------------------------------
 const paintBase = (ctx, t, x, y) => {
   const s = spec(t), { lvl, r4, gale, fire } = s;
-  padB(ctx, x, y, t.id, { hw: 13 });
-  if (fire) soft(ctx, x, y + 5, 16, 5, [[0, "rgba(40,30,34,0.3)"], [1, "rgba(40,30,34,0)"]]);   // soot
+  // a narrow footprint (kitB FOOT_NARROW): the hall may stand 42 from the
+  // road's centreline, so nothing it puts on the ground reaches past rx 13
+  padB(ctx, x, y, t.id, { hw: 12, foot: FOOT_NARROW });
+  if (fire) soft(ctx, x, y + 5, 12, 4, [[0, "rgba(40,30,34,0.3)"], [1, "rgba(40,30,34,0)"]]);   // soot
   // the windmill's mast stands at the back
   if (gale) {
     const mx = x + 11;
     beam(ctx, mx - 3, y - 2, mx, y - 44, 3, r4 === "aa" ? "#6a6a74" : OAKWOOD, { bands: [0.3, 0.7] });
-    beam(ctx, mx + 4, y - 2, mx, y - 40, 2.4, darken(OAKWOOD, 0.2));
+    beam(ctx, mx + 1.5, y - 1, mx, y - 40, 2.4, darken(OAKWOOD, 0.2));
   }
   // the footing: stakes at one, a stone drum after, a brick furnace for fire
   if (fire) {
@@ -99,22 +101,22 @@ const paintBase = (ctx, t, x, y) => {
   if (lvl >= 3 || t.branch) {
     if (!fire) {
       // a whetstone on its frame, for the blades
-      beam(ctx, x + 13, y + 3, x + 13, y - 4, 1.4, OAKWOOD, { grain: false });
-      part(ctx, (c) => ball(c, x + 14.5, y - 4, 1.4, 3.6, "#a8a49a", { hi: 0.4, lo: 0.45 }));
+      beam(ctx, x + 10.5, y + 4, x + 10.5, y - 3, 1.4, OAKWOOD, { grain: false });
+      part(ctx, (c) => ball(c, x + 12, y - 3, 1.4, 3.6, "#a8a49a", { hi: 0.4, lo: 0.45 }));
     } else {
       // the coal heap
-      for (const [dx, dy, r] of [[11.5, 5.5, 2.4], [14.5, 5.8, 1.8], [13, 3.6, 1.8]]) part(ctx, (c) => ball(c, x + dx, y + dy, r, r * 0.8, "#2e2a30", { hi: 0.35, lo: 0.4 }));
+      for (const [dx, dy, r] of [[8.5, 6.5, 2.4], [11, 6, 1.6], [10, 4.4, 1.8]]) part(ctx, (c) => ball(c, x + dx, y + dy, r, r * 0.8, "#2e2a30", { hi: 0.35, lo: 0.4 }));
     }
   }
   if (r4 === "ab") {
     // snares staked round the base
-    for (const [dx, dy] of [[-13, 8], [12, 9], [-3, 11.5]]) part(ctx, (c) => {
+    for (const [dx, dy] of [[-8, 7], [7, 7.5], [-0.5, 9.5]]) part(ctx, (c) => {
       c.strokeStyle = IRON; c.lineWidth = 0.8; c.beginPath(); c.ellipse(x + dx, y + dy, 3, 1.2, 0, 0, Math.PI * 2); c.stroke();
       c.fillStyle = OAKWOOD; c.fillRect(x + dx + 2.6, y + dy - 3, 1, 3.5);
     });
   }
-  if (r4 === "aa") for (const dx of [12, 15]) part(ctx, (c) => { c.fillStyle = STEEL; c.fillRect(x + dx, y - 6, 1, 10); c.fillStyle = "#8a909c"; c.fillRect(x + dx - 0.5, y + 1, 2, 1.2); });
-  skirtB(ctx, x, y, t.id);
+  if (r4 === "aa") for (const dx of [9.5, 11.5]) part(ctx, (c) => { c.fillStyle = STEEL; c.fillRect(x + dx, y - 5 + (dx - 9.5), 1, 10); c.fillStyle = "#8a909c"; c.fillRect(x + dx - 0.5, y + 2 + (dx - 9.5), 2, 1.2); });
+  skirtB(ctx, x, y, t.id, 4, FOOT_NARROW);
 };
 
 // ---- the windmill's sails, baked at a few turns -----------------------------
@@ -305,7 +307,7 @@ export const drawBladewheel = (ctx, t, time) => {
   const lvl1 = lvl === 1 && !t.branch;
   const turning = !t._idle;
   const work = turning ? Math.round((Math.sin(time * (gale ? 12 : 8) + t.id) + 1) * 1.5) : Math.round((Math.sin(time * 1.1 + t.id) + 1) * 0.5);
-  const cx0 = x - 12, cy0 = y + (fire ? 4 : 5);
+  const cx0 = x - 10, cy0 = y + (fire ? 4 : 5);   // his feet stay inside the narrow footprint
   if (bake) stamp(ctx, cache.get(`crew|${fire ? "s" : "w"}|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, fire ? STOKER : CREW_FOLK.engineer, (work - 1.5) * 0.4)), cx0, cy0, 12, 27, 1);
   else drawCrew(ctx, cx0, cy0, 1, CREW_FOLK.engineer, 0);
   if (lvl1) {

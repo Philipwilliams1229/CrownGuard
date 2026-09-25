@@ -88,6 +88,7 @@ const TRAITS = [
   ["execute", "finishes the nearly-dead outright"],
   ["caltrops", "sprung traps leave slowing ground"],
   ["stunAll", "the blast stuns everything it touches"],
+  ["hitsAir", "reaches fliers"],
   ["markShred", "marks also strip armor"],
   ["diveStun", "dives can stun"],
   ["kingsight", "the mightiest foe is always marked"],

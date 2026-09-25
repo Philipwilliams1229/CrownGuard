@@ -1316,7 +1316,7 @@ export function updateGame(g, dt) {
             tx: ax + ox, ty: ay + oy, speed: rockSpeed, delay: i * 130,
             dmg: st.dmg, dtype: st.dtype, pierce: false, splash: st.splash || 0, splashCap: st.splashCap || 0,
             burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
-            kind: "rock", src: t.id, frag: !!st.frag,
+            kind: "rock", src: t.id, frag: !!st.frag, ground: !!st.groundOnly,
             total: Math.hypot(ax + ox - sx, ay + oy - sy),
             big: t.branch === "a",
           });
@@ -1544,7 +1544,7 @@ export function updateGame(g, dt) {
           const cap = p.splashCap || SPLASH_CAP;
           const hit = [];
           for (const e of g.enemies) {
-            if (e.dead) continue;
+            if (e.dead || (p.ground && e.flying)) continue;
             const dd = Math.hypot(e.x - p.tx, e.y - p.ty);
             if (dd <= p.splash) hit.push([dd, e]);
           }
@@ -1571,7 +1571,7 @@ export function updateGame(g, dt) {
                 tx: nx, ty: ny, speed: 190, delay: k * 40,
                 dmg: Math.max(1, Math.round(p.dmg * 0.4)), dtype: "phys", pierce: false,
                 splash: Math.round(p.splash * 0.55), burn: 0, burnDur: 0, slow: 0, slowDur: 0,
-                kind: "rock", mini: true, src: p.src, total: Math.hypot(nx - p.tx, ny - p.ty),
+                kind: "rock", mini: true, src: p.src, ground: p.ground, total: Math.hypot(nx - p.tx, ny - p.ty),
               });
             }
           }
