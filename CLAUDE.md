@@ -41,6 +41,27 @@ How it went well (September 2026 overhaul — up to seven artists at once):
 - **Split new work into independent files first** (e.g. a new
   `rigs-<group>.js` hooked into `rigs.js`) so agents never collide.
 
+## Several sessions at once
+
+The owner often runs several Claude sessions in this folder at the same
+time. They all share ONE working tree, one git index and one dev server, so:
+- **Look first.** Start with `ListAgents` and `git status`. Modified files
+  you did not touch belong to another session: leave them alone.
+- **Never move others' work.** No `git stash`, `git checkout -- <file>`,
+  `git restore`, `git reset`, `git pull`/rebase over a dirty tree, and no
+  `git add -A` / `commit -a`. Stage only your own paths: `git add <files>`.
+- **Hot files** (`src/CrownguardGame.jsx`, `src/engine/update.js`,
+  `src/data/towers.js`): keep edits small and re-read right before editing.
+  If a peer is clearly mid-change in one, message it (`SendMessage`) first.
+- **Build the tree as it is.** If someone else's half-done work breaks the
+  build, don't push past it and don't hide it: message that session, or
+  tell the owner.
+- **Shared tools:** don't stop or restart the dev server on 5173; use your
+  own browser tab and a shot-name prefix in `.shots/`.
+- **Collided anyway?** Save copies to your scratchpad before touching
+  anything, message the owning session with what happened, and let it
+  restore its own files.
+
 ## Keep the guides current
 
 When a session changes how things are made — art rules, balance levers,
