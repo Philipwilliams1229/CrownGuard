@@ -20,7 +20,10 @@ export const tileY = (r) => MY + r * TILE + TILE / 2;
 // far the outer lanes sit from the centreline.
 export const PATH_HALF = 32;
 export const LANE_OFF = 21;
-export const BLOCK_DIST = 42;
+// How close to the road's centreline a hall may stand. 48 = the road's
+// half-width (32) plus 16 of footing, which is exactly the midline between two
+// stretches of road two rows apart — those spots must stay buildable.
+export const BLOCK_DIST = 48;
 // The crown's curtain wall runs the whole right edge of every board; nothing
 // is built inside this many pixels of it.
 export const WALL_W = 62;
