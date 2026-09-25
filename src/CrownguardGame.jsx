@@ -670,13 +670,13 @@ export default function Crownguard() {
           }}>
             <div className="cg-frame cg-pop" style={{ width: "100%", maxWidth: 340, margin: "auto", padding: "16px 18px 18px", display: "flex", flexDirection: "column", gap: 9 }}>
               <div style={{ textAlign: "center", marginBottom: 2 }}>
-                <div className="cg-display" style={{ fontSize: 30, fontWeight: 700, letterSpacing: 5, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>PAUSED</div>
+                <div className="cg-display" style={{ fontSize: 26, fontWeight: 700, letterSpacing: 3, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>PAUSED</div>
                 <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>
                   {level && <span>Chapter {level.chapter.numeral} · </span>}
                   <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{scriptedWaves()}
                 </div>
               </div>
-              <button className="cg-btn cg-btn--gold" style={{ minHeight: 54, fontSize: 19, letterSpacing: 1 }} onClick={closeMenu}>
+              <button className="cg-btn cg-btn--gold" style={{ minHeight: 54, fontSize: 16, fontWeight: 700 }} onClick={closeMenu}>
                 <PlayIcon size={15} /> Resume
               </button>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -693,7 +693,7 @@ export default function Crownguard() {
                     onClick={() => pickHero(key)}>
                     {hasRig(h.rig) ? <EnemyIcon type={h.rig} box={30} /> : <span>{h.icon}</span>}
                     <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
-                      <span style={{ fontSize: 14 }}>{h.name}</span>
+                      <span style={{ fontSize: 12 }}>{h.name}</span>
                       <span style={{ fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9.5, textShadow: "none", color: heroKey === key ? "var(--gold-lt)" : "var(--muted)" }}>{heroKey === key ? "riding with you" : "next level"}</span>
                     </span>
                   </button>
@@ -721,7 +721,7 @@ export default function Crownguard() {
         <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "#17111b", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div className="cg-frame" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "22px 22px 20px", maxWidth: 320 }}>
             <div className="cg-display" style={{ fontSize: 46, lineHeight: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>⟳</div>
-            <div className="cg-display" style={{ fontSize: 24, fontWeight: 700, letterSpacing: 2, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>TURN YOUR DEVICE</div>
+            <div className="cg-display" style={{ fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>TURN YOUR DEVICE</div>
             <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Crownguard is played sideways — turn to landscape and the war resumes.</div>
           </div>
         </div>
@@ -745,7 +745,7 @@ export default function Crownguard() {
             {level && boardCss.w > 760 && (
               <div className="cg-panel cg-chip" style={{ gap: 6 }}>
                 <span className="cg-label">Ch. {level.chapter.numeral}</span>
-                <span className="cg-display" style={{ fontSize: 14, color: "var(--cream)" }}>{level.name}</span>
+                <span className="cg-display" style={{ fontSize: 12, color: "var(--cream)" }}>{level.name}</span>
               </div>
             )}
           </div>
@@ -812,8 +812,8 @@ export default function Crownguard() {
                     </span>
                     <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 88 }}>
                       <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
-                        <span style={{ fontSize: 13 }}>{ui.hero.name}</span>
-                        <span style={{ fontSize: 11, color: "var(--gold-lt)" }}>Lv {ui.hero.level}</span>
+                        <span style={{ fontSize: 11 }}>{ui.hero.name}</span>
+                        <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv {ui.hero.level}</span>
                       </span>
                       <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
                       <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, ui.hero.xp / ui.hero.next))}%`, background: "var(--blue)" }} /></span>
@@ -878,7 +878,7 @@ export default function Crownguard() {
                       <PlayIcon size={18} />
                       <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1 }}>
                         <span style={{ fontSize: 10, letterSpacing: 1.5 }}>WAVE</span>
-                        <span style={{ fontSize: 22, fontWeight: 700 }}>{ui.wave + 1}<span style={small}>/{ui.wave + 1 > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
+                        <span className="cg-num" style={{ fontSize: 18, textShadow: "1px 1px 0 rgba(255,243,210,0.5)" }}>{ui.wave + 1}<span style={small}>/{ui.wave + 1 > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
                       </span>
                       {lead.length > 0 && (
                         <span style={{ display: "flex", gap: 3 }}>
@@ -894,8 +894,8 @@ export default function Crownguard() {
                       )}
                       {ui.cdSec != null && (
                         <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, paddingLeft: 2 }}>
-                          <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 13, fontWeight: 700 }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}<CoinIcon size={11} /></span>
-                          <span style={{ fontSize: 11, opacity: 0.8 }}>{ui.cdSec}s</span>
+                          <span className="cg-num" style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 11, textShadow: "none" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}<CoinIcon size={11} /></span>
+                          <span className="cg-num" style={{ fontSize: 9, opacity: 0.8, textShadow: "none" }}>{ui.cdSec}s</span>
                         </span>
                       )}
                     </button>
@@ -926,7 +926,7 @@ export default function Crownguard() {
                   <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                     <span className="cg-well" style={{ padding: 2, display: "flex" }}><TowerPortrait kind={masterInfo.kind} branch={masterInfo.branch} rank4={masterInfo.rank4} size={40} /></span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 15, textShadow: "1px 1px 0 var(--ink)" }}>{masterInfo.name}</div>
+                      <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 13, textShadow: "1px 1px 0 var(--ink)" }}>{masterInfo.name}</div>
                       <div style={{ fontSize: 10, color: "var(--muted)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>{price(masterInfo.cost, ui.gold >= masterInfo.cost, 10)} · {TOWERS[masterInfo.kind].name}</div>
                     </div>
                     <button aria-label="Close info" className="cg-btn cg-btn--slate cg-x" onClick={() => setMasterInfo(null)}><CloseIcon size={11} /></button>
@@ -965,7 +965,7 @@ export default function Crownguard() {
                     <TowerPortrait kind={sel.kind} branch={sel.branch} rank4={sel.rank4} size={50} />
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 17, lineHeight: 1.1, textShadow: "2px 2px 0 var(--ink)" }}>
+                    <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 14, lineHeight: 1.15, textShadow: "1px 1px 0 var(--ink)" }}>
                       {sel.rank4 ? branchDef.rank4[sel.rank4].name : sel.branch ? branchDef.name : selDef.name}
                     </div>
                     <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 3 }}>
@@ -1064,7 +1064,7 @@ export default function Crownguard() {
                       onClick={withT((tt) => upgradeTower(G.current, tt))}>
                       <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
                         <span className="cg-label">Upgrade · Level {sel.level + 1}</span>
-                        <span className="cg-display" style={{ fontSize: 16, fontWeight: 700 }}>{nxt.label}</span>
+                        <span className="cg-display" style={{ fontSize: 13, fontWeight: 700 }}>{nxt.label}</span>
                         <span style={{ display: "grid", gridTemplateColumns: "auto auto", columnGap: 10, rowGap: 1, fontSize: 10.5 }}>
                           {deltas.map((d) => (
                             <span key={d.label} style={{ display: "contents" }}>
@@ -1092,7 +1092,7 @@ export default function Crownguard() {
                             <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={bk} size={40} /></span>
                             <span style={{ flex: 1, minWidth: 0 }}>
                               <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 14 }}>{br.name}</span>
+                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{br.name}</span>
                                 {price(br.cost, can, 13)}
                               </span>
                               <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{br.desc}</span>
@@ -1117,7 +1117,7 @@ export default function Crownguard() {
                             <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={sel.branch} rank4={rk} size={40} /></span>
                             <span style={{ flex: 1, minWidth: 0 }}>
                               <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 14 }}>{r4.name}</span>
+                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{r4.name}</span>
                                 {price(r4.cost, can, 13)}
                               </span>
                               <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{r4.desc}</span>
@@ -1155,7 +1155,7 @@ export default function Crownguard() {
               const nxt = campaign ? nextLevel(level.id) : null;
               const lastOfChapter = campaign && level.index === level.chapter.levels.length - 1;
               const won = ui.result === "won";
-              const big = { minHeight: 48, fontSize: 15, padding: "0 16px" };
+              const big = { minHeight: 48, fontSize: 13, padding: "0 16px" };
               return (
               <div style={{ position: "absolute", inset: 0, background: "rgba(22,14,26,0.74)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 45, padding: "22px 12px 12px", boxSizing: "border-box", overflowY: "auto" }}>
                 <div className="cg-frame cg-rise" style={{ width: "100%", maxWidth: 460, margin: "auto", padding: "0 20px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 11, textAlign: "center" }}>
@@ -1175,7 +1175,7 @@ export default function Crownguard() {
                           </span>
                         ))}
                       </div>
-                      <div className="cg-display" style={{ fontSize: 14, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>
+                      <div className="cg-num" style={{ fontSize: 12, lineHeight: 1.4, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>
                         +{award.xp} XP
                         {award.newStars > 0
                           ? ` · +${award.newStars} star${award.newStars > 1 ? "s" : ""} banked`
@@ -1199,8 +1199,8 @@ export default function Crownguard() {
                         <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <TowerPortrait kind={k} size={44} />
                           <div style={{ textAlign: "left" }}>
-                            <div className="cg-display" style={{ fontSize: 11, letterSpacing: 2, color: "#8a5a2a" }}>NEW HALL</div>
-                            <div className="cg-display" style={{ fontSize: 15, fontWeight: 700 }}>{TOWERS[k].name}</div>
+                            <div className="cg-display" style={{ fontSize: 10, letterSpacing: 1, color: "#8a5a2a" }}>NEW HALL</div>
+                            <div className="cg-display" style={{ fontSize: 13, fontWeight: 700 }}>{TOWERS[k].name}</div>
                           </div>
                         </div>
                       ))}
@@ -1324,7 +1324,7 @@ export default function Crownguard() {
                               }}
                               style={{ position: "absolute", top: 0, right: 0, padding: 5, pointerEvents: "auto", cursor: "help" }}><InfoIcon size={12} /></span>
                             <span className="cg-dim"><TowerPortrait kind={key} branch={plan.branch} rank4={plan.rank4} size={42} /></span>
-                            <span className="cg-dim" style={{ fontSize: 11, lineHeight: 1.15 }}>{plan.name}</span>
+                            <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.2 }}>{plan.name}</span>
                             {price(plan.cost, can, 11)}
                           </button>
                         );
@@ -1348,7 +1348,7 @@ export default function Crownguard() {
                     <span className="cg-well cg-dim" style={{ width: 60, height: 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <TowerPortrait kind={key} size={50} />
                     </span>
-                    <span className="cg-dim" style={{ fontSize: 12, lineHeight: 1.1 }}>{def.name}</span>
+                    <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.2 }}>{def.name}</span>
                     {open
                       ? price(def.cost, can, 12)
                       : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{need ? need.short || need.name : "campaign"}</span>}
@@ -1363,7 +1363,7 @@ export default function Crownguard() {
             {realmOpen && (
               <div className="cg-scroll" style={{ position: "fixed", inset: 0, background: "rgba(22,14,26,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", gap: 10, zIndex: 55, padding: 16, boxSizing: "border-box", overflowY: "auto" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto" }}>
-                  <div className="cg-display" style={{ fontSize: 24, fontWeight: 700, letterSpacing: 3, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>CHOOSE YOUR REALM</div>
+                  <div className="cg-display" style={{ fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>CHOOSE YOUR REALM</div>
                   <button aria-label="Back" className="cg-btn cg-btn--slate cg-x" style={{ minWidth: 44, minHeight: 44 }} onClick={closeRealmSelect}><CloseIcon size={12} /></button>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: -4 }}>Pick who you're fighting, then a realm to fight them on.</div>
@@ -1374,7 +1374,7 @@ export default function Crownguard() {
                     <button key={f.id} onClick={() => setFactionId(f.id)}
                       className={cls("cg-btn cg-btn--slate", f.id === factionId && "is-on")}
                       style={{ flexDirection: "column", alignItems: "stretch", gap: 5, padding: "8px 10px", textAlign: "left" }}>
-                      <span style={{ fontSize: 15, color: "var(--cream)" }}>
+                      <span style={{ fontSize: 13, color: "var(--cream)" }}>
                         {f.name} <span style={{ fontSize: 10, letterSpacing: 1, color: f.tagColor, marginLeft: 4 }}>{f.tag}</span>
                       </span>
                       <span style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 30 }}>
@@ -1421,7 +1421,7 @@ export default function Crownguard() {
                         <rect x={r.path[r.path.length - 1][0] * 10 - 1} y={r.path[r.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
                       </svg>
                       <span style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "left" }}>
-                        <span style={{ fontSize: 15, color: "var(--cream)" }}>
+                        <span style={{ fontSize: 13, color: "var(--cream)" }}>
                           {r.name} <span style={{ fontSize: 10, letterSpacing: 1, color: r.tagColor, marginLeft: 4 }}>{r.tag}</span>
                         </span>
                         <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--text)", opacity: 0.8, lineHeight: 1.45 }}>{r.blurb}</span>

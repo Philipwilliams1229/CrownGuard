@@ -30,7 +30,7 @@ export default function CastleWorksList({ works, purse, purseLabel, onBuy, note 
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <span className="cg-well" style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>{def.icon}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="cg-display" style={{ fontSize: 15, fontWeight: 700, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" }}>{def.name}</div>
+                <div className="cg-display" style={{ fontSize: 12, fontWeight: 700, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" }}>{def.name}</div>
                 <div className="cg-pips" style={{ marginTop: 4 }}>
                   {def.tiers.map((_, i) => <span key={i} className={`cg-pip big${i < have ? " on" : ""}`} />)}
                 </div>
@@ -40,7 +40,7 @@ export default function CastleWorksList({ works, purse, purseLabel, onBuy, note 
               {cur ? <span><b style={{ color: "var(--green)" }}>{cur.label}</b> stands on the wall.</span> : def.blurb}
             </div>
             {next ? (
-              <button className={`cg-btn${can ? "" : " is-poor"}`} style={{ width: "100%", justifyContent: "space-between", fontSize: 13 }}
+              <button className={`cg-btn${can ? "" : " is-poor"}`} style={{ width: "100%", justifyContent: "space-between", fontSize: 11 }}
                 disabled={!can} onClick={() => onBuy(key, next)}>
                 <span className="cg-dim">{have ? "Raise: " : "Build: "}{next.label}</span>
                 <span className={`cg-price${can ? "" : " is-short"}`}><CoinIcon size={13} />{gold(next.cost)}</span>

@@ -2,6 +2,8 @@
 // Tiny pixel-art icons for the top bar, drawn as hard-edged SVG rects so they
 // sit on the same blocky grid as the game's sprites.
 
+import { StarIcon } from "./hud/icons.jsx";
+
 const px = { shapeRendering: "crispEdges", display: "block", flexShrink: 0 };
 
 // An open book — two cream pages either side of a gold spine.
@@ -36,27 +38,10 @@ export function FlagIcon({ size = 12 }) {
   );
 }
 
-// The campaign star, drawn on the pixel grid rather than as a smooth polygon
-// so it sits with the sprites. `lit` is one you've earned; unlit is the empty
-// socket on the level card.
+// The campaign star lives with the HUD's icons now (hud/icons.jsx): one
+// star everywhere, the victory card, the map card and the War Council alike.
 export function Star({ size = 16, lit = true }) {
-  const fill = lit ? "#e8d47a" : "#3a4150";
-  const edge = lit ? "#8a6f28" : "#2a303c";
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" style={px} aria-hidden="true">
-      <rect x="5" y="0" width="2" height="3" fill={edge} />
-      <rect x="0" y="4" width="12" height="2" fill={edge} />
-      <rect x="1" y="6" width="10" height="2" fill={edge} />
-      <rect x="2" y="8" width="2" height="3" fill={edge} />
-      <rect x="8" y="8" width="2" height="3" fill={edge} />
-      <rect x="5" y="1" width="2" height="4" fill={fill} />
-      <rect x="1" y="4" width="10" height="1" fill={fill} />
-      <rect x="2" y="5" width="8" height="2" fill={fill} />
-      <rect x="3" y="7" width="6" height="1" fill={fill} />
-      <rect x="2" y="8" width="2" height="2" fill={fill} />
-      <rect x="8" y="8" width="2" height="2" fill={fill} />
-    </svg>
-  );
+  return <StarIcon size={size} lit={lit} />;
 }
 
 // The universal two-bar pause mark.

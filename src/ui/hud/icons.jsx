@@ -15,7 +15,7 @@ const PAL = {
   b: "#8ab8e0", B: "#4e78b0",                     // steel blue
 };
 
-function Grid({ rows, size, title, style }) {
+function Grid({ rows, size, title, style, pal = PAL }) {
   const h = rows.length, w = rows[0].length;
   const rects = [];
   rows.forEach((row, y) => {
@@ -24,7 +24,7 @@ function Grid({ rows, size, title, style }) {
       if (ch === ".") { x++; continue; }
       let x2 = x + 1;
       while (x2 < w && row[x2] === ch) x2++;
-      rects.push(<rect key={`${x}.${y}`} x={x} y={y} width={x2 - x} height={1} fill={PAL[ch]} />);
+      rects.push(<rect key={`${x}.${y}`} x={x} y={y} width={x2 - x} height={1} fill={pal[ch] || PAL[ch]} />);
       x = x2;
     }
   });
@@ -248,3 +248,29 @@ export const InfoIcon = icon([
   "kbbcbBk",
   ".kkkkk.",
 ]);
+
+// The campaign star: a clean five-point silhouette in ink, gold in three
+// tones lit from the upper left, and a cream glint. Unearned, it is the same
+// star as an empty slate socket.
+const STAR = [
+  "........k........",
+  ".......kYk.......",
+  "......kYYyk......",
+  "......kYYyk......",
+  ".....kYcYyyk.....",
+  "kkkkkkYYYyyykkkkk",
+  "kYYYYYYYYyyyyyyok",
+  ".kYYYYYYYyyyyyok.",
+  "..kyYYYYYyyyyok..",
+  "...kyYYYyyyyok...",
+  "...kyYYyyyyyok...",
+  "..kyYyyyoyyyyok..",
+  "..kyYyyok.kyyok..",
+  ".kyYyok...kyyook.",
+  ".kyok.......kook.",
+  ".kkk.........kkk.",
+];
+const STAR_EMPTY = { Y: "#5a4d60", y: "#463a4c", o: "#342a3a", c: "#6a5c70" };
+export function StarIcon({ size = 16, lit = true, style }) {
+  return <Grid rows={STAR} size={size} pal={lit ? PAL : { ...PAL, ...STAR_EMPTY }} style={style} />;
+}

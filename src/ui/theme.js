@@ -4,8 +4,9 @@
 // (oak frames, parchment, gold) is ui/hud/hud.css, built on these colours.
 
 export const FONT = "Verdana, Geneva, sans-serif";
-// the chunky pixel face for headings and numbers (loaded in index.html)
-export const DISPLAY = "'Pixelify Sans', 'Silkscreen', Verdana, Geneva, sans-serif";
+// the pixel face for headings and labels (loaded in index.html): Silkscreen,
+// whose C, O, S, 5 and 8 stay distinct even at 10px
+export const DISPLAY = "'Silkscreen', Verdana, Geneva, sans-serif";
 
 // the HUD palette: ink rims, plum-slate panels, oak, parchment and gold
 export const INK = "#241a26";

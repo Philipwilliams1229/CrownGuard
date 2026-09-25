@@ -14,11 +14,11 @@
   --slate: #2e2633; --slate-lt: #4a3e50; --slate-dk: #1b141e; --slate-in: #231b27;
   --parch: #ead9aa; --parch-lt: #f8eed6; --parch-dk: #c9b27a; --parch-ink: #3b2a1c;
   --red: #e0574c; --red-dk: #8e3a3a; --green: #9ad06a; --blue: #8ab8e0;
-  --display: "Pixelify Sans", "Silkscreen", Verdana, Geneva, sans-serif;
+  --display: "Silkscreen", Verdana, Geneva, sans-serif;
   /* numbers get an arcade face with unmistakable digits — Pixelify's 5 reads
      as an S at chip size. font-size-adjust keeps its (tall, wide) glyphs at
      the size the layout was built for. */
-  --numeric: "Press Start 2P", "Pixelify Sans", Verdana, monospace;
+  --numeric: "Press Start 2P", "Silkscreen", Verdana, monospace;
   --body: Verdana, Geneva, sans-serif;
   font-family: var(--body);
   color: var(--text);
@@ -60,7 +60,7 @@
 /* a small caps label over a section */
 .cg-label {
   font-family: var(--display);
-  font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
   color: var(--gold);
   text-shadow: 1px 1px 0 var(--ink);
 }
@@ -74,7 +74,7 @@
 
 /* ---- buttons: oak planks. Pressed sinks 2px; disabled goes grey ---- */
 .cg-btn {
-  font-family: var(--display); font-weight: 600; font-size: 14px; line-height: 1.1;
+  font-family: var(--display); font-weight: 400; font-size: 12px; line-height: 1.15;
   color: var(--text); text-shadow: 1px 1px 0 var(--ink);
   background: var(--wood);
   border: 2px solid var(--ink); border-radius: 0;
@@ -136,7 +136,7 @@
 }
 .cg-btn--parch:active:not(:disabled):not(.is-off):not(.is-poor) { box-shadow: inset 2px 2px 0 var(--parch-dk), inset -1px -1px 0 var(--parch-lt); }
 .cg-btn--parch.is-poor { background: #d9cba4; }
-.cg-btn--parch .cg-label { color: #8a5a2a; text-shadow: none; font-size: 11px; }
+.cg-btn--parch .cg-label { color: #8a5a2a; text-shadow: none; font-size: 10px; }
 /* a small square close button */
 .cg-x { min-width: 36px; min-height: 36px; padding: 0; }
 
@@ -236,11 +236,11 @@
   background: var(--wood); border-bottom: 2px solid var(--ink);
   box-shadow: inset 0 2px 0 var(--wood-lt), inset 0 -2px 0 var(--wood-dk);
 }
-.cg-drawer-head .cg-label { font-size: 13px; color: var(--gold-lt); flex: 1; white-space: nowrap; letter-spacing: 1px; }
+.cg-drawer-head .cg-label { font-size: 12px; color: var(--gold-lt); flex: 1; white-space: nowrap; letter-spacing: 1px; }
 
 /* the banner across the top of the victory and defeat cards */
 .cg-banner {
-  font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: 2px;
+  font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: 1px;
   padding: 8px 18px 9px; border: 2px solid var(--ink); line-height: 1.1;
   text-shadow: 2px 2px 0 var(--ink);
 }

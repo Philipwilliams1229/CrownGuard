@@ -28,7 +28,7 @@
       async function fonts() {
         if (fontCss != null) return fontCss;
         try {
-          let css = await (await fetch("https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap")).text();
+          let css = await (await fetch("https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Press+Start+2P&display=swap")).text();
           // keep the latin face only; inline its file
           const blocks = css.split("}").filter((b) => b.includes("U+0000-00FF"));
           css = blocks.map((b) => b + "}").join("\n");
