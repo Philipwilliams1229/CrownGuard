@@ -12,6 +12,35 @@ https://philipwilliams1229.github.io/CrownGuard/ (GitHub Pages, ~1 minute).
 - `art/DESIGN-BRIEF.md` / `art/GEMINI-PROMPTS.md` — sprite sizes and prompts
   if AI-painted images are ever used.
 
+## Default way of working: a team of parallel agents
+
+The owner likes seeing many pieces worked on at once, so for any job with
+more than one independent part (several towers, creatures, screens, a
+balance question alongside art), split it up and run background agents in
+parallel instead of doing the parts one by one. This is the default.
+
+How it went well (September 2026 overhaul — up to seven artists at once):
+- **Split by file ownership.** Each agent owns specific files (e.g. one per
+  group of halls in `src/render/halls/`, one for `rigs-horde.js`, one for
+  `castle.js`) and edits nothing else; shared files (`buildkit.js`,
+  `folk.js`, `draw.js`) get exactly one owner, and others only read them or
+  make tiny, reported edits.
+- **One brief for all:** point every agent at `art/STYLE-GUIDE.md` (and this
+  file) instead of re-writing the rules; add only the task, the owned files,
+  and a shot-name prefix.
+- **Rules for agents:** open their OWN browser tab (tabs_create) and close
+  it when done; never resize the window or touch others' tabs; never launch
+  Chrome or apps from a shell; never run git commands that change anything;
+  take before/after shots in `.shots/` with their prefix; do 2–3 look-fix
+  passes; finish with a short report and shot paths. Give each a rough
+  tool-call budget when usage is tight.
+- **The lead** (the main session) keeps working meanwhile — balance, sims,
+  engine fixes — then reviews each agent's shots as it reports, commits its
+  files with a clear message, and publishes. Send follow-ups to a finished
+  agent (SendMessage) rather than starting a fresh one; it keeps context.
+- **Split new work into independent files first** (e.g. a new
+  `rigs-<group>.js` hooked into `rigs.js`) so agents never collide.
+
 ## Keep the guides current
 
 When a session changes how things are made — art rules, balance levers,
