@@ -380,17 +380,29 @@ export const bakeSprite = (w, h, draw, outline = true) => {
 // baking with the inner dial on, the piece is painted on its own layer,
 // given a thin ink edge, and laid over what came before, so lines appear
 // wherever pieces meet. Outside a bake it simply paints.
+// Scratch layers for part(), reused rather than made per part, and asked for
+// as CPU-backed (willReadFrequently): every part is read straight back for
+// its ink, and a GPU readback per part made each bake a visible stall.
+const LAYERS = [];
 export const part = (ctx, fn, o = {}) => {
   if (!BAKING || !PIXEL || STYLE.inner <= 0) { fn(ctx); return; }
-  const layer = document.createElement("canvas");
-  layer.width = BAKING.w; layer.height = BAKING.h;
-  const c = layer.getContext("2d");
+  let layer = LAYERS.pop();
+  if (!layer) layer = document.createElement("canvas");
+  if (layer.width !== BAKING.w || layer.height !== BAKING.h) { layer.width = BAKING.w; layer.height = BAKING.h; }
+  const c = layer.getContext("2d", { willReadFrequently: true });
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, layer.width, layer.height);
+  c.globalAlpha = 1; c.globalCompositeOperation = "source-over";
   c.imageSmoothingEnabled = false;
-  c.setTransform(ctx.getTransform());
-  fn(c);
-  inkOutline(layer, INK_LINE, STYLE.inner, o.ink || null);
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(layer, 0, 0);
-  ctx.restore();
+  try {
+    c.save();                       // a pooled layer must not keep this part's state
+    c.setTransform(ctx.getTransform());
+    fn(c);
+    c.restore();
+    inkOutline(layer, INK_LINE, STYLE.inner, o.ink || null);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(layer, 0, 0);
+    ctx.restore();
+  } finally { LAYERS.push(layer); }
 };
