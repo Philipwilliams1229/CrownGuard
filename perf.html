@@ -1,0 +1,43 @@
+<!doctype html>
+<!--
+  Dev tool: how long one board frame takes to draw with N foes on the road.
+  /perf.html?realm=warrens&n=0,100,300,500 — results land in the page title
+  and body as JSON (ms per frame, mean of 30 frames after 5 warm-up frames).
+-->
+<html><head><meta charset="utf-8" /><title>perf…</title></head>
+<body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:20px"><div id="out">running…</div>
+<script type="module">
+import { draw } from "/src/render/draw.js";
+import { selectRealm } from "/src/data/maps.js";
+import { W, H, RES } from "/src/data/constants.js";
+import { posAt, TOTAL_LEN } from "/src/engine/path.js";
+import { ENEMIES } from "/src/data/enemies.js";
+const q = new URLSearchParams(location.search);
+selectRealm(q.get("realm") || "warrens");
+const Ns = (q.get("n") || "0,100,300,500").split(",").map(Number);
+const types = ["goblin", "goblin", "goblin", "wolf", "bat", "orc", "boarrider", "armored"];
+const mk = (i) => {
+  const t = types[i % types.length], d = ENEMIES[t], dist = (i * 37) % TOTAL_LEN;
+  const [x, y] = posAt(dist);
+  return { id: i, type: t, sprite: t === "goblin" ? (i % 2 ? "goblin" : "goblinBare") : null, hp: d.hp * 0.6, maxHp: d.hp, dist,
+    x: x + ((i % 3) - 1) * 20, y: y + ((i % 5) - 2) * 4, face: 1, size: d.size, armor: d.armor, mres: 0, guard: 0, guardFlash: 0,
+    flying: !!d.flying, boss: false, atkAnim: 0, stunUntil: 0, slowUntil: 0, slowPct: 0, auraSlow: 0, burnUntil: i % 4 ? 0 : 1e9,
+    poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: 0, blockedBy: null, engaged: false, dead: false, revived: false, born: -1e9 };
+};
+const res = {};
+for (const N of Ns) {
+  const g = { time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5, towers: [], projectiles: [], effects: [], grounds: [],
+    corpses: [], spawnQueue: [], enemies: Array.from({ length: N }, (_, i) => mk(i)), phase: "combat", buildMode: null, hover: null,
+    selectedId: null, banner: null, paused: false, buildUntil: null };
+  const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES;
+  const buf = { current: null };
+  for (let i = 0; i < 5; i++) { g.time += 0.016; draw(g, cv, buf); }
+  cv.getContext("2d").getImageData(0, 0, 1, 1);
+  const t0 = performance.now();
+  for (let i = 0; i < 30; i++) { g.time += 0.016; draw(g, cv, buf); }
+  cv.getContext("2d").getImageData(0, 0, 1, 1);
+  res[N] = +((performance.now() - t0) / 30).toFixed(2);
+}
+document.title = "PERF " + JSON.stringify(res);
+document.getElementById("out").textContent = JSON.stringify(res);
+</script></body></html>

@@ -52,6 +52,8 @@ const MILITIA_ON = !flag("no-militia");
 // castle damage it caused is recorded instead — a stable difficulty curve,
 // where "which wave did it die on" swings with every roll of the dice.
 const ENDURE = flag("endure");
+// --perf: time the engine tick per wave (mean / worst ms, most foes alive)
+let PERF = flag("perf") ? { sum: 0, n: 0, max: 0, foes: 0 } : null;
 const { CHAPTERS, LEVELS, towerUnlocked } = await import("../src/data/campaign.js");
 // which halls the commander may raise on this level: everything earned by
 // clearing the levels before it (free play: everything)
@@ -242,7 +244,14 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
       const foes = g.spawnQueue.length, t0 = g.time, earned0 = g.run.goldEarned;
       // fight the whole wave
       while (g.phase === "combat" && ticks < MAX_TICKS) {
-        updateGame(g, DT); ticks++;
+        if (PERF) {
+          const t0p = performance.now();
+          updateGame(g, DT);
+          const dtp = performance.now() - t0p;
+          PERF.sum += dtp; PERF.n++; if (dtp > PERF.max) PERF.max = dtp;
+          if (g.enemies.length > PERF.foes) PERF.foes = g.enemies.length;
+        } else updateGame(g, DT);
+        ticks++;
         // the militia horn, blown at the road's last bend whenever it's ready
         // and something is on the road worth blowing it for
         if (MILITIA_ON && (g.militiaCd || 0) <= 0 && g.enemies.some((e) => !e.dead && e.dist > TOTAL_LEN * 0.5)) {
@@ -251,6 +260,7 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
         }
       }
       (g.bleed ||= []).push(livesBefore - g.lives);
+      if (PERF) { console.log(`   perf w${g.wave}: ${(PERF.sum / Math.max(1, PERF.n)).toFixed(2)}ms mean, ${PERF.max.toFixed(1)}ms worst, ${PERF.foes} foes alive at most`); PERF = { sum: 0, n: 0, max: 0, foes: 0 }; }
       if (!quiet) {
         const leaked = livesBefore - g.lives;
         const mark = leaked === 0 ? "  " : leaked <= 2 ? "! " : "!!";

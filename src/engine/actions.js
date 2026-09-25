@@ -326,24 +326,43 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
       if (hb && (src === hb || (hu && hu.state !== "dead" && Math.hypot(hu.x - e.x, hu.y - e.y) < 90))) hb.xp = (hb.xp || 0) + (e.boss ? 6 : 1) + (src === hb ? 1 : 0);
     }
     e.dead = true;
-    // a transmuter's aura makes every nearby death pay better
+    // a transmuter's aura makes every nearby death pay better — in fractions,
+    // carried over, so a one-coin goblin in the aura pays 1.25 and not 2
     let pay = e.bounty;
     for (const tw of g.towers) {
       if (tw.kind !== "goldworks" || tw.branch !== "b") continue;
       const stB = getStats(tw);
       if (stB.bountyAura && Math.hypot(tw.x - e.x, tw.y - e.y) <= stB.auraRange) {
-        pay = Math.max(pay, Math.ceil(e.bounty * (1 + stB.bountyAura)));
+        pay = Math.max(pay, e.bounty * (1 + stB.bountyAura));
       }
     }
-    e.bounty = pay;
+    g.goldCarry = (g.goldCarry || 0) + pay;
+    e.bounty = Math.floor(g.goldCarry);
+    g.goldCarry -= e.bounty;
     g.gold += e.bounty;
     sfx.play("crunch");
     sfx.play("coin");
     if (g.run) { g.run.kills += 1; g.run.goldEarned += e.bounty; }
-    g.effects.push({ type: "coin", x: e.x, y: e.y - 14, ttl: 700, text: `+${e.bounty}` });
+    // A crowd pays a coin or two a head; a "+1" over every goblin would bury
+    // the road in numbers. Small purses are tallied and shown as one sum
+    // every few kills; a fat one (a troll, a warchief) still shows at once.
+    const tms = g.time * 1000;
+    if (e.bounty >= 5) g.effects.push({ type: "coin", x: e.x, y: e.y - 14, ttl: 700, text: `+${e.bounty}` });
+    else if (e.bounty > 0) {
+      const t = g.coinTally || (g.coinTally = { sum: 0, n: 0, t0: tms });
+      t.sum += e.bounty; t.n += 1;
+      if (t.n >= 6 || tms - t.t0 > 450) {
+        g.effects.push({ type: "coin", x: e.x, y: e.y - 14, ttl: 700, text: `+${t.sum}` });
+        g.coinTally = { sum: 0, n: 0, t0: tms };
+      }
+    }
     // death animation: flash white, then crumble into pixels — a mixed-party
-    // foe crumbles in the look it actually wore
-    g.effects.push({ type: "death", etype: e.sprite || e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived });
+    // foe crumbles in the look it actually wore. When the road is already
+    // littered with crumbling bodies, the rest just flash and puff: a
+    // hundred-goblin rout must not cost a hundred thousand pixels a frame.
+    let dying = 0;
+    for (const fx of g.effects) if (fx.type === "death" && !fx.lite) dying++;
+    g.effects.push({ type: "death", etype: e.sprite || e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived, lite: dying >= 16 && !e.boss });
     // the fallen linger a moment — a necromancer may call them back (once)
     if (!e.revived && CORPSE_TYPES.has(e.type)) {
       if (!g.corpses) g.corpses = [];
