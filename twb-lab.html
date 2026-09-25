@@ -1,0 +1,75 @@
+<!doctype html>
+<!--
+  Tower artist B's lab: every form of several halls through a firing cycle,
+  painted once at load and saved to .shots/twb_<kind>_<tag>.png.
+    /twb-lab.html?kinds=catapult,spiker&tag=v1&scale=1
+  Rows: idle, busy mid-cooldown, cocked (about to loose), release, follow-through.
+  forms=0,3,4 picks columns; rows=idle,fire picks rows.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>twb lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import * as T from "/src/render/towers.js";
+      import { groundLayer } from "/src/render/world.js";
+      import { getStats } from "/src/engine/towers.js";
+      const q = new URLSearchParams(location.search);
+      const KINDS = (q.get("kinds") || "catapult").split(","), TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 1;
+      selectRealm(q.get("realm") || "greenwood");
+      const P = {
+        catapult: T.drawCatapult, spiker: T.drawBladewheel, goldworks: T.drawGoldworks, trapsmith: T.drawTrapsmith,
+        falconry: T.drawFalconry, riverwatch: T.drawRiverwatchHall,
+      };
+      const ALL = [
+        { level: 1 }, { level: 2 }, { level: 3 },
+        { level: 3, branch: "a" }, { level: 3, branch: "a", rank4: "a" }, { level: 3, branch: "a", rank4: "b" },
+        { level: 3, branch: "b" }, { level: 3, branch: "b", rank4: "a" }, { level: 3, branch: "b", rank4: "b" },
+      ];
+      const forms = q.get("forms") ? q.get("forms").split(",").map((i) => ALL[+i]) : ALL;
+      const ROWS = {
+        idle: { idle: true, anim: 0, cdf: 0 }, mid: { anim: 0, cdf: 0.5 }, cocked: { anim: 0, cdf: 0.04 },
+        fire: { anim: 0.95, cdf: 1 }, follow: { anim: 0.45, cdf: 0.9 },
+        early: { anim: 0, cdf: 0.8 }, left: { anim: 0, cdf: 0.3, aim: Math.PI }, leftfire: { anim: 0.95, cdf: 1, aim: Math.PI },
+      };
+      const rows = (q.get("rows") || "idle,mid,cocked,fire,follow").split(",");
+      const CW = Number(q.get("cw")) || 110, CH = Number(q.get("ch")) || 130, R = 2;
+      const ground = groundLayer();
+      for (const KIND of KINDS) {
+        const cv = document.createElement("canvas");
+        cv.width = CW * R * forms.length; cv.height = CH * R * rows.length;
+        const ctx = cv.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        forms.forEach((f, i) => rows.forEach((rn, ri) => {
+          const row = ROWS[rn];
+          ctx.save();
+          ctx.setTransform(R, 0, 0, R, i * CW * R, ri * CH * R);
+          ctx.drawImage(ground, 120 * 2, 200 * 2, CW * 2, CH * 2, 0, 0, CW, CH);
+          if (q.get("water")) { ctx.fillStyle = "#4a8094"; ctx.fillRect(0, CH * 0.72 - 15, CW, 30); ctx.fillStyle = "#3a6a7c"; ctx.fillRect(0, CH * 0.72 - 9, CW, 18); }
+          const time = 3.2 + i * 0.37 + ri * 0.11;
+          const t = {
+            id: i + 3, kind: KIND, x: CW / 2, y: CH * 0.72, level: f.level, branch: f.branch || null, rank4: f.rank4 || null,
+            cd: 0, aim: "first", lastAim: row.aim ?? 0.3, anim: row.anim, shotIdx: 0, critIdx: 0, invested: 0, units: [],
+            rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: !!row.idle,
+            charges: 3, ramp: 2, mAnim: row.anim, eagle: rn === "fire" ? { respawn: 500 } : null,
+          };
+          const st = getStats(t);
+          t.cd = (st.rate || 1000) * row.cdf;
+          try { P[KIND](ctx, t, time); } catch (e) { console.error(e); ctx.fillStyle = "red"; ctx.fillText(String(e.message).slice(0, 30), 4, 12); }
+          ctx.restore();
+        }));
+        let out = cv;
+        if (SC !== 1) {
+          out = document.createElement("canvas"); out.width = cv.width * SC; out.height = cv.height * SC;
+          const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.drawImage(cv, 0, 0, out.width, out.height);
+        }
+        if (q.get("only") && q.get("only") !== KIND) continue;
+        await fetch("/__shot?name=twb_" + KIND + "_" + TAG, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      }
+      document.title = "DONE";
+      document.getElementById("status").textContent = "saved";
+    </script>
+  </body>
+</html>
