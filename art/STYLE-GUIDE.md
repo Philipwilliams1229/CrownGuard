@@ -130,7 +130,11 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   Militia (right), so the field stays uncovered. On an iPad the chips float
   over the board's corners. The Build drawer picks as many columns as it
   takes for the whole roster to show at once.
-- Test at 844x390, 750x340, 390x664, 1133x744 and 1440x900.
+- **Landscape only** (owner, 2026-09-25): a touch screen held upright gets
+  `src/ui/TurnDevice.jsx`'s "turn your device" card over EVERY screen; the
+  manifest declares landscape. Upright layouts (`narrow`) are a fallback
+  for narrow desktop windows, not a target.
+- Test at 844x390, 750x340, 1133x744 and 1440x900.
 - Menus show the NEW art: `TowerPortrait` for halls, `EnemyIcon` with a rig
   (e.g. the crown rigs in `rigs-crown.js`) for figures. `PixelIcon` (the old
   MINI sprites) is only TowerPortrait's fallback.

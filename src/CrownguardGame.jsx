@@ -110,7 +110,6 @@ export default function Crownguard() {
   // column of controls stands at the right. Narrow: panels slide over the
   // board instead. The board itself is always sized to fit its cell at 3:2.
   const [wide, setWide] = useState(() => typeof window === "undefined" || window.innerWidth >= 900);
-  const [portrait, setPortrait] = useState(false);
   const boardCellRef = useRef(null);
   const [boardCss, setBoardCss] = useState({ w: 720, h: 480 });
   // The screen, and the whole battle screen's box inside the safe area. When
@@ -134,9 +133,6 @@ export default function Crownguard() {
   useEffect(() => {
     const onResize = () => {
       setWide(window.innerWidth >= 900);
-      // only a touch device is asked to turn; a narrow desktop window is just narrow
-      const coarse = window.matchMedia("(pointer: coarse)").matches;
-      setPortrait(coarse && window.innerHeight > window.innerWidth);
     };
     onResize();
     window.addEventListener("resize", onResize);
@@ -1127,17 +1123,6 @@ export default function Crownguard() {
         })()}
 
         {guideOpen && <FieldGuide onClose={closeGuide} />}
-
-      {/* landscape only: a touch screen held upright is asked to turn */}
-      {portrait && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "#17111b", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div className="cg-frame" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "22px 22px 20px", maxWidth: 320 }}>
-            <div className="cg-display" style={{ fontSize: 46, lineHeight: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>⟳</div>
-            <div className="cg-display" style={{ fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>TURN YOUR DEVICE</div>
-            <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Crownguard is played sideways — turn to landscape and the war resumes.</div>
-          </div>
-        </div>
-      )}
 
       {/* ---- the left rail: the purse, the hero, the horn ---- */}
       {railsOn && rail("left", purse, <>{talentBtn}{heroBtn}{horn}</>)}
