@@ -5,7 +5,7 @@
 
 import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
-import { MILITIA, HEROES, heroStats } from "../data/bands.js";
+import { MILITIA, HEROES, heroStats, canTalent } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
@@ -59,7 +59,7 @@ export const startWave = (g) => {
     castle: g.castle ? { ...g.castle } : null,
     castleRanks: g.castleRanks ? { ...g.castleRanks } : null,
     militiaCd: g.militiaCd || 0,
-    hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, rally: { ...b.rally } } : null; })(),
+    hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, talents: { ...(b.talents || {}) }, rally: { ...b.rally } } : null; })(),
   };
   if (g.buildUntil != null) {
     const rem = Math.max(0, g.buildUntil - g.time);
@@ -136,8 +136,13 @@ export const restartWave = (g) => {
   if (s.castle) g.castle = { ...s.castle };
   g.castleRanks = s.castleRanks ? { ...s.castleRanks } : g.castleRanks && {};
   g.militiaCd = s.militiaCd || 0;
+  // talents are bought for good: a restarted wave keeps the ones bought since
+  const liveTalents = g.bands?.find((x) => x.kind === "hero")?.talents;
   g.bands = [];
-  if (s.hero) { const b = fieldHero(g, s.hero.key, s.hero.level, s.hero.rally.x, s.hero.rally.y); if (b) b.xp = s.hero.xp; }
+  if (s.hero) {
+    const b = fieldHero(g, s.hero.key, s.hero.level, s.hero.rally.x, s.hero.rally.y, liveTalents || s.hero.talents);
+    if (b) b.xp = s.hero.xp;
+  }
   g.phase = "build"; g.selectedId = null; g.buildMode = null; g.rallyFor = null; g.paused = false; g.buildUntil = null;
 };
 
@@ -439,16 +444,26 @@ export const callMilitia = (g, x, y) => {
 };
 
 // Put the hero on the field at the level's start.
-export const fieldHero = (g, key, level = 1, x, y) => {
+export const fieldHero = (g, key, level = 1, x, y, talents = {}, xp = 0) => {
   const h = HEROES[key];
   if (!h || !g) return null;
   if (!g.bands) g.bands = [];
-  const st = heroStats(key, level);
+  const st = heroStats(key, level, talents);
   const band = {
-    id: nextId(), kind: "hero", hero: key, name: h.name, level, xp: 0, st, rally: { x, y }, home: { x, y },
+    id: nextId(), kind: "hero", hero: key, name: h.name, level, xp, talents: { ...(talents || {}) }, st, rally: { x, y }, home: { x, y },
     units: [{ id: nextId(), hp: st.hp, maxHp: st.hp, x, y, face: -1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null }],
   };
   g.bands.push(band);
   return band;
 };
 export const heroBand = (g) => g?.bands?.find((b) => b.kind === "hero") || null;
+// Spend one of the hero's talent points on talent `id`; the stats catch up
+// on the next tick. Returns the new talents, or null if it can't be bought.
+export const buyTalent = (g, id) => {
+  const b = heroBand(g);
+  if (!b || !canTalent(b.hero, b.level, b.talents, id)) return null;
+  b.talents = { ...(b.talents || {}), [id]: (b.talents?.[id] || 0) + 1 };
+  const u = b.units[0];
+  if (u && u.state !== "dead") g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 600 });
+  return b.talents;
+};

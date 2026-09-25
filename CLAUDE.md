@@ -80,4 +80,7 @@ should never have to rediscover it.
   `src/data/waves.js`), `SPLASH_CAP` in `src/engine/update.js`, bounty cap and
   wave bonus, per-level gold in `src/data/campaign.js`, tower stats in
   `src/data/towers.js`, castle works and endless ranks in `src/data/castle.js`.
+- Heroes: base stats, per-level gains and the five-talent trees
+  (`HERO_TALENTS`, a point per level, 3 ranks each) in `src/data/bands.js`;
+  picks persist in campaign progress `heroes[key].talents`.
 - The owner playtests; the sims are a floor, not a target.

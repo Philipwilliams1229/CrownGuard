@@ -18,6 +18,12 @@
 //
 // On phones the long rules text sits behind the "?" button, so it never
 // squeezes the tree; big screens show it under the tree.
+//
+// Spending takes two taps (useArm, in HeroTalents.jsx): the first arms a
+// node — it turns gold and its foot reads "TAP AGAIN · SPEND n★" — and the
+// second tap on it buys. A tap anywhere else, or 3 seconds, disarms it.
+//
+// The HEROES tab (HeroTalents.jsx) spends the heroes' talent points.
 
 import { useState } from "react";
 import {
@@ -33,6 +39,7 @@ import TowerPortrait from "./TowerPortrait.jsx";
 import { Star } from "./Glyphs.jsx";
 import { btn, panel, title, FONT } from "./theme.js";
 import { useViewport, Fit } from "./fit.jsx";
+import HeroTalents, { useArm, ArmBand, ARMED } from "./HeroTalents.jsx";
 
 const KINDS = Object.keys(SKILLS);
 
@@ -50,7 +57,7 @@ const StatRow = ({ label, value }) => (
 );
 
 // One skill node: its name and price, three rank pips, and what it does.
-function SkillNode({ n, owned, free, tree, onBuy, z = 1 }) {
+function SkillNode({ n, owned, free, tree, onBuy, armed, armId, z = 1 }) {
   const rank = nodeRank(owned, n.id);
   const maxed = isMaxed(owned, n.id);
   const open = nodeUnlocked(n, owned);
@@ -58,9 +65,9 @@ function SkillNode({ n, owned, free, tree, onBuy, z = 1 }) {
   const afford = cost != null && free >= cost;
   const buyable = !maxed && open && afford;
   return (
-    <button disabled={!buyable} onClick={() => onBuy(n)}
+    <button data-arm={armId} disabled={!buyable} onClick={() => buyable && onBuy(n)}
       style={{
-        ...btn, textAlign: "left", padding: 8 * z, display: "flex", flexDirection: "column", gap: 4 * z,
+        ...btn, position: "relative", overflow: "hidden", textAlign: "left", padding: 8 * z, display: "flex", flexDirection: "column", gap: 4 * z,
         width: "100%", height: "100%", boxSizing: "border-box", justifyContent: "flex-start",
         cursor: buyable ? "pointer" : "default",
         ...(maxed
@@ -68,6 +75,7 @@ function SkillNode({ n, owned, free, tree, onBuy, z = 1 }) {
           : rank > 0 ? { boxShadow: "inset 0 0 0 2px #7a6a3c" }
           : !open ? { opacity: 0.42 }
           : !afford ? { opacity: 0.62 } : {}),
+        ...(armed ? ARMED : {}),
       }}>
       <span style={{ display: "flex", alignItems: "flex-start", gap: 6, width: "100%" }}>
         <b style={{ fontSize: 11.5 * z, color: maxed ? "#c8e0a8" : "#e8e0c8" }}>{n.name}</b>
@@ -97,6 +105,9 @@ function SkillNode({ n, owned, free, tree, onBuy, z = 1 }) {
         <span style={{ fontSize: 9 * z, color: "#e07a72" }}>
           Needs {n.needs.map((r) => tree.nodes.find((x) => x.id === r)?.name).join(" and ")} at rank {RANKS}
         </span>
+      )}
+      {armed && (
+        <ArmBand z={z}>TAP AGAIN · SPEND {cost}★</ArmBand>
       )}
     </button>
   );
@@ -162,6 +173,8 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
   const big = !upright && vp.h >= 600 && vp.w >= 900; // iPads and desktops: picker in one row, tree drawn larger
   // on big screens the tree is drawn larger, sized to the room (the <Fit> still shrinks it if it must)
   const z = big ? Math.min(1.35, Math.max(1, Math.min(vp.w / 1000, vp.h / 640))) : 1;
+  // the hero sheets are shorter than a tree, so on big screens they draw larger still
+  const heroZ = big ? Math.min(1.55, Math.max(1, Math.min(vp.w / 760, vp.h / 480))) : 1;
   const top = upright || big;           // the picker sits across the top, not down a rail
   const across = !top;                  // only the phone on its side reads the tree left to right
   const help = helpOn && !big;          // big screens show the rules under the tree instead
@@ -174,8 +187,13 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
 
   const tiers = [1, 2, 3].map((t) => tree.nodes.filter((n) => n.tier === t));
 
-  const buy = (node) => setProfile({ ...buyRank(profile, kind, node) });
-  const node = (n) => <SkillNode key={n.id} n={n} owned={owned} free={free} tree={tree} onBuy={buy} z={z} />;
+  // two taps to spend: the first arms the node, the second buys
+  const arm = useArm();
+  const buy = (n) => arm.tap(`sk:${kind}:${n.id}`, () => setProfile({ ...buyRank(profile, kind, n) }));
+  const node = (n) => (
+    <SkillNode key={n.id} n={n} owned={owned} free={free} tree={tree} onBuy={buy} z={z}
+      armId={`sk:${kind}:${n.id}`} armed={arm.is(`sk:${kind}:${n.id}`)} />
+  );
 
   // ---- the pinned header pieces ----
   const backBtn = (
@@ -204,8 +222,8 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
   );
   const tabs = (
     <div style={{ display: "flex", gap: 6, flexShrink: 0, ...(upright ? { width: "100%" } : {}) }}>
-      {[["skills", upright || !phone ? "SKILL TREES" : "TREES"], ["stats", "ALL-TIME"]].map(([id, label]) => (
-        <button key={id} onClick={() => setTab(id)}
+      {[["skills", phone ? "TREES" : "SKILL TREES"], ["heroes", "HEROES"], ["stats", phone ? "STATS" : "ALL-TIME"]].map(([id, label]) => (
+        <button key={id} onClick={() => { setTab(id); arm.clear(); }}
           style={{
             ...btn, flex: upright ? 1 : "0 0 auto", textAlign: "center", fontSize: 11, letterSpacing: 1,
             padding: phone ? "6px 10px" : "8px 14px", minHeight: 40, ...(tab === id ? ON : {}),
@@ -227,7 +245,7 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
       {KINDS.map((k) => {
         const spent = spentOn(k, profile.perks[k] || {});
         return (
-          <button key={k} onClick={() => { setKind(k); setHelp(false); }} aria-label={SKILLS[k].name} title={SKILLS[k].name}
+          <button key={k} onClick={() => { setKind(k); setHelp(false); arm.clear(); }} aria-label={SKILLS[k].name} title={SKILLS[k].name}
             style={{
               ...btn, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               gap: 3, padding: "4px 2px", minHeight: big ? 64 : upright ? 50 : 42, minWidth: 0, textAlign: "center",
@@ -358,6 +376,8 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
         {/* the body: never scrolls; what doesn't fit is shrunk to fit */}
         {tab === "stats" ? (
           fitted(statsPanel, [tab, upright])
+        ) : tab === "heroes" ? (
+          <HeroTalents arm={arm} z={heroZ} fitted={fitted} layout={big ? "wide" : upright ? "stack" : "rail"} />
         ) : top ? (
           <>
             {picker}

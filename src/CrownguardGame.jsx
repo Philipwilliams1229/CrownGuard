@@ -11,16 +11,16 @@ import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
-import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, saveHero, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, saveHero, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury, saveHeroTalents } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
-import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL } from "./data/bands.js";
+import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL, HERO_TALENTS, TALENT_RANKS, talentPoints, talentsSpent, canTalent } from "./data/bands.js";
 import { PTS } from "./engine/path.js";
 import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, buyTalent,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -69,6 +69,14 @@ export default function Crownguard() {
   // the incoming-wave chip folds down to a small arrow when the board needs the room
   const [infoOpen, setInfoOpen] = useState(false);
   const [castleOpen, setCastleOpen] = useState(false);
+  // the hero's talent card, and the talent armed by a first tap (a second buys it)
+  const [talentsOpen, setTalentsOpen] = useState(false);
+  const [armed, setArmed] = useState(null);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(null), 3000);
+    return () => clearTimeout(t);
+  }, [armed]);
   const [banked, setBanked] = useState(0);   // gold carried home from the last won level
   // which hero rides with the crown; chosen in the pause menu, kept in the browser
   const [heroKey, setHeroKey] = useState(() => { try { return HEROES[localStorage.getItem("crownguard.hero")] ? localStorage.getItem("crownguard.hero") : "aldric"; } catch { return "aldric"; } });
@@ -175,10 +183,11 @@ export default function Crownguard() {
     {
       const [gx, gy] = PTS[PTS.length - 1];
       const saved = loadProgress().heroes?.[heroKey] || {};
-      fieldHero(G.current, heroKey, saved.level || 1, gx - 70, gy + (gy > H / 2 ? -50 : 50));
+      fieldHero(G.current, heroKey, saved.level || 1, gx - 70, gy + (gy > H / 2 ? -50 : 50), saved.talents || {}, saved.xp || 0);
     }
     setBuildOpen(false);
     setCastleOpen(false);
+    setTalentsOpen(false);
     setUi({ gold: START_GOLD, lives: CASTLE_HP + worksBonusHp(castle), wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
   }, [heroKey]);
 
@@ -283,7 +292,7 @@ export default function Crownguard() {
 
   // Only one side panel at a time: selecting a tower closes the build drawer.
   useEffect(() => {
-    if (ui.selected) { setBuildOpen(false); setCastleOpen(false); }
+    if (ui.selected) { setBuildOpen(false); setCastleOpen(false); setTalentsOpen(false); }
   }, [ui.selected]);
 
   // The moment a campaign level ends, bank it: all-time tallies either way,
@@ -319,7 +328,7 @@ export default function Crownguard() {
     // the gold left in the purse goes home to the crown's treasury
     if (won && g) { const carried = Math.floor(g.gold) + Math.floor((g.run?.goldEarned || 0) * 0.15); setBanked(carried); setProgress(bankTreasury(carried)); }
     // the hero keeps what he learned on this road, won or lost
-    { const hb = heroBand(g); if (hb) saveHero(hb.hero, hb.level); }
+    { const hb = heroBand(g); if (hb) saveHero(hb.hero, hb.level, hb.xp); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.result, mode, levelId]);
 
@@ -361,12 +370,12 @@ export default function Crownguard() {
       const castleKey = g.castle ? `${g.castle.archers}${g.castle.ballista}${g.castle.guards}${g.castle.masons}` : "";
       const hb = heroBand(g);
       const hu = hb?.units[0];
-      const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}` : "";
+      const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${JSON.stringify(hb.talents || {})}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}` : "";
       const militiaSec = Math.ceil((g.militiaCd || 0) / 1000);
       if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey || u.heroKey !== heroKeyUi || u.militiaSec !== militiaSec) {
         setUi({
           heroKey: heroKeyUi, militiaSec,
-          hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0 } : null,
+          hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, talents: { ...(hb.talents || {}) }, points: talentPoints(hb.level) - talentsSpent(hb.talents), next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0 } : null,
           castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: CASTLE_HP + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
@@ -715,8 +724,8 @@ export default function Crownguard() {
     </div>
   );
   const cancelRally = () => { if (G.current) G.current.rallyFor = null; };
-  const openBuild = () => { setBuildOpen((o) => !o); setCastleOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } };
-  const openCastle = () => { setCastleOpen((o) => !o); setBuildOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } };
+  const openBuild = () => { setBuildOpen((o) => !o); setCastleOpen(false); setTalentsOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } };
+  const openCastle = () => { setCastleOpen((o) => !o); setBuildOpen(false); setTalentsOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } };
   const cycleSpeed = () => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; };
 
   // -- the purse, the castle, the level --
@@ -801,6 +810,73 @@ export default function Crownguard() {
         </span>
       </button>
     );
+  })();
+
+  // -- the hero's talents: a star on the hero's panel that glows while a
+  // point waits to be spent, and the card it opens --
+  const talentBtn = ui.result == null && ui.hero && (
+    <button aria-label={`Hero talents${ui.hero.points > 0 ? ` — ${ui.hero.points} to spend` : ""}`} title="Talents: a point for every level the hero gains"
+      className={cls("cg-btn", ui.hero.points > 0 ? "cg-btn--gold cg-horn" : "cg-btn--slate", talentsOpen && "is-on")}
+      style={railsOn ? { minHeight: 40, gap: 8, justifyContent: "flex-start", padding: "0 10px" } : { minHeight: 60, minWidth: 44, padding: "0 6px", flexDirection: "column", gap: 2 }}
+      onClick={() => { setTalentsOpen((o) => !o); setArmed(null); setBuildOpen(false); setCastleOpen(false); if (G.current) G.current.selectedId = null; }}>
+      <Star size={18} lit />
+      {railsOn && <span style={{ flex: 1, textAlign: "left" }}>Talents</span>}
+      <span className="cg-num" style={{ fontSize: 11, textShadow: "none" }}>{ui.hero.points > 0 ? `+${ui.hero.points}` : ""}</span>
+    </button>
+  );
+  const talentCard = talentsOpen && ui.hero && !sel && (() => {
+    const h = ui.hero;
+    const list = HERO_TALENTS[h.key] || [];
+    const buy = (id) => {
+      if (armed !== id) { setArmed(id); return; }
+      const got = buyTalent(G.current, id);
+      setArmed(null);
+      if (!got) return;
+      sfx.play("evolve");
+      setProgress(saveHeroTalents(h.key, got));
+    };
+    const cw = 272 * s;
+    // beside the hero's panel: the left rail's foot, or the board's lower right
+    const left = railsOn ? CARD_M * 0.5 : Math.max(6 * s, boardCss.w - cw - CARD_M);
+    return floatCard({
+      id: "talents", left, width: 272, f: 1, origin: railsOn ? "left bottom" : "right bottom",
+      closeLabel: "Close talents", onClose: () => { setTalentsOpen(false); setArmed(null); },
+      children: (<>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 16 }}>
+          <span className="cg-well" style={{ width: 40, height: 44, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            {hasRig(HEROES[h.key]?.rig) ? <EnemyIcon type={HEROES[h.key].rig} box={32} /> : <span>{HEROES[h.key]?.icon}</span>}
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 13, textShadow: "1px 1px 0 var(--ink)" }}>{h.name} · Lv {h.level}</div>
+            <div style={{ fontSize: 10, color: h.points > 0 ? "var(--gold-lt)" : "var(--muted)", marginTop: 3 }}>
+              {h.points > 0 ? `${h.points} talent point${h.points > 1 ? "s" : ""} to spend` : h.level >= HERO_MAX_LEVEL ? "Every point spent." : "A new point every level."}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+          {list.map((t) => {
+            const r = h.talents[t.id] || 0;
+            const full = r >= TALENT_RANKS;
+            const can = canTalent(h.key, h.level, h.talents, t.id);
+            const isArmed = armed === t.id && can;
+            return (
+              <button key={t.id} className={cls("cg-btn", isArmed ? "cg-btn--gold" : "cg-btn--parch", !can && !full && "is-poor", full && "is-on")}
+                disabled={!can}
+                style={{ width: "100%", padding: "6px 8px", justifyContent: "space-between", alignItems: "center", gap: 8, minHeight: 48, ...(full ? { filter: "none", cursor: "default" } : {}) }}
+                onClick={() => buy(t.id)}>
+                <span className={can || full ? undefined : "cg-dim"} style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, textAlign: "left" }}>
+                  <span className="cg-display" style={{ fontSize: 12, fontWeight: 700 }}>{isArmed ? `Tap again — learn ${t.name}` : t.name}</span>
+                  <span style={{ fontSize: 10, lineHeight: 1.35, color: isArmed ? "var(--wood-deep)" : "#5a4630" }}>{t.desc}</span>
+                </span>
+                <span className="cg-pips" style={{ flexShrink: 0 }}>
+                  {Array.from({ length: TALENT_RANKS }, (_, i) => <span key={i} className={cls("cg-pip", i < r && "on")} />)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </>),
+    });
   })();
 
   // -- the horn. While the field is quiet it is a gold "▶ WAVE 3/18" with
@@ -1044,7 +1120,7 @@ export default function Crownguard() {
       )}
 
       {/* ---- the left rail: the purse, the hero, the horn ---- */}
-      {railsOn && rail("left", purse, <>{heroBtn}{horn}</>)}
+      {railsOn && rail("left", purse, <>{talentBtn}{heroBtn}{horn}</>)}
 
       {/* ---- the field, letterboxed to 3:2 in whatever is left beside the rails ---- */}
       <div ref={boardCellRef} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1062,7 +1138,7 @@ export default function Crownguard() {
             <>
               <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, zIndex: 20, pointerEvents: "none", ...scaleAt("top left") }}>{purse}</div>
               <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 20, ...scaleAt("top right") }}>{resetBtn}{buildBtn}{castleBtn}{speedBtn}{pauseBtn}</div>
-              {ui.result == null && <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 6, zIndex: 20, alignItems: "flex-end", ...scaleAt("bottom right") }}>{militiaBtn}{heroBtn}</div>}
+              {ui.result == null && <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 6, zIndex: 20, alignItems: "flex-end", ...scaleAt("bottom right") }}>{militiaBtn}{heroBtn}{talentBtn}</div>}
               <div style={{ position: "absolute", left: 8, bottom: 8, zIndex: 20, ...scaleAt("bottom left") }}>{horn}</div>
             </>
           )}
@@ -1079,6 +1155,8 @@ export default function Crownguard() {
             <>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally)}
 
 
+
+            {talentCard}
 
             {!ui.buildMode && !sel && ui.masterShow && ui.masterOn && masterInfo && (() => {
               const { nums, traits } = describe(masterInfo.stats);

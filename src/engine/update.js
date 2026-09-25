@@ -147,7 +147,18 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
     if (u.atkCd > 0) return;
     u.atkCd = st.rate;
     u.swing = 160;
-    g.projectiles.push({ id: nextId(), x: u.x, y: u.y - 14, targetId: best.id, tx: best.x, ty: best.y, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0, kind: "arrow", src: b.id });
+    const shoot = (e) => g.projectiles.push({ id: nextId(), x: u.x, y: u.y - 14, targetId: e.id, tx: e.x, ty: e.y, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0, kind: "arrow", src: b.id });
+    shoot(best);
+    // Split Shot: now and then a second arrow for the next-nearest foe
+    if (st.split && Math.random() < st.split) {
+      let second = null, sd = st.range;
+      for (const e of g.enemies) {
+        if (e.dead || e === best) continue;
+        const dd = Math.hypot(e.x - u.x, e.y - u.y);
+        if (dd < sd) { sd = dd; second = e; }
+      }
+      if (second) shoot(second);
+    }
     sfx.play("arrow");
   });
 };
@@ -293,13 +304,13 @@ export function updateGame(g, dt) {
           }
         }
         if (b.kind === "hero") {
-          b.st = heroStats(b.hero, b.level);
+          b.st = heroStats(b.hero, b.level, b.talents);
           const u = b.units[0];
           u.maxHp = b.st.hp;
           // levelling: a new level tops the hero up and makes him a little more
           while (b.level < HERO_MAX_LEVEL && b.xp >= heroXpFor(b.level)) {
             b.xp -= heroXpFor(b.level); b.level += 1;
-            b.st = heroStats(b.hero, b.level);
+            b.st = heroStats(b.hero, b.level, b.talents);
             u.maxHp = b.st.hp; u.hp = b.st.hp;
             g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 700 });
             g.effects.push({ type: "coin", x: u.x, y: u.y - 26, ttl: 1200, text: `${b.name} — level ${b.level}`, big: true });
