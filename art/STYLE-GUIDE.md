@@ -128,7 +128,9 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
 - **Battle HUD: Bloons-style tray** (owner, 2026-09-25). A tray down the
   right edge on every device: wave count and pause at its head, Castle and
   Master builds, the tower grid (tap a tile then the grass, or DRAG a tile
-  onto the map; three icon columns on phones so the roster fits unscrolled),
+  onto the map — its picture rides above the finger; a vertical swipe on a
+  tile scrolls the tray instead; two columns of named tiles, and on phones
+  the locked halls fold into one tile),
   and the hero, his talents and the militia at its foot. On the map: lives
   and gold top left; the horn (with its arrow to the next wave's makeup and
   the Rush switch) and the speed bottom left. **Popups, never scrolling:**

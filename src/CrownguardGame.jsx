@@ -117,6 +117,10 @@ export default function Crownguard() {
   // and the tower being dragged out of the tray
   const apronRef = useRef(null);
   const tileDrag = useRef(null);
+  // the tower picture that follows a finger dragging it out of the tray,
+  // and whether a phone's tray shows its locked halls
+  const [dragGhost, setDragGhost] = useState(null);
+  const [showLocked, setShowLocked] = useState(false);
   // the canvas's css size (w, h), and the visible box it's shown in (vw, vh)
   const [boardCss, setBoardCss] = useState({ w: 720, h: 480, vw: 720, vh: 480, x: 0, y: 0 });
   // The screen, and the whole battle screen's box inside the safe area. When
@@ -793,7 +797,7 @@ export default function Crownguard() {
     else if (which === "talents") setTalentsOpen(true);
     else setInfoOpen(true);
   };
-  const buildCols = compact ? 3 : 2;
+  const buildCols = 2;
 
   // -- the purse, the castle, the level --
   const purse = (
@@ -1154,10 +1158,14 @@ export default function Crownguard() {
   );
 
   // -- drag a tower from the tray straight onto the map (Bloons-style). A
-  // tap on a tile just arms it; a drag carries its ghost to the finger and
-  // builds where the finger lifts over the field. --
+  // tap on a tile just arms it. A drag that heads off sideways picks the
+  // tower up: its picture rides above the finger, the ghost follows on the
+  // map, and it's built where the finger lifts over the field. A drag that
+  // runs up or down the tray scrolls the tray instead. Tiles take
+  // touch-action: none, so the browser never steals the gesture. --
   const startTileDrag = (ev, kind, pick = null) => {
-    tileDrag.current = { id: ev.pointerId, sx: ev.clientX, sy: ev.clientY, kind, pick, moved: false };
+    const list = ev.currentTarget.closest(".cg-scroll");
+    tileDrag.current = { id: ev.pointerId, sx: ev.clientX, sy: ev.clientY, kind, pick, mode: null, list, top0: list ? list.scrollTop : 0 };
     const toWorld = (e) => {
       const cv = canvasRef.current, g = G.current;
       if (!cv || !g) return null;
@@ -1169,11 +1177,19 @@ export default function Crownguard() {
     const move = (e) => {
       const d = tileDrag.current, g = G.current;
       if (!d || e.pointerId !== d.id || !g) return;
-      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 10) {
-        d.moved = true;
-        g.buildMode = d.kind; g.masterPick = d.pick; g.selectedId = null;
+      const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+      if (!d.mode && Math.hypot(dx, dy) > 8) {
+        if (Math.abs(dy) > Math.abs(dx) * 1.3 && d.list) d.mode = "scroll";
+        else {
+          d.mode = "drag";
+          g.buildMode = d.kind; g.masterPick = d.pick; g.selectedId = null;
+        }
       }
-      if (d.moved) g.hover = toWorld(e);
+      if (d.mode === "scroll") d.list.scrollTop = d.top0 - dy;
+      if (d.mode === "drag") {
+        g.hover = toWorld(e);
+        setDragGhost({ kind: d.kind, pick: d.pick, x: e.clientX, y: e.clientY });
+      }
     };
     const up = (e) => {
       const d = tileDrag.current;
@@ -1181,7 +1197,9 @@ export default function Crownguard() {
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
       tileDrag.current = null;
-      if (!d || !d.moved || e.type === "pointercancel") return;
+      setDragGhost(null);
+      if (!d || d.mode !== "drag" || e.type === "pointercancel") return;
+      d.dropped = true;
       const at = toWorld(e);
       if (at) handleTap(at[0], at[1]);
       if (G.current && e.pointerType !== "mouse") G.current.hover = null;
@@ -1286,6 +1304,11 @@ export default function Crownguard() {
         })()}
 
         {guideOpen && <FieldGuide onClose={closeGuide} />}
+      {dragGhost && (
+        <div aria-hidden="true" style={{ position: "fixed", left: dragGhost.x, top: dragGhost.y, zIndex: 200, pointerEvents: "none", transform: `translate(-50%, -115%) scale(${s})`, transformOrigin: "50% 100%", opacity: 0.92 }}>
+          <span className="cg-well" style={{ display: "flex", padding: 3 }}><TowerPortrait kind={dragGhost.kind} branch={dragGhost.pick?.branch} rank4={dragGhost.pick?.rank4} size={56} /></span>
+        </div>
+      )}
 
       {/* ---- the play area: the realm's landscape, the map against the tray ---- */}
       <div ref={boardCellRef} style={{ position: "absolute", left: 0, top: 0, bottom: 0, right: trayW, overflow: "hidden" }}
@@ -1598,7 +1621,7 @@ export default function Crownguard() {
                         return (
                           <button key={pk} title={def.branches[plan.branch].desc}
                             className={cls("cg-btn cg-btn--slate", active && "is-on", !can && "is-poor")}
-                            style={{ width: "100%", flexDirection: "column", justifyContent: "flex-end", gap: 3, padding: "8px 4px 7px", minHeight: 100 }}
+                            style={{ width: "100%", flexDirection: "column", justifyContent: "flex-end", gap: 3, padding: "8px 4px 7px", minHeight: 100, touchAction: "none" }}
                             onPointerDown={(e) => { if (can) startTileDrag(e, key, { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name }); }}
                             onClick={() => {
                               const gg = G.current;
@@ -1629,7 +1652,8 @@ export default function Crownguard() {
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${buildCols}, 1fr)`, gap: 7 }}>
               {/* the halls you can raise first, in their usual order; the locked ones after */}
-              {Object.entries(TOWERS).sort(([a], [b]) => towerUnlocked(b, progress) - towerUnlocked(a, progress)).map(([key, def]) => {
+              {Object.entries(TOWERS).sort(([a], [b]) => towerUnlocked(b, progress) - towerUnlocked(a, progress))
+                .filter(([key]) => !compact || showLocked || towerUnlocked(key, progress)).map(([key, def]) => {
                 const open = towerUnlocked(key, progress);
                 const can = open && ui.gold >= def.cost;
                 const active = ui.buildMode === key;
@@ -1637,20 +1661,25 @@ export default function Crownguard() {
                 return (
                   <button key={key} title={open ? def.blurb : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`}
                     className={cls("cg-btn cg-btn--slate", active && "is-on", open && !can && "is-poor", !open && "is-off")}
-                    style={{ width: "100%", flexDirection: "column", gap: 2, padding: compact ? "4px 2px" : "6px 3px 6px", minHeight: compact ? 66 : 100 }}
+                    style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: compact ? 88 : 100, touchAction: "none" }}
                     onPointerDown={(e) => { if (can) startTileDrag(e, key); }}
                     onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); }}
                     disabled={!can}>
-                    <span className="cg-well cg-dim" style={{ width: compact ? 46 : 60, height: compact ? 40 : 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <TowerPortrait kind={key} size={compact ? 38 : 50} />
+                    <span className="cg-well cg-dim" style={{ width: compact ? 56 : 60, height: compact ? 50 : 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <TowerPortrait kind={key} size={compact ? 48 : 50} />
                     </span>
-                    {!compact && <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.2 }}>{def.name}</span>}
+                    <span className="cg-dim" style={{ fontSize: compact ? 11 : 10, lineHeight: 1.15 }}>{def.name}</span>
                     {open
                       ? price(def.cost, can, 12)
                       : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{!compact && (need ? need.short || need.name : "campaign")}</span>}
                   </button>
                 );
               })}
+              {compact && Object.keys(TOWERS).some((k) => !towerUnlocked(k, progress)) && (
+                <button className="cg-btn cg-btn--slate" style={{ width: "100%", minHeight: 44, fontSize: 11, gap: 5, gridColumn: "1 / -1" }} onClick={() => setShowLocked((o) => !o)}>
+                  <LockIcon size={12} />{showLocked ? "Hide locked" : `${Object.keys(TOWERS).filter((k) => !towerUnlocked(k, progress)).length} locked`}
+                </button>
+              )}
             </div>
           )}
                   </>
