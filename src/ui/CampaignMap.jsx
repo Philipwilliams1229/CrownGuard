@@ -27,6 +27,7 @@ import CastleWorksList from "./CastleWorks.jsx";
 import { FACTIONS } from "../data/factions.js";
 import { REALMS } from "../data/maps.js";
 import { W, H } from "../data/constants.js";
+import { coastOutline } from "../data/terrain.js";
 import EnemyIcon from "./EnemyIcon.jsx";
 import { Star } from "./Glyphs.jsx";
 import { MAX_STARS } from "../data/profile.js";
@@ -343,6 +344,8 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
   const thumb = (width) => (
     <svg viewBox="0 0 150 100" width={width} style={{ flexShrink: 0, aspectRatio: "3 / 2", height: "auto", border: `3px solid ${LINE}`, boxShadow: `0 0 0 2px ${PARCH.dk}`, imageRendering: "pixelated", boxSizing: "border-box", filter: selUnlocked ? "none" : "grayscale(1) brightness(0.6)" }}>
       <rect x="0" y="0" width="150" height="100" fill={selRealm.GRASS} />
+      {/* the sea, where a realm runs down to the coast, with its beach */}
+      {selRealm.coast && <polygon points={coastOutline(selRealm).map(([x, y]) => `${x * 150 / W},${y * 100 / H}`).join(" ")} fill={selRealm.water?.deep || "#3a6a7c"} stroke="#dcc48e" strokeWidth="2.5" strokeLinejoin="round" />}
       {(selRealm.rivers || []).map((rv, i) => (
         <polyline key={`rv${i}`} points={rv.pts.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
           fill="none" stroke={selRealm.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}

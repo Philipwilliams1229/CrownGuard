@@ -302,11 +302,13 @@ Object.assign(REALMS, {
   ),
   ravenscar: greenwoodVariant(
     "ravenscar", "Ravenscar", "THE RIDGE",
-    "High ground above the vale, strewn with boulders, and a road that climbs it in long switchbacks. Every bend is in bowshot of the next.",
+    "High ground above the northern sea, strewn with boulders, and a road that climbs it in long switchbacks. Every bend is in bowshot of the next.",
     20260926,
     [[2, 0.8], [2, 7], [5, 7], [5, 3], [9, 3], [9, 8], [12, 8], [12, 4.5], [13.7, 4.5]],
     {
-      ponds: [{ x: 500, y: 36, w: 90, h: 48 }],
+      // the vale's north shore: the sea along the top edge, past the gate
+      // the horde comes out of, then a beach, then the ridge's turf
+      coast: { edge: "top", from: 230, depth: 104, sand: 26 },
       decorRecipe: { count: 22, types: ["rock", "rock", "pine", "rock", "pine"] },
     },
   ),

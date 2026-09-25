@@ -332,7 +332,8 @@ export const ROADS = LEVELS.slice(1).map((lv, i) => {
 // The map tells the truth about water: every level whose battlefield has a
 // river has a river running through its waypoint, every level with a pond
 // or bog has a lake or pool beside it, and no river runs through a dry one
-// (checked against REALMS[..].rivers / ponds in data/maps.js — keep it so).
+// (checked against REALMS[..].rivers / ponds / coast in data/maps.js — keep
+// it so; a coastal level's waypoint stands by the shore, like Ravenscar).
 //
 // A river is a Catmull-Rom spline through its control points (it passes
 // THROUGH them, so a river pinned to a waypoint really runs through it),
@@ -405,7 +406,6 @@ const MERES = [
   { x: 121, y: 129, rx: 8.5, ry: 5.2, rot: 0.35, seed: 3 },               // the Fox Mere, by Foxmere
   { x: 40, y: 113, rx: 6, ry: 4, rot: -0.4, seed: 4 },                    // Oakmere's mere, the Thornbrook's source
   { x: 45, y: 72, rx: 4.6, ry: 2.8, rot: 0.2, seed: 5 },                  // the Bramblewick millpond
-  { x: 137, y: 3, rx: 5, ry: 3, rot: -0.2, seed: 6 },                     // the tarn under Ravenscar
   { x: 294, y: 100, rx: 3.6, ry: 2.4, rot: 0.5, seed: 7 },                // the Iron river's tarn
   { x: 231, y: 102, rx: 5, ry: 3.4, rot: 0.3, seed: 8 },                  // the Muster's ponds
   { x: 367, y: 116, rx: 4.6, ry: 3.2, rot: -0.5, seed: 9 },               // the pool under the Undercliff

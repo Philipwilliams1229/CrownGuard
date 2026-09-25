@@ -26,16 +26,63 @@ export let BRIDGES = [];  // [{ x, y, a, d0, d1 }] — where the road spans it
 // nearest the spawn, with a wandering inner boundary. Null where the enemy
 // comes out of a cave or a barrow instead.
 export let FOREST = null;  // { edge: "left" | "top", seed }
-const forestBound = (t, seed) =>
-  (FOREST && FOREST.edge === "top" ? MY : MX) + 58 + 20 * Math.sin(t * 0.019 + seed) + 12 * Math.sin(t * 0.047 + seed * 1.7) + 7 * Math.sin(t * 0.11 + seed * 0.3);
+const forestBound = (t, seed) => {
+  const b = (FOREST && FOREST.edge === "top" ? MY : MX) + 58 + 20 * Math.sin(t * 0.019 + seed) + 12 * Math.sin(t * 0.047 + seed * 1.7) + 7 * Math.sin(t * 0.11 + seed * 0.3);
+  // where the sea shares the forest's edge, the wood keeps to the gate's end
+  // of it and gives way to the beach past the coast's first headland
+  if (!COAST || COAST.edge !== FOREST?.edge) return b;
+  const r = Math.min(1, Math.max(0, (t - (COAST.from ?? -1e9) + 40) / 90));
+  const e = r * r * (3 - 2 * r);
+  return b * (1 - e) - 60 * e;
+};
 // How far inside the forest (x, y) stands; negative means open ground.
 export const forestDepthAt = (x, y) =>
   !FOREST ? -999 : FOREST.edge === "left" ? forestBound(y, FOREST.seed) - x : forestBound(x, FOREST.seed) - y;
 
+// ---- the coast ----
+// A realm may run down to the sea along one board edge (map.coast: { edge:
+// "top" | "bottom" | "left" | "right", from, to, depth, sand, seed }). The
+// waterline wanders `depth` px in from the edge between `from` and `to`
+// (px along that edge), easing out into headlands past either end, and a
+// band of `sand` px of beach lies between the water and the grass.
+export let COAST = null;
+const coastUV = (x, y) =>
+  COAST.edge === "top" ? [x, y] : COAST.edge === "bottom" ? [x, H - y] : COAST.edge === "left" ? [y, x] : [y, W - x];
+// how far in from the edge the waterline stands at u along the edge
+export const coastLine = (u) => coastLineOf(COAST, u);
+// the same for any realm's coast (the menus draw realms that aren't loaded)
+export const coastSeed = (map) => (map.seed % 89) * 0.41;
+export const coastLineOf = (c, u) => {
+  const { from = -1e9, to = 1e9, depth, seed = 0 } = c;
+  const r = Math.min(1, Math.max(0, (u - from) / 110), Math.max(0, (to - u) / 110));
+  const e = r * r * (3 - 2 * r);
+  const wander = 13 * Math.sin(u * 0.019 + seed) + 8 * Math.sin(u * 0.047 + seed * 2.3) + 4 * Math.sin(u * 0.12 + seed * 0.7);
+  return (depth + wander) * e - (1 - e) * 40;
+};
+// the sea as a closed outline in board px, for a realm's thumbnail
+export const coastOutline = (map, step = 16) => {
+  if (!map.coast) return null;
+  const c = { seed: coastSeed(map), ...map.coast }, e = c.edge, along = e === "top" || e === "bottom", span = along ? W : H;
+  const pts = [];
+  for (let u = 0; u <= span; u += step) {
+    const v = Math.max(0, coastLineOf(c, u));
+    pts.push(e === "top" ? [u, v] : e === "bottom" ? [u, H - v] : e === "left" ? [v, u] : [W - v, u]);
+  }
+  const ends = e === "top" ? [[W, 0], [0, 0]] : e === "bottom" ? [[W, H], [0, H]] : e === "left" ? [[0, H], [0, 0]] : [[W, H], [W, 0]];
+  return [...pts, ...ends];
+};
+// how far out to sea (x, y) lies: positive in the water, negative ashore
+export const seaDepthAt = (x, y) => { if (!COAST) return -999; const [u, v] = coastUV(x, y); return coastLine(u) - v; };
+// in the sea, or within m px of the waterline
+export const inSea = (x, y, m = 0) => seaDepthAt(x, y) > -m;
+// on the beach: ashore, but on the sand between the water and the grass
+export const onSand = (x, y) => { const d = seaDepthAt(x, y); return d <= 0 && d > -(COAST?.sand || 0); };
+
 // Keep scatter out of the water: true if (x,y) falls inside a pond (plus a
-// small shoreline margin).
+// small shoreline margin), or in the sea or on its beach.
 const inPond = (ponds, x, y) =>
-  ponds.some((p) => Math.abs(x - p.x) < p.w / 2 + 6 && Math.abs(y - p.y) < p.h / 2 + 6);
+  ponds.some((p) => Math.abs(x - p.x) < p.w / 2 + 6 && Math.abs(y - p.y) < p.h / 2 + 6)
+  || (COAST && inSea(x, y, COAST.sand + 6));
 
 // Perpendicular distance from (x,y) to a river's centerline.
 const distToSegs = (segs, x, y) => {
@@ -90,6 +137,7 @@ export function regenTerrain(map) {
   // hand-placed pieces are written in grid pixels; the border shifts them
   DECOR = map.decor ? map.decor.map((d) => ({ ...d, x: d.x + MX, y: d.y + MY })) : [];
   PONDS = (map.ponds || []).map((p) => ({ ...p, x: p.x + MX, y: p.y + MY }));
+  COAST = map.coast ? { sand: 22, seed: coastSeed(map), ...map.coast } : null;
 
   // ---- rivers & their bridges ----
   // A river is corner points on the same grid as the road, smoothed the same

@@ -162,6 +162,20 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   river passes near a dry level. After adding a level or moving water, run
   `node scripts/check-map-water.mjs` and look at `map-lab.html`.
 
+## Coasts on the board
+
+- A realm may run down to the sea along one edge: `coast: { edge, from,
+  to, depth, sand }` in `src/data/maps.js` (Ravenscar: the top edge). The
+  waterline (`coastLine` in `src/data/terrain.js`) wanders `depth` px in
+  from the edge and eases into headlands past `from`/`to`; `sand` px of
+  beach lie between the water and the grass. `world.js` paints it into the
+  baked ground (shallows to deep water, surf lines, rocks awash, tideline
+  litter, driftwood, marram grass) and `drawRoadLive` adds a moving wash of
+  foam. Nothing is built in the sea; the beach is honest ground; scatter
+  and decor keep off both. A forest on the same edge keeps to the gate end.
+- A coastal level's waypoint on the campaign map stands by its country's
+  shore (`scripts/check-map-water.mjs` checks it).
+
 ## Performance (target: iPad mini 6)
 
 - Bake anything static. Per frame, keep to stamps and small live bits.

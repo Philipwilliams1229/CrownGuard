@@ -16,6 +16,7 @@ import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
 import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL, HERO_TALENTS, TALENT_RANKS, talentCost } from "./data/bands.js";
 import { PTS } from "./engine/path.js";
+import { coastOutline } from "./data/terrain.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroPoints, buyHeroTalent, MAX_STARS } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
@@ -1670,6 +1671,8 @@ export default function Crownguard() {
                       style={{ justifyContent: "flex-start", gap: 10, padding: 7, alignItems: "stretch", textAlign: "left" }}>
                       <svg viewBox="0 0 150 100" width={vp.short ? 54 : 108} height={vp.short ? 36 : 72} style={{ flexShrink: 0, border: "2px solid var(--ink)", imageRendering: "pixelated" }}>
                         <rect x="0" y="0" width="150" height="100" fill={r.GRASS} />
+                        {/* the sea, where a realm runs down to the coast, with its beach */}
+                        {r.coast && <polygon points={coastOutline(r).map(([x, y]) => `${x * 150 / W},${y * 100 / H}`).join(" ")} fill={r.water?.deep || "#3a6a7c"} stroke="#dcc48e" strokeWidth="2.5" strokeLinejoin="round" />}
                         {(r.rivers || []).map((rv, i) => (
                           <polyline key={`rv${i}`} points={rv.pts.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
                             fill="none" stroke={r.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}

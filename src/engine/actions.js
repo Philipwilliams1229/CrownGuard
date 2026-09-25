@@ -7,7 +7,7 @@ import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
 import { MILITIA, HEROES, heroStats } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
-import { DECOR, PONDS, inRiver, decorFootprint } from "../data/terrain.js";
+import { DECOR, PONDS, inRiver, inSea, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { waveSpec, waveHpMult, CROWD_WEIGHT } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
@@ -44,6 +44,8 @@ export const buildableAt = (g, x, y, kind = null) => {
     for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
     if (inRiver(x, y, 14)) return false;
   }
+  // the sea takes nothing, afloat or not; the beach is honest ground
+  if (inSea(x, y, 14)) return false;
   const r = reachOf(kind);
   if (g.towers.some((t) => Math.hypot(t.x - x, t.y - y) < r + reachOf(t.kind))) return false;
   return true;
