@@ -290,6 +290,50 @@ Object.assign(REALMS, {
     20260716,
     [[0.9, 1], [6, 1], [6, 4], [2, 4], [2, 7], [8, 7], [8, 4], [11, 4], [11, 9], [13.7, 9]],
   ),
+  bramblewick: greenwoodVariant(
+    "bramblewick", "Bramblewick", "THE MILLPOND",
+    "Hedged fields around an old millpond. The road wanders every lane of the farm, and a tower on the pond's bank watches three of them.",
+    20260925,
+    [[0.9, 8], [4, 8], [4, 4], [1.5, 4], [1.5, 1], [8, 1], [8, 6], [11, 6], [11, 2], [13.7, 2]],
+    {
+      ponds: [{ x: 245, y: 150, w: 100, h: 62 }],
+      decorRecipe: { count: 24, types: ["tree", "tree", "pine", "tree", "rock"] },
+    },
+  ),
+  ravenscar: greenwoodVariant(
+    "ravenscar", "Ravenscar", "THE RIDGE",
+    "High ground above the vale, strewn with boulders, and a road that climbs it in long switchbacks. Every bend is in bowshot of the next.",
+    20260926,
+    [[2, 0.8], [2, 7], [5, 7], [5, 3], [9, 3], [9, 8], [12, 8], [12, 4.5], [13.7, 4.5]],
+    {
+      ponds: [{ x: 500, y: 36, w: 90, h: 48 }],
+      decorRecipe: { count: 22, types: ["rock", "rock", "pine", "rock", "pine"] },
+    },
+  ),
+  blackbriar: greenwoodVariant(
+    "blackbriar", "Blackbriar", "THE DEEP WOOD",
+    "The wood the horde came out of. Dark pines crowd every verge, and the road coils back on itself four times between them.",
+    20260927,
+    [[0.9, 1], [5, 1], [5, 5], [2, 5], [2, 9], [7, 9], [7, 3], [10, 3], [10, 7], [13, 7], [13, 2], [13.7, 2]],
+    {
+      light: { tint: "200,230,190", amount: 0.12, vignette: 0.36 },
+      GRASS: "#6e9a4c", GRASS_DK: "#557d3a", GRASS_LT: "#88b45c", TUFT: "#4a7432",
+      decorRecipe: { count: 34, types: ["pine", "pine", "tree", "pine", "mushroom"] },
+    },
+  ),
+  cinderholt: greenwoodVariant(
+    "cinderholt", "Cinderholt", "THE BURNING",
+    "The horde fired this wood to smoke the vale out. Nothing stands but black trunks: three long lanes in plain sight, and the horde on all of them.",
+    20260928,
+    [[0.9, 1.5], [12, 1.5], [12, 4.5], [3, 4.5], [3, 8.5], [10, 8.5], [10, 6.5], [13.7, 6.5]],
+    {
+      ambient: "embers",
+      light: { tint: "255,206,160", amount: 0.12, vignette: 0.3 },
+      GRASS: "#7c8a52", GRASS_DK: "#5e6a3e", GRASS_LT: "#96a262", TUFT: "#525c38",
+      scatter: { patches: 58, tufts: 60, flowers: 10, flowerCols: ["#e0a060", "#c8b898"] },
+      decorRecipe: { count: 20, types: ["deadtree", "deadtree", "rock", "deadtree", "pine"] },
+    },
+  ),
   warrens: greenwoodVariant(
     "warrens", "The Goblin Warrens", "THE LAIR",
     "The mouth of the horde's home burrow. The road coils like a gut — and the dragon that guards it is awake.",

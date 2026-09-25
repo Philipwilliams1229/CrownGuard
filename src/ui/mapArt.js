@@ -329,8 +329,10 @@ export const ROADS = LEVELS.slice(1).map((lv, i) => {
 
 // ---- rivers ----------------------------------------------------------
 export const RIVERS = [
-  // the Wolfrun, down out of the hills and through its fords into the mere
-  { w: 2.4, pts: smoothPts([[140, 50], [145, 57], [148, 62], [150, 70], [144, 84], [136, 98], [128, 112], [121, 128]]) },
+  // the Wolfrun, off the ridge, through its fords and out to the west sea
+  { w: 2.2, pts: smoothPts([[112, 20], [100, 24], [88, 25], [76, 26], [62, 30], [48, 36], [34, 40], [16, 44]]) },
+  // the Cinderburn, down out of the burned hills and into the mere
+  { w: 2.4, pts: smoothPts([[166, 54], [160, 64], [156, 74], [148, 86], [138, 98], [128, 112], [121, 128]]) },
   // out of the mere to the southern sea
   { w: 2.8, pts: smoothPts([[124, 138], [134, 146], [141, 158], [146, 170], [150, 186], [154, 204]]) },
   // the Thornbrook, across the farmland and out past the ford
@@ -338,12 +340,12 @@ export const RIVERS = [
   // the Iron river through its ford
   { w: 2.6, pts: smoothPts([[326, 90], [318, 106], [310, 124], [304, 140], [298, 156], [292, 172], [288, 190], [286, 214]]) },
 ];
-const MERES = [{ x: 120, y: 134, rx: 9, ry: 5.5, seed: 3 }, { x: 139, y: 49, rx: 3.6, ry: 2.4, seed: 4 }, { x: 45, y: 124, rx: 3, ry: 2.2, seed: 5 }];
+const MERES = [{ x: 120, y: 134, rx: 9, ry: 5.5, seed: 3 }, { x: 113, y: 19, rx: 3.6, ry: 2.4, seed: 4 }, { x: 45, y: 124, rx: 3, ry: 2.2, seed: 5 }, { x: 44, y: 72, rx: 4.2, ry: 2.6, seed: 6 }];
 
 // ---- the labels' ground ----------------------------------------------
 // Where each waypoint's name scroll sits, so the dressing keeps clear of it.
 // side: "b" below (the default), "a" above, "l" left, "r" right.
-export const LABEL_SIDE = { foxmere: "a", wolfrun: "a", muster: "a", ir5: "a" };
+export const LABEL_SIDE = { foxmere: "a", ravenscar: "a", muster: "a", ir5: "a" };
 export const LABEL_FONT = 6.8;   // map units
 let MEASURE = null;
 export const textW = (t) => {
@@ -360,7 +362,7 @@ export const labelBox = (lv) => {
 };
 
 // the chapters' name ribbons, out at sea off their own coasts
-export const BANNER_AT = { greenwood: [88, 24], iron: [300, 226], hollow: [150, -24] };
+export const BANNER_AT = { greenwood: [108, 222], iron: [300, 226], hollow: [150, -40] };
 const BANNERS = CHAPTERS.map((ch) => {
   const n = `${ch.numeral}. ${ch.name}`.length, w = n * 5.6 + 14 + 16, [cx, cy] = BANNER_AT[ch.id];
   return { x: cx - w / 2, y: cy - 8, w, h: 16 };
@@ -414,9 +416,9 @@ const pine = (v, dark = false) => spr(`pine${v}${dark}`, 7, 10, (c) => {
   cone(c, 3.5, 3.4, 3.2, 5.6, col, { scallops: 3, sag: 0.8, hi: 0.35, lo: 0.5 });
   cone(c, 3.5, 0.4, 2.3, 4.6, col, { scallops: 2, sag: 0.7, hi: 0.4, lo: 0.45 });
 });
-// a drowned white tree, bare
-const deadTree = (v) => spr(`dead${v}`, 8, 10, (c) => {
-  c.strokeStyle = v % 2 ? "#d8d0c4" : "#c4bcb4"; c.lineCap = "round";
+// a drowned white tree, bare — or, burnt, a black one
+const deadTree = (v, burnt = false) => spr(`dead${v}${burnt}`, 8, 10, (c) => {
+  c.strokeStyle = burnt ? (v % 2 ? "#4a3a36" : "#3a2e2c") : v % 2 ? "#d8d0c4" : "#c4bcb4"; c.lineCap = "round";
   c.lineWidth = 1.1;
   poly(c, [[4, 10], [4, 5.5], [2.2, 2.6]]); c.stroke();
   poly(c, [[4, 6.5], [6, 3.4], [6.8, 1.4]]); c.stroke();
@@ -721,7 +723,7 @@ function dressing(base) {
   range(190, 124, 36, 32, 3, ROCK, 1, 1);
   range(300, 66, 46, 20, 1, IRONPK, 2, 1.1);
   range(378, 130, 14, 40, 1, IRONPK, 3, 0.9);
-  range(162, 56, 14, 16, 0, ROCK, 4, 0.8);
+  range(120, -2, 22, 8, 0, ROCK, 4, 0.8);
   // rolling hills in the vale and on the moors
   const hills = (cx, cy, rx, ry, z, pal, seed) => {
     for (let k = 0; k < 24; k++) {
@@ -750,20 +752,27 @@ function dressing(base) {
   const oaks = (k) => (hash(k, 9) < 0.72 ? oak(Math.floor(hash(k, 8) * 4)) : pine(Math.floor(hash(k, 8) * 3)));
   clump(44, 86, 20, 16, 0, 4.2, oaks, 1);
   clump(70, 58, 16, 12, 0, 4.2, oaks, 2);
+  // Blackbriar: the deep wood, dark pines packed close; and Cinderholt, the
+  // wood the horde burned
+  const darks = (k) => pine(Math.floor(hash(k, 8) * 3), true);
+  clump(184, 36, 9, 16, 0, 3.4, darks, 18);
+  clump(150, 42, 11, 8, 0, 3.4, darks, 20);
+  clump(146, 58, 8, 6, 0, 3.6, darks, 21);
+  clump(172, 76, 11, 9, 0, 4.4, (k) => deadTree(Math.floor(hash(k, 8) * 4), true), 19, 1.2);
   clump(132, 90, 12, 9, 0, 4.2, oaks, 3);
   clump(36, 144, 10, 12, 0, 4.2, oaks, 4);
   clump(152, 150, 10, 12, 0, 4.2, oaks, 5);
-  clump(116, 32, 14, 8, 0, 4.2, oaks, 6);
+  clump(96, 44, 10, 6, 0, 4.2, oaks, 6);
   clump(62, 118, 10, 7, 0, 4.2, oaks, 7);
   // lone trees across the vale's open ground, sheep in its pastures, hay by
   // its fields
   for (let k = 0; k < 90; k++) {
-    const x = 30 + hash(k, 201) * 140, y = 40 + hash(k, 202) * 150;
+    const x = 26 + hash(k, 201) * 150, y = 10 + hash(k, 202) * 180;
     if (!onZone(x, y, 0) || !free(x, y, 5) || busy(x, y, 2)) continue;
     add(oaks(k + 500), x, y, 1.6);
     taken.push([x, y, 3]);
   }
-  for (const [fx, fy, n] of [[76, 116, 5], [124, 96, 4], [30, 128, 3], [134, 58, 3]]) {
+  for (const [fx, fy, n] of [[76, 116, 5], [124, 96, 4], [30, 128, 3], [34, 84, 3]]) {
     for (let k = 0; k < n; k++) {
       const x = fx + (hash(fx, k) - 0.5) * 12, y = fy + (hash(fy, k) - 0.5) * 7;
       if (!onZone(x, y, 0) || !free(x, y, 2) || busy(x, y, 0.5)) continue;

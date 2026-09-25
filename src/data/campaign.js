@@ -10,6 +10,8 @@
 // waves and then generated ones. `boss: true` puts the faction's champion on
 // the last wave. Levels grow: ten waves to open a region, twenty-five to
 // close it, and each one starts a little deeper into the war than the last.
+// The Greenwood, the long first chapter, runs longer: five twenty-wave levels,
+// five of twenty-five, and a thirty-wave boss.
 // The last level of a chapter always ends on the faction's boss wave.
 //
 // `pos` is the level's waypoint on the continent map (see ui/CampaignMap.jsx
@@ -26,41 +28,66 @@ export const CHAPTERS = [
     colorDk: "#4e6b3c",
     label: [88, 26],
     blurb: "Goblins out of the deep wood have come down into the farms.",
-    region: "M28,142 C20,116 22,86 44,64 C60,48 84,38 106,44 C122,48 134,40 146,52 C160,66 170,84 164,104 C158,124 176,140 160,162 C146,182 118,196 92,194 C64,192 40,178 28,142 Z",
+    // the vale runs north now too: the ridge, the deep wood and the burned
+    // holt stand on the high ground above the Barrowfields
+    region: "M28,142 C18,116 14,88 20,62 C24,38 40,18 64,8 C88,-2 118,-8 146,-2 C172,4 192,20 192,44 C192,66 172,84 166,104 C158,124 176,140 160,162 C146,182 118,196 92,194 C64,192 40,178 28,142 Z",
     levels: [
+      // five twenty-wave levels to learn the vale...
       {
         id: "gw1", name: "The Vale Road", realm: "greenwood", short: "Vale Road",
-        window: { from: 1, to: 8, count: 10 }, gold: 250, pos: [44, 168],
+        window: { from: 1, to: 12, count: 20 }, gold: 250, pos: [44, 168],
         blurb: "Goblin raiding parties on the country road — a flood of small blades, badly led. Hold the lane and learn the ground.",
       },
       {
         id: "gw2", name: "Thornbrook Ford", realm: "thornbrook", short: "Thornbrook",
-        window: { from: 2, to: 11, count: 12 }, gold: 350, pos: [88, 146],
+        window: { from: 2, to: 14, count: 20 }, gold: 350, pos: [88, 146],
         blurb: "Wolves run ahead of the horde now, and fell bats ride over your knights' heads. The brook is the only thing here that stops for anyone.",
       },
       {
         id: "foxmere", name: "Foxmere", realm: "foxmere", labelAbove: true,
-        window: { from: 3, to: 14, count: 15 }, gold: 400, pos: [106, 118],
+        window: { from: 3, to: 16, count: 20 }, gold: 400, pos: [106, 118],
         blurb: "The road owes the mere a full circle, and the horde walks every step of it. Orcs in plate now — and the first shamans, chanting the warband whole.",
       },
       {
         id: "gw3", name: "Oakmere Hollow", realm: "oakmere", short: "Oakmere",
-        window: { from: 4, to: 17, count: 18 }, gold: 480, pos: [52, 100],
+        window: { from: 4, to: 17, count: 20 }, gold: 540, pos: [52, 100],
         blurb: "Ironclads march with the orcs and boar riders flatten your line — then one night the wood empties all at once. Bring magic.",
       },
       {
+        id: "bramblewick", name: "Bramblewick", realm: "bramblewick",
+        window: { from: 5, to: 20, count: 20 }, gold: 560, pos: [38, 62],
+        blurb: "Hedged fields around the old millpond. The road wanders every lane of the farm, and the horde has learned to come down all of it at once.",
+      },
+      // ...five twenty-five-wave levels to hold it...
+      {
         id: "gw4", name: "The Barrowfields", realm: "barrowfields", short: "Barrowfields",
-        window: { from: 5, to: 20, count: 20 }, gold: 750, pos: [104, 62],
+        window: { from: 6, to: 23, count: 25 }, gold: 750, pos: [104, 62],
         blurb: "Trolls out of the mounds, shamans chanting the wounded whole. Kill the healers first, and save something heavy for the trolls.",
       },
       {
-        id: "wolfrun", name: "Wolfrun Ford", realm: "wolfrun", short: "Wolfrun", labelAbove: true,
-        window: { from: 6, to: 24, count: 22 }, gold: 750, pos: [150, 70],
+        id: "wolfrun", name: "Wolfrun Ford", realm: "wolfrun", short: "Wolfrun",
+        window: { from: 7, to: 25, count: 25 }, gold: 800, pos: [76, 26],
         blurb: "Four bridges over one cold river, and a warchief's totem driving the party across all of them. The fords decide who holds the vale.",
       },
       {
+        id: "ravenscar", name: "Ravenscar", realm: "ravenscar", labelAbove: true,
+        window: { from: 8, to: 27, count: 25 }, gold: 1000, pos: [124, 8],
+        blurb: "The high ridge over the vale, boulders and ravens. The road climbs in long switchbacks — and every one of them is in bowshot of the next.",
+      },
+      {
+        id: "blackbriar", name: "Blackbriar", realm: "blackbriar",
+        window: { from: 9, to: 29, count: 25 }, gold: 850, pos: [168, 32],
+        blurb: "The deep wood the goblins came out of. The road coils blind between the trunks; you will hear the trolls before you see them.",
+      },
+      {
+        id: "cinderholt", name: "Cinderholt", realm: "cinderholt",
+        window: { from: 9, to: 31, count: 25 }, gold: 900, pos: [156, 74],
+        blurb: "The horde fired this wood to smoke the vale out. Nothing stands but black trunks — nothing hides the road, and nothing hides the horde on it.",
+      },
+      // ...and the boss, thirty waves deep
+      {
         id: "gw5", name: "The Goblin Warrens", realm: "warrens", short: "The Warrens",
-        window: { from: 7, to: 30, count: 25, boss: true }, gold: 1000, pos: [146, 110],
+        window: { from: 11, to: 34, count: 30, boss: true }, gold: 1000, pos: [146, 110],
         blurb: "The mouth of the burrow. Necromancers raise your kills against you — and the dragon is home.",
       },
     ],
@@ -252,7 +279,7 @@ export const UNLOCK_ALL = false;
 // clear the named level and the hall is yours everywhere, Free Play too.
 export const TOWER_UNLOCKS = {
   catapult: "gw1", spiker: "gw2", riverwatch: "foxmere", goldworks: "gw3", trapsmith: "gw4", falconry: "wolfrun",
-  gunpowder: "gw5", assassin: "ir1", sunforge: "ir3",
+  gunpowder: "cinderholt", assassin: "ir1", sunforge: "ir3",
 };
 export const towerUnlocked = (kind, p) => {
   const need = TOWER_UNLOCKS[kind];
