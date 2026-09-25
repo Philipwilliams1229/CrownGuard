@@ -1,0 +1,55 @@
+<!doctype html>
+<!--
+  Dev tool (scenery): one sheet of every tree, pine and rock variant on a
+  patch of the realm's own ground, painted at load and saved to
+  .shots/scn_sheet_<tag>.png. /scn-lab.html?tag=x&scale=3&realm=greenwood
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — scenery lab</title>
+    <style>body { background: #14171d; margin: 0; } canvas { image-rendering: pixelated; }</style>
+  </head>
+  <body>
+    <script type="module">
+      import { selectRealm, REALM } from "/src/data/maps.js";
+      import { drawTree, resetSceneryBakes } from "/src/render/scenery.js";
+      import { PX } from "/src/render/paint.js";
+
+      const q = new URLSearchParams(location.search);
+      const tag = q.get("tag") || "x", scale = +(q.get("scale") || 2), realm = q.get("realm") || "greenwood";
+      selectRealm(realm);
+      resetSceneryBakes();
+      const CW = 420, CH = 330;
+      const cv = document.createElement("canvas");
+      cv.width = CW * PX; cv.height = CH * PX;
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.scale(PX, PX);
+      ctx.fillStyle = REALM.GRASS; ctx.fillRect(0, 0, CW, CH);
+      const items = [];
+      // row 1: lone oaks, each variant, two sizes
+      for (let i = 0; i < 6; i++) items.push({ x: 34 + i * 64, y: 60, t: "tree", s: i < 4 ? 1 : 1.25 });
+      // row 2: pines
+      for (let i = 0; i < 6; i++) items.push({ x: 34 + i * 64, y: 140, t: q.get("pine") || "pine", s: i < 4 ? 1 : 1.25 });
+      // row 3: rocks of every size
+      [[0.7, 30], [0.9, 80], [1, 130], [1.2, 185], [0.75, 240], [1, 290], [1.3, 350]].forEach(([s, x]) => items.push({ x, y: 200, t: q.get("rock") || "rock", s }));
+      // row 4: a little forest cluster
+      for (let i = 0; i < 12; i++) items.push({ x: 20 + (i % 6) * 26 + (i > 5 ? 12 : 0), y: 250 + (i > 5 ? 26 : 0), t: i % 3 === 2 ? "pine" : "tree", s: +(q.get("fs") || 1.1), forest: true });
+      for (let i = 0; i < 6; i++) items.push({ x: 240 + (i % 3) * 30, y: 262 + Math.floor(i / 3) * 34, t: ["willow", "deadtree", "mushroom", "gravestone", "cairn", "tent"][i], s: 1 });
+      // lone test pieces spread so they don't all hash to the same variant
+      items.forEach((d, i) => { d.x += (i * 0.37) % 1; });
+      items.sort((a, b) => a.y - b.y);
+      for (const d of items) drawTree(ctx, d, 1);
+      // crop=x,y,w,h in world units picks a window of the sheet
+      const [kx, ky, kw, kh] = (q.get("crop") || `0,0,${CW},${CH}`).split(",").map(Number);
+      const out = document.createElement("canvas");
+      out.width = kw * PX * scale; out.height = kh * PX * scale;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+      o.drawImage(cv, kx * PX, ky * PX, kw * PX, kh * PX, 0, 0, out.width, out.height);
+      document.body.appendChild(out);
+      await fetch("/__shot?name=scn_sheet_" + tag, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

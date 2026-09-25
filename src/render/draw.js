@@ -24,7 +24,7 @@ import { hasRig, rigPixels, drawRig } from "./rigs.js";
 import { ENEMIES } from "../data/enemies.js";
 import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
-import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn } from "./scenery.js";
+import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 
 // The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
@@ -458,32 +458,9 @@ export function draw(g, canvas, bufRef) {
   drawCastleWorks(ctx, g);
 
   // ---- the spawn marker ----
-  // Drawn after everything standing, because it used to sit under the pines
-  // beside the thicket and read as "EY COME". Loud while you're laying out
-  // your defence, faint once the fighting starts and the horde speaks for
-  // itself.
-  {
-    const [lsx, lsy] = PTS[0];
-    // the sign stands at the wood's mouth, clear of the board edge
-    const mx = Math.max(lsx, 60), my = lsy < 60 ? lsy + 70 : lsy - 46;
-    const a = g.phase === "combat" ? 0.3 : 0.95;
-    ctx.save();
-    ctx.globalAlpha = a;
-    cylinder(ctx, mx - 30, my - 4, 2.4, 22, "#5f4326", { r: 1 });
-    cylinder(ctx, mx + 28, my - 4, 2.4, 22, "#5f4326", { r: 1 });
-    cylinder(ctx, mx - 34, my - 8, 68, 14, "#6e4c28", { r: 1.5, hi: 0.28, lo: 0.45 });
-    ctx.fillStyle = "rgba(20,14,18,0.35)"; ctx.fillRect(mx - 32, my - 6, 64, 10);
-    ctx.fillStyle = "#e8a08a";
-    ctx.font = "bold 9px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("THEY COME", mx, my - 0.5);
-    for (let k = 0; k < 3; k++) {
-      const lit = 0.3 + 0.7 * Math.max(0, Math.sin(g.time * 4 - k * 1.05));
-      ctx.strokeStyle = `rgba(224,110,100,${lit})`; ctx.lineWidth = 1.4; ctx.lineCap = "round";
-      const yy = my - 30 + k * 7;
-      ctx.beginPath(); ctx.moveTo(mx - 6, yy); ctx.lineTo(mx, yy + 5); ctx.lineTo(mx + 6, yy); ctx.stroke();
-    }
-    ctx.restore();
-  }
+  // Drawn after everything standing so nothing hides it; the sign itself
+  // (and where it stands) lives with the rest of the scenery.
+  drawSpawnSign(ctx, g.time, g.phase);
 
   for (const p of g.projectiles) {
     if (p.delay > 0) continue;
@@ -812,7 +789,12 @@ export function draw(g, canvas, bufRef) {
       const prog = 1 - fx.ttl / fx.life;
       const feet = fx.y + (ENEMIES[fx.etype]?.size || 15) * 0.55;
       const variant = fx.revived ? "revived" : "";
-      if (prog < 0.22) drawRig(ctx, fx.etype, fx.x, feet, fx.face, "walk", 0, "white", 0.9);
+      if (fx.lite) {
+        // a crowd's worth of deaths: a white blink and a puff, no crumble
+        if (prog < 0.3) drawRig(ctx, fx.etype, fx.x, feet, fx.face, "walk", 0, "white", 0.9 * (1 - prog / 0.3));
+        ctx.fillStyle = `rgba(220,214,200,${0.5 * (1 - prog)})`;
+        ctx.beginPath(); ctx.ellipse(fx.x, feet - 3, 5 + prog * 8, 2.5 + prog * 3, 0, 0, 7); ctx.fill();
+      } else if (prog < 0.22) drawRig(ctx, fx.etype, fx.x, feet, fx.face, "walk", 0, "white", 0.9);
       else {
         const p2 = (prog - 0.22) / 0.78;
         const px = rigPixels(fx.etype, variant);
