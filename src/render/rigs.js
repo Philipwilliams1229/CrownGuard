@@ -13,6 +13,7 @@ import {
 } from "./paint.js";
 import { HORDE_RIGS, HORDE_PAINTERS } from "./rigs-horde.js";
 import { BEAST_RIGS, BEAST_PAINTERS } from "./rigs-beasts.js";
+import { CROWN_RIGS, CROWN_PAINTERS } from "./rigs-crown.js";
 
 // ---- shared bits -----------------------------------------------------------
 const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => {
@@ -316,8 +317,9 @@ export const RIGS = {
 // The Greenwood roster's bespoke bodies live in their own files and override
 // the generic entries above: rigs-horde.js (goblins, orcs, trolls and their
 // casters) and rigs-beasts.js (wolf, boar, bat, dragon).
-Object.assign(RIGS, HORDE_RIGS, BEAST_RIGS);
-const PAINTERS = { biped, beast, bat, wraith, dragon, gryphon, ram, amalgam, skiff, eagle, ...HORDE_PAINTERS, ...BEAST_PAINTERS };
+// rigs-crown.js holds the player's own soldiers.
+Object.assign(RIGS, HORDE_RIGS, BEAST_RIGS, CROWN_RIGS);
+const PAINTERS = { biped, beast, bat, wraith, dragon, gryphon, ram, amalgam, skiff, eagle, ...HORDE_PAINTERS, ...BEAST_PAINTERS, ...CROWN_PAINTERS };
 
 // the shared kit, for the roster files
 export { limb, lit, eye, gait, weapon, shieldOf, biped, beast, bat, dragon };
