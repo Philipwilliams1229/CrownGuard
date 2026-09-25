@@ -100,6 +100,7 @@ const commander = () => {
 const issues = new Map();
 const note = (k, msg) => { if (!issues.has(k)) issues.set(k, { msg, n: 0, first: g.wave }); issues.get(k).n++; };
 const DT = 1 / 30;
+const income = { all: 0, mint: 0 };
 let bled = 0, maxFoes = 0, worstTick = 0, sumTick = 0, nTick = 0;
 const t0 = Date.now();
 console.log(`marathon: ${REALM_ID} vs ${FACTION_ID}, to wave ${TO}${ENDURE ? " (endure)" : ""}, purse ${GOLD}`);
@@ -109,6 +110,7 @@ while (g.wave < TO && g.phase !== "lost") {
   const before = g.lives;
   startWave(g);
   const foes = g.spawnQueue.length, gt0 = g.time;
+  const mint0 = g.towers.reduce((a, t) => a + (t.paidTotal || 0), 0), earn0 = g.run.goldEarned;
   let ticks = 0, idle = 0;
   while (g.phase === "combat" && ticks < 30 * 60 * 8) {
     const a = performance.now();
@@ -133,6 +135,9 @@ while (g.wave < TO && g.phase !== "lost") {
   if (g.phase === "won") g.phase = "build";          // March On into the endless
   const leak = ENDURE ? 999 - g.lives : before - g.lives;
   bled += Math.max(0, leak);
+  const mint = g.towers.reduce((a, t) => a + (t.paidTotal || 0), 0) - mint0;
+  income.mint += mint; income.all += g.run.goldEarned - earn0;
+  if (g.wave % EVERY === 0) console.log(`      income last ${EVERY}: ${Math.round(income.all)}g (gold works ${Math.round(income.mint)})`), (income.all = income.mint = 0);
   if (g.wave % EVERY === 0 || g.phase === "lost") {
     console.log(`w${String(g.wave).padStart(3)} foes ${String(foes).padStart(4)} peak ${String(maxFoes).padStart(4)}  leak ${String(leak).padStart(3)}  lives ${ENDURE ? "-" : g.lives}  gold ${String(Math.round(g.gold)).padStart(7)}  towers ${g.towers.length}  ${Math.round(g.time - gt0)}s  tick ${(sumTick / Math.max(1, nTick)).toFixed(2)}/${worstTick.toFixed(1)}ms`);
     maxFoes = 0; worstTick = 0; sumTick = 0; nTick = 0;

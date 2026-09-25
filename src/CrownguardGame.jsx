@@ -318,7 +318,10 @@ export default function Crownguard() {
       // dev-server playtest handle: the live game object, for poking from the console
       if (import.meta.env.DEV) window.__g = g;
 
-      updateGame(g, dt);
+      // an engine fault must cost one tick, never the picture: log it once
+      // per message and carry on drawing
+      try { updateGame(g, dt); }
+      catch (err) { const k = String(err?.message); if (!step.seen?.has(k)) { (step.seen ||= new Set()).add(k); console.error("updateGame failed", err); } }
       // a garrison sold mid-move takes its rally prompt with it
       if (g.rallyFor != null && g.rallyFor !== "hero" && g.rallyFor !== "militia" && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
       draw(g, canvasRef.current, bufRef);

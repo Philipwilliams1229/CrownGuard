@@ -16,6 +16,9 @@ import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilt
 import { dealDamage, releaseEnemy, startWave } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 
+// road points every 7px, for the trapsmith's bench (rebuilt when the road changes)
+let ROAD7 = null;
+
 // How many bodies one blast can take (a tower may carry its own splashCap).
 const SPLASH_CAP = 16;
 
@@ -312,13 +315,22 @@ export function updateGame(g, dt) {
         // Density is the smith's whole argument now: he fills his stretch of
         // road rather than rationing it, so the only limit is how fast the
         // bench works. He still prefers bare ground, but 6px is "bare".
+        // (road samples cached per road; traps bucketed in 30px cells, since
+        // a late board carries hundreds of them and the scan was quadratic)
+        if (!ROAD7 || ROAD7.len !== TOTAL_LEN) { ROAD7 = []; ROAD7.len = TOTAL_LEN; for (let d = 10; d < TOTAL_LEN - 8; d += 7) ROAD7.push(posAt(d)); }
+        const grid = new Map();
+        for (const tr of g.traps) { const k = ((tr.x / 30) | 0) * 1000 + ((tr.y / 30) | 0); (grid.get(k) || grid.set(k, []).get(k)).push(tr); }
         let best = null, bestSpread = 6;
-        for (let d = 10; d < TOTAL_LEN - 8; d += 7) {
-          const [px, py] = posAt(d);
-          if (Math.hypot(px - t.x, py - t.y) > st.range) continue;
-          let near = Infinity;
-          for (const tr of g.traps) near = Math.min(near, Math.hypot(tr.x - px, tr.y - py));
-          const spread = Math.min(near, 60);
+        const r2 = st.range * st.range;
+        for (const [px, py] of ROAD7) {
+          if ((px - t.x) * (px - t.x) + (py - t.y) * (py - t.y) > r2) continue;
+          let near2 = 3600;
+          const cx = (px / 30) | 0, cy = (py / 30) | 0;
+          for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
+            const list = grid.get((cx + i) * 1000 + cy + j);
+            if (list) for (const tr of list) { const dd = (tr.x - px) * (tr.x - px) + (tr.y - py) * (tr.y - py); if (dd < near2) near2 = dd; }
+          }
+          const spread = Math.sqrt(near2);
           if (spread > bestSpread) { bestSpread = spread; best = [px, py]; }
         }
         if (best) {
@@ -520,16 +532,23 @@ export function updateGame(g, dt) {
         }
       }
     }
-    // The armed road: any foot on a trap springs it
+    // The armed road: any foot on a trap springs it. Foes are bucketed in
+    // 30px cells once, so each trap asks only its own neighbourhood.
+    const egrid = new Map();
+    if (g.traps.length) for (const e of g.enemies) { if (e.dead) continue; const k = ((e.x / 30) | 0) * 1000 + ((e.y / 30) | 0); (egrid.get(k) || egrid.set(k, []).get(k)).push(e); }
     for (let ti = g.traps.length - 1; ti >= 0; ti--) {
       const tr = g.traps[ti];
-      const owner = g.towers.find((tw) => tw.id === tr.byTower);
+      const owner = g._towerById.get(tr.byTower);
       const st = owner ? getStats(owner) : { trapDmg: 60, splash: 34, slow: 0.3, slowDur: 1400 };
       const wantsFly = !!tr.sky || tr.kind === "balloon";
       let victim = null;
-      for (const e of g.enemies) {
-        if (e.dead || (wantsFly ? !e.flying : e.flying)) continue;
-        if (Math.hypot(e.x - tr.x, e.y - tr.y) < (wantsFly ? 20 : 15)) { victim = e; break; }
+      const cx = (tr.x / 30) | 0, cy = (tr.y / 30) | 0, reach = wantsFly ? 20 : 15;
+      for (let i = -1; i <= 1 && !victim; i++) for (let j = -1; j <= 1 && !victim; j++) {
+        const list = egrid.get((cx + i) * 1000 + cy + j);
+        if (list) for (const e of list) {
+          if (e.dead || (wantsFly ? !e.flying : e.flying)) continue;
+          if (Math.hypot(e.x - tr.x, e.y - tr.y) < reach) { victim = e; break; }
+        }
       }
       if (!victim) continue;
       g.traps.splice(ti, 1);
@@ -1541,7 +1560,7 @@ export function updateGame(g, dt) {
                 id: nextId(), x: p.tx, y: p.ty, targetId: next.id,
                 tx: next.x, ty: next.y, speed: 460, delay: 0,
                 dmg: Math.max(1, Math.round(p.dmg * 0.6)), dtype: p.dtype, pierce: p.pierce, splash: 0,
-                burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: t.id,
+                burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: p.src,
                 poison: p.poison, poisonDur: p.poisonDur, poisonCap: p.poisonCap,
                 chain: p.chain - 1, chainRange: p.chainRange,
               });
