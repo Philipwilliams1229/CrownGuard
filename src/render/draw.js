@@ -24,11 +24,14 @@ import { hasRig, rigPixels, drawRig } from "./rigs.js";
 import { ENEMIES } from "../data/enemies.js";
 import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawGroundBlend } from "./groundblend.js";
+import { drawTraps } from "./traps.js";
+import { drawLog } from "./logs.js";
+import { drawStoop } from "./birds.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
-import { drawGround, drawLog, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
+import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
 
 // The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
 // buffer space over the finished board, so it reads at any camera zoom. It's
@@ -127,40 +130,7 @@ export function draw(g, canvas, bufRef) {
   for (const b of BRIDGES) drawBridge(ctx, b, g.time, posAt, angleAt, REALM.bridge);
 
   // the trapsmith's work, waiting flush with the road
-  if (g.traps) {
-    for (const tr of g.traps) {
-      const tx = tr.x, ty = tr.y;
-      const kind = tr.kind || (tr.sky ? "balloon" : tr.branch === "b" ? "mine" : "jaws");
-      if (kind === "balloon") {
-        const by = ty - 13 + Math.sin(g.time * 2 + tr.x) * 1.5;
-        softShadow(ctx, tx, ty + 1, 3, 1.2, 0.25);
-        ctx.strokeStyle = "rgba(16,19,26,0.7)"; ctx.lineWidth = 0.7;
-        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, by + 4); ctx.stroke();
-        pip(ctx, tx, by, 3.2, 3.6, "#c05848", { hi: 0.5, lo: 0.45 });
-        pip(ctx, tx, by + 4.5, 1.6, 1.4, "#3a3028", { hi: 0.3, lo: 0.4 });
-        glowFx(ctx, tx + 0.6, by + 4.5, 1.2, Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a", 0.9);
-      } else if (kind === "spike") {
-        ctx.fillStyle = "#6c727e"; ctx.fillRect(tx - 7, ty - 0.5, 14, 2.4);
-        ctx.fillStyle = "#c4c8d0";
-        for (let i2 = 0; i2 < 5; i2++) { const sx = tx - 6 + i2 * 3; ctx.beginPath(); ctx.moveTo(sx - 0.8, ty); ctx.lineTo(sx, ty - 3.5); ctx.lineTo(sx + 0.8, ty); ctx.closePath(); ctx.fill(); }
-      } else if (kind === "caltrop") {
-        for (let i2 = 0; i2 < 4; i2++) {
-          const cx2 = tx - 5 + ((i2 * 7) % 11), cy2 = ty - 2 + ((i2 * 5) % 6);
-          ctx.strokeStyle = "#8a8f9a"; ctx.lineWidth = 0.9; ctx.lineCap = "round";
-          ctx.beginPath(); ctx.moveTo(cx2 - 2, cy2 + 1); ctx.lineTo(cx2 + 2, cy2 + 1); ctx.moveTo(cx2, cy2 + 1); ctx.lineTo(cx2, cy2 - 2.4); ctx.moveTo(cx2, cy2 + 1); ctx.lineTo(cx2 + 1.4, cy2 + 2.4); ctx.stroke();
-        }
-      } else if (kind === "mine") {
-        pip(ctx, tx, ty, 5.5, 4, "#5f636d", { hi: 0.45, lo: 0.5 });
-        glowFx(ctx, tx, ty - 0.5, 1.2, Math.sin(g.time * 6 + tr.x) > 0 ? "#e05248" : "#7d2f1a", 0.9);
-      } else {
-        // bear-iron: open jaws, teeth up
-        ctx.fillStyle = "#6c727e"; ctx.fillRect(tx - 8, ty - 1, 16, 3.4);
-        ctx.fillStyle = "#b8bcc4";
-        for (let i2 = 0; i2 < 4; i2++) { const sx = tx - 6.5 + i2 * 4; ctx.beginPath(); ctx.moveTo(sx - 1, ty - 1); ctx.lineTo(sx, ty - 3.5); ctx.lineTo(sx + 1, ty - 1); ctx.closePath(); ctx.fill(); }
-        pip(ctx, tx, ty + 0.5, 2, 1.4, "#3a3e48", { hi: 0.3, lo: 0.4 });
-      }
-    }
-  }
+  drawTraps(ctx, g);
 
   // clouds crossing the sun — over the ground, under everything standing on it
   drawCloudShadows(ctx, g.time);
@@ -526,49 +496,7 @@ export function draw(g, canvas, bufRef) {
         ctx.fillRect(S(hx) - 2, S(hy) - 4, 5, 8);
       }
     } else if (fx.type === "talon") {
-      // the stoop is a curve, not a line: out wide, down hard, and home again
-      const life = fx.life || 520;
-      const prog = 1 - fx.ttl / life;
-      const side = ((Math.round(fx.x1 + fx.y1)) & 2) - 1;
-      const cx = (fx.x1 + fx.x2) / 2 + side * 26;
-      const cy = (fx.y1 + fx.y2) / 2 - 14;
-      const bez = (t2) => {
-        const u = 1 - t2;
-        return [u * u * fx.x1 + 2 * u * t2 * cx + t2 * t2 * fx.x2,
-                u * u * fx.y1 + 2 * u * t2 * cy + t2 * t2 * fx.y2];
-      };
-      const out = Math.min(1, prog / 0.5);
-      const back = Math.max(0, (prog - 0.5) / 0.5);
-      const tt = back > 0 ? 1 - back * back * (3 - 2 * back) : out * out;
-      const lift = back > 0 ? Math.sin(back * Math.PI) * 9 : 0;
-      const [hx, hy] = bez(tt);
-      // ghost wingbeats trailing the flight
-      for (let gi = 1; gi <= 2; gi++) {
-        const gtt = back > 0 ? Math.min(1, tt + gi * 0.09) : Math.max(0, tt - gi * 0.09);
-        const [gx, gy] = bez(gtt);
-        ctx.fillStyle = `rgba(232,226,212,${(0.28 - gi * 0.11) * a})`;
-        ctx.fillRect(S(gx) - 2, S(gy) - lift - 1, 5, 2);
-      }
-      if (out === 1 && back < 0.2) {
-        ctx.fillStyle = `rgba(224,184,85,${0.9 - back * 4})`;
-        ctx.fillRect(S(fx.x2) - 2, S(fx.y2) - 2, 5, 5);
-      }
-      const bx = S(hx), by = S(hy) - lift;
-      const ink = `rgba(16,19,26,${Math.min(1, a + 0.2)})`;
-      ctx.fillStyle = ink;
-      if (back === 0) {
-        // wings swept for the dive
-        ctx.fillRect(bx - 2, by - 3, 2, 3); ctx.fillRect(bx + 1, by - 3, 2, 3);
-        ctx.fillRect(bx - 1, by - 1, 3, 3);
-      } else {
-        // the climb home, wings beating
-        const upstroke = Math.sin(prog * 26) > 0;
-        if (upstroke) { ctx.fillRect(bx - 4, by - 2, 3, 2); ctx.fillRect(bx + 2, by - 2, 3, 2); }
-        else { ctx.fillRect(bx - 5, by, 3, 2); ctx.fillRect(bx + 3, by, 3, 2); }
-        ctx.fillRect(bx - 1, by - 1, 3, 3);
-      }
-      ctx.fillStyle = `rgba(160,130,88,${a})`; ctx.fillRect(bx - 1, by, 2, 1);
-      ctx.fillStyle = `rgba(232,226,212,${a})`; ctx.fillRect(bx - 1, by + 1, 2, 1);
+      drawStoop(ctx, fx, a);
     } else if (fx.type === "midas") {
       // the golden mistake: a ring of mint-light and rising coins
       const prog = 1 - fx.ttl / fx.life;

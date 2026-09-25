@@ -1,0 +1,122 @@
+<!doctype html>
+<!--
+  Dev tool: every object a hall puts out into the world — traps, rolling
+  logs, falcon stoops and the war-eagle, projectiles in flight, and the
+  soldiers, blades, boats and bands that walk the field — each frame drawn
+  through the real draw() and zoomed in on the road. Saves one sheet per
+  section to .shots/props_<section>_<tag>.png and writes DONE in the title.
+    /props-lab.html?tag=v1                      every section
+    /props-lab.html?tag=v1&only=traps,logs      some sections
+  Sections: traps, logs, birds, shots, units.  &realm=<id> changes the ground.
+-->
+<html><head><meta charset="utf-8" /><title>props lab…</title></head>
+<body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:16px"><div id="out">painting…</div>
+<script type="module">
+import { selectRealm } from "/src/data/maps.js";
+import { W, H, CASTLE_HP } from "/src/data/constants.js";
+import { posAt, angleAt, TOTAL_LEN } from "/src/engine/path.js";
+import { draw } from "/src/render/draw.js";
+import { ENEMIES } from "/src/data/enemies.js";
+import { makeTower, syncUnits } from "/src/engine/towers.js";
+import { fieldHero } from "/src/engine/actions.js";
+
+const q = new URLSearchParams(location.search);
+const TAG = q.get("tag") || "x";
+const ONLY = q.get("only") ? q.get("only").split(",") : null;
+selectRealm(q.get("realm") || "greenwood");
+
+const AT = 0.46;                                    // the stretch of road every frame looks at
+const [RX, RY] = posAt(TOTAL_LEN * AT);
+const ZOOM = Number(q.get("zoom")) || 3;
+const cam = (x = RX, y = RY) => ({ zoom: ZOOM, x: x - W / (2 * ZOOM), y: y - H / (2 * ZOOM) });
+const base = (time, o = {}) => ({
+  time, shake: 0, cam: cam(), grounds: [], traps: [], logs: [], bands: [], volleys: [],
+  buildMode: null, hover: null, gold: 500, selectedId: null,
+  towers: [], enemies: [], projectiles: [], effects: [],
+  lives: CASTLE_HP, paused: false, phase: "combat", ...o,
+});
+const along = (df, lane = 0) => {
+  const d = TOTAL_LEN * AT + df, [x, y] = posAt(d), a = angleAt(d) + Math.PI / 2;
+  return [x + Math.cos(a) * lane, y + Math.sin(a) * lane];
+};
+let nid = 5000;
+const foe = (type, df, lane = 0) => {
+  const d = ENEMIES[type], [x, y] = along(df, lane);
+  return { id: nid++, type, x, y, dist: TOTAL_LEN * AT + df, lane, size: d.size || 13, face: 1, hp: d.hp * 0.7, maxHp: d.hp,
+    armor: 0, mres: 0, dead: false, boss: !!d.boss, flying: !!d.flying, born: 0, hitFlash: 0, atkAnim: 0, auraSlow: 0,
+    slowUntil: 0, stunUntil: 0, burnUntil: 0, poisonUntil: 0, brittleUntil: 0, healedFlash: 0, guard: 0, guardFlash: 0, blockedBy: null, engaged: false };
+};
+const hall = (kind, o = {}) => { const t = makeTower(kind, RX + 60, RY - 70); Object.assign(t, { level: 3, ...o }); return t; };
+
+const sheets = [];
+const section = (name, frames) => { if (!ONLY || ONLY.includes(name)) sheets.push([name, frames]); };
+
+// ---- traps: every kind the trapsmith lays, flush with the road ----
+section("traps", [
+  ["spike · jaws · caltrop", base(1.2, { traps: [
+    { x: along(-30)[0], y: along(-30)[1], kind: "spike" }, { x: along(0)[0], y: along(0)[1], kind: "jaws" }, { x: along(30)[0], y: along(30)[1], kind: "caltrop" }] })],
+  ["mines · a balloon", base(1.5, { traps: [
+    { x: along(-25, -12)[0], y: along(-25, -12)[1], kind: "mine", branch: "b" }, { x: along(0, 10)[0], y: along(0, 10)[1], kind: "mine", branch: "b" },
+    { x: along(28)[0], y: along(28)[1], kind: "balloon", sky: true }] })],
+  ["a foe stepping on", base(2.1, { traps: [{ x: along(0)[0], y: along(0)[1], kind: "jaws" }, { x: along(24)[0], y: along(24)[1], kind: "mine", branch: "b" }],
+    enemies: [foe("goblin", -4)] })],
+]);
+
+// ---- rolling logs: the trunk, the Iron Drum, the Powder Keg Run ----
+const log = (df, o = {}) => { const [x, y] = along(df); return { id: nid++, x, y, a: angleAt(TOTAL_LEN * AT + df), w: 22, spin: 1.3, hitIds: [], ...o }; };
+section("logs", [
+  ["the Log Roller", base(1.1, { logs: [log(-20)], enemies: [foe("goblin", 22, 12)] })],
+  ["the Iron Drum", base(1.3, { logs: [log(0, { w: 28, stun: 900, spin: 2.2 })] })],
+  ["the Powder Keg Run", base(1.6, { logs: [log(0, { w: 24, burn: 26, blast: 96, spin: 3.1 })] })],
+]);
+
+// ---- birds: a falcon's stoop out, the strike, the climb home; the war-eagle ----
+const [fx0, fy0] = [RX + 42, RY - 44];   // a roost just off-frame up and to the right
+const stoop = (life, ttl) => ({ type: "talon", x1: fx0, y1: fy0, x2: RX, y2: RY - 6, ttl, life });
+section("birds", [
+  ["stoop: diving", base(1.4, { effects: [stoop(520, 380)], enemies: [foe("goblin", 0)] })],
+  ["stoop: the strike", base(1.4, { effects: [stoop(520, 250)], enemies: [foe("goblin", 0)] })],
+  ["stoop: climbing home", base(1.4, { effects: [stoop(520, 90)], enemies: [foe("goblin", 0)] })],
+  ["the war-eagle", base(1.4, { towers: [hall("falconry", { branch: "a", rank4: "b", eagle: { x: RX - 10, y: RY - 10, state: "fly", hp: 100 } })], enemies: [foe("gryphon", 0)] })],
+]);
+
+// ---- shots in the air ----
+const shot = (kind, o = {}) => { const [x, y] = along(-10, -8); const [tx, ty] = along(30, 6); return { id: nid++, kind, x, y, sx: x - 20, sy: y - 20, tx, ty, total: 60, speed: 300, targetId: null, delay: 0, src: 1, ...o }; };
+section("shots", [
+  ["arrow · bolt · spike", base(1.2, { projectiles: [shot("arrow"), shot("arrow", { big: true, y: along(-10, 8)[1] }), shot("spike", { x: along(-20)[0], y: along(-20)[1] })] })],
+  ["rock · ball · shell", base(1.2, { projectiles: [shot("rock"), shot("ball", { x: along(-20, 10)[0], y: along(-20, 10)[1] }), shot("shell", { x: along(0, -14)[0], y: along(0, -14)[1] })] })],
+]);
+
+// ---- units: the soldiers, blades, boats and bands ----
+const withUnits = (t) => { syncUnits(t); t.rally = { x: RX, y: RY }; for (const [i, u] of t.units.entries()) { u.x = RX - 14 + i * 14; u.y = RY + (i % 2) * 6; u.state = "rally"; } return t; };
+const heroG = (key) => { const g = base(1.3); const b = fieldHero(g, key, 8, RX, RY); b.units[0].state = "rally"; return g; };
+section("units", [
+  ["garrison knights", base(1.3, { towers: [withUnits(hall("knight", { rally: { x: RX, y: RY } }))] })],
+  ["the assassins' blades", base(1.3, { towers: [withUnits(hall("assassin", { rally: { x: RX, y: RY } }))] })],
+  ["Sir Aldric", heroG("aldric")],
+  ["Wren", heroG("wren")],
+]);
+
+// ---- paint ----
+const out = document.getElementById("out");
+for (const [name, frames] of sheets) {
+  const FW = 420, FH = 280;
+  const sheet = document.createElement("canvas");
+  sheet.width = FW * frames.length; sheet.height = FH + 18;
+  const sc = sheet.getContext("2d");
+  sc.fillStyle = "#14171d"; sc.fillRect(0, 0, sheet.width, sheet.height);
+  frames.forEach(([label, g], i) => {
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    try { draw(g, cv, { current: null }); } catch (e) { console.error(name, label, e); label += " — " + e.message; }
+    sc.imageSmoothingEnabled = false;
+    // the middle of the board, where the camera looked
+    sc.drawImage(cv, (cv.width - FW) / 2, (cv.height - FH) / 2, FW, FH, i * FW, 0, FW, FH);
+    sc.fillStyle = "#e8e0c8"; sc.font = "11px monospace"; sc.fillText(label, i * FW + 6, FH + 13);
+  });
+  out.appendChild(sheet);
+  await fetch(`/__shot?name=props_${name}_${TAG}`, { method: "POST", body: sheet.toDataURL("image/png").slice(22) });
+}
+out.prepend(`saved ${sheets.map((s) => s[0]).join(", ")}`);
+document.title = "DONE";
+</script>
+</body></html>
