@@ -1195,3 +1195,89 @@ export const drawStatus = (ctx, e, time, tms, feet, top) => {
     }
   }
 };
+
+// ---- lingering ground: lava, plague, spores, caltrops ---------------------
+// Pools that sit on the road for seconds (g.grounds). Painted like the
+// scorch marks — dithered, irregular, stepped tones — as four animation
+// frames per kind and size bucket, so a road paved with them is still a
+// handful of blits. Lava is a crust-rimmed pool with a molten heart that
+// churns; plague a sickly slick with blisters; spores a violet haze; the
+// Caltrop Field's beds are scattered iron on dark trampled ground.
+const LAVA = pal("#fff3d2", "#f8d868", "#f09838", "#d0502e", "#7a2a26", "#3a1e22");
+const ROT = pal("#d8e8a0", "#a8c46e", "#76944a", "#4e6634", "#34442a");
+const SPORE = pal("#ecdcfa", "#c4a8e0", "#9a7cc0", "#6a548e", "#44365e");
+const IRON = pal("#dfe2e8", "#9aa0ac", "#5c6270", "#34363e");
+const groundSprite = (kind, rb, f) => memo(`gr|${kind}|${rb}|${f}`, () => {
+  const R = rb * PX, ry = R * 0.62, seed = kind.length * 13;
+  const G = grid(2 * R + 8, 2 * ry + 8), cx = G.W >> 1, cy = G.H >> 1;
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    const nx = (x + 0.5 - cx) / R, ny = (y + 0.5 - cy) / ry;
+    const edge = Math.sqrt(nx * nx + ny * ny) + (vnoise(x, y, Math.max(3, R * 0.3), seed) - 0.5) * 0.4;
+    if (edge > 1) continue;
+    const b = bay(x, y);
+    // the churn: a second noise field that drifts with the frame
+    const ch = vnoise(x + f * 3, y - f * 2, Math.max(2, R * 0.22), seed + 7);
+    if (kind === "lava") {
+      if (edge > 0.84) G.set(x, y, LAVA[5], 235);                        // cooled black crust rim
+      else if (edge > 0.7) G.set(x, y, b < 0.5 ? LAVA[4] : LAVA[5], 240);
+      else if (ch > 0.72) G.set(x, y, edge < 0.35 ? LAVA[0] : LAVA[1]);  // white-hot upwellings
+      else if (ch > 0.5) G.set(x, y, LAVA[2]);
+      else if (ch > 0.3) G.set(x, y, LAVA[3]);
+      else G.set(x, y, b < 0.6 ? LAVA[4] : LAVA[3], 245);                  // skins of crust afloat
+    } else if (kind === "plague") {
+      if (edge > 0.8) { if (b < 0.5) G.set(x, y, ROT[4], 170); }
+      else if (ch > 0.68) G.set(x, y, ROT[1], 210);
+      else G.set(x, y, edge < 0.5 ? ROT[2] : ROT[3], 190);
+    } else if (kind === "spores") {
+      const a = edge < 0.5 ? 0.62 : edge < 0.8 ? 0.4 : 0.2;                 // a haze thins to its edge
+      if (b < a) G.set(x, y, ch > 0.6 ? SPORE[1] : ch > 0.35 ? SPORE[2] : SPORE[3], 170);
+    } else {
+      // caltrops: trampled dark ground under scattered four-pointed iron
+      if (b < (edge < 0.7 ? 0.4 : 0.18)) G.set(x, y, DUST[3], 120);
+    }
+  }
+  if (kind === "plague" || kind === "lava") {
+    // blisters / bubbles that swell and pop across the frames
+    const K = kind === "lava" ? LAVA : ROT;
+    for (let k = 0; k < Math.max(3, R / 4); k++) {
+      const a = hash(seed, k) * 6.283, d = Math.sqrt(hash(seed, k + 30)) * 0.6;
+      const x = cx + Math.cos(a) * R * d, y = cy + Math.sin(a) * ry * d, st = (f + k) % 4;
+      if (st === 3) continue;
+      G.set(x, y - st, K[0]); G.set(x + 1, y - st, K[1]);
+      if (st >= 1) { G.set(x - 1, y - st, K[1]); G.set(x, y - st + 1, K[2]); }
+    }
+  }
+  if (kind === "caltrops") {
+    for (let k = 0; k < Math.max(5, R / 2.5); k++) {
+      const a = hash(seed, k) * 6.283, d = Math.sqrt(hash(seed, k + 40)) * 0.85;
+      const x = Math.round(cx + Math.cos(a) * R * d), y = Math.round(cy + Math.sin(a) * ry * d);
+      G.set(x, y, IRON[0]); G.set(x - 1, y, IRON[1]); G.set(x + 1, y, IRON[2]);
+      G.set(x, y - 1, IRON[1]); G.set(x, y + 1, IRON[3]);
+      if (hash(seed, k + 60) < 0.5) { G.set(x - 1, y - 1, IRON[2]); G.set(x + 1, y + 1, IRON[3]); }
+    }
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
+
+export const drawGround = (ctx, gr, time, tms) => {
+  const r = Math.max(8, gr.r || 30);
+  const rb = r <= 24 ? Math.round(r / 4) * 4 : Math.round(r / 6) * 6;
+  const kind = gr.kind === "plague" || gr.kind === "spores" || gr.kind === "caltrops" ? gr.kind : "lava";
+  const f = Math.floor(time * (kind === "lava" ? 5 : 3) + (gr.x + gr.y) * 0.1) & 3;
+  const a = stepA(Math.min(1, (gr.until - tms) / 600), 4);
+  if (a <= 0) return;
+  if (a < 1) { ctx.save(); ctx.globalAlpha *= a; }
+  put(ctx, groundSprite(kind, rb, f), gr.x, gr.y);
+  if (a < 1) ctx.restore();
+  // a lava pool breathes a little light and throws the odd flame-tongue
+  if (kind === "lava") {
+    for (let i = 0; i < 3; i++) {
+      const ph = (time * 2.2 + i * 0.37 + gr.x * 0.01) % 1;
+      if (ph > 0.6) continue;
+      const ang = i * 2.1 + gr.y * 0.05, d = r * 0.4;
+      const x = Math.round((gr.x + Math.cos(ang) * d) * 2) / 2, y = Math.round((gr.y + Math.sin(ang) * d * 0.6 - ph * 7) * 2) / 2;
+      ctx.fillStyle = ph < 0.25 ? "#f8d868" : ph < 0.45 ? "#f09838" : "#d0502e";
+      ctx.fillRect(x, y, 0.5, ph < 0.3 ? 1.5 : 1);
+    }
+  }
+};

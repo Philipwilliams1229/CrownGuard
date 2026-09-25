@@ -26,7 +26,7 @@ import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
-import { isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
+import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
 
 // The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
 // buffer space over the finished board, so it reads at any camera zoom. It's
@@ -159,55 +159,11 @@ export function draw(g, canvas, bufRef) {
     if (isBlast(fx.type)) drawBlast(ctx, fx, "g");
   }
 
-  // lingering ground effects: pools of living lava, and the ghasts' plague
+  // lingering ground effects: lava pools, the ghasts' plague, spore clouds
+  // and the Caltrop Field's beds — pixel decals from fx.js
   if (g.grounds) {
     const tmsG = g.time * 1000;
-    for (const gr of g.grounds) {
-      const fade = Math.min(1, (gr.until - tmsG) / 600);
-      if (gr.kind === "plague") {
-        // grave-rot: a dull green slick with rising blister bubbles. It only
-        // troubles knights, so it reads sickly rather than hot.
-        ctx.fillStyle = `rgba(74,96,52,${0.6 * fade})`;
-        ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.95, 0, 7); ctx.fill();
-        ctx.fillStyle = `rgba(112,138,70,${0.55 * fade})`;
-        ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.6, 0, 7); ctx.fill();
-        ctx.fillStyle = `rgba(168,196,110,${0.85 * fade})`;
-        for (let i = 0; i < 6; i++) {
-          const ang = i * 1.05 + ((i * 53) % 7);
-          const rr = gr.r * (0.2 + 0.6 * ((i * 41) % 10) / 10);
-          const pop = (g.time * 1.6 + i * 0.9) % 1;
-          if (pop > 0.55) continue;                    // burst, gone, reforms
-          ctx.fillRect(S(gr.x + Math.cos(ang) * rr) - 1, S(gr.y + Math.sin(ang) * rr * 0.8) - 1 - pop * 4, CELL + 1, CELL + 1);
-        }
-        continue;
-      }
-      if (gr.kind === "spores") {
-        // the Plague Bearer's harvest: a pale toxin haze that hunts the LIVING column
-        ctx.fillStyle = `rgba(96,74,120,${0.5 * fade})`;
-        ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.95, 0, 7); ctx.fill();
-        ctx.fillStyle = `rgba(140,110,168,${0.45 * fade})`;
-        ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.55, 0, 7); ctx.fill();
-        ctx.fillStyle = `rgba(196,170,220,${0.8 * fade})`;
-        for (let i = 0; i < 7; i++) {
-          const ang = g.time * 0.8 + i * 0.9;
-          const rr = gr.r * (0.25 + 0.55 * ((i * 31) % 10) / 10);
-          const drift = ((g.time * 0.7 + i * 0.37) % 1) * 6;
-          ctx.fillRect(S(gr.x + Math.cos(ang) * rr) - 1, S(gr.y + Math.sin(ang) * rr * 0.8) - 1 - drift, CELL, CELL);
-        }
-        continue;
-      }
-      ctx.fillStyle = `rgba(125,51,41,${0.75 * fade})`;
-      ctx.beginPath(); ctx.arc(S(gr.x), S(gr.y), gr.r * 0.9, 0, 7); ctx.fill();
-      ctx.fillStyle = `rgba(216,118,58,${0.8 * fade})`;
-      for (let i = 0; i < 5; i++) {
-        const ang = g.time * 1.4 + i * 1.26;
-        const rr = gr.r * (0.25 + 0.45 * ((i * 37) % 10) / 10);
-        const bub = Math.sin(g.time * 6 + i * 2.4) > 0.3 ? CELL : 0;
-        ctx.fillRect(S(gr.x + Math.cos(ang) * rr) - 1, S(gr.y + Math.sin(ang) * rr * 0.8) - 1 - bub, CELL + 1, CELL + 1);
-      }
-      ctx.fillStyle = `rgba(232,193,74,${0.9 * fade})`;
-      ctx.fillRect(S(gr.x + Math.sin(g.time * 3) * gr.r * 0.3), S(gr.y + Math.cos(g.time * 2.2) * gr.r * 0.25), CELL, CELL);
-    }
+    for (const gr of g.grounds) drawGround(ctx, gr, g.time, tmsG);
   }
 
   drawSpawn(ctx, g.time, REALM.spawn);
