@@ -120,6 +120,21 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   (e.g. the crown rigs in `rigs-crown.js`) for figures. `PixelIcon` (the old
   MINI sprites) is only TowerPortrait's fallback.
 
+## Bridges and boats (`drawBridge` in `src/render/scenery.js`)
+
+- A bridge's deck **arches**: `archAt(b, d)` in `src/data/terrain.js` is 0
+  at each bank and `BRIDGE_RISE` (8) mid-span. Planks, stringers and rails
+  ride that curve, and `draw.js` lifts every walker on a deck by
+  `bridgeLift(x, y)`, so feet stay on the planks. Change the rise in one
+  place only.
+- Height is shown by what the camera can see: a span running ACROSS the
+  screen shows its south face with a dark arch cut into it; a span running
+  UP the screen shows piles at its edges and a cast shadow on the water
+  thrown down-right, widest mid-span.
+- River Watch skiffs **pass under** spans: `draw.js` draws any skiff that
+  `underBridge()` reports as close with the water, before the bridge, so the
+  deck covers it. Check with `scene.html?only=bridges&cam=3,400,326`.
+
 ## The campaign map (`src/ui/mapArt.js`)
 
 - Roads: good as they are — well connected.

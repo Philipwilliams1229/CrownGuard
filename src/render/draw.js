@@ -13,7 +13,7 @@
 import { W, H, CELL, S, INK, CASTLE_HP, RALLY_RANGE, RES } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { PTS, posAt, angleAt } from "../engine/path.js";
-import { DECOR, PONDS, RIVERS, BRIDGES } from "../data/terrain.js";
+import { DECOR, PONDS, RIVERS, BRIDGES, bridgeLift, underBridge } from "../data/terrain.js";
 import { groundLayer, drawRoadLive } from "./world.js";
 import { ball as pip, glow as glowFx, shadow as softShadow, cylinder } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
@@ -106,8 +106,20 @@ export function draw(g, canvas, bufRef) {
   for (const rv of RIVERS) drawRiver(ctx, rv, g.time, REALM.water);
   drawRoadLive(ctx, g);
 
-  // timber spans wherever the road wades a river — over the road texture,
-  // under everything that walks
+  // a River Watch skiff in under a bridge is drawn with the water, so the
+  // span passes over it; everywhere else it sorts with the other actors
+  const underSpan = new Set();
+  if (BRIDGES.length) for (const t of g.towers) {
+    if (t.kind !== "riverwatch" || !t.units) continue;
+    for (const u of t.units) {
+      if (u.state === "dead" || !underBridge(u.x, u.y)) continue;
+      underSpan.add(u);
+      drawKnightUnit(ctx, u, t, g.time);
+    }
+  }
+
+  // timber spans wherever the road wades a river — over the road texture
+  // and the boats beneath, under everything that walks
   for (const b of BRIDGES) drawBridge(ctx, b, g.time, posAt, angleAt, REALM.bridge);
 
   // the trapsmith's work, waiting flush with the road
@@ -232,6 +244,12 @@ export function draw(g, canvas, bufRef) {
     else drawGarrison(ctx, t, g.time);
   };
 
+  // whoever stands on a bridge is drawn up on its arched deck
+  const onDeck = (x, y, fn) => {
+    const lift = BRIDGES.length ? bridgeLift(x, y) : 0;
+    if (!lift) return fn();
+    ctx.save(); ctx.translate(0, -lift); fn(); ctx.restore();
+  };
   const drawables = [];
   for (const d of DECOR) drawables.push({ y: d.y + 14, fn: () => drawTree(ctx, d, g.time) });
   // the tower you're about to buy, standing on the spot at half weight
@@ -284,10 +302,10 @@ export function draw(g, canvas, bufRef) {
         }
       },
     });
-    if (t.units) for (const u of t.units) drawables.push({ y: u.y + 9, fn: () => drawKnightUnit(ctx, u, t, g.time) });
+    if (t.units) for (const u of t.units) if (!underSpan.has(u)) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawKnightUnit(ctx, u, t, g.time)) });
   }
   if (g.bands) for (const b of g.bands) {
-    for (const u of b.units) drawables.push({ y: u.y + 9, fn: () => drawBandUnit(ctx, u, b, g.time) });
+    for (const u of b.units) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawBandUnit(ctx, u, b, g.time)) });
     // a fallen hero's ghost of a marker, and the militia's dwindling time
     if (b.kind === "hero" && b.units[0].state === "dead") drawables.push({ y: b.rally.y, fn: () => {
       const left = Math.max(0, Math.ceil(b.units[0].respawn / 1000));
@@ -298,7 +316,7 @@ export function draw(g, canvas, bufRef) {
   }
   const tms = g.time * 1000;
   for (const e of g.enemies) {
-    if (!e.dead) drawables.push({ y: e.y + 10, fn: () => drawEnemy(ctx, e, g.time, tms) });
+    if (!e.dead) drawables.push({ y: e.y + 10, fn: () => (e.flying ? drawEnemy(ctx, e, g.time, tms) : onDeck(e.x, e.y, () => drawEnemy(ctx, e, g.time, tms))) });
   }
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();

@@ -55,6 +55,35 @@ const distToSegs = (segs, x, y) => {
 export const inRiver = (x, y, margin = 0) =>
   RIVERS.some((rv) => distToSegs(rv.segs, x, y) < rv.w / 2 + margin);
 
+// A bridge's deck arches over the water: level with the road at each bank,
+// BRIDGE_RISE above it at the middle of the span. The painter and everything
+// that walks the deck share one curve, so feet stay on the planks.
+export const BRIDGE_RISE = 8;
+export const BRIDGE_HALF = 35;   // half the deck's width, rail to rail
+export const archAt = (b, d) => {
+  const half = (b.d1 - b.d0) / 2, f = (d - (b.d0 + half)) / half;
+  return Math.abs(f) >= 1 ? 0 : BRIDGE_RISE * Math.cos(f * Math.PI / 2);
+};
+// the bridge a point stands on or near, in the span's own frame: `u` along
+// the road from the middle of the span, `v` across it
+const spanFrame = (b, x, y) => {
+  const dx = x - b.x, dy = y - b.y, c = Math.cos(b.a), s = Math.sin(b.a);
+  return { u: dx * c + dy * s, v: -dx * s + dy * c, half: (b.d1 - b.d0) / 2 };
+};
+// how far to lift something standing at (x, y) so it walks ON the deck
+export const bridgeLift = (x, y) => {
+  for (const b of BRIDGES) {
+    const { u, v, half } = spanFrame(b, x, y);
+    if (Math.abs(u) < half && Math.abs(v) < BRIDGE_HALF + 3) return archAt(b, (b.d0 + b.d1) / 2 + u);
+  }
+  return 0;
+};
+// true when a boat at (x, y), `reach` long either way, is in under a span
+export const underBridge = (x, y, reach = 18) => BRIDGES.some((b) => {
+  const { u, v, half } = spanFrame(b, x, y);
+  return Math.abs(u) < half + 4 && Math.abs(v) < BRIDGE_HALF + reach;
+});
+
 export function regenTerrain(map) {
   const rng = mulberry32(map.seed);
   const sc = map.scatter;

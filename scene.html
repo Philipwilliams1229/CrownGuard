@@ -279,6 +279,42 @@
         }));
       }
 
+      // ---- 10. skiffs under the bridges --------------------------------------
+      // Wolfrun: four timber bridges over one river. A skiff rows up to a
+      // span, under it and out the other side, while a column crosses on top.
+      // Try ?only=bridges&cam=3,400,326 to look closely at one span.
+      {
+        const s = section("skiffs under the bridges", "A River Watch skiff approaching, under and leaving a bridge, with foes on the deck. The boat must pass UNDER the span.");
+        if (s) {
+          selectRealm("wolfrun");
+          const { BRIDGES, RIVER_ROUTE } = await import("/src/data/terrain.js");
+          const b = BRIDGES[1];
+          // where the river passes the bridge, as a distance along it
+          let q0 = 0, bd = Infinity;
+          for (let q = 0; q <= RIVER_ROUTE.total; q += 2) { const [px, py] = RIVER_ROUTE.at(q); const dd = Math.hypot(px - b.x, py - b.y); if (dd < bd) { bd = dd; q0 = q; } }
+          const skiff = (dq, id) => { const [x, y] = RIVER_ROUTE.at(q0 + dq); return { id, hp: 80, maxHp: 80, x, y, face: 1, swing: 0, state: "rally" }; };
+          const crossing = (f) => enemy("orc", (b.d0 + (b.d1 - b.d0) * f) / TOTAL_LEN);
+          for (const [label, dq] of [["upstream", -60], ["going under", -40], ["under the span", 0], ["coming out", 40]]) {
+            const [wx, wy] = RIVER_ROUTE.at(q0 + 72);
+            frame(s, `skiff ${label}`, base(2.2, {
+              towers: [{ id: 91, kind: "riverwatch", x: wx, y: wy, level: 3, branch: null, rank4: null, anim: 0, lastAim: 0, invested: 200, rally: null, units: [skiff(dq, 7)] }],
+              enemies: [crossing(0.2), crossing(0.5), crossing(0.8)],
+            }));
+          }
+          // the other ways a span can lie: across the screen, and on a slant
+          for (const id of ["thornbrook", "ironford", "graveroad"]) {
+            selectRealm(id);
+            const T2 = await import("/src/data/terrain.js");
+            for (const b2 of T2.BRIDGES.slice(0, 2)) {
+              frame(s, `${id} span at ${Math.round(b2.a * 180 / Math.PI)}°`, base(2.2, {
+                cam: { zoom: 3, x: b2.x - W / 6, y: b2.y - H / 6 },
+                enemies: [enemy("orc", (b2.d0 + (b2.d1 - b2.d0) * 0.5) / TOTAL_LEN)],
+              }));
+            }
+          }
+        }
+      }
+
       if (skipped.length) {
         const p = document.createElement("p");
         p.className = "note";
