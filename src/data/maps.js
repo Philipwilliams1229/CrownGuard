@@ -282,7 +282,7 @@ Object.assign(REALMS, {
     "A sunken hollow ringed with old oaks. The road folds back on itself twice — one good tower covers both lanes.",
     20260715,
     [[2, 0.8], [2, 4], [6, 4], [6, 1], [10, 1], [10, 6], [4, 6], [4, 8], [13, 8], [13.7, 8]],
-    { ponds: [{ x: 612, y: 396, w: 66, h: 34 }] },
+    { ponds: [{ x: 110, y: 338, w: 84, h: 46 }] },
   ),
   barrowfields: greenwoodVariant(
     "barrowfields", "The Barrowfields", "HAUNTED GROUND",
