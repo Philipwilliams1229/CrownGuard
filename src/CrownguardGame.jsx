@@ -1495,7 +1495,8 @@ export default function Crownguard() {
                 ))
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${buildCols}, 1fr)`, gap: 7 }}>
-              {Object.entries(TOWERS).map(([key, def]) => {
+              {/* the halls you can raise first, in their usual order; the locked ones after */}
+              {Object.entries(TOWERS).sort(([a], [b]) => towerUnlocked(b, progress) - towerUnlocked(a, progress)).map(([key, def]) => {
                 const open = towerUnlocked(key, progress);
                 const can = open && ui.gold >= def.cost;
                 const active = ui.buildMode === key;

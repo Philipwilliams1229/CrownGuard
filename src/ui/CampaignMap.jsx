@@ -368,7 +368,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
     <div style={{
       ...frame, background: PARCH.face, color: PARCH.ink, padding: 16, boxSizing: "border-box", position: "relative",
       display: "flex", flexDirection: "column", gap: 10,
-      ...(wide ? { width: CARD_W, flexShrink: 0, height: mapBox ? mapBox.height : "100%", overflowY: "auto" } : { width: "100%" }),
+      ...(wide ? { width: CARD_W, flexShrink: 0, height: mapBox ? mapBox.height : "100%", overflowY: "auto", overflowX: "hidden", touchAction: "pan-y" } : { width: "100%" }),
     }}>
       <Studs />
       <div style={{ display: "flex", gap: 12, flexWrap: wide ? "wrap" : "nowrap", alignItems: "flex-start" }}>
@@ -413,7 +413,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
       ...(short ? { flex: "1 1 0", minHeight: 0 } : { flexShrink: 0 }),
     }}>
       <Studs />
-      <div style={{ flex: short ? "1 1 auto" : "0 0 auto", minHeight: 0, overflowY: "auto", scrollbarWidth: "thin", display: "flex", flexDirection: "column", gap: 7 }}>
+      <div style={{ flex: short ? "1 1 auto" : "0 0 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", touchAction: "pan-y", scrollbarWidth: "thin", display: "flex", flexDirection: "column", gap: 7 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {thumb(short ? (vp.h >= 375 ? 120 : 92) : 100)}
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -484,7 +484,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
           <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1 }}>🏰 CASTLE WORKS — {sel.chapter.name.toUpperCase()}</span>
           <button aria-label="Close" style={{ ...woodBtn, padding: "0 14px", fontSize: 13, flexShrink: 0 }} onClick={() => setWorksOpen(false)}>✕</button>
         </div>
-        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", scrollbarWidth: "thin" }}>
+        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", touchAction: "pan-y", scrollbarWidth: "thin" }}>
           <CastleWorksList
             works={loadCastle(sel.chapter.id)}
             purse={progress.treasury || 0}

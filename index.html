@@ -18,8 +18,9 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Press+Start+2P&display=swap" />
     <title>Crownguard</title>
     <style>
-      /* a touch screen must never bounce, select text, flash on tap or zoom the page */
-      html, body { margin: 0; background: #20242c; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+      /* a touch screen must never bounce, pan, select text, flash on tap or zoom
+         the page: every screen fits the window, and only panels' own lists scroll */
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #20242c; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
       body { -webkit-user-select: none; user-select: none; -webkit-text-size-adjust: 100%; }
       button { touch-action: manipulation; }
     </style>

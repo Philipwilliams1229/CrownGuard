@@ -418,7 +418,7 @@ export default function FieldGuide({ onClose }) {
 
       {/* the scrolling body */}
       <div ref={scroller} style={{
-        flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch",
+        flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", touchAction: "pan-y", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch",
         paddingTop: 12, paddingBottom: full ? safe("bottom", 14) : 14,
         paddingLeft: full ? safe("left", padX) : padX, paddingRight: full ? safe("right", padX) : padX,
       }}>

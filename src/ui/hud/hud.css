@@ -247,8 +247,9 @@
 .cg-banner.won { background: #b8902e; color: var(--cream); box-shadow: inset 2px 2px 0 var(--gold-lt), inset -2px -3px 0 var(--gold-dk), 0 3px 0 var(--ink); }
 .cg-banner.lost { background: #8e3a3a; color: #ffe2d6; box-shadow: inset 2px 2px 0 #b4554a, inset -2px -3px 0 #5a2020, 0 3px 0 var(--ink); }
 
-/* scroll areas inside panels get a slim oak scrollbar where one is drawn */
-.cg-scroll { scrollbar-width: thin; scrollbar-color: var(--wood) var(--slate-dk); -webkit-overflow-scrolling: touch; }
+/* scroll areas inside panels get a slim oak scrollbar, and move up and down
+   only: a finger dragging a list should never slide it sideways */
+.cg-scroll { scrollbar-width: thin; scrollbar-color: var(--wood) var(--slate-dk); -webkit-overflow-scrolling: touch; overflow-x: hidden !important; touch-action: pan-y; overscroll-behavior: contain; }
 
 @media (prefers-reduced-motion: reduce) {
   .cg-up, .cg-down, .cg-hurt, .cg-horn, .cg-pop, .cg-rise, .cg-star, .cg-float { animation: none !important; }
