@@ -22,7 +22,8 @@ export const buildableAt = (g, x, y, kind = null) => {
   // A hall that floats has the opposite requirement to every other: it MUST
   // stand in running water, and nothing else may.
   const afloat = !!(kind && TOWERS[kind] && TOWERS[kind].water);
-  if (x < 18 || x > W - WALL_W || y < 22 || y > H - 16) return false;
+  // (a hall's own footing is ~18 wide, so it stops short of the wall's drums)
+  if (x < 18 || x > W - WALL_W - 12 || y < 22 || y > H - 16) return false;
   if (nearestOnPath(x, y).d < BLOCK_DIST) return false;
   const [cvx, cvy] = PTS[0];
   if (Math.hypot(x - cvx, y - cvy) < 50) return false;

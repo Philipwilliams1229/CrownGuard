@@ -23,7 +23,7 @@
 import {
   pennant, hipRoof, TIMBER, OAKWOOD, PALE_STONE, GREY_STONE,
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, lin, part, hash,
-  groundBed, footing, ashlar, planks, beam, door, banner, brazier, flame, torchBracket, rock, posy,
+  groundBed, footClip, footHalf, footing, ashlar, planks, beam, door, banner, brazier, flame, torchBracket, rock, posy,
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
 
@@ -41,9 +41,10 @@ const DARK = "#4a3226";
 // the numbers every form is built on
 const dims = (t, y = t.y) => {
   const lvl = t.level, r4 = t.rank4 ? t.branch + t.rank4 : null;
-  const hw = r4 ? 18 : t.branch ? 17 : [12, 15, 16][lvl - 1];
+  // the footing reaches hw + 2, which must stay inside the footprint
+  const hw = r4 ? 14.5 : t.branch ? 14 : [11, 12.5, 13.5][lvl - 1];
   const wallH = r4 ? 15 : t.branch ? 14 : 11 + lvl;
-  return { hw, wallH, baseY: y + 8, r4, lvl };
+  return { hw, wallH, baseY: y + 7, r4, lvl };
 };
 const COLORS = (t) => {
   const pal = t.branch === "a", ber = t.branch === "b", r4 = t.rank4 ? t.branch + t.rank4 : null;
@@ -64,16 +65,17 @@ const dummy = (ctx, x, y) => {
 };
 
 // A rack of spears and a shield leaned against it.
+// Seven wide, spears and all; a shield (if any) leans on its left post.
 const rack = (ctx, x, y, shield) => {
-  part(ctx, (c) => { cylinder(c, x - 5, y - 9, 1.6, 9, OAKWOOD, { r: 0.7 }); cylinder(c, x + 3.4, y - 9, 1.6, 9, OAKWOOD, { r: 0.7 }); cylinder(c, x - 5.5, y - 8, 11, 1.4, lighten(OAKWOOD, 0.1), { r: 0.6 }); });
+  if (shield) part(ctx, (c) => { ball(c, x - 3, y - 3.5, 2.6, 2.9, shield, { hi: 0.4, lo: 0.45 }); c.fillStyle = "#d8b34a"; c.fillRect(x - 3.5, y - 4, 1, 1); });
+  part(ctx, (c) => { cylinder(c, x - 3.5, y - 9, 1.5, 9, OAKWOOD, { r: 0.7 }); cylinder(c, x + 2, y - 9, 1.5, 9, OAKWOOD, { r: 0.7 }); cylinder(c, x - 3.5, y - 8, 7, 1.4, lighten(OAKWOOD, 0.1), { r: 0.6 }); });
   part(ctx, (c) => {
     for (let i = 0; i < 3; i++) {
-      const sx = x - 2.8 + i * 2.8;
+      const sx = x - 2 + i * 1.8;
       c.fillStyle = "#6a4a2e"; c.fillRect(sx, y - 15, 0.9, 15);
       c.fillStyle = "#c4c8d0"; c.beginPath(); c.moveTo(sx - 0.7, y - 15); c.lineTo(sx + 0.45, y - 18.5); c.lineTo(sx + 1.6, y - 15); c.closePath(); c.fill();
     }
   });
-  if (shield) part(ctx, (c) => { ball(c, x + 5.5, y - 3.5, 3, 3.3, shield, { hi: 0.4, lo: 0.45 }); c.fillStyle = "#d8b34a"; c.fillRect(x + 5, y - 4, 1, 1); });
 };
 
 // A round painted shield hung on a wall.
@@ -114,14 +116,18 @@ const palisade = (ctx, x, top, half, col, spikes = false, seed = 0) => {
 const paintGround = (ctx, t, x, y) => {
   const { hw, baseY, r4 } = dims(t, y);
   const ber = t.branch === "b";
-  groundBed(ctx, x, baseY, hw + 2, t.id, { earth: ber ? "#5e4a36" : "#7c6242", spread: 12 });
+  ctx.save();
+  footClip(ctx, x, y);
+  groundBed(ctx, x, baseY, hw + 2, t.id, { earth: ber ? "#5e4a36" : "#7c6242" });
   // the trodden mustering yard before the door
-  soft(ctx, x, baseY + 5, 10, 4, [[0, "rgba(124,98,66,0.32)"], [1, "rgba(124,98,66,0)"]]);
+  soft(ctx, x, baseY + 4, 10, 4, [[0, "rgba(124,98,66,0.32)"], [1, "rgba(124,98,66,0)"]]);
   if (r4 === "ab") {
     ctx.strokeStyle = "rgba(232,200,90,0.45)"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(x, baseY + 3, hw + 12, 8, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x, y + 8, 16, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
   }
-  if (r4 === "ba") for (let i = 0; i < 3; i++) part(ctx, (c) => { c.fillStyle = "#e8dfc6"; c.save(); c.translate(x + hw - 6 + i * 6, baseY + 6 + (i % 2) * 2); c.rotate(0.5 - i * 0.6); c.fillRect(-2.5, -0.4, 5, 0.8); c.fillRect(-3, -0.8, 1, 1.6); c.fillRect(2, -0.8, 1, 1.6); c.restore(); });
+  ctx.restore();
+  // gnawed bones in the Wolf Lodge's yard
+  if (r4 === "ba") for (const [i, [bx, by]] of [[-6, 12], [1, 13], [7, 12]].entries()) part(ctx, (c) => { c.fillStyle = "#e8dfc6"; c.save(); c.translate(x + bx, y + by); c.rotate(0.5 - i * 0.6); c.fillRect(-2.5, -0.4, 5, 0.8); c.fillRect(-3, -0.8, 1, 1.6); c.fillRect(2, -0.8, 1, 1.6); c.restore(); });
 };
 
 const paintHall = (ctx, t, x, y) => {
@@ -133,7 +139,9 @@ const paintHall = (ctx, t, x, y) => {
   const wallTop = baseY - wallH;
 
   // ---- behind the hall: palisade, turret or keep
-  if (grown) palisade(ctx, x + 2, wallTop - 4, hw + 6, ber ? (r4 === "bb" ? "#5a2a22" : DARK) : pal ? "#8a7a5a" : OAKWOOD, r4 === "bb", seed);
+  // (its feet are behind the hall, where the footprint is narrow: it only
+  // shows its sharpened crown over the roof)
+  if (grown) palisade(ctx, x + 1, wallTop - 4, footHalf(y, wallTop) - 2, ber ? (r4 === "bb" ? "#5a2a22" : DARK) : pal ? "#8a7a5a" : OAKWOOD, r4 === "bb", seed);
   if (grown && !ber) {
     // a corner watch-turret at the back left; the Champion's is a keep
     const tx = x - hw + 3, keep = r4 === "aa";
@@ -180,7 +188,7 @@ const paintHall = (ctx, t, x, y) => {
       c.beginPath(); c.moveTo(sx - 3, sy); c.lineTo(sx + 3, sy); c.lineTo(sx + 3, sy + 4); c.lineTo(sx, sy + 7); c.lineTo(sx - 3, sy + 4); c.closePath(); c.fill();
       c.fillStyle = "#e0d6ba"; c.fillRect(sx - 0.5, sy + 1, 1, 4); c.fillRect(sx - 2, sy + 2, 4, 1);
     });
-    if (lvl >= 2) torchBracket(ctx, x + 6.5, wallBot - 6);
+    if (lvl >= 2) torchBracket(ctx, x + 5, wallBot - 6);
   }
   if (ber) {
     antlerSkull(ctx, x, wallTop + 2);
@@ -245,54 +253,42 @@ const paintHall = (ctx, t, x, y) => {
     c.fillStyle = darken(pal ? PALE_STONE : "#7a746a", 0.25); c.fillRect(chx - 3, chy - 8, 6, 1.6);
   });
 
-  // ---- the yard
-  if (lvl >= 2 || t.branch) {
-    // fence runs either side
-    for (const s of [-1, 1]) {
-      const fx = x + s * (hw + 3);
-      beam(ctx, fx, baseY + 1, fx, baseY - 8, 1.6, OAKWOOD);
-      beam(ctx, fx + s * 8, baseY + 2, fx + s * 8, baseY - 6, 1.6, OAKWOOD);
-      beam(ctx, fx, baseY - 6, fx + s * 8, baseY - 4, 1.2, lighten(OAKWOOD, 0.1));
-      beam(ctx, fx, baseY - 2.5, fx + s * 8, baseY - 0.5, 1.2, lighten(OAKWOOD, 0.1));
-    }
-  }
+  // ---- the yard: everything stands in front of the walls, inside the
+  // footprint (the dummy's and the rack's feet at y + 10 or so)
+  const fireX = x - Math.min(hw, 13.5) + 6.5, fireY = baseY + 4;
   if (!ber) {
     if (r4 === "aa") {
-      // the Champion's hammer, planted head-down in its plinth
-      const hx = x + hw + 8;
-      ashlar(ctx, hx - 5, baseY - 4, 10, 5, PALE_STONE, seed, { course: 5, block: 5 });
-      // handle driven into the stone, the great head held high
-      part(ctx, (c) => cylinder(c, hx - 1.3, baseY - 24, 2.6, 21, "#6a4a2e", { r: 1 }));
-      part(ctx, (c) => { c.fillStyle = "#d8b34a"; c.fillRect(hx - 1.7, baseY - 10, 3.4, 1.2); c.fillRect(hx - 1.7, baseY - 16, 3.4, 1.2); });
+      // the Champion's hammer: handle driven into a plinth, the great head held high
+      const hx = x + hw - 5.5;
+      ashlar(ctx, hx - 5, baseY - 3, 10, 5, PALE_STONE, seed, { course: 5, block: 5 });
+      part(ctx, (c) => cylinder(c, hx - 1.3, baseY - 23, 2.6, 21, "#6a4a2e", { r: 1 }));
+      part(ctx, (c) => { c.fillStyle = "#d8b34a"; c.fillRect(hx - 1.7, baseY - 9, 3.4, 1.2); c.fillRect(hx - 1.7, baseY - 15, 3.4, 1.2); });
       part(ctx, (c) => {
-        roundRect(c, hx - 7, baseY - 32, 14, 8, 1.5);
+        roundRect(c, hx - 7, baseY - 31, 14, 8, 1.5);
         c.fillStyle = lin(c, hx - 7, 0, hx + 7, 0, [[0, "#f0f2f8"], [0.5, "#b0b4c0"], [1, "#5a5e6a"]]); c.fill();
-        c.fillStyle = "#d8b34a"; c.fillRect(hx - 7, baseY - 29, 14, 1.2); c.fillRect(hx - 1, baseY - 32, 2, 8);
+        c.fillStyle = "#d8b34a"; c.fillRect(hx - 7, baseY - 28, 14, 1.2); c.fillRect(hx - 1, baseY - 31, 2, 8);
       });
-    } else if (lvl >= 2 || pal) rack(ctx, x + hw + 9, baseY + 1, pal ? "#3a5a8a" : "#a04a3f");
-    if (!pal) dummy(ctx, lvl === 1 ? x + hw + 7 : x - hw - 12, baseY + 2);
-  } else {
-    if (r4 === "bb") {
-      // the war-drum on its stand, and a brazier
-      const dx = x + hw + 8;
-      beam(ctx, dx - 4, baseY + 1, dx - 3, baseY - 5, 1.2, DARK); beam(ctx, dx + 4, baseY + 1, dx + 3, baseY - 5, 1.2, DARK);
-      part(ctx, (c) => { cylinder(c, dx - 5, baseY - 11, 10, 7, "#8a3a2a", { r: 2, hi: 0.35, lo: 0.5 }); c.fillStyle = "#e8dfc6"; c.fillRect(dx - 5, baseY - 11, 10, 1.2); c.strokeStyle = "#d8ccb0"; c.lineWidth = 0.5; c.beginPath(); for (let k = 0; k < 4; k++) { c.moveTo(dx - 4 + k * 2.6, baseY - 10); c.lineTo(dx - 2.7 + k * 2.6, baseY - 4.5); } c.stroke(); });
-      brazier(ctx, x - hw - 6, baseY + 2, 1);
-    } else rack(ctx, x + hw + 9, baseY + 1, "#d8b34a");
-  }
+    } else if (!pal && lvl >= 2) rack(ctx, x + hw - 3.5, baseY + 3, "#a04a3f");
+    if (!pal && lvl === 1) dummy(ctx, x + hw - 5, baseY + 4);
+    if (!pal && lvl === 2) dummy(ctx, x - hw + 5, baseY + 4);
+  } else if (r4 === "bb") {
+    // the war-drum on its stand, and a brazier
+    const dx = x + hw - 5.5;
+    beam(ctx, dx - 4, baseY + 1, dx - 3, baseY - 5, 1.2, DARK); beam(ctx, dx + 4, baseY + 1, dx + 3, baseY - 5, 1.2, DARK);
+    part(ctx, (c) => { cylinder(c, dx - 5, baseY - 11, 10, 7, "#8a3a2a", { r: 2, hi: 0.35, lo: 0.5 }); c.fillStyle = "#e8dfc6"; c.fillRect(dx - 5, baseY - 11, 10, 1.2); c.strokeStyle = "#d8ccb0"; c.lineWidth = 0.5; c.beginPath(); for (let k = 0; k < 4; k++) { c.moveTo(dx - 4 + k * 2.6, baseY - 10); c.lineTo(dx - 2.7 + k * 2.6, baseY - 4.5); } c.stroke(); });
+    brazier(ctx, x - hw + 5, baseY + 4, 1);
+  } else rack(ctx, x + hw - 3.5, baseY + 3, "#d8b34a");
   // the campfire ring (its fire is live)
-  if (grown && !(r4 === "bb")) {
-    const fx = x - hw - 10, fy = baseY + 1;
-    const cf = !ber && !pal ? fx : fx;
+  if (grown && r4 !== "bb") {
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      rock(ctx, cf + Math.cos(a) * 4.5, fy + Math.sin(a) * 2, 1.6, 1.1, "#8a8478", seed + i);
+      rock(ctx, fireX + Math.cos(a) * 4.5, fireY + Math.sin(a) * 2, 1.6, 1.1, "#8a8478", seed + i);
     }
-    part(ctx, (c) => { beam(c, cf - 4, fy, cf + 3, fy - 2, 1.5, "#5f4326"); beam(c, cf - 3, fy - 2, cf + 4, fy, 1.5, "#4a3018"); });
+    part(ctx, (c) => { beam(c, fireX - 4, fireY, fireX + 3, fireY - 2, 1.5, "#5f4326"); beam(c, fireX - 3, fireY - 2, fireX + 4, fireY, 1.5, "#4a3018"); });
   }
   // the standard's pole on the ridge
   part(ctx, (c) => cylinder(c, x - 0.8, wallTop - roofH - (r4 === "ab" ? 18 : 12), 1.6, 12, OAKWOOD, { r: 0.8 }));
-  if (!ber) posy(ctx, x + hw + 1, baseY + 4, "#e8e4d8", seed);
+  if (!ber) posy(ctx, x + 9, baseY + 6, "#e8e4d8", seed);
 };
 
 export const drawGarrison = (ctx, t, time) => {
@@ -313,8 +309,8 @@ export const drawGarrison = (ctx, t, time) => {
   } else paintHall(ctx, t, x, y);
 
   // ---- fire: the campfire, the Frenzy's brazier
-  if (grown && r4 !== "bb") flame(ctx, x - hw - 10, baseY - 0.5, 0.75, time, t.id);
-  if (r4 === "bb") flame(ctx, x - hw - 6, baseY - 5, 0.9, time, t.id, ["#ffd0a0", "#e84a2a", "#8a1a18"]);
+  if (grown && r4 !== "bb") flame(ctx, x - Math.min(hw, 13.5) + 6.5, baseY + 2.5, 0.75, time, t.id);
+  if (r4 === "bb") flame(ctx, x - hw + 5, baseY - 3, 0.9, time, t.id, ["#ffd0a0", "#e84a2a", "#8a1a18"]);
   // the chimney's smoke
   if (!ber && r4 !== "ab") for (let i = 0; i < 4; i++) {
     const t2 = (time * 9 + i * 5 + t.id * 2) % 20;
@@ -323,14 +319,14 @@ export const drawGarrison = (ctx, t, time) => {
   }
   // torchlight at the door and in the windows
   const dg = 0.45 + 0.15 * Math.sin(time * 1.9 + t.id);
-  if (lvl >= 2 && !pal && !ber) flame(ctx, x + 6.5, baseY - 11.5, 0.4, time, t.id + 2);
+  if (lvl >= 2 && !pal && !ber) flame(ctx, x + 5, baseY - 11.5, 0.4, time, t.id + 2);
   if (pal) glow(ctx, x, wallTop - 1, 4, "#f8e8a0", dg);
   if (r4 === "ba") {
     // eyes in the kennel dark
     const blink = Math.sin(time * 0.7 + t.id * 1.3) > 0.94;
     if (!blink) { ctx.fillStyle = "#f0d040"; ctx.fillRect(x - 1.8, baseY - 9, 1, 0.8); ctx.fillRect(x + 0.6, baseY - 9, 1, 0.8); }
   }
-  if (r4 === "aa") glow(ctx, x + hw + 8, baseY - 28, 9, "#f8e8a0", 0.35 + 0.15 * Math.sin(time * 2 + t.id));
+  if (r4 === "aa") glow(ctx, x + hw - 5.5, baseY - 27, 9, "#f8e8a0", 0.35 + 0.15 * Math.sin(time * 2 + t.id));
   if (r4 === "ab") {
     // the sunburst over the door and holy runes burning in the ring
     glow(ctx, x, wallTop - 20, 10, "#f8e08a", 0.3 + 0.12 * Math.sin(time * 1.4 + t.id));
@@ -338,7 +334,7 @@ export const drawGarrison = (ctx, t, time) => {
       const a = (i / 8) * Math.PI * 2 + time * 0.25;
       const on = 0.5 + 0.5 * Math.sin(time * 2.5 + i * 1.7);
       ctx.fillStyle = rgba("#f8e08a", 0.35 + on * 0.6);
-      const rx = x + Math.cos(a) * (hw + 12), ry = baseY + 3 + Math.sin(a) * 8;
+      const rx = x + Math.cos(a) * 15.5, ry = y + 8 + Math.sin(a) * 5;
       ctx.fillRect(rx - 0.5, ry - 1.5, 1, 3); ctx.fillRect(rx - 1.5, ry - 0.5, 3, 1);
     }
   }

@@ -20,7 +20,7 @@
 
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, lin, part, hash,
-  groundBed, ashlar, banner, flame, vine, rock, posy,
+  groundBed, footClip, ashlar, banner, flame, vine, rock, posy,
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
 import { getStats } from "../../engine/towers.js";
@@ -43,8 +43,10 @@ const ALTAR = { base: "#948c80", a: "#9aa8b0", aa: "#b0c4d0", ab: "#8a9cac", b: 
 const ICE = "#a8e4f0", ICE_DK = "#5aa8c8", ICE_LT = "#e8fbff";
 const BOX = { left: 40, right: 40, up: 92, down: 18 };
 
-const altarW = (t) => (t.rank4 ? 16 : t.branch ? 14 : 8 + t.level * 2);
-const pillarX = (t) => altarW(t) + 6;
+// (kept inside the footprint: the lower step reaches altarW + 4, a pillar's
+// base pillarX + 3)
+const altarW = (t) => (t.rank4 ? 11 : t.branch || t.level >= 2 ? 10 : 9);
+const pillarX = (t) => 13;
 const archH = (t) => (t.rank4 ? 36 : 32);
 
 // A crystal of ice: a long hexagonal prism with a pointed head, lit left.
@@ -62,16 +64,18 @@ const paintGround = (ctx, t, x, y) => {
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
   const pw = altarW(t);
   const ice = t.branch === "a";
-  groundBed(ctx, x, y + 7, pw + 3, t.id, { earth: ice ? "#8aa0a8" : t.branch === "b" ? "#6a7a42" : "#7c6242", spread: t.branch ? 12 : 9 });
+  ctx.save();
+  footClip(ctx, x, y);
+  groundBed(ctx, x, y + 7, pw + 3, t.id, { earth: ice ? "#8aa0a8" : t.branch === "b" ? "#6a7a42" : "#7c6242" });
   // the rune ring the warden keeps swept
   if (t.level >= 2 || t.branch) {
     const col = ice ? "#c8f0f8" : t.branch === "b" ? "#d8f0a0" : "#a8e0e8";
     ctx.strokeStyle = rgba(col, 0.35); ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(x, y + 6, pw + 13, 6.5, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x, y + 6, 16.5, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
   }
   if (ice) {
     // frost across the ground; white and wide at Absolute Zero
-    const r = r4 === "aa" ? 30 : 22;
+    const r = r4 === "aa" ? 18 : 16;
     soft(ctx, x, y + 6, r, r * 0.34, [[0, "rgba(236,250,255,0.55)"], [0.7, "rgba(220,244,252,0.35)"], [1, "rgba(220,244,252,0)"]]);
     if (r4 === "ab") {
       // frost roots cracking out from the heart
@@ -85,7 +89,8 @@ const paintGround = (ctx, t, x, y) => {
       }
     }
   }
-  if (t.branch === "b") for (let i = 0; i < 4; i++) posy(ctx, x - pw - 10 + (i % 2) * (pw * 2 + 20) + hash(t.id, i) * 3, y + 8 + (i < 2 ? 0 : 3), i % 2 ? "#f0d060" : "#e8e4d8", t.id + i);
+  ctx.restore();
+  if (t.branch === "b") for (const [i, [fx, fy]] of [[-15, 7], [15, 8], [-11, 12], [11, 12]].entries()) posy(ctx, x + fx, y + fy, i % 2 ? "#f0d060" : "#e8e4d8", t.id + i);
 };
 
 // The altar, and everything that stands behind the warden.
@@ -101,7 +106,7 @@ const paintBack = (ctx, t, x, y) => {
   // ---- the tall things at the back
   if (r4 === "aa") {
     // a cluster of ice spires, tallest in the middle
-    const spires = [[-13, 22, 4, -1.5], [13, 24, 4, 1.5], [-7, 38, 5, -1], [7, 34, 5, 1], [0, 46, 6, 0], [-18, 13, 3, -1], [18, 15, 3, 1]];
+    const spires = [[-12, 22, 4, -1.5], [12, 24, 4, 1.5], [-7, 38, 5, -1], [7, 34, 5, 1], [0, 46, 6, 0], [-15, 13, 3, -1], [15, 15, 3, 1]];
     for (const [dx, h, w, lean] of spires.sort((a, b) => a[1] - b[1]).reverse()) crystal(ctx, x + dx, y - 1, w, h, lean);
   } else if (r4 === "ab") {
     // the plinth; the heart itself beats live
@@ -193,7 +198,7 @@ const paintFront = (ctx, t, x, y) => {
     if (!arch && r4) crystal(ctx, px, ptop - 2, 3, 8, 0);                                            // an ice lamp
     else if (!arch) part(ctx, (c) => { c.fillStyle = "#e8e0c8"; c.fillRect(px - 1, ptop - 6.5, 2, 4); });   // a candle
     if (life) vine(ctx, px + s * 1.5, ptop + 2, y - ptop - 2, s, t.id + s, "#4f8a3c", "#f0a0b8");
-    if (ice && arch) for (let k = 0; k < 2; k++) crystal(ctx, px + s * (2.5 + k * 1.5), y + 5, 2, 6 - k * 2, s);
+    if (ice && arch) crystal(ctx, px + s * 2.8, y + 5, 2, 6, s);
   }
   if (!arch) return;
   // the lintel, and a keystone set with a gem

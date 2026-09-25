@@ -19,7 +19,7 @@ import { archerLayout, getStats } from "../../engine/towers.js";
 import {
   pennant, vine, TIMBER, OAKWOOD, GREY_STONE, PALE_STONE,
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, lin, part, hash,
-  groundBed, footing, ashlar, planks, beam, archWindow, door, banner, flame, torchBracket, merlons, rock, posy,
+  groundBed, footClip, footing, ashlar, planks, beam, archWindow, door, banner, flame, torchBracket, merlons, rock, posy,
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
 import { drawArcher, drawCrew, ARCHER_FOLK } from "../folk.js";
@@ -232,7 +232,10 @@ const paintGround = (ctx, t, x, y) => {
   const lay = archerLayout(t);
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
   const hw = lay.hw + (t.branch ? 3 : 1);
-  groundBed(ctx, x, y + 7, hw, t.id, { earth: r4 === "aa" ? "#5a5a3a" : "#7c6242", spread: t.branch ? 11 : 9 });
+  ctx.save();
+  footClip(ctx, x, y);
+  groundBed(ctx, x, y + 7, hw, t.id, { earth: r4 === "aa" ? "#5a5a3a" : "#7c6242" });
+  ctx.restore();
 };
 
 // ---- the still stone and timber of one form, behind the crew -------------
@@ -263,8 +266,8 @@ const paintBody = (ctx, t, x, y) => {
     // a flagpole lashed to the back corner
     part(ctx, (c) => cylinder(c, x + pw - 3.2, dy - 20, 1.6, 22, OAKWOOD, { r: 0.8 }));
     walkFloor(ctx, x, dy, pw, false, TIMBER, seed);
-    strawButt(ctx, x - hw - 6, base + 1);
-    posy(ctx, x + hw + 5, base + 1.5, "#b08ad8", seed);
+    strawButt(ctx, x - 13.5, base + 2);
+    posy(ctx, x + hw + 3, base + 1.5, "#b08ad8", seed);
     return;
   }
 
@@ -288,7 +291,7 @@ const paintBody = (ctx, t, x, y) => {
     part(ctx, (c) => cylinder(c, x - pw + 1, dy - 13, pw * 2 - 2, 1.6, lighten(OAKWOOD, 0.1), { r: 0.8 }));
     part(ctx, (c) => cylinder(c, x + pw - 3.2, dy - 26, 1.6, 20, OAKWOOD, { r: 0.8 }));
     walkFloor(ctx, x, dy, pw, false, TIMBER, seed);
-    arrowBarrel(ctx, x + hw + 5, base + 1, 4);
+    arrowBarrel(ctx, x + hw + 2, base + 1, 4);
     return;
   }
 
@@ -411,8 +414,8 @@ const paintBody = (ctx, t, x, y) => {
         c.fillRect(cx - 0.25, cy + 2, 0.5, 2);
       }
     }, { point: true });
-    strawButt(ctx, x - hw - 7, base + 1);
-    if (r4 !== "aa") arrowBarrel(ctx, x + hw + 6, base + 1, 5);
+    strawButt(ctx, x - hw - 1.2, base + 2);
+    if (r4 !== "aa") arrowBarrel(ctx, x + hw + 1.5, base, 5);
   }
   if (master) {
     const bcol = r4 === "ba" ? "#3e4048" : r4 === "bb" ? "#8e2a26" : "#3f5a8c";
@@ -424,18 +427,17 @@ const paintBody = (ctx, t, x, y) => {
     }, { point: true });
     if (r4 === "bb") dragonSkull(ctx, x - 1, bodyTop + 22);
     if (r4 === "ba") {
-      // spare bolts stacked at the foot
-      part(ctx, (c) => { for (let i = 0; i < 3; i++) { c.fillStyle = "#6a4a2e"; c.fillRect(x + hw + 1, base - 2 - i * 1.6, 11, 1.2); c.fillStyle = "#c4c8d0"; c.fillRect(x + hw + 11.5, base - 2.2 - i * 1.6, 2, 1.6); } });
+      // (the spare bolts live in the rack on the walk: the foot is kept clear)
     }
   }
   if (r4 === "aa") {
     // the venom cauldron on its fire-stones; the brew is painted live
-    for (let i = 0; i < 4; i++) rock(ctx, x + hw + 4 + i * 2.2, base + 0.5, 1.4, 1, "#8a8478", seed + i);
+    for (let i = 0; i < 3; i++) rock(ctx, x + hw - 1.5 + i * 2.5, base + 0.5, 1.2, 0.9, "#8a8478", seed + i);
     part(ctx, (c) => {
-      c.beginPath(); c.ellipse(x + hw + 7, base - 4, 5, 4.2, 0, 0, Math.PI * 2);
-      c.fillStyle = lin(c, x + hw + 2, 0, x + hw + 12, 0, [[0, "#5a5a66"], [0.5, "#3a3a44"], [1, "#22222a"]]);
+      c.beginPath(); c.ellipse(x + hw + 1.5, base - 3.2, 3.6, 3.2, 0, 0, Math.PI * 2);
+      c.fillStyle = lin(c, x + hw - 2, 0, x + hw + 5, 0, [[0, "#5a5a66"], [0.5, "#3a3a44"], [1, "#22222a"]]);
       c.fill();
-      c.fillStyle = "#6c727e"; c.fillRect(x + hw + 2, base - 7.5, 10, 1);
+      c.fillStyle = "#6c727e"; c.fillRect(x + hw - 2, base - 6, 7, 1);
     });
   }
 };
@@ -496,11 +498,11 @@ export const drawArcherTower = (ctx, t, time) => {
   }
   if (r4 === "aa") {
     // the venom brew: a sick green glow and bubbles that pop at the rim
-    glow(ctx, x + hw + 7, base - 7.5, 6, "#8ce05a", 0.35 + 0.1 * Math.sin(time * 3 + t.id));
-    ctx.fillStyle = "#8ce05a"; ctx.fillRect(x + hw + 3, base - 8, 8, 1.2);
+    glow(ctx, x + hw + 1.5, base - 6.5, 5, "#8ce05a", 0.35 + 0.1 * Math.sin(time * 3 + t.id));
+    ctx.fillStyle = "#8ce05a"; ctx.fillRect(x + hw - 1.5, base - 6.6, 6, 1);
     for (let i = 0; i < 3; i++) {
       const ph = (time * 0.9 + i * 0.37 + t.id * 0.1) % 1;
-      const bx = x + hw + 4.5 + i * 2.5, by = base - 8.5 - ph * 7;
+      const bx = x + hw - 0.5 + i * 2, by = base - 7 - ph * 7;
       ctx.fillStyle = rgba("#b8f08a", 1 - ph);
       ctx.fillRect(bx, by, ph < 0.2 ? 1.5 : 1, ph < 0.2 ? 1.5 : 1);
     }
@@ -594,7 +596,6 @@ const hawk = (ctx, x, y, time, id) => {
   const hx = x + Math.cos(ang) * 20, hy = y + Math.sin(ang) * 6;
   const flap = Math.sin(time * 9 + id) * 2.5;
   const face = Math.cos(ang + Math.PI / 2) >= 0 ? 1 : -1;
-  shadow(ctx, hx + 6, y + 60, 5, 1.6, 0.16);
   for (const side of [-1, 1]) {
     ctx.strokeStyle = side < 0 ? "#5a4028" : "#7a5a3a";
     ctx.lineWidth = 1.8;

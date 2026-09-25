@@ -22,7 +22,7 @@
 import { getStats } from "../../engine/towers.js";
 import {
   GREY_STONE, lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, lin, part, hash,
-  groundBed, footing, ashlar, archWindow, door, banner, brazier, flame, merlons, rock, posy, pennant,
+  groundBed, footClip, footing, ashlar, archWindow, door, banner, brazier, flame, merlons, rock, posy, pennant,
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
 import { drawMage, mageTip, MAGE_FOLK } from "../folk.js";
@@ -63,11 +63,12 @@ const coil = (ctx, x, bottom, h) => {
 
 const paintGround = (ctx, t, x, y) => {
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
-  groundBed(ctx, x, y + 7, shaftW(t) / 2 + 1, t.id, { earth: r4 === "aa" ? "#4a3a30" : r4 === "ab" ? "#6a4a30" : "#7c6242", spread: t.rank4 ? 12 : 9 });
-  if (r4 === "aa") {
-    // scorched ground and the crust of a lava pool, lower right
-    soft(ctx, x, y + 8, 26, 8, [[0, "rgba(40,24,24,0.45)"], [0.7, "rgba(40,24,24,0.25)"], [1, "rgba(40,24,24,0)"]]);
-  }
+  ctx.save();
+  footClip(ctx, x, y);
+  groundBed(ctx, x, y + 7, shaftW(t) / 2 + 1, t.id, { earth: r4 === "aa" ? "#4a3a30" : r4 === "ab" ? "#6a4a30" : "#7c6242" });
+  // scorched ground round the Volcanic Throne
+  if (r4 === "aa") soft(ctx, x, y + 6, 17, 7, [[0, "rgba(40,24,24,0.45)"], [0.7, "rgba(40,24,24,0.25)"], [1, "rgba(40,24,24,0)"]]);
+  ctx.restore();
 };
 
 const paintBody = (ctx, t, x, y) => {
@@ -202,14 +203,14 @@ const paintBody = (ctx, t, x, y) => {
   // ---- the foot
   if (el === "storm") {
     // rune-stones set round the foot; they hum live
-    for (const s of [-1, 1]) rock(ctx, x + s * (hw + 4), base - 1, 2.6, 3.2, "#8a90a0", seed + s);
+    for (const s of [-1, 1]) rock(ctx, x + s * (hw + 2.5), base - 1, 2, 3, "#8a90a0", seed + s);
   }
   if (r4 === "ab") {
     // a ring of fire-pillars round the foot (their fire is live)
-    for (const [px, py] of [[x - hw - 7, base + 1], [x + hw + 7, base + 1]]) part(ctx, (c) => { cylinder(c, px - 2, py - 8, 4, 8, "#7a5a4a", { r: 1, hi: 0.35, lo: 0.5 }); c.fillStyle = "#3a2420"; c.fillRect(px - 2.4, py - 9, 4.8, 1.4); });
+    for (const [px, py] of [[x - hw - 3.5, base - 3], [x + hw + 3.5, base - 3]]) part(ctx, (c) => { cylinder(c, px - 1.7, py - 9, 3.4, 9, "#7a5a4a", { r: 1, hi: 0.35, lo: 0.5 }); c.fillStyle = "#3a2420"; c.fillRect(px - 2, py - 10, 4, 1.4); });
   }
-  if (r4 === "aa") for (let i = 0; i < 3; i++) rock(ctx, x + hw + 2 + i * 6, base + (i % 2) * 7, 2, 1.3, "#3a3038", seed + i);
-  if (!br) posy(ctx, x - hw - 5, base + 1.5, "#b08ad8", seed);
+  if (r4 === "aa") for (const [rx, ry] of [[-9, 4], [13, 2], [-13, 1]]) rock(ctx, x + rx, base + ry, 2, 1.3, "#3a3038", seed + rx);
+  if (!br) posy(ctx, x - hw - 3, base + 1.5, "#b08ad8", seed);
 };
 
 // The low gilt balustrade along the front of the walk.
@@ -255,10 +256,11 @@ export const drawWizardSpire = (ctx, t, time) => {
   // the lava pool at the Volcanic Throne's foot breathes under its crust
   if (r4 === "aa") {
     const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + t.id);
-    glow(ctx, x + hw + 8, base + 3, 13, LAVA, 0.25 + pulse * 0.15);
-    soft(ctx, x + hw + 8, base + 4, 8, 3, [[0, "#ffe08a"], [0.4, LAVA], [0.85, "#b8321e"], [1, "#6a1e18"]]);
+    // (it wells up in front of the door, well inside the hall's footing)
+    glow(ctx, x + 4, base + 2, 8, LAVA, 0.25 + pulse * 0.15);
+    soft(ctx, x + 4, base + 2.5, 6, 2.4, [[0, "#ffe08a"], [0.4, LAVA], [0.85, "#b8321e"], [1, "#6a1e18"]]);
     ctx.fillStyle = "#2a2024";
-    ctx.fillRect(x + hw + 4, base + 3, 2.5, 1); ctx.fillRect(x + hw + 9, base + 5, 3, 1); ctx.fillRect(x + hw + 11, base + 2.5, 1.5, 1);
+    ctx.fillRect(x + 0.5, base + 1.5, 2.5, 1); ctx.fillRect(x + 5, base + 3.5, 3, 1); ctx.fillRect(x + 7.5, base + 1.5, 1.5, 1);
   }
 
   // ---- lights in the stone
@@ -269,14 +271,14 @@ export const drawWizardSpire = (ctx, t, time) => {
   if (r4 === "aa") glow(ctx, x, top + bodyH * 0.55, hw + 2, LAVA, 0.12 + 0.1 * Math.sin(time * 2.4 + t.id));
   if (el === "storm") for (const s of [-1, 1]) {
     const on = 0.4 + 0.5 * Math.max(0, Math.sin(time * 3 + s * 1.3 + t.id));
-    glow(ctx, x + s * (hw + 4), base - 2, 3.5, "#8ce8f0", on);
-    ctx.fillStyle = rgba("#e8fcff", on); ctx.fillRect(x + s * (hw + 4) - 0.5, base - 3.5, 1, 2.5);
+    glow(ctx, x + s * (hw + 2.5), base - 2, 3, "#8ce8f0", on);
+    ctx.fillStyle = rgba("#e8fcff", on); ctx.fillRect(x + s * (hw + 2.5) - 0.5, base - 3.5, 1, 2.5);
   }
   // ---- fire at the corners and round the foot
   if (el === "fire" && grown) for (const s of [-1, 1]) flame(ctx, x + s * (pw - 2), top - 19.5, r4 ? 0.9 : 0.7, time, t.id + s * 3);
   if (r4 === "ab") {
-    flame(ctx, x - hw - 7, base - 7.5, 0.8, time, t.id + 7);
-    flame(ctx, x + hw + 7, base - 7.5, 0.8, time, t.id + 11);
+    flame(ctx, x - hw - 3.5, base - 12.5, 0.75, time, t.id + 7);
+    flame(ctx, x + hw + 3.5, base - 12.5, 0.75, time, t.id + 11);
   }
 
   // ---- the mage: idle between waves, gathering power as the cooldown
@@ -365,7 +367,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   // smoke off the Volcanic Throne; embers up the Wildfire Court
   if (r4 === "aa") for (let i = 0; i < 3; i++) {
     const t2 = (time * 7 + i * 7 + t.id * 2) % 21;
-    soft(ctx, x + hw + 9 + Math.sin(time + i) * 2 + t2 * 0.2, base - t2 * 1.4, 2 + t2 / 6, 2 + t2 / 6, [[0, `rgba(70,60,64,${Math.max(0, 0.45 - t2 * 0.02)})`], [1, "rgba(70,60,64,0)"]]);
+    soft(ctx, x + 4 + Math.sin(time + i) * 2 + t2 * 0.2, base + 1 - t2 * 1.4, 2 + t2 / 6, 2 + t2 / 6, [[0, `rgba(70,60,64,${Math.max(0, 0.45 - t2 * 0.02)})`], [1, "rgba(70,60,64,0)"]]);
   }
   if (r4 === "ab" || r4 === "aa") for (let i = 0; i < 4; i++) {
     const ey = base - ((time * 24 + i * 13 + t.id * 7) % (bodyH + 30));

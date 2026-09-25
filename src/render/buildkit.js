@@ -235,21 +235,36 @@ import { blobBall, flower as wildflower } from "./paint.js";
 // tight dark line right where stone meets turf. Stones in it ink themselves.
 export const groundBed = (ctx, x, y, hw, seed = 0, o = {}) => {
   const earth = o.earth ?? "#7c6242";
-  const r = hw + (o.spread ?? 9);
-  soft(ctx, x, y + 1, r, r * 0.34, [[0, rgba(earth, 0.36)], [0.62, rgba(earth, 0.24)], [1, rgba(earth, 0)]]);
+  const r = Math.min(hw + (o.spread ?? 5), 17);
+  soft(ctx, x, y - 1, r, r * 0.44, [[0, rgba(earth, 0.36)], [0.62, rgba(earth, 0.24)], [1, rgba(earth, 0)]]);
   // the cast shadow, thrown away from the sun
-  soft(ctx, x + hw * 0.45 + 3, y + 2.5, hw + 7, 5 + hw * 0.08, [[0, "rgba(34,24,38,0.36)"], [0.7, "rgba(34,24,38,0.22)"], [1, "rgba(34,24,38,0)"]]);
+  soft(ctx, x + 2.5, y + 1.5, Math.min(hw + 3, 16), 4.5, [[0, "rgba(34,24,38,0.36)"], [0.7, "rgba(34,24,38,0.22)"], [1, "rgba(34,24,38,0)"]]);
   // the contact: darkest right under the footing
   soft(ctx, x + 1, y + 0.5, hw + 2.5, 3, [[0, "rgba(30,20,32,0.55)"], [0.8, "rgba(30,20,32,0.4)"], [1, "rgba(30,20,32,0)"]]);
   // flagstones and gravel kicked out of the work
   const n = o.stones ?? 7;
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + hash(seed, i) * 0.8, d = r * (0.62 + hash(seed, i + 9) * 0.34);
-    const sx = x + Math.cos(a) * d, sy = y + 1.5 + Math.sin(a) * d * 0.34;
+    const a = (i / n) * Math.PI * 2 + hash(seed, i) * 0.8, d = r * (0.62 + hash(seed, i + 9) * 0.3);
+    const sx = x + Math.cos(a) * d, sy = y + Math.sin(a) * d * 0.4;
     if (sy < y - 1) continue;                         // the back ones hide behind the hall anyway
     const big = hash(seed, i + 3) > 0.55;
-    part(ctx, (c) => ball(c, sx, sy, big ? 2.6 : 1.5, big ? 1.4 : 0.9, mix("#b0a48e", "#8a7e6a", hash(seed, i + 5)), { hi: 0.45, lo: 0.45 }));
+    part(ctx, (c) => ball(c, sx, sy, big ? 2.4 : 1.4, big ? 1.3 : 0.9, mix("#b0a48e", "#8a7e6a", hash(seed, i + 5)), { hi: 0.45, lo: 0.45 }));
   }
+};
+
+// THE FOOTPRINT. A hall's anchor may sit only 48 from the road's centreline
+// — 16 from its edge — so everything a hall puts on the GROUND stays inside
+// this ellipse round (x, y + 3). Things that rise (shafts, roofs, spires,
+// cloth) may climb out of it; their feet may not.
+export const FOOT = { dy: 3, rx: 18, ry: 13 };
+// clip to the footprint (the caller saves and restores)
+export const footClip = (ctx, x, y) => {
+  ctx.beginPath(); ctx.ellipse(x, y + FOOT.dy, FOOT.rx, FOOT.ry, 0, 0, Math.PI * 2); ctx.clip();
+};
+// how far either side of x the footprint reaches at height `gy`
+export const footHalf = (y, gy) => {
+  const d = (gy - y - FOOT.dy) / FOOT.ry;
+  return Math.abs(d) >= 1 ? 0 : FOOT.rx * Math.sqrt(1 - d * d);
 };
 
 // A wider course of big rough stones the whole hall sits on. `hw` is the

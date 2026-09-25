@@ -55,7 +55,26 @@
         const SLOTS = [[250, 180], [334, 180], [462, 180], [530, 180], [250, 250], [334, 250], [462, 250], [530, 250], [250, 316], [334, 316], [462, 316], [530, 316]];
         const set = SETS[q.get("set") || 1];
         const order = [0, 3, 6, 9, 1, 4, 7, 10, 2, 5, 8, 11];
-        const towers = SLOTS.map(([x, y], i) => { const s = set[order[i]]; return Tw(i + 1, s[0], x, y, s[1], s[2] || null, s[3] || null); });
+        let towers = SLOTS.map(([x, y], i) => { const s = set[order[i]]; return Tw(i + 1, s[0], x, y, s[1], s[2] || null, s[3] || null); });
+        if (q.get("tight")) {
+          // every form at the tightest legal spots: 48..52 from the road's
+          // centreline, as far apart as the board allows
+          const { buildableAt } = await import("/src/engine/actions.js");
+          const { nearestOnPath } = await import("/src/engine/path.js");
+          const all = [...SETS[1], ...SETS[2], ...SETS[3]];
+          const kinds = (q.get("kinds") || "archer,knight,wizard,support").split(",");
+          const forms = all.filter((f) => kinds.includes(f[0]));
+          const gg = { towers: [] };
+          const spots = [];
+          for (let yy = 30; yy < 540; yy += 3) for (let xx = 30; xx < 740; xx += 3) {
+            const d = nearestOnPath(xx, yy).d;
+            if (d < 48 || d > 52 || !buildableAt(gg, xx, yy)) continue;
+            if (spots.some(([sx, sy]) => Math.hypot(sx - xx, sy - yy) < 60)) continue;
+            spots.push([xx, yy]);
+          }
+          const off = Number(q.get("off")) || 0;
+          towers = spots.map(([sx, sy], i) => { const f = forms[(i + off) % forms.length]; return Tw(i + 1, f[0], sx, sy, f[1], f[2] || null, f[3] || null); });
+        }
         const mk = (type, frac, lane) => {
           const d = ENEMIES[type], dist = TOTAL_LEN * frac, [px, py] = posAt(dist), a = angleAt(dist);
           return { id: Math.floor(dist), type, hp: d.hp, maxHp: d.hp, dist, x: px + Math.cos(a + Math.PI / 2) * lane, y: py + Math.sin(a + Math.PI / 2) * lane,
@@ -66,6 +85,12 @@
           enemies: idle ? [] : [mk("goblin", 0.3, 0), mk("orc", 0.35, 10), mk("goblin", 0.5, -12)], phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null, paused: false, buildUntil: null };
         const bc = document.createElement("canvas"); bc.width = W; bc.height = H;
         draw(g, bc, { current: null });
+        if (q.get("foot")) {
+          const c3 = bc.getContext("2d"); c3.save(); c3.setTransform(bc.width / W, 0, 0, bc.width / W, 0, 0);
+          c3.strokeStyle = "#ff00ff"; c3.lineWidth = 0.5;
+          for (const t of towers) { c3.beginPath(); c3.ellipse(t.x, t.y + 3, 18, 13, 0, 0, 7); c3.stroke(); }
+          c3.restore();
+        }
         // draw() re-derives _idle from the enemies; fine: idle=1 has none
         await fetch("/__shot?name=twa_board_" + BOARD, { method: "POST", body: bc.toDataURL("image/png").slice(22) });
         const k = bc.width / W, [cx, cy, cw, ch] = [200, 100, 380, 250], sc = 2;
@@ -96,6 +121,7 @@
           const st = getStats(t);
           t.cd = (st.rate || 1000) * row.cdf;
           try { P[KIND](ctx, t, time); } catch (e) { console.error(e); ctx.fillStyle = "red"; ctx.fillText(String(e.message).slice(0, 30), 4, 12); }
+          if (q.get("foot")) { ctx.strokeStyle = "#ff00ff"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(t.x, t.y + 3, 18, 13, 0, 0, 7); ctx.stroke(); }
           ctx.restore();
         }));
         let out = cv;
