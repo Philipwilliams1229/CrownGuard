@@ -124,15 +124,17 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   upper-right corner (`.cg-corner-x`), outside the scrolling part; drawers
   keep it in a fixed head. A tap on the field or the dark backdrop closes
   them too.
-- **Battle HUD: the map comes first** (owner, 2026-09-25). The board is as
-  big as the screen allows at its true shape; where the screen is too
-  short, only the decorative top/bottom border (MY) is trimmed, never the
-  field. The HUD floats OVER it: in the corners on tablets and desktops;
-  on a phone on its side as two slim rails at the screen edges (mostly in
-  the margins, a little over the map) with compact pieces — small chips,
-  icon-over-label buttons, two threat icons on the horn, no hero name.
-  Everything keeps clear of the notch and home indicator (`vp.safe`). The
-  Build drawer picks as many columns as it takes for the whole roster.
+- **Battle HUD: Bloons-style tray** (owner, 2026-09-25). A tray down the
+  right edge, the same on every device: wave count and pause at its head,
+  Castle (and Master builds), then the panel — the tower grid by default
+  (tap a tile then the grass, or DRAG a tile onto the map), or the selected
+  tower's upgrades, the castle works, the hero's talents or the next wave —
+  and the wave preview, horn and speed at its foot. Nothing but small pieces
+  floats on the map: lives and gold top left; hero, talents and militia
+  bottom left. The map stands flush against the tray at its true shape (its
+  decorative top/bottom border may be trimmed on short screens); the rest of
+  the screen is the realm's landscape (`src/render/apron.js`), never a bar.
+  Everything keeps clear of the notch and home indicator (`vp.safe`).
 - **Landscape only** (owner, 2026-09-25): a touch screen held upright gets
   `src/ui/TurnDevice.jsx`'s "turn your device" card over EVERY screen; the
   manifest declares landscape. Upright layouts (`narrow`) are a fallback
