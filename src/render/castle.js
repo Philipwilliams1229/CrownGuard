@@ -5,7 +5,7 @@
 
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
-import { workTier, bowmenSpots, masonSpots } from "../data/castle.js";
+import { workTier, bowmenSpots, masonSpots, wallDrums, GATE_TOWER_N, GATE_TOWER_S } from "../data/castle.js";
 import { drawArcher, drawHalberdier, drawMason, WALL_FOLK } from "./folk.js";
 import { ballista } from "./halls/archer.js";
 import { REALM } from "../data/maps.js";
@@ -493,9 +493,9 @@ const paintCastleStone = (ctx, gx, gy, tier) => {
   // the north one standing behind it, the south one far enough down the
   // wall that nothing of it rises over the gate
   const things = [];
-  for (let y = 70; y < H; y += 150) if (Math.abs(y - gy) >= 162) things.push({ cx: DRUM_X, foot: y + 14, r: DRUM_R, hgt: 14, seed: y });
-  things.push({ cx: GATE_X, foot: gy - GH - HS - 4, r: GATE_R, hgt: 16, seed: 7, gate: -1, cone: 28 });
-  things.push({ cx: GATE_X, foot: gy + GH + 16 + 1 + 28 + 5, r: GATE_R, hgt: 16, seed: 9, gate: 1, cone: 28, flag: false });
+  for (const foot of wallDrums(gy)) things.push({ cx: DRUM_X, foot, r: DRUM_R, hgt: 14, seed: foot });
+  things.push({ cx: GATE_X, foot: gy + GATE_TOWER_N, r: GATE_R, hgt: 16, seed: 7, gate: -1, cone: 28 });
+  things.push({ cx: GATE_X, foot: gy + GATE_TOWER_S, r: GATE_R, hgt: 16, seed: 9, gate: 1, cone: 28, flag: false });
   things.push({ house: true, foot: yS });
   things.sort((a, b) => a.foot - b.foot);
   // the fire takes the north gate tower's roof first, and one drum after it
@@ -675,10 +675,8 @@ export const drawCastleWorks = (ctx, g) => {
     const bowTier = workTier(works, "archers");
     const taken = new Set(bowTier ? bowmenSpots(gy, bowTier.count) : []);
     const spots = masonSpots(gy, 99).filter((y) => !taken.has(y)).slice(0, want);
-    const drums = [];
-    for (let y = 70; y < H; y += 150) if (Math.abs(y - gy) >= 162) drums.push(y);
-    drums.sort((a, b) => Math.abs(b - gy) - Math.abs(a - gy));
-    for (const y of drums) if (spots.length < want) spots.push(y + 26);
+    const drums = wallDrums(gy).sort((a, b) => Math.abs(b - gy) - Math.abs(a - gy));
+    for (const y of drums) if (spots.length < want) spots.push(y + 12);
     for (let k = 0; k < spots.length; k++) {
       const y = spots[k] + 6;
       cylinder(ctx, W - 40, y - 2, 20, 3, "#8a6a40", { r: 1, hi: 0.3, lo: 0.5 });

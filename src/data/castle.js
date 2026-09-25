@@ -7,6 +7,7 @@
 // be fought for.
 
 import { H } from "./constants.js";
+import { inRiver } from "./terrain.js";
 
 export const CASTLE_WORKS = {
   archers: {
@@ -62,19 +63,58 @@ export const worksBonusHp = (works) => {
 };
 
 // ---- where things stand on the wall ----
-// The wall has round drums every 150 world units down its length (none near
-// the gate) and two great drums flanking the gate bridge. The free stretches
-// of walkway between them are the slots the works' crews stand in.
-const DRUM_STEP = 150, DRUM_R = 15, GATE_R = 25, GATE_G = 70;
-export const wallSlots = (gy) => {
-  const blocked = [];
-  for (let y = 70; y < H; y += DRUM_STEP) if (Math.abs(y - gy) >= GATE_G + 92) blocked.push([y - DRUM_R * 3.7, y + DRUM_R * 2.4]);
-  for (const cy of [gy - GATE_G, gy + GATE_G]) blocked.push([cy - GATE_R * 3, cy + GATE_R * 1.5]);
-  blocked.push([gy - 46, gy + 46]);
+// Squat round drums straddle the wall, spaced evenly down each stretch of it:
+// from the gate towers at either end of the gatehouse out to a drum near the
+// board's edge, every 90-120 units, and never on a river's culvert. The free
+// walk between them is where the works' crews stand — clear of every drum,
+// at most at a drum's foot in front of it, never on or behind it. Positions are the drums'
+// FEET in world y; the renderer draws them from the same list.
+export const GATE_TOWER_N = -58, GATE_TOWER_S = 90;   // gate towers' feet, from gy
+const DRUM_EDGE_N = 34, DRUM_EDGE_S = H - 16, DRUM_STEP = 105, DRUM_MIN = 80;
+const CULVERT_X = 748;
+const wet = (foot) => { for (let y = foot - 14; y <= foot + 14; y += 2) if (inRiver(CULVERT_X, y, 2)) return true; return false; };
+export const wallDrums = (gy) => {
   const out = [];
-  for (let y = 26; y < H - 8; y += 24) {
-    if (blocked.some(([a, b]) => y > a && y < b)) continue;
-    out.push(y);
+  for (const [from, to, dir] of [[gy + GATE_TOWER_N, DRUM_EDGE_N, -1], [gy + GATE_TOWER_S, DRUM_EDGE_S, 1]]) {
+    const span = (to - from) * dir;
+    if (span < DRUM_MIN) continue;
+    // an even step near 105, held to 90-120; the last drum lands near the edge
+    const n = Math.max(1, Math.round(span / DRUM_STEP)), step = Math.min(120, Math.max(90, span / n));
+    const run = [];
+    for (let k = 1; k <= n; k++) {
+      let foot = Math.round(from + dir * k * step);
+      if (foot < 14 || foot > H + 6) continue;
+      // a river under the wall: slide the drum off the culvert, or leave it out
+      if (wet(foot)) {
+        let best = null;
+        for (let d = 2; d <= 44 && best === null; d += 2) for (const f of [foot - d, foot + d]) {
+          if (best !== null || wet(f) || (f - from) * dir < 56 || f < 20 || f > H - 8) continue;
+          if (run.some((q) => Math.abs(q - f) < 64)) continue;
+          best = f;
+        }
+        if (best === null) continue;
+        foot = best;
+      }
+      run.push(foot);
+    }
+    out.push(...run);
+  }
+  return out.sort((a, b) => a - b);
+};
+export const wallSlots = (gy) => {
+  // the stretches of walk crews may use: clear of the gate towers
+  const runs = [[26, gy - 112], [gy + GATE_TOWER_S + 30, H - 12]];
+  const blocked = wallDrums(gy).map((f) => [f - 40, f + 30]);
+  const out = [];
+  for (const [a0, b0] of runs) {
+    // split the run by the drums standing in it
+    let gaps = [[a0, b0]];
+    for (const [ba, bb] of blocked) gaps = gaps.flatMap(([a, b]) => (bb <= a || ba >= b ? [[a, b]] : [[a, ba], [bb, b]]));
+    for (const [a, b] of gaps) {
+      if (b < a) continue;
+      const n = Math.floor((b - a) / 24) + 1, step = n > 1 ? (b - a) / (n - 1) : 0;
+      for (let i = 0; i < n; i++) out.push(Math.round(n > 1 ? a + i * step : (a + b) / 2));
+    }
   }
   return out.sort((a, b) => Math.abs(a - gy) - Math.abs(b - gy));
 };
