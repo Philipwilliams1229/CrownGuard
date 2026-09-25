@@ -4,7 +4,7 @@
 // clears, the build-phase auto-start horn, and effect/shake decay.
 // `dt` is the raw (already clamped) seconds since the last frame.
 
-import { RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED, pickLane } from "../data/constants.js";
+import { RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, pickLane } from "../data/constants.js";
 import { workTier, worksBonusHp, bowmenSpots } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL } from "../data/bands.js";
 import { RIVER_ROUTE } from "../data/terrain.js";
@@ -1455,11 +1455,14 @@ export function updateGame(g, dt) {
         lg.spin += step * 0.09;
         for (const e of g.enemies) {
           if (e.dead || e.flying || lg.hitIds.includes(e.id)) continue;
-          // distance from the enemy to the log's axle line, across its width
+          // distance from the enemy to the log's axle line, across its width.
+          // The log reaches the whole road, all three lanes, however narrow it
+          // is drawn: it takes its bearing from the centreline, and a foe in
+          // an outer lane must not step round it.
           const dx = e.x - lg.x, dy = e.y - lg.y;
           const along = dx * Math.cos(lg.a) + dy * Math.sin(lg.a);
           const across = Math.abs(-dx * Math.sin(lg.a) + dy * Math.cos(lg.a));
-          if (Math.abs(along) > 10 || across > lg.w * 0.5 + (e.size || 14) * 0.5) continue;
+          if (Math.abs(along) > 10 || across > Math.max(lg.w * 0.5, PATH_HALF) + (e.size || 14) * 0.5) continue;
           lg.hitIds.push(e.id);
           dealDamage(g, e, lg.dmg, "phys", true, false, lg.src);
           g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 260, r: 16 });

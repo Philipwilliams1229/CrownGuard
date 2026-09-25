@@ -94,7 +94,7 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "The Log Roller", cost: 340, stats: { logDmg: 120, rate: 5200, range: 999, minRange: 0, logSpeed: 118, logWidth: 22, splash: 0, roller: true }, desc: "Stops throwing and starts ROLLING. A great trimmed log is released down a bearing YOU choose, crushing everything it touches and grinding on until it leaves the board. Point it along a lane and it eats the lane.",
+        name: "The Log Roller", cost: 340, stats: { logDmg: 120, rate: 5200, range: 999, minRange: 0, logSpeed: 118, logWidth: 22, splash: 0, roller: true }, desc: "Stops throwing and starts ROLLING. A great trimmed log is released down a bearing YOU choose, crushing everything it touches and grinding on until it leaves the board. Point it along the road and it eats the road, all three lanes.",
         rank4: {
           a: { name: "The Iron Drum", cost: 680, stats: { logDmg: 210, rate: 5000, range: 999, minRange: 0, logSpeed: 126, logWidth: 28, splash: 0, roller: true, logStun: 900, logSlow: 0.4, logSlowDur: 2000 }, desc: "An iron-banded drum twice the weight: heavier, wider, and what it fails to kill it leaves stunned and staggering in the ruts." },
           b: { name: "The Powder Keg Run", cost: 680, stats: { logDmg: 150, rate: 4800, range: 999, minRange: 0, logSpeed: 132, logWidth: 24, splash: 0, roller: true, logBurn: 26, logBurnDur: 3000, logBlast: 96, logBlastDmg: 220 }, desc: "The log is packed with powder and lit at the release: it burns everything it grinds past, and when it finally leaves the field it goes up." },
