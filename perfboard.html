@@ -1,0 +1,71 @@
+<!doctype html>
+<!--
+  Dev tool: frame cost on a PACKED late-game board — a hall of every kind in
+  every final form on each legal spot, and N foes (default 350) on the road.
+  /perfboard.html?realm=thornbrook&n=350 — result in the page title.
+-->
+<html><head><meta charset="utf-8" /><title>perf…</title></head>
+<body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:20px"><div id="out">running…</div>
+<script type="module">
+import { draw } from "/src/render/draw.js";
+import { selectRealm } from "/src/data/maps.js";
+import { W, H, RES } from "/src/data/constants.js";
+import { posAt, TOTAL_LEN } from "/src/engine/path.js";
+import { ENEMIES } from "/src/data/enemies.js";
+import { buildableAt } from "/src/engine/actions.js";
+const q = new URLSearchParams(location.search);
+selectRealm(q.get("realm") || "thornbrook");
+const N = Number(q.get("n") || 350);
+const kinds = ["archer", "knight", "wizard", "support", "catapult", "spiker", "falconry", "gunpowder", "trapsmith", "goldworks", "assassin", "sunforge", "riverwatch"];
+const forms = [["a", "a"], ["a", "b"], ["b", "a"], ["b", "b"]];
+const towers = []; let i = 0;
+for (let y = 30; y < 540; y += 26) for (let x = 30; x < 730; x += 26) {
+  const k = kinds[i % 13];
+  if (!buildableAt({ towers }, x, y, k)) continue;
+  const f = forms[(i >> 2) % 4];
+  towers.push({ id: i + 1, kind: k, x, y, level: 3, branch: f[0], rank4: f[1], cd: 300, aim: "first", lastAim: i, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [], rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: false, charges: 3, ramp: 2, mAnim: 0, eagle: null });
+  i++;
+}
+const types = ["goblin", "goblin", "wolf", "bat", "orc", "boarrider", "armored", "troll"];
+const enemies = Array.from({ length: N }, (_, j) => {
+  const t = types[j % 8], d = ENEMIES[t], dist = (j * 23) % TOTAL_LEN; const [x, y] = posAt(dist);
+  return { id: j, type: t, sprite: t === "goblin" ? "goblin" : null, hp: d.hp * 0.6, maxHp: d.hp, dist, x: x + ((j % 3) - 1) * 20, y, face: 1, size: d.size, armor: d.armor, mres: 0, guard: 0, guardFlash: 0, flying: !!d.flying, boss: false, atkAnim: 0, stunUntil: 0, slowUntil: 0, slowPct: 0, auraSlow: 0, burnUntil: j % 4 ? 0 : 1e12, poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: 0, blockedBy: null, engaged: false, dead: false, revived: false, born: -1e9 };
+});
+const g = { time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 120, towers, projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [], enemies, phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null, paused: false, buildUntil: null, bands: [] };
+const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES; const buf = { current: null };
+const tb = performance.now();
+for (let k = 0; k < 8; k++) { g.time += 0.016; draw(g, cv, buf); }
+cv.getContext("2d").getImageData(0, 0, 1, 1);
+const warm = performance.now() - tb;
+const t0 = performance.now();
+for (let k = 0; k < 30; k++) { g.time += 0.016; draw(g, cv, buf); }
+cv.getContext("2d").getImageData(0, 0, 1, 1);
+// what one full frame asks of the canvas (?count=1)
+if (q.get("count")) {
+  const Pr = CanvasRenderingContext2D.prototype, cnt = {};
+  for (const k of ["createRadialGradient", "createLinearGradient", "drawImage", "fill", "fillRect", "arc", "ellipse", "stroke", "save", "fillText", "getImageData"]) {
+    const o = Pr[k]; Pr[k] = function (...a) { cnt[k] = (cnt[k] || 0) + 1; return o.apply(this, a); };
+  }
+  g.time += 0.016; draw(g, cv, buf);
+  document.body.dataset.count = JSON.stringify(cnt);
+}
+// per-kind cost: draw a board holding only that kind's halls, no foes
+const per = {};
+const all = g.towers, foes = g.enemies;
+g.enemies = [];
+for (const k of kinds) {
+  g.towers = all.filter((t) => t.kind === k);
+  for (let j = 0; j < 3; j++) draw(g, cv, buf);
+  const a = performance.now(); for (let j = 0; j < 10; j++) { g.time += 0.016; draw(g, cv, buf); }
+  cv.getContext("2d").getImageData(0, 0, 1, 1);
+  per[k] = +(((performance.now() - a) / 10) / Math.max(1, g.towers.length)).toFixed(3);
+}
+g.towers = []; const a0 = performance.now(); for (let j = 0; j < 10; j++) draw(g, cv, buf); cv.getContext("2d").getImageData(0, 0, 1, 1);
+per.empty = +((performance.now() - a0) / 10).toFixed(2);
+g.enemies = foes; const a1 = performance.now(); for (let j = 0; j < 10; j++) { g.time += 0.016; draw(g, cv, buf); } cv.getContext("2d").getImageData(0, 0, 1, 1);
+per.foesOnly = +((performance.now() - a1) / 10).toFixed(2);
+console.log(JSON.stringify(per));
+document.body.dataset.per = JSON.stringify(per);
+const r = `PERF ${towers.length} towers, ${N} foes: ${((performance.now() - t0) / 30).toFixed(2)} ms/frame (first 8 incl. bakes ${warm.toFixed(0)} ms)`;
+document.title = r; document.getElementById("out").textContent = r;
+</script></body></html>
