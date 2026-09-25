@@ -1,13 +1,17 @@
 // ============ CAMPAIGN MAP ============
 // The overworld: one continent, each chapter a country on it, each level a
-// waypoint on the road through. Cleared levels are gold and joined by a solid
-// road; the level you are up to pulses; everything past it is sealed until
-// you get there.
+// waypoint on the road through. The land is pixel art painted once (see
+// mapArt.js); over it sit a progress layer (the gold of the walked road, a
+// banner on every won waypoint, a shield on the next fight, fog over the
+// countries not yet reached) and an SVG layer for the names, the pulse on
+// the front line, and the taps.
 //
-// The map is one SVG in a fixed 400x240 space that scales to the window, so
-// the same picture works on a phone and on a desktop.
+// All three share the map's 400x360 unit space (y from -120 to 240), so the
+// same picture works on a phone and on a desktop. On a landscape tablet the
+// map takes the height of the screen and the chosen level's card stands
+// beside it; on a phone the card drops below.
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { CHAPTERS, LEVELS, levelById, isUnlocked, currentLevel, loadCastle } from "../data/campaign.js";
 import CastleWorksList from "./CastleWorks.jsx";
 import { FACTIONS } from "../data/factions.js";
@@ -15,88 +19,372 @@ import { REALMS } from "../data/maps.js";
 import { W, H } from "../data/constants.js";
 import EnemyIcon from "./EnemyIcon.jsx";
 import { Star } from "./Glyphs.jsx";
-import { btn, title, panel, FONT } from "./theme.js";
+import { panel, FONT } from "./theme.js";
+import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
+import Studs from "./Studs.jsx";
+import { AW, AH, MAP, terrainFor, drawMapState, labelBox, LABEL_FONT, BANNER_AT } from "./mapArt.js";
 
-const SEA = "#243444";
 const INK = "#10131a";
+const LINE = "#241a26";
+const SEA = "#2a4a6a";
+// where the fen's lights wander: [x, y, delay]
+const WISPS = [[262, -58, 0], [334, -46, 0.7], [282, -104, 1.3], [352, -62, 0.4], [236, -50, 1.8], [322, -108, 1.1], [376, -44, 2.2]];
 
-// A pixel pine, for dressing the green country.
-const Pine = ({ x, y, s = 1 }) => (
-  <g transform={`translate(${x} ${y}) scale(${s})`}>
-    <rect x="-1" y="2" width="2" height="4" fill="#4a3524" />
-    <rect x="-5" y="-2" width="10" height="4" fill="#3f5c30" />
-    <rect x="-4" y="-6" width="8" height="4" fill="#4a6b39" />
-    <rect x="-2" y="-9" width="4" height="3" fill="#557a42" />
-  </g>
-);
+// matchMedia, as state
+function useMedia(q) {
+  const [on, setOn] = useState(() => typeof window !== "undefined" && window.matchMedia(q).matches);
+  useEffect(() => {
+    const m = window.matchMedia(q), f = () => setOn(m.matches);
+    m.addEventListener?.("change", f);
+    return () => m.removeEventListener?.("change", f);
+  }, [q]);
+  return on;
+}
 
-// A pixel watchtower, for the Iron country.
-const Keep = ({ x, y, s = 1 }) => (
-  <g transform={`translate(${x} ${y}) scale(${s})`}>
-    <rect x="-4" y="-8" width="8" height="14" fill="#6e7686" />
-    <rect x="-4" y="-8" width="3" height="14" fill="#848c9c" />
-    <rect x="-5" y="-11" width="10" height="3" fill="#5a6272" />
-    <rect x="-1" y="-2" width="2" height="4" fill={INK} />
-  </g>
-);
+// A name scroll: parchment with curled ends, the name in ink.
+function Scroll({ lv, open, sel }) {
+  const b = labelBox(lv);
+  const face = open ? PARCH.face : "#9c968a", curl = open ? PARCH.dk : "#77716a";
+  // a name hung over its waypoint gets a little tab pointing down at it
+  const cx = b.x + b.w / 2, above = b.y < lv.pos[1];
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      {above && <path d={`M${cx - 2.6},${b.y + b.h - 0.4} h5.2 l-2.6,2.8 z`} fill={sel ? "#f2cf4a" : face} stroke={LINE} strokeWidth="0.7" />}
+      <rect x={b.x - 1.6} y={b.y + 1.6} width={2.6} height={b.h - 1.2} fill={curl} stroke={LINE} strokeWidth="0.6" />
+      <rect x={b.x + b.w - 1} y={b.y + 1.6} width={2.6} height={b.h - 1.2} fill={curl} stroke={LINE} strokeWidth="0.6" />
+      <rect x={b.x} y={b.y} width={b.w} height={b.h} fill={face} stroke={sel ? "#f2cf4a" : LINE} strokeWidth={sel ? 1.1 : 0.7} />
+      <rect x={b.x + 0.6} y={b.y + 0.6} width={b.w - 1.2} height={0.8} fill={open ? PARCH.lt : "#aca698"} />
+      <text x={b.x + b.w / 2} y={b.y + b.h / 2 + LABEL_FONT * 0.36} textAnchor="middle"
+        fontSize={LABEL_FONT} fontWeight="bold" fontFamily={FONT} fill={open ? PARCH.ink : "#46424c"}>
+        {lv.short || lv.name}
+      </text>
+    </g>
+  );
+}
 
-// A dead tree and a leaning stone, for the drowned isle.
-const DeadTree = ({ x, y, s = 1 }) => (
-  <g transform={`translate(${x} ${y}) scale(${s})`}>
-    <rect x="-1" y="-9" width="2" height="13" fill="#5a473a" />
-    <rect x="-5" y="-7" width="4" height="2" fill="#5a473a" />
-    <rect x="1" y="-5" width="5" height="2" fill="#5a473a" />
-    <rect x="3" y="-8" width="2" height="3" fill="#5a473a" />
-  </g>
-);
-const Stone = ({ x, y, s = 1 }) => (
-  <g transform={`translate(${x} ${y}) scale(${s})`}>
-    <rect x="-3" y="-6" width="6" height="9" fill="#8a8478" />
-    <rect x="-3" y="-6" width="2" height="9" fill="#a19a88" />
-    <rect x="-1" y="-4" width="2" height="4" fill="#55504a" />
-  </g>
-);
+// A chapter's name on a ribbon out at sea.
+function Banner({ ch, open }) {
+  const [cx, cy] = BANNER_AT[ch.id];
+  const text = open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`;
+  const w = text.length * 5.6 + 14, h = 11, x = cx - w / 2, y = cy - h / 2;
+  const cloth = open ? "#a8505c" : "#5c5c6c", dk = open ? "#7a3440" : "#44444f", lt = open ? "#c46a70" : "#74748a";
+  return (
+    <g style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+      {/* the swallow tails, tucked behind */}
+      <path d={`M${x - 8},${y + 3} h10 v${h} h-10 l3,${-h / 2} z`} fill={dk} stroke={LINE} strokeWidth="0.8" />
+      <path d={`M${x + w + 8},${y + 3} h-10 v${h} h10 l-3,${-h / 2} z`} fill={dk} stroke={LINE} strokeWidth="0.8" />
+      <rect x={x} y={y} width={w} height={h} fill={cloth} stroke={LINE} strokeWidth="0.9" />
+      <rect x={x + 0.8} y={y + 0.8} width={w - 1.6} height={1.2} fill={lt} />
+      <rect x={x + 0.8} y={y + h - 2} width={w - 1.6} height={1.2} fill={dk} />
+      <text x={cx} y={cy + 2.9} textAnchor="middle" fontSize="8" fontWeight="bold" letterSpacing="1.2" fontFamily={FONT}
+        fill={open ? "#f2dc8a" : "#c8c8d4"} stroke={LINE} strokeWidth="1.6" paintOrder="stroke">
+        {text}
+      </text>
+    </g>
+  );
+}
 
 export default function CampaignMap({ progress, profile, onStart, onBack, onReset, onBuyWork }) {
   const rating = (id) => profile?.stars?.[id] || 0;
   const [selId, setSelId] = useState(() => currentLevel(progress).id);
   const [worksOpen, setWorksOpen] = useState(false);
+  const [painted, setPainted] = useState(false);
   const sel = levelById(selId);
   const upTo = currentLevel(progress);
+  const front = progress.cleared[upTo.id] ? null : upTo;
+  const wide = useMedia("(min-width: 820px) and (min-aspect-ratio: 5/4)");
 
-  // The map is taller than its window. On arrival, scroll the view to the
-  // front line — wherever the next uncleared level waits.
-  const mapRef = useRef(null);
+  // Side by side, the map takes as much of the screen as it can while the
+  // whole continent still fits the height; what is left goes to the card.
+  const bodyRef = useRef(null);
+  const [room, setRoom] = useState(null);
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!wide || !el) return;
+    const fit = () => setRoom({ w: el.clientWidth, h: el.clientHeight });
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [wide]);
+  const CHROME = 26, CARD_W = 320;
+  let mapBox = null;
+  if (wide && room) {
+    const byW = room.w - CARD_W - 12 - CHROME, byH = (room.h - CHROME) / 0.9;
+    const inner = Math.max(200, Math.min(byW, Math.max(byH, Math.min(byW, 420))));
+    mapBox = { width: inner + CHROME, height: Math.min(room.h, inner * 0.9 + CHROME) };
+  }
+
+  // Paint the land and the progress over it. The land is baked once per
+  // visit to the page (a few hundred ms the first time), so it waits a frame
+  // for the page to show before it starts.
+  const landRef = useRef(null), stateRef = useRef(null);
+  const starKey = LEVELS.map((l) => rating(l.id)).join("");
+  const clearKey = LEVELS.map((l) => (progress.cleared[l.id] ? 1 : 0)).join("");
   useEffect(() => {
-    const el = mapRef.current;
-    if (!el) return;
-    const svgH = el.clientWidth * (360 / 400);
-    const yFrac = (upTo.pos[1] + 120) / 360;
-    el.scrollTop = Math.max(0, yFrac * svgH - el.clientHeight / 2);
+    let dead = false;
+    const id = setTimeout(() => {
+      if (dead || !landRef.current || !stateRef.current) return;
+      const land = landRef.current.getContext("2d");
+      land.clearRect(0, 0, AW, AH);
+      land.drawImage(terrainFor(progress), 0, 0);
+      const st = stateRef.current.getContext("2d");
+      st.clearRect(0, 0, AW, AH);
+      drawMapState(st, { progress, stars: profile?.stars || {} });
+      setPainted(true);
+    }, painted ? 0 : 30);
+    return () => { dead = true; clearTimeout(id); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearKey, starKey]);
+
+  // Close up (the default) the map is half again the size of its window and
+  // panned, Kingdom Rush style; the button in its corner pulls back to the
+  // whole continent. On arrival the view goes to the front line.
+  const [close, setClose] = useState(true);
+  const scrollRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // frame the whole country the front line is in, if it fits; if not,
+    // the front line itself
+    const k = el.scrollWidth / MAP.w, ps = upTo.chapter.levels.map((l) => l.pos);
+    const x0 = Math.min(...ps.map((p) => p[0])) - 26, x1 = Math.max(...ps.map((p) => p[0])) + 26;
+    const y0 = Math.min(...ps.map((p) => p[1])) - 34, y1 = Math.max(...ps.map((p) => p[1])) + 24;
+    const fits = (x1 - x0) * k <= el.clientWidth && (y1 - y0) * k <= el.clientHeight;
+    const [fx, fy] = fits ? [(x0 + x1) / 2, (y0 + y1) / 2] : upTo.pos;
+    el.scrollTop = Math.max(0, (fy - MAP.y) * k - el.clientHeight / 2);
+    el.scrollLeft = Math.max(0, (fx - MAP.x) * k - el.clientWidth / 2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wide, !!mapBox, close]);
+  // A mouse can drag the map about too (touch pans it natively). A drag
+  // that moved is not a tap, so it selects nothing.
+  const drag = useRef(null);
+  const panDown = (e) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    const el = scrollRef.current;
+    drag.current = { x: e.clientX, y: e.clientY, l: el.scrollLeft, t: el.scrollTop, moved: false };
+  };
+  const panMove = (e) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (!d.moved && Math.hypot(dx, dy) < 5) return;
+    d.moved = true;
+    scrollRef.current.scrollLeft = d.l - dx;
+    scrollRef.current.scrollTop = d.t - dy;
+  };
+  const panUp = () => { setTimeout(() => { drag.current = null; }, 0); };
+  const panClick = (e) => { if (drag.current?.moved) { e.stopPropagation(); e.preventDefault(); } };
   const clearedCount = LEVELS.filter((l) => progress.cleared[l.id]).length;
 
   const selUnlocked = sel ? isUnlocked(sel.id, progress) : false;
   const selCleared = sel ? !!progress.cleared[sel.id] : false;
   const selRealm = sel ? REALMS[sel.realm] : null;
   const selFaction = sel ? FACTIONS[sel.chapter.faction] : null;
+  const selBoss = sel ? sel.index === sel.chapter.levels.length - 1 : false;
+
+  const abandon = (
+    <button style={{ ...woodBtn, fontSize: 10.5, padding: "6px 14px", minHeight: 44, opacity: 0.85, alignSelf: "center" }}
+      onClick={() => { if (confirm("Start the whole campaign over? Every cleared level is forgotten.")) onReset(); }}>
+      Abandon campaign &amp; start over
+    </button>
+  );
+
+  // ---- the continent ----
+  const map = (
+    <div style={{
+      ...frame, background: SEA, padding: 8, boxSizing: "border-box", position: "relative",
+      ...(wide
+        ? { ...(mapBox || { height: "100%", aspectRatio: "400 / 360" }), flexShrink: 0 }
+        : { width: "100%", maxHeight: "56dvh", display: "flex" }),
+    }}>
+      <Studs />
+      <button aria-label={close ? "Show the whole continent" : "Look closer"} title={close ? "The whole continent" : "Closer"}
+        onClick={() => setClose((v) => !v)}
+        style={{ ...woodBtn, position: "absolute", top: 14, right: 14, zIndex: 3, width: 44, height: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <svg width="22" height="22" viewBox="0 0 11 11" style={{ shapeRendering: "crispEdges", display: "block" }} aria-hidden="true">
+          <path d="M3,0h3v1h1v1h1v3h-1v1h-1v1h-3v-1h-1v-1h-1v-3h1v-1h1z" fill="#10131a" />
+          <path d="M3,1h3v1h1v3h-1v1h-3v-1h-1v-3h1z" fill="#cfe2e6" />
+          <rect x="7" y="7" width="2" height="2" fill="#10131a" /><rect x="8" y="8" width="3" height="3" fill="#10131a" />
+          <rect x="8" y="8" width="2" height="2" fill="#8a6440" />
+          <rect x="2.5" y="3" width="4" height="1" fill="#10131a" />
+          {!close && <rect x="4" y="1.5" width="1" height="4" fill="#10131a" />}
+        </svg>
+      </button>
+      <div ref={scrollRef} onPointerDown={panDown} onPointerMove={panMove} onPointerUp={panUp} onPointerLeave={panUp} onClickCapture={panClick}
+        style={{ width: "100%", height: "100%", overflow: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", border: `2px solid ${INK}`, boxSizing: "border-box", cursor: close ? "grab" : "default" }}>
+        {/* close up the continent is drawn larger than its window and
+            panned, so the names stay readable; a phone never goes below
+            that size */}
+        <div style={{ position: "relative", width: close ? (wide ? "150%" : "max(150%, 640px)") : wide ? "100%" : "max(100%, 420px)", aspectRatio: "400 / 360", background: SEA }}>
+          <canvas ref={landRef} width={AW} height={AH}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: "pixelated", opacity: painted ? 1 : 0, transition: "opacity 0.35s" }} />
+          <canvas ref={stateRef} width={AW} height={AH}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: "pixelated" }} />
+          {!painted && (
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, letterSpacing: 2, color: "#9fb8cc" }}>
+              UNROLLING THE MAP…
+            </div>
+          )}
+          <svg viewBox={`${MAP.x} ${MAP.y} ${MAP.w} ${MAP.h}`} preserveAspectRatio="none"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", opacity: painted ? 1 : 0 }}>
+            {CHAPTERS.map((ch) => <Banner key={ch.id} ch={ch} open={isUnlocked(ch.levels[0].id, progress)} />)}
+
+            {/* will-o'-wisps drifting over the fen, once the war gets there */}
+            {isUnlocked(CHAPTERS[2].levels[0].id, progress) && WISPS.map(([x, y, d], i) => (
+              <g key={i} style={{ pointerEvents: "none" }} shapeRendering="crispEdges">
+                <animateTransform attributeName="transform" type="translate" values={`0 0; ${i % 2 ? 2 : -2} -2.5; 0 0`} dur={`${3 + (i % 3)}s`} begin={`${d}s`} repeatCount="indefinite" />
+                <rect x={x - 1.4} y={y - 1.4} width="2.8" height="2.8" fill="#9ae8b0" opacity="0.35">
+                  <animate attributeName="opacity" values="0.1;0.45;0.1" dur="2.4s" begin={`${d}s`} repeatCount="indefinite" />
+                </rect>
+                <rect x={x - 0.6} y={y - 0.6} width="1.2" height="1.2" fill="#e8fff0">
+                  <animate attributeName="opacity" values="0.3;1;0.3" dur="2.4s" begin={`${d}s`} repeatCount="indefinite" />
+                </rect>
+              </g>
+            ))}
+
+            {/* the front line: rings spreading out from the next fight, and
+                a gold chevron bobbing over it */}
+            {front && (
+              <g style={{ pointerEvents: "none" }}>
+                {[0, 0.8].map((d) => (
+                  <ellipse key={d} cx={front.pos[0]} cy={front.pos[1]} rx="6" ry="3" fill="none" stroke="#f2cf4a" strokeWidth="1.2">
+                    <animate attributeName="rx" values="5;13" dur="1.6s" begin={`${d}s`} repeatCount="indefinite" />
+                    <animate attributeName="ry" values="2.5;6.5" dur="1.6s" begin={`${d}s`} repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="1;0" dur="1.6s" begin={`${d}s`} repeatCount="indefinite" />
+                  </ellipse>
+                ))}
+                {labelBox(front).y > front.pos[1] && <g>
+                  <animateTransform attributeName="transform" type="translate" values="0 0; 0 -2.2; 0 0" dur="0.9s" repeatCount="indefinite" />
+                  <path d={`M${front.pos[0] - 3.6},${front.pos[1] - 28} h7.2 l-3.6,4.2 z`} fill="#f2cf4a" stroke={LINE} strokeWidth="0.8" strokeLinejoin="round" />
+                </g>}
+              </g>
+            )}
+
+            {/* the chosen waypoint: gold corner brackets */}
+            {sel && (() => {
+              const [x, y] = sel.pos, l = x - 11, r = x + 11, t = y - 23, b = y + 6, k = 3.6;
+              const d = `M${l},${t + k}V${t}H${l + k} M${r - k},${t}H${r}V${t + k} M${r},${b - k}V${b}H${r - k} M${l + k},${b}H${l}V${b - k}`;
+              return (
+                <g style={{ pointerEvents: "none" }} fill="none" strokeLinecap="square">
+                  <path d={d} stroke={LINE} strokeWidth="2.6" />
+                  <path d={d} stroke="#f2cf4a" strokeWidth="1.2" />
+                </g>
+              );
+            })()}
+
+            {/* names, for every country the war has reached */}
+            {LEVELS.filter((lv) => isUnlocked(lv.chapter.levels[0].id, progress)).map((lv) => (
+              <Scroll key={lv.id} lv={lv} open={isUnlocked(lv.id, progress)} sel={lv.id === selId} />
+            ))}
+
+            {/* the taps: every waypoint is a generous target, its name too */}
+            {LEVELS.map((lv) => {
+              const [x, y] = lv.pos, b = labelBox(lv);
+              return (
+                <g key={lv.id} role="button" tabIndex={0} aria-label={lv.name}
+                  onClick={() => setSelId(lv.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setSelId(lv.id); }}
+                  style={{ cursor: "pointer", outline: "none" }}>
+                  <rect x={x - 13} y={y - 24} width="26" height="31" fill="transparent" />
+                  <rect x={b.x - 2} y={b.y - 1} width={b.w + 4} height={b.h + 2} fill="transparent" />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ---- the chosen waypoint's card ----
+  const card = sel && (
+    <div style={{
+      ...frame, background: PARCH.face, color: PARCH.ink, padding: 16, boxSizing: "border-box", position: "relative",
+      display: "flex", flexDirection: "column", gap: 10,
+      ...(wide ? { width: CARD_W, flexShrink: 0, height: mapBox ? mapBox.height : "100%", overflowY: "auto" } : { width: "100%" }),
+    }}>
+      <Studs />
+      <div style={{ display: "flex", gap: 12, flexWrap: wide ? "wrap" : "nowrap", alignItems: "flex-start" }}>
+        {/* a thumbnail of the actual road you'll be defending */}
+        <svg viewBox="0 0 150 100" width={wide ? "100%" : 132} style={{ flexShrink: 0, aspectRatio: "3 / 2", height: "auto", border: `3px solid ${LINE}`, boxShadow: `0 0 0 2px ${PARCH.dk}`, imageRendering: "pixelated", boxSizing: "border-box", filter: selUnlocked ? "none" : "grayscale(1) brightness(0.6)" }}>
+          <rect x="0" y="0" width="150" height="100" fill={selRealm.GRASS} />
+          {(selRealm.rivers || []).map((rv, i) => (
+            <polyline key={`rv${i}`} points={rv.pts.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
+              fill="none" stroke={selRealm.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}
+              strokeLinejoin="round" strokeLinecap="round" />
+          ))}
+          <polyline points={selRealm.path.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
+            fill="none" stroke={selRealm.PATH_EDGE} strokeWidth="9" strokeLinejoin="round" strokeLinecap="round" />
+          <polyline points={selRealm.path.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
+            fill="none" stroke={selRealm.PATH_MAIN} strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" />
+          {(selRealm.ponds || []).map((p, i) => (
+            <rect key={i} x={(p.x - p.w / 2) * 150 / W} y={(p.y - p.h / 2) * 100 / H} width={p.w * 150 / W} height={p.h * 100 / H}
+              fill={p.t === "lava" ? "#c05a32" : p.t === "ice" ? "#b8d4e0" : p.t === "swamp" ? "#2c4638" : "#4a7a94"} />
+          ))}
+          <circle cx={selRealm.path[0][0] * 10 + 5} cy={selRealm.path[0][1] * 10 + 5} r="4" fill="#e05248" />
+          <rect x={selRealm.path[selRealm.path.length - 1][0] * 10 - 1} y={selRealm.path[selRealm.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
+        </svg>
+
+        <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+          <div style={{ fontSize: 9, letterSpacing: 2, color: PARCH.red, fontWeight: "bold" }}>
+            CHAPTER {sel.chapter.numeral} · LEVEL {sel.index + 1} · {sel.window.count} WAVES{selBoss ? " · BOSS" : ""}
+          </div>
+          <div style={{ fontSize: 17, fontWeight: "bold", color: "#4a2418", margin: "4px 0 4px", lineHeight: 1.2 }}>
+            {sel.name}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            {[1, 2, 3].map((i) => <Star key={i} size={15} lit={i <= rating(sel.id)} />)}
+            {selCleared && <span style={{ fontSize: 9, letterSpacing: 1, color: "#3e6a2a", fontWeight: "bold", marginLeft: 6 }}>✓ HELD</span>}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12, lineHeight: 1.55, color: "#4a3826" }}>
+        {selUnlocked ? sel.blurb : "The road this way is not yours yet. Take the level before it first."}
+      </div>
+      {selUnlocked && (
+        <div style={{ background: "rgba(59,42,28,0.12)", border: `1px solid ${PARCH.dk}`, padding: "6px 8px" }}>
+          <div style={{ fontSize: 8.5, letterSpacing: 2, color: PARCH.red, fontWeight: "bold", marginBottom: 4 }}>ON THE ROAD</div>
+          <div style={{ display: "flex", gap: 4, alignItems: "flex-end", flexWrap: "wrap", minHeight: 28 }}>
+            {selFaction.types.map((ty) => <EnemyIcon key={ty} type={ty} box={26} />)}
+          </div>
+        </div>
+      )}
+      <div style={{ flex: wide ? 1 : 0 }} />
+      <button
+        style={{
+          ...goldBtn, width: "100%", textAlign: "center", padding: "14px 10px", fontSize: 14, letterSpacing: 1, minHeight: 52,
+          ...(selUnlocked ? {} : { background: "#8a8274", boxShadow: "inset -3px -3px 0 #6a6258, inset 3px 3px 0 #a8a092", color: "#4a4450", cursor: "not-allowed" }),
+        }}
+        disabled={!selUnlocked}
+        onClick={() => onStart(sel)}>
+        {selUnlocked ? (selCleared ? `Ride Out Again` : `March on ${sel.short || sel.name}`) : "🔒 Sealed"}
+      </button>
+      {wide && abandon}
+    </div>
+  );
 
   return (
     <div style={{
-      minHeight: "100dvh", background: "#20242c", color: "#e8e0c8", fontFamily: FONT,
-      padding: "14px 12px 24px", boxSizing: "border-box",
+      height: "100dvh", background: "radial-gradient(ellipse at 50% 40%, #243044 0%, #161b24 75%)", color: "#e8e0c8", fontFamily: FONT,
+      padding: "10px 12px 12px", boxSizing: "border-box", overflow: wide ? "hidden" : "auto",
       display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
     }}>
       {/* header */}
-      <div style={{ width: "100%", maxWidth: 780, display: "flex", alignItems: "center", gap: 10 }}>
-        <button style={{ ...btn, padding: "6px 12px", fontSize: 12 }} onClick={onBack}>◀ Menu</button>
-        <div style={{ ...title(15), fontSize: 15, flex: 1, textAlign: "center" }}>THE CAMPAIGN</div>
-        <div style={{ fontSize: 10, opacity: 0.6, textAlign: "right" }}>
-          {clearedCount}/{LEVELS.length} cleared
+      <div style={{ width: "100%", maxWidth: wide ? 1400 : 780, display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <button style={{ ...woodBtn, padding: "0 14px", fontSize: 13 }} onClick={onBack}>◀ Menu</button>
+        <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: "bold", letterSpacing: 4, color: "#e8c65a", textShadow: `2px 2px 0 ${INK}` }}>THE CAMPAIGN</div>
+          <div style={{ fontSize: 9.5, letterSpacing: 1.5, opacity: 0.7, marginTop: 2 }}>{clearedCount} of {LEVELS.length} held</div>
         </div>
-        <button title="The crown's treasury and the castle's works" style={{ ...btn, padding: "6px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setWorksOpen(true)}>
-          🏰 <b style={{ color: "#e8d47a" }}>{(progress.treasury || 0).toLocaleString("en-US")}</b>
+        <button title="The crown's treasury and the castle's works" aria-label="Castle works"
+          style={{ ...woodBtn, padding: "0 12px", fontSize: 13, display: "flex", alignItems: "center", gap: 7 }} onClick={() => setWorksOpen(true)}>
+          <span aria-hidden="true">🏰</span>
+          <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1 }}>
+            <span style={{ fontSize: 8, letterSpacing: 1.5, opacity: 0.8 }}>WORKS</span>
+            <b style={{ color: "#f2cf4a" }}>{(progress.treasury || 0).toLocaleString("en-US")}</b>
+          </span>
         </button>
       </div>
 
@@ -104,10 +392,10 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
       {worksOpen && sel && (
         <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(12,12,16,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}
           onClick={() => setWorksOpen(false)}>
-          <div style={{ ...panel, width: "100%", maxWidth: 360, maxHeight: "90dvh", overflowY: "auto", padding: 12, boxSizing: "border-box" }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ ...panel, ...frame, width: "100%", maxWidth: 380, maxHeight: "90dvh", overflowY: "auto", padding: 16, boxSizing: "border-box" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1 }}>🏰 CASTLE WORKS — {sel.chapter.name.toUpperCase()}</span>
-              <button aria-label="Close" style={{ ...btn, padding: "4px 10px", fontSize: 12 }} onClick={() => setWorksOpen(false)}>✕</button>
+              <button aria-label="Close" style={{ ...woodBtn, padding: "0 14px", fontSize: 13 }} onClick={() => setWorksOpen(false)}>✕</button>
             </div>
             <CastleWorksList
               works={loadCastle(sel.chapter.id)}
@@ -119,201 +407,18 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
         </div>
       )}
 
-      {/* ---- the continent ----
-          Taller than the window and scrollable: the war marches NORTH up the
-          map (Greenwood south, the Marches east, the Hollowfen above them
-          across a strait), and the view opens on wherever the front line is. */}
-      <div ref={mapRef} style={{ width: "100%", maxWidth: 780, maxHeight: "52dvh", overflowY: "auto", border: `3px solid ${INK}`, background: SEA }}>
-      <svg viewBox="0 -120 400 360" style={{ width: "100%", display: "block", imageRendering: "pixelated" }}>
-        {/* sea, with a few lazy swells */}
-        {Array.from({ length: 22 }, (_, i) => (
-          <rect key={i} x={(i * 53) % 380} y={-108 + ((i * 71) % 334)} width={16} height={2} fill="#2c4055" />
-        ))}
-
-        {/* the isthmus: the only land road from the Greenwood into the Marches */}
-        <path d="M164,92 C184,86 202,100 216,110 C228,120 228,140 214,150 C200,160 182,154 172,142 C160,128 156,104 164,92 Z"
-          fill="#3f4a44" transform="translate(0 4)" stroke={INK} strokeWidth="3" />
-        <path d="M164,92 C184,86 202,100 216,110 C228,120 228,140 214,150 C200,160 182,154 172,142 C160,128 156,104 164,92 Z"
-          fill="#65735c" stroke={INK} strokeWidth="3" />
-
-        {CHAPTERS.map((ch) => {
-          const open = isUnlocked(ch.levels[0].id, progress);
-          return (
-            <g key={ch.id} opacity={open ? 1 : 0.42}>
-              {/* the coastline: a dark shore offset beneath the land itself */}
-              <path d={ch.region} fill={open ? ch.colorDk : "#3c4450"} transform="translate(0 4)" stroke={INK} strokeWidth="3" />
-              <path d={ch.region} fill={open ? ch.color : "#5c6470"} stroke={INK} strokeWidth="3" />
-            </g>
-          );
-        })}
-
-        {/* country dressing, kept clear of the waypoints and their labels */}
-        <g opacity="0.9">
-          <Pine x={74} y={110} /><Pine x={36} y={130} s={0.85} /><Pine x={120} y={100} s={0.9} />
-          <Pine x={130} y={140} s={0.85} /><Pine x={92} y={182} s={0.8} /><Pine x={140} y={80} s={0.8} />
-          <Pine x={66} y={74} s={0.85} /><Pine x={54} y={148} s={0.8} />
-        </g>
-        {isUnlocked("ir1", progress) && (
-          <g opacity="0.9">
-            <Keep x={266} y={122} s={0.9} /><Keep x={316} y={188} s={0.8} />
-            <Keep x={360} y={116} s={0.85} /><Keep x={300} y={70} s={0.8} />
-          </g>
-        )}
-        {isUnlocked("hl1", progress) && (
-          <g opacity="0.9">
-            <DeadTree x={282} y={-58} s={0.85} /><Stone x={348} y={-54} s={0.8} />
-            <DeadTree x={262} y={-8} s={0.75} />
-          </g>
-        )}
-
-        {/* the mountain wall between the two countries */}
-        <g>
-          {[[186, 104], [196, 118], [186, 132], [200, 138], [208, 124]].map(([x, y], i) => (
-            <g key={i}>
-              <path d={`M${x - 8},${y + 6} L${x},${y - 8} L${x + 8},${y + 6} Z`} fill="#4a5260" stroke={INK} strokeWidth="1.5" />
-              <path d={`M${x - 3},${y - 2} L${x},${y - 8} L${x + 3},${y - 2} Z`} fill="#d8dce4" />
-            </g>
-          ))}
-        </g>
-
-        {/* the road between waypoints: walked road is solid, the rest is dashed */}
-        {LEVELS.slice(1).map((lv, i) => {
-          const prev = LEVELS[i];
-          const walked = progress.cleared[prev.id];
-          return (
-            <line key={lv.id} x1={prev.pos[0]} y1={prev.pos[1]} x2={lv.pos[0]} y2={lv.pos[1]}
-              stroke={walked ? "#e8d47a" : "#171b24"} strokeWidth={walked ? 3 : 2}
-              strokeDasharray={walked ? "none" : "4 5"} strokeLinecap="round" opacity={walked ? 0.85 : 0.65} />
-          );
-        })}
-
-        {/* the waypoints themselves */}
-        {LEVELS.map((lv) => {
-          const cleared = !!progress.cleared[lv.id];
-          const open = isUnlocked(lv.id, progress);
-          const here = lv.id === upTo.id && !cleared;
-          const isSel = lv.id === selId;
-          const [x, y] = lv.pos;
-          const fill = cleared ? "#d8b34a" : open ? "#e8e0c8" : "#3c4250";
-          const r = here ? 9 : 7;
-          return (
-            <g key={lv.id} onClick={() => setSelId(lv.id)} style={{ cursor: "pointer" }}>
-              {here && (
-                <circle cx={x} cy={y} r="14" fill="none" stroke="#e8d47a" strokeWidth="2" opacity="0.9">
-                  <animate attributeName="r" values="11;16;11" dur="1.8s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.9;0.15;0.9" dur="1.8s" repeatCount="indefinite" />
-                </circle>
-              )}
-              {isSel && <rect x={x - r - 5} y={y - r - 5} width={(r + 5) * 2} height={(r + 5) * 2} fill="none" stroke="#e8d47a" strokeWidth="2" />}
-              <rect x={x - r} y={y - r} width={r * 2} height={r * 2} fill={INK} />
-              <rect x={x - r + 2} y={y - r + 2} width={r * 2 - 4} height={r * 2 - 4} fill={fill} />
-              {/* a conquered waypoint flies your castle */}
-              {cleared && (
-                <g fill={INK}>
-                  <rect x={x - 5} y={y - 1} width="10" height="6" />
-                  <rect x={x - 5} y={y - 4} width="2.5" height="3" />
-                  <rect x={x - 1.25} y={y - 4} width="2.5" height="3" />
-                  <rect x={x + 2.5} y={y - 4} width="2.5" height="3" />
-                  <rect x={x - 1} y={y + 1} width="2" height="4" fill={fill} />
-                </g>
-              )}
-              {!open && <rect x={x - 2} y={y - 2} width="4" height="5" fill="#7c8494" />}
-              {/* the chapter's last stand gets a boss banner */}
-              {lv.index === lv.chapter.levels.length - 1 && (
-                <rect x={x - 1} y={y - r - 9} width="2" height="8" fill={open ? "#e07a72" : "#4c5462"} />
-              )}
-              {/* the stars taken here, floating over the waypoint */}
-              {rating(lv.id) > 0 && [0, 1, 2].map((i) => (
-                <rect key={i} x={x - 7 + i * 5} y={y - r - 7} width="4" height="4"
-                  fill={i < rating(lv.id) ? "#e8d47a" : "#3c4250"} stroke={INK} strokeWidth="1" />
-              ))}
-              {/* ink-outlined so a name reads over land, sea or mountain alike.
-                  Crowded coasts use lv.short, and lv.labelAbove lifts a name
-                  over its dot when the row below is spoken for. */}
-              <text x={x} y={lv.labelAbove ? y - r - 12 : y + r + 12} textAnchor="middle" fontSize="8.5" fill={open ? "#f0e8d0" : "#98a0b0"}
-                fontFamily={FONT} stroke={INK} strokeWidth="3" paintOrder="stroke" strokeLinejoin="round"
-                style={{ pointerEvents: "none" }}>
-                {lv.short || lv.name}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* country names, tucked into the coast */}
-        {CHAPTERS.map((ch) => {
-          const open = isUnlocked(ch.levels[0].id, progress);
-          return (
-            <text key={ch.id} x={ch.label[0]} y={ch.label[1]} textAnchor="middle"
-              fontSize={ch.labelSize || 10} letterSpacing="2" fontFamily={FONT} fill={open ? "#d8b34a" : "#78808e"}
-              stroke={INK} strokeWidth="3" paintOrder="stroke" strokeLinejoin="round">
-              {open ? `${ch.numeral}. ${ch.name.toUpperCase()}` : `${ch.numeral}. SEALED`}
-            </text>
-          );
-        })}
-      </svg>
-      </div>
-
-      {/* ---- the selected waypoint ---- */}
-      {sel && (
-        <div style={{ ...panel, width: "100%", maxWidth: 780, boxSizing: "border-box", display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {/* a thumbnail of the actual road you'll be defending */}
-          <svg viewBox="0 0 150 100" width="128" height="86" style={{ flexShrink: 0, border: `2px solid ${INK}`, imageRendering: "pixelated", filter: selUnlocked ? "none" : "grayscale(1) brightness(0.6)" }}>
-            <rect x="0" y="0" width="150" height="100" fill={selRealm.GRASS} />
-            {(selRealm.rivers || []).map((rv, i) => (
-              <polyline key={`rv${i}`} points={rv.pts.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
-                fill="none" stroke={selRealm.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}
-                strokeLinejoin="round" strokeLinecap="round" />
-            ))}
-            <polyline points={selRealm.path.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
-              fill="none" stroke={selRealm.PATH_EDGE} strokeWidth="9" strokeLinejoin="round" strokeLinecap="round" />
-            <polyline points={selRealm.path.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
-              fill="none" stroke={selRealm.PATH_MAIN} strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" />
-            {(selRealm.ponds || []).map((p, i) => (
-              <rect key={i} x={(p.x - p.w / 2) * 150 / W} y={(p.y - p.h / 2) * 100 / H} width={p.w * 150 / W} height={p.h * 100 / H}
-                fill={p.t === "lava" ? "#c05a32" : p.t === "ice" ? "#b8d4e0" : p.t === "swamp" ? "#2c4638" : "#4a7a94"} />
-            ))}
-            <circle cx={selRealm.path[0][0] * 10 + 5} cy={selRealm.path[0][1] * 10 + 5} r="4" fill="#e05248" />
-            <rect x={selRealm.path[selRealm.path.length - 1][0] * 10 - 1} y={selRealm.path[selRealm.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
-          </svg>
-
-          <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-            <div style={{ fontSize: 9, letterSpacing: 2, opacity: 0.55 }}>
-              CHAPTER {sel.chapter.numeral} · LEVEL {sel.index + 1} · {sel.window.count} WAVES
-            </div>
-            <div style={{ fontSize: 15, fontWeight: "bold", color: "#e8d47a", margin: "3px 0 5px", display: "flex", alignItems: "center", gap: 8 }}>
-              {sel.name}
-              <span style={{ display: "flex", gap: 2 }}>
-                {[1, 2, 3].map((i) => <Star key={i} size={13} lit={i <= rating(sel.id)} />)}
-              </span>
-              {selCleared && <span style={{ fontSize: 9, letterSpacing: 1, color: "#a8d88c" }}>CLEARED</span>}
-            </div>
-            <div style={{ fontSize: 11, opacity: 0.85, lineHeight: 1.5, marginBottom: 8 }}>
-              {selUnlocked ? sel.blurb : "The road this way is not yours yet. Take the level before it first."}
-            </div>
-            {selUnlocked && (
-              <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 30, marginBottom: 8 }}>
-                {selFaction.types.map((ty) => <EnemyIcon key={ty} type={ty} box={26} />)}
-              </div>
-            )}
-            <button
-              style={{
-                ...btn, width: "100%", maxWidth: 320, textAlign: "center", padding: "13px 10px", fontSize: 13, letterSpacing: 1,
-                ...(selUnlocked
-                  ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746", color: "#f0e4b0" }
-                  : { opacity: 0.45, cursor: "not-allowed" }),
-              }}
-              disabled={!selUnlocked}
-              onClick={() => onStart(sel)}>
-              {selCleared ? `Ride Out Again — ${sel.name}` : `March on ${sel.name}`}
-            </button>
-          </div>
+      {wide ? (
+        <div ref={bodyRef} style={{ flex: 1, minHeight: 0, width: "100%", maxWidth: 1400, display: "flex", gap: 12, justifyContent: "center", alignItems: "flex-start" }}>
+          {map}
+          {card}
         </div>
+      ) : (
+        <>
+          {map}
+          <div style={{ width: "100%", maxWidth: 780 }}>{card}</div>
+          {abandon}
+        </>
       )}
-
-      <button style={{ ...btn, fontSize: 10, padding: "6px 12px", opacity: 0.7 }}
-        onClick={() => { if (confirm("Start the whole campaign over? Every cleared level is forgotten.")) onReset(); }}>
-        Abandon campaign &amp; start over
-      </button>
     </div>
   );
 }

@@ -12,8 +12,9 @@
 // close it, and each one starts a little deeper into the war than the last.
 // The last level of a chapter always ends on the faction's boss wave.
 //
-// `pos` is the level's dot on the continent map (see ui/CampaignMap.jsx), in
-// that map's 400x240 coordinate space. `region` is the chapter's coastline.
+// `pos` is the level's waypoint on the continent map (see ui/CampaignMap.jsx
+// and ui/mapArt.js), in that map's 400x360 unit space (y from -120 to 240).
+// `region` is the chapter's coastline, before the map roughens it.
 
 export const CHAPTERS = [
   {
@@ -39,12 +40,12 @@ export const CHAPTERS = [
       },
       {
         id: "foxmere", name: "Foxmere", realm: "foxmere", labelAbove: true,
-        window: { from: 3, to: 14, count: 15 }, gold: 450, pos: [106, 118],
+        window: { from: 3, to: 14, count: 15 }, gold: 400, pos: [106, 118],
         blurb: "The road owes the mere a full circle, and the horde walks every step of it. Orcs in plate now — and the first shamans, chanting the warband whole.",
       },
       {
         id: "gw3", name: "Oakmere Hollow", realm: "oakmere", short: "Oakmere",
-        window: { from: 4, to: 17, count: 18 }, gold: 550, pos: [52, 100],
+        window: { from: 4, to: 17, count: 18 }, gold: 480, pos: [52, 100],
         blurb: "Ironclads march with the orcs and boar riders flatten your line — then one night the wood empties all at once. Bring magic.",
       },
       {
@@ -127,32 +128,32 @@ export const CHAPTERS = [
     levels: [
       {
         id: "hl1", name: "The Grave Road", realm: "graveroad", short: "Grave Road",
-        window: { from: 1, to: 8, count: 10 }, gold: 500, pos: [368, -36],
+        window: { from: 1, to: 8, count: 10 }, gold: 500, pos: [368, -26],
         blurb: "Across the strait and into the fen, and the dead walking its causeway in floods. They are worth almost nothing — and there are so, so many.",
       },
       {
         id: "hl2", name: "The Sunken Causeway", realm: "sunkencauseway", short: "Causeway",
-        window: { from: 2, to: 11, count: 13 }, gold: 600, pos: [310, -36],
+        window: { from: 2, to: 11, count: 13 }, gold: 600, pos: [310, -26],
         blurb: "Black water either side, wraiths drifting over your blockers, and barrow archers loosing at your knights. The dry ground is all there is.",
       },
       {
         id: "bellmarsh", name: "Bellmarsh", realm: "bellmarsh",
-        window: { from: 3, to: 15, count: 16 }, gold: 700, pos: [252, -36],
+        window: { from: 3, to: 15, count: 16 }, gold: 700, pos: [252, -26],
         blurb: "Every standing stone here rings when struck, and the court has struck them all. Wraiths, ghasts, wardens — the fen's whole household, one after another.",
       },
       {
         id: "hl3", name: "Wightwood", realm: "wightwood", labelAbove: true,
-        window: { from: 4, to: 19, count: 20 }, gold: 800, pos: [252, -88],
+        window: { from: 4, to: 19, count: 20 }, gold: 800, pos: [248, -88],
         blurb: "A drowned forest of white trees. Plague ghasts burst over your line here — kill them far from your knights, or regret it.",
       },
       {
         id: "hl4", name: "The Cairnfields", realm: "cairnfields", short: "Cairnfields", labelAbove: true,
-        window: { from: 5, to: 24, count: 23 }, gold: 900, pos: [316, -88],
+        window: { from: 5, to: 24, count: 23 }, gold: 900, pos: [298, -70],
         blurb: "Every cairn a door, and gravecallers ringing them open. The flood has a source: silence the bells.",
       },
       {
         id: "hl5", name: "The Throne of Dust", realm: "thronedust", short: "Throne of Dust",
-        window: { from: 7, to: 30, count: 25, boss: true }, gold: 1000, pos: [358, -88],
+        window: { from: 7, to: 30, count: 25, boss: true }, gold: 1000, pos: [360, -86],
         blurb: "The drowned throne itself. Crypt wardens, amalgams that will not stay dead — and the Hollow King, calling his court out of the ground.",
       },
     ],

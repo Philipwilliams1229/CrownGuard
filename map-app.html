@@ -1,0 +1,64 @@
+<!doctype html>
+<!--
+  Dev tool: the real campaign map screen (or the title screen) mounted on its
+  own with a made-up campaign, so it can be looked at without playing there.
+    /map-app.html?cleared=gw1,gw2&stars=3&sel=foxmere&snap=map_x&scale=3
+    /map-app.html?screen=home
+  cleared = level ids won (or "all"); stars = the rating each won level gets;
+  snap = composite the map (land, progress, names) into .shots/<snap>.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Crownguard — map app</title>
+  <style>body { margin: 0; background: #161b24; }</style></head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from "react";
+      import { createRoot } from "react-dom/client";
+      import CampaignMap from "/src/ui/CampaignMap.jsx";
+      import HomeScreen from "/src/ui/HomeScreen.jsx";
+      import { LEVELS } from "/src/data/campaign.js";
+      const q = new URLSearchParams(location.search);
+      // ?frame=390x844 — look at it inside a phone- or tablet-sized window
+      if (q.get("frame")) {
+        const [fw, fh] = q.get("frame").split("x").map(Number);
+        q.delete("frame");
+        document.body.innerHTML = `<iframe src="?${q}" style="width:${fw}px;height:${fh}px;border:0;display:block"></iframe>`;
+        throw new Error("framed");
+      }
+      const cl = q.get("cleared") || "";
+      const cleared = {};
+      for (const l of LEVELS) if (cl === "all" || cl.split(",").includes(l.id)) cleared[l.id] = true;
+      const stars = {};
+      LEVELS.forEach((l, i) => { if (cleared[l.id]) stars[l.id] = Number(q.get("stars")) || 1 + (i % 3); });
+      const progress = { cleared, castle: {}, heroes: {}, treasury: 1840 };
+      const profile = { stars, starsSpent: 0, xp: 5230, nodes: {} };
+      const noop = () => {};
+      const el = q.get("screen") === "home"
+        ? React.createElement(HomeScreen, { progress, profile, onNewCampaign: noop, onContinue: noop, onFreePlay: noop, onCouncil: noop })
+        : React.createElement(CampaignMap, { progress, profile, onStart: noop, onBack: noop, onReset: noop, onBuyWork: noop });
+      createRoot(document.getElementById("root")).render(el);
+      if (q.get("sel")) setTimeout(() => document.querySelector(`[aria-label="${LEVELS.find((l) => l.id === q.get("sel")).name}"]`)?.dispatchEvent(new MouseEvent("click", { bubbles: true })), 300);
+      if (q.get("snap")) setTimeout(async () => {
+        const root = document.querySelector('canvas[width="800"]').parentElement;
+        const [land, st] = root.querySelectorAll("canvas"), svg = root.querySelector("svg");
+        const S = Number(q.get("scale")) || 3, out = document.createElement("canvas");
+        out.width = 400 * S; out.height = 360 * S;
+        const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+        o.drawImage(land, 0, 0, out.width, out.height); o.drawImage(st, 0, 0, out.width, out.height);
+        const clone = svg.cloneNode(true);
+        clone.setAttribute("width", out.width); clone.setAttribute("height", out.height);
+        clone.setAttribute("xmlns", "http://www.w3.org/2000/svg"); clone.removeAttribute("style");
+        const img = new Image();
+        img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(clone));
+        await img.decode(); o.drawImage(img, 0, 0);
+        const [cx, cy, cw, ch] = (q.get("crop") || "0,-120,400,360").split(",").map(Number);
+        const fin = document.createElement("canvas"); fin.width = cw * S; fin.height = ch * S;
+        const f = fin.getContext("2d"); f.imageSmoothingEnabled = false;
+        f.drawImage(out, cx * S, (cy + 120) * S, cw * S, ch * S, 0, 0, fin.width, fin.height);
+        await fetch("/__shot?name=" + q.get("snap"), { method: "POST", body: fin.toDataURL("image/png").slice(22) });
+        document.title = "DONE";
+      }, 2500);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  Dev tool: the campaign map's pixel art, painted once at load and saved by
+  the dev server to .shots/map_<tag>.png.
+    /map-lab.html?tag=v1&scale=2&cleared=gw1,gw2&crop=0,-120,400,360
+  cleared = level ids to draw as won (or "all"); crop = x,y,w,h in map units.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — map lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { image-rendering: pixelated; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import * as A from "/src/ui/mapArt.js";
+      import { LEVELS } from "/src/data/campaign.js";
+      const q = new URLSearchParams(location.search);
+      if (q.get("vista")) {
+        const { titleVista } = await import("/src/ui/titleArt.js");
+        const t0 = performance.now(), v = titleVista(), t1 = performance.now();
+        const SC = Number(q.get("scale")) || 1, out = document.createElement("canvas");
+        const [vx, vy, vw, vh] = (q.get("crop") || `0,0,${v.width / 2},${v.height / 2}`).split(",").map((n) => Number(n) * 2);
+        out.width = vw * SC; out.height = vh * SC;
+        const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.drawImage(v, vx, vy, vw, vh, 0, 0, out.width, out.height);
+        await fetch("/__shot?name=map_" + (q.get("tag") || "vista"), { method: "POST", body: out.toDataURL("image/png").slice(22) });
+        document.getElementById("status").textContent = `vista ${Math.round(t1 - t0)}ms ${JSON.stringify(window.__vt || [])}`;
+        document.title = "DONE";
+        throw new Error("vista done");
+      }
+      const TAG = q.get("tag") || "lab", SC = Number(q.get("scale")) || 1;
+      const cl = q.get("cleared") || "";
+      const cleared = {};
+      for (const l of LEVELS) if (cl === "all" || cl.split(",").includes(l.id)) cleared[l.id] = true;
+      const stars = {};
+      LEVELS.forEach((l, i) => { if (cleared[l.id]) stars[l.id] = 1 + (i % 3); });
+      const t0 = performance.now();
+      const T = A.mapTerrain();
+      const t1 = performance.now();
+      const cv = document.createElement("canvas");
+      cv.width = A.AW; cv.height = A.AH;
+      const ctx = cv.getContext("2d");
+      ctx.drawImage(A.terrainFor ? A.terrainFor({ cleared }) : T.canvas, 0, 0);
+      if (A.drawMapState && q.get("state") !== "0") A.drawMapState(ctx, { progress: { cleared }, stars, selId: q.get("sel") || null });
+      if (q.get("debug")) {
+        ctx.save(); ctx.setTransform(A.U, 0, 0, A.U, -A.MAP.x * A.U, -A.MAP.y * A.U);
+        for (const l of LEVELS) {
+          ctx.fillStyle = "#e0404088"; ctx.beginPath(); ctx.arc(l.pos[0], l.pos[1], 5, 0, 7); ctx.fill();
+          const b = A.labelBox(l); ctx.strokeStyle = "#fff"; ctx.lineWidth = 0.5; ctx.strokeRect(b.x, b.y, b.w, b.h);
+          ctx.fillStyle = "#fff"; ctx.font = "bold 6px Verdana"; ctx.fillText(l.short || l.name, b.x + 3, b.y + 7);
+        }
+        ctx.restore();
+      }
+      const [cx, cy, cw, ch] = (q.get("crop") || "0,-120,400,360").split(",").map(Number);
+      const out = document.createElement("canvas");
+      out.width = cw * A.U * SC; out.height = ch * A.U * SC;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+      o.drawImage(cv, (cx - A.MAP.x) * A.U, (cy - A.MAP.y) * A.U, cw * A.U, ch * A.U, 0, 0, out.width, out.height);
+      const name = `map_${TAG}`;
+      fetch("/__shot?name=" + name, { method: "POST", body: out.toDataURL("image/png").slice(22) })
+        .then(() => { document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/${name}.png — terrain ${Math.round(t1 - t0)}ms`; });
+      document.body.appendChild(out);
+    </script>
+  </body>
+</html>
