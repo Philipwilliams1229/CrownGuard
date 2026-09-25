@@ -48,7 +48,10 @@ const makeEnemy = (type, mult) => {
     // A foe's purse used to be fixed while its health inflated forever, so by
     // the eightieth wave you were paid a wave-one wage to kill a wave-eighty
     // troll. The purse now follows the meat, at a quarter of its rate.
-    bounty: Math.max(1, Math.round(d.bounty * (1 + Math.max(0, mult - 1) * 0.08))),
+    // ...but only up to three times its wage: deep in the Endless March the
+    // meat inflates a hundredfold, and a purse that followed it bought out
+    // the board by wave ninety and then piled up with nothing left to buy.
+    bounty: Math.max(1, Math.round(d.bounty * Math.min(3, 1 + Math.max(0, mult - 1) * 0.08))),
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: pickLane(d.boss),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
@@ -569,10 +572,15 @@ export function updateGame(g, dt) {
       g.effects.push({ type: tr.branch === "b" ? "boom" : "dust", x: tr.x, y: tr.y - (wantsFly ? 14 : 0), ttl: 340, r: st.splash || 34 });
       sfx.play(tr.branch === "b" ? "boom" : "trapSnap");
       g.shake = Math.max(g.shake, tr.branch === "b" ? 4 : 2);
+      // a trap's blast bites like any other: the nearest SPLASH_CAP bodies
+      const caught = [];
       for (const e of g.enemies) {
         if (e.dead || (wantsFly ? !e.flying : e.flying)) continue;
         const dd = Math.hypot(e.x - tr.x, e.y - tr.y);
-        if (dd > (st.splash || 34)) continue;
+        if (dd <= (st.splash || 34)) caught.push([dd, e]);
+      }
+      if (caught.length > SPLASH_CAP) { caught.sort((u, v) => u[0] - v[0]); caught.length = SPLASH_CAP; }
+      for (const [dd, e] of caught) {
         // the springer eats the full bite; the splash takes the rest
         const full = e === victim;
         // a guillotine finishes the nearly-dead outright
@@ -769,7 +777,7 @@ export function updateGame(g, dt) {
       }
       // the gate guard: a foe that reaches the portcullis is held there a
       // moment — and, with the oil on, scalded while it waits
-      const guard = workTier(g.castle, "guards");
+      const guard = workTier(g.castle, "guards", g.castleRanks);
       if (guard && !e.flying) {
         if (!e.gateHeld && e.dist >= TOTAL_LEN - 3) {
           e.gateHeld = true; e.holdUntil = tms + guard.hold;
@@ -800,7 +808,7 @@ export function updateGame(g, dt) {
       const [gx, gy] = PTS[PTS.length - 1];
       g.castleCd = g.castleCd || { archers: 0, ballista: 0, shot: 0 };
       const cd = g.castleCd;
-      const bows = workTier(g.castle, "archers");
+      const bows = workTier(g.castle, "archers", g.castleRanks);
       if (bows) {
         cd.archers -= sdt * 1000;
         if (cd.archers <= 0) {
@@ -816,7 +824,7 @@ export function updateGame(g, dt) {
           }
         }
       }
-      const bal = workTier(g.castle, "ballista");
+      const bal = workTier(g.castle, "ballista", g.castleRanks);
       if (bal) {
         cd.ballista -= sdt * 1000;
         if (cd.ballista <= 0) {
@@ -1332,7 +1340,15 @@ export function updateGame(g, dt) {
           // a full ring of spikes, the whole ring rotating a little each volley
           const n = st.spikes || 8;
           sfx.play("spike");
-          t.spinOff = (t.spinOff || 0) + 0.37;
+          // the wheel lets fly as a spoke swings onto the nearest foe, so the
+          // ring always puts one spike straight down the thickest line
+          let near = null, nd = Infinity;
+          for (const e of g.enemies) {
+            if (e.dead) continue;
+            const d = (e.x - t.x) ** 2 + (e.y - t.y) ** 2;
+            if (d < nd) { nd = d; near = e; }
+          }
+          t.spinOff = near ? Math.atan2(near.y - (t.y - 8), near.x - t.x) : (t.spinOff || 0) + 0.37;
           for (let i = 0; i < n; i++) {
             const ang = (i / n) * Math.PI * 2 + t.spinOff;
             g.projectiles.push({
@@ -1645,9 +1661,9 @@ export function updateGame(g, dt) {
         g.effects.push({ type: "coin", x: W / 2, y: 64, ttl: 1300, text: `${g.lives > CASTLE_HP ? "The Cathedrals raise the walls" : "The Cathedrals mend the walls"} +${laid}`, big: true });
       }
       // the castle's own masons
-      const guild = workTier(g.castle, "masons");
+      const guild = workTier(g.castle, "masons", g.castleRanks);
       if (guild) {
-        const cap = CASTLE_HP + worksBonusHp(g.castle);
+        const cap = CASTLE_HP + worksBonusHp(g.castle, g.castleRanks);
         const laid = Math.min(guild.mend, Math.max(0, cap - g.lives));
         if (laid > 0) { g.lives += laid; g.effects.push({ type: "coin", x: W / 2, y: 88, ttl: 1300, text: `The masons mend the wall +${laid}`, big: true }); }
       }

@@ -159,4 +159,5 @@ export const waveHpMult = (w) => {
 };
 // A cleared wave pays. A campaign wave pays less than an endless one: there
 // are more of them, and the gold they leave behind is banked to the crown.
-export const waveBonus = (w) => (WINDOW ? 24 + absWave(w) * 3 : 55 + absWave(w) * 9);
+// (the endless bonus stops climbing at wave 60: 595 a wave from there on)
+export const waveBonus = (w) => (WINDOW ? 24 + absWave(w) * 3 : 55 + Math.min(60, absWave(w)) * 9);

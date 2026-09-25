@@ -4,7 +4,7 @@
 // and the shared damage helper. Each takes `g` explicitly.
 
 import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
-import { CASTLE_WORKS, emptyWorks, workTier } from "../data/castle.js";
+import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
 import { MILITIA, HEROES, heroStats } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, decorFootprint } from "../data/terrain.js";
@@ -52,6 +52,7 @@ export const startWave = (g) => {
       kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0 })),
     // the castle's works and the hero as they stood; the militia goes home
     castle: g.castle ? { ...g.castle } : null,
+    castleRanks: g.castleRanks ? { ...g.castleRanks } : null,
     militiaCd: g.militiaCd || 0,
     hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, rally: { ...b.rally } } : null; })(),
   };
@@ -128,6 +129,7 @@ export const restartWave = (g) => {
   });
   g.enemies = []; g.projectiles = []; g.effects = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];
   if (s.castle) g.castle = { ...s.castle };
+  g.castleRanks = s.castleRanks ? { ...s.castleRanks } : g.castleRanks && {};
   g.militiaCd = s.militiaCd || 0;
   g.bands = [];
   if (s.hero) { const b = fieldHero(g, s.hero.key, s.hero.level, s.hero.rally.x, s.hero.rally.y); if (b) b.xp = s.hero.xp; }
@@ -387,8 +389,7 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
 // The next tier of a work and what it costs, or null when it is complete.
 export const nextCastleWork = (g, key) => {
   if (!g || !CASTLE_WORKS[key]) return null;
-  const n = g.castle?.[key] || 0;
-  return CASTLE_WORKS[key].tiers[n] || null;
+  return nextWork(g.castle, key, g.castleRanks, !!g.freeplay);
 };
 // Raise the next tier. The caller has already paid — from the treasury in
 // the campaign, from the purse in free play.
@@ -396,10 +397,11 @@ export const raiseCastleWork = (g, key) => {
   const next = nextCastleWork(g, key);
   if (!next) return null;
   g.castle = g.castle || emptyWorks();
-  const n = g.castle[key] || 0;
-  g.castle[key] = n + 1;
+  const before = workTier(g.castle, key, g.castleRanks)?.hp || 0;
+  // an endless rank is the run's own; a tier is the castle's
+  if (next.rank) { g.castleRanks = { ...(g.castleRanks || {}), [key]: next.rank }; }
+  else g.castle[key] = (g.castle[key] || 0) + 1;
   // a thicker gate is thicker at once
-  const before = workTier({ ...g.castle, [key]: n }, key)?.hp || 0;
   if ((next.hp || 0) > before) g.lives += next.hp - before;
   const [gx, gy] = PTS[PTS.length - 1];
   g.effects.push({ type: "evolve", x: gx + 10, y: gy, ttl: 900 });

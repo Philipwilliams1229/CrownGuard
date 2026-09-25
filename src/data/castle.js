@@ -49,16 +49,44 @@ export const CASTLE_WORKS = {
 
 export const emptyWorks = () => ({ archers: 0, ballista: 0, guards: 0, masons: 0 });
 
-// The live tier of a work, or null when none is built.
-export const workTier = (works, key) => {
+// ENDLESS RANKS: in Free Play, a finished work can be raised again and
+// again — each rank makes its last tier hit harder (or hold longer, or mend
+// more) and costs twice the one before, from 50,000 up. Ranks belong to the
+// run (g.castleRanks), never to the saved castle: a fortune made at wave 150
+// buys nothing for the next run's wave 1.
+export const RANK_COST = (key, r) => CASTLE_WORKS[key].tiers.at(-1).cost * 2 ** (r + 1);
+export const rankLabel = (key, r) => ({
+  archers: `Rank ${r}: +${r * 40}% bowmen damage`, ballista: `Rank ${r}: +${r * 40}% bolt damage`,
+  guards: `Rank ${r}: longer hold, hotter oil, +${r * 2} castle life`, masons: `Rank ${r}: mend ${2 + r} lives a wave`,
+}[key]);
+const ranked = (key, t, r) => {
+  if (!r) return t;
+  const m = 1 + 0.4 * r;
+  if (key === "archers" || key === "ballista") return { ...t, dmg: t.dmg * m, burn: t.burn ? t.burn * m : t.burn, label: rankLabel(key, r) };
+  if (key === "guards") return { ...t, hold: t.hold + 400 * r, oil: (t.oil || 0) * m, hp: (t.hp || 0) + 2 * r, label: rankLabel(key, r) };
+  if (key === "masons") return { ...t, mend: (t.mend || 0) + r, label: rankLabel(key, r) };
+  return t;
+};
+// The next thing to buy for a work: its next tier, or in the endless its
+// next rank once the tiers are done; null when there is nothing more.
+export const nextWork = (works, key, ranks = null, endless = false) => {
+  const n = works?.[key] || 0, tiers = CASTLE_WORKS[key].tiers;
+  if (n < tiers.length) return tiers[n];
+  if (!endless) return null;
+  const r = (ranks?.[key] || 0) + 1;
+  return { ...ranked(key, tiers.at(-1), r), cost: RANK_COST(key, r - 1), rank: r };
+};
+
+// The live tier of a work (with its endless rank), or null when none is built.
+export const workTier = (works, key, ranks = null) => {
   const n = works?.[key] || 0;
-  return n > 0 ? CASTLE_WORKS[key].tiers[n - 1] : null;
+  return n > 0 ? ranked(key, CASTLE_WORKS[key].tiers[n - 1], ranks?.[key] || 0) : null;
 };
 
 // Extra castle life the works grant, summed.
-export const worksBonusHp = (works) => {
+export const worksBonusHp = (works, ranks = null) => {
   let hp = 0;
-  for (const key of Object.keys(CASTLE_WORKS)) { const t = workTier(works, key); if (t?.hp) hp += t.hp; }
+  for (const key of Object.keys(CASTLE_WORKS)) { const t = workTier(works, key, ranks); if (t?.hp) hp += t.hp; }
   return hp;
 };
 

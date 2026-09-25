@@ -348,7 +348,7 @@ export default function Crownguard() {
         setUi({
           heroKey: heroKeyUi, militiaSec,
           hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0 } : null,
-          castleKey, castle: { ...(g.castle || emptyWorks()) }, maxLives: CASTLE_HP + worksBonusHp(g.castle),
+          castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: CASTLE_HP + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
             kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, liveTime: sel.liveTime || 0 } : null,
@@ -1267,11 +1267,13 @@ export default function Crownguard() {
         <div className="cg-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 10px" }}>
           <CastleWorksList
             works={ui.castle}
+            ranks={mode === "campaign" ? null : ui.castleRanks}
+            endless={mode !== "campaign"}
             purse={mode === "campaign" ? progress.treasury || 0 : ui.gold}
             purseLabel={mode === "campaign" ? "THE CROWN'S TREASURY" : "THIS RUN'S PURSE"}
             note={mode === "campaign"
               ? `Built on the wall itself, paid from the treasury: the gold you carry home from every level you hold. What you raise here stands for every road in the ${level?.chapter.name || "region"}.`
-              : "Built on the wall itself, paid from the purse. What you raise here stands for every run in this realm."}
+              : "Built on the wall itself, paid from the purse. What you raise here stands for every run in this realm — but the veteran ranks past a finished work are this run's alone."}
             onBuy={buyWork} />
         </div>
       </div>

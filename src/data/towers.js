@@ -72,7 +72,7 @@ export const TOWERS = {
         name: "Stormcaller", cost: 350, stats: { dmg: 42, rate: 1300, range: 150, arc: 3, arcRange: 95, arcFall: 0.7 }, desc: "Lightning lashes the frontrunner and arcs down the line — no armor, no escape.",
         rank4: {
           a: { name: "Tempest Court", cost: 650, stats: { dmg: 46, rate: 1200, range: 160, arc: 6, arcRange: 110, arcFall: 0.8 }, desc: "The storm dances: bolts leap SIX times, scouring entire columns of the horde." },
-          b: { name: "Thunder Sovereign", cost: 650, stats: { dmg: 88, rate: 1500, range: 160, arc: 2, arcRange: 95, arcFall: 0.75, zapStun: 0.3, zapStunDur: 700 }, desc: "Heaven's own hammer: fewer, crueler bolts that can lock victims rigid with shock." },
+          b: { name: "Thunder Sovereign", cost: 650, stats: { dmg: 125, rate: 1400, range: 165, arc: 3, arcRange: 95, arcFall: 0.75, zapStun: 0.3, zapStunDur: 700 }, desc: "Heaven's own hammer: fewer, crueler bolts that can lock victims rigid with shock." },
         },
       },
     },
@@ -106,23 +106,23 @@ export const TOWERS = {
     name: "Bladewheel", cost: 110, dtype: "phys", proj: "spike",
     blurb: "A spinning wheel that flings spikes in EVERY direction. Blind beyond arm's reach — deadly on corners and doubled-back road.",
     levels: [
-      { dmg: 12, rate: 900, range: 85, spikes: 8 },
-      { dmg: 18, rate: 820, range: 92, spikes: 8, cost: 90, label: "Whetted Steel" },
-      { dmg: 26, rate: 740, range: 100, spikes: 10, cost: 140, label: "Twin Rims" },
+      { dmg: 12, rate: 900, range: 88, spikes: 10 },
+      { dmg: 18, rate: 820, range: 95, spikes: 12, cost: 90, label: "Whetted Steel" },
+      { dmg: 26, rate: 740, range: 102, spikes: 14, spikePierce: 2, cost: 140, label: "Twin Rims" },
     ],
     branches: {
       a: {
-        name: "Razor Gale", cost: 320, stats: { dmg: 15, rate: 300, range: 105, spikes: 10 }, desc: "The wheel screams — a near-constant storm of steel shreds everything that hugs it.",
+        name: "Razor Gale", cost: 320, stats: { dmg: 16, rate: 300, range: 108, spikes: 14, spikePierce: 2 }, desc: "The wheel screams — a near-constant storm of steel shreds everything that hugs it.",
         rank4: {
-          a: { name: "Steel Tempest", cost: 650, stats: { dmg: 17, rate: 260, range: 115, spikes: 12, spikePierce: 2 }, desc: "Spikes forged to skewer: every sliver punches THROUGH its first victim and into the next." },
-          b: { name: "Hamstringer", cost: 650, stats: { dmg: 15, rate: 280, range: 110, spikes: 10, slow: 0.3, slowDur: 1300 }, desc: "Barbed spikes lodge in legs and paws — everything struck hobbles away slowed." },
+          a: { name: "Steel Tempest", cost: 650, stats: { dmg: 20, rate: 240, range: 118, spikes: 18, spikePierce: 4 }, desc: "Spikes forged to skewer: eighteen to a volley, and every sliver punches through FOUR foes before it stops." },
+          b: { name: "Hamstringer", cost: 650, stats: { dmg: 18, rate: 260, range: 114, spikes: 16, spikePierce: 3, slow: 0.35, slowDur: 1500 }, desc: "Barbed spikes lodge in legs and paws — everything struck hobbles away slowed." },
         },
       },
       b: {
-        name: "Brazier Wheel", cost: 320, stats: { dmg: 38, rate: 1500, range: 100, nova: true, magic: true, burn: 10, burnDur: 2400 }, desc: "The rim is set alight: instead of spikes, rhythmic rings of flame scorch everything in reach. MAGIC — ignores armor.",
+        name: "Brazier Wheel", cost: 320, stats: { dmg: 48, rate: 1300, range: 108, nova: true, magic: true, burn: 12, burnDur: 2400 }, desc: "The rim is set alight: instead of spikes, rhythmic rings of flame scorch everything in reach. MAGIC — ignores armor.",
         rank4: {
-          a: { name: "Solar Crown", cost: 650, stats: { dmg: 62, rate: 1450, range: 115, nova: true, magic: true, burn: 15, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
-          b: { name: "Wildheart Pyre", cost: 650, stats: { dmg: 44, rate: 1400, range: 105, nova: true, magic: true, burn: 14, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
+          a: { name: "Solar Crown", cost: 650, stats: { dmg: 84, rate: 1250, range: 124, nova: true, magic: true, burn: 18, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
+          b: { name: "Wildheart Pyre", cost: 650, stats: { dmg: 58, rate: 1250, range: 114, nova: true, magic: true, burn: 16, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
         },
       },
     },
@@ -171,7 +171,7 @@ export const TOWERS = {
       b: {
         name: "Blastworks", cost: 320, stats: { trapDmg: 175, splash: 58, maxCharges: 6, chargeEvery: 2400, range: 195, burn: 14, burnDur: 2600, rate: 0, trapKind: "mine" }, desc: "Pressure mines. Big blasts, burning shrapnel, and a column that learns to fear its own road.",
         rank4: {
-          a: { name: "Minefield Doctrine", cost: 650, stats: { trapDmg: 190, splash: 60, maxCharges: 8, chargeEvery: 2100, autoSeed: 4, burn: 14, burnDur: 2600, range: 205, rate: 0, trapKind: "mine" }, desc: "The smiths work through the horn: four mines seed THEMSELVES onto the road as each wave begins, on top of everything already laid." },
+          a: { name: "Minefield Doctrine", cost: 650, stats: { trapDmg: 165, splash: 54, maxCharges: 7, chargeEvery: 2300, autoSeed: 3, burn: 14, burnDur: 2600, range: 205, rate: 0, trapKind: "mine" }, desc: "The smiths work through the horn: four mines seed THEMSELVES onto the road as each wave begins, on top of everything already laid." },
           b: { name: "The Aerostat Yard", cost: 650, stats: { trapDmg: 210, splash: 66, maxCharges: 7, chargeEvery: 2200, range: 205, burn: 16, burnDur: 2800, stunAll: 700, rate: 0, trapKind: "mine", balloon: 2 }, desc: "EVERY SECOND CHARGE RISES: a bomb on a tethered balloon that answers only to FLIERS, while the mines below keep the ground. The blast stuns whatever survives it." },
         },
       },
@@ -196,7 +196,7 @@ export const TOWERS = {
       b: {
         name: "Warhawk Court", cost: 340, stats: { dmg: 48, rate: 1250, range: 180, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3 }, desc: "The marks turn surgical: marked foes also lose a third of their armor. The tower that turns your arrows back ON.",
         rank4: {
-          a: { name: "Kingsight", cost: 670, stats: { dmg: 58, rate: 1200, range: 190, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3, kingsight: true }, desc: "The court's eye never closes: the mightiest foe on the field is ALWAYS marked, everywhere, forever." },
+          a: { name: "Kingsight", cost: 670, stats: { dmg: 76, rate: 1000, range: 200, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3, kingsight: true }, desc: "The court's eye never closes: the mightiest foe on the field is ALWAYS marked, everywhere, forever." },
           b: { name: "Talon Rain", cost: 670, stats: { dmg: 48, rate: 1250, range: 190, airMult: 2.2, mark: 0.3, markDur: 3200, markShred: 0.3, shots: 3 }, desc: "Three birds aloft at once — every volley marks three different victims." },
         },
       },
@@ -244,10 +244,10 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Fireship Wharf", cost: 350, stats: { dmg: 52, rate: 1250, range: 150, hp: 230, count: 2, rowSpeed: 76, splash: 58, burn: 16, burnDur: 2800 }, desc: "Pitch pots slung from the mast: slower shots, but they burst in flame across the bank.",
+        name: "Fireship Wharf", cost: 350, stats: { dmg: 52, rate: 1250, range: 150, hp: 230, count: 2, rowSpeed: 76, splash: 54, burn: 11, burnDur: 2400 }, desc: "Pitch pots slung from the mast: slower shots, but they burst in flame across the bank.",
         rank4: {
-          a: { name: "The Hellburner", cost: 670, stats: { dmg: 68, rate: 1300, range: 160, hp: 260, count: 2, rowSpeed: 76, splash: 84, burn: 22, burnDur: 3200, poolDps: 20, poolDur: 2600, poolR: 30 }, desc: "A hull packed with powder and pitch: every pot leaves the shore burning behind it." },
-          b: { name: "The Chain Boom", cost: 670, stats: { dmg: 58, rate: 1200, range: 165, hp: 300, count: 3, rowSpeed: 80, splash: 60, burn: 14, burnDur: 2400, stun: 0.3, stunDur: 900 }, desc: "A chain slung between the skiffs and a shot that rings it — what the boom catches stands stunned in the shallows." },
+          a: { name: "The Hellburner", cost: 670, stats: { dmg: 64, rate: 1350, range: 160, hp: 260, count: 2, rowSpeed: 76, splash: 64, burn: 13, burnDur: 2600, poolDps: 11, poolDur: 2200, poolR: 26 }, desc: "A hull packed with powder and pitch: every pot leaves the shore burning behind it." },
+          b: { name: "The Chain Boom", cost: 670, stats: { dmg: 54, rate: 1250, range: 165, hp: 300, count: 3, rowSpeed: 80, splash: 52, burn: 9, burnDur: 2000, stun: 0.2, stunDur: 800 }, desc: "A chain slung between the skiffs and a shot that rings it — what the boom catches stands stunned in the shallows." },
         },
       },
     },
@@ -271,8 +271,8 @@ export const TOWERS = {
       b: {
         name: "Nightshade Guild", cost: 360, stats: { dmg: 62, rate: 1750, range: 116, hp: 130, count: 3, unitSpeed: 130, preyMult: 1.75, venom: 26, venomDur: 3200 }, desc: "THREE envenomed guildsmen in the grass. The wound is only the beginning — the poison does the collecting.",
         rank4: {
-          a: { name: "Widow's Kiss", cost: 700, stats: { dmg: 76, rate: 1750, range: 122, hp: 150, count: 3, unitSpeed: 134, preyMult: 2, venom: 40, venomDur: 3600, venomNoHeal: true }, desc: "A venom no chant can outsing: while it burns, the victim CANNOT BE HEALED — by shaman, chaplain, or anything else that prays." },
-          b: { name: "Plague Bearer", cost: 700, stats: { dmg: 70, rate: 1750, range: 122, hp: 150, count: 3, unitSpeed: 134, preyMult: 2, venom: 30, venomDur: 3200, spores: 26, sporeR: 44, sporeDur: 2600 }, desc: "What the venom touches, it keeps: whoever dies with the poison in them BURSTS into a lingering spore-cloud that sickens the column marching through." },
+          a: { name: "Widow's Kiss", cost: 700, stats: { dmg: 92, rate: 1500, range: 126, hp: 170, count: 3, unitSpeed: 134, preyMult: 2, venom: 58, venomDur: 3600, venomNoHeal: true }, desc: "A venom no chant can outsing: while it burns, the victim CANNOT BE HEALED — by shaman, chaplain, or anything else that prays." },
+          b: { name: "Plague Bearer", cost: 700, stats: { dmg: 84, rate: 1500, range: 126, hp: 170, count: 3, unitSpeed: 134, preyMult: 2, venom: 40, venomDur: 3200, spores: 36, sporeR: 50, sporeDur: 2600 }, desc: "What the venom touches, it keeps: whoever dies with the poison in them BURSTS into a lingering spore-cloud that sickens the column marching through." },
         },
       },
     },

@@ -5,13 +5,13 @@
 // gold) and does the paying. Wears the battle HUD's skin (hud.css), and
 // carries its own .cg-hud so the skin's colours come along to the map too.
 
-import { CASTLE_WORKS } from "../data/castle.js";
+import { CASTLE_WORKS, nextWork } from "../data/castle.js";
 import "./hud/hud.css";
 import { CoinIcon } from "./hud/icons.jsx";
 
 const gold = (n) => n.toLocaleString("en-US");
 
-export default function CastleWorksList({ works, purse, purseLabel, onBuy, note }) {
+export default function CastleWorksList({ works, ranks = null, endless = false, purse, purseLabel, onBuy, note }) {
   return (
     <div className="cg-hud" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div className="cg-well" style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: 8 }}>
@@ -23,7 +23,9 @@ export default function CastleWorksList({ works, purse, purseLabel, onBuy, note 
       {Object.entries(CASTLE_WORKS).map(([key, def]) => {
         const have = works?.[key] || 0;
         const cur = have > 0 ? def.tiers[have - 1] : null;
-        const next = def.tiers[have] || null;
+        // past the last tier, the endless offers ranks (see data/castle.js)
+        const next = nextWork(works, key, ranks, endless);
+        const rank = ranks?.[key] || 0;
         const can = !!next && purse >= next.cost;
         return (
           <div key={key} className="cg-panel" style={{ padding: "9px 10px 10px" }}>
@@ -37,12 +39,12 @@ export default function CastleWorksList({ works, purse, purseLabel, onBuy, note 
               </div>
             </div>
             <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, margin: "7px 0 8px" }}>
-              {cur ? <span><b style={{ color: "var(--green)" }}>{cur.label}</b> stands on the wall.</span> : def.blurb}
+              {cur ? <span><b style={{ color: "var(--green)" }}>{cur.label}</b> stands on the wall{rank ? <>, <b style={{ color: "var(--gold-lt)" }}>veteran rank {rank}</b></> : null}.</span> : def.blurb}
             </div>
             {next ? (
               <button className={`cg-btn${can ? "" : " is-poor"}`} style={{ width: "100%", justifyContent: "space-between", fontSize: 11 }}
                 disabled={!can} onClick={() => onBuy(key, next)}>
-                <span className="cg-dim">{have ? "Raise: " : "Build: "}{next.label}</span>
+                <span className="cg-dim">{next.rank ? "" : have ? "Raise: " : "Build: "}{next.label}</span>
                 <span className={`cg-price${can ? "" : " is-short"}`}><CoinIcon size={13} />{gold(next.cost)}</span>
               </button>
             ) : <div className="cg-label" style={{ textAlign: "center", padding: 6, color: "var(--green)" }}>Complete</div>}
