@@ -50,8 +50,9 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
   const vp = useViewport();
   const compact = vp.short && vp.landscape;                      // phone on its side
   const wide = !compact && vp.w >= 820 && vp.w / vp.h >= 1.25;   // iPad on its side, desktop
-  // the blurb is the first thing to go when height is short
-  const blurb = !compact && vp.h >= (wide ? 600 : 640);
+  // the blurb is the first thing to go when height is short, and on a phone
+  // held upright it would sit on the road where the crowd walks
+  const blurb = !compact && !vp.narrow && vp.h >= (wide ? 600 : 640);
 
   // Paint the vista a frame after the menu shows; then, while the player
   // reads the menu, quietly lay out the campaign map so it opens at once.

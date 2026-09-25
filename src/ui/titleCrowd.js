@@ -15,8 +15,9 @@
 // (shadow, body), about a dozen figures; ticks at ~30 fps.
 
 import { rigFrame } from "../render/rigs.js";
-import { PX } from "../render/paint.js";
-import { VW, ROAD, ROAD_W, HAY } from "./titleArt.js";
+import { PX, bakeSprite, part, lighten, darken, blobBall, cylinder, hash } from "../render/paint.js";
+import { flame } from "../render/buildkit.js";
+import { VW, ROAD, ROAD_W, HAY, CASTLE_LIFE as CL } from "./titleArt.js";
 
 // ---- the road as a path ----------------------------------------------------
 // From the gate (d = 0) down past the bottom edge, where walkers come and go.
@@ -71,7 +72,7 @@ const pitch = (t, seed) => {
 
 // the frames the crowd uses, baked a few at a time before it starts
 const NEEDED = [];
-for (const t of TYPES) for (let f = 0; f < 4; f++) NEEDED.push([t, "walk", f]);
+for (const t of TYPES) for (let f = 0; f < 4; f++) NEEDED.push([t, "walk", f]);   // (the sentry is a knight)
 NEEDED.push(["farmer", "fight", 0], ["farmer", "fight", 1]);
 
 // a contact shadow: a plum ellipse, hard-edged, baked once
@@ -88,6 +89,150 @@ const shadowSprite = () => {
   c.putImageData(im, 0, 0);
   return (SHADOW = cv);
 };
+
+
+// ---- the castle's idle life ----------------------------------------------------
+// Baked once as small frame sets at the art's own density, stamped live: the
+// royal standard on the keep, pennants on the stair turrets, the two crown
+// banners on the gatehouse, torches either side of the gate, chimney smoke,
+// a sentry on the wall walk, and a few birds wheeling over the towers who
+// now and then settle on a merlon.
+const BLUE = "#34508e", GOLD = "#d8b34a";
+const band3 = (v, col) => (v > 0.35 ? lighten(col, 0.18) : v < -0.35 ? darken(col, 0.3) : col);
+// a flag streaming from a pole at (1, 1): length `len`, depth `dep`, rippling
+// with phase `ph`; a swallowtail at the fly and, if `crown`, the gold device
+const flagFrame = (len, dep, ph, col, o = {}) => bakeSprite(len + 3, dep + 4 + (o.pole || 0), (c) => {
+  const y0 = 1.5, wave = (u) => Math.sin(u * 0.55 - ph) * (u / len) * 1.3;
+  if (o.pole) part(c, (cc) => { cylinder(cc, 0.3, 0.4, 1.2, dep + 1.5 + o.pole, "#6a4a2e", { r: 0.5, hi: 0.3, lo: 0.5 }); });
+  part(c, (cc) => {
+    for (let u = 0; u < len; u += 0.5) {
+      const w = wave(u), tail = u > len - 3 ? Math.min(dep * 0.35, (u - (len - 3)) * 0.8) : 0;
+      cc.fillStyle = band3(Math.cos(u * 0.55 - ph), col);
+      const top = y0 + w, bot = y0 + w + dep * (1 - (u / len) * 0.18);
+      if (tail) { cc.fillRect(1.3 + u, top, 0.5, (bot - top) / 2 - tail / 2); cc.fillRect(1.3 + u, (top + bot) / 2 + tail / 2, 0.5, (bot - top) / 2 - tail / 2); }
+      else cc.fillRect(1.3 + u, top, 0.5, bot - top);
+      if (o.trim) { cc.fillStyle = GOLD; cc.fillRect(1.3 + u, top, 0.5, 0.5); }
+    }
+    if (o.crown) {
+      const cx = 1.3 + len * 0.36, cy = y0 + wave(len * 0.36) + dep * 0.5;
+      cc.fillStyle = GOLD;
+      cc.fillRect(cx - 1.5, cy, 3, 1); cc.fillRect(cx - 1.5, cy - 1.2, 0.6, 1.2); cc.fillRect(cx - 0.3, cy - 1.6, 0.6, 1.6); cc.fillRect(cx + 0.9, cy - 1.2, 0.6, 1.2);
+    }
+  });
+});
+// a crown banner hanging from its rod: the hem sways, a fold travels across
+const bannerFrame = (ph) => bakeSprite(11, 19, (c) => {
+  const w = 7, h = 14, x = 5.5, top = 1.5;
+  part(c, (cc) => {
+    for (let y = 0; y < h + 3; y += 0.5) {
+      const sway = Math.sin(ph + y * 0.3) * 0.7 * (y / h);
+      const tail = y > h - 3 ? (y - (h - 3)) * 1.2 : 0;
+      for (let u = 0; u < w; u += 0.5) {
+        if (tail && Math.abs(u - w / 2 + 0.25) < tail * 0.5) continue;
+        if (y >= h) continue;
+        const fold = Math.sin(u * 0.9 + ph * 1.3 - y * 0.12);
+        cc.fillStyle = u < 0.6 || u >= w - 0.6 || (y > 1 && y < 1.6) ? GOLD : band3(fold - (u / w) * 0.5 + 0.2, BLUE);
+        cc.fillRect(x - w / 2 + u + sway, top + y, 0.5, 0.5);
+      }
+    }
+    const sw = Math.sin(ph + 1.5) * 0.25;
+    cc.fillStyle = GOLD;
+    const cy = top + 7 + sw;
+    cc.fillRect(x - 2 + sw, cy, 4, 1.2); cc.fillRect(x - 2 + sw, cy - 1.8, 0.8, 1.8); cc.fillRect(x - 0.4 + sw, cy - 2.4, 0.8, 2.4); cc.fillRect(x + 1.2 + sw, cy - 1.8, 0.8, 1.8);
+    cc.fillStyle = "#c04a52"; cc.fillRect(x - 0.4 + sw, cy + 0.2, 0.8, 0.6);
+  });
+  part(c, (cc) => cylinder(cc, x - w / 2 - 1.2, top - 1, w + 2.4, 1.4, "#5a3f26", { r: 0.6, hi: 0.3, lo: 0.4 }));
+});
+const flameFrame = (i) => bakeSprite(10, 12, (c) => flame(c, 5, 10.5, 0.55, i * 0.137 + 0.4, i * 3), false);
+const puffFrame = () => bakeSprite(7, 6, (c) => blobBall(c, 3.5, 3, 2.8, 2.2, "#b8b0c4", 5, { hi: 0.5, lo: 0.4 }), false);
+// a bird in three poses: wings up, wings down, perched
+const birdFrame = (pose) => bakeSprite(8, 6, (c) => {
+  const col = "#3e3650", lt = "#6a6078", bill = "#d8a040";
+  const parts = pose === 2
+    ? [[2.5, 2.5, 3, 1.5, col], [5, 2, 1, 1, col], [6, 2.5, 0.5, 0.5, bill], [3, 4, 0.5, 1, "#2a2230"], [1.5, 3, 1, 0.5, col]]
+    : [[2.5, 2.5, 3, 1, col], [3, 3.5, 2, 0.5, lt], [5.5, 2, 1, 1, col], [6.5, 2.5, 0.5, 0.5, bill],
+      ...(pose === 0 ? [[1.5, 0.5, 1, 2, col], [3.5, 1, 1, 1.5, col]] : [[1.5, 3.5, 1, 1.5, col], [3.5, 3.5, 1, 1, col]])];
+  c.fillStyle = "#241a26";
+  for (const [x, y, w, h] of parts) c.fillRect(x - 0.5, y - 0.5, w + 1, h + 1);
+  for (const [x, y, w, h, cc] of parts) { c.fillStyle = cc; c.fillRect(x, y, w, h); }
+}, false);
+
+let LIFE = null;
+const lifeBakes = () => [
+  () => ({ standard: [0, 1, 2, 3].map((f) => flagFrame(13, 6, (f / 4) * Math.PI * 2, BLUE, { crown: true, trim: true })) }),
+  () => ({ pennant: [0, 1, 2, 3].map((f) => flagFrame(6, 2.4, (f / 4) * Math.PI * 2, BLUE, { pole: 4, trim: true })) }),
+  () => ({ banner: [0, 1, 2, 3].map((f) => bannerFrame((f / 4) * Math.PI * 2)) }),
+  () => ({ flame: [0, 1, 2, 3, 4, 5].map(flameFrame), puff: puffFrame(), bird: [0, 1, 2].map(birdFrame) }),
+];
+
+// a baked sprite at (x, y) in scene units, its anchor (ax, ay) in its own units
+const put = (ctx, D, cv, x, y, ax = 0, ay = 0, face = 1) => {
+  const k = D / PX, w = Math.round(cv.width * k), h = Math.round(cv.height * k);
+  const px = Math.round((x - ax * face) * D), py = Math.round((y - ay) * D);
+  if (face >= 0) ctx.drawImage(cv, px, py, w, h);
+  else { ctx.save(); ctx.translate(px, 0); ctx.scale(-1, 1); ctx.drawImage(cv, 0, py, w, h); ctx.restore(); }
+};
+
+// the sentry: paces his stretch of the wall walk, pausing at each end to look out
+const SENTRY_S = 0.34;
+const sentryAt = (t) => {
+  const { x0, x1 } = CL.walk, v = 2.4, pause = 3.2, leg = (x1 - x0) / v, T = 2 * (leg + pause);
+  const u = (t + 4) % T;
+  if (u < pause) return { x: x0, face: -1, moving: false };
+  if (u < pause + leg) return { x: x0 + (u - pause) * v, face: 1, moving: true, ph: (u - pause) * v };
+  if (u < 2 * pause + leg) return { x: x1, face: 1, moving: false };
+  return { x: x1 - (u - 2 * pause - leg) * v, face: -1, moving: true, ph: (u - 2 * pause - leg) * v };
+};
+
+// the birds: wheel over the keep, and now and then one drops onto a merlon
+const BIRDS = [0, 1, 2];
+const wheel = (i, t) => {
+  const a = t * (0.32 + i * 0.05) + i * 2.1;
+  return { x: 362 + Math.cos(a) * (44 - i * 7), y: 40 + i * 6 + Math.sin(a) * (7 + i * 2), dx: -Math.sin(a) };
+};
+const birdAt = (i, t) => {
+  const T = 34, u = (t + i * 11.3) % T, perch = CL.perches[(Math.floor((t + i * 11.3) / T) + i) % CL.perches.length];
+  const ease = (k) => k * k * (3 - 2 * k);
+  const flap = Math.floor(t * 6 + i) % 2 && (t * 0.7 + i) % 3 < 1.6 ? 1 : 0;
+  if (u < 22) { const w = wheel(i, t); return { x: w.x, y: w.y, face: w.dx >= 0 ? 1 : -1, pose: flap }; }
+  const t0 = t - (u - 22), t1 = t0 + 12;
+  if (u < 25) { const w = wheel(i, t0), k = ease((u - 22) / 3); return { x: w.x + (perch[0] - w.x) * k, y: w.y + (perch[1] - w.y) * k, face: perch[0] > w.x ? 1 : -1, pose: k > 0.8 ? 1 : 0 }; }
+  if (u < 31) return { x: perch[0], y: perch[1], face: hash(i, Math.floor(t / 1.7)) > 0.5 ? 1 : -1, pose: 2 };
+  const w = wheel(i, t1), k = ease((u - 31) / 3);
+  return { x: perch[0] + (w.x - perch[0]) * k, y: perch[1] + (w.y - perch[1]) * k, face: w.x > perch[0] ? 1 : -1, pose: flap };
+};
+
+function renderLife(ctx, D, t) {
+  if (!LIFE) return;
+  // the sentry, seen only between the merlons of the wall walk
+  const s = sentryAt(t), W = CL.walk;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect((W.x0 - 8) * D, 0, (W.x1 - W.x0 + 16) * D, (W.top - 0.6) * D);
+  for (const [g0, g1] of W.gaps) ctx.rect((g0 + 0.5) * D, (W.top - 1) * D, (g1 - g0 - 1) * D, (W.y - W.top + 1) * D);
+  ctx.clip();
+  const fr = s.moving ? Math.floor(s.ph / (9.2 * SENTRY_S / 4)) % 4 : (Math.floor(t / 2.2) % 3 === 2 ? 2 : 0);
+  stamp(ctx, D, "knight", "walk", fr, s.x, W.y + 2.6, SENTRY_S, s.face, 1, false);
+  ctx.restore();
+  // the standard, the turret pennants, the gate's banners
+  const [fx, fy] = CL.standard;
+  put(ctx, D, LIFE.standard[Math.floor(t * 6) % 4], fx, fy, 1, 1.5);
+  CL.pennants.forEach(([x, y], i) => put(ctx, D, LIFE.pennant[Math.floor(t * 7 + i * 1.3) % 4], x, y, 0.9, 8.2));
+  CL.banners.forEach(([x, y], i) => put(ctx, D, LIFE.banner[Math.floor(t * 2.6 + i * 2) % 4], x, y, 5.5, 0.5));
+  // torchlight
+  CL.torches.forEach(([x, y], i) => put(ctx, D, LIFE.flame[Math.floor(hash(Math.floor(t * 9), i + 3) * 6)], x, y, 5, 10.5));
+  // smoke from the keep's chimney, leaning off with the breeze
+  const [cx, cy] = CL.chimney;
+  for (let i = 0; i < 5; i++) {
+    const a = ((t / 7 + i / 5) % 1), sc = 0.5 + a * 1.1;
+    ctx.globalAlpha = 0.55 * (1 - a) * Math.min(1, a * 8);
+    const pc = LIFE.puff, w = Math.round(pc.width * D / PX * sc), h = Math.round(pc.height * D / PX * sc);
+    ctx.drawImage(pc, Math.round((cx + a * 9 + Math.sin(a * 5 + i) * 0.8) * D - w / 2), Math.round((cy - a * 16) * D - h / 2), w, h);
+  }
+  ctx.globalAlpha = 1;
+  // the birds
+  for (const i of BIRDS) { const b = birdAt(i, t); put(ctx, D, LIFE.bird[b.pose], b.x, b.y, 4, 5, b.face); }
+}
 
 // ---- the crowd -------------------------------------------------------------------
 let SEQ = 0;
@@ -154,7 +299,7 @@ function step(state, dt) {
 
 // One figure: its shadow, then its frame, at `s` of board size, with the
 // feet on (x, y) in scene units. D = overlay pixels per scene unit.
-function stamp(ctx, D, type, sheet, frame, x, y, s, face, alpha) {
+function stamp(ctx, D, type, sheet, frame, x, y, s, face, alpha, shade = true) {
   const { cv, ax, ay } = rigFrame(type, sheet, frame);
   // rig pixels per overlay pixel, stepped so a walker's pixels don't crawl
   const k = Math.round(s * D / PX * 10) / 10;
@@ -163,13 +308,13 @@ function stamp(ctx, D, type, sheet, frame, x, y, s, face, alpha) {
   const px = Math.round(x * D), py = Math.round(y * D);
   ctx.globalAlpha = alpha;
   const sh = shadowSprite(), sw = Math.round(12 * s * D), shh = Math.round(4.6 * s * D);
-  ctx.drawImage(sh, px + Math.round(s * D) - (sw >> 1), py - (shh >> 1), sw, shh);
+  if (shade) ctx.drawImage(sh, px + Math.round(s * D) - (sw >> 1), py - (shh >> 1), sw, shh);
   if (face >= 0) ctx.drawImage(cv, px - ox, py - oy, w, h);
   else { ctx.save(); ctx.translate(px, 0); ctx.scale(-1, 1); ctx.drawImage(cv, -ox, py - oy, w, h); ctx.restore(); }
 }
 
 // the box the crowd can reach, in scene units: cleared each frame
-const BOX = [150, 120, 300, 160];
+const BOX = [150, 10, 310, 265];
 
 function render(state, canvas) {
   const ctx = canvas.getContext("2d");
@@ -178,6 +323,7 @@ function render(state, canvas) {
   ctx.globalAlpha = 1;
   ctx.clearRect(BOX[0] * D, BOX[1] * D, BOX[2] * D, BOX[3] * D);
   const t = state.t, list = [];
+  renderLife(ctx, D, t);
   STAYERS.forEach(([type, x, y, face, what], i) => {
     const pose = what === "hay" ? pitch(t, i * 2.3) : idle(t, i * 3 + 1);
     // the talkers turn to each other; one looks off now and then
@@ -225,11 +371,13 @@ export function startCrowd(canvas, { still = false } = {}) {
   document.addEventListener("visibilitychange", onVis);
   // bake the frames a handful at a time, so the menu never stutters
   let i = 0;
+  const lb = LIFE ? [] : lifeBakes(), life = {};
   const warm = () => {
     if (!alive) return;
-    for (const end = Math.min(NEEDED.length, i + 4); i < end; i++) rigFrame(...NEEDED[i]);
-    if (i < NEEDED.length) bake = setTimeout(warm, 0);
-    else { ready = true; go(); }
+    if (i < NEEDED.length) for (const end = Math.min(NEEDED.length, i + 4); i < end; i++) rigFrame(...NEEDED[i]);
+    else if (lb.length) Object.assign(life, lb.shift()());
+    if (i < NEEDED.length || lb.length) bake = setTimeout(warm, 0);
+    else { if (!LIFE) LIFE = life; ready = true; go(); }
   };
   warm();
   return {
@@ -240,4 +388,4 @@ export function startCrowd(canvas, { still = false } = {}) {
 }
 
 // for the lab: where the road is, to check the figures stand on it
-export const crowdDebug = { at, sAt, LEN, step, render };
+export const crowdDebug = { at, sAt, LEN, step, render, bakeLife: () => { LIFE = LIFE || Object.assign({}, ...lifeBakes().map((f) => f())); } };

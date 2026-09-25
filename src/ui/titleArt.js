@@ -6,15 +6,9 @@
 // per unit, with the sun low on the left like the game's own light.
 
 import {
-  hash, rgb, lighten, darken, blobBall, cone, inkOutline, bakeSprite, tuft, flower, part, cylinder,
+  hash, rgb, rgba, lighten, darken, blobBall, ball, cone, inkOutline, bakeSprite, tuft, flower, part, cylinder,
 } from "../render/paint.js";
-import { stoneBody, coneRoof, slit, pennant, GREY_STONE } from "../render/buildkit.js";
-
-// merlons along a wall head, inked as one piece (cheaper to bake than one
-// piece a merlon, and it reads the same)
-const battlement = (ctx, x, y, hw, col, step = 7) => part(ctx, (c) => {
-  for (let px = x - hw; px < x + hw - 2; px += step) cylinder(c, px, y - 5, Math.min(4.2, x + hw - px), 6, col, { r: 1, hi: 0.32, lo: 0.42 });
-});
+import { ashlar, merlons, footing, torchBracket } from "../render/buildkit.js";
 
 const U = 2, SW = 480, SH = 270;
 export const VW = SW * U, VH = SH * U;
@@ -188,47 +182,228 @@ const hayS = () => bakeSprite(20, 14, (c) => {
   c.fillStyle = "#a88a40"; for (const [x, y] of [[5, 9], [9, 10], [12, 8], [7, 6]]) c.fillRect(x, y, 1.6, 0.5);
 });
 
-// The crown's castle, in the game's own masonry: curtain wall, two drum
-// towers, a tall keep with the royal banner, torchlight in the slits.
-const castleS = () => bakeSprite(132, 120, (c) => {
-  const cx = 66, G = 118, roof = "#a8505c", st = GREY_STONE;
-  // rear towers behind the keep
-  for (const x of [40, 92]) {
-    stoneBody(c, x, 44, 16, G - 44 - 20, darken(st, 0.08));
-    battlement(c, x, 44, 9, darken(st, 0.05), 5.5);
-    coneRoof(c, x, 42, 9, 20, darken(roof, 0.12));
-  }
-  // the keep
-  stoneBody(c, cx, 30, 34, G - 30 - 18, st);
-  battlement(c, cx, 30, 18, st, 6);
-  coneRoof(c, cx, 28, 17, 26, roof);
-  slit(c, cx - 7, 44, 7); slit(c, cx + 7, 44, 7); slit(c, cx, 58, 8);
-  pennant(c, cx, -2, 14, "#d8b34a", 1.1, 0, 1);
-  // curtain wall and gate
-  stoneBody(c, cx, 70, 104, G - 70, st);
-  battlement(c, cx, 70, 52, st, 7);
-  c.fillStyle = "#2a2230";
-  c.beginPath(); c.moveTo(cx - 9, G); c.lineTo(cx - 9, G - 20); c.arc(cx, G - 20, 9, Math.PI, 0); c.lineTo(cx + 9, G); c.closePath(); c.fill();
-  c.fillStyle = "#7a5334"; for (let k = -7; k <= 7; k += 3.5) c.fillRect(cx + k - 0.6, G - 26, 1.2, 22);
-  c.fillRect(cx - 9, G - 15, 18, 1.2); c.fillRect(cx - 9, G - 9, 18, 1.2);
-  // the crown's colours hung either side of the gate
-  for (const x of [cx - 26, cx + 26]) part(c, (cc) => {
-    cc.fillStyle = "#a8505c"; cc.beginPath();
-    cc.moveTo(x - 5, 74); cc.lineTo(x + 5, 74); cc.lineTo(x + 5, 96); cc.lineTo(x, 92); cc.lineTo(x - 5, 96); cc.closePath(); cc.fill();
-    cc.fillStyle = "#c46a70"; cc.fillRect(x - 5, 74, 3, 20);
-    cc.fillStyle = "#d8b34a"; cc.fillRect(x - 5, 74, 10, 2);
-    // the crown, in gold thread
-    cc.fillRect(x - 3, 83.5, 6, 2.4); cc.fillRect(x - 3, 80.5, 1.4, 3); cc.fillRect(x - 0.7, 79.5, 1.4, 4); cc.fillRect(x + 1.6, 80.5, 1.4, 3);
-  });
-  // drum towers at the corners
-  for (const x of [14, 118]) {
-    stoneBody(c, x, 50, 24, G - 50, st);
-    battlement(c, x, 50, 13, st, 6);
-    coneRoof(c, x, 48, 13, 24, roof);
-    slit(c, x, 64, 7); slit(c, x, 88, 7);
-    pennant(c, x, 16, 10, "#a8505c", 2.3 + x, x, x < cx ? -1 : 1);
-  }
+// ---- the crown's castle ------------------------------------------------------
+// The in-game castle (render/castle.js) seen from the front, looking up the
+// hill at it: SQUARE towers with open, battlemented tops (merlons against the
+// sky), corbelled parapets, small red-roofed stair turrets keeping a little red
+// on the skyline, a tall keep behind, and the gatehouse with its portcullis.
+// Ballista arms and a crewman's kettle hat peep between the merlons. What
+// moves (flags, the gate's crown banners, torches, smoke, the sentry on the
+// wall walk, birds) is drawn live by titleCrowd.js at the anchors in
+// CASTLE_LIFE, never baked here.
+const ST = "#aca494", ROOF = "#a8505c", STEEL = "#c4c8d0", OAK = "#7a5334";
+// sprite size and anchor: the gate's sill (cx, G) sits at scene (360, 172)
+const CS = { w: 132, h: 128, cx: 66, g: 124, x: 360, y: 172 };
+const G = CS.g, CX = CS.cx, CURTAIN_GAP = 3.8;
+const sx = (x) => CS.x - CS.cx + x, sy = (y) => CS.y - CS.g + y;   // sprite -> scene
+
+// an arrow loop: a dark slit, a few with torchlight low inside
+const slit = (c, x, y, h, lit = true) => part(c, (cc) => {
+  cc.fillStyle = "#2a2230"; cc.fillRect(x - 0.9, y, 1.8, h);
+  cc.fillRect(x - 0.4, y - 0.5, 0.8, 0.5);
+  if (lit) { cc.fillStyle = "#e89a48"; cc.fillRect(x - 0.4, y + h * 0.45, 0.8, h * 0.4); cc.fillStyle = "#ffd070"; cc.fillRect(x - 0.4, y + h * 0.65, 0.8, h * 0.2); }
 });
+
+// merlons spread evenly across a parapet [x0, x1], tops `h` over `y`
+const crenels = (x0, x1, mw = 4, gap = 2.6) => {
+  const n = Math.max(2, Math.round((x1 - x0 - mw) / (mw + gap)) + 1);
+  return { x0, x1, mw, step: (x1 - x0 - mw) / (n - 1), n };
+};
+const crenelRow = (c, cr, y, col, seed, h = 5) =>
+  merlons(c, (cr.x0 + cr.x1) / 2, y, (cr.x1 - cr.x0) / 2, col, { step: cr.step, w: cr.mw, h, seed });
+
+// a pyramid roof in shingle rows, the sunward half lit, a gold knop on top
+const pyramid = (ctx, x, eave, hw, h, col) => {
+  part(ctx, (c) => {
+    c.fillStyle = lighten(col, 0.1);
+    c.beginPath(); c.moveTo(x - hw, eave); c.lineTo(x, eave - h); c.lineTo(x + 0.3, eave); c.closePath(); c.fill();
+    c.fillStyle = darken(col, 0.28);
+    c.beginPath(); c.moveTo(x + 0.3, eave); c.lineTo(x, eave - h); c.lineTo(x + hw, eave); c.closePath(); c.fill();
+    c.fillStyle = rgba(darken(col, 0.55), 0.55);
+    for (let k = 1; k < 4; k++) { const y = eave - (h * k) / 4, w = hw * (1 - k / 4); c.fillRect(x - w, y, w * 2, 0.5); }
+    c.fillStyle = rgba("#fff3d2", 0.35); c.fillRect(x - 0.6, eave - h + 1, 0.5, h - 1.5);
+    c.fillStyle = darken(col, 0.5); c.fillRect(x - hw, eave - 0.6, hw * 2, 0.6);
+  });
+  part(ctx, (c) => ball(c, x, eave - h, 1.1, 1.1, "#d8b34a", { hi: 0.5, lo: 0.3 }));
+};
+
+// a square tower (or wall block) with a corbelled parapet and merlons;
+// returns its crenel layout so things can peep between the merlons
+const block = (c, x, top, w, bottom, col, seed, o = {}) => {
+  const x0 = x - w / 2, lip = o.lip ?? 1.2, band = o.band ?? 5;
+  ashlar(c, x0, top + band, w, bottom - top - band, col, seed, { course: 3.6, block: 5.5, moss: o.moss, r: 0.8, lo: 0.5 });
+  // corbels under the jutting parapet
+  if (lip > 0) part(c, (cc) => {
+    for (let px = x0 + 1; px < x0 + w - 1; px += 3.2) {
+      cc.fillStyle = darken(col, 0.35); cc.fillRect(px, top + band, 1.8, 1.6);
+      cc.fillStyle = darken(col, 0.6); cc.fillRect(px, top + band + 1.6, 1.8, 0.6);
+    }
+  });
+  ashlar(c, x0 - lip, top, w + lip * 2, band, lighten(col, 0.06), seed + 9, { course: 2.5, block: 5, r: 0.5, hi: 0.35 });
+  const cr = crenels(x0 - lip, x0 + w + lip, 4, o.gap ?? 2.6);
+  if (o.peep) o.peep(cr);
+  crenelRow(c, cr, top + 0.5, lighten(col, 0.12), seed);
+  return cr;
+};
+
+// a ballista standing on a gate tower's deck, facing us: the bow's arms
+// and its bolt head showing over the merlons
+const ballistaPeep = (c, x, y) => part(c, (cc) => {
+  cc.strokeStyle = OAK; cc.lineWidth = 1.1; cc.lineCap = "round";
+  cc.beginPath(); cc.moveTo(x - 5, y - 1.8); cc.quadraticCurveTo(x - 2.5, y + 0.6, x, y + 0.4); cc.quadraticCurveTo(x + 2.5, y + 0.6, x + 5, y - 1.8); cc.stroke();
+  cc.strokeStyle = "#e8e0c8"; cc.lineWidth = 0.4;
+  cc.beginPath(); cc.moveTo(x - 5, y - 1.8); cc.lineTo(x, y + 2); cc.lineTo(x + 5, y - 1.8); cc.stroke();
+  cc.fillStyle = darken(OAK, 0.3); cc.fillRect(x - 1, y - 1.2, 2, 5);
+  cc.fillStyle = STEEL; cc.beginPath(); cc.moveTo(x, y - 3.4); cc.lineTo(x + 1.3, y - 1.4); cc.lineTo(x, y + 0.2); cc.lineTo(x - 1.3, y - 1.4); cc.closePath(); cc.fill();
+});
+const kettleHat = (c, x, y) => part(c, (cc) => {
+  ball(cc, x, y, 1.9, 1.5, STEEL, { hi: 0.5, lo: 0.45 });
+  cc.fillStyle = darken(STEEL, 0.3); cc.fillRect(x - 2.6, y + 0.8, 5.2, 0.7);
+});
+
+// the layout, shared with the live layer
+const L = {
+  keep: [CX, G - 92, 34], keepTurret: [CX + 12, G - 106, 8], chimney: [CX + 1, G - 100],
+  rear: [[CX - 33, G - 80, 14], [CX + 33, G - 80, 14]],
+  corner: [[13, G - 70, 24], [119, G - 70, 24]], cornerTurret: [[21.5, G - 80, 7], [110.5, G - 80, 7]],
+  curtain: [20, 112, G - 48], gateTower: [[CX - 16, G - 64, 12], [CX + 16, G - 64, 12]], gateWall: [CX, G - 56, 22],
+  arch: [CX, G - 16, 8],
+};
+
+const castleS = () => bakeSprite(CS.w, CS.h, (c) => {
+  const back = darken(ST, 0.1), rear = darken(ST, 0.2);
+  // the keep: chimney and stair turret on its deck, then its body
+  const [kx, kt, kw] = L.keep;
+  part(c, (cc) => cylinder(cc, L.chimney[0] - 2, L.chimney[1], 4, kt - L.chimney[1] + 2, darken(ST, 0.05), { r: 0.5, hi: 0.35, lo: 0.5 }));
+  part(c, (cc) => { cc.fillStyle = "#3a3038"; cc.fillRect(L.chimney[0] - 2.4, L.chimney[1] - 0.6, 4.8, 1.4); });
+  const [tx, tt, tw] = L.keepTurret;
+  ashlar(c, tx - tw / 2, tt, tw, kt - tt + 4, back, 31, { course: 3.2, block: 4, r: 0.5 });
+  slit(c, tx, tt + 3.5, 4, false);
+  pyramid(c, tx, tt + 0.5, tw / 2 + 1.4, 11, ROOF);
+  // the royal standard's pole (its flag flies live)
+  part(c, (cc) => cylinder(cc, kx - 10.8, G - 122, 1.4, 32, "#6a4a2e", { r: 0.6, hi: 0.3, lo: 0.5 }));
+  block(c, kx, kt, kw, G - 30, back, 3, { lip: 1.4 });
+  slit(c, kx - 7, kt + 13, 6); slit(c, kx + 7, kt + 13, 6, false);
+  slit(c, kx, kt + 26, 7, false);
+  // rear towers either side of the keep
+  for (const [x, t, w] of L.rear) { block(c, x, t, w, G - 30, rear, 40 + x, { lip: 1 }); slit(c, x, t + 12, 5, x > CX); }
+  // the corner towers' stair turrets, behind their parapets
+  for (const [x, t, w] of L.cornerTurret) {
+    ashlar(c, x - w / 2, t, w, 16, back, 50 + x, { course: 3.2, block: 4, r: 0.5 });
+    pyramid(c, x, t + 0.5, w / 2 + 1.3, 10, ROOF);
+  }
+  // the curtain wall, its merlons against the keep's foot
+  const [c0, c1, ct] = L.curtain;
+  block(c, (c0 + c1) / 2, ct, c1 - c0, G, darken(ST, 0.07), 11, { lip: 0.8, moss: 0.5, gap: CURTAIN_GAP });
+  // the gatehouse: the wall over the gate, then its two towers (ballistae up top)
+  const [gx, gt, gw] = L.gateWall;
+  block(c, gx, gt, gw, G, darken(ST, 0.04), 21, { lip: 1 });
+  for (const [x, t, w] of L.gateTower) {
+    block(c, x, t, w, G, ST, 60 + x, { lip: 1.4, moss: 0.6, peep: () => ballistaPeep(c, x, t - 4.2) });
+    slit(c, x, t + 32, 6);
+  }
+  // the arch, its ring of voussoirs, the dark passage and the portcullis
+  const [ax, ay, ar] = L.arch;
+  part(c, (cc) => {
+    cc.fillStyle = "#e0d8c4";
+    cc.beginPath(); cc.moveTo(ax - ar - 2, G); cc.lineTo(ax - ar - 2, ay); cc.arc(ax, ay, ar + 2, Math.PI, 0); cc.lineTo(ax + ar + 2, G); cc.closePath(); cc.fill();
+    cc.fillStyle = darken(ST, 0.45);
+    for (let k = 0; k <= 6; k++) { const a = Math.PI + (k / 6) * Math.PI; cc.fillRect(ax + Math.cos(a) * (ar + 1) - 0.25, ay + Math.sin(a) * (ar + 1) - 0.25, 0.5, 0.5); }
+    cc.fillStyle = "#1e1822";
+    cc.beginPath(); cc.moveTo(ax - ar, G); cc.lineTo(ax - ar, ay); cc.arc(ax, ay, ar, Math.PI, 0); cc.lineTo(ax + ar, G); cc.closePath(); cc.fill();
+    // a warm courtyard glimpsed through the bars
+    cc.fillStyle = "#4a3236"; cc.fillRect(ax - ar, G - 4, ar * 2, 4);
+    cc.fillStyle = "#6a4a3a"; cc.fillRect(ax - ar, G - 1.5, ar * 2, 1.5);
+  });
+  part(c, (cc) => {
+    cc.save(); cc.beginPath(); cc.moveTo(ax - ar, G); cc.lineTo(ax - ar, ay); cc.arc(ax, ay, ar, Math.PI, 0); cc.lineTo(ax + ar, G); cc.closePath(); cc.clip();
+    for (let px = ax - ar + 1.6; px < ax + ar; px += 2.6) { cc.fillStyle = "#3e424c"; cc.fillRect(px - 0.5, ay - ar, 1, G - ay + ar - 1.5); cc.fillStyle = "#6a707c"; cc.fillRect(px - 0.5, ay - ar, 0.5, G - ay + ar - 1.5); }
+    for (let py = ay - ar + 2; py < G - 2; py += 2.8) { cc.fillStyle = "#4a4e5a"; cc.fillRect(ax - ar, py, ar * 2, 0.8); }
+    cc.restore();
+  });
+  // torches at the gate (their flames burn live)
+  for (const x of [ax - ar - 3.6, ax + ar + 3.6]) torchBracket(c, x, G - 17);
+  // the corner towers, a crewman's hat between the merlons of one
+  for (const [x, t, w] of L.corner) {
+    block(c, x, t, w, G, ST, 70 + x, { lip: 1.6, moss: 0.8, peep: (cr) => { if (x > CX) kettleHat(c, cr.x0 + cr.mw + cr.step * 1 + (cr.step - cr.mw) / 2, t - 2.6); } });
+    slit(c, x, t + 16, 7, false); slit(c, x, t + 38, 7, x < CX);
+  }
+  // the footing course the whole castle stands on, broken by the gate
+  footing(c, (1 + ax - ar - 2) / 2, G, (ax - ar - 2 - 1) / 2 - 2, darken(ST, 0.14), 5, 4.5);
+  footing(c, (ax + ar + 2 + 131) / 2, G, (131 - ax - ar - 2) / 2 - 2, darken(ST, 0.14), 9, 4.5);
+});
+
+// Where the live bits go, in scene units (see titleCrowd.js).
+const curtainCr = crenels(L.curtain[0] - 0.8, L.curtain[1] + 0.8, 4, CURTAIN_GAP);
+export const CASTLE_LIFE = {
+  gate: [CS.x, CS.y],
+  standard: [sx(L.keep[0] - 10.1), sy(G - 121)],                       // the royal standard, top of its pole
+  pennants: [...L.cornerTurret.map(([x, t]) => [sx(x), sy(t - 10.3)]), [sx(L.keepTurret[0]), sy(L.keepTurret[1] - 11.3)]],
+  banners: L.gateTower.map(([x, t]) => [sx(x), sy(t + 7.4)]),            // the crown banners on the gate towers
+  torches: [sx(L.arch[0] - L.arch[2] - 3.6), sx(L.arch[0] + L.arch[2] + 3.6)].map((x) => [x, sy(G - 22.8)]),
+  chimney: [sx(L.chimney[0]), sy(L.chimney[1] - 0.5)],
+  // the wall walk: the sentry walks [x0, x1] with his feet hidden behind
+  // the parapet top at `y`; he shows only in the gaps between merlons
+  walk: {
+    x0: sx(L.corner[0][0] + 15), x1: sx(L.gateTower[0][0] - 8.5), y: sy(L.curtain[2] + 0.5), top: sy(L.curtain[2] + 0.5 - 5),
+    gaps: Array.from({ length: curtainCr.n - 1 }, (_, i) => [sx(curtainCr.x0 + i * curtainCr.step + curtainCr.mw), sx(curtainCr.x0 + (i + 1) * curtainCr.step)]),
+  },
+  // merlon tops where birds settle
+  perches: [
+    [sx(L.corner[0][0] - 11.6), sy(L.corner[0][1] - 4.6)], [sx(L.corner[1][0] + 11.6), sy(L.corner[1][1] - 4.6)],
+    [sx(L.gateTower[1][0] + 5.4), sy(L.gateTower[1][1] - 4.6)], [sx(L.keep[0] - 16.4), sy(L.keep[1] - 4.6)],
+  ],
+};
+
+// how far (x, y) lies outside the painted road's edge (negative: on it)
+const offRoad = (x, y) => {
+  let best = 1e9;
+  for (let k = 0; k < ROAD.length - 1; k++) {
+    const [x0, y0] = ROAD[k], [x1, y1] = ROAD[k + 1], dx = x1 - x0, dy = y1 - y0;
+    const t = Math.max(0, Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy)));
+    best = Math.min(best, Math.hypot(x - x0 - dx * t, y - y0 - dy * t) - ROAD_W(k) / 2);
+  }
+  return best;
+};
+
+// The threshold: setts laid in rows, fanning from the gate's sill down into
+// the dirt road, with a darker kerb of edge stones.
+const THRESHOLD = [[349, 171.2], [371, 171.2], [371.5, 173.6], [366, 177], [356, 181.5], [348, 184], [343, 183], [343.5, 179.5], [347.5, 175]];
+function paintThreshold(c) {
+  const edge = () => { c.beginPath(); THRESHOLD.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.closePath(); };
+  c.save(); edge(); c.clip();
+  c.fillStyle = "#6e6454"; c.fillRect(330, 168, 50, 20);
+  for (let row = 0, y = 171.2; y < 185; row++, y += 1.5) {
+    for (let x = 340 + (row % 2) * 1.3, k = 0; x < 376; x += 2.6, k++) {
+      const t = hash(row * 31 + k, 7);
+      c.fillStyle = t < 0.3 ? "#a89e88" : t > 0.75 ? "#d0c8b2" : "#bdb39c";
+      c.fillRect(x, y, 2.1, 1.05);
+      c.fillStyle = "#e4dcc8"; c.fillRect(x, y, 1.6, 0.35);
+    }
+  }
+  c.restore();
+  edge(); c.strokeStyle = "#8a806c"; c.lineWidth = 0.9; c.stroke();
+}
+// The bank: soil and a lip of turf along the castle's foot (not across the
+// threshold), tufts leaning on the stones, rubble at the corners.
+function paintBank(c) {
+  const x0 = sx(0), x1 = sx(CS.w), gy = CS.y;
+  for (let x = x0 - 2; x < x1 + 2; x += 0.5) {
+    if (x > 347 && x < 373) continue;
+    const top = gy - 0.6 - (hash(Math.floor(x * 2), 3) > 0.75 ? 0.5 : 0) - Math.max(0, Math.sin(x / 7)) * 0.6;
+    c.fillStyle = "#5a4430"; c.fillRect(x, top - 0.5, 0.5, 0.5);
+    c.fillStyle = "#86ba56"; c.fillRect(x, top, 0.5, gy + 3 - top);
+    c.fillStyle = "#a4d070"; c.fillRect(x, top, 0.5, 0.5);
+  }
+  for (let k = 0; k < 12; k++) {
+    const x = x0 + 2 + hash(k, 21) * (CS.w - 4);
+    if (x > 344 && x < 376) continue;
+    tuft(c, x, gy + 1 + hash(k, 22), 0.35 + hash(k, 23) * 0.25, "#3f6e2e", "#8ac050", k + 90, { n: 3 });
+  }
+  for (const [x, y, r] of [[x0 + 1, gy + 1.2, 1.6], [x0 + 4, gy + 2, 1.1], [x1 - 2, gy + 1.4, 1.7], [x1 - 5.5, gy + 2.2, 1], [344.5, gy + 1, 1.2], [375.5, gy + 1.2, 1.3], [377.5, gy + 2.2, 0.8]]) {
+    blobBall(c, x, y, r, r * 0.75, "#8e8878", Math.round(x * 3), { hi: 0.45, lo: 0.5 });
+  }
+}
 
 // ---- the scene -------------------------------------------------------------
 // Painted in stages, like the map, so it can be spread over a few frames.
@@ -276,7 +451,11 @@ function* paintVista() {
   }
   yield;
   // the castle's hill and the near fields
-  const hillTop = (x) => 200 + Math.sin(x / 30) * 3 - 30 * Math.exp(-(((x - 360) / 78) ** 2));
+  // the hill rises to a level top under the castle, so it stands IN the
+  // ground rather than on the slope
+  const hillTop = (x) => Math.min(
+    200 + Math.sin(x / 30) * 3 - 30 * Math.exp(-(((x - 360) / 78) ** 2)),
+    170.5 + Math.max(0, Math.abs(x - 362) - 70) ** 2 * 0.05);
   paintHills(ctx, hillTop, ["#8cc05a", "#6ea24a", "#548a3c"], 5, true);
   // the road up to the gate, wider as it nears
   const road = ROAD;
@@ -292,12 +471,16 @@ function* paintVista() {
   // the castle on its hill
   ctx.globalAlpha = 0.35;
   ctx.drawImage(layer((c) => {
-    c.fillStyle = "#2a1c2c"; c.beginPath(); c.ellipse(366, 175, 64, 6, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#2a1c2c"; c.beginPath(); c.ellipse(366, 174, 70, 5, 0, 0, Math.PI * 2); c.fill();
   }), 0, 0);
   ctx.globalAlpha = 1;
   yield;
   const castle = castleS();
-  ctx.drawImage(castle, Math.round((360 - 66) * U), Math.round((174 - 120) * U));
+  ctx.drawImage(castle, Math.round(sx(0) * U), Math.round(sy(0) * U));
+  // bedding it in: the cobbled threshold running up into the gate, an earth
+  // bank over the footing's foot, grass and a little rubble creeping on it
+  ctx.drawImage(layer(paintThreshold, 1), 0, 0);
+  ctx.drawImage(layer(paintBank), 0, 0);
   yield;
   // woods closing in on both sides, darker toward the viewer
   const woods = [];
@@ -319,11 +502,17 @@ function* paintVista() {
   }
   // the foreground grass: tufts and a few flowers
   ctx.drawImage(layer((c) => {
+    // (never on the road, where the walkers go)
     for (let k = 0; k < 70; k++) {
       const x = hash(k, 11) * SW, y = 236 + hash(k, 12) * 34;
+      if (offRoad(x, y) < 4) continue;
       tuft(c, x, y, 1.1 + hash(k, 13) * 0.8, "#3f6e2e", "#8ac050", k);
     }
-    for (let k = 0; k < 18; k++) flower(c, hash(k, 14) * SW, 244 + hash(k, 15) * 24, ["#f2ead4", "#e8c65a", "#d86a6a"][k % 3], k, 1.2);
+    for (let k = 0; k < 18; k++) {
+      const x = hash(k, 14) * SW, y = 244 + hash(k, 15) * 24;
+      if (offRoad(x, y) < 3) continue;
+      flower(c, x, y, ["#f2ead4", "#e8c65a", "#d86a6a"][k % 3], k, 1.2);
+    }
   }), 0, 0);
   // birds, heading home
   ctx.fillStyle = "#2a2440";

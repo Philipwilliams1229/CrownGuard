@@ -52,7 +52,7 @@ copy what the rebuilt pieces do.
 | Combat effects, projectiles, ground pools, logs, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
 | HUD skin | `src/ui/hud/` (`hud.css`, `icons.jsx`, `Chips.jsx`) + `src/ui/theme.js` | |
 | Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` | painted once, cached |
-| Title-screen crowd (walkers, guards, the hay-forker) | `src/ui/titleCrowd.js` on the vista's road (`ROAD`, `ROAD_W`, `HAY` in `titleArt.js`) | a second canvas with the vista's own fit, ~30 fps, paused when hidden |
+| Title-screen crowd and castle life (walkers, guards, the hay-forker; banners, sentry, smoke, torches, birds) | `src/ui/titleCrowd.js`, placed from `ROAD`, `ROAD_W`, `HAY` and `CASTLE_LIFE` in `titleArt.js`; the vista castle matches the board castle (square open-topped towers, red stair turrets, blue crown banners, cobbled threshold) | a second canvas with the vista's own fit, ~30 fps, paused when hidden |
 
 A new creature: add an entry to the matching `rigs-*.js` file (same shape as
 `RIGS`: `{ kind, box: { hw, up, down }, p }`), keep colours in the `skin /
