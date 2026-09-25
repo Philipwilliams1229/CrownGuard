@@ -191,22 +191,29 @@ export const drawEnemy = (ctx, e, time, tms) => {
 // figure that walks to its mark, cuts, and looks for the next one.
 const drawAssassinUnit = (ctx, u, t, time) => {
   const pal = ASSASSIN_PALS[t.branch || "base"] || ASSASSIN_PALS.base;
-  const frame = u.state === "moving" ? Math.floor(time * 9 + u.id) % 2 : 0;
-  if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 7, u.id, 0.22, time);
-  ctx.fillStyle = "rgba(20,20,26,0.28)";
-  ctx.fillRect(S(u.x - 5), S(u.y + 9), 10, CELL);
-  drawRig(ctx, "assassinUnit", u.x, u.y + 9, u.face, u.state === "fighting" ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 7 + u.id) % 4 : u.state === "fighting" ? (u.swing > 0 ? 1 : 0) : 0);
-  // the cut itself: a short bright arc thrown out on the swing
+  const rig = t.branch === "a" ? "assassinUnitA" : t.branch === "b" ? "assassinUnitB" : "assassinUnit";
+  const fighting = u.state === "fighting", f = u.face < 0 ? -1 : 1;
+  if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 9, u.id, 0.18, time);
+  softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24);
+  drawRig(ctx, rig, u.x, u.y + 9, u.face, fighting ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 9 + u.id) % 4 : fighting ? (u.swing > 0 ? 1 : 0) : 0);
+  // the cut itself: a thin bright line running out past the point, a nick of
+  // light where it lands, and on a Nightshade blade the venom flung off it
   if (u.swing > 0) {
-    const reach = u.face < 0 ? -9 : 9;
-    ctx.fillStyle = t.branch === "b" ? "#8ac06a" : "#e8e2d4";
-    ctx.fillRect(S(u.x + reach), S(u.y - 6), 3, 2);
-    ctx.fillRect(S(u.x + reach * 0.7), S(u.y - 9), 2, 3);
+    const k = u.swing / 200, tx = Math.round(u.x + f * 19), ty = Math.round(u.y - 4);
+    const len = Math.round(2 + 4 * k);
+    ctx.fillStyle = `rgba(255,243,210,${(0.3 + 0.55 * k).toFixed(2)})`;
+    ctx.fillRect(f > 0 ? tx - len : tx, ty, len, 1);
+    ctx.fillStyle = t.branch === "b" ? pal.v : "#fff3d2";
+    ctx.fillRect(tx + f * 2, ty - 1, 1, 3);
+    ctx.fillRect(tx + f * 2 - 1, ty, 3, 1);
+    if (t.branch === "b") { ctx.fillRect(Math.round(tx + f * (4 - 2 * k)), Math.round(ty + 2 + 3 * (1 - k)), 1, 1); ctx.fillRect(tx + f, Math.round(ty + 3 + 4 * (1 - k)), 1, 1); }
   }
-  // a guildsman under orders wears a small mark of them
-  if (u.targetId != null && u.state === "fighting") {
-    ctx.fillStyle = "rgba(232,193,74,0.85)";
-    ctx.fillRect(S(u.x) - 1, S(u.y - 22), 2, 2);
+  // a guildsman at his work wears a small gilt mark of his orders over the hood
+  if (u.targetId != null && fighting) {
+    const mx = Math.round(u.x - f * 1), my = Math.round(u.y - 17);
+    ctx.fillStyle = INK; ctx.fillRect(mx - 2, my, 5, 1); ctx.fillRect(mx, my - 2, 1, 5); ctx.fillRect(mx - 1, my - 1, 3, 3);
+    ctx.fillStyle = "#e8c14a"; ctx.fillRect(mx, my - 1, 1, 3); ctx.fillRect(mx - 1, my, 3, 1);
+    ctx.fillStyle = "#fff3d2"; ctx.fillRect(mx, my, 1, 1);
   }
 };
 

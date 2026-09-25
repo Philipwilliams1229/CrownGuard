@@ -24,7 +24,7 @@ import { hasRig, rigPixels, drawRig } from "./rigs.js";
 import { ENEMIES } from "../data/enemies.js";
 import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawGroundBlend } from "./groundblend.js";
-import { drawTraps } from "./traps.js";
+import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawLog } from "./logs.js";
 import { drawStoop } from "./birds.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
@@ -297,6 +297,8 @@ export function draw(g, canvas, bufRef) {
   }
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();
+  // the aerostat's tethered bombs ride above the whole fray
+  drawTrapBalloons(ctx, g);
 
   // the Sunforge's held light: drawn over the fray so the line of the beam
   // is never lost, its width and fury growing with the focus
@@ -334,15 +336,15 @@ export function draw(g, canvas, bufRef) {
     if (t.kind !== "falconry" || !t.eagle) continue;
     const eg = t.eagle;
     if (eg.respawn > 0) continue;
-    const face = eg.targetId ? (Math.cos(Math.atan2(0, 1)) >= 0 ? 1 : 1) : 1;
     const dir = (eg.vx ?? 1) < 0 ? -1 : 1;
     softShadow(ctx, eg.x + 4, eg.y + 22, 12, 3, 0.24);
     drawRig(ctx, "eagle", eg.x, eg.y + 10, dir, "walk", Math.floor(g.time * 8 + t.id) % 4);
     if (eg.healGlow > 0) for (let i2 = 0; i2 < 3; i2++) glowFx(ctx, eg.x - 8 + i2 * 8, eg.y - 18 - ((g.time * 22 + i2 * 6) % 10), 1.4, "#8ce08c", 0.8);
     if (eg.hp < eg.maxHp) {
-      ctx.fillStyle = INK; ctx.fillRect(eg.x - 12, eg.y - 22, 24, 5);
+      // held clear above the rider's plume and the raised wingtips
+      ctx.fillStyle = INK; ctx.fillRect(eg.x - 12, eg.y - 34, 24, 5);
       ctx.fillStyle = eg.hp / eg.maxHp > 0.4 ? "#7fc95e" : "#e07a72";
-      ctx.fillRect(eg.x - 11, eg.y - 21, Math.max(1, Math.round(22 * eg.hp / eg.maxHp)), 3);
+      ctx.fillRect(eg.x - 11, eg.y - 33, Math.max(1, Math.round(22 * eg.hp / eg.maxHp)), 3);
     }
   }
 

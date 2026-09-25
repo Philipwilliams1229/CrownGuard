@@ -49,7 +49,11 @@ copy what the rebuilt pieces do.
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type |
 | Ground and road | `src/render/world.js` | cached per realm |
 | Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots` in `src/data/castle.js`) — SQUARE open-topped towers (paved deck, battlemented rim, a red-roofed stair turret) with the ballistae and spare bowmen ON the gate towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
-| Combat effects, projectiles, ground pools, logs, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
+| Combat effects, projectiles, ground pools, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
+| The Trapsmith's traps (spikes, jaws, caltrops, mines, aerostat balloons) | `src/render/traps.js` — `drawTraps` (on the road, under the crowd) and `drawTrapBalloons` (the balloons, in a sky pass over it) | each look baked once per realm and stamped; late boards hold hundreds |
+| The Log Roller's logs (trunk, Iron Drum, Powder Keg) | `src/render/logs.js` | true cylinders in the 3/4 camera, lit in world space so light never turns with the log; bark and bands roll with `lg.spin` |
+| The Falconry's hawk (the "talon" stoop) | `src/render/birds.js` — `drawStoop`; the Skyknight's war-eagle is the `eagle` rig in `rigs.js` | hawk poses baked at 15° steps and stamped |
+| The Covert's blades (assassins) | `src/render/rigs-covert.js` (`assassinUnit`, `assassinUnitA/B` in `rigs.js`, one rig name per branch palette) | |
 | HUD skin | `src/ui/hud/` (`hud.css`, `icons.jsx`, `Chips.jsx`) + `src/ui/theme.js` | |
 | The landscape beyond the board (the apron: ground, road and rivers running off, the realm's trees thickening, the wall continuing) | `src/render/apron.js` `paintApron(canvas, { cssW, cssH, dpr, board })` | painted once per realm and layout, cached |
 | Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` | painted once, cached |
@@ -228,6 +232,12 @@ dev server; view them from there):
 - Lab pages per area: `twa-lab.html`, `twb-lab.html`, `twb-folk.html` (every
   crew figure), `crw-lab.html`, `hrd-lab.html`, `bst-lab.html`, `cas-lab.html`,
   `scn-lab.html`, `fx-lab.html`, `map-lab.html`, `apron-lab.html` (the landscape beyond the board at phone/tablet/desktop layouts), `hud-lab.html`, `wdn-lab.html`.
+- `props-lab.html`: every object a hall puts OUT into the world (traps,
+  logs, stoops, the war-eagle, shots, soldiers and blades), zoomed on the
+  road through the real draw(); `?only=traps,logs&zoom=1|2|3`. Deeper sheets:
+  `logs-lab.html` (angles and spins), `birds-lab.html` (a stoop moment by
+  moment, every hawk pose), `blades-lab.html` (every Covert form on three
+  grounds).
 - Always take a BEFORE shot, then judge at 1x board size (what the player
   sees) as well as zoomed. Never launch Chrome from a shell — it trips a
   macOS security prompt; use the app's browser pane.

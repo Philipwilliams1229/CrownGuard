@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  Dev tool: every object a hall puts out into the world — traps, rolling
+  Dev tool (birds-lab: a copy of props-lab with many stoop moments; &zoom=1..3): every object a hall puts out into the world — traps, rolling
   logs, falcon stoops and the war-eagle, projectiles in flight, and the
   soldiers, blades, boats and bands that walk the field — each frame drawn
   through the real draw() and zoomed in on the road. Saves one sheet per
@@ -9,7 +9,7 @@
     /props-lab.html?tag=v1&only=traps,logs      some sections
   Sections: traps, logs, birds, shots, units.  &realm=<id> changes the ground.
 -->
-<html><head><meta charset="utf-8" /><title>props lab…</title></head>
+<html><head><meta charset="utf-8" /><title>birds lab…</title></head>
 <body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:16px"><div id="out">painting…</div>
 <script type="module">
 import { selectRealm } from "/src/data/maps.js";
@@ -28,7 +28,7 @@ selectRealm(q.get("realm") || "greenwood");
 const AT = 0.46;                                    // the stretch of road every frame looks at
 const [RX, RY] = posAt(TOTAL_LEN * AT);
 const ZOOM = Number(q.get("zoom")) || 3;
-const cam = (x = RX, y = RY) => ({ zoom: ZOOM, x: x - W / (2 * ZOOM), y: y - H / (2 * ZOOM) });
+const cam = (x = RX + 18, y = RY - 20) => ({ zoom: ZOOM, x: x - W / (2 * ZOOM), y: y - H / (2 * ZOOM) });
 const base = (time, o = {}) => ({
   time, shake: 0, cam: cam(), grounds: [], traps: [], logs: [], bands: [], volleys: [],
   buildMode: null, hover: null, gold: 500, selectedId: null,
@@ -70,14 +70,16 @@ section("logs", [
   ["the Powder Keg Run", base(1.6, { logs: [log(0, { w: 24, burn: 26, blast: 96, spin: 3.1 })] })],
 ]);
 
-// ---- birds: a falcon's stoop out, the strike, the climb home; the war-eagle ----
-const [fx0, fy0] = [RX + 42, RY - 44];   // a roost just off-frame up and to the right
-const stoop = (life, ttl) => ({ type: "talon", x1: fx0, y1: fy0, x2: RX, y2: RY - 6, ttl, life });
+// ---- birds: many moments of a stoop (birds-lab only) ----
+const [fx0, fy0] = [RX + 44, RY - 40];
+const stoop = (life, prog, o = {}) => ({ type: "talon", x1: fx0, y1: fy0, x2: RX, y2: RY - 6, ttl: life * (1 - prog), life, ...o });
+const moments = [0.04, 0.08, 0.2, 0.34, 0.44, 0.5, 0.55, 0.62, 0.7, 0.8, 0.9];
 section("birds", [
-  ["stoop: diving", base(1.4, { effects: [stoop(520, 380)], enemies: [foe("goblin", 0)] })],
-  ["stoop: the strike", base(1.4, { effects: [stoop(520, 250)], enemies: [foe("goblin", 0)] })],
-  ["stoop: climbing home", base(1.4, { effects: [stoop(520, 90)], enemies: [foe("goblin", 0)] })],
-  ["the war-eagle", base(1.4, { towers: [hall("falconry", { branch: "a", rank4: "b", eagle: { x: RX, y: RY + 6, state: "fly", hp: 70, maxHp: 100 } })], enemies: [foe("goblin", 30, 14)] })],
+  ...moments.map((p) => ["stoop " + p, base(1.4, { effects: [stoop(520, p)], enemies: [foe("goblin", 0)] })]),
+  ...[0.3, 0.5, 0.7].map((p) => ["leftward " + p, base(1.4, { effects: [stoop(520, p, { x1: RX - 44, y1: RY - 40, x2: RX, y2: RY - 6 })], enemies: [foe("goblin", 0)] })]),
+  ...[0.3, 0.5, 0.75].map((p) => ["ricochet " + p, base(1.4, { effects: [stoop(420, p, { x1: RX - 30, y1: RY - 6, x2: RX + 10, y2: RY + 4 })], enemies: [foe("goblin", 0)] })]),
+  ["four at once", base(1.4, { effects: [stoop(520, 0.2), stoop(520, 0.4, { x1: RX - 40 }), stoop(520, 0.52, { x2: RX + 20 }), stoop(520, 0.75, { y1: RY - 60 })], enemies: [foe("goblin", 0)] })],
+  ["the war-eagle", base(1.4, { towers: [hall("falconry", { branch: "a", rank4: "b", eagle: { x: RX - 10, y: RY - 10, state: "fly", hp: 100 } })] })],
 ]);
 
 // ---- shots in the air ----
@@ -100,9 +102,9 @@ section("units", [
 // ---- paint ----
 const out = document.getElementById("out");
 for (const [name, frames] of sheets) {
-  const FW = 420, FH = 280;
+  const FW = 280, FH = 200;
   const sheet = document.createElement("canvas");
-  sheet.width = FW * frames.length; sheet.height = FH + 18;
+  const COLS = 6, ROWS = Math.ceil(frames.length / COLS); sheet.width = FW * Math.min(COLS, frames.length); sheet.height = (FH + 18) * ROWS;
   const sc = sheet.getContext("2d");
   sc.fillStyle = "#14171d"; sc.fillRect(0, 0, sheet.width, sheet.height);
   frames.forEach(([label, g], i) => {
@@ -110,11 +112,24 @@ for (const [name, frames] of sheets) {
     try { draw(g, cv, { current: null }); } catch (e) { console.error(name, label, e); label += " — " + e.message; }
     sc.imageSmoothingEnabled = false;
     // the middle of the board, where the camera looked
-    sc.drawImage(cv, (cv.width - FW) / 2, (cv.height - FH) / 2, FW, FH, i * FW, 0, FW, FH);
-    sc.fillStyle = "#e8e0c8"; sc.font = "11px monospace"; sc.fillText(label, i * FW + 6, FH + 13);
+    const ox = (i % COLS) * FW, oy = Math.floor(i / COLS) * (FH + 18);
+    sc.drawImage(cv, (cv.width - FW) / 2, (cv.height - FH) / 2, FW, FH, ox, oy, FW, FH);
+    sc.fillStyle = "#e8e0c8"; sc.font = "11px monospace"; sc.fillText(label, ox + 6, oy + FH + 13);
   });
   out.appendChild(sheet);
-  await fetch(`/__shot?name=props_${name}_${TAG}`, { method: "POST", body: sheet.toDataURL("image/png").slice(22) });
+  await fetch(`/__shot?name=birdslab_${name}_${TAG}`, { method: "POST", body: sheet.toDataURL("image/png").slice(22) });
+}
+// the hawk alone, every pose at a few headings, 6x
+{
+  const { stampHawk } = await import("/src/render/birds.js");
+  const poses = ["tuck", "strike", "up", "mid", "down"], heads = [[1, 0], [1, 0.6], [1, 1.8], [1, -0.6], [-1, 0.6]];
+  const Z = 6, CW = 22;
+  const sh = document.createElement("canvas"); sh.width = CW * Z * heads.length; sh.height = CW * Z * poses.length;
+  const c = sh.getContext("2d"); c.fillStyle = "#c9a56a"; c.fillRect(0, 0, sh.width, sh.height); c.imageSmoothingEnabled = false;
+  c.scale(Z, Z);
+  poses.forEach((ps, j) => heads.forEach(([dx, dy], i) => stampHawk(c, ps, i * CW + CW / 2, j * CW + CW / 2, dx, dy)));
+  out.appendChild(sh);
+  await fetch(`/__shot?name=birdslab_hawk_${TAG}`, { method: "POST", body: sh.toDataURL("image/png").slice(22) });
 }
 out.prepend(`saved ${sheets.map((s) => s[0]).join(", ")}`);
 document.title = "DONE";

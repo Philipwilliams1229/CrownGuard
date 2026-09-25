@@ -1,0 +1,69 @@
+<!doctype html>
+<!--
+  Dev tool: the Assassin's Covert blades, every branch and final form, in
+  every pose — walk frames 0-3, the wind-up, the strike, and one facing
+  back — through the real draw(), on the grass of three realms side by side.
+  Saves .shots/blades_<tag>.png and writes DONE in the title.
+    /blades-lab.html?tag=v1            zoom 2
+    /blades-lab.html?tag=v1&zoom=1     the size the player sees
+    &lane=0 stands them on the road instead of the grass beside it
+    &forms=0,1,4 only those rows (0 base, 1 Court, 2 Kingslayer, 3 Open
+    Contract, 4 Nightshade, 5 Widow's Kiss, 6 Plague Bearer); &realms=a,b
+-->
+<html><head><meta charset="utf-8" /><title>blades lab…</title></head>
+<body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:16px"><div id="out">painting…</div>
+<script type="module">
+import { selectRealm } from "/src/data/maps.js";
+import { W, H, CASTLE_HP, RES } from "/src/data/constants.js";
+import { posAt, angleAt, TOTAL_LEN } from "/src/engine/path.js";
+import { draw } from "/src/render/draw.js";
+import { makeTower, syncUnits } from "/src/engine/towers.js";
+
+const q = new URLSearchParams(location.search);
+const TAG = q.get("tag") || "x";
+const ZOOM = Number(q.get("zoom")) || 2;
+const LANE = q.get("lane") != null ? Number(q.get("lane")) : -40;
+const REALMS = (q.get("realms") || "greenwood,frostfang,mistmoor").split(",");
+const ALL_FORMS = [["base", null, null], ["Silent Court", "a", null], ["Kingslayer", "a", "a"], ["Open Contract", "a", "b"], ["Nightshade", "b", null], ["Widow's Kiss", "b", "a"], ["Plague Bearer", "b", "b"]];
+const FORMS = q.get("forms") ? q.get("forms").split(",").map((i) => ALL_FORMS[+i]) : ALL_FORMS;
+const AT = 0.46;
+const TIME = 1.0;
+const FW = 144 * ZOOM * RES, FH = 36 * ZOOM * RES;
+const sheet = document.createElement("canvas");
+sheet.width = FW * REALMS.length; sheet.height = (FH + 14) * FORMS.length;
+const sc = sheet.getContext("2d");
+sc.fillStyle = "#14171d"; sc.fillRect(0, 0, sheet.width, sheet.height);
+sc.imageSmoothingEnabled = false;
+
+REALMS.forEach((realm, col) => {
+  selectRealm(realm);
+  const d = TOTAL_LEN * AT, [rx, ry] = posAt(d), a = angleAt(d) + Math.PI / 2;
+  const cx = rx + Math.cos(a) * LANE, cy = ry + Math.sin(a) * LANE;
+  FORMS.forEach(([label, branch, rank4], row) => {
+    const t = makeTower("assassin", cx + 60, cy - 90);
+    Object.assign(t, { level: 3, branch, rank4 });
+    syncUnits(t);
+    const proto = t.units[0];
+    // a walker facing back, walk 0-3, the wait, the strike
+    const poses = [["moving", 1, -1], ["moving", 0, 1], ["moving", 1, 1], ["moving", 2, 1], ["moving", 3, 1], ["fighting", 0, 1], ["fighting", 150, 1]];
+    t.units = poses.map(([state, v, face], i) => ({
+      ...proto, id: state === "moving" ? 100 + ((v + 3) % 4) + i * 4 : 900 + i,
+      x: cx - 62 + i * 18, y: cy + 5, state, face, swing: state === "fighting" ? v : 0, targetId: state === "fighting" ? 1 : null,
+    }));
+    t.rally = { x: cx, y: cy };
+    const cam = { zoom: ZOOM, x: cx - W / (2 * ZOOM), y: cy - H / (2 * ZOOM) };
+    const g = { time: TIME, shake: 0, cam, grounds: [], traps: [], logs: [], bands: [], volleys: [], buildMode: null, hover: null, gold: 500, selectedId: null,
+      towers: [t], enemies: [], projectiles: [], effects: [], lives: CASTLE_HP, paused: false, phase: "combat" };
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    let cap = `${label} · ${realm}`;
+    try { draw(g, cv, { current: null }); } catch (e) { console.error(label, e); cap += " — " + e.message; }
+    const y0 = row * (FH + 14);
+    sc.drawImage(cv, (cv.width - FW) / 2, (cv.height - FH) / 2, FW, FH, col * FW, y0, FW, FH);
+    sc.fillStyle = "#e8e0c8"; sc.font = "10px monospace"; sc.fillText(cap, col * FW + 4, y0 + FH + 10);
+  });
+});
+document.getElementById("out").replaceChildren(sheet);
+await fetch(`/__shot?name=blades_${TAG}`, { method: "POST", body: sheet.toDataURL("image/png").slice(22) });
+document.title = "DONE";
+</script>
+</body></html>
