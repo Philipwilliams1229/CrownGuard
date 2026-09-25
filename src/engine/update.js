@@ -10,7 +10,7 @@ import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL } from "../data/bands.js"
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
-import { PTS, posAt, angleAt, TOTAL_LEN } from "./path.js";
+import { PTS, posAt, angleAt, TOTAL_LEN, nearestOnPath } from "./path.js";
 import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
@@ -1229,12 +1229,18 @@ export function updateGame(g, dt) {
         // It does not aim at a foe; it aims at a BEARING, the one you set with
         // its flag. The log leaves the cradle and grinds on until it is off the
         // board, taking everything it touches with it.
-        const bearing = t.logAim != null ? t.logAim : (t.rally
-          ? Math.atan2(t.rally.y - t.y, t.rally.x - t.x)
-          : 0);
+        // Halls stand clear of the road, so a log rolled from the cradle
+        // parallel to a lane would never touch it: it first runs down its
+        // ramp onto the nearest stretch of road, and takes its bearing from
+        // there — at the flag, if one is planted.
+        const drop = nearestOnPath(t.x, t.y);
+        const onto = drop.d <= 110 ? [drop.x, drop.y] : null;
+        const [ox, oy] = onto || [t.x, t.y];
+        const bearing = t.rally ? Math.atan2(t.rally.y - oy, t.rally.x - ox)
+          : t.logAim != null ? t.logAim : 0;
         if (!g.logs) g.logs = [];
         g.logs.push({
-          id: nextId(), src: t.id, x: t.x, y: t.y, a: bearing,
+          id: nextId(), src: t.id, x: t.x, y: t.y, a: onto ? Math.atan2(oy - t.y, ox - t.x) : bearing, via: onto, bearing,
           speed: st.logSpeed || 118, dmg: st.logDmg || 120, w: st.logWidth || 22,
           stun: st.logStun || 0, slow: st.logSlow || 0, slowDur: st.logSlowDur || 0,
           burn: st.logBurn || 0, burnDur: st.logBurnDur || 0,
@@ -1426,6 +1432,8 @@ export function updateGame(g, dt) {
     if (g.logs && g.logs.length) {
       for (const lg of g.logs) {
         const step = lg.speed * sdt;
+        // down the ramp to the road first, then off along its bearing
+        if (lg.via && Math.hypot(lg.via[0] - lg.x, lg.via[1] - lg.y) <= step) { lg.x = lg.via[0]; lg.y = lg.via[1]; lg.via = null; lg.a = lg.bearing; }
         lg.x += Math.cos(lg.a) * step;
         lg.y += Math.sin(lg.a) * step;
         lg.spin += step * 0.09;

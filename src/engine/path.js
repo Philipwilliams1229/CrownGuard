@@ -83,7 +83,7 @@ export function nearestOnPath(x, y) {
     const t = Math.max(0, Math.min(1, ((x - s.x1) * vx + (y - s.y1) * vy) / (s.len * s.len)));
     const px = s.x1 + vx * t, py = s.y1 + vy * t;
     const d = Math.hypot(x - px, y - py);
-    if (d < best.d) best = { d, x: px, y: py };
+    if (d < best.d) best = { d, x: px, y: py, dist: s.start + t * s.len };
   }
   return best;
 }

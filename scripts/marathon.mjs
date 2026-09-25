@@ -70,7 +70,8 @@ const place = (kind) => {
   if (!t || t.kind !== kind) return false;
   t._form = FORMS[(nth[kind] = (nth[kind] || 0) + 1) % 4];
   if (kind === "knight" || kind === "assassin") { const p = nearestOnPath(t.x, t.y); if (p.d <= RALLY_RANGE) t.rally = { x: p.x, y: p.y }; }
-  if (kind === "catapult" && t.rally === undefined) t.logAim = Math.random() * Math.PI * 2;
+  // a Log Roller is aimed up the road, against the flow, the way a player would
+  if (kind === "catapult") { const p = nearestOnPath(t.x, t.y); const [ax, ay] = posAt(Math.max(0, p.dist - 160)); t.rally = { x: ax, y: ay }; }
   if (kind === "wizard" || kind === "catapult" || kind === "gunpowder") t.aim = "most";
   return true;
 };
