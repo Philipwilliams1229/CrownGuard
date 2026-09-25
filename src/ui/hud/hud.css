@@ -265,3 +265,8 @@
 /* the phone rails: slimmer chips so a purse fits a thumb-wide column */
 .cg-compact .cg-chip { min-height: 34px; padding: 0 8px 0 6px; gap: 5px; }
 .cg-compact .cg-chip .cg-num { font-size: 15px; }
+
+/* the two-column tower card on a phone: an offer that can't fit its price
+   beside its details puts the price on a line of its own, never off the card */
+.cg-card-two .cg-btn--parch { flex-wrap: wrap; }
+.cg-card-two .cg-btn { max-width: 100%; }

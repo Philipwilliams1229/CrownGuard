@@ -1333,7 +1333,7 @@ export default function Crownguard() {
               const bw = boardCss.vw, bh = boardCss.vh;
               const tx = (((t.x - g.cam.x) * g.cam.zoom) / W) * boardCss.w;
               const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * boardCss.h + cropTop;
-              const CW = two ? 460 : 292, cw = CW * s;
+              const CW = two ? 500 : 292, cw = CW * s;
               const flipX = tx > bw * 0.5;
               const left = Math.max(6 * s, Math.min(bw - cw - CARD_M, flipX ? tx - 26 * s - cw : tx + 26 * s));
               const f = Math.min(1, Math.max(0, ty / bh));
@@ -1341,7 +1341,7 @@ export default function Crownguard() {
                 id: sel.id, left, width: CW, f, origin: `${flipX ? "right" : "left"} center`,
                 closeLabel: "Deselect tower", onClose: () => { if (G.current) G.current.selectedId = null; },
                 children: two
-                  ? <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}><div>{towerPanel.left}</div><div>{towerPanel.right}</div></div>
+                  ? <div className="cg-card-two" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.1fr)", gap: 12, alignItems: "start" }}><div style={{ minWidth: 0 }}>{towerPanel.left}</div><div style={{ minWidth: 0 }}>{towerPanel.right}</div></div>
                   : <>{towerPanel.left}{towerPanel.right}</>,
               });
             })()}
@@ -1620,7 +1620,7 @@ export default function Crownguard() {
                     {!compact && <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.2 }}>{def.name}</span>}
                     {open
                       ? price(def.cost, can, 12)
-                      : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{need ? need.short || need.name : "campaign"}</span>}
+                      : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{!compact && (need ? need.short || need.name : "campaign")}</span>}
                   </button>
                 );
               })}
