@@ -150,11 +150,14 @@ const crowdAt = (g, e, r) => {
 export const pickTarget = (g, t, st) => {
   const mode = forcedAim(st) || t.aim || "first";
   const min = st.minRange || 0;
-  let best = null, bestScore = -Infinity;
+  let best = null, bestScore = -Infinity, doomed = null, doomedScore = -Infinity;
   for (const e of g.enemies) {
     if (e.dead) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y);
     if (d > st.range || d < min) continue;
+    // shots already in the air will finish it: look past it, so a crowd
+    // isn't met by six arrows into one goblin and none into the rest
+    const sure = (e.incoming || 0) >= e.hp;
     let score;
     if (mode === "last") score = -e.dist;
     else if (mode === "strong") score = e.hp;
@@ -164,9 +167,10 @@ export const pickTarget = (g, t, st) => {
     else score = e.dist;
     // a falconer's bird takes the sky before anything on the ground
     if (st.airMult && e.flying) score += 1e9;
-    if (score > bestScore) { bestScore = score; best = e; }
+    if (sure) { if (score > doomedScore) { doomedScore = score; doomed = e; } }
+    else if (score > bestScore) { bestScore = score; best = e; }
   }
-  return best;
+  return best || doomed;
 };
 
 // World positions where a garrison's knights stand, around its rally flag.

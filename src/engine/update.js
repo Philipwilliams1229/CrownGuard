@@ -1410,6 +1410,22 @@ export function updateGame(g, dt) {
     }
 
     for (const p of g.projectiles) {
+      // a single-target shot reserves its damage on its mark the moment it
+      // exists, so the next tower to look knows that one is already dead
+      if (p.pend === undefined) {
+        p.pend = 0;
+        if (p.targetId != null && !p.splash && p.kind !== "spike" && p.kind !== "ball") {
+          const m = g.enemies.find((e) => e.id === p.targetId && !e.dead);
+          if (m) {
+            let est = p.dmg || 0;
+            if (p.dtype === "phys" && !p.pierce) est *= 1 - Math.min(0.85, m.armor || 0);
+            if (p.dtype === "magic") est *= 1 - (m.mres || 0);
+            if (m.guard > 0) est = 0;
+            p.pend = est; p.markRef = m;
+            m.incoming = (m.incoming || 0) + est;
+          }
+        }
+      }
       if (p.delay > 0) { p.delay -= sdt * 1000; continue; }
       // spikes skewer whatever they pass through (no homing, no arrival hit)
       if (p.kind === "spike" || p.kind === "ball") {
@@ -1522,6 +1538,8 @@ export function updateGame(g, dt) {
         p.angle = Math.atan2(dy, dx);
       }
     }
+    // landed or lost: hand back what each spent shot had reserved
+    for (const p of g.projectiles) if (p.done && p.pend && p.markRef) { p.markRef.incoming -= p.pend; p.pend = 0; }
     g.projectiles = g.projectiles.filter((p) => !p.done);
 
     if (!g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
