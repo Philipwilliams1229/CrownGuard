@@ -367,8 +367,11 @@ export const drawBandUnit = (ctx, u, b, time) => {
   const hero = b.kind === "hero";
   const kind = hero ? (b.hero === "wren" ? "heroHunter" : "heroKnight") : "farmer";
   const fighting = u.state === "fighting";
-  const sheet = fighting && !b.st?.ranged ? "fight" : "walk";
-  const frame = u.state === "moving" ? Math.floor(time * 7 + u.id) % 4 : fighting && !b.st?.ranged ? (u.swing > 90 ? 0 : 1) : 0;
+  const sheet = fighting ? "fight" : "walk";
+  // a swordsman winds up then strikes; the huntress holds at full draw and
+  // flings the string hand back for the moment after she looses
+  const frame = u.state === "moving" ? Math.floor(time * 7 + u.id) % 4
+    : fighting ? (b.st?.ranged ? (u.swing > 0 ? 1 : 0) : (u.swing > 90 ? 0 : 1)) : 0;
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, 0.3, time);
   softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3);
   // the hero stands in a ring of gold so he can be found in a crowd
