@@ -1246,7 +1246,10 @@ export function updateGame(g, dt) {
         for (let i = 0; i < shots; i++) {
           const ox = shots > 1 ? (Math.random() - 0.5) * 46 : 0;
           const oy = shots > 1 ? (Math.random() - 0.5) * 34 : 0;
-          const sx = t.x, sy = t.y - 24;
+          // the stone leaves the arm's tip where it slams into its stop
+          // (halls/catapult.js spec: a trebuchet's sling tops out higher)
+          const f = ax >= t.x ? 1 : -1;
+          const sx = t.x + f * (t.branch === "a" ? 20 : 14), sy = t.y - (t.branch === "a" ? 50 : 35 + t.level);
           g.projectiles.push({
             id: nextId(), x: sx, y: sy, sx, sy, targetId: null,
             tx: ax + ox, ty: ay + oy, speed: rockSpeed, delay: i * 130,
