@@ -22,13 +22,15 @@ const head = (ctx, x, y, pal, o = {}) => {
   // a hood or cap, sitting over the crown and hanging down the back
   if (o.hood !== false) {
     part(ctx, (c) => {
-      ball(c, x - 0.4, y - 1.4, 3.7, 2.6, pal.hood, { hi: 0.45, lo: 0.45 });
-      ball(c, x - 2.2, y + 0.6, 2.2, 3.2, pal.hood, { hi: 0.3, lo: 0.5 });
+      ball(c, x - 0.9, y - 1.7, 3.6, 2.5, pal.hood, { hi: 0.45, lo: 0.45 });
+      ball(c, x - 2.4, y + 0.5, 2.1, 3.1, pal.hood, { hi: 0.3, lo: 0.5 });
     });
   }
-  // the eye that faces us
+  // the eye that faces us, and the nose under it
   ctx.fillStyle = "#2a2230";
   ctx.beginPath(); ctx.ellipse(x + 1.6, y + 0.2, 0.55, 0.7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = darken(pal.skin, 0.25);
+  ctx.fillRect(x + 2.8, y + 0.5, 0.6, 0.8);
 };
 
 // Torso: a coat with a belt.
@@ -47,56 +49,85 @@ const legs = (ctx, x, y, pal, stride = 0) => {
 
 // ---- poses ---------------------------------------------------------------
 
-// An archer at the string. `draw` runs 0..1: loosed to full draw.
+// An archer at the string. `draw` runs 0..1: loosed to full draw. Towers
+// may pass `o.pose`: "rest" (bow down, at ease), "loose" (the string just
+// slipped: bow arm driven forward, the drawing hand flung back past the
+// ear), "reach" (a hand over the shoulder for the next arrow). Without a
+// pose the figure draws by `draw`, leaning back into it as it fills.
 export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
   const big = !!o.big;
   const s = big ? 1.15 : 1;
+  const pose = o.pose || "draw";
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(dir * s, s);
   shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
-  legs(ctx, 0, 0, pal, 0.6);
+  legs(ctx, 0, 0, pal, pose === "rest" ? 0.25 : 0.7);
+  // the upper body sways: back into a full draw, forward at the loose
+  const lean = pose === "draw" ? -draw * 0.7 : pose === "loose" ? 0.7 : 0;
+  ctx.translate(lean, 0);
   torso(ctx, 0, -17, 10, 7.5, pal);
-  // a quiver over the back shoulder
-  cylinder(ctx, -4.6, -19, 2.4, 8, darken(pal.coat, 0.35), { r: 1, hi: 0.3, lo: 0.5 });
-  ctx.fillStyle = "#d8ccb0";
-  for (let i = 0; i < 3; i++) ctx.fillRect(-4.6 + i * 0.9, -21.5 - (i % 2) * 0.8, 0.7, 2.4);
+  // a quiver over the back shoulder, fletchings showing
+  cylinder(ctx, -4.8, -19.5, 2.6, 8.5, darken(pal.coat, 0.35), { r: 1, hi: 0.3, lo: 0.5 });
+  const fl = o.fletch || "#e8e0c8";
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = i === 1 ? "#a04a3f" : fl;
+    ctx.fillRect(-4.9 + i * 0.9, -22 - (i % 2) * 0.8, 0.8, 2.6);
+  }
   head(ctx, 0.4, -20.5, pal);
-  // the bow, held out at arm's length
-  const bx = 7, by = -15;
-  const half = big ? 9 : 7, belly = big ? 4.2 : 3.2;
   const bowCol = o.bowCol || "#4a3018";
-  const bg = lin(ctx, bx, by - half, bx + belly, by + half, [[0, lighten(bowCol, 0.35)], [0.5, bowCol], [1, darken(bowCol, 0.3)]]);
-  ctx.strokeStyle = bg;
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(bx - 0.5, by - half);
-  ctx.quadraticCurveTo(bx + belly * 2, by, bx - 0.5, by + half);
-  ctx.stroke();
-  // the string, hauled into a V at full draw
-  const pull = draw * (big ? 6.5 : 5);
-  ctx.strokeStyle = "rgba(240,232,210,0.95)";
-  ctx.lineWidth = 0.6;
-  ctx.beginPath();
-  ctx.moveTo(bx - 0.5, by - half);
-  ctx.lineTo(bx - pull, by);
-  ctx.lineTo(bx - 0.5, by + half);
-  ctx.stroke();
+  const half = big ? 9 : 7, belly = big ? 4.2 : 3.2;
+  const bowLimb = (bx, by, rot, pull) => {
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(rot);
+    ctx.strokeStyle = lin(ctx, 0, -half, belly, half, [[0, lighten(bowCol, 0.35)], [0.5, bowCol], [1, darken(bowCol, 0.3)]]);
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-0.5, -half); ctx.quadraticCurveTo(belly * 2, 0, -0.5, half); ctx.stroke();
+    // the string: a V at draw, a straight line (and a shiver) otherwise
+    ctx.strokeStyle = "rgba(240,232,210,0.95)";
+    ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.moveTo(-0.5, -half); ctx.lineTo(-pull, 0); ctx.lineTo(-0.5, half); ctx.stroke();
+    if (pose === "loose") {
+      ctx.strokeStyle = "rgba(240,232,210,0.45)";
+      ctx.beginPath(); ctx.moveTo(-0.5, -half); ctx.lineTo(-1.6, 0); ctx.lineTo(-0.5, half); ctx.stroke();
+    }
+    ctx.restore();
+  };
+  if (pose === "rest") {
+    // bow carried low along the leading leg, string arm easy at the side
+    limb(ctx, 2.2, -15, 4.6, -10.5, 2.4, pal.coat);
+    bowLimb(5, -10, 0.38, 0.5);
+    ball(ctx, 4.8, -10.2, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
+    limb(ctx, -1.8, -15.5, -2.6, -9.5, 2.4, pal.coat);
+    ball(ctx, -2.6, -9.3, 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
+    ctx.restore();
+    return;
+  }
+  const bx = pose === "loose" ? 7.6 : 7, by = -15;
+  const pull = pose === "draw" ? draw * (big ? 6.5 : 5) : 0.6;
+  bowLimb(bx, by, 0, pull);
   // the nocked arrow
-  if (draw > 0.4) {
+  if (pose === "draw" && draw > 0.4) {
     const len = big ? 12 : 9.5;
     ctx.strokeStyle = "#c4c8d0";
     ctx.lineWidth = 0.9;
     ctx.beginPath(); ctx.moveTo(bx - pull, by); ctx.lineTo(bx - pull + len, by); ctx.stroke();
     ctx.fillStyle = bowCol === "#4a3018" ? "#a04a3f" : bowCol;
     ctx.beginPath(); ctx.moveTo(bx - pull, by - 1.4); ctx.lineTo(bx - pull + 2.2, by); ctx.lineTo(bx - pull, by + 1.4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#e8e0c8";
+    ctx.beginPath(); ctx.moveTo(bx - pull + len, by - 1); ctx.lineTo(bx - pull + len + 1.8, by); ctx.lineTo(bx - pull + len, by + 1); ctx.closePath(); ctx.fill();
   }
-  // arms: bow arm straight out, string arm drawn back to the cheek
+  // bow arm straight out to the grip
   limb(ctx, 2, -15, bx - 0.5, by, 2.4, pal.coat);
   ball(ctx, bx - 0.5, by, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
-  limb(ctx, -1, -15.5, bx - pull - 0.5, by - 0.5, 2.4, pal.coat);
-  ball(ctx, bx - pull - 0.5, by - 0.5, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
+  // the string hand: at the cheek while drawing, flung back after the
+  // loose, over the shoulder for the next arrow
+  const hx = pose === "loose" ? -3.8 : pose === "reach" ? -4.2 : bx - pull - 0.5;
+  const hy = pose === "loose" ? -17.5 : pose === "reach" ? -22 : by - 0.5;
+  limb(ctx, -1, -15.5, hx, hy, 2.4, pal.coat);
+  ball(ctx, hx, hy, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
   ctx.restore();
 };
 
@@ -179,10 +210,10 @@ export const drawStander = (ctx, x, y, dir, pal) => {
 // The crews' cloth, by tower and path.
 export const ARCHER_FOLK = {
   base: { skin: "#e8b990", hood: "#5c7a3f", coat: "#7a5432", boots: "#3e2a1a", trim: "#3e2a1a" },
-  a: { skin: "#e8b990", hood: "#3f6a34", coat: "#4e7f3e", boots: "#3e2a1a", trim: "#2f4a24" },
+  a: { skin: "#e8b990", hood: "#3f6a34", coat: "#8a6a40", boots: "#3e2a1a", trim: "#2f4a24" },
   b: { skin: "#e8b990", hood: "#2c3e54", coat: "#3a5474", boots: "#2a2a30", trim: "#1f2c3e" },
-  aa: { skin: "#d6c8a0", hood: "#2f5230", coat: "#3c6a34", boots: "#2a3020", trim: "#243a20" },
-  ab: { skin: "#e8b990", hood: "#9fc4dc", coat: "#5a7a94", boots: "#2a2a30", trim: "#3a5060" },
+  aa: { skin: "#d6c8a0", hood: "#5a2a3a", coat: "#3c6a34", boots: "#2a3020", trim: "#243a20" },
+  ab: { skin: "#e8b990", hood: "#e8e0c8", coat: "#4a7098", boots: "#2a2a30", trim: "#3a5060" },
   bb: { skin: "#e8b990", hood: "#8e2f2a", coat: "#a0473a", boots: "#2a2a30", trim: "#d8b34a" },
   crew: { skin: "#e8b990", hood: "#7a5a34", coat: "#6e4c28", boots: "#3e2a1a", trim: "#4a3018" },
 };
@@ -206,31 +237,62 @@ const robe = (ctx, x, top, h, wTop, wHem, col, trim) => part(ctx, (c) => {
 });
 
 // The mage: apprentice (bare-handed, small), then a staff-bearer, then the
-// long-beard. `level` 1..3. The orb is drawn by the tower, at the staff tip.
+// long-beard. `level` 1..3. The orb is drawn by the tower, at mageTip().
+// o.pose: "charge" (the default — conjuring hand up, staff upright),
+// "idle" (staff grounded, hand at rest), "cast" (staff driven forward at
+// the foe, the free hand flung out behind it).
+export const mageTip = (level, pose = "charge") => {
+  const tall = level >= 3;
+  if (level < 2) return pose === "cast" ? [8, -17] : pose === "idle" ? [4.5, -12] : [5, -21];
+  if (pose === "cast") return [11, -20 - (tall ? 1.5 : 0)];
+  return [6.5, -23 - (tall ? 2 : 0)];
+};
 export const drawMage = (ctx, x, y, dir, pal, level = 3, o = {}) => {
+  const pose = o.pose || "charge";
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(dir, 1);
   shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
   const tall = level >= 3;
+  const lean = pose === "cast" ? 0.8 : 0;
   robe(ctx, 0, -17, 17, 7, tall ? 12 : 10, pal.robe, pal.trim);
-  // the staff, held out front
-  if (level >= 2) limb(ctx, 5, -22 + (tall ? -2 : 0), 6.5, -1, 1.6, "#6a4a2e");
-  // arms: one on the staff, one held up to conjure
-  limb(ctx, 2, -15, 5.5, -13, 2.2, pal.robe);
-  limb(ctx, -2, -15, -4.5, -20, 2.2, pal.robe);
-  ball(ctx, -4.5, -20.5, 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
-  ball(ctx, 5.5, -13, 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
+  // a sash of the trim colour down the front
+  part(ctx, (c) => { c.fillStyle = pal.trim; c.fillRect(1.2, -16.5, 1, 15); });
+  const [tx, ty] = mageTip(level, pose);
+  // the staff: grounded, upright, or levelled at the foe
+  if (level >= 2) {
+    part(ctx, (c) => {
+      c.strokeStyle = lin(c, tx - 1, 0, tx + 1, 0, [[0, "#8a6a44"], [1, "#4a3420"]]);
+      c.lineWidth = 1.6; c.lineCap = "round";
+      c.beginPath();
+      if (pose === "cast") { c.moveTo(3, -4); c.lineTo(tx - 1, ty + 1.5); }
+      else { c.moveTo(tx - 1.5, -0.5); c.lineTo(tx - 0.6, ty + 1.5); }
+      c.stroke();
+      // the head of the staff: a gilt fork that cups the orb
+      c.fillStyle = pal.trim;
+      c.fillRect(tx - 2.2, ty + 1, 1, 2); c.fillRect(tx + 0.6, ty + 1, 1, 2); c.fillRect(tx - 2.2, ty + 2.5, 3.8, 1);
+    });
+  }
+  ctx.translate(lean, 0);
+  // arms: the staff hand, and the free hand conjuring (or resting)
+  const sh = pose === "cast" ? [tx - 4, ty + 3.5] : level >= 2 ? [tx - 1, -13] : pose === "cast" ? [tx - 1, ty] : [5.5, -13];
+  const fh = pose === "idle" ? [-3, -9.5] : pose === "cast" ? [-5.5, -15] : [-4.5, -20.5];
+  if (level < 2 && pose !== "idle") sh[0] = tx - 1, sh[1] = ty + 0.5;
+  limb(ctx, 2, -15, sh[0], sh[1], 2.2, pal.robe);
+  limb(ctx, -2, -15, fh[0], fh[1], 2.2, pal.robe);
+  ball(ctx, fh[0], fh[1], 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
+  ball(ctx, sh[0], sh[1], 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
   // head, beard, hat
   part(ctx, (c) => ball(c, 0.4, -20.5, 3.3, 3.5, pal.skin, { hi: 0.45, lo: 0.4 }));
   if (tall) part(ctx, (c) => { c.beginPath(); c.moveTo(-2.4, -19); c.quadraticCurveTo(0.6, -10, 3.4, -19); c.closePath(); c.fillStyle = pal.beard || "#e8e0d0"; c.fill(); });
   else if (level === 2) part(ctx, (c) => ball(c, 0.6, -18, 2.2, 1.4, pal.beard || "#c8bca8", { hi: 0.3, lo: 0.3 }));
   part(ctx, (c) => {
-    // brim, then the point
+    // brim, then the point, flopping back
     ball(c, 0.4, -23, 5.2, 1.5, pal.hat, { hi: 0.4, lo: 0.4 });
-    c.beginPath(); c.moveTo(-3.4, -23); c.quadraticCurveTo(0, -25, 1.8 + (tall ? 1.5 : 0), -33 - (tall ? 2 : 0)); c.quadraticCurveTo(3, -26, 3.8, -23); c.closePath();
+    c.beginPath(); c.moveTo(-3.4, -23); c.quadraticCurveTo(0, -25, 1.8 + (tall ? 1.5 : 0) - (pose === "cast" ? 2.5 : 0), -33 - (tall ? 2 : 0)); c.quadraticCurveTo(3, -26, 3.8, -23); c.closePath();
     c.fillStyle = lin(c, -3, 0, 4, 0, [[0, lighten(pal.hat, 0.3)], [0.5, pal.hat], [1, darken(pal.hat, 0.45)]]);
     c.fill();
+    c.fillStyle = pal.trim; c.fillRect(-3, -24, 6.6, 1);
   });
   ctx.fillStyle = "#2a2230";
   ctx.beginPath(); ctx.ellipse(2, -20.3, 0.55, 0.7, 0, 0, Math.PI * 2); ctx.fill();
