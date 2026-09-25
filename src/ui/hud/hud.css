@@ -1,0 +1,251 @@
+/* ============ THE BATTLE HUD'S SKIN ============
+   Everything floating over the board: oak and slate panels with a 2px ink
+   rim and hard one-pixel bevels (light from the upper left, like the art),
+   gold for the things you spend and win, parchment for the next thing to
+   buy. No soft shadows anywhere: every edge is a hard pixel step. */
+
+.cg-hud {
+  --ink: #241a26;
+  --cream: #fff3d2;
+  --text: #f2e6c4;
+  --muted: #b9ab93;
+  --gold: #d8b34a; --gold-lt: #f0d27a; --gold-dk: #8a6a24; --gold-deep: #5e4618;
+  --wood: #6b4a2e; --wood-lt: #8e6842; --wood-dk: #43301e; --wood-deep: #2e2016;
+  --slate: #2e2633; --slate-lt: #4a3e50; --slate-dk: #1b141e; --slate-in: #231b27;
+  --parch: #ead9aa; --parch-lt: #f8eed6; --parch-dk: #c9b27a; --parch-ink: #3b2a1c;
+  --red: #e0574c; --red-dk: #8e3a3a; --green: #9ad06a; --blue: #8ab8e0;
+  --display: "Pixelify Sans", "Silkscreen", Verdana, Geneva, sans-serif;
+  --body: Verdana, Geneva, sans-serif;
+  font-family: var(--body);
+  color: var(--text);
+}
+
+/* ---- panels ---- */
+.cg-panel {
+  background: var(--slate);
+  border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 var(--slate-lt), inset -2px -2px 0 var(--slate-dk), 0 3px 0 rgba(20, 12, 22, 0.45);
+  box-sizing: border-box;
+}
+/* an oak frame with a gold bead, round a slate board: the tower card, the
+   drawers' heads, the menus */
+.cg-frame {
+  background: var(--slate);
+  border: 2px solid var(--ink);
+  box-shadow:
+    inset 0 0 0 2px var(--wood-lt), inset 0 0 0 5px var(--wood), inset 0 0 0 6px var(--wood-dk),
+    inset 0 0 0 7px var(--gold-dk), inset 0 0 0 8px var(--ink),
+    0 3px 0 rgba(20, 12, 22, 0.5);
+  padding: 12px;
+  box-sizing: border-box;
+}
+/* a recessed well inside a panel: portrait sockets, stat trays */
+.cg-well {
+  background: var(--slate-in);
+  border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 var(--slate-dk), inset -1px -1px 0 var(--slate-lt);
+  box-sizing: border-box;
+}
+/* parchment slip: the one thing on a card worth reading first */
+.cg-parch {
+  background: var(--parch);
+  color: var(--parch-ink);
+  border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 var(--parch-lt), inset -2px -2px 0 var(--parch-dk);
+}
+/* a small caps label over a section */
+.cg-label {
+  font-family: var(--display);
+  font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--gold);
+  text-shadow: 1px 1px 0 var(--ink);
+}
+.cg-display { font-family: var(--display); }
+.cg-num {
+  font-family: var(--display); font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 2px 2px 0 var(--ink);
+  line-height: 1;
+}
+
+/* ---- buttons: oak planks. Pressed sinks 2px; disabled goes grey ---- */
+.cg-btn {
+  font-family: var(--display); font-weight: 600; font-size: 14px; line-height: 1.1;
+  color: var(--text); text-shadow: 1px 1px 0 var(--ink);
+  background: var(--wood);
+  border: 2px solid var(--ink); border-radius: 0;
+  box-shadow: inset 2px 2px 0 var(--wood-lt), inset -2px -2px 0 var(--wood-dk), 0 2px 0 var(--ink);
+  min-height: 44px; min-width: 44px; padding: 0 12px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; box-sizing: border-box; position: relative;
+  transition: filter 0.08s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cg-btn:active:not(:disabled):not(.is-off) {
+  transform: translateY(2px);
+  box-shadow: inset 2px 2px 0 var(--wood-dk), inset -1px -1px 0 var(--wood-lt), 0 0 0 var(--ink);
+}
+@media (hover: hover) {
+  .cg-btn:hover:not(:disabled):not(.is-off) { filter: brightness(1.12); }
+}
+.cg-btn:focus-visible { outline: 2px solid var(--gold-lt); outline-offset: 1px; }
+.cg-btn:disabled, .cg-btn.is-off {
+  filter: grayscale(0.85) brightness(0.78);
+  cursor: not-allowed;
+}
+/* can't afford it YET: the picture greys, but the price stays loud and red */
+.cg-btn.is-poor, .cg-btn.is-poor:disabled { filter: none; cursor: not-allowed; }
+.cg-btn.is-poor .cg-dim { filter: grayscale(0.9) brightness(0.72); }
+.cg-btn.is-poor:active { transform: none; }
+/* a toggle that is on: sunk, with a gold inner ring */
+.cg-btn.is-on {
+  background: var(--wood-dk);
+  box-shadow: inset 0 0 0 2px var(--gold), inset 3px 3px 0 var(--wood-deep), 0 2px 0 var(--ink);
+  color: var(--gold-lt);
+}
+.cg-btn.is-on:active:not(:disabled) { box-shadow: inset 0 0 0 2px var(--gold), inset 3px 3px 0 var(--wood-deep); }
+/* beaten gold: the one thing to press */
+.cg-btn--gold {
+  background: var(--gold); color: var(--wood-deep); text-shadow: 1px 1px 0 rgba(255, 243, 210, 0.45);
+  box-shadow: inset 2px 2px 0 var(--gold-lt), inset -2px -2px 0 var(--gold-dk), 0 2px 0 var(--ink);
+}
+.cg-btn--gold:active:not(:disabled):not(.is-off) {
+  box-shadow: inset 2px 2px 0 var(--gold-dk), inset -1px -1px 0 var(--gold-lt), 0 0 0 var(--ink);
+}
+/* slate: a quiet button inside a dark panel */
+.cg-btn--slate {
+  background: var(--slate-lt);
+  box-shadow: inset 2px 2px 0 #62546a, inset -2px -2px 0 var(--slate), 0 2px 0 var(--ink);
+}
+.cg-btn--slate:active:not(:disabled):not(.is-off) { box-shadow: inset 2px 2px 0 var(--slate), inset -1px -1px 0 #62546a; }
+/* the red plank: selling */
+.cg-btn--red {
+  background: #7e3a32;
+  box-shadow: inset 2px 2px 0 #a4554a, inset -2px -2px 0 #4e1f1c, 0 2px 0 var(--ink);
+}
+.cg-btn--red:active:not(:disabled) { box-shadow: inset 2px 2px 0 #4e1f1c, inset -1px -1px 0 #a4554a; }
+/* parchment plank: the upgrade on offer */
+.cg-btn--parch {
+  background: var(--parch); color: var(--parch-ink); text-shadow: none;
+  box-shadow: inset 2px 2px 0 var(--parch-lt), inset -2px -2px 0 var(--parch-dk), 0 2px 0 var(--ink);
+  font-family: var(--body); font-weight: normal; text-align: left;
+}
+.cg-btn--parch:active:not(:disabled):not(.is-off):not(.is-poor) { box-shadow: inset 2px 2px 0 var(--parch-dk), inset -1px -1px 0 var(--parch-lt); }
+.cg-btn--parch.is-poor { background: #d9cba4; }
+.cg-btn--parch .cg-label { color: #8a5a2a; text-shadow: none; font-size: 11px; }
+/* a small square close button */
+.cg-x { min-width: 36px; min-height: 36px; padding: 0; }
+
+/* the price on anything you can buy: gold if you can, red if you can't */
+.cg-price {
+  font-family: var(--display); font-weight: 700;
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--gold-lt); text-shadow: 1px 1px 0 var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.cg-price.is-short { color: #ff7a6a; }
+.cg-parch .cg-price, .cg-btn--parch .cg-price { color: var(--gold-deep); text-shadow: none; }
+.cg-parch .cg-price.is-short, .cg-btn--parch .cg-price.is-short { color: #b4302a; }
+
+/* ---- the floating chips ---- */
+.cg-chip {
+  display: flex; align-items: center; gap: 7px;
+  min-height: 40px; padding: 0 12px 0 9px;
+  white-space: nowrap; position: relative;
+}
+.cg-chip .cg-num { font-size: 21px; }
+
+/* numbers that just changed */
+@keyframes cg-bump { 0% { transform: scale(1); } 35% { transform: scale(1.28); } 100% { transform: scale(1); } }
+@keyframes cg-gain { 0%, 45% { color: #fff6c0; } 100% { color: var(--gold-lt); } }
+@keyframes cg-spend { 0%, 40% { color: #ff9a86; } 100% { color: var(--gold-lt); } }
+@keyframes cg-shake {
+  0%, 100% { transform: translateX(0); } 15% { transform: translateX(-4px); } 30% { transform: translateX(4px); }
+  45% { transform: translateX(-3px); } 60% { transform: translateX(3px); } 80% { transform: translateX(-1px); }
+}
+@keyframes cg-hurt-bg { 0%, 30% { background: var(--red-dk); } 100% { background: var(--slate); } }
+@keyframes cg-float {
+  0% { transform: translate(-50%, -8px); opacity: 0; }
+  15% { transform: translate(-50%, 0); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(-50%, 12px); opacity: 0; }
+}
+.cg-up { display: inline-block; animation: cg-bump 0.32s ease-out, cg-gain 0.5s linear; }
+.cg-down { display: inline-block; animation: cg-bump 0.28s ease-out, cg-spend 0.5s linear; }
+.cg-hurt { animation: cg-shake 0.4s linear, cg-hurt-bg 0.6s linear; }
+.cg-float {
+  position: absolute; left: 50%; top: calc(100% + 2px);
+  font-family: var(--display); font-weight: 700; font-size: 14px;
+  text-shadow: 1px 1px 0 var(--ink), -1px 1px 0 var(--ink), 1px -1px 0 var(--ink), -1px -1px 0 var(--ink);
+  pointer-events: none; animation: cg-float 0.9s ease-out forwards; white-space: nowrap;
+}
+
+/* ---- the wave horn ---- */
+@keyframes cg-horn {
+  0%, 100% { box-shadow: inset 2px 2px 0 var(--gold-lt), inset -2px -2px 0 var(--gold-dk), 0 2px 0 var(--ink), 0 0 0 2px rgba(255, 243, 210, 0); }
+  50% { box-shadow: inset 2px 2px 0 var(--gold-lt), inset -2px -2px 0 var(--gold-dk), 0 2px 0 var(--ink), 0 0 0 4px rgba(255, 243, 210, 0.55); }
+}
+.cg-horn { animation: cg-horn 1.6s steps(4) infinite; }
+.cg-horn:active { animation: none; }
+
+/* ---- level pips ---- */
+.cg-pips { display: flex; gap: 3px; align-items: center; }
+.cg-pip { width: 10px; height: 6px; background: var(--slate-dk); border: 1px solid var(--ink); box-shadow: inset 1px 1px 0 #120c14; }
+.cg-pip.on { background: var(--gold); box-shadow: inset 1px 1px 0 var(--gold-lt), inset -1px -1px 0 var(--gold-dk); }
+.cg-pip.big { width: 14px; }
+
+/* ---- bars (hero health, xp) ---- */
+.cg-bar { height: 7px; background: var(--slate-dk); border: 1px solid var(--ink); position: relative; box-sizing: border-box; }
+.cg-bar > i { position: absolute; left: 0; top: 0; bottom: 0; box-shadow: inset 0 1px 0 rgba(255, 243, 210, 0.45); }
+
+/* ---- cards pop into place in three hard steps ---- */
+@keyframes cg-pop { from { transform: scale(0.94); opacity: 0.3; } to { transform: scale(1); opacity: 1; } }
+.cg-pop { animation: cg-pop 0.12s steps(3); }
+@keyframes cg-rise { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.cg-rise { animation: cg-rise 0.22s steps(4) both; }
+@keyframes cg-star {
+  0% { transform: scale(0) rotate(-30deg); opacity: 0; }
+  70% { transform: scale(1.25) rotate(6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.cg-star { animation: cg-star 0.36s ease-out both; }
+
+/* the parchment ribbon at the top of the board: what the next tap does */
+.cg-ribbon {
+  background: var(--parch); color: var(--parch-ink);
+  border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 var(--parch-lt), inset -2px -2px 0 var(--parch-dk), 0 3px 0 rgba(20, 12, 22, 0.45);
+  font-size: 12px; line-height: 1.35;
+}
+.cg-ribbon b { color: #7a2e2a; }
+
+/* the side drawers: slate, with an oak rim down the edge that faces the board */
+.cg-drawer {
+  background: var(--slate);
+  border-left: 2px solid var(--ink);
+  box-shadow: inset 3px 0 0 var(--wood-lt), inset 6px 0 0 var(--wood), inset 8px 0 0 var(--wood-dk), inset 10px 0 0 var(--ink);
+  padding-left: 10px;
+}
+.cg-drawer-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 8px 8px 12px; margin-bottom: 8px;
+  background: var(--wood); border-bottom: 2px solid var(--ink);
+  box-shadow: inset 0 2px 0 var(--wood-lt), inset 0 -2px 0 var(--wood-dk);
+}
+.cg-drawer-head .cg-label { font-size: 13px; color: var(--gold-lt); flex: 1; white-space: nowrap; letter-spacing: 1px; }
+
+/* the banner across the top of the victory and defeat cards */
+.cg-banner {
+  font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: 2px;
+  padding: 8px 18px 9px; border: 2px solid var(--ink); line-height: 1.1;
+  text-shadow: 2px 2px 0 var(--ink);
+}
+.cg-banner.won { background: #b8902e; color: var(--cream); box-shadow: inset 2px 2px 0 var(--gold-lt), inset -2px -3px 0 var(--gold-dk), 0 3px 0 var(--ink); }
+.cg-banner.lost { background: #8e3a3a; color: #ffe2d6; box-shadow: inset 2px 2px 0 #b4554a, inset -2px -3px 0 #5a2020, 0 3px 0 var(--ink); }
+
+/* scroll areas inside panels get a slim oak scrollbar where one is drawn */
+.cg-scroll { scrollbar-width: thin; scrollbar-color: var(--wood) var(--slate-dk); -webkit-overflow-scrolling: touch; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cg-up, .cg-down, .cg-hurt, .cg-horn, .cg-pop, .cg-rise, .cg-star, .cg-float { animation: none !important; }
+}

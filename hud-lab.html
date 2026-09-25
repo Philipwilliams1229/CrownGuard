@@ -1,0 +1,115 @@
+<!doctype html>
+<!--
+  Dev tool (HUD lab): the game in a fixed iPad mini frame (1133x744 CSS px),
+  scaled down to fit the tab, plus a DOM snapshot that writes the frame —
+  canvases, HUD and all — into .shots/<name>.png.
+    /hud-lab.html?w=1133&h=744&q=gold%3D5000%26tick
+  From an injected module script:  await lab.snap("hud_x", 1)   lab.g()  lab.click("Build")
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — HUD lab</title>
+  <style>
+    html, body { margin: 0; background: #0e0b10; overflow: hidden; }
+    #wrap { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    iframe { border: 0; display: block; background: #000; }
+  </style></head>
+  <body>
+    <div id="wrap"><iframe id="f"></iframe></div>
+    <script type="module">
+      const q = new URLSearchParams(location.search);
+      const FW = Number(q.get("w")) || 1133, FH = Number(q.get("h")) || 744;
+      const f = document.getElementById("f");
+      f.width = FW; f.height = FH;
+      f.src = "/hud-lab-frame.html?" + (q.get("q") ?? "gold=5000&tick");
+      const fit = () => { const s = Math.min(1, innerWidth / FW, innerHeight / FH); document.getElementById("wrap").style.transform = `scale(${s})`; };
+      fit(); addEventListener("resize", fit);
+
+      let fontCss = null;
+      async function fonts() {
+        if (fontCss != null) return fontCss;
+        try {
+          let css = await (await fetch("https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap")).text();
+          // keep the latin face only; inline its file
+          const blocks = css.split("}").filter((b) => b.includes("U+0000-00FF"));
+          css = blocks.map((b) => b + "}").join("\n");
+          for (const m of [...css.matchAll(/url\((https:[^)]+)\)/g)]) {
+            const b = await (await fetch(m[1])).blob();
+            const d = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+            css = css.replace(m[1], d);
+          }
+          fontCss = css;
+        } catch { fontCss = ""; }
+        return fontCss;
+      }
+
+      const lab = window.lab = {
+        win: () => f.contentWindow,
+        doc: () => f.contentDocument,
+        g: () => f.contentWindow.__g,
+        wait: (ms) => new Promise((r) => setTimeout(r, ms)),
+        // click the first button whose text contains `text`
+        click(text, sel = "button") {
+          const b = [...f.contentDocument.querySelectorAll(sel)].find((x) => (x.textContent || "").includes(text) || x.getAttribute("aria-label")?.includes(text));
+          if (!b) throw new Error("no button: " + text);
+          b.click();
+          return b;
+        },
+        async snap(name, S = 1, crop = null) {
+          const doc = f.contentDocument;
+          const clone = doc.documentElement.cloneNode(true);
+          const src = doc.querySelectorAll("canvas"), dst = clone.querySelectorAll("canvas");
+          src.forEach((c, i) => {
+            const r = c.getBoundingClientRect();
+            const img = doc.createElement("img");
+            try { img.src = c.toDataURL(); } catch { /* tainted */ }
+            img.setAttribute("style", (c.getAttribute("style") || "") + `;width:${r.width}px;height:${r.height}px`);
+            dst[i].replaceWith(img);
+          });
+          clone.querySelectorAll("script, link").forEach((n) => n.remove());
+          // scroll boxes keep their scroll
+          const sScroll = [...doc.querySelectorAll("*")].filter((n) => n.scrollTop > 0);
+          const st = doc.createElement("style");
+          st.textContent = (await fonts()) + "\n*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent; }\nhtml, body { width: " + FW + "px; height: " + FH + "px; overflow: hidden; }";
+          clone.querySelector("head").appendChild(st);
+          const html = new XMLSerializer().serializeToString(clone);
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${FW * S}" height="${FH * S}" viewBox="0 0 ${FW} ${FH}"><foreignObject x="0" y="0" width="${FW}" height="${FH}">${html}</foreignObject></svg>`;
+          const img = new Image();
+          img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+          await img.decode();
+          const [cx, cy, cw, ch] = crop || [0, 0, FW, FH];
+          const full = document.createElement("canvas");
+          full.width = FW * S; full.height = FH * S;
+          full.getContext("2d").drawImage(img, 0, 0, FW * S, FH * S);
+          const out = document.createElement("canvas");
+          out.width = cw * S; out.height = ch * S;
+          const o = out.getContext("2d");
+          o.drawImage(full, cx * S, cy * S, cw * S, ch * S, 0, 0, cw * S, ch * S);
+          await fetch("/__shot?name=" + name, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+          return `${name} ${out.width}x${out.height} (scrolled boxes: ${sScroll.length})`;
+        },
+      };
+      // run code inside the game's own realm (its module instances, window.__g);
+      // `A` is the engine's actions module, `g` the live game
+      lab.frun = async (code) => {
+        const d = f.contentDocument, sc = d.createElement("script");
+        const id = "r" + Math.random().toString(36).slice(2);
+        sc.type = "module";
+        sc.textContent = `try { const A = await import("/src/engine/actions.js"); const g = window.__g; const r = await (async () => { ${code} })(); window["${id}"] = { ok: r ?? "ok" }; } catch (e) { window["${id}"] = { err: e.message + " " + e.stack }; }`;
+        d.body.appendChild(sc);
+        for (let i = 0; i < 200 && !f.contentWindow[id]; i++) await lab.wait(50);
+        const r = f.contentWindow[id];
+        if (r?.err) throw new Error(r.err);
+        return r?.ok;
+      };
+      // ?enter=<realm name> walks Free Play -> the Greenwood Horde -> that realm
+      if (q.get("enter")) f.addEventListener("load", async () => {
+        await lab.wait(1500);
+        lab.click("FREE PLAY"); await lab.wait(500);
+        lab.click("The Greenwood Horde"); await lab.wait(300);
+        lab.click(q.get("enter")); await lab.wait(2000);
+        document.title = "IN GAME";
+      });
+      document.title = "LAB READY";
+    </script>
+  </body>
+</html>

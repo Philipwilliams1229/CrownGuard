@@ -24,7 +24,6 @@ import {
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
-import PixelIcon from "./ui/PixelIcon.jsx";
 import TowerPortrait from "./ui/TowerPortrait.jsx";
 import EnemyIcon from "./ui/EnemyIcon.jsx";
 import EnemyTooltip from "./ui/EnemyTooltip.jsx";
@@ -32,8 +31,15 @@ import HomeScreen from "./ui/HomeScreen.jsx";
 import CampaignMap from "./ui/CampaignMap.jsx";
 import WarCouncil from "./ui/WarCouncil.jsx";
 import FieldGuide, { describe } from "./ui/FieldGuide.jsx";
-import { BookIcon, PauseIcon, FlagIcon, Star } from "./ui/Glyphs.jsx";
-import { FONT, btn, panel, disabled, overlayPanel, title } from "./ui/theme.js";
+import { BookIcon, Star } from "./ui/Glyphs.jsx";
+import { hasRig } from "./render/rigs.js";
+import "./ui/hud/hud.css";
+import { GoldChip, LivesChip } from "./ui/hud/Chips.jsx";
+import { towerTags, levelDeltas } from "./ui/hud/towerText.js";
+import {
+  CoinIcon, CastleIcon, SkullIcon, SwordIcon, BoltIcon, PlayIcon, PauseIcon, SpeedIcon, HammerIcon,
+  LockIcon, CloseIcon, ChevronUp, ChevronDown, FlagIcon, InfoIcon,
+} from "./ui/hud/icons.jsx";
 
 // Aggregate a wave's spawn list into { type, count } entries, keeping the
 // order each enemy type first appears. Used by the next-wave preview.
@@ -564,10 +570,11 @@ export default function Crownguard() {
   const sel = ui.selected;
   const selDef = sel ? TOWERS[sel.kind] : null;
 
-  // enemy chips (icon + count + hover tooltip) shared by both wave panels;
-  // panelKey keeps hover state independent when a type appears in both.
+  // enemy chips (icon in a socket + count + hover tooltip) shared by both
+  // wave panels; panelKey keeps hover state independent when a type appears in both.
   const waveChips = (comp, panelKey) => comp.map(({ type, count }) => {
     const hk = `${panelKey}:${type}`;
+    const boss = ENEMIES[type].boss;
     return (
       <div key={hk}
         onMouseEnter={() => setHoverEnemy(hk)}
@@ -575,15 +582,13 @@ export default function Crownguard() {
         onClick={() => setHoverEnemy((cur) => (cur === hk ? null : hk))}
         style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
         {hoverEnemy === hk && <EnemyTooltip type={type} />}
-        <EnemyIcon type={type} box={ENEMIES[type].boss ? 42 : 28} />
-        <span style={{ fontSize: 11, color: ENEMIES[type].boss ? "#e07a72" : "#e8e0c8" }}>
-          <span style={{ opacity: 0.6 }}>×</span>{count}
+        <span className="cg-well" style={{ width: boss ? 54 : 44, height: boss ? 54 : 44, display: "flex", alignItems: "center", justifyContent: "center", ...(boss ? { background: "#4a1e22" } : {}) }}>
+          <EnemyIcon type={type} box={boss ? 44 : 32} />
         </span>
+        <span className="cg-num" style={{ fontSize: 13, color: boss ? "#ff8a78" : "var(--cream)", textShadow: "1px 1px 0 var(--ink)" }}>×{count}</span>
       </div>
     );
   });
-
-  const statLabel = { fontSize: 9, letterSpacing: 1, opacity: 0.6, marginRight: 3 };
 
   // The build drawer covers the board's right side, so it slides out of the way
   // while a tower is actively being placed (buildMode set) or a tower is selected
@@ -633,77 +638,78 @@ export default function Crownguard() {
   // ---- the HUD ----
   // The board fills the screen beside a dock of towers; everything else
   // floats over the field in small panels, the way a tablet game is laid
-  // out. Nothing on this screen scrolls except the dock's own list.
+  // out. Nothing on this screen scrolls except the dock's own list. The
+  // skin itself (oak, slate, parchment, gold) lives in ui/hud/hud.css.
   const masterOn = !!(ui.masterShow && ui.masterOn);
-  const hud = { ...overlayPanel, borderWidth: 2, boxShadow: "inset 0 0 0 1px #454c5a" };
-  const chip = { ...hud, padding: "6px 10px", fontSize: 13, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" };
-  const hudBtn = { ...btn, minHeight: 44, minWidth: 44, padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: 13 };
-  const prompt = { ...hud, position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 22, padding: "6px 8px 6px 12px", fontSize: 12, color: "#a8d88c", display: "flex", alignItems: "center", gap: 10, maxWidth: "70%", pointerEvents: "none" };
-  const tile = (active, can) => ({
-    ...btn, width: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    gap: 3, padding: "6px 2px 5px", minHeight: 74, textAlign: "center",
-    ...(active ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}), ...(!can ? disabled : {}),
-  });
+  const cls = (...c) => c.filter(Boolean).join(" ");
+  const price = (n, can = true, size = 12) => (
+    <span className={cls("cg-price", !can && "is-short")}><CoinIcon size={size} />{n}</span>
+  );
+  // what the next tap will do, on a parchment ribbon across the top of the board
+  const ribbon = (text, label, cancel) => (
+    <div style={{ position: "absolute", top: 8, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 22, pointerEvents: "none" }}>
+      <div className="cg-ribbon cg-pop" style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 4px 4px 12px", maxWidth: "62%" }}>
+        <span>{text}</span>
+        <button className="cg-btn cg-btn--slate cg-x" aria-label={label} onClick={cancel} style={{ pointerEvents: "auto" }}><CloseIcon size={11} /></button>
+      </div>
+    </div>
+  );
+  const cancelRally = () => { if (G.current) G.current.rallyFor = null; };
 
   return (
-    <div style={{
-      height: "100dvh", background: "#12151b", color: "#e8e0c8", fontFamily: FONT, boxSizing: "border-box",
+    <div className="cg-hud" style={{
+      height: "100dvh", background: "#17111b", boxSizing: "border-box",
       display: "flex", overflow: "hidden",
       paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)", paddingBottom: "env(safe-area-inset-bottom)",
     }}>
         {menuOpen && (
           <div style={{
-            position: "fixed", inset: 0, zIndex: 50,
-            background: "rgba(20,23,30,0.86)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            gap: 6, padding: 20, boxSizing: "border-box", overflowY: "auto",
+            position: "fixed", inset: 0, zIndex: 50, background: "rgba(22,14,26,0.8)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16, boxSizing: "border-box", overflowY: "auto",
           }}>
-            <div style={{ ...title(24), fontSize: "clamp(20px, 6.5vw, 30px)" }}>CROWNGUARD</div>
-            <div style={{ fontSize: 10, letterSpacing: 3, opacity: 0.55, marginBottom: 16 }}>PAUSED</div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", maxWidth: 320 }}>
-              <button style={{ ...btn, textAlign: "center", padding: "15px 10px", fontSize: 14, letterSpacing: 1, background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" }}
-                onClick={closeMenu}>
-                Resume
+            <div className="cg-frame cg-pop" style={{ width: "100%", maxWidth: 340, margin: "auto", padding: "16px 18px 18px", display: "flex", flexDirection: "column", gap: 9 }}>
+              <div style={{ textAlign: "center", marginBottom: 2 }}>
+                <div className="cg-display" style={{ fontSize: 30, fontWeight: 700, letterSpacing: 5, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>PAUSED</div>
+                <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>
+                  {level && <span>Chapter {level.chapter.numeral} · </span>}
+                  <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{scriptedWaves()}
+                </div>
+              </div>
+              <button className="cg-btn cg-btn--gold" style={{ minHeight: 54, fontSize: 19, letterSpacing: 1 }} onClick={closeMenu}>
+                <PlayIcon size={15} /> Resume
               </button>
-              <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }}
-                onClick={openGuide}>
-                Field Guide
-              </button>
-              <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }}
-                onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
-                Sound: {sndMuted ? "Off" : "On"}
-              </button>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <button className="cg-btn" onClick={openGuide}><BookIcon size={16} /> Field Guide</button>
+                <button className={cls("cg-btn", sndMuted && "is-on")} onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
+                  Sound: {sndMuted ? "Off" : "On"}
+                </button>
+              </div>
+              <div className="cg-label" style={{ marginTop: 4 }}>Hero</div>
+              <div style={{ display: "flex", gap: 8 }}>
                 {Object.entries(HEROES).map(([key, h]) => (
-                  <button key={key} title={h.blurb} style={{ ...btn, flex: 1, textAlign: "center", padding: "10px 6px", fontSize: 11, lineHeight: 1.3, ...(heroKey === key ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
+                  <button key={key} title={h.blurb} className={cls("cg-btn cg-btn--slate", heroKey === key && "is-on")}
+                    style={{ flex: 1, minHeight: 56, padding: "4px 6px", justifyContent: "flex-start", gap: 6 }}
                     onClick={() => pickHero(key)}>
-                    {h.icon} {h.name}<br /><span style={{ fontSize: 9, opacity: 0.7 }}>{heroKey === key ? "riding with you" : "next level"}</span>
+                    {hasRig(h.rig) ? <EnemyIcon type={h.rig} box={30} /> : <span>{h.icon}</span>}
+                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+                      <span style={{ fontSize: 14 }}>{h.name}</span>
+                      <span style={{ fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9.5, textShadow: "none", color: heroKey === key ? "var(--gold-lt)" : "var(--muted)" }}>{heroKey === key ? "riding with you" : "next level"}</span>
+                    </span>
                   </button>
                 ))}
               </div>
-              <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13, ...(ui.canRestart ? {} : disabled) }} disabled={!ui.canRestart}
+              <div style={{ height: 2, background: "var(--ink)", margin: "4px 0 2px", boxShadow: "0 1px 0 var(--slate-lt)" }} />
+              <button className="cg-btn" disabled={!ui.canRestart}
                 onClick={() => { restartWave(G.current); closeMenu(); }}>
                 Restart Wave
               </button>
               {mode === "campaign" ? (
-                <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }} onClick={openMap}>
-                  Campaign Map
-                </button>
+                <button className="cg-btn" onClick={openMap}>Campaign Map</button>
               ) : (
-                <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }}
-                  onClick={() => { openRealmSelect("game"); closeMenu(); }}>
-                  Choose Realm...
-                </button>
+                <button className="cg-btn" onClick={() => { openRealmSelect("game"); closeMenu(); }}>Choose Realm...</button>
               )}
-              <button style={{ ...btn, textAlign: "center", padding: "13px 10px", fontSize: 13 }} onClick={goHome}>
-                Main Menu
-              </button>
-            </div>
-
-            <div style={{ fontSize: 10, opacity: 0.5, marginTop: 16 }}>
-              {level && <span style={{ opacity: 0.8 }}>Chapter {level.chapter.numeral} · </span>}
-              <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{scriptedWaves()}
+              <button className="cg-btn cg-btn--slate" onClick={goHome}>Main Menu</button>
             </div>
           </div>
         )}
@@ -712,10 +718,12 @@ export default function Crownguard() {
 
       {/* landscape only: a touch screen held upright is asked to turn */}
       {portrait && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "#20242c", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, textAlign: "center", padding: 24 }}>
-          <div style={{ fontSize: 44 }}>⟳</div>
-          <div style={{ ...title(22) }}>TURN YOUR DEVICE</div>
-          <div style={{ fontSize: 13, opacity: 0.75, maxWidth: 300, lineHeight: 1.5 }}>Crownguard is played sideways — turn to landscape and the war resumes.</div>
+        <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "#17111b", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div className="cg-frame" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "22px 22px 20px", maxWidth: 320 }}>
+            <div className="cg-display" style={{ fontSize: 46, lineHeight: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>⟳</div>
+            <div className="cg-display" style={{ fontSize: 24, fontWeight: 700, letterSpacing: 2, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>TURN YOUR DEVICE</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Crownguard is played sideways — turn to landscape and the war resumes.</div>
+          </div>
         </div>
       )}
 
@@ -730,144 +738,174 @@ export default function Crownguard() {
             style={{ width: "100%", height: "100%", display: "block", cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
           />
 
-          {/* top-left: the purse, the castle, the wave */}
+          {/* top-left: the purse, the castle, the level */}
           <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, zIndex: 20, pointerEvents: "none" }}>
-            <div style={chip}><span style={{ opacity: 0.7 }}>🪙</span><b style={{ color: "#e8d47a" }}>{ui.gold}</b></div>
-            <div style={chip}><span style={{ opacity: 0.7 }}>🏰</span><b style={{ color: ui.lives > CASTLE_HP ? "#e8c14a" : ui.lives <= 5 ? "#e07a72" : ui.lives <= 10 ? "#d8b34a" : "#e8e0c8" }}>{ui.lives}</b><span style={{ opacity: 0.55, fontSize: 11 }}>/{ui.maxLives || CASTLE_HP}</span></div>
+            <GoldChip gold={ui.gold} />
+            <LivesChip lives={ui.lives} max={ui.maxLives || CASTLE_HP} base={CASTLE_HP} />
             {level && boardCss.w > 760 && (
-              <div style={{ ...chip, fontSize: 10, letterSpacing: 1, opacity: 0.85 }}>
-                <span style={{ color: "#d8b34a" }}>CH. {level.chapter.numeral}</span>{level.name}
+              <div className="cg-panel cg-chip" style={{ gap: 6 }}>
+                <span className="cg-label">Ch. {level.chapter.numeral}</span>
+                <span className="cg-display" style={{ fontSize: 14, color: "var(--cream)" }}>{level.name}</span>
               </div>
             )}
           </div>
 
-          {/* top-right: speed and pause */}
+          {/* top-right: build, the castle works, speed and pause */}
           <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 20 }}>
-            {ui.zoom > 1 && <button title="Reset view" style={{ ...hudBtn, fontSize: 11 }} onClick={() => setZoom(1)}>reset</button>}
+            {ui.zoom > 1 && <button title="Reset view" className="cg-btn cg-btn--slate" style={{ fontSize: 12 }} onClick={() => setZoom(1)}>Reset view</button>}
             {ui.result == null && (
-              <button aria-label="Open build menu" style={{ ...hudBtn, gap: 6, ...(buildOpen ? { background: "#5a4f2c" } : {}) }}
+              <button aria-label="Open build menu" className={cls("cg-btn", buildOpen && "is-on")} style={{ gap: 7, padding: "0 12px 0 10px" }}
                 onClick={() => { setBuildOpen((o) => !o); setCastleOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } }}>
-                <PixelIcon kind="archer" size={18} /> Build
+                <HammerIcon size={18} /> Build
               </button>
             )}
             {ui.result == null && (
               <button aria-label="Open the castle works" title="Castle works: defences built on the wall itself, kept for the whole region"
-                style={{ ...hudBtn, ...(castleOpen ? { background: "#5a4f2c" } : {}) }}
+                className={cls("cg-btn", castleOpen && "is-on")}
                 onClick={() => { setCastleOpen((o) => !o); setBuildOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } }}>
-                🏰
+                <CastleIcon size={20} />
               </button>
             )}
-            <button title="Game speed" style={{ ...hudBtn, ...(ui.speed > 1 ? { background: "#5a4f2c" } : {}) }}
+            <button title="Game speed" aria-label={`Game speed ${ui.speed}x`} className={cls("cg-btn", ui.speed > 1 && "is-on")} style={{ minWidth: 62, gap: 5, padding: "0 8px" }}
               onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
-              {ui.speed}x
+              <SpeedIcon speed={ui.speed} size={14} /><span>{ui.speed}x</span>
             </button>
-            <button title="Pause and open the menu" aria-label="Pause and open the menu" style={{ ...hudBtn, ...(menuOpen ? { background: "#5a4f2c" } : {}) }} onClick={openMenu}>
-              <PauseIcon />
+            <button title="Pause and open the menu" aria-label="Pause and open the menu" className={cls("cg-btn", menuOpen && "is-on")} onClick={openMenu}>
+              <PauseIcon size={16} />
             </button>
           </div>
 
           {/* top centre: what the next tap will do */}
-          {ui.buildMode && (
-            <div style={prompt}>
-              <span>Placing <b style={{ color: "#e8d47a" }}>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — tap the {TOWERS[ui.buildMode].water ? "river" : "grass"}{ui.buildMode === "knight" ? "; knights muster south of the hall" : ""}.</span>
-              <button aria-label="Cancel placement" onClick={() => { if (G.current) G.current.buildMode = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
-            </div>
-          )}
-          {ui.rallyFor === "hero" && (
-            <div style={prompt}>
-              <span><b style={{ color: "#e8d47a" }}>{ui.hero?.name}</b> awaits your word — tap where the hero should go.</span>
-              <button aria-label="Cancel hero move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
-            </div>
-          )}
-          {ui.rallyFor === "militia" && (
-            <div style={prompt}>
-              <span>Sounding for the <b style={{ color: "#e8d47a" }}>militia</b> — tap where the farmers should stand.</span>
-              <button aria-label="Cancel militia call" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
-            </div>
-          )}
-          {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && (
-            <div style={prompt}>
-              <span>Posting the <b style={{ color: "#e8d47a" }}>rally flag</b> — tap where the knights should stand.</span>
-              <button aria-label="Cancel rally move" onClick={() => { if (G.current) G.current.rallyFor = null; }} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px", pointerEvents: "auto" }}>✕</button>
-            </div>
-          )}
+          {ui.buildMode && ribbon(
+            <>Placing <b>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — tap the {TOWERS[ui.buildMode].water ? "river" : "grass"}{ui.buildMode === "knight" ? "; knights muster south of the hall" : ""}.</>,
+            "Cancel placement", () => { if (G.current) G.current.buildMode = null; })}
+          {ui.rallyFor === "hero" && ribbon(
+            <><b>{ui.hero?.name}</b> awaits your word — tap where the hero should go.</>, "Cancel hero move", cancelRally)}
+          {ui.rallyFor === "militia" && ribbon(
+            <>Sounding for the <b>militia</b> — tap where the farmers should stand.</>, "Cancel militia call", cancelRally)}
+          {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && ribbon(
+            <>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally)}
 
-          {/* bottom-right: the hero and the militia horn */}
+          {/* bottom-right: the militia horn and the hero */}
           {ui.result == null && (
             <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 6, zIndex: 20, alignItems: "flex-end" }}>
               <button aria-label="Call the militia" title={MILITIA.blurb}
-                style={{ ...hudBtn, minHeight: 58, minWidth: 64, flexDirection: "column", gap: 2, padding: "0 10px", ...(ui.rallyFor === "militia" ? { background: "#5a4f2c" } : {}), ...(ui.militiaSec > 0 ? disabled : {}) }}
+                className={cls("cg-btn", ui.rallyFor === "militia" && "is-on")}
+                style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
                 disabled={ui.militiaSec > 0}
                 onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
-                <span style={{ fontSize: 16 }}>{MILITIA.icon}</span>
-                <span style={{ fontSize: 10 }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
+                {/* the cooldown drains down the plank like sand */}
+                {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / MILITIA.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
+                {hasRig("farmer") ? <EnemyIcon type="farmer" box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
+                <span style={{ fontSize: 12, position: "relative" }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
               </button>
-              {ui.hero && (
-                <button aria-label="Move the hero" title={HEROES[ui.hero.key]?.blurb}
-                  style={{ ...hudBtn, minHeight: 58, minWidth: 120, flexDirection: "column", gap: 3, padding: "0 10px", alignItems: "stretch", ...(ui.rallyFor === "hero" ? { background: "#5a4f2c" } : {}), ...(ui.hero.dead ? { opacity: 0.7 } : {}) }}
-                  onClick={() => { const g = G.current; if (!g || ui.hero.dead) return; g.rallyFor = g.rallyFor === "hero" ? null : "hero"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
-                  <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: "bold" }}>{HEROES[ui.hero.key]?.icon} {ui.hero.name}</span>
-                    <span style={{ fontSize: 10, color: "#e8d47a" }}>Lv {ui.hero.level}</span>
-                  </span>
-                  <span style={{ height: 5, background: "#2a2e38", boxShadow: "inset 0 0 0 1px #10131a", position: "relative" }}>
-                    <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.round(100 * ui.hero.hp / ui.hero.maxHp)}%`, background: ui.hero.hp / ui.hero.maxHp > 0.5 ? "#7ad06a" : ui.hero.hp / ui.hero.maxHp > 0.25 ? "#e8c14a" : "#e07a72" }} />
-                  </span>
-                  <span style={{ fontSize: 9, opacity: 0.75, display: "flex", justifyContent: "space-between" }}>
-                    <span>{ui.hero.dead ? `back in ${ui.hero.respawn}s` : `${ui.hero.hp}/${ui.hero.maxHp}`}</span>
-                    <span>{ui.hero.level >= HERO_MAX_LEVEL ? "MAX" : `xp ${ui.hero.xp}/${ui.hero.next}`}</span>
-                  </span>
-                </button>
-              )}
+              {ui.hero && (() => {
+                const hpf = ui.hero.hp / ui.hero.maxHp;
+                const max = ui.hero.level >= HERO_MAX_LEVEL;
+                return (
+                  <button aria-label="Move the hero" title={HEROES[ui.hero.key]?.blurb}
+                    className={cls("cg-btn cg-btn--slate", ui.rallyFor === "hero" && "is-on", ui.hero.dead && "is-off")}
+                    style={{ minHeight: 60, minWidth: 150, padding: "5px 8px 5px 5px", gap: 7, justifyContent: "flex-start" }}
+                    onClick={() => { const g = G.current; if (!g || ui.hero.dead) return; g.rallyFor = g.rallyFor === "hero" ? null : "hero"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
+                    <span className="cg-well" style={{ width: 42, height: 46, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {hasRig(HEROES[ui.hero.key]?.rig) ? <EnemyIcon type={HEROES[ui.hero.key].rig} box={34} /> : <span style={{ fontSize: 20 }}>{HEROES[ui.hero.key]?.icon}</span>}
+                    </span>
+                    <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 88 }}>
+                      <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
+                        <span style={{ fontSize: 13 }}>{ui.hero.name}</span>
+                        <span style={{ fontSize: 11, color: "var(--gold-lt)" }}>Lv {ui.hero.level}</span>
+                      </span>
+                      <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
+                      <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, ui.hero.xp / ui.hero.next))}%`, background: "var(--blue)" }} /></span>
+                      <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 9, color: "var(--muted)", display: "flex", justifyContent: "space-between", gap: 6 }}>
+                        <span>{ui.hero.dead ? `back in ${ui.hero.respawn}s` : `${ui.hero.hp}/${ui.hero.maxHp}`}</span>
+                        <span>{max ? "MAX" : `xp ${ui.hero.xp}/${ui.hero.next}`}</span>
+                      </span>
+                    </span>
+                  </button>
+                );
+              })()}
             </div>
           )}
 
-          {/* bottom-left: the horn. One button: "▶ 3/18" with the early-start
-              bonus while the field is quiet, a plain "Wave 3/18" while it
-              fights. Its arrow pops up the wave's makeup and the rush switch. */}
+          {/* bottom-left: the horn. While the field is quiet it is a gold
+              "▶ WAVE 3/18" with who is coming and the early-start bonus; while
+              it fights, a plain slate "WAVE 3/18". Its arrow pops up the
+              wave's full makeup and the rush switch. */}
           {(() => {
             const nextWave = ui.phase === "build" ? ui.wave + 1 : ui.wave;
             const comp = nextWave >= 1 ? waveComposition(nextWave) : [];
             const total = ui.wave > scriptedWaves() ? "∞" : scriptedWaves();
             const fighting = ui.phase !== "build";
-            const small = { fontSize: 10, opacity: 0.6, fontWeight: "normal", marginLeft: 1 };
+            const small = { fontSize: 12, opacity: 0.75, marginLeft: 1 };
+            // the horn shows the three biggest threats: bosses first, then the most numerous
+            const lead = [...comp].sort((a, b) => (ENEMIES[b.type].boss ? 1e6 : b.count) - (ENEMIES[a.type].boss ? 1e6 : a.count)).slice(0, 3);
             return (
               <div style={{ position: "absolute", left: 8, bottom: 8, zIndex: 20 }}>
                 {infoOpen && (
-                  <div style={{ ...hud, position: "absolute", left: 0, bottom: "calc(100% + 6px)", padding: "8px 10px", minWidth: 200, maxWidth: 360 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <span style={{ fontSize: 9, letterSpacing: 2, opacity: 0.75, flex: 1 }}>WAVE INFO — {fighting ? "ON THE FIELD" : ui.wave >= scriptedWaves() ? "NEXT · ENDLESS" : "NEXT"}</span>
-                      <button aria-label="Close wave info" onClick={() => setInfoOpen(false)} style={{ ...btn, minHeight: 28, minWidth: 28, padding: "0 6px", fontSize: 11 }}>✕</button>
+                  <div className="cg-frame cg-pop" style={{ position: "absolute", left: 0, bottom: "calc(100% + 8px)", padding: 12, minWidth: 230, maxWidth: 360, transformOrigin: "bottom left" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <span className="cg-label" style={{ flex: 1 }}>Wave {nextWave} — {fighting ? "on the field" : ui.wave >= scriptedWaves() ? "next · endless" : "next"}</span>
+                      <button aria-label="Close wave info" className="cg-btn cg-btn--slate cg-x" onClick={() => setInfoOpen(false)}><CloseIcon size={11} /></button>
                     </div>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 8 }}>
-                      {comp.length ? waveChips(comp, fighting ? "cur" : "next") : <span style={{ fontSize: 11, opacity: 0.6 }}>Nothing yet.</span>}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 10 }}>
+                      {comp.length ? waveChips(comp, fighting ? "cur" : "next") : <span style={{ fontSize: 11, color: "var(--muted)" }}>Nothing yet.</span>}
                     </div>
                     <button
                       title="Sound the horn the moment a wave is cleared, for the full early-start bonus every time"
-                      style={{ ...btn, width: "100%", minHeight: 36, fontSize: 12, display: "flex", alignItems: "center", gap: 8, ...(ui.rush ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
+                      className={cls("cg-btn cg-btn--slate", ui.rush && "is-on")}
+                      style={{ width: "100%", justifyContent: "flex-start", gap: 8 }}
                       onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
-                      <span>⚡ Rush</span><span style={{ marginLeft: "auto", opacity: 0.85 }}>{ui.rush ? "ON" : "OFF"}</span>
+                      <BoltIcon size={16} /><span>Rush</span>
+                      <span style={{ fontFamily: "var(--body)", fontWeight: "normal", fontSize: 10, textShadow: "none", color: "var(--muted)" }}>auto-horn</span>
+                      <span className={ui.rush ? "cg-btn--gold" : ""} style={{ marginLeft: "auto", minWidth: 40, textAlign: "center", padding: "3px 6px", border: "2px solid var(--ink)", fontSize: 12, background: ui.rush ? "var(--gold)" : "var(--slate-dk)", color: ui.rush ? "var(--wood-deep)" : "var(--muted)", textShadow: "none" }}>{ui.rush ? "ON" : "OFF"}</span>
                     </button>
                   </div>
                 )}
                 <div style={{ display: "flex", alignItems: "stretch" }}>
-                  <button
-                    style={{ ...hudBtn, padding: "0 14px", gap: 8, minHeight: 46, ...(fighting
-                      ? { background: "#2c313c", cursor: "default", boxShadow: "inset 0 0 0 2px #454c5a" }
-                      : { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" }) }}
-                    onClick={() => { if (!fighting) startWave(G.current); }} disabled={fighting}>
-                    {fighting
-                      ? <span style={{ fontSize: 14 }}>Wave {ui.wave}<span style={small}>/{total}</span></span>
-                      : <>
-                          <span style={{ fontSize: 15 }}>▶ {ui.wave + 1}<span style={small}>/{ui.wave + 1 > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
-                          {ui.cdSec != null && <span style={{ color: "#e8d47a", fontSize: 12 }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}g</span>}
-                          {ui.cdSec != null && <span style={{ fontSize: 10, opacity: 0.6 }}>{ui.cdSec}s</span>}
-                        </>}
-                  </button>
+                  {fighting ? (
+                    <div className="cg-panel" style={{ minHeight: 50, padding: "0 12px 0 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                      <SkullIcon size={18} />
+                      <span style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+                        <span className="cg-label" style={{ fontSize: 10, color: "var(--muted)" }}>Wave</span>
+                        <span className="cg-num" style={{ fontSize: 22, color: "var(--cream)" }}>{ui.wave}<span style={small}>/{total}</span></span>
+                      </span>
+                    </div>
+                  ) : (
+                    <button className={cls("cg-btn cg-btn--gold", ui.cdSec != null && "cg-horn")} style={{ minHeight: 50, padding: "0 10px 0 9px", gap: 8 }}
+                      aria-label={`Sound the horn: start wave ${ui.wave + 1}`}
+                      onClick={() => startWave(G.current)}>
+                      <PlayIcon size={18} />
+                      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1 }}>
+                        <span style={{ fontSize: 10, letterSpacing: 1.5 }}>WAVE</span>
+                        <span style={{ fontSize: 22, fontWeight: 700 }}>{ui.wave + 1}<span style={small}>/{ui.wave + 1 > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
+                      </span>
+                      {lead.length > 0 && (
+                        <span style={{ display: "flex", gap: 3 }}>
+                          {lead.map(({ type, count }) => (
+                            <span key={type} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+                              <span className="cg-well" style={{ width: 30, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: ENEMIES[type].boss ? "#e8b0a0" : "var(--parch)", boxShadow: "inset 2px 2px 0 var(--parch-dk)" }}>
+                                <EnemyIcon type={type} box={23} />
+                              </span>
+                              <span style={{ fontSize: 10, lineHeight: 1, marginTop: 1 }}>×{count}</span>
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                      {ui.cdSec != null && (
+                        <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, paddingLeft: 2 }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 13, fontWeight: 700 }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}<CoinIcon size={11} /></span>
+                          <span style={{ fontSize: 11, opacity: 0.8 }}>{ui.cdSec}s</span>
+                        </span>
+                      )}
+                    </button>
+                  )}
                   <button aria-label={infoOpen ? "Hide wave info" : "Show wave info"}
-                    style={{ ...hudBtn, minWidth: 34, padding: 0, fontSize: 12, borderLeft: "none", minHeight: 46, ...(infoOpen ? { background: "#5a4f2c" } : {}), ...(ui.rush ? { color: "#e8d47a" } : {}) }}
+                    className={cls("cg-btn", fighting ? "cg-btn--slate" : "", infoOpen && "is-on")}
+                    style={{ minWidth: 38, padding: 0, marginLeft: -2, minHeight: 50, flexDirection: "column", gap: 3 }}
                     onClick={() => setInfoOpen((o) => !o)}>
-                    {infoOpen ? "▾" : "▴"}
+                    {infoOpen ? <ChevronDown size={7} /> : <ChevronUp size={7} />}
+                    {ui.rush && <BoltIcon size={11} />}
                   </button>
                 </div>
               </div>
@@ -877,26 +915,25 @@ export default function Crownguard() {
             {!ui.buildMode && !sel && ui.masterShow && ui.masterOn && masterInfo && (() => {
               const { nums, traits } = describe(masterInfo.stats);
               return (
-                <div style={{
+                <div className="cg-frame cg-pop cg-scroll" style={{
                   // anchored to the BOARD's left edge, not to a percentage of it:
                   // the drawer caps at 264px, so a percentage offset shoved this
                   // card off the map on a narrow board
-                  position: "absolute", top: 12, left: 8, zIndex: 31,
-                  maxWidth: "min(250px, calc(100% - 286px))", minWidth: 150,
-                  ...overlayPanel, boxShadow: "inset 0 0 0 2px #7a6a3c",
-                  padding: 10, maxHeight: "76%", overflowY: "auto",
+                  position: "absolute", top: 56, left: 8, zIndex: 31,
+                  maxWidth: "min(260px, calc(100% - 330px))", minWidth: 160,
+                  padding: 12, maxHeight: "70%", overflowY: "auto",
                 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                    <TowerPortrait kind={masterInfo.kind} branch={masterInfo.branch} rank4={masterInfo.rank4} size={40} />
+                    <span className="cg-well" style={{ padding: 2, display: "flex" }}><TowerPortrait kind={masterInfo.kind} branch={masterInfo.branch} rank4={masterInfo.rank4} size={40} /></span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: "bold", color: "#e8d47a", fontSize: 12 }}>{masterInfo.name}</div>
-                      <div style={{ fontSize: 10, color: "#e8d47a", opacity: 0.8 }}>⚡{masterInfo.cost}g · {TOWERS[masterInfo.kind].name}</div>
+                      <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 15, textShadow: "1px 1px 0 var(--ink)" }}>{masterInfo.name}</div>
+                      <div style={{ fontSize: 10, color: "var(--muted)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>{price(masterInfo.cost, ui.gold >= masterInfo.cost, 10)} · {TOWERS[masterInfo.kind].name}</div>
                     </div>
-                    <button aria-label="Close info" onClick={() => setMasterInfo(null)} style={{ ...btn, padding: "1px 7px", fontSize: 11 }}>✕</button>
+                    <button aria-label="Close info" className="cg-btn cg-btn--slate cg-x" onClick={() => setMasterInfo(null)}><CloseIcon size={11} /></button>
                   </div>
-                  <div style={{ fontSize: 10.5, opacity: 0.9, marginTop: 6, lineHeight: 1.55 }}>{masterInfo.desc}</div>
-                  <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 6, lineHeight: 1.6 }}>{nums.join(" · ")}</div>
-                  {traits.length > 0 && <div style={{ fontSize: 10.5, color: "#a8d88c", marginTop: 3, lineHeight: 1.55 }}>{traits.join(" · ")}</div>}
+                  <div style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.55 }}>{masterInfo.desc}</div>
+                  <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 6, lineHeight: 1.6 }}>{nums.join(" · ")}</div>
+                  {traits.length > 0 && <div style={{ fontSize: 10.5, color: "var(--green)", marginTop: 3, lineHeight: 1.55 }}>{traits.join(" · ")}</div>}
                 </div>
               );
             })()}
@@ -917,84 +954,68 @@ export default function Crownguard() {
                   ? { top: `${(sy * 100 + 4).toFixed(1)}%`, maxHeight: `${Math.max(30, (1 - sy) * 100 - 8).toFixed(1)}%` }
                   : { bottom: `${((1 - sy) * 100 + 4).toFixed(1)}%`, maxHeight: `${Math.max(30, sy * 100 - 8).toFixed(1)}%` }),
               };
+              const withT = (fn) => () => { const tt = G.current?.towers.find((x) => x.id === sel.id); if (tt) fn(tt); };
+              const tier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
+              const branchDef = sel.branch ? selDef.branches[sel.branch] : null;
               return (
-              <div style={{ position: "absolute", width: 300, maxWidth: "48%", zIndex: 25, ...overlayPanel, boxShadow: "inset 0 0 0 2px #7a6a3c", padding: 10, overflowY: "auto", ...anchor }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <PixelIcon kind={sel.kind} branch={sel.branch} rank4={sel.rank4} size={34} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: "bold", color: "#e8d47a", fontSize: 13 }}>
-                      {sel.rank4 ? selDef.branches[sel.branch].rank4[sel.rank4].name
-                        : sel.branch ? selDef.branches[sel.branch].name
-                        : `${selDef.name} - Lv ${sel.level}`}
+              <div key={sel.id} className="cg-frame cg-pop cg-scroll" style={{ position: "absolute", width: 300, maxWidth: "48%", zIndex: 25, padding: 12, overflowY: "auto", transformOrigin: `${flipX ? "right" : "left"} ${below ? "top" : "bottom"}`, ...anchor }}>
+                {/* who this is, and how far along its road it has come */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className="cg-well" style={{ width: 54, height: 54, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <TowerPortrait kind={sel.kind} branch={sel.branch} rank4={sel.rank4} size={50} />
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 17, lineHeight: 1.1, textShadow: "2px 2px 0 var(--ink)" }}>
+                      {sel.rank4 ? branchDef.rank4[sel.rank4].name : sel.branch ? branchDef.name : selDef.name}
                     </div>
-                    <div style={{ fontSize: 10, opacity: 0.75 }}>
-                      {(() => {
-                        const t = G.current?.towers.find((x) => x.id === sel.id);
-                        if (!t) return "";
-                        // perks leave stats fractional on purpose — round for the panel
-                        const raw = getStats(t);
-                        const st = { ...raw };
-                        for (const k of ["dmg", "hp", "range", "splash", "heal", "colddps"]) {
-                          if (typeof st[k] === "number") st[k] = Math.round(st[k]);
-                        }
-                        if (t.kind === "knight") return `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
-                        if (t.kind === "support") return `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
-                        if (t.kind === "gunpowder") return `BOMBARDIER ${Math.round(st.dmg)} dmg · ${st.splash} splash · ${st.range}rng${st.shells > 1 ? ` · ${st.shells} charges` : ""}${st.burn ? " · burning" : ""}${st.burnSpread ? " · fire spreads" : ""}  ·  MUSKET ${Math.round(st.mDmg)} dmg · ${(st.mRate / 1000).toFixed(2)}s · ${st.mRange}rng${st.mPierce ? " · pierces" : ""}${st.mCrit ? " · every 3rd triples" : ""}${st.mShots > 1 ? ` · ${st.mShots}-ball fan` : ""}`;
-                        if (t.kind === "riverwatch") return `${st.count || 1} skiff${(st.count || 1) > 1 ? "s" : ""} on the water · ${Math.round(st.dmg)} dmg · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.splash ? ` · ${st.splash} splash` : ""}${st.burn ? " · burning pitch" : ""}${st.pierce ? " · pierces armor" : ""}${st.slow ? " · harpoons drag" : ""}${st.stun ? " · the boom stuns" : ""} · rows the river`;
-                        if (t.kind === "assassin") return `${st.count || 1} blade${(st.count || 1) > 1 ? "s" : ""} afield · ${Math.round(st.dmg)} dmg · ×${st.preyMult} vs support · ${(st.rate / 1000).toFixed(2)}s · ${st.hp} hp each${st.pierce ? " · pierces armor" : ""}${st.cull ? " · culls the weak" : ""}${st.silence ? " · silences" : ""}${st.venom ? ` · ${st.venom}/s venom` : ""}${st.venomNoHeal ? " · unhealable venom" : ""}${st.spores ? " · spore clouds" : ""} · never blocks`;
-                        if (t.kind === "trapsmith") return `${Math.round(st.trapDmg)} trap dmg · ${st.maxCharges} charge${st.maxCharges > 1 ? "s" : ""}, one per ${(st.chargeEvery / 1000).toFixed(0)}s · ${st.range}rng${st.root ? " · jaws hold fast" : ""}${st.execute ? " · finishes the weak" : ""}${st.burn ? " · burning mines" : ""}${st.stunAll ? " · stunning blasts" : ""}${st.autoSeed ? " · reseeds each wave" : ""}`;
-                        if (t.kind === "goldworks") return `pays ${Math.round(st.income + (t.mintBonus || 0))}g per wave held${st.compound ? ` · grows +${st.compound} each wave` : ""}${st.hoard ? " · hoard doubles or withholds" : ""}${st.mend ? " · mends the castle" : ""}${st.bountyAura ? ` · kills nearby pay +${Math.round(st.bountyAura * 100)}%` : ""}${st.shredAura ? " · aura strips armor" : ""}${st.midas ? " · midas shots" : ""} · has paid ${Math.round(t.paidTotal || 0)}g this run`;
-                        if (t.kind === "sunforge") return `${Math.round(st.dps)}/s beam, ramps to ×${st.rampMax} · ${st.range}rng${st.beams > 1 ? ` · ${st.beams} beams` : ""}${st.igniteBurn ? " · ignites at full focus" : ""}${st.beamSplash ? " · spills over at focus" : ""}${st.wellRoot ? " · pins its victim" : ""}${st.beamSlow ? " · slows the held" : ""}`;
-                        return `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""}${st.spikes ? ` ×${st.spikes} spikes, all directions` : ""}${st.nova ? " · flame ring hits ALL in reach" : ""}${st.spikePierce > 1 ? " · spikes skewer through" : ""} · ${(st.rate / 1000).toFixed(2)}s · ${st.range}rng${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash (full dmg at core)` : ""}${st.poolDps ? " · lava pools" : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
-                      })()}
+                    <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 3 }}>
+                      {sel.rank4 ? `${branchDef.name} · final form` : sel.branch ? `${selDef.name} · path chosen` : `Level ${sel.level} of 3`}
+                    </div>
+                    <div className="cg-pips" style={{ marginTop: 5 }} title="three levels, a path, and a final ascension">
+                      {[1, 2, 3, 4, 5].map((i) => <span key={i} className={cls("cg-pip", i <= tier && "on", i > 3 && "big")} />)}
                     </div>
                   </div>
-                  <button aria-label="Deselect tower" onClick={() => { if (G.current) G.current.selectedId = null; }} style={{ ...btn, padding: "1px 8px", fontSize: 12 }}>✕</button>
+                  <button aria-label="Deselect tower" className="cg-btn cg-btn--slate cg-x" style={{ alignSelf: "flex-start" }} onClick={() => { if (G.current) G.current.selectedId = null; }}><CloseIcon size={11} /></button>
                 </div>
 
-                {sel.kind === "catapult" && getStats(t).roller && (
-                  <button style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
-                    <FlagIcon /> Aim the Roll
-                  </button>
-                )}
-                {(sel.kind === "knight" || sel.kind === "assassin") && (
-                  <button style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
-                    <FlagIcon /> Move Rally Flag
-                  </button>
-                )}
+                {/* its working numbers */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
+                  {towerTags(t).map((x, i) => (
+                    <span key={i} className="cg-well" style={{ fontSize: 10, padding: "3px 6px", lineHeight: 1.3 }}>{x}</span>
+                  ))}
+                </div>
 
                 {/* the service record: what this hall has actually done for you */}
                 {(sel.kills > 0 || sel.dmgOut > 0) && (() => {
                   const dps = sel.dmgOut / Math.max(1, sel.liveTime);
                   const num = (v) => (v >= 10000 ? (v / 1000).toFixed(1) + "k" : Math.round(v).toLocaleString());
+                  const stat = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--muted)" };
+                  const n = { fontSize: 14, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" };
                   return (
-                    <div style={{ display: "flex", gap: 10, marginTop: 7, padding: "5px 7px", background: "#23262f", border: "2px solid #10131a", fontSize: 10.5 }}>
-                      <span title="foes this tower struck down"><b style={{ color: "#e8d47a" }}>{sel.kills}</b> <span style={{ opacity: 0.65 }}>kills</span></span>
-                      <span title="total damage dealt this run"><b style={{ color: "#e8d47a" }}>{num(sel.dmgOut)}</b> <span style={{ opacity: 0.65 }}>dmg</span></span>
-                      <span title="damage per second of battle — build time excluded"><b style={{ color: "#a8d88c" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> <span style={{ opacity: 0.65 }}>dps</span></span>
+                    <div style={{ display: "flex", gap: 12, marginTop: 8, padding: "0 2px" }}>
+                      <span title="foes this tower struck down" style={stat}><SkullIcon size={12} /><b className="cg-num" style={n}>{sel.kills}</b> kills</span>
+                      <span title="total damage dealt this run" style={stat}><SwordIcon size={12} /><b className="cg-num" style={n}>{num(sel.dmgOut)}</b> dmg</span>
+                      <span title="damage per second of battle — build time excluded" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
                     </div>
                   );
                 })()}
 
-                {/* rich-run shortcut: buy every remaining rank in one stroke */}
-                {ui.masterShow && !sel.rank4 && (() => {
-                  const c = completionCost(t);
-                  const can = ui.gold >= c.cost;
-                  return (
-                    <button
-                      style={{ ...btn, width: "100%", marginTop: 8, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, ...(can ? {} : disabled) }}
-                      onClick={() => { if (can && G.current) completeTower(G.current, t); }}
-                      disabled={!can}>
-                      ⚡ Complete — {c.name} ({c.cost}g)
-                    </button>
-                  );
-                })()}
+                {sel.kind === "catapult" && getStats(t).roller && (
+                  <button className="cg-btn cg-btn--slate" style={{ width: "100%", marginTop: 10 }}
+                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
+                    <FlagIcon size={14} /> Aim the Roll
+                  </button>
+                )}
+                {(sel.kind === "knight" || sel.kind === "assassin") && (
+                  <button className="cg-btn cg-btn--slate" style={{ width: "100%", marginTop: 10 }}
+                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
+                    <FlagIcon size={14} /> Move Rally Flag
+                  </button>
+                )}
 
                 {sel.kind === "trapsmith" && (
-                  <div style={{ fontSize: 10, opacity: 0.75, marginTop: 8, lineHeight: 1.5 }}>
-                    🪤 The smith arms the road himself — each finished charge is laid into the widest gap in his reach.
+                  <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, lineHeight: 1.5 }}>
+                    The smith arms the road himself — each finished charge is laid into the widest gap in his reach.
                   </div>
                 )}
 
@@ -1005,27 +1026,25 @@ export default function Crownguard() {
                   if (!modes.length) return null;
                   const forced = forcedAim(st);
                   return (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 10, letterSpacing: 2, color: "#e8d47a", marginBottom: 5 }}>TARGETS</div>
+                    <div style={{ marginTop: 10 }}>
+                      <div className="cg-label" style={{ marginBottom: 5 }}>Targets</div>
                       {forced ? (
-                        <div style={{ fontSize: 10, opacity: 0.75 }}>
-                          Sworn to the hunt — always takes <b style={{ color: "#e8e0c8" }}>the mightiest foe</b>.
+                        <div style={{ fontSize: 10, color: "var(--muted)" }}>
+                          Sworn to the hunt — always takes <b style={{ color: "var(--cream)" }}>the mightiest foe</b>.
                         </div>
                       ) : (
                         <>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                             {modes.map((m) => (
                               <button key={m.id} title={m.hint}
-                                style={{
-                                  ...btn, flex: "1 1 auto", padding: "5px 6px", fontSize: 10, textAlign: "center",
-                                  ...(sel.aim === m.id ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}),
-                                }}
+                                className={cls("cg-btn cg-btn--slate", sel.aim === m.id && "is-on")}
+                                style={{ flex: "1 1 auto", minWidth: 0, minHeight: 40, padding: "0 5px", fontSize: 12 }}
                                 onClick={() => { const tt = G.current?.towers.find((x) => x.id === sel.id); if (tt) tt.aim = m.id; }}>
                                 {m.label}
                               </button>
                             ))}
                           </div>
-                          <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>
+                          <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 5 }}>
                             {(modes.find((m) => m.id === sel.aim) || modes[0]).hint}
                           </div>
                         </>
@@ -1034,35 +1053,49 @@ export default function Crownguard() {
                   );
                 })()}
 
+                {/* the next level: its name, its price, and exactly what it changes */}
                 {!sel.branch && sel.level < 3 && (() => {
                   const nxt = selDef.levels[sel.level];
                   const can = ui.gold >= nxt.cost;
+                  const deltas = levelDeltas(t);
                   return (
-                    <button style={{ ...btn, width: "100%", marginTop: 8, ...(!can ? disabled : {}) }} disabled={!can}
-                      onClick={() => { const t = G.current?.towers.find((x) => x.id === sel.id); if (t) upgradeTower(G.current, t); }}>
-                      {nxt.label} — <span style={{ color: "#e8d47a" }}>{nxt.cost}g</span>
-                      <div style={{ fontSize: 10, opacity: 0.75 }}>
-                        {nxt.slow != null
-                          ? `${Math.round(nxt.slow * 100)}% slow · ${nxt.range} range`
-                          : `${nxt.count ? `${nxt.count} knights · ` : ""}${nxt.dmg} dmg · ${(nxt.rate / 1000).toFixed(2)}s${nxt.hp ? ` · ${nxt.hp} hp` : ` · ${nxt.range} range`}`}
-                      </div>
+                    <button className={cls("cg-btn cg-btn--parch", !can && "is-poor")} disabled={!can}
+                      style={{ width: "100%", marginTop: 10, padding: "7px 10px 8px", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}
+                      onClick={withT((tt) => upgradeTower(G.current, tt))}>
+                      <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                        <span className="cg-label">Upgrade · Level {sel.level + 1}</span>
+                        <span className="cg-display" style={{ fontSize: 16, fontWeight: 700 }}>{nxt.label}</span>
+                        <span style={{ display: "grid", gridTemplateColumns: "auto auto", columnGap: 10, rowGap: 1, fontSize: 10.5 }}>
+                          {deltas.map((d) => (
+                            <span key={d.label} style={{ display: "contents" }}>
+                              <span style={{ color: "#7a6446" }}>{d.label}</span>
+                              <span style={{ whiteSpace: "nowrap" }}>{d.from} <span style={{ color: d.better ? "#3f7a2a" : "#a8363c", fontWeight: "bold" }}>▸ {d.to}</span></span>
+                            </span>
+                          ))}
+                        </span>
+                      </span>
+                      <span style={{ display: "flex", alignItems: "center", fontSize: 18 }}>{price(nxt.cost, can, 16)}</span>
                     </button>
                   );
                 })()}
 
                 {!sel.branch && sel.level === 3 && (
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: "#e8d47a", marginBottom: 6 }}>CHOOSE A PATH — PERMANENT</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ marginTop: 10 }}>
+                    <div className="cg-label" style={{ marginBottom: 6 }}>Choose a path — permanent</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                       {Object.entries(selDef.branches).map(([bk, br]) => {
                         const can = ui.gold >= br.cost;
                         return (
-                          <button key={bk} style={{ ...btn, display: "flex", gap: 8, alignItems: "flex-start", ...(!can ? disabled : {}) }} disabled={!can}
-                            onClick={() => { const t = G.current?.towers.find((x) => x.id === sel.id); if (t) branchTower(G.current, t, bk); }}>
-                            <PixelIcon kind={sel.kind} branch={bk} size={26} />
-                            <span>
-                              <div style={{ fontWeight: "bold", fontSize: 12 }}>{br.name} — <span style={{ color: "#e8d47a" }}>{br.cost}g</span></div>
-                              <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{br.desc}</div>
+                          <button key={bk} className={cls("cg-btn cg-btn--parch", !can && "is-poor")} disabled={!can}
+                            style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
+                            onClick={withT((tt) => branchTower(G.current, tt, bk))}>
+                            <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={bk} size={40} /></span>
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 14 }}>{br.name}</span>
+                                {price(br.cost, can, 13)}
+                              </span>
+                              <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{br.desc}</span>
                             </span>
                           </button>
                         );
@@ -1071,19 +1104,23 @@ export default function Crownguard() {
                   </div>
                 )}
 
-                {sel.branch && !sel.rank4 && selDef.branches[sel.branch].rank4 && (
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 10, letterSpacing: 2, color: "#e8d47a", marginBottom: 6 }}>FINAL ASCENSION — PERMANENT</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {Object.entries(selDef.branches[sel.branch].rank4).map(([rk, r4]) => {
+                {sel.branch && !sel.rank4 && branchDef.rank4 && (
+                  <div style={{ marginTop: 10 }}>
+                    <div className="cg-label" style={{ marginBottom: 6 }}>Final ascension — permanent</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {Object.entries(branchDef.rank4).map(([rk, r4]) => {
                         const can = ui.gold >= r4.cost;
                         return (
-                          <button key={rk} style={{ ...btn, display: "flex", gap: 8, alignItems: "flex-start", ...(!can ? disabled : {}) }} disabled={!can}
-                            onClick={() => { const t = G.current?.towers.find((x) => x.id === sel.id); if (t) ascendTower(G.current, t, rk); }}>
-                            <PixelIcon kind={sel.kind} branch={sel.branch} rank4={rk} size={26} />
-                            <span>
-                              <div style={{ fontWeight: "bold", fontSize: 12 }}>{r4.name} — <span style={{ color: "#e8d47a" }}>{r4.cost}g</span></div>
-                              <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{r4.desc}</div>
+                          <button key={rk} className={cls("cg-btn cg-btn--parch", !can && "is-poor")} disabled={!can}
+                            style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
+                            onClick={withT((tt) => ascendTower(G.current, tt, rk))}>
+                            <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={sel.branch} rank4={rk} size={40} /></span>
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 14 }}>{r4.name}</span>
+                                {price(r4.cost, can, 13)}
+                              </span>
+                              <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{r4.desc}</span>
                             </span>
                           </button>
                         );
@@ -1092,9 +1129,22 @@ export default function Crownguard() {
                   </div>
                 )}
 
-                <button style={{ ...btn, width: "100%", marginTop: 8, textAlign: "center", background: "#4a3228" }}
-                  onClick={() => { const t = G.current?.towers.find((x) => x.id === sel.id); if (t) sellTower(G.current, t); }}>
-                  Sell for {Math.floor(sel.invested * 0.7)}g
+                {/* rich-run shortcut: buy every remaining rank in one stroke */}
+                {ui.masterShow && !sel.rank4 && (() => {
+                  const c = completionCost(t);
+                  const can = ui.gold >= c.cost;
+                  return (
+                    <button className={cls("cg-btn", !can && "is-poor")} disabled={!can}
+                      style={{ width: "100%", marginTop: 8, fontSize: 12, gap: 6 }}
+                      onClick={() => { if (can && G.current) completeTower(G.current, t); }}>
+                      <BoltIcon size={13} /> <span className="cg-dim">Complete — {c.name}</span> {price(c.cost, can, 12)}
+                    </button>
+                  );
+                })()}
+
+                <button className="cg-btn cg-btn--red" style={{ width: "100%", marginTop: 10, justifyContent: "space-between" }}
+                  onClick={withT((tt) => sellTower(G.current, tt))}>
+                  <span>Sell</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
                 </button>
               </div>
               );
@@ -1104,78 +1154,94 @@ export default function Crownguard() {
               const campaign = mode === "campaign" && level;
               const nxt = campaign ? nextLevel(level.id) : null;
               const lastOfChapter = campaign && level.index === level.chapter.levels.length - 1;
+              const won = ui.result === "won";
+              const big = { minHeight: 48, fontSize: 15, padding: "0 16px" };
               return (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(12,12,16,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, textAlign: "center", zIndex: 45 }}>
-                <div style={{ fontSize: 20, letterSpacing: 3, color: ui.result === "won" ? "#e8d47a" : "#e07a72", textShadow: "2px 2px 0 #10131a" }}>
-                  {ui.result === "lost" ? "THE CASTLE HAS FALLEN"
-                    : campaign ? (lastOfChapter ? `${level.chapter.name.toUpperCase()} IS FREE` : `${level.name.toUpperCase()} HELD`)
-                    : "THE REALM STANDS"}
-                </div>
-                {/* stars won, and what they were worth */}
-                {campaign && ui.result === "won" && award && (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      {[1, 2, 3].map((i) => <Star key={i} lit={i <= award.rating} size={30} />)}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#e8d47a" }}>
-                      +{award.xp} XP
-                      {award.newStars > 0
-                        ? ` · +${award.newStars} star${award.newStars > 1 ? "s" : ""} banked`
-                        : " · no new stars — you'd already done better"}
-                    </div>
+              <div style={{ position: "absolute", inset: 0, background: "rgba(22,14,26,0.74)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 45, padding: "22px 12px 12px", boxSizing: "border-box", overflowY: "auto" }}>
+                <div className="cg-frame cg-rise" style={{ width: "100%", maxWidth: 460, margin: "auto", padding: "0 20px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 11, textAlign: "center" }}>
+                  <div className={cls("cg-banner", won ? "won" : "lost")} style={{ marginTop: -16, maxWidth: "100%" }}>
+                    {!won ? "THE CASTLE HAS FALLEN"
+                      : campaign ? (lastOfChapter ? `${level.chapter.name.toUpperCase()} IS FREE` : `${level.name.toUpperCase()} HELD`)
+                      : "THE REALM STANDS"}
                   </div>
-                )}
 
-                {campaign && ui.result === "won" && banked > 0 && (
-                  <div style={{ fontSize: 11, color: "#e8d47a" }}>🪙 {banked.toLocaleString("en-US")} gold to the treasury (what was left, and a tithe of what was earned) · {(progress.treasury || 0).toLocaleString("en-US")} banked</div>
-                )}
-                {campaign && ui.result === "won" && unlocksFor(level.id).length > 0 && (
-                  <div style={{ ...hud, display: "flex", alignItems: "center", gap: 10, padding: "8px 14px" }}>
-                    {unlocksFor(level.id).map((k) => (
-                      <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <TowerPortrait kind={k} size={40} />
-                        <div style={{ textAlign: "left" }}>
-                          <div style={{ fontSize: 9, letterSpacing: 2, color: "#e8d47a" }}>NEW HALL</div>
-                          <div style={{ fontSize: 12, fontWeight: "bold" }}>{TOWERS[k].name}</div>
-                        </div>
+                  {/* stars won, and what they were worth */}
+                  {campaign && won && award && (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                        {[1, 2, 3].map((i) => (
+                          <span key={i} className="cg-star" style={{ animationDelay: `${0.25 + i * 0.22}s`, marginBottom: i === 2 ? 10 : 0 }}>
+                            <Star lit={i <= award.rating} size={i === 2 ? 52 : 42} />
+                          </span>
+                        ))}
                       </div>
-                    ))}
+                      <div className="cg-display" style={{ fontSize: 14, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>
+                        +{award.xp} XP
+                        {award.newStars > 0
+                          ? ` · +${award.newStars} star${award.newStars > 1 ? "s" : ""} banked`
+                          : ""}
+                      </div>
+                      {award.newStars === 0 && <div style={{ fontSize: 10.5, color: "var(--muted)" }}>No new stars — you'd already done better here.</div>}
+                    </div>
+                  )}
+                  {!won && <SkullIcon size={40} />}
+
+                  {campaign && won && banked > 0 && (
+                    <div className="cg-well" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", fontSize: 10.5, textAlign: "left", lineHeight: 1.4 }}>
+                      <CoinIcon size={22} />
+                      <span><b className="cg-num" style={{ fontSize: 15, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>{banked.toLocaleString("en-US")}</b> gold to the treasury<br />
+                        <span style={{ color: "var(--muted)" }}>what was left, and a tithe of what was earned · {(progress.treasury || 0).toLocaleString("en-US")} banked</span></span>
+                    </div>
+                  )}
+                  {campaign && won && unlocksFor(level.id).length > 0 && (
+                    <div className="cg-parch" style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 14px" }}>
+                      {unlocksFor(level.id).map((k) => (
+                        <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <TowerPortrait kind={k} size={44} />
+                          <div style={{ textAlign: "left" }}>
+                            <div className="cg-display" style={{ fontSize: 11, letterSpacing: 2, color: "#8a5a2a" }}>NEW HALL</div>
+                            <div className="cg-display" style={{ fontSize: 15, fontWeight: 700 }}>{TOWERS[k].name}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 12, color: "var(--text)", opacity: 0.9, maxWidth: 380, lineHeight: 1.5 }}>
+                    {!won
+                      ? `You fell on wave ${ui.wave}. Retry the wave with your gold and towers restored, or take the level again from the start.`
+                      : campaign
+                        ? (nxt
+                            ? (lastOfChapter
+                                ? `The chapter is closed — but word of it travels. ${nxt.chapter.name} is stirring, and ${nxt.name} lies ahead. Or dig in here and see how long this ground can hold.`
+                                : `The road is yours as far as ${nxt.name}. March on — or hold this ground against the Endless March.`)
+                            : "The Iron throne is taken and the whole continent is yours. The war is won — unless you'd rather see how long you can hold it.")
+                        : "The dragon is slain and the road is quiet... for now. Beyond the pass, the horde has no end — march on if you dare."}
                   </div>
-                )}
-                <div style={{ fontSize: 12, opacity: 0.85, maxWidth: 360, padding: "0 12px" }}>
-                  {ui.result === "lost"
-                    ? `You fell on wave ${ui.wave}. Retry the wave with your gold and towers restored, or take the level again from the start.`
-                    : campaign
-                      ? (nxt
-                          ? (lastOfChapter
-                              ? `The chapter is closed — but word of it travels. ${nxt.chapter.name} is stirring, and ${nxt.name} lies ahead. Or dig in here and see how long this ground can hold.`
-                              : `The road is yours as far as ${nxt.name}. March on — or hold this ground against the Endless March.`)
-                          : "The Iron throne is taken and the whole continent is yours. The war is won — unless you'd rather see how long you can hold it.")
-                      : "The dragon is slain and the road is quiet... for now. Beyond the pass, the horde has no end — march on if you dare."}
-                </div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", padding: "0 12px" }}>
-                  {ui.result === "won" && campaign && nxt && (
-                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", background: "#5a4f2c" }}
-                      onClick={() => startLevel(nxt)}>
-                      March On — {nxt.name}
-                    </button>
-                  )}
-                  {ui.result === "won" && (
-                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", ...(campaign && nxt ? {} : { background: "#5a4f2c" }) }}
-                      onClick={() => { const g = G.current; if (g) { g.phase = "build"; g.buildUntil = g.time + 30; } setAward(null); }}>
-                      March On — Endless
-                    </button>
-                  )}
-                  {ui.result === "lost" && ui.canRestart && (
-                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center", background: "#5a4f2c" }} onClick={() => restartWave(G.current)}>Retry Wave {ui.wave}</button>
-                  )}
-                  {ui.result === "lost" && campaign && (
-                    <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={() => startLevel(level)}>Restart Level</button>
-                  )}
-                  {campaign
-                    ? <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={openMap}>Campaign Map</button>
-                    : <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={() => openRealmSelect("game")}>Choose Realm...</button>}
-                  <button style={{ ...btn, fontSize: 13, padding: "10px 18px", textAlign: "center" }} onClick={goHome}>Main Menu</button>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                    {won && campaign && nxt && (
+                      <button className="cg-btn cg-btn--gold" style={big} onClick={() => startLevel(nxt)}>
+                        <PlayIcon size={13} /> March On — {nxt.name}
+                      </button>
+                    )}
+                    {won && (
+                      <button className={cls("cg-btn", !(campaign && nxt) && "cg-btn--gold")} style={big}
+                        onClick={() => { const g = G.current; if (g) { g.phase = "build"; g.buildUntil = g.time + 30; } setAward(null); }}>
+                        Endless March
+                      </button>
+                    )}
+                    {!won && ui.canRestart && (
+                      <button className="cg-btn cg-btn--gold" style={big} onClick={() => restartWave(G.current)}>Retry Wave {ui.wave}</button>
+                    )}
+                    {!won && campaign && (
+                      <button className="cg-btn" style={big} onClick={() => startLevel(level)}>Restart Level</button>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                    {campaign
+                      ? <button className="cg-btn cg-btn--slate" onClick={openMap}>Campaign Map</button>
+                      : <button className="cg-btn cg-btn--slate" onClick={() => openRealmSelect("game")}>Choose Realm...</button>}
+                    <button className="cg-btn cg-btn--slate" onClick={goHome}>Main Menu</button>
+                  </div>
                 </div>
               </div>
               );
@@ -1184,17 +1250,18 @@ export default function Crownguard() {
       </div>
 
       {/* ---- the castle works: the wall's own defences, bought once for a whole region ---- */}
-      <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: 300, zIndex: 40, boxSizing: "border-box",
-        display: "flex", flexDirection: "column", background: "rgba(30,33,42,0.98)", borderLeft: "3px solid #10131a",
+      <div className="cg-drawer" style={{
+        position: "fixed", top: 0, right: 0, bottom: 0, width: 310, zIndex: 40, boxSizing: "border-box",
+        display: "flex", flexDirection: "column",
         paddingTop: "env(safe-area-inset-top)", paddingRight: "env(safe-area-inset-right)",
         transform: castleOpen ? "translateX(0)" : "translateX(104%)", transition: "transform 0.2s ease",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px 6px" }}>
-          <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1 }}>🏰 CASTLE WORKS</span>
-          <button aria-label="Close castle works" onClick={() => setCastleOpen(false)} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px" }}>✕</button>
+        <div className="cg-drawer-head">
+          <CastleIcon size={18} />
+          <span className="cg-label">Castle Works</span>
+          <button aria-label="Close castle works" className="cg-btn cg-btn--slate cg-x" onClick={() => setCastleOpen(false)}><CloseIcon size={11} /></button>
         </div>
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 10px", WebkitOverflowScrolling: "touch" }}>
+        <div className="cg-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 10px" }}>
           <CastleWorksList
             works={ui.castle}
             purse={mode === "campaign" ? progress.treasury || 0 : ui.gold}
@@ -1207,40 +1274,38 @@ export default function Crownguard() {
       </div>
 
       {/* ---- the build panel: opens over the right of the screen from the Build button ---- */}
-      <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: masterOn ? 310 : 244, zIndex: 40, boxSizing: "border-box",
-        display: "flex", flexDirection: "column", background: "rgba(30,33,42,0.98)", borderLeft: "3px solid #10131a",
+      <div className="cg-drawer" style={{
+        position: "fixed", top: 0, right: 0, bottom: 0, width: masterOn ? 320 : 254, zIndex: 40, boxSizing: "border-box",
+        display: "flex", flexDirection: "column",
         paddingTop: "env(safe-area-inset-top)", paddingRight: "env(safe-area-inset-right)",
         transform: buildOpen ? "translateX(0)" : "translateX(104%)", transition: "transform 0.2s ease",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px 6px" }}>
-          <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1 }}>RAISE DEFENSES</span>
+        <div className="cg-drawer-head">
+          <HammerIcon size={16} />
+          <span className="cg-label">Raise Defenses</span>
           {ui.masterShow && (
-            <button title="Master Builds: place any final form whole" style={{ ...hudBtn, minHeight: 36, padding: "0 10px", fontSize: 11, ...(masterOn ? { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}
+            <button title="Master Builds: place any final form whole" className={cls("cg-btn cg-btn--slate", masterOn && "is-on")} style={{ minHeight: 36, padding: "0 8px", fontSize: 12, gap: 4 }}
               onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; setMasterInfo(null); }}>
-              ⚡ Master
+              <BoltIcon size={12} /> Master
             </button>
           )}
-          <button aria-label="Close build menu" onClick={() => setBuildOpen(false)} style={{ ...hudBtn, minHeight: 36, minWidth: 36, padding: "0 10px" }}>✕</button>
+          <button aria-label="Close build menu" className="cg-btn cg-btn--slate cg-x" onClick={() => setBuildOpen(false)}><CloseIcon size={11} /></button>
         </div>
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 10px", WebkitOverflowScrolling: "touch" }}>
+        <div className="cg-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 8px 12px" }}>
           {masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
                 Object.entries(TOWERS).filter(([key]) => towerUnlocked(key, progress)).map(([key, def]) => (
-                  <div key={key} style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 9.5, letterSpacing: 1.5, color: "#d8b34a", margin: "2px 0 5px" }}>{def.name.toUpperCase()}</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  <div key={key} style={{ marginBottom: 12 }}>
+                    <div className="cg-label" style={{ fontSize: 11, margin: "2px 0 6px" }}>{def.name}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
                       {masterPlans(key).map((plan) => {
                         const pk = `${key}:${plan.branch}${plan.rank4 || ""}`;
                         const can = ui.gold >= plan.cost;
                         const active = ui.buildMode === key && ui.masterPick === pk;
                         return (
                           <button key={pk} title={def.branches[plan.branch].desc}
-                            style={{
-                              ...btn, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
-                              gap: 4, padding: "8px 4px 7px", textAlign: "center", minHeight: 94,
-                              ...(active ? { background: "#5a4f2c" } : {}), ...(!can ? disabled : {}),
-                            }}
+                            className={cls("cg-btn cg-btn--slate", active && "is-on", !can && "is-poor")}
+                            style={{ width: "100%", flexDirection: "column", justifyContent: "flex-end", gap: 3, padding: "8px 4px 7px", minHeight: 100 }}
                             onClick={() => {
                               const gg = G.current;
                               if (!gg) return;
@@ -1257,10 +1322,10 @@ export default function Crownguard() {
                                 const stats = plan.rank4 ? br.rank4[plan.rank4].stats : br.stats;
                                 setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
                               }}
-                              style={{ position: "absolute", top: 2, right: 6, fontSize: 11, opacity: 0.65, pointerEvents: "auto" }}>ⓘ</span>
-                            <TowerPortrait kind={key} branch={plan.branch} rank4={plan.rank4} size={38} />
-                            <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.25 }}>{plan.name}</span>
-                            <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>⚡{plan.cost}g</span>
+                              style={{ position: "absolute", top: 0, right: 0, padding: 5, pointerEvents: "auto", cursor: "help" }}><InfoIcon size={12} /></span>
+                            <span className="cg-dim"><TowerPortrait kind={key} branch={plan.branch} rank4={plan.rank4} size={42} /></span>
+                            <span className="cg-dim" style={{ fontSize: 11, lineHeight: 1.15 }}>{plan.name}</span>
+                            {price(plan.cost, can, 11)}
                           </button>
                         );
                       })}
@@ -1268,21 +1333,25 @@ export default function Crownguard() {
                   </div>
                 ))
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
               {Object.entries(TOWERS).map(([key, def]) => {
                 const open = towerUnlocked(key, progress);
                 const can = open && ui.gold >= def.cost;
                 const active = ui.buildMode === key;
                 const need = open ? null : unlockLevel(key);
                 return (
-                  <button key={key} title={open ? def.blurb : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`} style={{ ...tile(active, can), ...(open ? {} : { opacity: 0.55, filter: "grayscale(0.8)" }) }}
+                  <button key={key} title={open ? def.blurb : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`}
+                    className={cls("cg-btn cg-btn--slate", active && "is-on", open && !can && "is-poor", !open && "is-off")}
+                    style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: 100 }}
                     onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); }}
                     disabled={!can}>
-                    <TowerPortrait kind={key} size={44} />
-                    <span style={{ fontSize: 10, fontWeight: "bold", lineHeight: 1.15 }}>{def.name}</span>
+                    <span className="cg-well cg-dim" style={{ width: 60, height: 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <TowerPortrait kind={key} size={50} />
+                    </span>
+                    <span className="cg-dim" style={{ fontSize: 12, lineHeight: 1.1 }}>{def.name}</span>
                     {open
-                      ? <span style={{ fontSize: 10, color: can ? "#e8d47a" : "#e07a72" }}>{def.cost}g</span>
-                      : <span style={{ fontSize: 8.5, opacity: 0.85, lineHeight: 1.2 }}>🔒 {need ? need.short || need.name : "campaign"}</span>}
+                      ? price(def.cost, can, 12)
+                      : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{need ? need.short || need.name : "campaign"}</span>}
                   </button>
                 );
               })}
@@ -1292,30 +1361,26 @@ export default function Crownguard() {
       </div>
 
             {realmOpen && (
-              <div style={{ position: "fixed", inset: 0, background: "rgba(12,12,16,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", gap: 10, zIndex: 55, padding: 16, boxSizing: "border-box", overflowY: "auto" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: "auto" }}>
-                  <div style={{ fontSize: 16, letterSpacing: 3, color: "#d8b34a", textShadow: "2px 2px 0 #10131a" }}>CHOOSE YOUR REALM</div>
-                  <button aria-label="Back" onClick={closeRealmSelect} style={{ ...btn, padding: "4px 12px", fontSize: 14 }}>✕</button>
+              <div className="cg-scroll" style={{ position: "fixed", inset: 0, background: "rgba(22,14,26,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", gap: 10, zIndex: 55, padding: 16, boxSizing: "border-box", overflowY: "auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto" }}>
+                  <div className="cg-display" style={{ fontSize: 24, fontWeight: 700, letterSpacing: 3, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>CHOOSE YOUR REALM</div>
+                  <button aria-label="Back" className="cg-btn cg-btn--slate cg-x" style={{ minWidth: 44, minHeight: 44 }} onClick={closeRealmSelect}><CloseIcon size={12} /></button>
                 </div>
-                <div style={{ fontSize: 10, opacity: 0.7, marginTop: -4 }}>Pick who you're fighting, then a realm to fight them on.</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: -4 }}>Pick who you're fighting, then a realm to fight them on.</div>
 
                 {/* which army marches — the campaign's chapter, in miniature */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 10, width: "100%", maxWidth: 620 }}>
                   {Object.values(FACTIONS).map((f) => (
                     <button key={f.id} onClick={() => setFactionId(f.id)}
-                      style={{
-                        ...btn, display: "flex", flexDirection: "column", gap: 5, padding: 8, textAlign: "left",
-                        ...(f.id === factionId
-                          ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" }
-                          : {}),
-                      }}>
-                      <span style={{ fontWeight: "bold", fontSize: 13, color: "#e8e0c8" }}>
-                        {f.name} <span style={{ fontSize: 9, letterSpacing: 1, color: f.tagColor, marginLeft: 4 }}>{f.tag}</span>
+                      className={cls("cg-btn cg-btn--slate", f.id === factionId && "is-on")}
+                      style={{ flexDirection: "column", alignItems: "stretch", gap: 5, padding: "8px 10px", textAlign: "left" }}>
+                      <span style={{ fontSize: 15, color: "var(--cream)" }}>
+                        {f.name} <span style={{ fontSize: 10, letterSpacing: 1, color: f.tagColor, marginLeft: 4 }}>{f.tag}</span>
                       </span>
                       <span style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 30 }}>
                         {f.types.map((ty) => <EnemyIcon key={ty} type={ty} box={26} />)}
                       </span>
-                      <span style={{ fontSize: 10, opacity: 0.8, lineHeight: 1.45 }}>{f.blurb}</span>
+                      <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--muted)", lineHeight: 1.45 }}>{f.blurb}</span>
                     </button>
                   ))}
                 </div>
@@ -1331,12 +1396,13 @@ export default function Crownguard() {
                   })),
                 ].map((grp) => (
                 <div key={grp.name}>
-                <div style={{ fontSize: 10, letterSpacing: 2, color: "#d8b34a", margin: "10px 0 6px" }}>{grp.name}</div>
+                <div className="cg-label" style={{ margin: "12px 0 6px" }}>{grp.name}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 10 }}>
                   {grp.ids.map((id) => REALMS[id]).filter(Boolean).map((r) => (
                     <button key={r.id} onClick={() => chooseRealm(r.id)}
-                      style={{ ...btn, display: "flex", gap: 10, padding: 8, alignItems: "stretch", ...(r.id === realmId ? { boxShadow: "inset 0 0 0 2px #7a6a3c" } : {}) }}>
-                      <svg viewBox="0 0 150 100" width="108" height="72" style={{ flexShrink: 0, border: "2px solid #10131a", imageRendering: "pixelated" }}>
+                      className={cls("cg-btn", r.id === realmId && "is-on")}
+                      style={{ justifyContent: "flex-start", gap: 10, padding: 7, alignItems: "stretch", textAlign: "left" }}>
+                      <svg viewBox="0 0 150 100" width="108" height="72" style={{ flexShrink: 0, border: "2px solid var(--ink)", imageRendering: "pixelated" }}>
                         <rect x="0" y="0" width="150" height="100" fill={r.GRASS} />
                         {(r.rivers || []).map((rv, i) => (
                           <polyline key={`rv${i}`} points={rv.pts.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
@@ -1355,10 +1421,10 @@ export default function Crownguard() {
                         <rect x={r.path[r.path.length - 1][0] * 10 - 1} y={r.path[r.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
                       </svg>
                       <span style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "left" }}>
-                        <span style={{ fontWeight: "bold", fontSize: 13, color: "#e8e0c8" }}>
-                          {r.name} <span style={{ fontSize: 9, letterSpacing: 1, color: r.tagColor, marginLeft: 4 }}>{r.tag}</span>
+                        <span style={{ fontSize: 15, color: "var(--cream)" }}>
+                          {r.name} <span style={{ fontSize: 10, letterSpacing: 1, color: r.tagColor, marginLeft: 4 }}>{r.tag}</span>
                         </span>
-                        <span style={{ fontSize: 10, opacity: 0.8, lineHeight: 1.45 }}>{r.blurb}</span>
+                        <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--text)", opacity: 0.8, lineHeight: 1.45 }}>{r.blurb}</span>
                       </span>
                     </button>
                   ))}

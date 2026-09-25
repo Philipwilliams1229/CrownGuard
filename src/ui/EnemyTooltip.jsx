@@ -12,20 +12,21 @@ const box = {
   left: 0,
   width: 210,
   zIndex: 60,
-  background: "#20242c",
-  border: "3px solid #10131a",
-  boxShadow: "inset 0 0 0 2px #454c5a, 0 4px 0 rgba(0,0,0,0.35)",
+  background: "#2e2633",
+  border: "2px solid #241a26",
+  boxShadow: "inset 2px 2px 0 #4a3e50, inset -2px -2px 0 #1b141e, 0 3px 0 rgba(20,12,22,0.45)",
   padding: 10,
   pointerEvents: "none",
   textAlign: "left",
   fontSize: 11,
   lineHeight: 1.5,
-  color: "#e8e0c8",
+  color: "#f2e6c4",
+  fontFamily: "Verdana, Geneva, sans-serif",
 };
 
 const Row = ({ label, children }) => (
   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-    <span style={{ opacity: 0.6 }}>{label}</span>
+    <span style={{ color: "#b9ab93" }}>{label}</span>
     <span style={{ fontWeight: "bold" }}>{children}</span>
   </div>
 );
@@ -37,8 +38,10 @@ export default function EnemyTooltip({ type }) {
   return (
     <div style={box}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <EnemyIcon type={type} box={30} />
-        <div style={{ fontWeight: "bold", color: e.boss ? "#e07a72" : "#e8d47a", letterSpacing: 1 }}>
+        <span style={{ width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: e.boss ? "#4a1e22" : "#231b27", border: "2px solid #241a26", boxShadow: "inset 2px 2px 0 #1b141e", boxSizing: "border-box" }}>
+          <EnemyIcon type={type} box={28} />
+        </span>
+        <div style={{ fontFamily: "'Pixelify Sans', Verdana, sans-serif", fontWeight: 700, fontSize: 15, lineHeight: 1.1, color: e.boss ? "#ff8a78" : "#f0d27a", textShadow: "1px 1px 0 #241a26", letterSpacing: 0.5 }}>
           {e.name}{e.boss ? " · BOSS" : ""}
         </div>
       </div>
@@ -54,7 +57,7 @@ export default function EnemyTooltip({ type }) {
       <Row label="Bounty">{e.bounty}g</Row>
 
       {e.note && (
-        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "2px solid #10131a", opacity: 0.9, fontStyle: "italic" }}>
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "2px solid #241a26", color: "#d8ccb0", fontStyle: "italic" }}>
           {e.note}
         </div>
       )}
