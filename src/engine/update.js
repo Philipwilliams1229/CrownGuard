@@ -1354,8 +1354,12 @@ export function updateGame(g, dt) {
           t.midasIdx = ((t.midasIdx || 0) + 1) % st.midas;
           midas = t.midasIdx === 0;
         }
+        // the Wizard Spire's orb leaves from the mage's staff at the top of
+        // the spire (halls/wizard.js: spire height 18 + 6/level + 4 branched)
+        const oy = t.kind === "wizard" ? 30 + 18 + t.level * 6 + (t.branch ? 4 : 0) : 30;
+        const ox = t.kind === "wizard" ? (target.x >= t.x ? 7 : -7) : 0;
         g.projectiles.push({
-          id: nextId(), x: t.x, y: t.y - 30, targetId: target.id,
+          id: nextId(), x: t.x + ox, y: t.y - oy, targetId: target.id,
           tx: target.x, ty: target.y, speed: 300, delay: 0,
           dmg: st.dmg, dtype: st.dtype, pierce: !!st.pierce, splash: st.splash || 0, splashCap: st.splashCap || 0,
           burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,

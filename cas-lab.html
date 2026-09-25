@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  Castle lab: the same snaps as shots.html, but it keeps its place in the job
+  list across the dev server's reloads (other work reloads the page often),
+  so a long job still finishes. /cas-lab.html?job=<urlencoded JSON>
+-->
+<html>
+  <head><meta charset="utf-8" /><title>castle lab</title></head>
+  <body style="background:#14171d;color:#e8e0c8;font-family:monospace">
+    <div id="status">castle lab</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { W, H } from "/src/data/constants.js";
+      import { posAt, angleAt, TOTAL_LEN } from "/src/engine/path.js";
+      import { draw } from "/src/render/draw.js";
+      import { ENEMIES } from "/src/data/enemies.js";
+      const mk = (type, dist, lane = 0) => {
+        const d = ENEMIES[type]; const [px, py] = posAt(dist); const a = angleAt(dist);
+        return { id: Math.floor(dist), type, hp: d.hp * 0.7, maxHp: d.hp, dist,
+          x: px + Math.cos(a + Math.PI / 2) * lane, y: py + Math.sin(a + Math.PI / 2) * lane,
+          face: Math.cos(a) >= 0 ? 1 : -1, size: d.size, armor: d.armor, mres: d.mres || 0,
+          guard: d.guard || 0, guardFlash: 0, flying: !!d.flying, boss: !!d.boss, atkAnim: 0, stunUntil: 0,
+          slowUntil: 0, slowPct: 0, auraSlow: 0, burnUntil: 0, poisonUntil: 0, brittleUntil: 0, healedFlash: 0,
+          hitFlash: 0, blockedBy: null, engaged: false, dead: false, revived: false };
+      };
+      const shot = async (name, realmId, marchers = [], extra = {}, crop = null) => {
+        selectRealm(realmId);
+        const g = { time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5,
+          towers: [], projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [],
+          enemies: marchers.map(([t, frac, lane]) => mk(t, TOTAL_LEN * frac, lane)),
+          phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null,
+          paused: false, buildUntil: null, ...extra };
+        let cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+        draw(g, cv, { current: null });
+        if (crop) {
+          const [x, y, w, h, sc = 2] = crop, k = cv.width / W;
+          const o = document.createElement("canvas"); o.width = w * k * sc; o.height = h * k * sc;
+          const c = o.getContext("2d"); c.imageSmoothingEnabled = false;
+          c.drawImage(cv, x * k, y * k, w * k, h * k, 0, 0, o.width, o.height);
+          cv = o;
+        }
+        await fetch("/__shot?name=" + encodeURIComponent(name), { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      };
+      // ?bench=realm: time the castle's bakes per damage tier and a live frame
+      const bench = new URLSearchParams(location.search).get("bench");
+      if (bench) {
+        const { drawCastle, resetCastleBakes } = await import("/src/render/castle.js");
+        const cv = document.createElement("canvas"); cv.width = W * 2; cv.height = H * 2;
+        const c = cv.getContext("2d"); c.scale(2, 2); selectRealm(bench);
+        const out = [];
+        for (const hp of [1, 0.6, 0.4, 0.1]) { resetCastleBakes(); const t = performance.now(); drawCastle(c, 1, hp); out.push(hp + ":" + (performance.now() - t).toFixed(0) + "ms"); }
+        for (const hp of [1, 0.1]) { drawCastle(c, 0, hp); const t = performance.now(); for (let i = 0; i < 300; i++) drawCastle(c, i * 0.016, hp); out.push("frame@" + hp + ":" + ((performance.now() - t) / 300).toFixed(3) + "ms"); }
+        document.title = "BENCH " + out.join(" ");
+      }
+      const job = new URLSearchParams(location.search).get("job");
+      if (job) {
+        const list = JSON.parse(job), key = "caslab:" + location.search;
+        let i = +(sessionStorage.getItem(key) || 0);
+        try {
+          for (; i < list.length; i++) { await shot(...list[i]); sessionStorage.setItem(key, String(i + 1)); }
+          document.title = "DONE";
+        } catch (e) { document.title = "FAIL " + e.message; console.error(e); }
+        document.getElementById("status").textContent = document.title;
+      }
+    </script>
+  </body>
+</html>
