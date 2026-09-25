@@ -32,6 +32,7 @@ import { isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel,
 // buffer space over the finished board, so it reads at any camera zoom. It's
 // the one piece of type on the field, so it stays short and gets out of the way.
 const BANNER_LIFE = 2.4;
+const PAINT_WARNED = new Set();   // hall kinds whose painter has thrown (logged once)
 
 function drawBanner(ctx, g) {
   const b = g.banner;
@@ -252,6 +253,14 @@ export function draw(g, canvas, bufRef) {
   // Paints one tower of `kind` at (x, y). Used both for the real thing and
   // for the ghost under the cursor, so what you preview is what you get.
   const paintTower = (t) => {
+    // one hall's painter failing must never take the whole frame (and the
+    // game with it) down: skip it this frame, restore the pen, say so once
+    ctx.save();
+    try { paintTowerRaw(t); }
+    catch (err) { if (!PAINT_WARNED.has(t.kind)) { PAINT_WARNED.add(t.kind); console.error("hall paint failed", t.kind, err); } }
+    ctx.restore();
+  };
+  const paintTowerRaw = (t) => {
     if (t.kind === "archer") drawArcherTower(ctx, t, g.time);
     else if (t.kind === "wizard") drawWizardSpire(ctx, t, g.time);
     else if (t.kind === "support") drawSupportTower(ctx, t, g.time);
@@ -272,9 +281,13 @@ export function draw(g, canvas, bufRef) {
   // the tower you're about to buy, standing on the spot at half weight
   if (g.buildMode && g.hover) {
     const [hx, hy] = g.hover;
+    // every field a real, freshly built hall carries — the hall painters read
+    // their crew's timers, and a missing one poisoned a whole frame (NaN glow)
     const ghost = {
       kind: g.buildMode, x: S(hx), y: S(hy), level: 1,
       branch: null, rank4: null, id: 0, anim: 0, lastAim: 0, rally: null, range: 0,
+      cd: 0, aim: "first", shotIdx: 0, critIdx: 0, invested: 0, units: [], kills: 0, dmgOut: 0,
+      liveTime: 0, _idle: true, charges: 0, ramp: 0, mAnim: 0, eagle: null,
     };
     drawables.push({
       y: hy + 14,

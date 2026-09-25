@@ -290,7 +290,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   const my = top - 7;
   const st = getStats(t);
   const rate = st.rate || 1000;
-  const charge = t._idle ? 0 : Math.max(0, Math.min(1, 1 - t.cd / rate));
+  const charge = t._idle ? 0 : Math.max(0, Math.min(1, 1 - (t.cd || 0) / rate));
   const pose = t._idle ? "idle" : t.anim > 0.35 ? "cast" : "charge";
   const mcv = canBake ? baked(`mage|${key}|${level}|${pose}`, 34, 40, (c) => drawMage(c, 14, 37, 1, pal, level, { pose })) : null;
   // star-charms from level three; the back arc passes behind the mage
