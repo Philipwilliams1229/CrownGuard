@@ -191,22 +191,37 @@ export const drawEnemy = (ctx, e, time, tms) => {
 // figure that walks to its mark, cuts, and looks for the next one.
 const drawAssassinUnit = (ctx, u, t, time) => {
   const pal = ASSASSIN_PALS[t.branch || "base"] || ASSASSIN_PALS.base;
-  const rig = t.branch === "a" ? "assassinUnitA" : t.branch === "b" ? "assassinUnitB" : "assassinUnit";
+  // each final form has its own rig (and so its own baked frames): AA the
+  // Kingslayer, AB the Open Contract, BA the Widow's Kiss, BB the Plague Bearer
+  const r4 = t.branch && t.rank4 ? t.branch + t.rank4 : null;
+  const rig = r4 ? "assassinUnit" + r4.toUpperCase() : t.branch === "a" ? "assassinUnitA" : t.branch === "b" ? "assassinUnitB" : "assassinUnit";
   const fighting = u.state === "fighting", f = u.face < 0 ? -1 : 1;
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 9, u.id, 0.18, time);
   softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24);
   drawRig(ctx, rig, u.x, u.y + 9, u.face, fighting ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 9 + u.id) % 4 : fighting ? (u.swing > 0 ? 1 : 0) : 0);
+  // the Plague Bearer's censer breathes: a spore or two drifting up off it
+  if (r4 === "bb") {
+    for (let i = 0; i < 2; i++) {
+      const ph = (time * 0.7 + u.id * 0.37 + i * 0.5) % 1;
+      const sx = u.x + f * (fighting ? 6 : 5) + Math.sin((ph + i) * 6.3) * 1.2, sy = u.y + (fighting ? 4 : 3) - ph * 9;
+      ctx.fillStyle = `rgba(216,232,96,${(0.75 * (1 - ph)).toFixed(2)})`;
+      ctx.fillRect(Math.round(sx), Math.round(sy), 1, 1);
+    }
+  }
   // the cut itself: a thin bright line running out past the point, a nick of
   // light where it lands, and on a Nightshade blade the venom flung off it
+  // (gold for the Kingslayer, whose estoc reaches further; the Widow's venom
+  // pink; the Plague Bearer's cut puffs spores)
   if (u.swing > 0) {
-    const k = u.swing / 200, tx = Math.round(u.x + f * 19), ty = Math.round(u.y - 4);
+    const k = u.swing / 200, tx = Math.round(u.x + f * (r4 === "aa" ? 21 : 19)), ty = Math.round(u.y - 4);
     const len = Math.round(2 + 4 * k);
-    ctx.fillStyle = `rgba(255,243,210,${(0.3 + 0.55 * k).toFixed(2)})`;
+    ctx.fillStyle = r4 === "aa" ? `rgba(240,204,88,${(0.3 + 0.55 * k).toFixed(2)})` : `rgba(255,243,210,${(0.3 + 0.55 * k).toFixed(2)})`;
     ctx.fillRect(f > 0 ? tx - len : tx, ty, len, 1);
-    ctx.fillStyle = t.branch === "b" ? pal.v : "#fff3d2";
+    ctx.fillStyle = r4 === "aa" ? "#f0cc58" : r4 === "ba" ? "#e05aa8" : r4 === "bb" ? "#d8e860" : t.branch === "b" ? pal.v : "#fff3d2";
     ctx.fillRect(tx + f * 2, ty - 1, 1, 3);
     ctx.fillRect(tx + f * 2 - 1, ty, 3, 1);
     if (t.branch === "b") { ctx.fillRect(Math.round(tx + f * (4 - 2 * k)), Math.round(ty + 2 + 3 * (1 - k)), 1, 1); ctx.fillRect(tx + f, Math.round(ty + 3 + 4 * (1 - k)), 1, 1); }
+    if (r4 === "bb") { ctx.fillStyle = `rgba(216,232,96,${(0.35 * (1 - k) + 0.1).toFixed(2)})`; const r = Math.round(2 + 3 * (1 - k)), cx = tx + f * 2; ctx.fillRect(cx - r, ty - r + 2, r * 2 + 1, r * 2 - 3); ctx.fillRect(cx - r + 1, ty - r + 1, r * 2 - 1, 1); ctx.fillRect(cx - r + 1, ty + r - 1, r * 2 - 1, 1); }
   }
   // a guildsman at his work wears a small gilt mark of his orders over the hood
   if (u.targetId != null && fighting) {

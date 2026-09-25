@@ -53,7 +53,7 @@ copy what the rebuilt pieces do.
 | The Trapsmith's traps (spikes, jaws, caltrops, mines, aerostat balloons) | `src/render/traps.js` — `drawTraps` (on the road, under the crowd) and `drawTrapBalloons` (the balloons, in a sky pass over it) | each look baked once per realm and stamped; late boards hold hundreds |
 | The Log Roller's logs (trunk, Iron Drum, Powder Keg) | `src/render/logs.js` | true cylinders in the 3/4 camera, lit in world space so light never turns with the log; bark and bands roll with `lg.spin` |
 | The Falconry's hawk (the "talon" stoop) | `src/render/birds.js` — `drawStoop`; the Skyknight's war-eagle is the `eagle` rig in `rigs.js` | hawk poses baked at 15° steps and stamped |
-| The Covert's blades (assassins) | `src/render/rigs-covert.js` (`assassinUnit`, `assassinUnitA/B` in `rigs.js`, one rig name per branch palette) | |
+| The Covert's blades (assassins) | `src/render/rigs-covert.js` (`assassinUnit`, `assassinUnitA/B` for the branches and `assassinUnitAA/AB/BA/BB` for the four finals in `rigs.js` — one rig name per look, since baked frames cache by name; `drawAssassinUnit` in `enemies.js` picks it) | params switch the pieces on: face "gild", hat, veil, beak, long, hem, censer, purse, scroll, pauldron, blade kind |
 | HUD skin | `src/ui/hud/` (`hud.css`, `icons.jsx`, `Chips.jsx`) + `src/ui/theme.js` | |
 | The landscape beyond the board (the apron: ground, road and rivers running off, the realm's trees thickening, the wall continuing) | `src/render/apron.js` `paintApron(canvas, { cssW, cssH, dpr, board })` | painted once per realm and layout, cached |
 | Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` | painted once, cached |
