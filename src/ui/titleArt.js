@@ -195,6 +195,10 @@ const ST = "#aca494", ROOF = "#a8505c", STEEL = "#c4c8d0", OAK = "#7a5334";
 // sprite size and anchor: the gate's sill (cx, G) sits at scene (360, 172)
 const CS = { w: 132, h: 128, cx: 66, g: 124, x: 360, y: 172 };
 const G = CS.g, CX = CS.cx, CURTAIN_GAP = 3.8;
+// the gate passage: the portcullis hangs `raise` over the sill (a soldier
+// walks under it), the passage runs `depth` up the picture to a lit courtyard
+// opening `far` wide each side of centre
+const PASS = { raise: 12.5, depth: 4, far: 3 };
 const sx = (x) => CS.x - CS.cx + x, sy = (y) => CS.y - CS.g + y;   // sprite -> scene
 
 // an arrow loop: a dark slit, a few with torchlight low inside
@@ -311,15 +315,34 @@ const castleS = () => bakeSprite(CS.w, CS.h, (c) => {
     for (let k = 0; k <= 6; k++) { const a = Math.PI + (k / 6) * Math.PI; cc.fillRect(ax + Math.cos(a) * (ar + 1) - 0.25, ay + Math.sin(a) * (ar + 1) - 0.25, 0.5, 0.5); }
     cc.fillStyle = "#1e1822";
     cc.beginPath(); cc.moveTo(ax - ar, G); cc.lineTo(ax - ar, ay); cc.arc(ax, ay, ar, Math.PI, 0); cc.lineTo(ax + ar, G); cc.closePath(); cc.fill();
-    // a warm courtyard glimpsed through the bars
-    cc.fillStyle = "#4a3236"; cc.fillRect(ax - ar, G - 4, ar * 2, 4);
-    cc.fillStyle = "#6a4a3a"; cc.fillRect(ax - ar, G - 1.5, ar * 2, 1.5);
+    // down the passage: its floor running in to the courtyard, lit by the
+    // morning at the far end
+    const fw = PASS.far, fy = G - PASS.depth;
+    cc.fillStyle = "#2e2428"; cc.fillRect(ax - ar + 1.2, fy - 7, 1.2, 7); cc.fillRect(ax + ar - 2.4, fy - 7, 1.2, 7);
+    cc.fillStyle = "#5a4642"; cc.fillRect(ax - fw, fy - 5, fw * 2, 5);                 // the courtyard's far wall
+    cc.fillStyle = "#7a6052"; cc.fillRect(ax - fw, fy - 5, fw * 0.8, 5);
+    cc.fillStyle = "#e8b878"; cc.fillRect(ax - fw, fy - 1.5, fw * 2, 1.5);             // sunlit flags
+    cc.fillStyle = "#ffe0a0"; cc.fillRect(ax - fw, fy - 1.5, fw, 0.5);
+    cc.fillStyle = "#3a2e30";
+    cc.beginPath(); cc.moveTo(ax - ar, G); cc.lineTo(ax - fw, fy); cc.lineTo(ax + fw, fy); cc.lineTo(ax + ar, G); cc.closePath(); cc.fill();
+    cc.fillStyle = "#5a4640";
+    for (let k = 1; k < 4; k++) { const t = k / 4, y = fy + (G - fy) * t, w = fw + (ar - fw) * t; cc.fillRect(ax - w, y, w * 2, 0.5); }
+    cc.fillStyle = rgba("#e8b878", 0.35); cc.fillRect(ax - fw, fy, fw * 2, 1);
   });
+  // the portcullis, raised to a man's height over the sill: bars, cross
+  // bands, iron teeth along its foot, and the chains it hangs from
   part(c, (cc) => {
-    cc.save(); cc.beginPath(); cc.moveTo(ax - ar, G); cc.lineTo(ax - ar, ay); cc.arc(ax, ay, ar, Math.PI, 0); cc.lineTo(ax + ar, G); cc.closePath(); cc.clip();
-    for (let px = ax - ar + 1.6; px < ax + ar; px += 2.6) { cc.fillStyle = "#3e424c"; cc.fillRect(px - 0.5, ay - ar, 1, G - ay + ar - 1.5); cc.fillStyle = "#6a707c"; cc.fillRect(px - 0.5, ay - ar, 0.5, G - ay + ar - 1.5); }
-    for (let py = ay - ar + 2; py < G - 2; py += 2.8) { cc.fillStyle = "#4a4e5a"; cc.fillRect(ax - ar, py, ar * 2, 0.8); }
+    const pb = G - PASS.raise;
+    cc.save(); cc.beginPath(); cc.moveTo(ax - ar, pb); cc.lineTo(ax - ar, ay); cc.arc(ax, ay, ar, Math.PI, 0); cc.lineTo(ax + ar, pb); cc.closePath(); cc.clip();
+    for (let px = ax - ar + 1.6; px < ax + ar; px += 2.6) { cc.fillStyle = "#3e424c"; cc.fillRect(px - 0.5, ay - ar, 1, pb - ay + ar); cc.fillStyle = "#6a707c"; cc.fillRect(px - 0.5, ay - ar, 0.5, pb - ay + ar); }
+    for (let py = ay - ar + 2; py < pb - 1; py += 2.8) { cc.fillStyle = "#4a4e5a"; cc.fillRect(ax - ar, py, ar * 2, 0.8); }
+    cc.fillStyle = "#34363e"; cc.fillRect(ax - ar, pb - 1.2, ar * 2, 1.2);
     cc.restore();
+    for (let px = ax - ar + 1.6; px < ax + ar; px += 2.6) {
+      cc.fillStyle = "#8a909c";
+      cc.beginPath(); cc.moveTo(px - 0.7, pb); cc.lineTo(px + 0.7, pb); cc.lineTo(px, pb + 1.6); cc.closePath(); cc.fill();
+    }
+    for (const x of [ax - ar + 0.6, ax + ar - 0.6]) for (let y = ay - ar + 3; y < pb - 1; y += 1.4) { cc.fillStyle = y % 2.8 < 1.4 ? "#8a909c" : "#4a4e5a"; cc.fillRect(x - 0.4, y, 0.8, 1); }
   });
   // torches at the gate (their flames burn live)
   for (const x of [ax - ar - 3.6, ax + ar + 3.6]) torchBracket(c, x, G - 17);
@@ -337,6 +360,9 @@ const castleS = () => bakeSprite(CS.w, CS.h, (c) => {
 const curtainCr = crenels(L.curtain[0] - 0.8, L.curtain[1] + 0.8, 4, CURTAIN_GAP);
 export const CASTLE_LIFE = {
   gate: [CS.x, CS.y],
+  // the gate's opening under the raised portcullis, and the passage floor's
+  // far end: walkers going in are clipped to this and fade into the dark
+  passage: { x0: sx(L.arch[0] - L.arch[2]), x1: sx(L.arch[0] + L.arch[2]), top: sy(G - PASS.raise + 1.4), sill: CS.y, far: sy(G - PASS.depth) },
   standard: [sx(L.keep[0] - 10.1), sy(G - 121)],                       // the royal standard, top of its pole
   pennants: [...L.cornerTurret.map(([x, t]) => [sx(x), sy(t - 10.3)]), [sx(L.keepTurret[0]), sy(L.keepTurret[1] - 11.3)]],
   banners: L.gateTower.map(([x, t]) => [sx(x), sy(t + 7.4)]),            // the crown banners on the gate towers

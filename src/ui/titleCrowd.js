@@ -21,7 +21,11 @@ import { VW, ROAD, ROAD_W, HAY, CASTLE_LIFE as CL } from "./titleArt.js";
 
 // ---- the road as a path ----------------------------------------------------
 // From the gate (d = 0) down past the bottom edge, where walkers come and go.
-const PATH = [...ROAD, [184, 292]];
+// It starts inside the gate passage (see CASTLE_LIFE.passage): walkers going
+// in are clipped to the opening under the portcullis and fade into the dark.
+const PSG = CL.passage;
+const PATH = [[ROAD[0][0], PSG.far + 0.5], ...ROAD, [184, 292]];
+const SILL_D = ROAD[0][1] - PSG.far - 0.5;           // path distance of the gate's sill
 const SEG = [];
 let LEN = 0;
 for (let k = 0; k < PATH.length - 1; k++) {
@@ -34,13 +38,14 @@ const at = (d, lane = 0) => {
   for (const g of SEG) if (d < g.d0 + g.l) { s = g; break; }
   const t = Math.max(0, d - s.d0);
   // the painted width, eased between stretches; lane -1..1 is edge to edge
-  const w = ROAD_W(Math.min(s.k + t / s.l, ROAD.length - 1)) - 1.5;
+  const w = s.k === 0 ? 1 : ROAD_W(Math.min(s.k - 1 + t / s.l, ROAD.length - 1)) - 1.5;
   return { x: s.x0 + s.dx * t - s.dy * lane * w / 2, y: s.y0 + s.dy * t + s.dx * lane * w / 2 };
 };
 
 // Size with distance: a man at the gate stands about a third of its arch;
 // in the near field, a little under the height of the young oaks.
-const sAt = (y) => 0.4 + 0.34 * Math.min(1, Math.max(0, (y - 172) / 98));
+// Inside the passage they shrink a touch further as they go in.
+const sAt = (y) => (y < 172 ? 0.4 - (172 - y) * 0.018 : 0.4 + 0.34 * Math.min(1, (y - 172) / 98));
 
 // ---- the cast ----------------------------------------------------------------
 const WALKERS = ["knight", "farmer", "paladin", "berserk", "knight", "farmer", "heroKnight", "heroHunter"];
@@ -299,7 +304,22 @@ function step(state, dt) {
 
 // One figure: its shadow, then its frame, at `s` of board size, with the
 // feet on (x, y) in scene units. D = overlay pixels per scene unit.
-function stamp(ctx, D, type, sheet, frame, x, y, s, face, alpha, shade = true) {
+// a frame as a flat dark silhouette, for figures deep in the gate passage
+const SHADE = new Map();
+const darkFrame = (type, sheet, frame) => {
+  const key = `${type}|${sheet}|${frame}`;
+  let cv = SHADE.get(key);
+  if (!cv) {
+    const src = rigFrame(type, sheet, frame).cv;
+    cv = document.createElement("canvas"); cv.width = src.width; cv.height = src.height;
+    const c = cv.getContext("2d");
+    c.drawImage(src, 0, 0); c.globalCompositeOperation = "source-in"; c.fillStyle = "#1c161e"; c.fillRect(0, 0, cv.width, cv.height);
+    SHADE.set(key, cv);
+  }
+  return cv;
+};
+
+function stamp(ctx, D, type, sheet, frame, x, y, s, face, alpha, shade = true, dark = 0) {
   const { cv, ax, ay } = rigFrame(type, sheet, frame);
   // rig pixels per overlay pixel, stepped so a walker's pixels don't crawl
   const k = Math.round(s * D / PX * 10) / 10;
@@ -309,8 +329,12 @@ function stamp(ctx, D, type, sheet, frame, x, y, s, face, alpha, shade = true) {
   ctx.globalAlpha = alpha;
   const sh = shadowSprite(), sw = Math.round(12 * s * D), shh = Math.round(4.6 * s * D);
   if (shade) ctx.drawImage(sh, px + Math.round(s * D) - (sw >> 1), py - (shh >> 1), sw, shh);
-  if (face >= 0) ctx.drawImage(cv, px - ox, py - oy, w, h);
-  else { ctx.save(); ctx.translate(px, 0); ctx.scale(-1, 1); ctx.drawImage(cv, -ox, py - oy, w, h); ctx.restore(); }
+  const body = (img) => {
+    if (face >= 0) ctx.drawImage(img, px - ox, py - oy, w, h);
+    else { ctx.save(); ctx.translate(px, 0); ctx.scale(-1, 1); ctx.drawImage(img, -ox, py - oy, w, h); ctx.restore(); }
+  };
+  body(cv);
+  if (dark > 0.02) { ctx.globalAlpha = alpha * Math.min(1, dark); body(darkFrame(type, sheet, frame)); }
 }
 
 // the box the crowd can reach, in scene units: cleared each frame
@@ -334,12 +358,24 @@ function render(state, canvas) {
     const moving = !w.blocked && !(w.paused > 0);
     const pose = moving ? { sheet: "walk", frame: Math.floor(w.phase) % 4, glance: false } : idle(t, w.seed);
     const face = (w.toGate ? 1 : -1) * (pose.glance ? -1 : 1);
-    // out of the gate's shadow, and back into it
-    const a = Math.min(1, w.d / 7);
-    list.push({ type: w.type, x: p.x, y: p.y, face, sheet: pose.sheet, frame: pose.frame, a });
+    // in the passage: fading into (or out of) its dark, behind the jambs
+    // (first the dark takes them, then they're gone)
+    const inside = p.y < PSG.sill - 0.05, u = Math.min(1, w.d / SILL_D);
+    const a = inside ? Math.max(0, Math.min(1, u * 3 - 0.1)) : 1, dark = inside ? Math.min(1, (1 - u) * 1.6) : 0;
+    list.push({ type: w.type, x: p.x, y: p.y, face, sheet: pose.sheet, frame: pose.frame, a, inside, dark });
   }
   list.sort((a, b) => a.y - b.y);
-  for (const f of list) if (f.a > 0.02) stamp(ctx, D, f.type, f.sheet, f.frame, f.x, f.y, sAt(f.y), f.face, f.a);
+  for (const f of list) {
+    if (f.a <= 0.02) continue;
+    if (f.inside) {
+      // behind the gate's face: seen only through the opening under the portcullis
+      ctx.save(); ctx.beginPath();
+      ctx.rect(PSG.x0 * D, PSG.top * D, (PSG.x1 - PSG.x0) * D, (PSG.sill - PSG.top) * D);
+      ctx.clip();
+      stamp(ctx, D, f.type, f.sheet, f.frame, f.x, f.y, sAt(f.y), f.face, f.a, false, f.dark);
+      ctx.restore();
+    } else stamp(ctx, D, f.type, f.sheet, f.frame, f.x, f.y, sAt(f.y), f.face, f.a);
+  }
   ctx.globalAlpha = 1;
 }
 
