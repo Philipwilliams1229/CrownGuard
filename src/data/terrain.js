@@ -5,7 +5,10 @@
 // generator seeded per realm, and consumes it IN THIS EXACT ORDER — that is
 // what keeps each map identical on every run, so do not reorder these blocks.
 
-import { W, H, PATH_HALF, WALL_W, MX, MY, tileX, tileY, mulberry32 } from "./constants.js";
+import { W, H, PATH_HALF, WALL_W, MX, MXR, MY, tileX, tileY, mulberry32 } from "./constants.js";
+// The scatter below is laid over the board as it was before the castle's
+// border widened, so every realm keeps its trees, tufts and stones in place.
+const SW = W - (MXR - MX);
 import { TOTAL_LEN, posAt, angleAt, nearestOnPath, buildSmooth } from "../engine/path.js";
 
 export let CHEVRONS = [];
@@ -146,7 +149,7 @@ export function regenTerrain(map) {
   RIVERS = (map.rivers || []).map((rv) => {
     // a river that leaves the grid leaves the board too, border and all
     const pts = buildSmooth(rv.pts.map(([c, r]) => [
-      c < 0.2 ? -12 : c > 14.8 ? W + 12 : tileX(c),
+      c < 0.2 ? -12 : c > 14.8 ? SW + 12 : tileX(c),   // (under the castle's bailey from there on)
       r < 0.2 ? -12 : r > 9.8 ? H + 12 : tileY(r),
     ]));
     const segs = [];
@@ -237,7 +240,7 @@ export function regenTerrain(map) {
 
   GRASS_PATCHES = [];
   for (let i = 0; i < sc.patches; i++) {
-    const x = rng() * W, y = rng() * H;
+    const x = rng() * SW, y = rng() * H;
     if (nearestOnPath(x, y).d < PATH_HALF + 6) continue;
     if (inPond(PONDS, x, y) || inRiver(x, y, 4)) continue;
     GRASS_PATCHES.push({ x, y, r: 14 + rng() * 26, s: rng() });
@@ -245,7 +248,7 @@ export function regenTerrain(map) {
 
   TUFTS = [];
   for (let i = 0; i < sc.tufts; i++) {
-    const x = rng() * W, y = rng() * H;
+    const x = rng() * SW, y = rng() * H;
     if (nearestOnPath(x, y).d < PATH_HALF + 8) continue;
     if (inPond(PONDS, x, y) || inRiver(x, y, 4)) continue;
     TUFTS.push({ x, y, s: 0.7 + rng() * 0.7, p: rng() * 6 });
@@ -256,7 +259,7 @@ export function regenTerrain(map) {
   SPECKS = [];
   const nSpeck = sc.specks ?? Math.round(sc.patches * 2.2);
   for (let i = 0; i < nSpeck; i++) {
-    const x = rng() * W, y = rng() * H;
+    const x = rng() * SW, y = rng() * H;
     if (nearestOnPath(x, y).d < PATH_HALF + 4) continue;
     if (inPond(PONDS, x, y) || inRiver(x, y, 2)) continue;
     SPECKS.push({ x, y, k: rng(), w: 1 + Math.round(rng() * 2), h: 1 + Math.round(rng()) });
@@ -264,7 +267,7 @@ export function regenTerrain(map) {
 
   FLOWERS = [];
   for (let i = 0; i < sc.flowers; i++) {
-    const x = 14 + rng() * (W - 28), y = 14 + rng() * (H - 28);
+    const x = 14 + rng() * (SW - 28), y = 14 + rng() * (H - 28);
     if (nearestOnPath(x, y).d < PATH_HALF + 10) continue;
     if (inPond(PONDS, x, y) || inRiver(x, y, 6)) continue;
     FLOWERS.push({ x, y, c: sc.flowerCols[Math.floor(rng() * sc.flowerCols.length)], p: rng() * 6 });
@@ -276,7 +279,7 @@ export function regenTerrain(map) {
   const rec = map.decorRecipe;
   if (rec) {
     for (let tries = 0; tries < rec.count * 30 && DECOR.length < rec.count; tries++) {
-      const x = 20 + rng() * (W - 40), y = 24 + rng() * (H - 44);
+      const x = 20 + rng() * (SW - 40), y = 24 + rng() * (H - 44);
       if (nearestOnPath(x, y).d < PATH_HALF + 20) continue;
       if (inPond(PONDS, x, y) || inRiver(x, y, 14)) continue;
       if (DECOR.some((d) => Math.hypot(d.x - x, d.y - y) < 42)) continue;

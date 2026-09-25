@@ -6,7 +6,10 @@
 // The detail is the point: zoomed in, the meadow is blades of grass, clover
 // and daisies, and the road is packed earth with pebbles and damp patches.
 
-import { W, H, PATH_HALF, RES, mulberry32 } from "../data/constants.js";
+import { W, H, PATH_HALF, RES, WALL_W, MX, MXR, mulberry32 } from "../data/constants.js";
+// the ground's scatter is laid over the board's width before the castle's
+// border widened, so every realm's turf looks as it did
+const SW = W - (MXR - MX);
 import { REALM } from "../data/maps.js";
 import { PTS, nearestOnPath } from "../engine/path.js";
 import { TUFTS, FLOWERS, SPECKS, PEBBLES, PONDS, CHEVRONS, DECOR, inRiver, FOREST, forestDepthAt, COAST, coastLine, seaDepthAt, inSea } from "../data/terrain.js";
@@ -205,7 +208,7 @@ function paintShore(ctx) {
   // rocks awash just offshore, each with a ring of foam
   for (let i = 0; i < 6; i++) {
     const u = 40 + hash(i, 61) * (span - 80), [x, y] = at(u, 12 + hash(i, 62) * 30);
-    if (seaDepthAt(x, y) < 8 || x > W - 70) continue;
+    if (seaDepthAt(x, y) < 8 || x > W - WALL_W - 8) continue;
     const r = 3 + hash(i, 63) * 4;
     ctx.strokeStyle = rgba(foam, 0.6); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(x, y + 1, r + 2.5, (r + 2.5) * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
@@ -214,7 +217,7 @@ function paintShore(ctx) {
   // the tideline: shells, pebbles and dark weed on the wet sand
   for (let i = 0; i < 70; i++) {
     const u = hash(i, 64) * span, [x, y] = at(u, -3 - hash(i, 65) * (COAST.sand - 6));
-    if (nearestOnPath(x, y).d < PATH_HALF + 4 || x > W - 64) continue;
+    if (nearestOnPath(x, y).d < PATH_HALF + 4 || x > W - WALL_W - 2) continue;
     const kind = hash(i, 66);
     if (kind < 0.35) { ctx.fillStyle = kind < 0.18 ? "#f2e6d0" : "#e8b8a0"; ctx.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 1.5, 1); }
     else if (kind < 0.6) stone(ctx, x, y, 1.4, 1, "#a8a090");
@@ -224,13 +227,13 @@ function paintShore(ctx) {
   const dune = mix(REALM.GRASS_DK, "#9a9660", 0.45), duneTip = mix(REALM.GRASS_LT, "#d8d098", 0.4);
   for (let i = 0; i < 90; i++) {
     const u = hash(i, 69) * span, [x, y] = at(u, -COAST.sand + 1 + hash(i, 70) * 8);
-    if (nearestOnPath(x, y).d < PATH_HALF + 6 || x > W - 66 || forestDepthAt(x, y) > -6) continue;
+    if (nearestOnPath(x, y).d < PATH_HALF + 6 || x > W - WALL_W - 4 || forestDepthAt(x, y) > -6) continue;
     tuft(ctx, x, y, 0.7 + hash(i, 71) * 0.5, dune, duneTip, i);
   }
   // a driftwood log or two, high on the dry sand
   for (let i = 0; i < 2; i++) {
     const u = 120 + hash(i, 67) * (span - 260), [x, y] = at(u, -COAST.sand * 0.62);
-    if (nearestOnPath(x, y).d < PATH_HALF + 14 || x > W - 80) continue;
+    if (nearestOnPath(x, y).d < PATH_HALF + 14 || x > W - WALL_W - 18) continue;
     shadow(ctx, x + 1, y + 2, 11, 2.2, 0.25);
     ctx.save(); ctx.translate(x, y); ctx.rotate((hash(i, 68) - 0.5) * 0.5);
     ctx.fillStyle = "#8a7258"; ctx.fillRect(-10, -1.6, 20, 3.2);
@@ -253,7 +256,7 @@ function paintTurf(ctx) {
   // the forest floor: leaf litter and roots where the grass gives up
   if (FOREST) {
     for (let i = 0; i < 260; i++) {
-      const x = rng() * W, y = rng() * H;
+      const x = rng() * SW, y = rng() * H;
       const dpt = forestDepthAt(x, y);
       if (dpt < 2 || nearestOnPath(x, y).d < PATH_HALF + 2) continue;
       const col = i % 3 === 0 ? "#6a4a2c" : i % 3 === 1 ? "#4a5a2c" : "#7a6234";
@@ -264,7 +267,7 @@ function paintTurf(ctx) {
 
   // clover, in little colonies rather than evenly sown
   for (let i = 0; i < 70; i++) {
-    const cx = rng() * W, cy = rng() * H, n = 2 + Math.floor(rng() * 4);
+    const cx = rng() * SW, cy = rng() * H, n = 2 + Math.floor(rng() * 4);
     for (let k = 0; k < n; k++) {
       const x = cx + (rng() - 0.5) * 12, y = cy + (rng() - 0.5) * 7;
       if (!clear(x, y, 3)) continue;
@@ -281,7 +284,7 @@ function paintTurf(ctx) {
   const blades = [];
   for (const tf of TUFTS) blades.push([tf.x, tf.y, 0.9 + tf.s * 0.6]);
   for (let i = 0; i < 900; i++) {
-    const x = rng() * W, y = rng() * H;
+    const x = rng() * SW, y = rng() * H;
     if (!clear(x, y, 5)) continue;
     if (rng() > 0.2 + (0.6 - lush(x, y)) * 2.6) continue;
     blades.push([x, y, 0.5 + rng() * 0.65]);
@@ -298,7 +301,7 @@ function paintTurf(ctx) {
       // forestDepthAt(0, u) is where the treeline crosses; step out onto the grass
       const x = FOREST.edge === "left" ? forestDepthAt(0, u) + out : u;
       const y = FOREST.edge === "left" ? u : forestDepthAt(u, 0) + out;
-      if (nearestOnPath(x, y).d < PATH_HALF + 12 || inPond(x, y, 4) || inRiver(x, y, 6) || x > W - 70) continue;
+      if (nearestOnPath(x, y).d < PATH_HALF + 12 || inPond(x, y, 4) || inRiver(x, y, 6) || x > W - WALL_W - 8) continue;
       if (hash(i, 73) < 0.55) {
         const cv = bushSprite(hash(i, 74) < 0.5 ? leaf : lighten(leaf, 0.1), Math.floor(hash(i, 75) * 3));
         const k = 0.8 + hash(i, 76) * 0.35;

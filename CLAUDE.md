@@ -87,3 +87,6 @@ should never have to rediscover it.
   banks a talent point for good in the PROFILE (`profile.heroes[key]`);
   five talents per hero, five ranks costing `TALENT_COSTS` 10/12/15/20/25.
 - The owner playtests; the sims are a floor, not a target.
+- The board is 840x560 (3:2): an 80px right border holds the castle band
+  (wall face at `W - WALL_W` = 738). See art/STYLE-GUIDE.md "The board's
+  size" before touching W, MX/MXR or WALL_W; scatter keeps the old 800.

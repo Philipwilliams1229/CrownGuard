@@ -11,7 +11,10 @@ export const ROWS = 10;
 // live in the border.
 export const MX = 40;
 export const MY = 40;
-export const W = COLS * TILE + MX * 2;
+// The right-hand border is wider: the castle lives in it, and needs the room
+// for its towers, gatehouse and keep. W/H comes out at exactly 3:2.
+export const MXR = 80;
+export const W = COLS * TILE + MX + MXR;
 export const H = ROWS * TILE + MY * 2;
 export const tileX = (c) => MX + c * TILE + TILE / 2;
 export const tileY = (r) => MY + r * TILE + TILE / 2;
@@ -25,8 +28,9 @@ export const LANE_OFF = 21;
 // stretches of road two rows apart — those spots must stay buildable.
 export const BLOCK_DIST = 48;
 // The crown's curtain wall runs the whole right edge of every board; nothing
-// is built inside this many pixels of it.
-export const WALL_W = 62;
+// is built inside this many pixels of it. (Its outer face stands at about
+// x = W - WALL_W, just past the grid's last column.)
+export const WALL_W = 102;
 // Pick a lane for something stepping onto the road: bosses take the crown of
 // the road, everyone else draws one of the three and wanders a step in it.
 export const pickLane = (boss = false) =>

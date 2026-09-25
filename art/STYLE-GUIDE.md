@@ -167,6 +167,20 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   river passes near a dry level. After adding a level or moving water, run
   `node scripts/check-map-water.mjs` and look at `map-lab.html`.
 
+## The board's size
+
+- The board is **840x560 (exactly 3:2)**: the 15x10 grid of 48px tiles, a
+  40px border (`MX`, `MY`) on the left, top and bottom, and an 80px right
+  border (`MXR`) for the castle. The castle band runs from the wall face at
+  `W - WALL_W` (738) to the edge: wall, wall walk, then a **bailey** (the
+  realm's ground, flagstones, a few red-roofed houses) and the keep behind
+  the gatehouse. Nothing of the castle may cross x = W.
+- Scatter and random scenery still use the old 800 width (`SW` in
+  terrain.js / world.js), so every realm's ground is unchanged; the road
+  ends at `W - WALL_W + 18` and the log/keg code uses `FIELD_W` (800) in
+  update.js, so gameplay is unchanged too.
+- The screen shows the board at its true W:H, never stretched.
+
 ## Coasts on the board
 
 - A realm may run down to the sea along one edge: `coast: { edge, from,

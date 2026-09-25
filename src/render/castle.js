@@ -5,7 +5,7 @@
 
 import { W, H, PATH_HALF } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
-import { workTier, bowmenSpots, masonSpots, wallDrums, GATE_TOWER_N, GATE_TOWER_S, TOWER, ballistaSpots } from "../data/castle.js";
+import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_N, GATE_TOWER_S, TOWER, ballistaSpots } from "../data/castle.js";
 import { drawArcher, drawHalberdier, drawMason, WALL_FOLK } from "./folk.js";
 import { ballista } from "./halls/archer.js";
 import { REALM } from "../data/maps.js";
@@ -32,7 +32,12 @@ const ROOF = "#a8505c";
 // Across the band, left to right (world x): the foot in the grass, the
 // battered outer face, the battlemented parapet, the walk the crews stand
 // on, the low inner parapet running off the board.
-const WALL = { face0: 749, face1: 757, par1: 766, walk1: 790 };
+const WALL = { face0: 749, face1: 757, par1: 766, walk1: 796, inner: 802 };
+// the crews on the walk are placed from here (the board's right edge, before
+// the castle's band was widened)
+const CREW = 800;
+// the bailey: the castle's inner yard, behind the wall, out to the board's edge
+const BAILEY = { x0: WALL.inner, x1: W };
 const GATE = { face0: 741, face1: 753 };
 const GOLD = "#d8b34a", BANNER = "#34508e";
 const MERLON = 15;
@@ -179,14 +184,15 @@ const walk = (c, L, y0, y1, seed, shade) => {
   c.fillStyle = "rgba(34,24,38,0.3)";
   c.fillRect(x0, y0, 3, y1 - y0);
   for (const y of shade) c.fillRect(x0 + 3, y + 3, 3, 8);
-  // the low inner parapet, and the bailey beyond it off the board
-  piece(c, [x1 - 1, y0 - 1, W + 10, y1 + 1], (k) => {
-    box(k, x1, y0, W + 8 - x1, y1 - y0, darken(S1, 0.5));
+  // the low inner parapet, the bailey below it
+  const x2 = L.inner;
+  piece(c, [x1 - 1, y0 - 1, x2 + 1, y1 + 1], (k) => {
+    box(k, x1, y0, x2 - x1, y1 - y0, darken(S1, 0.5));
     let i = 0;
     for (let y = y0 - hash(seed, 9) * 8; y < y1; y += 8, i++) {
       const v = (hash(seed + 6, i) - 0.5) * 0.1;
       box(k, x1 + 0.5, Math.max(y0, y) + 0.5, 2, 7.5, tone(S1, -0.14 + v));
-      box(k, x1 + 3, Math.max(y0, y) + 0.5, W + 8 - x1 - 3, 7.5, tone(S1, 0.3 + v));
+      box(k, x1 + 3, Math.max(y0, y) + 0.5, x2 - x1 - 3, 7.5, tone(S1, 0.3 + v));
     }
   });
 };
@@ -452,7 +458,7 @@ const GH = 40, HS = 14;                  // half its length N-S, and its height
 const gatehouse = (c, gy, tier, hurt, out) => {
   const S1 = CASTLE_STONE, x0 = GATE.face0, x1 = GATE.face1, yN = gy - GH, yS = gy + GH;
   const tN = yN - HS, tS = yS - HS, lean = (x1 - x0) / HS;
-  const E = W + 8;
+  const E = 812;                         // it runs back into the bailey, where the keep stands
   const m0 = gy - PATH_HALF + 2, m1 = gy + PATH_HALF - 2, mz = 10;
   plinth(c, x0, yN + 1, m0 - 1, 44);
   plinth(c, x0, m1 + 1, yS, 45);
@@ -552,9 +558,9 @@ const gatehouse = (c, gy, tier, hurt, out) => {
 // the board's edge, as the title screen's castle has it behind its gate. Its
 // battlemented top juts out on corbels; a stair turret with a red roof in
 // one corner, a chimney in another, and the royal standard over it all.
-const KEEP = { x0: 772, x1: 779, n: 24, s: 8, h: 36 };
+const KEEP = { x0: 804, x1: 810, n: 30, s: 12, h: 40, x2: 836 };
 const keep = (c, gy, tier, out) => {
-  const S1 = CASTLE_STONE, { x0, x1, h } = KEEP, E = W + 8;
+  const S1 = CASTLE_STONE, { x0, x1, h } = KEEP, E = KEEP.x2;
   const yN = gy - KEEP.n, yS = gy + KEEP.s, tN = yN - h, tS = yS - h;
   c.fillStyle = "rgba(30,22,32,0.32)"; c.fillRect(x1 + 2, yS, E - x1, 3.5);
   westFace(c, x0, x1, yN, yS, tN, tS, 91);
@@ -574,14 +580,14 @@ const keep = (c, gy, tier, out) => {
     k.fillStyle = "rgba(34,24,38,0.28)"; k.fillRect(S2(x1 + 3), S2(tN + 5), 2.5, S2(tS - tN - 8));
   });
   // the stair turret in its north-east corner, the chimney by the south rim
-  const tx0 = 787, tx1 = 798, tb = tN + 9;
+  const tx0 = E - 12, tx1 = E - 1, tb = tN + 9;
   piece(c, [tx0 - 1, tN - 1, tx1 + 1, tb + 1], (k) => {
     box(k, tx0, tN + 1, tx1 - tx0, tb - tN - 1, darken(S1, 0.5));
     for (let y = tN + 2, r = 0; y < tb; y += 3, r++) box(k, tx0 + 0.5 + (r % 2) * 2, y, tx1 - tx0 - 1 - (r % 2) * 2, 2.5, tone(S1, -0.28 + (hash(97, r) - 0.5) * 0.1));
     box(k, tx0 + 3.5, tb - 5, 3, 5, "#2a1e26");
   });
   pyramidRoof(c, tx0 - 1.5, tx1 + 1.5, tN + 2.5, 6, 9, tier >= 3, 98);
-  const chx = 796, chy = tS - 5;
+  const chx = E - 6, chy = tS - 5;
   c.fillStyle = "rgba(30,22,32,0.3)"; c.fillRect(chx - 1, chy, 7, 2);
   piece(c, [chx - 4, chy - 10, chx + 4, chy + 1], (k) => {
     box(k, chx - 2.5, chy - 6, 5, 6, darken(S1, 0.45));
@@ -592,7 +598,7 @@ const keep = (c, gy, tier, out) => {
   });
   out.smoke = [chx, chy - 9];
   // the royal standard's pole, stepped in a socket by the west rim
-  const sx = 785, sy = tS - 7;
+  const sx = x1 + 6, sy = tS - 7;
   box(c, sx - 1.5, sy - 0.5, 3, 2, darken(S1, 0.5));
   out.flags.push([sx, sy, 2]);
   const gone = (j) => tier >= 2 && hash(99, j) < (tier >= 3 ? 0.36 : 0.18);
@@ -609,8 +615,88 @@ const keep = (c, gy, tier, out) => {
     for (let x = x1 - 1; x < E - 4; x += 8.5, j++) if (!gone(j)) merlon(x, tS - 0.5, 5.5, 3.5, 3);
   });
   [x1 + 6, x1 + 15].forEach((x, i) => { slit(c, x, tS + 14 + i * 4, i === 0); if (i === 0) out.slits.push([x, tS + 14]); });
-  if (tier >= 2) soot(c, (x1 + W) / 2, tS + 6, (W - x1) / 2, h * (tier >= 3 ? 0.7 : 0.4), 96);
+  if (tier >= 2) soot(c, (x1 + E) / 2, tS + 6, (E - x1) / 2, h * (tier >= 3 ? 0.7 : 0.4), 96);
+  // it stands on the bailey: lay a patch of yard shadow east of the gatehouse
+  c.fillStyle = "rgba(30,22,32,0.3)"; c.fillRect(E, tS + 4, 3, yS - tS);
 };
+
+// ---- the bailey -----------------------------------------------------------
+// Behind the wall, out to the board's edge: the castle's inner yard, laid in
+// big worn flags in the shade of the wall, the realm's own ground coming up
+// between them, and here and there a red-roofed house built against the wall.
+const bailey = (c, gy, tier) => {
+  const P = groundPal(), S1 = CASTLE_STONE, { x0 } = BAILEY, x1 = W + 2;
+  const yard = mix(mix(darken(S1, 0.12), P.r.PATH_DK, 0.25), P.r.GRASS, 0.3), turf = darken(P.r.GRASS, 0.06);
+  const lane = x0 + 13;
+  piece(c, [x0 - 1, -15, x1 + 1, H + 15], (k) => {
+    // the realm's own ground, and a lane of worn flags along the foot of the wall
+    box(k, x0, -14, x1 - x0, H + 28, turf);
+    for (let i = 0; i < 90; i++) {
+      const x = lane + hash(i, 315) * (x1 - lane), y = hash(i, 316) * H;
+      box(k, x, y, 2 + hash(i, 317) * 5, 1, tone(turf, (hash(i, 318) - 0.5) * 0.14));
+    }
+    for (let y = -14, row = 0; y < H + 14; row++) {
+      const rh = 5 + Math.floor(hash(301, row) * 3) * 1.5;
+      for (let x = x0 - hash(302, row) * 6, i = 0; x < lane + 6; i++) {
+        const len = 5 + Math.floor(hash(303 + row, i) * 3) * 1.5, a = Math.max(x0, x);
+        const v = (hash(304 + row, i) - 0.5) * 0.14;
+        // the flags run out raggedly into the turf
+        if (x + len - a > 1 && (x < lane - 2 || hash(305 + row, i) > 0.45)) {
+          box(k, a, y, x + len - a, rh, darken(yard, 0.22));
+          box(k, a + 0.5, y + 0.5, x + len - a - 1, rh - 1, tone(yard, v * 0.7));
+          box(k, a + 0.5, y + 0.5, x + len - a - 1, 0.5, tone(yard, 0.08 + v * 0.7));
+        }
+        x += len;
+      }
+      y += rh;
+    }
+  });
+  // tufts of the realm's ground out in the yard
+  for (let i = 0; i < 16; i++) footClump(c, P, lane + 6 + hash(i, 331) * (x1 - lane - 10), 8 + hash(i, 332) * (H - 16), 0.8, 400 + i);
+  // the wall's shadow across the yard (the sun is over the field)
+  c.fillStyle = "rgba(30,22,32,0.34)"; c.fillRect(x0, -14, 4, H + 28);
+  c.fillStyle = "rgba(30,22,32,0.16)"; c.fillRect(x0 + 4, -14, 3, H + 28);
+  // houses against the wall, clear of the gate and the keep
+  const keepN = gy - KEEP.n - KEEP.h - 8, keepS = gy + GH + 10;
+  for (let y = 16 + hash(gy, 320) * 20, i = 0; y < H - 10; i++) {
+    const len = 22 + hash(i, 321) * 10;
+    if (y + len > keepN && y < keepS) { y = keepS; continue; }
+    if (y + len > H + 4) break;
+    if (hash(i, 322) > 0.28) house(c, y, y + len, i, P, tier);
+    y += len + 12 + hash(i, 323) * 26;
+  }
+};
+// A house built against the wall's inner face: a red tile roof, its ridge
+// running down the board, the west slope in the sun, and its south gable in
+// plaster and oak with a door and a lit window.
+const house = (c, ya, yb, seed, P, tier) => {
+  const xa = BAILEY.x0 + 5, xb = W - 4, xm = (xa + xb) / 2, gh = 7, rise = 6;
+  c.fillStyle = "rgba(30,22,32,0.3)"; c.fillRect(xa + 2, yb, xb - xa, 3);
+  piece(c, [xa - 3, ya - 2, xb + 3, yb + 1], (k) => {
+    // the gable wall
+    k.beginPath(); k.moveTo(xa, yb); k.lineTo(xb, yb); k.lineTo(xb, yb - gh); k.lineTo(xm, yb - gh - rise); k.lineTo(xa, yb - gh); k.closePath();
+    k.fillStyle = "#d8c8a4"; k.fill();
+    k.fillStyle = OAK_DK;
+    k.fillRect(S2(xa), S2(yb - gh), S2(xb - xa), 0.5); k.fillRect(S2(xa), S2(yb - 1), S2(xb - xa), 1);
+    for (const x of [xa, xa + (xb - xa) * 0.33, xa + (xb - xa) * 0.66, xb - 0.8]) k.fillRect(S2(x), S2(yb - gh), 0.8, gh);
+    k.fillStyle = "#3a2a22"; k.fillRect(S2(xm - 1.5), S2(yb - 5), 3, 4.5);
+    k.fillStyle = "#ffcf70"; k.fillRect(S2(xa + 4), S2(yb - 5), 2, 1.5);
+  });
+  piece(c, [xa - 3, ya - 3, xb + 3, yb - gh + 1], (k) => {
+    const roof = (fill) => { k.beginPath(); k.moveTo(xa - 2, ya - 1); k.lineTo(xb + 2, ya - 1); k.lineTo(xb + 2, yb - gh + 0.5); k.lineTo(xm, yb - gh - rise - 0.5); k.lineTo(xa - 2, yb - gh + 0.5); k.closePath(); k.fillStyle = fill; k.fill(); };
+    roof(darken(ROOF, 0.25));
+    k.save(); roof(ROOF); k.clip();
+    box(k, xa - 2, ya - 1, xm - xa + 2, yb - ya, lighten(ROOF, 0.14));
+    box(k, xm, ya - 1, xb - xm + 2, yb - ya, darken(ROOF, 0.22));
+    k.fillStyle = rgba(darken(ROOF, 0.5), 0.5);
+    for (let x = xa; x < xb; x += 2.5) if (Math.abs(x - xm) > 1.5) k.fillRect(S2(x), S2(ya - 1), 0.5, S2(yb - ya));
+    box(k, xm - 1, ya - 1, 2, yb - ya, lighten(ROOF, 0.3));
+    if (P.kind === "snow") for (let i = 0; i < 12; i++) box(k, xa + hash(seed, i) * (xb - xa - 4), ya + hash(seed, i + 20) * (yb - ya - gh - 2), 3 + hash(seed, i + 40) * 3, 1, "#eef4f8");
+    if (tier >= 3 && seed % 2) { k.fillStyle = "rgba(30,20,24,0.6)"; k.fillRect(S2(xm - 5), S2(ya + 3), 9, 5); }
+    k.restore();
+  });
+};
+const OAK_DK = "#5a3e2a";
 
 // every tower's footprint down the wall, gate towers included: [foot, gate]
 const towersOf = (gy) => [...wallDrums(gy).map((f) => [f, 0]), [gy + GATE_TOWER_N, -1], [gy + GATE_TOWER_S, 1]];
@@ -637,6 +723,7 @@ const paintCastleStone = (ctx, gx, gy, tier) => {
     // the merlons no tower stands over are where the birds sit
     for (const y of shade) if (!towers.some(([f]) => y > f - TOWER.n - TOWER.h - 12 && y < f + TOWER.s + 2) && y > 6 && y < H - 10) out.perches.push([WALL.face1 + 5.5, y + 2.5]);
   }
+  bailey(ctx, gy, tier);
   // where a river runs under the wall, a culvert: a low arch with an iron
   // grate across it, the water sliding into the dark
   let run = null;
@@ -1307,12 +1394,12 @@ export const drawCastleWorks = (ctx, g) => {
   // the masons first: farthest from the gate, and nothing stands in front of them
   for (let k = 0; k < masonAt.length; k++) {
     const y = masonAt[k] + 6;
-    cylinder(ctx, W - 40, y - 2, 20, 3, "#8a6a40", { r: 1, hi: 0.3, lo: 0.5 });
-    cylinder(ctx, W - 36, y - 10, 7, 6, "#6e6a60", { r: 1.5, hi: 0.3, lo: 0.5 });
-    ctx.fillStyle = "#d8d0c0"; ctx.fillRect(W - 35, y - 10, 5, 1.2);
+    cylinder(ctx, CREW - 40, y - 2, 20, 3, "#8a6a40", { r: 1, hi: 0.3, lo: 0.5 });
+    cylinder(ctx, CREW - 36, y - 10, 7, 6, "#6e6a60", { r: 1.5, hi: 0.3, lo: 0.5 });
+    ctx.fillStyle = "#d8d0c0"; ctx.fillRect(CREW - 35, y - 10, 5, 1.2);
     const fr = Math.floor(((time * 2 + k) % 2));
     const cv = workFrame(`mason|${fr}`, 30, 36, (c) => drawMason(c, 12, 33, 1, WALL_FOLK.mason, fr));
-    if (cv) ctx.drawImage(cv, W - 24 - 12, y - 33 - 2, 30, 36);
+    if (cv) ctx.drawImage(cv, CREW - 24 - 12, y - 33 - 2, 30, 36);
   }
   if (bows) {
     const big = !!bows.pierce;
@@ -1324,7 +1411,7 @@ export const drawCastleWorks = (ctx, g) => {
       const fr = Math.round(Math.min(1, phase * 1.6) * 3);
       const cv = workFrame(`bow|${big ? 1 : 0}|${fr}`, 30, 36, (c) => drawArcher(c, 17, 33, -1, WALL_FOLK.bowman, fr / 3, { big, bowCol: big ? "#3a3a44" : undefined }));
       // shoulder to shoulder they'd hide each other: every other man stands a step back
-      if (cv) ctx.drawImage(cv, W - 20 - 17 + (Math.round(spots[i] / 24) % 2 ? 4 : -1), y - 33, 30, 36);
+      if (cv) ctx.drawImage(cv, BOW_X + 2 - 17 + (Math.round(spots[i] / 24) % 2 ? 4 : -1), y - 33, 30, 36);
     }
   }
   const bal = workTier(works, "ballista");

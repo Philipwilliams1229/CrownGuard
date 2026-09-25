@@ -102,7 +102,7 @@ export const GATE_TOWER_N = -58, GATE_TOWER_S = 90;   // gate towers' feet, from
 // Its footprint runs from `foot - n` to `foot + s` down the wall; it stands
 // `h` tall, so its platform is that footprint lifted `h` up the board. West
 // foot, platform's west edge and platform's east edge are x0, x1, x2.
-export const TOWER = { x0: 744, x1: 753, x2: 797, n: 28, s: 4, h: 16 };
+export const TOWER = { x0: 744, x1: 753, x2: 803, n: 28, s: 4, h: 16 };
 // the platform a tower's crew stands on, as [x, feet y]
 // (toward its south-west, clear of the stair turret in the far corner)
 export const towerDeck = (foot) => [TOWER.x1 + 18, foot - 17];
@@ -111,6 +111,8 @@ export const towerDeck = (foot) => [TOWER.x1 + 18, foot - 17];
 // the bolt leaves the bow.
 export const ballistaSpots = (gy, twin) => (twin ? [GATE_TOWER_N, GATE_TOWER_S] : [GATE_TOWER_N]).map((d) => towerDeck(gy + d));
 export const ballistaMuzzle = ([x, y]) => [x - 2, y - 26];
+// where the bowmen on the walk stand (and loose from), in x
+export const BOW_X = 778;
 const DRUM_EDGE_N = 34, DRUM_EDGE_S = H - 16, DRUM_STEP = 105, DRUM_MIN = 80;
 const CULVERT_X = 748;
 const wet = (foot) => { for (let y = foot - 14; y <= foot + 14; y += 2) if (inRiver(CULVERT_X, y, 2)) return true; return false; };

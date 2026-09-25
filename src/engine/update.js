@@ -4,8 +4,8 @@
 // clears, the build-phase auto-start horn, and effect/shake decay.
 // `dt` is the raw (already clamped) seconds since the last frame.
 
-import { RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, pickLane } from "../data/constants.js";
-import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle } from "../data/castle.js";
+import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, pickLane } from "../data/constants.js";
+import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, waveXp } from "../data/bands.js";
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
@@ -15,6 +15,8 @@ import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
+// the field's width without the castle's wider border: logs roll off it here
+const FIELD_W = W - MXR + MX;
 
 // A pond's rowing ring for a River Watch moored in it: an ellipse inside
 // the shore, with the same { total, at(q) } shape as the river's route.
@@ -842,7 +844,7 @@ export function updateGame(g, dt) {
             cd.shot = (cd.shot + 1) % bows.count;
             const spots = bowmenSpots(gy, bows.count);
             const sy = spots[cd.shot % spots.length] ?? gy;
-            g.projectiles.push({ id: nextId(), x: W - 22, y: sy - 12, targetId: best.id, tx: best.x, ty: best.y, speed: 460, delay: 0, dmg: bows.dmg, dtype: "phys", pierce: !!bows.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: !!bows.pierce });
+            g.projectiles.push({ id: nextId(), x: BOW_X, y: sy - 12, targetId: best.id, tx: best.x, ty: best.y, speed: 460, delay: 0, dmg: bows.dmg, dtype: "phys", pierce: !!bows.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: !!bows.pierce });
             sfx.play("arrow");
           }
         }
@@ -1497,10 +1499,10 @@ export function updateGame(g, dt) {
           }
         }
         // off the board: the powder keg makes its point on the way out
-        if (lg.x < -40 || lg.x > W + 40 || lg.y < -40 || lg.y > H + 40) {
+        if (lg.x < -40 || lg.x > FIELD_W + 40 || lg.y < -40 || lg.y > H + 40) {
           lg.done = true;
           if (lg.blast) {
-            const bx = Math.max(0, Math.min(W, lg.x)), by = Math.max(0, Math.min(H, lg.y));
+            const bx = Math.max(0, Math.min(FIELD_W, lg.x)), by = Math.max(0, Math.min(H, lg.y));
             g.effects.push({ type: "boom", x: bx, y: by, ttl: 420, r: lg.blast });
             g.shake = Math.max(g.shake, 6);
             sfx.play("boom");

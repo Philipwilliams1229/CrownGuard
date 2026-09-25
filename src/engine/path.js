@@ -5,7 +5,7 @@
 // rebuilds everything in place, and because ES module exports are live
 // bindings, every importer sees the new road immediately.
 
-import { W, tileX, tileY } from "../data/constants.js";
+import { W, WALL_W, tileX, tileY } from "../data/constants.js";
 
 export let PTS = [];
 export let SEGS = [];
@@ -43,8 +43,9 @@ export function buildPath(rawGrid) {
   // the road begins deep in the border — inside the wood or the cave mouth —
   // and ends at the castle wall, whatever the grid says
   const [sx, sy] = RAW[0];
-  if (sx < W * 0.2) RAW[0] = [22, sy]; else if (sy < 120) RAW[0] = [sx, 22];
-  RAW[RAW.length - 1] = [W - 44, RAW[RAW.length - 1][1]];
+  if (sx < tileX(2)) RAW[0] = [22, sy]; else if (sy < 120) RAW[0] = [sx, 22];
+  // (the road's end sits a fixed step in through the gate, from the wall's face)
+  RAW[RAW.length - 1] = [W - WALL_W + 18, RAW[RAW.length - 1][1]];
   PTS = buildSmooth(RAW);
   SEGS = [];
   TOTAL_LEN = 0;
