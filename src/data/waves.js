@@ -102,7 +102,9 @@ export const CROWD_WEIGHT = {
 // A faction may swell less (`crowdScale` in factions.js): the Greenwood is
 // a horde and swells fully; the drilled armies behind it have been tuned
 // for the crowd only lightly so far.
-export const crowd = (a) => 1 + Math.max(0, a - 3) * 0.12 * (FACTION.crowdScale ?? 1);
+// Capped at 6x: deep in the Endless March a group of 32 already becomes ~190,
+// and the road (and an iPad) has only so much room.
+export const crowd = (a) => Math.min(6, 1 + Math.max(0, a - 3) * 0.12 * (FACTION.crowdScale ?? 1));
 const swell = (spec, a, warm = 1) => spec.map(([type, count, gap]) => {
   const k = 1 + (crowd(a) - 1) * warm * (CROWD_WEIGHT[type] ?? 0);   // a may be fractional
   if (k <= 1.001 || BOSSES.has(type)) return [type, count, gap, 1];
