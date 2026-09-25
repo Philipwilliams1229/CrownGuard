@@ -330,22 +330,29 @@ function paintRoad(ctx) {
   const main = R.PATH_MAIN, dk = R.PATH_DK, edge = R.PATH_EDGE;
   const lt = lighten(main, 0.2);
   const wide = PATH_HALF * 2;
+  // where the road enters at a board edge it runs on off the board (the
+  // landscape beyond, render/apron.js, carries it further), so no rounded
+  // cap shows at the edge
+  const [x0, y0] = PTS[0], [x1, y1] = PTS[1] || PTS[0];
+  const edgeStart = x0 <= 30 || y0 <= 30 || x0 >= W - 30 || y0 >= H - 30;
+  const dl = Math.hypot(x0 - x1, y0 - y1) || 1;
+  const RP = edgeStart ? [[x0 + ((x0 - x1) / dl) * 60, y0 + ((y0 - y1) / dl) * 60], ...PTS] : PTS;
 
   // dirt spreads onto the grass: a feathered halo (many faint rings, so the
   // edge has no edge), then a firmer margin
-  for (let k = 9; k >= 1; k--) strokePts(ctx, PTS, wide + 2 + k * 3, rgba(edge, 0.03 + (9 - k) * 0.006));
-  strokePts(ctx, PTS, wide + 3, mix(main, edge, 0.45));
+  for (let k = 9; k >= 1; k--) strokePts(ctx, RP, wide + 2 + k * 3, rgba(edge, 0.03 + (9 - k) * 0.006));
+  strokePts(ctx, RP, wide + 3, mix(main, edge, 0.45));
   // the road is worn a little below the turf: its sunward edge sits in
   // shadow, the far edge catches light
   ctx.save(); ctx.translate(-1.2, -1.2);
-  strokePts(ctx, PTS, wide + 2, rgba(darken(dk, 0.2), 0.4));
+  strokePts(ctx, RP, wide + 2, rgba(darken(dk, 0.2), 0.4));
   ctx.restore();
   ctx.save(); ctx.translate(1.2, 1.2);
-  strokePts(ctx, PTS, wide + 2, rgba(lighten(main, 0.3), 0.45));
+  strokePts(ctx, RP, wide + 2, rgba(lighten(main, 0.3), 0.45));
   ctx.restore();
   // the body, with a paler crown down the middle
-  strokePts(ctx, PTS, wide - 2, main);
-  strokePts(ctx, PTS, wide - 16, rgba(lt, 0.18));
+  strokePts(ctx, RP, wide - 2, main);
+  strokePts(ctx, RP, wide - 16, rgba(lt, 0.18));
   // (the three marching lanes are NOT painted: the owner wants one open
   // road, and the foes' own spacing shows the lanes well enough)
   // mottling: damp patches and dust

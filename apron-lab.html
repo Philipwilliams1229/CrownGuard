@@ -1,0 +1,107 @@
+<!doctype html>
+<!--
+  Dev tool: the APRON — the realm's landscape painted past the board's edges
+  (src/render/apron.js) — composited with the real board (draw()) at the
+  screen layouts the battle HUD uses, so the seam can be judged. Painted
+  once at load (no rAF, works in a hidden tab); every frame is saved by the
+  dev server to .shots/m-apron-<realm>-<layout>[-<tag>].png.
+    /apron-lab.html?realms=greenwood,frostfang&layouts=phone,tablet&tag=v1
+  &noboard=1 leaves the board out (apron alone); &mark=1 outlines the board
+  rect; &zoom=x,y,w,h,s also saves a nearest-neighbour crop (css px of the
+  layout) at scale s, e.g. the seam.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — apron lab</title>
+    <style>
+      body { background: #14171d; color: #e8e0c8; font-family: monospace; margin: 0; padding: 12px; }
+      .cap { font-size: 11px; padding: 4px 0; opacity: 0.8; }
+      canvas { display: block; border: 1px solid #000; max-width: 100%; }
+    </style>
+  </head>
+  <body>
+    <div id="status">painting…</div>
+    <div id="out"></div>
+    <script type="module">
+      import { REALMS, selectRealm } from "/src/data/maps.js";
+      import { W, H, RES, CASTLE_HP } from "/src/data/constants.js";
+      import { draw } from "/src/render/draw.js";
+      import { paintApron, apronStats } from "/src/render/apron.js";
+
+      const q = new URLSearchParams(location.search);
+      const DPR = Number(q.get("dpr")) || 1;
+      const TAG = q.get("tag");
+      const fit = (cssW, cssH, extra = {}) => {
+        // the board as big as the height allows, centred
+        const h = cssH, w = h * 1.5;
+        return { cssW, cssH, board: { x: Math.round((cssW - w) / 2), y: 0, w, h }, ...extra };
+      };
+      const LAYOUTS = {
+        phone: { cssW: 782, cssH: 430, board: { x: 110, y: -34, w: 672, h: 448 } },
+        phonewide: { cssW: 932, cssH: 430, board: { x: 260, y: -34, w: 672, h: 448 } },
+        tablet: { cssW: 983, cssH: 744, board: { x: 0, y: 44, w: 983, h: 655 } },
+        desktop: fit(1180, 800),
+        wide: fit(1440, 800),
+        brief: { cssW: 1000, cssH: 750, board: { x: 0, y: 41.67, w: 1000, h: 666.67 } },
+        ipadtall: { cssW: 744, cssH: 1000, board: { x: 0, y: 252, w: 744, h: 496 } },
+        odd: { cssW: 1000, cssH: 750, board: { x: 180, y: -40, w: 820, h: 546.67 } },
+      };
+      const realms = (q.get("realms") || "greenwood").split(",");
+      if (realms[0] === "all") realms.splice(0, 1, ...Object.keys(REALMS));
+      const layouts = (q.get("layouts") || "phone").split(",");
+      const zoom = (q.get("zoom") || "").split(",").map(Number);
+      const out = document.getElementById("out");
+      const log = [];
+
+      const base = (time) => ({
+        time, shake: 0, cam: { zoom: 1, x: 0, y: 0 }, grounds: [],
+        buildMode: null, hover: null, gold: 500, selectedId: null,
+        towers: [], enemies: [], projectiles: [], effects: [],
+        lives: CASTLE_HP, paused: false, phase: "combat",
+      });
+
+      const save = (name, cv) => fetch("/__shot?name=" + name, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+
+      for (const id of realms) {
+        selectRealm(id);
+        const boardCv = document.createElement("canvas");
+        draw(base(3.1), boardCv, { current: null });
+        for (const lk of layouts) {
+          const L = LAYOUTS[lk];
+          const apron = document.createElement("canvas");
+          paintApron(apron, { cssW: L.cssW, cssH: L.cssH, dpr: DPR, board: L.board });
+          const st = apronStats();
+          // a second paint at a nudged rect, now that the realm's sprites are baked
+          const warm = document.createElement("canvas");
+          paintApron(warm, { cssW: L.cssW, cssH: L.cssH, dpr: DPR, board: { ...L.board, x: L.board.x + 1 } });
+          const st2 = apronStats();
+          const cv = document.createElement("canvas");
+          cv.width = L.cssW * DPR; cv.height = L.cssH * DPR;
+          const c = cv.getContext("2d");
+          c.drawImage(apron, 0, 0);
+          const b = L.board;
+          if (!q.get("noboard")) c.drawImage(boardCv, b.x * DPR, b.y * DPR, b.w * DPR, b.h * DPR);
+          if (q.get("mark")) { c.strokeStyle = "rgba(255,0,255,0.7)"; c.strokeRect(b.x * DPR, b.y * DPR, b.w * DPR, b.h * DPR); }
+          const name = `m-apron-${id}-${lk}${TAG ? "-" + TAG : ""}`;
+          const line = `${name}: cold ${st.ms.toFixed(1)}ms, warm ${st2.ms.toFixed(1)}ms, items ${st.items}, r ${st.r?.toFixed?.(2)} | cold ${st.parts} | warm ${st2.parts}`;
+          log.push(line);
+          const cap = document.createElement("div"); cap.className = "cap"; cap.textContent = line;
+          out.appendChild(cap); out.appendChild(cv);
+          await save(name, cv);
+          if (zoom.length === 5) {
+            const [zx, zy, zw, zh, zs] = zoom;
+            const zc = document.createElement("canvas");
+            zc.width = zw * zs; zc.height = zh * zs;
+            const zz = zc.getContext("2d"); zz.imageSmoothingEnabled = false;
+            zz.drawImage(cv, zx * DPR, zy * DPR, zw * DPR, zh * DPR, 0, 0, zc.width, zc.height);
+            await save(name + "-zoom", zc);
+          }
+        }
+      }
+      document.getElementById("status").textContent = log.join("\n");
+      document.title = "DONE";
+      window.__apronLog = log;
+    </script>
+  </body>
+</html>

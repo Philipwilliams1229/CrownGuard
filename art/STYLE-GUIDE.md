@@ -51,6 +51,7 @@ copy what the rebuilt pieces do.
 | Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots` in `src/data/castle.js`) — SQUARE open-topped towers (paved deck, battlemented rim, a red-roofed stair turret) with the ballistae and spare bowmen ON the gate towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
 | Combat effects, projectiles, ground pools, logs, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
 | HUD skin | `src/ui/hud/` (`hud.css`, `icons.jsx`, `Chips.jsx`) + `src/ui/theme.js` | |
+| The landscape beyond the board (the apron: ground, road and rivers running off, the realm's trees thickening, the wall continuing) | `src/render/apron.js` `paintApron(canvas, { cssW, cssH, dpr, board })` | painted once per realm and layout, cached |
 | Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` | painted once, cached |
 | Title-screen crowd and castle life (walkers, guards, the hay-forker; banners, sentry, smoke, torches, birds) | `src/ui/titleCrowd.js`, placed from `ROAD`, `ROAD_W`, `HAY` and `CASTLE_LIFE` in `titleArt.js`; the vista castle matches the board castle (square open-topped towers, red stair turrets, blue crown banners, cobbled threshold) | a second canvas with the vista's own fit, ~30 fps, paused when hidden |
 
@@ -221,7 +222,7 @@ dev server; view them from there):
   module script (the browser tool's JS runs in an isolated world).
 - Lab pages per area: `twa-lab.html`, `twb-lab.html`, `twb-folk.html` (every
   crew figure), `crw-lab.html`, `hrd-lab.html`, `bst-lab.html`, `cas-lab.html`,
-  `scn-lab.html`, `fx-lab.html`, `map-lab.html`, `hud-lab.html`, `wdn-lab.html`.
+  `scn-lab.html`, `fx-lab.html`, `map-lab.html`, `apron-lab.html` (the landscape beyond the board at phone/tablet/desktop layouts), `hud-lab.html`, `wdn-lab.html`.
 - Always take a BEFORE shot, then judge at 1x board size (what the player
   sees) as well as zoomed. Never launch Chrome from a shell — it trips a
   macOS security prompt; use the app's browser pane.

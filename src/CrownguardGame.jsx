@@ -25,6 +25,7 @@ import {
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
+import { paintApron } from "./render/apron.js";
 import TowerPortrait from "./ui/TowerPortrait.jsx";
 import EnemyIcon from "./ui/EnemyIcon.jsx";
 import EnemyTooltip from "./ui/EnemyTooltip.jsx";
@@ -161,7 +162,7 @@ export default function Crownguard() {
       const k = Math.max(0.1, Math.min(aw / W, ah / (H - 2 * MY)));
       const w = Math.floor(W * k), h = Math.floor(H * k);
       const vw = Math.min(w, Math.floor(aw)), vh = Math.min(h, Math.floor(ah));
-      setBoardCss({ w, h, vw, vh, x: Math.floor(r.width - vw), y: Math.floor(sf.top + (ah - vh) / 2) });
+      setBoardCss({ w, h, vw, vh, x: Math.floor(r.width - vw), y: Math.floor(sf.top + (ah - vh) / 2), cw: Math.floor(r.width), ch: Math.floor(r.height) });
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -169,6 +170,18 @@ export default function Crownguard() {
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, wide]);
+
+  // the realm's landscape beyond the map: repainted (cached) whenever the
+  // play area, the map's place in it or the realm changes
+  useEffect(() => {
+    const cv = apronRef.current;
+    if (screen !== "game" || !cv || !boardCss.cw) return;
+    const cropY = Math.round((boardCss.vh - boardCss.h) / 2);
+    try {
+      paintApron(cv, { cssW: boardCss.cw, cssH: boardCss.ch, dpr: Math.min(2, window.devicePixelRatio || 1),
+        board: { x: boardCss.x, y: boardCss.y + cropY, w: boardCss.w, h: boardCss.h } });
+    } catch (err) { console.error("paintApron failed", err); }
+  }, [screen, realmId, boardCss]);
 
   const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks()) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
