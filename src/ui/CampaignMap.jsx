@@ -29,6 +29,7 @@ import { REALMS } from "../data/maps.js";
 import { W, H } from "../data/constants.js";
 import EnemyIcon from "./EnemyIcon.jsx";
 import { Star } from "./Glyphs.jsx";
+import { MAX_STARS } from "../data/profile.js";
 import { panel, FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
@@ -39,6 +40,7 @@ const LINE = "#241a26";
 const SEA = "#2a4a6a";
 // where the fen's lights wander: [x, y, delay]
 const WISPS = [[262, -58, 0], [334, -46, 0.7], [282, -104, 1.3], [352, -62, 0.4], [236, -50, 1.8], [322, -108, 1.1], [376, -44, 2.2]];
+const STAR_SLOTS = Array.from({ length: MAX_STARS }, (_, i) => i + 1);
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // padding that keeps clear of a notch or the home bar
@@ -381,7 +383,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
             {sel.name}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            {[1, 2, 3].map((i) => <Star key={i} size={15} lit={i <= rating(sel.id)} />)}
+            {STAR_SLOTS.map((i) => <Star key={i} size={15} lit={i <= rating(sel.id)} />)}
             {selCleared && <span style={{ fontSize: 9, letterSpacing: 1, color: "#3e6a2a", fontWeight: "bold", marginLeft: 6 }}>✓ HELD</span>}
           </div>
         </div>
@@ -424,7 +426,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
               {sel.name}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-              {[1, 2, 3].map((i) => <Star key={i} size={13} lit={i <= rating(sel.id)} />)}
+              {STAR_SLOTS.map((i) => <Star key={i} size={13} lit={i <= rating(sel.id)} />)}
               {selCleared && <span style={{ fontSize: 8.5, letterSpacing: 1, color: "#3e6a2a", fontWeight: "bold", marginLeft: 5 }}>✓ HELD</span>}
             </div>
           </div>

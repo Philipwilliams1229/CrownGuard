@@ -16,7 +16,7 @@ import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
 import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL, HERO_TALENTS, TALENT_RANKS, talentCost } from "./data/bands.js";
 import { PTS } from "./engine/path.js";
-import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroPoints, buyHeroTalent } from "./data/profile.js";
+import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroPoints, buyHeroTalent, MAX_STARS } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
@@ -319,11 +319,13 @@ export default function Crownguard() {
       g.run = { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 };
       return;
     }
-    setAward(bankLevel(profile, lv, {
+    // a replay of a level already held opens no new hall
+    const first = won && !loadProgress().cleared[levelId];
+    setAward({ ...bankLevel(profile, lv, {
       livesLeft: ui.lives, maxLives: CASTLE_HP,
       waves: won ? lv.window.count : Math.max(0, ui.wave - 1),
       run: g?.run, won,
-    }));
+    }), first });
     if (g) g.run = { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 };
     setProfile(loadProfile());
     if (won) markCleared(levelId);
@@ -1429,11 +1431,15 @@ export default function Crownguard() {
                   {campaign && won && award && (
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                       <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-                        {[1, 2, 3].map((i) => (
-                          <span key={i} className="cg-star" style={{ animationDelay: `${0.25 + i * 0.22}s`, marginBottom: i === 2 ? 10 : 0 }}>
-                            <Star lit={i <= award.rating} size={i === 2 ? 52 : 42} />
-                          </span>
-                        ))}
+                        {/* five stars in a shallow arch, the middle one biggest */}
+                        {Array.from({ length: MAX_STARS }, (_, k) => k + 1).map((i) => {
+                          const off = Math.abs(i - (MAX_STARS + 1) / 2);
+                          return (
+                            <span key={i} className="cg-star" style={{ animationDelay: `${0.25 + i * 0.18}s`, marginBottom: [12, 6, 0][off] }}>
+                              <Star lit={i <= award.rating} size={[50, 42, 36][off]} />
+                            </span>
+                          );
+                        })}
                       </div>
                       <div className="cg-num" style={{ fontSize: 12, lineHeight: 1.4, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>
                         +{award.xp} XP
@@ -1453,7 +1459,7 @@ export default function Crownguard() {
                         <span style={{ color: "var(--muted)" }}>what was left, and a tithe of what was earned · {(progress.treasury || 0).toLocaleString("en-US")} banked</span></span>
                     </div>
                   )}
-                  {campaign && won && unlocksFor(level.id).length > 0 && (
+                  {campaign && won && award?.first && unlocksFor(level.id).length > 0 && (
                     <div className="cg-parch" style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 14px" }}>
                       {unlocksFor(level.id).map((k) => (
                         <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>

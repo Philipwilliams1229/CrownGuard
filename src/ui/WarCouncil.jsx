@@ -32,7 +32,7 @@ import {
 } from "../data/skills.js";
 import {
   starsEarned, starsFree, buyRank, refundTower, resetProfile,
-  rankName, rankOf, rankProgress,
+  rankName, rankOf, rankProgress, MAX_STARS,
 } from "../data/profile.js";
 import { LEVELS } from "../data/campaign.js";
 import TowerPortrait from "./TowerPortrait.jsx";
@@ -316,7 +316,7 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
           <StatRow label="Levels cleared" value={s.levelsCleared} />
           <StatRow label="Levels lost" value={s.levelsLost} />
           <StatRow label="Flawless defences" value={s.perfect} />
-          <StatRow label="Stars earned" value={`${earned} / ${LEVELS.length * 3}`} />
+          <StatRow label="Stars earned" value={`${earned} / ${LEVELS.length * MAX_STARS}`} />
         </div>
         <div>
           <StatRow label="Waves held" value={s.wavesCleared} />

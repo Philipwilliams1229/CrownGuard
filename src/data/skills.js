@@ -10,7 +10,8 @@
 // an opener is a single star; the last rank of a capstone is eight. A node
 // has to be taken to rank 3 before the node below it opens.
 //
-// That prices a whole tower at 50 stars against a campaign that yields 30 —
+// That prices a whole tower at 50 stars against a campaign that yields 120
+// (24 levels at five stars) —
 // deliberately. Early ranks come fast, the tail is a grind, and finishing a
 // tree is a goal that outlives the current two chapters.
 //

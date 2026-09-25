@@ -12,8 +12,13 @@ import { HERO_TALENTS, talentCost, talentsSpent } from "./bands.js";
 
 const KEY = "crownguard.profile.v1";
 
+// Levels are rated out of five stars (they were out of three until
+// 2026-09-25; older saves are rescaled on load, see loadProfile).
+export const MAX_STARS = 5;
+
 const EMPTY = () => ({
   xp: 0,
+  starScale: MAX_STARS,
   starsSpent: 0,
   // best star rating per level id — stars are awarded on the DELTA, so
   // replaying a level can only ever top up a worse result
@@ -51,6 +56,14 @@ export function loadProfile() {
       heroes: raw.heroes && typeof raw.heroes === "object" ? raw.heroes : {},
       stats: { ...p.stats, ...(raw.stats || {}) },
     };
+    // Ratings used to be out of three: a flawless 3 becomes a flawless 5,
+    // a 2 (60% of the castle or better) a 3, a bloody 1 stays a 1. Stars
+    // already spent stay spent, so the rescale hands out the difference.
+    if (raw.starScale !== MAX_STARS) {
+      const OLD = { 1: 1, 2: 3, 3: 5 };
+      out.stars = Object.fromEntries(Object.entries(out.stars).map(([id, n]) => [id, OLD[n] ?? n]));
+      out.starScale = MAX_STARS;
+    }
     // Skills used to be a flat list of bought nodes; they are ranked now.
     // Rather than guess what an old list is worth, hand every star back and
     // let the player re-spend them on the new trees.
@@ -124,10 +137,10 @@ export function resetHeroTalents(key) {
 export const starsEarned = (p) => Object.values(p.stars).reduce((a, b) => a + b, 0);
 export const starsFree = (p) => starsEarned(p) - p.starsSpent;
 
-// How well a level was held: a full castle is three stars, a bloody win is one.
+// How well a level was held: a full castle is five stars, a bloody win is one.
 export const ratingFor = (livesLeft, maxLives) => {
   const frac = livesLeft / maxLives;
-  return frac >= 0.99 ? 3 : frac >= 0.6 ? 2 : 1;
+  return frac >= 0.99 ? 5 : frac >= 0.8 ? 4 : frac >= 0.6 ? 3 : frac >= 0.35 ? 2 : 1;
 };
 
 // ---- commander rank ----
@@ -142,9 +155,10 @@ export const rankName = (xp) => RANKS[Math.min(rankOf(xp), RANKS.length - 1)];
 export const rankProgress = (xp) => (xp % 1000) / 1000;
 
 // XP for finishing a level: the waves you held, weighted by how deep in the
-// war it sits, plus a bonus for the stars you took.
+// war it sits, plus a bonus for the stars you took (180 for a flawless five).
+// Every win pays it, replays included.
 export const xpFor = (level, waves, stars) =>
-  Math.round(waves * 40 * (1 + level.chapterIndex * 0.5 + level.index * 0.15)) + stars * 60;
+  Math.round(waves * 40 * (1 + level.chapterIndex * 0.5 + level.index * 0.15)) + stars * 36;
 
 // ---- banking a finished level ----
 // Returns { stars, newStars, xp, rating } so the victory screen can show what

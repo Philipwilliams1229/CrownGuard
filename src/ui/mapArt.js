@@ -9,6 +9,7 @@
 // that is redrawn whenever progress changes (see drawMapState).
 
 import { CHAPTERS, LEVELS, isUnlocked } from "../data/campaign.js";
+import { MAX_STARS } from "../data/profile.js";
 import { hash, darken, rgb, ball, blobBall, cone, inkOutline } from "../render/paint.js";
 
 export const U = 2;                         // art pixels per map unit
@@ -1131,7 +1132,7 @@ export function drawMapState(ctx, { progress, stars = {} }) {
     else stamp(ctx, shield(boss, open), x, y, 5.5 * MK, 14.6 * MK);
     if (won) {
       const n = stars[lv.id] || 0;
-      for (let k = 0; k < 3; k++) stamp(ctx, star(k < n), x - 7.5 + k * 5, y + 0.8, 0, 0);
+      for (let k = 0; k < MAX_STARS; k++) stamp(ctx, star(k < n), x - 11.3 + k * 4.4, y + 0.8, 0, 0);
     }
   }
 }
