@@ -6,7 +6,7 @@
 
 import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, pickLane } from "../data/constants.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X } from "../data/castle.js";
-import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, waveXp } from "../data/bands.js";
+import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "../data/bands.js";
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
@@ -117,8 +117,9 @@ const killUnit = (g, t, u) => {
 
 // A ranged band (the huntress): holds the rally point, shoots the nearest
 // foe in range, never blocks. Wounded by crossbowmen and plague like anyone.
-// Levelling: each level tops the hero up and makes him a little more. The
-// shell banks a talent point for every level gained (see CrownguardGame).
+// Levelling: each level tops the hero up and makes him a little more, and a
+// level can wake his second ability. What he ends a won map at is paid out
+// as hero stars by the shell (see CrownguardGame / profile bankHeroStars).
 const levelHero = (g, b) => {
   const u = b.units[0];
   while (b.level < HERO_MAX_LEVEL && b.xp >= heroXpFor(b.level)) {
@@ -127,7 +128,8 @@ const levelHero = (g, b) => {
     u.maxHp = b.st.hp;
     if (u.state !== "dead") u.hp = b.st.hp;
     g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 700 });
-    g.effects.push({ type: "coin", x: u.x, y: u.y - 26, ttl: 1200, text: `${b.name} — level ${b.level} · +1 talent point`, big: true });
+    const woke = heroAbilities(b.hero).find((a) => a.unlock === b.level && a.unlock > 1);
+    g.effects.push({ type: "coin", x: u.x, y: u.y - 26, ttl: 1400, text: woke ? `${b.name} — level ${b.level} · ${woke.name} ready!` : `${b.name} — level ${b.level}`, big: true });
     sfx.play("ascend");
   }
   if (b.level >= HERO_MAX_LEVEL) b.xp = 0;
@@ -326,7 +328,31 @@ export function updateGame(g, dt) {
           const u = b.units[0];
           u.maxHp = b.st.hp;
           levelHero(g, b);
-          if (u.state === "dead") b.deadFor = (b.deadFor || 0) + sdt * 1000;
+          if (u.state === "dead") { b.deadFor = (b.deadFor || 0) + sdt * 1000; u.dash = null; }
+          // abilities recharge whatever he is doing, dead or alive
+          if (b.abCd) for (const k in b.abCd) b.abCd[k] = Math.max(0, b.abCd[k] - sdt * 1000);
+          // Valiant Charge: he rides at his mark, trampling and throwing back
+          // everything on foot in his path, and holds the spot when he arrives
+          if (u.dash && u.state !== "dead") {
+            const a = b.st.abil.charge;
+            const dx = u.dash.tx - u.x, dy = u.dash.ty - u.y, d = Math.hypot(dx, dy);
+            const step = 380 * sdt;
+            const k = d <= step ? 1 : step / d;
+            u.x += dx * k; u.y += dy * k;
+            u.face = dx >= 0 ? 1 : -1;
+            u.state = "moving";
+            if (Math.random() < 0.5) g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 300, r: 9 });
+            for (const e of g.enemies) {
+              if (e.dead || e.flying || e.swimming || u.dash.hit.includes(e.id)) continue;
+              if (Math.hypot(e.x - u.x, e.y - u.y) > a.width) continue;
+              u.dash.hit.push(e.id);
+              dealDamage(g, e, a.dmg, "phys", false, false, b.id);
+              if (!e.dead && !e.boss) { e.dist = Math.max(0, e.dist - a.knock); releaseEnemy(g, e); }
+              g.effects.push({ type: "hit", x: e.x, y: e.y - 6, ttl: 220 });
+            }
+            if (k === 1) { u.dash = null; u.state = "rally"; g.shake = Math.max(g.shake, 4); g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: 26 }); }
+            else continue;                   // mid-charge: no ordinary fighting
+          }
         }
         const st = b.st;
         const n = st.count || 1;
@@ -336,6 +362,21 @@ export function updateGame(g, dt) {
         else runMelee(g, b, st, slots, sdt, tms);
       }
       g.bands = g.bands.filter((b) => !b.gone);
+    }
+    // Arrow Volley: the rain falls on its spot in beats, hitting everything
+    // under it — fliers too
+    if (g.volleys && g.volleys.length) {
+      for (const v of g.volleys) {
+        while (v.next <= tms && v.next <= v.until) {
+          v.next += v.tick;
+          for (const e of g.enemies) {
+            if (e.dead || e.swimming || Math.hypot(e.x - v.x, e.y - v.y) > v.r) continue;
+            dealDamage(g, e, v.dmg, "phys", false, false, v.src);
+            if (Math.random() < 0.35) g.effects.push({ type: "hit", x: e.x, y: e.y - 6, ttl: 200 });
+          }
+        }
+      }
+      g.volleys = g.volleys.filter((v) => v.until > tms);
     }
 
     for (const t of g.towers) {
@@ -1652,7 +1693,6 @@ export function updateGame(g, dt) {
     if (!g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
       g.gold += waveBonus(g.wave);
       // the hero learns from every wave the realm lives through, alive or not
-      { const hb = g.bands?.find((b) => b.kind === "hero"); if (hb) { hb.xp = (hb.xp || 0) + waveXp(scriptedWaves()); levelHero(g, hb); } }
       sfx.play("waveClear");
       if (g.run) g.run.goldEarned += waveBonus(g.wave);
       // the Gold Works pay out on every wave held

@@ -1,9 +1,11 @@
 // ============ HERO TALENTS (War Council, HEROES tab) ============
-// Where a hero's talent points are spent between battles. Heroes start every
-// map at level 1 and level up in battle; each level gained banks one talent
-// point for that hero, kept for good in the profile (data/profile.js,
-// heroRecord). Five talents of five ranks each, costing TALENT_COSTS
-// (data/bands.js). A reset is free and hands every point back.
+// The ONLY place a hero's stars are spent. Heroes start every map at level 1
+// and level up in battle from kills; the level they end a WON map's scripted
+// waves at is paid out as that hero's own stars (data/profile.js
+// bankHeroStars: a new best in full, the rest at half). Each hero has two
+// abilities (fired in battle from the hero's menu) with an upgrade line each,
+// and five stat talents — five ranks apiece at TALENT_COSTS (data/bands.js).
+// A reset is free and hands every star back.
 //
 // Also home to the War Council's two-tap confirm (`useArm` + `ArmBand`):
 // the first tap arms a button — it turns gold and says what the next tap
@@ -19,7 +21,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  HEROES, HERO_TALENTS, TALENT_RANKS, talentCost, talentsSpent, heroStats,
+  HEROES, HERO_TALENTS, TALENT_RANKS, talentCost, talentsSpent, heroStats, heroAbilities,
 } from "../data/bands.js";
 import { heroRecord, buyHeroTalent, resetHeroTalents } from "../data/profile.js";
 import EnemyIcon from "./EnemyIcon.jsx";
@@ -90,7 +92,7 @@ function StatChip({ label, value, up, z }) {
   );
 }
 
-function TalentNode({ t, rank, cost, buyable, armed, onTap, z, armId }) {
+function TalentNode({ t, rank, cost, buyable, armed, onTap, z, armId, meta, desc }) {
   const maxed = cost == null;
   return (
     <button data-arm={armId} disabled={!buyable} onClick={onTap}
@@ -121,20 +123,23 @@ function TalentNode({ t, rank, cost, buyable, armed, onTap, z, armId }) {
             <>
               <span style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.6 }}>next</span>
               <span style={{ ...NUM, fontSize: 9 * z, color: buyable ? "#e8d47a" : RED }}>{cost}</span>
-              <span style={{ ...LABEL, fontSize: 8.5 * z, color: buyable ? "#e8e0c8" : RED, opacity: buyable ? 0.7 : 1 }}>pts</span>
+              <span style={{ ...LABEL, fontSize: 8.5 * z, color: buyable ? "#e8e0c8" : RED, opacity: buyable ? 0.7 : 1 }}>★</span>
             </>
           )}
         </span>
       </span>
-      <span style={{ fontSize: 10 * z, opacity: 0.8, lineHeight: 1.4 }}>{t.desc}</span>
-      {armed && <ArmBand z={z}>TAP AGAIN · {cost} PTS</ArmBand>}
+      {meta && <span style={{ ...LABEL, fontSize: 8.5 * z, color: GOLD.lt, opacity: 0.85 }}>{meta}</span>}
+      <span style={{ fontSize: 10 * z, opacity: 0.8, lineHeight: 1.4 }}>{desc || t.desc}</span>
+      {armed && <ArmBand z={z}>TAP AGAIN · {cost} ★</ArmBand>}
     </button>
   );
 }
 
 function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note }) {
   const h = HEROES[hkey];
-  const { points, talents, best } = heroRecord(profile, hkey);
+  const { points, talents, bestBy } = heroRecord(profile, hkey);
+  const bests = Object.values(bestBy);
+  const best = bests.length ? Math.max(...bests) : 0;
   const st = heroStats(hkey, SHOW_LEVEL, talents);
   const base = heroStats(hkey, SHOW_LEVEL, null);
   const spent = talentsSpent(talents);
@@ -156,8 +161,8 @@ function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note
             <span style={{ ...LABEL, fontSize: 10 * z, opacity: 0.7 }}>{h.title}</span>
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 5 * z, opacity: 0.7 }}>
-            <span style={{ ...LABEL, fontSize: 9 * z }}>Best level:</span>
-            <span style={{ ...NUM, fontSize: 8.5 * z }}>{best}</span>
+            <span style={{ ...LABEL, fontSize: 9 * z }}>Maps won: <span style={NUM}>{bests.length}</span> · best level:</span>
+            <span style={{ ...NUM, fontSize: 8.5 * z }}>{best || "—"}</span>
           </div>
         </div>
         <div style={{
@@ -165,7 +170,7 @@ function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note
           background: points ? "#5a4f2c" : "#262b35", boxShadow: points ? "inset 0 0 0 2px #7a6a3c" : "none",
         }}>
           <div style={{ ...NUM, fontSize: 17 * z, color: points ? GOLD.lt : "#8a8f9a" }}>{points}</div>
-          <div style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.8, marginTop: 3 }}>{points === 1 ? "POINT" : "POINTS"}</div>
+          <div style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.8, marginTop: 3 }}>{points === 1 ? "★ STAR" : "★ STARS"}</div>
         </div>
       </div>
 
@@ -180,9 +185,30 @@ function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note
         </div>
       </div>
 
+      {/* the two abilities, each with its upgrade line */}
+      <div>
+        <div style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.55, marginBottom: 3 * z }}>ABILITIES · FIRED FROM THE HERO'S MENU IN BATTLE</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gridAutoRows: "1fr", gap: 6 * z }}>
+          {heroAbilities(hkey).map((a) => {
+            const t = HERO_TALENTS[hkey].find((x) => x.id === a.id);
+            const id = `tal:${hkey}:${a.id}`;
+            const rank = Math.min(TALENT_RANKS, talents[a.id] || 0);
+            const cost = talentCost(rank);
+            const ok = cost != null && points >= cost;
+            const cd = Math.round(st.abil[a.id].cd / 1000);
+            return (
+              <TalentNode key={a.id} t={t} z={z} armId={id} rank={rank} cost={cost}
+                buyable={ok} armed={arm.is(id)} desc={a.desc}
+                meta={`${a.unlock > 1 ? `Wakes at level ${a.unlock}` : "Ready from the start"} · ${cd}s recharge · +12% dmg a rank`}
+                onTap={() => ok && arm.tap(id, () => onBuy(hkey, a.id))} />
+            );
+          })}
+        </div>
+      </div>
+
       {/* five talents and, in the sixth cell, the free reset */}
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gridAutoRows: "1fr", gap: 6 * z }}>
-        {HERO_TALENTS[hkey].map((t) => {
+        {HERO_TALENTS[hkey].filter((t) => !t.ability).map((t) => {
           const id = `tal:${hkey}:${t.id}`;
           const rank = Math.min(TALENT_RANKS, talents[t.id] || 0);
           const cost = talentCost(rank);
@@ -203,7 +229,7 @@ function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note
           }}>
           <b style={{ ...LABEL, fontSize: 11 * z }}>Reset talents</b>
           <span style={{ fontSize: 9.5 * z, opacity: 0.7, lineHeight: 1.35 }}>
-            {spent ? <>Free · <span style={NUM}>{spent}</span> {spent === 1 ? "point" : "points"} back</> : "Nothing spent yet"}
+            {spent ? <>Free · <span style={NUM}>{spent}</span> {spent === 1 ? "star" : "stars"} back</> : "Nothing spent yet"}
           </span>
           {resetArmed && <ArmBand z={z}>TAP AGAIN · RESET</ArmBand>}
         </button>
@@ -222,7 +248,7 @@ export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, f
   const reset = (key) => setProfile({ ...resetHeroTalents(key) });
   const deps = HERO_KEYS.map((k) => JSON.stringify(heroRecord(profile, k))).join("|");
 
-  const line = "Every level a hero gains in battle banks a talent point. Spend them here or from the hero's panel in battle.";
+  const line = "Heroes level up from kills in battle. Win a map and the hero's level at the end of its waves becomes their stars — a new best on that map pays in full, the rest at half. Spend them here.";
   const sheet = (k, cols, portrait, note) => (
     <HeroSheet key={k} hkey={k} profile={profile} onBuy={buy} onReset={reset} arm={arm} cols={cols} z={z} portrait={portrait} note={note} />
   );
@@ -265,7 +291,7 @@ export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, f
                 ...(can ? { background: GOLD.face, color: INK } : { background: "#262b35" }),
               }}>
                 <span style={{ ...NUM, fontSize: 8.5 }}>{points}</span>
-                <span style={{ ...LABEL, fontSize: 8.5, fontWeight: "bold" }}>PTS</span>
+                <span style={{ ...LABEL, fontSize: 8.5, fontWeight: "bold" }}>★</span>
               </span>
             </span>
           </button>

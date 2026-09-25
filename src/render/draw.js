@@ -395,6 +395,32 @@ export function draw(g, canvas, bufRef) {
     drawProjectile(ctx, p, g.time);
   }
 
+  // Arrow Volley: a rain of shafts over its spot — each falls on a slant
+  // from above, lands, and another takes its place, over a faint mark
+  if (g.volleys) {
+    const tmsV = g.time * 1000;
+    for (const v of g.volleys) {
+      const left = Math.max(0, Math.min(1, (v.until - tmsV) / 400));
+      ctx.save(); ctx.globalAlpha = 0.35 * left;
+      ringPx(ctx, v.x, v.y, v.r, v.r * 0.62, 1, "#e8dcb4");
+      ctx.restore();
+      for (let i = 0; i < 16; i++) {
+        const seed = i * 7.31 + v.t0 * 0.001;
+        const ph = ((tmsV - v.t0) / 420 + (i * 0.37) % 1) % 1;       // 0 high in the air, 1 landed
+        const ang = (Math.sin(seed * 12.9898) * 43758.5453) % 1 * Math.PI * 2;
+        const rr = Math.sqrt(Math.abs((Math.sin(seed * 78.233) * 12345.678) % 1)) * v.r;
+        const gx = v.x + Math.cos(ang) * rr, gy = v.y + Math.sin(ang) * rr * 0.62;
+        const ax = gx - (1 - ph) * 10, ay = gy - (1 - ph) * 46;
+        ctx.globalAlpha = left;
+        ctx.strokeStyle = "#3a2a1c"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(ax - 2.5, ay - 9); ctx.lineTo(ax, ay); ctx.stroke();
+        ctx.fillStyle = "#d8dce4"; ctx.fillRect(S(ax) - 0.5, S(ay) - 0.5, CELL, CELL);
+        if (ph > 0.85) { ctx.fillStyle = "rgba(232,220,180,0.7)"; ctx.fillRect(S(gx) - 1, S(gy), CELL * 2, CELL); }
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
   for (const fx of g.effects) {
     const a = Math.min(1, fx.ttl / 300);
     if (isBlast(fx.type)) {
@@ -431,6 +457,27 @@ export function draw(g, canvas, bufRef) {
         const ang = i * 0.785 + 0.5;
         ctx.fillRect(S(fx.x + Math.cos(ang) * r), S(fx.y + Math.sin(ang) * r * 0.9) - CELL, CELL, CELL * 2);
       }
+    } else if (fx.type === "slam") {
+      // Shield Slam: a ring of torn earth thrown out from the hero's feet
+      const prog = 1 - fx.ttl / 450;
+      const r = prog * fx.r;
+      ctx.lineWidth = 3;
+      ringPx(ctx, fx.x, fx.y, r, r * 0.62, 2.5, `rgba(176,140,92,${a * 0.95})`);
+      ringPx(ctx, fx.x, fx.y, r * 0.8, r * 0.5, 1, `rgba(255,243,210,${a * 0.8})`);
+      ctx.lineWidth = 1;
+      ctx.fillStyle = `rgba(122,96,62,${a})`;
+      for (let i = 0; i < 10; i++) {
+        const ang = i * 0.628 + 0.2;
+        ctx.fillRect(S(fx.x + Math.cos(ang) * r), S(fx.y + Math.sin(ang) * r * 0.62 - prog * 6), CELL * 2, CELL * 2);
+      }
+    } else if (fx.type === "reticle") {
+      // Heartseeker's mark: a closing ring and cross on the chosen foe
+      const e = g.enemies.find((en) => en.id === fx.target && !en.dead);
+      const x = e ? e.x : fx.x, y = e ? e.y - 8 : fx.y - 8;
+      const r = 8 + (fx.ttl / 700) * 14;
+      ringPx(ctx, x, y, r, r, 1.2, `rgba(224,72,64,${Math.min(1, fx.ttl / 250)})`);
+      ctx.fillStyle = `rgba(224,72,64,${Math.min(1, fx.ttl / 250)})`;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) ctx.fillRect(S(x + dx * (r + 2)) - 1, S(y + dy * (r + 2)) - 1, CELL * 2, CELL * 2);
     } else if (fx.type === "healwave") {
       // the shaman's mending chant washing outward
       const prog = 1 - fx.ttl / 550;

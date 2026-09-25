@@ -5,7 +5,7 @@
 
 import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
-import { MILITIA, HEROES, heroStats } from "../data/bands.js";
+import { MILITIA, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, inSea, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
@@ -61,7 +61,7 @@ export const startWave = (g) => {
     castle: g.castle ? { ...g.castle } : null,
     castleRanks: g.castleRanks ? { ...g.castleRanks } : null,
     militiaCd: g.militiaCd || 0,
-    hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, talents: { ...(b.talents || {}) }, rally: { ...b.rally } } : null; })(),
+    hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, talents: { ...(b.talents || {}) }, rally: { ...b.rally }, abCd: { ...(b.abCd || {}) } } : null; })(),
   };
   if (g.buildUntil != null) {
     const rem = Math.max(0, g.buildUntil - g.time);
@@ -138,12 +138,13 @@ export const restartWave = (g) => {
   if (s.castle) g.castle = { ...s.castle };
   g.castleRanks = s.castleRanks ? { ...s.castleRanks } : g.castleRanks && {};
   g.militiaCd = s.militiaCd || 0;
-  // talents are bought for good: a restarted wave keeps the ones bought since
-  const liveTalents = g.bands?.find((x) => x.kind === "hero")?.talents;
+  // the hero comes back as the wave found him: level, xp, and his abilities
+  // still recharging, so a restart can't refill them
   g.bands = [];
+  g.volleys = [];
   if (s.hero) {
-    const b = fieldHero(g, s.hero.key, s.hero.level, s.hero.rally.x, s.hero.rally.y, liveTalents || s.hero.talents);
-    if (b) b.xp = s.hero.xp;
+    const b = fieldHero(g, s.hero.key, s.hero.level, s.hero.rally.x, s.hero.rally.y, s.hero.talents);
+    if (b) { b.xp = s.hero.xp; b.abCd = { ...(s.hero.abCd || {}) }; }
   }
   g.phase = "build"; g.selectedId = null; g.buildMode = null; g.rallyFor = null; g.paused = false; g.buildUntil = null;
 };
@@ -342,12 +343,12 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
   if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;
   if (e.hp <= 0 && !e.dead) {
     if (src) src.kills = (src.kills || 0) + 1;
-    // the hero learns from every death he had a hand in: his own kills, and
-    // any that fall within a few strides of him
+    // the hero learns only from deaths: his own kills in full, and a share
+    // of any that fall within a few strides of him (bands.js killXp)
     {
       const hb = g.bands?.find((b) => b.kind === "hero");
       const hu = hb?.units[0];
-      if (hb && (src === hb || (hu && hu.state !== "dead" && Math.hypot(hu.x - e.x, hu.y - e.y) < 90))) hb.xp = (hb.xp || 0) + (e.boss ? 6 : 1) + (src === hb ? 1 : 0);
+      if (hb && (src === hb || (hu && hu.state !== "dead" && Math.hypot(hu.x - e.x, hu.y - e.y) < KILL_NEAR))) hb.xp = (hb.xp || 0) + killXp(e, src === hb);
     }
     e.dead = true;
     // a transmuter's aura makes every nearby death pay better — in fractions,
@@ -459,4 +460,76 @@ export const fieldHero = (g, key, level = 1, x, y, talents = {}, xp = 0) => {
   return band;
 };
 export const heroBand = (g) => g?.bands?.find((b) => b.kind === "hero") || null;
+
+// ---- the hero's abilities (bands.js HERO_ABILITIES) ----
+// Where an ability stands: locked until the hero reaches its level in this
+// battle, cooling down, or ready. Seconds left are rounded up for the menu.
+export const heroAbilityState = (b, a) => {
+  if (!b) return { state: "none" };
+  if (b.level < a.unlock) return { state: "locked", unlock: a.unlock };
+  const left = (b.abCd && b.abCd[a.id]) || 0;
+  if (left > 0) return { state: "cooling", sec: Math.ceil(left / 1000), frac: left / (b.st.abil[a.id]?.cd || a.cd) };
+  if (b.units[0].state === "dead") return { state: "down" };
+  return { state: "ready" };
+};
+// The foe a Heartseeker takes: the BIGGEST near the tap — the most health
+// it was born with, then the most left — never a flier the arrow can't reach
+// (it can: she shoots anything). Null when nothing stands near.
+export const heartseekerMark = (g, x, y, pick) => {
+  let best = null;
+  for (const e of g.enemies) {
+    if (e.dead || Math.hypot(e.x - x, e.y - y) > pick) continue;
+    if (!best || e.maxHp > best.maxHp || (e.maxHp === best.maxHp && e.hp > best.hp)) best = e;
+  }
+  return best;
+};
+// Fire ability `id` (at the map point x, y when it takes aim). True if it went.
+export const fireHeroAbility = (g, id, x, y) => {
+  const b = heroBand(g);
+  if (!b) return false;
+  const def = heroAbilities(b.hero).find((a) => a.id === id);
+  if (!def || heroAbilityState(b, def).state !== "ready") return false;
+  const a = b.st.abil[id];
+  const u = b.units[0];
+  const tms = g.time * 1000;
+  if (id === "slam") {
+    for (const e of g.enemies) {
+      if (e.dead || e.flying || e.swimming || Math.hypot(e.x - u.x, e.y - u.y) > a.r) continue;
+      dealDamage(g, e, a.dmg, "phys", false, false, b.id);
+      if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil || 0, tms + a.stun);
+    }
+    g.effects.push({ type: "slam", x: u.x, y: u.y + 4, ttl: 450, r: a.r });
+    g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: a.r * 0.8 });
+    g.shake = Math.max(g.shake, 5);
+    sfx.play("rock");
+  } else if (id === "charge") {
+    // he rides at the spot, as far as his reach allows; the engine carries
+    // him there (update.js) and he holds it as his new post
+    const dx = x - u.x, dy = y - u.y, d = Math.hypot(dx, dy) || 1, k = Math.min(1, a.reach / d);
+    const tx = u.x + dx * k, ty = u.y + dy * k;
+    releaseEnemy(g, g.enemies.find((e) => e.blockedBy === u.id));
+    u.targetId = null;
+    u.dash = { tx, ty, hit: [] };
+    b.rally = { x: tx, y: ty };
+    g.effects.push({ type: "levelup", x: tx, y: ty, ttl: 500 });
+    sfx.play("horn");
+  } else if (id === "volley") {
+    if (!g.volleys) g.volleys = [];
+    g.volleys.push({ src: b.id, x, y, r: a.r, dmg: a.dmg, tick: a.tick, next: tms + 250, until: tms + a.dur, t0: tms });
+    sfx.play("arrow");
+  } else if (id === "heart") {
+    const mark = heartseekerMark(g, x, y, a.pick);
+    if (!mark) return false;                 // nothing there: keep the arrow
+    g.projectiles.push({
+      id: nextId(), x: u.x, y: u.y - 14, targetId: mark.id, tx: mark.x, ty: mark.y, speed: 720, delay: 0,
+      dmg: a.dmg, dtype: "phys", pierce: true, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0,
+      kind: "arrow", src: b.id, big: true, poison: 0, poisonDur: 0, poisonCap: 0, chain: 0, chainRange: 0,
+    });
+    g.effects.push({ type: "reticle", x: mark.x, y: mark.y, ttl: 700, target: mark.id });
+    sfx.play("bolt");
+  } else return false;
+  if (!b.abCd) b.abCd = {};
+  b.abCd[id] = a.cd;
+  return true;
+};
 

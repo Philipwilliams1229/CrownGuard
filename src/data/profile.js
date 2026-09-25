@@ -28,9 +28,10 @@ const EMPTY = () => ({
   // { towerKind: { branch, rank4: { a: "aa", b: "bb" } } } — the paths the
   // player last chose by hand; Master Builds replay them in one click
   favored: {},
-  // { aldric: { points, talents: { bulwark: 2 }, best } } — talent points
-  // banked from every level a hero has gained, the ranks bought with them,
-  // and the highest level the hero has reached in any one battle
+  // { aldric: { points, talents: { bulwark: 2, slam: 1 }, bestBy: { gw3: 11 } } }
+  // — the hero's own stars (paid when a map is won: bankHeroStars), the
+  // ranks bought with them on the Home Screen, and the best level the hero
+  // has ended each map at (a new best pays in full, a replay half)
   heroes: {},
   stats: {
     levelsCleared: 0,   // clears, including repeats
@@ -102,17 +103,34 @@ export function recordFavored(kind, pick) {
 
 export const favoredFor = (kind) => loadProfile().favored[kind] || {};
 
-// ---- heroes' talent points ----
-// Written straight to storage like recordFavored: a hero's points can't
-// change the tower perks, so there is nothing to recompute.
+// ---- heroes' stars ----
+// Each hero keeps their OWN star bank (`points`), spent only on the Home
+// Screen on that hero's talents and ability upgrades. Written straight to
+// storage like recordFavored: a hero's stars can't change the tower perks,
+// so there is nothing to recompute.
 const writeRaw = (p) => { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* private mode */ } return p; };
-export const heroRecord = (p, key) => ({ points: 0, talents: {}, best: 1, ...(p.heroes?.[key] || {}) });
-// a hero gained `n` levels in battle, reaching `level`: bank a point for each
-export function bankHeroPoints(key, n, level = 1) {
+export const heroRecord = (p, key) => {
+  const h = { points: 0, talents: {}, bestBy: {}, ...(p.heroes?.[key] || {}) };
+  if (typeof h.bestBy !== "object" || !h.bestBy) h.bestBy = {};
+  return h;
+};
+// What a won map pays a hero who ended its scripted waves at `level`: a new
+// best on that map pays the improvement in full, and the rest of the level
+// pays half — so a replay is worth something, a first clear most of all.
+export const heroStarsFor = (level, prevBest = 0) => {
+  const gain = Math.max(0, level - prevBest);
+  return gain + Math.floor((level - gain) / 2);
+};
+// Bank a won map's hero stars. `mapKey` is the campaign level id, or
+// "free:<realm>" for Free Play. Returns what was paid and the old best.
+export function bankHeroStars(key, mapKey, level) {
   const p = loadProfile();
   const h = heroRecord(p, key);
-  p.heroes = { ...p.heroes, [key]: { ...h, points: h.points + n, best: Math.max(h.best, level) } };
-  return writeRaw(p);
+  const prev = h.bestBy[mapKey] || 0;
+  const paid = heroStarsFor(level, prev);
+  p.heroes = { ...p.heroes, [key]: { ...h, points: h.points + paid, bestBy: { ...h.bestBy, [mapKey]: Math.max(prev, level) } } };
+  writeRaw(p);
+  return { paid, prev, level, total: h.points + paid };
 }
 // spend points on the next rank of talent `id`; null if it can't be bought
 export function buyHeroTalent(key, id) {

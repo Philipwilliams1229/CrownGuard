@@ -23,7 +23,8 @@
 // node — it turns gold and its foot reads "TAP AGAIN · SPEND n★" — and the
 // second tap on it buys. A tap anywhere else, or 3 seconds, disarms it.
 //
-// The HEROES tab (HeroTalents.jsx) spends the heroes' talent points.
+// The HEROES tab (HeroTalents.jsx) spends each hero's own stars — the only
+// place they can be spent — on talents and ability upgrades.
 
 import { useState } from "react";
 import {

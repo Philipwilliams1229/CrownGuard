@@ -81,11 +81,25 @@ should never have to rediscover it.
   wave bonus, per-level gold in `src/data/campaign.js`, tower stats in
   `src/data/towers.js`, castle works and endless ranks in `src/data/castle.js`.
 - Heroes (`src/data/bands.js`): level 1 at the start of every map, up to
-  20; `heroXpFor` (steepening) and `waveXp` (~360 xp per map's script) aim
-  at ~level 10 by the end of the script — measure with
-  `node scripts/sim.mjs --level <id> --hero-at 0.6`. Each level gained
-  banks a talent point for good in the PROFILE (`profile.heroes[key]`);
-  five talents per hero, five ranks costing `TALENT_COSTS` 10/12/15/20/25.
+  20, with health, damage and ability power rising per level. XP comes ONLY
+  from kills (`killXp`: the foe's bounty × `KILL_XP`, doubled for the
+  hero's own kills, a share for kills within `KILL_NEAR`), so placement
+  matters. `KILL_XP` 0.17 puts a well-placed hero at ~level 10-12 by the end
+  of the script — measure by sweeping `--hero-at 0.2/0.35/0.5/0.65` with
+  `node scripts/sim.mjs --level <id>` and taking the best (a player finds
+  the fight; a fixed spot can sit behind the towers and earn nothing).
+- Hero stars: a WON map pays the hero's level at the end of the scripted
+  waves (never Endless) as that hero's own stars (`profile.bankHeroStars`:
+  a new best on that map pays the gain in full plus half the rest; a replay
+  pays half). Spent ONLY on the Home Screen (War Council → Heroes), never in
+  battle: five stat talents + one upgrade line per ability, five ranks at
+  `TALENT_COSTS` 5/6/8/10/13 (294 to max a hero; ~24 maps × ~10 per first
+  run). Bank the stars AFTER `bankLevel`, which saves the profile it's given.
+- Hero abilities (`HERO_ABILITIES`): two per hero, fired from the hero's
+  menu in battle (tap the hero button). The first is ready from the start;
+  the second wakes at level 5 of that battle. Engine: `fireHeroAbility` in
+  `actions.js`; the charge and the volleys run in `update.js`. Heartseeker
+  takes the foe with the most max health within `pick` of the tap.
 - The owner playtests; the sims are a floor, not a target.
 - The board is 840x560 (3:2): an 80px right border holds the castle band
   (wall face at `W - WALL_W` = 738). See art/STYLE-GUIDE.md "The board's
