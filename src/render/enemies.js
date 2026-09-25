@@ -323,10 +323,13 @@ export const drawKnightUnit = (ctx, u, t, time) => {
   }
   if (u.hp < u.maxHp) {
     const pct = Math.max(0, u.hp / u.maxHp);
-    ctx.fillStyle = INK;
-    ctx.fillRect(u.x - 10, u.y - 18, 20, 5);
-    ctx.fillStyle = pct > 0.4 ? "#7cb4d8" : "#c05248";
-    ctx.fillRect(u.x - 9, u.y - 17, Math.round(18 * pct / CELL) * CELL, 3);
+    // slim, and over the soldier's own head: a wolf rider and the champion
+    // stand far taller than a knight
+    const by = u.y - (rider ? 33 : giant ? 42 : 21);
+    ctx.fillStyle = "rgba(36,26,38,0.85)";
+    ctx.fillRect(u.x - 8, by - 1, 16, 4);
+    ctx.fillStyle = pct > 0.4 ? "#7cb4d8" : "#d0564a";
+    ctx.fillRect(u.x - 7, by, Math.max(1, Math.round(14 * pct)), 2);
   }
 };
 
