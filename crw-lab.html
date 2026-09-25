@@ -1,0 +1,74 @@
+<!doctype html>
+<!--
+  Dev tool (soldiers): a close-up sheet of chosen rig frames, painted once at
+  load and saved to .shots/crw_<tag>.png.
+    /crw-lab.html?types=knight,paladin&cells=w0,w1,w2,w3,f0,f1&tag=v1&scale=6
+  cells: wN = walk frame N, fN = fight frame N, wh = white flash of walk 0.
+  A last strip shows every type at 1x and 2x game scale on grass.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — soldiers lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { rigFrame } from "/src/render/rigs.js";
+      const q = new URLSearchParams(location.search);
+      // ?scene=<tag>: the soldiers in context — hands a job to /shots.html, which
+      // saves .shots/crw_board_<tag>.png and a 3x close-up crw_zoom_<tag>.png
+      if (q.get("scene")) {
+        const tag = q.get("scene");
+        const T = (id, x, y, branch, rank4, units) => ({ id, kind: "knight", x, y, level: 3, branch, rank4, cd: 0, aim: "first", lastAim: 0, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, rally: { x: x + 30, y: y + 50 }, units, kills: 0, dmgOut: 0, liveTime: 1, _idle: false, charges: 3, ramp: 2, mAnim: 0, eagle: null });
+        const U = (id, x, y, state, face, swing = 0, hp = 150) => ({ id, x, y, hp, maxHp: 200, state, face, swing, respawn: 0 });
+        const towers = [
+          T(1, 300, 250, null, null, [U(11, 380, 296, "rally", 1), U(12, 392, 318, "fighting", 1, 120), U(13, 360, 312, "moving", 1)]),
+          T(2, 560, 250, "a", null, [U(21, 560, 330, "rally", -1), U(22, 540, 340, "fighting", 1, 40)]),
+          T(3, 560, 420, "b", null, [U(31, 610, 380, "rally", 1), U(32, 630, 395, "fighting", -1, 120)]),
+          T(4, 470, 470, "a", "a", [U(41, 470, 400, "fighting", 1, 40)]),
+        ];
+        const bands = [
+          { id: 90, kind: "hero", hero: "aldric", level: 3, st: {}, rally: { x: 290, y: 350 }, units: [U(91, 285, 352, "fighting", 1, 120, 200)] },
+          { id: 92, kind: "hero", hero: "wren", level: 2, st: { ranged: true }, rally: { x: 330, y: 210 }, units: [U(93, 335, 212, "fighting", 1, 0, 200)] },
+          { id: 94, kind: "militia", st: {}, rally: { x: 250, y: 300 }, units: [U(95, 240, 300, "rally", 1), U(96, 262, 310, "fighting", 1, 120)] },
+        ];
+        const marchers = [["goblin", 0.2, 0], ["orc", 0.25, 6], ["goblin", 0.3, -6], ["goblin", 0.16, 4], ["armored", 0.12, 0]];
+        const extra = { towers, bands };
+        const job = [[`crw_board_${tag}`, "greenwood", marchers, extra], [`crw_zoom_${tag}`, "greenwood", marchers, extra, [220, 190, 440, 300, 3]], [`crw_ipad_${tag}`, "greenwood", marchers, extra, [220, 190, 440, 300, 1.4]]];
+        location.replace("/shots.html?job=" + encodeURIComponent(JSON.stringify(job)));
+        await new Promise(() => {});          // the page is leaving; paint nothing here
+      }
+      const types = (q.get("types") || "knight").split(",");
+      const cells = (q.get("cells") || "w0,w1,w2,w3,f0,f1").split(",").map((c) => c === "wh" ? ["walk", 0, "white"] : [c[0] === "f" ? "fight" : "walk", +c.slice(1), ""]);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 6;
+      const sizes = types.map((t) => rigFrame(t, "walk", 0).cv);
+      const cw = Math.max(...sizes.map((c) => c.width)) + 4, rh = Math.max(...sizes.map((c) => c.height)) + 4;
+      const stripH = rh * 2 + 8;
+      const cv = document.createElement("canvas");
+      cv.width = Math.max(cw * cells.length * SC, types.length * cw * 3 + 8);
+      cv.height = rh * types.length * SC + stripH;
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      types.forEach((t, r) => cells.forEach(([sheet, fr, v], i) => {
+        ctx.fillStyle = (i + r) % 2 ? "#86b35a" : "#7eab54";
+        ctx.fillRect(i * cw * SC, r * rh * SC, cw * SC, rh * SC);
+        const sp = rigFrame(t, sheet, fr, v);
+        ctx.drawImage(sp.cv, (i * cw + (cw - sp.cv.width) / 2) * SC, (r * rh + rh - 2 - sp.cv.height) * SC, sp.cv.width * SC, sp.cv.height * SC);
+      }));
+      // game scale: the baked sprite is 2 art px per world unit; the board is shown ~1 world unit per css px on an iPad
+      const y0 = rh * types.length * SC;
+      ctx.fillStyle = "#82b256"; ctx.fillRect(0, y0, cv.width, stripH);
+      let x = 4;
+      for (const t of types) for (const [sheet, fr] of [["walk", 0], ["fight", 1]]) {
+        const sp = rigFrame(t, sheet, fr);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(sp.cv, x, y0 + 4 + rh - sp.cv.height / 2, sp.cv.width / 2, sp.cv.height / 2);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(sp.cv, x, y0 + 4 + rh * 2 - sp.cv.height, sp.cv.width, sp.cv.height);
+        x += cw * 1.5;
+      }
+      fetch("/__shot?name=crw_" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) })
+        .then(() => { document.title = "DONE"; document.getElementById("status").textContent = "saved .shots/crw_" + TAG + ".png"; });
+      document.body.appendChild(cv);
+    </script>
+  </body>
+</html>
