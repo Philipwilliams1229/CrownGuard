@@ -1,0 +1,56 @@
+<!doctype html>
+<!--
+  Dev tool (beasts): one board frame through the real draw(), cropped canvas
+  to canvas (no image decode, so it works in a background tab) and saved to
+  .shots/<name>.png. One shot per load — the dev server reloads the page when
+  the PNG lands.
+    /bst-board.html?name=bst_x&realm=greenwood&m=[["wolf",0.3,0]]&crop=[340,60,300,360,3]&time=7.3
+-->
+<html>
+  <head><meta charset="utf-8" /><title>beast board</title></head>
+  <body style="background:#14171d">
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { W, H } from "/src/data/constants.js";
+      import { posAt, angleAt, TOTAL_LEN } from "/src/engine/path.js";
+      import { draw } from "/src/render/draw.js";
+      import { ENEMIES } from "/src/data/enemies.js";
+      const q = new URLSearchParams(location.search);
+      const name = q.get("name") || "bst_board";
+      const marchers = JSON.parse(q.get("m") || "[]");
+      const crop = q.get("crop") ? JSON.parse(q.get("crop")) : null;
+      const time = Number(q.get("time") || 7.3);
+      const mk = ([type, frac, lane = 0, extra = {}]) => {
+        const d = ENEMIES[type], dist = TOTAL_LEN * frac;
+        const [px, py] = posAt(dist), a = angleAt(dist);
+        return {
+          id: Math.floor(dist), type, hp: d.hp * 0.7, maxHp: d.hp, dist, gait: dist / 14,
+          x: px + Math.cos(a + Math.PI / 2) * lane, y: py + Math.sin(a + Math.PI / 2) * lane,
+          face: Math.cos(a) >= 0 ? 1 : -1, size: d.size, armor: d.armor, mres: d.mres || 0,
+          guard: 0, guardFlash: 0, flying: !!d.flying, boss: !!d.boss,
+          atkAnim: 0, stunUntil: 0, slowUntil: 0, slowPct: 0, auraSlow: 0,
+          burnUntil: 0, poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: 0,
+          blockedBy: null, engaged: false, dead: false, revived: false, ...extra,
+        };
+      };
+      selectRealm(q.get("realm") || "greenwood");
+      const g = {
+        time, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5,
+        towers: [], projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [],
+        enemies: marchers.map(mk), phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null,
+        paused: false, buildUntil: null,
+      };
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      draw(g, cv, { current: null });
+      let out = cv;
+      if (crop) {
+        const [x, y, w, h, sc = 2] = crop, k = cv.width / W;
+        out = document.createElement("canvas"); out.width = w * k * sc; out.height = h * k * sc;
+        const cx = out.getContext("2d"); cx.imageSmoothingEnabled = false;
+        cx.drawImage(cv, x * k, y * k, w * k, h * k, 0, 0, out.width, out.height);
+      }
+      await fetch("/__shot?name=" + encodeURIComponent(name), { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

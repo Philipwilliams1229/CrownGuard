@@ -30,4 +30,6 @@ const shotSink = {
 export default defineConfig({
   base: "./",
   plugins: [react(), shotSink],
+  // lab screenshots land in .shots/; a write there must not reload every page
+  server: { watch: { ignored: ["**/.shots/**"] } },
 });
