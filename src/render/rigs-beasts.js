@@ -89,15 +89,17 @@ const berserker = (ctx, p, x, y, fight, frame) => {
   const lean = fight ? (frame === 1 ? 1.4 : -0.8) : 0.5;
   ctx.save(); ctx.translate(x, y);
   // far arm, on the scruff
-  leg(ctx, [[1 + lean, -5.2], [4.2 + lean * 0.6, -2.8], [5 + lean * 0.6, -2.4]], [1.8, 1.5, 1.6], darken(cloth, 0.35));
+  leg(ctx, [[1 + lean, -5.2], [4.2 + lean * 0.6, -2.8], [5 + lean * 0.6, -2.4]], [1.8, 1.5, 1.6], darken(skin, 0.3));
   // near leg, draped down the flank
   leg(ctx, [[0.2, -0.8], [3.2, 1.4], [2.4, 4.6]], [3, 2.3, 2], darken(cloth, 0.22), { hi: lighten(darken(cloth, 0.22), 0.25), extra: (c) => { c.fillStyle = "#3a2a22"; c.beginPath(); c.ellipse(3.1, 5, 1.6, 1, 0, 0, TAU); c.fill(); } });
-  // torso, leaning into the ride, bare at the throat
+  // torso, leaning into the ride, bare-chested like the hall's berserkers:
+  // one strap across it and a fur belt
   part(ctx, (c) => {
     curve(c, [[-2.4, 0.6], [2.2, 0.6], [2.6 + lean * 0.4, -3], [2.2 + lean, -6.2], [lean * 0.8, -7], [-1.8 + lean * 0.8, -6.2], [-2.6, -2.6]]);
-    c.fillStyle = tone(c, -2.6, -7, 2.6, 0, cloth, 0.3, 0.4); c.fill();
-    c.fillStyle = p.cloth2 || darken(cloth, 0.4); c.fillRect(-2.6, -1.8, 5.4, 1);
-    c.fillStyle = lighten(skin, 0.1); curve(c, [[0.6 + lean, -6.6], [2.2 + lean, -6], [1.6 + lean * 0.7, -4.2]]); c.fill();
+    c.fillStyle = tone(c, -2.6, -7, 2.6, 0, skin, 0.3, 0.4); c.fill();
+    c.strokeStyle = p.cloth2 || darken(cloth, 0.4); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-1.8 + lean * 0.8, -6.2); c.lineTo(2.2, -0.6); c.stroke();
+    c.fillStyle = cloth; c.fillRect(-2.6, -1.8, 5.4, 1.4);
   });
   // head: a wild red mane and beard
   const hx = 1.8 + lean * 1.1, hy = -9.2;
@@ -107,6 +109,7 @@ const berserker = (ctx, p, x, y, fight, frame) => {
     c.fillStyle = tone(c, hx - 3, hy - 4, hx + 2, hy + 3, hair, 0.3, 0.4);
     curve(c, [[hx - 3.4, hy + 1.8, 1], [hx - 2.6, hy + 0.4], [hx - 4, hy - 0.8, 1], [hx - 2.4, hy - 1.6], [hx - 2.8, hy - 3.4, 1], [hx - 0.8, hy - 2.8], [hx + 0.4, hy - 4, 1], [hx + 1.2, hy - 2.6], [hx + 2.4, hy - 2.2, 1], [hx + 1.6, hy - 1.2], [hx - 0.4, hy - 1.4], [hx - 1, hy + 1.2]]); c.fill();
     curve(c, [[hx + 0.4, hy + 1.2], [hx + 2.2, hy + 1.2], [hx + 1.8, hy + 3.2, 1], [hx + 0.6, hy + 2.6]]); c.fill();
+    c.fillStyle = "#3a6aa8"; c.fillRect(hx - 0.4, hy - 0.8, 3, 1);   // war paint across the eyes
     c.fillStyle = "#2a2230"; c.fillRect(hx + 1.1, hy - 0.4, 0.6, 0.7);
   });
   // near arm and the axe in it
@@ -114,7 +117,7 @@ const berserker = (ctx, p, x, y, fight, frame) => {
   const hand = fight ? (frame === 1 ? [5.6, -4.2] : [-0.4, -10]) : [2.8 + lean, -4.6];
   const ang = fight ? (frame === 1 ? 0.15 : -2.3) : -2.55 + Math.sin(((p.frame || 0) / 4) * TAU) * 0.1;
   weapon(ctx, r.weapon || "axe", hand[0], hand[1], ang, r.wcol, r.ws || 1);
-  leg(ctx, [sh, hand], [2, 1.7], cloth, { extra: (c) => { c.fillStyle = skin; c.beginPath(); c.arc(hand[0], hand[1], 0.95, 0, TAU); c.fill(); } });
+  leg(ctx, [sh, hand], [2, 1.7], skin, { extra: (c) => { c.fillStyle = skin; c.beginPath(); c.arc(hand[0], hand[1], 0.95, 0, TAU); c.fill(); } });
   ctx.restore();
 };
 
