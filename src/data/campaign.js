@@ -50,7 +50,7 @@ export const CHAPTERS = [
       },
       {
         id: "gw4", name: "The Barrowfields", realm: "barrowfields", short: "Barrowfields",
-        window: { from: 5, to: 20, count: 20 }, gold: 650, pos: [104, 62],
+        window: { from: 5, to: 20, count: 20 }, gold: 750, pos: [104, 62],
         blurb: "Trolls out of the mounds, shamans chanting the wounded whole. Kill the healers first, and save something heavy for the trolls.",
       },
       {
@@ -98,7 +98,7 @@ export const CHAPTERS = [
       },
       {
         id: "ir4", name: "Greyhelm Pass", realm: "greyhelm", short: "Greyhelm",
-        window: { from: 5, to: 20, count: 20 }, gold: 800, pos: [330, 86],
+        window: { from: 5, to: 20, count: 20 }, gold: 750, pos: [330, 86],
         blurb: "Chaplains ward the whole column against chip damage. Break the ward with something that hits once and hits hard.",
       },
       {
