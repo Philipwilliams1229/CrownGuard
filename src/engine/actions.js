@@ -9,7 +9,7 @@ import { MILITIA, HEROES, heroStats } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
-import { waveSpec, waveHpMult } from "../data/waves.js";
+import { waveSpec, waveHpMult, CROWD_WEIGHT } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
 import { makeTower, syncUnits, getStats } from "./towers.js";
 import { nextId } from "./ids.js";
@@ -60,10 +60,18 @@ export const startWave = (g) => {
   const mult = waveHpMult(g.wave);
   const queue = [];
   let delay = 400;
-  for (const [type, count, gap] of waveSpec(g.wave)) {
-    for (let i = 0; i < count; i++) { queue.push({ type, at: delay, mult }); delay += gap; }
-    delay += 900;
+  const spec = waveSpec(g.wave);
+  const ov = spec.overlap || 0;
+  for (const [type, count, gap, pay = 1] of spec) {
+    const start = delay;
+    for (let i = 0; i < count; i++) { queue.push({ type, at: delay, mult, pay }); delay += gap; }
+    // the next group sets out before this one is done, deep in the war —
+    // but only rank and file stream in together; the trolls, shamans and
+    // warchiefs still get a road to themselves, so a wall stays readable
+    const o = (CROWD_WEIGHT[type] ?? 0) >= 0.4 ? ov : 0;
+    delay = start + (delay - start) * (1 - o) + 900 * (1 - o);
   }
+  queue.sort((p, q) => p.at - q.at);
   g.spawnQueue = queue;
   g.spawnTimer = 0;
   g.livesAtWaveStart = g.lives;      // the Dragon's Hoard pays only clean waves

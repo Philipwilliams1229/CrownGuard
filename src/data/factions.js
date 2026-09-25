@@ -67,6 +67,8 @@ export const FACTIONS = {
 
   iron: {
     id: "iron",
+    // swells with the crowd only lightly until this chapter is retuned
+    crowdScale: 0.35,
     name: "The Iron Kingdom",
     tag: "AN ARMY",
     tagColor: "#9ab6d8",
@@ -109,6 +111,8 @@ export const FACTIONS = {
 
   hollow: {
     id: "hollow",
+    // swells with the crowd only lightly until this chapter is retuned
+    crowdScale: 0.35,
     name: "The Hollow Court",
     tag: "THE DEAD",
     tagColor: "#b08ad8",

@@ -23,7 +23,8 @@ export function setWaveWindow(w) { WINDOW = w; }
 
 // Where wave `w` of this level sits in the war. Used for what marches and
 // for how hard it hits.
-const absWave = (w) => (WINDOW ? Math.round(WINDOW.from + (WINDOW.to - WINDOW.from) * (w - 1) / Math.max(1, WINDOW.count - 1)) : w);
+const absWaveF = (w) => (WINDOW ? WINDOW.from + (WINDOW.to - WINDOW.from) * (w - 1) / Math.max(1, WINDOW.count - 1) : w);
+const absWave = (w) => Math.round(absWaveF(w));
 
 // How long the marching army's scripted campaign runs before the Endless
 // March takes over. A call, not a constant, because the answer changes with
@@ -52,7 +53,8 @@ export function genWave(w) {
   let budget = 78 + past * 16 + past * past * 0.7;
   // a campaign level's generated tail is a campaign wave, not the Endless
   // March: it grows with the war, but it is meant to be held
-  if (WINDOW) budget = 70 + past * 11 + past * past * 0.25;
+  // (the crowd swells these counts again on top, so the budget stays lean)
+  if (WINDOW) budget = 60 + past * 10 + past * past * 0.3;
   const spec = [];
   // the endless march brings its champion every fifth wave; a campaign
   // level's boss is placed by waveSpec instead
@@ -62,12 +64,17 @@ export function genWave(w) {
   }
   const picks = 2 + Math.floor(rand() * 3);
   const pool = [...FACTION.roster];
+  // a campaign wave always carries a body of rank and file — the war never
+  // sends a handful of trolls on their own and calls it a wave
+  const chaff = WINDOW ? pool.filter((r) => r.cost <= 1.6) : [];
   for (let i = 0; i < picks && budget > 0 && pool.length; i++) {
-    const grp = pool.splice(Math.floor(rand() * pool.length), 1)[0];
+    const grp = i === 0 && chaff.length
+      ? pool.splice(pool.indexOf(chaff[Math.floor(rand() * chaff.length)]), 1)[0]
+      : pool.splice(Math.floor(rand() * pool.length), 1)[0];
     const share = i === picks - 1 ? budget : budget * (0.3 + rand() * 0.4);
     let count = Math.max(1, Math.round(share / grp.cost));
     if (grp.cap) count = Math.min(count, grp.cap + Math.floor(past / 10));
-    count = Math.min(count, 32);
+    count = Math.min(count, WINDOW ? 50 : 32);
     budget -= count * grp.cost;
     // spawn gaps tighten as the march deepens, but never into a solid wall
     const gap = Math.max(240, Math.round(grp.gap * (1 - Math.min(0.45, past * 0.015))));
@@ -78,28 +85,71 @@ export function genWave(w) {
 
 const BOSSES = new Set(["dragon", "marshal", "hollowking"]);
 
+// ---- THE CROWD ----
+// Past the opening waves the war gets bigger, not just tougher: every wave
+// brings MORE of its rank and file, packed tighter on the road — the Bloons
+// feeling of a screen filling up. `crowd(a)` is the swell at war-wave `a`;
+// each type feels it by its WEIGHT (chaff swarms, brutes thicken a little,
+// captains and bosses never multiply). A swollen group pays less a head, so
+// the purse grows far slower than the horde does: more to kill, not more to
+// spend.
+export const CROWD_WEIGHT = {
+  goblin: 1, bat: 0.8, wolf: 0.9, orc: 0.6, boarrider: 0.5, armored: 0.45, rafter: 0.6,
+  shaman: 0.1, troll: 0.1, hobgoblin: 0, necro: 0,
+  levy: 1, crossbow: 0.7, sergeant: 0.45, cavalier: 0.4, gryphon: 0.35, chaplain: 0.15, ram: 0.1,
+  skeleton: 1, ghoul: 0.9, bonearcher: 0.7, wraith: 0.5, ghast: 0.4, crypt: 0.35, gravecaller: 0.1, amalgam: 0.2,
+};
+// A faction may swell less (`crowdScale` in factions.js): the Greenwood is
+// a horde and swells fully; the drilled armies behind it have been tuned
+// for the crowd only lightly so far.
+export const crowd = (a) => 1 + Math.max(0, a - 3) * 0.12 * (FACTION.crowdScale ?? 1);
+const swell = (spec, a, warm = 1) => spec.map(([type, count, gap]) => {
+  const k = 1 + (crowd(a) - 1) * warm * (CROWD_WEIGHT[type] ?? 0);   // a may be fractional
+  if (k <= 1.001 || BOSSES.has(type)) return [type, count, gap, 1];
+  const n = Math.round(count * k);
+  // the stream tightens as it thickens, so a wave runs longer but not
+  // proportionally longer — and never into a solid wall
+  const g2 = Math.max(90, Math.round(gap / Math.pow(k, 0.9)));
+  // pay per head falls almost as fast as the heads multiply
+  return [type, n, g2, Math.pow(count / n, 1)];
+});
+
 // The single source of truth for "what does wave w hold?"
 // Free Play: the faction's script, then the Endless March.
 // A campaign level: its slice of the script — a level that runs past the
 // script's end continues into generated war-waves — with the faction's boss
 // held back for the LAST wave of a level that is flagged to have one (the
 // chapter's final level), and stripped from anywhere else.
+// Each entry comes back as [type, count, gapMs, payMul].
 export const waveSpec = (w) => {
   const a = absWave(w);
   const scripted = a <= FACTION.waves.length;
-  if (!WINDOW) return w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w);
+  if (!WINDOW) { const sp = swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a); sp.overlap = overlap(a); return sp; }
+  // two waves of a level can land on the same war-wave; the later one comes
+  // thicker, because the crowd reads the level's true (fractional) position
   let spec = scripted ? FACTION.waves[a - 1] : genWave(w);
   spec = spec.filter(([type]) => !BOSSES.has(type));
-  if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0]];
+  // every level opens on its own ground: the swell comes in over its first
+  // few waves, so a fresh purse never meets a full-grown horde on wave one
+  spec = swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1)));
+  if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
+  spec.overlap = overlap(a);
   return spec;
 };
+
+// How far a wave's groups march side by side instead of one after another:
+// 0 = each group waits for the last to finish (the teaching waves), 0.5 =
+// the next group sets out when the last is only halfway out of the wood. Deep
+// in the war the whole warband comes down the road at once.
+export const overlap = (a) => Math.max(0, Math.min(0.5, (a - 5) / 14));
 
 export const waveHpMult = (w) => {
   const a = absWave(w);
   const past = Math.max(0, a - FACTION.waves.length);
   // A campaign level climbs more gently than the Endless March: the march
   // is meant to end, a level is meant to be held.
-  if (WINDOW) return 1 + (a - 1) * 0.08 + past * past * 0.004;
+  // The horde grows by NUMBERS more than by hide (see the crowd, above).
+  if (WINDOW) return 1 + (a - 1) * 0.06 + past * past * 0.006;
   // The march must end — but it was ending by arithmetic rather than by
   // anything the player could answer: at wave 85 the quadratic had outrun
   // every purse on the board. Eased so deep runs are decided by the board.
@@ -107,4 +157,4 @@ export const waveHpMult = (w) => {
 };
 // A cleared wave pays. A campaign wave pays less than an endless one: there
 // are more of them, and the gold they leave behind is banked to the crown.
-export const waveBonus = (w) => (WINDOW ? 30 + absWave(w) * 4 : 55 + absWave(w) * 9);
+export const waveBonus = (w) => (WINDOW ? 24 + absWave(w) * 3 : 55 + absWave(w) * 9);

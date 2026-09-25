@@ -48,6 +48,10 @@ const { PTS } = await import("../src/engine/path.js");
 // because a real player always has one). --no-militia skips the free farmers.
 const HERO = after("hero") || "aldric";
 const MILITIA_ON = !flag("no-militia");
+// --endure: the castle cannot fall. Every wave is fought to its end and the
+// castle damage it caused is recorded instead — a stable difficulty curve,
+// where "which wave did it die on" swings with every roll of the dice.
+const ENDURE = flag("endure");
 const { CHAPTERS, LEVELS, towerUnlocked } = await import("../src/data/campaign.js");
 // which halls the commander may raise on this level: everything earned by
 // clearing the levels before it (free play: everything)
@@ -232,8 +236,10 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
   while (g.phase !== "lost" && !g.victory && ticks < MAX_TICKS) {
     if (g.phase === "build") {
       commander(g);
+      if (ENDURE) g.lives = 999;
       const livesBefore = g.lives;
       startWave(g);
+      const foes = g.spawnQueue.length, t0 = g.time, earned0 = g.run.goldEarned;
       // fight the whole wave
       while (g.phase === "combat" && ticks < MAX_TICKS) {
         updateGame(g, DT); ticks++;
@@ -244,11 +250,12 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
           callMilitia(g, mx, my);
         }
       }
+      (g.bleed ||= []).push(livesBefore - g.lives);
       if (!quiet) {
         const leaked = livesBefore - g.lives;
         const mark = leaked === 0 ? "  " : leaked <= 2 ? "! " : "!!";
         const hb0 = heroBand(g);
-        console.log(`  ${mark} wave ${String(g.wave).padStart(2)}/${total}  leaked ${String(leaked).padStart(2)}  lives ${String(g.lives).padStart(2)}  gold ${Math.round(g.gold)}${hb0 ? `  hero L${hb0.level} k${hb0.kills || 0} ${hb0.units[0].state}` : ""}`);
+        console.log(`  ${mark} wave ${String(g.wave).padStart(2)}/${total}  leaked ${String(leaked).padStart(2)}  lives ${String(g.lives).padStart(2)}  gold ${String(Math.round(g.gold)).padStart(5)}  foes ${String(foes).padStart(3)}  +${String(Math.round(g.run.goldEarned - earned0)).padStart(4)}g  ${Math.round(g.time - t0)}s${hb0 ? `  hero L${hb0.level} k${hb0.kills || 0} ${hb0.units[0].state}` : ""}`);
       }
     } else {
       updateGame(g, DT);
@@ -259,12 +266,20 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
   const result = g.victory ? "WON" : g.phase === "lost" ? "LOST" : "STUCK";
   const hb = heroBand(g);
   const towers = g.towers.map((t) => `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`).join(" ") + (hb ? ` + ${hb.name} L${hb.level}` : "");
-  return { result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName, gold: Math.round(g.gold), earned: Math.round(g.run?.goldEarned || 0) };
+  if (flag("ledger")) console.log("   ledger: " + g.towers.map((t) => ({ n: `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`, d: t.dmgOut || 0, k: t.kills || 0 }))
+    .sort((a, b) => b.d - a.d).map((x) => `${x.n} ${Math.round(x.d / 1000)}k/${x.k}`).join("  "));
+  return { bleed: g.bleed || [], result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName, gold: Math.round(g.gold), earned: Math.round(g.run?.goldEarned || 0) };
 }
 
 // A level gets a real player's persistence: the faction's natural doctrine
 // first, and if the castle falls, the other doctrine. Best attempt counts.
 function runLevel(opts, quiet) {
+  if (ENDURE) {
+    const out = ["swarm", "burst"].map((pl) => runOnce(opts, true, pl));
+    const line = (r) => `${r.plan.padEnd(5)} bled ${String(r.bleed.reduce((a, b) => a + b, 0)).padStart(3)}  [${r.bleed.join(" ")}]`;
+    console.log(`${opts.name.padEnd(28)} ${line(out[0])}\n${"".padEnd(28)} ${line(out[1])}`);
+    return { name: opts.name, ...out[0] };
+  }
   const first = opts.faction === "iron" ? "burst" : "swarm";
   const second = first === "burst" ? "swarm" : "burst";
   let r = runOnce(opts, quiet, first);

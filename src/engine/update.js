@@ -16,6 +16,9 @@ import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilt
 import { dealDamage, releaseEnemy, startWave } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 
+// How many bodies one blast can take (a tower may carry its own splashCap).
+const SPLASH_CAP = 16;
+
 // Build a fresh enemy instance of `type` with wave HP multiplier `mult`.
 // Used by the spawn queue and by necromancers raising the dead.
 const makeEnemy = (type, mult) => {
@@ -29,7 +32,7 @@ const makeEnemy = (type, mult) => {
     // A foe's purse used to be fixed while its health inflated forever, so by
     // the eightieth wave you were paid a wave-one wage to kill a wave-eighty
     // troll. The purse now follows the meat, at a quarter of its rate.
-    bounty: Math.max(1, Math.round(d.bounty * (1 + Math.max(0, mult - 1) * 0.15))),
+    bounty: Math.max(1, Math.round(d.bounty * (1 + Math.max(0, mult - 1) * 0.08))),
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: pickLane(d.boss),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
@@ -337,6 +340,7 @@ export function updateGame(g, dt) {
     while (g.spawnQueue.length && g.spawnQueue[0].at <= g.spawnTimer) {
       const s = g.spawnQueue.shift();
       const e = makeEnemy(s.type, s.mult);
+      if (s.pay != null && s.pay < 1) e.bounty = Math.max(1, Math.round(e.bounty * s.pay));   // a crowd pays less a head
       e.born = tms;                       // the renderer fades them out of the wood
       // a swimmer puts in at the bank nearest the gate and takes the river
       if (e.swims && RIVER_ROUTE) {
@@ -636,9 +640,9 @@ export function updateGame(g, dt) {
         if (e.burnSpread) {
           for (const e2 of g.enemies) {
             if (e2.dead || e2 === e || e2.burnUntil > tms) continue;
-            if (Math.hypot(e2.x - e.x, e2.y - e.y) <= 50) {
-              e2.burnUntil = tms + 1600;
-              e2.burnDps = e.burnDps * 0.8;
+            if (Math.hypot(e2.x - e.x, e2.y - e.y) <= 40) {
+              e2.burnUntil = tms + 1300;
+              e2.burnDps = e.burnDps * 0.6;
             }
           }
         }
@@ -885,7 +889,7 @@ export function updateGame(g, dt) {
             const sp = throws > 1 ? (i - (throws - 1) / 2) * 34 : 0;
             g.projectiles.push({
               x: t.x, y: t.y - 16, tx: near.x + sp, ty: near.y + (i % 2 ? -12 : 12) * (throws > 1 ? 1 : 0),
-              t: 0, speed: 200, delay: 0, dmg: st.dmg, dtype: "phys", pierce: false, splash: st.splash,
+              t: 0, speed: 200, delay: 0, dmg: st.dmg, dtype: "phys", pierce: false, splash: st.splash, splashCap: st.splashCap || 0,
               burn: st.burn || 0, burnDur: st.burnDur || 0, slow: 0, slowDur: 0,
               burnSpreads: !!st.burnSpread, kind: "shell", src: t.id, arc: true,
             });
@@ -1246,7 +1250,7 @@ export function updateGame(g, dt) {
           g.projectiles.push({
             id: nextId(), x: sx, y: sy, sx, sy, targetId: null,
             tx: ax + ox, ty: ay + oy, speed: rockSpeed, delay: i * 130,
-            dmg: st.dmg, dtype: st.dtype, pierce: false, splash: st.splash || 0,
+            dmg: st.dmg, dtype: st.dtype, pierce: false, splash: st.splash || 0, splashCap: st.splashCap || 0,
             burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
             kind: "rock", src: t.id, frag: !!st.frag,
             total: Math.hypot(ax + ox - sx, ay + oy - sy),
@@ -1353,7 +1357,7 @@ export function updateGame(g, dt) {
         g.projectiles.push({
           id: nextId(), x: t.x, y: t.y - 30, targetId: target.id,
           tx: target.x, ty: target.y, speed: 300, delay: 0,
-          dmg: st.dmg, dtype: st.dtype, pierce: !!st.pierce, splash: st.splash || 0,
+          dmg: st.dmg, dtype: st.dtype, pierce: !!st.pierce, splash: st.splash || 0, splashCap: st.splashCap || 0,
           burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
           poolDps: st.poolDps || 0, poolDur: st.poolDur || 0, poolR: st.poolR || 0,
           burnSpreads: !!st.burnSpread, midas,
@@ -1437,10 +1441,19 @@ export function updateGame(g, dt) {
               r: Math.max(12, p.splash * 0.62), frost: !!p.slow && !p.burn, seed: Math.random() * 6,
             });
           }
+          // A blast has a BITE: it takes the nearest `cap` bodies and no more
+          // (Bloons' pierce). Splash still eats a crowd — but a big enough
+          // crowd eats back, which is the whole point of sending one.
+          const cap = p.splashCap || SPLASH_CAP;
+          const hit = [];
           for (const e of g.enemies) {
             if (e.dead) continue;
             const dd = Math.hypot(e.x - p.tx, e.y - p.ty);
-            if (dd <= p.splash) {
+            if (dd <= p.splash) hit.push([dd, e]);
+          }
+          if (hit.length > cap) { hit.sort((u, v) => u[0] - v[0]); hit.length = cap; }
+          for (const [dd, e] of hit) {
+            {
               dealDamage(g, e, p.dmg * (1 - 0.55 * (dd / p.splash)), p.dtype, p.pierce, false, p.src);
               if (e.dead) continue;
               if (p.burn) { e.burnUntil = tms + p.burnDur; e.burnDps = p.burn; if (p.burnSpreads) e.burnSpread = true; }

@@ -19,10 +19,10 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Master Longbowman", cost: 290, stats: { dmg: 210, rate: 2100, range: 275, pierce: true }, desc: "One legendary archer. Slow, colossal shots that pierce any armor, from across the map.",
+        name: "Master Longbowman", cost: 290, stats: { dmg: 210, rate: 2100, range: 240, pierce: true }, desc: "One legendary archer. Slow, colossal shots that pierce any armor, from across the map.",
         rank4: {
           a: { name: "Ballista", cost: 610, stats: { dmg: 540, rate: 3600, range: 900, pierce: true, bolt: true, targeting: "strongest" }, desc: "A colossal siege bow. Slow, screaming bolts that always hunt the MIGHTIEST enemy on the field — anywhere on the field." },
-          b: { name: "Dragonslayer", cost: 610, stats: { dmg: 230, rate: 2000, range: 300, pierce: true, crit: 3, critMult: 3 }, desc: "Forged to fell wyrms: every THIRD shot is a devastating triple-damage heartseeker." },
+          b: { name: "Dragonslayer", cost: 610, stats: { dmg: 230, rate: 2000, range: 260, pierce: true, crit: 3, critMult: 3 }, desc: "Forged to fell wyrms: every THIRD shot is a devastating triple-damage heartseeker." },
         },
       },
     },
@@ -62,10 +62,10 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Pyromancer", cost: 350, stats: { dmg: 46, rate: 1200, range: 140, splash: 90, burn: 14, burnDur: 3000 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
+        name: "Pyromancer", cost: 350, stats: { dmg: 46, rate: 1200, range: 140, splash: 72, burn: 11, burnDur: 2600 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
         rank4: {
-          a: { name: "Volcanic Throne", cost: 650, stats: { dmg: 60, rate: 1250, range: 145, splash: 95, burn: 16, burnDur: 3000, poolDps: 26, poolDur: 3200, poolR: 34 }, desc: "Every blast births a pool of living lava that scorches all who wade through it." },
-          b: { name: "Wildfire Court", cost: 650, stats: { dmg: 52, rate: 1150, range: 145, splash: 90, burn: 18, burnDur: 3200, burnSpread: true }, desc: "Flames leap hungrily from burning foes to their neighbors — one spark can eat a whole warband." },
+          a: { name: "Volcanic Throne", cost: 650, stats: { dmg: 60, rate: 1250, range: 145, splash: 76, burn: 12, burnDur: 2600, poolDps: 22, poolDur: 3000, poolR: 34 }, desc: "Every blast births a pool of living lava that scorches all who wade through it." },
+          b: { name: "Wildfire Court", cost: 650, stats: { dmg: 52, rate: 1150, range: 145, splash: 72, burn: 13, burnDur: 2800, burnSpread: true }, desc: "Flames leap hungrily from burning foes to their neighbors — one spark can eat a whole warband." },
         },
       },
       b: {
@@ -87,10 +87,10 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Trebuchet", cost: 340, stats: { dmg: 200, rate: 4200, range: 460, minRange: 100, splash: 88 }, desc: "One colossal counterweighted arm. Boulders fall from the sky across nearly the whole field — but its blind circle grows.",
+        name: "Trebuchet", cost: 340, stats: { dmg: 200, rate: 4200, range: 340, minRange: 100, splash: 88 }, desc: "One colossal counterweighted arm. Boulders fall from the sky across half the field — but its blind circle grows.",
         rank4: {
-          a: { name: "Earthshaker", cost: 680, stats: { dmg: 260, rate: 4400, range: 470, minRange: 100, splash: 105, slow: 0.3, slowDur: 1600 }, desc: "Boulders that crack the very road — survivors stagger through the rubble, slowed." },
-          b: { name: "Comet Sling", cost: 680, stats: { dmg: 230, rate: 4200, range: 480, minRange: 100, splash: 90, burn: 20, burnDur: 2600, targeting: "strongest" }, desc: "Burning pitch-wrapped stones flung at the MIGHTIEST foe on the field, wherever it hides." },
+          a: { name: "Earthshaker", cost: 680, stats: { dmg: 260, rate: 4400, range: 350, minRange: 100, splash: 105, slow: 0.3, slowDur: 1600 }, desc: "Boulders that crack the very road — survivors stagger through the rubble, slowed." },
+          b: { name: "Comet Sling", cost: 680, stats: { dmg: 230, rate: 4200, range: 420, minRange: 100, splash: 80, burn: 12, burnDur: 2400, targeting: "strongest" }, desc: "Burning pitch-wrapped stones flung at the MIGHTIEST foe on the field, wherever it hides." },
         },
       },
       b: {
