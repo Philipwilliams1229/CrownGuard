@@ -126,16 +126,19 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   keep it in a fixed head. A tap on the field or the dark backdrop closes
   them too.
 - **Battle HUD: Bloons-style tray** (owner, 2026-09-25). A tray down the
-  right edge, the same on every device: wave count and pause at its head,
-  Castle (and Master builds), then the panel — the tower grid by default
-  (tap a tile then the grass, or DRAG a tile onto the map), or the selected
-  tower's upgrades, the castle works, the hero's talents or the next wave —
-  and the wave preview, horn and speed at its foot. Nothing but small pieces
-  floats on the map: lives and gold top left; hero, talents and militia
-  bottom left. The map stands flush against the tray at its true shape (its
-  decorative top/bottom border may be trimmed on short screens); the rest of
-  the screen is the realm's landscape (`src/render/apron.js`), never a bar.
-  Everything keeps clear of the notch and home indicator (`vp.safe`).
+  right edge on every device: wave count and pause at its head, Castle and
+  Master builds, the tower grid (tap a tile then the grass, or DRAG a tile
+  onto the map; three icon columns on phones so the roster fits unscrolled),
+  and the hero, his talents and the militia at its foot. On the map: lives
+  and gold top left; the horn (with its arrow to the next wave's makeup and
+  the Rush switch) and the speed bottom left. **Popups, never scrolling:**
+  the tower card opens beside its tower (two columns on phones), the castle
+  works and the hero's talents open as wide cards over the middle of the map
+  in columns; each has its ✕ on the corner and closes on a tap elsewhere.
+  The map stands flush against the tray at its true shape (its decorative
+  top/bottom border may be trimmed on short screens); the rest of the screen
+  is the realm's landscape (`src/render/apron.js`), never a bar. Everything
+  keeps clear of the notch and home indicator (`vp.safe`).
 - **Landscape only** (owner, 2026-09-25): a touch screen held upright gets
   `src/ui/TurnDevice.jsx`'s "turn your device" card over EVERY screen; the
   manifest declares landscape. Upright layouts (`narrow`) are a fallback

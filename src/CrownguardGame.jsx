@@ -737,6 +737,29 @@ export default function Crownguard() {
     </div>
   );
   const cancelRally = () => { if (G.current) G.current.rallyFor = null; };
+  // a small square close button that sits ON a card's upper-right corner,
+  // outside the part that scrolls, so it never scrolls away
+  const cornerX = (label, onClick) => (
+    <button aria-label={label} className="cg-btn cg-btn--slate cg-x cg-corner-x" onClick={onClick}><CloseIcon size={12} /></button>
+  );
+  // A card floating over the board, beside what it describes: `width`
+  // design px wide at `left` (board px), as tall as its contents up to the
+  // board's height, hung at height fraction `f` so it sits level with it.
+  const CARD_M = 24 * s;
+  const floatCard = ({ id, left, width, f, origin, closeLabel, onClose, children }) => (
+    <div key={id} style={{
+      position: "absolute", left, top: CARD_M, width, height: (boardCss.vh - 2 * CARD_M) / s,
+      transform: `scale(${s})`, transformOrigin: "0 0", zIndex: 25,
+      display: "flex", flexDirection: "column", pointerEvents: "none",
+    }}>
+      <div style={{ flex: `${f} 1 0px` }} />
+      <div className="cg-pop" style={{ position: "relative", flex: "0 1 auto", minHeight: 0, display: "flex", flexDirection: "column", pointerEvents: "auto", transformOrigin: origin }}>
+        <div className="cg-frame cg-scroll" style={{ padding: 12, overflowY: "auto", overscrollBehavior: "contain", minHeight: 0, flex: "0 1 auto" }}>{children}</div>
+        {cornerX(closeLabel, onClose)}
+      </div>
+      <div style={{ flex: `${1 - f} 1 0px` }} />
+    </div>
+  );
   const cycleSpeed = () => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; };
   // one panel at a time in the tray: the tower grid is home
   const trayHome = () => { setCastleOpen(false); setTalentsOpen(false); setInfoOpen(false); setArmed(null); setMasterInfo(null); if (G.current) G.current.selectedId = null; };
@@ -749,7 +772,7 @@ export default function Crownguard() {
     else if (which === "talents") setTalentsOpen(true);
     else setInfoOpen(true);
   };
-  const buildCols = 2;
+  const buildCols = compact ? 3 : 2;
 
   // -- the purse, the castle, the level --
   const purse = (
@@ -779,25 +802,27 @@ export default function Crownguard() {
       <span style={{ fontSize: 12, position: "relative" }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
     </button>
   );
+  // the hero stands in the tray's foot, where only his portrait and bars fit
+  const heroSlim = true;
   const heroBtn = ui.result == null && ui.hero && (() => {
     const hpf = ui.hero.hp / ui.hero.maxHp;
     const max = ui.hero.level >= HERO_MAX_LEVEL;
     return (
       <button aria-label="Move the hero" title={HEROES[ui.hero.key]?.blurb}
         className={cls("cg-btn cg-btn--slate", ui.rallyFor === "hero" && "is-on", ui.hero.dead && "is-off")}
-        style={{ minHeight: 60, minWidth: compact ? 0 : 150, padding: "5px 8px 5px 5px", gap: 7, justifyContent: "flex-start" }}
+        style={{ flex: 1, minHeight: 60, minWidth: heroSlim ? 0 : 150, padding: "5px 8px 5px 5px", gap: 7, justifyContent: "flex-start" }}
         onClick={() => { const g = G.current; if (!g || ui.hero.dead) return; g.rallyFor = g.rallyFor === "hero" ? null : "hero"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
         <span className="cg-well" style={{ width: 42, height: 46, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           {hasRig(HEROES[ui.hero.key]?.rig) ? <EnemyIcon type={HEROES[ui.hero.key].rig} box={34} /> : <span style={{ fontSize: 20 }}>{HEROES[ui.hero.key]?.icon}</span>}
         </span>
-        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: compact ? 0 : 88 }}>
+        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: heroSlim ? 0 : 88 }}>
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
-            {!compact && <span style={{ fontSize: 11 }}>{ui.hero.name}</span>}
+            {!heroSlim && <span style={{ fontSize: 11 }}>{ui.hero.name}</span>}
             <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv {ui.hero.level}</span>
           </span>
           <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
           <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, ui.hero.xp / ui.hero.next))}%`, background: "var(--blue)" }} /></span>
-          <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 9, color: "var(--muted)", display: compact ? "none" : "flex", justifyContent: "space-between", gap: 6 }}>
+          <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 9, color: "var(--muted)", display: heroSlim ? "none" : "flex", justifyContent: "space-between", gap: 6 }}>
             <span>{ui.hero.dead ? `back in ${ui.hero.respawn}s` : `${ui.hero.hp}/${ui.hero.maxHp}`}</span>
             <span>{max ? "MAX" : `xp ${ui.hero.xp}/${ui.hero.next}`}</span>
           </span>
@@ -846,7 +871,7 @@ export default function Crownguard() {
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 6, marginTop: 10 }}>
           {heroList.map((t) => {
             const r = heroRec.talents[t.id] || 0;
             const cost = talentCost(r);
@@ -883,7 +908,7 @@ export default function Crownguard() {
     const withT = (fn) => () => { const tt = G.current?.towers.find((x) => x.id === sel.id); if (tt) fn(tt); };
     const tier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
     const branchDef = sel.branch ? selDef.branches[sel.branch] : null;
-    return (<>
+    return { left: (<>
                 {/* who this is, and how far along its road it has come */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, paddingRight: 16 }}>
                   <span className="cg-well" style={{ width: 54, height: 54, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -979,6 +1004,7 @@ export default function Crownguard() {
                   );
                 })()}
 
+    </>), right: (<>
                 {/* the next level: its name, its price, and exactly what it changes */}
                 {!sel.branch && sel.level < 3 && (() => {
                   const nxt = selDef.levels[sel.level];
@@ -1072,7 +1098,7 @@ export default function Crownguard() {
                   onClick={withT((tt) => sellTower(G.current, tt))}>
                   <span>Sell</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
                 </button>
-    </>);
+    </>) };
   })();
 
   // -- a master-build final, read about before buying --
@@ -1154,7 +1180,7 @@ export default function Crownguard() {
   };
 
   // what the tray is showing
-  const trayMode = sel && towerPanel ? "tower" : castleOpen ? "castle" : talentPanel ? "talents" : masterInfoPanel ? "info" : wavePanel ? "wave" : "build";
+  const trayMode = masterInfoPanel ? "info" : "build";
   const TRAY_D = compact ? 204 : 252;         // the tray's width, design px
   const trayW = Math.round(TRAY_D * s) + inset.right;   // the scaled panel, plus the notch side
   const trayTitle = { tower: null, castle: "Castle Works", talents: `${ui.hero?.name || "Hero"} · talents`, info: "Master build", wave: "The next wave", build: masterOn ? "Master builds" : "Towers" }[trayMode];
@@ -1273,6 +1299,53 @@ export default function Crownguard() {
           {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && ribbon(
             <>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally)}
 
+            {/* the castle works and the hero's talents: a wide card over the middle of the map, in columns so it doesn't scroll */}
+            {(castleOpen || talentPanel) && !sel && (() => {
+              const CW = Math.min(castleOpen ? 540 : 480, (boardCss.vw - 2 * CARD_M) / s);
+              return floatCard({
+                id: castleOpen ? "castle" : "talents", left: (boardCss.vw - CW * s) / 2, width: CW, f: 0.5, origin: "center",
+                closeLabel: castleOpen ? "Close castle works" : "Close talents", onClose: trayHome,
+                children: castleOpen ? (
+                  <>
+                    <div className="cg-label" style={{ marginBottom: 6, paddingRight: 16, display: "flex", alignItems: "center", gap: 6 }}><CastleIcon size={16} /> Castle works</div>
+                    <CastleWorksList
+            works={ui.castle}
+            ranks={mode === "campaign" ? null : ui.castleRanks}
+            endless={mode !== "campaign"}
+            purse={mode === "campaign" ? progress.treasury || 0 : ui.gold}
+            purseLabel={mode === "campaign" ? "THE CROWN'S TREASURY" : "THIS RUN'S PURSE"}
+            note={mode === "campaign"
+              ? `Built on the wall itself, paid from the treasury: the gold you carry home from every level you hold. What you raise here stands for every road in the ${level?.chapter.name || "region"}.`
+              : "Built on the wall itself, paid from the purse. What you raise here stands for every run in this realm — but the veteran ranks past a finished work are this run's alone."}
+            onBuy={buyWork} />
+                  </>
+                ) : talentPanel,
+              });
+            })()}
+
+            {sel && towerPanel && ui.rallyFor == null && (() => {
+              const g = G.current;
+              const t = g?.towers.find((x) => x.id === sel.id);
+              if (!t) return null;
+              // beside the tower, on whichever side has more room, level with it;
+              // on a short screen the card lies in two columns so it never scrolls
+              const two = compact;
+              const bw = boardCss.vw, bh = boardCss.vh;
+              const tx = (((t.x - g.cam.x) * g.cam.zoom) / W) * boardCss.w;
+              const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * boardCss.h + cropTop;
+              const CW = two ? 460 : 292, cw = CW * s;
+              const flipX = tx > bw * 0.5;
+              const left = Math.max(6 * s, Math.min(bw - cw - CARD_M, flipX ? tx - 26 * s - cw : tx + 26 * s));
+              const f = Math.min(1, Math.max(0, ty / bh));
+              return floatCard({
+                id: sel.id, left, width: CW, f, origin: `${flipX ? "right" : "left"} center`,
+                closeLabel: "Deselect tower", onClose: () => { if (G.current) G.current.selectedId = null; },
+                children: two
+                  ? <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}><div>{towerPanel.left}</div><div>{towerPanel.right}</div></div>
+                  : <>{towerPanel.left}{towerPanel.right}</>,
+              });
+            })()}
+
             {(ui.result === "won" || ui.result === "lost") && (() => {
               const campaign = mode === "campaign" && level;
               const nxt = campaign ? nextLevel(level.id) : null;
@@ -1382,9 +1455,56 @@ export default function Crownguard() {
           {purse}
           {ui.zoom > 1 && <button title="Reset view" className="cg-btn cg-btn--slate" style={{ fontSize: 12, pointerEvents: "auto" }} onClick={() => setZoom(1)}>Reset view</button>}
         </div>
+        {/* ---- bottom left: the horn, its arrow to the next wave's makeup and the rush switch, and the speed ---- */}
         {ui.result == null && (
-          <div style={{ position: "absolute", left: 8 + inset.left, bottom: 8 + inset.bottom, display: "flex", gap: 6, zIndex: 20, alignItems: "flex-end", ...scaleAt("bottom left") }}>
-            {heroBtn}{talentBtn}{militiaBtn}
+          <div style={{ position: "absolute", left: 8 + inset.left, bottom: 8 + inset.bottom, zIndex: 20, ...scaleAt("bottom left") }}>
+            {infoOpen && (
+              <div className="cg-frame cg-pop" style={{ position: "absolute", left: 0, bottom: "calc(100% + 8px)", padding: 12, minWidth: 230, maxWidth: 340, width: "max-content", transformOrigin: "bottom left" }}>
+                {wavePanel}
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "stretch", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "stretch" }}>
+                <button className={cls("cg-btn", fighting ? "cg-btn--slate" : "cg-btn--gold", !fighting && ui.cdSec != null && "cg-horn")} disabled={fighting}
+                  style={{ minHeight: 54, padding: "0 10px 0 9px", gap: 8, ...(fighting ? { filter: "none", cursor: "default" } : {}) }}
+                  aria-label={fighting ? `Wave ${ui.wave} on the field` : `Sound the horn: start wave ${ui.wave + 1}`}
+                  onClick={() => startWave(G.current)}>
+                  {fighting ? <SkullIcon size={18} /> : <PlayIcon size={18} />}
+                  <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1 }}>
+                    <span style={{ fontSize: 10, letterSpacing: 1.5 }}>WAVE</span>
+                    <span className="cg-num" style={{ fontSize: 18, textShadow: fighting ? "2px 2px 0 var(--ink)" : "1px 1px 0 rgba(255,243,210,0.5)" }}>{nextWave}<span style={{ fontSize: 12, opacity: 0.75, marginLeft: 1 }}>/{nextWave > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
+                  </span>
+                  {lead.length > 0 && (
+                    <span style={{ display: "flex", gap: 3 }}>
+                      {lead.map(({ type, count }) => (
+                        <span key={type} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                          <span className="cg-well" style={{ width: 30, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: ENEMIES[type].boss ? "#e8b0a0" : "var(--parch)", boxShadow: "inset 2px 2px 0 var(--parch-dk)" }}>
+                            <EnemyIcon type={type} box={23} />
+                          </span>
+                          <span style={{ fontSize: 10, lineHeight: 1, marginTop: 1 }}>×{count}</span>
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                  {!fighting && ui.cdSec != null && (
+                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, paddingLeft: 2 }}>
+                      <span className="cg-num" style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 11, textShadow: "none" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}<CoinIcon size={11} /></span>
+                      <span className="cg-num" style={{ fontSize: 9, opacity: 0.8, textShadow: "none" }}>{ui.cdSec}s</span>
+                    </span>
+                  )}
+                </button>
+                <button aria-label={infoOpen ? "Hide wave info" : "Show wave info and the rush switch"}
+                  className={cls("cg-btn", fighting ? "cg-btn--slate" : "", infoOpen && "is-on")}
+                  style={{ minWidth: 38, padding: 0, marginLeft: -2, minHeight: 54, flexDirection: "column", gap: 3 }}
+                  onClick={() => setInfoOpen((o) => !o)}>
+                  {infoOpen ? <ChevronDown size={7} /> : <ChevronUp size={7} />}
+                  {ui.rush && <BoltIcon size={11} />}
+                </button>
+              </div>
+              <button title="Game speed" aria-label={`Game speed ${ui.speed}x`} className={cls("cg-btn", ui.speed > 1 && "is-on")} style={{ minWidth: 54, minHeight: 54, flexDirection: "column", gap: 2, padding: "0 6px" }} onClick={cycleSpeed}>
+                <SpeedIcon speed={ui.speed} size={16} /><span style={{ fontSize: 11 }}>{ui.speed}x</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1434,20 +1554,6 @@ export default function Crownguard() {
                 </div>
               )}
               <div className="cg-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: trayMode === "build" ? 6 : "8px 8px 10px" }}>
-                {trayMode === "tower" && towerPanel}
-                {trayMode === "castle" && (
-          <CastleWorksList
-            works={ui.castle}
-            ranks={mode === "campaign" ? null : ui.castleRanks}
-            endless={mode !== "campaign"}
-            purse={mode === "campaign" ? progress.treasury || 0 : ui.gold}
-            purseLabel={mode === "campaign" ? "THE CROWN'S TREASURY" : "THIS RUN'S PURSE"}
-            note={mode === "campaign"
-              ? `Built on the wall itself, paid from the treasury: the gold you carry home from every level you hold. What you raise here stands for every road in the ${level?.chapter.name || "region"}.`
-              : "Built on the wall itself, paid from the purse. What you raise here stands for every run in this realm — but the veteran ranks past a finished work are this run's alone."}
-            onBuy={buyWork} />
-                )}
-                {trayMode === "talents" && talentPanel}
                 {trayMode === "info" && masterInfoPanel}
                 {trayMode === "wave" && wavePanel}
                 {trayMode === "build" && (
@@ -1504,14 +1610,14 @@ export default function Crownguard() {
                 return (
                   <button key={key} title={open ? def.blurb : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`}
                     className={cls("cg-btn cg-btn--slate", active && "is-on", open && !can && "is-poor", !open && "is-off")}
-                    style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: 100 }}
+                    style={{ width: "100%", flexDirection: "column", gap: 2, padding: compact ? "4px 2px" : "6px 3px 6px", minHeight: compact ? 66 : 100 }}
                     onPointerDown={(e) => { if (can) startTileDrag(e, key); }}
                     onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); }}
                     disabled={!can}>
-                    <span className="cg-well cg-dim" style={{ width: 60, height: 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <TowerPortrait kind={key} size={50} />
+                    <span className="cg-well cg-dim" style={{ width: compact ? 46 : 60, height: compact ? 40 : 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <TowerPortrait kind={key} size={compact ? 38 : 50} />
                     </span>
-                    <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.2 }}>{def.name}</span>
+                    {!compact && <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.2 }}>{def.name}</span>}
                     {open
                       ? price(def.cost, can, 12)
                       : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{need ? need.short || need.name : "campaign"}</span>}
@@ -1525,40 +1631,11 @@ export default function Crownguard() {
               </div>
             </div>
 
-            {/* foot: who's coming next, then the horn and the speed */}
+            {/* foot: the hero, his talents and the militia */}
             {ui.result == null && (
-              <>
-                <button className={cls("cg-btn cg-btn--slate", infoOpen && "is-on")} aria-label="The next wave" style={{ minHeight: 36, padding: "2px 6px", gap: 4, justifyContent: "flex-start" }} onClick={() => trayOpen("wave")}>
-                  <span className="cg-label" style={{ fontSize: 9, color: "var(--muted)" }}>{fighting ? "Now" : "Next"}</span>
-                  <span style={{ display: "flex", gap: 3, flex: 1 }}>
-                    {lead.map(({ type, count }) => (
-                      <span key={type} style={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <EnemyIcon type={type} box={18} />
-                        <span style={{ fontSize: 10 }}>×{count}</span>
-                      </span>
-                    ))}
-                  </span>
-                  {ui.rush && <BoltIcon size={11} />}
-                  <ChevronUp size={7} />
-                </button>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button className={cls("cg-btn", !fighting && "cg-btn--gold", !fighting && ui.cdSec != null && "cg-horn")} disabled={fighting}
-                    style={{ flex: 1, minHeight: 56, padding: "4px 6px", gap: 6 }}
-                    aria-label={fighting ? `Wave ${ui.wave} on the field` : `Sound the horn: start wave ${ui.wave + 1}`}
-                    onClick={() => startWave(G.current)}>
-                    <PlayIcon size={20} />
-                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.05 }}>
-                      <span style={{ fontSize: 11, letterSpacing: 1 }}>{fighting ? "FIGHTING" : "WAVE"}</span>
-                      {!fighting && ui.cdSec != null
-                        ? <span className="cg-num" style={{ fontSize: 10, textShadow: "none", display: "flex", alignItems: "center", gap: 2 }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}<CoinIcon size={10} /> · {ui.cdSec}s</span>
-                        : <span className="cg-num" style={{ fontSize: 13, textShadow: "none" }}>{fighting ? ui.wave : ui.wave + 1}</span>}
-                    </span>
-                  </button>
-                  <button title="Game speed" aria-label={`Game speed ${ui.speed}x`} className={cls("cg-btn", ui.speed > 1 && "is-on")} style={{ minWidth: 56, minHeight: 56, flexDirection: "column", gap: 2, padding: "0 4px" }} onClick={cycleSpeed}>
-                    <SpeedIcon speed={ui.speed} size={18} /><span style={{ fontSize: 11 }}>{ui.speed}x</span>
-                  </button>
-                </div>
-              </>
+              <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+                {heroBtn}{talentBtn}{militiaBtn}
+              </div>
             )}
           </div>
         </div>
