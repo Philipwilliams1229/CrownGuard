@@ -9,125 +9,202 @@
 
 import { lighten, darken, rgba, soft, shadow, ball, roundRect, cylinder, lin, rad, part } from "./paint.js";
 
-// A rounded limb between two points.
+// A rounded limb between two points, shaded across its width.
 const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => {
-  c.strokeStyle = lin(c, x0 - w, y0, x0 + w, y0, [[0, lighten(col, 0.3)], [0.5, col], [1, darken(col, 0.45)]]);
-  c.lineWidth = w;
+  const ww = w * 0.8;                                   // slim: a forearm, not a sausage
+  c.strokeStyle = lin(c, x0 - ww, y0 - ww, x0 + ww, y0 + ww, [[0, lighten(col, 0.3)], [0.5, col], [1, darken(col, 0.45)]]);
+  c.lineWidth = ww;
   c.lineCap = "round";
   c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
 });
 
-const head = (ctx, x, y, pal, o = {}) => {
-  part(ctx, (c) => ball(c, x, y, 3.3, 3.5, pal.skin, { hi: 0.45, lo: 0.4 }));
-  // a hood or cap, sitting over the crown and hanging down the back
-  if (o.hood !== false) {
-    part(ctx, (c) => {
-      ball(c, x - 0.9, y - 1.7, 3.6, 2.5, pal.hood, { hi: 0.45, lo: 0.45 });
-      ball(c, x - 2.4, y + 0.5, 2.1, 3.1, pal.hood, { hi: 0.3, lo: 0.5 });
-    });
+// ---- the body kit ----------------------------------------------------------
+// The same construction as the crown's soldiers (rigs-crown.js): a closed
+// path through [x, y] points (rounded) or [x, y, 1] (a corner), lit across
+// its bounds, inked as its own part; `then` paints inside it, clipped.
+const pathPts = (c, pts) => {
+  const n = pts.length, mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const st = pts[0][2] ? pts[0] : mid(pts[n - 1], pts[0]);
+  c.beginPath(); c.moveTo(st[0], st[1]);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n];
+    if (p[2]) c.lineTo(p[0], p[1]);
+    else { const m = q[2] ? q : mid(p, q); c.quadraticCurveTo(p[0], p[1], m[0], m[1]); }
   }
-  // the eye that faces us, and the nose under it
-  ctx.fillStyle = "#2a2230";
-  ctx.beginPath(); ctx.ellipse(x + 1.6, y + 0.2, 0.55, 0.7, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = darken(pal.skin, 0.25);
-  ctx.fillRect(x + 2.8, y + 0.5, 0.6, 0.8);
+  c.closePath();
+};
+const blob = (ctx, pts, col, o = {}) => part(ctx, (c) => {
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  pathPts(c, pts);
+  c.fillStyle = lin(c, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), [[0, lighten(col, o.hi ?? 0.3)], [0.5, col], [1, darken(col, o.lo ?? 0.42)]]);
+  c.fill();
+  if (o.then) { c.save(); pathPts(c, pts); c.clip(); o.then(c); c.restore(); }
+});
+const at = (pts, x, y, k = 1) => pts.map(([px, py, cn]) => (cn ? [x + px * k, y + py * k, 1] : [x + px * k, y + py * k]));
+const dab = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+const INKY = "#2a2230";
+
+// A head about 5 across, so a figure stands 4½ heads tall: a jaw, an ear,
+// a brow, an eye with a glint, a nose that breaks the profile. The hood (or
+// cap) is a peaked cowl that shades the brow and falls to the shoulders.
+const FACE = [[-2.0, 0.2], [-1.9, -1.6], [-0.6, -2.5], [1.2, -2.4], [2.1, -1.4], [2.3, -0.5], [2.8, 0.3, 1], [2.2, 0.8], [2.0, 1.6], [1.1, 2.4], [-0.4, 2.3], [-1.6, 1.4]];
+const HOOD = [[-2.2, 3.4, 1], [-2.9, 0.6], [-2.9, -1.8], [-4.8, -3.6, 1], [-1.6, -3.4], [0.6, -3.4], [2.2, -2.5], [2.9, -1.3, 1], [1.4, -1.6], [0.4, -0.6], [0.3, 1.4], [1.2, 3.4, 1]];
+const head = (ctx, x, y, pal, o = {}) => {
+  const k = 1.08, hy = y - 0.3;
+  const hooded = o.hood !== false;
+  blob(ctx, at(FACE, x, hy, k), pal.skin, {
+    hi: 0.28, lo: 0.35, then: (c) => {
+      dab(c, x - 1.0 * k, hy - 0.3, 0.8, 1.2, darken(pal.skin, 0.22));                 // the ear
+      c.strokeStyle = darken(pal.skin, 0.55); c.lineWidth = 0.5;
+      c.beginPath(); c.moveTo(x + 0.6 * k, hy - 1.3 * k); c.lineTo(x + 1.9 * k, hy - 1.1 * k); c.stroke();   // brow
+      dab(c, x + 1.05 * k, hy - 0.8 * k, 0.65, 0.9, INKY); dab(c, x + 1.05 * k, hy - 0.8 * k, 0.3, 0.3, "#fff3d2");
+      dab(c, x + 1.5 * k, hy + 1.3 * k, 0.8, 0.4, darken(pal.skin, 0.45));             // the mouth
+      if (hooded) { c.fillStyle = rgba(darken(pal.skin, 0.45), 0.55); c.fillRect(x - 3, hy - 3, 7, 1.6); }   // shade under the hood
+    },
+  });
+  if (hooded) {
+    const hood = pal.hood;
+    blob(ctx, at(HOOD, x, hy, k), hood, {
+      hi: 0.35, lo: 0.45, then: (c) => {
+        c.strokeStyle = darken(hood, 0.4); c.lineWidth = 0.45;
+        c.beginPath(); c.moveTo(x - 2.0 * k, hy - 2.6 * k); c.lineTo(x - 0.6 * k, hy + 1.0 * k); c.stroke();
+        c.strokeStyle = lighten(hood, 0.35); c.lineWidth = 0.4;
+        c.beginPath(); c.moveTo(x + 0.6 * k, hy - 3.0 * k); c.lineTo(x + 2.2 * k, hy - 1.9 * k); c.stroke();
+      },
+    });
+    if (pal.hair) blob(ctx, at([[1.0, -1.7], [2.0, -1.4], [1.3, -0.4, 1], [0.8, -0.8]], x, hy, k), pal.hair, { hi: 0.3 });
+  } else if (pal.hair) blob(ctx, at([[-2.2, 0.4], [-2.3, -1.8], [-0.6, -2.8], [1.6, -2.6], [2.3, -1.6, 1], [0.2, -1.6], [-0.9, 0.6, 1]], x, hy, k), pal.hair, { hi: 0.3 });
 };
 
-// Torso: a coat with a belt.
-const torso = (ctx, x, top, h, w, pal) => part(ctx, (c) => {
-  roundRect(c, x - w / 2, top, w, h, w * 0.4);
-  c.fillStyle = lin(c, x - w / 2, 0, x + w / 2, 0, [[0, lighten(pal.coat, 0.32)], [0.45, pal.coat], [1, darken(pal.coat, 0.5)]]);
-  c.fill();
-  c.fillStyle = rgba(darken(pal.trim || pal.boots, 0.2), 0.9);
-  c.fillRect(x - w / 2 + 0.5, top + h * 0.62, w - 1, 1.4);
-});
+// Torso: a jerkin with shoulders, a belt, and a short skirt below it. `top`
+// is the shoulder line, `h` down to the hem.
+const torso = (ctx, x, top, h, w, pal) => {
+  const hw = w / 2, belt = top + h * 0.66, hem = top + h + 1.2;
+  const coat = pal.coat;
+  blob(ctx, [[x - hw + 0.3, belt], [x + hw - 0.2, belt], [x + hw + 0.5, hem, 1], [x - hw - 0.4, hem, 1]], darken(coat, 0.12), {
+    then: (c) => { dab(c, x - hw - 1, hem - 0.8, w + 2, 0.8, darken(coat, 0.45)); dab(c, x + 0.3, belt, 0.5, hem - belt, darken(coat, 0.4)); },
+  });
+  blob(ctx, [[x + hw - 0.4, belt + 0.4], [x + hw - 0.1, top + h * 0.3], [x + hw * 0.8, top + 0.3], [x + 0.2, top - 0.5], [x - hw * 0.85, top + 0.2], [x - hw - 0.2, top + h * 0.35], [x - hw + 0.2, belt + 0.4]], coat, {
+    then: (c) => {
+      dab(c, x - hw, belt - 0.6, w, 1.2, darken(pal.trim || pal.boots, 0.15));                    // the belt
+      dab(c, x + 0.6, belt - 0.6, 1, 1.2, "#d8b34a");                                               // its buckle
+      c.strokeStyle = darken(coat, 0.4); c.lineWidth = 0.45;
+      c.beginPath(); c.moveTo(x + hw - 1, top + 1); c.lineTo(x + hw - 1.2, belt - 0.8); c.stroke(); // the jerkin's lacing edge
+      c.strokeStyle = rgba(darken(pal.trim || pal.boots, 0.1), 0.9); c.lineWidth = 0.7;             // a strap across the chest
+      c.beginPath(); c.moveTo(x - hw, top + 0.8); c.lineTo(x + hw, belt - 1.2); c.stroke();
+    },
+  });
+};
 
+// Two jointed legs: thigh and shin, knees a touch bent, boots with a toe.
 const legs = (ctx, x, y, pal, stride = 0) => {
-  limb(ctx, x - 1.6 - stride, y - 7.5, x - 1.9 - stride * 1.5, y - 0.5, 2.6, pal.boots);
-  limb(ctx, x + 1.4 + stride, y - 7.5, x + 1.7 + stride * 1.5, y - 0.5, 2.6, darken(pal.boots, 0.15));
+  const leg = (hx, fx, col) => {
+    const kx = (hx + fx) / 2 + 0.5, ky = y - 3.8;
+    limb(ctx, hx, y - 7.8, kx, ky, 2.6, col);
+    limb(ctx, kx, ky, fx, y - 1.2, 2.3, col);
+    blob(ctx, [[fx - 1.1, y - 2.2], [fx + 0.8, y - 2.2], [fx + 2.2, y - 0.4, 1], [fx + 1.8, y + 0.2, 1], [fx - 1.2, y + 0.2, 1]], darken(pal.boots, 0.2), { hi: 0.35 });
+  };
+  leg(x - 0.9, x - 1.6 - stride * 1.5, darken(pal.boots, 0.12));
+  leg(x + 0.9, x + 1.5 + stride * 1.5, pal.boots);
 };
 
 // ---- poses ---------------------------------------------------------------
 
 // An archer at the string. `draw` runs 0..1: loosed to full draw. Towers
-// may pass `o.pose`: "rest" (bow down, at ease), "loose" (the string just
-// slipped: bow arm driven forward, the drawing hand flung back past the
-// ear), "reach" (a hand over the shoulder for the next arrow). Without a
-// pose the figure draws by `draw`, leaning back into it as it fills.
+// may pass `o.pose`: "rest" (bow carried low, at ease), "loose" (the string
+// has just slipped: it snaps straight and shivers, the bow arm drives on,
+// the drawing hand flicks back past the ear), "reach" (a hand over the
+// shoulder to the quiver). Without a pose the figure draws by `draw`: the
+// limbs bend, the string comes back to the cheek, the arrow rides on it,
+// and he leans back into the weight.
 export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
   const big = !!o.big;
   const s = big ? 1.15 : 1;
   const pose = o.pose || "draw";
+  const bowCol = o.bowCol || "#4a3018";
+  const fl = o.fletch || "#e8e0c8";
+  const d = pose === "draw" ? draw : 0;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(dir * s, s);
-  shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
-  legs(ctx, 0, 0, pal, pose === "rest" ? 0.25 : 0.7);
-  // the upper body sways: back into a full draw, forward at the loose
-  const lean = pose === "draw" ? -draw * 0.7 : pose === "loose" ? 0.7 : 0;
+  shadow(ctx, 0.5, 0.4, 4.6, 1.6, 0.3);
+  // the quiver rides on the back, fletchings over the shoulder
+  const lean = pose === "draw" ? -d * 0.8 : pose === "loose" ? 0.5 : 0;
+  part(ctx, (c) => {
+    c.save(); c.translate(-3 + lean, -10.6); c.rotate(-0.42);
+    for (const [i, col] of [[0, fl], [1, "#a04a3f"], [2, fl]].entries()) { c.fillStyle = col; c.beginPath(); c.moveTo(-1.0 + i * 0.9, -6.6); c.lineTo(-0.7 + i * 0.9, -8.6); c.lineTo(-0.2 + i * 0.9, -6.6); c.closePath(); c.fill(); }
+    roundRect(c, -1.3, -6.8, 2.6, 7, 0.9);
+    c.fillStyle = lin(c, -1.3, 0, 1.3, 0, [[0, lighten("#7a5334", 0.3)], [0.5, "#7a5334"], [1, darken("#7a5334", 0.4)]]); c.fill();
+    c.fillStyle = darken("#7a5334", 0.45); c.fillRect(-1.3, -5.8, 2.6, 0.6); c.fillRect(-1.3, -1.6, 2.6, 0.6);
+    c.restore();
+  });
+  legs(ctx, 0, 0, pal, pose === "rest" ? 0.1 : 0.55);
+  ctx.save();
   ctx.translate(lean, 0);
-  torso(ctx, 0, -17, 10, 7.5, pal);
-  // a quiver over the back shoulder, fletchings showing
-  cylinder(ctx, -4.8, -19.5, 2.6, 8.5, darken(pal.coat, 0.35), { r: 1, hi: 0.3, lo: 0.5 });
-  const fl = o.fletch || "#e8e0c8";
-  for (let i = 0; i < 3; i++) {
-    ctx.fillStyle = i === 1 ? "#a04a3f" : fl;
-    ctx.fillRect(-4.9 + i * 0.9, -22 - (i % 2) * 0.8, 0.8, 2.6);
+  // the bow: where the grip sits, how far the limbs bend, where the string's nock is
+  const half = big ? 8.6 : 7.6;
+  let gx = 7.2, gy = -15.6, rot = 0, belly = 1.2 + d * 2.6, nx, ny;
+  if (pose === "rest") { gx = 4.6; gy = -9.2; rot = 0.42; belly = 1.2; }
+  if (pose === "reach") { gx = 6.4; gy = -14.2; rot = 0.12; }
+  if (pose === "loose") { gx = 7.9; belly = 1.6; }
+  // the string hand: sliding back from the grip to the cheek as the draw fills
+  const cheek = [2.3, -18.3];
+  let hx = gx - 1.2 + (cheek[0] - gx + 1.2) * d, hy = gy + (cheek[1] - gy) * d;
+  if (pose === "loose") { hx = -3.8; hy = -17.6; }
+  if (pose === "reach") { hx = -2.6; hy = -21.2; }
+  if (pose === "rest") { hx = -1.8; hy = -9.6; }
+  // the far arm (the bow arm) behind the body, reaching to the grip
+  limb(ctx, 0.2, -16.2, gx - 0.4, gy + 0.2, 2.4, darken(pal.coat, 0.18));
+  torso(ctx, 0, -17.2, 10.4, 6.4, pal);
+  head(ctx, 0.5, -20.6, pal);
+  // the bow itself, in front of the body
+  ctx.save();
+  ctx.translate(gx, gy); ctx.rotate(rot);
+  nx = pose === "draw" ? (hx - gx) * Math.cos(-rot) : -0.6; ny = pose === "draw" ? hy - gy : 0;
+  const tipX = -0.6 - d * 1.2;
+  part(ctx, (c) => {
+    c.strokeStyle = lin(c, 0, -half, belly, half, [[0, lighten(bowCol, 0.35)], [0.5, bowCol], [1, darken(bowCol, 0.35)]]);
+    c.lineWidth = big ? 1.7 : 1.5; c.lineCap = "round";
+    c.beginPath(); c.moveTo(tipX, -half); c.quadraticCurveTo(belly * 2, -half * 0.35, belly * 0.9, 0); c.quadraticCurveTo(belly * 2, half * 0.35, tipX, half); c.stroke();
+    c.fillStyle = darken(bowCol, 0.45); c.fillRect(belly * 0.9 - 0.7, -1.1, 1.4, 2.2);           // the leather grip
+  });
+  ctx.strokeStyle = "rgba(244,236,214,0.95)";
+  ctx.lineWidth = 0.55;
+  ctx.beginPath(); ctx.moveTo(tipX, -half); ctx.lineTo(pose === "draw" ? nx : tipX, pose === "draw" ? ny : 0); ctx.lineTo(tipX, half); ctx.stroke();
+  if (pose === "loose") {
+    ctx.strokeStyle = "rgba(244,236,214,0.5)";
+    ctx.beginPath(); ctx.moveTo(tipX, -half); ctx.lineTo(tipX - 1.3, 0); ctx.lineTo(tipX, half); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tipX, -half); ctx.lineTo(tipX + 1.1, 0); ctx.lineTo(tipX, half); ctx.stroke();
   }
-  head(ctx, 0.4, -20.5, pal);
-  const bowCol = o.bowCol || "#4a3018";
-  const half = big ? 9 : 7, belly = big ? 4.2 : 3.2;
-  const bowLimb = (bx, by, rot, pull) => {
-    ctx.save();
-    ctx.translate(bx, by);
-    ctx.rotate(rot);
-    ctx.strokeStyle = lin(ctx, 0, -half, belly, half, [[0, lighten(bowCol, 0.35)], [0.5, bowCol], [1, darken(bowCol, 0.3)]]);
-    ctx.lineWidth = 1.5;
-    ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(-0.5, -half); ctx.quadraticCurveTo(belly * 2, 0, -0.5, half); ctx.stroke();
-    // the string: a V at draw, a straight line (and a shiver) otherwise
-    ctx.strokeStyle = "rgba(240,232,210,0.95)";
-    ctx.lineWidth = 0.6;
-    ctx.beginPath(); ctx.moveTo(-0.5, -half); ctx.lineTo(-pull, 0); ctx.lineTo(-0.5, half); ctx.stroke();
-    if (pose === "loose") {
-      ctx.strokeStyle = "rgba(240,232,210,0.45)";
-      ctx.beginPath(); ctx.moveTo(-0.5, -half); ctx.lineTo(-1.6, 0); ctx.lineTo(-0.5, half); ctx.stroke();
-    }
-    ctx.restore();
-  };
-  if (pose === "rest") {
-    // bow carried low along the leading leg, string arm easy at the side
-    limb(ctx, 2.2, -15, 4.6, -10.5, 2.4, pal.coat);
-    bowLimb(5, -10, 0.38, 0.5);
-    ball(ctx, 4.8, -10.2, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
-    limb(ctx, -1.8, -15.5, -2.6, -9.5, 2.4, pal.coat);
-    ball(ctx, -2.6, -9.3, 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
-    ctx.restore();
-    return;
+  ctx.restore();
+  // the arrow on the string, from the nock at the hand out past the grip
+  if (pose === "draw" && d > 0.25) {
+    const len = big ? 13 : 11.5;
+    const ax = gx + belly * 0.9 - hx, ay = gy - hy, L = Math.hypot(ax, ay) || 1;
+    const ux = ax / L, uy = ay / L, ex = hx + ux * len, ey = hy + uy * len;
+    part(ctx, (c) => {
+      c.strokeStyle = "#8a6a44"; c.lineWidth = 0.7; c.lineCap = "butt";
+      c.beginPath(); c.moveTo(hx, hy); c.lineTo(ex, ey); c.stroke();
+      c.fillStyle = "#c4c8d0";
+      c.beginPath(); c.moveTo(ex + ux * 2.2, ey + uy * 2.2); c.lineTo(ex - uy * 1.1, ey + ux * 1.1); c.lineTo(ex + uy * 1.1, ey - ux * 1.1); c.closePath(); c.fill();
+      c.fillStyle = bowCol === "#4a3018" ? "#a04a3f" : fl;
+      c.beginPath(); c.moveTo(hx + ux * 0.4, hy + uy * 0.4); c.lineTo(hx + ux * 2.4 - uy * 1.2, hy + uy * 2.4 + ux * 1.2); c.lineTo(hx + ux * 2.6, hy + uy * 2.6); c.closePath(); c.fill();
+      c.fillStyle = fl;
+      c.beginPath(); c.moveTo(hx + ux * 0.4, hy + uy * 0.4); c.lineTo(hx + ux * 2.4 + uy * 1.2, hy + uy * 2.4 - ux * 1.2); c.lineTo(hx + ux * 2.6, hy + uy * 2.6); c.closePath(); c.fill();
+    });
   }
-  const bx = pose === "loose" ? 7.6 : 7, by = -15;
-  const pull = pose === "draw" ? draw * (big ? 6.5 : 5) : 0.6;
-  bowLimb(bx, by, 0, pull);
-  // the nocked arrow
-  if (pose === "draw" && draw > 0.4) {
-    const len = big ? 12 : 9.5;
-    ctx.strokeStyle = "#c4c8d0";
-    ctx.lineWidth = 0.9;
-    ctx.beginPath(); ctx.moveTo(bx - pull, by); ctx.lineTo(bx - pull + len, by); ctx.stroke();
-    ctx.fillStyle = bowCol === "#4a3018" ? "#a04a3f" : bowCol;
-    ctx.beginPath(); ctx.moveTo(bx - pull, by - 1.4); ctx.lineTo(bx - pull + 2.2, by); ctx.lineTo(bx - pull, by + 1.4); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#e8e0c8";
-    ctx.beginPath(); ctx.moveTo(bx - pull + len, by - 1); ctx.lineTo(bx - pull + len + 1.8, by); ctx.lineTo(bx - pull + len, by + 1); ctx.closePath(); ctx.fill();
-  }
-  // bow arm straight out to the grip
-  limb(ctx, 2, -15, bx - 0.5, by, 2.4, pal.coat);
-  ball(ctx, bx - 0.5, by, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
-  // the string hand: at the cheek while drawing, flung back after the
-  // loose, over the shoulder for the next arrow
-  const hx = pose === "loose" ? -3.8 : pose === "reach" ? -4.2 : bx - pull - 0.5;
-  const hy = pose === "loose" ? -17.5 : pose === "reach" ? -22 : by - 0.5;
-  limb(ctx, -1, -15.5, hx, hy, 2.4, pal.coat);
-  ball(ctx, hx, hy, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
+  // the bow hand closes on the grip
+  const gpx = gx + Math.cos(rot) * belly * 0.9, gpy = gy + Math.sin(rot) * belly * 0.9;
+  ball(ctx, gpx - 0.2, gpy, 1.1, 1.2, pal.skin, { hi: 0.4, lo: 0.4 });
+  // the near arm: elbow high and back at full draw, flung out at the loose
+  const sh = [0.9, -16.4];
+  const ex2 = pose === "draw" ? sh[0] - 1.5 - d * 1.8 : pose === "loose" ? -1.2 : pose === "reach" ? -1.6 : 0.2;
+  const ey2 = pose === "draw" ? -15.4 - d * 2.4 : pose === "loose" ? -15.2 : pose === "reach" ? -19.6 : -12.6;
+  limb(ctx, sh[0], sh[1], ex2, ey2, 2.4, pal.coat);
+  limb(ctx, ex2, ey2, hx, hy, 2.2, pal.coat);
+  ball(ctx, hx, hy, 1.05, 1.1, pal.skin, { hi: 0.4, lo: 0.4 });
+  if (pose === "loose") { dab(ctx, hx - 1.6, hy - 1.2, 0.6, 0.6, pal.skin); dab(ctx, hx - 1.8, hy + 0.2, 0.6, 0.6, pal.skin); }   // fingers open
+  ctx.restore();
   ctx.restore();
 };
 

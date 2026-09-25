@@ -36,6 +36,27 @@
       const ground = groundLayer();
       // ?board=<name>: the four halls standing on the real greenwood board,
       // drawn by the real draw(), full frame and a 2x crop (idle=1 rests them)
+      // ?figs=1: the archer crew alone, every palette through every pose, big
+      if (q.get("figs")) {
+        const F = await import("/src/render/folk.js");
+        const { bakeSprite } = await import("/src/render/paint.js");
+        const pals = ["base", "a", "aa", "ab", "b", "bb"];
+        const poses = [["rest", 0], ["draw", 1 / 3], ["draw", 2 / 3], ["draw", 1], ["loose", 0], ["reach", 0]];
+        const Z = Number(q.get("z")) || 6, cw = 34, ch = 36;
+        const cv = document.createElement("canvas"); cv.width = cw * 2 * Z * poses.length; cv.height = ch * 2 * Z * (pals.length + 2);
+        const c = cv.getContext("2d"); c.imageSmoothingEnabled = false; c.fillStyle = "#82b256"; c.fillRect(0, 0, cv.width, cv.height);
+        pals.forEach((pk, r) => poses.forEach(([pose, dr], i) => {
+          const sp = bakeSprite(cw, ch, (cc) => F.drawArcher(cc, 12, 31, 1, F.ARCHER_FOLK[pk], dr, { pose, big: pk === "b" || pk === "bb", bowCol: pk === "bb" ? "#8a2f24" : undefined }));
+          c.drawImage(sp, i * cw * 2 * Z, r * ch * 2 * Z, sp.width * Z, sp.height * Z);
+        }));
+        // the castle's bowman (mirrored, as the wall bakes him) and the other crews
+        [0, 1 / 3, 2 / 3, 1].forEach((dr, i) => { const sp = bakeSprite(cw, ch, (cc) => F.drawArcher(cc, 20, 31, -1, F.WALL_FOLK.bowman, dr)); c.drawImage(sp, i * cw * 2 * Z, pals.length * ch * 2 * Z, sp.width * Z, sp.height * Z); });
+        const others = [(cc) => F.drawCrew(cc, 12, 31, 1, F.ARCHER_FOLK.crew, 0.3), (cc) => F.drawStander(cc, 12, 31, 1, F.CREW_FOLK.clerk), (cc) => F.drawHalberdier(cc, 12, 33, 1, F.WALL_FOLK.guard), (cc) => F.drawMason(cc, 12, 31, 1, F.WALL_FOLK.mason, 1), (cc) => F.drawSmith(cc, 12, 31, 1, F.CREW_FOLK.smith, 1), (cc) => F.drawMusketeer(cc, 12, 31, 1, F.CREW_FOLK.musketeer, 0)];
+        others.forEach((fn, i) => { const sp = bakeSprite(cw, ch, fn); c.drawImage(sp, i * cw * 2 * Z, (pals.length + 1) * ch * 2 * Z, sp.width * Z, sp.height * Z); });
+        await fetch("/__shot?name=twa_figs_" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+        document.title = "DONE";
+        throw new Error("figs done");
+      }
       const BOARD = q.get("board");
       if (BOARD) {
         const { draw } = await import("/src/render/draw.js");
@@ -83,6 +104,7 @@
         };
         const g = { time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5, towers, projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [],
           enemies: idle ? [] : [mk("goblin", 0.3, 0), mk("orc", 0.35, 10), mk("goblin", 0.5, -12)], phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null, paused: false, buildUntil: null };
+        if (q.get("castle")) { g.castle = { archers: 3, ballista: 1, guards: 2, masons: 1 }; g.castleCd = { archers: 300, ballista: 900, shot: 0 }; }
         const bc = document.createElement("canvas"); bc.width = W; bc.height = H;
         draw(g, bc, { current: null });
         if (q.get("foot")) {
@@ -93,7 +115,7 @@
         }
         // draw() re-derives _idle from the enemies; fine: idle=1 has none
         await fetch("/__shot?name=twa_board_" + BOARD, { method: "POST", body: bc.toDataURL("image/png").slice(22) });
-        const k = bc.width / W, [cx, cy, cw, ch] = [200, 100, 380, 250], sc = 2;
+        const k = bc.width / W, [cx, cy, cw, ch, sc] = q.get("crop") ? q.get("crop").split(",").map(Number) : [200, 100, 380, 250, 2];
         const cc = document.createElement("canvas"); cc.width = cw * k * sc; cc.height = ch * k * sc;
         const c2 = cc.getContext("2d"); c2.imageSmoothingEnabled = false;
         c2.drawImage(bc, cx * k, cy * k, cw * k, ch * k, 0, 0, cc.width, cc.height);
