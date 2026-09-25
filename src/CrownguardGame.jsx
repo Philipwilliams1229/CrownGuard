@@ -4,7 +4,7 @@
 // React state for the panels, handles mouse input, and renders the UI.
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { W, H, RES, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
+import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
 import { sfx } from "./audio/sfx.js";
 import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
@@ -111,7 +111,8 @@ export default function Crownguard() {
   // board instead. The board itself is always sized to fit its cell at 3:2.
   const [wide, setWide] = useState(() => typeof window === "undefined" || window.innerWidth >= 900);
   const boardCellRef = useRef(null);
-  const [boardCss, setBoardCss] = useState({ w: 720, h: 480 });
+  // the canvas's css size (w, h), and the visible box it's shown in (vw, vh)
+  const [boardCss, setBoardCss] = useState({ w: 720, h: 480, vw: 720, vh: 480 });
   // The screen, and the whole battle screen's box inside the safe area. When
   // the screen is wider than the 3:2 board (a phone on its side, a desktop),
   // the spare width becomes two RAILS beside the board that carry the HUD, so
@@ -144,9 +145,12 @@ export default function Crownguard() {
     if (!el) return;
     const fit = () => {
       const r = el.getBoundingClientRect();
-      // the board keeps its true shape (W:H), never stretched
-      const w = Math.max(200, Math.min(r.width, r.height * (W / H)));
-      setBoardCss({ w: Math.floor(w), h: Math.floor(w / (W / H)) });
+      // The map comes first: as big as the screen allows at its true shape,
+      // and where the screen is too short for it, only the decorative border
+      // along the top and bottom (MY) is trimmed away — never the field.
+      const k = Math.max(0.1, Math.min(r.width / W, r.height / (H - 2 * MY)));
+      const w = Math.floor(W * k), h = Math.floor(H * k);
+      setBoardCss({ w, h, vw: Math.min(w, Math.floor(r.width)), vh: Math.min(h, Math.floor(r.height)) });
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -686,14 +690,16 @@ export default function Crownguard() {
     <span className={cls("cg-price", !can && "is-short")}><CoinIcon size={size} />{n}</span>
   );
   const s = vp.scale;
-  // Rails whenever the screen is clearly wider than the board (a phone on its
-  // side, a desktop): at least 110px each so their buttons stay a thumb's
-  // size, even if that trims the board a little. Tablets keep the overlay.
-  const railsOn = vp.w / Math.max(1, vp.h) > 1.62;
-  const spare = hudBox.w - hudBox.h * (W / H);
-  const railW = railsOn ? Math.min(200, Math.max(110, Math.floor(spare / 2))) : 0;
-  // a rail is at least 150 design pixels wide inside: narrower rails draw smaller
-  const sR = railsOn ? Math.min(s, railW / 150) : s;
+  // On a phone on its side the HUD stands in two slim columns ("rails") that
+  // float over the screen's left and right edges — mostly in the margins
+  // beside the map, a little over its edge — so the map keeps every pixel it
+  // can. Elsewhere the HUD floats in the map's corners.
+  const railsOn = vp.short && vp.landscape;
+  const COLW = 118;              // a rail's width in design px
+  const sR = s;
+  // how far the map's top border is trimmed off-screen, in css px
+  const cropTop = Math.round((boardCss.vh - boardCss.h) / 2);
+  const inset = vp.safe || { top: 0, right: 0, bottom: 0, left: 0 };
   const scaleAt = (origin) => (s === 1 ? {} : { transform: `scale(${s})`, transformOrigin: origin });
   // a small square close button that sits ON a panel's upper-right corner,
   // outside the part that scrolls, so it never scrolls away
@@ -708,7 +714,7 @@ export default function Crownguard() {
   const CARD_M = 24 * s;
   const floatCard = ({ id, left, width, f, origin, closeLabel, onClose, children }) => (
     <div key={id} style={{
-      position: "absolute", left, top: CARD_M, width, height: (boardCss.h - 2 * CARD_M) / s,
+      position: "absolute", left, top: CARD_M, width, height: (boardCss.vh - 2 * CARD_M) / s,
       transform: `scale(${s})`, transformOrigin: "0 0", zIndex: 25,
       display: "flex", flexDirection: "column", pointerEvents: "none",
     }}>
@@ -724,7 +730,7 @@ export default function Crownguard() {
   const ribbon = (text, label, cancel) => (
     <div style={{
       position: "absolute", top: 8, left: "50%", zIndex: 22, pointerEvents: "none", width: "max-content",
-      maxWidth: (boardCss.w * (railsOn ? 0.92 : 0.62)) / s, transform: `translateX(-50%) scale(${s})`, transformOrigin: "50% 0",
+      maxWidth: (boardCss.vw * (railsOn ? 0.7 : 0.62)) / s, transform: `translateX(-50%) scale(${s})`, transformOrigin: "50% 0",
     }}>
       <div className="cg-ribbon cg-pop" style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 4px 4px 12px" }}>
         <span>{text}</span>
@@ -742,13 +748,7 @@ export default function Crownguard() {
     <>
       <GoldChip gold={ui.gold} />
       <LivesChip lives={ui.lives} max={ui.maxLives || CASTLE_HP} base={CASTLE_HP} />
-      {level && railsOn && (
-        <div className="cg-panel" style={{ padding: "5px 9px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
-          <span className="cg-label" style={{ fontSize: 10 }}>Chapter {level.chapter.numeral}</span>
-          <span className="cg-display" style={{ fontSize: 12, color: "var(--cream)", lineHeight: 1.15 }}>{level.name}</span>
-        </div>
-      )}
-      {level && !railsOn && boardCss.w > 760 && (
+      {level && !railsOn && boardCss.vw > 760 && (
         <div className="cg-panel cg-chip" style={{ gap: 6 }}>
           <span className="cg-label">Ch. {level.chapter.numeral}</span>
           <span className="cg-display" style={{ fontSize: 12, color: "var(--cream)" }}>{level.name}</span>
@@ -758,20 +758,20 @@ export default function Crownguard() {
   );
 
   // -- build, the castle works, speed and pause --
-  const resetBtn = ui.zoom > 1 && <button title="Reset view" className="cg-btn cg-btn--slate" style={{ fontSize: 12 }} onClick={() => setZoom(1)}>Reset view</button>;
+  const resetBtn = ui.zoom > 1 && <button title="Reset view" className="cg-btn cg-btn--slate" style={{ fontSize: 12 }} onClick={() => setZoom(1)}>{railsOn ? "Reset" : "Reset view"}</button>;
   const buildBtn = ui.result == null && (
-    <button aria-label="Open build menu" className={cls("cg-btn", buildOpen && "is-on")} style={railsOn ? { minHeight: 58, fontSize: 15, gap: 8 } : { gap: 7, padding: "0 12px 0 10px" }} onClick={openBuild}>
-      <HammerIcon size={railsOn ? 22 : 18} /> Build
+    <button aria-label="Open build menu" className={cls("cg-btn", buildOpen && "is-on")} style={railsOn ? { minHeight: 54, fontSize: 12, gap: 3, flexDirection: "column", padding: "4px 4px" } : { gap: 7, padding: "0 12px 0 10px" }} onClick={openBuild}>
+      <HammerIcon size={railsOn ? 20 : 18} /> Build
     </button>
   );
   const castleBtn = ui.result == null && (
     <button aria-label="Open the castle works" title="Castle works: defences built on the wall itself, kept for the whole region"
-      className={cls("cg-btn", castleOpen && "is-on")} onClick={openCastle}>
+      className={cls("cg-btn", castleOpen && "is-on")} style={railsOn ? { fontSize: 11, gap: 5, padding: "0 6px" } : undefined} onClick={openCastle}>
       <CastleIcon size={20} />{railsOn && <span>Castle</span>}
     </button>
   );
   const speedBtn = (
-    <button title="Game speed" aria-label={`Game speed ${ui.speed}x`} className={cls("cg-btn", ui.speed > 1 && "is-on")} style={{ minWidth: 62, gap: 5, padding: "0 8px", ...(railsOn ? { flex: 1 } : {}) }} onClick={cycleSpeed}>
+    <button title="Game speed" aria-label={`Game speed ${ui.speed}x`} className={cls("cg-btn", ui.speed > 1 && "is-on")} style={{ minWidth: railsOn ? 0 : 62, gap: 4, padding: railsOn ? "0 4px" : "0 8px", ...(railsOn ? { flex: 1 } : {}) }} onClick={cycleSpeed}>
       <SpeedIcon speed={ui.speed} size={14} /><span>{ui.speed}x</span>
     </button>
   );
@@ -807,12 +807,12 @@ export default function Crownguard() {
         </span>
         <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: railsOn ? 0 : 88 }}>
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
-            <span style={{ fontSize: 11 }}>{ui.hero.name}</span>
+            {!railsOn && <span style={{ fontSize: 11 }}>{ui.hero.name}</span>}
             <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv {ui.hero.level}</span>
           </span>
           <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
           <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, ui.hero.xp / ui.hero.next))}%`, background: "var(--blue)" }} /></span>
-          <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 9, color: "var(--muted)", display: "flex", justifyContent: "space-between", gap: 6 }}>
+          <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 9, color: "var(--muted)", display: railsOn ? "none" : "flex", justifyContent: "space-between", gap: 6 }}>
             <span>{ui.hero.dead ? `back in ${ui.hero.respawn}s` : `${ui.hero.hp}/${ui.hero.maxHp}`}</span>
             <span>{max ? "MAX" : `xp ${ui.hero.xp}/${ui.hero.next}`}</span>
           </span>
@@ -834,7 +834,7 @@ export default function Crownguard() {
       style={railsOn ? { minHeight: 40, gap: 8, justifyContent: "flex-start", padding: "0 10px" } : { minHeight: 60, minWidth: 48, padding: "0 6px", flexDirection: "column", gap: 2 }}
       onClick={() => { setTalentsOpen((o) => !o); setArmed(null); setBuildOpen(false); setCastleOpen(false); if (G.current) G.current.selectedId = null; }}>
       <Star size={18} lit />
-      {railsOn && <span style={{ flex: 1, textAlign: "left" }}>Talents</span>}
+      {railsOn && <span style={{ flex: 1, textAlign: "left", fontSize: 11 }}>Talents</span>}
       <span className="cg-num" style={{ fontSize: 11, textShadow: "none" }}>{heroRec.points}</span>
     </button>
   );
@@ -853,7 +853,7 @@ export default function Crownguard() {
     };
     const cw = 272 * s;
     // beside the hero's panel: the left rail's foot, or the board's lower right
-    const left = railsOn ? CARD_M * 0.5 : Math.max(6 * s, boardCss.w - cw - CARD_M);
+    const left = railsOn ? Math.max(CARD_M * 0.5, COLW * sR + 10 + inset.left - (hudBox.w - boardCss.vw) / 2) : Math.max(6 * s, boardCss.vw - cw - CARD_M);
     return floatCard({
       id: "talents", left, width: 272, f: 1, origin: railsOn ? "left bottom" : "right bottom",
       closeLabel: "Close talents", onClose: () => { setTalentsOpen(false); setArmed(null); },
@@ -910,7 +910,7 @@ export default function Crownguard() {
     const fighting = ui.phase !== "build";
     const small = { fontSize: 12, opacity: 0.75, marginLeft: 1 };
     // the horn shows the three biggest threats: bosses first, then the most numerous
-    const lead = [...comp].sort((a, b) => (ENEMIES[b.type].boss ? 1e6 : b.count) - (ENEMIES[a.type].boss ? 1e6 : a.count)).slice(0, 3);
+    const lead = [...comp].sort((a, b) => (ENEMIES[b.type].boss ? 1e6 : b.count) - (ENEMIES[a.type].boss ? 1e6 : a.count)).slice(0, railsOn ? 2 : 3);
     const leadRow = lead.length > 0 && (
       <span style={{ display: "flex", gap: 3 }}>
         {lead.map(({ type, count }) => (
@@ -986,7 +986,7 @@ export default function Crownguard() {
           )}
           <button aria-label={infoOpen ? "Hide wave info" : "Show wave info"}
             className={cls("cg-btn", fighting ? "cg-btn--slate" : "", infoOpen && "is-on")}
-            style={{ minWidth: 38, padding: 0, marginLeft: -2, minHeight: 50, flexDirection: "column", gap: 3 }}
+            style={{ minWidth: railsOn ? 28 : 38, padding: 0, marginLeft: -2, minHeight: 50, flexDirection: "column", gap: 3 }}
             onClick={() => setInfoOpen((o) => !o)}>
             {infoOpen ? <ChevronDown size={7} /> : <ChevronUp size={7} />}
             {ui.rush && <BoltIcon size={11} />}
@@ -1026,28 +1026,26 @@ export default function Crownguard() {
   // A rail: a column of the screen's spare width beside the board, its
   // contents drawn at the rail's own scale and filling its whole height.
   const rail = (side, top, bottom) => (
-    <div style={{ width: railW, flexShrink: 0, position: "relative", zIndex: 30 }}>
+    <div className="cg-compact" style={{
+      position: "absolute", top: inset.top + 6, bottom: inset.bottom + 6, [side]: inset[side] + 6,
+      width: COLW * sR, zIndex: 30, pointerEvents: "none",
+    }}>
       <div style={{
-        // clear of the notch-side insets (the root pads those) and the home
-        // indicator, which the board itself may run under
-        position: "absolute", top: vp.safe.top, [side]: 0, width: railW / sR, height: (hudBox.h - vp.safe.top - vp.safe.bottom) / sR,
+        position: "absolute", top: 0, [side]: 0, width: COLW, height: (hudBox.h - inset.top - inset.bottom - 12) / sR,
         transform: `scale(${sR})`, transformOrigin: `top ${side}`, boxSizing: "border-box",
-        padding: 8, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8,
+        display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8,
       }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{top}</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{bottom}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, pointerEvents: "auto" }}>{top}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, pointerEvents: "auto" }}>{bottom}</div>
       </div>
     </div>
   );
 
   return (
     <div ref={hudRef} className="cg-hud" style={{
-      height: "100dvh", background: "#17111b", boxSizing: "border-box",
-      display: "flex", overflow: "hidden",
-      paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)",
-      // with rails the board runs the full height, under the home indicator;
-      // the overlay HUD sits on the board, so there it keeps clear of it
-      ...(railsOn ? {} : { paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }),
+      // the whole screen: the map fills it, the HUD floats over it and keeps
+      // itself clear of the notch and the home indicator
+      position: "relative", height: "100dvh", background: "#17111b", boxSizing: "border-box", overflow: "hidden",
     }}>
         {menuOpen && (() => {
           // on a phone on its side the menu lies in two columns, so it fits at full size
@@ -1133,29 +1131,24 @@ export default function Crownguard() {
 
         {guideOpen && <FieldGuide onClose={closeGuide} />}
 
-      {/* ---- the left rail: the purse, the hero, the horn ---- */}
-      {railsOn && rail("left", purse, <>{talentBtn}{heroBtn}{horn}</>)}
-
-      {/* ---- the field, letterboxed to 3:2 in whatever is left beside the rails ---- */}
-      <div ref={boardCellRef} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center",
-        // any sliver left above or below the board takes the realm's own ground
-        background: railsOn ? REALMS[realmId].GRASS_DK || REALMS[realmId].GRASS : undefined }}>
-        <div style={{ position: "relative", width: boardCss.w, height: boardCss.h, overflow: "hidden", background: REALMS[realmId].GRASS }}>
+      {/* ---- the field: as much of the screen as it can take ---- */}
+      <div ref={boardCellRef} style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "relative", width: boardCss.vw, height: boardCss.vh, overflow: "hidden", background: REALMS[realmId].GRASS }}>
           <canvas
             ref={canvasRef} width={W * RES} height={H * RES}
             onPointerDown={onCanvasDown} onPointerMove={onCanvasMove} onPointerUp={onCanvasUp} onPointerCancel={onCanvasCancel}
             onPointerLeave={(ev) => { if (ev.pointerType === "mouse" && G.current) G.current.hover = null; }}
             onContextMenu={(ev) => ev.preventDefault()}
-            style={{ width: "100%", height: "100%", display: "block", cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+            style={{ position: "absolute", left: 0, top: cropTop, width: boardCss.w, height: boardCss.h, display: "block", cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
           />
 
           {/* over the board's corners, when there are no rails to carry them */}
           {!railsOn && (
             <>
-              <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, zIndex: 20, pointerEvents: "none", ...scaleAt("top left") }}>{purse}</div>
-              <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 20, ...scaleAt("top right") }}>{resetBtn}{buildBtn}{castleBtn}{speedBtn}{pauseBtn}</div>
-              {ui.result == null && <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 6, zIndex: 20, alignItems: "flex-end", ...scaleAt("bottom right") }}>{militiaBtn}{heroBtn}{talentBtn}</div>}
-              <div style={{ position: "absolute", left: 8, bottom: 8, zIndex: 20, ...scaleAt("bottom left") }}>{horn}</div>
+              <div style={{ position: "absolute", top: 8 + inset.top, left: 8 + inset.left, display: "flex", gap: 6, zIndex: 20, pointerEvents: "none", ...scaleAt("top left") }}>{purse}</div>
+              <div style={{ position: "absolute", top: 8 + inset.top, right: 8 + inset.right, display: "flex", gap: 6, zIndex: 20, ...scaleAt("top right") }}>{resetBtn}{buildBtn}{castleBtn}{speedBtn}{pauseBtn}</div>
+              {ui.result == null && <div style={{ position: "absolute", right: 8 + inset.right, bottom: 8 + inset.bottom, display: "flex", gap: 6, zIndex: 20, alignItems: "flex-end", ...scaleAt("bottom right") }}>{militiaBtn}{heroBtn}{talentBtn}</div>}
+              <div style={{ position: "absolute", left: 8 + inset.left, bottom: 8 + inset.bottom, zIndex: 20, ...scaleAt("bottom left") }}>{horn}</div>
             </>
           )}
 
@@ -1200,9 +1193,9 @@ export default function Crownguard() {
               const t = g?.towers.find((x) => x.id === sel.id);
               if (!t) return null;
               // beside the tower, on whichever side has more room, level with it
-              const bw = boardCss.w, bh = boardCss.h;
-              const tx = (((t.x - g.cam.x) * g.cam.zoom) / W) * bw;
-              const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * bh;
+              const bw = boardCss.vw, bh = boardCss.vh;
+              const tx = (((t.x - g.cam.x) * g.cam.zoom) / W) * boardCss.w;
+              const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * boardCss.h + cropTop;
               const CW = 292, cw = CW * s;
               const flipX = tx > bw * 0.5;
               const left = Math.max(6 * s, Math.min(bw - cw - CARD_M, flipX ? tx - 26 * s - cw : tx + 26 * s));
@@ -1513,8 +1506,9 @@ export default function Crownguard() {
         </div>
       </div>
 
-      {/* ---- the right rail: speed, pause, build, the castle works; the militia below ---- */}
-      {railsOn && rail("right", <><div style={{ display: "flex", gap: 7 }}>{speedBtn}{pauseBtn}</div>{buildBtn}{castleBtn}{resetBtn}</>, militiaBtn)}
+      {/* ---- on a phone: two slim rails over the screen's edges ---- */}
+      {railsOn && rail("left", purse, <>{talentBtn}{heroBtn}{horn}</>)}
+      {railsOn && rail("right", <><div style={{ display: "flex", gap: 6 }}>{speedBtn}{pauseBtn}</div>{buildBtn}{castleBtn}{resetBtn}</>, militiaBtn)}
 
       {/* ---- the castle works: the wall's own defences, bought once for a whole region ---- */}
       {drawer(castleOpen, 310, <>

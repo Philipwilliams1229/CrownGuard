@@ -261,3 +261,7 @@
   position: absolute; top: -16px; right: -16px; z-index: 2;
   min-width: 40px; min-height: 40px;
 }
+
+/* the phone rails: slimmer chips so a purse fits a thumb-wide column */
+.cg-compact .cg-chip { min-height: 34px; padding: 0 8px 0 6px; gap: 5px; }
+.cg-compact .cg-chip .cg-num { font-size: 15px; }

@@ -124,12 +124,15 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   upper-right corner (`.cg-corner-x`), outside the scrolling part; drawers
   keep it in a fixed head. A tap on the field or the dark backdrop closes
   them too.
-- **Battle HUD:** when the screen is wider than the 3:2 board (phones on
-  their side, desktops), the spare width becomes two rails beside the board
-  holding the purse, hero and horn (left) and speed, pause, Build, Castle,
-  Militia (right), so the field stays uncovered. On an iPad the chips float
-  over the board's corners. The Build drawer picks as many columns as it
-  takes for the whole roster to show at once.
+- **Battle HUD: the map comes first** (owner, 2026-09-25). The board is as
+  big as the screen allows at its true shape; where the screen is too
+  short, only the decorative top/bottom border (MY) is trimmed, never the
+  field. The HUD floats OVER it: in the corners on tablets and desktops;
+  on a phone on its side as two slim rails at the screen edges (mostly in
+  the margins, a little over the map) with compact pieces — small chips,
+  icon-over-label buttons, two threat icons on the horn, no hero name.
+  Everything keeps clear of the notch and home indicator (`vp.safe`). The
+  Build drawer picks as many columns as it takes for the whole roster.
 - **Landscape only** (owner, 2026-09-25): a touch screen held upright gets
   `src/ui/TurnDevice.jsx`'s "turn your device" card over EVERY screen; the
   manifest declares landscape. Upright layouts (`narrow`) are a fallback
