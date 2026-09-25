@@ -253,3 +253,10 @@
 @media (prefers-reduced-motion: reduce) {
   .cg-up, .cg-down, .cg-hurt, .cg-horn, .cg-pop, .cg-rise, .cg-star, .cg-float { animation: none !important; }
 }
+
+/* the ✕ that rides a floating card's upper-right corner, outside the part
+   that scrolls, so it is always where the thumb expects it */
+.cg-corner-x {
+  position: absolute; top: -16px; right: -16px; z-index: 2;
+  min-width: 40px; min-height: 40px;
+}

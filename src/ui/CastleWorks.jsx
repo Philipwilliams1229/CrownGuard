@@ -20,6 +20,9 @@ export default function CastleWorksList({ works, ranks = null, endless = false, 
         <b className="cg-num" style={{ color: "var(--gold-lt)", fontSize: 18 }}>{gold(Math.floor(purse))}</b>
       </div>
       {note && <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, padding: "0 2px" }}>{note}</div>}
+      {/* one column in a narrow drawer, two side by side in a wide box (a
+          phone on its side), so a short screen scrolls less */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(236px, 100%), 1fr))", gap: 8 }}>
       {Object.entries(CASTLE_WORKS).map(([key, def]) => {
         const have = works?.[key] || 0;
         const cur = have > 0 ? def.tiers[have - 1] : null;
@@ -51,6 +54,7 @@ export default function CastleWorksList({ works, ranks = null, endless = false, 
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

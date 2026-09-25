@@ -1,16 +1,18 @@
 // ============ FIELD GUIDE ============
-// A full-screen compendium: browse every tower and every foe as a grid of
+// A compendium: browse every tower and every foe as a grid of
 // sprites, tap one to read it in full. The tower entries lay out the whole
 // evolution tree — three levels, two paths, and each path's two final
 // ascensions.
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { TOWERS } from "../data/towers.js";
 import { ENEMIES } from "../data/enemies.js";
 import { FACTIONS } from "../data/factions.js";
 import { btn, title, FONT } from "./theme.js";
-import PixelIcon from "./PixelIcon.jsx";
+import TowerPortrait from "./TowerPortrait.jsx";
 import EnemyIcon from "./EnemyIcon.jsx";
+import { useViewport } from "./fit.jsx";
 
 // ---- turning a raw stat block into plain English ----
 
@@ -140,7 +142,7 @@ function TowerDetail({ kind }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <PixelIcon kind={kind} size={46} />
+        <TowerPortrait kind={kind} size={56} />
         <div>
           <div style={{ fontWeight: "bold", color: "#e8d47a", fontSize: 15 }}>{def.name}</div>
           <div style={{ fontSize: 11, opacity: 0.6 }}>
@@ -173,7 +175,7 @@ function TowerDetail({ kind }) {
           <div key={bk}>
             <div style={{ ...card, borderTop: "4px solid #7a6a3c" }}>
               <div style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
-                <PixelIcon kind={kind} branch={bk} size={32} />
+                <TowerPortrait kind={kind} branch={bk} size={42} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: "bold", fontSize: 12.5, color: "#e8d47a" }}>
                     {br.name} <span style={{ fontWeight: "normal" }}>— {br.cost}g</span>
@@ -190,7 +192,7 @@ function TowerDetail({ kind }) {
                 {Object.entries(br.rank4).map(([rk, r4]) => (
                   <div key={rk} style={card}>
                     <div style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
-                      <PixelIcon kind={kind} branch={bk} rank4={rk} size={28} />
+                      <TowerPortrait kind={kind} branch={bk} rank4={rk} size={38} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: "bold", fontSize: 12, color: "#e8d47a" }}>
                           {r4.name} <span style={{ fontWeight: "normal" }}>— {r4.cost}g</span>
@@ -224,7 +226,7 @@ function EnemyDetail({ type }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <EnemyIcon type={type} box={46} />
+        <EnemyIcon type={type} box={56} />
         <div>
           <div style={{ fontWeight: "bold", color: e.boss ? "#e07a72" : "#e8d47a", fontSize: 15 }}>
             {e.name}{e.boss ? " · BOSS" : ""}
@@ -301,6 +303,11 @@ function Basics() {
 }
 
 // ---- the guide itself ----
+// Phones get the whole screen; bigger screens get a framed box over a dimmed
+// backdrop, and a tap on the backdrop closes it. Either way the header (title,
+// tabs or Back, and the X) is pinned and only the entries below it scroll.
+// It's portalled to <body> so a scaled (transformed) parent screen can't pull
+// its position: fixed off the viewport.
 
 const TABS = [
   { id: "towers", label: "TOWERS" },
@@ -308,78 +315,135 @@ const TABS = [
   { id: "basics", label: "BASICS" },
 ];
 
+// the notch sits on a side when the phone lies down; keep clear of it
+const safe = (side, min) => `max(${min}px, env(safe-area-inset-${side}))`;
+
 export default function FieldGuide({ onClose }) {
   const [tab, setTab] = useState("towers");
   const [pick, setPick] = useState(null); // the entry being read, if any
+  const vp = useViewport();
+  const scroller = useRef(null);
+
+  const full = vp.short || vp.narrow;   // a phone: use every pixel
+  const oneRow = vp.short;              // a phone on its side: title, tabs and X share one row
 
   const open = (t, id) => { setTab(t); setPick(id); };
   const back = () => setPick(null);
 
+  // a new page of the guide starts at its top
+  useEffect(() => { if (scroller.current) scroller.current.scrollTop = 0; }, [tab, pick]);
+
+  // Escape closes (or steps back out of an entry first)
+  useEffect(() => {
+    const on = (e) => { if (e.key === "Escape") { if (pick) setPick(null); else onClose(); } };
+    window.addEventListener("keydown", on);
+    return () => window.removeEventListener("keydown", on);
+  }, [pick, onClose]);
+
   // A sprite-and-name tile — the whole grid is built from these.
   const tile = (key, label, icon, onClick) => (
     <button key={key} onClick={onClick}
-      style={{ ...btn, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 6, padding: "12px 6px", textAlign: "center", minHeight: 86 }}>
+      style={{
+        ...btn, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
+        gap: 6, padding: full ? "8px 4px" : "12px 6px", textAlign: "center", minHeight: full ? 72 : 86,
+      }}>
       {icon}
       <span style={{ fontSize: 10.5, lineHeight: 1.3 }}>{label}</span>
     </button>
   );
 
-  const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 8 };
+  const grid = { display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${vp.narrow ? 84 : 96}px, 1fr))`, gap: 8 };
 
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 70, fontFamily: FONT, color: "#e8e0c8",
-      background: "rgba(22,25,32,0.94)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
-      display: "flex", flexDirection: "column",
+  const closeBtn = (
+    <button aria-label="Close field guide" onClick={onClose}
+      style={{ ...btn, width: 44, height: 44, minHeight: 44, padding: 0, fontSize: 16, textAlign: "center", flexShrink: 0 }}>✕</button>
+  );
+  const heading = <div style={{ ...title(oneRow ? 13 : 15), whiteSpace: "nowrap" }}>FIELD GUIDE</div>;
+  // while reading an entry, the tabs give way to Back and the entry's name
+  const pickName = pick && (tab === "towers" ? TOWERS[pick]?.name : ENEMIES[pick]?.name);
+  const tabRow = pick ? (
+    <>
+      <button onClick={back} style={{ ...btn, padding: "8px 14px", fontSize: 12, minHeight: 44, flexShrink: 0 }}>◀ Back</button>
+      <span style={{ alignSelf: "center", fontSize: 11, opacity: 0.6, letterSpacing: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {tab === "towers" ? "TOWERS" : "FOES"} › {pickName}
+      </span>
+    </>
+  ) : (
+    TABS.map((t) => (
+      <button key={t.id} onClick={() => setTab(t.id)}
+        style={{
+          ...btn, flex: 1, textAlign: "center", padding: "9px 6px", fontSize: 11, letterSpacing: 1, minHeight: 44,
+          ...(tab === t.id ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}),
+        }}>
+        {t.label}
+      </button>
+    ))
+  );
+
+  const padX = full ? 12 : 16;
+  const box = (
+    <div role="dialog" aria-label="Field guide" style={{
+      display: "flex", flexDirection: "column", boxSizing: "border-box", overflow: "hidden",
+      ...(full
+        ? { position: "absolute", inset: 0, background: "#1d2029" }
+        : {
+          position: "relative", width: "min(780px, 100%)", height: "min(880px, 100%)",
+          background: "#1d2029", border: "3px solid #10131a",
+          boxShadow: "inset 0 0 0 2px #454c5a, 0 10px 40px rgba(0,0,0,0.55)",
+        }),
     }}>
-      {/* header: title, and either the tabs or a back button */}
-      <div style={{ padding: "14px 14px 0", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, maxWidth: 720, margin: "0 auto", width: "100%" }}>
-          <div style={{ ...title(15) }}>FIELD GUIDE</div>
-          <button aria-label="Close field guide" onClick={onClose} style={{ ...btn, padding: "6px 14px", fontSize: 14 }}>✕</button>
-        </div>
-
-        <div style={{ display: "flex", gap: 6, marginTop: 10, maxWidth: 720, marginLeft: "auto", marginRight: "auto" }}>
-          {pick ? (
-            <button onClick={back} style={{ ...btn, padding: "8px 14px", fontSize: 12 }}>◀ Back</button>
-          ) : (
-            TABS.map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                style={{
-                  ...btn, flex: 1, textAlign: "center", padding: "9px 6px", fontSize: 11, letterSpacing: 1,
-                  ...(tab === t.id ? { background: "#5a4f2c", boxShadow: "inset -2px -2px 0 #3a3420, inset 2px 2px 0 #8a7746" } : {}),
-                }}>
-                {t.label}
-              </button>
-            ))
-          )}
-        </div>
+      {/* the pinned header: title, tabs or Back, and the X — never scrolls */}
+      <div style={{
+        flexShrink: 0,
+        paddingTop: full ? safe("top", oneRow ? 8 : 12) : 14,
+        paddingLeft: full ? safe("left", padX) : padX, paddingRight: full ? safe("right", padX) : padX,
+        paddingBottom: oneRow ? 8 : 10, borderBottom: "2px solid #10131a",
+      }}>
+        {oneRow ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {heading}
+            <div style={{ flex: 1, display: "flex", gap: 6 }}>{tabRow}</div>
+            {closeBtn}
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              {heading}
+              {closeBtn}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>{tabRow}</div>
+          </>
+        )}
       </div>
 
-      {/* scrolling body */}
-      <div style={{ flex: 1, overflowY: "auto", padding: 14, WebkitOverflowScrolling: "touch" }}>
-        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+      {/* the scrolling body */}
+      <div ref={scroller} style={{
+        flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch",
+        paddingTop: 12, paddingBottom: full ? safe("bottom", 14) : 14,
+        paddingLeft: full ? safe("left", padX) : padX, paddingRight: full ? safe("right", padX) : padX,
+      }}>
+        <div style={{ maxWidth: full ? "none" : 720, margin: "0 auto" }}>
           {pick && tab === "towers" && <TowerDetail kind={pick} />}
           {pick && tab === "enemies" && <EnemyDetail type={pick} />}
 
           {!pick && tab === "towers" && (
             <div style={grid}>
               {Object.entries(TOWERS).map(([k, def]) =>
-                tile(k, def.name, <PixelIcon kind={k} size={34} />, () => open("towers", k)))}
+                tile(k, def.name, <TowerPortrait kind={k} size={44} />, () => open("towers", k)))}
             </div>
           )}
 
-          {!pick && tab === "enemies" && Object.values(FACTIONS).map((f) => (
+          {!pick && tab === "enemies" && Object.values(FACTIONS).map((f, i) => (
             <div key={f.id}>
-              <Heading>{f.name.toUpperCase()}</Heading>
+              <div style={i === 0 ? { marginTop: -16 } : null}><Heading>{f.name.toUpperCase()}</Heading></div>
               <div style={grid}>
                 {f.types.map((k) =>
-                  tile(k, ENEMIES[k].name, <EnemyIcon type={k} box={34} />, () => open("enemies", k)))}
+                  tile(k, ENEMIES[k].name, <EnemyIcon type={k} box={44} />, () => open("enemies", k)))}
               </div>
             </div>
           ))}
 
-          {!pick && tab === "basics" && <Basics />}
+          {!pick && tab === "basics" && <div style={{ marginTop: -16 }}><Basics /></div>}
 
           {!pick && tab !== "basics" && (
             <div style={{ fontSize: 10, opacity: 0.5, textAlign: "center", marginTop: 14 }}>
@@ -390,4 +454,19 @@ export default function FieldGuide({ onClose }) {
       </div>
     </div>
   );
+
+  const layer = (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 70, fontFamily: FONT, color: "#e8e0c8",
+        background: "rgba(22,25,32,0.82)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: full ? 0 : 24, boxSizing: "border-box",
+      }}>
+      {box}
+    </div>
+  );
+
+  return typeof document === "undefined" ? layer : createPortal(layer, document.body);
 }

@@ -90,6 +90,47 @@ necromancer's `revived` palette and the white hit-flash still work.
   bead, parchment slips for choices; buttons sink 2px when pressed; 44px+
   touch targets; unaffordable prices go red.
 
+## Screen sizes (phones to desktops)
+
+Every screen must work from a phone on its side (~750x340 in Safari) and
+a phone upright (390x664) up to an iPad (1133x744, the scale-1 reference)
+and a desktop. The system lives in `src/ui/fit.jsx`:
+
+- `useViewport()` gives the live screen size, `short` (phone on its side,
+  under 500px tall), `narrow` (phone upright) and `scale`, the size menus
+  and the HUD draw at (1 on an iPad, down to `MIN_SCALE` 0.72 on a phone).
+- `<Fit>` shrinks a whole menu (transform: scale) until it fits with no
+  scrolling. Keep modals (`position: fixed`) outside a `<Fit>`, or portal them.
+- **No page ever scrolls.** Menus rearrange for short screens (two columns,
+  drop long blurbs), then `<Fit>` guarantees the rest. Only long lists (the
+  Field Guide's entries, the Master Builds catalogue) may scroll, inside a
+  panel whose header stays put.
+- **Close buttons never scroll away.** Floating cards put their ✕ on the
+  upper-right corner (`.cg-corner-x`), outside the scrolling part; drawers
+  keep it in a fixed head. A tap on the field or the dark backdrop closes
+  them too.
+- **Battle HUD:** when the screen is wider than the 3:2 board (phones on
+  their side, desktops), the spare width becomes two rails beside the board
+  holding the purse, hero and horn (left) and speed, pause, Build, Castle,
+  Militia (right), so the field stays uncovered. On an iPad the chips float
+  over the board's corners. The Build drawer picks as many columns as it
+  takes for the whole roster to show at once.
+- Test at 844x390, 750x340, 390x664, 1133x744 and 1440x900.
+- Menus show the NEW art: `TowerPortrait` for halls, `EnemyIcon` with a rig
+  (e.g. the crown rigs in `rigs-crown.js`) for figures. `PixelIcon` (the old
+  MINI sprites) is only TowerPortrait's fallback.
+
+## The campaign map (`src/ui/mapArt.js`)
+
+- Roads: good as they are — well connected.
+- **Water must be natural and informative** (owner, 2026-09-25; not yet
+  done). Rivers should wander irregularly: uneven bends, varying width,
+  no repeated rounded arcs. Lakes get ragged, organic shores. And the map
+  must tell the truth: if a level's battlefield has a river, a river on the
+  map runs through or beside that waypoint; if it has a lake or pond, a lake
+  sits by it. Check each level's realm in `src/data/maps.js` (`rivers`,
+  `ponds`) when placing water.
+
 ## Performance (target: iPad mini 6)
 
 - Bake anything static. Per frame, keep to stamps and small live bits.

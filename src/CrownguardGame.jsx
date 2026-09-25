@@ -33,6 +33,7 @@ import WarCouncil from "./ui/WarCouncil.jsx";
 import FieldGuide, { describe } from "./ui/FieldGuide.jsx";
 import { BookIcon, Star } from "./ui/Glyphs.jsx";
 import { hasRig } from "./render/rigs.js";
+import { useViewport, Fit } from "./ui/fit.jsx";
 import "./ui/hud/hud.css";
 import { GoldChip, LivesChip } from "./ui/hud/Chips.jsx";
 import { towerTags, levelDeltas } from "./ui/hud/towerText.js";
@@ -103,6 +104,24 @@ export default function Crownguard() {
   const [portrait, setPortrait] = useState(false);
   const boardCellRef = useRef(null);
   const [boardCss, setBoardCss] = useState({ w: 720, h: 480 });
+  // The screen, and the whole battle screen's box inside the safe area. When
+  // the screen is wider than the 3:2 board (a phone on its side, a desktop),
+  // the spare width becomes two RAILS beside the board that carry the HUD, so
+  // nothing but the tower card ever covers the field. `s` is the size every
+  // panel is drawn at (see ui/fit.jsx): 1 on an iPad, smaller on a phone.
+  const vp = useViewport();
+  const hudRef = useRef(null);
+  const [hudBox, setHudBox] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = hudRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => {
+      const w = Math.round(e.contentRect.width), h = Math.round(e.contentRect.height);
+      setHudBox((o) => (o.w === w && o.h === h ? o : { w, h }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [screen]);
   useEffect(() => {
     const onResize = () => {
       setWide(window.innerWidth >= 900);
@@ -639,56 +658,324 @@ export default function Crownguard() {
   }
 
   // ---- the HUD ----
-  // The board fills the screen beside a dock of towers; everything else
-  // floats over the field in small panels, the way a tablet game is laid
-  // out. Nothing on this screen scrolls except the dock's own list. The
-  // skin itself (oak, slate, parchment, gold) lives in ui/hud/hud.css.
+  // The board fills the screen; the purse, the horn, the build button and the
+  // rest sit either in RAILS beside the board (when the screen is wider than
+  // 3:2 — a phone on its side, a desktop) or float over the field's corners
+  // (an iPad, where the board fills the screen edge to edge). Every panel is
+  // drawn at the screen's UI scale `s` (ui/fit.jsx), so a phone gets the same
+  // HUD, smaller, rather than a HUD that runs off the edge. Nothing on this
+  // screen scrolls but long lists. The skin lives in ui/hud/hud.css.
   const masterOn = !!(ui.masterShow && ui.masterOn);
   const cls = (...c) => c.filter(Boolean).join(" ");
   const price = (n, can = true, size = 12) => (
     <span className={cls("cg-price", !can && "is-short")}><CoinIcon size={size} />{n}</span>
   );
+  const s = vp.scale;
+  const spare = hudBox.w - hudBox.h * 1.5;
+  const railsOn = hudBox.w > 0 && spare >= 200;
+  const railW = railsOn ? Math.min(Math.floor(spare / 2), 200) : 0;
+  // a rail is at least 150 design pixels wide inside: narrower rails draw smaller
+  const sR = railsOn ? Math.min(s, railW / 150) : s;
+  const scaleAt = (origin) => (s === 1 ? {} : { transform: `scale(${s})`, transformOrigin: origin });
+  // a small square close button that sits ON a panel's upper-right corner,
+  // outside the part that scrolls, so it never scrolls away
+  const cornerX = (label, onClick) => (
+    <button aria-label={label} className="cg-btn cg-btn--slate cg-x cg-corner-x" onClick={onClick}><CloseIcon size={12} /></button>
+  );
+  // A card floating over the board: `width` design pixels wide at `left`
+  // (board px), as tall as its contents up to the board's full height. It
+  // hangs at height fraction `f` of the board (0 top, 1 bottom) so it sits
+  // level with what it describes. Only its insides scroll; its ✕ rides the
+  // upper-right corner, and a tap on the field closes it too.
+  const CARD_M = 24 * s;
+  const floatCard = ({ id, left, width, f, origin, closeLabel, onClose, children }) => (
+    <div key={id} style={{
+      position: "absolute", left, top: CARD_M, width, height: (boardCss.h - 2 * CARD_M) / s,
+      transform: `scale(${s})`, transformOrigin: "0 0", zIndex: 25,
+      display: "flex", flexDirection: "column", pointerEvents: "none",
+    }}>
+      <div style={{ flex: `${f} 1 0px` }} />
+      <div className="cg-pop" style={{ position: "relative", flex: "0 1 auto", minHeight: 0, display: "flex", flexDirection: "column", pointerEvents: "auto", transformOrigin: origin }}>
+        <div className="cg-frame cg-scroll" style={{ padding: 12, overflowY: "auto", overscrollBehavior: "contain", minHeight: 0, flex: "0 1 auto" }}>{children}</div>
+        {cornerX(closeLabel, onClose)}
+      </div>
+      <div style={{ flex: `${1 - f} 1 0px` }} />
+    </div>
+  );
   // what the next tap will do, on a parchment ribbon across the top of the board
   const ribbon = (text, label, cancel) => (
-    <div style={{ position: "absolute", top: 8, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 22, pointerEvents: "none" }}>
-      <div className="cg-ribbon cg-pop" style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 4px 4px 12px", maxWidth: "62%" }}>
+    <div style={{
+      position: "absolute", top: 8, left: "50%", zIndex: 22, pointerEvents: "none", width: "max-content",
+      maxWidth: (boardCss.w * (railsOn ? 0.92 : 0.62)) / s, transform: `translateX(-50%) scale(${s})`, transformOrigin: "50% 0",
+    }}>
+      <div className="cg-ribbon cg-pop" style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 4px 4px 12px" }}>
         <span>{text}</span>
         <button className="cg-btn cg-btn--slate cg-x" aria-label={label} onClick={cancel} style={{ pointerEvents: "auto" }}><CloseIcon size={11} /></button>
       </div>
     </div>
   );
   const cancelRally = () => { if (G.current) G.current.rallyFor = null; };
+  const openBuild = () => { setBuildOpen((o) => !o); setCastleOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } };
+  const openCastle = () => { setCastleOpen((o) => !o); setBuildOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } };
+  const cycleSpeed = () => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; };
+
+  // -- the purse, the castle, the level --
+  const purse = (
+    <>
+      <GoldChip gold={ui.gold} />
+      <LivesChip lives={ui.lives} max={ui.maxLives || CASTLE_HP} base={CASTLE_HP} />
+      {level && railsOn && (
+        <div className="cg-panel" style={{ padding: "5px 9px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
+          <span className="cg-label" style={{ fontSize: 10 }}>Chapter {level.chapter.numeral}</span>
+          <span className="cg-display" style={{ fontSize: 12, color: "var(--cream)", lineHeight: 1.15 }}>{level.name}</span>
+        </div>
+      )}
+      {level && !railsOn && boardCss.w > 760 && (
+        <div className="cg-panel cg-chip" style={{ gap: 6 }}>
+          <span className="cg-label">Ch. {level.chapter.numeral}</span>
+          <span className="cg-display" style={{ fontSize: 12, color: "var(--cream)" }}>{level.name}</span>
+        </div>
+      )}
+    </>
+  );
+
+  // -- build, the castle works, speed and pause --
+  const resetBtn = ui.zoom > 1 && <button title="Reset view" className="cg-btn cg-btn--slate" style={{ fontSize: 12 }} onClick={() => setZoom(1)}>Reset view</button>;
+  const buildBtn = ui.result == null && (
+    <button aria-label="Open build menu" className={cls("cg-btn", buildOpen && "is-on")} style={railsOn ? { minHeight: 58, fontSize: 15, gap: 8 } : { gap: 7, padding: "0 12px 0 10px" }} onClick={openBuild}>
+      <HammerIcon size={railsOn ? 22 : 18} /> Build
+    </button>
+  );
+  const castleBtn = ui.result == null && (
+    <button aria-label="Open the castle works" title="Castle works: defences built on the wall itself, kept for the whole region"
+      className={cls("cg-btn", castleOpen && "is-on")} onClick={openCastle}>
+      <CastleIcon size={20} />{railsOn && <span>Castle</span>}
+    </button>
+  );
+  const speedBtn = (
+    <button title="Game speed" aria-label={`Game speed ${ui.speed}x`} className={cls("cg-btn", ui.speed > 1 && "is-on")} style={{ minWidth: 62, gap: 5, padding: "0 8px", ...(railsOn ? { flex: 1 } : {}) }} onClick={cycleSpeed}>
+      <SpeedIcon speed={ui.speed} size={14} /><span>{ui.speed}x</span>
+    </button>
+  );
+  const pauseBtn = (
+    <button title="Pause and open the menu" aria-label="Pause and open the menu" className={cls("cg-btn", menuOpen && "is-on")} style={railsOn ? { flex: 1 } : undefined} onClick={openMenu}>
+      <PauseIcon size={16} />
+    </button>
+  );
+
+  // -- the militia horn and the hero --
+  const militiaBtn = ui.result == null && (
+    <button aria-label="Call the militia" title={MILITIA.blurb}
+      className={cls("cg-btn", ui.rallyFor === "militia" && "is-on")}
+      style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
+      disabled={ui.militiaSec > 0}
+      onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
+      {/* the cooldown drains down the plank like sand */}
+      {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / MILITIA.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
+      {hasRig("farmer") ? <EnemyIcon type="farmer" box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
+      <span style={{ fontSize: 12, position: "relative" }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
+    </button>
+  );
+  const heroBtn = ui.result == null && ui.hero && (() => {
+    const hpf = ui.hero.hp / ui.hero.maxHp;
+    const max = ui.hero.level >= HERO_MAX_LEVEL;
+    return (
+      <button aria-label="Move the hero" title={HEROES[ui.hero.key]?.blurb}
+        className={cls("cg-btn cg-btn--slate", ui.rallyFor === "hero" && "is-on", ui.hero.dead && "is-off")}
+        style={{ minHeight: 60, minWidth: railsOn ? 0 : 150, padding: "5px 8px 5px 5px", gap: 7, justifyContent: "flex-start" }}
+        onClick={() => { const g = G.current; if (!g || ui.hero.dead) return; g.rallyFor = g.rallyFor === "hero" ? null : "hero"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
+        <span className="cg-well" style={{ width: 42, height: 46, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          {hasRig(HEROES[ui.hero.key]?.rig) ? <EnemyIcon type={HEROES[ui.hero.key].rig} box={34} /> : <span style={{ fontSize: 20 }}>{HEROES[ui.hero.key]?.icon}</span>}
+        </span>
+        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: railsOn ? 0 : 88 }}>
+          <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
+            <span style={{ fontSize: 11 }}>{ui.hero.name}</span>
+            <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv {ui.hero.level}</span>
+          </span>
+          <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
+          <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, ui.hero.xp / ui.hero.next))}%`, background: "var(--blue)" }} /></span>
+          <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 9, color: "var(--muted)", display: "flex", justifyContent: "space-between", gap: 6 }}>
+            <span>{ui.hero.dead ? `back in ${ui.hero.respawn}s` : `${ui.hero.hp}/${ui.hero.maxHp}`}</span>
+            <span>{max ? "MAX" : `xp ${ui.hero.xp}/${ui.hero.next}`}</span>
+          </span>
+        </span>
+      </button>
+    );
+  })();
+
+  // -- the horn. While the field is quiet it is a gold "▶ WAVE 3/18" with
+  // who is coming and the early-start bonus; while it fights, a plain slate
+  // "WAVE 3/18". Its arrow pops up the wave's full makeup and the rush
+  // switch. In a rail it stands as a column rather than a row. --
+  const horn = (() => {
+    const nextWave = ui.phase === "build" ? ui.wave + 1 : ui.wave;
+    const comp = nextWave >= 1 ? waveComposition(nextWave) : [];
+    const total = ui.wave > scriptedWaves() ? "∞" : scriptedWaves();
+    const fighting = ui.phase !== "build";
+    const small = { fontSize: 12, opacity: 0.75, marginLeft: 1 };
+    // the horn shows the three biggest threats: bosses first, then the most numerous
+    const lead = [...comp].sort((a, b) => (ENEMIES[b.type].boss ? 1e6 : b.count) - (ENEMIES[a.type].boss ? 1e6 : a.count)).slice(0, 3);
+    const leadRow = lead.length > 0 && (
+      <span style={{ display: "flex", gap: 3 }}>
+        {lead.map(({ type, count }) => (
+          <span key={type} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+            <span className="cg-well" style={{ width: 30, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: ENEMIES[type].boss ? "#e8b0a0" : "var(--parch)", boxShadow: "inset 2px 2px 0 var(--parch-dk)" }}>
+              <EnemyIcon type={type} box={23} />
+            </span>
+            <span style={{ fontSize: 10, lineHeight: 1, marginTop: 1 }}>×{count}</span>
+          </span>
+        ))}
+      </span>
+    );
+    const title = (
+      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1 }}>
+        <span style={{ fontSize: 10, letterSpacing: 1.5 }}>WAVE</span>
+        <span className="cg-num" style={{ fontSize: 18, textShadow: "1px 1px 0 rgba(255,243,210,0.5)" }}>{ui.wave + 1}<span style={small}>/{ui.wave + 1 > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
+      </span>
+    );
+    const bonus = ui.cdSec != null && (
+      <span style={{ display: "flex", flexDirection: railsOn ? "row" : "column", alignItems: railsOn ? "center" : "flex-end", gap: railsOn ? 6 : 0, lineHeight: 1.1, paddingLeft: 2 }}>
+        <span className="cg-num" style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 11, textShadow: "none" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}<CoinIcon size={11} /></span>
+        <span className="cg-num" style={{ fontSize: 9, opacity: 0.8, textShadow: "none" }}>{ui.cdSec}s</span>
+      </span>
+    );
+    return (
+      <div style={{ position: "relative" }}>
+        {infoOpen && (
+          <div className="cg-frame cg-pop" style={{ position: "absolute", left: 0, bottom: "calc(100% + 8px)", padding: 12, minWidth: 230, maxWidth: 360, width: "max-content", transformOrigin: "bottom left", zIndex: 5 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span className="cg-label" style={{ flex: 1 }}>Wave {nextWave} — {fighting ? "on the field" : ui.wave >= scriptedWaves() ? "next · endless" : "next"}</span>
+              <button aria-label="Close wave info" className="cg-btn cg-btn--slate cg-x" onClick={() => setInfoOpen(false)}><CloseIcon size={11} /></button>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 10 }}>
+              {comp.length ? waveChips(comp, fighting ? "cur" : "next") : <span style={{ fontSize: 11, color: "var(--muted)" }}>Nothing yet.</span>}
+            </div>
+            <button
+              title="Sound the horn the moment a wave is cleared, for the full early-start bonus every time"
+              className={cls("cg-btn cg-btn--slate", ui.rush && "is-on")}
+              style={{ width: "100%", justifyContent: "flex-start", gap: 8 }}
+              onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
+              <BoltIcon size={16} /><span>Rush</span>
+              <span style={{ fontFamily: "var(--body)", fontWeight: "normal", fontSize: 10, textShadow: "none", color: "var(--muted)" }}>auto-horn</span>
+              <span className={ui.rush ? "cg-btn--gold" : ""} style={{ marginLeft: "auto", minWidth: 40, textAlign: "center", padding: "3px 6px", border: "2px solid var(--ink)", fontSize: 12, background: ui.rush ? "var(--gold)" : "var(--slate-dk)", color: ui.rush ? "var(--wood-deep)" : "var(--muted)", textShadow: "none" }}>{ui.rush ? "ON" : "OFF"}</span>
+            </button>
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "stretch" }}>
+          {fighting ? (
+            <div className="cg-panel" style={{ minHeight: 50, padding: "0 12px 0 10px", display: "flex", alignItems: "center", gap: 8, ...(railsOn ? { flex: 1 } : {}) }}>
+              <SkullIcon size={18} />
+              <span style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+                <span className="cg-label" style={{ fontSize: 10, color: "var(--muted)" }}>Wave</span>
+                <span className="cg-num" style={{ fontSize: 22, color: "var(--cream)" }}>{ui.wave}<span style={small}>/{total}</span></span>
+              </span>
+            </div>
+          ) : railsOn ? (
+            <button className={cls("cg-btn cg-btn--gold", ui.cdSec != null && "cg-horn")} style={{ flex: 1, minWidth: 0, minHeight: 50, padding: "7px 6px 6px", flexDirection: "column", alignItems: "stretch", gap: 5 }}
+              aria-label={`Sound the horn: start wave ${ui.wave + 1}`}
+              onClick={() => startWave(G.current)}>
+              <span style={{ display: "flex", alignItems: "center", gap: 7 }}><PlayIcon size={18} />{title}</span>
+              {leadRow}
+              {bonus}
+            </button>
+          ) : (
+            <button className={cls("cg-btn cg-btn--gold", ui.cdSec != null && "cg-horn")} style={{ minHeight: 50, padding: "0 10px 0 9px", gap: 8 }}
+              aria-label={`Sound the horn: start wave ${ui.wave + 1}`}
+              onClick={() => startWave(G.current)}>
+              <PlayIcon size={18} />
+              {title}
+              {leadRow}
+              {bonus}
+            </button>
+          )}
+          <button aria-label={infoOpen ? "Hide wave info" : "Show wave info"}
+            className={cls("cg-btn", fighting ? "cg-btn--slate" : "", infoOpen && "is-on")}
+            style={{ minWidth: 38, padding: 0, marginLeft: -2, minHeight: 50, flexDirection: "column", gap: 3 }}
+            onClick={() => setInfoOpen((o) => !o)}>
+            {infoOpen ? <ChevronDown size={7} /> : <ChevronUp size={7} />}
+            {ui.rush && <BoltIcon size={11} />}
+          </button>
+        </div>
+      </div>
+    );
+  })();
+
+  // A side drawer (build, castle works): slides in over the right of the
+  // screen, `w` design pixels wide at the UI scale. Its head stays put; only
+  // the list below it scrolls, and only when it must.
+  const drawer = (open, w, children) => (
+    <div style={{
+      position: "fixed", top: 0, right: 0, bottom: 0, width: `calc(${Math.round(w * s)}px + env(safe-area-inset-right))`, zIndex: 40,
+      boxSizing: "border-box", paddingTop: "env(safe-area-inset-top)", paddingRight: "env(safe-area-inset-right)", background: "var(--slate)",
+      transform: open ? "translateX(0)" : "translateX(104%)", transition: "transform 0.2s ease",
+    }}>
+      <div style={{ position: "relative", height: "100%" }}>
+        <div className="cg-drawer" style={{
+          position: "absolute", top: 0, left: 0, width: w, height: `${100 / s}%`, boxSizing: "border-box",
+          transform: s === 1 ? undefined : `scale(${s})`, transformOrigin: "0 0", display: "flex", flexDirection: "column",
+        }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+  // as many columns of towers as it takes for the whole roster to show at once
+  const buildCols = (() => {
+    const n = Object.keys(TOWERS).length;
+    const room = (vp.h / s) - 62;      // below the drawer's head, in design px
+    for (let c = 2; c < 5; c++) if (Math.ceil(n / c) * 107 <= room) return c;
+    return 5;
+  })();
+
+  // A rail: a column of the screen's spare width beside the board, its
+  // contents drawn at the rail's own scale and filling its whole height.
+  const rail = (side, top, bottom) => (
+    <div style={{ width: railW, flexShrink: 0, position: "relative", zIndex: 30 }}>
+      <div style={{
+        position: "absolute", top: 0, [side]: 0, width: railW / sR, height: hudBox.h / sR,
+        transform: `scale(${sR})`, transformOrigin: `top ${side}`, boxSizing: "border-box",
+        padding: 8, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8,
+      }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{top}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{bottom}</div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="cg-hud" style={{
+    <div ref={hudRef} className="cg-hud" style={{
       height: "100dvh", background: "#17111b", boxSizing: "border-box",
       display: "flex", overflow: "hidden",
       paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)", paddingBottom: "env(safe-area-inset-bottom)",
     }}>
-        {menuOpen && (
-          <div style={{
-            position: "fixed", inset: 0, zIndex: 50, background: "rgba(22,14,26,0.8)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: 16, boxSizing: "border-box", overflowY: "auto",
-          }}>
-            <div className="cg-frame cg-pop" style={{ width: "100%", maxWidth: 340, margin: "auto", padding: "16px 18px 18px", display: "flex", flexDirection: "column", gap: 9 }}>
-              <div style={{ textAlign: "center", marginBottom: 2 }}>
-                <div className="cg-display" style={{ fontSize: 26, fontWeight: 700, letterSpacing: 3, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>PAUSED</div>
-                <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>
-                  {level && <span>Chapter {level.chapter.numeral} · </span>}
-                  <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{scriptedWaves()}
-                </div>
+        {menuOpen && (() => {
+          // on a phone on its side the menu lies in two columns, so it fits at full size
+          const two = vp.short && vp.landscape;
+          const head = (
+            <div style={{ textAlign: "center", marginBottom: 2 }}>
+              <div className="cg-display" style={{ fontSize: 26, fontWeight: 700, letterSpacing: 3, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>PAUSED</div>
+              <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>
+                {level && <span>Chapter {level.chapter.numeral} · </span>}
+                <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{scriptedWaves()}
               </div>
-              <button className="cg-btn cg-btn--gold" style={{ minHeight: 54, fontSize: 16, fontWeight: 700 }} onClick={closeMenu}>
-                <PlayIcon size={15} /> Resume
+            </div>
+          );
+          const resume = (
+            <button className="cg-btn cg-btn--gold" style={{ minHeight: 54, fontSize: 16, fontWeight: 700 }} onClick={closeMenu}>
+              <PlayIcon size={15} /> Resume
+            </button>
+          );
+          const opts = (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <button className="cg-btn" onClick={openGuide}><BookIcon size={16} /> Field Guide</button>
+              <button className={cls("cg-btn", sndMuted && "is-on")} onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
+                Sound: {sndMuted ? "Off" : "On"}
               </button>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <button className="cg-btn" onClick={openGuide}><BookIcon size={16} /> Field Guide</button>
-                <button className={cls("cg-btn", sndMuted && "is-on")} onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
-                  Sound: {sndMuted ? "Off" : "On"}
-                </button>
-              </div>
-              <div className="cg-label" style={{ marginTop: 4 }}>Hero</div>
+            </div>
+          );
+          const heroes = (
+            <>
+              <div className="cg-label" style={{ marginTop: two ? 0 : 4 }}>Hero</div>
               <div style={{ display: "flex", gap: 8 }}>
                 {Object.entries(HEROES).map(([key, h]) => (
                   <button key={key} title={h.blurb} className={cls("cg-btn cg-btn--slate", heroKey === key && "is-on")}
@@ -702,7 +989,10 @@ export default function Crownguard() {
                   </button>
                 ))}
               </div>
-              <div style={{ height: 2, background: "var(--ink)", margin: "4px 0 2px", boxShadow: "0 1px 0 var(--slate-lt)" }} />
+            </>
+          );
+          const leave = (
+            <>
               <button className="cg-btn" disabled={!ui.canRestart}
                 onClick={() => { restartWave(G.current); closeMenu(); }}>
                 Restart Wave
@@ -713,9 +1003,32 @@ export default function Crownguard() {
                 <button className="cg-btn" onClick={() => { openRealmSelect("game"); closeMenu(); }}>Choose Realm...</button>
               )}
               <button className="cg-btn cg-btn--slate" onClick={goHome}>Main Menu</button>
+            </>
+          );
+          const rule = <div style={{ height: 2, background: "var(--ink)", margin: "4px 0 2px", boxShadow: "0 1px 0 var(--slate-lt)" }} />;
+          const col = { display: "flex", flexDirection: "column", gap: 9, minWidth: 0 };
+          return (
+            // a tap on the dark around the menu is Resume too
+            <div onClick={closeMenu} style={{
+              position: "fixed", inset: 0, zIndex: 50, background: "rgba(22,14,26,0.8)", boxSizing: "border-box",
+              padding: "max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))",
+            }}>
+              <Fit max={1} deps={[two]}>
+                <div onClick={(e) => e.stopPropagation()} className="cg-frame cg-pop"
+                  style={{ width: two ? 620 : 340, margin: "0 auto", padding: "16px 18px 18px", display: "grid", gridTemplateColumns: two ? "1fr 1fr" : "1fr", gap: two ? 18 : 9 }}>
+                  {two ? (
+                    <>
+                      <div style={col}>{head}{resume}{opts}</div>
+                      <div style={col}>{heroes}{rule}{leave}</div>
+                    </>
+                  ) : (
+                    <div style={col}>{head}{resume}{opts}{heroes}{rule}{leave}</div>
+                  )}
+                </div>
+              </Fit>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {guideOpen && <FieldGuide onClose={closeGuide} />}
 
@@ -730,7 +1043,10 @@ export default function Crownguard() {
         </div>
       )}
 
-      {/* ---- the field, letterboxed to 3:2 in whatever is left beside the dock ---- */}
+      {/* ---- the left rail: the purse, the hero, the horn ---- */}
+      {railsOn && rail("left", purse, <>{heroBtn}{horn}</>)}
+
+      {/* ---- the field, letterboxed to 3:2 in whatever is left beside the rails ---- */}
       <div ref={boardCellRef} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ position: "relative", width: boardCss.w, height: boardCss.h, overflow: "hidden", background: REALMS[realmId].GRASS }}>
           <canvas
@@ -741,42 +1057,15 @@ export default function Crownguard() {
             style={{ width: "100%", height: "100%", display: "block", cursor: ui.buildMode ? "copy" : ui.zoom > 1 ? "grab" : "pointer", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
           />
 
-          {/* top-left: the purse, the castle, the level */}
-          <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, zIndex: 20, pointerEvents: "none" }}>
-            <GoldChip gold={ui.gold} />
-            <LivesChip lives={ui.lives} max={ui.maxLives || CASTLE_HP} base={CASTLE_HP} />
-            {level && boardCss.w > 760 && (
-              <div className="cg-panel cg-chip" style={{ gap: 6 }}>
-                <span className="cg-label">Ch. {level.chapter.numeral}</span>
-                <span className="cg-display" style={{ fontSize: 12, color: "var(--cream)" }}>{level.name}</span>
-              </div>
-            )}
-          </div>
-
-          {/* top-right: build, the castle works, speed and pause */}
-          <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 20 }}>
-            {ui.zoom > 1 && <button title="Reset view" className="cg-btn cg-btn--slate" style={{ fontSize: 12 }} onClick={() => setZoom(1)}>Reset view</button>}
-            {ui.result == null && (
-              <button aria-label="Open build menu" className={cls("cg-btn", buildOpen && "is-on")} style={{ gap: 7, padding: "0 12px 0 10px" }}
-                onClick={() => { setBuildOpen((o) => !o); setCastleOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } }}>
-                <HammerIcon size={18} /> Build
-              </button>
-            )}
-            {ui.result == null && (
-              <button aria-label="Open the castle works" title="Castle works: defences built on the wall itself, kept for the whole region"
-                className={cls("cg-btn", castleOpen && "is-on")}
-                onClick={() => { setCastleOpen((o) => !o); setBuildOpen(false); if (G.current) { G.current.selectedId = null; G.current.buildMode = null; } }}>
-                <CastleIcon size={20} />
-              </button>
-            )}
-            <button title="Game speed" aria-label={`Game speed ${ui.speed}x`} className={cls("cg-btn", ui.speed > 1 && "is-on")} style={{ minWidth: 62, gap: 5, padding: "0 8px" }}
-              onClick={() => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; }}>
-              <SpeedIcon speed={ui.speed} size={14} /><span>{ui.speed}x</span>
-            </button>
-            <button title="Pause and open the menu" aria-label="Pause and open the menu" className={cls("cg-btn", menuOpen && "is-on")} onClick={openMenu}>
-              <PauseIcon size={16} />
-            </button>
-          </div>
+          {/* over the board's corners, when there are no rails to carry them */}
+          {!railsOn && (
+            <>
+              <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, zIndex: 20, pointerEvents: "none", ...scaleAt("top left") }}>{purse}</div>
+              <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 20, ...scaleAt("top right") }}>{resetBtn}{buildBtn}{castleBtn}{speedBtn}{pauseBtn}</div>
+              {ui.result == null && <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 6, zIndex: 20, alignItems: "flex-end", ...scaleAt("bottom right") }}>{militiaBtn}{heroBtn}</div>}
+              <div style={{ position: "absolute", left: 8, bottom: 8, zIndex: 20, ...scaleAt("bottom left") }}>{horn}</div>
+            </>
+          )}
 
           {/* top centre: what the next tap will do */}
           {ui.buildMode && ribbon(
@@ -789,181 +1078,51 @@ export default function Crownguard() {
           {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && ribbon(
             <>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally)}
 
-          {/* bottom-right: the militia horn and the hero */}
-          {ui.result == null && (
-            <div style={{ position: "absolute", right: 8, bottom: 8, display: "flex", gap: 6, zIndex: 20, alignItems: "flex-end" }}>
-              <button aria-label="Call the militia" title={MILITIA.blurb}
-                className={cls("cg-btn", ui.rallyFor === "militia" && "is-on")}
-                style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
-                disabled={ui.militiaSec > 0}
-                onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
-                {/* the cooldown drains down the plank like sand */}
-                {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / MILITIA.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
-                {hasRig("farmer") ? <EnemyIcon type="farmer" box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
-                <span style={{ fontSize: 12, position: "relative" }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
-              </button>
-              {ui.hero && (() => {
-                const hpf = ui.hero.hp / ui.hero.maxHp;
-                const max = ui.hero.level >= HERO_MAX_LEVEL;
-                return (
-                  <button aria-label="Move the hero" title={HEROES[ui.hero.key]?.blurb}
-                    className={cls("cg-btn cg-btn--slate", ui.rallyFor === "hero" && "is-on", ui.hero.dead && "is-off")}
-                    style={{ minHeight: 60, minWidth: 150, padding: "5px 8px 5px 5px", gap: 7, justifyContent: "flex-start" }}
-                    onClick={() => { const g = G.current; if (!g || ui.hero.dead) return; g.rallyFor = g.rallyFor === "hero" ? null : "hero"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
-                    <span className="cg-well" style={{ width: 42, height: 46, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {hasRig(HEROES[ui.hero.key]?.rig) ? <EnemyIcon type={HEROES[ui.hero.key].rig} box={34} /> : <span style={{ fontSize: 20 }}>{HEROES[ui.hero.key]?.icon}</span>}
-                    </span>
-                    <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 88 }}>
-                      <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
-                        <span style={{ fontSize: 11 }}>{ui.hero.name}</span>
-                        <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv {ui.hero.level}</span>
-                      </span>
-                      <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
-                      <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, ui.hero.xp / ui.hero.next))}%`, background: "var(--blue)" }} /></span>
-                      <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 9, color: "var(--muted)", display: "flex", justifyContent: "space-between", gap: 6 }}>
-                        <span>{ui.hero.dead ? `back in ${ui.hero.respawn}s` : `${ui.hero.hp}/${ui.hero.maxHp}`}</span>
-                        <span>{max ? "MAX" : `xp ${ui.hero.xp}/${ui.hero.next}`}</span>
-                      </span>
-                    </span>
-                  </button>
-                );
-              })()}
-            </div>
-          )}
 
-          {/* bottom-left: the horn. While the field is quiet it is a gold
-              "▶ WAVE 3/18" with who is coming and the early-start bonus; while
-              it fights, a plain slate "WAVE 3/18". Its arrow pops up the
-              wave's full makeup and the rush switch. */}
-          {(() => {
-            const nextWave = ui.phase === "build" ? ui.wave + 1 : ui.wave;
-            const comp = nextWave >= 1 ? waveComposition(nextWave) : [];
-            const total = ui.wave > scriptedWaves() ? "∞" : scriptedWaves();
-            const fighting = ui.phase !== "build";
-            const small = { fontSize: 12, opacity: 0.75, marginLeft: 1 };
-            // the horn shows the three biggest threats: bosses first, then the most numerous
-            const lead = [...comp].sort((a, b) => (ENEMIES[b.type].boss ? 1e6 : b.count) - (ENEMIES[a.type].boss ? 1e6 : a.count)).slice(0, 3);
-            return (
-              <div style={{ position: "absolute", left: 8, bottom: 8, zIndex: 20 }}>
-                {infoOpen && (
-                  <div className="cg-frame cg-pop" style={{ position: "absolute", left: 0, bottom: "calc(100% + 8px)", padding: 12, minWidth: 230, maxWidth: 360, transformOrigin: "bottom left" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <span className="cg-label" style={{ flex: 1 }}>Wave {nextWave} — {fighting ? "on the field" : ui.wave >= scriptedWaves() ? "next · endless" : "next"}</span>
-                      <button aria-label="Close wave info" className="cg-btn cg-btn--slate cg-x" onClick={() => setInfoOpen(false)}><CloseIcon size={11} /></button>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 10 }}>
-                      {comp.length ? waveChips(comp, fighting ? "cur" : "next") : <span style={{ fontSize: 11, color: "var(--muted)" }}>Nothing yet.</span>}
-                    </div>
-                    <button
-                      title="Sound the horn the moment a wave is cleared, for the full early-start bonus every time"
-                      className={cls("cg-btn cg-btn--slate", ui.rush && "is-on")}
-                      style={{ width: "100%", justifyContent: "flex-start", gap: 8 }}
-                      onClick={() => { const g = G.current; if (g) g.rush = !g.rush; }}>
-                      <BoltIcon size={16} /><span>Rush</span>
-                      <span style={{ fontFamily: "var(--body)", fontWeight: "normal", fontSize: 10, textShadow: "none", color: "var(--muted)" }}>auto-horn</span>
-                      <span className={ui.rush ? "cg-btn--gold" : ""} style={{ marginLeft: "auto", minWidth: 40, textAlign: "center", padding: "3px 6px", border: "2px solid var(--ink)", fontSize: 12, background: ui.rush ? "var(--gold)" : "var(--slate-dk)", color: ui.rush ? "var(--wood-deep)" : "var(--muted)", textShadow: "none" }}>{ui.rush ? "ON" : "OFF"}</span>
-                    </button>
-                  </div>
-                )}
-                <div style={{ display: "flex", alignItems: "stretch" }}>
-                  {fighting ? (
-                    <div className="cg-panel" style={{ minHeight: 50, padding: "0 12px 0 10px", display: "flex", alignItems: "center", gap: 8 }}>
-                      <SkullIcon size={18} />
-                      <span style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
-                        <span className="cg-label" style={{ fontSize: 10, color: "var(--muted)" }}>Wave</span>
-                        <span className="cg-num" style={{ fontSize: 22, color: "var(--cream)" }}>{ui.wave}<span style={small}>/{total}</span></span>
-                      </span>
-                    </div>
-                  ) : (
-                    <button className={cls("cg-btn cg-btn--gold", ui.cdSec != null && "cg-horn")} style={{ minHeight: 50, padding: "0 10px 0 9px", gap: 8 }}
-                      aria-label={`Sound the horn: start wave ${ui.wave + 1}`}
-                      onClick={() => startWave(G.current)}>
-                      <PlayIcon size={18} />
-                      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1 }}>
-                        <span style={{ fontSize: 10, letterSpacing: 1.5 }}>WAVE</span>
-                        <span className="cg-num" style={{ fontSize: 18, textShadow: "1px 1px 0 rgba(255,243,210,0.5)" }}>{ui.wave + 1}<span style={small}>/{ui.wave + 1 > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
-                      </span>
-                      {lead.length > 0 && (
-                        <span style={{ display: "flex", gap: 3 }}>
-                          {lead.map(({ type, count }) => (
-                            <span key={type} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
-                              <span className="cg-well" style={{ width: 30, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: ENEMIES[type].boss ? "#e8b0a0" : "var(--parch)", boxShadow: "inset 2px 2px 0 var(--parch-dk)" }}>
-                                <EnemyIcon type={type} box={23} />
-                              </span>
-                              <span style={{ fontSize: 10, lineHeight: 1, marginTop: 1 }}>×{count}</span>
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                      {ui.cdSec != null && (
-                        <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, paddingLeft: 2 }}>
-                          <span className="cg-num" style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 11, textShadow: "none" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}<CoinIcon size={11} /></span>
-                          <span className="cg-num" style={{ fontSize: 9, opacity: 0.8, textShadow: "none" }}>{ui.cdSec}s</span>
-                        </span>
-                      )}
-                    </button>
-                  )}
-                  <button aria-label={infoOpen ? "Hide wave info" : "Show wave info"}
-                    className={cls("cg-btn", fighting ? "cg-btn--slate" : "", infoOpen && "is-on")}
-                    style={{ minWidth: 38, padding: 0, marginLeft: -2, minHeight: 50, flexDirection: "column", gap: 3 }}
-                    onClick={() => setInfoOpen((o) => !o)}>
-                    {infoOpen ? <ChevronDown size={7} /> : <ChevronUp size={7} />}
-                    {ui.rush && <BoltIcon size={11} />}
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
 
             {!ui.buildMode && !sel && ui.masterShow && ui.masterOn && masterInfo && (() => {
               const { nums, traits } = describe(masterInfo.stats);
-              return (
-                <div className="cg-frame cg-pop cg-scroll" style={{
-                  // anchored to the BOARD's left edge, not to a percentage of it:
-                  // the drawer caps at 264px, so a percentage offset shoved this
-                  // card off the map on a narrow board
-                  position: "absolute", top: 56, left: 8, zIndex: 31,
-                  maxWidth: "min(260px, calc(100% - 330px))", minWidth: 160,
-                  padding: 12, maxHeight: "70%", overflowY: "auto",
-                }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              // anchored to the board's left edge: the master drawer covers the right
+              return floatCard({
+                id: "master-info", left: 10 * s, width: 260, f: 0, origin: "left top",
+                closeLabel: "Close info", onClose: () => setMasterInfo(null),
+                children: (<>
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start", paddingRight: 16 }}>
                     <span className="cg-well" style={{ padding: 2, display: "flex" }}><TowerPortrait kind={masterInfo.kind} branch={masterInfo.branch} rank4={masterInfo.rank4} size={40} /></span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 13, textShadow: "1px 1px 0 var(--ink)" }}>{masterInfo.name}</div>
                       <div style={{ fontSize: 10, color: "var(--muted)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>{price(masterInfo.cost, ui.gold >= masterInfo.cost, 10)} · {TOWERS[masterInfo.kind].name}</div>
                     </div>
-                    <button aria-label="Close info" className="cg-btn cg-btn--slate cg-x" onClick={() => setMasterInfo(null)}><CloseIcon size={11} /></button>
                   </div>
                   <div style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.55 }}>{masterInfo.desc}</div>
                   <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 6, lineHeight: 1.6 }}>{nums.join(" · ")}</div>
                   {traits.length > 0 && <div style={{ fontSize: 10.5, color: "var(--green)", marginTop: 3, lineHeight: 1.55 }}>{traits.join(" · ")}</div>}
-                </div>
-              );
+                </>),
+              });
             })()}
 
             {sel && selDef && ui.rallyFor == null && (() => {
               const g = G.current;
               const t = g?.towers.find((x) => x.id === sel.id);
               if (!t) return null;
-              const sx = ((t.x - g.cam.x) * g.cam.zoom) / W;
-              const sy = ((t.y - g.cam.y) * g.cam.zoom) / H;
-              const flipX = sx > 0.55;
-              const below = sy < 0.5;
-              const anchor = {
-                ...(flipX
-                  ? { right: `${Math.max(1, (1 - sx) * 100 + 2).toFixed(1)}%` }
-                  : { left: `${Math.max(1, sx * 100 + 2).toFixed(1)}%` }),
-                ...(below
-                  ? { top: `${(sy * 100 + 4).toFixed(1)}%`, maxHeight: `${Math.max(30, (1 - sy) * 100 - 8).toFixed(1)}%` }
-                  : { bottom: `${((1 - sy) * 100 + 4).toFixed(1)}%`, maxHeight: `${Math.max(30, sy * 100 - 8).toFixed(1)}%` }),
-              };
+              // beside the tower, on whichever side has more room, level with it
+              const bw = boardCss.w, bh = boardCss.h;
+              const tx = (((t.x - g.cam.x) * g.cam.zoom) / W) * bw;
+              const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * bh;
+              const CW = 292, cw = CW * s;
+              const flipX = tx > bw * 0.5;
+              const left = Math.max(6 * s, Math.min(bw - cw - CARD_M, flipX ? tx - 26 * s - cw : tx + 26 * s));
+              const f = Math.min(1, Math.max(0, ty / bh));
               const withT = (fn) => () => { const tt = G.current?.towers.find((x) => x.id === sel.id); if (tt) fn(tt); };
               const tier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
               const branchDef = sel.branch ? selDef.branches[sel.branch] : null;
               return (
-              <div key={sel.id} className="cg-frame cg-pop cg-scroll" style={{ position: "absolute", width: 300, maxWidth: "48%", zIndex: 25, padding: 12, overflowY: "auto", transformOrigin: `${flipX ? "right" : "left"} ${below ? "top" : "bottom"}`, ...anchor }}>
+              floatCard({
+                id: sel.id, left, width: CW, f, origin: `${flipX ? "right" : "left"} center`,
+                closeLabel: "Deselect tower", onClose: () => { if (G.current) G.current.selectedId = null; },
+                children: (<>
                 {/* who this is, and how far along its road it has come */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, paddingRight: 16 }}>
                   <span className="cg-well" style={{ width: 54, height: 54, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <TowerPortrait kind={sel.kind} branch={sel.branch} rank4={sel.rank4} size={50} />
                   </span>
@@ -978,7 +1137,6 @@ export default function Crownguard() {
                       {[1, 2, 3, 4, 5].map((i) => <span key={i} className={cls("cg-pip", i <= tier && "on", i > 3 && "big")} />)}
                     </div>
                   </div>
-                  <button aria-label="Deselect tower" className="cg-btn cg-btn--slate cg-x" style={{ alignSelf: "flex-start" }} onClick={() => { if (G.current) G.current.selectedId = null; }}><CloseIcon size={11} /></button>
                 </div>
 
                 {/* its working numbers */}
@@ -1047,9 +1205,11 @@ export default function Crownguard() {
                               </button>
                             ))}
                           </div>
-                          <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 5 }}>
-                            {(modes.find((m) => m.id === sel.aim) || modes[0]).hint}
-                          </div>
+                          {!vp.short && (
+                            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 5 }}>
+                              {(modes.find((m) => m.id === sel.aim) || modes[0]).hint}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -1149,7 +1309,8 @@ export default function Crownguard() {
                   onClick={withT((tt) => sellTower(G.current, tt))}>
                   <span>Sell</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
                 </button>
-              </div>
+                </>),
+              })
               );
             })()}
 
@@ -1160,8 +1321,9 @@ export default function Crownguard() {
               const won = ui.result === "won";
               const big = { minHeight: 48, fontSize: 13, padding: "0 16px" };
               return (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(22,14,26,0.74)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 45, padding: "22px 12px 12px", boxSizing: "border-box", overflowY: "auto" }}>
-                <div className="cg-frame cg-rise" style={{ width: "100%", maxWidth: 460, margin: "auto", padding: "0 20px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 11, textAlign: "center" }}>
+              <div style={{ position: "absolute", inset: 0, background: "rgba(22,14,26,0.74)", zIndex: 45, padding: "12px 12px 10px", boxSizing: "border-box" }}>
+                <Fit max={1}>
+                <div className="cg-frame cg-rise" style={{ width: 460, margin: "22px auto 0", padding: "0 20px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 11, textAlign: "center" }}>
                   <div className={cls("cg-banner", won ? "won" : "lost")} style={{ marginTop: -16, maxWidth: "100%" }}>
                     {!won ? "THE CASTLE HAS FALLEN"
                       : campaign ? (lastOfChapter ? `${level.chapter.name.toUpperCase()} IS FREE` : `${level.name.toUpperCase()} HELD`)
@@ -1246,19 +1408,18 @@ export default function Crownguard() {
                     <button className="cg-btn cg-btn--slate" onClick={goHome}>Main Menu</button>
                   </div>
                 </div>
+                </Fit>
               </div>
               );
             })()}
         </div>
       </div>
 
+      {/* ---- the right rail: speed, pause, build, the castle works; the militia below ---- */}
+      {railsOn && rail("right", <><div style={{ display: "flex", gap: 7 }}>{speedBtn}{pauseBtn}</div>{buildBtn}{castleBtn}{resetBtn}</>, militiaBtn)}
+
       {/* ---- the castle works: the wall's own defences, bought once for a whole region ---- */}
-      <div className="cg-drawer" style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: 310, zIndex: 40, boxSizing: "border-box",
-        display: "flex", flexDirection: "column",
-        paddingTop: "env(safe-area-inset-top)", paddingRight: "env(safe-area-inset-right)",
-        transform: castleOpen ? "translateX(0)" : "translateX(104%)", transition: "transform 0.2s ease",
-      }}>
+      {drawer(castleOpen, 310, <>
         <div className="cg-drawer-head">
           <CastleIcon size={18} />
           <span className="cg-label">Castle Works</span>
@@ -1276,15 +1437,10 @@ export default function Crownguard() {
               : "Built on the wall itself, paid from the purse. What you raise here stands for every run in this realm — but the veteran ranks past a finished work are this run's alone."}
             onBuy={buyWork} />
         </div>
-      </div>
+      </>)}
 
       {/* ---- the build panel: opens over the right of the screen from the Build button ---- */}
-      <div className="cg-drawer" style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: masterOn ? 320 : 254, zIndex: 40, boxSizing: "border-box",
-        display: "flex", flexDirection: "column",
-        paddingTop: "env(safe-area-inset-top)", paddingRight: "env(safe-area-inset-right)",
-        transform: buildOpen ? "translateX(0)" : "translateX(104%)", transition: "transform 0.2s ease",
-      }}>
+      {drawer(buildOpen, masterOn ? 320 : buildCols * 94 + 36, <>
         <div className="cg-drawer-head">
           <HammerIcon size={16} />
           <span className="cg-label">Raise Defenses</span>
@@ -1338,7 +1494,7 @@ export default function Crownguard() {
                   </div>
                 ))
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${buildCols}, 1fr)`, gap: 7 }}>
               {Object.entries(TOWERS).map(([key, def]) => {
                 const open = towerUnlocked(key, progress);
                 const can = open && ui.gold >= def.cost;
@@ -1363,18 +1519,21 @@ export default function Crownguard() {
             </div>
           )}
         </div>
-      </div>
+      </>)}
 
             {realmOpen && (
-              <div className="cg-scroll" style={{ position: "fixed", inset: 0, background: "rgba(22,14,26,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", gap: 10, zIndex: 55, padding: 16, boxSizing: "border-box", overflowY: "auto" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto" }}>
+              <div style={{ position: "fixed", inset: 0, background: "rgba(22,14,26,0.94)", zIndex: 55, boxSizing: "border-box",
+                padding: "max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))" }}>
+              <Fit min={0.62} deps={[vp.short]}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: vp.short ? 6 : 10, padding: "4px 0 8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div className="cg-display" style={{ fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>CHOOSE YOUR REALM</div>
                   <button aria-label="Back" className="cg-btn cg-btn--slate cg-x" style={{ minWidth: 44, minHeight: 44 }} onClick={closeRealmSelect}><CloseIcon size={12} /></button>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: -4 }}>Pick who you're fighting, then a realm to fight them on.</div>
 
                 {/* which army marches — the campaign's chapter, in miniature */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 10, width: "100%", maxWidth: 620 }}>
+                <div style={{ display: "grid", gridTemplateColumns: vp.short ? "repeat(3, 1fr)" : "repeat(auto-fit, minmax(250px, 1fr))", gap: vp.short ? 6 : 10, width: "100%", maxWidth: vp.short ? 900 : 620 }}>
                   {Object.values(FACTIONS).map((f) => (
                     <button key={f.id} onClick={() => setFactionId(f.id)}
                       className={cls("cg-btn cg-btn--slate", f.id === factionId && "is-on")}
@@ -1385,14 +1544,14 @@ export default function Crownguard() {
                       <span style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 30 }}>
                         {f.types.map((ty) => <EnemyIcon key={ty} type={ty} box={26} />)}
                       </span>
-                      <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--muted)", lineHeight: 1.45 }}>{f.blurb}</span>
+                      {!vp.short && <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--muted)", lineHeight: 1.45 }}>{f.blurb}</span>}
                     </button>
                   ))}
                 </div>
 
                 {/* realms, grouped the way the war is: the four free realms
                     first, then each chapter's battlefields under its banner */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", maxWidth: 620, marginBottom: "auto" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", maxWidth: vp.short ? 900 : 620 }}>
                 {[
                   { name: "THE FREE REALMS", ids: ["proving", "greenwood", "frostfang", "mistmoor", "ember"] },
                   ...CHAPTERS.map((ch) => ({
@@ -1401,13 +1560,13 @@ export default function Crownguard() {
                   })),
                 ].map((grp) => (
                 <div key={grp.name}>
-                <div className="cg-label" style={{ margin: "12px 0 6px" }}>{grp.name}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 10 }}>
+                <div className="cg-label" style={{ margin: vp.short ? "6px 0 4px" : "12px 0 6px" }}>{grp.name}</div>
+                <div style={{ display: "grid", gridTemplateColumns: vp.short ? "repeat(auto-fill, minmax(168px, 1fr))" : "repeat(auto-fit, minmax(250px, 1fr))", gap: vp.short ? 6 : 10 }}>
                   {grp.ids.map((id) => REALMS[id]).filter(Boolean).map((r) => (
                     <button key={r.id} onClick={() => chooseRealm(r.id)}
                       className={cls("cg-btn", r.id === realmId && "is-on")}
                       style={{ justifyContent: "flex-start", gap: 10, padding: 7, alignItems: "stretch", textAlign: "left" }}>
-                      <svg viewBox="0 0 150 100" width="108" height="72" style={{ flexShrink: 0, border: "2px solid var(--ink)", imageRendering: "pixelated" }}>
+                      <svg viewBox="0 0 150 100" width={vp.short ? 54 : 108} height={vp.short ? 36 : 72} style={{ flexShrink: 0, border: "2px solid var(--ink)", imageRendering: "pixelated" }}>
                         <rect x="0" y="0" width="150" height="100" fill={r.GRASS} />
                         {(r.rivers || []).map((rv, i) => (
                           <polyline key={`rv${i}`} points={rv.pts.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
@@ -1429,7 +1588,7 @@ export default function Crownguard() {
                         <span style={{ fontSize: 13, color: "var(--cream)" }}>
                           {r.name} <span style={{ fontSize: 10, letterSpacing: 1, color: r.tagColor, marginLeft: 4 }}>{r.tag}</span>
                         </span>
-                        <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--text)", opacity: 0.8, lineHeight: 1.45 }}>{r.blurb}</span>
+                        {!vp.short && <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--text)", opacity: 0.8, lineHeight: 1.45 }}>{r.blurb}</span>}
                       </span>
                     </button>
                   ))}
@@ -1437,6 +1596,8 @@ export default function Crownguard() {
                 </div>
                 ))}
                 </div>
+              </div>
+              </Fit>
               </div>
             )}
     </div>
