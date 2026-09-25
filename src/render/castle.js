@@ -225,9 +225,7 @@ const coneRoof = (c, cx, base, rx, ry, h, broken, seed) => {
     for (const t of [0.4, 0.7]) { k.beginPath(); k.ellipse(cx, apex + h * t, rx * t, ry * t, 0, 0, Math.PI); k.stroke(); }
     k.strokeStyle = lighten(ROOF, 0.42);
     k.beginPath(); k.moveTo(cx - 0.4, apex + 1); k.lineTo(cx - rx * 0.62, base + ry * 0.5); k.stroke();
-    // the eaves: a dark hem along the front
-    k.lineWidth = 1.2; k.strokeStyle = darken(ROOF, 0.45);
-    k.beginPath(); k.ellipse(cx, base - 0.4, rx - 0.6, ry - 0.6, 0, 0.1, Math.PI - 0.1); k.stroke();
+    // (no eave hem: a line round the cone's foot read as a hat brim)
     k.restore();
     if (broken) { k.fillStyle = "rgba(34,22,24,0.6)"; k.beginPath(); k.ellipse(cx, apex + h * 0.56, rx * 0.5, ry * 0.45, 0, 0, Math.PI * 2); k.fill(); }
     k.restore();
@@ -281,7 +279,7 @@ const drumTower = (c, cx, foot, r, hgt, o) => {
   c.fillStyle = "rgba(30,22,32,0.3)";
   ellipse(c, cx + 5, foot + 3, r + 3, ry + 2.5); c.fill();
   // the battered footing, a ring wider than the body
-  const fr = r + 2.5;
+  const fr = r + 0.8;
   piece(c, [cx - fr - 2, foot - 9, cx + fr + 2, foot + ry + 4], (k) => {
     k.save(); k.beginPath(); k.rect(cx - fr, foot - 6, fr * 2, 6); k.ellipse(cx, foot, fr, ry + 1, 0, 0, Math.PI); k.clip();
     drumCourses(k, cx, fr, foot - 6, foot + ry + 1, darken(S1, 0.08), o.seed + 5, 3.5);
@@ -304,13 +302,13 @@ const drumTower = (c, cx, foot, r, hgt, o) => {
   if (o.tier >= 2) soot(c, cx, top + ry * 0.6, r, hgt * (o.tier >= 3 ? 0.7 : 0.4), o.seed);
   if (o.cone) {
     // a corbelled eave ring, and the cone on it
-    const rr = r + 1;
+    const rr = r + 0.4;
     piece(c, [cx - rr - 2, top - ry - 3, cx + rr + 2, top + ry + 4], (k) => {
       k.save(); k.beginPath(); k.ellipse(cx, top, rr, ry + 0.6, 0, 0, Math.PI * 2); k.rect(cx - rr, top, rr * 2, 2.5); k.ellipse(cx, top + 2.5, rr, ry + 0.6, 0, 0, Math.PI); k.clip();
       drumCourses(k, cx, rr, top - ry - 1, top + ry + 3.5, lighten(S1, 0.08), o.seed + 11, 3, 0.4);
       k.restore();
     });
-    const apex = coneRoof(c, cx, top - 1, r + 2, ry * 0.8, o.cone, o.broken, o.seed);
+    const apex = coneRoof(c, cx, top - 1, r + 0.6, ry * 0.62, o.cone, o.broken, o.seed);
     return { flag: o.flag === false ? null : [cx, apex], smoke: [cx, apex], slits, top };
   }
   // a battlemented top: a sunlit rim round a sunken floor, merlons standing on it
@@ -493,9 +491,9 @@ const paintCastleStone = (ctx, gx, gy, tier) => {
   // the north one standing behind it, the south one far enough down the
   // wall that nothing of it rises over the gate
   const things = [];
-  for (const foot of wallDrums(gy)) things.push({ cx: DRUM_X, foot, r: DRUM_R, hgt: 14, seed: foot });
-  things.push({ cx: GATE_X, foot: gy + GATE_TOWER_N, r: GATE_R, hgt: 16, seed: 7, gate: -1, cone: 28 });
-  things.push({ cx: GATE_X, foot: gy + GATE_TOWER_S, r: GATE_R, hgt: 16, seed: 9, gate: 1, cone: 28, flag: false });
+  for (const foot of wallDrums(gy)) things.push({ cx: DRUM_X, foot, r: DRUM_R, hgt: 22, seed: foot });
+  things.push({ cx: GATE_X, foot: gy + GATE_TOWER_N, r: GATE_R, hgt: 22, seed: 7, gate: -1, cone: 24 });
+  things.push({ cx: GATE_X, foot: gy + GATE_TOWER_S, r: GATE_R, hgt: 22, seed: 9, gate: 1, cone: 24, flag: false });
   things.push({ house: true, foot: yS });
   things.sort((a, b) => a.foot - b.foot);
   // the fire takes the north gate tower's roof first, and one drum after it
