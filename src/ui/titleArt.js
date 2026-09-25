@@ -18,6 +18,13 @@ const battlement = (ctx, x, y, hw, col, step = 7) => part(ctx, (c) => {
 
 const U = 2, SW = 480, SH = 270;
 export const VW = SW * U, VH = SH * U;
+// The road up to the gate, in scene units, gate first; each stretch is
+// painted wider than the last as it nears (see ROAD_W). The title crowd
+// (titleCrowd.js) walks these same points, so keep them in step.
+export const ROAD = [[360, 172], [346, 184], [322, 194], [300, 206], [270, 218], [240, 232], [214, 250], [198, 272]];
+export const ROAD_W = (k) => 3 + (k / ROAD.length) * 14;
+// the haystack in the field right of the road, where the militiaman works
+export const HAY = [312, 216];
 const INK = "#241a26";
 // these canvases are read back pixel by pixel, so keep them on the CPU
 const RF = { willReadFrequently: true };
@@ -173,6 +180,14 @@ const oakS = (r, col, seed) => bakeSprite(r * 2.6, r * 2.8, (c) => {
   blobBall(c, r * 1.2, r * 1.05, r * 0.8, r * 0.72, col, seed * 10 + 9, { hi: 0.6, lo: 0.55 });
 });
 
+// a haystack: a golden dome, lit from the upper left, shadow down-right
+const hayS = () => bakeSprite(20, 14, (c) => {
+  c.fillStyle = "rgba(42,28,44,0.35)"; c.beginPath(); c.ellipse(11, 12, 8, 1.8, 0, 0, Math.PI * 2); c.fill();
+  blobBall(c, 9, 8, 7.4, 4.6, "#d8b860", 7, { hi: 0.6, lo: 0.5 });
+  blobBall(c, 8.6, 5.2, 4.8, 3.4, "#e0c070", 8, { hi: 0.65, lo: 0.45 });
+  c.fillStyle = "#a88a40"; for (const [x, y] of [[5, 9], [9, 10], [12, 8], [7, 6]]) c.fillRect(x, y, 1.6, 0.5);
+});
+
 // The crown's castle, in the game's own masonry: curtain wall, two drum
 // towers, a tall keep with the royal banner, torchlight in the slits.
 const castleS = () => bakeSprite(132, 120, (c) => {
@@ -264,14 +279,16 @@ function* paintVista() {
   const hillTop = (x) => 200 + Math.sin(x / 30) * 3 - 30 * Math.exp(-(((x - 360) / 78) ** 2));
   paintHills(ctx, hillTop, ["#8cc05a", "#6ea24a", "#548a3c"], 5, true);
   // the road up to the gate, wider as it nears
-  const road = [[360, 172], [346, 184], [322, 194], [300, 206], [270, 218], [240, 232], [214, 250], [198, 272]];
+  const road = ROAD;
   ctx.drawImage(layer((c) => {
     c.lineCap = c.lineJoin = "round";
     for (let k = 0; k < road.length - 1; k++) {
-      c.strokeStyle = "#d4b47a"; c.lineWidth = 3 + (k / road.length) * 14;
+      c.strokeStyle = "#d4b47a"; c.lineWidth = ROAD_W(k);
       c.beginPath(); c.moveTo(...road[k]); c.lineTo(...road[k + 1]); c.stroke();
     }
   }, 1), 0, 0);
+  // a haystack in the field, forked up by the militiaman who works it
+  ctx.drawImage(hayS(), Math.round((HAY[0] - 9) * U), Math.round((HAY[1] - 12) * U));
   // the castle on its hill
   ctx.globalAlpha = 0.35;
   ctx.drawImage(layer((c) => {

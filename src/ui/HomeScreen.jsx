@@ -12,22 +12,16 @@
 import { useState, useRef, useEffect } from "react";
 import { Fit, useViewport } from "./fit.jsx";
 import { FONT } from "./theme.js";
-import { WOOD, woodBtn, goldBtn, frame } from "./frames.js";
-import EnemyIcon from "./EnemyIcon.jsx";
-import { rigDef } from "../render/rigs.js";
+import { woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
 import FieldGuide from "./FieldGuide.jsx";
 import { LEVELS, hasProgress, currentLevel } from "../data/campaign.js";
 import { starsFree, rankName } from "../data/profile.js";
 import { Star } from "./Glyphs.jsx";
 import { titleVistaAsync, VW, VH } from "./titleArt.js";
+import { startCrowd } from "./titleCrowd.js";
 import { warmMapTerrain } from "./mapArt.js";
 
-// The defenders, in the same rigged figures that march on the board
-// (render/rigs-crown.js): militia, ranger, man-at-arms, the hero, paladin,
-// berserker. Drawn at one shared scale so they stand in proportion.
-const CREW = ["farmer", "heroHunter", "knight", "heroKnight", "paladin", "berserk"];
-const crewBox = (type, k) => { const b = rigDef(type).box; return Math.round(Math.max(b.hw * 2, b.up + b.down) * k); };
 const INK = "#10131a";
 
 // The crown over the wordmark, on the pixel grid, ringed in ink.
@@ -75,6 +69,23 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
     return () => { stop(); clearTimeout(warm); };
   }, []);
 
+  // The crown's people on the road (titleCrowd.js), on a canvas laid exactly
+  // over the vista: same aspect, same object-fit and position, so they stay
+  // on the road under every crop. It holds K pixels per vista pixel, K matched
+  // to the screen's own pixels so each figure is drawn once at its true size.
+  const crowdRef = useRef(null), crowd = useRef(null);
+  const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+  const K = Math.min(3, Math.max(1, Math.round(Math.max(vp.w / VW, vp.h / VH) * dpr * 4) / 4));
+  useEffect(() => {
+    if (!shown || !crowdRef.current) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const c = startCrowd(crowdRef.current, { still });
+    crowd.current = c;
+    if (import.meta.env.DEV) window.__titleCrowd = c;   // for checking the walk from the console
+    return () => { c.stop(); crowd.current = null; };
+  }, [shown]);
+  useEffect(() => { crowd.current?.redraw(); }, [K]);
+
   // Primary action: gold and unmissable. The rest: oak. Compact trims the
   // padding, never the 44px tap height.
   const bigBtn = (gold) => ({
@@ -86,8 +97,10 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
   const span = compact ? { gridColumn: "1 / -1" } : null;
   const sub = { fontSize: 9, letterSpacing: 1, opacity: 0.85, marginTop: compact ? 2 : 4, fontWeight: "normal" };
 
+  // the wordmark and motto; the defenders themselves are out on the road
+  // in the picture (titleCrowd.js)
   const title = (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: compact ? 10 : 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
         {/* compact: the crown stands beside the wordmark, to save a line of height */}
         <div style={{ display: "flex", flexDirection: compact ? "row" : "column", alignItems: "center", gap: compact ? 12 : 0 }}>
@@ -103,20 +116,6 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
         <div style={{ fontSize: compact ? 11 : 12, marginTop: compact ? 8 : 10, letterSpacing: compact ? 1 : 1.5, color: "#f6ead0", textShadow: `1px 1px 0 ${INK}, 0 0 6px rgba(16,19,34,0.9)` }}>
           Hold the road. The castle must not fall.
         </div>
-      </div>
-
-      {/* the defenders, as a row of their own sprites */}
-      <div style={{ display: "flex", gap: compact ? 4 : 6, alignItems: "flex-end", justifyContent: "center", padding: compact ? "2px 14px" : "3px 16px", background: "rgba(16,19,34,0.55)", border: `2px solid ${INK}`, boxShadow: `inset 0 0 0 1px ${WOOD.lt}` }}>
-        {CREW.map((t) => {
-          // a rig's box leaves room for swings and reach; trim that air so the
-          // figures stand shoulder to shoulder at a readable size
-          const b = crewBox(t, compact ? 1.45 : 1.85);
-          return (
-            <div key={t} style={{ display: "flex", margin: `${-Math.round(b * 0.16)}px ${-Math.round(b * 0.14)}px ${-Math.round(b * 0.04)}px` }}>
-              <EnemyIcon type={t} box={b} />
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -173,16 +172,20 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
     </div>
   );
 
+  // the vista and the crowd over it share one placement
+  const vistaStyle = {
+    position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+    objectPosition: wide || compact ? "70% 60%" : "72% 60%", imageRendering: "pixelated",
+    opacity: shown ? 1 : 0, transition: "opacity 0.6s",
+  };
+
   // the safe area (the notch sits on a side when the phone lies down), plus a margin
   const pad = (m) => `max(env(safe-area-inset-top), ${m}px) max(env(safe-area-inset-right), ${m}px) max(env(safe-area-inset-bottom), ${m}px) max(env(safe-area-inset-left), ${m}px)`;
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100dvh", overflow: "hidden", background: "#1c2450", color: "#e8e0c8", fontFamily: FONT }}>
-      <canvas ref={vistaRef} width={VW} height={VH} aria-hidden="true" style={{
-        position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
-        objectPosition: wide || compact ? "70% 60%" : "72% 60%", imageRendering: "pixelated",
-        opacity: shown ? 1 : 0, transition: "opacity 0.6s",
-      }} />
+      <canvas ref={vistaRef} width={VW} height={VH} aria-hidden="true" style={vistaStyle} />
+      <canvas ref={crowdRef} width={Math.round(VW * K)} height={Math.round(VH * K)} aria-hidden="true" style={vistaStyle} />
       {/* a shade behind the menu so the words stand off the picture */}
       <div aria-hidden="true" style={{
         position: "absolute", inset: 0, pointerEvents: "none",
