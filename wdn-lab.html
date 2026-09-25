@@ -1,0 +1,34 @@
+<!doctype html>
+<!--
+  Warden artist's contact sheet: the warden's priest in every palette, idle
+  and raised, baked as warden.js bakes him (26x38, feet at 13,35), with the
+  archer beside him for scale. /wdn-lab.html?tag=before&scale=4
+  → .shots/wdn_figs_<tag>.png
+-->
+<html>
+  <head><meta charset="utf-8" /><title>wdn lab</title>
+  <style>body { background: #20242c; margin: 0; }</style></head>
+  <body>
+    <script type="module">
+      const F = await import("/src/render/folk.js?t=" + Date.now());
+      import { bakeSprite, PX } from "/src/render/paint.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 4;
+      const keys = (q.get("keys") || "base,a,aa,ab,b,ba,bb").split(",");
+      const W = 26, H = 38, cols = keys.length + 1;
+      const cv = document.createElement("canvas");
+      cv.width = W * cols * PX * SC; cv.height = H * 2 * PX * SC;
+      const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      for (let r = 0; r < 2; r++) for (let i = 0; i < cols; i++) {
+        ctx.fillStyle = (r + i) % 2 ? "#8a8474" : "#a19a8a";
+        ctx.fillRect(i * W * PX * SC, r * H * PX * SC, W * PX * SC, H * PX * SC);
+        const fn = i < keys.length ? (c) => F.drawPriest(c, 13, 35, 1, F.PRIEST_FOLK[keys[i]], r === 1)
+          : (c) => F.drawArcher(c, 13, 35, 1, F.ARCHER_FOLK.base, 0, { pose: r ? "draw" : "rest" });
+        let sp; try { sp = bakeSprite(W, H, fn); } catch (e) { console.error(e); continue; }
+        ctx.drawImage(sp, i * W * PX * SC, r * H * PX * SC, sp.width * SC, sp.height * SC);
+      }
+      await fetch("/__shot?name=wdn_figs_" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      document.title = "DONE";
+    </script>
+  </body>
+</html>
