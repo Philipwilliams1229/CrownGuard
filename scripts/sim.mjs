@@ -47,6 +47,9 @@ const { PTS } = await import("../src/engine/path.js");
 // --hero aldric|wren|none : who rides with the commander (default: Sir Aldric,
 // because a real player always has one). --no-militia skips the free farmers.
 const HERO = after("hero") || "aldric";
+// --hero-at F : post the hero at fraction F of the road (default 0.95, just
+// before the gate); ~0.5-0.7 is where a player stands him in the thick of it
+const HERO_AT = Number(after("hero-at")) || 0;
 const MILITIA_ON = !flag("no-militia");
 // --endure: the castle cannot fall. Every wave is fought to its end and the
 // castle damage it caused is recorded instead — a stable difficulty curve,
@@ -228,7 +231,7 @@ function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, p
   const [gx, gy] = PTS[PTS.length - 1];
   if (HERO !== "none") {
     const b = fieldHero(g, HERO, 1, gx - 70, gy + (gy > H / 2 ? -50 : 50));
-    const [hx, hy] = posAt(TOTAL_LEN - 110);
+    const [hx, hy] = HERO_AT ? posAt(TOTAL_LEN * HERO_AT) : posAt(TOTAL_LEN - 110);
     if (b) b.rally = { x: hx, y: hy };
   }
   const total = waves ?? scriptedWaves();

@@ -11,16 +11,16 @@ import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
-import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, saveHero, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury, saveHeroTalents } from "./data/campaign.js";
+import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
-import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL, HERO_TALENTS, TALENT_RANKS, talentPoints, talentsSpent, canTalent } from "./data/bands.js";
+import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL, HERO_TALENTS, TALENT_RANKS, talentCost } from "./data/bands.js";
 import { PTS } from "./engine/path.js";
-import { loadProfile, bankLevel, bankFreeRun } from "./data/profile.js";
+import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroPoints, buyHeroTalent } from "./data/profile.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, buyTalent,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -178,12 +178,14 @@ export default function Crownguard() {
       // the coffers have seen real money — masterSeen keeps it from blinking
       freeplay, masterBuild: false, masterSeen: false, masterPick: null,
     };
-    // the hero rides out and waits before the gate; the level he reached
-    // on earlier roads comes with him
+    // the hero rides out and waits before the gate: level 1 on every new
+    // map, with the talents bought on all his earlier roads. heroBanked is
+    // the highest level already paid out in talent points on this map, so a
+    // restarted wave can't pay the same levels twice.
     {
       const [gx, gy] = PTS[PTS.length - 1];
-      const saved = loadProgress().heroes?.[heroKey] || {};
-      fieldHero(G.current, heroKey, saved.level || 1, gx - 70, gy + (gy > H / 2 ? -50 : 50), saved.talents || {}, saved.xp || 0);
+      fieldHero(G.current, heroKey, 1, gx - 70, gy + (gy > H / 2 ? -50 : 50), heroRecord(loadProfile(), heroKey).talents);
+      G.current.heroBanked = 1;
     }
     setBuildOpen(false);
     setCastleOpen(false);
@@ -327,8 +329,6 @@ export default function Crownguard() {
     if (won) markCleared(levelId);
     // the gold left in the purse goes home to the crown's treasury
     if (won && g) { const carried = Math.floor(g.gold) + Math.floor((g.run?.goldEarned || 0) * 0.15); setBanked(carried); setProgress(bankTreasury(carried)); }
-    // the hero keeps what he learned on this road, won or lost
-    { const hb = heroBand(g); if (hb) saveHero(hb.hero, hb.level, hb.xp); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.result, mode, levelId]);
 
@@ -370,12 +370,18 @@ export default function Crownguard() {
       const castleKey = g.castle ? `${g.castle.archers}${g.castle.ballista}${g.castle.guards}${g.castle.masons}` : "";
       const hb = heroBand(g);
       const hu = hb?.units[0];
+      // every level the hero gains banks a talent point, for good, at once
+      if (hb && hb.level > (g.heroBanked || 1)) {
+        bankHeroPoints(hb.hero, hb.level - (g.heroBanked || 1), hb.level);
+        g.heroBanked = hb.level;
+        setProfile(loadProfile());
+      }
       const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${JSON.stringify(hb.talents || {})}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}` : "";
       const militiaSec = Math.ceil((g.militiaCd || 0) / 1000);
       if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey || u.heroKey !== heroKeyUi || u.militiaSec !== militiaSec) {
         setUi({
           heroKey: heroKeyUi, militiaSec,
-          hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, talents: { ...(hb.talents || {}) }, points: talentPoints(hb.level) - talentsSpent(hb.talents), next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0 } : null,
+          hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, talents: { ...(hb.talents || {}) }, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0 } : null,
           castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: CASTLE_HP + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
@@ -812,28 +818,35 @@ export default function Crownguard() {
     );
   })();
 
-  // -- the hero's talents: a star on the hero's panel that glows while a
-  // point waits to be spent, and the card it opens --
+  // -- the hero's talents: a star on the hero's panel showing the points
+  // banked (it glows while a rank is affordable), and the card it opens.
+  // Points come from every level a hero gains in battle and are kept for
+  // good in the profile; ranks cost TALENT_COSTS. --
+  const heroRec = ui.hero ? heroRecord(profile, ui.hero.key) : null;
+  const heroList = ui.hero ? HERO_TALENTS[ui.hero.key] || [] : [];
+  const affordable = !!heroRec && heroList.some((t) => { const c = talentCost(heroRec.talents[t.id] || 0); return c != null && heroRec.points >= c; });
   const talentBtn = ui.result == null && ui.hero && (
-    <button aria-label={`Hero talents${ui.hero.points > 0 ? ` — ${ui.hero.points} to spend` : ""}`} title="Talents: a point for every level the hero gains"
-      className={cls("cg-btn", ui.hero.points > 0 ? "cg-btn--gold cg-horn" : "cg-btn--slate", talentsOpen && "is-on")}
-      style={railsOn ? { minHeight: 40, gap: 8, justifyContent: "flex-start", padding: "0 10px" } : { minHeight: 60, minWidth: 44, padding: "0 6px", flexDirection: "column", gap: 2 }}
+    <button aria-label={`Hero talents — ${heroRec.points} points`} title="Talents: every level the hero gains banks a point"
+      className={cls("cg-btn", affordable ? "cg-btn--gold cg-horn" : "cg-btn--slate", talentsOpen && "is-on")}
+      style={railsOn ? { minHeight: 40, gap: 8, justifyContent: "flex-start", padding: "0 10px" } : { minHeight: 60, minWidth: 48, padding: "0 6px", flexDirection: "column", gap: 2 }}
       onClick={() => { setTalentsOpen((o) => !o); setArmed(null); setBuildOpen(false); setCastleOpen(false); if (G.current) G.current.selectedId = null; }}>
       <Star size={18} lit />
       {railsOn && <span style={{ flex: 1, textAlign: "left" }}>Talents</span>}
-      <span className="cg-num" style={{ fontSize: 11, textShadow: "none" }}>{ui.hero.points > 0 ? `+${ui.hero.points}` : ""}</span>
+      <span className="cg-num" style={{ fontSize: 11, textShadow: "none" }}>{heroRec.points}</span>
     </button>
   );
   const talentCard = talentsOpen && ui.hero && !sel && (() => {
     const h = ui.hero;
-    const list = HERO_TALENTS[h.key] || [];
     const buy = (id) => {
       if (armed !== id) { setArmed(id); return; }
-      const got = buyTalent(G.current, id);
       setArmed(null);
-      if (!got) return;
+      const p = buyHeroTalent(h.key, id);
+      if (!p) return;
+      // the rank bites at once: the engine rebuilds the hero's stats every tick
+      const b = heroBand(G.current);
+      if (b && b.hero === h.key) b.talents = { ...heroRecord(p, h.key).talents };
       sfx.play("evolve");
-      setProgress(saveHeroTalents(h.key, got));
+      setProfile(p);
     };
     const cw = 272 * s;
     // beside the hero's panel: the left rail's foot, or the board's lower right
@@ -848,16 +861,17 @@ export default function Crownguard() {
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 13, textShadow: "1px 1px 0 var(--ink)" }}>{h.name} · Lv {h.level}</div>
-            <div style={{ fontSize: 10, color: h.points > 0 ? "var(--gold-lt)" : "var(--muted)", marginTop: 3 }}>
-              {h.points > 0 ? `${h.points} talent point${h.points > 1 ? "s" : ""} to spend` : h.level >= HERO_MAX_LEVEL ? "Every point spent." : "A new point every level."}
+            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
+              <b className="cg-num" style={{ fontSize: 13, color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>{heroRec.points}</b> points · +1 every level
             </div>
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-          {list.map((t) => {
-            const r = h.talents[t.id] || 0;
-            const full = r >= TALENT_RANKS;
-            const can = canTalent(h.key, h.level, h.talents, t.id);
+          {heroList.map((t) => {
+            const r = heroRec.talents[t.id] || 0;
+            const cost = talentCost(r);
+            const full = cost == null;
+            const can = !full && heroRec.points >= cost;
             const isArmed = armed === t.id && can;
             return (
               <button key={t.id} className={cls("cg-btn", isArmed ? "cg-btn--gold" : "cg-btn--parch", !can && !full && "is-poor", full && "is-on")}
@@ -865,11 +879,14 @@ export default function Crownguard() {
                 style={{ width: "100%", padding: "6px 8px", justifyContent: "space-between", alignItems: "center", gap: 8, minHeight: 48, ...(full ? { filter: "none", cursor: "default" } : {}) }}
                 onClick={() => buy(t.id)}>
                 <span className={can || full ? undefined : "cg-dim"} style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, textAlign: "left" }}>
-                  <span className="cg-display" style={{ fontSize: 12, fontWeight: 700 }}>{isArmed ? `Tap again — learn ${t.name}` : t.name}</span>
+                  <span className="cg-display" style={{ fontSize: 12, fontWeight: 700 }}>{isArmed ? `Tap again — ${cost} points` : t.name}</span>
                   <span style={{ fontSize: 10, lineHeight: 1.35, color: isArmed ? "var(--wood-deep)" : "#5a4630" }}>{t.desc}</span>
                 </span>
-                <span className="cg-pips" style={{ flexShrink: 0 }}>
-                  {Array.from({ length: TALENT_RANKS }, (_, i) => <span key={i} className={cls("cg-pip", i < r && "on")} />)}
+                <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                  <span className="cg-pips">
+                    {Array.from({ length: TALENT_RANKS }, (_, i) => <span key={i} className={cls("cg-pip", i < r && "on")} />)}
+                  </span>
+                  <span className="cg-num" style={{ fontSize: 10, textShadow: "none", color: full ? "#3f7a2a" : can ? "var(--gold-deep)" : "#b4302a" }}>{full ? "MAX" : `${cost} pts`}</span>
                 </span>
               </button>
             );

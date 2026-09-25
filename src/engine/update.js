@@ -6,7 +6,7 @@
 
 import { RESPAWN_MS, W, H, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, pickLane } from "../data/constants.js";
 import { workTier, worksBonusHp, bowmenSpots } from "../data/castle.js";
-import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL } from "../data/bands.js";
+import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, waveXp } from "../data/bands.js";
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
@@ -115,6 +115,22 @@ const killUnit = (g, t, u) => {
 
 // A ranged band (the huntress): holds the rally point, shoots the nearest
 // foe in range, never blocks. Wounded by crossbowmen and plague like anyone.
+// Levelling: each level tops the hero up and makes him a little more. The
+// shell banks a talent point for every level gained (see CrownguardGame).
+const levelHero = (g, b) => {
+  const u = b.units[0];
+  while (b.level < HERO_MAX_LEVEL && b.xp >= heroXpFor(b.level)) {
+    b.xp -= heroXpFor(b.level); b.level += 1;
+    b.st = heroStats(b.hero, b.level, b.talents);
+    u.maxHp = b.st.hp;
+    if (u.state !== "dead") u.hp = b.st.hp;
+    g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 700 });
+    g.effects.push({ type: "coin", x: u.x, y: u.y - 26, ttl: 1200, text: `${b.name} — level ${b.level} · +1 talent point`, big: true });
+    sfx.play("ascend");
+  }
+  if (b.level >= HERO_MAX_LEVEL) b.xp = 0;
+};
+
 const runRangedBand = (g, b, st, slots, sdt, tms) => {
   b.units.forEach((u, i) => {
     if (u.state === "dead") {
@@ -307,15 +323,7 @@ export function updateGame(g, dt) {
           b.st = heroStats(b.hero, b.level, b.talents);
           const u = b.units[0];
           u.maxHp = b.st.hp;
-          // levelling: a new level tops the hero up and makes him a little more
-          while (b.level < HERO_MAX_LEVEL && b.xp >= heroXpFor(b.level)) {
-            b.xp -= heroXpFor(b.level); b.level += 1;
-            b.st = heroStats(b.hero, b.level, b.talents);
-            u.maxHp = b.st.hp; u.hp = b.st.hp;
-            g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 700 });
-            g.effects.push({ type: "coin", x: u.x, y: u.y - 26, ttl: 1200, text: `${b.name} — level ${b.level}`, big: true });
-            sfx.play("ascend");
-          }
+          levelHero(g, b);
           if (u.state === "dead") b.deadFor = (b.deadFor || 0) + sdt * 1000;
         }
         const st = b.st;
@@ -1636,6 +1644,8 @@ export function updateGame(g, dt) {
 
     if (!g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
       g.gold += waveBonus(g.wave);
+      // the hero learns from every wave the realm lives through, alive or not
+      { const hb = g.bands?.find((b) => b.kind === "hero"); if (hb) { hb.xp = (hb.xp || 0) + waveXp(scriptedWaves()); levelHero(g, hb); } }
       sfx.play("waveClear");
       if (g.run) g.run.goldEarned += waveBonus(g.wave);
       // the Gold Works pay out on every wave held

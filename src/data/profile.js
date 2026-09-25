@@ -8,6 +8,7 @@
 // recomputed only when a node is bought, never per-tower-per-frame.
 
 import { SKILLS, foldMods, spentOn, nextCost, nodeUnlocked, isMaxed } from "./skills.js";
+import { HERO_TALENTS, talentCost, talentsSpent } from "./bands.js";
 
 const KEY = "crownguard.profile.v1";
 
@@ -22,6 +23,10 @@ const EMPTY = () => ({
   // { towerKind: { branch, rank4: { a: "aa", b: "bb" } } } — the paths the
   // player last chose by hand; Master Builds replay them in one click
   favored: {},
+  // { aldric: { points, talents: { bulwark: 2 }, best } } — talent points
+  // banked from every level a hero has gained, the ranks bought with them,
+  // and the highest level the hero has reached in any one battle
+  heroes: {},
   stats: {
     levelsCleared: 0,   // clears, including repeats
     levelsLost: 0,
@@ -43,6 +48,7 @@ export function loadProfile() {
       stars: raw.stars && typeof raw.stars === "object" ? raw.stars : {},
       perks: raw.perks && typeof raw.perks === "object" ? raw.perks : {},
       favored: raw.favored && typeof raw.favored === "object" ? raw.favored : {},
+      heroes: raw.heroes && typeof raw.heroes === "object" ? raw.heroes : {},
       stats: { ...p.stats, ...(raw.stats || {}) },
     };
     // Skills used to be a flat list of bought nodes; they are ranked now.
@@ -82,6 +88,36 @@ export function recordFavored(kind, pick) {
 }
 
 export const favoredFor = (kind) => loadProfile().favored[kind] || {};
+
+// ---- heroes' talent points ----
+// Written straight to storage like recordFavored: a hero's points can't
+// change the tower perks, so there is nothing to recompute.
+const writeRaw = (p) => { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* private mode */ } return p; };
+export const heroRecord = (p, key) => ({ points: 0, talents: {}, best: 1, ...(p.heroes?.[key] || {}) });
+// a hero gained `n` levels in battle, reaching `level`: bank a point for each
+export function bankHeroPoints(key, n, level = 1) {
+  const p = loadProfile();
+  const h = heroRecord(p, key);
+  p.heroes = { ...p.heroes, [key]: { ...h, points: h.points + n, best: Math.max(h.best, level) } };
+  return writeRaw(p);
+}
+// spend points on the next rank of talent `id`; null if it can't be bought
+export function buyHeroTalent(key, id) {
+  const p = loadProfile();
+  const h = heroRecord(p, key);
+  if (!HERO_TALENTS[key]?.some((t) => t.id === id)) return null;
+  const cost = talentCost(h.talents[id] || 0);
+  if (cost == null || h.points < cost) return null;
+  p.heroes = { ...p.heroes, [key]: { ...h, points: h.points - cost, talents: { ...h.talents, [id]: (h.talents[id] || 0) + 1 } } };
+  return writeRaw(p);
+}
+// hand back every point a hero's talents cost, for free
+export function resetHeroTalents(key) {
+  const p = loadProfile();
+  const h = heroRecord(p, key);
+  p.heroes = { ...p.heroes, [key]: { ...h, points: h.points + talentsSpent(h.talents), talents: {} } };
+  return writeRaw(p);
+}
 
 // ---- stars ----
 

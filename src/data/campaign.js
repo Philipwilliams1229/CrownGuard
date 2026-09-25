@@ -207,7 +207,7 @@ export function loadProgress() {
       cleared: raw.cleared && typeof raw.cleared === "object" ? raw.cleared : {},
       // castle works, by chapter: { greenwood: { archers: 2, ... } }
       castle: raw.castle && typeof raw.castle === "object" ? raw.castle : {},
-      // the heroes' roads: { aldric: { level: 4, xp: 7, talents: { bulwark: 2 } } }
+      // legacy: heroes used to carry their level between maps; unused now
       heroes: raw.heroes && typeof raw.heroes === "object" ? raw.heroes : {},
       // the crown's treasury: gold carried home from won levels, spent only
       // on the castle's works
@@ -230,25 +230,6 @@ export function spendTreasury(amount) {
   save(p);
   return p;
 }
-// The hero's road so far: his level, the xp toward the next, and his
-// talents. A lower level never overwrites a higher one.
-export function saveHero(key, level, xp = 0) {
-  const p = loadProgress();
-  const old = p.heroes[key] || {};
-  const oldLv = old.level || 1;
-  p.heroes[key] = { ...old, level: Math.max(level, oldLv), xp: level > oldLv ? xp : level === oldLv ? Math.max(xp, old.xp || 0) : old.xp || 0 };
-  save(p);
-  return p;
-}
-// { bulwark: 2, edge: 1 } — ranks bought, kept per hero
-export const heroTalents = (key, p = loadProgress()) => ({ ...(p.heroes?.[key]?.talents || {}) });
-export function saveHeroTalents(key, talents) {
-  const p = loadProgress();
-  p.heroes[key] = { level: 1, ...(p.heroes[key] || {}), talents: { ...talents } };
-  save(p);
-  return p;
-}
-
 // The works built on a region's castle so far.
 export function loadCastle(chapterId) {
   const p = loadProgress();

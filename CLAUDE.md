@@ -80,7 +80,10 @@ should never have to rediscover it.
   `src/data/waves.js`), `SPLASH_CAP` in `src/engine/update.js`, bounty cap and
   wave bonus, per-level gold in `src/data/campaign.js`, tower stats in
   `src/data/towers.js`, castle works and endless ranks in `src/data/castle.js`.
-- Heroes: base stats, per-level gains and the five-talent trees
-  (`HERO_TALENTS`, a point per level, 3 ranks each) in `src/data/bands.js`;
-  picks persist in campaign progress `heroes[key].talents`.
+- Heroes (`src/data/bands.js`): level 1 at the start of every map, up to
+  20; `heroXpFor` (steepening) and `waveXp` (~360 xp per map's script) aim
+  at ~level 10 by the end of the script — measure with
+  `node scripts/sim.mjs --level <id> --hero-at 0.6`. Each level gained
+  banks a talent point for good in the PROFILE (`profile.heroes[key]`);
+  five talents per hero, five ranks costing `TALENT_COSTS` 10/12/15/20/25.
 - The owner playtests; the sims are a floor, not a target.

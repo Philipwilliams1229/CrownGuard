@@ -1,7 +1,9 @@
 // ============ HERO TALENTS (War Council, HEROES tab) ============
-// Where a hero's talent points are spent between battles. Each hero earns a
-// point a level (data/bands.js) and has five talents of three ranks; picks
-// are kept in the campaign progress (data/campaign.js) and a reset is free.
+// Where a hero's talent points are spent between battles. Heroes start every
+// map at level 1 and level up in battle; each level gained banks one talent
+// point for that hero, kept for good in the profile (data/profile.js,
+// heroRecord). Five talents of five ranks each, costing TALENT_COSTS
+// (data/bands.js). A reset is free and hands every point back.
 //
 // Also home to the War Council's two-tap confirm (`useArm` + `ArmBand`):
 // the first tap arms a button — it turns gold and says what the next tap
@@ -17,10 +19,9 @@
 
 import { useState, useEffect } from "react";
 import {
-  HEROES, HERO_TALENTS, TALENT_RANKS, HERO_MAX_LEVEL, heroXpFor,
-  talentPoints, talentsSpent, canTalent, heroStats,
+  HEROES, HERO_TALENTS, TALENT_RANKS, talentCost, talentsSpent, heroStats,
 } from "../data/bands.js";
-import { loadProgress, heroTalents, saveHeroTalents } from "../data/campaign.js";
+import { heroRecord, buyHeroTalent, resetHeroTalents } from "../data/profile.js";
 import EnemyIcon from "./EnemyIcon.jsx";
 import { btn, panel, DISPLAY, GOLD, INK } from "./theme.js";
 
@@ -77,10 +78,8 @@ export function ArmBand({ children, z = 1 }) {
 }
 
 // ---- one hero's sheet ----
-const heroOf = (prog, key) => {
-  const r = prog.heroes?.[key] || {};
-  return { level: Math.max(1, Math.min(HERO_MAX_LEVEL, r.level || 1)), xp: r.xp || 0, talents: heroTalents(key, prog) };
-};
+const SHOW_LEVEL = 10;   // stats are shown for a hero at about the end of a normal map
+const RED = "#e07a72";
 
 function StatChip({ label, value, up, z }) {
   return (
@@ -91,8 +90,8 @@ function StatChip({ label, value, up, z }) {
   );
 }
 
-function TalentNode({ t, rank, buyable, noPoints, armed, onTap, z, armId }) {
-  const maxed = rank >= TALENT_RANKS;
+function TalentNode({ t, rank, cost, buyable, armed, onTap, z, armId }) {
+  const maxed = cost == null;
   return (
     <button data-arm={armId} disabled={!buyable} onClick={onTap}
       style={{
@@ -103,44 +102,48 @@ function TalentNode({ t, rank, buyable, noPoints, armed, onTap, z, armId }) {
         ...(maxed
           ? { background: "#3c4a32", boxShadow: "inset -2px -2px 0 #26301f, inset 2px 2px 0 #5a6e4a" }
           : rank > 0 ? { boxShadow: "inset 0 0 0 2px #7a6a3c" }
-          : noPoints ? { opacity: 0.62 } : {}),
+          : !buyable ? { opacity: 0.7 } : {}),
         ...(armed ? ARMED : {}),
       }}>
-      <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
-        <b style={{ ...LABEL, fontSize: 11 * z, color: maxed ? "#c8e0a8" : "#e8e0c8" }}>{t.name}</b>
-        <span style={{ ...NUM, marginLeft: "auto", fontSize: 8.5 * z, color: maxed ? "#a8d88c" : "#e8e0c8", opacity: maxed ? 1 : 0.7, whiteSpace: "nowrap" }}>
-          {maxed ? "MAX" : `${rank}/${TALENT_RANKS}`}
-        </span>
-      </span>
-      <span style={{ display: "flex", gap: 4 }}>
+      <b style={{ ...LABEL, fontSize: 11 * z, color: maxed ? "#c8e0a8" : "#e8e0c8", whiteSpace: "nowrap" }}>{t.name}</b>
+      {/* five rank pips, then the next rank's price — red when the bank can't meet it */}
+      <span style={{ display: "flex", gap: 3, alignItems: "center", width: "100%" }}>
         {Array.from({ length: TALENT_RANKS }, (_, i) => (
           <span key={i} style={{
-            width: 24 * z, height: 7 * z, border: "2px solid #10131a", boxSizing: "border-box",
+            width: 14 * z, height: 7 * z, border: "2px solid #10131a", boxSizing: "border-box", flexShrink: 0,
             background: i < rank ? GOLD.face : i === rank && buyable ? "#4a5162" : "#272c36",
           }} />
         ))}
+        <span style={{ marginLeft: "auto", paddingLeft: 4, whiteSpace: "nowrap", display: "flex", alignItems: "baseline", gap: 3 }}>
+          {maxed ? (
+            <span style={{ ...NUM, fontSize: 8.5 * z, color: "#a8d88c" }}>MAX</span>
+          ) : (
+            <>
+              <span style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.6 }}>next</span>
+              <span style={{ ...NUM, fontSize: 9 * z, color: buyable ? "#e8d47a" : RED }}>{cost}</span>
+              <span style={{ ...LABEL, fontSize: 8.5 * z, color: buyable ? "#e8e0c8" : RED, opacity: buyable ? 0.7 : 1 }}>pts</span>
+            </>
+          )}
+        </span>
       </span>
       <span style={{ fontSize: 10 * z, opacity: 0.8, lineHeight: 1.4 }}>{t.desc}</span>
-      {armed && <ArmBand z={z}>TAP AGAIN · 1 POINT</ArmBand>}
+      {armed && <ArmBand z={z}>TAP AGAIN · {cost} PTS</ArmBand>}
     </button>
   );
 }
 
-function HeroSheet({ hkey, prog, onBuy, onReset, arm, cols, z, portrait, note }) {
+function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note }) {
   const h = HEROES[hkey];
-  const { level, xp, talents } = heroOf(prog, hkey);
-  const pts = Math.max(0, talentPoints(level) - talentsSpent(talents));
-  const st = heroStats(hkey, level, talents);
-  const base = heroStats(hkey, level, null);
-  const maxLv = level >= HERO_MAX_LEVEL;
-  const need = heroXpFor(level);
+  const { points, talents, best } = heroRecord(profile, hkey);
+  const st = heroStats(hkey, SHOW_LEVEL, talents);
+  const base = heroStats(hkey, SHOW_LEVEL, null);
   const spent = talentsSpent(talents);
   const resetId = `reset:${hkey}`;
   const resetArmed = arm.is(resetId);
 
   return (
     <div style={{ ...panel, boxSizing: "border-box", width: "100%", display: "flex", flexDirection: "column", gap: 8 * z }}>
-      {/* who: portrait, name, level and xp, points to spend */}
+      {/* who: portrait, name, best level; and the bank of points, big */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 * z }}>
         {portrait && (
           <div style={{ width: 52 * z, height: 52 * z, display: "flex", alignItems: "center", justifyContent: "center", background: "#262b35", border: `2px solid ${INK}`, flexShrink: 0 }}>
@@ -152,39 +155,41 @@ function HeroSheet({ hkey, prog, onBuy, onReset, arm, cols, z, portrait, note })
             <b style={{ ...LABEL, fontSize: 14 * z, color: GOLD.lt }}>{h.name}</b>
             <span style={{ ...LABEL, fontSize: 10 * z, opacity: 0.7 }}>{h.title}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 * z }}>
-            <span style={{ ...NUM, fontSize: 9.5 * z, color: "#e8d47a", whiteSpace: "nowrap" }}>LV {level}</span>
-            <div style={{ flex: 1, minWidth: 40, height: 8 * z, background: "#191d25", border: "2px solid #10131a" }}>
-              <div style={{ height: "100%", width: maxLv ? "100%" : `${Math.round(Math.min(1, xp / need) * 100)}%`, background: maxLv ? "#a8d88c" : GOLD.face }} />
-            </div>
-            <span style={{ ...NUM, fontSize: 8 * z, opacity: 0.7, whiteSpace: "nowrap" }}>{maxLv ? "MAX" : `${xp}/${need}`}</span>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 5 * z, opacity: 0.7 }}>
+            <span style={{ ...LABEL, fontSize: 9 * z }}>Best level:</span>
+            <span style={{ ...NUM, fontSize: 8.5 * z }}>{best}</span>
           </div>
         </div>
         <div style={{
-          flexShrink: 0, textAlign: "center", padding: `${4 * z}px ${7 * z}px`, border: `2px solid ${INK}`,
-          background: pts ? "#5a4f2c" : "#262b35", boxShadow: pts ? "inset 0 0 0 2px #7a6a3c" : "none",
+          flexShrink: 0, textAlign: "center", padding: `${5 * z}px ${10 * z}px`, border: `2px solid ${INK}`, minWidth: 64 * z,
+          background: points ? "#5a4f2c" : "#262b35", boxShadow: points ? "inset 0 0 0 2px #7a6a3c" : "none",
         }}>
-          <div style={{ ...NUM, fontSize: 13 * z, color: pts ? GOLD.lt : "#8a8f9a" }}>{pts}</div>
-          <div style={{ ...LABEL, fontSize: 8 * z, opacity: 0.75, marginTop: 2 }}>{pts === 1 ? "POINT" : "POINTS"}</div>
+          <div style={{ ...NUM, fontSize: 17 * z, color: points ? GOLD.lt : "#8a8f9a" }}>{points}</div>
+          <div style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.8, marginTop: 3 }}>{points === 1 ? "POINT" : "POINTS"}</div>
         </div>
       </div>
 
-      {/* the live numbers, green where talents have raised them */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 5 * z }}>
-        <StatChip z={z} label="HEALTH" value={Math.round(st.hp)} up={st.hp > base.hp} />
-        <StatChip z={z} label="DAMAGE" value={Math.round(st.dmg)} up={st.dmg > base.dmg + 0.01} />
-        <StatChip z={z} label="HITS/S" value={(1000 / st.rate).toFixed(2)} up={st.rate < base.rate} />
-        <StatChip z={z} label="RANGE" value={Math.round(st.range)} up={st.range > base.range} />
+      {/* the numbers at level 10, green where talents have raised them */}
+      <div>
+        <div style={{ ...LABEL, fontSize: 8.5 * z, opacity: 0.55, marginBottom: 3 * z }}>AT LEVEL {SHOW_LEVEL}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 5 * z }}>
+          <StatChip z={z} label="HEALTH" value={Math.round(st.hp)} up={st.hp > base.hp} />
+          <StatChip z={z} label="DAMAGE" value={Math.round(st.dmg)} up={st.dmg > base.dmg + 0.01} />
+          <StatChip z={z} label="HITS/S" value={(1000 / st.rate).toFixed(2)} up={st.rate < base.rate} />
+          <StatChip z={z} label="RANGE" value={Math.round(st.range)} up={st.range > base.range} />
+        </div>
       </div>
 
       {/* five talents and, in the sixth cell, the free reset */}
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gridAutoRows: "1fr", gap: 6 * z }}>
         {HERO_TALENTS[hkey].map((t) => {
           const id = `tal:${hkey}:${t.id}`;
-          const ok = canTalent(hkey, level, talents, t.id);
+          const rank = Math.min(TALENT_RANKS, talents[t.id] || 0);
+          const cost = talentCost(rank);
+          const ok = cost != null && points >= cost;
           return (
-            <TalentNode key={t.id} t={t} z={z} armId={id} rank={Math.min(TALENT_RANKS, talents[t.id] || 0)}
-              buyable={ok} noPoints={!pts} armed={arm.is(id)}
+            <TalentNode key={t.id} t={t} z={z} armId={id} rank={rank} cost={cost}
+              buyable={ok} armed={arm.is(id)}
               onTap={() => ok && arm.tap(id, () => onBuy(hkey, t.id))} />
           );
         })}
@@ -209,22 +214,17 @@ function HeroSheet({ hkey, prog, onBuy, onReset, arm, cols, z, portrait, note })
 }
 
 // ---- the tab ----
-export default function HeroTalents({ layout, z = 1, arm, fitted }) {
-  const [prog, setProg] = useState(loadProgress);
+export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, fitted }) {
   const [pick, setPick] = useState(HERO_KEYS[0]);
 
-  const buy = (key, id) => {
-    const p = loadProgress();                // re-read: the save is the truth
-    const { level } = heroOf(p, key);
-    const cur = heroTalents(key, p);
-    if (!canTalent(key, level, cur, id)) { setProg(p); return; }
-    setProg(saveHeroTalents(key, { ...cur, [id]: (cur[id] || 0) + 1 }));
-  };
-  const reset = (key) => setProg(saveHeroTalents(key, {}));
+  // both write to storage themselves and hand back the new profile
+  const buy = (key, id) => { const p = buyHeroTalent(key, id); if (p) setProfile({ ...p }); };
+  const reset = (key) => setProfile({ ...resetHeroTalents(key) });
+  const deps = HERO_KEYS.map((k) => JSON.stringify(heroRecord(profile, k))).join("|");
 
-  const line = "Heroes earn a talent point every level. Spend them here or in battle from the hero's panel.";
+  const line = "Every level a hero gains in battle banks a talent point. Spend them here or from the hero's panel in battle.";
   const sheet = (k, cols, portrait, note) => (
-    <HeroSheet key={k} hkey={k} prog={prog} onBuy={buy} onReset={reset} arm={arm} cols={cols} z={z} portrait={portrait} note={note} />
+    <HeroSheet key={k} hkey={k} profile={profile} onBuy={buy} onReset={reset} arm={arm} cols={cols} z={z} portrait={portrait} note={note} />
   );
   const smallNote = <div style={{ fontSize: 9.5, opacity: 0.55, lineHeight: 1.4 }}>{line}</div>;
 
@@ -236,7 +236,7 @@ export default function HeroTalents({ layout, z = 1, arm, fitted }) {
           {HERO_KEYS.map((k) => sheet(k, 2, true, null))}
         </div>
       </div>,
-      [layout, z, prog],
+      [layout, z, deps],
     );
   }
 
@@ -244,11 +244,12 @@ export default function HeroTalents({ layout, z = 1, arm, fitted }) {
   const rail = layout === "rail";
   const picker = (
     <div style={rail
-      ? { display: "grid", gridTemplateRows: `repeat(${HERO_KEYS.length}, 1fr)`, gap: 6, width: 150, flexShrink: 0, minHeight: 0 }
+      ? { display: "grid", gridTemplateRows: `repeat(${HERO_KEYS.length}, 1fr)`, gap: 6, width: 124, flexShrink: 0, minHeight: 0 }
       : { display: "grid", gridTemplateColumns: `repeat(${HERO_KEYS.length}, 1fr)`, gap: 6, flexShrink: 0 }}>
       {HERO_KEYS.map((k) => {
-        const { level, talents } = heroOf(prog, k);
-        const pts = Math.max(0, talentPoints(level) - talentsSpent(talents));
+        const { points, talents } = heroRecord(profile, k);
+        // gold when the bank can buy a rank of something
+        const can = HERO_TALENTS[k].some((t) => { const c = talentCost(talents[t.id] || 0); return c != null && points >= c; });
         return (
           <button key={k} onClick={() => setPick(k)} aria-label={HEROES[k].name}
             style={{
@@ -257,17 +258,14 @@ export default function HeroTalents({ layout, z = 1, arm, fitted }) {
               ...(k === pick ? ON : {}),
             }}>
             <EnemyIcon type={HEROES[k].rig} box={rail ? 44 : 36} />
-            <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+            <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
               <b style={{ ...LABEL, fontSize: 11, whiteSpace: "nowrap" }}>{HEROES[k].name}</b>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ ...NUM, fontSize: 8.5, opacity: 0.8 }}>LV {level}</span>
-                {/* unspent points: a gold tag in the corner, or beside the level on the toggle */}
-                {pts > 0 && (
-                  <span style={{
-                    ...NUM, fontSize: 8, padding: "3px 4px", background: GOLD.face, color: INK, border: `2px solid ${INK}`,
-                    ...(rail ? { position: "absolute", top: 3, right: 3 } : {}),
-                  }}>+{pts}</span>
-                )}
+              <span style={{
+                display: "flex", alignItems: "baseline", gap: 4, padding: "3px 5px", border: `2px solid ${INK}`,
+                ...(can ? { background: GOLD.face, color: INK } : { background: "#262b35" }),
+              }}>
+                <span style={{ ...NUM, fontSize: 8.5 }}>{points}</span>
+                <span style={{ ...LABEL, fontSize: 8.5, fontWeight: "bold" }}>PTS</span>
               </span>
             </span>
           </button>
@@ -275,7 +273,7 @@ export default function HeroTalents({ layout, z = 1, arm, fitted }) {
       })}
     </div>
   );
-  const body = fitted(sheet(pick, rail ? 3 : 2, false, smallNote), [layout, pick, prog]);
+  const body = fitted(sheet(pick, rail ? 3 : 2, false, smallNote), [layout, pick, deps]);
   return rail ? (
     <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 8 }}>{picker}{body}</div>
   ) : (

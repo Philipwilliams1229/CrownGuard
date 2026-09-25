@@ -12,7 +12,11 @@ export const MILITIA = {
   life: 15000, cooldown: 24000, respawnMs: 999999,
 };
 
-// Heroes level with kills. Levels persist through the campaign.
+// Heroes start every map at level 1 and grow during the battle, up to
+// level 20: each level adds health and damage. XP comes from foes that fall
+// by or near the hero, and from every scripted wave the realm survives
+// (WAVE_XP), so an active hero reaches about level 10 by the end of a
+// map's scripted waves and keeps climbing in the Endless March.
 export const HEROES = {
   aldric: {
     name: "Sir Aldric", title: "the Steadfast", rig: "heroKnight", icon: "⚔",
@@ -27,42 +31,44 @@ export const HEROES = {
     perLevel: { hp: 22, dmg: 4 },
   },
 };
-export const HERO_MAX_LEVEL = 10;
-export const heroXpFor = (level) => 6 + level * 5;   // kills to the next level
+export const HERO_MAX_LEVEL = 20;
+// xp to the next level: steepening, so a hero parked in the thickest fight
+// runs a little ahead of the pack rather than far ahead (sims: level 9-13
+// by the end of a map's script, depending on where he stands)
+export const heroXpFor = (level) => Math.round(20 + 1.2 * level * level);
+// the xp the hero earns for each wave cleared: a whole script is worth ~360
+// xp (about level 8-9) whatever its length; kills near him make up the rest
+export const waveXp = (scriptedCount) => Math.ceil(360 / Math.max(1, scriptedCount));
 
 // ---- talents ----
-// Every level past the first earns the hero one talent point. Each hero has
-// five talents of three ranks — fifteen ranks for nine points — so a hero
-// at the top of his road is still a choice, not a checklist. `apply(st, r)`
-// bends the hero's stats for rank r (1-3); the engine rebuilds the stats
-// every tick, so a point spent mid-battle bites at once. Picks are kept in
-// the campaign progress (heroes[key].talents) and can be reset for free in
-// the War Council.
-export const TALENT_RANKS = 3;
+// Every level a hero gains in battle banks one TALENT POINT for that hero,
+// kept for good in the profile (profile.heroes[key].points) across maps,
+// modes and campaigns. Points buy ranks in five talents; each talent has
+// five ranks costing TALENT_COSTS. `apply(st, r)` bends the hero's stats
+// for rank r; the engine rebuilds the stats every tick, so a rank bought
+// mid-battle bites at once.
+export const TALENT_COSTS = [10, 12, 15, 20, 25];
+export const TALENT_RANKS = TALENT_COSTS.length;
 export const HERO_TALENTS = {
   aldric: [
-    { id: "bulwark", name: "Bulwark", desc: "+15% health a rank.", apply: (st, r) => { st.hp = Math.round(st.hp * (1 + 0.15 * r)); } },
-    { id: "edge", name: "Keen Edge", desc: "+12% damage a rank.", apply: (st, r) => { st.dmg = st.dmg * (1 + 0.12 * r); } },
-    { id: "swift", name: "Swift Blade", desc: "Swings 8% faster a rank.", apply: (st, r) => { st.rate = Math.round(st.rate * (1 - 0.08 * r)); } },
-    { id: "bash", name: "Shield Bash", desc: "Stuns more often (+8% a rank) and for longer (+0.2s a rank).", apply: (st, r) => { st.stun = Math.min(0.9, st.stun + 0.08 * r); st.stunDur += 200 * r; } },
-    { id: "wind", name: "Second Wind", desc: "Back on his feet 20% sooner a rank.", apply: (st, r) => { st.respawnMs = Math.round(st.respawnMs * (1 - 0.2 * r)); } },
+    { id: "bulwark", name: "Bulwark", desc: "+10% health a rank.", apply: (st, r) => { st.hp = Math.round(st.hp * (1 + 0.1 * r)); } },
+    { id: "edge", name: "Keen Edge", desc: "+8% damage a rank.", apply: (st, r) => { st.dmg = st.dmg * (1 + 0.08 * r); } },
+    { id: "swift", name: "Swift Blade", desc: "Swings 5% faster a rank.", apply: (st, r) => { st.rate = Math.round(st.rate * (1 - 0.05 * r)); } },
+    { id: "bash", name: "Shield Bash", desc: "Stuns more often (+5% a rank) and for longer (+0.15s a rank).", apply: (st, r) => { st.stun = Math.min(0.9, st.stun + 0.05 * r); st.stunDur += 150 * r; } },
+    { id: "wind", name: "Second Wind", desc: "Back on his feet 12% sooner a rank.", apply: (st, r) => { st.respawnMs = Math.round(st.respawnMs * (1 - 0.12 * r)); } },
   ],
   wren: [
-    { id: "deadeye", name: "Deadeye", desc: "+12% damage a rank.", apply: (st, r) => { st.dmg = st.dmg * (1 + 0.12 * r); } },
-    { id: "quick", name: "Quick Draw", desc: "Looses 8% faster a rank.", apply: (st, r) => { st.rate = Math.round(st.rate * (1 - 0.08 * r)); } },
-    { id: "long", name: "Longbow", desc: "+12% range a rank.", apply: (st, r) => { st.range = Math.round(st.range * (1 + 0.12 * r)); } },
-    { id: "hobble", name: "Hobbling Shot", desc: "Slows harder (+7% a rank) and longer (+0.25s a rank).", apply: (st, r) => { st.slow = Math.min(0.7, st.slow + 0.07 * r); st.slowDur += 250 * r; } },
-    { id: "split", name: "Split Shot", desc: "A 15% chance a rank to loose a second arrow at another foe.", apply: (st, r) => { st.split = 0.15 * r; } },
+    { id: "deadeye", name: "Deadeye", desc: "+8% damage a rank.", apply: (st, r) => { st.dmg = st.dmg * (1 + 0.08 * r); } },
+    { id: "quick", name: "Quick Draw", desc: "Looses 5% faster a rank.", apply: (st, r) => { st.rate = Math.round(st.rate * (1 - 0.05 * r)); } },
+    { id: "long", name: "Longbow", desc: "+7% range a rank.", apply: (st, r) => { st.range = Math.round(st.range * (1 + 0.07 * r)); } },
+    { id: "hobble", name: "Hobbling Shot", desc: "Slows harder (+5% a rank) and longer (+0.2s a rank).", apply: (st, r) => { st.slow = Math.min(0.7, st.slow + 0.05 * r); st.slowDur += 200 * r; } },
+    { id: "split", name: "Split Shot", desc: "A 10% chance a rank to loose a second arrow at another foe.", apply: (st, r) => { st.split = 0.1 * r; } },
   ],
 };
-// points earned by a hero of this level, and points already spent
-export const talentPoints = (level) => Math.max(0, Math.min(HERO_MAX_LEVEL, level) - 1);
-export const talentsSpent = (talents) => Object.values(talents || {}).reduce((a, r) => a + (r || 0), 0);
-// can one more rank of talent `id` be bought for this hero?
-export const canTalent = (key, level, talents, id) => {
-  const t = HERO_TALENTS[key]?.find((x) => x.id === id);
-  return !!t && (talents?.[id] || 0) < TALENT_RANKS && talentsSpent(talents) < talentPoints(level);
-};
+// what the next rank of a talent costs, or null when it is maxed
+export const talentCost = (rank) => (rank < TALENT_RANKS ? TALENT_COSTS[rank] : null);
+// points already sunk into a hero's talents (a reset hands them all back)
+export const talentsSpent = (talents) => Object.values(talents || {}).reduce((a, r) => a + TALENT_COSTS.slice(0, r || 0).reduce((x, y) => x + y, 0), 0);
 
 export const heroStats = (key, level, talents = null) => {
   const h = HEROES[key];

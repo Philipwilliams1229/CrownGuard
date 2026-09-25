@@ -377,7 +377,7 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
         {tab === "stats" ? (
           fitted(statsPanel, [tab, upright])
         ) : tab === "heroes" ? (
-          <HeroTalents arm={arm} z={heroZ} fitted={fitted} layout={big ? "wide" : upright ? "stack" : "rail"} />
+          <HeroTalents profile={profile} setProfile={setProfile} arm={arm} z={heroZ} fitted={fitted} layout={big ? "wide" : upright ? "stack" : "rail"} />
         ) : top ? (
           <>
             {picker}

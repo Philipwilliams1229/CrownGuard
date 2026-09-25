@@ -5,7 +5,7 @@
 
 import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
-import { MILITIA, HEROES, heroStats, canTalent } from "../data/bands.js";
+import { MILITIA, HEROES, heroStats } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
@@ -457,13 +457,4 @@ export const fieldHero = (g, key, level = 1, x, y, talents = {}, xp = 0) => {
   return band;
 };
 export const heroBand = (g) => g?.bands?.find((b) => b.kind === "hero") || null;
-// Spend one of the hero's talent points on talent `id`; the stats catch up
-// on the next tick. Returns the new talents, or null if it can't be bought.
-export const buyTalent = (g, id) => {
-  const b = heroBand(g);
-  if (!b || !canTalent(b.hero, b.level, b.talents, id)) return null;
-  b.talents = { ...(b.talents || {}), [id]: (b.talents?.[id] || 0) + 1 };
-  const u = b.units[0];
-  if (u && u.state !== "dead") g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 600 });
-  return b.talents;
-};
+
