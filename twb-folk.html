@@ -1,0 +1,47 @@
+<!doctype html>
+<!--
+  Tower artist B's crew contact sheet: every folk.js figure in each of its
+  poses, baked and inked as the halls bake them, enlarged. Saved to
+  .shots/twb_folk_<tag>.png.   /twb-folk.html?tag=before&scale=3
+-->
+<html>
+  <head><meta charset="utf-8" /><title>twb folk</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <script type="module">
+      import * as F from "/src/render/folk.js";
+      import { bakeSprite, PX } from "/src/render/paint.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 3;
+      const C = F.CREW_FOLK, A = F.ARCHER_FOLK, W = F.WALL_FOLK;
+      const ALCH = { skin: "#e8b990", hood: "#2e4a3a", coat: "#3a6a4e", boots: "#2a2a30", trim: "#d8b34a" };
+      const WATCH = { skin: "#e8b990", hood: "#3a4a5a", coat: "#4a6a7a", boots: "#2a2a30", trim: "#c8b070" };
+      const rows = [
+        ["archer", [(c) => F.drawArcher(c, 16, 38, 1, A.base, 0, { pose: "rest" }), (c) => F.drawArcher(c, 16, 38, 1, A.base, 1), (c) => F.drawArcher(c, 16, 38, 1, A.b, 0, { pose: "loose" })]],
+        ["crew/engineer", [(c) => F.drawCrew(c, 16, 38, 1, C.engineer, -0.6), (c) => F.drawCrew(c, 16, 38, 1, C.engineer, 0), (c) => F.drawCrew(c, 16, 38, 1, C.engineer, 0.6)]],
+        ["stander clerk/watch", [(c) => F.drawStander(c, 16, 38, 1, C.clerk), (c) => F.drawStander(c, 16, 38, 1, WATCH)]],
+        ["halberd/mason", [(c) => F.drawHalberdier(c, 16, 38, 1, W.guard), (c) => F.drawMason(c, 16, 38, 1, W.mason, 0), (c) => F.drawMason(c, 16, 38, 1, W.mason, 1)]],
+        ["mage", [(c) => F.drawMage(c, 16, 38, 1, F.MAGE_FOLK.base, 1, { pose: "idle" }), (c) => F.drawMage(c, 16, 38, 1, F.MAGE_FOLK.a, 2), (c) => F.drawMage(c, 16, 38, 1, F.MAGE_FOLK.b, 3, { pose: "cast" })]],
+        ["priest", [(c) => F.drawPriest(c, 16, 38, 1, F.PRIEST_FOLK.base, false), (c) => F.drawPriest(c, 16, 38, 1, F.PRIEST_FOLK.b, true)]],
+        ["smith", [(c) => F.drawSmith(c, 16, 38, 1, C.smith, 0), (c) => F.drawSmith(c, 16, 38, 1, C.smith, 1)]],
+        ["hooded", [(c) => F.drawHooded(c, 16, 38, 1, C.blade), (c) => F.drawHooded(c, 16, 38, 1, C.bladeGuild)]],
+        ["mistress", [(c) => F.drawMistress(c, 16, 38, 1, C.mistress), (c) => F.drawMistress(c, 16, 38, 1, C.mistressCourt)]],
+        ["bomber/alch", [(c) => F.drawBomber(c, 16, 38, 1, C.bomber, false), (c) => F.drawBomber(c, 16, 38, 1, C.bomber, true), (c) => F.drawBomber(c, 16, 38, 1, ALCH, true)]],
+        ["musketeer", [(c) => F.drawMusketeer(c, 16, 38, 1, C.musketeer, 0), (c) => F.drawMusketeer(c, 16, 38, 1, C.musketeer, 1)]],
+      ];
+      const CW = 36, CH = 44, cols = 3;
+      const cv = document.createElement("canvas");
+      cv.width = (CW * cols * PX + 70) * SC; cv.height = CH * rows.length * PX * SC;
+      const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      rows.forEach(([name, fns], r) => fns.forEach((fn, i) => {
+        ctx.fillStyle = (r + i) % 2 ? "#7aa84e" : "#82b256";
+        ctx.fillRect(i * CW * PX * SC, r * CH * PX * SC, CW * PX * SC, CH * PX * SC);
+        let sp; try { sp = bakeSprite(CW, CH, fn); } catch (e) { console.error(name, e); return; }
+        ctx.drawImage(sp, i * CW * PX * SC, r * CH * PX * SC, sp.width * SC, sp.height * SC);
+      }));
+      rows.forEach(([name], r) => { ctx.fillStyle = "#fff"; ctx.font = `${10 * SC}px monospace`; ctx.fillText(name, CW * cols * PX * SC + 8, r * CH * PX * SC + 20 * SC); });
+      await fetch("/__shot?name=twb_folk_" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

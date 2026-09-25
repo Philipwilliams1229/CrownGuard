@@ -108,6 +108,29 @@ const legs = (ctx, x, y, pal, stride = 0) => {
   leg(x + 0.9, x + 1.5 + stride * 1.5, pal.boots);
 };
 
+// An arm in two parts: shoulder to elbow to hand, the elbow dropping (or,
+// with bend -1, lifting) as the arm folds, and a small closed hand on the end.
+const hand = (ctx, x, y, col) => ball(ctx, x, y, 1.1, 1.2, col, { hi: 0.4, lo: 0.4 });
+const arm = (ctx, sx, sy, hx, hy, pal, o = {}) => {
+  const dx = hx - sx, dy = hy - sy, L = Math.hypot(dx, dy) || 1;
+  const k = Math.sqrt(Math.max(0, 24 - (L / 2) ** 2)) * 0.8;
+  let nx = -dy / L, ny = dx / L;
+  if ((ny < 0) !== (o.bend === -1)) { nx = -nx; ny = -ny; }
+  const ex = (sx + hx) / 2 + nx * k, ey = (sy + hy) / 2 + ny * k;
+  const col = o.col || pal.coat;
+  limb(ctx, sx, sy, ex, ey, 2.4, col);
+  limb(ctx, ex, ey, hx, hy, 2.2, col);
+  if (o.hand !== false) hand(ctx, hx, hy, o.glove || pal.skin);
+};
+// A cap over a bare head: a crown and a brim that juts forward (+x).
+const cap = (ctx, x, y, col, o = {}) => {
+  const hy = y - 0.3, w = o.wide ? 1.9 : 1;
+  blob(ctx, [[x - 2.6 * w, hy - 1.8, 1], [x + 3.2 * w, hy - 1.8, 1], [x + 3.4 * w, hy - 1.1, 1], [x - 2.8 * w, hy - 1.1, 1]], darken(col, 0.1), { hi: 0.3 });
+  blob(ctx, [[x - 2.4, hy - 1.6, 1], [x - 2.2, hy - 3.3], [x - 0.2, hy - (o.tall ? 5.2 : 4.1)], [x + 2.0, hy - 3.4], [x + 2.5, hy - 1.6, 1]], col, {
+    hi: 0.35, then: (c) => { if (o.band) dab(c, x - 2.6, hy - 2.6, 5.4, 0.8, o.band); },
+  });
+};
+
 // ---- poses ---------------------------------------------------------------
 
 // An archer at the string. `draw` runs 0..1: loosed to full draw. Towers
@@ -218,10 +241,8 @@ export const drawCrew = (ctx, x, y, dir, pal, work = 0) => {
   torso(ctx, 0.5 + work, -17, 10, 7.5, pal);
   head(ctx, 1 + work, -20.5, pal, { hood: true });
   const hx = 5.5 + work * 1.5, hy = -13 + work;
-  limb(ctx, 2, -15, hx, hy, 2.4, pal.coat);
-  limb(ctx, -1, -15.5, hx - 0.5, hy - 1.5, 2.4, pal.coat);
-  ball(ctx, hx, hy, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
-  ball(ctx, hx - 0.5, hy - 1.5, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
+  arm(ctx, -0.6 + work, -15.8, hx - 0.6, hy - 1.4, pal, { col: darken(pal.coat, 0.18) });   // the far arm, behind
+  arm(ctx, 1.6 + work, -15.4, hx, hy, pal);
   ctx.restore();
 };
 
@@ -240,10 +261,9 @@ export const drawHalberdier = (ctx, x, y, dir, pal) => {
     c.beginPath(); c.moveTo(6, -34); c.lineTo(10.5, -30); c.lineTo(6, -25.5); c.closePath(); c.fill();
     c.fillRect(5.3, -37, 1.4, 4);
   });
-  limb(ctx, -2.5, -15, -3, -9, 2.4, pal.coat);
-  limb(ctx, 2.5, -15, 5.5, -20, 2.4, pal.coat);
-  ball(ctx, 5.7, -20.5, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
+  arm(ctx, -2.4, -15.6, -2.8, -8.6, pal);
   head(ctx, 0.4, -20.5, pal, { helm: true });
+  arm(ctx, 2.2, -15.6, 5.8, -19.6, pal);
   ctx.restore();
 };
 
@@ -256,10 +276,9 @@ export const drawMason = (ctx, x, y, dir, pal, work = 0) => {
   legs(ctx, 0, 0, pal, 0.5);
   torso(ctx, 0, -17, 10, 7.5, pal);
   head(ctx, 0.4, -20.5, pal, { hood: true });
-  limb(ctx, -2.5, -15, -4, -9.5, 2.4, pal.coat);
+  arm(ctx, -2.4, -15.6, -3.8, -9.2, pal);
   const hx = 6, hy = -18 - work * 3;
-  limb(ctx, 2.5, -15, hx, hy, 2.4, pal.coat);
-  ball(ctx, hx, hy, 1.5, 1.5, pal.skin, { hi: 0.4, lo: 0.4 });
+  arm(ctx, 2.2, -15.6, hx, hy, pal, { bend: -1 });
   part(ctx, (c) => { c.fillStyle = "#b8bcc6"; c.beginPath(); c.moveTo(hx - 1, hy - 1.5); c.lineTo(hx + 5, hy - 3.5); c.lineTo(hx + 3, hy + 0.5); c.closePath(); c.fill(); });
   ctx.restore();
 };
@@ -278,8 +297,8 @@ export const drawStander = (ctx, x, y, dir, pal) => {
   shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
   legs(ctx, 0, 0, pal, 0.2);
   torso(ctx, 0, -17, 10, 7.5, pal);
-  limb(ctx, -2.5, -15, -3, -9, 2.4, pal.coat);
-  limb(ctx, 2.5, -15, 3.2, -9, 2.4, pal.coat);
+  arm(ctx, -2.4, -15.6, -2.9, -8.6, pal);
+  arm(ctx, 2.3, -15.6, 3.1, -8.6, pal);
   head(ctx, 0.4, -20.5, pal);
   ctx.restore();
 };
@@ -355,12 +374,10 @@ export const drawMage = (ctx, x, y, dir, pal, level = 3, o = {}) => {
   const sh = pose === "cast" ? [tx - 4, ty + 3.5] : level >= 2 ? [tx - 1, -13] : pose === "cast" ? [tx - 1, ty] : [5.5, -13];
   const fh = pose === "idle" ? [-3, -9.5] : pose === "cast" ? [-5.5, -15] : [-4.5, -20.5];
   if (level < 2 && pose !== "idle") sh[0] = tx - 1, sh[1] = ty + 0.5;
-  limb(ctx, 2, -15, sh[0], sh[1], 2.2, pal.robe);
-  limb(ctx, -2, -15, fh[0], fh[1], 2.2, pal.robe);
-  ball(ctx, fh[0], fh[1], 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
-  ball(ctx, sh[0], sh[1], 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
-  // head, beard, hat
-  part(ctx, (c) => ball(c, 0.4, -20.5, 3.3, 3.5, pal.skin, { hi: 0.45, lo: 0.4 }));
+  arm(ctx, 2, -15.4, sh[0], sh[1], pal, { col: pal.robe });
+  arm(ctx, -2, -15.4, fh[0], fh[1], pal, { col: pal.robe, bend: pose === "charge" ? -1 : 1 });
+  // head, beard, hat: the soldiers' face under the wizard's hat
+  head(ctx, 0.4, -20.5, pal, { hood: false });
   if (tall) part(ctx, (c) => { c.beginPath(); c.moveTo(-2.4, -19); c.quadraticCurveTo(0.6, -10, 3.4, -19); c.closePath(); c.fillStyle = pal.beard || "#e8e0d0"; c.fill(); });
   else if (level === 2) part(ctx, (c) => ball(c, 0.6, -18, 2.2, 1.4, pal.beard || "#c8bca8", { hi: 0.3, lo: 0.3 }));
   part(ctx, (c) => {
@@ -371,8 +388,6 @@ export const drawMage = (ctx, x, y, dir, pal, level = 3, o = {}) => {
     c.fill();
     c.fillStyle = pal.trim; c.fillRect(-3, -24, 6.6, 1);
   });
-  ctx.fillStyle = "#2a2230";
-  ctx.beginPath(); ctx.ellipse(2, -20.3, 0.55, 0.7, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 };
 
@@ -384,15 +399,14 @@ export const drawPriest = (ctx, x, y, dir, pal, raised = false) => {
   shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
   robe(ctx, 0, -17, 17, 7.5, 12, pal.robe, pal.trim);
   if (raised) {
-    limb(ctx, -2.5, -15, -6, -22, 2.2, pal.robe);
-    limb(ctx, 2.5, -15, 6, -22, 2.2, pal.robe);
-    ball(ctx, -6, -22.5, 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
-    ball(ctx, 6, -22.5, 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
+    arm(ctx, -2.4, -15.4, -6, -22.4, pal, { col: pal.robe, bend: -1 });
+    arm(ctx, 2.4, -15.4, 6, -22.4, pal, { col: pal.robe, bend: -1 });
   } else {
-    limb(ctx, -2.5, -15, -1, -11, 2.2, pal.robe);
-    limb(ctx, 2.5, -15, 1, -11, 2.2, pal.robe);
+    // hands folded at the breast
+    arm(ctx, -2.4, -15.4, 0.2, -11.4, pal, { col: pal.robe, hand: false });
+    arm(ctx, 2.4, -15.4, 1.2, -11.2, pal, { col: pal.robe });
   }
-  part(ctx, (c) => ball(c, 0.4, -20.5, 3.3, 3.5, pal.skin, { hi: 0.45, lo: 0.4 }));
+  head(ctx, 0.4, -20.5, pal, { hood: false });
   // the mitre: a tall split cap with a gem
   part(ctx, (c) => {
     c.beginPath(); c.moveTo(-3.2, -22.5); c.lineTo(-1.2, -30); c.lineTo(0.6, -27.5); c.lineTo(2.4, -30); c.lineTo(4, -22.5); c.closePath();
@@ -400,8 +414,6 @@ export const drawPriest = (ctx, x, y, dir, pal, raised = false) => {
     c.fill();
   });
   ball(ctx, 0.5, -25, 0.9, 0.9, pal.gem || "#8ce8f0", { hi: 0.6, lo: 0.2 });
-  ctx.fillStyle = "#2a2230";
-  ctx.beginPath(); ctx.ellipse(2, -20.3, 0.55, 0.7, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 };
 
@@ -437,17 +449,17 @@ export const drawSmith = (ctx, x, y, dir, pal, swing = 0) => {
   // leather apron
   part(ctx, (c) => { c.fillStyle = darken(pal.trim || "#6a4a2e", 0.1); roundRect(c, -3, -15, 6, 8, 1.5); c.fill(); });
   head(ctx, 0.4, -20.5, pal, { hood: false });
-  part(ctx, (c) => ball(c, 0.2, -22.5, 3.6, 1.6, pal.hood, { hi: 0.4, lo: 0.4 }));   // a flat cap
+  cap(ctx, 0.4, -20.5, pal.hood);   // a flat cap
   const hx = swing > 0.5 ? 3 : 6.5, hy = swing > 0.5 ? -26 : -12;
-  limb(ctx, 2, -15, hx, hy, 2.4, pal.coat);
-  limb(ctx, -1.5, -15, 4.5, -12, 2.4, pal.coat);
+  arm(ctx, -1.2, -15.6, 4.5, -12, pal, { col: darken(pal.coat, 0.18) });   // the far hand steadies the iron
+  arm(ctx, 1.8, -15.6, hx, hy, pal, { bend: swing > 0.5 ? -1 : 1, hand: false });
   // the hammer
   part(ctx, (c) => {
     c.strokeStyle = "#6a4a2e"; c.lineWidth = 1.4; c.lineCap = "round";
     c.beginPath(); c.moveTo(hx, hy); c.lineTo(hx + (swing > 0.5 ? 3 : 4), hy + (swing > 0.5 ? -4 : -1)); c.stroke();
     c.fillStyle = "#6c727e"; roundRect(c, hx + (swing > 0.5 ? 1.5 : 2.5), hy + (swing > 0.5 ? -6.5 : -3.5), 4, 3, 0.8); c.fill();
   });
-  ball(ctx, hx, hy, 1.4, 1.4, pal.skin, { hi: 0.4, lo: 0.4 });
+  hand(ctx, hx, hy, pal.skin);
   ctx.restore();
 };
 
@@ -461,13 +473,9 @@ export const drawHooded = (ctx, x, y, dir, pal) => {
   torso(ctx, 0, -17, 10, 7.5, pal);
   limb(ctx, -3, -14, 2.5, -11, 2.2, pal.coat);
   limb(ctx, 3, -14, -2.5, -11, 2.2, pal.coat);
-  // a deep hood: the face is a hollow
-  part(ctx, (c) => {
-    ball(c, 0.2, -21, 3.8, 4.2, pal.hood, { hi: 0.35, lo: 0.5 });
-    c.fillStyle = "#1a1420";
-    c.beginPath(); c.ellipse(1.4, -20.6, 2, 2.2, 0, 0, Math.PI * 2); c.fill();
-    c.fillStyle = pal.skin; c.fillRect(0.8, -18.6, 1.6, 0.9);   // a chin, nothing more
-  });
+  // a deep hood: the face in its shadow, only the eye's glint and a chin
+  head(ctx, 0.4, -20.5, { ...pal, skin: darken(pal.skin, 0.62) });
+  part(ctx, (c) => { c.fillStyle = darken(pal.skin, 0.1); c.fillRect(1.4, -18.6, 1.4, 0.8); });
   ctx.restore();
 };
 
@@ -479,10 +487,11 @@ export const drawMistress = (ctx, x, y, dir, pal) => {
   shadow(ctx, 1, 0.4, 5, 1.8, 0.3);
   legs(ctx, 0, 0, pal, 0.3);
   torso(ctx, 0, -17, 10, 7.5, pal);
-  limb(ctx, -2.5, -15, -3, -9, 2.2, pal.coat);
-  limb(ctx, 2.5, -15, 8, -21, 2.2, pal.coat);
-  part(ctx, (c) => { c.fillStyle = "#6a4a2e"; roundRect(c, 6.5, -23.5, 4, 3.5, 1); c.fill(); });   // the gauntlet
+  arm(ctx, -2.4, -15.6, -2.9, -8.6, pal);
   head(ctx, 0.4, -20.5, pal);
+  // the glove arm raised, a long leather gauntlet to the elbow
+  arm(ctx, 2.2, -15.6, 8, -21.4, pal, { bend: -1, glove: "#7a5234" });
+  part(ctx, (c) => { c.fillStyle = lin(c, 6, 0, 9, 0, [[0, "#9a6a44"], [1, "#5a3a22"]]); c.beginPath(); c.moveTo(5.2, -18.6); c.lineTo(7.2, -20); c.lineTo(8.6, -21.8); c.lineTo(9.4, -20.6); c.lineTo(7.6, -17.6); c.closePath(); c.fill(); c.fillStyle = "#d8b34a"; c.fillRect(5.6, -18.8, 1.8, 0.6); });
   ctx.restore();
 };
 
@@ -495,10 +504,10 @@ export const drawBomber = (ctx, x, y, dir, pal, throwing = false) => {
   legs(ctx, 0, 0, pal, 0.7);
   torso(ctx, 0, -17, 10, 8, pal);
   head(ctx, 0.4, -20.5, pal, { hood: false });
-  part(ctx, (c) => ball(c, 0.2, -22.8, 3.4, 1.4, pal.hood, { hi: 0.3, lo: 0.4 }));
+  cap(ctx, 0.4, -20.5, pal.hood, { tall: true });   // a knitted cap
   const bx = throwing ? 5 : 5.5, by = throwing ? -24 : -12;
-  limb(ctx, 2, -15, bx - 1, by + 1, 2.4, pal.coat);
-  limb(ctx, -1.5, -15, bx - 2, by + 2, 2.4, pal.coat);
+  arm(ctx, -1.2, -15.6, bx - 2, by + 2, pal, { col: darken(pal.coat, 0.18), bend: throwing ? -1 : 1 });
+  arm(ctx, 1.8, -15.6, bx - 1, by + 1, pal, { bend: throwing ? -1 : 1 });
   part(ctx, (c) => ball(c, bx + 0.5, by - 1, 2.6, 2.6, "#2e2e36", { hi: 0.45, lo: 0.4 }));
   ctx.restore();
 };
@@ -512,7 +521,7 @@ export const drawMusketeer = (ctx, x, y, dir, pal, kick = 0) => {
   legs(ctx, 0, 0, pal, 1.2);
   torso(ctx, 0, -17, 10, 7.5, pal);
   head(ctx, 0.4, -20.5, pal, { hood: false });
-  part(ctx, (c) => { ball(c, 0.2, -22.6, 5.2, 1.5, pal.hood, { hi: 0.35, lo: 0.4 }); ball(c, 0.2, -24, 2.8, 2, pal.hood, { hi: 0.35, lo: 0.4 }); });
+  cap(ctx, 0.4, -20.5, pal.hood, { wide: true, tall: true, band: pal.trim });   // the broad hat
   // the gun, barrel out front
   part(ctx, (c) => {
     c.strokeStyle = "#5f4326"; c.lineWidth = 2.2; c.lineCap = "round";
@@ -520,8 +529,8 @@ export const drawMusketeer = (ctx, x, y, dir, pal, kick = 0) => {
     c.strokeStyle = "#6c727e"; c.lineWidth = 1.6;
     c.beginPath(); c.moveTo(3, -15); c.lineTo(13, -16.5); c.stroke();
   });
-  limb(ctx, 2, -15, 6, -15, 2.2, pal.coat);
-  limb(ctx, -1.5, -15, 1.5, -13, 2.2, pal.coat);
+  arm(ctx, 1.8, -15.6, 6, -15, pal);
+  arm(ctx, -1.2, -15.6, 1.5, -13, pal, { col: darken(pal.coat, 0.1) });
   ctx.restore();
 };
 
