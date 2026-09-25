@@ -328,20 +328,123 @@ export const ROADS = LEVELS.slice(1).map((lv, i) => {
   return { from: LEVELS[i].id, to: lv.id, pts, len };
 });
 
-// ---- rivers ----------------------------------------------------------
+// ---- rivers and lakes ------------------------------------------------
+// The map tells the truth about water: every level whose battlefield has a
+// river has a river running through its waypoint, every level with a pond
+// or bog has a lake or pool beside it, and no river runs through a dry one
+// (checked against REALMS[..].rivers / ponds in data/maps.js — keep it so).
+//
+// A river is a Catmull-Rom spline through its control points (it passes
+// THROUGH them, so a river pinned to a waypoint really runs through it),
+// pushed side to side by two octaves of noise — long lazy meanders and small
+// kinks — held still near its pins, and widening from source to mouth.
+const spline = (pts, step = 1) => {
+  const P = [pts[0], ...pts, pts[pts.length - 1]], out = [];
+  for (let i = 1; i < P.length - 2; i++) {
+    const p0 = P[i - 1], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2];
+    const n = Math.max(2, Math.ceil(Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) / step));
+    for (let k = 0; k < n; k++) {
+      const t = k / n, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((j) => 0.5 * (2 * p1[j] + (p2[j] - p0[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (3 * p1[j] - p0[j] - 3 * p2[j] + p3[j]) * t3)));
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+};
+const normals = (pts) => pts.map((_, i) => {
+  const a = pts[Math.max(0, i - 2)], b = pts[Math.min(pts.length - 1, i + 2)];
+  const tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty) || 1;
+  return [-ty / l, tx / l];
+});
+function river({ ctrl, pins = [], seed, w0, w1, amp = 5.5, fen = false }) {
+  const base = spline(ctrl);
+  const cum = [0];
+  for (let i = 1; i < base.length; i++) cum.push(cum[i - 1] + Math.hypot(base[i][0] - base[i - 1][0], base[i][1] - base[i - 1][1]));
+  const L = cum[cum.length - 1];
+  // where along the river each pin (a waypoint, a lake's outflow) falls
+  const pinS = [0, ...pins.map(([px, py]) => {
+    let b = 0, bd = 1e9;
+    base.forEach(([x, y], i) => { const d = Math.hypot(x - px, y - py); if (d < bd) { bd = d; b = i; } });
+    return cum[b];
+  })];
+  const nb = normals(base), mid = [];
+  for (let i = 0; i < base.length; i++) {
+    const sa = cum[i];
+    let env = 1;
+    for (const ps of pinS) env *= smooth(Math.min(1, Math.abs(sa - ps) / 13));
+    const off = ((fbm(sa * 3, seed * 7.3, 66, seed) - 0.5) * 2 * amp + (fbm(sa * 9, seed * 3.1, 36, seed + 5) - 0.5) * 2 * amp * 0.45) * env;
+    mid.push([base[i][0] + nb[i][0] * off, base[i][1] + nb[i][1] * off]);
+  }
+  const hw = mid.map((_, i) => ((w0 + (w1 - w0) * (cum[i] / L)) / 2) * (0.82 + fbm(cum[i] * 6, seed, 30, seed + 9) * 0.36));
+  return { pts: mid, hw, nrm: normals(mid), w: Math.max(w0, w1), fen };
+}
 export const RIVERS = [
-  // the Wolfrun, off the ridge, through its fords and out to the west sea
-  { w: 2.2, pts: smoothPts([[112, 20], [100, 24], [88, 25], [76, 26], [62, 30], [48, 36], [34, 40], [16, 44]]) },
-  // the Cinderburn, down out of the burned hills and into the mere
-  { w: 2.4, pts: smoothPts([[166, 54], [160, 64], [156, 74], [148, 86], [138, 98], [128, 112], [121, 128]]) },
-  // out of the mere to the southern sea
-  { w: 2.8, pts: smoothPts([[124, 138], [134, 146], [141, 158], [146, 170], [150, 186], [154, 204]]) },
-  // the Thornbrook, across the farmland and out past the ford
-  { w: 1.8, pts: smoothPts([[46, 124], [54, 128], [64, 132], [78, 140], [88, 146], [96, 156], [99, 170], [100, 186], [100, 206]]) },
-  // the Iron river through its ford
-  { w: 2.6, pts: smoothPts([[326, 90], [318, 106], [310, 124], [304, 140], [298, 156], [292, 172], [288, 190], [286, 214]]) },
+  // the Wolfrun, off the northern hills, through the Wolfrun fords, out west
+  river({ ctrl: [[84, 4], [81, 12], [79, 19], [76, 26], [67, 31], [56, 34], [44, 40], [31, 42], [18, 46], [6, 48]], pins: [[76, 26]], seed: 11, w0: 1.9, w1: 3.9 }),
+  // the Cinderburn, out of the ridge between the Barrowfields and Cinderholt,
+  // down to the Fox Mere
+  river({ ctrl: [[138, 34], [132, 45], [136, 57], [131, 69], [126, 81], [127, 94], [121, 106], [120, 121]], pins: [[120, 121]], seed: 19, w0: 1.8, w1: 3.4, amp: 4 }),
+  // out of the Fox Mere to the southern sea
+  river({ ctrl: [[124, 134], [129, 143], [136, 152], [140, 166], [146, 180], [150, 194], [154, 210]], pins: [[124, 134]], seed: 13, w0: 3.8, w1: 4.8 }),
+  // the Thornbrook, out of Oakmere's mere, across the farmland, through the
+  // ford at Thornbrook and down to the sea
+  river({ ctrl: [[44, 117], [52, 125], [62, 131], [75, 138], [88, 146], [93, 158], [97, 172], [98, 188], [101, 210]], pins: [[44, 117], [88, 146]], seed: 14, w0: 2.1, w1: 3.6, amp: 4 }),
+  // the Iron river, out of its tarn above the ford, through Ironford, south
+  river({ ctrl: [[295, 103], [298, 114], [301, 127], [304, 140], [308, 155], [305, 171], [301, 189], [297, 216]], pins: [[295, 103], [304, 140]], seed: 15, w0: 2.2, w1: 4.2 }),
+  // the fen's black rivers: the Blackwater past the Throne of Dust and the
+  // Grave Road, out to the eastern sea
+  river({ ctrl: [[344, -104], [352, -95], [360, -86], [361, -70], [358, -55], [362, -40], [368, -26], [380, -30], [396, -36]], pins: [[360, -86], [368, -26]], seed: 16, w0: 1.9, w1: 3.9, amp: 4.5, fen: true }),
+  // the Sorrow, south through the Cairnfields and the Causeway to the sea
+  river({ ctrl: [[295, -110], [297, -92], [298, -70], [303, -55], [308, -40], [310, -26], [313, -12], [317, 6]], pins: [[298, -70], [310, -26]], seed: 17, w0: 1.8, w1: 3.6, amp: 4.5, fen: true }),
+  // a slow creek through Bellmarsh to the western shore
+  river({ ctrl: [[276, -50], [270, -40], [262, -36], [257, -30], [252, -26], [245, -18], [238, -17], [230, -12]], pins: [[252, -26]], seed: 18, w0: 1.6, w1: 2.8, amp: 4, fen: true }),
 ];
-const MERES = [{ x: 120, y: 134, rx: 9, ry: 5.5, seed: 3 }, { x: 113, y: 19, rx: 3.6, ry: 2.4, seed: 4 }, { x: 45, y: 124, rx: 3, ry: 2.2, seed: 5 }, { x: 44, y: 72, rx: 4.2, ry: 2.6, seed: 6 }];
+// Lakes and tarns, each named for the level it sits by; fen pools are the
+// bog's black water. rot tilts the long axis; seed shapes the shore.
+const MERES = [
+  { x: 121, y: 129, rx: 8.5, ry: 5.2, rot: 0.35, seed: 3 },               // the Fox Mere, by Foxmere
+  { x: 40, y: 113, rx: 6, ry: 4, rot: -0.4, seed: 4 },                    // Oakmere's mere, the Thornbrook's source
+  { x: 45, y: 72, rx: 4.6, ry: 2.8, rot: 0.2, seed: 5 },                  // the Bramblewick millpond
+  { x: 137, y: 3, rx: 5, ry: 3, rot: -0.2, seed: 6 },                     // the tarn under Ravenscar
+  { x: 294, y: 100, rx: 3.6, ry: 2.4, rot: 0.5, seed: 7 },                // the Iron river's tarn
+  { x: 231, y: 102, rx: 5, ry: 3.4, rot: 0.3, seed: 8 },                  // the Muster's ponds
+  { x: 367, y: 116, rx: 4.6, ry: 3.2, rot: -0.5, seed: 9 },               // the pool under the Undercliff
+  { x: 263, y: -97, rx: 7.8, ry: 4.9, rot: 0.25, seed: 20, fen: true },     // Wightwood's bog
+  { x: 293, y: -36, rx: 6.5, ry: 3.9, rot: -0.3, seed: 21, fen: true },       // the Causeway's drowned fields
+  { x: 324, y: -33, rx: 4.7, ry: 3.1, rot: 0.6, seed: 22, fen: true },
+  { x: 240, y: -40, rx: 5.2, ry: 3.6, rot: 0.1, seed: 23, fen: true },      // Bellmarsh's mire
+  { x: 374, y: -74, rx: 5.7, ry: 3.9, rot: -0.4, seed: 24, fen: true },     // the Throne's black pool
+];
+// a lake's shore: a tilted ellipse whose radius wanders with seamless noise
+const lakePath = (c, m, grow = 0) => {
+  const n = 48, ca = Math.cos(m.rot || 0), sa = Math.sin(m.rot || 0);
+  c.beginPath();
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const k = 0.72 + fbm(40 + Math.cos(a) * 26 + m.seed * 90, 40 + Math.sin(a) * 26, 30, m.seed) * 0.56;
+    const lx = Math.cos(a) * (m.rx * k + grow), ly = Math.sin(a) * (m.ry * k + grow);
+    const x = m.x + lx * ca - ly * sa, y = m.y + lx * sa + ly * ca;
+    i ? c.lineTo(x, y) : c.moveTo(x, y);
+  }
+  c.closePath();
+};
+// a river's banks as one filled outline (grow widens it: shallows, ink)
+const riverPath = (c, rv, grow = 0, from = 0) => {
+  const L = [], R = [];
+  rv.pts.forEach(([x, y], i) => {
+    if (i < from) return;
+    const [nx, ny] = rv.nrm[i], h = Math.max(0.2, rv.hw[i] + grow);
+    L.push([x + nx * h, y + ny * h]); R.push([x - nx * h, y - ny * h]);
+  });
+  c.beginPath();
+  L.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+  for (let i = R.length - 1; i >= 0; i--) c.lineTo(R[i][0], R[i][1]);
+  c.closePath();
+  // a rounded spring where it rises
+  const [sx, sy] = rv.pts[from];
+  c.moveTo(sx + rv.hw[from] + grow, sy);
+  c.arc(sx, sy, Math.max(0.2, rv.hw[from] + grow), 0, Math.PI * 2);
+};
 
 // ---- the labels' ground ----------------------------------------------
 // Where each waypoint's name scroll sits, so the dressing keeps clear of it.
@@ -849,20 +952,34 @@ function* paintTerrain() {
   ctx.drawImage(onLand(fields), 0, 0);
 
   yield;
-  // rivers and the mere: an inked bank, deep water, a pale current line
+  // rivers and lakes: an inked bank, a pale shallows rim, deep water, and a
+  // glint of current down the wider reaches. Fen water is black and purple.
+  const PAL = { shal: "#5f9cb6", deep: "#3f7898", glint: "#8cc0d2" }, FEN = { shal: "#4c4274", deep: "#262036", glint: "#9a8ec0" };
   const water = layer((c) => {
-    for (const rv of RIVERS) {
-      c.lineJoin = "round"; c.lineCap = "round";
-      c.strokeStyle = "#3f7898"; c.lineWidth = rv.w; poly(c, rv.pts); c.stroke();
-    }
-    for (const m of MERES) { c.fillStyle = "#3f7898"; blobPathFill(c, m); }
+    for (const rv of RIVERS) { c.fillStyle = (rv.fen ? FEN : PAL).shal; riverPath(c, rv); c.fill(); }
+    for (const m of MERES) { c.fillStyle = (m.fen ? FEN : PAL).shal; lakePath(c, m); c.fill(); }
+    for (const rv of RIVERS) { c.fillStyle = (rv.fen ? FEN : PAL).deep; riverPath(c, rv, -0.45); c.fill(); }
+    for (const m of MERES) { c.fillStyle = (m.fen ? FEN : PAL).deep; lakePath(c, m, -1.1); c.fill(); }
   }, INK);
   const shine = layer((c) => {
+    c.lineJoin = "round"; c.lineCap = "round";
     for (const rv of RIVERS) {
-      c.lineJoin = "round"; c.lineCap = "round";
-      c.strokeStyle = "#6aa6c0"; c.lineWidth = Math.max(0.6, rv.w * 0.3); poly(c, rv.pts.map(([x, y]) => [x - 0.3, y - 0.3])); c.stroke();
+      c.strokeStyle = (rv.fen ? FEN : PAL).glint; c.lineWidth = 0.5;
+      // broken glints along the reaches wide enough to show them
+      for (let i = 0; i < rv.pts.length - 3; i += 7) {
+        if (rv.hw[i] < 1 || hash(i, 71 + rv.pts.length) < 0.35) continue;
+        const [x0, y0] = rv.pts[i], [x1, y1] = rv.pts[i + 3], [nx, ny] = rv.nrm[i], o = rv.hw[i] * 0.35;
+        c.beginPath(); c.moveTo(x0 - nx * o, y0 - ny * o); c.lineTo(x1 - nx * o, y1 - ny * o); c.stroke();
+      }
     }
-    for (const m of MERES) { c.fillStyle = "#5a94b0"; c.beginPath(); c.ellipse(m.x - 1.5, m.y - 1, m.rx * 0.6, m.ry * 0.5, 0, 0, Math.PI * 2); c.fill(); }
+    for (const m of MERES) {
+      if (m.fen) continue;
+      c.strokeStyle = PAL.glint; c.lineWidth = 0.5;
+      for (let k = 0; k < 2; k++) {
+        const y = m.y - m.ry * 0.3 + k * m.ry * 0.45, x = m.x - m.rx * 0.35 + k * m.rx * 0.2;
+        c.beginPath(); c.moveTo(x - m.rx * 0.22, y); c.lineTo(x + m.rx * 0.22, y); c.stroke();
+      }
+    }
   });
   ctx.drawImage(onLand(water), 0, 0);
   ctx.drawImage(onLand(shine), 0, 0);
@@ -913,16 +1030,6 @@ function* paintTerrain() {
     if (!base.land[i] && base.seaD[i] > 6) stamp(ctx, seaRock(v), x, y, 3, 4);
   }
   return { canvas: cv, base };
-}
-function blobPathFill(c, m) {
-  c.beginPath();
-  const n = 12;
-  for (let i = 0; i <= n; i++) {
-    const a = (i / n) * Math.PI * 2, k = 1 + (hash(m.seed, i % n) - 0.5) * 0.25;
-    const x = m.x + Math.cos(a) * m.rx * k, y = m.y + Math.sin(a) * m.ry * k;
-    i ? c.lineTo(x, y) : c.moveTo(x, y);
-  }
-  c.fill();
 }
 
 // ---- terrain, cached -------------------------------------------------

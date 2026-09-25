@@ -138,13 +138,15 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
 ## The campaign map (`src/ui/mapArt.js`)
 
 - Roads: good as they are — well connected.
-- **Water must be natural and informative** (owner, 2026-09-25; not yet
-  done). Rivers should wander irregularly: uneven bends, varying width,
-  no repeated rounded arcs. Lakes get ragged, organic shores. And the map
-  must tell the truth: if a level's battlefield has a river, a river on the
-  map runs through or beside that waypoint; if it has a lake or pond, a lake
-  sits by it. Check each level's realm in `src/data/maps.js` (`rivers`,
-  `ponds`) when placing water.
+- **Water is natural and informative** (owner, 2026-09-25). Rivers
+  (`RIVERS`, built by `river()`) are splines through control points,
+  meandered by noise, held still at their `pins` (the waypoints they run
+  through, a lake's outflow) and widening from source to mouth; lakes
+  (`MERES`) have noisy, tilted shores; `fen: true` water is the bog's black.
+  The map tells the truth: a level whose realm has `rivers` gets a river
+  through its waypoint, one with `ponds` a lake or pool beside it, and no
+  river passes near a dry level. After adding a level or moving water, run
+  `node scripts/check-map-water.mjs` and look at `map-lab.html`.
 
 ## Performance (target: iPad mini 6)
 
