@@ -24,17 +24,32 @@ export function uiScale(w, h) {
   return clamp(Math.min(h / 700, w / 1100), MIN_SCALE, 1);
 }
 
+// the notch and home-indicator insets, in px: read off a hidden probe that
+// is padded by env(safe-area-inset-*), since JS can't read env() directly
+let PROBE = null;
+function readSafe() {
+  if (typeof document === "undefined") return { top: 0, right: 0, bottom: 0, left: 0 };
+  if (!PROBE) {
+    PROBE = document.createElement("div");
+    PROBE.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;"
+      + "padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
+    document.body.appendChild(PROBE);
+  }
+  const cs = getComputedStyle(PROBE);
+  return { top: parseFloat(cs.paddingTop) || 0, right: parseFloat(cs.paddingRight) || 0, bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0 };
+}
+
 function readViewport() {
-  if (typeof window === "undefined") return { w: 1133, h: 744 };
+  if (typeof window === "undefined") return { w: 1133, h: 744, safe: { top: 0, right: 0, bottom: 0, left: 0 } };
   const vv = window.visualViewport;
   // the visual viewport is what's actually showing (it excludes Safari's bars)
-  return { w: Math.round(vv?.width || window.innerWidth), h: Math.round(vv?.height || window.innerHeight) };
+  return { w: Math.round(vv?.width || window.innerWidth), h: Math.round(vv?.height || window.innerHeight), safe: readSafe() };
 }
 
 export function useViewport() {
   const [vp, setVp] = useState(readViewport);
   useEffect(() => {
-    const on = () => setVp((o) => { const n = readViewport(); return n.w === o.w && n.h === o.h ? o : n; });
+    const on = () => setVp((o) => { const n = readViewport(); return n.w === o.w && n.h === o.h && n.safe.bottom === o.safe.bottom && n.safe.left === o.safe.left ? o : n; });
     window.addEventListener("resize", on);
     window.addEventListener("orientationchange", on);
     window.visualViewport?.addEventListener("resize", on);

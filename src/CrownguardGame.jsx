@@ -144,8 +144,9 @@ export default function Crownguard() {
     if (!el) return;
     const fit = () => {
       const r = el.getBoundingClientRect();
-      const w = Math.max(200, Math.min(r.width, r.height * 1.5));
-      setBoardCss({ w: Math.floor(w), h: Math.floor(w / 1.5) });
+      // the board keeps its true shape (W:H), never stretched
+      const w = Math.max(200, Math.min(r.width, r.height * (W / H)));
+      setBoardCss({ w: Math.floor(w), h: Math.floor(w / (W / H)) });
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -685,9 +686,12 @@ export default function Crownguard() {
     <span className={cls("cg-price", !can && "is-short")}><CoinIcon size={size} />{n}</span>
   );
   const s = vp.scale;
-  const spare = hudBox.w - hudBox.h * 1.5;
-  const railsOn = hudBox.w > 0 && spare >= 200;
-  const railW = railsOn ? Math.min(Math.floor(spare / 2), 200) : 0;
+  // Rails whenever the screen is clearly wider than the board (a phone on its
+  // side, a desktop): at least 110px each so their buttons stay a thumb's
+  // size, even if that trims the board a little. Tablets keep the overlay.
+  const railsOn = vp.w / Math.max(1, vp.h) > 1.62;
+  const spare = hudBox.w - hudBox.h * (W / H);
+  const railW = railsOn ? Math.min(200, Math.max(110, Math.floor(spare / 2))) : 0;
   // a rail is at least 150 design pixels wide inside: narrower rails draw smaller
   const sR = railsOn ? Math.min(s, railW / 150) : s;
   const scaleAt = (origin) => (s === 1 ? {} : { transform: `scale(${s})`, transformOrigin: origin });
@@ -1024,7 +1028,9 @@ export default function Crownguard() {
   const rail = (side, top, bottom) => (
     <div style={{ width: railW, flexShrink: 0, position: "relative", zIndex: 30 }}>
       <div style={{
-        position: "absolute", top: 0, [side]: 0, width: railW / sR, height: hudBox.h / sR,
+        // clear of the notch-side insets (the root pads those) and the home
+        // indicator, which the board itself may run under
+        position: "absolute", top: vp.safe.top, [side]: 0, width: railW / sR, height: (hudBox.h - vp.safe.top - vp.safe.bottom) / sR,
         transform: `scale(${sR})`, transformOrigin: `top ${side}`, boxSizing: "border-box",
         padding: 8, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8,
       }}>
@@ -1038,7 +1044,10 @@ export default function Crownguard() {
     <div ref={hudRef} className="cg-hud" style={{
       height: "100dvh", background: "#17111b", boxSizing: "border-box",
       display: "flex", overflow: "hidden",
-      paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)", paddingBottom: "env(safe-area-inset-bottom)",
+      paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)",
+      // with rails the board runs the full height, under the home indicator;
+      // the overlay HUD sits on the board, so there it keeps clear of it
+      ...(railsOn ? {} : { paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }),
     }}>
         {menuOpen && (() => {
           // on a phone on its side the menu lies in two columns, so it fits at full size
@@ -1128,7 +1137,9 @@ export default function Crownguard() {
       {railsOn && rail("left", purse, <>{talentBtn}{heroBtn}{horn}</>)}
 
       {/* ---- the field, letterboxed to 3:2 in whatever is left beside the rails ---- */}
-      <div ref={boardCellRef} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div ref={boardCellRef} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center",
+        // any sliver left above or below the board takes the realm's own ground
+        background: railsOn ? REALMS[realmId].GRASS_DK || REALMS[realmId].GRASS : undefined }}>
         <div style={{ position: "relative", width: boardCss.w, height: boardCss.h, overflow: "hidden", background: REALMS[realmId].GRASS }}>
           <canvas
             ref={canvasRef} width={W * RES} height={H * RES}
