@@ -780,7 +780,7 @@ export default function Crownguard() {
 
           {/* top centre: what the next tap will do */}
           {ui.buildMode && ribbon(
-            <>Placing <b>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — tap the {TOWERS[ui.buildMode].water ? "river" : "grass"}{ui.buildMode === "knight" ? "; knights muster south of the hall" : ""}.</>,
+            <>Placing <b>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — tap the {TOWERS[ui.buildMode].water ? "water" : "grass"}{ui.buildMode === "knight" ? "; knights muster south of the hall" : ""}.</>,
             "Cancel placement", () => { if (G.current) G.current.buildMode = null; })}
           {ui.rallyFor === "hero" && ribbon(
             <><b>{ui.hero?.name}</b> awaits your word — tap where the hero should go.</>, "Cancel hero move", cancelRally)}

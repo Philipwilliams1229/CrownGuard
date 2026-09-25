@@ -13,8 +13,21 @@ import { scriptedWaves, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
-import { dealDamage, releaseEnemy, startWave } from "./actions.js";
+import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
+
+// A pond's rowing ring for a River Watch moored in it: an ellipse inside
+// the shore, with the same { total, at(q) } shape as the river's route.
+const POND_ROUTES = new WeakMap();
+const pondRoute = (p) => {
+  let rt = POND_ROUTES.get(p);
+  if (rt) return rt;
+  const rx = Math.max(8, p.w / 2 - 12), ry = Math.max(6, p.h / 2 - 9);
+  const total = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
+  rt = { total, ring: true, at: (q) => { const a = (q / total) * Math.PI * 2; return [p.x + Math.cos(a) * rx, p.y + Math.sin(a) * ry]; } };
+  POND_ROUTES.set(p, rt);
+  return rt;
+};
 
 // road points every 7px, for the trapsmith's bench (rebuilt when the road changes)
 let ROAD7 = null;
@@ -962,7 +975,10 @@ export function updateGame(g, dt) {
     for (const t of g.towers) {
       if (t.kind !== "riverwatch") continue;
       const st = getStats(t);
-      const rt = RIVER_ROUTE;
+      // moored in a pond or mere, its skiffs row a ring round the open water;
+      // otherwise they work the river
+      if (t._pond === undefined) t._pond = pondAt(t.x, t.y) || null;
+      const rt = t._pond ? pondRoute(t._pond) : RIVER_ROUTE;
       if (!rt) continue;                         // no water, no watch
       const n = st.count || 1;
       if (!t.units) t.units = [];
@@ -981,14 +997,14 @@ export function updateGame(g, dt) {
         for (let q = 0; q <= rt.total; q += 10) { const [px, py] = rt.at(q); rt._samples.push([q, px, py]); }
       }
       const nearOnRiver = (x, y, e) => {
-        if (e && e._rivT === tms) return e._riv;
+        if (e && e._rivT === tms && e._rivR === rt) return e._riv;
         let bd2 = Infinity, bq = 0;
         for (const [q, px, py] of rt._samples) {
           const dd = (px - x) * (px - x) + (py - y) * (py - y);
           if (dd < bd2) { bd2 = dd; bq = q; }
         }
         const r = { q: bq, d: Math.sqrt(bd2) };
-        if (e) { e._rivT = tms; e._riv = r; }
+        if (e) { e._rivT = tms; e._rivR = rt; e._riv = r; }
         return r;
       };
       t.units.forEach((u, i) => {
@@ -1015,8 +1031,11 @@ export function updateGame(g, dt) {
         const home = (rt.total * (i + 1)) / (n + 1);
         const want = mark ? markQ : home;
         const row = (st.rowSpeed || 78) * sdt;
-        if (Math.abs(want - u.sd) > 1) u.sd += Math.sign(want - u.sd) * Math.min(row, Math.abs(want - u.sd));
-        u.sd = Math.max(0, Math.min(rt.total, u.sd));
+        // round a pond the short way; along a river, up or down it
+        let gap = want - u.sd;
+        if (rt.ring) { gap = ((gap % rt.total) + rt.total * 1.5) % rt.total - rt.total / 2; }
+        if (Math.abs(gap) > 1) u.sd += Math.sign(gap) * Math.min(row, Math.abs(gap));
+        u.sd = rt.ring ? ((u.sd % rt.total) + rt.total) % rt.total : Math.max(0, Math.min(rt.total, u.sd));
         const [bx, by] = rt.at(u.sd);
         const [nx] = rt.at(Math.min(rt.total, u.sd + 6));
         u.x = bx; u.y = by;

@@ -229,7 +229,7 @@ export const TOWERS = {
   },
   riverwatch: {
     name: "River Watch", cost: 130, dtype: "phys", proj: "harpoon", water: true,
-    blurb: "BUILT ON THE WATER — the only hall that can be. Its skiffs row the river under their own orders, carrying harpoons to stretches of bank no tower can reach.",
+    blurb: "BUILT ON THE WATER — the only hall that can be: moor it in a river, a pond or a mere. Its skiffs row the water under their own orders, carrying harpoons to stretches of bank no tower can reach.",
     levels: [
       { dmg: 30, rate: 950, range: 125, hp: 130, count: 1, rowSpeed: 74 },
       { dmg: 40, rate: 900, range: 135, hp: 165, count: 2, rowSpeed: 78, cost: 100, label: "Second Skiff" },
@@ -239,7 +239,7 @@ export const TOWERS = {
       a: {
         name: "Harbour Patrol", cost: 350, stats: { dmg: 64, rate: 620, range: 155, hp: 250, count: 3, rowSpeed: 96 }, desc: "THREE swift skiffs working the whole length of the water, loosing twice as fast as any watchman ashore.",
         rank4: {
-          a: { name: "The Crown Navy", cost: 670, stats: { dmg: 70, rate: 600, range: 165, hp: 290, count: 4, rowSpeed: 104 }, desc: "FOUR skiffs under a admiral's pennant — the river belongs to the crown and everything on its banks knows it." },
+          a: { name: "The Crown Navy", cost: 670, stats: { dmg: 70, rate: 600, range: 165, hp: 290, count: 4, rowSpeed: 104 }, desc: "FOUR skiffs under an admiral's pennant — the river belongs to the crown and everything on its banks knows it." },
           b: { name: "Harpooners", cost: 670, stats: { dmg: 96, rate: 700, range: 170, hp: 270, count: 3, rowSpeed: 96, pierce: true, slow: 0.35, slowDur: 1600 }, desc: "Barbed iron on a line: the harpoons punch through any armor and drag what they catch to a crawl." },
         },
       },

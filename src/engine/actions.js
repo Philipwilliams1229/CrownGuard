@@ -18,6 +18,11 @@ import { sfx } from "../audio/sfx.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
 
+// The open water of a pond a boat can use: inside its ellipse, clear of the
+// reedy margin; lava pools and frozen tarns don't count.
+export const pondAt = (x, y) => PONDS.find((p) => p.t !== "lava" && p.t !== "ice" && p.w >= 50
+  && ((x - p.x) / (p.w / 2 - 8)) ** 2 + ((y - p.y) / (p.h / 2 - 6)) ** 2 <= 1);
+
 export const buildableAt = (g, x, y, kind = null) => {
   // A hall that floats has the opposite requirement to every other: it MUST
   // stand in running water, and nothing else may.
@@ -28,9 +33,13 @@ export const buildableAt = (g, x, y, kind = null) => {
   const [cvx, cvy] = PTS[0];
   if (Math.hypot(x - cvx, y - cvy) < 50) return false;
   for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
-  for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
-  if (afloat) { if (!inRiver(x, y, 8)) return false; }   // moor it in the river
-  else if (inRiver(x, y, 14)) return false;              // no one else builds in it
+  // A floating hall moors in ANY water — a river, or a pond or mere big
+  // enough to row in (not lava, not ice). Everyone else keeps off it.
+  if (afloat) { if (!inRiver(x, y, 8) && !pondAt(x, y)) return false; }
+  else {
+    for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
+    if (inRiver(x, y, 14)) return false;
+  }
   if (towerNear(g, x, y)) return false;
   return true;
 };
