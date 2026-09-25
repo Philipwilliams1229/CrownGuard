@@ -1,0 +1,103 @@
+<!doctype html>
+<!--
+  Dev tool (area effects, src/render/rings.js): each nova / wave / mark at
+  four moments of its life (2x2 on the board, at its true radius), through
+  the real draw(), at zoom 1 and zoomed in on each moment at zoom 3.
+    /rings-lab.html?tag=v1&fx=frostnova,firenova     some effects
+    /rings-lab.html?tag=v1                           every effect
+    /rings-lab.html?perf=1                           draw() ms with a crowd of rings
+  Saves .shots/rings_<tag>_<fx>_z1.png and _z3_<k>.png; DONE in the title.
+  &z3=0,2 picks the zoomed moments (default 0,1,2,3); &realm=<id>.
+-->
+<html><head><meta charset="utf-8" /><title>rings lab…</title></head>
+<body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:16px"><div id="out">painting…</div>
+<script type="module">
+import { selectRealm } from "/src/data/maps.js";
+import { W, H, RES } from "/src/data/constants.js";
+import { draw } from "/src/render/draw.js";
+import { ENEMIES } from "/src/data/enemies.js";
+
+const q = new URLSearchParams(location.search);
+const TAG = q.get("tag") || "x";
+const realm = q.get("realm") || "greenwood";
+const TMS = 100000;
+const ALL = ["frostnova", "firenova", "slam", "reticle", "healwave", "silence", "shadowstep", "midas", "toll", "plagueburst", "wardwave", "raise"];
+const LIST = q.get("fx") ? q.get("fx").split(",") : ALL;
+const Z3 = (q.get("z3") ?? "0,1,2,3").split(",").filter(Boolean).map(Number);
+const PROG = [0.15, 0.4, 0.65, 0.9];
+const CELLS = [[210, 150], [630, 150], [210, 420], [630, 420]];
+
+let nid = 1;
+const foe = (type, x, y, o = {}) => {
+  const d = ENEMIES[type];
+  return {
+    id: nid++, type, hp: d.hp * 0.7, maxHp: d.hp, dist: 10, x, y, face: 1, size: d.size, armor: d.armor, mres: 0,
+    guard: 0, guardFlash: 0, flying: !!d.flying, boss: false, gait: x / 10, atkAnim: 0, stunUntil: 0, slowUntil: 0,
+    slowPct: 0, auraSlow: 0, burnUntil: 0, poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: 0,
+    blockedBy: null, engaged: false, dead: false, revived: false, born: -1e9, ...o,
+  };
+};
+// the effect as the engine pushes it, at progress p, centred on (x, y)
+const LIFE = { frostnova: 500, firenova: 450, slam: 450, reticle: 700, healwave: 550, silence: 900, shadowstep: 260, midas: 650, toll: 550, plagueburst: 500, wardwave: 550, raise: 600 };
+const RAD = { frostnova: 140, firenova: 112, slam: 62, healwave: 64, toll: 46, plagueburst: 44, wardwave: 82 };
+const make = (type, x, y, p, en) => {
+  const life = LIFE[type], ttl = Math.max(1, life * (1 - p));
+  const f = { type, x, y, ttl, r: RAD[type] };
+  if (type === "midas" || type === "raise" || type === "shadowstep") f.life = life;
+  if (type === "reticle") { const e = foe("orc", x, y + 8); en.push(e); f.target = e.id; f.y = y + 8; }
+  if (type === "silence") { const e = foe("shaman" in ENEMIES ? "shaman" : "goblin", x, y + 20); en.push(e); f.y = e.y - e.size - 6; }
+  if (type === "shadowstep") { Object.assign(f, { x1: x - 36, y1: y - 8, x2: x + 10, y2: y - 4, prey: p > 0.6 }); en.push(foe("goblin", x + 10, y)); }
+  if (type === "raise") en.push(foe("goblin", x, y, { revived: true }));
+  if (type === "midas") en.push(foe("goblin", x, y));
+  if (type === "slam" || type === "healwave" || type === "wardwave" || type === "toll" || type === "plagueburst")
+    en.push(foe("goblin", x - 18, y + 6), foe("goblin", x + 22, y - 10));
+  if (type === "frostnova" || type === "firenova")
+    en.push(foe("goblin", x + (RAD[type] * p) * 0.7, y + 10), foe("goblin", x - 30, y - 20));
+  return f;
+};
+const scene = (enemies, effects, cam) => ({
+  time: TMS / 1000, cam: cam || { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5,
+  towers: [], projectiles: [], effects, grounds: [], corpses: [], spawnQueue: [], enemies, traps: [], logs: [], bands: [], volleys: [],
+  phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null, paused: false, buildUntil: null, gold: 500,
+});
+const snap = async (name, g) => {
+  const cv = document.createElement("canvas");
+  cv.width = W * RES; cv.height = H * RES;
+  draw(g, cv, { current: null });
+  await fetch("/__shot?name=" + encodeURIComponent(name), { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+};
+
+(async () => {
+  try {
+    selectRealm(realm);
+    if (q.get("perf")) {
+      // a late-wave pile: 120 foes, then 8 rings of one kind at scattered moments
+      const foes = [];
+      for (let i = 0; i < 120; i++) foes.push(foe("goblin", 60 + (i * 53) % 700, 60 + (i * 97) % 440));
+      const build = (t) => {
+        const fx = [], junk = [];
+        if (t) for (let i = 0; i < 8; i++) fx.push(make(t, 100 + (i * 131) % 640, 80 + (i * 71) % 400, 0.1 + ((i * 0.37) % 1) * 0.85, junk));
+        for (const f of fx) if (f.target) f.target = foes[0].id;
+        return scene(foes, fx);
+      };
+      const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES;
+      const time = (t) => { for (let i = 0; i < 5; i++) draw(build(t), cv, { current: null }); const t0 = performance.now(); for (let i = 0; i < 30; i++) draw(build(t), cv, { current: null }); return (performance.now() - t0) / 30; };
+      const base = time(null), out = [`base ${base.toFixed(2)}`];
+      for (const t of ALL) out.push(`${t} +${((time(t) - base) / 8).toFixed(3)}`);
+      document.title = "DONE perf (ms per ring) " + out.join(" ");
+    } else {
+      for (const type of LIST) {
+        const en = [], fx = [];
+        PROG.forEach((p, k) => fx.push(make(type, CELLS[k][0], CELLS[k][1], p, en)));
+        await snap(`rings_${TAG}_${type}_z1`, scene(en, fx));
+        for (const k of Z3) {
+          const [x, y] = CELLS[k], z = 3;
+          await snap(`rings_${TAG}_${type}_z3_${k}`, scene(en, fx, { zoom: z, x: x - W / (2 * z), y: y - 10 - H / (2 * z) }));
+        }
+      }
+      document.title = "DONE";
+    }
+  } catch (e) { document.title = "FAIL " + e.message; console.error(e); }
+  document.getElementById("out").textContent = document.title;
+})();
+</script></body></html>

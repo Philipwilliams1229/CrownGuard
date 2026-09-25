@@ -144,6 +144,8 @@ export function draw(g, canvas, bufRef) {
   }
   for (const fx of g.effects) {
     if (isBlast(fx.type)) drawBlast(ctx, fx, "g");
+    // the ground half of the area effects (rime, scorch, cracks, stains)
+    else drawRingFx(ctx, fx, Math.min(1, fx.ttl / 300), g, "g");
   }
 
   // lingering ground effects: lava pools, the ghasts' plague, spore clouds
@@ -397,7 +399,7 @@ export function draw(g, canvas, bufRef) {
   for (const fx of g.effects) {
     const a = Math.min(1, fx.ttl / 300);
     // the towers' and heroes' area effects: novas, waves, marks (rings.js)
-    if (drawRingFx(ctx, fx, a, g)) continue;
+    if (drawRingFx(ctx, fx, a, g, "a")) continue;
     if (isBlast(fx.type)) {
       // the air half of a blast (fireball, flash, flying debris); its ground
       // half went down under the crowd earlier. Shrapnel landings are small dust.
