@@ -1711,6 +1711,14 @@ export function updateGame(g, dt) {
     for (const p of g.projectiles) if (p.done && p.pend && p.markRef) { p.markRef.incoming -= p.pend; p.pend = 0; }
     g.projectiles = g.projectiles.filter((p) => !p.done);
 
+    // a fight the sandbox called up between waves (sandboxSpawn) is no wave:
+    // when its foes are gone the build phase simply resumes — no bonus, no
+    // Gold Works payout, no victory
+    if (g.summonFight && !g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
+      g.summonFight = false;
+      g.phase = "build";
+      g.buildUntil = g.time + (SANDBOX ? SANDBOX.buildTime : BUILD_TIME);
+    }
     if (!g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
       g.gold += waveBonus(g.wave);
       // the hero learns from every wave the realm lives through, alive or not

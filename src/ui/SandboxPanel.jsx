@@ -46,7 +46,7 @@ const FOES = Object.keys(FACTIONS).map((id) => {
 });
 
 // A stepper: − value +. Holding a button repeats, faster the longer it's held.
-function Stepper({ value, onStep, canDown = true, canUp = true, label, show, wide = 58 }) {
+function Stepper({ value, onStep, canDown = true, canUp = true, label, show, wide = 50 }) {
   const hold = useRef(null);
   const stop = () => { if (hold.current) { clearTimeout(hold.current.t); hold.current = null; } };
   useEffect(() => stop, []);
@@ -58,6 +58,9 @@ function Stepper({ value, onStep, canDown = true, canUp = true, label, show, wid
     const again = () => { h.n++; onStep(dir); h.t = setTimeout(again, h.n > 8 ? 45 : 110); };
     h.t = setTimeout(again, 380);
     hold.current = h;
+    // a button that goes grey at its limit never hears its pointerup: listen on the window too
+    window.addEventListener("pointerup", stop, { once: true });
+    window.addEventListener("pointercancel", stop, { once: true });
   };
   const btn = (dir, ok, text) => (
     <button type="button" className="cg-btn cg-btn--slate sbp-step" disabled={!ok} aria-label={`${label} ${dir < 0 ? "down" : "up"}`}
@@ -96,7 +99,7 @@ export default function SandboxPanel({ game, onClose, s = 1 }) {
   }, []);
 
   const [count, setCount] = useState(5);
-  const [at, setAt] = useState(0);            // 0 = the gate (the road's mouth), 0.5 = mid-road
+  const [at, setAt] = useState(0);            // 0 = the road's mouth (where foes walk on), 0.5 = mid-road
   const [said, setSaid] = useState(null);     // the last summon, for a line of feedback
   const [skipTo, setSkipTo] = useState(null);
   const arm = useArm();
@@ -141,7 +144,7 @@ export default function SandboxPanel({ game, onClose, s = 1 }) {
   // -- PURSE & WALLS --
   const purse = (
     <section className="sbp-col">
-      <div className="cg-label sbp-head"><CoinIcon size={13} /> Purse &amp; walls</div>
+      <div className="cg-label sbp-head"><CoinIcon size={13} /> Purse and walls</div>
       <div className="cg-well sbp-readout">
         <span className="sbp-read"><CoinIcon size={15} /><b className="cg-num" style={{ color: "var(--gold-lt)", fontSize: S.infiniteGold ? 20 : 14 }}>{gold}</b></span>
         <span className="sbp-read"><HeartIcon size={15} /><b className="cg-num" style={{ color: "#ffb4a8", fontSize: 14 }}>{num(g?.lives ?? 0)}</b></span>
@@ -174,50 +177,51 @@ export default function SandboxPanel({ game, onClose, s = 1 }) {
         <button type="button" className="cg-btn" onClick={() => { sandboxLives(g, 10); bump(); }}>
           <HeartIcon size={12} /><span className="cg-num sbp-bn">+10</span></button>
       </div>
-      {honest && <div className="sbp-note">Gold and lives from here <b className="sbp-red">end rewards</b> for this run.</div>}
+      {S.infiniteGold && <div className="sbp-note sbp-sub">The purse is bottomless while Infinite gold is on.</div>}
+      <div className={cls("cg-well sbp-rewards", honest ? "is-ok" : "is-off")}>
+        <span className="sbp-honest"><StarIcon size={12} lit={honest} />{honest ? "Rewards on" : "No rewards"}</span>
+        <span className="sbp-note">{honest
+          ? <>This run still banks stars and XP. Gold, lives, a swept road, a skipped wave or an easier war <b className="sbp-red">end rewards</b> for the whole run.</>
+          : "This run was made easier, so it banks no stars or XP — for the rest of the run, whatever you change back."}</span>
+      </div>
     </section>
   );
 
   // -- THE WAR AHEAD --
-  const row = (k, label, easier) => {
+  const row = (k, label) => {
     const L = LIMITS[k], v = S[k];
     return (
       <div className="sbp-row" key={k}>
         <span className="sbp-rl">{label}</span>
         <Stepper label={label} value={v} show={mul(v)} onStep={step(k)} canDown={v > L.min + 1e-9} canUp={v < L.max - 1e-9} />
-        {easier(v) ? <span className="sbp-dot" title="easier than Classic: no rewards" /> : <span className="sbp-dot is-ok" />}
       </div>
     );
   };
   const war = (
     <section className="sbp-col">
       <div className="cg-label sbp-head"><SwordIcon size={13} /> The war ahead</div>
-      {row("hpMul", "Health", (v) => v < 1)}
-      {row("speedMul", "Pace", (v) => v < 1)}
-      {row("countMul", "Count", () => false)}
-      {row("gapMul", "Spacing", () => false)}
+      {row("hpMul", "Health")}
+      {row("speedMul", "Pace")}
+      {row("countMul", "Count")}
+      {row("gapMul", "Spacing")}
+      <div className="sbp-note sbp-sub">From the next wave · pace: new foes.</div>
+      <div className={cls("sbp-mini", !S.bosses && "sbp-dim")}>{S.bosses ? (S.bossEvery === 1 ? "A champion every wave" : `Champion every ${S.bossEvery}th`) : "Champions off"}</div>
       <div className="sbp-row">
-        <button type="button" className={cls("cg-btn sbp-champ", S.bosses && "is-on")} aria-pressed={S.bosses}
-          title="Champions lead the waves" onClick={() => tweak({ bosses: !S.bosses })}>
-          <StarIcon size={12} lit={S.bosses} /><span>Champ</span>
+        <button type="button" className={cls("cg-btn cg-btn--slate sbp-champ", S.bosses && "is-on")} aria-pressed={S.bosses}
+          aria-label={S.bosses ? "Champions on" : "Champions off"} onClick={() => tweak({ bosses: !S.bosses })}>
+          <StarIcon size={13} lit={S.bosses} />{S.bosses ? "On" : "Off"}
         </button>
-        {S.bosses
-          ? <Stepper label="Champion every" value={S.bossEvery} show={`/${S.bossEvery}`} wide={48}
-              onStep={step("bossEvery")} canDown={S.bossEvery > LIMITS.bossEvery.min} canUp={S.bossEvery < LIMITS.bossEvery.max} />
-          : <span className="sbp-note" style={{ flex: 1 }}>No champions.</span>}
+        <Stepper label="Champion every" value={S.bossEvery} show={S.bossEvery} wide={44} onStep={step("bossEvery")}
+          canDown={S.bosses && S.bossEvery > LIMITS.bossEvery.min} canUp={S.bosses && S.bossEvery < LIMITS.bossEvery.max} />
       </div>
-      <div className="sbp-note sbp-sub">{S.bosses ? `A champion leads every ${S.bossEvery === 1 ? "wave" : `${S.bossEvery}th wave`}.` : "Tap Champ to bring them back."} Changes apply from the next wave; pace, to new foes.</div>
+      <div className={cls("sbp-mini", !between && "sbp-warn")}>{between ? `Skip ahead · now wave ${wave}` : "Skip: between waves only"}</div>
       <div className="sbp-row">
-        <span className="sbp-rl">Wave</span>
-        <Stepper label="Skip to wave" value={target} wide={48}
+        <Stepper label="Skip to wave" value={target} wide={44}
           onStep={(d) => setSkipTo(Math.min(LIMITS.startWave.max, Math.max(1, target + d)))} canDown={target > 1} canUp={target < LIMITS.startWave.max} />
         <button type="button" className="cg-btn cg-btn--gold sbp-go" disabled={!between}
+          aria-label={between ? `Skip to wave ${target}` : "Skip to wave: only between waves"}
           onClick={() => { if (sandboxSkipTo(g, target)) { setSkipTo(null); bump(); } }}>
           {between ? <FlagIcon size={12} /> : <LockIcon size={12} />}Go</button>
-      </div>
-      <div className={cls("sbp-note sbp-sub", !between && "sbp-warn")}>
-        {between ? <>The next horn sounds wave {target}.{honest && <> Skipping <b className="sbp-red">ends rewards</b>.</>}</>
-          : "Skip only between waves: clear this one first."}
       </div>
     </section>
   );
@@ -233,7 +237,7 @@ export default function SandboxPanel({ game, onClose, s = 1 }) {
         ))}
       </div>
       <div className="sbp-seg sbp-seg2" role="group" aria-label="Where">
-        <button type="button" className={cls("cg-btn cg-btn--slate", at === 0 && "is-on")} aria-pressed={at === 0} onClick={() => setAt(0)}>At the gate</button>
+        <button type="button" className={cls("cg-btn cg-btn--slate", at === 0 && "is-on")} aria-pressed={at === 0} onClick={() => setAt(0)}>At the start</button>
         <button type="button" className={cls("cg-btn cg-btn--slate", at === 0.5 && "is-on")} aria-pressed={at === 0.5} onClick={() => setAt(0.5)}>Mid-road</button>
       </div>
       <div className="cg-well cg-scroll sbp-foes">
@@ -246,7 +250,7 @@ export default function SandboxPanel({ game, onClose, s = 1 }) {
                 return (
                   <button key={t} type="button" className={cls("cg-btn cg-btn--slate sbp-foe", boss && "is-boss")} title={d.name}
                     aria-label={`Summon ${count} ${d.name}`}
-                    onClick={() => { const n = sandboxSpawn(g, t, count, at); setSaid({ t, n, k: Date.now() }); bump(); }}>
+                    onClick={() => { const n = sandboxSpawn(g, t, count, at); setSaid({ t, n, at, k: Date.now() }); bump(); }}>
                     <EnemyIcon type={t} box={boss ? 34 : 30} />
                     {boss && <span className="sbp-crown"><StarIcon size={10} /></span>}
                   </button>
@@ -257,7 +261,7 @@ export default function SandboxPanel({ game, onClose, s = 1 }) {
         ))}
       </div>
       <div className="sbp-said" aria-live="polite">
-        {said ? <span key={said.k} className="cg-rise"><b className="cg-num" style={{ fontSize: 10 }}>{said.n}</b> {ENEMIES[said.t].name} {at ? "mid-road" : "at the gate"}</span>
+        {said ? <span key={said.k} className="cg-rise"><b className="cg-num" style={{ fontSize: 11, color: "var(--gold-lt)" }}>{said.n}</b> × {ENEMIES[said.t].name} {said.at ? "mid-road" : "at the road's start"}</span>
           : <span className="sbp-dim">Tap a foe to call it up. ★ marks a champion.</span>}
       </div>
       <button type="button" data-arm="sbp-clear" className="cg-btn cg-btn--red sbp-clear"
@@ -265,7 +269,8 @@ export default function SandboxPanel({ game, onClose, s = 1 }) {
         onClick={() => arm.tap("sbp-clear", () => { sandboxClear(g); setSaid(null); bump(); })}>
         {arm.is("sbp-clear")
           ? <span className="sbp-again">TAP AGAIN TO CLEAR</span>
-          : <><ShieldIcon size={13} /> Clear the road <span className="cg-num sbp-bn sbp-dim">{g?.enemies?.length || 0}</span><Ends on={honest} /></>}
+          : <><ShieldIcon size={13} /><span className="sbp-tl" style={{ alignItems: "center" }}>
+              <span>Clear the road <span className="cg-num sbp-bn sbp-dim">{g?.enemies?.length || 0}</span></span><Ends on={honest} /></span></>}
       </button>
     </section>
   );
@@ -280,14 +285,6 @@ export default function SandboxPanel({ game, onClose, s = 1 }) {
             <span className="sbp-wave"><span className="cg-label" style={{ color: "var(--muted)" }}>Wave</span>
               <b className="cg-num" style={{ fontSize: 13, color: "var(--cream)" }}>{wave}</b>
               <span className="sbp-dim">{phaseText}</span></span>
-            <span className={cls("sbp-honest", honest ? "is-ok" : "is-off")}>
-              <StarIcon size={12} lit={honest} />{honest ? "Rewards on" : "No rewards this run"}
-            </span>
-          </div>
-          <div className="sbp-honest-note">
-            {honest
-              ? "This run still banks stars and XP. Anything marked ends rewards — or a war made easier than Classic — turns them off for the whole run."
-              : "This run was made easier, so it banks no stars or XP — for the rest of the run, whatever you change back."}
           </div>
           <div className="sbp-cols">
             {purse}

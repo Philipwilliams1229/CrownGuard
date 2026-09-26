@@ -21,14 +21,15 @@
 .sbp-top { display: flex; align-items: center; gap: 12px; padding-right: 18px; flex-wrap: wrap; }
 .sbp-title { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--gold-lt); }
 .sbp-wave { display: inline-flex; align-items: baseline; gap: 6px; font-size: 10.5px; }
+.sbp-rewards { display: flex; flex-direction: column; gap: 5px; padding: 6px 7px 7px; margin-top: auto; }
+.sbp-rewards.is-off { background: #2a1a1e; }
 .sbp-honest {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--display); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase;
   padding: 3px 8px; border: 2px solid var(--ink);
 }
 .sbp-honest.is-ok { background: #33502a; color: #d8f2b8; box-shadow: inset 1px 1px 0 #4f7a40; }
 .sbp-honest.is-off { background: #5a2626; color: #ffcfc4; box-shadow: inset 1px 1px 0 #7e3a32; }
-.sbp-honest-note { font-size: 10px; line-height: 1.4; color: var(--muted); }
 
 /* the three columns: the summoning grid takes whatever height is left */
 .sbp-cols {
@@ -67,10 +68,7 @@
 .sbp-stepper { display: inline-flex; align-items: stretch; flex-shrink: 0; }
 .sbp-step { min-width: 40px; padding: 0; font-size: 17px; font-family: var(--body); font-weight: bold; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
 .sbp-val { display: inline-flex; align-items: center; justify-content: center; margin: 0 -2px; position: relative; z-index: 1; }
-.sbp-val .cg-num { font-size: 10.5px; color: var(--gold-lt); text-shadow: 1px 1px 0 var(--ink); }
-.sbp-dot { width: 8px; height: 8px; flex-shrink: 0; border: 1px solid var(--ink); background: #e0574c; }
-.sbp-dot.is-ok { background: transparent; border-color: transparent; }
-.sbp-champ { flex: 1 1 auto; padding: 0 6px; gap: 5px; font-size: 10.5px; }
+.sbp-val .cg-num { font-size: 12px; color: var(--gold-lt); text-shadow: 1px 1px 0 var(--ink); }
 .sbp-go { padding: 0 8px; gap: 4px; flex: 1 1 auto; }
 
 /* summon */
@@ -94,4 +92,10 @@
 /* a phone on its side: a hair tighter, so the columns stand without scrolling */
 .is-tight .sbp-card { padding: 10px 12px; gap: 5px; }
 .is-tight .sbp-col { gap: 5px; }
-.is-tight .sbp-honest-note { font-size: 9.5px; line-height: 1.3; }
+.is-tight .sbp-note { font-size: 9.5px; line-height: 1.3; }
+
+/* a mini heading over a row: champions, skip */
+.sbp-mini { font-family: var(--display); font-size: 9.5px; letter-spacing: 0; text-transform: uppercase; color: var(--muted); margin: 2px 0 -2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sbp-mini.sbp-warn { color: #ffb4a0; }
+.sbp-champ { flex: 1 1 auto; gap: 5px; padding: 0 6px; font-size: 11px; }
+.sbp-rl { font-size: 9.5px; letter-spacing: 0; }

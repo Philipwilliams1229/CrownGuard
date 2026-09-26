@@ -39,6 +39,7 @@ import { hasRig } from "./render/rigs.js";
 import { useViewport, Fit } from "./ui/fit.jsx";
 import "./ui/hud/hud.css";
 import { GoldChip, LivesChip } from "./ui/hud/Chips.jsx";
+import SandboxPanel from "./ui/SandboxPanel.jsx";
 import { towerTags, levelDeltas, formDeltas } from "./ui/hud/towerText.js";
 import { useArm } from "./ui/HeroTalents.jsx";
 import {
@@ -832,7 +833,7 @@ export default function Crownguard() {
   );
   const cycleSpeed = () => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; };
   // one panel at a time in the tray: the tower grid is home
-  const trayHome = () => { setCastleOpen(false); setTalentsOpen(false); setInfoOpen(false); setArmed(null); setMasterInfo(null); if (G.current) G.current.selectedId = null; };
+  const trayHome = () => { setSandboxPanel(false); setCastleOpen(false); setTalentsOpen(false); setInfoOpen(false); setArmed(null); setMasterInfo(null); if (G.current) G.current.selectedId = null; };
   const trayOpen = (which) => {
     const was = which === "castle" ? castleOpen : which === "talents" ? talentsOpen : infoOpen;
     trayHome();
@@ -1417,6 +1418,11 @@ export default function Crownguard() {
           {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && !(typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:")) && ribbon(
             <>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally)}
 
+            {/* the Free Play sandbox's live controls: its own card over the map */}
+            {sandboxPanel && mode === "free" && SANDBOX && !sel && (
+              <SandboxPanel game={() => G.current} onClose={() => setSandboxPanel(false)} s={s} />
+            )}
+
             {/* the castle works and the hero's talents: a wide card over the middle of the map, in columns so it doesn't scroll */}
             {(castleOpen || talentPanel) && !sel && (() => {
               const CW = Math.min(castleOpen ? 540 : 480, (boardCss.vw - 2 * CARD_M) / s);
@@ -1664,6 +1670,13 @@ export default function Crownguard() {
                   className={cls("cg-btn", castleOpen && "is-on")} style={{ flex: 1, minHeight: 40, fontSize: 12, gap: 6 }} onClick={() => trayOpen("castle")}>
                   <CastleIcon size={18} /> Castle
                 </button>
+                {mode === "free" && SANDBOX && (
+                  <button aria-label="Open the sandbox controls" title="Sandbox: gold, walls, summon any foe, reshape the war ahead"
+                    className={cls("cg-btn cg-btn--slate", sandboxPanel && "is-on")} style={{ minHeight: 40, padding: "0 8px", fontSize: 12, gap: 4 }}
+                    onClick={() => { const was = sandboxPanel; trayHome(); if (!was) { if (G.current) G.current.buildMode = null; setSandboxPanel(true); } }}>
+                    <HammerIcon size={12} /> Sandbox
+                  </button>
+                )}
                 {ui.masterShow && (
                   <button title="Master Builds: place any final form whole" className={cls("cg-btn cg-btn--slate", masterOn && "is-on")} style={{ minHeight: 40, padding: "0 8px", fontSize: 12, gap: 4 }}
                     onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; setMasterInfo(null); trayHome(); }}>

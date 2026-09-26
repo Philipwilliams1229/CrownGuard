@@ -22,7 +22,8 @@ export const sandboxSpawn = (g, type, n = 1, at = 0) => {
     u.summoned = true;
   }
   // foes on the road during a build phase start the fight
-  if (g.phase === "build") { g.phase = "combat"; g.buildUntil = null; }
+  // (a fight called up between waves pays no wave bonus: see update.js)
+  if (g.phase === "build") { g.phase = "combat"; g.buildUntil = null; g.summonFight = true; }
   return n;
 };
 
