@@ -110,12 +110,12 @@ const deadHead = (c, x, y, sc, ang, jaw, col, o = {}) => {
     stroke(c, [[-1, -3], [-2.6, -1.4], [-3.4, 1.4]], 0.6, o.hair);
   }
   // the gape
-  if (jaw > 0.05) fillPoly(c, [hinge, [4.4, 0.8], J([4.4, 1.3]), J([1.2, 1.8])], MAW);
+  if (jaw > 0.05) fillPoly(c, [hinge, [4.6, 0.8], J([4.7, 1.3]), J([1.2, 1.8])], MAW);
   // lower jaw, long and narrow, a row of teeth along it
   c.fillStyle = tone(c, 0, 0.5, 0, 3, darken(col, 0.1), 0.2, 0.32);
-  curve(c, [J([-0.2, 0.8]), J([2, 1.2]), J([4.3, 1.2]), J([4.5, 2.2], 1), J([2.4, 3]), J([0.2, 2.4])]); c.fill();
+  curve(c, [J([-0.2, 0.8]), J([2, 1.2]), J([4.6, 1.2]), J([4.9, 2.6], 1), J([2.4, 3.5]), J([0.2, 2.6])]); c.fill();
   c.fillStyle = TOOTH;
-  for (const tx of [1.8, 2.8, 3.8]) { const t = J([tx, 1.3]); c.fillRect(q(t[0]), q(t[1] - 0.5), 0.5, 1); }
+  for (const tx of [2, 3, 4]) { const t = J([tx, 1.3]); c.fillRect(q(t[0]), q(t[1] - 0.8), 0.5, 1.5); }
   // the skull: a dome behind, the face sharp and fallen in
   c.fillStyle = tone(c, -1, -3.6, 3, 1.4, col, 0.32, 0.4);
   curve(c, [[-1.8, 0.6], [-2.4, -1.2], [-1.4, -3], [0.8, -3.5], [2.7, -2.9], [3.6, -1.8, 1], [3.9, -0.9], [5, 0, 1], [4.6, 0.9, 1], [2.2, 0.9], [0.6, 1.5], [-1, 1.4]]); c.fill();
@@ -130,7 +130,7 @@ const deadHead = (c, x, y, sc, ang, jaw, col, o = {}) => {
   c.fillStyle = o.eyes || "#7ce0b8"; c.fillRect(2.2, -1.5, 1, 0.5);
   // upper teeth, long, down over the lip
   c.fillStyle = TOOTH;
-  for (const tx of [2.2, 3.2, 4]) c.fillRect(q(tx), 0.5, 0.5, tx === 3.2 ? 1.5 : 1);
+  for (const tx of [2, 3, 4]) c.fillRect(q(tx), 0.5, 0.5, tx === 3 ? 2 : 1.5);
   c.restore();
 };
 
@@ -140,13 +140,13 @@ const deadHead = (c, x, y, sc, ang, jaw, col, o = {}) => {
 // hd drops the head, jaw opens it.
 const GHOUL_RUN = [
   // flung out: hands reaching, feet streaming back
-  { bob: -1.5, arch: -0.3, st: 1, hd: 1, jaw: 0.45, fn: [13, -4], ff: [11, -2.5], hn: [-14.5, -3], hf: [-12.5, -2] },
+  { bob: -1.5, arch: -0.3, st: 1, hd: 1, jaw: 0.55, fn: [13, -4], ff: [11, -2.5], hn: [-14.5, -3], hf: [-12.5, -2] },
   // the hands strike
-  { bob: 0, arch: 0.4, st: 0, hd: 1.5, jaw: 0.25, fn: [8, 0], ff: [4.5, 0], hn: [-6, -3.5], hf: [-8.5, -4.5] },
+  { bob: 0, arch: 0.4, st: 0, hd: 1.5, jaw: 0.35, fn: [8, 0], ff: [4.5, 0], hn: [-6, -3.5], hf: [-8.5, -4.5] },
   // gathered: feet planting under the belly, spine bowed
-  { bob: -1, arch: 1.8, st: -1, hd: 0.5, jaw: 0.15, fn: [2.5, -3], ff: [4.5, -2], hn: [-1.5, 0], hf: [-3.5, -1.2] },
+  { bob: -1, arch: 1.8, st: -1, hd: 0.5, jaw: 0.3, fn: [2.5, -3], ff: [4.5, -2], hn: [-1.5, 0], hf: [-3.5, -1.2] },
   // the feet drive
-  { bob: 0, arch: 0.8, st: 0, hd: 1, jaw: 0.5, fn: [10, -3], ff: [7.5, -2], hn: [-5.5, 0], hf: [-8.5, 0] },
+  { bob: 0, arch: 0.8, st: 0, hd: 1, jaw: 0.6, fn: [10, -3], ff: [7.5, -2], hn: [-5.5, 0], hf: [-8.5, 0] },
 ];
 const GHOUL_FIGHT = [
   // reared on its haunches, the near claw drawn up and back, jaw agape
@@ -308,6 +308,10 @@ const wraith = (ctx, p) => {
     // the lower shroud sinks into the drowned dark as it frays
     c.fillStyle = lin(c, 0, -13, 0, -5, [[0, rgba(darken(col, 0.5), 0)], [0.4, rgba(darken(col, 0.5), 0.35)], [1, rgba(darken(col, 0.6), 0.7)]]);
     c.fillRect(-12, -13, 20, 10);
+    // rotted through: a few holes in the lower shroud (the part's ink rims them)
+    c.globalCompositeOperation = "destination-out"; c.fillStyle = "#000";
+    for (const [x, y, rx, ry] of [[-3.4, -11.8, 1.6, 0.7], [1, -12.4, 1.3, 0.6]]) { c.beginPath(); c.ellipse(x, y + Math.sin(ph + x) * 0.25, rx, ry, 1.35, 0, TAU); c.fill(); }
+    c.globalCompositeOperation = "source-over";
     c.restore();
   });
   // the hood: peaked and sodden, its tip drooping back, its mouth a pit
@@ -425,9 +429,11 @@ const amalgam = (ctx, p) => {
     c.fillStyle = tone(c, -8, -28 + b, 6, -19 + b, bruise, 0.25, 0.4); curve(c, bruiseP); c.fill();
     c.fillStyle = tone(c, 6, -20 + b, 14, -8 + b, rag, 0.2, 0.4);
     poly(c, [M(8, -20), M(15, -17), M(15, -9), M(11, -7.5), M(10.4, -10), M(9.4, -8.4), M(8.6, -11), M(7.4, -9.4), M(7, -14)]); c.fill();
-    // an open seam in the flank: ribs showing through the dark
-    c.fillStyle = MAW; curve(c, [M(-1.6, -17.4), M(3.4, -18.4), M(5.2, -16), M(3, -13.6), M(-1, -14)]); c.fill();
-    for (let i = 0; i < 3; i++) { const a0 = M(0 + i * 1.7, -17.8 - i * 0.2), a1 = M(0.4 + i * 1.7, -14 - i * 0.1); c.strokeStyle = mix(TOOTH, col, 0.5); c.lineWidth = 0.6; c.beginPath(); c.moveTo(...a0); c.quadraticCurveTo(a0[0] + 1.6, (a0[1] + a1[1]) / 2, a1[0], a1[1]); c.stroke(); }
+    // a torn seam in the flank: a dark wound, a puckered lip, two pale ribs in it
+    const wound = [[-2, -16.2, 1], [-0.2, -17.4], [1.2, -16.9, 1], [2.8, -18, 1], [5, -16.4, 1], [3.6, -15.6], [2.4, -14.2, 1], [1, -15], [-0.6, -14.4, 1]].map(([x, y, h]) => [...M(x, y), h]);
+    c.fillStyle = darken(col, 0.72); curve(c, wound); c.fill();
+    c.strokeStyle = mix(TOOTH, col, 0.35); c.lineWidth = 0.5;
+    for (const x of [0.4, 2.6]) { const a0 = M(x + 0.6, -17.2), a1 = M(x, -14.8); c.beginPath(); c.moveTo(...a0); c.quadraticCurveTo(a0[0] + 1, (a0[1] + a1[1]) / 2, a1[0], a1[1]); c.stroke(); }
     // shade under the belly, lit rolls of flesh on top
     c.fillStyle = rgba(darken(col, 0.6), 0.5); curve(c, [M(-14, -8), M(0, -9), M(14, -9), M(14, -3), M(-14, -3)]); c.fill();
     c.fillStyle = lighten(col, 0.28);
