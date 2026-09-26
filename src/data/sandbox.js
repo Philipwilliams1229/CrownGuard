@@ -37,7 +37,7 @@ export const DEFAULTS = {
   gapMul: 1,              // spacing between spawns x (lower = packed tighter)
   crowd: true,            // the war's crowd swell (see waves.js)
   startWave: 1,           // the first wave the horn sounds
-  waves: 0,               // 0 = endless; N = the run is won when wave N is held
+  waves: 0,               // 0 = won at the script's end, then endless (no script: never); N = won at wave N
 
   // THE PURSE
   gold: 250,

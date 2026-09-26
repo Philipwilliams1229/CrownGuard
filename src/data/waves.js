@@ -33,8 +33,9 @@ const absWave = (w) => Math.round(absWaveF(w));
 // the faction — and with the level.
 export const scriptedWaves = () => (WINDOW ? WINDOW.count : FACTION.waves.length);
 // The wave whose clearing wins the run: a level's last, Free Play's end of
-// the script — or, in the sandbox, the cap the player set (0 = never).
-export const victoryWave = () => (SANDBOX && !WINDOW ? SANDBOX.waves || Infinity : scriptedWaves());
+// the script (the Endless March opens after it) — or the sandbox's own cap.
+// A sandbox with no cap and no script is never "won"; it just goes on.
+export const victoryWave = () => (SANDBOX && !WINDOW ? SANDBOX.waves || FACTION.waves.length || Infinity : scriptedWaves());
 
 // tiny deterministic RNG (mulberry32) — seeded by wave number so every
 // glimpse of a future wave shows the truth
