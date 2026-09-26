@@ -30,6 +30,8 @@ import { REALM } from "../data/maps.js";
 import { PTS } from "../engine/path.js";
 import { DECOR, RIVERS, FOREST, COAST, forestDepthAt, seaDepthAt } from "../data/terrain.js";
 import { drawTree, drawRiver } from "./scenery.js";
+import { IRON_ART } from "./scenery-iron.js";
+import { HOLLOW_ART } from "./scenery-hollow.js";
 import { drawCastle } from "./castle.js";
 import { wallDrums, GATE_TOWER_N, GATE_TOWER_S, TOWER } from "../data/castle.js";
 import { mix, darken, lighten, rgba, hash, tuft, stone, shadow, soft, strokePts, blobBall, bakeSprite, part, PX } from "./paint.js";
@@ -90,6 +92,25 @@ const BIOMES = {
 // watchtowers belong to the field, not the country beyond it)
 const LANDSCAPE = new Set(["tree", "pine", "snowpine", "deadtree", "willow", "rock", "icerock", "obsidian", "mushroom", "reeds", "cairn", "crystal"]);
 const TALL = new Set(["tree", "pine", "snowpine", "willow", "deadtree"]);
+// a chapter's own pieces join in: scenery-iron.js / scenery-hollow.js may carry
+// `apron: { biome, big, landscape: [types], tall: [types] }` — `big` replaces
+// that biome's landmark mix, `landscape` lets its recipes' pieces out here,
+// `tall` marks the ones that stand like trees
+for (const { apron } of [IRON_ART, HOLLOW_ART]) {
+  if (!apron) continue;
+  if (apron.biome && apron.big && BIOMES[apron.biome]) BIOMES[apron.biome] = { ...BIOMES[apron.biome], big: apron.big };
+  for (const t of apron.landscape || []) LANDSCAPE.add(t);
+  for (const t of apron.tall || []) TALL.add(t);
+}
+// the edge wood's own mix (map.wood), or the greenwood's oaks and pines
+const woodPick = (R, h) => {
+  const types = R.wood?.types;
+  if (!types) return h < 0.68 ? "tree" : "pine";
+  const tot = types.reduce((a, [, w]) => a + w, 0);
+  let acc = 0;
+  for (const [t, w] of types) { acc += w / tot; if (h < acc) return t; }
+  return types[types.length - 1][0];
+};
 
 const biomeOf = (R) => {
   switch (R.ambient) {
@@ -526,7 +547,7 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
       const dn = dens(x, y);
       if (hash(seed + i * 13, j * 17 + 2) > dn) continue;
       const inWood = FOREST && forestDepthAt(x, y) > 0;
-      const t = inWood ? (hash(seed + i, j + 3) < 0.68 ? "tree" : "pine") : pick(hash(seed + i * 5, j * 9 + 4));
+      const t = inWood ? woodPick(R, hash(seed + i, j + 3)) : pick(hash(seed + i * 5, j * 9 + 4));
       const s = TALL.has(t) ? 0.95 + hash(seed + i, j + 6) * 0.65 : 0.8 + hash(seed + i, j + 6) * 0.6;
       if (hits(x, y, t, s)) continue;
       const fp = TALL.has(t) ? 13 * s : 9 * s;
