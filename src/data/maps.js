@@ -262,6 +262,7 @@ const ironGate = (path) => {
 const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
   ...IRON_GROUND, id, name, blurb, seed, path,
   water: { deep: "#33505e", edge: "#43647a", shine: "#7aa4bc" },
+  bridge: { kind: "stone", stone: "#a19884", cope: "#bab09a", moss: "#62704a", lamp: "#ffcf78" },
   decor: ironGate(path),
   decorRecipe: { count: 10, types: ["ircrag", "irpine", "irwall", "irspruce", "irheather"] },
   ponds: [],
@@ -464,7 +465,7 @@ const HOLLOW_GROUND = {
   PEBBLE: "#b0a88e",
   CHEVRON: "26,22,20",
   water: { deep: "#22302c", edge: "#2f423c", shine: "#4a6a58" },
-  bridge: { beam: "#3c3428", plank: "#6e6656", plankDk: "#565040", rail: "#4a4438" },
+  bridge: { kind: "fen", beam: "#3c3428", plank: "#6e6656", plankDk: "#565040", rail: "#4a4438", moss: "#5c6c40", lamp: "#7ce0b8" },
   scatter: {
     patches: 50,
     tufts: 64,

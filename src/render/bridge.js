@@ -7,165 +7,1282 @@
 // draw.js calls drawBridges(ctx, g) once a frame, after the water, the road's
 // live bits and any River Watch skiff passing under a span, and before
 // everything that walks.
+//
+// Each span is BAKED once per board into one pixel sprite (bakeSpan) and
+// stamped every frame; only the ripples round its piles are live. The bake
+// works in the span's own frame — `u` along the road from mid-span, `v`
+// across it (+v to the right of travel), `z` up — the same straight frame
+// terrain.js lifts walkers in, so feet land on the planks. The camera looks
+// north from above: a point `z` up is drawn `z` higher on the screen, so we
+// see the tops of things and every face that looks south.
+//
+// Three kinds, one per chapter (REALM.bridge.kind):
+//   timber — the Greenwood's warm oak trestle on fieldstone abutments
+//   fen    — the Hollowfen's grey, mossy, gap-toothed version of it
+//   stone  — the Iron Marches' dressed-stone arch bridge with parapets
 
-import { BRIDGES, inRiver, archAt, BRIDGE_HALF } from "../data/terrain.js";
+import { BRIDGES, RIVERS, archAt, inRiver, BRIDGE_HALF } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
-import { posAt, angleAt } from "../engine/path.js";
-import { lighten, darken, soft, roundRect, cylinder, strokePts, lin } from "./paint.js";
+import { PX, SUN, INK_LINE, inkOutline, rgb, rgba, hash } from "./paint.js";
 
-const DEFAULT_BRIDGE = { beam: "#4a3018", plank: "#8f6a3e", plankDk: "#75512c", rail: "#5f4326" };
+// ---- the kinds ---------------------------------------------------------
+const KINDS = {
+  timber: {
+    plank: "#9a7244", plankDk: "#7a5530", beam: "#4a3018", rail: "#6e4c2a",
+    stone: "#978d7b", moss: "#6f8c3c", lamp: "#ffd98a", frame: "#3a2c24",
+  },
+  fen: {
+    plank: "#6e6656", plankDk: "#565040", beam: "#3c3428", rail: "#4a4438",
+    stone: "#6c6a5a", moss: "#5c6c40", lamp: "#7ce0b8", frame: "#2c2a28", rope: "#9c9072",
+  },
+  stone: {
+    stone: "#a19884", cope: "#bab09a", beam: "#4a3a2c", rail: "#5a4a3a",
+    moss: "#62704a", lamp: "#ffcf78", frame: "#2e2a2c",
+  },
+};
+const DEFAULT_BRIDGE = { kind: "timber", ...KINDS.timber };
+const DEFAULT_WATER = { deep: "#3a6a86", edge: "#5590a8", shine: "#a8d8e8" };
+const paletteOf = (pal) => {
+  const r = pal || REALM.bridge || {};
+  const kind = KINDS[r.kind] ? r.kind : "timber";
+  return { ...KINDS[kind], ...r, kind };
+};
 
-export const drawBridge = (ctx, b, time, posAt, angleAt, pal) => {
-  const bp = pal || DEFAULT_BRIDGE;
-  const half = BRIDGE_HALF;
-  const len = b.d1 - b.d0;
-  // The deck ARCHES over the water (terrain.js archAt): level with the road
-  // at each bank, a few pixels up mid-span, so a skiff can pass beneath and
-  // the column visibly climbs over. Drawn back to front: the span's shadow
-  // and the dark water under it, the piles it stands on, the side face that
-  // looks at the camera (with its arch), then the planks and the rails.
-  const edge = (d, side, up) => {
-    const [px, py] = posAt(d);
-    const a = angleAt(d) + Math.PI / 2;
-    return [px + Math.cos(a) * half * side, py + Math.sin(a) * half * side - up];
+// ---- measures (world units) ---------------------------------------------
+const HALF = BRIDGE_HALF;   // 35: the deck, rail to rail
+const KERB_IN = 32.2;       // the edge beams (or the parapets) run from here out
+const KERB_H = 1.2;         // how far the edge beam stands above the planks
+const POST_V = 34;          // the line the rail posts stand on
+const DROP = 2;             // the water lies this far below the banks
+const K = [0.56, 0.44];     // where a thing's shadow falls, per unit of height
+
+// ---- colour, as plain numbers (the bake paints pixel by pixel) -----------
+const CREAM = [255, 243, 210], PLUM = [42, 28, 44];
+const mx = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const lt = (a, t) => mx(a, CREAM, t);
+const dk = (a, t) => mx(a, PLUM, t);
+const css = (a) => `rgb(${a[0] | 0},${a[1] | 0},${a[2] | 0})`;
+
+// ---- the span's frame ------------------------------------------------------
+const frameOf = (b) => {
+  const c = Math.cos(b.a), s = Math.sin(b.a);
+  const half = (b.d1 - b.d0) / 2, mid = (b.d0 + b.d1) / 2;
+  // the arch, tabled: the bake asks it at every pixel
+  const TAB = new Float32Array(Math.ceil((half + 12) * 2 * 20) + 2);
+  for (let k = 0; k < TAB.length; k++) TAB[k] = archAt(b, mid - half - 12 + k / 20);
+  const L = (u) => {
+    const q = (u + half + 12) * 20;
+    if (q <= 0) return TAB[0];
+    const k = Math.floor(q);
+    if (k >= TAB.length - 1) return TAB[TAB.length - 1];
+    return TAB[k] + (TAB[k + 1] - TAB[k]) * (q - k);
   };
-  // which spots under the span are water never changes: ask once per bridge
-  const wetCache = b._wet || (b._wet = new Map());
-  const wet = (x, y) => {
-    const k = Math.round(x * 2) * 100000 + Math.round(y * 2);
-    let w = wetCache.get(k);
-    if (w === undefined) { w = inRiver(x, y, -1); wetCache.set(k, w); }
-    return w;
+  // where (u, v), `z` above the ground there, is drawn
+  const at = (u, v, z = 0) => [b.x + u * c - v * s, b.y + u * s + v * c - z];
+  // a screen point back onto the deck-like surface z = L(u) + zo
+  const onTop = (X, Y, zo, o) => {
+    const x = X - b.x, y = Y - b.y;
+    let u = x * c + (y + zo + 4) * s;
+    if (Math.abs(s) > 1e-6) for (let k = 0; k < 6; k++) u = x * c + (y + L(u) + zo) * s;
+    o[0] = u; o[1] = -x * s + (y + L(u) + zo) * c;
+    return o;
   };
-  // a soft darkening under the whole span
-  ctx.save();
-  ctx.translate(b.x, b.y);
-  ctx.rotate(b.a);
-  soft(ctx, 2, 5, len / 2 + 4, half + 4, [[0, "rgba(20,16,24,0.3)"], [0.8, "rgba(20,16,24,0.18)"], [1, "rgba(20,16,24,0)"]]);
-  ctx.restore();
-  // Over the water only: the gloom right under each edge, and the span's
-  // cast shadow thrown down-right (the sun is up-left) as far as the deck
-  // stands above the water — the gap between deck and shadow IS the height.
-  for (const side of [-1, 1]) {
-    const na = angleAt((b.d0 + b.d1) / 2) + Math.PI / 2;
-    const out = (Math.cos(na) + Math.sin(na)) * side;   // how much this edge faces the shadow
-    for (let d = b.d0 + 1; d < b.d1; d += 1.5) {
-      const [gx, gy] = edge(d, side, 0);
-      if (!wet(gx, gy)) continue;
-      const lift = archAt(b, d);
-      ctx.fillStyle = "rgba(10,14,26,0.34)";
-      const [ix, iy] = edge(d, side * (1 + 3 / half), 0);
-      ctx.fillRect(Math.min(gx, ix) - 0.5, Math.min(gy, iy) - 0.5, Math.abs(ix - gx) + 1.5, Math.abs(iy - gy) + 1.5);
-      if (out > 0.3) {
-        const reach = (lift + 1.5) * out;
-        const [sx, sy] = edge(d, side * (1 + reach / half), 0);
-        if (wet(sx, sy)) {
-          ctx.fillStyle = "rgba(10,14,26,0.4)";
-          ctx.fillRect(Math.min(gx, sx), Math.min(gy, sy) + 1, Math.abs(sx - gx) + 1.5, Math.abs(sy - gy) + 1.5);
+  // a screen point back onto an upright face standing on the line v = v0
+  const onFaceV = (X, Y, v0, o) => {
+    const u = (X - b.x + v0 * s) / c;
+    o[0] = u; o[1] = u * s + v0 * c - (Y - b.y);
+    return o;
+  };
+  // which spots are water: the sprite's own mask once it has one
+  let MS = null;
+  const useMask = (S) => { MS = S; };
+  const wet = (u, v) => {
+    const x = b.x + u * c - v * s, y = b.y + u * s + v * c;
+    if (MS) {
+      const i = Math.floor((x - MS.x0) * PX), j = Math.floor((y - MS.y0) * PX);
+      if (i >= 0 && j >= 0 && i < MS.pw && j < MS.ph) return MS.wet[j * MS.pw + i] === 1;
+    }
+    return inRiver(x, y, 0);
+  };
+  // the stretch of a line v = v0 that lies over water
+  const wetRun = (v0) => {
+    let lo = null, hi = null;
+    for (let u = -half; u <= half + 0.01; u += 0.5) if (wet(u, v0)) { if (lo === null) lo = u; hi = u; }
+    return lo === null ? null : [lo, hi];
+  };
+  // the deck's own tilt catches the sun or turns from it: +1, 0 or -1
+  const slope = (u) => {
+    const d = (L(u + 0.3) - L(u - 0.3)) / 0.6;
+    const sh = -d * (c * SUN.x + s * SUN.y);
+    return sh > 0.15 ? 2 : sh > 0.05 ? 1 : sh < -0.15 ? -2 : sh < -0.05 ? -1 : 0;
+  };
+  // the side (+1 / -1) whose outward face looks at the camera, if any
+  const near = c > 0.2 ? 1 : c < -0.2 ? -1 : 0;
+  // the side that faces the sun (its rail throws a shadow onto the deck)
+  const sunSide = (-s * SUN.x + c * SUN.y) > 0 ? 1 : -1;
+  return { b, c, s, half, mid, L, at, onTop, onFaceV, wet, wetRun, slope, near, sunSide, useMask };
+};
+
+// ---- the bake's canvases -------------------------------------------------
+const layerOf = (S) => {
+  const cv = document.createElement("canvas");
+  cv.width = S.pw; cv.height = S.ph;
+  const c = cv.getContext("2d", { willReadFrequently: true });
+  c.imageSmoothingEnabled = false;
+  c.setTransform(PX, 0, 0, PX, -S.x0 * PX, -S.y0 * PX);
+  return { cv, c };
+};
+const over = (dst, src, alpha = 1) => {
+  dst.c.save();
+  dst.c.setTransform(1, 0, 0, 1, 0, 0);
+  dst.c.globalAlpha = alpha;
+  dst.c.drawImage(src.cv, 0, 0);
+  dst.c.restore();
+};
+// Harden a patch of pixels (every pixel solid or empty, no half-covered
+// edges) and ink round what is solid, `passes` art pixels wide.
+const INK = rgb(INK_LINE);
+const inkData = (img, passes) => {
+  const d = img.data, w = img.width, h = img.height, n = w * h;
+  let ring = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    if (d[i * 4 + 3] > 110) { d[i * 4 + 3] = 255; ring[i] = 1; } else d[i * 4 + 3] = 0;
+  }
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Uint8Array(ring);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (ring[i]) continue;
+        if ((x > 0 && ring[i - 1]) || (x < w - 1 && ring[i + 1]) || (y > 0 && ring[i - w]) || (y < h - 1 && ring[i + w])) {
+          const k = i * 4;
+          d[k] = INK[0]; d[k + 1] = INK[1]; d[k + 2] = INK[2]; d[k + 3] = 235; next[i] = 1;
         }
       }
     }
+    ring = next;
   }
-  // piles driven into the riverbed just outside both edges, wet at the foot
-  for (const side of [-1, 1]) {
-    for (let d = b.d0 + 7; d <= b.d1 - 7; d += 9) {
-      const [gx, gy] = edge(d, side * (1 + 1.5 / half), 0);
-      if (!wet(gx, gy)) continue;
-      const top = gy - archAt(b, d) + 1;
-      cylinder(ctx, gx - 1.6, top, 3.2, gy + 3 - top, darken(bp.beam, 0.05), { r: 1 });
-      ctx.fillStyle = "rgba(20,30,34,0.5)"; ctx.fillRect(gx - 1.6, gy + 1, 3.2, 2);
-      ctx.fillStyle = "rgba(200,230,240,0.5)"; ctx.fillRect(gx - 2.4, gy + 2.6, 4.8, 0.8);   // the ripple round it
+};
+// Finish the patch `r` of the scratch layer: harden, ink, lay it over B, and
+// wipe the scratch clean for the next piece.
+const finish = (S, B, r, line) => {
+  const L = S.scratch, m = line + 1;
+  const x0 = Math.max(0, r[0] - m), y0 = Math.max(0, r[1] - m);
+  const w = Math.min(S.pw, r[0] + r[2] + m) - x0, h = Math.min(S.ph, r[1] + r[3] + m) - y0;
+  if (w <= 0 || h <= 0) return;
+  const img = L.c.getImageData(x0, y0, w, h);
+  inkData(img, line);
+  L.c.putImageData(img, x0, y0);
+  B.c.save();
+  B.c.setTransform(1, 0, 0, 1, 0, 0);
+  B.c.drawImage(L.cv, x0, y0, w, h, x0, y0, w, h);
+  B.c.restore();
+  L.c.save(); L.c.setTransform(1, 0, 0, 1, 0, 0); L.c.clearRect(x0, y0, w, h); L.c.restore();
+};
+const harden = (cv) => {
+  const c = cv.getContext("2d", { willReadFrequently: true });
+  const img = c.getImageData(0, 0, cv.width, cv.height);
+  inkData(img, 0);
+  c.putImageData(img, 0, 0);
+};
+// Which of the sprite's pixels lie on the water: each river stroked as wide
+// as it runs (round joins and ends: exactly the river's own "within w/2 of
+// its line" test), read back once.
+const wetMask = (S) => {
+  const L = layerOf(S), c = L.c;
+  c.strokeStyle = "#fff"; c.lineCap = "round"; c.lineJoin = "round";
+  for (const rv of RIVERS) {
+    c.lineWidth = rv.w;
+    c.beginPath();
+    rv.pts.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y)));
+    c.stroke();
+  }
+  const d = c.getImageData(0, 0, S.pw, S.ph).data, m = new Uint8Array(S.pw * S.ph);
+  for (let i = 0; i < m.length; i++) m[i] = d[i * 4 + 3] > 127 ? 1 : 0;
+  return m;
+};
+// one piece of the span: painted on its own layer, hardened, given a thin
+// ink edge, and laid over what came before (so lines fall where parts meet)
+let TRK = null;           // while a piece paints: the pixel box it has touched
+const track = (m, x, y) => {
+  const px = m.a * x + m.c * y + m.e, py = m.b * x + m.d * y + m.f;
+  if (px < TRK[0]) TRK[0] = px; if (py < TRK[1]) TRK[1] = py;
+  if (px > TRK[2]) TRK[2] = px; if (py > TRK[3]) TRK[3] = py;
+};
+const piece = (S, B, draw, line = 1) => {
+  if (!S.scratch) S.scratch = layerOf(S);
+  const L = S.scratch, c = L.c;
+  TRK = [Infinity, Infinity, -Infinity, -Infinity];
+  const fr = c.fillRect;
+  c.fillRect = function (x, y, w, h) {
+    const m = this.getTransform();
+    track(m, x, y); track(m, x + w, y); track(m, x, y + h); track(m, x + w, y + h);
+    return fr.call(this, x, y, w, h);
+  };
+  c.save();
+  try { draw(c, L); } finally { c.restore(); delete c.fillRect; }
+  const t = TRK;
+  TRK = null;
+  if (t[2] < t[0]) return;
+  const x0 = Math.max(0, Math.floor(t[0]) - 1), y0 = Math.max(0, Math.floor(t[1]) - 1);
+  const x1 = Math.min(S.pw, Math.ceil(t[2]) + 1), y1 = Math.min(S.ph, Math.ceil(t[3]) + 1);
+  if (x1 > x0 && y1 > y0) finish(S, B, [x0, y0, x1 - x0, y1 - y0], line);
+};
+
+// A surface painted pixel by pixel. `map(X, Y, o)` names the stone, plank
+// or beam a screen point falls on (an id ≥ 0, with its own coordinates in
+// o[0], o[1]) or -1; `paint(id, a, b, e, i, j)` colours it, told whether the
+// pixel sits on its piece's lower-right edge (e.joint: a dark seam) or its
+// upper-left edge (e.lip: a lit lip).
+const surfacePiece = (S, B, box, map, paint, line = 1) => {
+  if (!S.scratch) S.scratch = layerOf(S);
+  const i0 = Math.max(0, Math.floor((box[0] - S.x0) * PX)), i1 = Math.min(S.pw - 1, Math.ceil((box[2] - S.x0) * PX));
+  const j0 = Math.max(0, Math.floor((box[1] - S.y0) * PX)), j1 = Math.min(S.ph - 1, Math.ceil((box[3] - S.y0) * PX));
+  if (i1 < i0 || j1 < j0) return;
+  const bw = i1 - i0 + 1, bh = j1 - j0 + 1;
+  const id = new Int32Array(bw * bh).fill(-1), A = new Float32Array(bw * bh), Bv = new Float32Array(bw * bh);
+  const o = [0, 0];
+  for (let j = 0; j < bh; j++) {
+    const Y = S.y0 + (j0 + j + 0.5) / PX;
+    for (let i = 0; i < bw; i++) {
+      const X = S.x0 + (i0 + i + 0.5) / PX;
+      const r = map(X, Y, o);
+      if (r >= 0) { const q = j * bw + i; id[q] = r; A[q] = o[0]; Bv[q] = o[1]; }
     }
   }
-  // the side that faces the camera: a timber face from the deck down to the
-  // water, with the dark of the arch cut into it (only when the span runs
-  // across the screen — a span running up it shows its piles instead)
-  for (const side of [-1, 1]) {
-    const facing = Math.cos(b.a) * side;
-    if (facing < 0.25) continue;
-    const top = [], bot = [], arch = [];
-    for (let d = b.d0; d <= b.d1 + 0.01; d += 2) {
-      const lift = archAt(b, d);
-      const [ex, ey] = edge(d, side, 0);
-      top.push([ex, ey - lift + 1]);
-      bot.push([ex, ey + 3.5]);
-      arch.push([ex, ey + 3.5 - Math.max(0, lift * 1.1 - 1.5)]);
+  const img = S.scratch.c.createImageData(bw, bh), d = img.data;
+  const get = (i, j) => (i < 0 || j < 0 || i >= bw || j >= bh ? -1 : id[j * bw + i]);
+  const e = { joint: false, lip: false, rim: false };
+  for (let j = 0; j < bh; j++) {
+    for (let i = 0; i < bw; i++) {
+      const q = j * bw + i, s = id[q];
+      if (s < 0) continue;
+      const dn = get(i, j + 1), rt = get(i + 1, j), up = get(i, j - 1), lf = get(i - 1, j);
+      e.joint = (dn !== s && dn >= 0) || (rt !== s && rt >= 0);
+      e.lip = !e.joint && ((up !== s && up >= 0) || (lf !== s && lf >= 0));
+      e.rim = dn < 0 || rt < 0 || up < 0 || lf < 0;
+      const col = paint(s, A[q], Bv[q], e, i0 + i, j0 + j);
+      if (!col) continue;
+      const k = q * 4;
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255;
     }
-    ctx.beginPath();
-    top.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-    for (let k = bot.length - 1; k >= 0; k--) ctx.lineTo(bot[k][0], bot[k][1]);
-    ctx.closePath();
-    ctx.fillStyle = darken(bp.beam, 0.1); ctx.fill();
-    // the opening under the arch, deep in shadow
-    ctx.beginPath();
-    arch.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-    for (let k = bot.length - 1; k >= 0; k--) ctx.lineTo(bot[k][0], bot[k][1]);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(12,14,24,0.72)"; ctx.fill();
-    // a lit course along the top of the face
-    strokePts(ctx, top, 1, lighten(bp.beam, 0.2));
   }
-  // planks along the road's real curve, each lifted onto the arch; the beam
-  // under them shows through the joints and thickens the deck's edge
-  for (let d = b.d0; d < b.d1; d += 3) {
-    const [px, py] = posAt(d);
-    const lift = archAt(b, d);
-    ctx.save();
-    ctx.translate(px, py - lift);
-    ctx.rotate(angleAt(d));
-    ctx.fillStyle = bp.beam;
-    ctx.fillRect(-1.6, -half - 2, 3.2, half * 2 + 4);
-    ctx.restore();
+  S.scratch.c.putImageData(img, i0, j0);
+  finish(S, B, [i0, j0, bw, bh], line);
+};
+
+// the screen box round a set of (u, v, z) points
+const boxOf = (F, pts, pad = 1) => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [u, v, z] of pts) {
+    const [x, y] = F.at(u, v, z);
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
   }
-  for (let d = b.d0 + 2; d < b.d1 - 1; d += 6) {
-    const [px, py] = posAt(d);
-    const a = angleAt(d);
-    ctx.save();
-    ctx.translate(px, py - archAt(b, d));
-    ctx.rotate(a);
-    const k = Math.floor(d / 6);
-    const col = k % 3 === 0 ? bp.plankDk : bp.plank;
-    // planks on the rise catch the sun a little more than those falling away
-    const tilt = (archAt(b, d - 3) - archAt(b, d + 3)) * 0.04;
-    const g = lin(ctx, -2.5, 0, 2.5, 0, [[0, lighten(col, 0.22 + tilt)], [0.5, col], [1, darken(col, 0.3 - tilt)]]);
-    ctx.fillStyle = g;
-    roundRect(ctx, -2.6, -half, 5.2, half * 2, 1);
-    ctx.fill();
-    ctx.restore();
+  return [x0 - pad, y0 - pad, x1 + pad, y1 + pad];
+};
+const spanBox = (F, v0, v1, z0, z1, uPad = 0) => {
+  const pts = [];
+  for (let u = -F.half - uPad; u <= F.half + uPad + 0.01; u += 2) {
+    const l = F.L(u);
+    pts.push([u, v0, l + z0], [u, v1, l + z0], [u, v0, l + z1], [u, v1, l + z1]);
   }
-  // the stringers: a heavy beam along each edge that the planks rest on,
-  // bowed with the arch, dark on its outer face and lit along its top
-  for (const side of [-1, 1]) {
-    const outer = [], inner = [];
-    for (let d = b.d0 + 1; d <= b.d1 - 1 + 0.01; d += 2) {
-      outer.push(edge(d, side * (1 + 1.2 / half), archAt(b, d) - 1));
-      inner.push(edge(d, side * (1 - 1.4 / half), archAt(b, d) + 0.6));
+  return boxOf(F, pts, 1.5);
+};
+
+// ---- boxes: posts, stones, pillars -------------------------------------
+const poly = (c, pts, col) => {
+  if (TRK) { const m = c.getTransform(); for (const [x, y] of pts) track(m, x, y); }
+  c.fillStyle = col;
+  c.beginPath();
+  pts.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y)));
+  c.closePath();
+  c.fill();
+};
+// An upright block, plan (u0..u1) x (v0..v1), from z0 up to z1: every side
+// that looks south, then the top. `side(t)` colours a side by how much it
+// turns toward the sun (t from -1 to 1).
+const block = (c, F, u0, u1, v0, v1, z0, z1, top, side) => {
+  const P = (u, v, z) => F.at(u, v, z);
+  const sides = [
+    [u0, v1, u1, v1, F.c, -F.s * SUN.x + F.c * SUN.y],     // the +v side
+    [u0, v0, u1, v0, -F.c, F.s * SUN.x - F.c * SUN.y],     // the -v side
+    [u1, v0, u1, v1, F.s, F.c * SUN.x + F.s * SUN.y],      // the +u side
+    [u0, v0, u0, v1, -F.s, -F.c * SUN.x - F.s * SUN.y],    // the -u side
+  ];
+  for (const [ua, va, ub, vb, look, sun] of sides) {
+    if (look <= 0.15) continue;
+    poly(c, [P(ua, va, z1), P(ub, vb, z1), P(ub, vb, z0), P(ua, va, z0)], side(sun));
+  }
+  poly(c, [P(u0, v0, z1), P(u1, v0, z1), P(u1, v1, z1), P(u0, v1, z1)], top);
+};
+
+// ---- the shadow the span throws, and the gloom under it ------------------
+const shadowLayer = (F, S, P, posts) => {
+  const T = layerOf(S), c = T.c;
+  c.fillStyle = "#1c1026"; c.strokeStyle = "#1c1026";
+  c.lineCap = "butt"; c.lineJoin = "round";
+  const drop = (u, v) => (F.wet(u, v) ? DROP : 0);
+  const sh = (u, v, h) => {
+    const [x, y] = F.at(u, v, 0), d = drop(u, v);
+    return [x + K[0] * (h + d), y + K[1] * (h + d) + d];
+  };
+  const tall = P.kind === "stone" ? 5 : 3.2;
+  // the deck, lifted by the arch: its outline thrown down-right
+  const pts = [];
+  for (let u = -F.half; u <= F.half + 0.01; u += 1) pts.push(sh(u, HALF + 0.4, F.L(u) + tall));
+  for (let u = F.half; u >= -F.half - 0.01; u -= 1) pts.push(sh(u, -HALF - 0.4, F.L(u) + tall));
+  poly(c, pts, "#1c1026");
+  // the gloom right under both edges, on the water
+  for (const sd of [-1, 1]) {
+    for (let u = -F.half; u <= F.half; u += 0.5) {
+      if (!F.wet(u, sd * (HALF + 1))) continue;
+      const [x0, y0] = F.at(u, sd * HALF, -DROP), [x1, y1] = F.at(u + 0.5, sd * (HALF + 1.6), -DROP);
+      c.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0) + 0.5, Math.abs(y1 - y0) + 0.5);
     }
-    strokePts(ctx, outer, 3.4, darken(bp.beam, 0.2));
-    strokePts(ctx, inner, 1.3, lighten(bp.rail, 0.28));
   }
-  // rails: posts every few paces riding the arch, a beam along the top
-  for (const side of [-1, 1]) {
-    const railPts = [];
-    for (let d = b.d0 + 2; d <= b.d1 - 1; d += 10) {
-      const [rx, ry] = edge(d, side, archAt(b, d));
-      cylinder(ctx, rx - 1.4, ry - 6, 2.8, 7, bp.rail, { r: 1 });
-      railPts.push([rx, ry - 5.5]);
+  // the rails (timber) and the posts, thrown further
+  if (P.kind !== "stone") {
+    for (const sd of [-1, 1]) {
+      const line = [];
+      for (let u = -F.half + 2; u <= F.half - 2 + 0.01; u += 1) line.push(sh(u, sd * POST_V, F.L(u) + 6.6));
+      c.lineWidth = 1.1;
+      c.beginPath(); line.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
     }
-    const [lx, ly] = edge(b.d1 - 1, side, archAt(b, b.d1 - 1));
-    if (railPts.length && Math.hypot(lx - railPts[railPts.length - 1][0], ly - 5.5 - railPts[railPts.length - 1][1]) > 3) {
-      cylinder(ctx, lx - 1.4, ly - 6, 2.8, 7, bp.rail, { r: 1 });
-      railPts.push([lx, ly - 5.5]);
+  }
+  for (const p of posts) {
+    const a = sh(p.u, p.v, F.L(p.u) + (p.z0 || 0)), b = sh(p.u, p.v, F.L(p.u) + p.h);
+    c.lineWidth = p.w;
+    c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke();
+  }
+  harden(T.cv);
+  // on the water the shadow is the river's own deep, darkened, and firm; on
+  // the turf and the road a light plum veil
+  const deep = dk(rgb((REALM.water || DEFAULT_WATER).deep), 0.55);
+  const tc = T.c, img = tc.getImageData(0, 0, S.pw, S.ph), d = img.data;
+  for (let j = 0; j < S.ph; j++) {
+    for (let i = 0; i < S.pw; i++) {
+      const k = (j * S.pw + i) * 4;
+      if (!d[k + 3]) continue;
+      const jw = j - DROP * PX;
+      if (jw >= 0 && S.wet[jw * S.pw + i]) { d[k] = deep[0]; d[k + 1] = deep[1]; d[k + 2] = deep[2]; d[k + 3] = 190; }
+      else { d[k] = 28; d[k + 1] = 16; d[k + 2] = 38; d[k + 3] = 62; }
     }
-    if (railPts.length > 1) strokePts(ctx, railPts, 1.8, lighten(bp.rail, 0.15));
-    for (const dEnd of [b.d0, b.d1]) {
-      const [rx, ry] = edge(dEnd, side, 0);
-      cylinder(ctx, rx - 2.5, ry - 8, 5, 11, bp.beam, { r: 1.5 });
+  }
+  tc.putImageData(img, 0, 0);
+  return T;
+};
+
+// ---- rails, posts and newels (timber and fen) ------------------------------
+// where the posts stand along each side: a newel at each end, posts between
+const postsOf = (F) => {
+  const end = F.half - 1.9;
+  const n = Math.max(2, Math.round((end * 2) / 10.5));
+  const us = [];
+  for (let k = 0; k <= n; k++) us.push(-end + (2 * end * k) / n);
+  return us;
+};
+
+// ---- the span, baked ------------------------------------------------------
+const bakeSpan = (b, pal) => {
+  const F = frameOf(b);
+  const P = paletteOf(pal);
+  const water = REALM.water || DEFAULT_WATER;
+  const fen = P.kind === "fen", stone = P.kind === "stone";
+  // the sprite's box: the deck and its walls, the tallest post, the shadow
+  const probe = [];
+  for (const u of [-F.half - 10, 0, F.half + 10]) {
+    for (const v of [-50, 50]) for (const z of [-4, F.L(u) + 16]) probe.push([u, v, z]);
+    for (const v of [-50, 50]) probe.push([u + K[0] * 30, v + K[1] * 30, -6]);
+  }
+  const bb = boxOf(F, probe, 2);
+  const x0 = Math.floor(bb[0]), y0 = Math.floor(bb[1]);
+  const w = Math.ceil(bb[2]) - x0, h = Math.ceil(bb[3]) - y0;
+  const S = { x0, y0, w, h, pw: Math.ceil(w * PX), ph: Math.ceil(h * PX) };
+  S.wet = wetMask(S);
+  F.useMask(S);
+  const B = layerOf(S);     // the span itself (inked)
+  const ripples = [];
+
+  const plank = rgb(P.plank || "#8a7050"), plankDk = rgb(P.plankDk || "#6a5440"), beam = rgb(P.beam), rail = rgb(P.rail);
+  const stoneC = rgb(P.stone), moss = rgb(P.moss);
+  const road = rgb(REALM.PATH_MAIN || "#c9a46c"), roadDk = rgb(REALM.PATH_DK || "#9e7d4e");
+  const deep = rgb(water.deep);
+  const voidC = dk(deep, 0.62), underWater = dk(deep, 0.34);
+  const stoneT = [lt(stoneC, 0.12), stoneC, dk(stoneC, 0.1), mx(stoneC, moss, fen ? 0.3 : 0.12)];
+
+  // the rail posts and newels (timber), or the end pillars (stone)
+  const posts = [];
+  const us = postsOf(F);
+  // the lantern stands on the far (d1) end's newel on the north side (the west, up the screen)
+  const lampSide = (F.c * 1 + (-F.s) * 0.5) > 0 ? -1 : 1;
+  if (!stone) {
+    for (const sd of [-1, 1]) us.forEach((u, k) => {
+      const newel = k === 0 || k === us.length - 1;
+      posts.push({ u, v: sd * POST_V, h: newel ? 10.4 : 6.8, w: newel ? 3.6 : 2.2, newel, sd, k, lamp: newel && k > 0 && sd === lampSide });
+    });
+  } else {
+    for (const sd of [-1, 1]) for (const e of [-1, 1]) {
+      posts.push({ u: e * (F.half - 2.7), v: sd * 33.6, h: 8.8, w: 5.4, newel: true, sd, e, lamp: e > 0 && sd === lampSide });
+    }
+  }
+
+  // ---- the wing walls: at each corner of the crossing a short wall set into
+  // the bank, flaring away from the water and sloping down into the turf
+  const wing = [];
+  for (const e of [-1, 1]) {
+    for (const sd of [-1, 1]) {
+      // the water's edge along the deck's side, looking in from this end
+      let ub = null;
+      for (let u = e * (F.half + 6); e * u > 0; u -= e * 0.5) if (F.wet(u, sd * (HALF + 0.8))) { ub = u; break; }
+      if (ub === null) continue;
+      const T = stone ? 3.6 : 3.4;
+      const dl = Math.hypot(0.55, 0.83), dir = [e * 0.55 / dl, sd * 0.83 / dl];
+      const A = [ub + e * 0.3, sd * (HALF + T * 0.5)];
+      wing.push({ A, dir, len: stone ? 8 : 6 + hash(e + 3, sd + (b.x | 0)) * 1.5, T, zA: stone ? 3.2 : 2.8, zB: stone ? 1.4 : 0.8, e, sd });
+    }
+  }
+  const [, byC] = F.at(0, 0);
+  const wingBehind = wing.filter((q) => F.at(q.A[0], q.A[1])[1] < byC);
+  const wingFront = wing.filter((q) => F.at(q.A[0], q.A[1])[1] >= byC);
+  const drawWing = (list) => {
+    for (const q of list) {
+      wingWall(S, B, F, q, stoneT, moss, P.kind);
+      const [rx, ry] = F.at(q.A[0] - q.e * 0.3, q.A[1], -DROP);
+      if (F.wet(q.A[0] - q.e * 1.2, q.A[1])) ripples.push({ x: rx, y: ry + 0.5, w: 2.5, seed: q.A[1] * 0.3 + q.e });
+    }
+  };
+
+  // ---- piles beside a span that runs up the screen (timber / fen) ----------
+  const sidePiles = [];
+  if (!stone && !F.near) {
+    for (const sd of [-1, 1]) {
+      const run = F.wetRun(sd * (HALF + 1.2));
+      if (!run) continue;
+      const lo = run[0] + 2.2, hi = run[1] - 2.2;
+      const n = Math.max(1, Math.round((hi - lo) / 13));
+      for (let k = 0; k <= n; k++) sidePiles.push({ u: lo + ((hi - lo) * k) / n, sd, k });
+    }
+  }
+  // ---- cutwaters on the stone piers ------------------------------------------
+  const piersOf = (v0) => {
+    let run = F.wetRun(v0);
+    if (!run) return { run: null, piers: [] };
+    run = [Math.max(run[0], -F.half + 4.5), Math.min(run[1], F.half - 4.5)];
+    if (run[1] - run[0] < 4) return { run: null, piers: [] };
+    // one pier mid-stream (mid-span if the stream allows), where the deck is highest
+    const wide = run[1] - run[0] > (F.near ? 24 : 18);
+    const up = run[0] + 7 < 0 && run[1] - 7 > 0 ? 0 : (run[0] + run[1]) / 2;
+    return { run, piers: wide ? [up] : [] };
+  };
+
+  // ======== back to front ========
+  drawWing(wingBehind);
+
+  // the piles standing in the water beside an up-screen span
+  for (const p of sidePiles) {
+    posts.push({ u: p.u, v: p.sd * (HALF + 1.2), h: 0.5, z0: -F.L(p.u), w: 2, pile: true });
+    // a raking strut from the stream bed up to the deck's edge: it lies in
+    // the bent's plane, which looks south, so it shows the span's height
+    const l = F.L(p.u), sd = p.sd;
+    const uf = p.u + (F.s > 0 ? 0.7 : -0.7);
+    posts.push({ u: p.u, v: sd * (HALF + 5.2), h: 0.4, z0: -l, w: 1.2, pile: true });
+    piece(S, B, (c) => {
+      const P = (v, z) => F.at(uf, v, z);
+      poly(c, [P(sd * (HALF + 2), l - 0.3), P(sd * (HALF + 6.6), -DROP), P(sd * (HALF + 5.1), -DROP), P(sd * (HALF + 2), l - 1.9)], css(mx(rail, beam, 0.2)));
+      // its upper edge catches the light
+      poly(c, [P(sd * (HALF + 2), l - 0.3), P(sd * (HALF + 6.6), -DROP), P(sd * (HALF + 6.2), -DROP), P(sd * (HALF + 2), l - 0.8)], css(lt(rail, 0.12)));
+      const [fx, fy] = P(sd * (HALF + 5.85), -DROP);
+      c.fillStyle = css(mx(dk(rail, 0.4), moss, 0.35));
+      c.fillRect(Math.round((fx - 1) * 2) / 2, Math.round((fy - 1) * 2) / 2, 2, 1);
+    });
+    const [sx, sy] = F.at(p.u, sd * (HALF + 5.85), -DROP);
+    ripples.push({ x: sx, y: sy + 0.6, w: 2, seed: p.u * 0.61 + sd * 0.3 });
+    piece(S, B, (c) => {
+      const zt = F.L(p.u) + KERB_H - 0.2;
+      block(c, F, p.u - 0.9, p.u + 0.9, p.sd * (HALF + 0.35), p.sd * (HALF + 2.15), -DROP, zt,
+        css(lt(rail, 0.2)), (sun) => css(sun > 0.1 ? lt(rail, 0.05) : dk(rail, 0.18)));
+      // the wet foot, dark and green
+      const [fx, fy] = F.at(p.u, p.sd * (HALF + 1.3), -DROP);
+      c.fillStyle = css(mx(dk(rail, 0.4), moss, 0.35));
+      c.fillRect(Math.round((fx - 1.1) * 2) / 2, Math.round((fy - 1.5) * 2) / 2, 2.2, 1);
+    });
+    const [rx, ry] = F.at(p.u, p.sd * (HALF + 1.2), -DROP);
+    ripples.push({ x: rx, y: ry + 1.1, w: 2.4, seed: p.u * 0.37 + p.sd });
+  }
+
+  // stone: the far side's cutwaters of a span across the screen (their tops
+  // show above its parapet); the near side's and an up-screen span's come
+  // after the deck
+  const cope = rgb(P.cope || "#bab09a");
+  if (stone && F.near) {
+    const sd = -F.near;
+    for (const up of piersOf(sd * HALF + sd * 0.6).piers) cutwater(S, B, F, up, sd, stoneT, moss, ripples, cope);
+  }
+
+  // ---- the face that looks at the camera ----------------------------------
+  if (F.near) {
+    const sd = F.near, v0 = sd * HALF;
+    const run = F.wetRun(v0 + sd * 0.6);
+    const zTop = (u) => F.L(u) + (stone ? 5 : KERB_H);
+    const bottom = (u) => (F.wet(u, v0 + sd * 0.6) ? -DROP : 0);
+    const box = spanBox(F, v0, v0, -DROP - 1, stone ? 6 : 2);
+    if (!stone) {
+      // timber: the edge beam and the stringer below it, then the dark under
+      // the deck with the trestle piles and their bracing, and fieldstone
+      // abutments at each bank
+      const vlo = run ? run[0] + 2.4 : 0, vhi = run ? run[1] - 2.4 : 0;
+      const piles = [];
+      if (run && vhi - vlo > 6) {
+        const n = Math.max(1, Math.round((vhi - vlo) / 9));
+        for (let k = 1; k < n + 1; k++) piles.push(vlo + ((vhi - vlo) * k) / (n + 1));
+      }
+      const edgesU = [vlo, ...piles, vhi];
+      const braces = [];
+      for (let k = 0; k < edgesU.length - 1; k++) {
+        const ua = edgesU[k] + (k === 0 ? 0 : 1.1), ub = edgesU[k + 1] - (k === edgesU.length - 2 ? 0 : 1.1);
+        const za = zTop(ua) - 3.8, zb2 = zTop(ub) - 3.8;
+        if (Math.min(za, zb2) + DROP < 4.2 || ub - ua < 3) continue;
+        braces.push([ua, za, ub, -DROP + 0.6], [ua, -DROP + 0.6, ub, zb2]);
+      }
+      const onLine = (u, z, [ua, za, ub, zb2]) => {
+        if (u < ua || u > ub) return false;
+        const t = (u - ua) / (ub - ua), zl = za + (zb2 - za) * t;
+        return Math.abs(z - zl) < 0.55;
+      };
+      surfacePiece(S, B, box, (X, Y, o) => {
+        F.onFaceV(X, Y, v0, o);
+        const u = o[0], z = o[1];
+        if (u < -F.half || u > F.half) return -1;
+        const zt = zTop(u);
+        if (z > zt || z < bottom(u)) return -1;
+        if (z > zt - KERB_H) return 1;
+        if (z > zt - 3.8) return 2;
+        if (run && u > vlo && u < vhi) {
+          for (let k = 0; k < piles.length; k++) if (Math.abs(u - piles[k]) < 1.1) return 10 + k;
+          for (let k = 0; k < braces.length; k++) if (onLine(u, z, braces[k])) return 40 + (k >> 1);
+          return z < -DROP + 0.9 ? 4 : 3;
+        }
+        // fieldstone courses
+        const row = Math.floor((z + DROP) / 1.9);
+        const blk = Math.floor((u + 60 + hash(row, 3) * 3) / 3.3);
+        return 200 + ((row * 37 + blk) & 1023);
+      }, (id, u, z, e, i, j) => {
+        if (id === 1) return e.lip || z > zTop(u) - 0.5 ? lt(mx(rail, plank, 0.4), 0.22) : mx(rail, plank, 0.3);
+        if (id === 2) {
+          let col = mx(beam, rail, 0.45);
+          if (e.joint) return dk(beam, 0.3);
+          // a bolt head every few paces
+          const q = ((u + 60) % 6);
+          if (q < 0.5 && Math.abs(z - (zTop(u) - 2.5)) < 0.3) return lt(col, 0.3);
+          if (z < zTop(u) - 3.3) col = dk(col, 0.2);
+          if (fen && hash(i >> 1, j) < 0.1) col = mx(col, moss, 0.4);
+          return col;
+        }
+        if (id === 3) return voidC;
+        if (id === 4) return underWater;
+        if (id >= 10 && id < 40) {
+          const c0 = mx(rail, beam, 0.35);
+          if (e.lip) return lt(c0, 0.2);
+          if (e.joint || e.rim) return dk(c0, 0.35);
+          if (z < -DROP + 1.2) return mx(dk(c0, 0.3), moss, 0.4);
+          return c0;
+        }
+        if (id >= 40 && id < 200) return dk(mx(beam, rail, 0.4), 0.15);
+        // fieldstone
+        let col = stoneT[Math.floor(hash(id, 17) * 3)];
+        col = dk(col, 0.12);                      // a south face, turned from the sun
+        if (z < -DROP + 0.9) col = mx(dk(col, 0.2), moss, 0.3);
+        if (e.joint) return dk(col, 0.42);
+        if (e.lip) return lt(col, 0.16);
+        return col;
+      });
+      // the piles' wet feet
+      for (const u of piles) {
+        const [rx, ry] = F.at(u, v0, -DROP);
+        ripples.push({ x: rx, y: ry + 0.6, w: 2.4, seed: u * 0.53 });
+      }
+      if (run) {
+        for (const u of [vlo, vhi]) { const [rx, ry] = F.at(u, v0, -DROP); ripples.push({ x: rx, y: ry + 0.6, w: 1.6, seed: u }); }
+      }
+    } else {
+      stoneFace(S, B, F, P, sd, v0, piersOf(v0 + sd * 0.6), stoneT, moss, voidC, underWater, ripples);
+    }
+  }
+
+  // ---- the deck ------------------------------------------------------------
+  const deckBox = spanBox(F, -HALF, HALF, -1, stone ? 6 : 2);
+  if (!stone) {
+    const n = Math.max(4, Math.round((F.half * 2) / 4.6));
+    const pitch = (F.half * 2) / n;
+    // the Hollowfen's rot: a plank end or two broken off, the water showing
+    const broken = fen ? [Math.floor(n * 0.3), Math.floor(n * 0.68)].map((k, q) => ({ k, sd: hash(k + (b.x | 0), q) > 0.5 ? 1 : -1, at: 24.5 + hash(k, q + 3) * 4 })) : [];
+    const HOLE = 100000;
+    const tones = fen
+      ? [lt(plank, 0.08), plank, mx(plank, plankDk, 0.5), plankDk, mx(plank, moss, 0.18)]
+      : [lt(plank, 0.05), plank, mx(plank, plankDk, 0.3), mx(plank, plankDk, 0.55)];
+    const worn = lt(mx(plank, road, fen ? 0.12 : 0.28), fen ? 0.06 : 0.1);
+    const gap = dk(beam, 0.4);
+    surfacePiece(S, B, deckBox, (X, Y, o) => {
+      F.onTop(X, Y, 0, o);
+      const u = o[0], v = o[1], av = Math.abs(v);
+      if (u < -F.half || u > F.half || av > 33.4) return -1;
+      const k = Math.min(n - 1, Math.floor((u + F.half) / pitch));
+      if (av > 32.5 + hash(k, 5) * 0.9) return -1;
+      for (const br of broken) {
+        if (br.k === k && v * br.sd > br.at + (hash(k, Math.floor(u * 4)) - 0.5) * 1.6) return HOLE;
+      }
+      return k;
+    }, (id, u, v, e, i, j) => {
+      const av = Math.abs(v);
+      if (id === HOLE) {
+        // looking down through the gap: the stringers, and the dark water
+        if (Math.abs(av - 27) < 0.9 || Math.abs(av - 9) < 0.9) return Math.abs(av - 27) < 0.35 || Math.abs(av - 9) < 0.35 ? mx(beam, rail, 0.4) : beam;
+        return voidC;
+      }
+      const f = u + F.half - id * pitch;
+      let col = tones[Math.floor(hash(id, 11 + (b.x | 0)) * tones.length)];
+      // the sills at each end are heavier timbers, darker
+      if (id === 0 || id === n - 1) col = mx(col, beam, 0.35);
+      const sl = F.slope(u);
+      if (sl) col = sl > 0 ? lt(col, sl * 0.07) : dk(col, -sl * 0.08);
+      // the worn track down the middle, paler where feet and wheels go
+      if (av < 21) col = mx(col, worn, av < 14 ? 0.34 : 0.17);
+      if (Math.abs(av - 11.5) < 1.2 && !fen) col = dk(col, 0.07);
+      // grain: a faint streak along some planks, and the odd knot
+      const g = f / pitch;
+      if ((Math.abs(g - 0.34) < 0.07 || Math.abs(g - 0.7) < 0.06) && hash(id * 7 + Math.floor((v + 40) / 5.5), 3) < 0.45) col = dk(col, 0.08);
+      const kv = (hash(id, 78) - 0.5) * 52;
+      if (hash(id, 77) < 0.35 && Math.abs(v - kv) < 0.7 && Math.abs(g - 0.5) < 0.12) col = dk(col, 0.28);
+      // nails where the planks cross the stringers
+      if ((Math.abs(av - 27) < 0.28 || Math.abs(av - 9) < 0.28) && (Math.abs(g - 0.3) < 0.1 || Math.abs(g - 0.72) < 0.1)) col = dk(col, 0.42);
+      // the road's dust carried onto each end, in drifts
+      const dust = (Math.abs(u) - (F.half - 6)) / 6;
+      if (dust > 0) {
+        col = mx(col, road, 0.1 * dust);
+        const cu = Math.floor(u * 1.1), cv = Math.floor(v * 0.55);
+        if (hash(cu, cv + 5) < dust * 0.3) col = mx(col, hash(cu, cv) < 0.6 ? road : roadDk, 0.42);
+      }
+      // moss on the fen's plank ends, where feet never go
+      if (fen && av > 25 && hash(id, 31) < 0.6 && hash(i * 3, j * 5) < (av - 25) / 7) col = hash(i, j * 7) < 0.5 ? moss : lt(moss, 0.12);
+      if (e.joint) return gap;
+      if (e.lip) return lt(col, 0.16);
+      return col;
+    });
+    // the edge beams, standing a little proud of the planks
+    const kerbTop = lt(mx(rail, plank, 0.35), 0.1);
+    for (const sd of [-1, 1]) {
+      // its inner face shows on the far side
+      if (-sd * F.c > 0.2) {
+        surfacePiece(S, B, spanBox(F, sd * KERB_IN, sd * KERB_IN, -0.5, KERB_H + 0.5), (X, Y, o) => {
+          F.onFaceV(X, Y, sd * KERB_IN, o);
+          const u = o[0], z = o[1];
+          if (u < -F.half || u > F.half) return -1;
+          const l = F.L(u);
+          return z >= l && z <= l + KERB_H ? 0 : -1;
+        }, () => dk(kerbTop, 0.3), 0);
+      }
+    }
+    for (const sdk of [-1, 1]) surfacePiece(S, B, spanBox(F, sdk * KERB_IN, sdk * HALF, KERB_H - 1, KERB_H + 1), (X, Y, o) => {
+      F.onTop(X, Y, KERB_H, o);
+      const u = o[0], v = o[1], av = Math.abs(v);
+      if (u < -F.half || u > F.half || av < KERB_IN || av > HALF) return -1;
+      return (v > 0 ? 50 : 0) + Math.floor((u + F.half) / 22);
+    }, (id, u, v, e, i, j) => {
+      const av = Math.abs(v);
+      let col = kerbTop;
+      if (Math.abs(av - 33.6) < 0.25 && hash(id, Math.floor(u / 3)) < 0.6) col = dk(col, 0.12);
+      if (Math.abs(u) > F.half - 0.6) col = dk(col, 0.2);
+      if (F.slope(u) < 0) col = dk(col, 0.08);
+      if (fen && hash(i * 5, j * 3) < 0.16) col = mx(col, moss, 0.6);
+      if (e.joint) return dk(col, 0.35);
+      if (e.lip) return lt(col, 0.2);
+      return col;
+    });
+  } else {
+    stoneDeck(S, B, F, P, deckBox, stoneT);
+  }
+
+  // the rail (or parapet) on the sun side throws its shadow across the deck
+  deckShadow(S, B, F, P, posts);
+
+  if (stone) {
+    for (const sd of F.near ? [F.near] : [-1, 1]) {
+      for (const up of piersOf(sd * HALF + sd * 0.6).piers) cutwater(S, B, F, up, sd, stoneT, moss, ripples, cope);
+    }
+  }
+
+  drawWing(wingFront);
+
+  // everything above is one silhouette: ink it
+  inkOutline(B.cv, INK_LINE, 2);
+
+  // ---- rails and posts / pillars and lamps (thin ink of their own) ---------
+  const R = layerOf(S);
+  if (!stone) railsTimber(S, R, F, P, posts, fen, b);
+  else pillarsStone(S, R, F, P, posts, stoneT);
+  over(B, R);
+
+  // ---- all together: the shadow under, the span over ------------------------
+  const G = layerOf(S);
+  over(G, shadowLayer(F, S, P, posts));
+  over(G, B);
+  // the witch-light's glow (the fen's lanterns): two hard rings, no blur
+  const lamp = posts.find((p) => p.lamp);
+  let lampAt = null;
+  if (lamp) {
+    const z = F.L(lamp.u) + lamp.h + (stone ? 2.4 : 1.6);
+    lampAt = F.at(lamp.u, lamp.v, z);
+    if (fen) {
+      disc(G.c, lampAt[0], lampAt[1], 4.5, rgba(P.lamp, 0.12));
+    }
+  }
+  // a ripple's dashes show only where no part of the span stands over them
+  const bd = B.c.getImageData(0, 0, S.pw, S.ph).data;
+  const clear = (x, y) => {
+    const i = Math.floor((x - x0) * PX), j = Math.floor((y - y0) * PX);
+    return i < 0 || j < 0 || i >= S.pw || j >= S.ph || bd[(j * S.pw + i) * 4 + 3] === 0;
+  };
+  const seen = [];
+  for (const r of ripples) {
+    const L0 = clear(r.x - r.w / 2 - 1.5, r.y + 0.25) && clear(r.x - r.w / 2 - 0.5, r.y + 0.25);
+    const R0 = clear(r.x + r.w / 2 + 0.5, r.y + 0.25) && clear(r.x + r.w / 2 + 1.5, r.y + 0.25);
+    if (L0 || R0) seen.push({ ...r, l: L0, r: R0 });
+  }
+  return { cv: G.cv, x0, y0, w: S.pw / PX, h: S.ph / PX, px: PX, ripples: seen, shine: water.shine, lampAt, lamp: P.lamp, fen };
+};
+
+// ---- a wing wall, pixel by pixel ------------------------------------------
+// q = { A: [u, v] where it meets the span, dir: its run in (u, v), len, T:
+// thickness, zA → zB: its top, sloping down away from the water }. Its top
+// and every face that looks south, in coursed stone: rough fieldstone for
+// the timber kinds, dressed blocks under a coping for the stone kind.
+const wingWall = (S, B, F, q, stoneT, moss, kind) => {
+  const [au, av] = q.A, [du, dv] = q.dir, pu = -dv, pv = du;
+  const ztop = (w) => q.zA + (q.zB - q.zA) * Math.max(0, Math.min(1, w / q.len));
+  const dressed = kind === "stone";
+  const corner = (w, side) => [au + du * w + pu * side * q.T / 2, av + dv * w + pv * side * q.T / 2];
+  const faces = [];
+  const addFace = (p1, p2, nu, nv, w1, w2) => {
+    const ny = nu * F.s + nv * F.c;
+    if (ny < 0.12) return;
+    const [x1] = F.at(p1[0], p1[1]), [x2] = F.at(p2[0], p2[1]);
+    if (Math.abs(x2 - x1) < 0.6) return;
+    const mu = (p1[0] + p2[0]) / 2 + nu * 1.2, mv = (p1[1] + p2[1]) / 2 + nv * 1.2;
+    faces.push({ p1, p2, x1, x2, w1, w2, bot: F.wet(mu, mv) ? -DROP : -0.3, len: Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) });
+  };
+  addFace(corner(0, 1), corner(q.len, 1), pu, pv, 0, q.len);
+  addFace(corner(0, -1), corner(q.len, -1), -pu, -pv, 0, q.len);
+  addFace(corner(q.len, -1), corner(q.len, 1), du, dv, q.len, q.len);
+  const pts = [];
+  for (const w of [0, q.len]) for (const sdd of [-1, 1]) { const [u, v] = corner(w, sdd); pts.push([u, v, ztop(w) + 0.5], [u, v, -DROP - 0.5]); }
+  const box = boxOf(F, pts, 1);
+  const x0 = F.b.x, y0 = F.b.y;
+  surfacePiece(S, B, box, (X, Y, o) => {
+    // the top: a sloping plane, found by a few rounds of guess-and-correct
+    const x = X - x0, y = Y - y0;
+    let z = q.zA, u = 0, v = 0;
+    for (let k = 0; k < 6; k++) {
+      u = x * F.c + (y + z) * F.s; v = -x * F.s + (y + z) * F.c;
+      const w = (u - au) * du + (v - av) * dv;
+      z = ztop(w);
+    }
+    const w = (u - au) * du + (v - av) * dv, across = (u - au) * pu + (v - av) * pv;
+    if (w >= 0 && w <= q.len && Math.abs(across) <= q.T / 2) {
+      o[0] = w; o[1] = across;
+      if (dressed) return 30 + Math.floor(w / 3.2);
+      return 10 + Math.floor((w + (across > 0.3 ? 1.1 : 0)) / (2.1 + hash(Math.floor(w / 2.1), 5) * 0.8)) + (across > 0.3 ? 40 : 0);
+    }
+    // the faces
+    for (let f = 0; f < faces.length; f++) {
+      const fc = faces[f], t = (X - fc.x1) / (fc.x2 - fc.x1);
+      if (t < 0 || t > 1) continue;
+      const pu2 = fc.p1[0] + (fc.p2[0] - fc.p1[0]) * t, pv2 = fc.p1[1] + (fc.p2[1] - fc.p1[1]) * t;
+      const [, gy] = F.at(pu2, pv2, 0);
+      const zz = gy - Y, wf = fc.w1 + (fc.w2 - fc.w1) * t;
+      if (zz > ztop(wf) || zz < fc.bot) continue;
+      o[0] = t * fc.len; o[1] = zz;
+      const row = Math.floor((zz + DROP) / (dressed ? 1.6 : 1.5));
+      return 100 + f * 200 + row * 24 + Math.floor((t * fc.len + (row & 1) * 1.5 + hash(row, f) * (dressed ? 0 : 1.2)) / (dressed ? 3.4 : 2.6));
+    }
+    return -1;
+  }, (id, a2, b2, e, i, j) => {
+    const top = id < 100;
+    let col = stoneT[Math.floor(hash(id, 41) * 3)];
+    if (top) {
+      col = lt(col, dressed && id >= 30 ? 0.2 : 0.12);
+      if (!dressed && hash(id, 9) < 0.35 && hash(i, j) < 0.55) col = hash(i, j * 3) < 0.5 ? moss : lt(moss, 0.12);
+    } else {
+      col = dk(col, 0.16);
+      if (b2 < -DROP + 0.8) col = mx(dk(col, 0.25), moss, 0.35);
+    }
+    if (e.joint) return dk(col, 0.4);
+    if (e.lip) return lt(col, 0.14);
+    return col;
+  });
+};
+
+// a disc filled row by row on the art grid: a hard edge, no smoothing
+const disc = (c, cx, cy, r, style) => {
+  c.fillStyle = style;
+  for (let y = -r; y < r; y += 0.5) {
+    const yy = y + 0.25, hw = Math.sqrt(Math.max(0, r * r - yy * yy));
+    const x0 = Math.round((cx - hw) * 2) / 2, x1 = Math.round((cx + hw) * 2) / 2;
+    if (x1 > x0) c.fillRect(x0, Math.round((cy + y) * 2) / 2, x1 - x0, 0.5);
+  }
+};
+
+// ---- the stone kind's pieces -------------------------------------------------
+// The paving: the Iron road's flags carried over the span, kerbed, the ruts
+// running on across it; then the parapets' coping and inner faces.
+const stoneDeck = (S, B, F, P, box, stoneT) => {
+  const main = rgb(REALM.PATH_MAIN || "#a69c86"), dkP = rgb(REALM.PATH_DK || "#847a66");
+  const tones = [lt(main, 0.05), main, mx(main, dkP, 0.14), mx(main, [142, 150, 152], 0.12), mx(main, [176, 154, 116], 0.12)];
+  const kerbT = [mx(main, [208, 204, 192], 0.3), mx(main, [184, 180, 170], 0.2), mx(main, dkP, 0.1)];
+  const KERB = 27.5, PAR = 31.4;
+  // courses laid across the road
+  const courses = [];
+  for (let u = -F.half, k = 0; u < F.half; k++) {
+    const len = 5.2 + hash(k, (F.b.x | 0) + 1) * 3.4;
+    const br = [];
+    for (let v = -KERB + (hash(k, 2) - 0.5) * 6; v < KERB; v += 7 + hash(k, br.length + 5) * 6) br.push(v);
+    br.push(KERB);
+    courses.push({ u0: u, u1: Math.min(F.half, u + len), br });
+    u += len;
+  }
+  const courseAt = (u) => { for (let k = 0; k < courses.length; k++) if (u < courses[k].u1) return k; return courses.length - 1; };
+  surfacePiece(S, B, box, (X, Y, o) => {
+    F.onTop(X, Y, 0, o);
+    const u = o[0], v = o[1], av = Math.abs(v);
+    if (u < -F.half || u > F.half || av > PAR) return -1;
+    if (av >= KERB) return 5000 + (v > 0 ? 500 : 0) + Math.floor((u + F.half) / 8.5);
+    const k = courseAt(u), br = courses[k].br;
+    let j = 0;
+    while (j < br.length - 1 && br[j] <= v) j++;
+    return k * 32 + j;
+  }, (id, u, v, e, i, j) => {
+    const av = Math.abs(v);
+    const kerb = id >= 5000;
+    let col = kerb ? kerbT[Math.floor(hash(id, 7) * 3)] : tones[Math.floor(hash(id, 7) * 5)];
+    const rut = !kerb && Math.abs(av - 11.5) < 3.2 ? 1 - Math.abs(av - 11.5) / 3.2 : 0;
+    if (rut > 0) col = dk(col, 0.13 * Math.min(1, rut * 1.6));
+    if (!kerb && av < 4) col = lt(col, 0.03);
+    const sl = F.slope(u);
+    if (sl) col = sl > 0 ? lt(col, sl * 0.06) : dk(col, -sl * 0.07);
+    const hp = hash(i * 7 + j * 13, 3);
+    if (hp < 0.05) col = dk(col, 0.05); else if (hp > 0.98) col = lt(col, 0.05);
+    if (e.joint) return dk(col, kerb ? 0.3 : 0.2);
+    if (e.lip) return lt(col, kerb ? 0.14 : 0.07);
+    return col;
+  });
+  const cope = rgb(P.cope);
+  const stoneC = rgb(P.stone);
+  for (const sd of [-1, 1]) {
+    // the far parapet's inner face, looking south across the deck
+    if (-sd * F.c > 0.2) {
+      const v0 = sd * PAR;
+      surfacePiece(S, B, spanBox(F, v0, v0, -0.5, 5.5), (X, Y, o) => {
+        F.onFaceV(X, Y, v0, o);
+        const u = o[0], z = o[1];
+        if (u < -F.half || u > F.half) return -1;
+        const l = F.L(u);
+        if (z < l || z > l + 5) return -1;
+        const row = Math.floor((z - l) / 1.7);
+        return row * 64 + Math.floor((u + 60 + (row & 1) * 2.2) / 4.4);
+      }, (id, u, z, e) => {
+        let col = dk(stoneT[Math.floor(hash(id, 23) * 3)], 0.14);
+        if (e.joint) return dk(col, 0.35);
+        if (e.lip) return lt(col, 0.12);
+        return col;
+      });
+    }
+  }
+  // the coping along the parapets' tops
+  surfacePiece(S, B, spanBox(F, -HALF, HALF, 4, 6), (X, Y, o) => {
+    F.onTop(X, Y, 5, o);
+    const u = o[0], v = o[1], av = Math.abs(v);
+    if (u < -F.half || u > F.half || av < PAR || av > HALF) return -1;
+    return (v > 0 ? 500 : 0) + Math.floor((u + F.half + (v > 0 ? 2 : 0)) / 5.6);
+  }, (id, u, v, e) => {
+    let col = mx(cope, stoneC, hash(id, 3) * 0.4);
+    if (F.slope(u) < 0) col = dk(col, 0.06);
+    if (e.joint) return dk(col, 0.34);
+    if (e.lip) return lt(col, 0.22);
+    return col;
+  });
+};
+
+// The face of a stone span that looks at the camera: the parapet, a string
+// course at deck level, the spandrel's ashlar, and the arch (or two) with a
+// ring of voussoirs and a keystone, springing from the water.
+const stoneFace = (S, B, F, P, sd, v0, { run, piers }, stoneT, moss, voidC, underWater, ripples) => {
+  const arches = [];
+  if (run) {
+    if (piers.length) {
+      const up = piers[0];
+      arches.push([run[0] - 0.5, up - 2.2], [up + 2.2, run[1] + 0.5]);
+    } else arches.push([run[0] - 1, run[1] + 1]);
+  }
+  const RING = 2.1;
+  const A = arches.map(([a0, a1]) => {
+    const uc = (a0 + a1) / 2, r = (a1 - a0) / 2;
+    const rise = Math.max(2.5, Math.min(r * 0.98, F.L(uc) - 1.3 - RING + DROP - 0.2));
+    return { uc, r, rise, nv: Math.max(7, Math.round((Math.PI * (r + rise) / 2) / 1.9) | 1) };
+  });
+  const bottom = (u) => (F.wet(u, v0 + sd * 0.6) ? -DROP : 0);
+  surfacePiece(S, B, spanBox(F, v0, v0, -DROP - 1, 6), (X, Y, o) => {
+    F.onFaceV(X, Y, v0, o);
+    const u = o[0], z = o[1];
+    if (u < -F.half || u > F.half) return -1;
+    const l = F.L(u);
+    if (z > l + 5 || z < bottom(u)) return -1;
+    if (z > l + 4.3) return 1;                              // the coping's lip
+    if (z > l - 0.1) {                                      // the parapet
+      const row = Math.floor((z - l + 0.1) / 1.45);
+      return 100 + row * 64 + Math.floor((u + 60 + (row & 1) * 2.4) / 4.8);
+    }
+    if (z > l - 1.3) return 2;                              // the string course
+    for (let k = 0; k < A.length; k++) {
+      const a = A[k], du = (u - a.uc) / a.r;
+      if (Math.abs(du) < 1) {
+        const zi = -DROP + a.rise * Math.sqrt(1 - du * du);
+        if (z < zi) return z < -DROP + 0.8 ? 4 : 3;        // the opening
+        const dx = (u - a.uc) / (a.r + RING), ze = -DROP + (a.rise + RING) * Math.sqrt(Math.max(0, 1 - dx * dx));
+        if (z < ze) {
+          const ang = Math.atan2(z + DROP, (u - a.uc) * (a.rise / a.r));
+          const q = Math.floor((ang / Math.PI) * a.nv);
+          return q === (a.nv >> 1) ? 60 + k : 20 + k * 20 + q; // the keystone, or a voussoir
+        }
+      } else if (Math.abs(u - a.uc) < a.r + RING) {
+        const dx = (u - a.uc) / (a.r + RING), ze = -DROP + (a.rise + RING) * Math.sqrt(Math.max(0, 1 - dx * dx));
+        if (z < ze) {
+          const ang = Math.atan2(z + DROP, (u - a.uc) * (a.rise / a.r));
+          return 20 + k * 20 + Math.floor((ang / Math.PI) * a.nv);
+        }
+      }
+    }
+    const row = Math.floor((z + DROP) / 1.7);
+    return 1000 + row * 64 + Math.floor((u + 60 + (row & 1) * 2.5) / 5);
+  }, (id, u, z, e, i, j) => {
+    let col;
+    if (id === 3) return voidC;
+    if (id === 4) return underWater;
+    const l = F.L(u);
+    if (id === 1) col = lt(rgb(P.cope), 0.08);                             // the coping's lip
+    else if (id === 2) col = z < l - 0.95 ? dk(stoneT[1], 0.38) : lt(stoneT[0], 0.06); // string course, its shadow under
+    else if (id >= 60 && id < 100) col = lt(stoneT[0], 0.22);             // keystone
+    else if (id >= 20 && id < 60) col = lt(stoneT[1], (id & 1) ? 0.13 : 0.03); // voussoirs
+    else col = dk(stoneT[Math.floor(hash(id, 29) * 3)], id < 1000 ? 0.12 : 0.2); // parapet / spandrel, out of the sun
+    if (z < -DROP + 0.9 && id !== 1 && id !== 2) col = mx(dk(col, 0.25), moss, 0.35);
+    if (id === 2) return e.lip || z > l - 0.45 ? lt(col, 0.2) : col;
+    if (e.joint) return dk(col, 0.36);
+    if (e.lip) return lt(col, 0.14);
+    return col;
+  });
+  for (const a of A) {
+    for (const u of [a.uc - a.r * 0.55, a.uc + a.r * 0.4]) {
+      const [rx, ry] = F.at(u, v0, -DROP);
+      ripples.push({ x: rx, y: ry + 0.6, w: 3, seed: u * 0.7 });
+    }
+  }
+};
+
+// A cutwater: a pointed stone nose on a pier, standing out from the span's
+// side into the stream, with a sloping cap.
+const cutwater = (S, B, F, up, sd, stoneT, moss, ripples, cope) => {
+  const v0 = sd * HALF, out = sd * 4.4;
+  // carried up the whole height as a refuge, flush with the parapet's coping
+  const zt = F.L(up) + 5;
+  const t = stoneT[1];
+  piece(S, B, (c) => {
+    const A = [up - 2.6, v0 - sd * 0.3], Bp = [up + 2.6, v0 - sd * 0.3], N = [up, v0 + out];
+    const P = (p, z) => F.at(p[0], p[1], z);
+    const cu = (A[0] + Bp[0] + N[0]) / 3, cv = (A[1] + Bp[1] + N[1]) / 3;
+    for (const [p, q] of [[A, N], [N, Bp]]) {
+      let nu = q[1] - p[1], nv = -(q[0] - p[0]);                     // a normal in (u, v)
+      if (nu * (cu - (p[0] + q[0]) / 2) + nv * (cv - (p[1] + q[1]) / 2) > 0) { nu = -nu; nv = -nv; }
+      const nx = nu * F.c - nv * F.s, ny = nu * F.s + nv * F.c;      // on the ground
+      if (ny < 0.05) continue;                                       // turned from the camera
+      const lit = (nx * SUN.x + ny * SUN.y) > -0.05;
+      const base = lit ? dk(t, 0.08) : dk(t, 0.3);
+      poly(c, [P(p, zt), P(q, zt), P(q, -DROP), P(p, -DROP)], css(base));
+      // its courses, and the damp at its foot
+      for (let z = -DROP + 1.8; z < zt - 0.9; z += 1.8) poly(c, [P(p, z), P(q, z), P(q, z - 0.5), P(p, z - 0.5)], css(dk(base, 0.28)));
+      poly(c, [P(p, -DROP + 0.9), P(q, -DROP + 0.9), P(q, -DROP), P(p, -DROP)], css(mx(dk(base, 0.2), moss, 0.4)));
+    }
+    // its top: the refuge's coping
+    poly(c, [P(A, zt), P(N, zt), P(Bp, zt)], css(lt(cope, 0.12)));
+  });
+  const [rx, ry] = F.at(up, v0 + out, -DROP);
+  ripples.push({ x: rx, y: ry + 0.8, w: 2.5, seed: up * 0.9 + sd });
+};
+
+// The sun-side rail or parapet laid in shadow across the deck.
+const deckShadow = (S, B, F, P, posts) => {
+  const sd = F.sunSide;
+  const T = layerOf(S), c = T.c;
+  // the deck's inside, as a clip
+  c.beginPath();
+  for (let u = -F.half; u <= F.half + 0.01; u += 1) { const [x, y] = F.at(u, -KERB_IN, F.L(u)); u === -F.half ? c.moveTo(x, y) : c.lineTo(x, y); }
+  for (let u = F.half; u >= -F.half - 0.01; u -= 1) { const [x, y] = F.at(u, KERB_IN, F.L(u)); c.lineTo(x, y); }
+  c.closePath();
+  c.clip();
+  c.fillStyle = "#1c1026"; c.strokeStyle = "#1c1026";
+  // a point `h` above the deck at (u, v), its shadow on the deck
+  const sh = (u, v, h) => {
+    const [x, y] = F.at(u, v, F.L(u));
+    return [x + K[0] * h, y + K[1] * h];
+  };
+  if (P.kind === "stone") {
+    const pts = [];
+    for (let u = -F.half; u <= F.half + 0.01; u += 1) pts.push(F.at(u, sd * 31.4, F.L(u)));
+    for (let u = F.half; u >= -F.half - 0.01; u -= 1) pts.push(sh(u, sd * 31.4, 5));
+    poly(c, pts, "#1c1026");
+  } else {
+    const line = [];
+    for (let u = -F.half + 2; u <= F.half - 2 + 0.01; u += 1) line.push(sh(u, sd * POST_V, 6.6));
+    c.lineWidth = 1.1; c.lineCap = "butt";
+    c.beginPath(); line.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
+    const mid = [];
+    for (let u = -F.half + 2; u <= F.half - 2 + 0.01; u += 1) mid.push(sh(u, sd * POST_V, 3.4));
+    c.lineWidth = 0.8;
+    c.beginPath(); mid.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
+  }
+  for (const p of posts) {
+    if (p.sd !== sd || p.pile) continue;
+    const a = F.at(p.u, p.v, F.L(p.u)), b2 = sh(p.u, p.v, p.h);
+    c.lineWidth = p.w;
+    c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b2[0], b2[1]); c.stroke();
+  }
+  harden(T.cv);
+  over(B, T, 0.3);
+};
+
+// ---- timber rails: posts, two rails between them, newels, a lantern -------
+const railsTimber = (S, R, F, P, posts, fen, b) => {
+  const rail = rgb(P.rail), beam = rgb(P.beam), moss = rgb(P.moss);
+  const railTop = lt(rail, 0.28), railFace = rail, railDk = dk(rail, 0.25);
+  const rope = P.rope ? rgb(P.rope) : null;
+  const zR = 6.2, zM = 3.2;
+  // the fen's rot: one rail gone between two posts on the near side, one post leaning
+  const nearSd = F.near || 1;
+  const us = [...new Set(posts.filter((p) => !p.pile).map((p) => p.u))].sort((a, q) => a - q);
+  const gone = fen ? Math.floor(us.length / 2) - 1 + Math.floor(hash(b.x | 0, 5) * 2) : -1;
+  // back to front: the far side first, and down the screen within a side
+  const sides = F.near ? [-F.near, F.near] : [-1, 1];
+  for (const sd of sides) {
+    const row = posts.filter((p) => p.sd === sd && !p.pile).sort((a, q) => F.at(a.u, a.v)[1] - F.at(q.u, q.v)[1]);
+    const byU = [...row].sort((a, q) => a.u - q.u);
+    // rails first when the posts stand in front of them (the near side of an
+    // across span); after, when the rails pass in front (up-screen spans)
+    // the two rails between posts k and k + 1
+    const segRails = (c, k) => {
+      const ua = byU[k].u + (byU[k].newel ? 1.8 : 1.1), ub = byU[k + 1].u - (byU[k + 1].newel ? 1.8 : 1.1);
+      for (const [zr, th] of [[zR, 1.4], [zM, 1]]) {
+        if (fen && sd === nearSd && k === gone && zr === zR) {
+          // the gone rail: a stub hanging from its post
+          const p = byU[k];
+          const [x, y] = F.at(p.u + 1.2, sd * POST_V, F.L(p.u) + zR);
+          c.fillStyle = css(railFace);
+          c.save(); c.translate(x, y); c.rotate(0.55 * (F.c < -0.2 ? -1 : 1));
+          c.fillRect(0, -0.7, 4, 1.3);
+          c.restore();
+          continue;
+        }
+        railRun(c, F, ua, ub, sd * POST_V, zr, th, css(railTop), css(railFace));
+      }
+    };
+    const postBody = (c, p) => {
+      const l = F.L(p.u), r = p.w / 2;
+      const lean = fen && sd === nearSd && byU.indexOf(p) === gone + 1 ? 0.7 : 0;
+      const u0 = p.u - r, u1 = p.u + r, v0 = p.v - r, v1 = p.v + r;
+      const side = (sun) => css(sun > 0.1 ? lt(rail, 0.1) : railFace);
+      if (!p.newel) {
+        block(c, F, u0 + lean * 0.3, u1 + lean * 0.3, v0, v1, l, l + p.h, css(railTop), side);
+        faceEdges(c, F, p.u + lean * 0.3, p.v, r, l, l + p.h, lt(rail, 0.14), railDk);
+      } else {
+        block(c, F, u0, u1, v0, v1, l - 0.5, l + p.h - 1, css(lt(rail, 0.18)), side);
+        faceEdges(c, F, p.u, p.v, r, l - 0.5, l + p.h - 1, lt(rail, 0.16), railDk);
+      }
+      if (rope) {
+        // rope lashing where the top rail meets the post
+        const [rx, ry] = F.at(p.u, p.v, l + zR + 0.2);
+        c.fillStyle = css(rope);
+        c.fillRect(Math.round((rx - r - 0.25) * 2) / 2, Math.round(ry * 2) / 2, p.w + 0.5, 0.5);
+        c.fillStyle = css(dk(rope, 0.3));
+        c.fillRect(Math.round((rx - r - 0.25) * 2) / 2, Math.round(ry * 2) / 2 + 0.5, p.w + 0.5, 0.5);
+      }
+    };
+    const postCap = (c, p) => {
+      const l = F.L(p.u), r = p.w / 2;
+      const u0 = p.u - r, u1 = p.u + r, v0 = p.v - r, v1 = p.v + r;
+      if (!p.newel) {
+        // up the screen the posts read by their caps along the rail
+        if (!F.near) block(c, F, u0 - 0.2, u1 + 0.2, v0 - 0.2, v1 + 0.2, l + p.h - 0.7, l + p.h + 0.1, css(lt(rail, 0.34)), () => css(lt(rail, 0.05)));
+        return;
+      }
+      // a cap, broader than the post, and a knob
+      block(c, F, u0 - 0.5, u1 + 0.5, v0 - 0.5, v1 + 0.5, l + p.h - 1, l + p.h, css(lt(rail, 0.34)), (sun) => css(sun > 0.1 ? lt(rail, 0.16) : dk(rail, 0.06)));
+      if (!p.lamp) block(c, F, p.u - 0.9, p.u + 0.9, p.v - 0.9, p.v + 0.9, l + p.h, l + p.h + 1.1, css(lt(rail, 0.42)), (sun) => css(sun > 0.1 ? lt(rail, 0.24) : lt(rail, 0.06)));
+      if (fen && hash(Math.round(p.u * 3), sd + 3) < 0.7) {
+        const [mx0, my0] = F.at(p.u, p.v, l + p.h);
+        c.fillStyle = css(moss);
+        c.fillRect(Math.round((mx0 - 1.5) * 2) / 2, Math.round((my0 - 0.5) * 2) / 2, 2, 1);
+      }
+    };
+    if (F.near) {
+      // across the screen: the rails run behind their posts
+      piece(S, R, (c) => { for (let k = 0; k < byU.length - 1; k++) segRails(c, k); });
+      for (const p of row) { piece(S, R, (c) => { postBody(c, p); postCap(c, p); }); if (p.lamp) lantern(S, R, F, P, p); }
+    } else {
+      // up the screen: the posts, one rail along their tops, then the caps,
+      // all one piece so the railing reads as one run of timber
+      piece(S, R, (c) => {
+        for (const p of row) postBody(c, p);
+        for (let k = 0; k < byU.length - 1; k++) {
+          if (fen && sd === nearSd && k === gone) continue;
+          railRun(c, F, byU[k].u, byU[k + 1].u, sd * POST_V, zR, 1.6, css(railTop), css(railFace));
+          // the rail's shaded side, a pixel down its east edge
+          const ua = byU[k].u, ub = byU[k + 1].u, vs = sd * POST_V - Math.sign(F.s) * 0.55;
+          const pts = [];
+          for (let u = ua; u <= ub + 0.01; u += 1) pts.push(F.at(Math.min(u, ub), vs, F.L(Math.min(u, ub)) + zR));
+          c.fillStyle = css(dk(railTop, 0.22));
+          for (let q = 0; q < pts.length - 1; q++) c.fillRect(Math.round(pts[q][0] * 2) / 2 - 0.25, Math.min(pts[q][1], pts[q + 1][1]), 0.5, Math.abs(pts[q + 1][1] - pts[q][1]) + 0.5);
+        }
+        for (const p of row) postCap(c, p);
+      });
+      for (const p of row) if (p.lamp) lantern(S, R, F, P, p);
+    }
+  }
+};
+// a lit column down the left of a post's south face and a dark one down its right
+const faceEdges = (c, F, u, v, r, z0, z1, lit, dark) => {
+  let pts;
+  if (F.c > 0.2) pts = [F.at(u - r, v + r, z1), F.at(u + r, v + r, z1)];
+  else if (F.c < -0.2) pts = [F.at(u + r, v - r, z1), F.at(u - r, v - r, z1)];
+  else if (F.s > 0.2) pts = [F.at(u + r, v + r, z1), F.at(u + r, v - r, z1)];
+  else pts = [F.at(u - r, v - r, z1), F.at(u - r, v + r, z1)];
+  const xl = Math.min(pts[0][0], pts[1][0]), xr = Math.max(pts[0][0], pts[1][0]);
+  const y = Math.max(pts[0][1], pts[1][1]), hgt = z1 - z0;
+  c.fillStyle = css(lit); c.fillRect(Math.round(xl * 2) / 2, Math.round(y * 2) / 2, 0.5, hgt);
+  c.fillStyle = css(dark); c.fillRect(Math.round(xr * 2) / 2 - 0.5, Math.round(y * 2) / 2, 0.5, hgt);
+};
+// a rail beam from ua to ub along the line v, riding the arch at height zr
+const railRun = (c, F, ua, ub, v, zr, th, top, face) => {
+  if (ub <= ua) return;
+  const step = 1;
+  const topPts = [], botPts = [];
+  for (let u = ua; u <= ub + 0.01; u += step) {
+    const uu = Math.min(u, ub), l = F.L(uu) + zr;
+    topPts.push([uu, l]);
+  }
+  if (topPts[topPts.length - 1][0] < ub) topPts.push([ub, F.L(ub) + zr]);
+  // its top
+  const tp = [];
+  for (const [u, z] of topPts) tp.push(F.at(u, v - th / 2, z));
+  for (let k = topPts.length - 1; k >= 0; k--) tp.push(F.at(topPts[k][0], v + th / 2, topPts[k][1]));
+  // its face, when one looks south
+  if (Math.abs(F.c) > 0.2) {
+    const vf = v + (F.c > 0 ? th / 2 : -th / 2);
+    for (const [u, z] of topPts) botPts.push(F.at(u, vf, z));
+    for (let k = topPts.length - 1; k >= 0; k--) botPts.push(F.at(topPts[k][0], vf, topPts[k][1] - th));
+    poly(c, botPts, face);
+  }
+  poly(c, tp, top);
+};
+
+// A lantern on a newel: an iron frame round lit glass, a little roof.
+const lantern = (S, R, F, P, p) => {
+  const l = F.L(p.u) + p.h + (P.kind === "stone" ? 0.8 : 0);
+  const glass = rgb(P.lamp), frame = rgb(P.frame);
+  // one step toward the camera, whichever way the span lies
+  const [su, sv] = F.c > 0.2 ? [0, 1] : F.c < -0.2 ? [0, -1] : F.s > 0 ? [1, 0] : [-1, 0];
+  piece(S, R, (c) => {
+    // the foot, the glass (its flame bright at the heart), the roof, a finial
+    block(c, F, p.u - 1.2, p.u + 1.2, p.v - 1.2, p.v + 1.2, l, l + 0.7, css(lt(frame, 0.22)), () => css(frame));
+    block(c, F, p.u - 1, p.u + 1, p.v - 1, p.v + 1, l + 0.7, l + 3.6, css(lt(glass, 0.3)), () => css(glass));
+    const [gx, gy] = F.at(p.u + su, p.v + sv, l + 2.3);
+    c.fillStyle = css(lt(glass, 0.7));
+    c.fillRect(Math.round((gx - 0.5) * 2) / 2, Math.round((gy - 0.5) * 2) / 2, 1, 1.5);
+    block(c, F, p.u - 1.5, p.u + 1.5, p.v - 1.5, p.v + 1.5, l + 3.6, l + 4.3, css(lt(frame, 0.28)), () => css(frame));
+    block(c, F, p.u - 0.45, p.u + 0.45, p.v - 0.45, p.v + 0.45, l + 4.3, l + 5.1, css(lt(frame, 0.3)), () => css(frame));
+  });
+};
+
+// ---- stone pillars at the four corners, one with an iron lamp -------------
+const pillarsStone = (S, R, F, P, posts, stoneT) => {
+  const order = [...posts].sort((a, q) => F.at(a.u, a.v)[1] - F.at(q.u, q.v)[1]);
+  for (const p of order) {
+    piece(S, R, (c) => {
+      const l = F.L(p.u), r = p.w / 2;
+      const t = stoneT[1];
+      const side = (sun) => css(sun > 0.1 ? t : dk(t, 0.22));
+      block(c, F, p.u - r, p.u + r, p.v - r, p.v + r, l - 0.4, l + p.h - 1.2, css(lt(t, 0.12)), side);
+      // a course line round the shaft
+      const [cx0, cy0] = F.at(p.u - r, p.v + r * Math.sign(F.c || 1), l + p.h * 0.45);
+      const [cx1] = F.at(p.u + r, p.v + r * Math.sign(F.c || 1), l + p.h * 0.45);
+      if (Math.abs(F.c) > 0.2) { c.fillStyle = css(dk(t, 0.4)); c.fillRect(Math.min(cx0, cx1), Math.round(cy0 * 2) / 2, Math.abs(cx1 - cx0), 0.5); }
+      // the cap, and a small pyramid on it
+      block(c, F, p.u - r - 0.5, p.u + r + 0.5, p.v - r - 0.5, p.v + r + 0.5, l + p.h - 1.2, l + p.h, css(lt(rgb(P.cope), 0.12)), (sun) => css(sun > 0.1 ? rgb(P.cope) : dk(rgb(P.cope), 0.2)));
+      if (!p.lamp) {
+        const [ax, ay] = F.at(p.u, p.v, l + p.h + 1.6);
+        const [bx, by] = F.at(p.u - r * 0.8, p.v, l + p.h);
+        const [cx2, cy2] = F.at(p.u + r * 0.8, p.v, l + p.h);
+        poly(c, [[ax, ay], [bx, by], [cx2, cy2]], css(lt(rgb(P.cope), 0.2)));
+        poly(c, [[ax, ay], [(bx + cx2) / 2 + 0.2, by], [cx2, cy2]], css(dk(rgb(P.cope), 0.12)));
+      }
+    });
+    if (p.lamp) lantern(S, R, F, P, p);
+  }
+};
+
+// ---- per frame -------------------------------------------------------------
+// Baked spans are kept for the realm in play (a restart of the same board
+// finds them ready); baking another realm's spans lets the old ones go.
+const CACHE = new Map();
+const spriteOf = (b, pal) => {
+  const key = [REALM.id, PX, b.x, b.y, b.a, b.d0, b.d1, pal ? JSON.stringify(pal) : ""].join("|");
+  if (b._spr && b._spr.key === key) return b._spr;
+  let spr = CACHE.get(key);
+  if (!spr) {
+    for (const k of CACHE.keys()) if (!k.startsWith(REALM.id + "|")) CACHE.delete(k);
+    spr = bakeSpan(b, pal);
+    spr.key = key;
+    CACHE.set(key, spr);
+  }
+  b._spr = spr;
+  return spr;
+};
+
+// One span: its baked sprite, then the water lapping round its feet.
+export const drawBridge = (ctx, b, time, _posAt, _angleAt, pal) => {
+  const s = spriteOf(b, pal);
+  ctx.drawImage(s.cv, s.x0, s.y0, s.w, s.h);
+  // ripples: a pair of short bright dashes either side of each foot, sliding
+  // outward and fading, each on its own beat
+  const r0 = rgb(s.shine || "#a8d8e8");
+  for (const r of s.ripples) {
+    const ph = (time * 0.8 + r.seed) % 1;
+    if (ph > 0.75) continue;
+    const off = Math.floor(ph * 4) * 0.5;
+    const a = 0.55 * (1 - ph / 0.75);
+    ctx.fillStyle = `rgba(${r0[0]},${r0[1]},${r0[2]},${a.toFixed(2)})`;
+    const x = Math.round(r.x * 2) / 2, y = Math.round(r.y * 2) / 2 + (ph > 0.4 ? 0.5 : 0);
+    if (r.l) ctx.fillRect(x - r.w / 2 - off - 1, y, 1 + (ph < 0.3 ? 0.5 : 0), 0.5);
+    if (r.r) ctx.fillRect(x + r.w / 2 + off, y, 1, 0.5);
+  }
+  // the fen's witch-light breathes
+  if (s.fen && s.lampAt) {
+    const f = 0.5 + 0.5 * Math.sin(time * 3.1 + b.x);
+    if (f > 0.55) {
+      ctx.fillStyle = rgba(s.lamp, 0.35 * (f - 0.55));
+      ctx.fillRect(Math.round(s.lampAt[0] * 2) / 2 - 1.5, Math.round(s.lampAt[1] * 2) / 2 - 1.5, 3, 3);
     }
   }
 };
 
 // Every span on the board, once a frame.
 export const drawBridges = (ctx, g) => {
-  for (const b of BRIDGES) drawBridge(ctx, b, g.time, posAt, angleAt, REALM.bridge);
+  for (const b of BRIDGES) drawBridge(ctx, b, g.time);
 };
+
+export { DEFAULT_BRIDGE };

@@ -970,60 +970,259 @@ const drawIronCamp = (ctx, time) => {
 };
 
 // ---- the ground: heather, bracken, bare stone ----------------------------------
-// Small pieces baked once and stamped into the ground layer (1:1 with its
-// pixels), each underlined in its own darkest tone like the trees' clumps.
-const LOW = new Map();
-const lowSprite = (kind, v) => {
-  const key = kind + v;
-  if (LOW.has(key)) return LOW.get(key);
-  const dims = { heath: [22, 12], dryheath: [22, 12], bracken: [18, 12], cotton: [12, 10], slab: [0, 0] }[kind];
-  const cv = bakeSprite(dims[0], dims[1], (c) => {
-    const x = dims[0] / 2, y = dims[1] - 3;
-    if (kind === "heath" || kind === "dryheath") {
-      shadow(c, x + 2, y + 1, 9, 2.2, 0.2);
-      const base = mix(kind === "dryheath" ? "#735a58" : [HEATH, "#826074", "#72566a", "#7a6468"][v % 4], REALM.GRASS_DK, 0.08);
-      const n = 2 + (v % 3);
-      for (let i = 0; i < n; i++) {
-        const hx = x + (i - (n - 1) / 2) * 4.2 + (hash(v, i) - 0.5) * 2, hy = y - (i % 2) * 1.2;
-        blobBall(c, hx, hy, 2.6 + hash(v, i + 3) * 1.4, 1.9 + hash(v, i + 6) * 0.5, i % 2 ? lighten(base, 0.05) : base, v * 7 + i, { hi: 0.5, lo: 0.45, wobble: 0.3, n: 9 });
+// Small pieces baked once and stamped into the ground layer 1:1 with its
+// pixels — never scaled (each size is its own bake), so every pixel stays
+// crisp — each underlined in its own darkest tone like the trees' clumps.
+
+// A sprite painted pixel by pixel, in art pixels: crisp by construction.
+// paint(set): set(x, y, [r, g, b], a = 255).
+const pixSprite = (wpx, hpx, paint) => {
+  const cv = document.createElement("canvas");
+  cv.width = wpx; cv.height = hpx;
+  const c = cv.getContext("2d");
+  const img = c.createImageData(wpx, hpx), d = img.data;
+  const set = (x, y, col, a = 255) => {
+    if (x < 0 || y < 0 || x >= wpx || y >= hpx) return;
+    const o = (y * wpx + x) * 4;
+    d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = a;
+  };
+  paint(set);
+  c.putImageData(img, 0, 0);
+  return cv;
+};
+const SHADE = hexRGB("#2a1c2c");
+
+// Heather (ling): a low cushion of wiry sprays seen from above, never a
+// smooth ball. The foliage in stepped plum-mauves, lit on the cushion's upper
+// left and sinking to plum on its lower right; upright sprigs across it (a
+// bloom over its stalk, a dark gap under), thickest on the sunny side, and
+// more poking up along its top edge; dark stems at its foot.
+// Tones: stem, deep, body, mid, bloom, lit.
+const HEATHER = {
+  heath: ["#3a2834", "#523c4e", "#684c62", "#80607a", "#9e7894", "#c09cb4"],
+  ling: ["#38322e", "#4c4642", "#5e584e", "#746a64", "#907688", "#b496aa"],   // bronze foliage, only a few sprigs in flower
+  dryheath: ["#3a2a22", "#533c30", "#6a5040", "#826650", "#9e7e5c", "#bc9e78"],
+};
+const heatherPix = (kind, v, sz) => {
+  const pal = (kind === "dryheath" ? HEATHER.dryheath : v % 4 === 3 ? HEATHER.ling : HEATHER.heath)
+    .map((c) => hexRGB(mix(c, REALM.GRASS_DK, 0.12)));
+  const P = PX;
+  const rx = (3.2 + sz * 1.5 + hash(v, 1) * 1.1) * P, ry = rx * (0.56 + hash(v, 2) * 0.1);
+  const wpx = Math.ceil(rx * 2.6) + 8, hpx = Math.ceil(ry * 2.4) + 10;
+  const cx = Math.floor(wpx / 2), cy = Math.ceil(ry * 1.2) + 4;
+  const nl = Math.min(3, 1 + Math.floor(hash(v, 3) * (sz + 1.8)));
+  const lobes = [{ x: cx, y: cy, rx: rx * (nl > 1 ? 0.78 : 1), ry: ry * (nl > 1 ? 0.86 : 1) }];
+  for (let i = 1; i < nl; i++) {
+    const side = i % 2 ? -1 : 1;
+    lobes.push({
+      x: cx + side * rx * (0.44 + hash(v, i + 4) * 0.2), y: cy + (hash(v, i + 7) - 0.3) * ry * 0.5,
+      rx: rx * (0.5 + hash(v, i + 10) * 0.18), ry: ry * (0.58 + hash(v, i + 13) * 0.2),
+    });
+  }
+  const N = wpx * hpx, inside = new Uint8Array(N), light = new Float32Array(N);
+  for (let y = 0; y < hpx; y++) {
+    for (let x = 0; x < wpx; x++) {
+      let f = -9, nx = 0, ny = 0;
+      for (const l of lobes) {
+        const dx = (x + 0.5 - l.x) / l.rx, dy = (y + 0.5 - l.y) / l.ry, g = 1 - dx * dx - dy * dy;
+        if (g > f) { f = g; nx = dx; ny = dy; }
       }
-      for (let i = 0; i < 2 + n; i++) { c.fillStyle = i % 2 ? HEATH_FL : HEATH_LT; px1(c, x + (hash(v, i + 10) - 0.5) * n * 4, y - 2.5 + hash(v, i + 15) * 2); }
-    } else if (kind === "bracken") {
-      brackenFan(c, x, y + 1, 0.75 + (v % 3) * 0.1, v * 13, v % 4 === 3);
-    } else if (kind === "cotton") {
-      tuft(c, x, y + 1, 0.55, darken(REALM.TUFT, 0.1), REALM.GRASS_LT, v, { n: 4 });
-      for (let i = 0; i < 3; i++) ball(c, x - 2 + i * 2 + (hash(v, i) - 0.5), y - 5 - hash(v, i + 3) * 2, 0.9, 0.8, "#f2eee2", { hi: 0.3, lo: 0.25 });
+      const i = y * wpx + x;
+      if (f > (hash(x * 3 + y * 7, v) - 0.5) * 0.36) inside[i] = 1;
+      light[i] = (-0.55 * nx - 0.8 * ny) * 0.45 + 0.5 + (hash(x * 7 + y * 131, v + 3) - 0.5) * 0.24;
     }
-  }, false);
-  const ink = kind === "bracken" ? darken(BRACK_DK, 0.3) : kind === "cotton" ? darken(REALM.TUFT, 0.4) : darken(HEATH_DK, 0.25);
-  inkOutline(cv, ink, 1, "under");
-  const sp = { cv, w: dims[0], h: dims[1] };
+  }
+  const IN = (x, y) => x >= 0 && y >= 0 && x < wpx && y < hpx && inside[y * wpx + x] === 1;
+  const cv = pixSprite(wpx, hpx, (set) => {
+    for (let y = 0; y < hpx; y++) {
+      for (let x = 0; x < wpx; x++) {
+        const i = y * wpx + x, h = hash(x * 11 + y * 5, v + 7);
+        if (!inside[i]) {
+          // sprigs over the top edge, a few of them two pixels tall
+          if (IN(x, y + 1) && h < 0.36) set(x, y, pal[light[i] > 0.6 ? 5 : 4]);
+          else if (IN(x, y + 2) && !IN(x, y + 1) && hash(x * 11 + (y + 1) * 5, v + 7) < 0.36 && h < 0.3) set(x, y, pal[light[i] > 0.5 ? 5 : 4]);
+          else if (IN(x, y - 1) && h < 0.4) set(x, y, pal[0]);                            // stems at the foot
+          else if (IN(x - 2, y - 2) || IN(x - 1, y - 2)) set(x, y, SHADE, 62);            // its shadow, down-right
+          continue;
+        }
+        const L = light[i];
+        let tone = !IN(x, y + 1) ? 0 : !IN(x, y + 2) ? 1 : L > 0.68 ? 3 : L > 0.4 ? 2 : 1;
+        set(x, y, pal[tone]);
+      }
+    }
+    // sprigs across the cushion, upright: a bloom over a flowered stalk, the
+    // dark between the sprays under it — thick on the sunny side, few in shade
+    for (let y = 1; y < hpx; y++) {
+      for (let x = 0; x < wpx; x++) {
+        if (!IN(x, y) || !IN(x, y + 3)) continue;
+        const L = light[y * wpx + x];
+        if (hash(x * 13 + y * 29, v + 11) > (kind === "dryheath" ? 0.1 : 0.08 + L * 0.14)) continue;
+        set(x, y, pal[L > 0.66 ? 5 : L > 0.3 ? 4 : 3]);
+        set(x, y + 1, pal[L > 0.5 ? 3 : 2]);
+        set(x, y + 2, pal[1]);
+      }
+    }
+  });
+  inkOutline(cv, darken(kind === "dryheath" ? "#3a2a22" : HEATH_DK, 0.35), 1, "under");
+  return { cv, ax: cx, ay: Math.round(cy + ry) };
+};
+
+// A tussock in pixels, like the meadow's own tufts (world.js): blades fanned
+// from one root, dark at the foot and lit (or straw) at the tips, the
+// sun-side blades lightest; a step of shade at its foot. cols: dark .. tip.
+// heads: cotton-grass heads on the tallest blades.
+const tussPix = (v, sz, cols, heads = false) => {
+  const s = [0.55, 0.75, 0.95][sz];
+  const n = 3 + (v % 3) + (sz > 1 ? 1 : 0);
+  const spread = 1.4 * s * PX, wind = 0.28;
+  const maxLen = Math.max(3, Math.round(11 * s * PX * 0.62));
+  const wpx = Math.ceil(n * spread * 0.55 + maxLen * 1.3) + 10, hpx = maxLen + 7;
+  const bx = Math.floor(wpx / 2) - 2, by = hpx - 4;
+  const C = cols.map(hexRGB), head = [hexRGB("#f4f0e2"), hexRGB("#cfcabc")];
+  const cv = pixSprite(wpx, hpx, (set) => {
+    const sw = Math.max(2, Math.round(n * spread * 0.5 + 2));
+    for (let i = -1; i <= sw; i++) { set(bx + i, by + 1, SHADE, 64); if (i > 0 && i < sw - 1) set(bx + i + 1, by + 2, SHADE, 44); }
+    for (let i = 0; i < n; i++) {
+      const h1 = hash(v, i + 2), h2 = hash(v, i + 40), side = n > 1 ? i / (n - 1) : 0.5;
+      const lean = (h1 - 0.5) * 1.3 + wind + (side - 0.5) * 0.8;
+      const len = Math.max(3, Math.round((5 + h2 * 6) * s * PX * 0.62));
+      const ox = Math.round((i - (n - 1) / 2) * spread * 0.55);
+      const c = side < 0.45 ? C : [C[0], C[1], C[1], C[2]];
+      let tx = 0, ty = 0;
+      for (let k = 0; k < len; k++) {
+        const f = k / Math.max(1, len - 1);
+        tx = Math.round(bx + ox + lean * f * f * len * 0.7); ty = by - k;
+        set(tx, ty, c[Math.min(3, Math.floor(f * 4 * 0.999))]);
+      }
+      if (heads && i % 2 === 0) { set(tx, ty - 1, head[0]); set(tx + 1, ty - 1, head[0]); set(tx, ty, head[1]); set(tx + 1, ty, head[0]); set(tx, ty - 2, head[0]); }
+    }
+  });
+  return { cv, ax: bx, ay: by };
+};
+
+const LOW = new Map();
+const lowSprite = (kind, v, sz) => {
+  const key = `${kind}|${v}|${sz}|${REALM.GRASS_DK}|${PX}`;
+  if (LOW.has(key)) return LOW.get(key);
+  let sp;
+  const R = REALM;
+  if (kind === "heath" || kind === "dryheath") sp = heatherPix(kind, v, sz);
+  else if (kind === "tuss") sp = tussPix(v, sz, [darken(R.TUFT, 0.15), mix(R.TUFT, R.GRASS_DK, 0.3), mix(R.GRASS_LT, "#c8bc88", 0.3), mix(R.GRASS_LT, "#dccf9c", 0.55)]);
+  else if (kind === "grass") sp = tussPix(v, sz, [darken(R.TUFT, 0.15), R.TUFT, mix(R.GRASS, R.GRASS_LT, 0.3), R.GRASS_LT]);
+  else if (kind === "cotton") sp = tussPix(v, sz, [darken(R.TUFT, 0.2), R.TUFT, mix(R.GRASS, R.GRASS_LT, 0.4), mix(R.GRASS_LT, "#c8bc88", 0.3)], true);
+  else {
+    const kk = [0.85, 1, 1.15][sz];
+    const dims = [Math.ceil(18 * kk), Math.ceil(12 * kk)];
+    const x = dims[0] / 2, y = dims[1] - 3;
+    const cv = bakeSprite(dims[0], dims[1], (c) => brackenFan(c, x, y + 1, (0.75 + (v % 3) * 0.1) * kk, v * 13, v % 4 === 3), false);
+    inkOutline(cv, darken(BRACK_DK, 0.3), 1, "under");
+    sp = { cv, ax: Math.round(x * PX), ay: Math.round(y * PX) };
+  }
   LOW.set(key, sp);
   return sp;
 };
-const stampLow = (ctx, kind, v, x, y, k = 1) => {
-  const sp = lowSprite(kind, v);
-  ctx.drawImage(sp.cv, Math.round((x - sp.w / 2 * k) * RES) / RES, Math.round((y - (sp.h - 3) * k) * RES) / RES, sp.w * k, sp.h * k);
+// stamp a low piece with its feet at (x, y), snapped to the art grid
+const stampLow = (ctx, kind, v, x, y, sz = 1) => {
+  const sp = lowSprite(kind, v, sz);
+  ctx.drawImage(sp.cv, (Math.round(x * PX) - sp.ax) / PX, (Math.round(y * PX) - sp.ay) / PX, sp.cv.width / PX, sp.cv.height / PX);
 };
 
-// a flat slab of bedrock breaking through the turf: lit edge up-left, a dark
-// lip down-right, a crack, lichen
-const slab = (ctx, x, y, r, seed) => {
-  const ry = r * 0.55;
-  ctx.save();
-  blobPath(ctx, x + 0.8, y + 0.8, r, ry, seed, 0.28, 7); ctx.fillStyle = rgba("#2a2a30", 0.45); ctx.fill();
-  blobPath(ctx, x, y, r, ry, seed, 0.28, 7); ctx.fillStyle = mix(GRIT, REALM.GRASS_DK, 0.12); ctx.fill();
-  ctx.clip();
-  blobPath(ctx, x - 1, y - 0.8, r * 0.94, ry * 0.9, seed, 0.28, 7); ctx.fillStyle = lighten(GRIT, 0.12); ctx.fill();
-  blobPath(ctx, x - 1.6, y - 1.3, r * 0.6, ry * 0.5, seed + 1, 0.3, 7); ctx.fillStyle = lighten(GRIT, 0.24); ctx.fill();
-  ctx.fillStyle = darken(GRIT, 0.4);
-  const a = hash(seed, 3) * Math.PI;
-  for (let t = -0.6; t < 0.6; t += 0.08) ctx.fillRect(ap(x + Math.cos(a) * r * t + Math.sin(t * 9) * 0.4), ap(y + Math.sin(a) * ry * t), 0.5, 0.5);
-  for (let i = 0; i < 3 + r / 3; i++) {
-    ctx.fillStyle = i % 3 === 0 ? "#c8a458" : i % 3 === 1 ? "#a8b890" : "#d8d4c0";
-    ctx.fillRect(ap(x + (hash(seed, i + 10) - 0.5) * r * 1.4), ap(y + (hash(seed, i + 20) - 0.5) * ry * 1.2), 1, 0.5);
+// A flat slab of bedrock breaking through the turf: an angular plate (split
+// by a crack into two, tilted a little differently), lit along its upper-left
+// edges, a thin south face where it stands proud, lichen in a few small
+// colonies, and moor-grass lapping over its foot.
+const slabPix = (r, seed) => {
+  const P = PX, G = (i) => hash(seed, i);
+  const rx = r * P, ry = r * 0.56 * P;
+  const wpx = Math.ceil(rx * 2.3) + 8, hpx = Math.ceil(ry * 2.3) + 10;
+  const cx = Math.floor(wpx / 2), cy = Math.ceil(ry * 1.15) + 3;
+  const n = 6 + Math.floor(G(1) * 3), pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = ((i + (G(i + 2) - 0.5) * 0.7) / n) * Math.PI * 2, k = 0.74 + G(i + 12) * 0.34;
+    pts.push([cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k]);
   }
-  ctx.restore();
+  const inside = new Uint8Array(wpx * hpx);
+  for (let y = 0; y < hpx; y++) {
+    for (let x = 0; x < wpx; x++) {
+      let c = false;
+      const px = x + 0.5, py = y + 0.5;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const [xi, yi] = pts[i], [xj, yj] = pts[j];
+        if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) c = !c;
+      }
+      inside[y * wpx + x] = c ? 1 : 0;
+    }
+  }
+  const IN = (x, y) => x >= 0 && y >= 0 && x < wpx && y < hpx && inside[y * wpx + x] === 1;
+  const sb = mix(GRIT, REALM.GRASS_DK, 0.2);
+  // rim, face, shade, stone, lit, sunlit edge
+  const T = [darken(sb, 0.52), darken(sb, 0.3), darken(sb, 0.12), sb, lighten(sb, 0.1), lighten(sb, 0.24)].map(hexRGB);
+  const LICHEN = ["#a8ac86", "#bea060", "#c8c4ac"].map((c) => hexRGB(mix(c, sb, 0.3)));
+  const GR = [darken(REALM.TUFT, 0.1), REALM.TUFT, mix(REALM.GRASS, REALM.GRASS_LT, 0.4)].map(hexRGB);
+  const thick = r > 6 ? 2 : 1;
+  // the crack: a slanting line, right across (two plates) or only part way
+  const ca = (0.15 + G(30) * 0.7) * Math.PI, cnx = -Math.sin(ca), cny = Math.cos(ca);
+  const cc = (G(31) - 0.5) * rx * 0.4, through = G(35) < 0.55, cracked = r > 4;
+  const tEnd = through ? 1e9 : (G(34) * 0.6) * rx;
+  const lower = cnx * 0.6 + cny * 0.8 > 0 ? 1 : -1;   // which side of the crack lies down-right
+  const cv = pixSprite(wpx, hpx, (set) => {
+    const mark = new Uint8Array(wpx * hpx);
+    for (let y = 0; y < hpx; y++) {
+      for (let x = 0; x < wpx; x++) {
+        if (IN(x, y)) {
+          const dxn = (x + 0.5 - cx) / rx, dyn = (y + 0.5 - cy) / ry;
+          const ta = (x + 0.5 - cx) * cny - (y + 0.5 - cy) * cnx;
+          const dc = ((x + 0.5 - cx) * cnx + (y + 0.5 - cy) * cny - cc + Math.sin(ta * 0.55 + G(33) * 6) * 0.7) * lower;
+          const onCrack = cracked && ta < tEnd;
+          if (onCrack && Math.abs(dc) < 0.55) { set(x, y, T[1]); mark[y * wpx + x] = 2; continue; }
+          const plate = cracked && through && dc > 0 ? 1 : 0;
+          const L = -(dxn * 0.5 + dyn * 0.75) * 0.5 + (plate ? -0.14 : 0.05) + (hash(x * 5 + y * 17, seed) - 0.5) * 0.16;
+          let tone = L > 0.2 ? 4 : L > -0.16 ? 3 : 2;
+          const upO = !IN(x, y - 1), lfO = !IN(x - 1, y), dnO = !IN(x, y + 1), rtO = !IN(x + 1, y);
+          if (upO || lfO) tone = upO && lfO ? 4 : 5;                  // the sunlit edge, its corners worn
+          else if (dnO || rtO) tone = 2;
+          else if (onCrack && dc > 0 && dc < 1.5) tone = 5;          // the crack's far wall catches the sun
+          else if (onCrack && dc < 0 && dc > -1.5) tone = 2;
+          set(x, y, T[tone]);
+          mark[y * wpx + x] = 1;
+        } else {
+          // the south face below a bottom edge, then a dark rim and the shadow
+          let face = 0;
+          for (let k = 1; k <= thick; k++) if (IN(x, y - k)) { face = k; break; }
+          if (face) { set(x, y, T[1]); mark[y * wpx + x] = 3; continue; }
+          if (IN(x, y - thick - 1) || IN(x - 1, y) || IN(x - 1, y - thick)) { set(x, y, T[0]); mark[y * wpx + x] = 4; continue; }
+          if (IN(x - 2, y - thick - 1) || IN(x - 1, y - thick - 2) || IN(x - 2, y - 1)) set(x, y, SHADE, 64);
+        }
+      }
+    }
+    // lichen, in a few small colonies on the open stone
+    const cols = 1 + Math.floor(r / 3.5);
+    for (let q = 0; q < cols; q++) {
+      let x = Math.round(cx + (G(40 + q) - 0.5) * rx * 1.1), y = Math.round(cy + (G(50 + q) - 0.6) * ry * 0.9);
+      const col = LICHEN[q % 3 === 2 && r > 7 ? 1 : q % 2 ? 2 : 0];
+      for (let s = 0; s < 3 + r * 0.5; s++) {
+        if (mark[y * wpx + x] === 1) set(x, y, col);
+        const h = hash(seed + q, s);
+        x += h < 0.3 ? 1 : h < 0.5 ? -1 : 0; y += h > 0.8 ? 1 : h > 0.65 ? -1 : 0;
+        if (x < 0 || y < 0 || x >= wpx || y >= hpx) break;
+      }
+    }
+    // moor-grass lapping over its foot and its western edge
+    const blades = 2 + Math.floor(r / 3);
+    for (let q = 0; q < blades; q++) {
+      const x = Math.round(cx + (G(60 + q) - 0.5) * rx * 1.6);
+      let y = hpx - 1;
+      while (y > 0 && !(mark[y * wpx + x] >= 3)) y--;
+      if (y <= 0) continue;
+      const h = 2 + Math.floor(G(70 + q) * 3);
+      for (let k = 0; k < h; k++) set(x + (k > 1 && G(80 + q) > 0.5 ? 1 : 0), y + 1 - k, GR[k === h - 1 ? 2 : k === 0 ? 0 : 1]);
+    }
+  });
+  return { cv, ax: cx, ay: cy };
+};
+const slab = (ctx, x, y, r, seed) => {
+  const sp = slabPix(r, seed);
+  ctx.drawImage(sp.cv, (Math.round(x * PX) - sp.ax) / PX, (Math.round(y * PX) - sp.ay) / PX, sp.cv.width / PX, sp.cv.height / PX);
 };
 
 // value noise for the drifts
@@ -1037,9 +1236,11 @@ const vnoise = (seed, cell, x, y) => {
 const nearWater = (x, y, m) => PONDS.some((p) => Math.abs(x - p.x) < p.w / 2 + m && Math.abs(y - p.y) < p.h / 2 + m) || inRiver(x, y, m);
 
 // The drifts themselves: where the heather (or the bracken) takes the hill,
-// the turf under it turns — a dithered mauve-brown (or rust) ground, so a
-// drift reads as one patch of moor and not a sprinkle of clumps. Written into
-// the layer's pixels; a coarse mask keeps it off the road, the water and the wood.
+// the turf under it turns — a flat mauve-grey (or rust) ground at the turf's
+// own value, with a paler heart, dithered only in a narrow band where it
+// meets the grass, so a drift reads as one patch of moor, not a stain. Written
+// into the layer's pixels; a coarse mask keeps it off the road, the water and
+// the wood.
 const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => v / 16);
 // A handful of big patches per board — heather in 4-7 drifts, bracken in
 // 2-3 smaller ones at their edges — with plain open turf between them.
@@ -1070,25 +1271,47 @@ const driftField = () => {
     for (const d of list) {
       const dx = (x - d.x) / d.rx, dy = (y - d.y) / d.ry;
       if (dx * dx + dy * dy > 2.2) continue;
-      const dn = Math.sqrt(dx * dx + dy * dy) + (vnoise(seed + ns, 24, x, y) - 0.5) * 0.45;
+      // a broad wander and a finer one, so the edge breaks into lobes and bays
+      const dn = Math.sqrt(dx * dx + dy * dy) + (vnoise(seed + ns, 24, x, y) - 0.5) * 0.45 + (vnoise(seed + ns + 5, 8, x, y) - 0.5) * 0.22;
       best = Math.max(best, Math.min(1, (1 - dn) / 0.45));
     }
     return best;
   };
   DRIFT.fn = (x, y) => ({ h: strength(heaths, x, y, 17), b: strength(bracks, x, y, 19) });
   DRIFT.key = key;
+  // the same field sampled once per world unit, only round the patches, for
+  // the per-pixel ground under them (read back with bilinear steps)
+  const gw = W + 2, gh = H + 2, gH = new Float32Array(gw * gh), gB = new Float32Array(gw * gh);
+  const fill = (list, g, ns) => {
+    for (const d of list) {
+      const X0 = Math.max(0, Math.floor(d.x - d.rx * 1.6)), X1 = Math.min(gw - 1, Math.ceil(d.x + d.rx * 1.6));
+      const Y0 = Math.max(0, Math.floor(d.y - d.ry * 1.6)), Y1 = Math.min(gh - 1, Math.ceil(d.y + d.ry * 1.6));
+      for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) { const i = y * gw + x; if (g[i] < 1) g[i] = Math.max(g[i], strength([d], x, y, ns)); }
+    }
+  };
+  fill(heaths, gH, 17); fill(bracks, gB, 19);
+  DRIFT.grid = { gw, gh, h: gH, b: gB };
   return DRIFT.fn;
 };
 
-const driftGround = (ctx, clear) => {
-  const seed = REALM.seed | 0;
-  const drift = driftField();
+const driftGround = (ctx) => {
+  driftField();
+  const { gw, h: gH, b: gB } = DRIFT.grid;
+  const lerp = (g, x, y) => {
+    const xi = x | 0, yi = y | 0, u = x - xi, v = y - yi, i = yi * gw + xi;
+    return (g[i] * (1 - u) + g[i + 1] * u) * (1 - v) + (g[i + gw] * (1 - u) + g[i + gw + 1] * u) * v;
+  };
   const cv = ctx.canvas, PW = cv.width, PH = cv.height, k = PW / W;
   const C = 4, GW = Math.ceil(W / C) + 1, GH = Math.ceil(H / C) + 1;
   const ok = new Uint8Array(GW * GH);
-  for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) ok[j * GW + i] = clear(i * C, j * C, 3) ? 1 : 0;
+  // The mask keeps the tint off the wood's floor and the sea's beach only: the
+  // road, its verge and the water are all painted over it later, so the tint
+  // runs on under them rather than stopping at a blocky box round each pond.
+  const cst = REALM.coast, sea = cst ? cst.depth + cst.sand + 24 : 0;
+  const onShore = (x, y) => !!cst && (cst.edge === "top" ? y < sea : cst.edge === "bottom" ? y > H - sea : cst.edge === "left" ? x < sea : x > W - sea);
+  for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) ok[j * GW + i] = forestDepthAt(i * C, j * C) < -6 && !onShore(i * C, j * C) ? 1 : 0;
   const img = ctx.getImageData(0, 0, PW, PH), dd = img.data;
-  const heath = hexRGB(mix("#6a5064", REALM.GRASS_DK, 0.3)), heathLt = hexRGB(mix("#82667c", REALM.GRASS, 0.25));
+  const heath = hexRGB(mix("#86707c", REALM.GRASS, 0.2)), heathLt = hexRGB(mix("#94808a", REALM.GRASS_LT, 0.2));
   const brack = hexRGB(mix("#86644a", REALM.GRASS_DK, 0.45));
   const limit = Math.min(PW, Math.ceil((W - 104) * k));
   for (let py = 0; py < PH; py += 1) {
@@ -1096,14 +1319,21 @@ const driftGround = (ctx, clear) => {
     for (let pxx = 0; pxx < limit; pxx += 1) {
       const x = pxx / k, gi = Math.min(GW - 1, Math.round(x / C));
       if (!ok[gj * GW + gi]) continue;
-      const { h: hn, b: bn } = drift(x, y);
+      const i0 = (y | 0) * gw + (x | 0);
+      if (gH[i0] <= 0 && gH[i0 + 1] <= 0 && gH[i0 + gw] <= 0 && gH[i0 + gw + 1] <= 0 && gB[i0] <= 0 && gB[i0 + 1] <= 0 && gB[i0 + gw] <= 0 && gB[i0 + gw + 1] <= 0) continue;
+      const hn = lerp(gH, x, y), bn = lerp(gB, x, y);
       if (hn <= 0 && bn <= 0) continue;
-      const dz = B4[(py & 3) * 4 + (pxx & 3)];
-      let col = null, a = 0;
-      if (hn > 0) { a = hn * 0.75; col = hn + dz * 0.1 > 0.75 ? heathLt : heath; }
-      else { a = bn * 0.5; col = brack; }
-      if (a < dz * 0.9 + 0.05) continue;
-      const o = (py * PW + pxx) * 4, f = 0.42;
+      // flat tones, a checker of pixels only where one tone gives way to the next
+      const dz = B4[(py & 3) * 4 + (pxx & 3)] - 0.47;
+      let col, f;
+      if (hn > 0) {
+        if (hn + dz * 0.2 < 0.22) continue;
+        col = hn + dz * 0.16 > 0.8 ? heathLt : heath; f = 0.36;
+      } else {
+        if (bn + dz * 0.2 < 0.3) continue;
+        col = brack; f = 0.3;
+      }
+      const o = (py * PW + pxx) * 4;
       dd[o] += (col[0] - dd[o]) * f; dd[o + 1] += (col[1] - dd[o + 1]) * f; dd[o + 2] += (col[2] - dd[o + 2]) * f;
     }
   }
@@ -1113,7 +1343,7 @@ const driftGround = (ctx, clear) => {
 const ironTurf = (ctx, kit) => {
   const { clear, rng, SW } = kit;
   const seed = REALM.seed | 0;
-  driftGround(ctx, clear);
+  driftGround(ctx);
   const items = [];
   // bedrock slabs, flat in the turf, in loose clusters
   for (let i = 0; i < 40; i++) {
@@ -1130,17 +1360,17 @@ const ironTurf = (ctx, kit) => {
     const x = rng() * SW, y = rng() * H, r = rng(), v = Math.floor(rng() * 12);
     if (!clear(x, y, 5)) continue;
     const { h: hn, b: bn } = drift(x, y);
-    if (hn > 0.15 && r < Math.pow(hn, 1.4) * 0.5) items.push([x, y, hn > 0.8 && r < 0.08 ? "dryheath" : "heath", v, 0.9 + r * 0.4]);
-    else if (bn > 0.15 && r < bn * 0.35) items.push([x, y, "bracken", v, 0.95 + r * 0.35]);
-    else if (r < 0.0012) items.push([x, y, "heath", v, 0.75]);
-    else if (r > 0.95 && nearWater(x, y, 22)) items.push([x, y, "cotton", v % 5, 1]);
+    if (hn > 0.15 && r < Math.pow(hn, 1.4) * 0.5) items.push(hn > 0.8 && r < 0.05 ? [x, y, "dryheath", v, r < 0.02 ? 1 : 0] : [x, y, "heath", v, hn > 0.6 && r < 0.2 ? 2 : r < 0.25 ? 1 : 0]);
+    else if (bn > 0.15 && r < bn * 0.35) items.push([x, y, "bracken", v, r < bn * 0.12 ? 2 : 1]);
+    else if (r < 0.0012) items.push([x, y, "heath", v, 0]);
+    else if (r > 0.95 && nearWater(x, y, 22)) items.push([x, y, "cotton", v % 6, r > 0.985 ? 2 : 1]);
   }
   // moor-grass tussocks, straw-tipped, gathering in the hollows
-  const tusB = mix(REALM.TUFT, REALM.GRASS_DK, 0.3), tusT = mix(REALM.GRASS_LT, "#c8bc88", 0.45);
   for (let i = 0; i < 520; i++) {
     const x = rng() * SW, y = rng() * H;
     if (!clear(x, y, 4) || vnoise(seed + 31, 40, x, y) < 0.45) continue;
-    items.push([x, y, "tuss", i, 0.6 + rng() * 0.5]);
+    const r = rng();
+    items.push([x, y, "tuss", i % 16, r < 0.3 ? 0 : r < 0.8 ? 1 : 2]);
   }
   // the wood's hem: bracken, heather and fallen stone crowding the treeline
   if (FOREST) {
@@ -1151,10 +1381,10 @@ const ironTurf = (ctx, kit) => {
       const y = FOREST.edge === "left" ? u : forestDepthAt(u, 0) + out;
       if (!clear(x, y, 3) && forestDepthAt(x, y) < -6) continue;
       if (nearestOnPath(x, y).d < PATH_HALF + 8 || nearWater(x, y, 4)) continue;
-      const h = hash(i, 83);
-      if (h < 0.25) items.push([x, y, "bracken", Math.floor(hash(i, 84) * 12), 0.8 + hash(i, 85) * 0.4]);
-      else if (h < 0.45) items.push([x, y, h < 0.4 ? "heath" : "dryheath", Math.floor(hash(i, 84) * 12), 0.8 + hash(i, 85) * 0.4]);
-      else items.push([x, y, "tuss", 900 + i, 0.6 + hash(i, 85) * 0.4]);
+      const h = hash(i, 83), sz = hash(i, 85) < 0.3 ? 0 : hash(i, 85) < 0.8 ? 1 : 2;
+      if (h < 0.25) items.push([x, y, "bracken", Math.floor(hash(i, 84) * 12), sz]);
+      else if (h < 0.45) items.push([x, y, h < 0.4 ? "heath" : "dryheath", Math.floor(hash(i, 84) * 12), sz]);
+      else items.push([x, y, "tuss", i % 16, sz]);
     }
     // needle litter on the wood's floor
     for (let i = 0; i < 700; i++) {
@@ -1166,33 +1396,38 @@ const ironTurf = (ctx, kit) => {
     }
   }
   items.sort((a, b) => a[1] - b[1]);
-  for (const [x, y, kind, v, k] of items) {
-    if (kind === "tuss") tuft(ctx, x, y, k, v % 3 ? tusB : REALM.TUFT, v % 2 ? tusT : REALM.GRASS_LT, 5000 + v, { n: 4 + (v % 3) });
-    else stampLow(ctx, kind, v, x, y, k);
-  }
+  for (const [x, y, kind, v, sz] of items) stampLow(ctx, kind, v, x, y, sz);
 };
 
 // ---- the road: dressed flags, kerbs, wheel ruts ------------------------------
 // Written straight into the ground layer's pixels. Every pixel near the road
 // learns how far along it and how far across it lies (a sweep over the road's
 // segments, keeping the nearest), then which stone it belongs to: courses of
-// flags laid across the road, kerb stones at each edge. Each stone takes a
-// tone, a lit lip on its upper-left edges and a dark joint on its lower-right.
+// flags laid across the road — each course set a little askew, some flags
+// long, some split small — and kerb stones at each edge. Each stone takes a
+// tone and a bevel (a lit lip on its upper-left edges, a dark joint on its
+// lower-right, its corners worn round); a few are cracked, sunk or gone to
+// earth; the wheels have worn two grooves (shaded wall up-left, lit wall
+// down-right, like any hollow); moss and grass creep into the joints toward
+// the verges. The kerb shows a face where it faces down-right and the turf
+// laps over it where it faces up-left; the verge beyond is road.js's (a
+// shadow, a strip of gravel, worn turf), painted before this.
 const ironRoad = (ctx, kit) => {
   if (!SEGS.length) return;
-  const rng = kit.rng;
+  const rng = kit.rng, seed = REALM.seed | 0;
   const cv = ctx.canvas, PW = cv.width, PH = cv.height, k = PW / W;
-  const HALF = PATH_HALF, KERB = HALF - 4.5;
+  const HALF = PATH_HALF, KERB = HALF - 4.5, REACH = HALF + 2, KID = 1000000;
   const N = PW * PH;
   const best = new Float32Array(N).fill(1e9), along = new Float32Array(N), across = new Float32Array(N);
+  const segOf = new Int16Array(N);
   const last = SEGS.length - 1;
   SEGS.forEach((s, si) => {
     const vx = s.x2 - s.x1, vy = s.y2 - s.y1, L2 = s.len * s.len;
     const ext = si === 0 ? 70 : 0, extE = si === last ? 40 : 0;
     const ux = vx / s.len, uy = vy / s.len;
     const ax = s.x1 - ux * ext, ay = s.y1 - uy * ext, bx = s.x2 + ux * extE, by = s.y2 + uy * extE;
-    const X0 = Math.max(0, Math.floor((Math.min(ax, bx) - HALF - 2) * k)), X1 = Math.min(PW - 1, Math.ceil((Math.max(ax, bx) + HALF + 2) * k));
-    const Y0 = Math.max(0, Math.floor((Math.min(ay, by) - HALF - 2) * k)), Y1 = Math.min(PH - 1, Math.ceil((Math.max(ay, by) + HALF + 2) * k));
+    const X0 = Math.max(0, Math.floor((Math.min(ax, bx) - REACH) * k)), X1 = Math.min(PW - 1, Math.ceil((Math.max(ax, bx) + REACH) * k));
+    const Y0 = Math.max(0, Math.floor((Math.min(ay, by) - REACH) * k)), Y1 = Math.min(PH - 1, Math.ceil((Math.max(ay, by) + REACH) * k));
     const tlo = si === 0 ? -ext / s.len : 0, thi = si === last ? 1 + extE / s.len : 1;
     for (let py = Y0; py <= Y1; py++) {
       const y = (py + 0.5) / k;
@@ -1201,101 +1436,267 @@ const ironRoad = (ctx, kit) => {
         let t = ((x - s.x1) * vx + (y - s.y1) * vy) / L2;
         t = t < tlo ? tlo : t > thi ? thi : t;
         const qx = s.x1 + vx * t, qy = s.y1 + vy * t;
-        const d = Math.hypot(x - qx, y - qy);
+        const d = Math.sqrt((x - qx) * (x - qx) + (y - qy) * (y - qy));
         const i = py * PW + pxx;
         if (d < best[i]) {
           best[i] = d;
           along[i] = s.start + t * s.len;
           across[i] = ((x - s.x1) * -uy + (y - s.y1) * ux) >= 0 ? d : -d;
+          segOf[i] = si;
         }
       }
     }
   });
-  // the courses: flags laid across the road, their lengths wandering
+  // which way is "out" from the road at a pixel, as a dot with the down-right:
+  // > 0 where the road's edge faces the camera and the sun's far side
+  const turfOut = (i, pxx, py) => {
+    const d = best[i];
+    if (d < 0.01) return -1;
+    const s = SEGS[segOf[i]];
+    let t = (along[i] - s.start) / s.len;
+    const lo = segOf[i] === 0 ? -1e9 : 0, hi = segOf[i] === last ? 1e9 : 1;
+    t = t < lo ? lo : t > hi ? hi : t;
+    const qx = s.x1 + (s.x2 - s.x1) * t, qy = s.y1 + (s.y2 - s.y1) * t;
+    const f = (HALF + 9) / d, X = Math.round((qx + ((pxx + 0.5) / k - qx) * f) * k - 0.5), Y = Math.round((qy + ((py + 0.5) / k - qy) * f) * k - 0.5);
+    return X < 0 || Y < 0 || X >= PW || Y >= PH ? -1 : (Y * PW + X) * 4;
+  };
+  const outDot = (i, pxx, py) => {
+    const s = SEGS[segOf[i]], d = best[i];
+    if (d < 0.01) return 0;
+    let t = (along[i] - s.start) / s.len;
+    const lo = segOf[i] === 0 ? -1e9 : 0, hi = segOf[i] === last ? 1e9 : 1;
+    t = t < lo ? lo : t > hi ? hi : t;
+    const qx = s.x1 + (s.x2 - s.x1) * t, qy = s.y1 + (s.y2 - s.y1) * t;
+    return (((pxx + 0.5) / k - qx) * 0.6 + ((py + 0.5) / k - qy) * 0.8) / d;
+  };
+  // the courses: flags laid across the road, each course a little askew
   const U0 = -80, U1 = TOTAL_LEN + 60;
-  const cStart = [], cBreaks = [];
+  const cStart = [], cSkew = [], cBreaks = [];
   for (let u = U0; u < U1;) {
-    const len = 6 + rng() * 4.5;
     cStart.push(u);
+    cSkew.push((rng() - 0.5) * 0.08);
     const br = [];
-    for (let v = -KERB + (rng() - 0.5) * 6; v < KERB; v += 7 + rng() * 6) br.push(v);
-    br.push(KERB);
+    for (let v = -KERB + 3 + rng() * 7; v < KERB - 3; v += 5 + rng() * 9) br.push(v);
+    br.push(1e9);
     cBreaks.push(br);
-    u += len;
+    u += 5 + rng() * 6.5;
   }
+  cStart.push(1e9); cSkew.push(0);
   const cIdx = new Int32Array(Math.ceil(U1 - U0) + 2);
   for (let c = 0, u = 0; u < cIdx.length; u++) { while (c + 1 < cStart.length && cStart[c + 1] <= u + U0) c++; cIdx[u] = c; }
   // the kerb stones, longer, on each side
   const kStart = [];
-  for (let u = U0; u < U1; u += 9 + rng() * 6) kStart.push(u);
+  for (let u = U0; u < U1; u += 9 + rng() * 7) kStart.push(u);
   const kIdx = new Int32Array(Math.ceil(U1 - U0) + 2);
   for (let c = 0, u = 0; u < kIdx.length; u++) { while (c + 1 < kStart.length && kStart[c + 1] <= u + U0) c++; kIdx[u] = c; }
-  const courseOf = (u) => { const f = Math.max(0, Math.min(cIdx.length - 1, Math.floor(u - U0))); let c = cIdx[f]; while (c + 1 < cStart.length && cStart[c + 1] <= u) c++; return c; };
+  const courseOf = (u, v) => {
+    let c = cIdx[Math.max(0, Math.min(cIdx.length - 1, Math.floor(u - U0)))];
+    while (c + 1 < cStart.length && cStart[c + 1] + cSkew[c + 1] * v <= u) c++;
+    while (c > 0 && cStart[c] + cSkew[c] * v > u) c--;
+    return c;
+  };
   const kerbOf = (u) => { const f = Math.max(0, Math.min(kIdx.length - 1, Math.floor(u - U0))); let c = kIdx[f]; while (c + 1 < kStart.length && kStart[c + 1] <= u) c++; return c; };
-  const id = new Int32Array(N).fill(-1);
-  for (let i = 0; i < N; i++) {
-    const d = best[i];
-    if (d > HALF - 0.4) continue;
-    const u = along[i], v = across[i];
-    if (Math.abs(v) >= KERB) { id[i] = 1000000 + (v > 0 ? 500000 : 0) + kerbOf(u); continue; }
-    // a few courses run on unbroken from the one before, so the grid never ticks too evenly
-    const c0 = courseOf(u), c = c0 > 0 && hash(c0, 41) < 0.3 ? c0 - 1 : c0, br = cBreaks[c];
-    let j = 0;
-    while (j < br.length - 1 && br[j] <= v) j++;
-    id[i] = c * 32 + j;
+  const merged = (c) => c > 0 && hash(c + seed, 41) < 0.2;       // this course runs on from the one before
+  // At a bend the flags stay square to the road: each arm's courses run on
+  // into the bend and the two meet in a mitre from the inner corner to the
+  // outer (the kerb alone follows the curve). The path is straight, then 7
+  // short segments of curve, then straight again (path.js buildSmooth).
+  const bends = [];
+  if (SEGS.length === PTS.length - 1 && (SEGS.length - 1) % 8 === 0) {
+    for (let m = 0; m * 8 + 8 < SEGS.length; m++) {
+      const a = SEGS[m * 8], b = SEGS[m * 8 + 8];
+      const d1x = (a.x2 - a.x1) / a.len, d1y = (a.y2 - a.y1) / a.len, d2x = (b.x2 - b.x1) / b.len, d2y = (b.y2 - b.y1) / b.len;
+      const cr = d1x * d2y - d1y * d2x;
+      if (Math.abs(cr) < 1e-3) { bends.push(null); continue; }
+      const t = ((b.x1 - a.x2) * d2y - (b.y1 - a.y2) * d2x) / cr;
+      bends.push({ a, b, d1x, d1y, d2x, d2y, cx: a.x2 + d1x * t, cy: a.y2 + d1y * t });
+    }
   }
-  const R = REALM;
-  const main = R.PATH_MAIN, dk = R.PATH_DK;
-  const tones = [mix(main, "#fff3d2", 0.05), main, mix(main, dk, 0.14), mix(main, "#8e9698", 0.12), mix(main, "#b09a74", 0.12)].map(hexRGB);
-  const kerbT = [mix(main, "#d0ccc0", 0.3), mix(main, "#b8b4aa", 0.2), mix(main, dk, 0.1)].map(hexRGB);
-  const earth = hexRGB(mix(main, "#5e4c3c", 0.38)), moss = hexRGB("#62704a");
-  const img = ctx.getImageData(0, 0, PW, PH), dd = img.data;
-  const at = (i) => (i >= 0 && i < N ? id[i] : -1);
+  const id = new Int32Array(N).fill(-1);
+  const list = new Int32Array(N);      // the road's pixels, in order
+  let nl = 0;
   for (let py = 0; py < PH; py++) {
     for (let pxx = 0; pxx < PW; pxx++) {
-      const i = py * PW + pxx, s = id[i];
-      if (s < 0) continue;
-      const v = across[i], av = Math.abs(v);
-      const kerb = s >= 1000000;
-      const h1 = hash(s, 7), h2 = hash(s, 13);
-      let col;
-      if (kerb) col = kerbT[Math.floor(h1 * 3)];
-      else if (h2 < 0.012 && av < KERB - 3) col = earth;          // a flag gone, earth showing
-      else col = tones[Math.floor(h1 * 5)];
-      let r = col[0], g = col[1], b = col[2];
-      // wheel ruts: two worn bands, darker and smoothed
-      const rut = !kerb && Math.abs(av - 11.5) < 3.2 ? 1 - Math.abs(av - 11.5) / 3.2 : 0;
-      if (rut > 0) { const f = 0.16 * Math.min(1, rut * 1.6); r -= r * f; g -= g * f; b -= b * f * 0.85; }
-      // the crown down the middle catches a little more light
-      if (!kerb && av < 4) { r += 5; g += 5; b += 4; }
-      // pitting
+      const i = py * PW + pxx;
+      if (best[i] > HALF - 0.4) continue;
+      list[nl++] = i;
+      let u = along[i], v = across[i], arm = 0;
+      if (Math.abs(v) >= KERB) { id[i] = KID + (v > 0 ? 500000 : 0) + kerbOf(u); continue; }
+      const si = segOf[i], B = si % 8 ? bends[si >> 3] : null;
+      if (B) {
+        const x = (pxx + 0.5) / k, y = (py + 0.5) / k;
+        const t1 = (x - B.cx) * B.d1x + (y - B.cy) * B.d1y, t2 = (x - B.cx) * B.d2x + (y - B.cy) * B.d2y;
+        if (t1 < -t2) { u = B.a.start + (x - B.a.x1) * B.d1x + (y - B.a.y1) * B.d1y; v = -(x - B.a.x1) * B.d1y + (y - B.a.y1) * B.d1x; }
+        else { u = B.b.start + (x - B.b.x1) * B.d2x + (y - B.b.y1) * B.d2y; v = -(x - B.b.x1) * B.d2y + (y - B.b.y1) * B.d2x; arm = 32; }
+      }
+      const c0 = courseOf(u, v), c = merged(c0) ? c0 - 1 : c0, br = cBreaks[c];
+      let j = 0;
+      while (br[j] <= v) j++;
+      let s = c * 64 + j;
+      // a few flags split in two: small ones among the big
+      if (hash(s + seed, 43) < 0.16) {
+        const lo = j > 0 ? br[j - 1] : -KERB, hi = Math.min(br[j], KERB);
+        const u0 = cStart[c], u1 = merged(c + 1) ? cStart[Math.min(c + 2, cStart.length - 1)] : cStart[c + 1];
+        if (hi - lo > u1 - u0 ? v > (lo + hi) / 2 : u > (u0 + u1) / 2) s += 16;
+      }
+      id[i] = s + arm;
+    }
+  }
+  // flag by flag: where it lies (its middle, how near the verge) and what has
+  // become of it — 1 gone to earth, 2 sunk, 3 cracked, 4 a darker stone
+  const FN = cStart.length * 64 + 64;
+  const sU = new Float32Array(FN), sV = new Float32Array(FN), sA = new Float32Array(FN), sN = new Uint32Array(FN);
+  for (let q = 0; q < nl; q++) {
+    const i = list[q], s = id[i];
+    if (s >= KID) continue;
+    sU[s] += along[i]; sV[s] += across[i]; sA[s] += Math.abs(across[i]); sN[s]++;
+  }
+  const fKind = new Uint8Array(FN), fTone = new Uint8Array(FN);
+  for (let s = 0; s < FN; s++) {
+    if (!sN[s]) continue;
+    sU[s] /= sN[s]; sV[s] /= sN[s]; sA[s] /= sN[s];
+    const h = hash(s + seed, 13);
+    fKind[s] = h < 0.01 ? 1 : h < 0.036 ? 2 : h < 0.066 ? 3 : h < 0.084 ? 4 : 0;
+    // the crown's flags are worn paler, the verges' darker
+    fTone[s] = Math.max(0, Math.min(4, Math.floor((hash(s + seed, 7) * 0.8 + (sA[s] / KERB) * 0.34 - 0.08) * 5)));
+  }
+  // 5: a kerb stone gone, turf in its place
+  const kindOf = (s) => (s >= KID ? (hash(s + seed, 13) < 0.022 ? 5 : 0) : fKind[s]);
+
+  const R = REALM;
+  const main = R.PATH_MAIN, dk = R.PATH_DK;
+  // flag tones, light to dark
+  const tones = [mix(main, "#fff3d2", 0.07), mix(main, "#b09a74", 0.12), main, mix(main, "#8e9698", 0.14), mix(main, dk, 0.16)].map(hexRGB);
+  const odd = hexRGB(mix(main, dk, 0.32));
+  const kerbT = [mix(main, "#d0ccc0", 0.3), mix(main, "#b8b4aa", 0.22), mix(main, dk, 0.08)].map(hexRGB);
+  const earth = [mix(main, "#5e4c3c", 0.42), mix(main, "#4a3c30", 0.56), mix(main, "#c8c0aa", 0.1)].map(hexRGB);
+  const moss = [mix(R.TUFT, "#3a4430", 0.35), mix(R.TUFT, R.GRASS_DK, 0.4), mix(R.GRASS, R.GRASS_LT, 0.5)].map(hexRGB);
+  const turf = [mix(R.GRASS_DK, R.TUFT, 0.3), mix(R.GRASS_DK, R.GRASS, 0.5), mix(R.GRASS, R.GRASS_LT, 0.35)].map(hexRGB);
+  const img = ctx.getImageData(0, 0, PW, PH), dd = img.data;
+  const at = (i) => (i >= 0 && i < N ? id[i] : -1);
+  // the wheel grooves come and go and wander a little, along the road (a table
+  // per unit of length, so no pixel asks the noise itself)
+  const RUT = 11.5, RW = 2.6, RL = Math.ceil(U1 - U0) + 2;
+  const rutW = new Float32Array(RL), rutC = new Float32Array(RL);
+  for (let q = 0; q < RL; q++) {
+    rutW[q] = RW * Math.max(0, Math.min(1, (vnoise(seed + 41, 70, q + U0, 0) - 0.34) / 0.12));
+    rutC[q] = (vnoise(seed + 43, 80, q + U0, 0) - 0.5) * 2;
+  }
+  const drop = (f, c) => { c[0] -= c[0] * f; c[1] -= c[1] * f; c[2] -= c[2] * f * 0.9; };
+  const lift = (f, c) => { c[0] += (255 - c[0]) * f; c[1] += (243 - c[1]) * f; c[2] += (210 - c[2]) * f * 0.9; };
+  const px = [0, 0, 0];
+  for (let q = 0; q < nl; q++) {
+    {
+      const i = list[q], s = id[i], o = i * 4, py = (i / PW) | 0, pxx = i - py * PW;
+      const d = best[i];
+      const u = along[i], v = across[i], av = Math.abs(v);
+      const kerb = s >= KID, kd = kindOf(s);
       const hp = hash(pxx * 7 + py * 13, 3);
-      if (hp < 0.05) { r -= 7; g -= 7; b -= 6; } else if (hp > 0.98) { r += 6; g += 6; b += 5; }
-      // edges: dark joint on the stone's lower-right, lit lip on its upper-left
       const dn = at(i + PW), rt = pxx < PW - 1 ? at(i + 1) : -1, up = at(i - PW), lf = pxx > 0 ? at(i - 1) : -1;
-      const joint = (dn !== s && dn >= 0) || (rt !== s && rt >= 0);
-      const lip = (up !== s && up >= 0) || (lf !== s && lf >= 0);
-      if (joint) {
-        const f = kerb ? 0.3 : rut > 0.3 ? 0.13 : 0.21;
-        r -= r * f; g -= g * f; b -= b * f * 0.9;
-        if (av > KERB - 8 && hash(s, 29) < 0.35) { r = moss[0]; g = moss[1]; b = moss[2]; }
-      } else if (lip) { const f = kerb ? 0.14 : 0.07; r += (255 - r) * f; g += (243 - g) * f; b += (210 - b) * f * 0.9; }
-      // the road's outer edge: the kerb's last pixel darkens into the verge
-      if (best[i] > HALF - 1.2) { r *= 0.62; g *= 0.62; b *= 0.62; }
-      const o = i * 4;
-      dd[o] = r < 0 ? 0 : r > 255 ? 255 : r; dd[o + 1] = g < 0 ? 0 : g > 255 ? 255 : g; dd[o + 2] = b < 0 ? 0 : b > 255 ? 255 : b; dd[o + 3] = 255;
+      const eDn = dn !== s && dn >= 0, eRt = rt !== s && rt >= 0, eUp = up !== s && up >= 0, eLf = lf !== s && lf >= 0;
+      const joint = eDn || eRt, lip = eUp || eLf;
+      const corner = (eUp || eDn) && (eLf || eRt);
+      // how near the verge: 0 in the road's middle, 1 at the kerb
+      const edge = kerb ? 1 : Math.max(0, Math.min(1, (av - (KERB - 12)) / 12));
+      const mossy = hash(Math.floor(u / 2.2) * 31 + (v > 0 ? 7 : 0), Math.floor(av / 2.2) + seed) < edge * 0.75;
+      if (kd === 1) {
+        // ---- a flag gone: bare earth, shaded under the stones' edges, a pebble or two
+        const c = earth[lip ? 1 : hp > 0.975 ? 2 : hp < 0.08 ? 1 : 0];
+        px[0] = c[0]; px[1] = c[1]; px[2] = c[2];
+        if (!lip && (eDn || eRt) && mossy) { const m = moss[1]; px[0] = m[0]; px[1] = m[1]; px[2] = m[2]; }
+      } else if (kd === 5) {
+        // ---- a kerb stone gone: the turf has it
+        const t = turfOut(i, pxx, py), m = turf[hp < 0.3 ? 2 : 1];
+        if (t >= 0) { px[0] = dd[t]; px[1] = dd[t + 1]; px[2] = dd[t + 2]; } else { px[0] = m[0]; px[1] = m[1]; px[2] = m[2]; }
+        if (lip || joint) drop(0.18, px); else if (hp < 0.12) lift(0.08, px);
+      } else {
+        let c;
+        if (kerb) c = kerbT[Math.floor(hash(s + seed, 7) * 3)];
+        else if (kd === 4) c = odd;
+        else c = tones[fTone[s]];
+        px[0] = c[0]; px[1] = c[1]; px[2] = c[2];
+        // wheel grooves: flat and darker, the wall on their upper-left side in
+        // shade, the one on the lower-right lit, the joints in them worn shallow
+        const ru = Math.max(0, Math.min(RL - 1, Math.round(u - U0)));
+        const rw = kerb ? 0 : rutW[ru];
+        const re = av - RUT - rutC[ru] * (v > 0 ? 1 : -1), rut = rw > 0.8 && Math.abs(re) < rw;
+        if (rut) {
+          drop(0.06, px);
+          if (Math.abs(re) > rw - 0.75) {
+            const sd = outDot(i, pxx, py) * (re > 0 ? 1 : -1);
+            if (sd < -0.15) drop(0.08, px); else if (sd > 0.15) lift(0.05, px);
+          }
+        }
+        // pocks and flecks in the stone, fewer where the wheels have polished it
+        if (hp < (rut ? 0.015 : 0.045)) drop(0.06, px); else if (hp > 0.985) lift(0.04, px);
+        if (kd === 2) {
+          // sunk: its own neighbours shade its upper-left edges; its lower-right wall shows
+          drop(0.07, px);
+          if (lip) drop(0.2, px); else if (joint) lift(0.08, px);
+        } else if (corner || joint) {
+          // the joint: a dark line on the stone's lower-right, its corners worn round
+          if ((joint || corner) && mossy && !rut) { const m = moss[corner || hash(i, 5) < 0.6 ? 0 : 1]; px[0] = m[0]; px[1] = m[1]; px[2] = m[2]; }
+          else drop(kerb ? 0.28 : rut ? 0.12 : corner ? 0.26 : 0.22, px);
+        } else if (lip) {
+          if (mossy && !rut && hash(i, 9) < edge * 0.5) { const m = moss[2]; px[0] = m[0]; px[1] = m[1]; px[2] = m[2]; }
+          else lift(kerb ? 0.15 : rut ? 0.05 : 0.1, px);
+        }
+        // a crack across the flag: a dark line, its far wall lit
+        if (kd === 3) {
+          {
+            const a = hash(s + seed, 23) * Math.PI, ca = Math.cos(a), sa = Math.sin(a);
+            const du = u - sU[s], dv = v - sV[s];
+            const ta = du * ca + dv * sa;
+            // straight runs with a kink or two, from one edge to part way across
+            const dc = -du * sa + dv * ca + (Math.floor(ta / 2.5 + hash(s, 29) * 3) % 2 ? 0.3 : -0.3) * (hash(s, 37) < 0.5 ? 1 : 0);
+            const reach = ta > -8 && ta < 1.5 + hash(s, 31) * 5;
+            if (Math.abs(dc) < 0.28 && reach) drop(0.26, px);
+            else if (dc > 0.28 && dc < 0.75 && reach) lift(0.06, px);
+          }
+        }
+        // the kerb's outer edge: where it faces down-right its face shows and
+        // the turf lies in its shadow; where it faces up-left the turf laps it
+        if (kerb && d > HALF - 1.6) {
+          const sd = outDot(i, pxx, py);
+          if (sd > 0.2) { if (d > HALF - 0.9) drop(0.45, px); else drop(0.24, px); }
+          else if (sd < -0.2) {
+            const lap = vnoise(seed + (v > 0 ? 91 : 93), 3, u, 0);
+            if (d > HALF - 0.9 ? lap > 0.52 : lap > 0.72) {
+              const t = turfOut(i, pxx, py);
+              if (t >= 0) { px[0] = dd[t] * 0.94; px[1] = dd[t + 1] * 0.94; px[2] = dd[t + 2] * 0.94; if (hp < 0.2) lift(0.1, px); }
+            }
+            else if (d > HALF - 0.9) drop(0.2, px);
+          } else if (d > HALF - 0.9) drop(0.3, px);
+        }
+      }
+      dd[o] = px[0] < 0 ? 0 : px[0] > 255 ? 255 : px[0]; dd[o + 1] = px[1] < 0 ? 0 : px[1] > 255 ? 255 : px[1]; dd[o + 2] = px[2] < 0 ? 0 : px[2] > 255 ? 255 : px[2]; dd[o + 3] = 255;
     }
   }
   ctx.putImageData(img, 0, 0);
-  // grass in the joints near the kerbs, and a pebble where a flag is gone
-  const base = mix(R.GRASS_DK, R.GRASS, 0.25), tip = lighten(R.GRASS_LT, 0.15);
-  for (let i = 0; i < 90; i++) {
-    const u = rng() * TOTAL_LEN, sideV = (rng() < 0.5 ? -1 : 1) * (KERB - 1 - rng() * 3);
+  // grass in the joints near the kerbs, tufts in the gaps where a flag is
+  // gone, and the verge's grass leaning in over the kerb
+  const onRoad = (u, off) => {
     const sg = SEGS.find((q) => u >= q.start && u <= q.start + q.len) || SEGS[0];
     const t = (u - sg.start) / sg.len, ux = (sg.x2 - sg.x1) / sg.len, uy = (sg.y2 - sg.y1) / sg.len;
-    const x = sg.x1 + (sg.x2 - sg.x1) * t - uy * sideV, y = sg.y1 + (sg.y2 - sg.y1) * t + ux * sideV;
+    return [sg.x1 + (sg.x2 - sg.x1) * t - uy * off, sg.y1 + (sg.y2 - sg.y1) * t + ux * off];
+  };
+  for (let i = 0; i < 70; i++) {
+    const u = rng() * TOTAL_LEN, off = (rng() < 0.5 ? -1 : 1) * (KERB - 1 - rng() * 3);
+    const [x, y] = onRoad(u, off);
     if (x > W - 104 || x < 2) continue;
-    tuft(ctx, x, y, 0.45 + rng() * 0.3, base, tip, 700 + i, { n: 3 });
+    stampLow(ctx, "grass", i % 16, x, y, 0);
+  }
+  for (let s = 0; s < FN; s++) {
+    if (!sN[s] || fKind[s] !== 1) continue;
+    const [x, y] = onRoad(sU[s], sV[s]);
+    if (x > W - 104) continue;
+    stampLow(ctx, "grass", s % 16, x, y + 1, 0);
+  }
+  for (let i = 0; i < 110; i++) {
+    const u = rng() * TOTAL_LEN, off = (rng() < 0.5 ? -1 : 1) * (HALF + 0.5 + rng() * 2);
+    const [x, y] = onRoad(u, off);
+    if (x > W - 104 || x < 2 || nearestOnPath(x, y).d < HALF) continue;
+    stampLow(ctx, "grass", i % 16, x, y, rng() < 0.6 ? 0 : 1);
   }
 };
 

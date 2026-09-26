@@ -1102,128 +1102,401 @@ Object.assign(HOLLOW_ART.box, {
 Object.assign(HOLLOW_ART.dress, { fendead: [3, false], fenwillow: [5, false], fengrave: [6, false], fencairn: [9, false], fenstatue: [13, false], fensnag: [3, false] });
 
 // ---- the ground: moss, pools, sedge, bog-cotton -----------------------
+// All of it is painted straight into the ground layer's ART pixels (the
+// layer is W*RES wide and RES = PX, so one buffer pixel is one art pixel).
+// Every mark is a flat colour, or a step toward the plum dark / cream light
+// from whatever lies under it, so it stays crisp and low-contrast on the
+// turf's tone map and on the causeway alike. The texture gathers into a few
+// wet hollows and sedge drifts with open turf between, so the dead read.
 
-// a standing puddle in the turf: a peat lip, black water with the sky in
-// it, sometimes a lily pad or a tuft of sedge at one end
-const puddle = (c, x, y, rx, ry, seed, lily = false) => {
-  c.fillStyle = rgba(PEAT, 0.6);
-  blobPath(c, x + 0.6, y + 0.6, rx + 1.4, ry + 1.1, seed, 0.2, 9); c.fill();
-  c.fillStyle = "#2c3c38";
-  blobPath(c, x, y, rx, ry, seed + 1, 0.2, 9); c.fill();
-  c.save(); blobPath(c, x, y, rx, ry, seed + 1, 0.2, 9); c.clip();
-  c.fillStyle = rgba("#0a100e", 0.55); c.fillRect(x - rx - 1, y - ry - 1, rx * 2 + 2, 1.2);
-  c.fillStyle = "#4a625c"; c.fillRect(x - rx, ap(y - ry * 0.25), rx * 2, ap(ry * 0.7));
-  c.fillStyle = rgba("#a8c4bc", 0.8); c.fillRect(ap(x - rx * 0.45), ap(y - ry * 0.05), ap(rx * 0.6), 0.5);
-  c.fillStyle = rgba("#a8c0b8", 0.5); c.fillRect(ap(x - rx * 0.1), ap(y + ry * 0.4), ap(rx * 0.3), 0.5);
-  c.restore();
-  if (lily) lilyPad(c, x + rx * 0.35, y + ry * 0.1, Math.min(2.2, rx * 0.35), seed);
+let __last = 0, __lastN = '';
+const __mk = (n) => { const t = performance.now(); if (__lastN && !__lastN.endsWith('_end')) { const S = (globalThis.__fenS ||= {}); S[__lastN] = (S[__lastN] || 0) + t - __last; } __last = t; __lastN = n; };
+const hexC = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const DUSK = hexC("#2a1c2c"), SUNL = hexC("#fff3d2");
+const mixC = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+// three tones of one colour: lit, itself, shaded
+const tone3 = (h, hi = 0.24, lo = 0.3) => { const c = typeof h === "string" ? hexC(h) : h; return [mixC(c, SUNL, hi), c, mixC(c, DUSK, lo)]; };
+const smooth01 = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+// eased value noise in world units, 0..1
+const vnoise = (x, y, cell, seed) => {
+  const fx = x / cell, fy = y / cell, xi = Math.floor(fx), yi = Math.floor(fy);
+  let u = fx - xi, v = fy - yi;
+  u = u * u * (3 - 2 * u); v = v * v * (3 - 2 * v);
+  const h = (a, b) => hash(a * 157 + b * 7919, seed);
+  return (h(xi, yi) * (1 - u) + h(xi + 1, yi) * u) * (1 - v) + (h(xi, yi + 1) * (1 - u) + h(xi + 1, yi + 1) * u) * v;
 };
-// a cushion of sphagnum: small lit knobs in green, ochre and rust
-const MOSS_COLS = ["#5f7a3c", "#6e8440", "#86864a", "#76604a", "#5e4a44", "#4e6a3a"];
-const mossCushion = (c, x, y, r, seed) => {
-  const n = 5 + Math.floor(r * 2.2);
-  const base = MOSS_COLS[Math.floor(hash(seed, 1) * MOSS_COLS.length)];
-  c.fillStyle = rgba(darken(base, 0.45), 0.6);
-  blobPath(c, x + 0.5, y + 0.6, r * 1.05, r * 0.6, seed, 0.25, 9); c.fill();
-  for (let i = 0; i < n; i++) {
-    const a = hash(seed, i + 3) * Math.PI * 2, d = Math.sqrt(hash(seed, i + 7)) * r;
-    const col = hash(seed, i + 11) < 0.7 ? base : MOSS_COLS[Math.floor(hash(seed, i + 13) * MOSS_COLS.length)];
-    ball(c, x + Math.cos(a) * d, y + Math.sin(a) * d * 0.55, 1.1 + hash(seed, i + 17) * 0.6, 0.8 + hash(seed, i + 19) * 0.4, col, { hi: 0.45, lo: 0.4 });
+
+// A canvas's own pixels, to paint by hand. world (x, y) → pixel P(x), P(y).
+const pixKit = (ctx) => {
+  const cv = ctx.canvas, PW = cv.width, PH = cv.height, k = PW / W;
+  const img = ctx.getImageData(0, 0, PW, PH), d = img.data;
+  const K = {
+    k, PW, PH,
+    P: (v) => Math.round(v * k),
+    get: (i, j) => { const o = (Math.max(0, Math.min(PH - 1, j)) * PW + Math.max(0, Math.min(PW - 1, i))) * 4; return [d[o], d[o + 1], d[o + 2]]; },
+    set(i, j, c, a = 1) {
+      if (i < 0 || j < 0 || i >= PW || j >= PH) return;
+      const o = (j * PW + i) * 4;
+      if (a >= 1) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; return; }
+      d[o] += (c[0] - d[o]) * a; d[o + 1] += (c[1] - d[o + 1]) * a; d[o + 2] += (c[2] - d[o + 2]) * a;
+    },
+    // a step toward the cool dark (t < 0) or the warm light (t > 0)
+    shift(i, j, t) { K.set(i, j, t < 0 ? DUSK : SUNL, t < 0 ? -t : t); },
+    flush: () => ctx.putImageData(img, 0, 0),
+  };
+  return K;
+};
+// a line of pixels, calling fn(i, j, t) once per pixel
+const pixLine = (x0, y0, x1, y1, fn) => {
+  const n = Math.max(1, Math.round(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+  for (let q = 0; q <= n; q++) fn(Math.round(x0 + ((x1 - x0) * q) / n), Math.round(y0 + ((y1 - y0) * q) / n), q / n);
+};
+// An ellipse whose edge wanders, as a pixel mask round its centre: its
+// outline is traced at 48 angles and filled a row at a time. at(i, j) is 1
+// inside, for pixel offsets (i, j) from the centre.
+const blobMask = (RX, RY, seed, wob = 0.18) => {
+  const p1 = hash(seed, 1) * 6.283, p2 = hash(seed, 2) * 6.283, p3 = hash(seed, 3) * 6.283;
+  const a1 = 0.6 + hash(seed, 4) * 0.4, a2 = 0.3 + hash(seed, 5) * 0.5, N = 48, xs = [], ys = [];
+  for (let q = 0; q < N; q++) {
+    const th = (q / N) * Math.PI * 2, r = 1 + (wob * (a1 * Math.sin(2 * th + p1) + a2 * Math.sin(3 * th + p2) + 0.35 * Math.sin(5 * th + p3))) / 1.5;
+    xs.push(Math.cos(th) * RX * r); ys.push(Math.sin(th) * RY * r);
+  }
+  const X = Math.ceil(RX * 1.4) + 1, Y = Math.ceil(RY * 1.4) + 1, w = X * 2 + 1, h = Y * 2 + 1, m = new Uint8Array(w * h);
+  for (let j = -Y; j <= Y; j++) {
+    let lo = Infinity, hi = -Infinity;
+    for (let q = 0; q < N; q++) {
+      const ay = ys[q], by = ys[(q + 1) % N];
+      if ((ay <= j && by > j) || (by <= j && ay > j)) {
+        const x = xs[q] + ((j - ay) / (by - ay)) * (xs[(q + 1) % N] - xs[q]);
+        if (x < lo) lo = x;
+        if (x > hi) hi = x;
+      }
+    }
+    for (let i = Math.max(-X, Math.ceil(lo)); i <= Math.min(X, Math.floor(hi)); i++) m[(j + Y) * w + i + X] = 1;
+  }
+  return { X, Y, at: (i, j) => (i < -X || j < -Y || i > X || j > Y ? 0 : m[(j + Y) * w + i + X]) };
+};
+// a tiny sprite from rows of letters looked up in `map` ("." is empty), its
+// shadow stepped into the ground down-right; `sink` cuts it off at a row, as
+// if the moss had swallowed the rest
+const stampPx = (K, px, py, rows, map, shade = -0.3, sink = 99) => {
+  const h = Math.min(rows.length, sink);
+  const on = (i, j) => j >= 0 && j < h && i >= 0 && i < rows[j].length && rows[j][i] !== ".";
+  if (shade) for (let j = 0; j <= h; j++) for (let i = 0; i <= rows[0].length; i++) if (!on(i, j) && on(i - 1, j - 1)) K.shift(px + i, py + j, shade);
+  for (let j = 0; j < h; j++) for (let i = 0; i < rows[j].length; i++) { const c = map[rows[j][i]]; if (c) K.set(px + i, py + j, c); }
+  if (sink < rows.length) for (let i = 0; i < rows[sink].length; i++) if (rows[sink][i] !== ".") K.shift(px + i, py + sink, -0.28);
+};
+
+// standing water: black, with the drowned moon's sky lying in it
+const PUD = {
+  dk: hexC("#111a18"), body: hexC("#1c2926"), sky: hexC("#2c403d"), lap: hexC("#3e5652"),
+  glint: hexC("#93aca7"), star: hexC("#d4e2dc"),
+};
+// A puddle: wet peat darkening round its upper left, a lit lip where its
+// lower rim catches the sun, the far bank's shadow along its top, the sky
+// below and a glint of it; sometimes a pad or a tuft of sedge at one end.
+const pixPuddle = (K, x, y, rx, ry, seed, o = {}) => {
+  const cx = K.P(x), cy = K.P(y), RX = Math.max(2.2, rx * K.k), RY = Math.max(1.6, ry * K.k);
+  const B = blobMask(RX, RY, seed, o.wob ?? 0.2);
+  const X = B.X + 2, Y = B.Y + 2, w = X * 2 + 1, h = Y * 2 + 1;
+  const M = (i, j) => B.at(i - X, j - Y);
+  for (let j = 0; j < h; j++) {
+    for (let i = 0; i < w; i++) {
+      if (M(i, j)) continue;
+      const n1 = M(i + 1, j) || M(i - 1, j) || M(i, j + 1) || M(i, j - 1);
+      const n2 = n1 || M(i + 1, j + 1) || M(i - 1, j - 1) || M(i + 1, j - 1) || M(i - 1, j + 1) || M(i - 2, j) || M(i, j - 2);
+      if (!n2) continue;
+      const s = ((i - X) / RX) * 0.5 + ((j - Y) / RY) * 0.9;
+      if (n1 && M(i, j - 1) && s > 0.3) K.shift(cx + i - X, cy + j - Y, o.lip ?? 0.2);
+      else if (n1) K.shift(cx + i - X, cy + j - Y, s > 0.3 ? -0.14 : -0.36);
+      else if (s < 0.3) K.shift(cx + i - X, cy + j - Y, -0.14);
+    }
+  }
+  for (let i = 0; i < w; i++) {
+    let top = -1, bot = -1;
+    for (let j = 0; j < h; j++) if (M(i, j)) { if (top < 0) top = j; bot = j; }
+    if (top < 0) continue;
+    const span = bot - top + 1, band = Math.max(1, Math.round(span * 0.26));
+    for (let j = top; j <= bot; j++) {
+      const dt = j - top;
+      const c = dt < band ? PUD.dk : bot - j === 0 && span > 3 ? PUD.lap : j - Y > (hash(seed, i + 30) - 0.7) * 1.2 ? PUD.sky : PUD.body;
+      K.set(cx + i - X, cy + j - Y, c);
+    }
+  }
+  // the sky's glint: a short pale streak, and a shorter one further out
+  const gy = cy + Math.max(0, Math.round(RY * 0.2)), gx = cx - Math.round(RX * 0.5), gl = Math.max(2, Math.round(RX * 0.5));
+  for (let q = 0; q < gl; q++) if (M(gx + q - cx + X, gy - cy + Y) && M(gx + q - cx + X, gy - cy + Y - 1)) K.set(gx + q, gy, q === 0 && RX > 7 ? PUD.star : PUD.glint);
+  if (RX > 6) {
+    const g2 = cx + Math.round(RX * 0.2), l2 = Math.max(1, Math.round(RX * 0.18));
+    for (let q = 0; q < l2; q++) if (M(g2 + q - cx + X, gy + 2 - cy + Y)) K.set(g2 + q, gy + 2, PUD.lap);
+  }
+  if (o.pad) padPx((i, j, c) => K.set(i, j, c, c[3] == null ? 1 : c[3] / 255), cx + Math.round(RX * 0.35), cy + 1, Math.min(2.2, rx * 0.34), seed, K.k);
+};
+
+// A cushion of sphagnum: a low dome of knobs, lit up-left, its shadow
+// stepped in down-right. Mostly green; now and then ochre or rust.
+const MOSS_T = ["#58703a", "#617840", "#6e7642", "#6c5a40", "#5c4840", "#4c6236"].map((h) => tone3(h, 0.22, 0.32));
+const pixMoss = (K, x, y, r, seed) => {
+  const cx = K.P(x), cy = K.P(y), RX = Math.max(1.5, r * K.k * 1.05), RY = Math.max(1.2, r * K.k * 0.62);
+  const T = MOSS_T[hash(seed, 1) < 0.72 ? Math.floor(hash(seed, 2) * 3) : 3 + Math.floor(hash(seed, 3) * 3)];
+  const X = Math.ceil(RX) + 1, Y = Math.ceil(RY) + 1;
+  const inside = (i, j) => { const u = i / RX, v = j / RY, q = u * u + v * v; return q <= 1 && !(q > 0.66 && hash(seed * 31 + i, j + 50) < 0.42); };
+  for (let j = -Y; j <= Y + 1; j++) for (let i = -X; i <= X + 1; i++) if (!inside(i, j) && inside(i - 1, j - 1)) K.shift(cx + i, cy + j, -0.28);
+  // the dome: lit up-left, falling into shade down-right
+  for (let j = -Y; j <= Y; j++) {
+    for (let i = -X; i <= X; i++) {
+      if (!inside(i, j)) continue;
+      const u = i / RX, v = j / RY, lit = -(u * 0.55 + v * 0.85);
+      K.set(cx + i, cy + j, T[lit > 0.45 ? 0 : lit > -0.4 ? 1 : 2]);
+    }
+  }
+  // and its knobs: a lit pixel each with its own shade under it, in
+  // staggered rows — the bobbly head of the sphagnum
+  const ph = Math.floor(hash(seed, 4) * 3);
+  for (let j = -Y; j <= Y; j += 2) {
+    for (let i = -X + ((j >> 1) & 1 ? 1 : 0) + ph; i <= X; i += 3) {
+      if (!inside(i, j) || hash(seed + i, j + 7) < 0.25) continue;
+      const u = i / RX, v = j / RY, lit = -(u * 0.55 + v * 0.85);
+      K.set(cx + i, cy + j, lit > -0.5 ? T[0] : T[1]);
+      if (inside(i + 1, j + 1)) K.set(cx + i + 1, cy + j + 1, T[2]);
+    }
   }
 };
-// bog-cotton: pale seed-heads nodding on thin stalks, the fen's flowers
-const cotton = (c, x, y, seed, s = 1) => {
-  const n = 2 + Math.floor(hash(seed, 1) * 3);
-  for (let i = 0; i < n; i++) {
-    const bx = x + (i - n / 2) * 1.6 * s, hh = (5 + hash(seed, i + 2) * 4) * s, lean = (hash(seed, i + 5) - 0.4) * 2;
-    blade(c, bx, y, bx + lean, y - hh, 0.35 * s, "#4e5a38", "#8a8a5a", 0.4);
-    ball(c, bx + lean, y - hh - 0.6, 1.2 * s, 1 * s, "#efe9dc", { hi: 0.2, lo: 0.35 });
+
+// sedge: fans of single-pixel blades, dark at the root, straw at the tip;
+// the sun-side blades carry the light, the far ones stay dark
+const SEDGE = [hexC("#30382a"), hexC("#525c36"), hexC("#7c7e48"), hexC("#a49c62")];
+const SEDGE_PALE = [hexC("#30382a"), hexC("#5a6238"), hexC("#908a56"), hexC("#bcae76")];
+const pixSedge = (K, x, y, s, seed, n = 5, cols = SEDGE) => {
+  const bx = K.P(x), by = K.P(y);
+  const half = Math.round(n * 0.45 * s) + 1;
+  for (let i = -half; i <= half + 2; i++) K.shift(bx + i, by + 1, -0.2);
+  const far = [cols[0], cols[0], cols[1], cols[2]];
+  for (let b = n - 1; b >= 0; b--) {
+    const side = n > 1 ? b / (n - 1) : 0.5, h1 = hash(seed, b + 2), h2 = hash(seed, b + 40);
+    const lean = (side - 0.5) * 2.6 + (h1 - 0.5) * 0.8 + 0.3;
+    const mid = 1 - Math.abs(side - 0.5) * 1.2;
+    const len = Math.max(3, Math.round((6 + h2 * 6 + mid * 6) * s));
+    const ox = Math.round((b - (n - 1) / 2) * 0.8 * s);
+    const c = side <= 0.5 ? cols : far;
+    for (let q = 0; q < len; q++) {
+      const f = q / (len - 1);
+      K.set(bx + ox + Math.round(lean * (0.3 * f + 0.7 * f * f) * len * 0.42), by - q, c[f < 0.2 ? 0 : f < 0.5 ? 1 : f < 0.86 ? 2 : 3]);
+    }
   }
-  shadow(c, x + 1, y + 0.8, 3 * s, 1 * s, 0.2);
 };
-// a lone bulrush: a stalk and a velvet head (flat, in the turf layer)
-const bulrush = (c, x, y, s, seed) => {
-  const hh = (11 + hash(seed, 1) * 6) * s, lean = (hash(seed, 2) - 0.5) * 2;
-  blade(c, x, y, x + lean, y - hh - 3 * s, 0.5 * s, "#4e5a38", "#8a8452", 0.5);
-  c.fillStyle = "#241a26"; roundRect(c, x + lean * 0.85 - 1.5 * s, y - hh - 3.2 * s, 3 * s, 6.6 * s, 1.4 * s); c.fill();
-  roundRect(c, x + lean * 0.85 - 1 * s, y - hh - 2.8 * s, 2 * s, 5.8 * s, 1 * s);
-  c.fillStyle = lin(c, x + lean - 1, 0, x + lean + 1, 0, [[0, "#8a6040"], [0.5, "#5e4030"], [1, "#3e2a20"]]); c.fill();
+// bog-cotton: white seed-heads nodding on thin stalks, the fen's flowers
+const COT = [hexC("#f8f2e4"), hexC("#ddd6c4"), hexC("#a49e8e")];
+const pixCotton = (K, x, y, seed, s = 1) => {
+  const bx = K.P(x), by = K.P(y), n = 1 + Math.floor(hash(seed, 1) * 3);
+  for (let q = 0; q < n; q++) {
+    const hx = bx + Math.round((q - (n - 1) / 2) * 3 * s) + (hash(seed, q + 5) < 0.5 ? 0 : 1);
+    const hh = Math.round((7 + hash(seed, q + 2) * 7) * s), lean = hash(seed, q + 8) < 0.45 ? 0 : 1;
+    K.shift(hx + 1, by + 1, -0.22); K.shift(hx + 2, by + 1, -0.14);
+    for (let k = 0; k < hh; k++) K.set(hx + (k > hh * 0.6 ? lean : 0), by - k, k < hh * 0.4 ? SEDGE[1] : SEDGE[2]);
+    const tx = hx + lean, ty = by - hh - 1;
+    K.set(tx, ty, COT[0]); K.set(tx + 1, ty, COT[1]); K.set(tx, ty + 1, COT[1]); K.set(tx + 1, ty + 1, COT[2]);
+    if (hash(seed, q + 11) < 0.5) K.set(tx, ty - 1, COT[1]);
+  }
 };
-// a fallen pale branch, forked
-const stick = (c, x, y, len, ang, seed) => {
-  const x1 = x + Math.cos(ang) * len, y1 = y + Math.sin(ang) * len * 0.5;
-  c.strokeStyle = rgba(PEAT, 0.6); c.lineWidth = 1.4; c.lineCap = "round";
-  c.beginPath(); c.moveTo(x + 0.5, y + 0.7); c.lineTo(x1 + 0.5, y1 + 0.7); c.stroke();
-  c.strokeStyle = "#8e8878"; c.lineWidth = 1;
-  c.beginPath(); c.moveTo(x, y); c.lineTo(x1, y1); c.stroke();
-  const mx = x + (x1 - x) * 0.6, my = y + (y1 - y) * 0.6, a2 = ang + (hash(seed, 1) < 0.5 ? 0.6 : -0.6);
-  c.lineWidth = 0.6;
-  c.beginPath(); c.moveTo(mx, my); c.lineTo(mx + Math.cos(a2) * len * 0.35, my + Math.sin(a2) * len * 0.18); c.stroke();
-  c.fillStyle = "#b4ae9c"; c.fillRect(ap(x), ap(y - 0.5), 1, 0.5);
+// a lone bulrush: a stalk, two leaves, a velvet head lit on its sun side
+const RUSH = [hexC("#9a7050"), hexC("#6a4830"), hexC("#402c1e")];
+const pixBulrush = (K, x, y, s, seed) => {
+  const bx = K.P(x), by = K.P(y), hh = Math.round((22 + hash(seed, 1) * 12) * s), lean = hash(seed, 2) < 0.5 ? 0 : 1;
+  for (let i = -1; i <= 3; i++) K.shift(bx + i, by + 1, -0.2);
+  for (let q = 0; q < hh; q++) K.set(bx + (q > hh * 0.55 ? lean : 0), by - q, q < hh * 0.3 ? SEDGE[1] : SEDGE[2]);
+  for (const [dx, l] of [[-1, 0.45], [1, 0.3]]) {
+    const len = Math.round(hh * l);
+    for (let q = 0; q < len; q++) K.set(bx + Math.round(dx * (q / len) ** 2 * 3), by - q, q > len * 0.7 ? SEDGE[3] : SEDGE[1]);
+  }
+  const hx = bx + lean, hy = by - hh + 3;
+  for (let q = 0; q < 6; q++) { K.set(hx, hy + q, q < 2 ? RUSH[0] : RUSH[1]); K.set(hx + 1, hy + q, RUSH[2]); }
+  K.set(hx, hy - 1, SEDGE[3]); K.set(hx, hy - 2, SEDGE[2]);
+};
+// a fallen pale branch, forked; now and then foxfire on the rot
+const WOOD = [hexC("#c2bca6"), hexC("#98927e"), hexC("#6a6656")];
+const TEAL_C = hexC(TEAL);
+const pixStick = (K, x, y, len, ang, seed) => {
+  const k = K.k, x0 = x * k, y0 = y * k, x1 = (x + Math.cos(ang) * len) * k, y1 = (y + Math.sin(ang) * len * 0.5) * k;
+  const steep = Math.abs(y1 - y0) > Math.abs(x1 - x0);
+  const fx = x0 + (x1 - x0) * 0.6, fy = y0 + (y1 - y0) * 0.6, a2 = ang + (hash(seed, 1) < 0.5 ? 0.7 : -0.7);
+  const pts = [];
+  pixLine(x0, y0, x1, y1, (i, j, t) => pts.push([i, j, t, 0]));
+  pixLine(fx, fy, fx + Math.cos(a2) * len * 0.35 * k, fy + Math.sin(a2) * len * 0.18 * k, (i, j, t) => pts.push([i, j, t, 1]));
+  const on = new Set();
+  for (const [i, j, , br] of pts) { on.add(i * 8192 + j); if (!br) on.add(steep ? (i + 1) * 8192 + j : i * 8192 + j + 1); }
+  for (const key of on) { const i = Math.floor(key / 8192), j = key % 8192; if (!on.has((i + 1) * 8192 + j + 1)) K.shift(i + 1, j + 1, -0.3); }
+  for (const [i, j, t, br] of pts) {
+    if (br) { K.set(i, j, WOOD[1]); continue; }
+    K.set(i, j, t > 0.94 ? WOOD[2] : WOOD[0]);
+    if (steep) K.set(i + 1, j, WOOD[t > 0.94 ? 2 : 1]); else K.set(i, j + 1, WOOD[t > 0.94 ? 2 : 1]);
+  }
+  if (hash(seed, 9) < 0.2) { const [i, j] = pts[Math.floor(pts.length * 0.3)]; K.set(i, j, TEAL_C); K.set(i + 2, j + (steep ? 2 : 0), mixC(TEAL_C, WOOD[1], 0.5)); }
+};
+// the bones of the drowned
+const BONES = { L: hexC("#f0e9d6"), B: hexC("#d0c8b2"), S: hexC("#968d78"), K: hexC("#2b2430"), N: hexC("#5a4e4a"), T: hexC("#b4ac96") };
+const SKULL = ["..LLB..", ".LLBBB.", "LBBBBBS", "BKKBKKS", ".BBNBS.", "..STS.."];
+const pixSkull = (K, x, y, seed) => stampPx(K, K.P(x) - 3, K.P(y) - 4, SKULL, BONES, -0.3, hash(seed, 7) < 0.3 ? 4 : 99);
+const pixBone = (K, x0, y0, x1, y1) => {
+  const a = [K.P(x0), K.P(y0)], b = [K.P(x1), K.P(y1)];
+  pixLine(a[0] + 1, a[1] + 2, b[0] + 1, b[1] + 2, (i, j) => K.shift(i, j, -0.28));
+  pixLine(a[0], a[1], b[0], b[1], (i, j, t) => { K.set(i, j, t < 0.45 ? BONES.L : BONES.B); K.set(i, j + 1, BONES.S); });
+  for (const [e, s] of [[a, -1], [b, 1]]) {
+    const [i, j] = e;
+    K.set(i + s, j - 1, s < 0 ? BONES.L : BONES.B); K.set(i + s, j, s < 0 ? BONES.L : BONES.B); K.set(i + s, j + 1, BONES.B); K.set(i + s, j + 2, BONES.S);
+    K.set(i, j - 1, BONES.B); K.set(i, j + 2, BONES.S); K.shift(i + s + 1, j + 3, -0.25);
+  }
+};
+// a rusted helm trodden into the verge
+const HELM = [".hHHM..", "hHMMMD.", "HMMRMDd", "MMMMDDd", ".rrrrr."];
+const HELM_C = { h: hexC("#a29282"), H: hexC("#86786a"), M: hexC("#66584c"), D: hexC("#483e36"), d: hexC("#302a26"), R: hexC("#8e5c38"), r: hexC("#3a302a") };
+// a flat stone sunk in the turf, moss on its crown
+const pixStone = (K, x, y, rx, ry, col, seed) => {
+  const cx = K.P(x), cy = K.P(y), RX = Math.max(1.5, rx * K.k), RY = Math.max(1, ry * K.k), T = tone3(col, 0.26, 0.34);
+  const B = blobMask(RX, RY, seed, 0.14), inside = B.at;
+  for (let j = -Math.ceil(RY) - 1; j <= Math.ceil(RY) + 1; j++) {
+    for (let i = -Math.ceil(RX) - 1; i <= Math.ceil(RX) + 1; i++) {
+      if (!inside(i, j)) { if (inside(i - 1, j - 1)) K.shift(cx + i, cy + j, -0.3); continue; }
+      const lit = !inside(i, j - 1) || !inside(i - 1, j) ? 0 : !inside(i, j + 1) || !inside(i + 1, j) ? 2 : 1;
+      K.set(cx + i, cy + j, T[lit]);
+    }
+  }
+  const mc = MOSS_T[0];
+  K.set(cx - 1, cy - Math.round(RY) + 1, mc[1]); K.set(cx, cy - Math.round(RY) + 1, mc[0]);
+  if (hash(seed, 4) < 0.5) K.set(cx + 1, cy - Math.round(RY) + 2, mc[1]);
 };
 
 const nearPond = (x, y, m) => PONDS.some((p) => Math.abs(x - p.x) < p.w / 2 + m && Math.abs(y - p.y) < p.h / 2 + m);
+const MIST = hexC("#b4c4bc"), PEAT_C = hexC("#1c221a");
 
 function paintFenTurf(ctx, kit) {
+  __mk('t_start');
   const { clear, SW } = kit;
   const H0 = (i, k) => hash(i + 7919, k);
-  const R = REALM;
+  const R = REALM, K = pixKit(ctx), seed = (R.seed | 0) % 9973;
+  // a blob of ground stepped darker (a hollow, a meadow's wet floor): the
+  // upper-left rim a step deeper, the lower-right lip a step lighter
+  const hollow = (x, y, rx, ry, sd, t, rim = true) => {
+    const cx = K.P(x), cy = K.P(y), B = blobMask(rx * K.k, ry * K.k, sd, 0.22);
+    for (let j = -B.Y; j <= B.Y; j++) {
+      for (let i = -B.X; i <= B.X; i++) {
+        if (!B.at(i, j)) continue;
+        K.set(cx + i, cy + j, PEAT_C, rim && j < 0 && (!B.at(i, j - 1) || !B.at(i - 1, j)) ? t + 0.04 : t);
+        if (rim && j > 0 && !B.at(i, j + 1)) K.shift(cx + i, cy + j + 1, 0.04);
+      }
+    }
+  };
+  __mk('t_wood');
   // the wood's floor: dark peat, fallen pale limbs, moss and black pools,
   // and a low mist lying along the treeline
   if (FOREST) {
     const span = FOREST.edge === "left" ? H : W;
     const inWood = (x, y) => forestDepthAt(x, y) > 2 && nearestOnPath(x, y).d > PATH_HALF + 3 && !nearPond(x, y, 6) && !inRiver(x, y, 6);
+    const items = [];
     for (let i = 0; i < 160; i++) {
       const u = H0(i, 1) * span, d = H0(i, 2) * 150;
       const x = FOREST.edge === "left" ? d : u, y = FOREST.edge === "left" ? u : d;
-      if (!inWood(x, y)) continue;
-      const k = H0(i, 3);
-      if (k < 0.3) mossCushion(ctx, x, y, 2 + H0(i, 4) * 3, i);
-      else if (k < 0.5) stick(ctx, x, y, 5 + H0(i, 5) * 7, H0(i, 6) * Math.PI, i);
-      else if (k < 0.62) puddle(ctx, x, y, 3 + H0(i, 7) * 5, 1.5 + H0(i, 8) * 1.5, i, H0(i, 9) < 0.3);
-      else if (k < 0.85) sedge(ctx, x, y, 0.7 + H0(i, 10) * 0.4, i, 5);
-      else { ctx.fillStyle = rgba("#1a1e18", 0.35); blobPath(ctx, x, y, 6, 2.5, i, 0.25, 8); ctx.fill(); }
+      if (inWood(x, y)) items.push([x, y, i]);
     }
+    items.sort((a, b) => a[1] - b[1]);
+    for (const [x, y, i] of items) {
+      const k = H0(i, 3);
+      if (k < 0.3) pixMoss(K, x, y, 2 + H0(i, 4) * 2.6, i);
+      else if (k < 0.5) pixStick(K, x, y, 5 + H0(i, 5) * 7, H0(i, 6) * Math.PI, i);
+      else if (k < 0.62) pixPuddle(K, x, y, 3 + H0(i, 7) * 5, 1.5 + H0(i, 8) * 1.4, i, { pad: H0(i, 9) < 0.3 });
+      else if (k < 0.85) pixSedge(K, x, y, 0.7 + H0(i, 10) * 0.4, i, 5);
+      else hollow(x, y, 6, 2.5, i, 0.22, false);
+    }
+  __mk('t_mist');
+    // the mist: two flat steps of pale, in long banks along the trees
     for (let u = 0; u < span; u += 18) {
       const b = FOREST.edge === "left" ? forestDepthAt(0, u) : forestDepthAt(u, 0);
       const x = FOREST.edge === "left" ? b - 6 + H0(u, 11) * 10 : u + H0(u, 12) * 8;
       const y = FOREST.edge === "left" ? u + H0(u, 13) * 8 : b - 6 + H0(u, 11) * 10;
-      soft(ctx, x, y, 22 + H0(u, 14) * 14, 6 + H0(u, 15) * 4, [[0, rgba("#b4c4bc", 0.1)], [1, rgba("#b4c4bc", 0)]]);
+      const rx = (22 + H0(u, 14) * 14) * K.k, ry = (6 + H0(u, 15) * 4) * K.k, cx = K.P(x), cy = K.P(y);
+      const B = blobMask(rx, ry, u + 5, 0.25), Bi = blobMask(rx * 0.55, ry * 0.55, u + 5, 0.25);
+      for (let j = -B.Y; j <= B.Y; j++) for (let i = -B.X; i <= B.X; i++) if (B.at(i, j)) K.set(cx + i, cy + j, MIST, Bi.at(i, j) ? 0.07 : 0.04);
     }
   }
-  // peat hollows: the ground sinks darker in long soft patches
-  for (let i = 0; i < 26; i++) {
-    const x = H0(i, 20) * SW, y = H0(i, 21) * H;
-    if (!clear(x, y, 6)) continue;
-    ctx.fillStyle = rgba("#1e241c", 0.16);
-    blobPath(ctx, x, y, 14 + H0(i, 22) * 16, 5 + H0(i, 23) * 5, i + 400, 0.28, 10); ctx.fill();
+  __mk('t_hollows');
+  // wet hollows: the ground sinks darker round a few black pools, moss
+  // crowding their rims and sedge at their ends — the fen's texture,
+  // gathered, with open turf between
+  const hollows = [];
+  for (let i = 0; i < 40 && hollows.length < (R.fenHollows ?? 9); i++) {
+    const x = 30 + H0(i, 20) * (SW - 60), y = 24 + H0(i, 21) * (H - 48);
+    const rx = 14 + H0(i, 22) * 12, ry = 6 + H0(i, 23) * 5;
+    if (!clear(x, y, ry + 6) || !clear(x - rx, y, 4) || !clear(x + rx, y, 4) || x > W - WALL_W - 24) continue;
+    if (hollows.some(([hx, hy]) => Math.hypot(hx - x, (hy - y) * 1.6) < 70)) continue;
+    hollows.push([x, y, rx, ry, i]);
   }
-  // sphagnum cushions, in colonies
-  for (let i = 0; i < 46; i++) {
-    const cx = H0(i, 30) * SW, cy = H0(i, 31) * H, n = 1 + Math.floor(H0(i, 32) * 4);
-    for (let k = 0; k < n; k++) {
-      const x = cx + (H0(i * 5 + k, 33) - 0.5) * 22, y = cy + (H0(i * 5 + k, 34) - 0.5) * 10;
-      if (clear(x, y, 4)) mossCushion(ctx, x, y, 1.6 + H0(i * 5 + k, 35) * 2.6, i * 7 + k);
+  for (const [x, y, rx, ry, i] of hollows) hollow(x, y, rx, ry, i + 400, 0.14);
+  const pools = [];
+  for (const [x, y, rx, ry, i] of hollows) {
+    const n = 1 + Math.floor(H0(i, 24) * 2.6);
+    for (let q = 0; q < n; q++) {
+      const px = x + (q - (n - 1) / 2) * rx * 0.62 + (H0(i * 5 + q, 25) - 0.5) * 6, py = y + (H0(i * 5 + q, 26) - 0.5) * ry * 0.7;
+      const prx = (q === 0 ? 5 : 3) + H0(i * 5 + q, 27) * (q === 0 ? 5 : 3), pry = 1.6 + H0(i * 5 + q, 28) * 1.6;
+      if (clear(px, py, prx + 3)) pools.push([px, py, prx, pry, i * 5 + q, q === 0 && prx > 7 && H0(i, 29) < 0.6]);
     }
   }
-  // standing water: small puddles through the turf, some with a lily pad
-  for (let i = 0; i < 30; i++) {
+  // standing water loose in the turf, a few
+  for (let i = 0; i < 12; i++) {
     const x = H0(i, 40) * SW, y = H0(i, 41) * H;
-    const rx = 3 + H0(i, 42) * 7, ry = 1.4 + H0(i, 43) * 2.2;
-    if (!clear(x, y, rx + 6) || x > W - WALL_W - 20) continue;
-    puddle(ctx, x, y, rx, ry, i + 50, rx > 6 && H0(i, 44) < 0.5);
-    if (H0(i, 45) < 0.6) sedge(ctx, x - rx - 0.5, y + 0.5, 0.7, i + 90, 4);
+    const rx = 2.6 + H0(i, 42) * 4, ry = 1.3 + H0(i, 43) * 1.4;
+    if (!clear(x, y, rx + 6) || x > W - WALL_W - 20 || hollows.some(([hx, hy]) => Math.hypot(hx - x, hy - y) < 34)) continue;
+    pools.push([x, y, rx, ry, i + 50, false]);
   }
-  // sedge meadows: wide soft stands of it, where the ground is wettest,
-  // straw-pale at the tips, with the odd bog-cotton head over them
+  for (const [x, y, rx, ry, sd, pad] of pools) pixPuddle(K, x, y, rx, ry, sd, { pad });
+  // round the hollows' rims: cushions of moss, sedge at the ends, cotton
+  const rims = [];
+  for (const [x, y, rx, ry, i] of hollows) {
+    const n = 5 + Math.floor(H0(i, 30) * 5);
+    for (let q = 0; q < n; q++) {
+      const a = H0(i * 11 + q, 31) * Math.PI * 2, d = 0.75 + H0(i * 11 + q, 32) * 0.4;
+      const mx = x + Math.cos(a) * rx * d, my = y + Math.sin(a) * ry * d;
+      if (!clear(mx, my, 3) || pools.some(([px, py, prx, pry]) => ((mx - px) / (prx + 2.5)) ** 2 + ((my - py) / (pry + 2.5)) ** 2 < 1)) continue;
+      const k = H0(i * 11 + q, 33);
+      rims.push([mx, my, k < 0.5 ? "moss" : k < 0.88 ? "sedge" : "cotton", i * 11 + q]);
+    }
+  }
+  __mk('t_colonies');
+  // sphagnum in colonies over the open turf, fewer
+  for (let i = 0; i < 26; i++) {
+    const cx = H0(i, 34) * SW, cy = H0(i, 35) * H, n = 1 + Math.floor(H0(i, 36) * 3);
+    for (let k = 0; k < n; k++) {
+      const x = cx + (H0(i * 5 + k, 37) - 0.5) * 16, y = cy + (H0(i * 5 + k, 38) - 0.5) * 7;
+      if (clear(x, y, 4)) rims.push([x, y, "moss", i * 7 + k + 3000]);
+    }
+  }
+  rims.sort((a, b) => a[1] - b[1]);
+  for (const [x, y, kind, sd] of rims) {
+    if (kind === "moss") pixMoss(K, x, y, 1.6 + hash(sd, 1) * 2.2, sd);
+    else if (kind === "sedge") pixSedge(K, x, y, 0.6 + hash(sd, 2) * 0.35, sd, 4 + Math.floor(hash(sd, 3) * 3));
+    else pixCotton(K, x, y, sd, 0.9);
+  }
+  __mk('t_meadows');
+  // sedge meadows: wide soft stands of it where the ground is wettest,
+  // straw-pale at the tips, the odd bog-cotton head over them
   const reedy = !!R.fenReeds;
   for (let i = 0; i < (R.fenMeadows ?? 11); i++) {
     const cx = 30 + H0(i, 120) * (SW - 60), cy = 20 + H0(i, 121) * (H - 40);
     const rx = 18 + H0(i, 122) * 22, ry = 7 + H0(i, 123) * 7;
     if (!clear(cx, cy, 10)) continue;
-    ctx.fillStyle = rgba("#262e24", 0.22);
-    blobPath(ctx, cx + 2, cy + 2, rx, ry, i + 900, 0.25, 10); ctx.fill();
-    const n = Math.round(rx * ry / 9);
+    // its wet floor, a step darker (only where the turf is open)
+    const fx = K.P(cx + 1), fy = K.P(cy + 1.5), B = blobMask(rx * K.k, ry * K.k * 0.85, i + 900, 0.25);
+    const open = new Map(), openAt = (px, py) => {
+      const key = (px >> 2) * 4096 + (py >> 2);
+      if (!open.has(key)) open.set(key, clear(((px >> 2) * 4 + 2) / K.k, ((py >> 2) * 4 + 2) / K.k, 1));
+      return open.get(key);
+    };
+    for (let j = -B.Y; j <= B.Y; j++) {
+      for (let q = -B.X; q <= B.X; q++) {
+        if (!B.at(q, j) || !openAt(fx + q, fy + j)) continue;
+        K.set(fx + q, fy + j, PEAT_C, 0.1);
+      }
+    }
+    const n = Math.round((rx * ry) / 8);
     const tufts = [];
     for (let k = 0; k < n; k++) {
       const a = H0(i * 61 + k, 124) * Math.PI * 2, d = Math.sqrt(H0(i * 61 + k, 125));
@@ -1233,250 +1506,457 @@ function paintFenTurf(ctx, kit) {
     tufts.sort((p, q) => p[1] - q[1]);
     for (const [x, y, k] of tufts) {
       const edge = 1 - Math.hypot((x - cx) / rx, (y - cy) / ry);
-      sedge(ctx, x, y, 0.6 + edge * 0.6 + H0(k, 126) * 0.2, i * 97 + k, 4, H0(k, 127) < 0.5 ? "#6a6c42" : "#5c6640", H0(k, 128) < 0.3 ? "#b4aa70" : "#9a9460");
-      if (H0(k, 129) < 0.06) cotton(ctx, x + 1, y, i * 13 + k, 0.8);
-      else if (reedy && H0(k, 130) < 0.12) bulrush(ctx, x, y, 0.8 + H0(k, 131) * 0.4, k);
+      pixSedge(K, x, y, 0.55 + edge * 0.6 + H0(k, 126) * 0.2, i * 97 + k, 4 + Math.floor(H0(k, 132) * 2), H0(k, 128) < 0.3 ? SEDGE_PALE : SEDGE);
+      if (H0(k + i * 3, 129) < 0.05) pixCotton(K, x + 1, y, i * 13 + k, 0.8);
+      else if (reedy && H0(k, 130) < 0.12) pixBulrush(K, x, y, 0.8 + H0(k, 131) * 0.4, k);
     }
   }
-  // sedge in stands, and bog-cotton nodding over it
-  for (let i = 0; i < 110; i++) {
+  __mk('t_lone');
+  // lone sedge, gathered into loose drifts by a slow noise
+  for (let i = 0; i < 140; i++) {
     const x = H0(i, 50) * SW, y = H0(i, 51) * H;
-    if (!clear(x, y, 4)) continue;
-    sedge(ctx, x, y, 0.6 + H0(i, 52) * 0.5, i + 700, 4 + Math.floor(H0(i, 53) * 3), H0(i, 54) < 0.5 ? "#6c6e44" : "#5e6a42");
+    if (vnoise(x, y, 90, seed + 3) < 0.52 || !clear(x, y, 4)) continue;
+    pixSedge(K, x, y, 0.55 + H0(i, 52) * 0.45, i + 700, 3 + Math.floor(H0(i, 53) * 3), H0(i, 54) < 0.25 ? SEDGE_PALE : SEDGE);
   }
-  for (let i = 0; i < 24; i++) {
-    const cx = H0(i, 60) * SW, cy = H0(i, 61) * H, n = 2 + Math.floor(H0(i, 62) * 4);
+  for (let i = 0; i < 14; i++) {
+    const cx = H0(i, 60) * SW, cy = H0(i, 61) * H, n = 2 + Math.floor(H0(i, 62) * 3);
     for (let k = 0; k < n; k++) {
-      const x = cx + (H0(i * 7 + k, 63) - 0.5) * 26, y = cy + (H0(i * 7 + k, 64) - 0.5) * 12;
-      if (clear(x, y, 5)) cotton(ctx, x, y, i * 11 + k, 0.8 + H0(i * 7 + k, 65) * 0.3);
+      const x = cx + (H0(i * 7 + k, 63) - 0.5) * 22, y = cy + (H0(i * 7 + k, 64) - 0.5) * 10;
+      if (clear(x, y, 5)) pixCotton(K, x, y, i * 11 + k, 0.8 + H0(i * 7 + k, 65) * 0.3);
     }
   }
-  // the banks of the meres: moss and sedge crowding the water's edge
+  __mk('t_banks');
+  // the banks of the meres and rivers: moss and sedge crowding the water,
+  // just back from the bank the water itself paints
+  const bank = [];
   for (const p of PONDS) {
     const rx = p.w / 2, ry = p.h / 2, n = Math.round((rx + ry) / 3);
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + H0(i, p.x) * 0.3, j = H0(i, p.y) * 5;
-      const x = p.x + Math.cos(a) * (rx + 8 + j), y = p.y + Math.sin(a) * (ry + 7 + j * 0.6);
-      if (nearestOnPath(x, y).d < PATH_HALF + 3 || x > W - WALL_W - 8) continue;
-      if (H0(i, 70) < 0.45) sedge(ctx, x, y, 0.8 + H0(i, 71) * 0.4, i + p.x, 5, "#62683e");
-      else mossCushion(ctx, x, y, 1.6 + H0(i, 72) * 2, i + p.y);
+      const x = p.x + Math.cos(a) * (rx + 12 + j), y = p.y + Math.sin(a) * (ry + 10 + j * 0.6);
+      if (nearestOnPath(x, y).d < PATH_HALF + 3 || x > W - WALL_W - 8 || inRiver(x, y, 10)) continue;
+      bank.push([x, y, H0(i, 70) < 0.5 ? "sedge" : "moss", i + p.x * 3]);
     }
   }
-  // and the river banks
   for (const rv of RIVERS) {
     let acc = 0;
     for (const sg of rv.segs) {
-      for (let d = 0; d < sg.len; d += 7) {
+      for (let d = 0; d < sg.len; d += 8) {
         const k = (acc + d) | 0, t = d / sg.len;
         const x0 = sg.x1 + (sg.x2 - sg.x1) * t, y0 = sg.y1 + (sg.y2 - sg.y1) * t;
         const nx = -(sg.y2 - sg.y1) / sg.len, ny = (sg.x2 - sg.x1) / sg.len;
         for (const side of [-1, 1]) {
-          if (H0(k, side + 80) < 0.35) continue;
-          const off = rv.w / 2 + 7 + H0(k, side + 83) * 5;
+          if (H0(k, side + 80) < 0.45) continue;
+          const off = rv.w / 2 + 12 + H0(k, side + 83) * 5;
           const x = x0 + nx * off * side, y = y0 + ny * off * side;
-          if (nearestOnPath(x, y).d < PATH_HALF + 4 || x > W - WALL_W - 8 || x < 2 || y < 2 || y > H - 2) continue;
-          if (H0(k, side + 86) < 0.55) sedge(ctx, x, y, 0.75 + H0(k, 87) * 0.4, k + side, 5, "#62683e");
-          else mossCushion(ctx, x, y, 1.5 + H0(k, 88) * 1.8, k * 3 + side);
+          if (nearestOnPath(x, y).d < PATH_HALF + 4 || x > W - WALL_W - 8 || x < 2 || y < 2 || y > H - 2 || inRiver(x, y, 9)) continue;
+          bank.push([x, y, H0(k, side + 86) < 0.6 ? "sedge" : "moss", k * 3 + side]);
         }
       }
       acc += sg.len;
     }
   }
+  bank.sort((a, b) => a[1] - b[1]);
+  for (const [x, y, kind, sd] of bank) {
+    if (kind === "moss") pixMoss(K, x, y, 1.5 + hash(sd, 1) * 1.8, sd);
+    else pixSedge(K, x, y, 0.7 + hash(sd, 2) * 0.4, sd, 5, hash(sd, 3) < 0.3 ? SEDGE_PALE : SEDGE);
+  }
+  __mk('t_bones');
   // the bones of the drowned, and pale sticks, lying in the grass
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 18; i++) {
     const x = H0(i, 90) * SW, y = H0(i, 91) * H;
     if (!clear(x, y, 5)) continue;
     const k = H0(i, 92);
-    if (k < 0.35) { shadow(ctx, x + 0.6, y + 1, 2.6, 1, 0.3); skull(ctx, x, y - 0.4, 1.5 + H0(i, 93) * 0.4); }
-    else if (k < 0.65) longBone(ctx, x - 2.4, y, x + 2.4, y + (H0(i, 94) - 0.5) * 2, 0.9);
-    else stick(ctx, x, y, 6 + H0(i, 95) * 6, H0(i, 96) * Math.PI, i);
+    if (k < 0.35) pixSkull(K, x, y, i);
+    else if (k < 0.62) pixBone(K, x - 2.4, y, x + 2.4, y + (H0(i, 94) - 0.5) * 2);
+    else pixStick(K, x, y, 6 + H0(i, 95) * 6, H0(i, 96) * Math.PI, i);
   }
   // the odd flat stone sunk in the turf
-  for (let i = 0; i < 16; i++) {
+  const stoneCol = mix(STONE, R.GRASS_DK, 0.3);
+  for (let i = 0; i < 12; i++) {
     const x = H0(i, 100) * SW, y = H0(i, 101) * H;
     if (!clear(x, y, 6)) continue;
-    stone(ctx, x, y, 2.4 + H0(i, 102) * 2, 1.2 + H0(i, 103), mix(STONE, R.GRASS_DK, 0.35));
-    ctx.fillStyle = MOSS; px1(ctx, x - 1.5, y - 0.8, 1.5, 0.5);
+    pixStone(K, x, y, 2.4 + H0(i, 102) * 2, 1.2 + H0(i, 103), stoneCol, i);
   }
+  __mk('t_flush');
+  K.flush();
+  __mk('t_end');
 }
 
 // ---- the causeway: sunken flagstones, old planks, bones in the verge ---
+// The old paving is laid in COURSES across the road, each cut into slabs of
+// mixed widths; round a bend the courses fan like a wheel's spokes, so the
+// slabs turn wedge-shaped instead of breaking apart. Stretches of it
+// surface through the bone-dust (most by the bridges, whose approaches were
+// paved), half-buried at their ends; the stones are the fen's drowned
+// grey-green, a lit top edge, a shaded foot, dark joints with moss in them.
+const SLAB = ["#7d7f70", "#858370", "#76796b", "#8a8674", "#72766a"].map(hexC);
+const LICHEN_C = hexC("#a8a66e"), MOSS_J = [hexC("#4c6434"), hexC("#5e783e")];
+const PLANK = { lit: hexC("#8c826c"), a: hexC("#6c6452"), b: hexC("#746a58"), dk: hexC("#4a4236"), grain: hexC("#564e40"), nail: hexC("#2e2826"), rust: hexC("#8a5a36") };
+const MUD = [hexC("#2a2620"), hexC("#342f27"), hexC("#1c2624")];
 
 function paintFenRoad(ctx) {
-  const R = REALM;
-  const main = R.PATH_MAIN;
-  const slab = mix(main, "#a09e90", 0.4), gap = darken(main, 0.3);
-  const H0 = (i, k) => hash(i + 104729, k);
+  __mk('r_start');
+  const R = REALM, K = pixKit(ctx), k = K.k, seed = (R.seed | 0) % 9973;
+  const main = hexC(R.PATH_MAIN);
+  const H0 = (i, q) => hash(i + 104729, q);
   const ok = (x, y, m = 4) => x > m && x < W - WALL_W - 16 && y > m && y < H - m && !inRiver(x, y, 10);
+  const onBridge = (d, m) => BRIDGES.some((b) => d > b.d0 - m && d < b.d1 + m);
+  // the road's frame at d: where it is, and its normal (a tangent smoothed
+  // over a few units, so the courses fan evenly round a bend)
+  const frame = (d) => {
+    const [x, y] = posAt(d), [ax, ay] = posAt(Math.max(0, d - 8)), [bx, by] = posAt(Math.min(TOTAL_LEN, d + 8));
+    const L = Math.hypot(bx - ax, by - ay) || 1;
+    return [x, y, -(by - ay) / L, (bx - ax) / L];
+  };
+  // how wet the road is at a point: by a mere or a river
+  const wetAt = (x, y) => {
+    let w = 0;
+    for (const p of PONDS) w = Math.max(w, 1 - Math.hypot((x - p.x) / (p.w / 2 + 50), (y - p.y) / (p.h / 2 + 50)));
+    if (RIVERS.length && inRiver(x, y, 40)) w = Math.max(w, inRiver(x, y, 20) ? 0.8 : 0.5);
+    return w;
+  };
+  __mk('r_flecks');
   // bone-dust: pale flecks over the whole causeway
   for (let d = 0; d < TOTAL_LEN; d += 1.6) {
-    const [x, y] = posAt(d), a = angleAt(d) + Math.PI / 2;
-    const off = (H0(d * 10 | 0, 1) - 0.5) * PATH_HALF * 1.8;
+    const [x, y] = posAt(d), a = angleAt(d) + Math.PI / 2, hd = (d * 10) | 0;
+    const off = (H0(hd, 1) - 0.5) * PATH_HALF * 1.8;
     const px = x + Math.cos(a) * off, py = y + Math.sin(a) * off;
     if (!ok(px, py)) continue;
-    ctx.fillStyle = rgba(H0(d * 10 | 0, 2) < 0.6 ? "#d8d0bc" : darken(main, 0.25), 0.45);
-    ctx.fillRect(ap(px), ap(py), 0.5 + (H0(d * 10 | 0, 3) < 0.3 ? 0.5 : 0), 0.5);
+    const pale = H0(hd, 2) < 0.6;
+    K.set(K.P(px), K.P(py), pale ? hexC("#d8d0bc") : mixC(main, DUSK, 0.3), 0.5);
+    if (H0(hd, 3) < 0.3) K.set(K.P(px) + 1, K.P(py), pale ? hexC("#d8d0bc") : mixC(main, DUSK, 0.3), 0.4);
   }
-  // sunken flagstones: stretches of the old causeway surfacing through the
-  // dust, the stones worn, tipped and gapped, moss in the joints
-  let d = 30 + H0(1, 4) * 40, run = 0;
-  while (d < TOTAL_LEN - 30) {
-    const len = 36 + H0(run, 5) * 70;
-    const end = Math.min(TOTAL_LEN - 30, d + len);
-    for (let dd = d, row = 0; dd < end; dd += 9.5, row++) {
-      const [x, y] = posAt(dd), a = angleAt(dd);
-      const ca = Math.cos(a), sa = Math.sin(a);
-      // fade in and out at the stretch's ends
-      const edge = Math.min(dd - d, end - dd) / 20;
-      const cols = 4;
-      for (let k = 0; k < cols; k++) {
-        const hh = H0(run * 97 + row * 7 + k, 6);
-        if (hh > Math.min(0.55, 0.15 + edge * 0.4)) continue;
-        const across = (-1.5 + k + (row % 2) * 0.5 - 0.25) * 11.5 + (H0(run + row, k + 7) - 0.5) * 2;
-        if (Math.abs(across) > PATH_HALF - 6) continue;
-        const cx = x - sa * across + (H0(row, k + 20) - 0.5) * 1.5, cy = y + ca * across;
-        if (!ok(cx, cy, 6)) continue;
-        const w = 3.4 + H0(row, k + 30) * 2.4, h2 = 3 + H0(row, k + 40) * 1.6, rot = a + (H0(row, k + 50) - 0.5) * 0.35;
-        // an irregular worn slab: the dark joint round it, the stone, a lit
-        // upper lip and a shaded lower one, dust drifted over one corner
-        const sd = run * 131 + row * 17 + k;
-        const q = [[-w, -h2], [w, -h2], [w, h2], [-w, h2]].map(([px, py], j) => {
-          const jx = px + (H0(sd, j + 80) - 0.5) * 1.6, jy = py + (H0(sd, j + 84) - 0.5) * 1.4;
-          return [cx + jx * Math.cos(rot) - jy * Math.sin(rot), cy + jx * Math.sin(rot) + jy * Math.cos(rot)];
-        });
-        ctx.fillStyle = rgba(gap, 0.55);
-        poly(ctx, q.map(([px, py]) => [px + (px - cx) * 0.12 + 0.4, py + (py - cy) * 0.14 + 0.5])); ctx.fill();
-        ctx.fillStyle = slab; poly(ctx, q); ctx.fill();
-        ctx.save(); poly(ctx, q); ctx.clip();
-        ctx.fillStyle = rgba(lighten(slab, 0.3), 0.7); ctx.fillRect(cx - w - 2, Math.min(q[0][1], q[1][1]) - 0.2, w * 2 + 4, 1);
-        ctx.fillStyle = rgba(darken(slab, 0.25), 0.7); ctx.fillRect(cx - w - 2, Math.max(q[2][1], q[3][1]) - 0.8, w * 2 + 4, 1);
-        ctx.fillStyle = rgba(main, 0.85);
-        const cc = Math.floor(H0(sd, 88) * 4);
-        blobPath(ctx, q[cc][0], q[cc][1], w * 0.7, h2 * 0.6, sd, 0.3, 7); ctx.fill();
-        ctx.restore();
-        if (H0(row, k + 60) < 0.15) { ctx.fillStyle = rgba(darken(slab, 0.4), 0.8); for (let t = 0; t < 4; t++) ctx.fillRect(ap(cx - 2 + t), ap(cy - 1 + t * 0.6), 0.5, 0.5); }
-        if (H0(row, k + 70) < 0.2) { ctx.fillStyle = MOSS; ctx.fillRect(ap(cx + 3.5), ap(cy + 3), 1.5, 0.5); }
-      }
-    }
-    run++;
-    d = end + 110 + H0(run, 8) * 150;
-  }
-  // old planks laid across the wettest stretch: nearest to the water
+
+  // ---- where the old planks lie: across the wettest straight stretch ----
   let best = -1, bestD = 0;
   for (let dd = 150; dd < TOTAL_LEN - 120; dd += 10) {
     const [x, y] = posAt(dd);
-    if (!ok(x, y, 10) || BRIDGES.some((b) => dd > b.d0 - 110 && dd < b.d1 + 110)) continue;
-    // only where the road runs straight
+    if (!ok(x, y, 10) || onBridge(dd, 110)) continue;
     if (Math.abs(angleAt(dd - 24) - angleAt(dd + 24)) > 0.02) continue;
-    let wet = 0;
-    for (const p of PONDS) wet = Math.max(wet, 1 - Math.hypot((x - p.x) / (p.w / 2 + 60), (y - p.y) / (p.h / 2 + 60)));
-    for (const rv of RIVERS) if (inRiver(x, y, 60)) wet = Math.max(wet, 0.5);
-    wet += H0(dd, 9) * 0.2;
+    const wet = wetAt(x, y) + H0(dd, 9) * 0.2;
     if (wet > best) { best = wet; bestD = dd; }
   }
-  if (best > 0.3) {
-    for (let k = -5; k <= 5; k++) {
-      const dd = bestD + k * 3.3;
-      if (Math.abs(k) === 5 && H0(k + 9, 10) < 0.5) continue;
-      const [x, y] = posAt(dd), a = angleAt(dd) + Math.PI / 2;
-      const half = PATH_HALF - 7 - H0(k + 9, 11) * 1.5, sh = (H0(k + 9, 12) - 0.5) * 1.5;
-      ctx.save(); ctx.translate(x, y); ctx.rotate(a + (H0(k + 9, 13) - 0.5) * 0.08);
-      ctx.fillStyle = rgba("#2a2620", 0.5); ctx.fillRect(-half + sh, -1.4, half * 2, 3.4);
-      ctx.fillStyle = k % 2 ? "#6a6252" : "#72695a"; ctx.fillRect(-half + sh, -1.6, half * 2, 3);
-      ctx.fillStyle = "#877d68"; ctx.fillRect(-half + sh, -1.6, half * 2, 0.5);
-      ctx.fillStyle = "#3a342c"; ctx.fillRect(-half + sh, -1.6, 1, 3); ctx.fillRect(half + sh - 1, -1.6, 1, 3);
-      ctx.fillStyle = "#4e483c"; ctx.fillRect(-half + sh + 4, 0.2, half * 0.6, 0.5); ctx.fillRect(-half + sh + half, -0.6, half * 0.5, 0.5);
-      ctx.restore();
+  const planks = best > 0.3;
+
+  __mk('r_paving0');
+  // ---- the paving ----
+  // where the old causeway surfaces: a slow wave along the road, and the
+  // bridges' approaches; never under the planks
+  const wave = (d) => { const t = d / 64 + seed * 0.37, i = Math.floor(t), u = smooth01(t - i); return hash(i, seed + 5) * (1 - u) + hash(i + 1, seed + 5) * u; };
+  const expo = (d) => {
+    let e = smooth01((wave(d) - 0.56) / 0.2);
+    for (const b of BRIDGES) { const g = Math.min(Math.abs(d - b.d0), Math.abs(d - b.d1)); if (g < 46) e = Math.max(e, smooth01(1 - g / 46)); }
+    if (planks) e *= smooth01((Math.abs(d - bestD) - 22) / 14);
+    return e * smooth01((d - 40) / 30) * smooth01((TOTAL_LEN - 40 - d) / 30);
+  };
+  const slabs = [];
+  const INNER = PATH_HALF - 4;
+  for (let d = 24 + H0(1, 4) * 6, row = 0; d < TOTAL_LEN - 36; row++) {
+    const depth = 8 + H0(row, 5) * 2.5, d1 = d + depth;
+    const e = Math.min(expo(d), expo(d1));
+    if (e > 0.04 && !onBridge((d + d1) / 2, depth / 2 + 3)) {
+      const [x0, y0, nx0, ny0] = frame(d), [x1, y1, nx1, ny1] = frame(d1);
+      let a = -INNER - H0(row, 6) * 7;
+      for (let c = 0; a < INNER; c++) {
+        const b = Math.min(INNER + 2, a + 8 + H0(row * 13 + c, 7) * 7);
+        const a0 = Math.max(a, -INNER), mid = (a0 + b) / 2;
+        const sd = row * 31 + c;
+        // corners, pulled in a hair so the joints show, and jostled
+        const J = (q) => (H0(sd, q) - 0.5) * 0.9;
+        const q = [
+          [x0 + nx0 * a0 + J(10), y0 + ny0 * a0 + J(11)], [x0 + nx0 * b + J(12), y0 + ny0 * b + J(13)],
+          [x1 + nx1 * b + J(14), y1 + ny1 * b + J(15)], [x1 + nx1 * a0 + J(16), y1 + ny1 * a0 + J(17)],
+        ];
+        const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+        for (const p of q) { p[0] += (cx - p[0]) * 0.07; p[1] += (cy - p[1]) * 0.07; }
+        // a slab only where the bend leaves it a true four-sided stone
+        let sgn = 0, good = b - a0 > 3.5;
+        for (let s2 = 0; s2 < 4 && good; s2++) {
+          const [ax, ay] = q[s2], [bx2, by2] = q[(s2 + 1) % 4], [cx2, cy2] = q[(s2 + 2) % 4];
+          const cr = (bx2 - ax) * (cy2 - by2) - (by2 - ay) * (cx2 - bx2);
+          if (Math.abs(cr) < 4) good = false;
+          else if (!sgn) sgn = Math.sign(cr);
+          else if (Math.sign(cr) !== sgn) good = false;
+        }
+        // the middle of the road surfaces first; the verges stay dust
+        const v = e * (1 - (mid / PATH_HALF) ** 2 * 0.9) + (H0(sd, 8) - 0.5) * 0.45;
+        if (good && v > 0.28 && ok(cx, cy, 6)) {
+          const wet = wetAt(cx, cy);
+          let col = mixC(SLAB[Math.floor(H0(sd, 9) * SLAB.length)], main, 0.22);
+          if (wet > 0) col = mixC(col, hexC("#5c6a4c"), wet * 0.3);
+          slabs.push({ q, v, sd, wet, sgn, T: tone3(col, 0.2, 0.26), crack: H0(sd, 19) < 0.22, lichen: H0(sd, 20) < 0.14 });
+        }
+        a = b;
+      }
+    }
+    d = d1;
+  }
+  __mk('r_raster');
+  // rasterise, a row at a time: which slab each pixel belongs to (pixel
+  // centres inside all four edges), and whether the dust has buried it
+  const PW = K.PW, PH = K.PH, SID = new Uint16Array(PW * PH), VIS = new Uint8Array(PW * PH), done = new Uint8Array(PW * PH);
+  slabs.forEach((s, si) => {
+    const P = s.q.map(([x, y]) => [x * k, y * k]);
+    s.i0 = Math.max(1, Math.floor(Math.min(P[0][0], P[1][0], P[2][0], P[3][0])) - 1); s.i1 = Math.min(PW - 2, Math.ceil(Math.max(P[0][0], P[1][0], P[2][0], P[3][0])) + 1);
+    s.j0 = Math.max(1, Math.floor(Math.min(P[0][1], P[1][1], P[2][1], P[3][1])) - 1); s.j1 = Math.min(PH - 2, Math.ceil(Math.max(P[0][1], P[1][1], P[2][1], P[3][1])) + 1);
+    const sure = s.v >= 0.55, thr = ((s.v - 0.28) / 0.27) * 0.75 + 0.25;
+    for (let j = s.j0; j <= s.j1; j++) {
+      const py = j + 0.5;
+      let lo = -Infinity, hi = Infinity;
+      for (let e = 0; e < 4; e++) {
+        const ax = P[e][0], ay = P[e][1], bx = P[(e + 1) % 4][0], by = P[(e + 1) % 4][1];
+        // (bx-ax)(py-ay) - (by-ay)(px-ax) has the quad's own sign inside
+        const ca = -(by - ay) * s.sgn, cb = ((bx - ax) * (py - ay) + (by - ay) * ax) * s.sgn;
+        if (ca > 1e-9) lo = Math.max(lo, -cb / ca);
+        else if (ca < -1e-9) hi = Math.min(hi, -cb / ca);
+        else if (cb < 0) { lo = Infinity; break; }
+      }
+      for (let i = Math.max(s.i0, Math.ceil(lo - 0.5)); i <= Math.min(s.i1, Math.floor(hi - 0.5)); i++) {
+        const p = j * PW + i;
+        SID[p] = si + 1;
+        VIS[p] = sure || vnoise(i / k, j / k, 5, seed + 17) <= thr ? 1 : 0;
+      }
+    }
+  });
+  __mk('r_shade');
+  slabs.forEach((s, si) => {
+    const id = si + 1, T = s.T;
+    // a crack: a dark line wandering down across the stone
+    const crack = new Set();
+    if (s.crack) {
+      let ci = Math.round((s.i0 + s.i1) / 2 + (H0(s.sd, 21) - 0.5) * (s.i1 - s.i0) * 0.5), cj = s.j0;
+      while (cj <= s.j1) { crack.add(cj * PW + ci); cj++; if (H0(s.sd * 7 + cj, 22) < 0.45) ci += H0(s.sd + cj, 23) < 0.5 ? -1 : 1; }
+    }
+    // a spot or two of lichen
+    const lx = s.lichen ? Math.round(s.i0 + 2 + H0(s.sd, 24) * (s.i1 - s.i0 - 4)) : -99, ly = Math.round(s.j0 + 2 + H0(s.sd, 25) * (s.j1 - s.j0 - 4));
+    for (let j = s.j0; j <= s.j1; j++) {
+      for (let i = s.i0; i <= s.i1; i++) {
+        const p = j * PW + i;
+        if (done[p]) continue;
+        const own = SID[p];
+        if (own === id && VIS[p]) {
+          done[p] = 1;
+          const up = SID[p - PW] === id, dn = SID[p + PW] === id, lf = SID[p - 1] === id, rt = SID[p + 1] === id;
+          let c = T[1];
+          const hh = hash(i * 3 + s.sd, j);
+          if (!up) c = T[0];
+          else if (!dn || !rt) c = T[2];
+          else if (!lf) c = mixC(T[0], T[1], 0.5);
+          else if (hh < 0.025) c = mixC(T[1], T[2], 0.6);
+          else if (hh > 0.975) c = mixC(T[0], T[1], 0.5);
+          if (crack.has(p) && up && dn) c = mixC(T[2], DUSK, 0.15);
+          if (up && dn && lf && rt && Math.abs(i - lx) + Math.abs(j - ly) * 1.5 < 2.2 + hash(i, j + 3)) c = mixC(T[1], LICHEN_C, 0.6);
+          if (s.wet > 0.3 && !dn && hash(i, j + 7) < s.wet * 0.5) c = MOSS_J[0];
+          K.set(i, j, c);
+        } else if (!VIS[p]) {
+          // a joint: the gap beside a stone — deep on its shaded side (but
+          // never where the dust runs on over the same stone)
+          const nb = (q) => VIS[q] && SID[q] !== own;
+          const below = nb(p - PW) || nb(p - 1), above = nb(p + PW) || nb(p + 1);
+          if (!below && !above) continue;
+          done[p] = 1;
+          const src = slabs[SID[below ? (nb(p - PW) ? p - PW : p - 1) : (nb(p + PW) ? p + PW : p + 1)] - 1];
+          if (hash(i + src.sd, j * 3) < 0.08 + src.wet * 0.3) K.set(i, j, MOSS_J[hash(i, j) < 0.5 ? 0 : 1]);
+          else K.shift(i, j, below ? -0.26 : -0.1);
+        }
+      }
+    }
+  });
+
+  __mk('r_planks');
+  // ---- the old planks: laid across the road, sunk in black mud ----
+  if (planks) {
+    const [bx, by] = posAt(bestD), ang = angleAt(bestD), tx = Math.cos(ang), ty = Math.sin(ang), nx = -ty, ny = tx;
+    const HALF = PATH_HALF - 6, LEN = 5 * 3.3 + 2.4;
+    const loc = (i, j) => { const x = (i + 0.5) / k - bx, y = (j + 0.5) / k - by; return [x * tx + y * ty, x * nx + y * ny]; };
+    const R0 = Math.ceil((LEN + HALF + 3) * k), ci = K.P(bx), cj = K.P(by);
+    // the wet mud they lie in: just their own footprint and a ragged pixel
+    // or two past their ends and sides, water standing in it here and there
+    for (let j = cj - R0; j <= cj + R0; j++) {
+      for (let i = ci - R0; i <= ci + R0; i++) {
+        const [u, v] = loc(i, j);
+        const ragU = LEN + 1.2 + (vnoise(v, 0, 3, seed + 31) - 0.5) * 2.2, ragV = HALF + 1 + (vnoise(u, 0, 3, seed + 33) - 0.5) * 2;
+        if (Math.abs(u) > ragU || Math.abs(v) > ragV) continue;
+        const edge = Math.abs(u) > ragU - 0.6 || Math.abs(v) > ragV - 0.6;
+        K.set(i, j, edge ? mixC(K.get(i, j), MUD[0], 0.5) : vnoise(u, v, 2.5, seed + 35) > 0.7 ? MUD[2] : MUD[hash(i * 3, j) < 0.3 ? 1 : 0]);
+      }
+    }
+    for (let q = -5; q <= 5; q++) {
+      if (H0(q + 9, 14) < 0.1 || (Math.abs(q) === 5 && H0(q + 9, 10) < 0.5)) continue;   // one gone, the end ones sunk
+      const c0 = q * 3.3 + (H0(q + 9, 13) - 0.5) * 0.5, w2 = 1.3 + H0(q + 9, 15) * 0.2;
+      const e0 = -HALF + H0(q + 9, 11) * 2.5, e1 = HALF - H0(q + 9, 12) * 2.5 - (H0(q + 9, 16) < 0.2 ? 8 : 0);
+      const tilt = (H0(q + 9, 17) - 0.5) * 0.05, base = q & 1 ? PLANK.a : PLANK.b;
+      const inP = (u, v) => { const uu = u - c0 - v * tilt; return uu > -w2 && uu < w2 && v > e0 && v < e1; };
+      const cs = [[c0 - w2 + e0 * tilt, e0], [c0 + w2 + e0 * tilt, e0], [c0 - w2 + e1 * tilt, e1], [c0 + w2 + e1 * tilt, e1]].map(([u, v]) => [bx + tx * u + nx * v, by + ty * u + ny * v]);
+      const pi0 = K.P(Math.min(...cs.map((c) => c[0]))) - 2, pi1 = K.P(Math.max(...cs.map((c) => c[0]))) + 2;
+      const pj0 = K.P(Math.min(...cs.map((c) => c[1]))) - 2, pj1 = K.P(Math.max(...cs.map((c) => c[1]))) + 2;
+      for (let j = pj0; j <= pj1; j++) {
+        for (let i = pi0; i <= pi1; i++) {
+          const [u, v] = loc(i, j);
+          if (!inP(u, v)) { const [us, vs] = loc(i - 1, j - 1); if (inP(us, vs)) K.shift(i, j, -0.34); continue; }
+          const [ua, va] = loc(i, j - 1), [ub, vb] = loc(i, j + 1), [ur, vr] = loc(i + 1, j);
+          let c = !inP(ua, va) ? PLANK.lit : !inP(ub, vb) || !inP(ur, vr) ? PLANK.dk : base;
+          // grain along the plank, broken; nails over the stringers; the
+          // ends gone soft and dark
+          const row = Math.floor((u - c0 + w2) * k);
+          if (c === base && hash(row + q * 7, 30) < 0.5 && hash(row * 13 + q, Math.floor(v * 0.8)) < 0.55) c = PLANK.grain;
+          if (Math.abs(Math.abs(v) - (HALF - 5)) < 0.5 && Math.abs(u - c0) < 0.5) c = hash(q, v > 0 ? 1 : 2) < 0.4 ? PLANK.rust : PLANK.nail;
+          if (v > e1 - 1 || v < e0 + 1) c = hash(i, j) < 0.5 ? PLANK.dk : c;
+          if (c === base && vnoise(u * 2, v, 3, seed + q) > 0.78) c = MOSS_J[0];
+          K.set(i, j, c);
+        }
+      }
     }
   }
+  __mk('r_puddles');
   // puddles standing in the causeway's hollows
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 7; i++) {
     const dd = 80 + H0(i, 14) * (TOTAL_LEN - 160), [x, y] = posAt(dd), a = angleAt(dd) + Math.PI / 2;
-    const off = (H0(i, 15) - 0.5) * PATH_HALF;
+    const off = (H0(i, 15) - 0.5) * PATH_HALF * 1.1;
     const px = x + Math.cos(a) * off, py = y + Math.sin(a) * off;
-    if (!ok(px, py, 12) || BRIDGES.some((b) => dd > b.d0 - 20 && dd < b.d1 + 20)) continue;
-    puddle(ctx, px, py, 4 + H0(i, 16) * 5, 1.6 + H0(i, 17) * 1.4, i + 300);
+    if (!ok(px, py, 12) || onBridge(dd, 20) || (planks && Math.abs(dd - bestD) < 34)) continue;
+    pixPuddle(K, px, py, 3.5 + H0(i, 16) * 4.5, 1.5 + H0(i, 17) * 1.2, i + 300, { lip: 0.16 });
   }
+  __mk('r_verge');
   // the verge: skulls, long bones and a rusted helm trodden into the edge
   for (let dd = 40 + H0(2, 18) * 30, i = 0; dd < TOTAL_LEN - 20; dd += 34 + H0(i, 19) * 44, i++) {
     const [x, y] = posAt(dd), a = angleAt(dd) + Math.PI / 2, side = H0(i, 20) < 0.5 ? -1 : 1;
     const off = side * (PATH_HALF - 1 + H0(i, 21) * 6);
     const px = x + Math.cos(a) * off, py = y + Math.sin(a) * off;
-    if (!ok(px, py, 8) || nearPond(px, py, 6) || BRIDGES.some((b) => dd > b.d0 - 14 && dd < b.d1 + 14)) continue;
-    const k = H0(i, 22);
-    if (k < 0.4) { shadow(ctx, px + 0.6, py + 1, 2.8, 1, 0.3); skull(ctx, px, py - 0.4, 1.6 + H0(i, 23) * 0.4); }
-    else if (k < 0.75) longBone(ctx, px - 2.6, py - 0.6, px + 2.6, py + 0.6 * side, 0.9);
-    else if (k < 0.87) {
-      ball(ctx, px, py, 2.4, 1.8, "#6a5a4c", { hi: 0.35, lo: 0.5 });
-      ctx.fillStyle = "#8a5a36"; ctx.fillRect(ap(px - 1), ap(py - 1), 1, 0.5);
-    } else sedge(ctx, px, py + 1, 0.7, i + 40, 4);
+    if (!ok(px, py, 8) || nearPond(px, py, 6) || onBridge(dd, 14)) continue;
+    const kk = H0(i, 22);
+    if (kk < 0.4) pixSkull(K, px, py, i + 77);
+    else if (kk < 0.75) pixBone(K, px - 2.6, py - 0.6, px + 2.6, py + 0.6 * side);
+    else if (kk < 0.87) stampPx(K, K.P(px) - 3, K.P(py) - 3, HELM, HELM_C, -0.3, H0(i, 23) < 0.5 ? 4 : 99);
+    else pixSedge(K, px, py + 1, 0.7, i + 40, 4);
   }
+  __mk('r_flush');
+  K.flush();
+  __mk('r_end');
 }
 
-HOLLOW_ART.turf.fen = paintFenTurf;
-HOLLOW_ART.road.fen = paintFenRoad;
+const __tm = (k, f) => (ctx, kit) => { const t0 = performance.now(); f(ctx, kit); (globalThis.__fenT ||= {})[k] = ((globalThis.__fenT || {})[k] || 0) + performance.now() - t0; };
+HOLLOW_ART.turf.fen = __tm("turf", paintFenTurf);
+HOLLOW_ART.road.fen = __tm("road", paintFenRoad);
 
-// ---- the water's dressing: lily pads and scum on the meres and rivers ---
-// Baked once per realm and laid flat over the water (drawn with the gate,
-// after the ponds and rivers and before anything that stands).
-const WATERS = { key: "", cv: null };
+// ---- the water's dressing: lily pads and duckweed on meres and rivers ---
+// Baked once per realm in pixels, in a few small pieces (one per cluster,
+// so a frame never blits a board-sized sheet of nothing), laid flat over the
+// water with the gate — after the ponds and rivers, before anything that
+// stands. The pads keep well in from the banks the water paints.
+const PAD_T = [[hexC("#6e9050"), hexC("#4e6e3a"), hexC("#34502e")], [hexC("#86824a"), hexC("#666238"), hexC("#48482c")]];
+const PAD_SH = [10, 16, 14, 200], WEED_C = [hexC("#4a6630"), hexC("#62803a")];
+const BLOOM = { W: hexC("#fbf6ee"), w: hexC("#d6cec4"), Y: hexC("#e8c050") };
+// one pad at pixel (ci, cj): a flat disc with its notch cut to the middle,
+// lit along its upper rim, a vein of shade across it, its shadow a pixel
+// down-right on the water; now and then a white flower on it.
+// put(i, j, [r, g, b, a?])
+const padPx = (put, ci, cj, r, seed, k = PX) => {
+  const RX = Math.max(2.2, r * k * 1.1), RY = Math.max(1.4, r * k * 0.55), notch = hash(seed, 2) * Math.PI * 2;
+  const T = PAD_T[hash(seed, 20) < 0.18 ? 1 : 0];
+  const inP = (i, j) => {
+    const u = i / RX, v = j / RY, q = u * u + v * v;
+    if (q > 1) return false;
+    const an = Math.atan2(v, u);
+    return !(q > 0.04 && Math.abs(((an - notch + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.42);
+  };
+  const X = Math.ceil(RX) + 1, Y = Math.ceil(RY) + 1;
+  for (let j = -Y; j <= Y + 1; j++) for (let i = -X; i <= X + 1; i++) if (!inP(i, j) && inP(i - 1, j - 1)) put(ci + i, cj + j, PAD_SH);
+  for (let j = -Y; j <= Y; j++) {
+    for (let i = -X; i <= X; i++) {
+      if (!inP(i, j)) continue;
+      const u = i / RX, v = j / RY;
+      const rim = !inP(i, j - 1) || !inP(i - 1, j), foot = !inP(i, j + 1) || !inP(i + 1, j);
+      put(ci + i, cj + j, rim && u + v < 0.3 ? T[0] : foot && u + v > -0.3 ? T[2] : u * 0.4 + v > 0.45 ? T[2] : T[1]);
+    }
+  }
+  if (hash(seed, 21) < 0.12) {
+    const fx = ci + Math.round((hash(seed, 22) - 0.5) * RX * 0.6), fy = cj - 1;
+    put(fx, fy - 1, BLOOM.W); put(fx - 1, fy, BLOOM.W); put(fx, fy, BLOOM.Y); put(fx + 1, fy, BLOOM.w); put(fx, fy + 1, BLOOM.w);
+  }
+};
+const WATERS = { key: "", chunks: [] };
 const bakeWaters = () => {
   const key = `${REALM.id}|${PONDS.length}|${RIVERS.length}|${PTS[0]}`;
   if (WATERS.key === key) return WATERS;
   WATERS.key = key;
-  WATERS.cv = null;
-  const pads = [];
+  WATERS.chunks = [];
+  const pads = [], weed = [];
   const road = (x, y, m) => nearestOnPath(x, y).d < PATH_HALF + m;
+  // meres: a few beds of pads, each a cluster, well in from the shore
   PONDS.forEach((p, pi) => {
-    const rx = p.w / 2, ry = p.h / 2, n = Math.max(1, Math.round((p.w * p.h) / 1500));
-    for (let i = 0; i < n; i++) {
-      const a = hash(pi * 31 + i, 1) * Math.PI * 2, d = 0.45 + hash(pi * 31 + i, 2) * 0.35;
-      const cx = p.x + Math.cos(a) * rx * d, cy = p.y + Math.sin(a) * ry * d;
-      const m = 1 + Math.floor(hash(pi * 31 + i, 3) * 4);
-      for (let k = 0; k < m; k++) {
-        const x = cx + (hash(i * 7 + k, pi + 4) - 0.5) * 9, y = cy + (hash(i * 7 + k, pi + 5) - 0.5) * 4;
-        if (((x - p.x) / (rx - 4)) ** 2 + ((y - p.y) / (ry - 3)) ** 2 > 1 || road(x, y, 4)) continue;
-        pads.push([x, y, 1.8 + hash(i * 7 + k, pi + 6) * 1.2, pi * 100 + i * 7 + k]);
+    const rx = p.w / 2, ry = p.h / 2, nb = Math.min(5, 1 + Math.floor((p.w * p.h) / 4000));
+    const inset = 7 + Math.min(4, Math.min(rx, ry) * 0.08);
+    for (let b = 0; b < nb; b++) {
+      const a = hash(pi * 31 + b, 1) * Math.PI * 2, d = 0.35 + hash(pi * 31 + b, 2) * 0.4;
+      const cx = p.x + Math.cos(a) * (rx - inset) * d, cy = p.y + Math.sin(a) * (ry - inset) * d;
+      const m = 2 + Math.floor(hash(pi * 31 + b, 3) * (p.w > 150 ? 7 : 4));
+      for (let q = 0; q < m; q++) {
+        const x = cx + (hash(b * 7 + q, pi + 4) - 0.5) * 14, y = cy + (hash(b * 7 + q, pi + 5) - 0.5) * 6;
+        if (((x - p.x) / (rx - inset)) ** 2 + ((y - p.y) / (ry - inset)) ** 2 > 1 || road(x, y, 4)) continue;
+        pads.push([x, y, 1.7 + hash(b * 7 + q, pi + 6) * 1.1, pi * 100 + b * 7 + q]);
       }
     }
   });
+  // rivers: a raft now and then in the slack water along one bank
   RIVERS.forEach((rv, ri) => {
     let acc = 0;
     for (const sg of rv.segs) {
-      for (let d = 10; d < sg.len; d += 26) {
+      for (let d = 12; d < sg.len - 6; d += 30) {
         const k = (acc + d) | 0;
-        if (hash(k, ri + 40) < 0.55) continue;
+        if (hash(k, ri + 40) < 0.5) continue;
         const t = d / sg.len, side = hash(k, ri + 41) < 0.5 ? -1 : 1;
-        const nx = -(sg.y2 - sg.y1) / sg.len, ny = (sg.x2 - sg.x1) / sg.len;
-        const off = side * (rv.w / 2 - 5 - hash(k, ri + 42) * 3);
+        const tx = (sg.x2 - sg.x1) / sg.len, ty = (sg.y2 - sg.y1) / sg.len, nx = -ty, ny = tx;
+        const off = side * Math.max(0, rv.w / 2 - 9 - hash(k, ri + 42) * 2);
         const cx = sg.x1 + (sg.x2 - sg.x1) * t + nx * off, cy = sg.y1 + (sg.y2 - sg.y1) * t + ny * off;
-        if (road(cx, cy, 30) || cx > W - WALL_W - 6 || cx < 4 || cy < 4 || cy > H - 4) continue;
+        if (road(cx, cy, 30) || cx > W - WALL_W - 8 || cx < 6 || cy < 6 || cy > H - 6) continue;
         const m = 1 + Math.floor(hash(k, ri + 43) * 3);
-        for (let q = 0; q < m; q++) pads.push([cx + (hash(k + q, 44) - 0.5) * 6, cy + (hash(k + q, 45) - 0.5) * 3, 1.6 + hash(k + q, 46) * 1, k * 5 + q]);
+        for (let q = 0; q < m; q++) {
+          const s = (hash(k + q, 44) - 0.5) * 9;
+          pads.push([cx + tx * s + nx * (hash(k + q, 45) - 0.5) * 2, cy + ty * s + ny * (hash(k + q, 45) - 0.5) * 2, 1.5 + hash(k + q, 46) * 0.9, k * 5 + q]);
+        }
       }
       acc += sg.len;
     }
   });
+  // duckweed round every pad, in a loose drift
+  for (const [x, y, r, sd] of pads) {
+    for (let q = 0; q < 4; q++) weed.push([x + (hash(sd, q) - 0.5) * r * 4.2, y + (hash(sd, q + 9) - 0.5) * r * 1.8, sd + q]);
+  }
   if (!pads.length) return WATERS;
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const [x, y] of pads) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-  x0 = Math.floor(x0 - 6); y0 = Math.floor(y0 - 6); x1 = Math.ceil(x1 + 6); y1 = Math.ceil(y1 + 6);
-  WATERS.x = x0; WATERS.y = y0; WATERS.w = x1 - x0; WATERS.h = y1 - y0;
-  WATERS.cv = bakeSprite(WATERS.w, WATERS.h, (c) => {
-    c.translate(-x0, -y0);
-    for (const [x, y, r, sd] of pads) {
-      // duckweed round the pads, then the pad, and now and then a flower
-      c.fillStyle = rgba("#5a7a3a", 0.8);
-      for (let k = 0; k < 4; k++) c.fillRect(ap(x + (hash(sd, k) - 0.5) * r * 4), ap(y + (hash(sd, k + 9) - 0.5) * r * 1.6), 0.5, 0.5);
-      lilyPad(c, x, y, r, sd, hash(sd, 20) < 0.3 ? "#56703e" : "#4a6a42");
-      if (hash(sd, 21) < 0.14) {
-        for (let k = 0; k < 5; k++) { const a = k * 1.256; ball(c, x + Math.cos(a) * 0.8, y - 0.6 + Math.sin(a) * 0.5, 0.7, 0.55, "#ece4dc", { hi: 0.3, lo: 0.2 }); }
-        ball(c, x, y - 0.7, 0.45, 0.4, "#e0c060", { hi: 0.2, lo: 0.2 });
-      }
+  // bake them in clusters
+  const CELL = 110, cells = new Map();
+  for (const pd of pads) { const key2 = `${Math.floor(pd[0] / CELL)},${Math.floor(pd[1] / CELL)}`; if (!cells.has(key2)) cells.set(key2, []); cells.get(key2).push(pd); }
+  for (const list of cells.values()) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y, r] of list) { x0 = Math.min(x0, x - r * 3); y0 = Math.min(y0, y - r * 2); x1 = Math.max(x1, x + r * 3); y1 = Math.max(y1, y + r * 2); }
+    x0 = Math.floor(x0 - 2); y0 = Math.floor(y0 - 3); x1 = Math.ceil(x1 + 2); y1 = Math.ceil(y1 + 2);
+    const pw = Math.round((x1 - x0) * PX), ph = Math.round((y1 - y0) * PX);
+    const img = new ImageData(pw, ph), dd = img.data;
+    const put = (i, j, c) => {
+      if (i < 0 || j < 0 || i >= pw || j >= ph) return;
+      const o = (j * pw + i) * 4, a = c[3] ?? 255;
+      if (a < 255 && dd[o + 3] === 255) { const t = a / 255; dd[o] += (c[0] - dd[o]) * t; dd[o + 1] += (c[1] - dd[o + 1]) * t; dd[o + 2] += (c[2] - dd[o + 2]) * t; return; }
+      dd[o] = c[0]; dd[o + 1] = c[1]; dd[o + 2] = c[2]; dd[o + 3] = a;
+    };
+    const mine = (x, y) => x >= x0 && y >= y0 && x < x1 && y < y1;
+    for (const [x, y, sd] of weed) {
+      if (!mine(x, y)) continue;
+      const i = Math.round((x - x0) * PX), j = Math.round((y - y0) * PX);
+      put(i, j, WEED_C[hash(sd, 3) < 0.6 ? 0 : 1]);
+      if (hash(sd, 4) < 0.4) put(i + 1, j, WEED_C[0]);
     }
-  }, false);
+    list.sort((a, b) => a[1] - b[1]);
+    for (const [x, y, r, sd] of list) padPx(put, Math.round((x - x0) * PX), Math.round((y - y0) * PX), r, sd);
+    const cv = document.createElement("canvas");
+    cv.width = pw; cv.height = ph;
+    cv.getContext("2d").putImageData(img, 0, 0);
+    WATERS.chunks.push({ cv, x: x0, y: y0, w: pw / PX, h: ph / PX });
+  }
   return WATERS;
 };
+const drawWaters = (ctx) => { for (const c of bakeWaters().chunks) ctx.drawImage(c.cv, c.x, c.y, c.w, c.h); };
 
 // ---- the gate: a great barrow ----------------------------------------
 // The dead come out of the ground. A long grassed mound at the road's
@@ -1629,8 +2109,7 @@ const bakeGate = () => {
 
 const drawBarrowGate = (ctx, time) => {
   if (!PTS.length) return;
-  const Wt = bakeWaters();
-  if (Wt.cv) ctx.drawImage(Wt.cv, Wt.x, Wt.y, Wt.w, Wt.h);
+  drawWaters(ctx);
   const G = bakeGate();
   ctx.drawImage(G.cv, G.bx, G.by, G.bw, G.bh);
   // witch-light breathing in the passage and in the lintel's spirals
