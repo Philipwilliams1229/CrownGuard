@@ -28,6 +28,7 @@ import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawLog } from "./logs.js";
 import { drawStoop } from "./birds.js";
 import { drawRingFx } from "./rings.js";
+import { drawRaising, RAISE_SECS } from "./buildanim.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
 import { drawCastleGround } from "./castle.js";
@@ -270,7 +271,9 @@ export function draw(g, canvas, bufRef) {
       fn: () => {
         // the realm's own ground round the footing: behind, then over its front edge
         drawGroundBlend(ctx, t, false);
-        paintTower(t);
+        // a hall just bought or reworked rises into its new form (buildanim.js)
+        if (t.raised && g.time - t.raised.at < (RAISE_SECS[t.raised.how] || 0.6) && g.time >= t.raised.at) drawRaising(ctx, t, g.time, paintTower);
+        else paintTower(t);
         drawGroundBlend(ctx, t, true);
         // rank pips: one gold stud per level, a small crown once evolved
         if (!t.branch) {

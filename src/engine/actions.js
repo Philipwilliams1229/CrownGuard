@@ -149,11 +149,19 @@ export const restartWave = (g) => {
   g.phase = "build"; g.selectedId = null; g.buildMode = null; g.rallyFor = null; g.paused = false; g.buildUntil = null;
 };
 
+// Mark a tower as just raised or reworked, for the build animation
+// (render/buildanim.js): when, how ("build" | "level" | "branch" | "ascend"),
+// and the form it had before, so the art can grow out of the old one. Visual
+// only — the tower works from the instant it is bought.
+const markRaised = (g, t, how, prev = null) => { t.raised = { at: g.time || 0, how, prev }; };
+const formOf = (t) => ({ level: t.level, branch: t.branch, rank4: t.rank4 });
+
 export const placeTower = (g, kind, x, y) => {
   const def = TOWERS[kind];
   if (g.gold < def.cost || !buildableAt(g, x, y, kind)) return;
   g.gold -= def.cost;
   g.towers.push(makeTower(kind, x, y));
+  markRaised(g, g.towers[g.towers.length - 1], "build");
   if (g.run) g.run.towersBuilt += 1;
   g.buildMode = null;
   sfx.play("place");
@@ -218,6 +226,7 @@ export const placeMasterTower = (g, kind, x, y, pick = null) => {
   if (g.gold < plan.cost || !buildableAt(g, x, y, kind)) return;
   g.gold -= plan.cost;
   g.towers.push(makeTower(kind, x, y, 3, plan.branch, plan.cost, plan.rank4));
+  markRaised(g, g.towers[g.towers.length - 1], "build");
   // a master purchase is as deliberate as a hand-built one — remember it
   recordFavored(kind, { branch: plan.branch, ...(plan.rank4 ? { rank4: { [plan.branch]: plan.rank4 } } : {}) });
   if (g.run) g.run.towersBuilt += 1;
@@ -247,7 +256,9 @@ export const completeTower = (g, t) => {
   const c = completionCost(t);
   if (g.gold < c.cost) return;
   g.gold -= c.cost; t.invested += c.cost;
+  const prevC = formOf(t);
   t.level = 3; t.branch = t.branch || c.branch; t.rank4 = c.rank4;
+  markRaised(g, t, "ascend", prevC);
   sfx.play("ascend");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
@@ -260,7 +271,9 @@ export const upgradeTower = (g, t) => {
   if (t.branch || t.level >= 3) return;
   const cost = def.levels[t.level].cost;
   if (g.gold < cost) return;
+  const prevL = formOf(t);
   g.gold -= cost; t.level += 1; t.invested += cost;
+  markRaised(g, t, "level", prevL);
   sfx.play("upgrade");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
   g.effects.push({ type: "levelup", x: t.x, y: t.y, ttl: 600 });
@@ -270,7 +283,9 @@ export const upgradeTower = (g, t) => {
 export const branchTower = (g, t, key) => {
   const br = TOWERS[t.kind].branches[key];
   if (t.branch || t.level < 3 || g.gold < br.cost) return;
+  const prevB = formOf(t);
   g.gold -= br.cost; t.branch = key; t.invested += br.cost;
+  markRaised(g, t, "branch", prevB);
   recordFavored(t.kind, { branch: key });
   sfx.play("evolve");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
@@ -284,7 +299,9 @@ export const ascendTower = (g, t, key) => {
   if (!t.branch || t.rank4) return;
   const r4 = TOWERS[t.kind].branches[t.branch].rank4?.[key];
   if (!r4 || g.gold < r4.cost) return;
+  const prevR = formOf(t);
   g.gold -= r4.cost; t.rank4 = key; t.invested += r4.cost;
+  markRaised(g, t, "ascend", prevR);
   recordFavored(t.kind, { rank4: { [t.branch]: key } });
   sfx.play("ascend");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
