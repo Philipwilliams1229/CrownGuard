@@ -347,6 +347,9 @@ export default function Crownguard() {
   // zeroed afterwards so retrying a lost wave can't count its kills twice.
   useEffect(() => {
     if (!ui.result) return;
+    // the hero's menu folds away with the battle, so a retried wave or the
+    // Endless March doesn't open with it still showing
+    setTalentsOpen(false);
     const g = G.current;
     // A won map pays the hero's level at the end of its scripted waves as
     // that hero's stars — once per win, never for the Endless March after.
@@ -575,8 +578,10 @@ export default function Crownguard() {
       if (!g.buildMode) { g.masterPick = null; setBuildOpen(false); }
       return;
     }
-    // tapping the field outside a menu dismisses the build drawer
+    // tapping the field outside a menu dismisses the build drawer, and folds
+    // the hero's menu back into his button
     setBuildOpen(false);
+    setTalentsOpen(false);
     const t = towerNear(g, x, y);
     if (t) { g.selectedId = t.id; return; }
     // tapping the hero himself asks where he should go
@@ -839,7 +844,7 @@ export default function Crownguard() {
       className={cls("cg-btn", ui.rallyFor === "militia" && "is-on")}
       style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
       disabled={ui.militiaSec > 0}
-      onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
+      onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); setTalentsOpen(false); }}>
       {/* the cooldown drains down the plank like sand */}
       {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / MILITIA.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
       {hasRig("farmer") ? <EnemyIcon type="farmer" box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
@@ -858,14 +863,14 @@ export default function Crownguard() {
       <button aria-label={`${ui.hero.name}: move and abilities`} title={HEROES[ui.hero.key]?.blurb}
         className={cls("cg-btn cg-btn--slate", (talentsOpen || aiming) && "is-on", ui.hero.dead && "is-off", anyReady && !talentsOpen && "cg-horn")}
         style={{ flex: 1, minHeight: 60, minWidth: heroSlim ? 0 : 150, padding: "5px 8px 5px 5px", gap: 7, justifyContent: "flex-start" }}
-        onClick={() => { const g = G.current; if (!g) return; if (aiming) { g.rallyFor = null; return; } trayOpen("talents"); }}>
+        onClick={() => { const g = G.current; if (!g) return; if (aiming) { g.rallyFor = null; return; } g.rallyFor = null; trayOpen("talents"); }}>
         <span className="cg-well" style={{ width: 42, height: 46, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           {hasRig(HEROES[ui.hero.key]?.rig) ? <EnemyIcon type={HEROES[ui.hero.key].rig} box={34} /> : <span style={{ fontSize: 20 }}>{HEROES[ui.hero.key]?.icon}</span>}
         </span>
         <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: heroSlim ? 0 : 88 }}>
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
             {!heroSlim && <span style={{ fontSize: 11 }}>{ui.hero.name}</span>}
-            <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv {ui.hero.level}</span>
+            <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv <span className="cg-num" style={{ fontSize: 10, textShadow: "1px 1px 0 var(--ink)" }}>{ui.hero.level}</span></span>
           </span>
           <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
           <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, ui.hero.xp / ui.hero.next))}%`, background: "var(--blue)" }} /></span>
@@ -879,11 +884,14 @@ export default function Crownguard() {
   })();
 
 
-  // -- the hero's menu: move him, or fire one of his two abilities. Talents
-  // are bought on the Home Screen only, with the stars a won map pays --
+  // -- the hero's menu: move him, or fire one of his two abilities. It opens
+  // in the tray right above his button, never over the field, so the slam
+  // can be watched landing: on a phone it takes the tower grid's place, on a
+  // tall screen it docks under the grid. Talents are bought on the Home
+  // Screen only, with the stars a won map pays --
   const talentBtn = null;
   const ABIL_ICON = { slam: <HammerIcon size={13} />, charge: <SwordIcon size={13} />, volley: <ArrowIcon size={13} />, heart: <TargetIcon size={13} /> };
-  const talentPanel = talentsOpen && ui.hero && (() => {
+  const talentPanel = talentsOpen && ui.hero && ui.result == null && (() => {
     const h = ui.hero;
     const g = G.current;
     const close = () => trayHome();
@@ -894,45 +902,53 @@ export default function Crownguard() {
       if (a.aim === "none") { fireHeroAbility(g, a.id); return; }
       g.rallyFor = `ab:${a.id}`; g.selectedId = null; g.buildMode = null; setBuildOpen(false);
     };
-    const hpf = h.hp / h.maxHp;
     const max = h.level >= HERO_MAX_LEVEL;
-    const tile = { width: "100%", minHeight: 92, padding: "7px 8px", flexDirection: "column", alignItems: "flex-start", justifyContent: "flex-start", gap: 4, textAlign: "left", position: "relative", overflow: "hidden" };
+    // one plank per order, the tray's full width, never under a thumb's 44
+    // on a phone the planks share out the whole panel, so no dead band hangs
+    // over them; they never squash below their words (the menu scrolls then)
+    const row = { width: "100%", minHeight: 44, flex: compact ? "1 0 auto" : "0 0 auto", padding: compact ? "4px 6px 5px" : "6px 9px 7px", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: compact ? 2 : 3, textAlign: "left", position: "relative", overflow: "hidden" };
+    const title = { fontSize: compact ? 11 : 12, fontWeight: 700, position: "relative", display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" };
+    // the small print is plain Verdana, never the planks' Silkscreen
+    const fine = { fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: compact ? 9 : 10, lineHeight: 1.3, position: "relative" };
+    // on a phone an order that is asleep or recharging keeps one line of its tale
+    const oneLine = { alignSelf: "stretch", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
     return (<>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 16 }}>
-          <span className="cg-well" style={{ width: 40, height: 44, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {hasRig(HEROES[h.key]?.rig) ? <EnemyIcon type={HEROES[h.key].rig} box={32} /> : <span>{HEROES[h.key]?.icon}</span>}
-          </span>
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-            <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 13, textShadow: "1px 1px 0 var(--ink)" }}>{h.name} · Lv {h.level}</div>
-            <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
-            <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, h.xp / h.next))}%`, background: "var(--blue)" }} /></span>
-            <div style={{ fontSize: 9.5, color: "var(--muted)", display: "flex", justifyContent: "space-between", gap: 6 }}>
-              <span>{h.dead ? `back in ${h.respawn}s` : `${h.hp}/${h.maxHp} health`}</span>
-              <span>{max ? "MAX LEVEL" : `xp ${h.xp}/${h.next} · from kills`}</span>
-            </div>
-          </div>
+      {/* the hero's name and level in the head, beside the ✕ */}
+      <div className="cg-drawer-head" style={{ margin: 0, padding: compact ? "3px 3px 3px 8px" : "3px 3px 3px 10px", gap: compact ? 4 : 6, ...(compact ? {} : { borderTop: "2px solid var(--ink)" }) }}>
+        <span className="cg-label" style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: compact ? 4 : 5, fontSize: compact ? 10 : 12, letterSpacing: compact ? 0.5 : 1 }}>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.name}</span>
+          <span style={{ flexShrink: 0, color: "var(--muted)" }}>·</span>
+          <span style={{ flexShrink: 0 }}>Lv <span className="cg-num" style={{ fontSize: compact ? 10 : 12, textShadow: "1px 1px 0 var(--ink)" }}>{h.level}</span></span>
+        </span>
+        <button aria-label="Close the hero's menu" className="cg-btn cg-btn--slate cg-x" onClick={close}><CloseIcon size={11} /></button>
+      </div>
+      <div className="cg-scroll" style={{ flex: compact ? 1 : "0 1 auto", minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: compact ? 5 : 6, padding: compact ? "5px 6px 6px" : "7px 8px 8px" }}>
+        {/* his numbers on one slim line; the bars are on his button below */}
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", columnGap: 8, fontSize: compact ? 9 : 10, lineHeight: 1.25, color: "var(--muted)", padding: "0 1px" }}>
+          <span style={h.dead ? { color: "#e07a72" } : undefined}>{h.dead ? `back in ${h.respawn}s` : `${h.hp}/${h.maxHp} hp`}</span>
+          <span title="Experience comes only from kills nearby">{max ? "max level" : `xp ${h.xp}/${h.next}${compact ? "" : " · from kills"}`}</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginTop: 10 }}>
-          <button className={cls("cg-btn", h.dead ? "cg-btn--slate is-off" : "cg-btn--parch")} disabled={h.dead} style={tile} onClick={move}>
-            <span className="cg-display" style={{ fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}><FlagIcon size={13} /> Move</span>
-            <span style={{ fontSize: 10, lineHeight: 1.35, color: "#5a4630" }}>{h.dead ? `Back on his feet in ${h.respawn}s.` : "Tap the map where the hero should stand."}</span>
-          </button>
-          {h.abilities.map((a) => {
-            const ready = a.state === "ready";
-            const label = ready ? (a.aim === "none" ? "Ready — tap to use" : a.aim === "foe" ? "Ready — then tap a foe" : "Ready — then tap the map")
-              : a.state === "cooling" ? `Recharging · ${a.sec}s` : a.state === "locked" ? `Wakes at level ${a.unlock}` : "Hero is down";
-            return (
-              <button key={a.id} className={cls("cg-btn", ready ? "cg-btn--gold" : "cg-btn--slate is-off")} disabled={!ready} style={tile} onClick={() => fire(a)}>
-                {/* the recharge drains down the plank like the militia's horn */}
-                {a.state === "cooling" && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.round(100 * Math.min(1, a.frac))}%`, background: "rgba(20,12,22,0.4)" }} />}
-                <span className="cg-display" style={{ fontSize: 12, fontWeight: 700, position: "relative", display: "inline-flex", alignItems: "center", gap: 5 }}>{ABIL_ICON[a.id] || <BoltIcon size={13} />} {a.name}</span>
-                <span className="cg-num" style={{ fontSize: 9.5, textShadow: "none", position: "relative", color: ready ? "var(--wood-deep)" : "var(--gold-lt)" }}>{label}</span>
-                <span style={{ fontSize: 9.5, lineHeight: 1.35, position: "relative", color: ready ? "var(--wood-deep)" : "var(--muted)" }}>{a.desc}</span>
-              </button>
-            );
-          })}
-        </div>
-      </>);
+        <button className={cls("cg-btn", h.dead ? "cg-btn--slate is-off" : "cg-btn--parch")} disabled={h.dead} style={row} onClick={move}>
+          <span className="cg-display" style={title}><FlagIcon size={13} /> Move</span>
+          <span style={{ ...fine, color: h.dead ? "var(--muted)" : "#5a4630" }}>{h.dead ? `Back in the fight in ${h.respawn}s.` : compact ? "Then tap where to stand." : "Then tap the map where to stand."}</span>
+        </button>
+        {h.abilities.map((a) => {
+          const ready = a.state === "ready";
+          const label = ready ? (a.aim === "none" ? "Ready — tap to use" : a.aim === "foe" ? "Ready — tap a foe" : "Ready — tap to aim")
+            : a.state === "cooling" ? `Recharging · ${a.sec}s` : a.state === "locked" ? `Wakes at level ${a.unlock}` : "Hero is down";
+          const brief = compact && !ready;
+          return (
+            <button key={a.id} title={brief ? a.desc : undefined} className={cls("cg-btn", ready ? "cg-btn--gold" : "cg-btn--slate is-off")} disabled={!ready} style={row} onClick={() => fire(a)}>
+              {/* the recharge drains down the plank like the militia's horn */}
+              {a.state === "cooling" && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.round(100 * Math.min(1, a.frac))}%`, background: "rgba(20,12,22,0.4)" }} />}
+              <span className="cg-display" style={title}>{ABIL_ICON[a.id] || <BoltIcon size={13} />} {a.name}</span>
+              <span className="cg-num" style={{ fontSize: 9, textShadow: "none", position: "relative", color: ready ? "var(--wood-deep)" : "var(--gold-lt)" }}>{label}</span>
+              <span style={{ ...fine, color: ready ? "var(--wood-deep)" : "var(--muted)", ...(brief ? oneLine : {}) }}>{a.desc}</span>
+            </button>
+          );
+        })}
+      </div>
+    </>);
   })();
 
   // -- the tower panel: everything about the selected hall --
@@ -1231,6 +1247,7 @@ export default function Crownguard() {
         else {
           d.mode = "drag";
           g.buildMode = d.kind; g.masterPick = d.pick; g.selectedId = null;
+          setTalentsOpen(false);   // a tower picked up folds the hero's menu away
         }
       }
       if (d.mode === "scroll") d.list.scrollTop = d.top0 - dy;
@@ -1257,8 +1274,9 @@ export default function Crownguard() {
     window.addEventListener("pointercancel", up);
   };
 
-  // what the tray is showing
-  const trayMode = masterInfoPanel ? "info" : "build";
+  // what the tray is showing: on a phone the hero's menu takes the grid's place
+  const heroTray = compact && !!talentPanel;
+  const trayMode = heroTray ? "hero" : masterInfoPanel ? "info" : "build";
   // iOS pads both long edges in landscape, though the camera cutout is on
   // only one. The map already runs under the left pad; when the cutout is
   // on the left too (turn 90), the right pad guards nothing but the rounded
@@ -1397,13 +1415,14 @@ export default function Crownguard() {
           {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && !(typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:")) && ribbon(
             <>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally)}
 
-            {/* the castle works and the hero's talents: a wide card over the middle of the map, in columns so it doesn't scroll */}
-            {(castleOpen || talentPanel) && !sel && (() => {
-              const CW = Math.min(castleOpen ? 540 : 480, (boardCss.vw - 2 * CARD_M) / s);
+            {/* the castle works: a wide card over the middle of the map, in columns so it doesn't scroll
+                (the hero's menu opens in the tray, above his button) */}
+            {castleOpen && !sel && (() => {
+              const CW = Math.min(540, (boardCss.vw - 2 * CARD_M) / s);
               return floatCard({
-                id: castleOpen ? "castle" : "talents", left: (boardCss.vw - CW * s) / 2, width: CW, f: 0.5, origin: "center",
-                closeLabel: castleOpen ? "Close castle works" : "Close the hero's menu", onClose: trayHome,
-                children: castleOpen ? (
+                id: "castle", left: (boardCss.vw - CW * s) / 2, width: CW, f: 0.5, origin: "center",
+                closeLabel: "Close castle works", onClose: trayHome,
+                children: (
                   <>
                     <div className="cg-label" style={{ marginBottom: 6, paddingRight: 16, display: "flex", alignItems: "center", gap: 6 }}><CastleIcon size={16} /> Castle works</div>
                     <CastleWorksList
@@ -1417,7 +1436,7 @@ export default function Crownguard() {
               : "Built on the wall itself, paid from the purse. What you raise here stands for every run in this realm — but the veteran ranks past a finished work are this run's alone."}
             onBuy={buyWork} />
                   </>
-                ) : talentPanel,
+                ),
               });
             })()}
 
@@ -1604,7 +1623,7 @@ export default function Crownguard() {
                 <button aria-label={infoOpen ? "Hide wave info" : "Show wave info and the rush switch"}
                   className={cls("cg-btn", fighting ? "cg-btn--slate" : "", infoOpen && "is-on")}
                   style={{ minWidth: 38, padding: 0, marginLeft: -2, minHeight: 54, flexDirection: "column", gap: 3 }}
-                  onClick={() => setInfoOpen((o) => !o)}>
+                  onClick={() => { setInfoOpen((o) => !o); setTalentsOpen(false); }}>
                   {infoOpen ? <ChevronDown size={7} /> : <ChevronUp size={7} />}
                   {ui.rush && <BoltIcon size={11} />}
                 </button>
@@ -1653,18 +1672,22 @@ export default function Crownguard() {
               </div>
             )}
 
-            {/* the panel: towers by default, else whatever is selected */}
+            {/* the panel: towers by default, else whatever is selected. The
+                hero's menu stands on his button: on a phone it takes the
+                whole panel (the grid folds away, keeping its place in the
+                list); on a tall screen it docks at the panel's foot and the
+                grid scrolls on above it */}
             <div className="cg-panel" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--slate-in)" }}>
-              {trayMode !== "build" && (
+              {trayMode !== "build" && trayMode !== "hero" && (
                 <div className="cg-drawer-head" style={{ margin: 0, padding: "4px 4px 4px 10px" }}>
                   <span className="cg-label" style={{ flex: 1, whiteSpace: "normal" }}>{trayTitle || (selDef ? selDef.name : "")}</span>
                   <button aria-label="Back to the towers" className="cg-btn cg-btn--slate cg-x" onClick={trayHome}><CloseIcon size={11} /></button>
                 </div>
               )}
-              <div className="cg-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: trayMode === "build" ? 6 : "8px 8px 10px" }}>
+              <div className="cg-scroll" aria-hidden={heroTray || undefined} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: trayMode === "build" ? 6 : "8px 8px 10px", ...(heroTray ? { flex: "0 0 0px", padding: 0, visibility: "hidden" } : {}) }}>
                 {trayMode === "info" && masterInfoPanel}
                 {trayMode === "wave" && wavePanel}
-                {trayMode === "build" && (
+                {(trayMode === "build" || heroTray) && (
                   <>
           {masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
@@ -1688,6 +1711,7 @@ export default function Crownguard() {
                               gg.masterPick = active ? null : { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name };
                               gg.selectedId = null;
                               if (!active) setBuildOpen(false);
+                              setTalentsOpen(false);
                             }}
                             disabled={!can}>
                             <span role="button" aria-label={`About ${plan.name}`}
@@ -1696,6 +1720,7 @@ export default function Crownguard() {
                                 const br = def.branches[plan.branch];
                                 const stats = plan.rank4 ? br.rank4[plan.rank4].stats : br.stats;
                                 setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
+                                setTalentsOpen(false);
                               }}
                               style={{ position: "absolute", top: 0, right: 0, padding: 5, pointerEvents: "auto", cursor: "help" }}><InfoIcon size={12} /></span>
                             <span className="cg-dim"><TowerPortrait kind={key} branch={plan.branch} rank4={plan.rank4} size={42} /></span>
@@ -1721,7 +1746,7 @@ export default function Crownguard() {
                     className={cls("cg-btn cg-btn--slate", active && "is-on", open && !can && "is-poor", !open && "is-off")}
                     style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: compact && !roomy ? 88 : 100, touchAction: "none" }}
                     onPointerDown={(e) => { if (can) startTileDrag(e, key); }}
-                    onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); }}
+                    onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); setTalentsOpen(false); }}
                     disabled={!can}>
                     <span className="cg-well cg-dim" style={{ width: roomy && compact ? 74 : compact ? 56 : 60, height: roomy && compact ? 64 : compact ? 50 : 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <TowerPortrait kind={key} size={roomy && compact ? 60 : compact ? 48 : 50} />
@@ -1743,6 +1768,7 @@ export default function Crownguard() {
                   </>
                 )}
               </div>
+              {talentPanel}
             </div>
 
             {/* foot: the hero, his talents and the militia */}

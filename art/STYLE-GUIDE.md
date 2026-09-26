@@ -155,10 +155,21 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   the locked halls fold into one tile),
   and the hero, his talents and the militia at its foot. On the map: lives
   and gold top left; the horn (with its arrow to the next wave's makeup and
-  the Rush switch) and the speed bottom left. **Popups, never scrolling:**
-  the tower card opens beside its tower (two columns on phones), the castle
-  works and the hero's talents open as wide cards over the middle of the map
-  in columns; each has its ✕ on the corner and closes on a tap elsewhere.
+  the Rush switch) and the speed bottom left. **The hero's menu opens in
+  the tray, right above his button — never over the map**, so the field
+  (and his Shield Slam) stays in view: on phones it takes the tower grid's
+  place, only as tall as it needs and standing on his button; on tall
+  screens it docks at the foot of the tray panel under the tower grid,
+  which keeps scrolling above it. Name · level and the ✕ in its head,
+  health and xp on one short row, then Move and the two abilities as
+  full-width planks (44px+; on phones an ability that is asleep or
+  recharging keeps one ellipsised line of its tale). It closes on its ✕, a
+  second tap on the hero button, a plain tap on the map, Castle, the
+  militia, the wave-info arrow, a tower tile or a selected tower; firing an
+  order closes it first. **Popups, never scrolling:** the tower card opens
+  beside its tower (two columns on phones), and only the castle works stays
+  a wide card over the middle of the map in columns; each has its ✕ on the
+  corner and closes on a tap elsewhere.
   The map stands flush against the tray at its true shape (its decorative
   top/bottom border may be trimmed on short screens); the rest of the screen
   is the realm's landscape (`src/render/apron.js`), never a bar. Everything
