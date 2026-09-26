@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  Dev tool (sandbox setup lab): mounts the Free Play setup screen
+  (src/ui/SandboxSetup.jsx) alone, full-window, so it can be judged at every
+  screen size. Size the window (or a headless viewport) to 844x390, 750x340,
+  1133x744, 1440x900.
+    /sbs-lab.html?tab=foes&preset=chaos      open a tab, start from a preset
+  START writes the settings it was handed into window.__started (and the
+  console); ✕ sets window.__backed.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Press+Start+2P&display=swap" />
+    <title>Crownguard — sandbox setup lab</title>
+    <style>html, body { margin: 0; height: 100%; overflow: hidden; background: #20242c; } body { user-select: none; }</style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from "react";
+      import { createRoot } from "react-dom/client";
+      import SandboxSetup from "/src/ui/SandboxSetup.jsx";
+      import { loadSandbox, fromPreset, sanitize, isHonest, buildArmy } from "/src/data/sandbox.js";
+      const q = new URLSearchParams(location.search);
+      const initial = q.get("preset") ? fromPreset(q.get("preset"), { realm: q.get("realm") || "greenwood" }) : loadSandbox();
+      window.__sb = { sanitize, isHonest, buildArmy };
+      const root = createRoot(document.getElementById("root"));
+      root.render(React.createElement(SandboxSetup, {
+        initial, initialTab: q.get("tab") || "field",
+        onStart: (s) => { window.__started = s; console.log("onStart", JSON.stringify(s)); },
+        onBack: () => { window.__backed = true; console.log("onBack"); },
+      }));
+    </script>
+  </body>
+</html>
