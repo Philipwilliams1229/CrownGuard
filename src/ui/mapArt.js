@@ -102,15 +102,60 @@ const SEA = { deep: "#2a4a6a", mid: "#33597a", shal: "#437590", reef: "#5a93a6",
 export const BIOME = [
   // Greenwood Vale: warm rolling green
   { lo: "#6a9a48", mid: "#82b256", hi: "#9cc462", alt: "#94b65a", cliff: ["#b08a58", "#8a6640", "#654a32"], sand: "#e6d49a" },
-  // the Iron Marches: grey-blue moor and heather
-  { lo: "#6b798c", mid: "#8190a0", hi: "#98a6b0", alt: "#8a9784", cliff: ["#9a948c", "#76716c", "#55504f"], sand: "#c8c0a8" },
-  // the Hollowfen: murky purple bog
-  { lo: "#54467a", mid: "#66578a", hi: "#7a6b9c", alt: "#5d6650", cliff: ["#7a6878", "#5b4a5e", "#3e3246"], sand: "#8e8298" },
+  // the Iron Marches: cool highland moor, grey-green turf and heather-brown
+  // (the ground itself is painted by moorPx below, from MOOR)
+  { lo: "#566250", mid: "#6e7a5e", hi: "#879270", alt: "#6e5850", cliff: ["#9a948c", "#76716c", "#55504f"], sand: "#b8b098" },
+  // the Hollowfen: black-green bog and olive moss under a cold moon, with a
+  // violet cast in its shadows (painted by fenPx below, from FEN_GROUND)
+  { lo: "#2c332f", mid: "#3a453b", hi: "#4c5847", alt: "#443c50", cliff: ["#6a6668", "#4e4a52", "#36323c"], sand: "#6e6a70" },
   // the isthmus: stony upland between the two
   { lo: "#6c7c5a", mid: "#7c8c66", hi: "#929c78", alt: "#8a8a70", cliff: ["#9a8c78", "#76695a", "#554a40"], sand: "#d4c498" },
   // the islets
   { lo: "#5f7a48", mid: "#7ea05a", hi: "#a0bc70", alt: "#8aa060", cliff: ["#a89478", "#80705a", "#5a4c40"], sand: "#e2d29a" },
 ];
+
+// The Marches' moor, three kinds of ground banded by the hill shading (lo,
+// mid, hi): grey-green turf, heather-brown on the high moor, greener pasture
+// in the low country; bracken in rusty drifts, heather in flower, and grey
+// stones breaking the turf.
+const MOOR = {
+  turf: ["#5c6852", "#76825f", "#8e9a72"].map(rgb),
+  heath: ["#5e4e48", "#76625a", "#8e7866"].map(rgb),
+  grass: ["#627050", "#7a8a56", "#94a266"].map(rgb),
+  bracken: ["#665438", "#7c6844", "#927c52"].map(rgb),
+  bloom: rgb("#8a5c6c"), stoneLt: rgb("#b0ab9e"), stoneDk: rgb("#57534e"), tuft: rgb("#4a5444"),
+};
+const moorPx = (x, y, band) => {
+  const t = band < 0.27 ? 0 : band > 0.75 ? 2 : 1, b = bayer(x, y) * 0.05;
+  const heath = fbm(x, y, 40, 22);
+  let pal = heath > 0.6 + b ? MOOR.heath : heath < 0.42 - b ? MOOR.grass : MOOR.turf;
+  if (pal !== MOOR.heath && vnoise(x, y, 26, 23) > 0.8 + b) pal = MOOR.bracken;
+  // speckle on a 2x2 grain: a stone (lit top, dark foot), a flower, a tuft
+  const bx = x >> 1, by = y >> 1, r = hash(bx * 3 + 7, by * 5 + 11);
+  if (r < 0.018) return (y & 1) ? MOOR.stoneDk : MOOR.stoneLt;
+  if (pal === MOOR.heath && r < 0.075 && !(x & 1)) return MOOR.bloom;
+  if (r > 0.95 && (y & 1)) return pal === MOOR.heath ? MOOR.heath[0] : MOOR.tuft;
+  return pal[t];
+};
+
+// The fen: sodden black-green bog, hummocks of olive moss and violet-dark
+// heath, flecked with bog cotton, rusty sphagnum and dark tussocks.
+const FEN_GROUND = {
+  bog: ["#303832", "#3e4a3e", "#4e5a48"].map(rgb),
+  moss: ["#414a35", "#52603e", "#667048"].map(rgb),
+  heath: ["#342f3c", "#423c4e", "#524a60"].map(rgb),
+  cotton: rgb("#d8d8c8"), cottonDk: rgb("#8a8c7e"), rust: rgb("#6e5038"), tuft: rgb("#232a26"),
+};
+const fenPx = (x, y, band) => {
+  const t = band < 0.27 ? 0 : band > 0.75 ? 2 : 1, b = bayer(x, y) * 0.05, F = FEN_GROUND;
+  const m = fbm(x, y, 34, 24);
+  const pal = m > 0.6 + b ? F.moss : m < 0.4 - b ? F.heath : F.bog;
+  const r = hash((x >> 1) * 5 + 3, (y >> 1) * 7 + 1);
+  if (r < 0.007) return (y & 1) ? F.cottonDk : F.cotton;
+  if (pal === F.moss && r < 0.05 && (x & 1)) return F.rust;
+  if (r > 0.94 && (y & 1)) return F.tuft;
+  return pal[t];
+};
 
 // ---- the base: land, cliffs, sea ------------------------------------
 function* paintBase() {
@@ -233,6 +278,8 @@ function* paintBase() {
       const slope = (a - b) * 10;
       const v = 0.5 - slope + (vnoise(x, y, 6, 3 + z) - 0.5) * 0.18;
       const band = v + (bayer(x, y) - 0.5) * 0.2;
+      if (z === 1) { put(i, moorPx(x, y, band)); continue; }
+      if (z === 2) { put(i, fenPx(x, y, band)); continue; }
       let col = band < 0.27 ? p.lo : band > 0.75 ? p.hi : p.mid;
       // broad patches of the country's second colour (heather, moss, meadow)
       if (col === p.mid && fbm(x, y, 40, 21 + z) > 0.63 + bayer(x, y) * 0.05) col = p.alt;
@@ -518,6 +565,26 @@ const busyField = () => {
   for (let i = 0; i < w * h; i++) set[i] = d[i * 4 + 3] > 60 ? 1 : 0;
   return (BUSY = distance(set, new Int8Array(w * h), w, h).D);
 };
+// The same, but blind to water: for what stands IN the fen's meres.
+let DRY = null;
+const dryBusy = (x, y, r = 0) => {
+  if (!DRY) {
+    const w = MAP.w, h = MAP.h, cv = mk(w, h), c = cv.getContext("2d", RF);
+    c.translate(-MAP.x, -MAP.y);
+    c.fillStyle = c.strokeStyle = "#000"; c.lineJoin = c.lineCap = "round";
+    for (const lv of LEVELS) {
+      c.beginPath(); c.arc(lv.pos[0], lv.pos[1] - 5, 12, 0, Math.PI * 2); c.fill();
+      const b = lbox(lv); c.fillRect(b.x - 2, b.y - 2, b.w + 4, b.h + 8);
+    }
+    for (const rd of ROADS) { c.lineWidth = 6.4; poly(c, rd.pts); c.stroke(); }
+    const d = c.getImageData(0, 0, w, h).data, set = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) set[i] = d[i * 4 + 3] > 60 ? 1 : 0;
+    DRY = distance(set, new Int8Array(w * h), w, h).D;
+  }
+  const ix = Math.round(x - MAP.x), iy = Math.round(y - MAP.y);
+  if (ix < 0 || iy < 0 || ix >= MAP.w || iy >= MAP.h) return true;
+  return DRY[iy * MAP.w + ix] <= r;
+};
 // Is a spot free for dressing? Clear of waypoints, their names, the road,
 // the rivers, and the chapter banners (by r units more).
 const busy = (x, y, r = 0) => {
@@ -576,9 +643,8 @@ const mountain = (w, h, seed, pal) => spr(`mt${w}${h}${seed}${pal.key}`, w, h, (
   }
 });
 const ROCK = { key: "r", lit: "#bcb3a2", mid: "#9a9084", dark: "#6e6676", snow: "#f4f0e2", snowDk: "#b4c0d4" };
-const IRONPK = { key: "i", lit: "#aab0b8", mid: "#8a90a0", dark: "#5e6278", snow: "#f2f2ea", snowDk: "#aebcd4" };
+const IRONPK = { key: "i", lit: "#b0aa9c", mid: "#8e887c", dark: "#5e5a62", snow: "#eeece2", snowDk: "#aab4c4" };
 const HILLG = { key: "g", lit: "#9cc462", mid: "#82b256", dark: "#5f8f43" };
-const CRAG = { key: "c", lit: "#b0aca4", mid: "#8e8a86", dark: "#646070" };
 // a rolling hill: a low lit mound
 const hill = (w, h, seed, pal) => spr(`hl${w}${h}${seed}${pal.key}`, w, h, (c) => {
   c.save(); c.beginPath(); c.rect(0, 0, w, h - 0.01); c.clip();
@@ -617,41 +683,6 @@ const barrow = (v) => spr(`bar${v}`, 10, 6, (c) => {
   c.fillStyle = "#8a847a"; c.fillRect(3.8, 3, 2.4, 3);
   c.fillStyle = "#2a2230"; c.fillRect(4.4, 3.8, 1.2, 2.2);
 });
-// a grey keep of the Marches: stone, battlements, a slate cap
-const keep = (v) => spr(`keep${v}`, 7, 12, (c) => {
-  const tall = v % 2 ? 0 : 1.5;
-  c.fillStyle = "#a19a8a"; c.fillRect(1.2, 3.4 - tall, 4.6, 8.4 + tall);
-  c.fillStyle = "#7e776c"; c.fillRect(4, 3.4 - tall, 1.8, 8.4 + tall);
-  c.fillStyle = "#b4ad9c"; c.fillRect(0.8, 2.2 - tall, 5.4, 1.4);
-  c.fillStyle = "#a19a8a";
-  for (let k = 0; k < 3; k++) c.fillRect(0.8 + k * 2, 1.2 - tall, 1.2, 1.2);
-  c.fillStyle = "#2a2230"; c.fillRect(2.8, 5.4 - tall, 1, 1.6); c.fillRect(2.8, 9.6, 1.4, 2.2);
-  c.fillStyle = "#56647a"; poly(c, [[5.9, 1.2 - tall], [5.9, -0 - tall], [7, 0.6 - tall]]); c.fill();
-});
-// the Marches' tents on the muster field
-const tent = (v) => spr(`tent${v}`, 6, 5, (c) => {
-  c.fillStyle = v % 2 ? "#e8e0cc" : "#d8ccb0"; poly(c, [[0.2, 4.8], [3, 0.4], [5.8, 4.8]]); c.fill();
-  c.fillStyle = v % 2 ? "#56647a" : "#b8ac92"; poly(c, [[3, 0.4], [5.8, 4.8], [3.8, 4.8]]); c.fill();
-  c.fillStyle = "#2a2230"; poly(c, [[2.4, 4.8], [3, 2.6], [3.4, 4.8]]); c.fill();
-});
-// a standing stone of the fen
-const menhir = (v) => spr(`men${v}`, 3, 6, (c) => {
-  c.fillStyle = "#9a94a0"; poly(c, [[0.3, 5.8], [0.6, 1], [1.6, 0.2], [2.6, 1.2], [2.7, 5.8]]); c.fill();
-  c.fillStyle = "#6e6680"; c.fillRect(1.8, 1, 0.9, 4.8);
-});
-// a cairn: a heap of stones
-const cairn = (v) => spr(`cairn${v}`, 6, 5, (c) => {
-  ball(c, 3, 3.6, 2.8, 1.5, "#8e8898", { hi: 0.4, lo: 0.5 });
-  ball(c, 2.6, 2.2, 1.8, 1.2, "#9a94a4", { hi: 0.4, lo: 0.5 });
-  ball(c, 3.2, 1.1, 1, 0.9, "#a8a2b0", { hi: 0.4, lo: 0.5 });
-});
-// reeds
-const reeds = (v) => spr(`reed${v}`, 4, 4, (c) => {
-  c.fillStyle = v % 2 ? "#7a8a58" : "#6a7a50";
-  for (let k = 0; k < 3; k++) c.fillRect(0.6 + k * 1.2, 1 + (k % 2) * 0.8, 0.6, 3 - (k % 2) * 0.8);
-  c.fillStyle = "#5a4034"; c.fillRect(1.8, 0.4, 0.6, 1);
-}, 0);
-
 // a sheep, and a haystack for the farms
 const sheep = (v) => spr(`sheep${v}`, 3.6, 2.8, (c) => {
   ball(c, 1.9, 1.3, 1.5, 1.1, "#f2ecdc", { hi: 0.3, lo: 0.35 });
@@ -705,40 +736,6 @@ const crownCastle = () => spr("crown", 22, 20, (c) => {
   c.fillStyle = "#6b5a3c"; c.fillRect(10.8, -0.2 + 0.4, 0.6, 1.6);
   c.fillStyle = "#d8b34a"; c.fillRect(11.4, 0.4, 3, 1.8);
 });
-const citadel = () => spr("citadel", 24, 18, (c) => {
-  const stone = "#9a9aa4", dk = "#6e6e80", lit = "#b8b8c0", roof = "#46546c";
-  c.fillStyle = stone; c.fillRect(1, 9, 22, 8.6);
-  c.fillStyle = dk; c.fillRect(1, 15.6, 22, 2);
-  c.fillStyle = lit; for (let k = 0; k < 11; k++) c.fillRect(1 + k * 2, 8, 1.2, 1.4);
-  const tower = (x, top, w) => {
-    c.fillStyle = stone; c.fillRect(x, top, w, 17.6 - top);
-    c.fillStyle = dk; c.fillRect(x + w * 0.6, top, w * 0.4, 17.6 - top);
-    c.fillStyle = lit; for (let k = 0; k < Math.floor(w / 1.6); k++) c.fillRect(x + k * 1.6, top - 1, 0.9, 1.2);
-    c.fillStyle = "#2a2230"; c.fillRect(x + w / 2 - 0.4, top + 2.2, 0.9, 1.6);
-  };
-  tower(0, 5, 4); tower(20, 5, 4); tower(6, 6.5, 3.2); tower(14.8, 6.5, 3.2);
-  tower(9.6, 1.6, 4.8);
-  c.fillStyle = roof; poly(c, [[9.2, 1.2], [12, -1.4 + 1.4], [14.8, 1.2]]); c.fill();
-  c.fillStyle = "#3a2a24"; c.fillRect(10.6, 13.2, 2.8, 4.4);
-  c.fillStyle = "#56647a"; c.fillRect(2, 1.4, 0.5, 3.6); c.fillRect(2.5, 1.4, 2.4, 1.4);
-  c.fillStyle = "#56647a"; c.fillRect(21.2, 1.4, 0.5, 3.6); c.fillRect(21.7, 1.4, 2.2, 1.4);
-});
-const ruin = () => spr("ruin", 20, 16, (c) => {
-  const st = "#6e647c", dk = "#4a4058", lit = "#8a80a0";
-  c.fillStyle = st; c.fillRect(1, 9, 18, 6.6);
-  c.fillStyle = dk; c.fillRect(1, 13.8, 18, 1.8);
-  // broken towers
-  c.fillStyle = st; poly(c, [[1, 15.6], [1, 3], [2.6, 2], [3.4, 4], [5, 3.2], [5, 15.6]]); c.fill();
-  c.fillStyle = dk; c.fillRect(3.6, 3.4, 1.4, 12.2);
-  c.fillStyle = st; poly(c, [[7.4, 15.6], [7.4, 1], [9.4, 0.2], [11, 2.2], [12.6, 0.6], [12.6, 15.6]]); c.fill();
-  c.fillStyle = dk; c.fillRect(10.8, 1.6, 1.8, 14);
-  c.fillStyle = st; poly(c, [[15, 15.6], [15, 5], [17, 6.4], [19, 4.6], [19, 15.6]]); c.fill();
-  c.fillStyle = dk; c.fillRect(17.6, 5, 1.4, 10.6);
-  c.fillStyle = lit; c.fillRect(1, 3, 1.2, 12.6); c.fillRect(7.4, 1, 1.2, 14.6);
-  // the dead court's lights
-  c.fillStyle = "#9ae8b0"; c.fillRect(9.4, 5, 1.2, 1.8); c.fillRect(2.4, 8, 1, 1.4); c.fillRect(16.4, 9, 1, 1.4);
-  c.fillStyle = "#2a2230"; c.fillRect(8.8, 11.6, 2.4, 4);
-});
 const ship = () => spr("ship", 14, 13, (c) => {
   c.fillStyle = "#7a5334"; poly(c, [[0.4, 9], [13.6, 9], [11.6, 12.4], [2.2, 12.4]]); c.fill();
   c.fillStyle = "#5a3c26"; c.fillRect(1.6, 11, 11, 1.4);
@@ -790,10 +787,496 @@ const bridge = () => spr("bridge", 7, 5, (c) => {
   c.fillStyle = "#cfc7b2"; c.fillRect(0.4, 0.6, 6.2, 0.7); c.fillRect(0.4, 3.9, 6.2, 0.6);
 });
 
+// ---- the Iron Marches ---------------------------------------------------
+// A militarised highland kingdom: grey stone and slate, black-iron trim and
+// the Iron Kingdom's OXBLOOD banners (never the crown's blue), dark pines,
+// drystone walls, camps and watchtowers along every road.
+const IK = {
+  st: "#a4a096", stLt: "#bcb8ac", stDk: "#7a766e", stDp: "#5a5652",
+  sl: "#505664", slLt: "#6a7282", slDk: "#3a3e4a",
+  ox: "#7a2a2c", oxDk: "#521a1e", oxLt: "#98403c", iron: "#2e3038", brass: "#b8903e",
+  wood: "#6a4a2e", woodDk: "#4a3222", door: "#2a2230", fire: "#f2a040", fireLt: "#ffe08a",
+};
+// an oxblood banner on a black-iron pole: the pole's foot at (x, y), the
+// cloth `len` long, swallow-tailed, with the grey tower of the kingdom on it
+const oxFlag = (c, x, y, pole, len = 2.6, h = 1.6) => {
+  c.fillStyle = IK.iron; c.fillRect(x - 0.3, y - pole, 0.6, pole);
+  const t = y - pole + 0.2;
+  c.fillStyle = IK.ox; poly(c, [[x + 0.3, t], [x + 0.3 + len, t], [x + len - 0.4, t + h / 2], [x + 0.3 + len, t + h], [x + 0.3, t + h]]); c.fill();
+  c.fillStyle = IK.oxDk; c.fillRect(x + 0.3, t + h - 0.5, len - 0.6, 0.5);
+  c.fillStyle = "#a8a8b0"; c.fillRect(x + 0.9, t + 0.4, 0.6, 0.7);
+};
+// a square block seen from the south: its south face, the east third in
+// shade, a paler roof-walk on top and a row of merlons
+const block = (c, x, y, w, h, o = {}) => {
+  c.fillStyle = o.st || IK.st; c.fillRect(x, y - h, w, h);
+  c.fillStyle = o.dk || IK.stDk; c.fillRect(x + w * 0.64, y - h, w * 0.36, h);
+  c.fillStyle = IK.stDp; c.fillRect(x, y - 0.6, w, 0.6);
+  if (o.top !== false) {
+    const d = o.deck ?? 1.2;
+    c.fillStyle = IK.stLt; c.fillRect(x - 0.2, y - h - d, w + 0.4, d);
+    c.fillStyle = IK.stDk; c.fillRect(x + 0.4, y - h - d + 0.5, w - 0.8, d - 0.5);
+    c.fillStyle = IK.stLt;
+    for (let k = x - 0.2; k < x + w; k += 1.6) c.fillRect(k, y - h - d - 0.8, 0.9, 0.8);
+  }
+};
+const slit = (c, x, y, h = 1.2) => { c.fillStyle = IK.door; c.fillRect(x, y, 0.6, h); };
+// a slate-roofed stone house: gable end to the south or the long side
+const house = (c, x, y, w, h, v) => {
+  const wall = v % 3 === 2 ? "#b4ac9a" : IK.st, dk = v % 3 === 2 ? "#8a8272" : IK.stDk;
+  c.fillStyle = wall; c.fillRect(x, y - h, w, h);
+  c.fillStyle = dk; c.fillRect(x + w * 0.66, y - h, w * 0.34, h);
+  const rf = v % 4 === 3 ? ["#7a4a3a", "#94604a", "#5a3428"] : [IK.sl, IK.slLt, IK.slDk];
+  c.fillStyle = rf[0]; poly(c, [[x - 0.4, y - h + 0.2], [x + 0.6, y - h - 1.8], [x + w - 0.6, y - h - 1.8], [x + w + 0.4, y - h + 0.2]]); c.fill();
+  c.fillStyle = rf[1]; c.fillRect(x + 0.6, y - h - 1.8, w - 1.2, 0.6);
+  c.fillStyle = rf[2]; c.fillRect(x - 0.4, y - h - 0.3, w + 0.8, 0.5);
+  c.fillStyle = IK.door; c.fillRect(x + w * 0.3, y - 1.3, 0.8, 1.3);
+  if (w > 3) { c.fillStyle = "#e8c070"; c.fillRect(x + w * 0.62, y - h + 0.5, 0.6, 0.6); }
+  if (v % 2) { c.fillStyle = IK.stDk; c.fillRect(x + w - 1.4, y - h - 2.6, 0.8, 1.4); }
+};
+// a stone farmhouse with its byre
+const steading = (v) => spr(`ik-stead${v}`, 9, 6, (c) => {
+  house(c, 0.6, 5.8, 4.4, 2.4, v);
+  if (v % 2) house(c, 5, 5.8, 3.4, 1.6, v + 1);
+  else { c.fillStyle = "#8a7a58"; poly(c, [[5.2, 5.8], [5.6, 3.6], [8.4, 3.6], [8.6, 5.8]]); c.fill(); c.fillStyle = "#6a5a40"; c.fillRect(7, 3.6, 1.6, 2.2); }
+});
+// a square keep: tall, battlemented, one banner
+const ironKeep = (v) => spr(`ik-keep${v}`, 9, 15, (c) => {
+  const tall = v % 2 ? 7.6 : 9.2;
+  if (v % 3 === 2) { block(c, 5.6, 14.6, 3, 3.4, { deck: 0.8 }); }
+  block(c, 1.2, 14.6, 5.2, tall);
+  slit(c, 2.6, 14.6 - tall + 1.6); slit(c, 4.4, 14.6 - tall + 3.4);
+  c.fillStyle = IK.door; c.fillRect(3, 12.4, 1.4, 2.2);
+  c.fillStyle = IK.iron; c.fillRect(1.2, 14.6 - tall + 0.2, 5.2, 0.4);
+  oxFlag(c, 3.8, 14.6 - tall - 1.4, 3.4, 2.8, 1.7);
+});
+// a watchtower: slim, a timber hoarding, a beacon basket (lit or banner)
+const watchtower = (v) => spr(`ik-watch${v}`, 6, 15, (c) => {
+  c.fillStyle = IK.st; poly(c, [[1.2, 14.6], [1.7, 5], [4.3, 5], [4.8, 14.6]]); c.fill();
+  c.fillStyle = IK.stDk; poly(c, [[3.4, 5], [4.3, 5], [4.8, 14.6], [3.7, 14.6]]); c.fill();
+  c.fillStyle = IK.stDp; c.fillRect(1.2, 14, 3.6, 0.6);
+  slit(c, 2.5, 8); slit(c, 2.5, 11);
+  // the hoarding
+  c.fillStyle = IK.wood; c.fillRect(0.8, 3.6, 4.4, 1.6);
+  c.fillStyle = IK.woodDk; c.fillRect(0.8, 4.6, 4.4, 0.6); c.fillRect(3.6, 3.6, 1.6, 1.6);
+  c.fillStyle = IK.sl; poly(c, [[0.4, 3.8], [3, 1.8], [5.6, 3.8]]); c.fill();
+  c.fillStyle = IK.slLt; poly(c, [[0.4, 3.8], [3, 1.8], [3, 3.8]]); c.fill();
+  if (v % 2) { c.fillStyle = IK.fire; c.fillRect(2.4, 0.6, 1.2, 1.3); c.fillStyle = IK.fireLt; c.fillRect(2.7, 0.3, 0.6, 0.8); c.fillStyle = IK.iron; c.fillRect(2.2, 1.7, 1.6, 0.4); }
+  else oxFlag(c, 3, 2.4, 2.4, 2.4, 1.4);
+});
+// a border fort: a square curtain with corner towers, a gatehouse and a hall
+const borderFort = (v) => spr(`ik-fort${v}`, 18, 14, (c) => {
+  // the yard, and the back curtain's face seen across it
+  c.fillStyle = "#8a826e"; c.fillRect(2, 5, 14, 7);
+  block(c, 2, 6.6, 14, 1.8, { deck: 0.8 });
+  // the hall inside
+  house(c, 4.6, 10.2, 6, 2.4, v * 3);
+  if (v % 2) house(c, 11.4, 10.4, 3, 1.6, 1);
+  // the side walls' walks
+  c.fillStyle = IK.stLt; c.fillRect(1.6, 5, 1.2, 8); c.fillRect(15.2, 5, 1.2, 8);
+  c.fillStyle = IK.stDk; c.fillRect(15.8, 5, 0.6, 8);
+  // the front curtain and its gatehouse
+  block(c, 2, 13.6, 14, 2.4, { deck: 0.9 });
+  block(c, 7, 13.6, 4, 4.4, { deck: 1 });
+  c.fillStyle = IK.door; c.beginPath(); c.moveTo(8.2, 13.6); c.lineTo(8.2, 11.8); c.arc(9, 11.8, 0.8, Math.PI, 0); c.lineTo(9.8, 13.6); c.fill();
+  c.fillStyle = IK.iron; for (let k = 8.3; k < 9.8; k += 0.6) c.fillRect(k, 11.4, 0.3, 2.2);
+  // corner towers
+  for (const [x, h] of [[0.4, 6.4], [14.2, 6.4]]) { block(c, x, 6.8, 3.4, h - 1, { deck: 0.9 }); }
+  for (const [x, h] of [[0.4, 4.6], [14.2, 4.6]]) { block(c, x, 13.8, 3.4, h, { deck: 0.9 }); slit(c, x + 1.3, 13.8 - h + 1.2); }
+  oxFlag(c, 9, 7.4, 3.8, 3, 1.8);
+  oxFlag(c, 1.9, 2.8, 2.6, 2, 1.3);
+});
+// a walled town: curtain and towers round a huddle of slate roofs, a keep
+// at its heart
+const walledTown = (v) => spr(`ik-town${v}`, 24, 17, (c) => {
+  c.fillStyle = "#8e8674"; c.fillRect(2.4, 5.4, 19.2, 8);
+  block(c, 2.4, 6.8, 19.2, 1.6, { deck: 0.8 });
+  const keepX = v % 2 ? 13.4 : 8;
+  // back row of houses, the keep, the front row
+  for (let k = 0; k < 5; k++) { const x = 3.4 + k * 3.7 + (hash(v, k) - 0.5); if (Math.abs(x + 1.4 - keepX - 2) < 3.4) continue; house(c, x, 9.6, 2.8 + hash(v, k + 9) * 0.8, 1.4, v + k); }
+  block(c, keepX, 11.4, 4.2, 7.4, { deck: 1 });
+  slit(c, keepX + 1.4, 6.4); c.fillStyle = IK.iron; c.fillRect(keepX, 4.2, 4.2, 0.4);
+  oxFlag(c, keepX + 2.1, 2.8, 2.8, 3, 1.8);
+  for (let k = 0; k < 5; k++) { const x = 3 + k * 3.8 + (hash(v, k + 20) - 0.5) * 0.8; if (Math.abs(x + 1.5 - 12) < 2.6) continue; house(c, x, 13, 3 + hash(v, k + 30) * 0.6, 1.6, v + k + 2); }
+  c.fillStyle = IK.stLt; c.fillRect(1.8, 5.4, 1.2, 8.6); c.fillRect(21, 5.4, 1.2, 8.6);
+  // the front curtain, gate, and four towers
+  block(c, 2.4, 16.4, 19.2, 2.2, { deck: 0.8 });
+  block(c, 10, 16.4, 4, 3.8, { deck: 0.9 });
+  c.fillStyle = IK.door; c.beginPath(); c.moveTo(11.2, 16.4); c.lineTo(11.2, 14.8); c.arc(12, 14.8, 0.8, Math.PI, 0); c.lineTo(12.8, 16.4); c.fill();
+  for (const x of [0.6, 20.2]) { block(c, x, 7.2, 3.2, 4, { deck: 0.8 }); block(c, x, 16.6, 3.2, 4.4, { deck: 0.8 }); slit(c, x + 1.2, 13.6); }
+  oxFlag(c, 21.8, 11.4, 2.4, 2, 1.3);
+});
+// canvas tents of the Iron army, and the captain's striped pavilion
+const ikTent = (v) => spr(`ik-tent${v}`, 6, 5.4, (c) => {
+  const cloth = v % 3 === 2 ? IK.ox : "#ddd4bc", dk = v % 3 === 2 ? IK.oxDk : "#aea48a";
+  c.fillStyle = cloth; poly(c, [[0.2, 5.2], [3, 0.8], [5.8, 5.2]]); c.fill();
+  c.fillStyle = dk; poly(c, [[3, 0.8], [5.8, 5.2], [3.9, 5.2]]); c.fill();
+  if (v % 3 !== 2) { c.fillStyle = IK.ox; poly(c, [[1.9, 2.8], [3, 0.8], [3.4, 1.5], [2.5, 3.2]]); c.fill(); }
+  c.fillStyle = IK.door; poly(c, [[2.4, 5.2], [3, 3], [3.5, 5.2]]); c.fill();
+  c.fillStyle = IK.wood; c.fillRect(2.8, 0, 0.5, 1);
+});
+const pavilion = () => spr("ik-pav", 11, 10, (c) => {
+  c.fillStyle = "#ddd4bc"; c.fillRect(1.4, 5.4, 8.2, 4.2);
+  c.fillStyle = IK.ox; for (let k = 0; k < 4; k++) c.fillRect(2.2 + k * 2, 5.4, 1, 4.2);
+  c.fillStyle = "#aea48a"; c.fillRect(7.4, 5.4, 2.2, 4.2);
+  c.fillStyle = IK.ox; poly(c, [[0.6, 5.8], [5.5, 2.4], [10.4, 5.8]]); c.fill();
+  c.fillStyle = IK.oxLt; poly(c, [[0.6, 5.8], [5.5, 2.4], [5.5, 5.8]]); c.fill();
+  c.fillStyle = IK.brass; c.fillRect(0.6, 5.6, 9.8, 0.5);
+  c.fillStyle = IK.door; c.fillRect(4.8, 7.2, 1.4, 2.4);
+  oxFlag(c, 5.5, 2.6, 2.6, 3, 1.6);
+});
+// a camp fire with its smoke
+const campfire = () => spr("ik-fire", 2.4, 4, (c) => {
+  c.fillStyle = "#8a8490"; c.fillRect(1, 0, 0.6, 0.8); c.fillRect(0.6, 0.8, 0.6, 0.8); c.fillRect(1.1, 1.6, 0.5, 0.6);
+  c.fillStyle = IK.woodDk; c.fillRect(0.2, 3.4, 2, 0.5);
+  c.fillStyle = IK.fire; c.fillRect(0.6, 2.4, 1.2, 1.1); c.fillStyle = IK.fireLt; c.fillRect(1, 2.6, 0.5, 0.8);
+}, 0);
+// a milestone by the military road
+const milestone = (v) => spr(`ik-mile${v}`, 2.2, 3, (c) => {
+  c.fillStyle = "#b8b4a8"; c.fillRect(0.4, 0.8, 1.4, 2.1); c.beginPath(); c.arc(1.1, 0.9, 0.7, Math.PI, 0); c.fill();
+  c.fillStyle = "#86827a"; c.fillRect(1.2, 0.6, 0.6, 2.3);
+  if (v % 2) { c.fillStyle = IK.ox; c.fillRect(0.4, 1.4, 1.4, 0.4); }
+});
+// the gallows at the crossroads
+const gallows = () => spr("ik-gallows", 7, 8, (c) => {
+  c.save(); c.beginPath(); c.rect(0, 0, 7, 7.9); c.clip();
+  ball(c, 3.5, 8, 3.4, 1.6, "#6a7458", { hi: 0.4, lo: 0.4, fx: -0.5, fy: -0.7 }); c.restore();
+  c.fillStyle = IK.wood; c.fillRect(1.4, 1.2, 0.8, 5.8); c.fillRect(1.4, 1.2, 4.6, 0.7);
+  c.fillStyle = IK.woodDk; c.fillRect(1.9, 1.2, 0.3, 5.8); poly(c, [[2.2, 3.2], [3.6, 1.9], [2.9, 1.9], [2.2, 2.6]]); c.fill();
+  c.fillStyle = "#b8a878"; c.fillRect(5.2, 1.9, 0.3, 1.6);
+  c.fillStyle = "#2a2430"; c.fillRect(4.9, 3.5, 0.9, 0.8);
+  c.fillStyle = "#1e1a22"; c.fillRect(4.6, 0.4, 1.2, 0.8);
+});
+// a granite tor: slabs stacked on the moor, each with a lit top, a grey
+// south face and a shaded east end, split by dark joints
+const tor = (v) => spr(`ik-tor${v}`, 11, 8, (c) => {
+  const slab = (x, y, w, h, top = 0.9) => {
+    c.fillStyle = "#8e897e"; c.fillRect(x, y - h, w, h);
+    c.fillStyle = "#6a655e"; c.fillRect(x + w * 0.7, y - h, w * 0.3, h);
+    c.fillStyle = "#56524c"; c.fillRect(x, y - 0.5, w, 0.5);
+    c.fillStyle = "#b8b3a6"; c.fillRect(x + 0.2, y - h - top, w - 0.4, top);
+    c.fillStyle = "#cfcabc"; c.fillRect(x + 0.4, y - h - top, w * 0.4, 0.5);
+  };
+  const stacks = [
+    [[0.6, 7.6, 4.2, 1.6], [5, 7.6, 3.6, 2.2], [1.2, 5.1, 3.2, 1.6], [5.4, 4.5, 2.8, 1.4], [1.8, 2.6, 2, 1.2]],
+    [[1, 7.6, 5, 2], [6.2, 7.6, 3.8, 1.4], [1.6, 4.7, 3.8, 1.8], [2.2, 2, 2.4, 1.2]],
+    [[0.4, 7.6, 3, 1.4], [3.6, 7.6, 5.6, 2.4], [4.2, 4.3, 4, 1.8], [5, 1.6, 2.4, 1.2]],
+    [[1.4, 7.6, 7.6, 1.6], [2.2, 5.1, 3.2, 1.8], [5.8, 5.1, 2.6, 1.2]],
+  ][v % 4];
+  for (const [x, y, w, h] of stacks) slab(x + (v > 3 ? 0.6 : 0), y, w, h);
+  c.fillStyle = "#6e7a52"; c.fillRect(1 + (v % 3), 7.1, 1.4, 0.5);
+});
+// a column of the Iron host on the march: spears, helms, oxblood coats, a
+// banner at the head
+const column = (v) => spr(`ik-col${v}`, 14, 5, (c) => {
+  const n = 5 + (v % 2);
+  for (let k = 0; k < n; k++) {
+    const x = 1 + k * 2.1, y = 4.8 - (k % 2) * 0.2;
+    c.fillStyle = "#3a3440"; c.fillRect(x, y - 1.2, 0.5, 1.2); c.fillRect(x + 0.7, y - 1.2, 0.5, 1.2);
+    c.fillStyle = k === n - 1 ? IK.brass : IK.ox; c.fillRect(x - 0.1, y - 2.6, 1.4, 1.5);
+    c.fillStyle = IK.oxDk; c.fillRect(x + 0.8, y - 2.6, 0.5, 1.5);
+    c.fillStyle = "#c4c8d0"; c.fillRect(x + 0.1, y - 3.4, 1, 0.8);
+    c.fillStyle = "#8a8e98"; c.fillRect(x + 0.7, y - 3.4, 0.4, 0.8);
+    if (k < n - 1) { c.fillStyle = IK.wood; c.fillRect(x + 1.2, y - 4.6, 0.3, 3); c.fillStyle = "#dadde4"; c.fillRect(x + 1.2, y - 5, 0.3, 0.5); }
+  }
+  oxFlag(c, 1 + (n - 1) * 2.1 + 1.3, 3.2, 3.2, 2, 1.2);
+});
+// a moor fell: a long low swell of turf or heather
+const FELL = [{ key: "mt", mid: "#76825f" }, { key: "mh", mid: "#7a6a58" }];
+// the Marches' pines: dark, narrow, three tiers, some tall
+const moorPine = (v) => spr(`ik-pine${v}`, 7, 12, (c) => {
+  const col = ["#2e4c40", "#34523e", "#2a463e", "#38543a"][v % 4], tall = v % 2 ? 1.6 : 0;
+  trunk(c, 3.5, 11.8, 2.2, "#4a3a2c");
+  cone(c, 3.5, 4.4 - tall * 0.2, 3, 5.6, col, { scallops: 3, sag: 0.7, hi: 0.35, lo: 0.55 });
+  cone(c, 3.5, 2 - tall * 0.6, 2.4, 4.4, col, { scallops: 2, sag: 0.6, hi: 0.4, lo: 0.5 });
+  cone(c, 3.5, 0.2 - tall * 0.8 + 1.2, 1.5, 3, col, { scallops: 2, sag: 0.4, hi: 0.45, lo: 0.45 });
+});
+// the Iron Citadel: the capital's fortress on its crag
+const ironCitadel = () => spr("ik-citadel", 32, 28, (c) => {
+  // the crag it stands on
+  c.save(); c.beginPath(); c.rect(0, 14, 32, 13.9); c.clip();
+  blobBall(c, 16, 26, 15.4, 7, "#8e887c", 311, { hi: 0.5, lo: 0.6, wobble: 0.08, n: 12 });
+  c.restore();
+  c.fillStyle = "#6e6860"; for (const [x, y] of [[6, 24], [11, 25.6], [20, 25], [26, 23.4]]) c.fillRect(x, y, 2.4, 0.5);
+  // the outer curtain, back face and walks
+  c.fillStyle = "#86806e"; c.fillRect(3, 11, 26, 9);
+  block(c, 3, 12.4, 26, 2, { deck: 0.9 });
+  c.fillStyle = IK.stLt; c.fillRect(2.4, 11, 1.2, 10); c.fillRect(28.4, 11, 1.2, 10);
+  // the inner ward: barracks and the great keep
+  house(c, 5, 16.6, 6, 2, 0); house(c, 21, 16.6, 5.4, 2, 2);
+  block(c, 11.4, 18, 9.2, 13, { deck: 1.4 });
+  block(c, 13.6, 5.2, 4.8, 3.2, { deck: 1 });
+  c.fillStyle = IK.iron; c.fillRect(11.4, 5.2, 9.2, 0.5);
+  for (const x of [12.8, 15.6, 18.4]) slit(c, x, 7.4, 1.6);
+  for (const x of [12.8, 18.4]) slit(c, x, 11, 1.6);
+  c.fillStyle = IK.ox; c.fillRect(15.2, 9.4, 1.8, 4.6); c.fillStyle = IK.oxDk; c.fillRect(15.2, 13.4, 1.8, 0.6);
+  c.fillStyle = "#a8a8b0"; c.fillRect(15.8, 10.4, 0.6, 1.2);
+  oxFlag(c, 16, 2.2, 2.2, 3.6, 2);
+  // the front curtain, the great gate, and the towers
+  block(c, 3, 23.4, 26, 3.2, { deck: 1 });
+  block(c, 12.6, 23.8, 6.8, 5.6, { deck: 1.1 });
+  c.fillStyle = IK.door; c.beginPath(); c.moveTo(14.8, 23.8); c.lineTo(14.8, 21.4); c.arc(16, 21.4, 1.2, Math.PI, 0); c.lineTo(17.2, 23.8); c.fill();
+  c.fillStyle = IK.iron; for (let k = 15; k < 17.2; k += 0.7) c.fillRect(k, 20.6, 0.3, 3.2);
+  for (const [x, top, h] of [[0.6, 12.8, 6.2], [26.4, 12.8, 6.2]]) { block(c, x, top, 4.4, h, { deck: 1 }); slit(c, x + 1.8, top - h + 2); }
+  for (const [x, h] of [[0.4, 7.4], [26.6, 7.4]]) { block(c, x, 24, 5, h, { deck: 1.1 }); slit(c, x + 2, 24 - h + 2); slit(c, x + 2, 24 - h + 4.4); }
+  oxFlag(c, 2.9, 15.4, 2.8, 2.6, 1.5); oxFlag(c, 29.1, 15.4, 2.8, 2.6, 1.5);
+  oxFlag(c, 13.4, 16.8, 2.6, 2.4, 1.4);
+});
+
+// ---- the Hollowfen -----------------------------------------------------
+// A drowned kingdom's fen: dead and drowned trees, weeping willows, reeds,
+// barrows and standing stones, ruined chapels and a drowned village, the
+// dead court's teal witch-fire, all in the fen's own muted palette.
+const HF = {
+  bark: "#665c5a", barkLt: "#8a807a", barkDk: "#3a3438", moss: "#5a6a48", mossDk: "#3e4a36",
+  wil: ["#3e4a38", "#4a5842", "#5a6a4a"], st: "#8a8a80", stLt: "#a8a89c", stDk: "#5e605c", stDp: "#43443f",
+  thatch: "#6a5a44", thatchDk: "#4a3e30", dark: "#1e1a22", fire: "#7ce0b8", fireLt: "#d4fff0", fireDk: "#3a8a74",
+  water: "#1c2428", waterLt: "#5a7078",
+};
+// a dead tree of the fen: a crooked trunk and a few bare, twisting limbs,
+// leaning its own way; some hung with weed
+const fenTree = (v) => spr(`hf-tree${v}`, 10, 12, (c) => {
+  const lean = ((v % 5) - 2) * 0.5, top = 2 + (v % 3) * 1.2, x0 = 5;
+  c.lineCap = "round"; c.lineJoin = "round";
+  const limb = (pts, w, col) => { c.strokeStyle = col; c.lineWidth = w; poly(c, pts); c.stroke(); };
+  // one in four is bleached pale by the water that drowned it
+  const bleach = v % 4 === 2, BK = bleach ? "#948e84" : HF.bark, BL = bleach ? "#b8b2a4" : HF.barkLt;
+  const tx = x0 + lean * 2, ty = top + 3;
+  limb([[x0, 11.8], [x0 + lean * 0.6, 8.4], [tx, ty]], 1.5, BK);
+  limb([[x0 - 0.3, 11.8], [x0 - 0.3 + lean * 0.6, 8.4], [tx - 0.3, ty]], 0.6, BL);
+  const br = [[[tx, ty], [tx - 2, ty - 1.4], [tx - 3.2, ty - 1]], [[tx, ty], [tx + 1.8, ty - 1.8], [tx + 2.4, ty - 3]], [[tx, ty], [tx + 0.3, ty - 2.4]],
+    [[x0 + lean * 0.4, 8.8], [x0 + 2.4, 7.6], [x0 + 3.6, 7.8]], [[x0 + lean * 0.3, 9.4], [x0 - 2, 8.4]]];
+  br.forEach((b, k) => { if (hash(v, k + 3) < (k < 2 ? 0.85 : 0.55)) limb(b, 0.8, BK); });
+  if (v % 4 === 1) { limb([[x0 - 0.8, 11.8], [x0 - 1.4, 10.8]], 0.7, BK); limb([[x0 + 0.8, 11.8], [x0 + 1.6, 11]], 0.7, BK); }
+  // weed hanging from the limbs
+  if (v % 3 === 0) { c.fillStyle = HF.moss; c.fillRect(tx - 2.2, ty - 1.2, 0.5, 2.2); c.fillRect(tx + 1.6, ty - 1.6, 0.5, 1.8); c.fillStyle = HF.mossDk; c.fillRect(tx - 2.2, ty + 0.6, 0.5, 0.6); }
+});
+// a weeping willow: a low dome of leaves spilling in long strands almost
+// to the ground, lit down its western fall
+const willow = (v) => spr(`hf-wil${v}`, 12, 11, (c) => {
+  const [dk, mid, lt] = HF.wil;
+  trunk(c, 6, 10.8, 3, HF.barkDk);
+  blobBall(c, 6, 3.6, 4.4, 2.6, mid, 120 + v, { hi: 0.45, lo: 0.55, wobble: 0.1, n: 9 });
+  for (let k = 0; k < 11; k++) {
+    const x = 0.8 + k * 0.95, edge = Math.abs(k - 5) / 5;
+    const top = 3 + edge * 1.6, len = 5.6 - edge * 1.4 + hash(v, k) * 1.2;
+    if (k === 5 || k === 6) continue;
+    c.fillStyle = k < 5 ? (k % 2 ? mid : "#6a7a52") : k % 2 ? dk : mid;
+    c.fillRect(x, top, 0.55, len);
+  }
+  c.fillStyle = "#6a7a52"; c.fillRect(3, 1.4, 2.4, 0.6); c.fillRect(2.2, 2.2, 1.2, 0.6);
+});
+// a reedbed: pale straw and olive stems with brown cattail heads
+const reedbed = (v) => spr(`hf-reed${v}`, 7, 5, (c) => {
+  const n = 6 + (v % 3);
+  for (let k = 0; k < n; k++) {
+    const x = 0.6 + (k / (n - 1)) * 5.6 + (hash(v, k) - 0.5) * 0.5, h = 2.4 + hash(v, k + 9) * 2.2;
+    c.fillStyle = k % 3 === 0 ? "#a09466" : k % 3 === 1 ? "#6e7446" : "#86865a";
+    c.fillRect(x, 4.9 - h, 0.5, h);
+    if (hash(v, k + 20) < 0.4) { c.fillStyle = "#5a3a2a"; c.fillRect(x - 0.1, 4.9 - h - 0.2, 0.7, 1.1); }
+  }
+  c.fillStyle = "#2e3a30"; c.fillRect(0.4, 4.5, 6.2, 0.5);
+}, 0);
+// ripples round whatever stands in the water
+const ripple = () => spr("hf-rip", 8, 3, (c) => {
+  c.strokeStyle = HF.waterLt; c.lineWidth = 0.5;
+  c.beginPath(); c.ellipse(4, 1.5, 3.4, 1.1, 0, 0, Math.PI); c.stroke();
+}, 0);
+// a barrow of the drowned kings: a mossy mound with a stone door
+const fenBarrow = (v) => spr(`hf-bar${v}`, 12, 6, (c) => {
+  c.save(); c.beginPath(); c.rect(0, 0, 12, 5.99); c.clip();
+  ball(c, 6, 6, 5.8, 5, v % 2 ? "#4e5a3c" : "#465236", { hi: 0.45, lo: 0.5, fx: -0.5, fy: -0.7 });
+  c.restore();
+  c.fillStyle = HF.stLt; c.fillRect(4.4, 2.6, 3.2, 0.8);
+  c.fillStyle = HF.st; c.fillRect(4.6, 3.4, 0.7, 2.6); c.fillRect(6.7, 3.4, 0.7, 2.6);
+  c.fillStyle = HF.dark; c.fillRect(5.3, 3.4, 1.4, 2.6);
+  if (v % 3 === 0) { c.fillStyle = HF.fire; c.fillRect(5.7, 4.2, 0.6, 0.6); }
+});
+// a standing stone, grey-green and lichened
+const fenStone = (v) => spr(`hf-men${v}`, 3.4, 6.4, (c) => {
+  const h = 4.6 + (v % 3) * 0.6;
+  c.fillStyle = HF.st; poly(c, [[0.4, 6.2], [0.6, 6.2 - h + 0.8], [1.6, 6.2 - h], [2.8, 6.2 - h + 0.9], [3, 6.2]]); c.fill();
+  c.fillStyle = HF.stDk; c.fillRect(2, 6.2 - h + 0.6, 1, h - 0.6);
+  c.fillStyle = HF.stLt; c.fillRect(0.6, 6.2 - h + 0.8, 0.6, h * 0.5);
+  c.fillStyle = HF.moss; c.fillRect(0.5, 5.2, 2.4, 1);
+});
+// a cairn: a heap of grey stones
+const fenCairn = (v) => spr(`hf-cairn${v}`, 6, 5, (c) => {
+  ball(c, 3, 3.6, 2.8, 1.5, "#74766e", { hi: 0.4, lo: 0.5 });
+  ball(c, 2.6 + (v % 2) * 0.6, 2.2, 1.8, 1.2, "#828478", { hi: 0.4, lo: 0.5 });
+  ball(c, 3.2, 1.1, 1, 0.9, "#909286", { hi: 0.4, lo: 0.5 });
+});
+// grave markers: leaning stones and a cross or two
+const graves = (v) => spr(`hf-graves${v}`, 8, 4, (c) => {
+  for (let k = 0; k < 4; k++) {
+    const x = 0.6 + k * 1.9, y = 3.8 - (k % 2) * 0.6, lean = (hash(v, k) - 0.5) * 0.8;
+    c.fillStyle = HF.st;
+    if (hash(v, k + 5) < 0.3) { c.fillRect(x + 0.3, y - 2.4, 0.5, 2.4); c.fillRect(x - 0.1, y - 1.9, 1.3, 0.5); }
+    else { poly(c, [[x, y], [x + lean, y - 1.8], [x + 0.5 + lean, y - 2.2], [x + 1 + lean, y - 1.8], [x + 1, y]]); c.fill(); c.fillStyle = HF.stDk; c.fillRect(x + 0.6, y - 1.6, 0.4, 1.6); }
+  }
+});
+// a ruined chapel: roofless, its gable standing with an empty window, the
+// bell-cote broken, a rafter or two left
+const chapel = (v) => spr(`hf-chapel${v}`, 14, 13, (c) => {
+  // the nave's side walls, broken to different heights
+  c.fillStyle = HF.st; poly(c, [[1, 12.6], [1, 7], [3, 6.6], [4.4, 8], [6, 7.2], [7.6, 8.6], [9, 12.6]]); c.fill();
+  c.fillStyle = HF.stDk; c.fillRect(1, 11.8, 8, 0.8);
+  // the open window bays
+  c.fillStyle = HF.dark; for (const x of [2.2, 5.4]) { c.fillRect(x, 9, 1.1, 2); c.beginPath(); c.arc(x + 0.55, 9, 0.55, Math.PI, 0); c.fill(); }
+  // the west gable: tall, pointed, an empty lancet, a broken cote
+  c.fillStyle = HF.st; poly(c, [[8.4, 12.6], [8.4, 5.2], [10.6, 2.4], [12.8, 5.2], [12.8, 12.6]]); c.fill();
+  c.fillStyle = HF.stDk; poly(c, [[10.6, 2.4], [12.8, 5.2], [12.8, 12.6], [11.4, 12.6], [11.4, 3.4]]); c.fill();
+  c.fillStyle = HF.stLt; c.fillRect(8.4, 5.2, 0.6, 7.4);
+  c.fillStyle = HF.st; c.fillRect(9.8, 0.4, 1.6, 2.4); c.fillStyle = HF.stDk; c.fillRect(10.8, 0.8, 0.6, 2);
+  c.fillStyle = HF.dark; c.fillRect(10.1, 1.2, 0.6, 1); c.beginPath(); c.moveTo(9.8, 8.4); c.lineTo(10.6, 6.6); c.lineTo(11.4, 8.4); c.lineTo(11.4, 10.8); c.lineTo(9.8, 10.8); c.fill();
+  c.fillStyle = HF.dark; c.fillRect(10, 11, 1.4, 1.6);
+  // what's left of the roof
+  c.fillStyle = HF.barkDk; c.fillRect(2.4, 6, 0.5, 2.4); c.fillRect(5.6, 6.6, 0.5, 1.8);
+  // ivy and weed
+  c.fillStyle = HF.moss; c.fillRect(1, 7.4, 0.8, 3); c.fillRect(8.4, 9, 0.8, 3.6); c.fillStyle = HF.mossDk; c.fillRect(3.8, 11.4, 2, 0.6);
+  if (v % 2) { c.fillStyle = HF.fire; c.fillRect(10.4, 9, 0.5, 0.6); c.fillRect(2.6, 9.8, 0.4, 0.5); }
+});
+// a drowned house: a cottage sunk to its sills, its thatch fallen in
+const drowned = (v) => spr(`hf-drown${v}`, 8, 7, (c) => {
+  const w = 5.4, x = 1.2;
+  c.fillStyle = "#8e8676"; c.fillRect(x, 3.2, w, 3);
+  c.fillStyle = "#6a6458"; c.fillRect(x + w * 0.64, 3.2, w * 0.36, 3);
+  c.fillStyle = HF.dark; c.fillRect(x + 1, 4.2, 0.9, 1.2); c.fillRect(x + 3.2, 4.2, 0.9, 1.2);
+  // the roof: whole thatch, or a broken one with bare rafters
+  if (v % 3 === 0) {
+    c.fillStyle = HF.thatch; poly(c, [[x - 0.4, 3.4], [x + w / 2, 0.6], [x + w + 0.4, 3.4]]); c.fill();
+    c.fillStyle = HF.thatchDk; poly(c, [[x + w / 2, 0.6], [x + w + 0.4, 3.4], [x + w / 2 + 0.6, 3.4]]); c.fill();
+    c.fillStyle = HF.dark; poly(c, [[x + 1.2, 3.2], [x + 2.2, 1.8], [x + 3.4, 2.6], [x + 2.6, 3.2]]); c.fill();
+  } else {
+    c.fillStyle = HF.thatch; poly(c, [[x - 0.4, 3.4], [x + 1.6, 1.4], [x + 2, 3.4]]); c.fill();
+    c.fillStyle = HF.barkDk;
+    for (let k = 0; k < 3; k++) { poly(c, [[x + 2.2 + k * 1.1, 3.4], [x + 2.4 + k * 1.1, 3.4], [x + w / 2 + 0.2, 0.8 + k * 0.3], [x + w / 2, 0.8 + k * 0.3]]); c.fill(); }
+    c.fillRect(x + 1.2, 1.2, w - 1.6, 0.4);
+  }
+  // the water it stands in
+  c.fillStyle = HF.water; c.fillRect(0, 5.6, 8, 1.3);
+  c.fillStyle = HF.waterLt; c.fillRect(0.6, 5.6, 1.8, 0.4); c.fillRect(5.4, 6.2, 1.6, 0.4);
+});
+// the drowned village itself: roofs and a broken spire standing out of a
+// sheet of black water
+const drownedVillage = () => spr("hf-village", 22, 13, (c) => {
+  c.fillStyle = HF.water; c.beginPath(); c.ellipse(11, 10.4, 10.6, 2.5, 0, 0, Math.PI * 2); c.fill();
+  const hut = (x, y, w, broken) => {
+    c.fillStyle = "#8e8676"; c.fillRect(x, y - 1.6, w, 1.6);
+    c.fillStyle = "#6a6458"; c.fillRect(x + w * 0.64, y - 1.6, w * 0.36, 1.6);
+    c.fillStyle = HF.dark; c.fillRect(x + 0.8, y - 1.2, 0.8, 0.8);
+    c.fillStyle = HF.thatch; poly(c, broken ? [[x - 0.4, y - 1.4], [x + w * 0.4, y - 3.8], [x + w * 0.5, y - 1.4]] : [[x - 0.4, y - 1.4], [x + w / 2, y - 4.2], [x + w + 0.4, y - 1.4]]); c.fill();
+    c.fillStyle = HF.thatchDk; if (!broken) { poly(c, [[x + w / 2, y - 4.2], [x + w + 0.4, y - 1.4], [x + w / 2 + 0.6, y - 1.4]]); c.fill(); }
+    else { c.fillStyle = HF.barkDk; for (let k = 0; k < 3; k++) c.fillRect(x + w * 0.5 + k * 0.9, y - 3.6 + k * 0.5, 0.4, 2.2 - k * 0.5); }
+  };
+  // the church, its spire snapped
+  c.fillStyle = "#8a8a80"; c.fillRect(9.4, 2.4, 3, 7.4); c.fillStyle = "#5e605c"; c.fillRect(11.2, 2.4, 1.2, 7.4);
+  c.fillStyle = HF.thatchDk; poly(c, [[9, 2.6], [10.2, 0.2], [11.2, 1.4], [12.8, 2.6]]); c.fill();
+  c.fillStyle = HF.dark; c.fillRect(10.2, 4, 0.8, 1.6);
+  hut(2, 10, 4.6, false); hut(15, 9.8, 4.4, true); hut(6.4, 11.4, 3.8, true); hut(13.2, 11.8, 4, false);
+  c.fillStyle = HF.waterLt; c.fillRect(1.4, 10.6, 1.8, 0.4); c.fillRect(8.2, 12, 2, 0.4); c.fillRect(18.4, 11, 2, 0.4); c.fillRect(11.6, 10, 1.4, 0.4);
+  c.fillStyle = HF.fire; c.fillRect(3.2, 8.8, 0.5, 0.5);
+});
+// the bell tower of Bellmarsh, leaning in its mire, its bell still hung
+const bellTower = () => spr("hf-bell", 8, 15, (c) => {
+  c.save(); c.translate(4, 13.4); c.rotate(0.12);
+  c.fillStyle = HF.st; c.fillRect(-2, -11, 4, 11);
+  c.fillStyle = HF.stDk; c.fillRect(0.6, -11, 1.4, 11);
+  c.fillStyle = HF.dark; c.fillRect(-1.2, -9.6, 2.4, 2.6);
+  c.fillStyle = "#8a7a4a"; c.fillRect(-0.8, -8.8, 1.6, 1.6); c.fillStyle = "#5a8a78"; c.fillRect(-0.8, -7.6, 1.6, 0.4);
+  c.fillStyle = HF.thatchDk; poly(c, [[-2.6, -10.8], [0, -13], [2.6, -10.8]]); c.fill();
+  c.fillStyle = HF.moss; c.fillRect(-2, -3, 0.8, 3);
+  c.restore();
+  c.fillStyle = HF.water; c.fillRect(0, 13.4, 8, 1.4);
+  c.fillStyle = HF.waterLt; c.fillRect(0.4, 13.6, 1.8, 0.4); c.fillRect(5.8, 14.2, 1.6, 0.4);
+});
+// the lychgate: a roofed gate into a drowned churchyard
+const lychgate = () => spr("hf-lych", 9, 7, (c) => {
+  c.fillStyle = HF.barkDk; c.fillRect(1.4, 3, 0.7, 3.8); c.fillRect(6.9, 3, 0.7, 3.8);
+  c.fillStyle = HF.bark; c.fillRect(1.4, 3, 0.4, 3.8); c.fillRect(6.9, 3, 0.4, 3.8);
+  c.fillStyle = HF.thatch; poly(c, [[0.2, 3.4], [2, 0.6], [7, 0.6], [8.8, 3.4]]); c.fill();
+  c.fillStyle = HF.thatchDk; c.fillRect(0.2, 2.8, 8.6, 0.6); c.fillStyle = HF.moss; c.fillRect(2.4, 0.6, 3, 0.5);
+  c.fillStyle = HF.fire; c.fillRect(4.2, 3.4, 0.6, 0.8);
+});
+// a mossy post of the old causeway
+const fenPost = (v) => spr(`hf-post${v % 2}`, 1.6, 3.2, (c) => {
+  c.fillStyle = v % 2 ? HF.bark : "#6e6c66"; c.fillRect(0.3, 0.4, 1, 2.8);
+  c.fillStyle = v % 2 ? HF.barkLt : HF.stLt; c.fillRect(0.3, 0.4, 1, 0.5);
+  c.fillStyle = HF.moss; c.fillRect(0.3, 2.4, 1, 0.8);
+});
+// will-o'-the-wisps: a teal light and its glow
+const wisp = (v) => spr(`hf-wisp${v}`, 3, 3, (c) => {
+  c.fillStyle = HF.fireDk; c.fillRect(0.5, 1, 2, 1); c.fillRect(1, 0.5, 1, 2);
+  c.fillStyle = v % 2 ? HF.fire : HF.fireLt; c.fillRect(1, 1, 1, 1);
+}, 0);
+// crows over the dead places
+const crows = (v) => spr(`hf-crows${v}`, 7, 4, (c) => {
+  c.fillStyle = "#1a161c";
+  for (const [x, y] of [[0.6, 1.4], [3.2, 0.4], [4.8, 2.4]].slice(0, 2 + (v % 2))) { c.fillRect(x, y, 1.4, 0.5); c.fillRect(x + 0.4, y + 0.4, 0.6, 0.5); }
+}, 0);
+// the moon's reflection on the Stillmere
+const moonGlint = () => spr("hf-moon", 10, 5, (c) => {
+  c.fillStyle = "#6a7e88"; c.fillRect(2.6, 0.6, 4.8, 0.6); c.fillRect(1.4, 2.4, 7.2, 0.6); c.fillRect(3, 4, 4, 0.6);
+  c.fillStyle = "#dce8e8"; c.fillRect(3.6, 1.2, 2.8, 1.2); c.fillRect(4.2, 3, 1.6, 0.8);
+}, 0);
+// a ferryman's punt on the black water
+const punt = () => spr("hf-punt", 9, 6, (c) => {
+  c.fillStyle = HF.barkDk; poly(c, [[0.6, 4], [8.4, 4], [7.4, 5.4], [1.4, 5.4]]); c.fill();
+  c.fillStyle = HF.bark; c.fillRect(0.8, 4, 7.4, 0.5);
+  c.fillStyle = "#2a2434"; c.fillRect(4, 1.4, 1.4, 2.6); c.fillStyle = "#e0d8c4"; c.fillRect(4.2, 0.6, 1, 0.9);
+  c.fillStyle = HF.bark; poly(c, [[6.4, 0], [6.8, 0], [3, 5.6], [2.6, 5.6]]); c.fill();
+  c.fillStyle = HF.fire; c.fillRect(7.6, 2.2, 0.7, 0.7);
+});
+// the Throne of Dust: the drowned king's hall, broken open to the sky, the
+// throne still on its dais under a shattered arch, witch-fire in the ruin
+const throneRuin = () => spr("hf-throne", 28, 22, (c) => {
+  const st = "#7c7882", dk = "#4c4856", lt = "#a09ca6", dp = "#26222c";
+  // the overgrown court
+  c.fillStyle = "#3e4638"; c.fillRect(4, 11, 20, 8);
+  c.fillStyle = "#56525c"; for (let k = 0; k < 6; k++) c.fillRect(6 + k * 3, 13 + (k % 2) * 1.6, 1.8, 1);
+  // the back wall, broken, with the great arch and two windows
+  c.fillStyle = st; poly(c, [[3.4, 12.4], [3.4, 5.4], [6, 4.4], [7, 6.6], [9, 3], [14, 1], [19, 3], [21, 6], [22.4, 4.6], [24.6, 5.8], [24.6, 12.4]]); c.fill();
+  c.fillStyle = dk; poly(c, [[19, 3], [21, 6], [22.4, 4.6], [24.6, 5.8], [24.6, 12.4], [19, 12.4]]); c.fill();
+  c.fillStyle = lt; c.fillRect(3.4, 5.4, 0.8, 7); poly(c, [[9, 3], [14, 1], [14, 1.8], [9.4, 3.8]]); c.fill();
+  c.fillStyle = dp; c.beginPath(); c.moveTo(10.8, 12.4); c.lineTo(10.8, 7); c.arc(14, 7, 3.2, Math.PI, 0); c.lineTo(17.2, 12.4); c.fill();
+  for (const x of [5.6, 21.4]) { c.fillRect(x, 7.4, 1.2, 2.4); c.beginPath(); c.arc(x + 0.6, 7.4, 0.6, Math.PI, 0); c.fill(); }
+  // the throne on its dais, verdigris and bronze, a crown left on it
+  c.fillStyle = "#5e5a64"; c.fillRect(11.4, 11, 5.2, 1.6); c.fillStyle = "#3e3a46"; c.fillRect(11.4, 12, 5.2, 0.6);
+  c.fillStyle = "#8a7a4a"; c.fillRect(12.8, 6.6, 2.4, 4.4); c.fillStyle = "#5a8a78"; c.fillRect(12.8, 6.6, 2.4, 0.7); c.fillRect(12.4, 9, 3.2, 0.8);
+  c.fillStyle = "#c8a84a"; c.fillRect(13.4, 5.8, 1.2, 0.8);
+  // witch-fire braziers either side
+  for (const x of [10, 17.2]) { c.fillStyle = "#2e3038"; c.fillRect(x, 10.2, 0.8, 1.8); c.fillStyle = HF.fire; c.fillRect(x - 0.2, 9, 1.2, 1.2); c.fillStyle = HF.fireLt; c.fillRect(x + 0.1, 8.6, 0.6, 0.8); }
+  // broken towers at the corners
+  for (const [x, top, w] of [[0.4, 2.4, 4], [23.6, 3.8, 4]]) {
+    c.fillStyle = st; poly(c, [[x, 19.6], [x, top + 1], [x + w * 0.3, top], [x + w * 0.55, top + 1.8], [x + w, top + 0.6], [x + w, 19.6]]); c.fill();
+    c.fillStyle = dk; c.fillRect(x + w * 0.62, top + 1, w * 0.38, 18.6 - top);
+    c.fillStyle = lt; c.fillRect(x, top + 1, 0.7, 18.6 - top);
+    c.fillStyle = dp; c.fillRect(x + w * 0.3, top + 4, 1, 1.6); c.fillRect(x + w * 0.3, top + 9, 1, 1.6);
+    c.fillStyle = HF.fire; c.fillRect(x + w * 0.3 + 0.2, top + 4.4, 0.6, 0.8);
+  }
+  // the front wall: two stubs, the rest fallen into the court
+  for (const [x0, x1, t0, t1] of [[4.4, 9.6, 15.6, 16.8], [18.4, 23.6, 16.6, 15.2]]) {
+    c.fillStyle = st; poly(c, [[x0, 19.8], [x0, t0], [(x0 + x1) / 2, Math.min(t0, t1) - 0.8], [x1, t1], [x1, 19.8]]); c.fill();
+    c.fillStyle = dk; c.fillRect(x0, 19, x1 - x0, 0.8); c.fillRect(x1 - 1.6, t1, 1.6, 19.8 - t1);
+    c.fillStyle = lt; c.fillRect(x0, t0, 0.6, 19.8 - t0);
+  }
+  c.fillStyle = "#6a666e"; for (const [x, y] of [[10.6, 19.4], [12.8, 20.2], [15.6, 19.6], [17, 20.6]]) c.fillRect(x, y, 1.4, 0.9);
+  // weed and moss on the stones
+  c.fillStyle = HF.moss; c.fillRect(3.4, 10, 0.8, 2.4); c.fillRect(24, 9, 0.8, 3); c.fillRect(6, 18.8, 2, 0.6); c.fillRect(20, 4.6, 1.4, 0.6);
+});
+// a wreck on the strand
+const wreck = () => spr("hf-wreck", 14, 7, (c) => {
+  c.fillStyle = HF.barkDk; poly(c, [[0.6, 5.6], [2, 3.4], [11, 2.6], [13.4, 4.6], [12, 6.4], [2, 6.6]]); c.fill();
+  c.fillStyle = HF.bark; c.fillRect(2.2, 3.2, 8.6, 0.6);
+  c.fillStyle = HF.barkDk; for (const x of [3.6, 5.6, 7.6, 9.6]) c.fillRect(x, 0.8 + (x % 2), 0.6, 3);
+  c.fillStyle = "#6a5a44"; poly(c, [[10.6, 3], [11.2, 0], [11.6, 0.2], [11.2, 3]]); c.fill();
+  c.fillStyle = HF.water; c.fillRect(0, 6, 14, 1); c.fillStyle = "#e4eee0"; c.fillRect(1, 6, 2, 0.5); c.fillRect(9.6, 6.2, 2.4, 0.5);
+});
+
 // ---- the dressing ------------------------------------------------------
 // Everything that stands on the land, gathered as [sprite, x, y, anchorX,
 // anchorY, shadowRx] and drawn back to front.
-function dressing(base) {
+function* dressing(base) {
   const items = [];
   const onZone = (x, y, z, inset = 2) => {
     for (const [dx, dy] of [[0, 0], [-inset, 0], [inset, 0], [0, -inset], [0, inset]]) {
@@ -806,8 +1289,19 @@ function dressing(base) {
   };
   const add = (s, x, y, sh = 0, ax = null, ay = null) =>
     items.push([s, x, y, ax ?? s.width / U / 2, ay ?? s.height / U - 0.6, sh]);
-  const taken = [];
-  const free = (x, y, r) => !busy(x, y, r * 0.5) && taken.every(([tx, ty, tr]) => Math.hypot(x - tx, y - ty) > (r + tr) * 0.5);
+  // what already stands, bucketed on a 16-unit grid (no footprint reaches
+  // further than that), so asking whether a spot is free stays cheap
+  const TG = 16, tgrid = new Map();
+  const taken = { push(t) { const key = Math.floor(t[0] / TG) * 4096 + Math.floor(t[1] / TG); if (!tgrid.has(key)) tgrid.set(key, []); tgrid.get(key).push(t); } };
+  const clearOf = (x, y, r) => {
+    const gx = Math.floor(x / TG), gy = Math.floor(y / TG);
+    for (let i = gx - 1; i <= gx + 1; i++) for (let j = gy - 1; j <= gy + 1; j++) {
+      const list = tgrid.get(i * 4096 + j);
+      if (list) for (const [tx, ty, tr] of list) if (Math.hypot(x - tx, y - ty) <= (r + tr) * 0.5) return false;
+    }
+    return true;
+  };
+  const free = (x, y, r) => !busy(x, y, r * 0.5) && clearOf(x, y, r);
   // scatter a clump of things in an ellipse on one zone
   const clump = (cx, cy, rx, ry, z, step, pick, seed, sh = 1.6, r = 2) => {
     for (let gy = cy - ry; gy <= cy + ry; gy += step * 0.8) for (let gx = cx - rx; gx <= cx + rx; gx += step) {
@@ -825,20 +1319,11 @@ function dressing(base) {
   piece(crownCastle(), ...SET.castle, 14, 9, true);
   piece(windmill(), 207, 275, 6, 3);
   piece(windmill(), 116, 232, 6, 3);
-  piece(citadel(), ...SET.citadel, 14, 9, true);
-  piece(ruin(), ...SET.ruin, 12, 8, true);
   // the vale's villages: by the castle, on the western farms, in the middle
   // country and up under the northern hills
   for (const [x, y, v] of [[163, 275, 0], [177, 269, 1], [156, 289, 2], [99, 265, 3], [109, 255, 1], [190, 255, 2],
     [124, 140, 0], [132, 134, 2], [116, 132, 1], [226, 36, 3], [236, 44, 0], [40, 222, 1], [48, 228, 3], [232, 220, 1], [240, 228, 0]]) piece(cottage(v), x, y, 4, 2.2);
   for (const [x, y, v] of [[143, 85, 0], [211, 78, 1], [153, 129, 2], [204, 133, 3], [96, 80, 1], [236, 104, 0]]) piece(barrow(v), x, y, 6, 3.5);
-  for (const [x, y, v] of [[488, 264, 0], [527, 327, 1], [597, 338, 0], [702, 194, 1], [539, 194, 0], [464, 366, 1], [632, 299, 1],
-    [600, 110, 1], [700, 300, 0], [432, 150, 1], [520, 100, 0], [648, 200, 0]]) piece(keep(v), x, y, 5, 2.6);
-  for (const [x, y, v] of [[468, 210, 0], [480, 221, 1], [468, 233, 0], [492, 206, 1], [492, 233, 0], [480, 196, 0], [504, 220, 1]]) piece(tent(v), x, y, 3, 2);
-  for (const [x, y, v] of [[420, -94, 0], [435, -82, 1], [420, -70, 0], [449, -94, 1], [449, -70, 0],
-    [440, -30, 1], [470, -24, 0]]) piece(menhir(v), x, y, 2, 1.4);
-  for (const [x, y, v] of [[582, -142, 0], [508, -194, 1], [601, -198, 2], [503, -134, 0], [562, -110, 1],
-    [450, -150, 1], [620, -80, 2], [700, -100, 0], [470, -120, 2], [560, -180, 0]]) piece(cairn(v), x, y, 3, 2);
 
   // mountains: the wall across the isthmus, the Marches' high ranges
   const range = (cx, cy, rx, ry, z, pal, seed, big = 1) => {
@@ -860,11 +1345,9 @@ function dressing(base) {
     }
   };
   range(331, 229, 65, 58, 3, ROCK, 1, 1);
-  range(554, 136, 90, 39, 1, IRONPK, 2, 1.1);
-  range(706, 260, 27, 78, 1, IRONPK, 3, 0.9);
   range(204, -3, 37, 14, 0, ROCK, 4, 0.8);
   range(52, 40, 24, 20, 0, ROCK, 22, 0.8);
-  range(650, 340, 40, 26, 1, IRONPK, 23, 0.95);
+  yield;
   // rolling hills in the vale and on the moors
   const hills = (cx, cy, rx, ry, z, pal, seed) => {
     const n = Math.round((rx * ry) / 40) + 10;
@@ -879,19 +1362,6 @@ function dressing(base) {
   hills(170, 136, 68, 37, 0, HILLG, 5);
   hills(80, 230, 40, 34, 0, HILLG, 23);
   hills(230, 240, 40, 30, 0, HILLG, 24);
-  // crags on the moor: small bare peaks
-  const crags = (cx, cy, rx, ry, z, seed, per = 60) => {
-    const n = Math.round((rx * ry) / per) + 10;
-    for (let k = 0; k < n; k++) {
-      const x = cx + (hash(seed, k * 2) - 0.5) * 2 * rx, y = cy + (hash(seed, k * 2 + 1) - 0.5) * 2 * ry;
-      const w = 7 + Math.round(hash(seed, k) * 4), h = Math.round(w * 0.7);
-      if (!onZone(x, y, z, 3) || !free(x, y - 2, w * 0.7) || busy(x, y - 2, w * 0.45)) continue;
-      add(mountain(w, h, seed * 50 + k, CRAG), x, y, w * 0.35, w / 2, h - 0.4);
-      taken.push([x, y - 2, w * 0.7]);
-    }
-  };
-  crags(535, 299, 98, 98, 1, 6);
-  crags(533, -110, 172, 80, 2, 17, 200);
 
   // the woods
   const oaks = (k) => (hash(k, 9) < 0.72 ? oak(Math.floor(hash(k, 8) * 4)) : pine(Math.floor(hash(k, 8) * 3)));
@@ -912,6 +1382,7 @@ function dressing(base) {
   clump(186, 30, 16, 10, 0, 4.2, oaks, 25);
   clump(40, 170, 12, 16, 0, 4.2, oaks, 26);
   clump(200, 300, 14, 10, 0, 4.2, oaks, 27);
+  yield;
   // lone trees across the vale's open ground, sheep in its pastures, hay by
   // its fields
   for (let k = 0; k < 280; k++) {
@@ -929,40 +1400,366 @@ function dressing(base) {
     }
   }
   for (const [x, y] of [[190, 286], [105, 292], [224, 299], [180, 303], [130, 262], [90, 240]]) if (onZone(x, y, 0) && free(x, y, 3) && !busy(x, y, 0.5)) { add(hay(), x, y, 1.4); taken.push([x, y, 3]); }
-  const pines = (k) => pine(Math.floor(hash(k, 8) * 3), true);
-  clump(453, 147, 35, 27, 1, 4, pines, 8);
-  clump(620, 319, 31, 27, 1, 4, pines, 9);
-  clump(461, 331, 20, 20, 1, 4, pines, 10);
-  clump(535, 237, 20, 16, 1, 4, pines, 11);
-  clump(695, 350, 20, 20, 1, 4, pines, 12);
-  clump(640, 150, 22, 16, 1, 4, pines, 28);
-  clump(420, 260, 14, 20, 1, 4, pines, 29);
-  const deads = (k) => deadTree(Math.floor(hash(k, 8) * 4));
-  clump(376, -162, 54, 44, 2, 5.5, deads, 13, 1.2);
-  clump(606, -110, 74, 48, 2, 9, deads, 14, 1.2);
-  clump(470, -170, 40, 30, 2, 7, deads, 30, 1.2);
-  clump(508, -46, 147, 28, 2, 7, (k) => reeds(Math.floor(hash(k, 8) * 2)), 15, 0, 1);
-  clump(533, -150, 147, 60, 2, 8, (k) => reeds(Math.floor(hash(k, 8) * 2)), 16, 0, 1);
+  yield;
+  yield* fenDressing(base, { add, taken, free, clearOf, onZone, piece });
+  yield;
+
+  // ---- the Iron Marches ----
+  // A spot for a building w x h units near (x, y): the nearest free one on
+  // the moor within rad, clear of the road, the names and what stands there.
+  const IR = 1, farm = base.farm;
+  const onFarm = (x, y) => { const ix = Math.round(x - MAP.x), iy = Math.round(y - MAP.y); return farm && ix >= 0 && iy >= 0 && ix < MAP.w && iy < MAP.h && farm[iy * MAP.w + ix]; };
+  const site = (s, x, y, rad = 8, sh = null, fieldOk = true) => {
+    const w = s.width / U, h = s.height / U, r = w * 0.5;
+    for (let k = 0; k < 60; k++) {
+      const a = k * 2.39996, d = k ? rad * Math.sqrt(k / 60) : 0;
+      const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d;
+      if (!onZone(px, py, IR, Math.min(4, r))) continue;
+      if (busy(px, py, r * 0.8) || busy(px, py - h * 0.5, r * 0.8) || busy(px, py - h + 1, r * 0.6)) continue;
+      if (!fieldOk && onFarm(px, py)) continue;
+      if (!free(px, py - h * 0.3, r * 1.1)) continue;
+      add(s, px, py, sh ?? r * 0.7); taken.push([px, py - h * 0.3, r * 1.1]);
+      return [px, py];
+    }
+    return null;
+  };
+  // the capital's citadel, and the Muster's camp of the Iron host
+  piece(ironCitadel(), ...SET.citadel, 16, 10, true);
+  site(pavilion(), 481, 214, 4);
+  for (let gy = 198; gy <= 236; gy += 7) for (let gx = 460; gx <= 512; gx += 7.5) {
+    const k = gx * 3 + gy;
+    if (Math.hypot(gx - 481, (gy - 214) * 1.3) < 9 || hash(k, 5) < 0.18) continue;
+    site(ikTent(Math.floor(hash(k, 6) * 3)), gx + ((gy / 7) & 1) * 3, gy, 1.6, 2);
+  }
+  for (const [x, y] of [[472, 219], [494, 206], [498, 228], [466, 205]]) site(campfire(), x, y, 2, 0);
+  // walled towns, border forts, square keeps and watchtowers
+  site(walledTown(0), 594, 284, 10);
+  site(walledTown(1), 515, 392, 12);
+  site(walledTown(1), 612, 356, 10);
+  site(borderFort(0), 446, 352, 10);
+  site(borderFort(1), 628, 190, 10);
+  site(borderFort(0), 588, 72, 12);
+  for (const [x, y, v] of [[488, 264, 0], [597, 338, 1], [702, 194, 2], [539, 194, 0], [464, 372, 1], [632, 299, 2],
+    [600, 110, 1], [705, 305, 0], [432, 150, 2], [648, 225, 0], [575, 395, 1]]) site(ironKeep(v), x, y, 6);
+  for (const [x, y, v] of [[524, 70, 1], [470, 106, 0], [712, 162, 1], [722, 245, 0], [446, 390, 1], [600, 400, 0],
+    [560, 214, 1], [620, 258, 0], [680, 380, 1], [412, 238, 0], [456, 276, 1], [660, 140, 0]]) site(watchtower(v), x, y, 6);
+  site(gallows(), 541, 298, 12);
+  // a second camp under the eastern peaks, and the host on the march
+  for (const [x, y, v] of [[650, 262, 0], [657, 256, 2], [664, 262, 1], [657, 268, 0], [645, 270, 1]]) site(ikTent(v), x, y, 2, 2);
+  site(campfire(), 656, 263, 2, 0);
+  for (const [x, y, v] of [[520, 214, 0], [596, 236, 1], [452, 262, 1], [640, 360, 0], [590, 130, 0]]) site(column(v), x, y, 8, 0);
+  // milestones along the military roads
+  for (const rd of ROADS) {
+    let run = 10;
+    for (let k = 1; k < rd.pts.length - 1; k++) {
+      const [x0, y0] = rd.pts[k - 1], [x1, y1] = rd.pts[k];
+      run += Math.hypot(x1 - x0, y1 - y0);
+      if (run < 26) continue;
+      const l = Math.hypot(x1 - x0, y1 - y0) || 1, side = (k & 1) ? 1 : -1;
+      const mx = x1 - ((y1 - y0) / l) * 4.8 * side, my = y1 + ((x1 - x0) / l) * 4.8 * side;
+      if (!onZone(mx, my, IR) || busy(mx, my, 0.4) || !free(mx, my, 1.5)) continue;
+      add(milestone(k), mx, my, 0.8); taken.push([mx, my, 1.5]); run = 0;
+    }
+  }
+  // steadings on the farms
+  for (const [x, y] of [[468, 290], [500, 340], [455, 345], [540, 360], [580, 322], [620, 232], [662, 318], [505, 250], [600, 205], [690, 330], [450, 190], [560, 250]])
+    site(steading(Math.floor(hash(x, y) * 4)), x, y, 8);
+
+  yield;
+  // the ranges, the fells and the tors
+  range(554, 136, 90, 39, IR, IRONPK, 2, 1.1);
+  range(706, 260, 27, 78, IR, IRONPK, 3, 0.9);
+  range(650, 340, 40, 26, IR, IRONPK, 23, 0.95);
+  for (const [cx, cy, rx, ry, seed] of [[520, 300, 70, 50, 40], [610, 240, 45, 40, 41], [470, 250, 40, 40, 42]]) {
+    for (let k = 0; k < (rx * ry) / 160; k++) {
+      const x = cx + (hash(seed, k * 2) - 0.5) * 2 * rx, y = cy + (hash(seed, k * 2 + 1) - 0.5) * 2 * ry;
+      const w = 12 + (k % 3) * 3, h = Math.round(w * 0.36);
+      if (onFarm(x, y) || !onZone(x, y, IR, 3) || !free(x, y - 2, w * 0.6) || busy(x, y - 2, w * 0.35)) continue;
+      add(hill(w, h, k % 3, FELL[(k + seed) % 2]), x, y, 0);
+      taken.push([x, y - 2, w * 0.6]);
+    }
+  }
+  yield;
+  for (let k = 0; k < 70; k++) {
+    const x = 405 + hash(k, 301) * 320, y = 70 + hash(k, 302) * 330;
+    if (onFarm(x, y) || !onZone(x, y, IR, 4) || busy(x, y - 2, 4) || !free(x, y - 2, 5)) continue;
+    add(tor(k % 8), x, y, 3); taken.push([x, y - 2, 5]);
+  }
+  // the dark pine woods, and pines standing alone on the moor
+  const mp = (k) => moorPine(Math.floor(hash(k, 8) * 4));
+  const wood = (cx, cy, rx, ry, seed) => {
+    for (let gy = cy - ry; gy <= cy + ry; gy += 3.2) for (let gx = cx - rx; gx <= cx + rx; gx += 3.6) {
+      const k = Math.round(gx * 7 + gy * 131 + seed * 977);
+      const x = gx + (hash(k, 1) - 0.5) * 3 + ((Math.round(gy / 3.2) & 1) ? 1.8 : 0), y = gy + (hash(k, 2) - 0.5) * 2.4;
+      const e = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + (vnoise(x, y, 9, seed) - 0.5) * 0.7;
+      if (e > 1 || onFarm(x, y) || !onZone(x, y, IR) || !free(x, y, 2) || busy(x, y - 4, 2)) continue;
+      add(mp(k), x, y, 1.6);
+    }
+  };
+  wood(453, 147, 35, 27, 8);
+  wood(620, 319, 24, 22, 9);
+  wood(461, 331, 18, 18, 10);
+  wood(535, 237, 20, 16, 11);
+  wood(695, 350, 20, 20, 12);
+  wood(640, 150, 22, 16, 28);
+  wood(420, 262, 12, 20, 29);
+  wood(575, 355, 12, 9, 30);
+  wood(690, 120, 10, 8, 31);
+  for (let k = 0; k < 260; k++) {
+    const x = 405 + hash(k, 311) * 320, y = 70 + hash(k, 312) * 330;
+    if (onFarm(x, y) || !onZone(x, y, IR) || busy(x, y - 4, 2) || !free(x, y, 4)) continue;
+    add(mp(k + 900), x, y, 1.6); taken.push([x, y, 3]);
+  }
+  // sheep on the hill pastures
+  for (const [fx, fy, n] of [[500, 285, 5], [612, 222, 5], [470, 305, 4], [655, 250, 4], [545, 345, 4], [520, 200, 4]]) {
+    for (let k = 0; k < n; k++) {
+      const x = fx + (hash(fx, k) - 0.5) * 18, y = fy + (hash(fy, k) - 0.5) * 10;
+      if (!onZone(x, y, IR) || !free(x, y, 2) || busy(x, y, 0.5)) continue;
+      add(sheep(k), x, y, 1); taken.push([x, y, 2]);
+    }
+  }
   return items;
 }
 
-// the fen's black pools, sunk into the purple
+// The Marches' farms: drystone walls round small fields, laid on a jittered
+// lattice so neighbours share their walls; each farm's fields are pasture,
+// hay, oats or plough. Marks base.farm (map units) so the dressing keeps off.
+const FARMS = [
+  [470, 292, 26, 16, 0.2, 1], [505, 345, 30, 16, -0.15, 2], [578, 322, 20, 14, 0.3, 3], [618, 230, 20, 18, -0.25, 4],
+  [665, 318, 16, 12, 0.1, 5], [455, 190, 14, 12, 0.35, 6], [598, 205, 14, 10, -0.1, 7], [505, 252, 16, 11, 0.15, 8],
+  [540, 368, 18, 12, 0.05, 9], [690, 330, 10, 8, -0.3, 10], [640, 285, 12, 8, 0.2, 11], [455, 355, 10, 8, -0.2, 12],
+  [690, 170, 10, 8, 0.25, 13], [560, 310, 10, 7, -0.1, 14],
+];
+function marchFields(base) {
+  const farm = new Uint8Array(MAP.w * MAP.h);
+  base.farm = farm;
+  const land1 = (x, y) => { const ax = artX(x), ay = artY(y); return ax >= 0 && ay >= 0 && ax < AW && ay < AH && base.land[ay * AW + ax] && base.zone[ay * AW + ax] === 1; };
+  const cols = [["#7c8e56", "#6e8050"], ["#86985c", "#76884e"], ["#a09858", "#8c844c"], ["#b0a262", "#988a52"], ["#6e5a40", "#5a4834"], ["#728054", "#66744c"]];
+  return layer((c) => {
+    for (const [cx, cy, rx, ry, ang, seed] of FARMS) {
+      const cw = 7.4, ch = 5.6, nx = Math.ceil(rx / cw) + 1, ny = Math.ceil(ry / ch) + 1;
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      const P = (i, j) => {
+        const k = (i + 40) * 131 + (j + 40) * 7 + seed * 977;
+        const u = i * cw + (hash(k, 1) - 0.5) * 2.4, v = j * ch + (hash(k, 2) - 0.5) * 1.8;
+        return [cx + u * ca - v * sa, cy + u * sa + v * ca];
+      };
+      const walls = new Map();
+      for (let j = -ny; j < ny; j++) for (let i = -nx; i < nx; i++) {
+        const q = [P(i, j), P(i + 1, j), P(i + 1, j + 1), P(i, j + 1)];
+        const mx = q.reduce((a, p) => a + p[0], 0) / 4, my = q.reduce((a, p) => a + p[1], 0) / 4;
+        const k = (i + 40) * 53 + (j + 40) * 11 + seed * 313;
+        if (((mx - cx) / rx) ** 2 + ((my - cy) / ry) ** 2 > 1 - hash(k, 3) * 0.35) continue;
+        if (!q.every(([x, y]) => land1(x, y) && !busy(x, y, 1.4)) || busy(mx, my, 3)) continue;
+        const [a, b] = cols[Math.floor(hash(k, 4) * cols.length)];
+        c.fillStyle = a; poly(c, q); c.fill();
+        c.save(); poly(c, q); c.clip();
+        c.fillStyle = b;
+        // furrows or swathes across the field, along the farm's lie
+        for (let t = -8; t < 8; t += 1.3) { c.save(); c.translate(mx, my); c.rotate(ang + (hash(k, 5) < 0.5 ? 0 : Math.PI / 2)); c.fillRect(-8, t, 16, 0.5); c.restore(); }
+        c.restore();
+        for (let yy = Math.floor(my - 4); yy <= my + 4; yy++) for (let xx = Math.floor(mx - 5); xx <= mx + 5; xx++) {
+          const ix = xx - MAP.x, iy = yy - MAP.y;
+          if (ix >= 0 && iy >= 0 && ix < MAP.w && iy < MAP.h) farm[iy * MAP.w + ix] = 1;
+        }
+        for (const [e0, e1] of [[q[0], q[1]], [q[1], q[2]], [q[3], q[2]], [q[0], q[3]]]) walls.set(e0.join() + e1.join(), [e0, e1]);
+      }
+      // the walls: a shadow line down-right, then the grey stones
+      c.lineCap = "round";
+      c.strokeStyle = "#4a463e"; c.lineWidth = 0.7;
+      for (const [[x0, y0], [x1, y1]] of walls.values()) { c.beginPath(); c.moveTo(x0 + 0.3, y0 + 0.5); c.lineTo(x1 + 0.3, y1 + 0.5); c.stroke(); }
+      c.strokeStyle = "#b4afa2"; c.lineWidth = 0.6;
+      for (const [[x0, y0], [x1, y1]] of walls.values()) { c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); }
+    }
+  });
+}
+
+// the fen's black pools: a sodden green margin, a dark peat bank on the far
+// (north) side, black water, and the moon's glint in broken streaks
+const fenPoolAt = (ax, ay) => fbm(ax, ay, 26, 91);
 function fenPools(ctx, base) {
   const img = ctx.getImageData(0, 0, AW, AH), d = img.data;
-  const deep = rgb("#2a2440"), rim = rgb("#8e82ac"), mid = rgb("#3a3256");
+  const deep = rgb("#12161a"), mid = rgb("#1c2428"), bank = rgb("#1e1a20"), wet = rgb("#4e5c3a"), wetDk = rgb("#3e4a34"), glint = rgb("#7e969e");
   for (let y = 1; y < AH - 1; y++) for (let x = 1; x < AW - 1; x++) {
     const i = y * AW + x;
     if (!base.land[i] || base.zone[i] !== 2) continue;
-    const v = fbm(x, y, 26, 91);
-    if (v < 0.6) continue;
+    const v = fenPoolAt(x, y);
+    if (v < 0.585) continue;
     // keep the pools off the causeway and the waypoints
     const ux = x / U + MAP.x, uy = y / U + MAP.y;
     if (busy(ux, uy, 1)) continue;
-    const above = fbm(x, y - 1, 26, 91) >= 0.6;
-    const c = !above ? rim : v > 0.66 ? deep : mid;
+    let c;
+    if (v < 0.62) c = bayer(x, y) < (v - 0.585) * 28 ? wet : wetDk;
+    else if (fenPoolAt(x, y - 2) < 0.62) c = bank;
+    else if (v > 0.66 && (y % 9) === 4 && vnoise(x, y, 7, 92) > 0.62) c = glint;
+    else c = v > 0.67 ? deep : mid;
     d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2];
   }
   ctx.putImageData(img, 0, 0);
+}
+
+// Low mist lying over the fen: bands of pale pixels dithered into the ground,
+// thickest along their middles, kept off the road and the names.
+const MISTS = [[420, -120, 44, 5], [540, -80, 60, 6], [600, -150, 40, 5], [480, -196, 36, 4], [680, -110, 30, 5],
+  [400, -30, 34, 4], [560, -10, 40, 4], [640, -60, 36, 4], [510, -170, 30, 4]];
+function fenMist(ctx, base) {
+  const img = ctx.getImageData(0, 0, AW, AH), d = img.data, pale = rgb("#9ea4b0");
+  for (const [mx, my, rx, ry] of MISTS) {
+    for (let y = artY(my - ry * 2); y < artY(my + ry * 2); y++) for (let x = artX(mx - rx * 1.3); x < artX(mx + rx * 1.3); x++) {
+      if (x < 0 || y < 0 || x >= AW || y >= AH) continue;
+      const i = y * AW + x;
+      if (!base.land[i] || base.zone[i] !== 2) continue;
+      const ux = x / U + MAP.x, uy = y / U + MAP.y;
+      // a wavering band
+      const cy = my + Math.sin((ux - mx) / 9 + mx) * ry * 0.5;
+      const e = ((ux - mx) / rx) ** 2 + ((uy - cy) / ry) ** 2 + (vnoise(x, y, 12, 93) - 0.5) * 0.8;
+      if (e > 1 || busy(ux, uy, 0.5)) continue;
+      // in drawn-out streaks, two art pixels high, thinning at the ends
+      if (((y >> 1) + Math.floor(x / 23)) % 3) continue;
+      if (hash(x >> 3, y >> 1) > (1 - e) * 1.6) continue;
+      d[i * 4] = (d[i * 4] + pale[0] * 2) / 3; d[i * 4 + 1] = (d[i * 4 + 1] + pale[1] * 2) / 3; d[i * 4 + 2] = (d[i * 4 + 2] + pale[2] * 2) / 3;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// The fen's dressing, laid after the vale's and before the Marches'.
+function* fenDressing(base, { add, taken, free, clearOf, onZone, piece }) {
+  const Z = 2;
+  const pool = (x, y) => fenPoolAt(artX(x), artY(y));
+  const inMere = (x, y, g = 0) => MERES.some((m) => m.fen && ((x - m.x) / (m.rx + g)) ** 2 + ((y - m.y) / (m.ry + g)) ** 2 < 1);
+  const dry = (x, y) => pool(x, y) < 0.55 && !inMere(x, y, 1.5);
+  // the nearest free spot for a thing near (x, y); wet: it stands in water
+  const site = (s, x, y, rad = 8, wet = false, sh = null) => {
+    const w = s.width / U, h = s.height / U, r = w * 0.5;
+    for (let k = 0; k < 60; k++) {
+      const a = k * 2.39996, d = k ? rad * Math.sqrt(k / 60) : 0;
+      const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d;
+      if (!onZone(px, py, Z, Math.min(3, r))) continue;
+      const B = wet ? dryBusy : busy;
+      if (B(px, py, r * 0.8) || B(px, py - h * 0.5, r * 0.8) || B(px, py - h + 1, r * 0.6)) continue;
+      if (wet ? !(inMere(px, py, -1) || pool(px, py) > 0.62) : !dry(px, py) || !dry(px - r, py) || !dry(px + r, py)) continue;
+      if (!clearOf(px, py - h * 0.3, r * 1.1)) continue;
+      add(s, px, py, sh ?? (wet ? 0 : r * 0.7)); taken.push([px, py - h * 0.3, r * 1.1]);
+      return [px, py];
+    }
+    return null;
+  };
+  // the Throne of Dust, the drowned village, the bell of Bellmarsh, the
+  // Lichgate, and the chapels
+  piece(throneRuin(), ...SET.ruin, 16, 10, true);
+  site(bellTower(), 361, -67, 5, true);
+  for (const [x, y] of [[430, -200], [488, -200], [470, -214], [420, -190]]) if (site(drownedVillage(), x, y, 8, true) || site(drownedVillage(), x, y, 8)) break;
+  let n = 0;
+  for (const [x, y] of [[450, -200], [462, -204], [430, -178], [424, -192], [486, -176], [490, -162], [436, -206], [476, -214], [420, -166], [498, -190], [440, -150], [470, -146]]) {
+    if (n < 5 && (site(drowned(n), x, y, 5, true) || site(drowned(n), x, y, 5))) n++;
+  }
+  site(chapel(1), 478, -204, 8);
+  site(lychgate(), 614, -188, 14);
+  site(chapel(0), 630, -200, 14) || site(chapel(0), 585, -205, 12);
+  site(chapel(1), 702, -76, 10);
+  site(chapel(0), 360, -110, 10);
+  for (const [x, y, v] of [[596, -198, 0], [620, -178, 1], [640, -196, 2], [690, -58, 0], [660, -26, 1], [700, -32, 2], [604, -20, 1], [626, -26, 0], [388, -20, 2]])
+    site(graves(v), x, y, 6);
+  yield;
+  // the Cairnfields: barrows, cairns, a ring of stones; and stone rows by
+  // the Stillmere
+  for (const [x, y, v] of [[520, -150, 0], [486, -158, 1], [532, -112, 2], [478, -130, 3], [540, -182, 1], [512, -194, 0], [590, -148, 2], [410, -120, 1], [700, -120, 0], [640, -94, 3]])
+    site(fenBarrow(v), x, y, 7);
+  for (const [x, y, v] of [[582, -142, 0], [508, -176, 1], [601, -208, 0], [520, -134, 1], [562, -110, 0],
+    [492, -142, 1], [620, -80, 0], [700, -100, 1], [470, -120, 0], [560, -180, 1], [545, -160, 0], [680, -190, 1]]) site(fenCairn(v), x, y, 5);
+  const ring = site(fenStone(0), 528, -165, 14);
+  if (ring) {
+    const [rx, ry] = ring;
+    for (let k = 1; k < 9; k++) { const a = (k / 9) * Math.PI * 2; site(fenStone(k), rx + Math.cos(a) * 6.5, ry + Math.sin(a) * 3.6, 1); }
+  }
+  for (const [x, y, v] of [[420, -94, 0], [428, -88, 1], [436, -82, 2], [420, -70, 0], [449, -70, 1], [440, -30, 1], [470, -24, 0], [478, -28, 2],
+    [660, -120, 1], [720, -80, 0], [380, -95, 2], [590, -40, 1]]) site(fenStone(v), x, y, 3);
+  // the Stillmere under the moon, and the ferryman
+  add(moonGlint(), 474, -95, 0); add(punt(), 489, -86, 0);
+  yield;
+  // Wightwood and the other drowned woods: dead trees and willows, and
+  // where they stand in water, ripples round their feet
+  const tree = (k, x, y, willowShare) => {
+    const wet = pool(x, y) > 0.6 || inMere(x, y, -0.5);
+    const s = hash(k, 9) < willowShare && !wet ? willow(Math.floor(hash(k, 8) * 5)) : fenTree(Math.floor(hash(k, 8) * 10));
+    if (wet) add(ripple(), x, y + 1.2, 0);
+    add(s, x, y, wet ? 0 : 1.4);
+  };
+  const wood = (cx, cy, rx, ry, step, willowShare, seed) => {
+    for (let gy = cy - ry; gy <= cy + ry; gy += step * 0.8) for (let gx = cx - rx; gx <= cx + rx; gx += step) {
+      const k = Math.round(gx * 7 + gy * 131 + seed * 977);
+      const x = gx + (hash(k, 1) - 0.5) * step * 0.9 + ((Math.round(gy / (step * 0.8)) & 1) ? step / 2 : 0), y = gy + (hash(k, 2) - 0.5) * step * 0.7;
+      const e = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + (vnoise(x, y, 10, seed) - 0.5) * 0.6;
+      if (e > 1 || !onZone(x, y, Z) || inMere(x, y, 1) || !free(x, y, 2.4) || busy(x, y - 5, 2.4)) continue;
+      tree(k, x, y, willowShare);
+    }
+  };
+  wood(380, -165, 44, 36, 4.4, 0.18, 13);
+  wood(612, -112, 60, 38, 7, 0.15, 14);
+  wood(470, -178, 30, 22, 6.5, 0.2, 30);
+  wood(690, -90, 24, 20, 6, 0.25, 31);
+  wood(420, -60, 20, 14, 6, 0.4, 32);
+  for (let k = 0; k < 420; k++) {
+    const x = 360 + hash(k, 401) * 370, y = -220 + hash(k, 402) * 235;
+    if (!onZone(x, y, Z) || inMere(x, y, 1) || !free(x, y, 5) || busy(x, y - 5, 2.4)) continue;
+    tree(k + 3000, x, y, 0.3); taken.push([x, y, 3]);
+  }
+  yield;
+  // reedbeds: along the black rivers, round the meres, thick in the Reedmaze
+  const reed = (k, x, y) => { if (onZone(x, y, Z) && !busy(x, y, 0.3) && clearOf(x, y, 2.4)) { add(reedbed(k % 6), x, y, 0); taken.push([x, y, 1.6]); } };
+  for (const rv of RIVERS) {
+    if (!rv.fen) continue;
+    for (let i = 3; i < rv.pts.length; i += 5) {
+      const k = i * 7 + rv.pts.length;
+      if (hash(k, 5) < 0.45) continue;
+      const [x, y] = rv.pts[i], [nx, ny] = rv.nrm[i], side = hash(k, 6) < 0.5 ? 1 : -1, o = rv.hw[i] + 2.6 + hash(k, 7) * 1.5;
+      reed(k, x + nx * o * side, y + ny * o * side);
+      // and now and then a willow leaning over the bank
+      const wx = x - nx * (o + 3) * side, wy = y - ny * (o + 3) * side;
+      if (hash(k, 9) < 0.3 && onZone(wx, wy, Z) && dry(wx, wy) && !busy(wx, wy - 4, 2.6) && free(wx, wy, 4)) { add(willow(k % 5), wx, wy, 1.4); taken.push([wx, wy, 3]); }
+    }
+  }
+  for (const m of MERES) {
+    if (!m.fen) continue;
+    for (let a = 0; a < Math.PI * 2; a += 0.35) {
+      const k = Math.round(m.x * 3 + a * 50);
+      if (hash(k, 8) < 0.35) continue;
+      reed(k, m.x + Math.cos(a) * (m.rx + 3.2), m.y + Math.sin(a) * (m.ry + 2.8));
+    }
+  }
+  for (let gy = -150; gy <= -100; gy += 3.4) for (let gx = 535; gx <= 605; gx += 5) {
+    const k = Math.round(gx * 7 + gy * 13);
+    const x = gx + (hash(k, 1) - 0.5) * 3, y = gy + (hash(k, 2) - 0.5) * 2;
+    if (((x - 570) / 36) ** 2 + ((y - -125) / 26) ** 2 > 1 - hash(k, 3) * 0.3 || inMere(x, y, 0.5)) continue;
+    reed(k, x, y);
+  }
+  for (let k = 0; k < 260; k++) {
+    const x = 360 + hash(k, 411) * 370, y = -220 + hash(k, 412) * 235;
+    if (pool(x, y) < 0.5 && hash(k, 413) < 0.7) continue;
+    reed(k, x, y);
+  }
+  // causeway posts along the fen's roads
+  for (const rd of ROADS) {
+    let run = 6;
+    for (let k = 1; k < rd.pts.length - 1; k++) {
+      const [x0, y0] = rd.pts[k - 1], [x1, y1] = rd.pts[k];
+      run += Math.hypot(x1 - x0, y1 - y0);
+      if (run < 14) continue;
+      const l = Math.hypot(x1 - x0, y1 - y0) || 1, side = (k & 1) ? 1 : -1;
+      const mx = x1 - ((y1 - y0) / l) * 4.6 * side, my = y1 + ((x1 - x0) / l) * 4.6 * side;
+      if (!onZone(mx, my, Z) || busy(mx, my, 0.4) || !clearOf(mx, my, 1.4)) continue;
+      add(fenPost(k), mx, my, 0.6); taken.push([mx, my, 1.4]); run = 0;
+    }
+  }
+  // witch-lights over the black water, and crows over the dead places
+  for (let k = 0; k < 400; k++) {
+    const x = 360 + hash(k, 421) * 370, y = -220 + hash(k, 422) * 235;
+    if (!onZone(x, y, Z) || !(pool(x, y) > 0.62 || inMere(x, y, -1)) || dryBusy(x, y, 1) || !clearOf(x, y, 3)) continue;
+    add(wisp(k % 2), x, y - 2 - hash(k, 423) * 3, 0); taken.push([x, y, 3]);
+  }
+  for (const [x, y, v] of [[676, -186, 0], [382, -196, 1], [612, -214, 1], [520, -200, 0], [700, -30, 1], [560, -60, 0]])
+    if (!busy(x, y, 1)) add(crows(v), x, y, 0);
 }
 
 // The whole terrain: the base, then water, fields, road, and the dressing.
@@ -997,11 +1794,13 @@ function* paintTerrain() {
     }
   }, "#5f8f43");
   ctx.drawImage(onLand(fields), 0, 0);
+  yield;
+  ctx.drawImage(onLand(marchFields(base)), 0, 0);
 
   yield;
   // rivers and lakes: an inked bank, a pale shallows rim, deep water, and a
-  // glint of current down the wider reaches. Fen water is black and purple.
-  const PAL = { shal: "#5f9cb6", deep: "#3f7898", glint: "#8cc0d2" }, FEN = { shal: "#4c4274", deep: "#262036", glint: "#9a8ec0" };
+  // glint of current down the wider reaches. Fen water is black, moonlit.
+  const PAL = { shal: "#5f9cb6", deep: "#3f7898", glint: "#8cc0d2" }, FEN = { shal: "#4a5c58", deep: "#161c20", glint: "#a8c0c4" };
   const water = layer((c) => {
     for (const rv of RIVERS) { c.fillStyle = (rv.fen ? FEN : PAL).shal; riverPath(c, rv); c.fill(); }
     for (const m of MERES) { c.fillStyle = (m.fen ? FEN : PAL).shal; lakePath(c, m); c.fill(); }
@@ -1020,8 +1819,7 @@ function* paintTerrain() {
       }
     }
     for (const m of MERES) {
-      if (m.fen) continue;
-      c.strokeStyle = PAL.glint; c.lineWidth = 0.5;
+      c.strokeStyle = (m.fen ? FEN : PAL).glint; c.lineWidth = 0.5;
       for (let k = 0; k < 2; k++) {
         const y = m.y - m.ry * 0.3 + k * m.ry * 0.45, x = m.x - m.rx * 0.35 + k * m.rx * 0.2;
         c.beginPath(); c.moveTo(x - m.rx * 0.22, y); c.lineTo(x + m.rx * 0.22, y); c.stroke();
@@ -1030,6 +1828,7 @@ function* paintTerrain() {
   });
   ctx.drawImage(onLand(water), 0, 0);
   ctx.drawImage(onLand(shine), 0, 0);
+  yield;
 
   // the road: packed dirt with a darker edge, only on land
   const road = layer((c) => {
@@ -1045,6 +1844,7 @@ function* paintTerrain() {
   { const c = lane.getContext("2d", RF); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "destination-out"; c.drawImage(landMask, 0, 0); }
   // keep the lane off the coast's ink and foam too
   ctx.drawImage(lane, 0, 0);
+  yield;
 
   // bridges wherever the road crosses running water (not at the fords)
   // (the rivers' centrelines, 2 units wide, as a mask to look the road up in)
@@ -1058,10 +1858,12 @@ function* paintTerrain() {
     if (bridges.every(([bx, by]) => Math.hypot(x - bx, y - by) > 8)) bridges.push([x, y]);
   }
   for (const [x, y] of bridges) stamp(ctx, bridge(), x, y, 3.5, 2.5);
+  yield;
+  fenMist(ctx, base);
 
   yield;
   // contact shadows, then the dressing back to front
-  const items = dressing(base).sort((a, b) => a[2] - b[2]);
+  const items = (yield* dressing(base)).sort((a, b) => a[2] - b[2]);
   const shade = layer((c) => {
     c.fillStyle = "#2a1c2c";
     for (const [, x, y, , , sh] of items) if (sh > 0) { c.beginPath(); c.ellipse(x + sh * 0.35, y + 0.2, sh, sh * 0.42, 0, 0, Math.PI * 2); c.fill(); }
@@ -1077,6 +1879,11 @@ function* paintTerrain() {
   stamp(ctx, lighthouse(), 44, -52, 2.5, 11.4);
   stamp(ctx, compass(), 38, 392, 11, 13);
   stamp(ctx, whirl(), 292, -150, 8, 5);
+  // a wreck on the rocks off Saltgrave Strand
+  for (const [x, y] of [[598, 28], [620, 30], [584, 24], [640, 26], [600, 36]]) {
+    const i = artY(y) * AW + artX(x), j = artY(y) * AW + artX(x + 7);
+    if (!base.land[i] && !base.land[j] && base.seaD[i] > 9 && base.seaD[j] > 9 && base.seaD[i] < 40) { stamp(ctx, wreck(), x, y, 7, 6.4); break; }
+  }
   for (const [x, y, v] of [[12, 40, 0], [345, 30, 1], [748, 300, 0], [360, 400, 1], [262, 404, 0], [300, -60, 1], [750, -210, 0], [20, -200, 1], [430, 40, 0], [180, -40, 1], [748, 60, 1]]) {
     const i = artY(y) * AW + artX(x);
     if (!base.land[i] && base.seaD[i] > 6) stamp(ctx, seaRock(v), x, y, 3, 4);
