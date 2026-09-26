@@ -160,14 +160,14 @@ const waterTones = (wa, B) => {
 // g: how far outside the water's edge (world units, >= 0); n: outward normal;
 // cap: the most earth the bank may show (a river's bank budget); spit: a
 // spit or point bar here (0..1), whose muddy foot runs wider.
-const bankPx = (B, g, nx, ny, x, y, gi, gj, s, r, cap = 9, spit = 0, n21 = -1) => {
+const bankPx = (B, g, nx, ny, x, y, gi, gj, s, r, cap = 9, spit = 0, n21 = -1, n7 = -1) => {
   const L = LX * nx + LY * ny, V = ny < 0 ? -ny : 0, face = V > 0.35;
   const n5 = vn(x, y, 5.5, s + 2);
   let eW;
   // the far bank's earth face: a sliver in one place, a tall cut in the next
   if (face) eW = 0.7 + V * 3.6 * clamp01((n21 < 0 ? vn(x, y, 21, s + 17) : n21) * 1.7 - 0.3) + (n5 - 0.5) * 1.2;
   // the lit strip comes and goes in pieces
-  else if (L > 0.1) eW = 0.6 + vn(x, y, 7, s + 19) * 2.3 + (n5 - 0.5) * 0.8;
+  else if (L > 0.1) eW = 0.6 + (n7 < 0 ? vn(x, y, 7, s + 19) : n7) * 2.3 + (n5 - 0.5) * 0.8;
   else eW = 1.2 + (n5 - 0.5) * 1.4;
   eW += spit * 1.6;
   eW = eW > cap ? cap : eW < 0.5 ? 0.5 : eW;
@@ -213,6 +213,7 @@ const riverField = (R, rivers) => {
   const { pw, ph, r, x0, y0 } = R, N = pw * ph;
   const FA = new Float32Array(N).fill(99), FB = new Float32Array(N).fill(99);
   const SA = new Uint16Array(N), SB = new Uint16Array(N), RIV = new Uint8Array(N);
+  const LO = new Int32Array(ph).fill(pw), HI = new Int32Array(ph).fill(-1);   // each row's reach
   const segs = [];
   rivers.forEach((rv, ri) => {
     const hw = rv.w / 2, reach = hw + REACH + (rivers.length > 1 ? MERGE * 0.5 : 0);
@@ -242,6 +243,8 @@ const riverField = (R, rivers) => {
         const i0 = Math.max(0, Math.floor((Math.min(xa, xb) - reach - x0) * r));
         const i1 = Math.min(pw - 1, Math.ceil((Math.max(xa, xb) + reach - x0) * r));
         const row = j * pw;
+        if (i0 < LO[j]) LO[j] = i0;
+        if (i1 > HI[j]) HI[j] = i1;
         for (let i = i0; i <= i1; i++) {
           const x = x0 + (i + 0.5) / r;
           let t = ((x - s.x1) * vx + (y - s.y1) * vy) / L2;
@@ -258,7 +261,7 @@ const riverField = (R, rivers) => {
       }
     }
   });
-  return { FA, FB, SA, SB, segs };
+  return { FA, FB, SA, SB, segs, LO, HI };
 };
 // where a pixel stands relative to one stretch of river: the outward normal,
 // its place across the stream (signed) and how far down the river it is
@@ -307,8 +310,8 @@ const spitK = (n52, side) => {
   return v * v * (3 - 2 * v);
 };
 const spitAt = (x, y, side, s) => spitK(vn(x, y, 52, s + 15), side);
-const edgeOff = (n42, n90, n52, x, y, lat, hw, s, L) => {
-  N42 = n42; N13 = vn(x, y, 13, s);
+const edgeOff = (n42, n90, n52, n13, lat, hw, L) => {
+  N42 = n42; N13 = n13;
   const side = lat > 0 ? 1 : -1;
   let e = (N42 - 0.5) * 2.0 + (N13 - 0.5) * 2.2 + 0.75;
   if (L > 0 && N13 > 0.35) e += (N13 - 0.35) * (N13 - 0.35) * 6.8 * L;
@@ -488,7 +491,7 @@ const riverBody = (rivers, wa, view, r) => {
   if (pw < 2 || ph < 2) return null;
   const R = raster(x0, y0, pw, ph, r);
   const _T=[performance.now()];
-  const { FA, FB, SA, SB, segs } = riverField(R, rivers);
+  const { FA, FB, SA, SB, segs, LO, HI } = riverField(R, rivers);
   _T.push(performance.now());
   const T = WT.T, S = WT.S, pebbles = [], D = R.d, px1 = 1 / r;
   // the water's tone per pixel first (+1, and +32 in the bank's shadow), so
@@ -498,21 +501,24 @@ const riverBody = (rivers, wa, view, r) => {
   // a grid one unit apart, filled as they're wanted and read bilinearly:
   // they change too slowly for it to show, and the bake runs twice as fast
   const cw = Math.ceil(pw / r) + 3, chh = Math.ceil(ph / r) + 3;
-  const SV = new Float32Array(cw * chh * 5), SD = new Uint8Array(cw * chh);
+  const NV = 7, SV = new Float32Array(cw * chh * NV), SD = new Uint8Array(cw * chh);
   const slow = (ci, cj) => {
-    const c = cj * cw + ci, o = c * 5;
+    const c = cj * cw + ci, o = c * NV;
     if (!SD[c]) {
       SD[c] = 1;
       const X = x0 + ci, Y = y0 + cj;
       SV[o] = vn(X, Y, 42, s + 11); SV[o + 1] = vn(X, Y, 90, s + 13); SV[o + 2] = vn(X, Y, 52, s + 15);
-      SV[o + 3] = vn(X, Y, 30, s + 5); SV[o + 4] = vn(X, Y, 21, s + 17);
+      SV[o + 3] = vn(X, Y, 30, s + 5); SV[o + 4] = vn(X, Y, 21, s + 17); SV[o + 5] = vn(X, Y, 13, s); SV[o + 6] = vn(X, Y, 7, s + 19);
     }
     return o;
   };
   for (let j = 0; j < ph; j++) {
     const y = y0 + (j + 0.5) / r, gj = R.gy + j;
     const rowJP = JP.length ? JP.filter((P) => y > P.y - P.ry - 12 && y < P.y + P.ry + 12) : JP;
-    for (let i = 0; i < pw; i++) {
+    let lo = LO[j], hi = HI[j];
+    for (const P of rowJP) { lo = Math.min(lo, Math.floor((P.x - P.rx - 12 - x0) * r)); hi = Math.max(hi, Math.ceil((P.x + P.rx + 12 - x0) * r)); }
+    lo = Math.max(0, lo); hi = Math.min(pw - 1, hi);
+    for (let i = lo; i <= hi; i++) {
       const k = j * pw + i, fa = FA[k], fb = FB[k], f = fa < 99 ? smin(fa, fb) : fb;
       const x = x0 + (i + 0.5) / r;
       let P = null, gp = 99, pnx = 0, pny = 1, pNP = 0.5;
@@ -530,6 +536,7 @@ const riverBody = (rivers, wa, view, r) => {
       const n42 = SV[o00] * w00 + SV[o10] * w10 + SV[o01] * w01 + SV[o11] * w11;
       const n90 = SV[o00 + 1] * w00 + SV[o10 + 1] * w10 + SV[o01 + 1] * w01 + SV[o11 + 1] * w11;
       const n52 = SV[o00 + 2] * w00 + SV[o10 + 2] * w10 + SV[o01 + 2] * w01 + SV[o11 + 2] * w11;
+      const n13 = SV[o00 + 5] * w00 + SV[o10 + 5] * w10 + SV[o01 + 5] * w01 + SV[o11 + 5] * w11;
       if (fb < 99) {
         ({ nx, ny, lat, u, hw } = geo(segs[SB[k]], x, y));
         if (fa < 99 && Math.abs(fa - fb) < MERGE) {
@@ -542,7 +549,7 @@ const riverBody = (rivers, wa, view, r) => {
           nx /= l; ny /= l;
           if (h < 0.5) { lat = bl; u = bu; hw = bh; } else { lat = A.lat; u = A.u; hw = A.hw; }
         } else if (fa < fb) ({ nx, ny, lat, u, hw } = geo(segs[SA[k]], x, y));
-        e = edgeOff(n42, n90, n52, x, y, lat, hw, s, LX * nx + LY * ny);
+        e = edgeOff(n42, n90, n52, n13, lat, hw, LX * nx + LY * ny);
         g = f + e;
       }
       const gr = g;
@@ -560,7 +567,8 @@ const riverBody = (rivers, wa, view, r) => {
       if (g >= 0) {
         if (g < REACH && (P || !loose.length || !inPondWater(loose, x, y))) {
           const n21 = SV[o00 + 4] * w00 + SV[o10 + 4] * w10 + SV[o01 + 4] * w01 + SV[o11 + 4] * w11;
-          R.put(i, j, bankPx(B, g, nx, ny, x, y, gi, gj, s, r, 5 + (e < 0 ? e : 0) + pwt * 4, SPIT * (1 - pwt), n21));
+          const n7 = SV[o00 + 6] * w00 + SV[o10 + 6] * w10 + SV[o01 + 6] * w01 + SV[o11 + 6] * w11;
+          R.put(i, j, bankPx(B, g, nx, ny, x, y, gi, gj, s, r, 5 + (e < 0 ? e : 0) + pwt * 4, SPIT * (1 - pwt), n21, n7));
         }
         continue;
       }
@@ -649,7 +657,7 @@ const riverBody = (rivers, wa, view, r) => {
         // where this bank's water really ends (spits and all), as a lat
         const edge = (along = 0) => {
           const [x, y] = at(hw, along);
-          return hw - edgeOff(vn(x, y, 42, s + 11), vn(x, y, 90, s + 13), vn(x, y, 52, s + 15), x, y, side, hw, s, LX * nx + LY * ny);
+          return hw - edgeOff(vn(x, y, 42, s + 11), vn(x, y, 90, s + 13), vn(x, y, 52, s + 15), vn(x, y, 13, s), side, hw, LX * nx + LY * ny);
         };
         const kind = fen ? (h < 0.3 ? "log" : h < 0.58 ? "snag" : h < 0.94 ? "reeds" : "")
           : h < 0.27 && hw >= 12 ? "rock" : h < 0.36 ? "log" : h < 0.74 ? "reeds" : h < 0.9 ? "pebbles" : "";
