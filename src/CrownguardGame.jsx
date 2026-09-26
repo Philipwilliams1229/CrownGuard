@@ -173,9 +173,11 @@ export default function Crownguard() {
       // The map comes first: as big as the screen allows at its true shape,
       // and where the screen is too short for it, only the decorative border
       // along the top and bottom (MY) is trimmed away — never the field.
-      // inside the notch and above the home indicator; the map stands flush
-      // against the tray, and the landscape fills whatever is left
-      const sf = vpRef.current.safe || { left: 0, bottom: 0, top: 0 };
+      // The map runs under the notch strip and the home indicator too: in
+      // landscape the camera cutout covers only a sliver mid-edge, and every
+      // button and number keeps clear of both on its own (`inset`). It stands
+      // flush against the tray; the landscape fills whatever is left.
+      const sf = { left: 0, bottom: 0, top: 0 };
       const aw = r.width - sf.left, ah = r.height - sf.bottom - sf.top;
       const k = Math.max(0.1, Math.min(aw / W, ah / (H - 2 * MY)));
       const w = Math.floor(W * k), h = Math.floor(H * k);
