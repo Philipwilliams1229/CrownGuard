@@ -30,7 +30,7 @@ import { drawStoop } from "./birds.js";
 import { drawRingFx } from "./rings.js";
 import { drawRaising, RAISE_SECS } from "./buildanim.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
-import { drawTree, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
+import { drawTree, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign, signGround } from "./scenery.js";
 import { drawWaterLive } from "./water.js";
 import { drawBridges } from "./bridge.js";
 import { drawCastleGround } from "./castle.js";
@@ -128,7 +128,7 @@ export function draw(g, canvas, bufRef) {
     }
   }
 
-  // timber spans wherever the road wades a river — over the road texture
+  // timber or stone spans wherever the road wades a river — over the road texture
   // and the boats beneath, under everything that walks
   drawBridges(ctx, g);
 
@@ -240,6 +240,9 @@ export function draw(g, canvas, bufRef) {
   };
   const drawables = [];
   for (const d of DECOR) drawables.push({ y: d.y + 14, fn: () => drawTree(ctx, d, g.time) });
+  // the gate's sign stands in the crowd by its posts' feet (its chevrons go on late)
+  const sg = signGround();
+  if (sg) drawables.push({ y: sg.y, fn: () => drawSpawnSign(ctx, g.time, g.phase, "body") });
   // the tower you're about to buy, standing on the spot at half weight
   if (g.buildMode && g.hover) {
     const [hx, hy] = g.hover;
@@ -374,7 +377,7 @@ export function draw(g, canvas, bufRef) {
   // ---- the spawn marker ----
   // Drawn after everything standing so nothing hides it; the sign itself
   // (and where it stands) lives with the rest of the scenery.
-  drawSpawnSign(ctx, g.time, g.phase);
+  drawSpawnSign(ctx, g.time, g.phase, "chevrons");
 
   // shots in flight: arrows, orbs, boulders, shells, spikes, musket balls —
   // each a cached pixel sprite (render/fx.js)

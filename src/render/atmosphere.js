@@ -11,6 +11,7 @@
 
 import { W, H, S, CELL } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
+import { COAST, inSea } from "../data/terrain.js";
 
 // ---- light ----------------------------------------------------------------
 // Per-realm grade, keyed by REALM.light. `tint` is multiplied over the whole
@@ -93,6 +94,31 @@ export const drawCloudShadows = (ctx, time) => {
 
 // ---- weather --------------------------------------------------------------
 const LEAF_COLS = ["#8a9a4e", "#a8b45c", "#c09040", "#7a8a46", "#b8a050"];
+
+// A fen fog bank: a long, low ragged sheet in two stepped tones (a thin veil
+// and a denser core), its top and bottom edges wandering by art pixels.
+// Baked once per variant on the ambient's own 2-unit grid.
+const FOG_W = 220, FOG_H = 16;
+const FOGS = [];
+const fogBank = (v) => {
+  if (FOGS[v]) return FOGS[v];
+  const cv = document.createElement("canvas");
+  const cols = FOG_W / CELL, rows = FOG_H / CELL;
+  cv.width = cols; cv.height = rows;
+  const c = cv.getContext("2d");
+  const n = (i, k) => { const t = Math.sin(i * 12.9898 + k * 78.233 + v * 37.7) * 43758.5453; return t - Math.floor(t); };
+  for (let i = 0; i < cols; i++) {
+    const u = i / (cols - 1), taper = Math.sin(u * Math.PI);
+    const wob = Math.sin(u * 7 + v * 2) * 0.8 + (n(i >> 2, 1) - 0.5) * 1.2;
+    const half = Math.max(0, Math.round((rows / 2) * taper * (0.75 + 0.25 * Math.sin(u * 3 + v)) + wob - 0.4));
+    const core = Math.max(0, Math.round(half * 0.45 + (n(i >> 3, 2) - 0.5)));
+    const mid = rows / 2 + Math.round(Math.sin(u * 4 + v) * 0.8);
+    if (half) { c.fillStyle = "rgba(178,196,188,0.05)"; c.fillRect(i, mid - half, 1, half * 2); }
+    if (core) { c.fillStyle = "rgba(178,196,188,0.05)"; c.fillRect(i, mid - core, 1, core * 2); }
+  }
+  FOGS[v] = cv;
+  return cv;
+};
 
 export const drawAmbient = (ctx, time) => {
   const kind = REALM.ambient;
@@ -183,6 +209,7 @@ export const drawAmbient = (ctx, time) => {
       const t = time * sp + i * 260;
       const x = ((t % (W + 120)) + W + 120) % (W + 120) - 60;
       const y = ((i * 71.3 + t * 0.34 + Math.sin(time * 1.1 + i) * 20) % (H + 60) + H + 60) % (H + 60) - 30;
+      if (COAST && inSea(x, y, -4)) continue;   // nothing blows about over the open sea
       const spin = Math.sin(time * 3.4 + i * 1.9);
       ctx.fillStyle = LEAF_COLS[i % LEAF_COLS.length];
       const sx = S(x), sy = S(y);
@@ -199,37 +226,44 @@ export const drawAmbient = (ctx, time) => {
   }
 
   if (kind === "wisps") {
-    // ground fog first: low, slow sheets dragging across the fen
+    // ground fog first: low, slow banks dragging across the fen — baked
+    // ragged banks in two stepped tones, never rows of flat boxes
     for (let i = 0; i < 3; i++) {
       const gx = ((time * (16 + i * 7) + i * 380) % (W + 360)) - 180;
       const gy = 120 + i * 140 + Math.sin(time * 0.3 + i * 2) * 18;
-      ctx.fillStyle = "rgba(178,196,188,0.05)";
-      for (let k = 0; k < 11; k++) ctx.fillRect(S(gx + k * 20), S(gy + Math.sin(k * 0.6 + time * 0.7) * 8), 18, 4);
+      const fb = fogBank(i);
+      ctx.drawImage(fb, S(gx), S(gy) - FOG_H / 2, FOG_W, FOG_H);
     }
-    // the dead's own candles: pale motes that rise, drift, and gutter out
+    // the dead's own candles: pale motes that rise, drift, and gutter out,
+    // each a bright pixel in a plus of witch-light
     for (let i = 0; i < 20; i++) {
       const life = ((time * (7 + (i % 4) * 3) + i * 61) % 90) / 90;
       const x = (((i * 167.3 + Math.sin(time * 0.4 + i * 1.9) * 30) % W) + W) % W;
       const y = H - 20 - life * (H * 0.65) - Math.sin(time * 0.8 + i) * 6;
       const a = life < 0.15 ? life / 0.15 : life > 0.75 ? (1 - life) / 0.25 : 1;
       const flicker = 0.5 + 0.5 * Math.sin(time * (2.2 + (i % 3)) + i * 2.6);
-      ctx.fillStyle = `rgba(124,224,184,${a * flicker * 0.22})`;
-      ctx.fillRect(S(x) - 2, S(y) - 2, 6, 6);
+      const sx = S(x), sy = S(y);
+      ctx.fillStyle = `rgba(124,224,184,${a * flicker * 0.26})`;
+      ctx.fillRect(sx - CELL, sy, CELL, CELL); ctx.fillRect(sx + CELL, sy, CELL, CELL);
+      ctx.fillRect(sx, sy - CELL, CELL, CELL); ctx.fillRect(sx, sy + CELL, CELL, CELL);
       ctx.fillStyle = `rgba(188,244,216,${a * flicker * 0.8})`;
-      ctx.fillRect(S(x), S(y), 2, 2);
+      ctx.fillRect(sx, sy, CELL, CELL);
     }
-    // and one great slow soul crossing the board, once in a while
+    // and one great slow soul crossing the board, once in a while: a stepped
+    // diamond of witch-light with a bright heart and a guttering tail
     const soulT = (time * 9) % (W + 500);
     if (soulT < W + 100) {
-      const sx2 = soulT - 50;
-      const sy2 = H * 0.35 + Math.sin(time * 0.6) * 40;
-      ctx.fillStyle = "rgba(124,224,184,0.1)";
-      ctx.beginPath(); ctx.arc(S(sx2), S(sy2), 9, 0, 7); ctx.fill();
+      const sx2 = S(soulT - 50);
+      const sy2 = S(H * 0.35 + Math.sin(time * 0.6) * 40);
+      for (const [r, al] of [[8, 0.07], [4, 0.1]]) {
+        ctx.fillStyle = `rgba(124,224,184,${al})`;
+        for (let k = -r; k <= r; k += CELL) { const w = r - Math.abs(k); ctx.fillRect(sx2 - w, sy2 + k, w * 2 + CELL, CELL); }
+      }
       ctx.fillStyle = "rgba(188,244,216,0.35)";
-      ctx.fillRect(S(sx2) - 1, S(sy2) - 1, 3, 3);
+      ctx.fillRect(sx2, sy2, CELL, CELL);
       for (let t2 = 1; t2 <= 4; t2++) {
         ctx.fillStyle = `rgba(124,224,184,${0.18 - t2 * 0.04})`;
-        ctx.fillRect(S(sx2 - t2 * 7), S(sy2 + Math.sin(time * 2 + t2) * 3), 3, 3);
+        ctx.fillRect(S(soulT - 50 - t2 * 7), S(H * 0.35 + Math.sin(time * 0.6) * 40 + Math.sin(time * 2 + t2) * 3), CELL, CELL);
       }
     }
     return;
@@ -241,6 +275,7 @@ export const drawAmbient = (ctx, time) => {
       const sp = 90 + (i % 6) * 34;
       const x = (((i * 157.1 + time * sp) % (W + 60)) + W + 60) % (W + 60) - 30;
       const y = ((i * 113.7 + Math.sin(time * 0.9 + i * 2.2) * 9 + time * 8) % H + H) % H;
+      if (COAST && inSea(x, y, -4)) continue;
       const len = i % 4 === 0 ? 5 : 3;
       ctx.fillStyle = i % 5 === 0 ? "rgba(206,200,186,0.3)" : "rgba(150,146,138,0.26)";
       ctx.fillRect(S(x), S(y), len, 2);

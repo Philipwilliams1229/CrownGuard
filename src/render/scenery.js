@@ -1055,6 +1055,8 @@ const reg = () => REG || (REG = (() => {
     dress: Object.assign({}, ...ART.map((a) => a.dress)),
     spawn: Object.assign({}, ...ART.map((a) => a.spawn)),
     live: new Set(["obelisk", "watchtower", "banner", "reeds", ...ART.flatMap((a) => a.live)]),
+    // pieces that carry their own underline and take no 2px ring when baked
+    flat: new Set(ART.flatMap((a) => a.flat || [])),
   };
 })());
 const paintDecor = (ctx, d, time) => {
@@ -1117,7 +1119,7 @@ const decorSprite = (d) => {
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
     BAKE_CV = c.canvas;
     try { paintDecor(c, { ...d, x: hw, y: top, s, v, band, seed }, 0); } finally { BAKE_CV = null; }
-  });
+  }, !reg().flat.has(d.t));
   const dress = DRESS[d.t] || reg().dress[d.t];
   if (dress) {
     const c = cv.getContext("2d");

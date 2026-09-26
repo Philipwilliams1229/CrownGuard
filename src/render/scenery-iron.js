@@ -213,17 +213,10 @@ const facet = (ctx, x, gy, w, h, col, seed, o = {}) => {
   }, INK, [x - w * 1.3 - 3, gy - h * 1.2 - 2, x + w * 1.3 + 4, gy + 3], null);
 };
 
-// heather lying along a ledge or at a foot: a few purple mounds, lit on top
-const heatherMound = (c, x, y, s, seed, dry = false) => {
-  const base = dry ? "#7a5a62" : HEATH;
-  leafPart(c, (cc) => {
-    for (let i = 0; i < 3; i++) {
-      const hx = x + (i - 1) * 3.4 * s + (hash(seed, i) - 0.5) * 1.5 * s, hy = y - (i === 1 ? 1 : 0) * s;
-      blobBall(cc, hx, hy, (2.6 + hash(seed, i + 3) * 1.2) * s, (1.8 + hash(seed, i + 6) * 0.6) * s, i === 1 ? lighten(base, 0.06) : base, seed + i, { hi: 0.45, lo: 0.45, wobble: 0.3, n: 9 });
-    }
-    for (let i = 0; i < 5; i++) { cc.fillStyle = i % 3 ? HEATH_FL : HEATH_LT; px1(cc, x + (hash(seed, i + 10) - 0.5) * 8 * s, y - 1.8 * s + hash(seed, i + 15) * 1.6 * s); }
-  }, HEATH_DK, [x - 8 * s - 2, y - 5 * s - 2, x + 8 * s + 2, y + 3 * s + 2]);
-};
+// heather lying along a ledge or at a foot: the ground's own pixel cushion
+// (heatherTuft, below), dropped a little so its feet sit where the old mound's
+// middle did — never a smooth purple mound
+const heatherMound = (c, x, y, s, seed, dry = false) => heatherTuft(c, x, y + 2 * s, s * 1.1, seed, dry);
 
 // a fan of bracken fronds
 const brackenFan = (c, x, y, s, seed, green = false) => {
@@ -831,7 +824,9 @@ const bakeCamp = () => {
   // 1. the ground: trampled mud at the gate, ruts, the camp's shadow deepening
   //    toward the edge so the column comes out of the dark
   CAMP.ground = bakeSprite(w, h, (c) => {
-    soft(c, 34, ly + 2, 40, 34, [[0, "rgba(58,46,36,0.5)"], [0.6, "rgba(58,46,36,0.25)"], [1, "rgba(58,46,36,0)"]]);
+    // trampled ground round the gate: two stepped bands of shade, not a soft disc
+    c.fillStyle = "rgba(58,46,36,0.2)"; ellipse(c, 34, ly + 2, 38, 30); c.fill();
+    c.fillStyle = "rgba(58,46,36,0.22)"; ellipse(c, 30, ly + 2, 24, 18); c.fill();
     for (let i = 0; i < 26; i++) {
       const rx = 4 + hash(i, 5) * 70, ry = ly + (hash(i, 6) - 0.5) * 60;
       c.fillStyle = rgba(i % 3 ? "#4a3c30" : "#6a5a44", 0.55);
@@ -1912,6 +1907,8 @@ const ironRoad = (ctx, kit) => {
 
 // ---- the registry ----------------------------------------------------------------
 export const IRON_ART = {
+  // baked without the 2px ring: the heather clump's pixel cushions carry their own underline
+  flat: ["irheather"],
   decor: {
     irpine: scotsPine, irspruce: spruce, ircrag: crag, irheather: heatherClump, irwall: drystone,
     irgibbet: gibbet, irmile: milestone, irbeacon: beacon, irwagon: wagon, irpikes: pikes,
