@@ -151,6 +151,7 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
 
 ## Type (HUD)
 
+- **No "&" in Silkscreen** — its ampersand reads as "$". Write "and".
 - **Words:** Silkscreen. **Anything with digits:** Press Start 2P (the
   `--numeric` var, with `font-size-adjust`). Pixelify Sans is BANNED — its C
   reads as O and its 5/8 as S at small sizes.
@@ -288,7 +289,12 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
 No browser pane (a cloud session)? `node scripts/shoot.mjs "<page?query>"
 ["<js>"] [waitMs]` opens any lab page below headless on the running dev
 server and prints page errors; `shots.html`'s `snap(...)` can be passed as
-the JS.
+the JS. `CG_VIEW=844x390` sets the window size. It fetches Google Fonts
+itself (curl), since headless Chromium behind a proxy can't, and DOM
+screenshots would otherwise fall back to Verdana. For a screen of the real
+game, drive it with Playwright (click FREE PLAY, a preset, START…) and
+`page.screenshot` — `sbs-lab.html` / `sbp-lab.html` show the sandbox's
+setup and in-battle panel on their own.
 
 
 With `npm run dev` running (these pages save PNGs into `.shots/` through the
