@@ -3,7 +3,7 @@
 // placement checks, build / upgrade / evolve / sell, wave start & restart,
 // and the shared damage helper. Each takes `g` explicitly.
 
-import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
+import { W, H, BLOCK_DIST, WALL_W, LANE_OFF } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
 import { MILITIA, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "./path.js";
@@ -102,7 +102,10 @@ export const startWave = (g) => {
     let seeded = 0;
     for (let tries = 0; tries < 60 && seeded < st.autoSeed && t.charges > 0; tries++) {
       const d = Math.random() * TOTAL_LEN;
-      const [px, py] = posAt(d);
+      // any of the three lanes, like the smith's own laying (update.js)
+      const lo = (Math.floor(Math.random() * 3) - 1) * LANE_OFF, na = angleAt(d) + Math.PI / 2;
+      const [rx, ry] = posAt(d);
+      const px = rx + Math.cos(na) * lo, py = ry + Math.sin(na) * lo;
       if (Math.hypot(px - t.x, py - t.y) > st.range) continue;
       if (g.traps.some((tr) => Math.hypot(tr.x - px, tr.y - py) < 8)) continue;
       const floats = !!(st.balloon && ((t.layIdx = (t.layIdx || 0) + 1) % st.balloon === 0));

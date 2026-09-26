@@ -4,7 +4,7 @@
 // clears, the build-phase auto-start horn, and effect/shake decay.
 // `dt` is the raw (already clamped) seconds since the last frame.
 
-import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, pickLane } from "../data/constants.js";
+import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, LANE_OFF, pickLane } from "../data/constants.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "../data/bands.js";
 import { RIVER_ROUTE, seaRoute, seaDepthAt } from "../data/terrain.js";
@@ -403,17 +403,30 @@ export function updateGame(g, dt) {
         for (const tr of g.traps) { const k = ((tr.x / 30) | 0) * 1000 + ((tr.y / 30) | 0); (grid.get(k) || grid.set(k, []).get(k)).push(tr); }
         let best = null, bestSpread = 6;
         const r2 = st.range * st.range;
-        for (const [px, py, pa] of ROAD7) {
-          if ((px - t.x) * (px - t.x) + (py - t.y) * (py - t.y) > r2) continue;
-          let near2 = 3600;
-          const cx = (px / 30) | 0, cy = (py / 30) | 0;
-          for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
-            const list = grid.get((cx + i) * 1000 + cy + j);
-            if (list) for (const tr of list) { const dd = (tr.x - px) * (tr.x - px) + (tr.y - py) * (tr.y - py); if (dd < near2) near2 = dd; }
+        // every lane of the road, not just its crown: a trap springs on what
+        // walks within 15 of it, and the outer lanes run LANE_OFF either side.
+        // The smith takes the lanes in turn (middle, one side, the other), so
+        // each is stocked alike; if his lane has no room, any lane will do.
+        const LANES = [0, -LANE_OFF, LANE_OFF];
+        const want = LANES[(t.laneIdx || 0) % 3];
+        const layIn = (lanes) => { for (const [rx, ry, pa] of ROAD7) {
+          if ((rx - t.x) * (rx - t.x) + (ry - t.y) * (ry - t.y) > r2) continue;
+          const nx = Math.cos(pa + Math.PI / 2), ny = Math.sin(pa + Math.PI / 2);
+          for (const lo of lanes) {
+            const px = rx + nx * lo, py = ry + ny * lo;
+            let near2 = 3600;
+            const cx = (px / 30) | 0, cy = (py / 30) | 0;
+            for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
+              const list = grid.get((cx + i) * 1000 + cy + j);
+              if (list) for (const tr of list) { const dd = (tr.x - px) * (tr.x - px) + (tr.y - py) * (tr.y - py); if (dd < near2) near2 = dd; }
+            }
+            const spread = Math.sqrt(near2);
+            if (spread > bestSpread) { bestSpread = spread; best = [px, py, pa]; }
           }
-          const spread = Math.sqrt(near2);
-          if (spread > bestSpread) { bestSpread = spread; best = [px, py, pa]; }
-        }
+        } };
+        layIn([want]);
+        if (!best) layIn(LANES);
+        if (best) t.laneIdx = (t.laneIdx || 0) + 1;
         if (best) {
           // a yard with aerostats floats every Nth charge instead of burying it
           const floats = !!(st.balloon && ((t.layIdx = (t.layIdx || 0) + 1) % st.balloon === 0));
