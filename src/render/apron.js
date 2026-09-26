@@ -30,8 +30,7 @@ import { REALM } from "../data/maps.js";
 import { PTS } from "../engine/path.js";
 import { DECOR, RIVERS, FOREST, COAST, forestDepthAt, seaDepthAt } from "../data/terrain.js";
 import { drawTree, drawRiver } from "./scenery.js";
-import { drawCastle } from "./castle.js";
-import { wallDrums, GATE_TOWER_N, GATE_TOWER_S, TOWER } from "../data/castle.js";
+import { bakeCastleRun } from "./castle.js";
 import { mix, darken, lighten, rgba, hash, tuft, stone, shadow, soft, strokePts, blobBall, bakeSprite, part, PX } from "./paint.js";
 
 // ---- shared bits -----------------------------------------------------------
@@ -161,7 +160,7 @@ const distSegs = (segs, x, y) => {
 };
 
 // A river that runs off the left, top or bottom edge keeps running (the
-// right-hand end goes under the castle's bailey and stays there).
+// right-hand end goes in under the castle wall and stays there).
 const riversOut = () => RIVERS.map((rv, i) => {
   const pts = rv.pts;
   const off = ([x, y]) => x < 0 || y < 0 || y > H;
@@ -377,53 +376,30 @@ function paintRoadOut(ctx, pts) {
 }
 
 // ---- the castle wall, running on past the top and bottom -------------------
-// The castle's stone is baked from y = -14 to H + 14; past that the wall
-// carries on as plain curtain: the castle column is rendered once per realm
-// and a stretch of plain wall (between drums, clear of the gatehouse, with
-// the fewest red roofs in its bailey) is repeated outward from each end.
-const CX0 = 712, CY0 = -16, CS = 2;
-let COLUMN = { key: "", cv: null, win: 0, P: 0 };
-const castleColumn = () => {
+// Past the board's top and bottom the castle carries on: its towers at the
+// board's rhythm (every RUN_STEP past the last of the board's own), its
+// walls, its ground. castle.js paints each length by the same code and from
+// the same list of towers as the board's own stone, so they meet at the
+// board's edge with no seam; each length runs a little in under the board,
+// which hides its cut end. Baked once per realm and gate, and again only if
+// a taller screen needs a longer one.
+const RUNS = { key: "", top: null, bot: null };
+function paintWallOut(ctx, vy0, vy1) {
+  if (!PTS.length) return;
   const [gx, gy] = PTS[PTS.length - 1];
   const key = `${REALM.id}|${gx}|${gy}`;
-  if (COLUMN.key === key) return COLUMN;
-  const cw = W + 12 - CX0, ch = H - 2 * CY0;
-  const cv = document.createElement("canvas");
-  cv.width = cw * CS; cv.height = ch * CS;
-  const c = cv.getContext("2d");
-  c.imageSmoothingEnabled = false;
-  c.setTransform(CS, 0, 0, CS, -CX0 * CS, -CY0 * CS);
-  drawCastle(c, 0, 1);
-  // the plainest stretch of wall: clear of every drum and of the gatehouse
-  const P = 26;
-  const blocked = [...wallDrums(gy).map((f) => [f - TOWER.n - TOWER.h - 12, f + TOWER.s + 12]), [gy + GATE_TOWER_N - TOWER.n - TOWER.h - 30, gy + GATE_TOWER_S + 30]];
-  const px = c.getImageData(0, 0, cv.width, cv.height).data;
-  const roofy = (y0) => {
-    let n = 0;
-    for (let y = y0 * CS; y < (y0 + P) * CS; y += 2) for (let x = (TOWER.x2 - CX0) * CS; x < cv.width; x += 2) {
-      const o = (y * cv.width + x) * 4;
-      if (px[o] > px[o + 1] + 40 && px[o] > px[o + 2] + 30) n++;
-    }
-    return n;
-  };
-  let win = 20, best = Infinity;
-  for (let y = 16; y + P < H - 16; y += 2) {
-    if (blocked.some(([a, b]) => y < b && y + P > a)) continue;
-    const sc = roofy(y - CY0) + Math.abs(y - H / 2) * 0.001;
-    if (sc < best) { best = sc; win = y; }
+  if (RUNS.key !== key) Object.assign(RUNS, { key, top: null, bot: null });
+  const lay = (R) => { if (R) ctx.drawImage(R.cv, R.x0, R.y0, R.w, R.h); };
+  if (vy0 < 0) {
+    const ya = Math.floor((vy0 - 16) / 64) * 64;
+    if (!RUNS.top || RUNS.top.y0 > ya) RUNS.top = bakeCastleRun(ya, 12);
+    lay(RUNS.top);
   }
-  COLUMN = { key, cv, win, P, cw };
-  return COLUMN;
-};
-function paintWallOut(ctx, vy0, vy1) {
-  if (vy0 > -14 && vy1 < H + 14) return;
-  const C = castleColumn(), { cv, win, P, cw } = C;
-  const sy = (win - CY0) * CS, sh = P * CS;
-  for (let y = -14 - P; y > vy0 - P; y -= P) ctx.drawImage(cv, 0, sy, cv.width, sh, CX0, y, cw, P);
-  for (let y = H + 14; y < vy1; y += P) ctx.drawImage(cv, 0, sy, cv.width, sh, CX0, y, cw, P);
-  // the column's own ends over them: the drums that stand across the edge
-  ctx.drawImage(cv, 0, 0, cv.width, 16 * CS, CX0, CY0, cw, 16);
-  ctx.drawImage(cv, 0, (H - CY0) * CS, cv.width, 16 * CS, CX0, H, cw, 16);
+  if (vy1 > H) {
+    const yb = H + Math.ceil((vy1 - H + 16) / 64) * 64;
+    if (!RUNS.bot || RUNS.bot.y0 + RUNS.bot.h < yb) RUNS.bot = bakeCastleRun(H - 12, yb);
+    lay(RUNS.bot);
+  }
 }
 
 // ---- the whole apron ---------------------------------------------------------
@@ -513,6 +489,7 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
       const dn = dens(x, y);
       if (hash(seed + i * 17, j * 19) > 0.3 + dn * 0.55) continue;
       if (wet(x, y, 4) || onRoad(x, y, 4)) continue;
+      if (x > W - WALL_W - 6 && x < W + 170) continue;       // not on the castle or the trodden earth at its foot
       stampLow(ctx, B.low, R, x, y, h, dn);
     }
   }

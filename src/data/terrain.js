@@ -179,7 +179,7 @@ export function regenTerrain(map) {
   RIVERS = (map.rivers || []).map((rv) => {
     // a river that leaves the grid leaves the board too, border and all
     const pts = buildSmooth(rv.pts.map(([c, r]) => [
-      c < 0.2 ? -12 : c > 14.8 ? SW + 12 : tileX(c),   // (under the castle's bailey from there on)
+      c < 0.2 ? -12 : c > 14.8 ? SW + 12 : tileX(c),   // (under the castle's stone from there on)
       r < 0.2 ? -12 : r > 9.8 ? H + 12 : tileY(r),
     ]));
     const segs = [];
