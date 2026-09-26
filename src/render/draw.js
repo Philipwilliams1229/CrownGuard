@@ -18,6 +18,7 @@ import { groundLayer, drawRoadLive } from "./world.js";
 import { ball as pip, glow as glowFx, shadow as softShadow, cylinder } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
+import { isBuilt } from "../engine/build.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { hasRig, rigPixels, drawRig } from "./rigs.js";
@@ -28,7 +29,8 @@ import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawLog } from "./logs.js";
 import { drawStoop } from "./birds.js";
 import { drawRingFx } from "./rings.js";
-import { drawRaising, RAISE_SECS } from "./buildanim.js";
+import { drawRaising, raiseSecs, raiseHidesPips } from "./buildanim.js";
+import { builderDrawables } from "./builders.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
 import { drawCastleGround } from "./castle.js";
@@ -119,7 +121,7 @@ export function draw(g, canvas, bufRef) {
   // span passes over it; everywhere else it sorts with the other actors
   const underSpan = new Set();
   if (BRIDGES.length) for (const t of g.towers) {
-    if (t.kind !== "riverwatch" || !t.units) continue;
+    if (t.kind !== "riverwatch" || !t.units || !isBuilt(t, g)) continue;
     for (const u of t.units) {
       if (u.state === "dead" || !underBridge(u.x, u.y)) continue;
       underSpan.add(u);
@@ -281,10 +283,12 @@ export function draw(g, canvas, bufRef) {
         // the realm's own ground round the footing: behind, then over its front edge
         drawGroundBlend(ctx, t, false);
         // a hall just bought or reworked rises into its new form (buildanim.js)
-        if (t.raised && g.time - t.raised.at < (RAISE_SECS[t.raised.how] || 0.6) && g.time >= t.raised.at) drawRaising(ctx, t, g.time, paintTower);
+        if (t.raised && g.time - t.raised.at < raiseSecs(t) && g.time >= t.raised.at) drawRaising(ctx, t, g.time, paintTower);
         else paintTower(t);
         drawGroundBlend(ctx, t, true);
         // rank pips: one gold stud per level, a small crown once evolved
+        // (a new hall shows them once its person is in)
+        if (raiseHidesPips(t, g.time)) return;
         if (!t.branch) {
           for (let i = 0; i < t.level; i++) pip(ctx, t.x - (t.level - 1) * 4 + i * 8, t.y + 21, 2.2, 2.2, "#e8c14a");
         } else {
@@ -294,7 +298,12 @@ export function draw(g, canvas, bufRef) {
         }
       },
     });
-    if (t.units) for (const u of t.units) if (!underSpan.has(u)) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawKnightUnit(ctx, u, t, g.time)) });
+    // (a hall still going up keeps its knights, blades and skiffs back: engine/build.js)
+    if (t.units && isBuilt(t, g)) for (const u of t.units) if (!underSpan.has(u)) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawKnightUnit(ctx, u, t, g.time)) });
+    // a new hall's builders, on their run out from the gate and back (builders.js)
+    // — still, if the hall was reworked while it went up (t.raised.build)
+    const br = t.raised && (t.raised.how === "build" ? t.raised : t.raised.build);
+    if (br && g.time >= br.at) for (const d of builderDrawables(ctx, t, g.time, br)) drawables.push(d);
   }
   if (g.bands) for (const b of g.bands) {
     for (const u of b.units) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawBandUnit(ctx, u, b, g.time)) });

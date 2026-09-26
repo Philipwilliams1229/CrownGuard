@@ -238,6 +238,7 @@ const paintGun = (ctx, x, y) => {
 };
 
 export const drawGoldworks = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const { lvl, r4, mint, alch, stone, bh } = spec(t);
   const hx = x - 3, hw = 10 + (lvl >= 3 ? 1 : 0);
@@ -294,8 +295,10 @@ export const drawGoldworks = (ctx, t, time) => {
     if (anim > 0.4) { soft(ctx, x + 22, y - 6, 4 + (1 - anim) * 5, 3 + (1 - anim) * 4, [[0, `rgba(240,230,210,${anim * 0.8})`], [1, "rgba(240,230,210,0)"]]); glow(ctx, x + 21, y - 5.5, 3, "#f8d870", anim); }
     if (Math.sin(time * 1.4 + t.id) > 0.92) glint(ctx, x + 15, y - 5, 0.9, 0.9);
   }
-  // ---- the crew
-  if (alch) {
+  // ---- the crew (none under noFolk: the clerk or alchemist, and what he holds)
+  if (t.noFolk) {
+    // the build puts him in last
+  } else if (alch) {
     // the alchemist: vial low while he mixes, up and glowing when ready,
     // thrown on the shot
     const throwing = anim > 0.35 || (!t._idle && r > 0.8);
