@@ -511,14 +511,16 @@ function paintDetail(G, look, kind, rng) {
       while (px < PW) {
         const h0 = hash(px * 3 + 1, ry * 7 + seed), h3 = hash(px + 11, ry + 3), h4 = hash(px + 1, ry + 4);
         const py = ry + Math.round(px * tilt) + Math.round((hash(px, ry + 9) - 0.5) * 3);
-        const len = 4 + Math.floor(h3 * h3 * 11);
+        const len = 5 + Math.floor(Math.pow(h3, 1.4) * 13);
         const dr = G.isTurf(px, py) ? smooth01((noise(drift, px / RES, py / RES) - 0.3) / 0.45) : 0;
-        if (h0 < 0.55 * dr * dr && G.isTurf(px + len, py)) {
-          const ah = h4 < 0.35 ? 1 : h4 < 0.8 ? 2 : 3, sk = 0.5 + h4 * 0.7;
+        if (h0 < 0.42 * dr * dr && G.isTurf(px + len, py)) {
+          // low and long: a crest one pixel proud (two on the longest), its
+          // lee — the downwind end — in blue shade
+          const ah = len > 11 && h4 < 0.5 ? 2 : 1, sk = 0.6 + h4 * 0.6;
           for (let k = 0; k < len; k++) {
             const f = k / (len - 1), yy = py - Math.round(ah * Math.sin(Math.PI * Math.pow(f, sk)));
             if (k > 0 && k < len - 1) G.shift(px + k, yy, 1);
-            if (k > 1 && k < len) { G.shift(px + k, yy + 1, -1); G.tint(px + k, yy + 1, 0); }
+            if (f > 0.3) { G.shift(px + k, yy + 1, -1); G.tint(px + k, yy + 1, 0); }
           }
           run++;
           // now and then the next ridge carries straight on from this one
