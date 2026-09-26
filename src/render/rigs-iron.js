@@ -226,7 +226,7 @@ const mace = (ctx, x, y, a, col, len = 6.2) => {
 // heavy oak tiller, a steel prod across its nose, a stirrup, and the string
 // spanned back to the nut (or flung forward, loosed).
 const arbalest = (ctx, x, y, a, steel, o = {}) => {
-  const to = along(x, y, a);
+  const to0 = along(x, y, a), k = o.s || 1, to = (u, v = 0) => to0(u * k, v * k);
   const loosed = !!o.loosed, nut = 0.9, pu = 5.4, span = 4.4;
   const bend = loosed ? 0.5 : 1.4;
   const tip0 = to(pu - bend, -span), tip1 = to(pu - bend, span);
@@ -460,11 +460,11 @@ const hands = (look, st, shN, shF) => {
     { hn: N(-1.3, -0.9), an: -0.12, hf: F(4.6, 1.8) },
     { hn: N(4.6, -0.3), an: 0.06, hf: F(4.0, 2.4) }][ph];
   if (look === "bow") return [
-    { hn: N(1.5 + sw * 0.3, 4.0), an: -0.66 + sw * 0.03, grip: 2.6 },
+    { hn: N(2.0 + sw * 0.3, 3.0), an: -0.42 + sw * 0.03, grip: 2.5 },
     { hn: N(0.9, -0.7), an: -0.03, grip: 2.2 },
     { hn: N(0.3, -0.9), an: -0.13, grip: 2.2, loosed: true }][ph];
   if (look === "chaplain") return [
-    { hn: N(1.3 + sw * 0.3, 3.4), an: -2.5 + sw * 0.05, hf: F(3.4 - sw * 0.5, 3.4), sway: sw * 0.6 },
+    { hn: N(2.5 + sw * 0.3, 4.0), an: -0.95 + sw * 0.04, hf: F(3.4 - sw * 0.5, 3.4), sway: sw * 0.6 },
     { hn: N(-1.3, -3.3), an: -2.4, hf: F(4.4, -3.6), sway: -0.4, bright: true },
     { hn: N(4.4, 2.0), an: 0.45, hf: F(5.2, -0.8), sway: 0.9, bright: true }][ph];
   if (look === "marshal") return [
@@ -622,10 +622,6 @@ const soldier = (ctx, p) => {
   });
   if (look === "bow") quiver();
 
-  // on the march the chaplain's mace rests on his shoulder, behind the head
-  const shoulder = look === "chaplain" && !st.fight;
-  if (shoulder) { const hS = ik(shN[0], shN[1], H.hn[0], H.hn[1], A.up, A.fore, -1)[1]; mace(ctx, hS[0], hS[1], H.an, p.wcol || "#6c7280"); }
-
   // the head
   const hd = T(0.85, -9.35); hd[0] += st.hit ? 0.4 : 0;
   const ha = st.lean * 0.3 + (look === "bow" && st.fight ? 0.12 : 0);
@@ -644,7 +640,7 @@ const soldier = (ctx, p) => {
   // the weapon hand
   if (twoHand) {
     const hn = ik(shN[0], shN[1], H.hn[0], H.hn[1], A.up, A.fore, -1)[1];
-    const to = arbalest(ctx, hn[0], hn[1], H.an, p.wcol || "#c4c8d0", { loosed: H.loosed });
+    const to = arbalest(ctx, hn[0], hn[1], H.an, p.wcol || "#c4c8d0", { loosed: H.loosed, s: 1.15 });
     const h2 = arm(ctx, shF, to(H.grip, 0.5), A, armF);
     fist(ctx, h2[0], h2[1], 0.95, fistF);
     const h = arm(ctx, shN, hn, A, armN);
@@ -653,7 +649,7 @@ const soldier = (ctx, p) => {
     const h = arm(ctx, shN, H.hn, A, armN);
     if (look === "levy") spear(ctx, h[0], h[1], H.an, p.wcol || "#c4c8d0", st.fight ? 6.5 : 4.2, st.fight ? 8.4 : 11.2);
     else if (look === "sergeant") longsword(ctx, h[0], h[1], H.an, p.wcol || "#dde2ea");
-    else if (look === "chaplain" && !shoulder) mace(ctx, h[0], h[1], H.an, p.wcol || "#6c7280");
+    else if (look === "chaplain") mace(ctx, h[0], h[1], H.an, p.wcol || "#6c7280");
     else if (look === "marshal") warBanner(ctx, h[0], h[1], H.an, p, st.fight ? st.f + 1 : st.f, { ...bannerO, only: H.lowered ? null : "pole" });
     fist(ctx, h[0], h[1], plated ? 1.15 : 1.0, fistN);
     if (plated) pauldron(ctx, shN[0] - 0.2, shN[1] + 0.1, 1.9 * burly, steel, look === "marshal" ? BRASS : IRONK);
