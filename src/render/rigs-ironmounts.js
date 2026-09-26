@@ -226,7 +226,7 @@ const HORSE_RUN = [
 ];
 const HORSE_FIGHT = [
   // rearing, forehooves up, the lance drawn back and high
-  { bob: 0, pitch: -0.3, dx: -1, head: -0.3, tail: 1.6, hem: [-0.4, 0], fn: [11.5, -9.5, -1.4], ff: [14, -7.5, -0.9], hn: [-6.5, 0, 0.4], hf: [-4, 0, 0.3], lance: -0.5, thrust: -1.6, lean: -0.18, fl: 1.4 },
+  { bob: 0, pitch: -0.3, dx: -1, head: -0.3, tail: 1.6, hem: [-0.4, 0], fn: [11.5, -9.5, -1.4], ff: [14, -7.5, -0.9], hn: [-6.5, 0, 0.4], hf: [-4, 0, 0.3], lance: -0.34, thrust: -1.6, lean: -0.18, fl: 1.4 },
   // the strike: the whole weight thrown forward down the lance
   { bob: 0.5, pitch: 0.07, dx: 2, head: 0.16, tail: -0.5, hem: [1, 1], fn: [15, 0, 0.4], ff: [11.5, -1, 0], hn: [-9, 0, 0.3], hf: [-12.5, -1.5, -0.6], lance: 0.1, thrust: 3.2, lean: 0.26, fl: 0.6 },
 ];
@@ -725,7 +725,7 @@ const siegeRam = (ctx, p) => {
 // ---- the roster -----------------------------------------------------------------------
 const IRON_RIDER = { skin: "#e0b08a", cloth: "#6c7280", cloth2: "#7a2a2c", hair: "#2e3038" };
 export const IRONMOUNT_RIGS = {
-  cavalier: { kind: "destrier", box: { hw: 30, up: 40, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER } },
+  cavalier: { kind: "destrier", box: { hw: 34, up: 46, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER } },
   gryphon: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
   ram: { kind: "siegeram", box: { hw: 40, up: 42, down: 4 }, p: { len: 44, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
 };
