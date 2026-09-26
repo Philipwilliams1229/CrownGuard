@@ -141,9 +141,9 @@ const moorPx = (x, y, band) => {
 // The fen: sodden black-green bog, hummocks of olive moss and violet-dark
 // heath, flecked with bog cotton, rusty sphagnum and dark tussocks.
 const FEN_GROUND = {
-  bog: ["#2c332f", "#39433a", "#475244"].map(rgb),
-  moss: ["#3c4532", "#4b563a", "#5e6844"].map(rgb),
-  heath: ["#2f2b36", "#3b3645", "#4a4456"].map(rgb),
+  bog: ["#303832", "#3e4a3e", "#4e5a48"].map(rgb),
+  moss: ["#414a35", "#52603e", "#667048"].map(rgb),
+  heath: ["#342f3c", "#423c4e", "#524a60"].map(rgb),
   cotton: rgb("#d8d8c8"), cottonDk: rgb("#8a8c7e"), rust: rgb("#6e5038"), tuft: rgb("#232a26"),
 };
 const fenPx = (x, y, band) => {
@@ -1649,14 +1649,14 @@ function* fenDressing(base, { add, taken, free, clearOf, onZone, piece }) {
   // Lichgate, and the chapels
   piece(throneRuin(), ...SET.ruin, 16, 10, true);
   site(bellTower(), 361, -67, 5, true);
-  site(drownedVillage(), 416, -172, 6, true) || site(drownedVillage(), 440, -200, 8);
+  for (const [x, y] of [[430, -200], [488, -200], [470, -214], [420, -190]]) if (site(drownedVillage(), x, y, 8, true) || site(drownedVillage(), x, y, 8)) break;
   let n = 0;
   for (const [x, y] of [[450, -200], [462, -204], [430, -178], [424, -192], [486, -176], [490, -162], [436, -206], [476, -214], [420, -166], [498, -190], [440, -150], [470, -146]]) {
     if (n < 5 && (site(drowned(n), x, y, 5, true) || site(drowned(n), x, y, 5))) n++;
   }
   site(chapel(1), 478, -204, 8);
-  site(lychgate(), 612, -190, 7);
-  site(chapel(0), 628, -198, 8);
+  site(lychgate(), 614, -188, 14);
+  site(chapel(0), 630, -200, 14) || site(chapel(0), 585, -205, 12);
   site(chapel(1), 702, -76, 10);
   site(chapel(0), 360, -110, 10);
   for (const [x, y, v] of [[596, -198, 0], [620, -178, 1], [640, -196, 2], [690, -58, 0], [660, -26, 1], [700, -32, 2], [604, -20, 1], [626, -26, 0], [388, -20, 2]])
@@ -1879,6 +1879,11 @@ function* paintTerrain() {
   stamp(ctx, lighthouse(), 44, -52, 2.5, 11.4);
   stamp(ctx, compass(), 38, 392, 11, 13);
   stamp(ctx, whirl(), 292, -150, 8, 5);
+  // a wreck on the rocks off Saltgrave Strand
+  for (const [x, y] of [[598, 28], [620, 30], [584, 24], [640, 26], [600, 36]]) {
+    const i = artY(y) * AW + artX(x), j = artY(y) * AW + artX(x + 7);
+    if (!base.land[i] && !base.land[j] && base.seaD[i] > 9 && base.seaD[j] > 9 && base.seaD[i] < 40) { stamp(ctx, wreck(), x, y, 7, 6.4); break; }
+  }
   for (const [x, y, v] of [[12, 40, 0], [345, 30, 1], [748, 300, 0], [360, 400, 1], [262, 404, 0], [300, -60, 1], [750, -210, 0], [20, -200, 1], [430, 40, 0], [180, -40, 1], [748, 60, 1]]) {
     const i = artY(y) * AW + artX(x);
     if (!base.land[i] && base.seaD[i] > 6) stamp(ctx, seaRock(v), x, y, 3, 4);

@@ -112,7 +112,10 @@ export default function moreHollowRealms(hollowVariant) {
       [[0.9, 7.6], [4.5, 7.6], [4.5, 2.2], [9.5, 2.2], [9.5, 6.4], [13.7, 6.4]],
       {
         light: { tint: "178,166,222", amount: 0.22, vignette: 0.5 },
-        decorRecipe: { count: 50, types: ["fengrave", "lichfence", "fengrave", "fencairn", "fengrave", "fenshrine", "fenbones", "fencandle", "fenbarrow", "fengrave", "fenstatue"] },
+        // fifty pieces on the fen's one dry hill: mostly small headstones,
+        // bones and candles — big barrows and shrines would bury the build
+        // ground (the old board's gravestones stood only 7 wide)
+        decorRecipe: { count: 50, types: ["fengrave", "fengrave", "fencandle", "fengrave", "fenbones", "fengrave", "fencairn", "fengrave", "fencandle", "lichfence", "fengrave", "fenbones"] },
       },
     ),
   };

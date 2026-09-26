@@ -1494,7 +1494,14 @@ const bakeGate = () => {
   const [px, py] = PTS[0], [qx, qy] = PTS[1] || PTS[0];
   const L = Math.hypot(qx - px, qy - py) || 1, tx = (qx - px) / L, ty = (qy - py) / L;
   // the doorway sits a little inside the edge, the whole mound on the board
-  const gx = Math.max(62, Math.min(W - WALL_W - 70, px + tx * 30)), gy = Math.max(48, Math.min(H - 30, py + ty * 30));
+  // walk in along the road until the whole mound fits on the board, so the
+  // door stands on the road even where it comes in on a slant
+  let gx = px + tx * 30, gy = py + ty * 30;
+  for (let d = 30; d < 200; d += 2) {
+    const [x, y] = posAt(d);
+    gx = x; gy = y;
+    if (x >= 62 && y >= 48 && x <= W - WALL_W - 70 && y <= H - 30) break;
+  }
   const mx = gx, my = gy - 15, rx = 56, ry = 30;
   GATE.gx = gx; GATE.gy = gy; GATE.tx = tx; GATE.ty = ty;
   const B = { x0: Math.floor(gx - 92), y0: Math.floor(gy - 96), w: 184, h: 164 };
@@ -1508,7 +1515,7 @@ const bakeGate = () => {
     const sx = mx + Math.cos(a) * (rx + 12 + hash(i, 8) * 6), sy = my + Math.sin(a) * (ry + 13 + hash(i, 9) * 5);
     if (nearestOnPath(sx, sy).d < PATH_HALF + 8 || sx < 8 || sy < 16 || sx > W - WALL_W - 10 || sy > H - 6) continue;
     if (hash(i, 10) < 0.2) continue;
-    ring.push({ x: sx, y: sy, h: 14 + hash(i, 11) * 10, w: 3.4 + hash(i, 12) * 1.6, ln: (hash(i, 13) - 0.5) * 0.3, seed: i * 13 + 5, fallen: hash(i, 14) < 0.15 });
+    ring.push({ x: sx, y: sy, h: 14 + hash(i, 11) * 10, w: 3.4 + hash(i, 12) * 1.6, ln: (hash(i, 13) - 0.5) * 0.3, seed: i * 13 + 5, fallen: false });
   }
   const stoneAt = (c, st) => part(c, (cc) => {
     if (st.fallen) {
