@@ -1,0 +1,53 @@
+<!doctype html>
+<!--
+  Dev tool (the Hollowfen's scenery): every fen piece in each of its four
+  variants, on a patch of the realm's own baked ground, plus the wood's
+  three depth bands and the barrow gate — painted at load and saved to
+  .shots/hfs_sheet_<tag>.png.   /hfs-lab.html?tag=x&scale=3&realm=graveroad
+  &only=fendead,fenwillow  picks rows; &t=2.5 sets the live pieces' time.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — fen scenery lab</title>
+    <style>body { background: #14171d; margin: 0; } canvas { image-rendering: pixelated; }</style>
+  </head>
+  <body>
+    <script type="module">
+      import { selectRealm, REALM } from "/src/data/maps.js";
+      import { drawTree, resetSceneryBakes } from "/src/render/scenery.js";
+      import { PX, hash } from "/src/render/paint.js";
+
+      const q = new URLSearchParams(location.search);
+      const tag = q.get("tag") || "x", scale = +(q.get("scale") || 2), realm = q.get("realm") || "graveroad", T = +(q.get("t") || 2.5);
+      selectRealm(realm);
+      resetSceneryBakes();
+      const ROWS = (q.get("only") || "fendead,fenwillow,fensnag,reedbed,bogpool,fengrave,fencairn,fenbones,fenstatue,fenshrine,bellstone,fencandle,lichfence").split(",");
+      const CW = 330, RH = 56, CH = ROWS.length * RH + 16 + (q.get("wood") ? 80 : 0);
+      const cv = document.createElement("canvas");
+      cv.width = CW * PX; cv.height = CH * PX;
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.scale(PX, PX);
+      ctx.fillStyle = REALM.GRASS; ctx.fillRect(0, 0, CW, CH);
+      const items = [];
+      // variants hash from the spot, so nudge each until it lands on the one we want
+      const settle = (d) => { for (let dx = 0; dx < 30; dx++) if (Math.floor(hash(Math.round(d.x + dx), Math.round(d.y)) * 4) === d.want) { d.x += dx; return; } };
+      ROWS.forEach((t, r) => {
+        for (let i = 0; i < 5; i++) items.push({ x: 34 + i * 64 + 0.3 * i, y: 40 + r * RH, t, s: i === 4 ? 1.25 : 1, want: i % 4 });
+        items.forEach((d) => d.want !== undefined && !d.done && (settle(d), d.done = true));
+      });
+      if (q.get("wood")) for (let b = 0; b < 12; b++) items.push({ x: 20 + b * 26, y: CH - 30 - (b % 2) * 14, t: b % 3 ? "fendead" : "fenwillow", s: 1.1, forest: true });
+      items.sort((a, b) => a.y - b.y);
+      for (const d of items) drawTree(ctx, d, T);
+      const [kx, ky, kw, kh] = (q.get("crop") || `0,0,${CW},${CH}`).split(",").map(Number);
+      const out = document.createElement("canvas");
+      out.width = kw * PX * scale; out.height = kh * PX * scale;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+      o.drawImage(cv, kx * PX, ky * PX, kw * PX, kh * PX, 0, 0, out.width, out.height);
+      document.body.appendChild(out);
+      await fetch("/__shot?name=hfs_sheet_" + tag, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

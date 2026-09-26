@@ -43,10 +43,15 @@ copy what the rebuilt pieces do.
 | Greenwood horde (goblins, orc, Ironclad, troll, shaman, necro, warchief) | `src/render/rigs-horde.js` | shared bending skeleton, 4-frame walk, wind-up/strike fight |
 | Beasts (wolf, boar rider, bat, dragon, wolf rider) | `src/render/rigs-beasts.js` | beast lope; rider reuses the horde goblin |
 | The crown's soldiers (knight, paladin, berserker, champion, militia, Aldric, Wren) | `src/render/rigs-crown.js` | upright human skeleton |
-| Other factions (still the generic rig) | `src/render/rigs.js` | entries in the three files above override these |
+| The Iron Kingdom's foot (levy, crossbowman, knight-sergeant, battle chaplain, Lord Marshal) | `src/render/rigs-iron.js` | upright human skeleton; `irn-lab.html` zooms chosen frames beside the crown's soldiers |
+| The Iron Kingdom's mounts and engines (cavalier, gryphon knight, siege ram) | `src/render/rigs-ironmounts.js` | gallop, wingbeats, six turning wheels; `irm-lab.html` |
+| The Hollow Court's dead (risen, barrow archer, plague ghast, crypt warden, gravecaller, Hollow King) | `src/render/rigs-hollow.js` | the horde's bending skeleton with real bones; `hlw-lab.html` (on fen and road) |
+| The Hollow Court's beasts and spirits (ghoul, wraith, grave amalgam) | `src/render/rigs-hollowbeasts.js` | `hlb-lab.html` |
+| Anything not in the files above (the generic rig) | `src/render/rigs.js` | entries in the rig files above override these |
 | Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk.js` | the new body: slim, jointed arms, small hands |
 | Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js` |
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type |
+| A chapter's own scenery: the Iron Marches, the Hollowfen | `src/render/scenery-iron.js` (`IRON_ART`), `src/render/scenery-hollow.js` (`HOLLOW_ART`) | one registry each — `decor` painters, `live` types, bake `box`, ground `dress`, `spawn` gates (REALM.spawn), `turf`/`road` art keyed by REALM.groundArt, and `apron` (the landscape's mix). scenery.js, world.js and apron.js read them LAZILY (they import scenery.js back — never read a registry at module load). Lab pages `irs-lab.html`, `hfs-lab.html` |
 | Ground and road | `src/render/world.js` | cached per realm |
 | Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots`/`TOWER` in `src/data/castle.js`) — a CONCENTRIC castle running off the board's edge: the outer curtain and its walk (the works' crews), the higher inner curtain behind it (its walk — the sentry's beat — and its far parapet cut by the edge, with stairs going down off it), SQUARE open-topped towers built into both walls (see "The castle" below), and one gate block through both walls with the north gate tower rising out of its north end and the KEEP out of its far end (crown banners down its face, red turret, chimney, royal standard). No yard, no houses. Ballistae and spare bowmen stand ON the towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; `bakeCastleRun(ya, yb)` paints the same castle past the board's top and bottom for the apron; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
 | Combat effects, projectiles, ground pools, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
@@ -65,6 +70,31 @@ A new creature: add an entry to the matching `rigs-*.js` file (same shape as
 `RIGS`: `{ kind, box: { hw, up, down }, p }`), keep colours in the `skin /
 cloth / cloth2 / hair / col / belly / wing / mane / cape` params so the
 necromancer's `revived` palette and the white hit-flash still work.
+
+## The three armies' colours
+
+Each faction must read as itself at a glance, and never as the player's
+own soldiers (the crown's blue `#3a5474` and gold):
+- **The Greenwood Horde:** green skins, leather browns, crude iron.
+- **The Iron Kingdom:** dark blued steel (`#6c7280`, lit `#c4c8d0`),
+  OXBLOOD surcoats, caparisons and banners (`#7a2a2c`), black-iron trim,
+  brass for rank; its device is a grey iron tower. Its scenery flies the
+  same oxblood — no blue flags in the Marches.
+- **The Hollow Court:** bone `#e0d8c4`, rotten purple-black and drowned
+  green-grey cloth, verdigris bronze, witch-fire teal `#7ce0b8`.
+Colours stay in the rig params so `revive()` and the hit-flash reach them.
+
+## A chapter's own ground
+
+- A realm names its art with `groundArt` (turf and road painters in its
+  chapter's registry), its gate with `spawn`, and may grow an edge wood of
+  its own along the spawn edge with `wood: { types: [[type, weight], ...],
+  hem }` (`hem: false` drops the Greenwood's green bushes and leaf litter).
+  New decor types register a footprint with `addFootprints` (terrain.js)
+  from the chapter's realm file.
+- Keep a board CALM at 1x: open turf with a few strong landmarks, like the
+  Greenwood. Ground texture (heather, moss, paving joints) gathers into a
+  few drifts and stays low-contrast, or it fights the foes for attention.
 
 ## Rules for halls (towers)
 
@@ -215,6 +245,13 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   newly opened stop, drags/pinches/wheel-zooms, and has buttons for the
   whole continent and "back to the front". Paint is split into stages so
   the title screen can warm it; keep each stage under ~100ms.
+- **Each country in its own palette** (2026-09-26): the Greenwood lush
+  and farmed; the Iron Marches a cool moor (MOOR/moorPx) of walled
+  fields, keeps, forts and camps flying OXBLOOD banners, never blue; the
+  Hollowfen dark bog (FEN_GROUND/fenPx, fenDressing) with black water,
+  mist, dead trees and willows, barrows and ruins. Fen dressing may stand
+  in water (`dryBusy`). Never write a new ground source as `{ x: N, y: N,
+  rx:` in mapArt.js — check-map-water.mjs reads lakes from that pattern.
 - **Water is natural and informative** (owner, 2026-09-25). Rivers
   (`RIVERS`, built by `river()`) are splines through control points,
   meandered by noise, held still at their `pins` (the waypoints they run
@@ -326,6 +363,12 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   and 350 foes draws in ~13 ms on the dev Mac.
 
 ## How to look at your work
+
+No browser pane (a cloud session)? `node scripts/shoot.mjs "<page?query>"
+["<js>"] [waitMs]` opens any lab page below headless on the running dev
+server and prints page errors; `shots.html`'s `snap(...)` can be passed as
+the JS.
+
 
 With `npm run dev` running (these pages save PNGs into `.shots/` through the
 dev server; view them from there):

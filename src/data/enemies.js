@@ -101,7 +101,7 @@ export const ENEMIES = {
     note: "Oak and iron on six wheels. Nothing slows it, nothing stuns it, and it takes four bites out of your gate. There is no trick — kill it.",
   },
   gryphon: {
-    faction: "iron", hp: 220, speed: 92, bounty: 24, armor: 0.2, size: 21,
+    faction: "iron", hp: 185, speed: 88, bounty: 24, armor: 0.2, size: 21,
     name: "Gryphon Knight", flying: true, atk: 0, atkRate: 0, castleDmg: 2,
     note: "A knight on a warbred gryphon, armored wing to talon. It sails over every blocker you have, and its plate turns arrows — magic pulls it out of the sky fastest.",
   },

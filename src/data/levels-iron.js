@@ -60,7 +60,7 @@ export const IRON_LEVELS = [
       },
       {
         id: "undercliff", name: "Undercliff", realm: "undercliff",
-        window: { from: 10, to: 30, count: 25 }, gold: 950,
+        window: { from: 9, to: 30, count: 25 }, gold: 1150,
         blurb: "A shelf of road folded twice under the mountain. Your towers watch three lanes at once — and the Kingdom fills all three.",
       },
       // ...and the boss, thirty waves deep

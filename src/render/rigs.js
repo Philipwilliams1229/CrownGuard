@@ -15,6 +15,10 @@ import { HORDE_RIGS, HORDE_PAINTERS } from "./rigs-horde.js";
 import { BEAST_RIGS, BEAST_PAINTERS } from "./rigs-beasts.js";
 import { CROWN_RIGS, CROWN_PAINTERS } from "./rigs-crown.js";
 import { COVERT_PAINTERS } from "./rigs-covert.js";
+import { IRON_RIGS, IRON_PAINTERS } from "./rigs-iron.js";
+import { IRONMOUNT_RIGS, IRONMOUNT_PAINTERS } from "./rigs-ironmounts.js";
+import { HOLLOW_RIGS, HOLLOW_PAINTERS } from "./rigs-hollow.js";
+import { HOLLOWBEAST_RIGS, HOLLOWBEAST_PAINTERS } from "./rigs-hollowbeasts.js";
 
 // ---- shared bits -----------------------------------------------------------
 const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => {
@@ -508,9 +512,14 @@ export const RIGS = {
 // The Greenwood roster's bespoke bodies live in their own files and override
 // the generic entries above: rigs-horde.js (goblins, orcs, trolls and their
 // casters) and rigs-beasts.js (wolf, boar, bat, dragon).
-// rigs-crown.js holds the player's own soldiers.
-Object.assign(RIGS, HORDE_RIGS, BEAST_RIGS, CROWN_RIGS);
-const PAINTERS = { biped, beast, bat, wraith, dragon, gryphon, ram, amalgam, skiff, eagle, ...HORDE_PAINTERS, ...BEAST_PAINTERS, ...CROWN_PAINTERS, ...COVERT_PAINTERS };
+// rigs-crown.js holds the player's own soldiers. The Iron Kingdom and the
+// Hollow Court have theirs in rigs-iron.js / rigs-ironmounts.js and
+// rigs-hollow.js / rigs-hollowbeasts.js.
+Object.assign(RIGS, HORDE_RIGS, BEAST_RIGS, CROWN_RIGS, IRON_RIGS, IRONMOUNT_RIGS, HOLLOW_RIGS, HOLLOWBEAST_RIGS);
+const PAINTERS = {
+  biped, beast, bat, wraith, dragon, gryphon, ram, amalgam, skiff, eagle, ...HORDE_PAINTERS, ...BEAST_PAINTERS, ...CROWN_PAINTERS, ...COVERT_PAINTERS,
+  ...IRON_PAINTERS, ...IRONMOUNT_PAINTERS, ...HOLLOW_PAINTERS, ...HOLLOWBEAST_PAINTERS,
+};
 
 // the shared kit, for the roster files
 export { limb, lit, eye, gait, weapon, shieldOf, biped, beast, bat, dragon };

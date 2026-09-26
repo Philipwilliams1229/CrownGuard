@@ -1,0 +1,42 @@
+<!doctype html>
+<!--
+  Hollow beasts lab (ghoul, wraith, amalgam): one type's frames on a grid,
+  big, on a chosen ground, saved to .shots/hlb-<tag>.png.
+    /hlb-lab.html?type=ghoul&tag=g&scale=6&cols=4&bg=#3a4034
+  cells: walk/fly 0-3, fight 0-1, revived walk 0, white fight 1.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — hollow beasts lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { rigFrame } from "/src/render/rigs.js";
+      const q = new URLSearchParams(location.search);
+      const type = q.get("type") || "ghoul", TAG = q.get("tag") || type, SC = Number(q.get("scale")) || 6, COLS = Number(q.get("cols")) || 4;
+      const BG = q.get("bg") || "#7eab54";
+      const sheetW = type === "wraith" ? "fly" : "walk";
+      let cells = [[sheetW, 0], [sheetW, 1], [sheetW, 2], [sheetW, 3], ["fight", 0], ["fight", 1], [sheetW, 0, "revived"], ["fight", 1, "white"]];
+      if (q.get("cells")) cells = q.get("cells").split(",").map((i) => cells[+i]);
+      const f0 = rigFrame(type, "walk", 0);
+      const cw = f0.cv.width + 6, ch = f0.cv.height + 6;
+      const rows = Math.ceil(cells.length / COLS);
+      const cv = document.createElement("canvas");
+      cv.width = cw * COLS * SC; cv.height = ch * rows * SC;
+      const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      cells.forEach(([sheet, fr, variant], i) => {
+        const cx = (i % COLS) * cw, cy = Math.floor(i / COLS) * ch;
+        ctx.fillStyle = BG; ctx.fillRect(cx * SC, cy * SC, cw * SC, ch * SC);
+        ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.strokeRect(cx * SC, cy * SC, cw * SC, ch * SC);
+        const sp = rigFrame(type, sheet, fr, variant || "");
+        ctx.drawImage(sp.cv, (cx + 3) * SC, (cy + 3) * SC, sp.cv.width * SC, sp.cv.height * SC);
+        // ground line at the anchor
+        ctx.fillStyle = "rgba(255,80,80,0.5)"; ctx.fillRect((cx + 3) * SC, (cy + 3 + sp.ay * 2) * SC, sp.cv.width * SC, 1);
+        ctx.fillStyle = "#fff"; ctx.font = "12px monospace"; ctx.fillText(`${sheet} ${fr} ${variant || ""}`, cx * SC + 3, cy * SC + 12);
+      });
+      fetch("/__shot?name=hlb-" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) })
+        .then(() => { document.title = "DONE"; document.getElementById("status").textContent = "saved .shots/hlb-" + TAG + ".png"; });
+      document.body.appendChild(cv);
+    </script>
+  </body>
+</html>
