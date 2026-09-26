@@ -986,16 +986,118 @@ const lichFence = (ctx, x, y, s, o) => {
   for (let k = 0; k < 3; k++) sedge(ctx, x + (-10 + k * 10) * s, gy + 1, 0.65, seed + k, 4);
 };
 
+// The drowned throne: a great seat of the old court on a stepped dais,
+// half in a peat pool, its high back cracked and weeded, the Hollow King's
+// crown left lying on the seat and witch-fire in the eyes cut in its back.
+const fenThrone = (ctx, x, y, s, o) => {
+  const { seed } = o, gy = y + 8;
+  const col = mix(STONE, "#8a8a80", 0.35);
+  shadow(ctx, x + 9 * s, gy + 1, 24 * s, 5 * s, 0.32);
+  ctx.fillStyle = mix(PEAT, MOSS, 0.3);
+  blobPath(ctx, x + 2, gy + 1, 24 * s, 6 * s, seed, 0.1, 14); ctx.fill();
+  ctx.fillStyle = BOGW;
+  blobPath(ctx, x + 2, gy + 1.5, 22 * s, 4.8 * s, seed + 1, 0.1, 14); ctx.fill();
+  ctx.fillStyle = rgba(BOGW_LT, 0.9); px1(ctx, x - 17 * s, gy, 6, 0.5); px1(ctx, x + 12 * s, gy + 3, 4, 0.5);
+  // the dais, two steps
+  part(ctx, (c) => {
+    standing(c, [[x - 17 * s, gy + 1], [x - 17 * s, gy - 3 * s], [x + 17 * s, gy - 3 * s], [x + 17 * s, gy + 1]], darken(col, 0.08), 3 * s);
+    standing(c, [[x - 13 * s, gy - 3.4 * s], [x - 13 * s, gy - 6 * s], [x + 13 * s, gy - 6 * s], [x + 13 * s, gy - 3.4 * s]], col, 2.4 * s);
+    c.fillStyle = MOSS; px1(c, x - 16 * s, gy - 3.4 * s, 4, 1); px1(c, x + 8 * s, gy - 6.4 * s, 3, 0.5);
+  });
+  // the high back, pointed, a crack down it and eyes cut through it
+  part(ctx, (c) => {
+    poly(c, [[x - 9 * s, gy - 12 * s], [x - 9.5 * s, gy - 31 * s], [x - 5 * s, gy - 36 * s], [x, gy - 42 * s], [x + 5 * s, gy - 36 * s], [x + 9.5 * s, gy - 31 * s], [x + 9 * s, gy - 12 * s]]);
+    litFill(c, x - 9.5 * s, x + 9.5 * s, col, 0.3, 0.42);
+    c.fillStyle = lighten(col, 0.36);
+    poly(c, [[x - 9.5 * s, gy - 31 * s], [x - 5 * s, gy - 36 * s], [x, gy - 42 * s], [x, gy - 40.5 * s], [x - 5 * s, gy - 35 * s], [x - 8.6 * s, gy - 30.6 * s]]); c.fill();
+    // a carved border and the court's crown cut above the eyes
+    c.fillStyle = darken(col, 0.45);
+    px1(c, x - 7 * s, gy - 30 * s, 0.5, 17 * s); px1(c, x + 6.5 * s, gy - 30 * s, 0.5, 17 * s);
+    poly(c, [[x - 3.2 * s, gy - 30 * s], [x - 3.2 * s, gy - 33 * s], [x - 1.6 * s, gy - 31.4 * s], [x, gy - 34 * s], [x + 1.6 * s, gy - 31.4 * s], [x + 3.2 * s, gy - 33 * s], [x + 3.2 * s, gy - 30 * s]]); c.fill();
+    c.fillStyle = "#141216";
+    roundRect(c, x - 3.6 * s, gy - 27.5 * s, 2.4 * s, 1.6 * s, 0.6); c.fill();
+    roundRect(c, x + 1.2 * s, gy - 27.5 * s, 2.4 * s, 1.6 * s, 0.6); c.fill();
+    c.fillStyle = darken(col, 0.55);
+    for (let t = 0; t < 8; t++) px1(c, x + 4 * s + Math.sin(t * 1.7) * 0.6, gy - 38 * s + t * 2.4 * s, 0.5, 1.5);
+    weather(c, x, gy - 12 * s, 16 * s, 26 * s, seed, 1);
+  });
+  // the seat and the arms, lions' heads worn to lumps
+  part(ctx, (c) => {
+    standing(c, [[x - 9 * s, gy - 6 * s], [x - 9 * s, gy - 12.5 * s], [x + 9 * s, gy - 12.5 * s], [x + 9 * s, gy - 6 * s]], lighten(col, 0.05), 4 * s);
+  });
+  for (const sd of [-1, 1]) part(ctx, (c) => {
+    const ax = x + sd * 10.5 * s;
+    standing(c, [[ax - 2.4 * s, gy - 6 * s], [ax - 2.4 * s, gy - 16 * s], [ax + 2.4 * s, gy - 16 * s], [ax + 2.4 * s, gy - 6 * s]], col, 3 * s);
+    ball(c, ax, gy - 17.6 * s, 2.6 * s, 2.2 * s, col, { hi: 0.4, lo: 0.45 });
+  });
+  // the crown, left on the seat
+  part(ctx, (c) => {
+    const cx = x + 1.5 * s, cy = gy - 15 * s;
+    poly(c, [[cx - 4 * s, cy + 1.4 * s], [cx - 4.2 * s, cy - 1.6 * s], [cx - 2.6 * s, cy - 0.2 * s], [cx - 1.3 * s, cy - 2.4 * s], [cx, cy - 0.4 * s], [cx + 1.3 * s, cy - 2.4 * s], [cx + 2.6 * s, cy - 0.2 * s], [cx + 4.2 * s, cy - 1.6 * s], [cx + 4 * s, cy + 1.4 * s]]);
+    litFill(c, cx - 4 * s, cx + 4 * s, VERDI, 0.45, 0.4);
+    c.fillStyle = "#b8e8d0"; px1(c, cx - 3 * s, cy - 0.4, 1, 0.5);
+    c.fillStyle = BRONZE; px1(c, cx - 0.5, cy + 0.4, 1, 0.5);
+  });
+  // weed hanging off the arms and the back
+  for (const [wx, wy, wl] of [[-12.5, -16, 7], [11, -16, 9], [-8.5, -31, 8], [8.5, -29, 10]]) blade(ctx, x + wx * s, gy + wy * s, x + (wx + 0.4) * s, gy + (wy + wl) * s, 1 * s, WEED, mix(WEED, "#8a9a6a", 0.4), 0.3);
+  // the eyes: baked with a faint glow; a live throne would cost every frame
+  glow(ctx, x - 2.4 * s, gy - 26.7 * s, 3 * s, TEAL, 0.5);
+  glow(ctx, x + 2.4 * s, gy - 26.7 * s, 3 * s, TEAL, 0.5);
+  ctx.fillStyle = TEAL; px1(ctx, x - 3 * s, gy - 27 * s, 1.5, 1); px1(ctx, x + 1.8 * s, gy - 27 * s, 1.5, 1);
+};
+
+// A small barrow of the lesser dead: a low grassed mound, a kerb, and a
+// doorway of three slabs sealed with a fourth — the cairnfields' doors.
+const fenBarrow = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8;
+  const turf = mix(REALM.GRASS, "#56664a", 0.55), col = mix(STONE, "#96948a", 0.3);
+  const rx = 18 * s, ry = 11 * s, my = gy - 7 * s;
+  shadow(ctx, x + 5 * s, gy, rx + 3, 4 * s, 0.3);
+  part(ctx, (c) => {
+    blobPath(c, x, my, rx, ry, seed, 0.06, 14); c.fillStyle = darken(turf, 0.4); c.fill();
+    c.save(); blobPath(c, x, my, rx, ry, seed, 0.06, 14); c.clip();
+    blobPath(c, x - rx * 0.08, my - ry * 0.16, rx * 0.9, ry * 0.8, seed + 1, 0.08, 12); c.fillStyle = turf; c.fill();
+    blobPath(c, x - rx * 0.3, my - ry * 0.45, rx * 0.5, ry * 0.36, seed + 2, 0.12, 10); c.fillStyle = lighten(turf, 0.2); c.fill();
+    for (let i = 0; i < 24; i++) {
+      const a = hash(seed, i + 5) * Math.PI * 2, d = Math.sqrt(hash(seed, i + 6)) * 0.9;
+      const lit = -Math.cos(a) * d * 0.6 - Math.sin(a) * d * 0.8;
+      c.fillStyle = lit > 0.2 ? lighten(turf, 0.32) : lit > -0.3 ? darken(turf, 0.2) : darken(turf, 0.45);
+      c.fillRect(ap(x + Math.cos(a) * rx * d), ap(my + Math.sin(a) * ry * d), 0.5, 1.5);
+    }
+    c.restore();
+  });
+  // the door: sealed (v even) or broken open (v odd)
+  part(ctx, (c) => {
+    c.fillStyle = "#0e1010"; c.fillRect(x - 4 * s, gy - 10 * s, 8 * s, 10 * s);
+    standing(c, [[x - 7 * s, gy + 0.5], [x - 7 * s, gy - 10 * s], [x - 4 * s, gy - 10 * s], [x - 4 * s, gy + 0.5]], col, 0.8);
+    standing(c, [[x + 4 * s, gy + 0.5], [x + 4 * s, gy - 10 * s], [x + 7 * s, gy - 10 * s], [x + 7 * s, gy + 0.5]], col, 0.8);
+    standing(c, [[x - 8.5 * s, gy - 9.6 * s], [x - 8 * s, gy - 13 * s], [x + 8 * s, gy - 13.2 * s], [x + 8.5 * s, gy - 9.6 * s]], lighten(col, 0.05), 1.6 * s);
+    c.strokeStyle = darken(col, 0.5); c.lineWidth = 0.5;
+    c.beginPath(); for (let a = 0; a < 9; a += 0.4) { const r = 0.26 * a * s; const px = x + Math.cos(a) * r, py = gy - 11.4 * s + Math.sin(a) * r * 0.7; a ? c.lineTo(px, py) : c.moveTo(px, py); } c.stroke();
+    if (v % 2 === 0) standing(c, [[x - 4.4 * s, gy + 0.5], [x - 4.2 * s, gy - 8.6 * s], [x + 4.2 * s, gy - 9 * s], [x + 4.4 * s, gy + 0.5]], darken(col, 0.1), 0.6);
+    weather(c, x, gy, 14 * s, 12 * s, seed, 0.8);
+  });
+  if (v % 2) {
+    // the seal-stone fallen out, a skull in the dark behind it
+    part(ctx, (c) => standing(c, [[x + 7 * s, gy + 3], [x + 8 * s, gy - 1 * s], [x + 15 * s, gy], [x + 14.5 * s, gy + 3]], darken(col, 0.1), 1.6));
+    part(ctx, (c) => skull(c, x - 0.5 * s, gy - 3.5 * s, 1.8 * s));
+  }
+  for (const [kx, ky] of [[-14, -2], [-11, 0.5], [11, 0.5], [14.5, -2]]) part(ctx, (c) => standing(c, [[x + kx * s - 2, gy + ky * s + 1.2], [x + kx * s - 1.8, gy + ky * s - 1.6], [x + kx * s + 1.8, gy + ky * s - 1.8], [x + kx * s + 2, gy + ky * s + 1.2]], darken(col, 0.06), 1));
+  for (let k = 0; k < 3; k++) sedge(ctx, x + (-17 + k * 16) * s, gy + 1.5, 0.7, seed + k, 4, "#5e6a42", "#9a9460");
+};
+
 Object.assign(HOLLOW_ART.decor, {
   fendead: fenDead, fenwillow: fenWillow, fensnag: fenSnag,
   reedbed: reedBed, bogpool: bogPool,
   fengrave: fenGrave, fencairn: fenCairn, fenbones: fenBones,
   fenstatue: fenStatue, fenshrine: fenShrine, bellstone: bellStone, fencandle: fenCandle, lichfence: lichFence,
+  fenthrone: fenThrone, fenbarrow: fenBarrow,
 });
 HOLLOW_ART.live.push("fencandle", "fenshrine", "bellstone");
 Object.assign(HOLLOW_ART.box, {
   fendead: [24, 40], fenwillow: [26, 44], fensnag: [12, 20], reedbed: [18, 30], bogpool: [22, 14],
   fengrave: [22, 26], fencairn: [16, 30], fenbones: [18, 20], fenstatue: [22, 30], lichfence: [22, 24],
+  fenthrone: [28, 48], fenbarrow: [24, 22],
 });
 Object.assign(HOLLOW_ART.dress, { fendead: [3, false], fenwillow: [5, false], fengrave: [6, false], fencairn: [9, false], fenstatue: [13, false], fensnag: [3, false] });
 
@@ -1038,6 +1140,14 @@ const cotton = (c, x, y, seed, s = 1) => {
     ball(c, bx + lean, y - hh - 0.6, 1.2 * s, 1 * s, "#efe9dc", { hi: 0.2, lo: 0.35 });
   }
   shadow(c, x + 1, y + 0.8, 3 * s, 1 * s, 0.2);
+};
+// a lone bulrush: a stalk and a velvet head (flat, in the turf layer)
+const bulrush = (c, x, y, s, seed) => {
+  const hh = (11 + hash(seed, 1) * 6) * s, lean = (hash(seed, 2) - 0.5) * 2;
+  blade(c, x, y, x + lean, y - hh - 3 * s, 0.5 * s, "#4e5a38", "#8a8452", 0.5);
+  c.fillStyle = "#241a26"; roundRect(c, x + lean * 0.85 - 1.5 * s, y - hh - 3.2 * s, 3 * s, 6.6 * s, 1.4 * s); c.fill();
+  roundRect(c, x + lean * 0.85 - 1 * s, y - hh - 2.8 * s, 2 * s, 5.8 * s, 1 * s);
+  c.fillStyle = lin(c, x + lean - 1, 0, x + lean + 1, 0, [[0, "#8a6040"], [0.5, "#5e4030"], [1, "#3e2a20"]]); c.fill();
 };
 // a fallen pale branch, forked
 const stick = (c, x, y, len, ang, seed) => {
@@ -1106,7 +1216,8 @@ function paintFenTurf(ctx, kit) {
   }
   // sedge meadows: wide soft stands of it, where the ground is wettest,
   // straw-pale at the tips, with the odd bog-cotton head over them
-  for (let i = 0; i < 11; i++) {
+  const reedy = !!R.fenReeds;
+  for (let i = 0; i < (R.fenMeadows ?? 11); i++) {
     const cx = 30 + H0(i, 120) * (SW - 60), cy = 20 + H0(i, 121) * (H - 40);
     const rx = 18 + H0(i, 122) * 22, ry = 7 + H0(i, 123) * 7;
     if (!clear(cx, cy, 10)) continue;
@@ -1124,6 +1235,7 @@ function paintFenTurf(ctx, kit) {
       const edge = 1 - Math.hypot((x - cx) / rx, (y - cy) / ry);
       sedge(ctx, x, y, 0.6 + edge * 0.6 + H0(k, 126) * 0.2, i * 97 + k, 4, H0(k, 127) < 0.5 ? "#6a6c42" : "#5c6640", H0(k, 128) < 0.3 ? "#b4aa70" : "#9a9460");
       if (H0(k, 129) < 0.06) cotton(ctx, x + 1, y, i * 13 + k, 0.8);
+      else if (reedy && H0(k, 130) < 0.12) bulrush(ctx, x, y, 0.8 + H0(k, 131) * 0.4, k);
     }
   }
   // sedge in stands, and bog-cotton nodding over it
@@ -1225,16 +1337,24 @@ function paintFenRoad(ctx) {
         const cx = x - sa * across + (H0(row, k + 20) - 0.5) * 1.5, cy = y + ca * across;
         if (!ok(cx, cy, 6)) continue;
         const w = 3.4 + H0(row, k + 30) * 2.4, h2 = 3 + H0(row, k + 40) * 1.6, rot = a + (H0(row, k + 50) - 0.5) * 0.35;
-        ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
-        // the joint, then the stone, lit on its upper-left lip
-        ctx.fillStyle = rgba(gap, 0.4); roundRect(ctx, -w - 0.8, -h2 - 0.8, w * 2 + 1.6, h2 * 2 + 1.6, 1.4); ctx.fill();
-        ctx.fillStyle = slab; roundRect(ctx, -w, -h2, w * 2, h2 * 2, 1.2); ctx.fill();
+        // an irregular worn slab: the dark joint round it, the stone, a lit
+        // upper lip and a shaded lower one, dust drifted over one corner
+        const sd = run * 131 + row * 17 + k;
+        const q = [[-w, -h2], [w, -h2], [w, h2], [-w, h2]].map(([px, py], j) => {
+          const jx = px + (H0(sd, j + 80) - 0.5) * 1.6, jy = py + (H0(sd, j + 84) - 0.5) * 1.4;
+          return [cx + jx * Math.cos(rot) - jy * Math.sin(rot), cy + jx * Math.sin(rot) + jy * Math.cos(rot)];
+        });
+        ctx.fillStyle = rgba(gap, 0.55);
+        poly(ctx, q.map(([px, py]) => [px + (px - cx) * 0.12 + 0.4, py + (py - cy) * 0.14 + 0.5])); ctx.fill();
+        ctx.fillStyle = slab; poly(ctx, q); ctx.fill();
+        ctx.save(); poly(ctx, q); ctx.clip();
+        ctx.fillStyle = rgba(lighten(slab, 0.3), 0.7); ctx.fillRect(cx - w - 2, Math.min(q[0][1], q[1][1]) - 0.2, w * 2 + 4, 1);
+        ctx.fillStyle = rgba(darken(slab, 0.25), 0.7); ctx.fillRect(cx - w - 2, Math.max(q[2][1], q[3][1]) - 0.8, w * 2 + 4, 1);
+        ctx.fillStyle = rgba(main, 0.85);
+        const cc = Math.floor(H0(sd, 88) * 4);
+        blobPath(ctx, q[cc][0], q[cc][1], w * 0.7, h2 * 0.6, sd, 0.3, 7); ctx.fill();
         ctx.restore();
-        ctx.fillStyle = rgba(lighten(slab, 0.35), 0.6);
-        ctx.fillRect(ap(cx - w * 0.6), ap(cy - h2 * 0.8), w, 0.5);
-        ctx.fillStyle = rgba(darken(slab, 0.3), 0.5);
-        ctx.fillRect(ap(cx - w * 0.5), ap(cy + h2 * 0.8), w * 1.1, 0.5);
-        if (H0(row, k + 60) < 0.18) { ctx.fillStyle = rgba(darken(slab, 0.4), 0.8); ctx.fillRect(ap(cx - 1), ap(cy - 2), 0.5, 3); }
+        if (H0(row, k + 60) < 0.15) { ctx.fillStyle = rgba(darken(slab, 0.4), 0.8); for (let t = 0; t < 4; t++) ctx.fillRect(ap(cx - 2 + t), ap(cy - 1 + t * 0.6), 0.5, 0.5); }
         if (H0(row, k + 70) < 0.2) { ctx.fillStyle = MOSS; ctx.fillRect(ap(cx + 3.5), ap(cy + 3), 1.5, 0.5); }
       }
     }
@@ -1245,7 +1365,7 @@ function paintFenRoad(ctx) {
   let best = -1, bestD = 0;
   for (let dd = 150; dd < TOTAL_LEN - 120; dd += 10) {
     const [x, y] = posAt(dd);
-    if (!ok(x, y, 10) || BRIDGES.some((b) => dd > b.d0 - 40 && dd < b.d1 + 40)) continue;
+    if (!ok(x, y, 10) || BRIDGES.some((b) => dd > b.d0 - 110 && dd < b.d1 + 110)) continue;
     // only where the road runs straight
     if (Math.abs(angleAt(dd - 24) - angleAt(dd + 24)) > 0.02) continue;
     let wet = 0;

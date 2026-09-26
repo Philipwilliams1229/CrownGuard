@@ -45,7 +45,7 @@ const WOOD = "#6a4a2e", WOOD_LT = "#8a6440", WOOD_DK = "#46301e";
 const CANVAS = "#d6ccb2";
 const GRIT = "#8e8c86";            // highland crag stone, cool
 const ASHLAR = "#a6a296";          // the Kingdom's dressed stone
-const HEATH = "#7e5a74", HEATH_LT = "#a07a94", HEATH_DK = "#523a50", HEATH_FL = "#c89cba";
+const HEATH = "#7a5a72", HEATH_LT = "#9a7a90", HEATH_DK = "#503c4e", HEATH_FL = "#bc98b2";
 const BRACK = "#a6683a", BRACK_LT = "#c88c4c", BRACK_DK = "#6a4226";
 const PINE_LEAF = "#3e6450", SCOTS_BARK = "#b0663e";
 // the wood, by depth: the treeline takes what light there is, the rows behind go dark and cold
@@ -981,7 +981,7 @@ const lowSprite = (kind, v) => {
     const x = dims[0] / 2, y = dims[1] - 3;
     if (kind === "heath" || kind === "dryheath") {
       shadow(c, x + 2, y + 1, 9, 2.2, 0.2);
-      const base = kind === "dryheath" ? "#735a58" : [HEATH, "#86607a", "#745670", "#7a6468"][v % 4];
+      const base = mix(kind === "dryheath" ? "#735a58" : [HEATH, "#826074", "#72566a", "#7a6468"][v % 4], REALM.GRASS_DK, 0.08);
       const n = 2 + (v % 3);
       for (let i = 0; i < n; i++) {
         const hx = x + (i - (n - 1) / 2) * 4.2 + (hash(v, i) - 0.5) * 2, hy = y - (i % 2) * 1.2;
@@ -1041,29 +1041,69 @@ const nearWater = (x, y, m) => PONDS.some((p) => Math.abs(x - p.x) < p.w / 2 + m
 // drift reads as one patch of moor and not a sprinkle of clumps. Written into
 // the layer's pixels; a coarse mask keeps it off the road, the water and the wood.
 const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => v / 16);
+// A handful of big patches per board — heather in 4-7 drifts, bracken in
+// 2-3 smaller ones at their edges — with plain open turf between them.
+// drift(x, y) = { h, b }, each 0 (outside) .. 1 (the heart of a patch).
+const DRIFT = { key: "", fn: null };
+const driftField = () => {
+  const key = `${REALM.id}|${PTS.length}`;
+  if (DRIFT.key === key) return DRIFT.fn;
+  const seed = REALM.seed | 0;
+  const SWd = W - 104;
+  let q = 0;
+  const r01 = () => hash(seed + 777, q++);
+  const heaths = [], bracks = [];
+  const want = 4 + Math.floor(r01() * 4);
+  for (let t = 0; t < 400 && heaths.length < want; t++) {
+    const x = 80 + r01() * (SWd - 130), y = 50 + r01() * (H - 100), rx = 55 + r01() * 40;
+    if (forestDepthAt(x, y) > -30) continue;
+    if (heaths.some((d) => Math.hypot(d.x - x, (d.y - y) * 1.3) < 170)) continue;
+    heaths.push({ x, y, rx, ry: rx * (0.5 + r01() * 0.2) });
+  }
+  const nb = 2 + Math.floor(r01() * 2);
+  for (let i = 0; i < nb && i < heaths.length; i++) {
+    const d = heaths[i], a = r01() * Math.PI * 2, rx = 28 + r01() * 18;
+    bracks.push({ x: d.x + Math.cos(a) * d.rx * 0.95, y: d.y + Math.sin(a) * d.ry * 0.95, rx, ry: rx * 0.62 });
+  }
+  const strength = (list, x, y, ns) => {
+    let best = 0;
+    for (const d of list) {
+      const dx = (x - d.x) / d.rx, dy = (y - d.y) / d.ry;
+      if (dx * dx + dy * dy > 2.2) continue;
+      const dn = Math.sqrt(dx * dx + dy * dy) + (vnoise(seed + ns, 24, x, y) - 0.5) * 0.45;
+      best = Math.max(best, Math.min(1, (1 - dn) / 0.45));
+    }
+    return best;
+  };
+  DRIFT.fn = (x, y) => ({ h: strength(heaths, x, y, 17), b: strength(bracks, x, y, 19) });
+  DRIFT.key = key;
+  return DRIFT.fn;
+};
+
 const driftGround = (ctx, clear) => {
   const seed = REALM.seed | 0;
+  const drift = driftField();
   const cv = ctx.canvas, PW = cv.width, PH = cv.height, k = PW / W;
   const C = 4, GW = Math.ceil(W / C) + 1, GH = Math.ceil(H / C) + 1;
   const ok = new Uint8Array(GW * GH);
   for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) ok[j * GW + i] = clear(i * C, j * C, 3) ? 1 : 0;
   const img = ctx.getImageData(0, 0, PW, PH), dd = img.data;
-  const heath = hexRGB(mix("#6c4e64", REALM.GRASS_DK, 0.2)), heathLt = hexRGB(mix("#8a6682", REALM.GRASS, 0.15));
-  const brack = hexRGB(mix("#8a6040", REALM.GRASS_DK, 0.35));
+  const heath = hexRGB(mix("#6a5064", REALM.GRASS_DK, 0.3)), heathLt = hexRGB(mix("#82667c", REALM.GRASS, 0.25));
+  const brack = hexRGB(mix("#86644a", REALM.GRASS_DK, 0.45));
   const limit = Math.min(PW, Math.ceil((W - 104) * k));
   for (let py = 0; py < PH; py += 1) {
     const y = py / k, gj = Math.min(GH - 1, Math.round(y / C));
     for (let pxx = 0; pxx < limit; pxx += 1) {
       const x = pxx / k, gi = Math.min(GW - 1, Math.round(x / C));
       if (!ok[gj * GW + gi]) continue;
-      const hn = vnoise(seed + 5, 70, x, y) + (vnoise(seed + 17, 14, x, y) - 0.5) * 0.12;
-      const bn = vnoise(seed + 9, 90, x, y) + (vnoise(seed + 19, 12, x, y) - 0.5) * 0.12;
+      const { h: hn, b: bn } = drift(x, y);
+      if (hn <= 0 && bn <= 0) continue;
       const dz = B4[(py & 3) * 4 + (pxx & 3)];
       let col = null, a = 0;
-      if (hn > 0.6) { a = Math.min(0.7, (hn - 0.6) * 5); col = (hn + dz * 0.05) > 0.7 ? heathLt : heath; }
-      else if (bn > 0.64) { a = Math.min(0.45, (bn - 0.64) * 4); col = brack; }
-      if (!col || a < dz * 0.9) continue;
-      const o = (py * PW + pxx) * 4, f = 0.55;
+      if (hn > 0) { a = hn * 0.75; col = hn + dz * 0.1 > 0.75 ? heathLt : heath; }
+      else { a = bn * 0.5; col = brack; }
+      if (a < dz * 0.9 + 0.05) continue;
+      const o = (py * PW + pxx) * 4, f = 0.42;
       dd[o] += (col[0] - dd[o]) * f; dd[o + 1] += (col[1] - dd[o + 1]) * f; dd[o + 2] += (col[2] - dd[o + 2]) * f;
     }
   }
@@ -1085,13 +1125,14 @@ const ironTurf = (ctx, kit) => {
     }
   }
   // heather in drifts, bracken in its own drifts, cotton grass by the water
+  const drift = driftField();
   for (let i = 0; i < 5200; i++) {
     const x = rng() * SW, y = rng() * H, r = rng(), v = Math.floor(rng() * 12);
     if (!clear(x, y, 5)) continue;
-    const hn = vnoise(seed + 5, 70, x, y), bn = vnoise(seed + 9, 90, x, y);
-    if (hn > 0.62 && r < (hn - 0.6) * 2.4) items.push([x, y, hn > 0.72 && r < 0.12 ? "dryheath" : "heath", v, 0.85 + r * 0.3]);
-    else if (bn > 0.6 && r < (bn - 0.56) * 1.4) items.push([x, y, "bracken", v, 0.95 + r * 0.35]);
-    else if (r < 0.006) items.push([x, y, r < 0.003 ? "heath" : "bracken", v, 0.75]);
+    const { h: hn, b: bn } = drift(x, y);
+    if (hn > 0.15 && r < Math.pow(hn, 1.4) * 0.5) items.push([x, y, hn > 0.8 && r < 0.08 ? "dryheath" : "heath", v, 0.9 + r * 0.4]);
+    else if (bn > 0.15 && r < bn * 0.35) items.push([x, y, "bracken", v, 0.95 + r * 0.35]);
+    else if (r < 0.0012) items.push([x, y, "heath", v, 0.75]);
     else if (r > 0.95 && nearWater(x, y, 22)) items.push([x, y, "cotton", v % 5, 1]);
   }
   // moor-grass tussocks, straw-tipped, gathering in the hollows
@@ -1111,7 +1152,9 @@ const ironTurf = (ctx, kit) => {
       if (!clear(x, y, 3) && forestDepthAt(x, y) < -6) continue;
       if (nearestOnPath(x, y).d < PATH_HALF + 8 || nearWater(x, y, 4)) continue;
       const h = hash(i, 83);
-      items.push([x, y, h < 0.5 ? "bracken" : h < 0.85 ? "heath" : "dryheath", Math.floor(hash(i, 84) * 12), 0.8 + hash(i, 85) * 0.4]);
+      if (h < 0.25) items.push([x, y, "bracken", Math.floor(hash(i, 84) * 12), 0.8 + hash(i, 85) * 0.4]);
+      else if (h < 0.45) items.push([x, y, h < 0.4 ? "heath" : "dryheath", Math.floor(hash(i, 84) * 12), 0.8 + hash(i, 85) * 0.4]);
+      else items.push([x, y, "tuss", 900 + i, 0.6 + hash(i, 85) * 0.4]);
     }
     // needle litter on the wood's floor
     for (let i = 0; i < 700; i++) {
@@ -1195,16 +1238,17 @@ const ironRoad = (ctx, kit) => {
     if (d > HALF - 0.4) continue;
     const u = along[i], v = across[i];
     if (Math.abs(v) >= KERB) { id[i] = 1000000 + (v > 0 ? 500000 : 0) + kerbOf(u); continue; }
-    const c = courseOf(u), br = cBreaks[c];
+    // a few courses run on unbroken from the one before, so the grid never ticks too evenly
+    const c0 = courseOf(u), c = c0 > 0 && hash(c0, 41) < 0.3 ? c0 - 1 : c0, br = cBreaks[c];
     let j = 0;
     while (j < br.length - 1 && br[j] <= v) j++;
     id[i] = c * 32 + j;
   }
   const R = REALM;
   const main = R.PATH_MAIN, dk = R.PATH_DK;
-  const tones = [mix(main, "#fff3d2", 0.1), main, mix(main, dk, 0.3), mix(main, "#8e9698", 0.25), mix(main, "#b09a74", 0.25)].map(hexRGB);
+  const tones = [mix(main, "#fff3d2", 0.05), main, mix(main, dk, 0.14), mix(main, "#8e9698", 0.12), mix(main, "#b09a74", 0.12)].map(hexRGB);
   const kerbT = [mix(main, "#d0ccc0", 0.3), mix(main, "#b8b4aa", 0.2), mix(main, dk, 0.1)].map(hexRGB);
-  const earth = hexRGB(mix(main, "#5e4c3c", 0.6)), moss = hexRGB("#62704a");
+  const earth = hexRGB(mix(main, "#5e4c3c", 0.38)), moss = hexRGB("#62704a");
   const img = ctx.getImageData(0, 0, PW, PH), dd = img.data;
   const at = (i) => (i >= 0 && i < N ? id[i] : -1);
   for (let py = 0; py < PH; py++) {
@@ -1226,16 +1270,16 @@ const ironRoad = (ctx, kit) => {
       if (!kerb && av < 4) { r += 5; g += 5; b += 4; }
       // pitting
       const hp = hash(pxx * 7 + py * 13, 3);
-      if (hp < 0.06) { r -= 12; g -= 12; b -= 10; } else if (hp > 0.975) { r += 10; g += 10; b += 8; }
+      if (hp < 0.05) { r -= 7; g -= 7; b -= 6; } else if (hp > 0.98) { r += 6; g += 6; b += 5; }
       // edges: dark joint on the stone's lower-right, lit lip on its upper-left
       const dn = at(i + PW), rt = pxx < PW - 1 ? at(i + 1) : -1, up = at(i - PW), lf = pxx > 0 ? at(i - 1) : -1;
       const joint = (dn !== s && dn >= 0) || (rt !== s && rt >= 0);
       const lip = (up !== s && up >= 0) || (lf !== s && lf >= 0);
       if (joint) {
-        const f = rut > 0.3 ? 0.28 : 0.42;
+        const f = kerb ? 0.3 : rut > 0.3 ? 0.13 : 0.21;
         r -= r * f; g -= g * f; b -= b * f * 0.9;
         if (av > KERB - 8 && hash(s, 29) < 0.35) { r = moss[0]; g = moss[1]; b = moss[2]; }
-      } else if (lip) { r += (255 - r) * 0.16; g += (243 - g) * 0.16; b += (210 - b) * 0.14; }
+      } else if (lip) { const f = kerb ? 0.14 : 0.07; r += (255 - r) * f; g += (243 - g) * f; b += (210 - b) * f * 0.9; }
       // the road's outer edge: the kerb's last pixel darkens into the verge
       if (best[i] > HALF - 1.2) { r *= 0.62; g *= 0.62; b *= 0.62; }
       const o = i * 4;

@@ -249,7 +249,16 @@ const IRON_GROUND = {
 // The camp's gate tower stands beside the road's first yards (north side), a
 // piece of decor so it sorts with the pines around it (grid px: the road
 // enters at the left edge on row path[0][1]).
-const ironGate = (path) => (path[0][0] < 2 ? [{ x: 18, y: Math.round(path[0][1] * 48 - 18), t: "irgate", s: 1 }] : undefined);
+// On a road that leaves the edge on a slant, it stands 36 px along that
+// slant and off to its northern side.
+const ironGate = (path) => {
+  if (path[0][0] >= 2) return undefined;
+  const sx = -18, sy = path[0][1] * 48 + 24, nx = path[1][0] * 48 + 24, ny = path[1][1] * 48 + 24;
+  const l = Math.hypot(nx - sx, ny - sy) || 1, ux = (nx - sx) / l, uy = (ny - sy) / l;
+  const [px, py] = uy >= 0 ? [uy, -ux] : [-uy, ux];
+  const off = 34 + 28 * Math.abs(ux * uy);   // its foot clear of the road; more room on a slant
+  return [{ x: Math.round(sx + ux * 36 + px * off), y: Math.round(sy + uy * 36 + py * off) - 8, t: "irgate", s: 1 }];
+};
 const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
   ...IRON_GROUND, id, name, blurb, seed, path,
   water: { deep: "#33505e", edge: "#43647a", shine: "#7aa4bc" },
@@ -530,7 +539,7 @@ Object.assign(REALMS, {
     [[0.9, 1], [4, 1], [4, 7], [8, 7], [8, 3], [12, 3], [12, 9], [13.7, 9]],
     {
       rivers: [{ pts: [[-0.5, 5.4], [5, 5.6], [10, 5.3], [15.5, 5.5]], w: 28 }],
-      decorRecipe: { count: 22, types: ["fencairn", "fencairn", "fengrave", "fenbones", "fendead", "bellstone", "fencandle", "fenwillow", "fendead"] },
+      decorRecipe: { count: 24, types: ["fencairn", "fencairn", "fenbarrow", "fengrave", "fenbones", "fendead", "bellstone", "fencandle", "fenwillow", "fendead", "fenbarrow"] },
     },
   ),
   thronedust: hollowVariant(
@@ -541,6 +550,8 @@ Object.assign(REALMS, {
     {
       rivers: [{ pts: [[-0.5, 6.2], [2.4, 6.8], [3.2, 8.9], [6.5, 9.5], [15.5, 9.3]], w: 26 }],
       ponds: [{ x: 660, y: 130, w: 70, h: 44, t: "swamp" }],
+      // the drowned throne itself, inside the last loop of the road
+      decor: [{ x: 528, y: 150, t: "fenthrone", s: 1.15 }],
       decorRecipe: { count: 20, types: ["fenstatue", "fengrave", "bellstone", "fenshrine", "fenbones", "fendead", "fencandle", "lichfence", "fenwillow"] },
     },
   ),

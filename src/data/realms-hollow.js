@@ -20,7 +20,7 @@ import { addFootprints } from "./terrain.js";
 addFootprints({
   fendead: 10, fenwillow: 16, fensnag: 7, reedbed: 10, bogpool: 13,
   fengrave: 7, fencairn: 9, fenbones: 9, fenstatue: 13, fenshrine: 12,
-  bellstone: 11, fencandle: 6, lichfence: 12,
+  bellstone: 11, fencandle: 6, lichfence: 12, fenthrone: 17, fenbarrow: 16,
 });
 
 export default function moreHollowRealms(hollowVariant) {
@@ -88,6 +88,8 @@ export default function moreHollowRealms(hollowVariant) {
       20261004,
       [[0.9, 1.2], [4.5, 1.2], [4.5, 4.5], [1.6, 4.5], [1.6, 8], [7.5, 8], [7.5, 1.2], [12.3, 1.2], [12.3, 5], [10, 5], [10, 8], [13.7, 8]],
       {
+        // the reeds stand thickest here: more and taller stands in the turf
+        fenMeadows: 20, fenReeds: true,
         ponds: [
           { x: 170, y: 160, w: 56, h: 44, t: "swamp" },
           { x: 250, y: 330, w: 90, h: 44, t: "swamp" },
@@ -110,7 +112,7 @@ export default function moreHollowRealms(hollowVariant) {
       [[0.9, 7.6], [4.5, 7.6], [4.5, 2.2], [9.5, 2.2], [9.5, 6.4], [13.7, 6.4]],
       {
         light: { tint: "178,166,222", amount: 0.22, vignette: 0.5 },
-        decorRecipe: { count: 50, types: ["fengrave", "lichfence", "fengrave", "fencairn", "fengrave", "fenshrine", "fenbones", "fencandle", "fenstatue", "fengrave"] },
+        decorRecipe: { count: 50, types: ["fengrave", "lichfence", "fengrave", "fencairn", "fengrave", "fenshrine", "fenbones", "fencandle", "fenbarrow", "fengrave", "fenstatue"] },
       },
     ),
   };
