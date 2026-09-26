@@ -672,16 +672,24 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
     }
     case "slam": {
       // Shield Slam: the ground splits in cracks from the hero's feet, a
-      // shockwave of torn turf rolls out, dust and pebbles fly.
-      const life = 450, p = lifeP(fx, life), R = fx.r || 62, sd = seedOf(fx);
-      const r = R * easeOut(p * 1.3), A = stepA(a);
+      // shockwave of torn turf rolls out, dust and pebbles fly. The wave
+      // runs `fx.wave` ms; the cracks then stay till `fx.life`, fading in
+      // hard steps (actions.js stretches both by the game speed, so the
+      // player's own button plays in the same real time at 1x, 2x and 4x).
+      const wave = fx.wave || 450, life = fx.life || wave, R = fx.r || 62, sd = seedOf(fx);
+      const p = clamp01((life - fx.ttl) / wave), r = R * easeOut(p * 1.3);
+      const A = stepA(1.5 * (1 - p));          // the wave's fade (ttl/300 of a 450ms life)
+      const CA = life > wave ? stepA((1.6 * fx.ttl) / (life - wave)) : A;
+      const a0 = ctx.globalAlpha;
       ctx.save();
-      ctx.globalAlpha *= A;
       if (GR) {
-        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 6), dither(ctx, EARTH[1], 0.31));
+        ctx.globalAlpha = a0 * A;
+        if (A > 0) disc(ctx, fx.x, fx.y, r, Math.max(0, r - 6), dither(ctx, EARTH[1], 0.31));
+        ctx.globalAlpha = a0 * CA;
         put(ctx, cracksS(Math.max(12, Math.round(R / 4) * 4)), fx.x, fx.y);
       }
-      if (AIR) {
+      if (AIR && A > 0) {
+        ctx.globalAlpha = a0 * A;
         ringPx(ctx, fx.x, fx.y, r, r, 3, rgba(EARTH[4], 0.85));
         dash(ctx, fx.x, fx.y, r - 1.5, r - 1.5, 1, 1.6, EARTH[0]);
         dash(ctx, fx.x, fx.y, r + 3, r + 3, 1, 3, rgba(EARTH[0], 0.5));
