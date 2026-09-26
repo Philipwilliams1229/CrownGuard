@@ -194,6 +194,15 @@ export function draw(g, canvas, bufRef) {
     ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), radius, 0, 7); ctx.fill();
     rangeRing(sel.x, sel.y, radius, "rgba(232,196,90,0.9)", g.time * 0.5);
     if (st.minRange) rangeRing(sel.x, sel.y, st.minRange, "rgba(232,120,110,0.7)", -g.time * 0.7);
+    // an upgrade armed in the panel: the reach it would buy, in bright gold
+    if (g.upPreview && g.upPreview.id === sel.id && sel.kind !== "knight") {
+      const st2 = getStats({ ...sel, ...g.upPreview.form });
+      if (st2.range && Math.abs(st2.range - radius) > 0.5) {
+        ctx.fillStyle = "rgba(250,220,120,0.08)";
+        ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), st2.range, 0, 7); ctx.fill();
+        rangeRing(sel.x, sel.y, st2.range, "rgba(255,236,150,1)", -g.time * 0.8);
+      }
+    }
   }
 
   // Paints one tower of `kind` at (x, y). Used both for the real thing and

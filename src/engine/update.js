@@ -10,7 +10,7 @@ import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "..
 import { RIVER_ROUTE } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
-import { PTS, posAt, angleAt, lanePos, TOTAL_LEN, nearestOnPath } from "./path.js";
+import { PTS, posAt, angleAt, lanePos, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
@@ -1305,18 +1305,14 @@ export function updateGame(g, dt) {
         // It does not aim at a foe; it aims at a BEARING, the one you set with
         // its flag. The log leaves the cradle and grinds on until it is off the
         // board, taking everything it touches with it.
-        // Halls stand clear of the road, so a log rolled from the cradle
-        // parallel to a lane would never touch it: it first runs down its
-        // ramp onto the nearest stretch of road, and takes its bearing from
-        // there — at the flag, if one is planted.
-        const drop = nearestOnPath(t.x, t.y);
-        const onto = drop.d <= 110 ? [drop.x, drop.y] : null;
-        const [ox, oy] = onto || [t.x, t.y];
-        const bearing = t.rally ? Math.atan2(t.rally.y - oy, t.rally.x - ox)
+        // It rolls in ONE straight line from the cradle, straight through the
+        // flag and on until it leaves the board — the road doesn't bend it.
+        // (Its hit reaches the whole width of the road wherever it crosses.)
+        const bearing = t.rally ? Math.atan2(t.rally.y - t.y, t.rally.x - t.x)
           : t.logAim != null ? t.logAim : 0;
         if (!g.logs) g.logs = [];
         g.logs.push({
-          id: nextId(), src: t.id, x: t.x, y: t.y, a: onto ? Math.atan2(oy - t.y, ox - t.x) : bearing, via: onto, bearing,
+          id: nextId(), src: t.id, x: t.x, y: t.y, a: bearing, via: null, bearing,
           speed: st.logSpeed || 118, dmg: st.logDmg || 120, w: st.logWidth || 22,
           stun: st.logStun || 0, slow: st.logSlow || 0, slowDur: st.logSlowDur || 0,
           burn: st.logBurn || 0, burnDur: st.logBurnDur || 0,

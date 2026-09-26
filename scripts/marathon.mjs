@@ -156,6 +156,7 @@ for (const t of g.towers) {
 }
 console.log("\nby hall:");
 for (const [k, v] of Object.entries(byKind).sort((a, b) => b[1].d - a[1].d)) console.log(`  ${k.padEnd(11)} x${v.n}  ${String(Math.round(v.d / 1000)).padStart(7)}k dmg  ${String(v.k).padStart(6)} kills`);
-if (noSpot.size) console.log("\nno legal spot for:", [...noSpot].join(", "));
+// the marathon packs ~15 of every hall onto one board, so late picks can find it full — a board limit, not a placement bug
+if (noSpot.size) console.log("\nboard full before it could place another:", [...noSpot].join(", "));
 console.log(issues.size ? "\nISSUES:" : "\nno engine issues");
 for (const [k, v] of issues) console.log(`  [${v.n}x from w${v.first}] ${k} — ${v.msg}`);

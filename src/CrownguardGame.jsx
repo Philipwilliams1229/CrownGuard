@@ -38,7 +38,8 @@ import { hasRig } from "./render/rigs.js";
 import { useViewport, Fit } from "./ui/fit.jsx";
 import "./ui/hud/hud.css";
 import { GoldChip, LivesChip } from "./ui/hud/Chips.jsx";
-import { towerTags, levelDeltas } from "./ui/hud/towerText.js";
+import { towerTags, levelDeltas, formDeltas } from "./ui/hud/towerText.js";
+import { useArm } from "./ui/HeroTalents.jsx";
 import {
   CoinIcon, CastleIcon, SkullIcon, SwordIcon, BoltIcon, PlayIcon, PauseIcon, SpeedIcon, HammerIcon,
   LockIcon, CloseIcon, ChevronUp, ChevronDown, FlagIcon, InfoIcon,
@@ -74,6 +75,18 @@ export default function Crownguard() {
   // the hero's menu (move, abilities), and what a hero's win paid in stars
   const [talentsOpen, setTalentsOpen] = useState(false);
   const [heroAward, setHeroAward] = useState(null);
+  // Upgrades take two taps, for touch: the first arms a button (it turns gold,
+  // lists what changes, and the map shows the new reach); the second buys.
+  // A tap anywhere else, or three seconds, disarms it (useArm).
+  const upArm = useArm(3000);
+  // the form each armed button would buy, so the board can preview its reach
+  const armForms = useRef({});
+  useEffect(() => {
+    const g = G.current;
+    if (!g) return;
+    const m = upArm.armed && /^up:(\d+):/.exec(upArm.armed);
+    g.upPreview = m && armForms.current[upArm.armed] ? { id: Number(m[1]), form: armForms.current[upArm.armed] } : null;
+  }, [upArm.armed]);
   const [armed, setArmed] = useState(null);
   useEffect(() => {
     if (!armed) return;
@@ -922,9 +935,30 @@ export default function Crownguard() {
     const t = g?.towers.find((x) => x.id === sel.id);
     if (!t) return null;
     const withT = (fn) => () => { const tt = G.current?.towers.find((x) => x.id === sel.id); if (tt) fn(tt); };
+    // two taps to buy: arm with the first (preview), buy with the second
+    const armId = (key) => `up:${sel.id}:${key}`;
+    const buy2 = (key, form, fn) => {
+      armForms.current[armId(key)] = form;
+      return () => upArm.tap(armId(key), () => { withT(fn)(); if (G.current) G.current.upPreview = null; });
+    };
+    const deltaGrid = (deltas) => (
+      <span style={{ display: "grid", gridTemplateColumns: "auto auto", columnGap: 10, rowGap: 1, fontSize: 10.5 }}>
+        {deltas.map((d) => (
+          <span key={d.label} style={{ display: "contents" }}>
+            <span style={{ color: "#7a6446" }}>{d.label}</span>
+            <span style={{ whiteSpace: "nowrap" }}>{d.from} <span style={{ color: d.better ? "#3f7a2a" : "#a8363c", fontWeight: "bold" }}>▸ {d.to}</span></span>
+          </span>
+        ))}
+      </span>
+    );
+    const tapAgain = (cost) => <span className="cg-label" style={{ color: "var(--wood-deep)" }}>Tap again to buy · {cost}g</span>;
     const tier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
     const branchDef = sel.branch ? selDef.branches[sel.branch] : null;
-    return { left: (<>
+    // nothing left to buy: the card goes to one column, and says what the
+    // final form does where the upgrades used to be
+    const maxed = !!sel.rank4 || (!!sel.branch && !branchDef?.rank4);
+    const finalDesc = sel.rank4 ? branchDef.rank4[sel.rank4].desc : maxed ? branchDef.desc : null;
+    return { maxed, left: (<>
                 {/* who this is, and how far along its road it has come */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, paddingRight: 16 }}>
                   <span className="cg-well" style={{ width: 54, height: 54, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1021,26 +1055,25 @@ export default function Crownguard() {
                 })()}
 
     </>), right: (<>
+                {finalDesc && (
+                  <div className="cg-parch" style={{ marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
+                    <div className="cg-label" style={{ marginBottom: 3, color: "#7a6446" }}>Fully upgraded</div>
+                    {finalDesc}
+                  </div>
+                )}
                 {/* the next level: its name, its price, and exactly what it changes */}
                 {!sel.branch && sel.level < 3 && (() => {
                   const nxt = selDef.levels[sel.level];
                   const can = ui.gold >= nxt.cost;
                   const deltas = levelDeltas(t);
                   return (
-                    <button className={cls("cg-btn cg-btn--parch", !can && "is-poor")} disabled={!can}
+                    <button data-arm={armId("level")} className={cls("cg-btn", upArm.is(armId("level")) ? "cg-btn--gold" : "cg-btn--parch", !can && "is-poor")} disabled={!can}
                       style={{ width: "100%", marginTop: 10, padding: "7px 10px 8px", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}
-                      onClick={withT((tt) => upgradeTower(G.current, tt))}>
+                      onClick={buy2("level", { level: sel.level + 1 }, (tt) => upgradeTower(G.current, tt))}>
                       <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                        <span className="cg-label">Upgrade · Level {sel.level + 1}</span>
+                        {upArm.is(armId("level")) ? tapAgain(nxt.cost) : <span className="cg-label">Upgrade · Level {sel.level + 1}</span>}
                         <span className="cg-display" style={{ fontSize: 13, fontWeight: 700 }}>{nxt.label}</span>
-                        <span style={{ display: "grid", gridTemplateColumns: "auto auto", columnGap: 10, rowGap: 1, fontSize: 10.5 }}>
-                          {deltas.map((d) => (
-                            <span key={d.label} style={{ display: "contents" }}>
-                              <span style={{ color: "#7a6446" }}>{d.label}</span>
-                              <span style={{ whiteSpace: "nowrap" }}>{d.from} <span style={{ color: d.better ? "#3f7a2a" : "#a8363c", fontWeight: "bold" }}>▸ {d.to}</span></span>
-                            </span>
-                          ))}
-                        </span>
+                        {deltaGrid(deltas)}
                       </span>
                       <span style={{ display: "flex", alignItems: "center", fontSize: 18 }}>{price(nxt.cost, can, 16)}</span>
                     </button>
@@ -1054,16 +1087,18 @@ export default function Crownguard() {
                       {Object.entries(selDef.branches).map(([bk, br]) => {
                         const can = ui.gold >= br.cost;
                         return (
-                          <button key={bk} className={cls("cg-btn cg-btn--parch", !can && "is-poor")} disabled={!can}
+                          <button key={bk} data-arm={armId(`branch:${bk}`)} className={cls("cg-btn", upArm.is(armId(`branch:${bk}`)) ? "cg-btn--gold" : "cg-btn--parch", !can && "is-poor")} disabled={!can}
                             style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
-                            onClick={withT((tt) => branchTower(G.current, tt, bk))}>
+                            onClick={buy2(`branch:${bk}`, { branch: bk }, (tt) => branchTower(G.current, tt, bk))}>
                             <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={bk} size={40} /></span>
                             <span style={{ flex: 1, minWidth: 0 }}>
                               <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                                 <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{br.name}</span>
                                 {price(br.cost, can, 13)}
                               </span>
-                              <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{br.desc}</span>
+                              {upArm.is(armId(`branch:${bk}`))
+                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain(br.cost)}{deltaGrid(formDeltas(t, { branch: bk }))}</span>
+                                : <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{br.desc}</span>}
                             </span>
                           </button>
                         );
@@ -1079,16 +1114,18 @@ export default function Crownguard() {
                       {Object.entries(branchDef.rank4).map(([rk, r4]) => {
                         const can = ui.gold >= r4.cost;
                         return (
-                          <button key={rk} className={cls("cg-btn cg-btn--parch", !can && "is-poor")} disabled={!can}
+                          <button key={rk} data-arm={armId(`ascend:${rk}`)} className={cls("cg-btn", upArm.is(armId(`ascend:${rk}`)) ? "cg-btn--gold" : "cg-btn--parch", !can && "is-poor")} disabled={!can}
                             style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
-                            onClick={withT((tt) => ascendTower(G.current, tt, rk))}>
+                            onClick={buy2(`ascend:${rk}`, { rank4: rk }, (tt) => ascendTower(G.current, tt, rk))}>
                             <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={sel.branch} rank4={rk} size={40} /></span>
                             <span style={{ flex: 1, minWidth: 0 }}>
                               <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                                 <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{r4.name}</span>
                                 {price(r4.cost, can, 13)}
                               </span>
-                              <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{r4.desc}</span>
+                              {upArm.is(armId(`ascend:${rk}`))
+                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain(r4.cost)}{deltaGrid(formDeltas(t, { rank4: rk }))}</span>
+                                : <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{r4.desc}</span>}
                             </span>
                           </button>
                         );
@@ -1102,17 +1139,19 @@ export default function Crownguard() {
                   const c = completionCost(t);
                   const can = ui.gold >= c.cost;
                   return (
-                    <button className={cls("cg-btn", !can && "is-poor")} disabled={!can}
+                    <button data-arm={armId("complete")} className={cls("cg-btn", upArm.is(armId("complete")) && "cg-btn--gold", !can && "is-poor")} disabled={!can}
                       style={{ width: "100%", marginTop: 8, fontSize: 12, gap: 6 }}
-                      onClick={() => { if (can && G.current) completeTower(G.current, t); }}>
-                      <BoltIcon size={13} /> <span className="cg-dim">Complete — {c.name}</span> {price(c.cost, can, 12)}
+                      onClick={buy2("complete", { level: 3, branch: sel.branch || c.branch, rank4: c.rank4 }, (tt) => { if (can && G.current) completeTower(G.current, tt); })}>
+                      <BoltIcon size={13} /> <span className="cg-dim">{upArm.is(armId("complete")) ? `Tap again — complete as ${c.name}` : `Complete — ${c.name}`}</span> {price(c.cost, can, 12)}
                     </button>
                   );
                 })()}
 
-                <button className="cg-btn cg-btn--red" style={{ width: "100%", marginTop: 10, justifyContent: "space-between" }}
-                  onClick={withT((tt) => sellTower(G.current, tt))}>
-                  <span>Sell</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
+                {/* selling takes two taps too: an accidental sale can't be undone */}
+                <button data-arm={armId("sell")} className={cls("cg-btn cg-btn--red", upArm.is(armId("sell")) && "is-on")}
+                  style={{ width: "100%", marginTop: 10, justifyContent: "space-between", ...(upArm.is(armId("sell")) ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : {}) }}
+                  onClick={() => upArm.tap(armId("sell"), withT((tt) => sellTower(G.current, tt)))}>
+                  <span>{upArm.is(armId("sell")) ? "Tap again to sell" : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
                 </button>
     </>) };
   })();
@@ -1370,7 +1409,8 @@ export default function Crownguard() {
               if (!t) return null;
               // beside the tower, on whichever side has more room, level with it;
               // on a short screen the card lies in two columns so it never scrolls
-              const two = compact;
+              // a maxed tower has nothing on its right but Sell: one column then
+              const two = compact && !towerPanel.maxed;
               const bw = boardCss.vw, bh = boardCss.vh;
               const tx = (((t.x - g.cam.x) * g.cam.zoom) / W) * boardCss.w;
               const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * boardCss.h + cropTop;

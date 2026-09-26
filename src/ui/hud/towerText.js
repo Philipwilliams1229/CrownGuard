@@ -56,7 +56,12 @@ const DELTAS = [
 
 // What buying the next level changes: [{ label, from, to, better }].
 export function levelDeltas(t) {
-  const a = getStats(t), b = getStats({ ...t, level: t.level + 1 });
+  return formDeltas(t, { level: t.level + 1 });
+}
+// What changes if tower `t` becomes `form` ({ level, branch, rank4 } — any of
+// them): the stats that move, each from ▸ to, marked better or worse.
+export function formDeltas(t, form) {
+  const a = getStats(t), b = getStats({ ...t, ...form });
   const out = [];
   for (const [k, label, fmt, lower] of DELTAS) {
     if (a[k] == null || b[k] == null || a[k] === b[k]) continue;

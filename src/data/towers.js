@@ -12,17 +12,17 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Ranger Company", cost: 290, stats: { dmg: 13, rate: 155, range: 120 }, desc: "Rangers loose a blinding storm of arrows in relay. Melts swarms; struggles vs. heavy armor.",
+        name: "Ranger Company", cost: 290, stats: { dmg: 15, rate: 155, range: 120 }, desc: "Rangers loose a blinding storm of arrows in relay. Melts swarms; struggles vs. heavy armor.",
         rank4: {
-          a: { name: "Briar Rangers", cost: 580, stats: { dmg: 13, rate: 150, range: 130, poison: 9, poisonDur: 2600, poisonCap: 36 }, desc: "Arrows dipped in briar venom: every hit stacks a poison that gnaws through armor and regeneration alike." },
-          b: { name: "Hawkeye Conclave", cost: 580, stats: { dmg: 15, rate: 160, range: 145, chain: 1, chainRange: 95 }, desc: "Impossible shots — every arrow ricochets off its mark into a second foe nearby." },
+          a: { name: "Briar Rangers", cost: 580, stats: { dmg: 15, rate: 150, range: 130, poison: 9, poisonDur: 2600, poisonCap: 36 }, desc: "Arrows dipped in briar venom: every hit stacks a poison that gnaws through armor and regeneration alike." },
+          b: { name: "Hawkeye Conclave", cost: 580, stats: { dmg: 17, rate: 160, range: 145, chain: 1, chainRange: 95 }, desc: "Impossible shots — every arrow ricochets off its mark into a second foe nearby." },
         },
       },
       b: {
-        name: "Master Longbowman", cost: 290, stats: { dmg: 210, rate: 2100, range: 240, pierce: true }, desc: "One legendary archer. Slow, colossal shots that pierce any armor, from across the map.",
+        name: "Master Longbowman", cost: 290, stats: { dmg: 240, rate: 2100, range: 240, pierce: true }, desc: "One legendary archer. Slow, colossal shots that pierce any armor, from across the map.",
         rank4: {
-          a: { name: "Ballista", cost: 610, stats: { dmg: 540, rate: 3600, range: 900, pierce: true, bolt: true, targeting: "strongest" }, desc: "A colossal siege bow. Slow, screaming bolts that always hunt the MIGHTIEST enemy on the field — anywhere on the field." },
-          b: { name: "Dragonslayer", cost: 610, stats: { dmg: 230, rate: 2000, range: 260, pierce: true, crit: 3, critMult: 3 }, desc: "Forged to fell wyrms: every THIRD shot is a devastating triple-damage heartseeker." },
+          a: { name: "Ballista", cost: 610, stats: { dmg: 620, rate: 3600, range: 900, pierce: true, bolt: true, targeting: "strongest" }, desc: "A colossal siege bow. Slow, screaming bolts that always hunt the MIGHTIEST enemy on the field — anywhere on the field." },
+          b: { name: "Dragonslayer", cost: 610, stats: { dmg: 265, rate: 2000, range: 260, pierce: true, crit: 3, critMult: 3 }, desc: "Forged to fell wyrms: every THIRD shot is a devastating triple-damage heartseeker." },
         },
       },
     },
@@ -118,17 +118,17 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Razor Gale", cost: 320, stats: { dmg: 16, rate: 300, range: 108, spikes: 14, spikePierce: 2 }, desc: "The wheel screams — a near-constant storm of steel shreds everything that hugs it.",
+        name: "Razor Gale", cost: 320, stats: { dmg: 15, rate: 300, range: 108, spikes: 14, spikePierce: 2 }, desc: "The wheel screams — a near-constant storm of steel shreds everything that hugs it.",
         rank4: {
-          a: { name: "Steel Tempest", cost: 650, stats: { dmg: 20, rate: 240, range: 118, spikes: 18, spikePierce: 4 }, desc: "Spikes forged to skewer: eighteen to a volley, and every sliver punches through FOUR foes before it stops." },
-          b: { name: "Hamstringer", cost: 650, stats: { dmg: 18, rate: 260, range: 114, spikes: 16, spikePierce: 3, slow: 0.35, slowDur: 1500 }, desc: "Barbed spikes lodge in legs and paws — everything struck hobbles away slowed." },
+          a: { name: "Steel Tempest", cost: 650, stats: { dmg: 18, rate: 240, range: 118, spikes: 18, spikePierce: 4 }, desc: "Spikes forged to skewer: eighteen to a volley, and every sliver punches through FOUR foes before it stops." },
+          b: { name: "Hamstringer", cost: 650, stats: { dmg: 16, rate: 260, range: 114, spikes: 16, spikePierce: 3, slow: 0.35, slowDur: 1500 }, desc: "Barbed spikes lodge in legs and paws — everything struck hobbles away slowed." },
         },
       },
       b: {
-        name: "Brazier Wheel", cost: 320, stats: { dmg: 48, rate: 1300, range: 108, nova: true, magic: true, burn: 12, burnDur: 2400 }, desc: "The rim is set alight: instead of spikes, rhythmic rings of flame scorch everything in reach. MAGIC — ignores armor.",
+        name: "Brazier Wheel", cost: 320, stats: { dmg: 43, rate: 1300, range: 108, nova: true, magic: true, burn: 12, burnDur: 2400 }, desc: "The rim is set alight: instead of spikes, rhythmic rings of flame scorch everything in reach. MAGIC — ignores armor.",
         rank4: {
-          a: { name: "Solar Crown", cost: 650, stats: { dmg: 84, rate: 1250, range: 124, nova: true, magic: true, burn: 18, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
-          b: { name: "Wildheart Pyre", cost: 650, stats: { dmg: 58, rate: 1250, range: 114, nova: true, magic: true, burn: 16, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
+          a: { name: "Solar Crown", cost: 650, stats: { dmg: 76, rate: 1250, range: 124, nova: true, magic: true, burn: 18, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
+          b: { name: "Wildheart Pyre", cost: 650, stats: { dmg: 52, rate: 1250, range: 114, nova: true, magic: true, burn: 16, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
         },
       },
     },
@@ -193,17 +193,17 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Royal Aviary", cost: 340, stats: { dmg: 58, rate: 750, range: 175, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500 }, desc: "A whole mews of hunting birds: near-constant dives that can knock foes senseless.",
+        name: "Royal Aviary", cost: 340, stats: { dmg: 66, rate: 750, range: 175, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500 }, desc: "A whole mews of hunting birds: near-constant dives that can knock foes senseless.",
         rank4: {
           a: { name: "Skyknight", cost: 670, stats: { range: 205, rate: 0, skyknight: true, eagleHp: 1500, eagleDmg: 96, eagleRate: 620, eagleRespawn: 11000 }, desc: "The mews becomes a NEST, and the mistress stops throwing birds: she mounts a war-eagle half a dragon's span and takes the sky herself. It is the only thing this tower does — no more volleys, no more marks — and what it does is meet the worst thing flying in single combat and HOLD it there. Healers who mend knights will mend the eagle too." },
-          b: { name: "Storm Falcons", cost: 670, stats: { dmg: 66, rate: 700, range: 180, airMult: 2.4, mark: 0.25, markDur: 3000, diveStun: 0.25, diveStunDur: 600, chain: 1, chainRange: 90 }, desc: "Dives that crack like weather — each strike ricochets to a second victim." },
+          b: { name: "Storm Falcons", cost: 670, stats: { dmg: 76, rate: 700, range: 180, airMult: 2.4, mark: 0.25, markDur: 3000, diveStun: 0.25, diveStunDur: 600, chain: 1, chainRange: 90 }, desc: "Dives that crack like weather — each strike ricochets to a second victim." },
         },
       },
       b: {
-        name: "Warhawk Court", cost: 340, stats: { dmg: 48, rate: 1250, range: 180, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3 }, desc: "The marks turn surgical: marked foes also lose a third of their armor. The tower that turns your arrows back ON.",
+        name: "Warhawk Court", cost: 340, stats: { dmg: 55, rate: 1250, range: 180, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3 }, desc: "The marks turn surgical: marked foes also lose a third of their armor. The tower that turns your arrows back ON.",
         rank4: {
-          a: { name: "Kingsight", cost: 670, stats: { dmg: 76, rate: 1000, range: 200, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3, kingsight: true }, desc: "The court's eye never closes: the mightiest foe on the field is ALWAYS marked, everywhere, forever." },
-          b: { name: "Talon Rain", cost: 670, stats: { dmg: 48, rate: 1250, range: 190, airMult: 2.2, mark: 0.3, markDur: 3200, markShred: 0.3, shots: 3 }, desc: "Three birds aloft at once — every volley marks three different victims." },
+          a: { name: "Kingsight", cost: 670, stats: { dmg: 87, rate: 1000, range: 200, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3, kingsight: true }, desc: "The court's eye never closes: the mightiest foe on the field is ALWAYS marked, everywhere, forever." },
+          b: { name: "Talon Rain", cost: 670, stats: { dmg: 55, rate: 1250, range: 190, airMult: 2.2, mark: 0.3, markDur: 3200, markShred: 0.3, shots: 3 }, desc: "Three birds aloft at once — every volley marks three different victims." },
         },
       },
     },
