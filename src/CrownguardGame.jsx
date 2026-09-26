@@ -1259,8 +1259,17 @@ export default function Crownguard() {
 
   // what the tray is showing
   const trayMode = masterInfoPanel ? "info" : "build";
-  const TRAY_D = compact ? 204 : 252;         // the tray's width, design px
-  const trayW = Math.round(TRAY_D * s) + inset.right;   // the scaled panel, plus the notch side
+  // iOS pads both long edges in landscape, though the camera cutout is on
+  // only one. The map already runs under the left pad; when the cutout is
+  // on the left too (turn 90), the right pad guards nothing but the rounded
+  // corners, so the tray takes that strip for roomier tower cards and only
+  // its top and bottom rows step in from the corners.
+  const freeRight = compact && inset.right > 0 && inset.left === inset.right && vp.turn === 90;
+  const edge = freeRight ? 6 : inset.right;   // the bare strip left at the screen's right edge, css px
+  const TRAY_D = compact ? Math.min(280, 204 + Math.round((inset.right - edge) / s)) : 252;   // the tray's width, design px
+  const roomy = TRAY_D >= 240;                // wide enough for full-size cards and one-line names
+  const cornerR = freeRight ? 28 / s : 0;     // the head row's step in from the rounded top corner, design px
+  const trayW = Math.round(TRAY_D * s) + edge;   // the scaled panel, plus the notch side
   const trayTitle = { tower: null, castle: "Castle Works", talents: ui.hero?.name || "Hero", info: "Master build", wave: "The next wave", build: masterOn ? "Master builds" : "Towers" }[trayMode];
 
   return (
@@ -1609,7 +1618,7 @@ export default function Crownguard() {
       </div>
 
       {/* ---- the tray ---- */}
-      <div className="cg-drawer" style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: trayW, boxSizing: "border-box", paddingLeft: 0, paddingRight: inset.right, zIndex: 30 }}>
+      <div className="cg-drawer" style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: trayW, boxSizing: "border-box", paddingLeft: 0, paddingRight: edge, zIndex: 30 }}>
         <div style={{ position: "relative", height: "100%" }}>
           <div style={{
             position: "absolute", top: 0, left: 0, width: TRAY_D, height: `${100 / s}%`, boxSizing: "border-box",
@@ -1618,7 +1627,7 @@ export default function Crownguard() {
             display: "flex", flexDirection: "column", padding: `${6 + inset.top / s}px 6px ${6 + inset.bottom / s}px ${10 / s + 4}px`, gap: 6,
           }}>
             {/* head: the wave count and the pause menu */}
-            <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "stretch", marginRight: cornerR }}>
               <div className="cg-panel" style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "0 8px", minHeight: 40 }}>
                 <SkullIcon size={14} />
                 <span className="cg-label" style={{ fontSize: 10, color: "var(--muted)" }}>Wave</span>
@@ -1710,12 +1719,12 @@ export default function Crownguard() {
                 return (
                   <button key={key} title={open ? def.blurb : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`}
                     className={cls("cg-btn cg-btn--slate", active && "is-on", open && !can && "is-poor", !open && "is-off")}
-                    style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: compact ? 88 : 100, touchAction: "none" }}
+                    style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: compact && !roomy ? 88 : 100, touchAction: "none" }}
                     onPointerDown={(e) => { if (can) startTileDrag(e, key); }}
                     onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); }}
                     disabled={!can}>
-                    <span className="cg-well cg-dim" style={{ width: compact ? 56 : 60, height: compact ? 50 : 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <TowerPortrait kind={key} size={compact ? 48 : 50} />
+                    <span className="cg-well cg-dim" style={{ width: roomy && compact ? 74 : compact ? 56 : 60, height: roomy && compact ? 64 : compact ? 50 : 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <TowerPortrait kind={key} size={roomy && compact ? 60 : compact ? 48 : 50} />
                     </span>
                     <span className="cg-dim" style={{ fontSize: compact ? 11 : 10, lineHeight: 1.15 }}>{def.name}</span>
                     {open
@@ -1738,7 +1747,7 @@ export default function Crownguard() {
 
             {/* foot: the hero, his talents and the militia */}
             {ui.result == null && (
-              <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "stretch", marginRight: cornerR / 3 }}>
                 {heroBtn}{talentBtn}{militiaBtn}
               </div>
             )}

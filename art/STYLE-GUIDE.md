@@ -162,7 +162,11 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   The map stands flush against the tray at its true shape (its decorative
   top/bottom border may be trimmed on short screens); the rest of the screen
   is the realm's landscape (`src/render/apron.js`), never a bar. Everything
-  keeps clear of the notch and home indicator (`vp.safe`).
+  keeps clear of the notch and home indicator (`vp.safe`). iOS pads BOTH
+  long edges in landscape though the camera cutout is on one; when
+  `vp.turn` is 90 (cutout on the left) the phone tray takes the right pad
+  for wider tower cards (`freeRight`), stepping only its head and foot in
+  from the rounded corners. Test that case by faking `window.orientation`.
 - **Landscape only** (owner, 2026-09-25): a touch screen held upright gets
   `src/ui/TurnDevice.jsx`'s "turn your device" card over EVERY screen; the
   manifest declares landscape. Upright layouts (`narrow`) are a fallback

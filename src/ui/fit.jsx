@@ -39,23 +39,36 @@ function readSafe() {
   return { top: parseFloat(cs.paddingTop) || 0, right: parseFloat(cs.paddingRight) || 0, bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0 };
 }
 
+// which way the phone is turned: 90 when its top (and the camera cutout)
+// is on the left, -90 when on the right, 0 upright. iOS pads BOTH long
+// edges in landscape though the cutout is on only one, so this is how the
+// layout learns which pad is really needed.
+function readTurn() {
+  if (typeof window === "undefined") return 0;
+  if (typeof window.orientation === "number") return window.orientation;
+  const a = window.screen?.orientation?.angle || 0;
+  return a > 180 ? a - 360 : a;
+}
+
 function readViewport() {
-  if (typeof window === "undefined") return { w: 1133, h: 744, safe: { top: 0, right: 0, bottom: 0, left: 0 } };
+  if (typeof window === "undefined") return { w: 1133, h: 744, safe: { top: 0, right: 0, bottom: 0, left: 0 }, turn: 0 };
   const vv = window.visualViewport;
   // the visual viewport is what's actually showing (it excludes Safari's bars)
-  return { w: Math.round(vv?.width || window.innerWidth), h: Math.round(vv?.height || window.innerHeight), safe: readSafe() };
+  return { w: Math.round(vv?.width || window.innerWidth), h: Math.round(vv?.height || window.innerHeight), safe: readSafe(), turn: readTurn() };
 }
 
 export function useViewport() {
   const [vp, setVp] = useState(readViewport);
   useEffect(() => {
-    const on = () => setVp((o) => { const n = readViewport(); return n.w === o.w && n.h === o.h && n.safe.bottom === o.safe.bottom && n.safe.left === o.safe.left ? o : n; });
+    const on = () => setVp((o) => { const n = readViewport(); return n.w === o.w && n.h === o.h && n.safe.bottom === o.safe.bottom && n.safe.left === o.safe.left && n.safe.right === o.safe.right && n.turn === o.turn ? o : n; });
     window.addEventListener("resize", on);
     window.addEventListener("orientationchange", on);
+    window.screen?.orientation?.addEventListener?.("change", on);
     window.visualViewport?.addEventListener("resize", on);
     return () => {
       window.removeEventListener("resize", on);
       window.removeEventListener("orientationchange", on);
+      window.screen?.orientation?.removeEventListener?.("change", on);
       window.visualViewport?.removeEventListener("resize", on);
     };
   }, []);
