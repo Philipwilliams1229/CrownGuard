@@ -79,7 +79,7 @@ let warmAt = 0;
 export const warmBuilders = (ms = 2) => {
   if (warmAt >= WARM.length || typeof document === "undefined") return true;
   const t0 = performance.now();
-  while (warmAt < WARM.length && performance.now() - t0 < ms) { const [look, pose, f, load] = WARM[warmAt++]; workerSprite(look, pose, f, !!load, 1); }
+  do { const [look, pose, f, load] = WARM[warmAt++]; workerSprite(look, pose, f, !!load, 1); } while (warmAt < WARM.length && performance.now() - t0 < ms);
   return warmAt >= WARM.length;
 };
 // ...and on its own, one frame per idle moment a while after the page loads

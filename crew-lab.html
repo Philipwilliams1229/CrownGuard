@@ -3,7 +3,7 @@
   Dev tool: the build crew (src/render/builders.js, folk.js drawWorker) — the
   three workers who run out of the castle gate to raise a new hall.
     /crew-lab.html?tag=v1                     everything below
-    &only=frames,board,crops,perf             pick sheets
+    &only=frames,board,crops,wade,perf        pick sheets (wade: crossing a river and a bridge on the run)
     &realm=thornbrook                         a realm with a river (default)
   Sheets (POSTed to .shots/crew_<tag>_<sheet>.png):
     frames_<look>  every pose × frame of one look, zoomed (x3), baked as the game bakes them
@@ -36,7 +36,7 @@
       import { PX } from "/src/render/paint.js";
       const q = new URLSearchParams(location.search);
       const TAG = q.get("tag") || "x";
-      const ONLY = (q.get("only") || "frames,board,crops,perf").split(",");
+      const ONLY = (q.get("only") || "frames,board,crops,wade,perf").split(",");
       const REALM_ID = q.get("realm") || "thornbrook";
       selectRealm(REALM_ID);
       const out = document.getElementById("status");
@@ -252,7 +252,11 @@
         const a = builderDrawables(null, t, 5);
         const t2 = makeTower("archer", 300, 300); t2.raised = { at: 1, how: "level", prev: null };
         const b = builderDrawables(null, t2, 1.2);
-        report.push(`null-plan ok (${a.length}, ${b.length})`);
+        // a cut that never comes: the crew knocks a steady beat instead
+        const t3 = mk("wizard", 400, 120, 31), P3 = planOf(t3); P3.job = null;
+        const cv3 = document.createElement("canvas"); cv3.width = 200; cv3.height = 200; const x3 = cv3.getContext("2d");
+        let nd = 0; for (let time = P3.at; time < P3.home + 0.05; time += 1 / 60) for (const d of builderDrawables(x3, t3, time)) { d.fn(); nd++; }
+        report.push(`null-plan ok (${a.length}, ${b.length}); no-cut plan ok (${nd} figure-frames, lands ${P3.lands.length})`);
       } catch (e) { report.push("null-plan THREW " + e.message); console.error(e); }
       out.textContent = report.join(" | ");
       console.log(out.textContent);
