@@ -299,7 +299,9 @@ export function draw(g, canvas, bufRef) {
     });
     if (t.units) for (const u of t.units) if (!underSpan.has(u)) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawKnightUnit(ctx, u, t, g.time)) });
     // a new hall's builders, on their run out from the gate and back (builders.js)
-    if (t.raised && t.raised.how === "build" && g.time >= t.raised.at) for (const d of builderDrawables(ctx, t, g.time)) drawables.push(d);
+    // — still, if the hall was reworked while it went up (t.raised.build)
+    const br = t.raised && (t.raised.how === "build" ? t.raised : t.raised.build);
+    if (br && g.time >= br.at) for (const d of builderDrawables(ctx, t, g.time, br)) drawables.push(d);
   }
   if (g.bands) for (const b of g.bands) {
     for (const u of b.units) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawBandUnit(ctx, u, b, g.time)) });

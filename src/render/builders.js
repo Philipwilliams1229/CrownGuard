@@ -28,7 +28,7 @@
 // the sea on the run) they wade: the stamp is sunk and cut at the waterline,
 // with no shadow and a ring of foam; on a bridge's deck they ride up on it.
 
-import { buildPlan, pumpCut } from "./buildanim.js";
+import { buildPlan, pumpCut, retirePlan } from "./buildanim.js";
 import { drawWorker, BUILDER_FOLK, drawBuilderBlock } from "./folk.js";
 import { bakeSprite, PX, hash, shadow } from "./paint.js";
 import { RIVERS, PONDS, BRIDGES, bridgeLift, seaDepthAt } from "../data/terrain.js";
@@ -217,9 +217,9 @@ const crewOf = (P, t) => {
     const mason = role === "mason";
     // (the hod stands a step further out than the plan's post, clear of the
     // ladder and of the mason going up it)
-    const lad = P.ladder ?? ps.x;
-    const to = mason ? { x: sn(lad), y: P.fF } : role === "hod" ? { x: sn(Math.max(ps.x, lad + 9)), y: sn(ps.y) } : { x: sn(ps.x), y: sn(ps.y) };
-    const from = mason ? { x: sn((P.ladder ?? ps.x) + 5), y: sn(Math.max(t.y + 15, P.fF + 5)) } : to;
+    const lad = P.ladder ?? ps.x, side = P.side || 1;             // the ladder's side of the hall
+    const to = mason ? { x: sn(lad), y: P.fF } : role === "hod" ? { x: sn(side > 0 ? Math.max(ps.x, lad + 9) : Math.min(ps.x, lad - 9)), y: sn(ps.y) } : { x: sn(ps.x), y: sn(ps.y) };
+    const from = mason ? { x: sn(lad + side * 5), y: sn(Math.max(t.y + 15, P.fF + 5)) } : to;
     const t0 = P.at + i * stag, t1 = t0 + P.run;
     const back0 = mason ? (P.hop ? P.hop[1] : P.down0 + 0.2) + LAND : P.leave + (i - 1) * stag;
     const B = {
@@ -435,11 +435,15 @@ const drawBuilder = (C, B) => {
 
 // Drawables ({ y, fn }) for tower t's builders at `time`, for draw.js's
 // y-sorted pass (keyed by their feet; the mason at his post sorts in front of
-// the hall and its scaffold). Empty once the crew is home. The array and its
-// items are reused from frame to frame: use them before the next call.
-export const builderDrawables = (ctx, t, time) => {
-  const P = buildPlan(t);
-  if (!P || time < P.at || time >= P.home) return EMPTY;
+// the hall and its scaffold). `r` is the build's raise (t.raised, or
+// t.raised.build under a rework that came mid-build: the crew works on and
+// runs home all the same). Empty once the crew is home, when the build's
+// pieces are let go. The array and its items are reused from frame to
+// frame: use them before the next call.
+export const builderDrawables = (ctx, t, time, r = t && t.raised) => {
+  const P = buildPlan(t, r);
+  if (!P || time < P.at) return EMPTY;
+  if (time >= P.home) { retirePlan(P); return EMPTY; }
   if (warmAt < WARM.length) warmBuilders(2);
   const C = crewOf(P, t);
   C.ctx = ctx; C.time = time;

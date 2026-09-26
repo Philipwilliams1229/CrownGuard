@@ -11,10 +11,12 @@
 // with it. Then:
 //   - big parts ("wall") are split into courses about 6 world units tall,
 //     and a wide course into a left and a right half, laid bottom-up;
+//   - small parts standing free ("trim": posts, beams, flags, props,
+//     finials) go in with the courses, bottom-up, so nothing floats;
 //   - small parts ("fit") set into a wall — windows, doors, banners, lamps —
 //     are covered by the wall until they are fitted (the course round them
-//     is grown in over their place from its own edge pixels);
-//     small parts standing free ("trim": flags, props, finials) come last;
+//     is grown in over their place from the wall's nearest pixels), and go
+//     in after the walls;
 //   - tiny orphan specks (sparkles, motes) are left out: they come back
 //     with the live hall at the end.
 // The folk (the crew, the mage, the priest…) are what differs between the
@@ -31,6 +33,11 @@ const MW = 150, MH = 160, MX = 75, MY = 124;         // scratch canvas, world un
 const COURSE = 12;                                     // a course's height, art px
 const WIDE = 40;                                       // wider courses than this split in two, art px
 const SPECK = 10;                                      // orphan islands smaller than this are dropped, art px
+
+// While a hall is being built it is drawn at rest — not aiming, not firing,
+// no aura — both in its snapshot and live until its person is in, so the
+// hand-overs hold even when it fights mid-build (buildanim.js uses it too).
+export const REST = { anim: 0, mAnim: 0, _idle: true, _auraLive: 0 };
 
 let cvA = null, cvB = null;
 const scratch = (cv) => {
@@ -94,21 +101,27 @@ export const cutHall = (t, time, crewTime = time) => {
 export function* cutSteps(t, time, crewTime = time) {
   if (typeof document === "undefined") return null;
   const x0 = Math.floor(t.x) - MX, y0 = Math.floor(t.y) - MY;
-  // a copy: no raise, no rally flag or aura ring drawn far off the hall
-  const f = { ...t, raised: null, units: t.units || [], rally: null, _auraLive: 0 };
+  // a copy at rest: no raise, no rally flag or aura ring drawn far off the hall
+  const f = { ...t, ...REST, raised: null, units: t.units || [], rally: null };
   cvA = scratch(cvA); cvB = scratch(cvB);
   const W = MW * PX, H = MH * PX, N = W * H;
   const toWorld = (bx, by) => [x0 + bx / PX, y0 + by / PX];
 
   // ---- the crew: what the folk add to the picture ----
+  // (the work yields every few thousand pixels, so no frame carries much)
+  const STEP = 6000;
+  let work = 0;
   const full = paintOff(cvA, f, crewTime, x0, y0);
+  yield;
   let body = paintOff(cvB, { ...f, noFolk: true }, crewTime, x0, y0);
+  yield;
   let crewIdx = [];
   for (let i = 0; i < N; i++) {
     const s = i * 4;
     if (full[s + 3] === 0 && body[s + 3] === 0) continue;
     if (Math.abs(full[s] - body[s]) > 2 || Math.abs(full[s + 1] - body[s + 1]) > 2 || Math.abs(full[s + 2] - body[s + 2]) > 2 || Math.abs(full[s + 3] - body[s + 3]) > 2) crewIdx.push(i);
   }
+  yield;
   let crew = null;
   if (crewIdx.length >= 24) {
     const b = boxOf(crewIdx, W);
@@ -133,6 +146,7 @@ export function* cutSteps(t, time, crewTime = time) {
     if (cls[i] === 3) colourN++;
   }
   if (colourN < 30) return null;
+  yield;
 
   // ---- colour regions between the ink lines (4-connected) ----
   const lab = new Int32Array(N).fill(-1);
@@ -151,6 +165,7 @@ export function* cutSteps(t, time, crewTime = time) {
       if (j < N - W && cls[j + W] === 3 && lab[j + W] < 0) { lab[j + W] = id; stack.push(j + W); }
     }
     comps.push({ id, colour: px.length });
+    if ((work += px.length) > STEP) { work = 0; yield; }
   }
   yield;
   // regions too small to be a part join their neighbours: unlabel them
@@ -172,6 +187,7 @@ export function* cutSteps(t, time, crewTime = time) {
         lab[k] = id; next.push(k);
       }
     }
+    if ((work += front.length) > STEP) { work = 0; yield; }
     front = next;
   }
   yield;
@@ -190,6 +206,7 @@ export function* cutSteps(t, time, crewTime = time) {
       }
     }
     comps.push({ id, colour: px.length, island: px.length < SPECK });
+    if ((work += px.length) > STEP) { work = 0; yield; }
   }
 
   yield;
@@ -247,37 +264,46 @@ export function* cutSteps(t, time, crewTime = time) {
     if (!h) { p.kind = "trim"; continue; }
     p.kind = "fit";
     // until it is fitted, the wall runs on over its place: each pixel takes
-    // the colour of the nearest pixel of the host (grown in from its edge),
-    // so the course reads whole and the fitting is set into it later
-    // (only where the fitting is solid: a see-through edge of it must lie
-    // over nothing, or it would darken twice once it is set)
+    // the colour of the nearest wall pixel round it (grown in, breadth
+    // first, from every wall pixel within a few of it — across ink or a
+    // neighbouring fitting too), so the course reads whole and the fitting
+    // is set into it later (only where the fitting is solid: a see-through
+    // edge of it must lie over nothing, or it would darken twice once set)
     const mine = new Set();
     for (const i of p.idx) if (body[i * 4 + 3] === 255) mine.add(i);
-    const col = new Map();
+    const bx0 = Math.max(0, p.x0 - 4), bx1 = Math.min(W - 1, p.x1 + 4), by0 = Math.max(0, p.y0 - 4), by1 = Math.min(H - 1, p.y1 + 4);
+    const wallAt = (k) => {
+      if (cls[k] !== 3 || lab[k] < 0 || lab[k] === p.id) return false;
+      const q = byId.get(lab[k]);
+      return !!q && !q.detail;
+    };
+    const src = new Map();
     let front = [];
-    for (const i of mine) {
-      const x = i % W;
-      for (const k of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
-        if (k < 0 || k >= N || lab[k] === p.id || cls[k] !== 3) continue;
-        col.set(i, [body[k * 4], body[k * 4 + 1], body[k * 4 + 2]]);
-        front.push(i);
-        break;
-      }
-    }
+    for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) { const k = y * W + x; if (wallAt(k)) { src.set(k, k); front.push(k); } }
     while (front.length) {
       const next = [];
       for (const i of front) {
-        const x = i % W, c = col.get(i);
-        for (const k of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
-          if (k < 0 || !mine.has(k) || col.has(k)) continue;
-          col.set(k, c); next.push(k);
-        }
+        const x = i % W, y = (i / W) | 0, from = src.get(i);
+        if (x > bx0 && !src.has(i - 1)) { src.set(i - 1, from); next.push(i - 1); }
+        if (x < bx1 && !src.has(i + 1)) { src.set(i + 1, from); next.push(i + 1); }
+        if (y > by0 && !src.has(i - W)) { src.set(i - W, from); next.push(i - W); }
+        if (y < by1 && !src.has(i + W)) { src.set(i + W, from); next.push(i + W); }
       }
       front = next;
     }
+    const col = new Map();
+    for (const i of mine) { const k = src.get(i); if (k !== undefined) col.set(i, [body[k * 4], body[k * 4 + 1], body[k * 4 + 2]]); }
     if (!opening.has(h.id)) opening.set(h.id, []);
     const list = opening.get(h.id);
-    for (const i of mine) list.push([i, col.get(i) || [96, 88, 84]]);
+    // (no wall that near: the host's own mean colour)
+    let mean = null;
+    const hostMean = () => {
+      if (mean) return mean;
+      let r = 0, g = 0, b = 0, n = 0;
+      for (const k of h.idx) if (cls[k] === 3) { r += body[k * 4]; g += body[k * 4 + 1]; b += body[k * 4 + 2]; n++; }
+      return (mean = n ? [r / n | 0, g / n | 0, b / n | 0] : [96, 88, 84]);
+    };
+    for (const i of mine) list.push([i, col.get(i) || hostMean()]);
   }
   const addPiece = (idx, fills, kind) => {
     if (!idx.length && !(fills && fills.length)) return;
@@ -293,7 +319,7 @@ export function* cutSteps(t, time, crewTime = time) {
   yield;
   let made = 0;
   for (const p of parts) {
-    if (++made % 10 === 0) yield;
+    if (++made % 4 === 0) yield;
     if (p.detail) { addPiece(p.idx, null, p.kind); continue; }
     // a wall part: courses bottom-up, a wide course in two halves
     const fills = opening.get(p.id) || [];
@@ -320,9 +346,10 @@ export function* cutSteps(t, time, crewTime = time) {
     }
   }
 
-  // ---- the order they go in: the walls bottom-up (left before right on a
-  // course), then the fittings and trim bottom-up ----
-  const rank = { wall: 0, fit: 1, trim: 1 };
+  // ---- the order they go in: the walls and the free-standing trim
+  // bottom-up together (left before right on a course; a thin post or beam
+  // holds up what stands on it), then the fittings bottom-up ----
+  const rank = { wall: 0, trim: 0, fit: 1 };
   pieces.sort((a, b) => rank[a.kind] - rank[b.kind] || (Math.round(b.bottom) - Math.round(a.bottom)) || a.cx - b.cx);
 
   // the standing hall's top and body half-width (as buildanim's measure())

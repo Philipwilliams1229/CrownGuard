@@ -45,8 +45,10 @@
 import { PX, hash } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
 import { PTS } from "../engine/path.js";
+import { W, WALL_W } from "../data/constants.js";
+import { inRiver, inSea, PONDS } from "../data/terrain.js";
 import { drawTowerPortrait } from "./towers.js";
-import { cutSteps } from "./buildcut.js";
+import { cutSteps, REST } from "./buildcut.js";
 
 // build: a nominal length only — a build's real length depends on how far
 // the crew has to run (buildPlan / raiseSecs)
@@ -279,28 +281,40 @@ const column = (ctx, x, yb, ytop, w, a) => {
 
 export const BUILD = {
   run: 1100,                   // the crew's sprint, world units per game second: a timelapse dash
-  runMin: 0.3, runMax: 0.62,   // one leg of the run, game seconds, however far the plot is
+  runMin: 0.3, runMax: 0.55,   // one leg of the run, game seconds, however far the plot is
   stagger: 0.06,               // one builder after the next
   up: 0.24,                    // the scaffold going up
-  lay: 1.2,                    // setting the pieces, however many there are
+  lay: 1.05,                   // setting the pieces, however many there are
   drop: 0.13,                  // a piece's swing down onto its bed
   person: 0.22,                // the person's hop into place
-  down: 0.36,                  // the scaffold coming down
+  down: 0.34,                  // the scaffold coming down
 };
 
+// is (x, y) in water — a river, the sea, a pond (not lava, not ice)?
+const wetAt = (x, y) => inRiver(x, y) || inSea(x, y) ||
+  PONDS.some((p) => p.t !== "lava" && p.t !== "ice" && ((x - p.x) / (p.w / 2)) ** 2 + ((y - p.y) / (p.h / 2)) ** 2 < 1);
+
+// A plan belongs to its build (the raise object, t.raised — or, once the
+// hall has been reworked while still going up, t.raised.build): the build
+// then runs on to the end, on its own clock and in the form it was putting
+// up (r.form), and the rework's own raise plays after it (drawRaising).
 const PLANS = new WeakMap();
-export const buildPlan = (t) => {
-  const r = t && t.raised;
+export const buildPlan = (t, r = t && t.raised) => {
   if (!r || r.how !== "build") return null;
   let P = PLANS.get(r);
   if (P) return P;
   const def = TOWERS[t.kind] || {};
-  const box = measure(t, t);
+  const tf = r.form ? { ...t, ...r.form } : { ...t };            // the form going up, as it is now
+  const box = measure(tf, tf);
   const x = sn(t.x), by = sn(t.y + 3), topY = t.y + box.top;
   const narrow = !!def.roadClear, water = !!def.water;
   const rx = narrow ? 10 : Math.min(18, Math.max(11, box.hw + 1)), ry = narrow ? 6 : 8;
   const fF = sn(by + ry * 0.7), fB = sn(by - ry * 0.7);           // front / back pole feet
   const xl = sn(x - rx), xr = sn(x + rx);
+  // the ladder (and the hod) go up the right-hand side, toward the gate —
+  // but on the left beside the castle, which would cover them
+  const side = xr + 20 > W - WALL_W ? -1 : 1;
+  const ladder = side > 0 ? xr + 5 : xl - 5;
   // the gate: the road's last point, just inside the arch
   const last = PTS[PTS.length - 1] || [756, t.y];
   const gate = { x: last[0] - 4, y: last[1] };
@@ -317,18 +331,24 @@ export const buildPlan = (t) => {
     hop: [down0, down0 + 0.2],                            // the mason jumps down off the platform
     home: down0 + 0.2 + run + BUILD.stagger * 2 + 0.05,   // the last of them is back through the gate
     stagger: BUILD.stagger,
-    x, by, fF, fB, xl, xr, ladder: xr + 5, water, narrow, box, topY, low,
-    // the pieces are cut from the hall as it will look the moment they
-    // hand over to the live hall (lay1 + 0.02), the person as at their
-    // landing — a few milliseconds a frame while the crew runs (pumpCut)
-    job: cutSteps(t, lay1 + 0.02, personAt),
+    x, by, fF, fB, xl, xr, ladder, side, water, narrow, box, topY, low,
+    // the platform's plank reaches out over the ladder's head
+    plank: side > 0 ? [xl - 2, xr + 8] : [xl - 8, xr + 2],
+    // the loads the crew brought, on the far side from the ladder
+    pile: { x: side > 0 ? xl - 12 : xr + 12, y: fF + 4 },
+    // whether each pole stands in water (front-left, front-right, back-left, back-right)
+    wet: [[xl, fF], [xr, fF], [xl, fB], [xr, fB]].map(([px, py]) => wetAt(px, py)),
+    // the pieces are cut from the hall (at rest, as it will look the moment
+    // they hand over to the live hall at lay1 + 0.02), the person as at
+    // their landing — a few milliseconds a frame while the crew runs (pumpCut)
+    job: cutSteps(tf, lay1 + 0.02, personAt),
     cut: null, pieces: [], lands: [],
     pf: [[arrive, low]],
     platformY: (time) => sn(keys(time, P.pf)),            // the platform's top face, world y
     posts: [
-      { role: "mason", x: xr + 5, dir: -1 },                         // up on the platform at the ladder's head
-      { role: "hod", x: xr + 12, y: sn(t.y + 15.5), dir: -1 },       // at the ladder's foot, handing up
-      { role: "setter", x: xl - 5, y: sn(t.y + 16.5), dir: 1 },      // at the front left corner, by the pile
+      { role: "mason", x: ladder, dir: -side },                                  // up on the platform at the ladder's head
+      { role: "hod", x: ladder + side * 7, y: sn(t.y + 15.5), dir: -side },      // at the ladder's foot, handing up
+      { role: "setter", x: side > 0 ? xl - 5 : xr + 5, y: sn(t.y + 16.5), dir: side },   // at the far front corner, by the pile
     ],
   };
   PLANS.set(r, P);
@@ -358,9 +378,10 @@ export const pumpCut = (P, time) => {
 const finishCut = (P, cut) => {
   P.cut = cut;
   const pieces = P.pieces = cut ? cut.pieces : [];
-  const nW = pieces.filter((p) => p.kind === "wall").length, nD = pieces.length - nW;
-  // when each piece lands: the walls through the first two-thirds, then the
-  // fittings — all in, glints done, a beat before the hand-over at lay1
+  const nW = pieces.filter((p) => p.kind !== "fit").length, nD = pieces.length - nW;
+  // when each piece lands: the walls (and trim) through the first
+  // two-thirds, then the fittings — all in, glints done, a beat before the
+  // hand-over at lay1 (the cut orders them so)
   const { lay0, lay1 } = P, done = lay1 - 0.1, wEnd = nD ? lay0 + BUILD.lay * 0.66 : done;
   const spread = (i, n, a, b) => (n > 1 ? a + (b - a) * (i / (n - 1)) : b);
   P.lands = pieces.map((p, i) => (i < nW ? spread(i, nW, lay0 + BUILD.drop, wEnd) : spread(i - nW, nD, wEnd + 0.06, done)));
@@ -385,18 +406,30 @@ const finishCut = (P, cut) => {
 };
 
 // how long a raise lasts, game seconds (a build's depends on its plan)
+// (a rework that came while the hall was still going up: its build runs on
+// to down1, then the rework's own raise plays)
+const buildOf = (r) => (r ? (r.how === "build" ? r : r.build || null) : null);
 export const raiseSecs = (t) => {
   const r = t && t.raised;
   if (!r) return 0;
-  if (r.how === "build") { const P = typeof document === "undefined" ? null : buildPlan(t); return P ? P.end - r.at : RAISE_SECS.build; }
-  return RAISE_SECS[r.how] || 0.6;
+  const b = buildOf(r);
+  const P = b && typeof document !== "undefined" ? buildPlan(t, b) : null;
+  if (r.how === "build") return P ? P.end - r.at : RAISE_SECS.build;
+  const dur = RAISE_SECS[r.how] || 0.6;
+  return P ? Math.max(0, P.down1 - r.at) + dur : dur;
 };
 // the rank pips wait for the person, like everything else about a new hall
 export const raiseHidesPips = (t, time) => {
-  const r = t && t.raised;
-  if (!r || r.how !== "build" || typeof document === "undefined") return false;
-  const P = buildPlan(t);
-  return !!P && time >= r.at && time < P.personAt;
+  const b = buildOf(t && t.raised);
+  if (!b || typeof document === "undefined") return false;
+  const P = buildPlan(t, b);
+  return !!P && time >= b.at && time < P.personAt;
+};
+// Once its crew is home a build's pieces are let go (the plan itself stays
+// with the raise: its clock is still asked for).
+export const retirePlan = (P) => {
+  if (!P || P.retired) return;
+  P.retired = true; P.job = null; P.cut = null; P.pieces = []; P.lands = [];
 };
 
 // ---- the plot, before the crew: four stakes and a string round it ----
@@ -412,22 +445,22 @@ const stakes = (ctx, P, time) => {
     ctx.fillRect(P.xl, yb, 0.5, yf - yb);
     ctx.fillRect(P.xr, yb, 0.5, yf - yb);
   }
-  for (const [sx, sy] of [[P.xl, P.fB], [P.xr, P.fB], [P.xl, P.fF], [P.xr, P.fF]]) {
+  for (const [sx, sy, k] of [[P.xl, P.fB, 2], [P.xr, P.fB, 3], [P.xl, P.fF, 0], [P.xr, P.fF, 1]]) {
     rect(ctx, sx - 0.5, sy - h, 1.5, h + 0.5, INK);
     rect(ctx, sx, sy - h + 0.5, 0.5, h - 0.5, WOOD_HI);
-    if (P.water) rect(ctx, sx - 1.5, sy, 3.5, 0.5, FOAM);
+    if (P.wet[k]) rect(ctx, sx - 1.5, sy, 3.5, 0.5, FOAM);
   }
 };
 
 // ---- the loads the crew brought: planks and dressed stone, used up as the
 // pieces go in ----
 const pile = (ctx, P, time) => {
-  if (P.water || time < P.arrive + P.stagger * 2 || time >= P.down0) return;
+  if (wetAt(P.pile.x, P.pile.y) || time < P.arrive + P.stagger * 2 || time >= P.down0) return;
   let used = 0;
   for (const L of P.lands) if (L <= time) used++;
   const left = Math.ceil(5 * (1 - used / Math.max(1, P.lands.length)));
   if (left <= 0) return;
-  const px = P.xl - 12, py = P.fF + 4;
+  const px = P.pile.x, py = P.pile.y;
   ctx.fillStyle = "rgba(42,28,44,0.28)";
   ctx.fillRect(sn(px - 5), sn(py), 11, 1);
   const plank = (x, y) => { rect(ctx, x - 5, y - 2, 10, 2.5, INK); rect(ctx, x - 4.5, y - 1.5, 9, 0.5, WOOD_HI); rect(ctx, x - 4.5, y - 1, 9, 1, WOOD); };
@@ -443,10 +476,22 @@ const pile = (ctx, P, time) => {
 // ledgers top-down, each dropping to the ground — and the poles sink away.
 const LEDGER = 15;
 const FALL = 0.13;                                  // a plank's drop to the ground
-const fallen = (ctx, x0, x1, y, ground, a, thick) => {
+const fallen = (ctx, x0, x1, y, ground, a, thick, wet = false) => {
   if (a < 0) return;
   if (a < FALL) { ledger(ctx, x0, x1, sn(y + (ground - 1.5 - y) * (a / FALL) ** 2), thick); return; }
-  puff(ctx, (x0 + x1) / 2, ground + 1, thick ? 4 : 3, seg(a, FALL, FALL + 0.2));
+  if (wet) splash(ctx, (x0 + x1) / 2, ground, seg(a, FALL, FALL + 0.2));
+  else puff(ctx, (x0 + x1) / 2, ground + 1, thick ? 4 : 3, seg(a, FALL, FALL + 0.2));
+};
+// on water a landing throws up foam, not dust: a broken ring, spreading
+const splash = (ctx, x, y, u) => {
+  if (u <= 0 || u >= 1) return;
+  const rx = 3 + 5 * eo(u), ry = rx * 0.4;
+  ctx.fillStyle = FOAM;
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    if (hash(i, Math.floor(u * 4)) < u * 0.6) continue;
+    ctx.fillRect(sn(x + Math.cos(a) * rx), sn(y + Math.sin(a) * ry), 0.5, 0.5);
+  }
 };
 const scaffold = (ctx, P, time, front) => {
   if (time < P.arrive || time >= P.down1) return;
@@ -462,11 +507,11 @@ const scaffold = (ctx, P, time, front) => {
   ctx.save();
   ctx.beginPath(); ctx.rect(P.x - 50, foot - 140, 100, 140.5); ctx.clip();
   ctx.translate(0, sn(sink));
-  const poles = front ? [[P.xl, 2], [P.xr, 3]] : [[P.xl, 0], [P.xr, 1]];
-  for (const [px, i] of poles) {
+  const poles = front ? [[P.xl, 2, 0], [P.xr, 3, 1]] : [[P.xl, 0, 2], [P.xr, 1, 3]];
+  for (const [px, i, w] of poles) {
     const u = seg(time, P.arrive + i * 0.04, P.arrive + i * 0.04 + 0.16);
     pole(ctx, px, foot, sn(H * Math.min(1, backOut(u, 1.2))));
-    if (P.water && !sink) { rect(ctx, px - 2.5, foot, 1.5, 0.5, FOAM); rect(ctx, px + 1.5, foot, 1.5, 0.5, FOAM); }
+    if (P.wet[w] && !sink) { rect(ctx, px - 2.5, foot, 1.5, 0.5, FOAM); rect(ctx, px + 1.5, foot, 1.5, 0.5, FOAM); }
   }
   const risen = H * Math.min(1, backOut(upL, 1.2));
   for (let k = 1; k <= nL; k++) {
@@ -479,17 +524,18 @@ const scaffold = (ctx, P, time, front) => {
   const pu = seg(time, P.arrive + 0.16, P.arrive + 0.24);
   if (pu > 0 && time < P.down0) {
     const dy = -3 * (1 - pu) ** 2;
-    if (front) ledger(ctx, P.xl - 2, P.xr + 8, sn(yP + 1.5 + dy), true);
+    if (front) ledger(ctx, P.plank[0], P.plank[1], sn(yP + 1.5 + dy), true);
     else ledger(ctx, P.xl, P.xr, sn(yP + 1.5 + dy - (P.fF - P.fB)));
   }
   ctx.restore();
   // what has let go drops to the ground (not sinking with the poles)
   if (time >= P.down0) {
-    if (front) fallen(ctx, P.xl - 2, P.xr + 8, yP + 1.5, P.fF, time - P.down0, true);
-    else fallen(ctx, P.xl, P.xr, yP + 1.5 - (P.fF - P.fB), P.fB, time - P.down0, false);
+    if (front) fallen(ctx, P.plank[0], P.plank[1], yP + 1.5, P.fF, time - P.down0, true, P.wet[0] || P.wet[1]);
+    else fallen(ctx, P.xl, P.xr, yP + 1.5 - (P.fF - P.fB), P.fB, time - P.down0, false, P.wet[2] || P.wet[3]);
+    const wet = front ? P.wet[0] || P.wet[1] : P.wet[2] || P.wet[3];
     for (let k = 1; k <= nL; k++) {
       if (front && k > 1) break;
-      fallen(ctx, P.xl, P.xr, foot - k * LEDGER, foot, time - letGo(k), false);
+      fallen(ctx, P.xl, P.xr, foot - k * LEDGER, foot, time - letGo(k), false, wet);
     }
   }
   // the ladder, up the right-hand side to the platform; it is carried off
@@ -558,23 +604,26 @@ const raiseBuild = (ctx, t, P, time, paint) => {
   scaffold(ctx, P, time, false);
   // the hall: pieces from the cut until they are all in, then the live hall
   // (its people held back) while the person comes, then all of it
+  // — at rest (REST) until the person is in, as the snapshots were taken
   if (time >= P.personAt) paint(t);
-  else if (time >= P.lay1 + 0.02) { paint({ ...t, noFolk: true }); person(ctx, P, time); }
+  else if (time >= P.lay1 + 0.02) { paint({ ...t, ...REST, noFolk: true }); person(ctx, P, time); }
   else if (P.cut) setPieces(ctx, P, time, seed);
   else if (time >= P.lay0) {
     // no cut to be had: the hall is revealed under the climbing platform
     ctx.save();
     ctx.beginPath(); ctx.rect(P.x - 60, P.platformY(time), 120, 200); ctx.clip();
-    paint({ ...t, noFolk: true });
+    paint({ ...t, ...REST, noFolk: true });
     ctx.restore();
   }
   pile(ctx, P, time);
   scaffold(ctx, P, time, true);
   // dust where the poles bite, and again as they go down
-  puff(ctx, P.xl - 1, P.fF + 1, 3, seg(time, P.arrive, P.arrive + 0.3));
-  puff(ctx, P.xr + 1, P.fF + 1, 3, seg(time, P.arrive + 0.04, P.arrive + 0.34));
-  puff(ctx, P.xl - 2, P.fF + 1, 3, seg(time, P.down0 + 0.16, P.down1));
-  puff(ctx, P.xr + 2, P.fF + 1, 3, seg(time, P.down0 + 0.19, P.down1));
+  // (foam, where the pole stands in water)
+  const bite = (x, w, u) => (P.wet[w] ? splash(ctx, x, P.fF, u) : puff(ctx, x, P.fF + 1, 3, u));
+  bite(P.xl - 1, 0, seg(time, P.arrive, P.arrive + 0.3));
+  bite(P.xr + 1, 1, seg(time, P.arrive + 0.04, P.arrive + 0.34));
+  bite(P.xl - 2, 0, seg(time, P.down0 + 0.16, P.down1));
+  bite(P.xr + 2, 1, seg(time, P.down0 + 0.19, P.down1));
   // a few splinters as the platform comes off
   chips(ctx, seed + 40, 4, P.down0, time, 1, P.x, P.platformY(P.down0) + 3, (P.xr - P.xl) * 0.9, P.fF + 3, { life: 0.26, cols: [WOOD_HI, WOOD, WOOD_LO] });
   // the person lands: a glint over them
@@ -740,24 +789,33 @@ let WARNED = false;
 export const drawRaising = (ctx, t, time, paint) => {
   const r = t.raised;
   if (!r || typeof document === "undefined") { paint(t); return; }
-  if (r.how === "build") {
-    // the build ends on the plain hall: its scaffold is gone by down1
+  // a build (or a build still running under a rework that came mid-way)
+  const b = buildOf(r);
+  let start = r.at;
+  if (b) {
+    let drawn = false;
     ctx.save();
     try {
-      const P = buildPlan(t);
+      const P = buildPlan(t, b);
       pumpCut(P, time);
-      if (!P || time >= P.down1 || time < r.at) paint(t);
-      else raiseBuild(ctx, t, P, time, paint);
+      if (P && time >= b.at && time < P.down1) {
+        // the build shows the form it was putting up; the rework waits
+        raiseBuild(ctx, b === r || !b.form ? t : { ...t, ...b.form }, P, time, paint);
+        drawn = true;
+      } else if (P) start = Math.max(r.at, P.down1);
     } catch (err) {
       if (!WARNED) { WARNED = true; console.error("raise failed", t.kind, err); }
       ctx.restore(); ctx.save();
       paint(t);
+      drawn = true;
     }
     ctx.restore();
-    return;
+    // the build ends on the plain hall: its scaffold is gone by down1
+    if (drawn) return;
+    if (b === r) { paint(t); return; }
   }
   const dur = RAISE_SECS[r.how] || 0.6;
-  const p = cl((time - r.at) / dur);
+  const p = cl((time - start) / dur);
   // the last moments are the hall itself, so the hand back is seamless
   if (p >= 0.97) { paint(t); return; }
   ctx.save();
