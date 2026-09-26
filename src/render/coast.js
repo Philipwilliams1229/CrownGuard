@@ -4,9 +4,13 @@
 //
 // - coastPixel (world.js's tone map calls it for every pixel of the board,
 //   and the apron may for the land beyond) lays the sea and the beach pixel
-//   by pixel: the waterline's lace of foam, the shallows over sand, a line of
-//   breakers with its shaded face, depth bands that wander, and the open
-//   sea's swell — short lit crests with a shade pixel under each; on the
+//   by pixel: the waterline's lace of foam, the shallows over sand with foam
+//   streaks strung along the shore, a line of breakers on a bar smoother than
+//   the shore (so the shallows widen in the bays) with its shaded face, depth
+//   bands that wander, a collar of white water hugging the castle's plinth
+//   and tower feet, and the open sea's swell — short lit crests with a shade
+//   pixel under each, a step brighter in sunlit patches, strung along the
+//   shore by arc length so they keep their shape off the headlands; on the
 //   beach, the dark wet line, a sheen band of wet sand holding the sky, the
 //   tideline's wrack, dry sand in drifts and wind ripples, and a ragged edge
 //   where the turf takes over. Everything is flat stepped tones on the art
@@ -17,12 +21,15 @@
 //   driftwood — each drawn pixel by pixel, the solid ones inked.
 // - drawShoreLive (every frame) runs the swash: a thin sheet of water with a
 //   foam front sliding up the wet sand and back, out of step along the shore,
-//   and a few glints winking on the swell. Filled axis-aligned rects on the
-//   art grid (a handful of fills a frame), so it stays crisp and cheap.
+//   and a few glints winking on the swell; it skips the rocks at the
+//   waterline. The sheet is one staircase outline per unbroken run, the foam
+//   axis-aligned rects on the art grid (neighbours merged): four fills a
+//   frame, crisp, ~0.35 ms on the dev box.
 
 import { W, H, PATH_HALF, WALL_W } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
-import { nearestOnPath } from "../engine/path.js";
+import { nearestOnPath, PTS } from "../engine/path.js";
+import { wallDrums, TOWER, GATE_TOWER_N, GATE_TOWER_S } from "../data/castle.js";
 import { COAST, coastLine, forestDepthAt } from "../data/terrain.js";
 import { lighten, darken, mix, rgb, rgba, hash, inkOutline, PX } from "./paint.js";
 
@@ -63,6 +70,14 @@ const slopes = (line) => {
   for (let i = 0; i < n; i++) { const s = line[Math.min(n - 1, i + 1)] - line[Math.max(0, i - 1)]; nf[i] = 1 / Math.sqrt(1 + s * s); }
   return nf;
 };
+// the distance along a line from its start (from U0), so marks strung along
+// the shore keep their length where it runs steep, off the headlands
+const arcOf = (line) => {
+  const n = line.length, a = new Float32Array(n);
+  a[0] = U0;
+  for (let i = 1; i < n; i++) a[i] = a[i - 1] + Math.hypot(0.5, line[i] - line[i - 1]);
+  return a;
+};
 const geo = () => {
   if (GEO && GEO.coast === COAST) return GEO;
   const along = COAST.edge === "top" || COAST.edge === "bottom", span = along ? W : H;
@@ -72,8 +87,24 @@ const geo = () => {
   // far out, the depth contours forget the shore's small wiggles: the deep
   // bands and the swell follow a waterline smoothed over ±45 units
   const lineS = smoothed(smoothed(line, 90), 90);
-  GEO = { coast: COAST, along, span, n, line, nf: slopes(line), lineS, nfS: slopes(lineS), seed: COAST.seed || 0, edge: COAST.edge };
+  // the bar the breakers stand on is smoother than the waterline (over ±12
+  // units): the shallows widen in the bays and narrow off the points
+  const lineM = smoothed(smoothed(line, 24), 24);
+  GEO = { coast: COAST, along, span, n, line, nf: slopes(line), lineS, nfS: slopes(lineS), lineM, arc: arcOf(line), arcS: arcOf(lineS), seed: COAST.seed || 0, edge: COAST.edge };
   return GEO;
+};
+// Where the water meets the castle, per half unit of y: the curtain's
+// plinth (x 745), or a tower's foot (x 740) where a tower stands in the sea.
+let FACES = null;
+const faces = () => {
+  const gy = PTS.length ? PTS[PTS.length - 1][1] : H / 2;
+  if (FACES && FACES.gy === gy && FACES.coast === COAST) return FACES.f;
+  const f = new Float32Array(H * 2 + 2).fill(745);
+  for (const foot of [...wallDrums(gy), gy + GATE_TOWER_N, gy + GATE_TOWER_S]) {
+    for (let y = Math.max(0, foot - TOWER.n); y <= Math.min(H, foot + TOWER.s + 2); y += 0.5) f[Math.round(y * 2)] = TOWER.x0 - 4;
+  }
+  FACES = { gy, coast: COAST, f };
+  return f;
 };
 const idx = (G, u) => { const i = Math.round((u - U0) * 2); return i < 0 ? 0 : i >= G.n ? G.n - 1 : i; };
 // (x, y) → [u along the edge, v in from it]
@@ -121,8 +152,8 @@ export const coastTones = (R) => {
 };
 
 // ---- the sea -----------------------------------------------------------------
-// The line of breakers: how far out it stands at u.
-const breakAt = (G, u) => 9.5 + 2 * Math.sin(u * 0.031 + G.seed) + 2.6 * (vn(u, 11.5, 23) - 0.5);
+// The line of breakers: how far out it stands at u (sample i), on its bar.
+const breakAt = (G, u, i) => Math.max(5.5, 9 + 2 * Math.sin(u * 0.031 + G.seed) + 2.6 * (vn(u, 11.5, 23) - 0.5) + (G.line[i] - G.lineM[i]) * 0.9);
 // where the breakers are spilling (foam) rather than still standing (a lit swell)
 const breaking = (u) => vn(u, 7.1, 6) > 0.3;
 // A mark on the open water at (u, dp): 0 none, 1 a swell's crest (its tail),
@@ -141,31 +172,41 @@ const swellMark = (G, u, dp, kd, cb, px) => {
   if (h > dens) return 0;
   const len = 0.38 + 0.34 * hash(r * 977 + s, 13);
   if (g > len) return 0;
-  const gg = g / len, a = (0.7 + 0.9 * hash(r * 977 + s, 14)) * 4 * gg * (1 - gg);
+  const gg = g / len, a = (0.4 + 0.65 * hash(r * 977 + s, 14)) * 4 * gg * (1 - gg);
   const ff = f - a;
   if (ff < 0 || ff >= px) return 0;
   const mid = gg > 0.22 && gg < 0.78;
   return mid && h < dens * 0.25 && gg > 0.42 && gg < 0.58 && kd < 60 ? 3 : mid ? 2 : 1;
 };
 
-const seaPx = (T, G, u, dp, kd, x, y, dpA, kdA, uA) => {
-  const R = T.ramp, px = T.px;
+const seaPx = (T, G, i, dp, kd, x, y, dpA, kdA, iA) => {
+  const R = T.ramp, px = T.px, u = G.arc[i], uA = G.arc[iA];
   // the waterline's own foam: a lip of uneven thickness, lacy to seaward
   const fl = vn(x, y, 2.6), lip = 0.45 + 1.1 * fl + 0.8 * vn(u, 2.5, 7);
   if (dp < lip) return dp < 0.5 || fl > 0.42 ? R[0] : R[1];
-  // the sea breaking against the foot of the castle wall
-  if (G.along) {
-    const wx = W - WALL_W - x, n = vn(x, y, 1.6);
-    if (wx < 0.6 + fl * 1.4 && n > 0.36) return n > 0.55 ? R[0] : R[1];
-    if (wx < 3 + fl * 2 && Math.abs(n - 0.5) < 0.07) return R[1];
+  // the sea slapping at the foot of the castle: a collar of white water
+  // hugging the stones with a ragged rim, clots of foam torn off it, a
+  // broken line of lace farther out and the aerated water between (a step
+  // lighter)
+  let wall = 99;
+  const wx = G.along && x > W - WALL_W - 14 ? faces()[Math.min(H * 2, Math.max(0, Math.round(y * 2)))] - x : -9;
+  if (wx > -3) {
+    const reach = 0.8 + 2.6 * vn(y, 3.1, 4.5);
+    const e = wx - reach - (vn(x, y, 1.8) - 0.5) * 2.4;
+    if (e < 0) return e > -px * 1.1 && vn(x, y + 9, 1.2) > 0.45 ? R[1] : R[0];
+    if (e < 2 && vn(x + 17, y, 1.4) > 0.64) return R[1];
+    const lace = reach + 3.4 + 1.8 * vn(y, 9.3, 5);
+    if (Math.abs(wx - lace) < px * 0.55 && vn(y, 5.5, 1.7) > 0.32) return R[1];
+    wall = wx - lace;
   }
-  const cb = breakAt(G, u), fb = dp - cb;
+  const cb = breakAt(G, u, i), fb = dp - cb;
   if (fb < 0) {
     // the breaking wave's face, just under its crest, in shade
-    const fbA = dpA - breakAt(G, uA);
+    const fbA = dpA - breakAt(G, uA, iA);
     if (fbA >= 0 && fbA < 2 * px && breaking(uA)) return R[4];
-    // a net of lace over the shallows, thinning out toward the breakers
-    const n = vn(x, y, 2.2), w = 0.01 + 0.055 * (1 - dp / cb);
+    // lace over the shallows: streaks strung along the shore, thinning out
+    // toward the breakers
+    const n = vn(u * 0.28, dp, 2.1), w = 0.012 + 0.06 * (1 - dp / cb);
     if (Math.abs(n - 0.5) < w) return R[1];
     return dp < 4.2 + (vn(x, y, 5) - 0.5) * 3 ? R[2] : R[3];
   }
@@ -177,12 +218,14 @@ const seaPx = (T, G, u, dp, kd, x, y, dpA, kdA, uA) => {
   // the open water: bands by depth, their edges wandering
   const wob = ((vn(x, y, 34) - 0.5) * 9 + (vn(x + 91, y, 60) - 0.5) * 8 + (vn(x, y + 57, 11) - 0.5) * 3.5) * Math.min(1, Math.max(0.2, fb / 12));
   const k = kd + wob;
-  const b = k < cb + 7 ? 3 : k < 25 ? 4 : k < 43 ? 5 : k < 66 ? 6 : 7;
-  const s = swellMark(G, u, dp, kd, cb, px);
+  let b = fb < 7 + (vn(x, y, 9) - 0.5) * 4 ? 3 : k < 25 ? 4 : k < 43 ? 5 : k < 66 ? 6 : 7;
+  if (wall < 0) b = Math.max(3, b - 1);
+  const s = swellMark(G, G.arcS[i], dp, kd, cb, px);
   if (s === 3) return R[0];
-  if (s) return R[Math.max(1, b - s)];
+  // in the sunlit patches the crests catch a step more light
+  if (s) return R[Math.max(1, b - s - (vn(x + 300, y, 46) > 0.64 ? 1 : 0))];
   // the pixel under a swell's crest is its shade
-  if (swellMark(G, uA, dpA, kdA, breakAt(G, uA), px) >= 2) return R[b + 1];
+  if (swellMark(G, G.arcS[iA], dpA, kdA, breakAt(G, uA, iA), px) >= 2) return R[b + 1];
   return R[b];
 };
 
@@ -190,15 +233,15 @@ const seaPx = (T, G, u, dp, kd, x, y, dpA, kdA, uA) => {
 const wetAt = (G, u) => 5.4 + 3.2 * (vn(u, 9.9, 26) - 0.5) + 0.8 * Math.sin(u * 0.07 + G.seed);
 const tideAt = (G, u) => wetAt(G, u) + 2.4 + 1.6 * (vn(u, 1.1, 14) - 0.5) + 0.8 * Math.sin(u * 0.11 + G.seed * 1.7);
 
-const beachPx = (T, G, u, dp, x, y) => {
+const beachPx = (T, G, u, i, dp, x, y) => {
   const px = T.px;
   // the swash's last line, then the sheen of sand still holding the sky
   if (dp > -px * 1.01) return T.wetDk;
   const sh = 2.2 + (vn(x, y, 4) - 0.5) * 1.8;
   if (dp > -sh) {
-    // glints of sky in short streaks along the shore
-    const run = Math.floor(u / 2.5);
-    return hash(run, Math.floor(dp / px) + 40) < 0.14 ? T.sheenLt : T.sheen;
+    // streaks of sky along the shore, thickest by the water
+    const row = Math.floor(dp / px), q = (G.arc[i] + row * 3.1) / 3.4, run = Math.floor(q);
+    return G.nf[i] > 0.7 && q - run < 0.8 && hash(run, row + 40) < 0.34 * (1 + dp / sh) ? T.sheenLt : T.sheen;
   }
   const wetW = wetAt(G, u);
   const we = -wetW + (vn(x, y, 3) - 0.5) * 1.6;
@@ -207,8 +250,10 @@ const beachPx = (T, G, u, dp, x, y) => {
   const td = dp + tideAt(G, u);
   const cx = Math.floor(x / 1.5), cy = Math.floor(y / 1.5), wj = hash(cx * 71 + cy, 92) < 0.3 ? px : 0;
   if (td - wj <= px && td - wj > -px && vn(x, y, 2.3) + (hash(cx * 71 + cy, 91) - 0.5) * 0.45 > 0.6) return td - wj > 0 ? T.wrackLt : T.wrack;
-  // dry sand: broad drifts, and wind ripples in patches
-  const d = vn(x, y, 19) + (vn(x, y, 6) - 0.5) * 0.3;
+  // dry sand: drifts drawn out along the shore by the wind, ragged at the
+  // edges, and wind ripples in patches
+  const a = G.arc[i];
+  const d = 0.62 * vn(a * 0.42 + dp * 0.3, dp - a * 0.05, 8) + 0.38 * vn(x + 53, y * 1.4 - x * 0.3, 12) + (vn(x, y, 4.5) - 0.5) * 0.3;
   const base = d > 0.62 ? T.dryLt : d < 0.3 ? T.dryDk : T.dry;
   if (vn(x, y, 27) > 0.55) {
     const rq = (dp * 0.9 + x * 0.1 + 0.9 * Math.sin(x * 0.19 + y * 0.05)) / 2.4, row = Math.floor(rq);
@@ -237,7 +282,7 @@ export const coastPixel = (T, sd, t, dz, sandW, x, y) => {
     // the pixel above, for the shade under a crest
     const [uA, vA] = toUV(G.edge, x, y - px), iA = idx(G, uA);
     const dpA = (G.line[iA] - vA) * G.nf[iA], kdA = deep(dpA, (G.lineS[iA] - vA) * G.nfS[iA]);
-    return seaPx(T, G, u, dp, kd, x, y, dpA, kdA, uA);
+    return seaPx(T, G, i, dp, kd, x, y, dpA, kdA, iA);
   }
   // the beach's landward edge stays near the terrain's sand line (scatter
   // and decor keep off inSea(sand + 6)), frayed by blades of turf
@@ -250,7 +295,7 @@ export const coastPixel = (T, sd, t, dz, sandW, x, y) => {
   // a bank of earth under the turf, where the camera sees its face (the
   // turf stands north of the beach)
   if (G.edge === "bottom" && sd < edge + 1.6) return sd < edge + 0.6 ? T.bank : T.bankLt;
-  return beachPx(T, G, u, sd * nf, x, y);
+  return beachPx(T, G, u, i, sd * nf, x, y);
 };
 
 // ---- painting on the art grid ---------------------------------------------------
@@ -361,7 +406,7 @@ const driftSprite = (len, seed, wood) => {
   for (let i = 0; i < len; i++) {
     const f = i / (len - 1);
     const yc = 9 + bend * 4 * f * (1 - f) + drop * f;
-    const th = Math.round(3.4 + 1.8 * (1 - f) + (hash(Math.floor(i / 3), seed + 9) < 0.25 ? 1 : 0) + (i < 3 ? 1.5 : 0));
+    const th = Math.round(4 + 1.4 * (1 - f) + (hash(Math.floor(i / 3), seed + 9) < 0.25 && i < len - 3 ? 1 : 0) + (i < 3 ? 1.5 : 0));
     const top = Math.round(yc - th / 2);
     for (let r = 0; r < th; r++) {
       let col = r === 0 ? hi : r === 1 ? lt : r === th - 1 ? dk : md;
@@ -369,6 +414,8 @@ const driftSprite = (len, seed, wood) => {
       R.put(x0 + i, top + r, col);
     }
     belly.push([x0 + i, top + th]);
+    // the sawn end: pale end grain round a darker heart
+    if (i === len - 1) for (let r = 0; r < th; r++) R.put(x0 + i + 1, top + r, r === Math.floor(th / 2) ? gr : r === th - 1 ? md : hi);
   }
   // snapped roots flaring off the thick end
   const ry = Math.round(9 - 1);
@@ -380,6 +427,35 @@ const driftSprite = (len, seed, wood) => {
   const by = Math.round(9 + bend * 4 * bf * (1 - bf) + drop * bf - 2);
   for (let k = 1; k <= 4; k++) { R.put(x0 + bi + Math.floor(k * 0.7), by - k, k < 4 ? lt : hi); R.put(x0 + bi + 1 + Math.floor(k * 0.7), by - k, md); }
   return { cv: inkOutline(R.done()), w, h, belly };
+};
+
+// Where the rocks stand, once per coast: out past the breakers, and at the
+// waterline (the live swash leaves those alone, so it never washes over one).
+const rockSpots = (G) => {
+  if (G.spots) return G.spots;
+  const kind = land(REALM);
+  const at = (u, dp) => { const i = idx(G, u); return toXY(G.edge, u, G.line[i] - dp / G.nf[i]); };
+  const onBoard = (x, y, m) => x > m && y > m && x < W - WALL_W - m && y < H - m;
+  const clearOf = (x, y, m) => nearestOnPath(x, y).d > PATH_HALF + m && forestDepthAt(x, y) < -m;
+  const seed = Math.floor(G.seed * 1000);
+  const rocks = [];
+  for (let k = 0; k < 40 && rocks.length < 3; k++) {
+    const u = 40 + hash(seed + k, 61) * (G.span - 80), dp = 27 + hash(seed + k, 62) * 22;
+    const [x, y] = at(u, dp);
+    if (!onBoard(x, y, 10) || G.line[idx(G, u)] - dp / G.nf[idx(G, u)] < 8) continue;
+    if (rocks.some((r) => Math.abs(r.u - u) < 110)) continue;
+    rocks.push({ u, x, y, k });
+  }
+  const shoreRocks = [];
+  for (let k = 0; k < 40 && shoreRocks.length < (kind === "iron" ? 3 : 2); k++) {
+    const u = 60 + hash(seed + k, 91) * (G.span - 120);
+    const [x, y] = at(u, 1.2);
+    if (!onBoard(x, y, 14) || !clearOf(x, y, 18) || G.line[idx(G, u)] < 8) continue;
+    if (shoreRocks.some((r) => Math.abs(r.u - u) < 130) || rocks.some((r) => Math.abs(r.u - u) < 40)) continue;
+    shoreRocks.push({ u, x, y, k });
+  }
+  G.spots = { rocks, shoreRocks };
+  return G.spots;
 };
 
 // ---- the things on the shore -----------------------------------------------------
@@ -404,14 +480,7 @@ export function paintShore(ctx) {
   };
 
   // ---- rocks awash, out past the breakers (clear of the skiffs' lane) ----
-  const rocks = [];
-  for (let k = 0; k < 40 && rocks.length < 3; k++) {
-    const u = 40 + hash(seed + k, 61) * (G.span - 80), dp = 27 + hash(seed + k, 62) * 22;
-    const [x, y] = at(u, dp);
-    if (!onBoard(x, y, 10) || G.line[idx(G, u)] - dp / G.nf[idx(G, u)] < 8) continue;
-    if (rocks.some((r) => Math.abs(r.u - u) < 110)) continue;
-    rocks.push({ u, x, y, k });
-  }
+  const S = rockSpots(G), rocks = S.rocks;
   for (const r of rocks) {
     const big = 7 + Math.floor(hash(r.k, 63) * 5);
     // a big stone, a lesser one leaning on it, sometimes a third; back to front
@@ -421,14 +490,7 @@ export function paintShore(ctx) {
   }
 
   // ---- rocks at the waterline, a tide pool left on the sand beside each ----
-  const shoreRocks = [];
-  for (let k = 0; k < 40 && shoreRocks.length < (kind === "iron" ? 3 : 2); k++) {
-    const u = 60 + hash(seed + k, 91) * (G.span - 120);
-    const [x, y] = at(u, 1.2);
-    if (!onBoard(x, y, 14) || !clearOf(x, y, 18) || G.line[idx(G, u)] < 8) continue;
-    if (shoreRocks.some((r) => Math.abs(r.u - u) < 130) || rocks.some((r) => Math.abs(r.u - u) < 40)) continue;
-    shoreRocks.push({ u, x, y, k });
-  }
+  const shoreRocks = S.shoreRocks;
   for (const r of shoreRocks) {
     // the pool: a far bank in shade with its shadow on the water, a lit
     // near lip, the sky in it and a hank of weed
@@ -492,7 +554,7 @@ export function paintShore(ctx) {
   }
 
   // ---- driftwood, high on the dry sand ----
-  const woodCol = kind === "fen" ? "#4a4038" : kind === "iron" ? "#948878" : "#a48e72";
+  const woodCol = kind === "fen" ? "#4a4038" : kind === "iron" ? "#9a9386" : "#ad9e86";
   let logs = 0;
   for (let k = 0; k < 20 && logs < 2; k++) {
     const u = 110 + hash(seed + k, 67) * (G.span - 240);
@@ -543,8 +605,12 @@ const liveGeo = () => {
   if (LIVE && LIVE.coast === COAST && LIVE.id === REALM.id) return LIVE;
   const G = geo(), T = coastTones(REALM), X = T.hex;
   const us = [], vs = [], reach = [], ph = [], hs = [];
+  // the rocks at the waterline stand up the screen from it: unless the sea
+  // lies up the screen too, the swash would run over them, so it skips them
+  const skip = G.edge === "top" ? [] : rockSpots(G).shoreRocks.map((r) => [r.u - 7, r.u + 10]);
   for (let u = 0; u < G.span; u++) {
     if (G.along && u > W - WALL_W + 2) break;
+    if (skip.some(([a, b]) => u >= a && u <= b)) continue;
     const i = idx(G, u + 0.5), v = G.line[i];
     if (v < 1.5) continue;
     us.push(u); vs.push(v);
@@ -573,13 +639,14 @@ export function drawShoreLive(ctx, g) {
   const L = liveGeo(), t = g.time || 0, e = L.edge, n = L.n;
   const hp = 1 / PX;
   const sn = (v) => Math.round(v * PX) / PX;
-  // a rect in (u, v) space: [u, u + du) x [v0, v1)
-  const rect = (path, u, du, v0, v1) => {
+  // a rect in (u, v) space: [u, u + du) x [v0, v1); a column the same as the
+  // one before it just widens that one (neighbours often agree on the art
+  // grid), which keeps the fills to a few hundred rects
+  const rect = (arr, u, du, v0, v1) => {
     if (v1 - v0 < hp * 0.5) return;
-    if (e === "top") path.push(u, v0, du, v1 - v0);
-    else if (e === "bottom") path.push(u, H - v1, du, v1 - v0);
-    else if (e === "left") path.push(v0, u, v1 - v0, du);
-    else path.push(W - v1, u, v1 - v0, du);
+    const m = arr.length - 4;
+    if (m >= 0 && arr[m + 2] === v0 && arr[m + 3] === v1 && arr[m] + arr[m + 1] === u) { arr[m + 1] += du; return; }
+    arr.push(u, du, v0, v1);
   };
   const sheet = [], foam = [], lace = [];
   for (let k = 0; k < n; k++) {
@@ -592,7 +659,9 @@ export function drawShoreLive(ctx, g) {
     const v = L.vs[k], front = sn(v + f * L.reach[k]), base = sn(v) - hp;
     if (front <= base + hp) continue;
     const u = L.us[k];
-    rect(sheet, u, 1, base, front);
+    // the sheet: one staircase outline per unbroken run of columns
+    if (sheet.length && sheet[sheet.length - 1] === u) sheet.push(base, front, u + 1);
+    else sheet.push(NaN, u, base, front, u + 1);
     // the foam front breaks up as the sheet drains
     const drain = rise ? 0 : (q - 0.3) / 0.7;
     if (L.hs[k] < drain * 0.85) continue;
@@ -604,10 +673,36 @@ export function drawShoreLive(ctx, g) {
     if (!arr.length) return;
     ctx.fillStyle = style;
     ctx.beginPath();
-    for (let i = 0; i < arr.length; i += 4) ctx.rect(arr[i], arr[i + 1], arr[i + 2], arr[i + 3]);
+    for (let i = 0; i < arr.length; i += 4) {
+      const u = arr[i], du = arr[i + 1], v0 = arr[i + 2], v1 = arr[i + 3];
+      if (e === "top") ctx.rect(u, v0, du, v1 - v0);
+      else if (e === "bottom") ctx.rect(u, H - v1, du, v1 - v0);
+      else if (e === "left") ctx.rect(v0, u, v1 - v0, du);
+      else ctx.rect(W - v1, u, v1 - v0, du);
+    }
     ctx.fill();
   };
-  fill(sheet, L.sheet);
+  // the sheet's runs: fronts left to right, then the bases back
+  if (sheet.length) {
+    ctx.fillStyle = L.sheet;
+    ctx.beginPath();
+    const pt = (u, v) => (e === "top" ? ctx.lineTo(u, v) : e === "bottom" ? ctx.lineTo(u, H - v) : e === "left" ? ctx.lineTo(v, u) : ctx.lineTo(W - v, u));
+    for (let i = 0; i < sheet.length;) {
+      // a run: NaN, u0, then (base, front, u + 1) per column
+      const s0 = i + 2;
+      let j = s0;
+      while (j < sheet.length && !Number.isNaN(sheet[j])) j += 3;
+      const u0 = sheet[i + 1];
+      const [mx, my] = e === "top" ? [u0, sheet[s0]] : e === "bottom" ? [u0, H - sheet[s0]] : e === "left" ? [sheet[s0], u0] : [W - sheet[s0], u0];
+      ctx.moveTo(mx, my);
+      let uu = u0;
+      for (let k = s0; k < j; k += 3) { pt(uu, sheet[k + 1]); pt(sheet[k + 2], sheet[k + 1]); uu = sheet[k + 2]; }
+      for (let k = j - 3; k >= s0; k -= 3) { pt(sheet[k + 2], sheet[k]); pt(sheet[k + 2] - 1, sheet[k]); }
+      ctx.closePath();
+      i = j;
+    }
+    ctx.fill();
+  }
   fill(lace, L.lace);
   fill(foam, L.foam);
   // glints on the swell: a pixel, and at its brightest a small cross

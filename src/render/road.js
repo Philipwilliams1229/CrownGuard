@@ -8,21 +8,29 @@
 //
 // The road is painted PIXEL BY PIXEL, straight into the layer's art pixels,
 // like the turf's tone map: every pixel near the road knows how far it lies
-// from the centreline, and that distance, a few noise fields and the sun
-// decide its tone. Nothing is stroked, so no edge is a ruled vector curve:
+// from the centreline (and on which side), and that distance, a few noise
+// fields and the sun decide its tone. Nothing is stroked, so no edge is a
+// ruled vector curve:
 //   - the edge is bitten by the grass (noise on the road's half-width), with
 //     a 1-2 px bank face — shaded where the edge faces the sun (the bank
 //     throws a shadow into the road there), lit on the far side — and a
-//     band of worn, trampled turf beyond it;
-//   - the dirt is 5 stepped tones: a paler trodden crown, twin cart ruts
-//     that come and go, damp dark drifts (darker near water), a pixel grain;
+//     band of worn, trampled turf beyond it. The inside of every bend is
+//     worn round (a fillet between the two legs' inner edges), as walkers
+//     cut the corner;
+//   - the dirt is 5 stepped tones: a paler trodden crown, damp dark drifts
+//     (darker near water), a pixel grain, and twin cart ruts drawn as crisp
+//     grooves (a dark wall on the sun's side, a lit lip on the far one),
+//     each rut breaking off and starting again on its own, and cutting in
+//     toward the inside of a bend;
 //   - then hand-placed pixel detail: pebbles and stones with a contact
-//     shadow down-right, puddles in the ruts, faint foot and hoof prints,
-//     roots where trees stand close, grass tufts overhanging the edge.
+//     shadow down-right, lobed puddles lying in the ruts, faint foot and hoof
+//     prints, roots splaying from trees that stand close, grass tufts in
+//     clumps along the edge and on the hump between the ruts.
 // Each old realm reads its own palette (REALM.PATH_*) and look: frostfang's
-// packed snow track (sled runners, ice, blue shadows), ember's cinder road
-// (cracks, clinker, a few live coals), mistmoor's peat track (puddles,
-// rushes). The Marches get only the verge (their paving covers the rest).
+// packed snow track (sled runners, ice, snow lumps on the lee edge),
+// ember's cinder road (lit cracks, clinker, a few live coals), mistmoor's
+// peat track (puddles, rushes). The Marches get only the verge (their paving
+// covers the rest).
 //
 // paintRoadStrip(ctx, pts, { x0, y0, k }) paints the same road along any
 // polyline into any canvas whose pixel (i, j) is world (x0 + i/k, y0 + j/k):
@@ -103,6 +111,50 @@ const measure = (pts) => {
   };
   return { segs, total: acc, at };
 };
+// the signed turn from direction a to direction b (> 0: toward the march's right)
+const turnOf = (ax, ay, bx, by) => Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+
+// The inside of each bend, worn round. The path's corners are short curves
+// much tighter than the road is wide, so the two legs' inner edges meet in a
+// sharp notch; each corner gets a fillet of radius r tangent to both edges.
+// A corner is a run of short segments turning one way between two legs.
+const FILLET_R = 20;
+const bendFillets = (segs, half, r) => {
+  const out = [];
+  const ang = (a, b) => turnOf(a.ux, a.uy, b.ux, b.uy);
+  let i = 0;
+  while (i < segs.length - 1) {
+    const t0 = ang(segs[i], segs[i + 1]);
+    if (Math.abs(t0) < 0.004) { i++; continue; }
+    let k = i + 1;
+    while (k < segs.length - 1 && segs[k].len < 14) {
+      const tk = ang(segs[k], segs[k + 1]);
+      if (Math.sign(tk) !== Math.sign(t0) || Math.abs(tk) < 0.004) break;
+      k++;
+    }
+    const A = segs[i], B = segs[k], th = ang(A, B);
+    i = k;
+    if (Math.abs(th) < 0.35 || Math.abs(th) > 2.3) continue;
+    const sg = Math.sign(th);
+    // the inner edges: each leg's line pushed half a road toward the inside
+    const m1x = -A.uy * sg, m1y = A.ux * sg, m2x = -B.uy * sg, m2y = B.ux * sg;
+    const p1x = A.x1 + m1x * half, p1y = A.y1 + m1y * half, p2x = B.x1 + m2x * half, p2y = B.y1 + m2y * half;
+    const det = A.uy * B.ux - A.ux * B.uy;
+    if (Math.abs(det) < 1e-6) continue;
+    const wx = p2x - p1x, wy = p2y - p1y, t = (wy * B.ux - wx * B.uy) / det;
+    const cx = p1x + A.ux * t, cy = p1y + A.uy * t;           // the notch
+    if (Math.hypot(cx - A.x2, cy - A.y2) > half * 3) continue;
+    const cc = 1 + m1x * m2x + m1y * m2y;
+    const fx = cx + r * (m1x + m2x) / cc, fy = cy + r * (m1y + m2y) / cc;   // the fillet's centre
+    const t1x = fx - r * m1x, t1y = fy - r * m1y, t2x = fx - r * m2x, t2y = fy - r * m2y;
+    out.push({
+      cx, cy, fx, fy, m1x, m1y, m2x, m2y, u1x: A.ux, u1y: A.uy, u2x: B.ux, u2y: B.uy, t1x, t1y, t2x, t2y,
+      x0: Math.min(cx, fx, t1x, t2x) - 1, x1: Math.max(cx, fx, t1x, t2x) + 1,
+      y0: Math.min(cy, fy, t1y, t2y) - 1, y1: Math.max(cy, fy, t1y, t2y) + 1,
+    });
+  }
+  return out;
+};
 
 // ---- each realm's road -------------------------------------------------
 // style: "dirt" (the Greenwood), "snow", "ash", "peat", "fen" (bone-dust
@@ -117,34 +169,41 @@ const lookOf = (R) => {
     tones: [mix(dk, edge, 0.3), mix(main, dk, 0.5), main, lighten(main, 0.11), lighten(main, 0.22)],
     bankDk: mix(dk, edge, 0.6), bankMid: mix(dk, edge, 0.3), bankLt: lighten(mix(main, R.GRASS_LT, 0.25), 0.26),
     worn: mix(mix(R.GRASS_DK, R.GRASS, 0.5), dk, 0.42), wornT: 0.5,
-    crown: 0.1, ruts: 1, drift: 1, bias: 0, grain: 1,
-    grassCrown: true, puddles: 3, prints: 6, roots: true, tufts: 1, pebbles: 1,
+    crown: 0.1, drift: 1, bias: 0, grain: 1,
+    // ruts: how much of the road they run along (1 = about half), and
+    // whether the groove's floor sinks a tone (the fen's pale dust: walls only)
+    ruts: 1, rutFloor: 1,
+    grassCrown: true, puddles: 3, prints: 6, roots: true, tufts: 1, pebbles: 1, sky: 0.25,
     pebble: R.PEBBLE, stone: mix(dk, "#8d8478", 0.45),
     tuft: [darken(R.GRASS_DK, 0.18), R.GRASS, lighten(R.GRASS_LT, 0.12)], tuftH: 1,
     water: R.water || { deep: "#3a6a7c", edge: "#4a8094", shine: "#8cc4d8" },
   };
   if (style === "snow") {
+    // packed snow: nearly every pixel one of two pale tones; the darker ones
+    // are kept for the bank's shadow and the grooves
     const snow = mix(R.GRASS_LT, "#f6fafc", 0.5);
     L.tones = [mix(dk, edge, 0.28), mix(main, dk, 0.55), main, mix(main, R.GRASS, 0.45), mix(main, snow, 0.62)];
     L.bankDk = mix(edge, dk, 0.35); L.bankMid = mix(dk, main, 0.4); L.bankLt = mix(snow, "#ffffff", 0.4);
     L.worn = snow; L.wornT = 0.55;
-    L.crown = 0.06; L.ruts = 0.55; L.grassCrown = false; L.puddles = 3; L.prints = 9; L.roots = false; L.pebbles = 0.3;
+    L.crown = 0.08; L.ruts = 0; L.grassCrown = false; L.puddles = 3; L.prints = 9; L.roots = false; L.pebbles = 0.3;
     L.stone = mix(edge, "#6a7280", 0.5); L.pebble = mix(R.PEBBLE, edge, 0.35);
-    L.tuft = null; L.lumps = [mix(edge, main, 0.35), snow, "#fbfdff"]; L.grain = 0.55; L.drift = 1.35; L.bias = 0.02;
+    L.tuft = null; L.lumps = [mix(edge, main, 0.35), snow, "#fbfdff"]; L.grain = 0.45; L.drift = 0.5; L.bias = 0.1;
   } else if (style === "ash") {
-    L.tones = [mix(dk, edge, 0.5), mix(main, dk, 0.6), main, lighten(main, 0.09), lighten(main, 0.2)];
-    L.bankDk = mix(edge, dk, 0.25); L.bankMid = mix(dk, edge, 0.5); L.bankLt = lighten(main, 0.16);
+    // cinders, warmed a touch in the light so the road isn't flat concrete
+    const warm = "#c8a080";
+    L.tones = [mix(dk, edge, 0.5), mix(main, dk, 0.6), mix(main, warm, 0.06), mix(lighten(main, 0.09), warm, 0.13), mix(lighten(main, 0.2), warm, 0.16)];
+    L.bankDk = mix(edge, dk, 0.25); L.bankMid = mix(dk, edge, 0.5); L.bankLt = mix(lighten(main, 0.16), warm, 0.15);
     L.worn = mix(R.GRASS_DK, edge, 0.4); L.wornT = 0.55;
-    L.crown = 0.07; L.ruts = 0.6; L.grassCrown = false; L.puddles = 0; L.prints = 3; L.roots = false; L.pebbles = 1.2;
-    L.stone = mix(edge, "#3a3236", 0.3); L.pebble = mix(R.PEBBLE, main, 0.3); L.grain = 1.6;
+    L.crown = 0.07; L.ruts = 0.55; L.grassCrown = false; L.puddles = 0; L.prints = 3; L.roots = false; L.pebbles = 1;
+    L.stone = mix(edge, "#3a3236", 0.3); L.pebble = mix(R.PEBBLE, main, 0.3); L.grain = 1.3;
     L.tuft = [mix(R.GRASS_DK, "#2a2224", 0.3), "#6e6050", "#8e7e66"]; L.tuftH = 0.8;
     L.cracks = true;
   } else if (style === "peat") {
-    L.bias = -0.04; L.puddles = 5; L.prints = 8; L.pebbles = 0.6;
+    L.bias = -0.04; L.puddles = 5; L.prints = 8; L.pebbles = 0.6; L.sky = 0.6;
     L.water = { deep: "#262a22", edge: "#4e5242", shine: "#9aac9a" };
     L.tuft = [darken(R.TUFT, 0.25), R.GRASS_DK, lighten(R.GRASS_LT, 0.18)]; L.tuftH = 1.35;
   } else if (style === "fen") {
-    L.puddles = 0; L.prints = 4; L.pebbles = 0.5; L.grassCrown = false;
+    L.puddles = 0; L.prints = 4; L.pebbles = 0.5; L.grassCrown = false; L.rutFloor = 0; L.ruts = 0.8;
     L.tuft = [darken(R.TUFT, 0.2), R.GRASS_LT, mix(R.GRASS_LT, "#b8b088", 0.5)]; L.tuftH = 1.2;
   } else if (style === "paved") {
     L.worn = mix(mix(R.GRASS_DK, R.GRASS, 0.4), dk, 0.3); L.wornT = 0.42;
@@ -160,7 +219,8 @@ const lookOf = (R) => {
 // ctx's canvas pixel (i, j) covers world (x0 + i/k .. x0 + (i+1)/k, ...).
 // o.extStart / o.extEnd run the first / last segment on past its end (the
 // road leaving by a board edge); o.water: damper earth near rivers and ponds;
-// o.bridges: [{ d0, d1 }] along the road, kept clear of puddles and pebbles.
+// o.bridges: [{ d0, d1 }] along the road, kept clear of puddles and pebbles;
+// o.roots: roots from the board's trees (the board's own road only).
 export function paintRoadStrip(ctx, pts, o = {}) {
   if (!pts || pts.length < 2) return;
   const R = REALM, L = lookOf(R);
@@ -172,21 +232,33 @@ export function paintRoadStrip(ctx, pts, o = {}) {
   const HALF = PATH_HALF, REACH = HALF + 11;
   const seed = (R.seed | 0) % 100000;
   const nEdge = noiseOf(seed + 11, 6.5), nWand = noiseOf(seed + 13, 46), nVerge = noiseOf(seed + 17, 9);
-  const nDrift = noiseOf(seed + 19, 38), nMid = noiseOf(seed + 23, 12), nRutC = noiseOf(seed + 29, 60), nRutS = noiseOf(seed + 31, 90);
+  const nDrift = noiseOf(seed + 19, 38), nMid = noiseOf(seed + 23, 12), nRutC = noiseOf(seed + 29, 60);
+  const nRutA = noiseOf(seed + 31, 64), nRutB = noiseOf(seed + 41, 64), nRutF = noiseOf(seed + 47, 17), nRutW = noiseOf(seed + 53, 11);
   const paved = L.style === "paved";
   const T = L.tonesC, ap = 1 / k, ik = ap;
   const BIAS = L.bias - L.crown * 0.45 + 0.5, CROWN = L.crown, GR0 = 0.045 * L.grain, GR1 = 1 - 0.022 * L.grain, WATER = !!o.water;
+  const RUT_T = 0.49 + (1 - L.ruts) * 0.25, RUT_F = L.rutFloor;
   // what changes along the road, sampled every STEP at the centreline: its
-  // wander, where the ruts run and how deep, how damp it is (near a river or
-  // a pond). Sampled from 2-D noise at the centreline, so a strip painted on
-  // past the board (the apron) carries on from the same fields.
+  // wander, where the cart ran (its gauge, how far it strayed from the
+  // middle, cutting in toward the inside of a bend), whether each rut runs
+  // there, and how damp it is (near a river or a pond). Sampled from 2-D
+  // noise at the centreline, so a strip painted on past the board (the
+  // apron) carries on from the same fields.
   const STEP = 2, nS = Math.ceil((M.total + extS + extE) / STEP) + 2;
-  const wand = new Float32Array(nS), rutC = new Float32Array(nS), rutS = new Float32Array(nS), wet = new Float32Array(nS);
+  const wand = new Float32Array(nS), gauge = new Float32Array(nS), lat = new Float32Array(nS);
+  const rutL = new Float32Array(nS), rutR = new Float32Array(nS), wobL = new Float32Array(nS), wobR = new Float32Array(nS), bend = new Float32Array(nS), wet = new Float32Array(nS);
   for (let i = 0; i < nS; i++) {
-    const p = M.at(i * STEP - extS);
+    const al = i * STEP - extS, p = M.at(al);
+    const pb = M.at(Math.max(-extS, al - 18)), pf = M.at(Math.min(M.total + extE, al + 18));
+    const tn = turnOf(pb.ux, pb.uy, pf.ux, pf.uy), bn = smooth(Math.abs(tn) / 1.1);
     wand[i] = (nWand(p.x, p.y) - 0.5) * 2.4;
-    rutC[i] = 11.5 + (nRutC(p.x, p.y) - 0.5) * 4.2;
-    rutS[i] = smooth((nRutS(p.x, p.y) - 0.36) / 0.26) * L.ruts;
+    gauge[i] = 11.5 + (nRutC(p.x + 300, p.y) - 0.5) * 1.4;
+    lat[i] = (nRutC(p.x, p.y) - 0.5) * 5 + Math.sign(tn) * 6 * bn;
+    bend[i] = bn;
+    // (each wheel wobbles a little in its rut)
+    wobL[i] = (nRutW(p.x, p.y) - 0.5) * 1.6; wobR[i] = (nRutW(p.x + 157, p.y + 61) - 0.5) * 1.6;
+    rutL[i] = nRutA(p.x, p.y) * 0.62 + nRutF(p.x, p.y) * 0.38 - 0.3 * bn;
+    rutR[i] = nRutB(p.x, p.y) * 0.62 + nRutF(p.x + 211, p.y - 97) * 0.38 - 0.3 * bn;
     if (o.water && (i % 3 === 0 || i === nS - 1)) {
       let w = 0;
       if (RIVERS.length) w = inRiver(p.x, p.y, 8) ? 1 : inRiver(p.x, p.y, 26) ? 0.65 : inRiver(p.x, p.y, 48) ? 0.3 : 0;
@@ -202,9 +274,13 @@ export function paintRoadStrip(ctx, pts, o = {}) {
   const onRoad = paved ? null : new Uint8Array(PW * PH);   // for the detail pass
   const BAND = 48;
   const bd = new Float32Array(PW * BAND), bqx = new Float32Array(PW * BAND), bqy = new Float32Array(PW * BAND), bal = new Float32Array(PW * BAND);
+  const bsg = new Int8Array(PW * BAND);   // which side of the centreline: +1 right of the march
   const last = segs.length - 1, R2 = REACH * REACH, EDGE_IN = HALF - 4.2;
+  // (paved: the paving covers everything this deep, so it's never measured)
+  const DEEP = HALF - 2, PAV2 = (HALF - 0.4) * (HALF - 0.4);
   const gravel = L.gravel ? L.gravel.map(rgb) : null;
   const RT = rndTable();
+  const FIL = paved || o.fillets === false ? [] : bendFillets(segs, HALF, FILLET_R), FR = FILLET_R;
   // the dirt's drifts (two noise fields) on a lattice one world unit apart,
   // filled as the road reaches it and read bilinearly
   const DX0 = Math.floor(x0) - 1, DY0 = Math.floor(y0) - 1, DW = Math.ceil(PW / k) + 4, DH = Math.ceil(PH / k) + 4;
@@ -254,23 +330,52 @@ export function paintRoadStrip(ctx, pts, o = {}) {
         if (X0 > X1) continue;
         if (X0 < bx0) bx0 = X0;
         if (X1 > bx1) bx1 = X1;
+        // paved: the run of this row lying deep inside the road beside this
+        // segment is all paving — mark it, don't measure it
+        let I0 = X1 + 1, I1 = X1;
+        if (paved) {
+          let ia = -1e9, ib = 1e9, ok = true;
+          if (Math.abs(uy) > 1e-6) { const p = (y * ux - DEEP) / uy, q = (y * ux + DEEP) / uy; ia = Math.min(p, q); ib = Math.max(p, q); }
+          else if (Math.abs(y * ux) >= DEEP) ok = false;
+          if (Math.abs(ux) > 1e-6) { const p = -y * uy / ux, q = (s.len - y * uy) / ux; ia = Math.max(ia, Math.min(p, q)); ib = Math.min(ib, Math.max(p, q)); }
+          else if (y * uy < 0 || y * uy > s.len) ok = false;
+          if (ok) {
+            I0 = Math.max(X0, Math.ceil((ia + sx1 - x0) * k - 0.5)); I1 = Math.min(X1, Math.floor((ib + sx1 - x0) * k - 0.5));
+            if (I0 <= I1) bd.fill(0, row + I0, row + I1 + 1); else { I0 = X1 + 1; I1 = X1; }
+          }
+        }
         for (let px = X0; px <= X1; px++) {
+          if (px === I0) { px = I1; continue; }
           const x = x0 + (px + 0.5) / k - sx1;
           let t = (x * vx + y * vy) * iL2;
           t = t < tlo ? tlo : t > thi ? thi : t;
           const ex = x - vx * t, ey = y - vy * t, dd = ex * ex + ey * ey, i = row + px;
-          if (dd < bd[i]) { bd[i] = dd; bqx[i] = sx1 + vx * t; bqy[i] = sy1 + vy * t; bal[i] = s.start + t * s.len; }
+          if (dd < bd[i]) { bd[i] = dd; bqx[i] = sx1 + vx * t; bqy[i] = sy1 + vy * t; bal[i] = s.start + t * s.len; bsg[i] = ey * ux - ex * uy > 0 ? 1 : -1; }
         }
       }
     }
+    // the fillets reaching into this band
+    const FB = FIL.length ? FIL.filter((f) => f.y1 >= y0 + by / k && f.y0 <= y0 + (by + bh) / k) : FIL;
+    const nFB = FB.length;
     for (let py = by; py < by + bh; py++) {
       const y = y0 + (py + 0.5) / k, row = (py - by) * PW;
       for (let px = bx0; px <= bx1; px++) {
         const i = row + px, d2 = bd[i];
-        if (d2 >= R2) continue;
-        const dist = Math.sqrt(d2);
+        if (d2 >= R2 || (paved && d2 < PAV2)) continue;
+        let dist = Math.sqrt(d2);
         const x = x0 + (px + 0.5) * ik, qx = bqx[i], qy = bqy[i], al = bal[i];
-        const s = dist > 0.01 ? ((x - qx) * SX + (y - qy) * SY) / dist : 0;   // > 0: this edge faces the sun
+        let s = dist > 0.01 ? ((x - qx) * SX + (y - qy) * SY) / dist : 0;   // > 0: this edge faces the sun
+        const a = dist;   // (the tone field keeps the true distance)
+        // the inside of a bend, worn round
+        for (let fi = 0; fi < nFB; fi++) {
+          const f = FB[fi];
+          if (x < f.x0 || x > f.x1 || y < f.y0 || y > f.y1) continue;
+          const rx = x - f.cx, ry = y - f.cy;
+          if (rx * f.m1x + ry * f.m1y < 0 || rx * f.m2x + ry * f.m2y < 0) continue;
+          if ((x - f.t1x) * f.u1x + (y - f.t1y) * f.u1y < 0 || (x - f.t2x) * f.u2x + (y - f.t2y) * f.u2y > 0) continue;
+          const gx = f.fx - x, gy = f.fy - y, gl = Math.sqrt(gx * gx + gy * gy), dF = HALF + FR - gl;
+          if (dF < dist && gl > 0.01) { dist = dF; s = (gx * SX + gy * SY) / gl; }
+        }
         const ax = Math.floor(x * 2 + 1e-4), ay = Math.floor(y * 2 + 1e-4);    // the world's art pixel
         const dz = BAYER[(ay & 3) * 4 + (ax & 3)], rn = (ay & 255) << 8 | (ax & 255);
         // (where along the road, for the sampled profiles)
@@ -310,7 +415,6 @@ export function paintRoadStrip(ctx, pts, o = {}) {
         if (paved) continue;   // (the paving covers it all)
         onRoad[py * PW + px] = 1;
         // ---- the road itself: one tone field, cut into five tones ----
-        const a = dist;
         let v = BIAS + CROWN * (1 - (a / HALF) * (a / HALF));
         {
           const fx = x - DX0, fy = y - DY0, ix = fx | 0, iy = fy | 0, u = fx - ix, w = fy - iy, q = iy * DW + ix;
@@ -322,45 +426,63 @@ export function paintRoadStrip(ctx, pts, o = {}) {
           v += (A + (B - A) * u) * (1 - w) + (C + (D - C) * u) * w;
         }
         if (WATER) v -= (wet[ia] + (wet[ia + 1] - wet[ia]) * ua) * 0.14;
-        // twin cart ruts, wandering a little, fading in and out
-        const rs = rutS[ia] + (rutS[ia + 1] - rutS[ia]) * ua;
-        if (rs > 0) {
-          const rp = 1 - Math.abs(a - (rutC[ia] + (rutC[ia + 1] - rutC[ia]) * ua)) / 2.6;
-          if (rp > 0) v -= 0.17 * Math.sqrt(rp) * rs;
-        }
         // the bank's shadow thrown into the road along the sunward edge
         const inside = -e;
         if (s > 0.2 && inside < (0.6 + 2.6 * (s - 0.2)) + dz * 0.8) v -= 0.17;
         const ti = v + dz * 0.07;
         let idx = ti < 0.25 ? 0 : ti < 0.4 ? 1 : ti < 0.63 ? 2 : ti < 0.79 ? 3 : 4;
+        // twin cart ruts: crisp grooves four art pixels across — a dark wall
+        // on the sun's side, a floor two pixels wide, a lit lip on the far
+        // side — each rut (left, right) running and breaking off on its own;
+        // where it only just runs, it is a shallow floor, so its ends fray
+        if (a > 1.5 && a < 23) {
+          const sg = bsg[i];
+          const wb = sg > 0 ? wobR : wobL;
+          const cj = gauge[ia] + (gauge[ia + 1] - gauge[ia]) * ua + sg * (lat[ia] + (lat[ia + 1] - lat[ia]) * ua) + wb[ia] + (wb[ia + 1] - wb[ia]) * ua;
+          const dq = (a - cj) * 2;   // art pixels from the rut's middle, + outward
+          if (dq > -2 && dq < 2) {
+            const rr = sg > 0 ? rutR : rutL, raw = rr[ia] + (rr[ia + 1] - rr[ia]) * ua + (RT[rn ^ 0x6b6b] - 0.5) * 0.06 - RUT_T;
+            if (raw > 0) {
+              const lateral = s < 0.2 && s > -0.2, ws = Math.floor(s >= 0 ? dq : -dq);   // + toward the sun
+              if (ws === -1 || ws === 0) idx -= RUT_F;
+              else if (raw > 0.035 && !lateral) idx += ws > 0 ? (raw > 0.07 ? -2 : -1) : 1;
+            }
+          }
+        }
         // the road's own rim: one pixel a step darker where it meets the bank
-        if (inside < ap && s > -0.3) idx = Math.max(0, idx - 1);
-        else if (inside < ap) idx = Math.min(4, idx + 1);
+        if (inside < ap && s > -0.3) idx -= 1;
+        else if (inside < ap) idx += 1;
         // grain: single pixels a step off
         const h = RT[rn];
-        if (h < GR0) idx = idx > 0 ? idx - 1 : 0;
-        else if (h > GR1) idx = idx < 4 ? idx + 1 : 4;
-        const c = T[idx];
+        if (h < GR0) idx -= 1;
+        else if (h > GR1) idx += 1;
+        const c = T[idx < 0 ? 0 : idx > 4 ? 4 : idx];
         d[o4] = c[0]; d[o4 + 1] = c[1]; d[o4 + 2] = c[2];
       }
     }
   }
-  if (!paved) roadDetail(d, PW, PH, { R, L, M, k, x0, y0, extS, extE, seed, onRoad, bridges: o.bridges || [], wetAt: o.water ? wetAt : () => 0, rutC: (al) => along(rutC, al), rutS: (al) => along(rutS, al) });
+  if (!paved) {
+    const rutOff = (al, side) => side * along(gauge, al) + along(lat, al);
+    const rutOn = (al, side) => along(side > 0 ? rutR : rutL, al) > RUT_T + 0.02;
+    roadDetail(d, PW, PH, { R, L, M, k, x0, y0, extS, extE, seed, onRoad, bridges: o.bridges || [], roots: !!o.roots,
+      wetAt: o.water ? wetAt : () => 0, rutOff, rutOn, bendAt: (al) => along(bend, al), latAt: (al) => along(lat, al) });
+  }
   ctx.putImageData(img, 0, 0);
 }
 
 // ---- the pixel detail: stones, water, prints, roots, grass --------------
 // Stamps are written straight into the pixels, one art pixel per canvas
-// pixel. Letters: L lit, B body, D dark, W snow (the snow lumps), S contact
-// shadow (darkens whatever is under it).
+// pixel. Letters: L lit, B body, D dark, H hot, W snow (the snow lumps),
+// S contact shadow (darkens whatever is under it).
 const PEBBLES = [
   ["LS"],
   ["LB", "DS"],
-  ["LB.", "BDS", ".S."],
+  ["LB.", "BDS"],
   [".LB.", "LBBD", ".BDS", "..S."],
   [".LLB.", "LBBBD", "BBBDD", ".DDSS", "..SS."],
   ["..LLB..", ".LBBBD.", "LBBBBBD", "BBBBBDD", ".DDDDS.", "..SSSS."],
 ];
+const COAL = [".DD.", "DHBD", "DBBD", ".DDS"];
 function roadDetail(d, PW, PH, C) {
   const { R, L, M, k, x0, y0, extS, seed, bridges, wetAt } = C;
   const HALF = PATH_HALF, T = L.tonesC;
@@ -388,181 +510,107 @@ function roadDetail(d, PW, PH, C) {
       }
     }
   };
+  const snow = L.style === "snow";
 
-  // puddles, lying in the ruts and the damp hollows
+  // puddles, lying in the ruts and the damp hollows: two or three lobes run
+  // along the rut, shaded under their up-left lip, sky in the rest, a lit
+  // rim on the far lip, a broken glint
   const puddles = [];
   const nP = Math.round(L.puddles * (0.7 + 0.6 * rng()));
-  for (let tries = 0; puddles.length < nP && tries < 60; tries++) {
+  for (let tries = 0; puddles.length < nP && tries < 80; tries++) {
     const al = from + 60 + rng() * (to - from - 120), wetB = wetAt(al);
     if (rng() > 0.35 + wetB) continue;
     if (onBridge(al, 34)) continue;
-    const side = rng() < 0.5 ? -1 : 1, rc = C.rutC(al);
-    const [x, y] = spot(al, side * (rc + (rng() - 0.5) * 3));
-    if (wetHere(x, y, 6) || puddles.some((p) => Math.hypot(p[0] - x, p[1] - y) < 50)) continue;
+    const side = rng() < 0.5 ? -1 : 1;
+    if (!C.rutOn(al, side) && rng() < 0.75) continue;
+    const [x, y, p] = spot(al, C.rutOff(al, side) + (rng() - 0.5) * 1.5);
+    if (wetHere(x, y, 6) || puddles.some((q) => Math.hypot(q.x - x, q.y - y) < 50)) continue;
     if (CHEVRONS.some((ch) => Math.hypot(ch.x - x, ch.y - y) < 12)) continue;
-    puddles.push([x, y, 4 + rng() * 3.5, 2 + rng() * 1.3]);
-  }
-  const ice = L.style === "snow";
-  const wDeep = rgb(ice ? mix(L.tones[2], "#86b2c8", 0.45) : mix(L.water.deep, L.tones[0], 0.4));
-  const wMid = rgb(ice ? mix(L.tones[3], "#d4ecf6", 0.5) : mix(mix(L.water.edge, L.water.shine, 0.25), L.tones[1], 0.5));
-  const wHi = rgb(ice ? "#fbfeff" : mix(lighten(L.water.shine, 0.35), L.tones[3], 0.25));
-  const mud = ice ? T[1] : rgb(darken(L.tones[0], 0.18)), lip = T[3];
-  for (const [x, y, rx, ry] of puddles) {
-    const [cx, cy] = toPx(x, y), RX = rx * k, RY = ry * k;
-    for (let j = Math.floor(-RY - 2); j <= RY + 2; j++) {
-      for (let i = Math.floor(-RX - 2); i <= RX + 2; i++) {
-        const w = ((i + 0.5) / RX) ** 2 + ((j + 0.5) / RY) ** 2;
-        // a ragged shore: the hash nibbles the outline
-        const wob = (hash(cx + i, cy + j + 313) - 0.5) * 0.25;
-        if (w > 1.45 + wob) continue;
-        if (w > 1 + wob) { if ((i + j) > 0) put(cx + i, cy + j, lip); else put(cx + i, cy + j, mud); continue; }
-        if (w > 0.8 + wob) { put(cx + i, cy + j, mud); continue; }
-        // the water: shaded under its sunward lip, sky in the rest
-        const up = (i / RX + j / RY) < -0.35;
-        put(cx + i, cy + j, up ? wDeep : wMid);
-      }
+    const n = 2 + (rng() < 0.45 ? 1 : 0), lobes = [];
+    let ext = 0;
+    for (let j = 0; j < n; j++) {
+      const lo = (j - (n - 1) / 2) * (2.2 + rng() * 1.8) + (rng() - 0.5), co = (rng() - 0.5) * 1.6;
+      const rx = 1.8 + rng() * 2, ry = 1.1 + rng() * 1.1;
+      lobes.push([lo, co, rx, ry]);
+      ext = Math.max(ext, Math.abs(lo) + rx, Math.abs(co) + ry);
     }
-    // a glint of sky
-    const gl = Math.max(2, Math.round(RX * 0.5));
-    for (let i = 0; i < gl; i++) put(cx - Math.round(RX * 0.15) + i, cy + Math.round(RY * 0.1), wHi);
-    if (ice) put(cx + gl - 1, cy - 1 + Math.round(RY * 0.1), wHi);
+    puddles.push({ x, y, ux: p.ux, uy: p.uy, lobes, ext });
   }
-  const inPuddle = (x, y, m) => puddles.some(([px, py, rx, ry]) => ((x - px) / (rx + m)) ** 2 + ((y - py) / (ry + m)) ** 2 < 1);
+  const wDeep = rgb(snow ? mix(L.tones[2], "#86b2c8", 0.45) : mix(L.water.deep, L.tones[0], 0.4));
+  const wMid = rgb(snow ? mix(L.tones[3], "#d4ecf6", 0.5) : mix(mix(L.water.edge, L.water.shine, L.sky), L.tones[1], 0.45));
+  const wHi = rgb(snow ? "#fbfeff" : mix(lighten(L.water.shine, 0.35), L.tones[3], 0.2));
+  const mud = snow ? T[1] : rgb(darken(L.tones[0], 0.18)), lip = snow ? rgb("#f4f8fa") : T[3];
+  for (const pd of puddles) {
+    const [cx, cy] = toPx(pd.x, pd.y), rad = Math.ceil(pd.ext * k) + 3, S = rad * 2 + 1;
+    const mask = new Uint8Array(S * S);
+    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+      const wx = (cx - rad + i + 0.5) / k + x0 - pd.x, wy = (cy - rad + j + 0.5) / k + y0 - pd.y;
+      const dl = wx * pd.ux + wy * pd.uy, dc = -wx * pd.uy + wy * pd.ux;
+      const wob = (hash(cx + i, cy + j + 313) - 0.5) * 0.3;
+      for (const [lo, co, rx, ry] of pd.lobes) if (((dl - lo) / rx) ** 2 + ((dc - co) / ry) ** 2 < 1 + wob) { mask[j * S + i] = 1; break; }
+    }
+    const inM = (i, j) => i >= 0 && j >= 0 && i < S && j < S && mask[j * S + i] === 1;
+    const sky = [];
+    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+      const px = cx - rad + i, py = cy - rad + j;
+      if (inM(i, j)) {
+        const shade = !inM(i - 1, j) || !inM(i, j - 1) || !inM(i - 1, j - 1) || !inM(i, j - 2);
+        put(px, py, shade ? wDeep : wMid);
+        if (!shade && inM(i + 1, j) && inM(i + 2, j) && inM(i, j + 1)) sky.push([px, py]);
+      } else if (inM(i - 1, j) || inM(i, j - 1) || inM(i - 1, j - 1)) put(px, py, lip);
+      else if (inM(i + 1, j) || inM(i, j + 1) || inM(i + 1, j + 1)) put(px, py, mud);
+    }
+    // the glint: two or three pixels of sky, broken
+    if (sky.length) {
+      const [gx, gy] = sky[Math.floor(sky.length * 0.55)];
+      put(gx, gy, wHi); put(gx + 1, gy, wHi);
+      if (sky.length > 12) put(gx + 3, gy, wHi);
+    }
+  }
+  const inPuddle = (x, y, m) => puddles.some((p) => Math.hypot(x - p.x, y - p.y) < p.ext + m);
 
   // prints: a walker's or a pony's, along one lane for a stretch
   for (let n = 0; n < L.prints; n++) {
     const a0 = from + 30 + rng() * (to - from - 80), len = 24 + rng() * 40;
     const lane = [-21, 0, 21][Math.floor(rng() * 3)] + (rng() - 0.5) * 6;
-    const hoof = L.style !== "snow" && rng() < 0.4, step = hoof ? 4.5 : 3.4;
+    const hoof = !snow && rng() < 0.4, step = hoof ? 4.5 : 3.4;
     for (let al = a0, j = 0; al < a0 + len; al += step, j++) {
       if (onBridge(al, 6)) continue;
       const [x, y, p] = spot(al, lane + (j % 2 ? 1.1 : -1.1));
       if (inPuddle(x, y, 2) || wetHere(x, y, 2)) continue;
       const fade = Math.min(al - a0, a0 + len - al) / 10;
       if (rng() > 0.3 + fade) continue;
-      const [px, py] = toPx(x, y), f = L.style === "snow" ? 0.84 : 0.86;
+      const [px, py] = toPx(x, y);
       // a print is two pixels along the march; a hoof a small cup
-      const along = Math.abs(p.ux) > Math.abs(p.uy);
-      if (hoof) { dim(px, py, f); dim(px + 1, py, f); dim(px, py + 1, f + 0.06); if (along) dim(px, py - 1, f + 0.06); }
-      else if (along) { dim(px, py, f); dim(px + 1, py, f); }
-      else { dim(px, py, f); dim(px, py + 1, f); }
-      // in snow a print is a dent: its far wall catches the light
-      if (L.style === "snow") { lift(px + 1, py + (along ? 1 : 2), 0.3); dim(px, py, 0.94); }
+      const flat = Math.abs(p.ux) > Math.abs(p.uy);
+      if (snow) {
+        // a dent in the snow: its floor shaded, its far lip catching the light
+        dim(px, py, 0.86); if (flat) dim(px + 1, py, 0.86); else dim(px, py + 1, 0.86);
+        if (flat) { lift(px, py + 1, 0.4); lift(px + 1, py + 1, 0.4); } else { lift(px + 1, py, 0.4); lift(px + 1, py + 1, 0.4); }
+      } else if (hoof) { dim(px, py, 0.86); dim(px + 1, py, 0.86); dim(px, py + 1, 0.92); if (flat) dim(px, py - 1, 0.92); }
+      else if (flat) { dim(px, py, 0.86); dim(px + 1, py, 0.86); }
+      else { dim(px, py, 0.86); dim(px, py + 1, 0.86); }
     }
   }
-  // sled runners on the snow: two thin lines, a sledge's width apart
-  if (L.style === "snow") {
+  // sled runners on the snow: two unbroken dented lines a sledge's width
+  // apart, each with a lit lip on its lee side
+  if (snow) {
     for (let n = 0; n < 3; n++) {
-      const a0 = from + rng() * (to - from) * 0.6, len = 140 + rng() * 260, off = (rng() - 0.5) * 30;
-      for (let al = a0; al < Math.min(to, a0 + len); al += 0.5 / k * 2) {
-        if (onBridge(al, 4)) continue;
-        const wob = Math.sin(al * 0.02 + n) * 2.5;
-        for (const r of [-3, 3]) {
-          const [x, y] = spot(al, off + wob + r);
-          if (wetHere(x, y, 2)) continue;
+      const a0 = from + rng() * (to - from) * 0.8, len = 110 + rng() * 170, off = (rng() - 0.5) * 24;
+      for (const r of [-3, 3]) {
+        let lx = -1, ly = -1;
+        for (let al = a0; al < Math.min(to, a0 + len); al += 0.5 / k) {
+          if (onBridge(al, 4)) continue;
+          const wob = Math.sin(al * 0.02 + n) * 2.5;
+          const [x, y, p] = spot(al, off + wob + r + C.latAt(al));
+          if (wetHere(x, y, 2) || inPuddle(x, y, 1)) continue;
           const [px, py] = toPx(x, y);
+          if (px === lx && py === ly) continue;
+          lx = px; ly = py;
           const fade = Math.min(al - a0, a0 + len - al);
-          if (fade < 12 && hash(px, py + 5) > fade / 12) continue;
-          if (hash(px, py) < 0.2) continue;
-          dim(px, py, 0.93);
-        }
-      }
-    }
-  }
-
-  // grass coming back on the hump between the ruts, in wisps
-  if (L.grassCrown) {
-    const nCrown = noiseOf(seed + 37, 22), g0 = rgb(R.GRASS_DK), g1 = rgb(mix(R.GRASS, R.GRASS_LT, 0.3));
-    for (let al = from + 20; al < to - 10; al += 1.6 + rng() * 2) {
-      const p = M.at(al);
-      if (C.rutS(al) < 0.6 || nCrown(p.x, p.y) < 0.56 || rng() > 0.6 || onBridge(al, 6)) continue;
-      const [x, y] = spot(al, (rng() - 0.5) * 4.5);
-      if (wetHere(x, y, 2)) continue;
-      const [bx, by] = toPx(x, y), n = 1 + Math.floor(rng() * 3);
-      for (let b = 0; b < n; b++) {
-        const hg = 1 + Math.floor(rng() * 2.4);
-        for (let q = 0; q < hg; q++) put(bx + b * 2 - n + 1, by - q, q === hg - 1 && hg > 1 ? g1 : g0);
-      }
-    }
-  }
-
-  // pebbles and stones, gathered toward the edges where the wheels throw them
-  const pal = (col) => ({ L: rgb(lighten(col, 0.42)), B: rgb(col), D: rgb(mix(col, L.tones[0], 0.55)) });
-  const PB = pal(L.pebble), ST = pal(L.stone), DK = pal(mix(L.tones[0], L.stone, 0.4));
-  const step = 7 / Math.max(0.2, L.pebbles);
-  for (let al = from + 6; al < to - 4; al += step * (0.5 + rng())) {
-    if (onBridge(al, 5)) { rng(); rng(); continue; }
-    const side = rng() < 0.5 ? -1 : 1, r = rng();
-    const off = side * HALF * (r < 0.25 ? r * 1.2 : 0.42 + 0.46 * Math.sqrt(rng()));
-    const [x, y] = spot(al, off);
-    if (wetHere(x, y, 3) || inPuddle(x, y, 1.5)) continue;
-    const sz = rng();
-    const kind = sz < 0.46 ? 0 : sz < 0.72 ? 1 : sz < 0.88 ? 2 : sz < 0.96 ? 3 : sz < 0.99 ? 4 : 5;
-    const col = rng();
-    stamp(x, y, PEBBLES[kind], kind >= 3 ? (col < 0.6 ? ST : PB) : col < 0.55 ? PB : col < 0.85 ? ST : DK);
-  }
-
-  // cinders: cracks in the crust, clinker, and a few coals still alive
-  if (L.cracks) {
-    const crack = T[0], coal = [rgb("#c8582a"), rgb("#e89040")];
-    for (let n = 0; n < 34; n++) {
-      const al = from + rng() * (to - from), [x, y] = spot(al, (rng() - 0.5) * HALF * 1.6);
-      if (onBridge(al, 4) || wetHere(x, y, 2)) continue;
-      let [px, py] = toPx(x, y);
-      const len = 4 + Math.floor(rng() * 8);
-      let dx = rng() < 0.5 ? 1 : -1, dy = rng() < 0.5 ? 1 : 0;
-      for (let s = 0; s < len; s++) {
-        put(px, py, crack);
-        if (n % 6 === 0 && s === (len >> 1)) put(px, py, coal[s & 1]);
-        if (rng() < 0.3) { dy = dy ? 0 : 1; } if (rng() < 0.15) dx = -dx;
-        px += dx; py += dy;
-      }
-    }
-  }
-
-  // roots: where a tree stands close by the road, a root or two runs out
-  // across the verge and under the dirt
-  if (L.roots) {
-    const ROOTED = new Set(["tree", "willow", "deadtree", "fenwillow", "fendead"]);
-    const wood = mix("#6a4a2c", R.PATH_EDGE, 0.3), rb = rgb(wood), rl = rgb(lighten(wood, 0.3));
-    for (const dc of DECOR) {
-      if (!ROOTED.has(dc.t)) continue;
-      // the nearest point on this road
-      let best = 1e9, bp = null;
-      for (const s of M.segs) {
-        const vx = s.x2 - s.x1, vy = s.y2 - s.y1;
-        const t = clamp01(((dc.x - s.x1) * vx + (dc.y - s.y1) * vy) / (s.len * s.len));
-        const qx = s.x1 + vx * t, qy = s.y1 + vy * t, dd = Math.hypot(dc.x - qx, dc.y - qy);
-        if (dd < best) { best = dd; bp = [qx, qy, s.start + t * s.len]; }
-      }
-      if (best > HALF + 22 * (dc.s || 1) || onBridge(bp[2], 10)) continue;
-      const nr = hash(dc.x | 0, dc.y | 0) < 0.35 ? 2 : 1;
-      for (let r = 0; r < nr; r++) {
-        const h1 = hash((dc.x | 0) + r * 17, dc.y | 0), h2 = hash(dc.y | 0, (dc.x | 0) + r * 31);
-        // from the trunk's foot toward the road, splayed a little
-        let x = dc.x + (h1 - 0.5) * 6, y = dc.y + 1;
-        const tx = bp[0] + (dc.x - bp[0]) / best * (HALF - 5 - h2 * 8) + (h2 - 0.5) * 16, ty = bp[1] + (dc.y - bp[1]) / best * (HALF - 5 - h2 * 8);
-        const len = Math.hypot(tx - x, ty - y), n = Math.ceil(len * k), flat = Math.abs(tx - x) > Math.abs(ty - y);
-        let lastPx = -1, lastPy = -1;
-        for (let s = 0; s <= n; s++) {
-          const u = s / n;
-          const wob = Math.sin(u * 9 + h1 * 6) * 1.2 * u;
-          const px = Math.floor((x + (tx - x) * u + wob * (ty - y) / len - x0) * k), py = Math.floor((y + (ty - y) * u - wob * (tx - x) / len - y0) * k);
-          if (px === lastPx && py === lastPy) continue;
-          lastPx = px; lastPy = py;
-          const thick = u < 0.7 ? 2 : 1;
-          if (wetHere(x0 + px / k, y0 + py / k, 2)) break;
-          // two pixels across the root's run: lit on the sun's side, the
-          // wood beyond it, a shadow past that
-          if (flat) {
-            put(px, py, thick > 1 ? rl : rb);
-            if (thick > 1) put(px, py + 1, rb);
-            dim(px + 1, py + thick, 0.8);
-          } else {
-            put(px, py, thick > 1 ? rl : rb);
-            if (thick > 1) put(px + 1, py, rb);
-            dim(px + thick, py + 1, 0.8);
-          }
+          if (fade < 16 && hash(px, py + 5) > fade / 16) continue;
+          dim(px, py, 0.86);
+          if (Math.abs(p.ux) > Math.abs(p.uy)) lift(px, py + 1, 0.3); else lift(px + 1, py, 0.3);
         }
       }
     }
@@ -571,8 +619,7 @@ function roadDetail(d, PW, PH, C) {
   // a tuft: blades a pixel wide with a gap between some, the middle ones
   // tallest, the outer ones leaning out; dark at the root, lit at the tip,
   // a pixel of shadow down-right of each root
-  const tc = L.tuft ? L.tuft.map(rgb) : null;
-  const tuftPx = (x, y, n, hk) => {
+  const tuftPx = (x, y, n, hk, tc) => {
     const [bx, by] = toPx(x, y);
     let xs = 0;
     const cols = [];
@@ -589,17 +636,158 @@ function roadDetail(d, PW, PH, C) {
       }
     }
   };
-  // grass tufts (snow lumps on the snow) leaning out over the edge
+
+  // grass coming back on the hump between the ruts: a few small clumps,
+  // only where both ruts run and the road runs straight
+  if (L.grassCrown) {
+    const nCrown = noiseOf(seed + 37, 40), gc = [rgb(darken(R.GRASS_DK, 0.12)), rgb(R.GRASS_DK), rgb(mix(R.GRASS, R.GRASS_LT, 0.4))];
+    for (let al = from + 30; al < to - 20; al += 10 + rng() * 22) {
+      const p = M.at(al);
+      if (!C.rutOn(al, -1) || !C.rutOn(al, 1) || C.bendAt(al) > 0.25 || nCrown(p.x, p.y) < 0.5 || rng() > 0.55 || onBridge(al, 8)) continue;
+      const n = 1 + (rng() < 0.4 ? 1 : 0);
+      for (let c = 0; c < n; c++) {
+        const [x, y] = spot(al + c * (2 + rng() * 2), C.latAt(al) + (rng() - 0.5) * 3.5);
+        if (wetHere(x, y, 2) || inPuddle(x, y, 1)) continue;
+        tuftPx(x, y, 3 + Math.floor(rng() * 3), 0.5, gc);
+      }
+    }
+  }
+
+  // pebbles and stones, gathered toward the edges where the wheels throw
+  // them, some in little knots of two or three
+  const pal = (col) => ({ L: rgb(lighten(col, 0.42)), B: rgb(col), D: rgb(mix(col, L.tones[0], 0.55)) });
+  const PB = pal(L.pebble), ST = pal(L.stone), DK = pal(mix(L.tones[0], L.stone, 0.4));
+  const ash = L.style === "ash";
+  const step = 9 / Math.max(0.2, L.pebbles);
+  for (let al = from + 6; al < to - 4; al += step * (0.5 + rng())) {
+    if (onBridge(al, 5)) { rng(); rng(); continue; }
+    const side = rng() < 0.5 ? -1 : 1, r = rng();
+    const off = side * HALF * (r < 0.25 ? r * 1.2 : 0.42 + 0.46 * Math.sqrt(rng()));
+    const [x, y] = spot(al, off);
+    if (wetHere(x, y, 3) || inPuddle(x, y, 1.5)) continue;
+    const sz = rng();
+    const kind = sz < 0.34 ? 0 : sz < 0.54 ? 1 : sz < 0.74 ? 2 : sz < 0.9 ? 3 : sz < 0.98 ? 4 : 5;
+    const col = rng();
+    // (the cinders: clinker, dark lumps)
+    const pl = ash && kind >= 2 ? (col < 0.7 ? DK : ST) : kind >= 3 ? (col < 0.6 ? ST : PB) : col < 0.55 ? PB : col < 0.85 ? ST : DK;
+    stamp(x, y, PEBBLES[kind], pl);
+    if (kind >= 2 && Math.abs(off) > HALF * 0.4 && rng() < (ash ? 0.6 : 0.35)) {
+      const m = 1 + (rng() < 0.5 ? 1 : 0);
+      for (let j = 0; j < m; j++) {
+        const [qx, qy] = spot(al + (rng() - 0.5) * 6, off + (rng() - 0.5) * 5);
+        if (!wetHere(qx, qy, 3) && !inPuddle(qx, qy, 1.5)) stamp(qx, qy, PEBBLES[rng() < 0.5 ? 0 : 1], pl === PB ? ST : pl);
+      }
+    }
+  }
+
+  // cinders: cracks in the crust (two pixels deep in the middle, a lit lip
+  // on their far side, a short branch or two), and a few coals still alive
+  if (L.cracks) {
+    const crack = rgb(darken(L.tones[0], 0.25)), wallC = T[0], lipC = T[4];
+    const isCrack = new Set();
+    const walk = (px, py, len, dx, dy, deep) => {
+      const pts = [];
+      for (let s = 0; s < len; s++) {
+        pts.push([px, py, deep && s > len * 0.25 && s < len * 0.75]);
+        if (rng() < 0.35) { if (dx && dy) { if (rng() < 0.5) dx = 0; else dy = 0; } else if (dx) dy = rng() < 0.5 ? 1 : -1; else dx = rng() < 0.5 ? 1 : -1; }
+        else if (rng() < 0.3) { dx = dx || (rng() < 0.5 ? 1 : -1); dy = dy || 0; }
+        px += dx; py += dy;
+      }
+      return pts;
+    };
+    for (let n = 0; n < 30; n++) {
+      const al = from + rng() * (to - from), [x, y] = spot(al, (rng() - 0.5) * HALF * 1.5);
+      if (onBridge(al, 4) || wetHere(x, y, 2)) continue;
+      const [px, py] = toPx(x, y), len = 6 + Math.floor(rng() * 9);
+      const main = walk(px, py, len, rng() < 0.5 ? 1 : -1, rng() < 0.5 ? 1 : 0, true);
+      let all = main;
+      if (rng() < 0.6) { const b = main[Math.floor(len * (0.3 + rng() * 0.4))]; all = all.concat(walk(b[0], b[1], 2 + Math.floor(rng() * 4), rng() < 0.5 ? 1 : -1, rng() < 0.5 ? 1 : -1, false)); }
+      for (const [qx, qy, deep] of all) { isCrack.add(qy * PW + qx); if (deep) isCrack.add((qy - 1) * PW + qx); }
+      for (const [qx, qy, deep] of all) {
+        put(qx, qy, crack);
+        if (deep) put(qx, qy - 1, wallC);
+        if (!isCrack.has((qy + 1) * PW + qx + 1)) put(qx + 1, qy + 1, lipC);
+      }
+    }
+    const CP = { D: rgb(mix(L.tones[0], "#1e1414", 0.5)), B: rgb("#c8582a"), H: rgb("#f0a040") };
+    for (let n = 0, tries = 0; n < 6 && tries < 40; tries++) {
+      const al = from + 40 + rng() * (to - from - 80), side = rng() < 0.5 ? -1 : 1;
+      const [x, y] = spot(al, side * HALF * (0.62 + rng() * 0.22));
+      if (onBridge(al, 6) || wetHere(x, y, 3)) continue;
+      stamp(x, y, COAL, CP); n++;
+    }
+  }
+
+  // roots: where a broadleaf stands close by the road, two or three short
+  // roots splay from the trunk's foot toward it and dive under the dirt —
+  // thick at the trunk, tapering, lit on top, dark beneath, a shadow
+  // down-right, broken once or twice where they dip under the soil
+  if (L.roots && C.roots) {
+    const ROOTED = new Set(["tree", "willow", "deadtree", "fenwillow", "fendead"]);
+    const wood = mix("#6a4a2c", R.PATH_EDGE, 0.3), rB = rgb(wood), rL = rgb(lighten(wood, 0.3)), rD = rgb(darken(wood, 0.38));
+    for (const dc of DECOR) {
+      if (!ROOTED.has(dc.t)) continue;
+      const sc = dc.s || 1, fy = dc.y + (dc.t === "willow" || dc.t === "fenwillow" ? 12 : 10);
+      // the nearest point on this road to the trunk's foot
+      let best = 1e9, bp = null;
+      for (const s of M.segs) {
+        const vx = s.x2 - s.x1, vy = s.y2 - s.y1;
+        const t = clamp01(((dc.x - s.x1) * vx + (fy - s.y1) * vy) / (s.len * s.len));
+        const qx = s.x1 + vx * t, qy = s.y1 + vy * t, dd = Math.hypot(dc.x - qx, fy - qy);
+        if (dd < best) { best = dd; bp = [qx, qy, s.start + t * s.len]; }
+      }
+      const gap = best - HALF;
+      if (gap > 15 || gap < 1 || onBridge(bp[2], 10)) continue;
+      const dx = (bp[0] - dc.x) / best, dy = (bp[1] - fy) / best;
+      const h0 = hash(dc.x | 0, dc.y | 0), nr = 2 + (h0 < 0.45 ? 1 : 0);
+      const cells = new Map();   // art pixel -> colour, so a root never shades itself
+      for (let r = 0; r < nr; r++) {
+        const h1 = hash((dc.x | 0) + r * 17, dc.y | 0), h2 = hash(dc.y | 0, (dc.x | 0) + r * 31);
+        const sp = (r - (nr - 1) / 2) * 0.62 + (h1 - 0.5) * 0.3, ca = Math.cos(sp), sa = Math.sin(sp);
+        const rx = dx * ca - dy * sa, ry = dx * sa + dy * ca;
+        const len = Math.min(8 + h2 * 6, gap + 6) * Math.sqrt(sc);
+        const sx = dc.x + rx * 2.6 * sc, sy = fy + ry * 1.2 * sc - 0.5;
+        const n = Math.ceil(len * k * 1.5), flat = Math.abs(rx) > Math.abs(ry);
+        const g1 = 0.35 + h1 * 0.25, g2 = 0.7 + h2 * 0.15;   // where it dips under the soil
+        for (let s = 0; s <= n; s++) {
+          const u = s / n;
+          if (Math.abs(u - g1) < 0.06 || (h2 < 0.5 && Math.abs(u - g2) < 0.05)) continue;
+          const bow = Math.sin(u * Math.PI * 1.6 + h1 * 6) * 1.3 * u * sc;
+          const wx = sx + rx * len * u - ry * bow, wy = sy + ry * len * u + rx * bow;
+          const [px, py] = toPx(wx, wy);
+          const th = u < 0.3 ? 3 : u < 0.65 ? 2 : 1;
+          // across the root's run: lit on the sun's side, the wood, dark beneath
+          for (let q = 0; q < th; q++) {
+            const c = th === 1 ? rB : q === 0 ? rL : q === th - 1 ? rD : rB;
+            const cx = flat ? px : px + q, cy = flat ? py + q : py;
+            if (cx >= 0 && cy >= 0 && cx < PW - 1 && cy < PH - 1) cells.set(cy * PW + cx, c);
+          }
+        }
+      }
+      for (const key of cells.keys()) {
+        const sk = key + PW + 1;   // the shadow, down-right
+        if (!cells.has(sk)) { const px = sk % PW, py = (sk / PW) | 0; dim(px, py, 0.8); }
+      }
+      for (const [key, c] of cells) put(key % PW, (key / PW) | 0, c);
+    }
+  }
+
+  // grass tufts (snow lumps on the snow) leaning out over the edge, in
+  // clumps and gaps
   if (L.tuft || L.lumps) {
-    const nEdge = noiseOf(seed + 11, 6.5), nWand = noiseOf(seed + 13, 46);
+    const nEdge = noiseOf(seed + 11, 6.5), nWand = noiseOf(seed + 13, 46), nTuft = noiseOf(seed + 43, 28);
     const lumpRows = [".LL.", "LWWW", "WWWB", ".BB."];
     const LP = L.lumps ? { L: rgb(L.lumps[2]), W: rgb(L.lumps[1]), B: rgb(L.lumps[0]) } : null;
-    for (let al = from + 4; al < to - 4; al += 5 + rng() * 6) {
+    const tc = L.tuft ? L.tuft.map(rgb) : null;
+    for (let al = from + 4; al < to - 4; al += 2.5 + rng() * 3.5) {
       for (const side of [-1, 1]) {
-        if (rng() > 0.36 * L.tufts) continue;
-        if (onBridge(al, 8)) continue;
         const p = M.at(al), nx = -p.uy * side, ny = p.ux * side;
         const cx = p.x + nx * HALF, cy = p.y + ny * HALF;
+        // snow gathers on the lee edge (the one facing away from the sun)
+        const lee = LP && nx * SX + ny * SY < -0.2 ? 1.8 : 1;
+        const gate = smooth((nTuft(cx, cy) - 0.45) / 0.15) * 2.2;
+        if (rng() > 0.19 * L.tufts * gate * lee) continue;
+        if (onBridge(al, 8)) continue;
         const er = HALF - 0.7 + (nEdge(cx, cy) - 0.5) * 3.4 + (nWand(p.x, p.y) - 0.5) * 2.4;
         const x = p.x + nx * (er + 0.6 + rng() * 1.2), y = p.y + ny * (er + 0.6 + rng() * 1.2);
         if (wetHere(x, y, 3)) continue;
@@ -607,7 +795,7 @@ function roadDetail(d, PW, PH, C) {
         const [tx, ty] = toPx(x, y);
         if (tx < 0 || ty < 0 || tx >= PW || ty >= PH || C.onRoad[ty * PW + tx]) continue;
         if (LP) { stamp(x, y, lumpRows, LP); continue; }
-        tuftPx(x, y, 3 + Math.floor(rng() * 3), L.tuftH);
+        tuftPx(x, y, 3 + Math.floor(rng() * 3), L.tuftH, tc);
       }
     }
   }
@@ -620,7 +808,7 @@ export function paintRoad(ctx) {
   const [x0, y0] = PTS[0];
   const edgeStart = x0 <= 30 || y0 <= 30 || x0 >= W - 30 || y0 >= H - 30;
   // (paintRoadStrip writes pixels, so it wants the canvas's own grid)
-  paintRoadStrip(ctx, PTS, { k: ctx.canvas.width / W, x0: 0, y0: 0, extStart: edgeStart ? 60 : 0, water: true, bridges: BRIDGES });
+  paintRoadStrip(ctx, PTS, { k: ctx.canvas.width / W, x0: 0, y0: 0, extStart: edgeStart ? 60 : 0, water: true, bridges: BRIDGES, roots: true });
 }
 
 // ---- the chevrons -------------------------------------------------------
@@ -629,27 +817,48 @@ export function paintRoad(ctx) {
 // straight into art pixels (so it stays crisp at any heading). It kindles
 // with a warm light as a wave runs down the road in the direction of march,
 // and burns bright while a column is near. Two stamps per chevron a frame.
+// A chevron in a bend points along the leg it leads into (at 45° a chevron
+// reads as a box corner, not an arrow); none sits at a bridge's ends.
+// A realm with a bright CHEVRON colour (ember's orange) keeps that colour in
+// the groove at rest; on pale roads (snow, the fen's dust) the light is a
+// saturated amber, so a lit chevron stands out against the road.
 const CHEV = 14;   // sprite size, world units
-let CHEVS = { key: "", list: [] };
+let CHEVS = { key: "", list: [], restA: 0.62, glowRest: 0.34 };
 const chevronSprites = () => {
   const R = REALM;
-  const key = `${R.id}|${CHEVRONS.length}|${CHEVRONS[0]?.x}|${CHEVRONS[0]?.y}`;
-  if (CHEVS.key === key) return CHEVS.list;
+  const key = `${R.id}|${CHEVRONS.length}|${CHEVRONS[0]?.x}|${CHEVRONS[0]?.y}|${BRIDGES.length}`;
+  if (CHEVS.key === key) return CHEVS;
   const main = R.PATH_MAIN, dk = R.PATH_DK;
   const ch = (R.CHEVRON || "84,62,36").split(",").map(Number);
   const chHex = "#" + ch.map((v) => v.toString(16).padStart(2, "0")).join("");
   const bright = ch[0] * 0.3 + ch[1] * 0.59 + ch[2] * 0.11 > 120;
-  const floor = rgb(bright ? mix(dk, R.PATH_EDGE, 0.55) : mix(dk, chHex, 0.62));
-  const wall = rgb(bright ? mix(R.PATH_EDGE, "#1a1416", 0.3) : mix(dk, chHex, 0.9));
-  const lit = rgb(lighten(main, 0.3));
-  const glowC = rgb(bright ? chHex : lighten(main, 0.66)), glowHot = rgb(bright ? lighten(chHex, 0.45) : "#fff3d2");
+  const style = lookOf(R).style, pale = style === "snow" || style === "fen";
+  const floor = rgb(bright ? mix(chHex, dk, 0.35) : mix(dk, chHex, 0.62));
+  const wall = rgb(bright ? mix(chHex, "#1a1416", 0.62) : mix(dk, chHex, 0.9));
+  const lit = rgb(bright ? mix(lighten(main, 0.3), chHex, 0.35) : lighten(main, 0.3));
+  const glowC = rgb(bright ? chHex : pale ? "#f0a040" : lighten(main, 0.66));
+  const glowHot = rgb(bright ? lighten(chHex, 0.45) : "#fff3d2");
   const n = CHEV * RES;
   const segD = (px, py, ax, ay, bx, by) => {
     const vx = bx - ax, vy = by - ay, t = clamp01(((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy));
     return Math.hypot(px - ax - vx * t, py - ay - vy * t);
   };
+  // in a bend (on one of the corner's short segments), point along the
+  // nearer of the two legs, the one it leads into when it's halfway
+  const M = measure(PTS), SG = M.segs;
+  const segAt = (dd) => { let lo = 0, hi = SG.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (dd <= SG[m].start + SG[m].len) hi = m; else lo = m + 1; } return lo; };
+  const leg = (si, step) => { for (let j = si; j >= 0 && j < SG.length; j += step) if (SG[j].len >= 14) return SG[j]; return SG[si]; };
   const list = CHEVRONS.map((c) => {
-    const ca = Math.cos(c.a), sa = Math.sin(c.a);
+    if (BRIDGES.some((b) => c.d > b.d0 - 8 && c.d < b.d1 + 8)) return null;
+    const si = segAt(c.d), sc = SG[si];
+    let ang = c.a;
+    if (sc && sc.len < 14) {
+      const a = leg(si, -1), b = leg(si, 1);
+      const ti = Math.abs(turnOf(sc.ux, sc.uy, a.ux, a.uy)), to = Math.abs(turnOf(sc.ux, sc.uy, b.ux, b.uy));
+      const g = ti < to - 0.1 ? a : b;
+      ang = Math.atan2(g.uy, g.ux);
+    }
+    const ca = Math.cos(ang), sa = Math.sin(ang);
     const dAt = (i, j) => {
       const lx = (i + 0.5) / RES - CHEV / 2, ly = (j + 0.5) / RES - CHEV / 2;
       const u = lx * ca + ly * sa, v = -lx * sa + ly * ca;
@@ -688,15 +897,15 @@ const chevronSprites = () => {
     });
     return { groove, glow, x: Math.round((c.x - CHEV / 2) * RES) / RES, y: Math.round((c.y - CHEV / 2) * RES) / RES };
   });
-  CHEVS = { key, list };
-  return list;
+  CHEVS = { key, list, restA: bright ? 0.85 : 0.62, glowRest: bright ? 0.5 : 0.34, glowOff: bright ? 0.2 : 0 };
+  return CHEVS;
 };
 
 // which chevrons have a column within 60 of them (O(foes · log chevrons))
 let NEAR = new Uint8Array(0);
 export function drawRoadMarks(ctx, g) {
   if (!CHEVRONS.length) return;
-  const list = chevronSprites();
+  const { list, restA, glowRest, glowOff } = chevronSprites();
   const nC = CHEVRONS.length;
   if (NEAR.length !== nC) NEAR = new Uint8Array(nC); else NEAR.fill(0);
   for (const e of g.enemies) {
@@ -707,11 +916,12 @@ export function drawRoadMarks(ctx, g) {
   }
   const a0 = ctx.globalAlpha;
   for (let i = 0; i < nC; i++) {
-    const ch = CHEVRONS[i], s = list[i];
-    const on = Math.sin(g.time * 2.2 - ch.d * 0.045) > 0, near = NEAR[i] === 1;
-    ctx.globalAlpha = a0 * (near ? 0.95 : 0.62);
+    const s = list[i];
+    if (!s) continue;
+    const on = Math.sin(g.time * 2.2 - CHEVRONS[i].d * 0.045) > 0, near = NEAR[i] === 1;
+    ctx.globalAlpha = a0 * (near ? 0.95 : restA);
     ctx.drawImage(s.groove, s.x, s.y, CHEV, CHEV);
-    const ga = near ? (on ? 0.95 : 0.55) : on ? 0.34 : 0;
+    const ga = near ? (on ? 0.95 : 0.55) : on ? glowRest : glowOff;
     if (ga > 0) { ctx.globalAlpha = a0 * ga; ctx.drawImage(s.glow, s.x, s.y, CHEV, CHEV); }
   }
   ctx.globalAlpha = a0;

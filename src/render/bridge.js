@@ -142,7 +142,9 @@ const over = (dst, src, alpha = 1) => {
 // Harden a patch of pixels (every pixel solid or empty, no half-covered
 // edges) and ink round what is solid, `passes` art pixels wide.
 const INK = rgb(INK_LINE);
-const inkData = (img, passes) => {
+// `skip(i, j)` (sprite pixels, offset by ox, oy) leaves a spot bare: the
+// deck's ends where the road runs on, a wing wall's end sinking into the turf.
+const inkData = (img, passes, skip = null, ox = 0, oy = 0) => {
   const d = img.data, w = img.width, h = img.height, n = w * h;
   let ring = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
@@ -155,6 +157,7 @@ const inkData = (img, passes) => {
         const i = y * w + x;
         if (ring[i]) continue;
         if ((x > 0 && ring[i - 1]) || (x < w - 1 && ring[i + 1]) || (y > 0 && ring[i - w]) || (y < h - 1 && ring[i + w])) {
+          if (skip && skip(ox + x, oy + y)) continue;
           const k = i * 4;
           d[k] = INK[0]; d[k + 1] = INK[1]; d[k + 2] = INK[2]; d[k + 3] = 235; next[i] = 1;
         }
@@ -171,13 +174,19 @@ const finish = (S, B, r, line) => {
   const w = Math.min(S.pw, r[0] + r[2] + m) - x0, h = Math.min(S.ph, r[1] + r[3] + m) - y0;
   if (w <= 0 || h <= 0) return;
   const img = L.c.getImageData(x0, y0, w, h);
-  inkData(img, line);
+  inkData(img, line, S.bare, x0, y0);
   L.c.putImageData(img, x0, y0);
   B.c.save();
   B.c.setTransform(1, 0, 0, 1, 0, 0);
   B.c.drawImage(L.cv, x0, y0, w, h, x0, y0, w, h);
   B.c.restore();
   L.c.save(); L.c.setTransform(1, 0, 0, 1, 0, 0); L.c.clearRect(x0, y0, w, h); L.c.restore();
+};
+// the span's own silhouette ink, 2 art pixels, leaving the bare spots bare
+const outlineSpan = (S, B, passes) => {
+  const img = B.c.getImageData(0, 0, S.pw, S.ph);
+  inkData(img, passes, S.bare, 0, 0);
+  B.c.putImageData(img, 0, 0);
 };
 const harden = (cv) => {
   const c = cv.getContext("2d", { willReadFrequently: true });
@@ -317,8 +326,15 @@ const block = (c, F, u0, u1, v0, v1, z0, z1, top, side) => {
 };
 
 // ---- the shadow the span throws, and the gloom under it ------------------
-const shadowLayer = (F, S, P, posts) => {
-  const T = layerOf(S), c = T.c;
+// Two firm tones on the water: the gloom right under the deck's edges (a
+// broad band on the side away from the sun, a narrow one on the sun side)
+// and, lighter, the shadow the deck and its rails throw down-right, widest
+// mid-span. On the turf and the road only a light plum veil. On a span that
+// runs up the screen a broken line of shine lies on the water just past the
+// gloom on both sides, so the river plainly runs on under the deck.
+const shadowLayer = (F, S, P, posts, water) => {
+  const T = layerOf(S), c = T.c;       // the shadow thrown
+  const U = layerOf(S), cu = U.c;      // the gloom under the edges
   c.fillStyle = "#1c1026"; c.strokeStyle = "#1c1026";
   c.lineCap = "butt"; c.lineJoin = "round";
   const drop = (u, v) => (F.wet(u, v) ? DROP : 0);
@@ -332,14 +348,6 @@ const shadowLayer = (F, S, P, posts) => {
   for (let u = -F.half; u <= F.half + 0.01; u += 1) pts.push(sh(u, HALF + 0.4, F.L(u) + tall));
   for (let u = F.half; u >= -F.half - 0.01; u -= 1) pts.push(sh(u, -HALF - 0.4, F.L(u) + tall));
   poly(c, pts, "#1c1026");
-  // the gloom right under both edges, on the water
-  for (const sd of [-1, 1]) {
-    for (let u = -F.half; u <= F.half; u += 0.5) {
-      if (!F.wet(u, sd * (HALF + 1))) continue;
-      const [x0, y0] = F.at(u, sd * HALF, -DROP), [x1, y1] = F.at(u + 0.5, sd * (HALF + 1.6), -DROP);
-      c.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0) + 0.5, Math.abs(y1 - y0) + 0.5);
-    }
-  }
   // the rails (timber) and the posts, thrown further
   if (P.kind !== "stone") {
     for (const sd of [-1, 1]) {
@@ -355,17 +363,50 @@ const shadowLayer = (F, S, P, posts) => {
     c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke();
   }
   harden(T.cv);
-  // on the water the shadow is the river's own deep, darkened, and firm; on
-  // the turf and the road a light plum veil
-  const deep = dk(rgb((REALM.water || DEFAULT_WATER).deep), 0.55);
+  // the gloom right under both edges, on the water
+  const shadeSd = -F.sunSide, wideOf = (sd) => (sd === shadeSd ? 2.8 : 1.2);
+  cu.fillStyle = "#000";
+  for (const sd of [-1, 1]) {
+    const wide = wideOf(sd);
+    for (let u = -F.half; u < F.half; u += 0.5) {
+      if (!F.wet(u + 0.25, sd * (HALF + 0.6))) continue;
+      const [x0, y0] = F.at(u, sd * (HALF - 0.3), -DROP), [x1, y1] = F.at(u + 0.5, sd * (HALF + wide), -DROP);
+      cu.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.max(0.5, Math.abs(x1 - x0)), Math.max(0.5, Math.abs(y1 - y0)));
+    }
+  }
+  harden(U.cv);
+  const deep = rgb(water.deep), shine = rgb(water.shine || "#a8d8e8");
+  const band = dk(deep, 0.66), thrown = dk(deep, 0.44);
   const tc = T.c, img = tc.getImageData(0, 0, S.pw, S.ph), d = img.data;
+  const ud = cu.getImageData(0, 0, S.pw, S.ph).data;
+  const onWater = (i, j) => { const jw = j - DROP * PX; return jw >= 0 && S.wet[jw * S.pw + i] === 1; };
   for (let j = 0; j < S.ph; j++) {
     for (let i = 0; i < S.pw; i++) {
       const k = (j * S.pw + i) * 4;
-      if (!d[k + 3]) continue;
-      const jw = j - DROP * PX;
-      if (jw >= 0 && S.wet[jw * S.pw + i]) { d[k] = deep[0]; d[k + 1] = deep[1]; d[k + 2] = deep[2]; d[k + 3] = 190; }
-      else { d[k] = 28; d[k + 1] = 16; d[k + 2] = 38; d[k + 3] = 62; }
+      const inT = d[k + 3] > 0, inU = ud[k + 3] > 0;
+      if (!inT && !inU) continue;
+      if (onWater(i, j)) {
+        const col = inU ? band : thrown;
+        d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = inU ? 240 : 205;
+      } else if (inT) { d[k] = 28; d[k + 1] = 16; d[k + 2] = 38; d[k + 3] = 62; }
+      else d[k + 3] = 0;
+    }
+  }
+  // the shine past the gloom, in broken dashes, one art pixel high
+  if (!F.near) {
+    for (const sd of [-1, 1]) {
+      const off = wideOf(sd) + 0.3;
+      const col = sd === shadeSd ? mx(thrown, shine, 0.3) : lt(mx(deep, shine, 0.75), 0.1);
+      for (let u = -F.half; u < F.half; u += 0.5) {
+        if (hash(Math.floor((u + 80) / 2.5), sd + 11) > 0.6 || hash(Math.floor(u * 2), sd + 3) > 0.85) continue;
+        const [x, y] = F.at(u, sd * (HALF + off), -DROP);
+        const i = Math.floor((x - S.x0) * PX), j = Math.floor((y - S.y0) * PX);
+        if (i < 0 || j < 0 || i >= S.pw || j >= S.ph || !onWater(i, j)) continue;
+        // not out on the sunlit water past the thrown shadow's edge
+        const k = (j * S.pw + i) * 4;
+        if (sd === shadeSd && d[k + 3] < 200) continue;
+        d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255;
+      }
     }
   }
   tc.putImageData(img, 0, 0);
@@ -426,43 +467,92 @@ const bakeSpan = (b, pal) => {
     }
   }
 
-  // ---- the wing walls: at each corner of the crossing a short wall set into
-  // the bank, flaring away from the water and sloping down into the turf
-  const wing = [];
+  // ---- bare spots: where the road runs on at each end the deck meets it
+  // with a dark sill, not a line of ink
+  S.bareList = [];
+  S.bare = (i, j) => {
+    const X = S.x0 + (i + 0.5) / PX, Y = S.y0 + (j + 0.5) / PX;
+    for (const f of S.bareList) if (f(X, Y)) return true;
+    return false;
+  };
+  const ground = (X, Y) => { const x = X - b.x, y = Y - b.y; return [x * F.c + y * F.s, -x * F.s + y * F.c]; };
+  S.bareList.push((X, Y) => { const [u, v] = ground(X, Y); return Math.abs(u) > F.half - 0.4 && Math.abs(v) < 33.2; });
+
+  // ---- the wing walls: at each corner where the deck's side meets the bank,
+  // a short retaining wall runs along the bank on its land side, its face to
+  // the water and its outer end sinking into the turf
+  const wing = [], cornerPiles = [];
+  // walking in along the line v = vv from `from` toward `to`: the first wet spot
+  const edgeFrom = (e, vv, from, to) => {
+    for (let u = from; e * u >= e * to; u -= e * 0.5) if (F.wet(u, vv)) return u + e * 0.25;
+    return null;
+  };
   for (const e of [-1, 1]) {
     for (const sd of [-1, 1]) {
-      // the water's edge along the deck's side, looking in from this end
-      let ub = null;
-      for (let u = e * (F.half + 6); e * u > 0; u -= e * 0.5) if (F.wet(u, sd * (HALF + 0.8))) { ub = u; break; }
+      const v1 = sd * (HALF + 0.8);
+      // the side is wet right out to the deck's end: the bank crosses the end
+      // instead, and a pile (a pier, in stone) holds the corner
+      if (F.wet(e * (F.half - 0.5), v1)) { cornerPiles.push({ e, sd }); continue; }
+      const ub = edgeFrom(e, v1, e * (F.half - 0.5), 0);
       if (ub === null) continue;
-      const T = stone ? 3.6 : 3.4;
-      const dl = Math.hypot(0.55, 0.83), dir = [e * 0.55 / dl, sd * 0.83 / dl];
-      const A = [ub + e * 0.3, sd * (HALF + T * 0.5)];
-      wing.push({ A, dir, len: stone ? 8 : 6 + hash(e + 3, sd + (b.x | 0)) * 1.5, T, zA: stone ? 3.2 : 2.8, zB: stone ? 1.4 : 0.8, e, sd });
+      // the bank's own run, read off the water a few steps further out
+      let tu = 0, tv = sd;
+      const far = edgeFrom(e, sd * (HALF + 6.8), e * (F.half + 16), -e * 6);
+      if (far !== null) tu = Math.max(-1.4, Math.min(1.4, (far - ub) / 6));
+      let dl = Math.hypot(tu, tv); tu /= dl; tv /= dl;
+      // the land side: the perpendicular that points toward this end
+      let nu = tv, nv = -tu;
+      if (nu * e < 0) { nu = -nu; nv = -nv; }
+      const T = stone ? 3 : 2.8;
+      // a little flare toward the land
+      let du = tu + nu * 0.2, dv = tv + nv * 0.2;
+      dl = Math.hypot(du, dv); du /= dl; dv /= dl;
+      let au = ub + nu * (T / 2 + 0.1), av = sd * (HALF - 0.8) + nv * (T / 2 + 0.1);
+      au = Math.max(-(F.half - 1), Math.min(F.half - 1, au));
+      const len = stone ? 9.5 : 7.5 + hash(e + 3, sd + (b.x | 0)) * 2;
+      wing.push({ A: [au, av], dir: [du, dv], n: [nu, nv], len, T, zA: stone ? 2.8 : 2.2, zB: 0.1, e, sd });
     }
   }
   const [, byC] = F.at(0, 0);
   const wingBehind = wing.filter((q) => F.at(q.A[0], q.A[1])[1] < byC);
   const wingFront = wing.filter((q) => F.at(q.A[0], q.A[1])[1] >= byC);
+  const grass = [rgb(REALM.GRASS_DK || "#628f3d"), rgb(REALM.GRASS || "#82b256"), rgb(REALM.GRASS_LT || "#a4d06c")];
+  for (const q of wing) {
+    // its outer end goes into the turf bare
+    const [au, av] = q.A, [du, dv] = q.dir;
+    S.bareList.push((X, Y) => {
+      const [u, v] = ground(X, Y + 0.3);
+      const w = (u - au) * du + (v - av) * dv, ac = (u - au) * -dv + (v - av) * du;
+      return w > q.len - 1.8 && w < q.len + 2.5 && Math.abs(ac) < q.T / 2 + 2;
+    });
+  }
   const drawWing = (list) => {
     for (const q of list) {
-      wingWall(S, B, F, q, stoneT, moss, P.kind);
-      const [rx, ry] = F.at(q.A[0] - q.e * 0.3, q.A[1], -DROP);
-      if (F.wet(q.A[0] - q.e * 1.2, q.A[1])) ripples.push({ x: rx, y: ry + 0.5, w: 2.5, seed: q.A[1] * 0.3 + q.e });
+      wingWall(S, B, F, q, stoneT, moss, P.kind, deep, grass);
+      // the water laps at its face
+      const fu = q.A[0] - q.n[0] * (q.T / 2 + 0.3) + q.dir[0] * 2.5, fv = q.A[1] - q.n[1] * (q.T / 2 + 0.3) + q.dir[1] * 2.5;
+      const [rx, ry] = F.at(fu, fv, -DROP);
+      if (F.wet(fu - q.n[0] * 0.6, fv - q.n[1] * 0.6)) ripples.push({ x: rx, y: ry + 0.5, w: 2.5, seed: q.A[1] * 0.3 + q.e });
     }
   };
 
-  // ---- piles beside a span that runs up the screen (timber / fen) ----------
-  const sidePiles = [];
+  // ---- the bents under a span that runs up the screen (timber / fen): a row
+  // of piles across the stream, capped by a beam whose ends stand out past
+  // the deck on both sides. Their south faces, standing from the water up to
+  // the deck, are what shows the span's height from this camera.
+  const bents = [];
   if (!stone && !F.near) {
-    for (const sd of [-1, 1]) {
-      const run = F.wetRun(sd * (HALF + 1.2));
-      if (!run) continue;
-      const lo = run[0] + 2.2, hi = run[1] - 2.2;
-      const n = Math.max(1, Math.round((hi - lo) / 13));
-      for (let k = 0; k <= n; k++) sidePiles.push({ u: lo + ((hi - lo) * k) / n, sd, k });
+    const ra = F.wetRun(HALF + 2.1), rb = F.wetRun(-HALF - 2.1);
+    const lo = Math.min(ra ? ra[0] : 99, rb ? rb[0] : 99) + 3.2, hi = Math.max(ra ? ra[1] : -99, rb ? rb[1] : -99) - 3.2;
+    if (hi >= lo - 6) {
+      const n = hi - lo < 6 ? 0 : Math.max(1, Math.round((hi - lo) / 11));
+      for (let k = 0; k <= n; k++) bents.push(n ? lo + ((hi - lo) * k) / n : (lo + hi) / 2);
     }
+    for (const cp of cornerPiles) bents.push(cp.e * (F.half - 2));
   }
+  // the shadow side (away from the sun): its piles stand in the deck's shadow
+  const shadeSd = -F.sunSide;
+  const deckBents = [...new Set(bents.map((u) => Math.round(u * 4) / 4))];
   // ---- cutwaters on the stone piers ------------------------------------------
   const piersOf = (v0) => {
     let run = F.wetRun(v0);
@@ -478,36 +568,19 @@ const bakeSpan = (b, pal) => {
   // ======== back to front ========
   drawWing(wingBehind);
 
-  // the piles standing in the water beside an up-screen span
-  for (const p of sidePiles) {
-    posts.push({ u: p.u, v: p.sd * (HALF + 1.2), h: 0.5, z0: -F.L(p.u), w: 2, pile: true });
-    // a raking strut from the stream bed up to the deck's edge: it lies in
-    // the bent's plane, which looks south, so it shows the span's height
-    const l = F.L(p.u), sd = p.sd;
-    const uf = p.u + (F.s > 0 ? 0.7 : -0.7);
-    posts.push({ u: p.u, v: sd * (HALF + 5.2), h: 0.4, z0: -l, w: 1.2, pile: true });
-    piece(S, B, (c) => {
-      const P = (v, z) => F.at(uf, v, z);
-      poly(c, [P(sd * (HALF + 2), l - 0.3), P(sd * (HALF + 6.6), -DROP), P(sd * (HALF + 5.1), -DROP), P(sd * (HALF + 2), l - 1.9)], css(mx(rail, beam, 0.2)));
-      // its upper edge catches the light
-      poly(c, [P(sd * (HALF + 2), l - 0.3), P(sd * (HALF + 6.6), -DROP), P(sd * (HALF + 6.2), -DROP), P(sd * (HALF + 2), l - 0.8)], css(lt(rail, 0.12)));
-      const [fx, fy] = P(sd * (HALF + 5.85), -DROP);
-      c.fillStyle = css(mx(dk(rail, 0.4), moss, 0.35));
-      c.fillRect(Math.round((fx - 1) * 2) / 2, Math.round((fy - 1) * 2) / 2, 2, 1);
-    });
-    const [sx, sy] = F.at(p.u, sd * (HALF + 5.85), -DROP);
-    ripples.push({ x: sx, y: sy + 0.6, w: 2, seed: p.u * 0.61 + sd * 0.3 });
-    piece(S, B, (c) => {
-      const zt = F.L(p.u) + KERB_H - 0.2;
-      block(c, F, p.u - 0.9, p.u + 0.9, p.sd * (HALF + 0.35), p.sd * (HALF + 2.15), -DROP, zt,
-        css(lt(rail, 0.2)), (sun) => css(sun > 0.1 ? lt(rail, 0.05) : dk(rail, 0.18)));
-      // the wet foot, dark and green
-      const [fx, fy] = F.at(p.u, p.sd * (HALF + 1.3), -DROP);
-      c.fillStyle = css(mx(dk(rail, 0.4), moss, 0.35));
-      c.fillRect(Math.round((fx - 1.1) * 2) / 2, Math.round((fy - 1.5) * 2) / 2, 2.2, 1);
-    });
-    const [rx, ry] = F.at(p.u, p.sd * (HALF + 1.2), -DROP);
-    ripples.push({ x: rx, y: ry + 1.1, w: 2.4, seed: p.u * 0.37 + p.sd });
+  // the bents, the far ones (up the screen) first
+  const bentOrder = deckBents.map((u) => ({ u, y: F.at(u, 0)[1] })).sort((p, q) => p.y - q.y);
+  for (const { u } of bentOrder) {
+    for (const sd of [-1, 1]) {
+      const vp = sd * (HALF + 2.2);
+      const wetFoot = F.wet(u, vp);
+      posts.push({ u, v: vp, h: 0.4, z0: -F.L(u), w: 2.2, pile: true });
+      bentPile(S, B, F, u, sd, P, sd === shadeSd, deep, wetFoot);
+      if (wetFoot) {
+        const [rx, ry] = F.at(u, vp, -DROP);
+        ripples.push({ x: rx, y: ry + 1.2, w: 2.6, seed: u * 0.37 + sd });
+      }
+    }
   }
 
   // stone: the far side's cutwaters of a span across the screen (their tops
@@ -713,8 +786,8 @@ const bakeSpan = (b, pal) => {
 
   drawWing(wingFront);
 
-  // everything above is one silhouette: ink it
-  inkOutline(B.cv, INK_LINE, 2);
+  // everything above is one silhouette: ink it (bare where the road runs on)
+  outlineSpan(S, B, 2);
 
   // ---- rails and posts / pillars and lamps (thin ink of their own) ---------
   const R = layerOf(S);
@@ -724,7 +797,7 @@ const bakeSpan = (b, pal) => {
 
   // ---- all together: the shadow under, the span over ------------------------
   const G = layerOf(S);
-  over(G, shadowLayer(F, S, P, posts));
+  over(G, shadowLayer(F, S, P, posts, water));
   over(G, B);
   // the witch-light's glow (the fen's lanterns): two hard rings, no blur
   const lamp = posts.find((p) => p.lamp);
@@ -733,7 +806,15 @@ const bakeSpan = (b, pal) => {
     const z = F.L(lamp.u) + lamp.h + (stone ? 2.4 : 1.6);
     lampAt = F.at(lamp.u, lamp.v, z);
     if (fen) {
-      disc(G.c, lampAt[0], lampAt[1], 4.5, rgba(P.lamp, 0.12));
+      // two stepped diamonds of light hugging the lantern, no round halo
+      for (const [r, a] of [[3.5, 0.1], [2, 0.12]]) {
+        G.c.fillStyle = rgba(P.lamp, a);
+        const cx = Math.round(lampAt[0] * 2) / 2, cy = Math.round(lampAt[1] * 2) / 2;
+        for (let dy = -r; dy <= r; dy += 0.5) {
+          const hw = r - Math.abs(dy);
+          if (hw > 0) G.c.fillRect(cx - hw, cy + dy - 0.25, hw * 2, 0.5);
+        }
+      }
     }
   }
   // a ripple's dashes show only where no part of the span stands over them
@@ -752,39 +833,47 @@ const bakeSpan = (b, pal) => {
 };
 
 // ---- a wing wall, pixel by pixel ------------------------------------------
-// q = { A: [u, v] where it meets the span, dir: its run in (u, v), len, T:
-// thickness, zA → zB: its top, sloping down away from the water }. Its top
-// and every face that looks south, in coursed stone: rough fieldstone for
-// the timber kinds, dressed blocks under a coping for the stone kind.
-const wingWall = (S, B, F, q, stoneT, moss, kind) => {
+// q = { A: [u, v] where it starts under the deck's corner, dir: its run along
+// the bank in (u, v), n: toward the land, len, T: thickness, zA → zB: its
+// top, level for a stretch and then sinking into the turf }. Its top and the
+// faces that look south, in coursed stone: rough fieldstone for the timber
+// kinds, dressed blocks for the stone kind. The face toward the water stands
+// in it on a dark wet foot; the outer end is left bare, under a grass tuft.
+const wingWall = (S, B, F, q, stoneT, moss, kind, deep, grass) => {
   const [au, av] = q.A, [du, dv] = q.dir, pu = -dv, pv = du;
-  const ztop = (w) => q.zA + (q.zB - q.zA) * Math.max(0, Math.min(1, w / q.len));
+  const ztop = (w) => {
+    const t = Math.max(0, Math.min(1, (w - q.len * 0.3) / (q.len * 0.7)));
+    return q.zA + (q.zB - q.zA) * t;
+  };
   const dressed = kind === "stone";
+  // `across` runs along (pu, pv); the water lies on the side away from n
+  const ws = pu * q.n[0] + pv * q.n[1] > 0 ? -1 : 1;
   const corner = (w, side) => [au + du * w + pu * side * q.T / 2, av + dv * w + pv * side * q.T / 2];
   const faces = [];
-  const addFace = (p1, p2, nu, nv, w1, w2) => {
+  const addFace = (p1, p2, nu, nv, w1, w2, water) => {
     const ny = nu * F.s + nv * F.c;
     if (ny < 0.12) return;
     const [x1] = F.at(p1[0], p1[1]), [x2] = F.at(p2[0], p2[1]);
     if (Math.abs(x2 - x1) < 0.6) return;
-    const mu = (p1[0] + p2[0]) / 2 + nu * 1.2, mv = (p1[1] + p2[1]) / 2 + nv * 1.2;
-    faces.push({ p1, p2, x1, x2, w1, w2, bot: F.wet(mu, mv) ? -DROP : -0.3, len: Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) });
+    faces.push({ p1, p2, x1, x2, w1, w2, bot: water ? -DROP : -0.2, water, len: Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) });
   };
-  addFace(corner(0, 1), corner(q.len, 1), pu, pv, 0, q.len);
-  addFace(corner(0, -1), corner(q.len, -1), -pu, -pv, 0, q.len);
-  addFace(corner(q.len, -1), corner(q.len, 1), du, dv, q.len, q.len);
+  // the water face stands in the river (where the river reaches it), the land face on the turf
+  const mid = corner(q.len * 0.3, ws);
+  const inWater = F.wet(mid[0] - q.n[0] * 1.2, mid[1] - q.n[1] * 1.2);
+  addFace(corner(0, ws), corner(q.len, ws), pu * ws, pv * ws, 0, q.len, inWater);
+  addFace(corner(0, -ws), corner(q.len, -ws), -pu * ws, -pv * ws, 0, q.len, false);
   const pts = [];
   for (const w of [0, q.len]) for (const sdd of [-1, 1]) { const [u, v] = corner(w, sdd); pts.push([u, v, ztop(w) + 0.5], [u, v, -DROP - 0.5]); }
   const box = boxOf(F, pts, 1);
   const x0 = F.b.x, y0 = F.b.y;
+  const wetLine = mx(dk(deep, 0.5), moss, 0.2);
   surfacePiece(S, B, box, (X, Y, o) => {
     // the top: a sloping plane, found by a few rounds of guess-and-correct
     const x = X - x0, y = Y - y0;
     let z = q.zA, u = 0, v = 0;
     for (let k = 0; k < 6; k++) {
       u = x * F.c + (y + z) * F.s; v = -x * F.s + (y + z) * F.c;
-      const w = (u - au) * du + (v - av) * dv;
-      z = ztop(w);
+      z = ztop((u - au) * du + (v - av) * dv);
     }
     const w = (u - au) * du + (v - av) * dv, across = (u - au) * pu + (v - av) * pv;
     if (w >= 0 && w <= q.len && Math.abs(across) <= q.T / 2) {
@@ -801,11 +890,13 @@ const wingWall = (S, B, F, q, stoneT, moss, kind) => {
       const zz = gy - Y, wf = fc.w1 + (fc.w2 - fc.w1) * t;
       if (zz > ztop(wf) || zz < fc.bot) continue;
       o[0] = t * fc.len; o[1] = zz;
+      if (fc.water && zz < -DROP + 0.5) return 99;
       const row = Math.floor((zz + DROP) / (dressed ? 1.6 : 1.5));
       return 100 + f * 200 + row * 24 + Math.floor((t * fc.len + (row & 1) * 1.5 + hash(row, f) * (dressed ? 0 : 1.2)) / (dressed ? 3.4 : 2.6));
     }
     return -1;
   }, (id, a2, b2, e, i, j) => {
+    if (id === 99) return wetLine;
     const top = id < 100;
     let col = stoneT[Math.floor(hash(id, 41) * 3)];
     if (top) {
@@ -813,11 +904,56 @@ const wingWall = (S, B, F, q, stoneT, moss, kind) => {
       if (!dressed && hash(id, 9) < 0.35 && hash(i, j) < 0.55) col = hash(i, j * 3) < 0.5 ? moss : lt(moss, 0.12);
     } else {
       col = dk(col, 0.16);
-      if (b2 < -DROP + 0.8) col = mx(dk(col, 0.25), moss, 0.35);
+      if (b2 < -DROP + 1.1) col = mx(dk(col, 0.25), moss, 0.35);
     }
     if (e.joint) return dk(col, 0.4);
     if (e.lip) return lt(col, 0.14);
     return col;
+  });
+  // a tuft of the bank's grass over the end, where the wall goes into the turf
+  const [ex, ey] = F.at(au + du * (q.len - 0.7), av + dv * (q.len - 0.7), ztop(q.len - 0.7));
+  const gx = Math.round(ex * 2) / 2, gy = Math.round(ey * 2) / 2;
+  const T = [
+    "..2..2..",
+    ".21.121.",
+    "1101011.",
+    ".000000.",
+    "..3333..",
+  ];
+  const cols = [grass[0], grass[1], grass[2], dk(grass[0], 0.4)];
+  B.c.save();
+  for (let r = 0; r < T.length; r++) for (let k = 0; k < T[r].length; k++) {
+    const ch = T[r][k];
+    if (ch === ".") continue;
+    B.c.fillStyle = css(cols[+ch]);
+    B.c.fillRect(gx - 2 + k * 0.5, gy - 2 + r * 0.5, 0.5, 0.5);
+  }
+  B.c.restore();
+};
+
+// A pile of a bent standing beside an up-screen deck, the bent's cap beam
+// across its head standing out past the deck's edge. `shade`: it stands in
+// the deck's shadow.
+const bentPile = (S, B, F, u, sd, P, shade, deep, wetFoot) => {
+  const rail = rgb(P.rail), beam = rgb(P.beam), moss = rgb(P.moss);
+  const wood = mx(rail, beam, 0.3);
+  const l = F.L(u), zb = wetFoot ? -DROP : 0, zt = l - 2.3;
+  const vp = sd * (HALF + 2.2);
+  const lh = (a, q) => [Math.min(a, q), Math.max(a, q)];
+  const face = shade ? dk(wood, 0.32) : wood;
+  const us = u + 1.1 * (F.s >= 0 ? 1 : -1);          // the pile's south face
+  piece(S, B, (c) => {
+    const [va, vb] = lh(vp - 1.1, vp + 1.1);
+    block(c, F, u - 1.1, u + 1.1, va, vb, zb, zt, css(face), (sun) => css(sun > 0.1 ? lt(face, 0.12) : face));
+    faceEdges(c, F, u, vp, 1.1, zb, zt, shade ? lt(face, 0.08) : lt(wood, 0.2), dk(face, 0.32));
+    // the damp, green-dark foot, and the wet line where it meets the water
+    const band = (z0, z1, col) => poly(c, [F.at(us, va, z1), F.at(us, vb, z1), F.at(us, vb, z0), F.at(us, va, z0)], css(col));
+    band(zb, zb + 1.3, mx(dk(face, 0.3), moss, 0.4));
+    if (wetFoot) band(zb, zb + 0.5, mx(dk(deep, 0.5), moss, 0.2));
+    // the cap: the bent's beam end, standing out past the deck's edge
+    const [ca, cb] = lh(sd * (HALF - 1.5), sd * (HALF + 4.2));
+    block(c, F, u - 1.3, u + 1.3, ca, cb, zt - 0.1, l - 0.5, css(lt(wood, shade ? 0.06 : 0.22)),
+      (sun) => css(sun > 0.1 ? lt(wood, 0.1) : dk(wood, shade ? 0.22 : 0.08)));
   });
 };
 
