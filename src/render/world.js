@@ -15,6 +15,9 @@ import { PTS, nearestOnPath } from "../engine/path.js";
 import { TUFTS, FLOWERS, SPECKS, PEBBLES, PONDS, CHEVRONS, DECOR, inRiver, FOREST, forestDepthAt, COAST, coastLine, seaDepthAt, inSea } from "../data/terrain.js";
 import { lighten, darken, mix, rgba, soft, shadow, tuft, flower, stone, clover, blade, strokePts, hash, ball, blobBall, lin, rad, bakeSprite, part, PX } from "./paint.js";
 import { IRON_ART } from "./scenery-iron.js";
+import { paintShore, drawShoreLive, coastTones, coastPixel } from "./coast.js";
+import { paintRoad, drawRoadMarks } from "./road.js";
+import { bakeWater } from "./water.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
 // a chapter's own ground art, keyed by REALM.groundArt (looked up when the
 // ground is painted, never at load — see the import cycle note in scenery.js)
@@ -116,9 +119,7 @@ function paintToneMap(ctx) {
   const shore = COAST ? new Float32Array(alongX ? PW : PH) : null;
   if (shore) for (let i = 0; i < shore.length; i++) shore[i] = coastLine(i / RES);
   const sandW = COAST ? COAST.sand : 0;
-  const wat = R.water || { deep: "#3a6a7c", edge: "#4a8094", shine: "#8cc4d8" };
-  const sea = [lighten(wat.shine, 0.45), mix(wat.shine, wat.edge, 0.35), wat.edge, mix(wat.edge, wat.deep, 0.5), wat.deep, darken(wat.deep, 0.18)].map(hexRGB);
-  const beach = ["#b09568", "#c9b07a", "#dcc48e", "#e6d29e"].map(hexRGB);
+  const tones = COAST ? coastTones(R) : null;
   if (bound) for (let i = 0; i < bound.length; i++) bound[i] = FOREST.edge === "left" ? forestDepthAt(0, i / RES) : forestDepthAt(i / RES, 0);
   for (let py = 0; py < PH; py++) {
     const y = py / RES, y0 = y | 0, v = y - y0, row = y0 * FW;
@@ -129,13 +130,9 @@ function paintToneMap(ctx) {
       let c;
       const depth = !bound ? -999 : FOREST.edge === "left" ? bound[py] - x : bound[px] - y;
       const sd = !shore ? -999 : COAST.edge === "top" ? shore[px] - y : COAST.edge === "bottom" ? shore[px] - (H - y) : COAST.edge === "left" ? shore[py] - x : shore[py] - (W - x);
-      if (sd + dz * 3 > 0) {
-        // out to sea: bands by distance, broken up by the turf's own noise
-        const k = sd + (t - 0.5) * 10 + dz * 3;
-        c = sea[k < 2.5 ? 0 : k < 9 ? 1 : k < 20 ? 2 : k < 34 ? 3 : k < 52 ? 4 : 5];
-      } else if (sd + dz * 5 > -sandW) {
-        const k = sd + (t - 0.5) * 6 + dz * 2;
-        c = beach[k > -4 ? 0 : k > -8 ? 1 : t + dz * 0.1 > 0.5 ? 3 : 2];
+      // the sea and the beach (coast.js) take the pixel when it's theirs
+      if (tones && (c = coastPixel(tones, sd, t, dz, sandW, x, y))) {
+        // (coloured by the coast)
       } else if (depth + dz * 7 > 0) {
         const tt = t + dz * 0.1;
         c = floor[tt < 0.36 ? 0 : tt < 0.5 ? 1 : 2];
@@ -176,77 +173,6 @@ const fern = (ctx, x, y, s, col, seed) => {
     blade(ctx, x, y, x + Math.cos(a) * len, y + Math.sin(a) * len * 0.8, 1.1 * s, darken(col, 0.25), lighten(col, 0.2), 0.3);
   }
 };
-
-// The sea's surface and the beach's litter, over the tone map: lines of
-// surf running parallel to the shore (broken, never a ruled stripe), a few
-// rocks awash, shells and weed along the tideline, and the odd driftwood log.
-function paintShore(ctx) {
-  const alongX = COAST.edge === "top" || COAST.edge === "bottom";
-  const span = alongX ? W : H;
-  // a point at u along the edge, `off` px out from the waterline (+ is seaward)
-  const at = (u, off) => {
-    const v = coastLine(u) - off;
-    return COAST.edge === "top" ? [u, v] : COAST.edge === "bottom" ? [u, H - v] : COAST.edge === "left" ? [v, u] : [W - v, u];
-  };
-  const wat = REALM.water || { shine: "#8cc4d8" };
-  const foam = lighten(wat.shine, 0.55);
-  ctx.lineCap = "round";
-  // surf: three rows of broken swell lines, the nearer the brighter
-  [[5, 0.75, 1.6], [16, 0.5, 1.2], [31, 0.32, 1], [50, 0.2, 0.9]].forEach(([off, a, w], row) => {
-    ctx.strokeStyle = rgba(foam, a);
-    ctx.lineWidth = w;
-    for (let u = -10, i = 0; u < span + 10; i++) {
-      const len = 14 + hash(row * 97 + i, 3) * 26, gap = 6 + hash(row * 97 + i, 4) * 18;
-      if (hash(row * 97 + i, 5) > 0.25) {
-        ctx.beginPath();
-        for (let k = 0; k <= 6; k++) {
-          const uu = u + (len * k) / 6;
-          const [x, y] = at(uu, off + Math.sin(uu * 0.09 + row) * 1.5);
-          if (seaDepthAt(x, y) < 2) break;
-          k ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-        }
-        ctx.stroke();
-      }
-      u += len + gap;
-    }
-  });
-  // rocks awash just offshore, each with a ring of foam
-  for (let i = 0; i < 6; i++) {
-    const u = 40 + hash(i, 61) * (span - 80), [x, y] = at(u, 12 + hash(i, 62) * 30);
-    if (seaDepthAt(x, y) < 8 || x > W - WALL_W - 8) continue;
-    const r = 3 + hash(i, 63) * 4;
-    ctx.strokeStyle = rgba(foam, 0.6); ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(x, y + 1, r + 2.5, (r + 2.5) * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
-    stone(ctx, x, y, r, r * 0.7, "#7c7870");
-  }
-  // the tideline: shells, pebbles and dark weed on the wet sand
-  for (let i = 0; i < 70; i++) {
-    const u = hash(i, 64) * span, [x, y] = at(u, -3 - hash(i, 65) * (COAST.sand - 6));
-    if (nearestOnPath(x, y).d < PATH_HALF + 4 || x > W - WALL_W - 2) continue;
-    const kind = hash(i, 66);
-    if (kind < 0.35) { ctx.fillStyle = kind < 0.18 ? "#f2e6d0" : "#e8b8a0"; ctx.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 1.5, 1); }
-    else if (kind < 0.6) stone(ctx, x, y, 1.4, 1, "#a8a090");
-    else if (kind < 0.8) { ctx.strokeStyle = rgba("#4a5a34", 0.7); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.quadraticCurveTo(x, y - 1.5, x + 3, y + 0.5); ctx.stroke(); }
-  }
-  // marram grass where the beach climbs into the turf
-  const dune = mix(REALM.GRASS_DK, "#9a9660", 0.45), duneTip = mix(REALM.GRASS_LT, "#d8d098", 0.4);
-  for (let i = 0; i < 90; i++) {
-    const u = hash(i, 69) * span, [x, y] = at(u, -COAST.sand + 1 + hash(i, 70) * 8);
-    if (nearestOnPath(x, y).d < PATH_HALF + 6 || x > W - WALL_W - 4 || forestDepthAt(x, y) > -6) continue;
-    tuft(ctx, x, y, 0.7 + hash(i, 71) * 0.5, dune, duneTip, i);
-  }
-  // a driftwood log or two, high on the dry sand
-  for (let i = 0; i < 2; i++) {
-    const u = 120 + hash(i, 67) * (span - 260), [x, y] = at(u, -COAST.sand * 0.62);
-    if (nearestOnPath(x, y).d < PATH_HALF + 14 || x > W - WALL_W - 18) continue;
-    shadow(ctx, x + 1, y + 2, 11, 2.2, 0.25);
-    ctx.save(); ctx.translate(x, y); ctx.rotate((hash(i, 68) - 0.5) * 0.5);
-    ctx.fillStyle = "#8a7258"; ctx.fillRect(-10, -1.6, 20, 3.2);
-    ctx.fillStyle = "#a88e70"; ctx.fillRect(-10, -1.6, 20, 1);
-    ctx.fillStyle = "#6a5440"; ctx.fillRect(4, -3.4, 1.2, 2); ctx.fillRect(-10, -1.6, 1.2, 3.2);
-    ctx.restore();
-  }
-}
 
 function paintTurf(ctx) {
   const R = REALM;
@@ -329,67 +255,6 @@ function paintTurf(ctx) {
   });
 }
 
-// ---- the road ----------------------------------------------------------
-function paintRoad(ctx) {
-  const R = REALM;
-  const rng = mulberry32((R.seed ^ 0x0a0ad) >>> 0);
-  const main = R.PATH_MAIN, dk = R.PATH_DK, edge = R.PATH_EDGE;
-  const lt = lighten(main, 0.2);
-  const wide = PATH_HALF * 2;
-  // where the road enters at a board edge it runs on off the board (the
-  // landscape beyond, render/apron.js, carries it further), so no rounded
-  // cap shows at the edge
-  const [x0, y0] = PTS[0], [x1, y1] = PTS[1] || PTS[0];
-  const edgeStart = x0 <= 30 || y0 <= 30 || x0 >= W - 30 || y0 >= H - 30;
-  const dl = Math.hypot(x0 - x1, y0 - y1) || 1;
-  const RP = edgeStart ? [[x0 + ((x0 - x1) / dl) * 60, y0 + ((y0 - y1) / dl) * 60], ...PTS] : PTS;
-
-  // dirt spreads onto the grass: a feathered halo (many faint rings, so the
-  // edge has no edge), then a firmer margin
-  for (let k = 9; k >= 1; k--) strokePts(ctx, RP, wide + 2 + k * 3, rgba(edge, 0.03 + (9 - k) * 0.006));
-  strokePts(ctx, RP, wide + 3, mix(main, edge, 0.45));
-  // the road is worn a little below the turf: its sunward edge sits in
-  // shadow, the far edge catches light
-  ctx.save(); ctx.translate(-1.2, -1.2);
-  strokePts(ctx, RP, wide + 2, rgba(darken(dk, 0.2), 0.4));
-  ctx.restore();
-  ctx.save(); ctx.translate(1.2, 1.2);
-  strokePts(ctx, RP, wide + 2, rgba(lighten(main, 0.3), 0.45));
-  ctx.restore();
-  // the body, with a paler crown down the middle
-  strokePts(ctx, RP, wide - 2, main);
-  strokePts(ctx, RP, wide - 16, rgba(lt, 0.18));
-  // (the three marching lanes are NOT painted: the owner wants one open
-  // road, and the foes' own spacing shows the lanes well enough)
-  // mottling: damp patches and dust
-  for (let i = 0; i < 90; i++) {
-    const d = rng() * 1;
-    const idx = Math.floor(d * (PTS.length - 1));
-    const [px, py] = PTS[idx];
-    const x = px + (rng() - 0.5) * wide * 0.9, y = py + (rng() - 0.5) * wide * 0.9;
-    const col = rng() > 0.45 ? dk : lt;
-    soft(ctx, x, y, 5 + rng() * 12, 3 + rng() * 6, [[0, rgba(col, 0.16)], [1, rgba(col, 0)]]);
-  }
-  // pebbles and the odd bigger stone, half-trodden into the dirt
-  for (const pb of PEBBLES) {
-    const col = pb.s > 0.6 ? mix(dk, "#8d8478", 0.4) : R.PEBBLE;
-    stone(ctx, pb.x, pb.y, pb.r * 0.9, pb.r * 0.62, col);
-  }
-  // grass creeping in over the edges
-  const base = mix(R.GRASS_DK, R.GRASS, 0.25), tip = lighten(R.GRASS_LT, 0.15);
-  for (let i = 1; i < PTS.length - 1; i += 2) {
-    for (const side of [-1, 1]) {
-      if (rng() > 0.55) continue;
-      const p = PTS[Math.max(0, i - 1)], n = PTS[Math.min(PTS.length - 1, i + 1)];
-      let dx = n[0] - p[0], dy = n[1] - p[1];
-      const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
-      const off = (PATH_HALF + 1 + rng() * 3) * side;
-      const x = PTS[i][0] - dy * off + (rng() - 0.5) * 8, y = PTS[i][1] + dx * off + (rng() - 0.5) * 4;
-      tuft(ctx, x, y, 0.6 + rng() * 0.5, base, tip, 900 + i * 2 + side, { n: 3 });
-    }
-  }
-}
-
 // The cached ground for the realm currently loaded. Rebuilt whenever the
 // road changes underneath it (a new realm) — and only then.
 export function groundLayer() {
@@ -405,74 +270,16 @@ export function groundLayer() {
   if (artFor("turf", art)) artFor("turf", art)(ctx, kit());
   paintRoad(ctx);
   if (artFor("road", art)) artFor("road", art)(ctx, kit());
+  bakeWater(ctx);
   layerKey = key;
   return layer;
 }
 
-// The living parts of the road: chevrons that kindle when a column marches
-// over them. Drawn every frame, on top of the cached ground.
-// The sea is never still: a thin wash of foam slides up the wet sand and
-// back, out of step along the shore. One stroked line a frame, over the
-// baked ground. The waterline is sampled once per realm.
-let SHORE = null;
-function drawShoreLive(ctx, g) {
-  if (!COAST) return;
-  if (!SHORE || SHORE.id !== REALM.id) {
-    const alongX = COAST.edge === "top" || COAST.edge === "bottom", span = alongX ? W : H, pts = [];
-    for (let u = -8; u <= span + 8; u += 6) {
-      const v = coastLine(u);
-      if (v < 2) continue;
-      pts.push([u, v]);
-    }
-    SHORE = { id: REALM.id, pts, edge: COAST.edge };
-  }
-  const place = (u, v) => (SHORE.edge === "top" ? [u, v] : SHORE.edge === "bottom" ? [u, H - v] : SHORE.edge === "left" ? [v, u] : [W - v, u]);
-  const t = g.time || 0;
-  const foam = lighten((REALM.water || { shine: "#8cc4d8" }).shine, 0.6);
-  ctx.save();
-  ctx.lineCap = "round"; ctx.lineJoin = "round";
-  for (const [k, a, w] of [[0, 0.55, 1.6], [1, 0.28, 1]]) {
-    ctx.strokeStyle = rgba(foam, a); ctx.lineWidth = w;
-    ctx.beginPath();
-    SHORE.pts.forEach(([u, v], i) => {
-      // up the sand and back, a slow swell rolling along the shore
-      const reach = 2.5 + 3 * Math.sin(t * 1.3 - u * 0.018 - k * 0.9) - k * 4;
-      const [x, y] = place(u, v - reach);
-      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-    });
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
+// The living parts of the ground, every frame over the cached layer: the
+// sea's wash on a coast (coast.js) and the road's chevrons (road.js).
 export function drawRoadLive(ctx, g) {
   drawShoreLive(ctx, g);
-  const R = REALM;
-  const hot = lighten(R.PATH_MAIN, 0.6);
-  for (const ch of CHEVRONS) {
-    const on = Math.sin(g.time * 2.2 - ch.d * 0.045) > 0;
-    let near = false;
-    for (const e of g.enemies) {
-      if (!e.dead && Math.abs(e.dist - ch.d) < 60) { near = true; break; }
-    }
-    ctx.save();
-    ctx.translate(ch.x, ch.y);
-    ctx.rotate(ch.a);
-    const a = near ? (on ? 0.7 : 0.5) : on ? 0.32 : 0.16;
-    ctx.strokeStyle = `rgba(${R.CHEVRON},${a})`;
-    ctx.lineWidth = 2.4;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(-3, -5); ctx.lineTo(2, 0); ctx.lineTo(-3, 5);
-    ctx.stroke();
-    if (near) {
-      ctx.strokeStyle = rgba(hot, on ? 0.55 : 0.3);
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
+  drawRoadMarks(ctx, g);
 }
 
 // a spare export for the lab pages: paint one lit ball where they ask
