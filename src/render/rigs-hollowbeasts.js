@@ -106,8 +106,8 @@ const deadHead = (c, x, y, sc, ang, jaw, col, o = {}) => {
   const hinge = [0.4, 1], J = (pt) => rot(pt, hinge, jaw);
   // lank hair hanging off the back of the skull
   if (o.hair) {
-    stroke(c, [[-0.4, -3.2], [-2.6, -2.6], [-3.4, -0.6], [-3.2, 1.8]], 0.9, o.hair);
-    stroke(c, [[-1.6, -2.4], [-2.6, -0.4], [-2.2, 2.4]], 0.7, o.hair);
+    stroke(c, [[0.2, -3.4], [-1.4, -2.8], [-2.2, -0.6], [-2.4, 2.6]], 0.7, o.hair);
+    stroke(c, [[-1, -3], [-2.6, -1.4], [-3.4, 1.4]], 0.6, o.hair);
   }
   // the gape
   if (jaw > 0.05) fillPoly(c, [hinge, [4.4, 0.8], J([4.4, 1.3]), J([1.2, 1.8])], MAW);
@@ -118,7 +118,7 @@ const deadHead = (c, x, y, sc, ang, jaw, col, o = {}) => {
   for (const tx of [1.8, 2.8, 3.8]) { const t = J([tx, 1.3]); c.fillRect(q(t[0]), q(t[1] - 0.5), 0.5, 1); }
   // the skull: a dome behind, the face sharp and fallen in
   c.fillStyle = tone(c, -1, -3.6, 3, 1.4, col, 0.32, 0.4);
-  curve(c, [[-2.2, 0.6], [-2.8, -1.4], [-1.6, -3.3], [0.8, -3.8], [2.7, -3], [3.5, -1.7, 1], [3.8, -0.9], [4.8, 0, 1], [4.4, 0.9, 1], [2.2, 0.9], [0.6, 1.5], [-1.2, 1.5]]); c.fill();
+  curve(c, [[-1.8, 0.6], [-2.4, -1.2], [-1.4, -3], [0.8, -3.5], [2.7, -2.9], [3.6, -1.8, 1], [3.9, -0.9], [5, 0, 1], [4.6, 0.9, 1], [2.2, 0.9], [0.6, 1.5], [-1, 1.4]]); c.fill();
   // the pointed ear, laid back
   fillPoly(c, [[-0.2, -1.4], [-2.6, -3.4], [-0.4, -2.6]], darken(col, 0.3));
   // sunken temple and cheek, heavy brow, nose slit
@@ -126,7 +126,7 @@ const deadHead = (c, x, y, sc, ang, jaw, col, o = {}) => {
   c.fillStyle = lighten(col, 0.2); c.fillRect(1.4, -0.4, 1.4, 0.5);
   c.fillStyle = darken(col, 0.55); poly(c, [[1.2, -2.4], [3.6, -1.9], [3.5, -1.4], [1.4, -1.8]]); c.fill();
   c.fillStyle = "#1a1418"; c.fillRect(q(4), -0.5, 0.5, 0.5);
-  c.fillStyle = "#140e16"; c.beginPath(); c.ellipse(2.4, -1.1, 1, 0.8, 0, 0, TAU); c.fill();
+  c.fillStyle = "#140e16"; c.beginPath(); c.ellipse(2.5, -1.1, 1.2, 0.95, 0, 0, TAU); c.fill();
   c.fillStyle = o.eyes || "#7ce0b8"; c.fillRect(2.2, -1.5, 1, 0.5);
   // upper teeth, long, down over the lip
   c.fillStyle = TOOTH;
@@ -221,6 +221,8 @@ const ghoul = (ctx, p) => {
     c.fillStyle = tone(c, 0, S[1] - 3, 0, S[1] + 3, darken(col, 0.15), 0.2, 0.4);
     taper(c, [[S[0] + 1, S[1] - 1.8], [hx - 1.2, hy + 0.2]], [2.6, 1.7]);
     c.fillStyle = darken(col, 0.35); c.fillRect(q(S[0] + 2), q(S[1] + 0.2), 1.6, 0.5);
+  });
+  part(ctx, (c) => {
     deadHead(c, hx, hy, 0.92, fight ? (p.frame ? 0.1 : -0.35) : 0.08, k.jaw || 0, mix(col, pale, 0.3), { hair: p.hair, eyes: p.eyes });
   });
   // near leg: a thin thigh with a knob of a knee, the long foot
@@ -244,8 +246,8 @@ const ghoul = (ctx, p) => {
   });
   ctx.restore();
   // the witch-fire in the socket
-  const eyeAt = rot([2.5, -0.9], [0, 0], fight ? (p.frame ? 0.1 : -0.35) : 0.08);
-  glow(ctx, (hx + eyeAt[0] + (k.dx || 0)) * s, (hy + eyeAt[1]) * s, 1.8 * s, p.eyes || "#7ce0b8", 0.55);
+  const eyeAt = rot([2.2, -1.1], [0, 0], fight ? (p.frame ? 0.1 : -0.35) : 0.08);
+  glow(ctx, (hx + eyeAt[0] + (k.dx || 0)) * s, (hy + eyeAt[1]) * s, 1.4 * s, p.eyes || "#7ce0b8", 0.45);
 };
 
 // ---- the wraith ----------------------------------------------------------------------
@@ -480,8 +482,8 @@ const amalgam = (ctx, p) => {
 };
 
 export const HOLLOWBEAST_RIGS = {
-  ghoul: { kind: "hbGhoul", box: { hw: 22, up: 24, down: 4 }, p: { len: 26, col: "#7c8a70", belly: "#b4bc9c", mane: "#4a5448", cloth: "#4a3a5e", hair: "#8e8c7e", eyes: "#7ce0b8" } },
+  ghoul: { kind: "hbGhoul", box: { hw: 24, up: 26, down: 4 }, p: { len: 28, col: "#7c8a70", belly: "#b4bc9c", mane: "#4a5448", cloth: "#4a3a5e", hair: "#5a5246", eyes: "#7ce0b8" } },
   wraith: { kind: "hbWraith", fly: true, box: { hw: 16, up: 36, down: 4 }, p: { h: 26, col: "#566a80", mane: "#0e0c16", cloth2: "#4e6a52", skin: "#b4c6c8", hair: "#5e6662", eyes: "#7ce0b8" } },
-  amalgam: { kind: "hbAmalgam", box: { hw: 26, up: 40, down: 4 }, p: { h: 30, col: "#6e7c64", belly: "#a4a88a", mane: "#6a5670", cloth: "#3e3448", hair: "#b4a684", cloth2: "#4a5a50", eyes: "#7ce0b8" } },
+  amalgam: { kind: "hbAmalgam", box: { hw: 29, up: 44, down: 5 }, p: { h: 33, col: "#6e7c64", belly: "#a4a88a", mane: "#6a5670", cloth: "#3e3448", hair: "#b4a684", cloth2: "#4a5a50", eyes: "#7ce0b8" } },
 };
 export const HOLLOWBEAST_PAINTERS = { hbGhoul: ghoul, hbWraith: wraith, hbAmalgam: amalgam };
