@@ -100,8 +100,8 @@ export const CROWD_WEIGHT = {
   skeleton: 1, ghoul: 0.9, bonearcher: 0.7, wraith: 0.5, ghast: 0.4, crypt: 0.35, gravecaller: 0.1, amalgam: 0.2,
 };
 // A faction may swell less (`crowdScale` in factions.js): the Greenwood is
-// a horde and swells fully; the Iron Kingdom swells at 0.6 and the Hollow
-// Court at 0.65 (tuned with the sims so each chapter bleeds about as much
+// a horde and swells fully; the Iron Kingdom and the Hollow Court both swell
+// at 0.6 (tuned with the sims so each chapter bleeds about as much
 // as the Greenwood does at the same depth).
 // Capped at 6x: deep in the Endless March a group of 32 already becomes ~190,
 // and the road (and an iPad) has only so much room.

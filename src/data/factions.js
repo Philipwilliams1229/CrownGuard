@@ -112,9 +112,10 @@ export const FACTIONS = {
 
   hollow: {
     id: "hollow",
-    // the dead come in floods: two thirds of the horde's swell, on top of
-    // scripts that are already all chaff (retuned 2026-09-26)
-    crowdScale: 0.65,
+    // the dead come in floods: 0.6 of the horde's swell, on top of scripts
+    // that are already all chaff (retuned 2026-09-26; 0.65 left the last
+    // levels at the very edge of falling on most seeds)
+    crowdScale: 0.6,
     name: "The Hollow Court",
     tag: "THE DEAD",
     tagColor: "#b08ad8",

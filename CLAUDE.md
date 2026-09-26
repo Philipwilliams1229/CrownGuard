@@ -83,7 +83,7 @@ should never have to rediscover it.
   sims are noisy (the commander's plan swings with the dice): judge a
   change on several `--seed`s, not one run.
 - Levers: the crowd (`crowd`, `CROWD_WEIGHT`, `crowdScale` per faction —
-  Greenwood 1, Iron 0.6, Hollow 0.65 — `overlap` in
+  Greenwood 1, Iron 0.6, Hollow 0.6 — `overlap` in
   `src/data/waves.js`), `SPLASH_CAP` in `src/engine/update.js`, bounty cap and
   wave bonus, per-level gold in `src/data/campaign.js`, tower stats in
   `src/data/towers.js`, castle works and endless ranks in `src/data/castle.js`.

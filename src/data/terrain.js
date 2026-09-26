@@ -30,7 +30,9 @@ export let BRIDGES = [];  // [{ x, y, a, d0, d1 }] — where the road spans it
 // comes out of a cave or a barrow instead.
 export let FOREST = null;  // { edge: "left" | "top", seed }
 const forestBound = (t, seed) => {
-  const b = (FOREST && FOREST.edge === "top" ? MY : MX) + 58 + 20 * Math.sin(t * 0.019 + seed) + 12 * Math.sin(t * 0.047 + seed * 1.7) + 7 * Math.sin(t * 0.11 + seed * 0.3);
+  // a realm's own wood may be shallower (map.wood.depth: 1 = the Greenwood's)
+  const k = FOREST?.depth ?? 1;
+  const b = (FOREST && FOREST.edge === "top" ? MY : MX) + k * (58 + 20 * Math.sin(t * 0.019 + seed) + 12 * Math.sin(t * 0.047 + seed * 1.7) + 7 * Math.sin(t * 0.11 + seed * 0.3));
   // where the sea shares the forest's edge, the wood keeps to the gate's end
   // of it and gives way to the beach past the coast's first headland
   if (!COAST || COAST.edge !== FOREST?.edge) return b;
@@ -353,7 +355,7 @@ export function regenTerrain(map) {
   if (map.spawn === "grove" || map.wood) {
     const edge = gx0 < 100 ? "left" : gy0 < 100 ? "top" : null;
     if (edge) {
-      FOREST = { edge, seed: (map.seed % 97) * 0.37 };
+      FOREST = { edge, seed: (map.seed % 97) * 0.37, depth: map.wood?.depth ?? 1 };
       const frng = mulberry32((map.seed ^ 0xf03e57) >>> 0);
       const span = edge === "left" ? H : W;
       for (let u = -12; u < span + 12; u += 25) {
