@@ -16,9 +16,9 @@ import { TUFTS, FLOWERS, SPECKS, PEBBLES, PONDS, CHEVRONS, DECOR, inRiver, FORES
 import { lighten, darken, mix, rgba, soft, shadow, tuft, flower, stone, clover, blade, strokePts, hash, ball, blobBall, lin, rad, bakeSprite, part, PX } from "./paint.js";
 import { IRON_ART } from "./scenery-iron.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
-// a chapter's own ground art, keyed by REALM.groundArt
-const TURF_ART = { ...IRON_ART.turf, ...HOLLOW_ART.turf };
-const ROAD_ART = { ...IRON_ART.road, ...HOLLOW_ART.road };
+// a chapter's own ground art, keyed by REALM.groundArt (looked up when the
+// ground is painted, never at load — see the import cycle note in scenery.js)
+const artFor = (part, key) => IRON_ART[part]?.[key] || HOLLOW_ART[part]?.[key];
 
 let layer = null;
 let layerKey = "";
@@ -402,9 +402,9 @@ export function groundLayer() {
   ctx.scale(RES, RES);
   paintTurf(ctx);
   const art = REALM.groundArt, kit = () => ({ clear, rng: mulberry32((REALM.seed ^ 0x6a7d) >>> 0), SW });
-  if (TURF_ART[art]) TURF_ART[art](ctx, kit());
+  if (artFor("turf", art)) artFor("turf", art)(ctx, kit());
   paintRoad(ctx);
-  if (ROAD_ART[art]) ROAD_ART[art](ctx, kit());
+  if (artFor("road", art)) artFor("road", art)(ctx, kit());
   layerKey = key;
   return layer;
 }

@@ -96,12 +96,18 @@ const TALL = new Set(["tree", "pine", "snowpine", "willow", "deadtree"]);
 // `apron: { biome, big, landscape: [types], tall: [types] }` — `big` replaces
 // that biome's landmark mix, `landscape` lets its recipes' pieces out here,
 // `tall` marks the ones that stand like trees
-for (const { apron } of [IRON_ART, HOLLOW_ART]) {
-  if (!apron) continue;
-  if (apron.biome && apron.big && BIOMES[apron.biome]) BIOMES[apron.biome] = { ...BIOMES[apron.biome], big: apron.big };
-  for (const t of apron.landscape || []) LANDSCAPE.add(t);
-  for (const t of apron.tall || []) TALL.add(t);
-}
+// (joined on first paint, not at load: the registries sit in an import cycle)
+let joined = false;
+const joinChapters = () => {
+  if (joined) return;
+  joined = true;
+  for (const { apron } of [IRON_ART, HOLLOW_ART]) {
+    if (!apron) continue;
+    if (apron.biome && apron.big && BIOMES[apron.biome]) BIOMES[apron.biome] = { ...BIOMES[apron.biome], big: apron.big };
+    for (const t of apron.landscape || []) LANDSCAPE.add(t);
+    for (const t of apron.tall || []) TALL.add(t);
+  }
+};
 // the edge wood's own mix (map.wood), or the greenwood's oaks and pines
 const woodPick = (R, h) => {
   const types = R.wood?.types;
@@ -300,6 +306,7 @@ function paintGround(vx0, vy0, gw, gh, r, dens) {
   const ux0 = Math.floor(vx0 / G) * G - G, uy0 = Math.floor(vy0 / G) * G - G;
   const UW = Math.ceil(gw / r / G) + 4, UH = Math.ceil(gh / r / G) + 4;
   const tone = new Float32Array(UW * UH), sea = COAST ? new Float32Array(UW * UH) : null, wood = FOREST ? new Float32Array(UW * UH) : null;
+  joinChapters();
   const B0 = BIOMES[biomeOf(R)], shadeK = B0.floor ? 0.16 : 0.05;
   const L1 = seed + 11, L2 = seed + 23, L3 = seed + 37, Wa = seed + 41, Wb = seed + 53;
   for (let j = 0; j < UH; j++) {
@@ -471,6 +478,7 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
   const vx0 = -board.x / kx, vx1 = (cssW - board.x) / kx, vy0 = -board.y / ky, vy1 = (cssH - board.y) / ky;
   if (vx0 >= -0.5 && vy0 >= -0.5 && vx1 <= W + 0.5 && vy1 <= H + 0.5) { STATS = { ms: performance.now() - t0, items: 0, key }; return; }
 
+  joinChapters();
   const B = BIOMES[biomeOf(R)];
   const pick = mixFor(R, B);
   const seed = R.seed | 0;

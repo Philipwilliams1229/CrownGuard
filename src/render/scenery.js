@@ -626,17 +626,27 @@ const SPRITES = new Map();
 // how many bakes the scenery holds, and their pixels (for the lab pages)
 export const sceneryBakeStats = () => { let px = 0; for (const sp of SPRITES.values()) px += sp.cv.width * sp.cv.height; return { n: SPRITES.size, mb: +(px * 4 / 1048576).toFixed(1) }; };
 export const resetSceneryBakes = () => { SPRITES.clear(); GROVE.key = ""; SIGN.key = ""; resetCastleBakes(); };
-// the chapters' own pieces (scenery-iron.js, scenery-hollow.js) join the kit
-const ART = [IRON_ART, HOLLOW_ART];
-const EXTRA = Object.assign({}, ...ART.map((a) => a.decor));
-const EXTRA_BOX = Object.assign({}, ...ART.map((a) => a.box));
-const LIVE = new Set(["mushroom", "crystal", "vent", "obelisk", "watchtower", "banner", "reeds", ...ART.flatMap((a) => a.live)]);
+// the chapters' own pieces (scenery-iron.js, scenery-hollow.js) join the kit.
+// Gathered on first use, never at load: those files import this one back,
+// so whichever loads first, the other's registry isn't ready yet at load.
+let REG = null;
+const reg = () => REG || (REG = (() => {
+  const ART = [IRON_ART, HOLLOW_ART];
+  return {
+    decor: Object.assign({}, ...ART.map((a) => a.decor)),
+    box: Object.assign({}, ...ART.map((a) => a.box)),
+    dress: Object.assign({}, ...ART.map((a) => a.dress)),
+    spawn: Object.assign({}, ...ART.map((a) => a.spawn)),
+    live: new Set(["mushroom", "crystal", "vent", "obelisk", "watchtower", "banner", "reeds", ...ART.flatMap((a) => a.live)]),
+  };
+})());
 const paintDecor = (ctx, d, time) => {
   const x = d.x, y = d.y, s = d.s || 1;
   const seed = d.seed ?? Math.round(d.x * 3 + d.y * 7);
   const v = d.v || 0, band = d.band || 0;
   const sway = d.forest ? 0 : Math.sin(time * 0.8 + d.x * 0.06 + d.y * 0.03) * 1.4;
-  if (EXTRA[d.t]) { EXTRA[d.t](ctx, x, y, s, { seed, v, band, time, forest: !!d.forest, sway }); return; }
+  const extra = reg().decor[d.t];
+  if (extra) { extra(ctx, x, y, s, { seed, v, band, time, forest: !!d.forest, sway }); return; }
   switch (d.t) {
     case "pine": pineTree(ctx, x, y, s, d.forest ? WOOD_PINE[band][v % 3] : PINE_TINTS[v % 4], PINE.trunk, seed); break;
     case "snowpine": pineTree(ctx, x, y, s, SNOWPINE.leaf, SNOWPINE.trunk, seed, "#eef5f8"); break;
@@ -661,7 +671,7 @@ const paintDecor = (ctx, d, time) => {
   }
 };
 // What gets tucked in around a piece's foot once it's inked.
-const DRESS = { tree: [4, false], pine: [3.5, false], snowpine: [3.5, false], rock: [9, true], icerock: [9, true], deadtree: [3, false], ...Object.assign({}, ...ART.map((a) => a.dress)) };
+const DRESS = { tree: [4, false], pine: [3.5, false], snowpine: [3.5, false], rock: [9, true], icerock: [9, true], deadtree: [3, false] };
 // Which look a piece gets: lone pieces pick one of four by where they stand;
 // the wood's trees pick by how deep in it they are (three bands), then one
 // of two shapes. Sizes are rounded so the wood shares a modest set of bakes.
@@ -677,14 +687,14 @@ const decorSprite = (d) => {
   let sp = SPRITES.get(key);
   if (sp) return sp;
   const tall = d.t === "tree" || d.t === "pine" || d.t === "snowpine";
-  const [bw, bt] = EXTRA_BOX[d.t] || (tall ? [27, 48] : [38, 42]);
+  const [bw, bt] = reg().box[d.t] || (tall ? [27, 48] : [38, 42]);
   const hw = Math.ceil(bw * s + (tall ? 6 : 8)), top = Math.ceil(bt * s + (tall ? 6 : 8)), bot = Math.ceil(12 + 6 * s);
   const seed = 7 + v * 131 + band * 1009 + Math.round(s * 10) * 17 + d.t.length * 29;
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
     BAKE_CV = c.canvas;
     try { paintDecor(c, { ...d, x: hw, y: top, s, v, band, seed }, 0); } finally { BAKE_CV = null; }
   });
-  const dress = DRESS[d.t];
+  const dress = DRESS[d.t] || reg().dress[d.t];
   if (dress) {
     const c = cv.getContext("2d");
     c.save(); c.setTransform(PX, 0, 0, PX, 0, 0);
@@ -697,7 +707,7 @@ const decorSprite = (d) => {
 };
 
 export const drawTree = (ctx, d, time) => {
-  if (!LIVE.has(d.t) && typeof document !== "undefined") {
+  if (!reg().live.has(d.t) && typeof document !== "undefined") {
     const sp = decorSprite(d);
     ctx.drawImage(sp.cv, d.x - sp.hw, d.y - sp.top, sp.hw * 2, sp.top + sp.bot);
     return;
@@ -979,9 +989,8 @@ export const drawPond = (ctx, p, time) => {
 
 // ---- the enemy's gate -------------------------------------------------
 
-const EXTRA_SPAWN = Object.assign({}, ...ART.map((a) => a.spawn));
 export const drawSpawn = (ctx, time, kind) => {
-  if (EXTRA_SPAWN[kind]) EXTRA_SPAWN[kind](ctx, time);
+  if (reg().spawn[kind]) reg().spawn[kind](ctx, time);
   else if (kind === "grove") drawGrove(ctx, time);
   else if (kind === "barrow") drawBarrow(ctx, time);
   else drawCave(ctx, time);
