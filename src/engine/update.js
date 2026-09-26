@@ -15,6 +15,7 @@ import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
+import { isBuilt } from "./build.js";
 // the field's width without the castle's wider border: logs roll off it here
 const FIELD_W = W - MXR + MX;
 
@@ -105,7 +106,7 @@ const spawnAt = (g, type, mult, dist, tms) => {
 export const hostStats = (h) => h.st || getStats(h);
 export const unitHosts = (g) => {
   const out = [];
-  for (const t of g.towers) if (t.units) out.push(t);
+  for (const t of g.towers) if (t.units && isBuilt(t, g)) out.push(t);   // (a hall still going up keeps its people back)
   if (g.bands) for (const b of g.bands) out.push(b);
   return out;
 };
@@ -382,8 +383,10 @@ export function updateGame(g, dt) {
       g.volleys = g.volleys.filter((v) => v.until > tms);
     }
 
+    // (a hall still going up holds its fire, its aura and its people until
+    // its person is in: isBuilt, engine/build.js)
     for (const t of g.towers) {
-      if (t.kind !== "trapsmith") continue;
+      if (t.kind !== "trapsmith" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       if ((t.charges || 0) < st.maxCharges) {
         t.chargeCd = (t.chargeCd ?? st.chargeEvery) - sdt * 1000;
@@ -479,7 +482,7 @@ export function updateGame(g, dt) {
     }
     for (const t of unitHosts(g)) for (const u of t.units) u.atkBuff = 0;
     for (const t of g.towers) {
-      if (t.kind !== "support") continue;
+      if (t.kind !== "support" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       for (const e of g.enemies) {
         if (e.dead) continue;
@@ -522,7 +525,7 @@ export function updateGame(g, dt) {
     }
     // Lead to Gold: the transmuter's aura eats armor off everything inside it
     for (const t of g.towers) {
-      if (t.kind !== "goldworks" || t.branch !== "b") continue;
+      if (t.kind !== "goldworks" || t.branch !== "b" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       if (!st.shredAura) continue;
       for (const e of g.enemies) {
@@ -532,7 +535,7 @@ export function updateGame(g, dt) {
     }
     // Kingsight: the court's eye rests on the mightiest foe alive, always
     for (const t of g.towers) {
-      if (t.kind !== "falconry" || !t.branch || !(t.branch + (t.rank4 || "") === "ba")) continue;
+      if (t.kind !== "falconry" || !t.branch || !(t.branch + (t.rank4 || "") === "ba") || !isBuilt(t, g)) continue;
       const st = getStats(t);
       if (!st.kingsight) continue;
       let big = null;
@@ -546,7 +549,7 @@ export function updateGame(g, dt) {
     }
     // The Skyknight: one rider, one war-eagle, one enemy of the air at a time
     for (const t of g.towers) {
-      if (t.kind !== "falconry") continue;
+      if (t.kind !== "falconry" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       if (!st.skyknight) continue;
       if (!t.eagle) t.eagle = { id: nextId(), hp: st.eagleHp, maxHp: st.eagleHp, x: t.x, y: t.y - 44, targetId: null, atkCd: 0, respawn: 0, hurtCd: 0 };
@@ -560,7 +563,7 @@ export function updateGame(g, dt) {
       // anything that mends knights mends the eagle: it is a unit on the field,
       // not a projectile, and a wounded bird is the whole tower being wounded
       for (const h of g.towers) {
-        if (h.kind !== "support") continue;
+        if (h.kind !== "support" || !isBuilt(h, g)) continue;
         const hs = getStats(h);
         if (!hs.heal || eg.hp >= eg.maxHp) continue;
         if (Math.hypot(h.x - eg.x, h.y - eg.y) > hs.range) continue;
@@ -568,7 +571,7 @@ export function updateGame(g, dt) {
         eg.healGlow = 220;
       }
       for (const kt of g.towers) {
-        if (kt.kind !== "knight" || eg.hp >= eg.maxHp) continue;
+        if (kt.kind !== "knight" || eg.hp >= eg.maxHp || !isBuilt(kt, g)) continue;
         const ks = getStats(kt);
         if (!ks.heal || !kt.rally) continue;
         if (Math.hypot(kt.rally.x - eg.x, kt.rally.y - eg.y) > ks.range + 20) continue;
@@ -965,7 +968,7 @@ export function updateGame(g, dt) {
     g.enemies = g.enemies.filter((e) => !e.dead);
 
     for (const t of g.towers) {
-      if (t.kind !== "knight") continue;
+      if (t.kind !== "knight" || !isBuilt(t, g)) continue;
       syncUnits(t, g);
       const st = getStats(t);
       const slots = unitSlots(t);
@@ -989,7 +992,7 @@ export function updateGame(g, dt) {
     // deliberate shot at something much further out. Every path funds one of
     // them harder, and neither is ever laid off.
     for (const t of g.towers) {
-      if (t.kind !== "gunpowder") continue;
+      if (t.kind !== "gunpowder" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       // --- the bombardier: short, fat, splashing ---
       t.cd = (t.cd || 0) - sdt * 1000;
@@ -1065,7 +1068,7 @@ export function updateGame(g, dt) {
     // of ground no tower will ever be allowed to stand on. If the water is
     // quiet they spread out and hold station.
     for (const t of g.towers) {
-      if (t.kind !== "riverwatch") continue;
+      if (t.kind !== "riverwatch" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       // moored in a pond or mere, its skiffs row a ring round the open water;
       // moored off a coast they patrol the shore; otherwise they work the river
@@ -1171,7 +1174,7 @@ export function updateGame(g, dt) {
     // column walks straight past while the work is done in the grass. Only a
     // crossbow bolt or grave-rot ever finds one.
     for (const t of g.towers) {
-      if (t.kind !== "assassin") continue;
+      if (t.kind !== "assassin" || !isBuilt(t, g)) continue;
       syncUnits(t, g);
       const st = getStats(t);
       const slots = unitSlots(t);
@@ -1257,6 +1260,7 @@ export function updateGame(g, dt) {
     }
     for (const t of g.towers) {
       t.anim = Math.max(0, t.anim - sdt * 4);
+      if (!isBuilt(t, g)) continue;
       if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin" || t.kind === "riverwatch" || t.kind === "gunpowder") continue;
       if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger
       // The Sunforge holds its beam instead of firing: same target, growing

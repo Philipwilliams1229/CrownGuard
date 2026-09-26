@@ -18,6 +18,7 @@ import { groundLayer, drawRoadLive } from "./world.js";
 import { ball as pip, glow as glowFx, shadow as softShadow, cylinder } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
 import { getStats } from "../engine/towers.js";
+import { isBuilt } from "../engine/build.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { hasRig, rigPixels, drawRig } from "./rigs.js";
@@ -120,7 +121,7 @@ export function draw(g, canvas, bufRef) {
   // span passes over it; everywhere else it sorts with the other actors
   const underSpan = new Set();
   if (BRIDGES.length) for (const t of g.towers) {
-    if (t.kind !== "riverwatch" || !t.units) continue;
+    if (t.kind !== "riverwatch" || !t.units || !isBuilt(t, g)) continue;
     for (const u of t.units) {
       if (u.state === "dead" || !underBridge(u.x, u.y)) continue;
       underSpan.add(u);
@@ -297,7 +298,8 @@ export function draw(g, canvas, bufRef) {
         }
       },
     });
-    if (t.units) for (const u of t.units) if (!underSpan.has(u)) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawKnightUnit(ctx, u, t, g.time)) });
+    // (a hall still going up keeps its knights, blades and skiffs back: engine/build.js)
+    if (t.units && isBuilt(t, g)) for (const u of t.units) if (!underSpan.has(u)) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawKnightUnit(ctx, u, t, g.time)) });
     // a new hall's builders, on their run out from the gate and back (builders.js)
     // — still, if the hall was reworked while it went up (t.raised.build)
     const br = t.raised && (t.raised.how === "build" ? t.raised : t.raised.build);

@@ -100,6 +100,10 @@ should never have to rediscover it.
   the second wakes at level 5 of that battle. Engine: `fireHeroAbility` in
   `actions.js`; the charge and the volleys run in `update.js`. Heartseeker
   takes the foe with the most max health within `pick` of the tap.
+- A new hall holds its fire (shots, auras, its knights/blades/skiffs) until
+  its build animation puts its person in, about 2 game s after purchase
+  (`src/engine/build.js`: `buildClock`, `isBuilt`, `t.readyAt`); the sims
+  include it. Upgrades never hold fire.
 - The owner playtests; the sims are a floor, not a target.
 - The board is 840x560 (3:2): an 80px right border holds the castle band
   (wall face at `W - WALL_W` = 738). See art/STYLE-GUIDE.md "The board's

@@ -44,7 +44,7 @@
 
 import { PX, hash } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
-import { PTS } from "../engine/path.js";
+import { BUILD, buildClock } from "../engine/build.js";
 import { W, WALL_W } from "../data/constants.js";
 import { inRiver, inSea, PONDS } from "../data/terrain.js";
 import { drawTowerPortrait } from "./towers.js";
@@ -279,16 +279,8 @@ const column = (ctx, x, yb, ytop, w, a) => {
 // and where each builder stands. builders.js reads the same plan, so every
 // mallet stroke lands with a piece.
 
-export const BUILD = {
-  run: 1100,                   // the crew's sprint, world units per game second: a timelapse dash
-  runMin: 0.3, runMax: 0.55,   // one leg of the run, game seconds, however far the plot is
-  stagger: 0.06,               // one builder after the next
-  up: 0.24,                    // the scaffold going up
-  lay: 1.05,                   // setting the pieces, however many there are
-  drop: 0.13,                  // a piece's swing down onto its bed
-  person: 0.22,                // the person's hop into place
-  down: 0.34,                  // the scaffold coming down
-};
+// the build's pace lives with its clock (engine/build.js)
+export { BUILD };
 
 // is (x, y) in water — a river, the sea, a pond (not lava, not ice)?
 const wetAt = (x, y) => inRiver(x, y) || inSea(x, y) ||
@@ -315,21 +307,13 @@ export const buildPlan = (t, r = t && t.raised) => {
   // but on the left beside the castle, which would cover them
   const side = xr + 20 > W - WALL_W ? -1 : 1;
   const ladder = side > 0 ? xr + 5 : xl - 5;
-  // the gate: the road's last point, just inside the arch
-  const last = PTS[PTS.length - 1] || [756, t.y];
-  const gate = { x: last[0] - 4, y: last[1] };
-  const run = Math.min(BUILD.runMax, Math.max(BUILD.runMin, Math.hypot(gate.x - x, gate.y - fF) / BUILD.run));
-  const at = r.at, arrive = at + run;
-  const lay = BUILD.lay, lay0 = arrive + 0.14, lay1 = lay0 + lay;
-  const personAt = lay1 + 0.06 + BUILD.person;
-  const down0 = personAt + 0.12, down1 = down0 + BUILD.down;
+  // the clock (engine/build.js): the engine holds the hall's fire to the
+  // same personAt
+  const clock = buildClock(t.kind, t.x, t.y, r.at);
+  const { lay1, personAt } = clock;
   const low = fF - 6;
   P = {
-    at, gate, run, arrive, lay0, lay1, personAt, down0, down1,
-    end: down1 + 0.02,
-    leave: down0 + 0.04,                                  // the ground crew sets off home
-    hop: [down0, down0 + 0.2],                            // the mason jumps down off the platform
-    home: down0 + 0.2 + run + BUILD.stagger * 2 + 0.05,   // the last of them is back through the gate
+    ...clock,
     stagger: BUILD.stagger,
     x, by, fF, fB, xl, xr, ladder, side, water, narrow, box, topY, low,
     // the platform's plank reaches out over the ladder's head
@@ -343,7 +327,7 @@ export const buildPlan = (t, r = t && t.raised) => {
     // their landing — a few milliseconds a frame while the crew runs (pumpCut)
     job: cutSteps(tf, lay1 + 0.02, personAt),
     cut: null, pieces: [], lands: [],
-    pf: [[arrive, low]],
+    pf: [[clock.arrive, low]],
     platformY: (time) => sn(keys(time, P.pf)),            // the platform's top face, world y
     posts: [
       { role: "mason", x: ladder, dir: -side },                                  // up on the platform at the ladder's head
