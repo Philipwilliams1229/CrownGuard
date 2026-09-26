@@ -1,0 +1,163 @@
+<!doctype html>
+<!--
+  Dev tool: the raise animations (src/render/buildanim.js) moment by moment.
+  One sheet per `how`: a row per hall, a column per moment through the raise,
+  then the settled hall and a diff count (pixels that differ between the
+  raise's last drawn moments and the plain hall — should be 0 at 0.97+).
+  Painted once at load (no rAF), saved to .shots/raise_<how>_<tag>.png.
+    /raise-lab.html?how=build&tag=v1&scale=2
+    /raise-lab.html?how=all&tag=v1            every how, one sheet each
+    &kinds=archer,wizard  &realm=<id>
+    &board=1   also a sheet through the real draw() with the engine's effects
+               (raise_board_<tag>.png); &bx=&by= move where it looks
+-->
+<html>
+  <head><meta charset="utf-8" /><title>raise lab…</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { drawTowerPortrait } from "/src/render/towers.js";
+      import { groundLayer } from "/src/render/world.js";
+      import { drawGroundBlend } from "/src/render/groundblend.js";
+      import { drawRaising, RAISE_SECS } from "/src/render/buildanim.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 1;
+      selectRealm(q.get("realm") || "greenwood");
+      const HOWS = (q.get("how") || "all") === "all" ? ["build", "level", "branch", "ascend"] : q.get("how").split(",");
+      const KINDS = (q.get("kinds") || "archer,wizard,knight,spiker,riverwatch,sunforge,catapult,master").split(",");
+      const MOMENTS = (q.get("ps") || "0.06,0.18,0.3,0.42,0.54,0.66,0.78,0.9,0.96").split(",").map(Number);
+      const FORMS = {
+        build: [null, { level: 1 }],
+        level: [{ level: 1 }, { level: 2 }],
+        branch: [{ level: 3 }, { level: 3, branch: "a" }],
+        ascend: [{ level: 3, branch: "a" }, { level: 3, branch: "a", rank4: "a" }],
+      };
+      const CW = 100, CH = 120, R = 2;
+      const ground = groundLayer();
+      const out = document.getElementById("status");
+      const report = [];
+      for (const how of HOWS) {
+        const cols = MOMENTS.length + 1;
+        const cv = document.createElement("canvas");
+        cv.width = CW * R * cols; cv.height = (CH + 8) * R * KINDS.length;
+        const ctx = cv.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        const cell = (kindRow, col, fn, water) => {
+          ctx.save();
+          ctx.setTransform(R, 0, 0, R, col * CW * R, kindRow * (CH + 8) * R);
+          ctx.beginPath(); ctx.rect(0, 0, CW, CH); ctx.clip();
+          ctx.drawImage(ground, 120 * 2, 200 * 2, CW * 2, CH * 2, 0, 0, CW, CH);
+          if (water) { ctx.fillStyle = "#3f7288"; ctx.fillRect(0, CH * 0.45, CW, CH * 0.55); ctx.fillStyle = "#5a90a4"; for (let i = 0; i < 12; i++) ctx.fillRect((i * 37) % CW, CH * 0.5 + (i * 23) % (CH * 0.45), 6, 1); }
+          fn();
+          ctx.restore();
+        };
+        KINDS.forEach((k, row) => {
+          const master = k === "master", kind = master ? "wizard" : k;
+          let [prev, form] = FORMS[how];
+          if (master) { if (how !== "build") return; form = { level: 3, branch: "b", rank4: "b" }; }
+          const dur = RAISE_SECS[how], AT = 5;
+          const mk = (p) => ({
+            id: row + 3, kind, x: CW / 2, y: CH * 0.7, level: form.level, branch: form.branch || null, rank4: form.rank4 || null,
+            cd: 0, aim: "first", lastAim: 0.6, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [],
+            rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: true, charges: 3, ramp: 2, mAnim: 0, eagle: null,
+            raised: { at: AT, how, prev },
+          });
+          const water = kind === "riverwatch";
+          const paintAt = (time) => (f) => { ctx.save(); try { drawTowerPortrait(ctx, f, time); } catch (e) { console.error(e); } ctx.restore(); };
+          MOMENTS.forEach((p, i) => cell(row, i, () => {
+            const t = mk(p), time = AT + p * dur;
+            drawGroundBlend(ctx, t, false);
+            drawRaising(ctx, t, time, paintAt(time));
+            drawGroundBlend(ctx, t, true);
+            ctx.fillStyle = "#e8e0c8"; ctx.font = "6px monospace"; ctx.fillText(`${k} ${p}`, 2, 7);
+          }, water));
+          cell(row, MOMENTS.length, () => {
+            const t = mk(1); t.raised = null;
+            drawGroundBlend(ctx, t, false); paintAt(AT + dur)(t); drawGroundBlend(ctx, t, true);
+            ctx.fillStyle = "#e8e0c8"; ctx.font = "6px monospace"; ctx.fillText(`${k} settled`, 2, 7);
+          }, water);
+          // the seam check: the raise drawn at 0.95 / 0.99 vs the plain hall at the same time
+          for (const p of [0.95, 0.99]) {
+            const a = document.createElement("canvas"), b = document.createElement("canvas");
+            a.width = b.width = CW * R; a.height = b.height = CH * R;
+            const time = AT + p * dur;
+            for (const [c2, raise] of [[a, true], [b, false]]) {
+              const x2 = c2.getContext("2d"); x2.setTransform(R, 0, 0, R, 0, 0); x2.imageSmoothingEnabled = false;
+              const t = mk(p); const pnt = (f) => { x2.save(); drawTowerPortrait(x2, f, time); x2.restore(); };
+              if (raise) drawRaising(x2, t, time, pnt); else pnt(t);
+            }
+            const da = a.getContext("2d").getImageData(0, 0, a.width, a.height).data, db = b.getContext("2d").getImageData(0, 0, a.width, a.height).data;
+            let n = 0; for (let j = 0; j < da.length; j += 4) if (da[j] !== db[j] || da[j + 1] !== db[j + 1] || da[j + 2] !== db[j + 2] || da[j + 3] !== db[j + 3]) n++;
+            report.push(`${how}/${k}@${p}: ${n}px differ`);
+          }
+        });
+        let outc = cv;
+        if (SC !== 1) {
+          outc = document.createElement("canvas"); outc.width = cv.width * SC; outc.height = cv.height * SC;
+          const o = outc.getContext("2d"); o.imageSmoothingEnabled = false; o.drawImage(cv, 0, 0, outc.width, outc.height);
+        }
+        await fetch(`/__shot?name=raise_${how}_${TAG}`, { method: "POST", body: outc.toDataURL("image/png").slice(22) });
+        document.body.appendChild(cv);
+      }
+      // &board=1: the raises through the real draw(), with the engine's own
+      // effects (dust, level-up and evolve rings, bursts, flash) at the same
+      // moments, zoomed 2x on a row of halls
+      if (q.get("board")) {
+        const { draw } = await import("/src/render/draw.js");
+        const { makeTower } = await import("/src/engine/towers.js");
+        const { W, H, CASTLE_HP } = await import("/src/data/constants.js");
+        const FX = {
+          build: (x, y) => [{ type: "dust", x, y: y + 10, ttl: 380, r: 26 }],
+          level: (x, y) => [{ type: "levelup", x, y, ttl: 600 }, { type: "burst", x, y: y - 12, ttl: 700, life: 700, gold: false }],
+          branch: (x, y) => [{ type: "evolve", x, y, ttl: 900 }, { type: "burst", x, y: y - 12, ttl: 1100, life: 1100, gold: true }, { type: "flash", x, y: y - 10, ttl: 450 }],
+          ascend: (x, y) => [{ type: "evolve", x, y, ttl: 900 }, { type: "burst", x, y: y - 12, ttl: 1300, life: 1300, gold: true }, { type: "flash", x, y: y - 10, ttl: 550 }],
+        };
+        const cx = Number(q.get("bx")) || 330, cy = Number(q.get("by")) || 150, Z = 2;
+        const PS = [0.1, 0.3, 0.5, 0.7, 0.9];
+        const FW = 720, FH = 360;
+        const sheet = document.createElement("canvas"); sheet.width = FW * PS.length; sheet.height = FH * 4;
+        const sc = sheet.getContext("2d"); sc.imageSmoothingEnabled = false;
+        ["build", "level", "branch", "ascend"].forEach((how, row) => PS.forEach((p, col) => {
+          const [prev, form] = FORMS[how], dur = RAISE_SECS[how], time = 10 + p * dur;
+          const towers = [], effects = [];
+          ["archer", "wizard", "knight", "catapult"].forEach((kind, i) => {
+            const t = makeTower(kind, cx - 60 + i * 40, cy + (i % 2) * 6);
+            Object.assign(t, form, { branch: form.branch || null, rank4: form.rank4 || null, raised: { at: 10, how, prev } });
+            towers.push(t);
+            for (const e of FX[how](t.x, t.y)) { const life = e.life || (e.type === "dust" ? 380 : e.ttl); effects.push({ ...e, life: e.life, ttl: e.ttl - p * dur * 1000 }); }
+          });
+          const g = { time, shake: 0, cam: { zoom: Z, x: cx - W / (2 * Z), y: cy - H / (2 * Z) }, grounds: [], traps: [], logs: [], bands: [], volleys: [],
+            buildMode: null, hover: null, gold: 500, selectedId: null, towers, enemies: [], projectiles: [], effects: effects.filter((e) => e.ttl > 0),
+            lives: CASTLE_HP, paused: false, phase: "build" };
+          const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+          try { draw(g, cv, { current: null }); } catch (e) { console.error(how, p, e); }
+          sc.drawImage(cv, (cv.width - FW) / 2, (cv.height - FH) / 2 - 40, FW, FH, col * FW, row * FH, FW, FH);
+          sc.fillStyle = "#fff"; sc.font = "10px monospace"; sc.fillText(`${how} ${p}`, col * FW + 4, row * FH + 12);
+        }));
+        await fetch(`/__shot?name=raise_board_${TAG}`, { method: "POST", body: sheet.toDataURL("image/png").slice(22) });
+      }
+      // time the raises: 40 halls raising at once, each moment
+      const tc = document.createElement("canvas"); tc.width = 840 * 2; tc.height = 560 * 2;
+      const tx = tc.getContext("2d"); tx.setTransform(2, 0, 0, 2, 0, 0);
+      const perf = [];
+      for (const how of ["build", "level", "branch", "ascend"]) {
+        const [prev, form] = FORMS[how];
+        const ts = []; for (let i = 0; i < 40; i++) ts.push({ id: i, kind: ["archer", "wizard", "knight", "sunforge", "catapult"][i % 5], x: 40 + (i % 10) * 76, y: 80 + Math.floor(i / 10) * 120, ...form, branch: form.branch || null, rank4: form.rank4 || null, anim: 0, units: [], _idle: true, raised: { at: 0, how, prev } });
+        const pnt = (f) => { tx.save(); drawTowerPortrait(tx, f, 1); tx.restore(); };
+        // warm the caches, then time a sweep of moments
+        for (const t of ts) drawRaising(tx, t, 0.3, pnt);
+        const t0 = performance.now(); let frames = 0;
+        for (let p = 0.02; p < 0.97; p += 0.05) { for (const t of ts) drawRaising(tx, t, p * RAISE_SECS[how], pnt); frames++; }
+        const t1 = performance.now();
+        for (let k = 0; k < frames; k++) for (const t of ts) pnt(t);
+        const t2 = performance.now();
+        perf.push(`${how}: 40 raising ${((t1 - t0) / frames).toFixed(2)}ms/frame vs 40 plain ${((t2 - t1) / frames).toFixed(2)}ms`);
+      }
+      out.textContent = report.join(" | ") + " || " + perf.join(" | ");
+      console.log(out.textContent);
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

@@ -50,6 +50,7 @@ copy what the rebuilt pieces do.
 | Ground and road | `src/render/world.js` | cached per realm |
 | Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots` in `src/data/castle.js`) — SQUARE open-topped towers (paved deck, battlemented rim, a red-roofed stair turret) with the ballistae and spare bowmen ON the gate towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
 | Combat effects, projectiles, ground pools, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
+| A hall rising when bought, levelled, branched or ascended | `src/render/buildanim.js` — `drawRaising(ctx, t, time, paint)`, driven by `t.raised = { at, how, prev }` (set in actions.js `markRaised`) | build: a scaffold climbs and the hall is revealed bottom-up; level: a mallet and a squash-and-stretch pop; branch/ascend: a gold light column and a bounce. Scales round to whole art pixels; from 97% on it paints the plain hall, so it never jumps. Form sizes are measured via `drawTowerPortrait` — a new hall kind needs a portrait too |
 | Area effects: novas, waves and marks (frost/fire nova, Shield Slam, heal & ward waves, silence, shadowstep, Midas, toll, plague burst, raise, the Heartseeker reticle) | `src/render/rings.js` — `drawRingFx(ctx, fx, a, g, layer)`: draw.js calls it with "g" in the ground pass (rime, scorch, cracks, stains under the crowd) and "a" after the actors | pieces (shards, flames, clods, coins, runes) baked once and stamped on the LIVE radius, so a ring still shows the area it hit; at most one thick continuous ring each — thin full-circle `ringPx` lines are the costly part, so highlights are dotted |
 | The Trapsmith's traps (spikes, jaws, caltrops, mines, aerostat balloons) | `src/render/traps.js` — `drawTraps` (on the road, under the crowd) and `drawTrapBalloons` (the balloons, in a sky pass over it) | each look baked once per realm and stamped; late boards hold hundreds |
 | The Log Roller's logs (trunk, Iron Drum, Powder Keg) | `src/render/logs.js` | true cylinders in the 3/4 camera, lit in world space so light never turns with the log; bark and bands roll with `lg.spin` |
@@ -238,7 +239,8 @@ dev server; view them from there):
   road through the real draw(); `?only=traps,logs&zoom=1|2|3`. Deeper sheets:
   `logs-lab.html` (angles and spins), `birds-lab.html` (a stoop moment by
   moment, every hawk pose), `blades-lab.html` (every Covert form on three
-  grounds), `rings-lab.html` (each area effect through its life at zoom 1
+  grounds), `raise-lab.html` (every hall through each kind of raise; `?how=all&board=1`),
+  `rings-lab.html` (each area effect through its life at zoom 1
   and 3; `?fx=frostnova,slam`, `?perf=1` times each ring).
 - Always take a BEFORE shot, then judge at 1x board size (what the player
   sees) as well as zoomed. Never launch Chrome from a shell — it trips a
