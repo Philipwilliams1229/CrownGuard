@@ -1,0 +1,97 @@
+/* ============ THE SANDBOX PANEL (ui/SandboxPanel.jsx) ============
+   A wide card over the middle of the map in three columns: the purse and
+   the walls, the war ahead, and the summoning grid (the only part that may
+   scroll, inside its own well). Built on hud.css's skin. */
+
+.sbp-box {
+  position: absolute; inset: 0; z-index: 25;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.sbp-pos {
+  position: relative; flex-shrink: 0; display: flex; flex-direction: column;
+  pointer-events: auto; transform-origin: 50% 50%;
+}
+.sbp-card {
+  display: flex; flex-direction: column; gap: 6px; min-height: 0;
+  padding: 12px 14px 12px;
+}
+
+/* the head: title, the wave, whether the run still banks rewards */
+.sbp-top { display: flex; align-items: center; gap: 12px; padding-right: 18px; flex-wrap: wrap; }
+.sbp-title { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--gold-lt); }
+.sbp-wave { display: inline-flex; align-items: baseline; gap: 6px; font-size: 10.5px; }
+.sbp-honest {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--display); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase;
+  padding: 3px 8px; border: 2px solid var(--ink);
+}
+.sbp-honest.is-ok { background: #33502a; color: #d8f2b8; box-shadow: inset 1px 1px 0 #4f7a40; }
+.sbp-honest.is-off { background: #5a2626; color: #ffcfc4; box-shadow: inset 1px 1px 0 #7e3a32; }
+.sbp-honest-note { font-size: 10px; line-height: 1.4; color: var(--muted); }
+
+/* the three columns: the summoning grid takes whatever height is left */
+.sbp-cols {
+  flex: 1 1 auto; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 0.92fr) minmax(0, 1fr) minmax(0, 1.18fr);
+  grid-template-rows: minmax(0, 1fr); gap: 12px;
+}
+.sbp-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
+.sbp-head { display: flex; align-items: center; gap: 6px; padding-bottom: 3px; border-bottom: 2px solid var(--slate-dk); box-shadow: 0 1px 0 var(--slate-lt); margin-bottom: 2px; }
+.sbp-note { font-size: 10px; line-height: 1.4; color: var(--muted); margin: 0; }
+.sbp-sub { margin-top: -2px; }
+.sbp-warn { color: #ffb4a0; }
+.sbp-red { color: #ff8a78; font-weight: normal; }
+.sbp-dim { color: var(--muted); }
+.sbp-bn { font-size: 11px; text-shadow: 1px 1px 0 var(--ink); }
+
+/* purse & walls */
+.sbp-readout { display: flex; align-items: center; justify-content: space-around; gap: 8px; min-height: 36px; padding: 4px 8px; }
+.sbp-read { display: inline-flex; align-items: center; gap: 6px; }
+.sbp-toggle { justify-content: flex-start; text-align: left; padding: 0 8px; gap: 8px; font-size: 11px; }
+.sbp-tick {
+  width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--slate-in); border: 2px solid var(--ink); font-size: 12px; color: var(--gold-lt); line-height: 1;
+}
+.sbp-tl { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.sbp-ends {
+  font-family: var(--display); font-size: 8.5px; letter-spacing: 0.5px; text-transform: uppercase;
+  color: #ffc2b4; background: #6a2a26; border: 1px solid var(--ink); padding: 1px 4px; line-height: 1.2; text-shadow: none;
+}
+.sbp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sbp-pair .cg-btn { padding: 0 6px; gap: 5px; }
+
+/* the war ahead */
+.sbp-row { display: flex; align-items: center; gap: 6px; }
+.sbp-rl { font-family: var(--display); font-size: 10.5px; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; flex: 1 1 auto; min-width: 0; }
+.sbp-stepper { display: inline-flex; align-items: stretch; flex-shrink: 0; }
+.sbp-step { min-width: 40px; padding: 0; font-size: 17px; font-family: var(--body); font-weight: bold; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.sbp-val { display: inline-flex; align-items: center; justify-content: center; margin: 0 -2px; position: relative; z-index: 1; }
+.sbp-val .cg-num { font-size: 10.5px; color: var(--gold-lt); text-shadow: 1px 1px 0 var(--ink); }
+.sbp-dot { width: 8px; height: 8px; flex-shrink: 0; border: 1px solid var(--ink); background: #e0574c; }
+.sbp-dot.is-ok { background: transparent; border-color: transparent; }
+.sbp-champ { flex: 1 1 auto; padding: 0 6px; gap: 5px; font-size: 10.5px; }
+.sbp-go { padding: 0 8px; gap: 4px; flex: 1 1 auto; }
+
+/* summon */
+.sbp-summon { min-height: 0; }
+.sbp-seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.sbp-seg .cg-btn { padding: 0; min-width: 0; }
+.sbp-seg2 { grid-template-columns: 1fr 1fr; }
+.sbp-seg2 .cg-btn { font-size: 10.5px; }
+.sbp-foes { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 5px 6px 7px; }
+.sbp-army + .sbp-army { margin-top: 5px; }
+.sbp-army-name { font-family: var(--display); font-size: 9.5px; letter-spacing: 0.5px; text-transform: uppercase; text-shadow: 1px 1px 0 var(--ink); margin: 0 0 3px 1px; }
+.sbp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; }
+.sbp-foe { min-width: 44px; min-height: 46px; padding: 0; overflow: hidden; }
+.sbp-foe.is-boss { box-shadow: inset 0 0 0 2px var(--gold), inset 3px 3px 0 #62546a, 0 2px 0 var(--ink); }
+.sbp-crown { position: absolute; top: 2px; right: 2px; line-height: 0; }
+.sbp-said { font-size: 10px; line-height: 1.3; min-height: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--cream); }
+.sbp-clear { width: 100%; gap: 7px; font-size: 11px; flex-shrink: 0; }
+.sbp-clear .sbp-ends { margin-left: 2px; }
+.sbp-again { background: var(--ink); color: var(--gold-lt); font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 1px; line-height: 1.2; padding: 3px 8px; text-shadow: none; }
+
+/* a phone on its side: a hair tighter, so the columns stand without scrolling */
+.is-tight .sbp-card { padding: 10px 12px; gap: 5px; }
+.is-tight .sbp-col { gap: 5px; }
+.is-tight .sbp-honest-note { font-size: 9.5px; line-height: 1.3; }
