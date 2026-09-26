@@ -53,7 +53,7 @@ copy what the rebuilt pieces do.
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type |
 | A chapter's own scenery: the Iron Marches, the Hollowfen | `src/render/scenery-iron.js` (`IRON_ART`), `src/render/scenery-hollow.js` (`HOLLOW_ART`) | one registry each — `decor` painters, `live` types, bake `box`, ground `dress`, `spawn` gates (REALM.spawn), `turf`/`road` art keyed by REALM.groundArt, and `apron` (the landscape's mix). scenery.js, world.js and apron.js read them LAZILY (they import scenery.js back — never read a registry at module load). Lab pages `irs-lab.html`, `hfs-lab.html` |
 | Ground and road | `src/render/world.js` | cached per realm |
-| Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots` in `src/data/castle.js`) — SQUARE open-topped towers (paved deck, battlemented rim, a red-roofed stair turret) with the ballistae and spare bowmen ON the gate towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
+| Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots`/`TOWER` in `src/data/castle.js`) — a CONCENTRIC castle running off the board's edge: the outer curtain and its walk (the works' crews), the higher inner curtain behind it (its walk — the sentry's beat — and its far parapet cut by the edge, with stairs going down off it), SQUARE open-topped towers built into both walls (see "The castle" below), and one gate block through both walls with the north gate tower rising out of its north end and the KEEP out of its far end (crown banners down its face, red turret, chimney, royal standard). No yard, no houses. Ballistae and spare bowmen stand ON the towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; `bakeCastleRun(ya, yb)` paints the same castle past the board's top and bottom for the apron; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
 | Combat effects, projectiles, ground pools, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
 | A hall rising when bought, levelled, branched or ascended | `src/render/buildanim.js` — `drawRaising(ctx, t, time, paint)`, driven by `t.raised = { at, how, prev }` (set in actions.js `markRaised`) | build: a scaffold climbs and the hall is revealed bottom-up; level: a mallet and a squash-and-stretch pop; branch/ascend: a gold light column and a bounce. Scales round to whole art pixels; from 97% on it paints the plain hall, so it never jumps. Form sizes are measured via `drawTowerPortrait` — a new hall kind needs a portrait too |
 | Area effects: novas, waves and marks (frost/fire nova, Shield Slam, heal & ward waves, silence, shadowstep, Midas, toll, plague burst, raise, the Heartseeker reticle) | `src/render/rings.js` — `drawRingFx(ctx, fx, a, g, layer)`: draw.js calls it with "g" in the ground pass (rime, scorch, cracks, stains under the crowd) and "a" after the actors | pieces (shards, flames, clods, coins, runes) baked once and stamped on the LIVE radius, so a ring still shows the area it hit; at most one thick continuous ring each — thin full-circle `ringPx` lines are the costly part, so highlights are dotted |
@@ -62,7 +62,7 @@ copy what the rebuilt pieces do.
 | The Falconry's hawk (the "talon" stoop) | `src/render/birds.js` — `drawStoop`; the Skyknight's war-eagle is the `eagle` rig in `rigs.js` | hawk poses baked at 15° steps and stamped |
 | The Covert's blades (assassins) | `src/render/rigs-covert.js` (`assassinUnit`, `assassinUnitA/B` for the branches and `assassinUnitAA/AB/BA/BB` for the four finals in `rigs.js` — one rig name per look, since baked frames cache by name; `drawAssassinUnit` in `enemies.js` picks it) | params switch the pieces on: face "gild", hat, veil, beak, long, hem, censer, purse, scroll, pauldron, blade kind |
 | HUD skin | `src/ui/hud/` (`hud.css`, `icons.jsx`, `Chips.jsx`) + `src/ui/theme.js` | |
-| The landscape beyond the board (the apron: ground, road and rivers running off, the realm's trees thickening, the wall continuing) | `src/render/apron.js` `paintApron(canvas, { cssW, cssH, dpr, board })` | painted once per realm and layout, cached |
+| The landscape beyond the board (the apron: ground, road and rivers running off, the realm's trees thickening, the wall continuing) | `src/render/apron.js` `paintApron(canvas, { cssW, cssH, dpr, board })`; the wall past the board's ends is castle.js `bakeCastleRun` (towers at the board's rhythm, no seam), never a repeated slice | painted once per realm and layout, cached |
 | Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` | painted once, cached |
 | Title-screen crowd and castle life (walkers, guards, the hay-forker; banners, sentry, smoke, torches, birds) | `src/ui/titleCrowd.js`, placed from `ROAD`, `ROAD_W`, `HAY` and `CASTLE_LIFE` in `titleArt.js`; the vista castle matches the board castle (square open-topped towers, red stair turrets, blue crown banners, cobbled threshold) | a second canvas with the vista's own fit, ~30 fps, paused when hidden |
 
@@ -185,14 +185,30 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   the locked halls fold into one tile),
   and the hero, his talents and the militia at its foot. On the map: lives
   and gold top left; the horn (with its arrow to the next wave's makeup and
-  the Rush switch) and the speed bottom left. **Popups, never scrolling:**
-  the tower card opens beside its tower (two columns on phones), the castle
-  works and the hero's talents open as wide cards over the middle of the map
-  in columns; each has its ✕ on the corner and closes on a tap elsewhere.
+  the Rush switch) and the speed bottom left. **The hero's menu opens in
+  the tray, right above his button — never over the map**, so the field
+  (and his Shield Slam) stays in view: on phones it takes the tower grid's
+  whole panel, its planks sharing out the height (the grid folds away and
+  keeps its place in the list); on tall
+  screens it docks at the foot of the tray panel under the tower grid,
+  which keeps scrolling above it. Name · level and the ✕ in its head,
+  health and xp on one short row, then Move and the two abilities as
+  full-width planks (44px+; on phones an ability that is asleep or
+  recharging keeps one ellipsised line of its tale). It closes on its ✕, a
+  second tap on the hero button, a plain tap on the map, Castle, the
+  militia, the wave-info arrow, a tower tile or a selected tower; firing an
+  order closes it first. **Popups, never scrolling:** the tower card opens
+  beside its tower (two columns on phones), and only the castle works stays
+  a wide card over the middle of the map in columns; each has its ✕ on the
+  corner and closes on a tap elsewhere.
   The map stands flush against the tray at its true shape (its decorative
   top/bottom border may be trimmed on short screens); the rest of the screen
   is the realm's landscape (`src/render/apron.js`), never a bar. Everything
-  keeps clear of the notch and home indicator (`vp.safe`).
+  keeps clear of the notch and home indicator (`vp.safe`). iOS pads BOTH
+  long edges in landscape though the camera cutout is on one; when
+  `vp.turn` is 90 (cutout on the left) the phone tray takes the right pad
+  for wider tower cards (`freeRight`), stepping only its head and foot in
+  from the rounded corners. Test that case by faking `window.orientation`.
 - **Landscape only** (owner, 2026-09-25): a touch screen held upright gets
   `src/ui/TurnDevice.jsx`'s "turn your device" card over EVERY screen; the
   manifest declares landscape. Upright layouts (`narrow`) are a fallback
@@ -251,14 +267,77 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
 - The board is **840x560 (exactly 3:2)**: the 15x10 grid of 48px tiles, a
   40px border (`MX`, `MY`) on the left, top and bottom, and an 80px right
   border (`MXR`) for the castle. The castle band runs from the wall face at
-  `W - WALL_W` (738) to the edge: wall, wall walk, then a **bailey** (the
-  realm's ground, flagstones, a few red-roofed houses) and the keep behind
-  the gatehouse. Nothing of the castle may cross x = W.
+  `W - WALL_W` (738) to the edge **and on past it**: the castle's stone
+  touches the board's right edge and the screen cuts it (owner, 2026-09-26).
+  There is NO yard and there are NO houses behind the wall — don't add them
+  back. (A day earlier the owner's "clipping" was misread as "the castle must
+  not cross x = W"; what they meant was towers that looked pasted onto the
+  wall. See "The castle".)
 - Scatter and random scenery still use the old 800 width (`SW` in
   terrain.js / world.js), so every realm's ground is unchanged; the road
   ends at `W - WALL_W + 18` and the log/keg code uses `FIELD_W` (800) in
   update.js, so gameplay is unchanged too.
 - The screen shows the board at its true W:H, never stretched.
+
+## The castle (`src/render/castle.js`)
+
+- **One camera for every face:** a point `z` high is drawn z up the board
+  and `LEAN` (0.5) × z to the east — towers, curtains, gate and keep alike,
+  so a tower's proud flank and the curtain's slant run parallel. Every
+  course of stone is `COURSE` (3.5) high: a west face has one column per
+  course (1.75 wide) and a south face one row per course, so the courses
+  meet round the corners. Heights: outer walk `HC` 14, inner walk `HI` 28,
+  gate block `HG` 31.5, towers `TOWER.h` 38.5 (the north gate tower 35, so
+  its foot clears the arch), keep `HK` 56.
+- **Towers are built in, never pasted on.** A tower rises from the grass
+  proud of the outer face (foot at `TOWER.x0` 741, the curtain's at 749) and
+  runs back into the inner wall's parapet; the inner walk passes on behind
+  it. No wall passes OVER a tower: each wall is painted as a stretch that
+  starts against the south face of the tower north of it, at its own height
+  (the outer walk meets the face `HC` above the tower's foot, at a door; the
+  inner parapet `HI` above), its end cut on the slant of its own face, its
+  first merlon standing against the tower. So the painting order is
+  stretch, tower, stretch, tower… north to south, and the tower's south face
+  is clipped to what the walls in front leave in sight. The footing and a
+  string course at the outer walk's height wrap the tower's proud foot; the
+  tower throws its shadow down-right over the walls south and east of it.
+  Tower decks and the keep's top are a shade warmer than the walks (`DECK`),
+  so a tower reads apart from the wall at a glance; each has a red stair
+  turret and an oak trapdoor, set a little differently per tower.
+- **The gate:** one gate block through both walls; its south face runs on
+  up, sheer, as the keep's (one face, one piece — no ledge). The keep is the
+  castle's landmark: crown banners and a lit slit down its face, turret,
+  chimney (the smoke) and the royal standard on top. Guards stand on the
+  gate top at `gy - 40` / `gy - 2`, the cauldron (with its own shadow) by
+  the murder holes; keep them clear of each other if anything moves.
+- **Life on it:** the sentry paces the INNER walk (x 822), which no crew
+  uses, north or south of the gate block, up to `BEAT` long nearest the
+  gate — he must visibly pace on every realm. Masons work at the far ends
+  of the outer walk; when the bowmen hold every slot they go to the inner
+  walk behind the towers farthest from the gate. Weather lies on the stone:
+  snow on decks, gate, keep and walks (drifted in the parapets' lee), ash
+  or moss in the walks' joints (`snowOn`, `walkWeather`).
+- **Gameplay fixes the decks:** the crews' spots (`wallSlots`, `bowmenSpots`,
+  `ballistaSpots` → `towerDeck`, x 771) are laid out from `foot - n - h` and
+  `foot + s - h`, so keep `n + h` = 44 and `s - h` = -12 when changing a
+  tower's height; dump them for every realm before and after (import
+  `engine/path.js` as a namespace and read `PATH.PTS` after `selectRealm` —
+  a destructured `{ PTS }` keeps the first realm's road), and
+  `node scripts/sim.mjs --level gw1 --endure` must not move.
+- **One wall, any length:** `paintCastleStone(ctx, gx, gy, tier, ya, yb)`
+  paints the stone from ya to yb from `towersFor(gy, ya, yb)` — the board's
+  own towers and more every `RUN_STEP` (105) past its ends — with every
+  length of wall seeded by where it starts and the long bands (inner walk,
+  far parapet, the ground's dressing) laid from `ANCHOR`, so any window of it
+  matches any other pixel for pixel. The board bakes -14..H+14; the apron
+  (`src/render/apron.js`) asks `bakeCastleRun` for the lengths past the
+  top and bottom, a little in under the board, which hides their cut ends.
+  Never repeat a slice of the board's wall out there.
+- Check it with `cas-lab.html?job=[["name","greenwood",[],{"lives":20},[690,0,150,560,3]]]`
+  (lives 20/14/9/4 are the four damage tiers; `castle: {archers, ballista,
+  guards, masons}` puts the works' crews on it), `cas-lab.html?bench=<realm>`
+  for the bake timings, and `apron-lab.html?layouts=ipadtall,tablet` for the
+  wall running on past the board (zoom on the seams at the board's edge).
 
 ## Coasts on the board
 

@@ -518,8 +518,12 @@ export const fireHeroAbility = (g, id, x, y) => {
       dealDamage(g, e, a.dmg, "phys", false, false, b.id);
       if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil || 0, tms + a.stun);
     }
-    g.effects.push({ type: "slam", x: u.x, y: u.y + 4, ttl: 450, r: a.r });
-    g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: a.r * 0.8 });
+    // effects tick in game time, but this is the player's own button: stretch
+    // it by the speed so it plays in the same real time at 1x, 2x and 4x —
+    // the wave, then its cracks left lying a moment (rings.js)
+    const k = Math.max(1, g.speed || 1);
+    g.effects.push({ type: "slam", x: u.x, y: u.y + 4, ttl: 1450 * k, life: 1450 * k, wave: 450 * k, r: a.r });
+    g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420 * k, r: a.r * 0.8 });
     g.shake = Math.max(g.shake, 5);
     sfx.play("rock");
   } else if (id === "charge") {
