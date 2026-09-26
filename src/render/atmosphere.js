@@ -95,10 +95,11 @@ export const drawCloudShadows = (ctx, time) => {
 // ---- weather --------------------------------------------------------------
 const LEAF_COLS = ["#8a9a4e", "#a8b45c", "#c09040", "#7a8a46", "#b8a050"];
 
-// A fen fog bank: a long, low ragged sheet in two stepped tones (a thin veil
-// and a denser core), its top and bottom edges wandering by art pixels.
-// Baked once per variant on the ambient's own 2-unit grid.
-const FOG_W = 220, FOG_H = 16;
+// A fen fog bank: a long, low, lumpy sheet — a string of soft lobes of
+// different sizes, some barely touching, in two stepped tones (a thin veil
+// and a denser core where a lobe is thickest). Baked once per variant on the
+// ambient's own 2-unit grid, so its edges step like everything else.
+const FOG_W = 220, FOG_H = 30;
 const FOGS = [];
 const fogBank = (v) => {
   if (FOGS[v]) return FOGS[v];
@@ -106,15 +107,29 @@ const fogBank = (v) => {
   const cols = FOG_W / CELL, rows = FOG_H / CELL;
   cv.width = cols; cv.height = rows;
   const c = cv.getContext("2d");
-  const n = (i, k) => { const t = Math.sin(i * 12.9898 + k * 78.233 + v * 37.7) * 43758.5453; return t - Math.floor(t); };
+  const r = (k) => { const t = Math.sin(k * 12.9898 + v * 78.233) * 43758.5453; return t - Math.floor(t); };
+  // the lobes: centre, half-length, height (in cells), and a vertical lean
+  const lobes = [];
+  for (let x = 4 + r(1) * 6, k = 0; x < cols - 6; k++) {
+    const len = 7 + r(k * 3 + 2) * 12, hgt = 1.5 + r(k * 3 + 3) * (rows / 2 - 2.5);
+    lobes.push([x + len, len, hgt, (r(k * 3 + 4) - 0.5) * 3]);
+    x += len * (1.1 + r(k * 3 + 5) * 0.9);
+  }
   for (let i = 0; i < cols; i++) {
-    const u = i / (cols - 1), taper = Math.sin(u * Math.PI);
-    const wob = Math.sin(u * 7 + v * 2) * 0.8 + (n(i >> 2, 1) - 0.5) * 1.2;
-    const half = Math.max(0, Math.round((rows / 2) * taper * (0.75 + 0.25 * Math.sin(u * 3 + v)) + wob - 0.4));
-    const core = Math.max(0, Math.round(half * 0.45 + (n(i >> 3, 2) - 0.5)));
-    const mid = rows / 2 + Math.round(Math.sin(u * 4 + v) * 0.8);
-    if (half) { c.fillStyle = "rgba(178,196,188,0.05)"; c.fillRect(i, mid - half, 1, half * 2); }
-    if (core) { c.fillStyle = "rgba(178,196,188,0.05)"; c.fillRect(i, mid - core, 1, core * 2); }
+    let h = 0, mid = rows / 2;
+    for (const [lx, ll, lh, lean] of lobes) {
+      const d = (i - lx) / ll;
+      if (Math.abs(d) >= 1) continue;
+      const hh = lh * Math.sqrt(1 - d * d);
+      if (hh > h) { h = hh; mid = rows / 2 + lean * (1 - Math.abs(d)); }
+    }
+    const top = Math.round(mid - h), bot = Math.round(mid + h * 0.7);
+    if (bot - top < 1) continue;
+    c.fillStyle = "rgba(178,196,188,0.055)"; c.fillRect(i, top, 1, bot - top);
+    if (h > 3) {
+      const ct = Math.round(mid - h * 0.5), cb = Math.round(mid + h * 0.35);
+      if (cb > ct) { c.fillStyle = "rgba(178,196,188,0.05)"; c.fillRect(i, ct, 1, cb - ct); }
+    }
   }
   FOGS[v] = cv;
   return cv;
