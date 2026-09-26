@@ -711,6 +711,8 @@ const hollowKing = (ctx, p) => {
   const o = HK, R = skeleton(p, o), { st, T } = R;
   const b = p.skin, bF = darken(b, 0.28), robe = p.cloth, gold = p.cloth2 || "#8a7a4a", cape = p.cape || darken(robe, 0.25);
   const verd = p.hair || "#5a8a78", fire = p.eyes || "#7ce0b8", weedC = p.mane || "#4e6a48";
+  // the witch-fire mist he walks in, then his shadow
+  glow(ctx, 0.6, -0.4, 9.0, fire, 0.18);
   shadow(ctx, 0.8, -0.1, 8.4, 2.0, 0.28);
   const S = 1.3;                                    // his torso, scaled up from the Risen's
   const shN = T(1.6, -9.6), shF = T(-1.8, -9.9);
@@ -819,6 +821,6 @@ export const HOLLOW_RIGS = {
   ghast: { kind: "hlwGhast", box: { hw: 20, up: 32, down: 4 }, p: { h: 26, skin: "#a4ae8c", belly: "#c8c8a0", cloth: "#4a5a50", cloth2: "#2a2434", hair: "#3a3a30", mane: WEED, eyes: "#d8e860" } },
   crypt: { kind: "hlwCrypt", box: { hw: 22, up: 38, down: 4 }, p: { h: 31, skin: BONE, cloth: "#5e665e", cloth2: "#4a3a5e", hair: "#8a7a4a", mane: WEED, eyes: TEAL, wcol: "#7a808c", shcol: "#a39a86" } },
   gravecaller: { kind: "hlwCaller", box: { hw: 20, up: 34, down: 4 }, p: { h: 26, skin: "#d8d0bc", cloth: "#2e3a3c", cloth2: "#4a5a50", hair: "#242c30", cape: "#2a2434", mane: WEED, eyes: TEAL, wcol: "#a8843e" } },
-  hollowking: { kind: "hlwKing", box: { hw: 26, up: 46, down: 4 }, p: { h: 36, skin: BONE, cloth: "#3a2e4a", cloth2: "#8a7a4a", hair: "#5a8a78", cape: "#2a2434", mane: WEED, eyes: TEAL, wcol: TEAL } },
+  hollowking: { kind: "hlwKing", box: { hw: 27, up: 49, down: 5 }, p: { h: 39, skin: BONE, cloth: "#3a2e4a", cloth2: "#8a7a4a", hair: "#5a8a78", cape: "#2a2434", mane: WEED, eyes: TEAL, wcol: TEAL } },
 };
 export const HOLLOW_PAINTERS = { hlwRisen: risen, hlwGhast: ghast, hlwCrypt: crypt, hlwCaller: gravecaller, hlwKing: hollowKing };
