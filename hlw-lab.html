@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  Dev tool (Hollow Court rigs): a zoomed sheet of chosen frames per type on
+  chosen grounds, saved to .shots/hlw_<tag>.png.
+    /hlw-lab.html?types=skeleton,bonearcher&cells=w0,w1,f0,f1,r0,x1&bg=fen,road&tag=v1&scale=6
+  cells: w0-3 walk, f0-1 fight, r<n> revived walk n, x<n> white fight n.
+  bg: fen (the graveroad's dark ground), road (its pale dirt), grass.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — hollow lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { rigFrame } from "/src/render/rigs.js";
+      const q = new URLSearchParams(location.search);
+      const types = (q.get("types") || "skeleton").split(",");
+      const TAG = q.get("tag") || "lab", SC = Number(q.get("scale")) || 6;
+      const BG = { fen: "#3a4238", road: "#c8bc9c", grass: "#82b256" };
+      const bgs = (q.get("bg") || "fen,road").split(",");
+      const cells = (q.get("cells") || "w0,w1,f0,f1").split(",").map((c) => {
+        const k = c[0], n = Number(c.slice(1));
+        return k === "w" ? ["walk", n, ""] : k === "f" ? ["fight", n, ""] : k === "r" ? ["walk", n, "revived"] : ["fight", n, "white"];
+      });
+      const rows = types.map((t) => { const f = rigFrame(t, "walk", 0); return { t, w: f.cv.width + 6, h: f.cv.height + 6 }; });
+      const cw = Math.max(...rows.map((r) => r.w));
+      const H = rows.reduce((a, r) => a + r.h, 0);
+      const n = cells.length * bgs.length;
+      const cv = document.createElement("canvas");
+      cv.width = cw * n * SC; cv.height = H * SC;
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      let y = 0;
+      for (const r of rows) {
+        let i = 0;
+        for (const bg of bgs) for (const [sheet, fr, variant] of cells) {
+          ctx.fillStyle = BG[bg] || bg; ctx.fillRect(i * cw * SC, y * SC, cw * SC, r.h * SC);
+          const sp = rigFrame(r.t, sheet, fr, variant);
+          ctx.drawImage(sp.cv, (i * cw + (cw - sp.cv.width) / 2) * SC, (y + 3) * SC, sp.cv.width * SC, sp.cv.height * SC);
+          i++;
+        }
+        y += r.h;
+      }
+      fetch("/__shot?name=hlw_" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) })
+        .then(() => { document.title = "DONE"; document.getElementById("status").textContent = "saved"; });
+      document.body.appendChild(cv);
+    </script>
+  </body>
+</html>

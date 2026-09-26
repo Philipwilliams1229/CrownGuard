@@ -78,22 +78,23 @@ const clawHand = (c, w, dir, curl, col, sc = 1, n = 3) => {
   }
 };
 // stitches across a seam: a thread line with short crossing ticks
-const stitches = (c, pts, col, every = 1.4) => {
-  c.strokeStyle = col; c.lineWidth = 0.5; c.lineCap = "butt";
+const stitches = (c, pts, col, every = 1.5) => {
+  c.lineCap = "butt";
+  c.strokeStyle = col; c.lineWidth = 0.5;
   c.beginPath(); c.moveTo(...pts[0]); for (const p of pts.slice(1)) c.lineTo(...p); c.stroke();
   for (let i = 0; i + 1 < pts.length; i++) {
     const [a, b] = [pts[i], pts[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]), nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L;
-    for (let d = 0.5; d < L; d += every) {
+    for (let d = 0.6; d < L; d += every) {
       const m = lerp(a, b, d / L);
-      c.fillStyle = col; c.fillRect(q(m[0] - 0.25 + nx * 0.2), q(m[1] - 0.25 + ny * 0.2), 0.5, 0.5);
-      c.fillRect(q(m[0] - 0.25 - nx * 0.8), q(m[1] - 0.25 - ny * 0.8), 0.5, 0.5);
+      c.beginPath(); c.moveTo(m[0] + nx * 0.9 - ny * 0.3, m[1] + ny * 0.9 + nx * 0.3); c.lineTo(m[0] - nx * 0.9 + ny * 0.3, m[1] - ny * 0.9 - nx * 0.3); c.stroke();
     }
   }
 };
-// an iron staple bridging a seam: two legs and a bar, lit on top
-const staple = (c, x, y, w = 1.8) => {
-  c.fillStyle = darken(IRON, 0.35); c.fillRect(q(x), q(y), w, 1);
-  c.fillStyle = lighten(IRON, 0.35); c.fillRect(q(x), q(y), w, 0.5);
+// an iron staple bridging a seam: a lit bar on two dark legs
+const staple = (c, x, y, w = 2.5) => {
+  c.fillStyle = darken(IRON, 0.4); c.fillRect(q(x), q(y), 0.5, 1.5); c.fillRect(q(x + w - 0.5), q(y), 0.5, 1.5);
+  c.fillStyle = lighten(IRON, 0.3); c.fillRect(q(x), q(y), w, 0.5);
+  c.fillStyle = IRON; c.fillRect(q(x), q(y) + 0.5, w, 0.5);
 };
 
 // The dead head, shared by the ghoul and the amalgam's many faces: a gaunt
@@ -257,8 +258,8 @@ const WRAITH_FLY = [
   { bob: -0.5, reach: -1, hem: 3 },
 ];
 const WRAITH_FIGHT = [
-  { bob: -1.5, reach: -2, hem: 1, lean: -0.08 },
-  { bob: 0, reach: 3, hem: 3, lean: 0.12, dx: 2 },
+  { bob: -1.5, reach: -1.5, hem: 1 },
+  { bob: 0, reach: 1.5, hem: 3, dx: 1 },
 ];
 
 const wraith = (ctx, p) => {
@@ -266,89 +267,71 @@ const wraith = (ctx, p) => {
   const k = fight ? WRAITH_FIGHT[(p.frame || 0) % 2] : WRAITH_FLY[(p.frame || 0) % 4];
   const s = (p.h ?? 26) / 26;
   const col = p.col, inner = p.mane || darken(col, 0.6), weed = p.cloth2, bone = p.skin, chain = p.hair;
-  const ph = (k.hem / 4) * TAU;
+  const eyes = p.eyes || "#7ce0b8";
+  const ph = (k.hem / 4) * TAU, r = k.reach;
   ctx.save(); ctx.scale(s, s); ctx.translate(k.dx || 0, q(k.bob));
-  // lean the whole spectre from its middle
-  ctx.translate(0, -16); ctx.rotate(k.lean || 0.04); ctx.translate(0, 16);
-  // mist first: tatters of the hem, fading as they trail, never inked
-  for (const [al, grow] of [[0.2, 1], [0.38, 0]]) {
-    ctx.save(); ctx.globalAlpha = al; ctx.fillStyle = lighten(col, 0.15);
-    for (let i = 0; i < 4; i++) {
-      const x0 = 3 - i * 3.4, w = Math.sin(ph + i * 1.7);
-      const len = 4.5 + grow * 3 + i * 0.6 + w * 1.2;
-      ctx.beginPath(); ctx.moveTo(x0 + 1.4, -8.6 + i * 0.3); ctx.quadraticCurveTo(x0 - 1 + w, -6 + i * 0.2, x0 - 2.4 - i * 0.6 + w * 0.6, -8.6 + i * 0.3 + len * 0.5); ctx.lineTo(x0 - 3.4 - i * 0.7, -8.8 + i * 0.3 + len * 0.55); ctx.quadraticCurveTo(x0 - 1.6, -6.4, x0 - 1.4, -8.8 + i * 0.3); ctx.closePath(); ctx.fill();
-    }
+  // the hem's tatters: tip points, swaying out of time with one another
+  const tips = [[4.2, -5.6], [1, -4], [-3, -4.4], [-6.6, -6.2], [-9.4, -8.6]].map(([x, y], i) => [x + Math.sin(ph + i * 1.3) * 0.6, y + Math.cos(ph + i * 1.3) * 0.8]);
+  // mist first, trailing off every tatter: not solid, so never inked
+  for (const [al, len] of [[0.14, 6.5], [0.24, 3.6]]) {
+    ctx.save(); ctx.globalAlpha = al; ctx.fillStyle = lighten(col, 0.25);
+    tips.forEach(([x, y], i) => {
+      const sw = Math.sin(ph + i * 1.7) * 0.8, L = len + (i % 2) * 1.2;
+      ctx.beginPath(); ctx.moveTo(x + 0.9, y - 2); ctx.quadraticCurveTo(x + 0.4 + sw, y + L * 0.5, x - 1.6 + sw, y + L); ctx.quadraticCurveTo(x - 1 + sw * 0.5, y + L * 0.3, x - 1.3, y - 2); ctx.closePath(); ctx.fill();
+    });
     ctx.restore();
   }
-  // the drowned chain, from the far wrist, sagging and trailing under the hem
-  const r = k.reach;
-  const nearW = [9.6 + r * 0.6, -17.2 - r * 0.2], farW = [8.4 - r * 0.5, -19.6 + r * 0.2];
-  const chainPts = [[farW[0] - 1, farW[1] + 0.8], [5, -13.5], [1.6, -9 + Math.sin(ph) * 0.6], [-2.4, -6.6 + Math.sin(ph + 1) * 0.8], [-6.4, -5.2 + Math.sin(ph + 2) * 1]];
-  part(ctx, (c) => {
-    c.strokeStyle = darken(chain, 0.2); c.lineWidth = 0.5;
-    let n = 0;
-    for (let i = 0; i + 1 < chainPts.length; i++) {
-      const [a0, a1] = [chainPts[i], chainPts[i + 1]], L = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]);
-      for (let d = 0; d < L; d += 1.2, n++) {
-        const m = lerp(a0, a1, d / L);
-        c.fillStyle = n % 2 ? darken(chain, 0.15) : lighten(chain, 0.2);
-        if (n % 2) c.fillRect(q(m[0] - 0.5), q(m[1] - 0.25), 1, 0.5); else { c.fillRect(q(m[0] - 0.5), q(m[1] - 0.5), 1, 1); }
-      }
-    }
-    c.fillStyle = mix(chain, "#5a8a78", 0.5); c.fillRect(q(-6.8), q(-5.4 + Math.sin(ph + 2)), 1, 1);
-  });
-  // the far arm: a ragged sleeve and a long pale hand
+  const nearW = [9.2 + r * 0.5, -18 - r * 0.2], farW = [8.2 - r * 0.5, -20.6 + r * 0.2];
+  // the far arm: a ragged sleeve in shade and a long grey hand
   part(ctx, (c) => {
     c.fillStyle = darken(col, 0.3);
-    poly(c, [[-0.6, -22], [2.4, -23], [farW[0] - 1.6, farW[1] - 1.6], [farW[0] - 0.4, farW[1] + 0.4], [farW[0] - 1.8, farW[1] + 1.4], [farW[0] - 2.6, farW[1] + 0.4], [farW[0] - 3.4, farW[1] + 1.6], [1, -18]]); c.fill();
-    c.fillStyle = darken(bone, 0.25);
-    taper(c, [[farW[0] - 1.4, farW[1]], farW], [1.2, 1]);
-    for (const [fx, fy] of [[2.6, -1.2], [3, 0], [2.4, 1]]) taper(c, [farW, [farW[0] + fx, farW[1] + fy + r * 0.2]], [0.6, 0.4]);
+    poly(c, [[-0.4, -23.4], [2.6, -24.2], [farW[0] - 1.4, farW[1] - 1.6], [farW[0] - 0.4, farW[1] + 0.4], [farW[0] - 1.8, farW[1] + 1.4], [farW[0] - 2.6, farW[1] + 0.4], [farW[0] - 3.4, farW[1] + 1.6], [1, -19]]); c.fill();
+    c.fillStyle = darken(bone, 0.3);
+    taper(c, [[farW[0] - 1.4, farW[1]], farW], [1.1, 0.9]);
+    for (const [fx, fy] of [[2.6, -1.1], [3, 0], [2.4, 1]]) taper(c, [farW, [farW[0] + fx, farW[1] + fy + r * 0.2]], [0.55, 0.4]);
   });
-  // the shroud: hood, shoulders and a body that streams back into tatters
-  const hem = (i) => Math.sin(ph + i * 1.3) * 0.8;
+  // the shroud: long, narrow, streaming back into the tatters
   const robe = [
-    [4.6, -24.4], [5.2, -21], [6.2, -16.5], [5.4, -12], [4.6, -8.2 + hem(0), 1], [3.2, -9.8], [2, -7.2 + hem(1), 1], [0.4, -9.4], [-1.6, -6.8 + hem(2), 1],
-    [-2.8, -9.2], [-5, -7 + hem(3), 1], [-5.8, -9.6], [-8.4, -8.2 + hem(4), 1], [-8.2, -10.6], [-10.6, -10 + hem(5), 1], [-9.2, -13.6], [-7.2, -18.5], [-4.6, -22.4], [-2.4, -24.6],
+    [4.4, -25.2], [5.4, -22], [5.8, -17], [5.2, -11.5], [...tips[0], 1], [2.6, -9.4], [...tips[1], 1], [-0.6, -9], [...tips[2], 1],
+    [-4, -9.6], [...tips[3], 1], [-6.8, -10.8], [...tips[4], 1], [-8.4, -13.6], [-6.8, -19], [-4.4, -23.6], [-2.4, -25.6],
   ];
   part(ctx, (c) => {
-    c.fillStyle = tone(c, -8, -26, 6, -8, col, 0.3, 0.42); curve(c, robe); c.fill();
+    c.fillStyle = tone(c, -7, -26, 6, -12, col, 0.3, 0.42); curve(c, robe); c.fill();
     c.save(); curve(c, robe); c.clip();
-    // folds falling from the shoulders, the shade side wet-dark
-    for (const [x0, x1, w] of [[-2.6, -5.4, 1.4], [1.2, -0.6, 1.1], [3.6, 3.2, 0.8]]) {
-      c.strokeStyle = darken(col, 0.38); c.lineWidth = w; c.beginPath(); c.moveTo(x0, -21); c.quadraticCurveTo(x0 - 0.4, -14, x1, -7); c.stroke();
-      c.strokeStyle = lighten(col, 0.22); c.lineWidth = 0.5; c.beginPath(); c.moveTo(x0 + w * 0.7, -21); c.quadraticCurveTo(x0 + w * 0.7 - 0.4, -14, x1 + w * 0.7, -7); c.stroke();
+    // folds falling from the shoulders to the tatters
+    for (const [x0, x1, w] of [[-3, -6.6, 1.3], [0, -2.4, 1.1], [3, 1.4, 0.9]]) {
+      c.strokeStyle = darken(col, 0.4); c.lineWidth = w; c.beginPath(); c.moveTo(x0, -22.5); c.quadraticCurveTo(x0 - 0.2, -15, x1, -6); c.stroke();
+      c.strokeStyle = lighten(col, 0.22); c.lineWidth = 0.5; c.beginPath(); c.moveTo(x0 + w * 0.75, -22.5); c.quadraticCurveTo(x0 + w * 0.75 - 0.2, -15, x1 + w * 0.75, -6); c.stroke();
     }
-    // the lower shroud darkens where it frays
-    c.fillStyle = rgba(darken(col, 0.5), 0.55); c.fillRect(-12, -10.6, 20, 4);
+    // the lower shroud sinks into the drowned dark as it frays
+    c.fillStyle = lin(c, 0, -13, 0, -5, [[0, rgba(darken(col, 0.5), 0)], [0.4, rgba(darken(col, 0.5), 0.35)], [1, rgba(darken(col, 0.6), 0.7)]]);
+    c.fillRect(-12, -13, 20, 10);
     c.restore();
   });
-  // the hood: peaked and sodden, drooping back, its mouth a pit
+  // the hood: peaked and sodden, its tip drooping back, its mouth a pit
   part(ctx, (c) => {
-    c.fillStyle = tone(c, -4, -32, 5, -22, col, 0.35, 0.4);
-    curve(c, [[-3.4, -21.6], [-4.2, -25.6], [-3.6, -29], [-5.4, -30.6, 1], [-1.4, -31.4], [2.2, -30], [4.6, -27.6], [6.2, -24.8, 1], [5.2, -22.6], [1.2, -21.4]]); c.fill();
-    // the dark inside, and the lit rim of the hood's mouth
+    c.fillStyle = tone(c, -4, -34, 5, -23, col, 0.35, 0.4);
+    curve(c, [[-3, -23.2], [-4.2, -27.2], [-3.6, -30.8], [-5.6, -32.4, 1], [-1.2, -33.4], [2.4, -32], [4.6, -29.4], [6.2, -26.4, 1], [5.2, -24.2], [1.4, -23.2]]); c.fill();
     c.fillStyle = inner;
-    curve(c, [[2.2, -22.4], [2, -26.6], [3.4, -28.4], [5.2, -26.8], [5.8, -24.6, 1], [4.6, -22.4]]); c.fill();
-    c.strokeStyle = lighten(col, 0.3); c.lineWidth = 0.5; c.beginPath(); c.moveTo(2, -23); c.quadraticCurveTo(1.8, -27, 3.6, -28.6); c.stroke();
+    curve(c, [[2.2, -24], [2, -28.4], [3.6, -30.2], [5.4, -28.6], [5.9, -26.4, 1], [4.6, -24.2]]); c.fill();
+    c.strokeStyle = lighten(col, 0.35); c.lineWidth = 0.5; c.beginPath(); c.moveTo(1.9, -24.6); c.quadraticCurveTo(1.7, -28.8, 3.6, -30.6); c.stroke();
     // witch-fire eyes, low in the dark
-    c.fillStyle = p.eyes || "#7ce0b8"; c.fillRect(3.4, -26, 0.9, 0.7); c.fillRect(5, -26, 0.6, 0.7);
-    c.fillStyle = lighten(p.eyes || "#7ce0b8", 0.5); c.fillRect(3.4, -26, 0.5, 0.5);
+    c.fillStyle = eyes; c.fillRect(3.4, -27.6, 1, 0.6); c.fillRect(5, -27.6, 0.6, 0.6);
+    c.fillStyle = lighten(eyes, 0.5); c.fillRect(3.4, -27.6, 0.5, 0.5);
   });
-  // fen-weed draped over the crown and down the back, hanging off the shoulder
+  // fen-weed draped over the crown and down the back, a strand off the shoulder
   part(ctx, (c) => {
-    stroke(c, [[0.6, -30.8], [-2, -30.2], [-4.4, -27], [-5.6, -22.4], [-6.4, -18]], 0.9, weed);
-    stroke(c, [[-1.4, -30.4], [-3.4, -28.2], [-3.8, -24], [-4.2, -20.4 + Math.sin(ph) * 0.4]], 0.7, darken(weed, 0.2));
-    stroke(c, [[1, -22.2], [0.4, -19.4], [0.8, -16.6 + Math.sin(ph + 1) * 0.5]], 0.7, weed);
+    stroke(c, [[0.6, -33], [-2.2, -32.2], [-4.4, -28.8], [-5.6, -24], [-6.6, -19.4 + Math.sin(ph) * 0.4]], 0.9, weed);
+    stroke(c, [[-1.4, -32.6], [-3.2, -30], [-3.6, -26], [-4, -22.4 + Math.sin(ph + 1) * 0.4]], 0.7, darken(weed, 0.2));
+    stroke(c, [[1.2, -23.6], [0.6, -20.6], [1, -17.6 + Math.sin(ph + 2) * 0.5]], 0.7, weed);
     c.fillStyle = lighten(weed, 0.25);
-    for (const [x, y] of [[-4.6, -26], [-5.8, -21], [-2.4, -29.6], [0.6, -18.4]]) c.fillRect(q(x), q(y), 1, 0.5);
+    for (const [x, y] of [[-4.6, -28], [-5.8, -22.6], [-2.4, -31.8], [0.6, -19.4]]) c.fillRect(q(x), q(y), 1, 0.5);
   });
-  // the near arm: sleeve out, a long bony hand grasping
+  // the near arm: sleeve out, a manacle, a long bony hand grasping
   part(ctx, (c) => {
-    c.fillStyle = tone(c, 0, -24, 0, -15, col, 0.3, 0.42);
-    poly(c, [[-1.4, -22.2], [2.4, -22.8], [nearW[0] - 1.2, nearW[1] - 1.8], [nearW[0] - 0.2, nearW[1] + 0.2], [nearW[0] - 1.4, nearW[1] + 1.2], [nearW[0] - 2, nearW[1] + 0.2], [nearW[0] - 2.8, nearW[1] + 1.8], [nearW[0] - 3.8, nearW[1] + 0.8], [0.4, -17.4]]); c.fill();
-    c.strokeStyle = darken(col, 0.35); c.lineWidth = 0.6; c.beginPath(); c.moveTo(0.4, -19.6); c.lineTo(nearW[0] - 2.4, nearW[1] + 0.2); c.stroke();
-    // the manacle at the wrist
+    c.fillStyle = tone(c, 0, -26, 0, -16, col, 0.3, 0.42);
+    poly(c, [[-1.4, -23.6], [2.4, -24.4], [nearW[0] - 1.2, nearW[1] - 1.8], [nearW[0] - 0.2, nearW[1] + 0.2], [nearW[0] - 1.4, nearW[1] + 1.2], [nearW[0] - 2, nearW[1] + 0.2], [nearW[0] - 2.8, nearW[1] + 1.8], [nearW[0] - 3.8, nearW[1] + 0.8], [0.4, -18.6]]); c.fill();
+    c.strokeStyle = darken(col, 0.35); c.lineWidth = 0.6; c.beginPath(); c.moveTo(0.4, -21); c.lineTo(nearW[0] - 2.4, nearW[1] + 0.2); c.stroke();
     c.fillStyle = tone(c, 0, nearW[1] - 1, 0, nearW[1] + 1, bone, 0.3, 0.35);
     taper(c, [[nearW[0] - 1.2, nearW[1]], nearW], [1.3, 1.1]);
     const curl = fight ? (p.frame ? 0.2 : 0.9) : 0.5 + r * 0.15;
@@ -357,12 +340,32 @@ const wraith = (ctx, p) => {
       const kn = [nearW[0] + fx * 0.6 + tip[0] * 0.5, nearW[1] + fy * 0.5 + tip[1] * 0.5];
       taper(c, [[nearW[0] + fx * 0.4, nearW[1] + fy * 0.4], kn, [nearW[0] + fx * 0.6 + tip[0], nearW[1] + fy * 0.5 + tip[1] + curl * 0.7]], [0.7, 0.55, 0.35]);
     }
+    // the manacle, black iron
+    c.fillStyle = darken(chain, 0.35); c.fillRect(q(nearW[0] - 1.6), q(nearW[1] - 0.9), 1, 2);
+    c.fillStyle = lighten(chain, 0.3); c.fillRect(q(nearW[0] - 1.6), q(nearW[1] - 0.9), 1, 0.5);
+  });
+  // the drowned chain from the manacle, sagging and trailing under the hem
+  const sw = Math.sin(ph + 0.6);
+  const chainPts = [[nearW[0] - 1.2, nearW[1] + 1.2], [nearW[0] - 2.2, -13.4], [nearW[0] - 3.8, -9.6 + sw * 0.3], [1.4 + sw * 0.4, -6.4 + sw * 0.6], [-2.4 + sw * 0.8, -3.2 + sw]];
+  part(ctx, (c) => {
+    let n = 0;
+    for (let i = 0; i + 1 < chainPts.length; i++) {
+      const [a0, a1] = [chainPts[i], chainPts[i + 1]], L = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]);
+      for (let d = 0; d < L; d += 1, n++) {
+        const m = lerp(a0, a1, d / L);
+        c.fillStyle = n % 2 ? darken(chain, 0.25) : lighten(chain, 0.25);
+        c.fillRect(q(m[0] - 0.5), q(m[1] - 0.5), 1, n % 2 ? 0.5 : 1);
+      }
+    }
+    // weed caught on its broken end, verdigris on the last link
+    c.fillStyle = mix(chain, "#5a8a78", 0.6); c.fillRect(q(chainPts[4][0] - 0.5), q(chainPts[4][1] - 0.5), 1, 1);
+    stroke(c, [chainPts[3], [chainPts[3][0] - 1.2, chainPts[3][1] + 1.6 + sw * 0.4]], 0.6, weed);
   });
   ctx.restore();
-  // the witch-fire glow in the hood, and a faint cold light about the hands
-  const ly = q(k.bob);
-  glow(ctx, (4.4 + (k.dx || 0)) * s, (-25.8 + ly) * s, 2.6 * s, p.eyes || "#7ce0b8", 0.55);
-  glow(ctx, (nearW[0] + 2 + (k.dx || 0)) * s, (nearW[1] + ly) * s, 2.4 * s, p.eyes || "#7ce0b8", 0.18);
+  // the witch-fire glow in the hood, and a faint cold light about the hand
+  const ly = q(k.bob), ox = k.dx || 0;
+  glow(ctx, (4.4 + ox) * s, (-27.4 + ly) * s, 2.2 * s, eyes, 0.5);
+  glow(ctx, (nearW[0] + 2 + ox) * s, (nearW[1] + ly) * s, 2.4 * s, eyes, 0.18);
 };
 
 // ---- the grave amalgam --------------------------------------------------------------
@@ -370,16 +373,16 @@ const wraith = (ctx, p) => {
 // stump legs shuffle behind; heads loll out of time with one another.
 // reach = the great hand [x, y]; dx lurches the mass; lg = which stump lifts.
 const AMALGAM_WALK = [
-  { bob: 0, dx: -0.5, tilt: -0.02, hand: [19.5, -3], lg: 0, loll: 0 },
-  { bob: 0.5, dx: -0.5, tilt: 0.02, hand: [18.5, 0], lg: 0, loll: 1 },
-  { bob: 0, dx: 0.5, tilt: 0.05, hand: [15, 0], lg: 1, loll: 2 },
-  { bob: -0.5, dx: 0.5, tilt: 0, hand: [16.5, -2.5], lg: 2, loll: 3 },
+  { bob: 0, dx: -0.5, tilt: -0.02, hand: [17.5, -4.5], lg: 0, loll: 0 },
+  { bob: 0.5, dx: -0.5, tilt: 0.02, hand: [16.5, 0], lg: 0, loll: 1 },
+  { bob: 0, dx: 0.5, tilt: 0.05, hand: [13.5, 0], lg: 1, loll: 2 },
+  { bob: -0.5, dx: 0.5, tilt: 0, hand: [15.5, -4], lg: 2, loll: 3 },
 ];
 const AMALGAM_FIGHT = [
   // reared back, the great arm raised over the heads
   { bob: -1, dx: -1.5, tilt: -0.12, hand: [9, -33], lg: 0, loll: 1, jaw: 0.5 },
   // brought down: the whole mound falls forward behind the blow
-  { bob: 1, dx: 2, tilt: 0.12, hand: [20, -1], lg: 0, loll: 3, jaw: 0.8 },
+  { bob: 1, dx: 1.5, tilt: 0.12, hand: [17, -3.2], lg: 0, loll: 3, jaw: 0.8 },
 ];
 
 const amalgam = (ctx, p) => {
@@ -414,22 +417,21 @@ const amalgam = (ctx, p) => {
     c.fillStyle = tone(c, -12, -27 + b, 10, -5 + b, col, 0.3, 0.45); curve(c, mound); c.fill();
     c.save(); curve(c, mound); c.clip();
     // patches of other hides: a pale corpse across the flank, a bruised one on top, rags
-    const paleP = [M(-12, -12), M(-6, -16), M(1, -15), M(4, -10), M(2, -5), M(-9, -5)];
+    const paleP = [M(-12, -12), M(-7, -15.4), M(-1, -14), M(1, -9.5), M(-1, -5.5), M(-9, -5)];
     c.fillStyle = tone(c, -12, -16 + b, 4, -5 + b, pale, 0.25, 0.4); curve(c, paleP); c.fill();
     const bruiseP = [M(-6, -26), M(2, -28), M(6, -24), M(3, -20), M(-4, -19.5), M(-8, -22)];
     c.fillStyle = tone(c, -8, -28 + b, 6, -19 + b, bruise, 0.25, 0.4); curve(c, bruiseP); c.fill();
     c.fillStyle = tone(c, 6, -20 + b, 14, -8 + b, rag, 0.2, 0.4);
     poly(c, [M(8, -20), M(15, -17), M(15, -9), M(11, -7.5), M(10.4, -10), M(9.4, -8.4), M(8.6, -11), M(7.4, -9.4), M(7, -14)]); c.fill();
     // an open seam in the flank: ribs showing through the dark
-    c.fillStyle = MAW; curve(c, [M(-2.6, -17.8), M(3.6, -18.8), M(5.8, -15.6), M(3.2, -12.8), M(-1.8, -13.2)]); c.fill();
-    c.fillStyle = TOOTH;
-    for (let i = 0; i < 4; i++) { const a0 = M(-1.4 + i * 1.6, -17.8 - i * 0.2), a1 = M(-0.8 + i * 1.7, -13.4 - i * 0.1); c.strokeStyle = TOOTH; c.lineWidth = 0.6; c.beginPath(); c.moveTo(...a0); c.quadraticCurveTo(a0[0] + 1.4, (a0[1] + a1[1]) / 2, a1[0], a1[1]); c.stroke(); }
+    c.fillStyle = MAW; curve(c, [M(-1.6, -17.4), M(3.4, -18.4), M(5.2, -16), M(3, -13.6), M(-1, -14)]); c.fill();
+    for (let i = 0; i < 3; i++) { const a0 = M(0 + i * 1.7, -17.8 - i * 0.2), a1 = M(0.4 + i * 1.7, -14 - i * 0.1); c.strokeStyle = mix(TOOTH, col, 0.5); c.lineWidth = 0.6; c.beginPath(); c.moveTo(...a0); c.quadraticCurveTo(a0[0] + 1.6, (a0[1] + a1[1]) / 2, a1[0], a1[1]); c.stroke(); }
     // shade under the belly, lit rolls of flesh on top
     c.fillStyle = rgba(darken(col, 0.6), 0.5); curve(c, [M(-14, -8), M(0, -9), M(14, -9), M(14, -3), M(-14, -3)]); c.fill();
     c.fillStyle = lighten(col, 0.28);
     for (const [x, y, w] of [[-10, -19.4, 3], [8.4, -21.6, 2.6], [-12.6, -14, 1.6]]) { const m = M(x, y); c.fillRect(q(m[0]), q(m[1]), w, 0.5); }
     // the seams, and iron staples across the worst of them
-    stitches(c, [M(-12, -12), M(-6, -16), M(1, -15), M(4, -10), M(2, -5)], thread);
+    stitches(c, [M(-12, -12), M(-7, -15.4), M(-1, -14), M(1, -9.5), M(-1, -5.5)], thread);
     stitches(c, [M(-8, -22), M(-4, -19.5), M(3, -20), M(6, -24)], thread);
     stitches(c, [M(7, -14), M(8, -20), M(12, -22)], thread);
     c.restore();
@@ -455,7 +457,7 @@ const amalgam = (ctx, p) => {
     deadHead(c, x, y, sc, ang, jaw, col, { hair: sc > 1 ? p.hair : null, eyes: p.eyes });
   });
   // the great arm, bundled from two, planted ahead and hauling
-  const sh = M(10, -15), hd = k.hand, el = ik(sh, hd, 10, 10, fight && hd[1] < -20 ? -1 : 1);
+  const sh = M(10, -15), hd = [k.hand[0], Math.min(k.hand[1], -1.6)], el = ik(sh, hd, 10, 10, fight && hd[1] < -20 ? -1 : 1);
   limb(ctx, [sh, el, hd], [6, 4.6, 3.6], col, {
     hi: lighten(col, 0.2),
     extra: (c, pts) => {
@@ -464,7 +466,7 @@ const amalgam = (ctx, p) => {
       for (const t of [0.5, 1.4]) { const m = t < 1 ? lerp(pts[0], pts[1], t) : lerp(pts[1], pts[2], t - 1); c.fillStyle = darken(IRON, 0.2); c.beginPath(); c.ellipse(m[0], m[1], 1.1, 2.4, Math.atan2(pts[2][1] - pts[1][1], pts[2][0] - pts[1][0]), 0, TAU); c.fill(); c.fillStyle = lighten(IRON, 0.3); c.fillRect(q(m[0] - 0.5), q(m[1] - 1.4), 1, 0.5); }
       c.fillStyle = darken(col, 0.3); c.beginPath(); c.arc(pts[1][0], pts[1][1], 1.8, 0, TAU); c.fill();
       c.fillStyle = col; c.beginPath(); c.arc(pts[1][0] - 0.3, pts[1][1] - 0.3, 1.5, 0, TAU); c.fill();
-      clawHand(c, pts[2], fight && hd[1] < -20 ? -1.4 : hd[1] > -1 ? 0 : 0.35, fight && p.frame ? 0.1 : hd[1] > -1 ? 0 : 0.6, col, 1.8, 4);
+      clawHand(c, pts[2], fight && hd[1] < -20 ? -1.4 : k.hand[1] > -1 ? 0 : 0.05, fight && p.frame ? 0.1 : k.hand[1] > -1 ? 0 : 0.6, col, 1.5, 4);
     },
   });
   // the near stump leg, and a ghoul arm hanging out of the belly, clawing
@@ -479,7 +481,7 @@ const amalgam = (ctx, p) => {
 
 export const HOLLOWBEAST_RIGS = {
   ghoul: { kind: "hbGhoul", box: { hw: 22, up: 24, down: 4 }, p: { len: 26, col: "#7c8a70", belly: "#b4bc9c", mane: "#4a5448", cloth: "#4a3a5e", hair: "#8e8c7e", eyes: "#7ce0b8" } },
-  wraith: { kind: "hbWraith", fly: true, box: { hw: 16, up: 36, down: 4 }, p: { h: 26, col: "#566a80", mane: "#0e0c16", cloth2: "#4e6a52", skin: "#b4c6c8", hair: "#6c7068", eyes: "#7ce0b8" } },
-  amalgam: { kind: "hbAmalgam", box: { hw: 26, up: 40, down: 4 }, p: { h: 30, col: "#76846a", belly: "#aab092", mane: "#6a5670", cloth: "#3e3448", hair: "#2a2026", cloth2: "#4a5a50", eyes: "#7ce0b8" } },
+  wraith: { kind: "hbWraith", fly: true, box: { hw: 16, up: 36, down: 4 }, p: { h: 26, col: "#566a80", mane: "#0e0c16", cloth2: "#4e6a52", skin: "#b4c6c8", hair: "#5e6662", eyes: "#7ce0b8" } },
+  amalgam: { kind: "hbAmalgam", box: { hw: 26, up: 40, down: 4 }, p: { h: 30, col: "#6e7c64", belly: "#a4a88a", mane: "#6a5670", cloth: "#3e3448", hair: "#b4a684", cloth2: "#4a5a50", eyes: "#7ce0b8" } },
 };
 export const HOLLOWBEAST_PAINTERS = { hbGhoul: ghoul, hbWraith: wraith, hbAmalgam: amalgam };
