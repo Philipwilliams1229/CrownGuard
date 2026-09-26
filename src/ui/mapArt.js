@@ -121,14 +121,14 @@ const MOOR = {
   turf: ["#566250", "#6e7a5e", "#879270"].map(rgb),
   heath: ["#54443e", "#6c5850", "#846c5c"].map(rgb),
   grass: ["#5c6a48", "#728250", "#8a9a60"].map(rgb),
-  bracken: ["#6e5436", "#86683e", "#9c7c4a"].map(rgb),
+  bracken: ["#665438", "#7c6844", "#927c52"].map(rgb),
   bloom: rgb("#8a5c6c"), stoneLt: rgb("#b0ab9e"), stoneDk: rgb("#57534e"), tuft: rgb("#4a5444"),
 };
 const moorPx = (x, y, band) => {
   const t = band < 0.27 ? 0 : band > 0.75 ? 2 : 1, b = bayer(x, y) * 0.05;
   const heath = fbm(x, y, 40, 22);
   let pal = heath > 0.6 + b ? MOOR.heath : heath < 0.42 - b ? MOOR.grass : MOOR.turf;
-  if (pal !== MOOR.heath && vnoise(x, y, 26, 23) > 0.74 + b) pal = MOOR.bracken;
+  if (pal !== MOOR.heath && vnoise(x, y, 26, 23) > 0.8 + b) pal = MOOR.bracken;
   // speckle on a 2x2 grain: a stone (lit top, dark foot), a flower, a tuft
   const bx = x >> 1, by = y >> 1, r = hash(bx * 3 + 7, by * 5 + 11);
   if (r < 0.018) return (y & 1) ? MOOR.stoneDk : MOOR.stoneLt;
@@ -602,7 +602,7 @@ const mountain = (w, h, seed, pal) => spr(`mt${w}${h}${seed}${pal.key}`, w, h, (
   }
 });
 const ROCK = { key: "r", lit: "#bcb3a2", mid: "#9a9084", dark: "#6e6676", snow: "#f4f0e2", snowDk: "#b4c0d4" };
-const IRONPK = { key: "i", lit: "#aab0b8", mid: "#8a90a0", dark: "#5e6278", snow: "#f2f2ea", snowDk: "#aebcd4" };
+const IRONPK = { key: "i", lit: "#b0aa9c", mid: "#8e887c", dark: "#5e5a62", snow: "#eeece2", snowDk: "#aab4c4" };
 const HILLG = { key: "g", lit: "#9cc462", mid: "#82b256", dark: "#5f8f43" };
 const CRAG = { key: "c", lit: "#b0aca4", mid: "#8e8a86", dark: "#646070" };
 // a rolling hill: a low lit mound
@@ -642,23 +642,6 @@ const barrow = (v) => spr(`bar${v}`, 10, 6, (c) => {
   c.restore();
   c.fillStyle = "#8a847a"; c.fillRect(3.8, 3, 2.4, 3);
   c.fillStyle = "#2a2230"; c.fillRect(4.4, 3.8, 1.2, 2.2);
-});
-// a grey keep of the Marches: stone, battlements, a slate cap
-const keep = (v) => spr(`keep${v}`, 7, 12, (c) => {
-  const tall = v % 2 ? 0 : 1.5;
-  c.fillStyle = "#a19a8a"; c.fillRect(1.2, 3.4 - tall, 4.6, 8.4 + tall);
-  c.fillStyle = "#7e776c"; c.fillRect(4, 3.4 - tall, 1.8, 8.4 + tall);
-  c.fillStyle = "#b4ad9c"; c.fillRect(0.8, 2.2 - tall, 5.4, 1.4);
-  c.fillStyle = "#a19a8a";
-  for (let k = 0; k < 3; k++) c.fillRect(0.8 + k * 2, 1.2 - tall, 1.2, 1.2);
-  c.fillStyle = "#2a2230"; c.fillRect(2.8, 5.4 - tall, 1, 1.6); c.fillRect(2.8, 9.6, 1.4, 2.2);
-  c.fillStyle = "#56647a"; poly(c, [[5.9, 1.2 - tall], [5.9, -0 - tall], [7, 0.6 - tall]]); c.fill();
-});
-// the Marches' tents on the muster field
-const tent = (v) => spr(`tent${v}`, 6, 5, (c) => {
-  c.fillStyle = v % 2 ? "#e8e0cc" : "#d8ccb0"; poly(c, [[0.2, 4.8], [3, 0.4], [5.8, 4.8]]); c.fill();
-  c.fillStyle = v % 2 ? "#56647a" : "#b8ac92"; poly(c, [[3, 0.4], [5.8, 4.8], [3.8, 4.8]]); c.fill();
-  c.fillStyle = "#2a2230"; poly(c, [[2.4, 4.8], [3, 2.6], [3.4, 4.8]]); c.fill();
 });
 // a standing stone of the fen
 const menhir = (v) => spr(`men${v}`, 3, 6, (c) => {
@@ -730,24 +713,6 @@ const crownCastle = () => spr("crown", 22, 20, (c) => {
   tower(8.4, 5, 5.2);
   c.fillStyle = "#6b5a3c"; c.fillRect(10.8, -0.2 + 0.4, 0.6, 1.6);
   c.fillStyle = "#d8b34a"; c.fillRect(11.4, 0.4, 3, 1.8);
-});
-const citadel = () => spr("citadel", 24, 18, (c) => {
-  const stone = "#9a9aa4", dk = "#6e6e80", lit = "#b8b8c0", roof = "#46546c";
-  c.fillStyle = stone; c.fillRect(1, 9, 22, 8.6);
-  c.fillStyle = dk; c.fillRect(1, 15.6, 22, 2);
-  c.fillStyle = lit; for (let k = 0; k < 11; k++) c.fillRect(1 + k * 2, 8, 1.2, 1.4);
-  const tower = (x, top, w) => {
-    c.fillStyle = stone; c.fillRect(x, top, w, 17.6 - top);
-    c.fillStyle = dk; c.fillRect(x + w * 0.6, top, w * 0.4, 17.6 - top);
-    c.fillStyle = lit; for (let k = 0; k < Math.floor(w / 1.6); k++) c.fillRect(x + k * 1.6, top - 1, 0.9, 1.2);
-    c.fillStyle = "#2a2230"; c.fillRect(x + w / 2 - 0.4, top + 2.2, 0.9, 1.6);
-  };
-  tower(0, 5, 4); tower(20, 5, 4); tower(6, 6.5, 3.2); tower(14.8, 6.5, 3.2);
-  tower(9.6, 1.6, 4.8);
-  c.fillStyle = roof; poly(c, [[9.2, 1.2], [12, -1.4 + 1.4], [14.8, 1.2]]); c.fill();
-  c.fillStyle = "#3a2a24"; c.fillRect(10.6, 13.2, 2.8, 4.4);
-  c.fillStyle = "#56647a"; c.fillRect(2, 1.4, 0.5, 3.6); c.fillRect(2.5, 1.4, 2.4, 1.4);
-  c.fillStyle = "#56647a"; c.fillRect(21.2, 1.4, 0.5, 3.6); c.fillRect(21.7, 1.4, 2.2, 1.4);
 });
 const ruin = () => spr("ruin", 20, 16, (c) => {
   const st = "#6e647c", dk = "#4a4058", lit = "#8a80a0";
@@ -976,17 +941,42 @@ const gallows = () => spr("ik-gallows", 7, 8, (c) => {
   c.fillStyle = "#2a2430"; c.fillRect(4.9, 3.5, 0.9, 0.8);
   c.fillStyle = "#1e1a22"; c.fillRect(4.6, 0.4, 1.2, 0.8);
 });
-// a granite tor: rounded blocks heaped on the moor
-const tor = (v) => spr(`ik-tor${v}`, 10, 7, (c) => {
-  const cols = ["#9e998e", "#a8a296", "#948e84"];
-  const heap = [[[3.2, 5.2, 2.6, 1.7], [6.6, 5.4, 2.4, 1.5], [4.6, 3.4, 2.2, 1.5], [5, 1.9, 1.3, 1]],
-    [[2.6, 5.3, 2.2, 1.5], [5.6, 5, 2.8, 1.8], [8.2, 5.6, 1.5, 1.1], [5.2, 2.9, 1.8, 1.3]],
-    [[4, 5.3, 3.4, 1.6], [3.4, 3.6, 2.2, 1.3], [6.2, 3.8, 1.6, 1.2]],
-    [[2.4, 5.5, 1.8, 1.2], [5.2, 5.2, 2.6, 1.6], [7.8, 5.5, 1.6, 1.1], [5.4, 3.4, 1.9, 1.2], [5.6, 2, 1.1, 0.8]]][v % 4];
-  heap.forEach(([x, y, rx, ry], k) => blobBall(c, x, y, rx, ry, cols[k % 3], 90 + v * 7 + k, { hi: 0.55, lo: 0.6, wobble: 0.1, n: 8 }));
+// a granite tor: slabs stacked on the moor, each with a lit top, a grey
+// south face and a shaded east end, split by dark joints
+const tor = (v) => spr(`ik-tor${v}`, 11, 8, (c) => {
+  const slab = (x, y, w, h, top = 0.9) => {
+    c.fillStyle = "#8e897e"; c.fillRect(x, y - h, w, h);
+    c.fillStyle = "#6a655e"; c.fillRect(x + w * 0.7, y - h, w * 0.3, h);
+    c.fillStyle = "#56524c"; c.fillRect(x, y - 0.5, w, 0.5);
+    c.fillStyle = "#b8b3a6"; c.fillRect(x + 0.2, y - h - top, w - 0.4, top);
+    c.fillStyle = "#cfcabc"; c.fillRect(x + 0.4, y - h - top, w * 0.4, 0.5);
+  };
+  const stacks = [
+    [[0.6, 7.6, 4.2, 1.6], [5, 7.6, 3.6, 2.2], [1.2, 5.1, 3.2, 1.6], [5.4, 4.5, 2.8, 1.4], [1.8, 2.6, 2, 1.2]],
+    [[1, 7.6, 5, 2], [6.2, 7.6, 3.8, 1.4], [1.6, 4.7, 3.8, 1.8], [2.2, 2, 2.4, 1.2]],
+    [[0.4, 7.6, 3, 1.4], [3.6, 7.6, 5.6, 2.4], [4.2, 4.3, 4, 1.8], [5, 1.6, 2.4, 1.2]],
+    [[1.4, 7.6, 7.6, 1.6], [2.2, 5.1, 3.2, 1.8], [5.8, 5.1, 2.6, 1.2]],
+  ][v % 4];
+  for (const [x, y, w, h] of stacks) slab(x + (v > 3 ? 0.6 : 0), y, w, h);
+  c.fillStyle = "#6e7a52"; c.fillRect(1 + (v % 3), 7.1, 1.4, 0.5);
+});
+// a column of the Iron host on the march: spears, helms, oxblood coats, a
+// banner at the head
+const column = (v) => spr(`ik-col${v}`, 14, 5, (c) => {
+  const n = 5 + (v % 2);
+  for (let k = 0; k < n; k++) {
+    const x = 1 + k * 2.1, y = 4.8 - (k % 2) * 0.2;
+    c.fillStyle = "#3a3440"; c.fillRect(x, y - 1.2, 0.5, 1.2); c.fillRect(x + 0.7, y - 1.2, 0.5, 1.2);
+    c.fillStyle = k === n - 1 ? IK.brass : IK.ox; c.fillRect(x - 0.1, y - 2.6, 1.4, 1.5);
+    c.fillStyle = IK.oxDk; c.fillRect(x + 0.8, y - 2.6, 0.5, 1.5);
+    c.fillStyle = "#c4c8d0"; c.fillRect(x + 0.1, y - 3.4, 1, 0.8);
+    c.fillStyle = "#8a8e98"; c.fillRect(x + 0.7, y - 3.4, 0.4, 0.8);
+    if (k < n - 1) { c.fillStyle = IK.wood; c.fillRect(x + 1.2, y - 4.6, 0.3, 3); c.fillStyle = "#dadde4"; c.fillRect(x + 1.2, y - 5, 0.3, 0.5); }
+  }
+  oxFlag(c, 1 + (n - 1) * 2.1 + 1.3, 3.2, 3.2, 2, 1.2);
 });
 // a moor fell: a long low swell of turf or heather
-const FELL = [{ key: "mt", mid: "#6e7a5e" }, { key: "mh", mid: "#6c5850" }];
+const FELL = [{ key: "mt", mid: "#76825f" }, { key: "mh", mid: "#7a6a58" }];
 // the Marches' pines: dark, narrow, three tiers, some tall
 const moorPine = (v) => spr(`ik-pine${v}`, 7, 12, (c) => {
   const col = ["#2e4c40", "#34523e", "#2a463e", "#38543a"][v % 4], tall = v % 2 ? 1.6 : 0;
@@ -1015,7 +1005,6 @@ const ironCitadel = () => spr("ik-citadel", 32, 28, (c) => {
   for (const x of [12.8, 18.4]) slit(c, x, 11, 1.6);
   c.fillStyle = IK.ox; c.fillRect(15.2, 9.4, 1.8, 4.6); c.fillStyle = IK.oxDk; c.fillRect(15.2, 13.4, 1.8, 0.6);
   c.fillStyle = "#a8a8b0"; c.fillRect(15.8, 10.4, 0.6, 1.2);
-  oxFlag(c, 16, 1.4, 1.4, 0.1, 0.1);
   oxFlag(c, 16, 2.2, 2.2, 3.6, 2);
   // the front curtain, the great gate, and the towers
   block(c, 3, 23.4, 26, 3.2, { deck: 1 });
@@ -1031,7 +1020,7 @@ const ironCitadel = () => spr("ik-citadel", 32, 28, (c) => {
 // ---- the dressing ------------------------------------------------------
 // Everything that stands on the land, gathered as [sprite, x, y, anchorX,
 // anchorY, shadowRx] and drawn back to front.
-function dressing(base) {
+function* dressing(base) {
   const items = [];
   const onZone = (x, y, z, inset = 2) => {
     for (const [dx, dy] of [[0, 0], [-inset, 0], [inset, 0], [0, -inset], [0, inset]]) {
@@ -1044,8 +1033,19 @@ function dressing(base) {
   };
   const add = (s, x, y, sh = 0, ax = null, ay = null) =>
     items.push([s, x, y, ax ?? s.width / U / 2, ay ?? s.height / U - 0.6, sh]);
-  const taken = [];
-  const free = (x, y, r) => !busy(x, y, r * 0.5) && taken.every(([tx, ty, tr]) => Math.hypot(x - tx, y - ty) > (r + tr) * 0.5);
+  // what already stands, bucketed on a 16-unit grid (no footprint reaches
+  // further than that), so asking whether a spot is free stays cheap
+  const TG = 16, tgrid = new Map();
+  const taken = { push(t) { const key = Math.floor(t[0] / TG) * 4096 + Math.floor(t[1] / TG); if (!tgrid.has(key)) tgrid.set(key, []); tgrid.get(key).push(t); } };
+  const clearOf = (x, y, r) => {
+    const gx = Math.floor(x / TG), gy = Math.floor(y / TG);
+    for (let i = gx - 1; i <= gx + 1; i++) for (let j = gy - 1; j <= gy + 1; j++) {
+      const list = tgrid.get(i * 4096 + j);
+      if (list) for (const [tx, ty, tr] of list) if (Math.hypot(x - tx, y - ty) <= (r + tr) * 0.5) return false;
+    }
+    return true;
+  };
+  const free = (x, y, r) => !busy(x, y, r * 0.5) && clearOf(x, y, r);
   // scatter a clump of things in an ellipse on one zone
   const clump = (cx, cy, rx, ry, z, step, pick, seed, sh = 1.6, r = 2) => {
     for (let gy = cy - ry; gy <= cy + ry; gy += step * 0.8) for (let gx = cx - rx; gx <= cx + rx; gx += step) {
@@ -1063,16 +1063,12 @@ function dressing(base) {
   piece(crownCastle(), ...SET.castle, 14, 9, true);
   piece(windmill(), 207, 275, 6, 3);
   piece(windmill(), 116, 232, 6, 3);
-  piece(citadel(), ...SET.citadel, 14, 9, true);
   piece(ruin(), ...SET.ruin, 12, 8, true);
   // the vale's villages: by the castle, on the western farms, in the middle
   // country and up under the northern hills
   for (const [x, y, v] of [[163, 275, 0], [177, 269, 1], [156, 289, 2], [99, 265, 3], [109, 255, 1], [190, 255, 2],
     [124, 140, 0], [132, 134, 2], [116, 132, 1], [226, 36, 3], [236, 44, 0], [40, 222, 1], [48, 228, 3], [232, 220, 1], [240, 228, 0]]) piece(cottage(v), x, y, 4, 2.2);
   for (const [x, y, v] of [[143, 85, 0], [211, 78, 1], [153, 129, 2], [204, 133, 3], [96, 80, 1], [236, 104, 0]]) piece(barrow(v), x, y, 6, 3.5);
-  for (const [x, y, v] of [[488, 264, 0], [527, 327, 1], [597, 338, 0], [702, 194, 1], [539, 194, 0], [464, 366, 1], [632, 299, 1],
-    [600, 110, 1], [700, 300, 0], [432, 150, 1], [520, 100, 0], [648, 200, 0]]) piece(keep(v), x, y, 5, 2.6);
-  for (const [x, y, v] of [[468, 210, 0], [480, 221, 1], [468, 233, 0], [492, 206, 1], [492, 233, 0], [480, 196, 0], [504, 220, 1]]) piece(tent(v), x, y, 3, 2);
   for (const [x, y, v] of [[420, -94, 0], [435, -82, 1], [420, -70, 0], [449, -94, 1], [449, -70, 0],
     [440, -30, 1], [470, -24, 0]]) piece(menhir(v), x, y, 2, 1.4);
   for (const [x, y, v] of [[582, -142, 0], [508, -194, 1], [601, -198, 2], [503, -134, 0], [562, -110, 1],
@@ -1098,11 +1094,8 @@ function dressing(base) {
     }
   };
   range(331, 229, 65, 58, 3, ROCK, 1, 1);
-  range(554, 136, 90, 39, 1, IRONPK, 2, 1.1);
-  range(706, 260, 27, 78, 1, IRONPK, 3, 0.9);
   range(204, -3, 37, 14, 0, ROCK, 4, 0.8);
   range(52, 40, 24, 20, 0, ROCK, 22, 0.8);
-  range(650, 340, 40, 26, 1, IRONPK, 23, 0.95);
   // rolling hills in the vale and on the moors
   const hills = (cx, cy, rx, ry, z, pal, seed) => {
     const n = Math.round((rx * ry) / 40) + 10;
@@ -1128,7 +1121,6 @@ function dressing(base) {
       taken.push([x, y - 2, w * 0.7]);
     }
   };
-  crags(535, 299, 98, 98, 1, 6);
   crags(533, -110, 172, 80, 2, 17, 200);
 
   // the woods
@@ -1167,21 +1159,183 @@ function dressing(base) {
     }
   }
   for (const [x, y] of [[190, 286], [105, 292], [224, 299], [180, 303], [130, 262], [90, 240]]) if (onZone(x, y, 0) && free(x, y, 3) && !busy(x, y, 0.5)) { add(hay(), x, y, 1.4); taken.push([x, y, 3]); }
-  const pines = (k) => pine(Math.floor(hash(k, 8) * 3), true);
-  clump(453, 147, 35, 27, 1, 4, pines, 8);
-  clump(620, 319, 31, 27, 1, 4, pines, 9);
-  clump(461, 331, 20, 20, 1, 4, pines, 10);
-  clump(535, 237, 20, 16, 1, 4, pines, 11);
-  clump(695, 350, 20, 20, 1, 4, pines, 12);
-  clump(640, 150, 22, 16, 1, 4, pines, 28);
-  clump(420, 260, 14, 20, 1, 4, pines, 29);
+  yield;
   const deads = (k) => deadTree(Math.floor(hash(k, 8) * 4));
   clump(376, -162, 54, 44, 2, 5.5, deads, 13, 1.2);
   clump(606, -110, 74, 48, 2, 9, deads, 14, 1.2);
   clump(470, -170, 40, 30, 2, 7, deads, 30, 1.2);
   clump(508, -46, 147, 28, 2, 7, (k) => reeds(Math.floor(hash(k, 8) * 2)), 15, 0, 1);
   clump(533, -150, 147, 60, 2, 8, (k) => reeds(Math.floor(hash(k, 8) * 2)), 16, 0, 1);
+  yield;
+
+  // ---- the Iron Marches ----
+  // A spot for a building w x h units near (x, y): the nearest free one on
+  // the moor within rad, clear of the road, the names and what stands there.
+  const IR = 1, farm = base.farm;
+  const onFarm = (x, y) => { const ix = Math.round(x - MAP.x), iy = Math.round(y - MAP.y); return farm && ix >= 0 && iy >= 0 && ix < MAP.w && iy < MAP.h && farm[iy * MAP.w + ix]; };
+  const site = (s, x, y, rad = 8, sh = null, fieldOk = true) => {
+    const w = s.width / U, h = s.height / U, r = w * 0.5;
+    for (let k = 0; k < 60; k++) {
+      const a = k * 2.39996, d = k ? rad * Math.sqrt(k / 60) : 0;
+      const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d;
+      if (!onZone(px, py, IR, Math.min(4, r))) continue;
+      if (busy(px, py, r * 0.8) || busy(px, py - h * 0.5, r * 0.8) || busy(px, py - h + 1, r * 0.6)) continue;
+      if (!fieldOk && onFarm(px, py)) continue;
+      if (!free(px, py - h * 0.3, r * 1.1)) continue;
+      add(s, px, py, sh ?? r * 0.7); taken.push([px, py - h * 0.3, r * 1.1]);
+      return [px, py];
+    }
+    return null;
+  };
+  // the capital's citadel, and the Muster's camp of the Iron host
+  piece(ironCitadel(), ...SET.citadel, 16, 10, true);
+  site(pavilion(), 481, 214, 4);
+  for (let gy = 198; gy <= 236; gy += 7) for (let gx = 460; gx <= 512; gx += 7.5) {
+    const k = gx * 3 + gy;
+    if (Math.hypot(gx - 481, (gy - 214) * 1.3) < 9 || hash(k, 5) < 0.18) continue;
+    site(ikTent(Math.floor(hash(k, 6) * 3)), gx + ((gy / 7) & 1) * 3, gy, 1.6, 2);
+  }
+  for (const [x, y] of [[472, 219], [494, 206], [498, 228], [466, 205]]) site(campfire(), x, y, 2, 0);
+  // walled towns, border forts, square keeps and watchtowers
+  site(walledTown(0), 594, 284, 10);
+  site(walledTown(1), 515, 392, 12);
+  site(walledTown(1), 612, 356, 10);
+  site(borderFort(0), 440, 330, 10);
+  site(borderFort(1), 628, 190, 10);
+  site(borderFort(0), 548, 58, 12);
+  for (const [x, y, v] of [[488, 264, 0], [597, 338, 1], [702, 194, 2], [539, 194, 0], [464, 372, 1], [632, 299, 2],
+    [600, 110, 1], [705, 305, 0], [432, 150, 2], [648, 225, 0], [575, 395, 1]]) site(ironKeep(v), x, y, 6);
+  for (const [x, y, v] of [[524, 70, 1], [470, 106, 0], [712, 162, 1], [722, 245, 0], [446, 390, 1], [600, 400, 0],
+    [560, 214, 1], [620, 258, 0], [680, 380, 1], [412, 238, 0], [456, 276, 1], [660, 140, 0]]) site(watchtower(v), x, y, 6);
+  site(gallows(), 541, 298, 12);
+  // a second camp under the eastern peaks, and the host on the march
+  for (const [x, y, v] of [[650, 262, 0], [657, 256, 2], [664, 262, 1], [657, 268, 0], [645, 270, 1]]) site(ikTent(v), x, y, 2, 2);
+  site(campfire(), 656, 263, 2, 0);
+  for (const [x, y, v] of [[520, 214, 0], [596, 236, 1], [452, 262, 1], [640, 360, 0], [590, 130, 0]]) site(column(v), x, y, 8, 0);
+  // milestones along the military roads
+  for (const rd of ROADS) {
+    let run = 10;
+    for (let k = 1; k < rd.pts.length - 1; k++) {
+      const [x0, y0] = rd.pts[k - 1], [x1, y1] = rd.pts[k];
+      run += Math.hypot(x1 - x0, y1 - y0);
+      if (run < 26) continue;
+      const l = Math.hypot(x1 - x0, y1 - y0) || 1, side = (k & 1) ? 1 : -1;
+      const mx = x1 - ((y1 - y0) / l) * 4.8 * side, my = y1 + ((x1 - x0) / l) * 4.8 * side;
+      if (!onZone(mx, my, IR) || busy(mx, my, 0.4) || !free(mx, my, 1.5)) continue;
+      add(milestone(k), mx, my, 0.8); taken.push([mx, my, 1.5]); run = 0;
+    }
+  }
+  // steadings on the farms
+  for (const [x, y] of [[468, 290], [500, 340], [455, 345], [540, 360], [580, 322], [620, 232], [662, 318], [505, 250], [600, 205], [690, 330], [450, 190], [560, 250]])
+    site(steading(Math.floor(hash(x, y) * 4)), x, y, 8);
+
+  yield;
+  // the ranges, the fells and the tors
+  range(554, 136, 90, 39, IR, IRONPK, 2, 1.1);
+  range(706, 260, 27, 78, IR, IRONPK, 3, 0.9);
+  range(650, 340, 40, 26, IR, IRONPK, 23, 0.95);
+  for (const [cx, cy, rx, ry, seed] of [[520, 300, 70, 50, 40], [610, 240, 45, 40, 41], [470, 250, 40, 40, 42]]) {
+    for (let k = 0; k < (rx * ry) / 160; k++) {
+      const x = cx + (hash(seed, k * 2) - 0.5) * 2 * rx, y = cy + (hash(seed, k * 2 + 1) - 0.5) * 2 * ry;
+      const w = 12 + (k % 3) * 3, h = Math.round(w * 0.36);
+      if (onFarm(x, y) || !onZone(x, y, IR, 3) || !free(x, y - 2, w * 0.6) || busy(x, y - 2, w * 0.35)) continue;
+      add(hill(w, h, k % 3, FELL[(k + seed) % 2]), x, y, 0);
+      taken.push([x, y - 2, w * 0.6]);
+    }
+  }
+  yield;
+  for (let k = 0; k < 70; k++) {
+    const x = 405 + hash(k, 301) * 320, y = 70 + hash(k, 302) * 330;
+    if (onFarm(x, y) || !onZone(x, y, IR, 4) || busy(x, y - 2, 4) || !free(x, y - 2, 5)) continue;
+    add(tor(k % 8), x, y, 3); taken.push([x, y - 2, 5]);
+  }
+  // the dark pine woods, and pines standing alone on the moor
+  const mp = (k) => moorPine(Math.floor(hash(k, 8) * 4));
+  const wood = (cx, cy, rx, ry, seed) => {
+    for (let gy = cy - ry; gy <= cy + ry; gy += 3.2) for (let gx = cx - rx; gx <= cx + rx; gx += 3.6) {
+      const k = Math.round(gx * 7 + gy * 131 + seed * 977);
+      const x = gx + (hash(k, 1) - 0.5) * 3 + ((Math.round(gy / 3.2) & 1) ? 1.8 : 0), y = gy + (hash(k, 2) - 0.5) * 2.4;
+      const e = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + (vnoise(x, y, 9, seed) - 0.5) * 0.7;
+      if (e > 1 || onFarm(x, y) || !onZone(x, y, IR) || !free(x, y, 2) || busy(x, y - 4, 2)) continue;
+      add(mp(k), x, y, 1.6);
+    }
+  };
+  wood(453, 147, 35, 27, 8);
+  wood(620, 319, 24, 22, 9);
+  wood(461, 331, 18, 18, 10);
+  wood(535, 237, 20, 16, 11);
+  wood(695, 350, 20, 20, 12);
+  wood(640, 150, 22, 16, 28);
+  wood(420, 262, 12, 20, 29);
+  wood(575, 355, 12, 9, 30);
+  wood(690, 120, 10, 8, 31);
+  for (let k = 0; k < 260; k++) {
+    const x = 405 + hash(k, 311) * 320, y = 70 + hash(k, 312) * 330;
+    if (onFarm(x, y) || !onZone(x, y, IR) || busy(x, y - 4, 2) || !free(x, y, 4)) continue;
+    add(mp(k + 900), x, y, 1.6); taken.push([x, y, 3]);
+  }
+  // sheep on the hill pastures
+  for (const [fx, fy, n] of [[500, 285, 5], [612, 222, 5], [470, 305, 4], [655, 250, 4], [545, 345, 4], [520, 200, 4]]) {
+    for (let k = 0; k < n; k++) {
+      const x = fx + (hash(fx, k) - 0.5) * 18, y = fy + (hash(fy, k) - 0.5) * 10;
+      if (!onZone(x, y, IR) || !free(x, y, 2) || busy(x, y, 0.5)) continue;
+      add(sheep(k), x, y, 1); taken.push([x, y, 2]);
+    }
+  }
   return items;
+}
+
+// The Marches' farms: drystone walls round small fields, laid on a jittered
+// lattice so neighbours share their walls; each farm's fields are pasture,
+// hay, oats or plough. Marks base.farm (map units) so the dressing keeps off.
+const FARMS = [
+  [470, 292, 26, 16, 0.2, 1], [505, 345, 30, 16, -0.15, 2], [578, 322, 20, 14, 0.3, 3], [618, 230, 20, 18, -0.25, 4],
+  [665, 318, 16, 12, 0.1, 5], [455, 190, 14, 12, 0.35, 6], [598, 205, 14, 10, -0.1, 7], [505, 252, 16, 11, 0.15, 8],
+  [540, 368, 18, 12, 0.05, 9], [690, 330, 10, 8, -0.3, 10], [640, 285, 12, 8, 0.2, 11], [455, 355, 10, 8, -0.2, 12],
+  [690, 170, 10, 8, 0.25, 13], [560, 310, 10, 7, -0.1, 14],
+];
+function marchFields(base) {
+  const farm = new Uint8Array(MAP.w * MAP.h);
+  base.farm = farm;
+  const land1 = (x, y) => { const ax = artX(x), ay = artY(y); return ax >= 0 && ay >= 0 && ax < AW && ay < AH && base.land[ay * AW + ax] && base.zone[ay * AW + ax] === 1; };
+  const cols = [["#7c8e56", "#6e8050"], ["#86985c", "#76884e"], ["#a09858", "#8c844c"], ["#b0a262", "#988a52"], ["#6e5a40", "#5a4834"], ["#728054", "#66744c"]];
+  return layer((c) => {
+    for (const [cx, cy, rx, ry, ang, seed] of FARMS) {
+      const cw = 7.4, ch = 5.6, nx = Math.ceil(rx / cw) + 1, ny = Math.ceil(ry / ch) + 1;
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      const P = (i, j) => {
+        const k = (i + 40) * 131 + (j + 40) * 7 + seed * 977;
+        const u = i * cw + (hash(k, 1) - 0.5) * 2.4, v = j * ch + (hash(k, 2) - 0.5) * 1.8;
+        return [cx + u * ca - v * sa, cy + u * sa + v * ca];
+      };
+      const walls = new Map();
+      for (let j = -ny; j < ny; j++) for (let i = -nx; i < nx; i++) {
+        const q = [P(i, j), P(i + 1, j), P(i + 1, j + 1), P(i, j + 1)];
+        const mx = q.reduce((a, p) => a + p[0], 0) / 4, my = q.reduce((a, p) => a + p[1], 0) / 4;
+        const k = (i + 40) * 53 + (j + 40) * 11 + seed * 313;
+        if (((mx - cx) / rx) ** 2 + ((my - cy) / ry) ** 2 > 1 - hash(k, 3) * 0.35) continue;
+        if (!q.every(([x, y]) => land1(x, y) && !busy(x, y, 1.4)) || busy(mx, my, 3)) continue;
+        const [a, b] = cols[Math.floor(hash(k, 4) * cols.length)];
+        c.fillStyle = a; poly(c, q); c.fill();
+        c.save(); poly(c, q); c.clip();
+        c.fillStyle = b;
+        // furrows or swathes across the field, along the farm's lie
+        for (let t = -8; t < 8; t += 1.3) { c.save(); c.translate(mx, my); c.rotate(ang + (hash(k, 5) < 0.5 ? 0 : Math.PI / 2)); c.fillRect(-8, t, 16, 0.5); c.restore(); }
+        c.restore();
+        for (let yy = Math.floor(my - 4); yy <= my + 4; yy++) for (let xx = Math.floor(mx - 5); xx <= mx + 5; xx++) {
+          const ix = xx - MAP.x, iy = yy - MAP.y;
+          if (ix >= 0 && iy >= 0 && ix < MAP.w && iy < MAP.h) farm[iy * MAP.w + ix] = 1;
+        }
+        for (const [e0, e1] of [[q[0], q[1]], [q[1], q[2]], [q[3], q[2]], [q[0], q[3]]]) walls.set(e0.join() + e1.join(), [e0, e1]);
+      }
+      // the walls: a shadow line down-right, then the grey stones
+      c.lineCap = "round";
+      c.strokeStyle = "#4a463e"; c.lineWidth = 0.7;
+      for (const [[x0, y0], [x1, y1]] of walls.values()) { c.beginPath(); c.moveTo(x0 + 0.3, y0 + 0.5); c.lineTo(x1 + 0.3, y1 + 0.5); c.stroke(); }
+      c.strokeStyle = "#b4afa2"; c.lineWidth = 0.6;
+      for (const [[x0, y0], [x1, y1]] of walls.values()) { c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); }
+    }
+  });
 }
 
 // the fen's black pools, sunk into the purple
@@ -1235,6 +1389,8 @@ function* paintTerrain() {
     }
   }, "#5f8f43");
   ctx.drawImage(onLand(fields), 0, 0);
+  yield;
+  ctx.drawImage(onLand(marchFields(base)), 0, 0);
 
   yield;
   // rivers and lakes: an inked bank, a pale shallows rim, deep water, and a
@@ -1299,7 +1455,7 @@ function* paintTerrain() {
 
   yield;
   // contact shadows, then the dressing back to front
-  const items = dressing(base).sort((a, b) => a[2] - b[2]);
+  const items = (yield* dressing(base)).sort((a, b) => a[2] - b[2]);
   const shade = layer((c) => {
     c.fillStyle = "#2a1c2c";
     for (const [, x, y, , , sh] of items) if (sh > 0) { c.beginPath(); c.ellipse(x + sh * 0.35, y + 0.2, sh, sh * 0.42, 0, 0, Math.PI * 2); c.fill(); }

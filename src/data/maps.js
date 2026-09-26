@@ -213,33 +213,43 @@ const greenwoodVariant = (id, name, tag, blurb, seed, path, extra = {}) => ({
 });
 
 // The Iron Kingdom's country: cropped highland turf and a paved military road.
+// Heather, bracken and bare stone in the turf; a wood of Scots pine, spruce
+// and crags along the edge the Kingdom marches out of, from a palisaded camp;
+// its oxblood banners, towers, tents and gibbets by the road. The pieces and
+// the ground art live in src/render/scenery-iron.js (groundArt "iron").
 const IRON_GROUND = {
   tag: "IRON MARCHES",
   tagColor: "#9ab6d8",
   ambient: "dust",
   clouds: true,
   // a steel overcast with no sun in it — colder and flatter than the Vale
-  light: { tint: "214,224,240", amount: 0.13, vignette: 0.34 },
-  GRASS: "#5a6557",
-  GRASS_DK: "#4a5448",
-  GRASS_LT: "#6a7566",
-  TUFT: "#444e42",
-  PATH_MAIN: "#9c9c96",
-  PATH_DK: "#7c7c78",
-  PATH_EDGE: "#4a4a48",
-  PEBBLE: "#bcbcb6",
-  CHEVRON: "48,48,52",
+  light: { tint: "214,224,240", amount: 0.1, vignette: 0.3 },
+  spawn: "ironcamp",     // the Kingdom's forward camp, palisaded, in the pines
+  groundArt: "iron",
+  wood: { types: [["irspruce", 4], ["irpine", 3], ["ircrag", 1]], hem: false },
+  // cool moorland turf: sage and olive, never the Vale's summer green
+  GRASS: "#71875a",
+  GRASS_DK: "#586e4a",
+  GRASS_LT: "#90a26c",
+  TUFT: "#4e6440",
+  // the military road: dressed gritstone flags, buff-grey, kerbed
+  PATH_MAIN: "#a69c86",
+  PATH_DK: "#847a66",
+  PATH_EDGE: "#4e463a",
+  PEBBLE: "#c8c0aa",
+  CHEVRON: "52,40,36",
   scatter: {
     patches: 40,
     tufts: 34,
     flowers: 12,
-    flowerCols: ["#d8d4c0", "#c8b898", "#a8b8c8"],
+    // ling, tormentil, harebell, eyebright
+    flowerCols: ["#b87ab0", "#e8cc5a", "#8e9ad8", "#eeeadc"],
   },
 };
 const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
   ...IRON_GROUND, id, name, blurb, seed, path,
   water: { deep: "#33505e", edge: "#43647a", shine: "#7aa4bc" },
-  decorRecipe: { count: 10, types: ["rock", "pine", "rock", "tree"] },
+  decorRecipe: { count: 10, types: ["ircrag", "irpine", "irwall", "irspruce", "irheather"] },
   ponds: [],
   ...extra,
 });
@@ -353,14 +363,14 @@ Object.assign(REALMS, {
     "The border highway, paved and straight. The first Iron column is already on it — and it marches in step.",
     20260721,
     [[0.9, 5], [5, 5], [5, 2], [9, 2], [9, 7], [13, 7], [13, 4], [13.7, 4]],
-    { decorRecipe: { count: 14, types: ["banner", "tree", "pine", "banner", "rock", "watchtower"] } },
+    { decorRecipe: { count: 14, types: ["irbanner", "irpine", "irwall", "irmile", "ircrag", "irtower"] } },
   ),
   stonewatch: ironVariant(
     "stonewatch", "Stonewatch",
     "A ruined border fort on bare rock. Three long lanes, no cover, and crossbows that shoot back at your knights.",
     20260722,
     [[0.9, 2], [3, 2], [3, 7], [7, 7], [7, 2], [11, 2], [11, 7], [13.7, 7]],
-    { decorRecipe: { count: 13, types: ["watchtower", "rock", "rock", "watchtower", "pine"] } },
+    { decorRecipe: { count: 13, types: ["irtower", "ircrag", "ircrag", "irtower", "irwall"] } },
   ),
   muster: ironVariant(
     "muster", "The Muster",
@@ -372,7 +382,7 @@ Object.assign(REALMS, {
         { x: 500, y: 270, w: 60, h: 34 },
         { x: 180, y: 130, w: 56, h: 30 },
       ],
-      decorRecipe: { count: 16, types: ["tent", "tent", "tent", "banner", "rock", "tent"] },
+      decorRecipe: { count: 16, types: ["irtent", "irtent", "irwagon", "irbanner", "irpikes", "irtent"] },
     },
   ),
   undercliff: ironVariant(
@@ -382,7 +392,7 @@ Object.assign(REALMS, {
     [[0.9, 8], [5, 8], [5, 5], [1, 5], [1, 2], [8, 2], [8, 6], [11, 6], [11, 3], [13.7, 3]],
     {
       ponds: [{ x: 640, y: 430, w: 70, h: 40 }],
-      decorRecipe: { count: 16, types: ["rock", "rock", "watchtower", "pine", "rock"] },
+      decorRecipe: { count: 16, types: ["ircrag", "ircrag", "irtower", "irspruce", "irbeacon"] },
     },
   ),
   ironford: ironVariant(
@@ -393,7 +403,7 @@ Object.assign(REALMS, {
     {
       rivers: [{ pts: [[6.3, -0.5], [6.4, 4.8], [9.5, 6.8], [9.6, 10.5]], w: 34 }],
       ponds: [{ x: 132, y: 300, w: 54, h: 30 }],
-      decorRecipe: { count: 11, types: ["rock", "pine", "watchtower", "tree", "banner"] },
+      decorRecipe: { count: 11, types: ["ircrag", "irpine", "irtower", "irwall", "irbanner"] },
     },
   ),
   greyhelm: ironVariant(
@@ -401,14 +411,14 @@ Object.assign(REALMS, {
     "The climb into the Iron heartland. Switchbacks all the way up — and the whole army is coming down.",
     20260724,
     [[1, 0.8], [1, 4], [6, 4], [6, 1], [10, 1], [10, 6], [4, 6], [4, 9], [13, 9], [13, 5], [13.7, 5]],
-    { decorRecipe: { count: 13, types: ["rock", "rock", "watchtower", "pine"] } },
+    { decorRecipe: { count: 13, types: ["ircrag", "ircrag", "irtower", "irspruce", "irbeacon", "irpine"] } },
   ),
   citadel: ironVariant(
     "citadel", "The Citadel Gate",
     "The last mile before the Iron throne. A gauntlet of a road, and the Lord Marshal himself at the end of it.",
     20260725,
     [[0.9, 1], [5, 1], [5, 4], [1, 4], [1, 7], [5, 7], [5, 9], [9, 9], [9, 6], [7, 6], [7, 3], [11, 3], [11, 6], [13, 6], [13, 2], [13.7, 2]],
-    { decorRecipe: { count: 14, types: ["banner", "watchtower", "rock", "banner", "pine"] } },
+    { decorRecipe: { count: 14, types: ["irbanner", "irtower", "irpikes", "irbanner", "irtent", "irbeacon"] } },
   ),
 });
 
@@ -424,10 +434,14 @@ const HOLLOW_GROUND = {
   ambient: "wisps",
   // a drowned moon: cold blue-grey light, edges falling away into the dark
   light: { tint: "168,186,224", amount: 0.2, vignette: 0.5 },
-  spawn: "barrow",       // the dead come up out of the ground, not the trees
-  GRASS: "#3e4438",
-  GRASS_DK: "#333930",
-  GRASS_LT: "#4a5142",
+  spawn: "barrowgate",   // the dead come up out of a great barrow (scenery-hollow.js)
+  groundArt: "fen",      // moss, pools, sedge and bog-cotton; a causeway of sunken flags
+  // the spawn edge is a drowned wood: pale dead trees, fen willows, reedbeds
+  wood: { types: [["fendead", 5], ["fenwillow", 2.6], ["reedbed", 1.4], ["fensnag", 1]], hem: false },
+  // sodden black-green turf, a touch of teal in it so the halls still stand clear
+  GRASS: "#404a3b",
+  GRASS_DK: "#343d32",
+  GRASS_LT: "#4f5a47",
   TUFT: "#2c332a",
   // bone-dust road: pale enough to read at night
   PATH_MAIN: "#948b76",
@@ -441,12 +455,15 @@ const HOLLOW_GROUND = {
     patches: 50,
     tufts: 64,
     flowers: 14,
-    flowerCols: ["#9a8ec4", "#b0a88e", "#7a8a6a"],
+    // marsh violets, bog-cotton white, pale sedge-seed (same count: the seeded scatter stays put)
+    flowerCols: ["#9a8ec4", "#e4e0d4", "#b8b088"],
   },
 };
+// the fen's landmarks, for a board that names none of its own
+const FEN_DECOR = ["fengrave", "fendead", "fencairn", "fengrave", "fenbones", "reedbed", "fencandle", "fenwillow"];
 const hollowVariant = (id, name, tag, blurb, seed, path, extra = {}) => ({
   ...HOLLOW_GROUND, id, name, tag, blurb, seed, path,
-  decorRecipe: { count: 16, types: ["gravestone", "cairn", "deadtree", "gravestone", "boneheap"] },
+  decorRecipe: { count: 16, types: FEN_DECOR },
   ponds: [],
   ...extra,
 });
@@ -457,7 +474,10 @@ Object.assign(REALMS, {
     "The old causeway into the fen, crossing the Weepwater twice. The dead walk it in floods — hold both bridges and bleed them the whole way.",
     20260801,
     [[0.9, 2], [4, 2], [4, 5], [8, 5], [8, 2], [12, 2], [12, 7], [6, 7], [6, 9], [13.7, 9]],
-    { rivers: [{ pts: [[9.5, -0.5], [9.6, 3.5], [10.4, 6.2], [10.4, 10.5]], w: 30 }] },
+    {
+      rivers: [{ pts: [[9.5, -0.5], [9.6, 3.5], [10.4, 6.2], [10.4, 10.5]], w: 30 }],
+      decorRecipe: { count: 18, types: ["fengrave", "fengrave", "fendead", "fenwillow", "fencandle", "fenbones", "reedbed", "fenshrine", "lichfence", "bogpool"] },
+    },
   ),
   sunkencauseway: hollowVariant(
     "sunkencauseway", "The Sunken Causeway", "DROWNED GROUND",
@@ -471,6 +491,7 @@ Object.assign(REALMS, {
         { x: 600, y: 430, w: 120, h: 56, t: "swamp" },
       ],
       rivers: [{ pts: [[-0.5, 9.15], [7, 9.0], [15.5, 9.15]], w: 22 }],
+      decorRecipe: { count: 16, types: ["reedbed", "bogpool", "fenstatue", "fendead", "fenwillow", "fencandle", "fengrave", "reedbed"] },
     },
   ),
   bellmarsh: hollowVariant(
@@ -481,7 +502,7 @@ Object.assign(REALMS, {
     {
       rivers: [{ pts: [[5.9, -0.5], [5.7, 4], [5.9, 10.5]], w: 26 }],
       ponds: [{ x: 250, y: 390, w: 96, h: 54, t: "swamp" }],
-      decorRecipe: { count: 18, types: ["obelisk", "gravestone", "cairn", "obelisk", "deadtree", "reeds"] },
+      decorRecipe: { count: 18, types: ["bellstone", "fengrave", "fencairn", "bellstone", "fendead", "reedbed", "fencandle", "bogpool"] },
     },
   ),
   wightwood: hollowVariant(
@@ -494,7 +515,7 @@ Object.assign(REALMS, {
         { x: 560, y: 90, w: 74, h: 42, t: "swamp" },
         { x: 320, y: 350, w: 56, h: 32, t: "swamp" },
       ],
-      decorRecipe: { count: 22, types: ["deadtree", "deadtree", "gravestone", "cairn", "reeds"] },
+      decorRecipe: { count: 22, types: ["fendead", "fendead", "fendead", "fengrave", "fencairn", "reedbed", "fencandle", "fensnag"] },
     },
   ),
   cairnfields: hollowVariant(
@@ -504,7 +525,7 @@ Object.assign(REALMS, {
     [[0.9, 1], [4, 1], [4, 7], [8, 7], [8, 3], [12, 3], [12, 9], [13.7, 9]],
     {
       rivers: [{ pts: [[-0.5, 5.4], [5, 5.6], [10, 5.3], [15.5, 5.5]], w: 28 }],
-      decorRecipe: { count: 20, types: ["cairn", "cairn", "gravestone", "boneheap", "deadtree"] },
+      decorRecipe: { count: 20, types: ["fencairn", "fencairn", "fengrave", "fenbones", "fendead", "bellstone", "fencandle"] },
     },
   ),
   thronedust: hollowVariant(
@@ -515,7 +536,7 @@ Object.assign(REALMS, {
     {
       rivers: [{ pts: [[-0.5, 6.2], [2.4, 6.8], [3.2, 8.9], [6.5, 9.5], [15.5, 9.3]], w: 26 }],
       ponds: [{ x: 660, y: 130, w: 70, h: 44, t: "swamp" }],
-      decorRecipe: { count: 18, types: ["obelisk", "gravestone", "cairn", "boneheap", "deadtree"] },
+      decorRecipe: { count: 18, types: ["fenstatue", "fengrave", "bellstone", "fenshrine", "fenbones", "fendead", "fencandle", "lichfence"] },
     },
   ),
 });

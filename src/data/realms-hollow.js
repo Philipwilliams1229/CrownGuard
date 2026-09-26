@@ -12,6 +12,17 @@
 //   lichgate   THE TOMBS      the shortest road in the fen, through a graveyard
 // Pond x/y are grid pixels (tile c's centre is c * 48 + 24); river points are
 // [col, row] like the road's. Keep ponds 32+ px clear of the road's centre.
+//
+// The fen's own landmarks (src/render/scenery-hollow.js) and how wide each
+// really stands — what blocks a hall and keeps the grounding pass honest.
+import { addFootprints } from "./terrain.js";
+
+addFootprints({
+  fendead: 10, fenwillow: 16, fensnag: 7, reedbed: 10, bogpool: 13,
+  fengrave: 7, fencairn: 9, fenbones: 9, fenstatue: 13, fenshrine: 12,
+  bellstone: 11, fencandle: 6, lichfence: 12,
+});
+
 export default function moreHollowRealms(hollowVariant) {
   return {
     // The fen's south shore, facing the strait. The sea runs the whole
@@ -28,7 +39,7 @@ export default function moreHollowRealms(hollowVariant) {
         ponds: [{ x: 300, y: 200, w: 84, h: 44, t: "swamp" }],
         // a salt wind off the strait: greyer and a little brighter than inland
         light: { tint: "184,198,218", amount: 0.17, vignette: 0.44 },
-        decorRecipe: { count: 16, types: ["boneheap", "deadtree", "rock", "gravestone", "reeds", "cairn"] },
+        decorRecipe: { count: 16, types: ["fenbones", "fendead", "fengrave", "reedbed", "fencairn", "fenstatue", "bogpool", "fencandle"] },
       },
     ),
 
@@ -47,7 +58,7 @@ export default function moreHollowRealms(hollowVariant) {
         ],
         water: { deep: "#161f1c", edge: "#26352f", shine: "#44604f" },
         light: { tint: "150,170,214", amount: 0.22, vignette: 0.56 },
-        decorRecipe: { count: 14, types: ["reeds", "deadtree", "reeds", "gravestone", "willow"] },
+        decorRecipe: { count: 14, types: ["reedbed", "fendead", "reedbed", "fengrave", "fenwillow", "fencandle", "fenstatue"] },
       },
     ),
 
@@ -64,7 +75,7 @@ export default function moreHollowRealms(hollowVariant) {
           { pts: [[4.9, -0.5], [5.2, 2.9], [4.6, 6.3], [5.0, 10.5]], w: 26 },
           { pts: [[9.5, -0.5], [9.2, 3.1], [9.8, 6.2], [9.4, 10.5]], w: 24 },
         ],
-        decorRecipe: { count: 18, types: ["willow", "gravestone", "reeds", "deadtree", "boneheap", "reeds"] },
+        decorRecipe: { count: 18, types: ["fenwillow", "fengrave", "reedbed", "fendead", "fenbones", "fenshrine", "lichfence", "fencandle"] },
       },
     ),
 
@@ -84,7 +95,7 @@ export default function moreHollowRealms(hollowVariant) {
           { x: 672, y: 200, w: 44, h: 60, t: "swamp" },
           { x: 140, y: 470, w: 90, h: 28, t: "swamp" },
         ],
-        decorRecipe: { count: 22, types: ["reeds", "reeds", "deadtree", "reeds", "willow", "gravestone"] },
+        decorRecipe: { count: 22, types: ["reedbed", "reedbed", "fendead", "reedbed", "fenwillow", "fengrave", "bogpool", "fencandle"] },
       },
     ),
 
@@ -99,7 +110,7 @@ export default function moreHollowRealms(hollowVariant) {
       [[0.9, 7.6], [4.5, 7.6], [4.5, 2.2], [9.5, 2.2], [9.5, 6.4], [13.7, 6.4]],
       {
         light: { tint: "178,166,222", amount: 0.22, vignette: 0.5 },
-        decorRecipe: { count: 50, types: ["gravestone", "obelisk", "gravestone", "cairn", "gravestone", "obelisk", "boneheap"] },
+        decorRecipe: { count: 50, types: ["fengrave", "lichfence", "fengrave", "fencairn", "fengrave", "fenshrine", "fenbones", "fencandle", "fenstatue", "fengrave"] },
       },
     ),
   };

@@ -133,17 +133,6 @@ const rider = (ctx, p, o) => {
   const fsh = T(0.1, -7.2), rein = o.rein || [4.4, -4.4];
   const fel = ik(fsh, rein, 3.1, 3.2, 1);
   part(ctx, (c) => { tube(c, ...fsh, ...fel, 1.8, darken(steel, 0.3)); tube(c, ...fel, ...rein, 1.6, darken(steel, 0.3)); });
-  if (o.shield !== false) {
-    const sc = add(lerp(fel, rein, 0.55), [1.4, -1.4]);
-    const [x, y] = sc;
-    blob(ctx, [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]], coat, {
-      hi: 0.35, lo: 0.45, then: (c) => {
-        tower(c, x, y + 0.2, 0.85, lighten(steel, 0.25));
-        c.strokeStyle = iron; c.lineWidth = 0.8; path(c, [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]]); c.stroke();
-        dab(c, x - 2.1, y - 2.7, 4.2, 0.45, lighten(steel, 0.5));
-      },
-    });
-  }
   // near leg, long in the stirrup, plated
   const kn = [4.2, 3.2], an = [3.6, 7.6];
   part(ctx, (c) => { tube(c, 0.6, 0.2, ...kn, 2.8, steel); tube(c, ...kn, ...an, 2.1, steel); });
@@ -164,6 +153,17 @@ const rider = (ctx, p, o) => {
     blob(c0, [[-1.0, -8.4], [0.8, -8.8], [1.6, -7.8], [-0.4, -7.4]], steel, { hi: 0.5 });   // the gorget
   });
   blob(ctx, [[-2.8, -1.4], [2.4, -1.6], [5.0, 1.2], [4.6, 2.6, 1], [3.6, 1.9], [2.6, 3.0, 1], [1.4, 2.2], [0.0, 3.0, 1], [-1.2, 2.2], [-2.8, 2.6, 1]], coat, { hi: 0.3, lo: 0.45 });
+  if (o.shield !== false) {
+    const sc = o.shieldAt || [4.4, -7.8];
+    const [x, y] = sc;
+    blob(ctx, [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]], coat, {
+      hi: 0.35, lo: 0.45, then: (c) => {
+        tower(c, x, y + 0.2, 0.85, lighten(steel, 0.25));
+        c.strokeStyle = iron; c.lineWidth = 0.8; path(c, [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]]); c.stroke();
+        dab(c, x - 2.1, y - 2.7, 4.2, 0.45, lighten(steel, 0.5));
+      },
+    });
+  }
   helm(ctx, ...T(1.0, -10.4), L * 0.6, p);
   // the lance: couched under the near arm (or raised, on a gryphon), striped
   // in the colours, a vamplate at the grip and a swallow-tailed pennon
@@ -203,13 +203,13 @@ const rider = (ctx, p, o) => {
 // about the hind hip; hem lifts the caparison's front and sweeps its back.
 const HORSE_RUN = [
   // the hinds land under the body, the forelegs fold up to reach
-  { bob: -0.5, pitch: 0.03, head: 0.06, tail: 0.2, hem: [0.8, 0.4], fn: [10.5, -4.5, -1.3], ff: [13, -2.5, -0.5], hn: [-6.5, 0, 0.45], hf: [-3.5, 0, 0.3], lance: -0.03, fl: 0.4 },
+  { bob: -0.5, pitch: 0.03, head: 0.06, tail: 0.2, hem: [0.8, 0.4], fn: [10.5, -4.5, -1.3], ff: [13, -2.5, -0.5], hn: [-6.5, 0, 0.45], hf: [-3.5, 0, 0.3], lance: -0.08, fl: 0.4 },
   // stretched out: forefeet reaching, hinds driving off behind
-  { bob: -1, pitch: 0, head: -0.06, tail: -0.6, hem: [1.4, 1.2], fn: [15, -2, 0.1], ff: [12.5, -0.5, 0.3], hn: [-14.5, -1.5, -0.9], hf: [-12, 0, -0.45], lance: -0.06, fl: 1.2 },
+  { bob: -1, pitch: 0, head: -0.06, tail: -0.6, hem: [1.4, 1.2], fn: [15, -2, 0.1], ff: [12.5, -0.5, 0.3], hn: [-14.5, -1.5, -0.9], hf: [-12, 0, -0.45], lance: -0.1, fl: 1.2 },
   // the leading forefoot strikes; the hinds swing through
-  { bob: 0, pitch: 0.05, head: 0.12, tail: 0.4, hem: [0, 0.6], fn: [10, 0, 0.5], ff: [5.5, -1.8, -0.8], hn: [-10.5, -3.5, 0.3], hf: [-8, -2.5, 0.2], lance: -0.01, fl: 0 },
+  { bob: 0, pitch: 0.05, head: 0.12, tail: 0.4, hem: [0, 0.6], fn: [10, 0, 0.5], ff: [5.5, -1.8, -0.8], hn: [-10.5, -3.5, 0.3], hf: [-8, -2.5, 0.2], lance: -0.06, fl: 0 },
   // gathered in the air, all four tucked under
-  { bob: -1.5, pitch: -0.03, head: 0, tail: 1, hem: [0.4, 1.6], fn: [6.5, -4, -1.5], ff: [8.5, -3.5, -1.1], hn: [-4, -3, 0.9], hf: [-6, -2.5, 0.6], lance: -0.05, fl: 0.8 },
+  { bob: -1.5, pitch: -0.03, head: 0, tail: 1, hem: [0.4, 1.6], fn: [6.5, -4, -1.5], ff: [8.5, -3.5, -1.1], hn: [-4, -3, 0.9], hf: [-6, -2.5, 0.6], lance: -0.09, fl: 0.8 },
 ];
 const HORSE_FIGHT = [
   // rearing, forehooves up, the lance drawn back and high
@@ -233,8 +233,8 @@ const horseLeg = (ctx, root, [hx, hy, lean], o, col, sock) => {
     c.fillStyle = col; taper(c, [rt, kn, fk], o.ws);
     c.fillStyle = lighten(col, 0.25); taper(c, [lerp(rt, kn, 0.4), kn, lerp(kn, fk, 0.5)].map(([x, y]) => [x - 0.5, y]), [0.6, 0.6, 0.5]);
     // white stockings, feathered at the fetlock
-    c.fillStyle = sock; taper(c, [lerp(kn, fk, 0.45), fk, ht], [1.6, 2.2, 2.0]);
-    c.fillStyle = lighten(sock, 0.3); taper(c, [lerp(kn, fk, 0.5), fk].map(([x, y]) => [x - 0.45, y]), [0.5, 0.6]);
+    c.fillStyle = sock; taper(c, [lerp(kn, fk, 0.7), fk, ht], [1.6, 2.2, 2.0]);
+    c.fillStyle = lighten(sock, 0.3); taper(c, [lerp(kn, fk, 0.75), fk].map(([x, y]) => [x - 0.45, y]), [0.5, 0.6]);
     // the hoof, toe forward along the pastern
     const dl = Math.hypot(ht[0] - fk[0], ht[1] - fk[1]) || 1, dd = [(ht[0] - fk[0]) / dl, (ht[1] - fk[1]) / dl], nn = [dd[1], -dd[0]];
     const H = (u, v) => [ht[0] + dd[0] * u + nn[0] * v, ht[1] + dd[1] * u + nn[1] * v];
@@ -269,7 +269,7 @@ const destrier = (ctx, p) => {
   horseLeg(ctx, B([7.5, -10.5]), k.fn, FORE, col, sock);
   // neck and head, turned by `head` about the neck's root
   const nb = [10.2, -14];
-  const P0 = rot([16.4, -23.4], nb, k.head);
+  const P0 = rot([17.2, -22.6], nb, k.head);
   const ha = k.head;
   const Hd = (pt) => add(rot(pt, [0, 0], ha), P0);
   body((c0) => {
@@ -308,7 +308,7 @@ const destrier = (ctx, p) => {
     });
     // the crinet: steel lames down the crest, the mane showing under them
     part(c0, (c) => {
-      const top = [[10.4, -17.9], [12.3, -20.2], [14.3, -22.8], [16.0, -25.2]].map((pt, i) => rot(add(pt, [0, 0]), nb, ha * (i / 3)));
+      const top = [[10.4, -17.9], [12.6, -20.0], [14.9, -22.2], [16.8, -24.4]].map((pt, i) => rot(add(pt, [0, 0]), nb, ha * (i / 3)));
       c.fillStyle = mane;
       for (let i = 0; i < 4; i++) { const [x, y] = lerp(top[0], top[3], i / 3.2); poly(c, [[x - 0.3, y + 0.4], [x + 1.4, y + 0.9], [x - 0.9, y + 3.2]]); }
       c.fillStyle = cel(c, 10, -26, 17, -17, steel, 0.55, 0.4); taper(c, top, [2.8, 2.6, 2.4, 2.0]);
@@ -319,7 +319,7 @@ const destrier = (ctx, p) => {
   // the caparison: oxblood over body and legs to the knee, black-iron hem,
   // brass studs, the grey tower on the flank
   const [hf, hb] = k.hem;
-  const hy = -6.4;
+  const hy = -7.8;
   body((c0) => {
     const x0 = -14.6 - hb * 1.6, x1 = 12.8 + hf * 0.8;
     const hem = [];
@@ -335,7 +335,7 @@ const destrier = (ctx, p) => {
       then: (c) => {
         // folds hanging from the back
         c.fillStyle = darken(cape, 0.25);
-        for (const fx of [-11, -4.5, 2, 8.5]) poly(c, [[fx, -14], [fx + 1, -14], [fx + 1.6 + hb * 0.3, -5], [fx - 0.6 + hb * 0.3, -5]]);
+        for (const fx of [-11, -4.5, 2, 8.5]) poly(c, [[fx, -14], [fx + 1, -14], [fx + 1.6 + hb * 0.3, -6], [fx - 0.6 + hb * 0.3, -6]]);
         c.fillStyle = lighten(cape, 0.2);
         for (const fx of [-8, -1, 5.5]) poly(c, [[fx, -15.5], [fx + 0.5, -15.5], [fx + 0.8, -6], [fx - 0.2, -6]]);
         // the back's sunlit edge
@@ -363,7 +363,7 @@ const destrier = (ctx, p) => {
     part(c0, (c) => polyline(c, [bit, [bit[0] - 4, bit[1] + 1.2], add(seat, rein)], 0.55, iron));
     c0.save(); c0.translate(...seat);
     const thrust = fight ? k.thrust : 0;
-    rider(c0, p, { lean, lance: k.lance, hand: [2.8 + thrust, -4.8 + (fight && k.lance < -0.3 ? -1.4 : 0)], rein, fl: k.fl, len: 23 });
+    rider(c0, p, { lean, lance: k.lance, hand: [2.8 + thrust, -5.2 + (fight && k.lance < -0.3 ? -1.2 : 0)], rein, fl: k.fl, len: 23 });
     c0.restore();
   });
   ctx.restore();
@@ -373,10 +373,10 @@ const destrier = (ctx, p) => {
 // The wingbeat (the walk sheet is its fly sheet): 0 wings high, 1 driving
 // down, 2 low, 3 swept back rising. The body rises on the downstroke.
 const GRY_FLY = [
-  { bob: 1, wing: 0, tail: 1, leg: 0, lance: -0.42, fl: 1.2 },
-  { bob: 0, wing: 1, tail: 0.3, leg: 0.5, lance: -0.4, fl: 0.6 },
-  { bob: -1.5, wing: 2, tail: -1, leg: 1, lance: -0.44, fl: 0 },
-  { bob: -0.5, wing: 3, tail: 0, leg: 0.5, lance: -0.46, fl: 0.8 },
+  { bob: 1, wing: 0, tail: 1, leg: 0, lance: -0.72, fl: 1.2 },
+  { bob: 0, wing: 1, tail: 0.3, leg: 0.5, lance: -0.7, fl: 0.6 },
+  { bob: -1.5, wing: 2, tail: -1, leg: 1, lance: -0.74, fl: 0 },
+  { bob: -0.5, wing: 3, tail: 0, leg: 0.5, lance: -0.76, fl: 0.8 },
 ];
 const GRY_FIGHT = [
   { bob: 0, wing: 0, tail: 1.2, leg: 0, talon: 1, lance: -0.95, thrust: -1, fl: 1.4 },
@@ -385,49 +385,58 @@ const GRY_FIGHT = [
 // relative to the shoulder: E elbow, W wrist, T five primary tips (leading
 // first), B where the trailing edge meets the flank
 const FWINGS = [
-  { E: [-3, -6], W: [2, -14.5], T: [[9, -21.5], [4.5, -24.5], [-1.5, -25.5], [-7.5, -23.5], [-12.5, -19.5]], B: [-12, 0] },
-  { E: [-4, -4], W: [4, -8.5], T: [[15, -11.5], [12, -15.5], [6.5, -18.5], [0, -19], [-7, -16]], B: [-12, 0] },
-  { E: [-2, 3], W: [4, 8], T: [[13, 12], [9.5, 16.5], [3.5, 18], [-2.5, 16.5], [-8, 12.5]], B: [-12, 1] },
-  { E: [-4, -4], W: [-2, -10.5], T: [[-5.5, -18.5], [-10.5, -19.5], [-15, -17.5], [-19, -14], [-21, -9.5]], B: [-12, 0] },
+  { E: [-3.5, -6], W: [-1, -14], T: [[3, -25], [-1, -27], [-5, -27], [-9, -25.5], [-12.5, -22.5]], B: [-13, -2] },
+  { E: [-3, -4], W: [5, -8], T: [[16.5, -11], [14.5, -14], [11, -16], [7, -16.5], [3, -15.5]], B: [-12, 0] },
+  { E: [-2, 3], W: [4, 7.5], T: [[12.5, 13], [9.5, 16], [5.5, 17.5], [1.5, 17.5], [-2.5, 16]], B: [-12, 1] },
+  { E: [-4, -3], W: [-3, -9.5], T: [[-9, -17], [-12.5, -17], [-15.5, -15.5], [-18, -13], [-19.5, -10]], B: [-12, 0] },
 ];
 
 const fwing = (ctx, R, key, sc, wcol, steel, tilt = 0) => {
   const P = (v) => { const r = rot(v, [0, 0], tilt); return [R[0] + r[0] * sc, R[1] + r[1] * sc]; };
   const E = P(key.E), W = P(key.W), T = key.T.map(P), B = P(key.B);
-  // the outline: the arm, then the primaries tip to tip, then the scalloped
-  // secondaries back to the flank
-  const edge = [R, E, W];
+  // the outline: the arm to the wrist, the primaries tip to tip, then the
+  // secondaries' rounded ends back down the trailing edge to the flank
   const outline = [[R[0], R[1], 1], [E[0], E[1]], [W[0], W[1], 1], [T[0][0], T[0][1], 1]];
   for (let i = 1; i < T.length; i++) {
-    const gap = lerp(lerp(T[i - 1], T[i], 0.5), W, 0.22);
+    const gap = lerp(lerp(T[i - 1], T[i], 0.5), W, 0.16);
     outline.push([gap[0], gap[1], 1], [T[i][0], T[i][1], 1]);
   }
-  const sec = 4;
+  const sec = 5, tr = [];
   for (let i = 1; i <= sec; i++) {
-    const a = lerp(T[T.length - 1], B, (i - 0.5) / sec), bb = lerp(T[T.length - 1], B, i / sec), inn = lerp(a, E, 0.12);
-    outline.push([inn[0], inn[1], 1], [bb[0], bb[1], 1]);
+    const bow = (t) => lerp(lerp(T[T.length - 1], B, t), E, Math.sin(Math.PI * t) * 0.2);
+    const a = bow((i - 0.5) / sec), bb = bow(i / sec), inn = lerp(bb, E, 0.1);
+    tr.push(a);
+    outline.push([a[0], a[1]], [inn[0], inn[1], 1]);
   }
+  outline.push([B[0], B[1], 1]);
+  const bx = bbox([R, E, W, ...T, B]);
   part(ctx, (c) => {
     path(c, outline);
-    const bx = bbox([R, E, W, ...T, B]);
-    c.fillStyle = cel(c, ...bx, wcol, 0.28, 0.4); c.fill();
+    c.fillStyle = cel(c, ...bx, wcol, 0.25, 0.4); c.fill();
     c.save(); path(c, outline); c.clip();
-    // pale coverts along the arm, dark quills toward the tips
-    c.strokeStyle = lighten(wcol, 0.28); c.lineWidth = 6.5 * sc; c.lineJoin = "round"; polyline(c, edge, 6.5 * sc, lighten(wcol, 0.25));
-    c.fillStyle = darken(wcol, 0.3);
-    for (let i = 0; i < T.length; i++) { const a = lerp(W, T[i], 0.72); c.beginPath(); c.arc(a[0], a[1], 2.4 * sc, 0, TAU); c.fill(); }
-    // the quill lines
-    for (let i = 0; i < T.length; i++) line(c, ...lerp(W, T[i], 0.2), ...lerp(W, T[i], 0.95), 0.45, darken(wcol, 0.5));
-    for (let i = 1; i < sec; i++) line(c, ...lerp(E, W, 0.3 + i * 0.15), ...lerp(T[T.length - 1], B, i / sec), 0.45, darken(wcol, 0.35));
+    // dark primaries toward the tips, a paler bar of coverts along the arm
+    c.fillStyle = darken(wcol, 0.28);
+    path(c, [lerp(W, T[0], 0.55), ...T.map((t) => lerp(W, t, 1.1)), lerp(W, T[T.length - 1], 0.55)].map(([x, y]) => [x, y, 1])); c.fill();
+    c.fillStyle = darken(wcol, 0.2);
+    path(c, [lerp(T[T.length - 1], E, 0.2), ...tr.map((t) => lerp(t, E, -0.2)), lerp(B, E, 0.2)].map(([x, y]) => [x, y, 1])); c.fill();
+    c.fillStyle = lighten(wcol, 0.22);
+    path(c, [R, E, W, lerp(W, T[0], 0.3), lerp(W, T[2], 0.36), lerp(W, T[4], 0.4), lerp(T[4], B, 0.35), lerp(E, B, 0.45)].map(([x, y]) => [x, y, 1])); c.fill();
+    c.fillStyle = lighten(wcol, 0.42);
+    path(c, [R, E, W, lerp(W, T[2], 0.18), lerp(E, T[4], 0.3), lerp(R, B, 0.25)].map(([x, y]) => [x, y, 1])); c.fill();
+    // the feathers' edges, short strokes at the tips and down the trailing edge
+    for (let i = 0; i < T.length - 1; i++) line(c, ...lerp(lerp(T[i], T[i + 1], 0.5), W, 0.16), ...lerp(lerp(T[i], T[i + 1], 0.5), W, 0.55), 0.45, darken(wcol, 0.55));
+    for (let i = 1; i < sec; i++) { const e = lerp(T[T.length - 1], B, i / sec); line(c, ...e, ...lerp(e, E, 0.35), 0.45, darken(wcol, 0.45)); }
     c.restore();
   });
-  // plate down the leading edge: three lames and a cop at the wrist
+  // plate down the leading edge: lames and a cop at the wrist
   part(ctx, (c) => {
     c.fillStyle = cel(c, ...bbox([R, E, W]), steel, 0.55, 0.4);
-    taper(c, [lerp(R, E, 0.2), E, W], [3.0 * sc, 2.6 * sc, 2.2 * sc]);
-    for (const t of [0.55, 1]) { const m = lerp(R, E, t); line(c, m[0] - 1, m[1] - 0.4, m[0] + 1, m[1] + 0.4, 0.45, darken(steel, 0.5)); }
-    const m = lerp(E, W, 0.5); line(c, m[0] - 1, m[1], m[0] + 1, m[1] + 0.3, 0.45, darken(steel, 0.5));
-    for (const t of [0.35, 0.8]) { const d = lerp(E, W, t); dab(c, d[0] - 0.9, d[1] - 0.5, 0.5, 0.5, lighten(steel, 0.7)); }
+    taper(c, [lerp(R, E, 0.15), E, W], [3.2 * sc, 2.8 * sc, 2.4 * sc]);
+    for (const t of [0.55]) { const m = lerp(R, E, t); line(c, m[0] - 1.2, m[1] - 0.4, m[0] + 1.2, m[1] + 0.4, 0.45, darken(steel, 0.5)); }
+    for (const t of [0.35, 0.7]) { const m = lerp(E, W, t); line(c, m[0] - 1.2, m[1], m[0] + 1.2, m[1] + 0.3, 0.45, darken(steel, 0.5)); }
+    c.fillStyle = lighten(steel, 0.2); c.beginPath(); c.arc(W[0], W[1], 1.6 * sc, 0, TAU); c.fill();
+    dab(c, W[0] - 0.8, W[1] - 0.8, 0.6, 0.6, lighten(steel, 0.7));
+    const d = lerp(R, E, 0.8); dab(c, d[0] - 0.8, d[1] - 0.5, 0.5, 0.5, lighten(steel, 0.7));
   });
 };
 
@@ -545,7 +554,7 @@ const gryphon = (ctx, p) => {
   fwing(ctx, [2.2, -19.4], key, 1, wcol, steel);
   ctx.save(); ctx.translate(...seat);
   const thrust = k.thrust || 0;
-  const hand = [2.4 + thrust * 0.8, -5.6 + (k.lance < -0.8 ? -1.4 : 0)];
+  const hand = [2.2 + thrust * 0.8, -6.2 + (k.lance < -0.8 ? -1.2 : 0)];
   rider(ctx, p, { lean: fight && k.talon === 2 ? 0.28 : 0.1, lance: k.lance, hand, rein: [4.6, -4.2], fl: k.fl, len: 20, up: true });
   ctx.restore();
   ctx.restore();
@@ -569,62 +578,64 @@ const siegeRam = (ctx, p) => {
   const fight = p.pose === "fight";
   const f = (p.frame || 0) % (fight ? 2 : 4);
   const s = (p.len ?? 44) / 44;
-  const oak = p.col, hide = p.cape, steel = p.cloth, iron = p.hair, hose = p.cloth2, boot = darken(p.col, 0.4);
-  const castIron = darken(steel, 0.25);
-  shadow(ctx, 1, 0.6, 26 * s, 3.2 * s, 0.34);
-  ctx.save(); ctx.scale(s, s); ctx.translate(-3, 0);
+  const oak = p.col, hide = p.cape, steel = p.cloth, iron = p.hair, hose = darken(p.cloth2, 0.15), boot = darken(p.col, 0.5);
+  const castIron = darken(steel, 0.3);
+  shadow(ctx, 0, 0.6, 27 * s, 3.4 * s, 0.34);
+  ctx.save(); ctx.scale(s, s);
   const roll = (f / 4) * (Math.PI / 3) + (fight ? 0.1 : 0);
-  const heave = fight ? [0.5, -0.5][f] : [0, -0.5, 0, -0.5][f];
-  // far wheels, in the dark under the shed
-  for (const wx of [-16, 0, 16]) wheel(ctx, wx + 1.6, -6.4, 4.6, roll, oak, iron, 0.45);
+  // the dark under the shed (translucent: no ink)
+  ctx.fillStyle = lin(ctx, 0, -12, 0, -2, [[0, "rgba(36,26,38,0.42)"], [1, "rgba(36,26,38,0.16)"]]);
+  ctx.fillRect(-27, -12, 49, 10);
+  // far wheels, in shade
+  for (const wx of [-15, 1, 17]) wheel(ctx, wx + 1.6, -6.6, 4.6, roll, oak, iron, 0.45);
   // the crew, bent to it: legs straining back from under the skirt
   const man = (x, ph) => {
-    const g = (f + ph) % 4, sw = fight ? (f ? 1.5 : -0.5) : [1.6, 0, -1.6, 0][g];
-    for (const [side, dim] of [[-1, 0.3], [1, 0]]) {
-      const hip = [x + side * 0.5, -10.2], foot = [x - 2.2 + side * sw, side * sw > 1 || (g % 2 === 1 && side === (g === 1 ? 1 : -1)) ? -1 : 0];
-      const kn = ik(hip, [foot[0] + 0.6, foot[1] - 1], 5, 4.6, -1);
+    const g = (f + ph) % 4, sw = fight ? (f ? 1.4 : -0.6) : [1.6, 0, -1.6, 0][g];
+    for (const [side, dim] of [[-1, 0.35], [1, 0]]) {
+      const lift = !fight && g % 2 === 1 && side === (g === 1 ? 1 : -1) ? 1.2 : 0;
+      const hip = [x + side * 0.4, -11.2], foot = [x - 3.4 + side * sw, -lift];
+      const kn = ik(hip, [foot[0] + 0.6, foot[1] - 1], 5.2, 4.8, -1);
+      const hc = dim ? darken(hose, dim) : hose, bc = dim ? darken(boot, dim) : boot;
       part(ctx, (c) => {
-        tube(c, ...hip, ...kn, 2.2, dim ? darken(hose, dim) : hose);
-        tube(c, ...kn, foot[0] + 0.6, foot[1] - 1, 1.9, dim ? darken(boot, dim) : boot);
+        tube(c, ...hip, ...kn, 2.3, hc);
+        tube(c, ...kn, foot[0] + 0.6, foot[1] - 1, 2.0, bc);
         path(c, [[foot[0] - 0.6, foot[1], 1], [foot[0] - 0.4, foot[1] - 1.8], [foot[0] + 1.4, foot[1] - 1.4], [foot[0] + 2.6, foot[1], 1]]);
-        c.fillStyle = dim ? darken(boot, dim + 0.1) : darken(boot, 0.1); c.fill();
+        c.fillStyle = darken(bc, 0.1); c.fill();
       });
     }
   };
-  man(-8.5, 0); man(7.8, 2); man(-24.6, 1);
-  // the sill beam, the plank wall under the eaves, the hide valance
-  blob(ctx, [[-26.6, -16, 1], [22.4, -16, 1], [22.4, -10.8, 1], [-26.6, -10.8, 1]], oak, {
+  man(-7, 0); man(9, 2); man(-23, 1);
+  // the plank wall under the eaves, a dark sill at its foot
+  blob(ctx, [[-27.6, -16.4, 1], [22.6, -16.4, 1], [22.6, -11, 1], [-27.6, -11, 1]], oak, {
     hi: 0.25, lo: 0.4, then: (c) => {
-      for (let x = -24.5; x < 22; x += 3.2) dab(c, x, -16, 0.5, 5.2, darken(oak, 0.35));
-      dab(c, -27, -16, 50, 1.6, darken(oak, 0.55));                          // the eave's shadow
-      for (const x of [-18.5, 2]) { dab(c, x, -15, 1.2, 4.2, iron); dab(c, x + 0.3, -13.2, 0.5, 0.5, lighten(iron, 0.5)); }
+      for (let x = -25.5; x < 22; x += 3.2) dab(c, x, -16.4, 0.5, 5.4, darken(oak, 0.35));
+      dab(c, -28, -12, 51, 1, darken(oak, 0.5));
+      for (const x of [-17.5, 3]) { dab(c, x, -15, 1.2, 3.4, iron); dab(c, x + 0.3, -13.8, 0.5, 0.5, lighten(steel, 0.3)); }
     },
-  });
-  blob(ctx, [[-27.4, -11.2, 1], [23, -11.2, 1], [23, -8.8, 1], [-27.4, -8.8, 1]], darken(oak, 0.1), {
-    hi: 0.3, lo: 0.45, then: (c) => { for (const x of [-24, -12, -4, 10, 19]) dab(c, x, -10.4, 0.7, 0.7, lighten(steel, 0.3)); },
   });
   // the ram: a banded oak log, an iron ram's head cast on its end
   const sw = fight ? RAM_SWING.fight[f] : RAM_SWING.walk[f];
-  const ry = -13 + (fight ? (f ? 0.3 : -0.8) : 0);
-  const X = 24.6 + sw;
+  const ry = -13.6 + (fight ? (f ? 0.3 : -0.8) : 0);
+  const X = 26 + sw;
   part(ctx, (c) => {
-    c.fillStyle = cel(c, 18, ry - 2.4, 18, ry + 2.4, oak, 0.3, 0.45); c.fillRect(18, ry - 2.3, X - 18, 4.6);
-    for (let x = X - 1.5; x > 19; x -= 3.4) { dab(c, x, ry - 2.4, 1, 4.8, iron); dab(c, x + 0.2, ry - 1.9, 0.5, 0.5, lighten(steel, 0.4)); }
-    dab(c, 18, ry - 2.3, X - 18, 0.6, lighten(oak, 0.35));
+    c.fillStyle = cel(c, 18, ry - 2.6, 18, ry + 2.6, oak, 0.3, 0.45); c.fillRect(19, ry - 2.5, X - 19, 5);
+    for (let x = X - 1.8; x > 19.5; x -= 3.4) { dab(c, x, ry - 2.6, 1, 5.2, iron); dab(c, x + 0.2, ry - 2, 0.5, 0.5, lighten(steel, 0.4)); }
+    dab(c, 19, ry - 2.5, X - 19, 0.7, lighten(oak, 0.35));
   });
   inFrame(ctx, X, ry, 0, 0, fight && f === 0 ? -0.08 : 0, (c0) => {
+    c0.scale(1.3, 1.3);
     blob(c0, [[-1.2, -3.4], [2.6, -3.8], [5.6, -2.8], [7.6, -0.8], [8.2, 1.4, 1], [6.4, 2.8], [3, 3.2], [-1.2, 3.0]], castIron, {
-      hi: 0.45, lo: 0.4, then: (c) => {
+      hi: 0.5, lo: 0.4, then: (c) => {
         dab(c, 7.2, -0.8, 1.2, 2.6, lighten(steel, 0.35));                 // the battered striking face
-        dab(c, 4.2, -2.2, 1.6, 0.6, darken(castIron, 0.55));                // the brow
-        dab(c, 4.5, -1.7, 1, 0.8, BRASS); dab(c, 5.1, -1.7, 0.4, 0.8, INKY); // a brass eye
+        dab(c, 3.8, -2.4, 2.2, 0.7, darken(castIron, 0.55));                // the brow
+        dab(c, 4.3, -1.8, 1.1, 0.9, BRASS); dab(c, 5.0, -1.8, 0.4, 0.9, INKY); // a brass eye
         dab(c, 7.2, 0.2, 0.6, 0.5, INKY);                                   // nostril
         line(c, 5.4, 2.2, 7.8, 1.9, 0.45, darken(castIron, 0.55));
       },
     });
     // the curled horn, coiled round the ear and hooking forward under the jaw
     part(c0, (c) => {
-      c.strokeStyle = cel(c, -2, -3, 4, 3, castIron, 0.5, 0.4); c.lineWidth = 2.2; c.lineCap = "round";
+      c.strokeStyle = cel(c, -2, -3, 4, 3, castIron, 0.55, 0.4); c.lineWidth = 2.2; c.lineCap = "round";
       c.beginPath(); c.arc(1.4, 0.2, 2.2, -2.4, 1.7); c.stroke();
       c.lineWidth = 1.5; c.beginPath(); c.moveTo(1.1, 2.4); c.quadraticCurveTo(3.4, 4.2, 4.8, 3.2); c.stroke();
       c.strokeStyle = darken(castIron, 0.5); c.lineWidth = 0.4;
@@ -633,56 +644,58 @@ const siegeRam = (ctx, p) => {
     blob(c0, [[-2.2, -3.2, 1], [-0.6, -3.2, 1], [-0.6, 3.2, 1], [-2.2, 3.2, 1]], BRASS, { hi: 0.4, lo: 0.4 });   // the collar
   });
   // the front post the ram runs out past
-  blob(ctx, [[20.4, -17.6, 1], [23.2, -17.6, 1], [23.2, -8.6, 1], [20.4, -8.6, 1]], oak, {
-    hi: 0.3, lo: 0.45, then: (c) => { dab(c, 20.4, -17.6, 2.8, 1.4, iron); dab(c, 20.4, -10.2, 2.8, 1.4, iron); dab(c, 21.4, -14.2, 0.6, 0.6, lighten(steel, 0.4)); },
+  blob(ctx, [[21.4, -18.4, 1], [24.2, -18.4, 1], [24.2, -10, 1], [21.4, -10, 1]], oak, {
+    hi: 0.3, lo: 0.45, then: (c) => { dab(c, 21.4, -18.4, 2.8, 1.4, iron); dab(c, 21.4, -11.6, 2.8, 1.4, iron); dab(c, 22.4, -15.8, 0.6, 0.6, lighten(steel, 0.4)); },
   });
-  // the roof: the south slope toward us, wet oxblood hides lashed down, iron
-  // plates over the front, the grey tower painted on it, an iron-capped ridge
-  const R = (x, y) => [x, y + heave * 0];
-  const roof = [R(-25.2, -30.4), R(20.8, -30.4), R(24.6, -16.2), R(-29.2, -16.2)].map(([x, y]) => [x, y, 1]);
+  // the roof, hipped: the south slope toward us, wet oxblood hides lashed
+  // down, iron lames over the front, the grey tower painted on it
+  const top = -29.4, eave = -16.4, fx0 = 13.6, fx1 = 25, bx0 = -20.6, bx1 = -30.4;
+  const xe = (y) => fx0 + (y - top) / (eave - top) * (fx1 - fx0);
+  const roof = [[bx0, top, 1], [fx0, top, 1], [fx1, eave, 1], [bx1, eave, 1]];
   blob(ctx, roof, hide, {
-    hi: 0.3, lo: 0.45, box: [-29, -31, 25, -15],
+    hi: 0.3, lo: 0.45, box: [-30, -30, 25, -15],
     then: (c) => {
-      // hide seams, stitched
-      for (const x of [-18, -10, -2]) { line(c, x + 0.8, -30.4, x - 1.2, -16, 0.5, darken(hide, 0.4)); for (let y = -29; y < -17; y += 2.2) dab(c, x - 0.1 - (y + 30) * 0.14, y, 0.9, 0.4, lighten(hide, 0.35)); }
-      line(c, -28, -23.4, 8, -23.2, 0.5, darken(hide, 0.35));
-      // rope lashings over the hides
-      for (const x of [-22, -14, -6]) { line(c, x + 3.4, -30.4, x - 1.8, -16.2, 0.8, lighten(oak, 0.3)); }
+      // hide seams, stitched, and a sunlit sheen on the wet hides
+      for (const x of [-15, -6]) { line(c, x + 0.8, top, x - 1.4, eave, 0.5, darken(hide, 0.4)); for (let y = top + 1.4; y < eave - 1; y += 2.2) dab(c, x + 0.4 - (y - top) * 0.17, y, 0.9, 0.4, lighten(hide, 0.3)); }
+      line(c, -26, -22.8, 8, -22.8, 0.5, darken(hide, 0.35));
+      dab(c, bx0 + 1, top + 1, 22, 0.7, lighten(hide, 0.35));
+      // rope lashings
+      for (const x of [-19, -11, -2]) line(c, x + 3, top, x - 1.8, eave, 0.8, lighten(oak, 0.3));
       // the device
-      tower(c, -10.2, -23.4, 1.9, lighten(steel, 0.25));
-      // the iron plates over the front third, riveted, lapped like scales
-      for (let row = 0; row < 3; row++) {
-        const y0 = -30.4 + row * 4.8;
-        for (let i = 0; i < 4; i++) {
-          const x0 = 5.6 + i * 4.6 + row * 1.25 - (i === 0 ? row * 0.5 : 0);
-          fillPath(c, [[x0, y0, 1], [x0 + 4.8, y0, 1], [x0 + 5.4, y0 + 4.9, 1], [x0 + 0.6, y0 + 4.9, 1]], steel, { hi: 0.45, lo: 0.4 });
-          line(c, x0 + 0.5, y0 + 4.8, x0 + 5.3, y0 + 4.8, 0.5, darken(steel, 0.55));
-          line(c, x0, y0 + 0.2, x0 + 0.6, y0 + 4.9, 0.4, darken(steel, 0.45));
-          dab(c, x0 + 1, y0 + 0.8, 0.5, 0.5, lighten(steel, 0.6)); dab(c, x0 + 3.8, y0 + 0.8, 0.5, 0.5, lighten(steel, 0.6));
-        }
+      tower(c, -10.6, -22.6, 1.9, lighten(steel, 0.25));
+      // iron lames over the front, lapped downward, riveted
+      for (let r = 0; r < 3; r++) {
+        const y0 = top - 0.4 + r * 4.5, y1 = y0 + 4.9, l0 = xe(y0) - 12 + r * 0.6, l1 = xe(y1) - 12 + r * 0.6;
+        fillPath(c, [[l0, y0, 1], [xe(y0) + 1, y0, 1], [xe(y1) + 1, y1, 1], [l1, y1, 1]], steel, { hi: 0.5, lo: 0.4 });
+        line(c, l1, y1 - 0.3, xe(y1) + 1, y1 - 0.3, 0.7, darken(steel, 0.6));
+        line(c, l0, y0 + 0.2, l1, y1, 0.5, darken(steel, 0.5));
+        dab(c, l0 + 0.6, y0 + 0.4, xe(y0) - l0, 0.5, lighten(steel, 0.45));
+        for (let x = l0 + 1.4; x < xe(y0) - 0.4; x += 2.6) dab(c, x + (r ? 0.8 : 0), y0 + 1.4, 0.5, 0.5, lighten(steel, 0.65));
       }
-      line(c, -29, -16.6, 25, -16.6, 1, darken(hide, 0.5));
+      line(c, -31, eave - 0.4, 26, eave - 0.4, 1, darken(hide, 0.5));
     },
   });
-  // the hide skirt hanging off the eave, dagged
-  const skirt = [[-29.6, -17, 1], [25, -17, 1]];
-  for (let x = 24.4; x > -29.4; x -= 2.7) skirt.push([x, -13.6 + ((x * 7) % 3 === 0 ? 0.3 : 0), 1], [x - 1.35, -14.6, 1]);
-  blob(ctx, skirt, darken(hide, 0.1), { hi: 0.25, lo: 0.45, box: [-29, -17, 25, -13], then: (c) => { dab(c, -30, -17.2, 56, 0.8, iron); for (let x = -26; x < 24; x += 5.4) dab(c, x, -16.9, 0.5, 0.5, BRASS); } });
+  // the ridge, capped in iron
   part(ctx, (c) => {
-    c.fillStyle = cel(c, -26, -32, 22, -29, iron, 0.4, 0.3); taper(c, [[-25.6, -30.6], [21.2, -30.6]], [2.2, 2.2]);
-    for (let x = -22; x < 20; x += 6) dab(c, x, -31.2, 0.6, 0.6, lighten(steel, 0.4));
+    c.fillStyle = cel(c, bx0, top - 1, fx0, top + 1, iron, 0.4, 0.3); taper(c, [[bx0 - 0.4, top - 0.2], [fx0 + 0.4, top - 0.2]], [2.2, 2.2]);
+    for (let x = bx0 + 3; x < fx0; x += 6) dab(c, x, top - 0.8, 0.6, 0.6, lighten(steel, 0.4));
   });
+  // the hide skirt hanging off the eave, dagged
+  const skirt = [[bx1 - 0.4, eave - 0.6, 1], [fx1 + 0.4, eave - 0.6, 1]];
+  for (let x = fx1; x > bx1; x -= 2.8) skirt.push([x, eave + 2.4, 1], [x - 1.4, eave + 1.4, 1]);
+  blob(ctx, skirt, darken(hide, 0.12), { hi: 0.25, lo: 0.45, box: [-30, -17, 25, -13], then: (c) => { dab(c, -31, eave - 0.8, 57, 0.9, iron); for (let x = -27; x < 24; x += 5.4) dab(c, x, eave - 0.7, 0.5, 0.5, BRASS); } });
   // the pennant at the back, the tower on oxblood
   const fl = fight ? [1, 0][f] : [0, 0.8, 1.4, 0.6][f];
   part(ctx, (c) => {
-    tube(c, -22, -30, -22, -40.5, 1, WOOD);
-    c.fillStyle = cel(c, -32, -41, -22, -35, hide, 0.35, 0.4);
-    c.beginPath(); c.moveTo(-22.4, -40.4); c.quadraticCurveTo(-26, -40.6 + fl, -31, -39.4 + fl * 1.4); c.lineTo(-28.2, -38.2 + fl); c.lineTo(-30.6, -36.6 + fl * 1.2); c.quadraticCurveTo(-26, -36.8 + fl * 0.6, -22.4, -36.4); c.closePath(); c.fill();
-    tower(c, -25.2, -38.3 + fl * 0.4, 0.55, lighten(steel, 0.3));
-    dab(c, -22.6, -41.4, 1.2, 1.2, BRASS);
+    tube(c, -18.4, top, -18.4, top - 10.5, 1, WOOD);
+    c.fillStyle = cel(c, -28, top - 11, -18, top - 5, hide, 0.35, 0.4);
+    const ty = top - 10.4;
+    c.beginPath(); c.moveTo(-18.8, ty); c.quadraticCurveTo(-22.4, ty - 0.2 + fl, -27.4, ty + 1 + fl * 1.4); c.lineTo(-24.6, ty + 2.2 + fl); c.lineTo(-27, ty + 3.8 + fl * 1.2); c.quadraticCurveTo(-22.4, ty + 3.6 + fl * 0.6, -18.8, ty + 4); c.closePath(); c.fill();
+    tower(c, -21.6, ty + 2.1 + fl * 0.4, 0.55, lighten(steel, 0.3));
+    dab(c, -19, ty - 1, 1.2, 1.2, BRASS);
   });
   // the near wheels, turning
-  for (const wx of [-16, 0, 16]) wheel(ctx, wx, -5, 5, roll, oak, iron);
+  for (const wx of [-15, 1, 17]) wheel(ctx, wx, -5.2, 5.2, roll, oak, iron);
   ctx.restore();
 };
 
@@ -691,6 +704,6 @@ const IRON_RIDER = { skin: "#e0b08a", cloth: "#6c7280", cloth2: "#7a2a2c", hair:
 export const IRONMOUNT_RIGS = {
   cavalier: { kind: "destrier", box: { hw: 30, up: 40, down: 4 }, p: { len: 34, col: "#3e363c", belly: "#d8d0c0", mane: "#221c22", cape: "#7a2a2c", ...IRON_RIDER } },
   gryphon: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
-  ram: { kind: "siegeram", box: { hw: 36, up: 44, down: 4 }, p: { len: 44, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
+  ram: { kind: "siegeram", box: { hw: 38, up: 42, down: 4 }, p: { len: 44, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
 };
 export const IRONMOUNT_PAINTERS = { destrier, wargryphon: gryphon, siegeram: siegeRam };

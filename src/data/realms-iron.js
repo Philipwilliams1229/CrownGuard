@@ -9,6 +9,14 @@
 //   kestrel      — the Marches' north shore: the sea along the top edge
 //   coldwater    — two rivers meeting, and four bridges over them
 //   crowstair    — a mountainside climbed in long SLANTED traverses
+import { addFootprints } from "./terrain.js";
+// The chapter's own pieces (src/render/scenery-iron.js) block building as
+// wide as they stand.
+addFootprints({
+  irpine: 12, irspruce: 12, ircrag: 11, irheather: 7, irwall: 16, irgibbet: 9, irmile: 6,
+  irbeacon: 8, irwagon: 17, irpikes: 10, irtent: 14, irbanner: 6, irtower: 14,
+});
+
 export default function moreIronRealms(ironVariant) {
   return {
     // ---- Gallows Cross ----
@@ -20,7 +28,7 @@ export default function moreIronRealms(ironVariant) {
       "An old hanging crossroads on the border heath. The Kingdom's road loops round the gibbet and runs back through its own crossing — one army, both roads.",
       20260931,
       [[0.9, 5], [9, 5], [9, 2], [4, 2], [4, 8], [12, 8], [12, 3], [13.7, 3]],
-      { decorRecipe: { count: 14, types: ["banner", "rock", "tree", "rock", "watchtower", "pine"] } },
+      { decorRecipe: { count: 14, types: ["irgibbet", "ircrag", "irwall", "irheather", "irtower", "irmile"] } },
     ),
 
     // ---- Kestrel Head ----
@@ -35,7 +43,7 @@ export default function moreIronRealms(ironVariant) {
       {
         coast: { edge: "top", from: 150, depth: 92, sand: 24 },
         light: { tint: "210,226,240", amount: 0.14, vignette: 0.3 },
-        decorRecipe: { count: 13, types: ["rock", "rock", "watchtower", "pine", "rock", "banner"] },
+        decorRecipe: { count: 13, types: ["ircrag", "ircrag", "irbeacon", "irspruce", "irwall", "irbanner"] },
       },
     ),
 
@@ -57,7 +65,7 @@ export default function moreIronRealms(ironVariant) {
           // the Coldwater: north edge to south edge, the main stream
           { pts: [[10.3, -0.5], [10.1, 2.6], [9.7, 5.6], [9.9, 10.5]], w: 32 },
         ],
-        decorRecipe: { count: 12, types: ["pine", "rock", "tree", "watchtower", "pine"] },
+        decorRecipe: { count: 12, types: ["irspruce", "ircrag", "irpine", "irtower", "irwall"] },
       },
     ),
 
@@ -72,7 +80,7 @@ export default function moreIronRealms(ironVariant) {
       [[0.9, 0.8], [12.3, 2.2], [12.3, 4.7], [1.8, 6.1], [1.8, 8.6], [13.7, 8.9]],
       {
         light: { tint: "212,222,238", amount: 0.14, vignette: 0.38 },
-        decorRecipe: { count: 18, types: ["rock", "rock", "pine", "rock", "pine", "watchtower"] },
+        decorRecipe: { count: 18, types: ["ircrag", "ircrag", "irspruce", "ircrag", "irpine", "irtower"] },
       },
     ),
   };
