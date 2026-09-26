@@ -799,8 +799,10 @@ const ARROW = {
   pierce: [pal("#fff3d2", "#c89a30", "#c49a64", "#f8e08a", "#c89a30"), 9],
   big: [pal("#eef0f4", "#8a909c", "#8a6444", "#f0ece0", "#a8483c"), 13],
   quarrel: [pal("#dfe2e8", "#8a909c", "#5a4436", "#bab4aa", "#7a746c"), 7],
+  // a barrow archer's black arrow: a bone head, a grave-black shaft, teal fletching
+  grave: [pal("#f4eee0", "#b8ae96", "#2e2a30", "#9ce8cc", "#4aa888"), 9],
 };
-const STREAK = { plain: "#f4ecd8", poison: "#c8f0a0", pierce: "#f8e08a", big: "#f4ecd8", quarrel: "#e8e2d4" };
+const STREAK = { plain: "#f4ecd8", poison: "#c8f0a0", pierce: "#f8e08a", big: "#f4ecd8", quarrel: "#e8e2d4", grave: "#9ce8cc" };
 const arrowSprite = (v, d) => {
   const [tones, len] = ARROW[v], L = len * PX;
   return rotSprite(`ar|${v}`, d, L + 22, arrowShape(L, v === "big" ? 0.55 : 0.46), tones, INK_LINE, [L + 2, v === "big" ? 20 : 14, col(STREAK[v]), v === "pierce" ? 170 : 110]);
@@ -989,7 +991,7 @@ export const drawQuarrel = (ctx, fx) => {
   const ang = Math.atan2(fx.ty - fx.y, fx.tx - fx.x);
   const u = Math.min(1, prog * 1.25);
   const hx = fx.x + (fx.tx - fx.x) * u, hy = fx.y + (fx.ty - fx.y) * u;
-  if (u < 1) put(ctx, arrowSprite("quarrel", dirOf(ang)), hx, hy);
+  if (u < 1) put(ctx, arrowSprite(fx.arrow || "quarrel", dirOf(ang)), hx, hy);
   else put(ctx, sparkSprite("white", Math.min(2, Math.floor((prog - 0.8) * 15))), fx.tx, fx.ty);
 };
 

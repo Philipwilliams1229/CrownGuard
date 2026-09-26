@@ -845,7 +845,7 @@ export function updateGame(g, dt) {
             e.rangedCd = e.rangedRate;
             e.atkAnim = 220;
             e.face = mark.x >= e.x ? 1 : -1;
-            g.effects.push({ type: "bolt", x: e.x, y: e.y - 6, tx: mark.x, ty: mark.y - 8, ttl: 170 });
+            g.effects.push({ type: "bolt", x: e.x, y: e.y - 6, tx: mark.x, ty: mark.y - 8, ttl: 170, arrow: e.type === "bonearcher" ? "grave" : undefined });
             sfx.play("enemyBolt");
             if (mark.shield) {
               mark.shield = false; mark.shieldCd = 6500;
