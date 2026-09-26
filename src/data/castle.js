@@ -11,7 +11,7 @@ import { inRiver } from "./terrain.js";
 
 export const CASTLE_WORKS = {
   archers: {
-    name: "Wall Archers", icon: "🏹",
+    name: "Wall Archers", icon: "",
     blurb: "Bowmen on the walk above the gate. They shoot whatever comes within a long bowshot of the wall.",
     tiers: [
       { cost: 10000, label: "Two bowmen", dmg: 16, rate: 900, range: 170, count: 2 },
@@ -20,7 +20,7 @@ export const CASTLE_WORKS = {
     ],
   },
   ballista: {
-    name: "Gate Ballista", icon: "⚙",
+    name: "Gate Ballista", icon: "",
     blurb: "A siege bow on the bridge over the gate: slow, screaming bolts at the mightiest foe in reach of the wall.",
     tiers: [
       { cost: 10000, label: "One ballista", dmg: 220, rate: 3200, range: 220 },
@@ -29,7 +29,7 @@ export const CASTLE_WORKS = {
     ],
   },
   guards: {
-    name: "Gate Guard", icon: "🛡",
+    name: "Gate Guard", icon: "",
     blurb: "Halberdiers at the portcullis hold a foe that reaches the gate for a moment — one last chance for the towers.",
     tiers: [
       { cost: 10000, label: "Halberdiers", hold: 1600 },
@@ -38,7 +38,7 @@ export const CASTLE_WORKS = {
     ],
   },
   masons: {
-    name: "Masons' Guild", icon: "🧱",
+    name: "Masons' Guild", icon: "",
     blurb: "Masons on the wall mend the castle after every wave, and shore up its foot.",
     tiers: [
       { cost: 10000, label: "Mend one life a wave", mend: 1 },

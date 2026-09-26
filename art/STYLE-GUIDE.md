@@ -103,6 +103,19 @@ necromancer's `revived` palette and the white hit-flash still work.
   tip, catapult stones leave the arm tip, the Sunforge beam starts at the
   shard) — if a hall grows, check where its shots start.
 
+## The castle mark and icons
+
+- **One castle everywhere:** `src/ui/castleMark.js` (`CASTLE_MARK` pixel grid +
+  `CASTLE_PAL`) is the game's symbol: the app/home-screen icon
+  (`node scripts/make-icons.mjs` paints `public/icon-*.png` and
+  `apple-touch-icon.png` from it), the title screen's logo, the tray's Castle
+  button, the castle works headers. `CastleIcon` in `src/ui/hud/icons.jsx`
+  draws it. Change the castle there and everything follows.
+- **No emoji in the UI.** Pictures are pixel grids in `src/ui/hud/icons.jsx`
+  (coin, heart, castle, arrow, ballista bolt, shield, hammer, target, flag…)
+  or the game's own art (`TowerPortrait`, `EnemyIcon` with a rig). Plain
+  typographic marks (★ ✓ ✕ ·) are fine.
+
 ## Type (HUD)
 
 - **Words:** Silkscreen. **Anything with digits:** Press Start 2P (the

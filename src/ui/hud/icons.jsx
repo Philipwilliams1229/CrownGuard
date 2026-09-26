@@ -4,6 +4,8 @@
 // letter per art pixel, ringed in the game's ink. Runs of one colour merge
 // into a single rect, so even the biggest is a couple of dozen nodes.
 
+import { CASTLE_MARK, CASTLE_PAL } from "../castleMark.js";
+
 const PAL = {
   k: "#241a26",                                   // ink
   c: "#fff3d2", C: "#e8dcc0", s: "#b8ab92",       // cream, bone, bone shade
@@ -70,18 +72,10 @@ export const HeartIcon = icon([
   ".....k.....",
 ]);
 
-export const CastleIcon = icon([
-  "kkk.kkkk.kkk",
-  "kSk.kSSk.kTk",
-  "kSkkkSSkkkTk",
-  "kSSSSSSSSStk",
-  ".kSSSSSSStk.",
-  ".kSSkkkkStk.",
-  ".kSkWwwWktk.",
-  ".kSkwWWwktk.",
-  ".kSkwWWwktk.",
-  "kkkkkkkkkkkk",
-]);
+// the game's castle mark (ui/castleMark.js): the same castle everywhere
+export function CastleIcon({ size = 16, title, style }) {
+  return <Grid rows={CASTLE_MARK} size={size} title={title} style={style} pal={CASTLE_PAL} />;
+}
 
 export const SkullIcon = icon([
   "..kkkkkk..",
@@ -274,3 +268,35 @@ const STAR_EMPTY = { Y: "#5a4d60", y: "#463a4c", o: "#342a3a", c: "#6a5c70" };
 export function StarIcon({ size = 16, lit = true, style }) {
   return <Grid rows={STAR} size={size} pal={lit ? PAL : { ...PAL, ...STAR_EMPTY }} style={style} />;
 }
+
+// an arrow in flight, head up and to the right: the wall archers, a volley
+const ARROW = [
+  "......kkkkk.",
+  "......kYYYk.",
+  ".......kYYk.",
+  "......kWkYk.",
+  ".....kWk.kk.",
+  "....kWk.....",
+  "...kWk......",
+  "kkkWk.......",
+  "kcWk........",
+  "kcck........",
+  "kkk.........",
+];
+export const ArrowIcon = icon(ARROW);
+// the ballista's bolt: the same flight, a steel head
+export const BallistaIcon = icon(ARROW.map((r) => r.replace(/Y/g, "b")));
+// a butt with its gold in the middle: a shot that seeks the heart
+export const TargetIcon = icon([
+  "...kkkkk...",
+  ".kkRRRRRkk.",
+  ".kRcccccRk.",
+  "kRcRRRRRcRk",
+  "kRcRcccRcRk",
+  "kRcRcYcRcRk",
+  "kRcRcccRcRk",
+  "kRcRRRRRcRk",
+  ".kRcccccRk.",
+  ".kkRRRRRkk.",
+  "...kkkkk...",
+]);

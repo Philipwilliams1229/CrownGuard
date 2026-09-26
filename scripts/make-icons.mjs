@@ -1,43 +1,48 @@
-// Paints the app icon — a gold crown on the kingdom's slate — as raw pixels,
-// then lets macOS turn them into PNGs. No image library needed.
+// Paints the app icon — the game's castle mark (src/ui/castleMark.js) on a
+// dawn sky over a green hill — as raw pixels, then lets macOS turn them into
+// PNGs. No image library needed. Every castle in the game's UI is the same
+// mark, so the icon on the home screen matches the one on the title screen.
 //   node scripts/make-icons.mjs
 import { writeFileSync, unlinkSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { CASTLE_MARK, CASTLE_PAL } from "../src/ui/castleMark.js";
+
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const PAL = Object.fromEntries(Object.entries(CASTLE_PAL).map(([k, v]) => [k, hex(v)]));
 
 const paint = (N) => {
   const img = new Uint8Array(N * N * 3);
-  const put = (x, y, [r, g, b]) => { const i = (y * N + x) * 3; img[i] = r; img[i + 1] = g; img[i + 2] = b; };
-  const inCircle = (x, y, cx, cy, r) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
-  const cx = N / 2, cy = N * 0.55;
+  const put = (x, y, [r, g, b]) => { if (x < 0 || y < 0 || x >= N || y >= N) return; const i = (y * N + x) * 3; img[i] = r; img[i + 1] = g; img[i + 2] = b; };
+  const gw = CASTLE_MARK[0].length, gh = CASTLE_MARK.length;
+  // the castle fills ~64% of the width (inside the 80% safe zone of a
+  // maskable icon), on whole art pixels so it stays crisp
+  const px = Math.max(1, Math.floor((N * 0.64) / gw));
+  const cw = gw * px, ch = gh * px;
+  const x0 = Math.round((N - cw) / 2), y0 = Math.round(N * 0.56 - ch / 2);
+  const hillTop = y0 + ch - px;           // the castle stands on the brow of the hill
   for (let y = 0; y < N; y++) {
     for (let x = 0; x < N; x++) {
-      // slate ground with a soft warm vignette
-      const d = Math.hypot(x - N / 2, y - N / 2) / (N / 2);
-      let col = [50 - d * 14, 56 - d * 16, 70 - d * 20];
-      // the crown: a band, three points, three jewels
-      const bandTop = cy + N * 0.02, bandBot = cy + N * 0.22;
-      const halfW = N * 0.3;
-      const inBand = y >= bandTop && y <= bandBot && Math.abs(x - cx) <= halfW;
-      // points: triangles rising from the band
-      let inPoint = false;
-      for (const [px, ph] of [[cx - halfW * 0.72, N * 0.24], [cx, N * 0.34], [cx + halfW * 0.72, N * 0.24]]) {
-        const top = bandTop - ph;
-        if (y >= top && y <= bandTop) {
-          const k = (y - top) / ph;
-          if (Math.abs(x - px) <= k * halfW * 0.36 + 1) inPoint = true;
-        }
+      // a dawn sky: deep blue above, warming to rose at the horizon
+      const t = y / N;
+      let col = [36 + t * 90, 44 + t * 40, 88 + t * 10];
+      // the hill: a broad green brow, lit from the upper left
+      const brow = hillTop + ((x - N / 2) / (N / 2)) ** 2 * N * 0.08;
+      if (y >= brow) {
+        const d = (y - brow) / N;
+        col = [110 - d * 60 - (x / N) * 16, 164 - d * 70 - (x / N) * 20, 78 - d * 30];
+        if (y - brow < px) col = [150, 196, 98];
       }
-      const gem = inCircle(x, y, cx, cy + N * 0.12, N * 0.05) || inCircle(x, y, cx - halfW * 0.72, bandTop - N * 0.24, N * 0.035)
-        || inCircle(x, y, cx + halfW * 0.72, bandTop - N * 0.24, N * 0.035) || inCircle(x, y, cx, bandTop - N * 0.34, N * 0.04);
-      if (inBand || inPoint) {
-        // lit from the upper left
-        const lit = 1 - ((x - (cx - halfW)) / (halfW * 2)) * 0.45 - ((y - (bandTop - N * 0.34)) / (N * 0.56)) * 0.25;
-        col = [232 * lit, 196 * lit, 84 * lit];
-      }
-      if (gem) col = inCircle(x, y, cx, cy + N * 0.12, N * 0.05) ? [176, 58, 74] : [236, 236, 244];
       put(x, y, col.map((v) => Math.max(0, Math.min(255, Math.round(v)))));
     }
   }
+  // the castle, one block per art pixel
+  CASTLE_MARK.forEach((row, gy) => {
+    for (let gx = 0; gx < gw; gx++) {
+      const c = PAL[row[gx]];
+      if (!c) continue;
+      for (let yy = 0; yy < px; yy++) for (let xx = 0; xx < px; xx++) put(x0 + gx * px + xx, y0 + gy * px + yy, c);
+    }
+  });
   return img;
 };
 

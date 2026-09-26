@@ -6,7 +6,7 @@
 // The militia: two farmers with pitchforks, summoned wherever you tap, who
 // hold the road for a while and then go home. Free, on a cooldown.
 export const MILITIA = {
-  name: "Militia", icon: "🌾",
+  name: "Militia", icon: "",
   blurb: "Two farmers with pitchforks answer the horn wherever you point — free, for a short while, and again when the cooldown ends.",
   count: 2, hp: 95, dmg: 9, rate: 700, range: 60, unitSpeed: 90,
   life: 15000, cooldown: 24000, respawnMs: 999999,
@@ -23,13 +23,13 @@ export const MILITIA = {
 // and ability upgrades on the Home Screen only — never mid-battle.
 export const HEROES = {
   aldric: {
-    name: "Sir Aldric", title: "the Steadfast", rig: "heroKnight", icon: "⚔",
+    name: "Sir Aldric", title: "the Steadfast", rig: "heroKnight", icon: "",
     blurb: "A knight of the old order: the hardest blocker on the field, and he only gets harder. Every third blow is a shield-bash that stuns.",
     base: { hp: 280, dmg: 26, rate: 720, range: 100, unitSpeed: 105, respawnMs: 12000, stun: 0.34, stunDur: 900 },
     perLevel: { hp: 42, dmg: 5 },
   },
   wren: {
-    name: "Wren", title: "of the Greenwood", rig: "heroHunter", icon: "🏹",
+    name: "Wren", title: "of the Greenwood", rig: "heroHunter", icon: "",
     blurb: "A huntress who holds nothing and kills from a distance. Her arrows pierce armor and hobble what they hit, and she is quick to be back on her feet.",
     base: { hp: 180, dmg: 21, rate: 470, range: 155, unitSpeed: 125, respawnMs: 9000, ranged: true, pierce: true, slow: 0.3, slowDur: 1100 },
     perLevel: { hp: 22, dmg: 4 },

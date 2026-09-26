@@ -7,7 +7,10 @@
 
 import { CASTLE_WORKS, nextWork } from "../data/castle.js";
 import "./hud/hud.css";
-import { CoinIcon } from "./hud/icons.jsx";
+import { CoinIcon, ArrowIcon, BallistaIcon, ShieldIcon, HammerIcon } from "./hud/icons.jsx";
+
+// each work's picture, on the HUD's own pixel grid
+const WORK_ICON = { archers: ArrowIcon, ballista: BallistaIcon, guards: ShieldIcon, masons: HammerIcon };
 
 const gold = (n) => n.toLocaleString("en-US");
 
@@ -33,7 +36,7 @@ export default function CastleWorksList({ works, ranks = null, endless = false, 
         return (
           <div key={key} className="cg-panel" style={{ padding: "9px 10px 10px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <span className="cg-well" style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>{def.icon}</span>
+              <span className="cg-well" style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>{(() => { const I = WORK_ICON[key]; return I ? <I size={20} /> : null; })()}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="cg-display" style={{ fontSize: 12, fontWeight: 700, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" }}>{def.name}</div>
                 <div className="cg-pips" style={{ marginTop: 4 }}>

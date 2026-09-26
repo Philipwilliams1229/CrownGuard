@@ -18,28 +18,12 @@ import FieldGuide from "./FieldGuide.jsx";
 import { LEVELS, hasProgress, currentLevel } from "../data/campaign.js";
 import { starsFree, rankName } from "../data/profile.js";
 import { Star } from "./Glyphs.jsx";
+import { CastleIcon } from "./hud/icons.jsx";
 import { titleVistaAsync, VW, VH } from "./titleArt.js";
 import { startCrowd } from "./titleCrowd.js";
 import { warmMapTerrain } from "./mapArt.js";
 
 const INK = "#10131a";
-
-// The crown over the wordmark, on the pixel grid, ringed in ink.
-const CROWN = [[2, 4, 12, 6], [1, 2, 2, 2], [13, 2, 2, 2], [7, 0, 2, 4], [4, 3, 2, 2], [10, 3, 2, 2]];
-function Crown({ size = 44 }) {
-  return (
-    <svg width={size} height={size * 0.75} viewBox="-1 -1 18 13" style={{ shapeRendering: "crispEdges", display: "block" }} aria-hidden="true">
-      {[[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]].map(([dx, dy]) => CROWN.map(([x, y, w, h], i) => (
-        <rect key={`${dx}${dy}${i}`} x={x + dx} y={y + dy} width={w} height={h} fill={INK} />
-      )))}
-      {CROWN.map(([x, y, w, h], i) => <rect key={i} x={x} y={y} width={w} height={h} fill="#e8c65a" />)}
-      <rect x="2" y="9" width="12" height="1" fill="#a8842a" />
-      <rect x="2" y="4" width="1" height="5" fill="#fff3d2" /><rect x="7" y="0" width="1" height="1" fill="#fff3d2" />
-      <rect x="1" y="2" width="1" height="1" fill="#fff3d2" />
-      <rect x="4" y="6" width="2" height="2" fill="#c04a52" /><rect x="7" y="6" width="2" height="2" fill="#5a8ad0" /><rect x="10" y="6" width="2" height="2" fill="#c04a52" />
-    </svg>
-  );
-}
 
 export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil }) {
   const [guideOpen, setGuideOpen] = useState(false);
@@ -103,9 +87,9 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
   const title = (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
-        {/* compact: the crown stands beside the wordmark, to save a line of height */}
+        {/* compact: the castle mark stands beside the wordmark, to save a line of height */}
         <div style={{ display: "flex", flexDirection: compact ? "row" : "column", alignItems: "center", gap: compact ? 12 : 0 }}>
-          <Crown size={compact ? 40 : 46} />
+          <CastleIcon size={compact ? 36 : 48} title="Crownguard" />
           <h1 style={{
             margin: compact ? 0 : "6px 0 0", fontFamily: FONT, fontWeight: "bold", color: "#f2cf4a", whiteSpace: "nowrap",
             fontSize: compact ? 36 : "clamp(26px, 8vw, 50px)", letterSpacing: compact ? 3 : "clamp(2px, 0.8vw, 6px)",

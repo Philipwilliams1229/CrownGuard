@@ -42,7 +42,7 @@ import { towerTags, levelDeltas, formDeltas } from "./ui/hud/towerText.js";
 import { useArm } from "./ui/HeroTalents.jsx";
 import {
   CoinIcon, CastleIcon, SkullIcon, SwordIcon, BoltIcon, PlayIcon, PauseIcon, SpeedIcon, HammerIcon,
-  LockIcon, CloseIcon, ChevronUp, ChevronDown, FlagIcon, InfoIcon,
+  LockIcon, CloseIcon, ChevronUp, ChevronDown, FlagIcon, InfoIcon, ArrowIcon, TargetIcon,
 } from "./ui/hud/icons.jsx";
 
 // Aggregate a wave's spawn list into { type, count } entries, keeping the
@@ -878,7 +878,7 @@ export default function Crownguard() {
   // -- the hero's menu: move him, or fire one of his two abilities. Talents
   // are bought on the Home Screen only, with the stars a won map pays --
   const talentBtn = null;
-  const ABIL_ICON = { slam: "💥", charge: "🐎", volley: "🏹", heart: "🎯" };
+  const ABIL_ICON = { slam: <HammerIcon size={13} />, charge: <SwordIcon size={13} />, volley: <ArrowIcon size={13} />, heart: <TargetIcon size={13} /> };
   const talentPanel = talentsOpen && ui.hero && (() => {
     const h = ui.hero;
     const g = G.current;
@@ -910,7 +910,7 @@ export default function Crownguard() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginTop: 10 }}>
           <button className={cls("cg-btn", h.dead ? "cg-btn--slate is-off" : "cg-btn--parch")} disabled={h.dead} style={tile} onClick={move}>
-            <span className="cg-display" style={{ fontSize: 12, fontWeight: 700 }}>🚩 Move</span>
+            <span className="cg-display" style={{ fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}><FlagIcon size={13} /> Move</span>
             <span style={{ fontSize: 10, lineHeight: 1.35, color: "#5a4630" }}>{h.dead ? `Back on his feet in ${h.respawn}s.` : "Tap the map where the hero should stand."}</span>
           </button>
           {h.abilities.map((a) => {
@@ -921,7 +921,7 @@ export default function Crownguard() {
               <button key={a.id} className={cls("cg-btn", ready ? "cg-btn--gold" : "cg-btn--slate is-off")} disabled={!ready} style={tile} onClick={() => fire(a)}>
                 {/* the recharge drains down the plank like the militia's horn */}
                 {a.state === "cooling" && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.round(100 * Math.min(1, a.frac))}%`, background: "rgba(20,12,22,0.4)" }} />}
-                <span className="cg-display" style={{ fontSize: 12, fontWeight: 700, position: "relative" }}>{ABIL_ICON[a.id] || "✦"} {a.name}</span>
+                <span className="cg-display" style={{ fontSize: 12, fontWeight: 700, position: "relative", display: "inline-flex", alignItems: "center", gap: 5 }}>{ABIL_ICON[a.id] || <BoltIcon size={13} />} {a.name}</span>
                 <span className="cg-num" style={{ fontSize: 9.5, textShadow: "none", position: "relative", color: ready ? "var(--wood-deep)" : "var(--gold-lt)" }}>{label}</span>
                 <span style={{ fontSize: 9.5, lineHeight: 1.35, position: "relative", color: ready ? "var(--wood-deep)" : "var(--muted)" }}>{a.desc}</span>
               </button>

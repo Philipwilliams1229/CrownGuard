@@ -34,6 +34,7 @@ import { MAX_STARS } from "../data/profile.js";
 import { panel, FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
+import { CastleIcon, LockIcon } from "./hud/icons.jsx";
 import { AW, AH, MAP, terrainFor, drawMapState, labelBox, LABEL_FONT, BANNER_AT } from "./mapArt.js";
 
 const INK = "#10131a";
@@ -367,7 +368,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
     ...goldBtn, width: "100%", textAlign: "center", padding: "14px 10px", fontSize: 14, letterSpacing: 1, minHeight: 52,
     ...(selUnlocked ? {} : { background: "#8a8274", boxShadow: "inset -3px -3px 0 #6a6258, inset 3px 3px 0 #a8a092", color: "#4a4450", cursor: "not-allowed" }),
   };
-  const marchLabel = selUnlocked ? (selCleared ? `Ride Out Again` : `March on ${sel.short || sel.name}`) : "🔒 Sealed";
+  const marchLabel = selUnlocked ? (selCleared ? `Ride Out Again` : `March on ${sel.short || sel.name}`) : <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><LockIcon size={14} /> Sealed</span>;
 
   const fullCard = sel && (
     <div style={{
@@ -468,7 +469,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
       </div>
       <button title="The crown's treasury and the castle's works" aria-label="Castle works"
         style={{ ...woodBtn, padding: compact ? "0 10px" : "0 12px", fontSize: 13, display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }} onClick={() => setWorksOpen(true)}>
-        <span aria-hidden="true">🏰</span>
+        <CastleIcon size={18} />
         <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1 }}>
           <span style={{ fontSize: 8, letterSpacing: 1.5, opacity: 0.8 }}>WORKS</span>
           <b style={{ color: "#f2cf4a" }}>{(progress.treasury || 0).toLocaleString("en-US")}</b>
@@ -486,7 +487,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
       onClick={() => setWorksOpen(false)}>
       <div style={{ ...panel, ...frame, width: "100%", maxWidth: short ? 620 : 380, maxHeight: "100%", display: "flex", flexDirection: "column", padding: short ? "10px 12px 12px" : 16, boxSizing: "border-box" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1 }}>🏰 CASTLE WORKS — {sel.chapter.name.toUpperCase()}</span>
+          <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1, display: "flex", alignItems: "center", gap: 6 }}><CastleIcon size={14} /> CASTLE WORKS — {sel.chapter.name.toUpperCase()}</span>
           <button aria-label="Close" style={{ ...woodBtn, padding: "0 14px", fontSize: 13, flexShrink: 0 }} onClick={() => setWorksOpen(false)}>✕</button>
         </div>
         <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", touchAction: "pan-y", scrollbarWidth: "thin" }}>
