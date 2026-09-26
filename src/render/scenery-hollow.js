@@ -1104,6 +1104,28 @@ function paintFenTurf(ctx, kit) {
     puddle(ctx, x, y, rx, ry, i + 50, rx > 6 && H0(i, 44) < 0.5);
     if (H0(i, 45) < 0.6) sedge(ctx, x - rx - 0.5, y + 0.5, 0.7, i + 90, 4);
   }
+  // sedge meadows: wide soft stands of it, where the ground is wettest,
+  // straw-pale at the tips, with the odd bog-cotton head over them
+  for (let i = 0; i < 11; i++) {
+    const cx = 30 + H0(i, 120) * (SW - 60), cy = 20 + H0(i, 121) * (H - 40);
+    const rx = 18 + H0(i, 122) * 22, ry = 7 + H0(i, 123) * 7;
+    if (!clear(cx, cy, 10)) continue;
+    ctx.fillStyle = rgba("#262e24", 0.22);
+    blobPath(ctx, cx + 2, cy + 2, rx, ry, i + 900, 0.25, 10); ctx.fill();
+    const n = Math.round(rx * ry / 9);
+    const tufts = [];
+    for (let k = 0; k < n; k++) {
+      const a = H0(i * 61 + k, 124) * Math.PI * 2, d = Math.sqrt(H0(i * 61 + k, 125));
+      const x = cx + Math.cos(a) * rx * d, y = cy + Math.sin(a) * ry * d;
+      if (clear(x, y, 4)) tufts.push([x, y, k]);
+    }
+    tufts.sort((p, q) => p[1] - q[1]);
+    for (const [x, y, k] of tufts) {
+      const edge = 1 - Math.hypot((x - cx) / rx, (y - cy) / ry);
+      sedge(ctx, x, y, 0.6 + edge * 0.6 + H0(k, 126) * 0.2, i * 97 + k, 4, H0(k, 127) < 0.5 ? "#6a6c42" : "#5c6640", H0(k, 128) < 0.3 ? "#b4aa70" : "#9a9460");
+      if (H0(k, 129) < 0.06) cotton(ctx, x + 1, y, i * 13 + k, 0.8);
+    }
+  }
   // sedge in stands, and bog-cotton nodding over it
   for (let i = 0; i < 110; i++) {
     const x = H0(i, 50) * SW, y = H0(i, 51) * H;
@@ -1221,7 +1243,7 @@ function paintFenRoad(ctx) {
   }
   // old planks laid across the wettest stretch: nearest to the water
   let best = -1, bestD = 0;
-  for (let dd = 60; dd < TOTAL_LEN - 60; dd += 10) {
+  for (let dd = 150; dd < TOTAL_LEN - 120; dd += 10) {
     const [x, y] = posAt(dd);
     if (!ok(x, y, 10) || BRIDGES.some((b) => dd > b.d0 - 40 && dd < b.d1 + 40)) continue;
     // only where the road runs straight
@@ -1234,10 +1256,10 @@ function paintFenRoad(ctx) {
   }
   if (best > 0.3) {
     for (let k = -5; k <= 5; k++) {
-      const dd = bestD + k * 3.4;
-      if (Math.abs(k) > 3 && H0(k + 9, 10) < 0.5) continue;
+      const dd = bestD + k * 3.3;
+      if (Math.abs(k) === 5 && H0(k + 9, 10) < 0.5) continue;
       const [x, y] = posAt(dd), a = angleAt(dd) + Math.PI / 2;
-      const half = PATH_HALF - 5 - H0(k + 9, 11) * 5, sh = (H0(k + 9, 12) - 0.5) * 4;
+      const half = PATH_HALF - 7 - H0(k + 9, 11) * 1.5, sh = (H0(k + 9, 12) - 0.5) * 1.5;
       ctx.save(); ctx.translate(x, y); ctx.rotate(a + (H0(k + 9, 13) - 0.5) * 0.08);
       ctx.fillStyle = rgba("#2a2620", 0.5); ctx.fillRect(-half + sh, -1.4, half * 2, 3.4);
       ctx.fillStyle = k % 2 ? "#6a6252" : "#72695a"; ctx.fillRect(-half + sh, -1.6, half * 2, 3);
@@ -1353,7 +1375,7 @@ const bakeGate = () => {
   const L = Math.hypot(qx - px, qy - py) || 1, tx = (qx - px) / L, ty = (qy - py) / L;
   // the doorway sits a little inside the edge, the whole mound on the board
   const gx = Math.max(62, Math.min(W - WALL_W - 70, px + tx * 30)), gy = Math.max(48, Math.min(H - 30, py + ty * 30));
-  const mx = gx, my = gy - 20, rx = 56, ry = 31;
+  const mx = gx, my = gy - 15, rx = 56, ry = 30;
   GATE.gx = gx; GATE.gy = gy; GATE.tx = tx; GATE.ty = ty;
   const B = { x0: Math.floor(gx - 92), y0: Math.floor(gy - 96), w: 184, h: 164 };
   GATE.bx = B.x0; GATE.by = B.y0; GATE.bw = B.w; GATE.bh = B.h;
@@ -1389,10 +1411,19 @@ const bakeGate = () => {
     shadow(c, mx + 10, my + ry * 0.7, rx + 6, ry * 0.55, 0.34);
     part(c, (cc) => {
       blobPath(cc, mx, my, rx, ry, 91, 0.05, 16);
-      cc.fillStyle = darken(turf, 0.35); cc.fill();
+      cc.fillStyle = darken(turf, 0.42); cc.fill();
       cc.save(); blobPath(cc, mx, my, rx, ry, 91, 0.05, 16); cc.clip();
-      blobPath(cc, mx - rx * 0.1, my - ry * 0.16, rx * 0.95, ry * 0.86, 92, 0.06, 14); cc.fillStyle = turf; cc.fill();
-      blobPath(cc, mx - rx * 0.28, my - ry * 0.42, rx * 0.62, ry * 0.46, 93, 0.12, 12); cc.fillStyle = lighten(turf, 0.14); cc.fill();
+      blobPath(cc, mx - rx * 0.06, my - ry * 0.12, rx * 0.96, ry * 0.88, 92, 0.06, 14); cc.fillStyle = darken(turf, 0.14); cc.fill();
+      blobPath(cc, mx - rx * 0.16, my - ry * 0.26, rx * 0.8, ry * 0.68, 93, 0.08, 14); cc.fillStyle = turf; cc.fill();
+      blobPath(cc, mx - rx * 0.32, my - ry * 0.46, rx * 0.5, ry * 0.38, 94, 0.14, 12); cc.fillStyle = lighten(turf, 0.2); cc.fill();
+      // grass lying over the mound's curve, in short strokes
+      for (let i = 0; i < 70; i++) {
+        const a = hash(i, 24) * Math.PI * 2, d = Math.sqrt(hash(i, 25)) * 0.92;
+        const hx = mx + Math.cos(a) * rx * d, hy = my + Math.sin(a) * ry * d;
+        const lit = -Math.cos(a) * d * 0.6 - Math.sin(a) * d * 0.8;
+        cc.fillStyle = lit > 0.2 ? lighten(turf, 0.32) : lit > -0.3 ? darken(turf, 0.2) : darken(turf, 0.45);
+        cc.fillRect(ap(hx), ap(hy), 0.5, 1.5);
+      }
       // heather and rust moss over the crown
       for (let i = 0; i < 40; i++) {
         const a = hash(i, 20) * Math.PI * 2, d = Math.sqrt(hash(i, 21));
@@ -1403,6 +1434,9 @@ const bakeGate = () => {
       }
       cc.restore();
     });
+    for (const [ox, oy, hh, ln] of [[-0.62, -0.38, 17, -0.08], [0.6, -0.34, 14, 0.1], [-0.3, -0.72, 12, 0.02]]) {
+      stoneAt(c, { x: mx + ox * rx, y: my + oy * ry, h: hh, w: 3.8, ln, seed: Math.round(ox * 100), fallen: false });
+    }
     for (let i = 0; i < 14; i++) {
       const a = Math.PI * (1.05 + hash(i, 30) * 0.9), d = 0.3 + hash(i, 31) * 0.6;
       sedge(c, mx + Math.cos(a) * rx * d, my + Math.sin(a) * ry * d + 2, 0.7 + hash(i, 32) * 0.3, i + 60, 4, "#5e6a42", "#9a9460");
@@ -1415,7 +1449,7 @@ const bakeGate = () => {
       part(c, (cc) => standing(cc, [[kx - 3.2, ky + 1.5], [kx - 3, ky - 2.4], [kx + 2.8, ky - 2.6], [kx + 3.2, ky + 1.5]], darken(col, 0.05 + hash(i, 40) * 0.1), 1.2));
     }
     // the doorway: the passage's dark, then three great slabs
-    const dT = gy - 34, dB = gy + 6, dW = 16;
+    const dT = gy - 20, dB = gy + 14, dW = 16;
     c.fillStyle = "#0a0c0c";
     c.fillRect(gx - dW, dT, dW * 2, dB - dT);
     for (let k = 0; k < 3; k++) { c.fillStyle = rgba("#1a2420", 0.9 - k * 0.3); c.fillRect(gx - dW, dB - 2 - k * 2, dW * 2, 2); }
@@ -1439,7 +1473,7 @@ const bakeGate = () => {
     for (const ox of [-18, -7, 5, 17]) part(c, (cc) => skull(cc, gx + ox, dT - 12, 2.5));
     front.forEach((st) => stoneAt(c, st));
     // the threshold: bones scattered where the road leaves the door
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 4; i++) {
       const bx = gx + (hash(i, 50) - 0.5) * 44, by = dB + 3 + hash(i, 51) * 14;
       if (hash(i, 52) < 0.4) part(c, (cc) => skull(cc, bx, by, 1.8));
       else part(c, (cc) => longBone(cc, bx - 3, by, bx + 3, by + (hash(i, 53) - 0.5) * 3, 1));
@@ -1451,9 +1485,9 @@ const bakeGate = () => {
     const img = c.getImageData(0, 0, PW, PH), dd = img.data;
     for (let yy = 0; yy < PH; yy++) for (let xx = 0; xx < PW; xx++) {
       const x = B.x0 + xx / PX, y = B.y0 + yy / PX;
-      const ddx = (x - gx) / 30, ddy = (y - (gy + 5)) / 18;
-      const r = Math.hypot(ddx, ddy * (y < gy + 5 ? 2 : 1));
-      const a = Math.max(0, 1 - r) * (y > gy - 12 ? 1 : 0);
+      const ddx = (x - gx) / 30, ddy = (y - (gy + 12)) / 16;
+      const r = Math.hypot(ddx, ddy * (y < gy + 12 ? 2 : 1));
+      const a = Math.max(0, 1 - r) * (y > gy - 6 ? 1 : 0);
       const lvl = Math.min(3, Math.floor(a * 3.4 + BAYER4[(yy & 3) * 4 + (xx & 3)] / 16));
       if (lvl <= 0) continue;
       const o = (yy * PW + xx) * 4;
@@ -1461,8 +1495,8 @@ const bakeGate = () => {
     }
     c.putImageData(img, 0, 0);
   }, false);
-  GATE.candles = [[gx - 29, gy + 9], [gx + 29, gy + 9]];
-  GATE.eyes = [[gx - 6, gy - 14, 0], [gx + 6, gy - 6, 2.3], [gx - 1, gy - 23, 4.1]];
+  GATE.candles = [[gx - 29, gy + 17], [gx + 29, gy + 17]];
+  GATE.eyes = [[gx - 6, gy - 4, 0], [gx + 6, gy + 3, 2.3], [gx - 1, gy - 11, 4.1]];
   return GATE;
 };
 
@@ -1474,9 +1508,9 @@ const drawBarrowGate = (ctx, time) => {
   ctx.drawImage(G.cv, G.bx, G.by, G.bw, G.bh);
   // witch-light breathing in the passage and in the lintel's spirals
   const breathe = 0.5 + 0.5 * Math.sin(time * 1.3);
-  glow(ctx, G.gx, G.gy - 8, 18, TEAL, 0.1 + breathe * 0.12);
+  glow(ctx, G.gx, G.gy + 2, 11, TEAL, 0.06 + breathe * 0.08);
   ctx.fillStyle = rgba(TEAL, 0.25 + breathe * 0.5);
-  for (const ox of [-15, 0, 15]) { ctx.fillRect(ap(G.gx + ox - 0.5), ap(G.gy - 38.6), 1, 1); }
+  for (const ox of [-15, 0, 15]) { ctx.fillRect(ap(G.gx + ox - 0.5), ap(G.gy - 24.6), 1, 1); }
   // eyes in the dark, blinking out of step
   G.eyes.forEach(([ex, ey, ph], i) => {
     const t = time * 0.8 + ph;
@@ -1491,7 +1525,7 @@ const drawBarrowGate = (ctx, time) => {
   for (let i = 0; i < 6; i++) {
     const life = ((time * 0.13 + i / 6) % 1);
     const along = 6 + life * 70, side = Math.sin(i * 2.4 + time * 0.3) * 14;
-    const fx = G.gx + G.tx * along * 0.8 - G.ty * side, fy = G.gy + 6 + life * 6 + G.ty * along * 0.5 + G.tx * side * 0.3;
+    const fx = G.gx + G.tx * along * 0.8 - G.ty * side, fy = G.gy + 14 + life * 6 + G.ty * along * 0.5 + G.tx * side * 0.3;
     const a = Math.sin(life * Math.PI) * 0.16;
     soft(ctx, fx, fy, 12 + life * 16, 4 + life * 4, [[0, rgba("#b8ccc4", a)], [1, rgba("#b8ccc4", 0)]]);
   }

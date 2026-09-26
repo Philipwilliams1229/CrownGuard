@@ -105,8 +105,9 @@ export const BIOME = [
   // the Iron Marches: cool highland moor, grey-green turf and heather-brown
   // (the ground itself is painted by moorPx below, from MOOR)
   { lo: "#566250", mid: "#6e7a5e", hi: "#879270", alt: "#6e5850", cliff: ["#9a948c", "#76716c", "#55504f"], sand: "#b8b098" },
-  // the Hollowfen: murky purple bog
-  { lo: "#54467a", mid: "#66578a", hi: "#7a6b9c", alt: "#5d6650", cliff: ["#7a6878", "#5b4a5e", "#3e3246"], sand: "#8e8298" },
+  // the Hollowfen: black-green bog and olive moss under a cold moon, with a
+  // violet cast in its shadows (painted by fenPx below, from FEN_GROUND)
+  { lo: "#2c332f", mid: "#3a453b", hi: "#4c5847", alt: "#443c50", cliff: ["#6a6668", "#4e4a52", "#36323c"], sand: "#6e6a70" },
   // the isthmus: stony upland between the two
   { lo: "#6c7c5a", mid: "#7c8c66", hi: "#929c78", alt: "#8a8a70", cliff: ["#9a8c78", "#76695a", "#554a40"], sand: "#d4c498" },
   // the islets
@@ -134,6 +135,25 @@ const moorPx = (x, y, band) => {
   if (r < 0.018) return (y & 1) ? MOOR.stoneDk : MOOR.stoneLt;
   if (pal === MOOR.heath && r < 0.075 && !(x & 1)) return MOOR.bloom;
   if (r > 0.95 && (y & 1)) return pal === MOOR.heath ? MOOR.heath[0] : MOOR.tuft;
+  return pal[t];
+};
+
+// The fen: sodden black-green bog, hummocks of olive moss and violet-dark
+// heath, flecked with bog cotton, rusty sphagnum and dark tussocks.
+const FEN_GROUND = {
+  bog: ["#2c332f", "#3a453b", "#4a5646"].map(rgb),
+  moss: ["#434c35", "#56603e", "#6c744a"].map(rgb),
+  heath: ["#312c3a", "#403a4c", "#524a5e"].map(rgb),
+  cotton: rgb("#d8d8c8"), cottonDk: rgb("#8a8c7e"), rust: rgb("#6e5038"), tuft: rgb("#232a26"),
+};
+const fenPx = (x, y, band) => {
+  const t = band < 0.27 ? 0 : band > 0.75 ? 2 : 1, b = bayer(x, y) * 0.05, F = FEN_GROUND;
+  const m = fbm(x, y, 34, 24);
+  const pal = m > 0.58 + b ? F.moss : m < 0.4 - b ? F.heath : F.bog;
+  const r = hash((x >> 1) * 5 + 3, (y >> 1) * 7 + 1);
+  if (r < 0.012) return (y & 1) ? F.cottonDk : F.cotton;
+  if (pal === F.moss && r < 0.05 && (x & 1)) return F.rust;
+  if (r > 0.94 && (y & 1)) return F.tuft;
   return pal[t];
 };
 
@@ -259,6 +279,7 @@ function* paintBase() {
       const v = 0.5 - slope + (vnoise(x, y, 6, 3 + z) - 0.5) * 0.18;
       const band = v + (bayer(x, y) - 0.5) * 0.2;
       if (z === 1) { put(i, moorPx(x, y, band)); continue; }
+      if (z === 2) { put(i, fenPx(x, y, band)); continue; }
       let col = band < 0.27 ? p.lo : band > 0.75 ? p.hi : p.mid;
       // broad patches of the country's second colour (heather, moss, meadow)
       if (col === p.mid && fbm(x, y, 40, 21 + z) > 0.63 + bayer(x, y) * 0.05) col = p.alt;
@@ -604,7 +625,6 @@ const mountain = (w, h, seed, pal) => spr(`mt${w}${h}${seed}${pal.key}`, w, h, (
 const ROCK = { key: "r", lit: "#bcb3a2", mid: "#9a9084", dark: "#6e6676", snow: "#f4f0e2", snowDk: "#b4c0d4" };
 const IRONPK = { key: "i", lit: "#b0aa9c", mid: "#8e887c", dark: "#5e5a62", snow: "#eeece2", snowDk: "#aab4c4" };
 const HILLG = { key: "g", lit: "#9cc462", mid: "#82b256", dark: "#5f8f43" };
-const CRAG = { key: "c", lit: "#b0aca4", mid: "#8e8a86", dark: "#646070" };
 // a rolling hill: a low lit mound
 const hill = (w, h, seed, pal) => spr(`hl${w}${h}${seed}${pal.key}`, w, h, (c) => {
   c.save(); c.beginPath(); c.rect(0, 0, w, h - 0.01); c.clip();
@@ -643,24 +663,6 @@ const barrow = (v) => spr(`bar${v}`, 10, 6, (c) => {
   c.fillStyle = "#8a847a"; c.fillRect(3.8, 3, 2.4, 3);
   c.fillStyle = "#2a2230"; c.fillRect(4.4, 3.8, 1.2, 2.2);
 });
-// a standing stone of the fen
-const menhir = (v) => spr(`men${v}`, 3, 6, (c) => {
-  c.fillStyle = "#9a94a0"; poly(c, [[0.3, 5.8], [0.6, 1], [1.6, 0.2], [2.6, 1.2], [2.7, 5.8]]); c.fill();
-  c.fillStyle = "#6e6680"; c.fillRect(1.8, 1, 0.9, 4.8);
-});
-// a cairn: a heap of stones
-const cairn = (v) => spr(`cairn${v}`, 6, 5, (c) => {
-  ball(c, 3, 3.6, 2.8, 1.5, "#8e8898", { hi: 0.4, lo: 0.5 });
-  ball(c, 2.6, 2.2, 1.8, 1.2, "#9a94a4", { hi: 0.4, lo: 0.5 });
-  ball(c, 3.2, 1.1, 1, 0.9, "#a8a2b0", { hi: 0.4, lo: 0.5 });
-});
-// reeds
-const reeds = (v) => spr(`reed${v}`, 4, 4, (c) => {
-  c.fillStyle = v % 2 ? "#7a8a58" : "#6a7a50";
-  for (let k = 0; k < 3; k++) c.fillRect(0.6 + k * 1.2, 1 + (k % 2) * 0.8, 0.6, 3 - (k % 2) * 0.8);
-  c.fillStyle = "#5a4034"; c.fillRect(1.8, 0.4, 0.6, 1);
-}, 0);
-
 // a sheep, and a haystack for the farms
 const sheep = (v) => spr(`sheep${v}`, 3.6, 2.8, (c) => {
   ball(c, 1.9, 1.3, 1.5, 1.1, "#f2ecdc", { hi: 0.3, lo: 0.35 });
@@ -713,22 +715,6 @@ const crownCastle = () => spr("crown", 22, 20, (c) => {
   tower(8.4, 5, 5.2);
   c.fillStyle = "#6b5a3c"; c.fillRect(10.8, -0.2 + 0.4, 0.6, 1.6);
   c.fillStyle = "#d8b34a"; c.fillRect(11.4, 0.4, 3, 1.8);
-});
-const ruin = () => spr("ruin", 20, 16, (c) => {
-  const st = "#6e647c", dk = "#4a4058", lit = "#8a80a0";
-  c.fillStyle = st; c.fillRect(1, 9, 18, 6.6);
-  c.fillStyle = dk; c.fillRect(1, 13.8, 18, 1.8);
-  // broken towers
-  c.fillStyle = st; poly(c, [[1, 15.6], [1, 3], [2.6, 2], [3.4, 4], [5, 3.2], [5, 15.6]]); c.fill();
-  c.fillStyle = dk; c.fillRect(3.6, 3.4, 1.4, 12.2);
-  c.fillStyle = st; poly(c, [[7.4, 15.6], [7.4, 1], [9.4, 0.2], [11, 2.2], [12.6, 0.6], [12.6, 15.6]]); c.fill();
-  c.fillStyle = dk; c.fillRect(10.8, 1.6, 1.8, 14);
-  c.fillStyle = st; poly(c, [[15, 15.6], [15, 5], [17, 6.4], [19, 4.6], [19, 15.6]]); c.fill();
-  c.fillStyle = dk; c.fillRect(17.6, 5, 1.4, 10.6);
-  c.fillStyle = lit; c.fillRect(1, 3, 1.2, 12.6); c.fillRect(7.4, 1, 1.2, 14.6);
-  // the dead court's lights
-  c.fillStyle = "#9ae8b0"; c.fillRect(9.4, 5, 1.2, 1.8); c.fillRect(2.4, 8, 1, 1.4); c.fillRect(16.4, 9, 1, 1.4);
-  c.fillStyle = "#2a2230"; c.fillRect(8.8, 11.6, 2.4, 4);
 });
 const ship = () => spr("ship", 14, 13, (c) => {
   c.fillStyle = "#7a5334"; poly(c, [[0.4, 9], [13.6, 9], [11.6, 12.4], [2.2, 12.4]]); c.fill();
@@ -1017,6 +1003,223 @@ const ironCitadel = () => spr("ik-citadel", 32, 28, (c) => {
   oxFlag(c, 13.4, 16.8, 2.6, 2.4, 1.4);
 });
 
+// ---- the Hollowfen -----------------------------------------------------
+// A drowned kingdom's fen: dead and drowned trees, weeping willows, reeds,
+// barrows and standing stones, ruined chapels and a drowned village, the
+// dead court's teal witch-fire, all in the fen's own muted palette.
+const HF = {
+  bark: "#4e4648", barkLt: "#6e6462", barkDk: "#2e2a30", moss: "#5a6a48", mossDk: "#3e4a36",
+  wil: ["#3e4a38", "#4a5842", "#5a6a4a"], st: "#8a8a80", stLt: "#a8a89c", stDk: "#5e605c", stDp: "#43443f",
+  thatch: "#6a5a44", thatchDk: "#4a3e30", dark: "#1e1a22", fire: "#7ce0b8", fireLt: "#d4fff0", fireDk: "#3a8a74",
+  water: "#1c2428", waterLt: "#5a7078",
+};
+// a dead tree of the fen: a crooked trunk and a few bare, twisting limbs,
+// leaning its own way; some hung with weed
+const fenTree = (v) => spr(`hf-tree${v}`, 10, 12, (c) => {
+  const lean = ((v % 5) - 2) * 0.5, top = 2 + (v % 3) * 1.2, x0 = 5;
+  c.lineCap = "round"; c.lineJoin = "round";
+  const limb = (pts, w, col) => { c.strokeStyle = col; c.lineWidth = w; poly(c, pts); c.stroke(); };
+  const tx = x0 + lean * 2, ty = top + 3;
+  limb([[x0, 11.8], [x0 + lean * 0.6, 8.4], [tx, ty]], 1.5, HF.bark);
+  limb([[x0 - 0.3, 11.8], [x0 - 0.3 + lean * 0.6, 8.4], [tx - 0.3, ty]], 0.6, HF.barkLt);
+  const br = [[[tx, ty], [tx - 2, ty - 1.4], [tx - 3.2, ty - 1]], [[tx, ty], [tx + 1.8, ty - 1.8], [tx + 2.4, ty - 3]], [[tx, ty], [tx + 0.3, ty - 2.4]],
+    [[x0 + lean * 0.4, 8.8], [x0 + 2.4, 7.6], [x0 + 3.6, 7.8]], [[x0 + lean * 0.3, 9.4], [x0 - 2, 8.4]]];
+  br.forEach((b, k) => { if (hash(v, k + 3) < (k < 2 ? 0.85 : 0.55)) limb(b, 0.8, HF.bark); });
+  if (v % 4 === 1) { limb([[x0 - 0.8, 11.8], [x0 - 1.4, 10.8]], 0.7, HF.bark); limb([[x0 + 0.8, 11.8], [x0 + 1.6, 11]], 0.7, HF.bark); }
+  // weed hanging from the limbs
+  if (v % 3 === 0) { c.fillStyle = HF.moss; c.fillRect(tx - 2.2, ty - 1.2, 0.5, 2.2); c.fillRect(tx + 1.6, ty - 1.6, 0.5, 1.8); c.fillStyle = HF.mossDk; c.fillRect(tx - 2.2, ty + 0.6, 0.5, 0.6); }
+});
+// a weeping willow: a dark mound of leaves falling in a curtain of strands
+const willow = (v) => spr(`hf-wil${v}`, 11, 11, (c) => {
+  const [dk, mid, lt] = HF.wil;
+  trunk(c, 5.5, 10.8, 3.4, HF.barkDk);
+  blobBall(c, 5.5, 4.4, 4.6, 3.4, mid, 120 + v, { hi: 0.4, lo: 0.6, wobble: 0.12, n: 9 });
+  // the falling curtain
+  for (let k = 0; k < 9; k++) {
+    const x = 1.4 + k * 1.03, len = 3.4 + hash(v, k) * 2.2 - Math.abs(k - 4) * 0.35;
+    c.fillStyle = k < 4 ? mid : dk; c.fillRect(x, 5.2, 0.6, len);
+    if (k % 2 === 0) { c.fillStyle = k < 3 ? lt : mid; c.fillRect(x, 5.2, 0.6, len * 0.4); }
+  }
+  c.fillStyle = lt; c.fillRect(3, 2, 2.2, 0.6); c.fillRect(2.4, 2.8, 1, 0.6);
+});
+// a reedbed: pale straw and olive stems with brown cattail heads
+const reedbed = (v) => spr(`hf-reed${v}`, 7, 5, (c) => {
+  const n = 6 + (v % 3);
+  for (let k = 0; k < n; k++) {
+    const x = 0.6 + (k / (n - 1)) * 5.6 + (hash(v, k) - 0.5) * 0.5, h = 2.4 + hash(v, k + 9) * 2.2;
+    c.fillStyle = k % 3 === 0 ? "#a09466" : k % 3 === 1 ? "#6e7446" : "#86865a";
+    c.fillRect(x, 4.9 - h, 0.5, h);
+    if (hash(v, k + 20) < 0.4) { c.fillStyle = "#5a3a2a"; c.fillRect(x - 0.1, 4.9 - h - 0.2, 0.7, 1.1); }
+  }
+  c.fillStyle = "#2e3a30"; c.fillRect(0.4, 4.5, 6.2, 0.5);
+}, 0);
+// ripples round whatever stands in the water
+const ripple = () => spr("hf-rip", 8, 3, (c) => {
+  c.strokeStyle = HF.waterLt; c.lineWidth = 0.5;
+  c.beginPath(); c.ellipse(4, 1.5, 3.4, 1.1, 0, 0, Math.PI); c.stroke();
+}, 0);
+// a barrow of the drowned kings: a mossy mound with a stone door
+const fenBarrow = (v) => spr(`hf-bar${v}`, 12, 6, (c) => {
+  c.save(); c.beginPath(); c.rect(0, 0, 12, 5.99); c.clip();
+  ball(c, 6, 6, 5.8, 5, v % 2 ? "#4e5a3c" : "#465236", { hi: 0.45, lo: 0.5, fx: -0.5, fy: -0.7 });
+  c.restore();
+  c.fillStyle = HF.stLt; c.fillRect(4.4, 2.6, 3.2, 0.8);
+  c.fillStyle = HF.st; c.fillRect(4.6, 3.4, 0.7, 2.6); c.fillRect(6.7, 3.4, 0.7, 2.6);
+  c.fillStyle = HF.dark; c.fillRect(5.3, 3.4, 1.4, 2.6);
+  if (v % 3 === 0) { c.fillStyle = HF.fire; c.fillRect(5.7, 4.2, 0.6, 0.6); }
+});
+// a standing stone, grey-green and lichened
+const fenStone = (v) => spr(`hf-men${v}`, 3.4, 6.4, (c) => {
+  const h = 4.6 + (v % 3) * 0.6;
+  c.fillStyle = HF.st; poly(c, [[0.4, 6.2], [0.6, 6.2 - h + 0.8], [1.6, 6.2 - h], [2.8, 6.2 - h + 0.9], [3, 6.2]]); c.fill();
+  c.fillStyle = HF.stDk; c.fillRect(2, 6.2 - h + 0.6, 1, h - 0.6);
+  c.fillStyle = HF.stLt; c.fillRect(0.6, 6.2 - h + 0.8, 0.6, h * 0.5);
+  c.fillStyle = HF.moss; c.fillRect(0.5, 5.2, 2.4, 1);
+});
+// a cairn: a heap of grey stones
+const fenCairn = (v) => spr(`hf-cairn${v}`, 6, 5, (c) => {
+  ball(c, 3, 3.6, 2.8, 1.5, "#74766e", { hi: 0.4, lo: 0.5 });
+  ball(c, 2.6 + (v % 2) * 0.6, 2.2, 1.8, 1.2, "#828478", { hi: 0.4, lo: 0.5 });
+  ball(c, 3.2, 1.1, 1, 0.9, "#909286", { hi: 0.4, lo: 0.5 });
+});
+// grave markers: leaning stones and a cross or two
+const graves = (v) => spr(`hf-graves${v}`, 8, 4, (c) => {
+  for (let k = 0; k < 4; k++) {
+    const x = 0.6 + k * 1.9, y = 3.8 - (k % 2) * 0.6, lean = (hash(v, k) - 0.5) * 0.8;
+    c.fillStyle = HF.st;
+    if (hash(v, k + 5) < 0.3) { c.fillRect(x + 0.3, y - 2.4, 0.5, 2.4); c.fillRect(x - 0.1, y - 1.9, 1.3, 0.5); }
+    else { poly(c, [[x, y], [x + lean, y - 1.8], [x + 0.5 + lean, y - 2.2], [x + 1 + lean, y - 1.8], [x + 1, y]]); c.fill(); c.fillStyle = HF.stDk; c.fillRect(x + 0.6, y - 1.6, 0.4, 1.6); }
+  }
+});
+// a ruined chapel: roofless, its gable standing with an empty window, the
+// bell-cote broken, a rafter or two left
+const chapel = (v) => spr(`hf-chapel${v}`, 14, 13, (c) => {
+  // the nave's side walls, broken to different heights
+  c.fillStyle = HF.st; poly(c, [[1, 12.6], [1, 7], [3, 6.6], [4.4, 8], [6, 7.2], [7.6, 8.6], [9, 12.6]]); c.fill();
+  c.fillStyle = HF.stDk; c.fillRect(1, 11.8, 8, 0.8);
+  // the open window bays
+  c.fillStyle = HF.dark; for (const x of [2.2, 5.4]) { c.fillRect(x, 9, 1.1, 2); c.beginPath(); c.arc(x + 0.55, 9, 0.55, Math.PI, 0); c.fill(); }
+  // the west gable: tall, pointed, an empty lancet, a broken cote
+  c.fillStyle = HF.st; poly(c, [[8.4, 12.6], [8.4, 5.2], [10.6, 2.4], [12.8, 5.2], [12.8, 12.6]]); c.fill();
+  c.fillStyle = HF.stDk; poly(c, [[10.6, 2.4], [12.8, 5.2], [12.8, 12.6], [11.4, 12.6], [11.4, 3.4]]); c.fill();
+  c.fillStyle = HF.stLt; c.fillRect(8.4, 5.2, 0.6, 7.4);
+  c.fillStyle = HF.st; c.fillRect(9.8, 0.4, 1.6, 2.4); c.fillStyle = HF.stDk; c.fillRect(10.8, 0.8, 0.6, 2);
+  c.fillStyle = HF.dark; c.fillRect(10.1, 1.2, 0.6, 1); c.beginPath(); c.moveTo(9.8, 8.4); c.lineTo(10.6, 6.6); c.lineTo(11.4, 8.4); c.lineTo(11.4, 10.8); c.lineTo(9.8, 10.8); c.fill();
+  c.fillStyle = HF.dark; c.fillRect(10, 11, 1.4, 1.6);
+  // what's left of the roof
+  c.fillStyle = HF.barkDk; c.fillRect(2.4, 6, 0.5, 2.4); c.fillRect(5.6, 6.6, 0.5, 1.8);
+  // ivy and weed
+  c.fillStyle = HF.moss; c.fillRect(1, 7.4, 0.8, 3); c.fillRect(8.4, 9, 0.8, 3.6); c.fillStyle = HF.mossDk; c.fillRect(3.8, 11.4, 2, 0.6);
+  if (v % 2) { c.fillStyle = HF.fire; c.fillRect(10.4, 9, 0.5, 0.6); c.fillRect(2.6, 9.8, 0.4, 0.5); }
+});
+// a drowned house: a cottage sunk to its sills, its thatch fallen in
+const drowned = (v) => spr(`hf-drown${v}`, 8, 7, (c) => {
+  const w = 5.4, x = 1.2;
+  c.fillStyle = "#8e8676"; c.fillRect(x, 3.2, w, 3);
+  c.fillStyle = "#6a6458"; c.fillRect(x + w * 0.64, 3.2, w * 0.36, 3);
+  c.fillStyle = HF.dark; c.fillRect(x + 1, 4.2, 0.9, 1.2); c.fillRect(x + 3.2, 4.2, 0.9, 1.2);
+  // the roof: whole thatch, or a broken one with bare rafters
+  if (v % 3 === 0) {
+    c.fillStyle = HF.thatch; poly(c, [[x - 0.4, 3.4], [x + w / 2, 0.6], [x + w + 0.4, 3.4]]); c.fill();
+    c.fillStyle = HF.thatchDk; poly(c, [[x + w / 2, 0.6], [x + w + 0.4, 3.4], [x + w / 2 + 0.6, 3.4]]); c.fill();
+    c.fillStyle = HF.dark; poly(c, [[x + 1.2, 3.2], [x + 2.2, 1.8], [x + 3.4, 2.6], [x + 2.6, 3.2]]); c.fill();
+  } else {
+    c.fillStyle = HF.thatch; poly(c, [[x - 0.4, 3.4], [x + 1.6, 1.4], [x + 2, 3.4]]); c.fill();
+    c.fillStyle = HF.barkDk;
+    for (let k = 0; k < 3; k++) { poly(c, [[x + 2.2 + k * 1.1, 3.4], [x + 2.4 + k * 1.1, 3.4], [x + w / 2 + 0.2, 0.8 + k * 0.3], [x + w / 2, 0.8 + k * 0.3]]); c.fill(); }
+    c.fillRect(x + 1.2, 1.2, w - 1.6, 0.4);
+  }
+  // the water it stands in
+  c.fillStyle = HF.water; c.fillRect(0, 5.6, 8, 1.3);
+  c.fillStyle = HF.waterLt; c.fillRect(0.6, 5.6, 1.8, 0.4); c.fillRect(5.4, 6.2, 1.6, 0.4);
+});
+// the bell tower of Bellmarsh, leaning in its mire, its bell still hung
+const bellTower = () => spr("hf-bell", 8, 15, (c) => {
+  c.save(); c.translate(4, 13.4); c.rotate(0.12);
+  c.fillStyle = HF.st; c.fillRect(-2, -11, 4, 11);
+  c.fillStyle = HF.stDk; c.fillRect(0.6, -11, 1.4, 11);
+  c.fillStyle = HF.dark; c.fillRect(-1.2, -9.6, 2.4, 2.6);
+  c.fillStyle = "#8a7a4a"; c.fillRect(-0.8, -8.8, 1.6, 1.6); c.fillStyle = "#5a8a78"; c.fillRect(-0.8, -7.6, 1.6, 0.4);
+  c.fillStyle = HF.thatchDk; poly(c, [[-2.6, -10.8], [0, -13], [2.6, -10.8]]); c.fill();
+  c.fillStyle = HF.moss; c.fillRect(-2, -3, 0.8, 3);
+  c.restore();
+  c.fillStyle = HF.water; c.fillRect(0, 13.4, 8, 1.4);
+  c.fillStyle = HF.waterLt; c.fillRect(0.4, 13.6, 1.8, 0.4); c.fillRect(5.8, 14.2, 1.6, 0.4);
+});
+// the lychgate: a roofed gate into a drowned churchyard
+const lychgate = () => spr("hf-lych", 9, 7, (c) => {
+  c.fillStyle = HF.barkDk; c.fillRect(1.4, 3, 0.7, 3.8); c.fillRect(6.9, 3, 0.7, 3.8);
+  c.fillStyle = HF.bark; c.fillRect(1.4, 3, 0.4, 3.8); c.fillRect(6.9, 3, 0.4, 3.8);
+  c.fillStyle = HF.thatch; poly(c, [[0.2, 3.4], [2, 0.6], [7, 0.6], [8.8, 3.4]]); c.fill();
+  c.fillStyle = HF.thatchDk; c.fillRect(0.2, 2.8, 8.6, 0.6); c.fillStyle = HF.moss; c.fillRect(2.4, 0.6, 3, 0.5);
+  c.fillStyle = HF.fire; c.fillRect(4.2, 3.4, 0.6, 0.8);
+});
+// will-o'-the-wisps: a teal light and its glow
+const wisp = (v) => spr(`hf-wisp${v}`, 3, 3, (c) => {
+  c.fillStyle = HF.fireDk; c.fillRect(0.5, 1, 2, 1); c.fillRect(1, 0.5, 1, 2);
+  c.fillStyle = v % 2 ? HF.fire : HF.fireLt; c.fillRect(1, 1, 1, 1);
+}, 0);
+// crows over the dead places
+const crows = (v) => spr(`hf-crows${v}`, 7, 4, (c) => {
+  c.fillStyle = "#1a161c";
+  for (const [x, y] of [[0.6, 1.4], [3.2, 0.4], [4.8, 2.4]].slice(0, 2 + (v % 2))) { c.fillRect(x, y, 1.4, 0.5); c.fillRect(x + 0.4, y + 0.4, 0.6, 0.5); }
+}, 0);
+// the moon's reflection on the Stillmere
+const moonGlint = () => spr("hf-moon", 10, 5, (c) => {
+  c.fillStyle = "#6a7e88"; c.fillRect(2.6, 0.6, 4.8, 0.6); c.fillRect(1.4, 2.4, 7.2, 0.6); c.fillRect(3, 4, 4, 0.6);
+  c.fillStyle = "#dce8e8"; c.fillRect(3.6, 1.2, 2.8, 1.2); c.fillRect(4.2, 3, 1.6, 0.8);
+}, 0);
+// a ferryman's punt on the black water
+const punt = () => spr("hf-punt", 9, 6, (c) => {
+  c.fillStyle = HF.barkDk; poly(c, [[0.6, 4], [8.4, 4], [7.4, 5.4], [1.4, 5.4]]); c.fill();
+  c.fillStyle = HF.bark; c.fillRect(0.8, 4, 7.4, 0.5);
+  c.fillStyle = "#2a2434"; c.fillRect(4, 1.4, 1.4, 2.6); c.fillStyle = "#e0d8c4"; c.fillRect(4.2, 0.6, 1, 0.9);
+  c.fillStyle = HF.bark; poly(c, [[6.4, 0], [6.8, 0], [3, 5.6], [2.6, 5.6]]); c.fill();
+  c.fillStyle = HF.fire; c.fillRect(7.6, 2.2, 0.7, 0.7);
+});
+// the Throne of Dust: the drowned king's hall, broken open to the sky, the
+// throne still on its dais under a shattered arch, witch-fire in the ruin
+const throneRuin = () => spr("hf-throne", 30, 24, (c) => {
+  const st = "#6e6a70", dk = "#4a4652", lt = "#8c8890";
+  // the mound and the court
+  c.save(); c.beginPath(); c.rect(0, 12, 30, 11.9); c.clip();
+  ball(c, 15, 23.6, 14.6, 6.6, "#3e4436", { hi: 0.4, lo: 0.5, fx: -0.5, fy: -0.7 }); c.restore();
+  c.fillStyle = "#56525a"; c.fillRect(5, 13, 20, 7);
+  c.fillStyle = "#48444e"; for (let k = 0; k < 5; k++) c.fillRect(6 + k * 4, 14 + (k % 2), 2.6, 0.4);
+  // the back wall with its broken arch
+  c.fillStyle = st; poly(c, [[4, 14], [4, 6], [7, 5], [8.4, 7.4], [10, 3.4], [15, 1.4], [20, 3.4], [21.6, 7], [23, 5.4], [26, 6.4], [26, 14]]); c.fill();
+  c.fillStyle = dk; c.fillRect(20, 4, 6, 10);
+  c.fillStyle = "#26222c"; c.beginPath(); c.moveTo(11.4, 14); c.lineTo(11.4, 8); c.arc(15, 8, 3.6, Math.PI, 0); c.lineTo(18.6, 14); c.fill();
+  c.fillStyle = lt; c.fillRect(4, 6, 1, 8); c.fillRect(10, 3.4, 0.8, 4);
+  // the throne on its dais
+  c.fillStyle = "#5e5a62"; c.fillRect(12, 12.4, 6, 1.6);
+  c.fillStyle = "#8a7a4a"; c.fillRect(13.6, 8.4, 2.8, 4); c.fillStyle = "#5a8a78"; c.fillRect(13.6, 8.4, 2.8, 0.7); c.fillRect(13.2, 10.4, 3.6, 0.8);
+  c.fillStyle = "#e0d8c4"; c.fillRect(14.4, 7.4, 1.2, 1);
+  // broken towers at the corners
+  for (const [x, top, w] of [[0.6, 3, 4.2], [25.2, 4.6, 4.2]]) {
+    c.fillStyle = st; poly(c, [[x, 20], [x, top + 1], [x + w * 0.3, top], [x + w * 0.55, top + 1.8], [x + w, top + 0.6], [x + w, 20]]); c.fill();
+    c.fillStyle = dk; c.fillRect(x + w * 0.62, top + 1, w * 0.38, 20 - top - 1);
+    c.fillStyle = "#26222c"; c.fillRect(x + w * 0.35, top + 4, 1, 1.6);
+    c.fillStyle = HF.fire; c.fillRect(x + w * 0.35 + 0.2, top + 4.4, 0.6, 0.8);
+  }
+  // the front wall, fallen in the middle
+  c.fillStyle = st; poly(c, [[4.8, 20.4], [4.8, 16.6], [8, 16], [10.4, 17.6], [10.4, 20.4]]); c.fill();
+  c.fillStyle = st; poly(c, [[19.6, 20.4], [19.6, 17.2], [22.4, 16.2], [25.2, 16.8], [25.2, 20.4]]); c.fill();
+  c.fillStyle = dk; c.fillRect(4.8, 19.6, 5.6, 0.8); c.fillRect(19.6, 19.6, 5.6, 0.8); c.fillRect(23, 16.6, 2.2, 3.8);
+  c.fillStyle = "#6a666e"; for (const [x, y] of [[11.4, 20], [13.6, 20.6], [16.6, 20.2], [18.2, 20.8]]) c.fillRect(x, y, 1.4, 0.8);
+  // witch-fire braziers either side of the throne, and weed on the stones
+  for (const x of [11, 18.2]) { c.fillStyle = "#2e3038"; c.fillRect(x, 12, 0.8, 2); c.fillStyle = HF.fire; c.fillRect(x - 0.2, 10.8, 1.2, 1.2); c.fillStyle = HF.fireLt; c.fillRect(x + 0.1, 10.4, 0.6, 0.8); }
+  c.fillStyle = HF.moss; c.fillRect(4, 12, 0.8, 2); c.fillRect(26, 10, 0.8, 3); c.fillRect(7, 19, 2, 0.6);
+});
+// a wreck on the strand
+const wreck = () => spr("hf-wreck", 14, 7, (c) => {
+  c.fillStyle = HF.barkDk; poly(c, [[0.6, 5.6], [2, 3.4], [11, 2.6], [13.4, 4.6], [12, 6.4], [2, 6.6]]); c.fill();
+  c.fillStyle = HF.bark; c.fillRect(2.2, 3.2, 8.6, 0.6);
+  c.fillStyle = HF.barkDk; for (const x of [3.6, 5.6, 7.6, 9.6]) c.fillRect(x, 0.8 + (x % 2), 0.6, 3);
+  c.fillStyle = "#6a5a44"; poly(c, [[10.6, 3], [11.2, 0], [11.6, 0.2], [11.2, 3]]); c.fill();
+  c.fillStyle = HF.water; c.fillRect(0, 6, 14, 1); c.fillStyle = "#e4eee0"; c.fillRect(1, 6, 2, 0.5); c.fillRect(9.6, 6.2, 2.4, 0.5);
+});
+
 // ---- the dressing ------------------------------------------------------
 // Everything that stands on the land, gathered as [sprite, x, y, anchorX,
 // anchorY, shadowRx] and drawn back to front.
@@ -1063,16 +1266,11 @@ function* dressing(base) {
   piece(crownCastle(), ...SET.castle, 14, 9, true);
   piece(windmill(), 207, 275, 6, 3);
   piece(windmill(), 116, 232, 6, 3);
-  piece(ruin(), ...SET.ruin, 12, 8, true);
   // the vale's villages: by the castle, on the western farms, in the middle
   // country and up under the northern hills
   for (const [x, y, v] of [[163, 275, 0], [177, 269, 1], [156, 289, 2], [99, 265, 3], [109, 255, 1], [190, 255, 2],
     [124, 140, 0], [132, 134, 2], [116, 132, 1], [226, 36, 3], [236, 44, 0], [40, 222, 1], [48, 228, 3], [232, 220, 1], [240, 228, 0]]) piece(cottage(v), x, y, 4, 2.2);
   for (const [x, y, v] of [[143, 85, 0], [211, 78, 1], [153, 129, 2], [204, 133, 3], [96, 80, 1], [236, 104, 0]]) piece(barrow(v), x, y, 6, 3.5);
-  for (const [x, y, v] of [[420, -94, 0], [435, -82, 1], [420, -70, 0], [449, -94, 1], [449, -70, 0],
-    [440, -30, 1], [470, -24, 0]]) piece(menhir(v), x, y, 2, 1.4);
-  for (const [x, y, v] of [[582, -142, 0], [508, -194, 1], [601, -198, 2], [503, -134, 0], [562, -110, 1],
-    [450, -150, 1], [620, -80, 2], [700, -100, 0], [470, -120, 2], [560, -180, 0]]) piece(cairn(v), x, y, 3, 2);
 
   // mountains: the wall across the isthmus, the Marches' high ranges
   const range = (cx, cy, rx, ry, z, pal, seed, big = 1) => {
@@ -1111,18 +1309,6 @@ function* dressing(base) {
   hills(170, 136, 68, 37, 0, HILLG, 5);
   hills(80, 230, 40, 34, 0, HILLG, 23);
   hills(230, 240, 40, 30, 0, HILLG, 24);
-  // crags on the moor: small bare peaks
-  const crags = (cx, cy, rx, ry, z, seed, per = 60) => {
-    const n = Math.round((rx * ry) / per) + 10;
-    for (let k = 0; k < n; k++) {
-      const x = cx + (hash(seed, k * 2) - 0.5) * 2 * rx, y = cy + (hash(seed, k * 2 + 1) - 0.5) * 2 * ry;
-      const w = 7 + Math.round(hash(seed, k) * 4), h = Math.round(w * 0.7);
-      if (!onZone(x, y, z, 3) || !free(x, y - 2, w * 0.7) || busy(x, y - 2, w * 0.45)) continue;
-      add(mountain(w, h, seed * 50 + k, CRAG), x, y, w * 0.35, w / 2, h - 0.4);
-      taken.push([x, y - 2, w * 0.7]);
-    }
-  };
-  crags(533, -110, 172, 80, 2, 17, 200);
 
   // the woods
   const oaks = (k) => (hash(k, 9) < 0.72 ? oak(Math.floor(hash(k, 8) * 4)) : pine(Math.floor(hash(k, 8) * 3)));
@@ -1162,12 +1348,7 @@ function* dressing(base) {
   }
   for (const [x, y] of [[190, 286], [105, 292], [224, 299], [180, 303], [130, 262], [90, 240]]) if (onZone(x, y, 0) && free(x, y, 3) && !busy(x, y, 0.5)) { add(hay(), x, y, 1.4); taken.push([x, y, 3]); }
   yield;
-  const deads = (k) => deadTree(Math.floor(hash(k, 8) * 4));
-  clump(376, -162, 54, 44, 2, 5.5, deads, 13, 1.2);
-  clump(606, -110, 74, 48, 2, 9, deads, 14, 1.2);
-  clump(470, -170, 40, 30, 2, 7, deads, 30, 1.2);
-  clump(508, -46, 147, 28, 2, 7, (k) => reeds(Math.floor(hash(k, 8) * 2)), 15, 0, 1);
-  clump(533, -150, 147, 60, 2, 8, (k) => reeds(Math.floor(hash(k, 8) * 2)), 16, 0, 1);
+  yield* fenDressing(base, { add, taken, free, onZone, piece });
   yield;
 
   // ---- the Iron Marches ----
@@ -1340,21 +1521,50 @@ function marchFields(base) {
   });
 }
 
-// the fen's black pools, sunk into the purple
+// the fen's black pools: a sodden green margin, a dark peat bank on the far
+// (north) side, black water, and the moon's glint in broken streaks
+const fenPoolAt = (ax, ay) => fbm(ax, ay, 26, 91);
 function fenPools(ctx, base) {
   const img = ctx.getImageData(0, 0, AW, AH), d = img.data;
-  const deep = rgb("#2a2440"), rim = rgb("#8e82ac"), mid = rgb("#3a3256");
+  const deep = rgb("#12161a"), mid = rgb("#1c2428"), bank = rgb("#1e1a20"), wet = rgb("#4e5c3a"), wetDk = rgb("#3e4a34"), glint = rgb("#7e969e");
   for (let y = 1; y < AH - 1; y++) for (let x = 1; x < AW - 1; x++) {
     const i = y * AW + x;
     if (!base.land[i] || base.zone[i] !== 2) continue;
-    const v = fbm(x, y, 26, 91);
-    if (v < 0.6) continue;
+    const v = fenPoolAt(x, y);
+    if (v < 0.56) continue;
     // keep the pools off the causeway and the waypoints
     const ux = x / U + MAP.x, uy = y / U + MAP.y;
     if (busy(ux, uy, 1)) continue;
-    const above = fbm(x, y - 1, 26, 91) >= 0.6;
-    const c = !above ? rim : v > 0.66 ? deep : mid;
+    let c;
+    if (v < 0.6) c = bayer(x, y) < (v - 0.56) * 25 ? wet : wetDk;
+    else if (fenPoolAt(x, y - 2) < 0.6) c = bank;
+    else if (v > 0.64 && (y % 9) === 4 && vnoise(x, y, 7, 92) > 0.62) c = glint;
+    else c = v > 0.65 ? deep : mid;
     d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2];
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// Low mist lying over the fen: bands of pale pixels dithered into the ground,
+// thickest along their middles, kept off the road and the names.
+const MISTS = [[420, -120, 44, 5], [540, -80, 60, 6], [600, -150, 40, 5], [480, -196, 36, 4], [680, -110, 30, 5],
+  [400, -30, 34, 4], [560, -10, 40, 4], [640, -60, 36, 4], [510, -170, 30, 4]];
+function fenMist(ctx, base) {
+  const img = ctx.getImageData(0, 0, AW, AH), d = img.data, pale = rgb("#9ea4b0");
+  for (const [mx, my, rx, ry] of MISTS) {
+    for (let y = artY(my - ry * 2); y < artY(my + ry * 2); y++) for (let x = artX(mx - rx * 1.3); x < artX(mx + rx * 1.3); x++) {
+      if (x < 0 || y < 0 || x >= AW || y >= AH) continue;
+      const i = y * AW + x;
+      if (!base.land[i] || base.zone[i] !== 2) continue;
+      const ux = x / U + MAP.x, uy = y / U + MAP.y;
+      // a wavering band
+      const cy = my + Math.sin((ux - mx) / 9 + mx) * ry * 0.5;
+      const e = ((ux - mx) / rx) ** 2 + ((uy - cy) / ry) ** 2 + (vnoise(x, y, 12, 93) - 0.5) * 0.8;
+      if (e > 1 || busy(ux, uy, 0.5)) continue;
+      const k = (1 - e) * 0.55;
+      if (bayer(x, y) > k) continue;
+      d[i * 4] = (d[i * 4] + pale[0] * 2) / 3; d[i * 4 + 1] = (d[i * 4 + 1] + pale[1] * 2) / 3; d[i * 4 + 2] = (d[i * 4 + 2] + pale[2] * 2) / 3;
+    }
   }
   ctx.putImageData(img, 0, 0);
 }
@@ -1396,8 +1606,8 @@ function* paintTerrain() {
 
   yield;
   // rivers and lakes: an inked bank, a pale shallows rim, deep water, and a
-  // glint of current down the wider reaches. Fen water is black and purple.
-  const PAL = { shal: "#5f9cb6", deep: "#3f7898", glint: "#8cc0d2" }, FEN = { shal: "#4c4274", deep: "#262036", glint: "#9a8ec0" };
+  // glint of current down the wider reaches. Fen water is black, moonlit.
+  const PAL = { shal: "#5f9cb6", deep: "#3f7898", glint: "#8cc0d2" }, FEN = { shal: "#34423c", deep: "#141a1e", glint: "#9ab4bc" };
   const water = layer((c) => {
     for (const rv of RIVERS) { c.fillStyle = (rv.fen ? FEN : PAL).shal; riverPath(c, rv); c.fill(); }
     for (const m of MERES) { c.fillStyle = (m.fen ? FEN : PAL).shal; lakePath(c, m); c.fill(); }
@@ -1416,8 +1626,7 @@ function* paintTerrain() {
       }
     }
     for (const m of MERES) {
-      if (m.fen) continue;
-      c.strokeStyle = PAL.glint; c.lineWidth = 0.5;
+      c.strokeStyle = (m.fen ? FEN : PAL).glint; c.lineWidth = 0.5;
       for (let k = 0; k < 2; k++) {
         const y = m.y - m.ry * 0.3 + k * m.ry * 0.45, x = m.x - m.rx * 0.35 + k * m.rx * 0.2;
         c.beginPath(); c.moveTo(x - m.rx * 0.22, y); c.lineTo(x + m.rx * 0.22, y); c.stroke();
@@ -1456,6 +1665,8 @@ function* paintTerrain() {
     if (bridges.every(([bx, by]) => Math.hypot(x - bx, y - by) > 8)) bridges.push([x, y]);
   }
   for (const [x, y] of bridges) stamp(ctx, bridge(), x, y, 3.5, 2.5);
+  yield;
+  fenMist(ctx, base);
 
   yield;
   // contact shadows, then the dressing back to front

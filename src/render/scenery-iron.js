@@ -350,10 +350,10 @@ const wallRun = (c, x0, y0, x1, y1, s, seed, hgt = 8) => {
     }
   });
   // copes: slabs on edge along the top, tall and short in turn ("cock and hen"), lit on the left
-  const m = Math.round(len / (1.7 * s));
+  const m = Math.round(len / (1.9 * s));
   for (let i = 0; i < m; i++) {
     const [sx, sy] = at((i + 0.5) / m, hgt * s);
-    const hh = (i % 2 ? 2 : 3.4) * s + H(i + 300) * 0.8;
+    const hh = (i % 2 ? 1.3 : 2.3) * s + H(i + 300) * 0.5;
     c.fillStyle = darken(GRIT, 0.22); c.fillRect(ap(sx - 0.5), ap(sy - hh), 1.5, hh + 0.5);
     c.fillStyle = lighten(GRIT, 0.25); c.fillRect(ap(sx - 0.5), ap(sy - hh), 0.5, hh);
     c.fillStyle = lighten(GRIT, 0.4); c.fillRect(ap(sx - 0.5), ap(sy - hh), 1.5, 0.5);
@@ -645,24 +645,29 @@ const warTent = (ctx, x, y, s, o) => {
       });
     }
   } else {
-    // a ridge tent for the rank and file: A-frame, oxblood roof, grey ends
-    const L = 13 * s, hh = 13 * s;
+    // a ridge tent for the rank and file: the long roof slope facing us under
+    // a short ridge, grey gable ends slanting away at either side
+    const L = 13 * s, hh = 12 * s, rl = L - 5 * s;
     part(ctx, (c) => {
-      // the far gable (grey) peeking, then the long roof slope facing us
-      c.beginPath(); c.moveTo(x - L, gy - hh); c.lineTo(x + L, gy - hh); c.lineTo(x + L + 4 * s, gy); c.lineTo(x - L + 4 * s, gy); c.closePath();
-      c.fillStyle = lin(c, 0, gy - hh, 0, gy, [[0, lighten(OX, 0.2)], [0.5, OX], [1, OX_DK]]); c.fill();
-      c.fillStyle = rgba("#2a1c2c", 0.3);
-      for (let k = 1; k < 4; k++) c.fillRect(ap(x - L + k * L * 0.5 + 2 * s), gy - hh + 1, 0.5, hh - 1);
-      c.fillStyle = OX_LT; c.fillRect(x - L, gy - hh, L * 2, 1);
+      // the far gable end (left), in shade
+      c.beginPath(); c.moveTo(x - rl, gy - hh); c.lineTo(x - L - 1 * s, gy); c.lineTo(x - L + 5 * s, gy - 1); c.closePath();
+      c.fillStyle = darken(STEEL, 0.35); c.fill();
+      // the roof slope
+      c.beginPath(); c.moveTo(x - rl, gy - hh); c.lineTo(x + rl, gy - hh); c.lineTo(x + L + 1 * s, gy); c.lineTo(x - L - 1 * s, gy); c.closePath();
+      c.fillStyle = lin(c, 0, gy - hh, 0, gy, [[0, lighten(OX, 0.25)], [0.5, OX], [1, OX_DK]]); c.fill();
+      c.fillStyle = rgba("#2a1c2c", 0.28);
+      for (let k = -1; k <= 1; k++) { c.beginPath(); c.moveTo(x + k * rl * 0.5 - 0.3, gy - hh); c.lineTo(x + k * L * 0.55 - 0.4, gy); c.lineTo(x + k * L * 0.55 + 0.4, gy); c.lineTo(x + k * rl * 0.5 + 0.3, gy - hh); c.fill(); }
+      c.fillStyle = OX_LT; c.fillRect(x - rl, gy - hh, rl * 2, 1);
+      c.fillStyle = STEEL; c.fillRect(x - L - 0.5 * s, gy - 1.5, L * 2 + 1 * s, 1.5);
     });
     part(ctx, (c) => {
-      // the near gable end with its open door
-      c.beginPath(); c.moveTo(x + L, gy - hh); c.lineTo(x + L + 4 * s, gy); c.lineTo(x + L - 4 * s, gy); c.closePath();
+      // the near gable end (right) with its open door
+      c.beginPath(); c.moveTo(x + rl, gy - hh); c.lineTo(x + L + 1 * s, gy); c.lineTo(x + L + 6 * s, gy - 1); c.closePath();
       c.fillStyle = darken(STEEL, 0.1); c.fill();
-      c.beginPath(); c.moveTo(x + L, gy - hh + 4 * s); c.lineTo(x + L + 2 * s, gy); c.lineTo(x + L - 2 * s, gy); c.closePath();
+      c.beginPath(); c.moveTo(x + rl + 2 * s, gy - hh * 0.55); c.lineTo(x + L + 1.5 * s, gy); c.lineTo(x + L + 4.5 * s, gy - 0.5); c.closePath();
       c.fillStyle = "#1e1618"; c.fill();
-      cylinder(c, x + L - 0.6, gy - hh - 3 * s, 1.2, 3 * s, WOOD_DK, { r: 0.4 });
-      cylinder(c, x - L - 0.6, gy - hh - 3 * s, 1.2, 3 * s, WOOD_DK, { r: 0.4 });
+      cylinder(c, x + rl - 0.6, gy - hh - 3 * s, 1.2, 3 * s, WOOD_DK, { r: 0.4 });
+      cylinder(c, x - rl - 0.6, gy - hh - 3 * s, 1.2, 3 * s, WOOD_DK, { r: 0.4 });
     });
     if (v === 3) {
       // a cold campfire: a ring of stones, charred ends

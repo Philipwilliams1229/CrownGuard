@@ -444,9 +444,9 @@ const HOLLOW_GROUND = {
   // the spawn edge is a drowned wood: pale dead trees, fen willows, reedbeds
   wood: { types: [["fendead", 5], ["fenwillow", 2.6], ["reedbed", 1.4], ["fensnag", 1]], hem: false },
   // sodden black-green turf, a touch of teal in it so the halls still stand clear
-  GRASS: "#404a3b",
-  GRASS_DK: "#343d32",
-  GRASS_LT: "#4f5a47",
+  GRASS: "#414c3c",
+  GRASS_DK: "#323b30",
+  GRASS_LT: "#56634a",
   TUFT: "#2c332a",
   // bone-dust road: pale enough to read at night
   PATH_MAIN: "#948b76",
@@ -481,7 +481,7 @@ Object.assign(REALMS, {
     [[0.9, 2], [4, 2], [4, 5], [8, 5], [8, 2], [12, 2], [12, 7], [6, 7], [6, 9], [13.7, 9]],
     {
       rivers: [{ pts: [[9.5, -0.5], [9.6, 3.5], [10.4, 6.2], [10.4, 10.5]], w: 30 }],
-      decorRecipe: { count: 18, types: ["fengrave", "fengrave", "fendead", "fenwillow", "fencandle", "fenbones", "reedbed", "fenshrine", "lichfence", "bogpool"] },
+      decorRecipe: { count: 20, types: ["fengrave", "fendead", "fenwillow", "fendead", "fencandle", "fenbones", "reedbed", "fenshrine", "lichfence", "bogpool", "fenwillow"] },
     },
   ),
   sunkencauseway: hollowVariant(
@@ -496,7 +496,7 @@ Object.assign(REALMS, {
         { x: 600, y: 430, w: 120, h: 56, t: "swamp" },
       ],
       rivers: [{ pts: [[-0.5, 9.15], [7, 9.0], [15.5, 9.15]], w: 22 }],
-      decorRecipe: { count: 16, types: ["reedbed", "bogpool", "fenstatue", "fendead", "fenwillow", "fencandle", "fengrave", "reedbed"] },
+      decorRecipe: { count: 18, types: ["reedbed", "bogpool", "fenstatue", "fendead", "fenwillow", "fencandle", "fengrave", "reedbed", "fendead"] },
     },
   ),
   bellmarsh: hollowVariant(
@@ -507,7 +507,7 @@ Object.assign(REALMS, {
     {
       rivers: [{ pts: [[5.9, -0.5], [5.7, 4], [5.9, 10.5]], w: 26 }],
       ponds: [{ x: 250, y: 390, w: 96, h: 54, t: "swamp" }],
-      decorRecipe: { count: 18, types: ["bellstone", "fengrave", "fencairn", "bellstone", "fendead", "reedbed", "fencandle", "bogpool"] },
+      decorRecipe: { count: 22, types: ["bellstone", "fengrave", "fenwillow", "bellstone", "fendead", "reedbed", "fencandle", "bogpool", "fendead", "bellstone"] },
     },
   ),
   wightwood: hollowVariant(
@@ -520,7 +520,7 @@ Object.assign(REALMS, {
         { x: 560, y: 90, w: 74, h: 42, t: "swamp" },
         { x: 320, y: 350, w: 56, h: 32, t: "swamp" },
       ],
-      decorRecipe: { count: 22, types: ["fendead", "fendead", "fendead", "fengrave", "fencairn", "reedbed", "fencandle", "fensnag"] },
+      decorRecipe: { count: 26, types: ["fendead", "fendead", "fendead", "fengrave", "fendead", "reedbed", "fencandle", "fensnag", "fencairn", "fendead"] },
     },
   ),
   cairnfields: hollowVariant(
@@ -530,7 +530,7 @@ Object.assign(REALMS, {
     [[0.9, 1], [4, 1], [4, 7], [8, 7], [8, 3], [12, 3], [12, 9], [13.7, 9]],
     {
       rivers: [{ pts: [[-0.5, 5.4], [5, 5.6], [10, 5.3], [15.5, 5.5]], w: 28 }],
-      decorRecipe: { count: 20, types: ["fencairn", "fencairn", "fengrave", "fenbones", "fendead", "bellstone", "fencandle"] },
+      decorRecipe: { count: 22, types: ["fencairn", "fencairn", "fengrave", "fenbones", "fendead", "bellstone", "fencandle", "fenwillow", "fendead"] },
     },
   ),
   thronedust: hollowVariant(
@@ -541,7 +541,7 @@ Object.assign(REALMS, {
     {
       rivers: [{ pts: [[-0.5, 6.2], [2.4, 6.8], [3.2, 8.9], [6.5, 9.5], [15.5, 9.3]], w: 26 }],
       ponds: [{ x: 660, y: 130, w: 70, h: 44, t: "swamp" }],
-      decorRecipe: { count: 18, types: ["fenstatue", "fengrave", "bellstone", "fenshrine", "fenbones", "fendead", "fencandle", "lichfence"] },
+      decorRecipe: { count: 20, types: ["fenstatue", "fengrave", "bellstone", "fenshrine", "fenbones", "fendead", "fencandle", "lichfence", "fenwillow"] },
     },
   ),
 });

@@ -39,7 +39,7 @@ export default function moreHollowRealms(hollowVariant) {
         ponds: [{ x: 300, y: 200, w: 84, h: 44, t: "swamp" }],
         // a salt wind off the strait: greyer and a little brighter than inland
         light: { tint: "184,198,218", amount: 0.17, vignette: 0.44 },
-        decorRecipe: { count: 16, types: ["fenbones", "fendead", "fengrave", "reedbed", "fencairn", "fenstatue", "bogpool", "fencandle"] },
+        decorRecipe: { count: 20, types: ["fenbones", "fendead", "fengrave", "reedbed", "fenwillow", "fenstatue", "bogpool", "fencandle", "fendead"] },
       },
     ),
 
@@ -75,7 +75,7 @@ export default function moreHollowRealms(hollowVariant) {
           { pts: [[4.9, -0.5], [5.2, 2.9], [4.6, 6.3], [5.0, 10.5]], w: 26 },
           { pts: [[9.5, -0.5], [9.2, 3.1], [9.8, 6.2], [9.4, 10.5]], w: 24 },
         ],
-        decorRecipe: { count: 18, types: ["fenwillow", "fengrave", "reedbed", "fendead", "fenbones", "fenshrine", "lichfence", "fencandle"] },
+        decorRecipe: { count: 22, types: ["fenwillow", "fengrave", "reedbed", "fendead", "fenbones", "fenshrine", "lichfence", "fencandle", "fenwillow", "fendead"] },
       },
     ),
 
