@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  Dev tool: every Iron Marches scenery piece (src/render/scenery-iron.js), in
+  each of its four looks, standing on the realm's own baked ground, drawn by
+  the real drawTree. Saves .shots/irs-lab_<tag>.png (scale = nearest-neighbour
+  enlargement; the base is 2 art px per world unit).
+    /irs-lab.html?realm=kingsroad&tag=v1&scale=2&types=irtent,irwagon&time=3
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — Iron scenery lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { groundLayer } from "/src/render/world.js";
+      import { drawTree } from "/src/render/scenery.js";
+      import { hash } from "/src/render/paint.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 2, T = Number(q.get("time")) || 3.2;
+      selectRealm(q.get("realm") || "kingsroad");
+      const TYPES = (q.get("types") || "irpine,irspruce,ircrag,irheather,irwall,irgibbet,irmile,irbeacon,irwagon,irpikes,irtent,irbanner,irtower,irruin,irgate").split(",");
+      const CW = 78, RH = 84, cols = 4;
+      const Wd = CW * cols + 20, Hd = RH * TYPES.length + 10;
+      const cv = document.createElement("canvas");
+      cv.width = Wd * 2 * SC; cv.height = Hd * 2 * SC;
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.scale(2 * SC, 2 * SC);
+      // a quiet patch of the realm's turf for the backdrop, tiled
+      const gl = groundLayer();
+      for (let y = 0; y < Hd; y += 160) for (let x = 0; x < Wd; x += 300) ctx.drawImage(gl, 380 * 2, 20 * 2, 300 * 2, 160 * 2, x, y, 300, 160);
+      // find a spot whose hash gives look v (drawTree picks the look by position)
+      const spot = (x0, y0, v) => { for (let dx = 0; dx < 60; dx++) { const x = x0 + dx * 0.37; if (Math.floor(hash(Math.round(x), Math.round(y0)) * 4) === v) return x; } return x0; };
+      ctx.fillStyle = "#e8e0c8"; ctx.font = "5px monospace";
+      TYPES.forEach((t, r) => {
+        ctx.fillText(t, 3, r * RH + 8);
+        for (let v = 0; v < cols; v++) {
+          const y = r * RH + 60, x = spot(24 + v * CW + 20, y, v);
+          drawTree(ctx, { x, y, t, s: 1 }, T);
+        }
+      });
+      const b64 = cv.toDataURL("image/png").slice(22);
+      await fetch("/__shot?name=" + encodeURIComponent("irs-lab_" + TAG), { method: "POST", body: b64 });
+      document.getElementById("status").textContent = "saved irs-lab_" + TAG;
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

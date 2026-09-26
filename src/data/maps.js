@@ -375,7 +375,7 @@ Object.assign(REALMS, {
     "A ruined border fort on bare rock. Three long lanes, no cover, and crossbows that shoot back at your knights.",
     20260722,
     [[0.9, 2], [3, 2], [3, 7], [7, 7], [7, 2], [11, 2], [11, 7], [13.7, 7]],
-    { decorRecipe: { count: 13, types: ["irtower", "ircrag", "ircrag", "irtower", "irwall"] } },
+    { decorRecipe: { count: 13, types: ["irruin", "ircrag", "ircrag", "irtower", "irwall", "irruin", "ircrag"] } },
   ),
   muster: ironVariant(
     "muster", "The Muster",

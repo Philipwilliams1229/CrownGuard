@@ -629,33 +629,39 @@ const fenStatue = (ctx, x, y, s, o) => {
   ctx.fillStyle = rgba(BOGW_LT, 0.9); px1(ctx, x - 10 * s, gy - 1.5, 5, 0.5); px1(ctx, x + 6 * s, gy + 2, 3, 0.5);
   if (v % 2 === 0) {
     ctx.save(); ctx.translate(x, gy); ctx.rotate(((hash(seed, 1) - 0.5) * 0.2) + (v === 2 ? -0.14 : 0.1));
-    // the torso rising out of the water, cloak falling off the shoulders
+    // the torso rising out of the water, a cloak over the shoulders
     part(ctx, (c) => {
-      poly(c, [[-8 * s, 0], [-8.6 * s, -9 * s], [-6 * s, -13 * s], [6 * s, -13 * s], [8.6 * s, -9 * s], [8 * s, 0]]);
-      litFill(c, -8.6 * s, 8.6 * s, col);
+      poly(c, [[-8.4 * s, 0], [-9 * s, -8 * s], [-7.6 * s, -12 * s], [-3 * s, -13.6 * s], [3 * s, -13.6 * s], [7.6 * s, -12 * s], [9 * s, -8 * s], [8.4 * s, 0]]);
+      litFill(c, -9 * s, 9 * s, col);
       c.fillStyle = darken(col, 0.35);
-      for (const fx of [-5, -2, 3, 6]) px1(c, fx * s, -8 * s, 0.5, 8 * s);
-      // the arms folded on the hilt
-      c.fillStyle = lighten(col, 0.15);
-      roundRect(c, -5.5 * s, -8.5 * s, 11 * s, 2.6 * s, 1.2 * s); c.fill();
-      c.fillStyle = darken(col, 0.3); px1(c, -5 * s, -6 * s, 10 * s, 0.5);
+      for (const fx of [-6.5, -4.5, 5, 7]) px1(c, fx * s, -7 * s, 0.5, 7 * s);
+      c.fillStyle = lighten(col, 0.3); px1(c, -8 * s, -11.5 * s, 3 * s, 0.5);
     });
-    // the sword, point-down into the water
+    // the sword, point-down into the water, and the hands on its pommel
     part(ctx, (c) => {
-      poly(c, [[-0.9 * s, -9 * s], [0.9 * s, -9 * s], [0.9 * s, 0], [-0.9 * s, 0]]);
-      litFill(c, -1 * s, 1 * s, lighten(col, 0.1));
-      roundRect(c, -3.6 * s, -10.6 * s, 7.2 * s, 1.6 * s, 0.6); litFill(c, -3.6 * s, 3.6 * s, col);
-      roundRect(c, -0.8 * s, -14 * s, 1.6 * s, 3.6 * s, 0.6); litFill(c, -0.8 * s, 0.8 * s, col);
+      poly(c, [[-0.9 * s, -7 * s], [0.9 * s, -7 * s], [0.7 * s, 0], [-0.7 * s, 0]]);
+      litFill(c, -1 * s, 1 * s, lighten(col, 0.12));
+      roundRect(c, -3.8 * s, -8.2 * s, 7.6 * s, 1.5 * s, 0.6); litFill(c, -3.8 * s, 3.8 * s, col);
+    });
+    for (const sd of [-1, 1]) part(ctx, (c) => {
+      limb(c, sd * 6.8 * s, -11.5 * s, sd * 1.4 * s, -9.4 * s, 3 * s, 2.4 * s, col, sd * 0.8 * s);
+      ball(c, sd * 1.1 * s, -9.6 * s, 1.6 * s, 1.4 * s, lighten(col, 0.08), { hi: 0.4, lo: 0.4 });
     });
     // head, beard and crown
     part(ctx, (c) => {
-      ball(c, 0, -17.5 * s, 3.8 * s, 4.2 * s, col, { hi: 0.4, lo: 0.5 });
-      poly(c, [[-2.8 * s, -16 * s], [2.8 * s, -16 * s], [1.4 * s, -12 * s], [0, -11.2 * s], [-1.4 * s, -12 * s]]);
-      litFill(c, -2.8 * s, 2.8 * s, darken(col, 0.06));
-      c.fillStyle = darken(col, 0.5);
-      px1(c, -1.8 * s, -18 * s, 1, 0.5); px1(c, 0.8 * s, -18 * s, 1, 0.5);
-      px1(c, -0.25, -17.4 * s, 0.5, 1.5);
-      c.fillStyle = lighten(col, 0.35); px1(c, -3 * s, -19 * s, 0.5, 2);
+      ball(c, 0, -17.2 * s, 4 * s, 4.3 * s, col, { hi: 0.4, lo: 0.5 });
+      // the beard, square-cut over the chest
+      poly(c, [[-3 * s, -16 * s], [3 * s, -16 * s], [2.6 * s, -12.6 * s], [-2.6 * s, -12.6 * s]]);
+      litFill(c, -3 * s, 3 * s, darken(col, 0.04));
+      c.fillStyle = darken(col, 0.3);
+      for (const bx of [-1.6, 0, 1.6]) px1(c, bx * s, -15 * s, 0.5, 2 * s);
+      // brow, eyes, nose, a stern mouth
+      c.fillStyle = darken(col, 0.55);
+      px1(c, -2.6 * s, -18.6 * s, 2 * s, 0.5); px1(c, 0.8 * s, -18.6 * s, 2 * s, 0.5);
+      px1(c, -2 * s, -18 * s, 1, 1); px1(c, 1.2 * s, -18 * s, 1, 1);
+      px1(c, -0.4 * s, -16.9 * s, 1, 0.5);
+      c.fillStyle = darken(col, 0.3); px1(c, 0.2 * s, -18 * s, 0.5, 1.5);
+      c.fillStyle = lighten(col, 0.35); px1(c, -3.2 * s, -19 * s, 0.5, 2); px1(c, -0.4 * s, -18.2 * s, 0.5, 1);
     });
     part(ctx, (c) => {
       const cy = -21 * s;
@@ -666,7 +672,7 @@ const fenStatue = (ctx, x, y, s, o) => {
     });
     // verdigris tears and moss run down from the crown
     ctx.fillStyle = rgba(VERDI, 0.8);
-    px1(ctx, -2.6 * s, -18 * s, 0.5, 5 * s); px1(ctx, 2.8 * s, -17 * s, 0.5, 4 * s);
+    px1(ctx, -2.6 * s, -18 * s, 0.5, 5 * s); px1(ctx, 2.8 * s, -17 * s, 0.5, 4 * s); px1(ctx, 3.4 * s, -13 * s, 0.5, 5 * s);
     ctx.fillStyle = MOSS;
     for (let k = 0; k < 5; k++) px1(ctx, (-7 + k * 3.2) * s, -2 * s - hash(seed, k) * 4 * s, 1, 1 + hash(seed, k + 9) * 3);
     ctx.restore();
@@ -998,14 +1004,15 @@ Object.assign(HOLLOW_ART.dress, { fendead: [3, false], fenwillow: [5, false], fe
 // a standing puddle in the turf: a peat lip, black water with the sky in
 // it, sometimes a lily pad or a tuft of sedge at one end
 const puddle = (c, x, y, rx, ry, seed, lily = false) => {
-  c.fillStyle = rgba(PEAT, 0.75);
+  c.fillStyle = rgba(PEAT, 0.6);
   blobPath(c, x + 0.6, y + 0.6, rx + 1.4, ry + 1.1, seed, 0.2, 9); c.fill();
-  c.fillStyle = BOGW;
+  c.fillStyle = "#2c3c38";
   blobPath(c, x, y, rx, ry, seed + 1, 0.2, 9); c.fill();
   c.save(); blobPath(c, x, y, rx, ry, seed + 1, 0.2, 9); c.clip();
   c.fillStyle = rgba("#0a100e", 0.55); c.fillRect(x - rx - 1, y - ry - 1, rx * 2 + 2, 1.2);
-  c.fillStyle = rgba(BOGW_LT, 0.85); c.fillRect(ap(x - rx * 0.45), ap(y - ry * 0.05), ap(rx * 0.7), 0.5);
-  c.fillStyle = rgba("#a8c0b8", 0.55); c.fillRect(ap(x - rx * 0.2), ap(y + ry * 0.35), ap(rx * 0.3), 0.5);
+  c.fillStyle = "#4a625c"; c.fillRect(x - rx, ap(y - ry * 0.25), rx * 2, ap(ry * 0.7));
+  c.fillStyle = rgba("#a8c4bc", 0.8); c.fillRect(ap(x - rx * 0.45), ap(y - ry * 0.05), ap(rx * 0.6), 0.5);
+  c.fillStyle = rgba("#a8c0b8", 0.5); c.fillRect(ap(x - rx * 0.1), ap(y + ry * 0.4), ap(rx * 0.3), 0.5);
   c.restore();
   if (lily) lilyPad(c, x + rx * 0.35, y + ry * 0.1, Math.min(2.2, rx * 0.35), seed);
 };
@@ -1164,7 +1171,7 @@ function paintFenTurf(ctx, kit) {
 function paintFenRoad(ctx) {
   const R = REALM;
   const main = R.PATH_MAIN;
-  const slab = mix(main, "#a4a292", 0.55), gap = darken(main, 0.32);
+  const slab = mix(main, "#a09e90", 0.4), gap = darken(main, 0.3);
   const H0 = (i, k) => hash(i + 104729, k);
   const ok = (x, y, m = 4) => x > m && x < W - WALL_W - 16 && y > m && y < H - m && !inRiver(x, y, 10);
   // bone-dust: pale flecks over the whole causeway
@@ -1180,7 +1187,7 @@ function paintFenRoad(ctx) {
   // dust, the stones worn, tipped and gapped, moss in the joints
   let d = 30 + H0(1, 4) * 40, run = 0;
   while (d < TOTAL_LEN - 30) {
-    const len = 50 + H0(run, 5) * 90;
+    const len = 36 + H0(run, 5) * 70;
     const end = Math.min(TOTAL_LEN - 30, d + len);
     for (let dd = d, row = 0; dd < end; dd += 9.5, row++) {
       const [x, y] = posAt(dd), a = angleAt(dd);
@@ -1190,33 +1197,35 @@ function paintFenRoad(ctx) {
       const cols = 4;
       for (let k = 0; k < cols; k++) {
         const hh = H0(run * 97 + row * 7 + k, 6);
-        if (hh > Math.min(0.72, 0.25 + edge * 0.5)) continue;
+        if (hh > Math.min(0.55, 0.15 + edge * 0.4)) continue;
         const across = (-1.5 + k + (row % 2) * 0.5 - 0.25) * 11.5 + (H0(run + row, k + 7) - 0.5) * 2;
         if (Math.abs(across) > PATH_HALF - 6) continue;
         const cx = x - sa * across + (H0(row, k + 20) - 0.5) * 1.5, cy = y + ca * across;
         if (!ok(cx, cy, 6)) continue;
-        const w = 4.6 + H0(row, k + 30) * 1, h2 = 3.8 + H0(row, k + 40) * 0.8, rot = a + (H0(row, k + 50) - 0.5) * 0.25;
+        const w = 3.4 + H0(row, k + 30) * 2.4, h2 = 3 + H0(row, k + 40) * 1.6, rot = a + (H0(row, k + 50) - 0.5) * 0.35;
         ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
         // the joint, then the stone, lit on its upper-left lip
-        ctx.fillStyle = rgba(gap, 0.55); roundRect(ctx, -w - 0.8, -h2 - 0.8, w * 2 + 1.6, h2 * 2 + 1.6, 1.4); ctx.fill();
+        ctx.fillStyle = rgba(gap, 0.4); roundRect(ctx, -w - 0.8, -h2 - 0.8, w * 2 + 1.6, h2 * 2 + 1.6, 1.4); ctx.fill();
         ctx.fillStyle = slab; roundRect(ctx, -w, -h2, w * 2, h2 * 2, 1.2); ctx.fill();
         ctx.restore();
-        ctx.fillStyle = rgba(lighten(slab, 0.35), 0.8);
-        ctx.fillRect(ap(cx - 3), ap(cy - 3.6), 5, 0.5);
-        ctx.fillStyle = rgba(darken(slab, 0.3), 0.7);
-        ctx.fillRect(ap(cx - 3), ap(cy + 3.4), 6, 0.5);
+        ctx.fillStyle = rgba(lighten(slab, 0.35), 0.6);
+        ctx.fillRect(ap(cx - w * 0.6), ap(cy - h2 * 0.8), w, 0.5);
+        ctx.fillStyle = rgba(darken(slab, 0.3), 0.5);
+        ctx.fillRect(ap(cx - w * 0.5), ap(cy + h2 * 0.8), w * 1.1, 0.5);
         if (H0(row, k + 60) < 0.18) { ctx.fillStyle = rgba(darken(slab, 0.4), 0.8); ctx.fillRect(ap(cx - 1), ap(cy - 2), 0.5, 3); }
         if (H0(row, k + 70) < 0.2) { ctx.fillStyle = MOSS; ctx.fillRect(ap(cx + 3.5), ap(cy + 3), 1.5, 0.5); }
       }
     }
     run++;
-    d = end + 70 + H0(run, 8) * 110;
+    d = end + 110 + H0(run, 8) * 150;
   }
   // old planks laid across the wettest stretch: nearest to the water
   let best = -1, bestD = 0;
   for (let dd = 60; dd < TOTAL_LEN - 60; dd += 10) {
     const [x, y] = posAt(dd);
     if (!ok(x, y, 10) || BRIDGES.some((b) => dd > b.d0 - 40 && dd < b.d1 + 40)) continue;
+    // only where the road runs straight
+    if (Math.abs(angleAt(dd - 24) - angleAt(dd + 24)) > 0.02) continue;
     let wet = 0;
     for (const p of PONDS) wet = Math.max(wet, 1 - Math.hypot((x - p.x) / (p.w / 2 + 60), (y - p.y) / (p.h / 2 + 60)));
     for (const rv of RIVERS) if (inRiver(x, y, 60)) wet = Math.max(wet, 0.5);
@@ -1224,15 +1233,16 @@ function paintFenRoad(ctx) {
     if (wet > best) { best = wet; bestD = dd; }
   }
   if (best > 0.3) {
-    for (let k = -4; k <= 4; k++) {
-      const dd = bestD + k * 4.2;
-      if (H0(k + 9, 10) < 0.15) continue;
+    for (let k = -5; k <= 5; k++) {
+      const dd = bestD + k * 3.4;
+      if (Math.abs(k) > 3 && H0(k + 9, 10) < 0.5) continue;
       const [x, y] = posAt(dd), a = angleAt(dd) + Math.PI / 2;
-      const half = PATH_HALF - 4 - H0(k + 9, 11) * 8, sh = (H0(k + 9, 12) - 0.5) * 6;
+      const half = PATH_HALF - 5 - H0(k + 9, 11) * 5, sh = (H0(k + 9, 12) - 0.5) * 4;
       ctx.save(); ctx.translate(x, y); ctx.rotate(a + (H0(k + 9, 13) - 0.5) * 0.08);
       ctx.fillStyle = rgba("#2a2620", 0.5); ctx.fillRect(-half + sh, -1.4, half * 2, 3.4);
-      ctx.fillStyle = "#6a6252"; ctx.fillRect(-half + sh, -1.6, half * 2, 3);
+      ctx.fillStyle = k % 2 ? "#6a6252" : "#72695a"; ctx.fillRect(-half + sh, -1.6, half * 2, 3);
       ctx.fillStyle = "#877d68"; ctx.fillRect(-half + sh, -1.6, half * 2, 0.5);
+      ctx.fillStyle = "#3a342c"; ctx.fillRect(-half + sh, -1.6, 1, 3); ctx.fillRect(half + sh - 1, -1.6, 1, 3);
       ctx.fillStyle = "#4e483c"; ctx.fillRect(-half + sh + 4, 0.2, half * 0.6, 0.5); ctx.fillRect(-half + sh + half, -0.6, half * 0.5, 0.5);
       ctx.restore();
     }
@@ -1342,12 +1352,12 @@ const bakeGate = () => {
   const [px, py] = PTS[0], [qx, qy] = PTS[1] || PTS[0];
   const L = Math.hypot(qx - px, qy - py) || 1, tx = (qx - px) / L, ty = (qy - py) / L;
   // the doorway sits a little inside the edge, the whole mound on the board
-  const gx = Math.max(58, Math.min(W - WALL_W - 70, px + tx * 30)), gy = Math.max(44, Math.min(H - 30, py + ty * 30));
-  const mx = gx, my = gy - 10, rx = 48, ry = 27;
+  const gx = Math.max(62, Math.min(W - WALL_W - 70, px + tx * 30)), gy = Math.max(48, Math.min(H - 30, py + ty * 30));
+  const mx = gx, my = gy - 20, rx = 56, ry = 31;
   GATE.gx = gx; GATE.gy = gy; GATE.tx = tx; GATE.ty = ty;
-  const B = { x0: Math.floor(gx - 82), y0: Math.floor(gy - 84), w: 164, h: 150 };
+  const B = { x0: Math.floor(gx - 92), y0: Math.floor(gy - 96), w: 184, h: 164 };
   GATE.bx = B.x0; GATE.by = B.y0; GATE.bw = B.w; GATE.bh = B.h;
-  const turf = mix(REALM.GRASS, "#4c5a40", 0.45);
+  const turf = mix(REALM.GRASS, "#56664a", 0.55);
   const col = mix(STONE, "#96948a", 0.3);
   // standing stones in a broken ring, off the road and on the board
   const ring = [];
@@ -1405,7 +1415,7 @@ const bakeGate = () => {
       part(c, (cc) => standing(cc, [[kx - 3.2, ky + 1.5], [kx - 3, ky - 2.4], [kx + 2.8, ky - 2.6], [kx + 3.2, ky + 1.5]], darken(col, 0.05 + hash(i, 40) * 0.1), 1.2));
     }
     // the doorway: the passage's dark, then three great slabs
-    const dT = gy - 21, dB = gy + 16, dW = 14;
+    const dT = gy - 34, dB = gy + 6, dW = 16;
     c.fillStyle = "#0a0c0c";
     c.fillRect(gx - dW, dT, dW * 2, dB - dT);
     for (let k = 0; k < 3; k++) { c.fillStyle = rgba("#1a2420", 0.9 - k * 0.3); c.fillRect(gx - dW, dB - 2 - k * 2, dW * 2, 2); }
@@ -1430,7 +1440,7 @@ const bakeGate = () => {
     front.forEach((st) => stoneAt(c, st));
     // the threshold: bones scattered where the road leaves the door
     for (let i = 0; i < 7; i++) {
-      const bx = gx + (hash(i, 50) - 0.5) * 40, by = dB + 2 + hash(i, 51) * 12;
+      const bx = gx + (hash(i, 50) - 0.5) * 44, by = dB + 3 + hash(i, 51) * 14;
       if (hash(i, 52) < 0.4) part(c, (cc) => skull(cc, bx, by, 1.8));
       else part(c, (cc) => longBone(cc, bx - 3, by, bx + 3, by + (hash(i, 53) - 0.5) * 3, 1));
     }
@@ -1441,9 +1451,9 @@ const bakeGate = () => {
     const img = c.getImageData(0, 0, PW, PH), dd = img.data;
     for (let yy = 0; yy < PH; yy++) for (let xx = 0; xx < PW; xx++) {
       const x = B.x0 + xx / PX, y = B.y0 + yy / PX;
-      const ddx = (x - gx) / 30, ddy = (y - (gy + 14)) / 16;
-      const r = Math.hypot(ddx, ddy * (y < gy + 14 ? 2 : 1));
-      const a = Math.max(0, 1 - r) * (y > gy - 4 ? 1 : 0);
+      const ddx = (x - gx) / 30, ddy = (y - (gy + 5)) / 18;
+      const r = Math.hypot(ddx, ddy * (y < gy + 5 ? 2 : 1));
+      const a = Math.max(0, 1 - r) * (y > gy - 12 ? 1 : 0);
       const lvl = Math.min(3, Math.floor(a * 3.4 + BAYER4[(yy & 3) * 4 + (xx & 3)] / 16));
       if (lvl <= 0) continue;
       const o = (yy * PW + xx) * 4;
@@ -1451,8 +1461,8 @@ const bakeGate = () => {
     }
     c.putImageData(img, 0, 0);
   }, false);
-  GATE.candles = [[gx - 27, gy + 18], [gx + 27, gy + 18]];
-  GATE.eyes = [[gx - 6, gy - 6, 0], [gx + 5, gy + 2, 2.3], [gx - 2, gy - 13, 4.1]];
+  GATE.candles = [[gx - 29, gy + 9], [gx + 29, gy + 9]];
+  GATE.eyes = [[gx - 6, gy - 14, 0], [gx + 6, gy - 6, 2.3], [gx - 1, gy - 23, 4.1]];
   return GATE;
 };
 
@@ -1464,9 +1474,9 @@ const drawBarrowGate = (ctx, time) => {
   ctx.drawImage(G.cv, G.bx, G.by, G.bw, G.bh);
   // witch-light breathing in the passage and in the lintel's spirals
   const breathe = 0.5 + 0.5 * Math.sin(time * 1.3);
-  glow(ctx, G.gx, G.gy + 4, 18, TEAL, 0.1 + breathe * 0.12);
+  glow(ctx, G.gx, G.gy - 8, 18, TEAL, 0.1 + breathe * 0.12);
   ctx.fillStyle = rgba(TEAL, 0.25 + breathe * 0.5);
-  for (const ox of [-15, 0, 15]) { ctx.fillRect(ap(G.gx + ox - 0.5), ap(G.gy - 24.6), 1, 1); }
+  for (const ox of [-15, 0, 15]) { ctx.fillRect(ap(G.gx + ox - 0.5), ap(G.gy - 38.6), 1, 1); }
   // eyes in the dark, blinking out of step
   G.eyes.forEach(([ex, ey, ph], i) => {
     const t = time * 0.8 + ph;
@@ -1481,7 +1491,7 @@ const drawBarrowGate = (ctx, time) => {
   for (let i = 0; i < 6; i++) {
     const life = ((time * 0.13 + i / 6) % 1);
     const along = 6 + life * 70, side = Math.sin(i * 2.4 + time * 0.3) * 14;
-    const fx = G.gx + G.tx * along * 0.8 - G.ty * side, fy = G.gy + 16 + life * 6 + G.ty * along * 0.5 + G.tx * side * 0.3;
+    const fx = G.gx + G.tx * along * 0.8 - G.ty * side, fy = G.gy + 6 + life * 6 + G.ty * along * 0.5 + G.tx * side * 0.3;
     const a = Math.sin(life * Math.PI) * 0.16;
     soft(ctx, fx, fy, 12 + life * 16, 4 + life * 4, [[0, rgba("#b8ccc4", a)], [1, rgba("#b8ccc4", 0)]]);
   }

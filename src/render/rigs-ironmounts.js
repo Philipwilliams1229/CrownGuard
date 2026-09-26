@@ -96,6 +96,17 @@ const ik = (a, b, l1, l2, bend) => {
 // draw fn in a frame turned by a about (px, py), then moved by (dx, dy)
 const inFrame = (ctx, dx, dy, px, py, a, fn) => { ctx.save(); ctx.translate(dx + px, dy + py); ctx.rotate(a); ctx.translate(-px, -py); fn(ctx); ctx.restore(); };
 
+// Canvas paths are antialiased: where two pieces of one part meet, or a thin
+// stroke runs, the seam is left half-transparent and the ground shows through
+// in speckles. Once a body is painted, make every mostly-solid pixel solid
+// (the soft ground shadow stays under the ink's cut-off, so it stays soft).
+const solidify = (ctx) => {
+  const cv = ctx.canvas, c = cv.getContext("2d");
+  const img = c.getImageData(0, 0, cv.width, cv.height), d = img.data;
+  for (let i = 3; i < d.length; i += 4) if (d[i] > 110 && d[i] < 255) d[i] = 255;
+  c.putImageData(img, 0, 0);
+};
+
 // the Iron device: a grey iron tower (crenels, a dark door) centred on (x, y)
 const tower = (c, x, y, s, col) => {
   const w = 2.6 * s, h = 3.4 * s;
@@ -154,15 +165,17 @@ const rider = (ctx, p, o) => {
   });
   blob(ctx, [[-2.8, -1.4], [2.4, -1.6], [5.0, 1.2], [4.6, 2.6, 1], [3.6, 1.9], [2.6, 3.0, 1], [1.4, 2.2], [0.0, 3.0, 1], [-1.2, 2.2], [-2.8, 2.6, 1]], coat, { hi: 0.3, lo: 0.45 });
   if (o.shield !== false) {
-    const sc = o.shieldAt || [6.0, -8.4];
+    const sc = o.shieldAt || [6.4, -9.4];
     const [x, y] = sc;
+    ctx.save(); ctx.translate(x, y); ctx.scale(1.25, 1.25); ctx.translate(-x, -y);
     blob(ctx, [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]], coat, {
-      hi: 0.35, lo: 0.45, then: (c) => {
+      hi: 0.18, lo: 0.4, then: (c) => {
         tower(c, x, y + 0.2, 0.85, lighten(steel, 0.25));
         c.strokeStyle = iron; c.lineWidth = 0.8; path(c, [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]]); c.stroke();
         dab(c, x - 2.1, y - 2.7, 4.2, 0.45, lighten(steel, 0.5));
       },
     });
+    ctx.restore();
   }
   helm(ctx, ...T(1.0, -10.4), L * 0.6, p);
   // the lance: couched under the near arm (or raised, on a gryphon), striped
@@ -370,6 +383,7 @@ const destrier = (ctx, p) => {
     c0.restore();
   });
   ctx.restore();
+  solidify(ctx);
 };
 
 // ---- the war-gryphon ----------------------------------------------------------------
@@ -388,7 +402,7 @@ const GRY_FIGHT = [
 // relative to the shoulder: E elbow, W wrist, T five primary tips (leading
 // first), B where the trailing edge meets the flank
 const FWINGS = [
-  { E: [-3.5, -6], W: [-1, -14], T: [[3, -25], [-1, -27], [-5, -27], [-9, -25.5], [-12.5, -22.5]], B: [-13, -2] },
+  { E: [-2.5, -6.5], W: [-2.5, -14], T: [[-3.5, -25.5], [-7.5, -27.5], [-11.5, -27], [-15, -25], [-17.5, -21.5]], B: [-12, -1] },
   { E: [-3, -4], W: [5, -8], T: [[16.5, -11], [14.5, -14], [11, -16], [7, -16.5], [3, -15.5]], B: [-12, 0] },
   { E: [-2, 3], W: [4, 7.5], T: [[12.5, 13], [9.5, 16], [5.5, 17.5], [1.5, 17.5], [-2.5, 16]], B: [-12, 1] },
   { E: [-4, -3], W: [-3, -9.5], T: [[-9, -17], [-12.5, -17], [-15.5, -15.5], [-18, -13], [-19.5, -10]], B: [-12, 0] },
@@ -406,7 +420,7 @@ const fwing = (ctx, R, key, sc, wcol, steel, tilt = 0) => {
   }
   const sec = 5, tr = [];
   for (let i = 1; i <= sec; i++) {
-    const bow = (t) => lerp(lerp(T[T.length - 1], B, t), E, Math.sin(Math.PI * t) * 0.2);
+    const bow = (t) => lerp(lerp(T[T.length - 1], B, t), E, Math.sin(Math.PI * t) * 0.3);
     const a = bow((i - 0.5) / sec), bb = bow(i / sec), inn = lerp(bb, E, 0.1);
     tr.push(a);
     outline.push([a[0], a[1]], [inn[0], inn[1], 1]);
@@ -418,16 +432,16 @@ const fwing = (ctx, R, key, sc, wcol, steel, tilt = 0) => {
     c.fillStyle = cel(c, ...bx, wcol, 0.25, 0.4); c.fill();
     c.save(); path(c, outline); c.clip();
     // dark primaries toward the tips, a paler bar of coverts along the arm
-    c.fillStyle = darken(wcol, 0.28);
+    c.fillStyle = darken(wcol, 0.36);
     path(c, [lerp(W, T[0], 0.55), ...T.map((t) => lerp(W, t, 1.1)), lerp(W, T[T.length - 1], 0.55)].map(([x, y]) => [x, y, 1])); c.fill();
     c.fillStyle = darken(wcol, 0.2);
     path(c, [lerp(T[T.length - 1], E, 0.2), ...tr.map((t) => lerp(t, E, -0.2)), lerp(B, E, 0.2)].map(([x, y]) => [x, y, 1])); c.fill();
-    c.fillStyle = lighten(wcol, 0.22);
+    c.fillStyle = lighten(wcol, 0.3);
     path(c, [R, E, W, lerp(W, T[0], 0.3), lerp(W, T[2], 0.36), lerp(W, T[4], 0.4), lerp(T[4], B, 0.35), lerp(E, B, 0.45)].map(([x, y]) => [x, y, 1])); c.fill();
-    c.fillStyle = lighten(wcol, 0.42);
+    c.fillStyle = lighten(wcol, 0.5);
     path(c, [R, E, W, lerp(W, T[2], 0.18), lerp(E, T[4], 0.3), lerp(R, B, 0.25)].map(([x, y]) => [x, y, 1])); c.fill();
     // the feathers' edges, short strokes at the tips and down the trailing edge
-    for (let i = 0; i < T.length - 1; i++) line(c, ...lerp(lerp(T[i], T[i + 1], 0.5), W, 0.16), ...lerp(lerp(T[i], T[i + 1], 0.5), W, 0.55), 0.45, darken(wcol, 0.55));
+    for (let i = 0; i < T.length - 1; i++) line(c, ...lerp(lerp(T[i], T[i + 1], 0.5), W, 0.16), ...lerp(lerp(T[i], T[i + 1], 0.5), W, 0.55), 0.45, lighten(wcol, 0.12));
     for (let i = 1; i < sec; i++) { const e = lerp(T[T.length - 1], B, i / sec); line(c, ...e, ...lerp(e, E, 0.35), 0.45, darken(wcol, 0.45)); }
     c.restore();
   });
@@ -558,13 +572,14 @@ const gryphon = (ctx, p) => {
   ctx.save(); ctx.translate(...seat);
   const thrust = k.thrust || 0;
   const hand = [2.2 + thrust * 0.8, -6.2 + (k.lance < -0.8 ? -1.2 : 0)];
-  rider(ctx, p, { lean: fight && k.talon === 2 ? 0.28 : 0.1, lance: k.lance, hand, rein: [4.6, -4.2], fl: k.fl, len: 20, up: true });
+  rider(ctx, p, { lean: fight && k.talon === 2 ? 0.28 : 0.1, lance: k.lance, hand, rein: [4.6, -4.2], fl: k.fl, len: 20, up: true, shield: false });
   ctx.restore();
   ctx.restore();
+  solidify(ctx);
 };
 
 // ---- the siege ram ----------------------------------------------------------------------
-const RAM_SWING = { walk: [0, 0.6, 0, -0.6], fight: [-4.2, 4.6] };
+const RAM_SWING = { walk: [0, 0.6, 0, -0.6], fight: [-3.4, 3.4] };
 const wheel = (ctx, x, y, r, roll, oak, iron, dim = 0) => part(ctx, (c) => {
   const o = dim ? darken(oak, dim) : oak, ir = dim ? darken(iron, dim * 0.5) : iron;
   c.fillStyle = cel(c, x - r, y - r, x + r, y + r, ir, 0.4, 0.4); c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
@@ -588,7 +603,7 @@ const siegeRam = (ctx, p) => {
   const roll = (f / 4) * (Math.PI / 3) + (fight ? 0.1 : 0);
   // the dark under the shed (translucent: no ink)
   ctx.fillStyle = lin(ctx, 0, -12, 0, -2, [[0, "rgba(36,26,38,0.42)"], [1, "rgba(36,26,38,0.16)"]]);
-  ctx.fillRect(-27, -12, 49, 10);
+  ctx.fillRect(-27, -12, 49, 9);
   // far wheels, in shade
   for (const wx of [-15, 1, 17]) wheel(ctx, wx + 1.6, -6.6, 4.6, roll, oak, iron, 0.45);
   // the crew, bent to it: legs straining back from under the skirt
@@ -619,7 +634,7 @@ const siegeRam = (ctx, p) => {
   // the ram: a banded oak log, an iron ram's head cast on its end
   const sw = fight ? RAM_SWING.fight[f] : RAM_SWING.walk[f];
   const ry = -13.6 + (fight ? (f ? 0.3 : -0.8) : 0);
-  const X = 26 + sw;
+  const X = 24 + sw;
   part(ctx, (c) => {
     c.fillStyle = cel(c, 18, ry - 2.6, 18, ry + 2.6, oak, 0.3, 0.45); c.fillRect(19, ry - 2.5, X - 19, 5);
     for (let x = X - 1.8; x > 19.5; x -= 3.4) { dab(c, x, ry - 2.6, 1, 5.2, iron); dab(c, x + 0.2, ry - 2, 0.5, 0.5, lighten(steel, 0.4)); }
@@ -627,22 +642,26 @@ const siegeRam = (ctx, p) => {
   });
   inFrame(ctx, X, ry, 0, 0, fight && f === 0 ? -0.08 : 0, (c0) => {
     c0.scale(1.3, 1.3);
-    blob(c0, [[-1.2, -3.4], [2.6, -3.8], [5.6, -2.8], [7.6, -0.8], [8.2, 1.4, 1], [6.4, 2.8], [3, 3.2], [-1.2, 3.0]], castIron, {
+    // the cast head: a long ram's face ending in a battered striking brow
+    blob(c0, [[-1, -3.3], [2, -3.7], [4.6, -3.1], [6.8, -1.7], [8.3, 0.1], [8.6, 1.6, 1], [7.2, 2.5], [4.4, 2.9], [1, 3.2], [-1, 3]], castIron, {
       hi: 0.5, lo: 0.4, then: (c) => {
-        dab(c, 7.2, -0.8, 1.2, 2.6, lighten(steel, 0.35));                 // the battered striking face
-        dab(c, 3.8, -2.4, 2.2, 0.7, darken(castIron, 0.55));                // the brow
-        dab(c, 4.3, -1.8, 1.1, 0.9, BRASS); dab(c, 5.0, -1.8, 0.4, 0.9, INKY); // a brass eye
-        dab(c, 7.2, 0.2, 0.6, 0.5, INKY);                                   // nostril
-        line(c, 5.4, 2.2, 7.8, 1.9, 0.45, darken(castIron, 0.55));
+        fillPath(c, [[6.2, -2.2, 1], [8.8, -0.2, 1], [8.8, 2.2, 1], [7.4, 1.2, 1]], lighten(steel, 0.3), { hi: 0.4, lo: 0.3 });   // the striking face
+        dab(c, 4.2, -2.3, 2.2, 0.7, darken(castIron, 0.6));                 // the brow
+        dab(c, 4.6, -1.7, 1.1, 0.9, BRASS); dab(c, 5.3, -1.7, 0.4, 0.9, INKY); // a brass eye
+        dab(c, 7.6, 0.6, 0.6, 0.5, INKY);                                   // nostril
+        line(c, 5.6, 2.3, 8, 2.0, 0.45, darken(castIron, 0.55));
       },
     });
-    // the curled horn, coiled round the ear and hooking forward under the jaw
+    // the curled horn: a heavy ridged coil round the ear, its point hooking forward under the jaw
     part(c0, (c) => {
-      c.strokeStyle = cel(c, -2, -3, 4, 3, lighten(steel, 0.1), 0.55, 0.4); c.lineWidth = 2.2; c.lineCap = "round";
-      c.beginPath(); c.arc(1.4, 0.2, 2.2, -2.4, 1.7); c.stroke();
-      c.lineWidth = 1.5; c.beginPath(); c.moveTo(1.1, 2.4); c.quadraticCurveTo(3.4, 4.2, 4.8, 3.2); c.stroke();
-      c.strokeStyle = darken(castIron, 0.5); c.lineWidth = 0.4;
-      for (const a of [-1.8, -0.8, 0.2, 1.1]) { c.beginPath(); c.moveTo(1.4 + Math.cos(a) * 1.2, 0.2 + Math.sin(a) * 1.2); c.lineTo(1.4 + Math.cos(a) * 3.2, 0.2 + Math.sin(a) * 3.2); c.stroke(); }
+      const hc = lighten(steel, 0.12);
+      c.strokeStyle = cel(c, -1, -2, 4, 3, hc, 0.5, 0.45); c.lineWidth = 1.9; c.lineCap = "round";
+      c.beginPath(); c.arc(1.5, 0.4, 2.3, -Math.PI * 0.95, Math.PI * 0.75); c.stroke();
+      c.lineWidth = 1.4; c.beginPath(); c.moveTo(-0.3, 1.9); c.quadraticCurveTo(1.6, 4.4, 3.9, 3.7); c.stroke();
+      c.fillStyle = darken(castIron, 0.4); c.beginPath(); c.arc(1.5, 0.4, 1.2, 0, TAU); c.fill();
+      dab(c, 1.1, 0.0, 0.8, 0.8, hc);
+      c.fillStyle = darken(hc, 0.5);
+      for (const a of [-2.2, -1.2, -0.2, 0.8, 1.8]) dab(c, 1.5 + Math.cos(a) * 2.3 - 0.25, 0.4 + Math.sin(a) * 2.3 - 0.25, 0.5, 0.5, darken(hc, 0.5));
     });
     blob(c0, [[-2.2, -3.2, 1], [-0.6, -3.2, 1], [-0.6, 3.2, 1], [-2.2, 3.2, 1]], BRASS, { hi: 0.4, lo: 0.4 });   // the collar
   });
@@ -680,7 +699,7 @@ const siegeRam = (ctx, p) => {
   });
   // the ridge, capped in iron
   part(ctx, (c) => {
-    c.fillStyle = cel(c, bx0, top - 1, fx0, top + 1, iron, 0.4, 0.3); taper(c, [[bx0 - 0.4, top - 0.2], [fx0 + 0.4, top - 0.2]], [2.2, 2.2]);
+    c.fillStyle = cel(c, bx0, top - 1, bx0 + 8, top + 1, iron, 0.25, 0.2); taper(c, [[bx0 - 0.4, top - 0.2], [fx0 + 0.4, top - 0.2]], [2.2, 2.2]);
     for (let x = bx0 + 3; x < fx0; x += 6) dab(c, x, top - 0.8, 0.6, 0.6, lighten(steel, 0.4));
   });
   // the hide skirt hanging off the eave, dagged
@@ -700,6 +719,7 @@ const siegeRam = (ctx, p) => {
   // the near wheels, turning
   for (const wx of [-15, 1, 17]) wheel(ctx, wx, -5.2, 5.2, roll, oak, iron);
   ctx.restore();
+  solidify(ctx);
 };
 
 // ---- the roster -----------------------------------------------------------------------
@@ -707,6 +727,6 @@ const IRON_RIDER = { skin: "#e0b08a", cloth: "#6c7280", cloth2: "#7a2a2c", hair:
 export const IRONMOUNT_RIGS = {
   cavalier: { kind: "destrier", box: { hw: 30, up: 40, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER } },
   gryphon: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
-  ram: { kind: "siegeram", box: { hw: 38, up: 42, down: 4 }, p: { len: 44, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
+  ram: { kind: "siegeram", box: { hw: 40, up: 42, down: 4 }, p: { len: 44, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
 };
 export const IRONMOUNT_PAINTERS = { destrier, wargryphon: gryphon, siegeram: siegeRam };

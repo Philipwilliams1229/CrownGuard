@@ -287,8 +287,8 @@ const spruce = (ctx, x, y, s, o) => {
 // Four kinds: a pinnacle with a shoulder, a tiered ledge, a split tor, a low
 // broken crag. Heather sits on the ledges; bracken at the foot.
 const crag = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed, v = o.v % 4;
-  const col = o.forest ? darken(GRIT, 0.06 + o.band * 0.06) : GRIT;
+  const gy = y + 8, sd = o.seed, v = o.forest ? (o.v % 2 ? 1 : 3) : o.v % 4;
+  const col = o.forest ? mix(darken(GRIT, 0.1 + o.band * 0.08), "#5a6a50", 0.15) : GRIT;
   shadow(ctx, x + 6 * s, gy, 17 * s, 4.4 * s, 0.28);
   if (v === 0) {
     facet(ctx, x - 7 * s, gy - 2 * s, 8 * s, 17 * s, darken(col, 0.05), sd + 1);
@@ -326,33 +326,37 @@ const heatherClump = (ctx, x, y, s, o) => {
 
 // A drystone wall: stones stacked dry in courses, a row of upright copes on
 // top, a stretch of it tumbled. v: 0 straight, 1 tumbled gap, 2 corner, 3 with a stile.
-const wallRun = (c, x0, y0, x1, y1, s, seed, hgt = 7) => {
-  const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.round(len / (3.2 * s)));
+const wallRun = (c, x0, y0, x1, y1, s, seed, hgt = 8) => {
+  const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.round(len / (4.2 * s)));
   const H = (i) => hash(seed, i);
-  // the dark body the stones sit in
+  const at = (t, up) => [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t - up];
+  // the dark body the stones sit in, and its top seen from above
   c.beginPath();
   c.moveTo(x0, y0); c.lineTo(x1, y1); c.lineTo(x1, y1 - hgt * s); c.lineTo(x0, y0 - hgt * s); c.closePath();
-  c.fillStyle = darken(GRIT, 0.45); c.fill();
-  // the top, seen from above: a narrow lit band
+  c.fillStyle = darken(GRIT, 0.5); c.fill();
   c.beginPath();
-  c.moveTo(x0, y0 - hgt * s); c.lineTo(x1, y1 - hgt * s); c.lineTo(x1 + 1, y1 - hgt * s - 2.5 * s); c.lineTo(x0 + 1, y0 - hgt * s - 2.5 * s); c.closePath();
-  c.fillStyle = darken(GRIT, 0.2); c.fill();
-  for (let row = 0; row < 3; row++) {
-    for (let i = 0; i < n; i++) {
-      const t = (i + (row % 2) * 0.5 + 0.25) / n;
-      if (t > 1) continue;
-      const sx = x0 + (x1 - x0) * t, sy = y0 + (y1 - y0) * t - (1.3 + row * 2.1) * s;
-      const tone = [GRIT, lighten(GRIT, 0.12), darken(GRIT, 0.1), mix(GRIT, "#9a8a70", 0.3)][Math.floor(H(row * 50 + i) * 4)];
-      ball(c, sx, sy, (1.45 + H(row * 50 + i + 7) * 0.4) * s, 1.05 * s, tone, { hi: 0.4, lo: 0.4 });
+  c.moveTo(x0, y0 - hgt * s); c.lineTo(x1, y1 - hgt * s); c.lineTo(x1 + 0.5, y1 - hgt * s - 2 * s); c.lineTo(x0 + 0.5, y0 - hgt * s - 2 * s); c.closePath();
+  c.fillStyle = darken(GRIT, 0.28); c.fill();
+  // three courses of rough stones, the lowest biggest
+  [[1.7, 2.3], [4.3, 2.0], [6.6, 1.7]].forEach(([up, r], row) => {
+    for (let i = 0; i < n + 1; i++) {
+      const t = (i + (row % 2) * 0.5) / n;
+      if (t > 1.02) continue;
+      const [sx, sy] = at(Math.min(1, t), up * s);
+      const h = H(row * 50 + i);
+      const tone = h < 0.3 ? lighten(GRIT, 0.16) : h < 0.6 ? GRIT : h < 0.85 ? darken(GRIT, 0.12) : mix(GRIT, "#a08a6a", 0.35);
+      const rx = (r + H(row * 50 + i + 7) * 0.6) * s * (len / (n * 4.2 * s)) * 0.95;
+      ball(c, sx, sy, Math.max(1.2, rx), 1.25 * s, tone, { hi: 0.45, lo: 0.45 });
     }
-  }
-  // copes: thin slabs on edge along the top, lit on the left
-  for (let i = 0; i < n * 1.4; i++) {
-    const t = (i + 0.5) / (n * 1.4);
-    const sx = x0 + (x1 - x0) * t, sy = y0 + (y1 - y0) * t - hgt * s;
-    const hh = (2.2 + H(i + 300) * 1.2) * s;
-    c.fillStyle = darken(GRIT, 0.25); c.fillRect(ap(sx - 0.5), ap(sy - hh), 1.5 * s, hh + 0.5);
-    c.fillStyle = lighten(GRIT, 0.2); c.fillRect(ap(sx - 0.5), ap(sy - hh), 0.5, hh);
+  });
+  // copes: slabs on edge along the top, tall and short in turn ("cock and hen"), lit on the left
+  const m = Math.round(len / (1.7 * s));
+  for (let i = 0; i < m; i++) {
+    const [sx, sy] = at((i + 0.5) / m, hgt * s);
+    const hh = (i % 2 ? 2 : 3.4) * s + H(i + 300) * 0.8;
+    c.fillStyle = darken(GRIT, 0.22); c.fillRect(ap(sx - 0.5), ap(sy - hh), 1.5, hh + 0.5);
+    c.fillStyle = lighten(GRIT, 0.25); c.fillRect(ap(sx - 0.5), ap(sy - hh), 0.5, hh);
+    c.fillStyle = lighten(GRIT, 0.4); c.fillRect(ap(sx - 0.5), ap(sy - hh), 1.5, 0.5);
   }
 };
 const drystone = (ctx, x, y, s, o) => {
@@ -596,7 +600,7 @@ const warTent = (ctx, x, y, s, o) => {
   shadow(ctx, x + 6 * s, gy + 0.5, 19 * s, 4.4 * s, 0.3);
   if (v === 0 || v === 2) {
     // a bell tent: round walls, a cone of roof, the door flap tied back
-    const R = 11 * s, wh = 8 * s, rh = 14 * s;
+    const R = 13 * s, wh = 9 * s, rh = 16 * s;
     part(ctx, (c) => {
       c.beginPath(); c.moveTo(x - R, gy - wh); c.lineTo(x - R, gy); c.quadraticCurveTo(x, gy + 3 * s, x + R, gy); c.lineTo(x + R, gy - wh); c.closePath();
       c.fillStyle = lin(c, x - R, 0, x + R, 0, [[0, OX_LT], [0.45, OX], [1, OX_DK]]); c.fill();
@@ -642,7 +646,7 @@ const warTent = (ctx, x, y, s, o) => {
     }
   } else {
     // a ridge tent for the rank and file: A-frame, oxblood roof, grey ends
-    const L = 12 * s, hh = 12 * s;
+    const L = 13 * s, hh = 13 * s;
     part(ctx, (c) => {
       // the far gable (grey) peeking, then the long roof slope facing us
       c.beginPath(); c.moveTo(x - L, gy - hh); c.lineTo(x + L, gy - hh); c.lineTo(x + L + 4 * s, gy); c.lineTo(x - L + 4 * s, gy); c.closePath();
@@ -757,6 +761,45 @@ const towerBody = (c, x, y, s, v) => {
   // the pennant's pole on the deck
   part(c, (cc) => { cylinder(cc, x - 0.6, top - 20 * s, 1.2, 17 * s, WOOD_DK, { r: 0.4 }); ball(cc, x, top - 20 * s, 1, 1, BRASS, { hi: 0.5, lo: 0.3 }); });
 };
+// A ruin of an older border tower: the shaft broken off in a jagged line,
+// its hollow inside showing, rubble and a fallen block at the foot, moss.
+const ruin = (ctx, x, y, s, o) => {
+  const gy = y + 8, w2 = 9 * s, sd = o.seed, hh = (22 + hash(sd, 1) * 8) * s, top = gy - hh;
+  shadow(ctx, x + 8 * s, gy, 16 * s, 4.2 * s, 0.3);
+  // the jagged break: a line of steps across the top
+  const jag = [];
+  for (let i = 0; i <= 8; i++) jag.push([x - w2 + (i / 8) * w2 * 2, top + (hash(sd, i + 10) * 7 + (i > 4 ? (i - 4) * 2.2 : 0)) * s]);
+  part(ctx, (c) => {
+    c.beginPath(); c.moveTo(x - w2, gy); jag.forEach(([jx, jy]) => c.lineTo(jx, jy)); c.lineTo(x + w2, gy); c.closePath();
+    c.save(); c.clip();
+    ashlar(c, x - w2, top - 2, w2 * 2, hh + 2, darken(ASHLAR, 0.05), sd);
+    // the hollow inside, seen over the broken front wall
+    c.fillStyle = "#2e2a2e";
+    c.beginPath(); c.moveTo(x - w2 + 2, top + 9 * s); jag.slice(1, 8).forEach(([jx, jy]) => c.lineTo(jx, jy + 2.5 * s)); c.lineTo(x + w2 - 2, top + 9 * s); c.closePath(); c.fill();
+    c.fillStyle = "#1c1618"; c.fillRect(ap(x - 1.5 * s), ap(gy - 9 * s), 3 * s, 9 * s);
+    c.fillRect(ap(x + 4 * s), ap(top + 12 * s), 1, 3.5 * s);
+    c.fillStyle = "#62704a";
+    for (let i = 0; i < 9; i++) c.fillRect(ap(x - w2 + hash(sd, i + 30) * w2 * 2), ap(gy - 1 - hash(sd, i + 40) * hh * 0.6), 1, 1.5);
+    c.restore();
+    // the east face in shade
+    c.fillStyle = darken(ASHLAR, 0.42);
+    c.beginPath(); c.moveTo(x + w2, jag[8][1]); c.lineTo(x + w2 + 3 * s, jag[8][1] - 1.5); c.lineTo(x + w2 + 3 * s, gy - 2.5); c.lineTo(x + w2, gy); c.closePath(); c.fill();
+  });
+  // rubble and a fallen block
+  for (let i = 0; i < 7; i++) {
+    const rx = x + (hash(sd, i + 50) - 0.3) * 30 * s, ry = gy + 1 + hash(sd, i + 60) * 4;
+    if (Math.abs(rx - x) < w2 && ry < gy + 2) continue;
+    stone(ctx, rx, ry, (1.3 + hash(sd, i + 70) * 1.2) * s, 1 * s, i % 2 ? ASHLAR : darken(ASHLAR, 0.12));
+  }
+  part(ctx, (c) => {
+    const bx = x + w2 + 7 * s, by = gy + 1;
+    c.fillStyle = lighten(ASHLAR, 0.15); c.fillRect(bx - 4 * s, by - 5 * s, 8 * s, 2 * s);
+    c.fillStyle = darken(ASHLAR, 0.1); c.fillRect(bx - 4 * s, by - 3 * s, 8 * s, 3 * s);
+    c.fillStyle = darken(ASHLAR, 0.4); c.fillRect(bx - 4 * s, by - 3 * s, 8 * s, 0.5);
+  });
+  heatherMound(ctx, x - w2 - 3 * s, gy + 1, 0.8 * s, sd + 4);
+};
+
 const kingTower = (ctx, x, y, s, o) => {
   const sp = body(`tower|${s}|${o.v % 2}`, Math.ceil(16 * s + 4), Math.ceil(56 * s + 4), 10, (c, bx, by) => towerBody(c, bx, by, s, o.v % 2));
   stampBody(ctx, sp, x, y);
@@ -1000,7 +1043,7 @@ const driftGround = (ctx, clear) => {
   const ok = new Uint8Array(GW * GH);
   for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) ok[j * GW + i] = clear(i * C, j * C, 3) ? 1 : 0;
   const img = ctx.getImageData(0, 0, PW, PH), dd = img.data;
-  const heath = hexRGB(mix("#6a5058", REALM.GRASS_DK, 0.25)), heathLt = hexRGB(mix("#86667a", REALM.GRASS, 0.2));
+  const heath = hexRGB(mix("#6c4e64", REALM.GRASS_DK, 0.2)), heathLt = hexRGB(mix("#8a6682", REALM.GRASS, 0.15));
   const brack = hexRGB(mix("#8a6040", REALM.GRASS_DK, 0.35));
   const limit = Math.min(PW, Math.ceil((W - 104) * k));
   for (let py = 0; py < PH; py += 1) {
@@ -1013,7 +1056,7 @@ const driftGround = (ctx, clear) => {
       const dz = B4[(py & 3) * 4 + (pxx & 3)];
       let col = null, a = 0;
       if (hn > 0.6) { a = Math.min(0.7, (hn - 0.6) * 5); col = (hn + dz * 0.05) > 0.7 ? heathLt : heath; }
-      else if (bn > 0.62) { a = Math.min(0.55, (bn - 0.62) * 5); col = brack; }
+      else if (bn > 0.64) { a = Math.min(0.45, (bn - 0.64) * 4); col = brack; }
       if (!col || a < dz * 0.9) continue;
       const o = (py * PW + pxx) * 4, f = 0.55;
       dd[o] += (col[0] - dd[o]) * f; dd[o + 1] += (col[1] - dd[o + 1]) * f; dd[o + 2] += (col[2] - dd[o + 2]) * f;
@@ -1037,14 +1080,14 @@ const ironTurf = (ctx, kit) => {
     }
   }
   // heather in drifts, bracken in its own drifts, cotton grass by the water
-  for (let i = 0; i < 2600; i++) {
+  for (let i = 0; i < 5200; i++) {
     const x = rng() * SW, y = rng() * H, r = rng(), v = Math.floor(rng() * 12);
     if (!clear(x, y, 5)) continue;
     const hn = vnoise(seed + 5, 70, x, y), bn = vnoise(seed + 9, 90, x, y);
     if (hn > 0.62 && r < (hn - 0.6) * 2.4) items.push([x, y, hn > 0.72 && r < 0.12 ? "dryheath" : "heath", v, 0.85 + r * 0.3]);
     else if (bn > 0.6 && r < (bn - 0.56) * 1.4) items.push([x, y, "bracken", v, 0.95 + r * 0.35]);
-    else if (r < 0.018) items.push([x, y, r < 0.01 ? "heath" : "bracken", v, 0.75]);
-    else if (r > 0.9 && nearWater(x, y, 22)) items.push([x, y, "cotton", v % 5, 1]);
+    else if (r < 0.006) items.push([x, y, r < 0.003 ? "heath" : "bracken", v, 0.75]);
+    else if (r > 0.95 && nearWater(x, y, 22)) items.push([x, y, "cotton", v % 5, 1]);
   }
   // moor-grass tussocks, straw-tipped, gathering in the hollows
   const tusB = mix(REALM.TUFT, REALM.GRASS_DK, 0.3), tusT = mix(REALM.GRASS_LT, "#c8bc88", 0.45);
@@ -1212,14 +1255,14 @@ export const IRON_ART = {
   decor: {
     irpine: scotsPine, irspruce: spruce, ircrag: crag, irheather: heatherClump, irwall: drystone,
     irgibbet: gibbet, irmile: milestone, irbeacon: beacon, irwagon: wagon, irpikes: pikes,
-    irtent: warTent, irbanner: standard, irtower: kingTower, irgate: ironGate,
+    irtent: warTent, irbanner: standard, irtower: kingTower, irgate: ironGate, irruin: ruin,
   },
   live: ["irbeacon", "irbanner", "irtower", "irgate"],
   box: {
     irpine: [26, 58], irspruce: [27, 50], ircrag: [30, 40], irheather: [18, 14], irwall: [26, 22],
-    irgibbet: [20, 44], irmile: [10, 16], irwagon: [36, 30], irpikes: [26, 40], irtent: [30, 36],
+    irgibbet: [20, 44], irmile: [10, 16], irwagon: [36, 30], irpikes: [26, 40], irtent: [32, 40], irruin: [26, 40],
   },
-  dress: { irpine: [3.5, false], irspruce: [3.5, false], ircrag: [10, true], irmile: [4, false], irgibbet: [4, true] },
+  dress: { irpine: [3.5, false], irspruce: [3.5, false], ircrag: [10, true], irmile: [4, false], irgibbet: [4, true], irruin: [11, true] },
   spawn: { ironcamp: drawIronCamp },
   turf: { iron: ironTurf },
   road: { iron: ironRoad },

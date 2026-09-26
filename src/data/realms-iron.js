@@ -14,7 +14,7 @@ import { addFootprints } from "./terrain.js";
 // wide as they stand.
 addFootprints({
   irpine: 12, irspruce: 12, ircrag: 11, irheather: 7, irwall: 16, irgibbet: 9, irmile: 6,
-  irbeacon: 8, irwagon: 17, irpikes: 10, irtent: 14, irbanner: 6, irtower: 14, irgate: 6,
+  irbeacon: 8, irwagon: 17, irpikes: 10, irtent: 15, irbanner: 6, irtower: 14, irgate: 6, irruin: 14,
 });
 
 export default function moreIronRealms(ironVariant) {
