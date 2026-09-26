@@ -161,12 +161,20 @@ export const waveSpec = (w) => {
 // The sandbox's hand on a wave: more or fewer heads per group, packed
 // tighter or looser. Champions never multiply. A group that rounds to zero
 // keeps one head, so a wave is never empty.
+export const SANDBOX_MAX_WAVE = 600;
 const sandboxShape = (sp) => {
   const out = sp.map(([type, count, gap, pay = 1]) => {
     if (BOSSES.has(type) || ENEMY_BOSS(type)) return [type, count, Math.round(gap * SANDBOX.gapMul), pay];
     const n = Math.max(1, Math.round(count * SANDBOX.countMul));
     return [type, n, Math.max(60, Math.round(gap * SANDBOX.gapMul)), pay];
   });
+  // however the sliders are set, a wave stays something the road (and an
+  // iPad) can hold: past SANDBOX_MAX_WAVE heads, every group shrinks alike
+  const total = out.reduce((a, [, n]) => a + n, 0);
+  if (total > SANDBOX_MAX_WAVE) {
+    const k = SANDBOX_MAX_WAVE / total;
+    for (const grp of out) if (!ENEMY_BOSS(grp[0])) grp[1] = Math.max(1, Math.floor(grp[1] * k));
+  }
   // an army of champions only still has to send something on the off-beats
   if (!out.length && FACTION.bosses?.length) out.push([FACTION.bosses[0], 1, 0, 1]);
   out.overlap = sp.overlap;
