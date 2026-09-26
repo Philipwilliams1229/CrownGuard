@@ -229,6 +229,13 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   newly opened stop, drags/pinches/wheel-zooms, and has buttons for the
   whole continent and "back to the front". Paint is split into stages so
   the title screen can warm it; keep each stage under ~100ms.
+- **Each country in its own palette** (2026-09-26): the Greenwood lush
+  and farmed; the Iron Marches a cool moor (MOOR/moorPx) of walled
+  fields, keeps, forts and camps flying OXBLOOD banners, never blue; the
+  Hollowfen dark bog (FEN_GROUND/fenPx, fenDressing) with black water,
+  mist, dead trees and willows, barrows and ruins. Fen dressing may stand
+  in water (`dryBusy`). Never write a new ground source as `{ x: N, y: N,
+  rx:` in mapArt.js — check-map-water.mjs reads lakes from that pattern.
 - **Water is natural and informative** (owner, 2026-09-25). Rivers
   (`RIVERS`, built by `river()`) are splines through control points,
   meandered by noise, held still at their `pins` (the waypoints they run
