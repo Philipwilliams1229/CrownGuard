@@ -4,21 +4,29 @@
 // paints rivers running off the board with drawRiver at time 0).
 //
 // Everything still is painted pixel by pixel ONCE: a river's body (its
-// banks, shallows, channel, stones and rushes) and each pond's go into the
-// ground layer through bakeWater(ctx), which world.js calls while it paints
-// the ground (after the road). Per frame, drawWaterLive(ctx, g) only stamps
-// a few dozen tiny baked marks: the current's ripples and glints drifting
-// downstream, foam at the rocks, glints on the ponds, lava bubbles.
+// banks, shallows, channel, gravel bars, rocks, logs, snags and rushes) and
+// each pond's go into the ground layer through bakeWater(ctx), which world.js
+// calls while it paints the ground (after the road). Per frame,
+// drawWaterLive(ctx, g) only stamps a few dozen tiny baked marks: the
+// current's ripples and glints drifting downstream, foam at the rocks, glints
+// on the ponds, lava bubbles.
 //
 // How a bank reads in the 3/4 camera (sun up-left, looking north):
-// - the far (north) bank shows a thin earth FACE with a dark line under
-//   its grass lip, and throws its shadow onto the water below it;
-// - the near (south) bank is a mud line, a pebbly strip and a grass lip
-//   catching the light, the water lapping pale against it;
+// - the far (north) bank shows an earth FACE, a sliver in one place and a
+//   tall cut in the next, with a dark line under its grass lip, and throws
+//   its shadow onto the water below it;
+// - the near (south) bank is a mud line, a pebbly lit strip and a broken
+//   grass lip catching the light, the water lapping pale against it;
 // - banks running up the screen shade by the same rule (the west bank is
 //   in shade and shadows the water, the east bank is lit).
-// Edges are noise-wobbled in WORLD coordinates, so the board and the apron
-// paint the same river across the seam.
+// The water's edge is never ruled: a wobble, a slow lean and SPITS (the bank
+// jutting into the stream on one side, then the other) make the open water
+// snake inside a straight corridor, always inward of rv.w/2 + ~2. Water steps
+// shallows → mid → deep → a wandering channel; on black (fen) water the
+// steps are set apart harder so all three show. Edges and landmarks are
+// keyed to WORLD coordinates, so the board and the apron paint the same
+// river across the seam. A pond that runs into a river is painted WITH the
+// river, as one water (a smooth union of the two shapes, the river's colours).
 
 import { PONDS, RIVERS } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
@@ -490,9 +498,7 @@ const riverBody = (rivers, wa, view, r) => {
   const pw = Math.round((x1 - x0) * r), ph = Math.round((y1 - y0) * r);
   if (pw < 2 || ph < 2) return null;
   const R = raster(x0, y0, pw, ph, r);
-  const _T=[performance.now()];
   const { FA, FB, SA, SB, segs, LO, HI } = riverField(R, rivers);
-  _T.push(performance.now());
   const T = WT.T, S = WT.S, pebbles = [], D = R.d, px1 = 1 / r;
   // the water's tone per pixel first (+1, and +32 in the bank's shadow), so
   // a second pass can give the gravel bars their lit and shaded rims
@@ -501,23 +507,24 @@ const riverBody = (rivers, wa, view, r) => {
   // a grid one unit apart, filled as they're wanted and read bilinearly:
   // they change too slowly for it to show, and the bake runs twice as fast
   const cw = Math.ceil(pw / r) + 3, chh = Math.ceil(ph / r) + 3;
-  const NV = 7, SV = new Float32Array(cw * chh * NV), SD = new Uint8Array(cw * chh);
-  const slow = (ci, cj) => {
-    const c = cj * cw + ci, o = c * NV;
-    if (!SD[c]) {
-      SD[c] = 1;
-      const X = x0 + ci, Y = y0 + cj;
-      SV[o] = vn(X, Y, 42, s + 11); SV[o + 1] = vn(X, Y, 90, s + 13); SV[o + 2] = vn(X, Y, 52, s + 15);
-      SV[o + 3] = vn(X, Y, 30, s + 5); SV[o + 4] = vn(X, Y, 21, s + 17); SV[o + 5] = vn(X, Y, 13, s); SV[o + 6] = vn(X, Y, 7, s + 19);
-    }
-    return o;
+  const NV = 7, SV = new Float32Array(cw * chh * NV);
+  const rowSpan = (j) => {
+    const y = y0 + (j + 0.5) / r;
+    let lo = LO[j], hi = HI[j];
+    for (const P of JP) if (y > P.y - P.ry - 12 && y < P.y + P.ry + 12) { lo = Math.min(lo, Math.floor((P.x - P.rx - 12 - x0) * r)); hi = Math.max(hi, Math.ceil((P.x + P.rx + 12 - x0) * r)); }
+    return [Math.max(0, lo), Math.min(pw - 1, hi)];
+  };
+  const SD = new Uint8Array(cw * chh);
+  const fill = (c) => {
+    SD[c] = 1;
+    const o = c * NV, X = x0 + (c % cw), Y = y0 + ((c / cw) | 0);
+    SV[o] = vn(X, Y, 42, s + 11); SV[o + 1] = vn(X, Y, 90, s + 13); SV[o + 2] = vn(X, Y, 52, s + 15);
+    SV[o + 3] = vn(X, Y, 30, s + 5); SV[o + 4] = vn(X, Y, 21, s + 17); SV[o + 5] = vn(X, Y, 13, s); SV[o + 6] = vn(X, Y, 7, s + 19);
   };
   for (let j = 0; j < ph; j++) {
     const y = y0 + (j + 0.5) / r, gj = R.gy + j;
     const rowJP = JP.length ? JP.filter((P) => y > P.y - P.ry - 12 && y < P.y + P.ry + 12) : JP;
-    let lo = LO[j], hi = HI[j];
-    for (const P of rowJP) { lo = Math.min(lo, Math.floor((P.x - P.rx - 12 - x0) * r)); hi = Math.max(hi, Math.ceil((P.x + P.rx + 12 - x0) * r)); }
-    lo = Math.max(0, lo); hi = Math.min(pw - 1, hi);
+    const [lo, hi] = rowSpan(j);
     for (let i = lo; i <= hi; i++) {
       const k = j * pw + i, fa = FA[k], fb = FB[k], f = fa < 99 ? smin(fa, fb) : fb;
       const x = x0 + (i + 0.5) / r;
@@ -531,7 +538,12 @@ const riverBody = (rivers, wa, view, r) => {
       const gi = R.gx + i;
       let nx = 0, ny = 1, lat = 0, u = 0, hw = 10, e = 0, g = 99;
       const gx = x - x0, gy = y - y0, ia = gx | 0, ja = gy | 0, fx = gx - ia, fy = gy - ja;
-      const o00 = slow(ia, ja), o10 = slow(ia + 1, ja), o01 = slow(ia, ja + 1), o11 = slow(ia + 1, ja + 1);
+      const c00 = ja * cw + ia;
+      if (!SD[c00]) fill(c00);
+      if (!SD[c00 + 1]) fill(c00 + 1);
+      if (!SD[c00 + cw]) fill(c00 + cw);
+      if (!SD[c00 + cw + 1]) fill(c00 + cw + 1);
+      const o00 = c00 * NV, o10 = o00 + NV, o01 = o00 + cw * NV, o11 = o01 + NV;
       const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
       const n42 = SV[o00] * w00 + SV[o10] * w10 + SV[o01] * w01 + SV[o11] * w11;
       const n90 = SV[o00 + 1] * w00 + SV[o10 + 1] * w10 + SV[o01 + 1] * w01 + SV[o11 + 1] * w11;
@@ -568,7 +580,8 @@ const riverBody = (rivers, wa, view, r) => {
         if (g < REACH && (P || !loose.length || !inPondWater(loose, x, y))) {
           const n21 = SV[o00 + 4] * w00 + SV[o10 + 4] * w10 + SV[o01 + 4] * w01 + SV[o11 + 4] * w11;
           const n7 = SV[o00 + 6] * w00 + SV[o10 + 6] * w10 + SV[o01 + 6] * w01 + SV[o11 + 6] * w11;
-          R.put(i, j, bankPx(B, g, nx, ny, x, y, gi, gj, s, r, 5 + (e < 0 ? e : 0) + pwt * 4, SPIT * (1 - pwt), n21, n7));
+          const c = bankPx(B, g, nx, ny, x, y, gi, gj, s, r, 5 + (e < 0 ? e : 0) + pwt * 4, SPIT * (1 - pwt), n21, n7);
+          if (c) { if (c[3] === 255) { const o = k * 4; D[o] = c[0]; D[o + 1] = c[1]; D[o + 2] = c[2]; D[o + 3] = 255; } else R.put(i, j, c); }
         }
         continue;
       }
@@ -604,7 +617,6 @@ const riverBody = (rivers, wa, view, r) => {
       TB[k] = t + 1 + (shade ? 32 : 0);
     }
   }
-  _T.push(performance.now());
   // the water's colours; a gravel bar stands up out of the stream, lit on
   // its upper-left rim and shaded on its lower-right one
   const bedAt = (v) => v && (v & 31) - 1 === T_BED;
@@ -623,7 +635,6 @@ const riverBody = (rivers, wa, view, r) => {
       D[o] = c[0]; D[o + 1] = c[1]; D[o + 2] = c[2]; D[o + 3] = 255;
     }
   }
-  _T.push(performance.now());
   // pebbles on the gravel
   for (let q = 0; q < pebbles.length; q += 2) {
     const sz = (0.55 + hash(pebbles[q], pebbles[q + 1]) * 0.5) * r;
@@ -727,9 +738,7 @@ const riverBody = (rivers, wa, view, r) => {
     else if (o.k === "snag") snagPx(R, B, WT, o.x, o.y, o.seed, wet, 1.2);
     else rushPx(R, B, o.x, o.y, o.sc, o.seed);
   }
-  _T.push(performance.now()); const _cv = toCanvas(R); _T.push(performance.now());
-  globalThis.__wt = _T.slice(1).map((v, i) => (v - _T[i]).toFixed(0)).join(',') + ' px' + pw + 'x' + ph + ' JP' + JP.length;
-  return { cv: _cv, x: x0, y: y0, w: pw / r, h: ph / r, rocks };
+  return { cv: toCanvas(R), x: x0, y: y0, w: pw / r, h: ph / r, rocks };
 };
 
 // ---- the current: tiny marks drifting downstream ----------------------------
@@ -983,12 +992,21 @@ const pondPrep = (P) => {
     const x = P.x + (hash(s, q + 110) - 0.4) * rx * 1.1, y = P.y + (hash(s, q + 111) - 0.35) * ry * 1.1;
     dashes.push([Math.round(y * PX) / PX, x, x + 2 + hash(s, q + 112) * (big ? 5 : 3), 1 / PX, T_REFL]);
   }
-  P.dashes = dashes;
+  // (filed by art-pixel row, so a pixel only looks at its own row's dashes)
+  const rows = new Map();
+  for (const [dy, xa, xb, th, t] of dashes) {
+    for (let k = Math.round(dy * PX); k < Math.round((dy + th) * PX); k++) {
+      if (!rows.has(k)) rows.set(k, []);
+      rows.get(k).push(xa, xb, t);
+    }
+  }
+  P.dashes = rows;
   return P;
 };
 // the sky's tone at (x, y) on a pond's open water, or -1
 const inDash = (P, x, y) => {
-  for (const [dy, xa, xb, th, t] of P.dashes) if (y > dy && y < dy + th && x > xa && x < xb) return t;
+  const row = P.dashes.get(Math.floor(y * PX));
+  if (row) for (let q = 0; q < row.length; q += 3) if (x > row[q] && x < row[q + 1]) return row[q + 2];
   return -1;
 };
 // The tone of one pixel of clear or swamp water: dp its depth past the
