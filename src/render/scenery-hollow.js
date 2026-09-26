@@ -186,7 +186,7 @@ const fenDead = (ctx, x, y, s, o) => {
   const { seed, v } = o, gy = y + 8;
   const H = (i) => hash(seed, i);
   const col = o.forest ? ["#a19c8c", "#8a877b", "#737168"][o.band] : ["#aaa392", "#b2ac9a", "#a29d8e", "#aea694"][v % 4];
-  const kind = v % 4;
+  const kind = o.forest ? (v % 2 ? 3 : 0) : v % 4;
   shadow(ctx, x + 7 * s, gy, 13 * s, 3.6 * s, 0.26);
   // the wet root-hollow it drowned in
   if (kind !== 2) {
@@ -250,59 +250,81 @@ const fenDead = (ctx, x, y, s, o) => {
   for (let k = 0; k < 4; k++) px1(ctx, x + lean * 0.3 - 1.6 * s + hash(seed, k + 70), gy - 6 * s - hash(seed, k + 71) * tall * 0.6 * s, 1, 0.5);
 };
 
-// A weeping willow in the fen's own colours: a gnarled dark trunk, a low
-// dome of teal-grey leaf, and the curtain of long strands hanging from it
-// to the ground — the trunk showing through where they part.
+// A weeping willow in the fen's own colours: a gnarled dark trunk forking
+// into a tall crown, and the crown one fountain of long strands — rising
+// from its top, arching out and falling to the ground, pale where the moon
+// catches them on the upper left, the trunk showing where they part.
+const strand = (c, x0, y0, x1, y1, out, w, col, tip) => {
+  // a tapered arc: out over the crown's shoulder, then straight down
+  const cx = x0 + out, cy = y0 - 1.5;
+  const N = 7, A = [], B = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N, u = 1 - t;
+    const k = t * t;
+    const px = u * u * x0 + 2 * u * t * cx + t * t * x1, py = u * u * y0 + 2 * u * t * cy + t * t * y1;
+    const ww = (w * (1 - t * 0.7)) / 2;
+    A.push([px - ww, py + k * 0.2]); B.push([px + ww, py]);
+  }
+  c.beginPath();
+  A.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+  for (let i = B.length - 1; i >= 0; i--) c.lineTo(B[i][0], B[i][1]);
+  c.closePath();
+  c.fillStyle = lin(c, 0, y0, 0, y1, [[0, tip], [0.35, col], [1, darken(col, 0.25)]]);
+  c.fill();
+};
 const fenWillow = (ctx, x, y, s, o) => {
   const { seed, v } = o, gy = y + 8;
   const H = (i) => hash(seed, i);
-  const leaf = o.forest ? ["#4d6857", "#435c4d", "#3a5044"][o.band] : ["#4f6c59", "#557260", "#4a6655", "#52705a"][v % 4];
+  const leaf = o.forest ? ["#4b6454", "#42594b", "#394e43"][o.band] : ["#4d6858", "#536e5c", "#48625a", "#506a54"][v % 4];
   const bark = "#4d4238";
-  const R = (16 + H(1) * 3) * s, Ry = R * 0.62;
-  const cx = x + (H(2) - 0.5) * 3 * s, cy = gy - 27 * s;
-  shadow(ctx, x + 9 * s, gy - 1, 19 * s, 5.5 * s, 0.26);
+  const R = (13 + H(1) * 3) * s, Ry = R * 0.7;
+  const cx = x + (H(2) - 0.5) * 3 * s, cy = gy - 30 * s;
+  shadow(ctx, x + 9 * s, gy - 1, 18 * s, 5.5 * s, 0.26);
   shadow(ctx, x + 2 * s, gy, 9 * s, 2.4 * s, 0.3);
-  // the back of the curtain, deep in its own shade
-  for (let i = 0; i <= 16; i++) {
-    const sx = cx - R * 1.02 + (i / 16) * R * 2.04;
-    const top = cy - Ry * 0.1, len = (gy - 5 - top) * (0.7 + H(i + 10) * 0.3);
-    blade(ctx, sx, top, sx + 1 * s, top + len, 1.2 * s, darken(leaf, 0.5), darken(leaf, 0.32), 0.3);
+  // the back of the fountain, falling behind the trunk in its own shade
+  for (let i = 0; i <= 14; i++) {
+    const t = i / 14, ox = (t - 0.5) * 2;
+    const x0 = cx + ox * R * 0.7, y0 = cy - Ry * 0.3 + Math.abs(ox) * Ry * 0.4;
+    const x1 = cx + ox * R * 1.28, y1 = gy - 6 - H(i + 10) * 8 * s;
+    strand(ctx, x0, y0, x1, y1, ox * R * 0.45, 1.6 * s, darken(leaf, 0.45), darken(leaf, 0.3));
   }
   // trunk and the limbs it lifts into the crown
   part(ctx, (c) => {
     for (const [rx, rl] of [[-1, 7], [1, 6.5]]) limb(c, x + rx * 1.6 * s, gy - 3 * s, x + rx * rl * s, gy + 0.6, 2.6 * s, 0.9, bark, rx);
     limb(c, x, gy, x - 0.8 * s, gy - 13 * s, 6 * s, 4.4 * s, bark, 1.5 * s, { hi: 0.4 });
-    limb(c, x - 0.8 * s, gy - 12 * s, cx - 8 * s, cy + 3 * s, 3.2 * s, 1.6 * s, bark, -2 * s, { hi: 0.4 });
-    limb(c, x - 0.4 * s, gy - 12 * s, cx + 7 * s, cy + 2 * s, 3 * s, 1.5 * s, bark, 2 * s, { hi: 0.4 });
-    c.fillStyle = darken(bark, 0.45);
+    limb(c, x - 0.8 * s, gy - 12 * s, cx - 6 * s, cy + 2 * s, 3.2 * s, 1.6 * s, bark, -2 * s, { hi: 0.4 });
+    limb(c, x - 0.4 * s, gy - 12 * s, cx + 5 * s, cy + 1 * s, 3 * s, 1.5 * s, bark, 2 * s, { hi: 0.4 });
     ball(c, x + 0.6 * s, gy - 7 * s, 1 * s, 1.3 * s, darken(bark, 0.5), { hi: 0, lo: 0.2 });
+    c.fillStyle = darken(bark, 0.45);
     px1(c, x + 1.2 * s, gy - 11 * s, 0.5, 3);
   });
-  // the dome: a dark under-mass, then clumps, lowest first
-  inkPart(ctx, (c) => { blobPath(c, cx + s, cy + Ry * 0.2, R * 0.98, Ry * 0.9, seed + 11, 0.12, 12); c.fillStyle = darken(leaf, 0.5); c.fill(); }, darken(leaf, 0.75), [cx - R * 1.2, cy - Ry * 1.2, cx + R * 1.3, cy + Ry * 1.4]);
-  const clumps = [];
-  const n = 6;
-  for (let i = 0; i < n; i++) {
-    const a = Math.PI * 1.05 + (i / (n - 1)) * Math.PI * 0.9 + (H(i + 20) - 0.5) * 0.3;
-    clumps.push([Math.cos(a) * R * 0.62, Math.sin(a) * Ry * 0.55, R * (0.4 + H(i + 30) * 0.08)]);
-  }
-  clumps.push([-R * 0.55, Ry * 0.25, R * 0.4], [R * 0.55, Ry * 0.28, R * 0.38], [0, Ry * 0.15, R * 0.46]);
-  clumps.sort((p, q) => q[1] - p[1]);
+  // the crown's dark heart, and a few leaf masses on top of it
+  inkPart(ctx, (c) => { blobPath(c, cx + s, cy + Ry * 0.1, R * 0.95, Ry * 0.95, seed + 11, 0.12, 12); c.fillStyle = darken(leaf, 0.5); c.fill(); }, darken(leaf, 0.75), [cx - R * 1.2, cy - Ry * 1.2, cx + R * 1.3, cy + Ry * 1.4]);
+  const clumps = [[-R * 0.4, -Ry * 0.2, R * 0.5], [R * 0.4, -Ry * 0.15, R * 0.46], [-R * 0.05, -Ry * 0.55, R * 0.46]];
   clumps.forEach(([px, py, r], i) => {
     const lit = 0.5 + ((px / R) * SUN.x + (py / Ry) * SUN.y) * 1.3;
     inkPart(ctx, (c) => clump(c, cx + px, cy + py, r, leaf, seed * 7 + i * 13, lit), darken(leaf, 0.75), [cx + px - r * 1.4, cy + py - r * 1.3, cx + px + r * 1.4, cy + py + r * 1.2]);
   });
-  // the front of the curtain: strands falling from the dome's lower rim
-  for (let i = 0; i < 22; i++) {
-    const t = i / 21, a = Math.PI * (0.02 + t * 0.96);
-    const sx = cx + Math.cos(Math.PI - a) * R * 1.0 + (H(i + 50) - 0.5) * 1.5;
-    const top = cy + Math.sin(a) * Ry * 0.5 - 1;
+  // the fountain: strands from all over the crown's top, arching out and
+  // falling, lowest-rooted first so the upper ones spill over them
+  const list = [];
+  for (let i = 0; i < 34; i++) {
+    const a = Math.PI * (1.02 + H(i + 40) * 0.96), k = 0.25 + H(i + 41) * 0.75;
+    const x0 = cx + Math.cos(a) * R * k * 0.9, y0 = cy + Math.sin(a) * Ry * k * 0.9 + Ry * 0.15;
+    list.push([x0, y0, i]);
+  }
+  for (let i = 0; i < 10; i++) list.push([cx + (H(i + 90) - 0.5) * R * 1.8, cy + Ry * (0.3 + H(i + 91) * 0.4), i + 50]);
+  list.sort((p, q) => q[1] - p[1]);
+  for (const [x0, y0, i] of list) {
+    const ox = (x0 - cx) / R;
+    const x1 = x0 + ox * R * 0.5 + (H(i + 60) - 0.5) * 2;
     // a parting in front of the trunk
-    if (Math.abs(sx - x) < 3.5 * s && i % 3 !== 0) continue;
-    const len = (gy - 4 - top) * (0.45 + H(i + 60) * 0.5);
-    const sun = sx < cx - R * 0.25;
-    const c0 = i % 2 ? leaf : darken(leaf, 0.2);
-    blade(ctx, sx, top, sx + (0.6 + H(i + 70)) * s, top + len, 1.15 * s, sun ? lighten(c0, 0.12) : c0, sun ? lighten(c0, 0.34) : lighten(c0, 0.12), 0.3);
+    const low = Math.abs(x1 - x) < 4 * s ? 0.4 : 1;
+    const y1 = Math.min(gy - 3, y0 + (gy - y0) * (0.5 + H(i + 61) * 0.5) * low);
+    const sun = ox * SUN.x + ((y0 - cy) / Ry) * SUN.y;
+    const col = sun > 0.35 ? lighten(leaf, 0.2) : sun > -0.1 ? leaf : darken(leaf, 0.2);
+    const tip = sun > 0.2 ? lighten(leaf, 0.45) : lighten(col, 0.18);
+    strand(ctx, x0, y0, x1, y1, ox * R * 0.35, (1.5 + H(i + 62) * 0.6) * s, col, tip);
   }
 };
 
@@ -552,14 +574,16 @@ const fenBones = (ctx, x, y, s, o) => {
   blobPath(ctx, x + 1, gy + 1, 12 * s, 4 * s, seed, 0.2, 10); ctx.fill();
   const flip = v % 2 ? -1 : 1;
   part(ctx, (c) => {
-    // ribs: arcs rising from a buried spine
+    // ribs: arcs rising from a buried spine, pairs curving toward each other
     c.lineCap = "round";
+    c.strokeStyle = darken(BONE, 0.3); c.lineWidth = 1.2 * s;
+    c.beginPath(); c.moveTo(x + flip * -6 * s, gy + 0.5); c.lineTo(x + flip * 5 * s, gy + 0.2); c.stroke();
     for (let i = 0; i < 4; i++) {
-      const bx = x + flip * (-6 + i * 2.6) * s, h = (4.8 - Math.abs(i - 1.5) * 0.7) * s;
-      c.strokeStyle = darken(BONE, 0.22); c.lineWidth = 1.3 * s;
-      c.beginPath(); c.moveTo(bx - 2 * s, gy + 1); c.quadraticCurveTo(bx - 1 * s, gy - h, bx + 1.6 * s, gy - h * 0.6); c.stroke();
-      c.strokeStyle = BONE; c.lineWidth = 0.8 * s;
-      c.beginPath(); c.moveTo(bx - 2 * s, gy + 0.6); c.quadraticCurveTo(bx - 1 * s, gy - h - 0.4, bx + 1.6 * s, gy - h * 0.6 - 0.4); c.stroke();
+      const bx = x + flip * (-4.5 + i * 3) * s, h = (6.5 - Math.abs(i - 1.2) * 1.1) * s;
+      for (const [sd, lt] of [[1, false], [-1, true]]) {
+        c.strokeStyle = lt ? BONE : darken(BONE, 0.22); c.lineWidth = (lt ? 1 : 1.1) * s;
+        c.beginPath(); c.moveTo(bx, gy + 0.4); c.quadraticCurveTo(bx + sd * 3.4 * s, gy - h * 0.55, bx + sd * 1.2 * s, gy - h); c.stroke();
+      }
     }
     longBone(c, x + flip * -7 * s, gy + 1.2, x + flip * 5 * s, gy + 1.8, 1.3 * s);
   });
@@ -584,7 +608,7 @@ const fenBones = (ctx, x, y, s, o) => {
       ball(c, sx, gy - 17.4 * s, 1.1 * s, 1 * s, BRONZE, { hi: 0.4, lo: 0.4 });
     });
   }
-  part(ctx, (c) => skull(c, x + flip * -9 * s, gy - 1.6 * s, 2.8 * s));
+  part(ctx, (c) => skull(c, x + flip * -9.5 * s, gy - 1.4 * s, 3.1 * s));
   sedge(ctx, x + flip * 11 * s, gy + 2, 0.7, seed, 4);
 };
 
@@ -910,12 +934,12 @@ const lichFence = (ctx, x, y, s, o) => {
     // the pales, the rails, then the posts over their ends
     part(ctx, (c) => {
       c.fillStyle = iron;
-      c.fillRect(x - hw, gy - 11 * s, hw * 2, 1);
-      c.fillRect(x - hw, gy - 3.5 * s, hw * 2, 1);
-      const n = 7;
+      c.fillRect(x - hw, gy - 11 * s, hw * 2, 0.5);
+      c.fillRect(x - hw, gy - 3.5 * s, hw * 2, 0.5);
+      const n = 5;
       for (let i = 0; i < n; i++) {
-        const px = x - hw + 3 * s + i * ((hw * 2 - 6 * s) / (n - 1));
-        const bent = i === 4 && v === 1 ? 0.25 : 0;
+        const px = x - hw + 4 * s + i * ((hw * 2 - 8 * s) / (n - 1));
+        const bent = i === 3 && v === 1 ? 0.25 : 0;
         c.save(); c.translate(px, gy); c.rotate(bent);
         c.fillStyle = lin(c, -0.6, 0, 0.6, 0, [[0, "#6a6670"], [0.5, iron], [1, "#24222a"]]);
         c.fillRect(-0.5, -14 * s, 1, 14 * s);
@@ -967,7 +991,7 @@ Object.assign(HOLLOW_ART.box, {
   fendead: [24, 40], fenwillow: [26, 44], fensnag: [12, 20], reedbed: [18, 30], bogpool: [22, 14],
   fengrave: [22, 26], fencairn: [16, 30], fenbones: [18, 20], fenstatue: [22, 30], lichfence: [22, 24],
 });
-Object.assign(HOLLOW_ART.dress, { fendead: [3, false], fenwillow: [5, false], fengrave: [6, true], fencairn: [9, true], fenstatue: [13, false], fensnag: [3, false] });
+Object.assign(HOLLOW_ART.dress, { fendead: [3, false], fenwillow: [5, false], fengrave: [6, false], fencairn: [9, false], fenstatue: [13, false], fensnag: [3, false] });
 
 // ---- the ground: moss, pools, sedge, bog-cotton -----------------------
 
@@ -986,7 +1010,7 @@ const puddle = (c, x, y, rx, ry, seed, lily = false) => {
   if (lily) lilyPad(c, x + rx * 0.35, y + ry * 0.1, Math.min(2.2, rx * 0.35), seed);
 };
 // a cushion of sphagnum: small lit knobs in green, ochre and rust
-const MOSS_COLS = ["#5f7a3c", "#6e8440", "#8a8a46", "#8a5a3a", "#6e4238", "#4e6a3a"];
+const MOSS_COLS = ["#5f7a3c", "#6e8440", "#86864a", "#76604a", "#5e4a44", "#4e6a3a"];
 const mossCushion = (c, x, y, r, seed) => {
   const n = 5 + Math.floor(r * 2.2);
   const base = MOSS_COLS[Math.floor(hash(seed, 1) * MOSS_COLS.length)];

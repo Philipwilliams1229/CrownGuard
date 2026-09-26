@@ -45,7 +45,7 @@ const WOOD = "#6a4a2e", WOOD_LT = "#8a6440", WOOD_DK = "#46301e";
 const CANVAS = "#d6ccb2";
 const GRIT = "#8e8c86";            // highland crag stone, cool
 const ASHLAR = "#a6a296";          // the Kingdom's dressed stone
-const HEATH = "#8a5a82", HEATH_LT = "#b27ea4", HEATH_DK = "#583a58", HEATH_FL = "#dca8cc";
+const HEATH = "#7e5a74", HEATH_LT = "#a07a94", HEATH_DK = "#523a50", HEATH_FL = "#c89cba";
 const BRACK = "#a6683a", BRACK_LT = "#c88c4c", BRACK_DK = "#6a4226";
 const PINE_LEAF = "#3e6450", SCOTS_BARK = "#b0663e";
 // the wood, by depth: the treeline takes what light there is, the rows behind go dark and cold
@@ -53,6 +53,7 @@ const WOOD_SPRUCE = [["#44705a", "#4a745a", "#406a56"], ["#385f4e", "#355a4c", "
 const WOOD_SCOTS = [["#46705a", "#4c7658", "#426c58"], ["#3a624e", "#38604e", "#3e654e"], ["#2f5046", "#2d4c44", "#325448"]];
 
 const ap = (v) => Math.round(v * PX) / PX;
+const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
 
 // A still body baked once (inked), then stamped — for the live pieces, whose
@@ -810,12 +811,11 @@ const bakeCamp = () => {
     c.fillStyle = mix(WOOD_LT, "#c8a878", 0.4);
     c.beginPath(); c.moveTo(x - 1.6, gy - hh + 0.5); c.lineTo(x, gy - hh - 2.6); c.lineTo(x + 1.6, gy - hh + 0.5); c.closePath(); c.fill();
   };
-  const TW = 24;
   CAMP.tx = 50; CAMP.ty = ly - PATH_HALF - 8;   // the tower's foot
   CAMP.build = bakeSprite(w, h, (c) => {
-    // north wing of the palisade: from the tower back up into the wood
+    // north wing of the palisade: behind the gate tower, back up into the wood
     part(c, (cc) => {
-      for (let k = 0, yy = CAMP.ty - 60; yy <= CAMP.ty - 4; yy += 2.6, k++) {
+      for (let k = 0, yy = CAMP.ty - 70; yy <= CAMP.ty - 20; yy += 2.6, k++) {
         if (yy < -4) continue;
         stake(cc, 30 + Math.sin(k * 1.7) * 0.6 + (yy - CAMP.ty) * -0.12, yy, 17 + hash(k, 3) * 3, k);
       }
@@ -835,60 +835,77 @@ const bakeCamp = () => {
         cc.strokeStyle = WOOD; cc.beginPath(); cc.moveTo(kx + 3, gy); cc.lineTo(kx - 2.5, gy - 8); cc.stroke();
       }
     });
-    // the gate leaf, swung open against the north verge
-    part(c, (cc) => {
-      const gy = ly - PATH_HALF - 1, gx = 34;
-      cc.fillStyle = lin(cc, 0, gy - 16, 0, gy, [[0, WOOD_LT], [0.5, WOOD], [1, WOOD_DK]]);
-      cc.fillRect(gx, gy - 16, 20, 16);
-      cc.fillStyle = WOOD_DK; for (let k = 1; k < 5; k++) cc.fillRect(gx + k * 4, gy - 16, 0.5, 16);
-      cc.fillStyle = IRON; cc.fillRect(gx, gy - 13, 20, 1.2); cc.fillRect(gx, gy - 4.5, 20, 1.2);
-      cc.beginPath(); cc.moveTo(gx + 1, gy - 12); cc.lineTo(gx + 18, gy - 5); cc.lineTo(gx + 18, gy - 3.5); cc.lineTo(gx + 1, gy - 10.5); cc.fill();
-      for (let k = 0; k < 5; k++) { cc.fillStyle = mix(WOOD_LT, "#c8a878", 0.4); cc.beginPath(); cc.moveTo(gx + k * 4, gy - 16); cc.lineTo(gx + k * 4 + 2, gy - 18.5); cc.lineTo(gx + k * 4 + 4, gy - 16); cc.fill(); }
-    });
-    // the gate tower: a stone footing, a timber shaft, a fighting deck with a
-    // breastwork, the banner down its face
-    part(c, (cc) => {
-      const fx = CAMP.tx, gy = CAMP.ty;
-      shadow(cc, fx + 10, gy + 1, 18, 4, 0.34);
-      cc.fillStyle = darken(ASHLAR, 0.1);
-      cc.fillRect(fx - TW / 2 - 1, gy - 7, TW + 2, 7);
-      ashlar(cc, fx - TW / 2 - 1, gy - 7, TW + 2, 7, darken(ASHLAR, 0.06), 3);
-      // corner posts and planking
-      cc.fillStyle = lin(cc, fx - TW / 2, 0, fx + TW / 2, 0, [[0, WOOD_LT], [0.5, WOOD], [1, WOOD_DK]]);
-      cc.fillRect(fx - TW / 2 + 1, gy - 34, TW - 2, 27);
-      cc.fillStyle = WOOD_DK;
-      for (let k = 1; k < 6; k++) cc.fillRect(ap(fx - TW / 2 + 1 + k * (TW - 2) / 6), gy - 34, 0.5, 27);
-      cc.fillStyle = IRON; cc.fillRect(fx - TW / 2 + 1, gy - 22, TW - 2, 1); cc.fillRect(fx - TW / 2 + 1, gy - 12, TW - 2, 1);
-      for (const px of [fx - TW / 2, fx + TW / 2 - 3]) cylinder(cc, px, gy - 36, 3, 29, WOOD_DK, { r: 0.6, hi: 0.3 });
-      // the east side in shade
-      cc.fillStyle = darken(WOOD, 0.45);
-      cc.beginPath(); cc.moveTo(fx + TW / 2, gy - 36); cc.lineTo(fx + TW / 2 + 4, gy - 38); cc.lineTo(fx + TW / 2 + 4, gy - 9); cc.lineTo(fx + TW / 2, gy - 7); cc.closePath(); cc.fill();
-    });
-    part(c, (cc) => {
-      const fx = CAMP.tx, gy = CAMP.ty, dt = gy - 36;
-      // the deck's breastwork, jutting out over the shaft
-      cc.fillStyle = darken(WOOD, 0.55); cc.fillRect(fx - TW / 2 - 3, dt - 6, TW + 10, 4);
-      cc.fillStyle = lin(cc, 0, dt - 2, 0, dt + 5, [[0, WOOD_LT], [1, WOOD_DK]]);
-      cc.fillRect(fx - TW / 2 - 3, dt - 2, TW + 6, 7);
-      cc.fillStyle = WOOD_DK; for (let k = 1; k < 7; k++) cc.fillRect(ap(fx - TW / 2 - 3 + k * (TW + 6) / 7), dt - 2, 0.5, 7);
-      for (let k = 0; k < 8; k++) { cc.fillStyle = mix(WOOD_LT, "#c8a878", 0.35); const kx = fx - TW / 2 - 3 + k * (TW + 6) / 8; cc.beginPath(); cc.moveTo(kx, dt - 2); cc.lineTo(kx + (TW + 6) / 16, dt - 5); cc.lineTo(kx + (TW + 6) / 8, dt - 2); cc.fill(); }
-      cc.fillStyle = darken(WOOD, 0.5); cc.fillRect(fx + TW / 2 + 3, dt - 4, 4, 8);
-      // brackets under the breastwork
-      cc.fillStyle = WOOD_DK; for (const bx of [-TW / 2 - 2, TW / 2]) { cc.beginPath(); cc.moveTo(fx + bx, dt + 5); cc.lineTo(fx + bx + 2, dt + 5); cc.lineTo(fx + bx + (bx < 0 ? 3 : -1), dt + 10); cc.closePath(); cc.fill(); }
-    });
-    part(c, (cc) => cloth(cc, CAMP.tx - 5, CAMP.ty - 30, 10, 16, 0));
-    // the pole on the deck and the brazier's iron basket
-    part(c, (cc) => {
-      cylinder(cc, CAMP.tx - 8.6, CAMP.ty - 64, 1.4, 24, WOOD_DK, { r: 0.4 });
-      ball(cc, CAMP.tx - 7.9, CAMP.ty - 64, 1.1, 1.1, BRASS, { hi: 0.5, lo: 0.3 });
-      const bx = CAMP.tx + 6, by = CAMP.ty - 42;
-      cc.fillStyle = IRON;
-      for (const dx of [-3, -1, 1, 3]) cc.fillRect(ap(bx + dx), by - 3, 0.8, 4);
-      cc.fillRect(bx - 3.5, by - 1, 7.5, 1);
-      ellipse(cc, bx + 0.4, by - 3, 3.8, 1.2); cc.fillStyle = "#3a2420"; cc.fill();
-    });
   });
   return CAMP;
+};
+// The gate tower itself stands in the depth-sorted pass (a decor piece,
+// "irgate", placed by maps.js's ironVariant beside the road's first yards), so
+// the pines behind it can't bury it. Feet at (x, y + 8); the gate leaf swings
+// back along the road's north verge to the west of it, the first stakes of the
+// palisade behind.
+const PALE = (c, x, gy, hh, k) => {
+  cylinder(c, x - 1.6, gy - hh, 3.2, hh, k % 3 ? WOOD : mix(WOOD, "#7a6a50", 0.3), { r: 0.8, hi: 0.35, lo: 0.55 });
+  c.fillStyle = mix(WOOD_LT, "#c8a878", 0.4);
+  c.beginPath(); c.moveTo(x - 1.6, gy - hh + 0.5); c.lineTo(x, gy - hh - 2.6); c.lineTo(x + 1.6, gy - hh + 0.5); c.closePath(); c.fill();
+};
+const gateBody = (c, x, y) => {
+  const TW = 24, fx = x, gy = y + 8;
+  // the palisade's first stakes, running back from the gate post
+  part(c, (cc) => { for (let k = 0, yy = gy - 22; yy <= gy + 4; yy += 2.6, k++) PALE(cc, x - 28 + (yy - gy) * -0.12, yy, 17 + hash(k, 9) * 3, k); });
+  shadow(c, fx + 10, gy + 1, 18, 4, 0.34);
+  part(c, (cc) => {
+    ashlar(cc, fx - TW / 2 - 1, gy - 7, TW + 2, 7, darken(ASHLAR, 0.06), 3);
+    // planked walls between corner posts
+    cc.fillStyle = lin(cc, fx - TW / 2, 0, fx + TW / 2, 0, [[0, WOOD_LT], [0.5, WOOD], [1, WOOD_DK]]);
+    cc.fillRect(fx - TW / 2 + 1, gy - 34, TW - 2, 27);
+    cc.fillStyle = WOOD_DK;
+    for (let k = 1; k < 6; k++) cc.fillRect(ap(fx - TW / 2 + 1 + k * (TW - 2) / 6), gy - 34, 0.5, 27);
+    cc.fillStyle = IRON; cc.fillRect(fx - TW / 2 + 1, gy - 22, TW - 2, 1); cc.fillRect(fx - TW / 2 + 1, gy - 12, TW - 2, 1);
+    for (const px of [fx - TW / 2, fx + TW / 2 - 3]) cylinder(cc, px, gy - 36, 3, 29, WOOD_DK, { r: 0.6, hi: 0.3 });
+    // the east side in shade
+    cc.fillStyle = darken(WOOD, 0.45);
+    cc.beginPath(); cc.moveTo(fx + TW / 2, gy - 36); cc.lineTo(fx + TW / 2 + 4, gy - 38); cc.lineTo(fx + TW / 2 + 4, gy - 9); cc.lineTo(fx + TW / 2, gy - 7); cc.closePath(); cc.fill();
+  });
+  part(c, (cc) => {
+    const dt = gy - 36;
+    // the fighting deck's breastwork, jutting out over the shaft
+    cc.fillStyle = darken(WOOD, 0.55); cc.fillRect(fx - TW / 2 - 3, dt - 6, TW + 10, 4);
+    cc.fillStyle = lin(cc, 0, dt - 2, 0, dt + 5, [[0, WOOD_LT], [1, WOOD_DK]]);
+    cc.fillRect(fx - TW / 2 - 3, dt - 2, TW + 6, 7);
+    cc.fillStyle = WOOD_DK; for (let k = 1; k < 7; k++) cc.fillRect(ap(fx - TW / 2 - 3 + k * (TW + 6) / 7), dt - 2, 0.5, 7);
+    for (let k = 0; k < 8; k++) { cc.fillStyle = mix(WOOD_LT, "#c8a878", 0.35); const kx = fx - TW / 2 - 3 + k * (TW + 6) / 8; cc.beginPath(); cc.moveTo(kx, dt - 2); cc.lineTo(kx + (TW + 6) / 16, dt - 5); cc.lineTo(kx + (TW + 6) / 8, dt - 2); cc.fill(); }
+    cc.fillStyle = darken(WOOD, 0.5); cc.fillRect(fx + TW / 2 + 3, dt - 4, 4, 8);
+    cc.fillStyle = WOOD_DK; for (const bx of [-TW / 2 - 2, TW / 2]) { cc.beginPath(); cc.moveTo(fx + bx, dt + 5); cc.lineTo(fx + bx + 2, dt + 5); cc.lineTo(fx + bx + (bx < 0 ? 3 : -1), dt + 10); cc.closePath(); cc.fill(); }
+  });
+  part(c, (cc) => cloth(cc, fx - 5, gy - 30, 10, 16, 0));
+  // the pennant's pole and the brazier's iron basket on the deck
+  part(c, (cc) => {
+    cylinder(cc, fx - 8.6, gy - 64, 1.4, 24, WOOD_DK, { r: 0.4 });
+    ball(cc, fx - 7.9, gy - 64, 1.1, 1.1, BRASS, { hi: 0.5, lo: 0.3 });
+    const bx = fx + 6, by = gy - 42;
+    cc.fillStyle = IRON;
+    for (const dx of [-3, -1, 1, 3]) cc.fillRect(ap(bx + dx), by - 3, 0.8, 4);
+    cc.fillRect(bx - 3.5, by - 1, 7.5, 1);
+    ellipse(cc, bx + 0.4, by - 3, 3.8, 1.2); cc.fillStyle = "#3a2420"; cc.fill();
+  });
+  // the gate leaf, swung open against the north verge
+  part(c, (cc) => {
+    const ly = gy + 7, lx = x - 26;
+    cc.fillStyle = lin(cc, 0, ly - 16, 0, ly, [[0, WOOD_LT], [0.5, WOOD], [1, WOOD_DK]]);
+    cc.fillRect(lx, ly - 16, 20, 16);
+    cc.fillStyle = WOOD_DK; for (let k = 1; k < 5; k++) cc.fillRect(lx + k * 4, ly - 16, 0.5, 16);
+    cc.fillStyle = IRON; cc.fillRect(lx, ly - 13, 20, 1.2); cc.fillRect(lx, ly - 4.5, 20, 1.2);
+    cc.beginPath(); cc.moveTo(lx + 1, ly - 12); cc.lineTo(lx + 18, ly - 5); cc.lineTo(lx + 18, ly - 3.5); cc.lineTo(lx + 1, ly - 10.5); cc.fill();
+    for (let k = 0; k < 5; k++) { cc.fillStyle = mix(WOOD_LT, "#c8a878", 0.35); cc.beginPath(); cc.moveTo(lx + k * 4, ly - 16); cc.lineTo(lx + k * 4 + 2, ly - 18.5); cc.lineTo(lx + k * 4 + 4, ly - 16); cc.fill(); }
+    // the gate post it hangs from
+    cylinder(cc, lx - 3, ly - 22, 3.5, 22, WOOD_DK, { r: 0.8, hi: 0.3 });
+  });
+};
+const ironGate = (ctx, x, y, s, o) => {
+  const sp = body("gate", 34, 64, 20, (c, bx, by) => gateBody(c, bx, by));
+  stampBody(ctx, sp, x, y);
+  pennant(ctx, x - 7.4, y + 8 - 63, 11, 4, o.time, 1.3);
+  fire(ctx, x + 6.4, y + 8 - 45, 0.8, o.time, 2.1);
 };
 const drawIronCamp = (ctx, time) => {
   if (!PTS.length) return;
@@ -896,8 +913,6 @@ const drawIronCamp = (ctx, time) => {
   ctx.drawImage(C.ground, C.x0, C.y0, C.w, C.h);
   ctx.drawImage(C.build, C.x0, C.y0, C.w, C.h);
   const ox = C.x0, oy = C.y0;
-  pennant(ctx, ox + C.tx - 7.4, oy + C.ty - 63, 11, 4, time, 1.3);
-  fire(ctx, ox + C.tx + 6.4, oy + C.ty - 45, 0.8, time, 2.1);
   // smoke from the camp beyond the palisade
   for (let i = 0; i < 4; i++) {
     const t = (time * 0.22 + i / 4) % 1;
@@ -918,13 +933,13 @@ const lowSprite = (kind, v) => {
     const x = dims[0] / 2, y = dims[1] - 3;
     if (kind === "heath" || kind === "dryheath") {
       shadow(c, x + 2, y + 1, 9, 2.2, 0.2);
-      const base = kind === "dryheath" ? "#7c5c66" : [HEATH, "#94628a", "#7e527a"][v % 3];
+      const base = kind === "dryheath" ? "#735a58" : [HEATH, "#86607a", "#745670", "#7a6468"][v % 4];
       const n = 2 + (v % 3);
       for (let i = 0; i < n; i++) {
         const hx = x + (i - (n - 1) / 2) * 4.2 + (hash(v, i) - 0.5) * 2, hy = y - (i % 2) * 1.2;
         blobBall(c, hx, hy, 2.6 + hash(v, i + 3) * 1.4, 1.9 + hash(v, i + 6) * 0.5, i % 2 ? lighten(base, 0.05) : base, v * 7 + i, { hi: 0.5, lo: 0.45, wobble: 0.3, n: 9 });
       }
-      for (let i = 0; i < 4 + n; i++) { c.fillStyle = i % 3 ? HEATH_FL : lighten(HEATH_LT, 0.2); px1(c, x + (hash(v, i + 10) - 0.5) * n * 4, y - 2.5 + hash(v, i + 15) * 2); }
+      for (let i = 0; i < 2 + n; i++) { c.fillStyle = i % 2 ? HEATH_FL : HEATH_LT; px1(c, x + (hash(v, i + 10) - 0.5) * n * 4, y - 2.5 + hash(v, i + 15) * 2); }
     } else if (kind === "bracken") {
       brackenFan(c, x, y + 1, 0.75 + (v % 3) * 0.1, v * 13, v % 4 === 3);
     } else if (kind === "cotton") {
@@ -973,9 +988,44 @@ const vnoise = (seed, cell, x, y) => {
 
 const nearWater = (x, y, m) => PONDS.some((p) => Math.abs(x - p.x) < p.w / 2 + m && Math.abs(y - p.y) < p.h / 2 + m) || inRiver(x, y, m);
 
+// The drifts themselves: where the heather (or the bracken) takes the hill,
+// the turf under it turns — a dithered mauve-brown (or rust) ground, so a
+// drift reads as one patch of moor and not a sprinkle of clumps. Written into
+// the layer's pixels; a coarse mask keeps it off the road, the water and the wood.
+const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => v / 16);
+const driftGround = (ctx, clear) => {
+  const seed = REALM.seed | 0;
+  const cv = ctx.canvas, PW = cv.width, PH = cv.height, k = PW / W;
+  const C = 4, GW = Math.ceil(W / C) + 1, GH = Math.ceil(H / C) + 1;
+  const ok = new Uint8Array(GW * GH);
+  for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) ok[j * GW + i] = clear(i * C, j * C, 3) ? 1 : 0;
+  const img = ctx.getImageData(0, 0, PW, PH), dd = img.data;
+  const heath = hexRGB(mix("#6a5058", REALM.GRASS_DK, 0.25)), heathLt = hexRGB(mix("#86667a", REALM.GRASS, 0.2));
+  const brack = hexRGB(mix("#8a6040", REALM.GRASS_DK, 0.35));
+  const limit = Math.min(PW, Math.ceil((W - 104) * k));
+  for (let py = 0; py < PH; py += 1) {
+    const y = py / k, gj = Math.min(GH - 1, Math.round(y / C));
+    for (let pxx = 0; pxx < limit; pxx += 1) {
+      const x = pxx / k, gi = Math.min(GW - 1, Math.round(x / C));
+      if (!ok[gj * GW + gi]) continue;
+      const hn = vnoise(seed + 5, 70, x, y) + (vnoise(seed + 17, 14, x, y) - 0.5) * 0.12;
+      const bn = vnoise(seed + 9, 90, x, y) + (vnoise(seed + 19, 12, x, y) - 0.5) * 0.12;
+      const dz = B4[(py & 3) * 4 + (pxx & 3)];
+      let col = null, a = 0;
+      if (hn > 0.6) { a = Math.min(0.7, (hn - 0.6) * 5); col = (hn + dz * 0.05) > 0.7 ? heathLt : heath; }
+      else if (bn > 0.62) { a = Math.min(0.55, (bn - 0.62) * 5); col = brack; }
+      if (!col || a < dz * 0.9) continue;
+      const o = (py * PW + pxx) * 4, f = 0.55;
+      dd[o] += (col[0] - dd[o]) * f; dd[o + 1] += (col[1] - dd[o + 1]) * f; dd[o + 2] += (col[2] - dd[o + 2]) * f;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+};
+
 const ironTurf = (ctx, kit) => {
   const { clear, rng, SW } = kit;
   const seed = REALM.seed | 0;
+  driftGround(ctx, clear);
   const items = [];
   // bedrock slabs, flat in the turf, in loose clusters
   for (let i = 0; i < 40; i++) {
@@ -991,10 +1041,17 @@ const ironTurf = (ctx, kit) => {
     const x = rng() * SW, y = rng() * H, r = rng(), v = Math.floor(rng() * 12);
     if (!clear(x, y, 5)) continue;
     const hn = vnoise(seed + 5, 70, x, y), bn = vnoise(seed + 9, 90, x, y);
-    if (hn > 0.56 && r < (hn - 0.5) * 2.2) items.push([x, y, hn > 0.72 && r < 0.12 ? "dryheath" : "heath", v, 0.85 + r * 0.3]);
-    else if (bn > 0.62 && r < (bn - 0.58) * 1.6) items.push([x, y, "bracken", v, 0.8 + r * 0.3]);
+    if (hn > 0.62 && r < (hn - 0.6) * 2.4) items.push([x, y, hn > 0.72 && r < 0.12 ? "dryheath" : "heath", v, 0.85 + r * 0.3]);
+    else if (bn > 0.6 && r < (bn - 0.56) * 1.4) items.push([x, y, "bracken", v, 0.95 + r * 0.35]);
     else if (r < 0.018) items.push([x, y, r < 0.01 ? "heath" : "bracken", v, 0.75]);
     else if (r > 0.9 && nearWater(x, y, 22)) items.push([x, y, "cotton", v % 5, 1]);
+  }
+  // moor-grass tussocks, straw-tipped, gathering in the hollows
+  const tusB = mix(REALM.TUFT, REALM.GRASS_DK, 0.3), tusT = mix(REALM.GRASS_LT, "#c8bc88", 0.45);
+  for (let i = 0; i < 520; i++) {
+    const x = rng() * SW, y = rng() * H;
+    if (!clear(x, y, 4) || vnoise(seed + 31, 40, x, y) < 0.45) continue;
+    items.push([x, y, "tuss", i, 0.6 + rng() * 0.5]);
   }
   // the wood's hem: bracken, heather and fallen stone crowding the treeline
   if (FOREST) {
@@ -1018,7 +1075,10 @@ const ironTurf = (ctx, kit) => {
     }
   }
   items.sort((a, b) => a[1] - b[1]);
-  for (const [x, y, kind, v, k] of items) stampLow(ctx, kind, v, x, y, k);
+  for (const [x, y, kind, v, k] of items) {
+    if (kind === "tuss") tuft(ctx, x, y, k, v % 3 ? tusB : REALM.TUFT, v % 2 ? tusT : REALM.GRASS_LT, 5000 + v, { n: 4 + (v % 3) });
+    else stampLow(ctx, kind, v, x, y, k);
+  }
 };
 
 // ---- the road: dressed flags, kerbs, wheel ruts ------------------------------
@@ -1027,7 +1087,6 @@ const ironTurf = (ctx, kit) => {
 // segments, keeping the nearest), then which stone it belongs to: courses of
 // flags laid across the road, kerb stones at each edge. Each stone takes a
 // tone, a lit lip on its upper-left edges and a dark joint on its lower-right.
-const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 const ironRoad = (ctx, kit) => {
   if (!SEGS.length) return;
   const rng = kit.rng;
@@ -1097,7 +1156,7 @@ const ironRoad = (ctx, kit) => {
   const main = R.PATH_MAIN, dk = R.PATH_DK;
   const tones = [mix(main, "#fff3d2", 0.1), main, mix(main, dk, 0.3), mix(main, "#8e9698", 0.25), mix(main, "#b09a74", 0.25)].map(hexRGB);
   const kerbT = [mix(main, "#d0ccc0", 0.3), mix(main, "#b8b4aa", 0.2), mix(main, dk, 0.1)].map(hexRGB);
-  const earth = hexRGB("#5e4c3c"), moss = hexRGB("#62704a");
+  const earth = hexRGB(mix(main, "#5e4c3c", 0.6)), moss = hexRGB("#62704a");
   const img = ctx.getImageData(0, 0, PW, PH), dd = img.data;
   const at = (i) => (i >= 0 && i < N ? id[i] : -1);
   for (let py = 0; py < PH; py++) {
@@ -1109,7 +1168,7 @@ const ironRoad = (ctx, kit) => {
       const h1 = hash(s, 7), h2 = hash(s, 13);
       let col;
       if (kerb) col = kerbT[Math.floor(h1 * 3)];
-      else if (h2 < 0.025 && av < KERB - 3) col = earth;          // a flag gone, earth showing
+      else if (h2 < 0.012 && av < KERB - 3) col = earth;          // a flag gone, earth showing
       else col = tones[Math.floor(h1 * 5)];
       let r = col[0], g = col[1], b = col[2];
       // wheel ruts: two worn bands, darker and smoothed
@@ -1153,9 +1212,9 @@ export const IRON_ART = {
   decor: {
     irpine: scotsPine, irspruce: spruce, ircrag: crag, irheather: heatherClump, irwall: drystone,
     irgibbet: gibbet, irmile: milestone, irbeacon: beacon, irwagon: wagon, irpikes: pikes,
-    irtent: warTent, irbanner: standard, irtower: kingTower,
+    irtent: warTent, irbanner: standard, irtower: kingTower, irgate: ironGate,
   },
-  live: ["irbeacon", "irbanner", "irtower"],
+  live: ["irbeacon", "irbanner", "irtower", "irgate"],
   box: {
     irpine: [26, 58], irspruce: [27, 50], ircrag: [30, 40], irheather: [18, 14], irwall: [26, 22],
     irgibbet: [20, 44], irmile: [10, 16], irwagon: [36, 30], irpikes: [26, 40], irtent: [30, 36],

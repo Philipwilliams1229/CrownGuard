@@ -154,7 +154,7 @@ const rider = (ctx, p, o) => {
   });
   blob(ctx, [[-2.8, -1.4], [2.4, -1.6], [5.0, 1.2], [4.6, 2.6, 1], [3.6, 1.9], [2.6, 3.0, 1], [1.4, 2.2], [0.0, 3.0, 1], [-1.2, 2.2], [-2.8, 2.6, 1]], coat, { hi: 0.3, lo: 0.45 });
   if (o.shield !== false) {
-    const sc = o.shieldAt || [4.4, -7.8];
+    const sc = o.shieldAt || [6.0, -8.4];
     const [x, y] = sc;
     blob(ctx, [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]], coat, {
       hi: 0.35, lo: 0.45, then: (c) => {
@@ -184,7 +184,7 @@ const rider = (ctx, p, o) => {
   });
   part(ctx, (c) => {        // the vamplate, a steel cone guarding the fist
     c.fillStyle = cel(c, ...U(0.6, -2.4), ...U(2.8, 2.4), steel, 0.55, 0.4);
-    c.beginPath(); c.moveTo(...U(1.0, -2.3)); c.lineTo(...U(3.2, -0.7)); c.lineTo(...U(3.2, 0.7)); c.lineTo(...U(1.0, 2.3)); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(...U(1.0, -1.7)); c.lineTo(...U(2.8, -0.6)); c.lineTo(...U(2.8, 0.6)); c.lineTo(...U(1.0, 1.7)); c.closePath(); c.fill();
   });
   // near arm, the lance clamped under it, the gauntlet on the grip
   const sh = T(0.5, -6.7);
@@ -260,16 +260,18 @@ const destrier = (ctx, p) => {
   // the tail, black and streaming
   const tw = k.tail;
   body((c0) => part(c0, (c) => {
-    const pts = [[-12, -16.2], [-15.6, -16 + tw * 0.5], [-19.2, -13.6 + tw], [-21.8, -10.2 + tw * 1.6, 1], [-19.6, -11.4 + tw], [-18.6, -8.8 + tw * 1.6, 1], [-17, -11.6 + tw], [-14.6, -13], [-12.4, -13.8]];
-    fillPath(c, pts, mane, { hi: 0.3, lo: 0.3 });
-    line(c, -14, -15, -19, -12.4 + tw, 0.45, lighten(mane, 0.3));
+    c.fillStyle = cel(c, -22, -17, -12, -7, mane, 0.35, 0.3);
+    taper(c, [[-12.4, -15.6], [-15.8, -15.4 + tw * 0.5], [-19.4, -13.2 + tw], [-21.8, -10.6 + tw * 1.6]], [2.8, 2.6, 1.9, 0.8]);
+    taper(c, [[-12.8, -14.8], [-15.6, -13.6 + tw * 0.4], [-18, -10.8 + tw], [-18.8, -8 + tw * 1.4]], [2.4, 2.2, 1.5, 0.6]);
+    line(c, -14.4, -15.6 + tw * 0.2, -19.2, -13.6 + tw, 0.45, lighten(mane, 0.3));
+    line(c, -14.6, -14 + tw * 0.2, -17.4, -11.4 + tw, 0.45, lighten(mane, 0.2));
   }));
   // near legs
   horseLeg(ctx, B([-8, -10.5]), k.hn, HIND, col, sock);
   horseLeg(ctx, B([7.5, -10.5]), k.fn, FORE, col, sock);
   // neck and head, turned by `head` about the neck's root
   const nb = [10.2, -14];
-  const P0 = rot([17.2, -22.6], nb, k.head);
+  const P0 = rot([17.6, -21.8], nb, k.head);
   const ha = k.head;
   const Hd = (pt) => add(rot(pt, [0, 0], ha), P0);
   body((c0) => {
@@ -277,10 +279,11 @@ const destrier = (ctx, p) => {
       // far ear
       poly(c, [Hd([0.6, -1.2]), Hd([0.9, -3.8]), Hd([1.8, -1.2])], darken(col, 0.3));
       c.fillStyle = cel(c, 9, -26, 18, -12, col, 0.3, 0.42);
-      taper(c, [nb, lerp(nb, P0, 0.5), P0], [7.6, 5.6, 4.2]);
+      taper(c, [nb, lerp(nb, P0, 0.5), P0], [7.4, 5.2, 4.0]);
     });
     // the head
     inFrame(c0, P0[0], P0[1], 0, 0, ha, (c1) => {
+      c1.scale(1.12, 1.12);
       blob(c1, [[-1.4, -0.6], [0.2, -1.8], [2.6, -1.3], [5, 0.6], [6.8, 2.5], [7.4, 3.7], [7.1, 4.9, 1], [5.6, 5.3], [4.2, 4.7], [2.6, 3.9], [0.6, 3.3], [-1.4, 2.0]], col, {
         hi: 0.3, lo: 0.4, then: (c) => {
           c.fillStyle = darken(col, 0.2); c.beginPath(); c.ellipse(0.6, 2.2, 1.8, 1.2, 0.3, 0, TAU); c.fill();
@@ -308,10 +311,10 @@ const destrier = (ctx, p) => {
     });
     // the crinet: steel lames down the crest, the mane showing under them
     part(c0, (c) => {
-      const top = [[10.4, -17.9], [12.6, -20.0], [14.9, -22.2], [16.8, -24.4]].map((pt, i) => rot(add(pt, [0, 0]), nb, ha * (i / 3)));
+      const top = [[10.4, -17.7], [12.8, -19.6], [15.2, -21.6], [17.1, -23.6]].map((pt, i) => rot(add(pt, [0, 0]), nb, ha * (i / 3)));
       c.fillStyle = mane;
       for (let i = 0; i < 4; i++) { const [x, y] = lerp(top[0], top[3], i / 3.2); poly(c, [[x - 0.3, y + 0.4], [x + 1.4, y + 0.9], [x - 0.9, y + 3.2]]); }
-      c.fillStyle = cel(c, 10, -26, 17, -17, steel, 0.55, 0.4); taper(c, top, [2.8, 2.6, 2.4, 2.0]);
+      c.fillStyle = cel(c, 10, -26, 17, -17, steel, 0.55, 0.4); taper(c, top, [2.2, 2.0, 1.9, 1.6]);
       for (let i = 1; i < 4; i++) { const [x, y] = top[i]; line(c, x - 1.1, y - 0.7, x + 0.5, y + 1.2, 0.5, darken(steel, 0.5)); }
       for (let i = 0; i < 3; i++) { const [x, y] = lerp(top[i], top[i + 1], 0.5); dab(c, x - 0.6, y - 0.9, 0.5, 0.5, lighten(steel, 0.7)); }
     });
@@ -354,12 +357,12 @@ const destrier = (ctx, p) => {
   // the war saddle's cantle and pommel, the rider between
   const seat = [-0.8, -18.6];
   const lean = fight ? k.lean : 0.12;
-  const rein = [5.4, -4.6];
+  const rein = [5.6, -6.2];
   body((c0) => {
     blob(c0, [[-3.4, -18.4, 1], [-4.6, -21.4], [-3.4, -21.6], [-2.2, -18.8, 1]], darken(cape, 0.35), { hi: 0.35 });
     blob(c0, [[2.0, -18.6, 1], [2.8, -20.8], [3.8, -20.4], [3.8, -18.4, 1]], darken(cape, 0.35), { hi: 0.35, then: (c) => dab(c, 2.8, -20.4, 0.6, 0.6, BRASS) });
     // the reins, bit to fist
-    const bit = add(rot([5.3, 4.5], [0, 0], ha), P0);
+    const bit = add(rot([5.3 * 1.12, 4.5 * 1.12], [0, 0], ha), P0);
     part(c0, (c) => polyline(c, [bit, [bit[0] - 4, bit[1] + 1.2], add(seat, rein)], 0.55, iron));
     c0.save(); c0.translate(...seat);
     const thrust = fight ? k.thrust : 0;
@@ -635,7 +638,7 @@ const siegeRam = (ctx, p) => {
     });
     // the curled horn, coiled round the ear and hooking forward under the jaw
     part(c0, (c) => {
-      c.strokeStyle = cel(c, -2, -3, 4, 3, castIron, 0.55, 0.4); c.lineWidth = 2.2; c.lineCap = "round";
+      c.strokeStyle = cel(c, -2, -3, 4, 3, lighten(steel, 0.1), 0.55, 0.4); c.lineWidth = 2.2; c.lineCap = "round";
       c.beginPath(); c.arc(1.4, 0.2, 2.2, -2.4, 1.7); c.stroke();
       c.lineWidth = 1.5; c.beginPath(); c.moveTo(1.1, 2.4); c.quadraticCurveTo(3.4, 4.2, 4.8, 3.2); c.stroke();
       c.strokeStyle = darken(castIron, 0.5); c.lineWidth = 0.4;
@@ -702,7 +705,7 @@ const siegeRam = (ctx, p) => {
 // ---- the roster -----------------------------------------------------------------------
 const IRON_RIDER = { skin: "#e0b08a", cloth: "#6c7280", cloth2: "#7a2a2c", hair: "#2e3038" };
 export const IRONMOUNT_RIGS = {
-  cavalier: { kind: "destrier", box: { hw: 30, up: 40, down: 4 }, p: { len: 34, col: "#3e363c", belly: "#d8d0c0", mane: "#221c22", cape: "#7a2a2c", ...IRON_RIDER } },
+  cavalier: { kind: "destrier", box: { hw: 30, up: 40, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER } },
   gryphon: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
   ram: { kind: "siegeram", box: { hw: 38, up: 42, down: 4 }, p: { len: 44, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
 };

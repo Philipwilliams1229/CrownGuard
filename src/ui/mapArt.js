@@ -1096,6 +1096,7 @@ function* dressing(base) {
   range(331, 229, 65, 58, 3, ROCK, 1, 1);
   range(204, -3, 37, 14, 0, ROCK, 4, 0.8);
   range(52, 40, 24, 20, 0, ROCK, 22, 0.8);
+  yield;
   // rolling hills in the vale and on the moors
   const hills = (cx, cy, rx, ry, z, pal, seed) => {
     const n = Math.round((rx * ry) / 40) + 10;
@@ -1142,6 +1143,7 @@ function* dressing(base) {
   clump(186, 30, 16, 10, 0, 4.2, oaks, 25);
   clump(40, 170, 12, 16, 0, 4.2, oaks, 26);
   clump(200, 300, 14, 10, 0, 4.2, oaks, 27);
+  yield;
   // lone trees across the vale's open ground, sheep in its pastures, hay by
   // its fields
   for (let k = 0; k < 280; k++) {
@@ -1424,6 +1426,7 @@ function* paintTerrain() {
   });
   ctx.drawImage(onLand(water), 0, 0);
   ctx.drawImage(onLand(shine), 0, 0);
+  yield;
 
   // the road: packed dirt with a darker edge, only on land
   const road = layer((c) => {
@@ -1439,6 +1442,7 @@ function* paintTerrain() {
   { const c = lane.getContext("2d", RF); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "destination-out"; c.drawImage(landMask, 0, 0); }
   // keep the lane off the coast's ink and foam too
   ctx.drawImage(lane, 0, 0);
+  yield;
 
   // bridges wherever the road crosses running water (not at the fords)
   // (the rivers' centrelines, 2 units wide, as a mask to look the road up in)

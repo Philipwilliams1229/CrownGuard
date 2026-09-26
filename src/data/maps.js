@@ -228,10 +228,10 @@ const IRON_GROUND = {
   groundArt: "iron",
   wood: { types: [["irspruce", 4], ["irpine", 3], ["ircrag", 1]], hem: false },
   // cool moorland turf: sage and olive, never the Vale's summer green
-  GRASS: "#71875a",
-  GRASS_DK: "#586e4a",
-  GRASS_LT: "#90a26c",
-  TUFT: "#4e6440",
+  GRASS: "#6f7f59",
+  GRASS_DK: "#57654a",
+  GRASS_LT: "#8b976a",
+  TUFT: "#4c5a40",
   // the military road: dressed gritstone flags, buff-grey, kerbed
   PATH_MAIN: "#a69c86",
   PATH_DK: "#847a66",
@@ -246,9 +246,14 @@ const IRON_GROUND = {
     flowerCols: ["#b87ab0", "#e8cc5a", "#8e9ad8", "#eeeadc"],
   },
 };
+// The camp's gate tower stands beside the road's first yards (north side), a
+// piece of decor so it sorts with the pines around it (grid px: the road
+// enters at the left edge on row path[0][1]).
+const ironGate = (path) => (path[0][0] < 2 ? [{ x: 18, y: Math.round(path[0][1] * 48 - 18), t: "irgate", s: 1 }] : undefined);
 const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
   ...IRON_GROUND, id, name, blurb, seed, path,
   water: { deep: "#33505e", edge: "#43647a", shine: "#7aa4bc" },
+  decor: ironGate(path),
   decorRecipe: { count: 10, types: ["ircrag", "irpine", "irwall", "irspruce", "irheather"] },
   ponds: [],
   ...extra,
