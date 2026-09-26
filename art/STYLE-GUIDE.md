@@ -158,7 +158,8 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   the Rush switch) and the speed bottom left. **The hero's menu opens in
   the tray, right above his button — never over the map**, so the field
   (and his Shield Slam) stays in view: on phones it takes the tower grid's
-  place, only as tall as it needs and standing on his button; on tall
+  whole panel, its planks sharing out the height (the grid folds away and
+  keeps its place in the list); on tall
   screens it docks at the foot of the tray panel under the tower grid,
   which keeps scrolling above it. Name · level and the ✕ in its head,
   health and xp on one short row, then Move and the two abilities as
