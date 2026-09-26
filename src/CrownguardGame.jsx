@@ -11,7 +11,7 @@ import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, victoryWave, waveSpec, setWaveWindow } from "./data/waves.js";
-import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen } from "./data/sandbox.js";
+import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
@@ -40,6 +40,7 @@ import { useViewport, Fit } from "./ui/fit.jsx";
 import "./ui/hud/hud.css";
 import { GoldChip, LivesChip } from "./ui/hud/Chips.jsx";
 import SandboxPanel from "./ui/SandboxPanel.jsx";
+import SandboxSetup from "./ui/SandboxSetup.jsx";
 import { towerTags, levelDeltas, formDeltas } from "./ui/hud/towerText.js";
 import { useArm } from "./ui/HeroTalents.jsx";
 import {
@@ -1790,86 +1791,10 @@ export default function Crownguard() {
         </div>
       </div>
 
+            {/* Free Play's way in: the sandbox setup (presets, then any setting) */}
             {realmOpen && (
-              <div style={{ position: "fixed", inset: 0, background: "rgba(22,14,26,0.94)", zIndex: 55, boxSizing: "border-box",
-                padding: "max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))" }}>
-              <Fit min={0.62} deps={[vp.short]}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: vp.short ? 6 : 10, padding: "4px 0 8px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div className="cg-display" style={{ fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>CHOOSE YOUR REALM</div>
-                  <button aria-label="Back" className="cg-btn cg-btn--slate cg-x" style={{ minWidth: 44, minHeight: 44 }} onClick={closeRealmSelect}><CloseIcon size={12} /></button>
-                </div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: -4 }}>Pick who you're fighting, then a realm to fight them on.</div>
-
-                {/* which army marches — the campaign's chapter, in miniature */}
-                <div style={{ display: "grid", gridTemplateColumns: vp.short ? "repeat(3, 1fr)" : "repeat(auto-fit, minmax(250px, 1fr))", gap: vp.short ? 6 : 10, width: "100%", maxWidth: vp.short ? 900 : 620 }}>
-                  {Object.values(FACTIONS).map((f) => (
-                    <button key={f.id} onClick={() => setFactionId(f.id)}
-                      className={cls("cg-btn cg-btn--slate", f.id === factionId && "is-on")}
-                      style={{ flexDirection: "column", alignItems: "stretch", gap: 5, padding: "8px 10px", textAlign: "left" }}>
-                      <span style={{ fontSize: 13, color: "var(--cream)" }}>
-                        {f.name} <span style={{ fontSize: 10, letterSpacing: 1, color: f.tagColor, marginLeft: 4 }}>{f.tag}</span>
-                      </span>
-                      <span style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 30 }}>
-                        {f.types.map((ty) => <EnemyIcon key={ty} type={ty} box={26} />)}
-                      </span>
-                      {!vp.short && <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--muted)", lineHeight: 1.45 }}>{f.blurb}</span>}
-                    </button>
-                  ))}
-                </div>
-
-                {/* realms, grouped the way the war is: the four free realms
-                    first, then each chapter's battlefields under its banner */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", maxWidth: vp.short ? 900 : 620 }}>
-                {[
-                  { name: "THE FREE REALMS", ids: ["proving", "greenwood", "frostfang", "mistmoor", "ember"] },
-                  ...CHAPTERS.map((ch) => ({
-                    name: `${ch.numeral}. ${ch.name.toUpperCase()}`,
-                    ids: ch.levels.map((l) => l.realm).filter((id) => id !== "greenwood"),
-                  })),
-                ].map((grp) => (
-                <div key={grp.name}>
-                <div className="cg-label" style={{ margin: vp.short ? "6px 0 4px" : "12px 0 6px" }}>{grp.name}</div>
-                <div style={{ display: "grid", gridTemplateColumns: vp.short ? "repeat(auto-fill, minmax(168px, 1fr))" : "repeat(auto-fit, minmax(250px, 1fr))", gap: vp.short ? 6 : 10 }}>
-                  {grp.ids.map((id) => REALMS[id]).filter(Boolean).map((r) => (
-                    <button key={r.id} onClick={() => startSandboxRun({ ...(SANDBOX || {}), realm: r.id })}
-                      className={cls("cg-btn", r.id === realmId && "is-on")}
-                      style={{ justifyContent: "flex-start", gap: 10, padding: 7, alignItems: "stretch", textAlign: "left" }}>
-                      <svg viewBox="0 0 150 100" width={vp.short ? 54 : 108} height={vp.short ? 36 : 72} style={{ flexShrink: 0, border: "2px solid var(--ink)", imageRendering: "pixelated" }}>
-                        <rect x="0" y="0" width="150" height="100" fill={r.GRASS} />
-                        {/* the sea, where a realm runs down to the coast, with its beach */}
-                        {r.coast && <polygon points={coastOutline(r).map(([x, y]) => `${x * 150 / W},${y * 100 / H}`).join(" ")} fill={r.water?.deep || "#3a6a7c"} stroke="#dcc48e" strokeWidth="2.5" strokeLinejoin="round" />}
-                        {(r.rivers || []).map((rv, i) => (
-                          <polyline key={`rv${i}`} points={rv.pts.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
-                            fill="none" stroke={r.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}
-                            strokeLinejoin="round" strokeLinecap="round" />
-                        ))}
-                        <polyline points={r.path.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
-                          fill="none" stroke={r.PATH_EDGE} strokeWidth="9" strokeLinejoin="round" strokeLinecap="round" />
-                        <polyline points={r.path.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
-                          fill="none" stroke={r.PATH_MAIN} strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" />
-                        {r.ponds.map((p, i) => (
-                          <rect key={i} x={(p.x - p.w / 2) * 150 / W} y={(p.y - p.h / 2) * 100 / H} width={p.w * 150 / W} height={p.h * 100 / H}
-                            fill={p.t === "lava" ? "#c05a32" : p.t === "ice" ? "#b8d4e0" : "#2c4638"} />
-                        ))}
-                        <circle cx={r.path[0][0] * 10 + 5} cy={r.path[0][1] * 10 + 5} r="4" fill="#e05248" />
-                        <rect x={r.path[r.path.length - 1][0] * 10 - 1} y={r.path[r.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
-                      </svg>
-                      <span style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "left" }}>
-                        <span style={{ fontSize: 13, color: "var(--cream)" }}>
-                          {r.name} <span style={{ fontSize: 10, letterSpacing: 1, color: r.tagColor, marginLeft: 4 }}>{r.tag}</span>
-                        </span>
-                        {!vp.short && <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--text)", opacity: 0.8, lineHeight: 1.45 }}>{r.blurb}</span>}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                </div>
-                ))}
-                </div>
-              </div>
-              </Fit>
-              </div>
+              <SandboxSetup initial={{ ...loadSandbox(), ...(SANDBOX ? { realm: SANDBOX.realm } : {}) }}
+                onStart={startSandboxRun} onBack={closeRealmSelect} />
             )}
     </div>
   );
