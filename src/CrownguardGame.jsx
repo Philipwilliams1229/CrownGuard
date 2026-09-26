@@ -953,7 +953,10 @@ export default function Crownguard() {
         ))}
       </span>
     );
-    const tapAgain = (cost) => <span className="cg-label" style={{ color: "var(--wood-deep)" }}>Tap again to buy · {cost}g</span>;
+    // the armed button's call to action: a dark tag on the gold, easy to read
+    const tapAgain = () => (
+      <span style={{ alignSelf: "flex-start", background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontSize: 12, fontWeight: 700, letterSpacing: 1, lineHeight: 1.2, padding: "3px 8px", textShadow: "none" }}>TAP AGAIN TO BUY</span>
+    );
     const tier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
     const branchDef = sel.branch ? selDef.branches[sel.branch] : null;
     // nothing left to buy: the card goes to one column, and says what the
@@ -1073,7 +1076,7 @@ export default function Crownguard() {
                       style={{ width: "100%", marginTop: 10, padding: "7px 10px 8px", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}
                       onClick={buy2("level", { level: sel.level + 1 }, (tt) => upgradeTower(G.current, tt))}>
                       <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                        {upArm.is(armId("level")) ? tapAgain(nxt.cost) : <span className="cg-label">Upgrade · Level {sel.level + 1}</span>}
+                        {upArm.is(armId("level")) ? tapAgain() : <span className="cg-label">Upgrade · Level {sel.level + 1}</span>}
                         <span className="cg-display" style={{ fontSize: 13, fontWeight: 700 }}>{nxt.label}</span>
                         {deltaGrid(deltas)}
                       </span>
@@ -1099,7 +1102,7 @@ export default function Crownguard() {
                                 {price(br.cost, can, 13)}
                               </span>
                               {upArm.is(armId(`branch:${bk}`))
-                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain(br.cost)}{deltaGrid(formDeltas(t, { branch: bk }))}</span>
+                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain()}{deltaGrid(formDeltas(t, { branch: bk }))}</span>
                                 : <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{br.desc}</span>}
                             </span>
                           </button>
@@ -1126,7 +1129,7 @@ export default function Crownguard() {
                                 {price(r4.cost, can, 13)}
                               </span>
                               {upArm.is(armId(`ascend:${rk}`))
-                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain(r4.cost)}{deltaGrid(formDeltas(t, { rank4: rk }))}</span>
+                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain()}{deltaGrid(formDeltas(t, { rank4: rk }))}</span>
                                 : <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{r4.desc}</span>}
                             </span>
                           </button>
@@ -1144,7 +1147,7 @@ export default function Crownguard() {
                     <button data-arm={armId("complete")} className={cls("cg-btn", upArm.is(armId("complete")) && "cg-btn--gold", !can && "is-poor")} disabled={!can}
                       style={{ width: "100%", marginTop: 8, fontSize: 12, gap: 6 }}
                       onClick={buy2("complete", { level: 3, branch: sel.branch || c.branch, rank4: c.rank4 }, (tt) => { if (can && G.current) completeTower(G.current, tt); })}>
-                      <BoltIcon size={13} /> <span className="cg-dim">{upArm.is(armId("complete")) ? `Tap again — complete as ${c.name}` : `Complete — ${c.name}`}</span> {price(c.cost, can, 12)}
+                      <BoltIcon size={13} /> {upArm.is(armId("complete")) ? tapAgain() : <span className="cg-dim">Complete — {c.name}</span>} {price(c.cost, can, 12)}
                     </button>
                   );
                 })()}
