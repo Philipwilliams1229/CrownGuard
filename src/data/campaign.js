@@ -14,9 +14,13 @@
 // five of twenty-five, and a thirty-wave boss.
 // The last level of a chapter always ends on the faction's boss wave.
 //
-// `pos` is the level's waypoint on the continent map (see ui/CampaignMap.jsx
-// and ui/mapArt.js), in that map's 400x360 unit space (y from -120 to 240).
-// `region` is the chapter's coastline, before the map roughens it.
+// Each level's waypoint on the continent map (`pos`) and each chapter's
+// coastline (`region`) come from mapLayout.js; the Iron and Hollow chapters'
+// level lists live in levels-iron.js / levels-hollow.js.
+
+import { REGIONS, LEVEL_POS } from "./mapLayout.js";
+import { IRON_LEVELS } from "./levels-iron.js";
+import { HOLLOW_LEVELS } from "./levels-hollow.js";
 
 export const CHAPTERS = [
   {
@@ -30,64 +34,63 @@ export const CHAPTERS = [
     blurb: "Goblins out of the deep wood have come down into the farms.",
     // the vale runs north now too: the ridge, the deep wood and the burned
     // holt stand on the high ground above the Barrowfields
-    region: "M28,142 C18,116 14,88 20,62 C24,38 40,18 64,8 C88,-2 118,-8 146,-2 C172,4 192,20 192,44 C192,66 172,84 166,104 C158,124 176,140 160,162 C146,182 118,196 92,194 C64,192 40,178 28,142 Z",
     levels: [
       // five twenty-wave levels to learn the vale...
       {
         id: "gw1", name: "The Vale Road", realm: "greenwood", short: "Vale Road",
-        window: { from: 1, to: 12, count: 20 }, gold: 250, pos: [44, 168],
+        window: { from: 1, to: 12, count: 20 }, gold: 250,
         blurb: "Goblin raiding parties on the country road — a flood of small blades, badly led. Hold the lane and learn the ground.",
       },
       {
         id: "gw2", name: "Thornbrook Ford", realm: "thornbrook", short: "Thornbrook",
-        window: { from: 2, to: 14, count: 20 }, gold: 350, pos: [88, 146],
+        window: { from: 2, to: 14, count: 20 }, gold: 350,
         blurb: "Wolves run ahead of the horde now, and fell bats ride over your knights' heads. The brook is the only thing here that stops for anyone.",
       },
       {
         id: "foxmere", name: "Foxmere", realm: "foxmere", labelAbove: true,
-        window: { from: 3, to: 16, count: 20 }, gold: 400, pos: [106, 118],
+        window: { from: 3, to: 16, count: 20 }, gold: 400,
         blurb: "The road owes the mere a full circle, and the horde walks every step of it. Orcs in plate now — and the first shamans, chanting the warband whole.",
       },
       {
         id: "gw3", name: "Oakmere Hollow", realm: "oakmere", short: "Oakmere",
-        window: { from: 4, to: 17, count: 20 }, gold: 540, pos: [52, 100],
+        window: { from: 4, to: 17, count: 20 }, gold: 540,
         blurb: "Ironclads march with the orcs and boar riders flatten your line — then one night the wood empties all at once. Bring magic.",
       },
       {
         id: "bramblewick", name: "Bramblewick", realm: "bramblewick",
-        window: { from: 5, to: 20, count: 20 }, gold: 560, pos: [38, 62],
+        window: { from: 5, to: 20, count: 20 }, gold: 560,
         blurb: "Hedged fields around the old millpond. The road wanders every lane of the farm, and the horde has learned to come down all of it at once.",
       },
       // ...five twenty-five-wave levels to hold it...
       {
         id: "gw4", name: "The Barrowfields", realm: "barrowfields", short: "Barrowfields",
-        window: { from: 6, to: 23, count: 25 }, gold: 750, pos: [104, 62],
+        window: { from: 6, to: 23, count: 25 }, gold: 750,
         blurb: "Trolls out of the mounds, shamans chanting the wounded whole. Kill the healers first, and save something heavy for the trolls.",
       },
       {
         id: "wolfrun", name: "Wolfrun Ford", realm: "wolfrun", short: "Wolfrun",
-        window: { from: 7, to: 25, count: 25 }, gold: 800, pos: [76, 26],
+        window: { from: 7, to: 25, count: 25 }, gold: 800,
         blurb: "Four bridges over one cold river, and a warchief's totem driving the party across all of them. The fords decide who holds the vale.",
       },
       {
         id: "ravenscar", name: "Ravenscar", realm: "ravenscar", labelAbove: true,
-        window: { from: 8, to: 27, count: 25 }, gold: 1000, pos: [124, 8],
+        window: { from: 8, to: 27, count: 25 }, gold: 1000,
         blurb: "The high ridge over the vale, boulders and ravens. The road climbs in long switchbacks — and every one of them is in bowshot of the next.",
       },
       {
         id: "blackbriar", name: "Blackbriar", realm: "blackbriar",
-        window: { from: 9, to: 29, count: 25 }, gold: 850, pos: [168, 32],
+        window: { from: 9, to: 29, count: 25 }, gold: 850,
         blurb: "The deep wood the goblins came out of. The road coils blind between the trunks; you will hear the trolls before you see them.",
       },
       {
         id: "cinderholt", name: "Cinderholt", realm: "cinderholt",
-        window: { from: 9, to: 31, count: 25 }, gold: 900, pos: [156, 74],
+        window: { from: 9, to: 31, count: 25 }, gold: 900,
         blurb: "The horde fired this wood to smoke the vale out. Nothing stands but black trunks — nothing hides the road, and nothing hides the horde on it.",
       },
       // ...and the boss, thirty waves deep
       {
         id: "gw5", name: "The Goblin Warrens", realm: "warrens", short: "The Warrens",
-        window: { from: 11, to: 34, count: 30, boss: true }, gold: 1000, pos: [146, 110],
+        window: { from: 11, to: 34, count: 30, boss: true }, gold: 1000,
         blurb: "The mouth of the burrow. Necromancers raise your kills against you — and the dragon is home.",
       },
     ],
@@ -101,44 +104,7 @@ export const CHAPTERS = [
     colorDk: "#56647a",
     label: [302, 24],
     blurb: "With the horde broken, the Iron Kingdom claims the vale. This time it is an army.",
-    region: "M218,126 C212,96 224,62 252,44 C272,31 300,26 320,36 C336,44 352,32 366,46 C384,64 394,90 386,118 C378,148 372,176 342,192 C312,208 262,206 236,184 C222,172 220,146 218,126 Z",
-    levels: [
-      {
-        id: "ir1", name: "The King's Road", realm: "kingsroad", short: "King's Road",
-        window: { from: 1, to: 8, count: 10 }, gold: 450, pos: [232, 150],
-        blurb: "A levy column in step behind raised shields. The first two blows off any tower are wasted — hit them heavy.",
-      },
-      {
-        id: "muster", name: "The Muster", realm: "muster",
-        window: { from: 2, to: 11, count: 12 }, gold: 500, pos: [244, 112], labelAbove: true,
-        blurb: "The Kingdom's drill field: long straights made for a cavalry charge, and the first gryphons wheeling overhead. Look up.",
-      },
-      {
-        id: "ir2", name: "Stonewatch", realm: "stonewatch",
-        window: { from: 3, to: 14, count: 15 }, gold: 600, pos: [268, 186],
-        blurb: "Crossbowmen shoot your knights down from outside their reach, and gryphons pass clean over the walls. Nothing here fights fair.",
-      },
-      {
-        id: "ir3", name: "Ironford", realm: "ironford",
-        window: { from: 4, to: 17, count: 18 }, gold: 700, pos: [304, 140],
-        blurb: "The river eats half your ground, cavaliers ride the first blocker down, and the siege rams come through the ford anyway.",
-      },
-      {
-        id: "ir4", name: "Greyhelm Pass", realm: "greyhelm", short: "Greyhelm",
-        window: { from: 5, to: 20, count: 20 }, gold: 750, pos: [330, 86],
-        blurb: "Chaplains ward the whole column against chip damage. Break the ward with something that hits once and hits hard.",
-      },
-      {
-        id: "undercliff", name: "Undercliff", realm: "undercliff",
-        window: { from: 6, to: 24, count: 22 }, gold: 900, pos: [356, 122],
-        blurb: "A shelf of road folded twice under the mountain. Your towers watch three lanes at once — and the Kingdom fills all three.",
-      },
-      {
-        id: "ir5", name: "The Citadel Gate", realm: "citadel", short: "The Citadel",
-        window: { from: 7, to: 30, count: 25, boss: true }, gold: 1000, pos: [352, 48],
-        blurb: "The last mile. The Lord Marshal's banner drives the army faster and harder — cut down the banner.",
-      },
-    ],
+    levels: IRON_LEVELS,
   },
   {
     id: "hollow",
@@ -151,45 +117,14 @@ export const CHAPTERS = [
     blurb: "The war woke something under the fen. The drowned kingdom north of the Marches remembers it was a kingdom — and its dead want the crown back.",
     // the great fen NORTH of the Iron Marches, across a narrow strait —
     // the continent scrolls, so the war can march up the map as it grows
-    region: "M236,-30 C230,-64 244,-96 274,-108 C298,-117 330,-118 352,-108 C372,-99 388,-84 392,-62 C396,-40 390,-18 372,-8 C352,2 320,4 292,0 C264,-4 240,-6 236,-30 Z",
-    levels: [
-      {
-        id: "hl1", name: "The Grave Road", realm: "graveroad", short: "Grave Road",
-        window: { from: 1, to: 8, count: 10 }, gold: 500, pos: [368, -26],
-        blurb: "Across the strait and into the fen, and the dead walking its causeway in floods. They are worth almost nothing — and there are so, so many.",
-      },
-      {
-        id: "hl2", name: "The Sunken Causeway", realm: "sunkencauseway", short: "Causeway",
-        window: { from: 2, to: 11, count: 13 }, gold: 600, pos: [310, -26],
-        blurb: "Black water either side, wraiths drifting over your blockers, and barrow archers loosing at your knights. The dry ground is all there is.",
-      },
-      {
-        id: "bellmarsh", name: "Bellmarsh", realm: "bellmarsh",
-        window: { from: 3, to: 15, count: 16 }, gold: 700, pos: [252, -26],
-        blurb: "Every standing stone here rings when struck, and the court has struck them all. Wraiths, ghasts, wardens — the fen's whole household, one after another.",
-      },
-      {
-        id: "hl3", name: "Wightwood", realm: "wightwood", labelAbove: true,
-        window: { from: 4, to: 19, count: 20 }, gold: 800, pos: [248, -88],
-        blurb: "A drowned forest of white trees. Plague ghasts burst over your line here — kill them far from your knights, or regret it.",
-      },
-      {
-        id: "hl4", name: "The Cairnfields", realm: "cairnfields", short: "Cairnfields", labelAbove: true,
-        window: { from: 5, to: 24, count: 23 }, gold: 900, pos: [298, -70],
-        blurb: "Every cairn a door, and gravecallers ringing them open. The flood has a source: silence the bells.",
-      },
-      {
-        id: "hl5", name: "The Throne of Dust", realm: "thronedust", short: "Throne of Dust",
-        window: { from: 7, to: 30, count: 25, boss: true }, gold: 1000, pos: [360, -86],
-        blurb: "The drowned throne itself. Crypt wardens, amalgams that will not stay dead — and the Hollow King, calling his court out of the ground.",
-      },
-    ],
+    levels: HOLLOW_LEVELS,
   },
 ];
 
 // Every level in marching order, each carrying its chapter and its number.
+for (const ch of CHAPTERS) ch.region = REGIONS[ch.id];
 export const LEVELS = CHAPTERS.flatMap((ch, ci) =>
-  ch.levels.map((lv, li) => ({ ...lv, chapter: ch, chapterIndex: ci, index: li })),
+  ch.levels.map((lv, li) => ({ ...lv, pos: LEVEL_POS[lv.id] || null, chapter: ch, chapterIndex: ci, index: li })),
 );
 
 export const levelById = (id) => LEVELS.find((l) => l.id === id) || null;
