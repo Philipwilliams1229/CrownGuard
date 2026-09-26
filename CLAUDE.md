@@ -28,6 +28,9 @@ How it went well (September 2026 overhaul — up to seven artists at once):
 - **One brief for all:** point every agent at `art/STYLE-GUIDE.md` (and this
   file) instead of re-writing the rules; add only the task, the owned files,
   and a shot-name prefix.
+- **In a cloud session** (no browser pane) agents look at their work with
+  `node scripts/shoot.mjs` against the shared dev server (see the style
+  guide, "How to look at your work"); the lead keeps it running.
 - **Rules for agents:** open their OWN browser tab (tabs_create) and close
   it when done; never resize the window or touch others' tabs; never launch
   Chrome or apps from a shell; never run git commands that change anything;
@@ -76,7 +79,11 @@ should never have to rediscover it.
 - `node scripts/marathon.mjs --realm thornbrook --to 160 --endure` — a long
   Endless run with all 13 halls and all 52 final forms; reports engine
   errors, per-form damage and income.
-- Levers: the crowd (`crowd`, `CROWD_WEIGHT`, `overlap` in
+- `node scripts/sim.mjs --chapter iron` runs one chapter's levels. The
+  sims are noisy (the commander's plan swings with the dice): judge a
+  change on several `--seed`s, not one run.
+- Levers: the crowd (`crowd`, `CROWD_WEIGHT`, `crowdScale` per faction —
+  Greenwood 1, Iron 0.6, Hollow 0.65 — `overlap` in
   `src/data/waves.js`), `SPLASH_CAP` in `src/engine/update.js`, bounty cap and
   wave bonus, per-level gold in `src/data/campaign.js`, tower stats in
   `src/data/towers.js`, castle works and endless ranks in `src/data/castle.js`.

@@ -43,10 +43,15 @@ copy what the rebuilt pieces do.
 | Greenwood horde (goblins, orc, Ironclad, troll, shaman, necro, warchief) | `src/render/rigs-horde.js` | shared bending skeleton, 4-frame walk, wind-up/strike fight |
 | Beasts (wolf, boar rider, bat, dragon, wolf rider) | `src/render/rigs-beasts.js` | beast lope; rider reuses the horde goblin |
 | The crown's soldiers (knight, paladin, berserker, champion, militia, Aldric, Wren) | `src/render/rigs-crown.js` | upright human skeleton |
-| Other factions (still the generic rig) | `src/render/rigs.js` | entries in the three files above override these |
+| The Iron Kingdom's foot (levy, crossbowman, knight-sergeant, battle chaplain, Lord Marshal) | `src/render/rigs-iron.js` | upright human skeleton; `irn-lab.html` zooms chosen frames beside the crown's soldiers |
+| The Iron Kingdom's mounts and engines (cavalier, gryphon knight, siege ram) | `src/render/rigs-ironmounts.js` | gallop, wingbeats, six turning wheels; `irm-lab.html` |
+| The Hollow Court's dead (risen, barrow archer, plague ghast, crypt warden, gravecaller, Hollow King) | `src/render/rigs-hollow.js` | the horde's bending skeleton with real bones; `hlw-lab.html` (on fen and road) |
+| The Hollow Court's beasts and spirits (ghoul, wraith, grave amalgam) | `src/render/rigs-hollowbeasts.js` | `hlb-lab.html` |
+| Anything not in the files above (the generic rig) | `src/render/rigs.js` | entries in the rig files above override these |
 | Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk.js` | the new body: slim, jointed arms, small hands |
 | Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js` |
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type |
+| A chapter's own scenery: the Iron Marches, the Hollowfen | `src/render/scenery-iron.js` (`IRON_ART`), `src/render/scenery-hollow.js` (`HOLLOW_ART`) | one registry each — `decor` painters, `live` types, bake `box`, ground `dress`, `spawn` gates (REALM.spawn), `turf`/`road` art keyed by REALM.groundArt, and `apron` (the landscape's mix). scenery.js, world.js and apron.js read them LAZILY (they import scenery.js back — never read a registry at module load). Lab pages `irs-lab.html`, `hfs-lab.html` |
 | Ground and road | `src/render/world.js` | cached per realm |
 | Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots` in `src/data/castle.js`) — SQUARE open-topped towers (paved deck, battlemented rim, a red-roofed stair turret) with the ballistae and spare bowmen ON the gate towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
 | Combat effects, projectiles, ground pools, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
@@ -65,6 +70,31 @@ A new creature: add an entry to the matching `rigs-*.js` file (same shape as
 `RIGS`: `{ kind, box: { hw, up, down }, p }`), keep colours in the `skin /
 cloth / cloth2 / hair / col / belly / wing / mane / cape` params so the
 necromancer's `revived` palette and the white hit-flash still work.
+
+## The three armies' colours
+
+Each faction must read as itself at a glance, and never as the player's
+own soldiers (the crown's blue `#3a5474` and gold):
+- **The Greenwood Horde:** green skins, leather browns, crude iron.
+- **The Iron Kingdom:** dark blued steel (`#6c7280`, lit `#c4c8d0`),
+  OXBLOOD surcoats, caparisons and banners (`#7a2a2c`), black-iron trim,
+  brass for rank; its device is a grey iron tower. Its scenery flies the
+  same oxblood — no blue flags in the Marches.
+- **The Hollow Court:** bone `#e0d8c4`, rotten purple-black and drowned
+  green-grey cloth, verdigris bronze, witch-fire teal `#7ce0b8`.
+Colours stay in the rig params so `revive()` and the hit-flash reach them.
+
+## A chapter's own ground
+
+- A realm names its art with `groundArt` (turf and road painters in its
+  chapter's registry), its gate with `spawn`, and may grow an edge wood of
+  its own along the spawn edge with `wood: { types: [[type, weight], ...],
+  hem }` (`hem: false` drops the Greenwood's green bushes and leaf litter).
+  New decor types register a footprint with `addFootprints` (terrain.js)
+  from the chapter's realm file.
+- Keep a board CALM at 1x: open turf with a few strong landmarks, like the
+  Greenwood. Ground texture (heather, moss, paving joints) gathers into a
+  few drifts and stays low-contrast, or it fights the foes for attention.
 
 ## Rules for halls (towers)
 
@@ -247,6 +277,12 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   and 350 foes draws in ~13 ms on the dev Mac.
 
 ## How to look at your work
+
+No browser pane (a cloud session)? `node scripts/shoot.mjs "<page?query>"
+["<js>"] [waitMs]` opens any lab page below headless on the running dev
+server and prints page errors; `shots.html`'s `snap(...)` can be passed as
+the JS.
+
 
 With `npm run dev` running (these pages save PNGs into `.shots/` through the
 dev server; view them from there):
