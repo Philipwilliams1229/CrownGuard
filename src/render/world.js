@@ -14,6 +14,11 @@ import { REALM } from "../data/maps.js";
 import { PTS, nearestOnPath } from "../engine/path.js";
 import { TUFTS, FLOWERS, SPECKS, PEBBLES, PONDS, CHEVRONS, DECOR, inRiver, FOREST, forestDepthAt, COAST, coastLine, seaDepthAt, inSea } from "../data/terrain.js";
 import { lighten, darken, mix, rgba, soft, shadow, tuft, flower, stone, clover, blade, strokePts, hash, ball, blobBall, lin, rad, bakeSprite, part, PX } from "./paint.js";
+import { IRON_ART } from "./scenery-iron.js";
+import { HOLLOW_ART } from "./scenery-hollow.js";
+// a chapter's own ground art, keyed by REALM.groundArt
+const TURF_ART = { ...IRON_ART.turf, ...HOLLOW_ART.turf };
+const ROAD_ART = { ...IRON_ART.road, ...HOLLOW_ART.road };
 
 let layer = null;
 let layerKey = "";
@@ -254,7 +259,7 @@ function paintTurf(ctx) {
   const deep = darken(R.GRASS_DK, 0.2);
 
   // the forest floor: leaf litter and roots where the grass gives up
-  if (FOREST) {
+  if (FOREST && REALM.wood?.hem !== false) {
     for (let i = 0; i < 260; i++) {
       const x = rng() * SW, y = rng() * H;
       const dpt = forestDepthAt(x, y);
@@ -292,8 +297,9 @@ function paintTurf(ctx) {
   blades.sort((a, b) => a[1] - b[1]);
   blades.forEach(([x, y, s], i) => tuft(ctx, x, y, s, i % 4 === 0 ? deep : base, i % 3 === 0 ? R.GRASS_LT : tip, i));
 
-  // the wood's hem: bushes and ferns crowding the treeline
-  if (FOREST) {
+  // the wood's hem: bushes and ferns crowding the treeline (a realm whose
+  // edge wood isn't green turns it off with wood.hem: false)
+  if (FOREST && REALM.wood?.hem !== false) {
     const span = FOREST.edge === "left" ? H : W;
     const leaf = mix(R.GRASS_DK, "#3f7a40", 0.5);
     for (let u = 4, i = 0; u < span; u += 9 + hash(i, 71) * 8, i++) {
@@ -395,7 +401,10 @@ export function groundLayer() {
   const ctx = layer.getContext("2d");
   ctx.scale(RES, RES);
   paintTurf(ctx);
+  const art = REALM.groundArt, kit = () => ({ clear, rng: mulberry32((REALM.seed ^ 0x6a7d) >>> 0), SW });
+  if (TURF_ART[art]) TURF_ART[art](ctx, kit());
   paintRoad(ctx);
+  if (ROAD_ART[art]) ROAD_ART[art](ctx, kit());
   layerKey = key;
   return layer;
 }

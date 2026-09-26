@@ -346,8 +346,11 @@ export function regenTerrain(map) {
   // at the edge and thinning toward a wandering treeline. The road is the
   // only way through it. Placed after grounding on purpose — these are
   // meant to crowd the gate.
+  // A realm that isn't a greenwood can still have a wood of its own along
+  // the spawn edge: map.wood = { types: [[type, weight], ...], hem } (hem:
+  // false drops the green bushes and leaf litter at its treeline).
   FOREST = null;
-  if (map.spawn === "grove") {
+  if (map.spawn === "grove" || map.wood) {
     const edge = gx0 < 100 ? "left" : gy0 < 100 ? "top" : null;
     if (edge) {
       FOREST = { edge, seed: (map.seed % 97) * 0.37 };
@@ -364,12 +367,20 @@ export function regenTerrain(map) {
           if (x > W - WALL_W - 6) continue;
           const deep = 1 - Math.max(0, dpt) / Math.max(1, bound);
           const s = 0.95 + frng() * 0.35 + deep * 0.3;
-          DECOR.push({ x, y, t: frng() < 0.68 ? "tree" : "pine", s: s * (frng() < 0.2 ? 1.2 : 1), forest: true });
+          const t = map.wood ? pickWood(map.wood.types, frng()) : frng() < 0.68 ? "tree" : "pine";
+          DECOR.push({ x, y, t, s: s * (frng() < 0.2 ? 1.2 : 1), forest: true });
         }
       }
     }
   }
 }
+
+const pickWood = (types, r) => {
+  const tot = types.reduce((a, [, w]) => a + w, 0);
+  let acc = 0;
+  for (const [t, w] of types) { acc += w / tot; if (r < acc) return t; }
+  return types[types.length - 1][0];
+};
 
 // How wide a decor piece really stands, so blocking and grounding match the
 // art instead of one loose circle for everything: boulders are stones, not
@@ -379,4 +390,6 @@ const FOOTPRINT = {
   rock: 9, icerock: 9, obsidian: 10, crystal: 9, cairn: 9, gravestone: 7,
   mushroom: 8, reeds: 8, vent: 11, banner: 6, watchtower: 14, tent: 14,
 };
+// the chapters' realm files add the footprints of their own pieces
+export const addFootprints = (o) => Object.assign(FOOTPRINT, o);
 export const decorFootprint = (d) => Math.round((FOOTPRINT[d.t] ?? 13) * (d.s || 1));

@@ -16,6 +16,8 @@ import { workTier, bowmenSpots, masonSpots } from "../data/castle.js";
 import { drawArcher, drawHalberdier, drawMason, WALL_FOLK } from "./folk.js";
 import { ballista } from "./halls/archer.js";
 import { drawCastle, drawCastleWorks, resetWorksBakes, resetCastleBakes } from "./castle.js";
+import { IRON_ART } from "./scenery-iron.js";
+import { HOLLOW_ART } from "./scenery-hollow.js";
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
   blade, tuft, stone, strokePts, blobPath, blobBall, masonry, hash, ellipse, SUN, lin, rad, bakeSprite, inkOutline, PIXEL, PX, part } from "./paint.js";
@@ -624,12 +626,17 @@ const SPRITES = new Map();
 // how many bakes the scenery holds, and their pixels (for the lab pages)
 export const sceneryBakeStats = () => { let px = 0; for (const sp of SPRITES.values()) px += sp.cv.width * sp.cv.height; return { n: SPRITES.size, mb: +(px * 4 / 1048576).toFixed(1) }; };
 export const resetSceneryBakes = () => { SPRITES.clear(); GROVE.key = ""; SIGN.key = ""; resetCastleBakes(); };
-const LIVE = new Set(["mushroom", "crystal", "vent", "obelisk", "watchtower", "banner", "reeds"]);
+// the chapters' own pieces (scenery-iron.js, scenery-hollow.js) join the kit
+const ART = [IRON_ART, HOLLOW_ART];
+const EXTRA = Object.assign({}, ...ART.map((a) => a.decor));
+const EXTRA_BOX = Object.assign({}, ...ART.map((a) => a.box));
+const LIVE = new Set(["mushroom", "crystal", "vent", "obelisk", "watchtower", "banner", "reeds", ...ART.flatMap((a) => a.live)]);
 const paintDecor = (ctx, d, time) => {
   const x = d.x, y = d.y, s = d.s || 1;
   const seed = d.seed ?? Math.round(d.x * 3 + d.y * 7);
   const v = d.v || 0, band = d.band || 0;
   const sway = d.forest ? 0 : Math.sin(time * 0.8 + d.x * 0.06 + d.y * 0.03) * 1.4;
+  if (EXTRA[d.t]) { EXTRA[d.t](ctx, x, y, s, { seed, v, band, time, forest: !!d.forest, sway }); return; }
   switch (d.t) {
     case "pine": pineTree(ctx, x, y, s, d.forest ? WOOD_PINE[band][v % 3] : PINE_TINTS[v % 4], PINE.trunk, seed); break;
     case "snowpine": pineTree(ctx, x, y, s, SNOWPINE.leaf, SNOWPINE.trunk, seed, "#eef5f8"); break;
@@ -654,7 +661,7 @@ const paintDecor = (ctx, d, time) => {
   }
 };
 // What gets tucked in around a piece's foot once it's inked.
-const DRESS = { tree: [4, false], pine: [3.5, false], snowpine: [3.5, false], rock: [9, true], icerock: [9, true], deadtree: [3, false] };
+const DRESS = { tree: [4, false], pine: [3.5, false], snowpine: [3.5, false], rock: [9, true], icerock: [9, true], deadtree: [3, false], ...Object.assign({}, ...ART.map((a) => a.dress)) };
 // Which look a piece gets: lone pieces pick one of four by where they stand;
 // the wood's trees pick by how deep in it they are (three bands), then one
 // of two shapes. Sizes are rounded so the wood shares a modest set of bakes.
@@ -670,7 +677,8 @@ const decorSprite = (d) => {
   let sp = SPRITES.get(key);
   if (sp) return sp;
   const tall = d.t === "tree" || d.t === "pine" || d.t === "snowpine";
-  const hw = Math.ceil((tall ? 27 : 38) * s + (tall ? 6 : 8)), top = Math.ceil((tall ? 48 : 42) * s + (tall ? 6 : 8)), bot = Math.ceil(12 + 6 * s);
+  const [bw, bt] = EXTRA_BOX[d.t] || (tall ? [27, 48] : [38, 42]);
+  const hw = Math.ceil(bw * s + (tall ? 6 : 8)), top = Math.ceil(bt * s + (tall ? 6 : 8)), bot = Math.ceil(12 + 6 * s);
   const seed = 7 + v * 131 + band * 1009 + Math.round(s * 10) * 17 + d.t.length * 29;
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
     BAKE_CV = c.canvas;
@@ -971,8 +979,10 @@ export const drawPond = (ctx, p, time) => {
 
 // ---- the enemy's gate -------------------------------------------------
 
+const EXTRA_SPAWN = Object.assign({}, ...ART.map((a) => a.spawn));
 export const drawSpawn = (ctx, time, kind) => {
-  if (kind === "grove") drawGrove(ctx, time);
+  if (EXTRA_SPAWN[kind]) EXTRA_SPAWN[kind](ctx, time);
+  else if (kind === "grove") drawGrove(ctx, time);
   else if (kind === "barrow") drawBarrow(ctx, time);
   else drawCave(ctx, time);
 };
@@ -1228,3 +1238,5 @@ export const drawCave = (ctx, time) => {
 
 // Re-export the odd helper the render lab likes to borrow.
 export { tuft, drawCastle, drawCastleWorks, resetWorksBakes };
+// the shared kit, for scenery-iron.js / scenery-hollow.js
+export { leafPart, leafClump, oakTree, pineTree, rockBody, boulder, groundDress, deadTree, willow, reeds, gravestone, cairn, boneheap, obelisk, watchtower, tent, banner, eyes };
