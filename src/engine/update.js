@@ -34,6 +34,9 @@ const pondRoute = (p) => {
 // road points every 7px, for the trapsmith's bench (rebuilt when the road changes)
 let ROAD7 = null;
 
+// A rolling log loses weight to every foe it crushes (update.js, logs).
+const LOG_FALLOFF = 0.9, LOG_FLOOR = 0.4;
+
 // How many bodies one blast can take (a tower may carry its own splashCap).
 const SPLASH_CAP = 16;
 
@@ -1529,7 +1532,9 @@ export function updateGame(g, dt) {
           const across = Math.abs(-dx * Math.sin(lg.a) + dy * Math.cos(lg.a));
           if (Math.abs(along) > 10 || across > Math.max(lg.w * 0.5, PATH_HALF) + (e.size || 14) * 0.5) continue;
           lg.hitIds.push(e.id);
-          dealDamage(g, e, lg.dmg, "phys", true, false, lg.src);
+          // every body it rolls over takes some of its weight: 10% less for
+          // the next, never under 40% — the head of a column takes the worst
+          dealDamage(g, e, lg.dmg * Math.max(LOG_FLOOR, Math.pow(LOG_FALLOFF, lg.hitIds.length - 1)), "phys", true, false, lg.src);
           g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 260, r: 16 });
           if (!e.dead) {
             if (lg.stun && !e.immStun) e.stunUntil = Math.max(e.stunUntil, tms + lg.stun);
