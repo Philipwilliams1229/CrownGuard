@@ -319,10 +319,10 @@ const crag = (ctx, x, y, s, o) => {
 // heatherTuft in the ground section), bracken beside some
 const heatherClump = (ctx, x, y, s, o) => {
   const gy = y + 8, sd = Math.abs(o.seed | 0), big = s > 1.05 ? 2 : 1;
-  if (o.v % 2) stampLow(ctx, "bracken", (sd + 3) % 12 === 3 ? 4 : (sd + 3) % 12, x + 8 * s, gy - 1, big);
   heatherTuft(ctx, x - 3 * s, gy, 1.1 * s, sd);
-  heatherTuft(ctx, x + 5 * s, gy + 2, 0.8 * s, sd + 7, o.v === 3);
-  if (o.v === 2) stampLow(ctx, "bracken", 3, x - 10 * s, gy + 2, 0);
+  heatherTuft(ctx, x + 5 * s, gy + 2, 0.8 * s, o.v === 3 ? 5 : sd + 7);     // v3: a duskier ling beside it
+  if (o.v % 2) stampLow(ctx, "bracken", [0, 1, 2, 4][sd % 4], x + 10 * s, gy + 3, big);
+  if (o.v === 2) stampLow(ctx, "bracken", 3, x - 11 * s, gy + 3, 1);
 };
 
 // A drystone wall: stones stacked dry in courses, a row of upright copes on
@@ -1139,9 +1139,9 @@ const brackenPix = (v, sz) => {
   const base = green ? mix("#6e7a3e", REALM.GRASS_DK, 0.3) : mix(BRACK, REALM.GRASS_DK, 0.5);
   const T = [darken(base, 0.4), darken(base, 0.2), base, lighten(base, 0.1), mix(lighten(base, 0.18), "#fff3d2", 0.1)].map(hexRGB);
   const G = (i) => hash(v * 13 + sz * 71, i);
-  const s = [0.72, 0.92, 1.12][sz];
+  const s = [0.9, 1.15, 1.4][sz];
   const n = 4 + (v % 3) + (sz > 1 ? 1 : 0);
-  const wpx = Math.ceil(30 * s) + 8, hpx = Math.ceil(22 * s) + 8;
+  const wpx = Math.ceil(34 * s) + 8, hpx = Math.ceil(24 * s) + 8;
   const bx = Math.floor(wpx / 2), by = hpx - 4;
   const buf = new Int8Array(wpx * hpx).fill(-1);
   const put = (x, y, t) => { if (x >= 0 && y >= 0 && x < wpx && y < hpx && buf[y * wpx + x] !== 0) buf[y * wpx + x] = t; };
@@ -1149,7 +1149,7 @@ const brackenPix = (v, sz) => {
   const fr = [];
   for (let i = 0; i < n; i++) {
     const f = n > 1 ? i / (n - 1) : 0.5;
-    fr.push({ a: (f - 0.5) * 2 * (0.95 + G(i) * 0.15) + (G(i + 10) - 0.5) * 0.25, len: (9 + G(i + 20) * 4) * s * (1 - Math.abs(f - 0.5) * 0.25) });
+    fr.push({ a: (f - 0.5) * 2 * (0.95 + G(i) * 0.15) + (G(i + 10) - 0.5) * 0.25, len: (10 + G(i + 20) * 5) * s * (1 - Math.abs(f - 0.5) * 0.25) });
   }
   fr.sort((p, q) => Math.abs(p.a) - Math.abs(q.a));
   for (const { a, len } of fr) {
@@ -1237,7 +1237,7 @@ const stampLow = (ctx, kind, v, x, y, sz = 1) => {
 // smooth mound. (A drop-in for the old heatherMound's (c, x, y, s, seed, dry).)
 const heatherTuft = (c, x, y, s, seed, dry = false) => {
   const v = Math.abs(seed | 0) % 12;
-  stampLow(c, dry ? "dryheath" : "heath", v % 6 === 5 ? v - 1 : v, x, y, s > 1.02 ? 2 : s > 0.72 ? 1 : 0);
+  stampLow(c, dry ? "dryheath" : "heath", v % 6 === 5 && seed !== 5 ? v - 1 : v, x, y, s > 1.02 ? 2 : s > 0.72 ? 1 : 0);
 };
 
 // A flat slab of bedrock breaking through the turf: an angular plate (split
@@ -1665,7 +1665,7 @@ const ironRoad = (ctx, kit) => {
       const cr = d1x * d2y - d1y * d2x;
       if (Math.abs(cr) < 1e-3) { bends.push(null); continue; }
       const t = ((b.x1 - a.x2) * d2y - (b.y1 - a.y2) * d2x) / cr;
-      bends.push({ a, b, d1x, d1y, d2x, d2y, cx: a.x2 + d1x * t, cy: a.y2 + d1y * t, pa: (m & 1) * 32, pb: ((m + 1) & 1) * 32 });
+      bends.push({ a, b, d1x, d1y, d2x, d2y, cr, cx: a.x2 + d1x * t, cy: a.y2 + d1y * t, pa: (m & 1) * 32, pb: ((m + 1) & 1) * 32 });
     }
   }
   const bent = bends.length > 0;
@@ -1675,8 +1675,18 @@ const ironRoad = (ctx, kit) => {
       const i = (py - BY0) * BW + pxx - BX0;
       if (best[i] > HALF - 0.4) continue;
       const u = along[i], v = across[i];
-      if (Math.abs(v) >= KERB) { id[i] = KID + (v > 0 ? 500000 : 0) + kerbOf(u); continue; }
       const si = segOf[i], B = si % 8 ? bends[si >> 3] : null;
+      if (Math.abs(v) >= KERB) {
+        // the kerb follows the curve, but round a bend's inside corner it is
+        // two straight stones meeting in a mitre, not a fan of slivers
+        if (B && v * B.cr > 0) {
+          const x = (pxx + 0.5) / k - B.cx, y = (py + 0.5) / k - B.cy;
+          id[i] = KID + (v > 0 ? 500000 : 0) + (x * (B.d1x + B.d2x) + y * (B.d1y + B.d2y) < 0
+            ? kerbOf(B.a.start + (x + B.cx - B.a.x1) * B.d1x + (y + B.cy - B.a.y1) * B.d1y)
+            : 250000 + kerbOf(B.b.start + (x + B.cx - B.b.x1) * B.d2x + (y + B.cy - B.b.y1) * B.d2y));
+        } else id[i] = KID + (v > 0 ? 500000 : 0) + kerbOf(u);
+        continue;
+      }
       if (B) {
         const x = (pxx + 0.5) / k, y = (py + 0.5) / k;
         let s = flagAt(B.a.start + (x - B.a.x1) * B.d1x + (y - B.a.y1) * B.d1y, -(x - B.a.x1) * B.d1y + (y - B.a.y1) * B.d1x);
@@ -1788,9 +1798,15 @@ const ironRoad = (ctx, kit) => {
         if (!sh && hp > 0.6 && hp < 0.7 && mossy) set3(px, moss[1]);
       }
     } else if (kd === 5) {
-      // ---- a kerb stone gone: the turf has it
-      turfAt(i, hp, px);
-      if (lip || joint) drop(0.18, px); else if (hp < 0.12) lift(0.08, px);
+      // ---- a kerb stone gone: the turf has it, sunk in the shade of the
+      // stones either side, a broken stub of the old stone at each end
+      const kc = kerbOf(u), du = Math.min(u - kStart[kc], kStart[kc + 1] - u);
+      if (du < 1.4 && hp < 0.55) { set3(px, kerbT[2]); drop(du < 0.6 ? 0.2 : 0.08, px); }
+      else {
+        turfAt(i, hp, px);
+        drop(du < 2.2 ? 0.2 : 0.1, px);
+        if (hp < 0.1) lift(0.1, px);
+      }
     } else {
       let c;
       if (kerb) c = kerbT[Math.floor(hash(s + seed, 7) * 3)];

@@ -149,8 +149,8 @@ const bendFillets = (segs, half, r) => {
     const t1x = fx - r * m1x, t1y = fy - r * m1y, t2x = fx - r * m2x, t2y = fy - r * m2y;
     out.push({
       cx, cy, fx, fy, m1x, m1y, m2x, m2y, u1x: A.ux, u1y: A.uy, u2x: B.ux, u2y: B.uy, t1x, t1y, t2x, t2y,
-      x0: Math.min(cx, fx, t1x, t2x) - 1, x1: Math.max(cx, fx, t1x, t2x) + 1,
-      y0: Math.min(cy, fy, t1y, t2y) - 1, y1: Math.max(cy, fy, t1y, t2y) + 1,
+      x0: Math.min(cx, fx, t1x, t2x) - 5, x1: Math.max(cx, fx, t1x, t2x) + 5,
+      y0: Math.min(cy, fy, t1y, t2y) - 5, y1: Math.max(cy, fy, t1y, t2y) + 5,
     });
   }
   return out;
@@ -173,7 +173,7 @@ const lookOf = (R) => {
     // ruts: how much of the road they run along (1 = about half), and
     // whether the groove's floor sinks a tone (the fen's pale dust: walls only)
     ruts: 1, rutFloor: 1,
-    grassCrown: true, puddles: 3, prints: 6, roots: true, tufts: 1, pebbles: 1, sky: 0.25,
+    grassCrown: true, puddles: 3, pool: 1.1, prints: 6, roots: true, tufts: 1, pebbles: 1, sky: 0.5,
     pebble: R.PEBBLE, stone: mix(dk, "#8d8478", 0.45),
     tuft: [darken(R.GRASS_DK, 0.18), R.GRASS, lighten(R.GRASS_LT, 0.12)], tuftH: 1,
     water: R.water || { deep: "#3a6a7c", edge: "#4a8094", shine: "#8cc4d8" },
@@ -199,7 +199,7 @@ const lookOf = (R) => {
     L.tuft = [mix(R.GRASS_DK, "#2a2224", 0.3), "#6e6050", "#8e7e66"]; L.tuftH = 0.8;
     L.cracks = true;
   } else if (style === "peat") {
-    L.bias = -0.04; L.puddles = 5; L.prints = 8; L.pebbles = 0.6; L.sky = 0.6;
+    L.bias = -0.04; L.puddles = 5; L.pool = 1.5; L.prints = 8; L.pebbles = 0.6; L.sky = 0.6;
     L.water = { deep: "#262a22", edge: "#4e5242", shine: "#9aac9a" };
     L.tuft = [darken(R.TUFT, 0.25), R.GRASS_DK, lighten(R.GRASS_LT, 0.18)]; L.tuftH = 1.35;
   } else if (style === "fen") {
@@ -281,14 +281,14 @@ export function paintRoadStrip(ctx, pts, o = {}) {
   const gravel = L.gravel ? L.gravel.map(rgb) : null;
   const RT = rndTable();
   const FIL = paved || o.fillets === false ? [] : bendFillets(segs, HALF, FILLET_R), FR = FILLET_R;
-  // the dirt's drifts (two noise fields) on a lattice one world unit apart,
+  // the dirt's drifts (two noise fields) on a lattice two world units apart,
   // filled as the road reaches it and read bilinearly
-  const DX0 = Math.floor(x0) - 1, DY0 = Math.floor(y0) - 1, DW = Math.ceil(PW / k) + 4, DH = Math.ceil(PH / k) + 4;
+  const DS = 2, DX0 = Math.floor(x0) - 2, DY0 = Math.floor(y0) - 2, DW = Math.ceil(PW / k / DS) + 4, DH = Math.ceil(PH / k / DS) + 4;
   const dv = new Float32Array(DW * DH), df = new Uint8Array(DW * DH);
   const dfill = (q) => {
     const i = q % DW, j = (q / DW) | 0;
     // (sampled on turned axes, so the value noise never shows its square cells)
-    const x = DX0 + i, y = DY0 + j;
+    const x = DX0 + i * DS, y = DY0 + j * DS;
     df[q] = 1; dv[q] = ((nDrift(x * 0.8 - y * 0.6, x * 0.6 + y * 0.8) - 0.5) * 0.34 + (nMid(x * 0.6 + y * 0.8, y * 0.6 - x * 0.8 + 600) - 0.5) * 0.2) * L.drift;
   };
   // Each segment scans only its own slab (the strip within REACH of it),
@@ -371,7 +371,8 @@ export function paintRoadStrip(ctx, pts, o = {}) {
           const f = FB[fi];
           if (x < f.x0 || x > f.x1 || y < f.y0 || y > f.y1) continue;
           const rx = x - f.cx, ry = y - f.cy;
-          if (rx * f.m1x + ry * f.m1y < 0 || rx * f.m2x + ry * f.m2y < 0) continue;
+          // (a margin on the road's side too: the ragged edge there must follow the fillet)
+          if (rx * f.m1x + ry * f.m1y < -4 || rx * f.m2x + ry * f.m2y < -4) continue;
           if ((x - f.t1x) * f.u1x + (y - f.t1y) * f.u1y < 0 || (x - f.t2x) * f.u2x + (y - f.t2y) * f.u2y > 0) continue;
           const gx = f.fx - x, gy = f.fy - y, gl = Math.sqrt(gx * gx + gy * gy), dF = HALF + FR - gl;
           if (dF < dist && gl > 0.01) { dist = dF; s = (gx * SX + gy * SY) / gl; }
@@ -417,7 +418,7 @@ export function paintRoadStrip(ctx, pts, o = {}) {
         // ---- the road itself: one tone field, cut into five tones ----
         let v = BIAS + CROWN * (1 - (a / HALF) * (a / HALF));
         {
-          const fx = x - DX0, fy = y - DY0, ix = fx | 0, iy = fy | 0, u = fx - ix, w = fy - iy, q = iy * DW + ix;
+          const fx = (x - DX0) * 0.5, fy = (y - DY0) * 0.5, ix = fx | 0, iy = fy | 0, u = fx - ix, w = fy - iy, q = iy * DW + ix;
           if (!df[q]) dfill(q);
           if (!df[q + 1]) dfill(q + 1);
           if (!df[q + DW]) dfill(q + DW);
@@ -526,18 +527,18 @@ function roadDetail(d, PW, PH, C) {
     const [x, y, p] = spot(al, C.rutOff(al, side) + (rng() - 0.5) * 1.5);
     if (wetHere(x, y, 6) || puddles.some((q) => Math.hypot(q.x - x, q.y - y) < 50)) continue;
     if (CHEVRONS.some((ch) => Math.hypot(ch.x - x, ch.y - y) < 12)) continue;
-    const n = 2 + (rng() < 0.45 ? 1 : 0), lobes = [];
+    const n = 2 + (rng() < 0.45 ? 1 : 0) + (L.pool > 1.2 && rng() < 0.5 ? 1 : 0), lobes = [], ps = L.pool;
     let ext = 0;
     for (let j = 0; j < n; j++) {
-      const lo = (j - (n - 1) / 2) * (2.2 + rng() * 1.8) + (rng() - 0.5), co = (rng() - 0.5) * 1.6;
-      const rx = 1.8 + rng() * 2, ry = 1.1 + rng() * 1.1;
+      const lo = (j - (n - 1) / 2) * (2.2 + rng() * 1.8) * ps + (rng() - 0.5), co = (rng() - 0.5) * 1.6 * ps;
+      const rx = (1.8 + rng() * 2) * ps, ry = (1.1 + rng() * 1.1) * ps;
       lobes.push([lo, co, rx, ry]);
       ext = Math.max(ext, Math.abs(lo) + rx, Math.abs(co) + ry);
     }
     puddles.push({ x, y, ux: p.ux, uy: p.uy, lobes, ext });
   }
   const wDeep = rgb(snow ? mix(L.tones[2], "#86b2c8", 0.45) : mix(L.water.deep, L.tones[0], 0.4));
-  const wMid = rgb(snow ? mix(L.tones[3], "#d4ecf6", 0.5) : mix(mix(L.water.edge, L.water.shine, L.sky), L.tones[1], 0.45));
+  const wMid = rgb(snow ? mix(L.tones[3], "#d4ecf6", 0.5) : mix(mix(L.water.edge, L.water.shine, L.sky), L.tones[1], 0.25));
   const wHi = rgb(snow ? "#fbfeff" : mix(lighten(L.water.shine, 0.35), L.tones[3], 0.2));
   const mud = snow ? T[1] : rgb(darken(L.tones[0], 0.18)), lip = snow ? rgb("#f4f8fa") : T[3];
   for (const pd of puddles) {
@@ -641,14 +642,14 @@ function roadDetail(d, PW, PH, C) {
   // only where both ruts run and the road runs straight
   if (L.grassCrown) {
     const nCrown = noiseOf(seed + 37, 40), gc = [rgb(darken(R.GRASS_DK, 0.12)), rgb(R.GRASS_DK), rgb(mix(R.GRASS, R.GRASS_LT, 0.4))];
-    for (let al = from + 30; al < to - 20; al += 10 + rng() * 22) {
+    for (let al = from + 30; al < to - 20; al += 16 + rng() * 34) {
       const p = M.at(al);
       if (!C.rutOn(al, -1) || !C.rutOn(al, 1) || C.bendAt(al) > 0.25 || nCrown(p.x, p.y) < 0.5 || rng() > 0.55 || onBridge(al, 8)) continue;
       const n = 1 + (rng() < 0.4 ? 1 : 0);
       for (let c = 0; c < n; c++) {
         const [x, y] = spot(al + c * (2 + rng() * 2), C.latAt(al) + (rng() - 0.5) * 3.5);
         if (wetHere(x, y, 2) || inPuddle(x, y, 1)) continue;
-        tuftPx(x, y, 3 + Math.floor(rng() * 3), 0.5, gc);
+        tuftPx(x, y, 4 + Math.floor(rng() * 3), 0.72, gc);
       }
     }
   }
@@ -694,14 +695,14 @@ function roadDetail(d, PW, PH, C) {
         const qx = Math.round(px + cx * s + jx), qy = Math.round(py + cy * s + jy);
         if (qx === lx && qy === ly) continue;
         lx = qx; ly = qy;
-        pts.push([qx, qy, deep && s > len * 0.25 && s < len * 0.7]);
+        pts.push([qx, qy, deep && s > len * 0.15 && s < len * 0.8]);
       }
       return pts;
     };
-    for (let n = 0; n < 22; n++) {
+    for (let n = 0; n < 30; n++) {
       const al = from + rng() * (to - from), [x, y, p] = spot(al, (rng() - 0.5) * HALF * 1.4);
       if (onBridge(al, 4) || wetHere(x, y, 2)) continue;
-      const [px, py] = toPx(x, y), len = 10 + Math.floor(rng() * 12);
+      const [px, py] = toPx(x, y), len = 12 + Math.floor(rng() * 14);
       // (across the road more often than along it)
       const th = Math.atan2(p.ux, -p.uy) + (rng() - 0.5) * 1.6 + (rng() < 0.3 ? Math.PI / 2 : 0);
       const main = walk(px, py, len, th, true);
@@ -730,9 +731,12 @@ function roadDetail(d, PW, PH, C) {
   if (L.roots && C.roots) {
     const ROOTED = new Set(["tree", "willow", "deadtree", "fenwillow", "fendead"]);
     const wood = mix("#6a4a2c", R.PATH_EDGE, 0.3), rB = rgb(wood), rL = rgb(lighten(wood, 0.3)), rD = rgb(darken(wood, 0.38));
+    const g0 = M.segs[0];
     for (const dc of DECOR) {
       if (!ROOTED.has(dc.t)) continue;
       const sc = dc.s || 1, fy = dc.y + (dc.t === "willow" || dc.t === "fenwillow" ? 12 : 10);
+      // (none round the spawn gate: the trees on its crag are lifted or left out)
+      if (Math.hypot(dc.x - g0.x1, fy - g0.y1) < 120) continue;
       // the nearest point on this road to the trunk's foot
       let best = 1e9, bp = null;
       for (const s of M.segs) {
@@ -742,25 +746,29 @@ function roadDetail(d, PW, PH, C) {
         if (dd < best) { best = dd; bp = [qx, qy, s.start + t * s.len]; }
       }
       const gap = best - HALF;
-      if (gap > 15 || gap < 1 || onBridge(bp[2], 10)) continue;
+      if (gap > 13 || gap < 1 || onBridge(bp[2], 10)) continue;
       const dx = (bp[0] - dc.x) / best, dy = (bp[1] - fy) / best;
-      const h0 = hash(dc.x | 0, dc.y | 0), nr = 2 + (h0 < 0.45 ? 1 : 0);
+      const h0 = hash(dc.x | 0, dc.y | 0), nr = 2 + (h0 < 0.35 ? 1 : 0);
       const cells = new Map();   // art pixel -> colour, so a root never shades itself
       for (let r = 0; r < nr; r++) {
         const h1 = hash((dc.x | 0) + r * 17, dc.y | 0), h2 = hash(dc.y | 0, (dc.x | 0) + r * 31);
-        const sp = (r - (nr - 1) / 2) * 0.62 + (h1 - 0.5) * 0.3, ca = Math.cos(sp), sa = Math.sin(sp);
-        const rx = dx * ca - dy * sa, ry = dx * sa + dy * ca;
-        const len = Math.min(8 + h2 * 6, gap + 6) * Math.sqrt(sc);
-        const sx = dc.x + rx * 2.6 * sc, sy = fy + ry * 1.2 * sc - 0.5;
+        // from the tips of the trunk's flare (the middle one from its foot),
+        // splaying outward as they go
+        const f = (r / (nr - 1) - 0.5) * 2, px_ = -dy, py_ = dx;
+        const sp = f * 0.6 + (h1 - 0.5) * 0.25, ca = Math.cos(sp), sa = Math.sin(sp);
+        const rx = dx * ca + px_ * sa, ry = dy * ca + py_ * sa;
+        const len = Math.min(4 + h2 * 4.5, gap + 3) * Math.sqrt(sc);
+        const off = f * (6 * Math.abs(dy) + 1.5) * sc;
+        const sx = dc.x + px_ * off, sy = fy + py_ * off + 0.3 + (1 - Math.abs(f)) * 0.6;
         const n = Math.ceil(len * k * 1.5), flat = Math.abs(rx) > Math.abs(ry);
-        const g1 = 0.35 + h1 * 0.25, g2 = 0.7 + h2 * 0.15;   // where it dips under the soil
+        const g1 = 0.6 + h1 * 0.15, g2 = 0.85;   // where it dips under the soil
         for (let s = 0; s <= n; s++) {
           const u = s / n;
-          if (Math.abs(u - g1) < 0.06 || (h2 < 0.5 && Math.abs(u - g2) < 0.05)) continue;
-          const bow = Math.sin(u * Math.PI * 1.6 + h1 * 6) * 1.3 * u * sc;
+          if (Math.abs(u - g1) < 0.05 || (h2 < 0.4 && Math.abs(u - g2) < 0.04)) continue;
+          const bow = Math.sin(u * Math.PI * 1.6 + h1 * 6) * 0.9 * u * sc;
           const wx = sx + rx * len * u - ry * bow, wy = sy + ry * len * u + rx * bow;
           const [px, py] = toPx(wx, wy);
-          const th = u < 0.3 ? 3 : u < 0.65 ? 2 : 1;
+          const th = u < 0.55 ? 3 : u < 0.85 ? 2 : 1;
           // across the root's run: lit on the sun's side, the wood, dark beneath
           for (let q = 0; q < th; q++) {
             const c = th === 1 ? rB : q === 0 ? rL : q === th - 1 ? rD : rB;

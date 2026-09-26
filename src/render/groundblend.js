@@ -91,6 +91,21 @@ const pixMound = (put, cx, cy, rx, ry, cols, shadowCol) => {
   }
 };
 
+// dry grass for burnt and ashen ground, from the realm's own colours (the
+// same straw world.js sows over the board)
+export const strawOf = (r) => [darken(r.GRASS_DK, 0.3), mix(r.GRASS_DK, "#6a5438", 0.4), mix(r.GRASS_LT, "#b89868", 0.5), mix(r.GRASS_LT, "#e0cc98", 0.55)];
+// a few stiff dry stalks standing through snow, unequal, one bowed under its
+// seed head (world.js draws the same through the snowfields)
+const STALK = ["#6e6a5c", "#9a947e", "#c4bca0", "#e2dac4"];
+const stalks = (put, bx, by, s, seed) => {
+  const n = 2 + (hash(seed, 5) < 0.5 ? 1 : 0), head = Math.floor(hash(seed, 7) * n);
+  for (let k = 0; k < n; k++) {
+    const sx = bx + k * 2 - (n - 1), hgt = Math.max(3, Math.round((4 + hash(seed, k + 20) * 5) * s * (k === head ? 1.25 : 1)));
+    for (let q = 0; q < hgt; q++) put(sx, by - q, STALK[q < 1 ? 0 : q < hgt * 0.5 ? 1 : q < hgt - 1 ? 2 : 3]);
+    if (k === head) { put(sx + 1, by - hgt, STALK[2]); put(sx + 2, by - hgt + 1, STALK[1]); }
+  }
+};
+
 const clump = (c, kind, x, y, s, seed, r) => {
   const put = dotter(c), shade = (px, py) => put(px, py, SHADE);
   const bx = Math.round(x * PX), by = Math.round(y * PX);
@@ -100,7 +115,7 @@ const clump = (c, kind, x, y, s, seed, r) => {
     const hi = lighten(r.GRASS_LT, 0.45), mid = lighten(r.GRASS_LT, 0.12), lo = mix(r.GRASS, "#6a86c6", 0.22);
     pixMound(put, bx, by, 7 * s, 2.6 * s, [hi, mid, lo], "rgba(60,80,130,0.22)");
     pixMound(put, bx + Math.round(4 * s), by + 1, 4 * s, 1.8 * s, [hi, mid, lo], null);
-    if (hash(seed, 7) > 0.55) pixelTuft(put, null, bx - 2, by - 1, 0.55 * s, seed, ["#6e6a5c", "#9a947e", "#c4bca0", "#e2dac4"], { n: 2, spread: 1.1, wind: 0.4 });
+    if (hash(seed, 7) > 0.55) stalks(put, bx - 2, by - 1, s, seed);
     return;
   }
   if (kind === "ash") {
@@ -110,7 +125,7 @@ const clump = (c, kind, x, y, s, seed, r) => {
       const col = mix("#5a4c46", "#3a302c", hash(seed, i + 9));
       pixMound(put, px, py, (1.6 + hash(seed, i + 6) * 1.6) * s, (1.1 + hash(seed, i + 6)) * s, [lighten(col, 0.3), col, darken(col, 0.35)], SHADE);
     }
-    pixelTuft(put, shade, bx + 2, by, 0.5 * s, seed, ["#2e2622", "#54463a", "#7e684c", "#a88a60"], { n: 3, wind: 0.4 });
+    pixelTuft(put, shade, bx + 2, by, 0.5 * s, seed, strawOf(r), { n: 3, wind: 0.4 });
     return;
   }
   if (kind === "marsh") {

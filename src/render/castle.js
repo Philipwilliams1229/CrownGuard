@@ -921,9 +921,12 @@ const vnoise = (x, y, cell, seed) => {
   const a = hash(ix + s, iy), b = hash(ix + 1 + s, iy), c = hash(ix + s, iy + 1), d = hash(ix + 1 + s, iy + 1);
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 };
+// (one buffer and one canvas, shared by every bake: each is laid before the next begins)
+let PIXBUF = null, PIXCV = null;
 const pixels = (x0, y0, w, h) => {
   const ax0 = Math.round(x0 * 2), ay0 = Math.round(y0 * 2), PW = Math.round(w * 2), PH = Math.round(h * 2);
-  const d = new Uint8ClampedArray(PW * PH * 4);
+  if (!PIXBUF || PIXBUF.length !== PW * PH * 4) PIXBUF = new Uint8ClampedArray(PW * PH * 4); else PIXBUF.fill(0);
+  const d = PIXBUF;
   const at = (ax, ay) => { const i = ax - ax0, j = ay - ay0; return i < 0 || j < 0 || i >= PW || j >= PH ? -1 : (j * PW + i) * 4; };
   // over-composite one pixel (a < 1 tints what is already there)
   const put = (ax, ay, c, a = 1) => {
@@ -936,10 +939,9 @@ const pixels = (x0, y0, w, h) => {
   };
   const lay = (c) => {
     if (typeof document === "undefined") return;
-    const cv = document.createElement("canvas");
-    cv.width = PW; cv.height = PH;
-    cv.getContext("2d").putImageData(new ImageData(d, PW, PH), 0, 0);
-    c.save(); c.imageSmoothingEnabled = false; c.drawImage(cv, ax0 / 2, ay0 / 2, PW / 2, PH / 2); c.restore();
+    if (!PIXCV || PIXCV.width !== PW || PIXCV.height !== PH) { PIXCV = document.createElement("canvas"); PIXCV.width = PW; PIXCV.height = PH; }
+    PIXCV.getContext("2d").putImageData(new ImageData(d, PW, PH), 0, 0);
+    c.save(); c.imageSmoothingEnabled = false; c.drawImage(PIXCV, ax0 / 2, ay0 / 2, PW / 2, PH / 2); c.restore();
   };
   return { put, shade: (ax, ay, t) => put(ax, ay, PLUM, t), lay };
 };
@@ -972,7 +974,7 @@ const pixPal = (P) => {
   Q.moss = [darken(r.GRASS_DK, 0.1), r.GRASS_DK].map(RGB);
   // the setts: a few stones of slightly different hue, the mortar, and what
   // grows (or lies) in the joints toward the edges
-  const base = k === "marsh" ? mix(P.sett, r.GRASS_DK, 0.22) : k === "ash" ? darken(P.sett, 0.12) : k === "snow" ? mix(P.sett, "#8a9aae", 0.3) : P.sett;
+  const base = k === "marsh" ? mix(P.sett, r.GRASS_DK, 0.22) : k === "ash" ? darken(P.sett, 0.12) : k === "snow" ? lighten(mix(P.sett, "#8a9aae", 0.3), 0.08) : P.sett;
   Q.stones = [base, base, mix(base, "#6e7a8c", 0.13), mix(base, "#b08a64", 0.16), lighten(base, 0.06)].map(RGB);
   Q.sill = RGB(mix(CASTLE_STONE, base, 0.55));
   Q.mortar = dkC(RGB(base), 0.42);
@@ -1028,7 +1030,8 @@ const pxRubble = (B, ax, ay, w, h, col, seed, snowy) => {
 
 // -- the cobbled threshold --
 // The road widening as it meets the gate: setts laid in courses across it
-// (three units deep, their joints staggered), bowed round the gate, thicker
+// (each course its own width, the setts in it of different lengths),
+// bowed round the gate more and more the further out they lie, thicker
 // toward the arch and thinning out into the road's dirt. The horde walks
 // right in over it, so `full` is only for when it is laid under them
 // (draw.js calling drawCastleGround); otherwise only the wings of the flare
@@ -1048,18 +1051,27 @@ const threshold = (B, gy, P, Q, full) => {
   const wearAt = (dy) => Math.max(clamp01(1 - Math.abs(dy) / 7) * 0.7, rutAt(dy));
   const east = (dy) => Math.round((Math.abs(dy) <= PATH_HALF - 1 ? SILL_X : GATE.face0 - 1.5) * 2);
   const snowy = k === "snow";
-  for (let c = 0; ; c++) {
-    const xr = SILL_X - c * 3;
-    if (xr < PAVE_X - 3) break;
+  // how deep the snow lies (a smooth field): up over the flare's rim, and in
+  // drifts on the paving away from the lanes and the ruts, which stay trodden
+  const snowF = (x, dy) => {
+    const lane = Math.max(wearAt(dy), rutAt(dy) * 0.9), rim = (Math.abs(dy) - hwAt(x) + 7) / 7;
+    return Math.max(rim * 1.25 - 0.15, (0.34 + 0.45 * vnoise(x, dy, 9, seed + 8)) * (1 - lane)) + (vnoise(x, dy, 6, seed + 9) - 0.5) * 0.6 + (vnoise(x, dy, 2.5, seed + 10) - 0.5) * 0.2;
+  };
+  for (let c = 0, xr = SILL_X; xr > PAVE_X - 3; c++) {
+    // each course its own width; the Marches' dressed setts are all alike
+    const cw = paved ? 3 : 2.5 + Math.floor(hash(c, 214 + seed) * 3) * 0.5;
+    const bow = paved ? 0 : Math.min(5.5, c * 0.9);
     let y = gy - GH - 7 - hash(c, 201 + seed) * 4.5;
     for (let i = 0; y < gy + GH + 6; i++) {
       const hs = (n) => hash(c * 53 + i, n + seed);
-      const L = 3.5 + Math.floor(hs(202) * 3) * 0.5, y0s = y, y1s = y + L;
+      // now and then a half sett, or a long one
+      const lr = hs(215), L = lr < 0.07 ? 2 : lr > 0.94 ? 5.5 : 3.5 + Math.floor(hs(202) * 3) * 0.5, y0s = y, y1s = y + L;
       y = y1s;
       const dy = (y0s + y1s) / 2 - gy, ady = Math.abs(dy);
-      // the courses bow round the gate: their ends swing toward it
-      const shift = paved ? 0 : Math.round(2.4 * (dy / 40) ** 2 * 2) / 2;
-      const xs0 = xr - 3 + shift, xs1 = xr + shift, xm = xs0 + 1.5;
+      // the courses bow round the gate, their ends swinging toward it: the
+      // further out, the more (the ones by the sill lie straight along it)
+      const shift = Math.round(bow * (dy / 40) ** 2 * 2) / 2;
+      const xs0 = xr - cw + shift, xs1 = xr + shift, xm = (xs0 + xs1) / 2;
       const out = ady + 1 - hwAt(xm) + (hs(204) - 0.5) * 3.5;
       if (out > 0) continue;
       // how near the flare's edge (ef), and whether that edge is the grass
@@ -1071,23 +1083,26 @@ const threshold = (B, gy, P, Q, full) => {
       if (!paved && !there && xm > st - 5 && hs(205) < 0.06) there = true;     // a stray sett out ahead
       if (there && ef > 0.45 && hs(206) < (ef - 0.45) * 0.9) there = false;   // gone to grass at the edge
       const sk = paved ? 0 : Math.max(clamp01(1 - (xm - st) / 11), (ef0 - grassy) * 0.6), w = wearAt(dy);
-      // how deep the realm's snow lies on it: over the edges, and the setts out in the road
-      const cov = snowy ? clamp01(Math.max(ef * 1.35 - 0.25, sk * 1.2) + (vnoise(xm, dy, 6, seed + 9) - 0.5) * 0.6) : 0;
-      if (cov > 0.62) there = false;                                             // gone under the snow
+      // how deep the realm's snow lies on it: the field, and the setts out in the road
+      const sf = snowy ? snowF(xm, dy) : 0, cov = snowy ? clamp01(Math.max(sf, sk * 1.2)) : 0;
+      if (cov > 0.75 && ady > PATH_HALF + 2) there = false;                      // gone under the snow beyond the road
       if (!there) continue;
       // the wheels have carried the road's dirt a way in along the ruts
       const rut = paved ? 0 : rutAt(dy) * clamp01(1 - (xm - st - 6) / 16);
-      const s0 = Q.stones[Math.floor(hs(208) * Q.stones.length)];
-      let body = toneC(s0, (hs(209) - 0.5) * 0.12 - sk * 0.1 + w * 0.05 - rut * 0.08);
-      body = mixC(body, Q.road[2], sk * 0.4);
-      const bev = 1 - w * 0.5 - sk * 0.35;
+      // the stones' hues and tones gather in patches rather than going sett by sett
+      const hue = clamp01(vnoise(xm + 40, dy, 6, seed + 41) * 1.4 - 0.2 + (hs(208) - 0.5) * 0.4);
+      const s0 = Q.stones[Math.min(Q.stones.length - 1, Math.floor(hue * Q.stones.length))];
+      let body = toneC(s0, (vnoise(xm, dy, 8, seed + 40) - 0.5) * 0.18 + (hs(209) - 0.5) * 0.05 - sk * 0.1 + w * 0.05 - rut * 0.08);
+      body = mixC(body, Q.road[2], sk * 0.3);
+      // a sett sinking into the road loses its dark bevel: only its lit top-left
+      // edge still shows, and the road's dirt lies in its joints and lips over it
+      const bury = sk > 0.18 ? sk : 0, bev = 1 - w * 0.5;
       S.push({
-        body, lit: litC(body, 0.15 * bev), shd: dkC(body, 0.22 * bev), gl: litC(body, 0.32),
-        glint: hs(210) < 0.3 + w * 0.4 && sk < 0.5, ef, sk, w, rut, dy, cov, drift: ef * 1.35 - 0.25 > sk * 1.2,
-        dirt: !snowy && sk > 0.2 ? Math.floor(hs(211) * sk * 7) : 0, h: hs(212),
+        body, lit: litC(body, (bury ? 0.1 : 0.15) * bev), shd: bury ? body : dkC(body, 0.22 * bev), gl: litC(body, 0.32),
+        glint: hs(210) < 0.3 + w * 0.4 && sk < 0.5, ef, sk, w, rut, dy, cov, bury, drift: sf >= sk * 1.2, h: hs(212),
         // what fills its joints: sunk in the road, only the road's dirt round it;
         // in the lanes and ruts the dirt the feet and wheels carry in
-        jd: sk > 0.45 ? Q.road[2] : hs(213) < sk * 0.95 + rut * 0.8 + w * 0.22 ? Q.road[rut > 0.4 ? 0 : 1] : null,
+        jd: bury ? Q.road[sk > 0.5 ? 2 : 1] : hs(213) < rut * 0.8 + w * 0.22 ? Q.road[rut > 0.4 ? 0 : 1] : null,
       });
       const n = S.length - 1, lim = east(dy);
       for (let py = Math.round(y0s * 2); py < Math.round(y1s * 2); py++) for (let px = Math.round(xs0 * 2); px < Math.round(xs1 * 2) && px < lim; px++) {
@@ -1095,6 +1110,7 @@ const threshold = (B, gy, P, Q, full) => {
         if (i >= 0 && j >= 0 && i < TW && j < TH) id[j * TW + i] = n;
       }
     }
+    xr -= cw;
   }
   const idAt = (i, j) => (i < 0 || j < 0 || i >= TW || j >= TH ? -1 : id[j * TW + i]);
   const J = new Uint8Array(TW * TH);
@@ -1103,79 +1119,135 @@ const threshold = (B, gy, P, Q, full) => {
     if (s >= 0 && (idAt(i - 1, j) !== s || idAt(i, j - 1) !== s)) J[j * TW + i] = 1;
   }
   const isJ = (i, j) => (i < 0 || j < 0 || i >= TW || j >= TH ? true : J[j * TW + i] === 1);
+  // the road's dirt lipping over the sunk setts from the west and the south,
+  // raggedly, so each stone lies part buried
+  const Bm = new Uint8Array(TW * TH);
+  for (let j = 0; j < TH; j++) for (let i = 0; i < TW; i++) {
+    const o = j * TW + i, s = id[o];
+    if (s < 0 || !S[s].bury || J[o]) continue;
+    let dw = 0; while (dw < 7 && idAt(i - dw - 1, j) === s) dw++;
+    let ds = 0; while (ds < 7 && idAt(i, j + ds + 1) === s) ds++;
+    const nz = vnoise((TX0 + i + 0.5) / 2, (TY0 + j + 0.5) / 2, 1.2, seed + 16), b = S[s].bury * 5;
+    if (dw < b * (0.15 + nz) || ds < b * (0.3 + nz)) Bm[o] = 1;
+  }
+  // the snow's depth at each art pixel; deep enough, it lies over the stones in drifts
+  // (worked out only where it is asked for)
+  const SF = snowy ? new Float32Array(TW * TH).fill(-9) : null;
+  const DRIFT = 0.74, sfAt = (i, j) => {
+    if (i < 0 || j < 0 || i >= TW || j >= TH) return 0;
+    const o = j * TW + i;
+    if (SF[o] === -9) { const x = (TX0 + i + 0.5) / 2, y = (TY0 + j + 0.5) / 2; SF[o] = snowF(x, y - gy) + (vnoise(x, y, 1.2, seed + 19) - 0.5) * 0.14; }
+    return SF[o];
+  };
+  const driftCol = (i, j) => (sfAt(i, j - 1) <= DRIFT || sfAt(i - 1, j) <= DRIFT ? Q.snow[2] : sfAt(i, j + 1) <= DRIFT || sfAt(i, j + 2) <= DRIFT ? Q.snow[0] : Q.snow[1]);
   // worn hollows where the setts have settled; the deepest holds a puddle
   // (ice in the snow, a drift of ash in the ash)
   const hol = [];
   for (let i = 0; i < 3; i++) hol.push({ x: PAVE_X + (i ? 12 : 17) + hash(seed, 300 + i) * (i ? 14 : 7), y: gy + (hash(seed, 310 + i) - 0.5) * 34, rx: (i ? 3.5 : 5.5) + hash(seed, 320 + i) * 2, ry: (i ? 2.2 : 3.2) + hash(seed, 330 + i) * 1.2, pool: i === 0 });
+  const ashIn = (h, x, y) => { const u = (x - h.x) / h.rx, v = (y - h.y) / h.ry; return u * u + v * v + (vnoise(x, y, 1.3, seed + 4) - 0.5) * 0.3 < 0.42; };
   // the joints: mortar, or (a sett at a time, so it reads as whole stones and
-  // not as grit) the road's dirt packed in; grass in clumps toward the edges
+  // not as grit) the road's dirt packed in; grass (snow) in clumps toward the edges
   const jointCol = (px, py, st) => {
     const x = (px + 0.5) / 2, y = (py + 0.5) / 2;
     if (st.ef > 0.05 && vnoise(x, y, 1.4, seed + 11) < st.ef * 0.95 * (1 - st.sk)) return Q.edgeJ[vnoise(x, y, 2.2, seed + 12) < 0.4 ? 0 : vnoise(x, y, 1.1, seed + 13) < 0.6 ? 1 : 2];
+    if (snowy && st.drift && vnoise(x, y, 1.2, seed + 14) < st.cov * 1.3 - 0.2) return Q.snow[0];
     if (st.jd) return st.jd;
-    return snowy && vnoise(x, y, 1.6, seed + 14) < st.cov * 0.8 ? Q.edgeJ[0] : Q.mortar;
+    return Q.mortar;
+  };
+  // wheels carry the ruts' dirt a little way onto the setts before the sill
+  const grooveAt = (x, dy) => {
+    if (x < SILL_X - 2 - vnoise(0, dy, 2, seed + 35) * 4) return 0;
+    for (const g of [-11.5, 11.5]) { const t = dy - g; if (t >= -1.5 && t < -1) return 1; if (t >= -1 && t < 0) return 2; }
+    return 0;
   };
   const tufts = [];
   for (let j = 0; j < TH; j++) for (let i = 0; i < TW; i++) {
-    const s = id[j * TW + i];
-    if (s < 0) continue;
-    const px = TX0 + i, py = TY0 + j, x = (px + 0.5) / 2, y = (py + 0.5) / 2;
-    if (!full && Math.abs(y - gy) < PATH_HALF - 3) continue;
+    const o = j * TW + i, s = id[o];
+    if (s < 0 && !snowy) continue;
+    const px = TX0 + i, py = TY0 + j, x = (px + 0.5) / 2, y = (py + 0.5) / 2, dy = y - gy;
+    if (!full && Math.abs(dy) < PATH_HALF - 3) continue;
+    if (s < 0) {
+      // the drifts carry on over the gaps along the flare's rim, so their edges
+      // are the snow's own and not the setts'
+      if (Math.abs(dy) > hwAt(x) - 4 && Math.abs(dy) < hwAt(x) + 1 && x > PAVE_X + 3 + vnoise(0, y, 3, seed + 36) * 5 && sfAt(i, j) > DRIFT) B.put(px, py, driftCol(i, j));
+      continue;
+    }
     const st = S[s];
     let col;
     const a = isJ(i - 1, j), b = isJ(i, j - 1), cR = idAt(i + 1, j) !== s, d = idAt(i, j + 1) !== s;
-    const joint = J[j * TW + i] || ((a || cR) && (b || d));
+    const joint = J[o] || ((a || cR) && (b || d));
     if (joint) {
+      // (no mortar where no stone lies alongside: the ground itself shows there)
+      if (idAt(i - 1, j) < 0 || idAt(i, j - 1) < 0 || idAt(i + 1, j) < 0 || idAt(i, j + 1) < 0) continue;
       col = jointCol(px, py, st);
-      // snow packed into the joints; grass (or its like) up out of them near the edges
-      if (snowy && st.cov > 0.25 && hash(px + 5, py * 3) < st.cov) col = st.drift ? Q.snow[0] : Q.road[2];
+      // grass (or its like) up out of the joints near the edges
       if (st.ef > 0.35 && (k === "grass" || k === "turf" || k === "marsh") && hash(px * 5, py * 11 + 2) < (st.ef - 0.35) * 0.05) tufts.push([px, py]);
+    } else if (Bm[o]) {
+      // the dirt over the stone; the stone's shadow falls on it from the north
+      col = Bm[o - TW] || idAt(i, j - 1) !== s ? st.jd : dkC(st.jd, 0.14);
     } else {
-      col = a || b ? st.lit : cR || d ? st.shd : st.body;
+      col = a || b || (i > 0 && Bm[o - 1]) ? st.lit : cR || d || Bm[o + TW] ? st.shd : st.body;
       if (st.glint && isJ(i - 2, j) && isJ(i, j - 2) && !a && !b) col = st.gl;
-      // near the road the dirt has run up over the setts from the south
-      if (st.dirt && idAt(i, j + st.dirt) !== s) col = idAt(i, j + st.dirt - 1) === s ? Q.road[1] : Q.road[2];
-      if (snowy && st.cov > 0.2) {
-        // a cap of snow on the sett's top
-        const cap = Math.floor((st.cov - 0.2) * 14 * (0.6 + st.h * 0.6));
+      if (snowy && st.cov > 0.5) {
+        // a cap of snow on the sett's top by the drifts, its corners rounded off
+        const cap = Math.floor((st.cov - 0.5) * 12 * (0.6 + st.h * 0.6)) - (isJ(i - 2, j) || idAt(i + 2, j) !== s ? 1 : 0);
         let top = 0;
         for (let q = 1; q <= cap && !isJ(i, j - q); q++) top++;
-        if (top < cap) col = st.drift ? (cR ? Q.snow[0] : Q.snow[top === 0 ? 2 : 1]) : Q.road[top === 0 ? 3 : 2];
+        if (top < cap) col = st.drift ? (cR ? Q.snow[0] : Q.snow[1]) : Q.road[top === 0 ? 3 : 2];
       }
-      // the realm's own ground lying on the stones toward the edges
+      // the realm's own ground lying on the stones toward the edges, in clumps
       if (st.ef > 0.25 && !snowy) {
-        const r = hash(px * 3 + 1, py * 5 + 3), e = st.ef - 0.25;
-        if (k === "ash" && r < e * 0.5) col = Q.edgeJ[1 + (r * 20 & 1)];
-        else if ((k === "marsh" || k === "grass" || k === "turf") && (cR || d) && r < e * (k === "marsh" ? 1.1 : 0.55) * (1 - st.sk)) col = Q.moss[r * 20 & 1];
+        const e = st.ef - 0.25, r = vnoise(x, y, 1.1, seed + 17);
+        if (k === "ash" && r < e * 0.6) col = Q.edgeJ[r < e * 0.3 ? 1 : 2];
+        else if ((k === "marsh" || k === "grass" || k === "turf") && (cR || d) && r < e * (k === "marsh" ? 1.1 : 0.6) * (1 - st.sk)) col = Q.moss[r < e * 0.3 ? 0 : 1];
       }
-      if (snowy && st.w > 0.3 && hash(px + 1, py * 7) < 0.06) col = Q.edgeJ[0];         // slush trodden in
     }
-    // the hollows: the north-west slope in shade, the far one catching the light
+    if (full && !joint && grooveAt(x, dy) === 2) col = mixC(col, Q.road[1], 0.5);
+    // the hollows, in two flat steps: the north-west slope in shade (deeper
+    // toward the bottom), the far one catching the light along its lip
     for (const h of hol) {
-      const u = (x - h.x) / h.rx, v = (y - h.y) / h.ry, q = u * u + v * v;
+      const u = (x - h.x) / h.rx, v = (y - h.y) / h.ry, q = u * u + v * v + (vnoise(x, y, 1.2, seed + 4) - 0.5) * 0.3;
       if (q >= 1) continue;
-      const dep = 1 - q, face = u * 0.42 + v * 0.58;
-      if (h.pool && k === "ash" && q + (vnoise(x, y, 1.6, seed + 4) - 0.5) * 0.35 < 0.3) { col = hash(px, py) < 0.2 ? Q.apron[1] : Q.apron[2]; break; }   // a drift of ash
-      col = face < -0.15 ? dkC(col, 0.16 * dep) : face > 0.25 ? litC(col, 0.07 * dep) : dkC(col, 0.05 * dep);
+      if (h.pool && k === "ash" && ashIn(h, x, y)) {
+        // a drift of ash blown into it: lit clumps, its south lip in shade
+        col = !ashIn(h, x, y + 0.5) ? Q.apron[1] : !ashIn(h, x, y - 0.5) || vnoise(x, y, 1.3, seed + 5) > 0.5 ? litC(Q.apron[2], 0.22) : litC(Q.apron[2], 0.08);
+        break;
+      }
+      const face = u * 0.42 + v * 0.58;
+      col = face < -0.15 ? dkC(col, q < 0.5 ? 0.14 : 0.07) : face > 0.3 ? (q > 0.45 ? litC(col, 0.06) : col) : q < 0.5 ? dkC(col, 0.05) : col;
+      break;
     }
+    // snow drifted over the stones: its crest lit, its south toe in blue shade
+    if (snowy && sfAt(i, j) > DRIFT) col = driftCol(i, j);
     B.put(px, py, col);
   }
   for (const [px, py] of tufts) pxTuft(B, px, py, 2 + ((hash(px, py) * 2) | 0), Q.blades, px * 31 + py, 0.7);
-  // the deepest hollow holds a puddle (a skin of ice in the snow), as the road's have them
+  // the deepest hollow holds a puddle (a skin of ice in the snow): a lumpy
+  // round of water, the reflected bank dark along its north, a glint of sky
+  // by its north-west edge, a mud lip round the shaded side
   if (k !== "ash" && full) {
-    const h = hol[0], L = Q.road, ice = snowy, wat = Q.water;
-    const wDeep = ice ? mixC(L[2], RGB("#86b2c8"), 0.45) : mixC(RGB(wat.deep), L[0], 0.4);
-    const wMid = ice ? mixC(L[3], RGB("#d4ecf6"), 0.5) : mixC(mixC(RGB(wat.edge), RGB(wat.shine), 0.25), L[1], 0.5);
+    const h = hol[0], L = Q.road, ice = snowy, wat = Q.water, fen = k === "marsh";
+    const wDeep = ice ? mixC(L[2], RGB("#86b2c8"), 0.45) : mixC(RGB(wat.deep), L[0], fen ? 0.2 : 0.4);
+    const wMid = ice ? mixC(L[3], RGB("#d4ecf6"), 0.5) : mixC(mixC(RGB(wat.edge), RGB(wat.shine), fen ? 0.62 : 0.25), L[2], fen ? 0.22 : 0.5);
     const wHi = ice ? [251, 254, 255] : mixC(litC(RGB(wat.shine), 0.35), L[3], 0.25), mud = dkC(L[0], 0.18);
-    const cx = Math.round(h.x * 2), cy = Math.round(h.y * 2), RX = h.rx * 1.3, RY = h.ry * 1.1;
-    for (let j = Math.floor(-RY - 1); j <= RY + 1; j++) for (let i = Math.floor(-RX - 1); i <= RX + 1; i++) {
-      const w = ((i + 0.5) / RX) ** 2 + ((j + 0.5) / RY) ** 2, wob = (hash(cx + i, cy + j + 313) - 0.5) * 0.25;
-      if (w > 1 + wob) continue;
-      if (w > 0.72 + wob) { if (i + j < 0) B.put(cx + i, cy + j, mud); continue; }
-      B.put(cx + i, cy + j, i / RX + j / RY < -0.35 ? wDeep : wMid);
+    const cx = Math.round(h.x * 2), cy = Math.round(h.y * 2), RX = 6.5 + hash(seed, 340) * 3, RY = RX * 0.62;
+    // (a lumpy round: the noise only nudges its rim, and a second lobe leans it off true)
+    const lx = (hash(seed, 342) - 0.5) * RX * 0.9, ly = (hash(seed, 343) - 0.5) * RY * 0.6;
+    const inW = (i, j) => Math.min(((i + 0.5) / RX) ** 2 + ((j + 0.5) / RY) ** 2, ((i + 0.5 - lx) / (RX * 0.7)) ** 2 + ((j + 0.5 - ly) / (RY * 0.75)) ** 2)
+      + (vnoise((cx + i) / 2, (cy + j) / 2, 1.5, seed + 33) - 0.5) * 0.35;
+    const wet = (i, j) => inW(i, j) <= 0.8;
+    const gI = -Math.round(RX * 0.45), gl = 2 + (hash(seed, 341) > 0.5 ? 1 : 0);
+    let glints = 0;
+    for (let j = Math.floor(-RY - 3); j <= RY + 3; j++) for (let i = Math.floor(-RX - 3); i <= RX + 3; i++) {
+      if (wet(i, j)) {
+        // the near bank's reflection a pixel or two deep along the north, a glint of sky in it by the north-west
+        const n1 = !wet(i, j - 1), n2 = !wet(i, j - 2);
+        let c = n1 || (n2 && i < RX * 0.2) ? wDeep : wMid;
+        if (!n1 && n2 && glints < gl && i < 0 && i > gI - 2) { c = wHi; glints++; }
+        B.put(cx + i, cy + j, c);
+      } else if (wet(i, j + 1) || wet(i + 1, j)) B.put(cx + i, cy + j, mud);          // its mud rim, north and west
+      else if (wet(i, j - 1) || wet(i - 1, j)) B.put(cx + i, cy + j, litC(L[2], 0.1)); // the far lip catching the sun
     }
-    const gl = Math.max(2, Math.round(RX * 0.5));
-    for (let i = 0; i < gl; i++) B.put(cx - Math.round(RX * 0.15) + i, cy + Math.round(RY * 0.1), wHi);
   }
   // the Marches' paving ends in a header course of long kerbs laid across the road
   if (paved) {
@@ -1194,15 +1266,15 @@ const threshold = (B, gy, P, Q, full) => {
     }
   }
   if (!full) return;
-  // the sill across the arch's mouth: long dressed slabs (the gatehouse's
-  // slanting face hides their east ends), two grooves worn across by wheels
+  // the sill across the arch's mouth: long dressed slabs, a shade darker than
+  // the gatehouse's stone, two grooves worn across by wheels
   const sx0 = Math.round(SILL_X * 2), sx1 = Math.round((GATE.face0 + 1) * 2);
   for (let y = gy - PATH_HALF + 1, i = 0; y < gy + PATH_HALF - 1; i++) {
     const len = Math.min(9 + Math.floor(hash(i, 91 + seed) * 5), gy + PATH_HALF - 1 - y), b = y + len;
-    const col = toneC(Q.sill, (hash(i, 92 + seed) - 0.5) * 0.12 - 0.04);
+    const col = toneC(Q.sill, (hash(i, 92 + seed) - 0.5) * 0.1 - 0.13);
     const y0p = Math.round(y * 2), y1p = Math.round(b * 2);
     // now and then a crack across the slab
-    const crack = hash(i, 93 + seed) > 0.7 ? [y0p + 3 + Math.floor(hash(i, 94 + seed) * Math.max(1, y1p - y0p - 8)), hash(i, 95 + seed) < 0.5 ? 1 : -1] : null;
+    const crack = hash(i, 93 + seed) > 0.7 ? [y0p + 3 + Math.floor(hash(i, 94 + seed) * Math.max(1, y1p - y0p - 8)), hash(i, 95 + seed) < 0.5 ? 1 : -1, 5 + Math.floor(hash(i, 96 + seed) * 7)] : null;
     for (let py = y0p; py < y1p; py++) for (let px = sx0; px < sx1; px++) {
       const ii = px - sx0, jj = py - y0p, dy = (py + 0.5) / 2 - gy;
       if (ii === 0 || jj === 0) { B.put(px, py, Q.mortar); continue; }
@@ -1216,13 +1288,13 @@ const threshold = (B, gy, P, Q, full) => {
         else if (dy < 0 && ad < wr + 0.5) c = dkC(col, 0.1);
         else if (hash(px * 3 + 1, py * 7 + 5) < 0.05) c = dkC(col, 0.12);   // pitted where nobody walks
       }
-      if (crack && ii > 1 && py === crack[0] + Math.round((ii - 2) * 0.5 * crack[1])) c = dkC(col, 0.3);
-      // wheel grooves: a dark north wall, the worn floor, a lit south lip
+      if (crack && ii > 1 && ii < crack[2] && py === crack[0] + Math.round((ii - 2) * 0.5 * crack[1])) c = dkC(col, 0.3);
+      // wheel grooves: a dark north wall, the worn floor with the road's dirt in it, a lit south lip
       for (const g of [-11.5, 11.5]) {
         const t = dy - g;
-        if (t >= -1 && t < -0.5) c = dkC(col, 0.34);
-        else if (t >= -0.5 && t < 0.5) c = dkC(col, 0.16);
-        else if (t >= 0.5 && t < 1) c = litC(col, 0.2);
+        if (t >= -1.5 && t < -1) c = dkC(col, 0.4);
+        else if (t >= -1 && t < 0) c = mixC(dkC(col, 0.2), Q.road[1], 0.35);
+        else if (t >= 0 && t < 0.5) c = litC(col, 0.2);
       }
       B.put(px, py, c);
     }
@@ -1252,6 +1324,7 @@ const apron = (B, gy, P, Q, towers) => {
     // how far the trodden earth reaches: wide and narrow in long drifts
     const wd = 2.5 + vnoise(0, y, 17, seed) * 4.6 + vnoise(0, y, 5, seed + 1) * 1.5;
     const drip = 1.4 + vnoise(0, y, 6, seed + 2) * 0.8;
+    const grav = (k === "marsh" ? 0.08 : 0.16) * (0.4 + vnoise(0, y, 9, seed + 7) * 1.2), mossy = k !== "snow" && k !== "ash" && vnoise(0, y, 7, seed + 6) > 0.55;
     for (let px = fa - Math.ceil((wd + 6) * 2); px < fa; px++) {
       const x = (px + 0.5) / 2, e = fx - x;
       const edge = e < wd - 1 ? wd : wd + (vnoise(x, y, 2.6, seed + 3) - 0.5) * 1.8;   // (ragged only where it matters)
@@ -1275,22 +1348,21 @@ const apron = (B, gy, P, Q, towers) => {
       if (Q.thaw && e < drip) c = e < 0.6 || t < -0.15 ? Q.thaw[1] : Q.thaw[0];   // bare earth where the stone's warmth melts the snow
       B.put(px, ay, c);
       // gravel washed out along the drip-line's edge
-      if (e >= drip && e < drip + 0.5 && hash(px, ay * 3 + 11) < (k === "marsh" ? 0.08 : 0.16) * (0.4 + vnoise(0, y, 9, seed + 7) * 1.2)) {
+      if (e >= drip && e < drip + 0.5 && hash(px, ay * 3 + 11) < grav) {
         B.put(px, ay, Q.pebble[0]); B.put(px + 1, ay + 1, Q.pebble[1]);
       }
-      // moss in the damp at the very foot, glints of wet in the fen mud
-      if (e < 0.5 && k !== "snow" && k !== "ash" && vnoise(0, y, 7, seed + 6) > 0.55 && hash(px, ay) < 0.6) B.put(px, ay, Q.moss[hash(px + 1, ay) < 0.5 ? 0 : 1]);
-      if (k === "marsh" && e > drip && hash(px * 7, ay * 3) < 0.012) B.put(px, ay, RGB(Q.water.shine));
+      // moss in the damp at the very foot
+      if (e < 0.5 && mossy && hash(px, ay) < 0.6) B.put(px, ay, Q.moss[hash(px + 1, ay) < 0.5 ? 0 : 1]);
       if (e < 0.5) B.shade(px, ay, 0.28);
     }
   }
-  // puddles in the fen mud
-  if (k === "marsh") for (let y = 30, n = 0; y < H - 20; y += 47 + hash(y, 14) * 30, n++) {
+  // puddles in the fen mud, few and far between, each its own size
+  if (k === "marsh") for (let y = 24 + hash(gy, 13) * 50, n = 0; y < H - 20; y += 55 + hash(n, 14) * 120, n++) {
     const fx = footAt(y, gy, towers) - 2.5;
-    if (Math.abs(y - gy) <= GH + 4 || isWet(fx, y)) continue;
+    if (Math.abs(y - gy) <= GH + 4 || isWet(fx, y) || hash(n, 15) < 0.25) continue;
     // a pool lying along the foot, its near bank dark in it, a streak of sky
-    const cx = Math.round((fx - 4) * 2), cy = Math.round(y * 2), rx = 7 + (hash(n, 16) * 4 | 0), ry = 3 + (n % 2);
-    const deep = RGB(Q.water.deep), wat = RGB(Q.water.edge), shine = RGB(Q.water.shine);
+    const cx = Math.round((fx - 4) * 2), cy = Math.round(y * 2), rx = 5 + (hash(n, 16) * 7 | 0), ry = 2 + (hash(n, 17) * 2.5 | 0);
+    const deep = RGB(Q.water.deep), wat = RGB(Q.water.edge), shine = mixC(RGB(Q.water.shine), wat, 0.45);
     for (let j = -ry; j <= ry; j++) for (let i = -rx; i <= rx; i++) {
       const u = i / rx, v = j / (ry + 0.5), q = u * u + v * v + (vnoise(i, j, 3, n) - 0.5) * 0.3;
       if (q > 1) continue;
@@ -1319,7 +1391,7 @@ const paintGroundOver = (c, gx, gy, tier, out, B) => {
   // ash, mud) lying over the stone's foot, lit along its crest and where it
   // rises to the north, shaded where it falls away to the south
   const snowy = k === "snow";
-  const SN = [RGB(lighten(r.GRASS_LT, 0.45)), RGB(lighten(r.GRASS_LT, 0.12)), RGB(r.GRASS_LT), RGB(mix(r.GRASS, "#7c96b4", 0.35))];
+  const SN = [RGB(lighten(r.GRASS_LT, 0.25)), RGB(lighten(r.GRASS_LT, 0.12)), RGB(r.GRASS_LT), RGB(mix(r.GRASS, "#7c96b4", 0.35))];
   const bankAt = (y) => Math.max(0, (vnoise(0, y, 11, 21) * 0.75 + vnoise(0, y, 4, 22) * 0.25 - (snowy ? 0.36 : 0.44)) * (snowy ? 7 : 5.5));
   let lastTuft = -99;
   for (let py = -20; py < (H + 10) * 2; py++) {
@@ -1336,9 +1408,11 @@ const paintGroundOver = (c, gx, gy, tier, out, B) => {
       // where it rises to the north, its south end in blue shade, a soft lee
       // line along the toe
       const xa = Math.round((fx - 3 - ext * 0.6 - vnoise(0, y, 2.5, 25) * 1.2) * 2), xb = Math.round((fx - 2.4 + ext * 0.32) * 2), span = Math.max(1, xb - xa);
+      // (the tones' edges wander down the drift, never straight bands)
+      const jt = (vnoise(0, y, 4, 26) - 0.5) * 0.2, jc = (vnoise(0, y, 2.2, 27) - 0.5) * 0.2;
       for (let px = xa; px <= xb; px++) {
         const u = (px - xa) / span;
-        B.put(px, py, slope < -0.06 ? (u > 0.55 ? SN[3] : SN[2]) : u < 0.25 ? SN[2] : u > 0.66 && ext > 1.8 && slope > -0.02 ? SN[0] : SN[1]);
+        B.put(px, py, slope < -0.06 ? (u > 0.55 + jt ? SN[3] : SN[2]) : u < 0.25 + jt ? SN[2] : u > 0.66 + jc && ext > 2.2 && slope > -0.02 ? SN[0] : SN[1]);
       }
       B.put(xa - 1, py, SN[3], 0.45);
       if (slope < -0.06) B.shade(xb + 1, py, 0.16);
@@ -1348,13 +1422,12 @@ const paintGroundOver = (c, gx, gy, tier, out, B) => {
     for (let px = xa; px <= xb; px++) {
       let col = slope > 0.05 ? turfT[0] : slope < -0.05 ? turfT[2] : turfT[1];
       if (px === xb && slope > -0.05) col = turfT[0];
-      if (!snowy && hash(px * 5, py * 3) < 0.07) col = col === turfT[2] ? turfT[1] : turfT[2];
+      if (hash(px * 5, py * 3) < 0.07) col = col === turfT[2] ? turfT[1] : turfT[2];
       B.put(px, py, col);
     }
-    if (snowy) B.put(xa - 1, py, turfT[2], 0.6);                               // the drift's blue lee edge
-    else if (hash(py, 23) < 0.3) B.put(xb + 1, py, turfT[1]);                    // a blade over the crest
+    if (hash(py, 23) < 0.3) B.put(xb + 1, py, turfT[1]);                         // a blade over the crest
     if (slope < -0.05) B.shade(xb + 1, py, 0.22);                                // its shadow on the stone
-    if (!snowy && k !== "ash" && ext > 1.2 && py - lastTuft > 16 && hash(py, 24) < 0.25) { pxTuft(B, xb - 1, py, 3, Q.blades, py); lastTuft = py; }
+    if (k !== "ash" && ext > 1.2 && py - lastTuft > 16 && hash(py, 24) < 0.25) { pxTuft(B, xb - 1, py, 3, Q.blades, py); lastTuft = py; }
   }
   // clumps of the realm's ground along the foot
   for (let y = -6, i = 0; y < H + 6; y += 9 + hash(i, 30) * 10, i++) {
@@ -1363,16 +1436,48 @@ const paintGroundOver = (c, gx, gy, tier, out, B) => {
     const bx = Math.round((fx - (hash(i, 32) > 0.72 ? 6 + hash(i, 33) * 3 : 1.5 + hash(i, 33) * 1.5)) * 2), by = Math.round(y * 2);
     pxClump(B, P, Q, bx, by, i * 7 + 3);
   }
-  // fallen stones, more of them the harder the siege has gone
-  const n = 7 + tier * 6, stone = RGB(CASTLE_STONE);
-  for (let i = 0; i < n; i++) {
-    const y = 10 + hash(i, 40) * (H - 20);
-    const fx = footAt(y, gy, towers);
+  // fallen stones: a few old ones long settled into the ground (where, as the
+  // realm has it), and with each tier of damage fresh heaps under the cracked
+  // curtain (where paintCastleStone puts its cracks) and, at the last, under
+  // the burnt towers: a big block or two, chips round them, some tumbled out
+  // onto the apron, darker than the footing so they part from it
+  const rs = [...String(r.id)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9973, 7), stone = RGB(CASTLE_STONE);
+  const pieces = [];
+  for (let i = 0; i < 6; i++) {
+    const y = 10 + hash(i + rs, 40) * (H - 20), fx = footAt(y, gy, towers);
     if (!clear(y) || isWet(fx - 3, y)) continue;
-    const w = 5 + Math.floor(hash(i, 42) * 5), h = 4 + Math.floor(hash(i, 43) * 3);
-    pxRubble(B, Math.round((fx - 2.5 - hash(i, 41) * 5) * 2) - w, Math.round(y * 2), w, h, toneC(stone, (hash(i, 44) - 0.5) * 0.14), i, k === "snow");
-    if (tier >= 2 && hash(i, 45) > 0.5) pxRubble(B, Math.round((fx - 1.5) * 2) - 4, Math.round(y * 2) + h + 1, 4, 3, dkC(stone, 0.08), i + 50, k === "snow");
+    const w = 4 + Math.floor(hash(i + rs, 42) * 4), h = 3 + Math.floor(hash(i + rs, 43) * 2);
+    pieces.push([Math.round((fx - 3 - hash(i + rs, 41) * 6) * 2) - w, Math.round(y * 2), w, h, toneC(stone, -0.1 + (hash(i + rs, 44) - 0.5) * 0.1), i + rs]);
   }
+  const heaps = [];
+  for (let i = 0; i < tier; i++) { const y = 20 + hash(i, 51) * (H - 40); if (Math.abs(y - gy) >= 50) heaps.push([y, 0.8 + tier * 0.15]); }
+  if (tier >= 3) {
+    const plain = towers.filter(([, g]) => !g).map(([f]) => f).sort((p, q) => p - q);
+    heaps.push([gy + GATE_TOWER_N, 1.3]);
+    if (plain.length) heaps.push([plain[0], 1.3]);
+  }
+  heaps.forEach(([y0, big], hI) => {
+    const sd = rs + hI * 17 + 300;
+    for (let i = 0; i < 4 + Math.round(big * 6); i++) {
+      const lead = i < (big > 1.1 ? 2 : 1);
+      const y = y0 + (hash(sd, i) - 0.5) * (lead ? 5 : 7 + 5 * big), fx = footAt(y, gy, towers);
+      if (!clear(y) || isWet(fx - 3, y)) continue;
+      const w = lead ? 8 + Math.floor(hash(sd, i + 20) * 3) : 3 + Math.floor(hash(sd, i + 20) * 3);
+      const h = lead ? 6 + Math.floor(hash(sd, i + 21) * 2) : 2 + Math.floor(hash(sd, i + 21) * 2);
+      const out = lead ? 1 + hash(sd, i + 22) * 1.5 : hash(sd, i + 22) ** 2 * 8;       // (a few tumbled well out)
+      pieces.push([Math.round((fx - 2.5 - out) * 2) - w, Math.round(y * 2), w, h, dkC(stone, 0.14 + hash(sd, i + 23) * 0.18), sd + i]);
+    }
+    // grit and chips of mortar scattered round the heap
+    for (let i = 0; i < 12 * big; i++) {
+      const y = y0 + (hash(sd, i + 40) - 0.5) * 18 * big, fx = footAt(y, gy, towers);
+      if (!clear(y) || isWet(fx - 3, y)) continue;
+      const gx0 = Math.round((fx - 3 - hash(sd, i + 41) * 7) * 2), gy0 = Math.round(y * 2);
+      B.put(gx0, gy0, litC(stone, 0.1)); B.put(gx0 + 1, gy0, dkC(stone, 0.3));
+    }
+  });
+  // (north first, so each stone lies over the one behind it)
+  pieces.sort((p, q) => p[1] + p[3] - q[1] - q[3]);
+  for (const [x, y, w, h, col, sd] of pieces) pxRubble(B, x, y, w, h, col, sd, k === "snow");
   // a clump or two either side of the threshold, where the flare meets the grass
   for (const side of [-1, 1]) for (let q = 0; q < 3; q++) {
     const x = GATE.face0 - 3 - q * 6 - hash(q, side + 60) * 2, y = gy + side * (hwAt(x) + 1.5 + hash(q, side + 61) * 2);
@@ -1409,13 +1514,16 @@ const pxClump = (B, P, Q, bx, by, seed) => {
   if (k === "snow") {
     // dry stalks standing up out of a little mound of drifted snow: its top
     // lit, its south face in blue shade
-    const n = 2 + ((hash(seed, 1) * 2) | 0), x0 = bx - (n >> 1) - 2, w = n + 4;
+    // (a stepped dome: two pixels, then four, then its full width)
+    const n = 2 + ((hash(seed, 1) * 2) | 0), w = n + 5, x0 = bx - (w >> 1);
     pxTuft(B, bx, by, n, Q.blades, seed, 0.8);
-    for (let i = 0; i < w; i++) {
-      if (i > 0 && i < w - 2) B.put(x0 + i, by - 1, i < w - 3 ? Q.snow[1] : Q.snow[3]);
-      B.put(x0 + i, by, i === w - 1 ? Q.snow[0] : Q.snow[3]);
-      if (i > 0) B.put(x0 + i, by + 1, Q.snow[0], i === w - 1 ? 0.5 : 0.8);
-    }
+    const row = (y, a, b, f) => { for (let i = a; i < b; i++) B.put(x0 + i, y, f(i - a, b - a)); };
+    const mid = w >> 1;
+    row(by - 2, mid - 1, mid + 1, (i) => (i === 0 ? Q.snow[2] : Q.snow[1]));
+    row(by - 1, mid - 2, mid + 2, (i, m) => (i === 0 ? Q.snow[2] : i === m - 1 ? Q.snow[3] : Q.snow[1]));
+    row(by, 0, w, (i, m) => (i === m - 1 ? Q.snow[0] : i > m - 3 ? Q.snow[3] : Q.snow[1]));
+    row(by + 1, 1, w - 1, () => Q.snow[0]);
+    B.shade(x0 + w - 1, by + 1, 0.15);
     return;
   }
   if (k === "ash") {

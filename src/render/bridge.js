@@ -21,9 +21,9 @@
 //   fen    — the Hollowfen's grey, mossy, gap-toothed version of it
 //   stone  — the Iron Marches' dressed-stone arch bridge with parapets
 
-import { BRIDGES, RIVERS, archAt, inRiver, BRIDGE_HALF } from "../data/terrain.js";
+import { BRIDGES, RIVERS, archAt, inRiver, BRIDGE_HALF, BRIDGE_RISE } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
-import { PX, SUN, INK_LINE, inkOutline, rgb, rgba, hash } from "./paint.js";
+import { PX, SUN, INK_LINE, rgb, rgba, hash } from "./paint.js";
 
 // ---- the kinds ---------------------------------------------------------
 const KINDS = {
@@ -55,6 +55,8 @@ const KERB_H = 1.2;         // how far the edge beam stands above the planks
 const POST_V = 34;          // the line the rail posts stand on
 const DROP = 2;             // the water lies this far below the banks
 const K = [0.56, 0.44];     // where a thing's shadow falls, per unit of height
+const PILE_OUT = 3.4;
+const EMB = 0.62;           // an abutment's pitched side: its fall per unit out from the deck       // an up-screen bent's outer pile stands this far past the deck's edge
 
 // ---- colour, as plain numbers (the bake paints pixel by pixel) -----------
 const CREAM = [255, 243, 210], PLUM = [42, 28, 44];
@@ -310,8 +312,9 @@ const poly = (c, pts, col) => {
 // An upright block, plan (u0..u1) x (v0..v1), from z0 up to z1: every side
 // that looks south, then the top. `side(t)` colours a side by how much it
 // turns toward the sun (t from -1 to 1).
-const block = (c, F, u0, u1, v0, v1, z0, z1, top, side) => {
-  const P = (u, v, z) => F.at(u, v, z);
+const block = (c, F, u0, u1, v0, v1, z0, z1, top, side, lu = 0, lv = 0) => {
+  // (lu, lv): how far its top stands off plumb, for a post that leans
+  const P = (u, v, z) => (z === z1 ? F.at(u + lu, v + lv, z) : F.at(u, v, z));
   const sides = [
     [u0, v1, u1, v1, F.c, -F.s * SUN.x + F.c * SUN.y],     // the +v side
     [u0, v0, u1, v0, -F.c, F.s * SUN.x - F.c * SUN.y],     // the -v side
@@ -364,11 +367,12 @@ const shadowLayer = (F, S, P, posts, water) => {
   }
   harden(T.cv);
   // the gloom right under both edges, on the water
-  const shadeSd = -F.sunSide, wideOf = (sd) => (sd === shadeSd ? 2.8 : 1.2);
+  // (on the side away from the sun it widens with the deck's height: a lens)
+  const shadeSd = -F.sunSide, wideOf = (sd, u) => (sd === shadeSd ? 1.6 + 0.2 * F.L(u) : 1.2);
   cu.fillStyle = "#000";
   for (const sd of [-1, 1]) {
-    const wide = wideOf(sd);
     for (let u = -F.half; u < F.half; u += 0.5) {
+      const wide = wideOf(sd, u + 0.25);
       if (!F.wet(u + 0.25, sd * (HALF + 0.6))) continue;
       const [x0, y0] = F.at(u, sd * (HALF - 0.3), -DROP), [x1, y1] = F.at(u + 0.5, sd * (HALF + wide), -DROP);
       cu.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.max(0.5, Math.abs(x1 - x0)), Math.max(0.5, Math.abs(y1 - y0)));
@@ -395,9 +399,10 @@ const shadowLayer = (F, S, P, posts, water) => {
   // the shine past the gloom, in broken dashes, one art pixel high
   if (!F.near) {
     for (const sd of [-1, 1]) {
-      const off = wideOf(sd) + 0.3;
       const col = sd === shadeSd ? mx(thrown, shine, 0.3) : lt(mx(deep, shine, 0.75), 0.1);
       for (let u = -F.half; u < F.half; u += 0.5) {
+        // (clear of the span's ink, which stands a unit out from its edge)
+        const off = Math.max(wideOf(sd, u) + 0.3, 1.9);
         if (hash(Math.floor((u + 80) / 2.5), sd + 11) > 0.6 || hash(Math.floor(u * 2), sd + 3) > 0.85) continue;
         const [x, y] = F.at(u, sd * (HALF + off), -DROP);
         const i = Math.floor((x - S.x0) * PX), j = Math.floor((y - S.y0) * PX);
@@ -451,19 +456,29 @@ const bakeSpan = (b, pal) => {
   const voidC = dk(deep, 0.62), underWater = dk(deep, 0.34);
   const stoneT = [lt(stoneC, 0.12), stoneC, dk(stoneC, 0.1), mx(stoneC, moss, fen ? 0.3 : 0.12)];
 
+  // each span its own: which corner carries a lantern (if any), and in the
+  // Hollowfen which bits have rotted away
+  const R = (k) => hash(((b.x | 0) * 7 + k * 13) | 0, ((b.y | 0) * 3 + k * 5) | 0);
   // the rail posts and newels (timber), or the end pillars (stone)
   const posts = [];
   const us = postsOf(F);
-  // the lantern stands on the far (d1) end's newel on the north side (the west, up the screen)
-  const lampSide = (F.c * 1 + (-F.s) * 0.5) > 0 ? -1 : 1;
+  // the lantern: mostly on the north side (the west, up the screen)
+  let lampSide = (F.c * 1 + (-F.s) * 0.5) > 0 ? -1 : 1;
+  if (R(11) < 0.3) lampSide = -lampSide;
+  const lampOn = R(9) < (fen ? 0.6 : 0.8), lampEnd = R(10) < 0.6 ? 1 : -1;
+  // the fen's rot: a post gone from one side, a post or two leaning out
+  const missing = fen && us.length > 3 ? { sd: R(12) < 0.5 ? 1 : -1, k: 1 + Math.floor(R(13) * (us.length - 2)) } : null;
   if (!stone) {
     for (const sd of [-1, 1]) us.forEach((u, k) => {
       const newel = k === 0 || k === us.length - 1;
-      posts.push({ u, v: sd * POST_V, h: newel ? 10.4 : 6.8, w: newel ? 3.6 : 2.2, newel, sd, k, lamp: newel && k > 0 && sd === lampSide });
+      if (!newel && missing && sd === missing.sd && k === missing.k) return;
+      const lean = fen && !newel && R(20 + k * 2 + (sd > 0 ? 1 : 0)) < 0.2 ? 0.6 + R(40 + k) * 0.5 : 0;
+      posts.push({ u, v: sd * POST_V, h: newel ? 10.4 : 6.8, w: newel ? 3.6 : 2.2, newel, sd, k, lean,
+        lamp: lampOn && newel && (lampEnd > 0 ? k > 0 : k === 0) && sd === lampSide });
     });
   } else {
     for (const sd of [-1, 1]) for (const e of [-1, 1]) {
-      posts.push({ u: e * (F.half - 2.7), v: sd * 33.6, h: 8.8, w: 5.4, newel: true, sd, e, lamp: e > 0 && sd === lampSide });
+      posts.push({ u: e * (F.half - 2.7), v: sd * 33.6, h: 8.8, w: 5.4, newel: true, sd, e, lamp: lampOn && e === lampEnd && sd === lampSide });
     }
   }
 
@@ -509,8 +524,11 @@ const bakeSpan = (b, pal) => {
       dl = Math.hypot(du, dv); du /= dl; dv /= dl;
       let au = ub + nu * (T / 2 + 0.1), av = sd * (HALF - 0.8) + nv * (T / 2 + 0.1);
       au = Math.max(-(F.half - 1), Math.min(F.half - 1, au));
-      const len = stone ? 9.5 : 7.5 + hash(e + 3, sd + (b.x | 0)) * 2;
-      wing.push({ A: [au, av], dir: [du, dv], n: [nu, nv], len, T, zA: stone ? 2.8 : 2.2, zB: 0.1, e, sd });
+      // beside an up-screen span it retains the embankment, so its top runs
+      // from the deck's height down into the turf
+      const zD = F.near ? 0 : Math.max(0, F.L(au) - 0.6);
+      const len = Math.max(stone ? 9.5 : 7.5 + hash(e + 3, sd + (b.x | 0)) * 2, zD / EMB + 2.5);
+      wing.push({ A: [au, av], dir: [du, dv], n: [nu, nv], len, T, zA: Math.max(stone ? 2.8 : 2.2, zD), zB: 0.1, e, sd });
     }
   }
   const [, byC] = F.at(0, 0);
@@ -545,7 +563,7 @@ const bakeSpan = (b, pal) => {
     const ra = F.wetRun(HALF + 2.1), rb = F.wetRun(-HALF - 2.1);
     const lo = Math.min(ra ? ra[0] : 99, rb ? rb[0] : 99) + 3.2, hi = Math.max(ra ? ra[1] : -99, rb ? rb[1] : -99) - 3.2;
     if (hi >= lo - 6) {
-      const n = hi - lo < 6 ? 0 : Math.max(1, Math.round((hi - lo) / 11));
+      const n = hi - lo < 6 ? 0 : Math.max(1, Math.round((hi - lo) / 15));
       for (let k = 0; k <= n; k++) bents.push(n ? lo + ((hi - lo) * k) / n : (lo + hi) / 2);
     }
     for (const cp of cornerPiles) bents.push(cp.e * (F.half - 2));
@@ -566,13 +584,53 @@ const bakeSpan = (b, pal) => {
   };
 
   // ======== back to front ========
+  // the embankments: beside an up-screen span, where it runs over the land,
+  // the ground is banked up to the deck on both sides. A slope is the one
+  // thing the camera sees the height of: lit on the sun side, in shade on
+  // the other, broadest at the bank, dying away at the deck's ends.
+  if (!F.near) {
+    const road2 = rgb(REALM.PATH_DK || "#9e7d4e");
+    const zE = (u, v) => Math.max(0, F.L(u) - (Math.abs(v) - HALF) * EMB);
+    const box = spanBox(F, -HALF - 1 - BRIDGE_RISE / EMB, HALF + 1 + BRIDGE_RISE / EMB, -0.5, 8.5);
+    surfacePiece(S, B, box, (X, Y, o) => {
+      const x = X - b.x, y = Y - b.y;
+      let z = 2, u = 0, v = 0;
+      for (let k = 0; k < 7; k++) {
+        u = x * F.c + (y + z) * F.s; v = -x * F.s + (y + z) * F.c;
+        z = zE(u, v);
+      }
+      if (Math.abs(u) > F.half || Math.abs(v) < HALF - 0.3 || z < 0.2 || F.wet(u, v)) return -1;
+      o[0] = u; o[1] = z;
+      // pitched stone in courses along the slope: dressed for the stone
+      // kind, rough fieldstone for the timber ones
+      const d = Math.abs(v) - HALF;
+      const row = Math.floor(d / (stone ? 1.5 : 1.3));
+      const blk = Math.floor((u + 60 + (row & 1) * 1.3 + (stone ? 0 : hash(row, 7) * 1.1)) / (stone ? 3.2 : 2.3 + hash(row, 8) * 0.8));
+      return 10 + (row * 64 + blk) * 2 + (v > 0 ? 1 : 0);
+    }, (id, u, z, e, i, j) => {
+      const sd = id & 1 ? 1 : -1, lit = sd === F.sunSide;
+      let col = stoneT[Math.floor(hash(id, 33) * 3)];
+      col = lit ? lt(col, 0.05) : dk(col, 0.26);
+      // its toe grows over with the turf it sinks into
+      if (z < 0.75 && hash(i, j >> 1) < 0.75 - z * 0.6) return hash(i * 3, j) < 0.5 ? grass[1] : (lit ? grass[2] : grass[0]);
+      if (!stone && fen && hash(id, 9) < 0.3 && hash(i, j) < 0.5) col = mx(col, moss, 0.6);
+      if (e.joint) return dk(col, 0.34);
+      if (e.lip) return lt(col, lit ? 0.14 : 0.08);
+      return col;
+    }, 0);
+    // its toe goes into the turf with no line
+    S.bareList.push((X, Y) => {
+      const [u, v] = ground(X, Y);
+      return Math.abs(v) > HALF + 0.6 && Math.abs(u) < F.half + 1 && !F.wet(u, v) && Math.abs(v) < HALF + 2 + BRIDGE_RISE / EMB;
+    });
+  }
   drawWing(wingBehind);
 
   // the bents, the far ones (up the screen) first
   const bentOrder = deckBents.map((u) => ({ u, y: F.at(u, 0)[1] })).sort((p, q) => p.y - q.y);
   for (const { u } of bentOrder) {
     for (const sd of [-1, 1]) {
-      const vp = sd * (HALF + 2.2);
+      const vp = sd * (HALF + PILE_OUT);
       const wetFoot = F.wet(u, vp);
       posts.push({ u, v: vp, h: 0.4, z0: -F.L(u), w: 2.2, pile: true });
       bentPile(S, B, F, u, sd, P, sd === shadeSd, deep, wetFoot);
@@ -587,10 +645,6 @@ const bakeSpan = (b, pal) => {
   // show above its parapet); the near side's and an up-screen span's come
   // after the deck
   const cope = rgb(P.cope || "#bab09a");
-  if (stone && F.near) {
-    const sd = -F.near;
-    for (const up of piersOf(sd * HALF + sd * 0.6).piers) cutwater(S, B, F, up, sd, stoneT, moss, ripples, cope);
-  }
 
   // ---- the face that looks at the camera ----------------------------------
   if (F.near) {
@@ -687,8 +741,19 @@ const bakeSpan = (b, pal) => {
   if (!stone) {
     const n = Math.max(4, Math.round((F.half * 2) / 4.6));
     const pitch = (F.half * 2) / n;
-    // the Hollowfen's rot: a plank end or two broken off, the water showing
-    const broken = fen ? [Math.floor(n * 0.3), Math.floor(n * 0.68)].map((k, q) => ({ k, sd: hash(k + (b.x | 0), q) > 0.5 ? 1 : -1, at: 24.5 + hash(k, q + 3) * 4 })) : [];
+    // the Hollowfen's rot, different on every span: a plank end or two broken
+    // off, one plank gone for a stretch mid-span with the water showing
+    // through, a green patch plank, ragged plank ends along the edges
+    const broken = [];
+    if (fen) {
+      const k1 = Math.floor(n * (0.12 + R(1) * 0.3)), k2 = Math.floor(n * (0.55 + R(2) * 0.3));
+      broken.push({ k: k1, sd: R(3) < 0.5 ? 1 : -1, at: 23.5 + R(4) * 5 });
+      if (R(5) < 0.7) broken.push({ k: k2, sd: R(6) < 0.5 ? 1 : -1, at: 25 + R(7) * 4 });
+    }
+    const gapK = fen && R(19) < 0.6 ? Math.max(1, Math.min(n - 2, Math.floor(n / 2 + (R(14) - 0.5) * 4))) : -1;
+    const gapV0 = (R(15) - 0.5) * 34 - 4, gapV1 = gapV0 + 6 + R(16) * 4;
+    let patchK = fen ? Math.floor(R(17) * n) : -1;
+    if (patchK === gapK) patchK = (patchK + 2) % n;
     const HOLE = 100000;
     const tones = fen
       ? [lt(plank, 0.08), plank, mx(plank, plankDk, 0.5), plankDk, mx(plank, moss, 0.18)]
@@ -698,12 +763,13 @@ const bakeSpan = (b, pal) => {
     surfacePiece(S, B, deckBox, (X, Y, o) => {
       F.onTop(X, Y, 0, o);
       const u = o[0], v = o[1], av = Math.abs(v);
-      if (u < -F.half || u > F.half || av > 33.4) return -1;
+      if (u < -F.half || u > F.half || av > (fen ? HALF + 0.2 : 33.4)) return -1;
       const k = Math.min(n - 1, Math.floor((u + F.half) / pitch));
-      if (av > 32.5 + hash(k, 5) * 0.9) return -1;
+      if (av > (fen ? 33.1 + hash(k, 5 + (b.x | 0)) * 2 : 32.5 + hash(k, 5) * 0.9)) return -1;
       for (const br of broken) {
         if (br.k === k && v * br.sd > br.at + (hash(k, Math.floor(u * 4)) - 0.5) * 1.6) return HOLE;
       }
+      if (k === gapK && v > gapV0 + (hash(Math.floor(u * 4), 3) - 0.5) * 1.4 && v < gapV1 + (hash(Math.floor(u * 4), 4) - 0.5) * 1.4) return HOLE;
       return k;
     }, (id, u, v, e, i, j) => {
       const av = Math.abs(v);
@@ -714,10 +780,13 @@ const bakeSpan = (b, pal) => {
       }
       const f = u + F.half - id * pitch;
       let col = tones[Math.floor(hash(id, 11 + (b.x | 0)) * tones.length)];
+      if (id === patchK) col = lt(mx(col, moss, 0.34), 0.06);
       // the sills at each end are heavier timbers, darker
       if (id === 0 || id === n - 1) col = mx(col, beam, 0.35);
+      // the arch: the half that rises toward the sun is lit, the half that
+      // falls toward the camera turned from it, a whole tone each way
       const sl = F.slope(u);
-      if (sl) col = sl > 0 ? lt(col, sl * 0.07) : dk(col, -sl * 0.08);
+      if (sl) col = sl > 0 ? lt(col, sl > 1 ? 0.2 : 0.11) : dk(col, sl < -1 ? 0.2 : 0.11);
       // the worn track down the middle, paler where feet and wheels go
       if (av < 21) col = mx(col, worn, av < 14 ? 0.34 : 0.17);
       if (Math.abs(av - 11.5) < 1.2 && !fen) col = dk(col, 0.07);
@@ -726,8 +795,13 @@ const bakeSpan = (b, pal) => {
       if ((Math.abs(g - 0.34) < 0.07 || Math.abs(g - 0.7) < 0.06) && hash(id * 7 + Math.floor((v + 40) / 5.5), 3) < 0.45) col = dk(col, 0.08);
       const kv = (hash(id, 78) - 0.5) * 52;
       if (hash(id, 77) < 0.35 && Math.abs(v - kv) < 0.7 && Math.abs(g - 0.5) < 0.12) col = dk(col, 0.28);
-      // nails where the planks cross the stringers
-      if ((Math.abs(av - 27) < 0.28 || Math.abs(av - 9) < 0.28) && (Math.abs(g - 0.3) < 0.1 || Math.abs(g - 0.72) < 0.1)) col = dk(col, 0.42);
+      // nails where the planks cross the two outer stringers, a few planks
+      // bare, the rest a pixel off here and there
+      if (hash(id, 91 + (b.x | 0)) > 0.22) {
+        const sv = v > 0 ? 1 : 2, nv = 27 + (hash(id, 92 + sv) - 0.5) * 1.2;
+        const ng = (hash(id, 94 + sv) - 0.5) * 0.18;
+        if (Math.abs(av - nv) < 0.28 && (Math.abs(g - 0.3 - ng) < 0.1 || (hash(id, 96 + sv) < 0.7 && Math.abs(g - 0.72 - ng) < 0.1))) col = dk(col, 0.42);
+      }
       // the road's dust carried onto each end, in drifts
       const dust = (Math.abs(u) - (F.half - 6)) / 6;
       if (dust > 0) {
@@ -737,8 +811,10 @@ const bakeSpan = (b, pal) => {
       }
       // moss on the fen's plank ends, where feet never go
       if (fen && av > 25 && hash(id, 31) < 0.6 && hash(i * 3, j * 5) < (av - 25) / 7) col = hash(i, j * 7) < 0.5 ? moss : lt(moss, 0.12);
+      // the end sill's outer edge: a dark line where the road runs on, broken by dust
+      if (Math.abs(u) > F.half - 0.5 && hash(Math.floor(v * 2), 7 + (b.x | 0)) > 0.3) return dk(beam, 0.05);
       if (e.joint) return gap;
-      if (e.lip) return lt(col, 0.16);
+      if (e.lip) return lt(col, sl > 0 ? 0.26 : 0.13);
       return col;
     });
     // the edge beams, standing a little proud of the planks
@@ -758,7 +834,7 @@ const bakeSpan = (b, pal) => {
     for (const sdk of [-1, 1]) surfacePiece(S, B, spanBox(F, sdk * KERB_IN, sdk * HALF, KERB_H - 1, KERB_H + 1), (X, Y, o) => {
       F.onTop(X, Y, KERB_H, o);
       const u = o[0], v = o[1], av = Math.abs(v);
-      if (u < -F.half || u > F.half || av < KERB_IN || av > HALF) return -1;
+      if (u < -F.half || u > F.half || av < KERB_IN || av > (fen ? 33.3 : HALF)) return -1;
       return (v > 0 ? 50 : 0) + Math.floor((u + F.half) / 22);
     }, (id, u, v, e, i, j) => {
       const av = Math.abs(v);
@@ -780,7 +856,7 @@ const bakeSpan = (b, pal) => {
 
   if (stone) {
     for (const sd of F.near ? [F.near] : [-1, 1]) {
-      for (const up of piersOf(sd * HALF + sd * 0.6).piers) cutwater(S, B, F, up, sd, stoneT, moss, ripples, cope);
+      for (const up of piersOf(sd * HALF + sd * 0.6).piers) cutwater(S, B, F, up, sd, stoneT, moss, ripples, cope, deep);
     }
   }
 
@@ -790,10 +866,10 @@ const bakeSpan = (b, pal) => {
   outlineSpan(S, B, 2);
 
   // ---- rails and posts / pillars and lamps (thin ink of their own) ---------
-  const R = layerOf(S);
-  if (!stone) railsTimber(S, R, F, P, posts, fen, b);
-  else pillarsStone(S, R, F, P, posts, stoneT);
-  over(B, R);
+  const RL = layerOf(S);
+  if (!stone) railsTimber(S, RL, F, P, posts, fen, b, R);
+  else pillarsStone(S, RL, F, P, posts, stoneT);
+  over(B, RL);
 
   // ---- all together: the shadow under, the span over ------------------------
   const G = layerOf(S);
@@ -937,34 +1013,31 @@ const wingWall = (S, B, F, q, stoneT, moss, kind, deep, grass) => {
 const bentPile = (S, B, F, u, sd, P, shade, deep, wetFoot) => {
   const rail = rgb(P.rail), beam = rgb(P.beam), moss = rgb(P.moss);
   const wood = mx(rail, beam, 0.3);
-  const l = F.L(u), zb = wetFoot ? -DROP : 0, zt = l - 2.3;
-  const vp = sd * (HALF + 2.2);
+  const l = F.L(u), zb = wetFoot ? -DROP : 0, zt = l - 2.4;
+  const vp = sd * (HALF + PILE_OUT);
   const lh = (a, q) => [Math.min(a, q), Math.max(a, q)];
-  const face = shade ? dk(wood, 0.32) : wood;
-  const us = u + 1.1 * (F.s >= 0 ? 1 : -1);          // the pile's south face
+  const face = shade ? dk(wood, 0.16) : wood;
+  const us = u + 1.1 * (F.s >= 0 ? 1 : -1);          // the bent's south face
   piece(S, B, (c) => {
+    // a knee brace from the pile up to under the deck's edge, in the bent's
+    // own plane, so it faces the camera
+    const kz0 = Math.max(zb + 0.6, zt - 4.2);
+    if (zt - kz0 > 1.5) {
+      poly(c, [F.at(us, sd * (HALF + PILE_OUT - 1), kz0 + 1.1), F.at(us, sd * (HALF + PILE_OUT - 1), kz0),
+        F.at(us, sd * (HALF - 0.5), zt - 0.3), F.at(us, sd * (HALF + 0.6), zt)], css(dk(face, 0.12)));
+    }
     const [va, vb] = lh(vp - 1.1, vp + 1.1);
     block(c, F, u - 1.1, u + 1.1, va, vb, zb, zt, css(face), (sun) => css(sun > 0.1 ? lt(face, 0.12) : face));
-    faceEdges(c, F, u, vp, 1.1, zb, zt, shade ? lt(face, 0.08) : lt(wood, 0.2), dk(face, 0.32));
+    faceEdges(c, F, u, vp, 1.1, zb, zt, lt(face, shade ? 0.12 : 0.24), dk(face, 0.3));
     // the damp, green-dark foot, and the wet line where it meets the water
     const band = (z0, z1, col) => poly(c, [F.at(us, va, z1), F.at(us, vb, z1), F.at(us, vb, z0), F.at(us, va, z0)], css(col));
     band(zb, zb + 1.3, mx(dk(face, 0.3), moss, 0.4));
     if (wetFoot) band(zb, zb + 0.5, mx(dk(deep, 0.5), moss, 0.2));
-    // the cap: the bent's beam end, standing out past the deck's edge
-    const [ca, cb] = lh(sd * (HALF - 1.5), sd * (HALF + 4.2));
-    block(c, F, u - 1.3, u + 1.3, ca, cb, zt - 0.1, l - 0.5, css(lt(wood, shade ? 0.06 : 0.22)),
-      (sun) => css(sun > 0.1 ? lt(wood, 0.1) : dk(wood, shade ? 0.22 : 0.08)));
+    // the cap: the bent's beam end, standing out past the deck's edge and the pile
+    const [ca, cb] = lh(sd * (HALF - 1.5), sd * (HALF + PILE_OUT + 1.6));
+    block(c, F, u - 1.2, u + 1.2, ca, cb, zt - 0.1, l - 0.4, css(lt(wood, shade ? 0.14 : 0.3)),
+      (sun) => css(sun > 0.1 ? lt(wood, 0.12) : dk(wood, shade ? 0.14 : 0.04)));
   });
-};
-
-// a disc filled row by row on the art grid: a hard edge, no smoothing
-const disc = (c, cx, cy, r, style) => {
-  c.fillStyle = style;
-  for (let y = -r; y < r; y += 0.5) {
-    const yy = y + 0.25, hw = Math.sqrt(Math.max(0, r * r - yy * yy));
-    const x0 = Math.round((cx - hw) * 2) / 2, x1 = Math.round((cx + hw) * 2) / 2;
-    if (x1 > x0) c.fillRect(x0, Math.round((cy + y) * 2) / 2, x1 - x0, 0.5);
-  }
 };
 
 // ---- the stone kind's pieces -------------------------------------------------
@@ -999,11 +1072,12 @@ const stoneDeck = (S, B, F, P, box, stoneT) => {
     const av = Math.abs(v);
     const kerb = id >= 5000;
     let col = kerb ? kerbT[Math.floor(hash(id, 7) * 3)] : tones[Math.floor(hash(id, 7) * 5)];
-    const rut = !kerb && Math.abs(av - 11.5) < 3.2 ? 1 - Math.abs(av - 11.5) / 3.2 : 0;
-    if (rut > 0) col = dk(col, 0.13 * Math.min(1, rut * 1.6));
+    // the ruts: two flat steps, like the road's
+    const re = Math.abs(av - 11.5 - (hash(Math.floor((u + 60) / 7), 3) - 0.5) * 0.6);
+    if (!kerb && re < 2.4) col = dk(col, re < 1.1 ? 0.12 : 0.05);
     if (!kerb && av < 4) col = lt(col, 0.03);
     const sl = F.slope(u);
-    if (sl) col = sl > 0 ? lt(col, sl * 0.06) : dk(col, -sl * 0.07);
+    if (sl) col = sl > 0 ? lt(col, sl > 1 ? 0.15 : 0.08) : dk(col, sl < -1 ? 0.15 : 0.08);
     const hp = hash(i * 7 + j * 13, 3);
     if (hp < 0.05) col = dk(col, 0.05); else if (hp > 0.98) col = lt(col, 0.05);
     if (e.joint) return dk(col, kerb ? 0.3 : 0.2);
@@ -1051,6 +1125,7 @@ const stoneDeck = (S, B, F, P, box, stoneT) => {
 // course at deck level, the spandrel's ashlar, and the arch (or two) with a
 // ring of voussoirs and a keystone, springing from the water.
 const stoneFace = (S, B, F, P, sd, v0, { run, piers }, stoneT, moss, voidC, underWater, ripples) => {
+  const shineC = rgb((REALM.water || DEFAULT_WATER).shine || "#a8d8e8");
   const arches = [];
   if (run) {
     if (piers.length) {
@@ -1101,7 +1176,7 @@ const stoneFace = (S, B, F, P, sd, v0, { run, piers }, stoneT, moss, voidC, unde
   }, (id, u, z, e, i, j) => {
     let col;
     if (id === 3) return voidC;
-    if (id === 4) return underWater;
+    if (id === 4) return z > -DROP + 0.4 && hash(Math.floor((u + 60) * 1.2), 5) < 0.55 ? mx(underWater, shineC, 0.45) : underWater;
     const l = F.L(u);
     if (id === 1) col = lt(rgb(P.cope), 0.08);                             // the coping's lip
     else if (id === 2) col = z < l - 0.95 ? dk(stoneT[1], 0.38) : lt(stoneT[0], 0.06); // string course, its shadow under
@@ -1123,30 +1198,66 @@ const stoneFace = (S, B, F, P, sd, v0, { run, piers }, stoneT, moss, voidC, unde
 };
 
 // A cutwater: a pointed stone nose on a pier, standing out from the span's
-// side into the stream, with a sloping cap.
-const cutwater = (S, B, F, up, sd, stoneT, moss, ripples, cope) => {
+// side into the stream and carried up as a refuge flush with the coping.
+// Coursed blocks, each face one flat tone (the lit face and the shaded one),
+// a damp green foot and a wet line where it stands in the river.
+const cutwater = (S, B, F, up, sd, stoneT, moss, ripples, cope, deep) => {
   const v0 = sd * HALF, out = sd * 4.4;
-  // carried up the whole height as a refuge, flush with the parapet's coping
-  const zt = F.L(up) + 5;
+  // on the face of an across span it stops as a starling where the arches
+  // spring, so the pier plainly carries them; beside an up-screen span it
+  // rises to the coping as a refuge, the span's height standing on the water
+  const zt = F.near ? -DROP + 3.4 : F.L(up) + 5;
   const t = stoneT[1];
-  piece(S, B, (c) => {
-    const A = [up - 2.6, v0 - sd * 0.3], Bp = [up + 2.6, v0 - sd * 0.3], N = [up, v0 + out];
-    const P = (p, z) => F.at(p[0], p[1], z);
-    const cu = (A[0] + Bp[0] + N[0]) / 3, cv = (A[1] + Bp[1] + N[1]) / 3;
-    for (const [p, q] of [[A, N], [N, Bp]]) {
-      let nu = q[1] - p[1], nv = -(q[0] - p[0]);                     // a normal in (u, v)
-      if (nu * (cu - (p[0] + q[0]) / 2) + nv * (cv - (p[1] + q[1]) / 2) > 0) { nu = -nu; nv = -nv; }
-      const nx = nu * F.c - nv * F.s, ny = nu * F.s + nv * F.c;      // on the ground
-      if (ny < 0.05) continue;                                       // turned from the camera
-      const lit = (nx * SUN.x + ny * SUN.y) > -0.05;
-      const base = lit ? dk(t, 0.08) : dk(t, 0.3);
-      poly(c, [P(p, zt), P(q, zt), P(q, -DROP), P(p, -DROP)], css(base));
-      // its courses, and the damp at its foot
-      for (let z = -DROP + 1.8; z < zt - 0.9; z += 1.8) poly(c, [P(p, z), P(q, z), P(q, z - 0.5), P(p, z - 0.5)], css(dk(base, 0.28)));
-      poly(c, [P(p, -DROP + 0.9), P(q, -DROP + 0.9), P(q, -DROP), P(p, -DROP)], css(mx(dk(base, 0.2), moss, 0.4)));
+  const A = [up - 2.8, v0 - sd * 0.3], Bp = [up + 2.8, v0 - sd * 0.3], N = [up, v0 + out];
+  const cu = (A[0] + Bp[0] + N[0]) / 3, cv = (A[1] + Bp[1] + N[1]) / 3;
+  const faces = [];
+  for (const [p, q] of [[A, N], [N, Bp]]) {
+    let nu = q[1] - p[1], nv = -(q[0] - p[0]);
+    if (nu * (cu - (p[0] + q[0]) / 2) + nv * (cv - (p[1] + q[1]) / 2) > 0) { nu = -nu; nv = -nv; }
+    const nx = nu * F.c - nv * F.s, ny = nu * F.s + nv * F.c;
+    if (ny < 0.05) continue;                                       // turned from the camera
+    const [x1] = F.at(p[0], p[1]), [x2] = F.at(q[0], q[1]);
+    if (Math.abs(x2 - x1) < 0.6) continue;
+    const lit = (nx * SUN.x + ny * SUN.y) / Math.hypot(nx, ny) > -0.3;
+    faces.push({ p, q, x1, x2, lit, len: Math.hypot(q[0] - p[0], q[1] - p[1]) });
+  }
+  const pts = [];
+  for (const p of [A, N, Bp]) pts.push([p[0], p[1], zt + 0.5], [p[0], p[1], -DROP - 0.5]);
+  const inTri = (u, v) => {
+    const s1 = (N[0] - A[0]) * (v - A[1]) - (N[1] - A[1]) * (u - A[0]);
+    const s2 = (Bp[0] - N[0]) * (v - N[1]) - (Bp[1] - N[1]) * (u - N[0]);
+    const s3 = (A[0] - Bp[0]) * (v - Bp[1]) - (A[1] - Bp[1]) * (u - Bp[0]);
+    return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
+  };
+  const wetLine = mx(dk(deep, 0.5), moss, 0.2);
+  surfacePiece(S, B, boxOf(F, pts, 1), (X, Y, o) => {
+    // the refuge's coping on top
+    const x = X - F.b.x, y = Y - F.b.y;
+    const u = x * F.c + (y + zt) * F.s, v = -x * F.s + (y + zt) * F.c;
+    if (inTri(u, v)) { o[0] = u; o[1] = v; return 1; }
+    for (let f = 0; f < faces.length; f++) {
+      const fc = faces[f], tt = (X - fc.x1) / (fc.x2 - fc.x1);
+      if (tt < 0 || tt > 1) continue;
+      const pu = fc.p[0] + (fc.q[0] - fc.p[0]) * tt, pv = fc.p[1] + (fc.q[1] - fc.p[1]) * tt;
+      const z = F.at(pu, pv, 0)[1] - Y;
+      if (z > zt || z < -DROP) continue;
+      o[0] = tt * fc.len; o[1] = z;
+      if (z < -DROP + 0.45) return 2;
+      const row = Math.floor((z + DROP) / 1.8);
+      return 100 + f * 400 + row * 16 + Math.floor((tt * fc.len + (row & 1) * 1.4 + 0.3) / 2.8);
     }
-    // its top: the refuge's coping
-    poly(c, [P(A, zt), P(N, zt), P(Bp, zt)], css(lt(cope, 0.12)));
+    return -1;
+  }, (id, a, z, e) => {
+    if (id === 2) return wetLine;
+    if (id === 1) return e.lip ? lt(cope, 0.24) : e.joint ? dk(cope, 0.2) : lt(cope, 0.1);
+    const fc = faces[Math.floor((id - 100) / 400)];
+    let col = fc.lit ? dk(t, 0.04) : dk(t, 0.26);
+    const hv = hash(id, 57);
+    if (hv < 0.3) col = dk(col, 0.05); else if (hv > 0.8) col = lt(col, 0.04);
+    if (z < -DROP + 1.1) col = mx(dk(col, 0.22), moss, 0.35);
+    if (e.joint) return dk(col, 0.3);
+    if (e.lip) return lt(col, fc.lit ? 0.12 : 0.07);
+    return col;
   });
   const [rx, ry] = F.at(up, v0 + out, -DROP);
   ripples.push({ x: rx, y: ry + 0.8, w: 2.5, seed: up * 0.9 + sd });
@@ -1194,15 +1305,17 @@ const deckShadow = (S, B, F, P, posts) => {
 };
 
 // ---- timber rails: posts, two rails between them, newels, a lantern -------
-const railsTimber = (S, R, F, P, posts, fen, b) => {
+const railsTimber = (S, R, F, P, posts, fen, b, Rh) => {
   const rail = rgb(P.rail), beam = rgb(P.beam), moss = rgb(P.moss);
   const railTop = lt(rail, 0.28), railFace = rail, railDk = dk(rail, 0.25);
   const rope = P.rope ? rgb(P.rope) : null;
   const zR = 6.2, zM = 3.2;
-  // the fen's rot: one rail gone between two posts on the near side, one post leaning
-  const nearSd = F.near || 1;
-  const us = [...new Set(posts.filter((p) => !p.pile).map((p) => p.u))].sort((a, q) => a - q);
-  const gone = fen ? Math.floor(us.length / 2) - 1 + Math.floor(hash(b.x | 0, 5) * 2) : -1;
+  // the fen's rot: a whole section of railing gone on one side (the near
+  // side of an across span, so the silhouette breaks), the rails sagging
+  const nearSd = F.near || (Rh(14) < 0.5 ? 1 : -1);
+  const nNear = posts.filter((p) => !p.pile && p.sd === nearSd).length;
+  const gone = fen && nNear > 3 ? 1 + Math.floor(Rh(18) * (nNear - 3)) : -1;
+  const sagOf = (k, sd, top) => (fen ? (top ? 0.35 : 0.2) + hash(k * 5 + 1, sd + 9 + (b.x | 0)) * (top ? 0.8 : 0.4) : 0);
   // back to front: the far side first, and down the screen within a side
   const sides = F.near ? [-F.near, F.near] : [-1, 1];
   for (const sd of sides) {
@@ -1213,28 +1326,30 @@ const railsTimber = (S, R, F, P, posts, fen, b) => {
     // the two rails between posts k and k + 1
     const segRails = (c, k) => {
       const ua = byU[k].u + (byU[k].newel ? 1.8 : 1.1), ub = byU[k + 1].u - (byU[k + 1].newel ? 1.8 : 1.1);
+      if (fen && sd === nearSd && k === gone) {
+        // the gone section: a stub of the top rail hanging from its post
+        const p = byU[k];
+        const [x, y] = F.at(p.u + 1.2, sd * POST_V, F.L(p.u) + zR);
+        c.fillStyle = css(railFace);
+        c.save(); c.translate(Math.round(x * 2) / 2, Math.round(y * 2) / 2); c.rotate(0.6 * (F.c < -0.2 ? -1 : 1));
+        c.fillRect(0, -0.7, 4, 1.3);
+        c.restore();
+        return;
+      }
       for (const [zr, th] of [[zR, 1.4], [zM, 1]]) {
-        if (fen && sd === nearSd && k === gone && zr === zR) {
-          // the gone rail: a stub hanging from its post
-          const p = byU[k];
-          const [x, y] = F.at(p.u + 1.2, sd * POST_V, F.L(p.u) + zR);
-          c.fillStyle = css(railFace);
-          c.save(); c.translate(x, y); c.rotate(0.55 * (F.c < -0.2 ? -1 : 1));
-          c.fillRect(0, -0.7, 4, 1.3);
-          c.restore();
-          continue;
-        }
-        railRun(c, F, ua, ub, sd * POST_V, zr, th, css(railTop), css(railFace));
+        railRun(c, F, ua, ub, sd * POST_V, zr, th, css(railTop), css(railFace), sagOf(k, sd, zr === zR));
       }
     };
     const postBody = (c, p) => {
       const l = F.L(p.u), r = p.w / 2;
-      const lean = fen && sd === nearSd && byU.indexOf(p) === gone + 1 ? 0.7 : 0;
+      // a leaning post tips outward, where the camera can see it tip
+      const lean = p.lean || 0;
+      const lu = F.near ? lean * (hash(p.k, sd + 5) < 0.5 ? 1 : -1) : 0, lv = F.near ? 0 : lean * sd;
       const u0 = p.u - r, u1 = p.u + r, v0 = p.v - r, v1 = p.v + r;
       const side = (sun) => css(sun > 0.1 ? lt(rail, 0.1) : railFace);
       if (!p.newel) {
-        block(c, F, u0 + lean * 0.3, u1 + lean * 0.3, v0, v1, l, l + p.h, css(railTop), side);
-        faceEdges(c, F, p.u + lean * 0.3, p.v, r, l, l + p.h, lt(rail, 0.14), railDk);
+        block(c, F, u0, u1, v0, v1, l, l + p.h, css(railTop), side, lu, lv);
+        if (!lean) faceEdges(c, F, p.u, p.v, r, l, l + p.h, lt(rail, 0.14), railDk);
       } else {
         block(c, F, u0, u1, v0, v1, l - 0.5, l + p.h - 1, css(lt(rail, 0.18)), side);
         faceEdges(c, F, p.u, p.v, r, l - 0.5, l + p.h - 1, lt(rail, 0.16), railDk);
@@ -1253,7 +1368,8 @@ const railsTimber = (S, R, F, P, posts, fen, b) => {
       const u0 = p.u - r, u1 = p.u + r, v0 = p.v - r, v1 = p.v + r;
       if (!p.newel) {
         // up the screen the posts read by their caps along the rail
-        if (!F.near) block(c, F, u0 - 0.2, u1 + 0.2, v0 - 0.2, v1 + 0.2, l + p.h - 0.7, l + p.h + 0.1, css(lt(rail, 0.34)), () => css(lt(rail, 0.05)));
+        const lv = (p.lean || 0) * sd;
+        if (!F.near) block(c, F, u0 - 0.2, u1 + 0.2, v0 - 0.2 + lv, v1 + 0.2 + lv, l + p.h - 0.7, l + p.h + 0.1, css(lt(rail, 0.34)), () => css(lt(rail, 0.05)));
         return;
       }
       // a cap, broader than the post, and a knob
@@ -1276,7 +1392,7 @@ const railsTimber = (S, R, F, P, posts, fen, b) => {
         for (const p of row) postBody(c, p);
         for (let k = 0; k < byU.length - 1; k++) {
           if (fen && sd === nearSd && k === gone) continue;
-          railRun(c, F, byU[k].u, byU[k + 1].u, sd * POST_V, zR, 1.6, css(railTop), css(railFace));
+          railRun(c, F, byU[k].u, byU[k + 1].u, sd * POST_V, zR, 1.6, css(railTop), css(railFace), sagOf(k, sd, true) * 0.6);
           // the rail's shaded side, a pixel down its east edge
           const ua = byU[k].u, ub = byU[k + 1].u, vs = sd * POST_V - Math.sign(F.s) * 0.55;
           const pts = [];
@@ -1303,15 +1419,16 @@ const faceEdges = (c, F, u, v, r, z0, z1, lit, dark) => {
   c.fillStyle = css(dark); c.fillRect(Math.round(xr * 2) / 2 - 0.5, Math.round(y * 2) / 2, 0.5, hgt);
 };
 // a rail beam from ua to ub along the line v, riding the arch at height zr
-const railRun = (c, F, ua, ub, v, zr, th, top, face) => {
+const railRun = (c, F, ua, ub, v, zr, th, top, face, sag = 0) => {
   if (ub <= ua) return;
   const step = 1;
   const topPts = [], botPts = [];
+  const zAt = (u) => F.L(u) + zr - sag * Math.sin(Math.PI * (u - ua) / (ub - ua));
   for (let u = ua; u <= ub + 0.01; u += step) {
-    const uu = Math.min(u, ub), l = F.L(uu) + zr;
-    topPts.push([uu, l]);
+    const uu = Math.min(u, ub);
+    topPts.push([uu, zAt(uu)]);
   }
-  if (topPts[topPts.length - 1][0] < ub) topPts.push([ub, F.L(ub) + zr]);
+  if (topPts[topPts.length - 1][0] < ub) topPts.push([ub, zAt(ub)]);
   // its top
   const tp = [];
   for (const [u, z] of topPts) tp.push(F.at(u, v - th / 2, z));
@@ -1419,6 +1536,13 @@ export const drawBridge = (ctx, b, time, _posAt, _angleAt, pal) => {
 // Every span on the board, once a frame.
 export const drawBridges = (ctx, g) => {
   for (const b of BRIDGES) drawBridge(ctx, b, g.time);
+};
+
+// Bake every span of the realm in play ahead of its first frame (about 20-35
+// ms a span here): call it where the board's ground layer is baked, when a
+// realm is selected, so the two one-time costs don't stack on frame one.
+export const bakeBridges = () => {
+  for (const b of BRIDGES) spriteOf(b);
 };
 
 export { DEFAULT_BRIDGE };

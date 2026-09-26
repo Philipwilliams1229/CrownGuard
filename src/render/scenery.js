@@ -17,6 +17,8 @@ import { drawArcher, drawHalberdier, drawMason, WALL_FOLK } from "./folk.js";
 import { ballista } from "./halls/archer.js";
 import { drawCastle, drawCastleWorks, resetWorksBakes, resetCastleBakes } from "./castle.js";
 import { IRON_ART } from "./scenery-iron.js";
+import { gateCrag, hasCrag, vnoise, sstep } from "../data/gatecrag.js";
+import { pixelTuft, groundKind } from "./groundblend.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
 import {
   lighten, darken, mix, rgb, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
@@ -324,20 +326,33 @@ const tones5 = (col) => {
   if (!t) TONES.set(col, t = [lighten(col, 0.42), lighten(col, 0.18), col, darken(col, 0.24), darken(col, 0.46)].map(rgb));
   return t;
 };
+// snow on a stone: lit facets lean cream, those turned from the sun go blue
+const SNOW5 = ["#fff6e2", "#eef5f8", "#d4e2ec", "#b4c4d2", "#9fb0c4"].map(rgb);
+// volcanic glass: a wide ramp, lit planes a cool lilac, shade near-black plum
+const glass5 = (col) => {
+  const k = "g" + col;
+  let t = TONES.get(k);
+  if (!t) TONES.set(k, t = ["#8a7ea0", mix(col, "#8a7ea0", 0.5), col, mix(col, "#1c1624", 0.5), "#1c1624"].map(rgb));
+  return t;
+};
+const GL_EDGE = rgb("#aea4c4"), GL_HOT = rgb("#e8e0f0"), ICE_RIM = rgb("#a4c4d8");
 const facetStone = (ctx, x, gy, w, d, h, col, seed, o = {}) => {
   const P = [];
-  const n = 12 + Math.floor(hash(seed, 99) * 4);
+  // obsidian breaks into fewer, flatter, sharper planes than field stone
+  const gl = !!o.gloss;
+  const n = (gl ? 10 : 12) + Math.floor(hash(seed, 99) * (gl ? 3 : 4));
   // a flat crown, a ring of shoulders, and the sides
   for (let i = 0; i < n; i++) {
     const ring = i === 0 ? 0 : i <= 5 ? 1 : 2;
-    const az = (ring === 1 ? (i - 1) / 5 : (i - 6) / (n - 6)) * Math.PI * 2 + (hash(seed, i) - 0.5) * 0.9 + ring * 0.4;
-    const el = ring === 0 ? 1.45 : ring === 1 ? 0.62 + hash(seed, i + 20) * 0.35 : 0.16 + hash(seed, i + 20) * 0.3;
+    const az = (ring === 0 && gl ? hash(seed, 3) * 6.3 : (ring === 1 ? (i - 1) / 5 : (i - 6) / (n - 6)) * Math.PI * 2) + (hash(seed, i) - 0.5) * 0.9 + ring * 0.4;
+    const el = ring === 0 ? (gl ? 1.2 : 1.45) : ring === 1 ? (gl ? 0.35 + hash(seed, i + 20) * 0.2 : 0.62 + hash(seed, i + 20) * 0.35) : (gl ? 0.1 + hash(seed, i + 20) * 0.22 : 0.16 + hash(seed, i + 20) * 0.3);
     const ux = Math.cos(az) * Math.cos(el), uy = Math.sin(az) * Math.cos(el), uz = Math.sin(el);
     const px = w * ux, py = d * uy, pz = h * uz;
     let nx = px / (w * w), ny = py / (d * d), nz = pz / (h * h);
     const nl = Math.hypot(nx, ny, nz); nx /= nl; ny /= nl; nz /= nl;
     if (nz < 0.04) continue;
-    P.push([nx, ny, nz, (nx * px + ny * py + nz * pz) * (ring === 0 ? 0.74 + hash(seed, 41) * 0.08 : 0.9 + hash(seed, i + 40) * 0.12)]);
+    const cut = ring === 0 ? 0.74 + hash(seed, 41) * 0.08 : gl ? 0.8 + hash(seed, i + 40) * 0.18 : 0.9 + hash(seed, i + 40) * 0.12;
+    P.push([nx, ny, nz, (nx * px + ny * py + nz * pz) * cut]);
   }
   const zAt = (wx, wy) => {
     let z = 1e9, id = -1;
@@ -358,27 +373,34 @@ const facetStone = (ctx, x, gy, w, d, h, col, seed, o = {}) => {
   const wxOf = (cx) => (cx + bx0 + 0.5 - m.e) / k, wyOf = (cy) => (cy + by0 + 0.5 - m.f) / m.d;
   if (o.shade) {
     // the stone's shadow on the ground, short, thrown down-right; darker
-    // right against its foot
+    // right against its foot. Cast forward: each point of the footing
+    // throws its shade along the sun's line as far as its height allows.
+    const Z = new Float32Array(BW * BH), A = new Float32Array(BW * BH);
+    for (let cy = 0; cy < BH; cy++) for (let cx = 0; cx < BW; cx++) Z[cy * BW + cx] = zAt(wxOf(cx), wyOf(cy))[0];
     for (let cy = 0; cy < BH; cy++) for (let cx = 0; cx < BW; cx++) {
-      const wx = wxOf(cx), wy = wyOf(cy);
-      if (zAt(wx, wy)[0] > 0) continue;
-      let a = 0;
-      for (let t = 0.5; t < 9; t += 0.5) {
-        const [z] = zAt(wx - 0.586 * t, wy - 0.81 * t);
-        if (z > t * 1.5) { a = t < 1.1 ? 0.4 : 0.26; break; }
+      const z = Z[cy * BW + cx];
+      if (z <= 0) continue;
+      for (let t = 0.5; t < 9 && z > t * 1.5; t += 0.5) {
+        const qx = cx + Math.round(0.586 * t * k), qy = cy + Math.round(0.81 * t * m.d);
+        if (qx >= BW || qy >= BH) break;
+        const j = qy * BW + qx, a = t < 1.1 ? 0.4 : 0.26;
+        if (A[j] < a) A[j] = a;
       }
-      if (!a) continue;
-      const i = (cy * BW + cx) * 4, a0 = dd[i + 3] / 255, ao = a + a0 * (1 - a);
+    }
+    for (let j = 0; j < BW * BH; j++) {
+      const a = A[j];
+      if (!a || Z[j] > 0) continue;
+      const i = j * 4, a0 = dd[i + 3] / 255, ao = a + a0 * (1 - a);
       dd[i] = Math.round((28 * a + dd[i] * a0 * (1 - a)) / ao); dd[i + 1] = Math.round((20 * a + dd[i + 1] * a0 * (1 - a)) / ao); dd[i + 2] = Math.round((30 * a + dd[i + 2] * a0 * (1 - a)) / ao);
       dd[i + 3] = Math.round(ao * 255);
     }
     ctx.putImageData(img, bx0, by0);
     return;
   }
-  const T = tones5(col);
+  const T = gl ? glass5(col) : tones5(col);
   const tone = P.map(([nx, ny, nz]) => {
     const l = L3[0] * nx + L3[1] * ny + L3[2] * nz;
-    return l > 0.8 ? 0 : l > 0.52 ? 1 : l > 0.16 ? 2 : l > -0.2 ? 3 : 4;
+    return gl ? (l > 0.7 ? 0 : l > 0.42 ? 1 : l > 0.12 ? 2 : l > -0.2 ? 3 : 4) : l > 0.8 ? 0 : l > 0.52 ? 1 : l > 0.16 ? 2 : l > -0.2 ? 3 : 4;
   });
   const fid = new Int16Array(BW * BH).fill(-1);
   const zp = new Float32Array(BW * BH);
@@ -395,10 +417,15 @@ const facetStone = (ctx, x, gy, w, d, h, col, seed, o = {}) => {
       front = Math.max(0, sp);
     }
   }
-  const cap = o.cap ? tones5(o.cap) : null, snowy = o.snow;
+  const cap = o.cap ? (o.snow ? SNOW5 : tones5(o.cap)) : null, snowy = o.snow;
+  const capThr = snowy ? 0.74 : 0.7;
+  // what spills over a cap's edge, column by column: snow in short drips
+  // all along with an icy rim under it, moss in a few clumps
+  const drip = new Int8Array(BW), rim = new Uint8Array(BW);
+  let glints = 0;
   for (let cy = 0; cy < BH; cy++) for (let cx = 0; cx < BW; cx++) {
     const i = cy * BW + cx, f = fid[i];
-    if (f < 0) continue;
+    if (f < 0) { drip[cx] = 0; rim[cx] = 0; continue; }
     let t = tone[f];
     const above = cy > 0 ? fid[i - BW] : -1;
     // a ridge between facets catches the light on its upper side
@@ -407,14 +434,29 @@ const facetStone = (ctx, x, gy, w, d, h, col, seed, o = {}) => {
     let c = T[t];
     const nz = P[f][2];
     if (cap) {
-      const top = nz > (snowy ? 0.74 : 0.7);
+      const top = nz > capThr;
       const patch = snowy ? 1 : vnoise((cx + bx0) / 5, (cy + by0) / 5, seed + 3) - 0.16;
-      if (top && patch > 0.4) c = cap[Math.min(3, Math.max(0, t + (snowy ? -1 : 0) + (above !== f && above >= 0 ? -1 : 0)))];
-      else if (!top && cy > 0 && above >= 0 && P[above][2] > (snowy ? 0.74 : 0.7) && (snowy || vnoise((cx + bx0) / 5, (cy - 1 + by0) / 5, seed + 3) > 0.4) && hash(cx + bx0, seed) < 0.45) c = cap[3];
+      if (top && patch > 0.4) {
+        c = cap[Math.min(snowy ? 3 : 3, Math.max(0, t + (above !== f && above >= 0 ? -1 : 0)))];
+        const X = cx + bx0;
+        drip[cx] = snowy ? (hash(X, seed + 33) < 0.28 ? 2 : hash(X, seed + 33) < 0.6 ? 1 : 0)
+          : vnoise(X / 5, 3.5, seed + 29) > 0.66 ? 1 + Math.floor(hash(X, seed + 31) * 3) : 0;
+        rim[cx] = snowy ? 1 : 0;
+      } else if (top) { drip[cx] = 0; rim[cx] = 0; }
+      else if (drip[cx] > 0) { c = drip[cx] === 1 ? cap[3] : cap[2]; drip[cx]--; }
+      else if (rim[cx]) { c = ICE_RIM; rim[cx] = 0; }
     }
     // lichen: a few pale crusts on the sides, a couple of pixels each
     if (o.lichen && nz < 0.75 && t <= 3 && vnoise((cx + bx0) / 3, (cy + by0) / 2, seed + 17) > 0.93) c = rgb(t <= 1 ? lighten(o.lichen, 0.2) : o.lichen);
-    if (o.gloss && above >= 0 && above !== f && t <= 2) c = rgb("#e8e0f0");
+    // glass: one lit edge along the top and left of each lit plane, and a
+    // single hot glint where it's brightest
+    if (gl && t <= 1) {
+      const lf = cx > 0 ? fid[i - 1] : -1;
+      if (above !== f || lf !== f) {
+        if (t === 0 && glints < 2 && above >= 0) { c = GL_HOT; glints++; }
+        else c = GL_EDGE;
+      }
+    }
     const j = i * 4;
     dd[j] = c[0]; dd[j + 1] = c[1]; dd[j + 2] = c[2]; dd[j + 3] = 255;
   }
@@ -423,6 +465,36 @@ const facetStone = (ctx, x, gy, w, d, h, col, seed, o = {}) => {
 // one stone, inked on its own so a stone at another's foot reads apart from it
 const rockPiece = (ctx, x, gy, w, d, h, col, seed, o) =>
   leafPart(ctx, (c) => facetStone(c, x, gy, w, d, h, col, seed, o), INK, [x - w - 2, gy - d - h - 3, x + w + 2, gy + d + 2], null);
+// A stand-in 2D context over a raw RGBA buffer, enough for facetStone —
+// so a bake that already holds its pixels can lay stones in without a
+// canvas read-back.
+const pxCtx = (buf, BW, BH, m) => ({
+  canvas: { width: BW, height: BH },
+  getTransform: () => m,
+  getImageData: (x, y, w, h) => {
+    const img = new ImageData(w, h);
+    for (let r = 0; r < h; r++) img.data.set(buf.subarray(((y + r) * BW + x) * 4, ((y + r) * BW + x + w) * 4), r * w * 4);
+    return img;
+  },
+  putImageData: (img, x, y) => { for (let r = 0; r < img.height; r++) buf.set(img.data.subarray(r * img.width * 4, (r + 1) * img.width * 4), ((y + r) * BW + x) * 4); },
+});
+// one stone painted and inked on its own into a raw buffer (see rockPiece)
+const INK_RGB = rgb(INK);
+const inkedStone = (buf, BW, BH, m, x, gy, w, d, h, col, seed, o) => {
+  const k = m.a;
+  const bx0 = Math.max(0, Math.floor(k * (x - w - 3) + m.e)), by0 = Math.max(0, Math.floor(m.d * (gy - d - h - 4) + m.f));
+  const bx1 = Math.min(BW, Math.ceil(k * (x + w + 3) + m.e)), by1 = Math.min(BH, Math.ceil(m.d * (gy + d + 3) + m.f));
+  const TW = bx1 - bx0, TH = by1 - by0;
+  if (TW <= 2 || TH <= 2) return;
+  const tmp = new Uint8ClampedArray(TW * TH * 4);
+  facetStone(pxCtx(tmp, TW, TH, { a: m.a, d: m.d, e: m.e - bx0, f: m.f - by0 }), x, gy, w, d, h, col, seed, o);
+  for (let j = 0; j < TH; j++) for (let i = 0; i < TW; i++) {
+    const q = (j * TW + i) * 4, o2 = ((by0 + j) * BW + bx0 + i) * 4;
+    if (tmp[q + 3] > 110) { buf[o2] = tmp[q]; buf[o2 + 1] = tmp[q + 1]; buf[o2 + 2] = tmp[q + 2]; buf[o2 + 3] = 255; continue; }
+    const on = (ii, jj) => ii >= 0 && jj >= 0 && ii < TW && jj < TH && tmp[(jj * TW + ii) * 4 + 3] > 110;
+    if (on(i - 1, j) || on(i + 1, j) || on(i, j - 1) || on(i, j + 1)) { buf[o2] = INK_RGB[0]; buf[o2 + 1] = INK_RGB[1]; buf[o2 + 2] = INK_RGB[2]; buf[o2 + 3] = 255; }
+  }
+};
 // (kept for the kit: a stone standing on the ground at (x, gy))
 const rockBody = (ctx, x, gy, w, h, col, cap, seed) => {
   facetStone(ctx, x, gy, w, w * 0.55, h, col, seed, { shade: true });
@@ -454,23 +526,81 @@ const boulder = (ctx, x, y, s, base, cap, seed, v = 0, o = {}) => {
   for (const [sx, sy, sw, sd, sh, col, sd2] of st) rockPiece(ctx, sx, sy, sw, sd, sh, col, sd2, { cap: sh > 6 * s ? cap : null, ...o });
 };
 
-// Low green things tucked around a trunk or stone after it's inked: grass
-// crowding its foot and a pebble or two, so nothing stands on bare air.
+// Low things tucked round a piece's foot once it's inked: the realm's own
+// grass — the meadow's pixel clumps (groundblend.js), singed stalks on ash,
+// dry stalks through snow, reeds on the moor — and a pebble or two. Painted
+// in art pixels on the bake. Round a stone the clumps stand at its flanks,
+// BEHIND its silhouette (they only fill empty pixels), one small clump and
+// the pebbles in front of its front edge; round a trunk they crowd its foot.
+const dressCols = (r = REALM) => {
+  const kind = groundKind(r);
+  if (kind === "ash") return ["#2e2622", "#54463a", "#7e684c", "#a88a60"];
+  if (kind === "snow") return ["#6e6a5c", "#9a947e", "#c4bca0", "#e2dac4"];
+  if (kind === "marsh") return [darken(r.TUFT, 0.1), r.TUFT, mix(r.GRASS_LT, "#c8bc88", 0.35), lighten(r.GRASS_LT, 0.3)];
+  if (kind === "turf") return [r.TUFT, mix(r.TUFT, r.GRASS, 0.55), mix(r.GRASS_LT, "#c8bc88", 0.4), mix(r.GRASS_LT, "#e0d49c", 0.5)];
+  return [r.TUFT, mix(r.TUFT, r.GRASS, 0.55), mix(r.GRASS, r.GRASS_LT, 0.6), lighten(r.GRASS_LT, 0.22)];
+};
+// art-pixel painters over a canvas's pixels: put() (skipping solid pixels
+// while `behind` is set) and shade(), then done() lays them back
+const pxPainter = (ctx) => {
+  const cv = ctx.canvas, CW = cv.width, CH = cv.height;
+  const img = ctx.getImageData(0, 0, CW, CH), dd = img.data;
+  const P = { behind: false };
+  P.put = (px, py, col) => {
+    if (px < 0 || py < 0 || px >= CW || py >= CH) return;
+    const o = (py * CW + px) * 4;
+    if (P.behind && dd[o + 3] > 200) return;
+    const c = typeof col === "string" ? rgb(col) : col;
+    dd[o] = c[0]; dd[o + 1] = c[1]; dd[o + 2] = c[2]; dd[o + 3] = 255;
+  };
+  P.shade = (px, py) => {
+    if (px < 0 || py < 0 || px >= CW || py >= CH) return;
+    const o = (py * CW + px) * 4;
+    if (dd[o + 3] > 200) return;
+    const a = 0.2, a0 = dd[o + 3] / 255, ao = a + a0 * (1 - a);
+    dd[o] = Math.round((28 * a + dd[o] * a0 * (1 - a)) / ao); dd[o + 1] = Math.round((20 * a + dd[o + 1] * a0 * (1 - a)) / ao); dd[o + 2] = Math.round((30 * a + dd[o + 2] * a0 * (1 - a)) / ao);
+    dd[o + 3] = Math.round(ao * 255);
+  };
+  P.done = () => ctx.putImageData(img, 0, 0);
+  return P;
+};
+// a pebble in art pixels: lit top-left, dark underside, a crumb of shadow
+const pxPebble = (put, shade, cx, cy, w, col) => {
+  const lt = lighten(col, 0.3), dk = darken(col, 0.35);
+  for (let i = 0; i < w; i++) { put(cx + i, cy, i === 0 ? lt : col); put(cx + i, cy + 1, i === w - 1 ? dk : col); }
+  put(cx, cy - 1 + (w > 2 ? 0 : 1), lt);
+  for (let i = 1; i <= w; i++) shade(cx + i, cy + 2);
+};
+// (x, y) the piece's foot (a stone's centre line), w its half-width
 const groundDress = (ctx, x, y, w, seed, stones = false) => {
-  const R = REALM;
-  const base = mix(R.GRASS_DK, R.GRASS, 0.2), tip = lighten(R.GRASS_LT, 0.12);
+  const m = ctx.getTransform(), k = m.a;
+  const X = (v) => Math.round(v * k + m.e), Y = (v) => Math.round(v * m.d + m.f);
+  const P = pxPainter(ctx);
+  const r = REALM, kind = groundKind(r), cols = dressCols(r);
+  const sz = kind === "snow" ? 0.4 : kind === "turf" ? 0.42 : 0.5;
+  const nb = (kind === "snow" ? 2 : 3);
   const n = 2 + Math.floor(hash(seed, 50) * 2);
   for (let i = 0; i < n; i++) {
     const side = i % 2 ? 1 : -1;
-    const tx = x + side * w * (stones ? 0.9 + hash(seed, i + 51) * 0.35 : 0.55 + hash(seed, i + 51) * 0.5), ty = y + 0.5 + hash(seed, i + 55) * 1.5;
-    tuft(ctx, tx, ty, 0.5 + hash(seed, i + 58) * 0.25, base, tip, seed + i, { n: 3 });
-  }
-  if (stones) {
-    for (let i = 0; i < 2; i++) {
-      const px = x + (hash(seed, i + 60) - 0.3) * w * 2.2, py = y + 1 + hash(seed, i + 62) * 2;
-      stone(ctx, px, py, 1.1 + hash(seed, i + 64) * 0.6, 0.8, mix("#a8a090", R.GRASS_DK, 0.2));
+    if (kind === "snow" && hash(seed, i + 57) < 0.45) continue;
+    if (stones) {
+      // at the stone's flanks, rising from behind it
+      P.behind = true;
+      pixelTuft(P.put, P.shade, X(x + side * (w + 1 + hash(seed, i + 51) * 1.5)), Y(y + hash(seed, i + 55) * 1.2), sz, seed + i, cols, { n: nb + Math.floor(hash(seed, i + 58) * 2) });
+    } else {
+      P.behind = false;
+      pixelTuft(P.put, P.shade, X(x + side * w * (0.55 + hash(seed, i + 51) * 0.5)), Y(y + 0.5 + hash(seed, i + 55) * 1.5), sz + 0.05, seed + i, cols, { n: nb + Math.floor(hash(seed, i + 58) * 2) });
     }
   }
+  if (stones) {
+    P.behind = false;
+    const front = y + 0.6 * w;
+    // one low clump at the front foot, and pebbles just in front of it
+    if (kind !== "snow") pixelTuft(P.put, P.shade, X(x - w * (0.35 + hash(seed, 66) * 0.3)), Y(front + 0.5), sz * 0.8, seed + 9, cols, { n: 3 });
+    const pc = kind === "snow" ? "#9fb0c0" : kind === "ash" ? "#5a4c46" : mix(r.PEBBLE || "#b0a898", r.GRASS_DK, 0.15);
+    for (let i = 0; i < 2; i++) pxPebble(P.put, P.shade, X(x + (hash(seed, i + 60) - 0.3) * w * 1.3), Y(front + 1 + hash(seed, i + 62) * 1.5), 2 + Math.round(hash(seed, i + 64)), pc);
+  }
+  P.done();
 };
 
 // A tapered limb along a bent line: lit along the side facing the sun,
@@ -571,26 +701,45 @@ const willow = (ctx, x, y, s, sway, seed = 1) => {
     const lit = 0.5 + ((px / 14) * SUN.x + (py / 8) * SUN.y) * 1.3;
     leafPart(ctx, (c) => leafClump(c, kx, ky, rr, leaf, seed * 7 + i * 13, lit), darken(leaf, 0.72), [kx - rr * 1.35, ky - rr * 1.25, kx + rr * 1.35, ky + rr * 1.2]);
   });
-  // the curtains: strands of leaves hanging from the crown's hem
+  // the curtains: a few locks of hanging leaves with gaps between them —
+  // short at the sides, longest in front, each tapering to 1-px strands; the
+  // sun-side locks lit, a deep shade curtain behind them
   leafPart(ctx, (c) => {
-    const n = Math.round(15 * s);
-    for (let i = 0; i < n; i++) {
-      const u = (i + 0.5) / n * 2 - 1;
-      if (Math.abs(u) < 0.3 && H(i + 90) < 0.6) continue;     // a gap to show the trunk
-      const sx0 = cx + u * 17 * s + (H(i) - 0.5) * 1.5 * s;
-      const top = cy + (4 + (1 - u * u) * 3) * s;
-      const len = (5 + H(i + 30) * 10 + (1 - Math.abs(u)) * 5) * s;
-      const lit = u < -0.2 ? 1 : u > 0.4 ? -1 : 0;
-      const cA = lit > 0 ? lighten(leaf, 0.2) : lit < 0 ? darken(leaf, 0.25) : leaf, cB = lit > 0 ? lighten(leaf, 0.38) : lighten(leaf, 0.1);
+    const px = (X, Y, col) => { c.fillStyle = col; c.fillRect(ap(X), ap(Y), 0.5, 0.5); };
+    // the shade behind: short, dark, parted over the trunk
+    for (let u = -0.62; u <= 0.62; u += 0.5 / (17 * s)) {
+      if (Math.abs(u) < 0.14) continue;
+      const X = cx + u * 17 * s, top = cy + (4 + (1 - u * u) * 3) * s, len = (4 + (1 - Math.abs(u)) * 5 + hash(Math.round(u * 40), seed) * 2) * s;
+      for (let t = 0; t < len; t += 0.5) px(X + sway * (t / len), top + t, darken(leaf, 0.5));
+    }
+    const locks = 5 + Math.floor(H(88) * 2);
+    for (let L = 0; L < locks; L++) {
+      const u = ((L + 0.5) / locks) * 2 - 1 + (H(L + 90) - 0.5) * 0.14;
+      const lw = (1.8 + H(L + 95) * 1.2) * s;
+      const sx0 = cx + u * 16.5 * s;
+      const top = cy + (3.5 + (1 - u * u) * 3) * s;
+      const len = (5 + (1 - Math.abs(u)) * 13 + H(L + 30) * 4) * s;
+      const lit = u < -0.25 ? 1 : u > 0.35 ? -1 : 0;
+      const b0 = lit > 0 ? lighten(leaf, 0.12) : lit < 0 ? darken(leaf, 0.2) : leaf;
+      const hi = lighten(b0, lit > 0 ? 0.3 : 0.16), dk = darken(b0, 0.3), mid = darken(b0, 0.12);
       for (let t = 0; t < len; t += 0.5) {
         const k = t / len;
-        const X = ap(sx0 + sway * k * 1.4 + Math.sin(k * 3 + i) * 0.4);
-        c.fillStyle = (Math.floor(t * 2) + i) % 5 === 0 ? cB : cA;
-        c.fillRect(X, ap(top + t), 0.5, 0.5);
-        if (H(i + 60) < 0.5 && k < 0.7) c.fillRect(X + 0.5, ap(top + t), 0.5, 0.5);
+        const half = lw * Math.max(0, 1 - Math.pow(k, 1.4));
+        const X0 = sx0 + sway * k * 1.4 + Math.sin(k * 2.6 + L) * 0.5 * s;
+        // the lower third parts into strands
+        for (let q = -half; q <= half + 0.01; q += 0.5) {
+          const col = Math.round((q + half) * 2);
+          if (k > 0.55 && col % 2 === 1) continue;
+          const edgeL = q < -half + 0.6, edgeR = q > half - 0.6;
+          // hanging strands: a faint vertical grain, a few loose lit leaves
+          const fleck = hash(L * 97 + col, Math.floor(t * 2) + seed) < (lit > 0 ? 0.16 : 0.08);
+          px(X0 + q, top + t, edgeL ? hi : edgeR ? dk : fleck ? hi : col % 3 === 2 ? mid : b0);
+        }
+        // the strands' tips: a pixel or two past the lock's end
+        if (k > 0.9 && H(L + 70) < 0.6) px(X0 + (H(L + 72) - 0.5) * lw, top + len + (H(L + 74) * 2) * 0.5, b0);
       }
     }
-  }, darken(leaf, 0.72), [cx - 20 * s, cy, cx + 20 * s, base + 2], "under");
+  }, darken(leaf, 0.72), [cx - 22 * s, cy, cx + 22 * s, base + 4], "under");
 };
 
 // ---- small things of the old realms: toadstools, ice, vents --------------
@@ -695,8 +844,9 @@ const shard = (ctx, x, gy, h, w, col, lean) => part(ctx, (c) => {
   poly([sl, tip, mt], lighten(col, 0.7));
   poly([mt, tip, sr], col);
   // the ridge catches the light, and a pale streak inside the ice
+  // (a solid line on its upper half only)
   c.fillStyle = "#ffffff";
-  for (let t = 0.1; t < 0.9; t += 0.12) { const [px, py] = R(-w * 0.1, -h * 0.72 * t); c.fillRect(ap(px), ap(py), 0.5, 0.5); }
+  for (let t = 0.48; t < 0.98; t += 0.25 / h) { const [px, py] = R(-w * 0.1, -h * 0.72 * t); c.fillRect(ap(px), ap(py), 0.5, 0.5); }
   const [qx, qy] = R(-w * 0.55, -h * 0.35); c.fillStyle = lighten(col, 0.85); c.fillRect(ap(qx), ap(qy), 0.5, ap(h * 0.25));
 });
 const CRYSTALS = [[-6, 9, 2.6, "#5a94b0", -0.3], [6, 11, 2.8, "#6cb4d4", 0.32], [0, 16, 3.4, "#8fd0e8", 0.04]];
@@ -725,20 +875,25 @@ const vent = (ctx, x, y, s) => {
   facetStone(ctx, x, gy, 11 * s, 7 * s, 6 * s, "#3d3437", 21, { shade: true });
   rockPiece(ctx, x, gy, 11 * s, 7 * s, 6 * s, "#4a3e42", 21, {});
   // the throat: a dark rim round a hot core, in hard bands
+  // (a ragged hole, two hot bands, the hottest set toward the back wall
+  // where the eye looks down into it; cone stones break its rim)
   const cy = gy - 5.2 * s - 1;
-  ctx.fillStyle = "#1c1418"; ellipse(ctx, x, cy, 4.5 * s, 2.2 * s); ctx.fill();
-  ctx.fillStyle = "#a8402a"; ellipse(ctx, x + 0.3, cy + 0.3, 3.5 * s, 1.6 * s); ctx.fill();
-  ctx.fillStyle = "#f08a3c"; ellipse(ctx, x + 0.3, cy + 0.4, 2.4 * s, 1.05 * s); ctx.fill();
-  ctx.fillStyle = "#ffd678"; ellipse(ctx, x + 0.4, cy + 0.5, 1.2 * s, 0.5 * s + 0.25); ctx.fill();
+  ctx.fillStyle = "#1c1418"; blobPath(ctx, x, cy, 4.6 * s, 2.3 * s, 31, 0.28, 8); ctx.fill();
+  ctx.fillStyle = "#a8402a"; blobPath(ctx, x + 0.3, cy - 0.2, 3.3 * s, 1.5 * s, 32, 0.3, 8); ctx.fill();
+  ctx.fillStyle = "#f08a3c"; blobPath(ctx, x + 0.5, cy - 0.6, 1.9 * s, 0.8 * s, 33, 0.3, 7); ctx.fill();
+  for (const [dx, dy, r, sd] of [[-3.4, 1.7, 1.6, 41], [3.6, 1.3, 1.3, 42], [0.6, 2.2, 1.1, 43]]) {
+    facetStone(ctx, x + dx * s, cy + dy * s, r * s, r * 0.7 * s, r * 0.9 * s, "#4a3e42", sd, { shade: true });
+    rockPiece(ctx, x + dx * s, cy + dy * s, r * s, r * 0.7 * s, r * 0.9 * s, "#564a4e", sd, {});
+  }
   // hot seams running down the cone
   ctx.fillStyle = "#e8703a";
   for (const [dx, len] of [[-5, 3], [3.5, 2.5], [6.5, 2]]) for (let t = 0; t < len; t += 0.5) ctx.fillRect(ap(x + dx * s + t * 0.3), ap(cy + 2 + t), 0.5, 0.5);
 };
 const ventLive = (ctx, x, y, s, time) => {
   const hot = 0.5 + 0.5 * Math.sin(time * 4 + x);
-  const cy = y + 9 - 5.2 * s - 1;
+  const cy = y + 9 - 5.2 * s - 1.5;
   ctx.globalAlpha = 0.25 + hot * 0.65;
-  ctx.fillStyle = "#fff0b0"; ctx.fillRect(ap(x - 1.5 * s), ap(cy), ap(3 * s + 0.5), 1);
+  ctx.fillStyle = "#fff0b0"; ctx.fillRect(ap(x - 0.8 * s), ap(cy - 0.5), ap(2.4 * s), 0.5); ctx.fillRect(ap(x - 0.3 * s), ap(cy), ap(1.4 * s), 0.5);
   // an ember climbing out, and a wisp of smoke
   const rise = (time * 14 + x) % 22;
   ctx.globalAlpha = Math.max(0, 0.95 - rise / 22);
@@ -782,12 +937,15 @@ const gravestone = (ctx, x, y, s, seed) => {
   soft(ctx, x - 3 * s, y + 7, 4 * s, 1.8 * s, [[0, "rgba(74,90,60,0.8)"], [1, "rgba(74,90,60,0)"]]);
 };
 
+// A cairn: flat faceted slabs stacked and shifted, moss in the lowest joint.
 const cairn = (ctx, x, y, s) => {
-  shadow(ctx, x + 4 * s, y + 9, 9 * s, 3 * s, 0.28);
-  const tiers = [[8, 0, 0], [6, 1, 0.08], [4.5, 2, 0.16], [3, 3, 0.24]];
-  for (const [wr, i, lt] of tiers) {
-    ball(ctx, x + (i % 2 ? 1 : -1) * s, y + 6 - i * 5 * s, wr * s, 3.4 * s, lighten(STONE, lt), { hi: 0.45, lo: 0.5 });
-  }
+  const gy = y + 8;
+  facetStone(ctx, x, gy, 7.5 * s, 4.6 * s, 13 * s, STONE, 5, { shade: true });
+  [[7.6, 2.8, 0, 0], [6, 2.6, -0.9, 3.8], [4.6, 2.6, 0.8, 7.2], [3.2, 2.6, -0.4, 10.4]].forEach(([w, h, ox, lift], i) => {
+    ctx.save(); ctx.translate(0, -lift * s);
+    rockPiece(ctx, x + ox * s, gy - i * 0.3, w * s, w * 0.6 * s, h * s, lighten(STONE, i * 0.05), 51 + i * 7, { cap: i === 0 ? mix("#5d8f3a", REALM.GRASS_DK, 0.3) : null, lichen: "#c4c49a" });
+    ctx.restore();
+  });
 };
 
 const boneheap = (ctx, x, y, s) => {
@@ -934,21 +1092,28 @@ const DRESS = { tree: [4, false], pine: [3.5, false], snowpine: [3.5, false], ro
 // Which look a piece gets: lone pieces pick one of four by where they stand;
 // the wood's trees pick by how deep in it they are (three bands), then one
 // of two shapes. Sizes are rounded so the wood shares a modest set of bakes.
+// Stones split each look into three seeded shapes and wander a little in
+// size, so a rocky board doesn't repeat one stamp.
+const STONY = new Set(["rock", "icerock", "obsidian"]);
 const variantOf = (d) => {
   const hv = hash(Math.round(d.x), Math.round(d.y));
-  if (!d.forest) return { v: Math.floor(hv * 4), band: 0, s: Math.round((d.s || 1) * 10) / 10 };
+  if (!d.forest) {
+    if (!STONY.has(d.t)) return { v: Math.floor(hv * 4), band: 0, s: Math.round((d.s || 1) * 10) / 10, sd: 0 };
+    const h2 = hash(Math.round(d.x) + 7, Math.round(d.y) + 3);
+    return { v: Math.floor(hv * 4), band: 0, s: Math.round((d.s || 1) * (0.92 + hash(Math.round(d.y), Math.round(d.x)) * 0.17) * 10) / 10, sd: Math.floor(h2 * 3) };
+  }
   const dep = forestDepthAt(d.x, d.y);
-  return { v: Math.floor(hv * 2), band: dep > 46 ? 2 : dep > 16 ? 1 : 0, s: Math.round((d.s || 1) * 4) / 4 };
+  return { v: Math.floor(hv * 2), band: dep > 46 ? 2 : dep > 16 ? 1 : 0, s: Math.round((d.s || 1) * 4) / 4, sd: 0 };
 };
 const decorSprite = (d) => {
-  const { v, band, s } = variantOf(d);
-  const key = `${d.t}|${s}|${v}|${band}|${d.forest ? "f" : ""}|${REALM.GRASS}`;
+  const { v, band, s, sd } = variantOf(d);
+  const key = `${d.t}|${s}|${v}|${band}|${sd}|${d.forest ? "f" : ""}|${REALM.GRASS}`;
   let sp = SPRITES.get(key);
   if (sp) return sp;
   const tall = d.t === "tree" || d.t === "pine" || d.t === "snowpine" || d.t === "deadtree" || d.t === "willow";
   const [bw, bt] = reg().box[d.t] || (tall ? [27, 48] : [38, 42]);
   const hw = Math.ceil(bw * s + (tall ? 6 : 8)), top = Math.ceil(bt * s + (tall ? 6 : 8)), bot = Math.ceil(12 + 6 * s);
-  const seed = 7 + v * 131 + band * 1009 + Math.round(s * 10) * 17 + d.t.length * 29;
+  const seed = 7 + v * 131 + band * 1009 + Math.round(s * 10) * 17 + d.t.length * 29 + sd * 577;
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
     BAKE_CV = c.canvas;
     try { paintDecor(c, { ...d, x: hw, y: top, s, v, band, seed }, 0); } finally { BAKE_CV = null; }
@@ -1058,16 +1223,6 @@ export const drawBarrow = (ctx, time) => {
 // the eyes and a few falling leaves are live. Greenwood realms ("grove") get
 // the wood's shade down the road to it; the old realms ("cave") a bare crag
 // in their own stone — snow and icicles, moor moss, ash and cinder seams.
-const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-// smooth value noise on a unit lattice
-const vnoise = (x, y, seed) => {
-  const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
-  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
-  const k = seed * 131;
-  const a = hash(xi + k, yi), b = hash(xi + 1 + k, yi), c = hash(xi + k, yi + 1), d = hash(xi + 1 + k, yi + 1);
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-};
 // each country's crag: its stone, what lies on top, what hangs over the mouth
 const cragMat = (kind) => {
   const R = REALM;
@@ -1082,91 +1237,21 @@ const bakeGate = (kind) => {
   const key = `${kind}|${REALM.id}|${PTS[0]}|${PTS.length}|${FOREST ? FOREST.seed : "-"}`;
   if (GATE.key === key) return GATE;
   GATE.key = key;
-  const R = REALM, mat = cragMat(kind), seed = (R.seed || 7) % 9973;
+  const R = REALM, mat = cragMat(kind);
   const woody = kind === "grove";
-  // the road's first stretch: which way it leaves the mouth
-  const [ax, ay] = posAt(0), [bx, by] = posAt(40);
-  let dx = bx - ax, dy = by - ay;
-  const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
-  // the mouth faces down the road, turned toward the camera
-  let nx = dx, ny = dy + 0.5;
-  const nl = Math.hypot(nx, ny); nx /= nl; ny /= nl;
-  const tx = -ny, ty = nx;
-  // wide enough that its jambs stand at the road's edges
-  const cosT = Math.max(0.5, nx * dx + ny * dy);
-  const HW = Math.round(PATH_HALF / cosT + 3), ARCH = 28, S = 2.2, HMAX = 46, FL = 20;
-  // the portal on screen: (s along the face, z up it) -> world
-  let mx = 0, my = 0;
-  const onFace = (s, z) => [mx + tx * s - nx * z / S, my + ty * s - ny * z / S - z];
-  const archTop = (s) => ARCH * Math.pow(Math.max(0, 1 - (s / HW) ** 2), 0.42) * (0.8 + 0.24 * vnoise(s / 9 + 20, 1.5, seed) + 0.1 * vnoise(s / 3.2 + 50, 7.5, seed));
-  // set the mouth in far enough that the whole arch lies on the board
-  for (let d0 = 12; d0 <= 60; d0 += 4) {
-    [mx, my] = posAt(d0);
-    let ok = true;
-    for (let s = -HW; s <= HW; s += 4) { const [px, py] = onFace(s, archTop(s)); if (px < 3 || py < 5) ok = false; }
-    if (ok) break;
-  }
-  // the road near the gate, for keeping the crag off it
-  const near = SEGS.filter((sg) => sg.start < 320);
-  const roadD = (x, y) => {
-    let best = 1e9;
-    for (const sg of near) {
-      const vx = sg.x2 - sg.x1, vy = sg.y2 - sg.y1;
-      const t = Math.max(0, Math.min(1, ((x - sg.x1) * vx + (y - sg.y1) * vy) / (sg.len * sg.len)));
-      const ex = x - sg.x1 - vx * t, ey = y - sg.y1 - vy * t;
-      const d = ex * ex + ey * ey;
-      if (d < best) best = d;
-    }
-    return Math.sqrt(best);
-  };
-  // stones fallen at the mouth's feet, and a few outcrops along the flanks
-  const rocks = [];
-  for (const [s, fu, r, hh] of [[HW + 1, 3, 6.5, 8], [-HW - 1, 3.5, 5.5, 6.5], [HW + 9, 7, 3.2, 3.5], [-HW - 10, 6, 3.5, 4],
-    [HW + 34, 10, 7, 9], [-HW - 40, 12, 8, 10], [HW + 62, 16, 6, 7], [-HW - 70, 17, 6.5, 8]]) {
-    const x = mx + tx * s + nx * fu, y = my + ty * s + ny * fu;
-    if (roadD(x, y) > PATH_HALF - 5 + (Math.abs(s) > HW + 20 ? r + 4 : 0)) rocks.push([x, y, r, hh * (0.85 + hash(Math.round(s), seed) * 0.3)]);
-  }
-  // the crag, as a height over the ground at (x, y): steep stone round the
-  // mouth, easing out along the flanks into lower, turfed slopes
-  const hillAt = (x, y) => {
-    const rx = x - mx, ry = y - my;
-    const u = rx * nx + ry * ny, v = rx * tx + ry * ty, av = Math.abs(v);
-    let z = 0;
-    if (u < FL + 8 && av < 170) {
-      const nearM = 1 - sstep(HW, HW + 75, av);
-      // the face: straight across the mouth, the flanks stepping forward
-      const fu = FL * sstep(HW + 6, HW + 54, av) + (vnoise(v / 11 + 40, 3.3, seed) - 0.5) * 8 * sstep(HW - 2, HW + 12, av);
-      let dep = fu - u + (vnoise(x / 6, y / 6, seed + 1) - 0.5) * 3;
-      // beside the mouth, the crag stops at the road's edge
-      if (dep > 0 && av > HW + 3) dep = Math.min(dep, roadD(x, y) - PATH_HALF - 1);
-      if (dep > 0) {
-        z = dep * (1.05 + 1.15 * nearM);
-        // the shoulder rounds over into a turfed top with a few humps
-        const top = HMAX * (0.5 + 0.5 * nearM) + (vnoise(x / 17, y / 17, seed + 2) - 0.5) * 14;
-        if (z > top - 7) z = top - 7 + 7 * (1 - Math.exp(-(z - top + 7) / 7));
-        // the ends of the ridge wander rather than stop on a ruled line
-        z *= 1 - sstep(70, 138, av + (vnoise(u / 19, 7.7, seed) - 0.5) * 50);
-        // and never out onto a beach
-        if (COAST) z *= sstep(-(COAST.sand || 0) - 6, -(COAST.sand || 0) - 44, seaDepthAt(x, y));
-      }
-    }
-    return z;
-  };
-  const stonesAt = (x, y, z) => {
-    for (const [bx2, by2, r, hh] of rocks) {
-      if (Math.abs(x - bx2) > r || Math.abs(y - by2) > r) continue;
-      const qx = (x - bx2) / r, qy = (y - by2) / (r * 0.8), q = qx * qx + qy * qy;
-      if (q < 1) z = Math.max(z, hh * Math.sqrt(1 - q) * (0.9 + 0.2 * vnoise(x / 2, y / 2, seed + 9)));
-    }
-    return z;
-  };
-  const hAt = (x, y) => stonesAt(x, y, hillAt(x, y));
+  // the crag's shape lives in src/data/gatecrag.js, shared with buildableAt
+  const C = gateCrag();
+  if (!C) { GATE.cv = null; GATE.hAt = null; return GATE; }
+  const { seed, mx, my, nx, ny, tx, ty, HW, S, HMAX, FL, onFace, archTop, hillAt, rocks } = C;
+  // snow and ash lie plainer than turf: fewer tones, no outcrops on top
+  const bare = !!(mat.snow || mat.lava);
+  const hAt = hillAt;
 
   // ---- what the bake covers: the crag, and the road through the wood ----
   // (the crag's reach: along the face both ways, out to the flanks' feet
   // and back into the hill, raised by its height)
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-  for (const sv of [-140, 0, 140]) for (const fu of [FL + 10, -150]) {
+  for (const sv of [-128, 0, 128]) for (const fu of [FL + 10, -150]) {
     const px = mx + tx * sv + nx * fu, py = my + ty * sv + ny * fu;
     x0 = Math.min(x0, px - 10); x1 = Math.max(x1, px + 10); y0 = Math.min(y0, py - HMAX - 10); y1 = Math.max(y1, py + 10);
   }
@@ -1220,7 +1305,8 @@ const bakeGate = (kind) => {
         for (let px = 0; px < PW; px++) {
           const a = nearRow[px];
           if (a <= 0) continue;
-          const lvl = Math.min(3, Math.floor(a * 3 + BAYER4[(py & 3) * 4 + (px & 3)] / 16));
+          // (hard steps whose edges break into two-pixel clumps, not a dither)
+          const lvl = Math.min(3, Math.floor(a * 3 + 0.3 + (vnoise(px / 5, py / 5, seed + 23) - 0.5) * 0.5));
           if (lvl > 0) put(py * PW + px, shade, [0, 44, 84, 118][lvl]);
         }
       }
@@ -1235,16 +1321,13 @@ const bakeGate = (kind) => {
     const STEP = 2, CX = Math.ceil(GX / PX / STEP) + 2, CY = Math.ceil(GYn / PX / STEP) + 2;
     const Hc = new Float32Array(CX * CY);
     for (let cy = 0; cy < CY; cy++) for (let cx = 0; cx < CX; cx++) Hc[cy * CX + cx] = hillAt(x0 + cx * STEP, y0 + cy * STEP);
-    // the fallen stones are small: those at the full art pixel
-    const [rx0, ry0, rx1, ry1] = rocks.reduce((b, [x, y, r]) => [Math.min(b[0], x - r), Math.min(b[1], y - r), Math.max(b[2], x + r), Math.max(b[3], y + r)], [1e9, 1e9, -1e9, -1e9]);
+    // (the fallen stones are faceted pieces of their own, laid on after)
     for (let gy = 0; gy < GYn; gy++) {
       const fy = (gy + 0.5) / PX / STEP, cy = Math.floor(fy), ty = fy - cy;
-      const Y = wy(gy), rowR = Y > ry0 && Y < ry1;
       for (let gx = 0; gx < GX; gx++) {
         const fx = (gx + 0.5) / PX / STEP, cx = Math.floor(fx), tx2 = fx - cx;
         const a = Hc[cy * CX + cx], b = Hc[cy * CX + cx + 1], c2 = Hc[(cy + 1) * CX + cx], d2 = Hc[(cy + 1) * CX + cx + 1];
-        let z = (a * (1 - tx2) + b * tx2) * (1 - ty) + (c2 * (1 - tx2) + d2 * tx2) * ty;
-        if (rowR) { const X = wx(gx); if (X > rx0 && X < rx1) z = stonesAt(X, Y, z); }
+        const z = (a * (1 - tx2) + b * tx2) * (1 - ty) + (c2 * (1 - tx2) + d2 * tx2) * ty;
         Hg[gy * GX + gx] = z; if (z > hmax) hmax = z;
       }
     }
@@ -1261,10 +1344,12 @@ const bakeGate = (kind) => {
     const Lx = -0.391, Ly = -0.485, Lz = 0.782;
     const litAt = (gx, gy) => {
       const hx = (Hs(gx + 1, gy) - Hs(gx - 1, gy)) * PX / 2, hy = (Hs(gx, gy + 1) - Hs(gx, gy - 1)) * PX / 2;
-      return [(-Lx * hx - Ly * hy + Lz) / Math.sqrt(hx * hx + hy * hy + 1), Math.hypot(hx, hy), hx, hy];
+      LG = Math.hypot(hx, hy);
+      return (-Lx * hx - Ly * hy + Lz) / Math.sqrt(hx * hx + hy * hy + 1);
     };
+    let LG = 0;
     const shaded = (gx, gy, z) => {
-      for (let k = 1; k <= 14; k += 1.5) {
+      for (let k = 1; k <= 14; k += 2) {
         const qx = gx - Math.round(0.586 * k * PX), qy = gy - Math.round(0.81 * k * PX);
         if (Hs(qx, qy) > z + k * 2.6) return true;
       }
@@ -1273,7 +1358,7 @@ const bakeGate = (kind) => {
     const tone = (l) => (l > 0.55 ? 0 : l > 0.28 ? 1 : l > -0.05 ? 2 : l > -0.3 ? 3 : 4);
 
     // the crag's own pixels: what covers each, and where in the world it is
-    const kindPx = new Uint8Array(PW * PH);   // 0 none, 1 rock, 2 top, 3 turf lip
+    const kindPx = new Uint8Array(PW * PH);   // 0 none, 1 rock, 2 top, 3 turf lip, 4 low slope left to the field
     const zPx = new Float32Array(PW * PH), gyPx = new Int32Array(PW * PH), lPx = new Float32Array(PW * PH);
     const castPx = new Uint8Array(PW * PH);
     // ground shadow first (under everything the crag doesn't cover)
@@ -1291,11 +1376,11 @@ const bakeGate = (kind) => {
         if (z <= 0.35) { if (gy < front) front = gy; continue; }
         const sp = Math.floor(gy - z * PX);
         if (sp >= front) continue;
-        const [l, g] = litAt(px, gy);
+        const l = litAt(px, gy), g = LG;
         const cast = shaded(px, gy, z);
         for (let q = Math.max(0, sp); q < Math.min(front, PH); q++) {
           const i = q * PW + px;
-          const steep = g > 1.15 + (vnoise(px / 5, gy / 5, seed + 5) - 0.5) * 0.9 || q > sp + 1;
+          const steep = g > (bare ? 1.7 : 1.15) + (vnoise(px / 5, gy / 5, seed + 5) - 0.5) * 0.9 || q > sp + 1;
           kindPx[i] = steep ? 1 : 2;
           zPx[i] = z - (q - sp) / PX; gyPx[i] = gy; lPx[i] = l; castPx[i] = cast ? 1 : 0;
         }
@@ -1351,15 +1436,28 @@ const bakeGate = (kind) => {
         else if (dn2 && lava && vnoise(px / 11, (py + 1) / 11, seed + 12) > 0.7) col = lavaDk;
         // moss (or snow) in clumps: on the blocks' tops where a patch grows,
         // and a whole carpet of it where the patch is thickest
-        else if (moss && !dn && !rt && ((up || up2 || (up3 && hash(px, seed + 14) < 0.5)) && (patch > 0.58 || mat.snow) || patch > 0.72 && (mat.snow || hash(px >> 1, py >> 1) < 0.85))) col = moss[Math.min(2, Math.max(0, (up ? 0 : 1) + castPx[i]))];
+        // (snow the same way, a little more freely, not on every ledge)
+        else if (moss && !dn && !rt && ((up || up2 || (up3 && hash(px, seed + 14) < 0.5)) && patch > (mat.snow ? 0.42 : 0.58) || patch > 0.72 && (mat.snow || hash(px >> 1, py >> 1) < 0.85))) col = moss[Math.min(2, Math.max(0, (up ? 0 : 1) + castPx[i]))];
         put(i, col);
       } else {
         // turf (or snow, or ash) on top: flecked where the sun lands
-        const l = lPx[i];
-        // (gentle slopes keep the ground's own colour, so the hill melts
-        // into the field; only a steep sun-facing brow lightens)
-        t = (l > 0.96 ? 0 : l > 0.52 ? 1 : l > 0.28 ? 2 : 3) + castPx[i];
-        t = Math.max(0, Math.min(4, t + (t === 1 && vnoise(px / 4, py / 4, seed + 8) > 0.8 ? -1 : 0) + (vnoise(px / 9, py / 9, seed + 3) < 0.16 ? 1 : 0)));
+        const l = lPx[i], z = zPx[i];
+        // the hill's low foot is left to the board's own ground, along a
+        // ragged line, so the hill melts into the field with no contour
+        if (z < 3.6 + (vnoise(px / 5, py / 5, seed + 19) - 0.5) * 3) {
+          kindPx[i] = 4;
+          if (castPx[i]) blend(i, shadowC, 70);
+          continue;
+        }
+        // (gentle slopes keep the ground's own colour; only a steep
+        // sun-facing brow lightens)
+        if (bare) {
+          // snow and ash: two close tones, a patch only up on the high ground
+          t = Math.min(2, (l > 0.52 ? 1 : 2) - (z > 6 && l > 0.52 && vnoise(px / 9, py / 9, seed + 3) < 0.2 ? 1 : 0)) + castPx[i];
+        } else {
+          t = (l > 0.96 ? 0 : l > 0.52 ? 1 : l > 0.28 ? 2 : 3) + castPx[i];
+          t = Math.max(0, Math.min(4, t + (t === 1 && vnoise(px / 4, py / 4, seed + 8) > 0.8 ? -1 : 0) + (vnoise(px / 9, py / 9, seed + 3) < 0.16 ? 1 : 0)));
+        }
         put(i, top[t]);
       }
     }
@@ -1369,6 +1467,9 @@ const bakeGate = (kind) => {
     for (let py = 1; py < PH - 4; py++) for (let px = 0; px < PW; px++) {
       const i = py * PW + px;
       if (kindPx[i] === 2 && kindPx[i + PW] === 1) {
+        // (a step only a pixel or two high is just the turf folding: no rim,
+        // or it reads as a scratched line across the slope)
+        if (kindPx[i + 2 * PW] !== 1 || kindPx[i + 3 * PW] !== 1) { put(i + PW, top[2]); if (kindPx[i + 2 * PW] === 1) put(i + 2 * PW, top[2]); continue; }
         put(i, top[0]);
         put(i + PW, top[3]); kindPx[i + PW] = 3;
         const hang = hash(px, py + seed) < 0.3 ? 1 + Math.floor(hash(px + 1, py + seed) * 3) : 0;
@@ -1383,6 +1484,11 @@ const bakeGate = (kind) => {
       return [(-ddx * (ny / S + 1) + ddy * nx / S) / det, (-ny * ddy - nx * ddx) / det];
     };
     const mouth = new Uint8Array(PW * PH);
+    const SQ = 4, AT = new Float32Array(Math.ceil(HW * 2 * SQ) + 2), LIP = new Float32Array(AT.length), FJ = new Float32Array(AT.length);
+    for (let j = 0; j < AT.length; j++) { const sv = j / SQ - HW; AT[j] = archTop(sv); LIP[j] = (vnoise(sv / 2.2 + 9, 0.5, seed) - 0.55) * 2.6; FJ[j] = (vnoise(sv / 1.6 + 30, 2.5, seed + 21) - 0.5) * 1.8; }
+    const sj = (sv) => Math.max(0, Math.min(AT.length - 1, Math.round((sv + HW) * SQ)));
+    const FB0 = C.side ? 3.8 : 2.6, FB1 = C.side ? 8.5 : 6;
+    const archAt = (sv) => AT[sj(sv)];
     // the mouth's own patch of the sprite, so its passes don't sweep the lot
     let qx0 = PW, qy0 = PH, qx1 = 0, qy1 = 0;
     for (let s = -HW; s <= HW; s += 1) for (const z of [0, archTop(s)]) {
@@ -1393,16 +1499,25 @@ const bakeGate = (kind) => {
     qx0 = Math.max(2, qx0 - 6); qy0 = Math.max(2, qy0 - 6); qx1 = Math.min(PW - 2, qx1 + 6); qy1 = Math.min(PH - 2, qy1 + 6);
     const dark = mat.dark, floor = rgb(mat.floor);
     const floorDk = rgb(mix(mat.floor, "#" + dark.map((v) => v.toString(16).padStart(2, "0")).join(""), 0.55));
+    qy1 = Math.min(PH - 2, qy1 + 4);
     for (let py = qy0; py < qy1; py++) for (let px = qx0; px < qx1; px++) {
       const [s, z] = toFace(wx(px), wy(py));
-      if (Math.abs(s) >= HW || z < 0) continue;
-      const zt = archTop(s);
+      if (Math.abs(s) >= HW) continue;
+      // the threshold's lip: ragged, here a sill of rock, there the floor's
+      // dirt spilling a pixel or two out onto the road
+      const lip = LIP[sj(s)];
+      if (z < lip || (z < 0 && Math.abs(s) > HW * 0.8)) continue;
+      const zt = archAt(s);
       if (z > zt) continue;
       const i = py * PW + px;
       mouth[i] = 1;
-      // the floor running in, sinking into the dark
-      const r = z / zt + (BAYER4[(py & 3) * 4 + (px & 3)] / 16 - 0.5) * 0.14;
-      put(i, r < 0.1 ? floor : r < 0.24 ? floorDk : dark);
+      // the floor running in, sinking into the dark in hard steps whose
+      // edges wander a pixel or two
+      // (by height up the opening, not its share of the arch: the floor is
+      // level, so it shows as a band of the same depth right across)
+      const r = z + FJ[sj(s)];
+      // (an arch seen at a slant shows less of its floor: give it more)
+      put(i, r < FB0 ? floor : r < FB1 ? floorDk : dark);
     }
     // the mouth's rim: ink round the hole, a lit edge on the upper left of
     // the arch, rough teeth of rock biting into the dark
@@ -1424,7 +1539,7 @@ const bakeGate = (kind) => {
       if (!near2) continue;
       const [s, z] = toFace(wx(px), wy(py));
       if (z < 1.2) continue;
-      put(i, s > HW * 0.1 || z > archTop(s) * 0.7 ? rock[1] : rock[3]);
+      put(i, s > HW * 0.1 || z > archAt(s) * 0.7 ? rock[1] : rock[3]);
     }
     // under the lip, the first pixels of the dark show the lintel's
     // underside — the mouth has a thickness, not a painted-on hole
@@ -1433,7 +1548,7 @@ const bakeGate = (kind) => {
       const i = py * PW + px;
       if (!mouth[i] || mouth[i - PW] && mouth[i - 2 * PW]) continue;
       const [s, z] = toFace(wx(px), wy(py));
-      if (z < archTop(s) * 0.45) continue;
+      if (z < archAt(s) * 0.45) continue;
       put(i, mouth[i - PW] ? lintel[1] : lintel[0]);
     }
     // teeth and what hangs over the lip: roots, moss, icicles
@@ -1467,17 +1582,39 @@ const bakeGate = (kind) => {
 
     // ---- ink round the crag, only where it stands up off the ground ----
     const out = new Uint8Array(PW * PH);
+    // (a crag pixel inks its empty neighbour only if it stands well above
+    // it — never along a gentle slope's fade into the field)
+    const solidK = (j) => kindPx[j] > 0 && kindPx[j] < 4;
     for (let py = 1; py < PH - 1; py++) for (let px = 1; px < PW - 1; px++) {
       const i = py * PW + px;
-      if (kindPx[i] || mouth[i]) continue;
-      if ((kindPx[i - 1] && zPx[i - 1] > 2.2) || (kindPx[i + 1] && zPx[i + 1] > 2.2) || (kindPx[i - PW] && zPx[i - PW] > 2.2) || (kindPx[i + PW] && zPx[i + PW] > 2.2)) out[i] = 1;
+      if (solidK(i) || mouth[i]) continue;
+      const z0 = kindPx[i] === 4 ? zPx[i] : 0;
+      // (the turf's back edge against the field behind it stays unlined —
+      // grass against grass, a line there reads as a scratch)
+      if ((solidK(i - 1) && zPx[i - 1] - z0 > 2.2) || (solidK(i + 1) && zPx[i + 1] - z0 > 2.2) || (solidK(i - PW) && zPx[i - PW] - z0 > 2.2) || (solidK(i + PW) && kindPx[i + PW] !== 2 && zPx[i + PW] - z0 > 2.2)) out[i] = 1;
     }
     for (let i = 0; i < PW * PH; i++) if (out[i]) put(i, ink, 235);
     // the foot of the crag sits in its own shade
     for (let py = 0; py < PH - 2; py++) for (let px = 0; px < PW; px++) {
       const i = py * PW + px;
-      if (!kindPx[i] || kindPx[i + PW] || mouth[i + PW] || out[i + PW]) continue;
+      if (!solidK(i) || solidK(i + PW) || mouth[i + PW] || out[i + PW]) continue;
       if (zPx[i] < 3) { blend(i + PW, shadowC, 120); blend(i + 2 * PW, shadowC, 60); }
+    }
+    // ---- stones fallen at its feet, scree across the threshold: each its
+    // own faceted, inked piece — painted straight into the bake's pixels
+    // (a canvas read-back per stone costs more than the whole crag) ----
+    {
+      const st = rocks.map(([x, y, r, hh], k) => [x, y, r, r * 0.66, hh, seed * 7 + k * 31]);
+      for (let k = 0; k < 3; k++) {
+        const s = (hash(k, seed + 41) - 0.5) * HW * 1.3, fu = 1.5 + hash(k, seed + 42) * 3, r = 1.5 + hash(k, seed + 43) * 1.1;
+        st.push([mx + tx * s + nx * fu, my + ty * s + ny * fu, r, r * 0.7, r * 0.85, seed + 300 + k]);
+      }
+      const M0 = { a: PX, d: PX, e: -x0 * PX, f: -y0 * PX };
+      const main = pxCtx(dd, PW, PH, M0);
+      for (const [x, y, w2, d2, h2, sd] of st) facetStone(main, x, y, w2, d2, h2, mat.rock, sd, { shade: true });
+      st.sort((p, q) => p[1] - q[1]);
+      const capC = mat.snow ? "#eef5f8" : mat.moss;
+      for (const [x, y, w2, d2, h2, sd] of st) inkedStone(dd, PW, PH, M0, x, y, w2, d2, h2, mat.rock, sd, { cap: h2 > 4.5 ? capC : null, snow: !!mat.snow, lichen: mat.moss ? "#c4c49a" : null });
     }
     c.putImageData(img, 0, 0);
 
@@ -1520,11 +1657,13 @@ const bakeGate = (kind) => {
   for (let s = -HW; s <= HW; s += 2) for (const z of [0, archTop(s) + 8]) { const [px, py] = onFace(s, z); bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); }
   GATE.mouthBox = [bx0 - 4, by0 - 6, bx1 + 4, by1 + 6];
   GATE.hAt = hAt; GATE.top = HMAX; GATE.trees = new Map(); GATE.rid = REALM.id;
+  GATE.mouthFloor = onFace(0, 0);
   return GATE;
 };
 
 const drawGate = (ctx, time, kind) => {
   const G = bakeGate(kind);
+  if (!G.cv) return;
   ctx.drawImage(G.cv, G.x, G.y, G.w, G.h);
   // eyes: two hard pips with a faint bloom, blinking out of step
   for (const [ex, ey, ph, col] of G.eyes) {
@@ -1558,25 +1697,52 @@ export const drawCave = (ctx, time) => drawGate(ctx, time, "cave");
 // and three chevrons that pulse while you're still building. It stands on
 // the meadow just past the treeline, beside the road, never across it.
 const SIGN = { key: "", cv: null, x: 0, y: 0 };
+const TALL = new Set(["tree", "pine", "snowpine", "deadtree", "willow"]);
 const signSpot = () => {
   let d = FOREST ? 0 : 96;
   for (; FOREST && d < TOTAL_LEN * 0.5; d += 4) {
     const [x, y] = posAt(d);
     if (!FOREST || forestDepthAt(x, y) < -10) break;
   }
-  // a few spots on either side of the road just past the treeline; the
-  // first one clear of the road, the board edge and anything standing wins
+  const C = gateCrag();
+  // a few spots on either side of the road just past the treeline, scored:
+  // clear of the road, the board's edges, the crag, and of anything whose
+  // trunk or crown would stand in the plank's box or the chevrons' column
+  // above it (x ± 33, y - 50 .. y + 4)
   const cands = [];
-  for (const dd of [8, 22, 36, 50]) {
+  const off = (x, y) => nearestOnPath(x, y).d;
+  for (const dd of [8, 22, 36, 50, 66, 82, 100, 120]) {
     const at = Math.min(TOTAL_LEN, d + dd);
     const [px, py] = posAt(at);
     const a = angleAt(at) + Math.PI / 2;
-    for (const sd of [-1, 1]) {
-      const off = PATH_HALF + 17;
-      const x = px + Math.cos(a) * sd * off, y = py + Math.sin(a) * sd * off;
-      const clearRd = nearestOnPath(x, y).d > PATH_HALF + 8 && nearestOnPath(x, y + 10).d > PATH_HALF + 2 && nearestOnPath(x, y - 30).d > PATH_HALF;
+    for (const sd of [-1, 1]) for (const gap of [17, 27, 38]) {
+      const x = px + Math.cos(a) * sd * (PATH_HALF + gap), y = py + Math.sin(a) * sd * (PATH_HALF + gap);
+      // the posts must stand on the grass; the plank and the chevrons had
+      // better not hang over the road either
+      const feet = off(x - 28, y) > PATH_HALF + 3 && off(x, y) > PATH_HALF + 3 && off(x + 28, y) > PATH_HALF + 3 && off(x, y + 6) > PATH_HALF + 2;
+      const plank = off(x - 30, y - 12) > PATH_HALF && off(x + 30, y - 12) > PATH_HALF && off(x - 30, y - 24) > PATH_HALF && off(x + 30, y - 24) > PATH_HALF && off(x, y - 24) > PATH_HALF;
+      const chev = off(x, y - 42) > PATH_HALF - 4;
       const crowd = DECOR.some((o) => !o.forest && Math.abs(o.x - x) < 40 && o.y - y > -14 && o.y - y < 48);
-      cands.push({ x, y, score: (clearRd ? 0 : 100) + (crowd ? 30 : 0) + (x < 40 || y < 40 ? 50 : 0) + dd * 0.3 + y * 0.02 });
+      let trees = 0, overChev = 0;
+      for (const o of DECOR) {
+        const k = o.s || 1, tall = o.forest || TALL.has(o.t), hw = (tall ? 16 : 12) * k, up = (tall ? 50 : 22) * k;
+        if (o.x + hw > x - 33 && o.x - hw < x + 33 && o.y + 10 > y - 50 && o.y - up < y + 4) trees++;
+        // (worst of all: something standing in the chevrons' own column)
+        if (o.x + hw > x - 9 && o.x - hw < x + 9 && o.y + 10 > y - 54 && o.y - up < y - 28) overChev++;
+      }
+      let wood = 0;
+      if (FOREST) for (const [qx, qy] of [[-26, 0], [0, 0], [26, 0], [-20, -22], [20, -22], [0, -44]]) if (forestDepthAt(x + qx, y + qy) > -8) wood++;
+      // (the crag as the camera sees it: does any of it rise into the box?)
+      let crag = false;
+      if (C) {
+        for (const [qx, qy] of [[-28, 0], [0, 0], [28, 0], [-24, -24], [0, -24], [24, -24], [-8, -50], [8, -50]]) {
+          for (let z = 0; z <= 48 && !crag; z += 3) if (C.hillAt(x + qx, y + qy + z) > z + 0.3) crag = true;
+          if (crag) break;
+        }
+        for (const [bx, by, r, hh] of C.rocks) if (Math.abs(bx - x) < 34 + r && by + r * 0.7 > y - 56 && by - hh - r * 0.7 < y + 4) crag = true;
+      }
+      const edge = x < 40 || x > W - WALL_W - 40 || y - 50 < 4 || y > H - 10;
+      cands.push({ x, y, score: (feet ? 0 : 200) + (plank ? 0 : 60) + (chev ? 0 : 20) + (crowd ? 30 : 0) + Math.min(5, trees) * 14 + overChev * 40 + wood * 10 + (crag ? 60 : 0) + (edge ? 50 : 0) + dd * 0.25 + gap * 0.4 + y * 0.02 });
     }
   }
   cands.sort((p, q) => p.score - q.score);
@@ -1636,9 +1802,20 @@ const bakeSign = () => {
       cc.fillStyle = darken(wood, 0.45); cc.fillRect(50, 15, 2.5, 1.5);
       cc.fillStyle = lighten(wood, 0.3); cc.fillRect(50, 14.5, 2, 0.5);
       cc.fillStyle = darken(wood, 0.6); cc.fillRect(55, 10.5, 5, 0.5); cc.fillRect(53.5, 11, 2, 0.5);
-      // moss creeping up from the lower left corner
-      cc.fillStyle = "#5a7a38"; cc.fillRect(4, 18, 5, 2.5); cc.fillRect(5, 17, 2.5, 1);
-      cc.fillStyle = "#7c9c48"; cc.fillRect(4.5, 17.5, 2, 0.5);
+      // weathering in the realm's own way: moss creeping up from the lower
+      // left corner, soot on the ash, rime on the snow
+      const gk = groundKind(R);
+      if (gk === "snow") {
+        cc.fillStyle = "#b4c8d8"; cc.fillRect(4, 18.5, 4.5, 2); cc.fillRect(4.5, 17.5, 1.5, 1);
+        cc.fillStyle = "#e4eef4"; cc.fillRect(4, 18, 3, 0.5); cc.fillRect(4.5, 17.5, 1, 0.5);
+      } else if (gk === "ash") {
+        cc.fillStyle = "#2e2424"; cc.fillRect(3.5, 17, 6, 4); cc.fillRect(5, 15.5, 2.5, 1.5); cc.fillRect(55, 17.5, 5, 3);
+        cc.fillStyle = "#4a3a34"; cc.fillRect(9.5, 18, 2, 1.5); cc.fillRect(7.5, 16.5, 1, 1); cc.fillRect(53.5, 18.5, 1.5, 1);
+      } else {
+        const mo = gk === "marsh" ? "#4a6436" : gk === "turf" ? "#8a8a52" : "#5a7a38";
+        cc.fillStyle = mo; cc.fillRect(4, 18, 5, 2.5); cc.fillRect(5, 17, 2.5, 1);
+        cc.fillStyle = lighten(mo, 0.25); cc.fillRect(4.5, 17.5, 2, 0.5);
+      }
       cc.restore();
     });
     // nails, and a rust stain running from each
@@ -1672,38 +1849,60 @@ const bakeSign = () => {
     for (const [x, y] of letters) if (!at.has(`${x},${y + 1}`)) { const px = Math.round(x * PX), py = Math.round((y + 1) * PX); for (let r = 0; r < 2; r++) { const o = (py * PWs + px + r) * 4; dd[o] = lip[0]; dd[o + 1] = lip[1]; dd[o + 2] = lip[2]; dd[o + 3] = 255; } }
     for (const [x, y] of letters) dot(x, y, cut);
     c.putImageData(img, 0, 0);
-    // claw marks: three raw scratches through the lower right
-    for (let j = 0; j < 3; j++) for (let q = 0; q < 4; q++) {
-      const X = ap(9 + j * 2 + q * 0.7), Y = ap(15.5 + q * 0.75);
-      c.fillStyle = lighten(wood, 0.3); c.fillRect(X, Y, 0.5, 0.5);
-      c.fillStyle = darken(wood, 0.5); c.fillRect(X + 0.5, Y, 0.5, 0.5);
+    // claw marks: three parallel gouges raked down-left across the right
+    // end, each a dark cut with a lit lip under it
+    for (let j = 0; j < 3; j++) for (let q = 0; q < 5; q++) {
+      const X = 51.5 + j * 1.5 - q * 0.5, Y = 14.5 + q * 0.5 + j * 0.5;
+      c.fillStyle = darken(wood, 0.58); c.fillRect(X, Y, 0.5, 0.5);
+      c.fillStyle = lighten(wood, 0.34); c.fillRect(X + 0.5, Y + 0.5, 0.5, 0.5);
     }
-    // grass at the posts' feet
-    const base = mix(R.GRASS_DK, R.GRASS, 0.2), tip = lighten(R.GRASS_LT, 0.12);
-    for (const [tx, sd] of [[GX - 23, 3], [GX - 17, 5], [GX + 19, 7], [GX + 25.5, 9]]) tuft(c, tx, GY + 0.5, 0.55, base, tip, sd, { n: 3 });
+    // the realm's own grass at the posts' feet, in art pixels
+    const P = pxPainter(c), cols = dressCols(R), gk = groundKind(R);
+    for (const [tx, sd] of [[GX - 23, 3], [GX - 17, 5], [GX + 19, 7], [GX + 25.5, 9]]) {
+      if (gk === "snow" && sd % 4 === 1) continue;
+      pixelTuft(P.put, P.shade, Math.round(tx * PX), Math.round((GY + 0.5) * PX), gk === "snow" ? 0.4 : 0.5, sd, cols, { n: gk === "snow" ? 2 : 3 });
+    }
+    P.done();
   });
   return SIGN;
 };
-// a pixel chevron pointing down at the road
-const chevron = (ctx, x, y, col, a) => {
-  ctx.globalAlpha = a;
-  ctx.fillStyle = "#241a26";
-  for (let i = 0; i <= 8; i++) { const d = i * 0.5; ctx.fillRect(ap(x - 5 + d) - 0.5, ap(y + d) - 0.5, 2, 2); ctx.fillRect(ap(x + 5 - d) - 1, ap(y + d) - 0.5, 2, 2); }
-  ctx.fillStyle = col;
-  for (let i = 0; i <= 8; i++) { const d = i * 0.5; ctx.fillRect(ap(x - 5 + d), ap(y + d), 1, 1); ctx.fillRect(ap(x + 5 - d) - 0.5, ap(y + d), 1, 1); }
-  ctx.globalAlpha = 1;
-};
-export const drawSpawnSign = (ctx, time, phase) => {
+// A pixel chevron pointing down at the road, baked in three tones (dim,
+// mid, lit) and stamped whole — never faded with alpha.
+const CHEV = [];
+const CHEV_TONES = [["#7a3038", "#8e4046", "#a4524e"], ["#a8404a", "#d05a52", "#ec8a70"], ["#c8484a", "#f08a6c", "#ffe0b8"]];
+const chevSprite = (k) => CHEV[k] || (CHEV[k] = bakeSprite(14, 10, (c) => {
+  const [lo, mid, hi] = CHEV_TONES[k];
+  const dot = (px, py, col) => { c.fillStyle = col; c.fillRect(1.5 + px / PX, 1.5 + py / PX, 1 / PX, 1 / PX); };
+  // two arms of three pixels' thickness meeting in a point 10 below
+  for (let i = 0; i <= 10; i++) for (const X of [i, 21 - i]) {
+    dot(X, i, hi); dot(X, i + 1, mid); dot(X, i + 2, i > 7 ? lo : mid); dot(X, i + 3, lo);
+  }
+}));
+// `part`: "all" (the default), or "body" (the plank on its posts, for a
+// y-sorted pass at the sign's ground line, signGround().y) and "chevrons"
+// (drawn late, over everything).
+export const signGround = () => { if (!PTS.length) return null; const S = bakeSign(); return { x: S.x, y: S.y }; };
+export const drawSpawnSign = (ctx, time, phase, part = "all") => {
   if (!PTS.length) return;
   const S = bakeSign();
-  ctx.drawImage(S.cv, S.x - 32, S.y - 31, 64, 36);
-  // the chevrons pointing at the road: loud while you build, a murmur once
-  // the fighting starts
+  if (part !== "chevrons") ctx.drawImage(S.cv, S.x - 32, S.y - 31, 64, 36);
+  if (part === "body") return;
+  // the chevrons over the plank: a light running down them while you
+  // build, a dim murmur once the fighting starts
   const loud = phase !== "combat";
   for (let k = 0; k < 3; k++) {
-    const lit = 0.3 + 0.7 * Math.max(0, Math.sin(time * 4 - k * 1.05));
-    chevron(ctx, S.x, S.y - 54 + k * 7, lit > 0.75 ? "#f09a84" : "#e86e60", lit * (loud ? 1 : 0.4));
+    const lit = Math.max(0, Math.sin(time * 4 - k * 1.05));
+    const tone = loud ? (lit > 0.72 ? 2 : lit > 0.2 ? 1 : 0) : (lit > 0.9 ? 1 : 0);
+    ctx.drawImage(chevSprite(tone), S.x - 7, S.y - 51 + k * 6, 14, 10);
   }
+};
+// Bake the gate and the sign ahead of the board's first frame (call it once
+// a realm is selected, in idle time; the first draw bakes them otherwise).
+export const warmScenery = () => {
+  if (!PTS.length || typeof document === "undefined") return;
+  const k = REALM.spawn;
+  if (hasCrag() && !reg().spawn[k]) bakeGate(k === "grove" ? "grove" : "cave");
+  bakeSign();
 };
 
 

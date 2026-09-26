@@ -19,7 +19,7 @@ import { paintShore, drawShoreLive, coastTones, coastPixel } from "./coast.js";
 import { paintRoad, drawRoadMarks } from "./road.js";
 import { bakeWater } from "./water.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
-import { groundKind, pixelTuft } from "./groundblend.js";
+import { groundKind, pixelTuft, strawOf } from "./groundblend.js";
 // a chapter's own ground art, keyed by REALM.groundArt (looked up when the
 // ground is painted, never at load — see the import cycle note in scenery.js)
 const artFor = (part, key) => IRON_ART[part]?.[key] || HOLLOW_ART[part]?.[key];
@@ -267,7 +267,7 @@ function paintToneMap(ctx, look) {
           tn = tt < 0.36 ? 1 : tt < 0.5 ? 2 : 3;
           if (depth > 6 && tn < 3) {
             const pl = pools[k] * w00 + pools[k + 1] * w10 + pools[k + FW] * w01 + pools[k + FW + 1] * w11 + dt * 0.25 + dz * 0.06;
-            if (pl > 0.66) tn += pl > 0.74 ? 2 : 1;
+            if (pl > 0.63) tn += pl > 0.72 ? 2 : 1;
           }
           r = 1;
         } else {
@@ -626,7 +626,8 @@ function paintDetail(G, look, kind, rng) {
     }
     const nScuff = kind === "snow" ? 0 : 2 + Math.floor(rng() * 3);
     const scuffCols = kind === "snow" ? [C("#a8a088"), C("#8a846e"), C("#6a6656")]
-      : kind === "ash" || burnt ? [C("#5a4c44"), C("#3e3430"), C("#2a2226")]
+      : kind === "ash" ? [C("#5a4c44"), C("#3e3430"), C("#2a2226")]
+      : burnt ? [C(mix(R.GRASS_DK, "#6a5c50", 0.5)), C(mix(R.GRASS_DK, "#4a3e36", 0.45)), C(mix(R.GRASS_DK, "#2e2628", 0.4))]
       : kind === "marsh" ? [C("#5a4a36"), C("#44382a"), C("#30281f")]
       : [C("#a4845a"), C("#8a6a48"), C("#6a4e36")];
     for (let i = 0; i < nScuff; i++) {
@@ -641,25 +642,29 @@ function paintDetail(G, look, kind, rng) {
     // a few low cushions, each laid first as a darker, cooler hump in the
     // turf, then crowded with sprigs that touch — lit bells on the sun side,
     // and a few strays at the rim
-    const heath = [C("#b08aa0"), C("#8a6280"), C("#62445a"), C(darken(R.GRASS_DK, 0.3)), C("#c8a0b4")];
+    const heath = [C("#b08aa0"), C("#80607a"), C("#5e4658"), C(darken(R.GRASS_DK, 0.3)), C("#c8a0b4"), C("#4a3648")];
     const nPatch = 3 + Math.floor(rng() * 2);
     for (let i = 0; i < nPatch; i++) {
       const at = spot(16, 80);
       if (!at) continue;
-      const [hx, hy] = at, rx = 9 + rng() * 7, ry = rx * (0.5 + rng() * 0.12);
+      const [hx, hy] = at, rx = 10 + rng() * 8, ry = rx * (0.5 + rng() * 0.12);
       const cx = P(hx), cy = P(hy), RX = rx * RES, RY = ry * RES, s1 = rng() * 6.3, s2 = rng() * 6.3;
       const edge = (a) => 0.82 + 0.12 * Math.sin(a * 2 + s1) + 0.07 * Math.sin(a * 3 + s2);
       for (let j = -Math.ceil(RY) - 2; j <= Math.ceil(RY) + 2; j++) {
         for (let k = -Math.ceil(RX) - 2; k <= Math.ceil(RX) + 2; k++) {
-          const a = k / RX, b = j / RY, q = Math.hypot(a, b) / edge(Math.atan2(b, a)) + (hash(cx + k, cy + j) - 0.5) * 0.12;
-          if (q > 1) continue;
+          const a = k / RX, b = j / RY, q = Math.hypot(a, b) / edge(Math.atan2(b, a)) + (hash(cx + k, cy + j) - 0.5) * 0.16;
+          if (q > 1.12) continue;
           if (!clear((cx + k) / RES, (cy + j) / RES, 1)) continue;
-          G.shift(cx + k, cy + j, q > 0.8 && a * 0.5 + b * 0.8 > 0 ? -2 : -1); G.tint(cx + k, cy + j, 0);
+          const lit = -(a * 0.5 + b * 0.8), h = hash(cx + k, (cy + j) * 3 + 7);
+          // its shadow on the turf, down-right; then the low mass of the
+          // heather itself, lit on its upper-left shoulder
+          if (q > 0.96) { if (lit < 0) G.shift(cx + k, cy + j, -1); continue; }
+          G.set(cx + k, cy + j, heath[lit > 0.45 && h > 0.3 ? 1 : lit < -0.35 || h < 0.18 ? 5 : 2]);
         }
       }
-      const n = 22 + Math.floor(rng() * 16), list = [];
+      const n = Math.round(rx * ry * (0.2 + rng() * 0.08)), list = [];
       for (let k = 0; k < n; k++) {
-        const a = rng() * Math.PI * 2, r = (k < n - 4 ? Math.sqrt(rng()) * 0.8 : 1 + rng() * 0.35) * edge(a);
+        const a = rng() * Math.PI * 2, r = (k < n - 5 ? Math.sqrt(rng()) * 0.85 : 1 + rng() * 0.35) * edge(a);
         list.push([hx + Math.cos(a) * rx * r, hy + Math.sin(a) * ry * r, a, r]);
       }
       list.sort((a, b) => a[1] - b[1]).forEach(([x, y, a, r], k) => {
@@ -683,9 +688,10 @@ function paintDetail(G, look, kind, rng) {
         for (let k = -Math.ceil(RX) - 2; k <= Math.ceil(RX) + 2; k++) {
           const a = k / RX, b = j / RY, q = a * a + b * b;
           if (q > 1.25) continue;
-          const lit = -(a * 0.5 + b * 0.8);
-          if (q <= 1 && lit > 0.25) G.shift(cx + k, cy + j, lit > 0.6 ? 2 : 1);
-          else if (q > 0.55 && lit < -0.2) { G.shift(cx + k, cy + j, -1); G.tint(cx + k, cy + j, 0); }
+          // (its light and lee fray in the same wind streaks as the snow)
+          const lit = -(a * 0.5 + b * 0.8) + DITH_WIND[((cy + j) & 127) * DT + ((cx + k) & 127)] * 0.3, qq = q + DITH_WIND[((cy + j + 40) & 127) * DT + ((cx + k + 9) & 127)] * 0.25;
+          if (qq <= 1 && lit > 0.25) G.shift(cx + k, cy + j, lit > 0.6 ? 2 : 1);
+          else if (qq > 0.55 && qq < 1.2 && lit < -0.2) { G.shift(cx + k, cy + j, -1); G.tint(cx + k, cy + j, 0); }
         }
       }
     }
@@ -710,11 +716,15 @@ function paintDetail(G, look, kind, rng) {
     const glowC = [C("#ffd88a"), C("#f8a040"), C("#e0662c"), C("#a8381e")], shoulder = C("#241a1c");
     const crack = (px, py, dir, len, heat0) => {
       for (let k = 0; k < len; k++) {
-        dir += (rng() - 0.5) * 0.7;
+        dir += (rng() - 0.5) * 1.05;
         px += Math.round(Math.cos(dir)); py += Math.round(Math.sin(dir) * 0.75);
         if (!G.isTurf(px, py)) break;
         const h = heat0 * (1 - k / len) * 1.25;
-        if (h > 0.3) { G.set(px, py, glowC[h > 1 ? 0 : h > 0.75 ? 1 : h > 0.5 ? 2 : 3]); G.set(px, py + 1, shoulder); G.shift(px, py - 1, -1); }
+        if (h > 0.3) {
+          const gi = h > 1 ? 0 : h > 0.75 ? 1 : h > 0.5 ? 2 : 3;
+          G.set(px, py, glowC[gi]); G.set(px, py + 1, shoulder); G.shift(px, py - 1, -1);
+          if (h > 0.85) { G.set(px + 1, py, glowC[gi + 1]); G.set(px + 1, py + 1, shoulder); }   // wider where it leaves the fire
+        }
         else { G.shift(px, py, -2); G.shift(px, py + 1, 1); }
         if (rng() < 0.08) {
           let bx = px, by = py; const bd = dir + (rng() < 0.5 ? 0.9 : -0.9);
@@ -825,7 +835,7 @@ function paintDetail(G, look, kind, rng) {
       if (i % 5 === 0) G.shift(px, py + 1, -1);
     }
     // moss cushions, bright where the sun gets in
-    const moss = [C(mix(R.GRASS, R.GRASS_LT, 0.5)), C(mix(R.GRASS_DK, R.GRASS, 0.5)), C(darken(R.GRASS_DK, 0.25))];
+    const moss = [C(mix(R.GRASS_DK, R.GRASS, 0.6)), C(mix(R.GRASS_DK, R.GRASS, 0.2)), C(darken(R.GRASS_DK, 0.3))];
     for (let i = 0; i < 70; i++) {
       const x = rng() * SW, y = rng() * H;
       const dpt = forestDepthAt(x, y);
@@ -862,7 +872,7 @@ function paintDetail(G, look, kind, rng) {
   // (burnt and ash country: dry straw from the realm's own colours, calm on
   // its ground — only the tufts by a dead tree are charred)
   const dry = kind === "ash" || burnt;
-  const straw = [C(darken(R.GRASS_DK, 0.3)), C(mix(R.GRASS_DK, "#6a5438", 0.4)), C(mix(R.GRASS_LT, "#b89868", 0.5)), C(mix(R.GRASS_LT, "#e0cc98", 0.55))];
+  const straw = strawOf(R).map(C);
   const tuftCols = kind === "snow" ? [C("#6e6a5c"), C("#9a947e"), C("#c4bca0"), C("#e2dac4")]
     : dry ? straw
     : kind === "marsh" ? [C(R.TUFT), C(mix(R.GRASS, R.TUFT, 0.3)), C(mix(R.GRASS_LT, "#c8bc88", 0.35)), C(mix(R.GRASS_LT, "#e0d49c", 0.5))]
@@ -941,7 +951,7 @@ function paintDetail(G, look, kind, rng) {
       const x = f.x + (hash(i, k + 20) - 0.5) * 14, y = f.y + (hash(i, k + 30) - 0.5) * 8;
       if (clear(x, y, 6)) flowerHead(G, x, y, f.c, false, stemC, centre);
     }
-    flowerHead(G, f.x, f.y, f.c, i < 3 ? 2 : 1, stemC, centre, i);
+    if (!FOREST || forestDepthAt(f.x, f.y) < -4) flowerHead(G, f.x, f.y, f.c, i < 3 ? 2 : 1, stemC, centre, i);
   });
 
   // ---- the last glints: sparkle on the snow, embers in the ash
@@ -967,7 +977,28 @@ function paintDetail(G, look, kind, rng) {
 // ---- the wood's hem: bushes and ferns crowding the treeline ----------------
 // Both are drawn pixel by pixel into baked sprites, one per size, and set
 // down 1:1 on whole art pixels (a baked sprite is never scaled).
-const dotOn = (c) => (px, py, col) => { c.fillStyle = col; c.fillRect(px / PX, py / PX, 1 / PX, 1 / PX); };
+// paint a sprite's art pixels straight into its buffer (a fillRect each
+// made the hem a visible share of a cold bake); colours as "#rrggbb" or
+// "rgba(r,g,b,a)", the translucent ones only ever laid on bare canvas
+const COLS = new Map();
+const colOf = (c) => {
+  let v = COLS.get(c);
+  if (!v) {
+    if (c[0] === "#") v = [...rgb(c), 255];
+    else { const n = c.match(/[\d.]+/g).map(Number); v = [n[0], n[1], n[2], Math.round((n[3] ?? 1) * 255)]; }
+    COLS.set(c, v);
+  }
+  return v;
+};
+const pixelsOn = (c, fn) => {
+  const w = c.canvas.width, h = c.canvas.height, img = c.getImageData(0, 0, w, h), d = img.data;
+  fn((px, py, col) => {
+    if (px < 0 || py < 0 || px >= w || py >= h) return;
+    const o = (py * w + px) * 4, v = colOf(col);
+    d[o] = v[0]; d[o + 1] = v[1]; d[o + 2] = v[2]; d[o + 3] = v[3];
+  });
+  c.putImageData(img, 0, 0);
+};
 // a stepped contact shadow, thrown down-right
 const pixShadow = (put, cx, cy, rx, ry) => {
   for (let j = -ry; j <= ry; j++) for (let i = -rx; i <= rx; i++) {
@@ -988,11 +1019,11 @@ const bushSprite = (leaf, v, size) => {
   const T = [lighten(leaf, 0.4), lighten(leaf, 0.2), leaf, darken(leaf, 0.2), darken(leaf, 0.4)];
   const cv = bakeSprite(w, h, (c) => {
     const AW = w * PX, AH = h * PX, base = AH - 7;
-    pixShadow(dotOn(c), Math.round(AW * 0.56), base + 2, Math.round(AW * 0.4), 4);
+    pixelsOn(c, (put) => pixShadow(put, Math.round(AW * 0.56), base + 2, Math.round(AW * 0.4), 4));
     const cl = [[0.5, 0.36, 0.3, 0.3], [0.27, 0.54, 0.22, 0.26], [0.73, 0.54, 0.22, 0.25]];
     if (size > 0) cl.push([0.52, 0.66, 0.19, 0.19]);
-    cl.forEach(([fx, fy, frx, fry], i) => part(c, (cc) => {
-      const put = dotOn(cc), sd = v * 31 + i * 7 + size;
+    cl.forEach(([fx, fy, frx, fry], i) => part(c, (cc) => pixelsOn(cc, (put) => {
+      const sd = v * 31 + i * 7 + size;
       const cx = Math.round(AW * fx + (hash(sd, 1) - 0.5) * 4), cy = Math.round(AH * fy), rx = AW * frx, ry = AH * fry;
       const lob = hash(sd, 2) * 6.3;
       const inside = (i2, j2) => {
@@ -1022,15 +1053,15 @@ const bushSprite = (leaf, v, size) => {
         const ang = Math.PI * (1.05 + hash(sd, k + 90) * 0.6), i = Math.round(Math.cos(ang) * (rx + 1)), j = Math.round(Math.sin(ang) * (ry + 1));
         put(cx + i, cy + j, T[1]); put(cx + i + 1, cy + j, T[2]);
       }
-    }, { ink: "under" }));
+    }), { ink: "under" }));
     // berries (red) or blossom (cream) on two of the three looks
-    if (v > 0) {
-      const put = dotOn(c), col = v === 1 ? ["#f08a6a", "#c8403c", "#7a2230"] : ["#ffffff", "#f4ead2", "#c8b8a0"];
+    if (v > 0) pixelsOn(c, (put) => {
+      const col = v === 1 ? ["#f08a6a", "#c8403c", "#7a2230"] : ["#ffffff", "#f4ead2", "#c8b8a0"];
       for (let i = 0; i < 3 + size * 2; i++) {
         const x = Math.round(AW * (0.2 + hash(v * 7 + size, i + 20) * 0.6)), y = Math.round(AH * (0.3 + hash(v * 7 + size, i + 25) * 0.35));
         put(x, y, col[0]); put(x + 1, y, col[1]); put(x, y + 1, col[1]); put(x + 1, y + 1, col[2]);
       }
-    }
+    });
   });
   BUSHES.set(key, cv);
   return cv;
@@ -1046,8 +1077,8 @@ const fernSprite = (col, sunC, v, size) => {
   if (FERNS.has(key)) return FERNS.get(key);
   const s = FERN_S[size];
   const lt = mix(col, sunC, 0.42), hi = lighten(mix(col, sunC, 0.75), 0.12), dk = darken(col, 0.22), dd = darken(col, 0.42);
-  const cv = bakeSprite(28, 23, (c) => {
-    const put = dotOn(c), rx = 28, ry = 34;
+  const cv = bakeSprite(28, 23, (c) => pixelsOn(c, (put) => {
+    const rx = 28, ry = 34;
     pixShadow(put, rx + 3, ry + 1, Math.round(15 * s), 3);
     const n = 5 + (v % 3), fr = [];
     for (let i = 0; i < n; i++) {
@@ -1088,7 +1119,7 @@ const fernSprite = (col, sunC, v, size) => {
       }
     }
     put(rx - 1, ry + 1, dd); put(rx, ry + 1, dd); put(rx + 1, ry + 1, dd); put(rx + 2, ry + 1, dd);
-  }, false);
+  }), false);
   FERNS.set(key, cv);
   return cv;
 };
@@ -1111,13 +1142,13 @@ function paintTurf(ctx) {
     const leaf = mix(R.GRASS_DK, "#3f7a40", 0.5), fern = mix(R.GRASS_DK, "#3f8a3c", 0.35);
     const at = (u, out) => (edgeLeft ? [forestDepthAt(0, u) + out, u] : [u, forestDepthAt(u, 0) + out]);
     const items = [];
-    let run = 0;
+    let run = 0, out = 1;
     for (let u = 3, i = 0; u < span; u += 6 + hash(i, 71) * 10, i++) {
       if (hash(i, 70) < 0.28) { run = 0; continue; }
       let isFern = hash(i, 73) >= 0.52;
       if (isFern && run >= 2) isFern = false;
       run = isFern ? run + 1 : 0;
-      const out = 1 + hash(i, 72) * 13;
+      out = 1 + ((out - 1 + 4 + hash(i, 72) * 6) % 13);   // each one stepped in or out from the last
       const [x, y] = at(u + (hash(i, 78) - 0.5) * 5, out);
       items.push([x, y, i, isFern, isFern ? 1 + Math.floor(hash(i, 79) * 3) : Math.floor(hash(i, 76) * 3)]);
       // now and then a fern brings a smaller one or two along, set in or
@@ -1137,7 +1168,7 @@ function paintTurf(ctx) {
         const cv = fernSprite(fern, R.GRASS_LT, Math.floor(hash(i, 77) * 3), size);
         ctx.drawImage(cv, snapW(x - 14), snapW(y - 17), cv.width / PX, cv.height / PX);
       } else {
-        const cv = bushSprite(hash(i, 74) < 0.5 ? leaf : lighten(leaf, 0.1), Math.floor(hash(i, 75) * 3), size);
+        const v = Math.floor(hash(i, 75) * 3), cv = bushSprite((v + size) & 1 ? lighten(leaf, 0.1) : leaf, v, size);
         const bw = BUSH_W[size], bh = cv.height / PX;
         ctx.drawImage(cv, snapW(x - bw * 0.5), snapW(y - bh + 5), cv.width / PX, bh);
       }

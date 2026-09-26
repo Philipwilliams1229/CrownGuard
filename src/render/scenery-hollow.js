@@ -1197,8 +1197,14 @@ const PUD_DK = {
 // reflection fills the lower half and a pale lap meets the near rim, which
 // catches the sun as a lit lip. A glint streak of sky, a star at its end.
 const PUD_PALE = {
-  face: hexC("#4a4232"), dk: hexC("#243030"), body: hexC("#35484a"), sky: hexC("#465c5e"),
-  lap: hexC("#687e7a"), glint: hexC("#b2c6c2"), star: hexC("#eef4ee"),
+  face: hexC("#5a5240"), dk: hexC("#34423f"), body: hexC("#4a5a58"), sky: hexC("#5c6c6a"),
+  lap: hexC("#7a8c86"), glint: hexC("#b8c8c2"), star: hexC("#eef4ee"),
+};
+// water standing in the causeway's empty beds and between its old boards:
+// shallow over pale stone, greyer still
+const PUD_BED = {
+  face: hexC("#5a5240"), dk: hexC("#3a4542"), body: hexC("#4c5754"), sky: hexC("#5e6a66"),
+  lap: hexC("#7c8882"), glint: hexC("#b4c2bc"), star: hexC("#eef4ee"),
 };
 const pixPuddle = (K, x, y, rx, ry, seed, o = {}) => {
   const PUD = o.pale ? PUD_PALE : PUD_DK;
@@ -1226,7 +1232,7 @@ const pixPuddle = (K, x, y, rx, ry, seed, o = {}) => {
     const span = bot - top + 1, band = Math.max(1, Math.round(span * 0.2)), skyAt = top + Math.max(band + 1, Math.round(span * 0.5));
     for (let j = top; j <= bot; j++) {
       let c;
-      if (j === top && span > 4) c = PUD.face;
+      if (j === top && span > (o.pale ? 7 : 4)) c = PUD.face;
       else if (j - top <= band) c = PUD.dk;
       else if (j === bot && span > 3) c = PUD.lap;
       else if (j > skyAt || (j === skyAt && (i + j) & 1)) c = PUD.sky;
@@ -1382,17 +1388,21 @@ const pixStone = (K, x, y, rx, ry, col, seed) => {
 // lit pixel, two mid, a shaded one), packed in its heart and thinning out
 // through its ragged rim, so it never ends in a line. Flat: no shadow.
 const LAWN_T = [["#76844a", "#5e6c36", "#4a562c"], ["#8e7e46", "#746838", "#5a522e"], ["#84503e", "#6a4034", "#4c5a2e"]].map((t) => t.map(hexC));
+// (a head's shape: pixel offsets and tone — 2x2, 2x1, 1x2, a little L)
+const KNOB = [[[0, 0, 0], [1, 0, 1], [0, 1, 1], [1, 1, 2]], [[0, 0, 0], [1, 0, 1]], [[0, 0, 0], [0, 1, 2]], [[0, 0, 0], [1, 0, 1], [0, 1, 2]], [[0, 0, 0], [1, 0, 1], [0, 1, 1], [1, 1, 2]]];
 const pixLawn = (K, x, y, rx, ry, seed, T, a) => {
   const cx = K.P(x), cy = K.P(y), RX = rx * K.k, RY = ry * K.k;
-  for (let j = -Math.ceil(RY * 1.3); j <= RY * 1.3; j += 2) {
-    const sh = (j >> 1) & 1;
-    for (let i = -Math.ceil(RX * 1.3) + sh; i <= RX * 1.3; i += 2) {
+  // heads on a loose, jostled step of two or three pixels, gathered by a
+  // fine noise into little clumps with gaps between
+  for (let j = -Math.ceil(RY * 1.3); j <= RY * 1.3; j += hash(j, seed + 7) < 0.3 ? 3 : 2) {
+    for (let i = -Math.ceil(RX * 1.3) + ((hash(j, seed + 8) * 3) | 0); i <= RX * 1.3; i += hash(i * 7 + j, seed + 9) < 0.35 ? 3 : 2) {
+      const wx = (cx + i) / K.k, wy = (cy + j) / K.k;
       // distance out, warped by a slow noise so the rim wanders
-      const d = Math.hypot(i / RX, j / RY) + (vnoise((cx + i) / K.k, (cy + j) / K.k, 5, seed) - 0.5) * 0.7;
-      if (hash(seed + i * 3, j + 101) > 1.15 - d * 1.05) continue;
+      const d = Math.hypot(i / RX, j / RY) + (vnoise(wx, wy, 5, seed) - 0.5) * 0.7;
+      if (hash(seed + i * 3, j + 101) > 1.25 - d * 1.1 + (vnoise(wx, wy, 2.2, seed + 3) - 0.5) * 0.7) continue;
       const m = T === LAWN_T[2] && hash(i, j + seed) < 0.35 ? LAWN_T[0] : T;
-      K.set(cx + i, cy + j, m[0], a); K.set(cx + i + 1, cy + j, m[1], a);
-      K.set(cx + i, cy + j + 1, m[1], a); K.set(cx + i + 1, cy + j + 1, m[2], a);
+      const pi = cx + i + ((hash(i, j + seed) * 3) | 0) - 1, pj = cy + j + ((hash(j + 3, i + seed) * 3) | 0) - 1;
+      for (const [ox, oy, t] of KNOB[(hash(i + 5, j * 3 + seed) * KNOB.length) | 0]) K.set(pi + ox, pj + oy, m[t], a);
     }
   }
 };
@@ -1408,10 +1418,12 @@ function paintFenTurf(ctx, kit) {
   // a blob of ground stepped darker (a hollow, a meadow's wet floor): the
   // upper-left rim a step deeper, the lower-right lip a step lighter
   const hollow = (x, y, rx, ry, sd, t, rim = true) => {
-    const cx = K.P(x), cy = K.P(y), B = blobMask(rx * K.k, ry * K.k, sd, 0.22);
+    const cx = K.P(x), cy = K.P(y), B = blobMask(rx * K.k, ry * K.k, sd, 0.35);
     for (let j = -B.Y; j <= B.Y; j++) {
       for (let i = -B.X; i <= B.X; i++) {
         if (!B.at(i, j)) continue;
+        // (the rim eaten into by the turf, a pixel here and there)
+        if ((!B.at(i - 1, j) || !B.at(i + 1, j) || !B.at(i, j - 1) || !B.at(i, j + 1)) && hash(cx + i, cy + j + sd) < 0.4) continue;
         K.set(cx + i, cy + j, PEAT_C, rim && j < 0 && (!B.at(i, j - 1) || !B.at(i - 1, j)) ? t + 0.04 : t);
         if (rim && j > 0 && !B.at(i, j + 1)) K.shift(cx + i, cy + j + 1, 0.04);
       }
@@ -1463,7 +1475,7 @@ function paintFenTurf(ctx, kit) {
   }
   // sphagnum lawns: round most hollows, and a few loose on the open turf
   const lawns = [];
-  for (const [x, y, rx, ry, i] of hollows) if (H0(i, 140) < 0.7) lawns.push([x + (H0(i, 141) - 0.5) * rx, y + (H0(i, 142) - 0.5) * ry, rx * (1.1 + H0(i, 143) * 0.5), ry * (1.3 + H0(i, 144) * 0.5), i]);
+  for (const [x, y, rx, ry, i] of hollows) lawns.push([x + (H0(i, 141) - 0.5) * rx, y + (H0(i, 142) - 0.5) * ry, rx * (1.1 + H0(i, 143) * 0.5), ry * (1.3 + H0(i, 144) * 0.5), i]);
   for (let i = 0; i < 16 && lawns.length < hollows.length + 6; i++) {
     const x = 20 + H0(i, 145) * (SW - 40), y = 16 + H0(i, 146) * (H - 32);
     if (x > W - WALL_W - 20 || !clear(x, y, 2)) continue;
@@ -1476,10 +1488,16 @@ function paintFenTurf(ctx, kit) {
   for (const [x, y, rx, ry, i] of hollows) hollow(x, y, rx, ry, i + 400, 0.14);
   const pools = [];
   for (const [x, y, rx, ry, i] of hollows) {
-    const n = 1 + Math.floor(H0(i, 24) * 2.6);
+    // one pool the biggest; the others a half its size or so, stepped off
+    // it on a slant — never a matched pair side by side
+    const n = 1 + Math.floor(H0(i, 24) * 2.6), side = H0(i, 31) < 0.5 ? -1 : 1;
+    const x0 = x + (H0(i, 25) - 0.5) * rx * 0.3 - side * rx * (n > 1 ? 0.18 : 0), y0 = y + (H0(i, 26) - 0.5) * ry * 0.3;
+    const rx0 = 5 + H0(i, 27) * 5, ry0 = 1.8 + H0(i, 28) * 1.4;
     for (let q = 0; q < n; q++) {
-      const px = x + (q - (n - 1) / 2) * rx * 0.62 + (H0(i * 5 + q, 25) - 0.5) * 6, py = y + (H0(i * 5 + q, 26) - 0.5) * ry * 0.7;
-      const prx = (q === 0 ? 5 : 3) + H0(i * 5 + q, 27) * (q === 0 ? 5 : 3), pry = 1.6 + H0(i * 5 + q, 28) * 1.6;
+      const f = q ? 0.4 + H0(i * 5 + q, 27) * 0.2 : 1, hq = (m) => H0(i * 5 + q, m);
+      const prx = rx0 * f * (q ? 0.85 + hq(32) * 0.3 : 1), pry = Math.max(1.3, ry0 * f * (q ? 0.9 + hq(28) * 0.5 : 1));
+      const sx = q ? side * (q === 1 ? 1 : -0.4) : 0;
+      const px = x0 + sx * (rx0 + prx) * 0.8 + (hq(25) - 0.5) * 2, py = y0 + (q ? (q & 1 ? 1 : -1) * ry * 0.5 * (0.7 + hq(26) * 0.3) : 0);
       if (clear(px, py, prx + 3)) pools.push([px, py, prx, pry, i * 5 + q, q === 0 && prx > 7 && H0(i, 29) < 0.6]);
     }
   }
@@ -1636,8 +1654,9 @@ function paintFenTurf(ctx, kit) {
 // grey-green, a lit top edge, a shaded foot, dark joints with moss in them.
 const SLAB = ["#7d7f70", "#858370", "#76796b", "#8a8674", "#72766a"].map(hexC), ALGAE = hexC("#5c6a4c");
 const LICHEN_C = hexC("#a8a66e"), MOSS_J = [hexC("#4c6434"), hexC("#5e783e")];
-const PLANK = { lit: hexC("#8c826c"), a: hexC("#6c6452"), b: hexC("#746a58"), dk: hexC("#4a4236"), grain: hexC("#564e40"), nail: hexC("#2e2826"), rust: hexC("#7a5840") };
-const MUD = [hexC("#353026"), hexC("#3e382c"), hexC("#24302c")];
+// drowned boards, bleached nearly to the dust's own grey
+const PLANK = { lit: hexC("#9a927e"), a: hexC("#7a7262"), b: hexC("#827a68"), c: hexC("#76705e"), dk: hexC("#5a5244"), grain: hexC("#6c6556"), nail: hexC("#3e3834"), rust: hexC("#7a5c44") };
+const MUD = [hexC("#4a4436"), hexC("#544c3c"), hexC("#2c3a34")];
 
 function paintFenRoad(ctx) {
 
@@ -1678,10 +1697,14 @@ function paintFenRoad(ctx) {
     const [x, y] = posAt(dd);
     if (!ok(x, y, 10) || onBridge(dd, 110)) continue;
     if (Math.abs(angleAt(dd - 24) - angleAt(dd + 24)) > 0.02) continue;
+    // (the raft's corners well clear of a mere's bank, which would cut it)
+    const an = angleAt(dd) + Math.PI / 2, cs = Math.cos(an) * (PATH_HALF - 1), sn = Math.sin(an) * (PATH_HALF - 1);
+    const mere = (x2, y2) => PONDS.some((p) => ((x2 - p.x) / (p.w / 2 + 6)) ** 2 + ((y2 - p.y) / (p.h / 2 + 6)) ** 2 < 1) || inRiver(x2, y2, 8);
+    if ([dd - 18, dd, dd + 18].some((e) => { const [ex, ey] = posAt(e); return mere(ex + cs, ey + sn) || mere(ex - cs, ey - sn); })) continue;
     const wet = wetAt(x, y) + H0(dd, 9) * 0.2;
     if (wet > best) { best = wet; bestD = dd; }
   }
-  const planks = best > 0.3;
+  const planks = best > 0.22;
 
 
   // ---- the paving ----
@@ -1694,28 +1717,53 @@ function paintFenRoad(ctx) {
     if (planks) e *= smooth01((Math.abs(d - bestD) - 22) / 14);
     return e * smooth01((d - 40) / 30) * smooth01((TOTAL_LEN - 40 - d) / 30);
   };
+  // which way a stretch's front leans across the road: its ends advance
+  // stone by stone on a slant, never in a straight line (the lean turns now
+  // and then along the road)
+  const lean = (d) => (hash(Math.floor(d / 120 + seed * 0.13), seed + 9) < 0.5 ? -1 : 1);
   const slabs = [];
   const INNER = PATH_HALF - 4;
   for (let d = 24 + H0(1, 4) * 6, row = 0; d < TOTAL_LEN - 36; row++) {
-    const depth = 8 + H0(row, 5) * 2.5, d1 = d + depth;
-    const e = Math.min(expo(d), expo(d1));
-    if (e > 0.04 && !onBridge((d + d1) / 2, depth / 2 + 3)) {
-      const [x0, y0, nx0, ny0] = frame(d), [x1, y1, nx1, ny1] = frame(d1);
-      let a = -INNER - H0(row, 6) * 7;
-      for (let c = 0; a < INNER; c++) {
-        const b = Math.min(INNER + 2, a + 8 + H0(row * 13 + c, 7) * 7);
-        const a0 = Math.max(a, -INNER), mid = (a0 + b) / 2;
+    const depth = 7.5 + H0(row, 5) * 4.5, d1 = d + depth, dm = (d + d1) / 2;
+    if (Math.max(expo(dm - 18), expo(dm), expo(dm + 18)) > 0.04 && !onBridge(dm, depth / 2 + 3)) {
+      // each course reaches its own way out toward the verges, and one in
+      // three holds a long stone
+      const inner = INNER + (H0(row, 40) - 0.5) * 6;
+      const long = H0(row, 41) < 0.33 ? Math.floor(H0(row, 42) * 4) : -1;
+      let a = -inner - H0(row, 6) * 7;
+      for (let c = 0; a < inner; c++) {
         const sd = row * 31 + c;
-        // corners, pulled in a hair so the joints show, and jostled
-        const J = (q) => (H0(sd, q) - 0.5) * 0.9;
+        const b = Math.min(inner + 2, a + (c === long ? 14 + H0(sd, 43) * 5 : 7.5 + H0(sd, 7) * 6.5));
+        const a0 = Math.max(a, -inner), mid = (a0 + b) / 2;
+        a = b;
+        if (b - a0 < 3.5) continue;
+        // how far this stone has surfaced: the stretch at its own (slanted,
+        // jostled) place along the road, less toward the verges, where the
+        // dust eats the edge in runs; never under the planks
+        const dS = dm + lean(dm) * (mid / INNER) * 10 + (H0(sd, 40) - 0.5) * 14;
+        const [dm0x, dm0y] = posAt(dm);
+        const vg = smooth01((Math.abs(mid) - (INNER - 12)) / 8) * (0.25 + 0.5 * vnoise(dm, mid > 0 ? 300 : 0, 40, seed + 23));
+        let v = expo(dS) * (1 - (mid / PATH_HALF) ** 2 * 0.6) - vg + (H0(sd, 8) - 0.5) * 0.4;
+        if (planks) v *= smooth01((Math.abs(dm - bestD) - 20) / 12);
+        if (v <= 0.28) continue;
+        const edge = Math.abs(mid) > INNER - 9;
+        // (now and then a stone is gone: its bed holds dust, or rainwater)
+        const gone = H0(sd, 30) < (edge ? 0.15 : 0.05);
+        const pool = gone && v > 0.5 && !edge && H0(sd, 32) < 0.2 + wetAt(dm0x, dm0y) * 0.6;
+        if (gone && !pool) continue;
+        // corners: the front and back of each stone shoved a little along
+        // the road and jostled, so no joint runs on like a ruler line
+        const [x0, y0, nx0, ny0] = frame(d + H0(sd, 44) * 0.7), [x1, y1, nx1, ny1] = frame(d1 - H0(sd, 45) * 0.7);
+        const J = (q) => (H0(sd, q) - 0.5) * 1.4;
         const q = [
           [x0 + nx0 * a0 + J(10), y0 + ny0 * a0 + J(11)], [x0 + nx0 * b + J(12), y0 + ny0 * b + J(13)],
           [x1 + nx1 * b + J(14), y1 + ny1 * b + J(15)], [x1 + nx1 * a0 + J(16), y1 + ny1 * a0 + J(17)],
         ];
         const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
         for (const p of q) { p[0] += (cx - p[0]) * 0.07; p[1] += (cy - p[1]) * 0.07; }
-        // a slab only where the bend leaves it a true four-sided stone
-        let sgn = 0, good = b - a0 > 3.5;
+        // only a true four-sided stone, and none a sliver at a bend's hub
+        if (Math.hypot(q[1][0] - q[2][0], q[1][1] - q[2][1]) < 3 || Math.hypot(q[0][0] - q[3][0], q[0][1] - q[3][1]) < 3) continue;
+        let sgn = 0, good = true;
         for (let s2 = 0; s2 < 4 && good; s2++) {
           const [ax, ay] = q[s2], [bx2, by2] = q[(s2 + 1) % 4], [cx2, cy2] = q[(s2 + 2) % 4];
           const cr = (bx2 - ax) * (cy2 - by2) - (by2 - ay) * (cx2 - bx2);
@@ -1723,33 +1771,46 @@ function paintFenRoad(ctx) {
           else if (!sgn) sgn = Math.sign(cr);
           else if (Math.sign(cr) !== sgn) good = false;
         }
-        // the middle of the road surfaces first; the verges stay dust
-        const v = e * (1 - (mid / PATH_HALF) ** 2 * 0.9) + (H0(sd, 8) - 0.5) * 0.45;
-        // (now and then a stone is gone, and the dust fills its bed)
-        if (good && v > 0.28 && ok(cx, cy, 6) && H0(sd, 30) > 0.05) {
-          const wet = wetAt(cx, cy), look = H0(sd, 31);
-          let col = mixC(SLAB[Math.floor(H0(sd, 9) * SLAB.length)], main, 0.3);
-          // some sunk and darker, some green with the wet, the odd pale one
-          if (look < 0.2) col = mixC(col, DUSK, 0.12);
-          else if (look < 0.3) col = mixC(col, ALGAE, 0.26);
-          else if (look > 0.9) col = mixC(col, SUNL, 0.07);
-          if (wet > 0) col = mixC(col, ALGAE, wet * 0.3);
-          slabs.push({ q, v, sd, wet, sgn, T: tone3(col, 0.2, 0.26), crack: H0(sd, 19) < 0.22, lichen: H0(sd, 20) < 0.14, edge: Math.abs(mid) > INNER - 9 });
+        if (!good || !ok(cx, cy, 6)) continue;
+        const wet = wetAt(cx, cy), look = H0(sd, 31);
+        let col = mixC(SLAB[Math.floor(H0(sd, 9) * SLAB.length)], main, 0.3);
+        // some sunk and darker, some green with the wet, some browned, the odd pale one
+        if (look < 0.2) col = mixC(col, DUSK, 0.12);
+        else if (look < 0.3) col = mixC(col, ALGAE, 0.26);
+        else if (look < 0.4) col = mixC(col, hexC("#645a4e"), 0.3);
+        else if (look > 0.93) col = mixC(col, SUNL, 0.05);
+        if (wet > 0) col = mixC(col, ALGAE, wet * 0.3);
+        // a stone at full exposure may still lie half under a drift; a drift
+        // comes in from one side — the verge, or where the stretch sinks
+        // again — with a softly wandering edge
+        let cover = null;
+        if (!pool && (v < 0.55 || H0(sd, 46) < 0.2)) {
+          const [, , fnx, fny] = frame(dm), f = v < 0.55 ? 0.15 + smooth01((0.55 - v) / 0.27) * 0.45 : 0.18 + H0(sd, 47) * 0.25;
+          let ux, uy;
+          if (edge && H0(sd, 48) < 0.6) { ux = fnx * Math.sign(mid); uy = fny * Math.sign(mid); }
+          else if (v < 0.55) { const sg = expo(dS + 6) < expo(dS - 6) ? 1 : -1; ux = fny * sg; uy = -fnx * sg; }
+          else { const an = H0(sd, 49) * 6.283; ux = Math.cos(an); uy = Math.sin(an); }
+          const tw = (H0(sd, 50) - 0.5) * 0.8, cu = Math.cos(tw), su = Math.sin(tw);
+          [ux, uy] = [ux * cu - uy * su, ux * su + uy * cu];
+          const hx = Math.max(...q.map(([x, y]) => (x - cx) * ux + (y - cy) * uy));
+          cover = { ux, uy, cx, cy, c: hx * (1 - 2 * f) };
         }
-        a = b;
+        slabs.push({ q, v, sd, wet, sgn, pool, cover, T: tone3(col, 0.2, 0.26), crack: H0(sd, 19) < 0.22, lichen: H0(sd, 20) < 0.14, edge });
       }
     }
     d = d1;
   }
 
   // rasterise, a row at a time: which slab each pixel belongs to (pixel
-  // centres inside all four edges), and whether the dust has buried it
+  // centres inside all four edges), and whether the dust has buried it; a
+  // stone that shows less than two-fifths of itself is left to the dust
   const PW = K.PW, PH = K.PH, SID = new Uint16Array(PW * PH), VIS = new Uint8Array(PW * PH), done = new Uint8Array(PW * PH);
   slabs.forEach((s, si) => {
     const P = s.q.map(([x, y]) => [x * k, y * k]);
     s.i0 = Math.max(1, Math.floor(Math.min(P[0][0], P[1][0], P[2][0], P[3][0])) - 1); s.i1 = Math.min(PW - 2, Math.ceil(Math.max(P[0][0], P[1][0], P[2][0], P[3][0])) + 1);
     s.j0 = Math.max(1, Math.floor(Math.min(P[0][1], P[1][1], P[2][1], P[3][1])) - 1); s.j1 = Math.min(PH - 2, Math.ceil(Math.max(P[0][1], P[1][1], P[2][1], P[3][1])) + 1);
-    const sure = s.v >= 0.55, thr = ((s.v - 0.28) / 0.27) * 0.75 + 0.25;
+    const C = s.cover;
+    let tot = 0, vis = 0;
     for (let j = s.j0; j <= s.j1; j++) {
       const py = j + 0.5;
       let lo = -Infinity, hi = Infinity;
@@ -1764,21 +1825,29 @@ function paintFenRoad(ctx) {
       for (let i = Math.max(s.i0, Math.ceil(lo - 0.5)); i <= Math.min(s.i1, Math.floor(hi - 0.5)); i++) {
         const p = j * PW + i;
         SID[p] = si + 1;
-        VIS[p] = sure || vnoise(i / k, j / k, 5, seed + 17) <= thr ? 1 : 0;
+        VIS[p] = !C || ((i + 0.5) / k - C.cx) * C.ux + ((j + 0.5) / k - C.cy) * C.uy <= C.c + (vnoise(i / k, j / k, 2.5, seed + 17) - 0.5) * 2.2 ? 1 : 0;
+        tot++; vis += VIS[p];
       }
+    }
+    if (vis < tot * 0.4) {
+      s.cut = true;
+      for (let j = s.j0; j <= s.j1; j++) for (let i = s.i0; i <= s.i1; i++) if (SID[j * PW + i] === si + 1) VIS[j * PW + i] = 0;
     }
   });
 
+  const isPool = (p) => SID[p] && VIS[p] && slabs[SID[p] - 1].pool;
   slabs.forEach((s, si) => {
+    if (s.cut) return;
     const id = si + 1, T = s.T;
     // a crack: a dark line wandering down across the stone
     const crack = new Set();
-    if (s.crack) {
+    if (s.crack && !s.pool) {
       let ci = Math.round((s.i0 + s.i1) / 2 + (H0(s.sd, 21) - 0.5) * (s.i1 - s.i0) * 0.5), cj = s.j0;
       while (cj <= s.j1) { crack.add(cj * PW + ci); cj++; if (H0(s.sd * 7 + cj, 22) < 0.45) ci += H0(s.sd + cj, 23) < 0.5 ? -1 : 1; }
     }
     // a spot or two of lichen
     const lx = s.lichen ? Math.round(s.i0 + 2 + H0(s.sd, 24) * (s.i1 - s.i0 - 4)) : -99, ly = Math.round(s.j0 + 2 + H0(s.sd, 25) * (s.j1 - s.j0 - 4));
+    const midJ = (s.j0 + s.j1) / 2;
     for (let j = s.j0; j <= s.j1; j++) {
       for (let i = s.i0; i <= s.i1; i++) {
         const p = j * PW + i;
@@ -1789,6 +1858,15 @@ function paintFenRoad(ctx) {
           const up = SID[p - PW] === id, dn = SID[p + PW] === id, lf = SID[p - 1] === id, rt = SID[p + 1] === id;
           // worn corners: the stone's corner pixel is gone, a chip of dust
           if ((!up || !dn) && (!lf || !rt)) { K.shift(i, j, !up ? -0.06 : -0.16); continue; }
+          if (s.pool) {
+            // rain standing in an empty bed: the far rim's cut face and its
+            // shadow, the dark water, the sky lying in its lower half, a
+            // pale lap at the near rim
+            const up2 = SID[p - PW * 2] === id;
+            const c = !up ? PUD_BED.face : !up2 ? PUD_BED.dk : !dn ? PUD_BED.lap : j > midJ + 0.5 || (j > midJ - 0.5 && (i + j) & 1) ? PUD_BED.sky : PUD_BED.body;
+            K.set(i, j, c);
+            continue;
+          }
           let c = T[1];
           const hh = hash(i * 3 + s.sd, j);
           if (!up) c = T[0];
@@ -1806,90 +1884,138 @@ function paintFenRoad(ctx) {
           if (crack.has(p) && up && dn) c = mixC(T[2], DUSK, 0.15);
           if (up && dn && lf && rt && Math.abs(i - lx) + Math.abs(j - ly) * 1.5 < 2.2 + hash(i, j + 3)) c = mixC(T[1], LICHEN_C, 0.6);
           if (s.wet > 0.3 && !dn && hash(i, j + 7) < s.wet * 0.5) c = MOSS_J[0];
+          // the drift lying over the rest of it throws a little shade
+          if ((up && !VIS[p - PW]) || (lf && !VIS[p - 1])) c = mixC(c, T[2], 0.5);
           K.set(i, j, c);
         } else if (!VIS[p]) {
+          // dust drifted over part of this same stone: the drift's edge
+          // catches the sun where the stone lies up-left of it, and turns
+          // into shade where it lies down-right
+          const bare = (q) => own && SID[q] === own && VIS[q];
+          if (bare(p - PW) || bare(p - 1)) { done[p] = 1; K.shift(i, j, 0.08); continue; }
+          if (bare(p + PW) || bare(p + 1)) { done[p] = 1; K.shift(i, j, -0.07); continue; }
           // a joint: the gap beside a stone — deep on its shaded side (but
-          // never where the dust runs on over the same stone)
+          // never where the dust runs on over the same stone); below a
+          // water-filled bed, the near rim's lit lip
           const nb = (q) => VIS[q] && SID[q] !== own;
           const below = nb(p - PW) || nb(p - 1), above = nb(p + PW) || nb(p + 1);
           if (!below && !above) continue;
           done[p] = 1;
+          if (isPool(p - PW)) { K.shift(i, j, 0.16); continue; }
           const src = slabs[SID[below ? (nb(p - PW) ? p - PW : p - 1) : (nb(p + PW) ? p + PW : p + 1)] - 1];
           if (hash(i + src.sd, j * 3) < 0.1 + src.wet * 0.35 + (src.edge ? 0.12 : 0)) K.set(i, j, MOSS_J[hash(i, j) < 0.5 ? 0 : 1]);
           else K.shift(i, j, below ? -0.22 : -0.08);
         }
       }
     }
+    // the sky's glint on a pool
+    if (s.pool) {
+      const gj = Math.round(midJ + (s.j1 - midJ) * 0.35), gi = Math.round(s.i0 + (s.i1 - s.i0) * 0.3);
+      for (let q = 0; q < 3; q++) if (SID[gj * PW + gi + q] === id && SID[(gj + 1) * PW + gi + q] === id) K.set(gi + q, gj, q ? PUD_BED.glint : PUD_BED.star);
+    }
   });
 
 
-  // ---- the old planks: a corduroy of boards across the road, sunk in
-  // black mud — each shoved a little along, one or two broken short or
-  // gone, the mud only in the gaps and round their ends ----
+  // ---- the old planks: a raft of bleached boards laid across the road,
+  // sunk in the wet — each shoved its own way, one or two broken off short,
+  // one or two gone (their gap standing with water), the ends and one
+  // corner drifted over with dust, so the raft has no straight outline ----
   if (planks) {
     const [bx, by] = posAt(bestD), ang = angleAt(bestD), tx = Math.cos(ang), ty = Math.sin(ang), nx = -ty, ny = tx;
-    const HALF = PATH_HALF - 6, LEN = 5 * 3.3 + 2.4;
+    const HALF = PATH_HALF - 8;
     const loc = (i, j) => { const x = (i + 0.5) / k - bx, y = (j + 0.5) / k - by; return [x * tx + y * ty, x * nx + y * ny]; };
-    const R0 = Math.ceil((LEN + HALF + 3) * k), ci = K.P(bx), cj = K.P(by);
-    const boards = [];
-    for (let q = -5; q <= 5; q++) {
-      const h = (n) => H0(q + 9, n);
-      if (h(14) < 0.1 || (Math.abs(q) === 5 && h(10) < 0.5)) continue;   // one gone, the end ones sunk
+    const nB = 6 + (H0(3, 50) < 0.5 ? 1 : 0), pitch = [];
+    let span = 0;
+    for (let q = 0; q < nB; q++) { pitch.push(3.5 + H0(q, 54) * 1.6); span += pitch[q]; }
+    const g1 = 1 + Math.floor(H0(3, 51) * (nB - 2)), g2 = H0(3, 52) < 0.3 ? 1 + Math.floor(H0(3, 53) * (nB - 2)) : -1;
+    const boards = [], holes = [];
+    for (let q = 0, u = -span / 2; q < nB; q++) {
+      const h = (n) => H0(q + 9, n), c0 = u + pitch[q] / 2 + (h(13) - 0.5) * 0.3, w2 = pitch[q] / 2 - 0.25 - h(15) * 0.3;
+      u += pitch[q];
       const slide = (h(18) - 0.5) * 4;
-      boards.push({
-        q, c0: q * 3.3 + (h(13) - 0.5) * 0.5, w2: 1.3 + h(15) * 0.2,
-        e0: -HALF + h(11) * 2.5 + slide, e1: HALF - h(12) * 2.5 + slide - (h(16) < 0.2 ? 8 : 0),
-        tilt: (h(17) - 0.5) * 0.09, base: q & 1 ? PLANK.a : PLANK.b,
-      });
+      let e0 = -HALF + (h(11) - 0.5) * 12 + slide, e1 = HALF + (h(12) - 0.5) * 12 + slide;
+      if (q === g1 || q === g2) { holes.push({ c0, w2: pitch[q] / 2 + 0.4, e0: e0 * 0.75, e1: e1 * 0.75, tilt: 0, q: -1 }); continue; }
+      // broken off short: one half of it gone
+      if (h(19) < 0.3) { if (h(20) < 0.5) e1 = (e0 + e1) / 2 + (h(21) - 0.5) * 6; else e0 = (e0 + e1) / 2 + (h(21) - 0.5) * 6; }
+      boards.push({ q, c0, w2, e0, e1, tilt: (h(17) - 0.5) * 0.12, base: [PLANK.a, PLANK.b, PLANK.c][Math.floor(h(22) * 3)] });
     }
-    // the bed: each board's footprint grown by a ragged unit, then two
-    // steps of damp dust fading out into the road
+    const rot = (B, uu, e) => hash(Math.floor((uu + 5) * k) + B.q * 17, e) * (B.q < 0 ? 0 : 1.6);
+    const inB = (B, u, v) => { const uu = u - B.c0 - v * B.tilt; return uu > -B.w2 && uu < B.w2 && v > B.e0 + rot(B, uu, 1) && v < B.e1 - rot(B, uu, 2); };
+    const boxOut = (B, u, v) => Math.max(Math.abs(u - B.c0 - v * B.tilt) - B.w2, v - B.e1, B.e0 - v);
+    // the dust drifted over the ends and one corner
+    const su = H0(3, 55) < 0.5 ? -1 : 1, sv = H0(3, 56) < 0.5 ? -1 : 1;
+    const buried = (u, v) => vnoise(u, v, 2.4, seed + 51) + smooth01((Math.abs(v) - HALF + 7) / 8) * 0.5
+      + smooth01(1 - Math.hypot(u - (su * span) / 2, v - sv * HALF) / 13) * 0.75 > 1.02;
+    const R0 = Math.ceil((HALF + 10) * k), ci = K.P(bx), cj = K.P(by);
+    const at = new Map();
+    const what = (i, j) => {
+      const key = i * 8192 + j;
+      let w = at.get(key);
+      if (w !== undefined) return w;
+      const [u, v] = loc(i, j);
+      w = 0;
+      for (let b = 0; b < boards.length; b++) if (inB(boards[b], u, v)) { w = b + 1; break; }
+      if (w && buried(u, v)) w = -1;
+      at.set(key, w);
+      return w;
+    };
     for (let j = cj - R0; j <= cj + R0; j++) {
       for (let i = ci - R0; i <= ci + R0; i++) {
-        const [u, v] = loc(i, j);
-        let out = 99;
-        for (const B of boards) {
-          const uu = u - B.c0 - v * B.tilt;
-          out = Math.min(out, Math.max(Math.abs(uu) - B.w2 - 0.9, v - B.e1 - 0.9, B.e0 - v - 0.9));
-        }
-        out += (vnoise(u + 40, v, 2.5, seed + 31) - 0.5) * 1.8;
-        if (out > 1.7) continue;
-        if (out > 0) { K.set(i, j, PEAT_C, out > 0.8 ? 0.12 : 0.28); continue; }
-        const wetp = vnoise(u, v, 2.5, seed + 35) > 0.66;
-        const c = wetp ? (hash(i, j + 11) < 0.12 ? PUD_DK.lap : MUD[2]) : MUD[hash(i * 3, j) < 0.3 ? 1 : 0];
-        K.set(i, j, out > -0.45 && !wetp ? mixC(K.get(i, j), c, 0.6) : c);
-      }
-    }
-    for (const { q, c0, w2, e0, e1, tilt, base } of boards) {
-      const inP = (u, v) => { const uu = u - c0 - v * tilt; return uu > -w2 && uu < w2 && v > e0 && v < e1; };
-      const cs = [[c0 - w2 + e0 * tilt, e0], [c0 + w2 + e0 * tilt, e0], [c0 - w2 + e1 * tilt, e1], [c0 + w2 + e1 * tilt, e1]].map(([u, v]) => [bx + tx * u + nx * v, by + ty * u + ny * v]);
-      const pi0 = K.P(Math.min(...cs.map((c) => c[0]))) - 2, pi1 = K.P(Math.max(...cs.map((c) => c[0]))) + 2;
-      const pj0 = K.P(Math.min(...cs.map((c) => c[1]))) - 2, pj1 = K.P(Math.max(...cs.map((c) => c[1]))) + 2;
-      for (let j = pj0; j <= pj1; j++) {
-        for (let i = pi0; i <= pi1; i++) {
-          const [u, v] = loc(i, j);
-          if (!inP(u, v)) { const [us, vs] = loc(i - 1, j - 1); if (inP(us, vs)) K.shift(i, j, -0.34); continue; }
-          const [ua, va] = loc(i, j - 1), [ub, vb] = loc(i, j + 1), [ur, vr] = loc(i + 1, j);
-          let c = !inP(ua, va) ? PLANK.lit : !inP(ub, vb) || !inP(ur, vr) ? PLANK.dk : base;
+        const [u, v] = loc(i, j), w = what(i, j);
+        if (w > 0) {
+          const B = boards[w - 1], up = what(i, j - 1) === w, lf = what(i - 1, j) === w, dn = what(i, j + 1) === w, rt = what(i + 1, j) === w;
+          // lit on its sun sides (north, west), shaded on the others
+          let c = !up || !lf ? PLANK.lit : !dn || !rt ? PLANK.dk : B.base;
           // grain along the board, broken; nails over the stringers; the
-          // ends gone soft and dark; moss where it stays wet
-          const row = Math.floor((u - c0 + w2) * k);
-          if (c === base && hash(row + q * 7, 30) < 0.5 && hash(row * 13 + q, Math.floor(v * 0.8)) < 0.55) c = PLANK.grain;
-          if (Math.abs(Math.abs(v) - (HALF - 5)) < 0.5 && Math.abs(u - c0) < 0.5) c = hash(q, v > 0 ? 1 : 2) < 0.4 ? PLANK.rust : PLANK.nail;
-          if (v > e1 - 1 || v < e0 + 1) c = hash(i, j) < 0.5 ? PLANK.dk : c;
-          if (c === base && vnoise(u * 2, v, 3, seed + q) > 0.78) c = MOSS_J[0];
+          // ends gone soft; moss where it stays wet
+          const row = Math.floor((u - B.c0 + B.w2) * k);
+          if (c === B.base && hash(row + B.q * 7, 30) < 0.5 && hash(row * 13 + B.q, Math.floor(v * 0.8)) < 0.5) c = PLANK.grain;
+          if (Math.abs(Math.abs(v) - (HALF - 5)) < 0.5 && Math.abs(u - B.c0) < 0.5) c = hash(B.q, v > 0 ? 1 : 2) < 0.4 ? PLANK.rust : PLANK.nail;
+          if ((v > B.e1 - 1 || v < B.e0 + 1) && hash(i, j) < 0.5) c = PLANK.dk;
+          if (c === B.base && vnoise(u * 2, v, 3, seed + B.q) > 0.8) c = MOSS_J[1];
+          // (the drift over its end throws a little shade on it)
+          if ((what(i, j - 1) === -1 || what(i - 1, j) === -1) && c !== PLANK.lit) c = mixC(c, PLANK.dk, 0.5);
           K.set(i, j, c);
+          continue;
         }
+        if (w === -1) {
+          // dust over a board: a lit lip where the bare board lies up-left
+          if (what(i, j - 1) > 0 || what(i - 1, j) > 0) K.shift(i, j, 0.08);
+          continue;
+        }
+        // a board's shadow down-right, the wet between two boards, water in a gap
+        const n1 = what(i - 1, j - 1) > 0 || what(i, j - 1) > 0 || what(i - 1, j) > 0;
+        let near = 99, near2 = 99;
+        for (const B of boards) { const o = boxOut(B, u, v); if (o < near) { near2 = near; near = o; } else if (o < near2) near2 = o; }
+        const hole = holes.find((Hh) => Math.abs(u - Hh.c0) < Hh.w2 && Math.abs(v - (Hh.e0 + Hh.e1) / 2) < (Hh.e1 - Hh.e0) / 2 - (vnoise(u, v + 20, 2, seed + 57) - 0.3) * 3);
+        if (hole && !buried(u, v)) {
+          const inH = (i2, j2) => { const [u2, v2] = loc(i2, j2); return what(i2, j2) === 0 && Math.abs(u2 - hole.c0) < hole.w2 && Math.abs(v2 - (hole.e0 + hole.e1) / 2) < (hole.e1 - hole.e0) / 2 - (vnoise(u2, v2 + 20, 2, seed + 57) - 0.3) * 3; };
+          const top = !inH(i, j - 1), bot = !inH(i, j + 1);
+          // (the sky lies in its lower half on screen)
+          const dy = (u - hole.c0) * ty + (v - (hole.e0 + hole.e1) / 2) * ny;
+          K.set(i, j, top ? PUD_BED.face : bot ? PUD_BED.lap : !inH(i, j + 2) || (!inH(i, j + 3) && (i + j) & 1) ? PUD_BED.sky : !inH(i, j - 2) ? PUD_BED.dk : PUD_BED.body);
+          continue;
+        }
+        if (near < 0.9 && near2 < 1.3 && !buried(u, v)) K.set(i, j, MUD[hash(i * 3, j) < 0.3 ? 1 : 0]);
+        else if (n1) K.shift(i, j, -0.3);
+        else if (near < 1.2 && vnoise(u + 40, v, 2.5, seed + 31) > 0.45) K.set(i, j, PEAT_C, 0.12);
       }
     }
   }
-  // puddles standing in the causeway's hollows
-  for (let i = 0; i < 7; i++) {
+  // a few puddles standing in the causeway's hollows, round-ended and
+  // shallow, never over a stone (the paving keeps its water in its beds)
+  const slabNear = (x, y, rx, ry) => {
+    for (let j = K.P(y - ry) - 3; j <= K.P(y + ry) + 3; j++) for (let i = K.P(x - rx) - 3; i <= K.P(x + rx) + 3; i++) if (i >= 0 && j >= 0 && i < PW && j < PH && VIS[j * PW + i]) return true;
+    return false;
+  };
+  for (let i = 0, got = 0; i < 14 && got < 4; i++) {
     const dd = 80 + H0(i, 14) * (TOTAL_LEN - 160), [x, y] = posAt(dd), a = angleAt(dd) + Math.PI / 2;
     const off = (H0(i, 15) - 0.5) * PATH_HALF * 1.1;
     const px = x + Math.cos(a) * off, py = y + Math.sin(a) * off;
-    if (!ok(px, py, 12) || onBridge(dd, 20) || (planks && Math.abs(dd - bestD) < 34)) continue;
-    pixPuddle(K, px, py, 3.5 + H0(i, 16) * 4.5, 1.6 + H0(i, 17) * 1.2, i + 300, { lip: 0.16, pale: true });
+    const rx = 3.2 + H0(i, 16) * 3.8, ry = Math.max(rx * 0.45, 1.6 + H0(i, 17) * 1.2);
+    if (!ok(px, py, 12) || onBridge(dd, 20) || (planks && Math.abs(dd - bestD) < 34) || slabNear(px, py, rx, ry)) continue;
+    pixPuddle(K, px, py, rx, ry, i + 300, { lip: 0.16, pale: true, wob: 0.3 });
+    got++;
   }
 
   // the verge: skulls, long bones and a rusted helm trodden into the edge
@@ -1925,13 +2051,19 @@ const BLOOM = { W: hexC("#fbf6ee"), w: hexC("#d6cec4"), Y: hexC("#e8c050") };
 // down-right on the water; now and then a white flower on it.
 // put(i, j, [r, g, b, a?])
 const padPx = (put, ci, cj, r, seed, k = PX) => {
-  const RX = Math.max(2.2, r * k * 1.1), RY = Math.max(1.4, r * k * 0.55), notch = hash(seed, 2) * Math.PI * 2;
-  const T = PAD_T[hash(seed, 20) < 0.18 ? 1 : 0];
+  const RX = Math.max(2.4, r * k * 1.1), RY = Math.max(2, r * k * 0.55), notch = hash(seed, 2) * Math.PI * 2;
+  const T = PAD_T[hash(seed, 20) < 0.18 ? 1 : 0], small = RX < 4.5;
+  const ncx = Math.cos(notch) * RX, ncy = Math.sin(notch) * RY, nl = Math.hypot(ncx, ncy);
   const inP = (i, j) => {
     const u = i / RX, v = j / RY, q = u * u + v * v;
     if (q > 1) return false;
+    // (a small pad's corner pixels go, so it reads round, not a brick)
+    if (small && Math.abs(i) >= Math.floor(RX) && Math.abs(j) >= Math.floor(RY) - 0.5) return false;
     const an = Math.atan2(v, u);
-    return !(q > 0.04 && Math.abs(((an - notch + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.42);
+    if (q > 0.04 && Math.abs(((an - notch + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.42) return false;
+    // the notch always cuts at least a pixel's slit in toward the middle
+    const along = (i * ncx + j * ncy) / nl;
+    return !(along > nl * 0.3 && Math.abs(i * ncy - j * ncx) / nl < 0.55);
   };
   const X = Math.ceil(RX) + 1, Y = Math.ceil(RY) + 1;
   for (let j = -Y; j <= Y + 1; j++) for (let i = -X; i <= X + 1; i++) if (!inP(i, j) && inP(i - 1, j - 1)) put(ci + i, cj + j, PAD_SH);
@@ -1981,33 +2113,52 @@ const bakeWaters = () => {
       }
     }
   });
-  // rivers: a raft now and then in the slack water along one bank
+  // rivers: duckweed drifting in the slack water on the inside of the
+  // bends (along either bank on a straight reach, fewer), and on a bend now
+  // and then a raft of pads a little further out; clear of the bridges.
+  // (water.js's bank wobbles up to ~5.9 into the stream, so the scum keeps
+  // 6 in from the edge and the pads 9)
   RIVERS.forEach((rv, ri) => {
-    let acc = 0;
-    for (const sg of rv.segs) {
-      for (let d = 12; d < sg.len - 6; d += 30) {
-        const k = (acc + d) | 0;
-        if (hash(k, ri + 40) < 0.5) continue;
-        const t = d / sg.len, side = hash(k, ri + 41) < 0.5 ? -1 : 1;
-        const tx = (sg.x2 - sg.x1) / sg.len, ty = (sg.y2 - sg.y1) / sg.len, nx = -ty, ny = tx;
-        const off = side * Math.max(0, rv.w / 2 - 9 - hash(k, ri + 42) * 2);
-        const cx = sg.x1 + (sg.x2 - sg.x1) * t + nx * off, cy = sg.y1 + (sg.y2 - sg.y1) * t + ny * off;
-        if (road(cx, cy, 20) || cx > W - WALL_W - 8 || cx < 6 || cy < 6 || cy > H - 6) continue;
-        const m = 1 + Math.floor(hash(k, ri + 43) * 3);
+    const segs = rv.segs, cum = [0];
+    for (const sg of segs) cum.push(cum[cum.length - 1] + sg.len);
+    const L = cum[cum.length - 1], hw = rv.w / 2;
+    const at = (s) => {
+      s = Math.max(0, Math.min(L - 1e-6, s));
+      let i = 0;
+      while (i < segs.length - 1 && cum[i + 1] < s) i++;
+      const sg = segs[i], t = (s - cum[i]) / sg.len;
+      return [sg.x1 + (sg.x2 - sg.x1) * t, sg.y1 + (sg.y2 - sg.y1) * t, (sg.x2 - sg.x1) / sg.len, (sg.y2 - sg.y1) / sg.len];
+    };
+    for (let s = 10 + hash(ri, 47) * 10; s < L - 10; s += 20) {
+      const k = (s * 7 + ri * 1000) | 0;
+      const [x, y, tx, ty] = at(s), [, , ax, ay] = at(s - 24), [, , bx, by] = at(s + 24);
+      const turn = ax * by - ay * bx, bend = Math.abs(turn) > 0.08;
+      if (hash(k, ri + 40) > (bend ? 0.9 : 0.4)) continue;
+      const side = bend ? Math.sign(turn) : hash(k, ri + 41) < 0.5 ? -1 : 1, nx = -ty * side, ny = tx * side;
+      const wx = x + nx * (hw - 7.5), wy = y + ny * (hw - 7.5);
+      if (road(wx, wy, 12) || wx > W - WALL_W - 8 || wx < 4 || wy < 4 || wy > H - 4) continue;
+      // a drift of scum hugging the bank, thickest in its middle
+      const len = 8 + hash(k, 48) * 12, n = 14 + ((len * 2.4) | 0);
+      for (let q = 0; q < n; q++) {
+        const u = (hash(k + q, 49) - 0.5) * len, v = (hash(k + q, 50) - 0.5) * 3.2 * (1 - Math.abs(u) / len);
+        const px = wx + tx * u + nx * v, py = wy + ty * u + ny * v;
+        if (!road(px, py, 12)) weed.push([px, py, k * 60 + q]);
+      }
+      if (bend && hash(k, 51) < 0.65) {
+        const po = Math.max(2, hw - 9), m = 2 + Math.floor(hash(k, 43) * 3);
         for (let q = 0; q < m; q++) {
-          const s = (hash(k + q, 44) - 0.5) * 9;
-          const x = cx + tx * s + nx * (hash(k + q, 45) - 0.5) * 2, y = cy + ty * s + ny * (hash(k + q, 45) - 0.5) * 2, r = 1.5 + hash(k + q, 46) * 0.9;
-          if (free(x, y, r)) pads.push([x, y, r, k * 5 + q]);
+          const u = (hash(k + q, 44) - 0.5) * 10, o = po - hash(k + q, 45) * 1.5, r = 1.6 + hash(k + q, 46) * 0.9;
+          const px = x + nx * o + tx * u, py = y + ny * o + ty * u;
+          if (!road(px, py, 20) && free(px, py, r)) pads.push([px, py, r, k * 5 + q]);
         }
       }
-      acc += sg.len;
     }
   });
   // and a few specks of duckweed round every pad
   for (const [x, y, r, sd] of pads) {
     for (let q = 0; q < 4; q++) weed.push([x + (hash(sd, q) - 0.5) * r * 4.2, y + (hash(sd, q + 9) - 0.5) * r * 1.8, sd + q]);
   }
-  if (!pads.length) return WATERS;
+  if (!pads.length && !weed.length) return WATERS;
   // bake them in clusters
   // (each speck of weed goes with the pads of its own cell, and every
   // chunk is sized to hold all of both, so no drift is ever cut straight)
