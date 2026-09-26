@@ -195,7 +195,7 @@ const lookOf = (R) => {
     L.bankDk = mix(edge, dk, 0.25); L.bankMid = mix(dk, edge, 0.5); L.bankLt = mix(lighten(main, 0.16), warm, 0.15);
     L.worn = mix(R.GRASS_DK, edge, 0.4); L.wornT = 0.55;
     L.crown = 0.07; L.ruts = 0.55; L.grassCrown = false; L.puddles = 0; L.prints = 3; L.roots = false; L.pebbles = 1;
-    L.stone = mix(edge, "#3a3236", 0.3); L.pebble = mix(R.PEBBLE, main, 0.3); L.grain = 1.3;
+    L.stone = mix(edge, "#3a3236", 0.3); L.pebble = mix(R.PEBBLE, main, 0.3); L.grain = 1.3; L.drift = 0.75;
     L.tuft = [mix(R.GRASS_DK, "#2a2224", 0.3), "#6e6050", "#8e7e66"]; L.tuftH = 0.8;
     L.cracks = true;
   } else if (style === "peat") {
@@ -445,7 +445,7 @@ export function paintRoadStrip(ctx, pts, o = {}) {
             if (raw > 0) {
               const lateral = s < 0.2 && s > -0.2, ws = Math.floor(s >= 0 ? dq : -dq);   // + toward the sun
               if (ws === -1 || ws === 0) idx -= RUT_F;
-              else if (raw > 0.035 && !lateral) idx += ws > 0 ? (raw > 0.07 ? -2 : -1) : 1;
+              else if (raw > 0.035 && !lateral) idx += ws > 0 ? (raw > 0.07 && RUT_F ? -2 : -1) : 1;
             }
           }
         }
@@ -658,7 +658,7 @@ function roadDetail(d, PW, PH, C) {
   const pal = (col) => ({ L: rgb(lighten(col, 0.42)), B: rgb(col), D: rgb(mix(col, L.tones[0], 0.55)) });
   const PB = pal(L.pebble), ST = pal(L.stone), DK = pal(mix(L.tones[0], L.stone, 0.4));
   const ash = L.style === "ash";
-  const step = 9 / Math.max(0.2, L.pebbles);
+  const step = 8 / Math.max(0.2, L.pebbles);
   for (let al = from + 6; al < to - 4; al += step * (0.5 + rng())) {
     if (onBridge(al, 5)) { rng(); rng(); continue; }
     const side = rng() < 0.5 ? -1 : 1, r = rng();
@@ -666,7 +666,7 @@ function roadDetail(d, PW, PH, C) {
     const [x, y] = spot(al, off);
     if (wetHere(x, y, 3) || inPuddle(x, y, 1.5)) continue;
     const sz = rng();
-    const kind = sz < 0.34 ? 0 : sz < 0.54 ? 1 : sz < 0.74 ? 2 : sz < 0.9 ? 3 : sz < 0.98 ? 4 : 5;
+    const kind = sz < 0.3 ? 0 : sz < 0.48 ? 1 : sz < 0.65 ? 2 : sz < 0.85 ? 3 : sz < 0.97 ? 4 : 5;
     const col = rng();
     // (the cinders: clinker, dark lumps)
     const pl = ash && kind >= 2 ? (col < 0.7 ? DK : ST) : kind >= 3 ? (col < 0.6 ? ST : PB) : col < 0.55 ? PB : col < 0.85 ? ST : DK;
@@ -685,23 +685,28 @@ function roadDetail(d, PW, PH, C) {
   if (L.cracks) {
     const crack = rgb(darken(L.tones[0], 0.25)), wallC = T[0], lipC = T[4];
     const isCrack = new Set();
-    const walk = (px, py, len, dx, dy, deep) => {
-      const pts = [];
+    // a crack runs mostly one way, jogging a pixel now and then
+    const walk = (px, py, len, th, deep) => {
+      const pts = [], cx = Math.cos(th), cy = Math.sin(th);
+      let jx = 0, jy = 0, lx = 1e9, ly = 1e9;
       for (let s = 0; s < len; s++) {
-        pts.push([px, py, deep && s > len * 0.25 && s < len * 0.75]);
-        if (rng() < 0.35) { if (dx && dy) { if (rng() < 0.5) dx = 0; else dy = 0; } else if (dx) dy = rng() < 0.5 ? 1 : -1; else dx = rng() < 0.5 ? 1 : -1; }
-        else if (rng() < 0.3) { dx = dx || (rng() < 0.5 ? 1 : -1); dy = dy || 0; }
-        px += dx; py += dy;
+        if (rng() < 0.25) { jx += (rng() - 0.5) * 1.4; jy += (rng() - 0.5) * 1.4; jx = Math.max(-1.5, Math.min(1.5, jx)); jy = Math.max(-1.5, Math.min(1.5, jy)); }
+        const qx = Math.round(px + cx * s + jx), qy = Math.round(py + cy * s + jy);
+        if (qx === lx && qy === ly) continue;
+        lx = qx; ly = qy;
+        pts.push([qx, qy, deep && s > len * 0.25 && s < len * 0.7]);
       }
       return pts;
     };
-    for (let n = 0; n < 30; n++) {
-      const al = from + rng() * (to - from), [x, y] = spot(al, (rng() - 0.5) * HALF * 1.5);
+    for (let n = 0; n < 22; n++) {
+      const al = from + rng() * (to - from), [x, y, p] = spot(al, (rng() - 0.5) * HALF * 1.4);
       if (onBridge(al, 4) || wetHere(x, y, 2)) continue;
-      const [px, py] = toPx(x, y), len = 6 + Math.floor(rng() * 9);
-      const main = walk(px, py, len, rng() < 0.5 ? 1 : -1, rng() < 0.5 ? 1 : 0, true);
+      const [px, py] = toPx(x, y), len = 10 + Math.floor(rng() * 12);
+      // (across the road more often than along it)
+      const th = Math.atan2(p.ux, -p.uy) + (rng() - 0.5) * 1.6 + (rng() < 0.3 ? Math.PI / 2 : 0);
+      const main = walk(px, py, len, th, true);
       let all = main;
-      if (rng() < 0.6) { const b = main[Math.floor(len * (0.3 + rng() * 0.4))]; all = all.concat(walk(b[0], b[1], 2 + Math.floor(rng() * 4), rng() < 0.5 ? 1 : -1, rng() < 0.5 ? 1 : -1, false)); }
+      if (rng() < 0.7) { const b = main[Math.floor(main.length * (0.35 + rng() * 0.35))]; all = all.concat(walk(b[0], b[1], 3 + Math.floor(rng() * 5), th + (rng() < 0.5 ? 0.8 : -0.8), false)); }
       for (const [qx, qy, deep] of all) { isCrack.add(qy * PW + qx); if (deep) isCrack.add((qy - 1) * PW + qx); }
       for (const [qx, qy, deep] of all) {
         put(qx, qy, crack);
@@ -836,8 +841,8 @@ const chevronSprites = () => {
   const floor = rgb(bright ? mix(chHex, dk, 0.35) : mix(dk, chHex, 0.62));
   const wall = rgb(bright ? mix(chHex, "#1a1416", 0.62) : mix(dk, chHex, 0.9));
   const lit = rgb(bright ? mix(lighten(main, 0.3), chHex, 0.35) : lighten(main, 0.3));
-  const glowC = rgb(bright ? chHex : pale ? "#f0a040" : lighten(main, 0.66));
-  const glowHot = rgb(bright ? lighten(chHex, 0.45) : "#fff3d2");
+  const glowC = rgb(bright ? chHex : pale ? "#d8862c" : lighten(main, 0.66));
+  const glowHot = rgb(bright ? lighten(chHex, 0.45) : pale ? "#f4a848" : "#fff3d2");
   const n = CHEV * RES;
   const segD = (px, py, ax, ay, bx, by) => {
     const vx = bx - ax, vy = by - ay, t = clamp01(((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy));
