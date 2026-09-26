@@ -122,7 +122,12 @@ export const CHAPTERS = [
 ];
 
 // Every level in marching order, each carrying its chapter and its number.
-for (const ch of CHAPTERS) ch.region = REGIONS[ch.id];
+// the map layout joins the levels here, on the chapter's own level objects
+// too, since the map reads waypoints both through LEVELS and chapter.levels
+for (const ch of CHAPTERS) {
+  ch.region = REGIONS[ch.id];
+  for (const lv of ch.levels) lv.pos = LEVEL_POS[lv.id] || null;
+}
 export const LEVELS = CHAPTERS.flatMap((ch, ci) =>
   ch.levels.map((lv, li) => ({ ...lv, pos: LEVEL_POS[lv.id] || null, chapter: ch, chapterIndex: ci, index: li })),
 );
