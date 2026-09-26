@@ -118,9 +118,9 @@ export const BIOME = [
 // in the low country; bracken in rusty drifts, heather in flower, and grey
 // stones breaking the turf.
 const MOOR = {
-  turf: ["#566250", "#6e7a5e", "#879270"].map(rgb),
-  heath: ["#54443e", "#6c5850", "#846c5c"].map(rgb),
-  grass: ["#5c6a48", "#728250", "#8a9a60"].map(rgb),
+  turf: ["#5c6852", "#76825f", "#8e9a72"].map(rgb),
+  heath: ["#5e4e48", "#76625a", "#8e7866"].map(rgb),
+  grass: ["#627050", "#7a8a56", "#94a266"].map(rgb),
   bracken: ["#665438", "#7c6844", "#927c52"].map(rgb),
   bloom: rgb("#8a5c6c"), stoneLt: rgb("#b0ab9e"), stoneDk: rgb("#57534e"), tuft: rgb("#4a5444"),
 };
@@ -1202,9 +1202,9 @@ function* dressing(base) {
   site(walledTown(0), 594, 284, 10);
   site(walledTown(1), 515, 392, 12);
   site(walledTown(1), 612, 356, 10);
-  site(borderFort(0), 440, 330, 10);
+  site(borderFort(0), 446, 352, 10);
   site(borderFort(1), 628, 190, 10);
-  site(borderFort(0), 548, 58, 12);
+  site(borderFort(0), 588, 72, 12);
   for (const [x, y, v] of [[488, 264, 0], [597, 338, 1], [702, 194, 2], [539, 194, 0], [464, 372, 1], [632, 299, 2],
     [600, 110, 1], [705, 305, 0], [432, 150, 2], [648, 225, 0], [575, 395, 1]]) site(ironKeep(v), x, y, 6);
   for (const [x, y, v] of [[524, 70, 1], [470, 106, 0], [712, 162, 1], [722, 245, 0], [446, 390, 1], [600, 400, 0],
