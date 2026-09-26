@@ -5,11 +5,12 @@
 // `dt` is the raw (already clamped) seconds since the last frame.
 
 import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, LANE_OFF, pickLane } from "../data/constants.js";
+import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "../data/bands.js";
 import { RIVER_ROUTE, seaRoute, seaDepthAt } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
-import { scriptedWaves, waveBonus } from "../data/waves.js";
+import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
@@ -49,14 +50,14 @@ const makeEnemy = (type, mult) => {
   return {
     id: nextId(), type, sprite: v ? v.sprite : null,
     hp: d.hp * mult, maxHp: d.hp * mult, mult, dist: 0,
-    speed: d.speed * (v?.speedMul || 1), armor: d.armor, mres: d.mres || 0, regen: d.regen || 0,
+    speed: d.speed * (v?.speedMul || 1) * (SANDBOX ? SANDBOX.speedMul : 1), armor: d.armor, mres: d.mres || 0, regen: d.regen || 0,
     // A foe's purse used to be fixed while its health inflated forever, so by
     // the eightieth wave you were paid a wave-one wage to kill a wave-eighty
     // troll. The purse now follows the meat, at a quarter of its rate.
     // ...but only up to three times its wage: deep in the Endless March the
     // meat inflates a hundredfold, and a purse that followed it bought out
     // the board by wave ninety and then piled up with nothing left to buy.
-    bounty: Math.max(1, Math.round(d.bounty * Math.min(3, 1 + Math.max(0, mult - 1) * 0.08))),
+    bounty: Math.max(SANDBOX && SANDBOX.bountyMul === 0 ? 0 : 1, Math.round(d.bounty * Math.min(3, 1 + Math.max(0, mult - 1) * 0.08) * (SANDBOX ? SANDBOX.bountyMul : 1))),
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: pickLane(d.boss),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
@@ -85,8 +86,9 @@ const makeEnemy = (type, mult) => {
 };
 
 // Drop a fresh enemy onto the road at distance `dist`, already walking.
-// Shared by gravecaller bells and amalgams coming apart.
-const spawnAt = (g, type, mult, dist, tms) => {
+// Shared by gravecaller bells and amalgams coming apart (and the sandbox's
+// spawner, engine/sandboxTools.js).
+export const spawnAt = (g, type, mult, dist, tms) => {
   const u = makeEnemy(type, mult);
   u.dist = Math.max(0, dist);
   u.lane = pickLane(u.boss);
@@ -301,6 +303,8 @@ export function updateGame(g, dt) {
   const speed = g.speed * BASE_SPEED * (managing ? 0.5 : 1);
   const sdt = g.paused ? 0 : dt * speed;
   g.time += sdt;
+  // the sandbox's bottomless coffers: whatever was spent is back by the next frame
+  if (SANDBOX?.infiniteGold) g.gold = INFINITE_GOLD;
   const tms = g.time * 1000;
   // who owns which id this frame — the damage ledger resolves through this
   g._towerById = new Map(g.towers.map((t) => [t.id, t]));
@@ -875,7 +879,8 @@ export function updateGame(g, dt) {
       if (e.dist >= TOTAL_LEN) {
         e.dead = true;
         const dmgC = e.castleDmg || 1;
-        g.lives -= dmgC;
+        // the sandbox's unbreakable castle counts the blow but keeps its walls
+        if (!SANDBOX?.invincible) g.lives -= dmgC;
         if (g.run) g.run.leaks += 1;
         g.shake = 5 + dmgC * 2.5;
         g.effects.push({ type: "leak", x: e.x - 10, y: e.y, ttl: 700, text: `-${dmgC}` });
@@ -1755,8 +1760,8 @@ export function updateGame(g, dt) {
         if (laid > 0) { g.lives += laid; g.effects.push({ type: "coin", x: W / 2, y: 88, ttl: 1300, text: `The masons mend the wall +${laid}`, big: true }); }
       }
       // the campaign is won at wave 15 — once — then the Endless March is open
-      if (g.wave === scriptedWaves() && !g.victory) { g.victory = true; g.phase = "won"; sfx.play("won"); }
-      else { g.phase = "build"; g.buildUntil = g.time + BUILD_TIME; }
+      if (g.wave === victoryWave() && !g.victory) { g.victory = true; g.phase = "won"; sfx.play("won"); }
+      else { g.phase = "build"; g.buildUntil = g.time + (SANDBOX ? SANDBOX.buildTime : BUILD_TIME); }
     }
   }
 

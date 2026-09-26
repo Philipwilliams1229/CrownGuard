@@ -10,6 +10,8 @@
 // switches the whole campaign script with it.
 
 import { FACTION } from "./factions.js";
+import { SANDBOX } from "./sandbox.js";
+import { ENEMIES } from "./enemies.js";
 
 // A campaign level plays a stretch of its faction's WAR rather than the
 // whole thing: `{ from, to, count }` means "count waves, climbing from war-
@@ -30,6 +32,9 @@ const absWave = (w) => Math.round(absWaveF(w));
 // March takes over. A call, not a constant, because the answer changes with
 // the faction — and with the level.
 export const scriptedWaves = () => (WINDOW ? WINDOW.count : FACTION.waves.length);
+// The wave whose clearing wins the run: a level's last, Free Play's end of
+// the script — or, in the sandbox, the cap the player set (0 = never).
+export const victoryWave = () => (SANDBOX && !WINDOW ? SANDBOX.waves || Infinity : scriptedWaves());
 
 // tiny deterministic RNG (mulberry32) — seeded by wave number so every
 // glimpse of a future wave shows the truth
@@ -51,6 +56,9 @@ export function genWave(w) {
   const rand = mulberry32(a * 7919);
   const past = a - FACTION.waves.length;
   let budget = 78 + past * 16 + past * past * 0.7;
+  // an army with no script at all (the sandbox can strike it out) starts
+  // generating from the first wave, so it ramps from a first wave's size
+  if (!FACTION.waves.length) budget = 12 + a * 5 + a * a * 0.15;
   // a campaign level's generated tail is a campaign wave, not the Endless
   // March: it grows with the war, but it is meant to be held
   // (the crowd swells these counts again on top, so the budget stays lean)
@@ -58,8 +66,12 @@ export function genWave(w) {
   const spec = [];
   // the endless march brings its champion every fifth wave; a campaign
   // level's boss is placed by waveSpec instead
-  if (!WINDOW && w % 5 === 0) {
-    spec.push([FACTION.endlessBoss, 1 + Math.floor(past / 10), 2600]);
+  // (the sandbox sets its own rhythm, and may rotate several champions or
+  // have none at all)
+  const every = FACTION.bossEvery || 5;
+  if (!WINDOW && FACTION.endlessBoss && w % every === 0) {
+    const bosses = FACTION.bosses?.length ? FACTION.bosses : [FACTION.endlessBoss];
+    spec.push([bosses[Math.floor(w / every) % bosses.length], 1 + Math.floor(Math.max(0, past) / 10), 2600]);
     budget *= 0.55;
   }
   const picks = 2 + Math.floor(rand() * 3);
@@ -84,6 +96,7 @@ export function genWave(w) {
 }
 
 const BOSSES = new Set(["dragon", "marshal", "hollowking"]);
+const ENEMY_BOSS = (t) => !!ENEMIES[t]?.boss;
 
 // ---- THE CROWD ----
 // Past the opening waves the war gets bigger, not just tougher: every wave
@@ -127,7 +140,11 @@ const swell = (spec, a, warm = 1) => spec.map(([type, count, gap]) => {
 export const waveSpec = (w) => {
   const a = absWave(w);
   const scripted = a <= FACTION.waves.length;
-  if (!WINDOW) { const sp = swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a); sp.overlap = overlap(a); return sp; }
+  if (!WINDOW) {
+    const sp = swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a);
+    sp.overlap = overlap(a);
+    return SANDBOX ? sandboxShape(sp) : sp;
+  }
   // two waves of a level can land on the same war-wave; the later one comes
   // thicker, because the crowd reads the level's true (fractional) position
   let spec = scripted ? FACTION.waves[a - 1] : genWave(w);
@@ -140,13 +157,29 @@ export const waveSpec = (w) => {
   return spec;
 };
 
+// The sandbox's hand on a wave: more or fewer heads per group, packed
+// tighter or looser. Champions never multiply. A group that rounds to zero
+// keeps one head, so a wave is never empty.
+const sandboxShape = (sp) => {
+  const out = sp.map(([type, count, gap, pay = 1]) => {
+    if (BOSSES.has(type) || ENEMY_BOSS(type)) return [type, count, Math.round(gap * SANDBOX.gapMul), pay];
+    const n = Math.max(1, Math.round(count * SANDBOX.countMul));
+    return [type, n, Math.max(60, Math.round(gap * SANDBOX.gapMul)), pay];
+  });
+  // an army of champions only still has to send something on the off-beats
+  if (!out.length && FACTION.bosses?.length) out.push([FACTION.bosses[0], 1, 0, 1]);
+  out.overlap = sp.overlap;
+  return out;
+};
+
 // How far a wave's groups march side by side instead of one after another:
 // 0 = each group waits for the last to finish (the teaching waves), 0.5 =
 // the next group sets out when the last is only halfway out of the wood. Deep
 // in the war the whole warband comes down the road at once.
 export const overlap = (a) => Math.max(0, Math.min(0.5, (a - 5) / 14));
 
-export const waveHpMult = (w) => {
+export const waveHpMult = (w) => (SANDBOX && !WINDOW ? SANDBOX.hpMul : 1) * baseHpMult(w);
+const baseHpMult = (w) => {
   const a = absWave(w);
   const past = Math.max(0, a - FACTION.waves.length);
   // A campaign level climbs more gently than the Endless March: the march
@@ -161,4 +194,4 @@ export const waveHpMult = (w) => {
 // A cleared wave pays. A campaign wave pays less than an endless one: there
 // are more of them, and the gold they leave behind is banked to the crown.
 // (the endless bonus stops climbing at wave 60: 595 a wave from there on)
-export const waveBonus = (w) => (WINDOW ? 24 + absWave(w) * 3 : 55 + Math.min(60, absWave(w)) * 9);
+export const waveBonus = (w) => (WINDOW ? 24 + absWave(w) * 3 : Math.round((SANDBOX ? SANDBOX.waveBonusMul : 1) * (55 + Math.min(60, absWave(w)) * 9)));

@@ -167,3 +167,9 @@ export function selectFaction(id) {
   FACTION = FACTIONS[id] || FACTIONS.greenwood;
   return FACTION;
 }
+// The Free Play sandbox marches an army of its own making (sandbox.js
+// buildArmy): the same shape as a faction, never stored in FACTIONS.
+export function setCustomFaction(f) {
+  FACTION = f;
+  return FACTION;
+}

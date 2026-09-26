@@ -15,6 +15,7 @@ import { makeTower, syncUnits, getStats } from "./towers.js";
 import { nextId } from "./ids.js";
 import { recordFavored, favoredFor } from "../data/profile.js";
 import { sfx } from "../audio/sfx.js";
+import { SANDBOX, tierOpen } from "../data/sandbox.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
 // How far a hall's footing reaches from its anchor; two halls stand at least
@@ -271,7 +272,7 @@ export const completeTower = (g, t) => {
 
 export const upgradeTower = (g, t) => {
   const def = TOWERS[t.kind];
-  if (t.branch || t.level >= 3) return;
+  if (t.branch || t.level >= 3 || !tierOpen(t.level + 1)) return;
   const cost = def.levels[t.level].cost;
   if (g.gold < cost) return;
   const prevL = formOf(t);
@@ -285,7 +286,7 @@ export const upgradeTower = (g, t) => {
 
 export const branchTower = (g, t, key) => {
   const br = TOWERS[t.kind].branches[key];
-  if (t.branch || t.level < 3 || g.gold < br.cost) return;
+  if (t.branch || t.level < 3 || g.gold < br.cost || !tierOpen(4)) return;
   const prevB = formOf(t);
   g.gold -= br.cost; t.branch = key; t.invested += br.cost;
   markRaised(g, t, "branch", prevB);
@@ -299,7 +300,7 @@ export const branchTower = (g, t, key) => {
 
 // Rank-4 "Final Ascension": a branched tower evolves once more, permanently.
 export const ascendTower = (g, t, key) => {
-  if (!t.branch || t.rank4) return;
+  if (!t.branch || t.rank4 || !tierOpen(5)) return;
   const r4 = TOWERS[t.kind].branches[t.branch].rank4?.[key];
   if (!r4 || g.gold < r4.cost) return;
   const prevR = formOf(t);
@@ -318,7 +319,7 @@ export const releaseEnemy = (g, e) => { if (!e) return; e.blockedBy = null; e.en
 export const sellTower = (g, t) => {
   if (t.units) for (const u of t.units) { const e = g.enemies.find((x) => x.blockedBy === u.id); releaseEnemy(g, e); }
   if (t.eagle) releaseEnemy(g, g.enemies.find((x) => x.blockedBy === t.eagle.id));
-  g.gold += Math.floor(t.invested * 0.7);
+  g.gold += Math.floor(t.invested * (SANDBOX ? SANDBOX.sellRefund : 0.7));
   sfx.play("sell");
   g.towers = g.towers.filter((x) => x.id !== t.id);
   g.selectedId = null;
@@ -452,7 +453,7 @@ export const buyCastleWork = (g, key) => {
 // ---- bands ----
 // Call the militia to a spot: two farmers, for a while, for nothing.
 export const callMilitia = (g, x, y) => {
-  if (!g || (g.militiaCd || 0) > 0) return false;
+  if (!g || (g.militiaCd || 0) > 0 || SANDBOX?.militia === false) return false;
   if (!g.bands) g.bands = [];
   const id = nextId();
   const units = [];
