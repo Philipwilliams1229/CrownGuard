@@ -56,6 +56,7 @@ export const DEFAULTS = {
 
   // HEROES AND HELP
   hero: true,
+  heroKey: null,          // which hero (HEROES key); null = the one picked in the game
   heroLevel: 1,           // 1-20
   militia: true,
 
@@ -136,6 +137,7 @@ export const sanitize = (raw) => {
   if (Array.isArray(s.types)) { s.types = s.types.filter((t) => ENEMIES[t]); if (!s.types.length) s.types = null; } else s.types = null;
   if (Array.isArray(s.towers)) { s.towers = s.towers.filter((k) => TOWERS[k]); if (!s.towers.length) s.towers = null; } else s.towers = null;
   for (const k of ["script", "bosses", "crowd", "infiniteGold", "invincible", "hero", "militia", "autoWaves"]) s[k] = !!s[k];
+  if (typeof s.heroKey !== "string" || !s.heroKey) s.heroKey = null;
   return s;
 };
 
@@ -151,6 +153,13 @@ export const INFINITE_GOLD = 999999;
 // ---- the live binding ------------------------------------------------------------
 // null outside a sandbox run (the campaign), so the engine's reads cost nothing.
 export let SANDBOX = null;
+// Once a run has been made easier than Classic — at the start or by a
+// mid-battle tweak — it stays that way: no stars, no XP, for the whole run.
+let TAINTED = false;
+export const runHonest = () => !SANDBOX || !TAINTED;
+// a helping hand from the in-battle panel (gold, lives, a swept road, a
+// skipped wave) taints the run the same way
+export const taintSandbox = () => { TAINTED = true; };
 
 // The army the settings describe, as a faction the wave code can march:
 // the chosen armies' scripts (filtered to the allowed types) one after
@@ -205,6 +214,7 @@ export const hallOpen = (kind) => !SANDBOX || !SANDBOX.towers || SANDBOX.towers.
 // Arm the sandbox for a run: remember the settings and march the army.
 export const startSandbox = (raw) => {
   SANDBOX = sanitize(raw);
+  TAINTED = !isHonest(SANDBOX);
   setCustomFaction(buildArmy(SANDBOX));
   return SANDBOX;
 };
@@ -218,6 +228,7 @@ export const endSandbox = (factionId = "greenwood") => {
 export const tweakSandbox = (patch) => {
   if (!SANDBOX) return null;
   SANDBOX = sanitize({ ...SANDBOX, ...patch });
+  if (!isHonest(SANDBOX)) TAINTED = true;
   if (["army", "types", "script", "bosses", "bossEvery", "crowd"].some((k) => k in patch)) setCustomFaction(buildArmy(SANDBOX));
   return SANDBOX;
 };

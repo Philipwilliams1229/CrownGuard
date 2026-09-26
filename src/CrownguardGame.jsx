@@ -10,7 +10,8 @@ import { sfx } from "./audio/sfx.js";
 import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
-import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
+import { scriptedWaves, victoryWave, waveSpec, setWaveWindow } from "./data/waves.js";
+import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
@@ -102,6 +103,8 @@ export default function Crownguard() {
   const [realmId, setRealmId] = useState(REALM.id);
   const [factionId, setFactionId] = useState(FACTION.id);
   const [realmOpen, setRealmOpen] = useState(false);
+  // the Free Play sandbox's live panel, in battle
+  const [sandboxPanel, setSandboxPanel] = useState(false);
   // where backing out of realm select should land you
   const [realmReturn, setRealmReturn] = useState("home");
   const [sndMuted, setSndMuted] = useState(sfx.muted);
@@ -203,7 +206,8 @@ export default function Crownguard() {
     } catch (err) { console.error("paintApron failed", err); }
   }, [screen, realmId, boardCss]);
 
-  const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks()) => {
+  // opts (the Free Play sandbox): { lives, wave, rush, hero: false, heroKey, heroLevel }
+  const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks(), opts = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // dev-server playtest knob: /?gold=5000 pads the war chest. Stripped from
     // production builds, so the shipped game can't be talked into it.
@@ -212,14 +216,14 @@ export default function Crownguard() {
     G.current = {
       // tallies for the profile — banked when the level ends
       run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 },
-      gold: START_GOLD, lives: CASTLE_HP + worksBonusHp(castle), wave: 0, phase: "build",
+      gold: START_GOLD, lives: (opts.lives ?? CASTLE_HP) + worksBonusHp(castle), wave: opts.wave ?? 0, phase: "build",
       // the works built on this castle: they came with the region, and stay
       castle: { ...castle },
       bands: [], militiaCd: 0,
       towers: [], enemies: [], projectiles: [], effects: [],
       spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
       selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
-      cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false,
+      cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: !!opts.rush,
       // Master Builds: free play and the endless march only, and only once
       // the coffers have seen real money — masterSeen keeps it from blinking
       freeplay, masterBuild: false, masterSeen: false, masterPick: null,
@@ -227,30 +231,40 @@ export default function Crownguard() {
     // the hero rides out and waits before the gate: level 1 on every new
     // map, with the talents bought on the Home Screen. What level he ends a
     // won map's scripted waves at is paid out as his stars (see below).
-    {
+    if (opts.hero !== false) {
       const [gx, gy] = PTS[PTS.length - 1];
-      fieldHero(G.current, heroKey, 1, gx - 70, gy + (gy > H / 2 ? -50 : 50), heroRecord(loadProfile(), heroKey).talents);
+      const hk = opts.heroKey && HEROES[opts.heroKey] ? opts.heroKey : heroKey;
+      fieldHero(G.current, hk, opts.heroLevel || 1, gx - 70, gy + (gy > H / 2 ? -50 : 50), heroRecord(loadProfile(), hk).talents);
     }
     setHeroAward(null);
     setBuildOpen(false);
     setCastleOpen(false);
     setTalentsOpen(false);
-    setUi({ gold: START_GOLD, lives: CASTLE_HP + worksBonusHp(castle), wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
+    setUi({ gold: START_GOLD, lives: (opts.lives ?? CASTLE_HP) + worksBonusHp(castle), wave: opts.wave ?? 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: !!opts.rush });
   }, [heroKey]);
 
   // Swap the battlefield: rebuild road + scenery for the realm, then start a
   // fresh Free Play run on it — full fifteen waves, then the Endless March.
-  const chooseRealm = (id) => {
+  // Ride out on a Free Play sandbox run: the settings from the setup screen
+  // (ui/SandboxSetup.jsx) arm the engine through sandbox.js, then the run
+  // starts on its realm with its purse, walls, wave, hero and pace.
+  const startSandboxRun = (settings) => {
+    const sb = startSandbox(settings);
+    const id = sb.realm in REALMS ? sb.realm : "greenwood";
     selectRealm(id);
-    selectFaction(factionId);
     setWaveWindow(null);
     setRealmId(id);
+    setFactionId(sb.army === "all" ? "greenwood" : sb.army);
     setMode("free");
     setLevelId(null);
-    // a realm may open its gates with a heavier purse — the Proving Field does
     castleScope.current = `free:${id}`;
-    initGame(REALMS[id]?.startGold ?? 250, true, loadCastle(castleScope.current));
+    // a realm may open its gates with a heavier purse — the Proving Field does
+    initGame(Math.max(sb.gold, REALMS[id]?.startGold ?? 0), true, loadCastle(castleScope.current), {
+      lives: sb.lives, wave: sb.startWave - 1, rush: sb.autoWaves,
+      hero: sb.hero, heroKey: sb.heroKey, heroLevel: sb.heroLevel,
+    });
     setRealmOpen(false);
+    setSandboxPanel(false);
     setScreen("game");
   };
 
@@ -258,7 +272,7 @@ export default function Crownguard() {
   // script, and the war chest it starts you with.
   const startLevel = (lv) => {
     selectRealm(lv.realm);
-    selectFaction(lv.chapter.faction);
+    endSandbox(lv.chapter.faction);
     setWaveWindow(lv.window);
     setRealmId(lv.realm);
     setFactionId(lv.chapter.faction);
@@ -354,6 +368,8 @@ export default function Crownguard() {
     // handed) and reads storage fresh, so neither overwrites the other.
     const payHero = () => {
       if (ui.result !== "won" || !g || g.heroPaid) return;
+      // a sandbox run made easier than Classic pays no stars
+      if (mode !== "campaign" && !runHonest()) return;
       const hb = heroBand(g);
       if (!hb) return;
       g.heroPaid = true;
@@ -362,7 +378,7 @@ export default function Crownguard() {
     };
     // a Free Play run has no level to rate, but its tallies still count
     if (mode !== "campaign" || !levelId) {
-      setProfile({ ...bankFreeRun(profile, { waves: Math.max(0, ui.wave - (ui.result === "won" ? 0 : 1)), run: g?.run }) });
+      if (runHonest()) setProfile({ ...bankFreeRun(profile, { waves: Math.max(0, ui.wave - (ui.result === "won" ? 0 : 1)), run: g?.run }) });
       if (g) g.run = { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 };
       payHero();
       return;
@@ -804,6 +820,16 @@ export default function Crownguard() {
       <div style={{ flex: `${1 - f} 1 0px` }} />
     </div>
   );
+  // the sandbox decides which halls Free Play offers; the campaign, what's won
+  const hallAvail = (key) => (mode === "free" && SANDBOX ? hallOpen(key) : towerUnlocked(key, progress));
+  // "12/18", or "∞" once the run is past its cap (or has none)
+  const capOf = (n) => { const c = victoryWave(); return Number.isFinite(c) && n <= c ? c : "∞"; };
+  const capNote = (
+    <div className="cg-parch" style={{ marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
+      <div className="cg-label" style={{ marginBottom: 2, color: "#7a6446" }}>Capped in this sandbox</div>
+      This run's settings stop halls at this tier.
+    </div>
+  );
   const cycleSpeed = () => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; };
   // one panel at a time in the tray: the tower grid is home
   const trayHome = () => { setCastleOpen(false); setTalentsOpen(false); setInfoOpen(false); setArmed(null); setMasterInfo(null); if (G.current) G.current.selectedId = null; };
@@ -821,7 +847,7 @@ export default function Crownguard() {
   // -- the purse, the castle, the level --
   const purse = (
     <>
-      <GoldChip gold={ui.gold} />
+      <GoldChip gold={mode === "free" && SANDBOX?.infiniteGold ? "∞" : ui.gold} />
       <LivesChip lives={ui.lives} max={ui.maxLives || CASTLE_HP} base={CASTLE_HP} />
       {level && !railsOn && boardCss.vw > 760 && (
         <div className="cg-panel cg-chip" style={{ gap: 6 }}>
@@ -834,7 +860,7 @@ export default function Crownguard() {
 
 
   // -- the militia horn and the hero --
-  const militiaBtn = ui.result == null && (
+  const militiaBtn = ui.result == null && !(mode === "free" && SANDBOX?.militia === false) && (
     <button aria-label="Call the militia" title={MILITIA.blurb}
       className={cls("cg-btn", ui.rallyFor === "militia" && "is-on")}
       style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
@@ -1071,7 +1097,8 @@ export default function Crownguard() {
                   </div>
                 )}
                 {/* the next level: its name, its price, and exactly what it changes */}
-                {!sel.branch && sel.level < 3 && (() => {
+                {!sel.branch && sel.level < 3 && !tierOpen(sel.level + 1) && capNote}
+                {!sel.branch && sel.level < 3 && tierOpen(sel.level + 1) && (() => {
                   const nxt = selDef.levels[sel.level];
                   const can = ui.gold >= nxt.cost;
                   const deltas = levelDeltas(t);
@@ -1089,7 +1116,8 @@ export default function Crownguard() {
                   );
                 })()}
 
-                {!sel.branch && sel.level === 3 && (
+                {!sel.branch && sel.level === 3 && !tierOpen(4) && capNote}
+                {!sel.branch && sel.level === 3 && tierOpen(4) && (
                   <div style={{ marginTop: 10 }}>
                     <div className="cg-label" style={{ marginBottom: 6 }}>Choose a path — permanent</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -1116,7 +1144,8 @@ export default function Crownguard() {
                   </div>
                 )}
 
-                {sel.branch && !sel.rank4 && branchDef.rank4 && (
+                {sel.branch && !sel.rank4 && branchDef.rank4 && !tierOpen(5) && capNote}
+                {sel.branch && !sel.rank4 && branchDef.rank4 && tierOpen(5) && (
                   <div style={{ marginTop: 10 }}>
                     <div className="cg-label" style={{ marginBottom: 6 }}>Final ascension — permanent</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -1189,7 +1218,7 @@ export default function Crownguard() {
   const lead = [...comp].sort((a, b) => (ENEMIES[b.type].boss ? 1e6 : b.count) - (ENEMIES[a.type].boss ? 1e6 : a.count)).slice(0, 3);
   const wavePanel = infoOpen && (
     <>
-      <div className="cg-label" style={{ marginBottom: 8 }}>Wave {nextWave} — {fighting ? "on the field" : ui.wave >= scriptedWaves() ? "next · endless" : "next"}</div>
+      <div className="cg-label" style={{ marginBottom: 8 }}>Wave {nextWave} — {fighting ? "on the field" : ui.wave >= victoryWave() ? "next · endless" : "next"}</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 10 }}>
         {comp.length ? waveChips(comp, fighting ? "cur" : "next") : <span style={{ fontSize: 11, color: "var(--muted)" }}>Nothing yet.</span>}
       </div>
@@ -1277,7 +1306,7 @@ export default function Crownguard() {
               <div className="cg-display" style={{ fontSize: 26, fontWeight: 700, letterSpacing: 3, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>PAUSED</div>
               <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>
                 {level && <span>Chapter {level.chapter.numeral} · </span>}
-                <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{scriptedWaves()}
+                <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{capOf(ui.wave)}
               </div>
             </div>
           );
@@ -1571,7 +1600,7 @@ export default function Crownguard() {
                   {fighting ? <SkullIcon size={18} /> : <PlayIcon size={18} />}
                   <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1 }}>
                     <span style={{ fontSize: 10, letterSpacing: 1.5 }}>WAVE</span>
-                    <span className="cg-num" style={{ fontSize: 18, textShadow: fighting ? "2px 2px 0 var(--ink)" : "1px 1px 0 rgba(255,243,210,0.5)" }}>{nextWave}<span style={{ fontSize: 12, opacity: 0.75, marginLeft: 1 }}>/{nextWave > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
+                    <span className="cg-num" style={{ fontSize: 18, textShadow: fighting ? "2px 2px 0 var(--ink)" : "1px 1px 0 rgba(255,243,210,0.5)" }}>{nextWave}<span style={{ fontSize: 12, opacity: 0.75, marginLeft: 1 }}>/{capOf(nextWave)}</span></span>
                   </span>
                   {lead.length > 0 && (
                     <span style={{ display: "flex", gap: 3 }}>
@@ -1622,7 +1651,7 @@ export default function Crownguard() {
               <div className="cg-panel" style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "0 8px", minHeight: 40 }}>
                 <SkullIcon size={14} />
                 <span className="cg-label" style={{ fontSize: 10, color: "var(--muted)" }}>Wave</span>
-                <span className="cg-num" style={{ fontSize: 15, color: "var(--cream)" }}>{Math.max(ui.wave, 1)}<span style={{ fontSize: 11, opacity: 0.75 }}>/{ui.wave > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
+                <span className="cg-num" style={{ fontSize: 15, color: "var(--cream)" }}>{Math.max(ui.wave, 1)}<span style={{ fontSize: 11, opacity: 0.75 }}>/{capOf(ui.wave)}</span></span>
               </div>
               <button title="Pause and open the menu" aria-label="Pause and open the menu" className={cls("cg-btn", menuOpen && "is-on")} style={{ minWidth: 42, minHeight: 40, padding: 0 }} onClick={openMenu}>
                 <PauseIcon size={15} />
@@ -1659,7 +1688,7 @@ export default function Crownguard() {
                   <>
           {masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
-                Object.entries(TOWERS).filter(([key]) => towerUnlocked(key, progress)).map(([key, def]) => (
+                Object.entries(TOWERS).filter(([key]) => hallAvail(key)).map(([key, def]) => (
                   <div key={key} style={{ marginBottom: 12 }}>
                     <div className="cg-label" style={{ fontSize: 11, margin: "2px 0 6px" }}>{def.name}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
@@ -1701,14 +1730,16 @@ export default function Crownguard() {
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${buildCols}, 1fr)`, gap: 7 }}>
               {/* the halls you can raise first, in their usual order; the locked ones after */}
-              {Object.entries(TOWERS).sort(([a], [b]) => towerUnlocked(b, progress) - towerUnlocked(a, progress))
-                .filter(([key]) => !compact || showLocked || towerUnlocked(key, progress)).map(([key, def]) => {
-                const open = towerUnlocked(key, progress);
+              {Object.entries(TOWERS).sort(([a], [b]) => hallAvail(b) - hallAvail(a))
+                .filter(([key]) => !compact || showLocked || hallAvail(key)).map(([key, def]) => {
+                const open = hallAvail(key);
                 const can = open && ui.gold >= def.cost;
                 const active = ui.buildMode === key;
                 const need = open ? null : unlockLevel(key);
+                // a hall the sandbox left out, rather than one still to be won
+                const benched = !open && mode === "free" && !!SANDBOX;
                 return (
-                  <button key={key} title={open ? def.blurb : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`}
+                  <button key={key} title={open ? def.blurb : benched ? "Left out of this sandbox run." : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`}
                     className={cls("cg-btn cg-btn--slate", active && "is-on", open && !can && "is-poor", !open && "is-off")}
                     style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: compact ? 88 : 100, touchAction: "none" }}
                     onPointerDown={(e) => { if (can) startTileDrag(e, key); }}
@@ -1720,13 +1751,13 @@ export default function Crownguard() {
                     <span className="cg-dim" style={{ fontSize: compact ? 11 : 10, lineHeight: 1.15 }}>{def.name}</span>
                     {open
                       ? price(def.cost, can, 12)
-                      : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{!compact && (need ? need.short || need.name : "campaign")}</span>}
+                      : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{!compact && (benched ? "sandbox" : need ? need.short || need.name : "campaign")}</span>}
                   </button>
                 );
               })}
-              {compact && Object.keys(TOWERS).some((k) => !towerUnlocked(k, progress)) && (
+              {compact && Object.keys(TOWERS).some((k) => !hallAvail(k)) && (
                 <button className="cg-btn cg-btn--slate" style={{ width: "100%", minHeight: 44, fontSize: 11, gap: 5, gridColumn: "1 / -1" }} onClick={() => setShowLocked((o) => !o)}>
-                  <LockIcon size={12} />{showLocked ? "Hide locked" : `${Object.keys(TOWERS).filter((k) => !towerUnlocked(k, progress)).length} locked`}
+                  <LockIcon size={12} />{showLocked ? "Hide locked" : `${Object.keys(TOWERS).filter((k) => !hallAvail(k)).length} locked`}
                 </button>
               )}
             </div>
@@ -1788,7 +1819,7 @@ export default function Crownguard() {
                 <div className="cg-label" style={{ margin: vp.short ? "6px 0 4px" : "12px 0 6px" }}>{grp.name}</div>
                 <div style={{ display: "grid", gridTemplateColumns: vp.short ? "repeat(auto-fill, minmax(168px, 1fr))" : "repeat(auto-fit, minmax(250px, 1fr))", gap: vp.short ? 6 : 10 }}>
                   {grp.ids.map((id) => REALMS[id]).filter(Boolean).map((r) => (
-                    <button key={r.id} onClick={() => chooseRealm(r.id)}
+                    <button key={r.id} onClick={() => startSandboxRun({ ...(SANDBOX || {}), realm: r.id })}
                       className={cls("cg-btn", r.id === realmId && "is-on")}
                       style={{ justifyContent: "flex-start", gap: 10, padding: 7, alignItems: "stretch", textAlign: "left" }}>
                       <svg viewBox="0 0 150 100" width={vp.short ? 54 : 108} height={vp.short ? 36 : 72} style={{ flexShrink: 0, border: "2px solid var(--ink)", imageRendering: "pixelated" }}>

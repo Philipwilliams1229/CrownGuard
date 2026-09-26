@@ -8,6 +8,7 @@ import { spawnAt } from "./update.js";
 import { waveHpMult } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
 import { TOTAL_LEN } from "./path.js";
+import { taintSandbox } from "../data/sandbox.js";
 
 // `n` foes of `type` at the road's mouth (or `at`, a fraction of the road),
 // at the current wave's health. They pay no bounty.
@@ -28,17 +29,21 @@ export const sandboxSpawn = (g, type, n = 1, at = 0) => {
 // Sweep every foe off the road (no bounty) and empty the spawn queue.
 export const sandboxClear = (g) => {
   if (!g) return;
+  taintSandbox();
   for (const e of g.enemies) e.dead = true;
   g.enemies = [];
   g.spawnQueue = [];
 };
 
-export const sandboxGold = (g, amount) => { if (g) g.gold = Math.max(0, Math.floor(g.gold + amount)); };
-export const sandboxLives = (g, amount) => { if (g) g.lives = Math.max(1, Math.floor(g.lives + amount)); };
+// (a helping hand — gold, lives, a swept road, a skipped wave — means the run
+// banks no stars or XP; calling up MORE foes never does)
+export const sandboxGold = (g, amount) => { if (g) { taintSandbox(); g.gold = Math.max(0, Math.floor(g.gold + amount)); } };
+export const sandboxLives = (g, amount) => { if (g) { taintSandbox(); g.lives = Math.max(1, Math.floor(g.lives + amount)); } };
 
 // Jump the war to wave `w` (the next horn sounds wave w). Only between waves.
 export const sandboxSkipTo = (g, w) => {
   if (!g || g.phase !== "build") return false;
+  taintSandbox();
   g.wave = Math.max(0, Math.floor(w) - 1);
   return true;
 };
