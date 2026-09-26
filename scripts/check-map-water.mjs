@@ -1,9 +1,11 @@
 // Does the campaign map tell the truth about water? Every level whose realm
 // has a river (data/maps.js rivers) must have a map river through its
 // waypoint; every level with ponds/bogs a lake or pool beside it (within
-// ~13 units, edge to waypoint); and no river may pass within 8 units of a
-// dry level; a coastal realm (map.coast) must stand within ~14 units of
-// its country's shore. Run after adding a level or moving water in src/ui/mapArt.js:
+// ~22 units, edge to waypoint); and no river may pass within 14 units of a
+// dry level; a coastal realm (map.coast) must stand within ~24 units of
+// its country's shore. (Distances are in map units; the map was laid out
+// ~1.7x larger on 2026-09-25 and these grew with it.) A level with no
+// waypoint yet (mapLayout.js LEVEL_POS) is listed as not placed. Run after adding a level or moving water in src/ui/mapArt.js:
 //   node scripts/check-map-water.mjs
 
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
@@ -31,12 +33,13 @@ const shore = (d) => {
 };
 let bad = 0;
 for (const lv of LEVELS) {
+  if (!lv.pos) { console.log(`--  ${lv.id.padEnd(11)} not placed on the map yet`); continue; }
   const r = REALMS[lv.realm], [x, y] = lv.pos;
   const dR = Math.min(...RIVERS.map((rv) => Math.min(...rv.pts.map(([px, py]) => Math.hypot(px - x, py - y)))));
   const dM = Math.min(...meres.map((m) => Math.hypot(x - m.x, y - m.y) - m.rx));
   const hasR = (r.rivers || []).length > 0, hasP = (r.ponds || []).length > 0;
   const dC = Math.min(...shore(lv.chapter.region).map(([px, py]) => Math.hypot(px - x, py - y)));
-  const ok = (hasR ? dR < 2 : dR > 8) && (!hasP || hasR || dM < 13) && (!r.coast || dC < 14);
+  const ok = (hasR ? dR < 2 : dR > 14) && (!hasP || hasR || dM < 22) && (!r.coast || dC < 24);
   if (!ok) bad++;
   console.log(`${ok ? "ok " : "BAD"} ${lv.id.padEnd(11)} river:${hasR ? "yes" : "no "} ponds:${hasP ? "yes" : "no "} coast:${r.coast ? `yes (${dC.toFixed(0)} from shore)` : "no"}  nearest river ${dR.toFixed(1).padStart(5)}  nearest lake ${dM.toFixed(1).padStart(6)}`);
 }

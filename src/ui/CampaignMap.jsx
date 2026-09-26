@@ -6,10 +6,17 @@
 // countries not yet reached) and an SVG layer for the names, the pulse on
 // the front line, and the taps.
 //
-// All three share the map's 400x360 unit space (y from -120 to 240), so the
+// All three share the map's unit space (MAP in mapArt.js, 770x690), so the
 // same picture works on a phone and on a desktop. On a landscape tablet the
 // map takes the height of the screen and the chosen level's card stands
 // beside it; on a phone held upright the card drops below.
+//
+// The continent is big, and the map is a camera over it: it opens close in
+// on the front line and, when a level has been won since it was last shown,
+// travels from the old front to the new one. One finger or the mouse drags
+// it (with a little glide), two fingers pinch, the wheel or a trackpad pinch
+// zooms about the pointer; the corner buttons pull back to the whole
+// continent and fly back to the front.
 //
 // Three layouts, from useViewport (ui/fit.jsx):
 //  - "wide":  a tablet or desktop on its side. Header on top, map + card.
@@ -35,16 +42,44 @@ import { panel, FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
 import { CastleIcon, LockIcon } from "./hud/icons.jsx";
-import { AW, AH, MAP, terrainFor, drawMapState, labelBox, LABEL_FONT, BANNER_AT } from "./mapArt.js";
+import { AW, AH, U, MAP, LEVELS as PLACED, terrainFor, drawMapState, labelBox, LABEL_FONT, BANNER_AT } from "./mapArt.js";
 
 const INK = "#10131a";
 const LINE = "#241a26";
 const SEA = "#2a4a6a";
 // where the fen's lights wander: [x, y, delay]
-const WISPS = [[262, -58, 0], [334, -46, 0.7], [282, -104, 1.3], [352, -62, 0.4], [236, -50, 1.8], [322, -108, 1.1], [376, -44, 2.2]];
+const WISPS = [[415, -106, 0], [591, -82, 0.7], [464, -198, 1.3], [636, -114, 0.4], [351, -90, 1.8], [562, -206, 1.1], [694, -78, 2.2],
+  [460, -20, 0.9], [620, -30, 1.6], [520, -170, 2.5], [700, -130, 0.2]];
 const STAR_SLOTS = Array.from({ length: MAX_STARS }, (_, i) => i + 1);
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// ---- the camera ----
+// A view is { x, y, z }: the map point at the middle of the window and the
+// zoom in screen px per map unit. Pulled right back, the whole continent
+// fits; close in, about 250 units show across (never under 1.9 px a unit,
+// so the names stay readable on a phone).
+const Z_MAX = 6;
+const fitZ = (v) => Math.min(v.w / MAP.w, v.h / MAP.h);
+const closeZ = (v) => Math.max(fitZ(v) * 1.05, clamp(v.w / 250, 1.9, 4));
+const clampCam = (c, v) => {
+  const z = clamp(c.z, fitZ(v), Z_MAX), hw = v.w / 2 / z, hh = v.h / 2 / z;
+  const x = MAP.w <= hw * 2 ? MAP.x + MAP.w / 2 : clamp(c.x, MAP.x + hw, MAP.x + MAP.w - hw);
+  const y = MAP.h <= hh * 2 ? MAP.y + MAP.h / 2 : clamp(c.y, MAP.y + hh, MAP.y + MAP.h - hh);
+  return { x, y, z };
+};
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+// where the front line stood the last time the map was shown, so a won
+// level's march can be shown on the way in
+let LAST_FRONT = null;
+// a level's waypoint, or (not placed yet) the last placed one before it
+const posOf = (lv) => {
+  if (!lv) return null;
+  if (lv.pos) return lv.pos;
+  const i = LEVELS.findIndex((l) => l.id === lv.id);
+  for (let k = i - 1; k >= 0; k--) if (LEVELS[k].pos) return LEVELS[k].pos;
+  return PLACED[0]?.pos || [MAP.x + MAP.w / 2, MAP.y + MAP.h / 2];
+};
 // padding that keeps clear of a notch or the home bar
 const safePad = (t, r, b, l) =>
   `max(${t}px, env(safe-area-inset-top)) max(${r}px, env(safe-area-inset-right)) max(${b}px, env(safe-area-inset-bottom)) max(${l}px, env(safe-area-inset-left))`;
@@ -119,7 +154,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
     ro.observe(el);
     return () => ro.disconnect();
   }, [mode]);
-  const CHROME = 26, GAP = short ? 8 : 12;
+  const GAP = short ? 8 : 12;
   let CARD_W = 320;
   let mapBox = null;
   if (short && room) {
@@ -128,9 +163,9 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
     CARD_W = Math.round(clamp(room.w * 0.46, 290, 420));
     mapBox = { width: room.w - CARD_W - GAP, height: room.h };
   } else if (wide && room) {
-    const byW = room.w - CARD_W - 12 - CHROME, byH = (room.h - CHROME) / 0.9;
-    const inner = Math.max(200, Math.min(byW, Math.max(byH, Math.min(byW, 420))));
-    mapBox = { width: inner + CHROME, height: Math.min(room.h, inner * 0.9 + CHROME) };
+    // a tablet or desktop: the map is a window onto the continent, so it
+    // takes all the room the card leaves
+    mapBox = { width: Math.max(240, room.w - CARD_W - GAP), height: room.h };
   }
 
   // Paint the land and the progress over it. The land is baked once per
@@ -156,15 +191,13 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearKey, starKey, mode]);
 
-  // Close up (the default) the map is half again the size of its window and
-  // panned, Kingdom Rush style; the button in its corner pulls back to the
-  // whole continent. On arrival the view goes to the front line.
-  const [close, setClose] = useState(true);
-  const scrollRef = useRef(null);
-  // the size of the map's window, so the continent inside can be sized to it
+  // ---- the camera over the continent ----
+  const viewRef = useRef(null), worldRef = useRef(null);
+  const cam = useRef(null), vRef = useRef(null), anim = useRef(0), journey = useRef(null);
   const [view, setView] = useState(null);
+  const [far, setFar] = useState(false);   // pulled back to the whole continent
   useLayoutEffect(() => {
-    const el = scrollRef.current;
+    const el = viewRef.current;
     if (!el) return;
     const fit = () => setView((o) => (o && o.w === el.clientWidth && o.h === el.clientHeight ? o : { w: el.clientWidth, h: el.clientHeight }));
     fit();
@@ -172,47 +205,164 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
     ro.observe(el);
     return () => ro.disconnect();
   }, [mode]);
-  // close up: half again the window's width (never under 640px on a phone,
-  // so the names stay readable); pulled back: the whole continent, fitted
-  const land = view && view.w > 0
-    ? (close ? Math.max(view.w * 1.5, compact ? 640 : 0) : Math.min(view.w, view.h / 0.9))
-    : null;
+  const apply = () => {
+    const el = worldRef.current, v = vRef.current, c = cam.current;
+    if (!el || !v || !c) return;
+    const tx = Math.round(v.w / 2 - (c.x - MAP.x) * c.z), ty = Math.round(v.h / 2 - (c.y - MAP.y) * c.z);
+    el.style.transform = `translate(${tx}px, ${ty}px) scale(${c.z / U})`;
+  };
+  const syncFar = () => { const v = vRef.current, c = cam.current; if (v && c) setFar(c.z <= fitZ(v) * 1.08); };
+  const setCam = (c) => { cam.current = clampCam(c, vRef.current); apply(); };
+  const stop = () => { cancelAnimationFrame(anim.current); anim.current = 0; };
+  // glide to a view; a long way out rises a little on the way (bump)
+  const flyTo = (x, y, z, ms = 700, bump = 0) => {
+    stop();
+    const v = vRef.current, from = cam.current;
+    if (!v || !from) return;
+    const to = clampCam({ x, y, z }, v), t0 = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / ms), e = ease(t);
+      const lz = Math.log(from.z) + (Math.log(to.z) - Math.log(from.z)) * e;
+      setCam({ x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, z: Math.exp(lz) * (1 - bump * Math.sin(Math.PI * t)) });
+      if (t < 1) anim.current = requestAnimationFrame(step);
+      else { anim.current = 0; syncFar(); }
+    };
+    anim.current = requestAnimationFrame(step);
+  };
+  const frontPos = posOf(upTo);
+  // the window's size known: place the camera the first time, keep it
+  // inside the map after a resize or a turned phone
   useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    // frame the whole country the front line is in, if it fits; if not,
-    // the front line itself
-    const k = el.scrollWidth / MAP.w, ps = upTo.chapter.levels.map((l) => l.pos);
-    const x0 = Math.min(...ps.map((p) => p[0])) - 26, x1 = Math.max(...ps.map((p) => p[0])) + 26;
-    const y0 = Math.min(...ps.map((p) => p[1])) - 34, y1 = Math.max(...ps.map((p) => p[1])) + 24;
-    const fits = (x1 - x0) * k <= el.clientWidth && (y1 - y0) * k <= el.clientHeight;
-    const [fx, fy] = fits ? [(x0 + x1) / 2, (y0 + y1) / 2] : upTo.pos;
-    el.scrollTop = Math.max(0, (fy - MAP.y) * k - el.clientHeight / 2);
-    el.scrollLeft = Math.max(0, (fx - MAP.x) * k - el.clientWidth / 2);
+    if (!view || view.w < 2 || view.h < 2) return;
+    vRef.current = view;
+    if (!cam.current) {
+      const z = closeZ(view), prev = LAST_FRONT && LAST_FRONT !== upTo.id ? posOf(levelById(LAST_FRONT)) : null;
+      const at = prev || frontPos;
+      cam.current = clampCam({ x: at[0], y: at[1], z }, view);
+      if (prev && (prev[0] !== frontPos[0] || prev[1] !== frontPos[1])) journey.current = frontPos;
+      LAST_FRONT = upTo.id;
+    } else cam.current = clampCam(cam.current, view);
+    apply();
+    syncFar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // re-framed whenever the continent is drawn at a new size (a new layout,
-    // a turned phone); Safari's bars coming and going change only the
-    // window's height, which leaves the close-up's size alone
-  }, [mode, close, land]);
-  // A mouse can drag the map about too (touch pans it natively). A drag
-  // that moved is not a tap, so it selects nothing.
-  const drag = useRef(null);
-  const panDown = (e) => {
-    if (e.pointerType !== "mouse" || e.button !== 0) return;
-    const el = scrollRef.current;
-    drag.current = { x: e.clientX, y: e.clientY, l: el.scrollLeft, t: el.scrollTop, moved: false };
+  }, [view, mode]);
+  // a level won since the map was last open: once the land is painted, the
+  // camera travels the road from the old front line to the new one
+  useEffect(() => {
+    if (!painted || !journey.current || !vRef.current) return;
+    const [x, y] = journey.current, v = vRef.current, c = cam.current;
+    journey.current = null;
+    const px = Math.hypot(x - c.x, y - c.y) * c.z;
+    const id = setTimeout(() => flyTo(x, y, closeZ(v), clamp(700 + px * 1.3, 900, 2400), clamp(px / (v.w * 3), 0, 0.4)), 350);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [painted, view]);
+  useEffect(() => () => stop(), []);
+
+  // Gestures. Pointers are followed on the window, so a drag may leave the
+  // map; a drag that moved is not a tap, so it selects nothing.
+  const ptrs = useRef(new Map()), gest = useRef(null);
+  const local = (p) => { const r = viewRef.current.getBoundingClientRect(); return { x: p.x - r.left, y: p.y - r.top }; };
+  const toMap = (p) => { const v = vRef.current, c = cam.current; return { x: c.x + (p.x - v.w / 2) / c.z, y: c.y + (p.y - v.h / 2) / c.z }; };
+  const begin = (moved) => {
+    const ps = [...ptrs.current.values()].map(local);
+    if (!cam.current || !ps.length) { gest.current = ps.length ? gest.current : null; return; }
+    if (ps.length === 1) gest.current = { n: 1, p0: ps[0], c0: { ...cam.current }, moved, trail: [{ ...ps[0], t: performance.now() }] };
+    else {
+      const [a, b] = ps, mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      gest.current = { n: 2, d0: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), z0: cam.current.z, m0: toMap(mid), moved: true };
+    }
   };
-  const panMove = (e) => {
-    const d = drag.current;
-    if (!d) return;
-    const dx = e.clientX - d.x, dy = e.clientY - d.y;
-    if (!d.moved && Math.hypot(dx, dy) < 5) return;
-    d.moved = true;
-    scrollRef.current.scrollLeft = d.l - dx;
-    scrollRef.current.scrollTop = d.t - dy;
+  const onDown = (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (!cam.current) return;
+    stop();
+    const was = ptrs.current.size > 0 && gest.current?.moved;
+    ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    begin(!!was);
   };
-  const panUp = () => { setTimeout(() => { drag.current = null; }, 0); };
-  const panClick = (e) => { if (drag.current?.moved) { e.stopPropagation(); e.preventDefault(); } };
+  useEffect(() => {
+    const move = (e) => {
+      if (!ptrs.current.has(e.pointerId)) return;
+      ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const g = gest.current, v = vRef.current;
+      if (!g || !v) return;
+      const ps = [...ptrs.current.values()].map(local);
+      if (g.n === 1) {
+        const p = ps[0], dx = p.x - g.p0.x, dy = p.y - g.p0.y;
+        if (!g.moved && Math.hypot(dx, dy) < 6) return;
+        g.moved = true;
+        const now = performance.now();
+        g.trail.push({ ...p, t: now });
+        while (g.trail.length > 2 && now - g.trail[0].t > 90) g.trail.shift();
+        setCam({ x: g.c0.x - dx / g.c0.z, y: g.c0.y - dy / g.c0.z, z: g.c0.z });
+      } else if (ps.length >= 2) {
+        const [a, b] = ps, mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const z = clamp(g.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / g.d0), fitZ(v), Z_MAX);
+        setCam({ x: g.m0.x - (mid.x - v.w / 2) / z, y: g.m0.y - (mid.y - v.h / 2) / z, z });
+      }
+    };
+    const up = (e) => {
+      if (!ptrs.current.has(e.pointerId)) return;
+      const g = gest.current;
+      ptrs.current.delete(e.pointerId);
+      if (ptrs.current.size) { begin(true); return; }
+      // let go of a drag: it glides on and slows
+      if (g && g.n === 1 && g.moved && g.trail.length > 1 && e.type === "pointerup") {
+        // (the speed is capped, so a flick glides a way, not across the sea)
+        const a = g.trail[0], b = g.trail[g.trail.length - 1], dt = Math.max(24, b.t - a.t);
+        let vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt, last = performance.now();
+        const sp = Math.hypot(vx, vy), cap = 1.5;
+        if (sp > cap) { vx *= cap / sp; vy *= cap / sp; }
+        if (performance.now() - b.t < 60 && Math.hypot(vx, vy) > 0.08) {
+          const glide = (now) => {
+            const d = Math.min(40, now - last); last = now;
+            const c = cam.current;
+            setCam({ x: c.x - (vx * d) / c.z, y: c.y - (vy * d) / c.z, z: c.z });
+            const k = Math.exp(-d / 220); vx *= k; vy *= k;
+            anim.current = Math.hypot(vx, vy) > 0.02 ? requestAnimationFrame(glide) : 0;
+          };
+          anim.current = requestAnimationFrame(glide);
+        }
+      }
+      syncFar();
+      // the click that follows a drag still needs to see it moved
+      setTimeout(() => { if (!ptrs.current.size) gest.current = null; }, 0);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // the wheel (or a trackpad pinch) zooms about the pointer
+  useEffect(() => {
+    const el = viewRef.current;
+    if (!el) return;
+    const wheel = (e) => {
+      e.preventDefault();
+      const v = vRef.current, c = cam.current;
+      if (!v || !c) return;
+      stop();
+      const dy = e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1);
+      const z = clamp(c.z * Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0018)), fitZ(v), Z_MAX);
+      const p = local({ x: e.clientX, y: e.clientY }), m = toMap(p);
+      setCam({ x: m.x - (p.x - v.w / 2) / z, y: m.y - (p.y - v.h / 2) / z, z });
+      syncFar();
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => el.removeEventListener("wheel", wheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+  const panClick = (e) => { if (gest.current?.moved) { e.stopPropagation(); e.preventDefault(); } };
+  const whole = () => flyTo(MAP.x + MAP.w / 2, MAP.y + MAP.h / 2, 0, 650);
+  const closeIn = (p) => { const v = vRef.current; if (v && p) flyTo(p[0], p[1], Math.max(closeZ(v), cam.current?.z || 0), 750); };
+  // a tap on a waypoint chooses it; from far out, the view goes in to it too
+  const choose = (lv) => {
+    setSelId(lv.id);
+    const v = vRef.current, c = cam.current;
+    if (v && c && c.z < closeZ(v) * 0.75) closeIn(lv.pos);
+  };
   const clearedCount = LEVELS.filter((l) => progress.cleared[l.id]).length;
 
   const selUnlocked = sel ? isUnlocked(sel.id, progress) : false;
@@ -233,14 +383,14 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
     <div style={{
       ...frame, background: SEA, padding: 8, boxSizing: "border-box", position: "relative",
       ...(wide
-        ? { ...(mapBox || { height: "100%", aspectRatio: "400 / 360" }), flexShrink: 0 }
+        ? { ...(mapBox || { height: "100%", width: 0, flexGrow: 1 }), flexShrink: 0 }
         // upright, the map takes whatever height the card below leaves it
         // (down to a floor; the close-up pans, so any shape of window works)
         : { width: "100%", maxWidth: 780, flex: "1 1 0", minHeight: 210, maxHeight: "calc(min(100vw - 20px, 780px) * 1.5)", display: "flex" }),
     }}>
       <Studs />
-      <button aria-label={close ? "Show the whole continent" : "Look closer"} title={close ? "The whole continent" : "Closer"}
-        onClick={() => setClose((v) => !v)}
+      <button aria-label={far ? "Look closer" : "Show the whole continent"} title={far ? "Closer" : "The whole continent"}
+        onClick={() => (far ? closeIn(sel?.pos || frontPos) : whole())}
         style={{ ...woodBtn, position: "absolute", top: 14, right: 14, zIndex: 3, width: 44, height: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <svg width="22" height="22" viewBox="0 0 11 11" style={{ shapeRendering: "crispEdges", display: "block" }} aria-hidden="true">
           <path d="M3,0h3v1h1v1h1v3h-1v1h-1v1h-3v-1h-1v-1h-1v-3h1v-1h1z" fill="#10131a" />
@@ -248,27 +398,29 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
           <rect x="7" y="7" width="2" height="2" fill="#10131a" /><rect x="8" y="8" width="3" height="3" fill="#10131a" />
           <rect x="8" y="8" width="2" height="2" fill="#8a6440" />
           <rect x="2.5" y="3" width="4" height="1" fill="#10131a" />
-          {!close && <rect x="4" y="1.5" width="1" height="4" fill="#10131a" />}
+          {far && <rect x="4" y="1.5" width="1" height="4" fill="#10131a" />}
         </svg>
       </button>
-      <div ref={scrollRef} onPointerDown={panDown} onPointerMove={panMove} onPointerUp={panUp} onPointerLeave={panUp} onClickCapture={panClick}
-        style={{ width: "100%", height: "100%", overflow: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", border: `2px solid ${INK}`, boxSizing: "border-box", cursor: close ? "grab" : "default", display: "flex" }}>
-        {/* close up the continent is drawn larger than its window and
-            panned, so the names stay readable; a phone never goes below
-            that size */}
-        <div style={{
-          position: "relative", flexShrink: 0, margin: "auto", background: SEA,
-          ...(land ? { width: land, height: land * 0.9 } : { width: close ? "150%" : "100%", aspectRatio: "400 / 360" }),
-        }}>
+      {/* back to the front line: the crown's banner */}
+      <button aria-label="Go to the front line" title="The front line"
+        onClick={() => closeIn(frontPos)}
+        style={{ ...woodBtn, position: "absolute", top: 64, right: 14, zIndex: 3, width: 44, height: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <svg width="22" height="22" viewBox="0 0 11 11" style={{ shapeRendering: "crispEdges", display: "block" }} aria-hidden="true">
+          <rect x="1" y="0" width="3" height="11" fill="#10131a" />
+          <rect x="2" y="1" width="1" height="10" fill="#8a6440" />
+          <path d="M3,0h8v1h-1v1h-1v1h1v1h1v2h-8z" fill="#10131a" />
+          <path d="M3,1h6v1h-1v2h1v1h-6z" fill="#a8505c" />
+          <rect x="4" y="2" width="3" height="2" fill="#f2cf4a" />
+        </svg>
+      </button>
+      <div ref={viewRef} onPointerDown={onDown} onClickCapture={panClick}
+        style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", border: `2px solid ${INK}`, boxSizing: "border-box", cursor: "grab", background: SEA }}>
+        {/* the whole continent at its art size, moved and scaled by the camera */}
+        <div ref={worldRef} style={{ position: "absolute", left: 0, top: 0, width: AW, height: AH, transformOrigin: "0 0", background: SEA }}>
           <canvas ref={landRef} width={AW} height={AH}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: "pixelated", opacity: painted ? 1 : 0, transition: "opacity 0.35s" }} />
           <canvas ref={stateRef} width={AW} height={AH}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: "pixelated" }} />
-          {!painted && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, letterSpacing: 2, color: "#9fb8cc" }}>
-              UNROLLING THE MAP…
-            </div>
-          )}
           <svg viewBox={`${MAP.x} ${MAP.y} ${MAP.w} ${MAP.h}`} preserveAspectRatio="none"
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", opacity: painted ? 1 : 0 }}>
             {CHAPTERS.map((ch) => <Banner key={ch.id} ch={ch} open={isUnlocked(ch.levels[0].id, progress)} />)}
@@ -288,7 +440,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
 
             {/* the front line: rings spreading out from the next fight, and
                 a gold chevron bobbing over it */}
-            {front && (
+            {front && front.pos && (
               <g style={{ pointerEvents: "none" }}>
                 {[0, 0.8].map((d) => (
                   <ellipse key={d} cx={front.pos[0]} cy={front.pos[1]} rx="6" ry="3" fill="none" stroke="#f2cf4a" strokeWidth="1.2">
@@ -305,7 +457,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
             )}
 
             {/* the chosen waypoint: gold corner brackets */}
-            {sel && (() => {
+            {sel && sel.pos && (() => {
               const [x, y] = sel.pos, l = x - 11, r = x + 11, t = y - 23, b = y + 6, k = 3.6;
               const d = `M${l},${t + k}V${t}H${l + k} M${r - k},${t}H${r}V${t + k} M${r},${b - k}V${b}H${r - k} M${l + k},${b}H${l}V${b - k}`;
               return (
@@ -317,17 +469,17 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
             })()}
 
             {/* names, for every country the war has reached */}
-            {LEVELS.filter((lv) => isUnlocked(lv.chapter.levels[0].id, progress)).map((lv) => (
+            {PLACED.filter((lv) => isUnlocked(lv.chapter.levels[0].id, progress)).map((lv) => (
               <Scroll key={lv.id} lv={lv} open={isUnlocked(lv.id, progress)} sel={lv.id === selId} />
             ))}
 
             {/* the taps: every waypoint is a generous target, its name too */}
-            {LEVELS.map((lv) => {
+            {PLACED.map((lv) => {
               const [x, y] = lv.pos, b = labelBox(lv);
               return (
                 <g key={lv.id} role="button" tabIndex={0} aria-label={lv.name}
-                  onClick={() => setSelId(lv.id)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setSelId(lv.id); }}
+                  onClick={() => choose(lv)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") choose(lv); }}
                   style={{ cursor: "pointer", outline: "none" }}>
                   <rect x={x - 13} y={y - 24} width="26" height="31" fill="transparent" />
                   <rect x={b.x - 2} y={b.y - 1} width={b.w + 4} height={b.h + 2} fill="transparent" />
@@ -336,6 +488,11 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
             })}
           </svg>
         </div>
+        {!painted && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, letterSpacing: 2, color: "#9fb8cc", pointerEvents: "none" }}>
+            UNROLLING THE MAP…
+          </div>
+        )}
       </div>
     </div>
   );

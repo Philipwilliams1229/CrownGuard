@@ -5,35 +5,55 @@
 // from the levels themselves (campaign.js, levels-*.js) so the map can be
 // re-laid without touching a level, and a level added without touching the
 // map. A level with no position here isn't drawn on the map yet.
+//
+// The continent was laid out again (2026-09-25) about 1.9x larger than the
+// first map, so the march feels like a journey: the vale 1.7x, the Marches
+// ~2x and the fen ~2.2x, each big enough for eleven stops with country
+// between them. Waypoints of the vale sit ~60-70 units apart; keep new ones
+// at least ~45 from their neighbours and ~30 from a coast (unless coastal).
 export const REGIONS = {
-  greenwood: "M28,142 C18,116 14,88 20,62 C24,38 40,18 64,8 C88,-2 118,-8 146,-2 C172,4 192,20 192,44 C192,66 172,84 166,104 C158,124 176,140 160,162 C146,182 118,196 92,194 C64,192 40,178 28,142 Z",
-  iron: "M218,126 C212,96 224,62 252,44 C272,31 300,26 320,36 C336,44 352,32 366,46 C384,64 394,90 386,118 C378,148 372,176 342,192 C312,208 262,206 236,184 C222,172 220,146 218,126 Z",
-  hollow: "M236,-30 C230,-64 244,-96 274,-108 C298,-117 330,-118 352,-108 C372,-99 388,-84 392,-62 C396,-40 390,-18 372,-8 C352,2 320,4 292,0 C264,-4 240,-6 236,-30 Z",
+  greenwood: "M48,241 C31,197 24,150 34,105 C41,65 68,31 109,14 C150,-3 201,-14 248,-3 C292,7 326,34 326,75 C326,112 292,143 282,177 C269,211 299,238 272,275 C248,309 201,333 156,330 C109,326 68,303 48,241 Z",
+  iron: "M394,253 C383,194 406,128 461,93 C500,67 554,58 593,77 C624,93 656,69 683,97 C718,132 737,182 722,237 C706,295 695,350 636,381 C578,412 480,409 429,366 C402,342 398,292 394,253 Z",
+  hollow: "M351,-50 C337,-118 371,-182 444,-206 C503,-224 582,-226 636,-206 C685,-188 724,-158 734,-114 C743,-70 729,-26 685,-6 C636,14 557,18 489,10 C420,2 361,-2 351,-50 Z",
 };
 
 export const LEVEL_POS = {
-  gw1: [44, 168],
-  gw2: [88, 146],
-  foxmere: [106, 118],
-  gw3: [52, 100],
-  bramblewick: [38, 62],
-  gw4: [104, 62],
-  wolfrun: [76, 26],
-  ravenscar: [124, 8],
-  blackbriar: [168, 32],
-  cinderholt: [156, 74],
-  gw5: [146, 110],
-  ir1: [232, 150],
-  muster: [244, 112],
-  ir2: [268, 186],
-  ir3: [304, 140],
-  ir4: [330, 86],
-  undercliff: [356, 122],
-  ir5: [352, 48],
-  hl1: [368, -26],
-  hl2: [310, -26],
-  bellmarsh: [252, -26],
-  hl3: [248, -88],
-  hl4: [298, -70],
-  hl5: [360, -86],
+  gw1: [75, 286],
+  gw2: [150, 248],
+  foxmere: [180, 201],
+  gw3: [88, 170],
+  bramblewick: [65, 105],
+  gw4: [177, 105],
+  wolfrun: [129, 44],
+  ravenscar: [211, 14],
+  blackbriar: [286, 54],
+  cinderholt: [265, 126],
+  gw5: [248, 187],
+  // the Marches: in from the isthmus, south to Stonewatch, across the Iron
+  // river, up to the north shore, then down the eastern peaks and back north
+  // to the Citadel
+  ir1: [422, 299],
+  muster: [445, 225],
+  ir2: [486, 366],
+  gallowscross: [525, 318],
+  ir3: [562, 280],
+  kestrel: [505, 86],
+  ir4: [606, 166],
+  coldwater: [635, 330],
+  crowstair: [686, 282],
+  undercliff: [668, 205],
+  ir5: [656, 100],
+  // the fen: over the strait, west along the south shore, north past the
+  // Stillmere, east along the drowned north, and down to the Throne
+  hl1: [675, -42],
+  saltgrave: [612, -2],
+  hl2: [533, -42],
+  bellmarsh: [391, -42],
+  stillmere: [450, -108],
+  hl3: [396, -158],
+  drownholm: [455, -175],
+  hl4: [503, -130],
+  reedmaze: [560, -128],
+  lichgate: [600, -175],
+  hl5: [655, -162],
 };

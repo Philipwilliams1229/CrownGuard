@@ -190,6 +190,15 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
 ## The campaign map (`src/ui/mapArt.js`)
 
 - Roads: good as they are — well connected.
+- **A continent to travel** (owner, 2026-09-25): the map is 770x690 units
+  (`MAP` in mapArt.js; y from -250), each chapter with room for 11 stops;
+  waypoints, name scrolls, road width and dressing keep their on-screen size,
+  so the countryside between stops fills with the region's own dressing.
+  The layout lives in `src/data/mapLayout.js` (coastlines + waypoints). The
+  campaign screen is a camera: it opens close on the front line, glides to a
+  newly opened stop, drags/pinches/wheel-zooms, and has buttons for the
+  whole continent and "back to the front". Paint is split into stages so
+  the title screen can warm it; keep each stage under ~100ms.
 - **Water is natural and informative** (owner, 2026-09-25). Rivers
   (`RIVERS`, built by `river()`) are splines through control points,
   meandered by noise, held still at their `pins` (the waypoints they run

@@ -525,6 +525,7 @@ export default function Crownguard() {
       t.rally = { x, y };
       g.effects.push({ type: "levelup", x, y, ttl: 500 });
       g.rallyFor = null;
+      g.selectedId = null;       // the order is given: the card stays closed
       return;
     }
     const dx = x - t.x, dy = y - t.y;
@@ -533,6 +534,9 @@ export default function Crownguard() {
     t.rally = { x: t.x + dx * k, y: t.y + dy * k };
     g.effects.push({ type: "levelup", x: t.rally.x, y: t.rally.y, ttl: 500 });
     g.rallyFor = null;
+    // the flag is planted: the tower's card stays closed rather than popping
+    // back over the field (tap the tower again to reopen it)
+    g.selectedId = null;
   };
   const handleTap = (x, y) => {
     const g = G.current;

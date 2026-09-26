@@ -3,19 +3,22 @@
 // with a cliff lip on their southern faces, three countries that look like
 // three countries (the green vale, the grey-blue Marches, the drowned purple
 // fen), and the dressing that tells them apart. Everything is laid out in the
-// map's own 400x360 unit space (y from -120 to 240) and baked at U art pixels
+// map's own 770x690 unit space (y from -250 to 440) and baked at U art pixels
 // per unit — the same density as the board. The markers, the gold of the
 // walked road and the fog over sealed countries go on a second, cheap layer
 // that is redrawn whenever progress changes (see drawMapState).
 
-import { CHAPTERS, LEVELS, isUnlocked } from "../data/campaign.js";
+import { CHAPTERS, LEVELS as ALL_LEVELS, isUnlocked } from "../data/campaign.js";
 import { MAX_STARS } from "../data/profile.js";
 import { hash, darken, rgb, ball, blobBall, cone, inkOutline } from "../render/paint.js";
 
 export const U = 2;                         // art pixels per map unit
-export const MAP = { x: 0, y: -120, w: 400, h: 360 };
+export const MAP = { x: 0, y: -250, w: 770, h: 690 };
 export const AW = MAP.w * U, AH = MAP.h * U; // art size
 const INK = "#241a26";
+// the levels that have a waypoint (mapLayout.js LEVEL_POS); one not placed
+// yet is left off the map, and the road runs on past it
+export const LEVELS = ALL_LEVELS.filter((l) => l.pos);
 // these canvases are read back pixel by pixel, so keep them on the CPU
 const RF = { willReadFrequently: true };
 
@@ -36,13 +39,18 @@ const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
 // ---- the land --------------------------------------------------------
 // The isthmus (the only land road from the vale into the Marches) and a few
 // islets of no account, on top of the three chapters' own coastlines.
-const ISTHMUS = "M158,90 C182,80 204,94 220,106 C234,120 232,146 216,156 C200,166 178,158 168,144 C154,126 150,100 158,90 Z";
+const ISTHMUS = "M270,156 C315,146 360,179 394,208 C425,241 421,291 385,301 C351,311 307,284 288,254 C262,216 255,170 270,156 Z";
 const ISLES = [
-  "M18,-28 C14,-36 22,-42 30,-40 C38,-38 40,-30 34,-24 C28,-20 20,-22 18,-28 Z",
-  "M178,-62 C176,-70 184,-74 190,-72 C196,-70 196,-62 190,-58 C184,-56 180,-58 178,-62 Z",
-  "M196,196 C194,190 200,187 205,189 C210,192 208,198 203,200 C199,201 197,199 196,196 Z",
+  "M31,-48 C24,-61 37,-71 51,-68 C65,-65 68,-51 58,-41 C48,-34 34,-37 31,-48 Z",
+  "M222,-128 C219,-141 233,-148 243,-144 C254,-141 254,-127 243,-120 C233,-116 226,-120 222,-128 Z",
+  "M333,333 C330,323 340,318 349,321 C357,326 354,337 345,340 C338,342 335,338 333,333 Z",
+  // a longer isle out in the western sea
+  "M104,-150 C98,-164 116,-176 136,-172 C158,-168 172,-160 168,-148 C164,-136 142,-132 124,-136 C112,-139 106,-142 104,-150 Z",
 ];
 // zone ids: 0-2 the chapters, 3 the isthmus (a mountain wall), 4 the islets
+// The set pieces stand on land the coast may not eat: [zone, [x, y]].
+const SET = { castle: [143, 323], citadel: [690, 116], ruin: [686, -152] };
+const SET_LAND = [[0, SET.castle], [1, SET.citadel], [2, SET.ruin]];
 export const ZONES = [...CHAPTERS.map((c) => c.region), ISTHMUS, ISLES];
 
 const toArt = (c) => { c.setTransform(U, 0, 0, U, -MAP.x * U, -MAP.y * U); c.imageSmoothingEnabled = false; };
@@ -108,20 +116,22 @@ export const BIOME = [
 function* paintBase() {
   const w = AW, h = AH, N = w * h;
   // each zone's own soft mask
-  const soft = ZONES.map((paths) => {
+  const soft = [];
+  for (const paths of ZONES) {
     const cv = mk(), c = cv.getContext("2d", RF);
     toArt(c);
     c.fillStyle = "#fff";
     for (const p of [].concat(paths)) c.fill(new Path2D(p));
     const d = c.getImageData(0, 0, w, h).data, f = new Float32Array(N);
     for (let i = 0; i < N; i++) f[i] = d[i * 4 + 3] / 255;
-    return blur(blur(f, w, h, 4), w, h, 3);
-  });
-  yield;
+    soft.push(blur(blur(f, w, h, 4), w, h, 3));
+    yield;
+  }
   const keep = ZONES.map(() => new Float32Array(N));
-  for (const lv of LEVELS) {
-    const k = CHAPTERS.indexOf(lv.chapter), r = 16 * U;
-    const cx = (lv.pos[0] - MAP.x) * U, cy = (lv.pos[1] - MAP.y) * U;
+  const anchors = [...LEVELS.map((lv) => [CHAPTERS.indexOf(lv.chapter), lv.pos]), ...SET_LAND];
+  for (const [k, pos] of anchors) {
+    const r = 16 * U;
+    const cx = Math.round((pos[0] - MAP.x) * U), cy = Math.round((pos[1] - MAP.y) * U);
     for (let y = Math.max(0, cy - r); y < Math.min(h, cy + r); y++) for (let x = Math.max(0, cx - r); x < Math.min(w, cx + r); x++) {
       const dd = Math.hypot(x - cx, y - cy) / r;
       if (dd < 1) keep[k][y * w + x] = Math.max(keep[k][y * w + x], Math.min(1, (1 - dd) * 2.2));
@@ -129,19 +139,21 @@ function* paintBase() {
   }
   // warp the coasts with noise — bays and headlands, not ovals — and give
   // each pixel to its strongest zone (with a ragged border between them)
-  const W8 = 80, G = 4, gw = Math.ceil(w / G) + 1, gh = Math.ceil(h / G) + 1;
+  const W8 = 84, G = 4, gw = Math.ceil(w / G) + 1, gh = Math.ceil(h / G) + 1;
   // the warp is smooth, so work it out on a coarse grid and blend between
   const wxg = new Float32Array(gw * gh), wyg = new Float32Array(gw * gh);
   for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
-    wxg[gy * gw + gx] = (fbm(gx * G, gy * G, 90, 71) - 0.5) * W8;
-    wyg[gy * gw + gx] = (fbm(gx * G, gy * G, 90, 72) - 0.5) * W8;
+    wxg[gy * gw + gx] = (fbm(gx * G, gy * G, 110, 71) - 0.5) * W8;
+    wyg[gy * gw + gx] = (fbm(gx * G, gy * G, 110, 72) - 0.5) * W8;
   }
   const bil = (f, x, y) => {
     const fx = x / G, fy = y / G, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy, i = iy * gw + ix;
     return (f[i] * (1 - tx) + f[i + 1] * tx) * (1 - ty) + (f[i + gw] * (1 - tx) + f[i + gw + 1] * tx) * ty;
   };
   const land = new Uint8Array(N), zone = new Int8Array(N).fill(-1);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+  for (let y = 0; y < h; y++) {
+  if (y === h >> 1) yield;
+  for (let x = 0; x < w; x++) {
     const i = y * w + x;
     const wx = Math.round(x + bil(wxg, x, y)), wy = Math.round(y + bil(wyg, x, y));
     const j = Math.max(0, Math.min(h - 1, wy)) * w + Math.max(0, Math.min(w - 1, wx));
@@ -164,6 +176,7 @@ function* paintBase() {
     const t = bv > 0.85 ? 0 : 0.5 + (fbm(x, y, 22, 7) - 0.5) * 0.6;
     if (bv > t) { land[i] = 1; zone[i] = best; }
   }
+  }
   yield;
   // the cliff lip: land seen from the south shows a face of earth below it
   const CL = 6;
@@ -180,10 +193,12 @@ function* paintBase() {
   for (let i = 0; i < N; i++) solid[i] = land[i] || cliff[i] ? 1 : 0;
   yield;
   const sea = distance(solid, zone, w, h);
+  yield;
   // how far inland each land pixel is
   const wet = new Uint8Array(N);
   for (let i = 0; i < N; i++) wet[i] = land[i] ? 0 : 1;
   const inland = distance(wet, zone, w, h).D;
+  yield;
 
   // height, for hill shading: broad swells plus the country's own texture
   const hgt = new Float32Array(N);
@@ -201,7 +216,9 @@ function* paintBase() {
   const P = BIOME.map((b) => ({ lo: rgb(b.lo), mid: rgb(b.mid), hi: rgb(b.hi), alt: rgb(b.alt), sand: rgb(b.sand), cliff: b.cliff.map(rgb), lip: rgb(darken(b.lo, 0.35)) }));
   const S = { deep: rgb(SEA.deep), mid: rgb(SEA.mid), shal: rgb(SEA.shal), reef: rgb(SEA.reef), foam: rgb(SEA.foam), swell: rgb(SEA.swell), ink: rgb(INK) };
 
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+  for (let y = 0; y < h; y++) {
+  if (y === h >> 1) yield;
+  for (let x = 0; x < w; x++) {
     const i = y * w + x;
     const z = zone[i];
     if (land[i]) {
@@ -242,9 +259,10 @@ function* paintBase() {
     const b = dist + (bayer(x, y) - 0.5) * 5 + n;
     put(i, b < 9 ? S.reef : b < 20 ? S.shal : b < 34 ? S.mid : S.deep);
   }
+  }
 
   // swells in the open water: short pale ticks, as on an old chart
-  for (let k = 0; k < 150; k++) {
+  for (let k = 0; k < 560; k++) {
     const x = Math.floor(hash(k, 61) * (w - 12)), y = Math.floor(hash(k, 62) * (h - 6));
     const i = y * w + x;
     if (sea.D[i] < 22) continue;
@@ -304,12 +322,6 @@ const smoothPts = (pts, n = 2) => {
   }
   return out;
 };
-const segDist = (x, y, a, b) => {
-  const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1;
-  const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / l2));
-  return Math.hypot(x - a[0] - dx * t, y - a[1] - dy * t);
-};
-const lineDist = (x, y, pts) => { let m = 1e9; for (let i = 0; i < pts.length - 1; i++) m = Math.min(m, segDist(x, y, pts[i], pts[i + 1])); return m; };
 
 // ---- the road --------------------------------------------------------
 // Each leg of the march is a gentle curve from one waypoint to the next. The
@@ -357,7 +369,7 @@ const normals = (pts) => pts.map((_, i) => {
   const tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty) || 1;
   return [-ty / l, tx / l];
 });
-function river({ ctrl, pins = [], seed, w0, w1, amp = 5.5, fen = false }) {
+function river({ ctrl, pins = [], seed, w0, w1, amp = 8, fen = false }) {
   const base = spline(ctrl);
   const cum = [0];
   for (let i = 1; i < base.length; i++) cum.push(cum[i - 1] + Math.hypot(base[i][0] - base[i - 1][0], base[i][1] - base[i - 1][1]));
@@ -372,7 +384,7 @@ function river({ ctrl, pins = [], seed, w0, w1, amp = 5.5, fen = false }) {
   for (let i = 0; i < base.length; i++) {
     const sa = cum[i];
     let env = 1;
-    for (const ps of pinS) env *= smooth(Math.min(1, Math.abs(sa - ps) / 13));
+    for (const ps of pinS) env *= smooth(Math.min(1, Math.abs(sa - ps) / 18));
     const off = ((fbm(sa * 3, seed * 7.3, 66, seed) - 0.5) * 2 * amp + (fbm(sa * 9, seed * 3.1, 36, seed + 5) - 0.5) * 2 * amp * 0.45) * env;
     mid.push([base[i][0] + nb[i][0] * off, base[i][1] + nb[i][1] * off]);
   }
@@ -381,39 +393,54 @@ function river({ ctrl, pins = [], seed, w0, w1, amp = 5.5, fen = false }) {
 }
 export const RIVERS = [
   // the Wolfrun, off the northern hills, through the Wolfrun fords, out west
-  river({ ctrl: [[84, 4], [81, 12], [79, 19], [76, 26], [67, 31], [56, 34], [44, 40], [31, 42], [18, 46], [6, 48]], pins: [[76, 26]], seed: 11, w0: 1.9, w1: 3.9 }),
+  river({ ctrl: [[143, 7], [138, 20], [134, 32], [129, 44], [114, 53], [95, 58], [75, 68], [53, 71], [31, 78], [10, 82]], pins: [[129, 44]], seed: 11, w0: 2, w1: 4.4 }),
   // the Cinderburn, out of the ridge between the Barrowfields and Cinderholt,
   // down to the Fox Mere
-  river({ ctrl: [[138, 34], [132, 45], [136, 57], [131, 69], [126, 81], [127, 94], [121, 106], [120, 121]], pins: [[120, 121]], seed: 19, w0: 1.8, w1: 3.4, amp: 4 }),
+  river({ ctrl: [[235, 58], [224, 77], [231, 97], [223, 117], [214, 138], [216, 160], [206, 180], [204, 206]], pins: [[204, 206]], seed: 19, w0: 1.9, w1: 3.8, amp: 6 }),
   // out of the Fox Mere to the southern sea
-  river({ ctrl: [[124, 134], [129, 143], [136, 152], [140, 166], [146, 180], [150, 194], [154, 210]], pins: [[124, 134]], seed: 13, w0: 3.8, w1: 4.8 }),
+  river({ ctrl: [[211, 228], [219, 243], [231, 258], [238, 282], [248, 306], [255, 330], [262, 357]], pins: [[211, 228]], seed: 13, w0: 4, w1: 5.4 }),
   // the Thornbrook, out of Oakmere's mere, across the farmland, through the
   // ford at Thornbrook and down to the sea
-  river({ ctrl: [[44, 117], [52, 125], [62, 131], [75, 138], [88, 146], [93, 158], [97, 172], [98, 188], [101, 210]], pins: [[44, 117], [88, 146]], seed: 14, w0: 2.1, w1: 3.6, amp: 4 }),
+  river({ ctrl: [[75, 199], [88, 213], [105, 223], [128, 235], [150, 248], [158, 269], [165, 292], [167, 320], [172, 357]], pins: [[75, 199], [150, 248]], seed: 14, w0: 2.2, w1: 4, amp: 6 }),
   // the Iron river, out of its tarn above the ford, through Ironford, south
-  river({ ctrl: [[295, 103], [298, 114], [301, 127], [304, 140], [308, 155], [305, 171], [301, 189], [297, 216]], pins: [[295, 103], [304, 140]], seed: 15, w0: 2.2, w1: 4.2 }),
+  river({ ctrl: [[544, 208], [550, 229], [556, 255], [562, 280], [570, 309], [564, 340], [556, 375], [548, 428]], pins: [[544, 208], [562, 280]], seed: 15, w0: 2.3, w1: 4.8 }),
+  // the Coldwater: two becks off the eastern peaks meeting at Coldwater,
+  // then south to the sea
+  river({ ctrl: [[596, 288], [606, 301], [619, 316], [635, 330]], pins: [[635, 330]], seed: 25, w0: 1.6, w1: 2.4, amp: 4 }),
+  river({ ctrl: [[656, 262], [650, 285], [642, 308], [635, 330], [638, 352], [644, 374], [648, 404]], pins: [[635, 330]], seed: 26, w0: 1.8, w1: 4, amp: 5 }),
   // the fen's black rivers: the Blackwater past the Throne of Dust and the
   // Grave Road, out to the eastern sea
-  river({ ctrl: [[344, -104], [352, -95], [360, -86], [361, -70], [358, -55], [362, -40], [368, -26], [380, -30], [396, -36]], pins: [[360, -86], [368, -26]], seed: 16, w0: 1.9, w1: 3.9, amp: 4.5, fen: true }),
+  river({ ctrl: [[632, -212], [645, -186], [655, -162], [658, -130], [650, -100], [660, -70], [675, -42], [704, -50], [743, -62]], pins: [[655, -162], [675, -42]], seed: 16, w0: 2, w1: 4.4, amp: 7, fen: true }),
   // the Sorrow, south through the Cairnfields and the Causeway to the sea
-  river({ ctrl: [[295, -110], [297, -92], [298, -70], [303, -55], [308, -40], [310, -26], [313, -12], [317, 6]], pins: [[298, -70], [310, -26]], seed: 17, w0: 1.8, w1: 3.6, amp: 4.5, fen: true }),
+  river({ ctrl: [[496, -210], [501, -174], [503, -130], [516, -100], [528, -70], [533, -42], [540, -14], [550, 22]], pins: [[503, -130], [533, -42]], seed: 17, w0: 1.9, w1: 4, amp: 7, fen: true }),
   // a slow creek through Bellmarsh to the western shore
-  river({ ctrl: [[276, -50], [270, -40], [262, -36], [257, -30], [252, -26], [245, -18], [238, -17], [230, -12]], pins: [[252, -26]], seed: 18, w0: 1.6, w1: 2.8, amp: 4, fen: true }),
+  // (it runs out of the Stillmere)
+  river({ ctrl: [[466, -80], [450, -68], [430, -64], [410, -54], [391, -42], [373, -26], [356, -24], [337, -14]], pins: [[466, -80], [391, -42]], seed: 18, w0: 1.7, w1: 3, amp: 6, fen: true }),
+  // the Weepwater's two arms, meeting at Drownholm and running down into
+  // the Stillmere
+  river({ ctrl: [[438, -204], [446, -190], [455, -175]], pins: [[455, -175]], seed: 27, w0: 1.4, w1: 2.2, amp: 3, fen: true }),
+  river({ ctrl: [[478, -206], [468, -192], [455, -175], [462, -155], [468, -132], [474, -112], [477, -100]], pins: [[455, -175]], seed: 28, w0: 1.6, w1: 3.2, amp: 4, fen: true }),
 ];
 // Lakes and tarns, each named for the level it sits by; fen pools are the
 // bog's black water. rot tilts the long axis; seed shapes the shore.
 const MERES = [
-  { x: 121, y: 129, rx: 8.5, ry: 5.2, rot: 0.35, seed: 3 },               // the Fox Mere, by Foxmere
-  { x: 40, y: 113, rx: 6, ry: 4, rot: -0.4, seed: 4 },                    // Oakmere's mere, the Thornbrook's source
-  { x: 45, y: 72, rx: 4.6, ry: 2.8, rot: 0.2, seed: 5 },                  // the Bramblewick millpond
-  { x: 294, y: 100, rx: 3.6, ry: 2.4, rot: 0.5, seed: 7 },                // the Iron river's tarn
-  { x: 231, y: 102, rx: 5, ry: 3.4, rot: 0.3, seed: 8 },                  // the Muster's ponds
-  { x: 367, y: 116, rx: 4.6, ry: 3.2, rot: -0.5, seed: 9 },               // the pool under the Undercliff
-  { x: 263, y: -97, rx: 7.8, ry: 4.9, rot: 0.25, seed: 20, fen: true },     // Wightwood's bog
-  { x: 293, y: -36, rx: 6.5, ry: 3.9, rot: -0.3, seed: 21, fen: true },       // the Causeway's drowned fields
-  { x: 324, y: -33, rx: 4.7, ry: 3.1, rot: 0.6, seed: 22, fen: true },
-  { x: 240, y: -40, rx: 5.2, ry: 3.6, rot: 0.1, seed: 23, fen: true },      // Bellmarsh's mire
-  { x: 374, y: -74, rx: 5.7, ry: 3.9, rot: -0.4, seed: 24, fen: true },     // the Throne's black pool
+  { x: 206, y: 219, rx: 12.3, ry: 7.5, rot: 0.35, seed: 3 },               // the Fox Mere, by Foxmere
+  { x: 68, y: 192, rx: 8.7, ry: 5.8, rot: -0.4, seed: 4 },                 // Oakmere's mere, the Thornbrook's source
+  { x: 77, y: 122, rx: 6.7, ry: 4.1, rot: 0.2, seed: 5 },                  // the Bramblewick millpond
+  { x: 542, y: 202, rx: 5.2, ry: 3.5, rot: 0.5, seed: 7 },                 // the Iron river's tarn
+  { x: 426, y: 210, rx: 7.3, ry: 4.9, rot: 0.3, seed: 8 },                 // the Muster's ponds
+  { x: 688, y: 214, rx: 6.7, ry: 4.6, rot: -0.5, seed: 9 },                // the pool under the Undercliff
+  { x: 414, y: -176, rx: 11.3, ry: 7.1, rot: 0.25, seed: 20, fen: true },  // Wightwood's bog
+  { x: 491, y: -62, rx: 9.4, ry: 5.7, rot: -0.3, seed: 21, fen: true },    // the Causeway's drowned fields
+  { x: 567, y: -56, rx: 6.8, ry: 4.5, rot: 0.6, seed: 22, fen: true },
+  { x: 361, y: -70, rx: 7.5, ry: 5.2, rot: 0.1, seed: 23, fen: true },     // Bellmarsh's mire
+  { x: 689, y: -138, rx: 8.3, ry: 5.7, rot: -0.4, seed: 24, fen: true },   // the Throne's black pool
+  { x: 478, y: -92, rx: 16, ry: 10, rot: 0.15, seed: 29, fen: true },      // the Stillmere
+  { x: 632, y: -14, rx: 6, ry: 3.6, rot: 0.3, seed: 30, fen: true },       // Saltgrave's tide pool
+  { x: 580, y: -121, rx: 6, ry: 4, rot: -0.2, seed: 31, fen: true },       // the Reedmaze's pools
+  { x: 574, y: -107, rx: 4.4, ry: 3, rot: 0.4, seed: 32, fen: true },
+  { x: 589, y: -104, rx: 4, ry: 2.8, rot: 0.1, seed: 33, fen: true },
+  { x: 566, y: -145, rx: 3.6, ry: 2.4, rot: 0.5, seed: 34, fen: true },
 ];
 // a lake's shore: a tilted ellipse whose radius wanders with seamless noise
 const lakePath = (c, m, grow = 0) => {
@@ -449,7 +476,7 @@ const riverPath = (c, rv, grow = 0, from = 0) => {
 // ---- the labels' ground ----------------------------------------------
 // Where each waypoint's name scroll sits, so the dressing keeps clear of it.
 // side: "b" below (the default), "a" above, "l" left, "r" right.
-export const LABEL_SIDE = { foxmere: "a", ravenscar: "a", muster: "a", ir5: "a" };
+export const LABEL_SIDE = { foxmere: "a", ravenscar: "a", muster: "a", ir5: "a", hl4: "b" };
 export const LABEL_FONT = 6.8;   // map units
 let MEASURE = null;
 export const textW = (t) => {
@@ -458,7 +485,7 @@ export const textW = (t) => {
 };
 export const labelBox = (lv) => {
   const tw = textW(lv.short || lv.name) + 7, th = 10;
-  const [x, y] = lv.pos, side = LABEL_SIDE[lv.id] || "b";
+  const [x, y] = lv.pos, side = LABEL_SIDE[lv.id] || (lv.labelAbove ? "a" : "b");
   if (side === "a") return { x: x - tw / 2, y: y - 25 - th, w: tw, h: th };
   if (side === "l") return { x: x - 9 - tw, y: y - th / 2, w: tw, h: th };
   if (side === "r") return { x: x + 9, y: y - th / 2, w: tw, h: th };
@@ -466,7 +493,7 @@ export const labelBox = (lv) => {
 };
 
 // the chapters' name ribbons, out at sea off their own coasts
-export const BANNER_AT = { greenwood: [108, 222], iron: [300, 226], hollow: [150, -40] };
+export const BANNER_AT = { greenwood: [178, 372], iron: [662, 422], hollow: [210, -214] };
 const BANNERS = CHAPTERS.map((ch) => {
   const n = `${ch.numeral}. ${ch.name}`.length, w = n * 5.6 + 14 + 16, [cx, cy] = BANNER_AT[ch.id];
   return { x: cx - w / 2, y: cy - 8, w, h: 16 };
@@ -795,20 +822,28 @@ function dressing(base) {
   };
   // set pieces first, so the woods grow around them
   const piece = (s, x, y, r, sh, force = false) => { if (!force && busy(x, y - 1, 1)) return; add(s, x, y, sh); taken.push([x, y, r]); };
-  piece(crownCastle(), 84, 190, 14, 9, true);
-  piece(windmill(), 122, 162, 6, 3);
-  piece(citadel(), 373, 64, 14, 9, true);
-  piece(ruin(), 381, -90, 12, 8, true);
-  for (const [x, y, v] of [[96, 162, 0], [104, 158, 1], [92, 170, 2], [58, 156, 3], [64, 150, 1], [112, 150, 2]]) piece(cottage(v), x, y, 4, 2.2);
-  for (const [x, y, v] of [[84, 50, 0], [124, 46, 1], [90, 76, 2], [120, 78, 3]]) piece(barrow(v), x, y, 6, 3.5);
-  for (const [x, y, v] of [[266, 132, 0], [286, 164, 1], [322, 170, 0], [376, 96, 1], [292, 96, 0], [254, 184, 1], [340, 150, 1]]) piece(keep(v), x, y, 5, 2.6);
-  for (const [x, y, v] of [[256, 104, 0], [262, 110, 1], [256, 116, 0], [268, 102, 1], [268, 116, 0]]) piece(tent(v), x, y, 3, 2);
-  for (const [x, y, v] of [[264, -52, 0], [270, -46, 1], [264, -40, 0], [276, -52, 1], [276, -40, 0]]) piece(menhir(v), x, y, 2, 1.4);
-  for (const [x, y, v] of [[330, -76, 0], [300, -102, 1], [338, -104, 2], [298, -72, 0], [322, -60, 1]]) piece(cairn(v), x, y, 3, 2);
+  piece(crownCastle(), ...SET.castle, 14, 9, true);
+  piece(windmill(), 207, 275, 6, 3);
+  piece(windmill(), 116, 232, 6, 3);
+  piece(citadel(), ...SET.citadel, 14, 9, true);
+  piece(ruin(), ...SET.ruin, 12, 8, true);
+  // the vale's villages: by the castle, on the western farms, in the middle
+  // country and up under the northern hills
+  for (const [x, y, v] of [[163, 275, 0], [177, 269, 1], [156, 289, 2], [99, 265, 3], [109, 255, 1], [190, 255, 2],
+    [124, 140, 0], [132, 134, 2], [116, 132, 1], [226, 36, 3], [236, 44, 0], [40, 222, 1], [48, 228, 3], [232, 220, 1], [240, 228, 0]]) piece(cottage(v), x, y, 4, 2.2);
+  for (const [x, y, v] of [[143, 85, 0], [211, 78, 1], [153, 129, 2], [204, 133, 3], [96, 80, 1], [236, 104, 0]]) piece(barrow(v), x, y, 6, 3.5);
+  for (const [x, y, v] of [[488, 264, 0], [527, 327, 1], [597, 338, 0], [702, 194, 1], [539, 194, 0], [464, 366, 1], [632, 299, 1],
+    [600, 110, 1], [700, 300, 0], [432, 150, 1], [520, 100, 0], [648, 200, 0]]) piece(keep(v), x, y, 5, 2.6);
+  for (const [x, y, v] of [[468, 210, 0], [480, 221, 1], [468, 233, 0], [492, 206, 1], [492, 233, 0], [480, 196, 0], [504, 220, 1]]) piece(tent(v), x, y, 3, 2);
+  for (const [x, y, v] of [[420, -94, 0], [435, -82, 1], [420, -70, 0], [449, -94, 1], [449, -70, 0],
+    [440, -30, 1], [470, -24, 0]]) piece(menhir(v), x, y, 2, 1.4);
+  for (const [x, y, v] of [[582, -142, 0], [508, -194, 1], [601, -198, 2], [503, -134, 0], [562, -110, 1],
+    [450, -150, 1], [620, -80, 2], [700, -100, 0], [470, -120, 2], [560, -180, 0]]) piece(cairn(v), x, y, 3, 2);
 
   // mountains: the wall across the isthmus, the Marches' high ranges
   const range = (cx, cy, rx, ry, z, pal, seed, big = 1) => {
-    for (let k = 0; k < 60; k++) {
+    const n = Math.round((rx * ry) / 20) + 20;
+    for (let k = 0; k < n; k++) {
       const a = hash(seed, k * 3) * Math.PI * 2, rr = Math.sqrt(hash(seed, k * 3 + 1));
       const x = cx + Math.cos(a) * rx * rr, y = cy + Math.sin(a) * ry * rr;
       const w = Math.round((12 + hash(seed, k * 3 + 2) * 10) * big), h = Math.round(w * (0.75 + hash(seed, k) * 0.2));
@@ -824,13 +859,16 @@ function dressing(base) {
       taken.push([x, y - h / 3, w * 0.55]);
     }
   };
-  range(190, 124, 36, 32, 3, ROCK, 1, 1);
-  range(300, 66, 46, 20, 1, IRONPK, 2, 1.1);
-  range(378, 130, 14, 40, 1, IRONPK, 3, 0.9);
-  range(120, -2, 22, 8, 0, ROCK, 4, 0.8);
+  range(331, 229, 65, 58, 3, ROCK, 1, 1);
+  range(554, 136, 90, 39, 1, IRONPK, 2, 1.1);
+  range(706, 260, 27, 78, 1, IRONPK, 3, 0.9);
+  range(204, -3, 37, 14, 0, ROCK, 4, 0.8);
+  range(52, 40, 24, 20, 0, ROCK, 22, 0.8);
+  range(650, 340, 40, 26, 1, IRONPK, 23, 0.95);
   // rolling hills in the vale and on the moors
   const hills = (cx, cy, rx, ry, z, pal, seed) => {
-    for (let k = 0; k < 24; k++) {
+    const n = Math.round((rx * ry) / 40) + 10;
+    for (let k = 0; k < n; k++) {
       const x = cx + (hash(seed, k * 2) - 0.5) * 2 * rx, y = cy + (hash(seed, k * 2 + 1) - 0.5) * 2 * ry;
       const w = 10 + Math.round(hash(seed, k) * 8), h = Math.round(w * 0.45);
       if (!onZone(x, y, z, 3) || !free(x, y - 2, w * 0.6) || busy(x, y - 2, w * 0.35)) continue;
@@ -838,10 +876,13 @@ function dressing(base) {
       taken.push([x, y - 2, w * 0.6]);
     }
   };
-  hills(100, 80, 40, 22, 0, HILLG, 5);
+  hills(170, 136, 68, 37, 0, HILLG, 5);
+  hills(80, 230, 40, 34, 0, HILLG, 23);
+  hills(230, 240, 40, 30, 0, HILLG, 24);
   // crags on the moor: small bare peaks
-  const crags = (cx, cy, rx, ry, z, seed) => {
-    for (let k = 0; k < 30; k++) {
+  const crags = (cx, cy, rx, ry, z, seed, per = 60) => {
+    const n = Math.round((rx * ry) / per) + 10;
+    for (let k = 0; k < n; k++) {
       const x = cx + (hash(seed, k * 2) - 0.5) * 2 * rx, y = cy + (hash(seed, k * 2 + 1) - 0.5) * 2 * ry;
       const w = 7 + Math.round(hash(seed, k) * 4), h = Math.round(w * 0.7);
       if (!onZone(x, y, z, 3) || !free(x, y - 2, w * 0.7) || busy(x, y - 2, w * 0.45)) continue;
@@ -849,53 +890,59 @@ function dressing(base) {
       taken.push([x, y - 2, w * 0.7]);
     }
   };
-  crags(290, 150, 50, 50, 1, 6);
-  crags(310, -60, 70, 40, 2, 17);
+  crags(535, 299, 98, 98, 1, 6);
+  crags(533, -110, 172, 80, 2, 17, 200);
 
   // the woods
   const oaks = (k) => (hash(k, 9) < 0.72 ? oak(Math.floor(hash(k, 8) * 4)) : pine(Math.floor(hash(k, 8) * 3)));
-  clump(44, 86, 20, 16, 0, 4.2, oaks, 1);
-  clump(70, 58, 16, 12, 0, 4.2, oaks, 2);
+  clump(75, 146, 34, 27, 0, 4.2, oaks, 1);
+  clump(119, 99, 27, 20, 0, 4.2, oaks, 2);
   // Blackbriar: the deep wood, dark pines packed close; and Cinderholt, the
   // wood the horde burned
   const darks = (k) => pine(Math.floor(hash(k, 8) * 3), true);
-  clump(184, 36, 9, 16, 0, 3.4, darks, 18);
-  clump(150, 42, 11, 8, 0, 3.4, darks, 20);
-  clump(146, 58, 8, 6, 0, 3.6, darks, 21);
-  clump(172, 76, 11, 9, 0, 4.4, (k) => deadTree(Math.floor(hash(k, 8) * 4), true), 19, 1.2);
-  clump(132, 90, 12, 9, 0, 4.2, oaks, 3);
-  clump(36, 144, 10, 12, 0, 4.2, oaks, 4);
-  clump(152, 150, 10, 12, 0, 4.2, oaks, 5);
-  clump(96, 44, 10, 6, 0, 4.2, oaks, 6);
-  clump(62, 118, 10, 7, 0, 4.2, oaks, 7);
+  clump(313, 61, 15, 27, 0, 3.4, darks, 18);
+  clump(255, 71, 19, 14, 0, 3.4, darks, 20);
+  clump(248, 99, 14, 10, 0, 3.6, darks, 21);
+  clump(292, 129, 19, 15, 0, 4.4, (k) => deadTree(Math.floor(hash(k, 8) * 4), true), 19, 1.2);
+  clump(224, 153, 20, 15, 0, 4.2, oaks, 3);
+  clump(61, 245, 17, 20, 0, 4.2, oaks, 4);
+  clump(258, 255, 17, 20, 0, 4.2, oaks, 5);
+  clump(163, 75, 17, 10, 0, 4.2, oaks, 6);
+  clump(105, 201, 17, 12, 0, 4.2, oaks, 7);
+  clump(186, 30, 16, 10, 0, 4.2, oaks, 25);
+  clump(40, 170, 12, 16, 0, 4.2, oaks, 26);
+  clump(200, 300, 14, 10, 0, 4.2, oaks, 27);
   // lone trees across the vale's open ground, sheep in its pastures, hay by
   // its fields
-  for (let k = 0; k < 90; k++) {
-    const x = 26 + hash(k, 201) * 150, y = 10 + hash(k, 202) * 180;
+  for (let k = 0; k < 280; k++) {
+    const x = 34 + hash(k, 201) * 290, y = hash(k, 202) * 330;
     if (!onZone(x, y, 0) || !free(x, y, 5) || busy(x, y, 2)) continue;
     add(oaks(k + 500), x, y, 1.6);
     taken.push([x, y, 3]);
   }
-  for (const [fx, fy, n] of [[76, 116, 5], [124, 96, 4], [30, 128, 3], [34, 84, 3]]) {
+  for (const [fx, fy, n] of [[129, 197, 6], [211, 163, 5], [51, 218, 4], [58, 143, 4], [120, 290, 4], [230, 200, 4]]) {
     for (let k = 0; k < n; k++) {
-      const x = fx + (hash(fx, k) - 0.5) * 12, y = fy + (hash(fy, k) - 0.5) * 7;
+      const x = fx + (hash(fx, k) - 0.5) * 20, y = fy + (hash(fy, k) - 0.5) * 12;
       if (!onZone(x, y, 0) || !free(x, y, 2) || busy(x, y, 0.5)) continue;
       add(sheep(k), x, y, 1);
       taken.push([x, y, 2]);
     }
   }
-  for (const [x, y] of [[112, 168], [62, 172], [132, 176], [106, 178]]) if (onZone(x, y, 0) && free(x, y, 3) && !busy(x, y, 0.5)) { add(hay(), x, y, 1.4); taken.push([x, y, 3]); }
+  for (const [x, y] of [[190, 286], [105, 292], [224, 299], [180, 303], [130, 262], [90, 240]]) if (onZone(x, y, 0) && free(x, y, 3) && !busy(x, y, 0.5)) { add(hay(), x, y, 1.4); taken.push([x, y, 3]); }
   const pines = (k) => pine(Math.floor(hash(k, 8) * 3), true);
-  clump(248, 72, 18, 14, 1, 4, pines, 8);
-  clump(334, 160, 16, 14, 1, 4, pines, 9);
-  clump(252, 166, 10, 10, 1, 4, pines, 10);
-  clump(290, 118, 10, 8, 1, 4, pines, 11);
-  clump(372, 176, 10, 10, 1, 4, pines, 12);
+  clump(453, 147, 35, 27, 1, 4, pines, 8);
+  clump(620, 319, 31, 27, 1, 4, pines, 9);
+  clump(461, 331, 20, 20, 1, 4, pines, 10);
+  clump(535, 237, 20, 16, 1, 4, pines, 11);
+  clump(695, 350, 20, 20, 1, 4, pines, 12);
+  clump(640, 150, 22, 16, 1, 4, pines, 28);
+  clump(420, 260, 14, 20, 1, 4, pines, 29);
   const deads = (k) => deadTree(Math.floor(hash(k, 8) * 4));
-  clump(246, -86, 22, 22, 2, 5.5, deads, 13, 1.2);
-  clump(340, -60, 30, 24, 2, 9, deads, 14, 1.2);
-  clump(300, -28, 60, 14, 2, 7, (k) => reeds(Math.floor(hash(k, 8) * 2)), 15, 0, 1);
-  clump(310, -80, 60, 30, 2, 8, (k) => reeds(Math.floor(hash(k, 8) * 2)), 16, 0, 1);
+  clump(376, -162, 54, 44, 2, 5.5, deads, 13, 1.2);
+  clump(606, -110, 74, 48, 2, 9, deads, 14, 1.2);
+  clump(470, -170, 40, 30, 2, 7, deads, 30, 1.2);
+  clump(508, -46, 147, 28, 2, 7, (k) => reeds(Math.floor(hash(k, 8) * 2)), 15, 0, 1);
+  clump(533, -150, 147, 60, 2, 8, (k) => reeds(Math.floor(hash(k, 8) * 2)), 16, 0, 1);
   return items;
 }
 
@@ -936,7 +983,7 @@ function* paintTerrain() {
   const fields = layer((c) => {
     const cols = [["#d8bf62", "#c4a84e"], ["#9cc462", "#86b052"], ["#a67e52", "#8e6a44"], ["#c8c46a", "#b0ac58"]];
     let k = 0;
-    for (let gy = 132; gy < 196; gy += 8) for (let gx = 40; gx < 150; gx += 10) {
+    for (let gy = 220; gy < 334; gy += 8) for (let gx = 60; gx < 260; gx += 10) {
       k++;
       const x = gx + (hash(k, 1) - 0.5) * 4, y = gy + (hash(k, 2) - 0.5) * 3;
       if (fbm(x * 4, y * 4, 60, 5) < 0.5) continue;
@@ -1000,11 +1047,15 @@ function* paintTerrain() {
   ctx.drawImage(lane, 0, 0);
 
   // bridges wherever the road crosses running water (not at the fords)
+  // (the rivers' centrelines, 2 units wide, as a mask to look the road up in)
+  const wet = layer((c) => { c.strokeStyle = "#000"; c.lineWidth = 2; for (const rv of RIVERS) { poly(c, rv.pts); c.stroke(); } });
+  const wd = wet.getContext("2d", RF).getImageData(0, 0, AW, AH).data;
   const bridges = [];
   for (const rd of ROADS) for (let k = 0; k < rd.pts.length; k++) {
-    const [x, y] = rd.pts[k];
+    const [x, y] = rd.pts[k], ax = artX(x), ay = artY(y);
+    if (ax < 0 || ay < 0 || ax >= AW || ay >= AH || !wd[(ay * AW + ax) * 4 + 3]) continue;
     if (LEVELS.some((l) => Math.hypot(x - l.pos[0], y - l.pos[1]) < 10)) continue;
-    if (RIVERS.some((rv) => lineDist(x, y, rv.pts) < 1) && bridges.every(([bx, by]) => Math.hypot(x - bx, y - by) > 8)) bridges.push([x, y]);
+    if (bridges.every(([bx, by]) => Math.hypot(x - bx, y - by) > 8)) bridges.push([x, y]);
   }
   for (const [x, y] of bridges) stamp(ctx, bridge(), x, y, 3.5, 2.5);
 
@@ -1020,12 +1071,13 @@ function* paintTerrain() {
 
   yield;
   // out at sea: the ferry, the serpent, a lighthouse, the compass
-  stamp(ctx, ship(), 386, 12, 7, 11);
-  stamp(ctx, serpent(), 70, -64, 17, 9);
-  stamp(ctx, lighthouse(), 26, -32, 2.5, 11.4);
-  stamp(ctx, compass(), 22, 214, 11, 13);
-  stamp(ctx, whirl(), 212, -100, 8, 5);
-  for (const [x, y, v] of [[8, 60, 0], [196, 60, 1], [390, 220, 0], [228, 232, 1], [160, 222, 0]]) {
+  stamp(ctx, ship(), 712, 40, 7, 11);
+  stamp(ctx, ship(), 300, 390, 7, 11);
+  stamp(ctx, serpent(), 70, -100, 17, 9);
+  stamp(ctx, lighthouse(), 44, -52, 2.5, 11.4);
+  stamp(ctx, compass(), 38, 392, 11, 13);
+  stamp(ctx, whirl(), 292, -150, 8, 5);
+  for (const [x, y, v] of [[12, 40, 0], [345, 30, 1], [748, 300, 0], [360, 400, 1], [262, 404, 0], [300, -60, 1], [750, -210, 0], [20, -200, 1], [430, 40, 0], [180, -40, 1], [748, 60, 1]]) {
     const i = artY(y) * AW + artX(x);
     if (!base.land[i] && base.seaD[i] > 6) stamp(ctx, seaRock(v), x, y, 3, 4);
   }
@@ -1036,12 +1088,15 @@ function* paintTerrain() {
 // The land is painted in stages (a generator), so the title screen can lay
 // it out a slice at a time while the player reads the menu; asking for it
 // outright finishes whatever is left at once.
+// PAINT_MS keeps how long each stage took (map-lab.html reports them).
 let TERRAIN = null, GEN = null;
+export const PAINT_MS = [];
+const next = () => { const t = performance.now(), r = GEN.next(); PAINT_MS.push(Math.round(performance.now() - t)); return r; };
 export function mapTerrain() {
   if (TERRAIN) return TERRAIN;
   GEN = GEN || paintTerrain();
   let r;
-  do r = GEN.next(); while (!r.done);
+  do r = next(); while (!r.done);
   GEN = null;
   return (TERRAIN = r.value);
 }
@@ -1050,7 +1105,7 @@ export function warmMapTerrain() {
   GEN = paintTerrain();
   const step = () => {
     if (TERRAIN || !GEN) return;
-    const r = GEN.next();
+    const r = next();
     if (r.done) { TERRAIN = r.value; GEN = null; } else setTimeout(step, 16);
   };
   setTimeout(step, 16);

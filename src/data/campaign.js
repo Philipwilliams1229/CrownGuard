@@ -8,10 +8,9 @@
 // `window: { from, to, count }` reads as "count waves, climbing from war-wave
 // `from` to war-wave `to`" — the war being the faction's eighteen scripted
 // waves and then generated ones. `boss: true` puts the faction's champion on
-// the last wave. Levels grow: ten waves to open a region, twenty-five to
-// close it, and each one starts a little deeper into the war than the last.
-// The Greenwood, the long first chapter, runs longer: five twenty-wave levels,
-// five of twenty-five, and a thirty-wave boss.
+// the last wave. Every chapter has eleven levels on the same shape: five
+// twenty-wave levels, five of twenty-five, and a thirty-wave boss, each one
+// starting a little deeper into the war than the last.
 // The last level of a chapter always ends on the faction's boss wave.
 //
 // Each level's waypoint on the continent map (`pos`) and each chapter's
