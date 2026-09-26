@@ -284,20 +284,20 @@ const destrier = (ctx, p) => {
   horseLeg(ctx, B([7.5, -10.5]), k.fn, FORE, col, sock);
   // neck and head, turned by `head` about the neck's root
   const nb = [10.2, -14];
-  const P0 = rot([17.6, -21.8], nb, k.head);
+  const P0 = rot([18.2, -20.8], nb, k.head);
   const ha = k.head;
   const Hd = (pt) => add(rot(pt, [0, 0], ha), P0);
   body((c0) => {
     part(c0, (c) => {
       // far ear
-      poly(c, [Hd([0.6, -1.2]), Hd([0.9, -3.8]), Hd([1.8, -1.2])], darken(col, 0.3));
-      c.fillStyle = cel(c, 9, -26, 18, -12, col, 0.3, 0.42);
+      poly(c, [Hd([0.6, -1.2]), Hd([-0.2, -3.2]), Hd([1.8, -1.2])], darken(col, 0.3));
+      c.fillStyle = cel(c, 9, -26, 18, -12, lighten(col, 0.08), 0.3, 0.42);
       taper(c, [nb, lerp(nb, P0, 0.5), P0], [7.4, 5.2, 4.0]);
     });
     // the head
     inFrame(c0, P0[0], P0[1], 0, 0, ha, (c1) => {
       c1.scale(1.12, 1.12);
-      blob(c1, [[-1.4, -0.6], [0.2, -1.8], [2.6, -1.3], [5, 0.6], [6.8, 2.5], [7.4, 3.7], [7.1, 4.9, 1], [5.6, 5.3], [4.2, 4.7], [2.6, 3.9], [0.6, 3.3], [-1.4, 2.0]], col, {
+      blob(c1, [[-1.4, -0.6], [0.2, -1.8], [2.6, -1.3], [5, 0.6], [6.8, 2.5], [7.4, 3.7], [7.1, 4.9, 1], [5.6, 5.3], [4.2, 4.7], [2.6, 3.9], [0.6, 3.3], [-1.4, 2.0]], lighten(col, 0.12), {
         hi: 0.3, lo: 0.4, then: (c) => {
           c.fillStyle = darken(col, 0.2); c.beginPath(); c.ellipse(0.6, 2.2, 1.8, 1.2, 0.3, 0, TAU); c.fill();
           dab(c, 6.4, 3.7, 0.7, 0.6, INKY);                                  // the nostril
@@ -305,9 +305,9 @@ const destrier = (ctx, p) => {
         },
       });
       // the chanfron over the face, a spike on the brow, a flanged eye-guard
-      blob(c1, [[-0.2, -1.9, 1], [2.8, -1.5], [5.6, 0.8], [7.2, 2.6], [6.6, 3.4, 1], [4.4, 2.1], [2.2, 1.2], [0.1, 0.4, 1]], steel, {
-        hi: 0.55, lo: 0.4, then: (c) => {
-          line(c, 0.6, -1.2, 6.2, 1.7, 0.5, lighten(steel, 0.6));
+      blob(c1, [[-0.2, -1.9, 1], [2.8, -1.5], [5.6, 0.8], [7.2, 2.6], [6.6, 3.4, 1], [4.4, 2.1], [2.2, 1.2], [0.1, 0.4, 1]], lighten(steel, 0.22), {
+        hi: 0.6, lo: 0.35, then: (c) => {
+          line(c, 0.2, -1.5, 6.6, 2.0, 0.8, lighten(steel, 0.75));
           line(c, 1.4, 0.9, 5.8, 3.0, 0.5, iron);
           dab(c, 3.6, 0.2, 0.5, 0.5, BRASS); dab(c, 5.2, 1.3, 0.5, 0.5, BRASS);
         },
@@ -316,7 +316,7 @@ const destrier = (ctx, p) => {
       part(c1, (c) => { c.fillStyle = darken(steel, 0.2); c.beginPath(); c.ellipse(1.8, 0.9, 1.2, 0.9, 0.4, 0, TAU); c.fill(); dab(c, 1.5, 0.6, 0.8, 0.7, INKY); dab(c, 1.5, 0.6, 0.35, 0.35, "#e8dfc6"); });
       // near ear and forelock, the bit
       part(c1, (c) => {
-        poly(c, [[-1.0, -1.0], [-0.9, -3.9], [0.5, -1.4]], col); poly(c, [[-0.6, -1.3], [-0.6, -3.1], [0.1, -1.4]], darken(col, 0.45));
+        poly(c, [[-1.0, -1.0], [-1.9, -3.2], [0.5, -1.4]], lighten(col, 0.12)); poly(c, [[-0.7, -1.3], [-1.4, -2.6], [0.1, -1.4]], darken(col, 0.45));
         poly(c, [[-0.4, -1.6], [0.9, -2.4], [1.4, -0.9], [0.4, -0.4]], mane);
         c.strokeStyle = BRASS; c.lineWidth = 0.5; c.beginPath(); c.arc(5.3, 4.5, 0.65, 0, TAU); c.stroke();
         line(c, 5.0, 4.3, 0.2, 0.9, 0.5, iron);
@@ -324,7 +324,7 @@ const destrier = (ctx, p) => {
     });
     // the crinet: steel lames down the crest, the mane showing under them
     part(c0, (c) => {
-      const top = [[10.4, -17.7], [12.8, -19.6], [15.2, -21.6], [17.1, -23.6]].map((pt, i) => rot(add(pt, [0, 0]), nb, ha * (i / 3)));
+      const top = [[10.4, -17.6], [13, -19.2], [15.6, -20.9], [17.7, -22.6]].map((pt, i) => rot(add(pt, [0, 0]), nb, ha * (i / 3)));
       c.fillStyle = mane;
       for (let i = 0; i < 4; i++) { const [x, y] = lerp(top[0], top[3], i / 3.2); poly(c, [[x - 0.3, y + 0.4], [x + 1.4, y + 0.9], [x - 0.9, y + 3.2]]); }
       c.fillStyle = cel(c, 10, -26, 17, -17, steel, 0.55, 0.4); taper(c, top, [2.2, 2.0, 1.9, 1.6]);
@@ -379,7 +379,7 @@ const destrier = (ctx, p) => {
     part(c0, (c) => polyline(c, [bit, [bit[0] - 4, bit[1] + 1.2], add(seat, rein)], 0.55, iron));
     c0.save(); c0.translate(...seat);
     const thrust = fight ? k.thrust : 0;
-    rider(c0, p, { lean, lance: k.lance, hand: [2.8 + thrust, -5.2 + (fight && k.lance < -0.3 ? -1.2 : 0)], rein, fl: k.fl, len: 23 });
+    rider(c0, p, { lean, lance: k.lance, hand: [2.8 + thrust, -5.8 + (fight && k.lance < -0.3 ? -0.8 : 0)], rein, fl: k.fl, len: 23 });
     c0.restore();
   });
   ctx.restore();
@@ -403,7 +403,7 @@ const GRY_FIGHT = [
 // first), B where the trailing edge meets the flank
 const FWINGS = [
   { E: [-2.5, -6.5], W: [-2.5, -14], T: [[-3.5, -25.5], [-7.5, -27.5], [-11.5, -27], [-15, -25], [-17.5, -21.5]], B: [-12, -1] },
-  { E: [-3, -4], W: [5, -8], T: [[16.5, -11], [14.5, -14], [11, -16], [7, -16.5], [3, -15.5]], B: [-12, 0] },
+  { E: [-2, -5], W: [3, -10.5], T: [[9, -18.5], [5.5, -21], [1.5, -22], [-2.5, -21.5], [-6, -19]], B: [-12, 0] },
   { E: [-2, 3], W: [4, 7.5], T: [[12.5, 13], [9.5, 16], [5.5, 17.5], [1.5, 17.5], [-2.5, 16]], B: [-12, 1] },
   { E: [-4, -3], W: [-3, -9.5], T: [[-9, -17], [-12.5, -17], [-15.5, -15.5], [-18, -13], [-19.5, -10]], B: [-12, 0] },
 ];
