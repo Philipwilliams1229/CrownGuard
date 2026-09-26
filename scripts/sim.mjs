@@ -8,6 +8,7 @@
 //   node scripts/sim.mjs --all                every campaign level
 //   node scripts/sim.mjs --free ember iron    free play: realm + faction
 //   node scripts/sim.mjs --all --quiet        one line per level
+//   node scripts/sim.mjs --chapter iron       every level of one chapter
 //
 // The commander is deliberately a decent player, not a perfect one: it values
 // road coverage, keeps a knight post near the front, mixes physical and magic,
@@ -310,8 +311,9 @@ function runLevel(opts, quiet) {
 const quiet = flag("quiet");
 const results = [];
 
-if (flag("all")) {
+if (flag("all") || after("chapter")) {
   for (const lv of LEVELS) {
+    if (after("chapter") && lv.chapter.id !== after("chapter")) continue;
     const idx = LEVELS.findIndex((l) => l.id === lv.id);
     setUnlocksFor(lv.id);
     results.push(runLevel({

@@ -67,8 +67,9 @@ export const FACTIONS = {
 
   iron: {
     id: "iron",
-    // swells with the crowd only lightly until this chapter is retuned
-    crowdScale: 0.35,
+    // a drilled army, not a horde: its ranks thicken with the war, but
+    // by little more than half as much as the Greenwood's (retuned 2026-09-26)
+    crowdScale: 0.6,
     name: "The Iron Kingdom",
     tag: "AN ARMY",
     tagColor: "#9ab6d8",
@@ -111,8 +112,9 @@ export const FACTIONS = {
 
   hollow: {
     id: "hollow",
-    // swells with the crowd only lightly until this chapter is retuned
-    crowdScale: 0.35,
+    // the dead come in floods: two thirds of the horde's swell, on top of
+    // scripts that are already all chaff (retuned 2026-09-26)
+    crowdScale: 0.65,
     name: "The Hollow Court",
     tag: "THE DEAD",
     tagColor: "#b08ad8",
