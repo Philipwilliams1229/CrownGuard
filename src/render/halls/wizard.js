@@ -238,6 +238,7 @@ const paintFront = (ctx, t, x, y) => {
 };
 
 export const drawWizardSpire = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const lvl = t.level;
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
@@ -306,7 +307,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   const mcv = canBake ? baked(`mage|${key}|${level}|${pose}`, 34, 40, (c) => drawMage(c, 14, 37, 1, pal, level, { pose })) : null;
   // star-charms from level three; the back arc passes behind the mage
   const stars = [];
-  if (grown) {
+  if (grown && !t.noFolk) {
     for (let i = 0; i < 3; i++) {
       const ang = time * 1.7 + i * 2.09 + t.id;
       stars.push({ cx: x + Math.cos(ang) * 15, cy: my - 14 + Math.sin(ang) * 5, front: Math.sin(ang) >= 0 });
@@ -321,7 +322,7 @@ export const drawWizardSpire = (ctx, t, time) => {
     ctx.fillStyle = orbCol; ctx.beginPath(); ctx.moveTo(cx, cy - 3); ctx.lineTo(cx + 1.6, cy); ctx.lineTo(cx, cy + 3); ctx.lineTo(cx - 1.6, cy); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#fffaf0"; ctx.fillRect(cx - 0.6, cy - 1.5, 0.8, 1.5);
   }
-  if (mcv) stamp(ctx, mcv, x, my, 14, 37, dir); else drawMage(ctx, x, my, dir, pal, level, { pose });
+  if (!t.noFolk) { if (mcv) stamp(ctx, mcv, x, my, 14, 37, dir); else drawMage(ctx, x, my, dir, pal, level, { pose }); }
   if (canBake) stamp(ctx, baked(`front|${form}`, FRONT.left + FRONT.right, FRONT.up + FRONT.down, (c) => paintFront(c, tv, FRONT.left, FRONT.up)), x, y, FRONT.left, FRONT.up);
   else paintFront(ctx, t, x, y);
 
@@ -332,23 +333,25 @@ export const drawWizardSpire = (ctx, t, time) => {
   const orbX = x + dir * tx, orbY = my + ty + bob - (level >= 2 ? 1 : 0);
   const rBase = level >= 3 ? 3.4 : level === 2 ? 2.8 : 2.3;
   const rOut = rBase * (t._idle ? 0.8 : 0.75 + charge * 0.45) + (t.anim > 0.4 ? 0.8 : 0);
-  glow(ctx, orbX, orbY, rOut * (2 + charge), orbCol, 0.3 + charge * 0.25);
-  ball(ctx, orbX, orbY, rOut, rOut, orbCol, { hi: 0.6, lo: 0.3 });
-  ctx.fillStyle = "#fffaf0"; ctx.fillRect(orbX - rOut * 0.45, orbY - rOut * 0.5, 1, 1);
-  // motes spiral in while it gathers
-  if (!t._idle && charge > 0.45 && t.anim < 0.2) {
-    for (let i = 0; i < 3; i++) {
-      const a = time * 6 + i * 2.1, d = (1 - charge) * 14 + 3;
-      ctx.fillStyle = rgba(orbCol, 0.9);
-      ctx.fillRect(orbX + Math.cos(a) * d - 0.5, orbY + Math.sin(a) * d * 0.7 - 0.5, 1, 1);
+  if (!t.noFolk) {
+    glow(ctx, orbX, orbY, rOut * (2 + charge), orbCol, 0.3 + charge * 0.25);
+    ball(ctx, orbX, orbY, rOut, rOut, orbCol, { hi: 0.6, lo: 0.3 });
+    ctx.fillStyle = "#fffaf0"; ctx.fillRect(orbX - rOut * 0.45, orbY - rOut * 0.5, 1, 1);
+    // motes spiral in while it gathers
+    if (!t._idle && charge > 0.45 && t.anim < 0.2) {
+      for (let i = 0; i < 3; i++) {
+        const a = time * 6 + i * 2.1, d = (1 - charge) * 14 + 3;
+        ctx.fillStyle = rgba(orbCol, 0.9);
+        ctx.fillRect(orbX + Math.cos(a) * d - 0.5, orbY + Math.sin(a) * d * 0.7 - 0.5, 1, 1);
+      }
     }
-  }
-  if (t.anim > 0.05) {
-    glow(ctx, orbX, orbY, rOut * 1.2, "#fffaf0", t.anim);
-    ctx.strokeStyle = rgba(orbCol, t.anim * 0.7);
-    ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.arc(orbX, orbY, rOut + (1 - t.anim) * 12, 0, 7); ctx.stroke();
-    ctx.lineWidth = 1;
+    if (t.anim > 0.05) {
+      glow(ctx, orbX, orbY, rOut * 1.2, "#fffaf0", t.anim);
+      ctx.strokeStyle = rgba(orbCol, t.anim * 0.7);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(orbX, orbY, rOut + (1 - t.anim) * 12, 0, 7); ctx.stroke();
+      ctx.lineWidth = 1;
+    }
   }
   for (const s of stars) if (s.front) star(s);
   for (const r of runes) if (r.front) rune(ctx, r);
@@ -356,7 +359,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   // ---- storms: static round the Stormcaller, arcs between the Tempest's
   // coils, a thundercloud over the Sovereign that strikes his crown
   if (el === "storm") {
-    if (Math.sin(time * 11 + t.id) > 0.55 || t.anim > 0.5) {
+    if (!t.noFolk && (Math.sin(time * 11 + t.id) > 0.55 || t.anim > 0.5)) {
       const ang = time * 5 + t.id;
       zig(ctx, orbX + Math.cos(ang) * 4, orbY + Math.sin(ang) * 4, orbX + Math.cos(ang) * 10, orbY + Math.sin(ang) * 8 + 4, time, "#f8f0a0", 1);
     }
@@ -387,7 +390,7 @@ export const drawWizardSpire = (ctx, t, time) => {
     ctx.fillRect(ex, ey, 1, 1);
   }
   // between battles a tome hangs open by the spire, pages flicking
-  if (t._idle && ((time / 9) + t.id * 0.37) % 1 < 0.45) {
+  if (t._idle && !t.noFolk && ((time / 9) + t.id * 0.37) % 1 < 0.45) {
     const ty2 = top - 22 + Math.sin(time * 1.6) * 2;
     ctx.fillStyle = "#d8ceb4";
     ctx.fillRect(x + 12, ty2, 3.5, 4.5); ctx.fillRect(x + 16, ty2, 3.5, 4.5);

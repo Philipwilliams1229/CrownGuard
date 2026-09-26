@@ -220,6 +220,7 @@ const hungTrap = (ctx, x, y, kind, ready) => {
 };
 
 export const drawTrapsmith = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const { lvl, r4, spring, blast } = spec(t);
   const bake = canBake();
@@ -251,15 +252,17 @@ export const drawTrapsmith = (ctx, t, time) => {
     else paintBalloon(ctx, bx, by);
     if (Math.sin(time * 9) > 0) { ctx.fillStyle = "#f4c060"; ctx.fillRect(bx + 1.8, by + 16.6, 1, 1); }
   }
-  // the smith, hammer on the beat; sparks on the strike
+  // the smith, hammer on the beat; sparks on the strike (neither under noFolk)
   const beat = Math.sin(time * (t._idle ? 3 : 6) + t.id);
   const swing = beat > 0.3 ? 1 : 0;
   const sx = x - 6.5, sy = y + 4;
-  if (bake) stamp(ctx, cache.get(`smith|${swing}`, 30, 37, (c) => drawSmith(c, 12, 34, 1, CREW_FOLK.smith, swing)), sx, sy, 12, 34, 1);
-  else drawSmith(ctx, sx, sy, 1, CREW_FOLK.smith, swing);
-  if (swing === 0 && beat > -0.3) {
-    glow(ctx, x + 0.5, y - 8, 3, "#ffd070", 0.8);
-    for (let i = 0; i < 4; i++) { const a = -0.4 - i * 0.55, d = 2 + (0.3 - beat) * 5; ctx.fillStyle = i % 2 ? "#ffe08a" : "#fff3d2"; ctx.fillRect(x + 0.5 + Math.cos(a) * d * 1.4, y - 8 + Math.sin(a) * d, 0.9, 0.9); }
+  if (!t.noFolk) {
+    if (bake) stamp(ctx, cache.get(`smith|${swing}`, 30, 37, (c) => drawSmith(c, 12, 34, 1, CREW_FOLK.smith, swing)), sx, sy, 12, 34, 1);
+    else drawSmith(ctx, sx, sy, 1, CREW_FOLK.smith, swing);
+    if (swing === 0 && beat > -0.3) {
+      glow(ctx, x + 0.5, y - 8, 3, "#ffd070", 0.8);
+      for (let i = 0; i < 4; i++) { const a = -0.4 - i * 0.55, d = 2 + (0.3 - beat) * 5; ctx.fillStyle = i % 2 ? "#ffe08a" : "#fff3d2"; ctx.fillRect(x + 0.5 + Math.cos(a) * d * 1.4, y - 8 + Math.sin(a) * d, 0.9, 0.9); }
+    }
   }
   // the hot iron on the anvil
   ctx.fillStyle = "#f4a040"; ctx.fillRect(x - 1.5, y - 8.2, 4, 0.9);

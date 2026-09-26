@@ -1,0 +1,262 @@
+<!doctype html>
+<!--
+  Dev tool: the build crew (src/render/builders.js, folk.js drawWorker) — the
+  three workers who run out of the castle gate to raise a new hall.
+    /crew-lab.html?tag=v1                     everything below
+    &only=frames,board,crops,perf             pick sheets
+    &realm=thornbrook                         a realm with a river (default)
+  Sheets (POSTed to .shots/crew_<tag>_<sheet>.png):
+    frames_<look>  every pose × frame of one look, zoomed (x3), baked as the game bakes them
+    frames_game    every frame at game size (one art pixel per pixel), on grass and road
+    board_far / board_near   the whole board through the real draw() at zoom 1,
+                   ten moments from purchase to home, for a hall far from the gate
+                   and one near it (every hall on the board is building)
+    crops_land / crops_water  zoom-3 crops round the plot at the key moments,
+                   for a land hall and a River Watch standing in the river
+  &perf=1 times 10 halls building at once (builders alone, and whole frames).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>crew lab…</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; } canvas { display: block; margin: 8px 0; max-width: 100%; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { draw } from "/src/render/draw.js";
+      import { makeTower } from "/src/engine/towers.js";
+      import { buildableAt } from "/src/engine/actions.js";
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { PTS } from "/src/engine/path.js";
+      import { RIVERS, inRiver } from "/src/data/terrain.js";
+      import { buildPlan as planOf, raiseSecs, pumpCut } from "/src/render/buildanim.js";
+      // the lab wants the whole plan at once: finish the hall's cut straight away
+      const buildPlan = (t) => { const P = planOf(t); if (P && P.job) pumpCut(P, P.lay0); return P; };
+      import { builderDrawables, workerSprite, WORKER_BOX, warmBuilders } from "/src/render/builders.js";
+      import { WORKER_POSES } from "/src/render/folk.js";
+      import { PX } from "/src/render/paint.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x";
+      const ONLY = (q.get("only") || "frames,board,crops,perf").split(",");
+      const REALM_ID = q.get("realm") || "thornbrook";
+      selectRealm(REALM_ID);
+      const out = document.getElementById("status");
+      const report = [];
+      const post = async (name, cv) => {
+        await fetch(`/__shot?name=crew_${TAG}_${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+        report.push(`${name} ${cv.width}x${cv.height}`);
+      };
+      const LOOKS = ["mason", "hod", "setter"];
+      const ROWS = [["run", true], ["run", false], ["climb"], ["hammer"], ["hand"], ["pick"], ["jump"], ["land"], ["cheer"], ["stand"]];
+
+      // ---- (a) every frame ----
+      if (ONLY.includes("frames")) {
+        const SC = 3, { w: BW, h: BH } = WORKER_BOX;
+        const cw = BW * PX * SC, ch = BH * PX * SC;
+        for (const look of LOOKS) {
+          const cv = document.createElement("canvas"); cv.width = cw * 6 + 120; cv.height = ch * ROWS.length;
+          const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+          c.fillStyle = "#20242c"; c.fillRect(0, 0, cv.width, cv.height);
+          ROWS.forEach(([pose, load], r) => {
+            for (let f = 0; f < WORKER_POSES[pose]; f++) {
+              c.fillStyle = (r + f) % 2 ? "#7aa84e" : "#82b256"; c.fillRect(120 + f * cw, r * ch, cw, ch);
+              c.fillStyle = "rgba(0,0,0,0.12)"; c.fillRect(120 + f * cw, r * ch + (WORKER_BOX.ay * PX) * SC, cw, SC);   // the feet line
+              const sp = workerSprite(look, pose, f, !!load, 1);
+              c.drawImage(sp, 120 + f * cw, r * ch, sp.width * SC, sp.height * SC);
+            }
+            c.fillStyle = "#e8e0c8"; c.font = "14px monospace"; c.fillText(`${pose}${pose === "run" ? (load ? " out" : " back") : ""}`, 6, r * ch + 20);
+          });
+          await post(`frames_${look}`, cv);
+        }
+        // game size: one art pixel per pixel, on grass and on the road's dirt, both ways
+        const gw = BW * PX, gh = BH * PX, cols = 6 * 2;
+        const cv = document.createElement("canvas"); cv.width = gw * cols * LOOKS.length / 2 + 20; cv.height = gh * ROWS.length;
+        const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+        c.fillStyle = "#82b256"; c.fillRect(0, 0, cv.width, cv.height);
+        ROWS.forEach(([pose, load], r) => {
+          c.fillStyle = r % 2 ? "#b89a6a" : "#82b256"; c.fillRect(0, r * gh, cv.width, gh);
+          LOOKS.forEach((look, li) => {
+            for (let f = 0; f < WORKER_POSES[pose]; f++) {
+              const sp = workerSprite(look, pose, f, !!load, f % 2 ? -1 : 1);
+              c.drawImage(sp, li * gw * 6 * 0.5 * 2 + f * gw * 0.5 + 10, r * gh);
+            }
+          });
+        });
+        await post("frames_game", cv);
+      }
+
+      // ---- the board: a fake game through the real draw() ----
+      const game = (towers, time, zoom = 1, cx = W / 2, cy = H / 2) => ({
+        time, shake: 0, cam: { zoom, x: cx - W / (2 * zoom), y: cy - H / (2 * zoom) }, grounds: [], traps: [], logs: [], bands: [], volleys: [],
+        buildMode: null, hover: null, gold: 500, selectedId: null, towers, enemies: [], projectiles: [], effects: [],
+        lives: CASTLE_HP, paused: false, phase: "build",
+      });
+      const AT = 10;
+      const mk = (kind, x, y, id) => { const t = makeTower(kind, x, y); t.id = id; t.raised = { at: AT, how: "build", prev: null }; return t; };
+      // find buildable spots: the farthest from the gate, one near it, one in the river
+      const g0 = game([], 0);
+      const cands = [];
+      for (let y = 40; y < H - 30; y += 8) for (let x = 30; x < W - 110; x += 8) cands.push([x, y]);
+      const gate = PTS[PTS.length - 1];
+      const pick = (kind, score, avoid = []) => {
+        let best = null, bs = -Infinity;
+        for (const [x, y] of cands) {
+          if (!buildableAt({ ...g0, towers: avoid }, x, y, kind)) continue;
+          const s = score(x, y);
+          if (s > bs) { bs = s; best = [x, y]; }
+        }
+        return best;
+      };
+      const farXY = pick("archer", (x, y) => Math.hypot(x - gate[0], y - gate[1]) - Math.abs(y - gate[1]) * 0.3);
+      const nearXY = pick("wizard", (x, y) => -Math.abs(Math.hypot(x - gate[0], y - gate[1]) - 110));
+      const midXY = pick("archer", (x, y) => -Math.abs(Math.hypot(x - gate[0], y - gate[1]) - 230) - Math.abs(y - gate[1]) * 0.5);
+      const riverXY = RIVERS.length ? pick("riverwatch", (x, y) => -Math.abs(y - (q.get("ry") ? Number(q.get("ry")) : 200)) - Math.abs(x - gate[0]) * 0.1) : null;
+      report.push(`far ${farXY} near ${nearXY} mid ${midXY} river ${riverXY} gate ${gate.map(Math.round)}`);
+      const moments = (P) => [
+        ["bought", P.at + 0.03], ["dash", P.at + P.run * 0.35], ["dash2", P.at + P.run * 0.75], ["arrive", P.arrive + 0.1],
+        ["laying", (P.lay0 + P.lay1) / 2], ["person", P.personAt - 0.02], ["hop", P.hop[0] + 0.12], ["leave", P.leave + P.run * 0.3],
+        ["home", P.leave + P.run * 0.8], ["gone", P.home + 0.01],
+      ];
+      const boardSheet = async (name, kind, xy) => {
+        const t = mk(kind, xy[0], xy[1], 7);
+        const P = buildPlan(t);
+        const ms = moments(P);
+        const y0 = Math.max(0, Math.min(t.y, gate[1]) - 60), y1 = Math.min(H, Math.max(t.y, gate[1]) + 50);
+        const fw = W * 2, fh = (y1 - y0) * 2;
+        const sheet = document.createElement("canvas"); sheet.width = fw * 2; sheet.height = fh * Math.ceil(ms.length / 2);
+        const sc = sheet.getContext("2d"); sc.imageSmoothingEnabled = false;
+        ms.forEach(([label, time], i) => {
+          const cv = document.createElement("canvas");
+          try { draw(game([t], time), cv, { current: null }); } catch (e) { console.error(label, e); }
+          const ox = (i % 2) * fw, oy = Math.floor(i / 2) * fh;
+          sc.drawImage(cv, 0, y0 * 2, fw, fh, ox, oy, fw, fh);
+          sc.fillStyle = "#20242c"; sc.fillRect(ox + fw - 3, oy, 3, fh); sc.fillRect(ox, oy + fh - 3, fw, 3);
+          sc.fillStyle = "#fff"; sc.font = "bold 22px monospace"; sc.fillText(`${kind} ${label} t=${(time - P.at).toFixed(2)}s`, ox + 90, oy + 30);
+        });
+        report.push(`${name}: run ${P.run.toFixed(2)}s, pieces ${P.lands.length}, end ${(P.end - P.at).toFixed(2)}, home ${(P.home - P.at).toFixed(2)}`);
+        await post(name, sheet);
+      };
+      if (ONLY.includes("board")) {
+        await boardSheet("board_far", "archer", farXY);
+        await boardSheet("board_near", "wizard", nearXY);
+      }
+
+      // ---- (c) zoomed crops round the plot ----
+      const cropSheet = async (name, kind, xy) => {
+        const t = mk(kind, xy[0], xy[1], 9);
+        const P = buildPlan(t);
+        const Z = 3, CW = 84, CH = 112;       // world units per crop
+        const lands = P.lands.length ? P.lands : [P.lay0 + 0.2, P.lay0 + 0.4];
+        const ms = [
+          ["arrive", P.arrive + 0.01], ["climb", P.arrive + 0.12], ["setter in", P.arrive + 2 * P.stagger + 0.02],
+          ["strike", lands[Math.min(lands.length - 1, 3)] + 0.005], ["raised", lands[Math.min(lands.length - 1, 3)] + ((lands[4] || lands[3] + 0.1) - lands[3]) * 0.7],
+          ["hod toss", lands[Math.min(lands.length - 1, 5)] - 0.02], ["setter toss", lands[Math.min(lands.length - 1, 6)] - 0.02],
+          ["high", lands[lands.length - 1] - 0.03], ["person", P.personAt - 0.01], ["cheer", P.personAt + 0.08],
+          ["hop", P.hop[0] + 0.05], ["air", P.hop[0] + 0.14], ["land", P.hop[1] + 0.02], ["leave", P.leave + 0.08], ["off", P.hop[1] + 0.2],
+        ];
+        const cols = 5, pw = CW * Z * 2, ph = CH * Z * 2;
+        const sheet = document.createElement("canvas"); sheet.width = pw * cols; sheet.height = ph * Math.ceil(ms.length / cols);
+        const sc = sheet.getContext("2d"); sc.imageSmoothingEnabled = false;
+        const cx = t.x + 4, cy = t.y - 30;
+        ms.forEach(([label, time], i) => {
+          const cv = document.createElement("canvas");
+          try { draw(game([t], time, Z, cx, cy), cv, { current: null }); } catch (e) { console.error(label, e); }
+          const ox = (i % cols) * pw, oy = Math.floor(i / cols) * ph;
+          sc.drawImage(cv, (cv.width - pw) / 2, (cv.height - ph) / 2, pw, ph, ox, oy, pw, ph);
+          sc.fillStyle = "#fff"; sc.font = "bold 20px monospace"; sc.fillText(`${label} +${(time - P.at).toFixed(2)}`, ox + 6, oy + 22);
+          sc.fillStyle = "#20242c"; sc.fillRect(ox + pw - 2, oy, 2, ph); sc.fillRect(ox, oy + ph - 2, pw, 2);
+        });
+        report.push(`${name}: water ${P.water} cut ${!!P.cut} pieces ${P.lands.length} lay ${(P.lay1 - P.lay0).toFixed(2)}s`);
+        await post(name, sheet);
+      };
+      if (ONLY.includes("crops")) {
+        await cropSheet("crops_land", q.get("kind") || "archer", midXY);
+        if (riverXY) await cropSheet("crops_water", "riverwatch", riverXY);
+      }
+
+      // ---- wading across the river on the run, and riding over a bridge's deck ----
+      if (ONLY.includes("wade")) {
+        const { bridgeLift, BRIDGES } = await import("/src/data/terrain.js");
+        const along = (P, k, fn) => { for (let u = 0; u <= 1; u += 0.005) { const x = P.gate.x + (P.posts ? 0 : 0) + (P.ladder - P.gate.x) * u, y = P.gate.y - 7 + (P.fF - P.gate.y + 7) * u; if (fn(x, y)) return [u, x, y]; } return null; };
+        const rows = [];
+        // the far hall's crew wade the river
+        { const t = mk("archer", farXY[0], farXY[1], 11), P = buildPlan(t); const hit = along(P, 0, (x, y) => inRiver(x, y, -4)); if (hit) rows.push(["river", t, P, hit]); }
+        // a hall whose straight run goes over a bridge
+        let found = null;
+        for (const [x, y] of cands) {
+          if (found || !buildableAt(g0, x, y, "archer")) continue;
+          const t = mk("archer", x, y, 12), P = buildPlan(t);
+          const hit = along(P, 0, (xx, yy) => bridgeLift(xx, yy) > 6);
+          if (hit) found = ["bridge", t, P, hit];
+        }
+        if (found) rows.push(found);
+        report.push(`wade rows: ${rows.map((r) => r[0] + "@" + r[3].map((v) => v.toFixed(2))).join(" ")} bridges ${BRIDGES.length}`);
+        const Z = 3, CW = 90, CH = 60, cols = 6, pw = CW * Z * 2, ph = CH * Z * 2;
+        const sheet = document.createElement("canvas"); sheet.width = pw * cols; sheet.height = ph * Math.max(1, rows.length) * 2;
+        const sc = sheet.getContext("2d"); sc.imageSmoothingEnabled = false;
+        rows.forEach(([name, t, P, [u, x, y]], r) => {
+          const tin = P.at + u * P.run;
+          const tback = P.leave + (1 - u) * P.run;
+          [[tin, 0], [tback, 1]].forEach(([tc, leg]) => {
+            [-0.03, -0.01, 0.01, 0.03, 0.06, 0.1].forEach((dt, i) => {
+              const time = tc + dt, cv = document.createElement("canvas");
+              try { draw(game([t], time, Z, x, y - 8), cv, { current: null }); } catch (e) { console.error(e); }
+              const ox = i * pw, oy = (r * 2 + leg) * ph;
+              sc.drawImage(cv, (cv.width - pw) / 2, (cv.height - ph) / 2, pw, ph, ox, oy, pw, ph);
+              sc.fillStyle = "#fff"; sc.font = "bold 18px monospace"; sc.fillText(`${name} ${leg ? "home" : "out"} ${dt >= 0 ? "+" : ""}${dt}`, ox + 6, oy + 20);
+              sc.fillStyle = "#20242c"; sc.fillRect(ox + pw - 2, oy, 2, ph); sc.fillRect(ox, oy + ph - 2, pw, 2);
+            });
+          });
+        });
+        await post("wade", sheet);
+      }
+
+      // ---- perf: 10 halls building at once ----
+      if (ONLY.includes("perf") || q.get("perf")) {
+        const spots = []; const placed = [];
+        for (let k = 0; k < 10; k++) {
+          const xy = pick(["archer", "wizard", "knight", "catapult", "sunforge"][k % 5], (x, y) => Math.min(...[...placed, [-999, -999]].map(([a, b]) => Math.hypot(a - x, b - y))) + Math.random(), placed.map(([x, y]) => makeTower("archer", x, y)));
+          if (!xy) break; placed.push(xy);
+          spots.push(mk(["archer", "wizard", "knight", "catapult", "sunforge"][k % 5], xy[0], xy[1], 20 + k));
+        }
+        // the whole bake up front, as a level's load would do it
+        const tw0 = performance.now(); warmBuilders(Infinity); const warmAll = performance.now() - tw0;
+        report.push(`warmBuilders(Infinity) ${warmAll.toFixed(0)}ms`);
+        const P0 = buildPlan(spots[0]);
+        const span = [AT, Math.max(...spots.map((t) => buildPlan(t).home))];
+        const tc = document.createElement("canvas"); tc.width = W * 2; tc.height = H * 2;
+        const tx = tc.getContext("2d"); tx.setTransform(2, 0, 0, 2, 0, 0); tx.imageSmoothingEnabled = false;
+        // warm: every frame the crew will use gets baked on the first pass
+        const tb0 = performance.now();
+        for (let time = span[0]; time < span[1]; time += 1 / 60) for (const t of spots) for (const d of builderDrawables(tx, t, time)) d.fn();
+        const warm = performance.now() - tb0;
+        let n = 0, items = 0; const t0 = performance.now();
+        for (let rep = 0; rep < 3; rep++) for (let time = span[0]; time < span[1]; time += 1 / 60) { n++; for (const t of spots) for (const d of builderDrawables(tx, t, time)) { d.fn(); items++; } }
+        const t1 = performance.now();
+        const crewMs = (t1 - t0) / n;
+        // whole frames through draw(): building (crew + raise) vs the same halls standing
+        const cv = document.createElement("canvas");
+        const frames = (withRaise) => {
+          const ts = spots.map((t) => (withRaise ? t : { ...t, raised: null }));
+          let k = 0; const a = performance.now();
+          for (let time = span[0]; time < span[1]; time += 1 / 30) { draw(game(ts, time), cv, { current: null }); k++; }
+          return (performance.now() - a) / k;
+        };
+        frames(true); frames(false);
+        const fb = frames(true), fp = frames(false);
+        // the same frames with the crew switched off, to isolate it
+        report.push(`PERF 10 halls: crew alone ${crewMs.toFixed(3)}ms/frame (${(items / n).toFixed(1)} figures avg, first-pass bake ${warm.toFixed(0)}ms); whole frame building ${fb.toFixed(2)}ms vs standing ${fp.toFixed(2)}ms`);
+      }
+      // nothing may throw: no plan, a plan with no cut
+      try {
+        const t = makeTower("archer", 300, 300); t.raised = null;
+        const a = builderDrawables(null, t, 5);
+        const t2 = makeTower("archer", 300, 300); t2.raised = { at: 1, how: "level", prev: null };
+        const b = builderDrawables(null, t2, 1.2);
+        report.push(`null-plan ok (${a.length}, ${b.length})`);
+      } catch (e) { report.push("null-plan THREW " + e.message); console.error(e); }
+      out.textContent = report.join(" | ");
+      console.log(out.textContent);
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

@@ -168,6 +168,7 @@ const paintPerched = (ctx, cx, cy, kind) => {
 };
 
 export const drawFalconry = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people (nor her birds)
   const x = t.x, y = t.y;
   const st = getStats(t);
   const { lvl, r4, aviary, court, nest, h } = spec(t);
@@ -201,10 +202,12 @@ export const drawFalconry = (ctx, t, time) => {
     if (bake) stamp(ctx, cache.get(`mistress|${key}`, 30, 32, (c) => drawMistress(c, 12, 29, 1, pal)), x, my, 12, 29, dir);
     else drawMistress(ctx, x, my, dir, pal);
   };
-  if (nest) {
+  if (t.noFolk) {
+    // the build lays the roost bare: no mistress, no bird on the glove or the wing
+  } else if (nest) {
     // she rides the eagle; only when it is down does she wait here
     if (t.eagle && t.eagle.respawn > 0) {
-      mistress("court");
+      mistress("royal");
       if (Math.sin(time * 6) > 0) glow(ctx, x + dir * 6, my - 24, 2, "#ffffff", 0.9);
     }
   } else {
@@ -237,9 +240,9 @@ export const drawFalconry = (ctx, t, time) => {
     }
     if (r4 === "ab") for (const w of wheel) if (Math.sin(time * 7 + w.x) > 0.7) { ctx.fillStyle = "#d8f0ff"; ctx.fillRect(w.x - 5, w.y + 1, 1, 1); }
   }
-  // a drifting feather now and then
+  // a drifting feather now and then (the birds', so not under noFolk)
   const fc = ((time / 7) + t.id * 0.53) % 1;
-  if (fc < 0.5) { ctx.fillStyle = "#e8dfc6"; ctx.fillRect(x + 10 + Math.sin(fc * 12) * 4, my - 20 + fc * 40, 1.6, 0.8); }
+  if (fc < 0.5 && !t.noFolk) { ctx.fillStyle = "#e8dfc6"; ctx.fillRect(x + 10 + Math.sin(fc * 12) * 4, my - 20 + fc * 40, 1.6, 0.8); }
   const pc = court ? (r4 === "bb" ? "#7a2a4a" : PURPLE) : aviary ? (r4 === "ab" ? STORM : "#3a5a8a") : "#a06a3a";
   if (r4 === "ba") pennant(ctx, x + 12, y - h - 14, 13, pc, time, t.id, 1);
   else pennant(ctx, x - 12, y - h - (lvl === 1 ? 10 : 14), lvl === 1 ? 11 : 13, pc, time, t.id, -1);

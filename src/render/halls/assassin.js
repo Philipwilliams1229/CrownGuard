@@ -229,6 +229,7 @@ const paintCovert = (ctx, t, x, y, f) => {
 
 // ---- per frame -------------------------------------------------------------------
 export const drawAssassin = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const s = spec(t), r4 = s.r4;
   const f = t._idle ? 1 : (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
@@ -245,7 +246,7 @@ export const drawAssassin = (ctx, t, time) => {
     else drawHooded(ctx, hx, hy, dir, pal);
   };
   // the second hood waits in the doorway from three, half in the dark
-  if (s.lvl >= 3) {
+  if (s.lvl >= 3 && !t.noFolk) {
     hood(x - f * 2, y + 2.5, f, s.guild ? "g" : "c");
   }
   // live: the lantern's shaded light; the vats bubble; the pods breathe
@@ -264,6 +265,7 @@ export const drawAssassin = (ctx, t, time) => {
   // he goes up in black smoke and is gone until the job is done
   const wx = x + f * 10, wy = y + 9;
   const anim = t.anim || 0;
+  if (t.noFolk) return;   // (him, his glint, his smoke and his streak: the build puts him in last)
   if (anim <= 0.4) {
     hood(wx, wy, f, s.guild ? "g" : "c");
     if (Math.sin(time * 2.3 + t.id) > 0.92) glow(ctx, wx + f * 1, wy - 12, 2, "#ffffff", 0.9);   // the whetted edge glints

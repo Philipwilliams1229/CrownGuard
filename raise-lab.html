@@ -21,7 +21,7 @@
       import { drawTowerPortrait } from "/src/render/towers.js";
       import { groundLayer } from "/src/render/world.js";
       import { drawGroundBlend } from "/src/render/groundblend.js";
-      import { drawRaising, RAISE_SECS } from "/src/render/buildanim.js";
+      import { drawRaising, RAISE_SECS, raiseSecs, buildPlan } from "/src/render/buildanim.js";
       const q = new URLSearchParams(location.search);
       const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 1;
       selectRealm(q.get("realm") || "greenwood");
@@ -38,7 +38,51 @@
       const ground = groundLayer();
       const out = document.getElementById("status");
       const report = [];
-      for (const how of HOWS) {
+      // ?how=folk: every form of each kind three ways — as it stands, with
+      // `noFolk` (what the build lays piece by piece), and the folk alone
+      // (what differs: the person the build puts in last). A hall whose
+      // people don't vanish in the middle column needs its noFolk hook.
+      if (HOWS[0] === "folk") {
+        const ALLK = (q.get("kinds") || "archer,wizard,knight,catapult,spiker,goldworks,trapsmith,falconry,gunpowder,riverwatch,assassin,sunforge,support").split(",");
+        const FF = [{ level: 1 }, { level: 2 }, { level: 3 }, { level: 3, branch: "a" }, { level: 3, branch: "b" },
+          { level: 3, branch: "a", rank4: "a" }, { level: 3, branch: "a", rank4: "b" }, { level: 3, branch: "b", rank4: "a" }, { level: 3, branch: "b", rank4: "b" }];
+        const FW2 = 76, FH2 = 100, R2 = 2;
+        const cv = document.createElement("canvas");
+        cv.width = FW2 * 3 * FF.length * R2; cv.height = FH2 * ALLK.length * R2;
+        const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+        c.fillStyle = "#4a5a44"; c.fillRect(0, 0, cv.width, cv.height);
+        const TIME = Number(q.get("t")) || 3.3;
+        ALLK.forEach((kind, row) => FF.forEach((form, col) => {
+          const t = { id: 4, kind, x: FW2 / 2, y: FH2 * 0.72, level: form.level, branch: form.branch || null, rank4: form.rank4 || null,
+            cd: 0, aim: "first", lastAim: 0.6, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [], rally: null, kills: 0, dmgOut: 0,
+            liveTime: 1, _idle: true, charges: 3, ramp: 2, mAnim: 0, eagle: null, raised: null, _auraLive: 0 };
+          const px = (k) => { const a = document.createElement("canvas"); a.width = FW2 * R2; a.height = FH2 * R2;
+            const x = a.getContext("2d"); x.imageSmoothingEnabled = false; x.setTransform(R2, 0, 0, R2, 0, 0);
+            try { drawTowerPortrait(x, k ? { ...t, noFolk: true } : t, TIME); } catch (e) { console.error(kind, e); }
+            return a; };
+          const A = px(false), B = px(true);
+          const da = A.getContext("2d").getImageData(0, 0, A.width, A.height), db = B.getContext("2d").getImageData(0, 0, A.width, A.height).data;
+          let n = 0;
+          for (let j = 0; j < da.data.length; j += 4) {
+            const same = Math.abs(da.data[j] - db[j]) <= 2 && Math.abs(da.data[j + 1] - db[j + 1]) <= 2 && Math.abs(da.data[j + 2] - db[j + 2]) <= 2 && Math.abs(da.data[j + 3] - db[j + 3]) <= 2;
+            if (same) da.data[j + 3] = 0; else n++;
+          }
+          const C = document.createElement("canvas"); C.width = A.width; C.height = A.height; C.getContext("2d").putImageData(da, 0, 0);
+          const ox = col * 3 * FW2 * R2, oy = row * FH2 * R2;
+          c.drawImage(A, ox, oy); c.drawImage(B, ox + FW2 * R2, oy);
+          c.fillStyle = "#39402f"; c.fillRect(ox + 2 * FW2 * R2, oy, FW2 * R2, FH2 * R2); c.drawImage(C, ox + 2 * FW2 * R2, oy);
+          c.fillStyle = "#fff"; c.font = "11px monospace";
+          c.fillText(`${kind} ${form.level}${form.branch || ""}${form.rank4 || ""}  folk px ${n}`, ox + 3, oy + 11);
+          report.push(`${kind}/${form.level}${form.branch || ""}${form.rank4 || ""}: ${n}`);
+          c.fillStyle = "#20242c"; c.fillRect(ox + 3 * FW2 * R2 - 2, oy, 2, FH2 * R2);
+        }));
+        await fetch(`/__shot?name=raise_folk_${TAG}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+        document.body.appendChild(cv);
+        out.textContent = report.join(" | ");
+        document.title = "DONE";
+      }
+      const FOLK = HOWS[0] === "folk";
+      for (const how of FOLK ? [] : HOWS) {
         const cols = MOMENTS.length + 1;
         const cv = document.createElement("canvas");
         cv.width = CW * R * cols; cv.height = (CH + 8) * R * KINDS.length;
@@ -53,17 +97,19 @@
           fn();
           ctx.restore();
         };
-        KINDS.forEach((k, row) => {
+        for (const [row, k] of KINDS.entries()) {
           const master = k === "master", kind = master ? "wizard" : k;
           let [prev, form] = FORMS[how];
-          if (master) { if (how !== "build") return; form = { level: 3, branch: "b", rank4: "b" }; }
-          const dur = RAISE_SECS[how], AT = 5;
+          if (master) { if (how !== "build") continue; form = { level: 3, branch: "b", rank4: "b" }; }
+          const AT = 5, RAISED = { at: AT, how, prev };
           const mk = (p) => ({
             id: row + 3, kind, x: CW / 2, y: CH * 0.7, level: form.level, branch: form.branch || null, rank4: form.rank4 || null,
             cd: 0, aim: "first", lastAim: 0.6, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [],
             rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: true, charges: 3, ramp: 2, mAnim: 0, eagle: null,
-            raised: { at: AT, how, prev },
+            raised: RAISED,
           });
+          // a build's length is its own plan's (the run from the gate, the pieces)
+          const dur = how === "build" ? raiseSecs(mk(0)) : RAISE_SECS[how];
           const water = kind === "riverwatch";
           const paintAt = (time) => (f) => { ctx.save(); try { drawTowerPortrait(ctx, f, time); } catch (e) { console.error(e); } ctx.restore(); };
           MOMENTS.forEach((p, i) => cell(row, i, () => {
@@ -78,6 +124,35 @@
             drawGroundBlend(ctx, t, false); paintAt(AT + dur)(t); drawGroundBlend(ctx, t, true);
             ctx.fillStyle = "#e8e0c8"; ctx.font = "6px monospace"; ctx.fillText(`${k} settled`, 2, 7);
           }, water);
+          // a build's seams are its hand-overs: the pieces to the live hall
+          // (lay1 + 0.02) and the person's landing (personAt) — drawn a
+          // hair either side, only the hand-over may differ (0 = seamless)
+          if (how === "build") {
+            const P = buildPlan(mk(0));
+            for (const [nm, at] of [["pieces", P.lay1 + 0.02], ["person", P.personAt]]) {
+              const shot = (time) => {
+                const c2 = document.createElement("canvas"); c2.width = CW * R; c2.height = CH * R;
+                const x2 = c2.getContext("2d"); x2.fillStyle = water ? "#3f7288" : "#6a9a4c"; x2.fillRect(0, 0, c2.width, c2.height);   // over ground, as it is seen
+                x2.setTransform(R, 0, 0, R, 0, 0); x2.imageSmoothingEnabled = false;
+                drawRaising(x2, mk(0), time, (f) => { x2.save(); drawTowerPortrait(x2, f, time); x2.restore(); });
+                return x2.getImageData(0, 0, c2.width, c2.height).data;
+              };
+              const da = shot(at - 0.0005), db = shot(at + 0.0005);
+              // any change, and a visible one (a channel off by more than 24)
+              let n = 0, v = 0;
+              const dbg = q.get("seams") ? new ImageData(CW * R, CH * R) : null;
+              for (let j = 0; j < da.length; j += 4) {
+                const m = Math.max(Math.abs(da[j] - db[j]), Math.abs(da[j + 1] - db[j + 1]), Math.abs(da[j + 2] - db[j + 2]), Math.abs(da[j + 3] - db[j + 3]));
+                if (m) n++;
+                if (m > 24) { v++; if (dbg) { dbg.data[j] = 255; dbg.data[j + 3] = 255; } }
+                else if (dbg) { dbg.data[j] = da[j] >> 1; dbg.data[j + 1] = da[j + 1] >> 1; dbg.data[j + 2] = da[j + 2] >> 1; dbg.data[j + 3] = da[j + 3]; }
+              }
+              if (dbg) { const c3 = document.createElement("canvas"); c3.width = CW * R; c3.height = CH * R; c3.getContext("2d").putImageData(dbg, 0, 0);
+                await fetch(`/__shot?name=raise_seam_${TAG}_${k}_${nm}`, { method: "POST", body: c3.toDataURL("image/png").slice(22) }); }
+              report.push(`build/${k} ${nm} hand-over: ${n}px differ, ${v} visibly`);
+            }
+            continue;
+          }
           // the seam check: the raise drawn at 0.95 / 0.99 vs the plain hall at the same time
           for (const p of [0.95, 0.99]) {
             const a = document.createElement("canvas"), b = document.createElement("canvas");
@@ -92,7 +167,7 @@
             let n = 0; for (let j = 0; j < da.length; j += 4) if (da[j] !== db[j] || da[j + 1] !== db[j + 1] || da[j + 2] !== db[j + 2] || da[j + 3] !== db[j + 3]) n++;
             report.push(`${how}/${k}@${p}: ${n}px differ`);
           }
-        });
+        }
         let outc = cv;
         if (SC !== 1) {
           outc = document.createElement("canvas"); outc.width = cv.width * SC; outc.height = cv.height * SC;
@@ -104,7 +179,7 @@
       // &board=1: the raises through the real draw(), with the engine's own
       // effects (dust, level-up and evolve rings, bursts, flash) at the same
       // moments, zoomed 2x on a row of halls
-      if (q.get("board")) {
+      if (q.get("board") && !FOLK) {
         const { draw } = await import("/src/render/draw.js");
         const { makeTower } = await import("/src/engine/towers.js");
         const { W, H, CASTLE_HP } = await import("/src/data/constants.js");
@@ -139,6 +214,7 @@
         await fetch(`/__shot?name=raise_board_${TAG}`, { method: "POST", body: sheet.toDataURL("image/png").slice(22) });
       }
       // time the raises: 40 halls raising at once, each moment
+      if (!FOLK) {
       const tc = document.createElement("canvas"); tc.width = 840 * 2; tc.height = 560 * 2;
       const tx = tc.getContext("2d"); tx.setTransform(2, 0, 0, 2, 0, 0);
       const perf = [];
@@ -147,7 +223,7 @@
         const ts = []; for (let i = 0; i < 40; i++) ts.push({ id: i, kind: ["archer", "wizard", "knight", "sunforge", "catapult"][i % 5], x: 40 + (i % 10) * 76, y: 80 + Math.floor(i / 10) * 120, ...form, branch: form.branch || null, rank4: form.rank4 || null, anim: 0, units: [], _idle: true, raised: { at: 0, how, prev } });
         const pnt = (f) => { tx.save(); drawTowerPortrait(tx, f, 1); tx.restore(); };
         // warm the caches, then time a sweep of moments
-        for (const t of ts) drawRaising(tx, t, 0.3, pnt);
+        for (const t of ts) drawRaising(tx, t, how === "build" ? buildPlan(t).lay0 : 0.3, pnt);   // (a build's cut is done by lay0)
         const t0 = performance.now(); let frames = 0;
         for (let p = 0.02; p < 0.97; p += 0.05) { for (const t of ts) drawRaising(tx, t, p * RAISE_SECS[how], pnt); frames++; }
         const t1 = performance.now();
@@ -158,6 +234,7 @@
       out.textContent = report.join(" | ") + " || " + perf.join(" | ");
       console.log(out.textContent);
       document.title = "DONE";
+      }
     </script>
   </body>
 </html>

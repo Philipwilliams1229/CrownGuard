@@ -231,6 +231,7 @@ const flame = (ctx, x, y, s, time, seed, col = "#f0903a", core = "#ffe08a") => {
 };
 
 export const drawBladewheel = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const s = spec(t), { lvl, r4, gale, fire, rr, n } = s;
   const bake = canBake();
@@ -302,8 +303,8 @@ export const drawBladewheel = (ctx, t, time) => {
     if (bake) stamp(ctx, cache.get("sun", 26, 38, (c) => paintSun(c, 13, 13)), x, sy, 13, 13);
   }
   if (r4 === "bb") {
-    // the flames are awake: two imps hop the rim
-    for (let i = 0; i < 2; i++) {
+    // the flames are awake: two imps hop the rim (they wake with the crew)
+    if (!t.noFolk) for (let i = 0; i < 2; i++) {
       const a = time * 1.3 + i * Math.PI + t.id;
       const ix = x + Math.cos(a) * (rr + 3), iy = wy + Math.sin(a) * (rr + 3) * SQ - 2 - Math.abs(Math.sin(time * 6 + i * 2)) * 3;
       glow(ctx, ix, iy, 4, "#f07a3a", 0.5);
@@ -326,16 +327,17 @@ export const drawBladewheel = (ctx, t, time) => {
   const turning = !t._idle;
   const work = turning ? Math.round((Math.sin(time * (gale ? 12 : 8) + t.id) + 1) * 1.5) : Math.round((Math.sin(time * 1.1 + t.id) + 1) * 0.5);
   const [cdx, cdy] = crewSpot(s), cx0 = x + cdx, cy0 = y + cdy;   // his feet stay inside the narrow footprint
-  if (bake) stamp(ctx, cache.get(`crew|${fire ? "s" : "w"}|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, fire ? STOKER : CREW_FOLK.engineer, (work - 1.5) * 0.4)), cx0, cy0, 12, 27, 1);
+  if (t.noFolk) { /* no wheelwright yet, nor his hand-bar */ }
+  else if (bake) stamp(ctx, cache.get(`crew|${fire ? "s" : "w"}|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, fire ? STOKER : CREW_FOLK.engineer, (work - 1.5) * 0.4)), cx0, cy0, 12, 27, 1);
   else drawCrew(ctx, cx0, cy0, 1, CREW_FOLK.engineer, 0);
-  if (lvl1) {
+  if (lvl1 && !t.noFolk) {
     // a hand-bar through the post, which he pushes round
     ctx.strokeStyle = "#241a26"; ctx.lineWidth = 2.2; ctx.lineCap = "round";
     const by = cy0 - 13;
     ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(cx0 + 5 + (work - 1.5) * 0.6, by + (work - 1.5) * 0.4); ctx.stroke();
     ctx.strokeStyle = "#8a6238"; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(cx0 + 5 + (work - 1.5) * 0.6, by + (work - 1.5) * 0.4); ctx.stroke();
-  } else {
+  } else if (!lvl1) {
     // the crank handle turning in his hands
     const ca = time * (turning ? 8 : 0.5), hx = x + CRANK.x + Math.cos(ca) * 2.2, hy = y + CRANK.y + Math.sin(ca) * 1.2;
     ctx.fillStyle = "#241a26"; ctx.fillRect(hx - 1, hy - 1, 2, 2);

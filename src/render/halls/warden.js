@@ -241,6 +241,7 @@ const paintFront = (ctx, t, x, y) => {
 };
 
 export const drawSupportTower = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const lvl = t.level;
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
@@ -305,13 +306,14 @@ export const drawSupportTower = (ctx, t, time) => {
   const pal = PRIEST_FOLK[key] || PRIEST_FOLK.base;
   const dir = t._idle ? (Math.sin(time * 0.4 + t.id) >= 0 ? 1 : -1) : (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
   const py = y - 1;
-  if (canBake) {
+  if (t.noFolk) { /* no warden yet: nor his hands' light, nor his halo */ }
+  else if (canBake) {
     const pcv = baked(`priest|${key}|${raising ? 1 : 0}`, 26, 38, (c) => drawPriest(c, 13, 35, 1, pal, raising));
     stamp(ctx, pcv, x, py, 13, 35, dir);
   } else drawPriest(ctx, x, py, dir, pal, raising);
-  if (raising) for (const s of [-1, 1]) glow(ctx, x + s * 6, py - 23, working ? 3.4 : 2.2, auraCol, working ? 0.8 : 0.45);
+  if (raising && !t.noFolk) for (const s of [-1, 1]) glow(ctx, x + s * 6, py - 23, working ? 3.4 : 2.2, auraCol, working ? 0.8 : 0.45);
   // halo
-  if (grown) glow(ctx, x, py - 30 + Math.sin(time * 2 + t.id) * 1.2, 5, auraCol, 0.4);
+  if (grown && !t.noFolk) glow(ctx, x, py - 30 + Math.sin(time * 2 + t.id) * 1.2, 5, auraCol, 0.4);
 
   // ---- the arch and pillars, framing him
   if (canBake) stamp(ctx, baked(`front|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintFront(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);

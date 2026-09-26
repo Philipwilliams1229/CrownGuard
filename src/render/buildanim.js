@@ -3,18 +3,25 @@
 // marks it (actions.js markRaised): t.raised = { at, how, prev } where `at`
 // is g.time in seconds, `how` is "build" | "level" | "branch" | "ascend",
 // and `prev` the form it had before ({ level, branch, rank4 }, null for a
-// new hall). While RAISE_SECS[how] have not passed, draw.js hands the hall
-// to drawRaising instead of painting it directly. `paint(t)` paints any form
+// new hall). While raiseSecs(t) have not passed, draw.js hands the hall to
+// drawRaising instead of painting it directly. `paint(t)` paints any form
 // of it — pass a copy with other fields to paint the old one, e.g.
-// paint({ ...t, ...t.raised.prev }). Visual only: the hall already fights.
+// paint({ ...t, ...t.raised.prev }), or `{ ...t, noFolk: true }` for the
+// hall without its people (every hall honours noFolk: its crew, mage,
+// priest, birds, and whatever they hold). Visual only: the hall already
+// fights.
 //
-// One shared treatment for all thirteen halls, Kingdom Rush style:
-//   build  — a timber scaffold climbs out of the footing with a plank
-//            platform, the hall is laid course by course beneath it (a clip
-//            rising from the ground), chips fly off the platform; then the
-//            scaffold sinks away and the hall springs up and settles.
-//            On water (TOWERS[kind].water) no scaffold: the jetty surges up
-//            out of the river with spray, foam rings and loose planks.
+// One shared treatment for all thirteen halls:
+//   build  — a timelapse. Three builders sprint out of the castle gate in a
+//            straight line (builders.js; nothing on the board touches them)
+//            while the plot is staked out; the scaffold goes up; the hall is
+//            set piece by piece — cut from its own picture along its ink
+//            lines (buildcut.js): the walls course by course under a working
+//            platform that climbs with them, then the fittings into their
+//            openings, then the trim — and the person is put in place last;
+//            the scaffold comes down, and the crew runs home. Its length
+//            depends on the run (buildPlan / raiseSecs). On water the same,
+//            the poles standing in the river.
 //   level  — the old form with a quick scaffold round it and a hammer
 //            knocking twice (the hall jolts, chips and a spark), then the new
 //            form pops with a squash-and-stretch, chips and a sparkle.
@@ -29,16 +36,21 @@
 //
 // Rules kept: every offset and scale is snapped to art pixels (a scale only
 // ever moves the hall's edges by whole art pixels, and is exactly 1 at
-// rest); from 97% of the raise on, the hall is painted plainly, so the hand
-// back to draw.js is pixel for pixel. Each hall form is measured once (its
+// rest); from 97% of a level/branch/ascend on, and once a build's scaffold
+// is down, the hall is painted plainly, so the hand back to draw.js is pixel
+// for pixel. Each hall form is measured once (its
 // top and body width, painted off-screen with drawTowerPortrait) so the
 // scaffold and the reveal fit a squat catapult and a 70px spire alike.
 
 import { PX, hash } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
+import { PTS } from "../engine/path.js";
 import { drawTowerPortrait } from "./towers.js";
+import { cutSteps } from "./buildcut.js";
 
-export const RAISE_SECS = { build: 0.6, level: 0.45, branch: 0.7, ascend: 0.8 };
+// build: a nominal length only — a build's real length depends on how far
+// the crew has to run (buildPlan / raiseSecs)
+export const RAISE_SECS = { build: 2.4, level: 0.45, branch: 0.7, ascend: 0.8 };
 
 // ---- small maths -----------------------------------------------------------
 const sn = (v) => Math.round(v * PX) / PX;            // snap to the art grid
@@ -67,7 +79,7 @@ const WOOD_HI = "#e8c486", WOOD = "#c49a5c", WOOD_LO = "#94693a";
 const STONE = "#a19a8a", STONE_HI = "#c8c0ac";
 const GOLD = "#d8b34a", GOLD_HI = "#f4d878", CREAM = "#fff3d2";
 const DUST_HI = "#efe4c8", DUST = "#d4c6a6", DUST_LO = "#b3a386";
-const FOAM = "#eef6f4", SPRAY = "#a8d0dc";
+const FOAM = "#eef6f4";
 const CHIP_LO = "#4a3630";
 
 // ---- measuring a form ------------------------------------------------------
@@ -255,136 +267,328 @@ const column = (ctx, x, yb, ytop, w, a) => {
 };
 
 // ======================================================================
-// BUILD: a scaffold climbs, the hall is laid under its platform, the
-// scaffold sinks away and the hall springs up.
-const raiseBuild = (ctx, t, p, dur, time, paint) => {
-  const def = TOWERS[t.kind] || {};
-  const box = measure(t, t);
-  const x = sn(t.x), by = sn(t.y + 3), top = t.y + box.top, hh = by - top;
-  if (def.water) { raiseWater(ctx, t, p, dur, paint, box); return; }
-  const narrow = !!def.roadClear;
-  const rx = narrow ? 10 : Math.min(18, Math.max(11, box.hw + 1)), ry = narrow ? 6 : 8;
-  const fF = sn(by + ry * 0.7), fB = sn(by - ry * 0.7);         // front / back pole feet
-  const xl = sn(x - rx), xr = sn(x + rx);
-  const DONE = 0.64;                                               // the hall stands complete
-  // the platform, and the line the hall is laid up to
-  const y0 = t.y + 17, y1 = top - 1;
-  const u = seg(p, 0.05, DONE);
-  const yR = sn(y0 + (y1 - y0) * (u * 0.55 + eo(u) * 0.45));
-  // the scaffold: grows with the platform, then sinks into the ground
-  const sprout = 9 * eo(seg(p, 0, 0.1));
-  const hP = Math.max(sprout, fF - yR + 5);
-  const sink = p > DONE ? seg(p, DONE + 0.02, DONE + 0.2) ** 2 * (hP + 3) : 0;
-  const scaffold = (front) => {
-    if (sink >= hP + 2) return;
-    const foot = front ? fF : fB;
-    ctx.save();
-    ctx.beginPath(); ctx.rect(x - 40, foot - 120, 80, 120 + 0.5); ctx.clip();
-    ctx.translate(0, sn(sink));
-    const h = hP;
-    pole(ctx, xl, foot, h); pole(ctx, xr, foot, h);
-    for (let k = 13; k < h - 4; k += 13) ledger(ctx, xl, xr, foot - k);
-    if (front) {
-      if (h > 10) brace(ctx, xl + 1, foot - 1, xr - 1, foot - Math.min(13, h - 2));
-      if (p < DONE + 0.02) ledger(ctx, xl - 2, xr + 2, yR, true);   // the working platform
-    } else if (p < DONE + 0.02) ledger(ctx, xl, xr, yR - (fF - fB));
-    ctx.restore();
-  };
-  scaffold(false);
-  // the hall: laid under the platform, then a spring and settle
-  if (p < DONE) {
-    if (yR < y0) {
-      ctx.save();
-      ctx.beginPath(); ctx.rect(x - 60, yR, 120, y0 - yR + 30); ctx.clip();
-      paint(t);
-      ctx.restore();
-    }
-  } else {
-    const sy = keys(p, [[DONE, 1], [DONE + 0.07, 1.07], [DONE + 0.15, 0.96], [DONE + 0.22, 1.015], [DONE + 0.28, 1]]);
-    const sx = keys(p, [[DONE, 1], [DONE + 0.07, 0.96], [DONE + 0.15, 1.035], [DONE + 0.22, 0.995], [DONE + 0.28, 1]]);
-    paintScaled(ctx, paint, t, x, by, sx, sy, box.hw, hh);
-  }
-  scaffold(true);
-  // dust where the poles bite, and again as the scaffold goes down
-  const s = t.id * 31 + 7;
-  puff(ctx, xl - 1, fF + 1, 3, seg(p, 0.0, 0.3));
-  puff(ctx, xr + 1, fF + 1, 3, seg(p, 0.03, 0.33));
-  puff(ctx, xl - 2, fF + 1, 4, seg(p, DONE + 0.04, DONE + 0.24));
-  puff(ctx, xr + 2, fF + 1, 4, seg(p, DONE + 0.06, DONE + 0.26));
-  // chips off the platform as the courses go in, a shower as it comes down
-  for (let i = 0; i < 3; i++) {
-    const p0 = 0.16 + i * 0.16;
-    chips(ctx, s + i, 3, p0, p, dur, x, sn(y0 + (y1 - y0) * seg(p0, 0.05, DONE)), rx * 1.6, fF + 3, { life: 0.26 });
-  }
-  // a Master Build lands finished: a glint of gold on its crown as it settles
-  if (t.branch) {
-    for (const [a, b, fx, fy] of [[0.02, 0.2, 0.3, 0], [0.08, 0.26, -0.5, 0.3]]) {
-      const tu = seg(p, DONE + a, DONE + b);
-      if (tu > 0 && tu < 1) twinkle(ctx, x + fx * box.hw, top + 3 + fy * hh, Math.round(Math.sin(tu * Math.PI) * 4));
-    }
-  }
-  chips(ctx, s + 9, 6, DONE, p, dur, x, sn(y1 + 4), rx * 1.4, fF + 4, { life: 0.17, cols: [WOOD_HI, WOOD, WOOD_LO] });
+// BUILD: the crew runs out of the castle gate (builders.js) to a staked-out
+// plot, the scaffold goes up, the hall is set piece by piece (buildcut.js)
+// under a working platform that climbs with the courses, the fittings go
+// in, the person is put in place last, and the scaffold comes down.
+//
+// Everything keys off one plan per raise, buildPlan(t): the clock (absolute
+// g.time moments), the scaffold's lines, the platform's height at any time,
+// and where each builder stands. builders.js reads the same plan, so every
+// mallet stroke lands with a piece.
+
+export const BUILD = {
+  run: 1100,                   // the crew's sprint, world units per game second: a timelapse dash
+  runMin: 0.3, runMax: 0.62,   // one leg of the run, game seconds, however far the plot is
+  stagger: 0.06,               // one builder after the next
+  up: 0.24,                    // the scaffold going up
+  lay: 1.2,                    // setting the pieces, however many there are
+  drop: 0.13,                  // a piece's swing down onto its bed
+  person: 0.22,                // the person's hop into place
+  down: 0.36,                  // the scaffold coming down
 };
 
-// ---- on water: the jetty surges up out of the river ----
-const raiseWater = (ctx, t, p, dur, paint, box) => {
-  const x = sn(t.x), by = sn(t.y + 3), hh = by - (t.y + box.top);
-  const wl = sn(t.y + 16);                                        // the cut: the water's face
-  const u = seg(p, 0.03, 0.62);
-  const off = sn((1 - backOut(u, 1.3)) * (hh + 14));
-  const s = t.id * 17 + 3;
-  // foam rings rolling out on the water, behind and in front
-  const ring = (u2, front) => {
-    if (u2 <= 0 || u2 >= 1) return;
-    const rx = 12 + 18 * eo(u2), ry = rx * 0.42, n = 26;
-    ctx.fillStyle = u2 < 0.6 ? FOAM : SPRAY;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      if ((Math.sin(a) > 0) !== front || hash(s, i + Math.floor(u2 * 3) * 40) < u2 * 0.5) continue;
-      ctx.fillRect(sn(x + Math.cos(a) * rx), sn(by + 4 + Math.sin(a) * ry), 1, 0.5);
+const PLANS = new WeakMap();
+export const buildPlan = (t) => {
+  const r = t && t.raised;
+  if (!r || r.how !== "build") return null;
+  let P = PLANS.get(r);
+  if (P) return P;
+  const def = TOWERS[t.kind] || {};
+  const box = measure(t, t);
+  const x = sn(t.x), by = sn(t.y + 3), topY = t.y + box.top;
+  const narrow = !!def.roadClear, water = !!def.water;
+  const rx = narrow ? 10 : Math.min(18, Math.max(11, box.hw + 1)), ry = narrow ? 6 : 8;
+  const fF = sn(by + ry * 0.7), fB = sn(by - ry * 0.7);           // front / back pole feet
+  const xl = sn(x - rx), xr = sn(x + rx);
+  // the gate: the road's last point, just inside the arch
+  const last = PTS[PTS.length - 1] || [756, t.y];
+  const gate = { x: last[0] - 4, y: last[1] };
+  const run = Math.min(BUILD.runMax, Math.max(BUILD.runMin, Math.hypot(gate.x - x, gate.y - fF) / BUILD.run));
+  const at = r.at, arrive = at + run;
+  const lay = BUILD.lay, lay0 = arrive + 0.14, lay1 = lay0 + lay;
+  const personAt = lay1 + 0.06 + BUILD.person;
+  const down0 = personAt + 0.12, down1 = down0 + BUILD.down;
+  const low = fF - 6;
+  P = {
+    at, gate, run, arrive, lay0, lay1, personAt, down0, down1,
+    end: down1 + 0.02,
+    leave: down0 + 0.04,                                  // the ground crew sets off home
+    hop: [down0, down0 + 0.2],                            // the mason jumps down off the platform
+    home: down0 + 0.2 + run + BUILD.stagger * 2 + 0.05,   // the last of them is back through the gate
+    stagger: BUILD.stagger,
+    x, by, fF, fB, xl, xr, ladder: xr + 5, water, narrow, box, topY, low,
+    // the pieces are cut from the hall as it will look the moment they
+    // hand over to the live hall (lay1 + 0.02), the person as at their
+    // landing — a few milliseconds a frame while the crew runs (pumpCut)
+    job: cutSteps(t, lay1 + 0.02, personAt),
+    cut: null, pieces: [], lands: [],
+    pf: [[arrive, low]],
+    platformY: (time) => sn(keys(time, P.pf)),            // the platform's top face, world y
+    posts: [
+      { role: "mason", x: xr + 5, dir: -1 },                         // up on the platform at the ladder's head
+      { role: "hod", x: xr + 12, y: sn(t.y + 15.5), dir: -1 },       // at the ladder's foot, handing up
+      { role: "setter", x: xl - 5, y: sn(t.y + 16.5), dir: 1 },      // at the front left corner, by the pile
+    ],
+  };
+  PLANS.set(r, P);
+  return P;
+};
+
+// The cut's work is pumped a few milliseconds a frame from drawRaising (the
+// frame of the tap itself stays light); whatever is left runs at once if
+// the pieces are due. Then the pieces get their moments and the platform
+// its climb.
+const PUMP_MS = 4;
+export const pumpCut = (P, time) => {
+  if (!P || !P.job || time < P.at + 0.03 && time < P.lay0 - 0.03) return;
+  const t0 = performance.now(), must = time >= P.lay0 - 0.03;
+  try {
+    for (;;) {
+      const r = P.job.next();
+      if (r.done) { P.job = null; finishCut(P, r.value); return; }
+      if (!must && performance.now() - t0 > PUMP_MS) return;
     }
-  };
-  ring(seg(p, 0.04, 0.5), false); ring(seg(p, 0.3, 0.8), false);
-  // planks bobbing out to the sides
-  const planks = (front) => {
-    const pu = seg(p, 0.08, 0.9);
-    if (pu <= 0 || pu >= 1 || (pu > 0.8 && Math.floor(p * 60) % 2)) return;
-    [[-1, -0.25], [1, 0.15], [-1, 0.5]].forEach(([side, dy], i) => {
-      if ((dy > 0.3) !== front) return;
-      const px = x + side * (12 + 13 * eo(pu) + i), py = by + 5 + dy * 8 + Math.sin(pu * 9 + i) * 0.6;
-      rect(ctx, px - 2.5, py - 1, 5, 2, INK);
-      rect(ctx, px - 2, py - 0.5, 4, 0.5, WOOD_HI);
-      rect(ctx, px - 2, py, 4, 0.5, WOOD);
-    });
-  };
-  planks(false);
-  // the hall, clipped at the water's face while it comes up
-  if (off !== 0 || p < 0.62) {
-    ctx.save();
-    ctx.beginPath(); ctx.rect(x - 60, wl - 140, 120, 140); ctx.clip();
-    ctx.translate(0, off);
-    paint(t);
-    ctx.restore();
-  } else paint(t);
-  // the water pouring off it: a skirt of foam at the cut while it rises
-  if (p < 0.66 && off > -3) {
-    const a = 1 - seg(p, 0.45, 0.66);
-    for (let i = -14; i <= 14; i += 1) {
-      if (hash(s + Math.floor(p * 30), i + 50) > 0.55 * a + 0.2) continue;
-      rect(ctx, x + i, wl - 1 - hash(s, i + 90) * 2, 1, 0.5, FOAM);
+  } catch (err) {
+    P.job = null;
+    finishCut(P, null);
+    if (!WARNED) { WARNED = true; console.error("hall cut failed", err); }
+  }
+};
+const finishCut = (P, cut) => {
+  P.cut = cut;
+  const pieces = P.pieces = cut ? cut.pieces : [];
+  const nW = pieces.filter((p) => p.kind === "wall").length, nD = pieces.length - nW;
+  // when each piece lands: the walls through the first two-thirds, then the
+  // fittings — all in, glints done, a beat before the hand-over at lay1
+  const { lay0, lay1 } = P, done = lay1 - 0.1, wEnd = nD ? lay0 + BUILD.lay * 0.66 : done;
+  const spread = (i, n, a, b) => (n > 1 ? a + (b - a) * (i / (n - 1)) : b);
+  P.lands = pieces.map((p, i) => (i < nW ? spread(i, nW, lay0 + BUILD.drop, wEnd) : spread(i - nW, nD, wEnd + 0.06, done)));
+  // the working platform rises with the courses — just under the highest
+  // piece set so far, reached as each one lands — and tops out at the
+  // body's broad top (a spire's finial or a flagpole is not worth one)
+  let broad = 0, ceil = Infinity;
+  for (const p of pieces) if (p.kind === "wall") broad = Math.max(broad, p.w);
+  for (const p of pieces) if (p.kind === "wall" && p.w >= broad * 0.6) ceil = Math.min(ceil, p.top);
+  if (!Number.isFinite(ceil)) ceil = P.topY;
+  const high = Math.min(P.low, sn(ceil + 5));
+  const pf = [[P.arrive, P.low]];
+  let reach = Infinity;
+  pieces.forEach((p, i) => {
+    if (p.kind !== "wall") return;
+    reach = Math.min(reach, p.top);
+    const tg = Math.max(high, Math.min(P.low, reach + 6)), t0 = P.lands[i] + 0.06;
+    if (t0 > pf[pf.length - 1][0]) pf.push([t0, tg]);
+  });
+  if (!cut) pf.push([lay0, P.low], [lay1, high]);                 // no pieces: it climbs steadily
+  P.pf = pf;
+};
+
+// how long a raise lasts, game seconds (a build's depends on its plan)
+export const raiseSecs = (t) => {
+  const r = t && t.raised;
+  if (!r) return 0;
+  if (r.how === "build") { const P = typeof document === "undefined" ? null : buildPlan(t); return P ? P.end - r.at : RAISE_SECS.build; }
+  return RAISE_SECS[r.how] || 0.6;
+};
+// the rank pips wait for the person, like everything else about a new hall
+export const raiseHidesPips = (t, time) => {
+  const r = t && t.raised;
+  if (!r || r.how !== "build" || typeof document === "undefined") return false;
+  const P = buildPlan(t);
+  return !!P && time >= r.at && time < P.personAt;
+};
+
+// ---- the plot, before the crew: four stakes and a string round it ----
+const stakes = (ctx, P, time) => {
+  const u = seg(time, P.at, P.at + 0.1);
+  if (u <= 0 || time >= P.arrive + 0.04) return;
+  const h = Math.max(1, sn(4 * eo(u)));
+  if (u >= 1) {
+    const yb = P.fB - 3, yf = P.fF - 3;
+    ctx.fillStyle = DUST_HI;
+    ctx.fillRect(P.xl, yb, P.xr - P.xl, 0.5);
+    ctx.fillRect(P.xl, yf, P.xr - P.xl, 0.5);
+    ctx.fillRect(P.xl, yb, 0.5, yf - yb);
+    ctx.fillRect(P.xr, yb, 0.5, yf - yb);
+  }
+  for (const [sx, sy] of [[P.xl, P.fB], [P.xr, P.fB], [P.xl, P.fF], [P.xr, P.fF]]) {
+    rect(ctx, sx - 0.5, sy - h, 1.5, h + 0.5, INK);
+    rect(ctx, sx, sy - h + 0.5, 0.5, h - 0.5, WOOD_HI);
+    if (P.water) rect(ctx, sx - 1.5, sy, 3.5, 0.5, FOAM);
+  }
+};
+
+// ---- the loads the crew brought: planks and dressed stone, used up as the
+// pieces go in ----
+const pile = (ctx, P, time) => {
+  if (P.water || time < P.arrive + P.stagger * 2 || time >= P.down0) return;
+  let used = 0;
+  for (const L of P.lands) if (L <= time) used++;
+  const left = Math.ceil(5 * (1 - used / Math.max(1, P.lands.length)));
+  if (left <= 0) return;
+  const px = P.xl - 12, py = P.fF + 4;
+  ctx.fillStyle = "rgba(42,28,44,0.28)";
+  ctx.fillRect(sn(px - 5), sn(py), 11, 1);
+  const plank = (x, y) => { rect(ctx, x - 5, y - 2, 10, 2.5, INK); rect(ctx, x - 4.5, y - 1.5, 9, 0.5, WOOD_HI); rect(ctx, x - 4.5, y - 1, 9, 1, WOOD); };
+  const block = (x, y) => { rect(ctx, x - 2, y - 3, 4.5, 3.5, INK); rect(ctx, x - 1.5, y - 2.5, 3.5, 2.5, STONE); rect(ctx, x - 1.5, y - 2.5, 3.5, 0.5, STONE_HI); };
+  const items = [() => plank(px, py), () => plank(px + 0.5, py - 2), () => block(px - 2.5, py - 4), () => block(px + 2, py - 4), () => plank(px, py - 6.5)];
+  for (let i = 0; i < left; i++) items[i]();
+};
+
+// ---- the scaffold: four poles, ledgers every LEDGER (the front keeps only
+// its lowest, with the brace, so the hall can be watched going up), the
+// working platform, and a ladder up the right-hand side. It grows with the
+// platform; it comes down plank by plank — the platform first, then the
+// ledgers top-down, each dropping to the ground — and the poles sink away.
+const LEDGER = 15;
+const FALL = 0.13;                                  // a plank's drop to the ground
+const fallen = (ctx, x0, x1, y, ground, a, thick) => {
+  if (a < 0) return;
+  if (a < FALL) { ledger(ctx, x0, x1, sn(y + (ground - 1.5 - y) * (a / FALL) ** 2), thick); return; }
+  puff(ctx, (x0 + x1) / 2, ground + 1, thick ? 4 : 3, seg(a, FALL, FALL + 0.2));
+};
+const scaffold = (ctx, P, time, front) => {
+  if (time < P.arrive || time >= P.down1) return;
+  const D = BUILD.down;
+  const yP = P.platformY(Math.min(time, P.down0));
+  const H = P.fF - yP + 5;                                          // pole height, feet to tip
+  const foot = front ? P.fF : P.fB;
+  const nL = Math.max(0, Math.floor((H - 4) / LEDGER));
+  // the take-down: the platform lets go at down0, the ledgers top-down after
+  const letGo = (k) => P.down0 + 0.03 + ((nL - k) / Math.max(1, nL)) * 0.1;    // k = 1 bottom … nL top
+  const sink = seg(time, P.down0 + 0.16, P.down1) ** 2 * (H + 3);
+  const upL = seg(time, P.arrive + 0.04, P.arrive + 0.2);             // the later pole of each pair rising
+  ctx.save();
+  ctx.beginPath(); ctx.rect(P.x - 50, foot - 140, 100, 140.5); ctx.clip();
+  ctx.translate(0, sn(sink));
+  const poles = front ? [[P.xl, 2], [P.xr, 3]] : [[P.xl, 0], [P.xr, 1]];
+  for (const [px, i] of poles) {
+    const u = seg(time, P.arrive + i * 0.04, P.arrive + i * 0.04 + 0.16);
+    pole(ctx, px, foot, sn(H * Math.min(1, backOut(u, 1.2))));
+    if (P.water && !sink) { rect(ctx, px - 2.5, foot, 1.5, 0.5, FOAM); rect(ctx, px + 1.5, foot, 1.5, 0.5, FOAM); }
+  }
+  const risen = H * Math.min(1, backOut(upL, 1.2));
+  for (let k = 1; k <= nL; k++) {
+    if (front && k > 1) break;
+    if (risen < k * LEDGER + 2 || time >= letGo(k)) continue;
+    ledger(ctx, P.xl, P.xr, foot - k * LEDGER);
+    if (front) brace(ctx, P.xl + 1, foot - 1, P.xr - 1, foot - LEDGER + 1);
+  }
+  // the working platform (and its back ledger): set on once the poles are up
+  const pu = seg(time, P.arrive + 0.16, P.arrive + 0.24);
+  if (pu > 0 && time < P.down0) {
+    const dy = -3 * (1 - pu) ** 2;
+    if (front) ledger(ctx, P.xl - 2, P.xr + 8, sn(yP + 1.5 + dy), true);
+    else ledger(ctx, P.xl, P.xr, sn(yP + 1.5 + dy - (P.fF - P.fB)));
+  }
+  ctx.restore();
+  // what has let go drops to the ground (not sinking with the poles)
+  if (time >= P.down0) {
+    if (front) fallen(ctx, P.xl - 2, P.xr + 8, yP + 1.5, P.fF, time - P.down0, true);
+    else fallen(ctx, P.xl, P.xr, yP + 1.5 - (P.fF - P.fB), P.fB, time - P.down0, false);
+    for (let k = 1; k <= nL; k++) {
+      if (front && k > 1) break;
+      fallen(ctx, P.xl, P.xr, foot - k * LEDGER, foot, time - letGo(k), false);
     }
   }
-  ring(seg(p, 0.04, 0.5), true); ring(seg(p, 0.3, 0.8), true);
-  planks(true);
-  // spray thrown up round it
-  const age = (p - 0.04) * dur;
-  if (age > 0 && age < 0.4) {
-    for (let i = 0; i < 12; i++) {
-      const h1 = hash(s, i * 5 + 1), h2 = hash(s, i * 5 + 2), side = i % 2 ? 1 : -1;
-      const x0 = x + side * (6 + h1 * 10), vx = side * (10 + h1 * 26), vy = -(40 + h2 * 50);
-      const yy = wl - 2 + vy * age + 0.5 * 360 * age * age;
-      if (yy > wl + 2) continue;
-      rect(ctx, x0 + vx * age, yy, h2 > 0.5 ? 1 : 0.5, 0.5, h2 > 0.3 ? FOAM : SPRAY);
+  // the ladder, up the right-hand side to the platform; it is carried off
+  // with the platform (it shortens to the ground)
+  if (front && time >= P.arrive + 0.08 && time < P.down0 + 0.08) {
+    const lx = P.ladder;
+    const top = time < P.down0 ? yP - 2 : P.fF - (P.fF - yP + 2) * (1 - seg(time, P.down0, P.down0 + 0.08));
+    const rise = seg(time, P.arrive + 0.08, P.arrive + 0.18);
+    const tp = sn(P.fF - (P.fF - top) * rise);
+    if (P.fF - tp > 2) {
+      rect(ctx, lx - 2.5, tp, 1.5, P.fF - tp + 0.5, INK); rect(ctx, lx + 1.5, tp, 1.5, P.fF - tp + 0.5, INK);
+      rect(ctx, lx - 2, tp + 0.5, 0.5, P.fF - tp - 0.5, WOOD_HI); rect(ctx, lx + 2, tp + 0.5, 0.5, P.fF - tp - 0.5, WOOD);
+      for (let yy = P.fF - 2; yy > tp + 1; yy -= 3) { rect(ctx, lx - 1, yy - 0.5, 2.5, 1, INK); rect(ctx, lx - 1, yy - 0.5, 2.5, 0.5, WOOD); }
+    }
+  }
+};
+
+// ---- the hall, piece by piece ----
+const drawPiece = (ctx, pc, dy = 0) => ctx.drawImage(pc.cv, pc.x, pc.y + sn(dy), pc.w, pc.h);
+const setPieces = (ctx, P, time, seed) => {
+  const moving = [];
+  P.pieces.forEach((pc, i) => {
+    const L = P.lands[i];
+    if (pc.kind === "fit") {
+      // fittings are set into their openings: in, with a glint
+      if (time < L) return;
+      drawPiece(ctx, pc);
+      const g = time - L;
+      if (g < 0.08) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = g < 0.04 ? 0.55 : 0.28; drawPiece(ctx, pc); ctx.restore(); }
+      return;
+    }
+    if (time < L - BUILD.drop) return;
+    if (time < L) { moving.push([pc, (time - (L - BUILD.drop)) / BUILD.drop]); return; }
+    drawPiece(ctx, pc);
+  });
+  // pieces on their way down swing in fast and settle onto their beds
+  for (const [pc, u] of moving) drawPiece(ctx, pc, -(pc.kind === "wall" ? 6 : 5) * (1 - u) ** 3);
+  // a little dust off the bed where each wall piece is set
+  P.pieces.forEach((pc, i) => {
+    const L = P.lands[i], a = time - L;
+    if (pc.kind !== "wall" || a < 0 || a > 0.16 || pc.w < 6) return;
+    const k = Math.floor(a / 0.04), spread = 1 + k * 1.5;
+    ctx.fillStyle = k < 2 ? DUST_HI : DUST;
+    for (const side of [-1, 1]) {
+      const ex = sn(pc.cx + side * (pc.w / 2 + spread)), ey = sn(pc.bottom - 0.5 - (k > 1 ? 0.5 : 0));
+      ctx.fillRect(ex, ey, 0.5, 0.5);
+      if (k < 3) ctx.fillRect(sn(ex - side * 1), sn(ey - 0.5), 0.5, 0.5);
+    }
+    if (i % 3 === 0) chips(ctx, seed + i, 2, L, time, 1, pc.cx, pc.bottom - 1, pc.w * 0.6, Math.max(pc.bottom + 2, P.fF + 2), { life: 0.2, wide: 0.5, up: 0.6 });
+  });
+};
+
+// the person: the folk layer of the cut, hopping down into place
+const person = (ctx, P, time) => {
+  const c = P.cut && P.cut.crew;
+  if (!c) return;
+  const u = seg(time, P.personAt - BUILD.person, P.personAt);
+  if (u <= 0) return;
+  const dy = keys(u, [[0, -11], [0.72, 0], [0.86, -1.5], [1, 0]]);
+  ctx.drawImage(c.cv, c.x, c.y + sn(dy), c.w, c.h);
+};
+
+const raiseBuild = (ctx, t, P, time, paint) => {
+  const seed = t.id * 31 + 7;
+  stakes(ctx, P, time);
+  scaffold(ctx, P, time, false);
+  // the hall: pieces from the cut until they are all in, then the live hall
+  // (its people held back) while the person comes, then all of it
+  if (time >= P.personAt) paint(t);
+  else if (time >= P.lay1 + 0.02) { paint({ ...t, noFolk: true }); person(ctx, P, time); }
+  else if (P.cut) setPieces(ctx, P, time, seed);
+  else if (time >= P.lay0) {
+    // no cut to be had: the hall is revealed under the climbing platform
+    ctx.save();
+    ctx.beginPath(); ctx.rect(P.x - 60, P.platformY(time), 120, 200); ctx.clip();
+    paint({ ...t, noFolk: true });
+    ctx.restore();
+  }
+  pile(ctx, P, time);
+  scaffold(ctx, P, time, true);
+  // dust where the poles bite, and again as they go down
+  puff(ctx, P.xl - 1, P.fF + 1, 3, seg(time, P.arrive, P.arrive + 0.3));
+  puff(ctx, P.xr + 1, P.fF + 1, 3, seg(time, P.arrive + 0.04, P.arrive + 0.34));
+  puff(ctx, P.xl - 2, P.fF + 1, 3, seg(time, P.down0 + 0.16, P.down1));
+  puff(ctx, P.xr + 2, P.fF + 1, 3, seg(time, P.down0 + 0.19, P.down1));
+  // a few splinters as the platform comes off
+  chips(ctx, seed + 40, 4, P.down0, time, 1, P.x, P.platformY(P.down0) + 3, (P.xr - P.xl) * 0.9, P.fF + 3, { life: 0.26, cols: [WOOD_HI, WOOD, WOOD_LO] });
+  // the person lands: a glint over them
+  const c = P.cut && P.cut.crew;
+  if (c) {
+    const tu = seg(time, P.personAt, P.personAt + 0.28);
+    if (tu > 0 && tu < 1) twinkle(ctx, c.cx + 2, c.top + 1, Math.round(Math.sin(tu * Math.PI) * 4), CREAM);
+  }
+  // a Master Build is handed over finished: a glint of gold on its crown
+  if (t.branch) {
+    const top = t.y + P.box.top, hh = P.by - top;
+    for (const [a, b, fx, fy] of [[0.0, 0.22, 0.3, 0], [0.08, 0.3, -0.5, 0.3]]) {
+      const tu = seg(time, P.down0 + a, P.down0 + b);
+      if (tu > 0 && tu < 1) twinkle(ctx, P.x + fx * P.box.hw, top + 3 + fy * hh, Math.round(Math.sin(tu * Math.PI) * 4));
     }
   }
 };
@@ -534,14 +738,31 @@ const raiseGrand = (ctx, t, p, dur, time, paint) => {
 // ======================================================================
 let WARNED = false;
 export const drawRaising = (ctx, t, time, paint) => {
-  const r = t.raised, dur = RAISE_SECS[r && r.how] || 0.6;
-  const p = r ? cl((time - r.at) / dur) : 1;
+  const r = t.raised;
+  if (!r || typeof document === "undefined") { paint(t); return; }
+  if (r.how === "build") {
+    // the build ends on the plain hall: its scaffold is gone by down1
+    ctx.save();
+    try {
+      const P = buildPlan(t);
+      pumpCut(P, time);
+      if (!P || time >= P.down1 || time < r.at) paint(t);
+      else raiseBuild(ctx, t, P, time, paint);
+    } catch (err) {
+      if (!WARNED) { WARNED = true; console.error("raise failed", t.kind, err); }
+      ctx.restore(); ctx.save();
+      paint(t);
+    }
+    ctx.restore();
+    return;
+  }
+  const dur = RAISE_SECS[r.how] || 0.6;
+  const p = cl((time - r.at) / dur);
   // the last moments are the hall itself, so the hand back is seamless
-  if (p >= 0.97 || typeof document === "undefined") { paint(t); return; }
+  if (p >= 0.97) { paint(t); return; }
   ctx.save();
   try {
-    if (r.how === "build") raiseBuild(ctx, t, p, dur, time, paint);
-    else if (r.how === "level") raiseLevel(ctx, t, p, dur, time, paint);
+    if (r.how === "level") raiseLevel(ctx, t, p, dur, time, paint);
     else raiseGrand(ctx, t, p, dur, time, paint);
   } catch (err) {
     if (!WARNED) { WARNED = true; console.error("raise failed", t.kind, err); }

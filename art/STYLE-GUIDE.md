@@ -50,7 +50,7 @@ copy what the rebuilt pieces do.
 | Ground and road | `src/render/world.js` | cached per realm |
 | Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots` in `src/data/castle.js`) — SQUARE open-topped towers (paved deck, battlemented rim, a red-roofed stair turret) with the ballistae and spare bowmen ON the gate towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
 | Combat effects, projectiles, ground pools, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
-| A hall rising when bought, levelled, branched or ascended | `src/render/buildanim.js` — `drawRaising(ctx, t, time, paint)`, driven by `t.raised = { at, how, prev }` (set in actions.js `markRaised`) | build: a scaffold climbs and the hall is revealed bottom-up; level: a mallet and a squash-and-stretch pop; branch/ascend: a gold light column and a bounce. Scales round to whole art pixels; from 97% on it paints the plain hall, so it never jumps. Form sizes are measured via `drawTowerPortrait` — a new hall kind needs a portrait too |
+| A hall rising when bought, levelled, branched or ascended | `src/render/buildanim.js` — `drawRaising(ctx, t, time, paint)`, driven by `t.raised = { at, how, prev }` (set in actions.js `markRaised`); a build's clock and lines are one cached `buildPlan(t)`, its length `raiseSecs(t)`; `src/render/buildcut.js` cuts the hall into pieces; `src/render/builders.js` is the crew | build: a timelapse — builders run out of the castle gate in a straight line (nothing touches them) to a staked plot, the scaffold goes up, the hall is set piece by piece (cut from its own picture along its ink lines: walls course by course under a climbing platform, then the fittings, then the trim), the person is put in last, the scaffold comes down plank by plank and the crew runs home. Tune it with `BUILD` at the top of the build section. level: a mallet and a squash-and-stretch pop; branch/ascend: a gold light column and a bounce. Scales round to whole art pixels; the pieces and the person are snapshots taken at the very moment they hand over to the live hall, so it never jumps (`raise-lab.html?how=build` reports each hand-over: 0 visible pixels). Form sizes are measured via `drawTowerPortrait` — a new hall kind needs a portrait too, and must honour `noFolk` (below) |
 | Area effects: novas, waves and marks (frost/fire nova, Shield Slam, heal & ward waves, silence, shadowstep, Midas, toll, plague burst, raise, the Heartseeker reticle) | `src/render/rings.js` — `drawRingFx(ctx, fx, a, g, layer)`: draw.js calls it with "g" in the ground pass (rime, scorch, cracks, stains under the crowd) and "a" after the actors | pieces (shards, flames, clods, coins, runes) baked once and stamped on the LIVE radius, so a ring still shows the area it hit; at most one thick continuous ring each — thin full-circle `ringPx` lines are the costly part, so highlights are dotted |
 | The Trapsmith's traps (spikes, jaws, caltrops, mines, aerostat balloons) | `src/render/traps.js` — `drawTraps` (on the road, under the crowd) and `drawTrapBalloons` (the balloons, in a sky pass over it) | each look baked once per realm and stamped; late boards hold hundreds |
 | The Log Roller's logs (trunk, Iron Drum, Powder Keg) | `src/render/logs.js` | true cylinders in the 3/4 camera, lit in world space so light never turns with the log; bark and bands roll with `lg.spin` |
@@ -97,6 +97,14 @@ necromancer's `revived` palette and the white hit-flash still work.
   halls stand `reachA + reachB` apart). Its ground art must then keep inside
   `FOOT_NARROW` (`rx 13, ry 9`, kitB.js) — pass `{ foot: FOOT_NARROW }` to
   `padB` and the same to `skirtB`. Check with `twb-lab.html?kinds=spiker&ell=1`.
+- **`t.noFolk`: every hall can be painted without its people.** The build
+  lays the hall first and puts the person in last, so `drawTowerPortrait(ctx,
+  { ...t, noFolk: true }, time)` must paint the hall exactly as usual minus
+  its crew, animals (hawks, imps) and everything they hold or give off (the
+  orb and its glow, a halo, a vial, a muzzle flash). Guard the STAMP, never
+  the bake: the people are baked into caches, so a bake must never read
+  noFolk and no cache key may hold it. Check with
+  `raise-lab.html?how=folk` (as it stands | noFolk | the difference).
 - **Bake** the body once per form (the `baked()` / `stamp()` pattern in
   `halls/archer.js`); only flames, glows, flags and firing poses are live.
 - Engine spawn points must match the art (the wizard's orb leaves the staff
@@ -264,7 +272,9 @@ dev server; view them from there):
   road through the real draw(); `?only=traps,logs&zoom=1|2|3`. Deeper sheets:
   `logs-lab.html` (angles and spins), `birds-lab.html` (a stoop moment by
   moment, every hawk pose), `blades-lab.html` (every Covert form on three
-  grounds), `raise-lab.html` (every hall through each kind of raise; `?how=all&board=1`),
+  grounds), `raise-lab.html` (every hall through each kind of raise; `?how=all&board=1`;
+  `?how=folk` every form with and without its people; a build row reports
+  its two hand-overs, `&seams=1` saves where they differ), `crew-lab.html` (the builders),
   `rings-lab.html` (each area effect through its life at zoom 1
   and 3; `?fx=frostnova,slam`, `?perf=1` times each ring).
 - Always take a BEFORE shot, then judge at 1x board size (what the player

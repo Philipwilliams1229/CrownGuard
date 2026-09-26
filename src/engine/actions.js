@@ -155,8 +155,16 @@ export const restartWave = (g) => {
 // Mark a tower as just raised or reworked, for the build animation
 // (render/buildanim.js): when, how ("build" | "level" | "branch" | "ascend"),
 // and the form it had before, so the art can grow out of the old one. Visual
-// only — the tower works from the instant it is bought.
-const markRaised = (g, t, how, prev = null) => { t.raised = { at: g.time || 0, how, prev }; };
+// only — the tower works from the instant it is bought. A hall reworked
+// while its build is still going up (the first BUILD_HOLD game seconds —
+// before its person is put in) keeps the build: the same crew, on the same
+// clock, just raises the new form (a fresh object, so the art re-plans).
+const BUILD_HOLD = 1.9;
+const markRaised = (g, t, how, prev = null) => {
+  const r = t.raised, now = g.time || 0;
+  if (how !== "build" && r && r.how === "build" && now >= r.at && now - r.at < BUILD_HOLD) { t.raised = { at: r.at, how: "build", prev: null }; return; }
+  t.raised = { at: now, how, prev };
+};
 const formOf = (t) => ({ level: t.level, branch: t.branch, rank4: t.rank4 });
 
 export const placeTower = (g, kind, x, y) => {

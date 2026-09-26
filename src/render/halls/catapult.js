@@ -339,6 +339,7 @@ const armAngle = (t, s, r) => {
 };
 
 export const drawCatapult = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const s = spec(t), hw = s.hw;
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
@@ -390,11 +391,14 @@ export const drawCatapult = (ctx, t, time) => {
     ctx.fillStyle = "#4e3520";
     if (!out) { ctx.fillRect(cx - 1.4, cy - 3, 2.8, 3.6); ctx.fillStyle = "#6a4a2e"; ctx.fillRect(cx - 1.4, cy - 3, 1, 3.6); }
     else { ctx.fillRect(cx - 2, cy + 0.5, 3.6, 1.8); }
+    // (the lever ends in the engineer's hands: no engineer, no lever)
     const hx = x - f * (hw - 4.5), hy = y + CREW_DY - 13 + (out ? -3 : 0);
-    ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(cx - f * 1, cy + 1); ctx.lineTo(hx, hy); ctx.stroke();
-    ctx.strokeStyle = "#8a6238"; ctx.lineWidth = 0.9;
-    ctx.beginPath(); ctx.moveTo(cx - f * 1, cy + 1); ctx.lineTo(hx, hy); ctx.stroke();
+    if (!t.noFolk) {
+      ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(cx - f * 1, cy + 1); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.strokeStyle = "#8a6238"; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.moveTo(cx - f * 1, cy + 1); ctx.lineTo(hx, hy); ctx.stroke();
+    }
   } else {
     const deg = Math.round(armAngle(t, s, r) / 6) * 6;
     const a = deg * D2R, ux = f * Math.sin(a), uy = -Math.cos(a);
@@ -463,6 +467,7 @@ export const drawCatapult = (ctx, t, time) => {
   const work = cranking ? Math.round((Math.sin(time * 9 + t.id) + 1) * 1.5)
     : t._idle ? Math.round((Math.sin(time * 1.2 + t.id) + 1) * 0.5) : 2;
   const ex = x - f * (hw + 1), ey = y + CREW_DY;
+  if (t.noFolk) return;
   if (bake) stamp(ctx, cache.get(`crew|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, CREW_FOLK.engineer, (work - 1.5) * 0.4)), ex, ey, 12, 27, f);
   else drawCrew(ctx, ex, ey, f, CREW_FOLK.engineer, 0);
   // idle upkeep: now and then he taps a peg home and it sparks
