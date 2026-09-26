@@ -1,0 +1,36 @@
+<!doctype html>
+<!--
+  Iron Kingdom foot lab: chosen frames of the Iron rigs, big, beside the
+  crown's knights for comparison; saves .shots/irn-lab_<tag>.png.
+    /irn-lab.html?types=marshal,levy&cells=w0,f0,f1&scale=6&tag=x
+  cells: w0-w3 walk, f0-f1 fight, r = revived walk 0, x = white strike.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — iron lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <script type="module">
+      import { rigFrame } from "/src/render/rigs.js";
+      const q = new URLSearchParams(location.search);
+      const types = (q.get("types") || "levy,crossbow,sergeant,chaplain,marshal").split(",");
+      const cells = (q.get("cells") || "w0,w1,f0,f1").split(",");
+      const SC = Number(q.get("scale")) || 6, TAG = q.get("tag") || "lab";
+      const pick = (c) => c === "r" ? ["walk", 0, "revived"] : c === "x" ? ["fight", 1, "white"] : [c[0] === "f" ? "fight" : "walk", Number(c[1]), ""];
+      const fr = types.map((t) => cells.map((c) => rigFrame(t, ...pick(c))));
+      const cw = Math.max(...fr.flat().map((f) => f.cv.width)) + 8, rh = fr.map((r) => Math.max(...r.map((f) => f.cv.height)) + 8);
+      const cv = document.createElement("canvas");
+      cv.width = cw * cells.length * SC; cv.height = rh.reduce((a, b) => a + b, 0) * SC;
+      const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      let y = 0;
+      fr.forEach((row, j) => {
+        row.forEach((f, i) => {
+          ctx.fillStyle = i % 2 ? "#86b35a" : "#7eab54"; ctx.fillRect(i * cw * SC, y * SC, cw * SC, rh[j] * SC);
+          ctx.drawImage(f.cv, (i * cw + (cw - f.cv.width) / 2) * SC, (y + rh[j] - 4 - f.cv.height) * SC, f.cv.width * SC, f.cv.height * SC);
+        });
+        y += rh[j];
+      });
+      fetch("/__shot?name=irn-lab_" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) }).then(() => { document.title = "DONE"; });
+      document.body.appendChild(cv);
+    </script>
+  </body>
+</html>
