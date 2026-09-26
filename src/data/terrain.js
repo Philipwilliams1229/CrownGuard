@@ -78,6 +78,36 @@ export const coastOutline = (map, step = 16) => {
 export const seaDepthAt = (x, y) => { if (!COAST) return -999; const [u, v] = coastUV(x, y); return coastLine(u) - v; };
 // in the sea, or within m px of the waterline
 export const inSea = (x, y, m = 0) => seaDepthAt(x, y) > -m;
+// The River Watch's skiffs patrol the coast: a line SEA_OFF px out from the
+// waterline, along every stretch where the sea runs deep enough to row, as a
+// route like the river's ({ total, at(q) }). Cached per coast.
+const SEA_OFF = 16;
+let SEA_ROUTE = null, SEA_ROUTE_OF = null;
+export const seaRoute = () => {
+  if (!COAST) return null;
+  if (SEA_ROUTE_OF === COAST) return SEA_ROUTE;
+  const along = COAST.edge === "top" || COAST.edge === "bottom", span = along ? W : H;
+  const toXY = (u, v) => (COAST.edge === "top" ? [u, v] : COAST.edge === "bottom" ? [u, H - v] : COAST.edge === "left" ? [v, u] : [W - v, u]);
+  const pts = [];
+  for (let u = 8; u <= span - 8; u += 8) {
+    const line = coastLine(u);
+    if (line < SEA_OFF + 8) { if (pts.length) break; continue; }   // the first stretch of open water
+    pts.push(toXY(u, Math.max(10, line - SEA_OFF)));
+  }
+  if (pts.length < 2) { SEA_ROUTE = null; SEA_ROUTE_OF = COAST; return null; }
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const total = cum[cum.length - 1];
+  const at = (q) => {
+    q = Math.max(0, Math.min(total, q));
+    let i = 1;
+    while (i < cum.length - 1 && cum[i] < q) i++;
+    const f = (q - cum[i - 1]) / Math.max(1e-6, cum[i] - cum[i - 1]);
+    return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f];
+  };
+  SEA_ROUTE = { total, at }; SEA_ROUTE_OF = COAST;
+  return SEA_ROUTE;
+};
 // on the beach: ashore, but on the sand between the water and the grass
 export const onSand = (x, y) => { const d = seaDepthAt(x, y); return d <= 0 && d > -(COAST?.sand || 0); };
 

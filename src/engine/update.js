@@ -7,7 +7,7 @@
 import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, pickLane } from "../data/constants.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "../data/bands.js";
-import { RIVER_ROUTE } from "../data/terrain.js";
+import { RIVER_ROUTE, seaRoute, seaDepthAt } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { scriptedWaves, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, TOTAL_LEN } from "./path.js";
@@ -1052,9 +1052,10 @@ export function updateGame(g, dt) {
       if (t.kind !== "riverwatch") continue;
       const st = getStats(t);
       // moored in a pond or mere, its skiffs row a ring round the open water;
-      // otherwise they work the river
+      // moored off a coast they patrol the shore; otherwise they work the river
       if (t._pond === undefined) t._pond = pondAt(t.x, t.y) || null;
-      const rt = t._pond ? pondRoute(t._pond) : RIVER_ROUTE;
+      if (t._sea === undefined) t._sea = !t._pond && seaDepthAt(t.x, t.y) > 0;
+      const rt = t._pond ? pondRoute(t._pond) : t._sea ? seaRoute() : RIVER_ROUTE;
       if (!rt) continue;                         // no water, no watch
       const n = st.count || 1;
       if (!t.units) t.units = [];

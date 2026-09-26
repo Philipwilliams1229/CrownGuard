@@ -7,7 +7,7 @@ import { W, H, BLOCK_DIST, WALL_W } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
 import { MILITIA, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "./path.js";
-import { DECOR, PONDS, inRiver, inSea, decorFootprint } from "../data/terrain.js";
+import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { waveSpec, waveHpMult, CROWD_WEIGHT } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
@@ -37,15 +37,15 @@ export const buildableAt = (g, x, y, kind = null) => {
   const [cvx, cvy] = PTS[0];
   if (Math.hypot(x - cvx, y - cvy) < 50) return false;
   for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
-  // A floating hall moors in ANY water — a river, or a pond or mere big
-  // enough to row in (not lava, not ice). Everyone else keeps off it.
-  if (afloat) { if (!inRiver(x, y, 8) && !pondAt(x, y)) return false; }
+  // A floating hall moors in ANY water — a river, a pond or mere big enough
+  // to row in (not lava, not ice), or just off a coast. Everyone else keeps off it.
+  if (afloat) { if (!inRiver(x, y, 8) && !pondAt(x, y) && !(seaDepthAt(x, y) > 6)) return false; }
   else {
     for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
     if (inRiver(x, y, 14)) return false;
   }
-  // the sea takes nothing, afloat or not; the beach is honest ground
-  if (inSea(x, y, 14)) return false;
+  // the sea takes nothing but the River Watch; the beach is honest ground
+  if (!afloat && inSea(x, y, 14)) return false;
   const r = reachOf(kind);
   if (g.towers.some((t) => Math.hypot(t.x - x, t.y - y) < r + reachOf(t.kind))) return false;
   return true;
