@@ -1,3 +1,8 @@
+// NOTE: the app icon (public/icon-512.png, icon-192.png, apple-touch-icon.png)
+// is now painted by /icon-lab.html from the title screen's own castle
+// (open it with the dev server running, ?save=1 writes .shots/icon-*.png, then
+// copy those into public/). This older script, built on the small castle mark
+// (src/ui/castleMark.js, still the UI's little castle icon), is kept for reference.
 // Paints the app icon — the game's castle mark (src/ui/castleMark.js) on a
 // dawn sky over a green hill — as raw pixels, then lets macOS turn them into
 // PNGs. No image library needed. Every castle in the game's UI is the same

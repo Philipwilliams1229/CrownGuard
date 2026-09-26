@@ -1,0 +1,176 @@
+<!doctype html>
+<!--
+  Icon lab: paints the APP ICON (home-screen / browser-tab icon) from the
+  title screen's own castle (src/ui/titleArt.js: castleSprite, its cobbled
+  threshold and earth bank; src/ui/titleCrowd.js: its standard, pennants,
+  crown banners and gate torches, frozen) on a dawn sky over a green hill
+  that rises to a level brow under the whole footing, with the dirt path
+  winding up to the gate. Key content stays inside the central 80% circle
+  (maskable: Android crops round, iOS rounds the corners).
+
+  512 is painted natively (art pixels at PX per castle unit); 192 and 180
+  are painted at twice their size and halved with smoothing, which reads
+  better small than shrinking the 512.
+
+  /icon-lab.html          paint and show all sizes (plus 60px previews)
+  /icon-lab.html?save=1   also save .shots/icon-512.png, icon-192.png,
+                          icon-180.png (copy those over public/icon-512.png,
+                          public/icon-192.png, public/apple-touch-icon.png)
+-->
+<html>
+  <head><meta charset="utf-8" /><title>icon lab</title></head>
+  <body style="background:#14171d;color:#e8e0c8;font-family:monospace;margin:16px">
+    <div id="status">icon lab</div>
+    <div id="out" style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-top:12px"></div>
+    <script type="module">
+      import { setPX, hash, rgb, lighten, tuft, flower, inkOutline } from "/src/render/paint.js";
+      import { castleSprite, CASTLE_SPR as CS, paintThreshold, paintBank } from "/src/ui/titleArt.js";
+      import { castleLifeSprites, drawCastleLife } from "/src/ui/titleCrowd.js";
+
+      const INK = "#241a26";
+      const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
+      const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
+      const mk = (n) => { const c = document.createElement("canvas"); c.width = c.height = n; return c; };
+      const crisp = (cv) => {
+        const c = cv.getContext("2d"), im = c.getImageData(0, 0, cv.width, cv.height), d = im.data;
+        for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= 110 ? 255 : 0;
+        c.putImageData(im, 0, 0); return cv;
+      };
+      const SKY = [[0, "#1c2450"], [0.35, "#33427a"], [0.62, "#5d5f96"], [0.8, "#a07898"], [0.92, "#e0a07c"], [1, "#f6cf8e"]].map(([t, c]) => [t, rgb(c)]);
+      const skyAt = (t) => {
+        for (let i = 1; i < SKY.length; i++) if (t <= SKY[i][0]) {
+          const [t0, a] = SKY[i - 1], [t1, b] = SKY[i], k = (t - t0) / (t1 - t0);
+          return a.map((v, j) => v + (b[j] - v) * k);
+        }
+        return SKY[SKY.length - 1][1];
+      };
+
+      // Paint the icon at N px. P = art pixels per castle unit; the gate's
+      // sill sits at (gx, gy) px. Scene units are the title vista's, so the
+      // castle, threshold and bank land exactly as they do there.
+      function paintIcon(N, P) {
+        setPX(P);
+        const cv = mk(N), ctx = cv.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        const gx = Math.round(N / 2), gy = Math.round(N * 0.75);
+        const U = (u) => u * P;                                  // units -> px
+        const toScene = (c) => c.setTransform(P, 0, 0, P, gx - CS.x * P, gy - CS.y * P);
+        // the sky: dawn, banded and dithered, warm low down behind the hill
+        const img = ctx.createImageData(N, N), d = img.data, HZ = gy + U(6), BANDS = 11;
+        const PAL = Array.from({ length: BANDS + 1 }, (_, k) => skyAt(k / BANDS).map(Math.round));
+        for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+          const tb = Math.min(1, y / HZ) * BANDS - 0.5;
+          const c = PAL[Math.min(BANDS, Math.max(0, Math.floor(tb + bayer(x, y))))], i = (y * N + x) * 4;
+          d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
+        }
+        for (let k = 0; k < 14; k++) {                           // a few stars still out
+          const x = Math.floor(hash(k, 3) * N), y = Math.floor(hash(k, 4) * N * 0.22), i = (y * N + x) * 4;
+          const s = Math.max(1, Math.round(P / 2));
+          for (let a = 0; a < s; a++) for (let b = 0; b < s; b++) { const j = i + (a * N + b) * 4; d[j] = d[j + 1] = 236; d[j + 2] = 250; }
+        }
+        // hills: a low hazy far ridge, then the castle's hill, level under the
+        // whole footing and rounding away to the edges
+        const far = (x) => gy - U(9) + Math.sin(x / N * 7 + 1) * U(2.5);
+        const brow = (x) => { const du = Math.abs(x - gx) / P - 70; return gy - U(0.8) + (du > 0 ? U(du * du * 0.03) : 0); };
+        const [fl, fm] = [rgb("#7a9a86"), rgb("#6a8a7a")];
+        const [lit, mid, dk] = ["#8cc05a", "#6ea24a", "#548a3c"].map(rgb), rim = rgb(lighten("#8cc05a", 0.2));
+        for (let x = 0; x < N; x++) {
+          const ft = Math.round(far(x)), bt = Math.round(brow(x)), slope = (brow(x + P * 2) - brow(x - P * 2)) / (P * 4);
+          for (let y = Math.max(0, ft); y < N; y++) {
+            const i = (y * N + x) * 4;
+            let c;
+            if (y < bt) c = y - ft < P ? rgb("#9ab8a0") : (bayer(x, y) + (x / N) * 0.4 > 0.7 ? fm : fl);
+            else {
+              const depth = (y - bt) / P, v = -slope * 1.6 + (bayer(x, y) - 0.5) * 0.45 - (x / N - 0.4) * 0.5;
+              c = v > 0.4 ? lit : v < -0.4 ? dk : mid;
+              const band = Math.floor((depth + Math.sin(x / (P * 23)) * 4) / 9);
+              if (depth > 5 && band % 3 === 1) c = c === dk ? mid : lit;
+              if (depth < 1.5) c = rim;
+            }
+            d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2];
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+        // a layer in scene units, hardened, maybe edged in ink
+        const layer = (draw, ink = 0) => {
+          const l = mk(N), c = l.getContext("2d");
+          toScene(c); draw(c); crisp(l);
+          if (ink) inkOutline(l, INK, ink);
+          ctx.drawImage(l, 0, 0);
+        };
+        // the path winding down from the threshold, wider as it nears
+        const road = [[346, 184], [338, 188], [330, 193], [326, 199], [330, 206], [338, 213], [340, 222], [334, 232]];
+        layer((c) => {
+          c.lineCap = c.lineJoin = "round"; c.strokeStyle = "#d4b47a";
+          for (let k = 0; k < road.length - 1; k++) {
+            c.lineWidth = 5 + k * 1.6; c.beginPath(); c.moveTo(...road[k]); c.lineTo(...road[k + 1]); c.stroke();
+          }
+          c.fillStyle = "#b89a64";
+          for (let k = 0; k < 9; k++) { const s = road[1 + (k % 6)]; c.fillRect(s[0] - 2 + hash(k, 5) * 4, s[1] + hash(k, 6) * 3, 1, 0.6); }
+        }, 1);
+        // contact shadow, the castle, its threshold and its bank
+        layer((c) => { c.fillStyle = "rgba(42,28,44,0.5)"; c.beginPath(); c.ellipse(CS.x + 5, CS.y + 3.2, 66, 2.8, 0, 0, Math.PI * 2); c.fill(); });
+        const castle = castleSprite();
+        ctx.drawImage(castle, gx - CS.cx * P, gy - CS.g * P);
+        layer(paintThreshold, 1);
+        layer(paintBank);
+        // a few tufts and flowers on the slopes, off the path
+        layer((c) => {
+          for (let k = 0; k < 16; k++) {
+            const x = CS.x - 110 + hash(k, 11) * 220, y = CS.y + 12 + hash(k, 12) * 50;
+            if (Math.abs(x - 334) < 16) continue;
+            tuft(c, x, y, 0.7 + hash(k, 13) * 0.4, "#3f6e2e", "#8ac050", k);
+          }
+          for (let k = 0; k < 6; k++) {
+            const x = CS.x - 100 + hash(k, 14) * 200, y = CS.y + 20 + hash(k, 15) * 40;
+            if (Math.abs(x - 334) < 16) continue;
+            flower(c, x, y, ["#f2ead4", "#e8c65a", "#d86a6a"][k % 3], k, 0.9);
+          }
+        });
+        // flags, banners, torches, frozen mid-flutter
+        const life = castleLifeSprites();
+        ctx.save(); ctx.translate(gx - CS.x * P, gy - CS.y * P);
+        drawCastleLife(ctx, P, 0.37, life);
+        ctx.restore();
+        setPX(2);
+        return cv;
+      }
+      const half = (cv, n) => { const o = mk(n), c = o.getContext("2d"); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high"; c.drawImage(cv, 0, 0, n, n); return o; };
+
+      const P512 = +(new URLSearchParams(location.search).get("px") || 2.6);
+      const icons = {
+        "icon-512": paintIcon(512, P512),
+        "icon-192": half(paintIcon(384, P512 * 0.75), 192),
+        "icon-180": half(paintIcon(360, P512 * 360 / 512), 180),
+      };
+      const out = document.getElementById("out");
+      const show = (cv, size, label, mask = false) => {
+        const wrap = document.createElement("div");
+        const img = document.createElement("canvas"); img.width = img.height = size;
+        const c = img.getContext("2d"); c.imageSmoothingQuality = "high";
+        if (mask) { c.beginPath(); c.arc(size / 2, size / 2, size * 0.4, 0, Math.PI * 2); c.clip(); }
+        c.drawImage(cv, 0, 0, size, size);
+        wrap.append(img, Object.assign(document.createElement("div"), { textContent: label }));
+        out.append(wrap);
+      };
+      show(icons["icon-512"], 512, "512");
+      show(icons["icon-512"], 256, "512, safe circle", true);
+      show(icons["icon-180"], 180, "180");
+      show(icons["icon-192"], 192, "192");
+      show(icons["icon-180"], 60, "60");
+      window.ICONS = icons;
+      if (new URLSearchParams(location.search).get("save")) {
+        for (const [name, cv] of Object.entries(icons)) await fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png") });
+        // and a review sheet of all of the above
+        const sheet = mk(1); sheet.width = 1300; sheet.height = 540;
+        const sc = sheet.getContext("2d"); sc.fillStyle = "#14171d"; sc.fillRect(0, 0, 1300, 540);
+        sc.drawImage(icons["icon-512"], 10, 10);
+        sc.save(); sc.beginPath(); sc.arc(660, 138, 102, 0, Math.PI * 2); sc.clip(); sc.drawImage(icons["icon-512"], 532, 10, 256, 256); sc.restore();
+        sc.drawImage(icons["icon-180"], 800, 10); sc.drawImage(icons["icon-192"], 990, 10);
+        sc.imageSmoothingQuality = "high"; sc.drawImage(icons["icon-180"], 800, 220, 60, 60);
+        await fetch(`/__shot?name=${new URLSearchParams(location.search).get("tag") || "m-icon-sheet"}`, { method: "POST", body: sheet.toDataURL("image/png") });
+      }
+      document.getElementById("status").textContent = "icon lab: done";
+    </script>
+  </body>
+</html>

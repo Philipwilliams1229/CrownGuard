@@ -207,9 +207,11 @@ const birdAt = (i, t) => {
   return { x: perch[0] + (w.x - perch[0]) * k, y: perch[1] + (w.y - perch[1]) * k, face: w.x > perch[0] ? 1 : -1, pose: flap };
 };
 
-function renderLife(ctx, D, t) {
-  if (!LIFE) return;
+function renderLife(ctx, D, t, life = LIFE, o = {}) {
+  if (!life) return;
+  const LIFE = life;
   // the sentry, seen only between the merlons of the wall walk
+  if (o.sentry !== false) {
   const s = sentryAt(t), W = CL.walk;
   ctx.save();
   ctx.beginPath();
@@ -219,6 +221,7 @@ function renderLife(ctx, D, t) {
   const fr = s.moving ? Math.floor(s.ph / (9.2 * SENTRY_S / 4)) % 4 : (Math.floor(t / 2.2) % 3 === 2 ? 2 : 0);
   stamp(ctx, D, "knight", "walk", fr, s.x, W.y + 2.6, SENTRY_S, s.face, 1, false);
   ctx.restore();
+  }
   // the standard, the turret pennants, the gate's banners
   const [fx, fy] = CL.standard;
   put(ctx, D, LIFE.standard[Math.floor(t * 6) % 4], fx, fy, 1, 1.5);
@@ -226,6 +229,7 @@ function renderLife(ctx, D, t) {
   CL.banners.forEach(([x, y], i) => put(ctx, D, LIFE.banner[Math.floor(t * 2.6 + i * 2) % 4], x, y, 5.5, 0.5));
   // torchlight
   CL.torches.forEach(([x, y], i) => put(ctx, D, LIFE.flame[Math.floor(hash(Math.floor(t * 9), i + 3) * 6)], x, y, 5, 10.5));
+  if (o.still) return;   // (the app icon: flags, banners and torches only)
   // smoke from the keep's chimney, leaning off with the breeze
   const [cx, cy] = CL.chimney;
   for (let i = 0; i < 5; i++) {
@@ -424,4 +428,9 @@ export function startCrowd(canvas, { still = false } = {}) {
 }
 
 // for the lab: where the road is, to check the figures stand on it
+// For the app icon (icon-lab.html): the castle's flags, banners and torches,
+// baked at whatever density paint.js is set to, and drawn frozen at time t.
+export const castleLifeSprites = () => Object.assign({}, ...lifeBakes().map((f) => f()));
+export const drawCastleLife = (ctx, D, t, life) => renderLife(ctx, D, t, life, { sentry: false, still: true });
+
 export const crowdDebug = { at, sAt, LEN, step, render, bakeLife: () => { LIFE = LIFE || Object.assign({}, ...lifeBakes().map((f) => f())); } };

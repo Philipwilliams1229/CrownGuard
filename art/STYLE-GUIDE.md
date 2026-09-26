@@ -106,11 +106,14 @@ necromancer's `revived` palette and the white hit-flash still work.
 ## The castle mark and icons
 
 - **One castle everywhere:** `src/ui/castleMark.js` (`CASTLE_MARK` pixel grid +
-  `CASTLE_PAL`) is the game's symbol: the app/home-screen icon
-  (`node scripts/make-icons.mjs` paints `public/icon-*.png` and
-  `apple-touch-icon.png` from it), the title screen's logo, the tray's Castle
-  button, the castle works headers. `CastleIcon` in `src/ui/hud/icons.jsx`
-  draws it. Change the castle there and everything follows.
+  `CASTLE_PAL`) is the game's small symbol: the title screen's logo, the
+  tray's Castle button, the castle works headers. `CastleIcon` in
+  `src/ui/hud/icons.jsx` draws it.
+- **The app/home-screen icon** is the title screen's own painted castle on
+  its hill with the path to the gate, frozen: `icon-lab.html?save=1` paints
+  `icon-512/192/180` into `.shots/` with titleArt/titleCrowd's painters; copy
+  them over `public/icon-512.png`, `icon-192.png`, `apple-touch-icon.png`.
+  Keep key content inside the central 80% circle (Android crops round).
 - **No emoji in the UI.** Pictures are pixel grids in `src/ui/hud/icons.jsx`
   (coin, heart, castle, arrow, ballista bolt, shield, hammer, target, flag…)
   or the game's own art (`TowerPortrait`, `EnemyIcon` with a rig). Plain
@@ -246,7 +249,7 @@ dev server; view them from there):
   module script (the browser tool's JS runs in an isolated world).
 - Lab pages per area: `twa-lab.html`, `twb-lab.html`, `twb-folk.html` (every
   crew figure), `crw-lab.html`, `hrd-lab.html`, `bst-lab.html`, `cas-lab.html`,
-  `scn-lab.html`, `fx-lab.html`, `map-lab.html`, `apron-lab.html` (the landscape beyond the board at phone/tablet/desktop layouts), `hud-lab.html`, `wdn-lab.html`.
+  `scn-lab.html`, `fx-lab.html`, `map-lab.html`, `apron-lab.html` (the landscape beyond the board at phone/tablet/desktop layouts), `icon-lab.html` (the app icon), `hud-lab.html`, `wdn-lab.html`.
 - `props-lab.html`: every object a hall puts OUT into the world (traps,
   logs, stoops, the war-eagle, shots, soldiers and blades), zoomed on the
   road through the real draw(); `?only=traps,logs&zoom=1|2|3`. Deeper sheets:

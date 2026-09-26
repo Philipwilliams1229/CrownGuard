@@ -547,3 +547,7 @@ function* paintVista() {
   }
   return cv;
 }
+
+// For the app icon (icon-lab.html), which paints this same castle, its
+// threshold and its bank at its own size and density.
+export { castleS as castleSprite, CS as CASTLE_SPR, paintThreshold, paintBank };
