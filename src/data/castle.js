@@ -91,21 +91,27 @@ export const worksBonusHp = (works, ranks = null) => {
 };
 
 // ---- where things stand on the wall ----
-// Squat round drums straddle the wall, spaced evenly down each stretch of it:
-// from the gate towers at either end of the gatehouse out to a drum near the
-// board's edge, every 90-120 units, and never on a river's culvert. The free
-// walk between them is where the works' crews stand — clear of every drum,
-// at most at a drum's foot in front of it, never on or behind it. Positions are the drums'
-// FEET in world y; the renderer draws them from the same list.
+// Square towers bind the castle's two walls, spaced evenly down each stretch
+// of it: from the gate towers at either end of the gatehouse out to one near
+// the board's edge, every 90-120 units, and never on a river's culvert. The
+// free walk between them is where the works' crews stand — clear of every
+// tower, at most at a tower's foot in front of it, never on or behind it.
+// Positions are the towers' FEET in world y; the renderer draws them from
+// the same list.
 export const GATE_TOWER_N = -58, GATE_TOWER_S = 90;   // gate towers' feet, from gy
 // Every tower on the wall is square, with an open fighting platform on top.
-// Its footprint runs from `foot - n` to `foot + s` down the wall; it stands
-// `h` tall, so its platform is that footprint lifted `h` up the board. West
-// foot, platform's west edge and platform's east edge are x0, x1, x2.
-export const TOWER = { x0: 744, x1: 753, x2: 803, n: 28, s: 4, h: 16 };
+// Its footprint on the ground runs from `foot - n` to `foot + s` down the
+// wall, its west face stands at x0; it stands `h` tall, so its platform is
+// that footprint lifted `h` up the board (foot - n - h to foot + s - h: the
+// crews' spots below are laid out from that, so keep n + h = 44 and
+// s - h = -12). It rises well above both of the castle's walls (the outer
+// walk is 14 high, the inner 28), which butt into its flanks, and runs back
+// into the inner wall's parapet; the renderer (render/castle.js) draws the
+// joins.
+export const TOWER = { x0: 741, n: 5.5, s: 26.5, h: 38.5 };
 // the platform a tower's crew stands on, as [x, feet y]
-// (toward its south-west, clear of the stair turret in the far corner)
-export const towerDeck = (foot) => [TOWER.x1 + 18, foot - 17];
+// (toward its south-west, clear of the stair turret toward the back)
+export const towerDeck = (foot) => [771, foot - 17];
 // The Gate Ballista stands on the gate towers' platforms: the north one
 // first, the south one too once there are two. Feet positions, and where
 // the bolt leaves the bow.
