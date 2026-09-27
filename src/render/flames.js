@@ -1,6 +1,6 @@
 // ============ DRAGONFIRE AND BURNING GROUND ============
 // The Pyromancer's two final forms, as they touch the field:
-//   drawBreath      — Dragonbreath's held flamethrower jet. Reads t.breath
+//   drawBreath      — Dragonbreath's held breath, a cone of rolling fire. Reads t.breath
 //                     { on 0..1, ang (ground-plane radians from the hall's
 //                     foot), len (reach) } set by engine/update.js breathe,
 //                     and leaves from breathMouth(t) in halls/wizard.js.
@@ -9,15 +9,15 @@
 //
 // Pixel art like fx.js and rings.js: every flame, puff and patch is painted
 // art pixel by art pixel ONCE into a memo'd sprite (stepped tones, ordered
-// dither, no smooth blends) and stamped with drawImage. A breath is ~50
+// dither, no smooth blends) and stamped with drawImage. A breath is ~45
 // stamps and a handful of specks a frame; a burning patch is one stamp and
 // a few specks. Nothing here allocates per frame.
 //
-// The jet, in the 3/4 camera: a ground point (gx, gy) at height h sits on
-// screen at (gx, gy - h). The stream leaves the mouth level, falls as a
-// parabola to the road about 38% of the way out (the "impact"), then fans
-// across the damage cone (half-angle st.cone, out to len) as tongues of
-// flame that billow up, cool through orange and red, and end as smoke.
+// The breath, in the 3/4 camera: a ground point (gx, gy) at height h sits on
+// screen at (gx, gy - h). It is a CLOUD, not a stream: puffs drop out of
+// the jaws to the road and roll out over the damage cone (half-angle
+// st.cone from the hall's foot, out to len), so what burns on screen is
+// what the engine hits.
 
 import { breathMouth } from "./halls/wizard.js";
 import { PX, hash } from "./paint.js";
@@ -144,27 +144,54 @@ const dither = (ctx, h, dens) => {
 };
 
 // ---- Dragonbreath -----------------------------------------------------------
-const JET = 15;          // gobs along the airborne stream
-const FAN = 26;          // tongues alive on the ground fan at once
-const FAN_T = 0.62;      // seconds a tongue lives, impact to smoke
-const EMB = 10;          // embers kicked up out of the fan
+// A rolling cloud of fire, one cone in screen space: its apex at the jaws,
+// its base the damage wedge on the road (half-angle `cone` from the hall's
+// foot, out to len). Every puff picks a spot on the wedge and flies a
+// straight ray to it from the mouth, so the puffs fan apart from the first
+// moment — already fat and orange a few units out of the jaws, never a
+// column — then roll on over the ground, swelling and cooling through
+// orange and red to a little smoke at the far end. The ones thrown wide
+// burn a tone redder, so the cloud has a hot heart and a dark-red rim.
+// Oldest first, so the fresh hot puffs near the jaws lie on top.
+const PUFFS = 44;        // puffs alive in the cloud at once
+const LIFE = 0.78;       // seconds a puff takes from the jaws to the far end
+const LAND = 0.55;       // the share of that spent flying out of the jaws to the road
+const EMB = 10;          // embers kicked up out of the cloud
 const SPECK = new Float32Array(EMB * 3);
-const r2of = (r) => Math.max(2, Math.min(22, Math.round(r * 2)));
+const THROAT = 14;       // extra puffs in the first part of the flight
+const THROAT_P = 0.2;    // ...covering this share of it
+const r2of = (r) => Math.max(2, Math.min(28, Math.round(r * 2)));
+const BR = {};           // one breath's numbers, reused (no allocation per frame)
 
-// a tapering run of art-pixel squares down the stream's samples, one fill
-const core = (ctx, pts, frac, style) => {
-  ctx.fillStyle = style;
-  ctx.beginPath();
-  for (let i = 0; i < JET; i++) {
-    const x0 = pts[i * 3], y0 = pts[i * 3 + 1], x1 = pts[i * 3 + 3], y1 = pts[i * 3 + 4];
-    const w0 = pts[i * 3 + 2] * frac, w1 = pts[i * 3 + 5] * frac;
-    const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 1));
-    for (let k = 0; k < n; k++) {
-      const u = k / n, w = Math.max(1 / PX, sn(w0 + (w1 - w0) * u));
-      ctx.rect(sn(x0 + (x1 - x0) * u - w / 2), sn(y0 + (y1 - y0) * u - w / 2), w, w);
-    }
+// one puff of the cloud at age p (0 in the jaws, 1 at the far end);
+// `wide` narrows the throat knot toward the cone's axis
+const puff = (ctx, C, p, hj, wide) => {
+  if (p < 0 || p >= 1) return;
+  // where it lands: spread evenly over the wedge's area, right out to the rim
+  const u = hash(hj, 1) * 2 - 1, lat = Math.sign(u) * Math.abs(u) ** 0.8 * wide;
+  const sMin = C.reach * 0.28;
+  const sT = sMin + (C.reach * 0.96 - sMin) * Math.sqrt(hash(hj, 3));
+  const smoke = p > 0.87;
+  let r = (smoke ? 4 + (p - 0.87) * 18 : 3.8 + 5 * Math.sqrt(p)) * (0.82 + 0.3 * hash(hj, 7)) * C.sz;
+  if (p > 0.74 && !smoke) r *= 1 - (p - 0.74) * 1.1;
+  const wob = Math.sin(C.time * 6 + hj) * 1.2 * p;
+  let x, y;
+  if (p < LAND) {
+    // in flight: a straight ray from the jaws to its spot, so the whole
+    // breath is one cone in screen space with its apex at the mouth
+    // (bowed outward mid-flight, so the throat flares fat instead of necking)
+    const k = p / LAND, l = lat * sT * C.tanC * 0.92, bow = lat * k * (1 - k) * 34 * C.sz + wob;
+    const gx = C.tx + C.ca * sT + C.px * l, gy = C.ty + C.sa * sT + C.py * l - r * 0.3;
+    x = C.mx + (gx - C.mx) * k + C.px * bow; y = C.my + (gy - C.my) * k + C.py * bow;
+  } else {
+    // landed: rolling on outward over the wedge, cooling, then lifting as smoke
+    const s = sT + (p - LAND) * C.reach * 0.22, l = lat * s * C.tanC * 0.92 + wob;
+    x = C.tx + C.ca * s + C.px * l;
+    y = C.ty + C.sa * s + C.py * l - (smoke ? r * 0.5 + (p - 0.87) * 50 : r * 0.3);
   }
-  ctx.fill();
+  let st = p < 0.05 ? 0 : p < 0.18 ? 1 : p < 0.6 ? 2 : 3;
+  if (st < 3 && p > 0.25 && Math.abs(lat) > 0.7) st++;             // the rim runs redder
+  put(ctx, puffS(smoke ? "s" : "j", smoke ? 0 : st, r2of(r), (((hj + C.fl) % 3) + 3) % 3), x, y);
 };
 
 export const drawBreath = (ctx, t, time) => {
@@ -173,83 +200,53 @@ export const drawBreath = (ctx, t, time) => {
   const on = clamp01(b.on), grow = easeOut(on);
   const m = breathMouth(t);
   const ca = Math.cos(b.ang), sa = Math.sin(b.ang), px = -sa, py = ca;
-  const reach = b.len * (0.22 + 0.78 * grow);
-  const sI = reach * 0.38;                       // where the stream meets the road
-  const H0 = Math.max(8, t.y - m.y);             // the mouth's height over the foot
-  const tanC = Math.tan(0.4);
-  const sz = 0.5 + 0.5 * grow;
-  const fl = Math.floor(time * 16);
+  const cone = b.cone || 0.42, tanC = Math.tan(cone);
+  const reach = b.len * (0.2 + 0.8 * grow);
+  // the jaws' own distance along the aim, where the lit wedge starts
+  const s0 = Math.max(4, (m.x - t.x) * ca);
+  const sz = 0.55 + 0.45 * grow;
+  const fl = Math.floor(time * 14);
   const seed = (t.id | 0) * 131;
   const a = stepA(Math.min(1, on * 2.4), 4);
   ctx.save();
   if (a < 1) ctx.globalAlpha *= a;
 
-  // light thrown on the road under the fan: a sparse dither, denser near the heart
-  const g0 = sI * 0.7, gw = 0.36;
+  // the wedge the fire covers, lit on the road: exactly the damage cone
+  const w0 = s0 + 2;
   ctx.beginPath();
-  ctx.moveTo(t.x + ca * g0 + px * g0 * 0.25, t.y + sa * g0 + py * g0 * 0.25);
-  for (let i = 0; i <= 8; i++) {
-    const q = -gw + (2 * gw * i) / 8;
-    ctx.lineTo(t.x + Math.cos(b.ang + q) * reach * 1.02, t.y + Math.sin(b.ang + q) * reach * 1.02);
+  ctx.moveTo(t.x + ca * w0 + px * w0 * tanC, t.y + sa * w0 + py * w0 * tanC);
+  for (let i = 0; i <= 10; i++) {
+    const q = cone - (2 * cone * i) / 10;
+    ctx.lineTo(t.x + Math.cos(b.ang + q) * reach, t.y + Math.sin(b.ang + q) * reach);
   }
-  ctx.lineTo(t.x + ca * g0 - px * g0 * 0.25, t.y + sa * g0 - py * g0 * 0.25);
+  ctx.lineTo(t.x + ca * w0 - px * w0 * tanC, t.y + sa * w0 - py * w0 * tanC);
   ctx.closePath();
-  ctx.fillStyle = dither(ctx, FIRE[1], 0.1);
+  ctx.fillStyle = dither(ctx, FIRE[3], 0.16);
   ctx.fill();
 
-  // the fan: tongues born at the impact, thrown out across the cone,
-  // billowing up and cooling to smoke; oldest first so the hot ones lie on top
-  const E = time / FAN_T * FAN, e0 = Math.floor(E);
-  const ix = t.x + ca * sI, iy = t.y + sa * sI;
-  for (let j = e0 - FAN + 1; j <= e0; j++) {
-    const p = (E - j) / FAN;
-    if (p < 0 || p >= 1) continue;
-    const hj = j + seed;
-    const lat = Math.max(-1, Math.min(1, (hash(hj, 1) + hash(hj, 2) - 1) * 1.35));
-    const run = 1 - (1 - p) ** 1.5;
-    const s = sI + (reach - sI) * run * (0.82 + 0.25 * hash(hj, 3));
-    const l = lat * s * tanC * (0.3 + 0.7 * Math.sqrt(run)) + Math.sin(time * 9 + j) * 1.2 * p;
-    const gx = t.x + ca * s + px * l, gy = t.y + sa * s + py * l;
-    const smoke = p > 0.84;
-    const h = smoke ? 7 + (p - 0.84) * 80 : 1 + p * p * 8;
-    const r = (smoke ? 2.6 + (p - 0.84) * 14 : 2.2 + 3.6 * Math.sin(Math.PI * Math.min(1, p / 0.95))) * (0.8 + 0.35 * hash(hj, 7)) * sz;
-    const st = p < 0.18 ? 0 : p < 0.42 ? 1 : p < 0.68 ? 2 : 3;
-    put(ctx, puffS(smoke ? "s" : "b", smoke ? 0 : st, r2of(r), (j + fl) % 3), gx, gy - h);
-  }
+  // the cloud, then a tight knot of fresh puffs in the throat so the cone
+  // is full right up to the jaws
+  const C = BR;
+  C.tx = t.x; C.ty = t.y; C.ca = ca; C.sa = sa; C.px = px; C.py = py; C.tanC = tanC;
+  C.reach = reach; C.mx = m.x; C.my = m.y; C.sz = sz; C.fl = fl; C.time = time;
+  const E = (time / LIFE) * PUFFS, e0 = Math.floor(E);
+  for (let j = e0 - PUFFS + 1; j <= e0; j++) puff(ctx, C, (E - j) / PUFFS, j + seed, 1);
+  const Et = (time / (LIFE * THROAT_P)) * THROAT, et = Math.floor(Et);
+  for (let j = et - THROAT + 1; j <= et; j++) puff(ctx, C, ((Et - j) / THROAT) * THROAT_P, j + seed + 5000, 1);
+  // the jaws flare, white-hot
+  put(ctx, puffS("j", 0, r2of((2 + (fl & 1) * 0.6) * sz), fl % 3), m.x, m.y);
 
-  // the stream: gobs along a falling arc, the rush running down it as a
-  // travelling swell; a white-hot core laid over the lot
-  const mgx = m.x, mgy = t.y;
-  const pts = [];
-  for (let i = 0; i <= JET; i++) {
-    const u = i / JET;
-    const gx = mgx + (ix - mgx) * u, gy = mgy + (iy - mgy) * u;
-    const h = H0 * (1 - u * u);
-    const swell = 1 + 0.22 * Math.sin(u * 17 - time * 42 + t.id) + 0.18 * (hash(i + fl, seed) - 0.5);
-    const jit = (hash(i * 3 + fl, seed + 1) - 0.5) * 1.6 * u;
-    pts.push(gx + px * jit, gy - h + py * jit, (2 + 3 * u) * swell * sz);
-  }
-  for (let i = 0; i <= JET; i++) put(ctx, puffS("j", i < 3 ? 1 : 2, r2of(pts[i * 3 + 2]), (i + fl) % 3), pts[i * 3], pts[i * 3 + 1]);
-  // the hot core as one tapering line of art pixels, so the stream never reads as beads
-  core(ctx, pts, 0.85, FIRE[1]);
-  core(ctx, pts, 0.36, FIRE[0]);
-  // where it strikes the road: a splash of flame standing up
-  put(ctx, puffS("f", 1, r2of((5 + (fl & 1)) * sz), fl % 3), ix, iy);
-  put(ctx, puffS("f", 0, r2of(2.6 * sz), (fl + 1) % 3), ix, iy);
-  // the mouth flares
-  put(ctx, puffS("j", 0, r2of((1.8 + (fl & 1) * 0.6) * sz), fl % 3), m.x, m.y);
-
-  // embers flung up out of the fan: gold while fresh, red as they fade
-  const ET = 0.9, EE = time / ET * EMB, ee = Math.floor(EE);
+  // embers flung up out of the cloud: gold while fresh, red as they fade
+  const ET = 0.9, EE = (time / ET) * EMB, ee = Math.floor(EE);
   for (let pass = 0; pass < 2; pass++) {
     let n = 0;
     for (let j = ee - EMB + 1; j <= ee; j++) {
       const p = (EE - j) / EMB, hj = j + seed + 7;
       if ((p < 0.45) !== (pass === 0)) continue;
-      const s = sI + (reach - sI) * (0.2 + 0.8 * hash(hj, 4));
+      const s = reach * (0.3 + 0.7 * hash(hj, 4));
       const l = (hash(hj, 5) * 2 - 1) * s * tanC;
       SPECK[n++] = t.x + ca * s + px * l + Math.sin(time * 5 + j) * 2 + (hash(hj, 6) - 0.5) * 10 * p;
-      SPECK[n++] = t.y + sa * s + py * l - 4 - p * 26;
+      SPECK[n++] = t.y + sa * s + py * l - 8 - p * 26;
       SPECK[n++] = pass ? 0.5 : 1;
     }
     dots(ctx, SPECK, n, pass ? FIRE[3] : FIRE[1]);
