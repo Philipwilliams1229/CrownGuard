@@ -144,7 +144,8 @@ export function loadProgress() {
     const raw = JSON.parse(localStorage.getItem(KEY) || "{}");
     return {
       cleared: raw.cleared && typeof raw.cleared === "object" ? raw.cleared : {},
-      // castle works, by chapter: { greenwood: { archers: 2, ... } }
+      // castle works: { crown: { archers: 2, ... }, free: { ... } } (older
+      // saves kept one per chapter / free realm: loadCastle folds them in)
       castle: raw.castle && typeof raw.castle === "object" ? raw.castle : {},
       // legacy: heroes used to carry their level between maps; unused now
       heroes: raw.heroes && typeof raw.heroes === "object" ? raw.heroes : {},
@@ -169,14 +170,33 @@ export function spendTreasury(amount) {
   save(p);
   return p;
 }
-// The works built on a region's castle so far.
-export function loadCastle(chapterId) {
+// The works built on the crown's castle so far. There is ONE castle: what
+// the treasury raises stands at every level of every realm, from the Vale
+// Road to the Throne of Dust (2026-09-27 — they used to belong to a single
+// chapter, and the owner found them gone at the Iron Marches). Free Play
+// keeps one castle of its own, paid from its runs' purses, shared by every
+// realm. Callers still name their scope (a chapter id, or `free:<realm>`);
+// it only picks which of the two castles.
+const castleKey = (scope) => (String(scope).startsWith("free:") ? "free" : "crown");
+const NO_WORKS = { archers: 0, ballista: 0, guards: 0, masons: 0 };
+export function loadCastle(scope) {
   const p = loadProgress();
-  return { archers: 0, ballista: 0, guards: 0, masons: 0, ...(p.castle[chapterId] || {}) };
+  const key = castleKey(scope);
+  let works = p.castle[key];
+  // a save from before the castle was one: the new castle stands with the
+  // best of each work any chapter (or free realm) had raised
+  if (!works) {
+    works = { ...NO_WORKS };
+    for (const [k, w] of Object.entries(p.castle)) {
+      if (k === "crown" || k === "free" || castleKey(k) !== key || !w || typeof w !== "object") continue;
+      for (const n of Object.keys(NO_WORKS)) works[n] = Math.max(works[n], Number(w[n]) || 0);
+    }
+  }
+  return { ...NO_WORKS, ...works };
 }
-export function saveCastle(chapterId, works) {
+export function saveCastle(scope, works) {
   const p = loadProgress();
-  p.castle[chapterId] = { ...works };
+  p.castle[castleKey(scope)] = { ...works };
   save(p);
   return p;
 }

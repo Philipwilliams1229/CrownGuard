@@ -110,13 +110,13 @@ const ENEMY_BOSS = (t) => !!ENEMIES[t]?.boss;
 export const CROWD_WEIGHT = {
   goblin: 1, bat: 0.8, wolf: 0.9, orc: 0.6, boarrider: 0.5, armored: 0.45, rafter: 0.6,
   shaman: 0.1, troll: 0.1, hobgoblin: 0, necro: 0,
-  levy: 1, crossbow: 0.7, sergeant: 0.45, cavalier: 0.4, gryphon: 0.35, chaplain: 0.15, ram: 0.1,
+  levy: 1, crossbow: 0.7, sergeant: 0.45, cavalier: 0.4, gryphon: 0.35, chaplain: 0.15, ram: 0.1, magister: 0, unseated: 0,
   skeleton: 1, ghoul: 0.9, bonearcher: 0.7, wraith: 0.5, ghast: 0.4, crypt: 0.35, gravecaller: 0.1, amalgam: 0.2,
 };
 // A faction may swell less (`crowdScale` in factions.js): the Greenwood is
 // a horde and swells fully; the Iron Kingdom and the Hollow Court both swell
-// at 0.6 (tuned with the sims so each chapter bleeds about as much
-// as the Greenwood does at the same depth).
+// at 0.6 (the Iron Kingdom's columns are big in its script instead, and it
+// was measured: 0.7 and up swamped the chapter's late levels).
 // Capped at 6x: deep in the Endless March a group of 32 already becomes ~190,
 // and the road (and an iPad) has only so much room.
 export const crowd = (a) => Math.min(6, 1 + Math.max(0, a - 3) * 0.12 * (FACTION.crowdScale ?? 1));
@@ -142,7 +142,7 @@ export const waveSpec = (w) => {
   const a = absWave(w);
   const scripted = a <= FACTION.waves.length;
   if (!WINDOW) {
-    const sp = swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a);
+    const sp = escortOf(swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a), a);
     sp.overlap = overlap(a);
     return SANDBOX ? sandboxShape(sp) : sp;
   }
@@ -153,9 +153,35 @@ export const waveSpec = (w) => {
   // every level opens on its own ground: the swell comes in over its first
   // few waves, so a fresh purse never meets a full-grown horde on wave one
   spec = swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1)));
+  spec = escortOf(spec, a);
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);
   return spec;
+};
+
+// ---- ESCORTS ----
+// Some armies send a captain along with any column that has grown big: the
+// Iron Kingdom's Aegis Magister (`escort` in factions.js). One per `per`
+// heads of rank and file, up to `max`, from war-wave `from` on. The entry
+// is marked `amid`: startWave spreads its heads through the middle of the
+// wave's biggest group instead of sending them after everything else, so
+// the mage always walks inside the company he shields.
+const escortOf = (spec, a) => {
+  const e = FACTION.escort;
+  if (!e || a < e.from || spec.some(([t]) => t === e.type)) return spec;
+  let heads = 0, big = -1, most = 0;
+  spec.forEach(([t, n], i) => {
+    if (BOSSES.has(t) || ENEMY_BOSS(t) || (CROWD_WEIGHT[t] ?? 0) < 0.3) return;
+    heads += n;
+    if (n > most) { most = n; big = i; }
+  });
+  const n = Math.min(e.max, Math.floor(heads / e.per));
+  if (n < 1 || big < 0) return spec;
+  const grp = [e.type, n, 0, 1];
+  grp.amid = big;
+  const out = [...spec, grp];
+  out.overlap = spec.overlap;
+  return out;
 };
 
 // The sandbox's hand on a wave: more or fewer heads per group, packed
@@ -163,10 +189,12 @@ export const waveSpec = (w) => {
 // keeps one head, so a wave is never empty.
 export const SANDBOX_MAX_WAVE = 600;
 const sandboxShape = (sp) => {
-  const out = sp.map(([type, count, gap, pay = 1]) => {
+  const out = sp.map(([type, count, gap, pay = 1], i) => {
     if (BOSSES.has(type) || ENEMY_BOSS(type)) return [type, count, Math.round(gap * SANDBOX.gapMul), pay];
     const n = Math.max(1, Math.round(count * SANDBOX.countMul));
-    return [type, n, Math.max(60, Math.round(gap * SANDBOX.gapMul)), pay];
+    const grp = [type, n, Math.max(60, Math.round(gap * SANDBOX.gapMul)), pay];
+    if (sp[i].amid != null) grp.amid = sp[i].amid;   // an escort still walks amid its group
+    return grp;
   });
   // however the sliders are set, a wave stays something the road (and an
   // iPad) can hold: past SANDBOX_MAX_WAVE heads, every group shrinks alike

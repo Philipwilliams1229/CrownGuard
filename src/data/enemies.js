@@ -6,16 +6,18 @@
 //
 // Recurring flags:
 //   armor / mres   fraction of physical / magic damage shrugged off
-//   guard          discrete tower hits absorbed down to a scratch
+//   guard          discrete hits swallowed whole, one per point (the blue pips)
 //   immSlow        slows and chills do nothing
 //   immStun        stuns and freezes do nothing
 //   trample        melee blocks it can smash through before being held
 //   flying         knights cannot block it at all
 //   ranged*        it shoots your knights from outside their reach
-//   ward*          it hands out `guard` to nearby allies
+//   ward*          it hands out `guard` to nearby allies (wardFx: its look)
 //   banner*        it buffs the speed and armor of everything around it
 //   summon*        it conjures fresh enemies onto the road as it walks
 //   splitInto      [type, count] — cut it down and it comes apart into these
+//                  (splitDrop: they fall from where it flew, where it died;
+//                  deathSkin: the rig its death crumbles in)
 //   deathBurst     {r, dmg, dps, dur} — dies violently: hurts knights in r,
 //                  and leaves plague ground that keeps hurting them
 
@@ -67,47 +69,65 @@ export const ENEMIES = {
   dragon: { faction: "greenwood", hp: 3800, speed: 34, bounty: 120, armor: 0.3, size: 27, name: "DRAGON", boss: true, flying: true, atk: 0, atkRate: 0, castleDmg: 5, note: "Boss. Flies over the road — knights cannot block it." },
 
   // ---- THE IRON KINGDOM ----
-  // A real army: drilled, shielded, and it shoots back.
+  // A real army: drilled, shielded, and it shoots back. The chapter after
+  // the Greenwood, so it asks more from the first wave (retuned 2026-09-27:
+  // tougher bodies, bigger columns, three-blow shields, battle-mages).
   levy: {
-    faction: "iron", hp: 54, speed: 78, bounty: 7, armor: 0.1, size: 16,
-    name: "Iron Levy", atk: 14, atkRate: 850, castleDmg: 1, guard: 2,
-    note: "Raised shields turn the first two blows from any tower into a scratch. A hail of small arrows wastes itself here — hit them with something heavy.",
+    faction: "iron", hp: 60, speed: 78, bounty: 7, armor: 0.1, size: 16,
+    name: "Iron Levy", atk: 15, atkRate: 850, castleDmg: 1, guard: 3,
+    note: "Three raised shields: each swallows one blow whole, however big it was — a boulder wasted is worse than an arrow wasted. Strip them with quick blows, or with something that hits the whole column at once.",
   },
   crossbow: {
-    faction: "iron", hp: 62, speed: 74, bounty: 9, armor: 0, size: 16,
-    name: "Crossbowman", atk: 8, atkRate: 1000, castleDmg: 1,
-    rangedAtk: 11, rangedRange: 78, rangedRate: 1900,
+    faction: "iron", hp: 72, speed: 74, bounty: 9, armor: 0, size: 16,
+    name: "Crossbowman", atk: 9, atkRate: 1000, castleDmg: 1,
+    rangedAtk: 12, rangedRange: 82, rangedRate: 1800,
     note: "Shoots your knights down from outside their reach, and never stops walking to do it. Kill them early or your line bleeds out.",
   },
   sergeant: {
-    faction: "iron", hp: 170, speed: 60, bounty: 15, armor: 0.4, size: 18,
-    name: "Knight-Sergeant", atk: 26, atkRate: 900, castleDmg: 2, immSlow: true,
+    faction: "iron", hp: 185, speed: 60, bounty: 15, armor: 0.4, size: 18,
+    name: "Knight-Sergeant", atk: 28, atkRate: 900, castleDmg: 2, immSlow: true,
     note: "Plate over padding, and too disciplined to falter — frost and briars slow him not at all. Magic still bites.",
   },
   cavalier: {
-    faction: "iron", hp: 108, speed: 120, bounty: 14, armor: 0.1, size: 19,
-    name: "Cavalier", atk: 24, atkRate: 800, castleDmg: 2, trample: 1,
+    faction: "iron", hp: 120, speed: 120, bounty: 14, armor: 0.1, size: 19,
+    name: "Cavalier", atk: 25, atkRate: 800, castleDmg: 2, trample: 1,
     note: "A charging lance rides the first knight down and gallops on. Only the second blocker holds him.",
   },
   chaplain: {
-    faction: "iron", hp: 160, speed: 62, bounty: 18, armor: 0.1, mres: 0.3, size: 16,
+    faction: "iron", hp: 175, speed: 62, bounty: 18, armor: 0.1, mres: 0.3, size: 16,
     name: "Battle Chaplain", atk: 10, atkRate: 1000, castleDmg: 2,
     wardEvery: 3400, wardHits: 1, wardRange: 82,
-    note: "Speaks no healing — he lays a ward on every soldier near him that swallows one blow whole. Chip damage stops working while he lives.",
+    note: "Speaks no healing — he lays a ward on every soldier near him that swallows one blow whole, and lays it again and again. Slow, heavy blows are the ones he wastes: kill him first, or strip the wards with quick shots.",
+  },
+  // The Kingdom's battle-mage. He marches inside the big columns (never on
+  // his own: waves.js adds him to any wave big enough to need him) and throws
+  // three shields over everything around him on a slow beat.
+  magister: {
+    faction: "iron", hp: 200, speed: 58, bounty: 30, armor: 0, mres: 0.3, size: 17,
+    name: "Aegis Magister", atk: 12, atkRate: 1000, castleDmg: 2,
+    wardEvery: 11000, wardHits: 3, wardRange: 140, wardFx: "aegis", wardSelf: false,
+    note: "A court battle-mage who marches inside the big columns. Every so often he throws his aegis over the company around him — three blue shields on every soldier, each swallowing a blow whole. He cannot shield himself: pick him out and kill him first, or break the shields with something that hits many at once.",
   },
   ram: {
-    faction: "iron", hp: 1150, speed: 30, bounty: 40, armor: 0.35, size: 24,
-    name: "Siege Ram", atk: 30, atkRate: 1200, castleDmg: 4, immSlow: true, immStun: true,
+    faction: "iron", hp: 1250, speed: 30, bounty: 40, armor: 0.35, size: 24,
+    name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 4, immSlow: true, immStun: true,
     note: "Oak and iron on six wheels. Nothing slows it, nothing stuns it, and it takes four bites out of your gate. There is no trick — kill it.",
   },
   gryphon: {
-    faction: "iron", hp: 185, speed: 88, bounty: 24, armor: 0.2, size: 21,
+    faction: "iron", hp: 190, speed: 88, bounty: 22, armor: 0.2, size: 21,
     name: "Gryphon Knight", flying: true, atk: 0, atkRate: 0, castleDmg: 2,
-    note: "A knight on a warbred gryphon, armored wing to talon. It sails over every blocker you have, and its plate turns arrows — magic pulls it out of the sky fastest.",
+    // bring the beast down and its knight falls with it, and walks on
+    splitInto: ["unseated", 1], splitDrop: true, deathSkin: "gryphonMount",
+    note: "A knight on a warbred gryphon, armored wing to talon. It sails over every blocker you have, and its plate turns arrows. Bring it down and the knight on its back drops to the road and marches on.",
+  },
+  unseated: {
+    faction: "iron", hp: 100, speed: 66, bounty: 8, armor: 0.3, size: 17,
+    name: "Unseated Knight", atk: 22, atkRate: 900, castleDmg: 1,
+    note: "Thrown from a gryphon brought down under him. He shakes off the fall, picks up sword and shield, and marches on for the gate on foot — where, at last, your knights can reach him.",
   },
   marshal: {
-    faction: "iron", hp: 4200, speed: 48, bounty: 110, armor: 0.35, size: 24,
-    name: "LORD MARSHAL", boss: true, atk: 44, atkRate: 1000, castleDmg: 5, trample: 2, trampleEvery: 3200,
+    faction: "iron", hp: 5000, speed: 48, bounty: 110, armor: 0.35, size: 24,
+    name: "LORD MARSHAL", boss: true, atk: 46, atkRate: 1000, castleDmg: 5, trample: 2, trampleEvery: 3200,
     bannerRange: 115, bannerSpeed: 0.3, bannerArmor: 0.2,
     note: "Boss. His banner drives the whole column faster and harder — every soldier near him is quicker and better armored, and he rides down the first two knights that try to hold him. Cut down the banner and the army falters.",
   },

@@ -222,7 +222,8 @@ export default function Crownguard() {
       // tallies for the profile — banked when the level ends
       run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 },
       gold: START_GOLD, lives: (opts.lives ?? CASTLE_HP) + worksBonusHp(castle), wave: opts.wave ?? 0, phase: "build",
-      // the works built on this castle: they came with the region, and stay
+      // the works built on this castle: they came with the crown (one castle
+      // for every realm, data/campaign.js loadCastle), and stay
       castle: { ...castle },
       bands: [], militiaCd: 0,
       towers: [], enemies: [], projectiles: [], effects: [],
@@ -292,7 +293,7 @@ export default function Crownguard() {
   };
 
   // Buy the next tier of a castle work. In the campaign the crown's
-  // treasury pays and the work stays with the region; in free play the
+  // treasury pays and the work stands in every realm; in free play the
   // run's purse pays and it stays with the realm.
   const buyWork = (key) => {
     const g = G.current;
@@ -1542,8 +1543,8 @@ export default function Crownguard() {
             purse={mode === "campaign" ? progress.treasury || 0 : ui.gold}
             purseLabel={mode === "campaign" ? "THE CROWN'S TREASURY" : "THIS RUN'S PURSE"}
             note={mode === "campaign"
-              ? `Built on the wall itself, paid from the treasury: the gold you carry home from every level you hold. What you raise here stands for every road in the ${level?.chapter.name || "region"}.`
-              : "Built on the wall itself, paid from the purse. What you raise here stands for every run in this realm — but the veteran ranks past a finished work are this run's alone."}
+              ? `Built on the wall itself, paid from the treasury: the gold you carry home from every level you hold. What you raise here stands at every level, in every realm.`
+              : "Built on the wall itself, paid from the purse. What you raise here stands for every Free Play run, in every realm — but the veteran ranks past a finished work are this run's alone."}
             onBuy={buyWork} />
                   </>
                 ),
@@ -1770,7 +1771,7 @@ export default function Crownguard() {
             {/* the castle works, and Master Builds when the purse can afford them */}
             {ui.result == null && (
               <div style={{ display: "flex", gap: 6 }}>
-                <button aria-label="Open the castle works" title="Castle works: defences built on the wall itself, kept for the whole region"
+                <button aria-label="Open the castle works" title="Castle works: defences built on the wall itself, kept in every realm"
                   className={cls("cg-btn", castleOpen && "is-on")} style={{ flex: 1, minHeight: 40, fontSize: 12, gap: 6 }} onClick={() => trayOpen("castle")}>
                   <CastleIcon size={18} /> Castle
                 </button>

@@ -86,14 +86,27 @@ export const startWave = (g) => {
   let delay = 400;
   const spec = waveSpec(g.wave);
   const ov = spec.overlap || 0;
-  for (const [type, count, gap, pay = 1] of spec) {
+  const spans = [];
+  for (const grp of spec) {
+    const [type, count, gap, pay = 1] = grp;
+    if (grp.amid != null) continue;           // escorts are placed below
     const start = delay;
     for (let i = 0; i < count; i++) { queue.push({ type, at: delay, mult, pay }); delay += gap; }
+    spans[spec.indexOf(grp)] = [start, delay - gap];
     // the next group sets out before this one is done, deep in the war —
     // but only rank and file stream in together; the trolls, shamans and
     // warchiefs still get a road to themselves, so a wall stays readable
     const o = (CROWD_WEIGHT[type] ?? 0) >= 0.4 ? ov : 0;
     delay = start + (delay - start) * (1 - o) + 900 * (1 - o);
+  }
+  // an escort (the Iron Kingdom's Aegis Magister, waves.js escortOf) walks in
+  // the thick of the group it came with: its heads spread evenly through
+  // that group's middle, the first a quarter of the way in
+  for (const grp of spec) {
+    if (grp.amid == null) continue;
+    const [type, count, , pay = 1] = grp;
+    const [a0, a1] = spans[grp.amid] || [400, 400];
+    for (let i = 0; i < count; i++) queue.push({ type, at: Math.round(a0 + (a1 - a0) * (0.25 + 0.5 * (count > 1 ? i / (count - 1) : 0.4))), mult, pay });
   }
   queue.sort((p, q) => p.at - q.at);
   g.spawnQueue = queue;
@@ -356,14 +369,16 @@ const CORPSE_TYPES = new Set(["goblin", "wolf", "orc"]);
 // as a ledger: who actually earned their footprint and who was decoration.
 export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
   let dmg = amount;
-  // Raised shields and chaplain wards swallow one discrete blow apiece, whole,
-  // however big it was. A hail of small arrows is exactly what they're for —
-  // and exactly why one heavy stone beats twenty needles here.
+  // Raised shields and chaplain / magister wards swallow one discrete blow
+  // apiece, WHOLE, however big it was: nothing gets through, not even a
+  // scratch. So a boulder wasted costs more than an arrow wasted — strip them
+  // with quick blows, or with splash that takes a point off a whole column at
+  // once. Fire, poison and lava still bleed through: they are not blows.
   if (!tick && e.guard > 0) {
     e.guard -= 1;
     e.guardFlash = g.time * 1000 + 300;
-    dmg = Math.min(dmg, 1);
     sfx.play("tink");
+    return;
   }
   const tmsD = g.time * 1000;
   // a falconer's mark: everything hits the marked harder
@@ -430,7 +445,8 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
     // hundred-goblin rout must not cost a hundred thousand pixels a frame.
     let dying = 0;
     for (const fx of g.effects) if (fx.type === "death" && !fx.lite) dying++;
-    g.effects.push({ type: "death", etype: e.sprite || e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived, lite: dying >= 16 && !e.boss });
+    // (a gryphon crumbles without its knight: he has just dropped to the road)
+    g.effects.push({ type: "death", etype: ENEMIES[e.type]?.deathSkin || e.sprite || e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived, lite: dying >= 16 && !e.boss });
     // the fallen linger a moment — a necromancer may call them back (once)
     if (!e.revived && CORPSE_TYPES.has(e.type)) {
       if (!g.corpses) g.corpses = [];

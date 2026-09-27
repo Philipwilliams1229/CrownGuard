@@ -112,12 +112,12 @@ const makeEnemy = (type, mult) => {
     immSlow: !!d.immSlow, immStun: !!d.immStun,
     trampleLeft: d.trample || 0, trampleMax: d.trample || 0, trampleEvery: d.trampleEvery || 0, trampleCd: null,
     rangedAtk: d.rangedAtk || 0, rangedRange: d.rangedRange || 0, rangedRate: d.rangedRate || 0, rangedCd: 0,
-    wardEvery: d.wardEvery || 0, wardHits: d.wardHits || 0, wardRange: d.wardRange || 0, wardCd: null,
+    wardEvery: d.wardEvery || 0, wardHits: d.wardHits || 0, wardRange: d.wardRange || 0, wardCd: null, wardFx: d.wardFx || null, wardSelf: d.wardSelf !== false,
     bannerRange: d.bannerRange || 0, bannerSpeedAmt: d.bannerSpeed || 0, bannerArmorAmt: d.bannerArmor || 0,
     bannerSpeed: 0, bannerArmor: 0,
     // Hollow Court traits: bells that summon, bodies that split or burst
     summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonCd: null,
-    splitInto: d.splitInto || null, deathBurst: d.deathBurst || null, deathDone: false,
+    splitInto: d.splitInto || null, splitDrop: !!d.splitDrop, deathBurst: d.deathBurst || null, deathDone: false,
     // falconry marks and alchemical shred
     markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0,
     x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
@@ -877,14 +877,16 @@ export function updateGame(g, dt) {
       }
       // Battle Chaplain: lays a ward over the soldiers around him that eats one
       // blow each. Re-cast on a rhythm, so killing him is the only real answer.
+      // The Aegis Magister casts the same way, wider and slower, and tops
+      // every shield around him back up to three (never his own).
       if (e.wardEvery && e.silencedUntil <= tms) {
-        e.wardCd = (e.wardCd ?? e.wardEvery * 0.5) - sdt * 1000;
+        e.wardCd = (e.wardCd ?? e.wardEvery * (e.wardFx === "aegis" ? 0.25 : 0.5)) - sdt * 1000;
         if (e.wardCd <= 0) {
           e.wardCd = e.wardEvery;
-          g.effects.push({ type: "wardwave", x: e.x, y: e.y, ttl: 550, r: e.wardRange });
+          g.effects.push({ type: "wardwave", x: e.x, y: e.y, ttl: e.wardFx === "aegis" ? 800 : 550, r: e.wardRange, kind: e.wardFx || "ward" });
           sfx.play("ward");
           for (const e2 of g.enemies) {
-            if (e2.dead || Math.hypot(e2.x - e.x, e2.y - e.y) > e.wardRange) continue;
+            if (e2.dead || (e2 === e && !e.wardSelf) || Math.hypot(e2.x - e.x, e2.y - e.y) > e.wardRange) continue;
             e2.guard = Math.max(e2.guard, e.wardHits);
             e2.guardFlash = tms + 400;
           }
@@ -1065,6 +1067,9 @@ export function updateGame(g, dt) {
             cd.shot = (cd.shot + 1) % bows.count;
             const spots = bowmenSpots(gy, bows.count);
             const sy = spots[cd.shot % spots.length] ?? gy;
+            // when each bowman last loosed: the wall draws him drawing his
+            // next shot while there is something to shoot, and at ease after
+            (cd.loosed || (cd.loosed = []))[cd.shot % spots.length] = tms;
             g.projectiles.push({ id: nextId(), x: BOW_X, y: sy - 12, targetId: best.id, tx: best.x, ty: best.y, speed: 460, delay: 0, dmg: bows.dmg, dtype: "phys", pierce: !!bows.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: !!bows.pierce });
             sfx.play("arrow");
           }
@@ -1099,7 +1104,20 @@ export function updateGame(g, dt) {
         g.grounds.push({ src: e.sporeOn.src, x: e.x, y: e.y, r: e.sporeOn.r, dps: e.sporeOn.dps, until: tms + e.sporeOn.dur, kind: "spores" });
         g.effects.push({ type: "boom", x: e.x, y: e.y, ttl: 300, r: e.sporeOn.r * 0.7 });
       }
-      if (e.splitInto) {
+      if (e.splitInto && e.splitDrop) {
+        // a gryphon brought down drops its knight right where it fell: he
+        // hits the road in its lane, sits dazed a moment, and marches on
+        const [type, n] = e.splitInto;
+        for (let i = 0; i < n; i++) {
+          const k = spawnAt(g, type, e.mult, e.dist - i * 9, tms);
+          k.lane = e.lane;
+          k.x = e.x; k.y = e.y; k.face = e.face;
+          k.born = undefined;
+          k.dropAt = tms;                        // the renderer drops him from the saddle
+          k.stunUntil = tms + 650;
+        }
+        g.effects.push({ type: "dust", x: e.x, y: e.y + 4, ttl: 420, r: 22 });
+      } else if (e.splitInto) {
         const [type, n] = e.splitInto;
         for (let i = 0; i < n; i++) spawnAt(g, type, e.mult, e.dist - 4 - i * 9, tms);
         g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 380, r: 30 });

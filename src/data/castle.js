@@ -1,10 +1,11 @@
 // ============ CASTLE WORKS ============
 // Defences built on the castle itself rather than on the field. In the
 // campaign they are bought from the crown's TREASURY — the gold carried home
-// from every won level — and stay built for the whole of a region: take the
-// wall archers on the Vale Road and they are on the wall at Thornbrook too.
-// Free Play pays from the run's purse. Four works, each in tiers, priced to
-// be fought for.
+// from every won level — and stay built for good, in every realm: take the
+// wall archers on the Vale Road and they are on the wall at Thornbrook, at
+// the Citadel Gate and in the Hollowfen too (campaign.js loadCastle). Free
+// Play pays from the run's purse, into a castle of its own shared by every
+// realm. Four works, each in tiers, priced to be fought for.
 
 import { H } from "./constants.js";
 import { inRiver } from "./terrain.js";

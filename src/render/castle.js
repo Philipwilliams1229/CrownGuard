@@ -2213,12 +2213,26 @@ export const drawCastleWorks = (ctx, g) => {
   if (bows) {
     const big = !!bows.pierce;
     const spots = bowmenSpots(gy, bows.count);
+    const tms = time * 1000;
     for (let i = 0; i < spots.length; i++) {
       const y = spots[i] + 8;
-      // each bowman draws on his own beat; the one who just loosed is slack
-      const phase = ((time * 1000 / bows.rate) + i / bows.count) % 1;
-      const fr = Math.round(Math.min(1, phase * 1.6) * 3);
-      const cv = workFrame(`bow|${big ? 1 : 0}|${fr}`, 30, 36, (c) => drawArcher(c, 17, 33, -1, WALL_FOLK.bowman, fr / 3, { big, bowCol: big ? "#3a3a44" : undefined }));
+      // A bowman who has loosed within the last beat or so is in the fight:
+      // slack for a moment after the shot, then drawing again so the string
+      // is at his cheek as his next turn comes round (engine: castleCd.loosed).
+      // Otherwise he stands at ease, bow down, shifting his weight now and
+      // then — the wall is not firing at nothing.
+      const since = tms - (cd.loosed?.[i] ?? -1e9);
+      let key, pose, draw = 0;
+      if (since < bows.rate * 1.35) {
+        const phase = Math.min(1, since / bows.rate);
+        const fr = since < 110 ? -1 : Math.round(Math.min(1, phase * 1.25) * 3);
+        key = fr < 0 ? "loose" : fr; pose = fr < 0 ? "loose" : "draw"; draw = Math.max(0, fr) / 3;
+      } else {
+        // at ease: two stances, each man on his own slow beat
+        const shift = Math.floor(time / 2.2 + i * 1.7 + (spots[i] % 7) * 0.3) % 5 === 0 ? 1 : 0;
+        key = `rest${shift}`; pose = shift ? "reach" : "rest";
+      }
+      const cv = workFrame(`bow|${big ? 1 : 0}|${key}`, 30, 36, (c) => drawArcher(c, 17, 33, -1, WALL_FOLK.bowman, draw, { big, bowCol: big ? "#3a3a44" : undefined, pose }));
       // shoulder to shoulder they'd hide each other: every other man stands a step back
       if (cv) ctx.drawImage(cv, BOW_X + 2 - 17 + (Math.round(spots[i] / 24) % 2 ? 4 : -1), y - 33, 30, 36);
     }

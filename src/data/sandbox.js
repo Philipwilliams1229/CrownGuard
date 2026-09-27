@@ -200,6 +200,9 @@ export const buildArmy = (s) => {
     waves, roster,
     endlessBoss: bosses[0] || null,
     bosses, bossEvery: s.bossEvery,
+    // an army that escorts its big columns (the Iron Kingdom's magisters)
+    // keeps doing so, unless the escort's type was struck out
+    escort: ids.map((id) => FACTIONS[id].escort).find((e) => e && ok(e.type)) || null,
     // one army swells as it always does; many swell like the gentlest of them
     crowdScale: s.crowd ? Math.min(...ids.map((id) => FACTIONS[id].crowdScale ?? 1)) : 0,
   };

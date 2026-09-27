@@ -62,6 +62,10 @@ gate, scenery, Iron and Fen grounds, apron — ten artists):
   atmosphere.js, the game component) are the lead's to do between rounds.
 - A page reload from a teammate's save breaks a batch of `snap`s ("Failed to
   fetch"); shoot one board per call with a retry when artists are working.
+- In `shots.html`, a marcher may carry a 4th element merged into the foe
+  (`['unseated', 0.5, 0, { dropAt: 7150 }]`). Crop with board coordinates
+  read off a full-board snap: a lab script's own `import()` of path.js can
+  be a different module instance from the page's.
 
 ## Several sessions at once
 
@@ -149,6 +153,16 @@ The owner misclicked when the tower card changed shape between taps, so
 - Two columns on a phone or wherever the board is shorter than ~640 design
   px (the iPad), one column on a tall desktop.
 
+## Castle works are the crown's, everywhere
+
+One castle for the whole campaign: the treasury's works stand at every level
+of every realm (`loadCastle`/`saveCastle` in `src/data/campaign.js` map any
+chapter id to the `crown` castle; Free Play's `free:<realm>` scopes all map
+to one `free` castle). Old per-chapter saves fold in by taking the best tier
+of each work. The wall's bowmen draw only while they have something to
+shoot: `castleCd.loosed` (update.js) holds each one's last shot, and
+render/castle.js stands them at ease (`rest`, now and then `reach`) after.
+
 ## Balance and testing
 
 - `node scripts/sim.mjs --level <id> --endure` — castle damage per wave for
@@ -162,8 +176,31 @@ The owner misclicked when the tower card changed shape between taps, so
 - Levers: the crowd (`crowd`, `CROWD_WEIGHT`, `crowdScale` per faction —
   Greenwood 1, Iron 0.6, Hollow 0.6 — `overlap` in
   `src/data/waves.js`), `SPLASH_CAP` in `src/engine/update.js`, bounty cap and
-  wave bonus, per-level gold in `src/data/campaign.js`, tower stats in
+  wave bonus, per-level gold in `src/data/campaign.js` (and
+  `levels-iron.js` / `levels-hollow.js`), tower stats in
   `src/data/towers.js`, castle works and endless ranks in `src/data/castle.js`.
+- The Iron Marches were retuned 2026-09-27 to be clearly harder than the
+  Greenwood from the first level (the owner beat them "with minimal towers"):
+  bigger script counts (factions.js), tougher bodies (enemies.js), three
+  shield pips on every levy, the Aegis Magister and gryphon riders that fall
+  and march on. Measured with `--endure` over 4 seeds, taking the better of
+  the two doctrines per seed: 1-32 castle damage a level (it was 0-4), while
+  a one-sided army bleeds hundreds — the chapter asks for a mix. Crowd 0.7+
+  or the magister at every 22 heads blew the late levels up tenfold; the
+  bleed sits in each level's OPENING waves, so start gold (and a level's
+  `window.from`) is the finest lever there.
+- Shields (`guard`, the blue pips): each point swallows one discrete blow
+  WHOLE (actions.js dealDamage); burns and poison still bleed through. A
+  ward-caster (`wardEvery/wardHits/wardRange`, `wardFx` for its ring,
+  `wardSelf: false` to leave himself out) tops pips up around him.
+- Escorts: a faction's `escort` ({ type, per, max, from }) sends that foe
+  along with any wave of `per`+ rank and file (waves.js `escortOf`), marked
+  `amid` so startWave spreads it through the middle of the biggest group —
+  the Iron Kingdom's Aegis Magister. It shows in the wave preview like any group.
+- Riders: `splitInto` + `splitDrop` drops the children where a flier died
+  (dazed a moment, `dropAt` makes the renderer drop them from the saddle);
+  `deathSkin` names the rig its death crumbles in (the gryphon's is
+  `gryphonMount`, the empty saddle).
 - Heroes (`src/data/bands.js`): level 1 at the start of every map, up to
   20, with health, damage and ability power rising per level. XP comes ONLY
   from kills (`killXp`: the foe's bounty × `KILL_XP`, doubled for the

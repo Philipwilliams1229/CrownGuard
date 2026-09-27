@@ -253,10 +253,10 @@ function EnemyDetail({ type }) {
         {e.atk > 0 ? <Row label="Vs. knights">{e.atk} damage</Row> : null}
         {e.rangedAtk ? <Row label="Shoots knights">{e.rangedAtk} at {e.rangedRange} range</Row> : null}
         {e.heal ? <Row label="Heals warband">{e.heal} per chant</Row> : null}
-        {e.wardHits ? <Row label="Wards allies">{e.wardHits} blow each</Row> : null}
+        {e.wardHits ? <Row label="Wards allies">{e.wardHits} blow{e.wardHits > 1 ? "s" : ""} each, within {e.wardRange} / {(e.wardEvery / 1000).toFixed(1)}s</Row> : null}
         {e.bannerRange ? <Row label="Banner">+{Math.round(e.bannerSpeed * 100)}% speed, +{Math.round(e.bannerArmor * 100)}% armor</Row> : null}
         {e.summonEvery ? <Row label="Summons">{e.summonCount} {ENEMIES[e.summonType]?.name || e.summonType}{e.summonCount > 1 ? "s" : ""} / {(e.summonEvery / 1000).toFixed(1)}s</Row> : null}
-        {e.splitInto ? <Row label="On death">splits into {e.splitInto[1]} {ENEMIES[e.splitInto[0]]?.name || e.splitInto[0]}s</Row> : null}
+        {e.splitInto ? <Row label="On death">{e.splitDrop ? "drops" : "splits into"} {e.splitInto[1] > 1 ? `${e.splitInto[1]} ` : "its "}{ENEMIES[e.splitInto[0]]?.name || e.splitInto[0]}{e.splitInto[1] > 1 ? "s" : ""}</Row> : null}
         {e.deathBurst ? <Row label="On death">bursts — {e.deathBurst.dmg} dmg to knights + plague ground</Row> : null}
         <Row label="Castle damage">{e.castleDmg}</Row>
       </div>

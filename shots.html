@@ -9,6 +9,8 @@
 
   marchers: [[type, roadFraction, laneOffset], ...]
   extra:    fields merged into the game state (e.g. grounds, effects, time)
+  (a marcher may carry a 4th element: fields merged into that foe, e.g.
+  { dropAt: 7150 } for an unseated knight mid-fall at the default time 7.3)
 -->
 <html>
   <head>
@@ -45,7 +47,7 @@
         const g = {
           time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5,
           towers: [], projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [],
-          enemies: marchers.map(([t, frac, lane]) => mk(t, TOTAL_LEN * frac, lane)),
+          enemies: marchers.map(([t, frac, lane, o]) => ({ ...mk(t, TOTAL_LEN * frac, lane), ...(o || {}) })),
           phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null,
           paused: false, buildUntil: null, ...extra,
         };

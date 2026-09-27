@@ -67,44 +67,51 @@ export const FACTIONS = {
 
   iron: {
     id: "iron",
-    // a drilled army, not a horde: its ranks thicken with the war, but
-    // by little more than half as much as the Greenwood's (retuned 2026-09-26)
+    // a drilled army, and the second chapter: the player arrives knowing the
+    // game, so the Kingdom comes on in bigger, tougher columns from the first
+    // wave (retuned 2026-09-27 — the owner held it with a handful of towers).
+    // Its ranks still thicken with the war by little more than half as much
+    // as the Greenwood's: the size is in the script, not the swell.
     crowdScale: 0.6,
     name: "The Iron Kingdom",
     tag: "AN ARMY",
     tagColor: "#9ab6d8",
-    blurb: "Not a horde — a war machine. Shield walls, crossbows that outrange your knights, gryphons overhead, and siege engines nothing can slow.",
-    types: ["levy", "crossbow", "cavalier", "sergeant", "gryphon", "chaplain", "ram", "marshal"],
+    blurb: "Not a horde — a war machine. Shield walls, crossbows that outrange your knights, gryphons overhead, battle-mages who shield whole columns, and siege engines nothing can slow.",
+    types: ["levy", "crossbow", "cavalier", "sergeant", "gryphon", "unseated", "chaplain", "magister", "ram", "marshal"],
     endlessBoss: "marshal",
+    // An Aegis Magister marches inside any wave that has grown big: one for
+    // every `per` heads of rank and file, up to `max`, from war-wave `from`
+    // on (waves.js escortOf). They walk in the thick of the biggest group.
+    escort: { type: "magister", per: 34, max: 2, from: 4 },
     waves: [
       // I. the border levies — shields up, in step
-      [["levy", 10, 800]],
-      [["levy", 14, 650]],
-      [["levy", 10, 600], ["crossbow", 3, 1200]],
-      [["crossbow", 7, 850], ["levy", 8, 650]],
-      [["cavalier", 5, 1100]],
-      [["sergeant", 4, 1100], ["levy", 12, 550]],
+      [["levy", 18, 600]],
+      [["levy", 24, 460]],
+      [["levy", 18, 440], ["crossbow", 6, 900]],
+      [["crossbow", 10, 700], ["levy", 16, 480]],
+      [["cavalier", 8, 900], ["levy", 12, 480]],
+      [["sergeant", 6, 950], ["levy", 20, 420]],
       // II. the professional army arrives
-      [["levy", 20, 420], ["crossbow", 6, 800]],
-      [["gryphon", 4, 1400], ["crossbow", 6, 800]],
-      [["sergeant", 7, 900], ["levy", 10, 550], ["chaplain", 1, 0]],
-      [["ram", 2, 3000], ["levy", 14, 450], ["crossbow", 5, 850]],
-      [["cavalier", 10, 700], ["sergeant", 6, 900], ["chaplain", 2, 5000]],
-      [["gryphon", 6, 1100], ["levy", 16, 400], ["ram", 1, 0]],
+      [["levy", 24, 380], ["crossbow", 7, 750]],
+      [["gryphon", 5, 1250], ["crossbow", 7, 750], ["levy", 8, 520]],
+      [["sergeant", 8, 850], ["levy", 14, 480], ["chaplain", 1, 0]],
+      [["ram", 2, 3000], ["levy", 18, 420], ["crossbow", 6, 800]],
+      [["cavalier", 12, 620], ["sergeant", 7, 850], ["chaplain", 2, 4800]],
+      [["gryphon", 7, 1000], ["levy", 20, 360], ["ram", 1, 0]],
       // III. the king commits everything
-      [["levy", 28, 300], ["cavalier", 8, 600], ["sergeant", 8, 750]],
-      [["ram", 4, 2400], ["crossbow", 12, 550], ["chaplain", 3, 4200]],
-      [["sergeant", 14, 550], ["chaplain", 3, 3600], ["gryphon", 4, 1200]],
-      [["cavalier", 14, 480], ["ram", 3, 2600], ["levy", 18, 360]],
-      [["ram", 5, 2000], ["sergeant", 10, 650], ["gryphon", 6, 1000], ["chaplain", 3, 4000]],
-      [["levy", 16, 340], ["sergeant", 12, 650], ["chaplain", 3, 2800], ["ram", 4, 2400], ["gryphon", 4, 1100], ["marshal", 1, 0]],
+      [["levy", 32, 280], ["cavalier", 9, 560], ["sergeant", 9, 700]],
+      [["ram", 4, 2400], ["crossbow", 13, 520], ["chaplain", 3, 4200], ["levy", 10, 420]],
+      [["sergeant", 15, 520], ["chaplain", 3, 3600], ["gryphon", 5, 1150]],
+      [["cavalier", 15, 460], ["ram", 3, 2600], ["levy", 22, 340]],
+      [["ram", 5, 2000], ["sergeant", 11, 620], ["gryphon", 6, 1000], ["chaplain", 3, 4000]],
+      [["levy", 20, 320], ["sergeant", 12, 650], ["chaplain", 3, 2800], ["ram", 4, 2400], ["gryphon", 5, 1100], ["marshal", 1, 0]],
     ],
     roster: [
-      { type: "levy", cost: 1.2, gap: 460 },
-      { type: "crossbow", cost: 2, gap: 620 },
-      { type: "cavalier", cost: 3.2, gap: 700 },
-      { type: "sergeant", cost: 5, gap: 850 },
-      { type: "gryphon", cost: 5, gap: 1100 },
+      { type: "levy", cost: 1.2, gap: 440 },
+      { type: "crossbow", cost: 2, gap: 600 },
+      { type: "cavalier", cost: 3.2, gap: 680 },
+      { type: "sergeant", cost: 5, gap: 820 },
+      { type: "gryphon", cost: 5.4, gap: 1050 },
       { type: "chaplain", cost: 8, gap: 4200, cap: 3 },
       { type: "ram", cost: 12, gap: 2600, cap: 4 },
     ],

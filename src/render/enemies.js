@@ -42,6 +42,9 @@ const headroom = (skin) => {
   return h;
 };
 
+// how long and from how high an unseated rider falls (engine: splitDrop)
+const DROP_MS = 420, DROP_H = 17;
+
 export const drawEnemy = (ctx, e, time, tms) => {
   // mixed-party foes carry their drawn look on e.sprite; everyone else
   // wears their type's sheet
@@ -98,6 +101,12 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // fliers hover; small quick critters get a lively hop on their off-frames
   let hover = airborne ? S(Math.sin(time * 3 + e.id) * 3) - (e.boss ? 10 : 7) : 0;
   if (e.swimming) hover = S(Math.sin(time * 2.4 + e.id) * 2);
+  // a knight thrown from a gryphon brought down: he drops from the saddle's
+  // height to the road, gathering speed as he falls, and lands with a bump
+  if (e.dropAt !== undefined && tms - e.dropAt < DROP_MS) {
+    const p = (tms - e.dropAt) / DROP_MS;
+    hover -= p < 0.8 ? S(DROP_H * (1 - (p / 0.8) ** 2)) : S(Math.sin((p - 0.8) / 0.2 * Math.PI) * 1.5);
+  }
   if (!rigged && (e.type === "goblin" || e.type === "wolf" || e.type === "ghoul") && frame % 2 === 1 && !fighting) hover -= CELL;
   if (rigged) {
     // rigged foes: baked frames, feet on the ground line, mirrored to face
@@ -174,12 +183,14 @@ export const drawEnemy = (ctx, e, time, tms) => {
     if (e.armor >= 0.3) { ctx.fillStyle = "#b4bac6"; ctx.fillRect(x0 + w + 2, barY - 1, 3, 3); ctx.fillRect(x0 + w + 3, barY + 2, 1, 1); }
     if (e.mres >= 0.3) { ctx.fillStyle = "#b890e0"; ctx.fillRect(x0 - 5, barY - 1, 3, 3); ctx.fillRect(x0 - 4, barY + 2, 1, 1); }
   }
-  // raised shields / chaplain wards: one pip per blow still to be swallowed,
-  // sitting just under the health bar so you can see them being spent
+  // raised shields / chaplain and magister wards: one pip per blow still to
+  // be swallowed whole, sitting just under the health bar so you can see
+  // them being spent
   if (e.guard > 0) {
     ctx.fillStyle = e.guardFlash > tms ? "#eaf2ff" : "#9ab6d8";
-    for (let i = 0; i < Math.min(4, e.guard); i++) {
-      const gx = e.x - 10 + i * 6;
+    const n = Math.min(4, e.guard);
+    for (let i = 0; i < n; i++) {
+      const gx = e.x - (n * 6 - 2) / 2 + i * 6;
       ctx.fillRect(S(gx), S(barY + 4), CELL * 2, CELL * 2);
       ctx.fillRect(S(gx + 1), S(barY + 6), CELL, CELL);
     }
