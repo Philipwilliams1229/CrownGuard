@@ -286,6 +286,11 @@ textures." What came of it:
 - **Ambient particles** (atmosphere.js) are baked shapes or plus-shaped
   motes on the 2-unit grid, never translucent squares or ruled rows of boxes,
   and nothing blows about over the open sea.
+- **The apron follows the board, never its own copy:** its ground takes
+  `turfTones(R)` and its dither from world.js, its road is road.js's
+  `paintRoadStrip` (points in the direction of march), its sea is coast.js's
+  `coastPixel`, its rivers water.js's `drawRiver`. Change one of those and
+  check the seam in `apron-lab.html` (zoomed across it) on every chapter.
 - **Load cost moved from frames to realm load:** a river board's ground
   layer, spans and gate now bake in ~0.5-0.8 s here (headless, shared CPU).
   Frames got faster; watch the load time on the iPad.

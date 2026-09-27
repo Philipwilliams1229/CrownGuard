@@ -273,12 +273,32 @@ const bushSprite = (leaf, v) => {
 };
 const bush = (ctx, x, y, k, leaf, v) => ctx.drawImage(bushSprite(leaf, v), x - 14 * k, y - 14 * k, 28 * k, 20 * k);
 
-// a snow drift: a long low mound in the ground's own snow, blue in its lee
+// a snow drift: a long low mound of the ground's own snow, straight into the
+// pixels of the sprite being baked — its crest toward the wind (west), a lit
+// band along its top from the upper-left sun, its front face a step down,
+// the lee falling long to the east, and a one-pixel blue line at its foot
 const drift = (ctx, x, y, s, seed, R) => {
-  // (its lee a flat stepped shade, not a soft halo)
-  ctx.fillStyle = rgba(darken(R.GRASS_DK, 0.25), 0.22);
-  ctx.beginPath(); ctx.ellipse(x + 2, y + 1.5, 13 * s, 2.4 * s, 0, 0, Math.PI * 2); ctx.fill();
-  blobBall(ctx, x, y, 14 * s, 3 * s, mix(R.GRASS_LT, "#f4f8fa", 0.5), seed, { hi: 0.55, lo: 0.3, wobble: 0.28, n: 12 });
+  const cv = ctx.canvas, CW = cv.width, CH = cv.height, img = ctx.getImageData(0, 0, CW, CH), d = img.data;
+  const base = mix(R.GRASS_LT, "#eef4f8", 0.3);
+  const C = [mix(base, "#ffffff", 0.3), base, mix(base, "#a9bccc", 0.32), mix(R.GRASS_DK, "#8aa2ba", 0.45)].map(hexRGB);
+  const put = (px, py, c) => { if (px < 0 || py < 0 || px >= CW || py >= CH) return; const o = (py * CW + px) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; };
+  const cx = Math.round(x * PX), cy = Math.round(y * PX), hw = Math.round(12 * s * PX), ht = 2 + Math.round(1.6 * s * PX);
+  const crest = -0.3 + (hash(seed, 3) - 0.5) * 0.2;
+  for (let px = -hw; px <= hw; px++) {
+    const u = px / hw, w = u < crest ? (u - crest) / (1 + crest) : (u - crest) / (1 - crest);
+    // (a lumpy profile, in whole pixels: two slow humps along it)
+    const lump = 0.85 + 0.3 * hash(seed, Math.floor((px + hw) / 7) + 11);
+    const h = Math.round(ht * Math.pow(Math.max(0, 1 - w * w), u < crest ? 0.55 : 0.9) * lump);
+    if (h <= 0) continue;
+    const lit = u < crest + 0.12 ? 2 : u < crest + 0.5 ? 1 : 0;
+    for (let q = 0; q <= h; q++) {
+      const row = cy - h + q;
+      put(cx + px, row, q < lit ? C[0] : q === h && h > 1 ? C[2] : u > crest + 0.55 && q > h / 2 ? C[2] : C[1]);
+    }
+    // the lee: a line of blue under its east side, a pixel down and along
+    if (u > crest - 0.1 && u < 0.97) put(cx + px + 1, cy + 1, C[3]);
+  }
+  ctx.putImageData(img, 0, 0);
 };
 // a bog pool: black water in a sodden rim, a glint of sky
 const pool = (ctx, x, y, s, seed, R) => {
@@ -321,7 +341,7 @@ function paintLow(ctx, kind, R, x, y, h, dens) {
       else ptuft(ctx, x, y, 0.4 + h * 0.35, cols, sd, 3);
       break;
     case "drift":
-      if (h < 0.35) drift(ctx, x, y, 0.55 + h, Math.round(h * 991), R);
+      if (h < 0.35) drift(ctx, x, y, 0.6 + h * 1.2, Math.round(h * 991), R);
       else if (h < 0.7) ptuft(ctx, x, y, 0.4 + h * 0.3, cols, sd, 2);
       else stone(ctx, x, y, 2, 1.3, "#9fb4c2");
       break;
@@ -349,6 +369,10 @@ function paintLow(ctx, kind, R, x, y, h, dens) {
       break;
   }
 }
+
+// how far a piece of small stuff reaches from its foot: [half width, up, down]
+// (the drifts, bushes and pools are the big ones)
+const lowReach = (kind, h, dn) => ((kind === "drift" && h < 0.38) || (kind === "meadow" && h < 0.3 * dn + 0.1) || (kind === "bog" && h < 0.22 * dn + 0.1) ? [26, 14, 8] : [7, 8, 3]);
 
 // The small stuff is stamped, not painted: each look (eight per kind, three
 // thicknesses of cover) is baked once per realm into a little un-inked sprite.
@@ -392,6 +416,7 @@ const INK_C = [36, 26, 38], SHADOW_C = [28, 20, 30];
 // The apron's ground, `r` pixels per world unit, over the world rect
 // [vx0, vx0 + gw/r) x [vy0, vy0 + gh/r). Pixels under the board are left
 // clear. `road`: the road carried off the board ({ pts, segs }) or null.
+const IN = 3;
 function paintGround(vx0, vy0, gw, gh, r, dens, road) {
   const R = REALM, seed = R.seed | 0;
   let T0 = performance.now();
@@ -469,10 +494,13 @@ function paintGround(vx0, vy0, gw, gh, r, dens, road) {
   // the board's pixel grid under each column and row, for the dither
   const colD = new Int32Array(gw), colT = new Int32Array(gw);
   for (let px = 0; px < gw; px++) { const b = Math.floor((vx0 + (px + 0.5) * inv) * RES); colD[px] = b & 127; colT[px] = (b + 53) & 127; }
-  const pxA = Math.max(0, Math.ceil((0.5 - vx0) * r - 0.5)), pxB = Math.min(gw, Math.floor((W - 0.5 - vx0) * r - 0.5) + 1);
+  // (the ground runs on IN units under the board: scaled down smoothly by
+  // the browser, clear pixels there would bleed into the seam's last row
+  // and let the page show through)
+  const pxA = Math.max(0, Math.ceil((IN - vx0) * r - 0.5)), pxB = Math.min(gw, Math.floor((W - IN - vx0) * r - 0.5) + 1);
   for (let py = 0; py < gh; py++) {
     const y = vy0 + (py + 0.5) * inv;
-    const rowIn = y > 0.5 && y < H - 0.5;
+    const rowIn = y > IN && y < H - IN;
     const fy = (y - uy0) * iG, yi = fy | 0, v = fy - yi, rowK = yi * UW;
     const bY = Math.floor(y * RES), drow = (bY & 127) * 128, trow = ((bY + 71) & 127) * 128;
     for (let px = 0; px < gw; px++) {
@@ -482,8 +510,10 @@ function paintGround(vx0, vy0, gw, gh, r, dens, road) {
       const fx = (x - ux0) * iG, xi = fx | 0, u = fx - xi, k = rowK + xi;
       const w01 = (1 - u) * v, w11 = u * v, w00 = (1 - u) - w01, w10 = u - w11;
       const t = tone[k] * w00 + tone[k + 1] * w10 + tone[k + UW] * w01 + tone[k + UW + 1] * w11;
-      if (sea && sea[k] * w00 + sea[k + 1] * w10 + sea[k + UW] * w01 + sea[k + UW + 1] * w11 > -(sandW + 14)) {
-        const c = coastPixel(CT, seaDepthAt(x, y), t, dz, sandW, x, y);
+      const sI = sea ? sea[k] * w00 + sea[k + 1] * w10 + sea[k + UW] * w01 + sea[k + UW + 1] * w11 : -1e9;
+      if (sI > -(sandW + 14)) {
+        // (exact at the seam; farther out the depth field eased off its grid)
+        const c = coastPixel(CT, x > -24 && x < W + 24 && y > -24 && y < H + 24 ? seaDepthAt(x, y) : sI, t, dz, sandW, x, y);
         if (c) { const o = i << 2; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; reg[i] = 2; continue; }
       }
       const sn = sun[k] * w00 + sun[k + 1] * w10 + sun[k + UW] * w01 + sun[k + UW + 1] * w11;
@@ -522,6 +552,9 @@ function paintGround(vx0, vy0, gw, gh, r, dens, road) {
       const n = tn8[i] + s; tn8[i] = n < 0 ? 0 : n > 6 ? 6 : n;
     };
     const turf = (px, py) => px >= 0 && py >= 0 && px < gw && py < gh && reg[py * gw + px] < 2;
+    // (a stroke's far end may fall on the board, or the rim beside the seam
+    // would be left without any)
+    const open = (px, py) => px >= 0 && py >= 0 && px < gw && py < gh && reg[py * gw + px] !== 2;
     const wx0 = Math.floor(vx0 * RES), wy0 = Math.floor(vy0 * RES);   // board px of pixel (0, 0)
     const driftAt = (x, y) => { const wf = smooth((outside(x, y) - 3) / 26); return fieldNoise(seed + 61, 36, x, y, wf); };
     const thin = (x, y) => 1 - 0.75 * smooth((outside(x, y) - 20) / 200);
@@ -537,7 +570,7 @@ function paintGround(vx0, vy0, gw, gh, r, dens, road) {
           const len = 5 + Math.floor(Math.pow(h3, 1.4) * 13);
           const x = vx0 + px * inv, y = vy0 + py * inv;
           const dr = turf(px, py) ? smooth((driftAt(x, y) - 0.3) / 0.45) * thin(x, y) : 0;
-          if (h0 < 0.42 * dr * dr && turf(px + len, py)) {
+          if (h0 < 0.42 * dr * dr && open(px + len, py)) {
             const ah = len > 11 && h4 < 0.5 ? 2 : 1, sk = 0.6 + h4 * 0.6;
             for (let k = 0; k < len; k++) {
               const f = k / (len - 1), yy = py - Math.round(ah * Math.sin(Math.PI * Math.pow(f, sk)));
@@ -614,10 +647,49 @@ const hillOut = () => {
   return HILL;
 };
 
-function paintCragOut(d, reg, gw, gh, vx0, vy0, r) {
+// The crag's pixels don't depend on the screen: they are worked out once per
+// realm (and grain) over the part of the ridge the screen shows, on the
+// ground's own pixel grid, as a list of puts and blends; each paint replays
+// the ones on its canvas onto its ground (a blend over whatever ground lies
+// there). A screen that shows more of it (a turn of the device) works out
+// the union once.
+const CRAGS = new Map();
+let VIEW = [0, 0, W, H];
+function paintCragOut(d, reg, gw, gh, gx0, gy0, r) {
   const Hh = hillOut();
   if (!Hh) return;
+  // (the screen's reach, padded and rounded out to 64 units, so a small
+  // resize finds it already worked out)
+  const Q = 64, key = `${REALM.id}|${r}`;
+  const need = [Math.floor((VIEW[0] - 40) / Q) * Q, Math.floor((VIEW[1] - 40) / Q) * Q, Math.ceil((VIEW[2] + 40) / Q) * Q, Math.ceil((VIEW[3] + 90) / Q) * Q];
+  let ops = CRAGS.get(key);
+  const same = ops && ops.C === Hh.C, q0 = same && ops.req;
+  if (!same || need[0] < q0[0] || need[1] < q0[1] || need[2] > q0[2] || need[3] > q0[3]) {
+    if (CRAGS.size > 8) CRAGS.clear();
+    const req = same ? [Math.min(need[0], q0[0]), Math.min(need[1], q0[1]), Math.max(need[2], q0[2]), Math.max(need[3], q0[3])] : need;
+    ops = cragOps(Hh, r, req); ops.req = req; CRAGS.set(key, ops);
+  }
+  const { oi, oc, n, VW } = ops;
+  if (!n) return;
+  const dx = ops.ox - Math.round(gx0 * r), dy = ops.oy - Math.round(gy0 * r);
+  for (let q = 0; q < n; q++) {
+    let v = oi[q];
+    const bl = v < 0;
+    if (bl) v = -v - 1;
+    const vy = (v / VW) | 0, px = v - vy * VW + dx, py = vy + dy;
+    if (px < 0 || py < 0 || px >= gw || py >= gh) continue;
+    const i = py * gw + px;
+    if (reg[i] === 3) continue;
+    const c = oc[q], o = i << 2;
+    if (bl) {
+      const a = (c >>> 24) / 255;
+      d[o] += ((c & 255) - d[o]) * a; d[o + 1] += (((c >> 8) & 255) - d[o + 1]) * a; d[o + 2] += (((c >> 16) & 255) - d[o + 2]) * a;
+    } else { d[o] = c & 255; d[o + 1] = (c >> 8) & 255; d[o + 2] = (c >> 16) & 255; d[o + 3] = 255; reg[i] = 2; }
+  }
+}
+function cragOps(Hh, r, box) {
   let TC = performance.now();
+  const OI = [], OC = [], res = { C: Hh.C, n: 0 };
   const R = REALM, C = Hh.C, { seed, mx, my, nx, ny, tx, ty, FL } = C, mat = cragMatOf(R);
   // the ridge's reach in the world, and the part of it on this canvas
   let X0 = 1e9, Y0 = 1e9, X1 = -1e9, Y1 = -1e9;
@@ -625,11 +697,16 @@ function paintCragOut(d, reg, gw, gh, vx0, vy0, r) {
     const x = mx + tx * s + nx * u, y = my + ty * s + ny * u;
     X0 = Math.min(X0, x); X1 = Math.max(X1, x); Y0 = Math.min(Y0, y); Y1 = Math.max(Y1, y);
   }
-  const inv = 1 / r, vx1 = vx0 + gw * inv, vy1 = vy0 + gh * inv;
-  X0 = Math.max(X0, vx0 - 2); X1 = Math.min(X1, vx1 + 2); Y0 = Math.max(Y0, vy0 - 2); Y1 = Math.min(Y1, vy1 + 60);
-  if (X0 >= X1 || Y0 >= Y1) return;
+  // (only the part the screen shows, and what can cast or rise into it)
+  X0 = Math.max(X0, box[0]); X1 = Math.min(X1, box[2]); Y0 = Math.max(Y0, box[1]); Y1 = Math.min(Y1, box[3]);
+  if (X0 >= X1 || Y0 >= Y1) return res;
   // (all of it under the board: nothing to do)
-  if (X0 > 0 && X1 < W && Y0 > 0 && Y1 - 50 < H) return;
+  if (X0 > 0 && X1 < W && Y0 > 0 && Y1 - 50 < H) return res;
+  // a canvas of its own over the ridge's box, on the ground's pixel grid
+  const ox = Math.floor((X0 - 2) * r), oy = Math.floor((Y0 - 62) * r);
+  const vx0 = ox / r, vy0 = oy / r, gw = Math.ceil((X1 + 2) * r) - ox, gh = Math.ceil((Y1 + 2) * r) - oy;
+  const inv = 1 / r, vx1 = vx0 + gw * inv, vy1 = vy0 + gh * inv;
+  Object.assign(res, { ox, oy, VW: gw });
   // heights every 2 units, eased between
   const S = 2, HX = Math.ceil((X1 - X0) / S) + 3, HY = Math.ceil((Y1 - Y0) / S) + 3;
   // (filled as they're asked for: most of the ridge's box lies under the
@@ -675,11 +752,12 @@ function paintCragOut(d, reg, gw, gh, vx0, vy0, r) {
   const c0 = Math.max(0, Math.floor((X0 - vx0) * r)), c1 = Math.min(gw - 1, Math.ceil((X1 - vx0) * r));
   const r0 = Math.max(0, Math.floor((Y0 - vy0 - 60) * r)), r1 = Math.min(gh - 1, Math.ceil((Y1 - vy0) * r));
   const BW = c1 - c0 + 1, BH = r1 - r0 + 1;
-  if (BW <= 0 || BH <= 0) return;
+  if (BW <= 0 || BH <= 0) return res;
   const kindB = new Uint8Array(BW * BH), zB = new Float32Array(BW * BH), lB = new Float32Array(BW * BH), castB = new Uint8Array(BW * BH), cellB = new Int32Array(BW * BH);
   const gB = new Float32Array(BW * BH);   // the world y of the ground each pixel shows
-  const put = (i, c) => { const o = i << 2; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; };
-  const blend = (i, c, a) => { const o = i << 2, k = a / 255; d[o] += (c[0] - d[o]) * k; d[o + 1] += (c[1] - d[o + 1]) * k; d[o + 2] += (c[2] - d[o + 2]) * k; };
+  const put = (i, c) => { OI.push(i); OC.push((c[0] | (c[1] << 8) | (c[2] << 16) | (255 << 24)) >>> 0); };
+  const blend = (i, c, a) => { OI.push(-i - 1); OC.push((c[0] | (c[1] << 8) | (c[2] << 16) | (a << 24)) >>> 0); };
+  const done = () => { res.oi = Int32Array.from(OI); res.oc = Uint32Array.from(OC); res.n = OI.length; return res; };
   const G0 = Math.ceil((Y1 - vy0) * r);   // the nearest ground row, in canvas rows
   const Gtop = Math.floor((Y0 - vy0) * r);
   // the crag, front to back per column (each ground row paints from where it
@@ -700,9 +778,10 @@ function paintCragOut(d, reg, gw, gh, vx0, vy0, r) {
       if (sp >= front) continue;
       const ck = cellOf(x, y);
       const l = ck < 0 ? Lz : Lc[ck], g = ck < 0 ? 0 : Gc[ck], cast = ck < 0 ? 0 : Cc[ck];
+      const steepG = g > (mat.bare ? 1.7 : 1.15) + (vnoise(seed + 5, 2.5, x, y) - 0.5) * 0.9;
       for (let q = Math.max(r0, sp); q < Math.min(front, r1 + 1); q++) {
         const b = (q - r0) * BW + (px - c0);
-        const steep = g > (mat.bare ? 1.7 : 1.15) + (vnoise(seed + 5, 2.5, x, y) - 0.5) * 0.9 || q > sp + 1;
+        const steep = steepG || q > sp + 1;
         kindB[b] = steep ? 1 : 2; zB[b] = z - (q - sp) * inv; lB[b] = l; castB[b] = cast; gB[b] = y;
       }
       front = Math.max(r0, sp);
@@ -713,7 +792,7 @@ function paintCragOut(d, reg, gw, gh, vx0, vy0, r) {
   // (the rest only looks inside the box the crag actually covers, a pixel or two round it)
   let tb0 = BH, tb1 = -1, tc0 = BW, tc1 = -1;
   for (let by = 0; by < BH; by++) for (let bx = 0, row = by * BW; bx < BW; bx++) if (kindB[row + bx]) { if (by < tb0) tb0 = by; if (by > tb1) tb1 = by; if (bx < tc0) tc0 = bx; if (bx > tc1) tc1 = bx; }
-  if (tb1 < 0) return;
+  if (tb1 < 0) return res;
   tb0 = Math.max(0, tb0 - 3); tb1 = Math.min(BH - 1, tb1 + 3); tc0 = Math.max(0, tc0 - 2); tc1 = Math.min(BW - 1, tc1 + 2);
   // stone in blocks: each rock pixel belongs to the nearest of a scatter of
   // seeds in 3D (the board's own cells, in world units, so they carry on)
@@ -732,7 +811,8 @@ function paintCragOut(d, reg, gw, gh, vx0, vy0, r) {
   };
   for (let by = tb0; by <= tb1; by++) for (let b = by * BW + tc0, be = by * BW + tc1; b <= be; b++) if (kindB[b] === 1) cellB[b] = vor(vx0 + ((b % BW) + c0 + 0.5) * inv, gB[b], zB[b]);
   const idx = (b) => (((b / BW) | 0) + r0) * gw + (b % BW) + c0;
-  const apronPx = (b) => reg[idx(b)] !== 3;
+  // (the board's pixels: the ground runs IN units under it, as paintGround's)
+  const apronPx = (b) => { const x = vx0 + ((b % BW) + c0 + 0.5) * inv, y = vy0 + (((b / BW) | 0) + r0 + 0.5) * inv; return !(x > IN && x < W - IN && y > IN && y < H - IN); };
   PROF.cVor = (PROF.cVor || 0) + performance.now() - TC; TC = performance.now();
   // the crag's shadow on the field first
   let lastKey = -1, lastSh = false;
@@ -769,7 +849,7 @@ function paintCragOut(d, reg, gw, gh, vx0, vy0, r) {
       if (dn && lava && vnoise(seed + 12, 11, wxp, wyp) > 0.7) col = lava;
       else if (dn2 && lava && vnoise(seed + 12, 11, wxp, wyp + 1) > 0.7) col = lavaDk;
       else if (moss && !dn && !rt && ((up || up2 || (up3 && hash(bx, seed + 14) < 0.5)) && patch > (mat.snow ? 0.42 : 0.58) || patch > 0.72 && (mat.snow || hash(bx >> 1, by >> 1) < 0.85))) col = moss[Math.min(2, Math.max(0, (up ? 0 : 1) + castB[b]))];
-      put(i, col); reg[i] = 2;
+      put(i, col);
     } else {
       const l = lB[b], z = zB[b];
       // the low foot is left to the field, along a ragged line
@@ -779,7 +859,7 @@ function paintCragOut(d, reg, gw, gh, vx0, vy0, r) {
         t = (l > 0.96 ? 0 : l > 0.52 ? 1 : l > 0.28 ? 2 : 3) + castB[b];
         t = Math.max(0, Math.min(4, t + (t === 1 && vnoise(seed + 8, 4, wxp, wyp) > 0.8 ? -1 : 0) + (vnoise(seed + 3, 9, wxp, wyp) < 0.16 ? 1 : 0)));
       }
-      put(i, top[t]); reg[i] = 2;
+      put(i, top[t]);
     }
   }
   PROF.cPaint = (PROF.cPaint || 0) + performance.now() - TC; TC = performance.now();
@@ -806,6 +886,7 @@ function paintCragOut(d, reg, gw, gh, vx0, vy0, r) {
     if (apronPx(b + BW)) blend(idx(b + BW), SHADOW_C, 120);
     if (apronPx(b + 2 * BW)) blend(idx(b + 2 * BW), SHADOW_C, 60);
   }
+  return done();
 }
 
 // ---- the Marches' paving, carried on --------------------------------------
@@ -823,7 +904,7 @@ function paveOut(g, lx0, ly0, lw, lh, k, road) {
   // (a flag gone: moss and turf in its hole, near the flags' own value so it
   // reads as a grassed-over stone, not a hole, in the camp's dark)
   const gone = [mix(main, "#6a7a4a", 0.35), mix(main, R.GRASS, 0.45), mix(mix(main, dk, 0.3), R.GRASS_DK, 0.3)].map(hexRGB);
-  const jointC = hexRGB(mix(main, dk, 0.62)), mossC = hexRGB(mix(R.TUFT || R.GRASS_DK, R.GRASS_DK, 0.4));
+  const jointC = hexRGB(mix(main, dk, 0.62)), mossC = hexRGB(mix(R.TUFT || R.GRASS_DK, R.GRASS_DK, 0.4)), verge = hexRGB(mix(R.GRASS_DK, dk, 0.3));
   const HALF = PATH_HALF, KERB = HALF - 4.5, KOUT = HALF - 1;
   const RI = road.I, pts = road.pts, n = pts.length, cum = RI.cum;
   // where it leaves the board: the courses start there
@@ -836,8 +917,9 @@ function paveOut(g, lx0, ly0, lw, lh, k, road) {
       if (outside(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f) > 0) { aE = cum[i - 1] + t; break; }
     }
   }
-  const course = [aE], kerbs = [[aE - 3], [aE - 7]];
-  for (let c = 0; course[c] < cum[n - 1]; c++) course.push(course[c] + 5 + hash(c, seed + 301) * 6.5);
+  // (and one course under the board's edge, for the ground running on there)
+  const course = [aE - 6, aE], kerbs = [[aE - 3], [aE - 7]];
+  for (let c = 1; course[c] < cum[n - 1]; c++) course.push(course[c] + 5 + hash(c, seed + 301) * 6.5);
   for (const side of [0, 1]) { const K = kerbs[side]; for (let c = 0; K[c] < cum[n - 1]; c++) K.push(K[c] + 6 + hash(c * 2 + side, seed + 303) * 5); }
   const find = (arr, a) => { let lo = 0, hi = arr.length - 1; if (a < arr[0]) return -1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (arr[m] <= a) lo = m; else hi = m; } return lo; };
   const breaks = new Map();
@@ -846,33 +928,45 @@ function paveOut(g, lx0, ly0, lw, lh, k, road) {
     if (!b) { b = []; for (let v = -KERB + 3 + hash(c, seed + 305) * 7, q = 0; v < KERB - 3; v += 5 + hash(c * 16 + q++, seed + 307) * 9) b.push(v); breaks.set(c, b); }
     return b;
   };
-  const img = g.getImageData(0, 0, lw, lh), d = img.data;
-  const ids = new Int32Array(lw * lh).fill(-1), tn = new Uint8Array(lw * lh), nearK = new Uint8Array(lw * lh);
   // the camp's gate stands in the dark of the wood (scenery-iron.js bakeCamp):
-  // the column comes out of it, so out here the road lies in it
-  const camp = R.spawn === "ironcamp", DARK = HALF + 16, acr = camp ? new Float32Array(lw * lh).fill(1e9) : null;
+  // the column comes out of it, so out here the road starts in it
+  const camp = R.spawn === "ironcamp", DARK = HALF + 16, DR = DARK + 6;
   const ik = 1 / k;
   const toneOf = new Map();
-  // (only the pixels in the road's own buckets)
+  // (only the pixels in the road's own buckets, in the box round them)
   const cells = [];
+  let bx0 = lw, by0 = lh, bx1 = 0, by1 = 0;
   for (const key of RI.buckets.keys()) {
     const cx = Math.floor(key / 8192) - 4096, cy = (key % 8192) - 4096;
     const X0 = Math.max(0, Math.floor((cx * RI.CB - lx0) * k)), X1 = Math.min(lw, Math.ceil(((cx + 1) * RI.CB - lx0) * k));
     const Y0 = Math.max(0, Math.floor((cy * RI.CB - ly0) * k)), Y1 = Math.min(lh, Math.ceil(((cy + 1) * RI.CB - ly0) * k));
-    if (X1 > X0 && Y1 > Y0) cells.push([X0, X1, Y0, Y1, RI.buckets.get(key)]);
+    if (X1 > X0 && Y1 > Y0) {
+      cells.push([X0, X1, Y0, Y1, RI.buckets.get(key)]);
+      bx0 = Math.min(bx0, X0); bx1 = Math.max(bx1, X1); by0 = Math.min(by0, Y0); by1 = Math.max(by1, Y1);
+    }
   }
+  if (!cells.length) return;
+  const BW = bx1 - bx0, BH = by1 - by0, NB = BW * BH;
+  const img = g.getImageData(bx0, by0, BW, BH), d = img.data;
+  const ids = new Int32Array(NB).fill(-1), tn = new Uint8Array(NB), nearK = new Uint8Array(NB);
+  const acr = camp ? new Float32Array(NB).fill(1e9) : null, alr = camp ? new Float32Array(NB) : null;
   for (const [X0, X1, Y0, Y1, l] of cells) for (let py = Y0; py < Y1; py++) {
     const y = ly0 + (py + 0.5) * ik;
     for (let px = X0; px < X1; px++) {
       const x = lx0 + (px + 0.5) * ik;
-      if (outside(x, y) <= 0) continue;
+      // (under the board, but for the few units the ground runs on under it)
+      if (x > IN + 1 && x < W - IN - 1 && y > IN + 1 && y < H - IN - 1) continue;
       const dist = RI.dist(x, y, l), best = dist * dist, al = RI.al, v = RI.v;
-      const av = Math.abs(v);
-      if (camp && best < DARK * DARK) acr[py * lw + px] = Math.sqrt(best);
-      if (av >= KOUT) continue;
+      const av = Math.abs(v), bi = (py - by0) * BW + px - bx0;
+      if (camp && best < DR * DR) { acr[bi] = dist; alr[bi] = al; }
+      // (farther out the verge creeps over the kerbs and the strip's edge, a
+      // unit at a time)
+      const eat = av > KERB - 6 ? smooth((al - aE - 10) / 90) * (1.5 + 5.5 * hash(Math.floor(x) * 5 + seed, Math.floor(y) * 11 + 7)) : 0;
+      if (av >= KOUT + (eat > 1 ? 3 : 0)) continue;
       const far = smooth((al - aE - 50) / 340);
       let id, t;
-      if (av < KERB) {
+      if (eat && av > KOUT - eat) { id = 3e6; t = 30; }
+      else if (av < KERB) {
         const c = find(course, al);
         if (c < 0) continue;
         const b = breaksOf(c);
@@ -897,33 +991,47 @@ function paveOut(g, lx0, ly0, lw, lh, k, road) {
           toneOf.set(id, t);
         }
       }
-      const i = py * lw + px;
-      ids[i] = id; tn[i] = t; nearK[i] = av > KERB - 3 ? 1 : 0;
+      ids[bi] = id; tn[bi] = t; nearK[bi] = av > KERB - 3 ? 1 : 0;
     }
   }
   // (its stepped bands on the camp's own ordered dither, on the board's grid)
   const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], campY0 = Math.max(0, Math.floor(PTS[0][1] - 130));
+  // At the seam it is the board's own dark, level for level: full on the road,
+  // easing off over twenty units to the verge's edge in its ordered steps.
+  // Out along the road it eases off to a dim way through the wood (the wood's
+  // own shade, not a slab), its sides broken in one-unit blocks and its steps
+  // settling from the ordered dither into plain bands.
   const darkIn = (i, px, py) => {
     const a = acr[i];
-    if (a >= DARK) return;
-    const bx = Math.floor((lx0 + (px + 0.5) * ik) * PX), by = Math.floor((ly0 + (py + 0.5) * ik) * PX) - campY0 * PX;
-    const lvl = Math.min(4, Math.floor(Math.min(1, (DARK - a) / 20) * 4 + B4[(by & 3) * 4 + (bx & 3)] / 16));
+    if (a >= DR) return;
+    const x = lx0 + (px + 0.5) * ik, y = ly0 + (py + 0.5) * ik, out = Math.max(0, alr[i] - aE);
+    const jt = smooth(out / 16), blk = hash(Math.floor(x) * 7 + seed, Math.floor(y) * 3 + 1), wv = vnoise(seed + 401, 13, x, y);
+    // (its sides, and the steps along it, ragged: a slow wander and one-unit blocks)
+    const ae = a + jt * (8 * wv + 4 * blk - 7), oj = out + jt * (26 * (wv - 0.5) + 10 * (blk - 0.5));
+    let aa = clamp01((DARK - ae) / 20) * (1 - 0.55 * smooth(oj / 90));
+    // (and farther out the sun comes through the canopy in pools on it)
+    const sp = vnoise(seed + 67, 4.5, x + y * 0.3, y) * 0.75 + vnoise(seed + 71, 11, x, y) * 0.25 + blk * 0.05;
+    if (sp > 0.66) aa -= smooth((out - 20) / 40) * (sp > 0.73 ? 0.3 : 0.17);
+    const bx = Math.floor(x * PX), by = Math.floor(y * PX) - campY0 * PX;
+    const dth = B4[(by & 3) * 4 + (bx & 3)] / 16, q = dth + (0.5 - dth) * smooth(out / 30);
+    const lvl = Math.min(4, Math.floor(aa * 4 + q));
     if (lvl <= 0) return;
     const o = i << 2, al = [0, 60, 110, 160, 205][lvl] / 255;
     d[o] = Math.round(d[o] * (1 - al) + 14 * al); d[o + 1] = Math.round(d[o + 1] * (1 - al) + 14 * al); d[o + 2] = Math.round(d[o + 2] * (1 - al) + 18 * al);
   };
-  const seen = new Uint8Array(lw * lh);
+  const seen = new Uint8Array(NB);
   for (const [X0, X1, Y0, Y1] of cells) for (let py = Y0; py < Y1; py++) for (let px = X0; px < X1; px++) {
-    const i = py * lw + px, id = ids[i];
+    const i = (py - by0) * BW + px - bx0, id = ids[i];
     if (seen[i]) continue;
     seen[i] = 1;
     if (id < 0) { if (camp) darkIn(i, px, py); continue; }
     const other = (j) => ids[j] !== id;
-    const dn = py < lh - 1 && other(i + lw), rt = px < lw - 1 && other(i + 1);
-    const upO = py > 0 && other(i - lw), lf = px > 0 && other(i - 1);
-    const t = tn[i], kerb = t >= 10;
+    const dn = py < by1 - 1 && other(i + BW), rt = px < bx1 - 1 && other(i + 1);
+    const upO = py > by0 && other(i - BW), lf = px > bx0 && other(i - 1);
+    const t = tn[i], kerb = t >= 10 && t < 20;
     let c;
-    if (t >= 20) c = hash(px * 3, py * 5 + seed) < 0.18 ? mossC : gone[t - 20];
+    if (t === 30) c = hash(px * 3, py * 5 + seed) < 0.3 ? mossC : verge;
+    else if (t >= 20) c = hash(px * 3, py * 5 + seed) < 0.18 ? mossC : gone[t - 20];
     else if (dn || rt) c = nearK[i] && hash(px, py + seed) < 0.3 ? mossC : jointC;
     else if (kerb) c = kerbT[upO || lf ? 0 : t - 10];
     else c = tones[upO || lf ? Math.max(0, t - 1) : t + (hash(px * 7, py * 13 + seed) < 0.07 ? 1 : 0)];
@@ -931,7 +1039,7 @@ function paveOut(g, lx0, ly0, lw, lh, k, road) {
     d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
     if (camp) darkIn(i, px, py);
   }
-  g.putImageData(img, 0, 0);
+  g.putImageData(img, bx0, by0);
 }
 
 // ---- the castle wall, running on past the top and bottom -------------------
@@ -1031,15 +1139,23 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
   //    all round the seam, frayed at its outer edge, laid over it
   const ix = Math.max(0, Math.min(W, vx1) - Math.max(0, vx0)), iy = Math.max(0, Math.min(H, vy1) - Math.max(0, vy0));
   const area = (vx1 - vx0) * (vy1 - vy0) - ix * iy;
-  const r = Math.max(0.75, Math.min(RES, Math.sqrt(4.5e5 / Math.max(1, area))));
+  // (a coarse grain in eighths, so a turn of the device finds the crag it baked)
+  const r0 = Math.sqrt(4.5e5 / Math.max(1, area)), r = r0 >= RES ? RES : Math.max(0.75, Math.floor(r0 * 8) / 8);
   // (the road ends in the gate's crag where there is one; only the chapters'
   // camps and barrows stand at an edge the road runs on past)
-  const road = (() => { const pts = hasCrag(R) ? null : roadOut(); return pts ? { pts, segs: segsOf(pts), I: roadIndex(pts) } : null; })();
+  // (and only as far as the screen reaches: it keeps heading away)
+  const road = (() => {
+    let pts = hasCrag(R) ? null : roadOut();
+    if (!pts) return null;
+    const m = 70, q = pts.findIndex(([x, y]) => x < vx0 - m || x > vx1 + m || y < vy0 - m || y > vy1 + m);
+    if (q > 0) pts = pts.slice(0, q + 2);
+    return { pts, segs: segsOf(pts), I: roadIndex(pts) };
+  })();
   const rivers = riversOut();
   const layer = (x0, y0, x1, y1, k, fray) => {
     const lx0 = Math.floor(x0 * k) / k, ly0 = Math.floor(y0 * k) / k;
     const lw = Math.ceil((x1 - lx0) * k), lh = Math.ceil((y1 - ly0) * k);
-    const cv = paintGround(lx0, ly0, lw, lh, k, dens, road, fray);
+    const cv = paintGround(lx0, ly0, lw, lh, k, dens, road);
     let T0 = performance.now();
     const g = cv.getContext("2d");
     // the rivers and the road into the ground's own pixels, at its grain
@@ -1047,7 +1163,7 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
     // its area, and the board has its own)
     if (rivers.length) {
       const X1 = lx0 + lw / k, Y1 = ly0 + lh / k;
-      const strips = [[lx0, ly0, Math.min(X1, 2), Y1], [Math.max(lx0, W - 2), ly0, X1, Y1], [Math.max(lx0, 0), ly0, Math.min(X1, W), Math.min(Y1, 2)], [Math.max(lx0, 0), Math.max(ly0, H - 2), Math.min(X1, W), Y1]];
+      const e = IN + 1, strips = [[lx0, ly0, Math.min(X1, e), Y1], [Math.max(lx0, W - e), ly0, X1, Y1], [Math.max(lx0, e), ly0, Math.min(X1, W - e), Math.min(Y1, e)], [Math.max(lx0, e), Math.max(ly0, H - e), Math.min(X1, W - e), Y1]];
       for (const [a, b, c2, e] of strips) {
         if (c2 - a < 1 || e - b < 1) continue;
         const sw = Math.round((c2 - a) * k), sh = Math.round((e - b) * k);
@@ -1082,9 +1198,23 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
     return { cv, x: lx0, y: ly0, w: lw / k, h: lh / k };
   };
   PROF = { grid: 0, px: 0, fleck: 0, crag: 0, river: 0, road: 0 };
-  const layers = [layer(vx0, vy0, vx1, vy1, r, 0)];
+  // (each side's strip on a canvas of its own, not one the size of the
+  // screen with the board's hole in it; the strips above and below overlap
+  // the side ones by a few units, so no seam can open between them)
+  const E = IN + 2, OV = 4;
+  VIEW = [vx0, vy0, vx1, vy1];
+  const sideStrips = (x0, y0, x1, y1, k, fray) => {
+    const out = [];
+    if (x0 < 0) out.push(layer(x0, y0, E, y1, k, fray));
+    if (x1 > W) out.push(layer(W - E, y0, x1, y1, k, fray));
+    const sx0 = x0 < 0 ? E - OV : x0, sx1 = x1 > W ? W - E + OV : x1;
+    if (y0 < 0 && sx1 > sx0) out.push(layer(sx0, y0, sx1, E, k, fray));
+    if (y1 > H && sx1 > sx0) out.push(layer(sx0, H - E, sx1, y1, k, fray));
+    return out;
+  };
+  const layers = sideStrips(vx0, vy0, vx1, vy1, r, 0);
   const BAND = 44;
-  if (r < RES - 0.01) layers.push(layer(Math.max(vx0, -BAND), Math.max(vy0, -BAND), Math.min(vx1, W + BAND), Math.min(vy1, H + BAND), RES, BAND));
+  if (r < RES - 0.01) layers.push(...sideStrips(Math.max(vx0, -BAND), Math.max(vy0, -BAND), Math.min(vx1, W + BAND), Math.min(vy1, H + BAND), RES, BAND));
   const tG = performance.now();
 
   // scaled the way the board's own canvas is (smoothly, by the browser), so
@@ -1113,13 +1243,19 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
   for (let j = Math.floor(ly0 / lc); j <= Math.ceil(ly1 / lc); j++) {
     for (let i = Math.floor(lx0 / lc); i <= Math.ceil(lx1 / lc); i++) {
       const h = hash(seed + i * 131, j * 7 + 5);
-      const x = (i + 0.2 + hash(seed + i, j * 3 + 1) * 0.6) * lc, y = (j + 0.2 + hash(seed + j, i * 3 + 2) * 0.6) * lc;
+      const x = (i + 0.08 + hash(seed + i, j * 3 + 1) * 0.84) * lc, y = (j + 0.1 + hash(seed + j, i * 3 + 2) * 0.8) * lc;
       const od = outside(x, y);
-      if (od < 6 || hits(x, y, "rock", 0.5)) continue;
-      // quieter with distance: the small stuff thins out as the light fails
-      if (hash(seed + i * 23, j * 29) < 0.7 * smooth((od - 60) / 220)) continue;
+      if (od < 4) continue;
+      // quieter with distance: the small stuff thins out as the light fails;
+      // and sparse in the first rows, so they never line up along the seam
+      if (hash(seed + i * 23, j * 29) < 0.7 * smooth((od - 60) / 220) + 0.5 * (1 - smooth((od - 6) / 44))) continue;
       const dn = dens(x, y);
       if (hash(seed + i * 17, j * 19) > 0.3 + dn * 0.55) continue;
+      // (clear of the board by its whole sprite, and never on the castle
+      // wall running on above and below it)
+      const [rw, ru, rd] = lowReach(B.low, h, dn);
+      if (x + rw > 0 && x - rw < W && y + rd > 0 && y - ru < H) continue;
+      if (x + rw > W - WALL_W - 6 && x - rw < W + 14 && (y < 0 || y > H)) continue;
       if (wet(x, y, 4) || onRoad(x, y, 4) || (hill && hill.at(x, y) > 1)) continue;
       stampLow(ctx, B.low, R, x, y, h, dn);
     }
@@ -1154,9 +1290,11 @@ export function paintApron(canvas, { cssW, cssH, dpr = 1, board }) {
     }
   }
   // the board's own pieces that cross its edge carry on out here
+  // (one the board stands up on the gate's crag reaches higher by its lift;
+  // drawTree lifts it itself)
   for (const d of DECOR) {
-    const s = d.s || 1, [hw, up, dn] = reachOf(d.t, s);
-    if (d.x - hw < 0 || d.x + hw > W || d.y - up < 0 || d.y + dn > H) items.push(d);
+    const s = d.s || 1, [hw, up, dn] = reachOf(d.t, s), z = d.forest && hill ? hill.at(d.x, d.y) : 0;
+    if (d.x - hw < 0 || d.x + hw > W || d.y - up - z < 0 || d.y + dn > H) items.push(d);
   }
   items.sort((a, b) => a.y - b.y);
   for (const d of items) {
