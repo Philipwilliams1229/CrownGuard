@@ -492,7 +492,7 @@ export const MAGE_FOLK = {
   base: { skin: "#e8b990", robe: "#5a4a8c", hat: "#3f3468", trim: "#d8b34a", beard: "#e8e0d0" },
   a: { skin: "#e8b990", robe: "#8a3a2e", hat: "#5a2420", trim: "#e8a040", beard: "#e8e0d0" },
   aa: { skin: "#e8b990", robe: "#9a2420", hat: "#6a1616", trim: "#f0c050", beard: "#e8e0d0" },
-  ab: { skin: "#e8b990", robe: "#3e3036", hat: "#2a2026", trim: "#e0a040", beard: "#d8cfc0" },
+  ab: { skin: "#e8b990", robe: "#c05a24", hat: "#2e2228", trim: "#f0c050", beard: "#e8e0d0" },
   b: { skin: "#e8b990", robe: "#2e4a7a", hat: "#1f3252", trim: "#8ce8f0", beard: "#e8e0d0" },
   ba: { skin: "#e8b990", robe: "#24406e", hat: "#182a48", trim: "#a8f0f8", beard: "#e8e0d0" },
   bb: { skin: "#e8b990", robe: "#3a3a80", hat: "#22224e", trim: "#f0e070", beard: "#e8e0d0" },

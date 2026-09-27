@@ -10,12 +10,13 @@
 //       his shots: one flame per shot since the last firestorm (t.poolIdx
 //       0..4), all five blazing when the next fireball is the firestorm,
 //       which leaves with a white-gold flash.
-//     Dragonbreath: sooty dark stone, a red dragon perched on the back of
-//       the spire — wings spread either side, tail hung down the shaft, its
-//       neck arched over the mage and its head beside him. It is a
-//       flamethrower: while t.breath.on > 0 the jaws gape and glow and the
-//       jet (render/flames.js) leaves from breathMouth(t), at the jaws.
-//       Between breaths the jaws close and smoke curls from the nostrils.
+//     Dragonbreath: sooty dark stone, scorched earth, two horned dragon
+//       skulls on posts at the back corners, their sockets smouldering.
+//       No orbs: while t.breath.on > 0 the mage braces with his staff
+//       levelled at the foe, his robe streaming back, a furnace-bright
+//       spell-ring at the staff head — the flamethrower's jet (render/
+//       flames.js) leaves from breathMouth(t), at that ring. Between
+//       breaths he idles like any mage and the skulls breathe smoke.
 //   Stormcaller — blue slate, a copper rod behind him, runes that hum.
 //     Tempest Court: two tesla coils throwing arcs across the walk and a
 //       storm cloud turning overhead.
@@ -23,7 +24,7 @@
 //       black cloud above that strikes it.
 // The mage anticipates each shot — the orb swells as the cooldown runs out
 // — then drives his staff at the foe (Dragonbreath's orb follows the
-// breath instead: it never fires, it points the dragon).
+// breath instead: it never fires; the jet leaves his levelled staff).
 //
 // Three baked layers per form (ground, body, front lip); lights, fire,
 // lightning, runes and the mage are live.
@@ -53,9 +54,11 @@ const STONE = { base: "#8e889a", a: "#9a7a6c", aa: "#c4a07a", ab: "#6e5c56", b: 
 const ORB = { base: "#b08ad8", a: "#f0903a", aa: "#ff8a2a", ab: "#f8b040", b: "#8ce8f0", ba: "#a8f0f8", bb: "#f0e070" };
 const TRIM = { base: "#d8b34a", a: "#e8a040", aa: "#e8c050", ab: "#c8883a", b: "#8cc8e0", ba: "#a8e0f0", bb: "#e8c14a" };
 const CLOTH = { base: "#5a4a8c", a: "#a0402e", aa: "#9a1e22", ab: "#7a2420", b: "#2e5a8a", ba: "#24507a", bb: "#4a3a80" };
-// the dragon's hide (Dragonbreath)
-const DRAKE = { hide: "#b0382a", dark: "#6a1e1a", belly: "#e0a848", horn: "#ecdcb8", wing: "#8a2a24" };
+// Dragonbreath's dragon skulls: old bone and dark horn
+const BONE = { bone: "#e0d2b0", horn: "#4a3a34" };
 // things that stand on the ground before the footing (see paintBody)
+// Dragonbreath's skull posts: out from the axis, skull centre over the lip
+const SKULL_DX = 14, SKULL_Y = 18, SKULL_S = 1.3;
 const RUNE_DX = 10.5, BOWL_DX = 9, BOWL_FOOT = 4.5, BOWL_H = 5.5;
 
 const spireH = (t) => 18 + t.level * 6 + (t.branch ? 4 : 0);
@@ -64,11 +67,14 @@ const BOX = { left: 34, right: 34, up: 104, down: 18 };
 const FRONT = { left: 20, right: 20, up: 80, down: 4 };
 
 // Where Dragonbreath's jet leaves the hall (render/flames.js draws from
-// here): the dragon's open jaws, mirrored with the facing — the same
-// facing drawWizardSpire uses (cos of the aim, which follows the breath).
+// here): the spell-ring just past the head of the mage's levelled staff
+// (his "cast" pose), mirrored with the facing drawWizardSpire uses (the
+// aim, which the engine keeps on the breath).
+const RING_OUT = 2.5;
 export const breathMouth = (t) => {
   const ang = t.breath ? t.breath.ang : t.lastAim || 0;
-  return { x: t.x + (Math.cos(ang) >= 0 ? 1 : -1) * JAW.x, y: t.y - spireH(t) + JAW.y };
+  const [tx, ty] = mageTip(3, "cast");
+  return { x: t.x + (Math.cos(ang) >= 0 ? 1 : -1) * (tx + RING_OUT), y: t.y - spireH(t) - 7 + ty - 1 };
 };
 
 // the element a form belongs to
@@ -90,114 +96,22 @@ const throneCups = (x, top) => [0, 1, 2, 3, 4].map((i) => {
   return [x + Math.cos(a) * r, top - THRONE_Y + Math.sin(a) * r];
 });
 
-// One of the dragon's wings (side s), spread behind the walk: a bony arm
-// from the shoulder to a clawed wrist, three fingers, membrane scalloped
-// between them. Coordinates from the walk's lip (x, top).
-const wing = (ctx, x, top, s) => {
-  const P = (px, py) => [x + s * px, top + py];
-  const root = P(5, -12), wrist = P(17, -35), f = [P(28, -31), P(29, -20), P(23, -11)], tail = P(11, -9);
+// A horned dragon skull seen from the front, set on a post (baked); its
+// sockets are lit live. (x, y) = the skull's centre.
+const dragonSkull = (ctx, x, y) => {
   part(ctx, (c) => {
-    c.beginPath(); c.moveTo(...root); c.lineTo(...wrist); c.lineTo(...f[0]);
-    const scallop = (a, b) => { const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; c.quadraticCurveTo(m[0] + (wrist[0] - m[0]) * 0.3, m[1] + (wrist[1] - m[1]) * 0.3, b[0], b[1]); };
-    scallop(f[0], f[1]); scallop(f[1], f[2]); scallop(f[2], tail);
-    c.closePath();
-    c.fillStyle = lin(c, x, top - 34, x + s * 26, top - 12, [[0, lighten(DRAKE.wing, 0.3)], [0.5, DRAKE.wing], [1, darken(DRAKE.wing, 0.35)]]); c.fill();
-    // the bones
-    c.strokeStyle = DRAKE.dark; c.lineCap = "round";
-    c.lineWidth = 1.8; c.beginPath(); c.moveTo(...root); c.lineTo(...wrist); c.stroke();
-    c.lineWidth = 0.9; for (const p of f) { c.beginPath(); c.moveTo(...wrist); c.lineTo(...p); c.stroke(); }
-    // the thumb-claw at the wrist
-    c.fillStyle = DRAKE.horn;
-    c.beginPath(); c.moveTo(wrist[0] - 1, wrist[1]); c.lineTo(wrist[0] + s * 0.5, wrist[1] - 3.2); c.lineTo(wrist[0] + s * 1.4, wrist[1] + 0.4); c.closePath(); c.fill();
-  });
-};
-
-// The dragon's neck and head, facing +x, origin at the walk's lip. The
-// neck rises from behind the mage's far shoulder, arches over his hat and
-// brings the head out ahead of him; `open` gapes the jaws (the jet leaves
-// at JAW). The head is drawn at unit size about its own origin, then set
-// in place by HEAD (a shift and a scale), so JAW/EYE/NOSE come through hp().
-const HEAD = { x: 7, y: -47.5, s: 1.3 };
-const hp = (px, py) => ({ x: HEAD.x + px * HEAD.s, y: HEAD.y + py * HEAD.s });
-const JAW = hp(13.4, 5.8), DRAKE_EYE = hp(6.2, 0), DRAKE_NOSE = hp(11.8, 1);
-const DRAKE_BOX = { w: 48, h: 64, ax: 16, ay: 62 };
-// the neck's spine, sampled: [x, y, radius] from its root to the head
-const NECK = (() => {
-  const seg = [[[-5.5, -11], [-12, -24], [-10, -44], [-3, -48.5]], [[-3, -48.5], [1.5, -51], [6, -50], [9, -45.5]]];
-  const out = [];
-  seg.forEach((q, si) => {
-    for (let i = 0; i < 16; i++) {
-      const u = i / 16, v = 1 - u;
-      const px = v * v * v * q[0][0] + 3 * v * v * u * q[1][0] + 3 * v * u * u * q[2][0] + u * u * u * q[3][0];
-      const py = v * v * v * q[0][1] + 3 * v * v * u * q[1][1] + 3 * v * u * u * q[2][1] + u * u * u * q[3][1];
-      const k = (si * 16 + i) / 31;
-      out.push([px, py, 3.6 - k * 1.2]);
-    }
-  });
-  return out;
-})();
-const paintDrake = (ctx, ox, oy, open) => {
-  // spines along the neck's outer side
-  part(ctx, (c) => {
-    c.fillStyle = DRAKE.dark;
-    for (let i = 4; i < NECK.length - 3; i += 4) {
-      const [px, py, r] = NECK[i], [qx, qy] = NECK[i + 1];
-      const L = Math.hypot(qx - px, qy - py) || 1, tx = (qx - px) / L, ty = (qy - py) / L, nx = ty, ny = -tx;   // outward
-      c.beginPath(); c.moveTo(ox + px + nx * r * 0.7 - tx * 1.2, oy + py + ny * r * 0.7 - ty * 1.2); c.lineTo(ox + px + nx * (r + 2.4), oy + py + ny * (r + 2.4)); c.lineTo(ox + px + nx * r * 0.7 + tx * 1.4, oy + py + ny * r * 0.7 + ty * 1.4); c.closePath(); c.fill();
-    }
-  });
-  // the neck: scaled rings, gold belly-plates down its inner side
-  part(ctx, (c) => {
-    for (const [px, py, r] of NECK) ball(c, ox + px, oy + py, r, r, DRAKE.hide, { hi: 0.22, lo: 0.3 });
-    for (let i = 1; i < NECK.length - 1; i += 2) {
-      const [px, py, r] = NECK[i], [qx, qy] = NECK[i + 1];
-      const L = Math.hypot(qx - px, qy - py) || 1, nx = -(qy - py) / L, ny = (qx - px) / L;     // inward
-      c.fillStyle = i % 4 === 1 ? DRAKE.belly : darken(DRAKE.belly, 0.2);
-      c.fillRect(ox + px + nx * (r - 1.2) - 0.8, oy + py + ny * (r - 1.2) - 0.6, 1.6, 1.2);
-    }
-  });
-  ctx.save();
-  ctx.translate(ox + HEAD.x, oy + HEAD.y); ctx.scale(HEAD.s, HEAD.s);
-  drakeHead(ctx, open);
-  ctx.restore();
-};
-// The head at unit size: origin at the back of the skull, snout to +x.
-const drakeHead = (ctx, open) => {
-  // the swept horns, far one first
-  part(ctx, (c) => {
-    c.fillStyle = darken(DRAKE.horn, 0.18);
-    c.beginPath(); c.moveTo(3.4, -2); c.quadraticCurveTo(1.4, -4.8, 0.2, -7.4); c.quadraticCurveTo(3.4, -5.2, 5.4, -2.2); c.closePath(); c.fill();
+    // horns sweeping up and out
+    c.fillStyle = BONE.horn;
+    for (const s of [-1, 1]) { c.beginPath(); c.moveTo(x + s * 1.2, y - 1.6); c.quadraticCurveTo(x + s * 4.6, y - 2.6, x + s * 4.4, y - 6.8); c.quadraticCurveTo(x + s * 3.6, y - 3.4, x + s * 2.6, y - 0.4); c.closePath(); c.fill(); }
   });
   part(ctx, (c) => {
-    c.fillStyle = DRAKE.horn;
-    c.beginPath(); c.moveTo(1.6, -1.4); c.quadraticCurveTo(-1.8, -4, -4.3, -7.5); c.quadraticCurveTo(-0.4, -5.6, 3.6, -2.4); c.closePath(); c.fill();
-  });
-  // the gaping mouth, lit from within
-  if (open) part(ctx, (c) => {
-    c.beginPath(); c.moveTo(4.7, 3.8); c.lineTo(13, 3.4); c.lineTo(12.6, 8.4); c.lineTo(4.2, 6.8); c.closePath();
-    c.fillStyle = lin(c, 4, 0, 13, 0, [[0, "#6a1e1a"], [0.6, "#d8482a"], [1, "#f8a83a"]]); c.fill();
-  });
-  // the lower jaw
-  part(ctx, (c) => {
-    c.beginPath();
-    if (open) { c.moveTo(3.7, 4.2); c.lineTo(12.6, 8); c.lineTo(12, 9.4); c.lineTo(4.2, 8); c.lineTo(1.7, 6.2); }
-    else { c.moveTo(3.7, 4.2); c.lineTo(12.6, 3.8); c.lineTo(11.8, 5); c.lineTo(4.2, 6); c.lineTo(1.7, 5.4); }
-    c.closePath();
-    c.fillStyle = lin(c, 0, 4, 0, 8, [[0, DRAKE.hide], [1, darken(DRAKE.hide, 0.35)]]); c.fill();
-    c.fillStyle = DRAKE.belly; c.fillRect(4.7, open ? 7.4 : 5.1, 5.5, 0.7);
-    if (open) { c.fillStyle = DRAKE.horn; for (const tx of [7.2, 9.6, 11.6]) c.fillRect(tx, 6.4 + (tx - 7.2) * 0.4 - 0.9, 0.7, 0.9); }
-  });
-  // the skull and upper jaw
-  part(ctx, (c) => {
-    c.beginPath();
-    c.moveTo(0, 0); c.lineTo(2.8, -2.6); c.lineTo(6.8, -1.8); c.lineTo(11.8, 0.6); c.lineTo(13.4, 2.2); c.lineTo(13, 3.6);
-    c.lineTo(5.2, 4); c.lineTo(2.2, 5.4); c.lineTo(0.2, 3); c.closePath();
-    c.fillStyle = lin(c, 0, -3, 0, 5, [[0, lighten(DRAKE.hide, 0.3)], [0.45, DRAKE.hide], [1, darken(DRAKE.hide, 0.4)]]); c.fill();
-    // brow ridge, eye, nostril, teeth
-    c.fillStyle = DRAKE.dark; c.fillRect(4.6, -1.8, 3.2, 0.8);
-    c.fillStyle = "#ffe070"; c.fillRect(5.6, -0.5, 1.4, 1); c.fillStyle = "#241a26"; c.fillRect(6.5, -0.5, 0.5, 1);
-    c.fillStyle = "#241a26"; c.fillRect(11.4, 0.7, 0.9, 0.7);
-    c.fillStyle = DRAKE.horn; for (const tx of [6.7, 9, 11.2]) c.fillRect(tx, 3.6, 0.7, 1);
+    // the brow and the long snout, narrowing down to the nostrils
+    c.beginPath(); c.moveTo(x - 2.8, y - 2); c.quadraticCurveTo(x, y - 3.6, x + 2.8, y - 2); c.lineTo(x + 2.2, y + 1); c.lineTo(x + 1.3, y + 4.2); c.lineTo(x - 1.3, y + 4.2); c.lineTo(x - 2.2, y + 1); c.closePath();
+    c.fillStyle = lin(c, x - 3, 0, x + 3, 0, [[0, "#fff3d2"], [0.45, BONE.bone], [1, darken(BONE.bone, 0.4)]]); c.fill();
+    c.fillStyle = "#241a26";
+    c.fillRect(x - 2.1, y - 1, 1.5, 1.4); c.fillRect(x + 0.6, y - 1, 1.5, 1.4);     // sockets
+    c.fillRect(x - 0.8, y + 3, 0.6, 0.6); c.fillRect(x + 0.2, y + 3, 0.6, 0.6);     // nostrils
+    c.fillStyle = darken(BONE.bone, 0.25); c.fillRect(x - 1.3, y + 4.2, 2.6, 0.6);  // teeth line
   });
 };
 
@@ -206,7 +120,7 @@ const paintGround = (ctx, t, x, y) => {
   ctx.save();
   footClip(ctx, x, y);
   groundBed(ctx, x, y + 7, shaftW(t) / 2 + 1, t.id, { earth: r4 === "ab" ? "#5a4234" : "#7c6242" });
-  // the dragon's lair is scorched black round the foot
+  // Dragonbreath's ground is scorched black round the foot
   if (r4 === "ab") soft(ctx, x, y + 6, 17, 7, [[0, "rgba(40,24,24,0.45)"], [0.7, "rgba(40,24,24,0.25)"], [1, "rgba(40,24,24,0)"]]);
   ctx.restore();
 };
@@ -254,9 +168,12 @@ const paintBody = (ctx, t, x, y) => {
         c.fillStyle = "#3a2420"; c.fillRect(cx - 1.6, cy - 2, 3.2, 0.8);
       });
     } else if (r4 === "ab") {
-      // the dragon's wings, spread behind the walk (its neck and head are
-      // stamped live, so they turn with the aim)
-      for (const s of [-1, 1]) wing(ctx, x, top, s);
+      // horned dragon skulls on stone posts at the back corners
+      for (const s of [-1, 1]) {
+        part(ctx, (c) => cylinder(c, x + s * SKULL_DX - 1.8, top - SKULL_Y + 3, 3.6, SKULL_Y - 8, stone, { r: 1, hi: 0.35, lo: 0.5 }));
+        part(ctx, (c) => cylinder(c, x + s * SKULL_DX - 2.3, top - SKULL_Y + 3, 4.6, 1.4, trim, { r: 0.6, hi: 0.45, lo: 0.4 }));
+        ctx.save(); ctx.translate(x + s * SKULL_DX, top - SKULL_Y); ctx.scale(SKULL_S, SKULL_S); dragonSkull(ctx, 0, 0); ctx.restore();
+      }
     } else if (r4 === "ba") {
       for (const s of [-1, 1]) coil(ctx, x + s * (pw - 2), top - 6, 22);
     } else if (r4 === "bb") {
@@ -279,7 +196,7 @@ const paintBody = (ctx, t, x, y) => {
       part(ctx, (c) => { ball(c, x + pw - 3, top - 35, 1.8, 1.8, "#e0e8f0", { hi: 0.6, lo: 0.4 }); c.fillStyle = "#d8a04a"; c.fillRect(x + pw - 4.5, top - 24, 3, 1); c.fillRect(x + pw - 4.5, top - 18, 3, 1); });
     }
     // the back corners: braziers for fire (gilded on the throne; the
-    // dragon's wings stand there instead)
+    // dragon skulls stand there instead)
     if (el === "fire" && r4 !== "ab") for (const s of [-1, 1]) {
       part(ctx, (c) => cylinder(c, x + s * (pw - 2) - 1.6, top - 14, 3.2, 9, stone, { r: 1, hi: 0.35, lo: 0.5 }));
       brazier(ctx, x + s * (pw - 2), top - 13, r4 ? 0.9 : 0.75, r4 === "aa" ? "#b8862a" : undefined);
@@ -307,7 +224,7 @@ const paintBody = (ctx, t, x, y) => {
   footing(ctx, x, base, hw + 1, darken(stone, 0.05), seed, r4 ? 6 : 5);
   ashlar(ctx, x - hw, top + 3, sw, base - 5 - top - 3, stone, seed, { course: 4, block: 5.5, band: lvl >= 3 || br ? 5 : 0, moss: el === "fire" ? 0 : 0.5, cracks: r4 === "ab" });
   if (r4 === "ab") {
-    // soot licked up the stone from the dragon's fires
+    // soot licked up the stone from the breath's fires
     ((c) => {
       c.fillStyle = "rgba(30,20,22,0.35)";
       for (let k = 0; k < 4; k++) {
@@ -341,23 +258,6 @@ const paintBody = (ctx, t, x, y) => {
       }, { point: r4 !== "ab" });
     }
   }
-  if (r4 === "ab") {
-    // the dragon's tail, hung over the lip and down the shaft's east side
-    const tx0 = x + hw + 1.5;
-    part(ctx, (c) => {
-      c.lineCap = "round";
-      const path = () => { c.beginPath(); c.moveTo(x + pw - 5, top - 3); c.bezierCurveTo(tx0 + 3.5, top - 1, tx0 + 2, top + 9, tx0, top + 14); c.quadraticCurveTo(tx0 - 1.5, top + 19, tx0 + 0.5, top + 23); };
-      c.strokeStyle = DRAKE.hide; c.lineWidth = 2.6; path(); c.stroke();
-      c.strokeStyle = lighten(DRAKE.hide, 0.25); c.lineWidth = 0.8; c.save(); c.translate(-0.6, 0); path(); c.stroke(); c.restore();
-      // the spade at its tip
-      c.fillStyle = DRAKE.dark;
-      c.beginPath(); c.moveTo(tx0 + 0.5, top + 22); c.lineTo(tx0 + 2.8, top + 25); c.lineTo(tx0 + 0.6, top + 28.5); c.lineTo(tx0 - 1.6, top + 25); c.closePath(); c.fill();
-      // spines down its back
-      c.fillStyle = DRAKE.dark;
-      for (const [sx, sy] of [[tx0 + 3.6, top + 2], [tx0 + 3.2, top + 7], [tx0 + 1.8, top + 12]]) { c.beginPath(); c.moveTo(sx - 0.6, sy - 1.2); c.lineTo(sx + 1.6, sy); c.lineTo(sx - 0.6, sy + 1.2); c.closePath(); c.fill(); }
-    });
-  }
-
   // ---- the foot
   // (everything below stands on the open ground in FRONT of the footing,
   // its foot clearly below the footing's front edge, with its own shadow)
@@ -405,8 +305,8 @@ const paintFront = (ctx, t, x, y) => {
 
 export const drawWizardSpire = (ctx, t, time) => {
   // t.noFolk (the build, buildanim.js): the hall without its people
-  // (a dragon still breathing out its last gout is not idle, whatever the
-  // foes in reach say: the jet leaves its jaws until it gutters)
+  // (a Dragonbreath still pouring out its last gout is not idle, whatever
+  // the foes in reach say: the jet leaves his staff until it gutters)
   const idle = t._idle && !(t.branch === "a" && t.rank4 === "b" && t.breath && t.breath.on > 0);
   const x = t.x, y = t.y;
   const lvl = t.level;
@@ -434,16 +334,10 @@ export const drawWizardSpire = (ctx, t, time) => {
     stamp(ctx, baked(`ground|${form}|${v}`, BOX.left + BOX.right, 40, (c) => paintGround(c, tv, BOX.left, 14), false), x, y, BOX.left, 14);
     stamp(ctx, baked(`spire|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBody(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   } else paintBody(ctx, t, x, y);
-  // the dragon on Dragonbreath's back: neck and head stamped live so they
-  // face the aim, jaws open while it breathes
   const aimDir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
   const dir = idle ? (Math.sin(time * 0.5 + t.id) >= 0 ? 1 : -1) : aimDir;
+  // Dragonbreath's breath, 0..1 (eased by the engine)
   const on = r4 === "ab" && !idle && t.breath ? t.breath.on : 0;
-  if (r4 === "ab") {
-    const open = on > 0.15;
-    if (canBake) stamp(ctx, baked(`drake|${open}`, DRAKE_BOX.w, DRAKE_BOX.h, (c) => paintDrake(c, DRAKE_BOX.ax, DRAKE_BOX.ay, open)), x, top, DRAKE_BOX.ax, DRAKE_BOX.ay, dir);
-    else { ctx.save(); ctx.translate(x, top); ctx.scale(dir, 1); paintDrake(ctx, 0, 0, open); ctx.restore(); }
-  }
 
   // ---- lights in the stone
   const winCol = el === "fire" ? "#ffa040" : el === "storm" ? "#a8e8ff" : "#ffd070";
@@ -484,7 +378,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   // the Inferno Throne's fifth shot is the firestorm: its orb swells for it
   const stormNext = r4 === "aa" && !idle && (t.poolIdx || 0) === 4;
   const stormGone = r4 === "aa" && !idle && (t.poolIdx || 0) === 0 && t.anim > 0.05;
-  const pose = idle ? "idle" : t.anim > 0.35 ? "cast" : "charge";
+  const pose = idle ? "idle" : r4 === "ab" ? (on > 0 ? "cast" : "charge") : t.anim > 0.35 ? "cast" : "charge";
   const mcv = canBake ? baked(`mage|${key}|${level}|${pose}`, 34, 40, (c) => drawMage(c, 14, 37, 1, pal, level, { pose })) : null;
   // star-charms from level three; the back arc passes behind the mage
   const stars = [];
@@ -503,6 +397,18 @@ export const drawWizardSpire = (ctx, t, time) => {
     ctx.fillStyle = orbCol; ctx.beginPath(); ctx.moveTo(cx, cy - 3); ctx.lineTo(cx + 1.6, cy); ctx.lineTo(cx, cy + 3); ctx.lineTo(cx - 1.6, cy); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#fffaf0"; ctx.fillRect(cx - 0.6, cy - 1.5, 0.8, 1.5);
   }
+  // Dragonbreath braced against his own blast: robe hem and sleeve stream
+  // back from him, whipping in the heat
+  if (on > 0.2 && !t.noFolk) {
+    const back = -dir;
+    for (const [hy, len, w, ph] of [[-2.5, 9, 3, 0], [-7.5, 7.5, 2.4, 1.7], [-14.5, 6, 2, 3.1]]) {
+      const flick = Math.sin(time * 19 + ph + t.id) * 1.1, L = len * on;
+      const x0 = x + back * 4, y0 = my + hy;
+      ctx.fillStyle = hy < -12 ? lighten(pal.robe, 0.1) : darken(pal.robe, 0.1);
+      ctx.beginPath(); ctx.moveTo(x0, y0 - w / 2); ctx.quadraticCurveTo(x0 + back * L * 0.6, y0 - w / 2 + flick, x0 + back * L, y0 + flick * 1.4); ctx.quadraticCurveTo(x0 + back * L * 0.6, y0 + w / 2 + flick, x0, y0 + w / 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = pal.trim; ctx.fillRect(x0 + back * L - (back > 0 ? 1 : 0), y0 + flick * 1.4 - 0.4, 1, 0.8);
+    }
+  }
   if (!t.noFolk) { if (mcv) stamp(ctx, mcv, x, my, 14, 37, dir); else drawMage(ctx, x, my, dir, pal, level, { pose }); }
   if (canBake) stamp(ctx, baked(`front|${form}`, FRONT.left + FRONT.right, FRONT.up + FRONT.down, (c) => paintFront(c, tv, FRONT.left, FRONT.up)), x, y, FRONT.left, FRONT.up);
   else paintFront(ctx, t, x, y);
@@ -514,7 +420,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   const orbX = x + dir * tx, orbY = my + ty + bob - (level >= 2 ? 1 : 0);
   const rBase = level >= 3 ? 3.4 : level === 2 ? 2.8 : 2.3;
   if (!t.noFolk) {
-    const rOut = r4 === "ab" ? 1.6 + on * 0.6 : (rBase * (idle ? 0.8 : 0.75 + charge * 0.45) + (t.anim > 0.4 ? 0.8 : 0)) * (stormNext || stormGone ? 1.35 : 1);
+    const rOut = r4 === "ab" ? 2 + on * 0.8 : (rBase * (idle ? 0.8 : 0.75 + charge * 0.45) + (t.anim > 0.4 ? 0.8 : 0)) * (stormNext || stormGone ? 1.35 : 1);
     const oc = stormNext || stormGone ? "#ffc850" : orbCol;
     glow(ctx, orbX, orbY, rOut * (2 + charge), oc, 0.3 + charge * 0.25);
     ball(ctx, orbX, orbY, rOut, rOut, oc, { hi: 0.6, lo: 0.3 });
@@ -560,17 +466,35 @@ export const drawWizardSpire = (ctx, t, time) => {
       } else glow(ctx, x, top - 34, 8, "#f0e070", 0.15 + 0.1 * Math.sin(time * 3));
     }
   }
-  // the dragon: a furnace glow in its jaws and eye while it breathes;
-  // between breaths, smoke curls from its nostrils
+  // Dragonbreath: the dragon skulls' sockets smoulder (and smoke between
+  // breaths); while he breathes, a furnace-bright spell-ring stands at his
+  // staff head, turning, and the jet (flames.js) pours through it
   if (r4 === "ab") {
-    const jx = x + dir * JAW.x, jy = top + JAW.y;
-    glow(ctx, x + dir * DRAKE_EYE.x, top + DRAKE_EYE.y, 2 + on * 2, "#ffd040", 0.35 + on * 0.4);
-    if (on > 0) {
-      glow(ctx, jx - dir * 2, jy, 4 + on * 5, "#ff9a3a", on * 0.6);
-      glow(ctx, jx, jy, 2 + on * 2, "#fff0a8", on * 0.8);
-    } else for (let i = 0; i < 2; i++) {
-      const t2 = (time * 5 + i * 9 + t.id * 2) % 18;
-      soft(ctx, x + dir * (DRAKE_NOSE.x + t2 * 0.35) + Math.sin(time * 2 + i) * 0.8, top + DRAKE_NOSE.y - t2 * 0.9, 1 + t2 / 7, 1 + t2 / 7, [[0, `rgba(90,80,84,${Math.max(0, 0.4 - t2 * 0.022)})`], [1, "rgba(90,80,84,0)"]]);
+    for (const s of [-1, 1]) {
+      const sx = x + s * SKULL_DX, sy = top - SKULL_Y;
+      const heat = 0.45 + on * 0.45 + 0.1 * Math.sin(time * 4 + s + t.id);
+      glow(ctx, sx, sy - 0.3, 2.6 + on * 1.5, "#ff8a2a", heat * 0.6);
+      ctx.fillStyle = rgba("#ffd070", heat); ctx.fillRect(sx - 2.5, sy - 1.1, 1.4, 1.2); ctx.fillRect(sx + 1.1, sy - 1.1, 1.4, 1.2);
+      if (on < 0.2) {
+        const t2 = (time * 5 + (s + 1) * 6 + t.id * 2) % 16;
+        soft(ctx, sx + Math.sin(time * 2 + s) * 0.8, sy + 4.5 - t2 * 0.9, 1 + t2 / 7, 1 + t2 / 7, [[0, `rgba(90,80,84,${Math.max(0, 0.35 - t2 * 0.022)})`], [1, "rgba(90,80,84,0)"]]);
+      }
+    }
+    if (on > 0 && !t.noFolk) {
+      const m = breathMouth({ x, y, level: lvl, branch: t.branch, rank4: t.rank4, breath: { ang: t.lastAim } });
+      const jit = Math.sin(time * 37) * 0.3;
+      glow(ctx, orbX, orbY, 6 + on * 6, "#ff7a2a", on * 0.55);
+      glow(ctx, orbX, orbY, 2.5 + on * 2, "#fff0a8", on * 0.9);
+      // the ring, edge-on toward the foe: a tall thin ellipse with fire-runes
+      const rx = 1.3 * on, ry = 5.2 * on;
+      ctx.strokeStyle = rgba("#ffd070", 0.9 * on); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(m.x + jit, m.y, Math.max(0.5, rx), Math.max(0.5, ry), 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = rgba("#fff3d2", on);
+      for (let i = 0; i < 4; i++) {
+        const a = time * 7 * dir + (i / 4) * Math.PI * 2;
+        ctx.fillRect(m.x + jit + Math.cos(a) * rx - 0.5, m.y + Math.sin(a) * ry - 0.5, 1, 1);
+      }
+      glow(ctx, m.x, m.y, 3 + on * 2, "#fff0a8", on * 0.5);
     }
   }
   // embers up both final forms
