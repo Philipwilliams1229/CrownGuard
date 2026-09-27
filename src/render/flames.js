@@ -158,8 +158,8 @@ const dither = (ctx, h, dens) => {
 // heat-glow is dithered onto the road over exactly the damage wedge.
 const LAYERS = [
   // count, seconds nozzle-to-end, lateral spread (share of the cone), reach share, radius at the end
-  { n: 22, life: 0.82, lat: 0.84, far: 0.97, r: 11 },
-  { n: 15, life: 0.72, lat: 0.48, far: 0.86, r: 8.5 },
+  { n: 26, life: 0.82, lat: 0.76, far: 0.97, r: 11 },
+  { n: 17, life: 0.72, lat: 0.46, far: 0.86, r: 8.5 },
   { n: 10, life: 0.62, lat: 0.18, far: 0.72, r: 7 },
 ];
 const BILLOWS = 8;       // slow billows rolling off the front into smoke
@@ -236,6 +236,7 @@ export const drawBreath = (ctx, t, time) => {
 
   // the far end: slow billows rolling off the front, reddening into smoke
   const EB = (time / B_LIFE) * BILLOWS, eb = Math.floor(EB);
+  const baseB = ctx.globalAlpha;
   for (let j = eb - BILLOWS + 1; j <= eb; j++) {
     const p = (EB - j) / BILLOWS, hj = j + seed + 900;
     const lat = hash(hj, 1) * 2 - 1;
@@ -244,11 +245,13 @@ export const drawBreath = (ctx, t, time) => {
     const r = (smoke ? 4.5 + p * 6 : 5 + p * 5) * (0.8 + 0.4 * hash(hj, 2)) * sz;
     const x = t.x + ca * s + px * l, y = t.y + sa * s + py * l - 4 - p * 18;
     if (smoke) put(ctx, puffS("s", 0, r2of(r), ((hj % 3) + 3) % 3), x, y);
-    else put(ctx, cloudS(0, r2of(r), ((hj % 4) + 4) % 4), x, y);
+    else { ctx.globalAlpha = baseB * 0.4; put(ctx, cloudS(0, r2of(r), ((hj % 4) + 4) % 4), x, y); ctx.globalAlpha = baseB; }
   }
 
   // the plume: outer, middle, inner — oldest first within each layer
-  const sMin = reach * 0.3;
+  // see-through toward the ends: fairly solid at the nozzle, fading in
+  // stepped alpha along the flight and out toward the cone's rim
+  const sMin = reach * 0.3, base = ctx.globalAlpha;
   for (let li = 0; li < 3; li++) {
     const LY = LAYERS[li];
     const E = (time / LY.life) * LY.n, e0 = Math.floor(E);
@@ -260,16 +263,19 @@ export const drawBreath = (ctx, t, time) => {
       const lT = lat * sT * tanC;
       const gx = t.x + ca * sT + px * lT, gy = t.y + sa * sT + py * lT - 3;
       const k = 1 - (1 - p) ** 1.25;
-      const bow = lat * k * (1 - k) * 16 * sz + Math.sin(time * 7 + hj) * 1.2 * k;
+      const bow = lat * k * (1 - k) * 11 * sz + Math.sin(time * 7 + hj) * 0.8 * k;
       const x = m.x + (gx - m.x) * k + px * bow, y = m.y + (gy - m.y) * k + py * bow - k * 2;
       const r = (1.6 + (LY.r - 1.6) * Math.sqrt(k)) * (0.85 + 0.3 * hash(hj, 7)) * sz;
       // near the nozzle every layer burns a set hotter
       const tone = Math.min(2, li + (k < 0.14 ? 1 : 0));
       // each billow turns over its lobes on its own beat, so the mass churns without popping
       const vv = Math.floor(time * 3 + hash(hj, 9) * 4) + hj;
+      const fade = 0.95 - 0.5 * k - 0.3 * (Math.abs(lat) / 0.76) * k + li * 0.08;
+      ctx.globalAlpha = base * Math.max(0.2, Math.min(1, Math.round(fade * 5) / 5));
       put(ctx, cloudS(tone, r2of(r), ((vv % 4) + 4) % 4), x, y);
     }
   }
+  ctx.globalAlpha = base;
   // the nozzle: blinding
   put(ctx, puffS("j", 0, r2of((2.2 + (fl & 1) * 0.7) * sz), fl % 3), m.x, m.y);
 
