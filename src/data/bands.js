@@ -36,6 +36,20 @@ export const HEROES = {
   },
 };
 export const HERO_MAX_LEVEL = 20;
+// THE RETINUE: a hero who climbs high enough is joined on the field by a
+// follower at each level in `at` — Sir Aldric by squires who hold the road
+// beside him as knights do, Wren by archers who shoot from behind her. They
+// march wherever the hero is sent, fall and come back after respawnMs, and
+// their kills near the hero still teach him (killXp's share). They belong to
+// the battle, like the hero's level: every map starts without them.
+export const HERO_RETINUE = {
+  aldric: { name: "Squire", rig: "squire", at: [10, 20], joins: "a squire rides to his side!",
+    st: { hp: 380, dmg: 30, rate: 760, range: 80, unitSpeed: 105, respawnMs: 10000 } },
+  wren: { name: "Archer", rig: "bowman", at: [10, 20], joins: "an archer takes up the bow beside her!",
+    st: { hp: 170, dmg: 24, rate: 760, range: 150, unitSpeed: 115, respawnMs: 9000, ranged: true } },
+};
+// how many followers a hero at `level` has on the field
+export const retinueAt = (key, level) => (HERO_RETINUE[key]?.at || []).filter((l) => level >= l).length;
 // xp to the next level: steepening, so a hero parked in the thickest fight
 // runs a little ahead of the pack rather than far ahead
 export const heroXpFor = (level) => Math.round(20 + 1.2 * level * level);

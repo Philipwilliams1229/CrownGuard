@@ -598,6 +598,10 @@ export const CROWN_RIGS = {
   berserk: { kind: "crown", box: { hw: 17, up: 30, down: 4 }, p: { look: "berserk", h: 22, skin: "#e8b990", cloth: "#6a3a2a", cloth2: "#3a2018", hair: "#b0503a", weapon: "axes", wcol: "#b8bcc4" } },
   champion: { kind: "crown", box: { hw: 28, up: 46, down: 4 }, p: { look: "champion", h: 34, skin: "#e8b990", cloth: "#e0dccf", cloth2: "#d8b34a", hair: "#e8c14a", cape: "#3a5474", weapon: "hammer", wcol: "#e8c860", shcol: "#d8b34a" } },
   halberdier: { kind: "crown", box: { hw: 26, up: 38, down: 4 }, p: { look: "guard", h: 22, skin: "#e8b990", cloth: "#b8bcc4", cloth2: "#7c3f4a", hair: "#c4c8d0", weapon: "halberd", wcol: "#d8dce4" } },
+  // the heroes' retinues (bands.js HERO_RETINUE): Sir Aldric's squires wear
+  // the garrison's kit in his red; Wren's archers her hood in woodland brown
+  squire: { kind: "crown", box: { hw: 17, up: 30, down: 4 }, p: { look: "knight", h: 21, skin: "#e8b990", cloth: "#b8bcc4", cloth2: "#a0303a", hair: "#c4c8d0", weapon: "sword", wcol: "#dde2ea", shcol: "#a0303a" } },
+  bowman: { kind: "crown", box: { hw: 18, up: 30, down: 4 }, p: { look: "hunter", h: 21, skin: "#e8b990", cloth: "#80703f", cloth2: "#4a3e2c", hair: "#6c5634", weapon: "bow", wcol: "#6a4428" } },
   farmer: { kind: "crown", box: { hw: 21, up: 30, down: 4 }, p: { look: "farmer", h: 21, skin: "#e8b990", cloth: "#9a8a62", cloth2: "#5a4a3a", hair: "#d8b860", weapon: "fork", wcol: "#b8bcc4" } },
   heroKnight: { kind: "crown", box: { hw: 19, up: 33, down: 4 }, p: { look: "hero", h: 24, skin: "#e8b990", cloth: "#d4d8e0", cloth2: "#e8c14a", hair: "#dde2ea", cape: "#a0303a", weapon: "sword", wcol: "#f0f0f4", shcol: "#a0303a" } },
   heroHunter: { kind: "crown", box: { hw: 18, up: 30, down: 4 }, p: { look: "hunter", h: 22, skin: "#e8c9a2", cloth: "#4e7f3e", cloth2: "#3a4a2c", hair: "#3f6a34", cape: "#3a5a30", weapon: "bow", wcol: "#6a4428" } },

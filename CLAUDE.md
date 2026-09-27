@@ -167,6 +167,13 @@ The owner misclicked when the tower card changed shape between taps, so
   of the script — measure by sweeping `--hero-at 0.2/0.35/0.5/0.65` with
   `node scripts/sim.mjs --level <id>` and taking the best (a player finds
   the fight; a fixed spot can sit behind the towers and earn nothing).
+- Hero retinue (`HERO_RETINUE` in `src/data/bands.js`): at level 10 and
+  again at 20 a follower joins the hero for that battle — squires (block,
+  as knights) for Sir Aldric, archers (shoot, never block) for Wren. They
+  are a `kind: "retinue"` band synced from the hero's level each tick
+  (`syncRetinue`, update.js) and follow the hero's rally. A campaign hero
+  reaches 10 only near the end of the script, so it barely moves the sims;
+  it pays off in long maps and the Endless March.
 - Hero stars: a WON map pays the hero's level at the end of the scripted
   waves (never Endless) as that hero's own stars (`profile.bankHeroStars`:
   a new best on that map pays the gain in full plus half the rest; a replay

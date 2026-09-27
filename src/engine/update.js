@@ -7,7 +7,7 @@
 import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, LANE_OFF, pickLane } from "../data/constants.js";
 import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X, guardSpots, GUARD_X } from "../data/castle.js";
-import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "../data/bands.js";
+import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETINUE, retinueAt } from "../data/bands.js";
 import { RIVER_ROUTE, seaRoute, seaDepthAt, underBridge } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
@@ -181,7 +181,9 @@ const levelHero = (g, b) => {
     if (u.state !== "dead") u.hp = b.st.hp;
     g.effects.push({ type: "levelup", x: u.x, y: u.y, ttl: 700 });
     const woke = heroAbilities(b.hero).find((a) => a.unlock === b.level && a.unlock > 1);
-    g.effects.push({ type: "coin", x: u.x, y: u.y - 26, ttl: 1400, text: woke ? `${b.name} — level ${b.level} · ${woke.name} ready!` : `${b.name} — level ${b.level}`, big: true });
+    const ret = HERO_RETINUE[b.hero];
+    const joins = ret && ret.at.includes(b.level);
+    g.effects.push({ type: "coin", x: u.x, y: u.y - 26, ttl: joins ? 2600 : 1400, text: woke ? `${b.name} — level ${b.level} · ${woke.name} ready!` : joins ? `${b.name} — level ${b.level} · ${ret.joins}` : `${b.name} — level ${b.level}`, big: true });
     sfx.play("ascend");
   }
   if (b.level >= HERO_MAX_LEVEL) b.xp = 0;
@@ -259,6 +261,36 @@ const syncGateGuard = (g) => {
     b.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, x, y, face: -1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
   }
   for (const u of b.units) { if (u.maxHp !== st.hp) { u.hp = Math.min(st.hp, u.hp + Math.max(0, st.hp - u.maxHp)); u.maxHp = st.hp; } }
+};
+
+// The hero's retinue (bands.js HERO_RETINUE): followers who join at set
+// levels, fielded as their own band so they fight with the ordinary band
+// code — squires block as knights do, archers shoot from their posts. Their
+// rally is the hero's, so they go wherever he is sent; a newcomer steps out
+// of the hero's own spot with a flourish.
+const RETINUE_SLOTS = { melee: [[-17, 9], [17, 9]], ranged: [[-16, 13], [16, 13]] };
+const syncRetinue = (g) => {
+  if (!g.bands) return;
+  const hero = g.bands.find((x) => x.kind === "hero");
+  let b = g.bands.find((x) => x.kind === "retinue");
+  const def = hero && HERO_RETINUE[hero.hero];
+  const n = def ? retinueAt(hero.hero, hero.level) : 0;
+  if (!n) { if (b) g.bands = g.bands.filter((x) => x !== b); return; }
+  if (!b || b.heroId !== hero.id) {
+    if (b) g.bands = g.bands.filter((x) => x !== b);
+    b = { id: nextId(), kind: "retinue", heroId: hero.id, hero: hero.hero, name: def.name, rig: def.rig, st: { ...def.st, count: 0 }, rally: hero.rally, units: [] };
+    g.bands.push(b);
+  }
+  b.rally = hero.rally;
+  b.st.count = n;
+  b.slots = RETINUE_SLOTS[def.st.ranged ? "ranged" : "melee"].slice(0, n).map(([dx, dy]) => [hero.rally.x + dx, hero.rally.y + dy]);
+  while (b.units.length < n) {
+    const hu = hero.units[0];
+    const x = hu.state !== "dead" ? hu.x : hero.rally.x, y = hu.state !== "dead" ? hu.y : hero.rally.y;
+    b.units.push({ id: nextId(), hp: def.st.hp, maxHp: def.st.hp, x, y, face: hu.face || -1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
+    g.effects.push({ type: "levelup", x, y, ttl: 700 });
+    g.effects.push({ type: "dust", x, y: y + 6, ttl: 400 });
+  }
 };
 
 // One garrison's (or band's) fighters for one tick: respawn, hold the rally
@@ -405,6 +437,7 @@ export function updateGame(g, dt) {
   if (!g.paused && (g.phase === "combat" || g.phase === "build")) {
     // ---- the bands: militia, the hero, and the Gate Guard ----
     syncGateGuard(g);
+    syncRetinue(g);
     if (g.bands) {
       g.militiaCd = Math.max(0, (g.militiaCd || 0) - sdt * 1000);
       for (const b of g.bands) {
