@@ -136,8 +136,9 @@ The owner misclicked when the tower card changed shape between taps, so
   scale, beside the card so it works on unaffordable cards).
 - **Path and final-form `desc` in `src/data/towers.js`: 100 characters at
   most** (the card shows it whole; a 4-line clamp is only a safety net).
-- The service record (kills, damage, dps) is always shown; dps is the
-  current form's average over the seconds a foe was in reach.
+- The service record (kills and dps, one line, no damage total) is always
+  shown; dps is the current form's average over the seconds a foe was in
+  reach. The targeting buttons carry no hint line.
 - Two columns on a phone or wherever the board is shorter than ~640 design
   px (the iPad), one column on a tall desktop.
 

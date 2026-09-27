@@ -1040,9 +1040,12 @@ export default function Crownguard() {
     // stat changes live behind the ⓘ and are laid over the card when asked for.
     // A `ghost` is laid out but never shown or pressed (see the stage stack).
     const formChoices = (opts, ghost = false) => {
+      // it fills its stage: when the card is taller than the choices need
+      // (a long left column), the cards share the height instead of leaving
+      // a gap above Sell
       return (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ display: "grid", gridAutoRows: "1fr", gap: 7 }}>
+        <div style={{ marginTop: 10, flex: 1, display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, display: "grid", gridAutoRows: "1fr", gap: 7 }}>
             {opts.map((o) => {
               const id = armId(o.k), can = ghost || ui.gold >= o.f.cost, armed = !ghost && upArm.is(id), open = !ghost && cardInfo === id;
               return (
@@ -1098,7 +1101,7 @@ export default function Crownguard() {
       );
     };
     const doneBox = (desc) => (
-      <div className="cg-parch" style={{ marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
+      <div className="cg-parch" style={{ flex: 1, marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
         <div className="cg-label" style={{ marginBottom: 3, color: "#7a6446" }}>Fully upgraded</div>
         {desc}
       </div>
@@ -1170,13 +1173,12 @@ export default function Crownguard() {
                   // average dps of this form: its damage over the seconds a foe
                   // was in its reach, starting over at every upgrade
                   const dps = sel.formTime >= 1 ? sel.formDmg / sel.formTime : 0;
-                  const num = (v) => (v >= 10000 ? (v / 1000).toFixed(1) + "k" : Math.round(v).toLocaleString());
                   const stat = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" };
                   const n = { fontSize: 13, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" };
                   return (
-                    <div style={{ display: "flex", flexWrap: "wrap", columnGap: 10, rowGap: 4, marginTop: 8, padding: "0 2px" }}>
+                    // kills and dps, always on one line
+                    <div style={{ display: "flex", flexWrap: "nowrap", gap: 12, marginTop: 8, padding: "0 2px", whiteSpace: "nowrap", overflow: "hidden" }}>
                       <span title="foes this tower struck down" style={stat}><SkullIcon size={12} /><b className="cg-num" style={n}>{sel.kills}</b></span>
-                      <span title="total damage dealt this run" style={stat}><SwordIcon size={12} /><b className="cg-num" style={n}>{num(sel.dmgOut)}</b> dmg</span>
                       <span title="average damage per second while a foe is in range, since the last upgrade" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
                     </div>
                   );
@@ -1227,12 +1229,6 @@ export default function Crownguard() {
                               </button>
                             ))}
                           </div>
-                          {!vp.short && (
-                            // two lines kept for it, so a longer hint never shoves the card
-                            <div style={{ fontSize: 10, lineHeight: 1.3, minHeight: "2.6em", color: "var(--muted)", marginTop: 5 }}>
-                              {(modes.find((m) => m.id === sel.aim) || modes[0]).hint}
-                            </div>
-                          )}
                         </>
                       )}
                     </div>
