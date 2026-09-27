@@ -992,7 +992,7 @@ export default function Crownguard() {
       return () => upArm.tap(armId(key), () => { withT(fn)(); if (G.current) G.current.upPreview = null; });
     };
     const deltaGrid = (deltas) => (
-      <span style={{ display: "grid", gridTemplateColumns: "auto auto", columnGap: 10, rowGap: 1, fontSize: 10.5 }}>
+      <span className="cg-dim" style={{ display: "grid", gridTemplateColumns: "auto auto", justifyContent: "start", columnGap: 10, rowGap: 1, fontSize: 10.5 }}>
         {deltas.map((d) => (
           <span key={d.label} style={{ display: "contents" }}>
             <span style={{ color: "#7a6446" }}>{d.label}</span>
@@ -1001,9 +1001,26 @@ export default function Crownguard() {
         ))}
       </span>
     );
-    // the armed button's call to action: a dark tag on the gold, easy to read
-    const tapAgain = () => (
-      <span style={{ alignSelf: "flex-start", background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontSize: 12, fontWeight: 700, letterSpacing: 1, lineHeight: 1.2, padding: "3px 8px", textShadow: "none" }}>TAP AGAIN TO BUY</span>
+    // the armed button's call to action: a dark tag on the gold, easy to read.
+    // It sits in a slot of fixed height that is there armed or not, and the
+    // stats show on both taps, so arming only turns the card gold: nothing
+    // moves under the thumb between the first tap and the second
+    const confirmTag = () => (
+      <span style={{ background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontSize: 11, fontWeight: 700, letterSpacing: 1, lineHeight: "14px", padding: "1px 7px", textShadow: "none" }}>CONFIRM</span>
+    );
+    const slot = { display: "flex", alignItems: "center", height: 16 };
+    // a path or final-form card's words: name, tale, stats, then a foot with
+    // the price that the CONFIRM tag joins when armed
+    const formCard = (f, can, armed, deltas) => (
+      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+        <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{f.name}</span>
+        <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.4, color: "#5a4630" }}>{f.desc}</span>
+        {deltaGrid(deltas)}
+        <span style={{ ...slot, justifyContent: "space-between", gap: 6, marginTop: 1 }}>
+          {armed ? confirmTag() : <span />}
+          {price(f.cost, can, 13)}
+        </span>
+      </span>
     );
     const tier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
     const branchDef = sel.branch ? selDef.branches[sel.branch] : null;
@@ -1121,11 +1138,11 @@ export default function Crownguard() {
                   const can = ui.gold >= nxt.cost;
                   const deltas = levelDeltas(t);
                   return (
-                    <button data-arm={armId("level")} className={cls("cg-btn", upArm.is(armId("level")) ? "cg-btn--gold" : "cg-btn--parch", !can && "is-poor")} disabled={!can}
+                    <button data-arm={armId("level")} className={cls("cg-btn", "cg-btn--parch", upArm.is(armId("level")) && "is-armed", !can && "is-poor")} disabled={!can}
                       style={{ width: "100%", marginTop: 10, padding: "7px 10px 8px", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}
                       onClick={buy2("level", { level: sel.level + 1 }, (tt) => upgradeTower(G.current, tt))}>
                       <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                        {upArm.is(armId("level")) ? tapAgain() : <span className="cg-label">Upgrade · Level {sel.level + 1}</span>}
+                        <span style={slot}>{upArm.is(armId("level")) ? confirmTag() : <span className="cg-label">Upgrade · Level {sel.level + 1}</span>}</span>
                         <span className="cg-display" style={{ fontSize: 13, fontWeight: 700 }}>{nxt.label}</span>
                         {deltaGrid(deltas)}
                       </span>
@@ -1142,19 +1159,11 @@ export default function Crownguard() {
                       {Object.entries(selDef.branches).map(([bk, br]) => {
                         const can = ui.gold >= br.cost;
                         return (
-                          <button key={bk} data-arm={armId(`branch:${bk}`)} className={cls("cg-btn", upArm.is(armId(`branch:${bk}`)) ? "cg-btn--gold" : "cg-btn--parch", !can && "is-poor")} disabled={!can}
+                          <button key={bk} data-arm={armId(`branch:${bk}`)} className={cls("cg-btn", "cg-btn--parch", upArm.is(armId(`branch:${bk}`)) && "is-armed", !can && "is-poor")} disabled={!can}
                             style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
                             onClick={buy2(`branch:${bk}`, { branch: bk }, (tt) => branchTower(G.current, tt, bk))}>
                             <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={bk} size={40} /></span>
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                              <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{br.name}</span>
-                                {price(br.cost, can, 13)}
-                              </span>
-                              {upArm.is(armId(`branch:${bk}`))
-                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain()}{deltaGrid(formDeltas(t, { branch: bk }))}</span>
-                                : <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{br.desc}</span>}
-                            </span>
+                            {formCard(br, can, upArm.is(armId(`branch:${bk}`)), formDeltas(t, { branch: bk }))}
                           </button>
                         );
                       })}
@@ -1170,19 +1179,11 @@ export default function Crownguard() {
                       {Object.entries(branchDef.rank4).map(([rk, r4]) => {
                         const can = ui.gold >= r4.cost;
                         return (
-                          <button key={rk} data-arm={armId(`ascend:${rk}`)} className={cls("cg-btn", upArm.is(armId(`ascend:${rk}`)) ? "cg-btn--gold" : "cg-btn--parch", !can && "is-poor")} disabled={!can}
+                          <button key={rk} data-arm={armId(`ascend:${rk}`)} className={cls("cg-btn", "cg-btn--parch", upArm.is(armId(`ascend:${rk}`)) && "is-armed", !can && "is-poor")} disabled={!can}
                             style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
                             onClick={buy2(`ascend:${rk}`, { rank4: rk }, (tt) => ascendTower(G.current, tt, rk))}>
                             <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={sel.branch} rank4={rk} size={40} /></span>
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                              <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{r4.name}</span>
-                                {price(r4.cost, can, 13)}
-                              </span>
-                              {upArm.is(armId(`ascend:${rk}`))
-                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain()}{deltaGrid(formDeltas(t, { rank4: rk }))}</span>
-                                : <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{r4.desc}</span>}
-                            </span>
+                            {formCard(r4, can, upArm.is(armId(`ascend:${rk}`)), formDeltas(t, { rank4: rk }))}
                           </button>
                         );
                       })}
@@ -1198,7 +1199,7 @@ export default function Crownguard() {
                     <button data-arm={armId("complete")} className={cls("cg-btn", upArm.is(armId("complete")) && "cg-btn--gold", !can && "is-poor")} disabled={!can}
                       style={{ width: "100%", marginTop: 8, fontSize: 12, gap: 6 }}
                       onClick={buy2("complete", { level: 3, branch: sel.branch || c.branch, rank4: c.rank4 }, (tt) => { if (can && G.current) completeTower(G.current, tt); })}>
-                      <BoltIcon size={13} /> {upArm.is(armId("complete")) ? tapAgain() : <span className="cg-dim">Complete — {c.name}</span>} {price(c.cost, can, 12)}
+                      <BoltIcon size={13} /> <span className="cg-dim">{upArm.is(armId("complete")) ? "Confirm" : "Complete"} — {c.name}</span> {price(c.cost, can, 12)}
                     </button>
                   );
                 })()}
@@ -1207,7 +1208,7 @@ export default function Crownguard() {
                 <button data-arm={armId("sell")} className={cls("cg-btn cg-btn--red", upArm.is(armId("sell")) && "is-on")}
                   style={{ width: "100%", marginTop: 10, justifyContent: "space-between", ...(upArm.is(armId("sell")) ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : {}) }}
                   onClick={() => upArm.tap(armId("sell"), withT((tt) => sellTower(G.current, tt)))}>
-                  <span>{upArm.is(armId("sell")) ? "Tap again to sell" : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
+                  <span>{upArm.is(armId("sell")) ? "Confirm sale" : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
                 </button>
     </>) };
   })();

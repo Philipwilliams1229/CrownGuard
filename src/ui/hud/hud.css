@@ -137,6 +137,13 @@
 .cg-btn--parch:active:not(:disabled):not(.is-off):not(.is-poor) { box-shadow: inset 2px 2px 0 var(--parch-dk), inset -1px -1px 0 var(--parch-lt); }
 .cg-btn--parch.is-poor { background: #d9cba4; }
 .cg-btn--parch .cg-label { color: #8a5a2a; text-shadow: none; font-size: 10px; }
+/* an upgrade armed by its first tap: gold, but in the parchment's own
+   letters, so the words never re-wrap and the card never changes size */
+.cg-btn--parch.is-armed {
+  background: var(--gold);
+  box-shadow: inset 2px 2px 0 var(--gold-lt), inset -2px -2px 0 var(--gold-dk), 0 2px 0 var(--ink);
+}
+.cg-btn--parch.is-armed:active:not(:disabled) { box-shadow: inset 2px 2px 0 var(--gold-dk), inset -1px -1px 0 var(--gold-lt); }
 /* a small square close button */
 .cg-x { min-width: 36px; min-height: 36px; padding: 0; }
 
