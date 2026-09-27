@@ -135,7 +135,10 @@ should never have to rediscover it.
 - A new hall holds its fire (shots, auras, its knights/blades/skiffs) until
   its build animation puts its person in, about 2 game s after purchase
   (`src/engine/build.js`: `buildClock`, `isBuilt`, `t.readyAt`); the sims
-  include it. Upgrades never hold fire.
+  include it. Upgrades never hold fire. It tipped one map: The Cairnfields
+  (hl4) went 750 → 850 start gold to absorb it — PROVISIONAL, pending the
+  owner's playtest (more gold is not monotonic in the sim there: 800, 900
+  and 950 each lost seeds that 850 won).
 - The owner playtests; the sims are a floor, not a target.
 - The board is 840x560 (3:2): an 80px right border holds the castle band
   (wall face at `W - WALL_W` = 738). See art/STYLE-GUIDE.md "The board's

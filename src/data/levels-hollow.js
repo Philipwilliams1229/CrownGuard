@@ -43,7 +43,10 @@ export const HOLLOW_LEVELS = [
       },
       {
         id: "hl4", name: "The Cairnfields", realm: "cairnfields", short: "Cairnfields", labelAbove: true,
-        window: { from: 8, to: 27, count: 25 }, gold: 750,
+        // gold 750 → 850 (Sept 2026, provisional): a new hall now holds its fire
+        // while it is built, and the sim's wave-16 emergency build lost the map;
+        // 850 wins it on all six seeds tried. The owner will check it in playtest.
+        window: { from: 8, to: 27, count: 25 }, gold: 850,
         blurb: "Every cairn a door, and gravecallers ringing them open. The flood has a source: silence the bells.",
       },
       {
