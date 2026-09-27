@@ -396,9 +396,12 @@ textures." What came of it:
 - **The gate:** one gate block through both walls; its south face runs on
   up, sheer, as the keep's (one face, one piece — no ledge). The keep is the
   castle's landmark: crown banners and a lit slit down its face, turret,
-  chimney (the smoke) and the royal standard on top. Guards stand on the
-  gate top at `gy - 40` / `gy - 2`, the cauldron (with its own shadow) by
-  the murder holes; keep them clear of each other if anything moves.
+  chimney (the smoke) and the royal standard on top. The oil cauldron (with
+  its own shadow) sits by the murder holes on the gate top. The Gate Guard's
+  halberdiers are NOT on the castle: they are a band on the road before the
+  gate (`guardSpots`, x 722, in `data/castle.js`), fighting as knights do
+  (`syncGateGuard` in `engine/update.js`), drawn with the crowd as the crown
+  rig `halberdier` (`look: "guard"`, the `halberd` weapon, in `rigs-crown.js`).
 - **Life on it:** the sentry paces the INNER walk (x 822), which no crew
   uses, north or south of the gate block, up to `BEAT` long nearest the
   gate — he must visibly pace on every realm. Masons work at the far ends

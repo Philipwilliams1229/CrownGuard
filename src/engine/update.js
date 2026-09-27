@@ -6,7 +6,7 @@
 
 import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, LANE_OFF, pickLane } from "../data/constants.js";
 import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
-import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X } from "../data/castle.js";
+import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X, guardSpots, GUARD_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "../data/bands.js";
 import { RIVER_ROUTE, seaRoute, seaDepthAt, underBridge } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
@@ -235,6 +235,32 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
   });
 };
 
+// The Gate Guard (castle works): halberdiers on the road before the gate,
+// fielded as a band so they block exactly as a garrison's knights do — one
+// foe on foot each, never a flier or a swimmer. Kept in step with the works
+// every tick: raised mid-run, the new man walks out; a fallen one comes back
+// at his post after respawnMs.
+const syncGateGuard = (g) => {
+  const tier = g.castle && PTS.length ? workTier(g.castle, "guards", g.castleRanks) : null;
+  let b = g.bands?.find((x) => x.kind === "gateguard");
+  if (!tier) { if (b) g.bands = g.bands.filter((x) => x !== b); return; }
+  if (!g.bands) g.bands = [];
+  const gy = PTS[PTS.length - 1][1];
+  const st = { count: tier.count, hp: tier.men, dmg: tier.dmg, rate: tier.rate, range: tier.range, unitSpeed: 80, respawnMs: 8000, oil: tier.oil || 0 };
+  if (!b) {
+    b = { id: nextId(), kind: "gateguard", st, rally: { x: GUARD_X, y: gy }, units: [] };
+    g.bands.push(b);
+  }
+  b.st = st;
+  b.rally.x = GUARD_X; b.rally.y = gy;
+  b.slots = guardSpots(gy, st.count);
+  while (b.units.length < st.count) {
+    const [x, y] = b.slots[b.units.length];
+    b.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, x, y, face: -1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
+  }
+  for (const u of b.units) { if (u.maxHp !== st.hp) { u.hp = Math.min(st.hp, u.hp + Math.max(0, st.hp - u.maxHp)); u.maxHp = st.hp; } }
+};
+
 // One garrison's (or band's) fighters for one tick: respawn, hold the rally
 // point, seize a passing foe, walk to it, trade blows. Shared by the Knight
 // Garrison, the militia and the melee hero.
@@ -377,7 +403,8 @@ export function updateGame(g, dt) {
   // walks his stretch of road and arms it himself — one charge at a beat,
   // always into the widest uncovered gap in his reach.
   if (!g.paused && (g.phase === "combat" || g.phase === "build")) {
-    // ---- the bands: militia and the hero ----
+    // ---- the bands: militia, the hero, and the Gate Guard ----
+    syncGateGuard(g);
     if (g.bands) {
       g.militiaCd = Math.max(0, (g.militiaCd || 0) - sdt * 1000);
       for (const b of g.bands) {
@@ -423,9 +450,19 @@ export function updateGame(g, dt) {
         const st = b.st;
         const n = st.count || 1;
         const base = [[0, -8], [-12, 6], [12, 6]];
-        const slots = base.slice(0, n).map(([dx, dy]) => [b.rally.x + dx, b.rally.y + dy]);
+        const slots = b.slots || base.slice(0, n).map(([dx, dy]) => [b.rally.x + dx, b.rally.y + dy]);
         if (st.ranged) runRangedBand(g, b, st, slots, sdt, tms);
         else runMelee(g, b, st, slots, sdt, tms);
+        // at their posts the halberdiers face the road, not the gate behind them
+        if (b.kind === "gateguard") for (const u of b.units) if (u.state === "rally") u.face = -1;
+        // the oil comes down the murder holes on whatever the halberdiers hold
+        if (b.kind === "gateguard" && st.oil) for (const u of b.units) {
+          if (u.state !== "fighting") continue;
+          const e = g.enemies.find((x) => x.id === u.targetId && !x.dead);
+          if (!e) continue;
+          dealDamage(g, e, st.oil * sdt, "magic", true, true, b.id);
+          if (Math.random() < sdt * 6) g.effects.push({ type: "hit", x: e.x + (Math.random() - 0.5) * 8, y: e.y - 6, ttl: 200 });
+        }
       }
       g.bands = g.bands.filter((b) => !b.gone);
     }
@@ -921,20 +958,6 @@ export function updateGame(g, dt) {
               if (mark.hp <= 0) killUnit(g, markTower, mark);
             }
           }
-        }
-      }
-      // the gate guard: a foe that reaches the portcullis is held there a
-      // moment — and, with the oil on, scalded while it waits
-      const guard = workTier(g.castle, "guards", g.castleRanks);
-      if (guard && !e.flying) {
-        if (!e.gateHeld && e.dist >= TOTAL_LEN - 3) {
-          e.gateHeld = true; e.holdUntil = tms + guard.hold;
-          g.effects.push({ type: "spark", x: e.x, y: e.y - 8, ttl: 300 });
-        }
-        if (e.gateHeld && e.holdUntil > tms) {
-          e.dist = TOTAL_LEN - 3;
-          if (guard.oil) dealDamage(g, e, guard.oil * sdt, "magic", true, true, null);
-          if (guard.oil && Math.random() < sdt * 6) g.effects.push({ type: "hit", x: e.x + (Math.random() - 0.5) * 8, y: e.y - 6, ttl: 200 });
         }
       }
       if (e.dist >= TOTAL_LEN) {

@@ -2239,13 +2239,9 @@ export const drawCastleWorks = (ctx, g) => {
   }
   const guard = workTier(works, "guards");
   if (guard) {
-    // they stand on the gatehouse top either side of the passage, facing the
-    // road, now and then shifting their weight
-    const cv = workFrame(`guard`, 28, 42, (c) => drawHalberdier(c, 16, 40, -1, WALL_FOLK.guard));
-    [gy - 40, gy - 2].forEach((y, i) => {
-      const shift = Math.sin(time * 0.7 + i * 2.6) > 0.55 ? 0.5 : 0;
-      if (cv) ctx.drawImage(cv, GATE.face1 + 9 - 16 + shift, y - 40, 28, 42);
-    });
+    // the halberdiers themselves hold the road in front of the gate: they
+    // are a band on the field (engine/update.js syncGateGuard), drawn with
+    // the crowd. Up here only the oil waits.
     if (guard.oil) {
       // the cauldron by the murder holes over the passage, and its steam
       const cx = GATE.face1 + 29, cy = gy - 18;

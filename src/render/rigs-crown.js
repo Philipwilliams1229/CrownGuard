@@ -180,6 +180,25 @@ const axe = (ctx, x, y, a, col, len = 5.6) => {
   });
 };
 
+// the Gate Guard's halberd: a long ash pole, an axe blade on the +v side
+// (toward the foe), a back hook, and a spike to thrust with
+const halberd = (ctx, x, y, a, col, back = 7, fwd = 9.4) => {
+  const to = along(x, y, a);
+  part(ctx, (c) => haft(c, to, -back, fwd + 2.6, 0.95, OAK));
+  part(ctx, (c) => {
+    const F = fwd;
+    const spike = [[...to(F + 1.8, -0.55), 1], [...to(F + 5.6, 0), 1], [...to(F + 1.8, 0.55), 1]];
+    path(c, spike); c.fillStyle = cel(c, ...bbox(spike), col, 0.5, 0.35); c.fill();
+    const blade = [[...to(F - 1.4, 0.4), 1], [...to(F - 2.6, 2.4)], [...to(F - 1.2, 3.4), 1], [...to(F + 1.4, 3.3)], [...to(F + 2.2, 2.2), 1], [...to(F + 1.4, 0.4), 1]];
+    path(c, blade); c.fillStyle = cel(c, ...bbox(blade), col, 0.4, 0.4); c.fill();
+    const hook = [[...to(F - 0.6, -0.4), 1], [...to(F + 0.4, -2.4), 1], [...to(F + 0.6, -0.4), 1]];
+    path(c, hook); c.fillStyle = cel(c, ...bbox(hook), darken(col, 0.15), 0.4, 0.4); c.fill();
+    c.strokeStyle = lighten(col, 0.65); c.lineWidth = 0.5; c.lineCap = "round";
+    c.beginPath(); c.moveTo(...to(F - 1.8, 3.0)); c.quadraticCurveTo(...to(F, 3.6), ...to(F + 1.8, 2.4)); c.stroke();
+    dab(c, ...to(F - 0.2, -0.3), 0.9, 0.9, BRASS);
+  });
+};
+
 // the militia's hay fork
 const fork = (ctx, x, y, a, col, back = 6, fwd = 8.4) => part(ctx, (c) => {
   const to = along(x, y, a);
@@ -346,6 +365,12 @@ const hands = (w, st, shN, shF) => {
     { hn: N(1.8 + sw * 0.3, 4.6), an: -1.2 + sw * 0.05, grip: -3.4 },
     { hn: N(-1.0, -3.0), an: -2.55, grip: -3.2 },
     { hn: N(4.2, 3.4), an: 0.8, grip: -3.0 }][ph];
+  // the halberd stands upright at rest and on the march, is drawn back low,
+  // then driven straight out at the foe
+  if (w === "halberd") return [
+    { hn: N(2.0 + sw * 0.3, 3.4), an: -1.42 + sw * 0.04, grip: -3.6 },
+    { hn: N(-1.2, 1.8), an: -0.34, grip: -3.8 },
+    { hn: N(4.4, 1.6), an: -0.06, grip: -3.8 }][ph];
   if (w === "fork") return [
     { hn: N(2.2 + sw * 0.3, 3.6), an: -1.1 + sw * 0.05, grip: -3.6 },
     { hn: N(-0.8, 3.0), an: -0.32, grip: -3.4 },
@@ -368,7 +393,9 @@ const hands = (w, st, shN, shF) => {
 const soldier = (ctx, p) => {
   const k = (p.h ?? 22) / 22; ctx.save(); ctx.scale(k, k);
   const look = p.look, o = MAN, R = skeleton(p, o), { st, T } = R;
-  const plated = look === "knight" || look === "paladin" || look === "hero" || look === "champion";
+  const plated = look === "knight" || look === "guard" || look === "paladin" || look === "hero" || look === "champion";
+  // the Gate Guard is kitted as the garrison's knights are, in the castle's colours
+  const kn = look === "knight" || look === "guard";
   const skin = p.skin, skinF = darken(skin, 0.24);
   const steel = p.cloth, trim = p.cloth2;
   shadow(ctx, 0.4, -0.1, 4.8, 1.3, 0.22);
@@ -422,7 +449,7 @@ const soldier = (ctx, p) => {
   });
 
   // the far arm, behind the body (the shield arm, the second axe, the bow arm on the march)
-  const twoHand = w === "hammer" || w === "fork";
+  const twoHand = w === "hammer" || w === "fork" || w === "halberd";
   if (w === "axes") { const h = arm(ctx, shF, H.hf, A, armF); axe(ctx, h[0], h[1], H.af, darken(p.wcol || "#b8bcc4", 0.2), 4.8); fist(ctx, h[0], h[1], 0.95, fistF); }
   else if (w === "sword" || w === "mace") arm(ctx, shF, H.hf, A, armF);
   const bowHand = w === "bow" && !st.fight ? arm(ctx, shF, H.hf, A, armF) : null;
@@ -435,8 +462,8 @@ const soldier = (ctx, p) => {
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
     const sw = st.fight ? (st.hit ? 0.8 : -0.2) : st.c * 0.6;
     const hem = look === "farmer" ? 2.6 : look === "berserk" ? 3.0 : 3.4;
-    const skirtCol = look === "knight" ? trim : look === "hero" ? p.cape : look === "paladin" || look === "champion" ? mix(steel, "#fff3d2", 0.35) : p.cloth;
-    const hemCol = look === "knight" ? darken(trim, 0.35) : look === "farmer" || look === "hunter" || look === "berserk" ? darken(skirtCol, 0.35) : trim;
+    const skirtCol = kn ? trim : look === "hero" ? p.cape : look === "paladin" || look === "champion" ? mix(steel, "#fff3d2", 0.35) : p.cloth;
+    const hemCol = kn ? darken(trim, 0.35) : look === "farmer" || look === "hunter" || look === "berserk" ? darken(skirtCol, 0.35) : trim;
     const panel = (pts, col) => blob(c, pts, col, { hi: 0.28, then: (cc) => { cc.fillStyle = hemCol; cc.fillRect(-4, hem - 0.9, 8, 1.2); } });
     panel([[-2.5, -1.0], [0.2, -1.0], [0.0 - sw * 0.3, hem, 1], [-2.9 - sw * 0.6, hem - 0.3, 1]], darken(skirtCol, 0.15));
     if (look === "berserk") {
@@ -447,13 +474,15 @@ const soldier = (ctx, p) => {
     } else panel([[-0.3, -1.0], [2.4, -1.0], [2.9 + sw, hem - 0.2, 1], [0.2 + sw * 0.4, hem, 1]], skirtCol);
 
     const trunk = [[2.0, 0.2], [2.2, -1.8], [2.7, -4.2], [2.8, -5.9], [1.9, -7.0], [0, -7.4], [-1.8, -7.1], [-2.6, -5.8], [-2.5, -3.6], [-2.0, -1.6], [-2.1, 0.2]].map(([x, y]) => [x * (y < -2 ? burly : 1), y]);
-    const trunkCol = look === "knight" ? trim : look === "berserk" ? skin : plated ? steel : p.cloth;
+    const trunkCol = kn ? trim : look === "berserk" ? skin : plated ? steel : p.cloth;
     blob(c, trunk, trunkCol, {
-      hi: plated && look !== "knight" ? 0.5 : 0.3, lo: 0.42, then: (cc) => {
-        if (look === "knight") {
-          // the garrison's blue surcoat over mail, a pale cross on the breast
+      hi: plated && !kn ? 0.5 : 0.3, lo: 0.42, then: (cc) => {
+        if (kn) {
+          // the garrison's blue surcoat over mail, a pale cross on the breast;
+          // the Gate Guard's is the castle's red, a gold bar across it
           line(cc, 2.1, -6.4, 2.3, -2.2, 0.45, lighten(trim, 0.35));
-          dab(cc, 0.3, -6.2, 0.8, 3.4, "#e8e2d0"); dab(cc, -0.7, -5.2, 2.8, 0.8, "#e8e2d0");
+          if (look === "guard") dab(cc, -0.7, -5.0, 3.2, 1.0, BRASS);
+          else { dab(cc, 0.3, -6.2, 0.8, 3.4, "#e8e2d0"); dab(cc, -0.7, -5.2, 2.8, 0.8, "#e8e2d0"); }
           dab(cc, -3, -7.8, 6, 1.3, mix(darken(steel, 0.25), "#8a909c", 0.4));
           line(cc, -2.6, -6.4, 2.9, -6.4, 0.4, lighten(steel, 0.25));
         } else if (plated) {
@@ -485,14 +514,14 @@ const soldier = (ctx, p) => {
           line(cc, -2.2, -7.2, 2.4, -1.8, 1.0, LEATHER);
         }
         // the belt
-        const belt = look === "farmer" ? mix(p.hair || "#d8b860", "#8a7a5a", 0.35) : plated && look !== "knight" ? darken(trim, 0.2) : look === "berserk" ? trim : "#4a3020";
+        const belt = look === "farmer" ? mix(p.hair || "#d8b860", "#8a7a5a", 0.35) : plated && !kn ? darken(trim, 0.2) : look === "berserk" ? trim : "#4a3020";
         dab(cc, -3, -1.6, 6, 1.0, belt);
         if (look !== "farmer") { dab(cc, 1.3, -1.7, 0.9, 1.2, look === "berserk" ? "#b8bcc4" : BRASS); dab(cc, 1.6, -1.4, 0.35, 0.6, darken(belt, 0.4)); }
         else line(cc, 1.6, -1.1, 2.2, 0.8, 0.45, belt);
       },
     });
     // the gorget or the collar at the throat
-    if (plated) blob(c, [[-1.2, -7.9], [1.4, -8.0], [1.9, -7.0], [-1.6, -6.9]], look === "knight" ? steel : trim, { hi: 0.5 });
+    if (plated) blob(c, [[-1.2, -7.9], [1.4, -8.0], [1.9, -7.0], [-1.6, -6.9]], kn ? steel : trim, { hi: 0.5 });
     if (look === "hunter") blob(c, [[-2.4, -7.8], [1.2, -7.9], [2.2, -6.8], [0.6, -5.8, 1], [-1.2, -6.4], [-2.6, -6.4]], p.cape || p.cloth, { hi: 0.3 });
   });
 
@@ -506,6 +535,7 @@ const soldier = (ctx, p) => {
   const hd = T(0.85, -9.35); hd[0] += st.hit ? 0.4 : 0;
   const ha = st.lean * 0.3;
   if (look === "knight") bascinet(ctx, hd[0], hd[1], ha, p, { plume: trim });
+  else if (look === "guard") bascinet(ctx, hd[0], hd[1], ha, p, { band: BRASS });
   else if (look === "paladin") greatHelm(ctx, hd[0], hd[1], ha, p);
   else if (look === "champion") greatHelm(ctx, hd[0], hd[1], ha, p, { steel: p.cloth, crown: p.hair || "#e8c14a" });
   else if (look === "hero") heroHelm(ctx, hd[0], hd[1], ha, p);
@@ -522,12 +552,13 @@ const soldier = (ctx, p) => {
   }
 
   // the weapon hand
-  const pl = plated && look !== "knight";
+  const pl = plated && !kn;
   if (twoHand) {
     const hn = ik(shN[0], shN[1], H.hn[0], H.hn[1], A.up, A.fore, -1)[1];
     const to = along(hn[0], hn[1], H.an);
     const h2 = arm(ctx, shF, to(H.grip), A, armF);
     if (w === "hammer") hammer(ctx, hn[0], hn[1], H.an, p.wcol || "#e8d47a");
+    else if (w === "halberd") halberd(ctx, hn[0], hn[1], H.an, p.wcol || "#d8dce4", st.fight ? 5.4 : 7, st.hit ? 10.2 : 9.4);
     else fork(ctx, hn[0], hn[1], H.an, p.wcol || "#b8bcc4", st.hit ? 6.2 : 5.8, st.hit ? 7.6 : 8.4);
     fist(ctx, h2[0], h2[1], 1.0, fistF);
     const h = arm(ctx, shN, hn, A, armN);
@@ -566,6 +597,7 @@ export const CROWN_RIGS = {
   paladin: { kind: "crown", box: { hw: 17, up: 30, down: 4 }, p: { look: "paladin", h: 22, skin: "#e8b990", cloth: "#e0dccf", cloth2: "#d8b34a", hair: "#e8e2d0", weapon: "mace", wcol: "#e8c860", shcol: "#d8b34a" } },
   berserk: { kind: "crown", box: { hw: 17, up: 30, down: 4 }, p: { look: "berserk", h: 22, skin: "#e8b990", cloth: "#6a3a2a", cloth2: "#3a2018", hair: "#b0503a", weapon: "axes", wcol: "#b8bcc4" } },
   champion: { kind: "crown", box: { hw: 28, up: 46, down: 4 }, p: { look: "champion", h: 34, skin: "#e8b990", cloth: "#e0dccf", cloth2: "#d8b34a", hair: "#e8c14a", cape: "#3a5474", weapon: "hammer", wcol: "#e8c860", shcol: "#d8b34a" } },
+  halberdier: { kind: "crown", box: { hw: 26, up: 38, down: 4 }, p: { look: "guard", h: 22, skin: "#e8b990", cloth: "#b8bcc4", cloth2: "#7c3f4a", hair: "#c4c8d0", weapon: "halberd", wcol: "#d8dce4" } },
   farmer: { kind: "crown", box: { hw: 21, up: 30, down: 4 }, p: { look: "farmer", h: 21, skin: "#e8b990", cloth: "#9a8a62", cloth2: "#5a4a3a", hair: "#d8b860", weapon: "fork", wcol: "#b8bcc4" } },
   heroKnight: { kind: "crown", box: { hw: 19, up: 33, down: 4 }, p: { look: "hero", h: 24, skin: "#e8b990", cloth: "#d4d8e0", cloth2: "#e8c14a", hair: "#dde2ea", cape: "#a0303a", weapon: "sword", wcol: "#f0f0f4", shcol: "#a0303a" } },
   heroHunter: { kind: "crown", box: { hw: 18, up: 30, down: 4 }, p: { look: "hunter", h: 22, skin: "#e8c9a2", cloth: "#4e7f3e", cloth2: "#3a4a2c", hair: "#3f6a34", cape: "#3a5a30", weapon: "bow", wcol: "#6a4428" } },

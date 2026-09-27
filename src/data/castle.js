@@ -30,11 +30,15 @@ export const CASTLE_WORKS = {
   },
   guards: {
     name: "Gate Guard", icon: "",
-    blurb: "Halberdiers at the portcullis hold a foe that reaches the gate for a moment — one last chance for the towers.",
+    blurb: "Halberdiers stand on the road before the gate and hold what walks up to it, like a garrison's knights — one last chance for the towers.",
+    // they fight as a knight garrison does (engine/update.js runMelee): each
+    // holds one foe on foot, trades blows, falls and comes back after
+    // respawnMs. `men` is each halberdier's health (`hp`, as on every work,
+    // is extra castle life); `oil` scalds whatever they hold, per second.
     tiers: [
-      { cost: 10000, label: "Halberdiers", hold: 1600 },
-      { cost: 15000, label: "A thicker gate", hold: 2000, hp: 5 },
-      { cost: 25000, label: "Boiling oil", hold: 2400, hp: 5, oil: 45 },
+      { cost: 10000, label: "Two halberdiers", count: 2, men: 220, dmg: 22, rate: 850, range: 48 },
+      { cost: 15000, label: "Three, and a thicker gate", count: 3, men: 280, dmg: 28, rate: 820, range: 52, hp: 5 },
+      { cost: 25000, label: "Boiling oil", count: 3, men: 320, dmg: 34, rate: 800, range: 52, hp: 5, oil: 45 },
     ],
   },
   masons: {
@@ -57,13 +61,13 @@ export const emptyWorks = () => ({ archers: 0, ballista: 0, guards: 0, masons: 0
 export const RANK_COST = (key, r) => CASTLE_WORKS[key].tiers.at(-1).cost * 2 ** (r + 1);
 export const rankLabel = (key, r) => ({
   archers: `Rank ${r}: +${r * 40}% bowmen damage`, ballista: `Rank ${r}: +${r * 40}% bolt damage`,
-  guards: `Rank ${r}: longer hold, hotter oil, +${r * 2} castle life`, masons: `Rank ${r}: mend ${2 + r} lives a wave`,
+  guards: `Rank ${r}: +${r * 40}% halberdiers, hotter oil, +${r * 2} castle life`, masons: `Rank ${r}: mend ${2 + r} lives a wave`,
 }[key]);
 const ranked = (key, t, r) => {
   if (!r) return t;
   const m = 1 + 0.4 * r;
   if (key === "archers" || key === "ballista") return { ...t, dmg: t.dmg * m, burn: t.burn ? t.burn * m : t.burn, label: rankLabel(key, r) };
-  if (key === "guards") return { ...t, hold: t.hold + 400 * r, oil: (t.oil || 0) * m, hp: (t.hp || 0) + 2 * r, label: rankLabel(key, r) };
+  if (key === "guards") return { ...t, men: t.men * m, dmg: t.dmg * m, oil: (t.oil || 0) * m, hp: (t.hp || 0) + 2 * r, label: rankLabel(key, r) };
   if (key === "masons") return { ...t, mend: (t.mend || 0) + r, label: rankLabel(key, r) };
   return t;
 };
@@ -184,3 +188,9 @@ export const bowmenSpots = (gy, count) => {
   return out;
 };
 export const masonSpots = (gy, count) => wallSlots(gy).reverse().slice(0, count);
+// The Gate Guard's halberdiers hold the road a stride out from the gate (the
+// wall face is at x 738, and the road always runs straight in to it), in a
+// line across it — their posts, [x, y], the way a garrison's slots are.
+export const GUARD_X = 722;
+export const guardSpots = (gy, count) =>
+  (count >= 3 ? [0, -19, 19] : count === 2 ? [-11, 11] : [0]).slice(0, count).map((d) => [GUARD_X, gy + d]);
