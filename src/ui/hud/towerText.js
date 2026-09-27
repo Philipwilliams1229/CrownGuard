@@ -31,6 +31,8 @@ export function towerTags(t) {
   return line.split("·").map((x) => x.trim()).filter(Boolean);
 }
 
+const sec = (v) => `${(v / 1000).toFixed(1)}s`;
+const pct = (v) => `${Math.round(v * 100)}%`;
 // The numbers an upgrade can move, in reading order. `lower` marks a stat
 // where less is better (a reload time).
 const DELTAS = [
@@ -53,6 +55,39 @@ const DELTAS = [
   ["mDmg", "Musket", (v) => Math.round(v)],
   ["mRate", "Musket reload", (v) => `${(v / 1000).toFixed(2)}s`, true],
   ["preyMult", "Vs support", (v) => `×${v}`],
+  // the damage mechanics: what hurts beyond the hit itself, and how often
+  ["poison", "Poison", (v) => `+${Math.round(v)}/s a hit`],
+  ["poisonCap", "Poison max", (v) => `${Math.round(v)}/s`],
+  ["poisonDur", "Poison time", sec],
+  ["venom", "Venom", (v) => `${Math.round(v)}/s`],
+  ["venomDur", "Venom time", sec],
+  ["burn", "Burn", (v) => `${Math.round(v)}/s`],
+  ["burnDur", "Burn time", sec],
+  ["poolDps", "Fire pool", (v) => `${Math.round(v)}/s`],
+  ["igniteBurn", "Ignite", (v) => `${Math.round(v)}/s`],
+  ["logDmg", "Log", (v) => Math.round(v)],
+  ["logBurn", "Log burn", (v) => `${Math.round(v)}/s`],
+  ["logBlastDmg", "Log blast", (v) => Math.round(v)],
+  ["logStun", "Log stun", sec],
+  ["logSlow", "Log slow", pct],
+  ["eagleDmg", "Eagle", (v) => Math.round(v)],
+  ["eagleRate", "Eagle reload", (v) => `${(v / 1000).toFixed(2)}s`, true],
+  ["crit", "Crit", (v) => `1 in ${v}`, true],
+  ["critMult", "Crit dmg", (v) => `×${v}`],
+  ["mCrit", "Musket crit", (v) => `1 in ${v} ×3`, true],
+  ["mShots", "Musket balls", (v) => v],
+  ["shells", "Charges", (v) => v],
+  ["chain", "Ricochets", (v) => v],
+  ["arc", "Chains", (v) => v],
+  ["spikePierce", "Pierces", (v) => v],
+  ["beams", "Beams", (v) => v],
+  ["rampMax", "Focus", (v) => `×${v}`],
+  ["airMult", "Vs fliers", (v) => `×${v}`],
+  ["stun", "Stun", pct],
+  ["zapStun", "Shock stun", pct],
+  ["cull", "Culls under", pct],
+  ["execute", "Finishes under", pct],
+  ["lifesteal", "Lifesteal", pct],
 ];
 
 // What buying the next level changes: [{ label, from, to, better }].
@@ -64,11 +99,14 @@ export function levelDeltas(t) {
 export function formDeltas(t, form) {
   const a = getStats(t), b = getStats({ ...t, ...form });
   const out = [];
+  // a mechanic the form gains shows as "— ▸ 9/s", one it loses as "70 ▸ —"
+  const has = (v) => v != null && v !== 0 && v !== false;
   for (const [k, label, fmt, lower] of DELTAS) {
-    if (a[k] == null || b[k] == null || a[k] === b[k]) continue;
-    const from = fmt(a[k]), to = fmt(b[k]);
+    const av = a[k], bv = b[k];
+    if ((!has(av) && !has(bv)) || av === bv) continue;
+    const from = has(av) ? fmt(av) : "—", to = has(bv) ? fmt(bv) : "—";
     if (String(from) === String(to)) continue;
-    out.push({ label, from, to, better: lower ? b[k] < a[k] : b[k] > a[k] });
+    out.push({ label, from, to, better: !has(av) ? true : !has(bv) ? false : lower ? bv < av : bv > av });
   }
   return out;
 }
