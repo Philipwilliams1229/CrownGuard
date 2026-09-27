@@ -22,7 +22,7 @@ import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, MAX_STA
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, heroAbilityState, fireHeroAbility,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, heroAbilityState, fireHeroAbility,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -121,6 +121,9 @@ export default function Crownguard() {
   const [award, setAward] = useState(null);
   // which master-menu final the player is reading about: {kind, branch, rank4, name, cost, desc, stats}
   const [masterInfo, setMasterInfo] = useState(null);
+  // which upgrade card has its ⓘ open (its tale laid over the card)
+  const [cardInfo, setCardInfo] = useState(null);
+  useEffect(() => { setCardInfo(null); }, [ui.selected?.id]);
   const level = levelId ? levelById(levelId) : null;
   const uiRef = useRef(ui);
   uiRef.current = ui;
@@ -806,6 +809,19 @@ export default function Crownguard() {
   const cancelRally = () => { if (G.current) G.current.rallyFor = null; };
   // a small square close button that sits ON a card's upper-right corner,
   // outside the part that scrolls, so it never scrolls away
+  // A card's ⓘ: a small mark in its top-right corner with a thumb-sized
+  // hit area around it (`hit` css px at any UI scale, within `cap` design
+  // px). It sits beside the card, never inside it, so it works on a card
+  // that can't be afforded and never arms or picks the card.
+  const infoCorner = (label, open, onToggle, hit = 40, cap = 56) => {
+    const d = Math.round(Math.min(cap, Math.max(30, hit / s)));
+    return (
+      <button type="button" aria-label={label} aria-expanded={open} className="cg-info" style={{ width: d, height: d }}
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+        <span>{open ? <CloseIcon size={10} /> : <InfoIcon size={14} />}</span>
+      </button>
+    );
+  };
   const cornerX = (label, onClick) => (
     <button aria-label={label} className="cg-btn cg-btn--slate cg-x cg-corner-x" onClick={onClick}><CloseIcon size={12} /></button>
   );
@@ -997,7 +1013,8 @@ export default function Crownguard() {
       armForms.current[armId(key)] = form;
       return () => upArm.tap(armId(key), () => { withT(fn)(); if (G.current) G.current.upPreview = null; });
     };
-    const deltaGrid = (deltas) => (
+    // `rows` pads it with blank lines so sibling cards stand the same height
+    const deltaGrid = (deltas, rows = deltas.length) => (
       <span className="cg-dim" style={{ display: "grid", gridTemplateColumns: "auto auto", justifyContent: "start", columnGap: 10, rowGap: 1, fontSize: 10.5 }}>
         {deltas.map((d) => (
           <span key={d.label} style={{ display: "contents" }}>
@@ -1005,6 +1022,7 @@ export default function Crownguard() {
             <span style={{ whiteSpace: "nowrap" }}>{d.from} <span style={{ color: d.better ? "#3f7a2a" : "#a8363c", fontWeight: "bold" }}>▸ {d.to}</span></span>
           </span>
         ))}
+        {Array.from({ length: Math.max(0, rows - deltas.length) }, (_, i) => <span key={`pad${i}`} style={{ gridColumn: "1 / -1" }}>&nbsp;</span>)}
       </span>
     );
     // the armed button's call to action: a dark tag on the gold, easy to read.
@@ -1015,19 +1033,48 @@ export default function Crownguard() {
       <span style={{ background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontSize: 11, fontWeight: 700, letterSpacing: 1, lineHeight: "14px", padding: "1px 7px", textShadow: "none" }}>CONFIRM</span>
     );
     const slot = { display: "flex", alignItems: "center", height: 16 };
-    // a path or final-form card's words: name, tale, stats, then a foot with
-    // the price that the CONFIRM tag joins when armed
-    const formCard = (f, can, armed, deltas) => (
-      <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-        <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{f.name}</span>
-        <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.4, color: "#5a4630" }}>{f.desc}</span>
-        {deltaGrid(deltas)}
-        <span style={{ ...slot, justifyContent: "space-between", gap: 6, marginTop: 1 }}>
-          {armed ? confirmTag() : <span />}
-          {price(f.cost, can, 13)}
-        </span>
-      </span>
-    );
+    // The path / final-form choices. Every card is the same size and stays
+    // it: the grid's rows all match the tallest card (a long name may wrap),
+    // the stats are padded to the longest list, and a foot
+    // with the price that the CONFIRM tag joins when armed. The tale lives
+    // behind the ⓘ in the corner and is laid over the card when asked for.
+    const formChoices = (heading, opts) => {
+      const rows = Math.max(...opts.map((o) => o.deltas.length));
+      return (
+        <div style={{ marginTop: 10 }}>
+          <div className="cg-label" style={{ marginBottom: 6 }}>{heading}</div>
+          <div style={{ display: "grid", gridAutoRows: "1fr", gap: 7 }}>
+            {opts.map((o) => {
+              const id = armId(o.k), can = ui.gold >= o.f.cost, armed = upArm.is(id), open = cardInfo === id;
+              return (
+                <div key={o.k} style={{ position: "relative" }}>
+                  <button data-arm={id} className={cls("cg-btn", "cg-btn--parch", armed && "is-armed", !can && "is-poor")} disabled={!can}
+                    style={{ width: "100%", height: "100%", padding: "6px 8px", gap: 8, alignItems: "stretch", justifyContent: "flex-start" }}
+                    onClick={buy2(o.k, o.form, o.buy)}>
+                    <span className="cg-dim" style={{ flexShrink: 0, alignSelf: "flex-start" }}><TowerPortrait kind={sel.kind} {...o.look} size={40} /></span>
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+                      <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12, paddingRight: 16 }}>{o.f.name}</span>
+                      {deltaGrid(o.deltas, rows)}
+                      <span style={{ ...slot, justifyContent: "space-between", gap: 6, marginTop: "auto" }}>
+                        {armed ? confirmTag() : <span />}
+                        {price(o.f.cost, can, 13)}
+                      </span>
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="cg-info-pane cg-scroll" onClick={() => setCardInfo(null)}>
+                      <div className="cg-display" style={{ fontWeight: 700, fontSize: 11, color: "var(--parch-ink)", marginBottom: 3 }}>{o.f.name}</div>
+                      {o.f.desc}
+                    </div>
+                  )}
+                  {infoCorner(`About ${o.f.name}`, open, () => setCardInfo(open ? null : id))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
     const tier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
     const branchDef = sel.branch ? selDef.branches[sel.branch] : null;
     // nothing left to buy: the card goes to one column, and says what the
@@ -1122,7 +1169,8 @@ export default function Crownguard() {
                             ))}
                           </div>
                           {!vp.short && (
-                            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 5 }}>
+                            // two lines kept for it, so a longer hint never shoves the card
+                            <div style={{ fontSize: 10, lineHeight: 1.3, minHeight: "2.6em", color: "var(--muted)", marginTop: 5 }}>
                               {(modes.find((m) => m.id === sel.aim) || modes[0]).hint}
                             </div>
                           )}
@@ -1160,57 +1208,18 @@ export default function Crownguard() {
                 })()}
 
                 {!sel.branch && sel.level === 3 && !tierOpen(4) && capNote}
-                {!sel.branch && sel.level === 3 && tierOpen(4) && (
-                  <div style={{ marginTop: 10 }}>
-                    <div className="cg-label" style={{ marginBottom: 6 }}>Choose a path — permanent</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                      {Object.entries(selDef.branches).map(([bk, br]) => {
-                        const can = ui.gold >= br.cost;
-                        return (
-                          <button key={bk} data-arm={armId(`branch:${bk}`)} className={cls("cg-btn", "cg-btn--parch", upArm.is(armId(`branch:${bk}`)) && "is-armed", !can && "is-poor")} disabled={!can}
-                            style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
-                            onClick={buy2(`branch:${bk}`, { branch: bk }, (tt) => branchTower(G.current, tt, bk))}>
-                            <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={bk} size={40} /></span>
-                            {formCard(br, can, upArm.is(armId(`branch:${bk}`)), formDeltas(t, { branch: bk }))}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {!sel.branch && sel.level === 3 && tierOpen(4) && formChoices("Choose a path — permanent",
+                  Object.entries(selDef.branches).map(([bk, br]) => ({
+                    k: `branch:${bk}`, f: br, form: { branch: bk }, look: { branch: bk },
+                    deltas: formDeltas(t, { branch: bk }), buy: (tt) => branchTower(G.current, tt, bk),
+                  })))}
 
                 {sel.branch && !sel.rank4 && branchDef.rank4 && !tierOpen(5) && capNote}
-                {sel.branch && !sel.rank4 && branchDef.rank4 && tierOpen(5) && (
-                  <div style={{ marginTop: 10 }}>
-                    <div className="cg-label" style={{ marginBottom: 6 }}>Final ascension — permanent</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                      {Object.entries(branchDef.rank4).map(([rk, r4]) => {
-                        const can = ui.gold >= r4.cost;
-                        return (
-                          <button key={rk} data-arm={armId(`ascend:${rk}`)} className={cls("cg-btn", "cg-btn--parch", upArm.is(armId(`ascend:${rk}`)) && "is-armed", !can && "is-poor")} disabled={!can}
-                            style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
-                            onClick={buy2(`ascend:${rk}`, { rank4: rk }, (tt) => ascendTower(G.current, tt, rk))}>
-                            <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={sel.branch} rank4={rk} size={40} /></span>
-                            {formCard(r4, can, upArm.is(armId(`ascend:${rk}`)), formDeltas(t, { rank4: rk }))}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* rich-run shortcut: buy every remaining rank in one stroke */}
-                {ui.masterShow && !sel.rank4 && (() => {
-                  const c = completionCost(t);
-                  const can = ui.gold >= c.cost;
-                  return (
-                    <button data-arm={armId("complete")} className={cls("cg-btn", upArm.is(armId("complete")) && "cg-btn--gold", !can && "is-poor")} disabled={!can}
-                      style={{ width: "100%", marginTop: 8, fontSize: 12, gap: 6 }}
-                      onClick={buy2("complete", { level: 3, branch: sel.branch || c.branch, rank4: c.rank4 }, (tt) => { if (can && G.current) completeTower(G.current, tt); })}>
-                      <BoltIcon size={13} /> <span className="cg-dim">{upArm.is(armId("complete")) ? "Confirm" : "Complete"} — {c.name}</span> {price(c.cost, can, 12)}
-                    </button>
-                  );
-                })()}
+                {sel.branch && !sel.rank4 && branchDef.rank4 && tierOpen(5) && formChoices("Final ascension — permanent",
+                  Object.entries(branchDef.rank4).map(([rk, r4]) => ({
+                    k: `ascend:${rk}`, f: r4, form: { rank4: rk }, look: { branch: sel.branch, rank4: rk },
+                    deltas: formDeltas(t, { rank4: rk }), buy: (tt) => ascendTower(G.current, tt, rk),
+                  })))}
 
                 {/* selling takes two taps too: an accidental sale can't be undone */}
                 <button data-arm={armId("sell")} className={cls("cg-btn cg-btn--red", upArm.is(armId("sell")) && "is-on")}
@@ -1752,7 +1761,8 @@ export default function Crownguard() {
                         const can = ui.gold >= plan.cost;
                         const active = ui.buildMode === key && ui.masterPick === pk;
                         return (
-                          <button key={pk} title={def.branches[plan.branch].desc}
+                          <div key={pk} style={{ position: "relative" }}>
+                          <button title={def.branches[plan.branch].desc}
                             className={cls("cg-btn cg-btn--slate", active && "is-on", !can && "is-poor")}
                             style={{ width: "100%", flexDirection: "column", justifyContent: "flex-end", gap: 3, padding: "8px 4px 7px", minHeight: 100, touchAction: "none" }}
                             onPointerDown={(e) => { if (can) startTileDrag(e, key, { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name }); }}
@@ -1766,19 +1776,18 @@ export default function Crownguard() {
                               setTalentsOpen(false);
                             }}
                             disabled={!can}>
-                            <span role="button" aria-label={`About ${plan.name}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const br = def.branches[plan.branch];
-                                const stats = plan.rank4 ? br.rank4[plan.rank4].stats : br.stats;
-                                setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
-                                setTalentsOpen(false);
-                              }}
-                              style={{ position: "absolute", top: 0, right: 0, padding: 5, pointerEvents: "auto", cursor: "help" }}><InfoIcon size={12} /></span>
                             <span className="cg-dim"><TowerPortrait kind={key} branch={plan.branch} rank4={plan.rank4} size={42} /></span>
                             <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.2 }}>{plan.name}</span>
                             {price(plan.cost, can, 11)}
                           </button>
+                          {/* its ⓘ beside the card, so it answers even when the card is too dear */}
+                          {infoCorner(`About ${plan.name}`, false, () => {
+                            const br = def.branches[plan.branch];
+                            const stats = plan.rank4 ? br.rank4[plan.rank4].stats : br.stats;
+                            setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
+                            setTalentsOpen(false);
+                          }, 34, 46)}
+                          </div>
                         );
                       })}
                     </div>

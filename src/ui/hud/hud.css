@@ -143,6 +143,24 @@
   background: var(--gold);
   box-shadow: inset 2px 2px 0 var(--gold-lt), inset -2px -2px 0 var(--gold-dk), 0 2px 0 var(--ink);
 }
+/* a card's ⓘ: the mark sits in the corner, the (invisible) hit area around
+   it is sized in the JSX (infoCorner) so a thumb finds it on a phone */
+.cg-info {
+  position: absolute; top: 0; right: 0; z-index: 3;
+  margin: 0; padding: 4px; border: 0; background: none;
+  display: flex; align-items: flex-start; justify-content: flex-end;
+  cursor: help; -webkit-tap-highlight-color: transparent;
+}
+.cg-info > span { display: flex; align-items: center; justify-content: center; min-width: 16px; min-height: 16px; }
+.cg-info:active > span { transform: translateY(1px); }
+/* the tale an ⓘ opens, laid over its card at the card's own size */
+.cg-info-pane {
+  position: absolute; inset: 0; z-index: 2; overflow-y: auto; box-sizing: border-box;
+  padding: 6px 30px 6px 9px; cursor: pointer; text-align: left;
+  background: var(--parch); border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 var(--parch-lt), inset -2px -2px 0 var(--parch-dk);
+  font-family: var(--body); font-size: 10.5px; line-height: 1.4; color: #5a4630; text-shadow: none;
+}
 .cg-btn--parch.is-armed:active:not(:disabled) { box-shadow: inset 2px 2px 0 var(--gold-dk), inset -1px -1px 0 var(--gold-lt); }
 /* a small square close button */
 .cg-x { min-width: 36px; min-height: 36px; padding: 0; }
