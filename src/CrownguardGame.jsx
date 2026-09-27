@@ -835,8 +835,7 @@ export default function Crownguard() {
   const cardTop = Math.max(CARD_M, inset.top - boardCss.y + 6 * s);
   const cardBot = Math.max(CARD_M, inset.bottom - ((boardCss.ch || 0) - boardCss.y - boardCss.vh) + 6 * s);
   const cardMinL = Math.max(6 * s, inset.left - boardCss.x + 6 * s);
-  // `foot` is pinned under the part that scrolls, so it never scrolls away.
-  const floatCard = ({ id, left, width, f, origin, closeLabel, onClose, children, foot = null }) => (
+  const floatCard = ({ id, left, width, f, origin, closeLabel, onClose, children }) => (
     <div key={id} style={{
       position: "absolute", left: Math.max(cardMinL, left), top: cardTop, width, height: (boardCss.vh - cardTop - cardBot) / s,
       transform: `scale(${s})`, transformOrigin: "0 0", zIndex: 25,
@@ -844,14 +843,7 @@ export default function Crownguard() {
     }}>
       <div style={{ flex: `${f} 1 0px` }} />
       <div className="cg-pop" style={{ position: "relative", flex: "0 1 auto", minHeight: 0, display: "flex", flexDirection: "column", pointerEvents: "auto", transformOrigin: origin }}>
-        {foot ? (
-          <div className="cg-frame" style={{ padding: 12, minHeight: 0, flex: "0 1 auto", display: "flex", flexDirection: "column" }}>
-            <div className="cg-scroll" style={{ overflowY: "auto", overscrollBehavior: "contain", minHeight: 0, flex: "0 1 auto" }}>{children}</div>
-            {foot}
-          </div>
-        ) : (
-          <div className="cg-frame cg-scroll" style={{ padding: 12, overflowY: "auto", overscrollBehavior: "contain", minHeight: 0, flex: "0 1 auto" }}>{children}</div>
-        )}
+        <div className="cg-frame cg-scroll" style={{ padding: 12, overflowY: "auto", overscrollBehavior: "contain", minHeight: 0, flex: "0 1 auto" }}>{children}</div>
         {cornerX(closeLabel, onClose)}
       </div>
       <div style={{ flex: `${1 - f} 1 0px` }} />
@@ -1094,7 +1086,7 @@ export default function Crownguard() {
       const deltas = ghost ? formDeltas({ ...t, level: L, branch: null, rank4: null }, { level: L + 1 }) : levelDeltas(t);
       return (
         <button data-arm={ghost ? undefined : armId("level")} tabIndex={ghost ? -1 : undefined} className={cls("cg-btn", "cg-btn--parch", armed && "is-armed", !can && "is-poor")} disabled={!can}
-          style={{ width: "100%", marginTop: 10, padding: "7px 10px 8px", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}
+          style={{ width: "100%", flex: 1, marginTop: 10, padding: "7px 10px 8px", alignItems: "center", justifyContent: "space-between", gap: 10 }}
           onClick={ghost ? undefined : buy2("level", { level: L + 1 }, (tt) => upgradeTower(G.current, tt))}>
           <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
             <span style={slot}>{armed ? confirmTag() : <span className="cg-label">Upgrade · Level {L + 1}</span>}</span>
@@ -1158,9 +1150,6 @@ export default function Crownguard() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 14, lineHeight: 1.15, textShadow: "1px 1px 0 var(--ink)" }}>
                       {f.rank4 ? fb.rank4[f.rank4].name : f.branch ? fb.name : selDef.name}
-                    </div>
-                    <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 3 }}>
-                      {f.rank4 ? `${fb.name} · final form` : f.branch ? `${selDef.name} · path chosen` : `Level ${f.level} of 3`}
                     </div>
                     <div className="cg-pips" style={{ marginTop: 5 }} title="three levels, a path, and a final ascension">
                       {[1, 2, 3, 4, 5].map((i) => <span key={i} className={cls("cg-pip", i <= ftier && "on", i > 3 && "big")} />)}
@@ -1227,11 +1216,12 @@ export default function Crownguard() {
                         </div>
                       ) : (
                         <>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                            {modes.map((m) => (
+                          {/* every order the same size: two to a row, an odd one out spanning the last */}
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                            {modes.map((m, i) => (
                               <button key={m.id} title={m.hint}
                                 className={cls("cg-btn cg-btn--slate", sel.aim === m.id && "is-on")}
-                                style={{ flex: "1 1 auto", minWidth: 0, minHeight: 40, padding: "0 5px", fontSize: 12 }}
+                                style={{ minWidth: 0, minHeight: 40, padding: "0 5px", fontSize: 12, ...(modes.length % 2 && i === modes.length - 1 ? { gridColumn: "1 / -1" } : {}) }}
                                 tabIndex={live ? undefined : -1} onClick={live ? () => { const lt = G.current?.towers.find((x) => x.id === sel.id); if (lt) lt.aim = m.id; } : undefined}>
                                 {m.label}
                               </button>
@@ -1266,19 +1256,22 @@ export default function Crownguard() {
                 ))}
               </div>
     ), right: (
-              <div style={{ display: "grid" }}>
-                {stages.map((st) => (
-                  <div key={st.key} aria-hidden={st.live ? undefined : true} style={{ gridArea: "1 / 1", minWidth: 0, visibility: st.live ? "visible" : "hidden" }}>{st.node}</div>
-                ))}
-              </div>
-    ), sell: (
-              <div style={{ paddingTop: 10 }}>
+              // the right column: the stage stack takes whatever height the card
+              // has (a lone level-up stretches to fill it), Sell stays at the foot
+              <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ flex: 1, display: "grid" }}>
+                  {stages.map((st) => (
+                    <div key={st.key} aria-hidden={st.live ? undefined : true} style={{ gridArea: "1 / 1", minWidth: 0, display: "flex", flexDirection: "column", visibility: st.live ? "visible" : "hidden" }}>{st.node}</div>
+                  ))}
+                </div>
+                <div style={{ paddingTop: 10 }}>
                 {/* selling takes two taps too: an accidental sale can't be undone */}
                 <button data-arm={armId("sell")} className={cls("cg-btn cg-btn--red", upArm.is(armId("sell")) && "is-on")}
                   style={{ width: "100%", justifyContent: "space-between", ...(upArm.is(armId("sell")) ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : {}) }}
                   onClick={() => upArm.tap(armId("sell"), withT((tt) => sellTower(G.current, tt)))}>
                   <span>{upArm.is(armId("sell")) ? "Confirm sale" : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
                 </button>
+                </div>
               </div>
     ) };
   })();
@@ -1567,10 +1560,8 @@ export default function Crownguard() {
                 id: sel.id, left, width: CW, f, origin: `${flipX ? "right" : "left"} center`,
                 closeLabel: "Deselect tower", onClose: () => { if (G.current) G.current.selectedId = null; },
                 children: two
-                  ? <div className="cg-card-two" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.1fr)", gap: 12, alignItems: "start" }}><div style={{ minWidth: 0 }}>{towerPanel.left}</div><div style={{ minWidth: 0 }}>{towerPanel.right}</div></div>
+                  ? <div className="cg-card-two" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.1fr)", gap: 12, alignItems: "stretch" }}><div style={{ minWidth: 0 }}>{towerPanel.left}</div><div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>{towerPanel.right}</div></div>
                   : <>{towerPanel.left}{towerPanel.right}</>,
-                // Sell is pinned at the card's foot, always in the same place
-                foot: towerPanel.sell,
               });
             })()}
 

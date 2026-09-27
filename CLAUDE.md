@@ -125,7 +125,10 @@ The owner misclicked when the tower card changed shape between taps, so
   one grid cell and only the live one is visible, so the card is as tall as
   its tallest form from level 1 to the end. Anything new in the card must
   be in every stage (or reserve its space), never pop in.
-- Sell is the card's pinned foot (`floatCard`'s `foot`), outside the scroll.
+- Sell lives at the foot of the right column and stays there (the column
+  stretches to the card's height; a lone level-up card stretches to fill).
+- No subtitle under the hall's name; targets are equal buttons, two to a row
+  (an odd one spans the last row).
 - Two taps to buy: arming only turns a card gold (`is-armed` keeps the
   parchment font) and shows CONFIRM in a fixed slot.
 - Path / final-form cards show name + tale + price; the stat changes are
