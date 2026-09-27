@@ -8,7 +8,7 @@ import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF
 import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "../data/bands.js";
-import { RIVER_ROUTE, seaRoute, seaDepthAt } from "../data/terrain.js";
+import { RIVER_ROUTE, seaRoute, seaDepthAt, underBridge } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, TOTAL_LEN } from "./path.js";
@@ -1166,6 +1166,31 @@ export function updateGame(g, dt) {
         if (e) { e._rivT = tms; e._rivR = rt; e._riv = r; }
         return r;
       };
+      // A skiff rows UNDER a bridge but never stops there: it works from the
+      // water either side of the span. Each stretch of the route that runs
+      // beneath a deck is kept once per route as [q0, q1], a little wider than
+      // the drawn hull so the boat stands clear of the timbers.
+      if (rt._spans === undefined) {
+        rt._spans = [];
+        let open = null;
+        for (let q = 0; q <= rt.total; q += 4) {
+          const [px, py] = rt.at(q);
+          if (underBridge(px, py, 24)) { if (open === null) open = q; }
+          else if (open !== null) { rt._spans.push([Math.max(0, open - 4), q]); open = null; }
+        }
+        if (open !== null) rt._spans.push([Math.max(0, open - 4), rt.total]);
+      }
+      // a station that falls under a span moves out to the near side of it —
+      // the side the skiff is already on, so it never crosses just to wait
+      const clearOfSpans = (q, from) => {
+        for (const [a, b] of rt._spans) {
+          if (q <= a || q >= b) continue;
+          const side = from <= (a + b) / 2 ? a : b;
+          // a span at the very end of the water leaves only the other side
+          return side <= 0 || side >= rt.total ? (side <= 0 ? b : a) : side;
+        }
+        return q;
+      };
       t.units.forEach((u, i) => {
         u.maxHp = st.hp;
         if (u.state === "dead") {
@@ -1188,7 +1213,7 @@ export function updateGame(g, dt) {
           if (score > markScore) { markScore = score; mark = e; markQ = nr.q; }
         }
         const home = (rt.total * (i + 1)) / (n + 1);
-        const want = mark ? markQ : home;
+        const want = clearOfSpans(mark ? markQ : home, u.sd);
         const row = (st.rowSpeed || 78) * sdt;
         // round a pond the short way; along a river, up or down it
         let gap = want - u.sd;
@@ -1202,6 +1227,7 @@ export function updateGame(g, dt) {
         if (!mark) { u.face = nx >= bx ? 1 : -1; return; }
         u.face = mark.x >= u.x ? 1 : -1;
         if (Math.hypot(mark.x - u.x, mark.y - u.y) > st.range || u.atkCd > 0) return;
+        if (rt._spans.length && underBridge(u.x, u.y)) return;   // no shooting from under the deck
         // the harpoon goes out
         u.atkCd = st.rate;
         u.swing = 200;
