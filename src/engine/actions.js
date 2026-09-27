@@ -58,7 +58,7 @@ export const startWave = (g) => {
   g.snapshot = {
     wave: g.wave, gold: g.gold, lives: g.lives,
     towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, rank4: t.rank4, invested: t.invested, aim: t.aim,
-      kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0 })),
+      kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0, formDmg: t.formDmg || 0, formTime: t.formTime || 0 })),
     // the castle's works and the hero as they stood; the militia goes home
     castle: g.castle ? { ...g.castle } : null,
     castleRanks: g.castleRanks ? { ...g.castleRanks } : null,
@@ -137,6 +137,7 @@ export const restartWave = (g) => {
     const t = makeTower(td.kind, td.x, td.y, td.level, td.branch, td.invested, td.rank4);
     t.aim = td.aim || "first";  // a retried wave keeps the orders you gave
     t.kills = td.kills || 0; t.dmgOut = td.dmgOut || 0; t.liveTime = td.liveTime || 0;
+    t.formDmg = td.formDmg || 0; t.formTime = td.formTime || 0;
     return t;
   });
   g.enemies = []; g.projectiles = []; g.effects = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];
@@ -164,6 +165,8 @@ export const restartWave = (g) => {
 // raise, from that form, plays once the scaffold is down.
 const markRaised = (g, t, how, prev = null) => {
   const r = t.raised, now = g.time || 0;
+  // a new form starts its dps average over (update.js keeps the clock)
+  t.formDmg = 0; t.formTime = 0;
   if (how === "build") t.readyAt = buildClock(t.kind, t.x, t.y, now).personAt;
   const b = r && (r.how === "build" ? r : r.build);
   if (how !== "build" && b && now >= b.at && now < buildClock(t.kind, t.x, t.y, b.at).home) {
@@ -373,7 +376,7 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
   // credit the ledger before the body falls, so the killing blow counts
   const credited = Math.max(0, Math.min(dmg, e.hp));
   const src = srcId != null && g._towerById ? g._towerById.get(srcId) : null;
-  if (src) src.dmgOut = (src.dmgOut || 0) + credited;
+  if (src) { src.dmgOut = (src.dmgOut || 0) + credited; src.formDmg = (src.formDmg || 0) + credited; }
   e.hp -= dmg;
   // brief white flash on solid hits (DoT ticks are too small to strobe)
   if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;

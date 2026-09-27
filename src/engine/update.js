@@ -343,11 +343,8 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
 };
 
 export function updateGame(g, dt) {
-  // Tactical half-speed: during combat, while the player is managing — the
-  // build drawer is open, a tower is being placed, or a tower is selected —
-  // time runs at 50% so there's room to think.
-  const managing = g.phase === "combat" && (g.buildMenuOpen || g.buildMode || g.selectedId);
-  const speed = g.speed * BASE_SPEED * (managing ? 0.5 : 1);
+  // time keeps its pace while a menu is open (the old tactical half-speed is gone)
+  const speed = g.speed * BASE_SPEED;
   const sdt = g.paused ? 0 : dt * speed;
   g.time += sdt;
   // the sandbox's bottomless coffers: whatever was spent is back by the next frame
@@ -356,7 +353,22 @@ export function updateGame(g, dt) {
   // who owns which id this frame — the damage ledger resolves through this
   g._towerById = new Map(g.towers.map((t) => [t.id, t]));
   if (g.bands) for (const b of g.bands) g._towerById.set(b.id, b);
-  if (g.phase === "combat" && !g.paused) for (const t of g.towers) t.liveTime = (t.liveTime || 0) + sdt;
+  if (g.phase === "combat" && !g.paused) for (const t of g.towers) {
+    t.liveTime = (t.liveTime || 0) + sdt;
+    // the menu's dps clock: only the seconds a built tower has a foe in its
+    // reach (around its rally flag for halls that fight there) count, and
+    // it starts over with every upgrade (formDmg / formTime, actions.js)
+    if ((t.readyAt || 0) > g.time || !g.enemies.length) continue;
+    const r = getStats(t).range;
+    if (!r) continue;
+    const c = (t.kind === "knight" || t.kind === "assassin") && t.rally ? t.rally : t;
+    for (const e of g.enemies) {
+      if (e.dead) continue;
+      const rr = r + (e.size || 14) * 0.4;
+      const dx = e.x - c.x, dy = e.y - c.y;
+      if (dx * dx + dy * dy <= rr * rr) { t.formTime = (t.formTime || 0) + sdt; break; }
+    }
+  }
   if (!g.grounds) g.grounds = []; // lingering ground effects (lava pools)
   if (!g.traps) g.traps = [];     // the trapsmith's armed road
 

@@ -286,7 +286,7 @@ function Basics() {
 
       <Heading>BUILDING</Heading>
       Towers reach <b>Lv 3</b>, then <b>evolve down one of two paths</b> — and each path can <b>ascend once more</b> into a final form. Both choices are permanent, so read them before you spend.<br /><br />
-      Selling returns <b>70%</b> of everything you put in. Time runs at <b>half speed</b> while you're building or managing a tower, so you can think.
+      Selling returns <b>70%</b> of everything you put in.
 
       <Heading>KNIGHTS</Heading>
       Knights march out and each pin <i>one</i> enemy in melee — the rest push past. Fallen knights respawn in 7 seconds. They muster just south of their hall; select the hall and click inside its circle to move the rally flag.

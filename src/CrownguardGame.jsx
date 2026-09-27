@@ -347,8 +347,8 @@ export default function Crownguard() {
   const openRealmSelect = (from) => { setRealmReturn(from); setRealmOpen(true); };
   const closeRealmSelect = () => (realmReturn === "home" ? goHome() : setRealmOpen(false));
 
-  // Mirror the build-drawer open state into the game so the update loop can
-  // apply the tactical half-speed while the player is building.
+  // Mirror the build-drawer open state into the game (the tactical
+  // half-speed that read it is gone; time keeps its pace in menus).
   useEffect(() => {
     if (G.current) G.current.buildMenuOpen = buildOpen;
   }, [buildOpen]);
@@ -442,7 +442,7 @@ export default function Crownguard() {
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
       const sel = g.towers.find((t) => t.id === g.selectedId) || null;
-      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${sel.kills || 0}` : null;
+      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${sel.kills || 0}-${Math.round((sel.formDmg || 0) / Math.max(1, sel.formTime || 0))}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
       const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
@@ -466,7 +466,7 @@ export default function Crownguard() {
           castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: CASTLE_HP + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
-            kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, liveTime: sel.liveTime || 0 } : null,
+            kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, formDmg: sel.formDmg || 0, formTime: sel.formTime || 0 } : null,
           selKey, buildMode: g.buildMode, rallyFor, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY, rush: g.rush,
           masterShow, masterOn: !!g.masterBuild,
           masterPick: pickKey, masterPickName: g.masterPick?.name || null,
@@ -813,9 +813,15 @@ export default function Crownguard() {
   // design px wide at `left` (board px), as tall as its contents up to the
   // board's height, hung at height fraction `f` so it sits level with it.
   const CARD_M = 24 * s;
+  // The board runs under the camera cutout and the home indicator, so the
+  // card's margins grow to keep clear of them (inset is in screen px; the
+  // board sits boardCss.x / .y into its cell).
+  const cardTop = Math.max(CARD_M, inset.top - boardCss.y + 6 * s);
+  const cardBot = Math.max(CARD_M, inset.bottom - ((boardCss.ch || 0) - boardCss.y - boardCss.vh) + 6 * s);
+  const cardMinL = Math.max(6 * s, inset.left - boardCss.x + 6 * s);
   const floatCard = ({ id, left, width, f, origin, closeLabel, onClose, children }) => (
     <div key={id} style={{
-      position: "absolute", left, top: CARD_M, width, height: (boardCss.vh - 2 * CARD_M) / s,
+      position: "absolute", left: Math.max(cardMinL, left), top: cardTop, width, height: (boardCss.vh - cardTop - cardBot) / s,
       transform: `scale(${s})`, transformOrigin: "0 0", zIndex: 25,
       display: "flex", flexDirection: "column", pointerEvents: "none",
     }}>
@@ -1056,15 +1062,17 @@ export default function Crownguard() {
 
                 {/* the service record: what this hall has actually done for you */}
                 {(sel.kills > 0 || sel.dmgOut > 0) && (() => {
-                  const dps = sel.dmgOut / Math.max(1, sel.liveTime);
+                  // average dps of this form: its damage over the seconds a foe
+                  // was in its reach, starting over at every upgrade
+                  const dps = sel.formTime >= 1 ? sel.formDmg / sel.formTime : null;
                   const num = (v) => (v >= 10000 ? (v / 1000).toFixed(1) + "k" : Math.round(v).toLocaleString());
-                  const stat = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--muted)" };
-                  const n = { fontSize: 14, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" };
+                  const stat = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" };
+                  const n = { fontSize: 13, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" };
                   return (
-                    <div style={{ display: "flex", gap: 12, marginTop: 8, padding: "0 2px" }}>
-                      <span title="foes this tower struck down" style={stat}><SkullIcon size={12} /><b className="cg-num" style={n}>{sel.kills}</b> kills</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", columnGap: 10, rowGap: 4, marginTop: 8, padding: "0 2px" }}>
+                      <span title="foes this tower struck down" style={stat}><SkullIcon size={12} /><b className="cg-num" style={n}>{sel.kills}</b></span>
                       <span title="total damage dealt this run" style={stat}><SwordIcon size={12} /><b className="cg-num" style={n}>{num(sel.dmgOut)}</b> dmg</span>
-                      <span title="damage per second of battle — build time excluded" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
+                      <span title="average damage per second while a foe is in range, since the last upgrade" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps == null ? "—" : dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
                     </div>
                   );
                 })()}
@@ -1490,7 +1498,7 @@ export default function Crownguard() {
               const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * boardCss.h + cropTop;
               const CW = two ? 500 : 292, cw = CW * s;
               const flipX = tx > bw * 0.5;
-              const left = Math.max(6 * s, Math.min(bw - cw - CARD_M, flipX ? tx - 26 * s - cw : tx + 26 * s));
+              const left = Math.max(cardMinL, Math.min(bw - cw - CARD_M, flipX ? tx - 26 * s - cw : tx + 26 * s));
               const f = Math.min(1, Math.max(0, ty / bh));
               return floatCard({
                 id: sel.id, left, width: CW, f, origin: `${flipX ? "right" : "left"} center`,
