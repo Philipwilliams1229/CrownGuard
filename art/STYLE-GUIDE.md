@@ -50,9 +50,14 @@ copy what the rebuilt pieces do.
 | Anything not in the files above (the generic rig) | `src/render/rigs.js` | entries in the rig files above override these |
 | Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk.js` | the new body: slim, jointed arms, small hands |
 | Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js` |
-| Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type |
+| Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type; `IRON_ART.flat` / `HOLLOW_ART.flat` list pieces baked without the 2px ring |
+| The gate's crag (the hill the Greenwood/old realms' cave is cut into) | `src/data/gatecrag.js` (`gateCrag`, `hillAt`, `cragBlocks`) | pure data: scenery.js paints from it AND `buildableAt` refuses halls on it — change its shape only here, then scan that no buildable point lies on opaque gate pixels |
 | A chapter's own scenery: the Iron Marches, the Hollowfen | `src/render/scenery-iron.js` (`IRON_ART`), `src/render/scenery-hollow.js` (`HOLLOW_ART`) | one registry each — `decor` painters, `live` types, bake `box`, ground `dress`, `spawn` gates (REALM.spawn), `turf`/`road` art keyed by REALM.groundArt, and `apron` (the landscape's mix). scenery.js, world.js and apron.js read them LAZILY (they import scenery.js back — never read a registry at module load). Lab pages `irs-lab.html`, `hfs-lab.html` |
-| Ground and road | `src/render/world.js` | cached per realm |
+| Ground (turf tone map, grass, the wood's hem) | `src/render/world.js` (+ `groundblend.js` round halls) | one layer baked per realm, in order: tone map + turf → chapter turf art → `paintRoad` → chapter road art → `bakeWater` |
+| The road (dirt, ruts, chevrons) | `src/render/road.js` — `paintRoad` (the board), `paintRoadStrip` (the apron's road, run in the direction of march), `drawRoadMarks` (chevrons, live) | the Iron and Fen chapters pave over it |
+| Rivers and ponds | `src/render/water.js` — `bakeWater` (bodies, into the ground layer), `drawWaterLive` (current, glints, foam: stamps only), `drawRiver` (standalone, for the apron), `drawPond` | |
+| Bridges | `src/render/bridge.js` — `drawBridges`, `bakeBridges` | one sprite per span per realm |
+| The sea and beach | `src/render/coast.js` — `coastPixel` (per pixel, for world.js and the apron), `paintShore`, `drawShoreLive` | |
 | Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots`/`TOWER` in `src/data/castle.js`) — a CONCENTRIC castle running off the board's edge: the outer curtain and its walk (the works' crews), the higher inner curtain behind it (its walk — the sentry's beat — and its far parapet cut by the edge, with stairs going down off it), SQUARE open-topped towers built into both walls (see "The castle" below), and one gate block through both walls with the north gate tower rising out of its north end and the KEEP out of its far end (crown banners down its face, red turret, chimney, royal standard). No yard, no houses. Ballistae and spare bowmen stand ON the towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; `bakeCastleRun(ya, yb)` paints the same castle past the board's top and bottom for the apron; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
 | Combat effects, projectiles, ground pools, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
 | Dragonbreath's flamethrower jet (from `breathMouth(t)` in halls/wizard.js) and the Inferno Throne's burning ground (g.grounds kind "fire") | `src/render/flames.js` | baked tongues and frames stamped along the jet and the engine's damage cone; world coordinates |
@@ -229,7 +234,7 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   (e.g. the crown rigs in `rigs-crown.js`) for figures. `PixelIcon` (the old
   MINI sprites) is only TowerPortrait's fallback.
 
-## Bridges and boats (`drawBridge` in `src/render/scenery.js`)
+## Bridges and boats (`src/render/bridge.js`)
 
 - A bridge's deck **arches**: `archAt(b, d)` in `src/data/terrain.js` is 0
   at each bank and `BRIDGE_RISE` (8) mid-span. Planks, stringers and rails
@@ -243,6 +248,79 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
 - River Watch skiffs **pass under** spans: `draw.js` draws any skiff that
   `underBridge()` reports as close with the water, before the bridge, so the
   deck covers it. Check with `scene.html?only=bridges&cam=3,400,326`.
+- Each span is **baked once per realm** (`bakeSpan`, in the span's own
+  (u, v, z) frame — the same one `bridgeLift` uses, so feet land on the
+  planks) and stamped; only ripple dashes and the fen lamp are live. One kind
+  per chapter via `REALM.bridge.kind`: `"timber"` (Greenwood, default),
+  `"stone"` (Iron: the road's flags carried over, parapets, arches with
+  voussoirs, starlings), `"fen"` (grey, moss, broken planks and rails, rope,
+  a teal lamp — varied per span by `hash(b.x, b.y)`).
+- Height reads only through what faces SOUTH or is sloped: across spans show
+  a south face (trestle opening or arches); up-screen spans show bents whose
+  caps and piles stand past the deck's edges, pitched-stone abutment slopes
+  beside the parts over land, and a two-tone shadow on the water (a gloom
+  band widening with height, then the thrown part).
+- Wing walls run ALONG the bank on its land side (found from the wet mask
+  from the deck's end); the outer end has no ink and sinks under a grass
+  tuft. Where the road runs onto a deck: no silhouette ink, only a dark 1px
+  sill broken by dust.
+
+## Water, roads and ground (the September 26 pass)
+
+The owner's ask: "how the bridge goes over the river, the water and river
+look in general, and a big sweep ... textures and paths, grass, other ground
+textures." What came of it:
+
+- **Water is baked.** River and pond bodies are painted pixel by pixel into
+  the ground layer once per realm (`bakeWater`); per frame `drawWaterLive`
+  only stamps small baked marks (~0.2 ms). Never draw water with per-frame
+  strokes or gradients — river boards drew 4-7 ms slower per frame before.
+- **River banks follow the sun.** With n the normal from water to land and
+  L = 0.586·nx + 0.81·ny: north banks (ny < 0) show a shaded earth face and
+  throw a shadow on the water; south/east banks (L > 0) get a mud line, a
+  pebbly strip and a lit lip; west banks shade the water. Keep the visible
+  edge within ~5 of `rv.w/2` (halls stand 14 off): put a river's character
+  into spits (`edgeOff`), never outward bulges. Rivers that meet merge by a
+  smooth union; a pond touching a river is painted by the river.
+- **Water edges and landmarks are keyed to world coordinates** (noise,
+  world-patch landmarks) so `drawRiver` in the apron paints the same river
+  across the seam. Dark (fen) water needs absolute tone steps or three tones
+  don't show on black.
+- **The road** has a ragged, grass-bitten edge and crisp rut grooves (a dark
+  wall on the sun side, a floor one tone down, a lit lip), each side with
+  its own dash noise, moving to the inside of bends and fading; snow has
+  runners, the fen only wall and lip. Every bend's inside is filleted
+  (`bendFillets`). Chevrons: in a bend they point along the nearer leg, none
+  within 8 of a bridge, a bright `CHEVRON` colour (Ember's orange) stays in
+  the groove at rest, pale roads kindle amber.
+- **Turf** frays its tone edges in its own dither — blade dither (`DITH`) for
+  grass, wind-streak (`DITH_WIND`) for snow and ash (`turfTones(R).dith`),
+  never a Bayer screen-door. Small flora reads at 1x only as a mass or a
+  landmark; anything ring- or row-shaped gets gaps and a wandering radius.
+  Never scale a baked pixel sprite — bake each size.
+- **Paving** (Iron flags, fen causeway, the gate's setts) never tiles: vary
+  course widths, take tones from noise patches rather than per stone, and at
+  a bend give each flag wholly to one arm (no long diagonal mitre). Wheel
+  ruts on flags are a 1px shaded wall plus polish, never darker whole flags
+  (they read as specks at 1x). A ground tint's edge is stepped and broken by
+  irregular one-unit blocks.
+- **Coast:** anything strung along a shore is placed by distance along the
+  waterline, and cut by the slope of its own smoothed contour, never by raw
+  x/y or the wiggly waterline. Foam rings only on the sea side; a rock at the
+  waterline stands ashore with its shadow in the wet sand.
+- **Stones inside a big per-pixel bake** are written straight into its RGBA
+  buffer; never read the canvas back per stone.
+- **Ambient particles** (atmosphere.js) are baked shapes or plus-shaped
+  motes on the 2-unit grid, never translucent squares or ruled rows of boxes,
+  and nothing blows about over the open sea.
+- **The apron follows the board, never its own copy:** its ground takes
+  `turfTones(R)` and its dither from world.js, its road is road.js's
+  `paintRoadStrip` (points in the direction of march), its sea is coast.js's
+  `coastPixel`, its rivers water.js's `drawRiver`. Change one of those and
+  check the seam in `apron-lab.html` (zoomed across it) on every chapter.
+- **Load cost moved from frames to realm load:** a river board's ground
+  layer, spans and gate now bake in ~0.5-0.8 s here (headless, shared CPU).
+  Frames got faster; watch the load time on the iPad.
 
 ## The campaign map (`src/ui/mapArt.js`)
 
@@ -358,7 +436,7 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   from the edge and eases into headlands past `from`/`to`; `sand` px of
   beach lie between the water and the grass. `world.js` paints it into the
   baked ground (shallows to deep water, surf lines, rocks awash, tideline
-  litter, driftwood, marram grass) and `drawRoadLive` adds a moving wash of
+  litter, driftwood, marram grass) and `drawShoreLive` adds a moving wash of
   foam. Nothing is built in the sea; the beach is honest ground; scatter
   and decor keep off both. A forest on the same edge keeps to the gate end.
 - A coastal level's waypoint on the campaign map stands by its country's

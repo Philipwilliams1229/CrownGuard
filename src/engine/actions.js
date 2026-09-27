@@ -9,6 +9,7 @@ import { MILITIA, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "..
 import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
+import { cragBlocks } from "../data/gatecrag.js";
 import { waveSpec, waveHpMult, CROWD_WEIGHT } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
 import { makeTower, syncUnits, getStats } from "./towers.js";
@@ -38,6 +39,9 @@ export const buildableAt = (g, x, y, kind = null) => {
   if (nearestOnPath(x, y).d < clear) return false;
   const [cvx, cvy] = PTS[0];
   if (Math.hypot(x - cvx, y - cvy) < 50) return false;
+  // nor on the crag the gate is cut into (its shape lives in data/gatecrag.js,
+  // which scenery.js paints from, so the rock and the rule agree)
+  if (cragBlocks(x, y)) return false;
   for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
   // A floating hall moors in ANY water — a river, a pond or mere big enough
   // to row in (not lava, not ice), or just off a coast. Everyone else keeps off it.

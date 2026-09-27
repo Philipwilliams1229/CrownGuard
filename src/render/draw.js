@@ -33,7 +33,9 @@ import { drawBreath } from "./flames.js";
 import { drawRaising, raiseSecs, raiseHidesPips } from "./buildanim.js";
 import { builderDrawables } from "./builders.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
-import { drawTree, drawPond, drawRiver, drawBridge, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign } from "./scenery.js";
+import { drawTree, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign, signGround } from "./scenery.js";
+import { drawWaterLive } from "./water.js";
+import { drawBridges } from "./bridge.js";
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
@@ -112,8 +114,7 @@ export function draw(g, canvas, bufRef) {
   // the ground, painted once per realm at full detail, then the water that
   // lives on it and the road's kindling chevrons
   ctx.drawImage(groundLayer(), 0, 0, W, H);
-  for (const p of PONDS) drawPond(ctx, p, g.time);
-  for (const rv of RIVERS) drawRiver(ctx, rv, g.time, REALM.water);
+  drawWaterLive(ctx, g);
   drawRoadLive(ctx, g);
   // the castle's apron and the cobbled threshold go UNDER the foes, who walk right into the gate
   drawCastleGround(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
@@ -130,9 +131,9 @@ export function draw(g, canvas, bufRef) {
     }
   }
 
-  // timber spans wherever the road wades a river — over the road texture
+  // timber or stone spans wherever the road wades a river — over the road texture
   // and the boats beneath, under everything that walks
-  for (const b of BRIDGES) drawBridge(ctx, b, g.time, posAt, angleAt, REALM.bridge);
+  drawBridges(ctx, g);
 
   // the trapsmith's work, waiting flush with the road
   drawTraps(ctx, g);
@@ -242,6 +243,9 @@ export function draw(g, canvas, bufRef) {
   };
   const drawables = [];
   for (const d of DECOR) drawables.push({ y: d.y + 14, fn: () => drawTree(ctx, d, g.time) });
+  // the gate's sign stands in the crowd by its posts' feet (its chevrons go on late)
+  const sg = signGround();
+  if (sg) drawables.push({ y: sg.y, fn: () => drawSpawnSign(ctx, g.time, g.phase, "body") });
   // the tower you're about to buy, standing on the spot at half weight
   if (g.buildMode && g.hover) {
     const [hx, hy] = g.hover;
@@ -385,7 +389,7 @@ export function draw(g, canvas, bufRef) {
   // ---- the spawn marker ----
   // Drawn after everything standing so nothing hides it; the sign itself
   // (and where it stands) lives with the rest of the scenery.
-  drawSpawnSign(ctx, g.time, g.phase);
+  drawSpawnSign(ctx, g.time, g.phase, "chevrons");
 
   // shots in flight: arrows, orbs, boulders, shells, spikes, musket balls —
   // each a cached pixel sprite (render/fx.js)

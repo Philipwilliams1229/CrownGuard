@@ -44,6 +44,25 @@ How it went well (September 2026 overhaul — up to seven artists at once):
 - **Split new work into independent files first** (e.g. a new
   `rigs-<group>.js` hooked into `rigs.js`) so agents never collide.
 
+How the September 26 graphics pass ran (water, bridges, road, turf, coast,
+gate, scenery, Iron and Fen grounds, apron — ten artists):
+- The lead split the work into files FIRST (water.js, bridge.js, road.js,
+  coast.js out of scenery.js/world.js, pixel-identical), committed that, then
+  gave each artist one file. Each area went build → adversarial art-director
+  review → polish, as a Workflow.
+- **A cloud container has 4 CPUs, so one workflow runs only 2 agents at a
+  time;** run two or three workflows side by side (each owning different
+  files) to get 4-6 artists.
+- **The usage limit can cut agents off mid-edit.** Commit a WIP snapshot
+  (build passing) whenever a team finishes, and before a long wait. After an
+  interruption, brief the next round against the PRE-PASS commit
+  (`git diff <base> -- <file>`), not HEAD, and hand agents the old reports as
+  files to read rather than pasting them into the workflow's args.
+- Agents' requests for files they don't own (engine, draw.js,
+  atmosphere.js, the game component) are the lead's to do between rounds.
+- A page reload from a teammate's save breaks a batch of `snap`s ("Failed to
+  fetch"); shoot one board per call with a retry when artists are working.
+
 ## Several sessions at once
 
 The owner often runs several Claude sessions in this folder at the same
