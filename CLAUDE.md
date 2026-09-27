@@ -135,7 +135,10 @@ The owner misclicked when the tower card changed shape between taps, so
   DELTAS table — add a new stat there and it shows in the ⓘ and here).
 - Two taps to buy: arming only turns a card gold (`is-armed` keeps the
   parchment font) and shows CONFIRM in a fixed slot.
-- Path / final-form cards show name + tale + price; the stat changes are
+- Path / final-form cards: picture with its price under it, then name +
+  tale; armed, CONFIRM takes the tale's place (same grid cell, so nothing
+  moves). Never set `visibility: "visible"` inside a stage — it shows
+  through the hidden ghost stages; leave it unset. The stat changes are
   behind the corner ⓘ (`infoCorner`, a thumb-sized hit area at any UI
   scale, beside the card so it works on unaffordable cards).
 - **Path and final-form `desc` in `src/data/towers.js`: 100 characters at

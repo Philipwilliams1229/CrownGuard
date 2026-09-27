@@ -1035,9 +1035,9 @@ export default function Crownguard() {
     const slot = { display: "flex", alignItems: "center", height: 16 };
     // The path / final-form choices. Every card is the same size and stays
     // it: the grid's rows all match the tallest card (a long name may wrap),
-    // the tale (100 characters at most, data/towers.js) sits on the face,
-    // and a foot holds the price that the CONFIRM tag joins when armed. The
-    // stat changes live behind the ⓘ and are laid over the card when asked for.
+    // the price sits under the picture, the tale (100 characters at most,
+    // data/towers.js) on the face, and CONFIRM takes the tale's place when
+    // armed. The stat changes live behind the ⓘ, laid over the card on a tap.
     // A `ghost` is laid out but never shown or pressed (see the stage stack).
     const formChoices = (opts, ghost = false) => {
       // it fills its stage: when the card is taller than the choices need
@@ -1053,14 +1053,18 @@ export default function Crownguard() {
                   <button data-arm={ghost ? undefined : id} tabIndex={ghost ? -1 : undefined} className={cls("cg-btn", "cg-btn--parch", armed && "is-armed", !can && "is-poor")} disabled={!can}
                     style={{ width: "100%", height: "100%", padding: "6px 8px", gap: 8, alignItems: "stretch", justifyContent: "flex-start" }}
                     onClick={ghost ? undefined : buy2(o.k, o.form, o.buy)}>
-                    <span className="cg-dim" style={{ flexShrink: 0, alignSelf: "flex-start" }}><TowerPortrait kind={sel.kind} {...o.look} size={40} /></span>
+                    {/* the picture, with its price right under it */}
+                    <span style={{ flexShrink: 0, alignSelf: "flex-start", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <span className="cg-dim" style={{ display: "flex", lineHeight: 0 }}><TowerPortrait kind={sel.kind} {...o.look} size={40} /></span>
+                      {price(o.f.cost, can, 12)}
+                    </span>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-                      <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12, paddingRight: 16 }}>{o.f.name}</span>
-                      {/* four lines at most, a net under the character limit */}
-                      <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.35, color: "#5a4630", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 4, overflow: "hidden" }}>{o.f.desc}</span>
-                      <span style={{ ...slot, justifyContent: "space-between", gap: 6, marginTop: "auto" }}>
-                        {armed ? confirmTag() : <span />}
-                        {price(o.f.cost, can, 13)}
+                      <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12, lineHeight: 1.15, paddingRight: 16 }}>{o.f.name}</span>
+                      {/* the tale (four lines at most, a net under the character
+                          limit); armed, CONFIRM takes its place in the same cell */}
+                      <span style={{ display: "grid" }}>
+                        <span className="cg-dim" style={{ gridArea: "1 / 1", fontSize: 10, lineHeight: 1.35, color: "#5a4630", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 4, overflow: "hidden", visibility: armed ? "hidden" : undefined }}>{o.f.desc}</span>
+                        {armed && <span style={{ gridArea: "1 / 1", alignSelf: "center", justifySelf: "start" }}>{confirmTag()}</span>}
                       </span>
                     </span>
                   </button>
