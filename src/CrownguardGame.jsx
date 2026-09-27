@@ -41,7 +41,7 @@ import "./ui/hud/hud.css";
 import { GoldChip, LivesChip } from "./ui/hud/Chips.jsx";
 import SandboxPanel from "./ui/SandboxPanel.jsx";
 import SandboxSetup from "./ui/SandboxSetup.jsx";
-import { towerTags, levelDeltas, formDeltas } from "./ui/hud/towerText.js";
+import { levelDeltas, formDeltas, formStats } from "./ui/hud/towerText.js";
 import { useArm } from "./ui/HeroTalents.jsx";
 import {
   CoinIcon, CastleIcon, SkullIcon, SwordIcon, BoltIcon, PlayIcon, PauseIcon, SpeedIcon, HammerIcon,
@@ -1100,12 +1100,25 @@ export default function Crownguard() {
         </button>
       );
     };
-    const doneBox = (desc) => (
-      <div className="cg-parch" style={{ flex: 1, marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
-        <div className="cg-label" style={{ marginBottom: 3, color: "#7a6446" }}>Fully upgraded</div>
-        {desc}
-      </div>
-    );
+    // the finished card: its tale, then every stat the form has
+    const doneBox = (f, form) => {
+      const { rows, traits } = formStats({ ...t, ...form });
+      return (
+        <div className="cg-parch" style={{ flex: 1, marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
+          <div className="cg-label" style={{ marginBottom: 3, color: "#7a6446" }}>Fully upgraded</div>
+          {f.desc}
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 12, rowGap: 1, marginTop: 8 }}>
+            {rows.map((r) => (
+              <span key={r.label} style={{ display: "contents" }}>
+                <span style={{ color: "#7a6446" }}>{r.label}</span>
+                <b style={{ color: "var(--parch-ink)" }}>{r.value}</b>
+              </span>
+            ))}
+          </div>
+          {traits.length > 0 && <div style={{ marginTop: 6, color: "#3f7a2a", fontWeight: "bold" }}>{traits.join(" · ")}</div>}
+        </div>
+      );
+    };
     // The stage stack: every stage this hall's road can reach (each level,
     // the paths, every final ascension, every finished form) is laid out in
     // one grid cell, and only the live one is shown. The cell is as tall as
@@ -1135,7 +1148,7 @@ export default function Crownguard() {
           })), !live));
       }
       for (const [fk, f] of br.rank4 ? Object.entries(br.rank4) : [["", br]]) {
-        stage(`done:${bk}${fk}`, maxed && sel.branch === bk && (sel.rank4 || "") === fk, doneBox(f.desc));
+        stage(`done:${bk}${fk}`, maxed && sel.branch === bk && (sel.rank4 || "") === fk, doneBox(f, { level: 3, branch: bk, rank4: fk || null }));
       }
     }
     // The left column for any form `f` of this hall ({ level, branch, rank4 }):
@@ -1160,12 +1173,6 @@ export default function Crownguard() {
                   </div>
                 </div>
 
-                {/* its working numbers */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
-                  {towerTags(tt).map((x, i) => (
-                    <span key={i} className="cg-well" style={{ fontSize: 10, padding: "3px 6px", lineHeight: 1.3 }}>{x}</span>
-                  ))}
-                </div>
 
                 {/* the service record: what this hall has actually done for you */}
                 {/* always there (zeros before the first foe), so the card never grows */}
@@ -1180,6 +1187,7 @@ export default function Crownguard() {
                     <div style={{ display: "flex", flexWrap: "nowrap", gap: 12, marginTop: 8, padding: "0 2px", whiteSpace: "nowrap", overflow: "hidden" }}>
                       <span title="foes this tower struck down" style={stat}><SkullIcon size={12} /><b className="cg-num" style={n}>{sel.kills}</b></span>
                       <span title="average damage per second while a foe is in range, since the last upgrade" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
+                      {sel.kind === "goldworks" && <span title="gold this works has paid you this run" style={stat}><CoinIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--gold-lt)" }}>{Math.round(t.paidTotal || 0)}</b> paid</span>}
                     </div>
                   );
                 })()}

@@ -41,7 +41,7 @@ const DELTAS = [
   ["trapDmg", "Trap dmg", (v) => Math.round(v)],
   ["dps", "Beam", (v) => `${Math.round(v)}/s`],
   ["rate", "Reload", (v) => `${(v / 1000).toFixed(2)}s`, true],
-  ["range", "Range", (v) => Math.round(v)],
+  ["range", "Range", (v) => (v >= 900 ? "whole map" : Math.round(v))],
   ["hp", "Health", (v) => Math.round(v)],
   ["splash", "Splash", (v) => Math.round(v)],
   ["shots", "Stones", (v) => v],
@@ -50,6 +50,8 @@ const DELTAS = [
   ["colddps", "Cold", (v) => `${Math.round(v)}/s`],
   ["heal", "Mending", (v) => `${Math.round(v)}/s`],
   ["income", "Pay", (v) => `${Math.round(v)}g`],
+  ["compound", "Grows", (v) => `+${v}g a wave`],
+  ["bountyAura", "Kill bounty", (v) => `+${Math.round(v * 100)}%`],
   ["maxCharges", "Charges", (v) => v],
   ["chargeEvery", "Recharge", (v) => `${(v / 1000).toFixed(0)}s`, true],
   ["mDmg", "Musket", (v) => Math.round(v)],
@@ -92,6 +94,29 @@ const DELTAS = [
   ["lifesteal", "Lifesteal", pct],
 ];
 
+// a stat is there when it has a value (0 and false mean the form lacks it)
+const has = (v) => v != null && v !== 0 && v !== false;
+// what `count` counts, hall by hall
+const COUNT_LABEL = { knight: "Knights", assassin: "Blades", riverwatch: "Skiffs", gunpowder: "Crew" };
+
+// Everything a form has, for the finished card: [{ label, value }] in the
+// DELTAS order, then its traits as words.
+export function formStats(t) {
+  const st = getStats(t);
+  const rows = [];
+  for (const [k, label, fmt] of DELTAS) {
+    if (!has(st[k])) continue;
+    rows.push({ label: k === "count" ? COUNT_LABEL[t.kind] || label : label, value: String(fmt(st[k])) });
+  }
+  if (t.kind === "goldworks") rows.push({ label: "Paid so far", value: `${Math.round(t.paidTotal || 0)}g` });
+  const traits = [];
+  if (st.dtype === "magic" && has(st.dmg || st.dps)) traits.push("magic");
+  if (st.pierce) traits.push("pierces armor");
+  if (st.groundOnly) traits.push("ground only");
+  if (st.airMult || st.hitsAir) traits.push("hits fliers");
+  return { rows, traits };
+}
+
 // What buying the next level changes: [{ label, from, to, better }].
 export function levelDeltas(t) {
   return formDeltas(t, { level: t.level + 1 });
@@ -102,7 +127,6 @@ export function formDeltas(t, form) {
   const a = getStats(t), b = getStats({ ...t, ...form });
   const out = [];
   // a mechanic the form gains shows as "— ▸ 9/s", one it loses as "70 ▸ —"
-  const has = (v) => v != null && v !== 0 && v !== false;
   for (const [k, label, fmt, lower] of DELTAS) {
     const av = a[k], bv = b[k];
     if ((!has(av) && !has(bv)) || av === bv) continue;
