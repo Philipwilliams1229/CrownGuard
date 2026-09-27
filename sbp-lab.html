@@ -1,0 +1,94 @@
+<!doctype html>
+<!--
+  Dev tool (sandbox panel lab): the in-battle SandboxPanel over a live board.
+  A Free Play sandbox run (Builder's Yard by default) on a real map, driven by
+  updateGame + draw, with a stand-in tray on the right, so summoning puts
+  foes on the road for real. Size the window to the screen under test.
+    /sbp-lab.html?realm=greenwood&preset=builder&spawn=orc:5,goblin:10
+    &phase=combat   start mid-wave     &honest=1  start from Classic
+  From the console / an injected script: window.lab.g(), lab.open(bool)
+-->
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Crownguard — sandbox panel lab</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Press+Start+2P&display=swap" />
+  <style>html, body { margin: 0; background: #1a2414; overflow: hidden; height: 100%; } #root { position: fixed; inset: 0; }</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import React, { useState, useEffect, useRef } from "react";
+import { createRoot } from "react-dom/client";
+import SandboxPanel from "/src/ui/SandboxPanel.jsx";
+import { startSandbox, fromPreset, SANDBOX } from "/src/data/sandbox.js";
+import { selectRealm, REALMS } from "/src/data/maps.js";
+import { W, H, RES } from "/src/data/constants.js";
+import { updateGame } from "/src/engine/update.js";
+import { draw } from "/src/render/draw.js";
+import { sandboxSpawn } from "/src/engine/sandboxTools.js";
+import { uiScale } from "/src/ui/fit.jsx";
+import "/src/ui/hud/hud.css";
+
+const q = new URLSearchParams(location.search);
+const realm = q.get("realm") || "greenwood";
+selectRealm(realm);
+startSandbox(fromPreset(q.get("honest") ? "classic" : (q.get("preset") || "builder"), { realm }));
+
+const G = { current: {
+  run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 },
+  gold: SANDBOX.gold, lives: SANDBOX.lives, wave: Number(q.get("wave")) || 0, phase: "build",
+  castle: {}, bands: [], militiaCd: 0,
+  towers: [], enemies: [], projectiles: [], effects: [],
+  spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+  selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+  cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false,
+  freeplay: true, masterBuild: false, masterSeen: false, masterPick: null,
+} };
+for (const part of (q.get("spawn") || "").split(",").filter(Boolean)) {
+  const [t, n, at] = part.split(":");
+  sandboxSpawn(G.current, t, Number(n) || 1, Number(at) || 0);
+}
+if (q.get("phase") === "build") G.current.phase = "build";
+window.lab = { g: () => G.current };
+
+function Lab() {
+  const [vp, setVp] = useState({ w: innerWidth, h: innerHeight });
+  const [open, setOpen] = useState(q.get("open") !== "0");
+  window.lab.open = setOpen;
+  useEffect(() => { const r = () => setVp({ w: innerWidth, h: innerHeight }); addEventListener("resize", r); return () => removeEventListener("resize", r); }, []);
+  const cv = useRef(null), buf = useRef(null);
+  useEffect(() => {
+    let raf, last = performance.now();
+    const step = (now) => {
+      raf = requestAnimationFrame(step);
+      const dt = Math.min((now - last) / 1000, 0.05); last = now;
+      try { updateGame(G.current, dt); } catch (e) { if (!step.err) { step.err = 1; console.error("updateGame failed", e); } }
+      if (cv.current) draw(G.current, cv.current, buf);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const s = uiScale(vp.w, vp.h);
+  const compact = vp.h < 500;
+  const trayW = Math.round((compact ? 204 : 252) * s);
+  const cellW = vp.w - trayW, cellH = vp.h;
+  const k = Math.min(cellW / W, cellH / H);
+  const bw = W * k, bh = H * k;
+  const bx = cellW - bw, by = (cellH - bh) / 2;
+  return React.createElement("div", { style: { position: "absolute", inset: 0 } },
+    React.createElement("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, right: trayW, overflow: "hidden", background: "#2d3a22" } },
+      React.createElement("div", { style: { position: "absolute", left: bx, top: by, width: bw, height: bh, overflow: "hidden", background: REALMS[realm].GRASS } },
+        React.createElement("canvas", { ref: cv, width: W * RES, height: H * RES, style: { width: bw, height: bh, display: "block" } }),
+        open && React.createElement(SandboxPanel, { game: () => G.current, onClose: () => setOpen(false), s }),
+      ),
+    ),
+    React.createElement("div", { className: "cg-hud cg-drawer", style: { position: "absolute", top: 0, right: 0, bottom: 0, width: trayW, boxSizing: "border-box" } },
+      React.createElement("button", { className: "cg-btn", style: { margin: 16 }, onClick: () => setOpen((o) => !o) }, "Sandbox")),
+  );
+}
+createRoot(document.getElementById("root")).render(React.createElement(Lab));
+</script>
+</body>
+</html>

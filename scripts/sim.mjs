@@ -9,6 +9,8 @@
 //   node scripts/sim.mjs --free ember iron    free play: realm + faction
 //   node scripts/sim.mjs --all --quiet        one line per level
 //   node scripts/sim.mjs --chapter iron       every level of one chapter
+//   node scripts/sim.mjs --sandbox flood --realm muster --to 30
+//                                             a Free Play sandbox preset
 //
 // The commander is deliberately a decent player, not a perfect one: it values
 // road coverage, keeps a knight post near the front, mixes physical and magic,
@@ -39,7 +41,8 @@ Math.random = () => rng();
 const { W, H, CASTLE_HP, RALLY_RANGE } = await import("../src/data/constants.js");
 const { selectRealm, REALMS } = await import("../src/data/maps.js");
 const { selectFaction, FACTIONS } = await import("../src/data/factions.js");
-const { setWaveWindow, scriptedWaves } = await import("../src/data/waves.js");
+const { setWaveWindow, scriptedWaves, victoryWave } = await import("../src/data/waves.js");
+const { startSandbox, endSandbox, fromPreset, PRESETS } = await import("../src/data/sandbox.js");
 const { TOWERS } = await import("../src/data/towers.js");
 const { TOTAL_LEN, posAt, nearestOnPath } = await import("../src/engine/path.js");
 const { updateGame } = await import("../src/engine/update.js");
@@ -48,6 +51,7 @@ const { PTS } = await import("../src/engine/path.js");
 // --hero aldric|wren|none : who rides with the commander (default: Sir Aldric,
 // because a real player always has one). --no-militia skips the free farmers.
 const HERO = after("hero") || "aldric";
+let HERO_OFF = false;
 // --hero-at F : post the hero at fraction F of the road (default 0.95, just
 // before the gate); ~0.5-0.7 is where a player stands him in the thick of it
 const HERO_AT = Number(after("hero-at")) || 0;
@@ -218,28 +222,32 @@ const freshGame = (gold) => ({
 
 const DT = 1 / 30;
 
-function runOnce({ realm, faction, window: win, gold, waves, vet = 0 }, quiet, planName) {
+function runOnce(opts, quiet, planName) {
+  let { realm, faction, window: win, gold, waves, vet = 0 } = opts;
   rng = mulberry(SEED);              // same dice for every level
   PLAN = PLANS[planName];
   selectRealm(realm);
   selectFaction(faction);
   setWaveWindow(win || null);
+  let SB = null;
+  if (opts.sandbox) { SB = startSandbox(fromPreset(opts.sandbox, { realm })); gold = SB.gold; } else endSandbox(faction);
   applyVeterancy(Math.min(3, vet), Math.max(0, vet - 3));
   sampleRoad();
   const g = freshGame(gold);
+  if (SB) { g.lives = SB.lives; g.wave = SB.startWave - 1; if (!SB.hero) HERO_OFF = true; }
   // the hero waits before the gate, like the game puts him; the commander
   // parks him a little up the road so he meets what the towers let through
   const [gx, gy] = PTS[PTS.length - 1];
-  if (HERO !== "none") {
+  if (HERO !== "none" && !HERO_OFF) {
     const b = fieldHero(g, HERO, 1, gx - 70, gy + (gy > H / 2 ? -50 : 50));
     const [hx, hy] = HERO_AT ? posAt(TOTAL_LEN * HERO_AT) : posAt(TOTAL_LEN - 110);
     if (b) b.rally = { x: hx, y: hy };
   }
-  const total = waves ?? scriptedWaves();
+  const total = waves ?? (SB ? (Number.isFinite(victoryWave()) ? victoryWave() : Number(after("to")) || 30) : scriptedWaves());
   let ticks = 0;
   const MAX_TICKS = 30 * 60 * 60; // one simulated hour — a stuck run bails out
 
-  while (g.phase !== "lost" && !g.victory && ticks < MAX_TICKS) {
+  while (g.phase !== "lost" && !g.victory && ticks < MAX_TICKS && !(SB && g.wave >= total && g.phase === "build")) {
     if (g.phase === "build") {
       commander(g);
       if (ENDURE) g.lives = 999;
@@ -326,6 +334,13 @@ if (flag("all") || after("chapter")) {
   for (const r of results) {
     if (r.result !== "WON") console.log(`  FELL: ${r.name} at wave ${r.wave}/${r.total}`);
     else if (r.leaked > 6) console.log(`  BLED: ${r.name} leaked ${r.leaked}`);
+  }
+} else if (after("sandbox")) {
+  const ids = after("sandbox") === "all" ? PRESETS.map((p) => p.id) : [after("sandbox")];
+  for (const id of ids) {
+    const realm = after("realm") || "greenwood";
+    const r = runOnce({ realm, faction: "greenwood", window: null, gold: 250, name: `sandbox ${id}`, sandbox: id }, true, "swarm");
+    console.log(`sandbox ${id.padEnd(12)} ${realm}: ${r.result === "STUCK" ? "HELD" : r.result} — wave ${r.wave}/${r.total}, lives ${r.lives}, gold ${r.gold}, army ${r.towers}`);
   }
 } else if (flag("free")) {
   const realm = after("free") || "greenwood";

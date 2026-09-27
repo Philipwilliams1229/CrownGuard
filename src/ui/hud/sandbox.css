@@ -1,0 +1,120 @@
+/* ============ FREE PLAY: THE SANDBOX SETUP ============
+   The setup screen's own pieces, on top of the HUD skin (hud.css): the
+   stage that is laid out at the UI scale's size and shrunk whole, the tabs,
+   pixel sliders, foe and hall tiles, and the honest-run badge. */
+
+.sbs-root {
+  position: fixed; inset: 0; z-index: 55; overflow: hidden;
+  background: rgba(22, 14, 26, 0.96);
+}
+.sbs-stage {
+  position: absolute; left: 0; top: 0; transform-origin: 0 0;
+  display: flex; flex-direction: column; box-sizing: border-box;
+}
+.sbs-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* a quiet heading over a group inside a tab */
+.sbs-h { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.sbs-h .cg-label { white-space: nowrap; }
+.sbs-note { font-family: var(--body); font-size: 10px; color: var(--muted); line-height: 1.4; text-shadow: none; }
+
+/* the tabs: slate planks; the open one sinks with a gold ring and joins the panel */
+.sbs-tabs { display: flex; gap: 4px; }
+.sbs-tab { flex: 1 1 0; padding: 0 6px; font-size: 11px; white-space: nowrap; }
+
+/* the preset cards */
+.sbs-preset {
+  flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 3px;
+  padding: 6px 7px; text-align: left; min-width: 0;
+}
+.sbs-preset .sbs-pname { font-size: 11px; color: var(--cream); line-height: 1.1; }
+.sbs-preset.is-on .sbs-pname { color: var(--gold-lt); }
+.sbs-preset .sbs-ptag { font-size: 8px; letter-spacing: 1px; color: var(--muted); }
+.sbs-preset .sbs-pblurb { font-family: var(--body); font-size: 10px; line-height: 1.4; color: var(--text); opacity: 0.85; text-shadow: none; font-weight: normal; }
+.sbs-star { position: absolute; top: 3px; right: 5px; font-size: 10px; color: var(--gold-lt); text-shadow: 1px 1px 0 var(--ink); }
+.sbs-edited {
+  position: absolute; bottom: -2px; right: -2px; font-size: 8px; letter-spacing: 1px; padding: 2px 4px;
+  background: var(--gold); color: var(--wood-deep); text-shadow: none; border: 2px solid var(--ink);
+}
+
+/* a value in the numeric face */
+.sbs-val {
+  font-family: var(--numeric); font-weight: 400; font-size-adjust: 0.58; font-variant-numeric: tabular-nums;
+  color: var(--gold-lt); text-shadow: 1px 1px 0 var(--ink); line-height: 1; white-space: nowrap;
+}
+.sbs-val.is-dim { color: var(--muted); }
+
+/* a control block: a label and value on top, − slider + beneath */
+.sbs-ctl { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sbs-ctl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-height: 16px; }
+.sbs-ctl-row { display: flex; align-items: center; gap: 6px; }
+.sbs-ctl.is-off { filter: grayscale(0.85) brightness(0.7); pointer-events: none; }
+.sbs-step { min-width: 40px; min-height: 40px; padding: 0; font-size: 16px; }
+.sbs-well { min-width: 74px; height: 40px; display: flex; align-items: center; justify-content: center; padding: 0 6px; }
+
+/* pixel slider: an inset slate groove and a gold block to drag */
+.sbs-range {
+  -webkit-appearance: none; appearance: none; flex: 1; min-width: 60px; height: 40px; margin: 0;
+  background: transparent; cursor: pointer; touch-action: none;
+}
+.sbs-range:focus { outline: none; }
+.sbs-range:focus-visible { outline: 2px solid var(--gold-lt); outline-offset: 1px; }
+.sbs-range::-webkit-slider-runnable-track {
+  height: 10px; background: var(--slate-dk); border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 #120c14;
+}
+.sbs-range::-moz-range-track {
+  height: 6px; background: var(--slate-dk); border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 #120c14;
+}
+.sbs-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 26px; margin-top: -10px; border-radius: 0;
+  background: var(--gold); border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 var(--gold-lt), inset -2px -2px 0 var(--gold-dk);
+}
+.sbs-range::-moz-range-thumb {
+  width: 12px; height: 22px; border-radius: 0;
+  background: var(--gold); border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 var(--gold-lt), inset -2px -2px 0 var(--gold-dk);
+}
+/* the normal value's notch under the groove (x1 sits mid-slider) */
+.sbs-rangebox { position: relative; flex: 1; display: flex; min-width: 60px; }
+.sbs-notch { position: absolute; top: 29px; width: 2px; height: 6px; background: var(--muted); pointer-events: none; transform: translateX(-1px); }
+
+/* quick-value chips under a control */
+.sbs-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.sbs-chip { min-height: 32px; min-width: 40px; padding: 0 7px; font-family: var(--numeric); font-size: 9px; font-size-adjust: 0.58; }
+
+/* an on/off switch: a plank that says what it is and whether it is on */
+.sbs-toggle { justify-content: space-between; gap: 10px; padding: 0 10px; text-align: left; }
+.sbs-toggle .sbs-lamp {
+  font-family: var(--numeric); font-size: 9px; font-size-adjust: 0.58; padding: 3px 5px; border: 2px solid var(--ink);
+  background: var(--slate-dk); color: var(--muted); text-shadow: none; flex-shrink: 0;
+}
+.sbs-toggle.is-on .sbs-lamp { background: var(--gold); color: var(--wood-deep); }
+
+/* foe and hall tiles: on is lit, off is greyed but still tappable */
+.sbs-tile { flex-direction: column; gap: 2px; padding: 4px 2px 3px; min-width: 0; }
+.sbs-tile.is-out > * { filter: grayscale(1) brightness(0.55); }
+.sbs-tile.is-out { background: var(--slate); }
+.sbs-tile .sbs-tname { font-size: 8px; line-height: 1.1; color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sbs-tile.is-champ { box-shadow: inset 0 0 0 2px #b8902e, inset 2px 2px 0 #62546a, 0 2px 0 var(--ink); }
+.sbs-tile.is-champ.is-on { box-shadow: inset 0 0 0 2px var(--gold), inset 0 0 0 4px var(--gold-dk), 0 2px 0 var(--ink); }
+.sbs-crown { position: absolute; top: 2px; left: 4px; font-size: 10px; color: var(--gold-lt); text-shadow: 1px 1px 0 var(--ink); }
+
+/* the honest-run badge */
+.sbs-badge {
+  display: flex; align-items: center; gap: 7px; padding: 4px 9px; min-height: 40px;
+  border: 2px solid var(--ink); box-sizing: border-box; min-width: 0;
+}
+.sbs-badge.is-honest { background: #3d4a2a; box-shadow: inset 2px 2px 0 #5e7040, inset -2px -2px 0 #26301a; }
+.sbs-badge.is-cheat { background: #4e2a2a; box-shadow: inset 2px 2px 0 #74403a, inset -2px -2px 0 #321a1a; }
+.sbs-badge .sbs-bt { font-family: var(--display); font-size: 11px; color: var(--cream); text-shadow: 1px 1px 0 var(--ink); white-space: nowrap; }
+.sbs-badge .sbs-bs { font-family: var(--body); font-size: 9px; color: var(--muted); text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* realm cards on the BATTLEFIELD tab */
+.sbs-realm { justify-content: flex-start; align-items: center; gap: 8px; padding: 5px; text-align: left; min-width: 0; }
+.sbs-realm .sbs-rname { font-size: 11px; color: var(--cream); line-height: 1.15; }
+.sbs-realm.is-on .sbs-rname { color: var(--gold-lt); }
+.sbs-realm .sbs-rtag { font-size: 8px; letter-spacing: 1px; }
+.sbs-realm .sbs-rblurb { font-family: var(--body); font-weight: normal; text-shadow: none; font-size: 9px; color: var(--text); opacity: 0.8; line-height: 1.4; }

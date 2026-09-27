@@ -4,17 +4,27 @@
 // two floating crystals, a long-beard before a crescent crest with violet
 // banners at his back. Then the elements take it.
 //   Pyromancer — warm stone, braziers at the corners, ember-lit windows.
-//     Volcanic Throne: black basalt split by glowing lava, an obsidian
-//       throne-back of spikes, a lava pool smoking at the foot.
-//     Wildfire Court: a ring of fire-pillars round the foot, flame-tongued
-//       banners, embers on the wind.
+//     Inferno Throne: pale gold sandstone, crimson banners, a red runner to
+//       the door between two gilt fire-bowls. A gilded throne-back rises
+//       behind the mage, crested with a CROWN OF FIVE FLAMES that counts
+//       his shots: one flame per shot since the last firestorm (t.poolIdx
+//       0..4), all five blazing when the next fireball is the firestorm,
+//       which leaves with a white-gold flash.
+//     Dragonbreath: sooty dark stone, scorched earth, two horned dragon
+//       skulls on posts at the back corners, their sockets smouldering.
+//       No orbs: while t.breath.on > 0 the mage braces with his staff
+//       levelled at the foe, his robe streaming back, a furnace-bright
+//       spell-ring at the staff head — the flamethrower's jet (render/
+//       flames.js) leaves from breathMouth(t), at that ring. Between
+//       breaths he idles like any mage and the skulls breathe smoke.
 //   Stormcaller — blue slate, a copper rod behind him, runes that hum.
 //     Tempest Court: two tesla coils throwing arcs across the walk and a
 //       storm cloud turning overhead.
 //     Thunder Sovereign: a great gilt crown-ring raised behind him, a
 //       black cloud above that strikes it.
 // The mage anticipates each shot — the orb swells as the cooldown runs out
-// — then drives his staff at the foe.
+// — then drives his staff at the foe (Dragonbreath's orb follows the
+// breath instead: it never fires; the jet leaves his levelled staff).
 //
 // Three baked layers per form (ground, body, front lip); lights, fire,
 // lightning, runes and the mage are live.
@@ -40,18 +50,32 @@ const stamp = (ctx, cv, x, y, ax, ay, dir = 1) => {
   ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.drawImage(cv, -ax, -ay, w, h); ctx.restore();
 };
 
-const STONE = { base: "#8e889a", a: "#9a7a6c", aa: "#4a4048", ab: "#a4806a", b: "#7a8298", ba: "#6e7a94", bb: "#72708e" };
-const ORB = { base: "#b08ad8", a: "#f0903a", aa: "#ff7a2a", ab: "#f8b040", b: "#8ce8f0", ba: "#a8f0f8", bb: "#f0e070" };
-const TRIM = { base: "#d8b34a", a: "#e8a040", aa: "#e8703a", ab: "#f0c060", b: "#8cc8e0", ba: "#a8e0f0", bb: "#e8c14a" };
-const CLOTH = { base: "#5a4a8c", a: "#a0402e", aa: "#6a1e18", ab: "#c0582a", b: "#2e5a8a", ba: "#24507a", bb: "#4a3a80" };
-const LAVA = "#ff8a2a";
+const STONE = { base: "#8e889a", a: "#9a7a6c", aa: "#c4a07a", ab: "#6e5c56", b: "#7a8298", ba: "#6e7a94", bb: "#72708e" };
+const ORB = { base: "#b08ad8", a: "#f0903a", aa: "#ff8a2a", ab: "#f8b040", b: "#8ce8f0", ba: "#a8f0f8", bb: "#f0e070" };
+const TRIM = { base: "#d8b34a", a: "#e8a040", aa: "#e8c050", ab: "#c8883a", b: "#8cc8e0", ba: "#a8e0f0", bb: "#e8c14a" };
+const CLOTH = { base: "#5a4a8c", a: "#a0402e", aa: "#9a1e22", ab: "#7a2420", b: "#2e5a8a", ba: "#24507a", bb: "#4a3a80" };
+// Dragonbreath's dragon skulls: old bone and dark horn
+const BONE = { bone: "#e0d2b0", horn: "#4a3a34" };
 // things that stand on the ground before the footing (see paintBody)
-const RUNE_DX = 10.5, PILLAR_DX = 10.5, PILLAR_FOOT = 4.5, PILLAR_H = 12;
+// Dragonbreath's skull posts: out from the axis, skull centre over the lip
+const SKULL_DX = 14, SKULL_Y = 18, SKULL_S = 1.3;
+const RUNE_DX = 10.5, BOWL_DX = 9, BOWL_FOOT = 4.5, BOWL_H = 5.5;
 
 const spireH = (t) => 18 + t.level * 6 + (t.branch ? 4 : 0);
 const shaftW = (t) => (t.rank4 ? 24 : t.branch ? 22 : 16 + t.level * 2);
 const BOX = { left: 34, right: 34, up: 104, down: 18 };
 const FRONT = { left: 20, right: 20, up: 80, down: 4 };
+
+// Where Dragonbreath's jet leaves the hall (render/flames.js draws from
+// here): the spell-ring just past the head of the mage's levelled staff
+// (his "cast" pose), mirrored with the facing drawWizardSpire uses (the
+// aim, which the engine keeps on the breath).
+const RING_OUT = 2.5;
+export const breathMouth = (t) => {
+  const ang = t.breath ? t.breath.ang : t.lastAim || 0;
+  const [tx, ty] = mageTip(3, "cast");
+  return { x: t.x + (Math.cos(ang) >= 0 ? 1 : -1) * (tx + RING_OUT), y: t.y - spireH(t) - 7 + ty - 1 };
+};
 
 // the element a form belongs to
 const elem = (t) => (t.branch === "a" ? "fire" : t.branch === "b" ? "storm" : "arcane");
@@ -63,13 +87,41 @@ const coil = (ctx, x, bottom, h) => {
   part(ctx, (c) => ball(c, x, bottom - h - 1.5, 2.4, 2.4, "#c8d4e0", { hi: 0.6, lo: 0.4 }));
 };
 
+// The Inferno Throne's back: a gilded arch of radius THRONE_R whose
+// centre stands THRONE_Y over the walk's lip; five gilt cups round its
+// crest, west to east (the crown of flames lights them in that order).
+const THRONE_R = 10, THRONE_Y = 31;
+const throneCups = (x, top) => [0, 1, 2, 3, 4].map((i) => {
+  const a = Math.PI + (i / 4) * Math.PI, r = THRONE_R - 0.8;
+  return [x + Math.cos(a) * r, top - THRONE_Y + Math.sin(a) * r];
+});
+
+// A horned dragon skull seen from the front, set on a post (baked); its
+// sockets are lit live. (x, y) = the skull's centre.
+const dragonSkull = (ctx, x, y) => {
+  part(ctx, (c) => {
+    // horns sweeping up and out
+    c.fillStyle = BONE.horn;
+    for (const s of [-1, 1]) { c.beginPath(); c.moveTo(x + s * 1.2, y - 1.6); c.quadraticCurveTo(x + s * 4.6, y - 2.6, x + s * 4.4, y - 6.8); c.quadraticCurveTo(x + s * 3.6, y - 3.4, x + s * 2.6, y - 0.4); c.closePath(); c.fill(); }
+  });
+  part(ctx, (c) => {
+    // the brow and the long snout, narrowing down to the nostrils
+    c.beginPath(); c.moveTo(x - 2.8, y - 2); c.quadraticCurveTo(x, y - 3.6, x + 2.8, y - 2); c.lineTo(x + 2.2, y + 1); c.lineTo(x + 1.3, y + 4.2); c.lineTo(x - 1.3, y + 4.2); c.lineTo(x - 2.2, y + 1); c.closePath();
+    c.fillStyle = lin(c, x - 3, 0, x + 3, 0, [[0, "#fff3d2"], [0.45, BONE.bone], [1, darken(BONE.bone, 0.4)]]); c.fill();
+    c.fillStyle = "#241a26";
+    c.fillRect(x - 2.1, y - 1, 1.5, 1.4); c.fillRect(x + 0.6, y - 1, 1.5, 1.4);     // sockets
+    c.fillRect(x - 0.8, y + 3, 0.6, 0.6); c.fillRect(x + 0.2, y + 3, 0.6, 0.6);     // nostrils
+    c.fillStyle = darken(BONE.bone, 0.25); c.fillRect(x - 1.3, y + 4.2, 2.6, 0.6);  // teeth line
+  });
+};
+
 const paintGround = (ctx, t, x, y) => {
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
   ctx.save();
   footClip(ctx, x, y);
-  groundBed(ctx, x, y + 7, shaftW(t) / 2 + 1, t.id, { earth: r4 === "aa" ? "#4a3a30" : r4 === "ab" ? "#6a4a30" : "#7c6242" });
-  // scorched ground round the Volcanic Throne
-  if (r4 === "aa") soft(ctx, x, y + 6, 17, 7, [[0, "rgba(40,24,24,0.45)"], [0.7, "rgba(40,24,24,0.25)"], [1, "rgba(40,24,24,0)"]]);
+  groundBed(ctx, x, y + 7, shaftW(t) / 2 + 1, t.id, { earth: r4 === "ab" ? "#5a4234" : "#7c6242" });
+  // Dragonbreath's ground is scorched black round the foot
+  if (r4 === "ab") soft(ctx, x, y + 6, 17, 7, [[0, "rgba(40,24,24,0.45)"], [0.7, "rgba(40,24,24,0.25)"], [1, "rgba(40,24,24,0)"]]);
   ctx.restore();
 };
 
@@ -97,14 +149,30 @@ const paintBody = (ctx, t, x, y) => {
         c.fillStyle = lin(c, x - 7, 0, x + 7, 0, [[0, lighten(trim, 0.35)], [0.5, trim], [1, darken(trim, 0.4)]]); c.fill();
       });
     } else if (r4 === "aa") {
-      // the obsidian throne-back: a fan of black spikes
-      for (let i = -3; i <= 3; i++) {
-        const sx = x + i * 3.8, sh = 34 - Math.abs(i) * 5.5;
-        part(ctx, (c) => {
-          c.beginPath(); c.moveTo(sx - 2.2, top - 6); c.lineTo(sx + i * 0.6, top - 6 - sh); c.lineTo(sx + 2.2, top - 6); c.closePath();
-          c.fillStyle = lin(c, sx - 2, 0, sx + 2, 0, [[0, "#6a5a70"], [0.5, "#3a3040"], [1, "#1e1824"]]); c.fill();
-          c.fillStyle = LAVA; c.fillRect(sx - 0.3, top - 9 - sh * 0.3, 0.6, sh * 0.25);
-        });
+      // the throne-back: a gilded arch framing crimson velvet, a gilt cup
+      // at each of five points round its crest (their crown of flames is live)
+      const tr = THRONE_R, ty = top - THRONE_Y;
+      part(ctx, (c) => {
+        c.beginPath(); c.moveTo(x - tr, top - 6); c.lineTo(x - tr, ty); c.arc(x, ty, tr, Math.PI, 0); c.lineTo(x + tr, top - 6); c.closePath();
+        c.fillStyle = lin(c, x - tr, 0, x + tr, 0, [[0, "#fff0a8"], [0.3, trim], [0.75, darken(trim, 0.25)], [1, darken(trim, 0.5)]]); c.fill();
+        c.beginPath(); c.moveTo(x - tr + 2, top - 6); c.lineTo(x - tr + 2, ty); c.arc(x, ty, tr - 2, Math.PI, 0); c.lineTo(x + tr - 2, top - 6); c.closePath();
+        const velvet = darken(cloth, 0.45);
+        c.fillStyle = lin(c, x - tr, 0, x + tr, 0, [[0, lighten(velvet, 0.3)], [0.5, velvet], [1, darken(velvet, 0.4)]]); c.fill();
+        // a gilt sunburst on the velvet, round the mage's head
+        c.fillStyle = rgba(trim, 0.8);
+        for (let i = 0; i < 7; i++) { const a = Math.PI + (i / 6) * Math.PI; c.fillRect(x + Math.cos(a) * (tr - 4) - 0.5, ty + Math.sin(a) * (tr - 4) - 0.5, 1, 1); }
+      });
+      for (const [cx, cy] of throneCups(x, top)) part(ctx, (c) => {
+        c.beginPath(); c.moveTo(cx - 2.2, cy - 1.6); c.lineTo(cx + 2.2, cy - 1.6); c.quadraticCurveTo(cx + 1.8, cy + 0.6, cx, cy + 0.8); c.quadraticCurveTo(cx - 1.8, cy + 0.6, cx - 2.2, cy - 1.6); c.closePath();
+        c.fillStyle = lin(c, cx - 2, 0, cx + 2, 0, [[0, "#fff0a8"], [0.5, trim], [1, darken(trim, 0.45)]]); c.fill();
+        c.fillStyle = "#3a2420"; c.fillRect(cx - 1.6, cy - 2, 3.2, 0.8);
+      });
+    } else if (r4 === "ab") {
+      // horned dragon skulls on stone posts at the back corners
+      for (const s of [-1, 1]) {
+        part(ctx, (c) => cylinder(c, x + s * SKULL_DX - 1.8, top - SKULL_Y + 3, 3.6, SKULL_Y - 8, stone, { r: 1, hi: 0.35, lo: 0.5 }));
+        part(ctx, (c) => cylinder(c, x + s * SKULL_DX - 2.3, top - SKULL_Y + 3, 4.6, 1.4, trim, { r: 0.6, hi: 0.45, lo: 0.4 }));
+        ctx.save(); ctx.translate(x + s * SKULL_DX, top - SKULL_Y); ctx.scale(SKULL_S, SKULL_S); dragonSkull(ctx, 0, 0); ctx.restore();
       }
     } else if (r4 === "ba") {
       for (const s of [-1, 1]) coil(ctx, x + s * (pw - 2), top - 6, 22);
@@ -127,10 +195,11 @@ const paintBody = (ctx, t, x, y) => {
       part(ctx, (c) => cylinder(c, x + pw - 4, top - 34, 2, 28, "#b8743a", { r: 1, hi: 0.4, lo: 0.5 }));
       part(ctx, (c) => { ball(c, x + pw - 3, top - 35, 1.8, 1.8, "#e0e8f0", { hi: 0.6, lo: 0.4 }); c.fillStyle = "#d8a04a"; c.fillRect(x + pw - 4.5, top - 24, 3, 1); c.fillRect(x + pw - 4.5, top - 18, 3, 1); });
     }
-    // the back corners: braziers for fire, posts for the rest
-    if (el === "fire") for (const s of [-1, 1]) {
+    // the back corners: braziers for fire (gilded on the throne; the
+    // dragon skulls stand there instead)
+    if (el === "fire" && r4 !== "ab") for (const s of [-1, 1]) {
       part(ctx, (c) => cylinder(c, x + s * (pw - 2) - 1.6, top - 14, 3.2, 9, stone, { r: 1, hi: 0.35, lo: 0.5 }));
-      brazier(ctx, x + s * (pw - 2), top - 13, r4 ? 0.9 : 0.75);
+      brazier(ctx, x + s * (pw - 2), top - 13, r4 ? 0.9 : 0.75, r4 === "aa" ? "#b8862a" : undefined);
     }
   } else if (lvl === 2) {
     // two pedestals for the floating crystals
@@ -153,20 +222,16 @@ const paintBody = (ctx, t, x, y) => {
     c.beginPath(); c.ellipse(x, top - 5.5, pw - 6, 1.3, 0, 0, Math.PI * 2); c.fill();
   });
   footing(ctx, x, base, hw + 1, darken(stone, 0.05), seed, r4 ? 6 : 5);
-  ashlar(ctx, x - hw, top + 3, sw, base - 5 - top - 3, stone, seed, { course: 4, block: 5.5, band: lvl >= 3 || br ? 5 : 0, moss: el === "fire" ? 0 : 0.5, cracks: r4 === "aa" });
-  if (r4 === "aa") {
-    // lava in the seams: jagged glowing cracks down the basalt
-    part(ctx, (c) => {
-      c.strokeStyle = LAVA; c.lineWidth = 0.8; c.lineCap = "square";
-      for (let k = 0; k < 3; k++) {
-        let lx = x - hw + 3 + k * (sw - 6) / 2, ly = top + 6 + k * 4;
-        c.beginPath(); c.moveTo(lx, ly);
-        for (let i = 0; i < 5; i++) { lx += (hash(seed + k, i) - 0.5) * 4; ly += 3 + hash(seed, i + k) * 3; c.lineTo(lx, ly); }
-        c.stroke();
+  ashlar(ctx, x - hw, top + 3, sw, base - 5 - top - 3, stone, seed, { course: 4, block: 5.5, band: lvl >= 3 || br ? 5 : 0, moss: el === "fire" ? 0 : 0.5, cracks: r4 === "ab" });
+  if (r4 === "ab") {
+    // soot licked up the stone from the breath's fires
+    ((c) => {
+      c.fillStyle = "rgba(30,20,22,0.35)";
+      for (let k = 0; k < 4; k++) {
+        const sx = x - hw + 2 + k * (sw - 4) / 3 + (hash(seed, k) - 0.5) * 2, sh = 6 + hash(seed + 3, k) * 8;
+        c.beginPath(); c.moveTo(sx - 1.6, base - 5); c.quadraticCurveTo(sx - 1.2, base - 5 - sh * 0.6, sx, base - 5 - sh); c.quadraticCurveTo(sx + 1.2, base - 5 - sh * 0.6, sx + 1.6, base - 5); c.closePath(); c.fill();
       }
-      c.strokeStyle = "#ffe08a"; c.lineWidth = 0.5;
-      c.beginPath(); c.moveTo(x - hw + 3, top + 6); c.lineTo(x - hw + 3.5, top + 10); c.stroke();
-    }, { ink: "under" });
+    })(ctx);
   }
   // the lip under the walk, in the trim colour, with a corbel ring
   part(ctx, (c) => cylinder(c, x - pw, top - 1.5, pw * 2, 4.5, darken(stone, 0.1), { r: 1.2, hi: 0.35, lo: 0.5 }));
@@ -193,15 +258,6 @@ const paintBody = (ctx, t, x, y) => {
       }, { point: r4 !== "ab" });
     }
   }
-  if (r4 === "ab") {
-    // flame tongues licking up the shaft's foot
-    for (let i = 0; i < 5; i++) part(ctx, (c) => {
-      const fx = x - hw + 4 + i * (sw - 8) / 4, fh = 4 + hash(seed, i) * 4;
-      c.fillStyle = i % 2 ? "#e8703a" : "#f0a040";
-      c.beginPath(); c.moveTo(fx - 1.6, base - 5); c.quadraticCurveTo(fx - 1, base - 5 - fh * 0.6, fx + 0.5, base - 5 - fh); c.quadraticCurveTo(fx + 1.4, base - 5 - fh * 0.5, fx + 1.6, base - 5); c.closePath(); c.fill();
-    }, { ink: "under" });
-  }
-
   // ---- the foot
   // (everything below stands on the open ground in FRONT of the footing,
   // its foot clearly below the footing's front edge, with its own shadow)
@@ -212,15 +268,25 @@ const paintBody = (ctx, t, x, y) => {
       rock(ctx, x + s * RUNE_DX, base + 2.4, 1.8, 2.6, "#8a90a0", seed + s);
     }
   }
-  if (r4 === "ab") {
-    // fire-pillars flanking the door (their fire is live)
+  if (r4 === "aa") {
+    // a crimson runner from the door, and two gilt fire-bowls on squat
+    // plinths flanking it (their fire is live)
+    part(ctx, (c) => {
+      c.beginPath(); c.moveTo(x - 2.4, base - 5); c.lineTo(x + 2.4, base - 5); c.lineTo(x + 3.2, base + 5.5); c.lineTo(x - 3.2, base + 5.5); c.closePath();
+      c.fillStyle = lin(c, x - 3, 0, x + 3, 0, [[0, lighten(cloth, 0.25)], [0.5, cloth], [1, darken(cloth, 0.35)]]); c.fill();
+      c.fillStyle = trim; c.fillRect(x - 2.6, base - 3, 0.8, 8.5); c.fillRect(x + 1.8, base - 3, 0.8, 8.5);
+    }, { ink: "under" });
     for (const s of [-1, 1]) {
-      const px = x + s * PILLAR_DX, py = base + PILLAR_FOOT;
-      shadow(ctx, px + 0.6, py, 2.8, 0.9, 0.45);
-      part(ctx, (c) => { cylinder(c, px - 1.7, py - PILLAR_H, 3.4, PILLAR_H, "#7a5a4a", { r: 1, hi: 0.35, lo: 0.5 }); c.fillStyle = "#3a2420"; c.fillRect(px - 2, py - PILLAR_H - 1, 4, 1.4); });
+      const px = x + s * BOWL_DX, py = base + BOWL_FOOT;
+      shadow(ctx, px + 0.6, py, 3, 1, 0.45);
+      part(ctx, (c) => cylinder(c, px - 1.8, py - BOWL_H + 1.5, 3.6, BOWL_H - 1.5, darken(stone, 0.08), { r: 1, hi: 0.35, lo: 0.5 }));
+      part(ctx, (c) => {
+        c.beginPath(); c.moveTo(px - 3.2, py - BOWL_H - 1.5); c.lineTo(px + 3.2, py - BOWL_H - 1.5); c.quadraticCurveTo(px + 2.6, py - BOWL_H + 1.6, px, py - BOWL_H + 1.8); c.quadraticCurveTo(px - 2.6, py - BOWL_H + 1.6, px - 3.2, py - BOWL_H - 1.5); c.closePath();
+        c.fillStyle = lin(c, px - 3, 0, px + 3, 0, [[0, "#fff0a8"], [0.45, trim], [1, darken(trim, 0.45)]]); c.fill();
+        c.fillStyle = "#3a2420"; c.fillRect(px - 2.6, py - BOWL_H - 2, 5.2, 0.9);
+      });
     }
   }
-  if (r4 === "aa") for (const [rx, ry] of [[-10, 4.5], [11, 4], [-5.5, 7.2]]) rock(ctx, x + rx, base + ry, 2, 1.3, "#3a3038", seed + rx);
   if (!br) posy(ctx, x - hw, base + 4, "#b08ad8", seed);
 };
 
@@ -238,6 +304,10 @@ const paintFront = (ctx, t, x, y) => {
 };
 
 export const drawWizardSpire = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
+  // (a Dragonbreath still pouring out its last gout is not idle, whatever
+  // the foes in reach say: the jet leaves his staff until it gutters)
+  const idle = t._idle && !(t.branch === "a" && t.rank4 === "b" && t.breath && t.breath.on > 0);
   const x = t.x, y = t.y;
   const lvl = t.level;
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
@@ -264,49 +334,55 @@ export const drawWizardSpire = (ctx, t, time) => {
     stamp(ctx, baked(`ground|${form}|${v}`, BOX.left + BOX.right, 40, (c) => paintGround(c, tv, BOX.left, 14), false), x, y, BOX.left, 14);
     stamp(ctx, baked(`spire|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBody(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   } else paintBody(ctx, t, x, y);
-  // the lava pool at the Volcanic Throne's foot breathes under its crust
-  if (r4 === "aa") {
-    const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + t.id);
-    // (it wells up on the ground before the door, clear of the footing)
-    glow(ctx, x + 3, base + 4.5, 8, LAVA, 0.25 + pulse * 0.15);
-    soft(ctx, x + 3, base + 5, 6, 2.2, [[0, "#ffe08a"], [0.4, LAVA], [0.85, "#b8321e"], [1, "#6a1e18"]]);
-    ctx.fillStyle = "#2a2024";
-    ctx.fillRect(x - 0.5, base + 4, 2.5, 1); ctx.fillRect(x + 4, base + 6, 3, 1); ctx.fillRect(x + 6.5, base + 4, 1.5, 1);
-  }
+  const aimDir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
+  const dir = idle ? (Math.sin(time * 0.5 + t.id) >= 0 ? 1 : -1) : aimDir;
+  // Dragonbreath's breath, 0..1 (eased by the engine)
+  const on = r4 === "ab" && !idle && t.breath ? t.breath.on : 0;
 
   // ---- lights in the stone
   const winCol = el === "fire" ? "#ffa040" : el === "storm" ? "#a8e8ff" : "#ffd070";
   const breath = 0.6 + 0.25 * Math.sin(time * 1.7 + t.id);
   glow(ctx, x, top + 13, 4, winCol, breath);
   if (bodyH >= 30) glow(ctx, x, top + 23, 3, winCol, breath * 0.8);
-  if (r4 === "aa") glow(ctx, x, top + bodyH * 0.55, hw + 2, LAVA, 0.12 + 0.1 * Math.sin(time * 2.4 + t.id));
   if (el === "storm") for (const s of [-1, 1]) {
     const on = 0.4 + 0.5 * Math.max(0, Math.sin(time * 3 + s * 1.3 + t.id));
     glow(ctx, x + s * RUNE_DX, base + 2, 3, "#8ce8f0", on);
     ctx.fillStyle = rgba("#e8fcff", on); ctx.fillRect(x + s * RUNE_DX - 0.5, base + 0.8, 1, 2.5);
   }
   // ---- fire at the corners and round the foot
-  if (el === "fire" && grown) for (const s of [-1, 1]) flame(ctx, x + s * (pw - 2), top - 19.5, r4 ? 0.9 : 0.7, time, t.id + s * 3);
-  if (r4 === "ab") {
-    flame(ctx, x - PILLAR_DX, base + PILLAR_FOOT - PILLAR_H - 0.5, 0.75, time, t.id + 7);
-    flame(ctx, x + PILLAR_DX, base + PILLAR_FOOT - PILLAR_H - 0.5, 0.75, time, t.id + 11);
+  if (el === "fire" && grown && r4 !== "ab") for (const s of [-1, 1]) flame(ctx, x + s * (pw - 2), top - 19.5, r4 ? 0.9 : 0.7, time, t.id + s * 3);
+  if (r4 === "aa") {
+    for (const s of [-1, 1]) flame(ctx, x + s * BOWL_DX, base + BOWL_FOOT - BOWL_H - 2, 0.8, time, t.id + 7 + s * 2);
+    // the crown of flames counts the shots to the firestorm: one flame lit
+    // per shot since the last (t.poolIdx), all five when the next is it;
+    // on the firestorm itself all five flare and die back
+    const storm = !idle && (t.poolIdx || 0) === 0 && t.anim > 0.05;
+    const lit = idle ? 5 : storm ? 5 : (t.poolIdx || 0) + 1;
+    const ready = !idle && lit === 5;
+    if (ready) glow(ctx, x, top - THRONE_Y - 4, THRONE_R + 8, "#ff9a3a", storm ? 0.25 + t.anim * 0.35 : 0.22 + 0.08 * Math.sin(time * 6));
+    throneCups(x, top).forEach(([cx, cy], i) => {
+      if (i < lit) flame(ctx, cx, cy - 1.8, idle ? 0.75 : storm ? 0.9 + t.anim * 0.6 : ready ? 1.1 : 0.8, time, t.id + i * 5);
+      else { glow(ctx, cx, cy - 2, 2.4, "#d8482a", 0.35); ctx.fillStyle = "#d8482a"; ctx.fillRect(cx - 1, cy - 2.4, 2, 0.8); }
+    });
   }
 
   // ---- the mage: idle between waves, gathering power as the cooldown
   // runs out, driving the staff at the foe on the shot
-  const aimDir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
-  const dir = t._idle ? (Math.sin(time * 0.5 + t.id) >= 0 ? 1 : -1) : aimDir;
   const level = t.branch ? 3 : lvl;
   const pal = MAGE_FOLK[key] || MAGE_FOLK.base;
   const my = top - 7;
   const st = getStats(t);
   const rate = st.rate || 1000;
-  const charge = t._idle ? 0 : Math.max(0, Math.min(1, 1 - (t.cd || 0) / rate));
-  const pose = t._idle ? "idle" : t.anim > 0.35 ? "cast" : "charge";
+  // (Dragonbreath never fires an orb: its glow follows the breath)
+  const charge = idle ? 0 : r4 === "ab" ? on : Math.max(0, Math.min(1, 1 - (t.cd || 0) / rate));
+  // the Inferno Throne's fifth shot is the firestorm: its orb swells for it
+  const stormNext = r4 === "aa" && !idle && (t.poolIdx || 0) === 4;
+  const stormGone = r4 === "aa" && !idle && (t.poolIdx || 0) === 0 && t.anim > 0.05;
+  const pose = idle ? "idle" : r4 === "ab" ? (on > 0 ? "cast" : "charge") : t.anim > 0.35 ? "cast" : "charge";
   const mcv = canBake ? baked(`mage|${key}|${level}|${pose}`, 34, 40, (c) => drawMage(c, 14, 37, 1, pal, level, { pose })) : null;
   // star-charms from level three; the back arc passes behind the mage
   const stars = [];
-  if (grown) {
+  if (grown && !t.noFolk) {
     for (let i = 0; i < 3; i++) {
       const ang = time * 1.7 + i * 2.09 + t.id;
       stars.push({ cx: x + Math.cos(ang) * 15, cy: my - 14 + Math.sin(ang) * 5, front: Math.sin(ang) >= 0 });
@@ -321,7 +397,19 @@ export const drawWizardSpire = (ctx, t, time) => {
     ctx.fillStyle = orbCol; ctx.beginPath(); ctx.moveTo(cx, cy - 3); ctx.lineTo(cx + 1.6, cy); ctx.lineTo(cx, cy + 3); ctx.lineTo(cx - 1.6, cy); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#fffaf0"; ctx.fillRect(cx - 0.6, cy - 1.5, 0.8, 1.5);
   }
-  if (mcv) stamp(ctx, mcv, x, my, 14, 37, dir); else drawMage(ctx, x, my, dir, pal, level, { pose });
+  // Dragonbreath braced against his own blast: robe hem and sleeve stream
+  // back from him, whipping in the heat
+  if (on > 0.2 && !t.noFolk) {
+    const back = -dir;
+    for (const [hy, len, w, ph] of [[-2.5, 9, 3, 0], [-7.5, 7.5, 2.4, 1.7], [-14.5, 6, 2, 3.1]]) {
+      const flick = Math.sin(time * 19 + ph + t.id) * 1.1, L = len * on;
+      const x0 = x + back * 4, y0 = my + hy;
+      ctx.fillStyle = hy < -12 ? lighten(pal.robe, 0.1) : darken(pal.robe, 0.1);
+      ctx.beginPath(); ctx.moveTo(x0, y0 - w / 2); ctx.quadraticCurveTo(x0 + back * L * 0.6, y0 - w / 2 + flick, x0 + back * L, y0 + flick * 1.4); ctx.quadraticCurveTo(x0 + back * L * 0.6, y0 + w / 2 + flick, x0, y0 + w / 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = pal.trim; ctx.fillRect(x0 + back * L - (back > 0 ? 1 : 0), y0 + flick * 1.4 - 0.4, 1, 0.8);
+    }
+  }
+  if (!t.noFolk) { if (mcv) stamp(ctx, mcv, x, my, 14, 37, dir); else drawMage(ctx, x, my, dir, pal, level, { pose }); }
   if (canBake) stamp(ctx, baked(`front|${form}`, FRONT.left + FRONT.right, FRONT.up + FRONT.down, (c) => paintFront(c, tv, FRONT.left, FRONT.up)), x, y, FRONT.left, FRONT.up);
   else paintFront(ctx, t, x, y);
 
@@ -331,24 +419,27 @@ export const drawWizardSpire = (ctx, t, time) => {
   const bob = pose === "cast" ? 0 : Math.sin(time * 2.5 + t.id) * 1.2;
   const orbX = x + dir * tx, orbY = my + ty + bob - (level >= 2 ? 1 : 0);
   const rBase = level >= 3 ? 3.4 : level === 2 ? 2.8 : 2.3;
-  const rOut = rBase * (t._idle ? 0.8 : 0.75 + charge * 0.45) + (t.anim > 0.4 ? 0.8 : 0);
-  glow(ctx, orbX, orbY, rOut * (2 + charge), orbCol, 0.3 + charge * 0.25);
-  ball(ctx, orbX, orbY, rOut, rOut, orbCol, { hi: 0.6, lo: 0.3 });
-  ctx.fillStyle = "#fffaf0"; ctx.fillRect(orbX - rOut * 0.45, orbY - rOut * 0.5, 1, 1);
-  // motes spiral in while it gathers
-  if (!t._idle && charge > 0.45 && t.anim < 0.2) {
-    for (let i = 0; i < 3; i++) {
-      const a = time * 6 + i * 2.1, d = (1 - charge) * 14 + 3;
-      ctx.fillStyle = rgba(orbCol, 0.9);
-      ctx.fillRect(orbX + Math.cos(a) * d - 0.5, orbY + Math.sin(a) * d * 0.7 - 0.5, 1, 1);
+  if (!t.noFolk) {
+    const rOut = r4 === "ab" ? 2 + on * 0.8 : (rBase * (idle ? 0.8 : 0.75 + charge * 0.45) + (t.anim > 0.4 ? 0.8 : 0)) * (stormNext || stormGone ? 1.35 : 1);
+    const oc = stormNext || stormGone ? "#ffc850" : orbCol;
+    glow(ctx, orbX, orbY, rOut * (2 + charge), oc, 0.3 + charge * 0.25);
+    ball(ctx, orbX, orbY, rOut, rOut, oc, { hi: 0.6, lo: 0.3 });
+    ctx.fillStyle = "#fffaf0"; ctx.fillRect(orbX - rOut * 0.45, orbY - rOut * 0.5, 1, 1);
+    // motes spiral in while it gathers
+    if (!idle && charge > 0.45 && t.anim < 0.2) {
+      for (let i = 0; i < 3; i++) {
+        const a = time * 6 + i * 2.1, d = (1 - charge) * 14 + 3;
+        ctx.fillStyle = rgba(orbCol, 0.9);
+        ctx.fillRect(orbX + Math.cos(a) * d - 0.5, orbY + Math.sin(a) * d * 0.7 - 0.5, 1, 1);
+      }
     }
-  }
-  if (t.anim > 0.05) {
-    glow(ctx, orbX, orbY, rOut * 1.2, "#fffaf0", t.anim);
-    ctx.strokeStyle = rgba(orbCol, t.anim * 0.7);
-    ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.arc(orbX, orbY, rOut + (1 - t.anim) * 12, 0, 7); ctx.stroke();
-    ctx.lineWidth = 1;
+    if (t.anim > 0.05 && r4 !== "ab") {
+      glow(ctx, orbX, orbY, rOut * (stormGone ? 2.2 : 1.2), "#fffaf0", t.anim);
+      ctx.strokeStyle = rgba(oc, t.anim * 0.7);
+      ctx.lineWidth = stormGone ? 1.8 : 1.2;
+      ctx.beginPath(); ctx.arc(orbX, orbY, rOut + (1 - t.anim) * (stormGone ? 22 : 12), 0, 7); ctx.stroke();
+      ctx.lineWidth = 1;
+    }
   }
   for (const s of stars) if (s.front) star(s);
   for (const r of runes) if (r.front) rune(ctx, r);
@@ -356,7 +447,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   // ---- storms: static round the Stormcaller, arcs between the Tempest's
   // coils, a thundercloud over the Sovereign that strikes his crown
   if (el === "storm") {
-    if (Math.sin(time * 11 + t.id) > 0.55 || t.anim > 0.5) {
+    if (!t.noFolk && (Math.sin(time * 11 + t.id) > 0.55 || t.anim > 0.5)) {
       const ang = time * 5 + t.id;
       zig(ctx, orbX + Math.cos(ang) * 4, orbY + Math.sin(ang) * 4, orbX + Math.cos(ang) * 10, orbY + Math.sin(ang) * 8 + 4, time, "#f8f0a0", 1);
     }
@@ -375,11 +466,38 @@ export const drawWizardSpire = (ctx, t, time) => {
       } else glow(ctx, x, top - 34, 8, "#f0e070", 0.15 + 0.1 * Math.sin(time * 3));
     }
   }
-  // smoke off the Volcanic Throne; embers up the Wildfire Court
-  if (r4 === "aa") for (let i = 0; i < 3; i++) {
-    const t2 = (time * 7 + i * 7 + t.id * 2) % 21;
-    soft(ctx, x + 3 + Math.sin(time + i) * 2 + t2 * 0.2, base + 3.5 - t2 * 1.4, 2 + t2 / 6, 2 + t2 / 6, [[0, `rgba(70,60,64,${Math.max(0, 0.45 - t2 * 0.02)})`], [1, "rgba(70,60,64,0)"]]);
+  // Dragonbreath: the dragon skulls' sockets smoulder (and smoke between
+  // breaths); while he breathes, a furnace-bright spell-ring stands at his
+  // staff head, turning, and the jet (flames.js) pours through it
+  if (r4 === "ab") {
+    for (const s of [-1, 1]) {
+      const sx = x + s * SKULL_DX, sy = top - SKULL_Y;
+      const heat = 0.45 + on * 0.45 + 0.1 * Math.sin(time * 4 + s + t.id);
+      glow(ctx, sx, sy - 0.3, 2.6 + on * 1.5, "#ff8a2a", heat * 0.6);
+      ctx.fillStyle = rgba("#ffd070", heat); ctx.fillRect(sx - 2.5, sy - 1.1, 1.4, 1.2); ctx.fillRect(sx + 1.1, sy - 1.1, 1.4, 1.2);
+      if (on < 0.2) {
+        const t2 = (time * 5 + (s + 1) * 6 + t.id * 2) % 16;
+        soft(ctx, sx + Math.sin(time * 2 + s) * 0.8, sy + 4.5 - t2 * 0.9, 1 + t2 / 7, 1 + t2 / 7, [[0, `rgba(90,80,84,${Math.max(0, 0.35 - t2 * 0.022)})`], [1, "rgba(90,80,84,0)"]]);
+      }
+    }
+    if (on > 0 && !t.noFolk) {
+      const m = breathMouth({ x, y, level: lvl, branch: t.branch, rank4: t.rank4, breath: { ang: t.lastAim } });
+      const jit = Math.sin(time * 37) * 0.3;
+      glow(ctx, orbX, orbY, 6 + on * 6, "#ff7a2a", on * 0.55);
+      glow(ctx, orbX, orbY, 2.5 + on * 2, "#fff0a8", on * 0.9);
+      // the ring, edge-on toward the foe: a tall thin ellipse with fire-runes
+      const rx = 1.3 * on, ry = 5.2 * on;
+      ctx.strokeStyle = rgba("#ffd070", 0.9 * on); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(m.x + jit, m.y, Math.max(0.5, rx), Math.max(0.5, ry), 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = rgba("#fff3d2", on);
+      for (let i = 0; i < 4; i++) {
+        const a = time * 7 * dir + (i / 4) * Math.PI * 2;
+        ctx.fillRect(m.x + jit + Math.cos(a) * rx - 0.5, m.y + Math.sin(a) * ry - 0.5, 1, 1);
+      }
+      glow(ctx, m.x, m.y, 3 + on * 2, "#fff0a8", on * 0.5);
+    }
   }
+  // embers up both final forms
   if (r4 === "ab" || r4 === "aa") for (let i = 0; i < 4; i++) {
     const ey = base - ((time * 24 + i * 13 + t.id * 7) % (bodyH + 30));
     const ex = x - hw - 6 + i * (sw + 12) / 3 + Math.sin(time * 3 + i) * 3;
@@ -387,7 +505,7 @@ export const drawWizardSpire = (ctx, t, time) => {
     ctx.fillRect(ex, ey, 1, 1);
   }
   // between battles a tome hangs open by the spire, pages flicking
-  if (t._idle && ((time / 9) + t.id * 0.37) % 1 < 0.45) {
+  if (idle && !t.noFolk && ((time / 9) + t.id * 0.37) % 1 < 0.45) {
     const ty2 = top - 22 + Math.sin(time * 1.6) * 2;
     ctx.fillStyle = "#d8ceb4";
     ctx.fillRect(x + 12, ty2, 3.5, 4.5); ctx.fillRect(x + 16, ty2, 3.5, 4.5);

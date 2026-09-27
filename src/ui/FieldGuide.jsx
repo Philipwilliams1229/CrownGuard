@@ -32,7 +32,8 @@ const NUMBERS = [
   ["burn", (v) => `${v} burn damage`],
   ["poison", (v) => `${v} poison per stack`],
   ["colddps", (v) => `${v} cold damage/s`],
-  ["poolDps", (v) => `${v} lava damage/s`],
+  ["poolDps", (v) => `${v} burning-ground damage/s`],
+  ["poolEvery", (v) => `every ${v}th blast leaves the ground burning`],
   ["sear", (v) => `${v} searing damage/s`],
   ["arc", (v) => `lightning leaps ${v}×`],
   ["chain", (v) => `ricochets to ${v} more`],
@@ -75,6 +76,7 @@ const TRAITS = [
   ["mend", "restores 1 castle HP per wave — even past full, to 100"],
   ["brittle", "leaves foes brittle — more physical damage taken"],
   ["burnSpread", "fire leaps between foes"],
+  ["breath", "a flamethrower — its damage is PER SECOND to everything in the cone"],
   ["frag", "bursts into shrapnel"],
   ["spikePierce", "spikes skewer through"],
   ["rider", "mounted — very fast"],
@@ -284,7 +286,7 @@ function Basics() {
 
       <Heading>BUILDING</Heading>
       Towers reach <b>Lv 3</b>, then <b>evolve down one of two paths</b> — and each path can <b>ascend once more</b> into a final form. Both choices are permanent, so read them before you spend.<br /><br />
-      Selling returns <b>70%</b> of everything you put in. Time runs at <b>half speed</b> while you're building or managing a tower, so you can think.
+      Selling returns <b>70%</b> of everything you put in.
 
       <Heading>KNIGHTS</Heading>
       Knights march out and each pin <i>one</i> enemy in melee — the rest push past. Fallen knights respawn in 7 seconds. They muster just south of their hall; select the hall and click inside its circle to move the rally flag.

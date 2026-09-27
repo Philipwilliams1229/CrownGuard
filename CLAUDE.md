@@ -91,6 +91,31 @@ tools, file layout, or a lesson learned the hard way — update the matching
 guide (`art/STYLE-GUIDE.md`, this file) in the same commit. The next session
 should never have to rediscover it.
 
+## Free Play is a sandbox
+
+- `src/data/sandbox.js` holds ONE settings object for a Free Play run
+  (`DEFAULTS`, commented field by field; `LIMITS`; nine `PRESETS` as
+  patches). `startSandbox(settings)` arms the live binding `SANDBOX` (null in
+  the campaign — every engine read is `SANDBOX ? ... : normal`) and marches a
+  synthetic faction from `buildArmy` (`setCustomFaction`). `tweakSandbox`
+  changes a run live; `tierOpen`/`hallOpen` gate halls and tiers.
+- The engine's reads: waves.js (army, boss rhythm, count/gap/HP, a
+  script-less ramp, `victoryWave`, a 600-head wave cap), update.js (pace,
+  bounty, infinite gold, unbreakable castle, build time, `summonFight`),
+  actions.js (tier caps, sell refund, militia). `engine/sandboxTools.js` is
+  the in-battle panel's hands (spawn, sweep, gold, lives, skip).
+- UI: `ui/SandboxSetup.jsx` (the way into Free Play: presets + six tabs) and
+  `ui/SandboxPanel.jsx` (the tray's Sandbox button in battle).
+- Rewards stay honest: `isHonest(s)` (nothing easier than Classic) and the
+  run latch `runHonest()` — any easier setting, or the panel's gold, lives,
+  sweep or skip, ends stars and XP for the whole run. Summoning more foes
+  never does, and a summoned fight between waves pays no wave bonus.
+- A new setting: add it to DEFAULTS (+ LIMITS if numeric, + sanitize if
+  boolean), read it in the engine behind `SANDBOX`, give it a control in
+  SandboxSetup (and SandboxPanel if it makes sense live), and decide whether
+  it belongs in `isHonest`.
+- `node scripts/sim.mjs --sandbox <preset|all> [--realm r] [--to N]`.
+
 ## Balance and testing
 
 - `node scripts/sim.mjs --level <id> --endure` — castle damage per wave for
@@ -126,6 +151,13 @@ should never have to rediscover it.
   the second wakes at level 5 of that battle. Engine: `fireHeroAbility` in
   `actions.js`; the charge and the volleys run in `update.js`. Heartseeker
   takes the foe with the most max health within `pick` of the tap.
+- A new hall holds its fire (shots, auras, its knights/blades/skiffs) until
+  its build animation puts its person in, about 2 game s after purchase
+  (`src/engine/build.js`: `buildClock`, `isBuilt`, `t.readyAt`); the sims
+  include it. Upgrades never hold fire. It tipped one map: The Cairnfields
+  (hl4) went 750 → 850 start gold to absorb it — PROVISIONAL, pending the
+  owner's playtest (more gold is not monotonic in the sim there: 800, 900
+  and 950 each lost seeds that 850 won).
 - The owner playtests; the sims are a floor, not a target.
 - The board is 840x560 (3:2): an 80px right border holds the castle band
   (wall face at `W - WALL_W` = 738). See art/STYLE-GUIDE.md "The board's

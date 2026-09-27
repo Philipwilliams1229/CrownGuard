@@ -490,6 +490,7 @@ const BOX = { left: 40, right: 40, up: 116, down: 18 };
 const FRONT = { left: 24, right: 24, up: 64, down: 4 };
 
 export const drawArcherTower = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const lay = archerLayout(t);
   const { h, pw, hw, big } = lay;
@@ -561,9 +562,9 @@ export const drawArcherTower = (ctx, t, time) => {
       }
     }
     const work = t._idle ? 1 : Math.round((Math.sin(time * 6 + t.id) + 1) * 1.5);   // 0..3
-    const ccv = canBake ? baked(`crew|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, ARCHER_FOLK.crew, (work - 1.5) * 0.4)) : null;
+    const ccv = canBake && !t.noFolk ? baked(`crew|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, ARCHER_FOLK.crew, (work - 1.5) * 0.4)) : null;
     if (ccv) stamp(ctx, ccv, x - dir * (pw - 3), dy + 1, 12, 27, dir);
-  } else {
+  } else if (!t.noFolk) {
     const pal = ARCHER_FOLK[key] || ARCHER_FOLK.base;
     const bowCol = r4 === "bb" ? "#8a2f24" : master ? "#3a2a1e" : "#4a3018";
     const fletch = r4 === "bb" ? "#d8b34a" : r4 === "ab" ? "#9fc4dc" : undefined;
@@ -602,7 +603,7 @@ export const drawArcherTower = (ctx, t, time) => {
   } else if (master && r4 !== "ba") pennant(ctx, x - pw + 3, dy - 40, 1, flag, time, t.id, -1);
   else if (r4 === "ba") pennant(ctx, x + pw - 3, dy - 30, 8, flag, time, t.id, 1);
   else if (r4 !== "ab") pennant(ctx, x + pw - 3, dy - 33, 8, flag, time, t.id, 1);
-  if (r4 === "ab") {
+  if (r4 === "ab" && !t.noFolk) {
     // one hawk keeps the perch, one wheels over the road
     const perched = t._idle && Math.sin(time * 0.3 + t.id) > 0;
     hawkSit(ctx, x + 5, dy - 51);

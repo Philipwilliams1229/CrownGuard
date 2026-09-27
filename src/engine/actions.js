@@ -16,6 +16,8 @@ import { makeTower, syncUnits, getStats } from "./towers.js";
 import { nextId } from "./ids.js";
 import { recordFavored, favoredFor } from "../data/profile.js";
 import { sfx } from "../audio/sfx.js";
+import { SANDBOX, tierOpen } from "../data/sandbox.js";
+import { buildClock } from "./build.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
 // How far a hall's footing reaches from its anchor; two halls stand at least
@@ -60,7 +62,7 @@ export const startWave = (g) => {
   g.snapshot = {
     wave: g.wave, gold: g.gold, lives: g.lives,
     towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, rank4: t.rank4, invested: t.invested, aim: t.aim,
-      kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0 })),
+      kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0, formDmg: t.formDmg || 0, formTime: t.formTime || 0 })),
     // the castle's works and the hero as they stood; the militia goes home
     castle: g.castle ? { ...g.castle } : null,
     castleRanks: g.castleRanks ? { ...g.castleRanks } : null,
@@ -139,6 +141,7 @@ export const restartWave = (g) => {
     const t = makeTower(td.kind, td.x, td.y, td.level, td.branch, td.invested, td.rank4);
     t.aim = td.aim || "first";  // a retried wave keeps the orders you gave
     t.kills = td.kills || 0; t.dmgOut = td.dmgOut || 0; t.liveTime = td.liveTime || 0;
+    t.formDmg = td.formDmg || 0; t.formTime = td.formTime || 0;
     return t;
   });
   g.enemies = []; g.projectiles = []; g.effects = []; g.spawnQueue = []; g.corpses = []; g.traps = []; g.logs = [];
@@ -158,9 +161,25 @@ export const restartWave = (g) => {
 
 // Mark a tower as just raised or reworked, for the build animation
 // (render/buildanim.js): when, how ("build" | "level" | "branch" | "ascend"),
-// and the form it had before, so the art can grow out of the old one. Visual
-// only — the tower works from the instant it is bought.
-const markRaised = (g, t, how, prev = null) => { t.raised = { at: g.time || 0, how, prev }; };
+// and the form it had before, so the art can grow out of the old one. A new
+// hall holds its fire until its person is put in (t.readyAt, from the
+// build's clock in engine/build.js). A hall reworked while its build is
+// still going (until its crew is home) keeps the build: it runs on to the
+// end in the form it was putting up (build.form), and the rework's own
+// raise, from that form, plays once the scaffold is down.
+const markRaised = (g, t, how, prev = null) => {
+  const r = t.raised, now = g.time || 0;
+  // a new form starts its dps average over (update.js keeps the clock)
+  t.formDmg = 0; t.formTime = 0;
+  if (how === "build") t.readyAt = buildClock(t.kind, t.x, t.y, now).personAt;
+  const b = r && (r.how === "build" ? r : r.build);
+  if (how !== "build" && b && now >= b.at && now < buildClock(t.kind, t.x, t.y, b.at).home) {
+    if (!b.form) b.form = prev;
+    t.raised = { at: now, how, prev: b.form, build: b };
+    return;
+  }
+  t.raised = { at: now, how, prev };
+};
 const formOf = (t) => ({ level: t.level, branch: t.branch, rank4: t.rank4 });
 
 export const placeTower = (g, kind, x, y) => {
@@ -275,7 +294,7 @@ export const completeTower = (g, t) => {
 
 export const upgradeTower = (g, t) => {
   const def = TOWERS[t.kind];
-  if (t.branch || t.level >= 3) return;
+  if (t.branch || t.level >= 3 || !tierOpen(t.level + 1)) return;
   const cost = def.levels[t.level].cost;
   if (g.gold < cost) return;
   const prevL = formOf(t);
@@ -289,7 +308,7 @@ export const upgradeTower = (g, t) => {
 
 export const branchTower = (g, t, key) => {
   const br = TOWERS[t.kind].branches[key];
-  if (t.branch || t.level < 3 || g.gold < br.cost) return;
+  if (t.branch || t.level < 3 || g.gold < br.cost || !tierOpen(4)) return;
   const prevB = formOf(t);
   g.gold -= br.cost; t.branch = key; t.invested += br.cost;
   markRaised(g, t, "branch", prevB);
@@ -303,7 +322,7 @@ export const branchTower = (g, t, key) => {
 
 // Rank-4 "Final Ascension": a branched tower evolves once more, permanently.
 export const ascendTower = (g, t, key) => {
-  if (!t.branch || t.rank4) return;
+  if (!t.branch || t.rank4 || !tierOpen(5)) return;
   const r4 = TOWERS[t.kind].branches[t.branch].rank4?.[key];
   if (!r4 || g.gold < r4.cost) return;
   const prevR = formOf(t);
@@ -322,7 +341,7 @@ export const releaseEnemy = (g, e) => { if (!e) return; e.blockedBy = null; e.en
 export const sellTower = (g, t) => {
   if (t.units) for (const u of t.units) { const e = g.enemies.find((x) => x.blockedBy === u.id); releaseEnemy(g, e); }
   if (t.eagle) releaseEnemy(g, g.enemies.find((x) => x.blockedBy === t.eagle.id));
-  g.gold += Math.floor(t.invested * 0.7);
+  g.gold += Math.floor(t.invested * (SANDBOX ? SANDBOX.sellRefund : 0.7));
   sfx.play("sell");
   g.towers = g.towers.filter((x) => x.id !== t.id);
   g.selectedId = null;
@@ -361,7 +380,7 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
   // credit the ledger before the body falls, so the killing blow counts
   const credited = Math.max(0, Math.min(dmg, e.hp));
   const src = srcId != null && g._towerById ? g._towerById.get(srcId) : null;
-  if (src) src.dmgOut = (src.dmgOut || 0) + credited;
+  if (src) { src.dmgOut = (src.dmgOut || 0) + credited; src.formDmg = (src.formDmg || 0) + credited; }
   e.hp -= dmg;
   // brief white flash on solid hits (DoT ticks are too small to strobe)
   if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;
@@ -456,7 +475,7 @@ export const buyCastleWork = (g, key) => {
 // ---- bands ----
 // Call the militia to a spot: two farmers, for a while, for nothing.
 export const callMilitia = (g, x, y) => {
-  if (!g || (g.militiaCd || 0) > 0) return false;
+  if (!g || (g.militiaCd || 0) > 0 || SANDBOX?.militia === false) return false;
   if (!g.bands) g.bands = [];
   const id = nextId();
   const units = [];
@@ -522,8 +541,12 @@ export const fireHeroAbility = (g, id, x, y) => {
       dealDamage(g, e, a.dmg, "phys", false, false, b.id);
       if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil || 0, tms + a.stun);
     }
-    g.effects.push({ type: "slam", x: u.x, y: u.y + 4, ttl: 450, r: a.r });
-    g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: a.r * 0.8 });
+    // effects tick in game time, but this is the player's own button: stretch
+    // it by the speed so it plays in the same real time at 1x, 2x and 4x —
+    // the wave, then its cracks left lying a moment (rings.js)
+    const k = Math.max(1, g.speed || 1);
+    g.effects.push({ type: "slam", x: u.x, y: u.y + 4, ttl: 1450 * k, life: 1450 * k, wave: 450 * k, r: a.r });
+    g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420 * k, r: a.r * 0.8 });
     g.shake = Math.max(g.shake, 5);
     sfx.play("rock");
   } else if (id === "charge") {

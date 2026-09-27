@@ -10,7 +10,8 @@ import { sfx } from "./audio/sfx.js";
 import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
-import { scriptedWaves, waveSpec, setWaveWindow } from "./data/waves.js";
+import { scriptedWaves, victoryWave, waveSpec, setWaveWindow } from "./data/waves.js";
+import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
@@ -21,7 +22,7 @@ import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, MAX_STA
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, completionCost, completeTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, heroAbilityState, fireHeroAbility,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, heroAbilityState, fireHeroAbility,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -38,6 +39,8 @@ import { hasRig } from "./render/rigs.js";
 import { useViewport, Fit } from "./ui/fit.jsx";
 import "./ui/hud/hud.css";
 import { GoldChip, LivesChip } from "./ui/hud/Chips.jsx";
+import SandboxPanel from "./ui/SandboxPanel.jsx";
+import SandboxSetup from "./ui/SandboxSetup.jsx";
 import { towerTags, levelDeltas, formDeltas } from "./ui/hud/towerText.js";
 import { useArm } from "./ui/HeroTalents.jsx";
 import {
@@ -102,6 +105,8 @@ export default function Crownguard() {
   const [realmId, setRealmId] = useState(REALM.id);
   const [factionId, setFactionId] = useState(FACTION.id);
   const [realmOpen, setRealmOpen] = useState(false);
+  // the Free Play sandbox's live panel, in battle
+  const [sandboxPanel, setSandboxPanel] = useState(false);
   // where backing out of realm select should land you
   const [realmReturn, setRealmReturn] = useState("home");
   const [sndMuted, setSndMuted] = useState(sfx.muted);
@@ -116,6 +121,9 @@ export default function Crownguard() {
   const [award, setAward] = useState(null);
   // which master-menu final the player is reading about: {kind, branch, rank4, name, cost, desc, stats}
   const [masterInfo, setMasterInfo] = useState(null);
+  // which upgrade card has its ⓘ open (its tale laid over the card)
+  const [cardInfo, setCardInfo] = useState(null);
+  useEffect(() => { setCardInfo(null); }, [ui.selected?.id]);
   const level = levelId ? levelById(levelId) : null;
   const uiRef = useRef(ui);
   uiRef.current = ui;
@@ -203,7 +211,8 @@ export default function Crownguard() {
     } catch (err) { console.error("paintApron failed", err); }
   }, [screen, realmId, boardCss]);
 
-  const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks()) => {
+  // opts (the Free Play sandbox): { lives, wave, rush, hero: false, heroKey, heroLevel }
+  const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks(), opts = {}) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // dev-server playtest knob: /?gold=5000 pads the war chest. Stripped from
     // production builds, so the shipped game can't be talked into it.
@@ -212,14 +221,14 @@ export default function Crownguard() {
     G.current = {
       // tallies for the profile — banked when the level ends
       run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 },
-      gold: START_GOLD, lives: CASTLE_HP + worksBonusHp(castle), wave: 0, phase: "build",
+      gold: START_GOLD, lives: (opts.lives ?? CASTLE_HP) + worksBonusHp(castle), wave: opts.wave ?? 0, phase: "build",
       // the works built on this castle: they came with the region, and stay
       castle: { ...castle },
       bands: [], militiaCd: 0,
       towers: [], enemies: [], projectiles: [], effects: [],
       spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
       selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
-      cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false,
+      cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: !!opts.rush,
       // Master Builds: free play and the endless march only, and only once
       // the coffers have seen real money — masterSeen keeps it from blinking
       freeplay, masterBuild: false, masterSeen: false, masterPick: null,
@@ -227,30 +236,40 @@ export default function Crownguard() {
     // the hero rides out and waits before the gate: level 1 on every new
     // map, with the talents bought on the Home Screen. What level he ends a
     // won map's scripted waves at is paid out as his stars (see below).
-    {
+    if (opts.hero !== false) {
       const [gx, gy] = PTS[PTS.length - 1];
-      fieldHero(G.current, heroKey, 1, gx - 70, gy + (gy > H / 2 ? -50 : 50), heroRecord(loadProfile(), heroKey).talents);
+      const hk = opts.heroKey && HEROES[opts.heroKey] ? opts.heroKey : heroKey;
+      fieldHero(G.current, hk, opts.heroLevel || 1, gx - 70, gy + (gy > H / 2 ? -50 : 50), heroRecord(loadProfile(), hk).talents);
     }
     setHeroAward(null);
     setBuildOpen(false);
     setCastleOpen(false);
     setTalentsOpen(false);
-    setUi({ gold: START_GOLD, lives: CASTLE_HP + worksBonusHp(castle), wave: 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: false });
+    setUi({ gold: START_GOLD, lives: (opts.lives ?? CASTLE_HP) + worksBonusHp(castle), wave: opts.wave ?? 0, phase: "build", selected: null, buildMode: null, speed: 1, paused: false, result: null, canRestart: false, cdSec: null, zoom: 1, rush: !!opts.rush });
   }, [heroKey]);
 
   // Swap the battlefield: rebuild road + scenery for the realm, then start a
   // fresh Free Play run on it — full fifteen waves, then the Endless March.
-  const chooseRealm = (id) => {
+  // Ride out on a Free Play sandbox run: the settings from the setup screen
+  // (ui/SandboxSetup.jsx) arm the engine through sandbox.js, then the run
+  // starts on its realm with its purse, walls, wave, hero and pace.
+  const startSandboxRun = (settings) => {
+    const sb = startSandbox(settings);
+    const id = sb.realm in REALMS ? sb.realm : "greenwood";
     selectRealm(id);
-    selectFaction(factionId);
     setWaveWindow(null);
     setRealmId(id);
+    setFactionId(sb.army === "all" ? "greenwood" : sb.army);
     setMode("free");
     setLevelId(null);
-    // a realm may open its gates with a heavier purse — the Proving Field does
     castleScope.current = `free:${id}`;
-    initGame(REALMS[id]?.startGold ?? 250, true, loadCastle(castleScope.current));
+    // a realm may open its gates with a heavier purse — the Proving Field does
+    initGame(Math.max(sb.gold, REALMS[id]?.startGold ?? 0), true, loadCastle(castleScope.current), {
+      lives: sb.lives, wave: sb.startWave - 1, rush: sb.autoWaves,
+      hero: sb.hero, heroKey: sb.heroKey, heroLevel: sb.heroLevel,
+    });
     setRealmOpen(false);
+    setSandboxPanel(false);
     setScreen("game");
   };
 
@@ -258,7 +277,7 @@ export default function Crownguard() {
   // script, and the war chest it starts you with.
   const startLevel = (lv) => {
     selectRealm(lv.realm);
-    selectFaction(lv.chapter.faction);
+    endSandbox(lv.chapter.faction);
     setWaveWindow(lv.window);
     setRealmId(lv.realm);
     setFactionId(lv.chapter.faction);
@@ -331,8 +350,8 @@ export default function Crownguard() {
   const openRealmSelect = (from) => { setRealmReturn(from); setRealmOpen(true); };
   const closeRealmSelect = () => (realmReturn === "home" ? goHome() : setRealmOpen(false));
 
-  // Mirror the build-drawer open state into the game so the update loop can
-  // apply the tactical half-speed while the player is building.
+  // Mirror the build-drawer open state into the game (the tactical
+  // half-speed that read it is gone; time keeps its pace in menus).
   useEffect(() => {
     if (G.current) G.current.buildMenuOpen = buildOpen;
   }, [buildOpen]);
@@ -347,6 +366,9 @@ export default function Crownguard() {
   // zeroed afterwards so retrying a lost wave can't count its kills twice.
   useEffect(() => {
     if (!ui.result) return;
+    // the hero's menu folds away with the battle, so a retried wave or the
+    // Endless March doesn't open with it still showing
+    setTalentsOpen(false);
     const g = G.current;
     // A won map pays the hero's level at the end of its scripted waves as
     // that hero's stars — once per win, never for the Endless March after.
@@ -354,6 +376,8 @@ export default function Crownguard() {
     // handed) and reads storage fresh, so neither overwrites the other.
     const payHero = () => {
       if (ui.result !== "won" || !g || g.heroPaid) return;
+      // a sandbox run made easier than Classic pays no stars
+      if (mode !== "campaign" && !runHonest()) return;
       const hb = heroBand(g);
       if (!hb) return;
       g.heroPaid = true;
@@ -362,7 +386,7 @@ export default function Crownguard() {
     };
     // a Free Play run has no level to rate, but its tallies still count
     if (mode !== "campaign" || !levelId) {
-      setProfile({ ...bankFreeRun(profile, { waves: Math.max(0, ui.wave - (ui.result === "won" ? 0 : 1)), run: g?.run }) });
+      if (runHonest()) setProfile({ ...bankFreeRun(profile, { waves: Math.max(0, ui.wave - (ui.result === "won" ? 0 : 1)), run: g?.run }) });
       if (g) g.run = { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 };
       payHero();
       return;
@@ -421,7 +445,7 @@ export default function Crownguard() {
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
       const sel = g.towers.find((t) => t.id === g.selectedId) || null;
-      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${sel.kills || 0}` : null;
+      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${sel.kills || 0}-${Math.round((sel.formDmg || 0) / Math.max(1, sel.formTime || 0))}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
       const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
@@ -445,7 +469,7 @@ export default function Crownguard() {
           castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: CASTLE_HP + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
-            kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, liveTime: sel.liveTime || 0 } : null,
+            kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, formDmg: sel.formDmg || 0, formTime: sel.formTime || 0 } : null,
           selKey, buildMode: g.buildMode, rallyFor, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY, rush: g.rush,
           masterShow, masterOn: !!g.masterBuild,
           masterPick: pickKey, masterPickName: g.masterPick?.name || null,
@@ -575,8 +599,10 @@ export default function Crownguard() {
       if (!g.buildMode) { g.masterPick = null; setBuildOpen(false); }
       return;
     }
-    // tapping the field outside a menu dismisses the build drawer
+    // tapping the field outside a menu dismisses the build drawer, and folds
+    // the hero's menu back into his button
     setBuildOpen(false);
+    setTalentsOpen(false);
     const t = towerNear(g, x, y);
     if (t) { g.selectedId = t.id; return; }
     // tapping the hero himself asks where he should go
@@ -783,6 +809,19 @@ export default function Crownguard() {
   const cancelRally = () => { if (G.current) G.current.rallyFor = null; };
   // a small square close button that sits ON a card's upper-right corner,
   // outside the part that scrolls, so it never scrolls away
+  // A card's ⓘ: a small mark in its top-right corner with a thumb-sized
+  // hit area around it (`hit` css px at any UI scale, within `cap` design
+  // px). It sits beside the card, never inside it, so it works on a card
+  // that can't be afforded and never arms or picks the card.
+  const infoCorner = (label, open, onToggle, hit = 40, cap = 56) => {
+    const d = Math.round(Math.min(cap, Math.max(30, hit / s)));
+    return (
+      <button type="button" aria-label={label} aria-expanded={open} className="cg-info" style={{ width: d, height: d }}
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}>
+        <span>{open ? <CloseIcon size={10} /> : <InfoIcon size={14} />}</span>
+      </button>
+    );
+  };
   const cornerX = (label, onClick) => (
     <button aria-label={label} className="cg-btn cg-btn--slate cg-x cg-corner-x" onClick={onClick}><CloseIcon size={12} /></button>
   );
@@ -790,9 +829,15 @@ export default function Crownguard() {
   // design px wide at `left` (board px), as tall as its contents up to the
   // board's height, hung at height fraction `f` so it sits level with it.
   const CARD_M = 24 * s;
+  // The board runs under the camera cutout and the home indicator, so the
+  // card's margins grow to keep clear of them (inset is in screen px; the
+  // board sits boardCss.x / .y into its cell).
+  const cardTop = Math.max(CARD_M, inset.top - boardCss.y + 6 * s);
+  const cardBot = Math.max(CARD_M, inset.bottom - ((boardCss.ch || 0) - boardCss.y - boardCss.vh) + 6 * s);
+  const cardMinL = Math.max(6 * s, inset.left - boardCss.x + 6 * s);
   const floatCard = ({ id, left, width, f, origin, closeLabel, onClose, children }) => (
     <div key={id} style={{
-      position: "absolute", left, top: CARD_M, width, height: (boardCss.vh - 2 * CARD_M) / s,
+      position: "absolute", left: Math.max(cardMinL, left), top: cardTop, width, height: (boardCss.vh - cardTop - cardBot) / s,
       transform: `scale(${s})`, transformOrigin: "0 0", zIndex: 25,
       display: "flex", flexDirection: "column", pointerEvents: "none",
     }}>
@@ -804,9 +849,19 @@ export default function Crownguard() {
       <div style={{ flex: `${1 - f} 1 0px` }} />
     </div>
   );
+  // the sandbox decides which halls Free Play offers; the campaign, what's won
+  const hallAvail = (key) => (mode === "free" && SANDBOX ? hallOpen(key) : towerUnlocked(key, progress));
+  // "12/18", or "∞" once the run is past its cap (or has none)
+  const capOf = (n) => { const c = victoryWave(); return Number.isFinite(c) && n <= c ? c : "∞"; };
+  const capNote = (
+    <div className="cg-parch" style={{ marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
+      <div className="cg-label" style={{ marginBottom: 2, color: "#7a6446" }}>Capped in this sandbox</div>
+      This run's settings stop halls at this tier.
+    </div>
+  );
   const cycleSpeed = () => { if (G.current) G.current.speed = G.current.speed === 1 ? 2 : G.current.speed === 2 ? 4 : 1; };
   // one panel at a time in the tray: the tower grid is home
-  const trayHome = () => { setCastleOpen(false); setTalentsOpen(false); setInfoOpen(false); setArmed(null); setMasterInfo(null); if (G.current) G.current.selectedId = null; };
+  const trayHome = () => { setSandboxPanel(false); setCastleOpen(false); setTalentsOpen(false); setInfoOpen(false); setArmed(null); setMasterInfo(null); if (G.current) G.current.selectedId = null; };
   const trayOpen = (which) => {
     const was = which === "castle" ? castleOpen : which === "talents" ? talentsOpen : infoOpen;
     trayHome();
@@ -821,7 +876,7 @@ export default function Crownguard() {
   // -- the purse, the castle, the level --
   const purse = (
     <>
-      <GoldChip gold={ui.gold} />
+      <GoldChip gold={mode === "free" && SANDBOX?.infiniteGold ? "∞" : ui.gold} />
       <LivesChip lives={ui.lives} max={ui.maxLives || CASTLE_HP} base={CASTLE_HP} />
       {level && !railsOn && boardCss.vw > 760 && (
         <div className="cg-panel cg-chip" style={{ gap: 6 }}>
@@ -834,12 +889,12 @@ export default function Crownguard() {
 
 
   // -- the militia horn and the hero --
-  const militiaBtn = ui.result == null && (
+  const militiaBtn = ui.result == null && !(mode === "free" && SANDBOX?.militia === false) && (
     <button aria-label="Call the militia" title={MILITIA.blurb}
       className={cls("cg-btn", ui.rallyFor === "militia" && "is-on")}
       style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
       disabled={ui.militiaSec > 0}
-      onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); }}>
+      onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); setTalentsOpen(false); }}>
       {/* the cooldown drains down the plank like sand */}
       {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / MILITIA.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
       {hasRig("farmer") ? <EnemyIcon type="farmer" box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
@@ -858,14 +913,14 @@ export default function Crownguard() {
       <button aria-label={`${ui.hero.name}: move and abilities`} title={HEROES[ui.hero.key]?.blurb}
         className={cls("cg-btn cg-btn--slate", (talentsOpen || aiming) && "is-on", ui.hero.dead && "is-off", anyReady && !talentsOpen && "cg-horn")}
         style={{ flex: 1, minHeight: 60, minWidth: heroSlim ? 0 : 150, padding: "5px 8px 5px 5px", gap: 7, justifyContent: "flex-start" }}
-        onClick={() => { const g = G.current; if (!g) return; if (aiming) { g.rallyFor = null; return; } trayOpen("talents"); }}>
+        onClick={() => { const g = G.current; if (!g) return; if (aiming) { g.rallyFor = null; return; } g.rallyFor = null; trayOpen("talents"); }}>
         <span className="cg-well" style={{ width: 42, height: 46, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           {hasRig(HEROES[ui.hero.key]?.rig) ? <EnemyIcon type={HEROES[ui.hero.key].rig} box={34} /> : <span style={{ fontSize: 20 }}>{HEROES[ui.hero.key]?.icon}</span>}
         </span>
         <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: heroSlim ? 0 : 88 }}>
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
             {!heroSlim && <span style={{ fontSize: 11 }}>{ui.hero.name}</span>}
-            <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv {ui.hero.level}</span>
+            <span style={{ fontSize: 10, color: "var(--gold-lt)" }}>Lv <span className="cg-num" style={{ fontSize: 10, textShadow: "1px 1px 0 var(--ink)" }}>{ui.hero.level}</span></span>
           </span>
           <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
           <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, ui.hero.xp / ui.hero.next))}%`, background: "var(--blue)" }} /></span>
@@ -879,11 +934,14 @@ export default function Crownguard() {
   })();
 
 
-  // -- the hero's menu: move him, or fire one of his two abilities. Talents
-  // are bought on the Home Screen only, with the stars a won map pays --
+  // -- the hero's menu: move him, or fire one of his two abilities. It opens
+  // in the tray right above his button, never over the field, so the slam
+  // can be watched landing: on a phone it takes the tower grid's place, on a
+  // tall screen it docks under the grid. Talents are bought on the Home
+  // Screen only, with the stars a won map pays --
   const talentBtn = null;
   const ABIL_ICON = { slam: <HammerIcon size={13} />, charge: <SwordIcon size={13} />, volley: <ArrowIcon size={13} />, heart: <TargetIcon size={13} /> };
-  const talentPanel = talentsOpen && ui.hero && (() => {
+  const talentPanel = talentsOpen && ui.hero && ui.result == null && (() => {
     const h = ui.hero;
     const g = G.current;
     const close = () => trayHome();
@@ -894,45 +952,53 @@ export default function Crownguard() {
       if (a.aim === "none") { fireHeroAbility(g, a.id); return; }
       g.rallyFor = `ab:${a.id}`; g.selectedId = null; g.buildMode = null; setBuildOpen(false);
     };
-    const hpf = h.hp / h.maxHp;
     const max = h.level >= HERO_MAX_LEVEL;
-    const tile = { width: "100%", minHeight: 92, padding: "7px 8px", flexDirection: "column", alignItems: "flex-start", justifyContent: "flex-start", gap: 4, textAlign: "left", position: "relative", overflow: "hidden" };
+    // one plank per order, the tray's full width, never under a thumb's 44
+    // on a phone the planks share out the whole panel, so no dead band hangs
+    // over them; they never squash below their words (the menu scrolls then)
+    const row = { width: "100%", minHeight: 44, flex: compact ? "1 0 auto" : "0 0 auto", padding: compact ? "4px 6px 5px" : "6px 9px 7px", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: compact ? 2 : 3, textAlign: "left", position: "relative", overflow: "hidden" };
+    const title = { fontSize: compact ? 11 : 12, fontWeight: 700, position: "relative", display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" };
+    // the small print is plain Verdana, never the planks' Silkscreen
+    const fine = { fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: compact ? 9 : 10, lineHeight: 1.3, position: "relative" };
+    // on a phone an order that is asleep or recharging keeps one line of its tale
+    const oneLine = { alignSelf: "stretch", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
     return (<>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 16 }}>
-          <span className="cg-well" style={{ width: 40, height: 44, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {hasRig(HEROES[h.key]?.rig) ? <EnemyIcon type={HEROES[h.key].rig} box={32} /> : <span>{HEROES[h.key]?.icon}</span>}
-          </span>
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-            <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 13, textShadow: "1px 1px 0 var(--ink)" }}>{h.name} · Lv {h.level}</div>
-            <span className="cg-bar"><i style={{ width: `${Math.round(100 * hpf)}%`, background: hpf > 0.5 ? "#7ad06a" : hpf > 0.25 ? "#e8c14a" : "#e07a72" }} /></span>
-            <span className="cg-bar" style={{ height: 5 }}><i style={{ width: max ? "100%" : `${Math.round(100 * Math.min(1, h.xp / h.next))}%`, background: "var(--blue)" }} /></span>
-            <div style={{ fontSize: 9.5, color: "var(--muted)", display: "flex", justifyContent: "space-between", gap: 6 }}>
-              <span>{h.dead ? `back in ${h.respawn}s` : `${h.hp}/${h.maxHp} health`}</span>
-              <span>{max ? "MAX LEVEL" : `xp ${h.xp}/${h.next} · from kills`}</span>
-            </div>
-          </div>
+      {/* the hero's name and level in the head, beside the ✕ */}
+      <div className="cg-drawer-head" style={{ margin: 0, padding: compact ? "3px 3px 3px 8px" : "3px 3px 3px 10px", gap: compact ? 4 : 6, ...(compact ? {} : { borderTop: "2px solid var(--ink)" }) }}>
+        <span className="cg-label" style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: compact ? 4 : 5, fontSize: compact ? 10 : 12, letterSpacing: compact ? 0.5 : 1 }}>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.name}</span>
+          <span style={{ flexShrink: 0, color: "var(--muted)" }}>·</span>
+          <span style={{ flexShrink: 0 }}>Lv <span className="cg-num" style={{ fontSize: compact ? 10 : 12, textShadow: "1px 1px 0 var(--ink)" }}>{h.level}</span></span>
+        </span>
+        <button aria-label="Close the hero's menu" className="cg-btn cg-btn--slate cg-x" onClick={close}><CloseIcon size={11} /></button>
+      </div>
+      <div className="cg-scroll" style={{ flex: compact ? 1 : "0 1 auto", minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: compact ? 5 : 6, padding: compact ? "5px 6px 6px" : "7px 8px 8px" }}>
+        {/* his numbers on one slim line; the bars are on his button below */}
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", columnGap: 8, fontSize: compact ? 9 : 10, lineHeight: 1.25, color: "var(--muted)", padding: "0 1px" }}>
+          <span style={h.dead ? { color: "#e07a72" } : undefined}>{h.dead ? `back in ${h.respawn}s` : `${h.hp}/${h.maxHp} hp`}</span>
+          <span title="Experience comes only from kills nearby">{max ? "max level" : `xp ${h.xp}/${h.next}${compact ? "" : " · from kills"}`}</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginTop: 10 }}>
-          <button className={cls("cg-btn", h.dead ? "cg-btn--slate is-off" : "cg-btn--parch")} disabled={h.dead} style={tile} onClick={move}>
-            <span className="cg-display" style={{ fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}><FlagIcon size={13} /> Move</span>
-            <span style={{ fontSize: 10, lineHeight: 1.35, color: "#5a4630" }}>{h.dead ? `Back on his feet in ${h.respawn}s.` : "Tap the map where the hero should stand."}</span>
-          </button>
-          {h.abilities.map((a) => {
-            const ready = a.state === "ready";
-            const label = ready ? (a.aim === "none" ? "Ready — tap to use" : a.aim === "foe" ? "Ready — then tap a foe" : "Ready — then tap the map")
-              : a.state === "cooling" ? `Recharging · ${a.sec}s` : a.state === "locked" ? `Wakes at level ${a.unlock}` : "Hero is down";
-            return (
-              <button key={a.id} className={cls("cg-btn", ready ? "cg-btn--gold" : "cg-btn--slate is-off")} disabled={!ready} style={tile} onClick={() => fire(a)}>
-                {/* the recharge drains down the plank like the militia's horn */}
-                {a.state === "cooling" && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.round(100 * Math.min(1, a.frac))}%`, background: "rgba(20,12,22,0.4)" }} />}
-                <span className="cg-display" style={{ fontSize: 12, fontWeight: 700, position: "relative", display: "inline-flex", alignItems: "center", gap: 5 }}>{ABIL_ICON[a.id] || <BoltIcon size={13} />} {a.name}</span>
-                <span className="cg-num" style={{ fontSize: 9.5, textShadow: "none", position: "relative", color: ready ? "var(--wood-deep)" : "var(--gold-lt)" }}>{label}</span>
-                <span style={{ fontSize: 9.5, lineHeight: 1.35, position: "relative", color: ready ? "var(--wood-deep)" : "var(--muted)" }}>{a.desc}</span>
-              </button>
-            );
-          })}
-        </div>
-      </>);
+        <button className={cls("cg-btn", h.dead ? "cg-btn--slate is-off" : "cg-btn--parch")} disabled={h.dead} style={row} onClick={move}>
+          <span className="cg-display" style={title}><FlagIcon size={13} /> Move</span>
+          <span style={{ ...fine, color: h.dead ? "var(--muted)" : "#5a4630" }}>{h.dead ? `Back in the fight in ${h.respawn}s.` : compact ? "Then tap where to stand." : "Then tap the map where to stand."}</span>
+        </button>
+        {h.abilities.map((a) => {
+          const ready = a.state === "ready";
+          const label = ready ? (a.aim === "none" ? "Ready — tap to use" : a.aim === "foe" ? "Ready — tap a foe" : "Ready — tap to aim")
+            : a.state === "cooling" ? `Recharging · ${a.sec}s` : a.state === "locked" ? `Wakes at level ${a.unlock}` : "Hero is down";
+          const brief = compact && !ready;
+          return (
+            <button key={a.id} title={brief ? a.desc : undefined} className={cls("cg-btn", ready ? "cg-btn--gold" : "cg-btn--slate is-off")} disabled={!ready} style={row} onClick={() => fire(a)}>
+              {/* the recharge drains down the plank like the militia's horn */}
+              {a.state === "cooling" && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.round(100 * Math.min(1, a.frac))}%`, background: "rgba(20,12,22,0.4)" }} />}
+              <span className="cg-display" style={title}>{ABIL_ICON[a.id] || <BoltIcon size={13} />} {a.name}</span>
+              <span className="cg-num" style={{ fontSize: 9, textShadow: "none", position: "relative", color: ready ? "var(--wood-deep)" : "var(--gold-lt)" }}>{label}</span>
+              <span style={{ ...fine, color: ready ? "var(--wood-deep)" : "var(--muted)", ...(brief ? oneLine : {}) }}>{a.desc}</span>
+            </button>
+          );
+        })}
+      </div>
+    </>);
   })();
 
   // -- the tower panel: everything about the selected hall --
@@ -947,20 +1013,68 @@ export default function Crownguard() {
       armForms.current[armId(key)] = form;
       return () => upArm.tap(armId(key), () => { withT(fn)(); if (G.current) G.current.upPreview = null; });
     };
-    const deltaGrid = (deltas) => (
-      <span style={{ display: "grid", gridTemplateColumns: "auto auto", columnGap: 10, rowGap: 1, fontSize: 10.5 }}>
+    // `rows` pads it with blank lines so sibling cards stand the same height
+    const deltaGrid = (deltas, rows = deltas.length) => (
+      <span className="cg-dim" style={{ display: "grid", gridTemplateColumns: "auto auto", justifyContent: "start", columnGap: 10, rowGap: 1, fontSize: 10.5 }}>
         {deltas.map((d) => (
           <span key={d.label} style={{ display: "contents" }}>
             <span style={{ color: "#7a6446" }}>{d.label}</span>
             <span style={{ whiteSpace: "nowrap" }}>{d.from} <span style={{ color: d.better ? "#3f7a2a" : "#a8363c", fontWeight: "bold" }}>▸ {d.to}</span></span>
           </span>
         ))}
+        {Array.from({ length: Math.max(0, rows - deltas.length) }, (_, i) => <span key={`pad${i}`} style={{ gridColumn: "1 / -1" }}>&nbsp;</span>)}
       </span>
     );
-    // the armed button's call to action: a dark tag on the gold, easy to read
-    const tapAgain = () => (
-      <span style={{ alignSelf: "flex-start", background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontSize: 12, fontWeight: 700, letterSpacing: 1, lineHeight: 1.2, padding: "3px 8px", textShadow: "none" }}>TAP AGAIN TO BUY</span>
+    // the armed button's call to action: a dark tag on the gold, easy to read.
+    // It sits in a slot of fixed height that is there armed or not, and the
+    // stats show on both taps, so arming only turns the card gold: nothing
+    // moves under the thumb between the first tap and the second
+    const confirmTag = () => (
+      <span style={{ background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontSize: 11, fontWeight: 700, letterSpacing: 1, lineHeight: "14px", padding: "1px 7px", textShadow: "none" }}>CONFIRM</span>
     );
+    const slot = { display: "flex", alignItems: "center", height: 16 };
+    // The path / final-form choices. Every card is the same size and stays
+    // it: the grid's rows all match the tallest card (a long name may wrap),
+    // the stats are padded to the longest list, and a foot
+    // with the price that the CONFIRM tag joins when armed. The tale lives
+    // behind the ⓘ in the corner and is laid over the card when asked for.
+    const formChoices = (heading, opts) => {
+      const rows = Math.max(...opts.map((o) => o.deltas.length));
+      return (
+        <div style={{ marginTop: 10 }}>
+          <div className="cg-label" style={{ marginBottom: 6 }}>{heading}</div>
+          <div style={{ display: "grid", gridAutoRows: "1fr", gap: 7 }}>
+            {opts.map((o) => {
+              const id = armId(o.k), can = ui.gold >= o.f.cost, armed = upArm.is(id), open = cardInfo === id;
+              return (
+                <div key={o.k} style={{ position: "relative" }}>
+                  <button data-arm={id} className={cls("cg-btn", "cg-btn--parch", armed && "is-armed", !can && "is-poor")} disabled={!can}
+                    style={{ width: "100%", height: "100%", padding: "6px 8px", gap: 8, alignItems: "stretch", justifyContent: "flex-start" }}
+                    onClick={buy2(o.k, o.form, o.buy)}>
+                    <span className="cg-dim" style={{ flexShrink: 0, alignSelf: "flex-start" }}><TowerPortrait kind={sel.kind} {...o.look} size={40} /></span>
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+                      <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12, paddingRight: 16 }}>{o.f.name}</span>
+                      {deltaGrid(o.deltas, rows)}
+                      <span style={{ ...slot, justifyContent: "space-between", gap: 6, marginTop: "auto" }}>
+                        {armed ? confirmTag() : <span />}
+                        {price(o.f.cost, can, 13)}
+                      </span>
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="cg-info-pane cg-scroll" onClick={() => setCardInfo(null)}>
+                      <div className="cg-display" style={{ fontWeight: 700, fontSize: 11, color: "var(--parch-ink)", marginBottom: 3 }}>{o.f.name}</div>
+                      {o.f.desc}
+                    </div>
+                  )}
+                  {infoCorner(`About ${o.f.name}`, open, () => setCardInfo(open ? null : id))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
     const tier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
     const branchDef = sel.branch ? selDef.branches[sel.branch] : null;
     // nothing left to buy: the card goes to one column, and says what the
@@ -995,15 +1109,17 @@ export default function Crownguard() {
 
                 {/* the service record: what this hall has actually done for you */}
                 {(sel.kills > 0 || sel.dmgOut > 0) && (() => {
-                  const dps = sel.dmgOut / Math.max(1, sel.liveTime);
+                  // average dps of this form: its damage over the seconds a foe
+                  // was in its reach, starting over at every upgrade
+                  const dps = sel.formTime >= 1 ? sel.formDmg / sel.formTime : null;
                   const num = (v) => (v >= 10000 ? (v / 1000).toFixed(1) + "k" : Math.round(v).toLocaleString());
-                  const stat = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--muted)" };
-                  const n = { fontSize: 14, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" };
+                  const stat = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" };
+                  const n = { fontSize: 13, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" };
                   return (
-                    <div style={{ display: "flex", gap: 12, marginTop: 8, padding: "0 2px" }}>
-                      <span title="foes this tower struck down" style={stat}><SkullIcon size={12} /><b className="cg-num" style={n}>{sel.kills}</b> kills</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", columnGap: 10, rowGap: 4, marginTop: 8, padding: "0 2px" }}>
+                      <span title="foes this tower struck down" style={stat}><SkullIcon size={12} /><b className="cg-num" style={n}>{sel.kills}</b></span>
                       <span title="total damage dealt this run" style={stat}><SwordIcon size={12} /><b className="cg-num" style={n}>{num(sel.dmgOut)}</b> dmg</span>
-                      <span title="damage per second of battle — build time excluded" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
+                      <span title="average damage per second while a foe is in range, since the last upgrade" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps == null ? "—" : dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
                     </div>
                   );
                 })()}
@@ -1053,7 +1169,8 @@ export default function Crownguard() {
                             ))}
                           </div>
                           {!vp.short && (
-                            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 5 }}>
+                            // two lines kept for it, so a longer hint never shoves the card
+                            <div style={{ fontSize: 10, lineHeight: 1.3, minHeight: "2.6em", color: "var(--muted)", marginTop: 5 }}>
                               {(modes.find((m) => m.id === sel.aim) || modes[0]).hint}
                             </div>
                           )}
@@ -1071,16 +1188,17 @@ export default function Crownguard() {
                   </div>
                 )}
                 {/* the next level: its name, its price, and exactly what it changes */}
-                {!sel.branch && sel.level < 3 && (() => {
+                {!sel.branch && sel.level < 3 && !tierOpen(sel.level + 1) && capNote}
+                {!sel.branch && sel.level < 3 && tierOpen(sel.level + 1) && (() => {
                   const nxt = selDef.levels[sel.level];
                   const can = ui.gold >= nxt.cost;
                   const deltas = levelDeltas(t);
                   return (
-                    <button data-arm={armId("level")} className={cls("cg-btn", upArm.is(armId("level")) ? "cg-btn--gold" : "cg-btn--parch", !can && "is-poor")} disabled={!can}
+                    <button data-arm={armId("level")} className={cls("cg-btn", "cg-btn--parch", upArm.is(armId("level")) && "is-armed", !can && "is-poor")} disabled={!can}
                       style={{ width: "100%", marginTop: 10, padding: "7px 10px 8px", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}
                       onClick={buy2("level", { level: sel.level + 1 }, (tt) => upgradeTower(G.current, tt))}>
                       <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                        {upArm.is(armId("level")) ? tapAgain() : <span className="cg-label">Upgrade · Level {sel.level + 1}</span>}
+                        <span style={slot}>{upArm.is(armId("level")) ? confirmTag() : <span className="cg-label">Upgrade · Level {sel.level + 1}</span>}</span>
                         <span className="cg-display" style={{ fontSize: 13, fontWeight: 700 }}>{nxt.label}</span>
                         {deltaGrid(deltas)}
                       </span>
@@ -1089,78 +1207,25 @@ export default function Crownguard() {
                   );
                 })()}
 
-                {!sel.branch && sel.level === 3 && (
-                  <div style={{ marginTop: 10 }}>
-                    <div className="cg-label" style={{ marginBottom: 6 }}>Choose a path — permanent</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                      {Object.entries(selDef.branches).map(([bk, br]) => {
-                        const can = ui.gold >= br.cost;
-                        return (
-                          <button key={bk} data-arm={armId(`branch:${bk}`)} className={cls("cg-btn", upArm.is(armId(`branch:${bk}`)) ? "cg-btn--gold" : "cg-btn--parch", !can && "is-poor")} disabled={!can}
-                            style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
-                            onClick={buy2(`branch:${bk}`, { branch: bk }, (tt) => branchTower(G.current, tt, bk))}>
-                            <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={bk} size={40} /></span>
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                              <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{br.name}</span>
-                                {price(br.cost, can, 13)}
-                              </span>
-                              {upArm.is(armId(`branch:${bk}`))
-                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain()}{deltaGrid(formDeltas(t, { branch: bk }))}</span>
-                                : <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{br.desc}</span>}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {!sel.branch && sel.level === 3 && !tierOpen(4) && capNote}
+                {!sel.branch && sel.level === 3 && tierOpen(4) && formChoices("Choose a path — permanent",
+                  Object.entries(selDef.branches).map(([bk, br]) => ({
+                    k: `branch:${bk}`, f: br, form: { branch: bk }, look: { branch: bk },
+                    deltas: formDeltas(t, { branch: bk }), buy: (tt) => branchTower(G.current, tt, bk),
+                  })))}
 
-                {sel.branch && !sel.rank4 && branchDef.rank4 && (
-                  <div style={{ marginTop: 10 }}>
-                    <div className="cg-label" style={{ marginBottom: 6 }}>Final ascension — permanent</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                      {Object.entries(branchDef.rank4).map(([rk, r4]) => {
-                        const can = ui.gold >= r4.cost;
-                        return (
-                          <button key={rk} data-arm={armId(`ascend:${rk}`)} className={cls("cg-btn", upArm.is(armId(`ascend:${rk}`)) ? "cg-btn--gold" : "cg-btn--parch", !can && "is-poor")} disabled={!can}
-                            style={{ width: "100%", padding: "6px 8px", gap: 8, alignItems: "flex-start", justifyContent: "flex-start" }}
-                            onClick={buy2(`ascend:${rk}`, { rank4: rk }, (tt) => ascendTower(G.current, tt, rk))}>
-                            <span className="cg-dim" style={{ flexShrink: 0 }}><TowerPortrait kind={sel.kind} branch={sel.branch} rank4={rk} size={40} /></span>
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                              <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                                <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12 }}>{r4.name}</span>
-                                {price(r4.cost, can, 13)}
-                              </span>
-                              {upArm.is(armId(`ascend:${rk}`))
-                                ? <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 3 }}>{tapAgain()}{deltaGrid(formDeltas(t, { rank4: rk }))}</span>
-                                : <span className="cg-dim" style={{ display: "block", fontSize: 10, lineHeight: 1.4, marginTop: 2, color: "#5a4630" }}>{r4.desc}</span>}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* rich-run shortcut: buy every remaining rank in one stroke */}
-                {ui.masterShow && !sel.rank4 && (() => {
-                  const c = completionCost(t);
-                  const can = ui.gold >= c.cost;
-                  return (
-                    <button data-arm={armId("complete")} className={cls("cg-btn", upArm.is(armId("complete")) && "cg-btn--gold", !can && "is-poor")} disabled={!can}
-                      style={{ width: "100%", marginTop: 8, fontSize: 12, gap: 6 }}
-                      onClick={buy2("complete", { level: 3, branch: sel.branch || c.branch, rank4: c.rank4 }, (tt) => { if (can && G.current) completeTower(G.current, tt); })}>
-                      <BoltIcon size={13} /> {upArm.is(armId("complete")) ? tapAgain() : <span className="cg-dim">Complete — {c.name}</span>} {price(c.cost, can, 12)}
-                    </button>
-                  );
-                })()}
+                {sel.branch && !sel.rank4 && branchDef.rank4 && !tierOpen(5) && capNote}
+                {sel.branch && !sel.rank4 && branchDef.rank4 && tierOpen(5) && formChoices("Final ascension — permanent",
+                  Object.entries(branchDef.rank4).map(([rk, r4]) => ({
+                    k: `ascend:${rk}`, f: r4, form: { rank4: rk }, look: { branch: sel.branch, rank4: rk },
+                    deltas: formDeltas(t, { rank4: rk }), buy: (tt) => ascendTower(G.current, tt, rk),
+                  })))}
 
                 {/* selling takes two taps too: an accidental sale can't be undone */}
                 <button data-arm={armId("sell")} className={cls("cg-btn cg-btn--red", upArm.is(armId("sell")) && "is-on")}
                   style={{ width: "100%", marginTop: 10, justifyContent: "space-between", ...(upArm.is(armId("sell")) ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : {}) }}
                   onClick={() => upArm.tap(armId("sell"), withT((tt) => sellTower(G.current, tt)))}>
-                  <span>{upArm.is(armId("sell")) ? "Tap again to sell" : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
+                  <span>{upArm.is(armId("sell")) ? "Confirm sale" : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
                 </button>
     </>) };
   })();
@@ -1189,7 +1254,7 @@ export default function Crownguard() {
   const lead = [...comp].sort((a, b) => (ENEMIES[b.type].boss ? 1e6 : b.count) - (ENEMIES[a.type].boss ? 1e6 : a.count)).slice(0, 3);
   const wavePanel = infoOpen && (
     <>
-      <div className="cg-label" style={{ marginBottom: 8 }}>Wave {nextWave} — {fighting ? "on the field" : ui.wave >= scriptedWaves() ? "next · endless" : "next"}</div>
+      <div className="cg-label" style={{ marginBottom: 8 }}>Wave {nextWave} — {fighting ? "on the field" : ui.wave >= victoryWave() ? "next · endless" : "next"}</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 10 }}>
         {comp.length ? waveChips(comp, fighting ? "cur" : "next") : <span style={{ fontSize: 11, color: "var(--muted)" }}>Nothing yet.</span>}
       </div>
@@ -1231,6 +1296,7 @@ export default function Crownguard() {
         else {
           d.mode = "drag";
           g.buildMode = d.kind; g.masterPick = d.pick; g.selectedId = null;
+          setTalentsOpen(false);   // a tower picked up folds the hero's menu away
         }
       }
       if (d.mode === "scroll") d.list.scrollTop = d.top0 - dy;
@@ -1257,10 +1323,20 @@ export default function Crownguard() {
     window.addEventListener("pointercancel", up);
   };
 
-  // what the tray is showing
-  const trayMode = masterInfoPanel ? "info" : "build";
-  const TRAY_D = compact ? 204 : 252;         // the tray's width, design px
-  const trayW = Math.round(TRAY_D * s) + inset.right;   // the scaled panel, plus the notch side
+  // what the tray is showing: on a phone the hero's menu takes the grid's place
+  const heroTray = compact && !!talentPanel;
+  const trayMode = heroTray ? "hero" : masterInfoPanel ? "info" : "build";
+  // iOS pads both long edges in landscape, though the camera cutout is on
+  // only one. The map already runs under the left pad; when the cutout is
+  // on the left too (turn 90), the right pad guards nothing but the rounded
+  // corners, so the tray takes that strip for roomier tower cards and only
+  // its top and bottom rows step in from the corners.
+  const freeRight = compact && inset.right > 0 && inset.left === inset.right && vp.turn === 90;
+  const edge = freeRight ? 6 : inset.right;   // the bare strip left at the screen's right edge, css px
+  const TRAY_D = compact ? Math.min(280, 204 + Math.round((inset.right - edge) / s)) : 252;   // the tray's width, design px
+  const roomy = TRAY_D >= 240;                // wide enough for full-size cards and one-line names
+  const cornerR = freeRight ? 28 / s : 0;     // the head row's step in from the rounded top corner, design px
+  const trayW = Math.round(TRAY_D * s) + edge;   // the scaled panel, plus the notch side
   const trayTitle = { tower: null, castle: "Castle Works", talents: ui.hero?.name || "Hero", info: "Master build", wave: "The next wave", build: masterOn ? "Master builds" : "Towers" }[trayMode];
 
   return (
@@ -1277,7 +1353,7 @@ export default function Crownguard() {
               <div className="cg-display" style={{ fontSize: 26, fontWeight: 700, letterSpacing: 3, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>PAUSED</div>
               <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>
                 {level && <span>Chapter {level.chapter.numeral} · </span>}
-                <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{scriptedWaves()}
+                <b style={{ color: REALMS[realmId].tagColor }}>{REALMS[realmId].name}</b> · Wave {ui.wave}/{capOf(ui.wave)}
               </div>
             </div>
           );
@@ -1388,13 +1464,19 @@ export default function Crownguard() {
           {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && !(typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:")) && ribbon(
             <>Posting the <b>rally flag</b> — tap where the knights should stand.</>, "Cancel rally move", cancelRally)}
 
-            {/* the castle works and the hero's talents: a wide card over the middle of the map, in columns so it doesn't scroll */}
-            {(castleOpen || talentPanel) && !sel && (() => {
-              const CW = Math.min(castleOpen ? 540 : 480, (boardCss.vw - 2 * CARD_M) / s);
+            {/* the Free Play sandbox's live controls: its own card over the map */}
+            {sandboxPanel && mode === "free" && SANDBOX && !sel && (
+              <SandboxPanel game={() => G.current} onClose={() => setSandboxPanel(false)} s={s} />
+            )}
+
+            {/* the castle works: a wide card over the middle of the map, in columns so it doesn't scroll
+                (the hero's menu opens in the tray, above his button) */}
+            {castleOpen && !sel && (() => {
+              const CW = Math.min(540, (boardCss.vw - 2 * CARD_M) / s);
               return floatCard({
-                id: castleOpen ? "castle" : "talents", left: (boardCss.vw - CW * s) / 2, width: CW, f: 0.5, origin: "center",
-                closeLabel: castleOpen ? "Close castle works" : "Close the hero's menu", onClose: trayHome,
-                children: castleOpen ? (
+                id: "castle", left: (boardCss.vw - CW * s) / 2, width: CW, f: 0.5, origin: "center",
+                closeLabel: "Close castle works", onClose: trayHome,
+                children: (
                   <>
                     <div className="cg-label" style={{ marginBottom: 6, paddingRight: 16, display: "flex", alignItems: "center", gap: 6 }}><CastleIcon size={16} /> Castle works</div>
                     <CastleWorksList
@@ -1408,7 +1490,7 @@ export default function Crownguard() {
               : "Built on the wall itself, paid from the purse. What you raise here stands for every run in this realm — but the veteran ranks past a finished work are this run's alone."}
             onBuy={buyWork} />
                   </>
-                ) : talentPanel,
+                ),
               });
             })()}
 
@@ -1425,7 +1507,7 @@ export default function Crownguard() {
               const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * boardCss.h + cropTop;
               const CW = two ? 500 : 292, cw = CW * s;
               const flipX = tx > bw * 0.5;
-              const left = Math.max(6 * s, Math.min(bw - cw - CARD_M, flipX ? tx - 26 * s - cw : tx + 26 * s));
+              const left = Math.max(cardMinL, Math.min(bw - cw - CARD_M, flipX ? tx - 26 * s - cw : tx + 26 * s));
               const f = Math.min(1, Math.max(0, ty / bh));
               return floatCard({
                 id: sel.id, left, width: CW, f, origin: `${flipX ? "right" : "left"} center`,
@@ -1571,7 +1653,7 @@ export default function Crownguard() {
                   {fighting ? <SkullIcon size={18} /> : <PlayIcon size={18} />}
                   <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1 }}>
                     <span style={{ fontSize: 10, letterSpacing: 1.5 }}>WAVE</span>
-                    <span className="cg-num" style={{ fontSize: 18, textShadow: fighting ? "2px 2px 0 var(--ink)" : "1px 1px 0 rgba(255,243,210,0.5)" }}>{nextWave}<span style={{ fontSize: 12, opacity: 0.75, marginLeft: 1 }}>/{nextWave > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
+                    <span className="cg-num" style={{ fontSize: 18, textShadow: fighting ? "2px 2px 0 var(--ink)" : "1px 1px 0 rgba(255,243,210,0.5)" }}>{nextWave}<span style={{ fontSize: 12, opacity: 0.75, marginLeft: 1 }}>/{capOf(nextWave)}</span></span>
                   </span>
                   {lead.length > 0 && (
                     <span style={{ display: "flex", gap: 3 }}>
@@ -1595,7 +1677,7 @@ export default function Crownguard() {
                 <button aria-label={infoOpen ? "Hide wave info" : "Show wave info and the rush switch"}
                   className={cls("cg-btn", fighting ? "cg-btn--slate" : "", infoOpen && "is-on")}
                   style={{ minWidth: 38, padding: 0, marginLeft: -2, minHeight: 54, flexDirection: "column", gap: 3 }}
-                  onClick={() => setInfoOpen((o) => !o)}>
+                  onClick={() => { setInfoOpen((o) => !o); setTalentsOpen(false); }}>
                   {infoOpen ? <ChevronDown size={7} /> : <ChevronUp size={7} />}
                   {ui.rush && <BoltIcon size={11} />}
                 </button>
@@ -1609,7 +1691,7 @@ export default function Crownguard() {
       </div>
 
       {/* ---- the tray ---- */}
-      <div className="cg-drawer" style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: trayW, boxSizing: "border-box", paddingLeft: 0, paddingRight: inset.right, zIndex: 30 }}>
+      <div className="cg-drawer" style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: trayW, boxSizing: "border-box", paddingLeft: 0, paddingRight: edge, zIndex: 30 }}>
         <div style={{ position: "relative", height: "100%" }}>
           <div style={{
             position: "absolute", top: 0, left: 0, width: TRAY_D, height: `${100 / s}%`, boxSizing: "border-box",
@@ -1618,11 +1700,11 @@ export default function Crownguard() {
             display: "flex", flexDirection: "column", padding: `${6 + inset.top / s}px 6px ${6 + inset.bottom / s}px ${10 / s + 4}px`, gap: 6,
           }}>
             {/* head: the wave count and the pause menu */}
-            <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "stretch", marginRight: cornerR }}>
               <div className="cg-panel" style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "0 8px", minHeight: 40 }}>
                 <SkullIcon size={14} />
                 <span className="cg-label" style={{ fontSize: 10, color: "var(--muted)" }}>Wave</span>
-                <span className="cg-num" style={{ fontSize: 15, color: "var(--cream)" }}>{Math.max(ui.wave, 1)}<span style={{ fontSize: 11, opacity: 0.75 }}>/{ui.wave > scriptedWaves() ? "∞" : scriptedWaves()}</span></span>
+                <span className="cg-num" style={{ fontSize: 15, color: "var(--cream)" }}>{Math.max(ui.wave, 1)}<span style={{ fontSize: 11, opacity: 0.75 }}>/{capOf(ui.wave)}</span></span>
               </div>
               <button title="Pause and open the menu" aria-label="Pause and open the menu" className={cls("cg-btn", menuOpen && "is-on")} style={{ minWidth: 42, minHeight: 40, padding: 0 }} onClick={openMenu}>
                 <PauseIcon size={15} />
@@ -1635,6 +1717,13 @@ export default function Crownguard() {
                   className={cls("cg-btn", castleOpen && "is-on")} style={{ flex: 1, minHeight: 40, fontSize: 12, gap: 6 }} onClick={() => trayOpen("castle")}>
                   <CastleIcon size={18} /> Castle
                 </button>
+                {mode === "free" && SANDBOX && (
+                  <button aria-label="Open the sandbox controls" title="Sandbox: gold, walls, summon any foe, reshape the war ahead"
+                    className={cls("cg-btn cg-btn--slate", sandboxPanel && "is-on")} style={{ minHeight: 40, padding: "0 8px", fontSize: 12, gap: 4 }}
+                    onClick={() => { const was = sandboxPanel; trayHome(); if (!was) { if (G.current) G.current.buildMode = null; setSandboxPanel(true); } }}>
+                    <HammerIcon size={12} /> Sandbox
+                  </button>
+                )}
                 {ui.masterShow && (
                   <button title="Master Builds: place any final form whole" className={cls("cg-btn cg-btn--slate", masterOn && "is-on")} style={{ minHeight: 40, padding: "0 8px", fontSize: 12, gap: 4 }}
                     onClick={() => { const gg = G.current; if (!gg) return; gg.masterBuild = !gg.masterBuild; gg.buildMode = null; gg.masterPick = null; setMasterInfo(null); trayHome(); }}>
@@ -1644,22 +1733,26 @@ export default function Crownguard() {
               </div>
             )}
 
-            {/* the panel: towers by default, else whatever is selected */}
+            {/* the panel: towers by default, else whatever is selected. The
+                hero's menu stands on his button: on a phone it takes the
+                whole panel (the grid folds away, keeping its place in the
+                list); on a tall screen it docks at the panel's foot and the
+                grid scrolls on above it */}
             <div className="cg-panel" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--slate-in)" }}>
-              {trayMode !== "build" && (
+              {trayMode !== "build" && trayMode !== "hero" && (
                 <div className="cg-drawer-head" style={{ margin: 0, padding: "4px 4px 4px 10px" }}>
                   <span className="cg-label" style={{ flex: 1, whiteSpace: "normal" }}>{trayTitle || (selDef ? selDef.name : "")}</span>
                   <button aria-label="Back to the towers" className="cg-btn cg-btn--slate cg-x" onClick={trayHome}><CloseIcon size={11} /></button>
                 </div>
               )}
-              <div className="cg-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: trayMode === "build" ? 6 : "8px 8px 10px" }}>
+              <div className="cg-scroll" aria-hidden={heroTray || undefined} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: trayMode === "build" ? 6 : "8px 8px 10px", ...(heroTray ? { flex: "0 0 0px", padding: 0, visibility: "hidden" } : {}) }}>
                 {trayMode === "info" && masterInfoPanel}
                 {trayMode === "wave" && wavePanel}
-                {trayMode === "build" && (
+                {(trayMode === "build" || heroTray) && (
                   <>
           {masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
-                Object.entries(TOWERS).filter(([key]) => towerUnlocked(key, progress)).map(([key, def]) => (
+                Object.entries(TOWERS).filter(([key]) => hallAvail(key)).map(([key, def]) => (
                   <div key={key} style={{ marginBottom: 12 }}>
                     <div className="cg-label" style={{ fontSize: 11, margin: "2px 0 6px" }}>{def.name}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
@@ -1668,7 +1761,8 @@ export default function Crownguard() {
                         const can = ui.gold >= plan.cost;
                         const active = ui.buildMode === key && ui.masterPick === pk;
                         return (
-                          <button key={pk} title={def.branches[plan.branch].desc}
+                          <div key={pk} style={{ position: "relative" }}>
+                          <button title={def.branches[plan.branch].desc}
                             className={cls("cg-btn cg-btn--slate", active && "is-on", !can && "is-poor")}
                             style={{ width: "100%", flexDirection: "column", justifyContent: "flex-end", gap: 3, padding: "8px 4px 7px", minHeight: 100, touchAction: "none" }}
                             onPointerDown={(e) => { if (can) startTileDrag(e, key, { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name }); }}
@@ -1679,20 +1773,21 @@ export default function Crownguard() {
                               gg.masterPick = active ? null : { kind: key, branch: plan.branch, rank4: plan.rank4, name: plan.name };
                               gg.selectedId = null;
                               if (!active) setBuildOpen(false);
+                              setTalentsOpen(false);
                             }}
                             disabled={!can}>
-                            <span role="button" aria-label={`About ${plan.name}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const br = def.branches[plan.branch];
-                                const stats = plan.rank4 ? br.rank4[plan.rank4].stats : br.stats;
-                                setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
-                              }}
-                              style={{ position: "absolute", top: 0, right: 0, padding: 5, pointerEvents: "auto", cursor: "help" }}><InfoIcon size={12} /></span>
                             <span className="cg-dim"><TowerPortrait kind={key} branch={plan.branch} rank4={plan.rank4} size={42} /></span>
                             <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.2 }}>{plan.name}</span>
                             {price(plan.cost, can, 11)}
                           </button>
+                          {/* its ⓘ beside the card, so it answers even when the card is too dear */}
+                          {infoCorner(`About ${plan.name}`, false, () => {
+                            const br = def.branches[plan.branch];
+                            const stats = plan.rank4 ? br.rank4[plan.rank4].stats : br.stats;
+                            setMasterInfo({ kind: key, ...plan, desc: plan.rank4 ? br.rank4[plan.rank4].desc : br.desc, stats });
+                            setTalentsOpen(false);
+                          }, 34, 46)}
+                          </div>
                         );
                       })}
                     </div>
@@ -1701,32 +1796,34 @@ export default function Crownguard() {
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${buildCols}, 1fr)`, gap: 7 }}>
               {/* the halls you can raise first, in their usual order; the locked ones after */}
-              {Object.entries(TOWERS).sort(([a], [b]) => towerUnlocked(b, progress) - towerUnlocked(a, progress))
-                .filter(([key]) => !compact || showLocked || towerUnlocked(key, progress)).map(([key, def]) => {
-                const open = towerUnlocked(key, progress);
+              {Object.entries(TOWERS).sort(([a], [b]) => hallAvail(b) - hallAvail(a))
+                .filter(([key]) => !compact || showLocked || hallAvail(key)).map(([key, def]) => {
+                const open = hallAvail(key);
                 const can = open && ui.gold >= def.cost;
                 const active = ui.buildMode === key;
                 const need = open ? null : unlockLevel(key);
+                // a hall the sandbox left out, rather than one still to be won
+                const benched = !open && mode === "free" && !!SANDBOX;
                 return (
-                  <button key={key} title={open ? def.blurb : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`}
+                  <button key={key} title={open ? def.blurb : benched ? "Left out of this sandbox run." : `Locked — clear ${need?.name || "the campaign"} to learn this hall.`}
                     className={cls("cg-btn cg-btn--slate", active && "is-on", open && !can && "is-poor", !open && "is-off")}
-                    style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: compact ? 88 : 100, touchAction: "none" }}
+                    style={{ width: "100%", flexDirection: "column", gap: 3, padding: "6px 3px 6px", minHeight: compact && !roomy ? 88 : 100, touchAction: "none" }}
                     onPointerDown={(e) => { if (can) startTileDrag(e, key); }}
-                    onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); }}
+                    onClick={() => { const gg = G.current; if (!gg) return; gg.buildMode = active ? null : key; gg.masterPick = null; gg.selectedId = null; setBuildOpen(false); setTalentsOpen(false); }}
                     disabled={!can}>
-                    <span className="cg-well cg-dim" style={{ width: compact ? 56 : 60, height: compact ? 50 : 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <TowerPortrait kind={key} size={compact ? 48 : 50} />
+                    <span className="cg-well cg-dim" style={{ width: roomy && compact ? 74 : compact ? 56 : 60, height: roomy && compact ? 64 : compact ? 50 : 54, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <TowerPortrait kind={key} size={roomy && compact ? 60 : compact ? 48 : 50} />
                     </span>
                     <span className="cg-dim" style={{ fontSize: compact ? 11 : 10, lineHeight: 1.15 }}>{def.name}</span>
                     {open
                       ? price(def.cost, can, 12)
-                      : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{!compact && (need ? need.short || need.name : "campaign")}</span>}
+                      : <span style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9, textShadow: "none", color: "var(--muted)", lineHeight: 1.2 }}><LockIcon size={11} />{!compact && (benched ? "sandbox" : need ? need.short || need.name : "campaign")}</span>}
                   </button>
                 );
               })}
-              {compact && Object.keys(TOWERS).some((k) => !towerUnlocked(k, progress)) && (
+              {compact && Object.keys(TOWERS).some((k) => !hallAvail(k)) && (
                 <button className="cg-btn cg-btn--slate" style={{ width: "100%", minHeight: 44, fontSize: 11, gap: 5, gridColumn: "1 / -1" }} onClick={() => setShowLocked((o) => !o)}>
-                  <LockIcon size={12} />{showLocked ? "Hide locked" : `${Object.keys(TOWERS).filter((k) => !towerUnlocked(k, progress)).length} locked`}
+                  <LockIcon size={12} />{showLocked ? "Hide locked" : `${Object.keys(TOWERS).filter((k) => !hallAvail(k)).length} locked`}
                 </button>
               )}
             </div>
@@ -1734,11 +1831,12 @@ export default function Crownguard() {
                   </>
                 )}
               </div>
+              {talentPanel}
             </div>
 
             {/* foot: the hero, his talents and the militia */}
             {ui.result == null && (
-              <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "stretch", marginRight: cornerR / 3 }}>
                 {heroBtn}{talentBtn}{militiaBtn}
               </div>
             )}
@@ -1746,86 +1844,10 @@ export default function Crownguard() {
         </div>
       </div>
 
+            {/* Free Play's way in: the sandbox setup (presets, then any setting) */}
             {realmOpen && (
-              <div style={{ position: "fixed", inset: 0, background: "rgba(22,14,26,0.94)", zIndex: 55, boxSizing: "border-box",
-                padding: "max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))" }}>
-              <Fit min={0.62} deps={[vp.short]}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: vp.short ? 6 : 10, padding: "4px 0 8px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div className="cg-display" style={{ fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>CHOOSE YOUR REALM</div>
-                  <button aria-label="Back" className="cg-btn cg-btn--slate cg-x" style={{ minWidth: 44, minHeight: 44 }} onClick={closeRealmSelect}><CloseIcon size={12} /></button>
-                </div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: -4 }}>Pick who you're fighting, then a realm to fight them on.</div>
-
-                {/* which army marches — the campaign's chapter, in miniature */}
-                <div style={{ display: "grid", gridTemplateColumns: vp.short ? "repeat(3, 1fr)" : "repeat(auto-fit, minmax(250px, 1fr))", gap: vp.short ? 6 : 10, width: "100%", maxWidth: vp.short ? 900 : 620 }}>
-                  {Object.values(FACTIONS).map((f) => (
-                    <button key={f.id} onClick={() => setFactionId(f.id)}
-                      className={cls("cg-btn cg-btn--slate", f.id === factionId && "is-on")}
-                      style={{ flexDirection: "column", alignItems: "stretch", gap: 5, padding: "8px 10px", textAlign: "left" }}>
-                      <span style={{ fontSize: 13, color: "var(--cream)" }}>
-                        {f.name} <span style={{ fontSize: 10, letterSpacing: 1, color: f.tagColor, marginLeft: 4 }}>{f.tag}</span>
-                      </span>
-                      <span style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 30 }}>
-                        {f.types.map((ty) => <EnemyIcon key={ty} type={ty} box={26} />)}
-                      </span>
-                      {!vp.short && <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--muted)", lineHeight: 1.45 }}>{f.blurb}</span>}
-                    </button>
-                  ))}
-                </div>
-
-                {/* realms, grouped the way the war is: the four free realms
-                    first, then each chapter's battlefields under its banner */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", maxWidth: vp.short ? 900 : 620 }}>
-                {[
-                  { name: "THE FREE REALMS", ids: ["proving", "greenwood", "frostfang", "mistmoor", "ember"] },
-                  ...CHAPTERS.map((ch) => ({
-                    name: `${ch.numeral}. ${ch.name.toUpperCase()}`,
-                    ids: ch.levels.map((l) => l.realm).filter((id) => id !== "greenwood"),
-                  })),
-                ].map((grp) => (
-                <div key={grp.name}>
-                <div className="cg-label" style={{ margin: vp.short ? "6px 0 4px" : "12px 0 6px" }}>{grp.name}</div>
-                <div style={{ display: "grid", gridTemplateColumns: vp.short ? "repeat(auto-fill, minmax(168px, 1fr))" : "repeat(auto-fit, minmax(250px, 1fr))", gap: vp.short ? 6 : 10 }}>
-                  {grp.ids.map((id) => REALMS[id]).filter(Boolean).map((r) => (
-                    <button key={r.id} onClick={() => chooseRealm(r.id)}
-                      className={cls("cg-btn", r.id === realmId && "is-on")}
-                      style={{ justifyContent: "flex-start", gap: 10, padding: 7, alignItems: "stretch", textAlign: "left" }}>
-                      <svg viewBox="0 0 150 100" width={vp.short ? 54 : 108} height={vp.short ? 36 : 72} style={{ flexShrink: 0, border: "2px solid var(--ink)", imageRendering: "pixelated" }}>
-                        <rect x="0" y="0" width="150" height="100" fill={r.GRASS} />
-                        {/* the sea, where a realm runs down to the coast, with its beach */}
-                        {r.coast && <polygon points={coastOutline(r).map(([x, y]) => `${x * 150 / W},${y * 100 / H}`).join(" ")} fill={r.water?.deep || "#3a6a7c"} stroke="#dcc48e" strokeWidth="2.5" strokeLinejoin="round" />}
-                        {(r.rivers || []).map((rv, i) => (
-                          <polyline key={`rv${i}`} points={rv.pts.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
-                            fill="none" stroke={r.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}
-                            strokeLinejoin="round" strokeLinecap="round" />
-                        ))}
-                        <polyline points={r.path.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
-                          fill="none" stroke={r.PATH_EDGE} strokeWidth="9" strokeLinejoin="round" strokeLinecap="round" />
-                        <polyline points={r.path.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
-                          fill="none" stroke={r.PATH_MAIN} strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" />
-                        {r.ponds.map((p, i) => (
-                          <rect key={i} x={(p.x - p.w / 2) * 150 / W} y={(p.y - p.h / 2) * 100 / H} width={p.w * 150 / W} height={p.h * 100 / H}
-                            fill={p.t === "lava" ? "#c05a32" : p.t === "ice" ? "#b8d4e0" : "#2c4638"} />
-                        ))}
-                        <circle cx={r.path[0][0] * 10 + 5} cy={r.path[0][1] * 10 + 5} r="4" fill="#e05248" />
-                        <rect x={r.path[r.path.length - 1][0] * 10 - 1} y={r.path[r.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
-                      </svg>
-                      <span style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "left" }}>
-                        <span style={{ fontSize: 13, color: "var(--cream)" }}>
-                          {r.name} <span style={{ fontSize: 10, letterSpacing: 1, color: r.tagColor, marginLeft: 4 }}>{r.tag}</span>
-                        </span>
-                        {!vp.short && <span style={{ fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: 10, color: "var(--text)", opacity: 0.8, lineHeight: 1.45 }}>{r.blurb}</span>}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                </div>
-                ))}
-                </div>
-              </div>
-              </Fit>
-              </div>
+              <SandboxSetup initial={{ ...loadSandbox(), ...(SANDBOX ? { realm: SANDBOX.realm } : {}) }}
+                onStart={startSandboxRun} onBack={closeRealmSelect} />
             )}
     </div>
   );

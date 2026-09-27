@@ -5,16 +5,18 @@
 // `dt` is the raw (already clamped) seconds since the last frame.
 
 import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, LANE_OFF, pickLane } from "../data/constants.js";
+import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "../data/bands.js";
 import { RIVER_ROUTE, seaRoute, seaDepthAt } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
-import { scriptedWaves, waveBonus } from "../data/waves.js";
+import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
+import { isBuilt } from "./build.js";
 // the field's width without the castle's wider border: logs roll off it here
 const FIELD_W = W - MXR + MX;
 
@@ -42,6 +44,52 @@ const SPLASH_CAP = 16;
 
 // Build a fresh enemy instance of `type` with wave HP multiplier `mult`.
 // Used by the spawn queue and by necromancers raising the dead.
+// Dragonbreath: no shots, a held gout of flame. The mage swings it toward
+// the foe his standing order picks (a turning speed, so a sweep across the
+// road takes a moment) and it scorches everything inside the cone — range
+// and half-angle `cone` — every tick, `dmg` per second, the nearest
+// SPLASH_CAP bodies and no more. t.breath is what the renderer reads:
+// on (0..1, eased so the jet grows and gutters), ang (ground-plane
+// radians from the tower's foot), len (its reach).
+const BREATH_TURN = 4.2;   // radians a second
+const breathe = (g, t, sdt, tms) => {
+  const st = getStats(t);
+  const b = t.breath || (t.breath = { on: 0, ang: t.lastAim || 0, len: st.range });
+  b.len = st.range;
+  const tgt = pickTarget(g, t, st);
+  if (tgt) {
+    const want = Math.atan2(tgt.y - t.y, tgt.x - t.x);
+    let d = want - b.ang;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    const step = BREATH_TURN * sdt;
+    b.ang += Math.abs(d) <= step || b.on < 0.05 ? d : Math.sign(d) * step;
+    t.lastAim = b.ang;
+  }
+  const was = b.on;
+  b.on = tgt ? Math.min(1, b.on + sdt * 5) : Math.max(0, b.on - sdt * 3);
+  if (was === 0 && b.on > 0) sfx.play("firenova");
+  t.anim = b.on;
+  if (b.on < 0.5) return;
+  const cosA = Math.cos(b.ang), sinA = Math.sin(b.ang), cone = st.cone || 0.42;
+  const hit = [];
+  for (const e of g.enemies) {
+    if (e.dead) continue;
+    const dx = e.x - t.x, dy = e.y - t.y, dd = Math.hypot(dx, dy);
+    if (dd > st.range + (e.size || 14) * 0.4) continue;
+    // inside the cone, with a little grace for a big body at the edge
+    const along = dx * cosA + dy * sinA, across = Math.abs(-dx * sinA + dy * cosA);
+    if (along <= 0 || across > along * Math.tan(cone) + (e.size || 14) * 0.4) continue;
+    hit.push([dd, e]);
+  }
+  if (hit.length > SPLASH_CAP) { hit.sort((u, v) => u[0] - v[0]); hit.length = SPLASH_CAP; }
+  for (const [, e] of hit) {
+    dealDamage(g, e, st.dmg * sdt, "magic", false, true, t.id);
+    if (e.dead || !st.burn) continue;
+    if (!(e.burnUntil > tms) || e.burnDps <= st.burn) { e.burnDps = st.burn; e.burnSrc = t.id; }
+    e.burnUntil = Math.max(e.burnUntil || 0, tms + st.burnDur);
+  }
+};
+
 const makeEnemy = (type, mult) => {
   const d = ENEMIES[type];
   // some foes field a mixed party: each spawn draws one look (and its pace)
@@ -49,14 +97,14 @@ const makeEnemy = (type, mult) => {
   return {
     id: nextId(), type, sprite: v ? v.sprite : null,
     hp: d.hp * mult, maxHp: d.hp * mult, mult, dist: 0,
-    speed: d.speed * (v?.speedMul || 1), armor: d.armor, mres: d.mres || 0, regen: d.regen || 0,
+    speed: d.speed * (v?.speedMul || 1) * (SANDBOX ? SANDBOX.speedMul : 1), armor: d.armor, mres: d.mres || 0, regen: d.regen || 0,
     // A foe's purse used to be fixed while its health inflated forever, so by
     // the eightieth wave you were paid a wave-one wage to kill a wave-eighty
     // troll. The purse now follows the meat, at a quarter of its rate.
     // ...but only up to three times its wage: deep in the Endless March the
     // meat inflates a hundredfold, and a purse that followed it bought out
     // the board by wave ninety and then piled up with nothing left to buy.
-    bounty: Math.max(1, Math.round(d.bounty * Math.min(3, 1 + Math.max(0, mult - 1) * 0.08))),
+    bounty: Math.max(SANDBOX && SANDBOX.bountyMul === 0 ? 0 : 1, Math.round(d.bounty * Math.min(3, 1 + Math.max(0, mult - 1) * 0.08) * (SANDBOX ? SANDBOX.bountyMul : 1))),
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: pickLane(d.boss),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
@@ -85,8 +133,9 @@ const makeEnemy = (type, mult) => {
 };
 
 // Drop a fresh enemy onto the road at distance `dist`, already walking.
-// Shared by gravecaller bells and amalgams coming apart.
-const spawnAt = (g, type, mult, dist, tms) => {
+// Shared by gravecaller bells and amalgams coming apart (and the sandbox's
+// spawner, engine/sandboxTools.js).
+export const spawnAt = (g, type, mult, dist, tms) => {
   const u = makeEnemy(type, mult);
   u.dist = Math.max(0, dist);
   u.lane = pickLane(u.boss);
@@ -105,7 +154,7 @@ const spawnAt = (g, type, mult, dist, tms) => {
 export const hostStats = (h) => h.st || getStats(h);
 export const unitHosts = (g) => {
   const out = [];
-  for (const t of g.towers) if (t.units) out.push(t);
+  for (const t of g.towers) if (t.units && isBuilt(t, g)) out.push(t);   // (a hall still going up keeps its people back)
   if (g.bands) for (const b of g.bands) out.push(b);
   return out;
 };
@@ -294,18 +343,32 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
 };
 
 export function updateGame(g, dt) {
-  // Tactical half-speed: during combat, while the player is managing — the
-  // build drawer is open, a tower is being placed, or a tower is selected —
-  // time runs at 50% so there's room to think.
-  const managing = g.phase === "combat" && (g.buildMenuOpen || g.buildMode || g.selectedId);
-  const speed = g.speed * BASE_SPEED * (managing ? 0.5 : 1);
+  // time keeps its pace while a menu is open (the old tactical half-speed is gone)
+  const speed = g.speed * BASE_SPEED;
   const sdt = g.paused ? 0 : dt * speed;
   g.time += sdt;
+  // the sandbox's bottomless coffers: whatever was spent is back by the next frame
+  if (SANDBOX?.infiniteGold) g.gold = INFINITE_GOLD;
   const tms = g.time * 1000;
   // who owns which id this frame — the damage ledger resolves through this
   g._towerById = new Map(g.towers.map((t) => [t.id, t]));
   if (g.bands) for (const b of g.bands) g._towerById.set(b.id, b);
-  if (g.phase === "combat" && !g.paused) for (const t of g.towers) t.liveTime = (t.liveTime || 0) + sdt;
+  if (g.phase === "combat" && !g.paused) for (const t of g.towers) {
+    t.liveTime = (t.liveTime || 0) + sdt;
+    // the menu's dps clock: only the seconds a built tower has a foe in its
+    // reach (around its rally flag for halls that fight there) count, and
+    // it starts over with every upgrade (formDmg / formTime, actions.js)
+    if ((t.readyAt || 0) > g.time || !g.enemies.length) continue;
+    const r = getStats(t).range;
+    if (!r) continue;
+    const c = (t.kind === "knight" || t.kind === "assassin") && t.rally ? t.rally : t;
+    for (const e of g.enemies) {
+      if (e.dead) continue;
+      const rr = r + (e.size || 14) * 0.4;
+      const dx = e.x - c.x, dy = e.y - c.y;
+      if (dx * dx + dy * dy <= rr * rr) { t.formTime = (t.formTime || 0) + sdt; break; }
+    }
+  }
   if (!g.grounds) g.grounds = []; // lingering ground effects (lava pools)
   if (!g.traps) g.traps = [];     // the trapsmith's armed road
 
@@ -382,8 +445,10 @@ export function updateGame(g, dt) {
       g.volleys = g.volleys.filter((v) => v.until > tms);
     }
 
+    // (a hall still going up holds its fire, its aura and its people until
+    // its person is in: isBuilt, engine/build.js)
     for (const t of g.towers) {
-      if (t.kind !== "trapsmith") continue;
+      if (t.kind !== "trapsmith" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       if ((t.charges || 0) < st.maxCharges) {
         t.chargeCd = (t.chargeCd ?? st.chargeEvery) - sdt * 1000;
@@ -479,7 +544,7 @@ export function updateGame(g, dt) {
     }
     for (const t of unitHosts(g)) for (const u of t.units) u.atkBuff = 0;
     for (const t of g.towers) {
-      if (t.kind !== "support") continue;
+      if (t.kind !== "support" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       for (const e of g.enemies) {
         if (e.dead) continue;
@@ -522,7 +587,7 @@ export function updateGame(g, dt) {
     }
     // Lead to Gold: the transmuter's aura eats armor off everything inside it
     for (const t of g.towers) {
-      if (t.kind !== "goldworks" || t.branch !== "b") continue;
+      if (t.kind !== "goldworks" || t.branch !== "b" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       if (!st.shredAura) continue;
       for (const e of g.enemies) {
@@ -532,7 +597,7 @@ export function updateGame(g, dt) {
     }
     // Kingsight: the court's eye rests on the mightiest foe alive, always
     for (const t of g.towers) {
-      if (t.kind !== "falconry" || !t.branch || !(t.branch + (t.rank4 || "") === "ba")) continue;
+      if (t.kind !== "falconry" || !t.branch || !(t.branch + (t.rank4 || "") === "ba") || !isBuilt(t, g)) continue;
       const st = getStats(t);
       if (!st.kingsight) continue;
       let big = null;
@@ -546,7 +611,7 @@ export function updateGame(g, dt) {
     }
     // The Skyknight: one rider, one war-eagle, one enemy of the air at a time
     for (const t of g.towers) {
-      if (t.kind !== "falconry") continue;
+      if (t.kind !== "falconry" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       if (!st.skyknight) continue;
       if (!t.eagle) t.eagle = { id: nextId(), hp: st.eagleHp, maxHp: st.eagleHp, x: t.x, y: t.y - 44, targetId: null, atkCd: 0, respawn: 0, hurtCd: 0 };
@@ -560,7 +625,7 @@ export function updateGame(g, dt) {
       // anything that mends knights mends the eagle: it is a unit on the field,
       // not a projectile, and a wounded bird is the whole tower being wounded
       for (const h of g.towers) {
-        if (h.kind !== "support") continue;
+        if (h.kind !== "support" || !isBuilt(h, g)) continue;
         const hs = getStats(h);
         if (!hs.heal || eg.hp >= eg.maxHp) continue;
         if (Math.hypot(h.x - eg.x, h.y - eg.y) > hs.range) continue;
@@ -568,7 +633,7 @@ export function updateGame(g, dt) {
         eg.healGlow = 220;
       }
       for (const kt of g.towers) {
-        if (kt.kind !== "knight" || eg.hp >= eg.maxHp) continue;
+        if (kt.kind !== "knight" || eg.hp >= eg.maxHp || !isBuilt(kt, g)) continue;
         const ks = getStats(kt);
         if (!ks.heal || !kt.rally) continue;
         if (Math.hypot(kt.rally.x - eg.x, kt.rally.y - eg.y) > ks.range + 20) continue;
@@ -755,7 +820,7 @@ export function updateGame(g, dt) {
       }
       if (e.burnUntil > tms) {
         dealDamage(g, e, e.burnDps * sdt, "magic", false, true, e.burnSrc);
-        // Wildfire Court: flames leap from burning foes to nearby unburned ones
+        // Wildheart Pyre / Hellburner: flames leap from burning foes to nearby unburned ones
         if (e.burnSpread) {
           for (const e2 of g.enemies) {
             if (e2.dead || e2 === e || e2.burnUntil > tms) continue;
@@ -767,11 +832,11 @@ export function updateGame(g, dt) {
         }
       }
       if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic", false, true, e.poisonSrc);
-      // Volcanic Throne: lava pools scorch anyone standing in them. Plague
+      // Lava and burning ground scorch anyone standing in them. Plague
       // ground is the dead's own filth — it only troubles the living knights.
       if (!e.dead) {
         for (const gr of g.grounds) {
-          if (gr.kind === "plague") continue;
+          if (gr.kind === "plague" || (gr.kind === "fire" && e.flying)) continue;
           if (gr.until <= tms || Math.hypot(e.x - gr.x, e.y - gr.y) > gr.r) continue;
           if (gr.kind === "caltrops") { e.auraSlow = Math.max(e.auraSlow, gr.slowPct || 0.35); continue; }
           dealDamage(g, e, gr.dps * sdt, "magic", false, true, gr.src);
@@ -875,7 +940,8 @@ export function updateGame(g, dt) {
       if (e.dist >= TOTAL_LEN) {
         e.dead = true;
         const dmgC = e.castleDmg || 1;
-        g.lives -= dmgC;
+        // the sandbox's unbreakable castle counts the blow but keeps its walls
+        if (!SANDBOX?.invincible) g.lives -= dmgC;
         if (g.run) g.run.leaks += 1;
         g.shake = 5 + dmgC * 2.5;
         g.effects.push({ type: "leak", x: e.x - 10, y: e.y, ttl: 700, text: `-${dmgC}` });
@@ -965,7 +1031,7 @@ export function updateGame(g, dt) {
     g.enemies = g.enemies.filter((e) => !e.dead);
 
     for (const t of g.towers) {
-      if (t.kind !== "knight") continue;
+      if (t.kind !== "knight" || !isBuilt(t, g)) continue;
       syncUnits(t, g);
       const st = getStats(t);
       const slots = unitSlots(t);
@@ -989,7 +1055,7 @@ export function updateGame(g, dt) {
     // deliberate shot at something much further out. Every path funds one of
     // them harder, and neither is ever laid off.
     for (const t of g.towers) {
-      if (t.kind !== "gunpowder") continue;
+      if (t.kind !== "gunpowder" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       // --- the bombardier: short, fat, splashing ---
       t.cd = (t.cd || 0) - sdt * 1000;
@@ -1065,7 +1131,7 @@ export function updateGame(g, dt) {
     // of ground no tower will ever be allowed to stand on. If the water is
     // quiet they spread out and hold station.
     for (const t of g.towers) {
-      if (t.kind !== "riverwatch") continue;
+      if (t.kind !== "riverwatch" || !isBuilt(t, g)) continue;
       const st = getStats(t);
       // moored in a pond or mere, its skiffs row a ring round the open water;
       // moored off a coast they patrol the shore; otherwise they work the river
@@ -1171,7 +1237,7 @@ export function updateGame(g, dt) {
     // column walks straight past while the work is done in the grass. Only a
     // crossbow bolt or grave-rot ever finds one.
     for (const t of g.towers) {
-      if (t.kind !== "assassin") continue;
+      if (t.kind !== "assassin" || !isBuilt(t, g)) continue;
       syncUnits(t, g);
       const st = getStats(t);
       const slots = unitSlots(t);
@@ -1257,6 +1323,7 @@ export function updateGame(g, dt) {
     }
     for (const t of g.towers) {
       t.anim = Math.max(0, t.anim - sdt * 4);
+      if (!isBuilt(t, g)) continue;
       if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin" || t.kind === "riverwatch" || t.kind === "gunpowder") continue;
       if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger
       // The Sunforge holds its beam instead of firing: same target, growing
@@ -1309,6 +1376,7 @@ export function updateGame(g, dt) {
         }
         continue;
       }
+      if (t.kind === "wizard" && t.branch === "a" && t.rank4 === "b") { breathe(g, t, sdt, tms); continue; }
       t.cd -= sdt * 1000;
       if (t.cd > 0) continue;
       const st = getStats(t);
@@ -1408,7 +1476,7 @@ export function updateGame(g, dt) {
           g.effects.push({ type: "firenova", x: t.x, y: t.y, ttl: 450, r: st.range });
           sfx.play("firenova");
           for (const e of g.enemies) {
-            if (e.dead) continue;
+            if (e.dead || e.flying) continue;
             if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
             dealDamage(g, e, st.dmg, st.dtype, false, false, t.id);
             if (!e.dead && st.burn) {
@@ -1425,7 +1493,7 @@ export function updateGame(g, dt) {
           // ring always puts one spike straight down the thickest line
           let near = null, nd = Infinity;
           for (const e of g.enemies) {
-            if (e.dead) continue;
+            if (e.dead || e.flying) continue;
             const d = (e.x - t.x) ** 2 + (e.y - t.y) ** 2;
             if (d < nd) { nd = d; near = e; }
           }
@@ -1437,7 +1505,7 @@ export function updateGame(g, dt) {
               tx: t.x + Math.cos(ang) * st.range, ty: t.y - 8 + Math.sin(ang) * st.range,
               speed: 360, delay: 0, dmg: st.dmg, dtype: st.dtype, pierce: false, splash: 0,
               burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
-              kind: "spike", src: t.id, hitsLeft: st.spikePierce || 1, hitIds: [], angle: ang,
+              kind: "spike", src: t.id, hitsLeft: st.spikePierce || 1, hitIds: [], angle: ang, ground: true,
             });
           }
         }
@@ -1507,6 +1575,12 @@ export function updateGame(g, dt) {
           t.midasIdx = ((t.midasIdx || 0) + 1) % st.midas;
           midas = t.midasIdx === 0;
         }
+        // Inferno Throne: only every Nth fireball leaves the ground burning
+        let pooled = !!st.poolDps;
+        if (pooled && st.poolEvery) {
+          t.poolIdx = ((t.poolIdx || 0) + 1) % st.poolEvery;
+          pooled = t.poolIdx === 0;
+        }
         // the Wizard Spire's orb leaves from the mage's staff at the top of
         // the spire (halls/wizard.js: spire height 18 + 6/level + 4 branched)
         const oy = t.kind === "wizard" ? 30 + 18 + t.level * 6 + (t.branch ? 4 : 0) : 30;
@@ -1516,8 +1590,8 @@ export function updateGame(g, dt) {
           tx: target.x, ty: target.y, speed: 300, delay: 0,
           dmg: st.dmg, dtype: st.dtype, pierce: !!st.pierce, splash: st.splash || 0, splashCap: st.splashCap || 0,
           burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
-          poolDps: st.poolDps || 0, poolDur: st.poolDur || 0, poolR: st.poolR || 0,
-          burnSpreads: !!st.burnSpread, midas,
+          poolDps: pooled ? st.poolDps : 0, poolDur: st.poolDur || 0, poolR: st.poolR || 0, poolKind: st.poolKind,
+          burnSpreads: !!st.burnSpread, midas, big: pooled && !!st.poolEvery,
           kind: "orb", src: t.id,
         });
       }
@@ -1594,7 +1668,7 @@ export function updateGame(g, dt) {
       // spikes skewer whatever they pass through (no homing, no arrival hit)
       if (p.kind === "spike" || p.kind === "ball") {
         for (const e of g.enemies) {
-          if (e.dead || p.hitIds.includes(e.id)) continue;
+          if (e.dead || p.hitIds.includes(e.id) || (p.ground && e.flying)) continue;
           if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) {
             dealDamage(g, e, p.dmg, p.dtype, false, false, p.src);
             p.hitIds.push(e.id);
@@ -1640,8 +1714,8 @@ export function updateGame(g, dt) {
               if (p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = p.slow; }
             }
           }
-          // Volcanic Throne: the blast leaves a pool of living lava
-          if (p.poolDps) g.grounds.push({ src: p.src, x: p.tx, y: p.ty, r: p.poolR || 32, dps: p.poolDps, until: tms + (p.poolDur || 3000), kind: "lava" });
+          // Inferno Throne / Hellburner: the blast leaves the ground burning
+          if (p.poolDps) g.grounds.push({ src: p.src, x: p.tx, y: p.ty, r: p.poolR || 32, dps: p.poolDps, until: tms + (p.poolDur || 3000), born: tms, kind: p.poolKind || "lava" });
           // Grapeshot: the stone bursts into a spray of shrapnel
           if (p.frag) {
             g.effects.push({ type: "shrapnel", x: p.tx, y: p.ty, ttl: 420, life: 420 });
@@ -1706,6 +1780,14 @@ export function updateGame(g, dt) {
     for (const p of g.projectiles) if (p.done && p.pend && p.markRef) { p.markRef.incoming -= p.pend; p.pend = 0; }
     g.projectiles = g.projectiles.filter((p) => !p.done);
 
+    // a fight the sandbox called up between waves (sandboxSpawn) is no wave:
+    // when its foes are gone the build phase simply resumes — no bonus, no
+    // Gold Works payout, no victory
+    if (g.summonFight && !g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
+      g.summonFight = false;
+      g.phase = "build";
+      g.buildUntil = g.time + (SANDBOX ? SANDBOX.buildTime : BUILD_TIME);
+    }
     if (!g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
       g.gold += waveBonus(g.wave);
       // the hero learns from every wave the realm lives through, alive or not
@@ -1755,8 +1837,8 @@ export function updateGame(g, dt) {
         if (laid > 0) { g.lives += laid; g.effects.push({ type: "coin", x: W / 2, y: 88, ttl: 1300, text: `The masons mend the wall +${laid}`, big: true }); }
       }
       // the campaign is won at wave 15 — once — then the Endless March is open
-      if (g.wave === scriptedWaves() && !g.victory) { g.victory = true; g.phase = "won"; sfx.play("won"); }
-      else { g.phase = "build"; g.buildUntil = g.time + BUILD_TIME; }
+      if (g.wave === victoryWave() && !g.victory) { g.victory = true; g.phase = "won"; sfx.play("won"); }
+      else { g.phase = "build"; g.buildUntil = g.time + (SANDBOX ? SANDBOX.buildTime : BUILD_TIME); }
     }
   }
 

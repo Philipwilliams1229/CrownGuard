@@ -175,6 +175,7 @@ const paintJetty = (ctx, t, x, y) => {
 };
 
 export const drawRiverwatchHall = (ctx, t, time) => {
+  // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const { lvl, r4, hw } = spec(t);
   const bake = canBake();
@@ -205,10 +206,11 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   const pal = WATCH[t.branch || "base"];
   const wx = x - 1.5, wy = y - 4.5;
   const dir = Math.sin(time * 0.4 + t.id) >= 0 ? 1 : -1;
-  if (bake) stamp(ctx, cache.get(`watch|${t.branch}`, 26, 30, (c) => drawStander(c, 12, 27, 1, pal)), wx, wy, 12, 27, dir);
+  if (t.noFolk) { /* no watchman yet, nor his glass */ }
+  else if (bake) stamp(ctx, cache.get(`watch|${t.branch}`, 26, 30, (c) => drawStander(c, 12, 27, 1, pal)), wx, wy, 12, 27, dir);
   else drawStander(ctx, wx, wy, dir, pal);
   const glass = t._idle ? ((time / 6 + t.id * 0.3) % 1) < 0.4 : ((time / 3 + t.id * 0.3) % 1) < 0.6;
-  if (glass) {
+  if (glass && !t.noFolk) {
     ctx.fillStyle = "#241a26"; ctx.fillRect(wx + dir * 1.5 - (dir < 0 ? 6.2 : 0), y - 26.3, 6.2, 2.4);
     ctx.fillStyle = "#c8a048"; ctx.fillRect(wx + dir * 2 - (dir < 0 ? 5.2 : 0), y - 25.8, 5.2, 1.4);
     ctx.fillStyle = "#fff3d2"; ctx.fillRect(wx + dir * 6.6 - (dir < 0 ? 0.8 : 0), y - 25.6, 0.8, 0.8);
