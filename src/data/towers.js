@@ -201,7 +201,7 @@ export const TOWERS = {
       a: {
         name: "Royal Aviary", cost: 340, stats: { dmg: 66, rate: 750, range: 175, airMult: 2.2, mark: 0.25, markDur: 3000, diveStun: 0.18, diveStunDur: 500 }, desc: "A whole mews of hunting birds: near-constant dives that can knock foes senseless.",
         rank4: {
-          a: { name: "Skyknight", cost: 670, stats: { range: 205, rate: 0, skyknight: true, eagleHp: 1500, eagleDmg: 96, eagleRate: 620, eagleRespawn: 11000 }, desc: "No more volleys or marks: she rides a war-eagle to duel the worst flier and HOLD it there." },
+          a: { name: "Skyknight", cost: 670, stats: { range: 205, rate: 0, skyknight: true, eagleHp: 1500, eagleDmg: 96, eagleRate: 620, eagleRespawn: 11000, groundDmg: 80, groundRate: 950 }, desc: "A war-eagle that duels and HOLDS the worst flier; with the sky clear, it swoops on troops below." },
           b: { name: "Storm Falcons", cost: 670, stats: { dmg: 76, rate: 700, range: 180, airMult: 2.4, mark: 0.25, markDur: 3000, diveStun: 0.25, diveStunDur: 600, chain: 1, chainRange: 90 }, desc: "Dives that crack like weather — each strike ricochets to a second victim." },
         },
       },

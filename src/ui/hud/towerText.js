@@ -72,6 +72,8 @@ const DELTAS = [
   ["logSlow", "Log slow", pct],
   ["eagleDmg", "Eagle", (v) => Math.round(v)],
   ["eagleRate", "Eagle reload", (v) => `${(v / 1000).toFixed(2)}s`, true],
+  ["groundDmg", "Swoop", (v) => Math.round(v)],
+  ["groundRate", "Swoop reload", (v) => `${(v / 1000).toFixed(2)}s`, true],
   ["crit", "Crit", (v) => `1 in ${v}`, true],
   ["critMult", "Crit dmg", (v) => `×${v}`],
   ["mCrit", "Musket crit", (v) => `1 in ${v} ×3`, true],

@@ -50,6 +50,7 @@ const NUMBERS = [
   ["beams", (v) => `${v} beams`],
   ["eagleHp", (v) => `war-eagle: ${v} health`],
   ["eagleDmg", (v) => `${v} eagle talon damage`],
+  ["groundDmg", (v) => `swoops on foot troops for ${v} when the sky is clear`],
   ["autoSeed", (v) => `self-seeds ${v} mines as the horn blows`],
   ["mDmg", (v) => `musket: ${v} damage`],
   ["mRate", (v) => `musket fires every ${(v / 1000).toFixed(2)}s`],

@@ -659,6 +659,10 @@ export function updateGame(g, dt) {
         if (eg.respawn <= 0) { eg.hp = eg.maxHp; eg.x = t.x; eg.y = t.y - 44; eg.targetId = null; }
         continue;
       }
+      // which way she's flying, for the painter (last tick's travel)
+      if (eg.px != null && Math.abs(eg.x - eg.px) > 0.05) eg.vx = eg.x - eg.px;
+      eg.px = eg.x;
+      eg.swoop = Math.max(0, (eg.swoop || 0) - sdt * 1000);
       // anything that mends knights mends the eagle: it is a unit on the field,
       // not a projectile, and a wounded bird is the whole tower being wounded
       for (const h of g.towers) {
@@ -689,6 +693,43 @@ export function updateGame(g, dt) {
           if (!best || e.hp > best.hp) best = e;
         }
         if (best) { eg.targetId = best.id; target = best; }
+      }
+      if (!target && st.groundDmg) {
+        // No war in the sky: she takes the eagle down on the road instead —
+        // a swoop at the foremost foe on foot, the talons, and up again.
+        // Nothing is held, and nothing on foot can reach her up there. The
+        // first flier in reach calls her back to the duel above.
+        let prey = eg.gTargetId ? g.enemies.find((e) => e.id === eg.gTargetId && !e.dead && !e.flying && !e.swimming) : null;
+        if (prey && Math.hypot(prey.x - t.x, prey.y - t.y) > st.range + 20) prey = null;
+        if (!prey) {
+          let bd = -1;
+          for (const e of g.enemies) {
+            if (e.dead || e.flying || e.swimming || e.dist <= bd) continue;
+            if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
+            bd = e.dist; prey = e;
+          }
+          eg.gTargetId = prey ? prey.id : null;
+        }
+        if (prey) {
+          // station above the prey; each strike is a dip down to it and back
+          const SWOOP = 380;
+          const dip = eg.swoop > 0 ? Math.sin(Math.PI * (1 - eg.swoop / SWOOP)) : 0;
+          const wx = prey.x, wy = prey.y - 40 + dip * 28;
+          const dxW = wx - eg.x, dyW = wy - eg.y, dW = Math.hypot(dxW, dyW);
+          const v = (eg.swoop > 0 ? 320 : 150) * sdt;
+          if (dW > 0.01) { eg.x += (dxW / dW) * Math.min(v, dW); eg.y += (dyW / dW) * Math.min(v, dW); }
+          eg.atkCd -= sdt * 1000;
+          if (eg.atkCd <= 0 && eg.swoop <= 0 && dW < 18) { eg.atkCd = st.groundRate; eg.swoop = SWOOP; eg.struck = false; }
+          // the talons land at the bottom of the dive
+          if (eg.swoop > 0 && !eg.struck && eg.swoop <= SWOOP / 2) {
+            eg.struck = true;
+            dealDamage(g, prey, st.groundDmg, "phys", false, false, t.id);
+            g.effects.push({ type: "spark", x: prey.x, y: prey.y - 8, ttl: 220, gold: true });
+            sfx.play("falcon");
+            if (prey.dead) eg.gTargetId = null;
+          }
+          continue;
+        }
       }
       if (!target) {
         // no war in the sky: wheel home above the roost
