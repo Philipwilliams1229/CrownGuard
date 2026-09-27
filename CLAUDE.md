@@ -97,6 +97,28 @@ should never have to rediscover it.
   it belongs in `isHonest`.
 - `node scripts/sim.mjs --sandbox <preset|all> [--realm r] [--to N]`.
 
+## The tower menu stays one size
+
+The owner misclicked when the tower card changed shape between taps, so
+(`towerPanel` in `src/CrownguardGame.jsx`):
+- Both columns are **stage stacks**: every form the hall can reach (each
+  level, the paths, every final form, every finished form) is laid out in
+  one grid cell and only the live one is visible, so the card is as tall as
+  its tallest form from level 1 to the end. Anything new in the card must
+  be in every stage (or reserve its space), never pop in.
+- Sell is the card's pinned foot (`floatCard`'s `foot`), outside the scroll.
+- Two taps to buy: arming only turns a card gold (`is-armed` keeps the
+  parchment font) and shows CONFIRM in a fixed slot.
+- Path / final-form cards show name + tale + price; the stat changes are
+  behind the corner ⓘ (`infoCorner`, a thumb-sized hit area at any UI
+  scale, beside the card so it works on unaffordable cards).
+- **Path and final-form `desc` in `src/data/towers.js`: 100 characters at
+  most** (the card shows it whole; a 4-line clamp is only a safety net).
+- The service record (kills, damage, dps) is always shown; dps is the
+  current form's average over the seconds a foe was in reach.
+- Two columns on a phone or wherever the board is shorter than ~640 design
+  px (the iPad), one column on a tall desktop.
+
 ## Balance and testing
 
 - `node scripts/sim.mjs --level <id> --endure` — castle damage per wave for

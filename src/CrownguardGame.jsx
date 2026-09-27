@@ -835,7 +835,8 @@ export default function Crownguard() {
   const cardTop = Math.max(CARD_M, inset.top - boardCss.y + 6 * s);
   const cardBot = Math.max(CARD_M, inset.bottom - ((boardCss.ch || 0) - boardCss.y - boardCss.vh) + 6 * s);
   const cardMinL = Math.max(6 * s, inset.left - boardCss.x + 6 * s);
-  const floatCard = ({ id, left, width, f, origin, closeLabel, onClose, children }) => (
+  // `foot` is pinned under the part that scrolls, so it never scrolls away.
+  const floatCard = ({ id, left, width, f, origin, closeLabel, onClose, children, foot = null }) => (
     <div key={id} style={{
       position: "absolute", left: Math.max(cardMinL, left), top: cardTop, width, height: (boardCss.vh - cardTop - cardBot) / s,
       transform: `scale(${s})`, transformOrigin: "0 0", zIndex: 25,
@@ -843,7 +844,14 @@ export default function Crownguard() {
     }}>
       <div style={{ flex: `${f} 1 0px` }} />
       <div className="cg-pop" style={{ position: "relative", flex: "0 1 auto", minHeight: 0, display: "flex", flexDirection: "column", pointerEvents: "auto", transformOrigin: origin }}>
-        <div className="cg-frame cg-scroll" style={{ padding: 12, overflowY: "auto", overscrollBehavior: "contain", minHeight: 0, flex: "0 1 auto" }}>{children}</div>
+        {foot ? (
+          <div className="cg-frame" style={{ padding: 12, minHeight: 0, flex: "0 1 auto", display: "flex", flexDirection: "column" }}>
+            <div className="cg-scroll" style={{ overflowY: "auto", overscrollBehavior: "contain", minHeight: 0, flex: "0 1 auto" }}>{children}</div>
+            {foot}
+          </div>
+        ) : (
+          <div className="cg-frame cg-scroll" style={{ padding: 12, overflowY: "auto", overscrollBehavior: "contain", minHeight: 0, flex: "0 1 auto" }}>{children}</div>
+        )}
         {cornerX(closeLabel, onClose)}
       </div>
       <div style={{ flex: `${1 - f} 1 0px` }} />
@@ -1035,26 +1043,26 @@ export default function Crownguard() {
     const slot = { display: "flex", alignItems: "center", height: 16 };
     // The path / final-form choices. Every card is the same size and stays
     // it: the grid's rows all match the tallest card (a long name may wrap),
-    // the stats are padded to the longest list, and a foot
-    // with the price that the CONFIRM tag joins when armed. The tale lives
-    // behind the ⓘ in the corner and is laid over the card when asked for.
-    const formChoices = (heading, opts) => {
-      const rows = Math.max(...opts.map((o) => o.deltas.length));
+    // the tale (100 characters at most, data/towers.js) sits on the face,
+    // and a foot holds the price that the CONFIRM tag joins when armed. The
+    // stat changes live behind the ⓘ and are laid over the card when asked for.
+    // A `ghost` is laid out but never shown or pressed (see the stage stack).
+    const formChoices = (opts, ghost = false) => {
       return (
         <div style={{ marginTop: 10 }}>
-          <div className="cg-label" style={{ marginBottom: 6 }}>{heading}</div>
           <div style={{ display: "grid", gridAutoRows: "1fr", gap: 7 }}>
             {opts.map((o) => {
-              const id = armId(o.k), can = ui.gold >= o.f.cost, armed = upArm.is(id), open = cardInfo === id;
+              const id = armId(o.k), can = ghost || ui.gold >= o.f.cost, armed = !ghost && upArm.is(id), open = !ghost && cardInfo === id;
               return (
                 <div key={o.k} style={{ position: "relative" }}>
-                  <button data-arm={id} className={cls("cg-btn", "cg-btn--parch", armed && "is-armed", !can && "is-poor")} disabled={!can}
+                  <button data-arm={ghost ? undefined : id} tabIndex={ghost ? -1 : undefined} className={cls("cg-btn", "cg-btn--parch", armed && "is-armed", !can && "is-poor")} disabled={!can}
                     style={{ width: "100%", height: "100%", padding: "6px 8px", gap: 8, alignItems: "stretch", justifyContent: "flex-start" }}
-                    onClick={buy2(o.k, o.form, o.buy)}>
+                    onClick={ghost ? undefined : buy2(o.k, o.form, o.buy)}>
                     <span className="cg-dim" style={{ flexShrink: 0, alignSelf: "flex-start" }}><TowerPortrait kind={sel.kind} {...o.look} size={40} /></span>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
                       <span className="cg-display cg-dim" style={{ fontWeight: 700, fontSize: 12, paddingRight: 16 }}>{o.f.name}</span>
-                      {deltaGrid(o.deltas, rows)}
+                      {/* four lines at most, a net under the character limit */}
+                      <span className="cg-dim" style={{ fontSize: 10, lineHeight: 1.35, color: "#5a4630", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 4, overflow: "hidden" }}>{o.f.desc}</span>
                       <span style={{ ...slot, justifyContent: "space-between", gap: 6, marginTop: "auto" }}>
                         {armed ? confirmTag() : <span />}
                         {price(o.f.cost, can, 13)}
@@ -1063,11 +1071,11 @@ export default function Crownguard() {
                   </button>
                   {open && (
                     <div className="cg-info-pane cg-scroll" onClick={() => setCardInfo(null)}>
-                      <div className="cg-display" style={{ fontWeight: 700, fontSize: 11, color: "var(--parch-ink)", marginBottom: 3 }}>{o.f.name}</div>
-                      {o.f.desc}
+                      <div className="cg-display" style={{ fontWeight: 700, fontSize: 11, color: "var(--parch-ink)", marginBottom: 4 }}>{o.f.name}</div>
+                      {o.deltas.length ? deltaGrid(o.deltas) : <span>No change to its numbers — see the tale.</span>}
                     </div>
                   )}
-                  {infoCorner(`About ${o.f.name}`, open, () => setCardInfo(open ? null : id))}
+                  {!ghost && infoCorner(`${o.f.name}: what changes`, open, () => setCardInfo(open ? null : id))}
                 </div>
               );
             })}
@@ -1075,43 +1083,104 @@ export default function Crownguard() {
         </div>
       );
     };
-    const tier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
     const branchDef = sel.branch ? selDef.branches[sel.branch] : null;
-    // nothing left to buy: the card goes to one column, and says what the
-    // final form does where the upgrades used to be
+    // nothing left to buy: the card says what the final form does where the
+    // upgrades used to be
     const maxed = !!sel.rank4 || (!!sel.branch && !branchDef?.rank4);
-    const finalDesc = sel.rank4 ? branchDef.rank4[sel.rank4].desc : maxed ? branchDef.desc : null;
-    return { maxed, left: (<>
+    // the next level: its name, its price, and exactly what it changes
+    const levelCard = (L, ghost = false) => {
+      const nxt = selDef.levels[L];
+      const can = ghost || ui.gold >= nxt.cost, armed = !ghost && upArm.is(armId("level"));
+      const deltas = ghost ? formDeltas({ ...t, level: L, branch: null, rank4: null }, { level: L + 1 }) : levelDeltas(t);
+      return (
+        <button data-arm={ghost ? undefined : armId("level")} tabIndex={ghost ? -1 : undefined} className={cls("cg-btn", "cg-btn--parch", armed && "is-armed", !can && "is-poor")} disabled={!can}
+          style={{ width: "100%", marginTop: 10, padding: "7px 10px 8px", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}
+          onClick={ghost ? undefined : buy2("level", { level: L + 1 }, (tt) => upgradeTower(G.current, tt))}>
+          <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+            <span style={slot}>{armed ? confirmTag() : <span className="cg-label">Upgrade · Level {L + 1}</span>}</span>
+            <span className="cg-display" style={{ fontSize: 13, fontWeight: 700 }}>{nxt.label}</span>
+            {deltaGrid(deltas)}
+          </span>
+          <span style={{ display: "flex", alignItems: "center", fontSize: 18 }}>{price(nxt.cost, can, 16)}</span>
+        </button>
+      );
+    };
+    const doneBox = (desc) => (
+      <div className="cg-parch" style={{ marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
+        <div className="cg-label" style={{ marginBottom: 3, color: "#7a6446" }}>Fully upgraded</div>
+        {desc}
+      </div>
+    );
+    // The stage stack: every stage this hall's road can reach (each level,
+    // the paths, every final ascension, every finished form) is laid out in
+    // one grid cell, and only the live one is shown. The cell is as tall as
+    // the tallest stage, so the card is one size from level 1 to the end and
+    // Sell never moves.
+    const stages = [];
+    const stage = (key, live, node) => stages.push({ key, live, node });
+    const lvlLive = !sel.branch && sel.level < 3;
+    for (const L of [1, 2]) {
+      const live = lvlLive && sel.level === L;
+      stage(`lv${L}`, live, live && !tierOpen(L + 1) ? capNote : levelCard(L, !live));
+    }
+    const base = { ...t, level: 3, branch: null, rank4: null };
+    const pathsLive = !sel.branch && sel.level === 3;
+    stage("paths", pathsLive, pathsLive && !tierOpen(4) ? capNote : formChoices(
+      Object.entries(selDef.branches).map(([bk, br]) => ({
+        k: `branch:${bk}`, f: br, form: { branch: bk }, look: { branch: bk },
+        deltas: formDeltas(pathsLive ? t : base, { branch: bk }), buy: (tt) => branchTower(G.current, tt, bk),
+      })), !pathsLive));
+    for (const [bk, br] of Object.entries(selDef.branches)) {
+      if (br.rank4) {
+        const live = sel.branch === bk && !sel.rank4;
+        stage(`fin:${bk}`, live, live && !tierOpen(5) ? capNote : formChoices(
+          Object.entries(br.rank4).map(([rk, r4]) => ({
+            k: `ascend:${rk}`, f: r4, form: { rank4: rk }, look: { branch: bk, rank4: rk },
+            deltas: formDeltas(live ? t : { ...base, branch: bk }, { rank4: rk }), buy: (tt) => ascendTower(G.current, tt, rk),
+          })), !live));
+      }
+      for (const [fk, f] of br.rank4 ? Object.entries(br.rank4) : [["", br]]) {
+        stage(`done:${bk}${fk}`, maxed && sel.branch === bk && (sel.rank4 || "") === fk, doneBox(f.desc));
+      }
+    }
+    // The left column for any form `f` of this hall ({ level, branch, rank4 }):
+    // the live one, or a ghost laid out only to hold the card's size.
+    const leftCol = (f, live) => {
+      const tt = live ? t : { ...t, ...f };
+      const fb = f.branch ? selDef.branches[f.branch] : null;
+      const ftier = f.rank4 ? 5 : f.branch ? 4 : f.level;
+      return (<>
                 {/* who this is, and how far along its road it has come */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, paddingRight: 16 }}>
                   <span className="cg-well" style={{ width: 54, height: 54, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <TowerPortrait kind={sel.kind} branch={sel.branch} rank4={sel.rank4} size={50} />
+                    <TowerPortrait kind={sel.kind} branch={f.branch} rank4={f.rank4} size={50} />
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 14, lineHeight: 1.15, textShadow: "1px 1px 0 var(--ink)" }}>
-                      {sel.rank4 ? branchDef.rank4[sel.rank4].name : sel.branch ? branchDef.name : selDef.name}
+                      {f.rank4 ? fb.rank4[f.rank4].name : f.branch ? fb.name : selDef.name}
                     </div>
                     <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 3 }}>
-                      {sel.rank4 ? `${branchDef.name} · final form` : sel.branch ? `${selDef.name} · path chosen` : `Level ${sel.level} of 3`}
+                      {f.rank4 ? `${fb.name} · final form` : f.branch ? `${selDef.name} · path chosen` : `Level ${f.level} of 3`}
                     </div>
                     <div className="cg-pips" style={{ marginTop: 5 }} title="three levels, a path, and a final ascension">
-                      {[1, 2, 3, 4, 5].map((i) => <span key={i} className={cls("cg-pip", i <= tier && "on", i > 3 && "big")} />)}
+                      {[1, 2, 3, 4, 5].map((i) => <span key={i} className={cls("cg-pip", i <= ftier && "on", i > 3 && "big")} />)}
                     </div>
                   </div>
                 </div>
 
                 {/* its working numbers */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
-                  {towerTags(t).map((x, i) => (
+                  {towerTags(tt).map((x, i) => (
                     <span key={i} className="cg-well" style={{ fontSize: 10, padding: "3px 6px", lineHeight: 1.3 }}>{x}</span>
                   ))}
                 </div>
 
                 {/* the service record: what this hall has actually done for you */}
-                {(sel.kills > 0 || sel.dmgOut > 0) && (() => {
+                {/* always there (zeros before the first foe), so the card never grows */}
+                {(() => {
                   // average dps of this form: its damage over the seconds a foe
                   // was in its reach, starting over at every upgrade
-                  const dps = sel.formTime >= 1 ? sel.formDmg / sel.formTime : null;
+                  const dps = sel.formTime >= 1 ? sel.formDmg / sel.formTime : 0;
                   const num = (v) => (v >= 10000 ? (v / 1000).toFixed(1) + "k" : Math.round(v).toLocaleString());
                   const stat = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" };
                   const n = { fontSize: 13, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" };
@@ -1119,20 +1188,20 @@ export default function Crownguard() {
                     <div style={{ display: "flex", flexWrap: "wrap", columnGap: 10, rowGap: 4, marginTop: 8, padding: "0 2px" }}>
                       <span title="foes this tower struck down" style={stat}><SkullIcon size={12} /><b className="cg-num" style={n}>{sel.kills}</b></span>
                       <span title="total damage dealt this run" style={stat}><SwordIcon size={12} /><b className="cg-num" style={n}>{num(sel.dmgOut)}</b> dmg</span>
-                      <span title="average damage per second while a foe is in range, since the last upgrade" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps == null ? "—" : dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
+                      <span title="average damage per second while a foe is in range, since the last upgrade" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
                     </div>
                   );
                 })()}
 
-                {sel.kind === "catapult" && getStats(t).roller && (
+                {sel.kind === "catapult" && getStats(tt).roller && (
                   <button className="cg-btn cg-btn--slate" style={{ width: "100%", marginTop: 10 }}
-                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
+                    tabIndex={live ? undefined : -1} onClick={live ? () => { if (G.current) G.current.rallyFor = sel.id; } : undefined}>
                     <FlagIcon size={14} /> Aim the Roll
                   </button>
                 )}
                 {(sel.kind === "knight" || sel.kind === "assassin") && (
                   <button className="cg-btn cg-btn--slate" style={{ width: "100%", marginTop: 10 }}
-                    onClick={() => { if (G.current) G.current.rallyFor = sel.id; }}>
+                    tabIndex={live ? undefined : -1} onClick={live ? () => { if (G.current) G.current.rallyFor = sel.id; } : undefined}>
                     <FlagIcon size={14} /> Move Rally Flag
                   </button>
                 )}
@@ -1145,8 +1214,8 @@ export default function Crownguard() {
 
                 {/* standing orders: who this tower shoots at */}
                 {(() => {
-                  const st = getStats(t);
-                  const modes = aimModes(t, st);
+                  const st = getStats(tt);
+                  const modes = aimModes(tt, st);
                   if (!modes.length) return null;
                   const forced = forcedAim(st);
                   return (
@@ -1163,7 +1232,7 @@ export default function Crownguard() {
                               <button key={m.id} title={m.hint}
                                 className={cls("cg-btn cg-btn--slate", sel.aim === m.id && "is-on")}
                                 style={{ flex: "1 1 auto", minWidth: 0, minHeight: 40, padding: "0 5px", fontSize: 12 }}
-                                onClick={() => { const tt = G.current?.towers.find((x) => x.id === sel.id); if (tt) tt.aim = m.id; }}>
+                                tabIndex={live ? undefined : -1} onClick={live ? () => { const lt = G.current?.towers.find((x) => x.id === sel.id); if (lt) lt.aim = m.id; } : undefined}>
                                 {m.label}
                               </button>
                             ))}
@@ -1180,54 +1249,38 @@ export default function Crownguard() {
                   );
                 })()}
 
-    </>), right: (<>
-                {finalDesc && (
-                  <div className="cg-parch" style={{ marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
-                    <div className="cg-label" style={{ marginBottom: 3, color: "#7a6446" }}>Fully upgraded</div>
-                    {finalDesc}
-                  </div>
-                )}
-                {/* the next level: its name, its price, and exactly what it changes */}
-                {!sel.branch && sel.level < 3 && !tierOpen(sel.level + 1) && capNote}
-                {!sel.branch && sel.level < 3 && tierOpen(sel.level + 1) && (() => {
-                  const nxt = selDef.levels[sel.level];
-                  const can = ui.gold >= nxt.cost;
-                  const deltas = levelDeltas(t);
-                  return (
-                    <button data-arm={armId("level")} className={cls("cg-btn", "cg-btn--parch", upArm.is(armId("level")) && "is-armed", !can && "is-poor")} disabled={!can}
-                      style={{ width: "100%", marginTop: 10, padding: "7px 10px 8px", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}
-                      onClick={buy2("level", { level: sel.level + 1 }, (tt) => upgradeTower(G.current, tt))}>
-                      <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                        <span style={slot}>{upArm.is(armId("level")) ? confirmTag() : <span className="cg-label">Upgrade · Level {sel.level + 1}</span>}</span>
-                        <span className="cg-display" style={{ fontSize: 13, fontWeight: 700 }}>{nxt.label}</span>
-                        {deltaGrid(deltas)}
-                      </span>
-                      <span style={{ display: "flex", alignItems: "center", fontSize: 18 }}>{price(nxt.cost, can, 16)}</span>
-                    </button>
-                  );
-                })()}
-
-                {!sel.branch && sel.level === 3 && !tierOpen(4) && capNote}
-                {!sel.branch && sel.level === 3 && tierOpen(4) && formChoices("Choose a path — permanent",
-                  Object.entries(selDef.branches).map(([bk, br]) => ({
-                    k: `branch:${bk}`, f: br, form: { branch: bk }, look: { branch: bk },
-                    deltas: formDeltas(t, { branch: bk }), buy: (tt) => branchTower(G.current, tt, bk),
-                  })))}
-
-                {sel.branch && !sel.rank4 && branchDef.rank4 && !tierOpen(5) && capNote}
-                {sel.branch && !sel.rank4 && branchDef.rank4 && tierOpen(5) && formChoices("Final ascension — permanent",
-                  Object.entries(branchDef.rank4).map(([rk, r4]) => ({
-                    k: `ascend:${rk}`, f: r4, form: { rank4: rk }, look: { branch: sel.branch, rank4: rk },
-                    deltas: formDeltas(t, { rank4: rk }), buy: (tt) => ascendTower(G.current, tt, rk),
-                  })))}
-
+      </>);
+    };
+    // Every form the hall can take, stacked in one grid cell like the right
+    // column's stages: the card is as tall as its tallest form, always.
+    const forms = [1, 2, 3].map((level) => ({ level, branch: null, rank4: null }));
+    for (const [bk, br] of Object.entries(selDef.branches)) {
+      forms.push({ level: 3, branch: bk, rank4: null });
+      for (const rk of Object.keys(br.rank4 || {})) forms.push({ level: 3, branch: bk, rank4: rk });
+    }
+    const isLive = (f) => f.level === sel.level && f.branch === (sel.branch || null) && f.rank4 === (sel.rank4 || null);
+    return { left: (
+              <div style={{ display: "grid" }}>
+                {forms.map((f) => (
+                  <div key={`${f.level}${f.branch}${f.rank4}`} aria-hidden={isLive(f) ? undefined : true} style={{ gridArea: "1 / 1", minWidth: 0, visibility: isLive(f) ? "visible" : "hidden" }}>{leftCol(f, isLive(f))}</div>
+                ))}
+              </div>
+    ), right: (
+              <div style={{ display: "grid" }}>
+                {stages.map((st) => (
+                  <div key={st.key} aria-hidden={st.live ? undefined : true} style={{ gridArea: "1 / 1", minWidth: 0, visibility: st.live ? "visible" : "hidden" }}>{st.node}</div>
+                ))}
+              </div>
+    ), sell: (
+              <div style={{ paddingTop: 10 }}>
                 {/* selling takes two taps too: an accidental sale can't be undone */}
                 <button data-arm={armId("sell")} className={cls("cg-btn cg-btn--red", upArm.is(armId("sell")) && "is-on")}
-                  style={{ width: "100%", marginTop: 10, justifyContent: "space-between", ...(upArm.is(armId("sell")) ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : {}) }}
+                  style={{ width: "100%", justifyContent: "space-between", ...(upArm.is(armId("sell")) ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : {}) }}
                   onClick={() => upArm.tap(armId("sell"), withT((tt) => sellTower(G.current, tt)))}>
                   <span>{upArm.is(armId("sell")) ? "Confirm sale" : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
                 </button>
-    </>) };
+              </div>
+    ) };
   })();
 
   // -- a master-build final, read about before buying --
@@ -1500,8 +1553,9 @@ export default function Crownguard() {
               if (!t) return null;
               // beside the tower, on whichever side has more room, level with it;
               // on a short screen the card lies in two columns so it never scrolls
-              // a maxed tower has nothing on its right but Sell: one column then
-              const two = compact && !towerPanel.maxed;
+              // two columns on a phone, and wherever the board is too short
+              // for the one-column card's tallest hall (~640 design px with Sell)
+              const two = compact || boardCss.vh / s < 640;
               const bw = boardCss.vw, bh = boardCss.vh;
               const tx = (((t.x - g.cam.x) * g.cam.zoom) / W) * boardCss.w;
               const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * boardCss.h + cropTop;
@@ -1515,6 +1569,8 @@ export default function Crownguard() {
                 children: two
                   ? <div className="cg-card-two" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.1fr)", gap: 12, alignItems: "start" }}><div style={{ minWidth: 0 }}>{towerPanel.left}</div><div style={{ minWidth: 0 }}>{towerPanel.right}</div></div>
                   : <>{towerPanel.left}{towerPanel.right}</>,
+                // Sell is pinned at the card's foot, always in the same place
+                foot: towerPanel.sell,
               });
             })()}
 
