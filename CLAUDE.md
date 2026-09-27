@@ -127,7 +127,7 @@ The owner misclicked when the tower card changed shape between taps, so
   be in every stage (or reserve its space), never pop in.
 - Sell lives at the foot of the right column and stays there (the column
   stretches to the card's height; a lone level-up card stretches to fill).
-- No subtitle under the hall's name and no stat chips; targets are equal
+- No subtitle under the hall's name, no stat chips, no Targets label; targets are equal
   buttons, two to a row (an odd one spans the last row). A finished hall's
   card lists every stat (`formStats` in `ui/hud/towerText.js`, driven by its
   DELTAS table — add a new stat there and it shows in the ⓘ and here).

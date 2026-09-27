@@ -1219,7 +1219,6 @@ export default function Crownguard() {
                   const forced = forcedAim(st);
                   return (
                     <div style={{ marginTop: 10 }}>
-                      <div className="cg-label" style={{ marginBottom: 5 }}>Targets</div>
                       {forced ? (
                         <div style={{ fontSize: 10, color: "var(--muted)" }}>
                           Sworn to the hunt — always takes <b style={{ color: "var(--cream)" }}>the mightiest foe</b>.
