@@ -408,7 +408,11 @@ const FWINGS = [
   { E: [-4, -3], W: [-3, -9.5], T: [[-9, -17], [-12.5, -17], [-15.5, -15.5], [-18, -13], [-19.5, -10]], B: [-12, 0] },
 ];
 
-const fwing = (ctx, R, key, sc, wcol, steel, tilt = 0) => {
+// bare: the raised wing of a riderless beast. With no knight in front of it
+// the upper arm's plate stood up alone out of the saddle like a post, so it
+// is left off: the feathered root shows, and only a lame and the wrist cop
+// ride the leading edge. (A lowered wing keeps its whole plate.)
+const fwing = (ctx, R, key, sc, wcol, steel, tilt = 0, bare = false) => {
   const P = (v) => { const r = rot(v, [0, 0], tilt); return [R[0] + r[0] * sc, R[1] + r[1] * sc]; };
   const E = P(key.E), W = P(key.W), T = key.T.map(P), B = P(key.B);
   // the outline: the arm to the wrist, the primaries tip to tip, then the
@@ -446,6 +450,16 @@ const fwing = (ctx, R, key, sc, wcol, steel, tilt = 0) => {
     c.restore();
   });
   // plate down the leading edge: lames and a cop at the wrist
+  if (bare && E[1] < R[1]) {
+    part(ctx, (c) => {
+      c.fillStyle = cel(c, ...bbox([E, W]), steel, 0.55, 0.4);
+      taper(c, [lerp(E, W, 0.4), W], [2.3 * sc, 2.3 * sc]);
+      const m = lerp(E, W, 0.68); line(c, m[0] - 1.1, m[1], m[0] + 1.1, m[1] + 0.3, 0.45, darken(steel, 0.5));
+      c.fillStyle = lighten(steel, 0.2); c.beginPath(); c.arc(W[0], W[1], 1.6 * sc, 0, TAU); c.fill();
+      dab(c, W[0] - 0.8, W[1] - 0.8, 0.6, 0.6, lighten(steel, 0.7));
+    });
+    return;
+  }
   part(ctx, (c) => {
     c.fillStyle = cel(c, ...bbox([R, E, W]), steel, 0.55, 0.4);
     taper(c, [lerp(R, E, 0.15), E, W], [3.2 * sc, 2.8 * sc, 2.4 * sc]);
@@ -454,6 +468,57 @@ const fwing = (ctx, R, key, sc, wcol, steel, tilt = 0) => {
     c.fillStyle = lighten(steel, 0.2); c.beginPath(); c.arc(W[0], W[1], 1.6 * sc, 0, TAU); c.fill();
     dab(c, W[0] - 0.8, W[1] - 0.8, 0.6, 0.6, lighten(steel, 0.7));
     const d = lerp(R, E, 0.8); dab(c, d[0] - 0.8, d[1] - 0.5, 0.5, 0.5, lighten(steel, 0.7));
+  });
+};
+
+// The empty saddle (p.riderless: the gryphonMount skin, the beast its death
+// crumbles once the knight has fallen from it). Everything is in the
+// gryphon's own frame after its bob; the loose leathers lag the wingbeat, so
+// they swing half a beat behind the body. First the flap and the free
+// stirrup, which the lowered wing covers...
+const looseSwing = (k) => [-(k.tail || 0) * 0.7, -(k.bob || 0) * 0.5];
+const emptyStirrup = (ctx, p, k) => {
+  const steel = p.cloth, iron = p.hair, leather = darken(p.cape, 0.4);
+  const [sw, dy] = looseSwing(k);
+  // the saddle's flap, where the knight's leg hung
+  blob(ctx, [[-4.4, -20.4, 1], [1.4, -20.4, 1], [1.2, -17.2], [0.2, -16.2, 1], [-3.2, -16.4, 1], [-4.6, -17.8]], leather, {
+    hi: 0.3, lo: 0.4, then: (c) => { line(c, -3.6, -19.8, 0.6, -19.8, 0.45, lighten(leather, 0.35)); dab(c, -3.4, -17.6, 0.5, 0.5, BRASS); dab(c, 0.2, -17.6, 0.5, 0.5, BRASS); },
+  });
+  // the pommel, under the wing's root
+  blob(ctx, [[0.4, -20.4, 1], [0.6, -23.0], [1.7, -23.8], [2.7, -22.9], [2.6, -20.2, 1]], leather, {
+    hi: 0.4, lo: 0.4, then: (c) => dab(c, 1.2, -23.2, 0.6, 0.6, BRASS),
+  });
+  // the leather swinging free, the iron at its end
+  const fx = q(-1.2 + sw), fy = q(-11.2 + dy), top = [-1.0, -17.2];
+  part(ctx, (c) => { line(c, ...top, fx + 0.1, fy - 1.9, 0.8, darken(leather, 0.1)); dab(c, (top[0] + fx) / 2 - 0.4, (top[1] + fy) / 2 - 1.4, 0.9, 0.7, BRASS); });
+  part(ctx, (c) => {
+    c.strokeStyle = lighten(steel, 0.25); c.lineWidth = 0.7; c.lineJoin = "round";
+    c.beginPath(); c.moveTo(fx - 1.3, fy); c.lineTo(fx - 0.5, fy - 2.1); c.lineTo(fx + 0.7, fy - 2.1); c.lineTo(fx + 1.4, fy); c.stroke();
+    dab(c, fx - 1.6, fy - 0.3, 3.3, 0.9, iron);
+    dab(c, fx - 0.6, fy - 2.3, 0.5, 0.5, lighten(steel, 0.7));
+  });
+};
+// ...then, over the wing's root, the bare seat between cantle and pommel and
+// the reins thrown loose, sagging from the bit to a loop round the pommel
+const emptySaddle = (ctx, p, k, HB) => {
+  const steel = p.cloth, iron = p.hair, leather = darken(p.cape, 0.35);
+  const [sw, dy] = looseSwing(k);
+  const bit = add(rot([3.0, 1.0], [0, 0], k.talon === 2 ? 0.12 : 0), HB), pm = [0.6, -21.6];
+  // slack: both handles hang well below the line from bit to pommel
+  const C1 = [bit[0] - 5 + sw * 0.5, bit[1] + 8 + dy], C2 = [pm[0] + 5 + sw, pm[1] + 9 + dy * 1.5];
+  const rein = [];
+  for (let i = 0; i <= 12; i++) {
+    const t = i / 12, u = 1 - t, a0 = u * u * u, a1 = 3 * u * u * t, a2 = 3 * u * t * t, a3 = t * t * t;
+    rein.push([a0 * bit[0] + a1 * C1[0] + a2 * C2[0] + a3 * pm[0], a0 * bit[1] + a1 * C1[1] + a2 * C2[1] + a3 * pm[1]]);
+  }
+  part(ctx, (c) => {
+    polyline(c, rein, 0.6, iron);
+    const [bx, by] = rein[6]; dab(c, bx - 0.4, by - 0.3, 0.9, 0.8, BRASS);
+    c.strokeStyle = BRASS; c.lineWidth = 0.5; c.beginPath(); c.arc(bit[0], bit[1], 0.6, 0, TAU); c.stroke();
+  });
+  blob(ctx, [[-4.6, -20.4, 1], [-5.8, -23.2], [-4.6, -23.4], [-3.6, -20.8, 1]], leather, { hi: 0.35 });
+  blob(ctx, [[-4.4, -19.8, 1], [-4.0, -21.4], [-2.0, -21.0], [-0.2, -21.3], [1.0, -21.2], [1.2, -19.6, 1]], leather, {
+    hi: 0.35, lo: 0.4, then: (c) => { line(c, -3.4, -20.9, 0.4, -20.8, 0.5, lighten(leather, 0.45)); dab(c, -4.0, -20.4, 0.5, 0.5, BRASS); },
   });
 };
 
@@ -568,6 +633,16 @@ const gryphon = (ctx, p) => {
   // the saddle, the near wing, then the knight in front of it
   const seat = [-2, -20.6];
   blob(ctx, [[-4.6, -20.4, 1], [-5.8, -23.2], [-4.6, -23.4], [-3.6, -20.8, 1]], darken(cape, 0.35), { hi: 0.35 });
+  if (p.riderless) {
+    // the knight has fallen: the stirrup swings free under the wing, then
+    // the bare saddle and the thrown reins lie over its root
+    emptyStirrup(ctx, p, k);
+    fwing(ctx, [2.2, -19.4], key, 1, wcol, steel, 0, true);
+    emptySaddle(ctx, p, k, HB);
+    ctx.restore();
+    solidify(ctx);
+    return;
+  }
   fwing(ctx, [2.2, -19.4], key, 1, wcol, steel);
   ctx.save(); ctx.translate(...seat);
   const thrust = k.thrust || 0;
@@ -727,6 +802,8 @@ const IRON_RIDER = { skin: "#e0b08a", cloth: "#6c7280", cloth2: "#7a2a2c", hair:
 export const IRONMOUNT_RIGS = {
   cavalier: { kind: "destrier", box: { hw: 34, up: 46, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER } },
   gryphon: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
+  // the same beast once its knight has fallen (the gryphon's deathSkin)
+  gryphonMount: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER, riderless: true } },
   ram: { kind: "siegeram", box: { hw: 40, up: 42, down: 4 }, p: { len: 44, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
 };
 export const IRONMOUNT_PAINTERS = { destrier, wargryphon: gryphon, siegeram: siegeRam };

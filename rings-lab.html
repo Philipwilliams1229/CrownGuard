@@ -4,6 +4,7 @@
   four moments of its life (2x2 on the board, at its true radius), through
   the real draw(), at zoom 1 and zoomed in on each moment at zoom 3.
     /rings-lab.html?tag=v1&fx=frostnova,firenova     some effects
+    /rings-lab.html?tag=v1&fx=wardwave-aegis         the Aegis Magister's cast (a wardwave, kind "aegis")
     /rings-lab.html?tag=v1                           every effect
     /rings-lab.html?perf=1                           draw() ms with a crowd of rings
   Saves .shots/rings_<tag>_<fx>_z1.png and _z3_<k>.png; DONE in the title.
@@ -21,7 +22,7 @@ const q = new URLSearchParams(location.search);
 const TAG = q.get("tag") || "x";
 const realm = q.get("realm") || "greenwood";
 const TMS = 100000;
-const ALL = ["frostnova", "firenova", "slam", "reticle", "healwave", "silence", "shadowstep", "midas", "toll", "plagueburst", "wardwave", "raise"];
+const ALL = ["frostnova", "firenova", "slam", "reticle", "healwave", "silence", "shadowstep", "midas", "toll", "plagueburst", "wardwave", "wardwave-aegis", "raise"];
 const LIST = q.get("fx") ? q.get("fx").split(",") : ALL;
 const Z3 = (q.get("z3") ?? "0,1,2,3").split(",").filter(Boolean).map(Number);
 const PROG = [0.15, 0.4, 0.65, 0.9];
@@ -38,18 +39,20 @@ const foe = (type, x, y, o = {}) => {
   };
 };
 // the effect as the engine pushes it, at progress p, centred on (x, y)
-const LIFE = { frostnova: 500, firenova: 450, slam: 450, reticle: 700, healwave: 550, silence: 900, shadowstep: 260, midas: 650, toll: 550, plagueburst: 500, wardwave: 550, raise: 600 };
-const RAD = { frostnova: 140, firenova: 112, slam: 62, healwave: 64, toll: 46, plagueburst: 44, wardwave: 82 };
+const LIFE = { frostnova: 500, firenova: 450, slam: 450, reticle: 700, healwave: 550, silence: 900, shadowstep: 260, midas: 650, toll: 550, plagueburst: 500, wardwave: 550, "wardwave-aegis": 800, raise: 600 };
+const RAD = { frostnova: 140, firenova: 112, slam: 62, healwave: 64, toll: 46, plagueburst: 44, wardwave: 82, "wardwave-aegis": 140 };
 const make = (type, x, y, p, en) => {
   const life = LIFE[type], ttl = Math.max(1, life * (1 - p));
   const f = { type, x, y, ttl, r: RAD[type] };
+  // the Aegis Magister's cast is a wardwave of its own kind
+  if (type === "wardwave-aegis") Object.assign(f, { type: "wardwave", kind: "aegis" });
   if (type === "midas" || type === "raise" || type === "shadowstep") f.life = life;
   if (type === "reticle") { const e = foe("orc", x, y + 8); en.push(e); f.target = e.id; f.y = y + 8; }
   if (type === "silence") { const e = foe("shaman" in ENEMIES ? "shaman" : "goblin", x, y + 20); en.push(e); f.y = e.y - e.size - 6; }
   if (type === "shadowstep") { Object.assign(f, { x1: x - 36, y1: y - 8, x2: x + 10, y2: y - 4, prey: p > 0.6 }); en.push(foe("goblin", x + 10, y)); }
   if (type === "raise") en.push(foe("goblin", x, y, { revived: true }));
   if (type === "midas") en.push(foe("goblin", x, y));
-  if (type === "slam" || type === "healwave" || type === "wardwave" || type === "toll" || type === "plagueburst")
+  if (type === "slam" || type === "healwave" || type === "wardwave" || type === "wardwave-aegis" || type === "toll" || type === "plagueburst")
     en.push(foe("goblin", x - 18, y + 6), foe("goblin", x + 22, y - 10));
   if (type === "frostnova" || type === "firenova")
     en.push(foe("goblin", x + (RAD[type] * p) * 0.7, y + 10), foe("goblin", x - 30, y - 20));

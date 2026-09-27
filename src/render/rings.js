@@ -33,6 +33,9 @@ const GOLD = ["#fff3d2", "#f0d885", "#d8b34a", "#a8782e", "#6a4424"];
 const BRONZE = ["#f4d8a0", "#d8a45a", "#b07a3a", "#7a4e2a", "#4a2e22"];
 const HEAL = ["#fff3d2", "#d8f4b0", "#a8e08a", "#6ab458", "#3a7a44"];
 const WARD = ["#ffffff", "#e4eefa", "#b8d0f0", "#8aa8d8", "#5a70a8"];
+// the Aegis Magister's shields: the ward pips' own blue (#9ab6d8, flashing
+// #eaf2ff in render/enemies.js), a deeper steel-blue body and a dark rim
+const AEGIS = ["#ffffff", "#eaf2ff", "#9ab6d8", "#6a88b8", "#3e5488"];
 const ROT = ["#c8d070", "#98a850", "#6e7a3a", "#50502c", "#3a3222"];
 const VIOLET = ["#e4d0fc", "#b890e8", "#8a64c8", "#5a3a8a", "#2e1e44"];
 const SHADE = ["#7e6a9e", "#4a3e62", "#2e2442", "#1c1628"];
@@ -226,7 +229,7 @@ const rimeS = (v) => memo(`ri|${v}`, () => {
 });
 // A starburst flash: a hot core, four long rays and four short, a dithered
 // halo — frost, flame and gold each get their own tones.
-const BURST_T = { ice: [ICE[0], ICE[1], ICE[2]], fire: [FIRE[0], FIRE[1], FIRE[2]], gold: [GOLD[0], GOLD[1], GOLD[2]], violet: [VIOLET[0], VIOLET[1], VIOLET[2]] };
+const BURST_T = { ice: [ICE[0], ICE[1], ICE[2]], fire: [FIRE[0], FIRE[1], FIRE[2]], gold: [GOLD[0], GOLD[1], GOLD[2]], violet: [VIOLET[0], VIOLET[1], VIOLET[2]], aegis: [AEGIS[0], AEGIS[1], AEGIS[2]] };
 const burstS = (name, f) => memo(`bu|${name}|${f}`, () => {
   const tones = BURST_T[name], R = 22, G = grid(2 * R + 3, 2 * R + 3), c = R + 1;
   const L = [22, 17, 12, 7][f], cr = [6, 5, 3.5, 2][f];
@@ -387,7 +390,7 @@ const SPARK = [
   ["..l..", "..w..", "lwwwl", "..w..", "..l.."],
   [".l.", "lwl", ".l."],
 ];
-const TINT = { gold: [GOLD[0], GOLD[1]], ice: [ICE[0], ICE[2]], ward: [WARD[0], WARD[2]], heal: [HEAL[0], HEAL[2]], violet: [VIOLET[0], VIOLET[1]], bronze: [BRONZE[0], BRONZE[1]], rot: [ROT[0], ROT[1]] };
+const TINT = { gold: [GOLD[0], GOLD[1]], ice: [ICE[0], ICE[2]], ward: [WARD[0], WARD[2]], heal: [HEAL[0], HEAL[2]], violet: [VIOLET[0], VIOLET[1]], bronze: [BRONZE[0], BRONZE[1]], rot: [ROT[0], ROT[1]], aegis: [AEGIS[0], AEGIS[2]] };
 const sparkS = (tint, v) => memo(`sp|${tint}|${v}`, () => {
   const rows = SPARK[v], G = grid(rows[0].length, rows.length);
   bm(G, rows, { w: TINT[tint][0], l: TINT[tint][1] }, 0, 0);
@@ -419,6 +422,52 @@ const runeS = (i, bright) => memo(`ru|${i}|${bright ? 1 : 0}`, () => {
   bm(G, RUNES[i], { x: bright ? WARD[0] : WARD[1] }, 2, 2);
   return { cv: G.done(bright ? WARD[2] : WARD[4]), ax: 4, ay: 5 };
 });
+// The aegis: a kite shield in the ward pips' blue, a light cross-ridge down
+// its face, lit left / shaded right, rimmed pale, inked deep blue. Sizes:
+// 0 the shields riding the ring, 1 the one the magister throws up, 2 the
+// little ones that settle on each soldier. Frames 0-3 turn it (face, three-
+// quarter, edge-on, three-quarter back); `lit` is the white-hot flash.
+const KITE = [[13, 16], [19, 24], [5, 7]];
+const kiteS = (size, f, lit) => memo(`kite|${size}|${f}|${lit ? 1 : 0}`, () => {
+  const [w, h] = KITE[size], G = grid(w + 4, h + 4), ox = 2, oy = 2;
+  const ww = f === 0 ? w : f === 2 ? 2 : Math.max(3, Math.round(w * 0.6)), cx = ox + w / 2;
+  const x0 = Math.round(cx - ww / 2), ridge = x0 + Math.floor(ww / 2) + (f === 1 ? -1 : f === 3 && ww > 3 ? 1 : 0);
+  const m = new Uint8Array(G.W * G.H), inS = (x, y) => x >= 0 && y >= 0 && x < G.W && y < G.H && m[y * G.W + x];
+  for (let y = 0; y < h; y++) {
+    const t = (y + 0.5) / h, k = t < 0.42 ? 1 : Math.max(0, 1 - (t - 0.42) / 0.58) ** 0.8;
+    const hw = (ww / 2) * k - (y === 0 && ww > 3 ? 0.5 : 0);
+    for (let x = x0 - 1; x <= x0 + ww; x++) if (Math.abs(x + 0.5 - cx) <= Math.max(hw, 0.5)) m[(oy + y) * G.W + x] = 1;
+  }
+  const bar = oy + Math.round(h * 0.3);
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    if (!m[y * G.W + x]) continue;
+    const rim = !inS(x - 1, y) || !inS(x + 1, y) || !inS(x, y - 1) || !inS(x, y + 1);
+    let c;
+    if (f === 2) c = x === ridge ? AEGIS[lit ? 0 : 1] : AEGIS[lit ? 1 : 2];
+    else if (rim) c = AEGIS[lit ? 0 : 1];
+    else if (x === ridge || (y === bar && f !== 2)) c = AEGIS[lit ? 0 : 1];
+    else c = x < ridge ? AEGIS[lit ? 1 : 2] : AEGIS[lit ? 2 : 3];
+    G.set(x, y, c);
+  }
+  return { cv: G.done(AEGIS[4]), ax: Math.round(cx), ay: oy + Math.round(h * 0.45) };
+});
+// scale-mail: rows of little scallops, half a scale apart, anchored to the
+// world like the dither fills; the aegis lays it over the ground it sweeps
+const SCALES = ["x.......", ".x.....x", "..xxxxx.", "....x...", "...x.x..", "xxx...xx"];
+const scalesP = (ctx, h) => {
+  let m = PATS.get(ctx);
+  if (!m) PATS.set(ctx, (m = new Map()));
+  const key = "scales" + h;
+  let p = m.get(key);
+  if (!p) {
+    const G = grid(8, 6);
+    bm(G, SCALES, { x: h }, 0, 0);
+    p = ctx.createPattern(G.done(), "repeat");
+    if (p.setTransform) p.setTransform(new DOMMatrix([1 / PX, 0, 0, 1 / PX, 0, 0]));
+    m.set(key, p);
+  }
+  return p;
+};
 // the stolen voice: a chant-note struck through in red
 const noteS = () => memo("note", () => {
   const G = grid(26, 26), c = 12.5;
@@ -565,6 +614,69 @@ const graveS = () => memo("grave", () => {
 
 // ---- the effects -----------------------------------------------------------
 const lifeP = (fx, life) => clamp01(1 - fx.ttl / (fx.life || life));
+
+// The Aegis Magister's cast (a wardwave of kind "aegis", r 140, ttl 800):
+// he throws a great kite shield up over his head and a wall of shields
+// sweeps out over the whole company on a bright rim, scale-mail shimmering
+// on the ground behind it; as the rim passes each soldier a little shield
+// drops onto him, just as his ward pips light. When the wall closes it all
+// flashes white, then holds and fades. The chaplain's pale runes stay his.
+const AEGIS_OUT = 1.6;
+const KITE_TURN = [0, 0, 0, 1, 2, 3];   // the rim is out at full radius at p = 1 / AEGIS_OUT
+const drawAegis = (ctx, fx, a, g, GR, AIR) => {
+  const life = 800, p = lifeP(fx, life), age = p * life, R = fx.r || 140, sd = seedOf(fx);
+  const r = R * easeOut(p * AEGIS_OUT), A = stepA(a), full = p >= 1 / AEGIS_OUT;
+  const lock = full && p < 1 / AEGIS_OUT + 0.12;
+  const foes = g && g.enemies;
+  ctx.save();
+  ctx.globalAlpha *= A;
+  if (GR && r > 6) {
+    disc(ctx, fx.x, fx.y, r, Math.max(0, r - 16), scalesP(ctx, AEGIS[lock ? 1 : 2]));
+    // as the wall closes, the mail runs in over everyone inside for a beat
+    if (lock) { ctx.globalAlpha = A * 0.5; disc(ctx, fx.x, fx.y, r - 16, 0, scalesP(ctx, AEGIS[2])); ctx.globalAlpha = A; }
+  }
+  if (AIR) {
+    if (r > 6) {
+      // the rim: a deep-blue dotted shadow outside, the pips' blue, a white edge
+      dash(ctx, fx.x, fx.y, r + 1.5, r + 1.5, 1, 3.2, AEGIS[4]);
+      ringPx(ctx, fx.x, fx.y, r, r, 2.5, lock ? AEGIS[1] : AEGIS[2]);
+      dash(ctx, fx.x, fx.y, r - 0.5, r - 0.5, 0.5, 2.6, AEGIS[0]);
+      // the shields riding it, turning as they fly, face-on once it closes
+      const n = Math.max(6, Math.min(26, Math.round((TAU * r) / 34)));
+      const rot = sd + age * 0.0003, turn = Math.floor(age / 50);
+      for (let i = 0; i < n; i++) {
+        const an = rot + (i / n) * TAU, f = full ? 0 : KITE_TURN[(turn + i) % 6];
+        put(ctx, kiteS(0, f, lock || (!full && f === 0 && i % 3 === 0)), fx.x + Math.cos(an) * (r - 5), fx.y + Math.sin(an) * (r - 5));
+      }
+    }
+    // the magister throws his shield up: a burst and a great kite over him
+    if (p < 0.3) {
+      let cx = fx.x, cy = fx.y, sz = 17;
+      if (foes) for (const e of foes) if (!e.dead && (e.wardFx === "aegis" || e.type === "magister") && Math.abs(e.x - fx.x) < 60 && Math.abs(e.y - fx.y) < 60) { cx = e.x; cy = e.y; sz = e.size || sz; break; }
+      const q = p / 0.3, top = cy - sz - 26 - easeOut(q) * 8;
+      if (q < 0.72) put(ctx, burstS("aegis", Math.min(3, Math.floor(q / 0.18))), cx, top);
+      put(ctx, kiteS(1, 0, q < 0.35), cx, top);
+    }
+    // a little shield drops onto each soldier as the rim reaches him
+    if (foes) {
+      let cnt = 0;
+      for (const e of foes) {
+        if (e.dead) continue;
+        const dx = e.x - fx.x, dy = e.y - fx.y;
+        if (dx * dx + dy * dy > R * R) continue;
+        const hit = (1 - Math.sqrt(Math.max(0, 1 - Math.hypot(dx, dy) / R))) / AEGIS_OUT;
+        const tl = (p - hit) * life;
+        if (tl < 0 || tl > 240) continue;
+        const top = e.y - (e.size || 15) - 4;
+        if (tl < 170) put(ctx, kiteS(2, 0, false), e.x, top - Math.round((1 - tl / 170) * 6) * 2);
+        else put(ctx, sparkS("aegis", 1), e.x, top);
+        if (++cnt >= 60) break;
+      }
+    }
+  }
+  ctx.restore();
+  return true;
+};
 
 export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
   const GR = layer !== "a", AIR = layer !== "g";
@@ -926,7 +1038,8 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
     }
     case "wardwave": {
       // The chaplain's ward: a shimmering circle of pale runes spreading
-      // over the column, turning as it goes.
+      // over the column, turning as it goes. (The magister's is its own.)
+      if (fx.kind === "aegis") return drawAegis(ctx, fx, a, g, GR, AIR);
       const life = 550, p = lifeP(fx, life), age = p * life, R = fx.r || 82, sd = seedOf(fx);
       const r = R * easeOut(p * 1.1), A = stepA(a);
       ctx.save();
