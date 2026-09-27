@@ -1,6 +1,6 @@
 // ============ DRAGONFIRE AND BURNING GROUND ============
 // The Pyromancer's two final forms, as they touch the field:
-//   drawBreath      — Dragonbreath's held flamethrower blast. Reads t.breath
+//   drawBreath      — Dragonbreath's held plume of fire. Reads t.breath
 //                     { on 0..1, ang (ground-plane radians from the hall's
 //                     foot), len (reach) } set by engine/update.js breathe,
 //                     and leaves from breathMouth(t) in halls/wizard.js.
@@ -9,12 +9,12 @@
 //
 // Pixel art like fx.js and rings.js: every flame, puff and patch is painted
 // art pixel by art pixel ONCE into a memo'd sprite (stepped tones, ordered
-// dither, no smooth blends) and stamped with drawImage. A breath is ~75
-// small stamps, a few fills and a handful of specks a frame; a burning patch is one stamp and
+// dither, no smooth blends) and stamped with drawImage. A breath is ~60
+// stamps, one fill and a handful of specks a frame; a burning patch is one stamp and
 // a few specks. Nothing here allocates per frame.
 //
 // The breath, in the 3/4 camera: a ground point (gx, gy) sits on screen at
-// (gx, gy - height). It is a flamethrower blast from the nozzle down onto
+// (gx, gy - height). It is a billowing plume from the staff nozzle down onto
 // the damage cone (half-angle st.cone from the hall's foot, out to len), so
 // what burns on screen is what the engine hits.
 
@@ -143,68 +143,68 @@ const dither = (ctx, h, dens) => {
 };
 
 // ---- Dragonbreath -----------------------------------------------------------
-// A pressurised flamethrower cone. From the nozzle (breathMouth) to the far
-// edge of the damage wedge (half-angle `cone` from the hall's foot, out to
-// len) it is ONE blast, built in three layers:
-//   the body   — nested fans from the nozzle to the wedge's far arc: red
-//                dither at the rim, orange, a yellow core down the axis and a
-//                blinding white-hot spike at the nozzle; flickering in length
-//                and width every frame
-//   streaks    — ~34 short-lived flame licks, baked at 16 headings, fired
-//                down straight rays from the nozzle to spots spread evenly
-//                over the wedge in a third of a second, stretching as they
-//                go; the ones thrown wide run redder and curl outward
-//   the far end — slower red billows rolling off the front into dark smoke,
-//                with sparks thrown up
-// and a heat-glow dithered onto the road over exactly the damage wedge.
-const STREAKS = 34;      // flame licks alive at once
-const S_LIFE = 0.3;      // seconds a lick takes from the nozzle to the far end
-const BILLOWS = 9;       // slow billows rolling off the front
-const B_LIFE = 0.95;
-const EMB = 12;          // sparks
+// A billowing plume of fire from the staff nozzle (breathMouth), opening
+// over the damage wedge (half-angle `cone` from the hall's foot, out to len).
+// No hard edges and no spray: the plume is three nested layers of rounded,
+// many-lobed billows that overlap into one lumpy body —
+//   outer  — red-orange billows spread right across the cone
+//   middle — orange billows, a narrower band
+//   inner  — yellow billows down the axis, white-hot near the nozzle
+// each lit from above (a bright upper side, a shadowed underside) with a
+// dithered rim so the layers melt into each other. Every billow leaves the
+// nozzle small and flies a gently bowed ray to a spot on the wedge, swelling
+// as it goes; the lobes cycle through variants so the mass churns. At the
+// far end slow billows roll off into dark smoke; sparks rise off it, and a
+// heat-glow is dithered onto the road over exactly the damage wedge.
+const LAYERS = [
+  // count, seconds nozzle-to-end, lateral spread (share of the cone), reach share, radius at the end
+  { n: 22, life: 0.82, lat: 0.84, far: 0.97, r: 11 },
+  { n: 15, life: 0.72, lat: 0.48, far: 0.86, r: 8.5 },
+  { n: 10, life: 0.62, lat: 0.18, far: 0.72, r: 7 },
+];
+const BILLOWS = 8;       // slow billows rolling off the front into smoke
+const B_LIFE = 1.0;
+const EMB = 10;          // sparks
 const SPECK = new Float32Array(EMB * 3);
-const DIRS = 16;         // headings a lick is baked at
 const r2of = (r) => Math.max(2, Math.min(28, Math.round(r * 2)));
-
-// A flame lick: a round head on a long tapering tail, pointing along `dir`
-// (one of DIRS screen headings); `lb` 1..4 its length, `st` its heat as in
-// puffS. Ragged sides from noise, the outer skin dithered.
-const streakS = (dir, lb, st, v) => memo(`s|${dir}|${lb}|${st}|${v}`, () => {
-  const an = (dir / DIRS) * TAU, dx = Math.cos(an), dy = Math.sin(an);
-  const L = (3 + lb * 3) * PX, w = (1.1 + lb * 0.45) * PX;
-  const n = Math.ceil(L + w * 2) + 4, G = grid(n, n), c = n / 2;
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    const rx = x + 0.5 - c, ry = y + 0.5 - c;
-    const along = rx * dx + ry * dy, across = -rx * dy + ry * dx;
-    const u = (along + L / 2) / L;
-    if (u < 0 || u > 1.1) continue;
-    const prof = u < 0.72 ? Math.pow(u / 0.72, 0.6) : Math.sqrt(Math.max(0, 1 - ((u - 0.72) / 0.38) ** 2));
-    const hw = w * prof * (0.75 + 0.45 * vnoise(x, y, 3, v * 5 + dir + lb));
-    if (hw <= 0.3 || Math.abs(across) > hw) continue;
-    const k = Math.abs(across) / hw;
-    if (k > 0.72 && bay(x, y) > 0.5) continue;
-    const kh = Math.max(0, Math.min(0.999, k * 0.78 + (1 - u) * 0.34));
-    G.set(x, y, FIRE[Math.min(5, st + Math.floor(kh * 2.4))]);
-  }
-  return { cv: G.done(), ax: Math.round(c), ay: Math.round(c) };
-});
-
-// one fan of the body: from the nozzle toward the wedge's far arc (a share
-// f of the cone's half-angle wide, lifted by `lift`), reaching a share
-// `fr` of the way there — so every layer runs down the blast's own axis
-const fan = (ctx, C, f, fr, lift, style) => {
-  ctx.beginPath();
-  ctx.moveTo(C.mx, C.my);
-  for (let i = 0; i <= 6; i++) {
-    const q = C.ang + C.cone * f * (1 - i / 3);
-    const ax = C.tx + Math.cos(q) * C.reach, ay = C.ty + Math.sin(q) * C.reach - lift;
-    ctx.lineTo(C.mx + (ax - C.mx) * fr, C.my + (ay - C.my) * fr);
-  }
-  ctx.closePath();
-  ctx.fillStyle = style;
-  ctx.fill();
-};
 const BR = {};           // one breath's numbers, reused (no allocation per frame)
+
+// the three tone sets, hottest last: highlight, body, shadow
+const CLOUD_T = [
+  [FIRE[2], FIRE[3], FIRE[4]],
+  [FIRE[1], FIRE[2], FIRE[3]],
+  [FIRE[0], FIRE[1], FIRE[2]],
+];
+// A billow: four or five round lobes clumped into one cumulus mass, lit
+// from above-left (bright upper sides, shadowed undersides), its rim frayed
+// into dither so neighbouring billows merge. `tone` picks CLOUD_T.
+const cloudS = (tone, r2, v) => memo(`c|${tone}|${r2}|${v}`, () => {
+  const R = (r2 / 2) * PX, T = CLOUD_T[tone];
+  const G = grid(Math.ceil(R * 2.7) + 4, Math.ceil(R * 2.5) + 4), cx = G.W / 2, cy = G.H / 2 + R * 0.08;
+  const L = [];
+  const nl = 4 + (v % 2);
+  for (let i = 0; i < nl; i++) {
+    const an = (i / nl) * TAU + hash(v, i) * 0.9 + v;
+    const d = i === 0 ? 0 : R * (0.42 + 0.14 * hash(v, i + 10));
+    L.push([cx + Math.cos(an) * d, cy + Math.sin(an) * d * 0.8 - (i ? R * 0.08 : 0), R * (i === 0 ? 0.72 : 0.5 + 0.14 * hash(v, i + 20))]);
+  }
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    let n = 9, best = null;
+    for (const lb of L) {
+      const q = Math.hypot(x + 0.5 - lb[0], y + 0.5 - lb[1]) / lb[2];
+      if (q < n) { n = q; best = lb; }
+    }
+    n += (vnoise(x, y, Math.max(2, R * 0.3), v * 3 + tone) - 0.5) * 0.22;
+    if (n > 1) continue;
+    if (n > 0.84 && bay(x, y) >= (1 - n) * 5) continue;          // the frayed rim
+    // light from above: half from the lobe's own curve, half from the whole mass
+    const dx = (x + 0.5 - best[0]) / best[2], dy = (y + 0.5 - best[1]) / best[2];
+    const mx = (x + 0.5 - cx) / R, my = (y + 0.5 - cy) / R;
+    const l = -(dx * 0.4 + dy * 0.8) * 0.65 - (mx * 0.4 + my * 0.9) * 0.4 + (vnoise(x, y, Math.max(2, R * 0.22), v + 40) - 0.5) * 0.4;
+    G.set(x, y, T[l > 0.42 && n < 0.9 ? 0 : l < -0.18 ? 2 : 1]);
+  }
+  return { cv: G.done(), ax: Math.round(cx), ay: Math.round(cy) };
+});
 
 export const drawBreath = (ctx, t, time) => {
   const b = t.breath;
@@ -218,76 +218,63 @@ export const drawBreath = (ctx, t, time) => {
   const fl = Math.floor(time * 20);
   const seed = (t.id | 0) * 131;
   const a = stepA(Math.min(1, on * 2.4), 4);
-  const C = BR;
-  C.tx = t.x; C.ty = t.y; C.mx = m.x; C.my = m.y; C.ang = b.ang; C.cone = cone; C.reach = reach;
   ctx.save();
   if (a < 1) ctx.globalAlpha *= a;
 
   // heat-glow on the road: exactly the damage wedge
   const s0 = reach * 0.22;
-  {
-    const f = 1, s1 = reach;
-    ctx.beginPath();
-    ctx.moveTo(t.x + ca * s0 + px * s0 * tanC * f, t.y + sa * s0 + py * s0 * tanC * f);
-    for (let i = 0; i <= 10; i++) {
-      const q = b.ang + cone * f * (1 - i / 5);
-      ctx.lineTo(t.x + Math.cos(q) * s1, t.y + Math.sin(q) * s1);
-    }
-    ctx.lineTo(t.x + ca * s0 - px * s0 * tanC * f, t.y + sa * s0 - py * s0 * tanC * f);
-    ctx.closePath();
-    ctx.fillStyle = dither(ctx, FIRE[2], 0.25);
-    ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(t.x + ca * s0 + px * s0 * tanC, t.y + sa * s0 + py * s0 * tanC);
+  for (let i = 0; i <= 10; i++) {
+    const q = b.ang + cone * (1 - i / 5);
+    ctx.lineTo(t.x + Math.cos(q) * reach, t.y + Math.sin(q) * reach);
   }
+  ctx.lineTo(t.x + ca * s0 - px * s0 * tanC, t.y + sa * s0 - py * s0 * tanC);
+  ctx.closePath();
+  ctx.fillStyle = dither(ctx, FIRE[2], 0.25);
+  ctx.fill();
 
   // the far end: slow billows rolling off the front, reddening into smoke
   const EB = (time / B_LIFE) * BILLOWS, eb = Math.floor(EB);
   for (let j = eb - BILLOWS + 1; j <= eb; j++) {
     const p = (EB - j) / BILLOWS, hj = j + seed + 900;
     const lat = hash(hj, 1) * 2 - 1;
-    const s = reach * (0.66 + 0.36 * p), l = lat * s * tanC * (0.85 + 0.25 * p);
-    const smoke = p > 0.5;
-    const r = (smoke ? 4.5 + p * 6 : 4 + p * 5) * (0.8 + 0.4 * hash(hj, 2)) * sz;
-    put(ctx, puffS(smoke ? "s" : "j", smoke ? 0 : p < 0.2 ? 2 : 3, r2of(r), ((hj % 3) + 3) % 3),
-      t.x + ca * s + px * l, t.y + sa * s + py * l - 3 - p * 16);
+    const s = reach * (0.7 + 0.34 * p), l = lat * s * tanC * (0.8 + 0.25 * p);
+    const smoke = p > 0.35;
+    const r = (smoke ? 4.5 + p * 6 : 5 + p * 5) * (0.8 + 0.4 * hash(hj, 2)) * sz;
+    const x = t.x + ca * s + px * l, y = t.y + sa * s + py * l - 4 - p * 18;
+    if (smoke) put(ctx, puffS("s", 0, r2of(r), ((hj % 3) + 3) % 3), x, y);
+    else put(ctx, cloudS(0, r2of(r), ((hj % 4) + 4) % 4), x, y);
   }
 
-  // the body: nested fans, flickering
-  const fk = 1 + 0.07 * Math.sin(time * 37 + t.id), lk = 1 + 0.04 * Math.sin(time * 29 + t.id * 3);
-  fan(ctx, C, 1.0 * fk, 0.97 * lk, 5, dither(ctx, FIRE[3], 0.6));
-  fan(ctx, C, 0.62 * fk, 0.86 * lk, 4, dither(ctx, FIRE[2], 0.88));
-  fan(ctx, C, 0.34 * fk, 0.66 * lk, 3, FIRE[1]);
-  fan(ctx, C, 0.12, 0.3 * lk, 2, FIRE[0]);
-
-  // the streaks: licks racing down rays from the nozzle to the wedge
-  const E = (time / S_LIFE) * STREAKS, e0 = Math.floor(E);
+  // the plume: outer, middle, inner — oldest first within each layer
   const sMin = reach * 0.3;
-  for (let j = e0 - STREAKS + 1; j <= e0; j++) {
-    const p = (E - j) / STREAKS, hj = j + seed;
-    if (p < 0 || p >= 1) continue;
-    const u = hash(hj, 1) * 2 - 1, lat = Math.sign(u) * Math.abs(u) ** 0.85, al = Math.abs(lat);
-    const sT = sMin + (reach * 0.98 - sMin) * Math.sqrt(hash(hj, 3));
-    const lT = lat * sT * tanC * 0.95;
-    const gx = t.x + ca * sT + px * lT, gy = t.y + sa * sT + py * lT - 2;
-    const k = 1 - (1 - p) ** 1.35;
-    // bowed outward mid-flight; the rim licks curl out further at the end
-    const bw = 18 * sz, curl = al > 0.72 ? 7 * sz : 0;
-    const bow = lat * (k * (1 - k) * bw + k * k * curl);
-    const x = m.x + (gx - m.x) * k + px * bow, y = m.y + (gy - m.y) * k + py * bow;
-    // heading: the ray, turned by the bow's slope
-    const db = lat * (bw * (1 - 2 * k) + 2 * k * curl) * 1.35 * (1 - p) ** 0.35;
-    const hx = (gx - m.x) * 1.35 * (1 - p) ** 0.35 + px * db, hy = (gy - m.y) * 1.35 * (1 - p) ** 0.35 + py * db;
-    const dir = ((Math.round((Math.atan2(hy, hx) / TAU) * DIRS) % DIRS) + DIRS) % DIRS;
-    const lb = Math.min(4, 1 + Math.floor(k * 4 * (0.7 + 0.5 * hash(hj, 4)) * sz + 0.3));
-    let st = k < 0.25 ? 0 : k < 0.55 ? 1 : k < 0.85 ? 2 : 3;
-    if (al > 0.68 && k > 0.2 && st < 3) st++;
-    else if (al < 0.3 && k < 0.6 && st > 0) st--;
-    put(ctx, streakS(dir, lb, st, ((hj + fl) & 1)), x, y);
+  for (let li = 0; li < 3; li++) {
+    const LY = LAYERS[li];
+    const E = (time / LY.life) * LY.n, e0 = Math.floor(E);
+    for (let j = e0 - LY.n + 1; j <= e0; j++) {
+      const p = (E - j) / LY.n, hj = j + seed + li * 3001;
+      if (p < 0 || p >= 1) continue;
+      const u = hash(hj, 1) * 2 - 1, lat = Math.sign(u) * Math.abs(u) ** 0.8 * LY.lat;
+      const sT = sMin + (reach * LY.far - sMin) * Math.sqrt(hash(hj, 3));
+      const lT = lat * sT * tanC;
+      const gx = t.x + ca * sT + px * lT, gy = t.y + sa * sT + py * lT - 3;
+      const k = 1 - (1 - p) ** 1.25;
+      const bow = lat * k * (1 - k) * 16 * sz + Math.sin(time * 7 + hj) * 1.2 * k;
+      const x = m.x + (gx - m.x) * k + px * bow, y = m.y + (gy - m.y) * k + py * bow - k * 2;
+      const r = (1.6 + (LY.r - 1.6) * Math.sqrt(k)) * (0.85 + 0.3 * hash(hj, 7)) * sz;
+      // near the nozzle every layer burns a set hotter
+      const tone = Math.min(2, li + (k < 0.14 ? 1 : 0));
+      // each billow turns over its lobes on its own beat, so the mass churns without popping
+      const vv = Math.floor(time * 3 + hash(hj, 9) * 4) + hj;
+      put(ctx, cloudS(tone, r2of(r), ((vv % 4) + 4) % 4), x, y);
+    }
   }
   // the nozzle: blinding
   put(ctx, puffS("j", 0, r2of((2.2 + (fl & 1) * 0.7) * sz), fl % 3), m.x, m.y);
 
-  // sparks thrown out and up off the blast: gold while fresh, red as they fade
-  const ET = 0.7, EE = (time / ET) * EMB, ee = Math.floor(EE);
+  // sparks rising off the plume: gold while fresh, red as they fade
+  const ET = 0.8, EE = (time / ET) * EMB, ee = Math.floor(EE);
   for (let pass = 0; pass < 2; pass++) {
     let n = 0;
     for (let j = ee - EMB + 1; j <= ee; j++) {
@@ -296,7 +283,7 @@ export const drawBreath = (ctx, t, time) => {
       const s = reach * (0.45 + 0.6 * hash(hj, 4) * (0.6 + 0.6 * p));
       const l = (hash(hj, 5) * 2 - 1) * s * tanC * 1.1;
       SPECK[n++] = t.x + ca * s + px * l + Math.sin(time * 5 + j) * 2;
-      SPECK[n++] = t.y + sa * s + py * l - 6 - p * 28;
+      SPECK[n++] = t.y + sa * s + py * l - 8 - p * 28;
       SPECK[n++] = pass ? 0.5 : 1;
     }
     dots(ctx, SPECK, n, pass ? FIRE[3] : FIRE[1]);
