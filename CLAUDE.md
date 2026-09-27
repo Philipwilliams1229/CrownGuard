@@ -125,8 +125,10 @@ The owner misclicked when the tower card changed shape between taps, so
   one grid cell and only the live one is visible, so the card is as tall as
   its tallest form from level 1 to the end. Anything new in the card must
   be in every stage (or reserve its space), never pop in.
-- Sell lives at the foot of the right column and stays there (the column
-  stretches to the card's height; a lone level-up card stretches to fill).
+- Sell lives at the foot of the LEFT column, under the targets, and stays
+  there (one-column card: at the card's foot). The right column is all
+  upgrade: its stage stretches to the card's height (a lone level-up or the
+  path cards fill it).
 - No subtitle under the hall's name, no stat chips, no Targets label; targets are equal
   buttons, two to a row (an odd one spans the last row). A finished hall's
   card lists every stat (`formStats` in `ui/hud/towerText.js`, driven by its

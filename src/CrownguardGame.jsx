@@ -1260,21 +1260,24 @@ export default function Crownguard() {
               </div>
     ), right: (
               // the right column: the stage stack takes whatever height the card
-              // has (a lone level-up stretches to fill it), Sell stays at the foot
+              // has (a lone level-up or the path cards stretch to fill it)
               <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                 <div style={{ flex: 1, display: "grid" }}>
                   {stages.map((st) => (
                     <div key={st.key} aria-hidden={st.live ? undefined : true} style={{ gridArea: "1 / 1", minWidth: 0, display: "flex", flexDirection: "column", visibility: st.live ? "visible" : "hidden" }}>{st.node}</div>
                   ))}
                 </div>
-                <div style={{ paddingTop: 10 }}>
+              </div>
+    ), sell: (
+              // Sell: at the foot of the left column on a two-column card,
+              // at the card's foot on a one-column card
+              <div style={{ marginTop: "auto", paddingTop: 10 }}>
                 {/* selling takes two taps too: an accidental sale can't be undone */}
                 <button data-arm={armId("sell")} className={cls("cg-btn cg-btn--red", upArm.is(armId("sell")) && "is-on")}
                   style={{ width: "100%", justifyContent: "space-between", ...(upArm.is(armId("sell")) ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : {}) }}
                   onClick={() => upArm.tap(armId("sell"), withT((tt) => sellTower(G.current, tt)))}>
                   <span>{upArm.is(armId("sell")) ? "Confirm sale" : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
                 </button>
-                </div>
               </div>
     ) };
   })();
@@ -1563,8 +1566,8 @@ export default function Crownguard() {
                 id: sel.id, left, width: CW, f, origin: `${flipX ? "right" : "left"} center`,
                 closeLabel: "Deselect tower", onClose: () => { if (G.current) G.current.selectedId = null; },
                 children: two
-                  ? <div className="cg-card-two" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.1fr)", gap: 12, alignItems: "stretch" }}><div style={{ minWidth: 0 }}>{towerPanel.left}</div><div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>{towerPanel.right}</div></div>
-                  : <>{towerPanel.left}{towerPanel.right}</>,
+                  ? <div className="cg-card-two" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.1fr)", gap: 12, alignItems: "stretch" }}><div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>{towerPanel.left}{towerPanel.sell}</div><div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>{towerPanel.right}</div></div>
+                  : <>{towerPanel.left}{towerPanel.right}{towerPanel.sell}</>,
               });
             })()}
 
