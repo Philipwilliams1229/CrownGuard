@@ -64,8 +64,11 @@ export const TOWERS = {
       a: {
         name: "Pyromancer", cost: 350, stats: { dmg: 46, rate: 1200, range: 140, splash: 72, burn: 11, burnDur: 2600 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
         rank4: {
-          a: { name: "Volcanic Throne", cost: 650, stats: { dmg: 60, rate: 1250, range: 145, splash: 76, burn: 12, burnDur: 2600, poolDps: 22, poolDur: 3000, poolR: 34 }, desc: "Every blast births a pool of living lava that scorches all who wade through it." },
-          b: { name: "Wildfire Court", cost: 650, stats: { dmg: 52, rate: 1150, range: 145, splash: 72, burn: 13, burnDur: 2800, burnSpread: true }, desc: "Flames leap hungrily from burning foes to their neighbors — one spark can eat a whole warband." },
+          // every 5th fireball (poolEvery) leaves the road burning behind it
+          a: { name: "Inferno Throne", cost: 650, stats: { dmg: 80, rate: 1250, range: 145, splash: 76, burn: 12, burnDur: 2600, poolEvery: 5, poolKind: "fire", poolDps: 24, poolDur: 3500, poolR: 36 }, desc: "Fireballs from a throne of living flame — and every FIFTH one is a firestorm that leaves the road burning behind it." },
+          // a held gout of flame, not shots: dmg is per SECOND to everything
+          // inside the cone (update.js breathe); fire it close to the road
+          b: { name: "Dragonbreath", cost: 650, stats: { dmg: 60, range: 92, breath: true, cone: 0.42, burn: 8, burnDur: 1500 }, desc: "A flamethrower: a roaring gout of dragonfire that sweeps the road close by, scorching EVERYTHING in its cone every moment it breathes. Short reach — build it right on the road." },
         },
       },
       b: {
@@ -110,7 +113,9 @@ export const TOWERS = {
     // (not 48) and shoulder closer to its neighbours, so it fits the tight
     // inside of a bend. Its ground art keeps inside kitB FOOT_NARROW.
     roadClear: 42, reach: 12,
-    blurb: "A spinning wheel that flings spikes in EVERY direction. Blind beyond arm's reach — deadly on corners and doubled-back road.",
+    // spikes and flame rings skim the road: nothing that flies is touched
+    groundOnly: true,
+    blurb: "A spinning wheel that flings spikes in EVERY direction. Blind beyond arm's reach, and to anything that flies — deadly on corners and doubled-back road.",
     levels: [
       { dmg: 12, rate: 900, range: 88, spikes: 10 },
       { dmg: 18, rate: 820, range: 95, spikes: 12, cost: 90, label: "Whetted Steel" },

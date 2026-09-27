@@ -11,6 +11,7 @@
 // of a blast on screen is one or two blits, whatever it looks like.
 
 import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
+import { drawFireGround } from "./flames.js";
 
 // ---- palette ---------------------------------------------------------
 const col = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -829,12 +830,13 @@ const ORB = {
   frost: pal("#ffffff", "#d4f2fa", "#8ccce4", "#3a7aa8"),
   gold: pal("#fff3d2", "#f8e088", "#d8b34a", "#8a6a2a"),
 };
-const orbSprite = (el, f) => memo(`orb|${el}|${f}`, () => {
-  const T = ORB[el], G = grid(38, 38), c = 19, r0 = 7, halo = 6 + [0, 1, 2, 1][f];
-  for (let y = 0; y < 38; y++) for (let x = 0; x < 38; x++) {
+// (big: the Inferno Throne's firestorm, every fifth shot — flames.js)
+const orbSprite = (el, f, big = 0) => memo(`orb|${el}|${f}|${big}`, () => {
+  const S = big ? 54 : 38, T = ORB[el], G = grid(S, S), c = S / 2, r0 = big ? 10.5 : 7, halo = (big ? 9 : 6) + [0, 1, 2, 1][f];
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const dx = x + 0.5 - c, dy = y + 0.5 - c, d = Math.hypot(dx, dy);
     if (d <= r0) {
-      const dl = Math.hypot(dx + 2.2, dy + 2.2) / r0;
+      const dl = Math.hypot(dx + r0 * 0.31, dy + r0 * 0.31) / r0;
       let k = dl < 0.42 ? 0 : dl < 0.95 ? 1 : 2;
       if (d > r0 - 1.2 && dx + dy > 1) k = 3;
       G.set(x, y, T[k]);
@@ -981,7 +983,7 @@ export const drawProjectile = (ctx, p, time) => {
     const rise = el === "fire" ? -i * 0.6 : el === "frost" ? i * 0.25 : 0;
     speck(ctx, p.x - dx * (3 + i * 2.4) - dy * wob, p.y - dy * (3 + i * 2.4) + dx * wob + rise, i < 4 ? 1 : 0.5, T[Math.min(3, i >> 1)]);
   }
-  put(ctx, orbSprite(el, Math.floor(time * 12 + (p.id || 0)) & 3), p.x, p.y);
+  put(ctx, orbSprite(el, Math.floor(time * 12 + (p.id || 0)) & 3, p.big ? 1 : 0), p.x, p.y);
 };
 
 // a quarrel or harpoon (the "bolt" effect that carries x/tx, not pts)
@@ -1262,6 +1264,7 @@ const groundSprite = (kind, rb, f) => memo(`gr|${kind}|${rb}|${f}`, () => {
 });
 
 export const drawGround = (ctx, gr, time, tms) => {
+  if (gr.kind === "fire") return drawFireGround(ctx, gr, time, tms);   // flames.js
   const r = Math.max(8, gr.r || 30);
   const rb = r <= 24 ? Math.round(r / 4) * 4 : Math.round(r / 6) * 6;
   const kind = gr.kind === "plague" || gr.kind === "spores" || gr.kind === "caltrops" ? gr.kind : "lava";

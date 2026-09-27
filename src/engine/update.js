@@ -44,6 +44,52 @@ const SPLASH_CAP = 16;
 
 // Build a fresh enemy instance of `type` with wave HP multiplier `mult`.
 // Used by the spawn queue and by necromancers raising the dead.
+// Dragonbreath: no shots, a held gout of flame. The mage swings it toward
+// the foe his standing order picks (a turning speed, so a sweep across the
+// road takes a moment) and it scorches everything inside the cone — range
+// and half-angle `cone` — every tick, `dmg` per second, the nearest
+// SPLASH_CAP bodies and no more. t.breath is what the renderer reads:
+// on (0..1, eased so the jet grows and gutters), ang (ground-plane
+// radians from the tower's foot), len (its reach).
+const BREATH_TURN = 4.2;   // radians a second
+const breathe = (g, t, sdt, tms) => {
+  const st = getStats(t);
+  const b = t.breath || (t.breath = { on: 0, ang: t.lastAim || 0, len: st.range });
+  b.len = st.range;
+  const tgt = pickTarget(g, t, st);
+  if (tgt) {
+    const want = Math.atan2(tgt.y - t.y, tgt.x - t.x);
+    let d = want - b.ang;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    const step = BREATH_TURN * sdt;
+    b.ang += Math.abs(d) <= step || b.on < 0.05 ? d : Math.sign(d) * step;
+    t.lastAim = b.ang;
+  }
+  const was = b.on;
+  b.on = tgt ? Math.min(1, b.on + sdt * 5) : Math.max(0, b.on - sdt * 3);
+  if (was === 0 && b.on > 0) sfx.play("firenova");
+  t.anim = b.on;
+  if (b.on < 0.5) return;
+  const cosA = Math.cos(b.ang), sinA = Math.sin(b.ang), cone = st.cone || 0.42;
+  const hit = [];
+  for (const e of g.enemies) {
+    if (e.dead) continue;
+    const dx = e.x - t.x, dy = e.y - t.y, dd = Math.hypot(dx, dy);
+    if (dd > st.range + (e.size || 14) * 0.4) continue;
+    // inside the cone, with a little grace for a big body at the edge
+    const along = dx * cosA + dy * sinA, across = Math.abs(-dx * sinA + dy * cosA);
+    if (along <= 0 || across > along * Math.tan(cone) + (e.size || 14) * 0.4) continue;
+    hit.push([dd, e]);
+  }
+  if (hit.length > SPLASH_CAP) { hit.sort((u, v) => u[0] - v[0]); hit.length = SPLASH_CAP; }
+  for (const [, e] of hit) {
+    dealDamage(g, e, st.dmg * sdt, "magic", false, true, t.id);
+    if (e.dead || !st.burn) continue;
+    if (!(e.burnUntil > tms) || e.burnDps <= st.burn) { e.burnDps = st.burn; e.burnSrc = t.id; }
+    e.burnUntil = Math.max(e.burnUntil || 0, tms + st.burnDur);
+  }
+};
+
 const makeEnemy = (type, mult) => {
   const d = ENEMIES[type];
   // some foes field a mixed party: each spawn draws one look (and its pace)
@@ -762,7 +808,7 @@ export function updateGame(g, dt) {
       }
       if (e.burnUntil > tms) {
         dealDamage(g, e, e.burnDps * sdt, "magic", false, true, e.burnSrc);
-        // Wildfire Court: flames leap from burning foes to nearby unburned ones
+        // Wildheart Pyre / Hellburner: flames leap from burning foes to nearby unburned ones
         if (e.burnSpread) {
           for (const e2 of g.enemies) {
             if (e2.dead || e2 === e || e2.burnUntil > tms) continue;
@@ -774,11 +820,11 @@ export function updateGame(g, dt) {
         }
       }
       if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic", false, true, e.poisonSrc);
-      // Volcanic Throne: lava pools scorch anyone standing in them. Plague
+      // Lava and burning ground scorch anyone standing in them. Plague
       // ground is the dead's own filth — it only troubles the living knights.
       if (!e.dead) {
         for (const gr of g.grounds) {
-          if (gr.kind === "plague") continue;
+          if (gr.kind === "plague" || (gr.kind === "fire" && e.flying)) continue;
           if (gr.until <= tms || Math.hypot(e.x - gr.x, e.y - gr.y) > gr.r) continue;
           if (gr.kind === "caltrops") { e.auraSlow = Math.max(e.auraSlow, gr.slowPct || 0.35); continue; }
           dealDamage(g, e, gr.dps * sdt, "magic", false, true, gr.src);
@@ -1318,6 +1364,7 @@ export function updateGame(g, dt) {
         }
         continue;
       }
+      if (t.kind === "wizard" && t.branch === "a" && t.rank4 === "b") { breathe(g, t, sdt, tms); continue; }
       t.cd -= sdt * 1000;
       if (t.cd > 0) continue;
       const st = getStats(t);
@@ -1417,7 +1464,7 @@ export function updateGame(g, dt) {
           g.effects.push({ type: "firenova", x: t.x, y: t.y, ttl: 450, r: st.range });
           sfx.play("firenova");
           for (const e of g.enemies) {
-            if (e.dead) continue;
+            if (e.dead || e.flying) continue;
             if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
             dealDamage(g, e, st.dmg, st.dtype, false, false, t.id);
             if (!e.dead && st.burn) {
@@ -1434,7 +1481,7 @@ export function updateGame(g, dt) {
           // ring always puts one spike straight down the thickest line
           let near = null, nd = Infinity;
           for (const e of g.enemies) {
-            if (e.dead) continue;
+            if (e.dead || e.flying) continue;
             const d = (e.x - t.x) ** 2 + (e.y - t.y) ** 2;
             if (d < nd) { nd = d; near = e; }
           }
@@ -1446,7 +1493,7 @@ export function updateGame(g, dt) {
               tx: t.x + Math.cos(ang) * st.range, ty: t.y - 8 + Math.sin(ang) * st.range,
               speed: 360, delay: 0, dmg: st.dmg, dtype: st.dtype, pierce: false, splash: 0,
               burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
-              kind: "spike", src: t.id, hitsLeft: st.spikePierce || 1, hitIds: [], angle: ang,
+              kind: "spike", src: t.id, hitsLeft: st.spikePierce || 1, hitIds: [], angle: ang, ground: true,
             });
           }
         }
@@ -1516,6 +1563,12 @@ export function updateGame(g, dt) {
           t.midasIdx = ((t.midasIdx || 0) + 1) % st.midas;
           midas = t.midasIdx === 0;
         }
+        // Inferno Throne: only every Nth fireball leaves the ground burning
+        let pooled = !!st.poolDps;
+        if (pooled && st.poolEvery) {
+          t.poolIdx = ((t.poolIdx || 0) + 1) % st.poolEvery;
+          pooled = t.poolIdx === 0;
+        }
         // the Wizard Spire's orb leaves from the mage's staff at the top of
         // the spire (halls/wizard.js: spire height 18 + 6/level + 4 branched)
         const oy = t.kind === "wizard" ? 30 + 18 + t.level * 6 + (t.branch ? 4 : 0) : 30;
@@ -1525,8 +1578,8 @@ export function updateGame(g, dt) {
           tx: target.x, ty: target.y, speed: 300, delay: 0,
           dmg: st.dmg, dtype: st.dtype, pierce: !!st.pierce, splash: st.splash || 0, splashCap: st.splashCap || 0,
           burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,
-          poolDps: st.poolDps || 0, poolDur: st.poolDur || 0, poolR: st.poolR || 0,
-          burnSpreads: !!st.burnSpread, midas,
+          poolDps: pooled ? st.poolDps : 0, poolDur: st.poolDur || 0, poolR: st.poolR || 0, poolKind: st.poolKind,
+          burnSpreads: !!st.burnSpread, midas, big: pooled && !!st.poolEvery,
           kind: "orb", src: t.id,
         });
       }
@@ -1603,7 +1656,7 @@ export function updateGame(g, dt) {
       // spikes skewer whatever they pass through (no homing, no arrival hit)
       if (p.kind === "spike" || p.kind === "ball") {
         for (const e of g.enemies) {
-          if (e.dead || p.hitIds.includes(e.id)) continue;
+          if (e.dead || p.hitIds.includes(e.id) || (p.ground && e.flying)) continue;
           if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) {
             dealDamage(g, e, p.dmg, p.dtype, false, false, p.src);
             p.hitIds.push(e.id);
@@ -1649,8 +1702,8 @@ export function updateGame(g, dt) {
               if (p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = p.slow; }
             }
           }
-          // Volcanic Throne: the blast leaves a pool of living lava
-          if (p.poolDps) g.grounds.push({ src: p.src, x: p.tx, y: p.ty, r: p.poolR || 32, dps: p.poolDps, until: tms + (p.poolDur || 3000), kind: "lava" });
+          // Inferno Throne / Hellburner: the blast leaves the ground burning
+          if (p.poolDps) g.grounds.push({ src: p.src, x: p.tx, y: p.ty, r: p.poolR || 32, dps: p.poolDps, until: tms + (p.poolDur || 3000), born: tms, kind: p.poolKind || "lava" });
           // Grapeshot: the stone bursts into a spray of shrapnel
           if (p.frag) {
             g.effects.push({ type: "shrapnel", x: p.tx, y: p.ty, ttl: 420, life: 420 });

@@ -29,6 +29,7 @@ import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawLog } from "./logs.js";
 import { drawStoop } from "./birds.js";
 import { drawRingFx } from "./rings.js";
+import { drawBreath } from "./flames.js";
 import { drawRaising, raiseSecs, raiseHidesPips } from "./buildanim.js";
 import { builderDrawables } from "./builders.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
@@ -353,6 +354,8 @@ export function draw(g, canvas, bufRef) {
     beamTo(t.beamId, 1);
     if (t.beamId2 != null) beamTo(t.beamId2, 0.55);
   }
+  // Dragonbreath's held jet of flame, over the fray like the beam (flames.js)
+  for (const t of g.towers) if (t.breath && t.breath.on > 0) drawBreath(ctx, t, g.time);
 
   // Skyknight war-eagles fly free of their roosts, so they paint above the
   // fray, the mistress on their backs.

@@ -157,7 +157,7 @@ Base: A knight marches out to hold an enemy in melee. Upgrades add more swords.
 ### Wizard Spire (wizard)
 Base: Arcane blasts splash in an area — strongest at the blast's heart — and ignore armor.
 - levels.png: (A) level 1, the first hall; (B) "Adept Circle"; (C) "High Sorcery" — the same building, bigger and better built each time.
-- branch-a.png: (A) Pyromancer — Fireballs with a huge blast that set enemies ablaze — burning damage over time. (B) Volcanic Throne — Every blast births a pool of living lava that scorches all who wade through it.. (C) Wildfire Court — Flames leap hungrily from burning foes to their neighbors — one spark can eat a whole warband..
+- branch-a.png: (A) Pyromancer — Fireballs with a huge blast that set enemies ablaze — burning damage over time. (B) Inferno Throne — a throne of living flame; every fifth fireball leaves the road burning. (C) Dragonbreath — a dragon-crested spire whose mage holds a short-range flamethrower jet over the road.
 - branch-b.png: (A) Stormcaller — Lightning lashes the frontrunner and arcs down the line — no armor, no escape.. (B) Tempest Court — The storm dances: bolts leap SIX times, scouring entire columns of the horde.. (C) Thunder Sovereign — Heaven's own hammer: fewer, crueler bolts that can lock victims rigid with shock..
 
 ### Catapult (catapult)
