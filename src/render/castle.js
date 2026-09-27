@@ -98,6 +98,7 @@ const outerFace = (c, x0, x1, y0, y1, seed) => piece(c, [x0 - 1, y0 - 1, x1 + 1,
 // the snow realms, soot-grey lichen on the ash)
 const mossUp = (k, x0, y0, y1, seed) => {
   const kind = groundKind();
+  if (kind === "snow") { rimeUp(k, x0, y0, y1, seed); return; }
   const moss = kind === "snow" ? mix(REALM.GRASS_LT || "#e2ecf2", "#9aaab8", 0.25)
     : kind === "ash" ? mix(REALM.GRASS_LT || "#584a44", "#7a7068", 0.4)
     : mix(REALM.GRASS || "#82b256", "#3e5230", 0.35);
@@ -106,6 +107,23 @@ const mossUp = (k, x0, y0, y1, seed) => {
     if (h < 0.35) continue;
     const up = 1 + Math.floor(hash(seed + 98, y) * hash(seed + 97, y >> 3) * 5);
     box(k, x0, y, up * 1.2, 2, h > 0.86 ? lighten(moss, 0.18) : moss);
+  }
+};
+// rime on the damp foot in the snow realms: small ragged patches, thickest
+// at the foot and thinning up the face, in three stepped tones — pale
+// blue-white, lit cream along their upper-left edges, blue shade along
+// their lower-right — never a hard white box
+const rimeUp = (k, x0, y0, y1, seed) => {
+  const base = REALM.GRASS_LT || "#e2ecf2";
+  const body = mix(base, "#9aaab8", 0.4), lit = mix(base, "#fff3d2", 0.45), shd = mix(base, "#6e82a0", 0.6);
+  const X0 = Math.round(x0 * 2), Y0 = Math.floor(y0 * 2), Y1 = Math.ceil(y1 * 2);
+  // (how far up the face the rime climbs at this row: long low drifts with a few tongues)
+  const reach = (j) => 1 + vnoise(0, j, 22, seed + 71) * 5 + (vnoise(0, j, 6, seed + 72) > 0.62 ? 3 : 0);
+  const on = (i, j) => i >= 0 && i < reach(j) && vnoise(i, j, 2.6, seed + 73) + (hash(i + seed, j) - 0.5) * 0.12 > 0.3 + (i / reach(j)) * 0.45;
+  for (let j = Y0; j < Y1; j++) for (let i = 0; i < 10; i++) {
+    if (!on(i, j)) continue;
+    const col = !on(i - 1, j) && i > 0 || !on(i, j - 1) ? lit : !on(i + 1, j) || !on(i, j + 1) ? shd : body;
+    box(k, (X0 + i) / 2, j / 2, 0.5, 0.5, col);
   }
 };
 
@@ -702,7 +720,7 @@ const OAK_DK = "#5a3e2a";
 const towersOf = (gy) => [...wallDrums(gy).map((f) => [f, 0]), [gy + GATE_TOWER_N, -1], [gy + GATE_TOWER_S, 1]];
 
 const paintCastleStone = (ctx, gx, gy, tier) => {
-  const out = { slits: [], flags: [], torches: [], burn: [], banners: [], perches: [], smoke: null };
+  const out = { slits: [], flags: [], torches: [], burn: [], banners: [], perches: [], smoke: null, cracks: [] };
   const hurt = [];
   const yN = gy - GH, yS = gy + GH;
   const towers = towersOf(gy);
@@ -736,6 +754,7 @@ const paintCastleStone = (ctx, gx, gy, tier) => {
     for (let i = 0; i < tier * 3; i++) {
       const y = 20 + hash(i, 51) * (H - 40);
       if (Math.abs(y - gy) < 50) continue;
+      out.cracks.push(y);                  // (the ground's rubble heaps lie under these)
       crackAcross(ctx, WALL.face0 + 0.5, y, WALL.face1 - WALL.face0 + 1, i + 60);
     }
   }
@@ -766,20 +785,39 @@ const paintCastleStone = (ctx, gx, gy, tier) => {
 // A culvert through the curtain for a river: arch ring, dark mouth, grate.
 const culvert = (c, ya, yb) => {
   const S1 = CASTLE_STONE, x0 = WALL.face0, cy = (ya + yb) / 2, ry = (yb - ya) / 2 + 1;
+  // (the channel cuts through the footing course, 2.5 proud of the face, so
+  // the river's surface runs on unbroken from the field into the dark)
+  const f0 = x0 - 2.5;
   const mouth = (k, rx, r2) => {
-    k.beginPath(); k.moveTo(x0, cy - r2); k.lineTo(x0 + 1.5, cy - r2);
-    k.ellipse(x0 + 1.5, cy, rx, r2, 0, -Math.PI / 2, Math.PI / 2); k.lineTo(x0, cy + r2); k.closePath();
+    k.beginPath(); k.moveTo(f0, cy - r2); k.lineTo(x0 + 1.5, cy - r2);
+    k.ellipse(x0 + 1.5, cy, rx, r2, 0, -Math.PI / 2, Math.PI / 2); k.lineTo(f0, cy + r2); k.closePath();
   };
-  piece(c, [x0 - 2, cy - ry - 5, x0 + 12, cy + ry + 5], (k) => {
+  piece(c, [f0 - 1, cy - ry - 5, x0 + 12, cy + ry + 5], (k) => {
     mouth(k, 7.5, ry + 3.5);
     k.fillStyle = lighten(S1, 0.18); k.fill();
+    // inside the mouth the river runs on under the wall: the realm's deep water
+    // darkened in the arch's shadow, darkest up under its crown, and a pale
+    // line where it laps at the arch's foot (in art pixels, no soft edge)
+    const deep = darken((REALM.water || {}).deep || "#3a6a7c", 0.4), deeper = darken(deep, 0.3);
+    const lap = mix((REALM.water || {}).shine || "#8cc4d8", "#fff3d2", 0.3), river = darken((REALM.water || {}).deep || "#3a6a7c", 0.12);
+    const inM = (x, y) => x >= f0 && Math.abs(y - cy) < ry && (x < x0 + 1.5 || ((x - x0 - 1.5) / 4.5) ** 2 + ((y - cy) / ry) ** 2 < 1);
+    for (let y = S2(cy - ry); y < cy + ry; y += 0.5) for (let x = S2(f0); x < x0 + 6; x += 0.5) {
+      const mx = x + 0.25, my = y + 0.25;
+      if (!inM(mx, my)) continue;
+      // (under the arch's ring and up under its crown, deeper in its shadow)
+      const under = x >= x0 && (!inM(mx + 1.5, my) || !inM(mx, my - 1) || !inM(mx, my + 1));
+      box(k, x, y, 0.5, 0.5, x < x0 ? river : x < x0 + 0.5 ? (hash(Math.round(y * 2), 7) < 0.8 ? lap : deep) : under ? deeper : deep);
+    }
     mouth(k, 4.5, ry);
-    k.fillStyle = "rgba(18,14,20,0.62)"; k.fill();
     k.save(); k.clip();
     for (let y = cy - ry + 2.5; y < cy + ry - 1; y += 3.5) box(k, x0, y, 7, 1, "#4a4e5a");
     box(k, x0 + 3, cy - ry, 1, ry * 2, "#3a3e48");
     k.restore();
   });
+  // (and no ink across the river where it enters the channel: the water runs
+  // on over the footing's and the channel's west edge)
+  const river = darken((REALM.water || {}).deep || "#3a6a7c", 0.12);
+  for (let y = S2(cy - ry) + 0.5; y < cy + ry - 0.5; y += 0.5) box(c, f0 - 1.5, y, 1.5, 0.5, river);
 };
 
 // A crack up a face: a jagged dark line with a sunlit lip on its left.
@@ -1047,6 +1085,9 @@ const threshold = (B, gy, P, Q, full) => {
   const id = new Int32Array(TW * TH).fill(-1);
   const S = [];
   const startX = (dy) => (paved ? PAVE_X + 7.5 : PAVE_X - 1 + vnoise(3, dy, 7, seed) * 9 + Math.abs(dy) * 0.08);
+  // the Marches' setts are held in by a kerb down each side, as their road is:
+  // its outer edge carrying on the road's own and swinging out with the flare
+  const KW = 3.5, kerbO = (x) => Math.max(hwAt(x), PATH_HALF), inKerb = (x, y) => paved && Math.abs(y - gy) >= kerbO(x) - KW;
   const rutAt = (dy) => clamp01(1 - Math.abs(Math.abs(dy) - 11.5) / 2.2);
   const wearAt = (dy) => Math.max(clamp01(1 - Math.abs(dy) / 7) * 0.7, rutAt(dy));
   const east = (dy) => Math.round((Math.abs(dy) <= PATH_HALF - 1 ? SILL_X : GATE.face0 - 1.5) * 2);
@@ -1072,7 +1113,7 @@ const threshold = (B, gy, P, Q, full) => {
       // further out, the more (the ones by the sill lie straight along it)
       const shift = Math.round(bow * (dy / 40) ** 2 * 2) / 2;
       const xs0 = xr - cw + shift, xs1 = xr + shift, xm = (xs0 + xs1) / 2;
-      const out = ady + 1 - hwAt(xm) + (hs(204) - 0.5) * 3.5;
+      const out = paved ? ady - kerbO(xm) + KW - 0.5 : ady + 1 - hwAt(xm) + (hs(204) - 0.5) * 3.5;
       if (out > 0) continue;
       // how near the flare's edge (ef), and whether that edge is the grass
       // beyond the road or only the road's own dirt (inside it, the edge is dirt)
@@ -1081,7 +1122,7 @@ const threshold = (B, gy, P, Q, full) => {
       const dens = paved ? (xm >= st ? 1 : 0) : clamp01((xm - st) / 7);
       let there = hs(203) < dens;
       if (!paved && !there && xm > st - 5 && hs(205) < 0.06) there = true;     // a stray sett out ahead
-      if (there && ef > 0.45 && hs(206) < (ef - 0.45) * 0.9) there = false;   // gone to grass at the edge
+      if (!paved && there && ef > 0.45 && hs(206) < (ef - 0.45) * 0.9) there = false;   // gone to grass at the edge
       const sk = paved ? 0 : Math.max(clamp01(1 - (xm - st) / 11), (ef0 - grassy) * 0.6), w = wearAt(dy);
       // how deep the realm's snow lies on it: the field, and the setts out in the road
       const sf = snowy ? snowF(xm, dy) : 0, cov = snowy ? clamp01(Math.max(sf, sk * 1.2)) : 0;
@@ -1107,6 +1148,7 @@ const threshold = (B, gy, P, Q, full) => {
       const n = S.length - 1, lim = east(dy);
       for (let py = Math.round(y0s * 2); py < Math.round(y1s * 2); py++) for (let px = Math.round(xs0 * 2); px < Math.round(xs1 * 2) && px < lim; px++) {
         const i = px - TX0, j = py - TY0;
+        if (inKerb((px + 0.5) / 2, (py + 0.5) / 2)) continue;                   // (cut against the kerb)
         if (i >= 0 && j >= 0 && i < TW && j < TH) id[j * TW + i] = n;
       }
     }
@@ -1264,6 +1306,52 @@ const threshold = (B, gy, P, Q, full) => {
       }
       y = b;
     }
+    // the kerbs: long dressed stones a shade paler than the setts, a mortar
+    // joint along the setts, each stone lit on its upper-left edges and dark
+    // on its lower-right, its joints square to the curve; the south kerb's
+    // face shows with the turf in its shadow, the turf laps the north one
+    const kx0 = PAVE_X + 4.5, kx1 = GATE.face0 + 1;
+    // (where another arm of the road joins the flare — the road bending in
+    // from the south, say — the kerb gives way to it; its last run into the
+    // gate is the flare itself)
+    const arms = [];
+    for (let i = 0; i + 1 < PTS.length; i++) {
+      const [ax, ay] = PTS[i], [bx, by] = PTS[i + 1];
+      if ((Math.abs(ay - gy) < 4 && Math.abs(by - gy) < 4) || Math.max(ax, bx) < kx0 - PATH_HALF) continue;
+      arms.push([ax, ay, bx - ax, by - ay]);
+    }
+    const onArm = (x, y) => arms.some(([ax, ay, dx, dy]) => {
+      const L2 = dx * dx + dy * dy || 1, t = ((x - ax) * dx + (y - ay) * dy) / L2;
+      return t >= 0 && t <= 1 && (ax + dx * t - x) ** 2 + (ay + dy * t - y) ** 2 < (PATH_HALF - 1) ** 2;
+    });
+    for (const side of [-1, 1]) {
+      const cuts = [kx0];
+      for (let x = kx0, q = 0; x < kx1; q++) { x += 5.5 + hash(q, 230 + seed + side) * 3.5; cuts.push(x); }
+      for (let px = Math.round(kx0 * 2); px < Math.round(kx1 * 2); px++) {
+        const x = (px + 0.5) / 2, o = kerbO(x), inner = o - KW, sl = kerbO(x + 0.5) - kerbO(x - 0.5);
+        const yA = Math.round((gy + side * (side < 0 ? o : inner)) * 2), yB = Math.round((gy + side * (side < 0 ? inner : o)) * 2);
+        for (let py = yA; py < yB + (side > 0 ? 2 : 0); py++) {
+          const y = (py + 0.5) / 2;
+          if ((!full && Math.abs(y - gy) < PATH_HALF - 3) || onArm(x, y)) continue;
+          if (py >= yB) {
+            // the south kerb's face, and its shadow on the turf below
+            B.put(px, py, py === yB ? dkC(toneC(Q.stones[0], 0.1), 0.42) : PLUM, py === yB ? 1 : 0.28);
+            continue;
+          }
+          const t = x + (Math.abs(y - gy) - inner) * sl;
+          let c = 0; while (c + 1 < cuts.length && cuts[c + 1] <= t) c++;
+          const dl = t - cuts[c], dr = cuts[c + 1] - t, top = py === yA, bot = py === yB - 1;
+          const col = toneC(Q.stones[0], 0.1 + (hash(c, 231 + seed + side) - 0.5) * 0.08);
+          // (the joint along the setts is mortar; the turf laps the north kerb's crest)
+          if (side < 0 ? bot : top) { B.put(px, py, Q.mortar); continue; }
+          if (side < 0 && top && vnoise(x, y, 2.2, seed + 232) > 0.55) continue;
+          let pc = dl < 0.5 ? Q.mortar : dl < 1 || (side < 0 ? top || py === yA + 1 && vnoise(x, y, 2.2, seed + 232) > 0.55 : py === yA + 1) ? litC(col, 0.16)
+            : dr < 0.5 || (side < 0 ? py === yB - 2 : bot) ? dkC(col, 0.2) : col;
+          if (pc !== Q.mortar && hash(px * 3 + 1, py * 7 + side) < 0.04) pc = dkC(col, 0.1);   // pocked
+          B.put(px, py, pc);
+        }
+      }
+    }
   }
   if (!full) return;
   // the sill across the arch's mouth: long dressed slabs, a shade darker than
@@ -1302,6 +1390,10 @@ const threshold = (B, gy, P, Q, full) => {
   }
 };
 
+// on the beach or in the sea: the coast's own sand runs right up to the
+// footing there, with no trodden earth over it (COAST is null off the coast)
+const shore = (x, y) => !!TERRAIN.COAST && (TERRAIN.onSand(x, y) || TERRAIN.inSea(x, y));
+
 // -- the apron along the wall's foot --
 const apron = (B, gy, P, Q, towers) => {
   const k = P.kind, [DAMP, BODY, LIT] = Q.apron, seed = 5;
@@ -1316,6 +1408,7 @@ const apron = (B, gy, P, Q, towers) => {
       // of foam just off it
       if (!inRiverAt(fx, y)) continue;
       for (let px = fa - 10; px < fa - 2; px++) B.put(px, ay, [20, 24, 32], 0.2);
+      if (fx === WALL.face0 - 2.5 && inRiverAt(WALL.face0 - 1, y) && Math.abs(y - gy) > 60) continue;   // (it runs on into the culvert)
       if (hash(fa, ay >> 1) > 0.15) B.put(fa - 1, ay, [240, 248, 250], 0.8);
       if (hash(fa + 1, ay >> 1) > 0.5) B.put(fa - 2, ay, [240, 248, 250], 0.5);
       if (vnoise(0, y, 3, seed + 8) > 0.6) B.put(fa - 4 - ((vnoise(0, y, 7, seed + 9) * 3) | 0), ay, [236, 244, 246], 0.4);
@@ -1327,6 +1420,8 @@ const apron = (B, gy, P, Q, towers) => {
     const grav = (k === "marsh" ? 0.08 : 0.16) * (0.4 + vnoise(0, y, 9, seed + 7) * 1.2), mossy = k !== "snow" && k !== "ash" && vnoise(0, y, 7, seed + 6) > 0.55;
     for (let px = fa - Math.ceil((wd + 6) * 2); px < fa; px++) {
       const x = (px + 0.5) / 2, e = fx - x;
+      // (on the sand only the footing's own shadow, one art pixel)
+      if (shore(x, y)) { if (px === fa - 1) B.shade(px, ay, 0.28); continue; }
       const edge = e < wd - 1 ? wd : wd + (vnoise(x, y, 2.6, seed + 3) - 0.5) * 1.8;   // (ragged only where it matters)
       // (tone edges break up in little clumps, never in a dither)
       const bz = vnoise(x, y, 1.1, seed + 12);
@@ -1381,7 +1476,7 @@ const paintGroundUnder = (c, gy, full, B) => {
 // what lies over the wall's foot: earth and turf banked against the footing,
 // clumps of the realm's ground, fallen stones; and at the dusky realms a
 // brazier each side of the threshold
-const paintGroundOver = (c, gx, gy, tier, out, B) => {
+const paintGroundOver = (c, gx, gy, tier, out, B, cracks = []) => {
   const P = groundPal(), Q = pixPal(P), towers = towersOf(gy), r = P.r, k = P.kind;
   const clear = (y) => Math.abs(y - gy) > PATH_HALF + 1;
   const turfT = k === "snow" ? [[250, 252, 255], RGB(lighten(r.GRASS_LT, 0.1)), RGB(mix(r.GRASS, "#8aa2b8", 0.35))]
@@ -1396,7 +1491,7 @@ const paintGroundOver = (c, gx, gy, tier, out, B) => {
   let lastTuft = -99;
   for (let py = -20; py < (H + 10) * 2; py++) {
     const y = (py + 0.5) / 2, fx = footAt(y, gy, towers);
-    if (!clear(y) || isWet(fx - 2, y)) continue;
+    if (!clear(y) || isWet(fx - 2, y) || shore(fx - 3, y)) continue;
     const ext = bankAt(y);
     if (ext <= 0.3) continue;
     // a tower's corner breaks the bank off square
@@ -1432,8 +1527,10 @@ const paintGroundOver = (c, gx, gy, tier, out, B) => {
   // clumps of the realm's ground along the foot
   for (let y = -6, i = 0; y < H + 6; y += 9 + hash(i, 30) * 10, i++) {
     const fx = footAt(y, gy, towers);
-    if (!clear(y) || isWet(fx - 3, y) || hash(i, 31) < 0.2) continue;
-    const bx = Math.round((fx - (hash(i, 32) > 0.72 ? 6 + hash(i, 33) * 3 : 1.5 + hash(i, 33) * 1.5)) * 2), by = Math.round(y * 2);
+    if (!clear(y) || isWet(fx - 3, y) || shore(fx - 3, y) || hash(i, 31) < 0.2) continue;
+    // (the snow's mounds lie out on the trodden snow, never astride the footing)
+    const off = hash(i, 32) > 0.72 ? 6 + hash(i, 33) * 3 : k === "snow" ? 4.5 + hash(i, 33) * 2 : 1.5 + hash(i, 33) * 1.5;
+    const bx = Math.round((fx - off) * 2), by = Math.round(y * 2);
     pxClump(B, P, Q, bx, by, i * 7 + 3);
   }
   // fallen stones: a few old ones long settled into the ground (where, as the
@@ -1450,7 +1547,7 @@ const paintGroundOver = (c, gx, gy, tier, out, B) => {
     pieces.push([Math.round((fx - 3 - hash(i + rs, 41) * 6) * 2) - w, Math.round(y * 2), w, h, toneC(stone, -0.1 + (hash(i + rs, 44) - 0.5) * 0.1), i + rs]);
   }
   const heaps = [];
-  for (let i = 0; i < tier; i++) { const y = 20 + hash(i, 51) * (H - 40); if (Math.abs(y - gy) >= 50) heaps.push([y, 0.8 + tier * 0.15]); }
+  for (const y of cracks.slice(0, tier)) heaps.push([y, 0.8 + tier * 0.15]);
   if (tier >= 3) {
     const plain = towers.filter(([, g]) => !g).map(([f]) => f).sort((p, q) => p - q);
     heaps.push([gy + GATE_TOWER_N, 1.3]);
@@ -1481,7 +1578,7 @@ const paintGroundOver = (c, gx, gy, tier, out, B) => {
   // a clump or two either side of the threshold, where the flare meets the grass
   for (const side of [-1, 1]) for (let q = 0; q < 3; q++) {
     const x = GATE.face0 - 3 - q * 6 - hash(q, side + 60) * 2, y = gy + side * (hwAt(x) + 1.5 + hash(q, side + 61) * 2);
-    if (!isWet(x, y)) pxClump(B, P, Q, Math.round(x * 2), Math.round(y * 2), 50 + q + side * 3);
+    if (!isWet(x, y) && !shore(x, y)) pxClump(B, P, Q, Math.round(x * 2), Math.round(y * 2), 50 + q + side * 3);
   }
   // braziers on the kerb corners where the realm is dark enough to want them:
   // an iron bowl of coals on three legs (the fire in it is live)
@@ -1519,10 +1616,12 @@ const pxClump = (B, P, Q, bx, by, seed) => {
     pxTuft(B, bx, by, n, Q.blades, seed, 0.8);
     const row = (y, a, b, f) => { for (let i = a; i < b; i++) B.put(x0 + i, y, f(i - a, b - a)); };
     const mid = w >> 1;
-    row(by - 2, mid - 1, mid + 1, (i) => (i === 0 ? Q.snow[2] : Q.snow[1]));
-    row(by - 1, mid - 2, mid + 2, (i, m) => (i === 0 ? Q.snow[2] : i === m - 1 ? Q.snow[3] : Q.snow[1]));
-    row(by, 0, w, (i, m) => (i === m - 1 ? Q.snow[0] : i > m - 3 ? Q.snow[3] : Q.snow[1]));
-    row(by + 1, 1, w - 1, () => Q.snow[0]);
+    // (lit cream on its upper-left, never a paper white, so it sits in the snow)
+    const lit = mixC(Q.snow[1], CREAM, 0.25);
+    row(by - 2, mid - 1, mid + 1, (i) => (i === 0 ? lit : Q.snow[1]));
+    row(by - 1, mid - 2, mid + 2, (i, m) => (i === 0 ? lit : i === m - 1 ? Q.snow[3] : Q.snow[1]));
+    row(by, 0, w, (i, m) => (i === 0 ? Q.snow[3] : i === m - 1 ? Q.snow[0] : i > m - 3 ? Q.snow[3] : Q.snow[1]));
+    row(by + 1, 1, w - 1, (i, m) => (i < 2 ? Q.snow[3] : Q.snow[0]));
     B.shade(x0 + w - 1, by + 1, 0.15);
     return;
   }
@@ -1542,11 +1641,15 @@ const pxClump = (B, P, Q, bx, by, seed) => {
   if (k === "turf" && hash(seed, 9) > 0.5) pxRubble(B, bx - 6, by + 3, 4, 3, RGB(P.pebble), seed, false);
 };
 
-const GROUND = { key: "", under: null, over: null, x0: 0, y0: -14, w: 0, h: 0, braziers: [], fresh: false, bakeShort: null, shortCv: null };
+const GROUND = { key: "", under: null, x0: 0, y0: -14, w: 0, h: 0, braziers: [], fresh: false, bakeShort: null, shortCv: null, bakeOver: null, overCv: null };
 // Without the hook in draw.js the ground is laid after the horde has been
 // drawn, so then it keeps off the road where they walk. The game always has
 // the hook, so that version is only baked if something asks for it.
 Object.defineProperty(GROUND, "short", { get() { if (!this.shortCv && this.bakeShort) this.shortCv = this.bakeShort(); return this.shortCv; } });
+// What lies over the wall's foot is baked when it is first drawn, after the
+// stone of the same tier, so its rubble heaps lie under the curtain's cracks
+// (paintCastleStone hands them out as CASTLE.cracks).
+Object.defineProperty(GROUND, "over", { get() { if (!this.overCv && this.bakeOver) this.overCv = this.bakeOver(); return this.overCv; } });
 const groundBakes = (gx, gy, tier) => {
   const key = `${gx}|${gy}|${W}|${H}|${REALM.id}|${PX}`;
   if (typeof document === "undefined") return GROUND.under ? GROUND : null;
@@ -1561,9 +1664,13 @@ const groundBakes = (gx, gy, tier) => {
     });
   }
   if (GROUND.tier !== tier) {
-    const out = { braziers: [] };
-    GROUND.over = layer((c, B) => paintGroundOver(c, gx, gy, tier, out, B));
-    GROUND.braziers = out.braziers; GROUND.tier = tier;
+    GROUND.tier = tier; GROUND.overCv = null; GROUND.braziers = [];
+    GROUND.bakeOver = () => {
+      const out = { braziers: [] };
+      const cv = layer((c, B) => paintGroundOver(c, gx, gy, tier, out, B, CASTLE.cracks || []));
+      GROUND.braziers = out.braziers;
+      return cv;
+    };
   }
   return GROUND;
 };

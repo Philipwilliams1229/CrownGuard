@@ -44,7 +44,6 @@ import { CHEVRONS, DECOR, BRIDGES, PONDS, RIVERS, inRiver } from "../data/terrai
 import { lighten, darken, mix, rgb, hash, SUN } from "./paint.js";
 
 // ---- small tools -------------------------------------------------------
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => v / 16 - 0.47);
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const smooth = (v) => { const t = clamp01(v); return t * t * (3 - 2 * t); };
 // the direction the light comes FROM, as a unit vector
@@ -91,6 +90,19 @@ const rndTable = () => {
   RND = new Float32Array(65536);
   for (let i = 0; i < 65536; i++) RND[i] = hash(i, 99173);
   return RND;
+};
+// Clumps: a value noise about four art pixels across, read from the table
+// (no lattice to build). Tone edges, the bank's shadow and the worn verge
+// break up in little clumps with it — never in an ordered (Bayer) dither,
+// which shows as a checkerboard wherever a tone sits on a threshold.
+// Returns about -0.5 .. 0.5.
+const clumpAt = (RT, x, y) => {
+  const fx = x * 0.55, fy = y * 0.55, xi = Math.floor(fx), yi = Math.floor(fy);
+  let u = fx - xi, w = fy - yi;
+  u = u * u * (3 - 2 * u); w = w * w * (3 - 2 * w);
+  const r0 = ((yi + 77) & 255) << 8, r1 = ((yi + 78) & 255) << 8, c0 = (xi + 151) & 255, c1 = (xi + 152) & 255;
+  const A = RT[r0 | c0], B = RT[r0 | c1], C = RT[r1 | c0], D = RT[r1 | c1];
+  return (A + (B - A) * u) * (1 - w) + (C + (D - C) * u) * w - 0.5;
 };
 
 // a polyline measured, so details can be laid along it
@@ -378,7 +390,7 @@ export function paintRoadStrip(ctx, pts, o = {}) {
           if (dF < dist && gl > 0.01) { dist = dF; s = (gx * SX + gy * SY) / gl; }
         }
         const ax = Math.floor(x * 2 + 1e-4), ay = Math.floor(y * 2 + 1e-4);    // the world's art pixel
-        const dz = BAYER[(ay & 3) * 4 + (ax & 3)], rn = (ay & 255) << 8 | (ax & 255);
+        const dz = clumpAt(RT, x, y), rn = (ay & 255) << 8 | (ax & 255);
         // (where along the road, for the sampled profiles)
         const fa = (al + extS) / STEP, ia = fa < 0 ? 0 : fa > nS - 2 ? nS - 2 : fa | 0, ua = fa - ia < 0 ? 0 : fa - ia > 1 ? 1 : fa - ia;
         const edgeR = paved ? HALF - 0.4 : dist < EDGE_IN ? HALF : HALF - 0.7 + (nEdge(x, y) - 0.5) * 3.4 + wand[ia] + (wand[ia + 1] - wand[ia]) * ua;
@@ -406,7 +418,7 @@ export function paintRoadStrip(ctx, pts, o = {}) {
           const vw = 2.2 + nVerge(x, y) * 4.2;
           if (e < vw) {
             const f = 1 - e / vw;
-            if (f * 0.9 + dz * 0.6 > 0.42) {
+            if (f * 0.9 + dz * 0.75 + (RT[rn ^ 0x2e2e] - 0.5) * 0.12 > 0.42) {
               const t = L.wornT * (0.55 + 0.45 * f), c = L.wornC;
               d[o4] += (c[0] - d[o4]) * t; d[o4 + 1] += (c[1] - d[o4 + 1]) * t; d[o4 + 2] += (c[2] - d[o4 + 2]) * t;
             }
@@ -429,8 +441,8 @@ export function paintRoadStrip(ctx, pts, o = {}) {
         if (WATER) v -= (wet[ia] + (wet[ia + 1] - wet[ia]) * ua) * 0.14;
         // the bank's shadow thrown into the road along the sunward edge
         const inside = -e;
-        if (s > 0.2 && inside < (0.6 + 2.6 * (s - 0.2)) + dz * 0.8) v -= 0.17;
-        const ti = v + dz * 0.07;
+        if (s > 0.2 && inside < (0.6 + 2.6 * (s - 0.2)) + dz * 1.1) v -= 0.17;
+        const ti = v + dz * 0.06;
         let idx = ti < 0.25 ? 0 : ti < 0.4 ? 1 : ti < 0.63 ? 2 : ti < 0.79 ? 3 : 4;
         // twin cart ruts: crisp grooves four art pixels across — a dark wall
         // on the sun's side, a floor two pixels wide, a lit lip on the far
@@ -861,17 +873,13 @@ const chevronSprites = () => {
   const M = measure(PTS), SG = M.segs;
   const segAt = (dd) => { let lo = 0, hi = SG.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (dd <= SG[m].start + SG[m].len) hi = m; else lo = m + 1; } return lo; };
   const leg = (si, step) => { for (let j = si; j >= 0 && j < SG.length; j += step) if (SG[j].len >= 14) return SG[j]; return SG[si]; };
-  const list = CHEVRONS.map((c) => {
-    if (BRIDGES.some((b) => c.d > b.d0 - 8 && c.d < b.d1 + 8)) return null;
-    const si = segAt(c.d), sc = SG[si];
-    let ang = c.a;
-    if (sc && sc.len < 14) {
-      const a = leg(si, -1), b = leg(si, 1);
-      const ti = Math.abs(turnOf(sc.ux, sc.uy, a.ux, a.uy)), to = Math.abs(turnOf(sc.ux, sc.uy, b.ux, b.uy));
-      const g = ti < to - 0.1 ? a : b;
-      ang = Math.atan2(g.uy, g.ux);
-    }
-    const ca = Math.cos(ang), sa = Math.sin(ang);
+  // Every chevron points along one of the four quarters (the road's legs run
+  // across and up and down the board): a chevron at a slant is an L, a box
+  // corner, and bakes thick and dark where its arms lie on the pixel grid.
+  // So there are four sprites, each one exact and symmetric, and every
+  // chevron — on a straight, in a bend, on a slanting leg — reads the same.
+  const bake = (ang) => {
+    const ca = Math.round(Math.cos(ang)), sa = Math.round(Math.sin(ang));
     const dAt = (i, j) => {
       const lx = (i + 0.5) / RES - CHEV / 2, ly = (j + 0.5) / RES - CHEV / 2;
       const u = lx * ca + ly * sa, v = -lx * sa + ly * ca;
@@ -908,9 +916,28 @@ const chevronSprites = () => {
       if (D[j * n + i] < 0.5) return glowHot;
       return grooved(i - 1, j - 1) && grooved(i, j - 1) && grooved(i + 1, j + 1) && grooved(i, j + 1) ? glowC : null;
     });
-    return { groove, glow, x: Math.round((c.x - CHEV / 2) * RES) / RES, y: Math.round((c.y - CHEV / 2) * RES) / RES };
+    return { groove, glow };
+  };
+  const QUART = [];
+  const list = CHEVRONS.map((c) => {
+    if (BRIDGES.some((b) => c.d > b.d0 - 8 && c.d < b.d1 + 8)) return null;
+    const si = segAt(c.d), sc = SG[si];
+    let ang = c.a;
+    if (sc && sc.len < 14) {
+      const a = leg(si, -1), b = leg(si, 1);
+      const ti = Math.abs(turnOf(sc.ux, sc.uy, a.ux, a.uy)), to = Math.abs(turnOf(sc.ux, sc.uy, b.ux, b.uy));
+      const g = ti < to - 0.1 ? a : b;
+      ang = Math.atan2(g.uy, g.ux);
+    }
+    const q = ((Math.round(ang / (Math.PI / 2)) % 4) + 4) % 4;
+    const spr = QUART[q] || (QUART[q] = bake(q * Math.PI / 2));
+    return { groove: spr.groove, glow: spr.glow, x: Math.round((c.x - CHEV / 2) * RES) / RES, y: Math.round((c.y - CHEV / 2) * RES) / RES };
   });
-  CHEVS = { key, list, restA: bright ? 0.85 : 0.62, glowRest: bright ? 0.5 : 0.34, glowOff: bright ? 0.2 : 0 };
+  // (at rest a groove is stamped a little see-through, so the road shows in
+  // it; on paving it goes solid and keeps a faint light in it, or at 1x it
+  // reads as one more joint between the flags)
+  const paved = style === "paved";
+  CHEVS = { key, list, restA: bright ? 0.85 : paved ? 1 : 0.8, glowRest: bright || paved ? 0.5 : 0.34, glowOff: bright ? 0.2 : paved ? 0.24 : 0 };
   return CHEVS;
 };
 
