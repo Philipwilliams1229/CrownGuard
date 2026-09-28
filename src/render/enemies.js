@@ -113,16 +113,20 @@ export const drawEnemy = (ctx, e, time, tms) => {
   if (rigged) {
     // rigged foes: baked frames, feet on the ground line, mirrored to face
     const rsheet = fighting && !airborne ? "fight" : "walk";
-    const n = rsheet === "fight" ? 2 : 4;
     const def = rigDef(skin);
-    // walkers step to the ground they cover; fliers and fighters keep time
-    // a foe held in a melee trades blows on its own clock (engine meleeCd,
-    // reset to atkRate at each blow): the wind-up (frame 0) over the last
-    // 45% of the wait, the strike (frame 1, with the lunge) from the blow on
+    const n = rsheet === "fight" ? def.fightN || 2 : 4;
+    // walkers step to the ground they cover; fliers and fighters keep time.
+    // A foe held in a melee trades blows on its own clock (engine meleeCd,
+    // reset to atkRate at each blow, atkAnim 200 ms from it): a two-frame
+    // rig winds up (0) over the last 45% of the wait and strikes (1, with
+    // the lunge) from the blow on; a rig with `fightN: 4` guards (0), winds
+    // up (1), strikes (2) and follows through (3) into the next wait.
     const clocked = rsheet === "fight" && e.atkRate > 0 && (e.meleeCd > 0 || e.atkAnim > 0);
     const rframe = rsheet === "walk" && !def.fly
       ? Math.floor((e.gait || 0) * (def.kind === "beast" ? 1.6 : 1.2) + e.id) % n
-      : clocked ? (e.atkAnim > 0 || e.meleeCd > e.atkRate * 0.45 ? 1 : 0)
+      : clocked ? (n === 4
+        ? (e.atkAnim > 110 ? 2 : e.atkAnim > 0 || e.meleeCd > e.atkRate * 0.8 ? 3 : e.meleeCd < e.atkRate * 0.45 ? 1 : 0)
+        : (e.atkAnim > 0 || e.meleeCd > e.atkRate * 0.45 ? 1 : 0))
       : Math.floor(time * (rsheet === "fight" ? 5 : 8) + e.id) % n;
     const feet = e.y + e.size * 0.55 + hover;
     const variant = e.revived ? "revived" : "";
@@ -216,7 +220,10 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   const fighting = u.state === "fighting", f = u.face < 0 ? -1 : 1;
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 9, u.id, 0.18, time);
   softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24);
-  drawRig(ctx, rig, u.x, u.y + 9, u.face, fighting ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 9 + u.id) % 4 : fighting ? (u.swing > 0 ? 1 : 0) : 0);
+  // a blade with four fight frames (its rig's fightN) plays them off its
+  // attack clock like the garrison (fightFrame); two-frame ones lunge on the cut
+  const bladeF = !fighting ? 0 : (rigDef(rig)?.fightN || 2) === 4 ? fightFrame4(u, getStats(t).rate) : u.swing > 0 ? 1 : 0;
+  drawRig(ctx, rig, u.x, u.y + 9, u.face, fighting ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 9 + u.id) % 4 : bladeF);
   // the Plague Bearer's censer breathes: a spore or two drifting up off it
   if (r4 === "bb") {
     for (let i = 0; i < 2; i++) {
@@ -282,13 +289,14 @@ const drawSkiff = (ctx, u, t, time) => {
 // reach to the quiver, nock and draw, then hold at full draw till the next.
 // Two-frame rigs keep their pair (0 just after a blow, 1 otherwise).
 const WIND = 0.35;
-const fightFrame = (kind, u, rate, ranged) => {
+function fightFrame4(u, rate) { const r = rate || 800; return u.swing > 80 ? 2 : u.swing > 0 ? 3 : u.atkCd > 0 && u.atkCd < r * WIND ? 1 : 0; }
+function fightFrame(kind, u, rate, ranged) {
   const n = (CROWN.CROWN_FIGHT_FRAMES && CROWN.CROWN_FIGHT_FRAMES[kind]) || 2;
   if (n < 4) return ranged ? (u.swing > 0 ? 1 : 0) : (u.swing > 90 ? 0 : 1);
   const r = rate || 800;
   if (ranged) return u.swing > 80 ? 1 : u.swing > 0 ? 2 : u.atkCd > r * 0.45 ? 3 : 0;
-  return u.swing > 80 ? 2 : u.swing > 0 ? 3 : u.atkCd > 0 && u.atkCd < r * WIND ? 1 : 0;
-};
+  return fightFrame4(u, r);
+}
 
 export const drawKnightUnit = (ctx, u, t, time) => {
   if (u.state === "dead") return;
