@@ -179,9 +179,11 @@ call for you — a bespoke limb logs its own). Nothing ships red.
   body (lean, shift the hips with `legs(..., { hip })`, step), never the
   bone. The lab warns at 5% and fails at 10%.
 - **Knees** fold forward only (the shin swings back), as `legs()` does.
-- **Wrists:** a held tool carries on roughly along the forearm (within
-  ~60°); a hammer's or staff's head leads the swing, it never trails back
-  along the arm.
+- **Wrists:** a haft or hilt in a fist crosses it — about 90° to the
+  forearm with the wrist straight; the wrist tips it toward the forearm's
+  line for a thrust or at the end of a blow, and never folds it back toward
+  the elbow (more than ~120° off the forearm's line). A hammer's or staff's
+  head leads the swing on an arc; it never trails back along the arm.
 
 **Motion:**
 - **No two-frame toggles for an action.** Anticipation → action →

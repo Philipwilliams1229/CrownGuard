@@ -11,7 +11,7 @@
 // re-exported here. This file keeps the build crew.
 
 import { lighten, darken, shadow, roundRect, lin, part } from "./paint.js";
-import { limb, blob, dab, head, torso, legs, hand, arm, cap, logJoint } from "./folk-kit.js";
+import { limb, blob, dab, head, torso, legs, hand, arm, cap, UPPER, FORE } from "./folk-kit.js";
 export * from "./folk-kit.js";
 export * from "./folk-archer.js";
 export * from "./folk-casters.js";
@@ -73,16 +73,23 @@ const workLeg = (ctx, hx, hy, [ax, ay, ang], col, bootCol) => {
   limb(ctx, kx, ky, ax, ay, 2.3, col);
   bootAt(ctx, ax, ay, ang, bootCol);
 };
-// an arm from the shoulder to the hand: [hx, hy, bend (1 elbow down, -1
-// up), ex, ey] — a raised arm names its elbow, so it lifts in front of the
-// face rather than across it
-const workArm = (ctx, sx, sy, [hx, hy, bend = 1, ex, ey], pal, col) => {
-  if (ex === undefined) { arm(ctx, sx, sy, hx, hy, pal, { col, bend }); return; }
-  logJoint(ctx, "arm", [sx, sy], [ex, ey], [hx, hy]);
-  limb(ctx, sx, sy, ex, ey, 2.4, col);
-  limb(ctx, ex, ey, hx, hy, 2.2, col);
-  hand(ctx, hx, hy, pal.skin);
+// an arm from the shoulder to the hand [hx, hy]: the kit's arm() solves the
+// elbow (fixed bones, the natural fold); a hand out of reach was pulled in
+// by reachIn first, so the bones never stretch
+const workArm = (ctx, sx, sy, [hx, hy], pal, col) => arm(ctx, sx, sy, hx, hy, pal, { col });
+const REACH = UPPER + FORE - 0.1;
+const reachIn = (sh, h) => {
+  const dx = h[0] - sh[0], dy = h[1] - sh[1], L = Math.hypot(dx, dy);
+  return L <= REACH ? h : [sh[0] + (dx * REACH) / L, sh[1] + (dy * REACH) / L, ...h.slice(2)];
 };
+// a hand placed by the shoulder's swing (0 hanging, + forward, degrees) and
+// the elbow's bend (0 straight, + folding the forearm forward and up)
+const handBy = (sh, swing, bend) => {
+  const a = (swing * Math.PI) / 180, b = ((swing + bend) * Math.PI) / 180;
+  return [sh[0] + Math.sin(a) * UPPER + Math.sin(b) * FORE, sh[1] + Math.cos(a) * UPPER + Math.cos(b) * FORE];
+};
+// the forearm's screen angle for that hand (for what the fist holds)
+const foreBy = (swing, bend) => { const b = ((swing + bend) * Math.PI) / 180; return Math.atan2(Math.cos(b), Math.sin(b)); };
 
 // the tools and loads, in the upper body's frame
 const malletAt = (ctx, hx, hy, ang) => part(ctx, (c) => {
@@ -143,8 +150,9 @@ const workHead = (ctx, pal, look, tilt) => {
 };
 
 // One posed figure. S: { hip: [x, y], lean, tilt, legs: [near, far] as
-// [ankleX, ankleY, bootAngle] in foot space, hands: [near, far] as [x, y,
-// bend] in the upper body's frame (origin at the hip, turned by lean),
+// [ankleX, ankleY, bootAngle] in foot space, hands: [near, far] as [x, y]
+// in the upper body's frame (origin at the hip, turned by lean; the elbows
+// are solved),
 // mallet: angle | null (in the near hand), load: { kind, x, y, a } | null,
 // flap }.
 const SH_N = [0.9, -8.6], SH_F = [-1.0, -8.8];
@@ -152,20 +160,26 @@ const workerBody = (ctx, pal, look, S) => {
   const [hx, hy] = S.hip;
   const farC = darken(pal.coat, 0.2);
   const up = (fn) => { ctx.save(); ctx.translate(hx, hy); ctx.rotate(S.lean || 0); fn(); ctx.restore(); };
+  // hands out of reach come in along the arm, and what they hold with them
+  const hn = reachIn(SH_N, S.hands[0]), hf = reachIn(SH_F, S.hands[1]);
+  let L = S.load;
+  if (L && L.kind === "block") {
+    const mx = (hn[0] - S.hands[0][0] + hf[0] - S.hands[1][0]) / 2, my = (hn[1] - S.hands[0][1] + hf[1] - S.hands[1][1]) / 2;
+    if (mx || my) L = { ...L, x: L.x + mx, y: L.y + my };
+  }
   // the far arm, behind everything
-  up(() => workArm(ctx, SH_F[0], SH_F[1], S.hands[1], pal, farC));
+  up(() => workArm(ctx, SH_F[0], SH_F[1], hf, pal, farC));
   workLeg(ctx, hx - 0.5, hy, S.legs[1], darken(pal.boots, 0.14), darken(pal.boots, 0.28));
   workLeg(ctx, hx + 0.5, hy, S.legs[0], pal.boots, darken(pal.boots, 0.18));
   up(() => {
     torso(ctx, 0, -9.2, 10, 7, pal);
     apronOn(ctx, pal, look, S.flap || 0);
-    const L = S.load;
     if (L && L.kind === "plank") plankAt(ctx, L.x, L.y, L.a || 0, L.len || 17);
     workHead(ctx, pal, look, S.tilt || 0);
     if (L && L.kind === "block") drawBuilderBlock(ctx, L.x, L.y);
-    if (S.mallet != null) malletAt(ctx, S.hands[0][0], S.hands[0][1], S.mallet);
-    workArm(ctx, SH_N[0], SH_N[1], S.hands[0], pal, pal.coat);
-    if (S.open) { dab(ctx, S.hands[0][0] + 0.4, S.hands[0][1] - 2.0, 0.6, 1.0, pal.skin); dab(ctx, S.hands[0][0] - 0.8, S.hands[0][1] - 1.9, 0.6, 1.0, pal.skin); }
+    if (S.mallet != null) malletAt(ctx, hn[0], hn[1], S.mallet);
+    workArm(ctx, SH_N[0], SH_N[1], hn, pal, pal.coat);
+    if (S.open) { dab(ctx, hn[0] + 0.4, hn[1] - 2.0, 0.6, 1.0, pal.skin); dab(ctx, hn[0] - 0.8, hn[1] - 1.9, 0.6, 1.0, pal.skin); }
   });
 };
 
@@ -176,30 +190,29 @@ const RUN_LEGS = [
   [0.2, -6.5, [0.8, -1.2, 0.0], [-2.2, -5.0, 0.95]],
   [0.5, -7.9, [-3.0, -2.0, 0.8], [3.4, -4.9, -0.1]],
 ];
-const RUN_ARMS = [
-  [[-3.0, -4.4, -1], [4.2, -10.2, 1]],
-  [[-1.2, -5.0, -1], [2.8, -8.6, 1]],
-  [[2.6, -8.6, 1], [-1.6, -5.2, -1]],
-  [[4.2, -10.2, 1], [-3.0, -4.4, -1]],
-  [[2.8, -8.6, 1], [-1.2, -5.0, -1]],
-  [[-1.6, -5.2, -1], [2.6, -8.6, 1]],
-];
+// the arms pump opposite the legs: the shoulder swings from ~45° back to
+// ~50° forward, the elbow bent near a right angle, folding more as the hand
+// comes up in front (a sprinter's arms, not a windmill's)
+const RUN_SWING = [0, 1, 2, 3, 4, 5].map((f) => -Math.cos((f / 6) * 2 * Math.PI) * 47 + 3);
+const runArm = (sh, sw) => { const bend = 85 + 30 * Math.max(0, Math.min(1, sw / 50)); return { h: handBy(sh, sw, bend), fa: foreBy(sw, bend) }; };
+const RUN_ARMS = RUN_SWING.map((sw, f) => [runArm(SH_N, sw), runArm(SH_F, RUN_SWING[(f + 3) % 6])]);
 const runPose = (look, f, load) => {
   const [hx, hy, a, b] = RUN_LEGS[f % 3];
   const legs = f < 3 ? [a, b] : [b, a];
-  let hands = RUN_ARMS[f], lean = 0.3, mallet = null, L = null;
+  const [na, fa] = RUN_ARMS[f];
+  let hands = [na.h, fa.h], lean = 0.3, mallet = null, L = null;
   const bob = f % 3 === 1 ? 0.15 : 0;
   if (look === "mason") {
-    // the mallet pumps with the near arm, head up when it swings forward
-    mallet = [2.5, 2.0, -0.5, -1.1, -0.9, 1.2][f];
+    // the mallet pumps with the near arm, its haft across the fist
+    mallet = na.fa - 1.35;
   } else if (load && look === "hod") {
-    // the plank on the near shoulder, steadied by the near hand
-    hands = [[2.6, -9.2, 1, 2.4, -5.4], RUN_ARMS[f][1]];
+    // the plank on the near shoulder, steadied by the near hand on top of it
+    hands = [[4.2, -9.6 + bob], fa.h];
     L = { kind: "plank", x: 0.4, y: -9.0 + bob, a: -0.06 };
     lean = 0.16;
   } else if (load && look === "setter") {
     // the block hugged to the belly, both arms round it
-    hands = [[3.0, -4.6 + bob, 1], [4.6, -5.8 + bob, 1]];
+    hands = [[3.0, -4.6 + bob], [4.6, -5.8 + bob]];
     L = { kind: "block", x: 3.8, y: -5.0 + bob };
     lean = 0.12;
   }
@@ -212,54 +225,54 @@ const workerPose = (look, pose, f, load) => {
     case "run": return runPose(look, f, load);
     case "hammer": {
       const K = [
-        { hip: [-0.3, -7.6], lean: -0.12, hands: [[3.4, -17.4, -1, 5.4, -12.4], [3.2, -4.6, 1]], mallet: -2.7 },
-        { hip: [0.0, -7.5], lean: 0.08, hands: [[6.4, -12.8, -1, 4.6, -10.0], [3.4, -5.0, 1]], mallet: -0.95 },
-        { hip: [0.3, -7.0], lean: 0.3, hands: [[6.0, -5.2, 1, 3.8, -6.0], [2.8, -4.6, 1]], mallet: 0.45 },
+        { hip: [-0.3, -7.6], lean: -0.12, hands: [[3.0, -16.6], [3.2, -4.6]], mallet: -2.7 },
+        { hip: [0.0, -7.5], lean: 0.08, hands: [[6.4, -12.8], [3.4, -5.0]], mallet: -0.95 },
+        { hip: [0.3, -7.0], lean: 0.3, hands: [[6.0, -5.2], [2.8, -4.6]], mallet: 0.45 },
       ][f];
       return { ...K, tilt: -K.lean * 0.4, legs: [[2.8, -1.2, 0], [-2.4, -1.2, 0]] };
     }
     case "hand": {
       const blk = f < 3;
       const K = [
-        { hip: [-0.6, -5.6], lean: 0.5, hands: [[4.0, -2.4, 1], [5.2, -3.0, 1]], load: { kind: "block", x: 4.8, y: -2.2 }, legs: [[2.4, -1.2, 0], [-2.2, -1.2, 0.15]] },
-        { hip: [-0.2, -7.3], lean: 0.1, hands: [[3.2, -7.2, 1], [4.4, -7.8, 1]], load: { kind: "block", x: 4.0, y: -7.6 }, legs: STAND_LEGS },
-        { hip: [0.0, -8.0], lean: -0.18, hands: [[4.8, -17.0, -1, 5.0, -12.2], [3.4, -17.6, -1, 3.0, -12.6]], load: { kind: "block", x: 4.2, y: -19.2 }, legs: [[1.8, -1.7, 0.35], [-1.2, -1.6, 0.35]] },
-        { hip: [0.0, -8.0], lean: -0.14, hands: [[5.2, -17.8, -1, 5.1, -12.6], [3.8, -18.2, -1, 3.2, -12.8]], load: null, open: true, legs: [[1.8, -1.7, 0.35], [-1.2, -1.6, 0.35]] },
+        { hip: [-0.6, -5.6], lean: 0.5, hands: [[4.0, -2.4], [5.2, -3.0]], load: { kind: "block", x: 4.8, y: -2.2 }, legs: [[2.4, -1.2, 0], [-2.2, -1.2, 0.15]] },
+        { hip: [-0.2, -7.3], lean: 0.1, hands: [[3.6, -6.6], [4.6, -7.4]], load: { kind: "block", x: 4.1, y: -7.4 }, legs: STAND_LEGS },
+        { hip: [0.0, -8.0], lean: -0.18, hands: [[4.8, -17.0], [3.4, -17.6]], load: { kind: "block", x: 4.2, y: -19.2 }, legs: [[1.8, -1.7, 0.35], [-1.2, -1.6, 0.35]] },
+        { hip: [0.0, -8.0], lean: -0.14, hands: [[5.2, -17.8], [3.8, -18.2]], load: null, open: true, legs: [[1.8, -1.7, 0.35], [-1.2, -1.6, 0.35]] },
       ][f];
       if (!blk) K.load = null;
       return { tilt: -K.lean * 0.3, ...K };
     }
     case "pick": {
       const K = [
-        { hip: [-1.0, -5.2], lean: 0.62, hands: [[4.4, -0.6, 1], [5.4, -1.0, 1]], load: null, legs: [[2.4, -1.2, 0], [-2.4, -1.2, 0.2]] },
-        { hip: [-1.0, -5.4], lean: 0.55, hands: [[4.0, -1.8, 1], [5.2, -2.4, 1]], load: { kind: "block", x: 4.8, y: -1.4 }, legs: [[2.4, -1.2, 0], [-2.4, -1.2, 0.2]] },
-        { hip: [0.0, -7.7], lean: 0.06, hands: [[3.0, -5.8, 1], [4.4, -6.4, 1]], load: { kind: "block", x: 3.8, y: -6.2 }, legs: STAND_LEGS },
-        { hip: [0.4, -7.5], lean: 0.22, hands: [[6.2, -10.6, 1], [5.6, -11.2, 1]], load: null, open: true, legs: [[2.8, -1.2, 0], [-2.2, -1.4, 0.3]] },
+        { hip: [-1.0, -5.2], lean: 0.62, hands: [[4.4, -0.6], [5.4, -1.0]], load: null, legs: [[2.4, -1.2, 0], [-2.4, -1.2, 0.2]] },
+        { hip: [-1.0, -5.4], lean: 0.55, hands: [[4.0, -1.8], [5.2, -2.4]], load: { kind: "block", x: 4.8, y: -1.4 }, legs: [[2.4, -1.2, 0], [-2.4, -1.2, 0.2]] },
+        { hip: [0.0, -7.7], lean: 0.06, hands: [[3.0, -5.8], [4.4, -6.4]], load: { kind: "block", x: 3.8, y: -6.2 }, legs: STAND_LEGS },
+        { hip: [0.4, -7.5], lean: 0.22, hands: [[6.2, -10.6], [5.6, -11.2]], load: null, open: true, legs: [[2.8, -1.2, 0], [-2.2, -1.4, 0.3]] },
       ][f];
       return { tilt: -K.lean * 0.5, ...K };
     }
     case "jump": {
       const K = [
-        { hip: [-0.4, -5.2], lean: 0.4, hands: [[-3.4, -3.2, -1], [-2.8, -2.6, -1]], mallet: 2.3, legs: [[2.0, -1.2, 0], [-1.6, -1.2, 0.2]] },
-        { hip: [0.0, -8.6], lean: 0.02, hands: [[4.8, -16.6, -1, 4.8, -11.8], [-3.6, -15.4, -1, -3.8, -11.0]], mallet: -1.9, legs: [[2.4, -3.4, -0.2], [-1.4, -4.4, 0.5]] },
-        { hip: [0.0, -8.3], lean: -0.04, hands: [[6.2, -13.8, -1, 4.8, -10.4], [-4.8, -13.2, -1, -3.8, -10.0]], mallet: -1.4, legs: [[1.4, -0.9, 0.35], [-1.3, -0.7, 0.45]] },
+        { hip: [-0.4, -5.2], lean: 0.4, hands: [[-2.7, -3.0], [-2.2, -2.8]], mallet: 2.3, legs: [[2.0, -1.2, 0], [-1.6, -1.2, 0.2]] },
+        { hip: [0.0, -8.6], lean: 0.02, hands: [[4.8, -16.6], [-3.6, -15.4]], mallet: -1.9, legs: [[2.4, -3.4, -0.2], [-1.4, -4.4, 0.5]] },
+        { hip: [0.0, -8.3], lean: -0.04, hands: [[6.2, -13.8], [-4.8, -13.2]], mallet: -1.4, legs: [[1.4, -0.9, 0.35], [-1.3, -0.7, 0.45]] },
       ][f];
       return { tilt: 0, flap: f === 2 ? -0.5 : 0.3, ...K, mallet: mason ? K.mallet : null };
     }
     case "land": {
       const K = [
-        { hip: [0.4, -4.4], lean: 0.5, hands: [[4.8, -4.4, 1], [-2.6, -3.6, -1]], mallet: 0.2, legs: [[2.7, -1.2, 0], [-2.5, -1.2, 0]] },
-        { hip: [0.2, -6.4], lean: 0.22, hands: [[3.4, -4.8, 1], [-2.4, -4.2, -1]], mallet: 0.6, legs: [[2.5, -1.2, 0], [-2.3, -1.2, 0]] },
+        { hip: [0.4, -4.4], lean: 0.5, hands: [[4.8, -4.4], [-1.9, -3.4]], mallet: 0.2, legs: [[2.7, -1.2, 0], [-2.5, -1.2, 0]] },
+        { hip: [0.2, -6.4], lean: 0.22, hands: [[3.4, -4.8], [-1.8, -3.8]], mallet: 0.6, legs: [[2.5, -1.2, 0], [-2.3, -1.2, 0]] },
       ][f];
       return { tilt: -K.lean * 0.5, flap: 0.2, ...K, mallet: mason ? K.mallet : null };
     }
     case "cheer": {
       const hip = f ? [0, -8.2] : [0, -7.8];
       return { hip, lean: -0.06, tilt: -0.15, legs: f ? [[1.5, -1.6, 0.3], [-1.3, -1.6, 0.3]] : STAND_LEGS,
-        hands: [[4.8, -18.2 - f * 0.6, -1, 5.0, -12.6], [-3.2, -15.8 - f, -1, -3.6, -11.6]], mallet: mason ? -1.75 : null, open: !mason };
+        hands: [[4.8, -18.2 - f * 0.6], [-3.2, -15.8 - f]], mallet: mason ? -1.75 : null, open: !mason };
     }
     default:
-      return { hip: [0, -7.8], lean: 0.02, legs: STAND_LEGS, hands: [[2.6, -0.9, 1], [-2.4, -1.0, 1]], mallet: mason ? 1.35 : null };
+      return { hip: [0, -7.8], lean: 0.02, legs: STAND_LEGS, hands: [[2.6, -0.9], [-2.4, -1.0]], mallet: mason ? 1.35 : null };
   }
 };
 

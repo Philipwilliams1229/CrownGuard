@@ -6,6 +6,8 @@ import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS } from "../sprites/sprites.js";
 import { hasRig, rigDef, drawRig, rigFrame } from "./rigs.js";
+import * as CROWN from "./rigs-crown.js";
+import { getStats } from "../engine/towers.js";
 import { PX } from "./paint.js";
 import { shadow as softShadow } from "./paint.js";
 import { drawStatus } from "./fx.js";
@@ -266,6 +268,23 @@ const drawSkiff = (ctx, u, t, time) => {
   }
 };
 
+// ---- the fight's frames ----
+// A soldier's fight frame from its attack clock. Rigs that list four fight
+// frames (rigs-crown.js CROWN_FIGHT_FRAMES) play guard → wind-up → strike →
+// follow-through: the wind-up over the last WIND of the wait before a blow
+// (u.atkCd counts down to it), the strike for the first part of u.swing
+// (set at the blow) and the follow-through for the rest. A bowman: loose,
+// reach to the quiver, nock and draw, then hold at full draw till the next.
+// Two-frame rigs keep their pair (0 just after a blow, 1 otherwise).
+const WIND = 0.35;
+const fightFrame = (kind, u, rate, ranged) => {
+  const n = (CROWN.CROWN_FIGHT_FRAMES && CROWN.CROWN_FIGHT_FRAMES[kind]) || 2;
+  if (n < 4) return ranged ? (u.swing > 0 ? 1 : 0) : (u.swing > 90 ? 0 : 1);
+  const r = rate || 800;
+  if (ranged) return u.swing > 80 ? 1 : u.swing > 0 ? 2 : u.atkCd > r * 0.45 ? 3 : 0;
+  return u.swing > 80 ? 2 : u.swing > 0 ? 3 : u.atkCd > 0 && u.atkCd < r * WIND ? 1 : 0;
+};
+
 export const drawKnightUnit = (ctx, u, t, time) => {
   if (u.state === "dead") return;
   if (t.kind === "riverwatch") { drawSkiff(ctx, u, t, time); return; }
@@ -304,7 +323,7 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     const kind = rider ? "wolfrider" : giant ? "champion" : paladin ? "paladin" : berserk ? "berserk" : "knight";
     const fighting = u.state === "fighting";
     const rsheet = fighting ? "fight" : "walk";
-    const rframe = u.state === "moving" ? Math.floor(time * (rider ? 9 : 7) + u.id) % 4 : fighting ? (u.swing > 90 ? 0 : 1) : 0;
+    const rframe = u.state === "moving" ? Math.floor(time * (rider ? 9 : 7) + u.id) % 4 : fighting ? fightFrame(kind, u, getStats(t).rate, false) : 0;
     const face = (u.face < 0) !== glance ? -1 : 1;
     drawRig(ctx, kind, u.x, u.y + 9 + stoop, face, rsheet, rframe);
     if (fidget === 0 && fp >= 0.3 && fp < 0.62) {
@@ -377,7 +396,7 @@ export const drawBandUnit = (ctx, u, b, time) => {
   // a swordsman winds up then strikes; the huntress holds at full draw and
   // flings the string hand back for the moment after she looses
   const frame = u.state === "moving" ? Math.floor(time * 7 + u.id) % 4
-    : fighting ? (b.st?.ranged ? (u.swing > 0 ? 1 : 0) : (u.swing > 90 ? 0 : 1)) : 0;
+    : fighting ? fightFrame(kind, u, b.st?.rate, !!b.st?.ranged) : 0;
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, 0.3, time);
   softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3);
   // the hero stands in a ring of gold so he can be found in a crowd
