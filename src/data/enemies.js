@@ -105,8 +105,8 @@ export const ENEMIES = {
   magister: {
     faction: "iron", hp: 200, speed: 58, bounty: 30, armor: 0, mres: 0.3, size: 17,
     name: "Aegis Magister", atk: 12, atkRate: 1000, castleDmg: 2,
-    wardEvery: 11000, wardHits: 3, wardRange: 140, wardFx: "aegis", wardSelf: false,
-    note: "A court battle-mage who marches inside the big columns. Every so often he throws his aegis over the company around him — three blue shields on every soldier, each swallowing a blow whole. He cannot shield himself: pick him out and kill him first, or break the shields with something that hits many at once.",
+    wardEvery: 10000, wardHits: 3, wardRange: 140, wardFx: "aegis",
+    note: "A court battle-mage who marches inside the big columns. Every ten seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a blow whole. Strip his shields with quick hits, then kill him before the next aegis; or break them with something that hits many at once.",
   },
   ram: {
     faction: "iron", hp: 1250, speed: 30, bounty: 40, armor: 0.35, size: 24,

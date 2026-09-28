@@ -224,12 +224,13 @@ export const drawFalconry = (ctx, t, time) => {
     const rate = st.rate || 1300, clock = time + t.id * 0.83;
     const perchedIdle = t._idle && ((time / 11) + t.id * 0.71) % 1 < 0.45;
     const pose = mistressFrame(t.cd > 0 ? rate - t.cd : Infinity, t.cd || 0, rate, { idle: t._idle, perched: perchedIdle, clock });
-    const striking = anim > 0.3;
-    const onGlove = t._idle ? perchedIdle : pose === "present" || pose === "draw" || (!(t.cd > 0) && !striking);
-    const skip = striking ? (t.shotIdx || 0) % birds : -1;
+    // a bird cast at a foe is away until it is back on the wheel (update.js
+    // sets t.falconsAway; birds.js flies it there from her glove and home)
+    const away = new Set((t.falconsAway || []).filter((a) => a.back > time).map((a) => a.b));
+    const onGlove = !away.has(0) && (t._idle ? perchedIdle : pose === "present" || pose === "draw" || !(t.cd > 0));
     const wheel = [];
     for (let b = 0; b < birds; b++) {
-      if (b === skip) continue;
+      if (away.has(b)) continue;
       if (b === 0 && onGlove) continue;
       const ang = time * 1.7 + t.id * 0.7 + (b / birds) * Math.PI * 2;
       wheel.push({ x: x + Math.cos(ang) * 18, y: my - 28 + Math.sin(ang) * 6, front: Math.sin(ang) >= 0, kind: kindOf(b), wing: Math.floor(time * 9 + b * 1.3) % 3 });
@@ -246,13 +247,8 @@ export const drawFalconry = (ctx, t, time) => {
       }
     }
     for (const w of wheel) if (w.front) bird(w.x, w.y, w.wing, w.kind);
-    if (striking) {
-      // the stoop: a streak off her flung hand toward the field
-      const [sx, sy] = onGloveAt("cast");
-      ctx.strokeStyle = `rgba(255,243,210,${anim * 0.8})`; ctx.lineWidth = 1.4; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(sx, sy + 1); ctx.lineTo(sx + dir * (5 + (1 - anim) * 20), sy + 5 + (1 - anim) * 14); ctx.stroke();
-      if (r4 === "ab") glow(ctx, sx + dir * 3, sy + 2, 5 * anim, "#b8e0ff", anim);
-    }
+    // the Storm Falcons leave her hand in a crackle of blue
+    if (r4 === "ab" && anim > 0.3) { const [sx, sy] = onGloveAt("cast"); glow(ctx, sx + dir * 3, sy + 2, 5 * anim, "#b8e0ff", anim); }
     if (r4 === "ab") for (const w of wheel) if (Math.sin(time * 7 + w.x) > 0.7) { ctx.fillStyle = "#d8f0ff"; ctx.fillRect(w.x - 5, w.y + 1, 1, 1); }
   }
   // a drifting feather now and then (the birds', so not under noFolk)

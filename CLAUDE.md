@@ -81,7 +81,12 @@ mechanics:
   re-exports them and keeps the build crew.
 - `joint-lab.html?set=<set>` measures every pose (sets in `joint-sets/`;
   the rig files log their arms and legs too) — nothing ships red.
-  `hallstrip.html` shows a hall frame by frame through a firing cycle.
+  `hallstrip.html` shows a hall frame by frame through a firing cycle;
+  `shotlab.html` runs the real engine on one hall and snaps it in motion.
+- Every shot starts at its weapon: `src/engine/muzzles.js` (the bow hand,
+  the muzzle, the staff head, the throwing hand), fed by the figures' own
+  pose functions. The Falconry's damage lands when the bird's talons do
+  (`resolveStrikes`, STOOP_HIT ms after the cast), not at the cast.
 - Fight frames come from the attack clock, not a free-running timer
   (`src/render/enemies.js`): soldiers and blades from `u.atkCd`/`u.swing`
   (`fightFrame`), foes from `e.meleeCd`/`e.atkAnim`. A rig with four fight
@@ -204,7 +209,10 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
   Greenwood from the first level (the owner beat them "with minimal towers"):
   bigger script counts (factions.js), tougher bodies (enemies.js), three
   shield pips on every levy, the Aegis Magister and gryphon riders that fall
-  and march on. Measured with `--endure` over 4 seeds, taking the better of
+  and march on. (2026-09-28, the owner: the Magister "went down real easy" —
+  he now shields himself too, every 10 s. The better doctrine per seed barely
+  moved; an all-heavy-hitter army bleeds far more at the Citadel, since each
+  pip eats a Longbowman's shot whole.) Measured with `--endure` over 4 seeds, taking the better of
   the two doctrines per seed: 1-32 castle damage a level (it was 0-4), while
   a one-sided army bleeds hundreds — the chapter asks for a mix. Crowd 0.7+
   or the magister at every 22 heads blew the late levels up tenfold; the

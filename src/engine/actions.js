@@ -18,6 +18,7 @@ import { recordFavored, favoredFor } from "../data/profile.js";
 import { sfx } from "../audio/sfx.js";
 import { SANDBOX, tierOpen } from "../data/sandbox.js";
 import { buildClock } from "./build.js";
+import { bandArrowFrom } from "./muzzles.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
 // How far a hall's footing reaches from its anchor; two halls stand at least
@@ -583,8 +584,10 @@ export const fireHeroAbility = (g, id, x, y) => {
   } else if (id === "heart") {
     const mark = heartseekerMark(g, x, y, a.pick);
     if (!mark) return false;                 // nothing there: keep the arrow
+    u.face = mark.x >= u.x ? 1 : -1;
+    const [hx, hy] = bandArrowFrom(u, true);   // from her bow hand
     g.projectiles.push({
-      id: nextId(), x: u.x, y: u.y - 14, targetId: mark.id, tx: mark.x, ty: mark.y, speed: 720, delay: 0,
+      id: nextId(), x: hx, y: hy, targetId: mark.id, tx: mark.x, ty: mark.y, speed: 720, delay: 0,
       dmg: a.dmg, dtype: "phys", pierce: true, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0,
       kind: "arrow", src: b.id, big: true, poison: 0, poisonDur: 0, poisonCap: 0, chain: 0, chainRange: 0,
     });

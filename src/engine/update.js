@@ -17,6 +17,58 @@ import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilt
 import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { isBuilt } from "./build.js";
+import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt } from "./muzzles.js";
+
+// ---- the Falconry's stoops ------------------------------------------------------
+// A cast bird reaches its prey STOOP_HIT ms later (following it down) and is
+// back on the wheel by STOOP_LIFE; a Storm Falcon's ricochet leg strikes
+// RICOCHET_HIT into its RICOCHET_LIFE. birds.js draws the flight to match.
+const STOOP_HIT = 230, STOOP_LIFE = 780, RICOCHET_HIT = 190, RICOCHET_LIFE = 420;
+// The talons land: damage, the mark, the stun, and a Storm Falcon's
+// ricochet into the next victim (itself a strike). A prey that fell before
+// the talons arrived gives the blow to whoever stands where it was.
+const resolveStrikes = (g, tms) => {
+  if (!g.strikes || !g.strikes.length) return;
+  const fresh = [];
+  for (const s of g.strikes) {
+    let v = g.enemies.find((e) => e.id === s.id && !e.dead) || null;
+    if (tms < s.at) {
+      if (v) { s.fx.x2 = v.x; s.fx.y2 = v.y - 6; }
+      fresh.push(s);
+      continue;
+    }
+    if (!v) {
+      let bd = 24;
+      for (const e of g.enemies) {
+        if (e.dead) continue;
+        const d = Math.hypot(e.x - s.fx.x2, e.y - 6 - s.fx.y2);
+        if (d < bd) { bd = d; v = e; }
+      }
+    }
+    if (!v) continue;
+    dealDamage(g, v, s.dmg * (v.flying ? s.air : 1), "phys", false, false, s.src);
+    if (!v.dead) {
+      v.markUntil = tms + s.markDur;
+      v.markAmp = Math.max(v.markAmp, s.mark);
+      v.markShredAmt = Math.max(v.markShredAmt, s.markShred);
+      if (s.diveStun && Math.random() < s.diveStun) v.stunUntil = tms + s.diveStunDur;
+    }
+    if (s.chain) {
+      let nxt = null, nd = Infinity;
+      for (const e of g.enemies) {
+        if (e.dead || e === v || s.others.includes(e.id)) continue;
+        const dd = Math.hypot(e.x - v.x, e.y - v.y);
+        if (dd <= s.chain && dd < nd) { nd = dd; nxt = e; }
+      }
+      if (nxt) {
+        const fx = { type: "talon", x1: v.x, y1: v.y - 6, x2: nxt.x, y2: nxt.y - 6, ttl: RICOCHET_LIFE, life: RICOCHET_LIFE, hit: RICOCHET_HIT, kind: s.kind };
+        g.effects.push(fx);
+        fresh.push({ ...s, at: tms + RICOCHET_HIT, id: nxt.id, fx, dmg: s.dmg * 0.5, markShred: 0, diveStun: 0, chain: 0, others: [] });
+      }
+    }
+  }
+  g.strikes = fresh;
+};
 // the field's width without the castle's wider border: logs roll off it here
 const FIELD_W = W - MXR + MX;
 
@@ -221,7 +273,8 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
     if (u.atkCd > 0) return;
     u.atkCd = st.rate;
     u.swing = 160;
-    const shoot = (e) => g.projectiles.push({ id: nextId(), x: u.x, y: u.y - 14, targetId: e.id, tx: e.x, ty: e.y, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0, kind: "arrow", src: b.id });
+    const [bx0, by0] = bandArrowFrom(u, b.kind === "hero");   // from the bow hand
+    const shoot = (e) => g.projectiles.push({ id: nextId(), x: bx0, y: by0, targetId: e.id, tx: e.x, ty: e.y, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0, kind: "arrow", src: b.id });
     shoot(best);
     // Split Shot: now and then a second arrow for the next-nearest foe
     if (st.split && Math.random() < st.split) {
@@ -878,7 +931,7 @@ export function updateGame(g, dt) {
       // Battle Chaplain: lays a ward over the soldiers around him that eats one
       // blow each. Re-cast on a rhythm, so killing him is the only real answer.
       // The Aegis Magister casts the same way, wider and slower, and tops
-      // every shield around him back up to three (never his own).
+      // every shield around him back up to three, his own among them.
       if (e.wardEvery && e.silencedUntil <= tms) {
         e.wardCd = (e.wardCd ?? e.wardEvery * (e.wardFx === "aegis" ? 0.25 : 0.5)) - sdt * 1000;
         if (e.wardCd <= 0) {
@@ -1023,7 +1076,8 @@ export function updateGame(g, dt) {
             e.rangedCd = e.rangedRate;
             e.atkAnim = 220;
             e.face = mark.x >= e.x ? 1 : -1;
-            g.effects.push({ type: "bolt", x: e.x, y: e.y - 6, tx: mark.x, ty: mark.y - 8, ttl: 170, arrow: e.type === "bonearcher" ? "grave" : undefined });
+            const [qx, qy] = foeShotFrom(e);   // from the crossbow's nose / the bow hand
+            g.effects.push({ type: "bolt", x: qx, y: qy, tx: mark.x, ty: mark.y - 8, ttl: 170, arrow: e.type === "bonearcher" ? "grave" : undefined });
             sfx.play("enemyBolt");
             if (mark.shield) {
               mark.shield = false; mark.shieldCd = 6500;
@@ -1070,7 +1124,8 @@ export function updateGame(g, dt) {
             // when each bowman last loosed: the wall draws him drawing his
             // next shot while there is something to shoot, and at ease after
             (cd.loosed || (cd.loosed = []))[cd.shot % spots.length] = tms;
-            g.projectiles.push({ id: nextId(), x: BOW_X, y: sy - 12, targetId: best.id, tx: best.x, ty: best.y, speed: 460, delay: 0, dmg: bows.dmg, dtype: "phys", pierce: !!bows.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: !!bows.pierce });
+            const [wx, wy] = wallArrowFrom(BOW_X, sy, !!bows.pierce);   // from his bow hand
+            g.projectiles.push({ id: nextId(), x: wx, y: wy, targetId: best.id, tx: best.x, ty: best.y, speed: 460, delay: 0, dmg: bows.dmg, dtype: "phys", pierce: !!bows.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: !!bows.pierce });
             sfx.play("arrow");
           }
         }
@@ -1191,12 +1246,11 @@ export function updateGame(g, dt) {
           t.lastAim = Math.atan2(near.y - t.y, near.x - t.x);
           const throws = st.shells || 1;
           // the shell leaves the bombardier's hand at the top of his throw
-          // (halls/gunpowder.js: his deck 9 + level up; folk-gunners.js bomberFrame)
-          const bf = Math.cos(t.lastAim) >= 0 ? 1 : -1, bLv = t.branch ? 3 : t.level;
+          const [shx, shy] = shellFrom(t);
           for (let i = 0; i < throws; i++) {
             const sp = throws > 1 ? (i - (throws - 1) / 2) * 34 : 0;
             g.projectiles.push({
-              x: t.x + bf * 1.5, y: t.y - 34 - bLv, tx: near.x + sp, ty: near.y + (i % 2 ? -12 : 12) * (throws > 1 ? 1 : 0),
+              x: shx, y: shy, tx: near.x + sp, ty: near.y + (i % 2 ? -12 : 12) * (throws > 1 ? 1 : 0),
               t: 0, speed: 200, delay: 0, dmg: st.dmg, dtype: "phys", pierce: false, splash: st.splash, splashCap: st.splashCap || 0,
               burn: st.burn || 0, burnDur: st.burnDur || 0, slow: 0, slowDur: 0,
               burnSpreads: !!st.burnSpread, kind: "shell", src: t.id, arc: true,
@@ -1225,12 +1279,20 @@ export function updateGame(g, dt) {
           // one held breath in three lands triple
           t.mShotIdx = ((t.mShotIdx || 0) + 1) % (st.mCrit || 1);
           const crit = st.mCrit && t.mShotIdx === 0 ? 3 : 1;
+          // the ball leaves the musket's muzzle and flies from there straight
+          // through its mark (it used to start 20 over the hall and fly a line
+          // aimed from the hall's foot, passing over small foes side-on). The
+          // crew face the last shot's way: he turns the hall to his own mark
+          // unless the bombardier is mid-throw.
+          if (!(t.anim > 0)) t.lastAim = t.mAim;
+          const [mzx, mzy] = muzzleFrom(t);
+          const aim0 = Math.atan2(far.y - mzy, far.x - mzx);
           for (let i = 0; i < balls; i++) {
             const spread = balls > 1 ? (i - (balls - 1) / 2) * (st.mSpread || 0.2) : 0;
-            const a2 = t.mAim + spread;
+            const a2 = aim0 + spread;
             const reach = st.mRange;
             g.projectiles.push({
-              x: t.x + 6, y: t.y - 20, tx: t.x + Math.cos(a2) * reach, ty: t.y - 20 + Math.sin(a2) * reach,
+              x: mzx, y: mzy, tx: mzx + Math.cos(a2) * reach, ty: mzy + Math.sin(a2) * reach,
               t: 0, speed: 620, delay: 0, dmg: st.mDmg * crit / (balls > 1 ? 1 : 1), dtype: "phys",
               pierce: !!st.mPierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0,
               kind: "ball", src: t.id, hitsLeft: balls > 1 ? 1 : 2, hitIds: [],
@@ -1465,6 +1527,7 @@ export function updateGame(g, dt) {
         }
       });
     }
+    resolveStrikes(g, tms);   // the falcons' talons landing
     for (const t of g.towers) {
       t.anim = Math.max(0, t.anim - sdt * 4);
       if (!isBuilt(t, g)) continue;
@@ -1557,7 +1620,6 @@ export function updateGame(g, dt) {
       if (t.kind === "archer") {
         sfx.play(getStats(t).bolt ? "bolt" : "arrow");
         const lay = archerLayout(t);
-        const hgt = lay.h;
         let offs;
         if (t.branch === "a") {
           t.shotIdx = (t.shotIdx + 1) % 3;
@@ -1572,9 +1634,12 @@ export function updateGame(g, dt) {
           if (t.critIdx === 0) dmgMul = st.critMult || 3;
         }
         const per = t.branch ? st.dmg : Math.round(st.dmg / offs.length);
-        offs.forEach(([ox, oy], i) => {
+        // each arrow leaves its own archer's bow hand (the Ballista's bolt,
+        // its nose): muzzles.js arrowFrom
+        offs.forEach((spot, i) => {
+          const [ax, ay] = arrowFrom(t, spot);
           g.projectiles.push({
-            id: nextId(), x: t.x + ox, y: t.y - hgt + oy - 12, targetId: target.id,
+            id: nextId(), x: ax, y: ay, targetId: target.id,
             tx: target.x, ty: target.y, speed: st.bolt ? 560 : 460, delay: i * 90,
             dmg: Math.round(per * dmgMul), dtype: st.dtype, pierce: !!st.pierce, splash: 0,
             burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: t.id,
@@ -1666,39 +1731,31 @@ export function updateGame(g, dt) {
             if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range) hits.push(e);
           }
         }
-        // the stoop leaves from the mistress's glove as she casts the bird off
-        // (halls/falconry.js: her perch 22/28/32/34 up; folk-gunners.js mistressGlove)
-        const perch = t.branch ? 34 : t.level === 1 ? 22 : t.level === 2 ? 28 : 32;
-        const gloveX = t.x + (target.x >= t.x ? 9 : -9), gloveY = t.y - perch - 23.4;
-        for (const v of hits) {
-          g.effects.push({ type: "talon", x1: gloveX, y1: gloveY, x2: v.x, y2: v.y - 6, ttl: 520, life: 520 });
-          dealDamage(g, v, st.dmg * (v.flying ? st.airMult : 1), "phys", false, false, t.id);
-          if (!v.dead) {
-            v.markUntil = tms + st.markDur;
-            v.markAmp = Math.max(v.markAmp, st.mark);
-            v.markShredAmt = Math.max(v.markShredAmt, st.markShred || 0);
-            if (st.diveStun && Math.random() < st.diveStun) v.stunUntil = tms + st.diveStunDur;
-          }
-          if (st.chain) {
-            let nxt = null, nd = Infinity;
-            for (const e of g.enemies) {
-              if (e.dead || e === v || hits.includes(e)) continue;
-              const dd = Math.hypot(e.x - v.x, e.y - v.y);
-              if (dd <= st.chainRange && dd < nd) { nd = dd; nxt = e; }
-            }
-            if (nxt) {
-              g.effects.push({ type: "talon", x1: v.x, y1: v.y - 6, x2: nxt.x, y2: nxt.y - 6, ttl: 420, life: 420 });
-              dealDamage(g, nxt, st.dmg * 0.5 * (nxt.flying ? st.airMult : 1), "phys", false, false, t.id);
-              if (!nxt.dead) { nxt.markUntil = tms + st.markDur; nxt.markAmp = Math.max(nxt.markAmp, st.mark); }
-            }
-          }
-        }
+        // The birds are cast: the one on her glove first (it leaves her hand
+        // as she throws the arm out), any more (Talon Rain) from their places
+        // on the wheel. Each stoops on its prey, following it, and the talons
+        // land STOOP_HIT ms later (resolveStrikes); it beats back up to its
+        // place on the wheel by STOOP_LIFE. The hall hides a bird while it is
+        // away (t.falconsAway) — halls/falconry.js, birds.js drawStoop.
+        const n = falconCount(t, st);
+        const away = (t.falconsAway || []).filter((a) => a.back > g.time);
+        const free = [];
+        for (let b = 0; b < n; b++) if (!away.some((a) => a.b === b)) free.push(b);
+        hits.forEach((v, i) => {
+          const b = free[i] ?? i % n, back = g.time + STOOP_LIFE / 1000;
+          const [sx, sy] = b === 0 ? gloveBirdAt(t, "cast") : wheelAt(t, b, n, g.time);
+          const fx = { type: "talon", x1: sx, y1: sy, x2: v.x, y2: v.y - 6, ttl: STOOP_LIFE, life: STOOP_LIFE, hit: STOOP_HIT, kind: falconKind(t, b), home: wheelAt(t, b, n, back) };
+          g.effects.push(fx);
+          away.push({ b, back });
+          (g.strikes || (g.strikes = [])).push({ at: tms + STOOP_HIT, id: v.id, others: hits.map((h) => h.id), fx, src: t.id, dmg: st.dmg, air: st.airMult, mark: st.mark, markDur: st.markDur, markShred: st.markShred || 0, diveStun: st.diveStun || 0, diveStunDur: st.diveStunDur || 0, chain: st.chain ? st.chainRange : 0, kind: fx.kind });
+        });
+        t.falconsAway = away;
         sfx.play("falcon");
       } else if (st.arc) {
         // Stormcaller: lightning strikes instantly and arcs down the line
         let cur = target, mult = 1;
         const hitIds = new Set();
-        const pts = [[t.x, t.y - 34]];
+        const pts = [staffFrom(t)];   // the bolt leaves the head of the mage's staff
         for (let j = 0; j < st.arc && cur; j++) {
           dealDamage(g, cur, st.dmg * mult, "magic", false, false, t.id);
           if (st.zapStun && !cur.dead && Math.random() < st.zapStun) cur.stunUntil = tms + (st.zapStunDur || 600);
@@ -1729,17 +1786,13 @@ export function updateGame(g, dt) {
           t.poolIdx = ((t.poolIdx || 0) + 1) % st.poolEvery;
           pooled = t.poolIdx === 0;
         }
-        // the Wizard Spire's orb leaves from the mage's staff at the top of
-        // the spire, where the strike drives it (halls/wizard.js: spire height
-        // 18 + 6/level + 4 branched; folk-casters.js mageTip(level, "strike"))
-        // The alchemist's flask leaves his hand at the release (halls/goldworks.js
-        // crewSpot, folk-gunners.js bomberFrame: he faces west, 7 in front of his
-        // feet and 22 up).
+        // the Wizard Spire's orb leaves the head of the mage's staff as he
+        // drives it at the foe; the Transmuter's flask his hand at the release
+        // (the Midas Cannon's shot its gilded muzzle): muzzles.js
         const alch = t.kind === "goldworks" && t.branch === "b";
-        const oy = t.kind === "wizard" ? 28.5 + 18 + t.level * 6 + (t.branch ? 4 : 0) : alch ? 14 : 30;
-        const ox = t.kind === "wizard" ? (target.x >= t.x ? 13 : -13) : alch ? (t.rank4 ? -8 : 4) : 0;
+        const [sx, sy] = t.kind === "wizard" ? staffFrom(t) : alch ? flaskFrom(t) : [t.x, t.y - 30];
         g.projectiles.push({
-          id: nextId(), x: t.x + ox, y: t.y - oy, targetId: target.id,
+          id: nextId(), x: sx, y: sy, targetId: target.id,
           tx: target.x, ty: target.y, speed: 300, delay: 0,
           dmg: st.dmg, dtype: st.dtype, pierce: !!st.pierce, splash: st.splash || 0, splashCap: st.splashCap || 0,
           burn: st.burn || 0, burnDur: st.burnDur || 0, slow: st.slow || 0, slowDur: st.slowDur || 0,

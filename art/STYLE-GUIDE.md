@@ -66,7 +66,7 @@ copy what the rebuilt pieces do.
 | Area effects: novas, waves and marks (frost/fire nova, Shield Slam, heal & ward waves, silence, shadowstep, Midas, toll, plague burst, raise, the Heartseeker reticle) | `src/render/rings.js` — `drawRingFx(ctx, fx, a, g, layer)`: draw.js calls it with "g" in the ground pass (rime, scorch, cracks, stains under the crowd) and "a" after the actors | pieces (shards, flames, clods, coins, runes) baked once and stamped on the LIVE radius, so a ring still shows the area it hit; at most one thick continuous ring each — thin full-circle `ringPx` lines are the costly part, so highlights are dotted |
 | The Trapsmith's traps (spikes, jaws, caltrops, mines, aerostat balloons) | `src/render/traps.js` — `drawTraps` (on the road, under the crowd) and `drawTrapBalloons` (the balloons, in a sky pass over it) | each look baked once per realm and stamped; late boards hold hundreds |
 | The Log Roller's logs (trunk, Iron Drum, Powder Keg) | `src/render/logs.js` | true cylinders in the 3/4 camera, lit in world space so light never turns with the log; bark and bands roll with `lg.spin` |
-| The Falconry's hawk (the "talon" stoop) | `src/render/birds.js` — `drawStoop`; the Skyknight's war-eagle is the `eagle` rig in `rigs.js` | hawk poses baked at 15° steps and stamped |
+| The Falconry's hawk (the "talon" stoop) | `src/render/birds.js` — `drawStoop`; the Skyknight's war-eagle is the `eagle` rig in `rigs.js` | hawk poses baked at 15° steps per plumage (`kind`: hawk, the King's Eagle, the Storm Falcons) and stamped. A cast bird leaves her glove (Talon Rain's others their places on the wheel), follows its prey down and the talons — and the damage — land `STOOP_HIT` ms in (update.js `resolveStrikes`), then it flies back to its own place on the wheel by `STOOP_LIFE`; the hall hides it meanwhile (`t.falconsAway`) |
 | The Covert's blades (assassins) — four-frame fights (`fightN: 4` on their RIGS entries: guard, wind-up, strike, follow-through; a blade waiting at the muster crouches in its guard), joint set `cov` | `src/render/rigs-covert.js` (`assassinUnit`, `assassinUnitA/B` for the branches and `assassinUnitAA/AB/BA/BB` for the four finals in `rigs.js` — one rig name per look, since baked frames cache by name; `drawAssassinUnit` in `enemies.js` picks it) | params switch the pieces on: face "gild", hat, veil, beak, long, hem, censer, purse, scroll, pauldron, blade kind |
 | HUD skin | `src/ui/hud/` (`hud.css`, `icons.jsx`, `Chips.jsx`) + `src/ui/theme.js` | |
 | The landscape beyond the board (the apron: ground, road and rivers running off, the realm's trees thickening, the wall continuing) | `src/render/apron.js` `paintApron(canvas, { cssW, cssH, dpr, board })`; the wall past the board's ends is castle.js `bakeCastleRun` (towers at the board's rhythm, no seam), never a repeated slice | painted once per realm and layout, cached |
@@ -144,9 +144,18 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
   `raise-lab.html?how=folk` (as it stands | noFolk | the difference).
 - **Bake** the body once per form (the `baked()` / `stamp()` pattern in
   `halls/archer.js`); only flames, glows, flags and firing poses are live.
-- Engine spawn points must match the art (the wizard's orb leaves the staff
-  tip, catapult stones leave the arm tip, the Sunforge beam starts at the
-  shard) — if a hall grows, check where its shots start.
+- Engine spawn points must match the art: every shot starts at its weapon
+  (owner, 2026-09-28: "projectile effects originate from the end of the
+  barrel, the bow, or the mage staff"). `src/engine/muzzles.js` holds them
+  all — each archer's bow hand, the Ballista's nose, the mage's staff head
+  (orb and lightning), the musket's muzzle (the ball then flies from there
+  through its mark), the bombardier's and alchemist's throwing hand, the
+  Midas Cannon's muzzle, the wall bowmen, Wren and her archers, the foes'
+  crossbows and bows, the falcons' glove and wheel — computed from the
+  figures' own pose functions (render/folk-*.js are pure maths, safe in the
+  sims). Catapult stones leave the arm tip, the Sunforge beam the shard. If
+  a hall or a pose moves, move its entry there and check with
+  `shotlab.html`.
 
 ## Joints and motion (the September 28 pass)
 
@@ -535,7 +544,11 @@ dev server; view them from there):
 - Lab pages per area: `twa-lab.html`, `twb-lab.html`, `twb-folk.html` (every
   crew figure), `joint-lab.html?set=<set>` (bones and joint limits, see
   "Joints and motion"), `hallstrip.html?kind=<k>&form=3,b,a&n=12` (one form
-  through a firing cycle, or `&idle=1&secs=6` the idle, frame by frame), `crw-lab.html`, `hrd-lab.html`, `bst-lab.html`, `cas-lab.html`,
+  through a firing cycle, or `&idle=1&secs=6` the idle, frame by frame),
+  `shotlab.html?kind=<k>&form=3,b,a&foes=orc,orc` (the REAL engine: one hall
+  beside the road, foes in reach, stepped at 60 fps and snapped every few
+  frames — where shots leave their weapons, a falcon's stoop, the
+  Magister's aegis), `crw-lab.html`, `hrd-lab.html`, `bst-lab.html`, `cas-lab.html`,
   `scn-lab.html`, `fx-lab.html`, `map-lab.html`, `apron-lab.html` (the landscape beyond the board at phone/tablet/desktop layouts), `icon-lab.html` (the app icon), `hud-lab.html`, `wdn-lab.html`.
 - `props-lab.html`: every object a hall puts OUT into the world (traps,
   logs, stoops, the war-eagle, shots, soldiers and blades), zoomed on the

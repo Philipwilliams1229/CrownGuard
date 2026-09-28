@@ -1,0 +1,81 @@
+<!doctype html>
+<!--
+  The real engine on a lab board: one hall (any form) beside the road, foes
+  spawned in its reach, the game stepped at 60 fps and every `every`-th
+  frame snapped through the real draw() — so shots leaving their weapons, a
+  falcon's stoop, the Magister's aegis can be judged as they play.
+
+    /shotlab.html?kind=falconry&form=3,b,a&foes=goblin,orc&at=0.45&frames=16&every=3&tag=x
+    &realm=greenwood &faction=greenwood   &side=1 or -1 (which side of the road)
+    &warm=1.5    seconds stepped before the first snap (the hall is built at once)
+    &crop=w,h    the window round the hall's foot (default 150,120); &scale=3
+    &ahead=30    how far up the road from the hall the first foe starts
+    &up=0.7      how much of the crop lies above the hall's foot
+    &hero=wren   field Wren (or aldric) beside the hall, for the bands' bows
+
+  Saved to .shots/shotlab_<tag>.png, frames left to right, four to a row,
+  each stamped with its game time. Uses the same state shape as scripts/sim.mjs.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>shot lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame, spawnAt } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, ascendTower, buildableAt, fieldHero } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      const q = new URLSearchParams(location.search);
+      const KIND = q.get("kind") || "archer", TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 3;
+      const [lv, br, r4] = (q.get("form") || "1").split(",");
+      const FOES = (q.get("foes") || "goblin,goblin,orc").split(",").filter(Boolean);
+      const AT = Number(q.get("at")) || 0.45, SIDE = Number(q.get("side")) || 1;
+      const N = Number(q.get("frames")) || 16, EVERY = Number(q.get("every")) || 3, WARM = Number(q.get("warm") ?? 1.5);
+      const [CW, CH] = (q.get("crop") || "150,120").split(",").map(Number);
+      selectRealm(q.get("realm") || "greenwood");
+      selectFaction(q.get("faction") || "greenwood");
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: CASTLE_HP, wave: 1, phase: "combat",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      // a buildable spot beside the road at AT
+      const d0 = AT * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+      let spot = null;
+      for (let r = 52; r < 110 && !spot; r += 3) for (const s of [SIDE, -SIDE]) {
+        const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+        if (buildableAt(g, x, y, KIND)) { spot = [x, y]; break; }
+      }
+      if (!spot) throw new Error("no room for the hall");
+      placeTower(g, KIND, spot[0], spot[1]);
+      const t = g.towers[0];
+      for (let l = 1; l < Number(lv); l++) upgradeTower(g, t);
+      if (br) branchTower(g, t, br);
+      if (r4) ascendTower(g, t, r4);
+      t.readyAt = 0; t.raised = null;                                   // built at once
+      if (q.get("hero")) { const b = fieldHero(g, q.get("hero"), 1, spot[0] + 30, spot[1] + 10); if (b) b.rally = { x: rx, y: ry }; }
+      FOES.forEach((type, i) => spawnAt(g, type, 1, d0 + Number(q.get("ahead") ?? 30) - i * 16, 0));
+      const DT = 1 / 60;
+      for (let i = 0; i < WARM * 60; i++) updateGame(g, DT);
+      const cols = Math.min(4, N), rows = Math.ceil(N / cols);
+      const out = document.createElement("canvas"); out.width = CW * SC * cols; out.height = (CH + 12) * SC * rows;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.fillStyle = "#20242c"; o.fillRect(0, 0, out.width, out.height);
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      for (let f = 0; f < N; f++) {
+        draw(g, cv, { current: null });
+        const k = cv.width / W, cx = t.x - CW / 2, cy = t.y - CH * Number(q.get("up") ?? 0.7);
+        const col = f % cols, row = Math.floor(f / cols);
+        o.drawImage(cv, cx * k, cy * k, CW * k, CH * k, col * CW * SC, row * (CH + 12) * SC + 12 * SC, CW * SC, CH * SC);
+        o.fillStyle = "#e8e0c8"; o.font = `${6 * SC}px monospace`; o.fillText(`${g.time.toFixed(3)}s`, col * CW * SC + 4, row * (CH + 12) * SC + 9 * SC);
+        for (let i = 0; i < EVERY; i++) updateGame(g, DT);
+      }
+      await fetch(`/__shot?name=shotlab_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/shotlab_${TAG}.png`;
+    </script>
+  </body>
+</html>
