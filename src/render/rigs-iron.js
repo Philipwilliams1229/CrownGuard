@@ -603,7 +603,7 @@ const hands = (look, st, shN, shF) => {
   // the shield rim (the point leaving the little-finger side of the fist)
   if (look === "levy") return pick({ hn: N(1.1 + sw * 0.3, 3.3), an: -1.32 + sw * 0.04, hf: F(4.4, 2.3) }, [
     { hn: N(2.8, -1.3), an: 0.16, hf: F(4.6, 1.8) },
-    { hn: N(1.8, -2.2), an: -0.1, hf: F(4.3, 2.0) },
+    { hn: N(1.6, -2.3), an: -0.36, hf: F(4.3, 2.0) },
     { hn: N(3.8, -0.7), an: 0.1, hf: F(4.5, 2.2) },
     { hn: N(4.0, 0.3), an: 0.34, hf: F(4.6, 2.0) }]);
   // the crossbowman: the arbalest at port on the march (the fore hand on the
