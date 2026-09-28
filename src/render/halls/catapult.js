@@ -21,7 +21,7 @@ import {
   IRON, ROPE, PITCH, readiness, foot, padB, skirtB, beam, planks, wheel, barrel, crate, rope, coil, boulder,
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
-import { drawCrew, CREW_FOLK } from "../folk.js";
+import { drawCrew, CREW_FOLK, CREW_FRAMES, frameOf } from "../folk.js";
 
 const cache = spriteCache();
 export const resetCatapultBakes = () => cache.clear();
@@ -32,6 +32,10 @@ const D2R = Math.PI / 180;
 const WINCH_DY = 7;
 // the engineer's feet: on the open ground in front of the near wheel
 const CREW_DY = 7;
+// from his feet (facing the engine): the winch's axle and the handle's throw,
+// and the Log Roller's lever end (3 higher once it has knocked the chock out)
+const WINCH = { hub: [4, -14], rx: 1.8, ry: 1.8 };
+const LEVER = [5.5, -13];
 
 // The numbers of one form's engine: where the arm pivots, how long it is,
 // and the angles it rests, cocks and stops at (degrees from straight up,
@@ -392,7 +396,7 @@ export const drawCatapult = (ctx, t, time) => {
     if (!out) { ctx.fillRect(cx - 1.4, cy - 3, 2.8, 3.6); ctx.fillStyle = "#6a4a2e"; ctx.fillRect(cx - 1.4, cy - 3, 1, 3.6); }
     else { ctx.fillRect(cx - 2, cy + 0.5, 3.6, 1.8); }
     // (the lever ends in the engineer's hands: no engineer, no lever)
-    const hx = x - f * (hw - 4.5), hy = y + CREW_DY - 13 + (out ? -3 : 0);
+    const hx = x - f * (hw + 1 - LEVER[0]), hy = y + CREW_DY + LEVER[1] + (out ? -3 : 0);
     if (!t.noFolk) {
       ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
       ctx.beginPath(); ctx.moveTo(cx - f * 1, cy + 1); ctx.lineTo(hx, hy); ctx.stroke();
@@ -463,15 +467,42 @@ export const drawCatapult = (ctx, t, time) => {
     for (let i = 0; i < 2; i++) { const k = ((time * 0.6 + i * 0.5 + t.id * 0.1) % 1); soft(ctx, cx + Math.sin(time + i) * 2, y - 18 - k * 14, 2 + k * 3, 2 + k * 3, [[0, `rgba(60,52,58,${0.4 * (1 - k)})`], [1, "rgba(60,52,58,0)"]]); }
   }
   // ---- the engineer, at the winch behind the bed
-  const cranking = !t._idle && anim === 0 && r < 0.8;
-  const work = cranking ? Math.round((Math.sin(time * 9 + t.id) + 1) * 1.5)
-    : t._idle ? Math.round((Math.sin(time * 1.2 + t.id) + 1) * 0.5) : 2;
-  const ex = x - f * (hw + 1), ey = y + CREW_DY;
+  // Cranking, his hands ride the winch handle round (CREW_FRAMES baked
+  // turns, his body hauling from the hips); at the Log Roller he holds the
+  // lever that knocks the chock out and heaves on it as the log goes. At ease
+  // he rests on the handle, breathes, looks about, and now and then raps a
+  // peg home on the drum (it sparks on the rap).
   if (t.noFolk) return;
-  if (bake) stamp(ctx, cache.get(`crew|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, CREW_FOLK.engineer, (work - 1.5) * 0.4)), ex, ey, 12, 27, f);
-  else drawCrew(ctx, ex, ey, f, CREW_FOLK.engineer, 0);
-  // idle upkeep: now and then he taps a peg home and it sparks
-  if (t._idle && Math.sin(time * 3.5 + t.id * 1.7) > 0.93) glow(ctx, x - f * (hw - 2), y - WINCH_DY - 1, 2.5, "#ffe08a", 0.9);
+  const ex = x - f * (hw + 1), ey = y + CREW_DY;
+  let key, opt;
+  if (s.roller) {
+    const out = anim > 0 || r < 0.55;
+    let pose = anim > 0.35 ? "heave" : t._idle ? idlePose(t, time) : "rest";
+    if (pose === "tap" || pose === "rap") pose = "rest";   // no peg to rap here
+    key = `lever|${out ? 1 : 0}|${pose}`;
+    opt = { hub: [LEVER[0], LEVER[1] - (out ? 3 : 0)], rx: 0, pose };
+  } else if (!t._idle && anim === 0 && r < 0.8) {
+    const fr = frameOf(time * 1.45 + t.id * 0.37, CREW_FRAMES);
+    key = `crank|${fr}`;
+    opt = { ...WINCH, phase: fr / CREW_FRAMES };
+  } else {
+    // loaded and waiting, or watching the throw go, or at ease
+    const pose = anim > 0 ? "glance" : t._idle ? idlePose(t, time) : "rest";
+    key = `crank|${pose}`;
+    opt = { ...WINCH, phase: 0.1, pose };
+    if (pose === "rap") glow(ctx, ex + f * (WINCH.hub[0] + 1.4), ey + WINCH.hub[1] - 1.8, 2.5, "#ffe08a", 0.9);
+  }
+  if (bake) stamp(ctx, cache.get(`crew|${key}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, CREW_FOLK.engineer, 0, opt)), ex, ey, 12, 27, f);
+  else drawCrew(ctx, ex, ey, f, CREW_FOLK.engineer, 0, opt);
+};
+
+// The engineer at ease, over a slow cycle phased by t.id: mostly resting on
+// the handle, a breath now and then, a look about, and two raps on a peg.
+const idlePose = (t, time) => {
+  const u = (((time / 7 + t.id * 0.29) % 1) + 1) % 1;
+  if (u > 0.62 && u < 0.8) return ((u - 0.62) / 0.09) % 1 < 0.55 ? "tap" : "rap";
+  if (u > 0.35 && u < 0.5) return "glance";
+  return Math.sin(time * 1.4 + t.id) > 0.6 ? "breath" : "rest";
 };
 
 // A stone wrapped in burning pitch.

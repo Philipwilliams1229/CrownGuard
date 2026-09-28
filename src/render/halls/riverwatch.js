@@ -174,6 +174,21 @@ const paintJetty = (ctx, t, x, y) => {
   }
 };
 
+// The watchman's pose: [glass 0..3, idle frame]. The glass goes up for a
+// stretch of each cycle (longer while there is work on the water), with a
+// frame on the way up and on the way down.
+const watchPose = (t, time) => {
+  const [secs, open] = t._idle ? [6, 0.4] : [3, 0.6];
+  const u = (((time / secs + t.id * 0.3) % 1) + 1) % 1;
+  if (u < open) {
+    const k = u / open, edge = 0.22 / (secs * open);   // about a fifth of a second each way
+    if (k < edge || k > 1 - edge) return [1, 0];
+    return [k > 0.45 && k < 0.75 ? 3 : 2, 0];
+  }
+  const v = (((time / 9 + t.id * 0.41) % 1) + 1) % 1;
+  return [0, v < 0.18 ? 3 : v < 0.45 ? 2 : Math.sin(time * 1.3 + t.id) > 0.55 ? 1 : 0];
+};
+
 export const drawRiverwatchHall = (ctx, t, time) => {
   // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
@@ -202,19 +217,18 @@ export const drawRiverwatchHall = (ctx, t, time) => {
     ctx.fillStyle = "#f8d060"; ctx.beginPath(); ctx.moveTo(bx - 3, y - 42); ctx.quadraticCurveTo(bx, y - 47 - fl, bx + 3, y - 42); ctx.closePath(); ctx.fill();
     for (let i = 0; i < 2; i++) { const k = ((time * 0.4 + i * 0.5 + t.id * 0.1) % 1); soft(ctx, bx + k * 6, y - 56 - k * 16, 3 + k * 4, 3 + k * 4, [[0, `rgba(58,50,56,${0.4 * (1 - k)})`], [1, "rgba(58,50,56,0)"]]); }
   }
-  // the watchman out on the boards: now and then he raises a glass to the river
+  // the watchman out on the boards: now and then he raises a glass to the
+  // river — up to his chest, to his eye, a sweep up the far bank, down again
+  // — and between times stands easy, breathing, shifting his weight,
+  // glancing about (baked frames; the glass is in his hands, so none of it
+  // under noFolk)
   const pal = WATCH[t.branch || "base"];
   const wx = x - 1.5, wy = y - 4.5;
   const dir = Math.sin(time * 0.4 + t.id) >= 0 ? 1 : -1;
+  const [glass, fr] = watchPose(t, time);
   if (t.noFolk) { /* no watchman yet, nor his glass */ }
-  else if (bake) stamp(ctx, cache.get(`watch|${t.branch}`, 26, 30, (c) => drawStander(c, 12, 27, 1, pal)), wx, wy, 12, 27, dir);
-  else drawStander(ctx, wx, wy, dir, pal);
-  const glass = t._idle ? ((time / 6 + t.id * 0.3) % 1) < 0.4 : ((time / 3 + t.id * 0.3) % 1) < 0.6;
-  if (glass && !t.noFolk) {
-    ctx.fillStyle = "#241a26"; ctx.fillRect(wx + dir * 1.5 - (dir < 0 ? 6.2 : 0), y - 26.3, 6.2, 2.4);
-    ctx.fillStyle = "#c8a048"; ctx.fillRect(wx + dir * 2 - (dir < 0 ? 5.2 : 0), y - 25.8, 5.2, 1.4);
-    ctx.fillStyle = "#fff3d2"; ctx.fillRect(wx + dir * 6.6 - (dir < 0 ? 0.8 : 0), y - 25.6, 0.8, 0.8);
-  }
+  else if (bake) stamp(ctx, cache.get(`watch|${t.branch}|${glass}|${fr}`, 26, 30, (c) => drawStander(c, 12, 27, 1, pal, { glass, frame: fr })), wx, wy, 12, 27, dir);
+  else drawStander(ctx, wx, wy, dir, pal, { glass, frame: fr });
   // pennants: the admiral's is long and gold-crowned
   if (r4 === "aa") {
     const wv = Math.sin(time * 4 + t.id) * 1.5;

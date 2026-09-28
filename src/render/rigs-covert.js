@@ -95,12 +95,12 @@ const aim = (b) => Math.PI / 2 - b * D;          // a swing → the angle dagger
 // sw: the skirts and sash; hx/ht: the head forward / tipped; cz: the censer.
 const GUARD = { x: 0, drop: 1.7, lean: 0.24, nf: 2.6, ff: -2.8, toe: 0.2, fl: 0.6, lift: 0, sw: 0.25, hx: 0.3, ht: 0.05, cz: 0.1 };
 const COIL = { x: -0.9, drop: 2.4, lean: 0.18, nf: 2.6, ff: -2.8, toe: 0, fl: 0.05, lift: 0, sw: -0.25, hx: 0.05, ht: 0.18, cz: -0.35 };
-const LUNGE = { x: 2.6, drop: 2.0, lean: 0.42, nf: 4.8, ff: -3.4, toe: 0.55, fl: 2.2, lift: 0.8, sw: 0.9, hx: 0.6, ht: 0.08, cz: 0.6 };
-const AFTER = { x: 2.9, drop: 2.5, lean: 0.48, nf: 4.8, ff: -3.1, toe: 0.45, fl: 1.5, lift: 1.9, sw: 0.55, hx: 0.5, ht: 0.12, cz: 0.3 };
-// the off hand: out in front on guard, reaching on the coil, flung back past
-// the hip on the lunge (a counterweight), swinging in again after; its knife
-// (the Court's second blade) rides in a reverse grip, point down
-const OFF = [[30, 105, 15], [55, 95, 5], [-45, -15, -70], [-28, 12, -62]];
+const LUNGE = { x: 2.6, drop: 2.0, lean: 0.42, nf: 4.8, ff: -2.8, toe: 0.55, fl: 2.2, lift: 0.8, sw: 0.9, hx: 0.6, ht: 0.08, cz: 0.6 };
+const AFTER = { x: 2.9, drop: 2.5, lean: 0.48, nf: 4.8, ff: -2.8, toe: 0.45, fl: 1.5, lift: 1.9, sw: 0.55, hx: 0.5, ht: 0.12, cz: 0.3 };
+// the off hand: up in front of the chest on guard (the Court's second knife,
+// in a reverse grip, point down, crosses the first), reaching on the coil,
+// flung back past the hip on the lunge (a counterweight), swinging in after
+const OFF = [[58, 104, 12], [55, 95, 5], [-45, -15, -70], [-28, 12, -62]];
 const FIGHTS = {
   // the plain dagger: a straight-arm thrust from the hip
   thrust: [
@@ -124,7 +124,7 @@ const FIGHTS = {
     { ...GUARD, n: [22, 96, 140] },
     { ...COIL, n: [-50, -30, -34] },
     { ...LUNGE, n: [90, 100, 112] },
-    { ...AFTER, drop: 2.2, lean: 0.3, n: [118, 128, 180] },
+    { ...AFTER, drop: 2.2, lean: 0.3, n: [112, 118, 170] },
   ],
   // the Widow's needle, in a reverse grip: held low and close, point down;
   // raised high over the head; driven down and in over the guard (an icepick
@@ -137,10 +137,10 @@ const FIGHTS = {
   ],
 };
 // the Plague Bearer keeps his censer out in front through the fight (the
-// spores enemies.js puffs off it rise there) and holds the dagger low at the
-// belt on guard, under it
-FIGHTS.censer = FIGHTS.thrust.map((K, f) => (f ? K : { ...K, n: [-10, 60, 110] }));
-const OFF_CENSER = [[50, 100, 0], [62, 104, 0], [20, 70, 0], [30, 80, 0]];
+// spores enemies.js puffs off it rise there) and keeps the dagger under it:
+// reversed low at the belt on guard, drawn back low on the coil
+FIGHTS.censer = FIGHTS.thrust.map((K, f) => (f === 0 ? { ...K, n: [-10, 60, -20] } : f === 1 ? { ...K, n: [-50, 30, 100], cz: 0.5 } : K));
+const OFF_CENSER = [[70, 110, 0], [75, 112, 0], [20, 70, 0], [30, 80, 0]];
 const STYLE = { long: "estoc", hanger: "cut", needle: "icepick" };
 
 // The gait: contact, passing, contact, passing. A blade walks up on its toes
@@ -254,7 +254,9 @@ const dagger = (ctx, x, y, a, col, o = {}) => part(ctx, (c) => {
 // (0,0) the middle of the skull, +x the face. A deep cowl whose brim hangs
 // out past the brow, the face sunk in its shade: a glint of eye, the line of
 // the nose catching what light gets in, and a mask over mouth and jaw.
-const hoodHead = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
+// tr: how far the loose cloth (the hood's tail, the Widow's veil, the plume)
+// trails back behind the head's motion, from the cloak's streaming
+const hoodHead = (ctx, x, y, a, p, tr = 0) => inFrame(ctx, x, y, a, (c0) => {
   c0.scale(0.86, 0.88);
   const hood = p.hair, skin = p.skin, shade = mix(darken(skin, 0.55), "#2a1c2c", 0.35);
   const H = [[-2.4, 3.0, 1], [-3.0, 0.6], [-3.1, -1.8], [-4.4, -3.4], [-2.2, -3.9], [0.4, -3.9], [2.3, -3.1], [3.4, -1.7, 1], [2.6, -1.2], [2.0, -0.2], [1.9, 1.6], [2.5, 2.6, 1], [0.6, 3.2]];
@@ -281,7 +283,7 @@ const hoodHead = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
     },
   });
   // the hood's tail, lying down the back
-  blob(c0, [[-2.9, -1.4], [-4.1, -2.6, 1], [-3.7, -0.6], [-3.1, 1.0, 1], [-2.5, 0.8]], darken(hood, 0.12), { hi: 0.2 });
+  blob(c0, [[-2.9, -1.4], [-4.1 - tr * 0.4, -2.6 - tr * 0.15, 1], [-3.7 - tr * 0.5, -0.6], [-3.1 - tr * 0.35, 1.0 - tr * 0.1, 1], [-2.5, 0.8]], darken(hood, 0.12), { hi: 0.2 });
 
   // the Kingslayer's gilded face: a smooth gold mask that sits proud of the
   // cowl, a slit for the eyes, a ridge of nose, a shut, unsmiling mouth
@@ -302,15 +304,17 @@ const hoodHead = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
   // below the chin, a scalloped pale edge, the eyes burning through it
   if (p.veil) {
     const v = p.veil, lace = p.lace || "#c8c0cc";
-    blob(c0, [[3.4, -2.3, 1], [3.9, 0.2], [3.8, 3.3, 1], [2.9, 4.1, 1], [1.7, 3.6, 1], [0.6, 4.0, 1], [0.1, 2.6], [0.9, 0.2], [1.3, -2.6, 1]], v, {
+    // (the lower veil is pressed back as the head drives forward)
+    const vb = (x, y) => [x - tr * 0.3 * Math.max(0, y - 0.5) / 3.5, y];
+    blob(c0, [[3.4, -2.3, 1], [3.9, 0.2], [...vb(3.8, 3.3), 1], [...vb(2.9, 4.1), 1], [...vb(1.7, 3.6), 1], [...vb(0.6, 4.0), 1], vb(0.1, 2.6), [0.9, 0.2], [1.3, -2.6, 1]], v, {
       hi: 0.3, lo: 0.3, then: (c) => {
         for (let r = 0; r < 6; r++) for (let xx = 0.6 + (r % 2) * 0.55; xx < 3.9; xx += 1.1) dab(c, xx, -1.6 + r * 0.9, 0.45, 0.45, mix(v, lace, 0.45));
         dab(c, 1.2, -0.75, 1.1, 0.7, eyes); dab(c, 1.35, -0.7, 0.45, 0.3, lighten(eyes, 0.6));
-        line(c, 3.7, -2.0, 3.8, 3.2, 0.7, lace);                                    // the lace edge down the front
+        line(c, 3.7, -2.0, ...vb(3.8, 3.2), 0.7, lace);                             // the lace edge down the front
       },
     });
     part(c0, (c) => {                                                              // a fine lace edge along the veil's hem
-      c.beginPath(); c.moveTo(0.3, 3.3); c.lineTo(0.6, 3.9); c.lineTo(1.7, 3.5); c.lineTo(2.9, 4.0); c.lineTo(3.8, 3.2);
+      c.beginPath(); c.moveTo(...vb(0.3, 3.3)); c.lineTo(...vb(0.6, 3.9)); c.lineTo(...vb(1.7, 3.5)); c.lineTo(...vb(2.9, 4.0)); c.lineTo(...vb(3.8, 3.2));
       c.lineWidth = 0.55; c.lineJoin = "round"; c.strokeStyle = darken(lace, 0.15); c.stroke();
     });
   }
@@ -342,7 +346,8 @@ const hoodHead = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
     blob(c0, [[-2.5, -3.2, 1], [-2.3, -5.5], [-1.0, -6.3], [0.4, -5.8], [1.6, -6.2], [2.4, -5.3], [2.5, -3.2, 1]], h, {
       hi: 0.35, lo: 0.45, then: (c) => { dab(c, -2.6, -4.2, 5.2, 0.8, p.band || darken(h, 0.5)); dab(c, 1.2, -4.2, 0.7, 0.8, p.trim || "#c8a050"); line(c, 0.4, -5.7, 0.2, -4.4, 0.35, darken(h, 0.45)); },
     });
-    blob(c0, [[-1.6, -4.6], [-3.4, -7.4], [-5.8, -7.8, 1], [-4.2, -6.3], [-2.4, -3.9, 1]], p.plume || "#c8403a", { hi: 0.45, then: (c) => line(c, -1.9, -4.3, -5.2, -7.6, 0.3, lighten(p.plume || "#c8403a", 0.4)) });
+    const pl = (x, y) => [x - tr * 0.35 * (-4 - y) / 3.8, y + tr * 0.3 * (-4 - y) / 3.8];   // the plume raked flatter as he drives in
+    blob(c0, [[-1.6, -4.6], pl(-3.4, -7.4), [...pl(-5.8, -7.8), 1], pl(-4.2, -6.3), [-2.4, -3.9, 1]], p.plume || "#c8403a", { hi: 0.45, then: (c) => line(c, -1.9, -4.3, ...pl(-5.2, -7.6), 0.3, lighten(p.plume || "#c8403a", 0.4)) });
   }
 });
 
@@ -493,7 +498,7 @@ const blade = (ctx, p) => {
 
   // the head, carried low and forward, the chin tucked
   const hd = T(0.95, -9.25); hd[0] += st.hx;
-  hoodHead(ctx, hd[0], hd[1], st.lean * 0.25 + st.ht, p);
+  hoodHead(ctx, hd[0], hd[1], st.lean * 0.25 + st.ht, p, st.fl * 0.5);
 
   // the dagger hand
   const hn = arm(ctx, shN, H.hn, A, armN);

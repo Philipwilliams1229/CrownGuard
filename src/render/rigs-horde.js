@@ -587,7 +587,13 @@ const kiteShield = (ctx, x, y, col, band) => part(ctx, (c) => {
 });
 
 // ---- the troll ------------------------------------------------------------------
-const TROLL = { L1: 5.7, L2: 5.4, stride: 3.2, lift: 2.2, bob: 1.3, lean: 0.12, dip: 0.07, lunge: 3.0, hipW: 1.8, thigh: 4.6, shin: 4.0, foot: 5.0, ankle: 1.1 };
+const TROLL = { L1: 5.7, L2: 5.4, stride: 3.2, lift: 2.2, bob: 1.3, lean: 0.12, dip: 0.07, lunge: 3.0, hipW: 1.8, thigh: 4.6, shin: 4.0, foot: 5.0, ankle: 1.1, wind: 1.6, follow: 1.6 };
+// The troll's fight (guard, wind-up, strike, follow-through): [club hand from
+// the near shoulder, club angle, far hand from the far shoulder]. Big and slow:
+// the club hefted up before him, heaved right back over the shoulder with the
+// head hanging behind the hump (the free arm flung forward to balance it),
+// brought down in one smash, and left on the ground a moment after.
+const TROLL_FIGHT = [[[3.8, 5.0], -1.5, [3.0, 9.6]], [[-1.0, -7.4], 2.55, [6.8, 3.6]], [[7.2, 5.4], 0.85, [-0.8, 9.6]], [[5.4, 9.0], 1.3, [1.4, 10.4]]];
 const troll = (ctx, p) => {
   const o = TROLL, R = skeleton(p, o), { st, T } = R;
   const skin = p.skin, skinF = darken(skin, 0.26), belly = mix(skin, "#e8dcb0", 0.3), moss = mix(skin, "#86b04a", 0.55);
@@ -596,14 +602,13 @@ const troll = (ctx, p) => {
   const A = { up: 5.8, fore: 5.4, w: 4.0 };
   let hn, an, hf;
   if (!st.fight) {
-    hn = [shN[0] + 0.6 + st.swing * 0.5, shN[1] + 8.6]; an = -1.86 + st.swing * 0.04;
+    // marching, the club rides on his shoulder (the fist before the chest, the
+    // haft leaning back over the hump); the free arm swings long
+    hn = [shN[0] + 3.2 + st.swing * 0.3, shN[1] + 3.2 - Math.abs(st.swing) * 0.2]; an = -2.1 + st.swing * 0.04;
     hf = [shF[0] + 1.4 - st.swing * 2.4, shF[1] + 10.8];
-  } else if (!st.hit) {
-    hn = [shN[0] + 0.4, shN[1] - 4.6]; an = -1.95;
-    hf = [shF[0] + 6.8, shF[1] + 3.4];
   } else {
-    hn = [shN[0] + 5.0, shN[1] + 6.6]; an = 1.08;
-    hf = [shF[0] - 1.6, shF[1] + 8.4];
+    const [N, a, H] = pick(TROLL_FIGHT, st);
+    hn = [shN[0] + N[0], shN[1] + N[1]]; an = a; hf = [shF[0] + H[0], shF[1] + H[1]];
   }
   // the far arm, long enough to drag its knuckles
   { const h = arm(ctx, shF, hf, A, { up: skinF }); fist(ctx, h[0], h[1], 2.1, skinF); }
@@ -623,16 +628,18 @@ const troll = (ctx, p) => {
         for (const [wx, wy] of [[-4.2, -15.4], [-6.4, -11.2], [-1.2, -17.2]]) dab(cc, wx, wy, 0.5, 0.5, lighten(moss, 0.4));
       },
     });
-    const sw = st.fight ? 0.6 : st.c * 0.6;
+    const sw = st.fight ? st.hem * 0.8 : st.c * 0.6;
     blob(c, [[-5.4, -1.0], [6.0, -1.2], [5.6 + sw, 3.8, 1], [3.4, 3.0, 1], [1.8 + sw * 0.5, 4.6, 1], [-0.4, 3.2, 1], [-2.6, 4.2, 1], [-5.8 - sw * 0.4, 2.0, 1]], p.cloth, {
       then: (cc) => { dab(cc, -6, -1.4, 12.4, 1.2, darken(p.cloth, 0.4)); line(cc, 1.2, 0.2, 1.4, 3.6, 0.45, darken(p.cloth, 0.45)); },
     });
   });
   // the head, slung low in front of the hump
-  const hd = T(8.4, -12.4);
-  trollHead(ctx, hd[0] + (st.hit ? 0.8 : 0), hd[1] + (st.hit ? 0.6 : 0), st.lean * 0.4 - (st.fight && !st.hit ? 0.15 : 0), p, st.fight && !st.hit);
+  // it roars into the wind-up and through the smash, the head thrown back, then down
+  const hd = T(8.4, -12.4), F = st.fight ? st.F : -1;
+  trollHead(ctx, hd[0] + ([0.2, -0.4, 0.8, 0.7][F] || 0), hd[1] + ([0, -0.3, 0.6, 1.0][F] || 0), st.lean * 0.4 + ([0, -0.2, 0.05, 0.12][F] || 0), p, F === 1 || F === 2);
   // the club arm
   const h = arm(ctx, shN, hn, A, { up: skin });
+  wrist(ctx, h, an);
   club(ctx, h[0], h[1], an, p.wcol || "#7a5a3a", 12.5);
   fist(ctx, h[0], h[1], 2.2, skin);
 };
@@ -658,7 +665,13 @@ const trollHead = (ctx, x, y, a, p, roar) => inFrame(ctx, x, y, a, (c0) => {
 
 // ---- the casters -----------------------------------------------------------------
 // the necromancer: a tall pointed hood, a void where the face is, witch-fire
-const NEC = { L1: 5.0, L2: 4.8, stride: 2.0, lift: 1.3, bob: 0.5, lean: 0.06, dip: 0.02, lunge: 1.8, hipW: 0.8, thigh: 2.4, shin: 2.0, foot: 3.2, ankle: 0.9 };
+const NEC = { L1: 5.0, L2: 4.8, stride: 2.0, lift: 1.3, bob: 0.5, lean: 0.06, dip: 0.02, lunge: 1.8, hipW: 0.8, thigh: 2.4, shin: 2.0, foot: 3.2, ankle: 0.9, wind: 0.9, follow: 0.6 };
+// His fight is a cast (gather, raise, release, recover): [staff hand from the
+// near shoulder, staff angle, bony hand from the far shoulder]. The staff held
+// upright with the free hand drawn to the skull; lifted high as he leans back
+// and the witch-fire swells; thrust at the foe with the claw flung after it;
+// drawn back upright as the fire gutters down.
+const NEC_FIGHT = [[[3.8, 2.6], -1.5, [5.0, 0.4]], [[1.2, -3.8], -1.8, [3.6, -2.4]], [[5.6, 0.2], -0.55, [6.2, 0.8]], [[4.0, 2.0], -1.15, [3.4, 3.6]]];
 const necro = (ctx, p) => {
   const o = NEC, R = skeleton(p, o), { st, T } = R;
   const robe = mix(p.cloth, "#6a5a8a", 0.3), cape = mix(p.cape || p.cloth, "#4a3a5a", 0.2), trim = p.cloth2 || "#5a4a8c";
@@ -670,15 +683,13 @@ const necro = (ctx, p) => {
   if (!st.fight) {
     hn = [shN[0] + 4.4 + st.swing * 0.4, shN[1] + 4.4]; an = -1.4 + st.swing * 0.05;
     hf = [shF[0] + 0.8 - st.swing * 1.2, shF[1] + 5.8];
-  } else if (!st.hit) {
-    hn = [shN[0] + 0.4, shN[1] - 1.6]; an = -1.9;
-    hf = [shF[0] + 5.0, shF[1] - 0.6];
   } else {
-    hn = [shN[0] + 3.8, shN[1] + 1.0]; an = -0.95;
-    hf = [shF[0] + 5.8, shF[1] + 2.0];
+    const [N, a, H] = pick(NEC_FIGHT, st);
+    hn = [shN[0] + N[0], shN[1] + N[1]]; an = a; hf = [shF[0] + H[0], shF[1] + H[1]];
   }
-  // the cape streams out behind
-  const fl = st.fight ? (st.hit ? 1.6 : 0.4) : [0.6, 1.0, 0.4, 0.8][st.f];
+  // the cape streams out behind: it lags the body, swinging in as he rocks
+  // back, streaming as he lunges and settling after
+  const fl = st.fight ? [0.5, 0.1, 1.8, 1.2][st.F] : [0.6, 1.0, 0.4, 0.8][st.f];
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => blob(c, [[-1.2, -10.4], [-3.6, -9.8], [-5.8, -3.6], [-7.2 - fl, 3.8], [-8.2 - fl, 8.0, 1], [-6.8, 7.2, 1], [-5.8 - fl * 0.5, 8.6, 1], [-4.4, 7.6, 1], [-3.2, 8.6, 1], [-2, 0]], cape, { hi: 0.3, lo: 0.35, then: (cc) => line(cc, -4.6, -4, -6.4 - fl, 7.8, 0.6, trim) }));
   // the far sleeve
   { const h = arm(ctx, shF, hf, A, { up: darken(robe, 0.3) }); bony(ctx, h[0], h[1], darken(skin, 0.2), st.fight); }
@@ -687,7 +698,7 @@ const necro = (ctx, p) => {
   leg(ctx, R, o, "near", { thigh: darken(robe, 0.2), shin: darken(robe, 0.2), foot: darken(robe, 0.3) });
   // the robe, flared and ragged, a stole of witch-purple down the front
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
-    const kick = st.fight ? (st.hit ? 1.2 : 0.4) : st.c * 0.9, hem = 8.4;
+    const kick = st.fight ? st.hem * 1.2 : st.c * 0.9, hem = 8.4;
     const pts = [[4.0 + kick, hem, 1], [2.8, hem - 0.8, 1], [1.8 + kick * 0.5, hem + 0.3, 1], [0.4, hem - 0.6, 1], [-1, hem + 0.3, 1], [-2.4, hem - 0.6, 1], [-3.8 - kick * 0.4, hem, 1],
       [-3.6, 3], [-3.2, -3], [-3.0, -8.6], [-1.6, -10.4], [1.4, -10.2], [2.8, -8.6], [2.6, -4], [3.0, 2]];
     blob(c, pts, robe, {
@@ -699,17 +710,20 @@ const necro = (ctx, p) => {
       },
     });
   });
-  const hd = T(1.2, -12.4);
-  necroHead(ctx, hd[0] + (st.hit ? 0.5 : 0), hd[1], st.lean * 0.4, p);
+  const hd = T(1.2, -12.4), F = st.fight ? st.F : -1;
+  necroHead(ctx, hd[0] + ([0.1, -0.2, 0.6, 0.4][F] || 0), hd[1] + ([0, -0.1, 0.2, 0.2][F] || 0), st.lean * 0.4 + ([0, -0.1, 0.08, 0.06][F] || 0), p);
   // the staff hand
   const h = arm(ctx, shN, hn, A, { up: robe, cuff: darken(trim, 0.1) });
+  wrist(ctx, h, an);
   const tip = staff(ctx, h[0], h[1], an, "#4a3a3a", 7.4, 10);
   bony(ctx, h[0], h[1], skin);
-  // a little skull in the crook, witch-fire rising off it
-  const big = st.fight ? 1.35 : 1;
-  glow(ctx, tip[0], tip[1] - 1.2, 3.6 * big, fire, 0.36);
+  // a little skull in the crook, witch-fire rising off it: it swells as the
+  // staff is raised, flares on the release and gutters after
+  const big = [1.1, 1.45, 1.35, 0.95][F] || 1;
+  glow(ctx, tip[0], tip[1] - 1.2, 3.6 * big, fire, F === 2 ? 0.46 : 0.36);
   part(ctx, (c) => { ball(c, tip[0], tip[1], 1.3, 1.2, "#e0d8c4", { hi: 0.4, lo: 0.4 }); dab(c, tip[0] - 0.1, tip[1] - 0.3, 0.5, 0.5, "#2a2230"); dab(c, tip[0] + 0.7, tip[1] - 0.3, 0.5, 0.5, "#2a2230"); });
-  flame(ctx, tip[0] + 0.1, tip[1] - 1.0, 1.4 * big, 3.6 * big, fire, st.f);
+  flame(ctx, tip[0] + 0.1, tip[1] - 1.0, 1.4 * big, 3.6 * big, fire, F === 2 ? 0 : F === 1 ? 1 : st.f);
+  if (st.fight) sparks(ctx, tip, an, F, lighten(fire, 0.4));
 };
 const bony = (ctx, x, y, col, splay) => part(ctx, (c) => {
   ball(c, x, y, 0.9, 0.9, col, { hi: 0.4, lo: 0.4 });
@@ -737,7 +751,13 @@ const necroHead = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
 });
 
 // ---- the warchief -------------------------------------------------------------------
-const HOB = { L1: 5.4, L2: 5.2, stride: 2.8, lift: 2.2, bob: 0.8, lean: 0.14, dip: 0.04, lunge: 2.6, hipW: 1.3, thigh: 3.0, shin: 2.6, foot: 3.8, ankle: 1.0 };
+const HOB = { L1: 5.4, L2: 5.2, stride: 2.8, lift: 2.2, bob: 0.8, lean: 0.14, dip: 0.04, lunge: 2.6, hipW: 1.3, thigh: 3.0, shin: 2.6, foot: 3.8, ankle: 1.0, wind: 1.4, follow: 1.5 };
+// The warchief's fight (guard, wind-up, strike, follow-through): [totem hand
+// from the near shoulder, totem angle, free hand from the far shoulder]. A big
+// man with a long, top-heavy stick: the totem held up before him, hauled back
+// over his shoulder with the skull swinging out behind (the free fist thrust
+// at the foe), brought round and down, and carried low, skull to the dirt.
+const HOB_FIGHT = [[[2.6, 3.8], -1.3, [3.6, 3.2]], [[-0.6, -4.6], 3.0, [5.8, 0.6]], [[4.6, 2.6], 0.55, [0.6, 5.4]], [[3.6, 4.6], 1.0, [1.8, 5.0]]];
 const hobgoblin = (ctx, p) => {
   const o = HOB, R = skeleton(p, o), { st, T } = R;
   const skin = p.skin, skinF = darken(skin, 0.24), lea = p.cloth, gold = p.cloth2 || "#e8c14a";
@@ -748,20 +768,18 @@ const hobgoblin = (ctx, p) => {
   let hn, an, hf;
   if (!st.fight) {
     hn = [shN[0] + 1.4 + st.swing * 1.0, shN[1] + 6.2]; an = 0;
-    hf = [shF[0] - 1.4 + st.swing * 0.3, shF[1] + 5.4];
-  } else if (!st.hit) {
-    hn = [shN[0] - 0.2, shN[1] - 4.2]; an = -2.05;
-    hf = [shF[0] + 5.6, shF[1] + 1.0];
+    // the standard leans back on his far shoulder, the fist before his chest
+    hf = [shF[0] + 2.4 + st.swing * 0.3, shF[1] + 2.8 + Math.abs(st.swing) * 0.2];
   } else {
-    hn = [shN[0] + 4.2, shN[1] + 2.4]; an = 0.62;
-    hf = [shF[0] + 1.0, shF[1] + 5.6];
+    const [N, a, H] = pick(HOB_FIGHT, st);
+    hn = [shN[0] + N[0], shN[1] + N[1]]; an = a; hf = [shF[0] + H[0], shF[1] + H[1]];
   }
   // marching, the standard rides in the far hand behind him; in a fight he swings it
-  { const h = arm(ctx, shF, hf, A, { up: skinF, cuff: darken(gold, 0.35) }); if (!st.fight) totem(ctx, h[0], h[1], -1.66 - st.swing * 0.04, p, st.f); fist(ctx, h[0], h[1], 1.4, skinF); }
+  { const h = arm(ctx, shF, hf, A, { up: skinF, cuff: darken(gold, 0.35) }); if (!st.fight) { const ta = -1.9 - st.swing * 0.03; wrist(ctx, h, ta); totem(ctx, h[0], h[1], ta, p, st.f); } fist(ctx, h[0], h[1], 1.4, skinF); }
   leg(ctx, R, o, "far", { thigh: skinF, shin: skinF, wrap: darken(fur, 0.35), foot: darken(lea, 0.55) });
   leg(ctx, R, o, "near", { thigh: skin, shin: skin, wrap: fur, foot: darken(lea, 0.35) });
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
-    const sw = st.fight ? 0.5 : st.c * 0.5;
+    const sw = st.fight ? st.hem * 0.6 : st.c * 0.5;
     blob(c, [[-3.8, -0.4], [3.6, -0.4], [4.0 + sw, 3.6, 1], [2.2, 4.2, 1], [0.8, 3.2, 1], [-0.6, 4.2, 1], [-2.2, 3.2, 1], [-4.0 - sw * 0.4, 3.8, 1]], lea, { then: (cc) => { for (const x of [-1.4, 1.5]) line(cc, x, 0.2, x, 4, 0.45, darken(lea, 0.45)); } });
     const trunk = [[3.2, 0.6], [3.8, -2.6], [4.2, -6.0], [4.0, -8.4], [2.4, -9.8], [-0.4, -10.3], [-3.2, -9.8], [-4.6, -8.0], [-4.6, -4.6], [-3.9, -1.8], [-3.3, 0.6]];
     blob(c, trunk, lea, {
@@ -779,10 +797,11 @@ const hobgoblin = (ctx, p) => {
       hi: 0.35, lo: 0.4, then: (cc) => { for (let i = 0; i < 6; i++) line(cc, -4.2 + i * 1.6, -8.2, -3.6 + i * 1.6, -7.2, 0.45, darken(fur, 0.35)); },
     });
   });
-  const nk = T(1.4, -10.0), hd = [nk[0] + 1.3 + (st.hit ? 0.5 : 0), nk[1] - 2.4];
-  hobHead(ctx, hd[0], hd[1], st.lean * 0.3, p);
+  const F = st.fight ? st.F : -1;
+  const nk = T(1.4, -10.0), hd = [nk[0] + 1.3 + ([0.1, -0.3, 0.5, 0.4][F] || 0), nk[1] - 2.4 + ([0, 0, 0.3, 0.4][F] || 0)];
+  hobHead(ctx, hd[0], hd[1], st.lean * 0.3 + ([0, -0.1, 0.08, 0.12][F] || 0), p);
   const h = arm(ctx, shN, hn, A, { up: skin, cuff: gold });
-  if (st.fight) totem(ctx, h[0], h[1], an, p, st.f);
+  if (st.fight) { wrist(ctx, h, an); totem(ctx, h[0], h[1], an, p, st.f); }
   fist(ctx, h[0], h[1], 1.5, skin);
 };
 const hobHead = (ctx, x, y, a, p) => {

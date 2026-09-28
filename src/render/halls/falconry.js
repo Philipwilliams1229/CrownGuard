@@ -21,7 +21,7 @@ import {
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { getStats } from "../../engine/towers.js";
-import { drawMistress, CREW_FOLK } from "../folk.js";
+import { drawMistress, mistressFrame, mistressGlove, CREW_FOLK } from "../folk.js";
 
 const cache = spriteCache();
 export const resetFalconryBakes = () => cache.clear();
@@ -198,23 +198,34 @@ export const drawFalconry = (ctx, t, time) => {
     const cv = bake ? cache.get(`bird|${wing}|${kind}`, 22, 14, (c) => paintBird(c, 11, 7, wing, kind)) : null;
     if (cv) stamp(ctx, cv, bx, by, 11, 7, 1); else paintBird(ctx, bx, by, wing, kind);
   };
-  const mistress = (key) => {
-    if (bake) stamp(ctx, cache.get(`mistress|${key}`, 30, 32, (c) => drawMistress(c, 12, 29, 1, pal)), x, my, 12, 29, dir);
-    else drawMistress(ctx, x, my, dir, pal);
+  const mistress = (key, pose) => {
+    if (bake) stamp(ctx, cache.get(`mistress|${key}|${pose}`, 32, 34, (c) => drawMistress(c, 13, 30, 1, pal, pose)), x, my, 13, 30, dir);
+    else drawMistress(ctx, x, my, dir, pal, pose);
   };
+  // the glove in a pose (world), and a bird sitting on it (its centre)
+  const glove = (pose) => { const [gx, gy] = mistressGlove(pose); return [x + dir * gx, my + gy]; };
+  const onGloveAt = (pose) => { const [gx, gy] = glove(pose); return [gx + dir * 1, gy - 3.1]; };
   if (t.noFolk) {
     // the build lays the roost bare: no mistress, no bird on the glove or the wing
   } else if (nest) {
-    // she rides the eagle; only when it is down does she wait here
+    // she rides the eagle; only when it is down does she wait here, glove up, whistling for it
     if (t.eagle && t.eagle.respawn > 0) {
-      mistress("royal");
-      if (Math.sin(time * 6) > 0) glow(ctx, x + dir * 6, my - 24, 2, "#ffffff", 0.9);
+      mistress("royal", "present");
+      const [gx, gy] = glove("present");
+      if (Math.sin(time * 6) > 0) glow(ctx, gx - dir * 1.4, gy - 2.6, 2, "#ffffff", 0.9);
     }
   } else {
     const birds = r4 === "bb" ? 3 : st.shots >= 3 ? 3 : (aviary || lvl >= 2) ? 2 : 1;
-    // the strike: one bird is away; just before it, one sits on the glove
+    // her cast (mistressFrame): the glove at her chest; the bird comes down to
+    // it and she raises it (present), draws the fist back (the bird mantles),
+    // throws the arm out and the bird is away (cast, the stoop's streak off
+    // her hand), follows through and settles. Idle: a bird rides the glove
+    // now and then while she watches the others wheel.
+    const rate = st.rate || 1300, clock = time + t.id * 0.83;
+    const perchedIdle = t._idle && ((time / 11) + t.id * 0.71) % 1 < 0.45;
+    const pose = mistressFrame(t.cd > 0 ? rate - t.cd : Infinity, t.cd || 0, rate, { idle: t._idle, perched: perchedIdle, clock });
     const striking = anim > 0.3;
-    const onGlove = !striking && (t._idle ? ((time / 11) + t.id * 0.71) % 1 < 0.45 : r > 0.8);
+    const onGlove = t._idle ? perchedIdle : pose === "present" || pose === "draw";
     const skip = striking ? (t.shotIdx || 0) % birds : -1;
     const wheel = [];
     for (let b = 0; b < birds; b++) {
@@ -224,19 +235,23 @@ export const drawFalconry = (ctx, t, time) => {
       wheel.push({ x: x + Math.cos(ang) * 18, y: my - 28 + Math.sin(ang) * 6, front: Math.sin(ang) >= 0, kind: kindOf(b), wing: Math.floor(time * 9 + b * 1.3) % 3 });
     }
     for (const w of wheel) if (!w.front) bird(w.x, w.y, w.wing, w.kind);
-    mistress(court ? "court" : aviary ? "royal" : "mews");
+    mistress(court ? "court" : aviary ? "royal" : "mews", pose);
     if (onGlove) {
-      const cv = bake ? cache.get(`perched|${kindOf(0)}`, 12, 12, (c) => paintPerched(c, 6, 8, kindOf(0))) : null;
-      if (cv) stamp(ctx, cv, x + dir * 9, my - 24.5, 6, 8, dir);
-      // the bird mantles, wings half open, as the strike comes
-      if (!t._idle && r > 0.93) bird(x + dir * 9, my - 26, 2, kindOf(0));
+      const [px, py] = onGloveAt(pose);
+      // the bird mantles, wings half open, as she draws back to cast it
+      if (pose === "draw") bird(px, py - 1.5, 2, kindOf(0));
+      else {
+        const cv = bake ? cache.get(`perched|${kindOf(0)}`, 12, 12, (c) => paintPerched(c, 6, 8, kindOf(0))) : null;
+        if (cv) stamp(ctx, cv, px, py, 6, 8, dir); else paintPerched(ctx, px, py, kindOf(0));
+      }
     }
     for (const w of wheel) if (w.front) bird(w.x, w.y, w.wing, w.kind);
     if (striking) {
-      // the stoop: a streak off the glove toward the field
+      // the stoop: a streak off her flung hand toward the field
+      const [sx, sy] = onGloveAt("cast");
       ctx.strokeStyle = `rgba(255,243,210,${anim * 0.8})`; ctx.lineWidth = 1.4; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(x + dir * 9, my - 26); ctx.lineTo(x + dir * (14 + (1 - anim) * 20), my - 22 + (1 - anim) * 14); ctx.stroke();
-      if (r4 === "ab") glow(ctx, x + dir * 12, my - 24, 5 * anim, "#b8e0ff", anim);
+      ctx.beginPath(); ctx.moveTo(sx, sy + 1); ctx.lineTo(sx + dir * (5 + (1 - anim) * 20), sy + 5 + (1 - anim) * 14); ctx.stroke();
+      if (r4 === "ab") glow(ctx, sx + dir * 3, sy + 2, 5 * anim, "#b8e0ff", anim);
     }
     if (r4 === "ab") for (const w of wheel) if (Math.sin(time * 7 + w.x) > 0.7) { ctx.fillStyle = "#d8f0ff"; ctx.fillRect(w.x - 5, w.y + 1, 1, 1); }
   }

@@ -30,10 +30,10 @@ const K = {
   // nocked and set: bow arm up with a soft elbow, fingers on the string,
   // the string elbow raised to take the weight
   set: { ns: [-0.3, -16.3], fs: [1.2, -16.4], h: [7.5, -17.3], flip: 1, g: [9.2, -16.4], rot: 0, str: 1, shiver: 0, bend: 0, arr: 1, aa: 0, lean: -0.1, bob: 0, open: 0 },
-  // full draw: the bow arm has pushed out straight, the string hand is at
-  // the corner of the mouth, the elbow high behind the head; he leans a
-  // touch back into the weight
-  anchor: { ns: [0.0, -16.3], fs: [1.2, -16.5], h: [1.6, -19.3], flip: 1, g: [9.9, -16.6], rot: -0.03, str: 1, shiver: 0, bend: 1, arr: 1, aa: 0, lean: -0.5, bob: 0, open: 0 },
+  // full draw: the bow arm has pushed out straight, the string hand is
+  // anchored at the cheek, the elbow high behind the head (it shows past the
+  // hood); he leans a touch back into the weight
+  anchor: { ns: [-0.6, -16.2], fs: [1.2, -16.5], h: [1.0, -19.4], flip: 1, g: [9.9, -16.6], rot: -0.03, str: 1, shiver: 0, bend: 1, arr: 1, aa: 0, lean: -0.5, bob: 0, open: 0 },
   // the instant after: the string has slipped, the fingers open and the
   // hand slides back along the jaw; the bow arm drives on, the bow rolls
   loose: { ns: [-0.2, -16.2], fs: [1.2, -16.5], h: [0.3, -19.7], flip: 1, g: [10.0, -16.4], rot: 0.14, str: 0, shiver: 1, bend: 0, arr: 0, aa: 0, lean: -0.35, bob: 0, open: 1 },
@@ -84,7 +84,7 @@ export const drawArcherFrame = (ctx, x, y, dir, pal, frame, o = {}) => {
 // drawing hand slides back past the ear), "reach" (a hand over the shoulder
 // to the quiver), or any key of ARCHER_POSES; see archerPose for o.to /
 // o.k / o.arrow / o.breath. Without a pose the figure draws by `draw`: the
-// limbs bend, the string comes back to the corner of the mouth, the arrow
+// limbs bend, the string comes back to the cheek, the arrow
 // rides on it, and he leans back into the weight.
 export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
   const big = !!o.big;

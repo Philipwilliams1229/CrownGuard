@@ -21,10 +21,27 @@ import {
   IRON, STEEL, GOLD, readiness, foot, padB, skirtB, beam, planks, barrel, crate, coins, boulder, wheel, glint,
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
-import { drawStander, drawBomber, CREW_FOLK } from "../folk.js";
+import { drawStander, drawBomber, bomberFrame, bomberCharge, STANDER_FRAMES, JOINTS, CREW_FOLK } from "../folk.js";
+import { getStats } from "../../engine/towers.js";
 
 const cache = spriteCache();
 export const resetGoldworksBakes = () => cache.clear();
+const cycOf = (v, p) => (((v / p) % 1) + 1) % 1;
+// The clerk is the workers' stander; his near hand (where the ledger and the
+// coin go) moves with his idle frames, so it is read off his own arm as the
+// frame bakes (the joint log folk-kit keeps for the joint lab), per frame.
+const CLERK_HAND = [];
+const bakeClerk = (c, fr) => {
+  const prev = JOINTS.log;
+  JOINTS.log = [];
+  try { drawStander(c, 12, 27, 1, CREW_FOLK.clerk, { frame: fr }); }
+  finally {
+    const arms = JOINTS.log.filter((j) => j.kind === "arm");
+    if (arms.length) CLERK_HAND[fr] = arms[arms.length - 1].c;
+    if (prev) prev.push(...JOINTS.log);
+    JOINTS.log = prev;
+  }
+};
 const BOX = { left: 40, right: 40, up: 62, down: 18 };
 const COIN = "#e0bb48";
 const ROOF = { base: "#5a5e6a", l2: "#a8505c", a: "#3a5a8a", aa: "#8e2f2a", ab: "#5a3a7a", b: "#4a8a72", ba: "#4a8a72", bb: "#3a7a64" };
@@ -299,36 +316,42 @@ export const drawGoldworks = (ctx, t, time) => {
   if (t.noFolk) {
     // the build puts him in last
   } else if (alch) {
-    // the alchemist: vial low while he mixes, up and glowing when ready,
-    // thrown on the shot
-    const throwing = anim > 0.35 || (!t._idle && r > 0.8);
+    // the alchemist: the vial at his belt while the next one steeps, then the
+    // throw (bomberFrame: swung back, cocked behind his head, whipped over,
+    // let go, followed through, a fresh vial from his belt); the flask is in
+    // his sprite, only its glow is live and rides on his hand
+    const clock = time + t.id * 0.71;
+    const rate = getStats(t).rate || 1300;
+    const pose = t._idle ? bomberFrame(Infinity, 0, rate, clock) : bomberFrame(t.cd > 0 ? rate - t.cd : Infinity, t.cd || 0, rate, clock);
     const [ax, ay] = crewSpot(t, x, y);
-    if (bake) stamp(ctx, cache.get(`alch|${throwing ? 1 : 0}`, 28, 34, (c) => drawBomber(c, 12, 31, 1, ALCHEMIST, throwing)), ax, ay, 12, 31, -1);
-    else drawBomber(ctx, ax, ay, -1, ALCHEMIST, throwing);
-    // the vial over the charge he holds (none just after the throw)
-    if (anim <= 0.35) {
-      const vx = ax - (throwing ? 5.5 : 6), vy = ay + (throwing ? -25 : -13);
-      ctx.fillStyle = "#241a26"; ctx.fillRect(vx - 2, vy - 2.4, 4, 4.4); ctx.fillRect(vx - 0.9, vy - 4, 1.8, 2);
-      ctx.fillStyle = "#8ad0a0"; ctx.fillRect(vx - 1.4, vy - 1.8, 2.8, 3.2);
-      ctx.fillStyle = "#c8f0d8"; ctx.fillRect(vx - 1, vy - 1.4, 1, 1);
-      ctx.fillStyle = "#c8b898"; ctx.fillRect(vx - 0.5, vy - 3.4, 1, 1.4);
-      if (throwing) glow(ctx, vx, vy, 4, "#8ad0a0", 0.5 + 0.2 * Math.sin(time * 10));
+    if (bake) stamp(ctx, cache.get(`alch|${pose}`, 32, 36, (c) => drawBomber(c, 13, 32, 1, ALCHEMIST, pose, { vial: true })), ax, ay, 13, 32, -1);
+    else drawBomber(ctx, ax, ay, -1, ALCHEMIST, pose, { vial: true });
+    const ch = bomberCharge(pose);
+    if (ch) {
+      const hot = pose === "cock" || pose === "whip" || pose === "back";
+      glow(ctx, ax - ch.x, ay + ch.y, hot ? 4 : 2.6, "#8ad0a0", hot ? 0.5 + 0.2 * Math.sin(time * 10) : 0.25 + 0.1 * Math.sin(time * 3 + t.id));
     }
   } else {
-    // the clerk at the door, flipping a coin between waves
+    // the clerk at the door (the workers' stander, at ease: a breath, his
+    // weight shifting, a glance, picked slowly and phased by t.id), his ledger
+    // held to his belly by the near hand, flipping a coin off that hand; the
+    // hand is read from the stander's own arm as it bakes (standerHand)
     const [kx, ky] = crewSpot(t, x, y);
-    if (bake) stamp(ctx, cache.get("clerk", 26, 30, (c) => drawStander(c, 12, 27, 1, CREW_FOLK.clerk)), kx, ky, 12, 27, -1);
-    else drawStander(ctx, kx, ky, -1, CREW_FOLK.clerk);
-    // his ledger, under the arm
-    ctx.fillStyle = "#241a26"; ctx.fillRect(kx - 5.2, ky - 15.4, 3.6, 4.6);
-    ctx.fillStyle = "#8a3a2e"; ctx.fillRect(kx - 4.8, ky - 15, 2.8, 3.8);
-    ctx.fillStyle = "#e8dcc0"; ctx.fillRect(kx - 2.4, ky - 14.6, 0.6, 3);
-    const cyc = ((time / 2.4) + t.id * 0.37) % 1;
-    if (cyc < 0.7) {
-      const cy = ky - 23 - Math.sin(cyc / 0.7 * Math.PI) * 10;
-      ctx.fillStyle = "#241a26"; ctx.fillRect(kx - 1.6, cy - 1.2, 3.2, 2.4);
-      ctx.fillStyle = Math.sin(time * 20) > 0 ? "#f8e08a" : "#b08a3a"; ctx.fillRect(kx - 1.1, cy - 0.7, 2.2, 1.4);
-    }
+    const fr = Math.floor(cycOf(time / 3.3 + t.id * 0.61, 1) * STANDER_FRAMES) % STANDER_FRAMES;
+    if (bake) stamp(ctx, cache.get(`clerk|${fr}`, 26, 30, (c) => bakeClerk(c, fr)), kx, ky, 12, 27, -1);
+    else drawStander(ctx, kx, ky, -1, CREW_FOLK.clerk, { frame: fr });
+    const [hx0, hy0] = CLERK_HAND[fr] || [3.9, -10.2], hx = kx - hx0, hy = ky + hy0;
+    // his ledger, against his belly on the near hand
+    ctx.fillStyle = "#241a26"; ctx.fillRect(hx - 1.3, hy - 5.2, 3.6, 4.6);
+    ctx.fillStyle = "#8a3a2e"; ctx.fillRect(hx - 0.9, hy - 4.8, 2.8, 3.8);
+    ctx.fillStyle = "#e8dcc0"; ctx.fillRect(hx + 1.5, hy - 4.4, 0.6, 3);
+    // the coin: thumbed up off that hand, turning, caught again, a rest
+    const cyc = cycOf(time / 2.4 + t.id * 0.37, 1);
+    if (cyc < 0.62) {
+      const k = cyc / 0.62, cx = hx - 1.2 * Math.sin(k * Math.PI), cy = hy - 1 - Math.sin(k * Math.PI) * 10;
+      ctx.fillStyle = "#241a26"; ctx.fillRect(cx - 1.4, cy - 1.1, 2.8, 2.2);
+      ctx.fillStyle = Math.sin(time * 20) > 0 ? "#f8e08a" : "#b08a3a"; ctx.fillRect(cx - 0.9, cy - 0.6, 1.8, 1.2);
+    } else if (Math.sin(time * 3 + t.id) > 0.3) glint(ctx, hx - 0.4, hy - 0.8, 0.6, 0.8);
   }
   // the takings and wares that stand in front of him
   if (bake) stamp(ctx, cache.get(`front|${t.level}|${t.branch}|${t.rank4}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintFrontProps(c, t, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);

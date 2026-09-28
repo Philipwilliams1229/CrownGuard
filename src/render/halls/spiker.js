@@ -20,7 +20,7 @@ import {
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { masonry } from "../buildkit.js";
-import { drawCrew, CREW_FOLK } from "../folk.js";
+import { drawCrew, crankAt, CREW_FOLK, CREW_FRAMES, frameOf } from "../folk.js";
 
 const cache = spriteCache();
 export const resetSpikerBakes = () => cache.clear();
@@ -31,6 +31,9 @@ const SQ = 0.5, PHASES = 4;
 // at y + 5), feet inside FOOT_NARROW; the crank he turns sits at his hands.
 const crewSpot = (s) => (s.lvl === 1 && !s.branch ? [-9.5, 6.8] : [-7.5, 8]);
 const CRANK = { x: -4, y: -5 };   // the crank's hub, from (x, y)
+const CRANK_RX = 1.9, CRANK_RY = 1.1;   // its handle's throw (a crank laid flat)
+// the level-one hand-bar's end, from the wheelwright's feet, and its stroke
+const BAR = { hub: [6.4, -13.4], rx: 0.9, ry: 0.5, push: true };
 const GRATE = 4;                   // the furnace grate's centre, right of x
 
 const spec = (t) => {
@@ -322,26 +325,40 @@ export const drawBladewheel = (ctx, t, time) => {
   }
 
   // ---- the wheelwright at the crank (from level two; the post is turned by
-  // hand-bar at one)
+  // hand-bar at one). Turning, his hands ride the handle round (CREW_FRAMES
+  // baked turns, the body hauling from the hips) and the handle is drawn at
+  // the same turn; at one he leans into the bar and drives it. At ease his
+  // hands rest on the still handle and he breathes and looks about.
   const lvl1 = lvl === 1 && !t.branch;
   const turning = !t._idle;
-  const work = turning ? Math.round((Math.sin(time * (gale ? 12 : 8) + t.id) + 1) * 1.5) : Math.round((Math.sin(time * 1.1 + t.id) + 1) * 0.5);
   const [cdx, cdy] = crewSpot(s), cx0 = x + cdx, cy0 = y + cdy;   // his feet stay inside the narrow footprint
-  if (t.noFolk) { /* no wheelwright yet, nor his hand-bar */ }
-  else if (bake) stamp(ctx, cache.get(`crew|${fire ? "s" : "w"}|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, fire ? STOKER : CREW_FOLK.engineer, (work - 1.5) * 0.4)), cx0, cy0, 12, 27, 1);
-  else drawCrew(ctx, cx0, cy0, 1, CREW_FOLK.engineer, 0);
-  if (lvl1 && !t.noFolk) {
-    // a hand-bar through the post, which he pushes round
-    ctx.strokeStyle = "#241a26"; ctx.lineWidth = 2.2; ctx.lineCap = "round";
-    const by = cy0 - 13;
-    ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(cx0 + 5 + (work - 1.5) * 0.6, by + (work - 1.5) * 0.4); ctx.stroke();
-    ctx.strokeStyle = "#8a6238"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(cx0 + 5 + (work - 1.5) * 0.6, by + (work - 1.5) * 0.4); ctx.stroke();
-  } else if (!lvl1) {
-    // the crank handle turning in his hands
-    const ca = time * (turning ? 8 : 0.5), hx = x + CRANK.x + Math.cos(ca) * 2.2, hy = y + CRANK.y + Math.sin(ca) * 1.2;
-    ctx.fillStyle = "#241a26"; ctx.fillRect(hx - 1, hy - 1, 2, 2);
-    ctx.fillStyle = "#8a909c"; ctx.fillRect(hx - 0.5, hy - 0.5, 1, 1);
+  const P = lvl1 ? BAR : { hub: [CRANK.x - cdx, CRANK.y - cdy], rx: CRANK_RX, ry: CRANK_RY };
+  let fr, pose;
+  if (turning) { fr = frameOf(time * (gale ? 12 : 8) / (2 * Math.PI) + t.id * 0.37, CREW_FRAMES); pose = "crank"; }
+  else {
+    fr = 1;
+    const u = (((time / 6 + t.id * 0.23) % 1) + 1) % 1;
+    pose = u > 0.55 && u < 0.72 ? "glance" : Math.sin(time * 1.3 + t.id) > 0.6 ? "breath" : "rest";
+  }
+  const hand = crankAt(P.hub, P.rx, P.ry, fr / CREW_FRAMES);
+  const hx = cx0 + hand[0], hy = cy0 + hand[1];
+  if (!t.noFolk) {
+    if (lvl1) {
+      // the hand-bar through the post, its end in his fists
+      ctx.strokeStyle = "#241a26"; ctx.lineWidth = 2.2; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x, cy0 - 13); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.strokeStyle = "#8a6238"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, cy0 - 13); ctx.lineTo(hx, hy); ctx.stroke();
+    } else {
+      // the crank arm and its handle, at the turn his hands are on
+      ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.2; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x + CRANK.x, y + CRANK.y); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.fillStyle = "#241a26"; ctx.fillRect(hx - 1, hy - 1, 2, 2);
+      ctx.fillStyle = "#8a909c"; ctx.fillRect(hx - 0.5, hy - 0.5, 1, 1);
+    }
+    const key = `crew|${fire ? "s" : "w"}|${lvl1 ? "b" : "c"}|${pose}|${fr}`;
+    if (bake) stamp(ctx, cache.get(key, 28, 30, (c) => drawCrew(c, 12, 27, 1, fire ? STOKER : CREW_FOLK.engineer, 0, { ...P, phase: fr / CREW_FRAMES, pose })), cx0, cy0, 12, 27, 1);
+    else drawCrew(ctx, cx0, cy0, 1, fire ? STOKER : CREW_FOLK.engineer, 0, { ...P, phase: fr / CREW_FRAMES, pose });
   }
   // idle: a whetstone spark now and then
   if (t._idle && Math.sin(time * 3.1 + t.id * 1.9) > 0.9) glow(ctx, x + rr - 2, wy - 2, 2.5, "#ffffff", 0.9);

@@ -40,7 +40,7 @@ export const rows = [
   ["smith\n(trapsmith)", Array.from({ length: F.SMITH_FRAMES }, (_, i) => cell(smithNote(i), (c) => { anvil(c); F.drawSmith(c, X, Y, 1, C.smith, 0, { frame: i }); }))],
   ["crew\ncatapult", crewRow(CAT, C.engineer)],
   ["crew\ncatapult idle", [
-    ...["rest", "breath", "glance", "tap", "rap"].map((pose) => cell(pose, (c) => { crank(CAT.hub, CAT.rx, CAT.ry, 0.1)(c); F.drawCrew(c, X, Y, 1, C.engineer, 0, { ...CAT, phase: 0.1, pose }); })),
+    ...["rest", "breath", "glance", "tap", "rap", "heave"].map((pose) => cell(pose, (c) => { crank(CAT.hub, CAT.rx, CAT.ry, 0.1)(c); F.drawCrew(c, X, Y, 1, C.engineer, 0, { ...CAT, phase: 0.1, pose }); })),
   ]],
   ["crew\nbladewheel", crewRow(SPK, C.engineer)],
   ["crew\nhand-bar", crewRow(BAR, C.engineer)],

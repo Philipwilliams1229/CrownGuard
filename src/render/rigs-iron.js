@@ -583,8 +583,10 @@ const MAN = { L1: 4.8, L2: 4.6, stride: 2.3, lift: 1.8, bob: 0.6, lean: 0.04, di
 const HEAVY = { L1: 4.8, L2: 4.6, stride: 2.0, lift: 1.3, bob: 0.4, lean: 0.0, dip: 0.02, lunge: 1.2, hipW: 0.9, thigh: 2.6, shin: 2.3, foot: 3.3, ankle: 0.85, hitLean: 0.14 };
 const ROBE = { L1: 4.8, L2: 4.6, stride: 1.9, lift: 1.2, bob: 0.45, lean: 0.03, dip: 0.02, lunge: 1.1, hipW: 0.6, thigh: 2.2, shin: 1.9, foot: 3.0, ankle: 0.8 };
 // a rider's plate, lighter than the sergeant's: a longer, livelier step
-// the crossbowman stands his ground to shoot (see step)
+// the crossbowman stands his ground to shoot (see step); the levy thrusts
+// from behind his shield, barely stepping out of the line
 const SHOOTER = { ...MAN, shoot: true };
+const LEVY = { ...MAN, lunge: 0.6, hitLean: 0.08 };
 const KNIGHT = { L1: 4.8, L2: 4.6, stride: 2.2, lift: 1.6, bob: 0.5, lean: 0.03, dip: 0.03, lunge: 1.3, hipW: 0.8, thigh: 2.4, shin: 2.1, foot: 3.2, ankle: 0.85, hitLean: 0.18 };
 
 // where the hands go, per look: the march (swinging with the stride), then
@@ -598,9 +600,9 @@ const hands = (look, st, shN, shF) => {
   // the levy: spear upright on the march; in the fight an overhand spear over
   // the shield rim (the point leaving the little-finger side of the fist)
   if (look === "levy") return pick({ hn: N(1.1 + sw * 0.3, 3.3), an: -1.32 + sw * 0.04, hf: F(4.4, 2.3) }, [
-    { hn: N(2.6, -1.9), an: 0.16, hf: F(4.6, 1.8) },
-    { hn: N(1.8, -2.4), an: 0.02, hf: F(4.3, 2.0) },
-    { hn: N(4.6, -0.8), an: 0.1, hf: F(4.5, 2.2) },
+    { hn: N(2.8, -1.3), an: 0.16, hf: F(4.6, 1.8) },
+    { hn: N(1.8, -2.2), an: 0.02, hf: F(4.3, 2.0) },
+    { hn: N(3.8, -0.7), an: 0.1, hf: F(4.5, 2.2) },
     { hn: N(4.0, 0.3), an: 0.34, hf: F(4.6, 2.0) }]);
   // the crossbowman: the arbalest at port on the march (the fore hand on the
   // tiller); in the fight a shooting cycle — ready, aim at the cheek, loose
@@ -621,11 +623,11 @@ const hands = (look, st, shN, shF) => {
     { hn: N(3.0, 3.8), an: 1.05, hf: F(4.4, 0.6), sway: 1.3, bright: true }]);
   // the Lord Marshal: the war-banner upright on the march; in the fight he
   // rears it back and brings the lance-head down like a blow
-  if (look === "marshal") return pick({ hn: N(3.6 + sw * 0.2, 3.3), an: -1.6 + sw * 0.03, hf: F(4.3, 3.2) }, [
-    { hn: N(3.4, 1.4), an: -1.45, hf: F(4.8, 2.6) },
-    { hn: N(-0.6, -2.4), an: -1.98, hf: F(4.6, 2.6), back: 5, fwd: 14 },
-    { hn: N(4.0, 0.8), an: -0.9, hf: F(3.0, 3.8), back: 8, fwd: 12, flag: 6.6, lowered: true },
-    { hn: N(3.6, 2.4), an: -0.7, hf: F(3.4, 3.6), back: 8, fwd: 12, flag: 6.6, lowered: true }]);
+  if (look === "marshal") return pick({ hn: N(3.6 + sw * 0.2, 4.0), an: -1.6 + sw * 0.03, hf: F(4.3, 3.2) }, [
+    { hn: N(3.4, 2.6), an: -1.42, hf: F(4.8, 2.6), back: 6, fwd: 14 },
+    { hn: N(0.3, -2.3), an: -2.22, hf: F(4.6, 2.6), back: 6, fwd: 14 },
+    { hn: N(4.0, 0.8), an: -0.85, hf: F(3.0, 3.8), back: 9, fwd: 11, flag: 6.6, lowered: true },
+    { hn: N(3.2, 2.4), an: -0.72, hf: F(3.4, 3.6), back: 9, fwd: 11, flag: 6.6, lowered: true }]);
   // the magister: the staff carried tall like a walking staff; in the fight
   // raised (the far palm open, casting), thrust up as the aegis flares, and
   // settling as it fades
@@ -639,14 +641,14 @@ const hands = (look, st, shN, shF) => {
   if (look === "unseated") return pick({ hn: N(2.2 + sw * 0.3, 3.8), an: -0.85 + sw * 0.05, hf: F(4.9, 2.2) }, [
     { hn: N(2.6, 1.4), an: -1.2, hf: F(5.0, 1.8) },
     { hn: N(0.3, 3.5), an: -0.25, hf: F(5.0, 1.6) },
-    { hn: N(5.8, -0.4), an: -0.12, hf: F(4.2, 2.8) },
+    { hn: N(5.2, -0.4), an: -0.12, hf: F(4.2, 2.8) },
     { hn: N(4.6, 1.4), an: 0.38, hf: F(4.4, 2.4) }]);
   // the sergeant: blade carried low and level, a heater on the far arm; in
   // the fight a heavy cut from over the shoulder, the shield covering
   return pick({ hn: N(2.0 + sw * 0.3, 4.1), an: -0.3 - sw * 0.05, hf: F(4.4, 3.2) }, [
     { hn: N(2.4, 1.4), an: -1.2, hf: F(4.8, 2.4) },
     { hn: N(-0.9, -3.2), an: -2.3, hf: F(5.0, 2.0) },
-    { hn: N(4.6, 1.2), an: 0.3, hf: F(3.4, 3.6) },
+    { hn: N(3.6, 1.3), an: 0.55, hf: F(3.4, 3.6) },
     { hn: N(3.0, 3.8), an: 1.05, hf: F(4.2, 3.0) }]);
 };
 
@@ -655,7 +657,7 @@ const soldier = (ctx, p) => {
   const look = p.look;
   const knight = look === "unseated", mage = look === "magister";
   const plated = look === "sergeant" || look === "marshal" || knight;
-  const o = knight ? KNIGHT : plated ? HEAVY : look === "chaplain" || mage ? ROBE : look === "bow" ? SHOOTER : MAN;
+  const o = knight ? KNIGHT : plated ? HEAVY : look === "chaplain" || mage ? ROBE : look === "bow" ? SHOOTER : look === "levy" ? LEVY : MAN;
   // cloth swing in a fight: `wound` when drawn back, `struck` at the blow (trailing a frame)
   const cl = (struck, wound) => wound + (struck - wound) * st.cloth;
   const R = skeleton(p, o), { st, T } = R;
@@ -700,7 +702,7 @@ const soldier = (ctx, p) => {
 
   // the marshal's cape, sweeping behind everything; the banner's flag flies
   // behind him too (only the lowered strike carries it before him)
-  const bannerO = { back: H.back ?? 5.5, fwd: H.fwd ?? 17.5, flag: H.flag, lowered: H.lowered };
+  const bannerO = { back: H.back ?? 5.5, fwd: H.fwd ?? 16, flag: H.flag, lowered: H.lowered };
   if (look === "marshal" && !H.lowered) {
     const hB = ik(shN[0], shN[1], H.hn[0], H.hn[1], A.up, A.fore, -1)[1];
     warBanner(ctx, hB[0], hB[1], H.an, p, st.fight ? st.f + 1 : st.f, { ...bannerO, only: "flag" });
@@ -905,7 +907,7 @@ const soldier = (ctx, p) => {
   } else {
     const h = arm(ctx, shN, H.hn, A, armN);
     grip(ctx, h, H.an);
-    if (look === "levy") spear(ctx, h[0], h[1], H.an, p.wcol || "#c4c8d0", st.fight ? 8.4 : 4.2, st.fight ? 6.6 : 11.2);
+    if (look === "levy") spear(ctx, h[0], h[1], H.an, p.wcol || "#c4c8d0", st.fight ? 9.0 : 4.2, st.fight ? 6.0 : 11.2);
     else if (look === "sergeant") longsword(ctx, h[0], h[1], H.an, p.wcol || "#dde2ea");
     else if (look === "chaplain") mace(ctx, h[0], h[1], H.an, p.wcol || "#6c7280");
     else if (mage) aegisStaff(ctx, h[0], h[1], H.an, p, H);
@@ -921,12 +923,12 @@ const soldier = (ctx, p) => {
 // ---- the roster -------------------------------------------------------------------
 const SKIN = "#e0b08a", OX = "#7a2a2c", BLUED = "#6c7280";
 export const IRON_RIGS = {
-  levy: { kind: "ironFoot", box: { hw: 16, up: 30, down: 4 }, p: { look: "levy", h: 22, skin: SKIN, cloth: OX, cloth2: "#8e8266", hair: BLUED, wcol: "#c4c8d0", shcol: OX } },
-  crossbow: { kind: "ironFoot", box: { hw: 16, up: 30, down: 4 }, p: { look: "bow", h: 22, skin: SKIN, cloth: OX, cloth2: "#a8966e", hair: BLUED, wcol: "#c4c8d0" } },
-  sergeant: { kind: "ironFoot", box: { hw: 18, up: 32, down: 4 }, p: { look: "sergeant", h: 25, skin: SKIN, cloth: OX, cloth2: BLUED, hair: "#646a78", wcol: "#dde2ea", shcol: OX } },
-  chaplain: { kind: "ironFoot", box: { hw: 16, up: 32, down: 4 }, p: { look: "chaplain", h: 23, skin: SKIN, cloth: OX, cloth2: "#e0d8c4", hair: "#c8c0b0", wcol: "#6c7280" } },
-  magister: { kind: "ironFoot", box: { hw: 20, up: 37, down: 4 }, p: { look: "magister", h: 23, skin: SKIN, cloth: OX, cloth2: "#4a4c58", hair: BLUED, col: "#9ab6d8", wcol: "#34363f" } },
-  unseated: { kind: "ironFoot", box: { hw: 19, up: 32, down: 4 }, p: { look: "unseated", h: 23.5, skin: SKIN, cloth: OX, cloth2: BLUED, hair: BLUED, cape: "#6a2226", mane: "#b08850", wcol: "#dde2ea", shcol: OX } },
-  marshal: { kind: "ironFoot", box: { hw: 25, up: 46, down: 4 }, p: { look: "marshal", h: 30, skin: SKIN, cloth: OX, cloth2: "#646a78", hair: "#5a606e", cape: "#6a2226", plume: "#e8e0cc", wcol: "#c4c8d0", shcol: OX } },
+  levy: { kind: "ironFoot", box: { hw: 17, up: 30, down: 4 }, fightN: 4, p: { look: "levy", h: 22, skin: SKIN, cloth: OX, cloth2: "#8e8266", hair: BLUED, wcol: "#c4c8d0", shcol: OX } },
+  crossbow: { kind: "ironFoot", box: { hw: 17, up: 30, down: 4 }, fightN: 4, p: { look: "bow", h: 22, skin: SKIN, cloth: OX, cloth2: "#a8966e", hair: BLUED, wcol: "#c4c8d0" } },
+  sergeant: { kind: "ironFoot", box: { hw: 18, up: 32, down: 4 }, fightN: 4, p: { look: "sergeant", h: 25, skin: SKIN, cloth: OX, cloth2: BLUED, hair: "#646a78", wcol: "#dde2ea", shcol: OX } },
+  chaplain: { kind: "ironFoot", box: { hw: 18, up: 32, down: 4 }, fightN: 4, p: { look: "chaplain", h: 23, skin: SKIN, cloth: OX, cloth2: "#e0d8c4", hair: "#c8c0b0", wcol: "#6c7280" } },
+  magister: { kind: "ironFoot", box: { hw: 20, up: 37, down: 4 }, fightN: 4, p: { look: "magister", h: 23, skin: SKIN, cloth: OX, cloth2: "#4a4c58", hair: BLUED, col: "#9ab6d8", wcol: "#34363f" } },
+  unseated: { kind: "ironFoot", box: { hw: 19, up: 32, down: 4 }, fightN: 4, p: { look: "unseated", h: 23.5, skin: SKIN, cloth: OX, cloth2: BLUED, hair: BLUED, cape: "#6a2226", mane: "#b08850", wcol: "#dde2ea", shcol: OX } },
+  marshal: { kind: "ironFoot", box: { hw: 25, up: 46, down: 4 }, fightN: 4, p: { look: "marshal", h: 30, skin: SKIN, cloth: OX, cloth2: "#646a78", hair: "#5a606e", cape: "#6a2226", plume: "#e8e0cc", wcol: "#c4c8d0", shcol: OX } },
 };
 export const IRON_PAINTERS = { ironFoot: soldier };

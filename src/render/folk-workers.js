@@ -54,7 +54,8 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 //   o.drive  how hard the body works the stroke (1)
 //   o.push   a bar pushed round a post rather than a crank hauled: he leans
 //            into it instead of hanging back
-//   o.pose   "rest" (hands on the still handle), "breath", "glance", "tap"
+//   o.pose   "rest" (hands on the still handle), "breath", "glance", "heave"
+//            (hanging back on a lever), "tap"
 //            (the near fist lifted to rap a peg), "rap" (on it: o.peg, or the
 //            drum's top-front, hub + [1.4, -1.8])
 // Without o.phase the old `work` (-0.6..0.6) rocks the handle over the top,
@@ -86,6 +87,7 @@ export const drawCrew = (ctx, x, y, dir, pal, work = 0, o = {}) => {
     if (pose === "breath") { lift = 0.5; lean = -0.08; tilt = -0.04; }
     if (pose === "glance") { tilt = -0.2; lean = -0.07; hip = [-0.55, 0.25]; }
     if (pose === "tap" || pose === "rap") { lean = 0.02; hip = [-0.2, 0.3]; }
+    if (pose === "heave") { lean = -0.22; hip = [-1.1, 0.55]; tilt = -0.06; }
   }
   // the far hand beside the near one on the handle
   let hF = [hN[0] - 0.5, hN[1] - 0.45];

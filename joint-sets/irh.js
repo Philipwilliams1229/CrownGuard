@@ -69,13 +69,14 @@ export const analyse = (only = "") => {
       const type = name.split("\n")[0], box = RIGS[type].box, sc = Math.min(1, 58 / (box.up + box.down));
       const bk = bakeSprite(CW, CH, cell.draw), W = bk.width, Hh = bk.height;
       const d = bk.getContext("2d").getImageData(0, 0, W, Hh).data;
-      let x0 = W, x1 = -1, y0 = Hh;
-      for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 40) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); }
-      const R = ((x1 + 1) / PX - FX) / sc, L = (FX - x0 / PX) / sc, T = (FY - y0 / PX) / sc;
+      let x0 = W, x1 = -1, y0 = Hh, y1 = -1;
+      for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 40) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      const R = ((x1 + 1) / PX - FX) / sc, L = (FX - x0 / PX) / sc, T = (FY - y0 / PX) / sc, B = ((y1 + 1) / PX - FY) / sc;
       let cut = "";
       if (R > box.hw) cut += ` R+${(R - box.hw).toFixed(1)}`;
       if (L > box.hw) cut += ` L+${(L - box.hw).toFixed(1)}`;
       if (T > box.up) cut += ` T+${(T - box.up).toFixed(1)}`;
+      if (B > box.down) cut += ` B+${(B - box.down).toFixed(1)}`;
       out.push(`  ${cell.note.padEnd(17)} ${bits.join(" ")}${cut ? "  CUT " + cut : ""}`);
     }
   }
