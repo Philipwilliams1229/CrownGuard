@@ -304,7 +304,7 @@ export const RIGS = {
   assassinUnitBA: { kind: "assassin", fightN: 4, box: { hw: 21, up: 30, down: 4 }, p: { h: 22, skin: "#d8b08c", cloth: "#1e1a24", cloth2: "#3a2a3c", hair: "#342a3e", cape: "#8a2a5a", wcol: "#d0d4dc", trim: "#b8a0c0", eyes: "#ff8ad0", veil: "#4e4058", lace: "#cfc6d4", brim: "#cfc6d4", long: true, vials: "#e05aa8", venom: "#e05aa8", blade: "needle" } },
   assassinUnitBB: { kind: "assassin", fightN: 4, box: { hw: 22, up: 30, down: 4 }, p: { h: 22, skin: "#d8b08c", cloth: "#2e3a2a", cloth2: "#5a4630", hair: "#4a5238", cape: "#8a8a3a", wcol: "#b8c4b4", trim: "#b89a50", eyes: "#e8f070", mask: "#44583e", beak: "#d8c49a", censer: true, brass: "#b89a50", spore: "#d8e860", vials: "#c8e050", venom: "#b8e04a" } },
   skiff: { kind: "skiff", box: { hw: 18, up: 26, down: 6 }, p: {} },
-  eagle: { kind: "eagle", fly: true, box: { hw: 28, up: 46, down: 12 }, p: { len: 34, col: "#7a5234", wing: "#6e4a2c", head: "#f0ead8", tail: "#ece4d2", beak: "#e8b840", foot: "#e8b840", rider: { skin: "#e8b990", cloth: "#3a5474", cloth2: "#d8b34a", steel: "#b8bcc4", cape: "#a0303a", plume: "#e8e2d0", saddle: "#2c3e54", wcol: "#dde2ea" } } },
+  eagle: { kind: "eagle", fly: true, fightN: 4, box: { hw: 32, up: 46, down: 12 }, p: { len: 34, col: "#7a5234", wing: "#6e4a2c", head: "#f0ead8", tail: "#ece4d2", beak: "#e8b840", foot: "#e8b840", rider: { skin: "#e8b990", cloth: "#3a5474", cloth2: "#d8b34a", steel: "#b8bcc4", cape: "#a0303a", plume: "#e8e2d0", saddle: "#2c3e54", wcol: "#dde2ea" } } },
 };
 
 // The Greenwood roster's bespoke bodies live in their own files and override

@@ -28,6 +28,7 @@
 // white hit-flash reach everything.
 
 import { lighten, darken, lin, part, shadow } from "./paint.js";
+import { logJoint } from "./folk-kit.js";
 
 // ---- the kit ------------------------------------------------------------------
 const TAU = Math.PI * 2;
@@ -143,6 +144,7 @@ const rider = (ctx, p, o) => {
   // far arm: the reins and the small heater shield on the forearm
   const fsh = T(0.1, -7.2), rein = o.rein || [4.4, -4.4];
   const fel = ik(fsh, rein, 3.1, 3.2, 1);
+  if (o.log) logJoint(ctx, "arm", fsh, fel, rein, { lens: [3.1, 3.2] });
   part(ctx, (c) => { tube(c, ...fsh, ...fel, 1.8, darken(steel, 0.3)); tube(c, ...fel, ...rein, 1.6, darken(steel, 0.3)); });
   // near leg, long in the stirrup, plated
   const kn = [4.2, 3.2], an = [3.6, 7.6];
@@ -202,6 +204,7 @@ const rider = (ctx, p, o) => {
   // near arm, the lance clamped under it, the gauntlet on the grip
   const sh = T(0.5, -6.7);
   const el = ik(sh, hand, 3.2, 3.6, o.up ? -1 : 1);
+  if (o.log) logJoint(ctx, "arm", sh, el, hand, { lens: [3.2, 3.6], flip: !!o.up });
   part(ctx, (c) => { tube(c, ...sh, ...el, 2.2, steel); tube(c, ...el, ...hand, 2.0, steel); });
   part(ctx, (c) => { c.fillStyle = cel(c, hand[0] - 1.2, hand[1] - 1.2, hand[0] + 1.2, hand[1] + 1.2, steel, 0.5, 0.4); c.beginPath(); c.ellipse(hand[0] + 0.2, hand[1], 1.2, 1.1, 0, 0, TAU); c.fill(); });
   // the pauldron over the near shoulder
@@ -388,16 +391,31 @@ const destrier = (ctx, p) => {
 
 // ---- the war-gryphon ----------------------------------------------------------------
 // The wingbeat (the walk sheet is its fly sheet): 0 wings high, 1 driving
-// down, 2 low, 3 swept back rising. The body rises on the downstroke.
+// down, 2 low, 3 swept back rising. The body rises on the downstroke. The
+// knight carries the lance at rest, raised, his fist low at the pommel.
+// reach: where his near fist is, [angle, length] from his shoulder (the arm
+// is 3.2 + 3.6, the elbow folding the natural way); lean tips him about his
+// seat; pitch turns the whole beast about its middle (+ nose down); head
+// turns the eagle's head (+ the beak down and forward, lunging).
 const GRY_FLY = [
-  { bob: 1, wing: 0, tail: 1, leg: 0, lance: -0.72, fl: 1.2 },
-  { bob: 0, wing: 1, tail: 0.3, leg: 0.5, lance: -0.7, fl: 0.6 },
-  { bob: -1.5, wing: 2, tail: -1, leg: 1, lance: -0.74, fl: 0 },
-  { bob: -0.5, wing: 3, tail: 0, leg: 0.5, lance: -0.76, fl: 0.8 },
+  { bob: 1, wing: 0, tail: 1, leg: 0, lance: -0.72, reach: [1.0, 4.9], fl: 1.2 },
+  { bob: 0, wing: 1, tail: 0.3, leg: 0.5, lance: -0.7, reach: [0.98, 4.9], fl: 0.6 },
+  { bob: -1.5, wing: 2, tail: -1, leg: 1, lance: -0.74, reach: [1.02, 4.9], fl: 0 },
+  { bob: -0.5, wing: 3, tail: 0, leg: 0.5, lance: -0.76, reach: [1.04, 4.9], fl: 0.8 },
 ];
+// The air attack (on the Skyknight's eagle), four frames played off the
+// foe's attack clock (fightN: 4; enemies.js): 0 GUARD, levelled at the foe
+// on a mid wingbeat; 1 WIND-UP, the beast rears on a raised wing, the knight
+// sits back and draws the lance in; 2 STRIKE, the downstroke drives it in —
+// the lance thrust out level and a little up with the whole arm, the talons
+// thrown forward and up to rake, the beak lunging; 3 FOLLOW-THROUGH, the arm
+// all the way out and the point dipping past the line, the talons raking
+// down, the wings sweeping back up.
 const GRY_FIGHT = [
-  { bob: 0, wing: 0, tail: 1.2, leg: 0, talon: 1, lance: -0.95, thrust: -1, fl: 1.4 },
-  { bob: 1, wing: 2, tail: -1, leg: 1, talon: 2, lance: 0.25, thrust: 3, fl: 0.4 },
+  { bob: 0, wing: 1, tail: 0.6, leg: 0.4, talon: 0.6, lance: -0.4, reach: [0.62, 5.6], lean: 0.12, fl: 0.8, pitch: 0, head: 0 },
+  { bob: 1, wing: 0, tail: 1.5, leg: 0, talon: 0, lance: -0.8, reach: [1.5, 4.2], lean: -0.14, fl: 1.4, pitch: -0.12, head: -0.12 },
+  { bob: -1, wing: 2, tail: -1, leg: 1, talon: 2, lance: -0.16, reach: [0.12, 6.6], lean: 0.32, fl: 0, pitch: 0.06, head: 0.16 },
+  { bob: -0.5, wing: 3, tail: -0.3, leg: 0.9, talon: 1.2, lance: 0.1, reach: [0.42, 6.7], lean: 0.38, fl: 0.6, pitch: 0.08, head: 0.08 },
 ];
 // relative to the shoulder: E elbow, W wrist, T five primary tips (leading
 // first), B where the trailing edge meets the flank
@@ -503,7 +521,7 @@ const emptyStirrup = (ctx, p, k) => {
 const emptySaddle = (ctx, p, k, HB) => {
   const steel = p.cloth, iron = p.hair, leather = darken(p.cape, 0.35);
   const [sw, dy] = looseSwing(k);
-  const bit = add(rot([3.0, 1.0], [0, 0], k.talon === 2 ? 0.12 : 0), HB), pm = [0.6, -21.6];
+  const bit = add(rot([3.0, 1.0], [0, 0], k.head || 0), HB), pm = [0.6, -21.6];
   // slack: both handles hang well below the line from bit to pommel
   const C1 = [bit[0] - 5 + sw * 0.5, bit[1] + 8 + dy], C2 = [pm[0] + 5 + sw, pm[1] + 9 + dy * 1.5];
   const rein = [];
@@ -524,13 +542,14 @@ const emptySaddle = (ctx, p, k, HB) => {
 
 const gryphon = (ctx, p) => {
   const fight = p.pose === "fight";
-  const k = fight ? GRY_FIGHT[(p.frame || 0) % 2] : GRY_FLY[(p.frame || 0) % 4];
+  const k = fight ? GRY_FIGHT[(p.frame || 0) % 4] : GRY_FLY[(p.frame || 0) % 4];
   const s = (p.len ?? 34) / 34;
   const col = p.col, head = p.belly, plume = p.mane, wcol = p.wing, steel = p.cloth, cape = p.cape, iron = p.hair;
   const claw = "#d8a838";
   ctx.save(); ctx.scale(s, s);
   const b = q(k.bob);
   ctx.translate(0, b);
+  if (k.pitch) { ctx.translate(-2, -16); ctx.rotate(k.pitch); ctx.translate(2, 16); }
   const key = FWINGS[k.wing];
   // far wing, in shade, set back and up
   fwing(ctx, [0.8, -20.8], key, 0.9, darken(wcol, 0.28), darken(steel, 0.28), -0.18);
@@ -595,7 +614,7 @@ const gryphon = (ctx, p) => {
     c.fillStyle = darken(head, 0.2);
     for (const [x, y] of [[7.4, -18.4], [9.8, -20.2], [8.2, -16.6]]) poly(c, [[x - 1.2, y], [x + 1.2, y], [x, y + 1.4]]);
   });
-  inFrame(ctx, HB[0], HB[1], 0, 0, (k.talon === 2 ? 0.12 : 0), (c0) => {
+  inFrame(ctx, HB[0], HB[1], 0, 0, k.head || 0, (c0) => {
     // nape feathers swept back
     part(c0, (c) => {
       c.fillStyle = cel(c, -6, -3, 0, 2, head, 0.25, 0.35);
@@ -645,9 +664,10 @@ const gryphon = (ctx, p) => {
   }
   fwing(ctx, [2.2, -19.4], key, 1, wcol, steel);
   ctx.save(); ctx.translate(...seat);
-  const thrust = k.thrust || 0;
-  const hand = [2.2 + thrust * 0.8, -6.2 + (k.lance < -0.8 ? -1.2 : 0)];
-  rider(ctx, p, { lean: fight && k.talon === 2 ? 0.28 : 0.1, lance: k.lance, hand, rein: [4.6, -4.2], fl: k.fl, len: 20, up: true, shield: false });
+  const lean = k.lean ?? 0.1, sh = rot([0.5, -6.7], [0, 0], lean);
+  const hand = [sh[0] + Math.cos(k.reach[0]) * k.reach[1], sh[1] + Math.sin(k.reach[0]) * k.reach[1]];
+  const rein = rot([4.6, -4.2], [0, 0], lean * 0.5);
+  rider(ctx, p, { lean, lance: k.lance, hand, rein, fl: k.fl, len: 20, shield: false, log: true });
   ctx.restore();
   ctx.restore();
   solidify(ctx);
@@ -801,7 +821,7 @@ const siegeRam = (ctx, p) => {
 const IRON_RIDER = { skin: "#e0b08a", cloth: "#6c7280", cloth2: "#7a2a2c", hair: "#2e3038" };
 export const IRONMOUNT_RIGS = {
   cavalier: { kind: "destrier", box: { hw: 34, up: 46, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER } },
-  gryphon: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
+  gryphon: { kind: "wargryphon", fly: true, fightN: 4, box: { hw: 33, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
   // the same beast once its knight has fallen (the gryphon's deathSkin)
   gryphonMount: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER, riderless: true } },
   ram: { kind: "siegeram", box: { hw: 40, up: 42, down: 4 }, p: { len: 44, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },

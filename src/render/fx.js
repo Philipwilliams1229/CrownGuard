@@ -12,6 +12,7 @@
 
 import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
 import { drawFireGround } from "./flames.js";
+import { hasRig, rigFrame } from "./rigs.js";
 
 // ---- palette ---------------------------------------------------------
 const col = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -1092,6 +1093,7 @@ export const drawFloatText = (ctx, fx, red = false) => {
 // ---- status tells on a foe -------------------------------------------------
 // Cheap by construction: a handful of cached little sprites per foe, no
 // gradients, no blur — there may be three hundred of them on fire at once.
+// (The frost crust below stands under a frozen foe's shell; see "held".)
 const flameSprite = (f) => memo(`flm|${f}`, () => {
   const G = grid(11, 18), base = 17, H = [15, 12, 16, 13][f], sway = [0, -1, 0, 1][f];
   for (let y = 0; y < 18; y++) for (let x = 0; x < 11; x++) {
@@ -1163,20 +1165,248 @@ const plusSprite = () => memo("plus", () => {
 });
 const sizeBucket = (s) => Math.max(8, Math.min(40, Math.round((s || 14) / 4) * 4));
 
-// Burning, chilled, poisoned, cracked, mended: drawn over the foe's body.
-// `feet` is its ground line and `top` the crown of its head, in world units.
-export const drawStatus = (ctx, e, time, tms, feet, top) => {
-  const hr = Math.max(8, feet - top), id = e.id || 0, sz = e.size || 14;
-  if (e.slowUntil > tms || e.auraSlow > 0) {
-    put(ctx, crustSprite(sizeBucket(sz)), e.x, feet);
-    // a glint of frost on the body now and then
-    for (let i = 0; i < 2; i++) {
-      if ((Math.floor(time * 3 + id * 0.7) + i) % 3) continue;
-      const x = e.x + (hash(id, i) - 0.5) * sz * 0.8, y = feet - hr * (0.3 + 0.45 * hash(id, i + 4));
-      speck(ctx, x - 0.5, y, 1.5, "#ffffff"); speck(ctx, x, y - 0.5, 0.5, "#ffffff"); speck(ctx, x, y + 1.5, 0.5, "#d4f2fa");
+// ---- held: slow, freeze, stun ----------------------------------------------
+// The three ways a foe is held each get their own look, so a glance at a
+// crowd says which is which:
+//   SLOW   (slowUntil / auraSlow — frost orbs, the Frost warden's aura,
+//          beams, logs, caltrops): dizzy stars wheeling lazily round the
+//          head — more of them, and lazier, the harder the slow (slowPct).
+//   FREEZE (frozenUntil — the frost nova): the foe stands in a shell of ice,
+//          a translucent faceted block over the body on a crust of rime, with
+//          a glint running over it; in its last moment the shell cracks.
+//   STUN   (stunUntil otherwise — a paladin's blow, a dive, a log's knock, a
+//          zap, Shield Slam): a jagged gold ring spinning fast over the crown
+//          with sparks jolting off it — the ring of a knock to the head.
+// Freeze hides the stun ring; either hides the stars. A foe immune to a hold
+// (immSlow / immStun) shows none of it. Every look is baked per size bucket
+// and frame and stamped whole: a warden's aura slows a whole stretch of road,
+// so a slowed foe costs one blit (the wheel), a stunned one one, a frozen
+// one two (the shell and its crust).
+
+// numeric keys in their own map (bounded by construction — a few hundred
+// sprites at most), so a crowd's text pops never push them out of SMALL
+const HELD = new Map();
+const hmemo = (k, make) => { let s = HELD.get(k); if (!s) { s = make(); HELD.set(k, s); } return s; };
+
+// SLOW — the dizzy stars. A tilted wheel of four-point stars round the
+// crown, each with a faint wake along the wheel behind it: the near ones big
+// and white-hot, the far ones small and dim behind the head, the whole wheel
+// drooping to one side like a woozy head.
+const SLOWK = pal("#ffffff", "#d8ecff", "#96baee", "#6278b8");
+const STAR_N = 24;                              // frames per turn of the wheel
+const TILT = 0.16;                              // the droop of the wheel
+// a four-point star of arm length r (fat at the heart, thin at the tips)
+const starAt = (G, x, y, r, K, dim) => {
+  for (let i = r; i >= 1; i--) {
+    const k = dim ? K[3] : i === r && r > 1 ? K[2] : K[1];
+    G.set(x - i, y, k); G.set(x + i, y, k); G.set(x, y - i, k); G.set(x, y + i, k);
+  }
+  if (r >= 3) for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) G.set(x + dx, y + dy, K[1]);
+  if (r >= 2 && !dim) { G.set(x - 1, y, K[0]); G.set(x + 1, y, K[0]); G.set(x, y - 1, K[0]); G.set(x, y + 1, K[0]); }
+  G.set(x, y, dim ? K[2] : K[0]);
+};
+const starWheel = (n, sb, f) => hmemo(((n * 64 + sb) * 32 + f) * 8 + 1, () => {
+  const rx = Math.max(6, Math.min(14, sb * 0.4 + 2.6)) * PX, ry = Math.max(2.4, rx / PX * 0.3) * PX;
+  const G = grid(rx * 2 + 16, (ry + rx * TILT) * 2 + 16), cx = G.W >> 1, cy = G.H >> 1, K = SLOWK;
+  const at = (a) => { const x = Math.cos(a) * rx; return [cx + x, cy + Math.sin(a) * ry + x * TILT]; };
+  const stars = [];
+  for (let i = 0; i < n; i++) stars.push((f / STAR_N + i / n) * Math.PI * 2);
+  stars.sort((p, q) => Math.sin(p) - Math.sin(q));            // far side first
+  for (const a of stars) {
+    const d = Math.sin(a), near = d > 0.25, far = d < -0.5;
+    // the wake: a dotted trail back along the wheel
+    if (!far) for (let j = 1; j <= 3; j++) {
+      const [tx, ty] = at(a - j * 0.2);
+      if (j === 2) continue;
+      G.set(Math.round(tx), Math.round(ty), j === 1 ? K[2] : K[3], j === 1 ? 230 : 150);
+    }
+    const [x, y] = at(a);
+    starAt(G, Math.round(x), Math.round(y), near ? 3 : far ? 1 : 2, K, far);
+  }
+  return { cv: G.done(INK_LINE), ax: cx, ay: cy };
+});
+
+// STUN — the ring of a knock to the head: a jagged gold ring spinning fast
+// round the crown, bright on the near side with three hot glints riding it,
+// dark gold behind; and sparks jolting off it, now one side, now the other.
+const STUNK = pal("#fffbe2", "#f8e068", "#e0a838", "#946020");
+const STUN_N = 12;                              // frames per third of a turn
+const STUN_Z = 12;                              // zigs round the ring
+const tri = (t) => { const u = t - Math.floor(t); return u < 0.5 ? 4 * u - 1 : 3 - 4 * u; };
+const stunRing = (sb, f) => hmemo((sb * 16 + f) * 8 + 3, () => {
+  const rx = Math.max(6, Math.min(13, sb * 0.26 + 3.2)) * PX, ry = Math.max(2.4, rx / PX * 0.32) * PX;
+  const G = grid(rx * 2 + 16, ry * 2 + 18), cx = G.W >> 1, cy = G.H >> 1, K = STUNK;
+  const turn = (f / STUN_N / 3) * Math.PI * 2, steps = Math.ceil(rx * 7);
+  const pts = [];
+  for (let s = 0; s <= steps; s++) {
+    const u = s / steps, a = turn + u * Math.PI * 2;
+    // the zigzag runs across the ring (along its normal), so it stays a
+    // jagged band at the sides instead of kinking into hooks
+    const nx = Math.cos(a) / rx, ny = Math.sin(a) / ry, nl = Math.hypot(nx, ny), z = tri(u * STUN_Z) * 1.3;
+    const glint = ((u * 3) % 1) > 0.86;
+    pts.push([cx + Math.cos(a) * rx + (nx / nl) * z, cy + Math.sin(a) * ry + (ny / nl) * z, Math.sin(a) > 0, glint]);
+  }
+  for (const pass of [0, 1]) for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1], [x1, y1, near, glint] = pts[i];
+    if (near !== !!pass) continue;
+    if (near) { line(G, x0, y0 + 1, x1, y1 + 1, K[2]); line(G, x0, y0, x1, y1, glint ? K[0] : K[1]); }
+    else line(G, x0, y0, x1, y1, K[glint ? 2 : 3]);
+  }
+  // the jolt: a spark (an x, not the slow's +) thrown off one side, then
+  // the other
+  const side = f < 3 ? -1 : f >= 6 && f < 9 ? 1 : 0;
+  if (side) {
+    const q = side < 0 ? f : f - 6, sx = Math.round(cx + side * (rx + 3 + q)), sy = Math.round(cy - 2 - q);
+    G.set(sx, sy, K[0]);
+    for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      G.set(sx + dx, sy + dy, K[q === 1 ? 0 : 1]);
+      if (q === 1) G.set(sx + dx * 2, sy + dy * 2, K[2]);
     }
   }
-  if (e.brittleUntil > tms) put(ctx, crackSprite(sizeBucket(sz)), e.x, feet - hr * 0.48);
+  return { cv: G.done(INK_LINE), ax: cx, ay: cy };
+});
+
+// FREEZE — a shell of ice over the body: a block of crystal with sharp peaks
+// at its crown and a shard or two jutting from its flanks, lit on the sun's
+// side and blue in the shade, rimmed bright and inked in deep blue so it
+// reads as a thing at 1x. Inside it is clear at the top and clouded with
+// rime toward the ground and the edges, so the foe shows through it frosted.
+// It stands on the old crust of rime. A glint runs over it; frame FRZ_N is
+// the shell cracking and thinning as it lets go.
+const FRZ_N = 6, FRZ_GROW = 150;               // frames; ms the shell takes to rise
+// stamp only the lower part `p` (0..1) of a sprite: the ice climbing the body
+const putRise = (ctx, s, x, y, p) => {
+  const w = s.cv.width, h = s.cv.height, cut = Math.floor(h * (1 - p));
+  if (cut >= h) return;
+  const X = Math.round(x * PX) / PX - s.ax / PX, Y = Math.round(y * PX) / PX - s.ay / PX;
+  ctx.drawImage(s.cv, 0, cut, w, h - cut, X, Y + cut / PX, w / PX, (h - cut) / PX);
+};
+// the stretch of ground a foe's body covers (its first walk frame, facing
+// right, in world units from its anchor) — the columns with real mass in
+// them, not a spear tip or a tail — measured once per look, so a siege ram
+// or a gryphon is frozen whole and not as a pillar in its middle
+const SPAN = new Map();
+const bodySpan = (skin) => {
+  if (SPAN.has(skin)) return SPAN.get(skin);
+  let s = null;
+  try {
+    if (hasRig(skin)) {
+      const { cv, ax } = rigFrame(skin, "walk", 0), W = cv.width, H = cv.height;
+      const d = cv.getContext("2d").getImageData(0, 0, W, H).data, n = new Array(W).fill(0);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 100) n[x]++;
+      const keep = Math.max(...n) * 0.3;
+      let l = W, r = -1;
+      for (let x = 0; x < W; x++) if (n[x] >= keep) { l = Math.min(l, x); r = x; }
+      if (r >= l) s = { l: l / PX - ax, r: (r + 1) / PX - ax };
+    }
+  } catch { s = null; }
+  SPAN.set(skin, s);
+  return s;
+};
+const SHELL_TOP = [[-1, 0.8], [-0.72, 0.9], [-0.5, 1.0], [-0.3, 0.84], [0.05, 1.08], [0.28, 0.88], [0.55, 0.98], [0.76, 0.86], [1, 0.78]];
+const topAt = (u) => {
+  for (let i = 1; i < SHELL_TOP.length; i++) {
+    const [u1, v1] = SHELL_TOP[i];
+    if (u <= u1) { const [u0, v0] = SHELL_TOP[i - 1]; return v0 + ((v1 - v0) * (u - u0)) / (u1 - u0); }
+  }
+  return SHELL_TOP[SHELL_TOP.length - 1][1];
+};
+// a shard jutting from a flank: [side, height (0..1), half-height, reach]
+const SHELL_SHARDS = [[-1, 0.46, 0.1, 0.2], [1, 0.68, 0.08, 0.16], [1, 0.2, 0.06, 0.1]];
+const iceShell = (wb, hb, f) => hmemo(((wb * 64 + hb) * 8 + f) * 8 + 4, () => {
+  const thaw = f === FRZ_N, w = wb * PX, h = hb * PX, rx = w / 2, ry = Math.max(3, rx * 0.34);
+  const G = grid(w * 1.3 + 6, h * 1.05 + ry + 8), cx = G.W / 2, base = G.H - Math.ceil(ry * 0.6) - 3;
+  const sh = thaw ? 0.9 : 1;
+  // the flanks, row by row: a little ragged, with the shards
+  const flank = (y, side) => {
+    const v = (base - y) / h;
+    let u = 1 + (hash(wb * 7 + side, Math.floor(y / 3)) - 0.5) * 0.1;
+    for (const [sd, vh, hh, reach] of SHELL_SHARDS) if (sd === side && Math.abs(v - vh) < hh) u = Math.max(u, 1 + reach * (1 - Math.abs(v - vh) / hh));
+    return u;
+  };
+  const inside = (x, y) => {
+    const u = (x + 0.5 - cx) / rx;
+    if (u < -flank(y, -1) || u > flank(y, 1)) return false;
+    const uc = Math.max(-1, Math.min(1, u));
+    const bot = base + ry * 0.6 * Math.sqrt(1 - uc * uc), top = base - h * topAt(uc) * sh;
+    return y + 0.5 >= top && y + 0.5 <= bot;
+  };
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    if (!inside(x, y)) continue;
+    const u = (x + 0.5 - cx) / rx, v = (base - y) / h, b = bay(x, y);
+    const edgeL = !inside(x - 1, y), edgeR = !inside(x + 1, y), edgeT = !inside(x, y - 1), edgeB = !inside(x, y + 1);
+    const seamL = -0.46 - v * 0.04, seamR = 0.3 + v * 0.1;
+    let k, a;
+    if (edgeT || edgeL) { k = ICE[0]; a = 245; }
+    else if (edgeR) { k = ICE[3]; a = 240; }
+    else if (edgeB) { k = ICE[2]; a = 225; }
+    else if (Math.abs(u - seamL) * rx < 0.6) { k = ICE[0]; a = 205; }
+    else if (Math.abs(u - seamR) * rx < 0.6) { k = ICE[2]; a = 200; }
+    else {
+      // rime clouds the ice toward the ground and the rims; the heart is clear
+      const rime = 0.12 + (1 - v) * 0.42 + Math.max(0, Math.abs(u) - 0.55) * 0.9 + (vnoise(x, y, 5, wb + hb) - 0.5) * 0.5;
+      const face = u < seamL ? 0 : u > seamR ? 2 : 1;
+      if (b < rime) { k = face === 2 ? ICE[1] : ICE[0]; a = face === 2 ? 170 : 185; }
+      else { k = face === 0 ? ICE[1] : face === 1 ? ICE[2] : ICE[3]; a = face === 1 ? 95 : 125; }
+    }
+    // two streaks of light slanting down the lit side
+    const st = (x - cx) + (base - y) * 0.45;
+    if (!edgeL && !edgeR && v > 0.35 && ((st > -rx * 0.62 && st < -rx * 0.62 + 2) || (st > -rx * 0.2 && st < -rx * 0.2 + 1))) { k = ICE[0]; a = 220; }
+    if (thaw && b >= 0.5) a = Math.round(a * 0.45);
+    G.set(x, y, k, a);
+  }
+  // a deep blue rim round the whole shell
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    if (inside(x, y)) continue;
+    if (inside(x - 1, y) || inside(x + 1, y) || inside(x, y - 1) || inside(x, y + 1)) G.set(x, y, ICE[4], 230);
+  }
+  if (thaw) {
+    // cracks running down from the crown as it lets go
+    for (const [u0, len, dir] of [[-0.3, 0.6, 1], [0.35, 0.45, -1]]) {
+      let x = cx + u0 * rx, y = base - h * topAt(u0) * sh + 1;
+      for (let s = 0; s < 4; s++) {
+        const nx = x + dir * (1 + hash(wb + s, hb) * 2), ny = y + (h * len) / 4;
+        line(G, x, y, nx, ny, ICE[4]); line(G, x + 1, y, nx + 1, ny, ICE[0]);
+        x = nx; y = ny;
+      }
+    }
+  } else if (f !== 3) {
+    // the glint: a four-point sparkle blooming at one spot, then another
+    const spot = f < 3 ? [-0.5, 0.74] : [0.3, 0.5], big = f === 1 || f === 4;
+    const gx = Math.round(cx + spot[0] * rx), gy = Math.round(base - h * spot[1]);
+    G.set(gx, gy, ICE[0]);
+    for (let i = 1; i <= (big ? 3 : 1); i++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) G.set(gx + dx * i, gy + dy * i, i < 3 ? ICE[0] : ICE[1]);
+  }
+  return { cv: G.done(), ax: Math.round(cx), ay: base };
+});
+
+// Held, burning, poisoned, cracked, mended: drawn over the foe's body.
+// `feet` is its ground line and `top` the crown of its head, in world units.
+export const drawStatus = (ctx, e, time, tms, feet, top) => {
+  const hr = Math.max(8, feet - top), id = e.id || 0, sz = e.size || 14, sb = sizeBucket(sz);
+  const frozen = !e.immStun && e.frozenUntil > tms;
+  const stunned = !e.immStun && !frozen && e.stunUntil > tms;
+  const slow = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct || 0.3 : 0, e.auraSlow || 0);
+  const lv = slow <= 0 ? 0 : slow < 0.3 ? 1 : slow < 0.6 ? 2 : 3;
+  if (frozen) {
+    // as wide as the body (a wide beast's whole length), centred on it
+    const sp = bodySpan(e.sprite || e.type);
+    let bw = sz * 0.95 + 4, bx = e.x;
+    if (sp) {
+      const l = e.face < 0 ? -sp.r : sp.l, r = e.face < 0 ? -sp.l : sp.r;
+      if (r - l + 3 > bw) { bw = r - l + 3; bx = e.x + (l + r) / 2; }
+    }
+    const wb = Math.round(Math.max(10, Math.min(60, bw)) / 2) * 2, hb = Math.round((hr + 2.5) / 3) * 3;
+    const f = e.frozenUntil - tms < 180 ? FRZ_N : Math.floor(time * 7 + id * 0.61) % FRZ_N;
+    // the shell shoots up out of the rime in its first moments: the start is
+    // noted on the foe the first time it is drawn frozen (render-only fields)
+    if (e._frzTo !== e.frozenUntil) { e._frzTo = e.frozenUntil; e._frzAt = tms; }
+    const grow = (tms - e._frzAt) / FRZ_GROW;
+    if (grow >= 1 || grow < 0) put(ctx, iceShell(wb, hb, f), bx, feet);
+    else putRise(ctx, iceShell(wb, hb, f), bx, feet, 0.25 + grow * 0.75);
+    put(ctx, crustSprite(sizeBucket(Math.max(sz, wb * 0.8))), bx, feet);
+  }
+  if (e.brittleUntil > tms) put(ctx, crackSprite(sb), e.x, feet - hr * 0.48);
   if (e.burnUntil > tms) {
     const f0 = Math.floor(time * 12);
     const XS = [-0.3, 0.04, 0.34], YS = [0.3, 0.6, 0.42];
@@ -1197,6 +1427,15 @@ export const drawStatus = (ctx, e, time, tms, feet, top) => {
       const q = (time * 1.2 + i * 0.5 + id * 0.13) % 1;
       put(ctx, plusSprite(), e.x + (i ? 6 : -6), top - 2 - q * 8);
     }
+  }
+  // over the crown: the stun's ring, or else the slow's wheel of stars (the
+  // harder the slow, the more stars and the lazier they turn)
+  if (stunned) {
+    const f = Math.floor(time * 24 + id * 0.37) % STUN_N;
+    put(ctx, stunRing(sb, f), e.x + ((f >> 1) & 1 ? 0.5 : -0.5), top + 1.5);   // rattling
+  } else if (lv && !frozen) {
+    const turn = time / (1.3 + slow * 1.7) + ((id * 0.618) % 1);
+    put(ctx, starWheel(lv + 1, sb, Math.floor(turn * STAR_N) % STAR_N), e.x, top - 0.5);
   }
 };
 

@@ -6,6 +6,7 @@ import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS } from "../sprites/sprites.js";
 import { hasRig, rigDef, drawRig, rigFrame } from "./rigs.js";
+import { skiffGunPose, skiffRowFrame, skiffBlade, skiffBob, SKIFF_LIFT } from "./rigs-skiff.js";
 import * as CROWN from "./rigs-crown.js";
 import { getStats } from "../engine/towers.js";
 import { PX } from "./paint.js";
@@ -112,7 +113,8 @@ export const drawEnemy = (ctx, e, time, tms) => {
   if (!rigged && (e.type === "goblin" || e.type === "wolf" || e.type === "ghoul") && frame % 2 === 1 && !fighting) hover -= CELL;
   if (rigged) {
     // rigged foes: baked frames, feet on the ground line, mirrored to face
-    const rsheet = fighting && !airborne ? "fight" : "walk";
+    // (a gryphon at war with a war-eagle fights in the air: e.airFight)
+    const rsheet = (fighting && !airborne) || e.airFight ? "fight" : "walk";
     const def = rigDef(skin);
     const n = rsheet === "fight" ? def.fightN || 2 : 4;
     // walkers step to the ground they cover; fliers and fighters keep time.
@@ -141,9 +143,9 @@ export const drawEnemy = (ctx, e, time, tms) => {
       ctx.globalAlpha = baseAlpha;
     }
   }
-  // Status tells — frost crust at the feet, cracks, licking flames, poison
-  // bubbles, mending motes — each a few cached sprites (render/fx.js), cheap
-  // enough for a crowd of three hundred all on fire.
+  // Status tells — slow's stars, a freeze's ice, a stun's ring, cracks,
+  // licking flames, poison bubbles, mending motes — each a few cached sprites
+  // (render/fx.js), cheap enough for a crowd of three hundred all on fire.
   {
     const feetY = e.y + e.size * 0.55 + hover;
     drawStatus(ctx, e, time, tms, feetY, rigged ? feetY - headroom(skin) : e.y - e.size * 0.8);
@@ -158,25 +160,8 @@ export const drawEnemy = (ctx, e, time, tms) => {
       ctx.fillRect(cx2 - (sx2 > 0 ? 1 : 0), cy2 - (sy2 > 0 ? CELL : 0), CELL / 2 + 1, CELL * 2);
     }
   }
-  // Stun is the one status worth interrupting a plan for, so it gets more
-  // than a speck: three little stars circling the head, drawn as crosses so
-  // they read as stars and not as stray pixels.
-  if (e.stunUntil > tms) {
-    for (let i = 0; i < 3; i++) {
-      const ang = time * 5 + i * 2.09;
-      const sx = S(e.x + Math.cos(ang) * 12);
-      // circling just over the health bar
-      const sy = S((rigged ? Math.round(e.y + e.size * 0.55 + hover - headroom(skin) - 5) : e.y - e.size - 12) - 8 + Math.sin(ang) * 3);
-      const near = Math.sin(ang) > 0;                  // the one in front is brighter
-      ctx.fillStyle = near ? "#f4e8a8" : "#c8a83c";
-      ctx.fillRect(sx - CELL, sy, CELL * 3, CELL);
-      ctx.fillRect(sx, sy - CELL, CELL, CELL * 3);
-      if (near) {
-        ctx.fillStyle = "#fffbe8";
-        ctx.fillRect(sx, sy, CELL, CELL);
-      }
-    }
-  }
+  // Stun (a jagged gold ring spinning over the crown) is drawn with the
+  // other holds — slow's dizzy stars, freeze's shell of ice — in drawStatus.
   // The health bar: slim, just over the creature's own head, and only once
   // it has been hurt — a fresh crowd of two hundred shows two hundred goblins,
   // not two hundred bars. Bosses always wear theirs.
@@ -260,26 +245,60 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   }
 };
 
-// A crown skiff on patrol: hull, wake, and the lantern that says the watch
-// is awake. It never touches the ground, so it never casts a ground shadow.
+// A crown skiff on patrol (rigs-skiff.js): an oarsman pulling while she is
+// under way and resting on his oars when she lies still, and a musketeer in
+// the bow working his gun off the attack clock (skiffGunPose: kick, recoil,
+// the rod, raise, aim — the shot itself is the engine's "musket" effect,
+// render/musketfx.js) or, with no mark, standing easy. A wake while she
+// moves, a ripple round her when she lies still; never a ground shadow.
+const SKIFF_SEEN = new WeakMap();
+const px2 = (v) => Math.round(v * 2) / 2;
 const drawSkiff = (ctx, u, t, time) => {
-  const frame = Math.floor(time * 5 + u.id) % 2;
-  ctx.fillStyle = "rgba(226,240,246,0.45)";
-  for (let i = 0; i < 3; i++) {
-    const back = -u.face * (11 + i * 7);
-    const spread = 4 + i * 3;
-    ctx.fillRect(S(u.x + back - spread), S(u.y + 5 + Math.sin(time * 3 + u.id + i) * 1.5), spread * 2, CELL);
+  // under way? The engine keeps no speed, so remember where she was.
+  let m = SKIFF_SEEN.get(u);
+  if (!m) { m = { x: u.x, y: u.y, moved: -1e9, hunt: u.state === "moving", turned: -1e9 }; SKIFF_SEEN.set(u, m); }
+  if (Math.abs(u.x - m.x) + Math.abs(u.y - m.y) > 0.02) { m.moved = time; m.x = u.x; m.y = u.y; }
+  const hunting = u.state === "moving";
+  if (hunting !== m.hunt) { m.hunt = hunting; m.turned = time; }
+  const underway = Math.abs(time - m.moved) < 0.3;
+  const ay = u.y + SKIFF_LIFT + skiffBob(time, u.id);
+  if (underway) {
+    ctx.fillStyle = "rgba(226,240,246,0.45)";
+    for (let i = 0; i < 3; i++) {
+      const back = -u.face * (11 + i * 7);
+      const spread = 4 + i * 3;
+      ctx.fillRect(S(u.x + back - spread), S(u.y + 5 + Math.sin(time * 3 + u.id + i) * 1.5), spread * 2, CELL);
+    }
+  } else {
+    // lying to: a ring of ripple slides off her bow and stern
+    const k = (time * 0.6 + u.id * 0.37) % 1;
+    ctx.fillStyle = `rgba(226,240,246,${(0.5 * (1 - k)).toFixed(2)})`;
+    for (const s of [-1, 1]) ctx.fillRect(px2(u.x + s * (15 + k * 5) - 1.5), px2(ay + 1.5 + k), 3, 0.5);
   }
-  drawRig(ctx, "skiff", u.x, u.y + 6 + Math.sin(time * 2.2 + u.id) * 1.5, u.face, "walk", Math.floor(time * 5 + u.id) % 4);
-  if (u.swing > 0) {
-    ctx.fillStyle = "#e8e2d4";
-    ctx.fillRect(S(u.x + u.face * 12), S(u.y - 6), 4, 2);
+  const rate = getStats(t).rate || 900;
+  const since = u.atkCd > 0 ? rate - u.atkCd : Infinity;
+  const gun = skiffGunPose(since, rate, { hunting, clock: time + u.id * 1.37, turned: time - m.turned });
+  const row = underway ? skiffRowFrame(time + u.id * 0.29) : "rest";
+  drawRig(ctx, "skiff", u.x, ay, u.face, "walk", `${t.branch || "base"}.${gun}.${row}`);
+  // the water the near oar works (live: foam takes no ink)
+  const bl = skiffBlade(row), bx = u.x + u.face * bl.x, by = ay + bl.y;
+  if (bl.wet >= 1) {
+    ctx.fillStyle = "rgba(226,240,246,0.8)";
+    ctx.fillRect(px2(bx - 2.5), px2(by + 1), 5, 0.5);
+    ctx.fillRect(px2(bx - u.face * 3), px2(by + 0.5), 1, 0.5);
+  } else if (bl.wet > 0) {
+    ctx.fillStyle = "rgba(226,240,246,0.6)";
+    ctx.fillRect(px2(bx - 1.5), px2(by + 1.2), 3, 0.5);
+  } else if (row === 3) {
+    ctx.fillStyle = "rgba(226,240,246,0.75)";
+    ctx.fillRect(px2(bx), px2(by + 1.5), 0.5, 0.5);
+    ctx.fillRect(px2(bx + u.face), px2(by + 3), 0.5, 0.5);
   }
   if (u.hp < u.maxHp) {
     ctx.fillStyle = INK;
-    ctx.fillRect(S(u.x) - 8, S(u.y - 16), 16, 4);
+    ctx.fillRect(S(u.x) - 8, S(u.y - 22), 16, 4);
     ctx.fillStyle = "#7fc95e";
-    ctx.fillRect(S(u.x) - 7, S(u.y - 15), Math.max(1, Math.round(14 * u.hp / u.maxHp)), 2);
+    ctx.fillRect(S(u.x) - 7, S(u.y - 21), Math.max(1, Math.round(14 * u.hp / u.maxHp)), 2);
   }
 };
 

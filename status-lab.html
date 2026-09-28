@@ -1,0 +1,157 @@
+<!doctype html>
+<!--
+  Dev tool (status tells): foes drawn through the real draw() with slow,
+  freeze, stun and the rest set on them, side by side, zoomed and at 1x, at
+  several moments (the stars spin, the ring turns). Saves into .shots/.
+    /status-lab.html?tag=<name>[&types=goblin,orc,...][&cols=none,slow2,...]
+                    [&scale=2][&film=orc][&frames=8][&dt=0.1]
+  Writes "DONE" into the title when every shot is saved:
+    st_<tag>_sheet.png  rows = foes, columns = statuses, one moment, zoomed
+    st_<tag>_film.png   one foe (film=) through `frames` moments, each column a status
+    st_<tag>_1x.png     the same grid at the game's own resolution
+-->
+<html><head><meta charset="utf-8" /><title>status lab…</title></head>
+<body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:20px"><div id="out">running…</div>
+<script type="module">
+import { selectRealm } from "/src/data/maps.js";
+import { W, H, RES } from "/src/data/constants.js";
+import { posAt, angleAt } from "/src/engine/path.js";
+import { draw } from "/src/render/draw.js";
+import { drawEnemy } from "/src/render/enemies.js";
+import { ENEMIES } from "/src/data/enemies.js";
+
+const q = new URLSearchParams(location.search);
+const tag = q.get("tag") || "x";
+const realm = q.get("realm") || "greenwood";
+const TMS = 100000, FAR = TMS * 3;
+const SC = Number(q.get("scale") || 2);
+
+// the columns: a status (or a mix) set on the foe
+const COLS = {
+  none: {},
+  slow2: { slowUntil: FAR, slowPct: 0.2 },
+  slow4: { slowUntil: FAR, slowPct: 0.4 },
+  slow9: { slowUntil: FAR, slowPct: 0.9 },
+  aura: { auraSlow: 0.5 },
+  stun: { stunUntil: FAR },
+  stunslow: { stunUntil: FAR, auraSlow: 0.4 },
+  freeze: { stunUntil: FAR, frozenUntil: FAR, auraSlow: 0.4, _frzTo: FAR, _frzAt: 0 },
+  frzbrit: { stunUntil: FAR, frozenUntil: FAR, auraSlow: 0.4, brittleUntil: FAR, _frzTo: FAR, _frzAt: 0 },
+  // a nova's freeze from its first moment to its last (film with dt≈0.05):
+  // the shell rises, holds, and cracks as it lets go
+  frzlife: { stunUntil: TMS + 700, frozenUntil: TMS + 700, auraSlow: 0.4, _frzTo: TMS + 700, _frzAt: TMS },
+  burnslow: { burnUntil: FAR, slowUntil: FAR, slowPct: 0.4 },
+  poison: { poisonUntil: FAR, slowUntil: FAR, slowPct: 0.3 },
+  heal: { healedFlash: FAR, slowUntil: FAR, slowPct: 0.3 },
+  mark: { markUntil: FAR, stunUntil: FAR },
+  guard: { guard: 3, slowUntil: FAR, slowPct: 0.4 },
+  immune: { slowUntil: FAR, slowPct: 0.5, immSlow: true },
+};
+const types = (q.get("types") || "goblin,orc,troll,bat,levy,skeleton").split(",");
+const cols = (q.get("cols") || "none,slow2,slow4,slow9,stun,freeze,frzbrit,burnslow").split(",");
+const CW = 58, CH = 66;                    // one cell, world units
+const X0 = 30, Y0 = 44;                    // the first foe's feet
+
+const mk = (type, x, y, id, st = {}) => {
+  const d = ENEMIES[type];
+  return {
+    id, type, hp: d.hp * (q.get("full") ? 1 : 0.7), maxHp: d.hp, dist: 10,
+    x, y, face: 1, size: d.size, armor: d.armor, mres: d.mres || 0,
+    guard: 0, guardFlash: 0, flying: !!d.flying, boss: !!d.boss, gait: 3,
+    atkAnim: 0, stunUntil: 0, slowUntil: 0, slowPct: 0, auraSlow: 0,
+    burnUntil: 0, poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: 0,
+    blockedBy: null, engaged: false, dead: false, revived: false, born: -1e9,
+    immSlow: !!d.immSlow, immStun: !!d.immStun, ...st,
+  };
+};
+const cellX = (c) => X0 + c * CW, cellY = (r) => Y0 + r * CH;
+const scene = (list, t) => ({
+  time: t, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5,
+  towers: [], projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [], enemies: list,
+  phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null,
+  paused: false, buildUntil: null,
+});
+// bg=board draws the real board under them; the default is plain ground
+// (half grass, half road) so no tree or signpost covers a foe
+const board = (list, t) => {
+  selectRealm(realm);
+  const cv = document.createElement("canvas");
+  cv.width = W * RES; cv.height = H * RES;
+  if (q.get("bg") === "board") { draw(scene(list, t), cv, { current: null }); return cv; }
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.fillStyle = "#6f9a4a"; c.fillRect(0, 0, cv.width, cv.height);
+  c.scale(RES, RES);
+  c.fillStyle = "#c8a878";
+  for (let r = 0; r < 8; r++) c.fillRect(0, Y0 + r * CH - 8, W, 16);
+  for (const e of [...list].sort((a, b) => a.y - b.y)) drawEnemy(c, e, t, t * 1000);
+  return cv;
+};
+// crop a cell (world box around a foe's feet) into dst at (dx, dy), scaled
+const cellBox = (fx, fy) => [fx - CW / 2, fy - CH + 14, CW, CH];
+const blit = (dst, src, box, dx, dy, s) => {
+  const [x, y, w, h] = box, c = dst.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.drawImage(src, x * RES, y * RES, w * RES, h * RES, dx, dy, w * RES * s, h * RES * s);
+};
+const save = async (name, cv) => {
+  await fetch("/__shot?name=" + encodeURIComponent(name), { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+};
+const label = (cv, text, x, y) => {
+  const c = cv.getContext("2d");
+  c.font = "bold 13px monospace"; c.fillStyle = "#e8e0c8"; c.fillText(text, x, y);
+};
+
+(async () => {
+  try {
+    // the grid of foes × statuses, all on one board (ids stay put across moments)
+    const grid = (t) => {
+      const list = [];
+      types.forEach((ty, r) => cols.forEach((cn, c) => {
+        if (!ENEMIES[ty]) return;
+        list.push(mk(ty, cellX(c), cellY(r), 11 + r * 31 + c * 7, COLS[cn] || {}));
+      }));
+      return board(list, t);
+    };
+    const t0 = TMS / 1000 + Number(q.get("t") || 0);
+    // 1) the zoomed sheet
+    {
+      const b = grid(t0), cw = CW * RES * SC, ch = CH * RES * SC, LH = 20;
+      const out = document.createElement("canvas");
+      out.width = cols.length * cw; out.height = LH + types.length * ch;
+      const c = out.getContext("2d"); c.fillStyle = "#14171d"; c.fillRect(0, 0, out.width, out.height);
+      cols.forEach((cn, ci) => label(out, cn, ci * cw + 6, 15));
+      types.forEach((ty, r) => cols.forEach((cn, ci) => blit(out, b, cellBox(cellX(ci), cellY(r)), ci * cw, LH + r * ch, SC)));
+      types.forEach((ty, r) => label(out, ty, 4, LH + r * ch + 14));
+      await save(`st_${tag}_sheet`, out);
+      // 3) the same at the game's own resolution (one art pixel = one pixel)
+      const o1 = document.createElement("canvas");
+      o1.width = cols.length * CW * RES; o1.height = types.length * CH * RES;
+      types.forEach((ty, r) => cols.forEach((cn, ci) => blit(o1, b, cellBox(cellX(ci), cellY(r)), ci * CW * RES, r * CH * RES, 1)));
+      await save(`st_${tag}_1x`, o1);
+    }
+    // 2) a film: one foe through several moments — each moment a column,
+    // each status a row; fbox=w,h,up crops a box w×h (world) whose foot sits
+    // `up` above the feet (default: the whole cell)
+    const film = q.get("film");
+    if (film) {
+      const n = Number(q.get("frames") || 8), dt = Number(q.get("dt") || 0.1), s = Number(q.get("fscale") || SC);
+      const [bw, bh, up] = (q.get("fbox") || `${CW},${CH},-14`).split(",").map(Number);
+      const cw = bw * RES * s, ch = bh * RES * s, LW = 90;
+      const out = document.createElement("canvas");
+      out.width = LW + n * cw; out.height = cols.length * ch;
+      const c = out.getContext("2d"); c.fillStyle = "#14171d"; c.fillRect(0, 0, out.width, out.height);
+      cols.forEach((cn, ci) => label(out, cn, 4, ci * ch + 16));
+      for (let k = 0; k < n; k++) {
+        const list = cols.map((cn, ci) => mk(film, cellX(ci), cellY(0), 11 + ci * 7, COLS[cn] || {}));
+        const b = board(list, t0 + k * dt);
+        cols.forEach((cn, ci) => blit(out, b, [cellX(ci) - bw / 2, cellY(0) - up - bh, bw, bh], LW + k * cw, ci * ch, s));
+        c.fillStyle = "#14171d"; c.fillRect(LW + k * cw, 0, 1, out.height);
+      }
+      await save(`st_${tag}_film`, out);
+    }
+    document.title = "DONE";
+  } catch (e) { document.title = "FAIL " + e.message; console.error(e); }
+  document.getElementById("out").textContent = document.title;
+})();
+</script></body></html>
