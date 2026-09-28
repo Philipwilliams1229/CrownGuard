@@ -1190,10 +1190,13 @@ export function updateGame(g, dt) {
           t.anim = 1;
           t.lastAim = Math.atan2(near.y - t.y, near.x - t.x);
           const throws = st.shells || 1;
+          // the shell leaves the bombardier's hand at the top of his throw
+          // (halls/gunpowder.js: his deck 9 + level up; folk-gunners.js bomberFrame)
+          const bf = Math.cos(t.lastAim) >= 0 ? 1 : -1, bLv = t.branch ? 3 : t.level;
           for (let i = 0; i < throws; i++) {
             const sp = throws > 1 ? (i - (throws - 1) / 2) * 34 : 0;
             g.projectiles.push({
-              x: t.x, y: t.y - 16, tx: near.x + sp, ty: near.y + (i % 2 ? -12 : 12) * (throws > 1 ? 1 : 0),
+              x: t.x + bf * 1.5, y: t.y - 34 - bLv, tx: near.x + sp, ty: near.y + (i % 2 ? -12 : 12) * (throws > 1 ? 1 : 0),
               t: 0, speed: 200, delay: 0, dmg: st.dmg, dtype: "phys", pierce: false, splash: st.splash, splashCap: st.splashCap || 0,
               burn: st.burn || 0, burnDur: st.burnDur || 0, slow: 0, slowDur: 0,
               burnSpreads: !!st.burnSpread, kind: "shell", src: t.id, arc: true,
@@ -1663,8 +1666,12 @@ export function updateGame(g, dt) {
             if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range) hits.push(e);
           }
         }
+        // the stoop leaves from the mistress's glove as she casts the bird off
+        // (halls/falconry.js: her perch 22/28/32/34 up; folk-gunners.js mistressGlove)
+        const perch = t.branch ? 34 : t.level === 1 ? 22 : t.level === 2 ? 28 : 32;
+        const gloveX = t.x + (target.x >= t.x ? 9 : -9), gloveY = t.y - perch - 23.4;
         for (const v of hits) {
-          g.effects.push({ type: "talon", x1: t.x, y1: t.y - 38, x2: v.x, y2: v.y - 6, ttl: 520, life: 520 });
+          g.effects.push({ type: "talon", x1: gloveX, y1: gloveY, x2: v.x, y2: v.y - 6, ttl: 520, life: 520 });
           dealDamage(g, v, st.dmg * (v.flying ? st.airMult : 1), "phys", false, false, t.id);
           if (!v.dead) {
             v.markUntil = tms + st.markDur;
@@ -1725,8 +1732,12 @@ export function updateGame(g, dt) {
         // the Wizard Spire's orb leaves from the mage's staff at the top of
         // the spire, where the strike drives it (halls/wizard.js: spire height
         // 18 + 6/level + 4 branched; folk-casters.js mageTip(level, "strike"))
-        const oy = t.kind === "wizard" ? 28.5 + 18 + t.level * 6 + (t.branch ? 4 : 0) : 30;
-        const ox = t.kind === "wizard" ? (target.x >= t.x ? 13 : -13) : 0;
+        // The alchemist's flask leaves his hand at the release (halls/goldworks.js
+        // crewSpot, folk-gunners.js bomberFrame: he faces west, 7 in front of his
+        // feet and 22 up).
+        const alch = t.kind === "goldworks" && t.branch === "b";
+        const oy = t.kind === "wizard" ? 28.5 + 18 + t.level * 6 + (t.branch ? 4 : 0) : alch ? 14 : 30;
+        const ox = t.kind === "wizard" ? (target.x >= t.x ? 13 : -13) : alch ? (t.rank4 ? -8 : 4) : 0;
         g.projectiles.push({
           id: nextId(), x: t.x + ox, y: t.y - oy, targetId: target.id,
           tx: target.x, ty: target.y, speed: 300, delay: 0,

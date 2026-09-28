@@ -221,9 +221,12 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 9, u.id, 0.18, time);
   softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24);
   // a blade with four fight frames (its rig's fightN) plays them off its
-  // attack clock like the garrison (fightFrame); two-frame ones lunge on the cut
-  const bladeF = !fighting ? 0 : (rigDef(rig)?.fightN || 2) === 4 ? fightFrame4(u, getStats(t).rate) : u.swing > 0 ? 1 : 0;
-  drawRig(ctx, rig, u.x, u.y + 9, u.face, fighting ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 9 + u.id) % 4 : bladeF);
+  // attack clock like the garrison (fightFrame); two-frame ones lunge on the
+  // cut. Waiting at the muster, a four-frame blade crouches in its guard.
+  const four = (rigDef(rig)?.fightN || 2) === 4;
+  const lurk = four && u.state === "rally";
+  const bladeF = !fighting ? 0 : four ? fightFrame4(u, getStats(t).rate) : u.swing > 0 ? 1 : 0;
+  drawRig(ctx, rig, u.x, u.y + 9, u.face, fighting || lurk ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 9 + u.id) % 4 : bladeF);
   // the Plague Bearer's censer breathes: a spore or two drifting up off it
   if (r4 === "bb") {
     for (let i = 0; i < 2; i++) {

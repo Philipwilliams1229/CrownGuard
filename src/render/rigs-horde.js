@@ -98,7 +98,7 @@ const step = (p, o) => {
   return {
     fight: true, f: F, F, c: 0, hit: F === 2, swing: 0,
     // the front foot steps in on the blow and stays there through the follow-through
-    near: [sw ? s * 1.1 + o.lunge * 0.8 : s * 0.8, 0], far: [-s * 0.9 - (F === 1 ? 0.15 * w : 0), 0],
+    near: [sw ? s * 1.1 + o.lunge * 0.8 : s * 0.8, 0], far: [-s * 0.9, 0],
     x: [0, -0.5 * w, o.lunge, o.lunge * (0.7 + 0.15 * fo)][F],
     bob: o.bob * [0.3, 0.2 + 0.3 * w, 0.9, 0.8 + 0.4 * fo][F],
     lean: o.lean + [0.02, -0.13 * w, 0.2 * dr, (0.14 + 0.14 * fo) * dr][F],
@@ -473,7 +473,8 @@ const orc = (ctx, p) => {
   let hn, an, hf, turn = plate ? 3.0 : 0;
   if (!st.fight) {
     hn = plate ? [shN[0] + 0.6 + st.swing * 0.8, shN[1] + 6.0] : [shN[0] + 1.6 + st.swing * 0.6, shN[1] + 6.2];
-    an = plate ? 1.15 - st.swing * 0.1 : 0.42 - st.swing * 0.06;
+    // (the Ironclad's cleaver hangs forward-down from a loose wrist, not straight down the arm)
+    an = plate ? 0.6 - st.swing * 0.1 : 0.42 - st.swing * 0.06;
   } else {
     const [N, a, H, tu] = pick(plate ? IRON_FIGHT : ORC_FIGHT, st);
     hn = [shN[0] + N[0], shN[1] + N[1]]; an = a; turn = tu; hf = H;
@@ -862,11 +863,11 @@ export const HORDE_RIGS = {
   goblin: { kind: "hGoblin", fightN: 4, box: { hw: 16, up: 26, down: 4 }, p: { fightN: 4, h: 20, skin: G, cloth: "#5f4326", cloth2: "#3c2a18", head: "hood", hair: "#5a4630", eyes: "#c8453a", weapon: "knife", wcol: "#a8acb4", shield: "round", shcol: "#8a6238" } },
   goblinBare: { kind: "hGoblin", fightN: 4, box: { hw: 16, up: 26, down: 4 }, p: { fightN: 4, h: 20, skin: G, cloth: "#6e4c28", cloth2: "#3c2a18", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", weapon: "knife", wcol: "#a8acb4" } },
   rafter: { kind: "hGoblin", fightN: 4, box: { hw: 23, up: 26, down: 4 }, p: { fightN: 4, h: 20, skin: G, cloth: "#6e4c28", cloth2: "#3c2a18", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", weapon: "spear", wcol: "#b8bcc4" } },
-  shaman: { kind: "hGoblin", fightN: 4, box: { hw: 21, up: 30, down: 4 }, p: { fightN: 4, h: 21, skin: G, cloth: "#8a4a3a", cloth2: "#e8c14a", robe: "#e8c14a", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", feathers: true, beads: "#c8383a", weapon: "staff", wcol: "#7ce0b8" } },
-  orc: { kind: "hOrc", fightN: 4, box: { hw: 21, up: 36, down: 4 }, p: { fightN: 4, h: 27, skin: "#5a8a3c", cloth: "#6a4a32", cloth2: "#2e2218", hair: "#2a1a10", eyes: "#e8c14a", wcol: "#b8bcc4" } },
+  shaman: { kind: "hGoblin", fightN: 4, box: { hw: 24, up: 35, down: 4 }, p: { fightN: 4, h: 21, skin: G, cloth: "#8a4a3a", cloth2: "#e8c14a", robe: "#e8c14a", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", feathers: true, beads: "#c8383a", weapon: "staff", wcol: "#7ce0b8" } },
+  orc: { kind: "hOrc", fightN: 4, box: { hw: 24, up: 36, down: 4 }, p: { fightN: 4, h: 27, skin: "#5a8a3c", cloth: "#6a4a32", cloth2: "#2e2218", hair: "#2a1a10", eyes: "#e8c14a", wcol: "#b8bcc4" } },
   armored: { kind: "hOrc", fightN: 4, box: { hw: 20, up: 35, down: 4 }, p: { fightN: 4, h: 26, skin: "#5a8a3c", cloth: "#7a808c", cloth2: "#4a4e58", armor: true, hair: "#9aa0ac", eyes: "#e8c14a", wcol: "#c4c8d0", shcol: "#5c626e" } },
-  troll: { kind: "hTroll", fightN: 4, box: { hw: 26, up: 46, down: 4 }, p: { fightN: 4, h: 36, skin: "#7a8a5a", cloth: "#5a4a3a", hair: "#3a3a2a", eyes: "#e8c14a", wcol: "#7a5a3a" } },
-  necro: { kind: "hNecro", fightN: 4, box: { hw: 21, up: 38, down: 4 }, p: { fightN: 4, h: 28, skin: "#c8c0b0", cloth: "#2a2434", cloth2: "#5a4a8c", hair: "#1e1826", eyes: "#b08ad8", cape: "#2a2434", wcol: "#b08ad8" } },
-  hobgoblin: { kind: "hHob", fightN: 4, box: { hw: 24, up: 42, down: 4 }, p: { fightN: 4, h: 30, skin: "#7a9a48", cloth: "#5a3a2a", cloth2: "#e8c14a", ears: "long", eyes: "#e05248", wcol: "#e8dfc6" } },
+  troll: { kind: "hTroll", fightN: 4, box: { hw: 30, up: 46, down: 4 }, p: { fightN: 4, h: 36, skin: "#7a8a5a", cloth: "#5a4a3a", hair: "#3a3a2a", eyes: "#e8c14a", wcol: "#7a5a3a" } },
+  necro: { kind: "hNecro", fightN: 4, box: { hw: 25, up: 42, down: 4 }, p: { fightN: 4, h: 28, skin: "#c8c0b0", cloth: "#2a2434", cloth2: "#5a4a8c", hair: "#1e1826", eyes: "#b08ad8", cape: "#2a2434", wcol: "#b08ad8" } },
+  hobgoblin: { kind: "hHob", fightN: 4, box: { hw: 28, up: 42, down: 4 }, p: { fightN: 4, h: 30, skin: "#7a9a48", cloth: "#5a3a2a", cloth2: "#e8c14a", ears: "long", eyes: "#e05248", wcol: "#e8dfc6" } },
 };
 export const HORDE_PAINTERS = { hGoblin: goblin, hOrc: orc, hTroll: troll, hNecro: necro, hHob: hobgoblin };

@@ -6,7 +6,7 @@
 import { W, H, PATH_HALF } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
 import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_N, GATE_TOWER_S, TOWER, ballistaSpots } from "../data/castle.js";
-import { drawArcherFrame, drawHalberdier, drawMason, WALL_FOLK } from "./folk.js";
+import { drawArcherFrame, drawHalberdier, drawMason, WALL_FOLK, MASON_FRAMES, HALBERD_WALK, frameOf } from "./folk.js";
 import { ballista } from "./halls/archer.js";
 import { REALM } from "../data/maps.js";
 import * as TERRAIN from "../data/terrain.js";
@@ -2109,7 +2109,6 @@ const drawIdleLife = (ctx, g, gy) => {
   // field, and stands to face it while the horde is near
   const beat = sentryBeat(gy);
   if (beat) {
-    const cvs = [-1, 1].map((d) => workFrame(`sentry|${d}`, 28, 42, (c) => drawHalberdier(c, 16, 40, d, SENTRY)));
     const a = beat[0] + 2, b = beat[1] - 2;
     const L = Math.max(0, b - a), v = 6.5, pause = 2.6, leg = L / v, T = 2 * (leg + pause);
     let y = a, dir = -1, moving = false;
@@ -2120,9 +2119,13 @@ const drawIdleLife = (ctx, g, gy) => {
       else if (t < 2 * pause + leg) y = b;
       else { y = b - (t - 2 * pause - leg) * v; dir = 1; moving = true; }
     } else y = (a + b) / 2;
-    const bob = moving && Math.floor(time * 5) % 2 ? -0.5 : 0;
-    const cv = cvs[dir > 0 ? 1 : 0];
-    if (cv) ctx.drawImage(cv, SENTRY_X - 16, S2(y) - 40 + bob, 28, 42);
+    // walking he steps (folk-workers.js HALBERD_WALK: the hips drop on each
+    // step, the halberd carried clear of the flags); at each end of his beat
+    // he looks out (frame 2); facing the horde he stands, breathing (0 / 1)
+    const o = moving ? { walk: Math.floor(time * 4) % HALBERD_WALK }
+      : !near && L > 4 ? { frame: 2 } : { frame: Math.sin(time * 1.3) > 0.4 ? 1 : 0 };
+    const cv = workFrame(`sentry|${dir}|${moving ? "w" + o.walk : "f" + o.frame}`, 28, 42, (c) => drawHalberdier(c, 16, 40, dir, SENTRY, o));
+    if (cv) ctx.drawImage(cv, SENTRY_X - 16, S2(y) - 40, 28, 42);
   }
   // the birds on the battlements
   const perches = CASTLE.perches || [];
@@ -2208,7 +2211,9 @@ export const drawCastleWorks = (ctx, g) => {
     cylinder(ctx, bx - 1.5, y - 6, 12, 2.5, "#8a6a40", { r: 0.8, hi: 0.3, lo: 0.5 });
     cylinder(ctx, bx + 0.5, y - 12, 8, 6, "#8e887a", { r: 1.2, hi: 0.35, lo: 0.5 });
     ctx.fillStyle = "#d8d0c0"; ctx.fillRect(bx + 1, y - 12, 6, 1.2);
-    const fr = Math.floor(((time * 2 + k) % 2));
+    // lay, draw the mortar along, lift, scoop from the hawk, carry, set
+    // (folk-workers.js MASON_FRAMES), each man on his own 2.4 s round
+    const fr = frameOf(time / 2.4 + k * 0.37, MASON_FRAMES);
     const cv = workFrame(`mason|${dir}|${fr}`, 30, 36, (c) => drawMason(c, dir > 0 ? 12 : 18, 33, dir, WALL_FOLK.mason, fr));
     if (cv) ctx.drawImage(cv, fx - (dir > 0 ? 12 : 18), y - 33, 30, 36);
   }
