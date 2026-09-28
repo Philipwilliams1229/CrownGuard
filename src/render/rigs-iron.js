@@ -2,8 +2,10 @@
 // Bespoke bodies that override the generic entries in rigs.js (same shape:
 // { kind, box: { hw, up, down }, p, fly? }); IRON_PAINTERS maps each new
 // `kind` to its painter (ctx, p) — pose is p.pose ("walk" | "fight") and
-// p.frame (0-3 walk, 0-1 fight), feet at 0,0, facing +x. Frames are baked
-// once and inked by rigs.js.
+// p.frame (0-3 walk; 0-3 fight: guard, wind-up, strike, follow-through — every
+// rig here sets fightN: 4, see step()), feet at 0,0, facing +x. Frames are
+// baked once and inked by rigs.js. Joints are checked in the joint lab's
+// "irh" set (joint-sets/irh.js).
 //
 // A drilled human army on the same upright skeleton as the crown's soldiers
 // (rigs-crown.js), but never to be taken for them: darkened, blued steel
@@ -608,8 +610,9 @@ const hands = (look, st, shN, shF) => {
   // tiller); in the fight a shooting cycle — ready, aim at the cheek, loose
   // (the nose kicks up), reload (the nose down in the far hand, the near hand
   // back to the bolt box). grip: how far up the tiller the fore hand holds;
-  // held: "far" when only the far hand holds it (bow at bw, the grip point)
-  if (look === "bow") return pick({ hn: N(1.4 + sw * 0.3, 3.2), an: -1.0 + sw * 0.03, grip: 2.6 }, [
+  // held: "far" when only the far hand holds it (at `grip` up the tiller).
+  // The trigger hand's forearm runs under the stock like a rifleman's.
+  if (look === "bow") return pick({ hn: N(1.4 + sw * 0.3, 3.2), an: -1.0 + sw * 0.03, grip: 2.4 }, [
     { hn: N(1.6, 1.9), an: -0.7, grip: 1.3 },
     { hn: N(2.3, -1.0), an: -0.04, grip: 1.1 },
     { hn: N(2.0, -1.3), an: -0.2, grip: 1.1, loosed: true },

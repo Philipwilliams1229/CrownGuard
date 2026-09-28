@@ -28,7 +28,7 @@ const cell = (type, pose, frame, note) => ({
 });
 
 export const rows = TYPES.map((t) => {
-  const n = RIGS[t].fightN || (t in IRON_RIGS ? 4 : 2);
+  const n = RIGS[t].fightN || 4;
   const names = SHOOT[t] ? ["ready", "aim", "loose", "reload"] : n === 4 ? ["guard", "wind-up", "strike", "follow"] : ["wind-up", "strike"];
   return [`${t}\nwalk 0-3 | fight 0-${n - 1}`, [
     ...WALK.map((w, f) => cell(t, "walk", f, `walk ${f} ${w}`)),
