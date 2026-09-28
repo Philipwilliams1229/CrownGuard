@@ -532,7 +532,8 @@ dev server; view them from there):
   module script (the browser tool's JS runs in an isolated world).
 - Lab pages per area: `twa-lab.html`, `twb-lab.html`, `twb-folk.html` (every
   crew figure), `joint-lab.html?set=<set>` (bones and joint limits, see
-  "Joints and motion"), `crw-lab.html`, `hrd-lab.html`, `bst-lab.html`, `cas-lab.html`,
+  "Joints and motion"), `hallstrip.html?kind=<k>&form=3,b,a&n=12` (one form
+  through a firing cycle, or `&idle=1&secs=6` the idle, frame by frame), `crw-lab.html`, `hrd-lab.html`, `bst-lab.html`, `cas-lab.html`,
   `scn-lab.html`, `fx-lab.html`, `map-lab.html`, `apron-lab.html` (the landscape beyond the board at phone/tablet/desktop layouts), `icon-lab.html` (the app icon), `hud-lab.html`, `wdn-lab.html`.
 - `props-lab.html`: every object a hall puts OUT into the world (traps,
   logs, stoops, the war-eagle, shots, soldiers and blades), zoomed on the
