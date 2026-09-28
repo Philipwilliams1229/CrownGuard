@@ -1723,9 +1723,10 @@ export function updateGame(g, dt) {
           pooled = t.poolIdx === 0;
         }
         // the Wizard Spire's orb leaves from the mage's staff at the top of
-        // the spire (halls/wizard.js: spire height 18 + 6/level + 4 branched)
-        const oy = t.kind === "wizard" ? 30 + 18 + t.level * 6 + (t.branch ? 4 : 0) : 30;
-        const ox = t.kind === "wizard" ? (target.x >= t.x ? 7 : -7) : 0;
+        // the spire, where the strike drives it (halls/wizard.js: spire height
+        // 18 + 6/level + 4 branched; folk-casters.js mageTip(level, "strike"))
+        const oy = t.kind === "wizard" ? 28.5 + 18 + t.level * 6 + (t.branch ? 4 : 0) : 30;
+        const ox = t.kind === "wizard" ? (target.x >= t.x ? 13 : -13) : 0;
         g.projectiles.push({
           id: nextId(), x: t.x + ox, y: t.y - oy, targetId: target.id,
           tx: target.x, ty: target.y, speed: 300, delay: 0,
