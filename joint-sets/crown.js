@@ -23,7 +23,7 @@ const cell = (type, pose, frame, note) => ({
 });
 
 export const rows = TYPES.map((t) => {
-  const n = FIGHT[t] || 2;
+  const n = FIGHT[t] || Number(new URLSearchParams(location.search).get("fights")) || 2;
   const names = FIGHT4[t] || (n === 4 ? ["guard", "wind-up", "strike", "follow"] : ["wind-up", "strike"]);
   return [`${t}\nwalk 0-3 | fight 0-${n - 1}`, [
     ...WALK.map((w, f) => cell(t, "walk", f, `walk ${f} ${w}`)),

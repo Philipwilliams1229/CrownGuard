@@ -68,17 +68,19 @@ const idle = (t, seed) => {
   const g = (t / (5.5 + (seed % 4) * 0.9) + seed * 0.618) % 1;
   return { sheet: "walk", frame: shift ? 2 : 0, glance: g < 0.14 };
 };
-// the militiaman at the hay: wind up, pitch, three times, then a breather
+// the militiaman at the hay: wind up, pitch, heave it over, three times,
+// then a breather (the farmer's fight sheet: 0 ready, 1 wind-up, 2 the
+// thrust, 3 the heave)
 const pitch = (t, seed) => {
   const c = (t + seed) % 8;
-  if (c < 3.6) return { sheet: "fight", frame: (c % 1.2) < 0.75 ? 0 : 1, glance: false };
+  if (c < 3.6) { const k = c % 1.2; return { sheet: "fight", frame: k < 0.55 ? 1 : k < 0.72 ? 2 : k < 0.95 ? 3 : 0, glance: false }; }
   return idle(t, seed);
 };
 
 // the frames the crowd uses, baked a few at a time before it starts
 const NEEDED = [];
 for (const t of TYPES) for (let f = 0; f < 4; f++) NEEDED.push([t, "walk", f]);   // (the sentry is a knight)
-NEEDED.push(["farmer", "fight", 0], ["farmer", "fight", 1]);
+for (let f = 0; f < 4; f++) NEEDED.push(["farmer", "fight", f]);
 
 // a contact shadow: a plum ellipse, hard-edged, baked once
 let SHADOW = null;

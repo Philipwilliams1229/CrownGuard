@@ -1,7 +1,8 @@
 <!doctype html>
 <!--
   Dev tool: a STATIC contact sheet of creature rigs — for each type one row:
-  walk 0-3, fight 0-1, then the revived and hit-flash variants — painted once
+  walk 0-3, fight 0-1 (0-3 when a rig on the sheet fights in four frames:
+  fightN 4 or rigs-crown.js CROWN_FIGHT_FRAMES), then the revived and hit-flash variants — painted once
   at load (no rAF, works in a hidden tab) and saved to .shots/rig_<tag>.png.
     /rigshot.html?types=goblin,orc,wolf&tag=v1&scale=3
   scale enlarges nearest-neighbour (default 3). Cells are sized per type.
@@ -14,10 +15,12 @@
     <script type="module">
       import { RIGS, rigFrame } from "/src/render/rigs.js";
       import { PX } from "/src/render/paint.js";
+      import { CROWN_FIGHT_FRAMES } from "/src/render/rigs-crown.js";
       const q = new URLSearchParams(location.search);
       const types = (q.get("types") || "goblin").split(",");
       const TAG = q.get("tag") || types.join("-"), SC = Number(q.get("scale")) || 3;
-      const cells = [["walk", 0], ["walk", 1], ["walk", 2], ["walk", 3], ["fight", 0], ["fight", 1], ["walk", 0, "revived"], ["fight", 1, "white"]];
+      const four = types.some((t) => RIGS[t]?.fightN === 4 || CROWN_FIGHT_FRAMES?.[t] === 4);
+      const cells = [["walk", 0], ["walk", 1], ["walk", 2], ["walk", 3], ["fight", 0], ["fight", 1], ...(four ? [["fight", 2], ["fight", 3]] : []), ["walk", 0, "revived"], ["fight", four ? 2 : 1, "white"]];
       const rows = types.map((t) => {
         const f = rigFrame(t, "walk", 0);
         return { t, w: f.cv.width + 8, h: f.cv.height + 8 };
