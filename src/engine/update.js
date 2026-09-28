@@ -690,6 +690,8 @@ export function updateGame(g, dt) {
             dealDamage(g, e, st.nova, "magic", false, false, t.id);
             if (!e.dead) {
               e.stunUntil = Math.max(e.stunUntil, tms + st.novaFreeze);
+              // a freeze holds like a stun but LOOKS like ice (fx.js drawStatus)
+              e.frozenUntil = Math.max(e.frozenUntil || 0, tms + st.novaFreeze);
               if (st.brittle) { e.brittleUntil = tms + (st.brittleDur || 4000); e.brittleAmp = st.brittle; }
             }
           }
