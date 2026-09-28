@@ -120,7 +120,7 @@ export const ENEMIES = {
     splitInto: ["unseated", 1], splitDrop: true, deathSkin: "gryphonMount",
     // nothing on the road can touch it, but it fights in the air: any in
     // reach of a war-eagle break off to lance her, and a flight gangs up
-    airAtk: 60, airReach: 46,
+    airAtk: 60, airReach: 52,
     note: "A knight on a warbred gryphon, armored wing to talon. It sails over every blocker you have, and its plate turns arrows. It hunts your war-eagles in the air, and a flight of them will gang up on one. Bring it down and the knight on its back drops to the road and marches on.",
   },
   unseated: {

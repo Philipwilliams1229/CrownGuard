@@ -162,29 +162,38 @@ const strafe = (g, t, eg, st, tms, sdt) => {
 // Every gryphon knight in reach of her turns on her: hovering at her side
 // (movement eases it there off its lane, e.airOx/airOy) and striking on its
 // own clock. The one she holds fights back the same way. Returns true if
-// they bring her down.
-const AIR_SIDE = 17, AIR_PULL = 30;
+// they bring her down. Where one hangs: its anchor AIR_SIDE out to her side
+// and AIR_DROP below hers, so its lance point (rigs-ironmounts.js fight 2, 31
+// out and 29 up) lands on her rider; more on the same side stack above and
+// below it (AIR_STACK). enemies.js stands a gryphon's feet ~4.5 under e.y,
+// draw.js her anchor 10 under eg.y.
+const AIR_SIDE = 30, AIR_DROP = 9, AIR_PULL = 46;
+const AIR_STACK = [[0, 0], [4, -16], [4, 16], [8, -30], [8, 30]];
 const gangOnEagle = (g, eg, tms, sdt) => {
   const ey = eg.y + 12;                       // her body, on the foes' footing
+  const onSide = { 1: 0, "-1": 0 };
   for (const e of g.enemies) {
     if (e.dead || !e.airAtk || e.airFight) continue;
     if (e.stunUntil > tms && !e.immStun) continue;
     const lx = e.x - e.airOx, ly = e.y - e.airOy;
     if (Math.hypot(e.x - eg.x, e.y - ey) > e.airReach) continue;
+    const fresh = tms - (e.airFightAt || -1e9) > 400;
+    // it keeps the side of her it came in on
+    if (fresh || !e.airSide) e.airSide = lx >= eg.x ? 1 : -1;
     e.airFight = eg.id;
-    // her side of the sky: a length AIR_SIDE from her on its own side of
-    // her, at most AIR_PULL from its lane; the one in her talons stays put
-    if (e.blockedBy === eg.id) { e.airTx = 0; e.airTy = 0; }
+    // the one in her talons stays put (she sits on it); the rest take a
+    // slot at her side, at most AIR_PULL off their lanes
+    if (e.blockedBy === eg.id) { e.airTx = 0; e.airTy = 0; e.face = eg.x >= e.x ? 1 : -1; }
     else {
-      const ax = lx - eg.x, ay = ly - ey, al = Math.hypot(ax, ay) || 1;
-      let ox = eg.x + (ax / al) * AIR_SIDE - lx, oy = ey + (ay / al) * AIR_SIDE - ly;
+      const [sx, sy] = AIR_STACK[Math.min(AIR_STACK.length - 1, onSide[e.airSide]++)];
+      let ox = eg.x + e.airSide * (AIR_SIDE + sx) - lx, oy = eg.y + 10 + AIR_DROP + sy - 4.5 - ly;
       const ol = Math.hypot(ox, oy);
       if (ol > AIR_PULL) { ox *= AIR_PULL / ol; oy *= AIR_PULL / ol; }
       e.airTx = ox; e.airTy = oy;
+      e.face = -e.airSide;
     }
-    e.face = eg.x >= e.x ? 1 : -1;
     // a fresh attacker winds up before its first blow
-    if (tms - (e.airFightAt || -1e9) > 400 && e.meleeCd <= 0) e.meleeCd = e.atkRate * 0.45;
+    if (fresh && e.meleeCd <= 0) e.meleeCd = e.atkRate * 0.45;
     e.airFightAt = tms;
     e.meleeCd -= sdt * 1000;
     if (e.meleeCd <= 0) {
@@ -1176,6 +1185,9 @@ export function updateGame(g, dt) {
         e.x += e.airOx; e.y += e.airOy;
       }
       if (!held && Math.abs(Math.cos(a)) > 0.3) e.face = Math.cos(a) >= 0 ? 1 : -1;
+      // a gryphon back from an air fight turns to its road again, even where
+      // the road runs straight up or down the board
+      if (e.airAtk) { if (held) e.airWas = true; else if (e.airWas) { e.airWas = false; e.face = e.walkFace || e.face; } else e.walkFace = e.face; }
       // Crossbowmen: they shoot your knights from outside sword reach and
       // never break stride to do it. Nothing blocks this — only killing them.
       if (e.rangedAtk && !stunned) {
