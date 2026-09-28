@@ -90,17 +90,19 @@ const ROWER = { skin: "#dcae86", hood: "#a8505c", coat: "#b4ae9a", boots: "#3a2e
 // The oarsman's stroke, in his frame (+x toward the stern, y up −): the
 // trunk's lean about the hips (+ toward the stern: reaching for the catch)
 // and where the near hand holds the loom. The far hand is beside it.
-//   catch    reached out over his knees, arms long, blades going in
+//   catch    reached out over his knees, blades going in (a skiff this
+//            short leaves no room for arms at full stretch: they stay a
+//            little bent, within the elbow's limits)
 //   drive    swinging back through upright, the legs and back doing it
 //   finish   laid back, the hands drawn in to the ribs, elbows past the body
 //   recover  hands away first and low (blades up out of the water), the
 //            body following them forward
 //   rest     sitting easy, looms held low, blades feathered clear
 const ROW = [
-  { lean: 0.48, hand: [7.8, -6.2], wet: 1 },
-  { lean: 0.06, hand: [6.0, -6.9], wet: 1 },
+  { lean: 0.3, hand: [8.0, -5.6], wet: 1 },
+  { lean: -0.05, hand: [5.5, -6.9], wet: 1 },
   { lean: -0.26, hand: [3.0, -6.3], wet: 0.5 },
-  { lean: 0.22, hand: [6.6, -5.2], wet: 0 },
+  { lean: 0.2, hand: [7.4, -5.0], wet: 0 },
 ];
 const ROW_REST = { lean: 0.05, hand: [5.4, -5.0], wet: 0 };
 

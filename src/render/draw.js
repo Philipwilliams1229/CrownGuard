@@ -29,6 +29,7 @@ import { drawGroundBlend } from "./groundblend.js";
 import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawLog } from "./logs.js";
 import { drawStoop } from "./birds.js";
+import { drawMusketShot } from "./musketfx.js";
 import { drawRingFx } from "./rings.js";
 import { drawBreath } from "./flames.js";
 import { drawRaising, raiseSecs, raiseHidesPips } from "./buildanim.js";
@@ -456,6 +457,9 @@ export function draw(g, canvas, bufRef) {
       if (fx.pts) drawChain(ctx, fx); else drawQuarrel(ctx, fx);
     } else if (fx.type === "talon") {
       drawStoop(ctx, fx, a);
+    } else if (fx.type === "musket") {
+      // a River Watch skiff's shot: flash, ball, knock, drifting smoke
+      drawMusketShot(ctx, fx, a);
     } else if (fx.type === "shrapnel") {
       // actual flying shards: fling out, then rain down
       const prog = 1 - fx.ttl / fx.life;

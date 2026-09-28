@@ -94,22 +94,22 @@ const DIRS = 32;
 const dirOf = (ang, n = DIRS) => ((Math.round((ang / (Math.PI * 2)) * n) % n) + n) % n;
 // a sprite turned to heading d of n: each art pixel samples the upright
 // shape (lx along the heading, ly across), so it stays crisp at any angle
-const turned = (key, d, n, half, shape) => memo(`${key}|${d}`, () => {
+const turned = (d, n, half, shape) => {
   const a = (d / n) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a), G = grid(half * 2, half * 2);
   for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
     const dx = x + 0.5 - half, dy = y + 0.5 - half;
     const k = shape(dx * c + dy * s, -dx * s + dy * c, x, y);
     if (k) G.set(x, y, k[0], k[1] ?? 255);
   }
-  return { G, ax: half, ay: half };
-});
+  return G;
+};
 
 // ---- the flash: a tongue of fire out along the shot, a white heart and
 // two sparks flung wide; three frames (bloom, stretch, the last of it) ----
 const flashSprite = (kind, d, f) => {
   const s = memo(`mf|${kind}|${d}|${f}`, () => {
     const T = TONES[kind].flash, L = [9, 12, 6][f] * PX, R = [3.2, 2.4, 1.6][f] * PX;
-    const { G } = turned(`mfg|${kind}|${f}`, d, 16, 30, (lx, ly) => {
+    const G = turned(d, 16, 30, (lx, ly) => {
       const ay = Math.abs(ly);
       if (lx < -R * 0.6 || lx > L) return null;
       // the tongue narrows from the heart to its tip

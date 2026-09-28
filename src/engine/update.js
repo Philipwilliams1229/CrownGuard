@@ -17,7 +17,7 @@ import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilt
 import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { isBuilt } from "./build.js";
-import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt } from "./muzzles.js";
+import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE } from "./muzzles.js";
 
 // ---- the Falconry's stoops ------------------------------------------------------
 // A cast bird reaches its prey STOOP_HIT ms later (following it down) and is
@@ -1557,12 +1557,14 @@ export function updateGame(g, dt) {
         u.face = mark.x >= u.x ? 1 : -1;
         if (Math.hypot(mark.x - u.x, mark.y - u.y) > st.range || u.atkCd > 0) return;
         if (rt._spans.length && underBridge(u.x, u.y)) return;   // no shooting from under the deck
-        // the harpoon goes out
+        // the musket goes off from the bow (the Fireships' hot shot bursts in
+        // flame at the mark); the ball is quick enough to land at once
         u.atkCd = st.rate;
         u.swing = 200;
         u.targetId = mark.id;
-        g.effects.push({ type: "bolt", x: u.x, y: u.y - 6, tx: mark.x, ty: mark.y - 6, ttl: 190 });
-        sfx.play(st.splash ? "boom" : "bolt");
+        const [mzx, mzy] = skiffShotFrom(u, g.time);
+        g.effects.push({ type: "musket", x: mzx, y: mzy, tx: mark.x, ty: mark.y - 6, ttl: MUSKET_LIFE, life: MUSKET_LIFE, fire: !!st.burn, splash: st.splash || 0 });
+        sfx.play(st.splash ? "boom" : "musket");
         dealDamage(g, mark, st.dmg, "phys", !!st.pierce, false, t.id);
         if (st.splash) {
           for (const e2 of g.enemies) {

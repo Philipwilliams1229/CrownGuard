@@ -247,7 +247,7 @@ export const TOWERS = {
   },
   riverwatch: {
     name: "River Watch", cost: 130, dtype: "phys", proj: "harpoon", water: true,
-    blurb: "BUILT ON THE WATER — the only hall that can be: moor it in a river, a pond or a mere. Its skiffs row the water under their own orders, carrying harpoons to stretches of bank no tower can reach.",
+    blurb: "BUILT ON THE WATER — the only hall that can be: moor it in a river, a pond or a mere. Its skiffs row the water under their own orders, carrying muskets to stretches of bank no tower can reach.",
     levels: [
       { dmg: 30, rate: 950, range: 125, hp: 130, count: 1, rowSpeed: 74 },
       { dmg: 40, rate: 900, range: 135, hp: 165, count: 2, rowSpeed: 78, cost: 100, label: "Second Skiff" },
@@ -255,14 +255,14 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Harbour Patrol", cost: 350, stats: { dmg: 64, rate: 620, range: 155, hp: 250, count: 3, rowSpeed: 96 }, desc: "THREE swift skiffs working the whole length of the water, loosing twice as fast as any watchman.",
+        name: "Harbour Patrol", cost: 350, stats: { dmg: 64, rate: 620, range: 155, hp: 250, count: 3, rowSpeed: 96 }, desc: "THREE swift skiffs working the whole length of the water, firing twice as fast as any watchman.",
         rank4: {
           a: { name: "The Crown Navy", cost: 670, stats: { dmg: 70, rate: 600, range: 165, hp: 290, count: 4, rowSpeed: 104 }, desc: "FOUR skiffs under an admiral's pennant — the river belongs to the crown, and its banks know it." },
-          b: { name: "Harpooners", cost: 670, stats: { dmg: 96, rate: 700, range: 170, hp: 270, count: 3, rowSpeed: 96, pierce: true, slow: 0.35, slowDur: 1600 }, desc: "Barbed iron on a line: the harpoons punch through any armor and drag what they catch to a crawl." },
+          b: { name: "Harpooners", cost: 670, stats: { dmg: 96, rate: 700, range: 170, hp: 270, count: 3, rowSpeed: 96, pierce: true, slow: 0.35, slowDur: 1600 }, desc: "Harpoon guns: barbed iron on a line punches through any armor and drags what it hits to a crawl." },
         },
       },
       b: {
-        name: "Fireship Wharf", cost: 350, stats: { dmg: 52, rate: 1250, range: 150, hp: 230, count: 2, rowSpeed: 76, splash: 54, burn: 11, burnDur: 2400 }, desc: "Pitch pots slung from the mast: slower shots, but they burst in flame across the bank.",
+        name: "Fireship Wharf", cost: 350, stats: { dmg: 52, rate: 1250, range: 150, hp: 230, count: 2, rowSpeed: 76, splash: 54, burn: 11, burnDur: 2400 }, desc: "Hot shot packed in pitch: slower shots, but each one bursts in flame across the bank.",
         rank4: {
           a: { name: "The Hellburner", cost: 670, stats: { dmg: 64, rate: 1350, range: 160, hp: 260, count: 2, rowSpeed: 76, splash: 64, burn: 13, burnDur: 2600, poolDps: 11, poolDur: 2200, poolR: 26 }, desc: "A hull packed with powder and pitch: every pot leaves the shore burning behind it." },
           b: { name: "The Chain Boom", cost: 670, stats: { dmg: 54, rate: 1250, range: 165, hp: 300, count: 3, rowSpeed: 80, splash: 52, burn: 9, burnDur: 2000, stun: 0.2, stunDur: 800 }, desc: "A chain slung between the skiffs and a shot that rings it — what the boom catches stands stunned." },

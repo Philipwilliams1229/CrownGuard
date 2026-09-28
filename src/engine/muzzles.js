@@ -10,7 +10,9 @@
 import { archerPose } from "../render/folk-archer.js";
 import { mageTip } from "../render/folk-casters.js";
 import { musketMuzzle, mistressGlove } from "../render/folk-gunners.js";
+import { skiffMuzzle, SKIFF_LIFT, skiffBob } from "../render/rigs-skiff.js";
 import { archerLayout } from "./towers.js";
+export { MUSKET_LIFE } from "../render/musketfx.js";
 
 export const facing = (t) => (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
 
@@ -70,6 +72,14 @@ export const muzzleFrom = (t) => {
 export const shellFrom = (t) => {
   const lvl = t.branch ? 3 : t.level;
   return [t.x + facing(t) * 1.5, t.y - 34 - lvl];
+};
+
+// A River Watch skiff's ball at the muzzle as the shot kicks: the gunner in
+// the bow (rigs-skiff.js skiffMuzzle; enemies.js drawSkiff stands the rig
+// SKIFF_LIFT under u.y, bobbing on the water, facing u.face).
+export const skiffShotFrom = (u, time) => {
+  const [mx, my] = skiffMuzzle("kick");
+  return [u.x + (u.face < 0 ? -1 : 1) * mx, u.y + SKIFF_LIFT + skiffBob(time, u.id) + my];
 };
 
 // A bowman of the bands (Wren, her retinue's archers): the bow hand at full
