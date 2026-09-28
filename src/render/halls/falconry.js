@@ -225,7 +225,7 @@ export const drawFalconry = (ctx, t, time) => {
     const perchedIdle = t._idle && ((time / 11) + t.id * 0.71) % 1 < 0.45;
     const pose = mistressFrame(t.cd > 0 ? rate - t.cd : Infinity, t.cd || 0, rate, { idle: t._idle, perched: perchedIdle, clock });
     const striking = anim > 0.3;
-    const onGlove = t._idle ? perchedIdle : pose === "present" || pose === "draw";
+    const onGlove = t._idle ? perchedIdle : pose === "present" || pose === "draw" || (!(t.cd > 0) && !striking);
     const skip = striking ? (t.shotIdx || 0) % birds : -1;
     const wheel = [];
     for (let b = 0; b < birds; b++) {

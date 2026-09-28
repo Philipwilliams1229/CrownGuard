@@ -158,13 +158,14 @@ export const MISTRESS_POSES = Object.keys(MIST);
 // the glove (the back of her fist, where the bird's feet go), figure space
 export const mistressGlove = (pose = "present") => (MIST[pose] || MIST.present).near;
 // which frame: ms since the last strike and until the next (≤ 0: ready with
-// nothing to strike), the rate; idle: the clock (s) and whether a bird rides
+// nothing to strike — the bird waits on her glove at her chest), the rate;
+// idle: the clock (s) and whether a bird rides
 export const mistressFrame = (since, until, rate, o = {}) => {
   if (o.idle) return o.perched ? (cyc(o.clock, 5.3) < 0.3 ? "glance" : "carry") : (cyc(o.clock, 4.1) < 0.4 ? "glance" : "carry");
   const r = rate || 1000;
   if (since < Math.max(60, r * 0.1)) return "cast";
   if (since < Math.max(150, r * 0.26)) return "follow";
-  if (until <= 0) return "present";
+  if (until <= 0) return cyc(o.clock || 0, 3.7) < 0.3 ? "glance" : "carry";   // ready, nothing to strike: the bird rides her glove
   if (until <= Math.max(60, r * 0.13)) return "draw";
   if (until <= r * 0.42) return "present";
   return cyc(o.clock || 0, 2.7) < 0.35 ? "glance" : "carry";

@@ -23,7 +23,7 @@ const cell = (type, pose, frame, extra = {}) => {
   c0.draw = (c) => {
     const def = RIGS[type] || HORDE_RIGS[type];
     c.translate(FX, FY); c.scale(fit(def), fit(def));
-    HORDE_PAINTERS[def.kind](c, { ...def.p, fightN: def.fightN || 2, ...extra, pose, frame });
+    HORDE_PAINTERS[def.kind](c, { ...def.p, ...extra, pose, frame });
     c0.note = `${pose} ${frame} ${wristNote()}`;
   };
   return c0;

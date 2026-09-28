@@ -11,8 +11,8 @@ import { IRON_RIGS, IRON_PAINTERS } from "/src/render/rigs-iron.js";
 import { HOLLOW_RIGS, HOLLOW_PAINTERS } from "/src/render/rigs-hollow.js";
 
 const PAINT = { ...IRON_PAINTERS, ...HOLLOW_PAINTERS };
-export const CW = 64, CH = 68;
-const FX = 26, FY = 62;
+export const CW = 50, CH = 60;
+const FX = 20, FY = 56;
 const TYPES = [...Object.keys(IRON_RIGS), ...Object.keys(HOLLOW_RIGS)];
 const WALK = ["contact", "passing", "contact", "passing"];
 const SHOOT = { crossbow: 1, bonearcher: 1 };
@@ -21,7 +21,7 @@ const cell = (type, pose, frame, note) => ({
   note,
   draw: (c) => {
     const def = RIGS[type];
-    const s = Math.min(1, 58 / (def.box.up + def.box.down));
+    const s = Math.min(1, 52 / (def.box.up + def.box.down));
     c.translate(FX, FY); c.scale(s, s);
     PAINT[def.kind](c, { ...def.p, pose, frame });
   },
@@ -66,12 +66,12 @@ export const analyse = (only = "") => {
         } else if (j.kind === "wrist") bits.push(`wr${norm(deg(Math.atan2(f[1], f[0]) - Math.atan2(u[1], u[0]))).toFixed(0)}`);
       }
       // how far the frame reaches (units from the feet) against its box
-      const type = name.split("\n")[0], box = RIGS[type].box, sc = Math.min(1, 58 / (box.up + box.down));
-      const bk = bakeSprite(CW, CH, cell.draw), W = bk.width, Hh = bk.height;
+      const type = name.split("\n")[0], def = RIGS[type], box = def.box, [pose, fr] = cell.note.split(" ");
+      const bk = bakeSprite(140, 100, (c) => { c.translate(70, 90); PAINT[def.kind](c, { ...def.p, pose, frame: Number(fr) }); }), W = bk.width, Hh = bk.height;
       const d = bk.getContext("2d").getImageData(0, 0, W, Hh).data;
       let x0 = W, x1 = -1, y0 = Hh, y1 = -1;
       for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 40) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-      const R = ((x1 + 1) / PX - FX) / sc, L = (FX - x0 / PX) / sc, T = (FY - y0 / PX) / sc, B = ((y1 + 1) / PX - FY) / sc;
+      const R = (x1 + 1) / PX - 70, L = 70 - x0 / PX, T = 90 - y0 / PX, B = (y1 + 1) / PX - 90;
       let cut = "";
       if (R > box.hw) cut += ` R+${(R - box.hw).toFixed(1)}`;
       if (L > box.hw) cut += ` L+${(L - box.hw).toFixed(1)}`;

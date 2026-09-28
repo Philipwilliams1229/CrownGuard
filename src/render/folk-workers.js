@@ -12,7 +12,7 @@
 // from a phase (see the *_FRAMES exports and "Joints and motion" in
 // art/STYLE-GUIDE.md).
 
-import { darken, lighten, rgba, shadow, roundRect, cylinder, lin, part } from "./paint.js";
+import { darken, rgba, shadow, roundRect, cylinder, lin, part } from "./paint.js";
 import { head, torso, legs, hand, arm, cap, elbowFor } from "./folk-kit.js";
 
 // ---- the upper body on the hips ---------------------------------------------
@@ -91,7 +91,7 @@ export const drawCrew = (ctx, x, y, dir, pal, work = 0, o = {}) => {
   }
   // the far hand beside the near one on the handle
   let hF = [hN[0] - 0.5, hN[1] - 0.45];
-  if (pose === "tap") hN = [hub[0] + 1.2, hub[1] - 5.4];
+  if (pose === "tap") hN = [hub[0] + 2.0, hub[1] - 5.6];
   if (pose === "rap") hN = o.peg || [hub[0] + 1.4, hub[1] - 1.8];
   const sN = turn(CREW_SH_N, hip, lean, lift), sF = turn(CREW_SH_F, hip, lean, lift);
   ctx.save();

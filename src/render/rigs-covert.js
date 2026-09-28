@@ -97,10 +97,14 @@ const GUARD = { x: 0, drop: 1.7, lean: 0.24, nf: 2.6, ff: -2.8, toe: 0.2, fl: 0.
 const COIL = { x: -0.9, drop: 2.4, lean: 0.18, nf: 2.6, ff: -2.8, toe: 0, fl: 0.05, lift: 0, sw: -0.25, hx: 0.05, ht: 0.18, cz: -0.35 };
 const LUNGE = { x: 2.6, drop: 2.0, lean: 0.42, nf: 4.8, ff: -2.8, toe: 0.55, fl: 2.2, lift: 0.8, sw: 0.9, hx: 0.6, ht: 0.08, cz: 0.6 };
 const AFTER = { x: 2.9, drop: 2.5, lean: 0.48, nf: 4.8, ff: -2.8, toe: 0.45, fl: 1.5, lift: 1.9, sw: 0.55, hx: 0.5, ht: 0.12, cz: 0.3 };
-// the off hand: up in front of the chest on guard (the Court's second knife,
-// in a reverse grip, point down, crosses the first), reaching on the coil,
-// flung back past the hip on the lunge (a counterweight), swinging in after
+// the empty off hand: up in front of the chest on guard, reaching for the
+// mark on the coil, flung back past the hip on the lunge (a counterweight),
+// swinging in again after
 const OFF = [[58, 104, 12], [55, 95, 5], [-45, -15, -70], [-28, 12, -62]];
+// ...and with a second knife (the Court, the Kingslayer's main-gauche, the
+// sellsword's dirk), in a forward grip: point up at the chest over the first
+// on guard, a feint on the coil, following in under the first on the strike
+const OFF_TWIN = [[50, 100, 150], [55, 95, 125], [10, 80, 100], [-20, 40, 110]];
 const FIGHTS = {
   // the plain dagger: a straight-arm thrust from the hip
   thrust: [
@@ -138,8 +142,8 @@ const FIGHTS = {
 };
 // the Plague Bearer keeps his censer out in front through the fight (the
 // spores enemies.js puffs off it rise there) and keeps the dagger under it:
-// reversed low at the belt on guard, drawn back low on the coil
-FIGHTS.censer = FIGHTS.thrust.map((K, f) => (f === 0 ? { ...K, n: [-10, 60, -20] } : f === 1 ? { ...K, n: [-50, 30, 100], cz: 0.5 } : K));
+// low at the belt on guard, point level at the mark; drawn back low on the coil
+FIGHTS.censer = FIGHTS.thrust.map((K, f) => (f === 0 ? { ...K, n: [-10, 60, 100] } : f === 1 ? { ...K, n: [-50, 30, 100], cz: 0.5 } : K));
 const OFF_CENSER = [[70, 110, 0], [75, 112, 0], [20, 70, 0], [30, 80, 0]];
 const STYLE = { long: "estoc", hanger: "cut", needle: "icepick" };
 
@@ -158,9 +162,11 @@ const step = (p, o) => {
       fl: [0.9, 0.5, 1.1, 0.4][f], lift: 0, sw: [0.4, 0.1, -0.4, -0.1][f], hx: 0.2, ht: 0, toe: 0,
     };
   }
-  const k = p.censer ? "censer" : STYLE[p.blade] || "thrust", K = FIGHTS[k][f];
+  const k = p.censer ? "censer" : STYLE[p.blade] || "thrust";
+  // (two knives: the first held lower on guard, under the second)
+  const K = p.offhand && k === "thrust" && f === 0 ? { ...FIGHTS[k][0], n: [0, 80, 120] } : FIGHTS[k][f];
   return {
-    ...K, fight: true, f, c: 0, style: k, hit: f >= 2, off: (p.censer ? OFF_CENSER : OFF)[f],
+    ...K, fight: true, f, c: 0, style: k, hit: f >= 2, off: (p.censer ? OFF_CENSER : p.offhand ? OFF_TWIN : OFF)[f],
     near: [K.nf, 0], far: [K.ff, 0], bob: 0, swing: 0,
   };
 };

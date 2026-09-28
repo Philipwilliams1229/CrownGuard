@@ -79,7 +79,8 @@ const inFrame = (ctx, x, y, a, fn) => { ctx.save(); ctx.translate(x, y); ctx.rot
 //                     through and the torso comes over it (shown ~90 ms)
 //   3 follow-through  the front foot planted where it stepped, the body sunk
 //                     over it and still carrying forward, before it settles
-// o.wind scales how deep the wind-up goes, o.follow how far the blow carries:
+// o.wind scales how deep the wind-up goes, o.follow how far the blow carries,
+// o.drive how far the torso pitches over the blow (a caster stays upright):
 // the goblins are quick and small in both, the troll and the heavies big.
 const fightFrame = (p) => (p.fightN === 4 ? (p.frame || 0) % 4 : [1, 2][(p.frame || 0) % 2]);
 const step = (p, o) => {
@@ -93,14 +94,14 @@ const step = (p, o) => {
       x: 0, bob: f % 2 ? -o.bob : 0, lean: o.lean + (f % 2 ? 0 : o.dip || 0), swing: -c,
     };
   }
-  const F = fightFrame(p), w = o.wind ?? 1, fo = o.follow ?? 1, sw = F >= 2;
+  const F = fightFrame(p), w = o.wind ?? 1, fo = o.follow ?? 1, dr = o.drive ?? 1, sw = F >= 2;
   return {
     fight: true, f: F, F, c: 0, hit: F === 2, swing: 0,
     // the front foot steps in on the blow and stays there through the follow-through
     near: [sw ? s * 1.1 + o.lunge * 0.8 : s * 0.8, 0], far: [-s * 0.9 - (F === 1 ? 0.15 * w : 0), 0],
     x: [0, -0.5 * w, o.lunge, o.lunge * (0.7 + 0.15 * fo)][F],
     bob: o.bob * [0.3, 0.2 + 0.3 * w, 0.9, 0.8 + 0.4 * fo][F],
-    lean: o.lean + [0.02, -0.13 * w, 0.2, 0.14 + 0.14 * fo][F],
+    lean: o.lean + [0.02, -0.13 * w, 0.2 * dr, (0.14 + 0.14 * fo) * dr][F],
     // hems and capes lag the body: flung forward as it rocks back, trailing as it lunges
     hem: [0.2, 0.7, -0.5, 0.9][F],
   };
@@ -328,16 +329,18 @@ const orcHead = (ctx, x, y, a, p, o = {}) => inFrame(ctx, x, y, a, (c0) => {
 
 // ---- the goblins --------------------------------------------------------------
 const GOB = { L1: 4.1, L2: 4.0, stride: 2.2, lift: 1.9, bob: 0.7, lean: 0.22, dip: 0.05, lunge: 2.2, hipW: 0.5, thigh: 2.1, shin: 1.8, foot: 2.8, ankle: 0.7, wind: 0.8, follow: 0.7 };
+// the shaman casts rather than lunges: a fuller wind-up, the torso kept upright
+const GOB_CASTER = { ...GOB, wind: 0.9, follow: 0.6, drive: 0.5 };
 // The goblins' fights, frame by frame (guard, wind-up, strike, follow-through):
 // [near hand from the near shoulder, weapon angle, far hand from the far
 // shoulder]. Quick and scrappy: small moves, the knife never far from the body.
 const GOB_FIGHT = {
   // an overhand stab: knife low and forward, up by the ear (elbow high and
   // forward of the face), down through the target line, carried on past the knee
-  knife: [[[2.2, 2.6], -0.55, [3.2, 1.8]], [[-0.2, -4.0], -0.75, [4.2, 0.9]], [[4.3, 1.3], 0.4, [1.0, 3.4]], [[2.8, 3.7], 1.0, [1.8, 3.0]]],
+  knife: [[[2.2, 2.6], -0.55, [3.2, 1.8]], [[-0.6, -4.4], -0.9, [4.2, 0.9]], [[4.3, 1.3], 0.4, [1.0, 3.4]], [[2.8, 3.7], 1.0, [1.8, 3.0]]],
   // two hands on the spear: level, drawn back to the hip, driven home, dipping on
   // (the far hand rides the haft `grip` behind the near one)
-  spear: [[[2.4, 2.6], -0.16, null, 3.0], [[0.9, 3.2], -0.1, null, 2.6], [[4.5, 1.5], 0.02, null, 3.0], [[3.9, 2.4], 0.18, null, 3.0]],
+  spear: [[[2.4, 2.6], -0.16, null, 3.0], [[0.2, 3.4], -0.26, null, 2.6], [[4.5, 1.5], 0.02, null, 3.0], [[3.9, 2.4], 0.18, null, 3.0]],
   // the shaman's cast: gather (staff upright, the free hand cupping the charm),
   // raise it high (lean back, the glow swelling), thrust it at the foe with the
   // palm flung after it (the release), and bring it back upright
@@ -347,7 +350,7 @@ const GOB_FIGHT = {
 const GOB_SHIELD = [[4.2, 2.0], [4.5, 1.3], [2.6, 3.1], [3.2, 2.6]];
 const goblin = (ctx, p) => {
   const k = (p.h ?? 20) / 20; ctx.save(); ctx.scale(k, k);
-  const o = GOB, R = skeleton(p, o), { st, T } = R;
+  const o = p.weapon === "staff" ? GOB_CASTER : GOB, R = skeleton(p, o), { st, T } = R;
   const skin = p.skin, skinF = darken(skin, 0.24), wrap = p.robe ? darken(p.cloth, 0.35) : darken(p.cloth2 || p.cloth, 0.05);
   const robe = p.robe;
   shadow(ctx, 0.4, -0.1, 4.4, 1.2, 0.22);
@@ -358,7 +361,7 @@ const goblin = (ctx, p) => {
   const w = p.weapon;
   if (!st.fight) {
     hn = [shN[0] + 1.4 + st.swing * 1.0, shN[1] + 3.6];
-    an = w === "spear" ? -0.42 : w === "staff" ? -1.42 + st.swing * 0.06 : 0.3 - st.swing * 0.15;
+    an = w === "spear" ? -0.42 : w === "staff" ? -1.42 + st.swing * 0.06 : -0.2 - st.swing * 0.15;
     hf = p.shield ? [shF[0] + 3.9 - st.swing * 0.3, shF[1] + 3.6] : [shF[0] + 0.5 - st.swing * 1.2, shF[1] + 4.1];
     if (w === "staff") { hn = [shN[0] + 4.0 + st.swing * 0.4, shN[1] + 3.0]; an = -1.36 + st.swing * 0.06; }
   } else {
@@ -665,7 +668,7 @@ const trollHead = (ctx, x, y, a, p, roar) => inFrame(ctx, x, y, a, (c0) => {
 
 // ---- the casters -----------------------------------------------------------------
 // the necromancer: a tall pointed hood, a void where the face is, witch-fire
-const NEC = { L1: 5.0, L2: 4.8, stride: 2.0, lift: 1.3, bob: 0.5, lean: 0.06, dip: 0.02, lunge: 1.8, hipW: 0.8, thigh: 2.4, shin: 2.0, foot: 3.2, ankle: 0.9, wind: 0.9, follow: 0.6 };
+const NEC = { L1: 5.0, L2: 4.8, stride: 2.0, lift: 1.3, bob: 0.5, lean: 0.06, dip: 0.02, lunge: 1.8, hipW: 0.8, thigh: 2.4, shin: 2.0, foot: 3.2, ankle: 0.9, wind: 0.9, follow: 0.6, drive: 0.5 };
 // His fight is a cast (gather, raise, release, recover): [staff hand from the
 // near shoulder, staff angle, bony hand from the far shoulder]. The staff held
 // upright with the free hand drawn to the skull; lifted high as he leans back
@@ -757,7 +760,7 @@ const HOB = { L1: 5.4, L2: 5.2, stride: 2.8, lift: 2.2, bob: 0.8, lean: 0.14, di
 // man with a long, top-heavy stick: the totem held up before him, hauled back
 // over his shoulder with the skull swinging out behind (the free fist thrust
 // at the foe), brought round and down, and carried low, skull to the dirt.
-const HOB_FIGHT = [[[2.6, 3.8], -1.3, [3.6, 3.2]], [[-0.6, -4.6], 3.0, [5.8, 0.6]], [[4.6, 2.6], 0.55, [0.6, 5.4]], [[3.6, 4.6], 1.0, [1.8, 5.0]]];
+const HOB_FIGHT = [[[3.0, 3.6], -1.15, [3.6, 3.2]], [[-0.6, -4.6], -2.85, [5.8, 0.6]], [[4.6, 2.6], 0.55, [0.6, 5.4]], [[3.6, 4.6], 1.0, [1.8, 5.0]]];
 const hobgoblin = (ctx, p) => {
   const o = HOB, R = skeleton(p, o), { st, T } = R;
   const skin = p.skin, skinF = darken(skin, 0.24), lea = p.cloth, gold = p.cloth2 || "#e8c14a";
@@ -850,16 +853,20 @@ const totem = (ctx, x, y, a, p, f) => {
 };
 
 // ---- the roster -------------------------------------------------------------------
+// fightN: 4 — each fights in four frames (guard, wind-up, strike, follow-through;
+// the casters gather, raise, release, recover). It sits in p as well, so the
+// painter knows the four-frame count from the params it is baked with; the
+// boar's lancer (rigs-beasts.js) calls hGoblin without it and gets the old pair.
 const G = "#6aa04f";
 export const HORDE_RIGS = {
-  goblin: { kind: "hGoblin", box: { hw: 16, up: 26, down: 4 }, p: { h: 20, skin: G, cloth: "#5f4326", cloth2: "#3c2a18", head: "hood", hair: "#5a4630", eyes: "#c8453a", weapon: "knife", wcol: "#a8acb4", shield: "round", shcol: "#8a6238" } },
-  goblinBare: { kind: "hGoblin", box: { hw: 16, up: 26, down: 4 }, p: { h: 20, skin: G, cloth: "#6e4c28", cloth2: "#3c2a18", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", weapon: "knife", wcol: "#a8acb4" } },
-  rafter: { kind: "hGoblin", box: { hw: 19, up: 26, down: 4 }, p: { h: 20, skin: G, cloth: "#6e4c28", cloth2: "#3c2a18", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", weapon: "spear", wcol: "#b8bcc4" } },
-  shaman: { kind: "hGoblin", box: { hw: 18, up: 30, down: 4 }, p: { h: 21, skin: G, cloth: "#8a4a3a", cloth2: "#e8c14a", robe: "#e8c14a", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", feathers: true, beads: "#c8383a", weapon: "staff", wcol: "#7ce0b8" } },
-  orc: { kind: "hOrc", box: { hw: 21, up: 36, down: 4 }, p: { h: 27, skin: "#5a8a3c", cloth: "#6a4a32", cloth2: "#2e2218", hair: "#2a1a10", eyes: "#e8c14a", wcol: "#b8bcc4" } },
-  armored: { kind: "hOrc", box: { hw: 20, up: 35, down: 4 }, p: { h: 26, skin: "#5a8a3c", cloth: "#7a808c", cloth2: "#4a4e58", armor: true, hair: "#9aa0ac", eyes: "#e8c14a", wcol: "#c4c8d0", shcol: "#5c626e" } },
-  troll: { kind: "hTroll", box: { hw: 26, up: 46, down: 4 }, p: { h: 36, skin: "#7a8a5a", cloth: "#5a4a3a", hair: "#3a3a2a", eyes: "#e8c14a", wcol: "#7a5a3a" } },
-  necro: { kind: "hNecro", box: { hw: 21, up: 38, down: 4 }, p: { h: 28, skin: "#c8c0b0", cloth: "#2a2434", cloth2: "#5a4a8c", hair: "#1e1826", eyes: "#b08ad8", cape: "#2a2434", wcol: "#b08ad8" } },
-  hobgoblin: { kind: "hHob", box: { hw: 24, up: 42, down: 4 }, p: { h: 30, skin: "#7a9a48", cloth: "#5a3a2a", cloth2: "#e8c14a", ears: "long", eyes: "#e05248", wcol: "#e8dfc6" } },
+  goblin: { kind: "hGoblin", fightN: 4, box: { hw: 16, up: 26, down: 4 }, p: { fightN: 4, h: 20, skin: G, cloth: "#5f4326", cloth2: "#3c2a18", head: "hood", hair: "#5a4630", eyes: "#c8453a", weapon: "knife", wcol: "#a8acb4", shield: "round", shcol: "#8a6238" } },
+  goblinBare: { kind: "hGoblin", fightN: 4, box: { hw: 16, up: 26, down: 4 }, p: { fightN: 4, h: 20, skin: G, cloth: "#6e4c28", cloth2: "#3c2a18", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", weapon: "knife", wcol: "#a8acb4" } },
+  rafter: { kind: "hGoblin", fightN: 4, box: { hw: 23, up: 26, down: 4 }, p: { fightN: 4, h: 20, skin: G, cloth: "#6e4c28", cloth2: "#3c2a18", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", weapon: "spear", wcol: "#b8bcc4" } },
+  shaman: { kind: "hGoblin", fightN: 4, box: { hw: 21, up: 30, down: 4 }, p: { fightN: 4, h: 21, skin: G, cloth: "#8a4a3a", cloth2: "#e8c14a", robe: "#e8c14a", head: "bare", hair: "#3a2a1c", eyes: "#c8453a", feathers: true, beads: "#c8383a", weapon: "staff", wcol: "#7ce0b8" } },
+  orc: { kind: "hOrc", fightN: 4, box: { hw: 21, up: 36, down: 4 }, p: { fightN: 4, h: 27, skin: "#5a8a3c", cloth: "#6a4a32", cloth2: "#2e2218", hair: "#2a1a10", eyes: "#e8c14a", wcol: "#b8bcc4" } },
+  armored: { kind: "hOrc", fightN: 4, box: { hw: 20, up: 35, down: 4 }, p: { fightN: 4, h: 26, skin: "#5a8a3c", cloth: "#7a808c", cloth2: "#4a4e58", armor: true, hair: "#9aa0ac", eyes: "#e8c14a", wcol: "#c4c8d0", shcol: "#5c626e" } },
+  troll: { kind: "hTroll", fightN: 4, box: { hw: 26, up: 46, down: 4 }, p: { fightN: 4, h: 36, skin: "#7a8a5a", cloth: "#5a4a3a", hair: "#3a3a2a", eyes: "#e8c14a", wcol: "#7a5a3a" } },
+  necro: { kind: "hNecro", fightN: 4, box: { hw: 21, up: 38, down: 4 }, p: { fightN: 4, h: 28, skin: "#c8c0b0", cloth: "#2a2434", cloth2: "#5a4a8c", hair: "#1e1826", eyes: "#b08ad8", cape: "#2a2434", wcol: "#b08ad8" } },
+  hobgoblin: { kind: "hHob", fightN: 4, box: { hw: 24, up: 42, down: 4 }, p: { fightN: 4, h: 30, skin: "#7a9a48", cloth: "#5a3a2a", cloth2: "#e8c14a", ears: "long", eyes: "#e05248", wcol: "#e8dfc6" } },
 };
 export const HORDE_PAINTERS = { hGoblin: goblin, hOrc: orc, hTroll: troll, hNecro: necro, hHob: hobgoblin };

@@ -334,7 +334,7 @@ const warBanner = (ctx, x, y, a, p, f, o = {}) => {
   // the flag: hung along the top of the shaft, flying off toward (dx, dy)
   const A0 = to(fwd - 1.2), A1 = to(fwd - (o.flag ?? 7.4));
   const dirx = o.lowered ? -0.25 : -1, diry = o.lowered ? 1 : 0.18, dl = Math.hypot(dirx, diry), D = [dirx / dl, diry / dl];
-  const W = o.lowered ? 7.5 : 9.5, wv = [0.7, -0.5, 0.9, -0.3][(f || 0) % 4];
+  const W = o.fly ?? (o.lowered ? 7.5 : 9.5), wv = [0.7, -0.5, 0.9, -0.3][(f || 0) % 4];
   const N = [-D[1], D[0]];               // across the fly, for the ripple
   const at = (P, k, r = 0) => [P[0] + D[0] * W * k + N[0] * r, P[1] + D[1] * W * k + N[1] * r];
   const M = [(A0[0] + A1[0]) / 2, (A0[1] + A1[1]) / 2];
@@ -601,7 +601,7 @@ const hands = (look, st, shN, shF) => {
   // the shield rim (the point leaving the little-finger side of the fist)
   if (look === "levy") return pick({ hn: N(1.1 + sw * 0.3, 3.3), an: -1.32 + sw * 0.04, hf: F(4.4, 2.3) }, [
     { hn: N(2.8, -1.3), an: 0.16, hf: F(4.6, 1.8) },
-    { hn: N(1.8, -2.2), an: 0.02, hf: F(4.3, 2.0) },
+    { hn: N(1.8, -2.2), an: -0.1, hf: F(4.3, 2.0) },
     { hn: N(3.8, -0.7), an: 0.1, hf: F(4.5, 2.2) },
     { hn: N(4.0, 0.3), an: 0.34, hf: F(4.6, 2.0) }]);
   // the crossbowman: the arbalest at port on the march (the fore hand on the
@@ -625,7 +625,7 @@ const hands = (look, st, shN, shF) => {
   // rears it back and brings the lance-head down like a blow
   if (look === "marshal") return pick({ hn: N(3.6 + sw * 0.2, 4.0), an: -1.6 + sw * 0.03, hf: F(4.3, 3.2) }, [
     { hn: N(3.4, 2.6), an: -1.42, hf: F(4.8, 2.6), back: 6, fwd: 14 },
-    { hn: N(0.3, -2.3), an: -2.22, hf: F(4.6, 2.6), back: 6, fwd: 14 },
+    { hn: N(0.3, -2.3), an: -2.28, hf: F(4.6, 2.6), back: 6, fwd: 14, fly: 8 },
     { hn: N(4.0, 0.8), an: -0.85, hf: F(3.0, 3.8), back: 9, fwd: 11, flag: 6.6, lowered: true },
     { hn: N(3.2, 2.4), an: -0.72, hf: F(3.4, 3.6), back: 9, fwd: 11, flag: 6.6, lowered: true }]);
   // the magister: the staff carried tall like a walking staff; in the fight
@@ -702,7 +702,7 @@ const soldier = (ctx, p) => {
 
   // the marshal's cape, sweeping behind everything; the banner's flag flies
   // behind him too (only the lowered strike carries it before him)
-  const bannerO = { back: H.back ?? 5.5, fwd: H.fwd ?? 16, flag: H.flag, lowered: H.lowered };
+  const bannerO = { back: H.back ?? 5.5, fwd: H.fwd ?? 16, flag: H.flag, lowered: H.lowered, fly: H.fly };
   if (look === "marshal" && !H.lowered) {
     const hB = ik(shN[0], shN[1], H.hn[0], H.hn[1], A.up, A.fore, -1)[1];
     warBanner(ctx, hB[0], hB[1], H.an, p, st.fight ? st.f + 1 : st.f, { ...bannerO, only: "flag" });

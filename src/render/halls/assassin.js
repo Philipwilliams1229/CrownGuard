@@ -20,7 +20,7 @@ import {
   IRON, STEEL, GOLD, foot, padB, skirtB, beam, planks, crate, rope,
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
-import { drawHooded, CREW_FOLK } from "../folk.js";
+import { drawHooded, hoodedFrame, hoodedGlint, CREW_FOLK } from "../folk.js";
 
 const cache = spriteCache();
 export const resetAssassinBakes = () => cache.clear();
@@ -241,13 +241,15 @@ export const drawAssassin = (ctx, t, time) => {
   layer("g", paintGround);
   layer("c", paintCovert);
   const pal = s.guild ? CREW_FOLK.bladeGuild : CREW_FOLK.blade;
-  const hood = (hx, hy, dir, key) => {
-    if (bake) stamp(ctx, cache.get(`blade|${key}`, 26, 30, (c) => drawHooded(c, 12, 27, 1, pal)), hx, hy, 12, 27, dir);
-    else drawHooded(ctx, hx, hy, dir, pal);
+  // a blade on watch (hoodedFrame: arms folded, the weight shifting, now and
+  // then a hand dropped to the hilt), each phased on his own clock
+  const hood = (hx, hy, dir, key, pose) => {
+    if (bake) stamp(ctx, cache.get(`blade|${key}|${pose}`, 28, 32, (c) => drawHooded(c, 13, 29, 1, pal, pose)), hx, hy, 13, 29, dir);
+    else drawHooded(ctx, hx, hy, dir, pal, pose);
   };
   // the second hood waits in the doorway from three, half in the dark
   if (s.lvl >= 3 && !t.noFolk) {
-    hood(x - f * 2, y + 2.5, f, s.guild ? "g" : "c");
+    hood(x - f * 2, y + 2.5, f, s.guild ? "g" : "c", hoodedFrame(time + t.id * 2.3 + 4.1));
   }
   // live: the lantern's shaded light; the vats bubble; the pods breathe
   if (s.lvl >= 2 && !s.guild) glow(ctx, x + f * (LANTERN - 2.5), y - 9.5, 3.5, s.court ? "#f0c060" : "#b0a0e0", 0.55 + 0.15 * Math.sin(time * 3 + t.id));
@@ -266,12 +268,16 @@ export const drawAssassin = (ctx, t, time) => {
   const wx = x + f * 10, wy = y + 9;
   const anim = t.anim || 0;
   if (t.noFolk) return;   // (him, his glint, his smoke and his streak: the build puts him in last)
+  const key = s.guild ? "g" : "c";
   if (anim <= 0.4) {
-    hood(wx, wy, f, s.guild ? "g" : "c");
-    if (Math.sin(time * 2.3 + t.id) > 0.92) glow(ctx, wx + f * 1, wy - 12, 2, "#ffffff", 0.9);   // the whetted edge glints
+    const pose = hoodedFrame(time + t.id * 1.37);
+    hood(wx, wy, f, key, pose);
+    const [gx, gy] = hoodedGlint(pose);
+    if (Math.sin(time * 2.3 + t.id) > 0.92) glow(ctx, wx + f * gx, wy + gy, 2, "#ffffff", 0.9);   // the whetted edge glints
   } else {
+    // he drops into a crouch, blade half out, and the smoke takes him
     const k = (anim - 0.4) / 0.6, p = 1 - k;
-    if (anim > 0.75) { ctx.save(); ctx.globalAlpha = (anim - 0.75) / 0.25; hood(wx, wy, f, s.guild ? "g" : "c"); ctx.restore(); }
+    if (anim > 0.75) { ctx.save(); ctx.globalAlpha = Math.min(1, (anim - 0.75) / 0.17); hood(wx, wy, f, key, "crouch"); ctx.restore(); }
     for (let i = 0; i < 4; i++) {
       const a = i * 1.7 + t.id, r = 2 + p * 5;
       soft(ctx, wx + Math.cos(a) * r, wy - 8 - i * 3 - p * 4, 4 + p * 3, 4 + p * 2.5, [[0, `rgba(34,26,40,${0.75 * k})`], [0.6, `rgba(52,42,60,${0.45 * k})`], [1, "rgba(52,42,60,0)"]]);
