@@ -21,7 +21,7 @@ import {
   IRON, STEEL, GOLD, ROPE, foot, padB, skirtB, beam, planks, barrel, crate, rope, coil, boulder, wheel, glint,
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
-import { drawSmith, CREW_FOLK } from "../folk.js";
+import { drawSmith, smithHammer, SMITH_IMPACT, CREW_FOLK } from "../folk.js";
 
 const cache = spriteCache();
 export const resetTrapsmithBakes = () => cache.clear();
@@ -33,6 +33,22 @@ const FIRE1 = [9.5, 1.6];
 // the guillotine and the windlass stand here; the Doctrine piles its mines here
 const GUIL = [12.5], WINCH = [13.5];
 const MINES = [[-15, 0.6], [-10.6, 1], [-12.8, -3]];
+
+// The smith's hammer: one blow per cycle (1 s at work, 2.2 s at ease, when
+// he lets the iron sit between blows), as six baked frames that don't share
+// the cycle evenly — the lift and the top are held, the strike is a flash,
+// the settle long. `fr` is the frame, `k` how far through it (0..1).
+const BEAT = { work: [1.0, [0, 0.2, 0.36, 0.44, 0.56, 0.7]], ease: [2.2, [0, 0.12, 0.2, 0.24, 0.3, 0.37]] };
+const smithBeat = (t, time) => {
+  const [secs, at] = BEAT[t._idle ? "ease" : "work"];
+  const p = (((time / secs + t.id * 0.37) % 1) + 1) % 1;
+  let fr = at.length - 1;
+  while (fr > 0 && p < at[fr]) fr--;
+  const end = fr + 1 < at.length ? at[fr + 1] : 1;
+  return { fr, k: (p - at[fr]) / (end - at[fr]) };
+};
+// where the hammer's face meets the iron, from the smith's feet
+const STRIKE = (() => { const H = smithHammer(SMITH_IMPACT); return [H.head[0] + Math.cos(H.ang + Math.PI / 2) * 2.0, H.head[1] + Math.sin(H.ang + Math.PI / 2) * 2.0]; })();
 
 const spec = (t) => ({ lvl: t.branch ? 3 : t.level, r4: t.rank4 ? t.branch + t.rank4 : null, spring: t.branch === "a", blast: t.branch === "b" });
 
@@ -252,20 +268,30 @@ export const drawTrapsmith = (ctx, t, time) => {
     else paintBalloon(ctx, bx, by);
     if (Math.sin(time * 9) > 0) { ctx.fillStyle = "#f4c060"; ctx.fillRect(bx + 1.8, by + 16.6, 1, 1); }
   }
-  // the smith, hammer on the beat; sparks on the strike (neither under noFolk)
-  const beat = Math.sin(time * (t._idle ? 3 : 6) + t.id);
-  const swing = beat > 0.3 ? 1 : 0;
+  // the hot iron on the anvil (under his hammer and tongs), brighter as it's struck
+  const sm = smithBeat(t, time);
+  ctx.fillStyle = sm.fr === SMITH_IMPACT ? "#ffd070" : "#f4a040"; ctx.fillRect(x + 0.5, y - 8.2, 4, 0.9);
+  // the smith, hammer on the beat: lift, top, strike, impact, rebound,
+  // settle; sparks fly on the impact frame (neither under noFolk)
   const sx = x - 6.5, sy = y + 4;
   if (!t.noFolk) {
-    if (bake) stamp(ctx, cache.get(`smith|${swing}`, 30, 37, (c) => drawSmith(c, 12, 34, 1, CREW_FOLK.smith, swing)), sx, sy, 12, 34, 1);
-    else drawSmith(ctx, sx, sy, 1, CREW_FOLK.smith, swing);
-    if (swing === 0 && beat > -0.3) {
-      glow(ctx, x + 0.5, y - 8, 3, "#ffd070", 0.8);
-      for (let i = 0; i < 4; i++) { const a = -0.4 - i * 0.55, d = 2 + (0.3 - beat) * 5; ctx.fillStyle = i % 2 ? "#ffe08a" : "#fff3d2"; ctx.fillRect(x + 0.5 + Math.cos(a) * d * 1.4, y - 8 + Math.sin(a) * d, 0.9, 0.9); }
+    if (bake) stamp(ctx, cache.get(`smith|${sm.fr}`, 30, 37, (c) => drawSmith(c, 12, 34, 1, CREW_FOLK.smith, 0, { frame: sm.fr })), sx, sy, 12, 34, 1);
+    else drawSmith(ctx, sx, sy, 1, CREW_FOLK.smith, 0, { frame: sm.fr });
+    const px = sx + STRIKE[0], py = sy + STRIKE[1];
+    if (sm.fr === SMITH_IMPACT) {
+      glow(ctx, px, py, 3.5 - sm.k, "#ffd070", 0.85);
+      for (let i = 0; i < 5; i++) {
+        const a = -0.25 - i * 0.62, d = 1.5 + sm.k * 4.5;
+        ctx.fillStyle = i % 2 ? "#ffe08a" : "#fff3d2"; ctx.fillRect(px + Math.cos(a) * d * 1.4, py + Math.sin(a) * d, 0.9, 0.9);
+      }
+    } else if (sm.fr === SMITH_IMPACT + 1) {
+      // the last of them falling away
+      for (let i = 0; i < 3; i++) {
+        const a = -0.5 - i * 0.9, d = 5.5 + sm.k * 2;
+        ctx.fillStyle = `rgba(255,224,138,${0.8 - sm.k * 0.6})`; ctx.fillRect(px + Math.cos(a) * d * 1.4, py + Math.sin(a) * d + sm.k * 2.5, 0.8, 0.8);
+      }
     }
   }
-  // the hot iron on the anvil
-  ctx.fillStyle = "#f4a040"; ctx.fillRect(x - 1.5, y - 8.2, 4, 0.9);
   const pc = r4 === "aa" ? "#8a2f2a" : r4 === "ab" ? "#8a8f9a" : r4 === "ba" ? "#d8b34a" : r4 === "bb" ? "#c05848" : spring ? "#7a94b8" : blast ? "#c05848" : "#8a8f9a";
   if (lvl >= 2 || t.branch) pennant(ctx, x - 17, y - (lvl >= 3 ? 44 : 40), 14, pc, time, t.id, -1);
 };

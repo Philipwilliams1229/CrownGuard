@@ -24,7 +24,7 @@ import {
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
 import { getStats } from "../../engine/towers.js";
-import { drawPriest, PRIEST_FOLK } from "../folk.js";
+import { drawPriest, priestPose, priestLight, PRIEST_FOLK } from "../folk.js";
 
 const CACHE = new Map();
 export const resetWardenBakes = () => CACHE.clear();
@@ -299,21 +299,34 @@ export const drawSupportTower = (ctx, t, time) => {
   }
   if (r4 === "aa") glow(ctx, x, y - 26, 14, "#c8f4ff", 0.25 + 0.1 * Math.sin(time * 1.5 + t.id));
 
-  // ---- the warden: arms raised in blessing on a slow rhythm, and while the
-  // aura works he holds them up, light pooled in his hands
+  // ---- the warden: a blessing now and then — the near hand leaves the
+  // staff and rises open to head height through in-betweens, crests,
+  // holds and comes down (folk-casters.js priestPose) — and while the aura
+  // works he holds it up, the light pooled in his palm and in the charm of
+  // his staff. `work` eases in and out (t._blessW, per hall) so the aura
+  // starting or stopping never pops him between frames.
   const working = live > 0;
-  const raising = working ? ((time * 0.8 + t.id * 0.7) % 2) < 1.6 : ((time * 0.9 + t.id * 0.7) % 1.6) < 0.55;
+  let work = working ? 1 : 0;
+  const lastAt = t._blessAt;
+  if (lastAt != null && time > lastAt && time - lastAt < 0.5) work = Math.max(0, Math.min(1, (t._blessW ?? work) + (working ? 1 / 0.45 : -1 / 0.5) * (time - lastAt)));
+  t._blessW = work; t._blessAt = time;
+  const frame = priestPose(time, t.id, work);
   const pal = PRIEST_FOLK[key] || PRIEST_FOLK.base;
   const dir = t._idle ? (Math.sin(time * 0.4 + t.id) >= 0 ? 1 : -1) : (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
   const py = y - 1;
   if (t.noFolk) { /* no warden yet: nor his hands' light, nor his halo */ }
   else if (canBake) {
-    const pcv = baked(`priest|${key}|${raising ? 1 : 0}`, 26, 38, (c) => drawPriest(c, 13, 35, 1, pal, raising));
+    const pcv = baked(`priest|${key}|${frame}`, 26, 38, (c) => drawPriest(c, 13, 35, 1, pal, frame));
     stamp(ctx, pcv, x, py, 13, 35, dir);
-  } else drawPriest(ctx, x, py, dir, pal, raising);
-  if (raising && !t.noFolk) for (const s of [-1, 1]) glow(ctx, x + s * 6, py - 23, working ? 3.4 : 2.2, auraCol, working ? 0.8 : 0.45);
-  // halo
-  if (grown && !t.noFolk) glow(ctx, x, py - 30 + Math.sin(time * 2 + t.id) * 1.2, 5, auraCol, 0.4);
+  } else drawPriest(ctx, x, py, dir, pal, frame);
+  const lt = priestLight(frame);
+  if (lt.k > 0 && !t.noFolk) {
+    const strong = working ? 1 : 0.6;
+    glow(ctx, x + dir * lt.palm[0], py + lt.palm[1], (working ? 3.4 : 2.4) * Math.min(1, lt.k), auraCol, Math.min(0.9, (working ? 0.8 : 0.5) * lt.k));
+    glow(ctx, x + dir * lt.charm[0], py + lt.charm[1], 2.2, auraCol, 0.45 * strong * Math.min(1, lt.k));
+  }
+  // halo, over his head (it lifts with him)
+  if (grown && !t.noFolk) glow(ctx, x + dir * (lt.head[0] - 0.4), py - 30 + (lt.head[1] + 20.5) + Math.sin(time * 2 + t.id) * 1.2, 5, auraCol, 0.4);
 
   // ---- the arch and pillars, framing him
   if (canBake) stamp(ctx, baked(`front|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintFront(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);

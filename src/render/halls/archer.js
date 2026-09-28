@@ -22,7 +22,7 @@ import {
   groundBed, footClip, footing, ashlar, planks, beam, archWindow, door, banner, flame, torchBracket, merlons, rock, posy,
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
-import { drawArcher, drawCrew, ARCHER_FOLK } from "../folk.js";
+import { drawArcherFrame, drawCrew, ARCHER_FOLK } from "../folk.js";
 
 const FLAGS = {
   base: "#a04a3f", a: "#5c8a44", aa: "#8e2f3a", ab: "#9fc4dc", b: "#3f5a8c", ba: "#6c727e", bb: "#a8302a",
@@ -489,6 +489,35 @@ const paintFront = (ctx, t, x, y) => {
 const BOX = { left: 40, right: 40, up: 116, down: 18 };
 const FRONT = { left: 24, right: 24, up: 64, down: 4 };
 
+// ---- the crew's timing (frames: ARCHER_FRAMES in folk-archer.js) ----------
+// One archer's shot: [until (game ms at the nominal cycle `at`), frame],
+// then the anchor, held until the next loose. The loose is the first frame
+// after the arrow leaves; the snap and the first of the draw get few frames,
+// the last of the draw eases in slow and the anchor holds (the aim). The
+// Master Longbowman's slow cycle spends its time on a weighty draw and a
+// long aim; a ranger's own cycle is three of the company's shots.
+const CYCLE = {
+  std: { at: 700, keys: [[80, "loose"], [150, "follow"], [250, "reach"], [330, "bring"], [400, "set"], [450, "d1"], [530, "d2"]] },
+  master: { at: 2100, keys: [[90, "loose"], [280, "follow"], [520, "reach"], [720, "bring"], [900, "set"], [1120, "d1"], [1440, "d2"]] },
+  ranger: { at: 450, keys: [[75, "loose"], [165, "reach"], [235, "bring"], [290, "set"], [360, "d2"]] },
+};
+// At ease: each archer on his own beat (5-7 s), facing his own way; a breath
+// every few seconds; on some beats he lifts the bow, draws it half-way, holds
+// and lets it down easy.
+// the let-down when the fight moves off: ease the string forward, lower the bow
+const LETDOWN = [[0.12, "d1"], [0.26, "set"], [0.5, "lift"]];
+const LETDOWN_FROM = new Set(["set", "d1", "d2", "anchor"]);
+const TEST = [[0.3, "lift"], [0.55, "test0"], [1.35, "test1"], [1.6, "test0"], [1.9, "lift"]];
+const idleFrame = (time, id, i) => {
+  const P = 5.2 + hash(id, i + 11) * 1.8;
+  const tt = time + id * 1.9 + i * 2.7;
+  const beat = Math.floor(tt / P), u = tt - beat * P;
+  const dir = hash(beat * 7 + i, id) < 0.5 ? 1 : -1;
+  if (hash(beat, id * 3 + i) < 0.4) for (const [end, f] of TEST) if (u < end) return [f, dir];
+  const br = (tt % 3.3) / 3.3;
+  return [br > 0.2 && br < 0.6 ? "rest1" : "rest", dir];
+};
+
 export const drawArcherTower = (ctx, t, time) => {
   // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
@@ -535,15 +564,15 @@ export const drawArcherTower = (ctx, t, time) => {
   const rate = st.rate || 1000;
   const aimDir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
   const spots = lay.spots.map((s, i) => ({ dx: s[0], dy: s[1], i })).sort((a, b) => a.dy - b.dy);
-  // One archer's moment in the cycle: `ph` 0 = the one who just loosed.
-  const poseOf = (ph) => {
-    if (ph === 0) {
-      if (t.anim > 0.55) return ["loose", 0];
-      if (t.anim > 0.2) return ["reach", 0];
-      const f = t.cd / rate;
-      return ["draw", f > 0.6 ? 1 : f > 0.28 ? 2 : 3];
-    }
-    return ph === 1 ? ["draw", 3] : ["draw", 1];
+  // Game ms since the hall last loosed (the engine sets cd = rate as the
+  // arrow leaves and runs it down; it keeps falling while no foe offers).
+  const since = t.cd == null ? 1e9 : rate - t.cd;
+  // One archer's moment: `el` ms since HIS own loose, `own` his cycle.
+  const poseOf = (el, own) => {
+    const cyc = t.branch === "a" ? CYCLE.ranger : t.branch === "b" ? CYCLE.master : CYCLE.std;
+    const u = el * (cyc.at / own);
+    for (const [end, f] of cyc.keys) if (u < end) return f;
+    return "anchor";
   };
   if (r4 === "ba") {
     const loosed = t.anim > 0.3 ? 1 : 0;
@@ -569,25 +598,42 @@ export const drawArcherTower = (ctx, t, time) => {
     const bowCol = r4 === "bb" ? "#8a2f24" : master ? "#3a2a1e" : "#4a3018";
     const fletch = r4 === "bb" ? "#d8b34a" : r4 === "ab" ? "#9fc4dc" : undefined;
     const n = spots.length;
+    // standing down: the last moment the hall was in the fight (render-side,
+    // like draw.js's _idle); for a moment after it the bows are let down
+    // easy instead of dropping straight to rest
+    if (!t._idle) t._arcBusy = time;
+    const down = t._idle && t._arcBusy != null && time >= t._arcBusy ? time - t._arcBusy : Infinity;
     for (const sp of spots) {
-      let pose, step, dir;
-      if (t._idle) {
-        // at ease: bows down, each archer looking his own way; now and
-        // then one tests his string
-        dir = Math.sin(time * 0.5 + t.id + sp.i * 2.1) >= 0 ? 1 : -1;
-        const test = ((time / 5 + sp.i * 0.33 + t.id * 0.17) % 1) < 0.14;
-        pose = test ? "draw" : "rest"; step = test ? 2 : 0;
-      } else {
+      let frame, dir;
+      // an arrow on the string is eased off; a man caught reloading just lowers the bow
+      const armed = LETDOWN_FROM.has(t._arcSeen?.[sp.i]);
+      const letDown = Math.max(0, down - sp.i * 0.08) + (armed ? 0 : LETDOWN[1][0]);
+      if (letDown < LETDOWN[LETDOWN.length - 1][0]) {
         dir = aimDir;
-        // the rangers loose in relay; everyone else as one
-        const ph = t.branch === "a" ? (sp.i - t.shotIdx + n) % n : 0;
-        [pose, step] = poseOf(ph);
+        frame = LETDOWN.find(([end]) => letDown < end)[1];
+      } else if (t._idle) [frame, dir] = idleFrame(time, t.id, sp.i);
+      else {
+        dir = aimDir;
+        let el;
+        if (t.branch === "a") {
+          // the rangers loose in relay, one per shot: the one who just loosed
+          // is phase 0, the next to loose phase 1 — each on his own 3-shot cycle
+          const ph = (sp.i - t.shotIdx + n) % n;
+          el = ((n - ph) % n) * rate + since;
+          frame = poseOf(el, rate * n);
+        } else {
+          // the others loose as one volley, each a beat after the last (the
+          // engine holds archer i's arrow back i x 90 ms): a ripple, not lockstep
+          el = since - sp.i * 90;
+          if (el < 0) el += rate;
+          frame = poseOf(el, rate);
+        }
+        (t._arcSeen ||= [])[sp.i] = frame;
       }
-      const fkey = `archer|${key}|${big ? 1 : 0}|${pose}|${step}`;
-      const draw = step / 3;
-      const fcv = canBake ? baked(fkey, 34, 34, (c) => drawArcher(c, 12, 30, 1, pal, draw, { big, bowCol, pose, fletch })) : null;
-      if (fcv) stamp(ctx, fcv, x + sp.dx, dy + 3 + sp.dy, 12, 30, dir);
-      else drawArcher(ctx, x + sp.dx, dy + 3 + sp.dy, dir, pal, draw, { big, bowCol, pose });
+      const fkey = `archer|${key}|${big ? 1 : 0}|${frame}`;
+      const fcv = canBake ? baked(fkey, 40, 36, (c) => drawArcherFrame(c, 12, 32, 1, pal, frame, { big, bowCol, fletch })) : null;
+      if (fcv) stamp(ctx, fcv, x + sp.dx, dy + 3 + sp.dy, 12, 32, dir);
+      else drawArcherFrame(ctx, x + sp.dx, dy + 3 + sp.dy, dir, pal, frame, { big, bowCol, fletch });
     }
   }
 

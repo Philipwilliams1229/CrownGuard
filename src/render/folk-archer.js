@@ -2,104 +2,197 @@
 // The bowman of the archer halls and the castle wall, and the crews' cloth
 // by tower and path. Built from folk-kit.js; folk.js re-exports it.
 
-import { lighten, darken, rgba, shadow, ball, roundRect, lin, part } from "./paint.js";
-import { limb, dab, head, torso, legs, logJoint } from "./folk-kit.js";
+import { lighten, darken, shadow, roundRect, lin, part } from "./paint.js";
+import { limb, dab, head, torso, legs, arm, hand, elbowFor, logJoint, mixPose } from "./folk-kit.js";
 
-// An archer at the string. `draw` runs 0..1: loosed to full draw. Towers
-// may pass `o.pose`: "rest" (bow carried low, at ease), "loose" (the string
-// has just slipped: it snaps straight and shivers, the bow arm drives on,
-// the drawing hand flicks back past the ear), "reach" (a hand over the
-// shoulder to the quiver). Without a pose the figure draws by `draw`: the
-// limbs bend, the string comes back to the cheek, the arrow rides on it,
-// and he leans back into the weight.
+// ---- the shot, as key poses ---------------------------------------------------
+// Side view, facing +x, feet at (0, 0). Both arms are solved by arm() with
+// their bones at full length; only the hands are placed:
+//   ns / fs   the near (string) and far (bow) shoulders. He stands side-on,
+//             so the bow shoulder is the forward one; the string shoulder
+//             settles back as he comes to full draw
+//   h         the string hand;  flip: its elbow is the one raised OUT to the
+//             side (the set, the draw, the anchor, the loose) — see
+//             "Joints and motion" in art/STYLE-GUIDE.md
+//   g, rot    the bow hand on the grip, and the bow's roll (+ = top forward)
+//   str       1 while the string hand holds the string (the limbs then bend
+//             with the pull), 0 when it runs free; shiver: it hums after the loose
+//   arr       0 no arrow, 1 nocked (nock at the hand, shaft over the bow
+//             hand), 2 carried in the hand at angle `aa`
+//   lean/bob  the upper body over the planted feet (the hips follow half
+//             the lean, the knees solve), open: the string fingers spread
+const K = {
+  // bow carried low in front in the bow hand, the string hand easy at the
+  // side (elbow back)
+  rest: { ns: [0.6, -16.4], fs: [0.9, -16.4], h: [1.5, -8.2], flip: 0, g: [5.0, -9.4], rot: 0.45, str: 0, shiver: 0, bend: 0, arr: 0, aa: 0, lean: 0, bob: 0, open: 0 },
+  // the bow coming up, the string hand going to meet it
+  lift: { ns: [0.2, -16.4], fs: [1.0, -16.4], h: [4.6, -12.2], flip: 0, g: [7.8, -13.0], rot: 0.22, str: 0, shiver: 0, bend: 0, arr: 0, aa: 0, lean: 0, bob: 0, open: 0 },
+  // nocked and set: bow arm up with a soft elbow, fingers on the string,
+  // the string elbow raised to take the weight
+  set: { ns: [-0.3, -16.3], fs: [1.2, -16.4], h: [7.5, -17.3], flip: 1, g: [9.2, -16.4], rot: 0, str: 1, shiver: 0, bend: 0, arr: 1, aa: 0, lean: -0.1, bob: 0, open: 0 },
+  // full draw: the bow arm has pushed out straight, the string hand is at
+  // the corner of the mouth, the elbow high behind the head; he leans a
+  // touch back into the weight
+  anchor: { ns: [0.0, -16.3], fs: [1.2, -16.5], h: [1.6, -19.3], flip: 1, g: [9.9, -16.6], rot: -0.03, str: 1, shiver: 0, bend: 1, arr: 1, aa: 0, lean: -0.5, bob: 0, open: 0 },
+  // the instant after: the string has slipped, the fingers open and the
+  // hand slides back along the jaw; the bow arm drives on, the bow rolls
+  loose: { ns: [-0.2, -16.2], fs: [1.2, -16.5], h: [0.3, -19.7], flip: 1, g: [10.0, -16.4], rot: 0.14, str: 0, shiver: 1, bend: 0, arr: 0, aa: 0, lean: -0.35, bob: 0, open: 1 },
+  // follow-through: the hand past the ear, the bow rolled on and settling
+  follow: { ns: [-0.3, -16.2], fs: [1.1, -16.4], h: [-0.6, -20.0], flip: 1, g: [9.5, -15.8], rot: 0.3, str: 0, shiver: 0.35, bend: 0, arr: 0, aa: 0, lean: -0.15, bob: 0, open: 1 },
+  // over the shoulder to the quiver: elbow up by the head, hand behind the
+  // neck on the fletchings; the bow arm eases down a little
+  reach: { ns: [-0.4, -16.3], fs: [1.0, -16.4], h: [-3.8, -19.4], flip: 0, g: [8.4, -14.6], rot: 0.24, str: 0, shiver: 0, bend: 0, arr: 0, aa: 0, lean: 0.15, bob: 0, open: 0 },
+  // the arrow brought round over the shoulder to the bow, head first
+  bring: { ns: [-0.4, -16.3], fs: [1.1, -16.4], h: [3.4, -19.4], flip: 1, g: [8.9, -15.8], rot: 0.08, str: 0, shiver: 0, bend: 0, arr: 2, aa: 0.28, lean: 0.05, bob: 0, open: 0 },
+};
+export const ARCHER_POSES = K;
+// the draw, set to anchor: `d` 0..1 of the way (the halls ease it)
+const drawn = (d) => mixPose(K.set, K.anchor, d);
+// A pose by name: the four the castle and the old callers use ("rest",
+// "draw" with its `draw`, "loose", "reach") and the rest of the cycle
+// ("lift", "set", "anchor", "follow", "bring"). o.to / o.k blend toward a
+// second pose (o.toDraw its draw), o.arrow false takes the arrow away (the
+// idle string test), o.breath 0..1 lifts the chest one art pixel.
+export const archerPose = (pose, draw = 1, o = {}) => {
+  let P = pose === "draw" ? drawn(draw) : K[pose] || K.rest;
+  if (o.to) P = mixPose(P, o.to === "draw" ? drawn(o.toDraw ?? 1) : K[o.to] || K.rest, o.k ?? 0.5);
+  if (o.arrow === false && P.arr) P = { ...P, arr: 0 };
+  if (o.breath) P = { ...P, bob: P.bob - 0.5 * o.breath };
+  return P;
+};
+
+// The baked frames the halls stamp, by name: [pose, draw, options]. The
+// shot runs loose → follow → reach → bring → set → d1 → d2 → anchor (the
+// draw eased: most of the way fast, the last of it slow into the anchor);
+// at ease: rest / rest1 (a breath), and the string test lift → test0 →
+// test1 and back down (no arrow on it).
+export const ARCHER_FRAMES = {
+  loose: ["loose", 0], follow: ["follow", 0], reach: ["reach", 0], bring: ["bring", 0],
+  set: ["draw", 0], d1: ["draw", 0.55], d2: ["draw", 0.88], anchor: ["draw", 1],
+  rest: ["rest", 0], rest1: ["rest", 0, { breath: 1 }], lift: ["lift", 0],
+  test0: ["draw", 0, { arrow: false }], test1: ["draw", 0.45, { arrow: false }],
+};
+// draw one of them (the options merge over the frame's own)
+export const drawArcherFrame = (ctx, x, y, dir, pal, frame, o = {}) => {
+  const [pose, d, fo] = ARCHER_FRAMES[frame] || ARCHER_FRAMES.rest;
+  drawArcher(ctx, x, y, dir, pal, d, { ...o, ...fo, pose });
+};
+
+// An archer at the string. `draw` runs 0..1, set to full draw. Towers may
+// pass `o.pose`: "rest" (bow carried low, at ease), "loose" (the string has
+// just slipped: it snaps straight and shivers, the bow arm drives on, the
+// drawing hand slides back past the ear), "reach" (a hand over the shoulder
+// to the quiver), or any key of ARCHER_POSES; see archerPose for o.to /
+// o.k / o.arrow / o.breath. Without a pose the figure draws by `draw`: the
+// limbs bend, the string comes back to the corner of the mouth, the arrow
+// rides on it, and he leans back into the weight.
 export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
   const big = !!o.big;
   const s = big ? 1.15 : 1;
-  const pose = o.pose || "draw";
+  const P = archerPose(o.pose || "draw", draw, o);
   const bowCol = o.bowCol || "#4a3018";
   const fl = o.fletch || "#e8e0c8";
-  const d = pose === "draw" ? draw : 0;
+  const cock = bowCol === "#4a3018" ? "#a04a3f" : fl;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(dir * s, s);
   shadow(ctx, 0.5, 0.4, 4.6, 1.6, 0.3);
-  // the quiver rides on the back, fletchings over the shoulder
-  const lean = pose === "draw" ? -d * 0.8 : pose === "loose" ? 0.5 : 0;
+  const lean = P.lean, bob = P.bob;
+  // the quiver rides on the back, fletchings behind the neck
   part(ctx, (c) => {
-    c.save(); c.translate(-3 + lean, -10.6); c.rotate(-0.42);
+    c.save(); c.translate(-2.7 + lean, -11.2 + bob); c.rotate(-0.3);
     for (const [i, col] of [[0, fl], [1, "#a04a3f"], [2, fl]].entries()) { c.fillStyle = col; c.beginPath(); c.moveTo(-1.0 + i * 0.9, -6.6); c.lineTo(-0.7 + i * 0.9, -8.6); c.lineTo(-0.2 + i * 0.9, -6.6); c.closePath(); c.fill(); }
     roundRect(c, -1.3, -6.8, 2.6, 7, 0.9);
     c.fillStyle = lin(c, -1.3, 0, 1.3, 0, [[0, lighten("#7a5334", 0.3)], [0.5, "#7a5334"], [1, darken("#7a5334", 0.4)]]); c.fill();
     c.fillStyle = darken("#7a5334", 0.45); c.fillRect(-1.3, -5.8, 2.6, 0.6); c.fillRect(-1.3, -1.6, 2.6, 0.6);
     c.restore();
   });
-  legs(ctx, 0, 0, pal, pose === "rest" ? 0.1 : 0.55);
+  // feet planted a stride apart whatever he does; the hips carry half the lean
+  legs(ctx, 0, 0, pal, 0.45, lean || bob ? { hip: [lean * 0.5, bob * 0.3] } : {});
   ctx.save();
-  ctx.translate(lean, 0);
-  // the bow: where the grip sits, how far the limbs bend, where the string's nock is
+  ctx.translate(lean, bob);
   const half = big ? 8.6 : 7.6;
-  let gx = 7.2, gy = -15.6, rot = 0, belly = 1.2 + d * 2.6, nx, ny;
-  if (pose === "rest") { gx = 4.6; gy = -9.2; rot = 0.42; belly = 1.2; }
-  if (pose === "reach") { gx = 6.4; gy = -14.2; rot = 0.12; }
-  if (pose === "loose") { gx = 7.9; belly = 1.6; }
-  // the string hand: sliding back from the grip to the cheek as the draw fills
-  const cheek = [2.3, -18.3];
-  let hx = gx - 1.2 + (cheek[0] - gx + 1.2) * d, hy = gy + (cheek[1] - gy) * d;
-  if (pose === "loose") { hx = -3.8; hy = -17.6; }
-  if (pose === "reach") { hx = -2.6; hy = -21.2; }
-  if (pose === "rest") { hx = -1.8; hy = -9.6; }
-  // the far arm (the bow arm) behind the body, reaching to the grip
-  limb(ctx, 0.2, -16.2, gx - 0.4, gy + 0.2, 2.4, darken(pal.coat, 0.18));
+  const [gx, gy] = P.g, cr = Math.cos(P.rot), sr = Math.sin(P.rot);
+  const toBow = (px, py) => [(px - gx) * cr + (py - gy) * sr, -(px - gx) * sr + (py - gy) * cr];   // world → the bow's frame
+  const fromBow = (bx, by) => [gx + bx * cr - by * sr, gy + bx * sr + by * cr];
+  // how far the string is pulled off its brace decides how the limbs bend
+  const brace = 1.7;
+  const [hbx, hby] = toBow(...P.h);
+  const bend = P.str ? Math.max(0, Math.min(1, (-hbx - brace) / 6.6)) : P.bend;
+  // the far arm (the bow arm) behind the body, a soft elbow under it
+  arm(ctx, ...P.fs, gx, gy, pal, { col: darken(pal.coat, 0.18), hand: false });
   torso(ctx, 0, -17.2, 10.4, 6.4, pal);
+  // the string arm, solved once. Raised out to the side (the draw, the
+  // anchor, the loose) its upper arm passes behind the head, so the face
+  // stays clear and the elbow shows behind the hood; the forearm and hand
+  // come in front of the head to the string
+  const flip = P.flip >= 0.5;
+  const [ex, ey] = elbowFor(...P.ns, ...P.h, { flip });
+  const back = flip && ey < P.ns[1] - 1.5;
+  logJoint(ctx, "arm", P.ns, [ex, ey], P.h, { flip });
+  if (back) limb(ctx, ...P.ns, ex, ey, 2.4, pal.coat);
   head(ctx, 0.5, -20.6, pal);
-  // the bow itself, in front of the body
+  // the bow, its grip in the bow hand: the limbs sweep back to the tips as
+  // it bends, the string runs tip to nock to tip
+  const tipX = -brace - bend * 2.4, bel = 1.3 + bend * 2.6;
   ctx.save();
-  ctx.translate(gx, gy); ctx.rotate(rot);
-  nx = pose === "draw" ? (hx - gx) * Math.cos(-rot) : -0.6; ny = pose === "draw" ? hy - gy : 0;
-  const tipX = -0.6 - d * 1.2;
+  ctx.translate(gx, gy); ctx.rotate(P.rot);
   part(ctx, (c) => {
-    c.strokeStyle = lin(c, 0, -half, belly, half, [[0, lighten(bowCol, 0.35)], [0.5, bowCol], [1, darken(bowCol, 0.35)]]);
+    c.strokeStyle = lin(c, 0, -half, bel, half, [[0, lighten(bowCol, 0.35)], [0.5, bowCol], [1, darken(bowCol, 0.35)]]);
     c.lineWidth = big ? 1.7 : 1.5; c.lineCap = "round";
-    c.beginPath(); c.moveTo(tipX, -half); c.quadraticCurveTo(belly * 2, -half * 0.35, belly * 0.9, 0); c.quadraticCurveTo(belly * 2, half * 0.35, tipX, half); c.stroke();
-    c.fillStyle = darken(bowCol, 0.45); c.fillRect(belly * 0.9 - 0.7, -1.1, 1.4, 2.2);           // the leather grip
+    c.beginPath(); c.moveTo(tipX, -half); c.quadraticCurveTo(bel, -half * 0.35, 0, 0); c.quadraticCurveTo(bel, half * 0.35, tipX, half); c.stroke();
+    c.fillStyle = darken(bowCol, 0.45); c.fillRect(-0.7, -1.1, 1.4, 2.2);                              // the leather grip
   });
   ctx.strokeStyle = "rgba(244,236,214,0.95)";
   ctx.lineWidth = 0.55;
-  ctx.beginPath(); ctx.moveTo(tipX, -half); ctx.lineTo(pose === "draw" ? nx : tipX, pose === "draw" ? ny : 0); ctx.lineTo(tipX, half); ctx.stroke();
-  if (pose === "loose") {
-    ctx.strokeStyle = "rgba(244,236,214,0.5)";
-    ctx.beginPath(); ctx.moveTo(tipX, -half); ctx.lineTo(tipX - 1.3, 0); ctx.lineTo(tipX, half); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(tipX, -half); ctx.lineTo(tipX + 1.1, 0); ctx.lineTo(tipX, half); ctx.stroke();
+  const [nx, ny] = P.str ? [hbx, hby] : [tipX, 0];
+  ctx.beginPath(); ctx.moveTo(tipX, -half); ctx.lineTo(nx, ny); ctx.lineTo(tipX, half); ctx.stroke();
+  if (P.shiver > 0.05) {
+    // the string still humming: two ghosts either side of it
+    const w = 1.3 * P.shiver;
+    ctx.strokeStyle = `rgba(244,236,214,${0.25 + 0.3 * P.shiver})`;
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.moveTo(tipX, -half); ctx.lineTo(tipX + k * w, 0); ctx.lineTo(tipX, half); ctx.stroke(); }
   }
   ctx.restore();
-  // the arrow on the string, from the nock at the hand out past the grip
-  if (pose === "draw" && d > 0.25) {
-    const len = big ? 13 : 11.5;
-    const ax = gx + belly * 0.9 - hx, ay = gy - hy, L = Math.hypot(ax, ay) || 1;
-    const ux = ax / L, uy = ay / L, ex = hx + ux * len, ey = hy + uy * len;
+  // the arrow: nocked, from the string hand out over the bow hand; or
+  // carried in the hand, head first
+  if (P.arr) {
+    const len = big ? 11 : 10.2;
+    let ux, uy, bx, by;
+    if (P.arr >= 1.5) { ux = Math.cos(P.aa); uy = Math.sin(P.aa); bx = P.h[0] - ux * 1.2; by = P.h[1] - uy * 1.2; }
+    else {
+      const [rx, ry] = fromBow(0.3, -0.9);
+      const ax = rx - P.h[0], ay = ry - P.h[1], L = Math.hypot(ax, ay) || 1;
+      ux = ax / L; uy = ay / L; bx = P.h[0]; by = P.h[1];
+    }
+    // never cut the head off at the edge of the sprite this is baked into
+    // (the wall's frames are tight): the shaft gives way instead
+    let l = len;
+    const m = ctx.getTransform(), CW = ctx.canvas?.width, CH = ctx.canvas?.height;
+    if (CW) for (; l > 5; l -= 0.5) {
+      const tx = bx + ux * (l + 2.2), ty = by + uy * (l + 2.2);
+      const dx = m.a * tx + m.c * ty + m.e, dy = m.b * tx + m.d * ty + m.f;
+      if (dx >= 2 && dx <= CW - 2 && dy >= 2 && dy <= CH - 2) break;
+    }
+    const ex = bx + ux * l, ey = by + uy * l;
     part(ctx, (c) => {
       c.strokeStyle = "#8a6a44"; c.lineWidth = 0.7; c.lineCap = "butt";
-      c.beginPath(); c.moveTo(hx, hy); c.lineTo(ex, ey); c.stroke();
+      c.beginPath(); c.moveTo(bx, by); c.lineTo(ex, ey); c.stroke();
       c.fillStyle = "#c4c8d0";
       c.beginPath(); c.moveTo(ex + ux * 2.2, ey + uy * 2.2); c.lineTo(ex - uy * 1.1, ey + ux * 1.1); c.lineTo(ex + uy * 1.1, ey - ux * 1.1); c.closePath(); c.fill();
-      c.fillStyle = bowCol === "#4a3018" ? "#a04a3f" : fl;
-      c.beginPath(); c.moveTo(hx + ux * 0.4, hy + uy * 0.4); c.lineTo(hx + ux * 2.4 - uy * 1.2, hy + uy * 2.4 + ux * 1.2); c.lineTo(hx + ux * 2.6, hy + uy * 2.6); c.closePath(); c.fill();
+      c.fillStyle = cock;
+      c.beginPath(); c.moveTo(bx + ux * 0.4, by + uy * 0.4); c.lineTo(bx + ux * 2.4 - uy * 1.2, by + uy * 2.4 + ux * 1.2); c.lineTo(bx + ux * 2.6, by + uy * 2.6); c.closePath(); c.fill();
       c.fillStyle = fl;
-      c.beginPath(); c.moveTo(hx + ux * 0.4, hy + uy * 0.4); c.lineTo(hx + ux * 2.4 + uy * 1.2, hy + uy * 2.4 - ux * 1.2); c.lineTo(hx + ux * 2.6, hy + uy * 2.6); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(bx + ux * 0.4, by + uy * 0.4); c.lineTo(bx + ux * 2.4 + uy * 1.2, by + uy * 2.4 - ux * 1.2); c.lineTo(bx + ux * 2.6, by + uy * 2.6); c.closePath(); c.fill();
     });
   }
-  // the bow hand closes on the grip
-  const gpx = gx + Math.cos(rot) * belly * 0.9, gpy = gy + Math.sin(rot) * belly * 0.9;
-  ball(ctx, gpx - 0.2, gpy, 1.1, 1.2, pal.skin, { hi: 0.4, lo: 0.4 });
-  // the near arm: elbow high and back at full draw, flung out at the loose
-  const sh = [0.9, -16.4];
-  const ex2 = pose === "draw" ? sh[0] - 1.5 - d * 1.8 : pose === "loose" ? -1.2 : pose === "reach" ? -1.6 : 0.2;
-  const ey2 = pose === "draw" ? -15.4 - d * 2.4 : pose === "loose" ? -15.2 : pose === "reach" ? -19.6 : -12.6;
-  logJoint(ctx, "arm", sh, [ex2, ey2], [hx, hy]);
-  limb(ctx, sh[0], sh[1], ex2, ey2, 2.4, pal.coat);
-  limb(ctx, ex2, ey2, hx, hy, 2.2, pal.coat);
-  ball(ctx, hx, hy, 1.05, 1.1, pal.skin, { hi: 0.4, lo: 0.4 });
-  if (pose === "loose") { dab(ctx, hx - 1.6, hy - 1.2, 0.6, 0.6, pal.skin); dab(ctx, hx - 1.8, hy + 0.2, 0.6, 0.6, pal.skin); }   // fingers open
+  // the bow hand closes round the grip
+  hand(ctx, gx - 0.2 * cr, gy - 0.2 * sr, pal.skin);
+  // the near arm: the string arm
+  if (!back) limb(ctx, ...P.ns, ex, ey, 2.4, pal.coat);
+  limb(ctx, ex, ey, ...P.h, 2.2, pal.coat);
+  hand(ctx, ...P.h, pal.skin);
+  if (P.open > 0.5) { dab(ctx, P.h[0] - 1.6, P.h[1] - 1.2, 0.6, 0.6, pal.skin); dab(ctx, P.h[0] - 1.8, P.h[1] + 0.2, 0.6, 0.6, pal.skin); }   // fingers open
   ctx.restore();
   ctx.restore();
 };

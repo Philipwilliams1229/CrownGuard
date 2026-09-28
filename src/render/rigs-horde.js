@@ -67,8 +67,21 @@ const frameAt = (x, y, a) => { const cs = Math.cos(a), sn = Math.sin(a); return 
 const inFrame = (ctx, x, y, a, fn) => { ctx.save(); ctx.translate(x, y); ctx.rotate(a); fn(ctx); ctx.restore(); };
 
 // The gait, four frames: contact, passing, contact, passing. The lifted foot
-// trails behind the planted one and the hip rides high as it passes. The
-// fight is a wind-up (weight back, lean back) and a strike (step in, lunge).
+// trails behind the planted one and the hip rides high as it passes.
+//
+// The fight, four frames (a rig with fightN: 4 — enemies.js plays them off
+// the foe's attack clock; a caller without fightN, like the boar's lancer,
+// passes the old pair 0 wind-up / 1 strike, read here as frames 1 and 2):
+//   0 guard           weight centred over both feet, the weapon up
+//   1 wind-up         the hips drawn back over the back foot, the torso
+//                     leaning back — the anticipation, held longest
+//   2 strike          a step in: the front foot lands forward, the hips drive
+//                     through and the torso comes over it (shown ~90 ms)
+//   3 follow-through  the front foot planted where it stepped, the body sunk
+//                     over it and still carrying forward, before it settles
+// o.wind scales how deep the wind-up goes, o.follow how far the blow carries:
+// the goblins are quick and small in both, the troll and the heavies big.
+const fightFrame = (p) => (p.fightN === 4 ? (p.frame || 0) % 4 : [1, 2][(p.frame || 0) % 2]);
 const step = (p, o) => {
   const f = (p.frame || 0) % 4, s = o.stride;
   if (p.pose !== "fight") {
@@ -80,13 +93,21 @@ const step = (p, o) => {
       x: 0, bob: f % 2 ? -o.bob : 0, lean: o.lean + (f % 2 ? 0 : o.dip || 0), swing: -c,
     };
   }
-  const hit = f === 1;
+  const F = fightFrame(p), w = o.wind ?? 1, fo = o.follow ?? 1, sw = F >= 2;
   return {
-    fight: true, f, c: 0, hit,
-    near: [hit ? s * 1.1 + o.lunge * 0.8 : s * 0.8, 0], far: [-s * 0.9, 0],
-    x: hit ? o.lunge : -0.4, bob: hit ? o.bob * 0.9 : o.bob * 0.3, lean: o.lean + (hit ? 0.2 : -0.14), swing: 0,
+    fight: true, f: F, F, c: 0, hit: F === 2, swing: 0,
+    // the front foot steps in on the blow and stays there through the follow-through
+    near: [sw ? s * 1.1 + o.lunge * 0.8 : s * 0.8, 0], far: [-s * 0.9 - (F === 1 ? 0.15 * w : 0), 0],
+    x: [0, -0.5 * w, o.lunge, o.lunge * (0.7 + 0.15 * fo)][F],
+    bob: o.bob * [0.3, 0.2 + 0.3 * w, 0.9, 0.8 + 0.4 * fo][F],
+    lean: o.lean + [0.02, -0.13 * w, 0.2, 0.14 + 0.14 * fo][F],
+    // hems and capes lag the body: flung forward as it rocks back, trailing as it lunges
+    hem: [0.2, 0.7, -0.5, 0.9][F],
   };
 };
+// a fight table's pose for this frame: [near hand from the near shoulder,
+// weapon angle, far hand from the far shoulder, ...extras]
+const pick = (tab, st) => tab[st.F];
 // the skeleton: gait, hip, torso frame, and the hip height that keeps the
 // planted foot on the ground at full stride
 const skeleton = (p, o) => {
@@ -127,9 +148,29 @@ const arm = (ctx, sh, to, o, cols) => {
     tube(c, el[0], el[1], hd[0], hd[1], o.w * 0.9, cols.fore || cols.up);
     if (cols.cuff) { const t = 0.45; tube(c, el[0] + (hd[0] - el[0]) * t, el[1] + (hd[1] - el[1]) * t, hd[0] - (hd[0] - el[0]) * 0.12, hd[1] - (hd[1] - el[1]) * 0.12, o.w * 1.05, cols.cuff); }
   });
+  hd.el = el;
   return hd;
 };
+// log the wrist of a hand holding a haft pointing along a (for the joint lab:
+// elbow → hand → a point up the haft; the wrist rule is ≤ ~120° off the forearm)
+const wrist = (ctx, h, a) => { if (h.el) logJoint(ctx, "wrist", h.el, h, [h[0] + Math.cos(a) * 3, h[1] + Math.sin(a) * 3]); };
 const fist = (ctx, x, y, r, col) => part(ctx, (c) => ball(c, x, y, r, r * 0.95, col, { hi: 0.4, lo: 0.4 }));
+// a caster's open hand: the palm, fingers spread along the forearm's line
+const palm = (ctx, h, col, spread = 1) => part(ctx, (c) => {
+  const a = h.el ? Math.atan2(h[1] - h.el[1], h[0] - h.el[0]) : 0;
+  ball(c, h[0], h[1], 0.9, 0.9, col, { hi: 0.4, lo: 0.4 });
+  for (const d of [-0.55, 0, 0.55]) line(c, h[0], h[1], h[0] + Math.cos(a + d * spread) * 1.7, h[1] + Math.sin(a + d * spread) * 1.7, 0.5, col);
+});
+// a charm's motes through a cast: drawn in (0), swirling wide (1), flung out
+// ahead of the staff (2), drifting off (3)
+const sparks = (ctx, tip, an, F, col) => {
+  ctx.fillStyle = col;
+  const dot = (x, y, r = 0.5) => ctx.fillRect(x - r / 2, y - r / 2, r, r);
+  if (F === 0) for (let i = 0; i < 4; i++) { const t = i * 1.57 + 0.4; dot(tip[0] + Math.cos(t) * 2.4, tip[1] + Math.sin(t) * 2.4); }
+  else if (F === 1) for (let i = 0; i < 5; i++) { const t = i * 1.26 + 0.9; dot(tip[0] + Math.cos(t) * 3.6, tip[1] + Math.sin(t) * 3.6, i % 2 ? 0.5 : 0.7); }
+  else if (F === 2) for (let i = 0; i < 5; i++) { const d = (i - 2) * 0.32, r = 2.6 + (i % 2) * 1.6; dot(tip[0] + Math.cos(an + d) * r, tip[1] + Math.sin(an + d) * r, 0.7); }
+  else for (const [dx, dy] of [[-1.4, -2.6], [1.2, -3.6]]) dot(tip[0] + dx, tip[1] + dy);
+};
 
 // ---- weapons ------------------------------------------------------------------
 // each in hand at (x, y) pointing along a; `to(u, v)` walks the haft (u) and
@@ -286,7 +327,24 @@ const orcHead = (ctx, x, y, a, p, o = {}) => inFrame(ctx, x, y, a, (c0) => {
 });
 
 // ---- the goblins --------------------------------------------------------------
-const GOB = { L1: 4.1, L2: 4.0, stride: 2.2, lift: 1.9, bob: 0.7, lean: 0.22, dip: 0.05, lunge: 2.2, hipW: 0.5, thigh: 2.1, shin: 1.8, foot: 2.8, ankle: 0.7 };
+const GOB = { L1: 4.1, L2: 4.0, stride: 2.2, lift: 1.9, bob: 0.7, lean: 0.22, dip: 0.05, lunge: 2.2, hipW: 0.5, thigh: 2.1, shin: 1.8, foot: 2.8, ankle: 0.7, wind: 0.8, follow: 0.7 };
+// The goblins' fights, frame by frame (guard, wind-up, strike, follow-through):
+// [near hand from the near shoulder, weapon angle, far hand from the far
+// shoulder]. Quick and scrappy: small moves, the knife never far from the body.
+const GOB_FIGHT = {
+  // an overhand stab: knife low and forward, up by the ear (elbow high and
+  // forward of the face), down through the target line, carried on past the knee
+  knife: [[[2.2, 2.6], -0.55, [3.2, 1.8]], [[-0.2, -4.0], -0.75, [4.2, 0.9]], [[4.3, 1.3], 0.4, [1.0, 3.4]], [[2.8, 3.7], 1.0, [1.8, 3.0]]],
+  // two hands on the spear: level, drawn back to the hip, driven home, dipping on
+  // (the far hand rides the haft `grip` behind the near one)
+  spear: [[[2.4, 2.6], -0.16, null, 3.0], [[0.9, 3.2], -0.1, null, 2.6], [[4.5, 1.5], 0.02, null, 3.0], [[3.9, 2.4], 0.18, null, 3.0]],
+  // the shaman's cast: gather (staff upright, the free hand cupping the charm),
+  // raise it high (lean back, the glow swelling), thrust it at the foe with the
+  // palm flung after it (the release), and bring it back upright
+  staff: [[[3.0, 1.8], -1.5, [4.0, 0.4]], [[0.8, -3.4], -1.8, [3.2, -1.4]], [[4.4, 0.6], -0.6, [4.6, 0.2]], [[3.2, 1.6], -1.15, [2.4, 2.8]]],
+};
+// the goblin's round shield rides forward while he winds up and drops back as he strikes
+const GOB_SHIELD = [[4.2, 2.0], [4.5, 1.3], [2.6, 3.1], [3.2, 2.6]];
 const goblin = (ctx, p) => {
   const k = (p.h ?? 20) / 20; ctx.save(); ctx.scale(k, k);
   const o = GOB, R = skeleton(p, o), { st, T } = R;
@@ -296,31 +354,31 @@ const goblin = (ctx, p) => {
   const shN = T(0.8, -5.3), shF = T(-0.8, -5.5);
   const A = { up: 2.6, fore: 2.5, w: 1.7 };
   // where the hands go
-  let hn, an, hf;
+  let hn, an, hf, grip = 3.2;
   const w = p.weapon;
   if (!st.fight) {
     hn = [shN[0] + 1.4 + st.swing * 1.0, shN[1] + 3.6];
     an = w === "spear" ? -0.42 : w === "staff" ? -1.42 + st.swing * 0.06 : 0.3 - st.swing * 0.15;
     hf = p.shield ? [shF[0] + 3.9 - st.swing * 0.3, shF[1] + 3.6] : [shF[0] + 0.5 - st.swing * 1.2, shF[1] + 4.1];
     if (w === "staff") { hn = [shN[0] + 4.0 + st.swing * 0.4, shN[1] + 3.0]; an = -1.36 + st.swing * 0.06; }
-  } else if (!st.hit) {
-    hn = w === "staff" ? [shN[0] + 0.6, shN[1] - 3.4] : [shN[0] - 2.0, shN[1] + 2.4];
-    an = w === "staff" ? -1.95 : w === "spear" ? -0.2 : -0.12;
-    hf = p.shield ? [shF[0] + 4.2, shF[1] + 1.6] : [shF[0] + 3.6, shF[1] + 0.2];
   } else {
-    hn = w === "staff" ? [shN[0] + 3.6, shN[1] + 0.4] : w === "spear" ? [shN[0] + 3.6, shN[1] + 1.6] : [shN[0] + 5.4, shN[1] + 1.4];
-    an = w === "staff" ? -1.0 : w === "spear" ? 0.02 : 0.05;
-    hf = p.shield ? [shF[0] + 2.4, shF[1] + 3.4] : [shF[0] + 4.4, shF[1] + 1.8];
+    const [N, a, Fh, g] = pick(GOB_FIGHT[w] || GOB_FIGHT.knife, st), H = p.shield ? GOB_SHIELD[st.F] : Fh || [3.2, 1.8];
+    hn = [shN[0] + N[0], shN[1] + N[1]]; an = a; hf = [shF[0] + H[0], shF[1] + H[1]];
+    if (g) grip = g;
   }
   const twoHand = w === "spear";
-  // far arm, behind (unless it helps with the spear)
-  if (!twoHand) { const h = arm(ctx, shF, hf, A, { up: skinF }); if (!p.shield) fist(ctx, h[0], h[1], 0.95, skinF); }
+  // far arm, behind (unless it helps with the spear); in the cast its hand opens
+  if (!twoHand) {
+    const h = arm(ctx, shF, hf, A, { up: skinF });
+    if (w === "staff" && st.fight) palm(ctx, h, skinF, st.F === 2 ? 1.2 : 0.7);
+    else if (!p.shield) fist(ctx, h[0], h[1], 0.95, skinF);
+  }
   // legs
   leg(ctx, R, o, "far", { thigh: skinF, shin: skinF, wrap: darken(wrap, 0.2), foot: darken(wrap, 0.25) });
   leg(ctx, R, o, "near", { thigh: skin, shin: skin, wrap, foot: darken(wrap, 0.05) });
   // the tunic (or the shaman's robe), ragged at the hem, belted with rope
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
-    const hemY = robe ? 4.4 : 1.9, sw = st.fight ? 0.4 : st.c * 0.5;
+    const hemY = robe ? 4.4 : 1.9, sw = st.fight ? st.hem * (robe ? 0.8 : 0.5) : st.c * 0.5;
     const pts = [[2.6 + sw, hemY, 1], [1.6, hemY - 0.8, 1], [0.7 + sw * 0.5, hemY + 0.2, 1], [-0.3, hemY - 0.7, 1], [-1.3, hemY + 0.1, 1], [-2.5 - sw * 0.5, hemY - 0.4, 1],
       [-2.8, -1.6], [-2.4, -4.6], [-1.3, -6.0], [0.8, -6.1], [2.1, -5.0], [2.4, -2.5], [robe ? 2.8 : 2.3, 0.5]];
     blob(c, pts, p.cloth, {
@@ -332,16 +390,19 @@ const goblin = (ctx, p) => {
         if (!p.head || p.head === "bare") dab(cc, 0.3, -6.4, 1.8, 1.2, skin);
       },
     });
-    if (p.beads) for (let i = 0; i < 5; i++) { c.fillStyle = i % 2 ? "#ece0c4" : lighten(p.beads, 0.1); c.beginPath(); c.arc(-0.6 + i * 0.7, -5.2 + Math.sin(i * 0.8) * 0.5 + i * 0.25, 0.4, 0, 7); c.fill(); }
+    if (p.beads) for (let i = 0; i < 5; i++) { c.fillStyle = i % 2 ? "#ece0c4" : lighten(p.beads, 0.1); c.beginPath(); c.arc(-0.6 + i * 0.7 + (st.fight ? st.hem * 0.3 : 0), -5.2 + Math.sin(i * 0.8) * 0.5 + i * 0.25, 0.4, 0, 7); c.fill(); }
   });
-  // the head, pushed forward on a scrawny neck
-  const nk = T(0.9, -6.0), hd = [nk[0] + 1.0 + (st.hit ? 0.6 : 0), nk[1] - 2.0];
-  goblinHead(ctx, hd[0], hd[1], st.lean * 0.3, p, { k: 0.9, hood: p.head === "hood", tuft: p.head === "hood" ? null : p.hair || darken(p.cloth, 0.35), paint: p.feathers ? "#ece0c4" : null });
+  // the head, pushed forward on a scrawny neck; in a fight it follows the blow
+  // (drawn in over the wind-up, thrust after the strike) with its eyes on the foe
+  const hx = st.fight ? [0.2, -0.3, 0.7, 0.5][st.F] : 0, hy = st.fight ? [0, -0.2, 0.2, 0.3][st.F] : 0;
+  const nk = T(0.9, -6.0), hd = [nk[0] + 1.0 + hx, nk[1] - 2.0 + hy], ha = st.lean * 0.3 + (st.fight ? [0, -0.12, 0.08, 0.1][st.F] : 0);
+  goblinHead(ctx, hd[0], hd[1], ha, p, { k: 0.9, hood: p.head === "hood", tuft: p.head === "hood" ? null : p.hair || darken(p.cloth, 0.35), paint: p.feathers ? "#ece0c4" : null });
   if (p.feathers) {
-    // a headband and a fan of feathers, back over the crown
-    inFrame(ctx, hd[0], hd[1], st.lean * 0.3, (c) => {
+    // a headband and a fan of feathers, back over the crown; they lag the head a frame
+    const lag = st.fight ? [0, 0.18, -0.2, 0.1][st.F] : st.c * 0.05;
+    inFrame(ctx, hd[0], hd[1], ha, (c) => {
       for (const [ang, col, l] of [[-2.35, "#c8383a", 5.2], [-1.95, p.cloth2 || "#e8c14a", 5.8], [-1.55, "#3a80c0", 4.8]]) {
-        const to = along(-0.6, -2.4, ang);
+        const to = along(-0.6, -2.4, ang + lag);
         blob(c, [[...to(0, 0), 1], [...to(l * 0.5, -0.8)], [...to(l, 0), 1], [...to(l * 0.5, 0.8)]], col, { hi: 0.35 });
       }
       blob(c, [[-2.5, -2.4], [0.2, -3.2], [2.4, -2.3], [2.3, -1.5], [0.2, -2.2], [-2.4, -1.4]], p.cloth2 || "#e8c14a", { hi: 0.3 });
@@ -352,21 +413,24 @@ const goblin = (ctx, p) => {
   if (twoHand) {
     hn = ik(shN[0], shN[1], hn[0], hn[1], A.up, A.fore, -1)[1];
     const to = along(hn[0], hn[1], an);
-    const grip = to(-3.2);
-    const h2 = arm(ctx, shF, grip, A, { up: skinF });
-    spear(ctx, hn[0], hn[1], an, p.wcol || "#c4c8d0", st.hit ? 6.5 : 4.5, st.hit ? 6.5 : 8.5);
+    const h2 = arm(ctx, shF, to(-grip), A, { up: skinF });
+    spear(ctx, hn[0], hn[1], an, p.wcol || "#c4c8d0", 4.5, st.fight ? 7.5 : 8.5);
     fist(ctx, h2[0], h2[1], 0.95, skinF);
     const h = arm(ctx, shN, hn, A, { up: skin });
+    wrist(ctx, h, an);
     fist(ctx, h[0], h[1], 1.0, skin);
   } else {
     const h = arm(ctx, shN, hn, A, { up: skin });
+    wrist(ctx, h, an);
     if (w === "knife") knife(ctx, h[0], h[1], an, p.wcol || "#a8acb4");
     if (w === "staff") {
       const tip = staff(ctx, h[0], h[1], an, "#7a5334", 6.6, 9.4);
       const wc = p.wcol || "#7ce0b8";
-      glow(ctx, tip[0], tip[1], st.fight ? 4.4 : 3.2, wc, 0.38);
-      part(ctx, (c) => ball(c, tip[0], tip[1], 1.3, 1.3, wc, { hi: 0.7, lo: 0.3 }));
-      if (st.fight) { ctx.fillStyle = lighten(wc, 0.5); for (let i = 0; i < 4; i++) { const t = i * 1.6 + st.f; ctx.fillRect(tip[0] + Math.cos(t) * 3.2 - 0.25, tip[1] + Math.sin(t) * 3.2 - 0.25, 0.5, 0.5); } }
+      // the charm gathers, swells as it is raised, flares on the release, dims
+      const F = st.fight ? st.F : -1, gl = [4.0, 4.8, 5.4, 3.6][F] || 3.2;
+      glow(ctx, tip[0], tip[1], gl, wc, F === 2 ? 0.5 : 0.38);
+      part(ctx, (c) => ball(c, tip[0], tip[1], F === 2 ? 1.5 : 1.3, F === 2 ? 1.5 : 1.3, wc, { hi: 0.7, lo: 0.3 }));
+      if (st.fight) sparks(ctx, tip, an, F, lighten(wc, 0.5));
     }
     fist(ctx, h[0], h[1], 1.0, skin);
   }
@@ -374,33 +438,52 @@ const goblin = (ctx, p) => {
 };
 
 // ---- the orcs ------------------------------------------------------------------
-const ORC = { L1: 5.0, L2: 4.9, stride: 2.7, lift: 2.2, bob: 0.8, lean: 0.12, dip: 0.04, lunge: 2.6, hipW: 1.4, thigh: 3.2, shin: 2.8, foot: 3.8, ankle: 1.0 };
+const ORC = { L1: 5.0, L2: 4.9, stride: 2.7, lift: 2.2, bob: 0.8, lean: 0.12, dip: 0.04, lunge: 2.6, hipW: 1.4, thigh: 3.2, shin: 2.8, foot: 3.8, ankle: 1.0, wind: 1.1, follow: 1.1 };
+// the Ironclad is heavier: a deeper wind-up, a blow that carries him further
+const IRONCLAD = { ...ORC, wind: 1.4, follow: 1.5 };
+// Fights, frame by frame (guard, wind-up, strike, follow-through):
+// [near hand from the near shoulder, weapon angle, far hand from the far
+// shoulder, turn]. `turn` swings the far shoulder forward as the trunk turns
+// into the blow (seen from the side, a broad back hides it): without it the
+// far hand could never reach a haft or a shield held out in front.
+const ORC_FIGHT = [
+  // the axe across the chest, head up; heaved overhead with the head hanging
+  // back behind the skull (elbows high and forward of the face); chopped down
+  // through the line; buried low, the orc bent over it
+  [[1.8, 3.4], -1.05, null, 2.2], [[-0.9, -4.3], 2.85, null, 1.6], [[4.4, 2.8], 0.62, null, 2.6], [[3.4, 4.6], 1.2, null, 2.4],
+];
+const IRON_FIGHT = [
+  // cleaver up behind the shield's edge; raised back over the helm while the
+  // shield is pushed out; cut down across it as the shield swings aside; the
+  // blade carried low past the knee, the shield coming back up
+  [[1.6, 3.0], -1.25, [3.9, 4.6], 3.0], [[-0.9, -4.3], 2.8, [4.6, 3.6], 3.2], [[4.6, 2.6], 0.6, [3.0, 5.6], 2.6], [[3.4, 4.8], 1.35, [3.5, 5.0], 2.8],
+];
 const orc = (ctx, p) => {
-  const plate = !!p.armor, o = ORC, R = skeleton(p, o), { st, T } = R;
+  const plate = !!p.armor, o = plate ? IRONCLAD : ORC, R = skeleton(p, o), { st, T } = R;
   const skin = p.skin, skinF = darken(skin, 0.24);
   const lea = p.cloth, dark = p.cloth2 || darken(p.cloth, 0.4);
   const steel = p.cloth;       // for the Ironclad, cloth is his plate
   shadow(ctx, 0.6, -0.1, 6.4, 1.6, 0.24);
-  const shN = T(2.4, -8.2), shF = T(-2.6, -8.4);
+  const shN = T(2.4, -8.2);
   const A = { up: 3.5, fore: 3.3, w: plate ? 3.0 : 3.1 };
   // hands: the orc two-hands his axe; the Ironclad cuts one-handed behind a shield
-  let hn, an, hf;
+  let hn, an, hf, turn = plate ? 3.0 : 0;
   if (!st.fight) {
     hn = plate ? [shN[0] + 0.6 + st.swing * 0.8, shN[1] + 6.0] : [shN[0] + 1.6 + st.swing * 0.6, shN[1] + 6.2];
     an = plate ? 1.15 - st.swing * 0.1 : 0.42 - st.swing * 0.06;
-    hf = plate ? [shF[0] + 7.0, shF[1] + 6.4] : [shF[0] + 0.6 - st.swing * 1.6, shF[1] + 6.2];
-  } else if (!st.hit) {
-    hn = [shN[0] - 2.0, shN[1] - 3.6]; an = -2.25;
-    hf = plate ? [shF[0] + 7.2, shF[1] + 5.4] : null;
   } else {
-    hn = [shN[0] + 4.8, shN[1] + 3.4]; an = plate ? 0.5 : 0.78;
-    hf = plate ? [shF[0] + 4.6, shF[1] + 6.6] : null;
+    const [N, a, H, tu] = pick(plate ? IRON_FIGHT : ORC_FIGHT, st);
+    hn = [shN[0] + N[0], shN[1] + N[1]]; an = a; turn = tu; hf = H;
   }
+  const shF = T(-2.6 + turn, -8.4 + turn * 0.1);
+  if (plate) hf = st.fight ? [shF[0] + hf[0], shF[1] + hf[1]] : [shF[0] + 3.8 + st.swing * 0.2, shF[1] + 5.4];
+  else if (!st.fight) hf = [shF[0] + 0.6 - st.swing * 1.6, shF[1] + 6.2];
   const armCols = plate ? { up: darken(dark, 0.1), fore: steel, cuff: lighten(steel, 0.15) } : { up: skin, cuff: lea };
   const armColsF = plate ? { up: darken(dark, 0.3), fore: darken(steel, 0.25), cuff: darken(steel, 0.15) } : { up: skinF, cuff: darken(lea, 0.25) };
-  // far arm (free, or behind the shield)
+  // far arm (free, or behind the shield); in the orc's fight it joins the haft below
+  let hS = null;
   if (hf && !plate) { const h = arm(ctx, shF, hf, A, armColsF); fist(ctx, h[0], h[1], 1.5, skinF); }
-  if (plate) arm(ctx, shF, hf, A, armColsF);
+  if (plate) hS = arm(ctx, shF, hf, A, armColsF);
   // legs
   const legCols = plate
     ? { thigh: dark, shin: steel, wrap: lighten(steel, 0.1), foot: darken(steel, 0.1) }
@@ -412,7 +495,7 @@ const orc = (ctx, p) => {
   // the trunk: broad shoulders, a thick waist, the belt and what hangs from it
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
     // kilt of leather strips (the orc) or a skirt of plates (the Ironclad)
-    const sw = st.fight ? 0.5 : st.c * 0.5;
+    const sw = st.fight ? st.hem * 0.7 : st.c * 0.5;
     const kilt = [[-4.0, -0.4], [3.8, -0.4], [4.2 + sw, 3.4, 1], [2.4, 3.9, 1], [1.2, 3.1, 1], [0, 4.0, 1], [-1.3, 3.2, 1], [-2.8 - sw * 0.5, 3.9, 1], [-4.2, 3.0, 1]];
     blob(c, kilt, plate ? dark : lea, { then: (cc) => { for (const x of [-2.1, 0.6, 2.9]) line(cc, x, 0.4, x + 0.1, 4, 0.45, darken(plate ? dark : lea, 0.45)); if (plate) for (const x of [-3, -0.8]) dab(cc, x, 1.0, 0.5, 0.5, lighten(dark, 0.55)); } });
     if (plate) blob(c, [[0.8, -1.2, 1], [3.6, -1.2, 1], [3.9 + sw * 0.6, 5.2, 1], [2.3, 4.4, 1], [0.9 + sw * 0.4, 5.4, 1]], "#7a3430", { hi: 0.25 });
@@ -439,27 +522,30 @@ const orc = (ctx, p) => {
       },
     });
   });
-  // the head, low and forward between the shoulders
-  const nk = T(1.8, -9.4), hd = [nk[0] + 1.7 + (st.hit ? 0.5 : 0), nk[1] - 1.9];
-  if (plate) ironHelm(ctx, hd[0], hd[1], st.lean * 0.3, p);
-  else orcHead(ctx, hd[0], hd[1], st.lean * 0.3, p, { scar: true });
+  // the head, low and forward between the shoulders; it ducks under the
+  // raised weapon and follows the blow down
+  const hx = st.fight ? [0.1, -0.3, 0.5, 0.4][st.F] : 0, hy = st.fight ? [0, 0.1, 0.3, 0.5][st.F] : 0;
+  const nk = T(1.8, -9.4), hd = [nk[0] + 1.7 + hx, nk[1] - 1.9 + hy], ha = st.lean * 0.3 + (st.fight ? [0, -0.1, 0.1, 0.16][st.F] : 0);
+  if (plate) ironHelm(ctx, hd[0], hd[1], ha, p);
+  else orcHead(ctx, hd[0], hd[1], ha, p, { scar: true });
   if (plate) {
     // the far pauldron shows over the back of the shoulders
-    kiteShield(ctx, hf[0] + 1.0, hf[1] - 0.8, p.shcol || "#5c626e", "#8a3a2e");
+    kiteShield(ctx, hS[0] + 1.0, hS[1] - 0.8, p.shcol || "#5c626e", "#8a3a2e");
     const h = arm(ctx, shN, hn, A, armCols);
+    wrist(ctx, h, an);
     pauldron(ctx, shN[0] - 0.4, shN[1] - 0.1, 2.4, steel);
     cleaver(ctx, h[0], h[1], an, p.wcol || "#c4c8d0");
     fist(ctx, h[0], h[1], 1.5, lighten(steel, 0.1));
   } else {
-    // both hands on the haft: the far one low, the near one high
+    // both hands on the haft: the near one high, the far one at the butt
     hn = ik(shN[0], shN[1], hn[0], hn[1], A.up, A.fore, -1)[1];
     const to = along(hn[0], hn[1], an);
-    const low = to(st.fight ? -1.6 : 3.6);
     if (!st.fight) { heavyAxe(ctx, hn[0], hn[1], an, p.wcol || "#b8bcc4"); }
-    const h2 = st.fight ? arm(ctx, shF, low, A, armColsF) : null;
+    const h2 = st.fight ? arm(ctx, shF, to(-1.8), A, armColsF) : null;
     if (st.fight) heavyAxe(ctx, hn[0], hn[1], an, p.wcol || "#b8bcc4");
     if (h2) fist(ctx, h2[0], h2[1], 1.5, skinF);
     const h = arm(ctx, shN, hn, A, armCols);
+    wrist(ctx, h, an);
     pauldron(ctx, shN[0] - 0.4, shN[1] - 0.2, 2.6, lea, true);
     fist(ctx, h[0], h[1], 1.6, skin);
   }

@@ -89,8 +89,18 @@ const inFrame = (ctx, x, y, a, fn) => { ctx.save(); ctx.translate(x, y); ctx.rot
 const along = (x, y, a) => { const dx = Math.cos(a), dy = Math.sin(a); return (u, v = 0) => [x + dx * u - dy * v, y + dy * u + dx * v]; };
 const haft = (c, to, u0, u1, w, col) => { const [x0, y0] = to(u0), [x1, y1] = to(u1); tube(c, x0, y0, x1, y1, w, col); };
 
-// The gait: contact, passing, contact, passing. The fight: a wind-up with the
-// weight on the back foot, then the strike, stepping in.
+// The gait: contact, passing, contact, passing. The fight is four frames
+// (the rigs set fightN: 4; enemies.js plays them off the foe's attack clock):
+//   0 guard   weapon up between blows, weight centred
+//   1 wind-up the weapon drawn back, the weight settling on the back foot
+//   2 strike  the near foot steps in, the weight thrown forward
+//   3 follow  the weapon past the line, the body recovering over the planted foot
+// st.drive says how far into the blow the body is (0 wound .. 1 struck) and
+// st.cloth how far the hems and capes have swung — they trail the body by a
+// frame and overshoot on the follow-through.
+// A shooter (o.shoot, the crossbowman) stands his ground instead: 0 ready,
+// 1 aim, 2 loose (the kick rocks him back), 3 reload (he stoops to the box).
+const DRIVE = [0.35, 0, 1, 0.75], CLOTH = [0.45, 0, 0.75, 1];
 const step = (p, o) => {
   const f = (p.frame || 0) % 4, s = o.stride;
   if (p.pose !== "fight") {
@@ -102,11 +112,18 @@ const step = (p, o) => {
       x: 0, bob: f % 2 ? -o.bob : 0, lean: o.lean + (f % 2 ? 0 : o.dip), swing: -c,
     };
   }
-  const hit = f === 1;
+  const hl = o.hitLean ?? 0.2;
+  if (o.shoot) return {
+    fight: true, f, c: 0, hit: f === 2, drive: [0.3, 0.1, 0.5, 0.6][f], cloth: [0.3, 0.1, 0.6, 0.8][f],
+    near: [s * 0.95, 0], far: [-s * 0.95, 0],
+    x: [0, 0.15, -0.35, 0.2][f], bob: o.bob * [0.4, 0.6, 0.3, 1.0][f], lean: o.lean + [0.02, 0.06, -0.06, 0.2][f], swing: 0,
+  };
+  const planted = f >= 2;   // the near foot stepped in on the strike, and stays
   return {
-    fight: true, f, c: 0, hit,
-    near: [hit ? s * 1.1 + o.lunge * 0.8 : s * 0.9, 0], far: [hit ? -s * 0.8 : -s * 1.0, 0],
-    x: hit ? o.lunge : -0.5, bob: hit ? o.bob * 1.1 : o.bob * 0.3, lean: o.lean + (hit ? o.hitLean ?? 0.2 : -0.12), swing: 0,
+    fight: true, f, c: 0, hit: f === 2, drive: DRIVE[f], cloth: CLOTH[f],
+    near: [planted ? s * 1.1 + o.lunge * 0.8 : s * 0.9, 0], far: [-s * 0.95, 0],
+    x: [0, -0.6, o.lunge, o.lunge * 0.8][f], bob: o.bob * [0.3, 0.2, 1.1, 0.9][f],
+    lean: o.lean + [0.02, -0.13, hl, hl * 0.8][f], swing: 0,
   };
 };
 const skeleton = (p, o) => {
@@ -138,9 +155,17 @@ const leg = (ctx, R, o, which, cols) => {
   foot(ctx, an[0], an[1] + ank, o.foot, ank + 0.55, cols.foot, { plate: cols.plate, sole: cols.sole });
   return { hp, kn, an };
 };
+// An arm to the hand's target `to`: the elbow folds the natural way (the
+// forearm swings forward and up off the upper arm); o.flip folds it the other
+// way, ONLY for an arm raised out to the side (see "Joints and motion" in
+// art/STYLE-GUIDE.md). The lab is shown the TARGET, so a hand posed out of
+// reach reads as a stretched bone. The hand comes back with its elbow on it
+// (hd.el) for the wrist check (`grip`).
 const arm = (ctx, sh, to, o, cols) => {
-  const [el, hd] = ik(sh[0], sh[1], to[0], to[1], o.up, o.fore, o.bend ?? -1);
-  logJoint(ctx, "arm", sh, el, hd, { lens: [o.up, o.fore] });
+  const flip = !!o.flip;
+  const [el, hd] = ik(sh[0], sh[1], to[0], to[1], o.up, o.fore, flip ? 1 : -1);
+  logJoint(ctx, "arm", sh, el, to, { lens: [o.up, o.fore], flip });
+  hd.el = el;
   part(ctx, (c) => {
     tube(c, sh[0], sh[1], el[0], el[1], o.w, cols.up);
     tube(c, el[0], el[1], hd[0], hd[1], o.w * 0.92, cols.fore || cols.up);
@@ -149,6 +174,9 @@ const arm = (ctx, sh, to, o, cols) => {
   });
   return hd;
 };
+// the wrist: a haft or hilt leaving the fist along `a` (logged for the lab as
+// elbow → hand → a point up the haft; the lab draws it, the analysis reads it)
+const grip = (ctx, hd, a) => { if (hd.el) logJoint(ctx, "wrist", hd.el, hd, [hd[0] + Math.cos(a) * 3, hd[1] + Math.sin(a) * 3]); };
 const fist = (ctx, x, y, r, col) => part(ctx, (c) => ball(c, x, y, r, r * 0.95, col, { hi: 0.45, lo: 0.4 }));
 
 // ---- the Iron Kingdom's colours ----------------------------------------------------
@@ -244,7 +272,9 @@ const mace = (ctx, x, y, a, col, len = 6.2) => {
 // spanned back to the nut (or flung forward, loosed).
 const arbalest = (ctx, x, y, a, steel, o = {}) => {
   const to0 = along(x, y, a), k = o.s || 1, to = (u, v = 0) => to0(u * k, v * k);
-  const loosed = !!o.loosed, nut = 0.9, pu = 5.4, span = 4.4;
+  // o.loosed: the string flung forward and a streak ahead; o.empty: the
+  // string forward and no bolt (spent, waiting to be spanned again)
+  const loosed = !!o.loosed || !!o.empty, nut = 0.9, pu = 5.4, span = 4.4;
   const bend = loosed ? 0.5 : 1.4;
   const tip0 = to(pu - bend, -span), tip1 = to(pu - bend, span);
   const sAt = loosed ? pu - 0.2 : nut;
@@ -282,7 +312,7 @@ const arbalest = (ctx, x, y, a, steel, o = {}) => {
   });
   ctx.strokeStyle = "#efe6cc"; ctx.lineWidth = 0.4;
   ctx.beginPath(); ctx.moveTo(...tip1); ctx.lineTo(...to(sAt, 0)); ctx.stroke();
-  if (loosed) {
+  if (o.loosed) {
     // the bolt is gone: a streak ahead of the nose
     ctx.fillStyle = "rgba(255,243,210,0.85)";
     for (let i = 0; i < 3; i++) { const [sx, sy] = to(pu + 3.2 + i * 1.8, -0.4); ctx.fillRect(sx - 0.5, sy - 0.2, 1.1 - i * 0.2, 0.45); }
@@ -548,49 +578,76 @@ const sallet = (ctx, x, y, a, p, f) => inFrame(ctx, x, y, a, (c0) => {
 });
 
 // ---- the soldier ------------------------------------------------------------------
-const MAN = { L1: 4.8, L2: 4.6, stride: 2.3, lift: 1.8, bob: 0.6, lean: 0.04, dip: 0.03, lunge: 2.0, hipW: 0.7, thigh: 2.3, shin: 2.0, foot: 3.1, ankle: 0.8 };
+const MAN = { L1: 4.8, L2: 4.6, stride: 2.3, lift: 1.8, bob: 0.6, lean: 0.04, dip: 0.03, lunge: 1.3, hitLean: 0.16, hipW: 0.7, thigh: 2.3, shin: 2.0, foot: 3.1, ankle: 0.8 };
 // plate walks heavier: a shorter, flatter step, square shoulders, no lean
-const HEAVY = { L1: 4.8, L2: 4.6, stride: 2.0, lift: 1.3, bob: 0.4, lean: 0.0, dip: 0.02, lunge: 1.8, hipW: 0.9, thigh: 2.6, shin: 2.3, foot: 3.3, ankle: 0.85, hitLean: 0.14 };
-const ROBE = { L1: 4.8, L2: 4.6, stride: 1.9, lift: 1.2, bob: 0.45, lean: 0.03, dip: 0.02, lunge: 1.6, hipW: 0.6, thigh: 2.2, shin: 1.9, foot: 3.0, ankle: 0.8 };
+const HEAVY = { L1: 4.8, L2: 4.6, stride: 2.0, lift: 1.3, bob: 0.4, lean: 0.0, dip: 0.02, lunge: 1.2, hipW: 0.9, thigh: 2.6, shin: 2.3, foot: 3.3, ankle: 0.85, hitLean: 0.14 };
+const ROBE = { L1: 4.8, L2: 4.6, stride: 1.9, lift: 1.2, bob: 0.45, lean: 0.03, dip: 0.02, lunge: 1.1, hipW: 0.6, thigh: 2.2, shin: 1.9, foot: 3.0, ankle: 0.8 };
 // a rider's plate, lighter than the sergeant's: a longer, livelier step
-const KNIGHT = { L1: 4.8, L2: 4.6, stride: 2.2, lift: 1.6, bob: 0.5, lean: 0.03, dip: 0.03, lunge: 1.9, hipW: 0.8, thigh: 2.4, shin: 2.1, foot: 3.2, ankle: 0.85, hitLean: 0.18 };
+// the crossbowman stands his ground to shoot (see step)
+const SHOOTER = { ...MAN, shoot: true };
+const KNIGHT = { L1: 4.8, L2: 4.6, stride: 2.2, lift: 1.6, bob: 0.5, lean: 0.03, dip: 0.03, lunge: 1.3, hipW: 0.8, thigh: 2.4, shin: 2.1, foot: 3.2, ankle: 0.85, hitLean: 0.18 };
 
-// where the hands go, per look: [march, wind-up, strike]
+// where the hands go, per look: the march (swinging with the stride), then
+// the four fight frames [guard, wind-up, strike, follow-through]. hn is the
+// weapon hand's target and an the haft's angle out of the fist (0 = +x,
+// forward); hf the far hand. Every pose keeps the elbow folding the natural
+// way and under ~145°, and the haft crossing the fist, never folded back.
 const hands = (look, st, shN, shF) => {
   const sw = st.swing, N = (dx, dy) => [shN[0] + dx, shN[1] + dy], F = (dx, dy) => [shF[0] + dx, shF[1] + dy];
-  const ph = !st.fight ? 0 : st.hit ? 2 : 1;
-  if (look === "levy") return [
-    { hn: N(1.1 + sw * 0.3, 3.3), an: -1.32 + sw * 0.04, hf: F(4.4, 2.3) },
-    { hn: N(-1.3, -0.9), an: -0.12, hf: F(4.6, 1.8) },
-    { hn: N(4.6, -0.3), an: 0.06, hf: F(4.0, 2.4) }][ph];
-  if (look === "bow") return [
-    { hn: N(2.0 + sw * 0.3, 3.0), an: -0.42 + sw * 0.03, grip: 2.5 },
-    { hn: N(0.9, -0.7), an: -0.03, grip: 2.2 },
-    { hn: N(0.3, -0.9), an: -0.13, grip: 2.2, loosed: true }][ph];
-  if (look === "chaplain") return [
-    { hn: N(2.5 + sw * 0.3, 4.0), an: -0.95 + sw * 0.04, hf: F(3.4 - sw * 0.5, 3.4), sway: sw * 0.6 },
-    { hn: N(-1.3, -3.3), an: -2.4, hf: F(4.4, -3.6), sway: -0.4, bright: true },
-    { hn: N(4.4, 2.0), an: 0.45, hf: F(5.2, -0.8), sway: 0.9, bright: true }][ph];
-  if (look === "marshal") return [
-    { hn: N(3.6 + sw * 0.2, 3.3), an: -1.6 + sw * 0.03, hf: F(4.3, 3.2) },
+  const pick = (march, fight) => (st.fight ? fight[st.f] : march);
+  // the levy: spear upright on the march; in the fight an overhand spear over
+  // the shield rim (the point leaving the little-finger side of the fist)
+  if (look === "levy") return pick({ hn: N(1.1 + sw * 0.3, 3.3), an: -1.32 + sw * 0.04, hf: F(4.4, 2.3) }, [
+    { hn: N(2.6, -1.9), an: 0.16, hf: F(4.6, 1.8) },
+    { hn: N(1.8, -2.4), an: 0.02, hf: F(4.3, 2.0) },
+    { hn: N(4.6, -0.8), an: 0.1, hf: F(4.5, 2.2) },
+    { hn: N(4.0, 0.3), an: 0.34, hf: F(4.6, 2.0) }]);
+  // the crossbowman: the arbalest at port on the march (the fore hand on the
+  // tiller); in the fight a shooting cycle — ready, aim at the cheek, loose
+  // (the nose kicks up), reload (the nose down in the far hand, the near hand
+  // back to the bolt box). grip: how far up the tiller the fore hand holds;
+  // held: "far" when only the far hand holds it (bow at bw, the grip point)
+  if (look === "bow") return pick({ hn: N(1.4 + sw * 0.3, 3.2), an: -1.0 + sw * 0.03, grip: 2.6 }, [
+    { hn: N(1.6, 1.9), an: -0.7, grip: 1.3 },
+    { hn: N(2.3, -1.0), an: -0.04, grip: 1.1 },
+    { hn: N(2.0, -1.3), an: -0.2, grip: 1.1, loosed: true },
+    { hn: N(-2.0, 5.2), an: 0.9, hf: F(4.4, 4.0), grip: 2.2, held: "far" }]);
+  // the chaplain: the mace carried up; in the fight the reliquary raised in
+  // the far hand as the mace goes up overhead and comes down
+  if (look === "chaplain") return pick({ hn: N(2.5 + sw * 0.3, 4.0), an: -0.95 + sw * 0.04, hf: F(3.4 - sw * 0.5, 3.4), sway: sw * 0.6 }, [
+    { hn: N(2.4, 1.0), an: -1.4, hf: F(4.6, -1.2), sway: 0.3, bright: true },
+    { hn: N(-0.8, -3.3), an: -2.2, hf: F(4.4, -3.2), sway: -0.4, bright: true },
+    { hn: N(4.4, 1.6), an: 0.4, hf: F(4.8, -0.6), sway: 0.9, bright: true },
+    { hn: N(3.0, 3.8), an: 1.05, hf: F(4.4, 0.6), sway: 1.3, bright: true }]);
+  // the Lord Marshal: the war-banner upright on the march; in the fight he
+  // rears it back and brings the lance-head down like a blow
+  if (look === "marshal") return pick({ hn: N(3.6 + sw * 0.2, 3.3), an: -1.6 + sw * 0.03, hf: F(4.3, 3.2) }, [
+    { hn: N(3.4, 1.4), an: -1.45, hf: F(4.8, 2.6) },
     { hn: N(-0.6, -2.4), an: -1.98, hf: F(4.6, 2.6), back: 5, fwd: 14 },
-    { hn: N(4.0, 0.8), an: -0.9, hf: F(3.0, 3.8), back: 8, fwd: 12, flag: 6.6, lowered: true }][ph];
-  // the magister: the staff carried tall like a walking staff; raised high
-  // (the far palm open, casting), then thrust up and forward as the aegis flares
-  if (look === "magister") return [
-    { hn: N(4.0 + sw * 0.3, 3.2), an: -1.44 + sw * 0.03, hf: F(1.4 - sw * 0.6, 5.0), top: 15.6, butt: 10.5, flare: 0 },
+    { hn: N(4.0, 0.8), an: -0.9, hf: F(3.0, 3.8), back: 8, fwd: 12, flag: 6.6, lowered: true },
+    { hn: N(3.6, 2.4), an: -0.7, hf: F(3.4, 3.6), back: 8, fwd: 12, flag: 6.6, lowered: true }]);
+  // the magister: the staff carried tall like a walking staff; in the fight
+  // raised (the far palm open, casting), thrust up as the aegis flares, and
+  // settling as it fades
+  if (look === "magister") return pick({ hn: N(4.0 + sw * 0.3, 3.2), an: -1.44 + sw * 0.03, hf: F(1.4 - sw * 0.6, 5.0), top: 15.6, butt: 10.5, flare: 0 }, [
+    { hn: N(3.6, 1.8), an: -1.36, hf: F(4.0, 1.4), top: 10.5, butt: 8, flare: 0 },
     { hn: N(3.4, -3.8), an: -1.3, hf: F(5.0, -1.8), top: 7.5, butt: 9, flare: 1, palm: true },
-    { hn: N(3.2, -2.5), an: -1.22, hf: F(5.6, -3.0), top: 8.5, butt: 9, flare: 2, palm: true }][ph];
-  // the unseated knight: an arming sword held up at the ready, the small heater
-  if (look === "unseated") return [
-    { hn: N(2.2 + sw * 0.3, 3.8), an: -0.85 + sw * 0.05, hf: F(4.9, 2.2) },
-    { hn: N(-1.2, -3.2), an: -2.3, hf: F(4.4, 2.4) },
-    { hn: N(4.4, 1.6), an: 0.3, hf: F(3.0, 3.6) }][ph];
-  // the sergeant: blade carried low and level, a heater on the far arm
-  return [
-    { hn: N(2.0 + sw * 0.3, 4.2), an: 0.55 - sw * 0.05, hf: F(4.4, 3.2) },
-    { hn: N(-1.3, -3.4), an: -2.45, hf: F(4.6, 2.8) },
-    { hn: N(4.4, 2.0), an: 0.42, hf: F(2.9, 4.0) }][ph];
+    { hn: N(3.2, -2.5), an: -1.16, hf: F(5.0, -2.8), top: 8.5, butt: 9, flare: 2, palm: true },
+    { hn: N(3.6, -1.0), an: -1.26, hf: F(5.0, -0.6), top: 8.5, butt: 9, flare: 1, palm: true }]);
+  // the unseated knight: an arming sword held up at the ready and a small
+  // heater; he fights with the point — drawn back low, thrust, recover
+  if (look === "unseated") return pick({ hn: N(2.2 + sw * 0.3, 3.8), an: -0.85 + sw * 0.05, hf: F(4.9, 2.2) }, [
+    { hn: N(2.6, 1.4), an: -1.2, hf: F(5.0, 1.8) },
+    { hn: N(0.3, 3.5), an: -0.25, hf: F(5.0, 1.6) },
+    { hn: N(5.8, -0.4), an: -0.12, hf: F(4.2, 2.8) },
+    { hn: N(4.6, 1.4), an: 0.38, hf: F(4.4, 2.4) }]);
+  // the sergeant: blade carried low and level, a heater on the far arm; in
+  // the fight a heavy cut from over the shoulder, the shield covering
+  return pick({ hn: N(2.0 + sw * 0.3, 4.1), an: -0.3 - sw * 0.05, hf: F(4.4, 3.2) }, [
+    { hn: N(2.4, 1.4), an: -1.2, hf: F(4.8, 2.4) },
+    { hn: N(-0.9, -3.2), an: -2.3, hf: F(5.0, 2.0) },
+    { hn: N(4.6, 1.2), an: 0.3, hf: F(3.4, 3.6) },
+    { hn: N(3.0, 3.8), an: 1.05, hf: F(4.2, 3.0) }]);
 };
 
 const soldier = (ctx, p) => {
@@ -598,7 +655,9 @@ const soldier = (ctx, p) => {
   const look = p.look;
   const knight = look === "unseated", mage = look === "magister";
   const plated = look === "sergeant" || look === "marshal" || knight;
-  const o = knight ? KNIGHT : plated ? HEAVY : look === "chaplain" || mage ? ROBE : MAN;
+  const o = knight ? KNIGHT : plated ? HEAVY : look === "chaplain" || mage ? ROBE : look === "bow" ? SHOOTER : MAN;
+  // cloth swing in a fight: `wound` when drawn back, `struck` at the blow (trailing a frame)
+  const cl = (struck, wound) => wound + (struck - wound) * st.cloth;
   const R = skeleton(p, o), { st, T } = R;
   const skin = p.skin, skinF = darken(skin, 0.24);
   const red = p.cloth, under = p.cloth2;          // oxblood, and what's under it (padding, plate, the alb)
@@ -647,7 +706,7 @@ const soldier = (ctx, p) => {
     warBanner(ctx, hB[0], hB[1], H.an, p, st.fight ? st.f + 1 : st.f, { ...bannerO, only: "flag" });
   }
   if (look === "marshal") {
-    const cape = p.cape || red, len = 7.4, fl = st.fight ? (st.hit ? 2.2 : 0.4) : [0.8, 1.6, 0.6, 1.3][st.f];
+    const cape = p.cape || red, len = 7.4, fl = st.fight ? cl(2.2, 0.4) : [0.8, 1.6, 0.6, 1.3][st.f];
     const pts = [[1.6, -7.8], [-1.8, -8.0], [-3.4, -6.0], [-4.0 - fl * 0.3, -1.0], [-5.2 - fl, 3.6], [-6.6 - fl * 1.4, len, 1], [-5.0 - fl, len - 0.8, 1], [-3.6 - fl * 0.7, len + 0.1, 1], [-2.2 - fl * 0.4, len - 0.7, 1], [-0.9, len - 0.1, 1], [-0.6, 2.0], [-0.2, -4.0]];
     inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => blob(c, pts, cape, {
       hi: 0.3, lo: 0.45, then: (cc) => {
@@ -659,7 +718,7 @@ const soldier = (ctx, p) => {
   }
   // the unseated knight's riding cape, short and torn in the fall
   if (knight) {
-    const cape = p.cape || red, fl = st.fight ? (st.hit ? 1.6 : 0.3) : [0.7, 1.3, 0.5, 1.1][st.f], len = 4.4;
+    const cape = p.cape || red, fl = st.fight ? cl(1.6, 0.3) : [0.7, 1.3, 0.5, 1.1][st.f], len = 4.4;
     const pts = [[1.2, -7.8], [-1.6, -8.0], [-3.0, -6.2], [-3.4 - fl * 0.3, -2.0], [-4.2 - fl, 1.8], [-5.0 - fl * 1.3, len, 1], [-4.1 - fl, len - 1.6, 1], [-3.5 - fl * 0.8, len + 0.3, 1], [-2.7 - fl * 0.6, len - 0.9, 1], [-2.2 - fl * 0.4, len - 0.1, 1], [-1.3, len - 2.6, 1], [-0.8, -0.8], [-0.4, -4.0]];
     inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => blob(c, pts, cape, {
       hi: 0.3, lo: 0.45, then: (cc) => {
@@ -671,12 +730,12 @@ const soldier = (ctx, p) => {
   }
   // the magister's robe falls to the ankles behind the legs
   if (mage) inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
-    const sw = st.fight ? (st.hit ? 0.9 : -0.4) : st.c * 0.6;
+    const sw = st.fight ? cl(0.9, -0.4) : st.c * 0.6;
     blob(c, [[-2.4, -1.2], [-2.8 - sw * 0.3, 3.5], [-3.6 - sw * 0.5, 7.7, 1], [3.1 + sw, 7.7, 1], [2.6 + sw * 0.4, 3.5], [2.3, -1.2]], darken(under, 0.25), { hi: 0.15, then: (cc) => dab(cc, -4, 7.0, 8, 0.7, darken(red, 0.3)) });
   });
   // the chaplain's alb hangs behind the legs
   if (look === "chaplain") inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
-    const sw = st.fight ? (st.hit ? 0.8 : -0.3) : st.c * 0.5;
+    const sw = st.fight ? cl(0.8, -0.3) : st.c * 0.5;
     blob(c, [[-2.4, -1.2], [-2.6 - sw * 0.3, 3.5], [-3.2 - sw * 0.5, 6.9, 1], [2.9 + sw, 6.9, 1], [2.4 + sw * 0.4, 3.5], [2.2, -1.2]], darken(under, 0.22), { hi: 0.2 });
   });
   // the crossbowman's bolt box rides on the back hip
@@ -698,17 +757,17 @@ const soldier = (ctx, p) => {
 
   // the trunk, the skirts below the belt, and what is worn on them
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
-    const sw = st.fight ? (st.hit ? 0.8 : -0.2) : st.c * 0.6;
+    const sw = st.fight ? cl(0.8, -0.2) : st.c * 0.6;
     if (look === "chaplain") {
       // the alb to the ankles, the chasuble over it to the knee
-      const hem = 6.9, kick = st.fight ? (st.hit ? 1.0 : -0.3) : st.c * 0.7;
+      const hem = 6.9, kick = st.fight ? cl(1.0, -0.3) : st.c * 0.7;
       blob(c, [[-2.5, -1.2], [2.3, -1.2], [2.7 + kick * 0.5, 3.4], [3.2 + kick, hem, 1], [-0.2 + kick * 0.3, hem + 0.2, 1], [-0.4, 2.8]], under, {
         hi: 0.28, lo: 0.4, then: (cc) => { dab(cc, -3, hem - 0.9, 7, 0.8, red); line(cc, 1.4, 0, 1.8 + kick * 0.5, hem, 0.4, darken(under, 0.3)); },
       });
     } else if (mage) {
       // the robe to the ankles, open down the front on its oxblood lining,
       // brass along the hem (rank); it swings with the stride
-      const hem = 7.6, kick = st.fight ? (st.hit ? 1.1 : -0.3) : st.c * 0.7;
+      const hem = 7.6, kick = st.fight ? cl(1.1, -0.3) : st.c * 0.7;
       blob(c, [[-2.5, -1.2], [2.4, -1.2], [2.8 + kick * 0.5, 3.4], [3.3 + kick, hem, 1], [-1.4 + kick * 0.3, hem + 0.2, 1], [-2.3, 3.2]], under, {
         hi: 0.28, lo: 0.42, then: (cc) => {
           line(cc, 2.3, -1.2, 3.0 + kick, hem, 0.9, red);
@@ -799,8 +858,9 @@ const soldier = (ctx, p) => {
   if (look === "bow") quiver();
 
   // the head
-  const hd = T(0.85, -9.35); hd[0] += st.hit ? 0.4 : 0;
-  const ha = st.lean * 0.3 + (look === "bow" && st.fight ? 0.12 : 0);
+  // the head follows the blow (and bows to the stock to aim, and looks down to reload)
+  const hd = T(0.85, -9.35); hd[0] += st.fight ? 0.4 * st.drive : 0;
+  const ha = st.lean * 0.3 + (look === "bow" && st.fight ? [0.06, 0.14, 0.02, 0.3][st.f] : 0);
   if (look === "levy") kettle(ctx, hd[0], hd[1], ha, p, { brim: 4.4, strap: true, stubble: "#3a2a20" });
   else if (look === "bow") kettle(ctx, hd[0], hd[1], ha, p, { brim: 3.4, hood: red });
   else if (look === "sergeant") barbute(ctx, hd[0], hd[1], ha, p);
@@ -820,15 +880,32 @@ const soldier = (ctx, p) => {
 
   // the weapon hand
   if (twoHand) {
-    const hn = ik(shN[0], shN[1], H.hn[0], H.hn[1], A.up, A.fore, -1)[1];
-    const to = arbalest(ctx, hn[0], hn[1], H.an, p.wcol || "#c4c8d0", { loosed: H.loosed, s: 1.15 });
-    const h2 = arm(ctx, shF, to(H.grip, 0.5), A, armF);
-    fist(ctx, h2[0], h2[1], 0.95, fistF);
-    const h = arm(ctx, shN, hn, A, armN);
-    fist(ctx, h[0], h[1], 1.0, fistN);
+    const KB = 1.15, bowCol = p.wcol || "#c4c8d0";
+    if (H.held === "far") {
+      // reloading: the arbalest hangs nose-down in the far hand (at `grip` up
+      // the tiller) while the near hand goes back to the bolt box
+      const hf = ik(shF[0], shF[1], H.hf[0], H.hf[1], A.up, A.fore, -1)[1];
+      const dx = Math.cos(H.an), dy = Math.sin(H.an), u = H.grip * KB, v = 0.5 * KB;
+      arbalest(ctx, hf[0] - dx * u + dy * v, hf[1] - dy * u - dx * v, H.an, bowCol, { s: KB, empty: true });
+      const h2 = arm(ctx, shF, hf, A, armF);
+      grip(ctx, h2, H.an);
+      fist(ctx, h2[0], h2[1], 0.95, fistF);
+      const h = arm(ctx, shN, H.hn, A, armN);
+      fist(ctx, h[0], h[1], 1.0, fistN);
+    } else {
+      const hn = ik(shN[0], shN[1], H.hn[0], H.hn[1], A.up, A.fore, -1)[1];
+      const to = arbalest(ctx, hn[0], hn[1], H.an, bowCol, { loosed: H.loosed, s: KB });
+      const h2 = arm(ctx, shF, to(H.grip, 0.5), A, armF);
+      grip(ctx, h2, H.an);
+      fist(ctx, h2[0], h2[1], 0.95, fistF);
+      const h = arm(ctx, shN, hn, A, armN);
+      grip(ctx, h, H.an);
+      fist(ctx, h[0], h[1], 1.0, fistN);
+    }
   } else {
     const h = arm(ctx, shN, H.hn, A, armN);
-    if (look === "levy") spear(ctx, h[0], h[1], H.an, p.wcol || "#c4c8d0", st.fight ? 6.5 : 4.2, st.fight ? 8.4 : 11.2);
+    grip(ctx, h, H.an);
+    if (look === "levy") spear(ctx, h[0], h[1], H.an, p.wcol || "#c4c8d0", st.fight ? 8.4 : 4.2, st.fight ? 6.6 : 11.2);
     else if (look === "sergeant") longsword(ctx, h[0], h[1], H.an, p.wcol || "#dde2ea");
     else if (look === "chaplain") mace(ctx, h[0], h[1], H.an, p.wcol || "#6c7280");
     else if (mage) aegisStaff(ctx, h[0], h[1], H.an, p, H);

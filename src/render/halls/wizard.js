@@ -35,7 +35,7 @@ import {
   groundBed, footClip, footing, ashlar, archWindow, door, banner, brazier, flame, merlons, rock, posy, pennant,
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
-import { drawMage, mageTip, MAGE_FOLK } from "../folk.js";
+import { drawMage, mageTip, magePoseAt, mageIdlePose, mageBreathPose, MAGE_FOLK } from "../folk.js";
 
 const CACHE = new Map();
 export const resetWizardBakes = () => CACHE.clear();
@@ -68,13 +68,13 @@ const FRONT = { left: 20, right: 20, up: 80, down: 4 };
 
 // Where Dragonbreath's jet leaves the hall (render/flames.js draws from
 // here): the spell-ring just past the head of the mage's levelled staff
-// (his "cast" pose), mirrored with the facing drawWizardSpire uses (the
-// aim, which the engine keeps on the breath).
+// (his "brace" pose, both hands on it), mirrored with the facing
+// drawWizardSpire uses (the aim, which the engine keeps on the breath).
 const RING_OUT = 2.5;
 export const breathMouth = (t) => {
   const ang = t.breath ? t.breath.ang : t.lastAim || 0;
-  const [tx, ty] = mageTip(3, "cast");
-  return { x: t.x + (Math.cos(ang) >= 0 ? 1 : -1) * (tx + RING_OUT), y: t.y - spireH(t) - 7 + ty - 1 };
+  const [tx, ty] = mageTip(3, "brace");
+  return { x: t.x + (Math.cos(ang) >= 0 ? 1 : -1) * (tx + RING_OUT), y: t.y - spireH(t) - 7 + ty };
 };
 
 // the element a form belongs to
@@ -366,8 +366,10 @@ export const drawWizardSpire = (ctx, t, time) => {
     });
   }
 
-  // ---- the mage: idle between waves, gathering power as the cooldown
-  // runs out, driving the staff at the foe on the shot
+  // ---- the mage: idle between waves (a slow breath), gathering power as
+  // the cooldown runs out, driving the staff at the foe on the shot — the
+  // whole cycle is folk-casters.js MAGE_CYCLE, picked by the phase since
+  // the shot (`charge`: 0 at the shot, 1 ready), one baked frame per pose
   const level = t.branch ? 3 : lvl;
   const pal = MAGE_FOLK[key] || MAGE_FOLK.base;
   const my = top - 7;
@@ -378,7 +380,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   // the Inferno Throne's fifth shot is the firestorm: its orb swells for it
   const stormNext = r4 === "aa" && !idle && (t.poolIdx || 0) === 4;
   const stormGone = r4 === "aa" && !idle && (t.poolIdx || 0) === 0 && t.anim > 0.05;
-  const pose = idle ? "idle" : r4 === "ab" ? (on > 0 ? "cast" : "charge") : t.anim > 0.35 ? "cast" : "charge";
+  const pose = idle ? mageIdlePose(time, t.id) : r4 === "ab" ? mageBreathPose(on, time, t.id) : magePoseAt(charge);
   const mcv = canBake ? baked(`mage|${key}|${level}|${pose}`, 34, 40, (c) => drawMage(c, 14, 37, 1, pal, level, { pose })) : null;
   // star-charms from level three; the back arc passes behind the mage
   const stars = [];
@@ -413,11 +415,14 @@ export const drawWizardSpire = (ctx, t, time) => {
   if (canBake) stamp(ctx, baked(`front|${form}`, FRONT.left + FRONT.right, FRONT.up + FRONT.down, (c) => paintFront(c, tv, FRONT.left, FRONT.up)), x, y, FRONT.left, FRONT.up);
   else paintFront(ctx, t, x, y);
 
-  // ---- the orb at the staff tip: small at rest, swelling with the charge,
-  // a flash and a ring as it flies
+  // ---- the orb at the staff tip (mageTip is its centre, in the fork; the
+  // apprentice's floats over his palm): small at rest, swelling with the
+  // charge, a flash and a ring as it flies. It rides the staff still while
+  // he drives it at the foe, and floats a little in the fork otherwise.
   const [tx, ty] = mageTip(level, pose);
-  const bob = pose === "cast" ? 0 : Math.sin(time * 2.5 + t.id) * 1.2;
-  const orbX = x + dir * tx, orbY = my + ty + bob - (level >= 2 ? 1 : 0);
+  const driven = pose === "strike" || pose === "follow" || pose === "level" || pose === "brace" || pose === "brace2";
+  const bob = driven ? 0 : Math.sin(time * 2.5 + t.id) * (level >= 2 ? 0.8 : 1.2);
+  const orbX = x + dir * tx, orbY = my + ty + bob;
   const rBase = level >= 3 ? 3.4 : level === 2 ? 2.8 : 2.3;
   if (!t.noFolk) {
     const rOut = r4 === "ab" ? 2 + on * 0.8 : (rBase * (idle ? 0.8 : 0.75 + charge * 0.45) + (t.anim > 0.4 ? 0.8 : 0)) * (stormNext || stormGone ? 1.35 : 1);

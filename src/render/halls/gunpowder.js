@@ -22,7 +22,8 @@ import {
   IRON, ROPE, PITCH, GOLD, foot, padB, skirtB, beam, barrel, crate, rope, boulder,
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
-import { drawBomber, drawMusketeer, CREW_FOLK } from "../folk.js";
+import { drawBomber, drawMusketeer, bomberFrame, bomberCharge, musketFrame, musketMuzzle, musketPoint, CREW_FOLK } from "../folk.js";
+import { getStats } from "../../engine/towers.js";
 
 const cache = spriteCache();
 export const resetGunpowderBakes = () => cache.clear();
@@ -183,30 +184,40 @@ const paintRail = (ctx, t, x, y, f) => {
 };
 
 // The musketeer and his gun as the branch has it: the plain long gun, a
-// scoped barrel laid in a forked rest, or a bell-mouthed scattergun.
-const MUZZLE = { plain: 13, sharp: 19.5, grape: 15.5 };
-const paintMusketeer = (ctx, gun, kick) => {
-  ctx.save(); ctx.translate(12, 29);
-  if (gun === "sharp") part(ctx, (c) => {   // the rest stands on the deck, forked at the barrel
-    c.strokeStyle = "#5f4326"; c.lineWidth = 1.1; c.lineCap = "round";
-    c.beginPath(); c.moveTo(5.2, 0.4); c.lineTo(13, -15.4); c.moveTo(13, -15.4); c.lineTo(11.9, -17.6); c.moveTo(13, -15.4); c.lineTo(14.4, -17.5); c.stroke();
-  });
-  ctx.restore();
-  drawMusketeer(ctx, 12, 29, 1, CREW_FOLK.musketeer, 0);
-  ctx.save(); ctx.translate(12, 29);
-  if (gun === "sharp") part(ctx, (c) => {
-    c.strokeStyle = "#6c727e"; c.lineWidth = 1.4; c.lineCap = "round";
-    c.beginPath(); c.moveTo(12, -16.4); c.lineTo(19.5, -17.4); c.stroke();
-    c.strokeStyle = "#c89a48"; c.lineWidth = 1.5;                                   // the brass scope
-    c.beginPath(); c.moveTo(4.5, -18.2); c.lineTo(10, -18.9); c.stroke();
-    c.fillStyle = "#e8d8a8"; c.fillRect(9.4, -19.6, 1, 1.4);
-  });
-  if (gun === "grape") part(ctx, (c) => {
-    c.fillStyle = lin(c, 0, -19, 0, -14, [[0, "#9aa0ac"], [1, "#4a4e58"]]);
-    c.beginPath(); c.moveTo(11, -17.4); c.lineTo(15.8, -19.2); c.lineTo(15.8, -14.2); c.lineTo(11, -15.8); c.closePath(); c.fill();
-    c.fillStyle = "#1e1a20"; c.fillRect(15, -18.4, 0.9, 3.4);
-  });
-  ctx.restore();
+// scoped long barrel laid in a forked rest, or a bell-mouthed scattergun.
+// The fittings are painted in the gun's own space (u down the barrel from the
+// stock's wrist, v across), so they ride with it through the kick and the
+// reload; the rest stands on the deck, forked where the barrel lies at the aim.
+const GUNS = {
+  plain: { len: 7.5, lip: 0 },
+  sharp: {
+    len: 13.5, lip: 0, parts: (c) => {
+      c.strokeStyle = "#c89a48"; c.lineWidth = 1.4; c.lineCap = "round";             // the brass scope on its mounts
+      c.beginPath(); c.moveTo(-0.2, -1.7); c.lineTo(5, -1.85); c.stroke();
+      c.lineWidth = 0.5; c.beginPath(); c.moveTo(0.8, -1.2); c.lineTo(0.8, -0.5); c.moveTo(4, -1.3); c.lineTo(4, -0.5); c.stroke();
+      c.fillStyle = "#e8d8a8"; c.fillRect(4.7, -2.5, 0.8, 1.3);
+    },
+  },
+  grape: {
+    len: 8, lip: 1.2, parts: (c, len) => {
+      c.fillStyle = lin(c, 0, -2.4, 0, 2, [[0, "#9aa0ac"], [1, "#4a4e58"]]);          // the bell
+      c.beginPath(); c.moveTo(len - 4, -0.9); c.lineTo(len + 1.2, -2.5); c.lineTo(len + 1.2, 2.1); c.lineTo(len - 4, 0.6); c.closePath(); c.fill();
+      c.fillStyle = "#1e1a20"; c.fillRect(len + 0.5, -1.8, 0.8, 3.2);
+    },
+  },
+};
+const REST_AT = 6.5;   // where the Sharpshooters' fork takes the barrel (gun space)
+const paintMusketeer = (ctx, gun, pose, ox = 12, oy = 29) => {
+  const G = GUNS[gun];
+  if (gun === "sharp") {
+    const fk = musketPoint("aim", G.len, REST_AT, 0.9);
+    part(ctx, (c) => {   // the rest stands on the deck, forked under the barrel
+      const fx = ox + fk.x, fy = oy + fk.y + 0.3;
+      c.strokeStyle = "#5f4326"; c.lineWidth = 1.1; c.lineCap = "round";
+      c.beginPath(); c.moveTo(fx - 3.4, oy + 0.4); c.lineTo(fx, fy); c.lineTo(fx - 1.1, fy - 2.1); c.moveTo(fx, fy); c.lineTo(fx + 1.3, fy - 2); c.stroke();
+    });
+  }
+  drawMusketeer(ctx, ox, oy, 1, CREW_FOLK.musketeer, pose, { len: G.len, parts: G.parts });
 };
 
 // ---- per frame -------------------------------------------------------------------
@@ -231,39 +242,52 @@ export const drawGunpowder = (ctx, t, time) => {
     flame(ctx, x + f * 12, y + 3.4, 0.7, time, t.id);
     for (let i = 0; i < 2; i++) { const k = (time * 0.5 + i * 0.5 + t.id * 0.13) % 1; soft(ctx, x + f * 12 + Math.sin(time + i) * 1.5, y - 3 - k * 16, 2 + k * 3, 2 + k * 3, [[0, `rgba(52,44,50,${0.4 * (1 - k)})`], [1, "rgba(52,44,50,0)"]]); }
   }
-  // ---- the bombardier, rear side: charge held low with a sputtering fuse, then up and away
-  const throwing = anim > 0.45;
+  // ---- the bombardier, rear side: the charge at his belt with its fuse
+  // sputtering, then the throw (bomberFrame: wind-up, whip, release, follow-
+  // through, a fresh charge); the fuse's glow rides on the charge in his hand
+  const st = getStats(t), clock = time + t.id * 0.93;
+  const bomberPose = t._idle ? bomberFrame(Infinity, 0, st.rate, clock)
+    : bomberFrame(t.cd > 0 ? st.rate - t.cd : Infinity, t.cd || 0, st.rate, clock);
   const bx = x - f * 5.5, by = dY - 2.5;
   if (!t.noFolk) {
-    if (bake) stamp(ctx, cache.get(`bomber|${throwing ? 1 : 0}`, 30, 34, (c) => drawBomber(c, 12, 30, 1, CREW_FOLK.bomber, throwing)), bx, by, 12, 30, f);
-    else drawBomber(ctx, bx, by, f, CREW_FOLK.bomber, throwing);
-    const fuse = s.dragon ? "#f08a3a" : "#ffe08a";
-    if (anim === 0 || throwing) {
-      const fx = bx + f * (throwing ? 6 : 6.5), fy = by + (throwing ? -27.5 : -15.5);
+    if (bake) stamp(ctx, cache.get(`bomber|${bomberPose}`, 32, 36, (c) => drawBomber(c, 13, 32, 1, CREW_FOLK.bomber, bomberPose)), bx, by, 13, 32, f);
+    else drawBomber(ctx, bx, by, f, CREW_FOLK.bomber, bomberPose);
+    const ch = bomberCharge(bomberPose);
+    if (ch && ch.lit) {
+      const fuse = s.dragon ? "#f08a3a" : "#ffe08a";
+      const fx = bx + f * ch.fx, fy = by + ch.fy;
       const fl = Math.sin(time * 26 + t.id) > 0;
       glow(ctx, fx, fy, fl ? 2.6 : 1.8, fuse, 0.85);
       ctx.fillStyle = fl ? "#fff3d2" : fuse; ctx.fillRect(fx - 0.5, fy - 0.5, 1, 1);
     }
   }
-  // ---- the musketeer, near side: kicks back, flash and smoke from the muzzle
-  // (his rest, scope and bell ride in his own sprite)
-  const gun = s.r4 === "ba" ? "sharp" : s.r4 === "bb" ? "grape" : "plain";
-  const kick = mA > 0.55 ? 1.5 : 0;
+  // ---- the musketeer, near side: the shot drives the gun, his shoulder and
+  // head back and the barrel up (kick, recoil), then he loads (port, the rod)
+  // and comes back to the aim; flash at the muzzle wherever it is, smoke
+  // left hanging where it was fired
+  const gun = s.r4 === "ba" ? "sharp" : s.r4 === "bb" ? "grape" : "plain", G = GUNS[gun];
+  const mRate = st.mRate || 2600;
+  const mSince = t.mCd > 0 ? mRate - t.mCd : mA > 0 ? ((1 - mA) / 3.2) * 1000 : Infinity;
+  const muskPose = musketFrame(mSince, t.mCd || 0, mRate, { idle: t._idle, clock: time + t.id * 1.71 });
   const mx = x + f * 6.5, my = dY - 2.5;
-  const tipX = mx - f * kick + f * MUZZLE[gun], tipY = my - (gun === "sharp" ? 17.4 : gun === "grape" ? 16.7 : 16.5);
+  const mz = musketMuzzle(muskPose, G.len, G.lip), fired = musketMuzzle("kick", G.len, G.lip);
+  const tipX = mx + f * mz.x, tipY = my + mz.y;
   if (!t.noFolk) {
-    if (bake) stamp(ctx, cache.get(`musk|${gun}`, 36, 34, (c) => paintMusketeer(c, gun, 0)), mx - f * kick, my, 12, 29, f);
-    else drawMusketeer(ctx, mx, my, f, CREW_FOLK.musketeer, kick);
+    if (bake) stamp(ctx, cache.get(`musk|${gun}|${muskPose}`, 40, 36, (c) => paintMusketeer(c, gun, muskPose)), mx, my, 12, 29, f);
+    else { ctx.save(); ctx.translate(mx, my); ctx.scale(f, 1); paintMusketeer(ctx, gun, muskPose, 0, 0); ctx.restore(); }
     if (mA > 0.7) {
-      const k = (mA - 0.7) / 0.3;
-      glow(ctx, tipX + f * 2, tipY, 5 + k * 3, "#f4c060", 0.8 * k);
+      const k = (mA - 0.7) / 0.3, ca = Math.cos(mz.ang), sa = Math.sin(mz.ang);
+      glow(ctx, tipX + f * ca * 2, tipY + sa * 2, 5 + k * 3, "#f4c060", 0.8 * k);
       ctx.fillStyle = "#fff3d2";
       const rays = gun === "grape" ? [-0.4, -0.13, 0.13, 0.4] : [0];
-      for (const a of rays) { const L = 3 + k * 3; for (let i = 1; i <= 3; i++) ctx.fillRect(tipX + f * Math.cos(a) * i * L / 3 - 0.6, tipY + Math.sin(a) * i * L / 3 - 0.6, 1.2, 1.2); }
+      for (const a of rays) {
+        const L = 3 + k * 3, rc = Math.cos(mz.ang + a), rs = Math.sin(mz.ang + a);
+        for (let i = 1; i <= 3; i++) ctx.fillRect(tipX + f * rc * i * L / 3 - 0.6, tipY + rs * i * L / 3 - 0.6, 1.2, 1.2);
+      }
     }
     if (mA > 0.1) {
-      const p = 1 - mA;
-      for (let i = 0; i < (gun === "grape" ? 3 : 2); i++) soft(ctx, tipX + f * (3 + p * 7 + i * 3), tipY - p * 4 - i * 1.5 + (gun === "grape" ? (i - 1) * 2 : 0), 2.5 + p * 4, 2.2 + p * 3, [[0, `rgba(214,210,200,${0.6 * mA})`], [1, "rgba(214,210,200,0)"]]);
+      const p = 1 - mA, sx = mx + f * fired.x, sy = my + fired.y;
+      for (let i = 0; i < (gun === "grape" ? 3 : 2); i++) soft(ctx, sx + f * (3 + p * 7 + i * 3), sy - p * 4 - i * 1.5 + (gun === "grape" ? (i - 1) * 2 : 0), 2.5 + p * 4, 2.2 + p * 3, [[0, `rgba(214,210,200,${0.6 * mA})`], [1, "rgba(214,210,200,0)"]]);
     }
   }
   layer("r", paintRail);
@@ -275,5 +299,5 @@ export const drawGunpowder = (ctx, t, time) => {
   });
   if (s.dragon) mortarSpots(s, x, y, f).forEach(([ox, gy]) => { const [ux, uy] = mouthOf(ox, gy, f); glow(ctx, ux, uy + 0.5, 2.2, "#f08a3a", 0.5 + 0.25 * Math.sin(time * 6 + t.id)); });
   // idle: the musketeer's barrel catches the sun
-  if (!t.noFolk && t._idle && Math.sin(time * 1.7 + t.id) > 0.9) glow(ctx, tipX - f * 3, tipY, 1.8, "#ffffff", 0.85);
+  if (!t.noFolk && t._idle && Math.sin(time * 1.7 + t.id) > 0.9) { const b3 = musketPoint(muskPose, G.len, G.len - 3, -0.2); glow(ctx, mx + f * b3.x, my + b3.y, 1.8, "#ffffff", 0.85); }
 };

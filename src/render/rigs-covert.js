@@ -1,8 +1,9 @@
 // ============ RIGS: THE COVERT'S BLADES ============
 // The hooded killers the Assassin's Covert sends into the grass. Entries in
 // rigs.js use kind "assassin"; COVERT_PAINTERS maps it to the painter
-// (ctx, p) — pose is p.pose ("walk" | "fight") and p.frame (0-3 walk, 0-1
-// fight), feet at 0,0, facing +x. Frames are baked once and inked by rigs.js.
+// (ctx, p) — pose is p.pose ("walk" | "fight") and p.frame (0-3 walk, 0-3
+// fight: guard, wind-up, strike, follow-through — the RIGS entries carry
+// fightN: 4), feet at 0,0, facing +x. Frames are baked once and inked by rigs.js.
 //
 // The same small skeleton as the crown's soldiers (so a blade stands as tall
 // as a garrison knight), cut slimmer and carried lower: a stalker's lean on
@@ -69,9 +70,82 @@ const inFrame = (ctx, x, y, a, fn) => { ctx.save(); ctx.translate(x, y); ctx.rot
 // walking along a blade: u down its length, v across it
 const along = (x, y, a) => { const dx = Math.cos(a), dy = Math.sin(a); return (u, v = 0) => [x + dx * u - dy * v, y + dy * u + dx * v]; };
 
+// ---- the moves ------------------------------------------------------------------
+// Arms are posed by their bones' swings, in degrees from hanging straight down
+// (+ forward, 90 level ahead, 180 overhead; minus behind), world-measured as
+// the joint lab measures them: [upper arm, forearm, steel]. The forearm is
+// always at or forward of the upper arm, so the elbow folds the way an elbow
+// does, and the upper arm never swings back past ~52°. The steel's swing
+// keeps the WRIST rule: a forward grip sits 0-120° forward of the forearm's
+// line (90 at rest, ~0-30 on a thrust), a reverse grip 60-180° behind it.
+const D = Math.PI / 180;
+const reachOf = (sh, [s1, s2], A) => [sh[0] + A.up * Math.sin(s1 * D) + A.fore * Math.sin(s2 * D), sh[1] + A.up * Math.cos(s1 * D) + A.fore * Math.cos(s2 * D)];
+const aim = (b) => Math.PI / 2 - b * D;          // a swing → the angle dagger() takes
+
+// The fight, in four frames (enemies.js fightFrame4 plays them off the blade's
+// attack clock once its rig lists fightN: 4): 0 GUARD, a low crouch held most
+// of the wait, weight centred; 1 WIND-UP, the coil — weight back over the rear
+// foot, the knife drawn back to the hip (the elbow ~50° back), the off hand
+// reaching for the mark; 2 STRIKE, the lunge — the front foot steps in, the
+// rear leg drives straight, the arm and steel go out in one line; 3 FOLLOW-
+// THROUGH, the steel carried past and down, the body sunk deepest into the
+// lunge, the cloak and sash still flying (they trail the body by a frame).
+// x/drop/lean: the hip; nf/ff: the feet; toe: the rear heel's lift; n/f: the
+// near (weapon) and far arm; fl/lift: the cloak streaming back / flying up;
+// sw: the skirts and sash; hx/ht: the head forward / tipped; cz: the censer.
+const GUARD = { x: 0, drop: 1.7, lean: 0.24, nf: 2.6, ff: -2.8, toe: 0.2, fl: 0.6, lift: 0, sw: 0.25, hx: 0.3, ht: 0.05, cz: 0.1 };
+const COIL = { x: -0.9, drop: 2.4, lean: 0.18, nf: 2.6, ff: -2.8, toe: 0, fl: 0.05, lift: 0, sw: -0.25, hx: 0.05, ht: 0.18, cz: -0.35 };
+const LUNGE = { x: 2.6, drop: 2.0, lean: 0.42, nf: 4.8, ff: -3.4, toe: 0.55, fl: 2.2, lift: 0.8, sw: 0.9, hx: 0.6, ht: 0.08, cz: 0.6 };
+const AFTER = { x: 2.9, drop: 2.5, lean: 0.48, nf: 4.8, ff: -3.1, toe: 0.45, fl: 1.5, lift: 1.9, sw: 0.55, hx: 0.5, ht: 0.12, cz: 0.3 };
+// the off hand: out in front on guard, reaching on the coil, flung back past
+// the hip on the lunge (a counterweight), swinging in again after; its knife
+// (the Court's second blade) rides in a reverse grip, point down
+const OFF = [[30, 105, 15], [55, 95, 5], [-45, -15, -70], [-28, 12, -62]];
+const FIGHTS = {
+  // the plain dagger: a straight-arm thrust from the hip
+  thrust: [
+    { ...GUARD, n: [12, 100, 130] },
+    { ...COIL, n: [-50, 40, 96] },
+    { ...LUNGE, n: [84, 93, 95] },
+    { ...AFTER, n: [48, 62, 62] },
+  ],
+  // the Kingslayer's estoc: a fencer's guard, the point up at the throat,
+  // the arm longer; the same drive, and the long steel reaches further
+  estoc: [
+    { ...GUARD, n: [30, 88, 116] },
+    { ...COIL, n: [-46, 44, 94] },
+    { ...LUNGE, n: [86, 92, 93] },
+    { ...AFTER, n: [60, 72, 74] },
+  ],
+  // the sellsword's hanger: a rising draw CUT — the blade drawn back low
+  // behind the hip in line with the arm, swung up through the mark edge
+  // first, and carried on up high in front (the hat and face stay clear)
+  cut: [
+    { ...GUARD, n: [22, 96, 140] },
+    { ...COIL, n: [-50, -30, -34] },
+    { ...LUNGE, n: [90, 100, 112] },
+    { ...AFTER, drop: 2.2, lean: 0.3, n: [118, 128, 180] },
+  ],
+  // the Widow's needle, in a reverse grip: held low and close, point down;
+  // raised high over the head; driven down and in over the guard (an icepick
+  // stab into the neck); drawn out low
+  icepick: [
+    { ...GUARD, n: [14, 118, 26] },
+    { ...COIL, x: -0.8, lean: 0.08, n: [148, 188, 70], hx: 0.1, ht: 0.04 },
+    { ...LUNGE, n: [110, 118, 42] },
+    { ...AFTER, n: [58, 80, 2] },
+  ],
+};
+// the Plague Bearer keeps his censer out in front through the fight (the
+// spores enemies.js puffs off it rise there) and holds the dagger low at the
+// belt on guard, under it
+FIGHTS.censer = FIGHTS.thrust.map((K, f) => (f ? K : { ...K, n: [-10, 60, 110] }));
+const OFF_CENSER = [[50, 100, 0], [62, 104, 0], [20, 70, 0], [30, 80, 0]];
+const STYLE = { long: "estoc", hanger: "cut", needle: "icepick" };
+
 // The gait: contact, passing, contact, passing. A blade walks up on its toes
-// with the hip riding high as the foot passes. The fight: a low crouch with
-// the weight back (the wait), then the lunge, stepping far in.
+// with the hip riding high as the foot passes, arms swinging against the legs
+// with the elbows soft; the cloak's tails swing a frame behind the body.
 const step = (p, o) => {
   const f = (p.frame || 0) % 4, s = o.stride;
   if (p.pose !== "fight") {
@@ -81,13 +155,13 @@ const step = (p, o) => {
       near: f === 3 ? [-0.2 * s, -o.lift] : [c * s + (f === 1 ? 0.3 * s : 0), 0],
       far: f === 1 ? [-0.2 * s, -o.lift] : [-c * s + (f === 3 ? 0.3 * s : 0), 0],
       x: 0, bob: f % 2 ? -o.bob : 0, drop: 0, lean: o.lean + (f % 2 ? 0 : o.dip), swing: -c,
+      fl: [0.9, 0.5, 1.1, 0.4][f], lift: 0, sw: [0.4, 0.1, -0.4, -0.1][f], hx: 0.2, ht: 0, toe: 0,
     };
   }
-  const hit = f === 1;
+  const k = p.censer ? "censer" : STYLE[p.blade] || "thrust", K = FIGHTS[k][f];
   return {
-    fight: true, f, c: 0, hit,
-    near: [hit ? 4.6 : 2.3, 0], far: [hit ? -3.4 : -2.9, 0],
-    x: hit ? o.lunge : -0.6, bob: 0, drop: hit ? 1.9 : 1.5, lean: hit ? 0.42 : 0.2, swing: 0,
+    ...K, fight: true, f, c: 0, style: k, hit: f >= 2, off: (p.censer ? OFF_CENSER : OFF)[f],
+    near: [K.nf, 0], far: [K.ff, 0], bob: 0, swing: 0,
   };
 };
 const skeleton = (p, o) => {
@@ -123,7 +197,7 @@ const leg = (ctx, R, o, which, cols) => {
     }
   });
   const lifted = fy < 0;
-  foot(ctx, an[0], an[1] + ank, o.foot, ank + 0.55, cols.foot, lifted ? 0.5 : st.fight && which === "far" ? 0.35 : 0);
+  foot(ctx, an[0], an[1] + ank, o.foot, ank + 0.55, cols.foot, lifted ? 0.5 : st.fight && which === "far" ? st.toe : 0);
   return { hp, kn, an };
 };
 const arm = (ctx, sh, to, o, cols) => {
@@ -275,16 +349,20 @@ const hoodHead = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
 // ---- the blade --------------------------------------------------------------------
 const BLADE = { L1: 4.8, L2: 4.6, stride: 2.1, lift: 2.3, bob: 0.8, lean: 0.12, dip: 0.04, lunge: 2.6, hipW: 0.6, thigh: 1.85, shin: 1.5, foot: 2.8, ankle: 0.7 };
 
-// where the hands go: [march, the wait, the cut]. The dagger rides low in a
-// reverse grip on the march, cocked back at the hip for the wait, and goes
-// straight out at the mark on the cut; an off-hand knife guards, then sweeps.
-const hands = (st, shN, shF) => {
-  const sw = st.swing, N = (dx, dy) => [shN[0] + dx, shN[1] + dy], F = (dx, dy) => [shF[0] + dx, shF[1] + dy];
-  const ph = !st.fight ? 0 : st.hit ? 2 : 1;
-  return [
-    { hn: N(0.9 + sw * 0.9, 4.6), an: 1.95 + sw * 0.08, hf: F(1.0 - sw * 1.3, 4.3), af: 2.1 - sw * 0.1 },
-    { hn: N(-1.9, 3.4), an: -0.28, hf: F(3.6, 1.6), af: -0.55 },
-    { hn: N(5.8, 0.4), an: -0.08, hf: F(-2.2, 3.6), af: 2.5 }][ph];
+// where the hands go. On the march the dagger rides low in a reverse grip,
+// point down and back, the arm swinging against the near leg with the elbow
+// soft (more fold as it comes forward); the far arm swings the other way. In
+// the fight the style's table poses both arms (step, above).
+const WALK_ARM = [[-22, 16], [-2, 50], [20, 82], [-2, 50]];
+const hands = (st, shN, shF, A, p) => {
+  if (st.fight) {
+    const [n1, n2, nb] = st.n, [f1, f2, fb] = st.off;
+    return { hn: reachOf(shN, [n1, n2], A), an: aim(nb), hf: reachOf(shF, [f1, f2], A), af: aim(fb) };
+  }
+  const [a1, a2] = WALK_ARM[st.f], [b1, b2] = WALK_ARM[(st.f + 2) % 4];
+  // (the Plague Bearer carries his censer out in front, the arm crooked)
+  const far = p.censer ? [26 - st.swing * 8, 96 - st.swing * 6] : [b1, b2];
+  return { hn: reachOf(shN, [a1, a2], A), an: aim(a2 - 72), hf: reachOf(shF, far, A), af: aim(far[1] - 78) };
 };
 
 const blade = (ctx, p) => {
@@ -295,7 +373,7 @@ const blade = (ctx, p) => {
   shadow(ctx, 0.4 + (st.fight ? st.x * 0.5 : 0), -0.1, 4.6, 1.2, 0.26);
   const shN = T(0.9, -6.5), shF = T(-1.0, -6.7);
   const A = { up: 3.1, fore: 2.9, w: 1.6 };
-  const H = hands(st, shN, shF);
+  const H = hands(st, shN, shF, A, p);
   const tights = darken(mix(lea, cloak, 0.7), 0.08);
   const armN = { up: lea, fore: lea, cuff: darken(lea, 0.28), buckle: trim };
   const armF = { up: darken(lea, 0.28), fore: darken(lea, 0.28), cuff: darken(lea, 0.45), buckle: darken(trim, 0.3) };
@@ -304,8 +382,7 @@ const blade = (ctx, p) => {
 
   // the cloak, behind everything: from the shoulders to the knee, split into
   // ragged tails that stream back as he goes and fly out on the lunge
-  const fl = st.fight ? (st.hit ? 2.2 : 0.6) : [0.5, 1.1, 0.4, 0.9][st.f];
-  const lift = st.fight && st.hit ? 1.4 : 0;
+  const fl = st.fl, lift = st.lift;
   // (p.long: the Widow's mourning cloak falls to the ankle, a band of pale
   // lace scalloped along its hem; p.hem: a gilt edge along the hem)
   const ext = p.long ? (st.fight ? 0.32 : 0.5) : 0, dn = (y) => (y > 1 ? y + (y - 1) * ext : y);
@@ -332,8 +409,6 @@ const blade = (ctx, p) => {
   });
 
   // the far arm, behind the body: the off-hand knife, or an empty hand
-  // (the Plague Bearer carries his censer out in front on the march)
-  if (p.censer && !st.fight) H.hf = [shF[0] + 3.0 - st.swing * 0.7, shF[1] + 3.6];
   const hf = arm(ctx, shF, H.hf, A, armF);
   if (p.offhand) dagger(ctx, hf[0], hf[1], H.af, darken(steel, 0.12), { len: 3.8, trim: darken(trim, 0.2), venom: p.venom && darken(p.venom, 0.1) });
   fist(ctx, hf[0], hf[1], 0.85, darken(skin, 0.3));
@@ -346,7 +421,7 @@ const blade = (ctx, p) => {
   // with holes that glow with what smoulders inside, swinging as he goes
   const censer = () => {
     if (!p.censer) return;
-    const ang = st.fight ? (st.hit ? -0.55 : 0.35) : 0.4 + st.swing * 0.25, L = 2.4;
+    const ang = st.fight ? st.cz : 0.1 + st.swing * 0.3, L = 2.4;
     const cx = hf[0] + Math.sin(ang) * L, cy = hf[1] + Math.cos(ang) * L;
     part(ctx, (c) => { for (let u = 0.15; u < 0.8; u += 0.22) dab(c, hf[0] + (cx - hf[0]) * u - 0.25, hf[1] + (cy - hf[1]) * u - 0.25, 0.5, 0.5, "#8a8478"); });
     part(ctx, (c) => {
@@ -359,7 +434,7 @@ const blade = (ctx, p) => {
   // the trunk: a slim leather jerkin, skirts split at the hip, the baldric,
   // the belt and what hangs from it
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
-    const sw = st.fight ? (st.hit ? 0.9 : 0.2) : st.c * 0.5;
+    const sw = st.sw;
     const skirt = (pts, col) => blob(c, pts, col, { hi: 0.28, then: (cc) => dab(cc, -4, 1.9, 8, 0.7, darken(col, 0.4)) });
     skirt([[-2.2, -1.0], [0.1, -1.0], [-0.2 - sw * 0.3, 2.6, 1], [-2.5 - sw * 0.6, 2.3, 1]], darken(lea, 0.2));
     skirt([[-0.2, -1.0], [2.1, -1.0], [2.5 + sw, 2.4, 1], [0.1 + sw * 0.4, 2.6, 1]], lea);
@@ -417,8 +492,8 @@ const blade = (ctx, p) => {
   }));
 
   // the head, carried low and forward, the chin tucked
-  const hd = T(0.95, -9.25); hd[0] += st.hit ? 0.5 : 0.2;
-  hoodHead(ctx, hd[0], hd[1], st.lean * 0.25 + (st.fight ? 0.05 : 0), p);
+  const hd = T(0.95, -9.25); hd[0] += st.hx;
+  hoodHead(ctx, hd[0], hd[1], st.lean * 0.25 + st.ht, p);
 
   // the dagger hand
   const hn = arm(ctx, shN, H.hn, A, armN);
