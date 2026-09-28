@@ -67,6 +67,27 @@ gate, scenery, Iron and Fen grounds, apron — ten artists):
   read off a full-board snap: a lab script's own `import()` of path.js can
   be a different module instance from the page's.
 
+## Joints and motion (September 28 pass)
+
+The owner saw "broken arms when casting or attacking" and stiff, two-frame
+animation. The rules are in `art/STYLE-GUIDE.md` "Joints and motion"; the
+mechanics:
+- Crews are built from `src/render/folk-kit.js`: `arm()` solves the elbow
+  with fixed bones and the natural fold (`flip` only for an arm raised out
+  to the side — a bow draw, a cocked throw), `legs(..., { hip })` shifts
+  the weight, and `keyed` / `arcMix` / `frameOf` make eased in-betweens.
+  The old `bend` option is gone. Figures live in `folk-archer.js`,
+  `folk-casters.js`, `folk-workers.js`, `folk-gunners.js`; `folk.js`
+  re-exports them and keeps the build crew.
+- `joint-lab.html?set=<set>` measures every pose (sets in `joint-sets/`;
+  the rig files log their arms and legs too) — nothing ships red.
+  `hallstrip.html` shows a hall frame by frame through a firing cycle.
+- Fight frames come from the attack clock, not a free-running timer
+  (`src/render/enemies.js`): soldiers and blades from `u.atkCd`/`u.swing`
+  (`fightFrame`), foes from `e.meleeCd`/`e.atkAnim`. A rig with four fight
+  frames (guard, wind-up, strike, follow-through) says so — `fightN: 4` on
+  its RIGS entry, or `CROWN_FIGHT_FRAMES` in rigs-crown.js.
+
 ## Several sessions at once
 
 The owner often runs several Claude sessions in this folder at the same
