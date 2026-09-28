@@ -371,8 +371,9 @@ export function draw(g, canvas, bufRef) {
     const dir = (eg.vx ?? 1) < 0 ? -1 : 1;
     // her frames: wingbeats cruising; on a strafing pass the lance couched
     // down the dive (fight 0), the thrust at the strike (1), carried through
-    // (2) and back to the couch on the climb (3); in a duel, each blow 1
-    // then 2, and 0 between (engine: eg.passAt, eg.blowAt, eg.latched)
+    // (2) and back to the couch on the climb (3); in a duel, wingbeats while
+    // she waits, couched (0) over the last 45% of her reload, then each blow
+    // 1, 2, 3 (engine: eg.passAt, eg.blowAt, eg.latched)
     const four = (rigDef("eagle").fightN || 2) === 4, ems = g.time * 1000;
     let esheet = "walk", efr = Math.floor(g.time * 8 + t.id) % 4;
     if (eg.passAt != null) {
@@ -380,9 +381,10 @@ export function draw(g, canvas, bufRef) {
       esheet = "fight";
       efr = ms < STRIKE_MS ? 0 : ms < STRIKE_MS + 90 ? 1 : !four ? 0 : ms < STRIKE_MS + 290 ? 2 : 3;
     } else if (eg.latched) {
-      const since = ems - (eg.blowAt ?? -1e9);
-      esheet = "fight";
-      efr = since < 90 ? 1 : four && since < 240 ? 2 : 0;
+      const since = ems - (eg.blowAt ?? -1e9), rate = getStats(t).eagleRate || 620;
+      if (since < 90) { esheet = "fight"; efr = 1; }
+      else if (four && since < 360) { esheet = "fight"; efr = since < 240 ? 2 : 3; }
+      else if (since > rate * 0.55) { esheet = "fight"; efr = 0; }
     }
     softShadow(ctx, eg.x + 4, eg.y + 22, 12, 3, 0.24);
     drawRig(ctx, "eagle", eg.x, eg.y + 10, dir, esheet, efr);

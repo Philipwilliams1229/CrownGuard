@@ -74,11 +74,12 @@ const resolveStrikes = (g, tms) => {
 // With the sky clear she strafes the road: a pass is PASS_MS long, a dive
 // from HIGH over the prey out to one side (REACH back along her line) to the
 // strike point LOW over it and LANCE short of it, where the rider's lance
-// goes through at STRIKE_MS, then the climb out the far side; a wheel there
+// goes through at STRIKE_MS (rigs-eagle.js: fight 1's lance point is 20.5
+// out and 16.8 down from her position, so it meets the prey's body there), then the climb out the far side; a wheel there
 // until her next pass (st.groundRate from the last) brings her back the
 // other way. draw.js plays her fight frames off eg.passAt and eg.blowAt.
 export const PASS_MS = 720, STRIKE_MS = 300;
-const REACH = 58, LANCE = 14, HIGH = 40, LOW = 14;
+const REACH = 58, LANCE = 20, HIGH = 40, LOW = 20;
 // where a pass puts her `ms` into it, over an anchor (ax, ay), going `dir`:
 // the dive steepest at its top and flat at the bottom, the climb the mirror
 export const passPoint = (ax, ay, dir, ms) => {
@@ -122,7 +123,7 @@ const strafe = (g, t, eg, st, tms, sdt) => {
     if (!eg.struck && ms >= STRIKE_MS) {
       // the lance goes through whoever is under it at the bottom of the dive
       eg.struck = true;
-      const lx = eg.x + eg.passDir * LANCE, ly = eg.y + LOW;
+      const lx = eg.x + eg.passDir * 20.5, ly = eg.y + 16.8;
       let v2 = it && Math.hypot(it.x - lx, it.y - ly) < 30 ? it : null;
       if (!v2) {
         let bd = 20;
