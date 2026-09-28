@@ -11,7 +11,7 @@
 // re-exported here. This file keeps the build crew.
 
 import { lighten, darken, shadow, roundRect, lin, part } from "./paint.js";
-import { limb, blob, dab, head, torso, legs, hand, arm, cap } from "./folk-kit.js";
+import { limb, blob, dab, head, torso, legs, hand, arm, cap, logJoint } from "./folk-kit.js";
 export * from "./folk-kit.js";
 export * from "./folk-archer.js";
 export * from "./folk-casters.js";
@@ -78,6 +78,7 @@ const workLeg = (ctx, hx, hy, [ax, ay, ang], col, bootCol) => {
 // face rather than across it
 const workArm = (ctx, sx, sy, [hx, hy, bend = 1, ex, ey], pal, col) => {
   if (ex === undefined) { arm(ctx, sx, sy, hx, hy, pal, { col, bend }); return; }
+  logJoint(ctx, "arm", [sx, sy], [ex, ey], [hx, hy]);
   limb(ctx, sx, sy, ex, ey, 2.4, col);
   limb(ctx, ex, ey, hx, hy, 2.2, col);
   hand(ctx, hx, hy, pal.skin);

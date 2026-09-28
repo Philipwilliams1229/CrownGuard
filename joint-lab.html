@@ -1,0 +1,127 @@
+<!doctype html>
+<!--
+  The joint lab: every figure of a set enlarged, drawn plain and again with
+  its bones over it (shoulder → elbow → hand, hip → knee → ankle), each joint
+  measured against the body's limits in art/STYLE-GUIDE.md ("Joints"). A
+  green bone is fine, amber is near a limit, red breaks one; the note under
+  the cell says which. Rows read left to right as an animation plays.
+
+    /joint-lab.html?set=towers&tag=before            (scale 3; &scale=4)
+    &only=mage,priest     rows whose label contains any of these words
+    &bones=0              the plain strip only
+
+  Saved to .shots/joints_<set>_<tag>.png. window.AUDIT lists the findings
+  (node scripts/shoot.mjs "/joint-lab.html?set=towers" "AUDIT.join('\n')").
+
+  A set is joint-sets/<set>.js exporting `rows = [[label, [cell, ...]], ...]`,
+  where a cell is (ctx) => draws one figure with its feet at (FX, FY) =
+  (18, 42) of a 36 x 48 cell, or { draw, note } to caption it. Figures log
+  their joints through folk-kit.js `logJoint` (arm() does it for you); a
+  bespoke limb logs its own: logJoint(ctx, "arm", shoulder, elbow, hand).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>joint lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; margin: 0; } pre { font-size: 12px; }</style></head>
+  <body>
+    <pre id="out">baking…</pre>
+    <script type="module">
+      import { JOINTS, UPPER, FORE } from "/src/render/folk-kit.js";
+      import { bakeSprite, PX } from "/src/render/paint.js";
+      const q = new URLSearchParams(location.search);
+      const SET = q.get("set") || "towers", TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 3;
+      const BONES = q.get("bones") !== "0";
+      const only = (q.get("only") || "").split(",").filter(Boolean);
+      const { rows: all, CW = 36, CH = 48 } = await import(`/joint-sets/${SET}.js`);
+      const rows = only.length ? all.filter(([name]) => only.some((w) => name.includes(w))) : all;
+
+      // ---- the body's limits (keep in step with art/STYLE-GUIDE.md "Joints")
+      const LIM = {
+        fold: 145,        // an elbow or knee closes to about 35° between the bones
+        back: 8,          // an elbow may straighten a hair past straight, no more
+        stretch: 0.1,     // bones keep their length within 10% (warn past 5%)
+        swingBack: 75,    // the upper arm swings back from hanging at most ~60° (warn past 55)
+      };
+      const deg = (r) => (r * 180) / Math.PI;
+      const judge = (j) => {
+        const [s, e, h] = [j.a, j.b, j.c];
+        const u = [e[0] - s[0], e[1] - s[1]], f = [h[0] - e[0], h[1] - e[1]];
+        const lu = Math.hypot(...u) || 1e-6, lf = Math.hypot(...f) || 1e-6;
+        const fold = deg(Math.acos(Math.max(-1, Math.min(1, (u[0] * f[0] + u[1] * f[1]) / (lu * lf)))));
+        const cross = u[0] * f[1] - u[1] * f[0];
+        const out = [];
+        const say = (lvl, msg) => out.push([lvl, msg]);
+        if (j.kind === "arm") {
+          const [U, F] = j.lens || [UPPER, FORE];
+          if (cross > 0 && fold > LIM.back && !j.flip) say(2, `elbow bends backward ${fold.toFixed(0)}°`);
+          if (fold > LIM.fold + 8) say(2, `elbow folded ${fold.toFixed(0)}°`); else if (fold > LIM.fold) say(1, `elbow folded ${fold.toFixed(0)}°`);
+          for (const [nm, l, r] of [["upper arm", lu, U], ["forearm", lf, F]]) {
+            const k = l / r - 1;
+            if (Math.abs(k) > LIM.stretch) say(2, `${nm} ${k > 0 ? "stretched" : "shrunk"} ${(k * 100).toFixed(0)}%`);
+            else if (Math.abs(k) > LIM.stretch / 2) say(1, `${nm} ${(k * 100).toFixed(0)}%`);
+          }
+          // the upper arm's swing: 0 hanging, +90 forward, ±180 overhead, -90 straight back
+          const sw = deg(Math.atan2(u[0], u[1]));
+          if (!j.flip && sw < -LIM.swingBack && sw > -150) say(2, `upper arm swung back ${(-sw).toFixed(0)}°`);
+          else if (!j.flip && sw < -55 && sw > -160) say(1, `upper arm swung back ${(-sw).toFixed(0)}°`);
+        } else if (j.kind === "leg") {
+          if (cross < 0 && fold > LIM.back) say(2, `knee bends backward ${fold.toFixed(0)}°`);
+          if (fold > LIM.fold + 8) say(2, `knee folded ${fold.toFixed(0)}°`);
+        }
+        return { fold, out, lvl: Math.max(0, ...out.map((o) => o[0])) };
+      };
+
+      const cells = rows.map(([name, list]) => [name, list.map((cell) => {
+        const draw = typeof cell === "function" ? cell : cell.draw;
+        JOINTS.log = [];
+        let sp = null, err = null;
+        try { sp = bakeSprite(CW, CH, draw); } catch (e) { err = e; console.error(name, e); }
+        const joints = JOINTS.log.map((j) => ({ ...j, ...judge(j) }));
+        JOINTS.log = null;
+        return { sp, err, joints, note: cell.note || "" };
+      })]);
+
+      const cw = CW * PX * SC, ch = CH * PX * SC, LABEL = 150, NOTE = 64;
+      const cols = Math.max(...cells.map(([, l]) => l.length));
+      const rowH = (BONES ? ch * 2 : ch) + NOTE;
+      const cv = document.createElement("canvas");
+      cv.width = LABEL + cw * cols; cv.height = rowH * cells.length;
+      const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = "#20242c"; ctx.fillRect(0, 0, cv.width, cv.height);
+      const COL = ["#6ee06e", "#f0c040", "#ff4040"];
+      const AUDIT = [];
+      cells.forEach(([name, list], r) => {
+        const y0 = r * rowH;
+        ctx.fillStyle = "#fff"; ctx.font = "bold 14px monospace";
+        name.split("\n").forEach((ln, i) => ctx.fillText(ln, 6, y0 + 20 + i * 16));
+        list.forEach((c, i) => {
+          const x0 = LABEL + i * cw;
+          for (const k of BONES ? [0, 1] : [0]) {
+            const yy = y0 + k * ch;
+            ctx.fillStyle = (r + i + k) % 2 ? "#7aa84e" : "#82b256"; ctx.fillRect(x0, yy, cw, ch);
+            if (!c.sp) continue;
+            ctx.globalAlpha = k ? 0.45 : 1;
+            ctx.drawImage(c.sp, x0, yy, c.sp.width * SC, c.sp.height * SC);
+            ctx.globalAlpha = 1;
+            if (!k) continue;
+            for (const j of c.joints) {
+              const P = j.dev.map(([x, y]) => [x0 + x * SC, yy + y * SC]);
+              ctx.lineWidth = 3; ctx.strokeStyle = COL[j.lvl]; ctx.lineCap = "round";
+              ctx.beginPath(); ctx.moveTo(...P[0]); ctx.lineTo(...P[1]); ctx.lineTo(...P[2]); ctx.stroke();
+              for (const [n, [x, y]] of P.entries()) { ctx.fillStyle = n === 1 ? "#fff" : "#20242c"; ctx.fillRect(x - 3, y - 3, 6, 6); }
+            }
+          }
+          const notes = [];
+          if (c.note) notes.push([0, c.note]);
+          if (c.err) notes.push([2, "ERROR " + c.err.message]);
+          c.joints.forEach((j, n) => j.out.forEach(([lvl, m]) => { notes.push([lvl, `${j.kind}${n}: ${m}`]); if (lvl) AUDIT.push(`${lvl > 1 ? "BAD " : "warn"} ${name.replace(/\n/g, " ")} #${i} ${j.kind}${n}: ${m}`); }));
+          ctx.font = "11px monospace";
+          notes.slice(0, 5).forEach(([lvl, m], n) => { ctx.fillStyle = lvl ? COL[lvl] : "#e8e0c8"; ctx.fillText(m.slice(0, Math.floor(cw / 6.7)), x0 + 3, y0 + (BONES ? 2 * ch : ch) + 13 + n * 12); });
+        });
+      });
+      window.AUDIT = AUDIT;
+      document.getElementById("out").textContent = AUDIT.join("\n") || "no joint breaks a limit";
+      await fetch(`/__shot?name=joints_${SET}_${TAG}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

@@ -48,7 +48,7 @@ copy what the rebuilt pieces do.
 | The Hollow Court's dead (risen, barrow archer, plague ghast, crypt warden, gravecaller, Hollow King) | `src/render/rigs-hollow.js` | the horde's bending skeleton with real bones; `hlw-lab.html` (on fen and road) |
 | The Hollow Court's beasts and spirits (ghoul, wraith, grave amalgam) | `src/render/rigs-hollowbeasts.js` | `hlb-lab.html` |
 | Anything not in the files above (the generic rig) | `src/render/rigs.js` | entries in the rig files above override these |
-| Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk.js` | the new body: slim, jointed arms, small hands |
+| Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk-kit.js` (the body: head, torso, `legs`, `arm` with its elbow solver, timing helpers) and one file per crew: `folk-archer.js`, `folk-casters.js` (mage, priest), `folk-workers.js` (winch crew, smith, standers, the wall's halberdier and mason), `folk-gunners.js` (bombardier/alchemist, musketeer, falcon-mistress, hooded blade); `folk.js` re-exports them all and keeps the build crew | the new body: slim, jointed arms, small hands; joints per "Joints and motion" |
 | Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js` |
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type; `IRON_ART.flat` / `HOLLOW_ART.flat` list pieces baked without the 2px ring |
 | The gate's crag (the hill the Greenwood/old realms' cave is cut into) | `src/data/gatecrag.js` (`gateCrag`, `hillAt`, `cragBlocks`) | pure data: scenery.js paints from it AND `buildableAt` refuses halls on it — change its shape only here, then scan that no buildable point lies on opaque gate pixels |
@@ -147,6 +147,61 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
 - Engine spawn points must match the art (the wizard's orb leaves the staff
   tip, catapult stones leave the arm tip, the Sunforge beam starts at the
   shard) — if a hall grows, check where its shots start.
+
+## Joints and motion (the September 28 pass)
+
+The owner: "towers have weird and not fluid animations ... the arms bend in
+ways that would really hurt an actual person." Every figure — tower crews,
+builders, soldiers, the horde — keeps to a real body's limits, and every
+action moves like one. Measure, don't eyeball: `joint-lab.html?set=<set>`
+draws each pose plain and again with its bones over it, green / amber / red
+against the limits below (sets in `joint-sets/`; the crews log their joints
+through `logJoint` in `src/render/folk-kit.js`, which `arm()` and `legs()`
+call for you — a bespoke limb logs its own). Nothing ships red.
+
+**The limits** (side view, the figure facing +x):
+- **The elbow folds one way.** The forearm swings forward and up off the
+  upper arm: a hanging arm's elbow points BACK, an arm raised in front has
+  its elbow down and forward, an arm overhead has its elbow forward of the
+  head. Never forward-pointing on a hanging arm, never "up" on an arm
+  reaching forward — that is a knee, and it reads as broken. It folds at
+  most ~145° and straightens no more than a hair past straight.
+- **Out to the side is the one exception** (`flip` in `arm()`/`elbowFor`):
+  an arm raised out sideways shows its elbow reversed in profile — the
+  string hand at full draw (elbow back at shoulder height), a throw cocked
+  behind the head, a hand over the shoulder to a quiver. Only those.
+- **The shoulder** swings the upper arm forward and up freely, to overhead;
+  backward only ~55° from hanging (the lab warns past 55°, fails past 75°).
+  An elbow up behind the head is a `flip` pose, never a plain one.
+- **Bones keep their length:** crews' upper arm `UPPER` 4.6, forearm to the
+  middle of the hand `FORE` 4.4 (thigh `THIGH` 4.08, shin `SHIN` 2.61).
+  `arm()` solves the elbow for you; if a hand must reach farther, move the
+  body (lean, shift the hips with `legs(..., { hip })`, step), never the
+  bone. The lab warns at 5% and fails at 10%.
+- **Knees** fold forward only (the shin swings back), as `legs()` does.
+- **Wrists:** a held tool carries on roughly along the forearm (within
+  ~60°); a hammer's or staff's head leads the swing, it never trails back
+  along the arm.
+
+**Motion:**
+- **No two-frame toggles for an action.** Anticipation → action →
+  follow-through → settle: a wind-up with the weight on the back foot, a
+  fast strike (fewest frames), an overshoot, then an eased return. 4–8
+  baked frames per cycle; hold the extremes, spend few frames on the fast
+  part. `folk-kit.js` has `keyed(keys, phase)` (eased in-betweens of key
+  poses), `mixPose`, `arcMix` (a hand swinging on its arc round the
+  shoulder, not along a ruler), `ease`/`easeIn`/`easeOut` and
+  `frameOf(phase, n)` (which baked frame a hall stamps).
+- **The whole body takes part:** the torso leans and the head follows the
+  hands; the hips shift, the feet stay planted unless the figure steps (no
+  torso sliding over still feet).
+- **Secondary motion:** hat points, hems, sleeves and hair trail the body
+  by a frame and settle after it.
+- **Idle is alive but calm:** a breath (one art pixel) every few seconds, a
+  glance, a shift of weight; crews on one hall and on neighbouring halls are
+  never in step (phase by `t.id`, and by the crewman's index).
+- Frames stay baked (one cache key per pose and frame) and stamped; the
+  number of frames per form stays small (≤ 8 per cycle).
 
 ## The castle mark and icons
 
@@ -476,7 +531,8 @@ dev server; view them from there):
   `snap(name, realm, marchers, extra, [x, y, w, h, scale])` from an injected
   module script (the browser tool's JS runs in an isolated world).
 - Lab pages per area: `twa-lab.html`, `twb-lab.html`, `twb-folk.html` (every
-  crew figure), `crw-lab.html`, `hrd-lab.html`, `bst-lab.html`, `cas-lab.html`,
+  crew figure), `joint-lab.html?set=<set>` (bones and joint limits, see
+  "Joints and motion"), `crw-lab.html`, `hrd-lab.html`, `bst-lab.html`, `cas-lab.html`,
   `scn-lab.html`, `fx-lab.html`, `map-lab.html`, `apron-lab.html` (the landscape beyond the board at phone/tablet/desktop layouts), `icon-lab.html` (the app icon), `hud-lab.html`, `wdn-lab.html`.
 - `props-lab.html`: every object a hall puts OUT into the world (traps,
   logs, stoops, the war-eagle, shots, soldiers and blades), zoomed on the

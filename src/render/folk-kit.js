@@ -95,10 +95,15 @@ export const torso = (ctx, x, top, h, w, pal) => {
 };
 
 // Two jointed legs: thigh and shin, knees a touch bent, boots with a toe.
-export const legs = (ctx, x, y, pal, stride = 0) => {
+// o.hip [dx, dy] moves the hips off the planted feet (a weight shift, a
+// crouch, a lunge): the knees are solved then, folding forward only.
+export const THIGH = 4.08, SHIN = 2.61;
+export const legs = (ctx, x, y, pal, stride = 0, o = {}) => {
   const leg = (hx, fx, col) => {
-    const kx = (hx + fx) / 2 + 0.5, ky = y - 3.8;
-    limb(ctx, hx, y - 7.8, kx, ky, 2.6, col);
+    let kx = (hx + fx) / 2 + 0.5, ky = y - 3.8, hy = y - 7.8;
+    if (o.hip) { hx += o.hip[0]; hy += o.hip[1]; [kx, ky] = elbowFor(hx, hy, fx, y - 1.2, { upper: THIGH, fore: SHIN, flip: true }); }
+    logJoint(ctx, "leg", [hx, hy], [kx, ky], [fx, y - 1.2], { lens: [THIGH, SHIN] });
+    limb(ctx, hx, hy, kx, ky, 2.6, col);
     limb(ctx, kx, ky, fx, y - 1.2, 2.3, col);
     blob(ctx, [[fx - 1.1, y - 2.2], [fx + 0.8, y - 2.2], [fx + 2.2, y - 0.4, 1], [fx + 1.8, y + 0.2, 1], [fx - 1.2, y + 0.2, 1]], darken(pal.boots, 0.2), { hi: 0.35 });
   };
@@ -109,17 +114,87 @@ export const legs = (ctx, x, y, pal, stride = 0) => {
 // An arm in two parts: shoulder to elbow to hand, the elbow dropping (or,
 // with bend -1, lifting) as the arm folds, and a small closed hand on the end.
 export const hand = (ctx, x, y, col) => ball(ctx, x, y, 1.1, 1.2, col, { hi: 0.4, lo: 0.4 });
+
+// ---- joints ------------------------------------------------------------------
+// The joint lab (joint-lab.html) sets JOINTS.log to an array; every arm (and
+// leg) drawn while it is set is logged there — shoulder, elbow, hand in the
+// figure's own space (facing +x) and on the canvas — and the lab measures
+// each one against the body's limits (see "Joints" in art/STYLE-GUIDE.md).
+export const JOINTS = { log: null };
+// the arm's two bones: shoulder to elbow, elbow to the middle of the hand
+export const UPPER = 4.6, FORE = 4.4;
+export const logJoint = (ctx, kind, a, b, c, o = {}) => {
+  if (!JOINTS.log) return;
+  const m = ctx.getTransform(), dev = ([x, y]) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
+  JOINTS.log.push({ kind, a, b, c, flip: !!o.flip, lens: o.lens || null, dev: [dev(a), dev(b), dev(c)] });
+};
+
+// An arm in two bones that keep their length (UPPER, FORE): given where the
+// hand must be, the elbow is solved, always folding the way a real elbow
+// does — for a figure facing +x the forearm swings forward and up off the
+// upper arm, so a hanging arm's elbow points back and a raised arm's points
+// down and forward; never back like a knee. Out of reach the arm goes
+// straight (the bones stretch to the target: the joint lab flags it).
+//   o.flip   the other fold, for an arm raised OUT to the side, whose elbow
+//            the side view sees reversed: a bow drawn to the cheek, a throw
+//            cocked behind the head. Use it only for those.
+//   o.elbow  [x, y]: place the elbow by hand (the lab still measures it).
+//   o.col / o.glove / o.hand: false  sleeve colour, hand colour, no hand.
+export const elbowFor = (sx, sy, hx, hy, o = {}) => {
+  const u = o.upper ?? UPPER, f = o.fore ?? FORE;
+  const dx = hx - sx, dy = hy - sy, L = Math.hypot(dx, dy);
+  if (L >= u + f - 0.01) { const k = u / (u + f); return [sx + dx * k, sy + dy * k]; }
+  const d = Math.max(L, Math.abs(u - f) + 0.05);
+  const a = Math.atan2(dy, dx), k = Math.acos(Math.max(-1, Math.min(1, (u * u + d * d - f * f) / (2 * u * d))));
+  const j = a + (o.flip ? -k : k);
+  return [sx + Math.cos(j) * u, sy + Math.sin(j) * u];
+};
 export const arm = (ctx, sx, sy, hx, hy, pal, o = {}) => {
-  const dx = hx - sx, dy = hy - sy, L = Math.hypot(dx, dy) || 1;
-  const k = Math.sqrt(Math.max(0, 24 - (L / 2) ** 2)) * 0.8;
-  let nx = -dy / L, ny = dx / L;
-  if ((ny < 0) !== (o.bend === -1)) { nx = -nx; ny = -ny; }
-  const ex = (sx + hx) / 2 + nx * k, ey = (sy + hy) / 2 + ny * k;
+  const [ex, ey] = o.elbow || elbowFor(sx, sy, hx, hy, o);
+  logJoint(ctx, "arm", [sx, sy], [ex, ey], [hx, hy], o);
   const col = o.col || pal.coat;
   limb(ctx, sx, sy, ex, ey, 2.4, col);
   limb(ctx, ex, ey, hx, hy, 2.2, col);
   if (o.hand !== false) hand(ctx, hx, hy, o.glove || pal.skin);
 };
+// ---- timing --------------------------------------------------------------------
+// A hall picks a baked frame from a 0..1 phase; these turn a few key poses
+// into eased in-betweens so an action reads as wind-up, strike, follow-
+// through and settle instead of a two-frame toggle (see "Joints and motion"
+// in art/STYLE-GUIDE.md).
+export const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));   // slow out, slow in
+export const easeIn = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t);                // gathering speed (a strike)
+export const easeOut = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - (1 - t) * (1 - t)); // losing it (a settle)
+// the n-th of `n` frames for a phase p in 0..1 (wraps)
+export const frameOf = (p, n) => Math.min(n - 1, Math.floor((((p % 1) + 1) % 1) * n));
+// numbers, and arrays / objects of them, blended a → b
+export const mixPose = (a, b, t) => {
+  if (typeof a === "number") return a + (b - a) * t;
+  if (Array.isArray(a)) return a.map((v, i) => mixPose(v, b[i], t));
+  if (a && typeof a === "object") { const o = {}; for (const k in a) o[k] = k in b ? mixPose(a[k], b[k], t) : a[k]; return o; }
+  return t < 0.5 ? a : b;
+};
+// a hand's path from a to b around the shoulder `sh`: angle and reach blend,
+// so the hand swings on an arc as a real one does, not along a ruler
+export const arcMix = (sh, a, b, t) => {
+  const pa = [Math.atan2(a[1] - sh[1], a[0] - sh[0]), Math.hypot(a[0] - sh[0], a[1] - sh[1])];
+  let pb = Math.atan2(b[1] - sh[1], b[0] - sh[0]);
+  while (pb - pa[0] > Math.PI) pb -= 2 * Math.PI;
+  while (pb - pa[0] < -Math.PI) pb += 2 * Math.PI;
+  const ang = pa[0] + (pb - pa[0]) * t, r = pa[1] + (Math.hypot(b[0] - sh[0], b[1] - sh[1]) - pa[1]) * t;
+  return [sh[0] + Math.cos(ang) * r, sh[1] + Math.sin(ang) * r];
+};
+// keys [[at, pose], ...] with `at` rising from 0 to 1: the pose at phase p,
+// eased between the two keys around it (o.ease: a curve per span, default ease)
+export const keyed = (keys, p, o = {}) => {
+  if (p <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) {
+    const [t1, b] = keys[i];
+    if (p <= t1) { const [t0, a] = keys[i - 1]; const k = (p - t0) / ((t1 - t0) || 1); return mixPose(a, b, (keys[i][2] || o.ease || ease)(k)); }
+  }
+  return keys[keys.length - 1][1];
+};
+
 // A cap over a bare head: a crown and a brim that juts forward (+x).
 export const cap = (ctx, x, y, col, o = {}) => {
   const hy = y - 0.3, w = o.wide ? 1.9 : 1;

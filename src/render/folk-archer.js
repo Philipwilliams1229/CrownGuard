@@ -3,7 +3,7 @@
 // by tower and path. Built from folk-kit.js; folk.js re-exports it.
 
 import { lighten, darken, rgba, shadow, ball, roundRect, lin, part } from "./paint.js";
-import { limb, dab, head, torso, legs } from "./folk-kit.js";
+import { limb, dab, head, torso, legs, logJoint } from "./folk-kit.js";
 
 // An archer at the string. `draw` runs 0..1: loosed to full draw. Towers
 // may pass `o.pose`: "rest" (bow carried low, at ease), "loose" (the string
@@ -95,6 +95,7 @@ export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
   const sh = [0.9, -16.4];
   const ex2 = pose === "draw" ? sh[0] - 1.5 - d * 1.8 : pose === "loose" ? -1.2 : pose === "reach" ? -1.6 : 0.2;
   const ey2 = pose === "draw" ? -15.4 - d * 2.4 : pose === "loose" ? -15.2 : pose === "reach" ? -19.6 : -12.6;
+  logJoint(ctx, "arm", sh, [ex2, ey2], [hx, hy]);
   limb(ctx, sh[0], sh[1], ex2, ey2, 2.4, pal.coat);
   limb(ctx, ex2, ey2, hx, hy, 2.2, pal.coat);
   ball(ctx, hx, hy, 1.05, 1.1, pal.skin, { hi: 0.4, lo: 0.4 });
