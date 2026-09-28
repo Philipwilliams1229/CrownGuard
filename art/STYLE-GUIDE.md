@@ -164,6 +164,12 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
   sims). Catapult stones leave the arm tip, the Sunforge beam the shard. If
   a hall or a pose moves, move its entry there and check with
   `shotlab.html`.
+- A hall with two crew who aim on their own never turns as a whole (owner,
+  2026-09-28: the Powder Works "spins left and right" when the whole store
+  was mirrored to each shot, and snapped back when idle). Its building keeps
+  one facing for good (`powderHome`: toward the road it watches) and each
+  man faces his own last shot and HOLDS it when the fighting stops
+  (`bomberFacing`/`musketFacing` in muzzles.js, off `t.bAim`/`t.mAim`).
 
 ## Joints and motion (the September 28 pass)
 

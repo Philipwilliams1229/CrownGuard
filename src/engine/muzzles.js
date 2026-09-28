@@ -12,6 +12,7 @@ import { mageTip } from "../render/folk-casters.js";
 import { musketMuzzle, mistressGlove } from "../render/folk-gunners.js";
 import { skiffMuzzle, SKIFF_LIFT, skiffBob } from "../render/rigs-skiff.js";
 import { archerLayout } from "./towers.js";
+import { nearestOnPath, SEGS } from "./path.js";
 export { MUSKET_LIFE } from "../render/musketfx.js";
 
 export const facing = (t) => (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
@@ -54,24 +55,36 @@ export const staffFrom = (t) => {
   return [t.x + facing(t) * tx, t.y - spire - 7 + ty];
 };
 
+// The Powder Works stands one way for good: its store faces the road it was
+// built to watch (the nearest point of it), the musketeer on that side of
+// the deck and the bombardier behind him. Only the two men turn, each to
+// his own last shot, and each holds it until his next (t.bAim, t.mAim).
+export const powderHome = (t) => {
+  if (t.face0 == null) t.face0 = !SEGS.length || nearestOnPath(t.x, t.y).x >= t.x ? 1 : -1;
+  return t.face0;
+};
+export const bomberFacing = (t) => (t.bAim == null ? powderHome(t) : Math.cos(t.bAim) >= 0 ? 1 : -1);
+export const musketFacing = (t) => (t.mAim == null ? powderHome(t) : Math.cos(t.mAim) >= 0 ? 1 : -1);
+
 // The musketeer's ball at the muzzle as the shot kicks (halls/gunpowder.js:
 // he stands 6.5 out from the hall on its deck, 9 + level up, and 2.5 above
 // it; his gun by the branch — the Sharpshooters' long barrel, the grape
 // bell — as GUNS there has them).
 const GUNS = { plain: [7.5, 0], sharp: [13.5, 0], grape: [8, 1.2] };
 export const muzzleFrom = (t) => {
-  const lvl = t.branch ? 3 : t.level, f = facing(t);
+  const lvl = t.branch ? 3 : t.level, f = musketFacing(t);
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
   const [len, lip] = GUNS[r4 === "ba" ? "sharp" : r4 === "bb" ? "grape" : "plain"];
   const mz = musketMuzzle("kick", len, lip);
-  return [t.x + f * 6.5 + f * mz.x, t.y - 9 - lvl - 2.5 + mz.y];
+  return [t.x + powderHome(t) * 6.5 + f * mz.x, t.y - 9 - lvl - 2.5 + mz.y];
 };
 
 // The bombardier's shell at the top of his throw (halls/gunpowder.js: he
-// stands 5.5 back on the deck; folk-gunners.js bomberFrame "whip").
+// stands 5.5 back on the deck, and the charge leaves his hand 7 ahead of
+// him; folk-gunners.js bomberFrame "whip").
 export const shellFrom = (t) => {
   const lvl = t.branch ? 3 : t.level;
-  return [t.x + facing(t) * 1.5, t.y - 34 - lvl];
+  return [t.x - powderHome(t) * 5.5 + bomberFacing(t) * 7, t.y - 34 - lvl];
 };
 
 // A River Watch skiff's ball at the muzzle as the shot kicks: the gunner in

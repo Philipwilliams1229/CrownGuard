@@ -1379,7 +1379,7 @@ export function updateGame(g, dt) {
         if (near) {
           t.cd = st.rate;
           t.anim = 1;
-          t.lastAim = Math.atan2(near.y - t.y, near.x - t.x);
+          t.lastAim = t.bAim = Math.atan2(near.y - t.y, near.x - t.x);
           const throws = st.shells || 1;
           // the shell leaves the bombardier's hand at the top of his throw
           const [shx, shy] = shellFrom(t);
@@ -1428,9 +1428,7 @@ export function updateGame(g, dt) {
           // the ball leaves the musket's muzzle and flies from there straight
           // through its mark (it used to start 20 over the hall and fly a line
           // aimed from the hall's foot, passing over small foes side-on). The
-          // crew face the last shot's way: he turns the hall to his own mark
-          // unless the bombardier is mid-throw.
-          if (!(t.anim > 0)) t.lastAim = t.mAim;
+          // hall never turns: each man faces his own last shot (muzzles.js).
           // the Long Muskets: his mark is the bombardier's next target
           if (st.spot) { t.spotId = far.id; t.spotUntil = tms + st.mRate + 200; }
           const [mzx, mzy] = muzzleFrom(t);
