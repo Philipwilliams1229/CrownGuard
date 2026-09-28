@@ -60,8 +60,10 @@ export const skiffGunPose = (since, rate, o = {}) => {
     if (since < 70 + 0.17 * r) return "recoil";
     if (since < 0.36 * r) return "port";
     if (since < 0.66 * r) return Math.floor((since - 0.36 * r) / 110) % 2 ? "ramB" : "ramA";
-    if (since < 0.82 * r) return "raise";
-    return "aim";
+    // loaded again: up to the shoulder — unless the mark is gone, then he
+    // keeps it at the port and stands easy
+    if (o.hunting === false) return "port";
+    return since < 0.82 * r ? "raise" : "aim";
   }
   if (o.turned != null && o.turned < 0.16) return "raise";
   if (o.hunting) return "aim";
@@ -95,7 +97,7 @@ const ROWER = { skin: "#dcae86", hood: "#a8505c", coat: "#b4ae9a", boots: "#3a2e
 //            body following them forward
 //   rest     sitting easy, looms held low, blades feathered clear
 const ROW = [
-  { lean: 0.48, hand: [8.2, -6.2], wet: 1 },
+  { lean: 0.48, hand: [7.8, -6.2], wet: 1 },
   { lean: 0.06, hand: [6.0, -6.9], wet: 1 },
   { lean: -0.26, hand: [3.0, -6.3], wet: 0.5 },
   { lean: 0.22, hand: [6.6, -5.2], wet: 0 },
@@ -123,11 +125,12 @@ const drawRower = (ctx, pose, farOar) => {
   const L = pose.lean, pal = ROWER;
   const nh = pose.hand, fh = [nh[0] - 0.5, nh[1] - 0.7];
   const nsh = P(L, 1.7, -7.8), fsh = P(L, -1.1, -7.8);
-  // the far oar first, behind everything: it runs away up the far side
-  if (farOar) {
-    const fb = bladeOf(fh, FAR_LOCK, 1.6);
-    oar(ctx, fh, [fb[0], Math.min(fb[1], FAR_LOCK[1] - 1.6)], darken(OAR, 0.3), 0.9);
-  }
+  // the far oar's loom first, behind everything, from his fist to the far
+  // gunwale (its blade works the far water, out of sight behind her)
+  if (farOar) part(ctx, (c) => {
+    c.lineCap = "round"; c.strokeStyle = darken(OAR, 0.3); c.lineWidth = 0.9;
+    c.beginPath(); c.moveTo(fh[0], fh[1]); c.lineTo(FAR_LOCK[0], FAR_LOCK[1]); c.stroke();
+  });
   // the far arm, behind the body
   arm(ctx, fsh[0], fsh[1], fh[0], fh[1], pal, { col: darken(pal.coat, 0.14) });
   // the trunk, leant about the hips

@@ -20,13 +20,15 @@
       import { drawMusketShot, MUSKET_LIFE } from "/src/render/musketfx.js";
       import { skiffMuzzle, skiffBob, SKIFF_LIFT, skiffGunPose, ROW_PERIOD } from "/src/render/rigs-skiff.js";
       import { getStats } from "/src/engine/towers.js";
+      import { rigDef } from "/src/render/rigs.js";
       const q = new URLSearchParams(location.search);
       const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 4, N = Number(q.get("n")) || 12;
       const [lv, br, r4] = (q.get("form") || "3").split(",");
       selectRealm(q.get("realm") || "thornbrook");
       const t = { id: 5, kind: "riverwatch", level: Number(lv) || 3, branch: br || null, rank4: r4 || null, units: [] };
       const st = getStats(t), RATE = Number(q.get("rate")) || st.rate;
-      const TW = 112, TH = 46, SX = 28, SY = 26, TX = 104, TY = 30;
+      const SPAN = Number(q.get("span")) || 1;   // the cycle row covers SPAN × the rate
+      const FLIP = q.get("flip") === "1", TW = 112, TH = 46, SX = FLIP ? 84 : 28, SY = 26, TX = FLIP ? 8 : 104, TY = Number(q.get("ty")) || 30;   // &flip=1: facing left; &ty=: the mark higher or lower
       const W = REALM.water || { deep: "#3a6a7c", edge: "#4a8094", shine: "#8cc4d8" };
       const water = (c) => {
         c.fillStyle = W.deep; c.fillRect(0, 0, TW, TH);
@@ -36,13 +38,14 @@
         c.fillStyle = "rgba(20,16,24,0.35)"; c.beginPath(); c.ellipse(TX, TY + 7, 5, 1.6, 0, 0, 7); c.fill();
         c.fillStyle = "#5a7a3a"; c.fillRect(TX - 3, TY - 6, 6, 13); c.fillStyle = "#2b2a33"; c.fillRect(TX - 3, TY - 6, 6, 1);
       };
-      const mkUnit = () => ({ id: 3, x: SX, y: SY, face: 1, hp: 100, maxHp: 100, state: "moving", atkCd: 0, swing: 0, targetId: 1 });
+      const mkUnit = () => ({ id: 3, x: SX, y: SY, face: FLIP ? -1 : 1, hp: 100, maxHp: 100, state: "moving", atkCd: 0, swing: 0, targetId: 1 });
       // one tile: o = { u, time, since, hunting, rowing, z }
       const tile = (o) => {
         const z = o.z || SC, cv = document.createElement("canvas"); cv.width = TW * z; cv.height = TH * z;
         const c = cv.getContext("2d"); c.imageSmoothingEnabled = false; c.scale(z, z);
         water(c);
         const u = o.u;
+        if (o.rowing && !u._seen) { u._seen = 1; const sc = document.createElement("canvas"); sc.width = sc.height = 8; drawKnightUnit(sc.getContext("2d"), u, t, o.time - 0.1); }
         if (o.rowing) u.x = SX + ((u._n = (u._n || 0) + 1) % 2 ? 0.05 : 0);
         u.state = o.hunting ? "moving" : "rally";
         u.atkCd = o.since < RATE ? RATE - o.since : -1;
@@ -57,12 +60,14 @@
         const k = cc.getContext("2d"); k.imageSmoothingEnabled = false; k.drawImage(cv, wx * z, wy * z, ww * z, wh * z, 0, 0, ww * z, wh * z);
         return cc;
       };
+      // the box asked of rigs.js for the musket skiff (the lab shows it at that size)
+      { const bx = (q.get("box") || "20,26,7").split(",").map(Number); rigDef("skiff").box = { hw: bx[0], up: bx[1], down: bx[2] }; }
       const WIN = q.get("win") ? q.get("win").split(",").map(Number) : null;   // crop each tile to x,y,w,h (world)
       const ONLY = q.get("rows") ? q.get("rows").split(",").map(Number) : null;
       const rows = [];
       // 1. the firing cycle, rowing
       { const u = mkUnit(), T0 = 20, list = [];
-        for (let i = 0; i < N; i++) { const since = Math.round((i * RATE) / N) + (i ? 0 : 10); const time = T0 + since / 1000; list.push([tile({ u, time, since, hunting: true, rowing: true }), `${since}ms ${skiffGunPose(since, RATE, { hunting: true })}`]); }
+        for (let i = 0; i < N; i++) { const since = Math.round((i * RATE * SPAN) / N) + (i ? 0 : 10); const time = T0 + since / 1000; list.push([tile({ u, time, since, hunting: true, rowing: true }), `${since}ms ${skiffGunPose(since, RATE, { hunting: true })}`]); }
         rows.push([`shot + reload (rate ${RATE})`, list]); }
       // 2. the stroke (gun at the aim), then lying still
       { const u = mkUnit(), list = [];

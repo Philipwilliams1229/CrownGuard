@@ -15,7 +15,7 @@
 import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
 
 export const MUSKET_LIFE = 900;          // ms: the smoke's life; everything else is quicker
-const FLASH_MS = 90, HIT_MS = 170;
+const FLASH_MS = 72, HIT_MS = 170;   // the flash lasts as long as the kick (rigs-skiff.js skiffGunPose)
 const flightOf = (dist) => Math.max(36, Math.min(110, dist / 1.9));   // ~1900 units a second
 
 // ---- palette ----
@@ -140,7 +140,7 @@ const ballSprite = (kind, d, sl) => memo(`mb|${kind}|${d}|${sl}`, () => {
   }
   const S = grid(half * 2, half * 2);
   for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) {
-    if (x * x + y * y > 2.6 * 2.6) continue;
+    if (x * x + y * y > 1.9 * 1.9) continue;
     S.set(half + x, half + y, T.ball[x + y < 0 ? 0 : 1]);
   }
   const cv = G.done();
