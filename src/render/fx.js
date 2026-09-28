@@ -1201,13 +1201,14 @@ const starAt = (G, x, y, r, K, dim) => {
     const k = dim ? K[3] : i === r && r > 1 ? K[2] : K[1];
     G.set(x - i, y, k); G.set(x + i, y, k); G.set(x, y - i, k); G.set(x, y + i, k);
   }
-  if (r >= 3) for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) G.set(x + dx, y + dy, K[1]);
+  if (r >= 3) for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) G.set(x + dx, y + dy, K[r >= 4 ? 0 : 1]);
+  if (r >= 5) for (const [dx, dy] of [[2, 1], [1, 2], [-2, 1], [-1, 2], [2, -1], [1, -2], [-2, -1], [-1, -2]]) G.set(x + dx, y + dy, K[2]);
   if (r >= 2 && !dim) { G.set(x - 1, y, K[0]); G.set(x + 1, y, K[0]); G.set(x, y - 1, K[0]); G.set(x, y + 1, K[0]); }
   G.set(x, y, dim ? K[2] : K[0]);
 };
 const starWheel = (n, sb, f) => hmemo(((n * 64 + sb) * 32 + f) * 8 + 1, () => {
-  const rx = Math.max(6, Math.min(14, sb * 0.4 + 2.6)) * PX, ry = Math.max(2.4, rx / PX * 0.3) * PX;
-  const G = grid(rx * 2 + 16, (ry + rx * TILT) * 2 + 16), cx = G.W >> 1, cy = G.H >> 1, K = SLOWK;
+  const rx = Math.max(6.5, Math.min(14, sb * 0.4 + 3)) * PX, ry = Math.max(2.4, rx / PX * 0.3) * PX;
+  const G = grid(rx * 2 + 18, (ry + rx * TILT) * 2 + 18), cx = G.W >> 1, cy = G.H >> 1, K = SLOWK;
   const at = (a) => { const x = Math.cos(a) * rx; return [cx + x, cy + Math.sin(a) * ry + x * TILT]; };
   const stars = [];
   for (let i = 0; i < n; i++) stars.push([(f / STAR_N + i / n) * Math.PI * 2, i]);
@@ -1223,7 +1224,7 @@ const starWheel = (n, sb, f) => hmemo(((n * 64 + sb) * 32 + f) * 8 + 1, () => {
     const [x, y] = at(a);
     // the near star twinkles, swelling for a beat now and then
     const tw = near && (f + i * 7) % 8 < 2 ? 1 : 0;
-    starAt(G, Math.round(x), Math.round(y), near ? 3 + tw : far ? 1 : 2, K, far);
+    starAt(G, Math.round(x), Math.round(y), near ? 4 + tw : far ? 2 : 3, K, far);
   }
   return { cv: G.done(INK_LINE), ax: cx, ay: cy };
 });
@@ -1400,7 +1401,7 @@ export const drawStatus = (ctx, e, time, tms, feet, top) => {
       const l = e.face < 0 ? -sp.r : sp.l, r = e.face < 0 ? -sp.l : sp.r;
       if (r - l + 3 > bw) { bw = r - l + 3; bx = e.x + (l + r) / 2; }
     }
-    const wb = Math.round(Math.max(10, Math.min(60, bw)) / 2) * 2, hb = Math.round((hr + 2.5) / 3) * 3;
+    const wb = Math.round(Math.max(10, Math.min(60, bw)) / 2) * 2, hb = Math.min(63, Math.round((hr + 2.5) / 3) * 3);
     const f = e.frozenUntil - tms < 180 ? FRZ_N : Math.floor(time * 7 + id * 0.61) % FRZ_N;
     // the shell shoots up out of the rime in its first moments: the start is
     // noted on the foe the first time it is drawn frozen (render-only fields)

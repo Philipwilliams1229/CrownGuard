@@ -73,6 +73,13 @@ copy what the rebuilt pieces do.
 | Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` | painted once, cached |
 | Title-screen crowd and castle life (walkers, guards, the hay-forker; banners, sentry, smoke, torches, birds) | `src/ui/titleCrowd.js`, placed from `ROAD`, `ROAD_W`, `HAY` and `CASTLE_LIFE` in `titleArt.js`; the vista castle matches the board castle (square open-topped towers, red stair turrets, blue crown banners, cobbled threshold) | a second canvas with the vista's own fit, ~30 fps, paused when hidden |
 
+Status tells (`drawStatus` in fx.js) must tell the holds apart at 1x:
+slow = a dizzy star wheel over the head (more stars and a lazier turn as
+`slowPct` rises), freeze (`frozenUntil`) = an ice shell sized by the rig's
+body (`bodySpan`), stun = a jagged gold ring that shakes. Freeze beats
+stun, either hides slow's stars, and an immune foe (`immSlow`/`immStun`)
+shows none. Check them in `status-lab.html` (sheet, film strip, perf).
+
 A new creature: add an entry to the matching `rigs-*.js` file (same shape as
 `RIGS`: `{ kind, box: { hw, up, down }, p }`), keep colours in the `skin /
 cloth / cloth2 / hair / col / belly / wing / mane / cape` params so the

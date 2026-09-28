@@ -296,9 +296,9 @@ const drawSkiff = (ctx, u, t, time) => {
   }
   if (u.hp < u.maxHp) {
     ctx.fillStyle = INK;
-    ctx.fillRect(S(u.x) - 8, S(u.y - 22), 16, 4);
+    ctx.fillRect(S(u.x) - 8, S(u.y - 25), 16, 4);
     ctx.fillStyle = "#7fc95e";
-    ctx.fillRect(S(u.x) - 7, S(u.y - 21), Math.max(1, Math.round(14 * u.hp / u.maxHp)), 2);
+    ctx.fillRect(S(u.x) - 7, S(u.y - 24), Math.max(1, Math.round(14 * u.hp / u.maxHp)), 2);
   }
 };
 
