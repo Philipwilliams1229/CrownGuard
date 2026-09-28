@@ -18,18 +18,18 @@
 // skiffMuzzle() where the ball leaves (see the engine note by it).
 
 import { lighten, darken, rgba, lin, part } from "./paint.js";
-import { head, torso, arm, hand } from "./folk-kit.js";
+import { head, torso, arm, hand, limb, elbowFor } from "./folk-kit.js";
 import { drawMusketeer, musketMuzzle, musketFrame } from "./folk-gunners.js";
 
 // ---- where things stand, in the rig's own space (facing +x, the anchor
 // being where drawSkiff stamps it: u.y + SKIFF_LIFT + the bob) ----
-const GUNNER_AT = [1, 2];          // the musketeer's feet, on the boards in the bow
+const GUNNER_AT = [2, 2];          // the musketeer's feet, on the boards in the bow
 const GUN_LEN = 7.5;               // his musket, the Powder Works' own
-const ROWER_AT = [-7, -1.2];       // the oarsman's hips on the thwart; he faces the stern
+const ROWER_AT = [-8.2, -2.8];     // the oarsman's hips on the thwart; he faces the stern
 // The rower's own frame: +x toward the stern (he is drawn mirrored), origin
 // at his hips. The near oarlock on the near gunwale, the far one over it.
-const LOCK = [3.5, -3.1], FAR_LOCK = [3.5, -5.2];
-const OAR_OUT = 1.9;               // outboard length : inboard, about the lock
+const LOCK = [4.2, -2.1], FAR_LOCK = [4.2, -4.0];
+const OAR_OUT = 1.8;               // outboard length : inboard, about the lock
 
 export const SKIFF_LIFT = 6;                                       // the rig stands this far below u.y
 export const skiffBob = (time, id) => Math.sin(time * 2.2 + id) * 1.5;
@@ -82,8 +82,8 @@ const GUNNER = {
   a: { skin: "#e8b990", hood: "#2a3a5a", coat: "#3a5a8a", boots: "#2a2a30", trim: "#e8e0c8" },
   b: { skin: "#e8b990", hood: "#3a2a28", coat: "#7a3a2a", boots: "#2a2420", trim: "#c8b070" },
 };
-// the oarsman: an oatmeal smock and a red knitted cap
-const ROWER = { skin: "#dcae86", hood: "#a8505c", coat: "#8a7a62", boots: "#3a2e26", trim: "#5a4632", hair: "#5a3a26" };
+// the oarsman: a weathered linen smock and a red knitted cap
+const ROWER = { skin: "#dcae86", hood: "#a8505c", coat: "#b4ae9a", boots: "#3a2e26", trim: "#5a4632", hair: "#5a3a26" };
 
 // The oarsman's stroke, in his frame (+x toward the stern, y up −): the
 // trunk's lean about the hips (+ toward the stern: reaching for the catch)
@@ -95,24 +95,25 @@ const ROWER = { skin: "#dcae86", hood: "#a8505c", coat: "#8a7a62", boots: "#3a2e
 //            body following them forward
 //   rest     sitting easy, looms held low, blades feathered clear
 const ROW = [
-  { lean: 0.4, hand: [8.4, -6.6], wet: 1 },
-  { lean: 0.06, hand: [6.4, -7.1], wet: 1 },
-  { lean: -0.2, hand: [3.4, -6.9], wet: 0.5 },
-  { lean: 0.22, hand: [6.9, -5.3], wet: 0 },
+  { lean: 0.48, hand: [8.2, -6.2], wet: 1 },
+  { lean: 0.06, hand: [6.0, -6.9], wet: 1 },
+  { lean: -0.26, hand: [3.0, -6.3], wet: 0.5 },
+  { lean: 0.22, hand: [6.6, -5.2], wet: 0 },
 ];
-const ROW_REST = { lean: 0.05, hand: [5.6, -5.4], wet: 0 };
+const ROW_REST = { lean: 0.05, hand: [5.4, -5.0], wet: 0 };
 
 const P = (lean, x, y) => { const c = Math.cos(lean), s = Math.sin(lean); return [x * c - y * s, x * s + y * c]; };
 // where an oar's blade lies: from the hand through the lock, OAR_OUT times on
 const bladeOf = (h, lock, k = OAR_OUT) => [lock[0] + (lock[0] - h[0]) * k, lock[1] + (lock[1] - h[1]) * k];
 
+const OAR = "#d6c296";   // pale ash, so the oars read across the dark hull
 const oar = (ctx, h, b, col, lw) => part(ctx, (c) => {
   c.lineCap = "round";
   c.strokeStyle = col; c.lineWidth = lw;
   c.beginPath(); c.moveTo(h[0], h[1]); c.lineTo(b[0], b[1]); c.stroke();
   // the blade: the last third, broader
   const bx = h[0] + (b[0] - h[0]) * 0.72, by = h[1] + (b[1] - h[1]) * 0.72;
-  c.strokeStyle = lighten(col, 0.12); c.lineWidth = lw + 1.1;
+  c.strokeStyle = darken(col, 0.12); c.lineWidth = lw + 1.1;
   c.beginPath(); c.moveTo(bx, by); c.lineTo(b[0], b[1]); c.stroke();
 });
 
@@ -125,7 +126,7 @@ const drawRower = (ctx, pose, farOar) => {
   // the far oar first, behind everything: it runs away up the far side
   if (farOar) {
     const fb = bladeOf(fh, FAR_LOCK, 1.6);
-    oar(ctx, fh, [fb[0], Math.min(fb[1], FAR_LOCK[1] - 1.6)], darken("#9a7446", 0.25), 0.9);
+    oar(ctx, fh, [fb[0], Math.min(fb[1], FAR_LOCK[1] - 1.6)], darken(OAR, 0.3), 0.9);
   }
   // the far arm, behind the body
   arm(ctx, fsh[0], fsh[1], fh[0], fh[1], pal, { col: darken(pal.coat, 0.14) });
@@ -145,8 +146,11 @@ const drawRower = (ctx, pose, farOar) => {
     c.fillStyle = darken(pal.hood, 0.3); c.fillRect(hx - 2.7, y - 1.9, 5.3, 1.0);
   });
   ctx.restore();
-  // the near arm, in front
-  arm(ctx, nsh[0], nsh[1], nh[0], nh[1], pal);
+  // the near arm, in front, the sleeve rolled to the elbow
+  const el = elbowFor(nsh[0], nsh[1], nh[0], nh[1]);
+  arm(ctx, nsh[0], nsh[1], nh[0], nh[1], pal, { elbow: el, hand: false });
+  limb(ctx, el[0] + (nh[0] - el[0]) * 0.18, el[1] + (nh[1] - el[1]) * 0.18, nh[0], nh[1], 1.8, pal.skin);
+  hand(ctx, nh[0], nh[1], pal.skin);
   return { nh, nb: bladeOf(nh, LOCK) };
 };
 
@@ -184,7 +188,7 @@ export const skiff = (ctx, p) => {
     c.strokeStyle = RAIL; c.lineWidth = 0.8; c.lineCap = "round";
     c.beginPath(); c.moveTo(-13.8, -5.4); c.quadraticCurveTo(0, -8.8, 14.6, -6.1); c.stroke();
   });
-  part(ctx, (c) => { c.fillStyle = lighten(WOOD, 0.12); c.fillRect(-9.6, -5.7, 5.2, 1.4); c.fillStyle = darken(WOOD, 0.3); c.fillRect(-9.6, -4.5, 5.2, 0.5); });
+  part(ctx, (c) => { const x = ROWER_AT[0] - 2.6; c.fillStyle = lighten(WOOD, 0.12); c.fillRect(x, -5.7, 5.2, 1.4); c.fillStyle = darken(WOOD, 0.3); c.fillRect(x, -4.5, 5.2, 0.5); });
 
   // the oarsman
   const { nh, nb } = rower(() => drawRower(ctx, rp, true));
@@ -222,7 +226,7 @@ export const skiff = (ctx, p) => {
 
   // the near oar: from his fists over the rail and down into the river
   const H = toRig(nh), B = toRig(nb), lock = toRig(LOCK);
-  oar(ctx, H, B, "#9a7446", 1.0);
+  oar(ctx, H, B, OAR, 1.1);
   part(ctx, (c) => { c.fillStyle = "#3a3a44"; c.fillRect(lock[0] - 0.5, lock[1] - 0.9, 1.0, 1.2); });   // the tholepin
   hand(ctx, H[0], H[1], ROWER.skin);
 };

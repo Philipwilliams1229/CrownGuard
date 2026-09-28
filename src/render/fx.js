@@ -1210,9 +1210,9 @@ const starWheel = (n, sb, f) => hmemo(((n * 64 + sb) * 32 + f) * 8 + 1, () => {
   const G = grid(rx * 2 + 16, (ry + rx * TILT) * 2 + 16), cx = G.W >> 1, cy = G.H >> 1, K = SLOWK;
   const at = (a) => { const x = Math.cos(a) * rx; return [cx + x, cy + Math.sin(a) * ry + x * TILT]; };
   const stars = [];
-  for (let i = 0; i < n; i++) stars.push((f / STAR_N + i / n) * Math.PI * 2);
-  stars.sort((p, q) => Math.sin(p) - Math.sin(q));            // far side first
-  for (const a of stars) {
+  for (let i = 0; i < n; i++) stars.push([(f / STAR_N + i / n) * Math.PI * 2, i]);
+  stars.sort((p, q) => Math.sin(p[0]) - Math.sin(q[0]));      // far side first
+  for (const [a, i] of stars) {
     const d = Math.sin(a), near = d > 0.25, far = d < -0.5;
     // the wake: a dotted trail back along the wheel
     if (!far) for (let j = 1; j <= 3; j++) {
@@ -1221,7 +1221,9 @@ const starWheel = (n, sb, f) => hmemo(((n * 64 + sb) * 32 + f) * 8 + 1, () => {
       G.set(Math.round(tx), Math.round(ty), j === 1 ? K[2] : K[3], j === 1 ? 230 : 150);
     }
     const [x, y] = at(a);
-    starAt(G, Math.round(x), Math.round(y), near ? 3 : far ? 1 : 2, K, far);
+    // the near star twinkles, swelling for a beat now and then
+    const tw = near && (f + i * 7) % 8 < 2 ? 1 : 0;
+    starAt(G, Math.round(x), Math.round(y), near ? 3 + tw : far ? 1 : 2, K, far);
   }
   return { cv: G.done(INK_LINE), ax: cx, ay: cy };
 });
@@ -1362,11 +1364,13 @@ const iceShell = (wb, hb, f) => hmemo(((wb * 64 + hb) * 8 + f) * 8 + 4, () => {
   }
   if (thaw) {
     // cracks running down from the crown as it lets go
-    for (const [u0, len, dir] of [[-0.3, 0.6, 1], [0.35, 0.45, -1]]) {
+    for (const [u0, len, dir] of [[-0.3, 0.62, 1], [0.35, 0.48, -1]]) {
       let x = cx + u0 * rx, y = base - h * topAt(u0) * sh + 1;
-      for (let s = 0; s < 4; s++) {
-        const nx = x + dir * (1 + hash(wb + s, hb) * 2), ny = y + (h * len) / 4;
+      for (let s = 0; s < 5; s++) {
+        // jagged: each leg of the crack kinks back the other way
+        const nx = x + (s & 1 ? -0.6 : 1) * dir * (1.5 + hash(wb + s, hb) * 2.5), ny = y + (h * len) / 5;
         line(G, x, y, nx, ny, ICE[4]); line(G, x + 1, y, nx + 1, ny, ICE[0]);
+        if (s === 2) line(G, nx, ny, nx - dir * 4, ny + 3, ICE[4]);        // a branch
         x = nx; y = ny;
       }
     }

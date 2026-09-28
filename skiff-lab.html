@@ -1,0 +1,98 @@
+<!doctype html>
+<!--
+  The River Watch's skiff alone on water, frame by frame, through the real
+  drawSkiff (enemies.js drawKnightUnit) and the musket shot (musketfx.js):
+    /skiff-lab.html?tag=x&form=3[,b[,a]]&n=12&scale=4&realm=thornbrook
+  Rows: the firing cycle over one attack period (she is rowing); the stroke
+  (catch, drive, finish, recover, and lying still); the idle with no mark;
+  and the firing cycle at board size (2 and 1 device px per world unit).
+  &rate=600 overrides the form's rate; &rows=0,1 picks rows; &win=x,y,w,h crops
+  each tile (world units; the skiff sits at 28,26, the mark at 104,30). Saved to .shots/skiff_<tag>.png
+-->
+<html>
+  <head><meta charset="utf-8" /><title>skiff lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { selectRealm, REALM } from "/src/data/maps.js";
+      import { drawKnightUnit } from "/src/render/enemies.js";
+      import { drawMusketShot, MUSKET_LIFE } from "/src/render/musketfx.js";
+      import { skiffMuzzle, skiffBob, SKIFF_LIFT, skiffGunPose, ROW_PERIOD } from "/src/render/rigs-skiff.js";
+      import { getStats } from "/src/engine/towers.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 4, N = Number(q.get("n")) || 12;
+      const [lv, br, r4] = (q.get("form") || "3").split(",");
+      selectRealm(q.get("realm") || "thornbrook");
+      const t = { id: 5, kind: "riverwatch", level: Number(lv) || 3, branch: br || null, rank4: r4 || null, units: [] };
+      const st = getStats(t), RATE = Number(q.get("rate")) || st.rate;
+      const TW = 112, TH = 46, SX = 28, SY = 26, TX = 104, TY = 30;
+      const W = REALM.water || { deep: "#3a6a7c", edge: "#4a8094", shine: "#8cc4d8" };
+      const water = (c) => {
+        c.fillStyle = W.deep; c.fillRect(0, 0, TW, TH);
+        c.fillStyle = W.edge; for (let i = 0; i < 9; i++) c.fillRect((i * 37) % TW, (i * 13) % TH, 6, 0.5);
+        c.fillStyle = W.shine; for (let i = 0; i < 5; i++) c.fillRect((i * 53 + 11) % TW, (i * 19 + 7) % TH, 3, 0.5);
+        // the mark: a stand-in foe on the bank
+        c.fillStyle = "rgba(20,16,24,0.35)"; c.beginPath(); c.ellipse(TX, TY + 7, 5, 1.6, 0, 0, 7); c.fill();
+        c.fillStyle = "#5a7a3a"; c.fillRect(TX - 3, TY - 6, 6, 13); c.fillStyle = "#2b2a33"; c.fillRect(TX - 3, TY - 6, 6, 1);
+      };
+      const mkUnit = () => ({ id: 3, x: SX, y: SY, face: 1, hp: 100, maxHp: 100, state: "moving", atkCd: 0, swing: 0, targetId: 1 });
+      // one tile: o = { u, time, since, hunting, rowing, z }
+      const tile = (o) => {
+        const z = o.z || SC, cv = document.createElement("canvas"); cv.width = TW * z; cv.height = TH * z;
+        const c = cv.getContext("2d"); c.imageSmoothingEnabled = false; c.scale(z, z);
+        water(c);
+        const u = o.u;
+        if (o.rowing) u.x = SX + ((u._n = (u._n || 0) + 1) % 2 ? 0.05 : 0);
+        u.state = o.hunting ? "moving" : "rally";
+        u.atkCd = o.since < RATE ? RATE - o.since : -1;
+        u.swing = Math.max(0, 200 - o.since);
+        drawKnightUnit(c, u, t, o.time);
+        if (o.since < MUSKET_LIFE) {
+          const shotT = o.time - o.since / 1000, [mx, my] = skiffMuzzle();
+          drawMusketShot(c, { type: "musket", x: u.x + u.face * mx, y: u.y + SKIFF_LIFT + skiffBob(shotT, u.id) + my, tx: TX, ty: TY, ttl: MUSKET_LIFE - o.since, life: MUSKET_LIFE, fire: !!st.burn, splash: st.splash || 0 }, 1);
+        }
+        if (!WIN) return cv;
+        const [wx, wy, ww, wh] = WIN, cc = document.createElement("canvas"); cc.width = ww * z; cc.height = wh * z;
+        const k = cc.getContext("2d"); k.imageSmoothingEnabled = false; k.drawImage(cv, wx * z, wy * z, ww * z, wh * z, 0, 0, ww * z, wh * z);
+        return cc;
+      };
+      const WIN = q.get("win") ? q.get("win").split(",").map(Number) : null;   // crop each tile to x,y,w,h (world)
+      const ONLY = q.get("rows") ? q.get("rows").split(",").map(Number) : null;
+      const rows = [];
+      // 1. the firing cycle, rowing
+      { const u = mkUnit(), T0 = 20, list = [];
+        for (let i = 0; i < N; i++) { const since = Math.round((i * RATE) / N) + (i ? 0 : 10); const time = T0 + since / 1000; list.push([tile({ u, time, since, hunting: true, rowing: true }), `${since}ms ${skiffGunPose(since, RATE, { hunting: true })}`]); }
+        rows.push([`shot + reload (rate ${RATE})`, list]); }
+      // 2. the stroke (gun at the aim), then lying still
+      { const u = mkUnit(), list = [];
+        [["catch", 0.085], ["drive", 0.3], ["finish", 0.51], ["recover", 0.8]].forEach(([nm, p], i) => { const time = ROW_PERIOD * (40 + i) + p * ROW_PERIOD - u.id * 0.29; list.push([tile({ u, time, since: 1e9, hunting: true, rowing: true }), nm]); });
+        const u2 = mkUnit(); list.push([tile({ u: u2, time: 60, since: 1e9, hunting: true, rowing: false }), "lying still"]);
+        rows.push(["the stroke", list]); }
+      // 3. the idle: no mark, loaded (port arms, a look down the sights)
+      { const u = mkUnit(), list = [];
+        for (let i = 0; i < 6; i++) { const time = 100 + i * 2.2; list.push([tile({ u, time, since: 1e9, hunting: false, rowing: i < 3 }), `idle ${time.toFixed(1)}s ${skiffGunPose(1e9, RATE, { clock: time + u.id * 1.37 })}`]); }
+        rows.push(["no mark", list]); }
+      // 4. board size
+      for (const z of [2, 1]) { const u = mkUnit(), T0 = 20, list = [];
+        for (let i = 0; i < N; i++) { const since = Math.round((i * RATE) / N) + (i ? 0 : 10); list.push([tile({ u, time: T0 + since / 1000, since, hunting: true, rowing: true, z }), ""]); }
+        rows.push([`${z} px / unit`, list]); }
+      // compose
+      if (ONLY) { const keep = rows.filter((_, i) => ONLY.includes(i)); rows.length = 0; rows.push(...keep); }
+      const LABEL = 150, PADT = 16;
+      const width = LABEL + Math.max(...rows.map(([, l]) => l.reduce((s, [cv]) => s + cv.width + 6, 0)));
+      const height = rows.reduce((s, [, l]) => s + Math.max(...l.map(([cv]) => cv.height)) + PADT + 10, 0);
+      const out = document.createElement("canvas"); out.width = width; out.height = height;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.fillStyle = "#20242c"; o.fillRect(0, 0, width, height);
+      let y = 0;
+      for (const [name, list] of rows) {
+        o.fillStyle = "#fff"; o.font = "bold 13px monospace"; o.fillText(name, 6, y + 30);
+        let x = LABEL;
+        for (const [cv, note] of list) { o.drawImage(cv, x, y + PADT); o.fillStyle = "#e8e0c8"; o.font = "11px monospace"; o.fillText(note, x + 2, y + 12); x += cv.width + 6; }
+        y += Math.max(...list.map(([cv]) => cv.height)) + PADT + 10;
+      }
+      await fetch(`/__shot?name=skiff_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/skiff_${TAG}.png`;
+    </script>
+  </body>
+</html>

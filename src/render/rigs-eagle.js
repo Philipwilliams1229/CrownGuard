@@ -28,7 +28,10 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const UP = 3.6, FORE = 3.4;
 const SEAT = [2, -6.5];                 // he leans about his seat
 const SH = [3.2, -14.4], FAR_SH = [2.4, -14.0];
-const LANCE_BACK = 9, LANCE_FWD = 15, HEAD_LEN = 4;
+// the lance: 24 of shaft and a 4 head; the fist holds it `grip` from the
+// butt (9 carried and couched; slid down to the butt end for the thrust, so
+// the point reaches well below the talons)
+const SHAFT = 24, GRIP = 9, PENNON = 21, HEAD_LEN = 4;
 
 // wings: shoulder, wrist, tip, trailing root, as (x, y) from the body centre
 const WINGS = {
@@ -65,15 +68,15 @@ const FIGHT = [
     rein: [7.2, -9.8], cape: [[-6, -17.5], [-12, -16], [-9, -11]], plume: [-0.6, -1.6], pen: 0,
   },
   { // 1 the strike
-    bob: 1, pitch: 0.06, wings: WINGS.flare, tail: 5, tilt: -0.3, feet: [[0, 4, 9, 9.5], [3.5, 3, 11.5, 7]], lean: 0.38, reach: [0.95, 6.6], la: 1.08,
+    bob: 1, pitch: 0.06, wings: WINGS.flare, tail: 5, tilt: -0.3, feet: [[0, 4, 2.5, 10.5], [3.5, 3, 6.5, 10]], lean: 0.38, reach: [0.95, 6.6], la: 1.08, grip: 3.5,
     rein: [7.8, -9.4], cape: [[-4, -19], [-8, -19], [-8, -13]], plume: [1.2, -2.4], pen: 1.6,
   },
   { // 2 follow-through
-    bob: 0.5, pitch: -0.12, wings: WINGS.spread, tail: 5.5, tilt: -0.36, feet: [[0, 4, 5, 10], [3.5, 3, 8.5, 9.5]], lean: 0.46, reach: [1.2, 6.4], la: 1.5,
+    bob: 0.5, pitch: -0.12, wings: WINGS.spread, tail: 5.5, tilt: -0.36, feet: [[0, 4, -2.5, 9.5], [3, 3, 1.5, 10.5]], lean: 0.46, reach: [1.2, 6.4], la: 1.5, grip: 3.5,
     rein: [7.8, -9], cape: [[-3, -20], [-5, -20.5], [-7, -14]], plume: [2, -2.6], pen: 1,
   },
   { // 3 the climb
-    bob: -1, pitch: -0.3, wings: WINGS.beat, tail: 4, tilt: 0.1, feet: [[-3, 3, -8, 7]], lean: 0.02, reach: [0.9, 5.4], la: 0.72,
+    bob: -1, pitch: -0.3, wings: WINGS.beat, tail: 4, tilt: 0.1, feet: [[-3, 3, -8, 7]], lean: 0.02, reach: [0.9, 5.4], la: 0.72, grip: 7,
     rein: [6.6, -9.6], cape: [[-6, -13], [-12, -7], [-8, -5]], plume: [-0.4, 1.6], pen: 1.4,
   },
 ];
@@ -109,7 +112,8 @@ const solve = (sh, to) => {
 // meets the prey, and put the strike's spark there.
 export const eagleLanceTip = (frame, len = 34) => {
   const s = len / 34, k = FIGHT[frame % 4], { hand, dir } = armFor(k);
-  const tip = [hand[0] + dir[0] * (LANCE_FWD + HEAD_LEN), hand[1] + dir[1] * (LANCE_FWD + HEAD_LEN) + k.bob];
+  const fwd = SHAFT - (k.grip ?? GRIP) + HEAD_LEN;
+  const tip = [hand[0] + dir[0] * fwd, hand[1] + dir[1] * fwd + k.bob];
   const [x, y] = rot(tip, [0, 0], k.pitch);           // about the body centre, 9 above the anchor
   return [x * s, (y - 9) * s];
 };
@@ -292,19 +296,19 @@ export const eagle = (ctx, p) => {
   ctx.restore();
   // the lance, pennon flying, in the near fist: under the arm when couched,
   // driven with the whole arm in the strike
-  const A = armFor(k), [ca, sa] = A.dir;
+  const A = armFor(k), [ca, sa] = A.dir, back = k.grip ?? GRIP, fwd = SHAFT - back;
   const [shx, shy] = at(A.sh), [elx, ely] = at(A.el), [hdx, hdy] = at(A.hand);
   logJoint(ctx, "arm", [shx, shy], [elx, ely], [hdx, hdy], { lens: [UP * s, FORE * s] });
   part(ctx, (c) => {
     c.lineCap = "round";
     c.strokeStyle = "#6a4a2e"; c.lineWidth = 1.4 * s;
-    c.beginPath(); c.moveTo(hdx - ca * LANCE_BACK * s, hdy - sa * LANCE_BACK * s); c.lineTo(hdx + ca * LANCE_FWD * s, hdy + sa * LANCE_FWD * s); c.stroke();
-    const tx = hdx + ca * LANCE_FWD * s, ty = hdy + sa * LANCE_FWD * s;
+    c.beginPath(); c.moveTo(hdx - ca * back * s, hdy - sa * back * s); c.lineTo(hdx + ca * fwd * s, hdy + sa * fwd * s); c.stroke();
+    const tx = hdx + ca * fwd * s, ty = hdy + sa * fwd * s;
     c.fillStyle = wcol; c.beginPath(); c.moveTo(tx + ca * HEAD_LEN * s, ty + sa * HEAD_LEN * s); c.lineTo(tx - sa * 1.4 * s, ty + ca * 1.4 * s); c.lineTo(tx + sa * 1.4 * s, ty - ca * 1.4 * s); c.closePath(); c.fill();
     // a swallow-tailed pennon behind the head: on a lance carried level or
     // raised it streams back and droops below the shaft; on a lance driven
     // steeply down it flies straight back off the shaft, into the wind
-    const px = hdx + ca * 12 * s, py = hdy + sa * 12 * s, wv = k.pen * s;
+    const px = hdx + ca * (PENNON - back) * s, py = hdy + sa * (PENNON - back) * s, wv = k.pen * s;
     c.fillStyle = cape; c.beginPath(); c.moveTo(px, py);
     if (sa < 0.5) {
       c.lineTo(px - ca * 6 * s + 1.2 * s, py - sa * 6 * s - 1.2 * s + wv);

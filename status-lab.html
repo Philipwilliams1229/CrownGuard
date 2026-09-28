@@ -9,13 +9,16 @@
     st_<tag>_sheet.png  rows = foes, columns = statuses, one moment, zoomed
     st_<tag>_film.png   one foe (film=) through `frames` moments, each column a status
     st_<tag>_1x.png     the same grid at the game's own resolution
+  &perf=0,300,500&st=none,slow,stun,freeze,mix times the real draw() of a
+  board with N foes on the road, every one under that hold (perf.html's
+  crowd), and puts ms per frame in the title instead of shooting.
 -->
 <html><head><meta charset="utf-8" /><title>status lab…</title></head>
 <body style="background:#14171d;color:#e8e0c8;font-family:monospace;padding:20px"><div id="out">running…</div>
 <script type="module">
 import { selectRealm } from "/src/data/maps.js";
 import { W, H, RES } from "/src/data/constants.js";
-import { posAt, angleAt } from "/src/engine/path.js";
+import { posAt, angleAt, TOTAL_LEN } from "/src/engine/path.js";
 import { draw } from "/src/render/draw.js";
 import { drawEnemy } from "/src/render/enemies.js";
 import { ENEMIES } from "/src/data/enemies.js";
@@ -102,7 +105,77 @@ const label = (cv, text, x, y) => {
   c.font = "bold 13px monospace"; c.fillStyle = "#e8e0c8"; c.fillText(text, x, y);
 };
 
+// ---- timing: perf.html's crowd, every foe held ----
+const timeHolds = () => {
+  const Ns = q.get("perf").split(",").map(Number), Ss = (q.get("st") || "none,slow,stun,freeze").split(",");
+  const kinds = ["goblin", "goblin", "goblin", "wolf", "bat", "orc", "boarrider", "armored"];
+  const HOLD = {
+    none: {}, slow: { auraSlow: 0.5 }, slow9: { slowUntil: 1e12, slowPct: 0.9 },
+    stun: { stunUntil: 1e12 }, freeze: { stunUntil: 1e12, frozenUntil: 1e12, _frzTo: 1e12, _frzAt: 0, auraSlow: 0.4 },
+  };
+  const foe = (i, st) => {
+    const t = kinds[i % kinds.length], d = ENEMIES[t], dist = (i * 37) % TOTAL_LEN, [x, y] = posAt(dist);
+    const k = st === "mix" ? ["slow", "stun", "freeze", "none"][i % 4] : st;
+    return { id: i, type: t, sprite: t === "goblin" ? (i % 2 ? "goblin" : "goblinBare") : null, hp: d.hp * 0.6, maxHp: d.hp, dist,
+      x: x + ((i % 3) - 1) * 20, y: y + ((i % 5) - 2) * 4, face: 1, size: d.size, armor: d.armor, mres: 0, guard: 0, guardFlash: 0,
+      flying: !!d.flying, boss: false, atkAnim: 0, stunUntil: 0, slowUntil: 0, slowPct: 0, auraSlow: 0, burnUntil: i % 4 ? 0 : 1e9,
+      poisonUntil: 0, brittleUntil: 0, healedFlash: 0, hitFlash: 0, blockedBy: null, engaged: false, dead: false, revived: false, born: -1e9, ...HOLD[k] };
+  };
+  const res = {};
+  selectRealm(q.get("realm") || "warrens");
+  for (const st of Ss) for (const N of Ns) {
+    const g = { ...scene(Array.from({ length: N }, (_, i) => foe(i, st)), 7.3) };
+    const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES;
+    const buf = { current: null };
+    for (let i = 0; i < 40; i++) { g.time += 0.016; draw(g, cv, buf); }
+    cv.getContext("2d").getImageData(0, 0, 1, 1);
+    const t0 = performance.now();
+    for (let i = 0; i < 40; i++) { g.time += 0.016; draw(g, cv, buf); }
+    cv.getContext("2d").getImageData(0, 0, 1, 1);
+    res[`${st}${N}`] = +((performance.now() - t0) / 40).toFixed(2);
+  }
+  return res;
+};
+
+// ---- timing the tells alone: drawStatus for N foes, 40 frames, against the
+// pre-pass copy of fx.js (&old=/.shots/st_fxold.js) when given ----
+const benchTells = async () => {
+  const N = Number(q.get("bench")), ST = (q.get("st") || "none,slow,stun,freeze").split(",");
+  const mods = { now: await import("/src/render/fx.js") };
+  if (q.get("old")) mods.old = await import(q.get("old"));
+  const HOLD = {
+    none: {}, slow: { auraSlow: 0.5 }, slow9: { slowUntil: 1e12, slowPct: 0.9 },
+    stun: { stunUntil: 1e12 }, freeze: { stunUntil: 1e12, frozenUntil: 1e12, _frzTo: 1e12, _frzAt: 0, auraSlow: 0.4 },
+  };
+  const kinds = ["goblin", "goblin", "goblin", "wolf", "bat", "orc", "boarrider", "armored"];
+  const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES;
+  const c = cv.getContext("2d"); c.scale(RES, RES);
+  const res = {};
+  for (const [name, m] of Object.entries(mods)) for (const st of ST) {
+    const foes = Array.from({ length: N }, (_, i) => mk(kinds[i % 8], 20 + (i * 37) % 800, 30 + (i * 53) % 500, i, HOLD[st]));
+    const run = (k0) => { for (let k = 0; k < 40; k++) { const t = 7.3 + (k0 + k) * 0.016; for (const e of foes) m.drawStatus(c, e, t, t * 1000, e.y + e.size * 0.55, e.y - e.size * 0.8); } };
+    run(0); c.getImageData(0, 0, 1, 1);
+    let best = 1e9;
+    for (let rep = 0; rep < 3; rep++) {
+      const t0 = performance.now(); run(40 + rep * 40); c.getImageData(0, 0, 1, 1);
+      best = Math.min(best, (performance.now() - t0) / 40);
+    }
+    res[`${name}:${st}`] = +best.toFixed(3);
+  }
+  return res;
+};
+
 (async () => {
+  if (q.get("bench")) {
+    try { const r = await benchTells(); document.title = "BENCH " + JSON.stringify(r); } catch (e) { document.title = "FAIL " + e.message; console.error(e); }
+    document.getElementById("out").textContent = document.title;
+    return;
+  }
+  if (q.get("perf")) {
+    try { const r = timeHolds(); document.title = "PERF " + JSON.stringify(r); } catch (e) { document.title = "FAIL " + e.message; console.error(e); }
+    document.getElementById("out").textContent = document.title;
+    return;
+  }
   try {
     // the grid of foes × statuses, all on one board (ids stay put across moments)
     const grid = (t) => {
