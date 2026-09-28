@@ -6,7 +6,7 @@
 import { W, H, PATH_HALF } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
 import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_N, GATE_TOWER_S, TOWER, ballistaSpots } from "../data/castle.js";
-import { drawArcher, drawHalberdier, drawMason, WALL_FOLK } from "./folk.js";
+import { drawArcherFrame, drawHalberdier, drawMason, WALL_FOLK } from "./folk.js";
 import { ballista } from "./halls/archer.js";
 import { REALM } from "../data/maps.js";
 import * as TERRAIN from "../data/terrain.js";
@@ -2167,6 +2167,8 @@ const drawIdleLife = (ctx, g, gy) => {
 // baked once per pose and stamped; the ballista's recoil and the bowmen's
 // draw follow the works' own cooldowns.
 const WORKS = new Map();
+// the wall bowmen's shot, in ms of a 700 ms cycle (as the archer halls')
+const WALL_DRAW = { at: 700, keys: [[80, "loose"], [150, "follow"], [250, "reach"], [330, "bring"], [400, "set"], [450, "d1"], [530, "d2"]] };
 const workFrame = (key, w, h, fn) => {
   let cv = WORKS.get(key);
   if (!cv && typeof document !== "undefined") { cv = bakeSprite(w, h, fn); WORKS.set(key, cv); }
@@ -2216,25 +2218,28 @@ export const drawCastleWorks = (ctx, g) => {
     const tms = time * 1000;
     for (let i = 0; i < spots.length; i++) {
       const y = spots[i] + 8;
-      // A bowman who has loosed within the last beat or so is in the fight:
-      // slack for a moment after the shot, then drawing again so the string
-      // is at his cheek as his next turn comes round (engine: castleCd.loosed).
-      // Otherwise he stands at ease, bow down, shifting his weight now and
-      // then — the wall is not firing at nothing.
+      // A bowman who has loosed within the last beat or so is in the fight,
+      // on the archer halls' cycle (folk-archer.js ARCHER_FRAMES), timed off
+      // his own shot (engine: castleCd.loosed) and scaled to the works' rate:
+      // loose, follow through, reach to the quiver, bring the arrow round,
+      // set, draw, and hold at the anchor till his next turn. Otherwise he
+      // stands at ease, bow down, breathing, now and then a hand to the
+      // quiver — the wall is not firing at nothing.
       const since = tms - (cd.loosed?.[i] ?? -1e9);
-      let key, pose, draw = 0;
+      let key = "rest";
       if (since < bows.rate * 1.35) {
-        const phase = Math.min(1, since / bows.rate);
-        const fr = since < 110 ? -1 : Math.round(Math.min(1, phase * 1.25) * 3);
-        key = fr < 0 ? "loose" : fr; pose = fr < 0 ? "loose" : "draw"; draw = Math.max(0, fr) / 3;
+        const u = since * (WALL_DRAW.at / bows.rate);
+        key = "anchor";
+        for (const [end, f] of WALL_DRAW.keys) if (u < end) { key = f; break; }
       } else {
-        // at ease: two stances, each man on his own slow beat
-        const shift = Math.floor(time / 2.2 + i * 1.7 + (spots[i] % 7) * 0.3) % 5 === 0 ? 1 : 0;
-        key = `rest${shift}`; pose = shift ? "reach" : "rest";
+        const tt = time + i * 1.7 + (spots[i] % 7) * 0.3;
+        const shift = Math.floor(tt / 2.2) % 5 === 0;
+        const br = (tt % 3.3) / 3.3;
+        key = shift ? "reach" : br > 0.2 && br < 0.6 ? "rest1" : "rest";
       }
-      const cv = workFrame(`bow|${big ? 1 : 0}|${key}`, 30, 36, (c) => drawArcher(c, 17, 33, -1, WALL_FOLK.bowman, draw, { big, bowCol: big ? "#3a3a44" : undefined, pose }));
+      const cv = workFrame(`bow|${big ? 1 : 0}|${key}`, 36, 36, (c) => drawArcherFrame(c, 23, 33, -1, WALL_FOLK.bowman, key, { big, bowCol: big ? "#3a3a44" : undefined }));
       // shoulder to shoulder they'd hide each other: every other man stands a step back
-      if (cv) ctx.drawImage(cv, BOW_X + 2 - 17 + (Math.round(spots[i] / 24) % 2 ? 4 : -1), y - 33, 30, 36);
+      if (cv) ctx.drawImage(cv, BOW_X + 2 - 23 + (Math.round(spots[i] / 24) % 2 ? 4 : -1), y - 33, 36, 36);
     }
   }
   const bal = workTier(works, "ballista");
