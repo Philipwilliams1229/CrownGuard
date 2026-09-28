@@ -102,11 +102,12 @@ export const ENEMIES = {
   },
   // The Kingdom's battle-mage. He marches inside the big columns (never on
   // his own: waves.js adds him to any wave big enough to need him) and throws
-  // three shields over everything around him on a slow beat.
+  // three shields over everything close around him on a slow beat (his aura
+  // was 140 wide until shields turned all magic; 80 now, about a chaplain's).
   magister: {
     faction: "iron", hp: 200, speed: 58, bounty: 30, armor: 0, mres: 0.3, size: 17,
     name: "Aegis Magister", atk: 12, atkRate: 1000, castleDmg: 2,
-    wardEvery: 10000, wardHits: 3, wardRange: 140, wardFx: "aegis",
+    wardEvery: 10000, wardHits: 3, wardRange: 80, wardFx: "aegis",
     note: "A court battle-mage who marches inside the big columns. Every ten seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a physical blow whole, and no magic or fire gets through while one stands. Strip his shields with quick arrows and blades, then kill him before the next aegis; or break them with steel that hits many at once.",
   },
   ram: {

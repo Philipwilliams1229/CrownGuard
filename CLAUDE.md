@@ -227,7 +227,12 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
   1-32 a level to 44-2225, and an all-physical army from 2-470 to 16-990 —
   the Magister's aegis (3 pips on everything within 140, every 10 s) makes a
   column magic-proof unless steel strips it; levies at 2 pips helped only
-  the opening levels. Balance pending the owner's call. A
+  the opening levels. The owner's call: keep the rule and the Magister's
+  3 pips, shrink his aura (`wardRange` 140 → 80) — "choosing towers
+  properly will make that easier. Like assassins at the gate." At 80 the
+  sim's stock armies (no assassins; the mixed one leans on wizards) still
+  bleed hundreds late in the chapter (Citadel ~730, all-physical ~440):
+  the chapter now asks for steel, and the Covert (wards make him prey). A
   ward-caster (`wardEvery/wardHits/wardRange`, `wardFx` for its ring,
   `wardSelf: false` to leave himself out) tops pips up around him.
 - Escorts: a faction's `escort` ({ type, per, max, from }) sends that foe

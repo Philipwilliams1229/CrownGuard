@@ -615,7 +615,7 @@ const graveS = () => memo("grave", () => {
 // ---- the effects -----------------------------------------------------------
 const lifeP = (fx, life) => clamp01(1 - fx.ttl / (fx.life || life));
 
-// The Aegis Magister's cast (a wardwave of kind "aegis", r 140, ttl 800):
+// The Aegis Magister's cast (a wardwave of kind "aegis", r = his wardRange, ttl 800):
 // he throws a great kite shield up over his head and a wall of shields
 // sweeps out over the whole company on a bright rim, scale-mail shimmering
 // on the ground behind it; as the rim passes each soldier a little shield
