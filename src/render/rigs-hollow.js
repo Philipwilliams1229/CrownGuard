@@ -18,6 +18,7 @@
 // wcol / shcol = weapon and shield.
 
 import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow } from "./paint.js";
+import { logJoint } from "./folk-kit.js";
 
 // ---- the kit (as rigs-horde.js) --------------------------------------------------
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -98,6 +99,7 @@ const boneLeg = (ctx, R, o, which, b, cols = {}) => {
   const [fx, fy] = st[which];
   const hp = T(which === "near" ? o.hipW : -o.hipW, 0);
   const [kn, an] = ik(hp[0], hp[1], fx, fy - ank, o.L1, o.L2, 1);
+  logJoint(ctx, "leg", hp, kn, an, { lens: [o.L1, o.L2] });
   part(ctx, (c) => {
     tube(c, hp[0], hp[1], kn[0], kn[1], o.thigh, b);
     tube(c, kn[0], kn[1], an[0], an[1], o.shin, b);
@@ -126,6 +128,7 @@ const boneFoot = (ctx, x, y, len, b, ank) => part(ctx, (c) => {
 // dress either bone (a sleeve, a vambrace)
 const boneArm = (ctx, sh, to, o, b, cols = {}) => {
   const [el, hd] = ik(sh[0], sh[1], to[0], to[1], o.up, o.fore, o.bend ?? -1);
+  logJoint(ctx, "arm", sh, el, hd, { lens: [o.up, o.fore] });
   part(ctx, (c) => {
     tube(c, sh[0], sh[1], el[0], el[1], cols.up ? o.w * (cols.upW || 1.8) : o.w, cols.up || b);
     tube(c, el[0], el[1], hd[0], hd[1], cols.fore ? o.w * (cols.foreW || 1.7) : o.w * 0.85, cols.fore || b);

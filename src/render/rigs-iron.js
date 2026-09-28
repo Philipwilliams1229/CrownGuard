@@ -38,6 +38,7 @@
 // reach everything.
 
 import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow } from "./paint.js";
+import { logJoint } from "./folk-kit.js";
 
 // ---- the kit (the same small skeleton as the horde's and the crown's) -----------
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -126,6 +127,7 @@ const leg = (ctx, R, o, which, cols) => {
   const [fx, fy] = st[which];
   const hp = T(which === "near" ? o.hipW : -o.hipW, 0);
   const [kn, an] = ik(hp[0], hp[1], fx, fy - ank, o.L1, o.L2, 1);
+  logJoint(ctx, "leg", hp, kn, an, { lens: [o.L1, o.L2] });
   part(ctx, (c) => {
     tube(c, hp[0], hp[1], kn[0], kn[1], o.thigh, cols.thigh);
     tube(c, kn[0], kn[1], an[0], an[1], o.shin, cols.shin);
@@ -138,6 +140,7 @@ const leg = (ctx, R, o, which, cols) => {
 };
 const arm = (ctx, sh, to, o, cols) => {
   const [el, hd] = ik(sh[0], sh[1], to[0], to[1], o.up, o.fore, o.bend ?? -1);
+  logJoint(ctx, "arm", sh, el, hd, { lens: [o.up, o.fore] });
   part(ctx, (c) => {
     tube(c, sh[0], sh[1], el[0], el[1], o.w, cols.up);
     tube(c, el[0], el[1], hd[0], hd[1], o.w * 0.92, cols.fore || cols.up);
