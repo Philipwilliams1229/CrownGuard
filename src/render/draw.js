@@ -21,7 +21,8 @@ import { getStats } from "../engine/towers.js";
 import { isBuilt } from "../engine/build.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
-import { hasRig, rigPixels, drawRig } from "./rigs.js";
+import { hasRig, rigPixels, drawRig, rigDef } from "./rigs.js";
+import { STRIKE_MS } from "../engine/update.js";
 import { ENEMIES } from "../data/enemies.js";
 import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawGroundBlend } from "./groundblend.js";
@@ -368,8 +369,23 @@ export function draw(g, canvas, bufRef) {
     const eg = t.eagle;
     if (eg.respawn > 0) continue;
     const dir = (eg.vx ?? 1) < 0 ? -1 : 1;
+    // her frames: wingbeats cruising; on a strafing pass the lance couched
+    // down the dive (fight 0), the thrust at the strike (1), carried through
+    // (2) and back to the couch on the climb (3); in a duel, each blow 1
+    // then 2, and 0 between (engine: eg.passAt, eg.blowAt, eg.latched)
+    const four = (rigDef("eagle").fightN || 2) === 4, ems = g.time * 1000;
+    let esheet = "walk", efr = Math.floor(g.time * 8 + t.id) % 4;
+    if (eg.passAt != null) {
+      const ms = ems - eg.passAt;
+      esheet = "fight";
+      efr = ms < STRIKE_MS ? 0 : ms < STRIKE_MS + 90 ? 1 : !four ? 0 : ms < STRIKE_MS + 290 ? 2 : 3;
+    } else if (eg.latched) {
+      const since = ems - (eg.blowAt ?? -1e9);
+      esheet = "fight";
+      efr = since < 90 ? 1 : four && since < 240 ? 2 : 0;
+    }
     softShadow(ctx, eg.x + 4, eg.y + 22, 12, 3, 0.24);
-    drawRig(ctx, "eagle", eg.x, eg.y + 10, dir, "walk", Math.floor(g.time * 8 + t.id) % 4);
+    drawRig(ctx, "eagle", eg.x, eg.y + 10, dir, esheet, efr);
     if (eg.healGlow > 0) for (let i2 = 0; i2 < 3; i2++) glowFx(ctx, eg.x - 8 + i2 * 8, eg.y - 18 - ((g.time * 22 + i2 * 6) % 10), 1.4, "#8ce08c", 0.8);
     if (eg.hp < eg.maxHp) {
       // held clear above the rider's plume and the raised wingtips

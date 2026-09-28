@@ -20,7 +20,7 @@ export function towerTags(t) {
   let line;
   if (t.kind === "knight") line = `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${s(st.rate)} · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
   else if (t.kind === "support") line = `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
-  else if (t.kind === "gunpowder") line = `bombard ${Math.round(st.dmg)} dmg · ${st.splash} splash · ${st.range} rng${st.shells > 1 ? ` · ${st.shells} charges` : ""}${st.burn ? " · burning" : ""}${st.burnSpread ? " · fire spreads" : ""} · musket ${Math.round(st.mDmg)} dmg · ${s(st.mRate)} · ${st.mRange} rng${st.mPierce ? " · pierces" : ""}${st.mCrit ? " · every 3rd triples" : ""}${st.mShots > 1 ? ` · ${st.mShots}-ball fan` : ""}`;
+  else if (t.kind === "gunpowder") line = `bombard ${Math.round(st.dmg)} dmg · ${st.splash} splash · ${st.range} rng${st.shells > 1 ? ` · ${st.shells} charges` : ""}${st.burn ? " · burning" : ""}${st.burnSpread ? " · fire spreads" : ""}${st.crack ? " · blasts crack armor" : ""} · musket ${Math.round(st.mDmg)} dmg · ${s(st.mRate)} · ${st.mRange} rng${st.mPierce ? " · pierces" : ""}${st.mCrit ? " · every 3rd triples" : ""}${st.mShots > 1 ? ` · ${st.mShots}-ball fan` : ""}${st.mBurn ? " · hot shot burns" : ""}${st.crack ? " · shoots the cracked first" : ""}${st.spot ? " · spots for the bombs" : ""}`;
   else if (t.kind === "riverwatch") line = `${st.count || 1} skiff${(st.count || 1) > 1 ? "s" : ""} · ${Math.round(st.dmg)} dmg · ${s(st.rate)} · ${st.range} rng${st.splash ? ` · ${st.splash} splash` : ""}${st.burn ? " · burning pitch" : ""}${st.pierce ? " · pierces armor" : ""}${st.slow ? " · harpoons drag" : ""}${st.stun ? " · the boom stuns" : ""} · rows the river`;
   else if (t.kind === "assassin") line = `${st.count || 1} blade${(st.count || 1) > 1 ? "s" : ""} · ${Math.round(st.dmg)} dmg · ×${st.preyMult} vs support · ${s(st.rate)} · ${st.hp} hp each${st.pierce ? " · pierces armor" : ""}${st.cull ? " · culls the weak" : ""}${st.silence ? " · silences" : ""}${st.venom ? ` · ${st.venom}/s venom` : ""}${st.venomNoHeal ? " · unhealable venom" : ""}${st.spores ? " · spore clouds" : ""} · never blocks`;
   else if (t.kind === "trapsmith") line = `${Math.round(st.trapDmg)} trap dmg · ${st.maxCharges} charge${st.maxCharges > 1 ? "s" : ""}, one per ${(st.chargeEvery / 1000).toFixed(0)}s · ${st.range} rng${st.root ? " · jaws hold fast" : ""}${st.execute ? " · finishes the weak" : ""}${st.burn ? " · burning mines" : ""}${st.stunAll ? " · stunning blasts" : ""}${st.autoSeed ? " · reseeds each wave" : ""}`;
@@ -80,6 +80,9 @@ const DELTAS = [
   ["critMult", "Crit dmg", (v) => `×${v}`],
   ["mCrit", "Musket crit", (v) => `1 in ${v} ×3`, true],
   ["mShots", "Musket balls", (v) => v],
+  ["mBurn", "Hot shot", (v) => `${Math.round(v)}/s`],
+  ["crack", "Cracked armor", (v) => `+${Math.round(v * 100)}% dmg`],
+  ["crackDur", "Crack time", sec],
   ["shells", "Charges", (v) => v],
   ["chain", "Ricochets", (v) => v],
   ["arc", "Chains", (v) => v],
@@ -114,6 +117,7 @@ export function formStats(t) {
   if (st.pierce) traits.push("pierces armor");
   if (st.groundOnly) traits.push("ground only");
   if (st.airMult || st.hitsAir) traits.push("hits fliers");
+  if (st.spot) traits.push("musket spots for the bombs");
   return { rows, traits };
 }
 

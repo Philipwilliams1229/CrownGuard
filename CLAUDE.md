@@ -230,6 +230,20 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
   (dazed a moment, `dropAt` makes the renderer drop them from the saddle);
   `deathSkin` names the rig its death crumbles in (the gryphon's is
   `gryphonMount`, the empty saddle).
+- Air fights: a flier with `airAtk`/`airReach` (the gryphon knight) turns
+  on any Skyknight war-eagle in reach — `gangOnEagle` in update.js sets
+  `e.airFight`, which holds it in the air (movement treats it as held) and
+  eases it to her side (`airOx/airOy`); it strikes on its own `atkRate`
+  clock (meleeCd/atkAnim, so enemies.js plays its fight sheet), and a flight
+  gangs up. The eagle still picks fliers first. With the sky clear she
+  strafes the road (`strafe`: PASS_MS/STRIKE_MS passes, alternating
+  sides); draw.js picks her frames off `eg.passAt`/`eg.blowAt`/`eg.latched`.
+- Powder Works paths are ways of working together, never one man over the
+  other: the Bombard Yard's blasts `crack` armor (brittle) and the musket
+  shoots the cracked first; the Long Muskets `spot` (the bombardier's
+  charges follow the musket's mark to its reach, leading it); Dragon's
+  Breath adds hot shot (`mBurn`). Measured with a lone-hall bench against
+  the old forms (±20% per foe mix, even on average).
 - Heroes (`src/data/bands.js`): level 1 at the start of every map, up to
   20, with health, damage and ability power rising per level. XP comes ONLY
   from kills (`killXp`: the foe's bounty × `KILL_XP`, doubled for the

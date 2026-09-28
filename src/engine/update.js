@@ -69,6 +69,142 @@ const resolveStrikes = (g, tms) => {
   }
   g.strikes = fresh;
 };
+
+// ---- the Skyknight's war-eagle -------------------------------------------------
+// With the sky clear she strafes the road: a pass is PASS_MS long, a dive
+// from HIGH over the prey out to one side (REACH back along her line) to the
+// strike point LOW over it and LANCE short of it, where the rider's lance
+// goes through at STRIKE_MS, then the climb out the far side; a wheel there
+// until her next pass (st.groundRate from the last) brings her back the
+// other way. draw.js plays her fight frames off eg.passAt and eg.blowAt.
+export const PASS_MS = 720, STRIKE_MS = 300;
+const REACH = 58, LANCE = 14, HIGH = 40, LOW = 14;
+// where a pass puts her `ms` into it, over an anchor (ax, ay), going `dir`:
+// the dive steepest at its top and flat at the bottom, the climb the mirror
+export const passPoint = (ax, ay, dir, ms) => {
+  if (ms <= STRIKE_MS) {
+    const p = Math.max(0, ms) / STRIKE_MS;
+    return [ax + dir * (-REACH + (REACH - LANCE) * p), ay - HIGH + (HIGH - LOW) * Math.sin(p * Math.PI / 2)];
+  }
+  const q = Math.min(1, (ms - STRIKE_MS) / (PASS_MS - STRIKE_MS));
+  return [ax + dir * (-LANCE + (REACH + LANCE) * q), ay - LOW - (HIGH - LOW) * (1 - Math.cos(q * Math.PI / 2))];
+};
+// the foremost foe on foot in the tower's reach, or the one she's after
+const groundPrey = (g, t, eg, st) => {
+  let prey = eg.gTargetId ? g.enemies.find((e) => e.id === eg.gTargetId && !e.dead && !e.flying && !e.swimming) : null;
+  if (prey && Math.hypot(prey.x - t.x, prey.y - t.y) > st.range + 20) prey = null;
+  if (!prey) {
+    let bd = -1;
+    for (const e of g.enemies) {
+      if (e.dead || e.flying || e.swimming || e.dist <= bd) continue;
+      if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
+      bd = e.dist; prey = e;
+    }
+    eg.gTargetId = prey ? prey.id : null;
+  }
+  return prey;
+};
+// Returns false when there is nothing on the road to strafe (she wheels home).
+// Nothing on foot can reach her up there; the first flier in reach calls her
+// back to the duel above (the caller drops the pass).
+const strafe = (g, t, eg, st, tms, sdt) => {
+  const prey = groundPrey(g, t, eg, st);
+  eg.atkCd -= sdt * 1000;
+  if (eg.passAt != null) {
+    const ms = tms - eg.passAt;
+    // the pass rides over its prey as the prey walks; a prey that dies
+    // leaves the pass flying on over where it fell
+    const it = g.enemies.find((e) => e.id === eg.passPrey && !e.dead);
+    if (it) { eg.passX = it.x; eg.passY = it.y; }
+    const [px, py] = passPoint(eg.passX, eg.passY, eg.passDir, ms);
+    const dx = px - eg.x, dy = py - eg.y, d = Math.hypot(dx, dy), v = 420 * sdt;
+    if (d > 0.01) { eg.x += (dx / d) * Math.min(v, d); eg.y += (dy / d) * Math.min(v, d); }
+    if (!eg.struck && ms >= STRIKE_MS) {
+      // the lance goes through whoever is under it at the bottom of the dive
+      eg.struck = true;
+      const lx = eg.x + eg.passDir * LANCE, ly = eg.y + LOW;
+      let v2 = it && Math.hypot(it.x - lx, it.y - ly) < 30 ? it : null;
+      if (!v2) {
+        let bd = 20;
+        for (const e of g.enemies) {
+          if (e.dead || e.flying || e.swimming) continue;
+          const dd = Math.hypot(e.x - lx, e.y - ly);
+          if (dd < bd) { bd = dd; v2 = e; }
+        }
+      }
+      if (v2) {
+        dealDamage(g, v2, st.groundDmg, "phys", false, false, t.id);
+        g.effects.push({ type: "spark", x: v2.x, y: v2.y - 8, ttl: 220, gold: true });
+        sfx.play("falcon");
+        if (v2.dead && v2.id === eg.gTargetId) eg.gTargetId = null;
+      }
+    }
+    if (ms < PASS_MS) return true;
+    eg.passAt = null;
+  }
+  if (!prey) return false;
+  // out to the side she's on, up at the height a pass starts from; the next
+  // pass as soon as she is there and the last one's beat is spent
+  const dir = eg.x <= prey.x ? 1 : -1;
+  const [sx, sy] = passPoint(prey.x, prey.y, dir, 0);
+  const wy = sy + Math.sin(tms / 260 + t.id) * 2.5;
+  const dx = sx - eg.x, dy = wy - eg.y, d = Math.hypot(dx, dy), v = 170 * sdt;
+  if (d > 0.01) { eg.x += (dx / d) * Math.min(v, d); eg.y += (dy / d) * Math.min(v, d); }
+  // turning back for the next pass: face the prey across the gap
+  if (d < 20) eg.vx = dir;
+  if (d < 12 && eg.atkCd <= 0) {
+    eg.atkCd = st.groundRate;
+    eg.passAt = tms; eg.passDir = dir; eg.passPrey = prey.id; eg.passX = prey.x; eg.passY = prey.y; eg.struck = false;
+  }
+  return true;
+};
+// Every gryphon knight in reach of her turns on her: hovering at her side
+// (movement eases it there off its lane, e.airOx/airOy) and striking on its
+// own clock. The one she holds fights back the same way. Returns true if
+// they bring her down.
+const AIR_SIDE = 17, AIR_PULL = 30;
+const gangOnEagle = (g, eg, tms, sdt) => {
+  const ey = eg.y + 12;                       // her body, on the foes' footing
+  for (const e of g.enemies) {
+    if (e.dead || !e.airAtk || e.airFight) continue;
+    if (e.stunUntil > tms && !e.immStun) continue;
+    const lx = e.x - e.airOx, ly = e.y - e.airOy;
+    if (Math.hypot(e.x - eg.x, e.y - ey) > e.airReach) continue;
+    e.airFight = eg.id;
+    // her side of the sky: a length AIR_SIDE from her on its own side of
+    // her, at most AIR_PULL from its lane; the one in her talons stays put
+    if (e.blockedBy === eg.id) { e.airTx = 0; e.airTy = 0; }
+    else {
+      const ax = lx - eg.x, ay = ly - ey, al = Math.hypot(ax, ay) || 1;
+      let ox = eg.x + (ax / al) * AIR_SIDE - lx, oy = ey + (ay / al) * AIR_SIDE - ly;
+      const ol = Math.hypot(ox, oy);
+      if (ol > AIR_PULL) { ox *= AIR_PULL / ol; oy *= AIR_PULL / ol; }
+      e.airTx = ox; e.airTy = oy;
+    }
+    e.face = eg.x >= e.x ? 1 : -1;
+    // a fresh attacker winds up before its first blow
+    if (tms - (e.airFightAt || -1e9) > 400 && e.meleeCd <= 0) e.meleeCd = e.atkRate * 0.45;
+    e.airFightAt = tms;
+    e.meleeCd -= sdt * 1000;
+    if (e.meleeCd <= 0) {
+      e.meleeCd = e.atkRate;
+      e.atkAnim = 200;
+      eg.hp -= e.airAtk;
+      g.effects.push({ type: "hit", x: eg.x, y: eg.y + 2, ttl: 200 });
+      sfx.play("hit");
+      if (eg.hp <= 0) return true;
+    }
+  }
+  return false;
+};
+// she falls: whatever she held goes free, and the roost raises another
+const eagleFalls = (g, eg, st) => {
+  releaseEnemy(g, g.enemies.find((x) => x.blockedBy === eg.id));
+  eg.targetId = null; eg.passAt = null;
+  eg.respawn = st.eagleRespawn;
+  g.effects.push({ type: "poof", x: eg.x, y: eg.y, ttl: 450 });
+  sfx.play("falcon");
+};
 // the field's width without the castle's wider border: logs roll off it here
 const FIELD_W = W - MXR + MX;
 
@@ -161,6 +297,7 @@ const makeEnemy = (type, mult) => {
     lane: pickLane(d.boss),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
     flying: !!d.flying, guard: d.guard || 0, guardFlash: 0,
+    airAtk: d.airAtk || 0, airReach: d.airReach || 0, airFight: null, airOx: 0, airOy: 0,
     immSlow: !!d.immSlow, immStun: !!d.immStun,
     trampleLeft: d.trample || 0, trampleMax: d.trample || 0, trampleEvery: d.trampleEvery || 0, trampleCd: null,
     rangedAtk: d.rangedAtk || 0, rangedRange: d.rangedRange || 0, rangedRate: d.rangedRate || 0, rangedCd: 0,
@@ -734,7 +871,11 @@ export function updateGame(g, dt) {
       }
       break;
     }
-    // The Skyknight: one rider, one war-eagle, one enemy of the air at a time
+    // The Skyknight: one rider, one war-eagle, one enemy of the air at a time.
+    // Gryphon knights answer her in kind: every one in reach breaks off to
+    // lance her (e.airFight holds it in the air at her side, movement below)
+    // and a flight of them can gang up on one bird.
+    for (const e of g.enemies) e.airFight = null;
     for (const t of g.towers) {
       if (t.kind !== "falconry" || !isBuilt(t, g)) continue;
       const st = getStats(t);
@@ -744,13 +885,12 @@ export function updateGame(g, dt) {
       eg.maxHp = st.eagleHp;
       if (eg.respawn > 0) {
         eg.respawn -= sdt * 1000;
-        if (eg.respawn <= 0) { eg.hp = eg.maxHp; eg.x = t.x; eg.y = t.y - 44; eg.targetId = null; }
+        if (eg.respawn <= 0) { eg.hp = eg.maxHp; eg.x = t.x; eg.y = t.y - 44; eg.targetId = null; eg.passAt = null; }
         continue;
       }
       // which way she's flying, for the painter (last tick's travel)
       if (eg.px != null && Math.abs(eg.x - eg.px) > 0.05) eg.vx = eg.x - eg.px;
       eg.px = eg.x;
-      eg.swoop = Math.max(0, (eg.swoop || 0) - sdt * 1000);
       // anything that mends knights mends the eagle: it is a unit on the field,
       // not a projectile, and a wounded bird is the whole tower being wounded
       for (const h of g.towers) {
@@ -770,6 +910,9 @@ export function updateGame(g, dt) {
         eg.healGlow = 220;
       }
       eg.healGlow = Math.max(0, (eg.healGlow || 0) - sdt * 1000);
+      // the gryphons round her, each on its own clock (meleeCd / atkAnim, so
+      // the painter plays its fight): a fresh one winds up before its lance
+      if (gangOnEagle(g, eg, tms, sdt)) { eagleFalls(g, eg, st); continue; }
       let target = eg.targetId ? g.enemies.find((e) => e.id === eg.targetId && !e.dead) : null;
       if (!target) {
         eg.targetId = null;
@@ -782,43 +925,9 @@ export function updateGame(g, dt) {
         }
         if (best) { eg.targetId = best.id; target = best; }
       }
-      if (!target && st.groundDmg) {
-        // No war in the sky: she takes the eagle down on the road instead —
-        // a swoop at the foremost foe on foot, the talons, and up again.
-        // Nothing is held, and nothing on foot can reach her up there. The
-        // first flier in reach calls her back to the duel above.
-        let prey = eg.gTargetId ? g.enemies.find((e) => e.id === eg.gTargetId && !e.dead && !e.flying && !e.swimming) : null;
-        if (prey && Math.hypot(prey.x - t.x, prey.y - t.y) > st.range + 20) prey = null;
-        if (!prey) {
-          let bd = -1;
-          for (const e of g.enemies) {
-            if (e.dead || e.flying || e.swimming || e.dist <= bd) continue;
-            if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
-            bd = e.dist; prey = e;
-          }
-          eg.gTargetId = prey ? prey.id : null;
-        }
-        if (prey) {
-          // station above the prey; each strike is a dip down to it and back
-          const SWOOP = 380;
-          const dip = eg.swoop > 0 ? Math.sin(Math.PI * (1 - eg.swoop / SWOOP)) : 0;
-          const wx = prey.x, wy = prey.y - 40 + dip * 28;
-          const dxW = wx - eg.x, dyW = wy - eg.y, dW = Math.hypot(dxW, dyW);
-          const v = (eg.swoop > 0 ? 320 : 150) * sdt;
-          if (dW > 0.01) { eg.x += (dxW / dW) * Math.min(v, dW); eg.y += (dyW / dW) * Math.min(v, dW); }
-          eg.atkCd -= sdt * 1000;
-          if (eg.atkCd <= 0 && eg.swoop <= 0 && dW < 18) { eg.atkCd = st.groundRate; eg.swoop = SWOOP; eg.struck = false; }
-          // the talons land at the bottom of the dive
-          if (eg.swoop > 0 && !eg.struck && eg.swoop <= SWOOP / 2) {
-            eg.struck = true;
-            dealDamage(g, prey, st.groundDmg, "phys", false, false, t.id);
-            g.effects.push({ type: "spark", x: prey.x, y: prey.y - 8, ttl: 220, gold: true });
-            sfx.play("falcon");
-            if (prey.dead) eg.gTargetId = null;
-          }
-          continue;
-        }
-      }
+      if (target) eg.passAt = null;
+      eg.latched = false;
+      if (!target && st.groundDmg && strafe(g, t, eg, st, tms, sdt)) continue;
       if (!target) {
         // no war in the sky: wheel home above the roost
         const wx = t.x + Math.cos(g.time * 1.1 + t.id) * 24;
@@ -840,20 +949,17 @@ export function updateGame(g, dt) {
           if (target.blockedBy !== eg.id || !target.engaged) { sfx.play("roc"); g.effects.push({ type: "spark", x: target.x, y: target.y - 12, ttl: 300, gold: true }); }
           target.blockedBy = eg.id; target.engaged = true;
         }
-        eg.x = target.x; eg.y = target.y - 12;
+        eg.x = target.x; eg.y = target.y - 12; eg.latched = true;
         eg.atkCd -= sdt * 1000;
-        if (eg.atkCd <= 0) { eg.atkCd = st.eagleRate; dealDamage(g, target, st.eagleDmg, "phys", false, false, t.id); }
-        // the held thing fights back — with its own arms, or by sheer thrashing
-        eg.hurtCd -= sdt * 1000;
-        if (eg.hurtCd <= 0) {
-          eg.hurtCd = target.atkRate > 0 ? target.atkRate : 800;
-          eg.hp -= target.atk > 0 ? target.atk : (target.boss ? 30 : 9);
-          if (eg.hp <= 0) {
-            releaseEnemy(g, target);
-            eg.targetId = null;
-            eg.respawn = st.eagleRespawn;
-            g.effects.push({ type: "poof", x: eg.x, y: eg.y, ttl: 450 });
-            sfx.play("falcon");
+        if (eg.atkCd <= 0) { eg.atkCd = st.eagleRate; eg.blowAt = tms; dealDamage(g, target, st.eagleDmg, "phys", false, false, t.id); }
+        // the held thing fights back: a gryphon with its lance (gangOnEagle),
+        // anything else by sheer thrashing
+        if (!target.airAtk) {
+          eg.hurtCd -= sdt * 1000;
+          if (eg.hurtCd <= 0) {
+            eg.hurtCd = target.atkRate > 0 ? target.atkRate : 800;
+            eg.hp -= target.atk > 0 ? target.atk : (target.boss ? 30 : 9);
+            if (eg.hp <= 0) eagleFalls(g, eg, st);
           }
         }
       }
@@ -1015,7 +1121,8 @@ export function updateGame(g, dt) {
       // discipline and dead weight: sergeants and rams shrug off the chill and
       // the shock that stop everything else
       const stunned = e.stunUntil > tms && !e.immStun;
-      const held = e.blockedBy && e.engaged;
+      // a gryphon at war with a war-eagle hangs in the air to fight her
+      const held = (e.blockedBy && e.engaged) || !!e.airFight;
       // ---- the river road ----
       // A swimmer answers to the current, not the highway: it paddles to the
       // crossing, climbs the bank there, and joins the march already past
@@ -1060,6 +1167,13 @@ export function updateGame(g, dt) {
       if (e.px != null) e.gait = (e.gait || 0) + Math.hypot(nx - e.px, ny - e.py) / 14;
       e.px = nx; e.py = ny;
       e.x = nx; e.y = ny;
+      // ...and closes on her side of the sky, off its lane, easing back after
+      if (e.airAtk) {
+        const k = Math.min(1, sdt * 5);
+        e.airOx += ((e.airFight ? e.airTx : 0) - e.airOx) * k;
+        e.airOy += ((e.airFight ? e.airTy : 0) - e.airOy) * k;
+        e.x += e.airOx; e.y += e.airOy;
+      }
       if (!held && Math.abs(Math.cos(a)) > 0.3) e.face = Math.cos(a) >= 0 ? 1 : -1;
       // Crossbowmen: they shoot your knights from outside sword reach and
       // never break stride to do it. Nothing blocks this — only killing them.
@@ -1224,8 +1338,10 @@ export function updateGame(g, dt) {
     // ---- the Powder Works ----
     // Two men on one platform who do NOT share a trigger: the bombardier lobs
     // powder into whatever is close while the musketeer takes his own slow,
-    // deliberate shot at something much further out. Every path funds one of
-    // them harder, and neither is ever laid off.
+    // deliberate shot at something much further out. Both grow on every
+    // path, and each path is a way of working together: the Bombard Yard's
+    // blasts crack armor (brittle) and the musket takes the cracked first;
+    // the Long Muskets' musketeer spots, and the charges follow his mark.
     for (const t of g.towers) {
       if (t.kind !== "gunpowder" || !isBuilt(t, g)) continue;
       const st = getStats(t);
@@ -1233,7 +1349,12 @@ export function updateGame(g, dt) {
       t.cd = (t.cd || 0) - sdt * 1000;
       if (t.cd <= 0) {
         let near = null, nearScore = -Infinity;
-        for (const e of g.enemies) {
+        // spotted: the musketeer's last mark, out to the musket's reach, while
+        // it is fresh (his last shot, and a little over his reload)
+        const spotted = st.spot && t.spotId != null && tms < t.spotUntil
+          ? g.enemies.find((e) => e.id === t.spotId && !e.dead && !e.flying && Math.hypot(e.x - t.x, e.y - t.y) <= st.mRange) : null;
+        if (spotted) near = spotted;
+        else for (const e of g.enemies) {
           if (e.dead || e.flying) continue;
           if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
           // he throws where the crowd is thickest, being a man with a bucket of powder
@@ -1249,13 +1370,21 @@ export function updateGame(g, dt) {
           const throws = st.shells || 1;
           // the shell leaves the bombardier's hand at the top of his throw
           const [shx, shy] = shellFrom(t);
+          // a long throw to a spotted mark leads it: where it will be walking
+          // when the charge comes down (a close one lands before it matters)
+          let [ax, ay] = [near.x, near.y];
+          if (spotted && !near.swimming && !(near.blockedBy && near.engaged) && !(near.stunUntil > tms)) {
+            const fly = Math.hypot(near.x - shx, near.y - shy) / 200;
+            const slow = near.immSlow ? 0 : Math.max(near.slowUntil > tms ? near.slowPct : 0, near.auraSlow || 0);
+            [ax, ay] = lanePos(Math.min(TOTAL_LEN, near.dist + near.speed * (1 - slow) * fly), near.lane);
+          }
           for (let i = 0; i < throws; i++) {
             const sp = throws > 1 ? (i - (throws - 1) / 2) * 34 : 0;
             g.projectiles.push({
-              x: shx, y: shy, tx: near.x + sp, ty: near.y + (i % 2 ? -12 : 12) * (throws > 1 ? 1 : 0),
+              x: shx, y: shy, tx: ax + sp, ty: ay + (i % 2 ? -12 : 12) * (throws > 1 ? 1 : 0),
               t: 0, speed: 200, delay: 0, dmg: st.dmg, dtype: "phys", pierce: false, splash: st.splash, splashCap: st.splashCap || 0,
               burn: st.burn || 0, burnDur: st.burnDur || 0, slow: 0, slowDur: 0,
-              burnSpreads: !!st.burnSpread, kind: "shell", src: t.id, arc: true,
+              burnSpreads: !!st.burnSpread, crack: st.crack || 0, crackDur: st.crackDur || 0, kind: "shell", src: t.id, arc: true,
             });
           }
           sfx.play("boom");
@@ -1265,13 +1394,15 @@ export function updateGame(g, dt) {
       // --- the musketeer: long, slow, and it goes through plate ---
       t.mCd = (t.mCd || 0) - sdt * 1000;
       if (t.mCd <= 0) {
-        let far = null, farScore = -Infinity;
+        let far = null, farScore = -Infinity, farCracked = false;
         for (const e of g.enemies) {
           if (e.dead) continue;
           if (Math.hypot(e.x - t.x, e.y - t.y) > st.mRange) continue;
           const mode = t.aim || "first";
           const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
-          if (score > farScore) { farScore = score; far = e; }
+          // the Bombard Yard's musketeer shoots into the cracks first
+          const cracked = !!st.crack && e.brittleUntil > tms;
+          if (cracked !== farCracked ? cracked : score > farScore) { farScore = score; far = e; farCracked = cracked; }
         }
         if (far) {
           t.mCd = st.mRate;
@@ -1287,6 +1418,8 @@ export function updateGame(g, dt) {
           // crew face the last shot's way: he turns the hall to his own mark
           // unless the bombardier is mid-throw.
           if (!(t.anim > 0)) t.lastAim = t.mAim;
+          // the Long Muskets: his mark is the bombardier's next target
+          if (st.spot) { t.spotId = far.id; t.spotUntil = tms + st.mRate + 200; }
           const [mzx, mzy] = muzzleFrom(t);
           const aim0 = Math.atan2(far.y - mzy, far.x - mzx);
           for (let i = 0; i < balls; i++) {
@@ -1296,7 +1429,8 @@ export function updateGame(g, dt) {
             g.projectiles.push({
               x: mzx, y: mzy, tx: mzx + Math.cos(a2) * reach, ty: mzy + Math.sin(a2) * reach,
               t: 0, speed: 620, delay: 0, dmg: st.mDmg * crit / (balls > 1 ? 1 : 1), dtype: "phys",
-              pierce: !!st.mPierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0,
+              pierce: !!st.mPierce, splash: 0, burn: st.mBurn || 0, burnDur: st.mBurnDur || 0, slow: 0, slowDur: 0,
+              burnSpreads: !!st.burnSpread, hot: !!st.mBurn,
               kind: "ball", src: t.id, hitsLeft: balls > 1 ? 1 : 2, hitIds: [],
             });
           }
@@ -1881,6 +2015,12 @@ export function updateGame(g, dt) {
             dealDamage(g, e, p.dmg, p.dtype, false, false, p.src);
             p.hitIds.push(e.id);
             if (!e.dead && p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = Math.max(e.slowPct, p.slow); }
+            // Dragon's Breath's hot shot sets what it passes through alight
+            if (!e.dead && p.burn) {
+              e.burnDps = Math.max(e.burnUntil > tms ? e.burnDps : 0, p.burn);
+              e.burnUntil = Math.max(e.burnUntil, tms + p.burnDur);
+              if (p.burnSpreads) e.burnSpread = true;
+            }
             if (--p.hitsLeft <= 0) { p.done = true; break; }
           }
         }
@@ -1920,6 +2060,11 @@ export function updateGame(g, dt) {
               if (e.dead) continue;
               if (p.burn) { e.burnUntil = tms + p.burnDur; e.burnDps = p.burn; if (p.burnSpreads) e.burnSpread = true; }
               if (p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = p.slow; }
+              // the Bombard Yard's blast cracks armor open (brittle, as Permafrost's)
+              if (p.crack) {
+                e.brittleAmp = Math.max(e.brittleUntil > tms ? e.brittleAmp : 0, p.crack);
+                e.brittleUntil = Math.max(e.brittleUntil, tms + p.crackDur);
+              }
             }
           }
           // Inferno Throne / Hellburner: the blast leaves the ground burning
