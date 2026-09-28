@@ -15,7 +15,7 @@ export const IRON_LEVELS = [
       {
         id: "ir1", name: "The King's Road", realm: "kingsroad", short: "King's Road",
         window: { from: 1, to: 8, count: 20 }, gold: 400,
-        blurb: "A levy column in step behind raised shields. Each shield swallows a blow whole — strip them with quick shots, or hit the whole column at once.",
+        blurb: "A levy column in step behind raised shields that only steel can break: each swallows a physical blow whole, and magic can't pass them. Strip them with quick arrows, or hit the whole column at once.",
       },
       {
         id: "muster", name: "The Muster", realm: "muster",
@@ -46,7 +46,7 @@ export const IRON_LEVELS = [
       {
         id: "ir4", name: "Greyhelm Pass", realm: "greyhelm", short: "Greyhelm",
         window: { from: 7, to: 22, count: 25 }, gold: 800,
-        blurb: "Chaplains ward the whole column, and every ward swallows a blow whole. Strip them with quick shots or splash — or kill the chaplain first.",
+        blurb: "Chaplains ward the whole column, and every ward swallows a physical blow whole and turns all magic. Strip them with quick arrows or splash — or kill the chaplain first.",
       },
       {
         id: "coldwater", name: "Coldwater", realm: "coldwater",

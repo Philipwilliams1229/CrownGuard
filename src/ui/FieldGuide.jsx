@@ -243,7 +243,7 @@ function EnemyDetail({ type }) {
         <Row label="Speed">{e.speed}</Row>
         <Row label="Armor">{e.armor > 0 ? `${Math.round(e.armor * 100)}% physical` : "none"}</Row>
         {e.mres ? <Row label="Magic resist">{Math.round(e.mres * 100)}%</Row> : null}
-        {e.guard ? <Row label="Shield">swallows {e.guard} blow{e.guard > 1 ? "s" : ""}</Row> : null}
+        {e.guard ? <Row label="Shield">swallows {e.guard} physical blow{e.guard > 1 ? "s" : ""}; magic and fire can't pass it</Row> : null}
         {e.regen ? <Row label="Regeneration">{e.regen}/s</Row> : null}
         {e.immSlow || e.immStun ? (
           <Row label="Immune to">{[e.immSlow && "slows", e.immStun && "stuns"].filter(Boolean).join(" & ")}</Row>
@@ -283,7 +283,7 @@ function Basics() {
       Slay the champion on wave 18 to save the realm, then <b>March On</b> into the <b>Endless March</b>: ever-larger warbands, the champion returning every 5th wave, and foes that only grow stronger.
 
       <Heading>THE THREE ARMIES</Heading>
-      <b>The Greenwood Horde</b> is numbers and teeth: swarms, fast wolves, bats over your blockers, and shamans mending the whole warband. <b>The Iron Kingdom</b> is discipline: shields that swallow blows, crossbows and gryphons, chaplain wards, siege rams nothing slows. <b>The Hollow Court</b> is the dead in floods — wraiths your knights can't touch, ghasts that burst over your line, and gravecallers whose bells raise more. Each army wants a different castle: read the wave preview, and build against what's actually coming.
+      <b>The Greenwood Horde</b> is numbers and teeth: swarms, fast wolves, bats over your blockers, and shamans mending the whole warband. <b>The Iron Kingdom</b> is discipline: shields only steel can break, crossbows and gryphons, chaplain wards, siege rams nothing slows. <b>The Hollow Court</b> is the dead in floods — wraiths your knights can't touch, ghasts that burst over your line, and gravecallers whose bells raise more. Each army wants a different castle: read the wave preview, and build against what's actually coming.
 
       <Heading>BUILDING</Heading>
       Towers reach <b>Lv 3</b>, then <b>evolve down one of two paths</b> — and each path can <b>ascend once more</b> into a final form. Both choices are permanent, so read them before you spend.<br /><br />

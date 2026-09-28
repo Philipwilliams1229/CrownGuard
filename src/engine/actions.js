@@ -370,15 +370,19 @@ const CORPSE_TYPES = new Set(["goblin", "wolf", "orc"]);
 // as a ledger: who actually earned their footprint and who was decoration.
 export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId) => {
   let dmg = amount;
-  // Raised shields and chaplain / magister wards swallow one discrete blow
-  // apiece, WHOLE, however big it was: nothing gets through, not even a
-  // scratch. So a boulder wasted costs more than an arrow wasted — strip them
-  // with quick blows, or with splash that takes a point off a whole column at
-  // once. Fire, poison and lava still bleed through: they are not blows.
-  if (!tick && e.guard > 0) {
-    e.guard -= 1;
-    e.guardFlash = g.time * 1000 + 300;
-    sfx.play("tink");
+  // Raised shields and chaplain / magister wards (the blue pips) answer only
+  // to steel (owner, 2026-09-28): each PHYSICAL blow takes one pip and is
+  // swallowed WHOLE, however big it was, so a boulder wasted costs more than
+  // an arrow wasted — strip them with quick blows, or with splash that takes
+  // a point off a whole column at once. While a pip stands, magic glances off
+  // and burns, poison, cold and lava do nothing at all: only physical blows
+  // break a shield, and nothing else gets through it.
+  if (e.guard > 0) {
+    if (!tick) {
+      if (dtype === "phys") e.guard -= 1;
+      e.guardFlash = g.time * 1000 + 300;
+      sfx.play("tink");
+    }
     return;
   }
   const tmsD = g.time * 1000;

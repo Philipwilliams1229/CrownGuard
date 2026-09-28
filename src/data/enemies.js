@@ -6,7 +6,8 @@
 //
 // Recurring flags:
 //   armor / mres   fraction of physical / magic damage shrugged off
-//   guard          discrete hits swallowed whole, one per point (the blue pips)
+//   guard          physical blows swallowed whole, one per point (the blue pips);
+//                  while any stand, magic, burns and poison do nothing
 //   immSlow        slows and chills do nothing
 //   immStun        stuns and freezes do nothing
 //   trample        melee blocks it can smash through before being held
@@ -75,7 +76,7 @@ export const ENEMIES = {
   levy: {
     faction: "iron", hp: 60, speed: 78, bounty: 7, armor: 0.1, size: 16,
     name: "Iron Levy", atk: 15, atkRate: 850, castleDmg: 1, guard: 3,
-    note: "Three raised shields: each swallows one blow whole, however big it was — a boulder wasted is worse than an arrow wasted. Strip them with quick blows, or with something that hits the whole column at once.",
+    note: "Three raised shields: only steel breaks them. Each swallows one physical blow whole, however big it was, and while any stand, magic and fire do nothing. Strip them with quick arrows and blades, or with something that hits the whole column at once.",
   },
   crossbow: {
     faction: "iron", hp: 72, speed: 74, bounty: 9, armor: 0, size: 16,
@@ -97,7 +98,7 @@ export const ENEMIES = {
     faction: "iron", hp: 175, speed: 62, bounty: 18, armor: 0.1, mres: 0.3, size: 16,
     name: "Battle Chaplain", atk: 10, atkRate: 1000, castleDmg: 2,
     wardEvery: 3400, wardHits: 1, wardRange: 82,
-    note: "Speaks no healing — he lays a ward on every soldier near him that swallows one blow whole, and lays it again and again. Slow, heavy blows are the ones he wastes: kill him first, or strip the wards with quick shots.",
+    note: "Speaks no healing — he lays a ward on every soldier near him that swallows one physical blow whole and turns all magic and fire while it stands, and lays it again and again. Kill him first, or strip the wards with quick arrows.",
   },
   // The Kingdom's battle-mage. He marches inside the big columns (never on
   // his own: waves.js adds him to any wave big enough to need him) and throws
@@ -106,7 +107,7 @@ export const ENEMIES = {
     faction: "iron", hp: 200, speed: 58, bounty: 30, armor: 0, mres: 0.3, size: 17,
     name: "Aegis Magister", atk: 12, atkRate: 1000, castleDmg: 2,
     wardEvery: 10000, wardHits: 3, wardRange: 140, wardFx: "aegis",
-    note: "A court battle-mage who marches inside the big columns. Every ten seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a blow whole. Strip his shields with quick hits, then kill him before the next aegis; or break them with something that hits many at once.",
+    note: "A court battle-mage who marches inside the big columns. Every ten seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a physical blow whole, and no magic or fire gets through while one stands. Strip his shields with quick arrows and blades, then kill him before the next aegis; or break them with steel that hits many at once.",
   },
   ram: {
     faction: "iron", hp: 1250, speed: 30, bounty: 40, armor: 0.35, size: 24,
@@ -168,7 +169,7 @@ export const ENEMIES = {
   crypt: {
     faction: "hollow", hp: 560, speed: 40, bounty: 30, armor: 0.45, mres: 0.25, guard: 2, size: 21,
     name: "Crypt Warden", atk: 34, atkRate: 1000, castleDmg: 3,
-    note: "It carries its own sarcophagus lid as a shield: the first two blows from any tower glance off it, and the plate under it turns half of what follows. Patience, and something heavy.",
+    note: "It carries its own sarcophagus lid as a shield: the first two physical blows glance off it, magic and fire can't touch it while the lid is up, and the plate under it turns half of what follows. Patience, and something heavy.",
   },
   gravecaller: {
     faction: "hollow", hp: 230, speed: 55, bounty: 26, armor: 0, mres: 0.4, size: 18,

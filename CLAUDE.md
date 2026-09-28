@@ -218,8 +218,16 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
   or the magister at every 22 heads blew the late levels up tenfold; the
   bleed sits in each level's OPENING waves, so start gold (and a level's
   `window.from`) is the finest lever there.
-- Shields (`guard`, the blue pips): each point swallows one discrete blow
-  WHOLE (actions.js dealDamage); burns and poison still bleed through. A
+- Shields (`guard`, the blue pips): only steel breaks them (owner,
+  2026-09-28). Each PHYSICAL blow takes one point and is swallowed WHOLE
+  (actions.js dealDamage); while any point stands, magic blows glance off
+  (no point lost) and every damage-over-time (burn, poison, cold, lava,
+  beams, flame jets) does nothing. Measured the day it landed (Iron
+  chapter, `--endure`, best doctrine per seed): castle damage went from
+  1-32 a level to 44-2225, and an all-physical army from 2-470 to 16-990 —
+  the Magister's aegis (3 pips on everything within 140, every 10 s) makes a
+  column magic-proof unless steel strips it; levies at 2 pips helped only
+  the opening levels. Balance pending the owner's call. A
   ward-caster (`wardEvery/wardHits/wardRange`, `wardFx` for its ring,
   `wardSelf: false` to leave himself out) tops pips up around him.
 - Escorts: a faction's `escort` ({ type, per, max, from }) sends that foe
