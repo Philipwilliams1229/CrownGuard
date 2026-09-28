@@ -138,8 +138,8 @@ export const drawHalberdier = (ctx, x, y, dir, pal, o = {}) => {
   const lift = !walking && fr === 1 ? 0.5 : 0;
   const tilt = !walking && fr === 2 ? -0.16 : 0;
   const sN = turn([2.2, -15.6], hip, lean, lift), sF = turn([-2.2, -15.6], hip, lean, lift);
-  // the far arm swings against the stride while he walks
-  const swing = walking ? [-1, 0, 1, 0][k] : 0;
+  // the far arm swings with the near leg (against its own side's stride)
+  const swing = walking ? [1, 0, -1, 0][k] : 0;
   const hF = [sF[0] + 0.5 + swing * 2.2, sF[1] + 8.6 - Math.abs(swing) * 0.5];
   // the pole: grounded at rest, carried a hand off the ground on the march
   const px = 5.2 + (walking ? 0.3 : 0), foot = walking ? -1.4 - (k % 2 ? 0.4 : 0) : 0;

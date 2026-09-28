@@ -25,6 +25,7 @@ const cell = (type, pose, frame, extra = {}) => {
     c.translate(FX, FY); c.scale(fit(def), fit(def));
     HORDE_PAINTERS[def.kind](c, { ...def.p, ...extra, pose, frame });
     c0.note = `${pose} ${frame} ${wristNote()}`;
+    ((globalThis.HRD_NOTES ||= {})[type] ||= []).push(c0.note);
   };
   return c0;
 };

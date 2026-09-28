@@ -72,8 +72,8 @@ const cyc = (clock, period) => (((clock / period) % 1) + 1) % 1;
 const HOODED = {
   fold: { stride: 0.1, hip: [0, 0.3], near: [4.9, -13.4], far: [4.0, -14.4], tuck: true },
   foldB: { stride: 0.1, hip: [-0.35, 0.6], lean: -0.03, near: [4.5, -13.0], far: [3.6, -14.0], tuck: true },
-  reach: { stride: 0.15, hip: [0.1, 0.4], lean: 0.02, near: [4.7, -10.8], far: [4.0, -14.3] },
-  hilt: { stride: 0.2, hip: [0.3, 0.45], lean: 0.05, near: "grip", far: [4.1, -14.2] },
+  reach: { stride: 0.15, hip: [0.1, 0.4], lean: 0.02, near: [4.7, -10.8], far: [4.0, -14.3], farTuck: true },
+  hilt: { stride: 0.2, hip: [0.3, 0.45], lean: 0.05, near: "grip", far: [4.1, -14.2], farTuck: true },
   crouch: { stride: 0.7, hip: [0.7, 2.0], lean: 0.26, near: "draw", far: [5.0, -12.0], tilt: 0.18 },
 };
 export const HOODED_POSES = Object.keys(HOODED);
@@ -124,7 +124,7 @@ export const drawHooded = (ctx, x, y, dir, pal, pose = "fold") => {
     part(ctx, (c) => { c.fillStyle = darken(pal.skin, 0.1); c.fillRect(hx + 1.0, hy + 1.9, 1.4, 0.8); });
   });
   // the far arm (folded, or steadying himself low as he drops)
-  reach(ctx, b.P(-2.4, -15.6), p.far, pal, { col: dark, hand: p.tuck ? false : undefined });
+  reach(ctx, b.P(-2.4, -15.6), p.far, pal, { col: dark, hand: p.tuck || p.farTuck ? false : undefined });
   if (p.near === "draw") {
     // the blade half out of the sheath, the fist on its grip
     const m = b.P(SHEATH[0] + 0.2, SHEATH[1] - 0.3), h = b.P(...DRAWN);
