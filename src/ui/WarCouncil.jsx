@@ -101,7 +101,7 @@ function SkillNode({ n, owned, free, tree, onBuy, armed, armId, z = 1 }) {
         </span>
       </span>
 
-      <span style={{ fontSize: 10 * z, opacity: 0.8, lineHeight: 1.45 }}>{n.desc}</span>
+      <span style={{ fontFamily: FONT, fontSize: 10 * z, opacity: 0.8, lineHeight: 1.45 }}>{n.desc}</span>
       {!open && (
         <span style={{ fontSize: 9 * z, color: "#e07a72" }}>
           Needs {n.needs.map((r) => tree.nodes.find((x) => x.id === r)?.name).join(" and ")} at rank {RANKS}

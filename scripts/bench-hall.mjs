@@ -23,6 +23,9 @@
 // included — the hall is alone, so all of it is the hall's), and `card`,
 // what the tower card's service record would say (the damage ledger, which
 // credits only what carries the hall's id). Both are over t.formTime.
+// The crowd mix is ~840 hp a second at x3: a hall that eats the whole stream
+// reads ABOVE that (its clock stops while its reach is empty, and its burns
+// keep ticking), which is how the old Grand Battery read ~1000.
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 
@@ -39,7 +42,6 @@ const mulberry = (a) => () => {
 let rng = mulberry(1);
 Math.random = () => rng();
 
-const { CASTLE_HP } = await import("../src/data/constants.js");
 const { selectRealm } = await import("../src/data/maps.js");
 const { selectFaction } = await import("../src/data/factions.js");
 const { TOWERS } = await import("../src/data/towers.js");

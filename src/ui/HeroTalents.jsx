@@ -25,7 +25,7 @@ import {
 } from "../data/bands.js";
 import { heroRecord, buyHeroTalent, resetHeroTalents } from "../data/profile.js";
 import EnemyIcon from "./EnemyIcon.jsx";
-import { btn, panel, DISPLAY, GOLD, INK, NUM as NUM_FACE } from "./theme.js";
+import { btn, panel, DISPLAY, FONT, GOLD, INK, NUM as NUM_FACE } from "./theme.js";
 
 const HERO_KEYS = Object.keys(HEROES);
 const ON = { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" };
@@ -129,7 +129,7 @@ function TalentNode({ t, rank, cost, buyable, armed, onTap, z, armId, meta, desc
         </span>
       </span>
       {meta && <span style={{ ...LABEL, fontSize: 8.5 * z, color: GOLD.lt, opacity: 0.85 }}>{meta}</span>}
-      <span style={{ fontSize: 10 * z, opacity: 0.8, lineHeight: 1.4 }}>{desc || t.desc}</span>
+      <span style={{ fontFamily: FONT, fontSize: 10 * z, opacity: 0.8, lineHeight: 1.4 }}>{desc || t.desc}</span>
       {armed && <ArmBand z={z}>TAP AGAIN · {cost} ★</ArmBand>}
     </button>
   );
@@ -228,7 +228,7 @@ function HeroSheet({ hkey, profile, onBuy, onReset, arm, cols, z, portrait, note
             ...(resetArmed ? ARMED : {}),
           }}>
           <b style={{ ...LABEL, fontSize: 11 * z }}>Reset talents</b>
-          <span style={{ fontSize: 9.5 * z, opacity: 0.7, lineHeight: 1.35 }}>
+          <span style={{ fontFamily: FONT, fontSize: 9.5 * z, opacity: 0.7, lineHeight: 1.35 }}>
             {spent ? <>Free · <span style={NUM}>{spent}</span> {spent === 1 ? "star" : "stars"} back</> : "Nothing spent yet"}
           </span>
           {resetArmed && <ArmBand z={z}>TAP AGAIN · RESET</ArmBand>}

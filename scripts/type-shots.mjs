@@ -5,6 +5,11 @@
 //   node scripts/type-shots.mjs keep letter        some options
 //   node scripts/type-shots.mjs --only home,battle current
 //   node scripts/type-shots.mjs --base http://127.0.0.1:5174 --prefix typeB_ current
+//                        (--base: the game from another server, e.g. a static
+//                        build that teammates' saves can't reload mid-shot:
+//                        NODE_ENV=development npx vite build --mode development
+//                        keeps window.__g, which the battle flow needs; the
+//                        lab page still comes from --lab, the dev server)
 //   node scripts/type-shots.mjs --dump <dir> current   also write each screen's
 //                                                  computed fonts as JSON (to diff two servers)
 //   node scripts/type-shots.mjs --pairs [--faces "VT323,Tiny5"]   the digit pair
@@ -43,6 +48,9 @@ const { chromium } = await load();
 const args = process.argv.slice(2);
 const opt = (name, dflt) => { const i = args.indexOf(name); if (i < 0) return dflt; const v = args[i + 1]; args.splice(i, 2); return v; };
 const base = opt("--base", process.env.CG_DEV || "http://127.0.0.1:5173");
+// the lab page (sheets, pairs) is served only by the dev server, even when
+// --base points the game shots at a static build
+const lab = opt("--lab", process.env.CG_DEV || "http://127.0.0.1:5173");
 const prefix = opt("--prefix", "type_");
 const only = opt("--only", "home,map,battle,phone,council,guide,sheet").split(",");
 const dump = opt("--dump", null);
@@ -188,7 +196,7 @@ if (pairs) {
     const { ctx, page } = await context(1400, 2400, dpr);
     try {
       const qs = new URLSearchParams({ distinct: "1", ...(faces ? { faces } : {}), ...(args.length ? { opts: ids.join(",") } : {}) });
-      await page.goto(`${base}/type-lab.html?${qs}`, { waitUntil: "load" });
+      await page.goto(`${lab}/type-lab.html?${qs}`, { waitUntil: "load" });
       await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 30000 });
       await page.waitForTimeout(300);
       const png = await (await page.$("#out > div")).screenshot();
@@ -216,16 +224,19 @@ let last = null;
 for (const [id, name, dpr, suffix] of jobs) {
   if (id !== last) { console.log(`${id}`); last = id; }
   if (name === "sheet") {
-    const { ctx, page } = await context(1150, 800, dpr);
-    try {
-      await page.goto(`${base}/type-lab.html?opt=${id}`, { waitUntil: "load" });
-      await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 20000 });
-      await page.waitForTimeout(300);
-      const file = path.join(OUT, `${prefix}${id}_sheet${suffix}.png`);
-      await (await page.$(".sheet")).screenshot({ path: file });
-      console.log(`  ${file}`);
-    } catch (e) { console.log(`  FAILED (${id} sheet${suffix}): ${e.message.split("\n")[0]}`); }
-    finally { await ctx.close(); }
+    for (let k = 0; k < 3; k++) {
+      const { ctx, page } = await context(1150, 800, dpr);
+      try {
+        await page.goto(`${lab}/type-lab.html?opt=${id}`, { waitUntil: "load" });
+        await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 20000 });
+        await page.waitForTimeout(300);
+        const file = path.join(OUT, `${prefix}${id}_sheet${suffix}.png`);
+        await (await page.$(".sheet")).screenshot({ path: file });
+        console.log(`  ${file}`);
+        k = 3;
+      } catch (e) { console.log(`  ${k < 2 ? "retrying" : "FAILED"} (${id} sheet${suffix}): ${e.message.split("\n")[0]}`); }
+      finally { await ctx.close(); }
+    }
     continue;
   }
   const steps = MENU[name];

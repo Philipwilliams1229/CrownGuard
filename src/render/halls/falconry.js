@@ -1,6 +1,6 @@
 // ============ HALL: THE FALCONRY ============
 // The falcon-mistress on a high roost with her gauntlet up and her birds
-// wheeling round her — the back of the orbit behind her, the front before.
+// wheeling round her head — the whole wheel behind her and her glove.
 // Before a strike the bird comes down to her glove; on the strike it is
 // gone. It GROWS: a timber perch-scaffold at one, a round stone roost with a
 // crenellated rim at two, a taller roost with a hooded bird on a T-perch
@@ -21,16 +21,13 @@ import {
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { getStats } from "../../engine/towers.js";
+import { wheelAt } from "../../engine/muzzles.js";
 import { drawMistress, mistressFrame, mistressGlove, CREW_FOLK } from "../folk.js";
 
 const cache = spriteCache();
 export const resetFalconryBakes = () => cache.clear();
 const BOX = { left: 36, right: 36, up: 84, down: 18 };
 const PURPLE = "#5a4a8c", STORM = "#7a8494";
-// her head with its hat, plume and braid over all six poses (facing +x, from
-// her feet: back, front, top, bottom), with half a unit to spare; the front
-// edge stops short of the raised glove and its bird
-const HEAD_BOX = [-11, 5.5, -29.5, -16.5];
 
 const spec = (t) => {
   const lvl = t.branch ? 3 : t.level, r4 = t.rank4 ? t.branch + t.rank4 : null;
@@ -232,24 +229,20 @@ export const drawFalconry = (ctx, t, time) => {
     // sets t.falconsAway; birds.js flies it there from her glove and home)
     const away = new Set((t.falconsAway || []).filter((a) => a.back > time).map((a) => a.b));
     const onGlove = !away.has(0) && (t._idle ? perchedIdle : pose === "present" || pose === "draw" || !(t.cd > 0));
-    const wheel = [];
+    // The wheel (muzzles.js wheelAt: where a cast bird leaves from and flies
+    // home to) crosses its near side at her face's height, so EVERY bird on
+    // it is drawn under her, her glove and the bird on it: a near bird passes
+    // behind her head and her raised glove, never across her face or hat, and
+    // nothing swaps layers mid-pass. (Lift the wheel in wheelAt and it flies
+    // over her hat instead; this still holds.)
     for (let b = 0; b < birds; b++) {
       if (away.has(b)) continue;
       if (b === 0 && onGlove) continue;
-      const ang = time * 1.7 + t.id * 0.7 + (b / birds) * Math.PI * 2;
-      wheel.push({ x: x + Math.cos(ang) * 18, y: my - 28 + Math.sin(ang) * 6, front: Math.sin(ang) >= 0, kind: kindOf(b), wing: Math.floor(time * 9 + b * 1.3) % 3 });
+      const [wx, wy] = wheelAt(t, b, birds, time);
+      bird(wx, wy, Math.floor(time * 9 + b * 1.3) % 3, kindOf(b));
+      // the Storm Falcons crackle as they fly
+      if (r4 === "ab" && Math.sin(time * 7 + wx) > 0.7) { ctx.fillStyle = "#d8f0ff"; ctx.fillRect(wx - 5, wy + 1, 1, 1); }
     }
-    // The wheel's near crossing runs at her face's height (muzzles.js
-    // wheelAt, where a cast bird flies home to, so it stays put): a near bird
-    // passes BEHIND her head — inside the box round her head, hat, plume and
-    // braid (HEAD_BOX, measured over every pose) it is drawn under her, and
-    // everywhere else over her, her glove and its bird as before. So nothing
-    // swaps layers as a bird crosses the box's edge, and her face stays clear.
-    const hb = dir > 0 ? [x + HEAD_BOX[0], x + HEAD_BOX[1]] : [x - HEAD_BOX[1], x - HEAD_BOX[0]];
-    const hbT = my + HEAD_BOX[2], hbB = my + HEAD_BOX[3];
-    const inHead = (px, py) => px > hb[0] && px < hb[1] && py > hbT && py < hbB;
-    for (const w of wheel) w.hid = w.front && w.x + 8 > hb[0] && w.x - 8 < hb[1] && w.y + 4 > hbT && w.y - 4 < hbB;
-    for (const w of wheel) if (!w.front || w.hid) bird(w.x, w.y, w.wing, w.kind);
     mistress(court ? "court" : aviary ? "royal" : "mews", pose);
     if (onGlove) {
       const [px, py] = onGloveAt(pose);
@@ -260,21 +253,8 @@ export const drawFalconry = (ctx, t, time) => {
         if (cv) stamp(ctx, cv, px, py, 6, 8, dir); else paintPerched(ctx, px, py, kindOf(0));
       }
     }
-    for (const w of wheel) {
-      if (!w.front) continue;
-      if (!w.hid) { bird(w.x, w.y, w.wing, w.kind); continue; }
-      // over her everywhere but the box round her head
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(w.x - 12, w.y - 8, 24, 16);
-      ctx.rect(hb[0], hbT, hb[1] - hb[0], hbB - hbT);
-      ctx.clip("evenodd");
-      bird(w.x, w.y, w.wing, w.kind);
-      ctx.restore();
-    }
     // the Storm Falcons leave her hand in a crackle of blue
     if (r4 === "ab" && anim > 0.3) { const [sx, sy] = onGloveAt("cast"); glow(ctx, sx + dir * 3, sy + 2, 5 * anim, "#b8e0ff", anim); }
-    if (r4 === "ab") for (const w of wheel) if (Math.sin(time * 7 + w.x) > 0.7 && !inHead(w.x - 5, w.y + 1)) { ctx.fillStyle = "#d8f0ff"; ctx.fillRect(w.x - 5, w.y + 1, 1, 1); }
   }
   // a drifting feather now and then (the birds', so not under noFolk)
   const fc = ((time / 7) + t.id * 0.53) % 1;
