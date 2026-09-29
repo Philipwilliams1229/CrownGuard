@@ -167,9 +167,9 @@ export const ENEMIES = {
   // The dead of a drowned kingdom. They come in floods, they keep coming
   // while their callers stand, and killing some of them is its own mistake.
   skeleton: {
-    faction: "hollow", hp: 44, speed: 70, bounty: 5, armor: 0, mres: 0.15, size: 15,
+    faction: "hollow", hp: 44, speed: 70, bounty: 5, armor: 0, mres: 0.4, size: 15,
     name: "Risen", atk: 9, atkRate: 850, castleDmg: 1,
-    note: "A dead soldier walking under someone else's orders. Worth almost nothing, stops almost nothing — and arrives in floods that do not end.",
+    note: "A dead soldier walking under someone else's orders, and half the fire and lightning thrown at it goes through the bones. Worth almost nothing, stops almost nothing — and arrives in floods that do not end.",
   },
   ghoul: {
     faction: "hollow", hp: 72, speed: 138, bounty: 8, armor: 0, size: 16,
