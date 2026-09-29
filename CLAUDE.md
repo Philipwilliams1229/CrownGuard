@@ -268,14 +268,31 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
 - Every hall's reach was cut by a quarter (owner, 2026-09-29): `range`,
   `mRange`, `auraRange` and `minRange` in towers.js ×0.75, `RALLY_RANGE`
   96 → 72; range 0 and the whole-map 900/999 halls, hall spacing (`reach`)
-  and lightning's jumps (`arcRange`/`chainRange`) untouched. Measured
-  (`--all --endure`, seeds 1-2, better doctrine): the Greenwood got clearly
-  harder (bramblewick ~3 → ~200, blackbriar 0 → ~160, gw5 ~24 → ~200,
-  ravenscar/cinderholt single digits → 50-120); the Hollow Court barely moved
-  (near 0 before and after); the Iron Marches moved both ways within their
-  noise (ir3 ~165 → ~385, undercliff ~820 → ~1650, ir4 ~208 → ~31, ir5
-  ~1330 → ~580); campaign total 7495 → 10351. Start gold per level is the
-  lever if the owner's playtest finds it too much.
+  and lightning's jumps (`arcRange`/`chainRange`) untouched.
+- Measuring today's balance (`--all --endure`, seeds 1-2, better doctrine
+  per seed, with the stuck-wave fixes below): the whole day's changes
+  (range cut, ram, Powder Works, hero xp, before the prices) took the
+  campaign from 5224 castle damage to 13660; the Greenwood got clearly harder
+  (bramblewick ~3 → ~190, blackbriar 0 → 100-460, gw5 ~24 → ~200), the Iron
+  Marches' back half roughly doubled (crowstair ~190 → ~1000, undercliff
+  ~440 → ~1580, ir5 ~470 → ~1120), the Hollow Court stayed near 0. The
+  pricier later levels then brought it back to 9615 (gw5 ~60, crowstair
+  ~640, undercliff ~970, ir5 ~790): the sim's commander buys the cheapest
+  next step, so dearer finals push it into more halls on the road. The sims
+  are a floor; the owner's playtest decides. (Earlier figures for ir4/ir5
+  in this file came from runs that had stalled — see the stuck-wave notes.)
+- Stuck waves: a wave ends only when every foe is dead, so a hold that never
+  ends stalls the game. Two were found and fixed on 2026-09-29: a Paladin
+  Order (magic blows, stun, heal) holding a shielded foe forever — a holy
+  knight's blade is still steel, so while a pip stands his blow takes it
+  (runMelee); and a foe held by a soldier no longer on the field (a band that
+  stood down) — each combat tick releases any hold whose holder is gone.
+  `sim.mjs --endure` prints `STUCK at wave n/N` for a run that never
+  finished, and `CG_STUCK_DUMP=1` dumps the stuck wave's foes, halls and bands.
+- The later levels of every hall cost more (owner, 2026-09-29: "They're
+  pretty easy to get early on if you play it right"): level 3 ×1.15, the
+  paths ×1.3, the finals ×1.5, rounded to 5; levels 1-2 unchanged. A hall's
+  full climb went from 1200-1450 to 1610-1930.
 - The Siege Ram (owner, 2026-09-29: "same rate, fewer in number, higher
   health, higher physical damage resistance, squashes knights dead — this is
   where the mages come in"): the same ram waves with about half the rams,
@@ -359,8 +376,10 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
   20, with health, damage and ability power rising per level. XP comes ONLY
   from kills (`killXp`: the foe's bounty × `KILL_XP`, doubled for the
   hero's own kills, a share for kills within `KILL_NEAR`), so placement
-  matters. `KILL_XP` 0.17 puts a well-placed hero at ~level 10-12 by the end
-  of the script — measure by sweeping `--hero-at 0.2/0.35/0.5/0.65` with
+  matters. Each level asks a quarter more xp than the last (`heroXpFor`:
+  30 × 1.25^(L-1); owner, 2026-09-29, after a hero reached 18 on the
+  Citadel's thirty waves), so `KILL_XP` 0.17 puts a well-placed hero at ~level
+  9-10 by the end of a 20-wave script and ~14-15 on a 30-wave map — measure by sweeping `--hero-at 0.2/0.35/0.5/0.65` with
   `node scripts/sim.mjs --level <id>` and taking the best (a player finds
   the fight; a fixed spot can sit behind the towers and earn nothing).
 - Hero retinue (`HERO_RETINUE` in `src/data/bands.js`): at level 10 and
@@ -375,7 +394,7 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
   a new best on that map pays the gain in full plus half the rest; a replay
   pays half). Spent ONLY on the Home Screen (War Council → Heroes), never in
   battle: five stat talents + one upgrade line per ability, five ranks at
-  `TALENT_COSTS` 5/6/8/10/13 (294 to max a hero; ~24 maps × ~10 per first
+  `TALENT_COSTS` 5/6/8/10/13 (294 to max a hero; ~24 maps × ~9-10 per first
   run). Bank the stars AFTER `bankLevel`, which saves the profile it's given.
 - Hero abilities (`HERO_ABILITIES`): two per hero, fired from the hero's
   menu in battle (tap the hero button). The first is ready from the start;
