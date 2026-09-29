@@ -8,7 +8,7 @@ import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF
 import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X, guardSpots, GUARD_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETINUE, retinueAt } from "../data/bands.js";
-import { RIVER_ROUTE, riverRouteAt, seaRoute, seaDepthAt, underBridge } from "../data/terrain.js";
+import { RIVER_ROUTE, riverRouteAt, seaRoute, seaDepthAt, underBridge, routeSpans, clearOfSpans, stationQ } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, TOTAL_LEN } from "./path.js";
@@ -228,6 +228,29 @@ const pondRoute = (p) => {
   const total = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
   rt = { total, ring: true, at: (q) => { const a = (q / total) * Math.PI * 2; return [p.x + Math.cos(a) * rx, p.y + Math.sin(a) * ry]; } };
   POND_ROUTES.set(p, rt);
+  return rt;
+};
+
+// A River Watch's water and boats. Moored in a pond or mere, its skiffs row a
+// ring round the open water; moored off a coast they patrol the shore;
+// otherwise they work the river it is moored in. The boats take the water as
+// soon as the hall is built (in the build phase too, so a player who taps a
+// new watch sees its skiffs and their reach at once), each at her station
+// clear of the bridges. Returns the route, or null (no water, no watch).
+const launchSkiffs = (g, t, st) => {
+  if (t._pond === undefined) t._pond = pondAt(t.x, t.y) || null;
+  if (t._sea === undefined) t._sea = !t._pond && seaDepthAt(t.x, t.y) > 0;
+  if (!t._pond && !t._sea && t._river === undefined) t._river = riverRouteAt(t.x, t.y);
+  const rt = t._pond ? pondRoute(t._pond) : t._sea ? seaRoute() : t._river;
+  if (!rt) return null;
+  const n = st.count || 1;
+  if (!t.units) t.units = [];
+  while (t.units.length < n) {
+    const sd = stationQ(rt, t.units.length, n);
+    const [x, y] = rt.at(sd);
+    t.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, sd, x, y, face: 1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
+  }
+  if (t.units.length > n) t.units.length = n;
   return rt;
 };
 
@@ -761,6 +784,8 @@ export function updateGame(g, dt) {
   // walks his stretch of road and arms it himself — one charge at a beat,
   // always into the widest uncovered gap in his reach.
   if (!g.paused && (g.phase === "combat" || g.phase === "build")) {
+    // ---- the River Watch's boats are on the water from the moment it's built ----
+    for (const t of g.towers) if (t.kind === "riverwatch" && isBuilt(t, g)) launchSkiffs(g, t, getStats(t));
     // ---- the bands: militia, the hero, and the Gate Guard ----
     syncGateGuard(g);
     syncRetinue(g);
@@ -1586,22 +1611,9 @@ export function updateGame(g, dt) {
     for (const t of g.towers) {
       if (t.kind !== "riverwatch" || !isBuilt(t, g)) continue;
       const st = getStats(t);
-      // moored in a pond or mere, its skiffs row a ring round the open water;
-      // moored off a coast they patrol the shore; otherwise they work the river
-      if (t._pond === undefined) t._pond = pondAt(t.x, t.y) || null;
-      if (t._sea === undefined) t._sea = !t._pond && seaDepthAt(t.x, t.y) > 0;
-      // (on a board with two rivers, the one it is moored in)
-      if (!t._pond && !t._sea && t._river === undefined) t._river = riverRouteAt(t.x, t.y);
-      const rt = t._pond ? pondRoute(t._pond) : t._sea ? seaRoute() : t._river;
+      const rt = launchSkiffs(g, t, st);         // its water, and its boats on it
       if (!rt) continue;                         // no water, no watch
       const n = st.count || 1;
-      if (!t.units) t.units = [];
-      while (t.units.length < n) {
-        const idx = t.units.length;
-        t.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, sd: (rt.total * (idx + 1)) / (n + 1),
-          x: t.x, y: t.y, face: 1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
-      }
-      if (t.units.length > n) t.units.length = n;
       // where the river runs nearest a given spot, as a distance along it.
       // The river is sampled once per route, and each foe's answer is kept
       // for the tick — every skiff of every watch asks about every foe, and
@@ -1621,31 +1633,8 @@ export function updateGame(g, dt) {
         if (e) { e._rivT = tms; e._rivR = rt; e._riv = r; }
         return r;
       };
-      // A skiff rows UNDER a bridge but never stops there: it works from the
-      // water either side of the span. Each stretch of the route that runs
-      // beneath a deck is kept once per route as [q0, q1], a little wider than
-      // the drawn hull so the boat stands clear of the timbers.
-      if (rt._spans === undefined) {
-        rt._spans = [];
-        let open = null;
-        for (let q = 0; q <= rt.total; q += 4) {
-          const [px, py] = rt.at(q);
-          if (underBridge(px, py, 24)) { if (open === null) open = q; }
-          else if (open !== null) { rt._spans.push([Math.max(0, open - 4), q]); open = null; }
-        }
-        if (open !== null) rt._spans.push([Math.max(0, open - 4), rt.total]);
-      }
-      // a station that falls under a span moves out to the near side of it —
-      // the side the skiff is already on, so it never crosses just to wait
-      const clearOfSpans = (q, from) => {
-        for (const [a, b] of rt._spans) {
-          if (q <= a || q >= b) continue;
-          const side = from <= (a + b) / 2 ? a : b;
-          // a span at the very end of the water leaves only the other side
-          return side <= 0 || side >= rt.total ? (side <= 0 ? b : a) : side;
-        }
-        return q;
-      };
+      // a skiff rows under a bridge but never stops there (terrain.js)
+      routeSpans(rt);
       t.units.forEach((u, i) => {
         u.maxHp = st.hp;
         if (u.state === "dead") {
@@ -1668,7 +1657,7 @@ export function updateGame(g, dt) {
           if (score > markScore) { markScore = score; mark = e; markQ = nr.q; }
         }
         const home = (rt.total * (i + 1)) / (n + 1);
-        const want = clearOfSpans(mark ? markQ : home, u.sd);
+        const want = clearOfSpans(rt, mark ? markQ : home, u.sd);
         const row = (st.rowSpeed || 78) * sdt;
         // round a pond the short way; along a river, up or down it
         let gap = want - u.sd;

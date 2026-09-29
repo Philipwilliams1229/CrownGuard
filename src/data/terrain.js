@@ -178,6 +178,41 @@ export const underBridge = (x, y, reach = 18) => BRIDGES.some((b) => {
   return Math.abs(u) < half + 4 && Math.abs(v) < BRIDGE_HALF + reach;
 });
 
+// A River Watch skiff rows UNDER a bridge but never stops there: it works from
+// the water either side of the span. Each stretch of a route that runs beneath
+// a deck is kept once per route as [q0, q1], a little wider than the drawn hull
+// so the boat stands clear of the timbers. (The engine and the reach display
+// both place stations with these, so the preview shows where a boat will be.)
+export const routeSpans = (rt) => {
+  if (rt._spans === undefined) {
+    rt._spans = [];
+    let open = null;
+    for (let q = 0; q <= rt.total; q += 4) {
+      const [px, py] = rt.at(q);
+      if (underBridge(px, py, 24)) { if (open === null) open = q; }
+      else if (open !== null) { rt._spans.push([Math.max(0, open - 4), q]); open = null; }
+    }
+    if (open !== null) rt._spans.push([Math.max(0, open - 4), rt.total]);
+  }
+  return rt._spans;
+};
+// a station that falls under a span moves out to the near side of it — the
+// side the skiff is already on (`from`), so it never crosses just to wait
+export const clearOfSpans = (rt, q, from) => {
+  for (const [a, b] of routeSpans(rt)) {
+    if (q <= a || q >= b) continue;
+    const side = from <= (a + b) / 2 ? a : b;
+    // a span at the very end of the water leaves only the other side
+    return side <= 0 || side >= rt.total ? (side <= 0 ? b : a) : side;
+  }
+  return q;
+};
+// where the i-th of n skiffs holds station on her route when the water is quiet
+export const stationQ = (rt, i, n) => {
+  const home = (rt.total * (i + 1)) / (n + 1);
+  return clearOfSpans(rt, home, home);
+};
+
 export function regenTerrain(map) {
   const rng = mulberry32(map.seed);
   const sc = map.scatter;

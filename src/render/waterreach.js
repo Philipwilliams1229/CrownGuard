@@ -46,7 +46,7 @@
 import { W, H, WALL_W, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import * as TERRAIN from "../data/terrain.js";
-import { PONDS, RIVERS, COAST, BRIDGES, BRIDGE_HALF, RIVER_ROUTE, seaRoute, seaDepthAt, coastLine } from "../data/terrain.js";
+import { PONDS, RIVERS, COAST, BRIDGES, BRIDGE_HALF, RIVER_ROUTE, seaRoute, seaDepthAt, coastLine, stationQ } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { pondAt } from "../engine/actions.js";
 import { getStats } from "../engine/towers.js";
@@ -1100,7 +1100,7 @@ const newStations = (g, t) => {
   const st = getStats(t), st2 = getStats({ ...t, ...g.upPreview.form }), n2 = st2.count || 1;
   if (n2 <= (st.count || 1)) return [];
   const rt = watchRoute(t.x, t.y), out = [];
-  if (rt) for (let i = t.units ? t.units.length : 0; i < n2; i++) out.push(rt.at((rt.total * (i + 1)) / (n2 + 1)));
+  if (rt) for (let i = t.units ? t.units.length : 0; i < n2; i++) out.push(rt.at(stationQ(rt, i, n2)));   // clear of the bridges, as the engine places them
   return out;
 };
 
@@ -1151,7 +1151,7 @@ const GHOST_CARET = { ok: ["#e4f8dc", "#96e896"], bad: ["#fbe0d8", "#e8786e"] };
 export const drawWatchStation = (ctx, g, x, y, tone) => {
   const rt = watchRoute(x, y);
   if (!rt) return;
-  const [sx, sy] = rt.at(rt.total / 2);
+  const [sx, sy] = rt.at(stationQ(rt, 0, 1));   // never under a bridge, as the engine places her
   ringTicks(ctx, sx, sy, TOWERS.riverwatch.levels[0].range, g.time * 0.5, [], TONES[tone].ring, null);
   caret(ctx, sx, sy - 10 + Math.round(Math.sin(g.time * 3) * 2) / 2, true, GHOST_CARET[tone] || CARET_GOLD);
 };
