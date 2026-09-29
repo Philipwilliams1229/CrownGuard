@@ -7,13 +7,22 @@
 
 import { lighten, darken, rgba, ball, lin, part } from "./paint.js";
 
-// A rounded limb between two points, shaded across its width.
-export const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => {
+// A rounded limb between two points, shaded across its width. `limbStroke`
+// paints it into a part already open; `limb` makes it a part of its own.
+export const limbStroke = (c, x0, y0, x1, y1, w, col) => {
   const ww = w * 0.8;                                   // slim: a forearm, not a sausage
   c.strokeStyle = lin(c, x0 - ww, y0 - ww, x0 + ww, y0 + ww, [[0, lighten(col, 0.3)], [0.5, col], [1, darken(col, 0.45)]]);
   c.lineWidth = ww;
   c.lineCap = "round";
   c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+};
+export const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => limbStroke(c, x0, y0, x1, y1, w, col));
+// Two bones of one limb (upper arm and forearm, thigh and shin) as ONE inked
+// part: the ink runs round the whole limb, never across the joint (owner,
+// 2026-09-29: no black line between the forearm and the upper arm).
+export const limb2 = (ctx, a, b, c2, w0, w1, col0, col1 = col0) => part(ctx, (c) => {
+  limbStroke(c, a[0], a[1], b[0], b[1], w0, col0);
+  limbStroke(c, b[0], b[1], c2[0], c2[1], w1, col1);
 });
 
 // ---- the body kit ----------------------------------------------------------
@@ -103,8 +112,7 @@ export const legs = (ctx, x, y, pal, stride = 0, o = {}) => {
     let kx = (hx + fx) / 2 + 0.5, ky = y - 3.8, hy = y - 7.8;
     if (o.hip) { hx += o.hip[0]; hy += o.hip[1]; [kx, ky] = elbowFor(hx, hy, fx, y - 1.2, { upper: THIGH, fore: SHIN, flip: true }); }
     logJoint(ctx, "leg", [hx, hy], [kx, ky], [fx, y - 1.2], { lens: [THIGH, SHIN] });
-    limb(ctx, hx, hy, kx, ky, 2.6, col);
-    limb(ctx, kx, ky, fx, y - 1.2, 2.3, col);
+    limb2(ctx, [hx, hy], [kx, ky], [fx, y - 1.2], 2.6, 2.3, col);
     blob(ctx, [[fx - 1.1, y - 2.2], [fx + 0.8, y - 2.2], [fx + 2.2, y - 0.4, 1], [fx + 1.8, y + 0.2, 1], [fx - 1.2, y + 0.2, 1]], darken(pal.boots, 0.2), { hi: 0.35 });
   };
   leg(x - 0.9, x - 1.6 - stride * 1.5, darken(pal.boots, 0.12));
@@ -153,8 +161,7 @@ export const arm = (ctx, sx, sy, hx, hy, pal, o = {}) => {
   const [ex, ey] = o.elbow || elbowFor(sx, sy, hx, hy, o);
   logJoint(ctx, "arm", [sx, sy], [ex, ey], [hx, hy], o);
   const col = o.col || pal.coat;
-  limb(ctx, sx, sy, ex, ey, 2.4, col);
-  limb(ctx, ex, ey, hx, hy, 2.2, col);
+  limb2(ctx, [sx, sy], [ex, ey], [hx, hy], 2.4, 2.2, col);
   if (o.hand !== false) hand(ctx, hx, hy, o.glove || pal.skin);
 };
 // ---- timing --------------------------------------------------------------------
