@@ -131,6 +131,43 @@ const swell = (spec, a, warm = 1) => spec.map(([type, count, gap]) => {
   return [type, n, g2, Math.pow(count / n, 1)];
 });
 
+// A level may lean on its chaff: `window.push` (levels-*.js) multiplies the
+// heads of every rank-and-file group (crowd weight 0.9+) from the very first
+// wave, unwarmed — the way to make an early level of a chapter bite for a
+// player who arrives with the last chapter's towers. Each extra head pays
+// less (the purse grows by about k^0.2, not k).
+const push = (spec, k) => {
+  if (!(k > 1)) return spec;
+  const out = spec.map(([type, count, gap, pay = 1], i) => {
+    if ((CROWD_WEIGHT[type] ?? 0) < 0.9) return [type, count, gap, pay];
+    const n = Math.round(count * k);
+    return [type, n, Math.max(90, Math.round(gap / Math.pow(k, 0.6))), pay * Math.pow(count / n, 0.8)];
+  });
+  out.overlap = spec.overlap;
+  return out;
+};
+
+// ---- THE WALL ----
+// A wall (the siege ram, `roadBlock` in enemies.js) comes ONE to a wave,
+// first out of the wood, with its escort (`escort` in enemies.js: levies and
+// crossbows) right behind it: the army marches in its lee. Applied after the
+// swell, before escortOf (which decides whether a magister walks with it).
+const shapeCompany = (spec, a) => {
+  const wallT = spec.find((g) => ENEMIES[g[0]]?.roadBlock)?.[0];
+  if (!wallT) return spec;
+  const out = [[wallT, 1, 0, 1], ...spec.filter((g) => g[0] !== wallT).map((g) => g.slice())];
+  out.overlap = spec.overlap;
+  const groupOf = (t) => out.find((g) => g[0] === t);
+  for (const [t, base, per, gap] of ENEMIES[wallT].escort || []) {
+    if (!FACTION.types.includes(t)) continue;
+    const want = Math.round(base + per * a);
+    const g = groupOf(t);
+    if (g) { if (g[1] < want) g[1] = want; }
+    else out.push([t, want, gap, 1]);
+  }
+  return out;
+};
+
 // The single source of truth for "what does wave w hold?"
 // Free Play: the faction's script, then the Endless March.
 // A campaign level: its slice of the script — a level that runs past the
@@ -142,7 +179,7 @@ export const waveSpec = (w) => {
   const a = absWave(w);
   const scripted = a <= FACTION.waves.length;
   if (!WINDOW) {
-    const sp = escortOf(swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a), a);
+    const sp = escortOf(shapeCompany(swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a), a), a);
     sp.overlap = overlap(a);
     return SANDBOX ? sandboxShape(sp) : sp;
   }
@@ -152,7 +189,7 @@ export const waveSpec = (w) => {
   spec = spec.filter(([type]) => !BOSSES.has(type));
   // every level opens on its own ground: the swell comes in over its first
   // few waves, so a fresh purse never meets a full-grown horde on wave one
-  spec = swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1)));
+  spec = push(shapeCompany(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), a), WINDOW.push);
   spec = escortOf(spec, a);
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);
@@ -169,6 +206,9 @@ export const waveSpec = (w) => {
 const escortOf = (spec, a) => {
   const e = FACTION.escort;
   if (!e || a < e.from || spec.some(([t]) => t === e.type)) return spec;
+  // behind a siege ram a magister is a harder-war treat, not a habit: from
+  // war-wave 10, on about six waves in ten (seeded by the wave)
+  if (spec.some(([t]) => ENEMIES[t]?.roadBlock) && !(a >= 10 && mulberry32(a * 131 + 17)() < 0.6)) return spec;
   let heads = 0, big = -1, most = 0;
   spec.forEach(([t, n], i) => {
     if (BOSSES.has(t) || ENEMY_BOSS(t) || (CROWD_WEIGHT[t] ?? 0) < 0.3) return;

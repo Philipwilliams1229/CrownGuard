@@ -16,6 +16,15 @@
 //   flying         knights cannot block it at all
 //   ranged*        it shoots your knights from outside their reach
 //   ward*          it hands out `guard` to nearby allies (wardFx: its look)
+//   packRange      it marches at the pace of the soldiers within this reach,
+//                  so it stays embedded in its company instead of drifting
+//   roadBlock      a wall across the whole road (all three lanes): nothing
+//                  behind it can pass while it lives. Value = its half-length
+//   escort         [type, base, perWave, gap] groups always sent in its wake
+//   single         only one of its kind may be on the road at a time
+//   physImmune     physical damage does nothing to it — except the sword
+//                  blows of a knight (magic works, less its `mres`)
+//   haunts         flies, but knights can still reach out and fight it
 //   banner*        it buffs the speed and armor of everything around it
 //   summon*        it conjures fresh enemies onto the road as it walks
 //   splitInto      [type, count] — cut it down and it comes apart into these
@@ -109,16 +118,21 @@ export const ENEMIES = {
   magister: {
     faction: "iron", hp: 200, speed: 58, bounty: 30, armor: 0, mres: 0.3, size: 17,
     name: "Aegis Magister", atk: 12, atkRate: 1000, castleDmg: 2,
-    wardEvery: 10000, wardHits: 3, wardRange: 80, wardFx: "aegis",
-    note: "A court battle-mage who marches inside the big columns. Every ten seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a physical blow whole, and no magic or fire gets through while one stands. Strip his shields with quick arrows and blades, then kill him before the next aegis; or break them with steel that hits many at once.",
+    wardEvery: 8000, wardHits: 3, wardRange: 80, packRange: 95, wardFx: "aegis",
+    note: "A court battle-mage who marches inside the big columns. Every eight seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a physical blow whole, and no magic or fire gets through while one stands. Strip his shields with quick arrows and blades, then kill him before the next aegis (he keeps the column's pace, so he never strays from the soldiers he shields); or break them with steel that hits many at once.",
   },
   // Fewer and far heavier since 2026-09-29 (owner: "higher health, higher
   // physical damage resistance, squashes knights dead — this is where the
   // mages come in"): steel barely dents it, magic takes it whole.
   ram: {
-    faction: "iron", hp: 2300, speed: 30, bounty: 60, armor: 0.6, mres: 0, size: 24,
+    // speed 30 -> 46 with the wall: the whole army walks at the ram's pace, and
+    // at 30 the crowd behind it arrived in one lump and doubled the sim's bleed
+    faction: "iron", hp: 2300, speed: 46, bounty: 60, armor: 0.6, mres: 0, size: 34,
     name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 4, immSlow: true, immStun: true, crush: true,
-    note: "Oak and iron on six wheels. Nothing slows it, nothing stuns it, arrows and blades barely dent it, and any knight who steps in front of it is crushed. Magic burns straight through the oak — this is the mages' work.",
+    roadBlock: 50, single: true,
+    // it never marches bare: [type, base count, more per war-wave, gap ms]
+    escort: [["levy", 5, 0.6, 420], ["crossbow", 3, 0.35, 760]],
+    note: "A shed of oak and iron wide as the whole road: nothing marches past it, and the army walks in its lee, knights and crossbows piling up behind. Nothing slows it, nothing stuns it, arrows and blades barely dent it, and any knight who steps in front of it is crushed. Magic burns straight through the oak — this is the mages' work. Kill it, and the column pours through.",
   },
   gryphon: {
     faction: "iron", hp: 190, speed: 88, bounty: 22, armor: 0.2, size: 21,
@@ -151,7 +165,7 @@ export const ENEMIES = {
     note: "A dead soldier walking under someone else's orders. Worth almost nothing, stops almost nothing — and arrives in floods that do not end.",
   },
   ghoul: {
-    faction: "hollow", hp: 72, speed: 124, bounty: 8, armor: 0, size: 16,
+    faction: "hollow", hp: 72, speed: 138, bounty: 8, armor: 0, size: 16,
     name: "Ghoul", atk: 14, atkRate: 700, castleDmg: 1,
     note: "It remembers being hungry, and nothing else. Comes on all fours, fast as a wolf, and does not tire.",
   },
@@ -162,15 +176,15 @@ export const ENEMIES = {
     note: "Grave-cold fingers on a yew bow, loosing at your knights from outside sword reach. Dead men need no fletching lessons.",
   },
   wraith: {
-    faction: "hollow", hp: 95, speed: 78, bounty: 14, armor: 0, mres: 0.55, size: 17,
-    name: "Wraith", flying: true, atk: 0, atkRate: 0, castleDmg: 2,
-    note: "A drowned soul that drifts over blades and blockers alike, and most magic passes through it like mist. Plain honest arrows are what it fears.",
+    faction: "hollow", hp: 95, speed: 78, bounty: 18, armor: 0, mres: 0.55, size: 17,
+    name: "Wraith", flying: true, physImmune: true, haunts: true, atk: 11, atkRate: 1000, castleDmg: 2,
+    note: "A drowned soul that drifts over the road and lays its cold hands on your knights. Arrows, bolts and stones pass through it; only a knight's sword, or magic (which mostly slides off it), can hurt it.",
   },
   ghast: {
-    faction: "hollow", hp: 175, speed: 52, bounty: 16, armor: 0, size: 18,
+    faction: "hollow", hp: 175, speed: 84, bounty: 16, armor: 0, size: 18,
     name: "Plague Ghast", atk: 16, atkRate: 900, castleDmg: 2,
     deathBurst: { r: 55, dmg: 26, dps: 12, dur: 3500 },
-    note: "Swollen with grave-rot. Kill it at arm's length and it bursts — scalding every knight nearby and leaving a pool of filth that keeps eating at them. Kill it FAR from your line, or let the towers do it.",
+    note: "Swollen with grave-rot, and sent ahead of the court at a shambling run to fall on your knights. Kill it at arm's length and it bursts — scalding every knight nearby and leaving a pool of filth that keeps eating at them. Kill it FAR from your line, or let the towers do it.",
   },
   crypt: {
     faction: "hollow", hp: 560, speed: 40, bounty: 30, armor: 0.45, mres: 0.25, guard: 2, size: 21,
@@ -178,13 +192,13 @@ export const ENEMIES = {
     note: "It carries its own sarcophagus lid as a shield: the first two physical blows glance off it, magic and fire can't touch it while the lid is up, and the plate under it turns half of what follows. Patience, and something heavy.",
   },
   gravecaller: {
-    faction: "hollow", hp: 230, speed: 55, bounty: 26, armor: 0, mres: 0.4, size: 18,
+    faction: "hollow", hp: 380, speed: 55, bounty: 34, armor: 0, mres: 0.65, size: 18,
     name: "Gravecaller", atk: 10, atkRate: 1000, castleDmg: 2,
-    summonEvery: 5600, summonType: "skeleton", summonCount: 2,
-    note: "A robed thing with a bell. Every toll pulls two more Risen up out of the road itself — the flood has a source, and this is it. Silence the bell.",
+    summonEvery: 5200, summonType: "skeleton", summonCount: 10,
+    note: "A robed thing with a bell, warded against most magic. Every toll pulls ten more Risen up out of the road itself — the flood has a source, and this is it. Silence the bell.",
   },
   amalgam: {
-    faction: "hollow", hp: 790, speed: 36, bounty: 40, armor: 0.2, size: 23,
+    faction: "hollow", hp: 1050, speed: 36, bounty: 42, armor: 0.2, size: 23,
     name: "Grave Amalgam", atk: 30, atkRate: 1100, castleDmg: 3,
     splitInto: ["ghoul", 3],
     note: "Many dead things stitched into one slow tide of a body. Cutting it down is half the work: it comes apart into three ghouls at a sprint.",

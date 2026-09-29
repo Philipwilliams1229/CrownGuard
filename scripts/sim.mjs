@@ -222,6 +222,25 @@ const freshGame = (gold) => ({
 
 const DT = 1 / 30;
 
+// --check-wall: a siege ram walls off the road. Every tick, note who stands
+// behind each live ram; if any of them is ever found ahead of it, count a pass.
+const WALLCHK = flag("check-wall");
+const WALL = { behind: new Map(), passes: 0, rams: 0, jam: 0, maxRamsAtOnce: 0 };
+function wallCheck(g) {
+  const rams = g.enemies.filter((e) => !e.dead && e.roadBlock);
+  WALL.maxRamsAtOnce = Math.max(WALL.maxRamsAtOnce, rams.length);
+  for (const w of rams) {
+    let jam = 0;
+    for (const e of g.enemies) {
+      if (e.dead || e === w) continue;
+      const was = WALL.behind.get(w.id + ":" + e.id);
+      if (e.dist < w.dist) { WALL.behind.set(w.id + ":" + e.id, true); if (e.dist > w.dist - w.roadBlock - 8) jam++; }
+      else if (was && !e.swimming) { WALL.passes++; WALL.behind.delete(w.id + ":" + e.id); }
+    }
+    WALL.jam = Math.max(WALL.jam, jam);
+  }
+}
+
 function runOnce(opts, quiet, planName) {
   let { realm, faction, window: win, gold, waves, vet = 0 } = opts;
   rng = mulberry(SEED);              // same dice for every level
@@ -274,6 +293,7 @@ function runOnce(opts, quiet, planName) {
           for (const bd of g.bands || []) console.log("band", bd.id, bd.kind, JSON.stringify(bd.units.map((u) => [u.id, u.state, Math.round(u.hp), u.targetId, Math.round(u.x), Math.round(u.y)])));
           process.exit(0);
         }
+        if (WALLCHK) wallCheck(g);
         // the militia horn, blown at the road's last bend whenever it's ready
         // and something is on the road worth blowing it for
         if (MILITIA_ON && (g.militiaCd || 0) <= 0 && g.enemies.some((e) => !e.dead && e.dist > TOTAL_LEN * 0.5)) {
@@ -372,3 +392,5 @@ if (flag("all") || after("chapter")) {
   console.log("usage: node scripts/sim.mjs --level <id> | --all [--quiet] | --free <realm> [faction]");
   console.log(`levels: ${LEVELS.map((l) => l.id).join(", ")}`);
 }
+
+if (WALLCHK) console.log(`wall check: ${WALL.passes} passes of a live ram, ${WALL.maxRamsAtOnce} ram(s) at most on the road, up to ${WALL.jam} foes jammed in its lee`);

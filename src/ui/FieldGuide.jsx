@@ -293,7 +293,7 @@ function Basics() {
       Slay the champion on wave 18 to save the realm, then <b>March On</b> into the <b>Endless March</b>: ever-larger warbands, the champion returning every 5th wave, and foes that only grow stronger.
 
       <Heading>THE THREE ARMIES</Heading>
-      <b>The Greenwood Horde</b> is numbers and teeth: swarms, fast wolves, bats over your blockers, and shamans mending the whole warband. <b>The Iron Kingdom</b> is discipline: shields only steel can break, crossbows and gryphons, chaplain wards, siege rams nothing slows. <b>The Hollow Court</b> is the dead in floods — wraiths your knights can't touch, ghasts that burst over your line, and gravecallers whose bells raise more. Each army wants a different castle: read the wave preview, and build against what's actually coming.
+      <b>The Greenwood Horde</b> is numbers and teeth: swarms, fast wolves, bats over your blockers, and shamans mending the whole warband. <b>The Iron Kingdom</b> is discipline: shields only steel can break, crossbows and gryphons, chaplain wards, battle-mages who march inside the column, siege rams that wall off the whole road. <b>The Hollow Court</b> is the dead in floods — wraiths that shrug off every arrow and stone (only knights' swords and magic hurt them), ghasts that burst over your line, and gravecallers whose bells raise ten more at a time. Each army wants a different castle: read the wave preview, and build against what's actually coming.
 
       <Heading>BUILDING</Heading>
       Towers reach <b>Lv 3</b>, then <b>evolve down one of two paths</b> — and each path can <b>ascend once more</b> into a final form. Both choices are permanent, so read them before you spend.<br /><br />

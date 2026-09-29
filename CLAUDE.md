@@ -170,6 +170,44 @@ tools, file layout, or a lesson learned the hard way — update the matching
 guide (`art/STYLE-GUIDE.md`, this file) in the same commit. The next session
 should never have to rediscover it.
 
+## Enemy company rules (September 29 pass)
+
+Some foes never walk alone, and these are engine rules, not just numbers:
+- **Siege ram** (`roadBlock`, `single`, `escort` in `src/data/enemies.js`): a
+  wall across all three lanes. Nothing behind it passes while it lives —
+  flyers included (`capDist` pass in `update.js`, before the enemy loop; the
+  column queues in its lee, per lane). ONE at a time (the spawn queue puts a
+  second one back until the first is dead), first out of the wood, and
+  `shapeCompany` (waves.js, applied after the swell) always sends its escort
+  behind it (levies + crossbows, sized by the war-wave). Measured with
+  `--endure` against the pre-wall build: the wall ALONE roughly doubled the
+  Iron back half's castle damage (Crowstair 633 -> 1200-1800), mostly because
+  the crowd behind a 30-speed ram arrived in one lump; speed 46 took that back
+  to ~1.5x, and a big escort added more, so keep the escort lean (5+0.6a levies,
+  3+0.35a bows). The ram's `speed` is the knob if it is still too much.
+- **Aegis Magister** (the "shield mage"; `packRange`): never his own group —
+  `escortOf` (waves.js) walks him amid the biggest group of a wave, and in the
+  engine he marches at the mean pace of the soldiers near him so he stays
+  inside the column. Ward every 8 s. Behind a siege ram he comes only from
+  war-wave 10, on ~6 waves in 10 (seeded), not every time.
+- **Wraith** (`physImmune`, `haunts`): flying, immune to all physical damage
+  except a knight's sword (`dealDamage`'s `melee` argument), magic works less
+  its `mres`; knights can block and fight it, and it hits back.
+- **Gravecaller**: ten Risen a toll. It is the Hollow's engine; the late
+  script keeps callers to 1-2 a wave and the roster cap at 1 for that reason.
+- **`window.push`** (levels-hollow.js, applied in waves.js `push`): multiplies
+  the rank-and-file heads of an early level from wave 1, unwarmed, for a
+  player who arrives with the last chapter's towers. Hollow: hl1 x2.0 down to
+  hl3 x1.2. A pure "more zombies" lever that never touches late levels.
+- `node scripts/sim.mjs --level ir3 --check-wall` proves no foe passes a ram
+  and reports the biggest jam. `--debug-stuck` dumps the live foes of a wave
+  that runs over 400 s (a NaN position once hid behind one).
+- Sim status at the end of the pass (the Iron chapter was already lost by the
+  sim commander before it — the owner's own hard pass): Hollow hl1-drownholm
+  held with 1-10 castle damage each (they bled 0 before), but The Lichgate,
+  Wightwood (some seeds) and The Throne of Dust are lost by the sim commander
+  — pending the owner's playtest, before any easing.
+
 ## Free Play is a sandbox
 
 - `src/data/sandbox.js` holds ONE settings object for a Free Play run

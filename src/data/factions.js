@@ -122,7 +122,9 @@ export const FACTIONS = {
     id: "hollow",
     // the dead come in floods: 0.6 of the horde's swell, on top of scripts
     // that are already all chaff (retuned 2026-09-26; 0.65 left the last
-    // levels at the very edge of falling on most seeds)
+    // levels at the very edge of falling on most seeds). The September 29
+    // "zombie horde" bump lives in the script's bigger chaff groups and in
+    // the early levels' `push` (levels-hollow.js), not in this swell.
     crowdScale: 0.6,
     name: "The Hollow Court",
     tag: "THE DEAD",
@@ -131,27 +133,27 @@ export const FACTIONS = {
     types: ["skeleton", "ghoul", "bonearcher", "wraith", "ghast", "crypt", "gravecaller", "amalgam", "hollowking"],
     endlessBoss: "hollowking",
     waves: [
-      // I. the fen gives up its dead — floods of chaff
-      [["skeleton", 16, 600]],
-      [["skeleton", 22, 460]],
-      [["skeleton", 14, 420], ["ghoul", 6, 500]],
-      [["ghoul", 12, 450]],
-      [["skeleton", 18, 380], ["bonearcher", 4, 1100]],
-      [["wraith", 5, 1200], ["skeleton", 12, 450]],
-      // II. the court's servants — things it is a mistake to kill carelessly
-      [["ghoul", 16, 360], ["bonearcher", 6, 900]],
-      [["ghast", 4, 1600], ["skeleton", 16, 400]],
-      [["crypt", 2, 2600], ["bonearcher", 8, 800]],
-      [["skeleton", 30, 260], ["ghoul", 10, 400]],
-      [["gravecaller", 2, 6000], ["skeleton", 14, 400], ["wraith", 5, 1100]],
-      [["amalgam", 2, 3000], ["ghoul", 14, 380]],
+      // I. the fen gives up its dead — a zombie horde: floods, and floods again
+      [["skeleton", 26, 400], ["ghoul", 4, 700]],
+      [["skeleton", 34, 300], ["ghoul", 6, 500]],
+      [["skeleton", 30, 300], ["ghoul", 10, 420], ["bonearcher", 3, 1000]],
+      [["ghoul", 16, 340], ["skeleton", 28, 260]],
+      [["skeleton", 38, 240], ["bonearcher", 6, 900], ["gravecaller", 1, 0]],
+      [["wraith", 5, 1100], ["skeleton", 32, 260], ["ghoul", 12, 360]],
+      // II. the court's servants — the bells start ringing, and the flood has a source
+      [["ghoul", 22, 300], ["bonearcher", 8, 800], ["skeleton", 26, 260]],
+      [["ghast", 5, 1400], ["skeleton", 36, 240], ["gravecaller", 1, 0]],
+      [["crypt", 2, 2600], ["bonearcher", 8, 800], ["skeleton", 32, 240]],
+      [["skeleton", 54, 170], ["ghoul", 14, 340], ["gravecaller", 1, 0]],
+      [["gravecaller", 1, 0], ["skeleton", 28, 280], ["wraith", 6, 1000]],
+      [["amalgam", 2, 3000], ["ghoul", 20, 320], ["skeleton", 24, 260]],
       // III. the court in session
-      [["crypt", 3, 2200], ["ghast", 6, 1300], ["bonearcher", 8, 700]],
-      [["wraith", 10, 700], ["gravecaller", 2, 5600], ["skeleton", 18, 340]],
-      [["amalgam", 3, 2600], ["crypt", 3, 2200], ["gravecaller", 2, 5000]],
-      [["skeleton", 36, 220], ["ghoul", 16, 320], ["bonearcher", 10, 600]],
-      [["ghast", 8, 1100], ["amalgam", 3, 2400], ["wraith", 8, 800], ["gravecaller", 3, 4600]],
-      [["skeleton", 20, 300], ["crypt", 4, 2000], ["gravecaller", 3, 4200], ["amalgam", 2, 2800], ["hollowking", 1, 0]],
+      [["crypt", 3, 2200], ["ghast", 5, 1400], ["bonearcher", 8, 700], ["skeleton", 30, 260]],
+      [["wraith", 10, 700], ["gravecaller", 1, 0], ["skeleton", 30, 280]],
+      [["amalgam", 3, 2600], ["crypt", 3, 2200], ["gravecaller", 1, 0], ["skeleton", 24, 280]],
+      [["skeleton", 60, 170], ["ghoul", 20, 300], ["bonearcher", 10, 600]],
+      [["ghast", 6, 1200], ["amalgam", 3, 2400], ["wraith", 6, 900], ["gravecaller", 1, 0], ["skeleton", 24, 280]],
+      [["skeleton", 30, 260], ["crypt", 3, 2000], ["gravecaller", 1, 0], ["amalgam", 2, 2800], ["hollowking", 1, 0]],
     ],
     roster: [
       { type: "skeleton", cost: 0.9, gap: 360 },
@@ -160,8 +162,8 @@ export const FACTIONS = {
       { type: "wraith", cost: 3, gap: 900 },
       { type: "ghast", cost: 4, gap: 1400 },
       { type: "crypt", cost: 8, gap: 2200 },
-      { type: "gravecaller", cost: 10, gap: 5200, cap: 2 },
-      { type: "amalgam", cost: 11, gap: 2600, cap: 2 },
+      { type: "gravecaller", cost: 14, gap: 5200, cap: 1 },
+      { type: "amalgam", cost: 13, gap: 2600, cap: 2 },
     ],
   },
 };

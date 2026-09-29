@@ -824,6 +824,6 @@ export const IRONMOUNT_RIGS = {
   gryphon: { kind: "wargryphon", fly: true, fightN: 4, box: { hw: 33, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
   // the same beast once its knight has fallen (the gryphon's deathSkin)
   gryphonMount: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER, riderless: true } },
-  ram: { kind: "siegeram", box: { hw: 40, up: 42, down: 4 }, p: { len: 44, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
+  ram: { kind: "siegeram", box: { hw: 60, up: 62, down: 6 }, p: { len: 66, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
 };
 export const IRONMOUNT_PAINTERS = { destrier, wargryphon: gryphon, siegeram: siegeRam };

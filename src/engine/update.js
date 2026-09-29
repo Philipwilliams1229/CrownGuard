@@ -436,9 +436,10 @@ const makeEnemy = (type, mult) => {
     // the board by wave ninety and then piled up with nothing left to buy.
     bounty: Math.max(SANDBOX && SANDBOX.bountyMul === 0 ? 0 : 1, Math.round(d.bounty * Math.min(3, 1 + Math.max(0, mult - 1) * 0.08) * (SANDBOX ? SANDBOX.bountyMul : 1))),
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
-    lane: pickLane(d.boss),
+    lane: pickLane(d.boss || !!d.roadBlock),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
-    flying: !!d.flying, guard: d.guard || 0, guardFlash: 0,
+    flying: !!d.flying, haunts: !!d.haunts, physImmune: !!d.physImmune, guard: d.guard || 0, guardFlash: 0,
+    roadBlock: d.roadBlock || 0, packRange: d.packRange || 0, capDist: Infinity,
     airAtk: d.airAtk || 0, airReach: d.airReach || 0, airFight: null, airOx: 0, airOy: 0,
     immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush,
     trampleLeft: d.trample || 0, trampleMax: d.trample || 0, trampleEvery: d.trampleEvery || 0, trampleCd: null,
@@ -469,7 +470,7 @@ const makeEnemy = (type, mult) => {
 export const spawnAt = (g, type, mult, dist, tms) => {
   const u = makeEnemy(type, mult);
   u.dist = Math.max(0, dist);
-  u.lane = pickLane(u.boss);
+  u.lane = pickLane(u.boss || !!u.roadBlock);
   const [px, py] = posAt(u.dist);
   const a = angleAt(u.dist);
   u.x = px + Math.cos(a + Math.PI / 2) * u.lane;
@@ -655,7 +656,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
         if (!target) {
           let best = null, bestDist = -1;
           for (const e of g.enemies) {
-            if (e.dead || e.flying || e.swimming || e.blockedBy) continue;
+            if (e.dead || (e.flying && !e.haunts) || e.swimming || e.blockedBy) continue;
             if (e.crush && t.kind === "hero") continue;      // the hero knows better than to stand in front of a ram
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
@@ -711,7 +712,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               // glances off) — else a Paladin who stuns and heals could hold a
               // shielded levy forever and the wave would never end
               const holy = st.magic && !(target.guard > 0);
-              dealDamage(g, target, dealt, holy ? "magic" : "phys", st.magic, false, t.id);
+              dealDamage(g, target, dealt, holy ? "magic" : "phys", st.magic, false, t.id, true);
               sfx.play("clink");
               if (st.frenzy) u.frenzy = (u.frenzy || 0) + 1;
               if (st.lifesteal && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
@@ -943,9 +944,19 @@ export function updateGame(g, dt) {
       for (const e of g.enemies) if (e.blockedBy && !holders.has(e.blockedBy)) { e.blockedBy = null; e.engaged = false; }
     }
     g.spawnTimer += sdt * 1000;
+    const justSpawned = new Set();
     while (g.spawnQueue.length && g.spawnQueue[0].at <= g.spawnTimer) {
       const s = g.spawnQueue.shift();
+      // a `single` foe (the siege ram) waits its turn: while one of its kind
+      // is still on the road, the next is put back a beat and tried again
+      if (ENEMIES[s.type]?.single && (g.enemies.some((x) => !x.dead && x.type === s.type) || justSpawned.has(s.type))) {
+        const q = { ...s, at: g.spawnTimer + 500 };
+        let k = 0; while (k < g.spawnQueue.length && g.spawnQueue[k].at <= q.at) k++;
+        g.spawnQueue.splice(k, 0, q);
+        continue;
+      }
       const e = makeEnemy(s.type, s.mult);
+      if (ENEMIES[s.type]?.single) justSpawned.add(s.type);
       if (s.pay != null && s.pay < 1) e.bounty = Math.max(1, Math.round(e.bounty * s.pay));   // a crowd pays less a head
       e.born = tms;                       // the renderer fades them out of the wood
       // a swimmer puts in at the bank nearest the gate and takes the river
@@ -1187,6 +1198,27 @@ export function updateGame(g, dt) {
       }
       if (st.caltrops) g.grounds.push({ src: tr.byTower, x: tr.x, y: tr.y, r: 40, dps: 0, slowPct: st.caltropSlow || 0.35, until: tms + st.caltrops, kind: "caltrops" });
     }
+    // A siege ram is a wall across all three lanes: nothing behind it gets
+    // past while it lives. Each frame, work out how far along the road every
+    // foe behind a ram may go (`capDist`). The ram itself sets the limit for
+    // whoever stands nearest it in each lane; once a foe is pressed against
+    // that limit, the next behind it in its lane queues up a body's length
+    // back, so the whole column stacks up in the ram's lee.
+    for (const e of g.enemies) e.capDist = Infinity;
+    for (const w of g.enemies) {
+      if (w.dead || !w.roadBlock) continue;
+      const wall = w.dist - w.roadBlock;
+      const behind = g.enemies.filter((e) => !e.dead && e !== w && !e.swimming && e.dist < w.dist);
+      behind.sort((p, q) => q.dist - p.dist);
+      const front = [wall, wall, wall];
+      for (const e of behind) {
+        const k = e.lane < -LANE_OFF / 2 ? 0 : e.lane > LANE_OFF / 2 ? 2 : 1;
+        const cap = Math.min(front[k], w.dist - w.roadBlock);
+        e.capDist = Math.min(e.capDist, cap);
+        // pressed against the limit: the next one back queues behind it
+        if (e.dist >= cap - 1) front[k] = Math.max(e.dist, cap) - 9;
+      }
+    }
     for (const e of g.enemies) {
       if (e.dead) continue;
       if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen * sdt);
@@ -1235,7 +1267,7 @@ export function updateGame(g, dt) {
         if (e.summonCd <= 0) {
           e.summonCd = e.summonEvery;
           for (let i = 0; i < e.summonCount; i++) {
-            const u = spawnAt(g, e.summonType, e.mult * 0.8, e.dist - 14 - i * 12, tms);
+            const u = spawnAt(g, e.summonType, e.mult * 0.8, e.dist - 14 - i * 7, tms);
             u.bounty = Math.max(1, Math.ceil(u.bounty / 2)); // conjured chaff pays half
             g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: 600, life: 600 });
           }
@@ -1311,7 +1343,7 @@ export function updateGame(g, dt) {
         if (done) {
           e.swimming = false;
           e.dist = RIVER_ROUTE.exitRoad;
-          e.lane = pickLane(e.boss);
+          e.lane = pickLane(e.boss || !!e.roadBlock);
           g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 420, r: 20 });
         } else {
           const [wx, wy] = RIVER_ROUTE.at(e.swimD);
@@ -1335,7 +1367,20 @@ export function updateGame(g, dt) {
           const [x1, y1] = lanePos(Math.min(TOTAL_LEN, e.dist + 4), e.lane);
           if (e.dist + 4 <= TOTAL_LEN) stretch = Math.max(0.4, Math.min(2.5, Math.hypot(x1 - x0, y1 - y0) / 4));
         }
-        e.dist += step / stretch;
+        // a company marches together: a chaplain keeps the pace of the
+        // soldiers around him so he stays inside the column
+        let pace = 1;
+        if (e.packRange) {
+          let n = 0, sum = 0;
+          for (const o of g.enemies) {
+            if (o.dead || o === e || o.packRange || o.flying || o.boss || o.roadBlock) continue;
+            if (Math.hypot(o.x - e.x, o.y - e.y) > e.packRange) continue;
+            n++; sum += o.speed * (1 + (o.bannerSpeed || 0));
+          }
+          if (n >= 2) pace = Math.min(1.6, (sum / n) / Math.max(1, e.speed * (1 + (e.bannerSpeed || 0))));
+        }
+        // never onward past a ram's rear, never backward for it either
+        e.dist = Math.min(e.dist + (step * pace) / stretch, Math.max(e.capDist, e.dist));
       }
       const [nx, ny, a] = lanePos(e.dist, e.lane);
       // the walk cycle follows the ground actually covered, so no foot slides
