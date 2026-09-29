@@ -16,8 +16,13 @@
                                     owner's strings at the HUD's sizes (self-
                                     hosted ones load from /fonts/<file>: the
                                     survey's raw files, which public/fonts/
-                                    doesn't hold, so route them in; the faces
-                                    the game ships are its options' own)
+                                    doesn't hold, so route them in; a row
+                                    whose files are missing says "not
+                                    bundled" and shows nothing)
+    /type-lab.html?words=pair,tidy2,tidy3   the owner's words (TWIN ARCHERS,
+                                    WEAK, WAVE, WAR COUNCIL...) in each
+                                    option's own faces, at the HUD's sizes
+                                    and the phone's 0.72 (type-shots --words)
     /type-lab.html?distinct=1[&opts=a,b][&faces=A,B]   the digit pair test
                                     (scripts/type-shots.mjs --pairs)
   (?opt, not ?type: ?type would also switch the game's own option.)
@@ -399,6 +404,7 @@ const CHARS = [...new Set(PAIRS.join(""))];
 async function distinct() {
   await Promise.all(TYPE_IDS.map((id) => loadFaces(facesOf(id)))); await refsLoaded(); await document.fonts.ready;
   const rows = [];   // [name, family stack, css extras]
+  const notes = [];  // (after the grid: type-shots --pairs shoots the first child)
   const only = q.get("opts") ? q.get("opts").split(",") : TYPE_IDS;
   for (const id of only) {
     const t = TYPES[id], st = stacksOf(id);
@@ -413,10 +419,13 @@ async function distinct() {
     const faces = q.get("faces").split(",").map((fw) => { const [family, w] = fw.split(":"); return { family, size: 1, wght: [Number(w) || 400] }; });
     // a self-hosted candidate (the ?candidates sheet's CAND) loads from /fonts/
     const own = (f) => CAND.find((c) => c[1] === f.family && c[3] === "self");
-    await loadFaces(faces.filter((f) => !own(f))); await loadCand(faces.map(own).filter(Boolean)); await document.fonts.ready;
+    await loadFaces(faces.filter((f) => !own(f)));
+    const missing = await loadCand(faces.map(own).filter(Boolean)); await document.fonts.ready;
     // each at the size that matches today's digit height
     const ref = metrics(`"Press Start 2P"`).dig * 0.77;
     for (const f of faces) {
+      // (a candidate whose files aren't bundled would score the fallback face)
+      if (own(f) && missing.has(own(f)[0])) { notes.push(`<div class="nm" style="color:#ff7a6a">${f.family}: not bundled (its files aren't in /fonts/), left out</div>`); continue; }
       const fam = own(f) ? candStack(own(f)) : `"${aliasOf(f)}"`, k = ref / metrics(fam, f.wght[0]).dig;
       rows.push([`${f.family}${f.wght[0] !== 400 ? ":" + f.wght[0] : ""} x${k.toFixed(2)}`, fam, `font-weight:${f.wght[0]}`, k]);
     }
@@ -442,6 +451,7 @@ async function distinct() {
   }
   grid.style.height = `${y}px`; grid.style.width = `${CHARS.length * Math.ceil(21 * 1.6 * 1.6)}px`;
   out.appendChild(grid);
+  out.insertAdjacentHTML("beforeend", notes.join(""));
   window.glyphLayout = layout;
   document.body.dataset.ready = "1";
 }
@@ -526,46 +536,34 @@ const CAND = [
   ["alagard", "Alagard", { 400: "alagard.ttf" }, "self", "freeware? (unverified)", "titles", 1.2, 1.3],
 ];
 const LOCAL_FAMILY = (fam) => `cand ${fam}`;
+// resolves to the ids of the self-hosted rows whose files didn't load (not
+// bundled: the survey's raw files aren't in public/fonts/)
 async function loadCand(rows) {
   const google = rows.filter((r) => r[3] === "google").map(([, family, wght]) => ({ family, size: 1, wght }));
   await loadFaces(google);
-  const local = [];
-  for (const [, family, files, src] of rows) {
+  const local = [], missing = new Set();
+  for (const [id, family, files, src] of rows) {
     if (src !== "self") continue;
     for (const [w, file] of Object.entries(files)) {
       // one file answers the whole weight range it covers (no faux bold)
       const ws = Object.keys(files).map(Number), lo = Number(w) === Math.min(...ws) ? 1 : 551, hi = Number(w) === Math.max(...ws) ? 1000 : 550;
       const ff = new FontFace(LOCAL_FAMILY(family), `url(/fonts/${file})`, { weight: `${lo} ${hi}` });
       document.fonts.add(ff);
-      local.push(ff.load().catch(() => console.error(`candidate face missing: /fonts/${file}`)));
+      local.push(ff.load().catch(() => { missing.add(id); document.fonts.delete(ff); console.warn(`candidate face not bundled: /fonts/${file}`); }));
     }
   }
   await Promise.all(local); await refsLoaded(); await document.fonts.ready;
+  return missing;
 }
 const candStack = ([, family, wght, src]) => (src === "self" ? `"${LOCAL_FAMILY(family)}"` : `"${aliasOf({ family, size: 1, wght })}"`);
 
-async function candidates() {
-  const want = q.get("candidates") === "1" ? null : q.get("candidates").split(",");
-  const rows = want ? want.map((id) => CAND.find((c) => c[0] === id)).filter(Boolean) : CAND;
-  await Promise.all([loadCand(rows), loadFaces(facesOf("pair"))]);
-  await document.fonts.ready;
-  const pair = stacksOf("pair");
-  // a real 100-character tale (towers.js, a final form's desc)
-  const TALE_C = "Two blades afield: they pierce armor, strike support foes TWICE as hard, and finish the nearly-dead.";
-  out.style.cssText = "display:flex;flex-direction:column;gap:0;width:1480px";
-  // the tale's width against today's Tidy HUD tale (Jersey 15 at 1.2 x 10.5px)
-  const mc = document.createElement("canvas").getContext("2d");
-  const tw = (famStack, px) => { mc.font = `${px}px ${famStack}`; return mc.measureText(TALE_C).width; };
-  const jersey = CAND.find((r) => r[0] === "jersey15");
-  await loadCand([jersey]);
-  const refW = tw(candStack(jersey), 10.5 * 1.2);
-  out.insertAdjacentHTML("beforeend", `<div class="nm" style="padding:4px 0">tale widths against Tidy HUD's tale (Jersey 15, 12.6px) = 100%: today's Verdana at 10.5px is ${(tw("Verdana, Geneva, sans-serif", 10.5) / refW * 100).toFixed(0)}% (a card's tale is clamped at 4 lines)</div>`);
-  for (const c of rows) {
-    const [id, family, wght, src, lic, native, f, tf] = c;
-    const bold = (Array.isArray(wght) ? wght : Object.keys(wght).map(Number)).some((w) => w >= 700);
-    const fam = candStack(c), famA = fam.replace(/"/g, "'");
-    const px = (n) => `${(n * f).toFixed(2)}px`;
-    const block = (tag) => `
+// the owner's strings at the HUD's sizes (card title bold 14px, upgrade and
+// hall names bold 13px, tile names bold 11px, labels 11px, target buttons
+// 12px), each word size times `f` (digits, in the row's --numeric, and the
+// buttons' height stay the HUD's)
+const ownerWords = (id, tag, f) => {
+  const px = (n) => `${(n * f).toFixed(2)}px`;
+  return `
       <div data-z="${id}:${tag}" style="display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:#2e2633;border:2px solid #241a26;width:max-content">
         <div style="display:flex;gap:14px;align-items:baseline">
           <span data-z="${id}:${tag}:title" class="cg-display" style="font-weight:700;font-size:${px(14)};color:var(--gold-lt);text-shadow:1px 1px 0 var(--ink);line-height:1.15"><span data-z="${id}:${tag}:twin">TWIN</span> ARCHERS</span>
@@ -583,6 +581,33 @@ async function candidates() {
           <button class="cg-btn cg-btn--red" style="min-height:30px;font-size:${px(12)}">SELL <span class="cg-price" style="font-size:14px">70</span></button>
         </div>
       </div>`;
+};
+
+async function candidates() {
+  const want = q.get("candidates") === "1" ? null : q.get("candidates").split(",");
+  const rows = want ? want.map((id) => CAND.find((c) => c[0] === id)).filter(Boolean) : CAND;
+  const [missing] = await Promise.all([loadCand(rows), loadFaces(facesOf("pair"))]);
+  await document.fonts.ready;
+  const pair = stacksOf("pair");
+  // a real 100-character tale (towers.js, a final form's desc)
+  const TALE_C = "Two blades afield: they pierce armor, strike support foes TWICE as hard, and finish the nearly-dead.";
+  out.style.cssText = "display:flex;flex-direction:column;gap:0;width:1480px";
+  // the tale's width against today's Tidy HUD tale (Jersey 15 at 1.2 x 10.5px)
+  const mc = document.createElement("canvas").getContext("2d");
+  const tw = (famStack, px) => { mc.font = `${px}px ${famStack}`; return mc.measureText(TALE_C).width; };
+  const jersey = CAND.find((r) => r[0] === "jersey15");
+  await loadCand([jersey]);
+  const refW = tw(candStack(jersey), 10.5 * 1.2);
+  out.insertAdjacentHTML("beforeend", `<div class="nm" style="padding:4px 0">tale widths against Tidy HUD's tale (Jersey 15, 12.6px) = 100%: today's Verdana at 10.5px is ${(tw("Verdana, Geneva, sans-serif", 10.5) / refW * 100).toFixed(0)}% (a card's tale is clamped at 4 lines)</div>`);
+  for (const c of rows) {
+    const [id, family, wght, src, lic, native, f, tf] = c;
+    const bold = (Array.isArray(wght) ? wght : Object.keys(wght).map(Number)).some((w) => w >= 700);
+    const fam = candStack(c), famA = fam.replace(/"/g, "'");
+    if (missing.has(id)) {
+      out.insertAdjacentHTML("beforeend", `<div class="row" data-cand="${id}" style="grid-template-columns:150px 1fr;padding:6px 0"><div class="nm"><b>${family}</b><br>${lic} · self-hosted</div><div class="nm" style="color:#ff7a6a">not bundled: its files aren't in /fonts/ (the survey's raw files; route them in to see this row)</div></div>`);
+      continue;
+    }
+    const block = (tag) => ownerWords(id, tag, f);
     const row = document.createElement("div");
     row.className = "row";
     row.dataset.cand = id;
@@ -605,7 +630,43 @@ async function candidates() {
   document.body.dataset.ready = "1";
 }
 
+// ---- the owner's words in each option (?words=pair,tidy2,tidy3) ----
+// One row per option: its name, then the strings the owner named (the card's
+// TWIN ARCHERS and ARCHER TOWER, WEAK, WAVE, WAR COUNCIL, SWORDS, RIVER
+// WATCH, POWDER WORKS) in the option's own faces and slots at the HUD's
+// sizes, again at the phone's 0.72, and the title screen's menu buttons.
+// scripts/type-shots.mjs --words shoots it at DPR 1, 2 and 3.
+async function words() {
+  const ids = q.get("words") === "1" ? TYPE_IDS : q.get("words").split(",").filter((id) => TYPES[id]);
+  await Promise.all(ids.map((id) => loadFaces(facesOf(id)))); await refsLoaded(); await document.fonts.ready;
+  out.style.cssText = "display:flex;flex-direction:column;width:max-content";
+  const menu = (label, gold) => `<button style="font-family:var(--menu);font-weight:bold;border:2px solid #241a26;border-radius:0;padding:12px 16px;min-width:200px;text-align:center;font-size:14px;letter-spacing:2px;${gold
+    ? "background:#b8902e;color:#2e2016;box-shadow:inset -3px -3px 0 #7e5f1c, inset 3px 3px 0 #ecc85c"
+    : "background:#6b4a2e;color:#f2e6c4;box-shadow:inset -2px -2px 0 #43301e, inset 2px 2px 0 #8a6440"}">${label}</button>`;
+  for (const id of ids) {
+    const t = TYPES[id], st = stacksOf(id);
+    const row = document.createElement("div");
+    row.className = "row";
+    row.dataset.words = id;
+    row.style.cssText = "grid-template-columns:130px auto;align-items:start;padding:6px 0";
+    const vars = { "--mark": st.mark, "--title": st.title, "--head": st.head, "--display": st.ui, "--menu": st.menu, "--numeric": st.num, "--body": st.body, "--map": st.map, "--num-adjust": t.numAdjust || "none" };
+    for (const [k, v] of Object.entries(vars)) row.style.setProperty(k, v);
+    if (!t.plain) row.style.fontSynthesis = "none";
+    if (t.features) { row.style.fontFeatureSettings = t.features; row.dataset.typeFeatures = ""; }
+    if (t.caps) row.dataset.typeCaps = "";
+    row.innerHTML = `<div class="nm"><b>${t.name}</b><br>${id}</div>
+      <div class="cg-hud" style="display:flex;gap:10px;align-items:flex-start">
+        ${ownerWords(id, "s1", 1)}
+        <div style="zoom:0.72">${ownerWords(id, "s072", 1)}</div>
+        <div style="display:flex;flex-direction:column;gap:6px">${menu("NEW CAMPAIGN", true)}${menu("WAR COUNCIL", false)}</div>
+      </div>`;
+    out.appendChild(row);
+  }
+  document.body.dataset.ready = "1";
+}
+
 if (q.get("candidates")) candidates();
+else if (q.get("words")) words();
 else if (q.get("survey")) survey();
 else if (q.get("distinct")) distinct();
 else if (q.get("digits")) digits();

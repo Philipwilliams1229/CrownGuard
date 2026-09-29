@@ -1,14 +1,3 @@
-Pixel Operator 8 (Regular, Bold), by Jayvee Enaguas (HarvettFox96), 2009-2018.
-Released under Creative Commons Zero (CC0) 1.0, as the fonts' own name tables say.
-
-PixelOperator8Caps.woff2 and PixelOperator8Caps-Bold.woff2 are Crownguard's recut
-of the 2018.10.04-1 release, renamed "Pixel Operator 8 Caps": a Latin subset
-whose lowercase letters draw the capitals (as Silkscreen's do), its vertical
-metrics set to Silkscreen's line box, and the bold W redrawn with three
-two-pixel strokes (the original's one-pixel middle stroke fades at 1x). Made
-by scripts/font-recut.py in the Crownguard repository, from the original files
-in scripts/font-src/.
-
 Creative Commons Legal Code
 
 CC0 1.0 Universal

@@ -1,16 +1,8 @@
-Pixeloid Sans (Regular, Bold), version 0.4, by GGBotNet (https://ggbot.net).
-
-Copyright (c) 2020-2022 GGBotNet. No Reserved Font Name.
-
-PixeloidSansCaps.woff2 and PixeloidSansCaps-Bold.woff2 are Crownguard's recut of
-the original fonts, a Modified Version under the licence below: a Latin
-subset whose lowercase letters draw the capitals (as Silkscreen's do),
-renamed "Pixeloid Sans Caps".
+Copyright © 2020-2022 GGBotNet (https://ggbot.net/fonts/), with Reserved Font Name "Pixeloid".
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
-https://scripts.sil.org/OFL
-
+http://scripts.sil.org/OFL
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007

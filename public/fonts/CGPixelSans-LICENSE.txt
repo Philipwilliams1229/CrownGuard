@@ -1,18 +1,24 @@
-CG Blocks (Regular, Bold): Crownguard's recut of Dogica Pixel by Roberto Mocci.
+CG Pixel Sans (Regular, Bold): Crownguard's recut of Pixeloid Sans by GGBotNet.
 
-Copyright (c) 2020, Roberto Mocci (<patreon.com/rmocci | da.iosonor@gmail.com>),
-with Reserved Font Names "Dogica Pixel" and "Dogica".
+The original's copyright and licence notice, verbatim from its OFL.txt:
 
-CGBlocks.woff2 and CGBlocks-Bold.woff2 are a Modified Version of Dogica Pixel
-(Regular and Bold, version 001.000) under the licence below: a Latin subset
-whose lowercase letters draw the capitals (as Silkscreen's do). As the licence
-requires of a Modified Version, it does not carry the Reserved Font Name: its
-family name is "CG Blocks".
+Copyright © 2020-2022 GGBotNet (https://ggbot.net/fonts/), with Reserved Font Name "Pixeloid".
+
+CGPixelSans.woff2 and CGPixelSans-Bold.woff2 are a Modified Version of Pixeloid
+Sans (Regular and Bold, version 0.4) under the licence below: a Latin subset
+whose lowercase letters draw the capitals (as Silkscreen's do), with its
+vertical metrics set to Silkscreen's line box. As the licence requires of a
+Modified Version, it does not carry the Reserved Font Name: its family name is
+"CG Pixel Sans". Made by scripts/font-recut.py in the Crownguard repository,
+from the original files in scripts/font-src/.
+
+The full licence (the original's OFL.txt, whose first line is quoted above):
+
+Copyright © 2020-2022 GGBotNet (https://ggbot.net/fonts/), with Reserved Font Name "Pixeloid".
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
 http://scripts.sil.org/OFL
-
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007

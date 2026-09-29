@@ -10,10 +10,19 @@
 //                        NODE_ENV=development npx vite build --mode development
 //                        keeps window.__g, which the battle flow needs; the
 //                        lab page still comes from --lab, the dev server)
+//   node scripts/type-shots.mjs --view 1400x1000@1 --only home,battle tidy2
+//                        every screen at one size and density instead (a 1x
+//                        desktop here), saved as <screen>_1400x1000_dpr1.png
 //   node scripts/type-shots.mjs --dump <dir> current   also write each screen's
 //                                                  computed fonts as JSON (to diff two servers)
 //   node scripts/type-shots.mjs --pairs [--faces "VT323,Tiny5"]   the digit pair
 //                                                  test (type-lab ?distinct) at DPR 1 and 2
+//   node scripts/type-shots.mjs --words pair tidy2 tidy3   the owner's words
+//                        (type-lab ?words: TWIN ARCHERS, WEAK, WAVE, WAR
+//                        COUNCIL...) in each option, at DPR 1 (a desktop),
+//                        2 (an iPad) and 3 (a phone: its 0.72 column), as
+//                        <prefix>words_dpr<n>.png, and the DPR 1 shot blown
+//                        up x3 pixel for pixel (<prefix>words_dpr1_x3.png)
 //   node scripts/type-shots.mjs --cards pair tidy2  the tower card's size, hall by
 //                        hall, on a phone, an iPad and a tall desktop (every
 //                        stage of a hall is laid out in the card, so one size
@@ -64,10 +73,13 @@ const only = opt("--only", "home,map,battle,phone,council,guide,sheet").split(",
 const dump = opt("--dump", null);
 const worst = opt("--worst", "battle,phone,sheet").split(",").filter((w) => w && w !== "none");
 const faces = opt("--faces", "");
+const view = /^(\d+)x(\d+)@([\d.]+)$/.exec(opt("--view", "") || "");
 const pairs = args.includes("--pairs");
 if (pairs) args.splice(args.indexOf("--pairs"), 1);
 const cards = args.includes("--cards");
 if (cards) args.splice(args.indexOf("--cards"), 1);
+const words = args.includes("--words");
+if (words) args.splice(args.indexOf("--words"), 1);
 const kindsArg = opt("--kinds", "");
 const viewsArg = opt("--views", "phone,ipad,desk");
 const ids = args.length ? args : TYPE_IDS;
@@ -232,6 +244,37 @@ if (pairs) {
   process.exit(0);
 }
 
+// the owner's words, option by option, at the three densities
+if (words) {
+  for (const dpr of [1, 2, 3]) {
+    for (let k = 0; k < 3; k++) {
+      const { ctx, page } = await context(1400, 900, dpr);
+      try {
+        await page.goto(`${lab}/type-lab.html?words=${ids.join(",")}`, { waitUntil: "load" });
+        await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 30000 });
+        await page.waitForTimeout(300);
+        const file = path.join(OUT, `${prefix}words_dpr${dpr}.png`);
+        const png = await (await page.$("#out")).screenshot({ path: file });
+        console.log(`  ${file}`);
+        if (dpr === 1) {
+          // every device pixel as a 3x3 block, for reading a 1x screen's letters
+          const big = path.join(OUT, `${prefix}words_dpr1_x3.png`);
+          const { w, h } = await page.evaluate(async (u) => { const i = new Image(); i.src = u; await i.decode(); return { w: i.width, h: i.height }; }, `data:image/png;base64,${png.toString("base64")}`);
+          await page.setViewportSize({ width: w * 3, height: h * 3 });
+          await page.setContent(`<body style="margin:0;background:#17121b"><img id="z" src="data:image/png;base64,${png.toString("base64")}" style="display:block;width:${w * 3}px;height:${h * 3}px;image-rendering:pixelated"></body>`);
+          await page.evaluate(() => document.getElementById("z").decode());
+          await (await page.$("#z")).screenshot({ path: big });
+          console.log(`  ${big}`);
+        }
+        k = 3;
+      } catch (e) { console.log(`  ${k < 2 ? "retrying" : "FAILED"} (words dpr ${dpr}): ${e.message.split("\n")[0]}`); }
+      finally { await ctx.close(); }
+    }
+  }
+  await browser.close();
+  process.exit(0);
+}
+
 // the card test: in Free Play, each hall in turn is placed on open grass (the
 // game paused, gold topped up), selected, and its card measured in layout
 // pixels (the card's own design size, before the HUD's scale); then it is
@@ -328,6 +371,7 @@ if (cards) {
 
 const jobs = [];
 for (const id of ids) {
+  if (view) { for (const name of only) jobs.push([id, name, Number(view[3]), `_${view[1]}x${view[2]}_dpr${view[3]}`]); continue; }
   for (const name of only) jobs.push([id, name, DPR[name] || 2, ""]);
   for (const name of worst) jobs.push([id, name, 1, "_dpr1"]);
 }
@@ -352,7 +396,7 @@ for (const [id, name, dpr, suffix] of jobs) {
   }
   const steps = MENU[name];
   if (!steps) { console.log(`  no screen "${name}"`); continue; }
-  const [w, h] = SIZE[name] || [1133, 744];
+  const [w, h] = view ? [Number(view[1]), Number(view[2])] : SIZE[name] || [1133, 744];
   for (let k = 0; k < 3; k++) {
     const { ctx, page } = await context(w, h, dpr);
     try {

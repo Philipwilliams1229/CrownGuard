@@ -28,7 +28,7 @@
 //
 // OPTIONS: "current" is today's exact look (the default until the owner
 // picks); the others are whole identities of two or three families (Google
-// Fonts, or self-hosted: see below). The tidy2-4 options are Tidy HUD with
+// Fonts, or self-hosted: see below). tidy2 and tidy3 are Tidy HUD with
 // another word face (tidyWith). Pick one with ?type=<id> (remembered in localStorage "cg-type");
 // ?type=current goes back. type-lab.html shows them side by side and
 // scripts/type-shots.mjs shoots the real game in each.
@@ -55,12 +55,13 @@
 // with no stylesheet to fetch first; the URL is relative to the page, so it
 // works from the dev server's root and from GitHub Pages' /CrownGuard/. A
 // missing file (or no network) fails like a Google face: the first paint
-// waits 3 s at most and the slot's stack takes over. `box` pins the line box
-// `line-height: normal` gives it (SILK_BOX: Silkscreen's), so a face with
-// other metrics stands exactly where the one it replaces stood. The tidy
-// options' faces are recuts whose lowercase draws the capitals, as
-// Silkscreen's does (a Latin subset; a face whose licence reserves its name,
-// like Dogica, is renamed: CG Blocks).
+// waits 3 s at most and the slot's stack takes over. The tidy options' faces
+// are recuts made by scripts/font-recut.py from the originals in
+// scripts/font-src/: the lowercase draws the capitals, as Silkscreen's does;
+// a Latin subset; Silkscreen's line box baked into the font's own metrics
+// (not @font-face ascent-override, which Safari ignores), so each line keeps
+// Silkscreen's height and baseline in every browser; renamed wherever the
+// original's licence reserves its name (Pixeloid Sans -> CG Pixel Sans).
 //
 // WHEN THE OWNER PICKS: set DEFAULT_TYPE, and move the chosen option's alias
 // @font-face rules (fetched here at run time) into a static stylesheet with
@@ -78,24 +79,20 @@ const DIGITS = "0123456789";
 // ascent/descent overrides, which Chrome and Firefox honour; Safari keeps the
 // face's own, a pixel or two taller)
 const face = (family, size = 1, wght = [400], lacks = "", lh = 0) => ({ family, size, wght, lacks, lh });
-// a self-hosted face (public/fonts/): `files` maps each weight to its file;
-// `box` is [ascent, descent] in ems of the font size, the line box
-// `line-height: normal` gives it, so it can stand exactly where the face it
-// replaces stood (see SILK_BOX)
-const own = (family, files, size = 1, lacks = "", box = null) =>
-  ({ family, files, size, wght: Object.keys(files).map(Number).sort((a, b) => a - b), lacks, lh: 0, box });
+// a self-hosted face (public/fonts/): `files` maps each weight to its file
+const own = (family, files, size = 1, lacks = "") =>
+  ({ family, files, size, wght: Object.keys(files).map(Number).sort((a, b) => a - b), lacks, lh: 0 });
 // a face's own ascent and descent (em), for `lh`: measured in type-lab
 const METRICS = { Grenze: [1.1, 0.38], "Grenze Gotisch": [1.1, 0.38], Alegreya: [1.02, 0.35], Cinzel: [0.98, 0.37] };
 const VERDANA_LH = 1.215;
-// Silkscreen's own line box (typo ascent 1.03, descent 0.25 em), for a face
-// that stands in for it
-const SILK_BOX = [1.03, 0.25];
 const r4 = (v) => Math.round(v * 1e4) / 1e4;
 
-// Tidy HUD with another word face (tidy2, tidy3...). Every slot Tidy HUD
-// gives Silkscreen gets the new face at Tidy HUD's size times `k`, standing
-// in Silkscreen's own line box at that size, so each line keeps its height
-// and its baseline; `tune` nudges one slot (times its k). Silkscreen's
+// Tidy HUD with another word face (tidy2, tidy3). Every slot Tidy HUD gives
+// Silkscreen gets the new face at Tidy HUD's size times `k`; the face's file
+// carries Silkscreen's line box at that k (scripts/font-recut.py: ascent
+// 1.03 / k, descent 0.25 / k), so each line keeps its height and its
+// baseline. `tune` nudges one slot (times its k), and a slot tuned off k
+// stands in a box that much off Silkscreen's. Silkscreen's
 // lowercase draws its capitals, and the game's words are written for that
 // (the board's notices and the map's labels are measured and drawn as
 // written), so the new face is a recut that does the same (public/fonts/,
@@ -111,7 +108,7 @@ const PS2P_CAP = 0.875;
 const tidyWith = ({ name, sketch, word: [family, files, lacks = ""], k, cap, tune = {}, body = face("Jersey 15", 1.2) }) => {
   const slots = { num: face("Press Start 2P", 0.77), body };
   for (const [s, z] of Object.entries(PAIR_SIZES)) {
-    slots[s] = own(family, files, r4(z * k * (tune[s] || 1)), lacks, SILK_BOX.map((v) => r4(v * z)));
+    slots[s] = own(family, files, r4(z * k * (tune[s] || 1)), lacks);
   }
   const dig = (z) => r4((z * cap) / PS2P_CAP);
   return { name, sketch, digits: { ...face("Press Start 2P", dig(k)), sizes: { num: 0.77, body: 0.7, board: dig(slots.board.size) } }, slots };
@@ -236,31 +233,28 @@ export const TYPES = {
   // closes into a block (TWIN read T-IN), and M and N nearly do; each of these
   // self-hosted faces draws them 7 pixels tall, with room for two open V's.
   // Same roles and tale face as Tidy HUD, Press Start 2P for every digit
-  // (tidyWith, above).
+  // (tidyWith, above). Two looks: tidy2 square and airy (Silkscreen's own
+  // stance), tidy3 chunky (the clearest, the furthest from today's).
   tidy2: tidyWith({
     name: "Tidy HUD · Pixel Operator",
     sketch: "Tidy HUD with Pixel Operator 8 for the words: the same square pixel capitals, taller, so W, M and N stay open.",
-    // (its "&" is vague: it falls through to the tale face)
+    // (its "&" is vague: it falls through to the tale face; its bold W is
+    // redrawn in the recut with three 2-pixel strokes: the original's
+    // 1-pixel middle one faded at 1x, and TWIN read TUIN)
     word: ["Pixel Operator 8 Caps", { 400: "PixelOperator8Caps.woff2", 700: "PixelOperator8Caps-Bold.woff2" }, "&"],
     // 7-pixel capitals on an 8-pixel em: 0.75 sets them a shade taller than
     // Silkscreen's (0.667 would be pixel-exact at 12px, but reads small
     // beside Silkscreen's wide letters)
     k: 0.75, cap: 0.875,
   }),
+  // (a recut of GGBotNet's Pixeloid Sans: its licence reserves the name
+  // "Pixeloid", so the recut carries another)
   tidy3: tidyWith({
-    name: "Tidy HUD · Pixeloid",
-    sketch: "Tidy HUD with Pixeloid Sans for the words: the clearest pixel capitals, chunky in bold.",
-    word: ["Pixeloid Sans Caps", { 400: "PixeloidSansCaps.woff2", 700: "PixeloidSansCaps-Bold.woff2" }],
+    name: "Tidy HUD · Pixel Sans",
+    sketch: "Tidy HUD with CG Pixel Sans (a recut of GGBotNet's Pixeloid Sans) for the words: the clearest pixel capitals, chunky in bold.",
+    word: ["CG Pixel Sans", { 400: "CGPixelSans.woff2", 700: "CGPixelSans-Bold.woff2" }],
     // 7-pixel capitals on a 9-pixel em
     k: 0.875, cap: 0.778,
-  }),
-  // (Dogica's licence reserves its name for the original files, so its
-  // recut carries another: CG Blocks)
-  tidy4: tidyWith({
-    name: "Tidy HUD · Blocks",
-    sketch: "Tidy HUD with CG Blocks (a recut of Roberto Mocci's Dogica Pixel) for the words: the widest, blockiest capitals, closest to Silkscreen's stance.",
-    word: ["CG Blocks", { 400: "CGBlocks.woff2", 700: "CGBlocks-Bold.woff2" }],
-    k: 0.75, cap: 0.875,
   }),
 };
 
@@ -293,14 +287,10 @@ const pickType = () => {
 
 // ---- aliases -----------------------------------------------------------
 const pct = (f) => Math.round(f.size * 1000) / 10;
-// the ascent/descent overrides that give a face its `lh` or its `box` (the
-// overrides are scaled by size-adjust too, hence the division)
+// the ascent/descent overrides that give a face its `lh` (the overrides are
+// scaled by size-adjust too, hence the division)
 const lineOf = (f) => {
   const p = (v) => `${(v * 100).toFixed(1)}%`;
-  // (a box rounds up: a line box's ascent and descent each round to whole
-  // pixels, and a hair under Silkscreen's .5 would round the other way)
-  const up = (v) => `${(Math.ceil(v * 1e5) / 1e3).toFixed(3)}%`;
-  if (f.box) return `ascent-override:${up(f.box[0] / f.size)};descent-override:${up(f.box[1] / f.size)};line-gap-override:0%;`;
   const m = f.lh && METRICS[f.family];
   if (!m) return "";
   const k = f.lh / f.size / (m[0] + m[1]);
@@ -320,7 +310,7 @@ const cutTag = (cut) => (cut ? ` -${cut.replace(DIGITS, "0-9")}` : "");
 const use = (f, part = "") => ({ ...f, part });
 export const aliasOf = (f) =>
   `cg ${f.family} ${pct(f)}${f.wght.join() === "400" ? "" : ` w${f.wght.join("-")}`}${f.lh ? ` lh${f.lh}` : ""}` +
-  `${f.box ? ` b${f.box.map((v) => Math.round(v * 100)).join("-")}` : ""}${f.part === "digits" ? " digits" : cutTag(f.part)}`;
+  `${f.part === "digits" ? " digits" : cutTag(f.part)}`;
 const q = (f) => `"${aliasOf(f)}"`;
 
 const slotFace = (t, s) => t.slots[s] || (s === "head" ? t.slots.title : null);
