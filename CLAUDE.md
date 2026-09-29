@@ -191,6 +191,11 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   engine he marches at the mean pace of the soldiers near him so he stays
   inside the column. Ward every 8 s. Behind a siege ram he comes only from
   war-wave 10, on ~6 waves in 10 (seeded), not every time.
+- **Battle Chaplain** heals instead of warding (owner, 2026-09-29): `healPct`
+  0.16 of each nearby ally's max health (capped by `healCap` 40 x sqrt(mult),
+  so rams and marshals are not mended like levies) every 2.8 s within 95, and
+  `packRange` keeps him at the column's pace. Only the Aegis Magister still
+  lays shield pips.
 - **Wraith** (`holyOnly`, `haunts`, `raisesOnKill`): flying, and NOTHING hurts
   it but a Paladin-tree knight's blow or the Basilica's sear (`dealDamage`'s
   `holy` argument; arrows, stones, plain/berserker knights, wizards, DoT all

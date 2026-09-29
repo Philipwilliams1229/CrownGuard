@@ -460,6 +460,7 @@ const makeEnemy = (type, mult) => {
     // things that take the water instead of the road
     swims: !!d.swims, swimming: false, swimD: 0, swimDir: 1,
     healAmt: d.heal ? d.heal * Math.sqrt(mult) : 0, healEvery: d.healEvery || 0, healCd: null,
+    healPct: d.healPct || 0, healCap: (d.healCap || 0) * Math.sqrt(mult), healRange: d.healRange || 0,
     raiseEvery: d.raiseEvery || 0, raiseCd: null, revived: false, healedFlash: 0,
   };
 };
@@ -1241,15 +1242,19 @@ export function updateGame(g, dt) {
       if (e.dead) continue;
       if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen * sdt);
       // Goblin Shaman: a rhythmic chant mends the WHOLE warband
-      if (e.healAmt && e.silencedUntil <= tms) {
+      // Battle Chaplain: the same, but only for those near him, by a share of
+      // each one's own health (capped, so a ram is not mended like a levy)
+      if ((e.healAmt || e.healPct) && e.silencedUntil <= tms) {
         e.healCd = (e.healCd ?? e.healEvery * 0.6) - sdt * 1000;
         if (e.healCd <= 0) {
           e.healCd = e.healEvery;
-          g.effects.push({ type: "healwave", x: e.x, y: e.y, ttl: 550, r: 64 });
+          g.effects.push({ type: "healwave", x: e.x, y: e.y, ttl: 550, r: e.healRange || 64 });
           sfx.play("chant");
           for (const e2 of g.enemies) {
             if (e2.dead || e2.hp >= e2.maxHp || e2.noHealUntil > tms) continue;
-            e2.hp = Math.min(e2.maxHp, e2.hp + e.healAmt);
+            if (e.healPct && (e2.healPct || Math.hypot(e2.x - e.x, e2.y - e.y) > e.healRange)) continue;   // never a fellow healer (two chaplains held apart once out-mended a paladin for ever)
+            const amt = e.healPct ? Math.min(e.healPct * e2.maxHp, e.healCap || Infinity) : e.healAmt;
+            e2.hp = Math.min(e2.maxHp, e2.hp + amt);
             e2.healedFlash = tms + 450;
           }
         }

@@ -46,7 +46,7 @@ export const IRON_LEVELS = [
       {
         id: "ir4", name: "Greyhelm Pass", realm: "greyhelm", short: "Greyhelm",
         window: { from: 7, to: 22, count: 25 }, gold: 800,
-        blurb: "Chaplains ward the whole column, and every ward swallows a physical blow whole and turns all magic. Strip them with quick arrows or splash — or kill the chaplain first.",
+        blurb: "Chaplains walk inside the column mending everyone near them, so chip damage means nothing. Burst the column down faster than they can pray — or kill the chaplain first.",
       },
       {
         id: "coldwater", name: "Coldwater", realm: "coldwater",

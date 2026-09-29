@@ -16,6 +16,8 @@
 //   flying         knights cannot block it at all
 //   ranged*        it shoots your knights from outside their reach
 //   ward*          it hands out `guard` to nearby allies (wardFx: its look)
+//   healPct        a healer: every `healEvery` ms mends allies within `healRange`
+//                  by healPct of their max health (capped at `healCap` x sqrt(wave mult))
 //   packRange      it marches at the pace of the soldiers within this reach,
 //                  so it stays embedded in its company instead of drifting
 //   roadBlock      a wall across the whole road (all three lanes): nothing
@@ -109,8 +111,11 @@ export const ENEMIES = {
   chaplain: {
     faction: "iron", hp: 175, speed: 62, bounty: 18, armor: 0.1, mres: 0.3, size: 16,
     name: "Battle Chaplain", atk: 10, atkRate: 1000, castleDmg: 2,
-    wardEvery: 3400, wardHits: 1, wardRange: 82,
-    note: "Speaks no healing — he lays a ward on every soldier near him that swallows one physical blow whole and turns all magic and fire while it stands, and lays it again and again. Kill him first, or strip the wards with quick arrows.",
+    // a healer, not a warder (owner, 2026-09-29): every few seconds a pulse
+    // mends everyone within reach by a share of their health, capped so a
+    // ram or a marshal is not healed like a levy
+    healPct: 0.16, healCap: 40, healEvery: 2800, healRange: 95, packRange: 95,
+    note: "A field chaplain: every few seconds his prayer mends every soldier near him — a sixth of their health, a little for the mighty. Chip damage means nothing while he lives, and he keeps pace with the column so he is never far from it. Silence him, or burst the column down faster than he can mend it.",
   },
   // The Kingdom's battle-mage. He marches inside the big columns (never on
   // his own: waves.js adds him to any wave big enough to need him) and throws
