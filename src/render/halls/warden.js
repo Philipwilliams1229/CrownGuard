@@ -303,15 +303,17 @@ export const drawSupportTower = (ctx, t, time) => {
   // it hangs at his mitre's height, so in front of him it crossed his brow
   // twice a swing. Now his head hides it as it passes and it shows either
   // side of him, rising as a pendulum does at the ends of its swing (the
-  // lintel, stamped after him, covers the chain's top).
+  // lintel, stamped after him, covers the chain's top). Swung wide enough
+  // that its ends clear his mitre, and in dark bronze so it never reads as
+  // the gold of his mitre or of his staff's charm when it passes behind them.
   if (arch) {
     const lt = y - ah - 6, chain = 9;
-    const a = Math.sin(time * 1.6 + t.id) * 0.95;
+    const a = Math.sin(time * 1.6 + t.id) * 1.1;
     const cx2 = x + Math.sin(a) * chain, cy2 = lt + 2 + Math.cos(a) * chain;
     ctx.strokeStyle = "#6c727e";
     ctx.lineWidth = 0.6;
     ctx.beginPath(); ctx.moveTo(x, lt + 2); ctx.lineTo(cx2, cy2); ctx.stroke();
-    ball(ctx, cx2, cy2 + 2, 2.4, 2.2, "#d8b34a", { hi: 0.5, lo: 0.4 });
+    ball(ctx, cx2, cy2 + 2, 2.4, 2.2, "#a07a3a", { hi: 0.45, lo: 0.45 });
     for (let i = 0; i < 3; i++) {
       const py2 = cy2 - 1 - ((time * 12 + i * 6 + t.id * 3) % 14);
       glow(ctx, cx2 + Math.sin(time * 3 + i) * 2, py2, 1.6, "#d8e6f0", 0.5 - i * 0.12);
