@@ -27,8 +27,9 @@
 // same in every option.
 //
 // OPTIONS: "current" is today's exact look (the default until the owner
-// picks); the others are whole identities of two or three Google Fonts
-// families. Pick one with ?type=<id> (remembered in localStorage "cg-type");
+// picks); the others are whole identities of two or three families (Google
+// Fonts, or self-hosted: see below). The tidy2-4 options are Tidy HUD with
+// another word face (tidyWith). Pick one with ?type=<id> (remembered in localStorage "cg-type");
 // ?type=current goes back. type-lab.html shows them side by side and
 // scripts/type-shots.mjs shoots the real game in each.
 //
@@ -48,6 +49,19 @@
 // characters (Silkscreen's "&" reads as "$"): they fall through to the next
 // face in the slot's stack, and every stack ends with the option's body face.
 //
+// SELF-HOSTED FACES: a face Google doesn't serve lives in public/fonts/ (its
+// licence file beside it) and is named with own() instead of face(). It goes
+// through the same alias, size-adjust and unicode-range cut as a Google face,
+// with no stylesheet to fetch first; the URL is relative to the page, so it
+// works from the dev server's root and from GitHub Pages' /CrownGuard/. A
+// missing file (or no network) fails like a Google face: the first paint
+// waits 3 s at most and the slot's stack takes over. `box` pins the line box
+// `line-height: normal` gives it (SILK_BOX: Silkscreen's), so a face with
+// other metrics stands exactly where the one it replaces stood. The tidy
+// options' faces are recuts whose lowercase draws the capitals, as
+// Silkscreen's does (a Latin subset; a face whose licence reserves its name,
+// like Dogica, is renamed: CG Blocks).
+//
 // WHEN THE OWNER PICKS: set DEFAULT_TYPE, and move the chosen option's alias
 // @font-face rules (fetched here at run time) into a static stylesheet with
 // <link rel=preload> for its woff2 files, replacing index.html's link, so the
@@ -64,9 +78,44 @@ const DIGITS = "0123456789";
 // ascent/descent overrides, which Chrome and Firefox honour; Safari keeps the
 // face's own, a pixel or two taller)
 const face = (family, size = 1, wght = [400], lacks = "", lh = 0) => ({ family, size, wght, lacks, lh });
+// a self-hosted face (public/fonts/): `files` maps each weight to its file;
+// `box` is [ascent, descent] in ems of the font size, the line box
+// `line-height: normal` gives it, so it can stand exactly where the face it
+// replaces stood (see SILK_BOX)
+const own = (family, files, size = 1, lacks = "", box = null) =>
+  ({ family, files, size, wght: Object.keys(files).map(Number).sort((a, b) => a - b), lacks, lh: 0, box });
 // a face's own ascent and descent (em), for `lh`: measured in type-lab
 const METRICS = { Grenze: [1.1, 0.38], "Grenze Gotisch": [1.1, 0.38], Alegreya: [1.02, 0.35], Cinzel: [0.98, 0.37] };
 const VERDANA_LH = 1.215;
+// Silkscreen's own line box (typo ascent 1.03, descent 0.25 em), for a face
+// that stands in for it
+const SILK_BOX = [1.03, 0.25];
+const r4 = (v) => Math.round(v * 1e4) / 1e4;
+
+// Tidy HUD with another word face (tidy2, tidy3...). Every slot Tidy HUD
+// gives Silkscreen gets the new face at Tidy HUD's size times `k`, standing
+// in Silkscreen's own line box at that size, so each line keeps its height
+// and its baseline; `tune` nudges one slot (times its k). Silkscreen's
+// lowercase draws its capitals, and the game's words are written for that
+// (the board's notices and the map's labels are measured and drawn as
+// written), so the new face is a recut that does the same (public/fonts/,
+// see its licence file): it stands in everywhere, where an option's `caps`
+// would reach only the DOM's words (hud.css) and leave the canvas and SVG
+// text in lowercase. Press Start 2P draws every digit: as tall as the face's
+// capitals (`cap`: the face's capital height, in ems) in the words and on
+// the board, at Tidy HUD's sizes in the num slot (0.77) and the tales (0.7,
+// so every tale wraps as it did). `body` is the tale face (Tidy HUD's Jersey
+// 15 unless given).
+const PAIR_SIZES = { mark: 0.84, title: 1, head: 0.9, ui: 1, menu: 0.95, map: 0.8, board: 0.72 };
+const PS2P_CAP = 0.875;
+const tidyWith = ({ name, sketch, word: [family, files, lacks = ""], k, cap, tune = {}, body = face("Jersey 15", 1.2) }) => {
+  const slots = { num: face("Press Start 2P", 0.77), body };
+  for (const [s, z] of Object.entries(PAIR_SIZES)) {
+    slots[s] = own(family, files, r4(z * k * (tune[s] || 1)), lacks, SILK_BOX.map((v) => r4(v * z)));
+  }
+  const dig = (z) => r4((z * cap) / PS2P_CAP);
+  return { name, sketch, digits: { ...face("Press Start 2P", dig(k)), sizes: { num: 0.77, body: 0.7, board: dig(slots.board.size) } }, slots };
+};
 
 export const TYPES = {
   // Today's look, family for family (the style guide's rules: Silkscreen
@@ -181,6 +230,38 @@ export const TYPES = {
       board: face("Silkscreen", 0.72, [400, 700], "&"),
     },
   },
+  // Tidy HUD with a word face whose W reads (the owner, 2026-09-29: "I like
+  // tidy HUD but it's just a bit difficult to read ... I'm looking at the w
+  // especially"). Silkscreen draws its capitals 5 pixels tall, so its bold W
+  // closes into a block (TWIN read T-IN), and M and N nearly do; each of these
+  // self-hosted faces draws them 7 pixels tall, with room for two open V's.
+  // Same roles and tale face as Tidy HUD, Press Start 2P for every digit
+  // (tidyWith, above).
+  tidy2: tidyWith({
+    name: "Tidy HUD · Pixel Operator",
+    sketch: "Tidy HUD with Pixel Operator 8 for the words: the same square pixel capitals, taller, so W, M and N stay open.",
+    // (its "&" is vague: it falls through to the tale face)
+    word: ["Pixel Operator 8 Caps", { 400: "PixelOperator8Caps.woff2", 700: "PixelOperator8Caps-Bold.woff2" }, "&"],
+    // 7-pixel capitals on an 8-pixel em: 0.75 sets them a shade taller than
+    // Silkscreen's (0.667 would be pixel-exact at 12px, but reads small
+    // beside Silkscreen's wide letters)
+    k: 0.75, cap: 0.875,
+  }),
+  tidy3: tidyWith({
+    name: "Tidy HUD · Pixeloid",
+    sketch: "Tidy HUD with Pixeloid Sans for the words: the clearest pixel capitals, chunky in bold.",
+    word: ["Pixeloid Sans Caps", { 400: "PixeloidSansCaps.woff2", 700: "PixeloidSansCaps-Bold.woff2" }],
+    // 7-pixel capitals on a 9-pixel em
+    k: 0.875, cap: 0.778,
+  }),
+  // (Dogica's licence reserves its name for the original files, so its
+  // recut carries another: CG Blocks)
+  tidy4: tidyWith({
+    name: "Tidy HUD · Blocks",
+    sketch: "Tidy HUD with CG Blocks (a recut of Roberto Mocci's Dogica Pixel) for the words: the widest, blockiest capitals, closest to Silkscreen's stance.",
+    word: ["CG Blocks", { 400: "CGBlocks.woff2", 700: "CGBlocks-Bold.woff2" }],
+    k: 0.75, cap: 0.875,
+  }),
 };
 
 export const TYPE_IDS = Object.keys(TYPES);
@@ -211,13 +292,19 @@ const pickType = () => {
 };
 
 // ---- aliases -----------------------------------------------------------
-const pct = (f) => Math.round(f.size * 100);
-// the ascent/descent overrides that give a face its `lh`
+const pct = (f) => Math.round(f.size * 1000) / 10;
+// the ascent/descent overrides that give a face its `lh` or its `box` (the
+// overrides are scaled by size-adjust too, hence the division)
 const lineOf = (f) => {
+  const p = (v) => `${(v * 100).toFixed(1)}%`;
+  // (a box rounds up: a line box's ascent and descent each round to whole
+  // pixels, and a hair under Silkscreen's .5 would round the other way)
+  const up = (v) => `${(Math.ceil(v * 1e5) / 1e3).toFixed(3)}%`;
+  if (f.box) return `ascent-override:${up(f.box[0] / f.size)};descent-override:${up(f.box[1] / f.size)};line-gap-override:0%;`;
   const m = f.lh && METRICS[f.family];
   if (!m) return "";
-  const k = f.lh / f.size / (m[0] + m[1]), p = (v) => `${(v * k * 100).toFixed(1)}%`;
-  return `ascent-override:${p(m[0])};descent-override:${p(m[1])};line-gap-override:0%;`;
+  const k = f.lh / f.size / (m[0] + m[1]);
+  return `ascent-override:${p(m[0] * k)};descent-override:${p(m[1] * k)};line-gap-override:0%;`;
 };
 // what a face leaves out in an option: its own `lacks`, and the digits when
 // the option draws them in another face (unless the slot is one the digits
@@ -232,7 +319,8 @@ const cutTag = (cut) => (cut ? ` -${cut.replace(DIGITS, "0-9")}` : "");
 // the characters it leaves out
 const use = (f, part = "") => ({ ...f, part });
 export const aliasOf = (f) =>
-  `cg ${f.family} ${pct(f)}${f.wght.join() === "400" ? "" : ` w${f.wght.join("-")}`}${f.lh ? ` lh${f.lh}` : ""}${f.part === "digits" ? " digits" : cutTag(f.part)}`;
+  `cg ${f.family} ${pct(f)}${f.wght.join() === "400" ? "" : ` w${f.wght.join("-")}`}${f.lh ? ` lh${f.lh}` : ""}` +
+  `${f.box ? ` b${f.box.map((v) => Math.round(v * 100)).join("-")}` : ""}${f.part === "digits" ? " digits" : cutTag(f.part)}`;
 const q = (f) => `"${aliasOf(f)}"`;
 
 const slotFace = (t, s) => t.slots[s] || (s === "head" ? t.slots.title : null);
@@ -291,24 +379,52 @@ const weightSpan = (ws, w) => {
   return `${lo} ${hi}`;
 };
 
-// Fetch the faces' Google CSS and re-register each block under its alias,
-// with size-adjust and its unicode-range cut. Resolves once every alias is
-// loaded (or failed: the fallback stack takes over). Safe to call for
-// several options at once.
+// one alias rule: a face (as used) at one of its weights, from `src`, its
+// unicode-range the source's (`given`: Google's subset, or all of Unicode)
+// less what it leaves out, or only the digits
+const aliasRule = (f, w, src, given) => {
+  const range = f.part === "digits" ? keepRange(given, DIGITS) : f.part ? cutRange(given, f.part) : given;
+  if (f.part === "digits" && !range) return null;
+  return `@font-face{font-family:"${aliasOf(f)}";font-style:normal;font-weight:${weightSpan(f.wght, w)};` +
+    `font-display:swap;src:${src};${range ? `unicode-range:${range};` : ""}size-adjust:${r4(f.size * 100)}%;${lineOf(f)}}`;
+};
+// a self-hosted file's URL, relative to the page (the dev server's root, or
+// GitHub Pages' /CrownGuard/, where Vite copies public/)
+const ownSrc = (file) => {
+  const url = new URL(`fonts/${file}`, document.baseURI).href;
+  return `url("${url}") format("${/\.woff2$/i.test(file) ? "woff2" : /\.otf$/i.test(file) ? "opentype" : "truetype"}")`;
+};
+const addStyle = (css) => {
+  if (!css.length) return;
+  const st = document.createElement("style");
+  st.dataset.cgType = "faces";
+  st.textContent = css.join("\n");
+  document.head.appendChild(st);
+};
+
+// Register each face under its alias, with size-adjust and its unicode-range
+// cut: a self-hosted face at once, a Google face from its fetched CSS.
+// Resolves once every alias is loaded (or failed: the fallback stack takes
+// over, so a missing file or no network leaves the next face in the stack).
+// Safe to call for several options at once.
 const registered = new Map();
 export const loadFaces = (faces) => {
   if (typeof document === "undefined" || !faces.length) return Promise.resolve();
   const todo = faces.map((f) => ({ part: "", lacks: "", lh: 0, ...f })).filter((f) => !registered.has(aliasOf(f)));
   if (todo.length) {
-    const fams = [...new Map(todo.map((f) => [f.family, f])).values()];
+    // self-hosted: the rules go in now, so the files start loading at once
+    const mine = todo.filter((f) => f.files);
+    addStyle(mine.flatMap((f) => f.wght.map((w) => aliasRule(f, w, ownSrc(f.files[w]), undefined))).filter(Boolean));
+    const google = todo.filter((f) => !f.files);
+    const fams = [...new Map(google.map((f) => [f.family, f])).values()];
     // one request per family (weights merged), so a bad name spoils nothing else
-    const job = Promise.all(fams.map((f) => {
-      const ws = [...new Set(todo.filter((g) => g.family === f.family).flatMap((g) => g.wght))].sort((a, b) => a - b);
+    const job = !google.length ? Promise.resolve() : Promise.all(fams.map((f) => {
+      const ws = [...new Set(google.filter((g) => g.family === f.family).flatMap((g) => g.wght))].sort((a, b) => a - b);
       const qs = `family=${f.family.replace(/ /g, "+")}${ws.length > 1 || ws[0] !== 400 ? `:wght@${ws.join(";")}` : ""}`;
       return fetch(`${GOOGLE}?${qs}&display=swap`).then((r) => (r.ok ? r.text() : "")).catch(() => "");
     })).then((sheets) => {
       const css = [];
-      for (const f of todo) {
+      for (const f of google) {
         const text = sheets[fams.findIndex((g) => g.family === f.family)] || "";
         for (const m of text.matchAll(/@font-face\s*{([^}]*)}/g)) {
           const b = m[1];
@@ -318,22 +434,16 @@ export const loadFaces = (faces) => {
           const src = /src:\s*([^;]+);/.exec(b)?.[1];
           const given = /unicode-range:\s*([^;]+);/.exec(b)?.[1];
           if (!src) continue;
-          const range = f.part === "digits" ? keepRange(given, DIGITS) : f.part ? cutRange(given, f.part) : given;
-          if (f.part === "digits" && !range) continue;
-          css.push(`@font-face{font-family:"${aliasOf(f)}";font-style:normal;font-weight:${weightSpan(f.wght, w)};` +
-            `font-display:swap;src:${src};${range ? `unicode-range:${range};` : ""}size-adjust:${pct(f)}%;${lineOf(f)}}`);
+          const rule = aliasRule(f, w, src, given);
+          if (rule) css.push(rule);
         }
       }
-      if (css.length) {
-        const st = document.createElement("style");
-        st.dataset.cgType = "faces";
-        st.textContent = css.join("\n");
-        document.head.appendChild(st);
-      }
+      addStyle(css);
     });
     for (const f of todo) {
       const probe = f.part === "digits" ? "0123456789" : "AaZz";
-      registered.set(aliasOf(f), job.then(() => Promise.all(
+      const wait = f.files ? Promise.resolve() : job;
+      registered.set(aliasOf(f), wait.then(() => Promise.all(
         f.wght.map((w) => document.fonts.load(`${w} 20px "${aliasOf(f)}"`, probe)),
       )).catch(() => null));
     }

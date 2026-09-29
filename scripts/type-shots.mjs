@@ -14,9 +14,17 @@
 //                                                  computed fonts as JSON (to diff two servers)
 //   node scripts/type-shots.mjs --pairs [--faces "VT323,Tiny5"]   the digit pair
 //                                                  test (type-lab ?distinct) at DPR 1 and 2
+//   node scripts/type-shots.mjs --cards pair tidy2  the tower card's size, hall by
+//                        hall, on a phone, an iPad and a tall desktop (every
+//                        stage of a hall is laid out in the card, so one size
+//                        per hall is the card's size in every stage); the first
+//                        option is the reference, and each stage's own height
+//                        is printed where a card differs. --kinds archer,wizard
+//                        --views phone,ipad,desk narrow it
 //
 // Screens: home (title, 1133x744), map (campaign map), battle (Free Play, a
-// hall placed and its card open), phone (the same card at 844x390), council
+// hall placed and its card open), phone (the same card at 844x390), card and
+// cardphone (that card alone, not in the default set), council
 // (War Council, HEROES), guide (Field Guide, a hall's entry), sheet
 // (type-lab.html?opt=<id>, the specimen sheet).
 // Each is shot at the density of the device it stands for: 1133x744 is an
@@ -58,6 +66,10 @@ const worst = opt("--worst", "battle,phone,sheet").split(",").filter((w) => w &&
 const faces = opt("--faces", "");
 const pairs = args.includes("--pairs");
 if (pairs) args.splice(args.indexOf("--pairs"), 1);
+const cards = args.includes("--cards");
+if (cards) args.splice(args.indexOf("--cards"), 1);
+const kindsArg = opt("--kinds", "");
+const viewsArg = opt("--views", "phone,ipad,desk");
 const ids = args.length ? args : TYPE_IDS;
 const OUT = path.resolve(".shots");
 fs.mkdirSync(OUT, { recursive: true });
@@ -102,7 +114,8 @@ const clickText = async (page, text) => {
 const shot = async (page, id, name) => {
   await page.evaluate(() => document.fonts.ready);
   const file = path.join(OUT, `${prefix}${id}_${name}.png`);
-  await page.screenshot({ path: file });
+  if (name.startsWith("card")) await (await page.$(".cg-pop")).screenshot({ path: file });
+  else await page.screenshot({ path: file });
   if (dump) {
     const fonts = await page.evaluate(() => {
       const out = [];
@@ -185,9 +198,13 @@ const MENU = {
   },
   battle: battle,
   phone: battle,
+  // the tower card alone (an element shot of the battle's open card), on an
+  // iPad and on a phone: --only card,cardphone --worst card for its 1x too
+  card: battle,
+  cardphone: battle,
 };
-const SIZE = { phone: [844, 390] };
-const DPR = { phone: 3 };
+const SIZE = { phone: [844, 390], cardphone: [844, 390] };
+const DPR = { phone: 3, cardphone: 3 };
 
 // the pair test, printed: every option's num and body faces (and --faces
 // candidates) as the page draws them, at DPR 1 and 2, the pairs under 0.20 named
@@ -210,6 +227,100 @@ if (pairs) {
       await page.screenshot({ path: path.join(OUT, `${prefix}pairs_dpr${dpr}.png`), fullPage: true });
     } catch (e) { console.log(`  FAILED (pairs dpr ${dpr}): ${e.message.split("\n")[0]}`); }
     finally { await ctx.close(); }
+  }
+  await browser.close();
+  process.exit(0);
+}
+
+// the card test: in Free Play, each hall in turn is placed on open grass (the
+// game paused, gold topped up), selected, and its card measured in layout
+// pixels (the card's own design size, before the HUD's scale); then it is
+// taken off the board so the next one can stand in the same spot
+if (cards) {
+  const { TOWERS } = await import("../src/data/towers.js");
+  // (the floating halls last: they may borrow a spot a landed hall found)
+  const kinds = (kindsArg ? kindsArg.split(",") : Object.keys(TOWERS)).sort((a, b) => !!TOWERS[a]?.water - !!TOWERS[b]?.water);
+  // (layout px don't depend on the density: every view is measured at 1x)
+  const VIEWS = { phone: [844, 390, 1], ipad: [1133, 744, 1], desk: [1600, 1200, 1] };
+  const res = {};
+  for (const view of viewsArg.split(",")) {
+    const [w, h, dpr] = VIEWS[view];
+    for (const id of ids) {
+      for (let k = 0; k < 3; k++) {
+        const { ctx, page } = await context(w, h, dpr);
+        try {
+          await open(page, id);
+          await clickText(page, "FREE PLAY");
+          await page.waitForTimeout(800);
+          await clickText(page, "START");
+          await page.waitForFunction(() => window.__g && window.__g.towers, null, { timeout: 15000 });
+          await page.waitForTimeout(800);
+          const got = {};
+          // open grass on the board (screen px), the spots that took a hall first
+          const spots = await page.evaluate(() => {
+            const cv = [...document.querySelectorAll("canvas")].find((c) => Math.abs(c.width / c.height - 1.5) < 0.01 && c.width >= 840);
+            const r = cv.getBoundingClientRect(), out = [];
+            for (let y = 100; y <= 500; y += 25) for (let x = 100; x <= 700; x += 25) {
+              const sx = r.left + (x / 840) * r.width, sy = r.top + (y / 560) * r.height;
+              if (document.elementFromPoint(sx, sy) === cv) out.push([sx, sy]);
+            }
+            return out;
+          });
+          const good = [];
+          for (const kind of kinds) {
+            let placed = false;
+            for (const at of [...good, ...spots.filter((sp) => !good.includes(sp))]) {
+              // (a paused game takes no taps: it runs for the tap, then stops)
+              await page.evaluate((kd) => { const g = window.__g; g.paused = false; g.gold = 1e6; g.selectedId = null; g.buildMode = kd; }, kind);
+              await page.mouse.click(at[0], at[1]);
+              if (await page.evaluate(() => { const g = window.__g; g.paused = true; return g.towers.length > 0; })) {
+                placed = true;
+                if (!good.includes(at)) good.unshift(at);
+                break;
+              }
+            }
+            // a hall with nowhere to stand on this map (the River Watch needs
+            // water): an Archer Tower stands in for it and takes its kind, the
+            // game paused, just for its card
+            if (!placed && good.length) {
+              await page.evaluate(() => { const g = window.__g; g.paused = false; g.buildMode = "archer"; });
+              await page.mouse.click(good[0][0], good[0][1]);
+              placed = await page.evaluate((kd) => { const g = window.__g; g.paused = true; if (!g.towers.length) return false; g.towers[0].kind = kd; return true; }, kind);
+            }
+            await page.evaluate(() => { window.__g.buildMode = null; });
+            if (!placed) { got[kind] = null; continue; }
+            await page.evaluate(() => { const g = window.__g; g.selectedId = g.towers[0].id; });
+            await page.waitForTimeout(350);
+            got[kind] = await page.evaluate(() => {
+              const fr = document.querySelector(".cg-pop > .cg-frame");
+              if (!fr) return null;
+              // each stage's own height: its stack laid out top-aligned a moment
+              const stacks = [...fr.querySelectorAll("div")].filter((d) => getComputedStyle(d).display === "grid" && d.children.length > 1 && [...d.children].every((c) => c.getAttribute("aria-hidden") !== null || c.style.visibility === "visible" || c.style.visibility === ""));
+              const own = stacks.map((st) => [...st.children].map((c) => { const was = c.style.alignSelf; c.style.alignSelf = "start"; const hh = c.offsetHeight; c.style.alignSelf = was; return hh; }));
+              return { w: fr.offsetWidth, h: fr.scrollHeight, cols: fr.querySelector(".cg-card-two") ? 2 : 1, stages: own };
+            });
+            await page.evaluate(() => { const g = window.__g; g.selectedId = null; g.towers.length = 0; });
+            await page.waitForTimeout(60);
+          }
+          res[`${view}|${id}`] = got;
+          k = 3;
+        } catch (e) { console.log(`  ${k < 2 ? "retrying" : "FAILED"} (${id} cards ${view}): ${e.message.split("\n")[0]}`); }
+        finally { await ctx.close(); }
+      }
+    }
+    // the table: each hall's card, W x H, in every option (the first is the reference)
+    const ref = res[`${view}|${ids[0]}`] || {};
+    console.log(`\n${view} (${w}x${h}): tower card, layout px (width x height), ${ids.join(" / ")}`);
+    let same = 0, all = 0;
+    for (const kind of kinds) {
+      const cells = ids.map((id) => res[`${view}|${id}`]?.[kind]);
+      const txt = cells.map((c) => (c ? `${c.w}x${c.h}` : "-"));
+      const diff = cells.some((c) => c && ref[kind] && (c.w !== ref[kind].w || c.h !== ref[kind].h));
+      all++; if (!diff) same++;
+      console.log(`  ${kind.padEnd(11)} ${txt.map((t) => t.padEnd(9)).join(" ")} ${cells[0]?.cols || ""}col${diff ? "  DIFFERS" : ""}`);
+      if (diff) cells.forEach((c, i) => c && console.log(`      ${ids[i].padEnd(8)} stages ${c.stages.map((st) => st.join(",")).join(" | ")}`));
+    }
+    console.log(`  ${same}/${all} halls the same size as ${ids[0]}`);
   }
   await browser.close();
   process.exit(0);

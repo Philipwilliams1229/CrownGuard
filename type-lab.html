@@ -12,6 +12,14 @@
     /type-lab.html?survey=1         candidate faces, raw, with their metrics
                                     against today's faces (for tuning sizes)
     /type-lab.html?digits=1[&faces=A,B]   the digit test at true pixels
+    /type-lab.html?candidates=1[|id,id]   pixel word faces for Tidy HUD, the
+                                    owner's strings at the HUD's sizes (self-
+                                    hosted ones load from /fonts/<file>: the
+                                    survey's raw files, which public/fonts/
+                                    doesn't hold, so route them in; the faces
+                                    the game ships are its options' own)
+    /type-lab.html?distinct=1[&opts=a,b][&faces=A,B]   the digit pair test
+                                    (scripts/type-shots.mjs --pairs)
   (?opt, not ?type: ?type would also switch the game's own option.)
   The sheets use the real hud.css classes; each sheet sets its option's
   variables on itself, and its canvas text asks for the option's stacks.
@@ -397,14 +405,19 @@ async function distinct() {
     const feat = t.features ? `font-feature-settings:${t.features};` : "";
     rows.push([`${id}.num`, st.num, `${feat}font-size-adjust:${t.numAdjust || "none"}`]);
     rows.push([`${id}.body`, st.body, feat]);
+    // an option whose digits face draws the words' figures too: its letters
+    // and digits meet in a label ("WAVE 10", "LEVEL 2")
+    if (t.digits && !t.digits.only) rows.push([`${id}.ui`, st.ui, feat]);
   }
   if (q.get("faces")) {
     const faces = q.get("faces").split(",").map((fw) => { const [family, w] = fw.split(":"); return { family, size: 1, wght: [Number(w) || 400] }; });
-    await loadFaces(faces); await document.fonts.ready;
+    // a self-hosted candidate (the ?candidates sheet's CAND) loads from /fonts/
+    const own = (f) => CAND.find((c) => c[1] === f.family && c[3] === "self");
+    await loadFaces(faces.filter((f) => !own(f))); await loadCand(faces.map(own).filter(Boolean)); await document.fonts.ready;
     // each at the size that matches today's digit height
     const ref = metrics(`"Press Start 2P"`).dig * 0.77;
     for (const f of faces) {
-      const fam = `"${aliasOf(f)}"`, k = ref / metrics(fam, f.wght[0]).dig;
+      const fam = own(f) ? candStack(own(f)) : `"${aliasOf(f)}"`, k = ref / metrics(fam, f.wght[0]).dig;
       rows.push([`${f.family}${f.wght[0] !== 400 ? ":" + f.wght[0] : ""} x${k.toFixed(2)}`, fam, `font-weight:${f.wght[0]}`, k]);
     }
   }
@@ -460,7 +473,140 @@ window.scoreGlyphs = async (url, dpr) => {
   return { dpr, pairs: PAIRS, sizes: SIZES, data };
 };
 
-if (q.get("survey")) survey();
+// ---- candidates: pixel word faces for Tidy HUD (?candidates=1) ----
+// The owner (2026-09-29) likes Tidy HUD's all-pixel capitals but finds them
+// hard to read, "the w especially": Silkscreen draws its capitals 5 pixels
+// tall, so its W has no room to open (bold: a block with a one-pixel notch,
+// TWIN reads T-IN). Each row sets the owner's strings in one candidate at the
+// sizes the HUD uses (card title bold 14px, upgrade name bold 13px, tile
+// names bold 11px, labels 11px, buttons 12px; digits stay Press Start 2P as
+// in Tidy HUD), then again at the phone's 0.72, then a tale line.
+//   ?candidates=1                       every candidate
+//   ?candidates=silk,po8,pixeloid      some rows (ids below)
+// `f` sizes a face so its capitals stand as tall as Silkscreen's (0.625 em)
+// or, for a face on a 7-pixel capital, one font pixel is one CSS pixel at
+// 12px; `tf` sizes it as a tale face (one font pixel to a CSS pixel at the
+// tale's 10.5px, or its x-height near Verdana's). The three picks stand a
+// little larger (po8 and dogica x0.75, not the pixel-exact x0.667; pixeloid
+// x0.875): Silkscreen's wide letters read bigger than their 5-pixel caps,
+// and at these sizes the picks still set the HUD's words 10-25% narrower. Self-hosted faces load
+// from /fonts/<file> (public/fonts/ once a face is bundled; the survey
+// routed them from a scratch folder).
+const CAND = [
+  // [id, family, weights, source, licence, native: "cap/em px", f, tf]
+  ["silk", "Silkscreen", [400, 700], "google", "OFL", "5/8", 1, 1],
+  ["tiny5", "Tiny5", [400], "google", "OFL", "5/8", 1, 1.6],
+  ["micro5", "Micro 5", [400], "google", "OFL", "5/11", 1.375, 2],
+  ["ps2p", "Press Start 2P", [400], "google", "OFL", "7/8", 0.667, 0.8],
+  ["jersey10", "Jersey 10", [400], "google", "OFL", "tall", 1.35, 1.5],
+  ["jersey15", "Jersey 15", [400], "google", "OFL", "tall", 1.13, 1.2],
+  ["handjet", "Handjet", [400, 700], "google", "OFL", "tall", 1.25, 1.4],
+  ["dotgothic", "DotGothic16", [400], "google", "OFL", "16", 1.05, 1.1],
+  ["bitgrid", "Bitcount Grid Single", [400, 700], "google", "OFL", "5x7", 1.0, 1.1],
+  ["bitprop", "Bitcount Prop Single", [400, 700], "google", "OFL", "5x7", 1.0, 1.1],
+  ["bitpropd", "Bitcount Prop Double", [400, 700], "google", "OFL", "5x7", 1.0, 1.1],
+  ["sixtyfour", "Sixtyfour", [400], "google", "OFL", "7/8", 0.66, 0.7],
+  ["workbench", "Workbench", [400], "google", "OFL", "?", 1.0, 1.1],
+  ["vt323", "VT323", [400], "google", "OFL", "term", 1.3, 1.5],
+  ["po8", "Pixel Operator 8", { 400: "PixelOperator8.ttf", 700: "PixelOperator8-Bold.ttf" }, "self", "CC0", "7/8", 0.75, 0.762],
+  ["po", "Pixel Operator", { 400: "PixelOperator.ttf", 700: "PixelOperator-Bold.ttf" }, "self", "CC0", "9/16", 1.1, 1.524],
+  ["posc", "Pixel Operator SC", { 400: "PixelOperatorSC.ttf", 700: "PixelOperatorSC-Bold.ttf" }, "self", "CC0", "9/16", 1.1, 1.524],
+  ["pohb", "Pixel Operator HB", { 400: "PixelOperatorHB.ttf" }, "self", "CC0", "9/16", 1.1, 1.524],
+  ["pixeloid", "Pixeloid Sans", { 400: "PixeloidSans.ttf", 700: "PixeloidSans-Bold.ttf" }, "self", "OFL", "7/9", 0.875, 0.857],
+  ["dogica", "Dogica Pixel", { 400: "dogicapixel.ttf", 700: "dogicapixelbold.ttf" }, "self", "OFL", "7/8", 0.75, 0.762],
+  ["departure", "Departure Mono", { 400: "DepartureMono-Regular.otf" }, "self", "OFL", "8/11", 0.917, 1.048],
+  ["monogram", "monogram", { 400: "monogram.ttf" }, "self", "CC0", "7/16", 1.333, 1.524],
+  ["m5x7", "m5x7", { 400: "m5x7.ttf" }, "self", "CC0? (unverified)", "7/16", 1.333, 1.524],
+  ["m6x11", "m6x11", { 400: "m6x11.ttf" }, "self", "free? (unverified)", "11/16", 0.91, 1.1],
+  ["kpixel", "Kenney Pixel", { 400: "KenneyPixel.ttf" }, "self", "CC0", "7/16", 1.333, 1.524],
+  ["kminisq", "Kenney Mini Square", { 400: "KenneyMiniSquare.ttf" }, "self", "CC0", "5/8", 1, 1.6],
+  ["khigh", "Kenney High", { 400: "KenneyHigh.ttf" }, "self", "CC0", "9/16", 1.11, 1.524],
+  ["galmuri9", "Galmuri9", { 400: "Galmuri9.ttf" }, "self", "OFL", "9/10", 0.694, 0.952],
+  ["galmuri11", "Galmuri11", { 400: "Galmuri11.ttf", 700: "Galmuri11-Bold.ttf" }, "self", "OFL", "11/12", 0.682, 1.143],
+  ["alagard", "Alagard", { 400: "alagard.ttf" }, "self", "freeware? (unverified)", "titles", 1.2, 1.3],
+];
+const LOCAL_FAMILY = (fam) => `cand ${fam}`;
+async function loadCand(rows) {
+  const google = rows.filter((r) => r[3] === "google").map(([, family, wght]) => ({ family, size: 1, wght }));
+  await loadFaces(google);
+  const local = [];
+  for (const [, family, files, src] of rows) {
+    if (src !== "self") continue;
+    for (const [w, file] of Object.entries(files)) {
+      // one file answers the whole weight range it covers (no faux bold)
+      const ws = Object.keys(files).map(Number), lo = Number(w) === Math.min(...ws) ? 1 : 551, hi = Number(w) === Math.max(...ws) ? 1000 : 550;
+      const ff = new FontFace(LOCAL_FAMILY(family), `url(/fonts/${file})`, { weight: `${lo} ${hi}` });
+      document.fonts.add(ff);
+      local.push(ff.load().catch(() => console.error(`candidate face missing: /fonts/${file}`)));
+    }
+  }
+  await Promise.all(local); await refsLoaded(); await document.fonts.ready;
+}
+const candStack = ([, family, wght, src]) => (src === "self" ? `"${LOCAL_FAMILY(family)}"` : `"${aliasOf({ family, size: 1, wght })}"`);
+
+async function candidates() {
+  const want = q.get("candidates") === "1" ? null : q.get("candidates").split(",");
+  const rows = want ? want.map((id) => CAND.find((c) => c[0] === id)).filter(Boolean) : CAND;
+  await Promise.all([loadCand(rows), loadFaces(facesOf("pair"))]);
+  await document.fonts.ready;
+  const pair = stacksOf("pair");
+  // a real 100-character tale (towers.js, a final form's desc)
+  const TALE_C = "Two blades afield: they pierce armor, strike support foes TWICE as hard, and finish the nearly-dead.";
+  out.style.cssText = "display:flex;flex-direction:column;gap:0;width:1480px";
+  // the tale's width against today's Tidy HUD tale (Jersey 15 at 1.2 x 10.5px)
+  const mc = document.createElement("canvas").getContext("2d");
+  const tw = (famStack, px) => { mc.font = `${px}px ${famStack}`; return mc.measureText(TALE_C).width; };
+  const jersey = CAND.find((r) => r[0] === "jersey15");
+  await loadCand([jersey]);
+  const refW = tw(candStack(jersey), 10.5 * 1.2);
+  out.insertAdjacentHTML("beforeend", `<div class="nm" style="padding:4px 0">tale widths against Tidy HUD's tale (Jersey 15, 12.6px) = 100%: today's Verdana at 10.5px is ${(tw("Verdana, Geneva, sans-serif", 10.5) / refW * 100).toFixed(0)}% (a card's tale is clamped at 4 lines)</div>`);
+  for (const c of rows) {
+    const [id, family, wght, src, lic, native, f, tf] = c;
+    const bold = (Array.isArray(wght) ? wght : Object.keys(wght).map(Number)).some((w) => w >= 700);
+    const fam = candStack(c), famA = fam.replace(/"/g, "'");
+    const px = (n) => `${(n * f).toFixed(2)}px`;
+    const block = (tag) => `
+      <div data-z="${id}:${tag}" style="display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:#2e2633;border:2px solid #241a26;width:max-content">
+        <div style="display:flex;gap:14px;align-items:baseline">
+          <span data-z="${id}:${tag}:title" class="cg-display" style="font-weight:700;font-size:${px(14)};color:var(--gold-lt);text-shadow:1px 1px 0 var(--ink);line-height:1.15"><span data-z="${id}:${tag}:twin">TWIN</span> ARCHERS</span>
+          <span class="cg-display" style="font-weight:700;font-size:${px(14)};color:var(--gold-lt);text-shadow:1px 1px 0 var(--ink);line-height:1.15">ARCHER TOWER</span>
+          <span class="cg-display" style="font-weight:700;font-size:${px(13)};color:var(--cream);text-shadow:1px 1px 0 var(--ink)">POWDER WORKS</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:baseline">
+          <span data-z="${id}:${tag}:label" class="cg-label" style="font-size:${px(11)}">Upgrade · Level 2</span>
+          <span class="cg-label" style="font-size:${px(11)};color:var(--muted)"><span data-z="${id}:${tag}:wave">Wave</span> <b class="cg-num" style="font-size:15px;color:var(--cream)">12/30</b></span>
+          <span class="cg-label" style="font-size:${px(11)}">War Council</span>
+          <span class="cg-display" style="font-weight:700;font-size:${px(11)};color:var(--cream);text-shadow:1px 1px 0 var(--ink)">KNIGHT GARRISON · RIVER WATCH · SWORDS</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          ${["First", "Last", "Strong", "Weak"].map((b) => `<button class="cg-btn" style="min-height:30px;font-size:${px(12)}"><span data-z="${id}:${tag}:${b.toLowerCase()}">${b.toUpperCase()}</span></button>`).join("")}
+          <button class="cg-btn cg-btn--red" style="min-height:30px;font-size:${px(12)}">SELL <span class="cg-price" style="font-size:14px">70</span></button>
+        </div>
+      </div>`;
+    const row = document.createElement("div");
+    row.className = "row";
+    row.dataset.cand = id;
+    row.style.cssText = "grid-template-columns:150px 1fr;align-items:start;padding:6px 0";
+    row.style.setProperty("--display", `${fam}, ${pair.body}`);
+    row.style.setProperty("--numeric", pair.num);
+    row.style.setProperty("--num-adjust", "none");
+    row.style.fontSynthesis = "none";
+    const wide = tw(fam, 10.5 * tf) / refW;
+    row.innerHTML = `<div class="nm"><b>${family}</b><br>${lic} · ${src === "self" ? "self-hosted" : "Google"}<br>caps ${native} px · x${f}${bold ? "" : "<br><i>one weight</i>"}<br>tale x${tf}: ${(wide * 100).toFixed(0)}% of Jersey's width</div>
+      <div class="cg-hud" style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;gap:10px;align-items:flex-start">${block("s1")}<div style="zoom:0.72">${block("s072")}</div></div>
+        <div data-z="${id}:tale" style="display:flex;flex-direction:column;gap:3px;background:#e8d9b0;padding:5px 9px;color:#5a4630;width:560px">
+          <span style="font-family:${famA};font-size:${(10.5 * tf).toFixed(2)}px;line-height:1.35">${TALE_C}</span>
+          <span style="font-family:${famA};font-size:${(10.5 * tf).toFixed(2)}px;white-space:nowrap">Fire rate 1.33/s · Upgrade · Level 2 · twin wave weak sword</span>
+        </div>
+      </div>`;
+    out.appendChild(row);
+  }
+  document.body.dataset.ready = "1";
+}
+
+if (q.get("candidates")) candidates();
+else if (q.get("survey")) survey();
 else if (q.get("distinct")) distinct();
 else if (q.get("digits")) digits();
 else sheets(q.get("opt"));
