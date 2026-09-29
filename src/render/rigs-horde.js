@@ -348,7 +348,9 @@ const GOB_FIGHT = {
   // raise it high (lean back, the glow swelling), thrust it at the foe with the
   // palm flung after it (the release), and bring it back upright. The staff
   // always stands ahead of the long nose, never up across the face.
-  staff: [[[4.4, 1.6], -1.4, [4.0, 0.4]], [[4.3, -2.0], -1.3, [3.2, -1.4]], [[4.4, 0.6], -0.6, [4.6, 0.2]], [[4.1, 1.8], -1.2, [2.4, 2.8]]],
+  // (in the raise the near shoulder reaches forward and the head tips back, so
+  // the fist can go up past the long nose and the orb rise well over the head)
+  staff: [[[4.4, 1.6], -1.4, [4.0, 0.4]], [[3.9, -3.3], -1.36, [3.2, -1.4]], [[4.4, 0.6], -0.6, [4.6, 0.2]], [[4.1, 1.8], -1.2, [2.4, 2.8]]],
 };
 // the goblin's round shield rides forward while he winds up and drops back as he strikes
 const GOB_SHIELD = [[4.2, 2.0], [4.5, 1.3], [2.6, 3.1], [3.2, 2.6]];
@@ -358,7 +360,8 @@ const goblin = (ctx, p) => {
   const skin = p.skin, skinF = darken(skin, 0.24), wrap = p.robe ? darken(p.cloth, 0.35) : darken(p.cloth2 || p.cloth, 0.05);
   const robe = p.robe;
   shadow(ctx, 0.4, -0.1, 4.4, 1.2, 0.22);
-  const shN = T(0.8, -5.3), shF = T(-0.8, -5.5);
+  const raise = st.fight && p.weapon === "staff" && st.F === 1;
+  const shN = T(0.8 + (raise ? 0.9 : 0), -5.3), shF = T(-0.8, -5.5);
   const A = { up: 2.6, fore: 2.5, w: 1.7 };
   // where the hands go
   let hn, an, hf, grip = 3.2;
@@ -401,7 +404,7 @@ const goblin = (ctx, p) => {
   });
   // the head, pushed forward on a scrawny neck; in a fight it follows the blow
   // (drawn in over the wind-up, thrust after the strike) with its eyes on the foe
-  const hx = st.fight ? [0.2, -0.3, 0.7, 0.5][st.F] : 0, hy = st.fight ? [0, -0.2, 0.2, 0.3][st.F] : 0;
+  const hx = st.fight ? (raise ? -0.7 : [0.2, -0.3, 0.7, 0.5][st.F]) : 0, hy = st.fight ? [0, -0.2, 0.2, 0.3][st.F] : 0;
   const nk = T(0.9, -6.0), hd = [nk[0] + 1.0 + hx, nk[1] - 2.0 + hy], ha = st.lean * 0.3 + (st.fight ? [0, -0.12, 0.08, 0.1][st.F] : 0);
   goblinHead(ctx, hd[0], hd[1], ha, p, { k: 0.9, hood: p.head === "hood", tuft: p.head === "hood" ? null : p.hair || darken(p.cloth, 0.35), paint: p.feathers ? "#ece0c4" : null });
   if (p.feathers) {
@@ -608,7 +611,9 @@ const TROLL = { L1: 5.7, L2: 5.4, stride: 3.2, lift: 2.2, bob: 1.3, lean: 0.12, 
 // the club hefted up before him, heaved right back over the shoulder with the
 // head hanging behind the hump (the free arm flung forward to balance it),
 // brought down in one smash, and left on the ground a moment after.
-const TROLL_FIGHT = [[[3.8, 5.0], -1.5, [3.0, 9.6]], [[-1.0, -7.4], 2.55, [6.8, 3.6]], [[7.2, 5.4], 0.85, [-0.8, 9.6]], [[5.4, 9.0], 1.3, [1.4, 10.4]]];
+// (in the smash the club arm comes down UNDER the jaw and the head is thrown
+// up roaring, so the arm never wipes out the face)
+const TROLL_FIGHT = [[[3.8, 5.0], -1.5, [3.0, 9.6]], [[-1.0, -7.4], 2.55, [6.8, 3.6]], [[7.2, 7.0], 0.85, [-0.8, 9.6]], [[5.4, 9.0], 1.3, [1.4, 10.4]]];
 const troll = (ctx, p) => {
   const o = TROLL, R = skeleton(p, o), { st, T } = R;
   const skin = p.skin, skinF = darken(skin, 0.26), belly = mix(skin, "#e8dcb0", 0.3), moss = mix(skin, "#86b04a", 0.55);
@@ -651,7 +656,7 @@ const troll = (ctx, p) => {
   // the head, slung low in front of the hump
   // it roars into the wind-up and through the smash, the head thrown back, then down
   const hd = T(8.4, -12.4), F = st.fight ? st.F : -1;
-  trollHead(ctx, hd[0] + ([0.2, -0.4, 0.8, 0.7][F] || 0), hd[1] + ([0, -0.3, 0.6, 1.0][F] || 0), st.lean * 0.4 + ([0, -0.2, 0.05, 0.12][F] || 0), p, F === 1 || F === 2);
+  trollHead(ctx, hd[0] + ([0.2, -0.4, 0.9, 0.7][F] || 0), hd[1] + ([0, -0.3, -0.9, 1.0][F] || 0), st.lean * 0.4 + ([0, -0.2, -0.12, 0.12][F] || 0), p, F === 1 || F === 2);
   // the club arm
   const h = arm(ctx, shN, hn, A, { up: skin });
   wrist(ctx, h, an);

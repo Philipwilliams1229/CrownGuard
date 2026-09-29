@@ -111,10 +111,13 @@ const step = (p, o) => {
     return { fight: true, f, c: 0, near: [s * 0.9, 0], far: [-s * 1.0, 0], x: b.x, bob: o.bob * b.bob, lean: o.lean + b.lean, swing: 0, head: b.head, fl: b.fl, sk: b.sk };
   }
   const b = MELEE[f];
+  // a pole cocked back rocks the head back with it (the overhead cuts keep
+  // the head still, so the raised arm clears the helm)
+  const head = f === 1 && (p.weapon === "halberd" || p.weapon === "fork") ? -0.3 : b.head;
   return {
     fight: true, f, c: 0, hit: f === 2,
     near: [b.near < 0 ? s * 1.1 + o.lunge * 0.8 : s * b.near, 0], far: [s * b.far, 0],
-    x: b.x * (f >= 2 ? o.lunge : 1), bob: o.bob * b.bob, lean: o.lean + b.lean, swing: 0, head: b.head, fl: b.fl, sk: b.sk,
+    x: b.x * (f >= 2 ? o.lunge : 1), bob: o.bob * b.bob, lean: o.lean + b.lean, swing: 0, head, fl: b.fl, sk: b.sk,
   };
 };
 const skeleton = (p, o) => {
@@ -206,7 +209,8 @@ const mace = (ctx, x, y, a, col, len = 6.4) => {
 // the Grand Champion's maul: a long haft and a great banded head
 const hammer = (ctx, x, y, a, col, len = 9.5) => {
   const to = along(x, y, a);
-  part(ctx, (c) => { haft(c, to, -5.2, len, 1.3, "#5a3e28"); for (const u of [-4.6, -0.6]) tube(c, ...to(u - 0.4), ...to(u + 0.4), 1.7, darken(col, 0.25)); });
+  // (the butt ends a hand's breadth past the rear grip, clear of the pauldron)
+  part(ctx, (c) => { haft(c, to, -4.2, len, 1.3, "#5a3e28"); for (const u of [-3.7, -0.6]) tube(c, ...to(u - 0.4), ...to(u + 0.4), 1.7, darken(col, 0.25)); });
   part(ctx, (c) => {
     const pts = [[...to(len - 1.7, -2.8), 1], [...to(len + 1.7, -2.8), 1], [...to(len + 1.9, 0), 1], [...to(len + 1.7, 2.8), 1], [...to(len - 1.7, 2.8), 1], [...to(len - 1.9, 0), 1]];
     path(c, pts); c.fillStyle = cel(c, ...bbox(pts), col, 0.45, 0.45); c.fill();
@@ -533,7 +537,11 @@ const soldier = (ctx, p) => {
     legN = { thigh: trim, shin: trim, wrap: mix(p.cloth, "#e8dcc0", 0.35), wrapAt: 0.55, foot: "#5a3e28" };
     fistN = skin; fistF = skinF;
   } else {
-    armN = { up: p.cloth, cuff: LEATHER }; armF = { up: darken(p.cloth, 0.25), cuff: darken(LEATHER, 0.25) };
+    // the ranger's shirt sleeves, paler than the jerkin and the hood, so the
+    // string arm reads as an arm where it crosses the cowl (the draw, the
+    // loose, the reach to the quiver), not as a seam in it
+    const sleeve = mix(p.cloth, "#e8dcc0", 0.35);
+    armN = { up: sleeve, cuff: LEATHER }; armF = { up: darken(sleeve, 0.25), cuff: darken(LEATHER, 0.25) };
     legN = { thigh: trim, shin: trim, wrap: "#6a4a30", wrapAt: 0.2, foot: "#5a3e28" };
     fistN = skin; fistF = skinF;
   }

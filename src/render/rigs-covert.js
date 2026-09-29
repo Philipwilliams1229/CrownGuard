@@ -387,8 +387,12 @@ const blade = (ctx, p) => {
   const A = { up: 3.1, fore: 2.9, w: 1.6 };
   const H = hands(st, shN, shF, A, p);
   const tights = darken(mix(lea, cloak, 0.7), 0.08);
-  const armN = { up: lea, fore: lea, cuff: darken(lea, 0.28), buckle: trim };
-  const armF = { up: darken(lea, 0.28), fore: darken(lea, 0.28), cuff: darken(lea, 0.45), buckle: darken(trim, 0.3) };
+  // (the Widow's sleeves are mourning silk a step paler than her cowl, with
+  // long lace cuffs, so her raised needle arm reads as an arm laid over the
+  // hood, never a seam splitting it)
+  const lace = p.lace && p.veil ? p.lace : null, sl = lace ? mix(lea, lace, 0.3) : lea;
+  const armN = lace ? { up: sl, fore: sl, cuff: mix(lea, lace, 0.62), buckle: darken(lace, 0.45) } : { up: lea, fore: lea, cuff: darken(lea, 0.28), buckle: trim };
+  const armF = { up: darken(sl, 0.28), fore: darken(sl, 0.28), cuff: lace ? darken(armN.cuff, 0.3) : darken(lea, 0.45), buckle: darken(lace ? armN.buckle : trim, 0.3) };
   const legN = { thigh: tights, shin: tights, wrap: mix(lea, "#c8b898", 0.32), foot: darken(lea, 0.3) };
   const legF = { thigh: darken(tights, 0.28), shin: darken(tights, 0.28), wrap: darken(legN.wrap, 0.28), foot: darken(legN.foot, 0.25) };
 

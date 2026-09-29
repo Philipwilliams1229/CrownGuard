@@ -182,6 +182,13 @@ const arm = (ctx, sh, to, o, cols) => {
 // elbow → hand → a point up the haft; the lab draws it, the analysis reads it)
 const grip = (ctx, hd, a) => { if (hd.el) logJoint(ctx, "wrist", hd.el, hd, [hd[0] + Math.cos(a) * 3, hd[1] + Math.sin(a) * 3]); };
 const fist = (ctx, x, y, r, col) => part(ctx, (c) => ball(c, x, y, r, r * 0.95, col, { hi: 0.45, lo: 0.4 }));
+// a caster's open hand: the palm and three fingers spread along the forearm's line
+const openHand = (ctx, h, col, spread = 1) => part(ctx, (c) => {
+  const a = h.el ? Math.atan2(h[1] - h.el[1], h[0] - h.el[0]) : 0;
+  ball(c, h[0], h[1], 0.85, 0.85, col, { hi: 0.45, lo: 0.4 });
+  c.strokeStyle = col; c.lineWidth = 0.5; c.lineCap = "round";
+  for (const d of [-0.5, 0, 0.5]) { c.beginPath(); c.moveTo(h[0], h[1]); c.lineTo(h[0] + Math.cos(a + d * spread) * 1.6, h[1] + Math.sin(a + d * spread) * 1.6); c.stroke(); }
+});
 
 // ---- the Iron Kingdom's colours ----------------------------------------------------
 const IRONK = "#2e3038", BRASS = "#b8903e", OAK = "#6a4a2e", LEATHER = "#5a3e28", INKY = "#1a1420";
@@ -626,25 +633,27 @@ const hands = (look, st, shN, shF) => {
   // the far hand as the mace goes up overhead and comes down
   if (look === "chaplain") return pick({ hn: N(2.5 + sw * 0.3, 4.0), an: -0.95 + sw * 0.04, hf: F(3.4 - sw * 0.5, 3.4), sway: sw * 0.6 }, [
     { hn: N(3.2, 1.0), an: -1.25, hf: F(4.6, -1.2), sway: 0.3, bright: true },
-    { hn: N(-3.0, -4.7), an: -2.4, hf: F(4.4, -3.2), sway: -0.4, bright: true },
+    { hn: N(-3.6, -4.6), an: -2.4, hf: F(4.4, -3.2), sway: -0.4, bright: true },
     { hn: N(4.4, 1.6), an: 0.4, hf: F(4.8, -0.6), sway: 0.9, bright: true },
     { hn: N(3.0, 3.8), an: 1.05, hf: F(4.4, 0.6), sway: 1.3, bright: true }]);
   // the Lord Marshal: the war-banner upright on the march; in the fight he
   // rears it back and brings the lance-head down like a blow
   if (look === "marshal") return pick({ hn: N(4.2 + sw * 0.2, 4.0), an: -1.6 + sw * 0.03, hf: F(4.3, 3.2) }, [
     { hn: N(4.1, 2.4), an: -1.42, hf: F(4.8, 2.6), back: 6, fwd: 14 },
-    { hn: N(0.3, -2.3), an: -2.28, hf: F(4.6, 2.6), back: 6, fwd: 14, fly: 8 },
+    { hn: N(0.3, -2.3), an: -2.28, hf: F(4.6, 2.6), back: 1.5, fwd: 14, fly: 8 },
     { hn: N(4.0, 0.8), an: -0.85, hf: F(3.0, 3.8), back: 9, fwd: 11, flag: 6.6, lowered: true },
     { hn: N(3.2, 2.4), an: -0.72, hf: F(3.4, 3.6), back: 9, fwd: 11, flag: 6.6, lowered: true }]);
   // the magister: the staff carried tall like a walking staff; in the fight
   // raised (the far palm open, casting), thrust up as the aegis flares, and
   // settling as it fades — the fist and the staff always ahead of the beard,
-  // never across the face
+  // never across the face. The staff tips forward as it rises, so its foot
+  // swings back and the open far palm is thrust out below the beard in clear
+  // air AHEAD of the shaft (behind it, it would vanish)
   if (look === "magister") return pick({ hn: N(4.0 + sw * 0.3, 3.2), an: -1.44 + sw * 0.03, hf: F(1.4 - sw * 0.6, 5.0), top: 15.6, butt: 10.5, flare: 0 }, [
     { hn: N(3.6, 1.8), an: -1.36, hf: F(4.0, 1.4), top: 10.5, butt: 8, flare: 0 },
-    { hn: N(3.9, -3.6), an: -1.3, hf: F(5.4, -0.8), top: 7.5, butt: 9, flare: 1, palm: true },
-    { hn: N(4.7, -1.9), an: -1.16, hf: F(5.5, -0.6), top: 8.5, butt: 9, flare: 2, palm: true },
-    { hn: N(4.4, -0.8), an: -1.26, hf: F(5.0, -0.6), top: 8.5, butt: 9, flare: 1, palm: true }]);
+    { hn: N(3.9, -3.6), an: -1.2, hf: F(5.6, 1.2), top: 7.5, butt: 9, flare: 1, palm: true },
+    { hn: N(4.7, -1.9), an: -1.0, hf: F(5.4, 2.4), top: 8.5, butt: 9, flare: 2, palm: true },
+    { hn: N(4.4, -0.8), an: -1.05, hf: F(5.0, 3.2), top: 8.5, butt: 9, flare: 1, palm: true }]);
   // the unseated knight: an arming sword held up at the ready and a small
   // heater; he fights with the point — drawn back low, thrust, recover
   if (look === "unseated") return pick({ hn: N(2.2 + sw * 0.3, 3.8), an: -0.85 + sw * 0.05, hf: F(4.9, 2.2) }, [
@@ -656,7 +665,7 @@ const hands = (look, st, shN, shF) => {
   // the fight a heavy cut from over the shoulder, the shield covering
   return pick({ hn: N(2.0 + sw * 0.3, 4.1), an: -0.3 - sw * 0.05, hf: F(4.4, 3.2) }, [
     { hn: N(2.8, 1.4), an: -1.2, hf: F(4.8, 2.4) },
-    { hn: N(-2.7, -5.2), an: -2.3, hf: F(5.0, 2.0) },
+    { hn: N(-3.4, -4.8), an: -2.3, hf: F(5.0, 2.0) },
     { hn: N(3.6, 1.3), an: 0.55, hf: F(3.4, 3.6) },
     { hn: N(3.0, 3.8), an: 1.05, hf: F(4.2, 3.0) }]);
 };
@@ -870,7 +879,11 @@ const soldier = (ctx, p) => {
 
   // the head
   // the head follows the blow (and bows to the stock to aim, and looks down to reload)
+  const heave = st.fight && st.f === 1 && (look === "sergeant" || look === "chaplain" || look === "marshal");
+  // (in the heave the head ducks forward and down under the raised weapon, so
+  // the fist clears the back of the helm)
   const hd = T(0.85, -9.35); hd[0] += st.fight ? 0.4 * st.drive : 0;
+  if (heave) { hd[0] += 0.5; hd[1] += 0.6; }
   const ha = st.lean * 0.3 + (look === "bow" && st.fight ? [0.06, 0.14, 0.02, 0.3][st.f] : 0);
   const head = () => {
     if (look === "levy") kettle(ctx, hd[0], hd[1], ha, p, { brim: 4.4, strap: true, stubble: "#3a2a20" });
@@ -885,8 +898,10 @@ const soldier = (ctx, p) => {
   // over the shoulder, the marshal's banner reared back): a raised near arm in
   // plate or mail is as wide as the helm and would hide the face, so the arm
   // goes up BEHIND the head — the head is drawn after it, cleanly in front —
-  // and the blade rises clear above.
-  const heave = st.fight && st.f === 1 && (look === "sergeant" || look === "chaplain" || look === "marshal");
+  // and the blade rises clear above. The fist still shows, up and back clear
+  // of the helm (the sergeant's, the chaplain's); the marshal's plume leaves
+  // no room, so there the whole lance is behind: its butt ends under the helm
+  // (a short `back`), never across his chest.
   // the levy's great round shield rides on the far arm, held up to the chin:
   // it goes on before the head, so its rim tucks under the jaw instead of over the face
   if (look === "levy") roundShield(ctx, H.hf[0] + 1.7, H.hf[1] - 0.8, 3.9, 4.8, p.shcol || red);
@@ -901,7 +916,7 @@ const soldier = (ctx, p) => {
   // the magister's far hand, open and casting, a little of the aegis on the
   // palm (held out below the beard: the far arm is behind the body, so its
   // hand must never land on the face)
-  if (mage && H.palm) { glow(ctx, hfC[0] + 0.6, hfC[1] - 0.4, 2.6, p.col || "#9ab6d8", 0.6); fist(ctx, hfC[0], hfC[1], 0.95, fistF); }
+  if (mage && H.palm) { glow(ctx, hfC[0] + 1.0, hfC[1] - 0.2, 2.6, p.col || "#9ab6d8", 0.6); openHand(ctx, hfC, fistF, st.f === 2 ? 1.25 : 0.8); }
 
   // the weapon hand
   if (twoHand) {
