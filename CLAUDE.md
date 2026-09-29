@@ -196,10 +196,10 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   so rams and marshals are not mended like levies) every 2.8 s within 95, and
   `packRange` keeps him at the column's pace. Only the Aegis Magister still
   lays shield pips.
-- **Wraith** (`holyOnly`, `haunts`, `raisesOnKill`): flying, and NOTHING hurts
-  it but a Paladin-tree knight's blow or the Basilica's sear (`dealDamage`'s
-  `holy` argument; arrows, stones, plain/berserker knights, wizards, DoT all
-  pass through). Knights can block and fight it and it hits back; a knight it
+- **Wraith** (`holyOnly`, `haunts`, `raisesOnKill`): flying, and every
+  PHYSICAL blow passes through it (arrows, stones, traps, plain/berserker
+  knights); magic hurts it less its `mres` 0.4 — wizards, fire, poison, and the
+  Paladin tree, the only knights that can (`dealDamage`'s `holy` argument). Knights can block and fight it and it hits back; a knight it
   kills rises as a new wraith (`raiseFrom` in update.js, capped at 24 alive).
   The sim commander cannot play this puzzle (it never places paladins where
   the wraiths come), so wraith waves are what bleeds the Hollow in the sim;
