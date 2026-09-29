@@ -16,7 +16,7 @@ export const MILITIA = {
 // level 20: each level adds health and damage, and makes their abilities
 // hit harder. XP comes ONLY from kills — full for the hero's own, a share
 // for foes that fall within a few strides — weighted by the foe's bounty,
-// so an active hero reaches about level 10 by the end of a map's scripted
+// so an active hero reaches about level 9-10 by the end of a map's scripted
 // waves (measure with scripts/sim.mjs --hero-at) and keeps climbing in the
 // Endless March. At the end of a WON map's scripted waves the hero's level
 // is paid out as HERO STARS (profile.js bankHeroStars), which buy talents
@@ -50,9 +50,15 @@ export const HERO_RETINUE = {
 };
 // how many followers a hero at `level` has on the field
 export const retinueAt = (key, level) => (HERO_RETINUE[key]?.at || []).filter((l) => level >= l).length;
-// xp to the next level: steepening, so a hero parked in the thickest fight
-// runs a little ahead of the pack rather than far ahead
-export const heroXpFor = (level) => Math.round(20 + 1.2 * level * level);
+// xp to the next level: each level asks a quarter more than the one before
+// (owner, 2026-09-29: "they need more for each level up"), so a hero parked
+// in the thickest fight runs a little ahead of the pack rather than far
+// ahead, and a long map's flood of kills buys fewer and fewer levels. The
+// Citadel's thirty waves took a hero to 18 on the old quadratic curve
+// (20 + 1.2 L^2); on this one the same kills make about 14-15, a 20-wave map
+// ends about 9-10 (was 10-12), and 20 is for the Endless March.
+export const HERO_XP_FIRST = 30, HERO_XP_GROWTH = 1.25;
+export const heroXpFor = (level) => Math.round(HERO_XP_FIRST * HERO_XP_GROWTH ** (level - 1));
 // the xp one death teaches the hero: a foe's bounty is the measure of how
 // much of a fight it was; his own kills count KILL_OWN times a nearby one
 export const KILL_XP = 0.17, KILL_OWN = 2, KILL_NEAR = 90;
