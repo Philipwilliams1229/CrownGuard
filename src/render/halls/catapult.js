@@ -36,6 +36,9 @@ const CREW_DY = 7;
 // and the Log Roller's lever end (3 higher once it has knocked the chock out)
 const WINCH = { hub: [4, -14], rx: 1.8, ry: 1.8 };
 const LEVER = [5.5, -13];
+// where the winch (and trigger) rope takes the arm, a share of its length
+// from the pivot: near enough in that the rope leans toward the engine
+const ROPE_AT = 0.4;
 
 // The numbers of one form's engine: where the arm pivots, how long it is,
 // and the angles it rests, cocks and stops at (degrees from straight up,
@@ -48,7 +51,7 @@ const LEVER = [5.5, -13];
 const spec = (t) => {
   const lvl = t.level, r4 = t.rank4 ? t.branch + t.rank4 : null;
   const hw = 10.5 + lvl * 0.5 + (t.branch ? 0.5 : 0);   // the bed's half-length: it must keep off the road
-  if (t.branch === "a") return { hw, treb: true, px: 3, fh: 34, L: 26, butt: 8, cocked: -108, stop: 48, rest: 0, key: r4 || "a" };
+  if (t.branch === "a") return { hw, treb: true, px: 3, fh: 34, L: 26, butt: 8, cocked: -102, stop: 48, rest: 0, key: r4 || "a" };
   if (t.branch === "b") return { hw, roller: true, key: r4 || "b" };
   return { hw, px: 3, fh: 20 + lvl, L: 16 + lvl, butt: 3, cocked: lvl === 1 ? -66 : -72, stop: 40, rest: 40, key: "l" + lvl };
 };
@@ -155,10 +158,6 @@ const paintBack = (ctx, t, x, y, f) => {
     cylinder(c, wx - 2.4, wy - 2.2, 4.8, 4.4, WOOD_DK, { r: 1.8, hi: 0.35, lo: 0.45 });
     c.fillStyle = ROPE; c.fillRect(wx - 2.2, wy - 1.2, 4.4, 0.8); c.fillRect(wx - 2.2, wy + 0.4, 4.4, 0.8);
   });
-  if (s.treb) {
-    // the trough the sling pouch lies in when cocked
-    part(ctx, (c) => { c.fillStyle = darken(col, 0.35); c.fillRect(x - f * (hw - 2) - 4, y - 9.6, 8, 1.6); });
-  }
 };
 
 // ---- the near frame and wheels, in front of the arm ------------------------
@@ -426,25 +425,30 @@ export const drawCatapult = (ctx, t, time) => {
     if (bake) stamp(ctx, armSprite(t, s, deg), px, py, 40, 40, f);
     const loaded = anim === 0 && r > 0.8;
     if (s.treb) {
-      // the sling: resting in its trough when cocked, hanging while it winds,
-      // whipping out over the top as it looses
+      // the sling: hanging from the tip while it winds and while it waits
+      // cocked, the stone in its pouch (a sling laid back in a trough on the
+      // bed ran its rope from the tip straight through the engineer's head),
+      // whipping out over the top as it looses. Cocked (-102), the tip is out
+      // past his back and high, so the pouch and its stone hang up and clear
+      // of his cap even while he still leans into the crank.
       let sx, sy;
       if (anim > 0) { sx = tx + ux * 9 + f * 4 * anim; sy = ty + uy * 9 - 3 * anim; }
-      else if (r > 0.8) { sx = x - f * (hw - 2); sy = y - 10.5 + jolt; }
-      else { sx = tx + Math.sin(time * 2.5) * 0.8; sy = ty + 9; }
+      else { sx = tx + Math.sin(time * 2.5) * (loaded ? 0.4 : 0.8); sy = ty + 7; }
       rope(ctx, tx, ty, sx, sy, anim > 0 ? 0 : 1.5, ROPE, 0.8);
       ball(ctx, sx, sy, 2.2, 1.6, "#6a4a2e", { hi: 0.35, lo: 0.4 });
       if (loaded) {
         if (bake) stamp(ctx, cache.get(`shot|${s.key}`, 10, 10, (c) => boulder(c, 5, 5, s.key === "aa" ? 3 : 2.6, s.key === "aa" ? GRANITE : "#8e8c94", 2)), sx, sy - 1.8, 5, 5);
         if (r4 === "ab") comet(ctx, sx, sy - 1.8, time);
       }
-      // the winch rope to the arm while it cocks
-      if (anim === 0) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * 0.55, py + uy * s.L * 0.55, 0.5, ROPE, 0.7);
+      // the winch rope to the arm while it cocks: it takes the arm near the
+      // pivot, so it leans in toward the engine, clear of the engineer's face
+      if (anim === 0) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * ROPE_AT, py + uy * s.L * ROPE_AT, 0.5, ROPE, 0.7);
     } else {
       if (loaded && bake) stamp(ctx, cache.get(`shot|${s.key}`, 10, 10, (c) => boulder(c, 5, 5, 2.5, "#8e8c94", 1)), tx - uy * f * 0.5, ty - 2.2, 5, 5);
-      // the winch rope takes the arm at its middle, so it runs up in front
-      // of the engineer's face rather than across it to the cup
-      if (anim === 0 && r < 0.95) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * 0.5, py + uy * s.L * 0.5, 0.3, ROPE, 0.7);
+      // the winch rope takes the arm near the pivot, so it leans in toward
+      // the engine with air in front of the engineer's face, never across
+      // it to the cup
+      if (anim === 0 && r < 0.95) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * ROPE_AT, py + uy * s.L * ROPE_AT, 0.3, ROPE, 0.7);
     }
     layer("f", paintFront);
     // (the trebuchet's standard goes up before its counterweight, so the
@@ -459,7 +463,7 @@ export const drawCatapult = (ctx, t, time) => {
     if (!s.treb && anim === 0 && r >= 0.95 && !t._idle) {
       // cocked and trembling: the rope is taut to the trigger
       ctx.strokeStyle = "rgba(240,224,180,0.95)"; ctx.lineWidth = 0.7;
-      ctx.beginPath(); ctx.moveTo(x - f * (hw - 3), y - WINCH_DY); ctx.lineTo(px + ux * s.L * 0.5, py + uy * s.L * 0.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - f * (hw - 3), y - WINCH_DY); ctx.lineTo(px + ux * s.L * ROPE_AT, py + uy * s.L * ROPE_AT); ctx.stroke();
     }
     // a thump of dust at the wheels as it looses
     if (anim > 0.5) for (const sgn of [-1, 1]) soft(ctx, x + sgn * (hw - 1), y + 5, 6 * anim, 2.4, [[0, `rgba(190,170,130,${0.5 * anim})`], [1, "rgba(190,170,130,0)"]]);
