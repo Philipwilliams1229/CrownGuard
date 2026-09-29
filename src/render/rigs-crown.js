@@ -84,7 +84,7 @@ const haft = (c, to, u0, u1, w, col) => { const [x0, y0] = to(u0), [x1, y1] = to
 // the body by a frame); sk: the skirts' swing.
 const MELEE = [
   { near: 0.9, far: -1.0, x: -0.2, bob: 0.3, lean: 0.02, head: 0, fl: 0.4, sk: 0 },
-  { near: 0.9, far: -1.0, x: -1.0, bob: 0.45, lean: -0.13, head: -0.3, fl: 0.1, sk: -0.4 },
+  { near: 0.9, far: -1.0, x: -1.0, bob: 0.45, lean: -0.13, head: 0, fl: 0.1, sk: -0.4 },
   { near: -1, far: -1.0, x: 1.0, bob: 1.1, lean: 0.2, head: 0.45, fl: 1.2, sk: 0.9 },
   { near: -1, far: -1.0, x: 0.62, bob: 0.9, lean: 0.1, head: 0.25, fl: 1.9, sk: 0.5 },
 ];
@@ -136,12 +136,14 @@ const leg = (ctx, R, o, which, cols) => {
   const hp = T(which === "near" ? o.hipW : -o.hipW, 0);
   const [kn, an] = ik(hp[0], hp[1], fx, fy - ank, o.L1, o.L2, 1);
   logJoint(ctx, "leg", hp, kn, [fx, fy - ank], { lens: [o.L1, o.L2] });
+  // thigh, shin, greave and knee cop are ONE inked part: the cop is a colour
+  // step on the leg, never a ring of ink across the knee
   part(ctx, (c) => {
     tube(c, hp[0], hp[1], kn[0], kn[1], o.thigh, cols.thigh);
     tube(c, kn[0], kn[1], an[0], an[1], o.shin, cols.shin);
     if (cols.wrap) { const t = cols.wrapAt ?? 0.55; tube(c, kn[0] + (an[0] - kn[0]) * t, kn[1] + (an[1] - kn[1]) * t, an[0], an[1], o.shin * 1.1, cols.wrap); }
+    if (cols.knee) { ball(c, kn[0] + 0.3, kn[1], 1.2, 1.1, cols.knee, { hi: 0.55, lo: 0.4 }); dab(c, kn[0] - 0.1, kn[1] - 0.6, 0.5, 0.5, lighten(cols.knee, 0.7)); }
   });
-  if (cols.knee) part(ctx, (c) => { ball(c, kn[0] + 0.3, kn[1], 1.2, 1.1, cols.knee, { hi: 0.55, lo: 0.4 }); dab(c, kn[0] - 0.1, kn[1] - 0.6, 0.5, 0.5, lighten(cols.knee, 0.7)); });
   foot(ctx, an[0], an[1] + ank, o.foot, ank + 0.55, cols.foot, { plate: cols.plate, sole: cols.sole });
   return { hp, kn, an };
 };
@@ -420,21 +422,26 @@ const grip = (w, st, shN, shF) => {
   // the shield trails the body's bob by a frame
   const lag = st.fight ? 0 : [-0.25, 0.25, -0.25, 0.25][st.f];
   if (w === "hammer") return [
-    // carried at the port, head up, both hands swinging a little with the gait
-    { hn: N(2.0 + sw * 0.3, 2.4), h2: N(1.3 + sw * 0.3, 4.9) },
+    // carried at the port, head up and well out before the visor, both hands
+    // swinging a little with the gait
+    { hn: N(2.6 + sw * 0.3, 2.2), h2: N(1.2 + sw * 0.3, 4.8) },
     // guard: the maul held slanting up before him
     { hn: N(3.0, 2.4), h2: N(1.4, 4.5) },
-    // wind-up: heaved up over the near shoulder, the head hanging behind him
-    { hn: N(-1.3, -5.5), h2: N(0.8, -4.9), behind: true },
+    // wind-up: heaved up over the near shoulder, the head hanging behind him;
+    // both arms and the haft go up behind the head (the visor and crown stay
+    // whole), the lead fist showing clear behind the helm, the head held
+    // back and a little up
+    { hn: N(-4.0, -4.6), h2: N(-1.68, -3.98), behind: true },
     // strike: brought down through the foe
     { hn: N(4.6, 3.6), h2: N(2.3, 2.3) },
     // follow-through: the head driven down into the dirt, the body sunk over it
     { hn: N(3.9, 5.2), h2: N(1.9, 3.6) }][ph];
-  // the halberd stands upright in the near hand on the march (the far arm
-  // swings free); in the fight it is levelled, drawn back, driven straight out
-  // at the foe, then its blade chops down
+  // the halberd stands upright in the near hand on the march, held out far
+  // enough that the pole clears the face (the far arm swings free); in the
+  // fight it is levelled, drawn back, driven straight out at the foe, then
+  // its blade chops down
   if (w === "halberd") return [
-    { hn: N(2.0 + sw * 0.3, 3.2), an: -1.42 + sw * 0.04, free: F(0.5 - sw * 1.3, 5.7) },
+    { hn: N(3.4 + sw * 0.3, 3.4), an: -1.34 + sw * 0.04, free: F(0.5 - sw * 1.3, 5.7) },
     { hn: N(3.2, 3.0), h2: N(0.3, 4.7), fwd: 9.4 },
     { hn: N(1.1, 3.0), h2: N(-1.5, 3.9), fwd: 9.4 },
     { hn: N(5.4, 2.0), h2: N(2.6, 2.6), fwd: 10.2 },
@@ -442,7 +449,7 @@ const grip = (w, st, shN, shF) => {
   // the militia's fork: carried upright, levelled, jabbed, then heaved up as
   // if pitching hay
   if (w === "fork") return [
-    { hn: N(2.2 + sw * 0.3, 3.4), an: -1.1 + sw * 0.05, free: F(0.5 - sw * 1.3, 5.7) },
+    { hn: N(2.8 + sw * 0.3, 3.4), an: -1.1 + sw * 0.05, free: F(0.5 - sw * 1.3, 5.7) },
     { hn: N(3.2, 3.2), h2: N(0.4, 4.8), fwd: 8.2 },
     { hn: N(1.1, 3.4), h2: N(-1.4, 4.4), fwd: 8.2 },
     { hn: N(5.2, 2.3), h2: N(2.4, 2.9), fwd: 8.6 },
@@ -451,29 +458,34 @@ const grip = (w, st, shN, shF) => {
   if (w === "axes") return [
     { hn: N(1.8 + sw * 0.8, 4.4), an: -1.15 + sw * 0.1, hf: F(0.6 - sw * 1.3, 4.6), af: 0.95 },
     { hn: N(3.0, 2.8), an: -1.2, hf: F(3.8, 2.4), af: -1.0 },
-    { hn: N(-1.0, -4.6), an: 2.75, hf: F(0.8, -4.9), af: -2.5, behind: true },
+    { hn: N(-3.6, -5.1), an: 2.75, hf: F(0.8, -4.9), af: -2.5, behind: true },
     { hn: N(5.0, 2.2), an: 0.55, hf: F(1.4, -4.6), af: -2.3 },
     { hn: N(3.2, 5.2), an: 1.45, hf: F(5.3, 2.6), af: 0.55 }][ph];
   // the bow: F holds the bow, N the string; `flip` the draw arm's side-view
   // reversal (raised out to the side). An archer at the string stands side-on.
   if (w === "bow") return [
-    { hn: N(0.6 + sw * 1.1, 4.8), hf: F(3.6 - sw * 0.3, 4.4), ab: -1.42 },
+    { hn: N(0.6 + sw * 1.1, 4.8), hf: F(4.2 - sw * 0.3, 4.2), ab: 1.64 },
     // full draw: the bow arm straight at the mark, the string hand at the jaw, elbow high
     { hn: N(2.8, -1.5), hf: F(5.9, -0.4), ab: -Math.PI / 2 + 0.06, flip: true, string: true, nock: true },
-    // loose: the string hand flung back past the ear, the bow arm pushing through
-    { hn: N(-1.6, -1.7), hf: F(6.2, -0.3), ab: -Math.PI / 2 + 0.2, loose: true },
-    // the reach: over the shoulder to the quiver, the bow lowered
-    { hn: N(-1.1, -3.2), hf: F(5.0, 1.4), ab: -Math.PI / 2 + 0.32, flip: true, draw: true },
+    // loose: the string hand flung back past the ear, the elbow back (still
+    // out to the side), the bow arm pushing through; the hand ends clear of
+    // the hood's back, so the arm never passes through it
+    { hn: N(-3.1, -2.3), hf: F(6.2, -0.3), ab: -Math.PI / 2 + 0.2, flip: true, loose: true },
+    // the reach: over the shoulder to the quiver, the elbow back at shoulder
+    // height, the hand up behind the hood (never across the face), the bow lowered
+    { hn: N(-2.3, -3.6), hf: F(5.0, 1.4), ab: -Math.PI / 2 + 0.32, flip: true, draw: true },
     // nock and begin the draw: the arrow set on the string before the chest
-    { hn: N(2.6, 0.6), hf: F(5.6, 0.6), ab: -Math.PI / 2 + 0.14, string: true, nock: true }][ph];
+    { hn: N(2.6, 0.6), hf: F(5.6, 0.6), ab: -Math.PI / 2 + 0.14, string: true, nock: true, early: true }][ph];
   // sword or mace, with a shield on the far arm. On the march the blade lies
   // back over the shoulder (the forearm up before the chest, the hilt across
-  // the fist); the fight is an overhead cut: guard, cocked high behind the
-  // head, down through the foe, on past the line.
+  // the fist; drawn over the pauldron and under the head, so it shows lying
+  // on the shoulder); the fight is an overhead cut: guard, cocked high behind
+  // the head (the arm up behind the head, the fist clear of the helm's back,
+  // the blade hanging back-down behind), down through the foe, on past the line.
   return [
     { hn: N(2.0 + sw * 0.15, 1.1), an: -2.72 + sw * 0.04, hf: F(4.4, 3.6 + lag), shoulder: true },
     { hn: N(3.0, 2.3), an: -1.0, hf: F(4.6, 3.1) },
-    { hn: N(-0.9, -4.4), an: -2.9, hf: F(4.8, 2.5), behind: true },
+    { hn: N(-4.0, -4.6), an: 2.75, hf: F(4.8, 2.5), behind: true },
     { hn: N(5.3, 1.3), an: 0.4, hf: F(3.4, 3.8) },
     { hn: N(3.6, 4.7), an: 1.35, hf: F(3.8, 3.4) }][ph];
 };
@@ -618,7 +630,8 @@ const soldier = (ctx, p) => {
     if (look === "hunter") blob(c, [[-2.4, -7.8], [1.2, -7.9], [2.2, -6.8], [0.6, -5.8, 1], [-1.2, -6.4], [-2.6, -6.4]], p.cape || p.cloth, { hi: 0.3 });
   });
 
-  // a weapon carried over the shoulder or cocked behind the head goes behind it
+  // a weapon cocked behind the head goes behind it (and, for a two-handed
+  // haft, the far arm with it: it must never cross the face)
   const reachN = (to) => ik(shN[0], shN[1], to[0], to[1], A.up, A.fore, H.flip ? 1 : -1)[1];
   const blade = (h) => w === "sword" ? sword(ctx, h[0], h[1], H.an, p.wcol || "#dde2ea", look === "hero" ? 8.6 : 7.8, look === "hero" ? "#e8c14a" : BRASS) : mace(ctx, h[0], h[1], H.an, p.wcol || "#e8d47a");
   const POLE = w === "halberd" ? 16.4 : 14.2;
@@ -627,27 +640,18 @@ const soldier = (ctx, p) => {
     else if (w === "halberd") halberd(ctx, h[0], h[1], H.an, p.wcol || "#d8dce4", POLE - (H.fwd || 9.4), H.fwd || 9.4);
     else fork(ctx, h[0], h[1], H.an, p.wcol || "#b8bcc4", POLE - (H.fwd || 8.4), H.fwd || 8.4);
   };
-  const back = H.shoulder || H.behind;
+  const farGrip = () => { const h2 = arm(ctx, shF, H.h2, A, armF); fist(ctx, h2[0], h2[1], 1.0, fistF); };
+  const leadGrip = () => { const h = arm(ctx, shN, H.hn, A, armN); wrist(h, H.an, w); fist(ctx, h[0], h[1], 1.05, fistN); };
+  const back = !!H.behind;
   if (back) {
     const h = reachN(H.hn);
     if (w === "sword" || w === "mace") blade(h);
     else if (w === "axes") axe(ctx, h[0], h[1], H.an, p.wcol || "#b8bcc4");
-    else if (twoHand) pole(h);
+    else if (twoHand) { pole(h); farGrip(); leadGrip(); }
   }
 
-  // the head
-  const hd = T(0.85, -9.35); hd[0] += st.head;
-  const ha = st.lean * 0.3;
-  if (look === "knight") bascinet(ctx, hd[0], hd[1], ha, p, { plume: trim });
-  else if (look === "guard") bascinet(ctx, hd[0], hd[1], ha, p, { band: BRASS });
-  else if (look === "paladin") greatHelm(ctx, hd[0], hd[1], ha, p);
-  else if (look === "champion") greatHelm(ctx, hd[0], hd[1], ha, p, { steel: p.cloth, crown: p.hair || "#e8c14a" });
-  else if (look === "hero") heroHelm(ctx, hd[0], hd[1], ha, p);
-  else if (look === "berserk") berserkHead(ctx, hd[0], hd[1], ha, p);
-  else if (look === "farmer") farmerHead(ctx, hd[0], hd[1], ha, p);
-  else hunterHead(ctx, hd[0], hd[1], ha, p);
-
-  // the shield, held before the body
+  // the shield, held before the body on the far arm (the head, nearer the
+  // eye than the far arm, is drawn over its rim)
   if (w === "sword" || w === "mace") {
     const sc = p.shcol || "#3a5474";
     if (look === "knight") kite(ctx, H.hf[0] + 0.9, H.hf[1] + 0.2, sc, "#c4c8d0", "cross", "#e8e2d0");
@@ -655,23 +659,32 @@ const soldier = (ctx, p) => {
     else kite(ctx, H.hf[0] + 0.9, H.hf[1] + 0.2, sc, lighten(sc, 0.35), "cross", "#f4efe0");
   }
 
-  // the weapon hand
+  // the one-handed weapon hand: the arm, its pauldron, the steel, the fist.
+  // On the march the blade lies back over the shoulder: drawn before the head,
+  // over the pauldron, so it shows lying there and passes behind the nape
   const pl = plated && !kn;
-  if (twoHand) {
-    // the haft first, then the rear hand closing on it, then the lead hand
-    if (!back) pole(H.hn);
-    const h2 = arm(ctx, shF, H.h2, A, armF);
-    fist(ctx, h2[0], h2[1], 1.0, fistF);
+  const nearHand = () => {
     const h = arm(ctx, shN, H.hn, A, armN);
+    if (plated) pauldron(ctx, shN[0] - 0.2, shN[1] + 0.1, 1.8, steel, pl ? trim : null);
+    if ((w === "sword" || w === "mace") && !back) blade(h);
+    else if (w === "axes" && !back) axe(ctx, h[0], h[1], H.an, p.wcol || "#b8bcc4");
     wrist(h, H.an, w);
     fist(ctx, h[0], h[1], 1.05, fistN);
-  } else if (w === "halberd" || w === "fork") {
-    // carried upright in the near hand
-    pole(H.hn);
-    const h = arm(ctx, shN, H.hn, A, armN);
-    wrist(h, H.an, w);
-    fist(ctx, h[0], h[1], 1.05, fistN);
-  } else if (w === "bow") {
+  };
+  const oneHand = w === "sword" || w === "mace" || w === "axes";
+  // Raised overhead (the wind-up) the near arm goes up past the back of the
+  // head, drawn BEHIND it as the tower archers' raised string arm is, so the
+  // face and helm stay whole and the fist shows clear behind them; on the
+  // march (the blade on the shoulder) it goes under the head too
+  const early = oneHand && (H.shoulder || back);
+  if (early) nearHand();
+
+  // the bow, its arms and hands. On the march and at the nock the string arm
+  // hangs from the shoulder and the hood's cowl drapes over it, so the group
+  // goes under the head (the cowl covers the shoulder; the bow, held in the
+  // far hand, is farther from the eye than the face); drawn, loosed or at the
+  // quiver the raised string arm is drawn over the cowl, clear of the face
+  const bowGroup = () => {
     if (st.fight) {
       // the bow arm at the mark; the string hand at the jaw, flung back, at the quiver or nocking
       const hf = arm(ctx, shF, H.hf, A, armF);
@@ -686,18 +699,41 @@ const soldier = (ctx, p) => {
       if (H.draw) blob(ctx, [[h[0] - 0.5, h[1] - 0.6], [h[0] - 0.1, h[1] - 2.4, 1], [h[0] + 0.4, h[1] - 0.6]], "#e8e2d0", { hi: 0.3 });
       fist(ctx, h[0], h[1], 0.95, fistN);
     } else {
-      // on the march the bow rides in the far hand, carried before him
+      // on the march the bow rides upright in the far hand, carried out
+      // before him with the string forward, so the upper limb stands clear
+      // of the face
       bow(ctx, bowHand[0], bowHand[1], H.ab, p.wcol || "#6a4428"); fist(ctx, bowHand[0], bowHand[1], 0.95, fistF);
       const h = arm(ctx, shN, H.hn, A, armN); fist(ctx, h[0], h[1], 0.95, fistN);
     }
-  } else {
+  };
+  const bowEarly = w === "bow" && (!st.fight || H.early);
+  if (bowEarly) bowGroup();
+
+  // the head
+  const hd = T(0.85, -9.35); hd[0] += st.head;
+  const ha = st.lean * 0.3;
+  if (look === "knight") bascinet(ctx, hd[0], hd[1], ha, p, { plume: trim });
+  else if (look === "guard") bascinet(ctx, hd[0], hd[1], ha, p, { band: BRASS });
+  else if (look === "paladin") greatHelm(ctx, hd[0], hd[1], ha, p);
+  else if (look === "champion") greatHelm(ctx, hd[0], hd[1], ha, p, { steel: p.cloth, crown: p.hair || "#e8c14a" });
+  else if (look === "hero") heroHelm(ctx, hd[0], hd[1], ha, p);
+  else if (look === "berserk") berserkHead(ctx, hd[0], hd[1], ha, p);
+  else if (look === "farmer") farmerHead(ctx, hd[0], hd[1], ha, p);
+  else hunterHead(ctx, hd[0], hd[1], ha, p);
+
+  // the weapon hand
+  if (twoHand) {
+    // the haft first, then the rear hand closing on it, then the lead hand
+    if (!back) { pole(H.hn); farGrip(); leadGrip(); }
+  } else if (w === "halberd" || w === "fork") {
+    // carried upright in the near hand
+    pole(H.hn);
     const h = arm(ctx, shN, H.hn, A, armN);
-    if (plated) pauldron(ctx, shN[0] - 0.2, shN[1] + 0.1, 1.8, steel, pl ? trim : null);
-    if ((w === "sword" || w === "mace") && !back) blade(h);
-    else if (w === "axes" && !back) axe(ctx, h[0], h[1], H.an, p.wcol || "#b8bcc4");
     wrist(h, H.an, w);
     fist(ctx, h[0], h[1], 1.05, fistN);
-  }
+  } else if (w === "bow") {
+    if (!bowEarly) bowGroup();
+  } else if (!early) nearHand();
   if (plated && (twoHand || w === "halberd")) pauldron(ctx, shN[0] - 0.2, shN[1] + 0.1, 1.8, steel, trim);
   ctx.restore();
 };

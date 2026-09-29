@@ -11,7 +11,7 @@
 // re-exported here. This file keeps the build crew.
 
 import { lighten, darken, shadow, roundRect, lin, part } from "./paint.js";
-import { limb, blob, dab, head, torso, legs, hand, arm, cap, UPPER, FORE } from "./folk-kit.js";
+import { limb2, blob, dab, head, torso, legs, hand, arm, cap, UPPER, FORE } from "./folk-kit.js";
 export * from "./folk-kit.js";
 export * from "./folk-archer.js";
 export * from "./folk-casters.js";
@@ -69,8 +69,7 @@ const bootAt = (ctx, ax, ay, ang, col) => {
 const LEG1 = 3.9, LEG2 = 3.0;
 const workLeg = (ctx, hx, hy, [ax, ay, ang], col, bootCol) => {
   const [kx, ky] = joint2(hx, hy, ax, ay, LEG1, LEG2, 1);
-  limb(ctx, hx, hy, kx, ky, 2.7, col);
-  limb(ctx, kx, ky, ax, ay, 2.3, col);
+  limb2(ctx, [hx, hy], [kx, ky], [ax, ay], 2.7, 2.3, col);   // one inked part: no line across the knee
   bootAt(ctx, ax, ay, ang, bootCol);
 };
 // an arm from the shoulder to the hand [hx, hy]: the kit's arm() solves the
@@ -253,7 +252,7 @@ const workerPose = (look, pose, f, load) => {
     }
     case "jump": {
       const K = [
-        { hip: [-0.4, -5.2], lean: 0.4, hands: [[-2.7, -3.0], [-2.2, -2.8]], mallet: 2.3, legs: [[2.0, -1.2, 0], [-1.6, -1.2, 0.2]] },
+        { hip: [-0.4, -5.2], lean: 0.4, hands: [[-3.2, -1.0], [-4.9, -1.2]], mallet: 2.3, legs: [[2.0, -1.2, 0], [-1.6, -1.2, 0.2]] },
         { hip: [0.0, -8.6], lean: 0.02, hands: [[4.8, -16.6], [-3.6, -15.4]], mallet: -1.9, legs: [[2.4, -3.4, -0.2], [-1.4, -4.4, 0.5]] },
         { hip: [0.0, -8.3], lean: -0.04, hands: [[6.2, -13.8], [-4.8, -13.2]], mallet: -1.4, legs: [[1.4, -0.9, 0.35], [-1.3, -0.7, 0.45]] },
       ][f];
@@ -261,8 +260,8 @@ const workerPose = (look, pose, f, load) => {
     }
     case "land": {
       const K = [
-        { hip: [0.4, -4.4], lean: 0.5, hands: [[4.8, -4.4], [-1.9, -3.4]], mallet: 0.2, legs: [[2.7, -1.2, 0], [-2.5, -1.2, 0]] },
-        { hip: [0.2, -6.4], lean: 0.22, hands: [[3.4, -4.8], [-1.8, -3.8]], mallet: 0.6, legs: [[2.5, -1.2, 0], [-2.3, -1.2, 0]] },
+        { hip: [0.4, -4.4], lean: 0.5, hands: [[4.8, -4.4], [-3.7, -1.4]], mallet: 0.2, legs: [[2.7, -1.2, 0], [-2.5, -1.2, 0]] },
+        { hip: [0.2, -6.4], lean: 0.22, hands: [[3.4, -4.8], [-3.4, -1.7]], mallet: 0.6, legs: [[2.5, -1.2, 0], [-2.3, -1.2, 0]] },
       ][f];
       return { tilt: -K.lean * 0.5, flap: 0.2, ...K, mallet: mason ? K.mallet : null };
     }
@@ -286,8 +285,7 @@ const workerClimb = (ctx, pal, look, f) => {
   for (const s of [-1, 1]) {
     const up = s === side, fx = s * 1.4, fy = up ? footUp : 0;
     const kx = s * 2.0, ky = up ? fy - 3.6 : -3.9;
-    limb(ctx, s * 1.1, -7.8, kx, ky, 2.7, up ? legC : farLeg);
-    limb(ctx, kx, ky, fx, fy - 1.0, 2.3, up ? legC : farLeg);
+    limb2(ctx, [s * 1.1, -7.8], [kx, ky], [fx, fy - 1.0], 2.7, 2.3, up ? legC : farLeg);
     blob(ctx, [[fx - 1.2, fy - 1.6], [fx + 1.2, fy - 1.6], [fx + 1.3, fy + 0.3, 1], [fx - 1.3, fy + 0.3, 1]], darken(pal.boots, 0.2), { hi: 0.3 });
   }
   // the back of the jerkin, the belt, the apron's bow
@@ -325,8 +323,7 @@ const workerClimb = (ctx, pal, look, f) => {
   for (const s of [-1, 1]) {
     const hi = s === -side;
     const hx = s * 3.4, hy2 = hi ? handUp : handUp + 2.6, ex = s * 4.6, ey = hi ? -19.8 : -18.6;
-    limb(ctx, s * 3.0, -16.2, ex, ey, 2.4, s < 0 ? darken(pal.coat, 0.1) : pal.coat);
-    limb(ctx, ex, ey, hx, hy2, 2.2, s < 0 ? darken(pal.coat, 0.1) : pal.coat);
+    limb2(ctx, [s * 3.0, -16.2], [ex, ey], [hx, hy2], 2.4, 2.2, s < 0 ? darken(pal.coat, 0.1) : pal.coat);
     hand(ctx, hx, hy2, pal.skin);
   }
 };

@@ -7,11 +7,13 @@ import { REALM } from "../data/maps.js";
 import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS } from "../sprites/sprites.js";
 import { hasRig, rigDef, drawRig, rigFrame } from "./rigs.js";
 import { skiffGunPose, skiffRowFrame, skiffBlade, skiffBob, SKIFF_LIFT } from "./rigs-skiff.js";
+import { clipToWater } from "./waterreach.js";
 import * as CROWN from "./rigs-crown.js";
 import { getStats } from "../engine/towers.js";
 import { PX } from "./paint.js";
 import { shadow as softShadow } from "./paint.js";
 import { drawStatus } from "./fx.js";
+import { canvasFont } from "../ui/fonts.js";
 
 // A puff kicked up where a foot lands. The whole thing is a function of the
 // walker's own gait phase, so it needs no state and it stays in step with the
@@ -262,19 +264,25 @@ const drawSkiff = (ctx, u, t, time) => {
   if (hunting !== m.hunt) { m.hunt = hunting; m.turned = time; }
   const underway = Math.abs(time - m.moved) < 0.3;
   const ay = u.y + SKIFF_LIFT + skiffBob(time, u.id);
-  if (underway) {
-    ctx.fillStyle = "rgba(226,240,246,0.45)";
-    for (let i = 0; i < 3; i++) {
-      const back = -u.face * (11 + i * 7);
-      const spread = 4 + i * 3;
-      ctx.fillRect(S(u.x + back - spread), S(u.y + 5 + Math.sin(time * 3 + u.id + i) * 1.5), spread * 2, CELL);
+  // the wake and the ripples keep to the open water: cut at a bank, a
+  // pond's shore, the beach and a bridge's deck (waterreach.js)
+  ctx.save();
+  if (clipToWater(ctx, u.x - 40, u.y - 2, u.x + 40, u.y + 14)) {
+    if (underway) {
+      ctx.fillStyle = "rgba(226,240,246,0.45)";
+      for (let i = 0; i < 3; i++) {
+        const back = -u.face * (11 + i * 7);
+        const spread = 4 + i * 3;
+        ctx.fillRect(S(u.x + back - spread), S(u.y + 5 + Math.sin(time * 3 + u.id + i) * 1.5), spread * 2, CELL);
+      }
+    } else {
+      // lying to: a ring of ripple slides off her bow and stern
+      const k = (time * 0.6 + u.id * 0.37) % 1;
+      ctx.fillStyle = `rgba(226,240,246,${(0.5 * (1 - k)).toFixed(2)})`;
+      for (const s of [-1, 1]) ctx.fillRect(px2(u.x + s * (15 + k * 5) - 1.5), px2(ay + 1.5 + k), 3, 0.5);
     }
-  } else {
-    // lying to: a ring of ripple slides off her bow and stern
-    const k = (time * 0.6 + u.id * 0.37) % 1;
-    ctx.fillStyle = `rgba(226,240,246,${(0.5 * (1 - k)).toFixed(2)})`;
-    for (const s of [-1, 1]) ctx.fillRect(px2(u.x + s * (15 + k * 5) - 1.5), px2(ay + 1.5 + k), 3, 0.5);
   }
+  ctx.restore();
   const rate = getStats(t).rate || 900;
   const since = u.atkCd > 0 ? rate - u.atkCd : Infinity;
   const gun = skiffGunPose(since, rate, { hunting, clock: time + u.id * 1.37, turned: time - m.turned });
@@ -282,7 +290,9 @@ const drawSkiff = (ctx, u, t, time) => {
   drawRig(ctx, "skiff", u.x, ay, u.face, "walk", `${t.branch || "base"}.${gun}.${row}`);
   // the water the near oar works (live: foam takes no ink)
   const bl = skiffBlade(row), bx = u.x + u.face * bl.x, by = ay + bl.y;
-  if (bl.wet >= 1) {
+  ctx.save();
+  if (!clipToWater(ctx, bx - 5, by - 1, bx + 5, by + 5)) { /* the blade over dry ground: no splash */ }
+  else if (bl.wet >= 1) {
     ctx.fillStyle = "rgba(226,240,246,0.8)";
     ctx.fillRect(px2(bx - 2.5), px2(by + 1), 5, 0.5);
     ctx.fillRect(px2(bx - u.face * 3), px2(by + 0.5), 1, 0.5);
@@ -294,6 +304,7 @@ const drawSkiff = (ctx, u, t, time) => {
     ctx.fillRect(px2(bx), px2(by + 1.5), 0.5, 0.5);
     ctx.fillRect(px2(bx + u.face), px2(by + 3), 0.5, 0.5);
   }
+  ctx.restore();
   if (u.hp < u.maxHp) {
     ctx.fillStyle = INK;
     ctx.fillRect(S(u.x) - 8, S(u.y - 25), 16, 4);
@@ -454,7 +465,7 @@ export const drawBandUnit = (ctx, u, b, time) => {
   if (hero) {
     // the level, on a small shield below the bar
     ctx.fillStyle = "#e8c14a"; ctx.fillRect(u.x - 12, u.y - 31, 5, 5);
-    ctx.fillStyle = "#2a1c2c"; ctx.font = "bold 4px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#2a1c2c"; ctx.font = canvasFont("board", 4, true); ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(String(b.level), u.x - 9.5, u.y - 28.3);
   }
 };

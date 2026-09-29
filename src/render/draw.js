@@ -37,10 +37,12 @@ import { builderDrawables } from "./builders.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign, signGround } from "./scenery.js";
 import { drawWaterLive } from "./water.js";
+import { drawWatchWater, drawSkiffReach, warmWaterReach } from "./waterreach.js";
 import { drawBridges } from "./bridge.js";
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
+import { canvasFont } from "../ui/fonts.js";
 
 // The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
 // buffer space over the finished board, so it reads at any camera zoom. It's
@@ -75,14 +77,14 @@ function drawBanner(ctx, g) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = `rgba(${b.boss ? "240,168,160" : "240,224,168"},${a})`;
-  ctx.font = "bold 22px monospace";
+  ctx.font = canvasFont("board", 22, true);
   // letter-spacing the hard way: canvas has no such property here
   const chars = [...b.text];
   const gap = 22 * 0.72 + 5;
   let px = W / 2 - ((chars.length - 1) * gap) / 2;
   for (const ch of chars) { ctx.fillText(ch, Math.round(px), cy + (b.sub ? -7 : 0)); px += gap; }
   if (b.sub) {
-    ctx.font = "11px monospace";
+    ctx.font = canvasFont("board", 11);
     ctx.fillStyle = `rgba(196,190,176,${a * 0.85})`;
     ctx.fillText(b.sub, W / 2, cy + 13);
   }
@@ -118,6 +120,18 @@ export function draw(g, canvas, bufRef) {
   ctx.drawImage(groundLayer(), 0, 0, W, H);
   drawWaterLive(ctx, g);
   drawRoadLive(ctx, g);
+  // A River Watch's reach is its water: the river, pond or sea stretch its
+  // skiffs row, tinted with a creeping dotted edge (waterreach.js) — laid
+  // with the water, so the bridges and everything afloat pass over it. The
+  // build ghost shows the water it would moor in, green (or red: no gold).
+  warmWaterReach();
+  {
+    const selW = g.selectedId != null && g.towers.find((t) => t.id === g.selectedId);
+    if (selW && selW.kind === "riverwatch") drawWatchWater(ctx, g, selW.x, selW.y, "sel");
+    else if (g.buildMode === "riverwatch" && g.hover && buildableAt(g, g.hover[0], g.hover[1], "riverwatch")) {
+      drawWatchWater(ctx, g, g.hover[0], g.hover[1], g.gold >= TOWERS.riverwatch.cost ? "ok" : "bad");
+    }
+  }
   // the castle's apron and the cobbled threshold go UNDER the foes, who walk right into the gate
   drawCastleGround(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
 
@@ -185,15 +199,20 @@ export function draw(g, canvas, bufRef) {
     const radius = g.buildMode === "knight" ? RALLY_RANGE : TOWERS[g.buildMode].levels[0].range;
     ctx.fillStyle = ok ? "rgba(140,224,140,0.25)" : "rgba(224,110,100,0.28)";
     ctx.fillRect(S(hx) - 20, S(hy) - 20, 40, 40);
-    ctx.fillStyle = ok ? "rgba(140,224,140,0.09)" : "rgba(224,110,100,0.09)";
-    ctx.beginPath(); ctx.arc(S(hx), S(hy), radius, 0, 7); ctx.fill();
-    rangeRing(hx, hy, radius, ok ? "rgba(150,232,150,0.85)" : "rgba(232,120,110,0.85)", g.time * 0.5);
-    const minR = TOWERS[g.buildMode].levels[0].minRange;
-    if (minR) rangeRing(hx, hy, minR, "rgba(232,120,110,0.7)", -g.time * 0.7);
+    // (a River Watch's reach is the water it moors in, laid with the water above)
+    if (g.buildMode !== "riverwatch") {
+      ctx.fillStyle = ok ? "rgba(140,224,140,0.09)" : "rgba(224,110,100,0.09)";
+      ctx.beginPath(); ctx.arc(S(hx), S(hy), radius, 0, 7); ctx.fill();
+      rangeRing(hx, hy, radius, ok ? "rgba(150,232,150,0.85)" : "rgba(232,120,110,0.85)", g.time * 0.5);
+      const minR = TOWERS[g.buildMode].levels[0].minRange;
+      if (minR) rangeRing(hx, hy, minR, "rgba(232,120,110,0.7)", -g.time * 0.7);
+    }
   }
 
   const sel = g.towers.find((t) => t.id === g.selectedId);
-  if (sel) {
+  // a River Watch fights from its skiffs: each one's own reach, following her
+  if (sel && sel.kind === "riverwatch") drawSkiffReach(ctx, g, sel, isBuilt(sel, g));
+  else if (sel) {
     const st = getStats(sel);
     const radius = sel.kind === "knight" ? RALLY_RANGE : st.range;
     ctx.fillStyle = "rgba(216,179,74,0.1)";
@@ -318,7 +337,7 @@ export function draw(g, canvas, bufRef) {
     if (b.kind === "hero" && b.units[0].state === "dead") drawables.push({ y: b.rally.y, fn: () => {
       const left = Math.max(0, Math.ceil(b.units[0].respawn / 1000));
       ctx.fillStyle = "rgba(20,16,20,0.6)"; ctx.fillRect(b.rally.x - 12, b.rally.y - 4, 24, 9);
-      ctx.fillStyle = "#e8d47a"; ctx.font = "bold 7px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "#e8d47a"; ctx.font = canvasFont("board", 7, true); ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(`${left}s`, b.rally.x, b.rally.y + 0.5);
     } });
   }
@@ -629,7 +648,7 @@ export function draw(g, canvas, bufRef) {
     sc.fillStyle = "rgba(16,14,20,0.5)";
     sc.fillRect(0, 0, W, H);
     sc.fillStyle = "#e8d47a";
-    sc.font = "bold 24px monospace";
+    sc.font = canvasFont("board", 24, true);
     sc.textAlign = "center"; sc.textBaseline = "middle";
     sc.fillText("* PAUSED *", W / 2, H / 2);
     sc.restore();

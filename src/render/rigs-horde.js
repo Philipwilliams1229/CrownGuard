@@ -130,6 +130,8 @@ const leg = (ctx, R, o, which, cols) => {
     tube(c, hp[0], hp[1], kn[0], kn[1], o.thigh, cols.thigh);
     tube(c, kn[0], kn[1], an[0], an[1], o.shin, cols.shin);
     if (cols.wrap) { const t = 0.55; tube(c, kn[0] + (an[0] - kn[0]) * t, kn[1] + (an[1] - kn[1]) * t, an[0], an[1], o.shin * 1.08, cols.wrap); }
+    // a knee cop rides in the leg's own part: a colour step, no ink ring at the knee
+    if (cols.knee) ball(c, kn[0] + 0.2, kn[1], 1.4, 1.3, cols.knee, { hi: 0.5, lo: 0.4 });
   });
   foot(ctx, an[0], an[1] + ank, o.foot, ank + 0.5, cols.foot, cols.toes);
   return { hp, kn, an };
@@ -335,16 +337,18 @@ const GOB_CASTER = { ...GOB, wind: 0.9, follow: 0.6, drive: 0.5 };
 // [near hand from the near shoulder, weapon angle, far hand from the far
 // shoulder]. Quick and scrappy: small moves, the knife never far from the body.
 const GOB_FIGHT = {
-  // an overhand stab: knife low and forward, up by the ear (elbow high and
-  // forward of the face), down through the target line, carried on past the knee
-  knife: [[[2.2, 2.6], -0.55, [3.2, 1.8]], [[-0.6, -4.4], -0.9, [4.2, 0.9]], [[4.3, 1.3], 0.4, [1.0, 3.4]], [[2.8, 3.7], 1.0, [1.8, 3.0]]],
+  // an overhand stab: knife low and forward, raised high over the hood (the
+  // arm straight up the back of the head, so the face still reads), down
+  // through the target line, carried on past the knee
+  knife: [[[2.2, 2.6], -0.55, [3.2, 1.8]], [[-0.3, -5.0], -1.2, [4.2, 0.9]], [[4.3, 1.3], 0.4, [1.0, 3.4]], [[2.8, 3.7], 1.0, [1.8, 3.0]]],
   // two hands on the spear: level, drawn back to the hip, driven home, dipping on
   // (the far hand rides the haft `grip` behind the near one)
   spear: [[[2.4, 2.6], -0.16, null, 3.0], [[0.2, 3.4], -0.26, null, 2.6], [[4.5, 1.5], 0.02, null, 3.0], [[3.9, 2.4], 0.18, null, 3.0]],
   // the shaman's cast: gather (staff upright, the free hand cupping the charm),
   // raise it high (lean back, the glow swelling), thrust it at the foe with the
-  // palm flung after it (the release), and bring it back upright
-  staff: [[[3.0, 1.8], -1.5, [4.0, 0.4]], [[0.8, -3.4], -1.8, [3.2, -1.4]], [[4.4, 0.6], -0.6, [4.6, 0.2]], [[3.2, 1.6], -1.15, [2.4, 2.8]]],
+  // palm flung after it (the release), and bring it back upright. The staff
+  // always stands ahead of the long nose, never up across the face.
+  staff: [[[4.4, 1.6], -1.4, [4.0, 0.4]], [[4.3, -2.0], -1.3, [3.2, -1.4]], [[4.4, 0.6], -0.6, [4.6, 0.2]], [[4.1, 1.8], -1.2, [2.4, 2.8]]],
 };
 // the goblin's round shield rides forward while he winds up and drops back as he strikes
 const GOB_SHIELD = [[4.2, 2.0], [4.5, 1.3], [2.6, 3.1], [3.2, 2.6]];
@@ -451,15 +455,17 @@ const IRONCLAD = { ...ORC, wind: 1.4, follow: 1.5 };
 // far hand could never reach a haft or a shield held out in front.
 const ORC_FIGHT = [
   // the axe across the chest, head up; heaved overhead with the head hanging
-  // back behind the skull (elbows high and forward of the face); chopped down
-  // through the line; buried low, the orc bent over it
-  [[1.8, 3.4], -1.05, null, 2.2], [[-0.9, -4.3], 2.85, null, 1.6], [[4.4, 2.8], 0.62, null, 2.6], [[3.4, 4.6], 1.2, null, 2.4],
+  // back behind the skull (the upper arm straight up the back of the head,
+  // the fists over it, so the face still reads); chopped down through the
+  // line; buried low, the orc bent over it
+  [[1.8, 3.4], -1.05, null, 2.2], [[-2.2, -5.5], 2.85, null, 2.2], [[4.4, 2.8], 0.62, null, 2.6], [[3.4, 4.6], 1.2, null, 2.4],
 ];
 const IRON_FIGHT = [
-  // cleaver up behind the shield's edge; raised back over the helm while the
-  // shield is pushed out; cut down across it as the shield swings aside; the
-  // blade carried low past the knee, the shield coming back up
-  [[1.6, 3.0], -1.25, [3.9, 4.6], 3.0], [[-0.9, -4.3], 2.8, [4.6, 3.6], 3.2], [[4.6, 2.6], 0.6, [3.0, 5.6], 2.6], [[3.4, 4.8], 1.35, [3.5, 5.0], 2.8],
+  // cleaver up behind the shield's edge (ahead of the visor, not across it);
+  // raised back over the helm while the shield is pushed out (the arm up the
+  // back of the helm, the slit clear); cut down across it as the shield swings
+  // aside; the blade carried low past the knee, the shield coming back up
+  [[3.2, 2.4], -1.15, [3.9, 4.6], 3.0], [[-2.2, -5.5], 2.8, [4.6, 3.6], 3.2], [[4.6, 2.6], 0.6, [3.0, 5.6], 2.6], [[3.4, 4.8], 1.35, [3.5, 5.0], 2.8],
 ];
 const orc = (ctx, p) => {
   const plate = !!p.armor, o = plate ? IRONCLAD : ORC, R = skeleton(p, o), { st, T } = R;
@@ -494,8 +500,7 @@ const orc = (ctx, p) => {
     : { thigh: darken(dark, -0.2), shin: darken(dark, -0.2), wrap: lea, foot: darken(lea, 0.25) };
   const legColsF = { thigh: darken(legCols.thigh, 0.25), shin: darken(legCols.shin, 0.25), wrap: darken(legCols.wrap, 0.25), foot: darken(legCols.foot, 0.25) };
   leg(ctx, R, o, "far", legColsF);
-  const nl = leg(ctx, R, o, "near", legCols);
-  if (plate) part(ctx, (c) => ball(c, nl.kn[0] + 0.2, nl.kn[1], 1.4, 1.3, lighten(steel, 0.1), { hi: 0.5, lo: 0.4 }));
+  leg(ctx, R, o, "near", plate ? { ...legCols, knee: lighten(steel, 0.1) } : legCols);
   // the trunk: broad shoulders, a thick waist, the belt and what hangs from it
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
     // kilt of leather strips (the orc) or a skirt of plates (the Ironclad)
@@ -527,11 +532,14 @@ const orc = (ctx, p) => {
     });
   });
   // the head, low and forward between the shoulders; it ducks under the
-  // raised weapon and follows the blow down
+  // raised weapon and follows the blow down. In the overhead heave both arms
+  // go up BEHIND it (the head juts forward of the shoulders), so it is drawn
+  // after them, cleanly in front, and the face reads through the wind-up.
   const hx = st.fight ? [0.1, -0.3, 0.5, 0.4][st.F] : 0, hy = st.fight ? [0, 0.1, 0.3, 0.5][st.F] : 0;
   const nk = T(1.8, -9.4), hd = [nk[0] + 1.7 + hx, nk[1] - 1.9 + hy], ha = st.lean * 0.3 + (st.fight ? [0, -0.1, 0.1, 0.16][st.F] : 0);
-  if (plate) ironHelm(ctx, hd[0], hd[1], ha, p);
-  else orcHead(ctx, hd[0], hd[1], ha, p, { scar: true });
+  const head = () => (plate ? ironHelm(ctx, hd[0], hd[1], ha, p) : orcHead(ctx, hd[0], hd[1], ha, p, { scar: true }));
+  const heave = st.fight && st.F === 1;
+  if (!heave) head();
   if (plate) {
     // the far pauldron shows over the back of the shoulders
     kiteShield(ctx, hS[0] + 1.0, hS[1] - 0.8, p.shcol || "#5c626e", "#8a3a2e");
@@ -553,6 +561,7 @@ const orc = (ctx, p) => {
     pauldron(ctx, shN[0] - 0.4, shN[1] - 0.2, 2.6, lea, true);
     fist(ctx, h[0], h[1], 1.6, skin);
   }
+  if (heave) head();
 };
 // a shoulder guard: a rounded shell with a rolled edge (and a fur trim for leather)
 const pauldron = (ctx, x, y, r, col, fur) => part(ctx, (c) => {
@@ -672,10 +681,11 @@ const trollHead = (ctx, x, y, a, p, roar) => inFrame(ctx, x, y, a, (c0) => {
 const NEC = { L1: 5.0, L2: 4.8, stride: 2.0, lift: 1.3, bob: 0.5, lean: 0.06, dip: 0.02, lunge: 1.8, hipW: 0.8, thigh: 2.4, shin: 2.0, foot: 3.2, ankle: 0.9, wind: 0.9, follow: 0.6, drive: 0.5 };
 // His fight is a cast (gather, raise, release, recover): [staff hand from the
 // near shoulder, staff angle, bony hand from the far shoulder]. The staff held
-// upright with the free hand drawn to the skull; lifted high as he leans back
-// and the witch-fire swells; thrust at the foe with the claw flung after it;
-// drawn back upright as the fire gutters down.
-const NEC_FIGHT = [[[3.8, 2.6], -1.5, [5.0, 0.4]], [[1.2, -3.8], -1.8, [3.6, -2.4]], [[5.6, 0.2], -0.55, [6.2, 0.8]], [[4.0, 2.0], -1.15, [3.4, 3.6]]];
+// upright with the free hand drawn to the skull; lifted high before the hood
+// as he leans back and the witch-fire swells (never up across the hood's dark
+// face); thrust at the foe with the claw flung after it; drawn back upright as
+// the fire gutters down.
+const NEC_FIGHT = [[[3.8, 2.6], -1.5, [5.0, 0.4]], [[3.9, -2.6], -1.5, [3.6, -2.4]], [[5.6, 0.2], -0.55, [6.2, 0.8]], [[4.6, 2.2], -1.2, [3.4, 3.6]]];
 const necro = (ctx, p) => {
   const o = NEC, R = skeleton(p, o), { st, T } = R;
   const robe = mix(p.cloth, "#6a5a8a", 0.3), cape = mix(p.cape || p.cloth, "#4a3a5a", 0.2), trim = p.cloth2 || "#5a4a8c";

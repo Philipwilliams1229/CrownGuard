@@ -12,8 +12,8 @@
 // from a phase (see the *_FRAMES exports and "Joints and motion" in
 // art/STYLE-GUIDE.md).
 
-import { darken, rgba, shadow, roundRect, cylinder, lin, part } from "./paint.js";
-import { head, torso, legs, hand, arm, cap, elbowFor } from "./folk-kit.js";
+import { lighten, darken, rgba, shadow, roundRect, cylinder, lin, part } from "./paint.js";
+import { head, torso, legs, hand, arm, cap, elbowFor, blob, at } from "./folk-kit.js";
 
 // ---- the upper body on the hips ---------------------------------------------
 const HIP_Y = -7.8;
@@ -41,6 +41,103 @@ const nodPt = (p, nx, ny, tilt) => {
 };
 const R2D = 180 / Math.PI, D2R = Math.PI / 180;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ---- headwear ------------------------------------------------------------------
+// Each crew says its trade by what is on its head, and none of it is the
+// archer's peaked cowl (folk-kit HOOD): the winch crew's leather cap with
+// brass goggles pushed up on it, the clerk's velvet beret with a quill, the
+// river watchman's steel kettle hat over a padded coif. They are drawn in
+// the head's own units (k = 1.08 about (x, y - 0.3), as head() is), in the
+// palette's `hood` colour so each form's palette still varies them, and
+// always inside the caller's nod(), so they ride the head through every
+// frame. Faces stay open: eye, nose and jaw show.
+const HK = 1.08;
+const inHead = (pts, x, y) => at(pts, x, y - 0.3, HK);
+// the winch and wheel crew: a snug leather cap with its ear flap down to
+// the jaw and tied under the chin, and the engineer's brass goggles pushed
+// up on the brow, their strap round the crown; his hair shows at the nape
+const ARMING_CAP = [[-2.55, -0.45, 1], [-2.75, -1.7], [-2.4, -2.9], [-1.1, -3.65], [0.6, -3.7], [1.8, -3.2], [2.4, -2.4], [2.45, -1.85, 1], [0.35, -1.55, 1], [0.15, 0.1], [0.0, 1.45, 1], [-0.8, 1.85, 1], [-1.55, 1.3, 1], [-1.65, -0.45, 1]];
+const BRASS = "#d8b34a";
+export const engineerHead = (ctx, x, y, pal) => {
+  const col = pal.hood, hy = y - 0.3, P = (px, py) => [x + px * HK, hy + py * HK];
+  head(ctx, x, y, { ...pal, hair: pal.hair || darken(pal.boots || col, 0.05) }, { hood: false });
+  blob(ctx, inHead(ARMING_CAP, x, y), col, {
+    hi: 0.3, lo: 0.4, then: (c) => {
+      c.lineCap = "round"; c.lineJoin = "round";
+      c.strokeStyle = lighten(col, 0.3); c.lineWidth = 0.9;                        // the rolled rim along the brow and round the back
+      c.beginPath(); c.moveTo(...P(2.45, -1.85)); c.lineTo(...P(0.35, -1.55)); c.stroke();
+      c.beginPath(); c.moveTo(...P(-1.65, -0.45)); c.lineTo(...P(-2.6, -0.45)); c.stroke();
+      c.strokeStyle = darken(col, 0.35); c.lineWidth = 0.45;                       // a stitch down the ear flap
+      c.beginPath(); c.moveTo(...P(-0.9, -1.0)); c.lineTo(...P(-0.85, 1.4)); c.stroke();
+      c.strokeStyle = darken(col, 0.55); c.lineWidth = 0.75;                       // the goggles' strap round the crown
+      c.beginPath(); c.moveTo(...P(1.9, -2.9)); c.quadraticCurveTo(...P(-0.4, -3.3), ...P(-2.8, -1.9)); c.stroke();
+    },
+  });
+  // the goggles, a brass-rimmed lens on the front of the crown
+  part(ctx, (c) => {
+    const [gx, gy] = P(1.75, -2.95);
+    c.fillStyle = BRASS; c.beginPath(); c.ellipse(gx, gy, 1.0, 0.95, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#2e3a48"; c.beginPath(); c.ellipse(gx + 0.1, gy + 0.05, 0.5, 0.5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#bfe6f0"; c.fillRect(gx - 0.25, gy - 0.35, 0.45, 0.45);
+  });
+  // the chin strap, painted on the jaw (no ink of its own)
+  const [a0, a1] = P(-0.2, 1.4), [b0, b1] = P(1.3, 2.0);
+  ctx.save();
+  ctx.strokeStyle = darken(col, 0.3); ctx.lineWidth = 0.5; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(a0, a1); ctx.lineTo(b0, b1); ctx.stroke();
+  ctx.restore();
+};
+// the Goldworks clerk: a soft velvet beret on a gold band, its crown
+// slumped over the back of the head, a white quill tucked in the band
+const BERET = [[2.35, -1.75, 1], [2.65, -2.8], [1.7, -3.95], [-0.5, -4.5], [-2.8, -4.3], [-4.35, -3.45], [-4.3, -2.5], [-3.2, -2.15], [-2.3, -1.75, 1]];
+export const clerkHead = (ctx, x, y, pal) => {
+  const col = pal.hood, hy = y - 0.3, P = (px, py) => [x + px * HK, hy + py * HK];
+  head(ctx, x, y, { ...pal, hair: pal.hair || "#6a4a30" }, { hood: false });
+  blob(ctx, inHead(BERET, x, y), col, {
+    hi: 0.38, lo: 0.45, then: (c) => {
+      c.fillStyle = pal.trim || "#d8b34a";                                         // the band
+      c.beginPath(); c.moveTo(...P(2.5, -1.7)); c.lineTo(...P(2.45, -2.2)); c.lineTo(...P(-2.4, -2.25)); c.lineTo(...P(-2.4, -1.6)); c.closePath(); c.fill();
+      c.strokeStyle = lighten(col, 0.5); c.lineWidth = 0.5;                        // the sheen on the velvet's puff
+      c.beginPath(); c.moveTo(...P(1.5, -3.5)); c.quadraticCurveTo(...P(-0.4, -4.1), ...P(-2.6, -3.8)); c.stroke();
+      c.strokeStyle = darken(col, 0.4); c.lineWidth = 0.45;                        // the fold where it slumps over the back
+      c.beginPath(); c.moveTo(...P(-1.2, -2.5)); c.quadraticCurveTo(...P(-2.6, -2.7), ...P(-3.8, -2.6)); c.stroke();
+    },
+  });
+  // the quill, tucked in the band and raked back over the crown (it stays
+  // under y-26 from the feet, inside the halls' 30-high bakes, even on a breath)
+  part(ctx, (c) => {
+    c.lineCap = "round";
+    c.strokeStyle = "#f4ecd8"; c.lineWidth = 0.95;
+    c.beginPath(); c.moveTo(...P(-0.9, -2.2)); c.quadraticCurveTo(...P(-2.4, -4.3), ...P(-4.4, -4.75)); c.stroke();
+    c.strokeStyle = "#b8ac98"; c.lineWidth = 0.4;
+    c.beginPath(); c.moveTo(...P(-1.3, -2.6)); c.quadraticCurveTo(...P(-2.5, -4.0), ...P(-4.0, -4.45)); c.stroke();
+  });
+};
+// the river watch: a steel kettle hat, its broad brim tipped down all
+// round, over a padded coif in the watch's colour that hides ears and nape
+const STEEL = "#b4bac6";
+const COIF = [[-2.3, 1.9, 1], [-2.7, 0.2], [-2.5, -1.8], [0.6, -2.0], [0.35, -0.4], [0.25, 1.3], [-0.3, 2.1, 1]];
+const KETTLE_DOME = [[-2.25, -1.9, 1], [-2.2, -3.1], [-1.1, -4.3], [0.9, -4.3], [2.1, -3.2], [2.3, -1.9, 1]];
+const KETTLE_BRIM = [[-4.3, -1.25, 1], [-3.0, -2.35], [3.2, -2.35], [4.7, -1.3, 1], [3.1, -1.55], [-2.9, -1.55]];
+export const watchHead = (ctx, x, y, pal) => {
+  const hy = y - 0.3, P = (px, py) => [x + px * HK, hy + py * HK];
+  head(ctx, x, y, pal, { hood: false });
+  blob(ctx, inHead(COIF, x, y), pal.hood, {
+    hi: 0.3, lo: 0.4, then: (c) => {
+      c.strokeStyle = darken(pal.hood, 0.35); c.lineWidth = 0.4;                   // quilting
+      for (const qx of [-1.9, -0.9]) { c.beginPath(); c.moveTo(...P(qx, -1.6)); c.lineTo(...P(qx + 0.1, 1.8)); c.stroke(); }
+    },
+  });
+  blob(ctx, inHead(KETTLE_DOME, x, y), STEEL, {
+    hi: 0.45, lo: 0.5, then: (c) => {
+      c.fillStyle = pal.trim || "#c8b070"; c.fillRect(...P(-2.4, -2.45), 4.9 * HK, 0.55);   // the band of rivets
+      c.fillStyle = "#fff3d2"; c.fillRect(...P(-0.9, -3.9), 0.6, 0.6);           // the glint on the crown
+    },
+  });
+  blob(ctx, inHead(KETTLE_BRIM, x, y), darken(STEEL, 0.08), {
+    hi: 0.5, lo: 0.55, then: (c) => { c.fillStyle = darken(STEEL, 0.5); c.fillRect(...P(-4.4, -1.75), 9.2 * HK, 0.6); },   // its shaded underside
+  });
+};
 
 // ---- the winch and wheel crew ---------------------------------------------
 // A crewman at a crank. The handle turns on a circle (or, for a crank laid
@@ -91,7 +188,7 @@ export const drawCrew = (ctx, x, y, dir, pal, work = 0, o = {}) => {
   }
   // the far hand beside the near one on the handle
   let hF = [hN[0] - 0.5, hN[1] - 0.45];
-  if (pose === "tap") hN = [hub[0] + 2.0, hub[1] - 5.6];
+  if (pose === "tap") hN = [hub[0] + 3.0, hub[1] - 4.0];   // cocked before his chest, clear of his chin
   if (pose === "rap") hN = o.peg || [hub[0] + 1.4, hub[1] - 1.8];
   const sN = turn(CREW_SH_N, hip, lean, lift), sF = turn(CREW_SH_F, hip, lean, lift);
   ctx.save();
@@ -102,7 +199,7 @@ export const drawCrew = (ctx, x, y, dir, pal, work = 0, o = {}) => {
   legs(ctx, 0, 0, pal, 1, { hip });
   upper(ctx, hip, lean, lift, () => {
     torso(ctx, 0.3, -17, 10, 7.5, pal);
-    nod(ctx, 0.6, -17.6, tilt, () => head(ctx, 0.8, -20.5, pal, { hood: true }));
+    nod(ctx, 0.6, -17.6, tilt, () => engineerHead(ctx, 0.8, -20.5, pal));   // the leather arming cap
   });
   arm(ctx, sN[0], sN[1], hN[0], hN[1], pal);
   ctx.restore();
@@ -224,6 +321,8 @@ export const WALL_FOLK = {
 //            phased by t.id, so neighbours never breathe together.
 //   o.glass  the river watch's spyglass: 1 coming up (at the chest), 2 at
 //            the eye, 3 at the eye and sweeping up the far bank
+//   o.hat    "beret" (the Goldworks clerk) or "kettle" (the river watch); by
+//            default a watchman (called with o.glass) gets the kettle hat
 export const STANDER_FRAMES = 4;
 const STAND_KEYS = [
   { hip: [0, 0.1], lean: 0, lift: 0, tilt: 0 },
@@ -273,7 +372,8 @@ export const drawStander = (ctx, x, y, dir, pal, o = {}) => {
   legs(ctx, 0, 0, pal, 0.2, { hip });
   upper(ctx, hip, lean, lift, () => torso(ctx, 0, -17, 10, 7.5, pal));
   if (!glass) arm(ctx, sN[0], sN[1], hN[0], hN[1], pal);
-  upper(ctx, hip, lean, lift, () => nod(ctx, neck[0], neck[1], tilt, () => head(ctx, 0.4, -20.5, pal)));
+  const hat = o.hat || ("glass" in o ? "kettle" : "beret");
+  upper(ctx, hip, lean, lift, () => nod(ctx, neck[0], neck[1], tilt, () => (hat === "kettle" ? watchHead : clerkHead)(ctx, 0.4, -20.5, pal)));
   if (glass) {
     arm(ctx, sF[0], sF[1], hF[0], hF[1], pal, { col: darken(pal.coat, 0.14), hand: false });
     spyglass(ctx, e, f);
@@ -297,8 +397,8 @@ export const drawStander = (ctx, x, y, dir, pal, o = {}) => {
 export const SMITH_FRAMES = 6, SMITH_IMPACT = 3;
 const HAFT = 3.3;
 const SMITH_KEYS = [
-  { hip: [-0.25, 0.2], lean: -0.05, hand: [5.3, -20.4], wrist: 12, tilt: -0.06 },               // lift
-  { hip: [-0.55, 0.15], lean: -0.13, hand: [3.1, -23.4], wrist: 42, tilt: -0.12 },              // top
+  { hip: [-0.25, 0.2], lean: -0.05, hand: [6.0, -20.2], wrist: 12, tilt: -0.06 },               // lift
+  { hip: [-0.55, 0.15], lean: -0.13, hand: [4.5, -23.2], wrist: 42, tilt: -0.12 },              // top: high, ahead of his face
   { hip: [0.05, 0.35], lean: 0.04, hand: [8.6, -15.6], wrist: 58, tilt: 0.04, smear: true },    // strike
   { hip: [0.2, 0.7], lean: 0.06, hand: [7.1, -12.1], wrist: 22, tilt: 0.1 },                    // impact
   { hip: [0.15, 0.5], lean: 0.05, hand: [7.0, -13.4], wrist: 30, tilt: 0.06 },                  // rebound
@@ -340,7 +440,7 @@ export const drawSmith = (ctx, x, y, dir, pal, swing = 0, o = {}) => {
     part(ctx, (c) => { c.fillStyle = darken(pal.trim || "#6a4a2e", 0.1); roundRect(c, -3, -15, 6, 8, 1.5); c.fill(); });
     nod(ctx, 0.3, -17.6, tilt, () => {
       head(ctx, 0.4, -20.5, pal, { hood: false });
-      cap(ctx, 0.4, -20.5, pal.hood);   // a flat cap
+      cap(ctx, 0.4, -21.0, pal.hood);   // a flat cap, its brim at the brow so the eye shows under it
     });
   });
   // the far hand keeps the tongs on the iron

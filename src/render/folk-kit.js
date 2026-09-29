@@ -20,9 +20,12 @@ export const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => limbStroke
 // Two bones of one limb (upper arm and forearm, thigh and shin) as ONE inked
 // part: the ink runs round the whole limb, never across the joint (owner,
 // 2026-09-29: no black line between the forearm and the upper arm).
-export const limb2 = (ctx, a, b, c2, w0, w1, col0, col1 = col0) => part(ctx, (c) => {
+// `then(c)` paints more into the same part (a gauntlet, a cuff, a sleeve's
+// hem), so its edge is colour, never a second ink line across the limb.
+export const limb2 = (ctx, a, b, c2, w0, w1, col0, col1 = col0, then = null) => part(ctx, (c) => {
   limbStroke(c, a[0], a[1], b[0], b[1], w0, col0);
   limbStroke(c, b[0], b[1], c2[0], c2[1], w1, col1);
+  if (then) then(c);
 });
 
 // ---- the body kit ----------------------------------------------------------
@@ -148,6 +151,7 @@ export const logJoint = (ctx, kind, a, b, c, o = {}) => {
 //            cocked behind the head. Use it only for those.
 //   o.elbow  [x, y]: place the elbow by hand (the lab still measures it).
 //   o.col / o.glove / o.hand: false  sleeve colour, hand colour, no hand.
+//   o.then(c, elbow)  paints into the arm's own part (a gauntlet, a cuff).
 export const elbowFor = (sx, sy, hx, hy, o = {}) => {
   const u = o.upper ?? UPPER, f = o.fore ?? FORE;
   const dx = hx - sx, dy = hy - sy, L = Math.hypot(dx, dy);
@@ -161,7 +165,7 @@ export const arm = (ctx, sx, sy, hx, hy, pal, o = {}) => {
   const [ex, ey] = o.elbow || elbowFor(sx, sy, hx, hy, o);
   logJoint(ctx, "arm", [sx, sy], [ex, ey], [hx, hy], o);
   const col = o.col || pal.coat;
-  limb2(ctx, [sx, sy], [ex, ey], [hx, hy], 2.4, 2.2, col);
+  limb2(ctx, [sx, sy], [ex, ey], [hx, hy], 2.4, 2.2, col, col, o.then ? (c) => o.then(c, [ex, ey]) : null);
   if (o.hand !== false) hand(ctx, hx, hy, o.glove || pal.skin);
 };
 // ---- timing --------------------------------------------------------------------
@@ -211,14 +215,100 @@ export const cap = (ctx, x, y, col, o = {}) => {
   });
 };
 
+// ---- headwear ----------------------------------------------------------------
+// hat(ctx, x, y, kind, pal, o): what a crewman wears on his head, over a
+// BARE head — draw head(ctx, x, y, pal, { hood: false }) first, at the same
+// (x, y), in the same frame, so the hat rides every nod and tilt of it
+// (folk-gunners.js onHead, folk-workers.js nod). Points are in the head's own
+// units (FACE's: x forward, the eye at (1.05, -0.8), the brow at -1.3, the
+// ear at (-1.0, -0.3)), scaled by the head's 1.08. Each kind is a different
+// silhouette at 1x and none is the archer's peaked cowl (head()'s default,
+// HOOD — the Archery's alone now, and the castle's own crew). Colours come
+// from the palette's keys, so a hall's per-form palettes still vary them:
+// pal.hood the hat's felt or cloth, pal.trim its band, plume or tails,
+// pal.hair what shows under it.
+//   "falconer"  a soft hunting hat (a bycocket): a round crown, the brim
+//               drawn to a point over the brow and turned up high behind,
+//               a long plume swept back from the band (o.plume: an extra
+//               sweep in radians, + lifts it, − lets it trail down, for the
+//               figure's secondary motion; o.plumeCol), and under it a braid
+//               down the back (pal.hair; o.braid false: none)
+//   "wrap"      the Covert's close wrap: a cloth bound round the skull from
+//               the brow to the nape and pulled up over the nose and jaw, so
+//               only the eye shows in its slit; a knot behind with two tails
+//               (pal.trim) that stream back (o.tails: their sweep, + lifts)
+// Anything held up in front of the face is drawn after the hat; anything
+// raised behind the head before head().
+const HEAD_K = 1.08;
+const HAIR = "#4a2e20";
+// a closed shape in the head's frame, lit and inked as its own part
+const headBlob = (ctx, x, hy, pts, col, o) => blob(ctx, at(pts, x, hy, HEAD_K), col, o);
+// rotate head-frame points [x, y(, 1)] about (px, py) by a
+const turn = (pts, px, py, a) => {
+  const c = Math.cos(a), s = Math.sin(a);
+  return pts.map(([u, v, cn]) => { const dx = u - px, dy = v - py, q = [px + dx * c - dy * s, py + dx * s + dy * c]; if (cn) q.push(1); return q; });
+};
+const HATS = {
+  falconer: (ctx, x, hy, pal, o) => {
+    const felt = pal.hood, band = pal.trim || darken(felt, 0.35);
+    const plumeCol = o.plumeCol || lighten(pal.trim || "#e8e0c8", 0.35);
+    const hair = pal.hair || HAIR;
+    // the braid, from under the hat's back down between the shoulders
+    if (o.braid !== false) {
+      headBlob(ctx, x, hy, [[-1.6, -0.6], [-2.6, 0.4], [-3.0, 2.2], [-2.9, 4.2, 1], [-2.2, 4.4, 1], [-2.1, 2.2], [-1.4, 0.6]], hair, {
+        hi: 0.3, then: (c) => { for (let i = 0; i < 3; i++) dab(c, x + (-2.95 + i * 0.12) * HEAD_K, hy + (1.2 + i * 1.05) * HEAD_K, 0.9 * HEAD_K, 0.35, darken(hair, 0.4)); },
+      });
+      headBlob(ctx, x, hy, [[-2.2, -1.6], [-2.4, 0.3], [-1.2, 0.6, 1], [-1.0, -0.8]], hair, { hi: 0.3 });   // under the brim, over the ear's back
+    }
+    // the plume, swept back from the band (behind the crown)
+    const sw = -(o.plume || 0), pv = (pts) => at(turn(pts, -1.3, -2.9, sw), x, hy, HEAD_K);
+    blob(ctx, pv([[-0.9, -3.1], [-1.8, -5.0], [-3.5, -6.3], [-5.3, -6.6], [-6.5, -6.1, 1], [-5.0, -5.7], [-3.4, -5.3], [-2.2, -4.2], [-1.6, -2.7]]), plumeCol, {
+      hi: 0.25, lo: 0.3, then: (c) => {
+        const q = pv([[-1.3, -3.0], [-2.1, -4.8], [-3.9, -5.9], [-6.2, -6.1]]);
+        c.strokeStyle = darken(plumeCol, 0.35); c.lineWidth = 0.4;                    // the quill down the vane
+        c.beginPath(); c.moveTo(...q[0]); c.quadraticCurveTo(...q[1], ...q[2]); c.lineTo(...q[3]); c.stroke();
+      },
+    });
+    // the crown, then the brim: peaked over the brow, turned up behind
+    headBlob(ctx, x, hy, [[-2.3, -1.8], [-2.3, -3.5], [-1.0, -4.8], [0.9, -4.8], [2.1, -3.6], [2.3, -1.9, 1]], felt, {
+      hi: 0.35, lo: 0.42, then: (c) => dab(c, x - 2.6 * HEAD_K, hy - 2.7 * HEAD_K, 5.2 * HEAD_K, 0.75 * HEAD_K, band),
+    });
+    headBlob(ctx, x, hy, [[-3.5, -4.3, 1], [-2.4, -2.8], [-0.4, -2.3], [2.2, -2.1], [4.2, -1.3, 1], [2.2, -1.2], [-0.8, -1.4], [-2.6, -1.7], [-3.1, -2.6]], darken(felt, 0.08), { hi: 0.4, lo: 0.4 });
+  },
+  wrap: (ctx, x, hy, pal, o) => {
+    const cloth = pal.hood, tail = pal.trim || lighten(cloth, 0.3);
+    // the tails, knotted behind and streaming back
+    const tw = -(o.tails || 0);
+    headBlob(ctx, x, hy, turn([[-2.2, -1.2], [-3.8, -1.1], [-5.6, -0.2], [-6.4, 0.6, 1], [-5.0, 0.5], [-3.5, 0.2], [-2.3, 0.0]], -2.3, -0.6, tw), tail, { hi: 0.3 });
+    headBlob(ctx, x, hy, turn([[-2.4, -0.4], [-3.4, 0.9], [-4.4, 2.6], [-4.6, 3.6, 1], [-3.7, 2.4], [-2.8, 1.2], [-2.0, 0.4]], -2.3, -0.6, tw * 0.6), darken(tail, 0.15), { hi: 0.3 });
+    // the wrap over the skull, down the back of the neck: its front edge at
+    // the brow, the ear under it
+    headBlob(ctx, x, hy, [[-2.5, 1.2], [-2.6, -1.4], [-1.7, -2.8], [0.3, -3.1], [1.9, -2.7], [2.6, -1.6], [2.4, -1.2, 1], [0.6, -1.25], [-0.3, -1.1], [-0.8, 0.4], [-1.5, 1.4]], cloth, {
+      hi: 0.3, lo: 0.4, then: (c) => {
+        c.strokeStyle = darken(cloth, 0.45); c.lineWidth = 0.4;                         // a turn of the cloth
+        c.beginPath(); c.moveTo(x - 2.2 * HEAD_K, hy - 2.0 * HEAD_K); c.lineTo(x + 1.6 * HEAD_K, hy - 2.1 * HEAD_K); c.stroke();
+      },
+    });
+    // the mask: pulled over the nose (it rides up into a point there) and
+    // the jaw, its top edge just under the eye
+    headBlob(ctx, x, hy, [[-1.0, 0.0], [0.5, 0.15, 1], [2.3, 0.05], [3.1, 0.55, 1], [2.3, 1.0], [2.1, 1.8], [1.1, 2.6], [-0.4, 2.5], [-1.4, 1.6]], darken(cloth, 0.05), {
+      hi: 0.35, lo: 0.35, then: (c) => dab(c, x + 0.4 * HEAD_K, hy + 0.12 * HEAD_K, 2.2 * HEAD_K, 0.4, lighten(cloth, 0.25)),   // its hem, catching the light
+    });
+    // the knot
+    headBlob(ctx, x, hy, [[-2.9, -1.2], [-2.0, -1.4], [-1.8, -0.5], [-2.6, -0.1]], darken(tail, 0.05), { hi: 0.35 });
+  },
+};
+export const HAT_KINDS = Object.keys(HATS);
+export const hat = (ctx, x, y, kind, pal, o = {}) => { const fn = HATS[kind]; if (fn) fn(ctx, x, y - 0.3, pal, o); };
+
 export const CREW_FOLK = {
   engineer: { skin: "#e8b990", hood: "#7a5a34", coat: "#6e4c28", boots: "#3e2a1a", trim: "#4a3018" },
   smith: { skin: "#e8b990", hood: "#4a3a2e", coat: "#5a4a3c", boots: "#2e2420", trim: "#6a4a2e" },
   clerk: { skin: "#e8b990", hood: "#3a4a6a", coat: "#4a5a7a", boots: "#2a2a30", trim: "#d8b34a" },
   blade: { skin: "#e8b990", hood: "#2a2434", coat: "#3a3244", boots: "#1e1a26", trim: "#6a5a80" },
   bladeGuild: { skin: "#e8b990", hood: "#2e3a2a", coat: "#3a4a34", boots: "#1e241c", trim: "#8a6aa8" },
-  mistress: { skin: "#e8b990", hood: "#7a3c30", coat: "#8a5a3a", boots: "#3e2a1a", trim: "#d8b34a" },
-  mistressCourt: { skin: "#e8b990", hood: "#3a3468", coat: "#5a4a8c", boots: "#2a2a30", trim: "#d8b34a" },
+  mistress: { skin: "#e8b990", hood: "#7a3c30", coat: "#8a5a3a", boots: "#3e2a1a", trim: "#d8b34a", hair: "#5a3222" },
+  mistressCourt: { skin: "#e8b990", hood: "#3a3468", coat: "#5a4a8c", boots: "#2a2a30", trim: "#d8b34a", hair: "#2e2426" },
   bomber: { skin: "#e8b990", hood: "#3a3028", coat: "#5a4a3c", boots: "#2e2420", trim: "#3a3028" },
   musketeer: { skin: "#e8b990", hood: "#2c2a36", coat: "#3a4a6a", boots: "#2a2a30", trim: "#c8b070" },
 };

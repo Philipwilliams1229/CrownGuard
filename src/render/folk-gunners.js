@@ -11,7 +11,7 @@
 // it holds (a fuse, a vial, a bird, the muzzle) moves with it.
 
 import { darken, shadow, ball, lin, part } from "./paint.js";
-import { head, torso, legs, arm, cap, elbowFor } from "./folk-kit.js";
+import { head, hat, torso, legs, arm, cap, elbowFor } from "./folk-kit.js";
 
 // ---- the body's frame ---------------------------------------------------------
 const HIP = [0, -7.8];                                   // the hips' centre, standing
@@ -43,26 +43,34 @@ const onHead = (ctx, hd, fn) => {
   const [x, y, a] = hd;
   ctx.save(); ctx.translate(x, y + 2.4); ctx.rotate(a); ctx.translate(-x, -(y + 2.4)); fn(x, y); ctx.restore();
 };
-// An open hand (a throw let go, a bird cast off): palm, fingers along `ang`, a thumb.
-const openHand = (ctx, x, y, ang, col) => part(ctx, (c) => {
+// An open hand (a throw let go, a bird cast off): palm, fingers along `ang`,
+// a thumb — painted into the arm's own part, so no ink rings the wrist.
+const openHand = (c, x, y, ang, col) => {
   c.strokeStyle = col; c.lineCap = "round";
   c.lineWidth = 0.8; c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(ang) * 1.9, y + Math.sin(ang) * 1.9); c.stroke();
   c.lineWidth = 0.6; c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(ang - 1.2) * 1.3, y + Math.sin(ang - 1.2) * 1.3); c.stroke();
   ball(c, x, y, 0.9, 1.0, col, { hi: 0.4, lo: 0.4 });
-});
+};
 // An arm to a hand point, the elbow solved (o.flip for the out-to-the-side
-// poses); o.open lays the hand open along the forearm. Returns the elbow.
+// poses); o.open lays the hand open along the forearm; o.then paints more
+// into the arm's part (a gauntlet). The arm is one inked part (arm()).
+// Returns the elbow.
 const reach = (ctx, sh, hd, pal, o = {}) => {
   const el = elbowFor(sh[0], sh[1], hd[0], hd[1], o);
-  arm(ctx, sh[0], sh[1], hd[0], hd[1], pal, { ...o, elbow: el, hand: o.open ? false : o.hand });
-  if (o.open) openHand(ctx, hd[0], hd[1], Math.atan2(hd[1] - el[1], hd[0] - el[0]), o.glove || pal.skin);
+  const then = (c, e) => {
+    if (o.then) o.then(c, e);
+    if (o.open) openHand(c, hd[0], hd[1], Math.atan2(hd[1] - e[1], hd[0] - e[0]), o.glove || pal.skin);
+  };
+  arm(ctx, sh[0], sh[1], hd[0], hd[1], pal, { ...o, elbow: el, hand: o.open ? false : o.hand, then });
   return el;
 };
 // which way a frame lies in a cycle: 0..1 from a clock in seconds
 const cyc = (clock, period) => (((clock / period) % 1) + 1) % 1;
 
 // ============ THE HOODED BLADE ============
-// The covert's blade on watch, arms folded: the upper arms down his sides,
+// The covert's blade on watch, in the Covert's close wrap (hat() "wrap": the
+// skull bound, a mask over nose and jaw, only the eye showing; `tails`, the
+// knot's tails streaming as he moves), arms folded: the upper arms down his sides,
 // the forearms laid across his chest (hands tucked). Now and then his weight
 // settles back, or the near hand drops to the dagger at his hip and rests on
 // the hilt; when the work is on he drops into a crouch, blade half drawn,
@@ -71,10 +79,10 @@ const cyc = (clock, period) => (((clock / period) % 1) + 1) % 1;
 //   unfolding), hilt (the hand on the hilt), crouch (the vanish's first beat)
 const HOODED = {
   fold: { stride: 0.1, hip: [0, 0.3], near: [4.9, -13.4], far: [4.0, -14.4], tuck: true },
-  foldB: { stride: 0.1, hip: [-0.35, 0.6], lean: -0.03, near: [4.5, -13.0], far: [3.6, -14.0], tuck: true },
+  foldB: { stride: 0.1, hip: [-0.35, 0.6], lean: -0.03, near: [4.5, -13.0], far: [3.6, -14.0], tuck: true, tails: -0.08 },
   reach: { stride: 0.15, hip: [0.1, 0.4], lean: 0.02, near: [4.7, -10.8], far: [4.0, -14.3], farTuck: true },
   hilt: { stride: 0.2, hip: [0.3, 0.45], lean: 0.05, near: "grip", far: [4.1, -14.2], farTuck: true },
-  crouch: { stride: 0.7, hip: [0.7, 2.0], lean: 0.26, near: "draw", far: [5.0, -12.0], tilt: 0.18 },
+  crouch: { stride: 0.7, hip: [0.7, 2.0], lean: 0.26, near: "draw", far: [5.0, -12.0], tilt: 0.18, tails: 0.4 },
 };
 export const HOODED_POSES = Object.keys(HOODED);
 // the dagger at his near hip, in the trunk's frame: the sheath's mouth, the
@@ -118,10 +126,11 @@ export const drawHooded = (ctx, x, y, dir, pal, pose = "fold") => {
       }
     });
   });
-  // a deep hood: the face in its shadow, only the eye's glint and a chin
+  // the Covert's close wrap: the skull bound, a mask over the nose and jaw,
+  // only the eye in its slit; the knot's tails stream back
   onHead(ctx, headAt(b, p), (hx, hy) => {
-    head(ctx, hx, hy, { ...pal, skin: darken(pal.skin, 0.62) });
-    part(ctx, (c) => { c.fillStyle = darken(pal.skin, 0.1); c.fillRect(hx + 1.0, hy + 1.9, 1.4, 0.8); });
+    head(ctx, hx, hy, { ...pal, skin: darken(pal.skin, 0.12) }, { hood: false });
+    hat(ctx, hx, hy, "wrap", pal, { tails: p.tails || 0 });
   });
   // the far arm (folded, or steadying himself low as he drops)
   reach(ctx, b.P(-2.4, -15.6), p.far, pal, { col: dark, hand: p.tuck || p.farTuck ? false : undefined });
@@ -146,13 +155,14 @@ export const drawHooded = (ctx, x, y, dir, pal, pose = "fold") => {
 // fist pulled back to her shoulder, weight going back (the anticipation);
 // cast: the arm thrown out and up, hand open, a step into it — the bird is
 // away; follow: the arm coming down, still open, before she settles.
+// `plume`: her hat's plume trailing the move (hat() "falconer").
 const MIST = {
   carry: { stride: 0.3, hip: [0, 0.2], near: [6.3, -13.4], far: [-2.3, -7.4] },
   glance: { stride: 0.3, hip: [0.1, 0.3], near: [6.2, -13.1], far: [-2.2, -7.3], tilt: -0.26 },
-  present: { stride: 0.35, hip: [0.2, 0.3], lean: 0.02, near: [7.6, -20.2], far: [-2.2, -7.4], tilt: -0.12 },
-  draw: { stride: 0.5, hip: [-0.5, 0.45], lean: -0.07, near: [4.4, -19.0], far: [-3.0, -7.8], tilt: -0.1 },
-  cast: { stride: 0.5, step: 0.8, hip: [0.7, 0.6], lean: 0.1, near: [9.0, -21.4], open: true, far: [-2.0, -8.0], tilt: -0.16 },
-  follow: { stride: 0.5, step: 0.8, hip: [0.5, 0.5], lean: 0.06, near: [8.6, -16.0], open: true, far: [-1.8, -7.6], tilt: -0.04 },
+  present: { stride: 0.35, hip: [0.2, 0.3], lean: 0.02, near: [7.6, -20.2], far: [-2.2, -7.4], tilt: -0.12, plume: 0.05 },
+  draw: { stride: 0.5, hip: [-0.5, 0.45], lean: -0.07, near: [4.7, -17.9], far: [-3.0, -7.8], tilt: -0.1, plume: 0.15 },
+  cast: { stride: 0.5, step: 0.8, hip: [0.7, 0.6], lean: 0.1, near: [9.0, -21.4], open: true, far: [-2.0, -8.0], tilt: -0.16, plume: -0.22 },
+  follow: { stride: 0.5, step: 0.8, hip: [0.5, 0.5], lean: 0.06, near: [8.6, -16.0], open: true, far: [-1.8, -7.6], tilt: -0.04, plume: -0.1 },
 };
 export const MISTRESS_POSES = Object.keys(MIST);
 // the glove (the back of her fist, where the bird's feet go), figure space
@@ -170,8 +180,10 @@ export const mistressFrame = (since, until, rate, o = {}) => {
   if (until <= r * 0.42) return "present";
   return cyc(o.clock || 0, 2.7) < 0.35 ? "glance" : "carry";
 };
-// the long leather gauntlet over the forearm, flaring to a gilt cuff
-const gauntlet = (ctx, el, hd) => part(ctx, (c) => {
+// the long leather gauntlet over the forearm, flaring to a gilt cuff —
+// painted INTO the arm's own part (arm()'s o.then), so no ink line runs
+// round it across the forearm
+const gauntlet = (c, el, hd) => {
   const dx = hd[0] - el[0], dy = hd[1] - el[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
   const a = [el[0] + dx * 0.28, el[1] + dy * 0.28], e = [el[0] + dx * 0.8, el[1] + dy * 0.8], w0 = 1.45, w1 = 0.95;
   c.fillStyle = lin(c, a[0], a[1], e[0], e[1], [[0, "#9a6a44"], [1, "#5a3a22"]]);
@@ -180,7 +192,7 @@ const gauntlet = (ctx, el, hd) => part(ctx, (c) => {
   const g = [a[0] + dx / L * 0.4, a[1] + dy / L * 0.4];
   c.strokeStyle = "#d8b34a"; c.lineWidth = 0.6;
   c.beginPath(); c.moveTo(g[0] + nx * w0, g[1] + ny * w0); c.lineTo(g[0] - nx * w0, g[1] - ny * w0); c.stroke();
-});
+};
 export const drawMistress = (ctx, x, y, dir, pal, pose = "present") => {
   const p = MIST[pose] || MIST.present, b = bodyOf(p);
   ctx.save();
@@ -190,9 +202,10 @@ export const drawMistress = (ctx, x, y, dir, pal, pose = "present") => {
   stand(ctx, b, pal);
   reach(ctx, b.P(-2.4, -15.6), p.far, pal, { col: darken(pal.coat, 0.12) });   // the free arm hangs behind her
   b.on(ctx, () => torso(ctx, 0, -17, 10, 7.5, pal));
-  onHead(ctx, headAt(b, p), (hx, hy) => head(ctx, hx, hy, pal));
-  const sh = b.P(2.2, -15.6), el = reach(ctx, sh, p.near, pal, { glove: "#7a5234", open: p.open });
-  gauntlet(ctx, el, p.near);
+  // a falconer's hat, its plume swept back, her braid down her back
+  onHead(ctx, headAt(b, p), (hx, hy) => { head(ctx, hx, hy, pal, { hood: false }); hat(ctx, hx, hy, "falconer", pal, { plume: p.plume || 0 }); });
+  const sh = b.P(2.2, -15.6);
+  reach(ctx, sh, p.near, pal, { glove: "#7a5234", open: p.open, then: (c, el) => gauntlet(c, el, p.near) });
   ctx.restore();
 };
 
@@ -200,8 +213,9 @@ export const drawMistress = (ctx, x, y, dir, pal, pose = "present") => {
 // A throw in eight frames, the charge in his near hand:
 //   hold     the charge at his belt in both hands, fuse lit; breath its pair
 //   back     swung down behind his hip, the weight going back (wind-up)
-//   cock     up behind his head, elbow back at shoulder height (a flip pose:
-//            the arm is out to the side), the off hand pointing at the mark
+//   cock     drawn back behind his head at its height, the arm out to the
+//            side and back (a flip pose) and running under the face, never
+//            across it; the off hand pointing at the mark
 //   whip     over the top, elbow ahead of his head, the front foot stepping in
 //   release  the arm out at the mark, the hand open, the trunk bent after it
 //   follow   the arm swung down across, the trunk over the step
@@ -211,8 +225,8 @@ const BOMB = {
   hold: { stride: 0.7, hip: [0, 0.2], lean: 0.03, near: [4.4, -11.4], far: [5.3, -12.4], ch: [5.4, -13.3], lit: 1, farFront: true },
   breath: { stride: 0.7, hip: [0, 0.65], lean: 0.05, near: [4.5, -11.0], far: [5.4, -12.0], ch: [5.5, -12.9], lit: 1, farFront: true },
   back: { stride: 0.8, hip: [-0.5, 0.35], lean: -0.03, near: [-3.0, -8.0], far: [4.4, -14.2], ch: "hand", off: [-0.6, 0.6], lit: 1, farFront: true },
-  cock: { stride: 0.9, hip: [-0.8, 0.5], lean: -0.07, near: [-5.0, -20.4], flip: true, far: [5.6, -18.4], ch: "hand", off: [-0.8, -1.3], lit: 1, farFront: true },
-  whip: { stride: 0.9, step: 1.0, hip: [0.5, 0.6], lean: 0.1, near: [4.6, -23.2], far: [1.8, -11.0], ch: "hand", off: [0.1, -2.0], lit: 1, smear: true },
+  cock: { stride: 0.9, hip: [-0.8, 0.5], lean: -0.07, near: [-5.6, -18.4], flip: true, far: [5.8, -17.3], ch: "hand", off: [-0.8, -1.4], lit: 1, farFront: true },
+  whip: { stride: 0.9, step: 1.0, hip: [0.5, 0.6], lean: 0.1, near: [5.3, -23.0], far: [1.8, -11.0], ch: "hand", off: [0.1, -2.0], lit: 1, smear: true },
   release: { stride: 0.9, step: 1.2, hip: [0.9, 0.8], lean: 0.12, near: [7.0, -22.4], open: true, far: [1.0, -7.4] },
   follow: { stride: 0.9, step: 1.2, hip: [1.2, 1.0], lean: 0.2, near: [4.2, -6.6], open: true, far: [0.8, -7.0] },
   recover: { stride: 0.8, step: 0.4, hip: [0.4, 0.5], lean: 0.06, near: [2.6, -8.4], far: [3.9, -10.6], ch: "hand", off: [0.9, -1.2], lit: 0, farFront: true },

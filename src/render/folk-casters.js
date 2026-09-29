@@ -3,7 +3,7 @@
 // folk.js re-exports it.
 
 import { lighten, darken, rgba, shadow, ball, lin, part } from "./paint.js";
-import { limb, blob, dab, head, hand, arm, elbowFor, logJoint } from "./folk-kit.js";
+import { limb, limbStroke, pathPts, blob, dab, head, hand, arm, elbowFor, logJoint } from "./folk-kit.js";
 
 // A robe: a coat that widens to the hem, no legs showing. o.lean slides
 // the shoulders over the planted hem (the body leaning), o.trail flares the
@@ -64,8 +64,8 @@ const STAFF_POSES = {
   ready: { hand: [5.9, -12.0], free: [1.4, -10.6], ang: 4, lift: 0.3 },
   gather1: { lean: -0.3, hand: [5.9, -12.6], free: [3.4, -14.6], ang: 3, lift: 0.8, palm: 1 },
   gather2: { lean: -0.6, hand: [5.8, -13.2], free: [4.4, -17.2], ang: 2, lift: 1.3, palm: 1, hat: -0.2 },
-  gather3: { lean: -0.9, hand: [5.6, -13.8], free: [4.6, -19.4], ang: 1, lift: 1.8, palm: 1, hat: -0.5, hem: -0.3 },
-  windup: { lean: -1.7, hand: [5.0, -15.0], free: [3.4, -20.0], ang: -5, lift: 2.4, palm: 1, hat: -1.3, hem: -0.8 },
+  gather3: { lean: -0.9, hand: [5.6, -13.8], free: [4.9, -18.9], ang: 1, lift: 1.8, palm: 1, hat: -0.5, hem: -0.3 },
+  windup: { lean: -1.7, hand: [5.0, -15.0], free: [4.0, -19.3], ang: -5, lift: 2.4, palm: 1, hat: -1.3, hem: -0.8 },
   strike: { lean: 1.4, hand: [9.6, -17.2], free: [5.2, -13.0], ang: 40, above: 5.6, palm: 1, hat: 2.2, hem: 1.6, step: 1.6 },
   follow: { lean: 1.1, hand: [9.8, -16.2], free: [3.6, -10.8], ang: 50, above: 5.4, hat: -1.2, hem: 0.8, step: 1.6 },
   recover: { lean: 0.5, hand: [7.4, -13.4], free: [2.2, -10.4], ang: 16, lift: 1.2, hat: -0.6, hem: -0.3, step: 0.6 },
@@ -81,8 +81,8 @@ const HAND_POSES = {
   ready: { hand: [5.6, -12.4], free: [1.4, -10.6], orb: [0.6, -2.7] },
   gather1: { lean: -0.3, hand: [6.0, -13.4], free: [3.4, -15.2], orb: [0.5, -2.9], palm: 1 },
   gather2: { lean: -0.6, hand: [6.0, -14.2], free: [4.0, -17.8], orb: [0.5, -3.0], palm: 1, hat: -0.2 },
-  gather3: { lean: -0.9, hand: [5.8, -14.8], free: [4.2, -19.2], orb: [0.6, -3.1], palm: 1, hat: -0.5, hem: -0.3 },
-  windup: { lean: -1.7, hand: [4.6, -16.0], free: [3.2, -20.0], orb: [0.8, -3.0], palm: 1, hat: -1.3, hem: -0.8 },
+  gather3: { lean: -0.9, hand: [5.8, -14.8], free: [4.7, -18.7], orb: [0.6, -3.1], palm: 1, hat: -0.5, hem: -0.3 },
+  windup: { lean: -1.7, hand: [4.6, -16.0], free: [3.9, -19.2], orb: [0.8, -3.0], palm: 1, hat: -1.3, hem: -0.8 },
   strike: { lean: 1.4, hand: [10.4, -20.0], free: [5.0, -13.0], orb: [2.4, -1.3], palm: 1, push: 1, hat: 2.2, hem: 1.6, step: 1.6 },
   follow: { lean: 1.1, hand: [10.0, -17.6], free: [3.6, -10.8], orb: [2.0, -0.8], push: 1, hat: -1.2, hem: 0.8, step: 1.6 },
   recover: { lean: 0.5, hand: [7.6, -13.8], free: [2.2, -10.4], orb: [0.8, -2.6], hat: -0.6, hem: -0.3, step: 0.6 },
@@ -157,17 +157,21 @@ export const drawMage = (ctx, x, y, dir, pal, level = 3, o = {}) => {
     });
   }
   if (P.grip2) farArm();
-  // the near arm: the staff hand (the apprentice's conjuring hand)
-  arm(ctx, R.nsh[0], R.nsh[1], R.hand[0], R.hand[1], pal, { col: pal.robe, hand: !P.push });
-  if (P.push) openHand(ctx, R.hand[0], R.hand[1], pal.skin);
-  // head, beard, hat: the soldiers' face under the wizard's hat
+  // head and beard: the soldiers' face under the wizard's hat
   const hx = 0.4 + hl, hy = rise;
   head(ctx, hx, -20.5 + hy, pal, { hood: false });
   const sway = -(P.hat || 0) * 0.35;                       // the beard's end trails like the hat's point
   if (tall) part(ctx, (c) => { c.beginPath(); c.moveTo(hx - 2.8, -19 + hy); c.quadraticCurveTo(hx + 0.2 + sway, -10 + hy, hx + 3.0, -19 + hy); c.closePath(); c.fillStyle = pal.beard || "#e8e0d0"; c.fill(); });
   else if (level === 2) part(ctx, (c) => ball(c, hx + 0.2 + sway * 0.4, -18 + hy, 2.2, 1.4, pal.beard || "#c8bca8", { hi: 0.3, lo: 0.3 }));
+  // the near arm: the staff hand (the apprentice's conjuring hand). It is
+  // on our side of him, so it passes IN FRONT of the beard (never through
+  // it), and under the hat's brim, which is drawn last.
+  arm(ctx, R.nsh[0], R.nsh[1], R.hand[0], R.hand[1], pal, { col: pal.robe, hand: !P.push });
+  if (P.push) openHand(ctx, R.hand[0], R.hand[1], pal.skin);
   part(ctx, (c) => {
-    // brim, then the point, flopping back; it trails the body a frame
+    // brim, then the point, flopping back; it trails the body a frame. The
+    // brim sits at the brow, above the eye, so the face reads under it.
+    const hy = rise - 0.8;
     const px = hx + 1.4 + (tall ? 1.5 : 0) + lean * 0.25 - (P.hat || 0), py = -33 - (tall ? 2 : 0) + hy;
     ball(c, hx, -23 + hy, 5.2, 1.5, pal.hat, { hi: 0.4, lo: 0.4 });
     c.beginPath(); c.moveTo(hx - 3.8, -23 + hy); c.quadraticCurveTo(hx - 0.4 - (P.hat || 0) * 0.3, -25 + hy, px, py); c.quadraticCurveTo(hx + 2.6 - (P.hat || 0) * 0.3, -26 + hy, hx + 3.4, -23 + hy); c.closePath();
@@ -197,28 +201,34 @@ export const drawMage = (ctx, x, y, dir, pal, level = 3, o = {}) => {
 // priestLight(frame) says where the hall pools the light (the palm, the
 // staff's charm) and how strongly; drawPriest(..., true / false) still
 // means raised / folded.
-const sleeve = (ctx, sx, sy, cx, cy, w, col, cuff, droop = 0) => {
-  const dx = cx - sx, dy = cy - sy, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
-  const p = [cx + nx * w, cy + ny * w], q = [cx - nx * w, cy - ny * w];
-  (p[1] > q[1] ? p : q)[1] += droop;                                     // the loose side hangs
-  blob(ctx, [[sx + nx * 1.3, sy + ny * 1.3], [sx - nx * 1.3, sy - ny * 1.3], [q[0], q[1], 1], [p[0], p[1], 1]], col, {
-    hi: 0.3, lo: 0.4, then: (c) => { c.strokeStyle = cuff; c.lineWidth = 1; c.beginPath(); c.moveTo(q[0], q[1]); c.lineTo(p[0], p[1]); c.stroke(); },
-  });
-};
 // A bell-sleeved arm: the upper sleeve to the solved elbow (bones keep
 // their length, the elbow folds the right way — logged for the joint lab),
 // then the bell from the elbow to a cuff short of the hand, its loose side
 // hanging by `droop`, the hand (closed or open) beyond it. A raised arm's
 // bell slides down toward the elbow: `bare` (0..1) of the forearm shows.
+// The upper sleeve and the bell are ONE inked part (no line at the elbow);
+// the only edge on the arm is the cuff, where the sleeve really ends.
 const bellArm = (ctx, sh, hd, col, cuff, skin, o = {}) => {
   const el = elbowFor(sh[0], sh[1], hd[0], hd[1]);
   logJoint(ctx, "arm", sh, el, hd);
-  limb(ctx, sh[0], sh[1], el[0], el[1], 2.7, col);
   const f = [hd[0] - el[0], hd[1] - el[1]], L = Math.hypot(f[0], f[1]) || 1;
   const k = Math.max(1.3, (L - 1.4) * (1 - (o.bare || 0)));
   const cf = [el[0] + (f[0] / L) * k, el[1] + (f[1] / L) * k];
   if (o.bare) limb(ctx, cf[0], cf[1], hd[0], hd[1], 1.9, skin);
-  sleeve(ctx, el[0], el[1], cf[0], cf[1], o.w || 2.1, col, cuff, o.droop || 0);
+  const w = o.w || 2.1, nx = -f[1] / L, ny = f[0] / L;
+  const p = [cf[0] + nx * w, cf[1] + ny * w], q = [cf[0] - nx * w, cf[1] - ny * w];
+  (p[1] > q[1] ? p : q)[1] += o.droop || 0;                               // the loose side hangs
+  const bell = [[el[0] + nx * 1.3, el[1] + ny * 1.3], [el[0] - nx * 1.3, el[1] - ny * 1.3], [q[0], q[1], 1], [p[0], p[1], 1]];
+  part(ctx, (c) => {
+    limbStroke(c, sh[0], sh[1], el[0], el[1], 2.7, col);                 // the upper sleeve
+    const xs = bell.map((v) => v[0]), ys = bell.map((v) => v[1]);
+    pathPts(c, bell);
+    c.fillStyle = lin(c, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), [[0, lighten(col, 0.3)], [0.5, col], [1, darken(col, 0.4)]]);
+    c.fill();
+    c.save(); pathPts(c, bell); c.clip();
+    c.strokeStyle = cuff; c.lineWidth = 1; c.beginPath(); c.moveTo(q[0], q[1]); c.lineTo(p[0], p[1]); c.stroke();
+    c.restore();
+  });
   if (o.open) openHand(ctx, hd[0], hd[1], skin, 1); else hand(ctx, hd[0], hd[1], skin);
 };
 const priestStaff = (ctx, x0, y0, x1, y1, pal) => {
@@ -240,18 +250,19 @@ const priestStaff = (ctx, x0, y0, x1, y1, pal) => {
 // hair as he looks up; droop: the near sleeve's hang (it lags the arm);
 // hem: the hem's sway (+ back); open: the near hand open; glow: the light.
 const PRIEST = {
-  folded: { near: [4.8, -12.6], far: [4.6, -15.2], droop: 1.0, sw: 1.9 },
-  folded2: { rise: -0.4, near: [4.8, -12.7], far: [4.6, -15.3], droop: 1.2, sw: 1.9 },
-  lift: { rise: -0.2, near: [6.0, -15.6], far: [4.6, -15.6], lift: 0.6, droop: 2.2, sw: 2.1, hem: 0.3, glow: 0.2 },
-  rise: { rise: -0.3, chin: -0.2, near: [7.0, -19.2], far: [4.7, -16.0], lift: 1.1, droop: 2.4, bare: 0.2, hem: 0.5, open: 1, glow: 0.6 },
-  raised: { rise: -0.4, chin: -0.4, near: [7.0, -22.2], far: [4.7, -16.4], lift: 1.5, droop: 1.4, bare: 0.45, sw: 2.3, hem: 0.1, open: 1, glow: 1 },
-  crest: { rise: -0.6, chin: -0.5, near: [6.9, -23.0], far: [4.7, -16.6], lift: 1.8, droop: 0.6, bare: 0.5, sw: 2.3, hem: -0.3, open: 1, glow: 1.15 },
-  raised2: { rise: -0.4, chin: -0.4, near: [7.4, -22.5], far: [4.7, -16.4], lift: 1.5, droop: 1.6, bare: 0.45, sw: 2.3, hem: 0.1, open: 1, glow: 1.1 },
+  folded: { near: [5.6, -12.6], far: [5.7, -15.2], droop: 1.0, sw: 1.9 },
+  folded2: { rise: -0.4, near: [5.6, -12.7], far: [5.7, -15.3], droop: 1.2, sw: 1.9 },
+  lift: { rise: -0.2, near: [6.8, -15.6], far: [5.7, -15.6], lift: 0.6, droop: 2.2, sw: 2.1, hem: 0.3, glow: 0.2 },
+  rise: { rise: -0.3, chin: -0.2, near: [7.9, -19.2], far: [5.7, -16.0], lift: 1.1, droop: 2.4, bare: 0.2, hem: 0.5, open: 1, glow: 0.6 },
+  raised: { rise: -0.4, chin: -0.4, near: [8.0, -22.2], far: [5.75, -16.4], lift: 1.5, droop: 1.4, bare: 0.45, sw: 2.3, hem: 0.1, open: 1, glow: 1 },
+  crest: { rise: -0.6, chin: -0.5, near: [7.9, -23.0], far: [5.75, -16.6], lift: 1.8, droop: 0.6, bare: 0.5, sw: 2.3, hem: -0.3, open: 1, glow: 1.15 },
+  raised2: { rise: -0.4, chin: -0.4, near: [8.3, -22.5], far: [5.75, -16.4], lift: 1.5, droop: 1.6, bare: 0.45, sw: 2.3, hem: 0.1, open: 1, glow: 1.1 },
 };
 export const PRIEST_FRAMES = ["folded", "folded2", "lift", "rise", "raised", "crest", "raised2"];
 const priestFrame = (raised) => (typeof raised === "string" && PRIEST[raised] ? raised : raised ? "raised" : "folded");
-// the staff: its foot and collar for a frame (it stands just behind the far hand)
-const priestStaffAt = (F) => [[5.0, 0.2 - (F.lift || 0)], [4.4, -24.6 - (F.lift || 0)]];
+// the staff: its foot and collar for a frame (it stands just behind the far
+// hand), held a little out before him so its charm clears the mitre's peak
+const priestStaffAt = (F) => [[5.5, 0.2 - (F.lift || 0)], [5.85, -24.6 - (F.lift || 0)]];
 // where the hall pools the light for a frame: the open palm, the charm
 export const priestLight = (raised) => {
   const F = PRIEST[priestFrame(raised)], [, top] = priestStaffAt(F);

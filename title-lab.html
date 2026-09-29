@@ -1,0 +1,70 @@
+<!doctype html>
+<!--
+  Title lab: paints the title screen's vista (src/ui/titleArt.js) stage by
+  stage, times each stage (each must stay under ~100 ms: the start page
+  paints them a frame apart), and saves it into .shots/.
+
+  /title-lab.html                      paint, show at 1x and 2x, report timings
+  /title-lab.html?tag=name             also save .shots/name.png (960x540, the
+                                       vista's own art pixels)
+  &zoom=x,y,w,h,s                      also save name_z.png: a crop in SCENE
+                                       units (480x270), enlarged s times
+  &crowd=1                             lay the title crowd over it, frozen
+                                       at t seconds (&t=, default 6)
+-->
+<html>
+  <head><meta charset="utf-8" /><title>title lab</title></head>
+  <body style="background:#14171d;color:#e8e0c8;font-family:monospace;margin:16px">
+    <div id="status">title lab</div>
+    <div id="out" style="display:flex;flex-direction:column;gap:16px;margin-top:12px"></div>
+    <script type="module">
+      import { vistaStages, VW, VH } from "/src/ui/titleArt.js";
+
+      const q = new URLSearchParams(location.search);
+      const status = document.getElementById("status");
+      const times = [];
+      const g = vistaStages();
+      let r, t0 = performance.now();
+      for (;;) {
+        const a = performance.now();
+        r = g.next();
+        times.push(Math.round(performance.now() - a));
+        if (r.done) break;
+      }
+      const total = Math.round(performance.now() - t0);
+      let vista = r.value;
+      if (q.get("crowd")) {
+        const { startCrowd } = await import("/src/ui/titleCrowd.js");
+        const cv = document.createElement("canvas"); cv.width = VW; cv.height = VH;
+        const c = startCrowd(cv, { still: true });
+        await new Promise((ok) => setTimeout(ok, 1500));
+        c.stop?.();
+        const m = document.createElement("canvas"); m.width = VW; m.height = VH;
+        const mc = m.getContext("2d"); mc.drawImage(vista, 0, 0); mc.drawImage(cv, 0, 0);
+        vista = m;
+      }
+      const out = document.getElementById("out");
+      const show = (cv, k) => {
+        const s = document.createElement("canvas"); s.width = cv.width * k; s.height = cv.height * k;
+        const c = s.getContext("2d"); c.imageSmoothingEnabled = false; c.drawImage(cv, 0, 0, s.width, s.height);
+        out.append(s);
+      };
+      show(vista, 1);
+      const tag = q.get("tag");
+      const save = (name, cv) => fetch(`/__shot?name=${name}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      if (tag) {
+        await save(tag, vista);
+        const z = q.get("zoom");
+        if (z) {
+          const [x, y, w, h, s = 3] = z.split(",").map(Number);
+          const cv = document.createElement("canvas"); cv.width = w * 2 * s; cv.height = h * 2 * s;
+          const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+          c.drawImage(vista, x * 2, y * 2, w * 2, h * 2, 0, 0, cv.width, cv.height);
+          await save(tag + "_z", cv);
+        }
+      }
+      status.textContent = `stages ms: ${times.join(" ")} | total ${total} ms | max ${Math.max(...times)} ms`;
+      document.title = "DONE";
+    </script>
+  </body>
+</html>

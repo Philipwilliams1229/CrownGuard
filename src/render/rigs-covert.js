@@ -131,11 +131,12 @@ const FIGHTS = {
     { ...AFTER, drop: 2.2, lean: 0.3, n: [112, 118, 170] },
   ],
   // the Widow's needle, in a reverse grip: held low and close, point down;
-  // raised high over the head; driven down and in over the guard (an icepick
-  // stab into the neck); drawn out low
+  // raised high over the head (the upper arm straight up past the back of the
+  // veil, so the eyes stay clear, the fist over the crown of the hood); driven
+  // down and in over the guard (an icepick stab into the neck); drawn out low
   icepick: [
     { ...GUARD, n: [14, 118, 26] },
-    { ...COIL, x: -0.8, lean: 0.08, n: [148, 188, 70], hx: 0.1, ht: 0.04 },
+    { ...COIL, x: -0.8, lean: 0.08, n: [172, 192, 72], hx: 0.1, ht: 0.04 },
     { ...LUNGE, n: [110, 118, 42] },
     { ...AFTER, n: [58, 80, 2] },
   ],
@@ -497,24 +498,37 @@ const blade = (ctx, p) => {
   });
   censer();
 
+  // the dagger hand. An arm hanging from the shoulder (the march, the guard,
+  // the coil, the follow-through) goes UNDER the mantle and the hood, so the
+  // cowl drapes over the shoulder and the arm comes out from under it (never
+  // a shoulder poking up into the mask); an arm raised to shoulder height or
+  // over the head (the lunge, the Widow's raised needle, the sellsword's
+  // rising cut) is drawn over them, whole.
+  const BL = { long: [6.6, 8.2], hanger: [4.6, 5.3], needle: [5.4, 6.4] }[p.blade] || [4.8, 5.4];
+  // the sellsword's odd steel pauldron, strapped over the leathers (and over the mantle)
+  const pauldron = () => p.pauldron && inFrame(ctx, shN[0], shN[1], st.lean, (c) => blob(c, [[-1.4, 1.1], [0.1, 0.5], [1.6, 1.0], [1.8, 2.3, 1], [0.2, 2.9], [-1.3, 2.5, 1]], p.pauldron, {
+    hi: 0.5, lo: 0.45, then: (cc) => { line(cc, -1.3, 1.8, 1.7, 1.6, 0.35, darken(p.pauldron, 0.45)); line(cc, -1.1, 1.1, 1.1, 0.7, 0.35, lighten(p.pauldron, 0.5)); dab(cc, 0.0, 2.1, 0.45, 0.45, p.trim || trim); },
+  }));
+  const daggerHand = (withPauldron) => {
+    const hn = arm(ctx, shN, H.hn, A, armN);
+    if (withPauldron) pauldron();
+    dagger(ctx, hn[0], hn[1], H.an, steel, { len: BL[st.fight ? 1 : 0], trim, venom: p.venom, kind: p.blade });
+    fist(ctx, hn[0], hn[1], 0.95, skin);
+  };
+  const low = H.hn[1] > shN[1] + 1.0;
+  if (low) daggerHand(false);
+
   // the mantle over the shoulders, the hood's own cloth
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => blob(c, [[-2.4, -8.0], [1.4, -8.2], [2.6, -7.0], [2.2, -5.9, 1], [1.2, -5.2], [-0.4, -5.6], [-2.0, -5.0], [-3.1, -5.9, 1], [-3.0, -7.2]], hood, {
     hi: 0.35, lo: 0.45, then: (cc) => { line(cc, -2.8, -7.6, 1.0, -7.9, 0.45, lighten(hood, 0.4)); dab(cc, -0.6, -6.4, 0.5, 1.0, darken(hood, 0.4)); dab(cc, 1.2, -6.8, 0.5, 0.8, darken(hood, 0.4)); },
   }));
+  if (low) pauldron();
 
   // the head, carried low and forward, the chin tucked
   const hd = T(0.95, -9.25); hd[0] += st.hx;
   hoodHead(ctx, hd[0], hd[1], st.lean * 0.25 + st.ht, p, st.fl * 0.5);
 
-  // the dagger hand
-  const hn = arm(ctx, shN, H.hn, A, armN);
-  // the sellsword's odd steel pauldron, strapped over the leathers
-  if (p.pauldron) inFrame(ctx, shN[0], shN[1], st.lean, (c) => blob(c, [[-1.4, 1.1], [0.1, 0.5], [1.6, 1.0], [1.8, 2.3, 1], [0.2, 2.9], [-1.3, 2.5, 1]], p.pauldron, {
-    hi: 0.5, lo: 0.45, then: (cc) => { line(cc, -1.3, 1.8, 1.7, 1.6, 0.35, darken(p.pauldron, 0.45)); line(cc, -1.1, 1.1, 1.1, 0.7, 0.35, lighten(p.pauldron, 0.5)); dab(cc, 0.0, 2.1, 0.45, 0.45, p.trim || trim); },
-  }));
-  const BL = { long: [6.6, 8.2], hanger: [4.6, 5.3], needle: [5.4, 6.4] }[p.blade] || [4.8, 5.4];
-  dagger(ctx, hn[0], hn[1], H.an, steel, { len: BL[st.fight ? 1 : 0], trim, venom: p.venom, kind: p.blade });
-  fist(ctx, hn[0], hn[1], 0.95, skin);
+  if (!low) daggerHand(true);
   ctx.restore();
 };
 

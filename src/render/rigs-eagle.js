@@ -20,10 +20,18 @@
 // she climbs. The rider always sits in front of the near wing.
 
 import { lighten, darken, rgba, ball, lin, part } from "./paint.js";
-import { limb, lit, eye } from "./rigs.js";
+import { lit, eye } from "./rigs.js";
 import { logJoint } from "./folk-kit.js";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// a limb of two bones as ONE inked part (upper arm and forearm, thigh and
+// shin): the ink runs round the whole limb, never across the joint (owner,
+// 2026-09-29). Each bone lit across its width like rigs.js `limb`.
+const bone = (c, x0, y0, x1, y1, w, col) => {
+  c.strokeStyle = lit(c, x0, w * 2, col); c.lineWidth = w; c.lineCap = "round";
+  c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+};
+const limb2 = (ctx, a, b, e, w0, w1, col0, col1 = col0) => part(ctx, (c) => { bone(c, ...a, ...b, w0, col0); bone(c, ...b, ...e, w1, col1); });
 // the rider's arm in the eagle's units: shoulder to elbow, elbow to the fist
 const UP = 3.6, FORE = 3.4;
 const SEAT = [2, -6.5];                 // he leans about his seat
@@ -197,8 +205,8 @@ export const eagle = (ctx, p) => {
   const foot = (x0, y0, x1, y1, open) => {
     const [ax, ay] = at([x0, y0]), [fx, fy] = at([x1, y1]);
     // a feathered thigh, a short scaled shank, and a hand of hooked talons
-    part(ctx, (c) => ball(c, ax, ay, 2.6 * s, 2.2 * s, darken(col, 0.15), { hi: 0.3, lo: 0.4 }));
-    limb(ctx, ax + (fx - ax) * 0.3, ay + (fy - ay) * 0.3, fx, fy, 1.8 * s, footC);
+    // the feathered thigh and the shank are one inked part (a colour step at the hock)
+    part(ctx, (c) => { ball(c, ax, ay, 2.6 * s, 2.2 * s, darken(col, 0.15), { hi: 0.3, lo: 0.4 }); bone(c, ax + (fx - ax) * 0.3, ay + (fy - ay) * 0.3, fx, fy, 1.8 * s, footC); });
     part(ctx, (c) => {
       c.strokeStyle = footC; c.lineWidth = 1.2 * s; c.lineCap = "round";
       const toes = open ? [[2.4, -1.4], [2.8, 0.4], [1.6, 2.0], [-1.4, 1.2]] : [[1.4, 0.9], [0.3, 1.5], [-1, 1.2]];
@@ -254,15 +262,13 @@ export const eagle = (ctx, p) => {
     c.fillStyle = lin(c, 0, Math.min(...ys), 0, Math.max(...ys), [[0, lighten(cape, 0.25)], [0.5, cape], [1, darken(cape, 0.35)]]); c.fill();
   });
   // seated: thigh forward along the saddle, boot in the stirrup
-  limb(ctx, ...at([1, -6.5]), ...at([5.5, -4]), 2.8 * s, darken(steel, 0.15));
-  limb(ctx, ...at([5.5, -4]), ...at([4.5, 0]), 2.2 * s, darken(steel, 0.25));
+  limb2(ctx, at([1, -6.5]), at([5.5, -4]), at([4.5, 0]), 2.8 * s, 2.2 * s, darken(steel, 0.15), darken(steel, 0.25));
   part(ctx, (c) => { c.fillStyle = "#4a3020"; c.fillRect(...at([3.6, -0.6]), 2.6 * s, 1.4 * s); });
   // the far arm on the reins
   {
     const fsh = R(FAR_SH), { el, hand } = solve(fsh, k.rein);
     logJoint(ctx, "arm", at(fsh), at(el), at(hand), { lens: [UP * s, FORE * s] });
-    limb(ctx, ...at(fsh), ...at(el), 1.8 * s, darken(steel, 0.3));
-    limb(ctx, ...at(el), ...at(hand), 1.7 * s, darken(steel, 0.3));
+    limb2(ctx, at(fsh), at(el), at(hand), 1.8 * s, 1.7 * s, darken(steel, 0.3));
     ctx.strokeStyle = "#4a3020"; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(...at(hand)); ctx.quadraticCurveTo(...at([11, hand[1] + 1.5]), ...at([15.5, -5])); ctx.stroke();
   }
   // torso and head lean together about the seat
@@ -323,8 +329,7 @@ export const eagle = (ctx, p) => {
     c.fillStyle = r.cloth2 || "#d8b34a"; c.fillRect(px - 0.4, py - 0.4, 1.2 * s, 1.2 * s);
   });
   // the arm over the shaft: upper arm clamping it, forearm to the fist
-  limb(ctx, shx, shy, elx, ely, 2 * s, steel);
-  limb(ctx, elx, ely, hdx, hdy, 1.8 * s, steel);
+  limb2(ctx, [shx, shy], [elx, ely], [hdx, hdy], 2 * s, 1.8 * s, steel);
   ball(ctx, hdx, hdy, 1.3 * s, 1.3 * s, darken(steel, 0.1), { hi: 0.4, lo: 0.4 });
   ctx.restore();
 };

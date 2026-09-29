@@ -1,0 +1,145 @@
+<!doctype html>
+<!--
+  The River Watch's reach on a real board: one hall moored on the water, its
+  skiffs rowing under the real engine, the hall selected (or its build ghost
+  under the cursor), drawn through the real draw() and saved to .shots/.
+
+    /skiff-reach-lab.html?realm=thornbrook&form=3,a,a&tag=x
+    &at=x,y        moor as near this board point as the water allows (default: the first spot found)
+    &mode=sel      sel (the hall selected) | ghost (the build ghost at &hover) | plain (neither)
+    &hover=x,y     the ghost's cursor (default: the mooring spot); &gold=0 for an unaffordable ghost
+    &preview=4,a,b an upgrade armed in the card (g.upPreview): level, branch, final
+    &foes=orc,orc  spawned up the road so the skiffs have marks; &ahead=0.4 (road fraction)
+    &warm=4        seconds stepped before the snap
+    &crop=x,y,w,h  also save that window of the board, &scale=3 (nearest neighbour)
+    &t=7.3         the clock the frame is drawn at (the edge and rings turn with it)
+    &perf=200      time draw() over that many frames, selected vs not; printed and in the title
+    &bench=60      time each piece (the water, the skiffs' reach) on its own, and the mask's bake
+    &noclip=1      the wakes and ripples unclipped, as they were (a before shot)
+    &tune={...}    try a tone for the tint (&tone=sel|ok|bad): rgb, fill, rim, comp
+
+  Saves .shots/skiff_<tag>.png (the whole board at 1x) and skiff_<tag>_z.png
+  (the crop). The title reads DONE (or FAIL …) when it's finished.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>skiff reach lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { TOTAL_LEN } from "/src/engine/path.js";
+      import { updateGame, spawnAt } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, ascendTower, buildableAt } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { drawWatchWater, drawSkiffReach, waterMask } from "/src/render/waterreach.js";
+      import { isBuilt } from "/src/engine/build.js";
+      import { bakeBridges } from "/src/render/bridge.js";
+      const q = new URLSearchParams(location.search);
+      const say = (s) => { document.getElementById("status").textContent = s; };
+      const post = (name, cv) => fetch(`/__shot?name=${encodeURIComponent(name)}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      try {
+        const TAG = q.get("tag") || "x", MODE = q.get("mode") || "sel";
+        const [lv, br, r4] = (q.get("form") || "1").split(",");
+        selectRealm(q.get("realm") || "thornbrook");
+        selectFaction(q.get("faction") || "greenwood");
+        const g = {
+          run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: CASTLE_HP, wave: 1, phase: "combat",
+          towers: [], enemies: [], projectiles: [], effects: [], grounds: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+          selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+          cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+        };
+        // every mooring on the board, nearest the asked-for point first
+        const want = (q.get("at") || "").split(",").map(Number);
+        const spots = [];
+        for (let y = 24; y < H - 16; y += 4) for (let x = 20; x < W - 110; x += 4) if (buildableAt(g, x, y, "riverwatch")) spots.push([x, y]);
+        if (!spots.length) throw new Error("no water to moor in");
+        if (want.length === 2 && want.every(Number.isFinite)) spots.sort((a, b) => Math.hypot(a[0] - want[0], a[1] - want[1]) - Math.hypot(b[0] - want[0], b[1] - want[1]));
+        const spot = spots[0];
+        let t = null;
+        if (MODE !== "ghost") {
+          placeTower(g, "riverwatch", spot[0], spot[1]);
+          t = g.towers[0];
+          for (let l = 1; l < Number(lv); l++) upgradeTower(g, t);
+          if (br) branchTower(g, t, br);
+          if (r4) ascendTower(g, t, r4);
+          t.readyAt = 0; t.raised = null;
+        }
+        const foes = (q.get("foes") || "").split(",").filter(Boolean);
+        const ahead = Number(q.get("ahead") ?? 0.4);
+        foes.forEach((type, i) => spawnAt(g, type, 1, TOTAL_LEN * ahead - i * 18, 0));
+        const DT = 1 / 60, WARM = Number(q.get("warm") ?? 4);
+        for (let i = 0; i < WARM * 60; i++) updateGame(g, DT);
+        // one frame drawn a tenth of a second before the snap, so a skiff that
+        // is rowing knows it (drawSkiff keeps no speed) and shows her wake
+        { const c0 = document.createElement("canvas"); c0.width = W; c0.height = H; draw(g, c0, { current: null }); for (let i = 0; i < 6; i++) updateGame(g, DT); }
+        g.time = Number(q.get("t") ?? g.time);
+        g.effects = g.effects.filter((fx) => fx.type === "musket");
+        if (MODE === "sel" && t) {
+          g.selectedId = t.id;
+          if (q.get("preview")) {
+            const [pl, pb, pr] = q.get("preview").split(",");
+            g.upPreview = { id: t.id, form: { level: Number(pl), branch: pb || null, rank4: pr || null } };
+          }
+        }
+        if (MODE === "ghost") {
+          const hv = (q.get("hover") || "").split(",").map(Number);
+          g.buildMode = "riverwatch";
+          g.hover = hv.length === 2 && hv.every(Number.isFinite) ? hv : spot;
+          if (q.get("gold") != null) g.gold = Number(q.get("gold"));
+        }
+        // &tune={"rgb":[255,236,160],"fill":0.2,"rim":0.4,"comp":"screen"}: try a tone for the selection
+        waterMask.noClip = q.get("noclip") === "1";   // &noclip=1: the wakes and ripples as they were, unclipped
+        if (q.get("tune")) waterMask.tune(q.get("tone") || "sel", JSON.parse(q.get("tune")));
+        const cv = document.createElement("canvas");
+        cv.width = W; cv.height = H;
+        bakeBridges();   // (the game bakes its spans with the ground, at the realm's load)
+        const mk0 = performance.now(); waterMask(); const mkMs = performance.now() - mk0;
+        const mkParts = waterMask.parts ? waterMask.parts() : null;
+        draw(g, cv, { current: null });
+        await post(`skiff_${TAG}`, cv);
+        const crop = (q.get("crop") || "").split(",").map(Number);
+        if (crop.length === 4 && crop.every(Number.isFinite)) {
+          const [x, y, w, h] = crop, sc = Number(q.get("scale")) || 3, k = cv.width / W;
+          const out = document.createElement("canvas");
+          out.width = w * k * sc; out.height = h * k * sc;
+          const o = out.getContext("2d");
+          o.imageSmoothingEnabled = false;
+          o.drawImage(cv, x * k, y * k, w * k, h * k, 0, 0, out.width, out.height);
+          await post(`skiff_${TAG}_z`, out);
+        }
+        let perf = ` mask ${mkMs.toFixed(1)} ms ${mkParts ? JSON.stringify(mkParts) : ""}`;
+        const NP = Number(q.get("perf")) || 0;
+        if (NP) {
+          const time = (sel) => {
+            g.selectedId = sel && t ? t.id : null;
+            for (let i = 0; i < 10; i++) draw(g, cv, { current: null });
+            const t0 = performance.now();
+            for (let i = 0; i < NP; i++) { g.time += 1 / 60; draw(g, cv, { current: null }); }
+            return (performance.now() - t0) / NP;
+          };
+          const a = time(false), b = time(true), c = time(false), d = time(true);
+          perf = ` perf plain ${((a + c) / 2).toFixed(2)} ms, selected ${((b + d) / 2).toFixed(2)} ms`;
+        }
+        // &bench=200: each piece of the River Watch's reach on its own, ms a frame
+        const NB = Number(q.get("bench")) || 0;
+        if (NB && t) {
+          const bc = document.createElement("canvas"); bc.width = W * 2; bc.height = H * 2;
+          const c = bc.getContext("2d"); c.scale(2, 2); c.imageSmoothingEnabled = false;
+          // (canvas work is deferred: read a pixel back each time to make it land)
+          const tm = (fn, cx = c) => { const run = (f) => { for (let i = 0; i < 5; i++) { f(); cx.getImageData(0, 0, 1, 1); } const t0 = performance.now(); for (let i = 0; i < NB; i++) { g.time += 1 / 60; f(); cx.getImageData(0, 0, 1, 1); } return (performance.now() - t0) / NB; }; return (run(fn) - run(() => {})).toFixed(3); };
+          perf += ` | water ${tm(() => drawWatchWater(c, g, t.x, t.y, "sel"))}, reach ${tm(() => drawSkiffReach(c, g, t, isBuilt(t, g)))}`;
+          perf += `, one disc+ring ${tm(() => { c.fillStyle = "rgba(216,179,74,0.1)"; c.beginPath(); c.arc(t.x, t.y, 165, 0, 7); c.fill(); for (let i = 0; i < 207; i++) if (i % 4 < 2) { const a = i / 207 * 6.283; c.fillRect(Math.round(t.x + Math.cos(a) * 165), Math.round(t.y + Math.sin(a) * 165), 3, 3); } })}`;
+          perf += `, frame ${tm(() => draw(g, cv, { current: null }), cv.getContext("2d"))}`;
+        }
+        const units = t && t.units ? t.units.map((u) => `${u.x | 0},${u.y | 0}${u.state === "dead" ? "x" : ""}`).join(" ") : "";
+        document.title = `DONE spot ${spot.map((v) => v | 0)} skiffs ${units}${perf}`;
+        say(document.title);
+      } catch (e) {
+        document.title = "FAIL " + e.message; say(document.title + "\n" + e.stack); console.error(e);
+      }
+    </script>
+  </body>
+</html>

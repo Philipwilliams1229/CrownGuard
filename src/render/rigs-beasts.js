@@ -112,10 +112,11 @@ const berserker = (ctx, p, x, y, fight, frame) => {
     c.fillStyle = "#3a6aa8"; c.fillRect(hx - 0.4, hy - 0.8, 3, 1);   // war paint across the eyes
     c.fillStyle = "#2a2230"; c.fillRect(hx + 1.1, hy - 0.4, 0.6, 0.7);
   });
-  // near arm and the axe in it
+  // near arm and the axe in it (raised, the arm goes up the back of his mane
+  // and the haft's butt stays below the face, so the war paint still reads)
   const sh = [0.4 + lean, -5.6];
-  const hand = fight ? (frame === 1 ? [5.6, -4.2] : [-0.4, -10]) : [2.8 + lean, -4.6];
-  const ang = fight ? (frame === 1 ? 0.15 : -2.3) : -2.55 + Math.sin(((p.frame || 0) / 4) * TAU) * 0.1;
+  const hand = fight ? (frame === 1 ? [5.6, -4.2] : [-1.6, -10.3]) : [2.8 + lean, -4.6];
+  const ang = fight ? (frame === 1 ? 0.15 : -2.05) : -2.55 + Math.sin(((p.frame || 0) / 4) * TAU) * 0.1;
   weapon(ctx, r.weapon || "axe", hand[0], hand[1], ang, r.wcol, r.ws || 1);
   leg(ctx, [sh, hand], [2, 1.7], skin, { extra: (c) => { c.fillStyle = skin; c.beginPath(); c.arc(hand[0], hand[1], 0.95, 0, TAU); c.fill(); } });
   ctx.restore();

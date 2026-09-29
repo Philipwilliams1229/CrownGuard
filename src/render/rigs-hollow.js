@@ -120,13 +120,16 @@ const boneLeg = (ctx, R, o, which, b, cols = {}) => {
   const hp = T(which === "near" ? o.hipW : -o.hipW, 0);
   const [kn, an] = ik(hp[0], hp[1], fx, fy - ank, o.L1, o.L2, 1);
   logJoint(ctx, "leg", hp, kn, an, { lens: [o.L1, o.L2] });
+  // thigh, shin, and what is worn on them are ONE inked part: the rag, the
+  // greave and the knee's knob are colour steps, never an ink line across
+  // the knee (owner, 2026-09-29)
   part(ctx, (c) => {
     tube(c, hp[0], hp[1], kn[0], kn[1], o.thigh, b);
     tube(c, kn[0], kn[1], an[0], an[1], o.shin, b);
+    if (cols.rag) { const t0 = 0.2, t1 = 0.5; tube(c, hp[0] + (kn[0] - hp[0]) * t0, hp[1] + (kn[1] - hp[1]) * t0, hp[0] + (kn[0] - hp[0]) * t1, hp[1] + (kn[1] - hp[1]) * t1, o.thigh * 1.7, cols.rag); }
+    if (cols.greave) { const t = 0.18; tube(c, kn[0] + (an[0] - kn[0]) * t, kn[1] + (an[1] - kn[1]) * t, an[0], an[1], o.greaveW || o.shin * 2, cols.greave); line(c, kn[0] + 0.3, kn[1] + 1, an[0] + 0.3, an[1] - 0.2, 0.45, lighten(cols.greave, 0.45)); }
+    if (o.knee) ball(c, kn[0] + 0.25, kn[1], o.knee, o.knee * 0.9, cols.kneeCol || b, { hi: 0.45, lo: 0.45 });
   });
-  if (cols.rag) part(ctx, (c) => { const t0 = 0.2, t1 = 0.5; tube(c, hp[0] + (kn[0] - hp[0]) * t0, hp[1] + (kn[1] - hp[1]) * t0, hp[0] + (kn[0] - hp[0]) * t1, hp[1] + (kn[1] - hp[1]) * t1, o.thigh * 1.7, cols.rag); });
-  if (cols.greave) part(ctx, (c) => { const t = 0.18; tube(c, kn[0] + (an[0] - kn[0]) * t, kn[1] + (an[1] - kn[1]) * t, an[0], an[1], o.greaveW || o.shin * 2, cols.greave); line(c, kn[0] + 0.3, kn[1] + 1, an[0] + 0.3, an[1] - 0.2, 0.45, lighten(cols.greave, 0.45)); });
-  part(ctx, (c) => ball(c, kn[0] + 0.25, kn[1], o.knee, o.knee * 0.9, cols.kneeCol || b, { hi: 0.45, lo: 0.45 }));
   if (cols.sabaton) {
     const x = an[0], y = an[1] + ank, len = o.foot, h = ank + 0.6;
     part(ctx, (c) => {
@@ -156,11 +159,12 @@ const boneArm = (ctx, sh, to, o, b, cols = {}) => {
   const [el, hd] = ik(sh[0], sh[1], to[0], to[1], up, o.fore, flip ? 1 : -1);
   logJoint(ctx, "arm", sh, el, to, { lens: [up, o.fore], flip });
   hd.el = el;
+  // upper arm, forearm and the elbow's knob: one inked part (no ink line at the elbow)
   part(ctx, (c) => {
     tube(c, sh[0], sh[1], el[0], el[1], cols.up ? o.w * (cols.upW || 1.8) : o.w, cols.up || b);
     tube(c, el[0], el[1], hd[0], hd[1], cols.fore ? o.w * (cols.foreW || 1.7) : o.w * 0.85, cols.fore || b);
+    if (!cols.noElbow) ball(c, el[0], el[1], o.w * 0.62, o.w * 0.58, cols.elbow || b, { hi: 0.5, lo: 0.4 });
   });
-  if (!cols.noElbow) part(ctx, (c) => ball(c, el[0], el[1], o.w * 0.62, o.w * 0.58, cols.elbow || b, { hi: 0.5, lo: 0.4 }));
   return { el, hd };
 };
 // the wrist: a haft or hilt leaving the fist along `a` (logged for the lab)
@@ -314,7 +318,11 @@ const risen = (ctx, p) => {
   const b = p.skin, bF = darken(b, 0.28);
   const weedC = p.mane || "#4e6a48", rot = p.cloth, rot2 = p.cloth2 || darken(p.cloth, 0.4);
   shadow(ctx, 0.4, -0.1, 4.6, 1.2, 0.22);
-  const shN = T(1.0, -6.9), shF = T(-1.0, -7.1);
+  // the archer turns his bow shoulder toward the foe as he nocks, draws and
+  // looses (the chest opens side-on), so the bow stands out ahead of the hood
+  // at arm's length and never across the face
+  const turn = archer && st.fight ? [1.4, 2.0, 2.0, 0][st.f] : 0;
+  const shN = T(1.0, -6.9), shF = T(-1.0 + turn, -7.1);
   const A = { up: 3.0, fore: 2.9, w: 1.05 };
   const sw = st.swing, N = (dx, dy) => [shN[0] + dx, shN[1] + dy], F = (dx, dy) => [shF[0] + dx, shF[1] + dy];
   const pick = (march, fight) => (st.fight ? fight[st.f] : march);
@@ -331,10 +339,11 @@ const risen = (ctx, p) => {
     { hn: N(-0.3, -1.7), hf: F(5.8, -1.2), ab: UP + 0.02, draw: true, loosed: true },
     { hn: N(-2.6, -3.3), hf: F(3.6, 3.8), ab: UP + 0.75 }])
   // the Risen: a notched sword hanging loose on the march; a clumsy hack from
-  // over the shoulder, the broken shield held up
+  // over the shoulder (the bone arm straight up the back of the helm, so the
+  // skull still reads), the broken shield held up
     : pick({ hn: N(1.6 + sw * 0.8, 4.9), an: 0.95 - sw * 0.1, hf: F(3.4, 4.4) }, [
       { hn: N(2.4, 2.6), an: -0.8, hf: F(4.4, 3.6) },
-      { hn: N(-0.6, -3.3), an: -2.35, hf: F(4.6, 3.2) },
+      { hn: N(-2.9, -4.6), an: -2.35, hf: F(4.6, 3.2) },
       { hn: N(3.8, 1.8), an: 0.5, hf: F(3.4, 4.8) },
       { hn: N(2.6, 4.2), an: 1.2, hf: F(3.6, 4.6) }]);
 
@@ -372,7 +381,10 @@ const risen = (ctx, p) => {
   // the neck bones, the skull (a rusted open helm, or the archer's hood)
   // (the head follows the blow; the archer sights down the arrow and glances
   // down to the quiver; the Risen's jaw gapes as it winds up)
-  const nk = T(0.9, -7.6), hd = [nk[0] + 0.9 + (st.fight ? 0.5 * st.drive : 0), nk[1] - 2.3];
+  // (the archer keeps his head back over his spine while he shoots, sighting
+  // down the arrow, clear of the bow)
+  const hx0 = archer && st.fight && st.f < 3 ? 0.3 : 0.9;
+  const nk = T(0.9, -7.6), hd = [nk[0] + hx0 + (st.fight ? 0.5 * st.drive : 0), nk[1] - 2.3];
   part(ctx, (c) => tube(c, nk[0] - 0.2, nk[1] + 0.2, hd[0] - 0.5, hd[1] + 1.8, 0.9, bF));
   const ha = st.lean * 0.3 + (!st.fight ? 0 : archer ? [0.04, 0.06, -0.04, -0.16][st.f] : [-0.04, -0.14, 0.06, 0.12][st.f]);
   if (archer) {
@@ -455,7 +467,7 @@ const ghast = (ctx, p) => {
   // arms flung up, slammed down on the foe, and raking on down after
   const H = st.fight ? [
     { hn: N(4.4, 3.8), hf: F(5.2, 4.2) },
-    { hn: N(1.2, -4.6), hf: F(3.2, -4.4) },
+    { hn: N(1.4, -5.8), hf: F(3.4, -5.6) },
     { hn: N(5.4, 3.0), hf: F(5.8, 2.6) },
     { hn: N(4.0, 6.0), hf: F(4.6, 6.2) }][st.f]
     : { hn: N(1.6 + sw * 0.8, 7.4), hf: F(1.2 - sw * 1.0, 7.6) };
@@ -490,12 +502,16 @@ const ghast = (ctx, p) => {
   // their sick glow, over the body
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => { for (const [x, y, r] of [[-2.6, -7.4, 2.6], [4.4, -3.6, 3.0], [1.6, -0.8, 2.2]]) glow(c, x, y, r, pus, 0.35); });
   // the head, slung low and forward: swollen, bald, jaw hanging
+  // (with both arms flung up they rise behind the lolling head, so it is
+  // drawn after them and the face still reads)
   const hd = T(5.0, -10.6);
-  const dr = st.fight ? st.drive : 0;
-  ghastHead(ctx, hd[0] + 0.6 * dr, hd[1] + 0.6 * dr, st.lean * 0.2, p, st.fight && (st.f === 1 || st.f === 2), 1.1);
+  const dr = st.fight ? st.drive : 0, flung = st.fight && st.f === 1;
+  const head = () => ghastHead(ctx, hd[0] + 0.6 * dr, hd[1] + 0.6 * dr, st.lean * 0.2, p, st.fight && (st.f === 1 || st.f === 2), 1.1);
+  if (!flung) head();
   { const a = boneArm(ctx, shN, H.hn, A, skin, { up: skin, fore: skin, upW: 1.05, foreW: 0.9, noElbow: true }); boneHand(ctx, a.hd[0], a.hd[1], 1.3, skin, st.fight ? 1 : 0.5); }
   // a sore on the near arm
   part(ctx, (c) => sore(c, shN[0] + 0.6, shN[1] + 1.4, 0.7, skin, pus));
+  if (flung) head();
   ctx.restore();
 };
 const ghastHead = (ctx, x, y, a, p, roar, k = 1) => inFrame(ctx, x, y, a, (c0) => {
@@ -533,11 +549,12 @@ const crypt = (ctx, p) => {
   const sw = st.swing, N = (dx, dy) => [shN[0] + dx, shN[1] + dy], F = (dx, dy) => [shF[0] + dx, shF[1] + dy];
   const cl = (struck, wound) => wound + (struck - wound) * st.cloth;
   // the mace sloped back on the shoulder on the march, the lid carried before
-  // him; in the fight the mace cocked at the shoulder behind the lid, heaved
-  // up overhead, brought down, and dragged on through
+  // him; in the fight the mace held up ahead of the bascinet behind the lid,
+  // heaved up overhead (the arm up the back of the helm, the skull clear),
+  // brought down, and dragged on through
   const H = st.fight ? [
-    { hn: N(3.0, 1.4), an: -1.85, hf: F(6.4, 4.4) },
-    { hn: N(-1.2, -3.8), an: -2.6, hf: F(6.4, 4.2) },
+    { hn: N(3.6, 1.6), an: -1.3, hf: F(6.4, 4.4) },
+    { hn: N(-3.8, -6.1), an: -2.6, hf: F(6.4, 4.2) },
     { hn: N(4.4, 3.0), an: 0.7, hf: F(5.0, 5.8) },
     { hn: N(3.4, 5.4), an: 1.3, hf: F(5.4, 5.4) }][st.f]
     : { hn: N(2.4 + sw * 0.3, 3.0), an: -2.08 + sw * 0.04, hf: F(5.8, 5.0) };
@@ -674,9 +691,10 @@ const gravecaller = (ctx, p) => {
   // the crook walked like a staff; in the fight held up before him, lifted
   // high and tipped back (the bell swinging back), brought down so the bell
   // tolls, and the bell swinging on as the toll fades. toll: its strength
+  // (the crook always rises ahead of the hood, never up across the skull in it)
   const H = st.fight ? [
-    { hn: N(3.6, 2.4), an: -1.48, hf: F(4.6, 3.8), ring: 0.4, toll: 0 },
-    { hn: N(2.2, -1.4), an: -1.85, hf: F(4.8, 3.0), ring: -1.2, toll: 0 },
+    { hn: N(3.9, 2.4), an: -1.48, hf: F(4.6, 3.8), ring: 0.4, toll: 0 },
+    { hn: N(4.2, -1.8), an: -1.58, hf: F(4.8, 3.0), ring: -1.2, toll: 0 },
     { hn: N(2.5, 1.8), an: -1.44, hf: F(5.2, 3.6), ring: 1.05, toll: 1 },
     { hn: N(2.8, 2.6), an: -1.5, hf: F(5.0, 4.0), ring: 1.3, toll: 0.5 }][st.f]
     : { hn: N(4.2 + sw * 0.4, 4.4), an: -1.42 + sw * 0.05, hf: F(1.6 - sw * 1.0, 6.2), ring: sw * 0.5, toll: 0 };
@@ -788,9 +806,11 @@ const hollowKing = (ctx, p) => {
   // upright, heaved back over the shoulder, cut down through the foe, and
   // carried on low past him
   // (on the march the far hand swings free — it takes the pommel to fight)
+  // (heaved back, the sleeved arm rises up the back of the skull and the
+  // crown, so the burning face still reads)
   const H = st.fight ? [
     { hn: N(2.8, 3.6), an: -1.2 },
-    { hn: N(-0.6, -4.4), an: -2.5 },
+    { hn: N(-4.2, -6.7), an: -2.5 },
     { hn: N(4.4, 3.2), an: 0.5 },
     { hn: N(3.4, 6.0), an: 1.25 }][st.f]
     : { hn: N(3.0 + sw * 0.3, 5.4), an: -1.12 + sw * 0.03, hf: [shF[0] + 1.2 - sw * 1.4, shF[1] + 7.6] };

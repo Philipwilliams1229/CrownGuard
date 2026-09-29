@@ -21,6 +21,7 @@ import {
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { drawStander } from "../folk.js";
+import { clipToWater } from "../waterreach.js";
 
 const cache = spriteCache();
 export const resetRiverwatchBakes = () => cache.clear();
@@ -194,10 +195,15 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   const x = t.x, y = t.y;
   const { lvl, r4, hw } = spec(t);
   const bake = canBake();
-  // ripples where the piles stand, and the current dragging past
-  ctx.strokeStyle = "rgba(226,240,246,0.45)"; ctx.lineWidth = 0.8;
-  for (const dx of [-hw + 2, 0, hw - 2]) { const r = 3 + ((((time * 6 + dx) % 5) + 5) % 5); ctx.beginPath(); ctx.ellipse(x + dx, y + 7.5, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
-  if (r4 === "bb") { const r = 2 + ((time * 4) % 4); ctx.beginPath(); ctx.ellipse(x + CAPSTAN, y + 10, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
+  // ripples where the piles stand, and the current dragging past — kept to
+  // the water (a hall moored in a narrow brook would ring its banks)
+  ctx.save();
+  if (clipToWater(ctx, x - hw - 12, y + 3, x + hw + 12, y + 13, true)) {
+    ctx.strokeStyle = "rgba(226,240,246,0.45)"; ctx.lineWidth = 0.8;
+    for (const dx of [-hw + 2, 0, hw - 2]) { const r = 3 + ((((time * 6 + dx) % 5) + 5) % 5); ctx.beginPath(); ctx.ellipse(x + dx, y + 7.5, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
+    if (r4 === "bb") { const r = 2 + ((time * 4) % 4); ctx.beginPath(); ctx.ellipse(x + CAPSTAN, y + 10, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
+  }
+  ctx.restore();
   if (bake) stamp(ctx, cache.get(`jetty|${t.level}|${t.branch}|${t.rank4}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintJetty(c, t, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   else paintJetty(ctx, t, x, y);
   // the watch lantern
