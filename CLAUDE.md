@@ -53,7 +53,8 @@ gate, scenery, Iron and Fen grounds, apron — ten artists):
 - **A cloud container has 4 CPUs, so one workflow runs only 2 agents at a
   time;** run two or three workflows side by side (each owning different
   files) to get 4-6 artists.
-- **The usage limit can cut agents off mid-edit.** Commit a WIP snapshot
+- **The usage limit can cut agents off mid-edit** (it did twice in the
+  September 29 pass; the WIP commits saved all of it). Commit a WIP snapshot
   (build passing) whenever a team finishes, and before a long wait. After an
   interruption, brief the next round against the PRE-PASS commit
   (`git diff <base> -- <file>`), not HEAD, and hand agents the old reports as
@@ -67,6 +68,24 @@ gate, scenery, Iron and Fen grounds, apron — ten artists):
   read off a full-board snap: a lab script's own `import()` of path.js can
   be a different module instance from the page's.
 
+What the September 29 pass added (crews, soldiers and foes, halls, type, the
+title ground, the River Watch's reach, the Powder Works):
+- **Scratch files go in `scratchpad/<prefix>/`,** never the scratchpad's
+  root: artists overwrote each other's `grid.py` there.
+- **Vite ignores `.shots/`** (`server.watch.ignored`), so a lab page or
+  module edited there is never re-served — the dev server keeps its first
+  transformed copy. Use a new file name per version, or keep scratch labs
+  outside `.shots/`.
+- **`node --check` a module after every scripted edit:** one syntax error
+  makes the dev server answer 500 for that file, and every page that loads
+  it breaks, teammates' included.
+- **Committing only your own hunks** of a file another session is also
+  changing (the lead's job; agents never run git that changes anything):
+  write HEAD's version plus your hunks to a scratch copy, then
+  `git update-index --cacheinfo 100644,$(git hash-object -w <copy>),<path>`
+  and commit. The index takes just your hunks; the working tree keeps both
+  sessions' work.
+
 ## Joints and motion (September 28 pass)
 
 The owner saw "broken arms when casting or attacking" and stiff, two-frame
@@ -76,7 +95,10 @@ mechanics:
   with fixed bones and the natural fold (`flip` only for an arm raised out
   to the side — a bow draw, a cocked throw), `legs(..., { hip })` shifts
   the weight, and `keyed` / `arcMix` / `frameOf` make eased in-betweens.
-  The old `bend` option is gone. Figures live in `folk-archer.js`,
+  The old `bend` option is gone. `limb2` makes a two-bone limb ONE inked
+  part (the rigs do the same), and `hat(ctx, x, y, kind, pal, o)` puts a
+  trade's headwear on a bare head (style guide: "Limbs and layers",
+  "Crews' headwear"). Figures live in `folk-archer.js`,
   `folk-casters.js`, `folk-workers.js`, `folk-gunners.js`; `folk.js`
   re-exports them and keeps the build crew.
 - `joint-lab.html?set=<set>` measures every pose (sets in `joint-sets/`;
@@ -109,7 +131,12 @@ time. They all share ONE working tree, one git index and one dev server, so:
   build, don't push past it and don't hide it: message that session, or
   tell the owner.
 - **Shared tools:** don't stop or restart the dev server on 5173; use your
-  own browser tab and a shot-name prefix in `.shots/`.
+  own browser tab and a shot-name prefix in `.shots/`. A second dev server
+  (another port), or one run from a copy of the repo with a symlinked
+  `node_modules`, must set its own `cacheDir`, or it rewrites the shared
+  `node_modules/.vite` under the main one. For before/after comparisons
+  prefer static builds (`npx vite build --outDir <scratchpad dir>`) served on
+  a private port.
 - **Collided anyway?** Save copies to your scratchpad before touching
   anything, message the owning session with what happened, and let it
   restore its own files.
@@ -162,7 +189,10 @@ The owner misclicked when the tower card changed shape between taps, so
 - No subtitle under the hall's name, no stat chips, no Targets label; targets are equal
   buttons, two to a row (an odd one spans the last row). A finished hall's
   card lists every stat (`formStats` in `ui/hud/towerText.js`, driven by its
-  DELTAS table — add a new stat there and it shows in the ⓘ and here).
+  DELTAS table — add a new stat there and it shows in the ⓘ and here). A
+  hall's pace (`rate`, stored as ms between shots) shows as shots or blows a
+  second (`perSec`: "1.25/s"; the Field Guide says "attacks/s"), so bigger
+  reads better (owner, 2026-09-29).
 - Two taps to buy: arming only turns a card gold (`is-armed` keeps the
   parchment font) and shows CONFIRM in a fixed slot.
 - Path / final-form cards: picture with its price under it, then name +

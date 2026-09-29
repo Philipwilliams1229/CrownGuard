@@ -49,7 +49,7 @@ copy what the rebuilt pieces do.
 | The Hollow Court's beasts and spirits (ghoul, wraith, grave amalgam) | `src/render/rigs-hollowbeasts.js` | `hlb-lab.html` |
 | Anything not in the files above (the generic rig) | `src/render/rigs.js` | entries in the rig files above override these |
 | Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk-kit.js` (the body: head, torso, `legs`, `arm` with its elbow solver, timing helpers) and one file per crew: `folk-archer.js` (eight key poses; `ARCHER_FRAMES` / `drawArcherFrame` name every frame the halls and the castle's bowmen stamp; each pose's `back` puts the string arm wholly behind the head or wholly in front, see "Limbs and layers" — the lab can't judge that, look), `folk-casters.js` (mage, priest — their poses are joint-target tables and their timing lives there too: `MAGE_CYCLE`/`magePoseAt`, `mageIdlePose`, `mageBreathPose`, `priestPose`/`priestLight`; the halls only pick frames through them), `folk-workers.js` (winch crew on its crank circle `CREW_FRAMES`/`crankAt`, the smith's blow `SMITH_FRAMES`/`smithHammer`, standers `STANDER_FRAMES` with a spyglass option, the wall's halberdier `HALBERD_FRAMES`/`HALBERD_WALK` and mason `MASON_FRAMES`), `folk-gunners.js` (bombardier/alchemist `bomberFrame`/`bomberCharge`, musketeer `musketFrame`/`musketMuzzle`, falcon-mistress `mistressFrame`/`mistressGlove`, hooded blade `hoodedFrame` — the halls place fuses, flasks, flashes and birds from these, never at fixed offsets); `folk.js` re-exports them all and keeps the build crew | the new body: slim, jointed arms, small hands, each limb one inked part (`limb2`); joints per "Joints and motion" |
-| Crew headwear (the trade on every head) | `src/render/folk-kit.js` `hat(ctx, x, y, kind, pal, o)` — kinds in `HAT_KINDS`: `"falconer"` (bycocket, barred hawk feather, braid; `o.plume`), `"wrap"` (the Covert's skull wrap and face scarf; `o.tails`, `o.maskCol`), `"grenadier"` (the bombardier's fur cap, bag and grenade plate; `o.bag`), `"chaperon"` (the alchemist's roundlet) — and `cap()` (smith, hod carrier, setter; the musketeer's broad hat with `wide`/`tall`); `folk-workers.js` `engineerHead` / `clerkHead` / `watchHead` (drawStander's `o.hat`: `"beret"` or `"kettle"`) | drawn over a bare head (`head(..., { hood: false })`) at the same point inside the same nod, so it rides every tilt (folk-gunners.js `onHead`); colours from `pal.hood` / `pal.trim` / `pal.hair`. Sweep options turn a piece about its root the way the head tilts: + lifts what trails back, − lays it flat. `head()`'s peaked cowl (`HOOD`) is the Archery's and the castle crew's alone. Rules in "Crews' headwear" |
+| Crew headwear (the trade on every head) | `src/render/folk-kit.js` `hat(ctx, x, y, kind, pal, o)` — kinds in `HAT_KINDS`: `"falconer"` (bycocket, barred hawk feather, braid; `o.plume`), `"wrap"` (the Covert's skull wrap and face scarf; `o.tails`, `o.maskCol`), `"grenadier"` (the bombardier's fur cap, bag and grenade plate; `o.bag`), `"chaperon"` (the alchemist's roundlet) — and `cap()` (smith, hod carrier, setter; the musketeer's broad hat with `wide`/`tall`); `folk-workers.js` `engineerHead` / `clerkHead` / `watchHead` (drawStander's `o.hat`: `"beret"` or `"kettle"`) | drawn over a bare head (`head(..., { hood: false })`) at the same point inside the same nod, so it rides every tilt (folk-gunners.js `onHead`). Sweep options turn a piece about its root the way the head tilts: + lifts what trails back, − lays it flat. Rules in "Crews' headwear" |
 | Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js` |
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type; `IRON_ART.flat` / `HOLLOW_ART.flat` list pieces baked without the 2px ring |
 | The gate's crag (the hill the Greenwood/old realms' cave is cut into) | `src/data/gatecrag.js` (`gateCrag`, `hillAt`, `cragBlocks`) | pure data: scenery.js paints from it AND `buildableAt` refuses halls on it — change its shape only here, then scan that no buildable point lies on opaque gate pixels |
@@ -261,8 +261,9 @@ call for you — a bespoke limb logs its own). Nothing ships red.
 - **The whole body takes part:** the torso leans and the head follows the
   hands; the hips shift, the feet stay planted unless the figure steps (no
   torso sliding over still feet).
-- **Secondary motion:** hat points, hems, sleeves and hair trail the body
-  by a frame and settle after it.
+- **Secondary motion:** hat points, plumes, hems, sleeves and hair trail
+  the body by a frame and settle after it (`hat()`'s sweep options, see
+  "Crews' headwear").
 - **Idle is alive but calm:** a breath (one art pixel) every few seconds, a
   glance, a shift of weight; crews on one hall and on neighbouring halls are
   never in step (phase by `t.id`, and by the crewman's index).
@@ -312,6 +313,54 @@ forearm and the upper arm, and arms kept clear of hoods and helms):
   nearly level under the helm's back rim and across the pauldron's lower
   half, drawn over both (elbow folded ≤ 140°, wrist ≤ 120°).
 
+## Crews' headwear (the September 29 pass)
+
+- **Headwear says the trade.** The peaked cowl (`head()`'s default, `HOOD`)
+  is the Archery's and the castle crew's only. Everyone else wears their
+  trade over a bare head: the falcon-mistress's bycocket, the Covert blade's
+  wrap, the bombardier's fur cap, the alchemist's chaperon (`hat()`), the
+  winch crew's leather skullcap with brass goggles, the Goldworks clerk's
+  velvet beret with a raked quill, the River Watch's steel kettle hat over a
+  coif at the nape (folk-workers.js), the smith's, hod carrier's and setter's
+  caps and the musketeer's broad hat (`cap()`). The castle's halberdier and
+  mason and the build crew's hooded mason keep their looks. A new kind goes
+  into `HATS` with a silhouette at 1x distinct from the cowl and the others.
+- **Keep the face open.** A brim's or cap's lower ink leaves one clear skin
+  row above the eye: its underside sits about −1.8 to −2.1 head units (the
+  brow is at −1.3, the eye's top at −0.8). `cap()` rides half a unit up the
+  brow and every caller stands it half a unit higher again (`lift: 0.5`, or
+  a y 0.5 above the head's) — at half a unit alone, pixel luck decided
+  whether the eye showed. Below the brow nothing on the head reaches forward
+  of the ear (x ≈ −1.2) but the wrap's scarf, which leaves an eye slit.
+- **No fringe under a hat.** Pass `hair: null` to `head()` and paint hair
+  only behind the ear and at the nape (`CAP_HAIR` in folk.js, `NAPE` in
+  folk-workers.js): the fringe's ink and the brim's stack into a dark
+  "sunglasses" band over the eye.
+- **Colour off the palette, a value step off the coat:** `pal.hood` for felt
+  and cloth, `pal.trim` for bands, plumes and tails (so each form's palette
+  still varies them), e.g. `darken(pal.hood, 0.3)` for a crown and
+  `lighten(pal.hood, 0.3)` for its rim.
+- **Layer by depth.** The hat is drawn in the head's frame (units ×1.08 about
+  `y − 0.3`) inside the figure's nod. Anything raised behind the head goes
+  before `head()`; anything held up before the face after the hat. A tool in
+  the near hand is drawn after the head, beard and hat (the mage's staff
+  passes over the brim, never behind it), and the near arm after the tool,
+  never rising to the brim. A staff beside a tall hat (mitre, wizard's hat)
+  stands clear of its outline. A raised fist or tool passes ahead of the
+  brow (the fist in front of the nose's tip), never across the eye; a mallet
+  raised overhead stands upright ahead of the head; a tool carried on the
+  run stays below and ahead of the chin (`MASON_RUN`).
+- **Secondary motion:** the falconer's plume lifts on the wind-up and
+  streams flat on the throw; the wrap's tails fly up in the crouch. A bird on
+  the glove rides below the face in the wind-up (the fist drops to the hip
+  before the cast).
+- **Bake headroom.** The halls' crew bakes are tight: the clerk and the
+  watchman 26×30 and the winch crew 28×30 (feet at 27), the mage 34×40 (feet
+  at 37). On every frame, the breath's lift included, the whole figure, ink
+  ring and all, stays at least one art row (half a unit) under the box's
+  top; several frames have exactly that. Measure it with a tall-box bake
+  (see "How to look at your work"), not a big lab cell.
+
 ## The castle mark and icons
 
 - **One castle everywhere:** `src/ui/castleMark.js` (`CASTLE_MARK` pixel grid +
@@ -330,10 +379,74 @@ forearm and the upper arm, and arms kept clear of hoods and helms):
 
 ## Type (HUD)
 
-- **No "&" in Silkscreen** — its ampersand reads as "$". Write "and".
-- **Words:** Silkscreen. **Anything with digits:** Press Start 2P (the
-  `--numeric` var, with `font-size-adjust`). Pixelify Sans is BANNED — its C
-  reads as O and its 5/8 as S at small sizes.
+**One source: `src/ui/fonts.js`.** No other file names a font family; a new
+piece of text picks a role, never a family.
+- **Roles.** The DOM reads CSS variables fonts.js sets on `:root`: `--mark`
+  (the CROWNGUARD wordmark), `--title` (screen and card titles, the banners),
+  `--head` (the campaign map's heads), `--display` (headings, labels,
+  planks), `--menu` (menu buttons), `--numeric` (anything with digits;
+  `--num-adjust` is its `font-size-adjust`), `--body` (tales, blurbs, stat
+  lines), `--map` (map labels). JS styles use theme.js: `FONT`, `DISPLAY`,
+  `TITLE`, `HEAD` and `NUM` are the variables themselves (so hud.css can find
+  those elements); `MARK`, `MENU` and `MAP` are family stacks (SVG
+  attributes can't read variables). Canvas text asks `canvasFont(slot, px,
+  bold)` — `canvasFont("board", 22, true)` is today's "bold 22px monospace";
+  a baked text sprite keys on `typeEpoch()`, which bumps when faces land. The
+  board's floating numbers (+12, −3) are fx.js's 5×7 bitmap in every option.
+- **Options: `TYPES`.** `current` is today's look and the default
+  (`DEFAULT_TYPE`) until the owner picks: Silkscreen words, Press Start 2P
+  digits (`font-size-adjust` 0.58), Verdana text, monospace on the board. The
+  others are whole identities: `keep` (Arcade Keep), `letter` (Black
+  Letter), `illuminated`, `pair` (Tidy HUD). Switch with `?type=<id>`
+  (remembered in localStorage `cg-type`; `?type=current` goes back).
+- **An option's fields.** Each Google face is registered under an alias
+  (`"cg <family> <size>"`) whose `@font-face` carries `size-adjust`, so the
+  size travels with the face everywhere — never add `font-size-adjust` for
+  it. `digits`: one face for every digit in every slot (the other aliases
+  cut 0-9 from their `unicode-range`), sized per slot by `sizes`, with `keep`
+  (slots that keep their own digits) and `only` (the slots it serves).
+  `caps: true` sets in capitals the places Silkscreen shows as capitals today
+  (`[data-type-caps]` in hud.css). `features` (e.g. `"lnum"`) goes on
+  `:root`, and buttons inherit it (`[data-type-features]`). A face's `lacks`
+  lists characters it must not draw (they fall through to the option's body
+  face); its `lh` sets the height `line-height: normal` gives it.
+- **Loading.** Faces use `font-display: swap`; the page is held hidden until
+  they land, 3 s from navigation at most.
+- **When the owner picks:** set `DEFAULT_TYPE` and move that option's alias
+  rules into a static stylesheet with `<link rel=preload>` for its woff2
+  files, replacing index.html's link, so the first paint never waits on the
+  bundle.
+- **Checking type:** `type-lab.html?opt=<id>` (a specimen sheet; `?opt`, since
+  `?type` would switch the game), `?digits=opts` (every option's digits as
+  the game sets them), `?survey=1` (candidate faces with their metrics).
+  `node scripts/type-shots.mjs [ids] [--only home,map,battle,phone,council,guide,sheet]`
+  shoots the real game into `.shots/type_<id>_<screen>.png`, unhinted, at
+  DPR 2 (the phone at 3) plus a `_dpr1` worst case; `--base` takes a static
+  dev-mode build (`NODE_ENV=development npx vite build --mode development`)
+  that teammates' saves can't reload, `--dump` writes computed fonts to
+  diff. `--pairs [--faces A,B]` is the pair test: 0/O 1/l 1/I 5/S 8/B 2/Z and
+  digit against digit, drawn in the page, scored in grey levels at DPR 1 and
+  2 — under 0.20 fails. This container has no Verdana: `current` shots show
+  DejaVu Sans.
+
+**Rules that stand:**
+- **No "&" in Silkscreen** — its ampersand reads as "$". Write "and"
+  (options using it there mark it `lacks: "&"`).
+- Digits must be unmistakable at chip size and at phone scale 0.72.
+- Pixelify Sans is BANNED — its C reads as O and its 5/8 as S at small sizes.
+- Measured failures, don't retry: DotGothic16, Silkscreen, Micro 5 and the
+  Bitcount family draw 0 and O alike; Jersey 15/10/20 for digits (6/8 at
+  0.04-0.08, blurred at 1x); VT323 (1/l 0.11-0.14); Tiny5 (2/Z 0.10);
+  Cinzel's 1 is an I; Grenze's and Alegreya's default figures are old-style
+  (use `lnum` in the DOM and a lining face on canvas); Jacquard 12/24 and
+  Jacquarda Bastarda 9 lose their hairlines below ~40px.
+- Traps: React sends a unitless `fontSizeAdjust: 0.58` as "0.58px", which is
+  ignored — use a string. A browser's button style resets
+  `font-feature-settings`. A canvas that isn't in the page ignores font
+  features. Linux's headless hinting snaps glyph advances and flatters pixel
+  faces at odd sizes (type-shots runs unhinted).
+
+**Panels and buttons:**
 - Panels: slate with a 2px ink rim and hard bevels, oak frames with a gold
   bead, parchment slips for choices; buttons sink 2px when pressed; 44px+
   touch targets; unaffordable prices go red.
@@ -429,6 +542,40 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   tuft. Where the road runs onto a deck: no silhouette ink, only a dark 1px
   sill broken by dust.
 
+## The River Watch's reach (`src/render/waterreach.js`)
+
+- **Its area of control is its WATER, never a circle** round the hall: the
+  body its skiffs row, as the engine picks it — a pond's ring (`pondAt`), the
+  sea's lane (`seaDepthAt > 0` → `seaRoute`), otherwise the river the hall
+  is moored on (terrain.js `RIVER_ROUTES` / `riverRouteAt`, update.js
+  `t._river`; on a two-river board each hall rows its own). Lit gold when
+  selected, green or red for the build ghost.
+- **Light water, never tint it.** A gold wash over blue turns it frosted grey
+  and over fen water turf-coloured mud. Each water pixel is lifted a fixed
+  luma step (`TONES`: sel 26, ghost ok 24, bad 20) toward its own water's
+  shine, half keeping its hue, half mixing to the shine. The tone's colour
+  lives only in a rim along the waterline (1-2 art px) and the creeping
+  dotted ticks. Pixels warmer than any water (reeds, pads, stones awash,
+  sand) keep their colour. Where a body is cut across open water (a
+  confluence, the sea past the lane) the light fades in three steps broken
+  on one-unit blocks. It is baked once per body and tone, and drawn with the
+  water, under the bridges.
+- **Skiffs: rings only, no fill** (the ground stays the ground). The
+  fleet's outer edge is bright, a ring under a sister's reach softer and
+  smaller, and left out where a sister within 0.55 R covers it; the boat
+  under the mouse shows her whole ring. Ticks carry a one-unit plum shadow
+  down-right so they hold on bright grass. The build ghost shows the level-1
+  skiff's station ring and a hollow caret.
+- **What a skiff leaves on the water stays on it:** wakes (along her real
+  heading), ripples and oar splashes go through `fillWet`, which fills open
+  water only (no clip path); the hall's pile ripples use `clipToWater`,
+  cached per box. Menu portraits (off the board) are unclipped.
+- **Performance:** the mask, every body a watch could row and its tints bake
+  in ~5 ms `setTimeout` slices after the board appears (`warmWaterReach`;
+  Safari has no `requestIdleCallback`), so the first tap costs ~1 ms, not
+  ~100. Wakes skip a few frames rather than force a bake mid-warm-up.
+- Check with `skiff-reach-lab.html` (see "How to look at your work").
+
 ## Water, roads and ground (the September 26 pass)
 
 The owner's ask: "how the bridge goes over the river, the water and river
@@ -514,6 +661,49 @@ textures." What came of it:
   through its waypoint, one with `ponds` a lake or pool beside it, and no
   river passes near a dry level. After adding a level or moving water, run
   `node scripts/check-map-water.mjs` and look at `map-lab.html`.
+
+## The title screen (`src/ui/titleArt.js`)
+
+- **Its ground follows the board, never its own copy** (as the apron does):
+  the turf is `turfTones(REALMS.greenwood)` from world.js in the Greenwood's
+  light, its tone edges frayed in world.js's `DITH` blade dither (never a
+  Bayer screen); tufts are groundblend.js's `pixelTuft` (the foreground's
+  `boldTuft` has blades two pixels wide at the root); the road is road.js's
+  Greenwood dirt painted per pixel along `ROAD`, its half-width blended like
+  the crowd's lanes (a bank face dark on the sunward side and lit on the far
+  one, the bank's shadow in the road, a worn verge, ruts only where the road
+  is 6+ px wide, grain, pebbles, edge tufts). The castle is untouched: the
+  vista's castle matches the board's (see the table).
+- **Perspective:** the tone map lies on a ground plane (`persp(y) = (y − 147)
+  / 123`, matching how `ROAD_W` narrows toward the gate; `planeV(y)` for
+  foreshortened depth): patches broad near the viewer, small and flat toward
+  the castle. Haze comes in stepped levels (`HAZE_K`, toward `#9ca6c4`),
+  frayed in the same dither. Details (flecks, clover, daisies, tufts, petal
+  flowers r 3 near, r 2 mid, a 3×3 star far) are world.js's, sized by
+  distance.
+- **The far ridge** carries the map's Greenwood farms (`FARM` colours) as a
+  patchwork, never rows: a leaning, jittered lattice with its own row
+  heights per column, clustered and thinning lower down; every field hedged
+  (lumpy) along its foot and up its sides; crop, hedged pasture or open
+  meadow, some split or cut short, furrows across, down or none. No
+  free-floating hedgerows. The hay meadow round `HAY` is mown, in straw rows
+  of `strawOf` colours.
+- **Wood floor only under the deep wood:** the olive-brown floor ramp comes
+  only from the shade of trees standing well down in the woods (foot more
+  than 7 units below `hillTop`); a tree on the brow throws plain meadow
+  shade, or the floor's dither shows on open meadow as dark scribbles. Near
+  tufts root only where their tallest blade (~15 × size art px) stays 1.5
+  units under the brow, so no blade stands against the ridge.
+- **The castle's bank** (`paintBank(c, pal)`) takes the ground's colours: the
+  contact shadow's deepest tone with its lip, stepping up to the lit brow at
+  the west corner; with no palette it keeps the app icon's. Where the hill
+  falls away from the sun (the east shoulder) the brow is a plain 1-px edge
+  a tone up, not the warm lit rim.
+- **Stages:** `vistaStages()` yields each stage's name and every ground stage
+  stays under ~50 ms (the castle bake, ~130-200 ms, is the one over). Small
+  overlays (the threshold, the bank) use `layerAt(ctx, x0, y0, w, h, draw,
+  ink)`: a full layer's pixels in a box, far cheaper to harden and ink.
+  Check with `title-lab.html`.
 
 ## The board's size
 
@@ -658,6 +848,33 @@ dev server; view them from there):
   its two hand-overs, `&seams=1` saves where they differ), `crew-lab.html` (the builders),
   `rings-lab.html` (each area effect through its life at zoom 1
   and 3; `?fx=frostnova,slam`, `?perf=1` times each ring).
+- `title-lab.html?tag=<name>&zoom=x,y,w,h,s&crowd=1`: the title vista
+  painted stage by stage, each stage's time printed, saved into `.shots/`.
+- `skiff-reach-lab.html?realm=<id>&form=3,a,a&at=x,y&tag=<name>`: the River
+  Watch's reach on a real board through the real engine, saved as
+  `skiff_<tag>.png` — `&mode=sel|ghost|plain`, `&hover=x,y&gold=0`,
+  `&preview=2` / `,a` / `,,b` (an armed upgrade), `&underway=1|y`,
+  `&hoverboat=i`, `&noclip=1` (a before shot), `&crop=x,y,w,h&scale=n`,
+  `&first=warm|cold`, `&bench=60`, `&tune={...}` (its header lists them all).
+  `window.LAB` hands a probe the page's own TERRAIN, WATERREACH and
+  groundLayer: a probe's own `import()` gets a different module instance.
+- `type-lab.html` and `scripts/type-shots.mjs`: see "Type (HUD)".
+- **Probes** (a `shoot.mjs` JS argument on any same-origin lab page):
+  - *Clearance and headroom:* bake the figure with `bakeSprite` in a box 10+
+    units taller than its hall's (feet lower) and scan the alpha for the
+    first opaque row — the real bounds, ink included. Guessing from a pose
+    table missed by 2 units and more.
+  - *A hall frame by frame at zoom:* `import()` /src/render/towers.js and
+    the world modules, draw the hall with a hand-built `t` (`cd`, `anim`,
+    `_idle`, `lastAim`, `noFolk`) at the moments a review names, and POST
+    the canvas to `/__shot`.
+  - *A foe's four fight frames on the board* (shots.html): marchers with
+    `{ blockedBy: 1, engaged: true, atkRate: 1000 }` plus, frame by frame,
+    `meleeCd: 600`, `meleeCd: 200`, `atkAnim: 150`, `atkAnim: 50`.
+  - `joint-lab.html?set=<set>&bones=0` lays the plain poses on a regular
+    grid (a 150px label column, cells `CW·2·scale` wide), so one cell crops
+    cleanly; a `rigshot.html` sheet at scale 4 halved (nearest) reads close
+    to 1x for before/after.
 - Always take a BEFORE shot, then judge at 1x board size (what the player
   sees) as well as zoomed. Never launch Chrome from a shell — it trips a
   macOS security prompt; use the app's browser pane.
