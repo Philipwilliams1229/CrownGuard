@@ -158,7 +158,7 @@ export const ENEMIES = {
   },
   marshal: {
     faction: "iron", hp: 5000, speed: 48, bounty: 110, armor: 0.35, size: 24,
-    name: "LORD MARSHAL", boss: true, atk: 46, atkRate: 1000, castleDmg: 5, trample: 2, trampleEvery: 3200,
+    name: "LORD MARSHAL", boss: true, atk: 64, atkRate: 1000, castleDmg: 5, trample: 2, trampleEvery: 3200,
     bannerRange: 115, bannerSpeed: 0.3, bannerArmor: 0.2,
     note: "Boss. His banner drives the whole column faster and harder — every soldier near him is quicker and better armored, and he rides down the first two knights that try to hold him. Cut down the banner and the army falters.",
   },

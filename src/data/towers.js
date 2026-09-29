@@ -48,7 +48,7 @@ export const TOWERS = {
         name: "Berserker Hall", cost: 415, stats: { dmg: 20, rate: 320, range: 60, hp: 150, count: 4 }, desc: "FOUR berserkers with whirling axes. Frailer than knights, but a storm of steel.",
         rank4: {
           a: { name: "Wolf Lodge", cost: 1020, stats: { dmg: 24, rate: 300, range: 98, hp: 175, count: 4, unitSpeed: 150, respawnMs: 4000, rider: true }, desc: "Berserkers on great wolves: faster than anything on the road, and back from the dead in a heartbeat." },
-          b: { name: "Blood Frenzy", cost: 1020, stats: { dmg: 22, rate: 300, range: 60, hp: 160, count: 4, frenzy: true, lifesteal: 0.6 }, desc: "Every wound they deal feeds them — and the longer they fight, the faster the axes swing." },
+          b: { name: "Blood Frenzy", cost: 1020, stats: { dmg: 22, rate: 300, range: 60, hp: 160, count: 4, frenzy: true, lifesteal: 0.25 }, desc: "Every wound they deal feeds them — and the longer they fight, the faster the axes swing." },
         },
       },
     },
