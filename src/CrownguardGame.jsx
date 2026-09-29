@@ -22,7 +22,7 @@ import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, MAX_STA
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
-  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, heroAbilityState, fireHeroAbility,
+  startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
@@ -115,6 +115,8 @@ export default function Crownguard() {
   // "campaign" = one level of the war, "free" = pick-a-realm endless run
   const [mode, setMode] = useState("free");
   const [levelId, setLevelId] = useState(null);
+  // set when a won level marches on: the map plays its travel and opens on the next card
+  const [arrive, setArrive] = useState(null);
   const [progress, setProgress] = useState(loadProgress);
   const [profile, setProfile] = useState(loadProfile);
   // what the level just ended awarded: { rating, newStars, xp }
@@ -285,6 +287,7 @@ export default function Crownguard() {
     setMode("campaign");
     setLevelId(lv.id);
     setAward(null);
+    setArrive(null);
     castleScope.current = lv.chapter.id;
     initGame(lv.gold, false, loadCastle(castleScope.current));
     setRealmOpen(false);
@@ -312,8 +315,16 @@ export default function Crownguard() {
     if (castleScope.current) saveCastle(castleScope.current, g.castle);
   };
 
+  // A level won, the road on: back to the map, the camera travels to the next
+  // site, and its start card is there again — hero, castle works, march.
+  const marchOn = (nxt) => {
+    const from = level;
+    openMap();
+    if (from && nxt) setArrive({ from: from.id, to: nxt.id });
+  };
   const openMap = () => {
     if (G.current) G.current.paused = false;
+    setArrive(null);
     setMenuOpen(false);
     setRealmOpen(false);
     setProgress(loadProgress());
@@ -461,12 +472,12 @@ export default function Crownguard() {
       const hu = hb?.units[0];
       // the hero's two abilities, as the menu shows them
       const heroAbs = hb ? heroAbilities(hb.hero).map((a) => ({ id: a.id, name: a.name, aim: a.aim, desc: a.desc, ...heroAbilityState(hb, a) })) : [];
-      const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}|${heroAbs.map((x) => x.state + (x.sec || "")).join(",")}` : "";
+      const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}|${heroAbs.map((x) => x.state + (x.sec || "")).join(",")}|${canSwapHero(g) ? 1 : 0}${g.heroSwap ? 2 : 0}` : "";
       const militiaSec = Math.ceil((g.militiaCd || 0) / 1000);
       if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey || u.heroKey !== heroKeyUi || u.militiaSec !== militiaSec) {
         setUi({
           heroKey: heroKeyUi, militiaSec,
-          hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0, abilities: heroAbs } : null,
+          hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0, abilities: heroAbs, canSwap: canSwapHero(g), swapping: !!g.heroSwap } : null,
           castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: CASTLE_HP + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
@@ -757,6 +768,9 @@ export default function Crownguard() {
         progress={progress}
         profile={profile}
         onStart={startLevel}
+        heroKey={heroKey}
+        onHero={pickHero}
+        arrive={arrive}
         onBack={() => setScreen("home")}
         onReset={() => setProgress(resetProgress())}
         onBuyWork={(chapterId, key, next) => {
@@ -953,6 +967,11 @@ export default function Crownguard() {
       if (a.aim === "none") { fireHeroAbility(g, a.id); return; }
       g.rallyFor = `ab:${a.id}`; g.selectedId = null; g.buildMode = null; setBuildOpen(false);
     };
+    const swap = (key) => {
+      if (!g || !swapHero(g, key, heroRecord(loadProfile(), key).talents)) return;
+      pickHero(key);          // he rides out at the next map too
+      close();
+    };
     const max = h.level >= HERO_MAX_LEVEL;
     // one plank per order, the tray's full width, never under a thumb's 44
     // on a phone the planks share out the whole panel, so no dead band hangs
@@ -998,6 +1017,13 @@ export default function Crownguard() {
             </button>
           );
         })}
+        {/* before the first horn only: swap him for another hero — he runs into the castle, and the other rides out */}
+        {(h.canSwap || h.swapping) && Object.entries(HEROES).filter(([key]) => key !== h.key).map(([key, other]) => (
+          <button key={key} className={cls("cg-btn", h.swapping ? "cg-btn--slate is-off" : "cg-btn--parch")} disabled={h.swapping} style={row} onClick={() => swap(key)}>
+            <span className="cg-display" style={title}>{hasRig(other.rig) && <EnemyIcon type={other.rig} box={20} />} {h.swapping ? "Changing heroes…" : `Change hero — ${other.name}`}</span>
+            <span style={{ ...fine, color: h.swapping ? "var(--muted)" : "#5a4630" }}>{h.swapping ? "One runs into the castle as the other comes out." : `${h.name} runs into the castle and ${other.name} rides out. Only before the first wave.`}</span>
+          </button>
+        ))}
       </div>
     </>);
   })();
@@ -1659,7 +1685,7 @@ export default function Crownguard() {
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
                     {won && campaign && nxt && (
-                      <button className="cg-btn cg-btn--gold" style={big} onClick={() => startLevel(nxt)}>
+                      <button className="cg-btn cg-btn--gold" style={big} onClick={() => marchOn(nxt)}>
                         <PlayIcon size={13} /> March On — {nxt.name}
                       </button>
                     )}
@@ -1771,10 +1797,13 @@ export default function Crownguard() {
             {/* the castle works, and Master Builds when the purse can afford them */}
             {ui.result == null && (
               <div style={{ display: "flex", gap: 6 }}>
-                <button aria-label="Open the castle works" title="Castle works: defences built on the wall itself, kept in every realm"
-                  className={cls("cg-btn", castleOpen && "is-on")} style={{ flex: 1, minHeight: 40, fontSize: 12, gap: 6 }} onClick={() => trayOpen("castle")}>
-                  <CastleIcon size={18} /> Castle
-                </button>
+                {/* (in the campaign the works are raised on the map, before a level — not in the battle) */}
+                {mode !== "campaign" && (
+                  <button aria-label="Open the castle works" title="Castle works: defences built on the wall itself, kept in every realm"
+                    className={cls("cg-btn", castleOpen && "is-on")} style={{ flex: 1, minHeight: 40, fontSize: 12, gap: 6 }} onClick={() => trayOpen("castle")}>
+                    <CastleIcon size={18} /> Castle
+                  </button>
+                )}
                 {mode === "free" && SANDBOX && (
                   <button aria-label="Open the sandbox controls" title="Sandbox: gold, walls, summon any foe, reshape the war ahead"
                     className={cls("cg-btn cg-btn--slate", sandboxPanel && "is-on")} style={{ minHeight: 40, padding: "0 8px", fontSize: 12, gap: 4 }}

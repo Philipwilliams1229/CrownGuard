@@ -534,6 +534,22 @@ export const fieldHero = (g, key, level = 1, x, y, talents = {}, xp = 0) => {
 };
 export const heroBand = (g) => g?.bands?.find((b) => b.kind === "hero") || null;
 
+// Changing heroes: allowed only before the first horn (wave 0, in the build
+// phase — towers may already stand). The hero in the field runs to the gate
+// and is gone inside; then the new one walks out of it to the same post (the
+// engine finishes the job: update.js, the `leaving` hero).
+export const canSwapHero = (g) => !!g && g.wave === 0 && g.phase === "build" && !g.heroSwap && !!heroBand(g);
+export const swapHero = (g, key, talents = {}) => {
+  const b = heroBand(g);
+  if (!canSwapHero(g) || !HEROES[key] || b.hero === key) return false;
+  const [gx, gy] = PTS[PTS.length - 1];
+  g.heroSwap = { key, talents: { ...(talents || {}) }, rally: { ...b.rally } };
+  b.leaving = true;
+  b.rally = { x: gx, y: gy };
+  b.units[0].dash = null;
+  return true;
+};
+
 // ---- the hero's abilities (bands.js HERO_ABILITIES) ----
 // Where an ability stands: locked until the hero reaches its level in this
 // battle, cooling down, or ready. Seconds left are rounded up for the menu.

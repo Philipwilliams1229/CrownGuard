@@ -206,6 +206,25 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   engine he marches at the mean pace of the soldiers near him so he stays
   inside the column. Ward every 8 s. Behind a siege ram he comes only from
   war-wave 10, on ~6 waves in 10 (seeded), not every time.
+- **The Hollow King** tolls 50 Risen every 10 s, the first at once
+  (`summonFirst: 0`; the Gravecaller has the same instant first toll).
+- **Wraiths bunch up** (`swarms`): any wraith within 34 of a friendly soldier
+  stops and claws at it, blocker or not, so several can be on one knight and
+  each kill raises another (update.js). A 22 s budget (`clawLeft`) stops a
+  stalemate. Only wraiths do this: every other foe is held by at most one
+  soldier per soldier (`blockedBy`), measured at max 6-9 held at once in the
+  Hollow sims, and walks past the rest. Barrow archers and crossbowmen also
+  stand still while a soldier is in reach (the archer rule above).
+- **Mission flow** (owner, 2026-09-29): the level card on the campaign map
+  (`ui/CampaignMap.jsx`) has a HERO row (`heroKey`/`onHero`) beside the castle
+  works; "March On" after a win goes back through the map (`marchOn` in
+  CrownguardGame.jsx sets `arrive` {from,to}: the camera travels the road and
+  the next level's card opens). The campaign battle has NO castle works
+  button (Free Play keeps it: it has no map to buy on). Before the first horn
+  (`canSwapHero`: wave 0, build phase — towers may stand) the hero's menu
+  offers "Change hero": `swapHero` (actions.js) sends the hero running into
+  the gate (`leaving` band, faded out), then the new one walks out of it to
+  the same post (update.js).
 - **Battle Chaplain** heals instead of warding (owner, 2026-09-29): `healPct`
   0.16 of each nearby ally's max health (capped by `healCap` 40 x sqrt(mult),
   so rams and marshals are not mended like levies) every 2.8 s within 95, and

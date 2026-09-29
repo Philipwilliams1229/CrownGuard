@@ -28,6 +28,8 @@
 //   holyOnly       physical damage passes through it — only magic hurts it
 //                  (less `mres`): wizards, fire, the Paladin tree's blows
 //   raisesOnKill   a knight it kills rises again as one of its kind
+//   swarms         bunches up: stops beside any friendly soldier within this reach
+//                  and claws at it, however many are already on him
 //   haunts         flies, but knights can still reach out and fight it
 //   banner*        it buffs the speed and armor of everything around it
 //   summon*        it conjures fresh enemies onto the road as it walks (summonFirst: ms to
@@ -185,8 +187,8 @@ export const ENEMIES = {
   },
   wraith: {
     faction: "hollow", hp: 95, speed: 78, bounty: 18, armor: 0, mres: 0.4, size: 17,
-    name: "Wraith", flying: true, holyOnly: true, raisesOnKill: true, haunts: true, atk: 11, atkRate: 1000, castleDmg: 2,
-    note: "A drowned soul that drifts over the road and lays its cold hands on your knights. Arrows, bolts, stones and plain steel all pass through it: only magic hurts it — wizards, fire, and the Paladin's holy blows, the one kind of knight that can. Whoever it kills rises again as another wraith, so keep your ordinary knights back.",
+    name: "Wraith", flying: true, holyOnly: true, raisesOnKill: true, haunts: true, swarms: 34, atk: 11, atkRate: 1000, castleDmg: 2,
+    note: "A drowned soul that drifts over the road and lays its cold hands on your knights. Arrows, bolts, stones and plain steel all pass through it: only magic hurts it — wizards, fire, and the Paladin's holy blows, the one kind of knight that can. They bunch up on a soldier, all clawing at once, and whoever they kill rises again as another wraith, so keep your ordinary knights back.",
   },
   ghast: {
     faction: "hollow", hp: 175, speed: 84, bounty: 16, armor: 0, size: 18,
@@ -214,7 +216,7 @@ export const ENEMIES = {
   hollowking: {
     faction: "hollow", hp: 4400, speed: 42, bounty: 130, armor: 0.25, mres: 0.5, immStun: true, size: 26,
     name: "THE HOLLOW KING", boss: true, atk: 40, atkRate: 1000, castleDmg: 5,
-    summonEvery: 4400, summonType: "skeleton", summonCount: 2,
+    summonEvery: 10000, summonFirst: 0, summonType: "skeleton", summonCount: 50,
     note: "Boss. The drowned crown itself. Stuns break against his will, half your magic drowns in him — and every few heartbeats he calls more dead out of the ground to walk in front of him. The court dies when the King does.",
   },
 };

@@ -339,7 +339,7 @@ export function draw(g, canvas, bufRef) {
     if (br && g.time >= br.at) for (const d of builderDrawables(ctx, t, g.time, br)) drawables.push(d);
   }
   if (g.bands) for (const b of g.bands) {
-    for (const u of b.units) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => drawBandUnit(ctx, u, b, g.time)) });
+    for (const u of b.units) drawables.push({ y: u.y + 9, fn: () => onDeck(u.x, u.y, () => { if (u.fade != null) { ctx.save(); ctx.globalAlpha *= Math.max(0.02, u.fade); drawBandUnit(ctx, u, b, g.time); ctx.restore(); } else drawBandUnit(ctx, u, b, g.time); }) });
     // a fallen hero's ghost of a marker, and the militia's dwindling time
     if (b.kind === "hero" && b.units[0].state === "dead") drawables.push({ y: b.rally.y, fn: () => {
       const left = Math.max(0, Math.ceil(b.units[0].respawn / 1000));

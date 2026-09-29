@@ -36,6 +36,8 @@ import { REALMS } from "../data/maps.js";
 import { W, H } from "../data/constants.js";
 import { coastOutline } from "../data/terrain.js";
 import EnemyIcon from "./EnemyIcon.jsx";
+import { HEROES } from "../data/bands.js";
+import { hasRig } from "../render/rigs.js";
 import { Star } from "./Glyphs.jsx";
 import { MAX_STARS } from "../data/profile.js";
 import { panel, FONT, HEAD, MAP as MAP_FONT } from "./theme.js";
@@ -127,9 +129,13 @@ function Banner({ ch, open }) {
   );
 }
 
-export default function CampaignMap({ progress, profile, onStart, onBack, onReset, onBuyWork }) {
+// `heroKey`/`onHero`: the hero who rides out, chosen on the level's card.
+// `arrive` ({ from, to } level ids): a level was just won — the map opens on
+// the site just left, the camera travels the road to the next, and its card
+// (hero, castle works, march) is there to choose from again.
+export default function CampaignMap({ progress, profile, onStart, onBack, onReset, onBuyWork, heroKey, onHero, arrive }) {
   const rating = (id) => profile?.stars?.[id] || 0;
-  const [selId, setSelId] = useState(() => currentLevel(progress).id);
+  const [selId, setSelId] = useState(() => (arrive && levelById(arrive.to) ? arrive.to : currentLevel(progress).id));
   const [worksOpen, setWorksOpen] = useState(false);
   const [painted, setPainted] = useState(false);
   const sel = levelById(selId);
@@ -236,10 +242,12 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
     if (!view || view.w < 2 || view.h < 2) return;
     vRef.current = view;
     if (!cam.current) {
-      const z = closeZ(view), prev = LAST_FRONT && LAST_FRONT !== upTo.id ? posOf(levelById(LAST_FRONT)) : null;
-      const at = prev || frontPos;
+      const fromLv = arrive ? levelById(arrive.from) : null, toLv = arrive ? levelById(arrive.to) : null;
+      const z = closeZ(view), prev = fromLv ? posOf(fromLv) : LAST_FRONT && LAST_FRONT !== upTo.id ? posOf(levelById(LAST_FRONT)) : null;
+      const dest = toLv ? posOf(toLv) : frontPos;
+      const at = prev || dest;
       cam.current = clampCam({ x: at[0], y: at[1], z }, view);
-      if (prev && (prev[0] !== frontPos[0] || prev[1] !== frontPos[1])) journey.current = frontPos;
+      if (prev && (prev[0] !== dest[0] || prev[1] !== dest[1])) journey.current = dest;
       LAST_FRONT = upTo.id;
     } else cam.current = clampCam(cam.current, view);
     apply();
@@ -521,6 +529,27 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
       <rect x={selRealm.path[selRealm.path.length - 1][0] * 10 - 1} y={selRealm.path[selRealm.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
     </svg>
   );
+  // the hero who rides out: a plank per hero, the chosen one lit
+  const heroPick = onHero && (
+    <div style={{ background: "rgba(59,42,28,0.12)", border: `1px solid ${PARCH.dk}`, padding: compact ? "4px 7px" : "6px 8px" }}>
+      <div style={{ fontSize: 8.5, letterSpacing: 2, color: PARCH.red, fontWeight: "bold", marginBottom: 4 }}>HERO</div>
+      <div style={{ display: "flex", gap: 6 }}>
+        {Object.entries(HEROES).map(([key, h]) => {
+          const on = key === heroKey;
+          return (
+            <button key={key} aria-pressed={on} title={h.blurb} onClick={() => onHero(key)}
+              style={{ ...(on ? goldBtn : woodBtn), flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: compact ? "3px 6px" : "5px 8px", textAlign: "left", minHeight: compact ? 40 : 48 }}>
+              {hasRig(h.rig) && <EnemyIcon type={h.rig} box={compact ? 28 : 34} />}
+              <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, minWidth: 0 }}>
+                <b style={{ fontSize: compact ? 11 : 12 }}>{h.name}</b>
+                <span style={{ fontSize: 8.5, opacity: 0.85 }}>{h.title}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
   const marchStyle = {
     ...goldBtn, width: "100%", textAlign: "center", padding: "14px 10px", fontSize: 14, letterSpacing: 1, minHeight: 52,
     ...(selUnlocked ? {} : { background: "#8a8274", boxShadow: "inset -3px -3px 0 #6a6258, inset 3px 3px 0 #a8a092", color: "#4a4450", cursor: "not-allowed" }),
@@ -561,6 +590,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
           </div>
         </div>
       )}
+      {selUnlocked && heroPick}
       <div style={{ flex: wide ? 1 : 0 }} />
       <button style={marchStyle} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
       {wide && abandon}
@@ -604,6 +634,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
           </div>
         )}
       </div>
+      {selUnlocked && <div style={{ flexShrink: 0 }}>{heroPick}</div>}
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
         <button style={{ ...marchStyle, flex: 1, padding: "10px 8px", fontSize: 13, minHeight: 48 }} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
         <button aria-label="Abandon campaign and start over"

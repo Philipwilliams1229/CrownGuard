@@ -14,7 +14,7 @@ import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, nearestOnPath, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
-import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
+import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { isBuilt } from "./build.js";
 import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE } from "./muzzles.js";
@@ -438,7 +438,7 @@ const makeEnemy = (type, mult) => {
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: pickLane(d.boss || !!d.roadBlock),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
-    flying: !!d.flying, haunts: !!d.haunts, holyOnly: !!d.holyOnly, raisesOnKill: !!d.raisesOnKill, guard: d.guard || 0, guardFlash: 0,
+    flying: !!d.flying, haunts: !!d.haunts, holyOnly: !!d.holyOnly, raisesOnKill: !!d.raisesOnKill, swarms: d.swarms || 0, guard: d.guard || 0, guardFlash: 0,
     roadBlock: d.roadBlock || 0, packRange: d.packRange || 0, capDist: Infinity,
     airAtk: d.airAtk || 0, airReach: d.airReach || 0, airFight: null, airOx: 0, airOy: 0,
     immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush, mounted: !!d.mounted,
@@ -823,10 +823,32 @@ export function updateGame(g, dt) {
             continue;
           }
         }
+        if (b.kind === "hero" && b.leaving) {
+          // he runs into the castle; when he is through the gate the new hero walks out of it
+          const u = b.units[0], sw = g.heroSwap, [gx, gy] = PTS[PTS.length - 1];
+          const dx = gx - u.x, dy = gy - u.y, d = Math.hypot(dx, dy);
+          const step = ((b.st?.unitSpeed || 105) * 1.5) * sdt;
+          u.face = dx >= 0 ? 1 : -1;
+          u.state = "moving";
+          u.fade = Math.max(0, Math.min(1, (d - 4) / 26));
+          if (d <= step + 3) {
+            b.gone = true;
+            g.effects.push({ type: "dust", x: gx, y: gy + 6, ttl: 420, r: 20 });
+            if (sw) {
+              const nb = fieldHero(g, sw.key, 1, gx, gy, sw.talents);
+              if (nb) { nb.rally = sw.rally; nb.units[0].emerge = 0; nb.units[0].fade = 0; nb.units[0].face = -1; }
+              g.effects.push({ type: "flash", x: gx, y: gy - 6, ttl: 380 });
+            }
+            g.heroSwap = null;
+          } else { u.x += (dx / d) * step; u.y += (dy / d) * step; }
+          continue;
+        }
         if (b.kind === "hero") {
           b.st = heroStats(b.hero, b.level, b.talents);
           const u = b.units[0];
           u.maxHp = b.st.hp;
+          // a hero just out of the gate solidifies as he steps into the light
+          if (u.emerge !== undefined) { u.emerge += sdt; u.fade = Math.min(1, u.emerge / 0.7); if (u.fade >= 1) { delete u.emerge; delete u.fade; } }
           levelHero(g, b);
           if (u.state === "dead") { b.deadFor = (b.deadFor || 0) + sdt * 1000; u.dash = null; }
           // abilities recharge whatever he is doing, dead or alive
@@ -1386,8 +1408,8 @@ export function updateGame(g, dt) {
       // reach, shooting from afar; once none is left standing they march on.
       // (`aiming` is last frame's answer; a 14 s budget of standing still per
       // archer keeps a healer's stalemate from holding a wave open for ever)
-      const standing = e.rangedAtk && e.aiming && (e.pauseLeft ??= 14000) > 0;
-      if (standing) e.pauseLeft -= sdt * 1000;
+      const standing = (e.rangedAtk && e.aiming && (e.pauseLeft ??= 14000) > 0) || (e.clawing && (e.clawLeft ??= 22000) > 0);
+      if (standing) { if (e.clawing) e.clawLeft -= sdt * 1000; else e.pauseLeft -= sdt * 1000; }
       const rising = e.riseAt !== undefined && tms - e.riseAt < e.riseMs;
       if (!stunned && !held && !standing && !rising) {
         const slow = (e.immSlow || e.guard > 0) ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
@@ -1472,6 +1494,35 @@ export function updateGame(g, dt) {
         }
       }
       if (!e.rangedAtk || stunned) e.aiming = false;
+      // Wraiths bunch up: any soldier within reach draws every wraith that
+      // passes, and they all claw at it at once (no blocker is needed, so one
+      // knight can be swarmed by many — and each one it kills raises another)
+      if (e.swarms && !stunned && !held) {
+        let prey = null, host = null, pd = e.swarms;
+        for (const t of unitHosts(g)) for (const u of t.units) {
+          if (u.state === "dead") continue;
+          const d = Math.hypot(u.x - e.x, u.y - e.y);
+          if (d < pd) { pd = d; prey = u; host = t; }
+        }
+        e.clawing = !!prey;
+        if (prey) {
+          e.face = prey.x >= e.x ? 1 : -1;
+          e.meleeCd -= sdt * 1000;
+          if (e.meleeCd <= 0) {
+            e.meleeCd = e.atkRate;
+            e.atkAnim = 200;
+            if (prey.shield) {
+              prey.shield = false; prey.shieldCd = 6500;
+              g.effects.push({ type: "flash", x: prey.x, y: prey.y - 6, ttl: 300 });
+            } else {
+              prey.hp -= e.atk;
+              g.effects.push({ type: "hit", x: prey.x, y: prey.y - 10, ttl: 200 });
+              sfx.play("hit");
+            }
+            if (prey.hp <= 0) { killUnit(g, host, prey); if (e.raisesOnKill) raiseFrom(g, e, prey, tms); }
+          }
+        }
+      } else if (e.swarms) e.clawing = false;
       if (e.dist >= TOTAL_LEN) {
         e.dead = true;
         const dmgC = e.castleDmg || 1;
