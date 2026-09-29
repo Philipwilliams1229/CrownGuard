@@ -135,7 +135,8 @@ export const falconKind = (t, b) => {
 // bird b of n on the wheel over the mews at game time `time` (seconds)
 export const wheelAt = (t, b, n, time) => {
   const ang = time * 1.7 + t.id * 0.7 + (b / n) * Math.PI * 2, { my } = falconPerch(t);
-  return [t.x + Math.cos(ang) * 18, my - 28 + Math.sin(ang) * 6];
+  // wheeling clear above her hat (it crossed her face at my - 28)
+  return [t.x + Math.cos(ang) * 18, my - 39 + Math.sin(ang) * 5];
 };
 // a bird sitting on her glove in `pose` (folk-gunners.js mistressGlove), facing f
 export const gloveBirdAt = (t, pose, f = facing(t)) => {
