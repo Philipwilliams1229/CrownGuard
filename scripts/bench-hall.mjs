@@ -17,6 +17,8 @@
 //   --realm greenwood
 //   --kind archer,wizard --forms "1;2;3;3,a;3,b"   any halls, any forms
 //   --set frags=10,fragDmg=30   try numbers on the benched forms (towers.js untouched)
+//   --perks max   every node of every skill tree at full rank (or g1=3,g4=2 for some)
+//   --mix crowd,armor,iron      which foe mixes (default those three; `all` adds ironpack)
 //   --json        print the table as JSON too
 //
 // Two numbers per cell: `dps`, every hit point the stream lost (burns
@@ -62,11 +64,14 @@ const DT = 1 / 30;
 //   armor — an armored column: plate that halves every physical blow
 //   iron  — the Iron Marches: three-pip levies, a chaplain laying wards, an
 //           Aegis Magister in the thick of it; every physical blow a pip eats
+//   ironpack — the same column packed close (a late Iron wave's bunching):
+//           the aegis covers more heads, and a burst finds more of them
 const MIXES = {
   crowd: { gap: 200, cycle: ["goblin", "goblin", "skeleton", "goblin", "goblin", "orc", "goblin", "skeleton"] },
   armor: { gap: 650, cycle: ["armored", "sergeant", "orc", "armored", "troll", "sergeant"] },
   iron: { gap: 380, cycle: ["levy", "levy", "crossbow", "levy", "sergeant", "levy", "chaplain", "levy", "levy", "crossbow", "levy", "magister"] },
 };
+MIXES.ironpack = { ...MIXES.iron, gap: 150 };
 
 const freshGame = () => ({
   run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 1e6, wave: 20, phase: "combat",
@@ -171,11 +176,24 @@ else {
   jobs = ALL_POWDER.map((f) => ["gunpowder", f]);
   if (flag("peers")) for (const k of PEER_KINDS) for (const f of finals(k)) jobs.push([k, f]);
 }
-const mixes = after("mix") ? after("mix").split(",") : Object.keys(MIXES);
+const mixes = after("mix") === "all" ? Object.keys(MIXES) : after("mix") ? after("mix").split(",") : ["crowd", "armor", "iron"];
+
+// --perks max | g1=3,g4=2 : the permanent skill trees (default: none bought)
+if (after("perks")) {
+  const { recomputePerks } = await import("../src/data/profile.js");
+  const { SKILLS, RANKS } = await import("../src/data/skills.js");
+  const want = after("perks") === "max" ? null : Object.fromEntries(after("perks").split(",").map((kv) => kv.split("=")).map(([k, v]) => [k, Number(v)]));
+  const perks = {};
+  for (const [k, tree] of Object.entries(SKILLS)) {
+    perks[k] = {};
+    for (const n of tree.nodes) if (!want || want[n.id]) perks[k][n.id] = want ? Math.min(RANKS, want[n.id]) : RANKS;
+  }
+  recomputePerks({ perks });
+}
 
 selectRealm(REALM);
 selectFaction("greenwood");
-console.log(`lone-hall bench — ${REALM}, foe HP ×${MULT}, ${SECS}s a run, ${SEEDS} seeds × ${ATS.length} spots; dps (card) per second a foe is in reach`);
+console.log(`lone-hall bench — ${REALM}, foe HP ×${MULT}, ${SECS}s a run, ${SEEDS} seeds × ${ATS.length} spots${after("perks") ? `, perks ${after("perks")}` : ""}; dps (card) per second a foe is in reach`);
 console.log(`${"form".padEnd(24)} ${"cost".padStart(5)}  ${mixes.map((m) => m.padStart(15)).join("")}`);
 const out = [];
 for (const [kind, form] of jobs) {

@@ -40,7 +40,8 @@ const pct = (v) => `${Math.round(v * 100)}%`;
 // whose stored value is better when smaller (the ms between shots, shown as
 // a rate a second; a recharge time). A fifth entry names a second stat the
 // row also shows (fmt gets the whole stat block): the row moves when either
-// does, and reads better when the product grows.
+// does, and reads better when the product grows (a missing second stat
+// counts as 1: one musket ball).
 const DELTAS = [
   ["count", "Swords", (v) => v],
   ["dmg", "Damage", (v) => Math.round(v)],
@@ -53,6 +54,8 @@ const DELTAS = [
   // the Powder Works' charge: how many shards it throws, and what each one hits for
   ["frags", "Shrapnel", (v, st) => `${v} × ${Math.round(st.fragDmg || 0)}`, false, "fragDmg"],
   ["fragReach", "Shard reach", (v) => Math.round(v)],
+  // Dragon's Breath: the shards set what they strike alight (a mechanic, so it shows in the ⓘ too)
+  ["fragBurn", "Shards", () => "red-hot"],
   ["shots", "Stones", (v) => v],
   ["spikes", "Spikes", (v) => v],
   ["slow", "Slow", (v) => `${Math.round(v * 100)}%`],
@@ -63,7 +66,8 @@ const DELTAS = [
   ["bountyAura", "Kill bounty", (v) => `+${Math.round(v * 100)}%`],
   ["maxCharges", "Charges", (v) => v],
   ["chargeEvery", "Recharge", (v) => `${(v / 1000).toFixed(0)}s`, true],
-  ["mDmg", "Musket", (v) => Math.round(v)],
+  // a Grapeshot fan reads "4 × 170", weighed as the whole fan
+  ["mDmg", "Musket", (v, st) => (st.mShots > 1 ? `${st.mShots} × ${Math.round(v)}` : Math.round(v)), false, "mShots"],
   ["mRate", "Musket rate", perSec, true],
   ["preyMult", "Vs support", (v) => `×${v}`],
   // the damage mechanics: what hurts beyond the hit itself, and how often
@@ -88,7 +92,6 @@ const DELTAS = [
   ["crit", "Crit", (v) => `1 in ${v}`, true],
   ["critMult", "Crit dmg", (v) => `×${v}`],
   ["mCrit", "Musket crit", (v) => `1 in ${v} ×3`, true],
-  ["mShots", "Musket balls", (v) => v],
   ["mBurn", "Hot shot", (v) => `${Math.round(v)}/s`],
   ["crack", "Cracked armor", (v) => `+${Math.round(v * 100)}% dmg`],
   ["crackDur", "Crack time", sec],
@@ -109,9 +112,11 @@ const DELTAS = [
 const has = (v) => v != null && v !== 0 && v !== false;
 // what `count` counts, hall by hall
 const COUNT_LABEL = { knight: "Knights", assassin: "Blades", riverwatch: "Skiffs", gunpowder: "Crew" };
+// the Powder Works' `dmg` is the charge's own blow on its mark (its shards are their own row)
+const DMG_LABEL = { gunpowder: "Charge" };
 // halls whose people strike rather than shoot
 const RATE_LABEL = { knight: "Attack rate", assassin: "Attack rate" };
-const labelFor = (k, label, kind) => (k === "count" ? COUNT_LABEL[kind] || label : k === "rate" ? RATE_LABEL[kind] || label : label);
+const labelFor = (k, label, kind) => (k === "count" ? COUNT_LABEL[kind] || label : k === "rate" ? RATE_LABEL[kind] || label : k === "dmg" ? DMG_LABEL[kind] || label : label);
 
 // Everything a form has, for the finished card: [{ label, value }] in the
 // DELTAS order, then its traits as words.
@@ -147,7 +152,7 @@ export function formDeltas(t, form) {
     if ((!has(av) && !has(bv)) || (av === bv && (!k2 || a[k2] === b[k2]))) continue;
     const from = has(av) ? fmt(av, a) : "—", to = has(bv) ? fmt(bv, b) : "—";
     if (String(from) === String(to)) continue;
-    const va = k2 ? av * (a[k2] || 0) : av, vb = k2 ? bv * (b[k2] || 0) : bv;
+    const va = k2 ? av * (a[k2] || 1) : av, vb = k2 ? bv * (b[k2] || 1) : bv;
     out.push({ label: labelFor(k, label, t.kind), from, to, better: !has(av) ? true : !has(bv) ? false : lower ? vb < va : vb > va });
   }
   return out;

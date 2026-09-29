@@ -112,8 +112,8 @@ const TRAITS = [
   ["mPierce", "the musket punches through any armor"],
   ["mCrit", "every 3rd musket ball lands triple"],
   ["fragBurn", "red-hot shards set what they strike alight"],
-  ["crack", "charges and shards crack armor, and the musket shoots the cracked first"],
-  ["spot", "the charges follow the musket's mark"],
+  ["crack", "cracks the armor of all it strikes, and its marksman picks the cracked first"],
+  ["spot", "its marksman spots: the thrown charges follow his mark"],
 ];
 
 export function describe(s) {

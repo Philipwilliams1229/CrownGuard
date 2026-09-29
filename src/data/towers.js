@@ -237,8 +237,8 @@ export const TOWERS = {
       a: {
         name: "The Bombard Yard", cost: 350, stats: { dmg: 130, rate: 2100, range: 90, frags: 12, fragDmg: 56, fragReach: 50, burn: 12, burnDur: 2400, crack: 0.25, crackDur: 2600, mDmg: 225, mRate: 2600, mRange: 153, count: 2 }, desc: "Charges and every shard they throw crack armor open, and the musketeer shoots into the cracks.",
         rank4: {
-          a: { name: "The Grand Battery", cost: 680, stats: { dmg: 110, rate: 2000, range: 98, frags: 32, fragDmg: 46, fragReach: 56, burn: 16, burnDur: 2800, crack: 0.3, crackDur: 3000, mDmg: 290, mRate: 2500, mRange: 158, count: 2 }, desc: "One great charge a throw and a storm of iron out of it, cracking the whole road for the musket." },
-          b: { name: "Dragon's Breath", cost: 680, stats: { dmg: 120, rate: 2050, range: 94, frags: 14, fragDmg: 30, fragReach: 52, fragBurn: true, burn: 24, burnDur: 3400, burnSpread: true, crack: 0.25, crackDur: 2600, mDmg: 262, mRate: 2550, mRange: 154, mBurn: 24, mBurnDur: 3400, count: 2 }, desc: "Pitch in the powder, hot shot in the musket: red-hot shards set foes alight, and the fire leaps." },
+          a: { name: "The Grand Battery", cost: 680, stats: { dmg: 130, rate: 2000, range: 98, frags: 32, fragDmg: 46, fragReach: 56, burn: 16, burnDur: 2800, crack: 0.3, crackDur: 3000, mDmg: 290, mRate: 2500, mRange: 158, count: 2 }, desc: "One great charge a throw and a storm of iron out of it, cracking all it strikes for the musket." },
+          b: { name: "Dragon's Breath", cost: 680, stats: { dmg: 130, rate: 2050, range: 94, frags: 14, fragDmg: 50, fragReach: 52, fragBurn: true, burn: 16, burnDur: 2600, burnSpread: true, crack: 0.25, crackDur: 2600, mDmg: 262, mRate: 2550, mRange: 154, mBurn: 24, mBurnDur: 3400, count: 2 }, desc: "Pitch in the powder, hot shot in the musket: red-hot shards set foes alight, and the fire leaps." },
         },
       },
       b: {

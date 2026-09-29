@@ -170,6 +170,18 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
   one facing for good (`powderHome`: toward the road it watches) and each
   man faces his own last shot and HOLDS it when the fighting stops
   (`bomberFacing`/`musketFacing` in muzzles.js, off `t.bAim`/`t.mAim`).
+- The Powder Works' charge ends in a tight pop, never a blast ring (owner,
+  2026-09-29: "a small explosion" on the one foe it hits): `BLAST.keg` in
+  `render/fx.js` — a white-hot knot at the mark, a few short rays, a small
+  smoke puff, a ~9 px soot mark. The spread is its shrapnel, and every shard
+  is a real shot (`drawProjectile` kind "frag"): four cuts of iron sliver
+  baked once per heading (32) and stamped from a plain array (no key
+  strings, no gradients — a late board has hundreds in the air). The inked
+  body alone read as a grey pellet on the road at 1x, so the ends go on
+  AFTER the ink — a cream point that sticks out past the outline and a torn
+  tail — with a full-strength cream streak behind (red-hot for Dragon's
+  Breath). They fly at the blast's height and drop as they slow; a foe a
+  shard strikes shows the white `spark`.
 
 ## Joints and motion (the September 28 pass)
 

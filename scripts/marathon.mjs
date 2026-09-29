@@ -72,7 +72,7 @@ const place = (kind) => {
   if (kind === "knight" || kind === "assassin") { const p = nearestOnPath(t.x, t.y); if (p.d <= RALLY_RANGE) t.rally = { x: p.x, y: p.y }; }
   // a Log Roller is aimed up the road, against the flow, the way a player would
   if (kind === "catapult") { const p = nearestOnPath(t.x, t.y); const [ax, ay] = posAt(Math.max(0, p.dist - 160)); t.rally = { x: ax, y: ay }; }
-  if (kind === "wizard" || kind === "catapult" || kind === "gunpowder") t.aim = "most";
+  if (kind === "wizard" || kind === "catapult") t.aim = "most";
   return true;
 };
 const step = (t) => {

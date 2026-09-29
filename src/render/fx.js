@@ -553,7 +553,8 @@ BLAST.keg = {
         : [FIRE[1], FIRE[2], FIRE[3], FIRE[4]];
       cloud(G, lobes(cx, by, Rf * 0.75, 4, seed + f, s, 0.6), tones, seed * 3 + f, { heat: true });
     }
-    // the first instant: short hard rays, the shards' own directions
+    // the first instant: a few short hard rays (hashed from the seed — the
+    // shards themselves are their own shots, drawProjectile "frag")
     if (p < 0.25) {
       const L0 = Rf * 0.9, L = Rf * (p < 0.12 ? 2.2 : 1.7);
       for (let k = 0; k < 6; k++) {
@@ -872,26 +873,52 @@ const ballShape = (lx, ly) => {
   return d <= 2.2 ? (lx > -1 && ly < 0 ? 0 : 1) : -1;
 };
 
-// the Powder Works' shrapnel: four cuts of jagged iron sliver (art pixels,
-// flying +x, lit from above), each baked at 32 headings with a short bright
-// streak behind it; a Dragon's Breath shard is red-hot
+// the Powder Works' shrapnel: four cuts of jagged iron sliver in art pixels,
+// flying +x — 0 a cream glint on the lit top face, 1 steel, 2 iron, 3 the
+// dark underside — baked once per heading (32) and stamped. The inked body
+// alone read as a grey pellet on the road at 1x (review, 2026-09-29), so the
+// ends go on AFTER the ink: "t" a bright point that sticks out past the
+// outline, "e" a torn tail; and a full-strength streak trails it. A Dragon's
+// Breath shard is red-hot.
 const SHARD_CUTS = [
-  ["..aab..", ".abbbbc", "abbcc.."],
-  ["aab....", "abbbbc.", "..bccc."],
-  [".aab..", "abbbbc", "..bcc.", "...c.."],
-  ["...ab.", "aabbbc", ".bccc."],
+  ["....0001111...", "ee2211111222tt", "...3332223...."],
+  ["...0011.....", "e21111122tt.", "..3322223...", "....33......"],
+  ["......00011tt.", "ee22111112233.", "..333222......"],
+  [".....0011....", "e2211111122tt", "....33322...."],
 ];
-const SHARD = { iron: pal("#dfe2e8", "#7a7480", "#443c4a"), hot: pal("#fff3d2", "#f0a040", "#9a3a30") };
-const SHARD_STREAK = { iron: "#fff3d2", hot: "#f8d868" };
-const shardShape = (v) => {
-  const m = SHARD_CUTS[v & 3], w = m[0].length, h = m.length;
-  return (lx, ly) => {
-    const x = Math.floor(lx + w / 2), y = Math.floor(ly + h / 2);
-    const c = x >= 0 && y >= 0 && x < w && y < h ? m[y][x] : ".";
-    return c === "a" ? 0 : c === "b" ? 1 : c === "c" ? 2 : -1;
-  };
+const SHARD = { iron: pal("#f4ecd8", "#b4b8c4", "#6e6878", "#3c3444"), hot: pal("#fff3d2", "#f8d868", "#f0a040", "#9a3a30") };
+const SHARD_STREAK = { iron: col("#fff3d2"), hot: col("#f8d868") };
+const SHARD_TRAIL = 14;                                    // art pixels of streak
+const bakeShard = (heat, v, d) => {
+  const m = SHARD_CUTS[v], w = m[0].length, h = m.length, tones = SHARD[heat];
+  const a = (d / DIRS) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+  const tail = w / 2 + 0.5, half = Math.ceil(tail + SHARD_TRAIL) + 2;
+  const G = grid(half * 2, half * 2), E = grid(half * 2, half * 2), S2 = grid(half * 2, half * 2);
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    const dx = x + 0.5 - half, dy = y + 0.5 - half;
+    const X = Math.floor(dx * c + dy * s + w / 2), Y = Math.floor(-dx * s + dy * c + h / 2);
+    const ch = X >= 0 && Y >= 0 && X < w && Y < h ? m[Y][X] : ".";
+    if (ch >= "0" && ch <= "3") G.set(x, y, tones[ch.charCodeAt(0) - 48]);
+    else if (ch === "t") E.set(x, y, tones[0]);
+    else if (ch === "e") E.set(x, y, tones[2]);
+  }
+  const cv = G.done(INK_LINE), cx = cv.getContext("2d");
+  cx.drawImage(E.done(), 0, 0);                            // the point and the tail, un-inked
+  for (let i = 0; i < SHARD_TRAIL; i++) {
+    const lx = -tail - i;
+    S2.set(half + lx * c, half + lx * s, SHARD_STREAK[heat], Math.round(255 * (1 - i / SHARD_TRAIL)));
+  }
+  cx.globalCompositeOperation = "destination-over";        // the streak sits behind
+  cx.drawImage(S2.done(), 0, 0);
+  cx.globalCompositeOperation = "source-over";
+  return { cv, ax: half, ay: half };
 };
-const shardSprite = (heat, v, d) => rotSprite(`shd|${heat}|${v & 3}`, d, 16, shardShape(v), SHARD[heat], INK_LINE, [4, heat === "hot" ? 15 : 12, col(SHARD_STREAK[heat]), heat === "hot" ? 250 : 200]);
+// a plain array per heat, no key strings: a late board has a few hundred shards in the air
+const SHARD_BAKED = { iron: [], hot: [] };
+const shardSprite = (heat, v, d) => {
+  const B = SHARD_BAKED[heat], k = (v & 3) * DIRS + d;
+  return B[k] || (B[k] = bakeShard(heat, v & 3, d));
+};
 
 // orbs: a lit core in a dithered halo that breathes over four frames
 const ORB = {

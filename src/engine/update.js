@@ -247,8 +247,12 @@ const SPLASH_CAP = 16;
 // the burst breaks up rather than flying as a ring), each flying `fragReach` along
 // the ground and striking the FIRST foe in its path (never the mark), a
 // physical blow of `fragDmg`: a raised shield swallows a shard whole like any
-// other blow, so a burst strips a pip from every shield it finds. Shards run
-// the musket ball's own path-hitting code (hitIds / hitsLeft, below).
+// other blow. First-in-path piles the shards onto the nearest ring of bodies,
+// so a burst strips whole shields off the few nearest the mark rather than a
+// pip off everyone in a circle (as the old splash did): on a clump of 16
+// levies (48 pips) a Grand Battery burst lands ~25 of its 32 shards and takes
+// ~11 pips. Shards run the musket ball's own path-hitting code (hitIds /
+// hitsLeft, pierceStrike below).
 // The burst lies on the ground: its reach is squashed north-south by FRAG_SQ
 // to read as a ring seen at 3/4, like the blasts (render/fx.js RY).
 const FRAG_SQ = 0.8, FRAG_SPEED = 260;
@@ -326,6 +330,23 @@ const fragVictim = (g, p, step) => {
     best = e; bestAlong = along;
   }
   return best;
+};
+
+// a spike, a musket ball or a shard striking one body on its way through
+const pierceStrike = (g, p, e, tms) => {
+  dealDamage(g, e, p.dmg, p.dtype, false, false, p.src);
+  p.hitIds.push(e.id);
+  if (!e.dead && p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = Math.max(e.slowPct, p.slow); }
+  // Dragon's Breath's hot shot (and its hot shards) set what they pass through alight
+  if (!e.dead && p.burn) {
+    if (!(e.burnUntil > tms) || e.burnDps <= p.burn) e.burnSrc = p.src;
+    e.burnDps = Math.max(e.burnUntil > tms ? e.burnDps : 0, p.burn);
+    e.burnUntil = Math.max(e.burnUntil, tms + p.burnDur);
+    if (p.burnSpreads) e.burnSpread = true;
+  }
+  // the Bombard Yard's shards crack what they strike, for the musket to pick
+  if (!e.dead && p.crack) powderRiders(e, p, tms, false);
+  if (--p.hitsLeft <= 0) p.done = true;
 };
 
 // Build a fresh enemy instance of `type` with wave HP multiplier `mult`.
@@ -2124,36 +2145,22 @@ export function updateGame(g, dt) {
       // spikes, musket balls and the Powder Works' shards skewer whatever
       // they pass through (no homing, no arrival hit), `hitsLeft` bodies
       if (p.kind === "spike" || p.kind === "ball" || p.kind === "frag") {
-        const strike = (e) => {
-          dealDamage(g, e, p.dmg, p.dtype, false, false, p.src);
-          p.hitIds.push(e.id);
-          if (!e.dead && p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = Math.max(e.slowPct, p.slow); }
-          // Dragon's Breath's hot shot (and its hot shards) set what they pass through alight
-          if (!e.dead && p.burn) {
-            if (!(e.burnUntil > tms) || e.burnDps <= p.burn) e.burnSrc = p.src;
-            e.burnDps = Math.max(e.burnUntil > tms ? e.burnDps : 0, p.burn);
-            e.burnUntil = Math.max(e.burnUntil, tms + p.burnDur);
-            if (p.burnSpreads) e.burnSpread = true;
-          }
-          // the Bombard Yard's shards crack what they strike, for the musket to pick
-          if (!e.dead && p.crack) powderRiders(e, p, tms, false);
-          if (--p.hitsLeft <= 0) p.done = true;
-        };
         if (p.kind === "frag") {
           const e = fragVictim(g, p, Math.min(p.speed * sdt, Math.hypot(p.tx - p.x, p.ty - p.y)));
           if (e) {
-            strike(e);
+            pierceStrike(g, p, e, tms);
             g.effects.push({ type: "spark", x: e.x, y: e.y - 5, ttl: 180, gold: p.hot });
           }
         } else {
           for (const e of g.enemies) {
             if (e.dead || p.hitIds.includes(e.id) || (p.ground && e.flying)) continue;
-            if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) { strike(e); if (p.done) break; }
+            if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) { pierceStrike(g, p, e, tms); if (p.done) break; }
           }
         }
         if (p.done) continue;
       }
-      const target = g.enemies.find((e) => e.id === p.targetId && !e.dead);
+      // (a shard, a spike and a ball fly to a point: no mark to follow)
+      const target = p.targetId == null ? null : g.enemies.find((e) => e.id === p.targetId && !e.dead);
       if (target) { p.tx = target.x; p.ty = target.y; }
       const dx = p.tx - p.x, dy = p.ty - p.y;
       const d = Math.hypot(dx, dy);

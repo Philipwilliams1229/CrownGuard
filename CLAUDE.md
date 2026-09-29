@@ -275,12 +275,56 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
   gangs up. The eagle still picks fliers first. With the sky clear she
   strafes the road (`strafe`: PASS_MS/STRIKE_MS passes, alternating
   sides); draw.js picks her frames off `eg.passAt`/`eg.blowAt`/`eg.latched`.
-- Powder Works paths are ways of working together, never one man over the
-  other: the Bombard Yard's blasts `crack` armor (brittle) and the musket
-  shoots the cracked first; the Long Muskets `spot` (the bombardier's
-  charges follow the musket's mark to its reach, leading it); Dragon's
-  Breath adds hot shot (`mBurn`). Measured with a lone-hall bench against
-  the old forms (±20% per foe mix, even on average).
+- The Powder Works (reworked 2026-09-29; owner: "Powder keg has crazy high
+  damage (700 dps) ... it shoots out pieces of fragment around a small
+  explosion ... Shrapnel is physical damage not magic"). Its paths are ways
+  of working together, never one man over the other.
+  - The bombardier's charge homes on ONE ground foe and blasts only it
+    (`dmg`, the card's "Charge": physical, plus the form's burn and crack),
+    then bursts into `frags` shards of `fragDmg`, spread evenly round the
+    circle (a random turn, some jitter), flying `fragReach` (the burst lies
+    on the ground, 0.8 as tall as wide), each striking the FIRST foe in its
+    path — never the charge's own mark, never fliers. `burstCharge` /
+    `fragVictim` / `pierceStrike` in update.js: the musket ball's
+    hitIds/hitsLeft, but a shard sweeps its whole step, so a fast game can't
+    step it over a goblin.
+  - Upgrades add shards: 4 / 5 / 7, Bombard Yard 12, Long Muskets 9, Grand
+    Battery 32 (one charge — its second, `shells`, is gone), Dragon's Breath
+    14, Sharpshooters 10, Grapeshot Crew 12. No step shows a red row in the ⓘ
+    (the Shrapnel row weighs count × damage).
+  - Bombard Yard family: the charge AND every shard `crack` armor, and the
+    musket shoots the cracked first. Dragon's Breath: red-hot shards
+    (`fragBurn`) set what they strike alight, and the fire spreads. Long
+    Muskets: the charges home on the musket's mark (`spot`), to its reach.
+  - Shields: every shard is a physical blow a pip swallows. First-in-path
+    piles the shards onto the bodies nearest the mark, so a burst strips
+    whole shields off a few rather than a pip off everyone (16 levies, 48
+    pips: a Grand Battery burst lands ~25 of 32 shards and takes ~11 pips;
+    the old two splash charges took 32). Iron at x3 HP, Grand Battery old →
+    new: a sparse column (a head every 380 ms) 192 → 134 dps, a packed one
+    (150 ms) 89 → 190. A wider spread: narrow `fragVictim`'s body
+    (size × 0.5 + 2 → ~0.35).
+  - The skill tree drives the shards: the `dmg` perk scales `fragDmg` too
+    (engine/towers.js `withPerks`) and "Wider Bursts" (g3) is +5%
+    `fragReach` a rank. The tree never touches the musket.
+  - He throws where the most foes stand within `fragReach`; the hall has no
+    "Most" button (it has no splash).
+  - Measure with `node scripts/bench-hall.mjs`: one hall beside the road, a
+    steady stream (crowd / armor / iron; `--mix all` adds ironpack), the
+    real engine, dps per second a foe is in reach. `--peers` adds the other
+    halls' finals, `--kind k --forms "1;2;3;3,a"` benches any hall, `--set
+    k=v` tries numbers without editing towers.js, `--perks max` buys every
+    skill tree.
+  - At x3 HP the finals read 327–468 dps on a packed crowd (other halls'
+    area finals 311–591; the old Grand Battery ~1046) and 276–407 on an
+    armored column — still the strongest there (Solar Crown 326, Ballista
+    173), put to the owner. Trimming `crack` barely moves it (−2 to −3%);
+    about half of it is the musket. With every skill tree maxed
+    (`--perks max`) the finals read 416–626 on the crowd (other area finals
+    429–749) and 346–557 on plate (Solar Crown 656, Steel Tempest 596).
+  - Known: the musket ball's strike passes pierce false, so `mPierce`
+    ("punches through armor") does nothing today; making it work lifts the
+    Long Muskets family on plate (241 / 407 / 276 → 295 / 456 / 339).
 - Heroes (`src/data/bands.js`): level 1 at the start of every map, up to
   20, with health, damage and ability power rising per level. XP comes ONLY
   from kills (`killXp`: the foe's bounty × `KILL_XP`, doubled for the

@@ -21,7 +21,8 @@
 //   tier 3  one capstone lifting two stats at once, needing both tier-2 nodes
 //
 // `per` is the gain per rank, applied in engine/towers.js getStats():
-//   dmg/range/hp/splash/slow/heal   +5% a rank
+//   dmg/range/hp/splash/slow/heal   +5% a rank (the Powder Works' dmg drives its
+//                                   shards' fragDmg too; fragReach is its own)
 //   rate                            reload time, so it goes DOWN 5% a rank
 // A stat the tower doesn't have is skipped, so a shared node like "+5% range"
 // is safe to hand to any tower.
@@ -153,11 +154,11 @@ export const SKILLS = {
   },
   gunpowder: {
     name: "Powder Works",
-    blurb: "More powder in the charge, more powder behind the ball.",
+    blurb: "More powder in the charge, and more iron flying out of it.",
     nodes: [
-      { id: "g1", tier: 1, name: "Coarser Grind", per: { dmg: P }, desc: "+5% bomb damage a rank." },
+      { id: "g1", tier: 1, name: "Coarser Grind", per: { dmg: P }, desc: "+5% charge and shard damage a rank." },
       { id: "g2", tier: 1, name: "Longer Barrels", per: { range: P }, desc: "+5% reach a rank." },
-      { id: "g3", tier: 2, name: "Wider Bursts", needs: ["g1"], per: { splash: P }, desc: "+5% blast a rank." },
+      { id: "g3", tier: 2, name: "Wider Bursts", needs: ["g1"], per: { fragReach: P }, desc: "+5% shard reach a rank." },
       { id: "g4", tier: 2, name: "Rifled Bores", needs: ["g2"], per: { dmg: P }, desc: "A further +5% damage a rank." },
       { id: "g5", tier: 3, name: "The Master Gunner", needs: ["g3", "g4"], per: { dmg: P, rate: P }, desc: "+5% damage AND 5% faster a rank." },
     ],
@@ -221,7 +222,7 @@ export function foldMods(kind, owned) {
 // "+15% damage · 15% faster" — what a node is actually giving right now.
 export function modSummary(node, rank) {
   if (!rank) return "";
-  const label = { dmg: "damage", range: "range", hp: "health", splash: "blast", slow: "slow", heal: "mending", rate: "faster" };
+  const label = { dmg: "damage", range: "range", hp: "health", splash: "blast", slow: "slow", heal: "mending", rate: "faster", fragReach: "shard reach" };
   return Object.entries(node.per)
     .map(([k, v]) => `${k === "rate" ? "" : "+"}${Math.round(v * rank * 100)}% ${label[k] || k}`)
     .join(" · ");

@@ -10,7 +10,7 @@ import { nextId } from "./ids.js";
 // is "better". `rate` is a reload time, so its multiplier goes DOWN to make a
 // tower faster; everything else goes up. A stat the tower doesn't have is
 // skipped, so a shared node like "+8% range" is safe on any tower.
-const PERK_STATS = ["dmg", "range", "hp", "splash", "slow", "heal", "rate", "income", "trapDmg", "dps"];
+const PERK_STATS = ["dmg", "range", "hp", "splash", "slow", "heal", "rate", "income", "trapDmg", "dps", "fragReach"];
 
 // Fold the player's permanent upgrades for this tower kind into its stats.
 const withPerks = (kind, st) => {
@@ -23,6 +23,9 @@ const withPerks = (kind, st) => {
     if (mods[k] == null || st[k] == null) continue;
     st[k] = st[k] * mods[k];
   }
+  // the Powder Works' shrapnel is most of its damage: "more powder in the
+  // charge" drives the shards as hard as the charge
+  if (mods.dmg && st.fragDmg != null) st.fragDmg *= mods.dmg;
   return st;
 };
 
