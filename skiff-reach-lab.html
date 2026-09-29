@@ -85,17 +85,29 @@
         if (q.get("first")) {
           const c0 = document.createElement("canvas"); c0.width = W; c0.height = H;
           groundLayer(); bakeBridges();   // (baked at the realm's load, before any of this)
+          // a plain frame first, so the board's other first-time bakes are done
+          // (it starts the warm-up too; a cold test times its frame before that runs)
+          draw(g, c0, { current: null }); draw(g, c0, { current: null });
           if (q.get("first") === "warm") {
-            warmWaterReach(groundLayer());   // (as the board's first frame starts it)
             const w0 = performance.now();
             while (!waterMask.warmed() && performance.now() - w0 < 20000) await new Promise((r) => setTimeout(r, 50));
             first += ` warm ${JSON.stringify(waterMask.warmStats())} in ${(performance.now() - w0).toFixed(0)} ms wall;`;
           }
+          // the water alone: its first stamp (a body or tint not warmed pays here), then again
+          {
+            const cx = document.createElement("canvas"); cx.width = W * 2; cx.height = H * 2;
+            const k = cx.getContext("2d"); k.scale(2, 2);
+            const tone = t ? "sel" : g.gold >= 250 ? "ok" : "bad";
+            const a0 = performance.now(); drawWatchWater(k, g, spot[0], spot[1], tone, "tint", groundLayer()); drawWatchWater(k, g, spot[0], spot[1], tone, "edge");
+            const a1 = performance.now(); drawWatchWater(k, g, spot[0], spot[1], tone, "tint", groundLayer()); drawWatchWater(k, g, spot[0], spot[1], tone, "edge");
+            first += ` water first ${(a1 - a0).toFixed(1)} ms, again ${(performance.now() - a1).toFixed(1)} ms;`;
+          }
           if (t) g.selectedId = t.id;
           else { g.buildMode = "riverwatch"; g.hover = spot; }
           const f0 = performance.now(); draw(g, c0, { current: null }); const f1 = performance.now();
-          draw(g, c0, { current: null }); const f2 = performance.now();
-          first += ` first frame ${(f1 - f0).toFixed(1)} ms, next ${(f2 - f1).toFixed(1)} ms;`;
+          let nx = 1e9;
+          for (let k = 0; k < 5; k++) { const a0 = performance.now(); draw(g, c0, { current: null }); nx = Math.min(nx, performance.now() - a0); }
+          first += ` first frame ${(f1 - f0).toFixed(1)} ms, then ${nx.toFixed(1)} ms;`;
           g.selectedId = null; g.buildMode = null; g.hover = null;
         }
         const foes = (q.get("foes") || "").split(",").filter(Boolean);
@@ -126,6 +138,11 @@
             if (pr) form.rank4 = pr;
             g.upPreview = { id: t.id, form };
           }
+        }
+        // &hoverboat=2: a mouse over that skiff (her whole ring bright)
+        if (q.get("hoverboat") && t && t.units && t.units[Number(q.get("hoverboat"))]) {
+          const u = t.units[Number(q.get("hoverboat"))];
+          g.hover = [u.x + 2, u.y - 8];
         }
         if (MODE === "ghost") {
           const hv = (q.get("hover") || "").split(",").map(Number);

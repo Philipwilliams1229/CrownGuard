@@ -43,7 +43,8 @@
 // DIGITS: an option may name one `digits` face that draws every digit in
 // every slot (the other faces' aliases leave 0-9 out of their unicode-range,
 // and the digits alias covers only 0-9), so a price, a stat line and a tale
-// count in the same unmistakable figures. A face may also `lack` other
+// count in the same unmistakable figures; `sizes` sizes it per slot, `keep`
+// lists slots that keep their own face's digits. A face may also `lack` other
 // characters (Silkscreen's "&" reads as "$"): they fall through to the next
 // face in the slot's stack, and every stack ends with the option's body face.
 //
@@ -57,8 +58,15 @@ const FALLBACK = "Verdana, Geneva, sans-serif";
 const DIGITS = "0123456789";
 
 // a face from Google Fonts at a size factor; `wght` lists the weights to
-// fetch; `lacks` lists characters it must not draw (they fall through)
-const face = (family, size = 1, wght = [400], lacks = "") => ({ family, size, wght, lacks });
+// fetch; `lacks` lists characters it must not draw (they fall through); `lh`
+// is the height `line-height: normal` gives it, in ems (today's Verdana: 1.215),
+// for a face whose own ascent and descent stand taller (set with the
+// ascent/descent overrides, which Chrome and Firefox honour; Safari keeps the
+// face's own, a pixel or two taller)
+const face = (family, size = 1, wght = [400], lacks = "", lh = 0) => ({ family, size, wght, lacks, lh });
+// a face's own ascent and descent (em), for `lh`: measured in type-lab
+const METRICS = { Grenze: [1.1, 0.38], "Grenze Gotisch": [1.1, 0.38], Alegreya: [1.02, 0.35], Cinzel: [0.98, 0.37] };
+const VERDANA_LH = 1.215;
 
 export const TYPES = {
   // Today's look, family for family (the style guide's rules: Silkscreen
@@ -88,7 +96,9 @@ export const TYPES = {
     name: "Arcade Keep",
     sketch: "All pixel: chunky Jersey capitals for every word, the HUD's own Press Start 2P for every number.",
     caps: true,
-    digits: face("Press Start 2P", 0.77),
+    // (in the chips the size today's digits have; in words, the height of
+    // Jersey's capitals)
+    digits: { ...face("Press Start 2P", 0.7), sizes: { num: 0.77 } },
     slots: {
       mark: face("Jersey 25", 1.15),
       title: face("Jersey 25", 1.05),
@@ -117,7 +127,7 @@ export const TYPES = {
       ui: face("Grenze", 1.12, [500, 700]),
       menu: face("Grenze", 1.12, [600]),
       num: face("Grenze", 1.12, [600]),
-      body: face("Grenze", 1.12, [400, 700]),
+      body: face("Grenze", 1.12, [400, 700], "", VERDANA_LH),
       map: face("Grenze", 1.1, [700]),
       board: face("Grenze", 1.05, [700]),
     },
@@ -140,7 +150,7 @@ export const TYPES = {
       ui: face("Cinzel", 0.9, [700]),
       menu: face("Cinzel", 0.98, [700]),
       num: face("Alegreya", 1.08, [700]),
-      body: face("Alegreya", 1.12, [400, 700]),
+      body: face("Alegreya", 1.12, [400, 700], "", VERDANA_LH),
       map: face("Cinzel", 0.95, [700]),
       board: face("Cinzel", 0.82, [700]),
     },
@@ -154,7 +164,7 @@ export const TYPES = {
     sketch: "Today's HUD everywhere: Silkscreen words and Press Start 2P numbers, one readable pixel hand for the tales.",
     // (the board keeps Silkscreen's own digits: Press Start 2P's stand a size
     // taller than the board's shrunken Silkscreen in WAVE 12)
-    digits: { ...face("Press Start 2P", 0.77), keep: ["board"] },
+    digits: { ...face("Press Start 2P", 0.7), sizes: { num: 0.77 }, keep: ["board"] },
     slots: {
       mark: face("Silkscreen", 0.84, [400, 700], "&"),
       title: face("Silkscreen", 1, [400, 700], "&"),
@@ -194,11 +204,19 @@ const pickType = () => {
 
 // ---- aliases -----------------------------------------------------------
 const pct = (f) => Math.round(f.size * 100);
+// the ascent/descent overrides that give a face its `lh`
+const lineOf = (f) => {
+  const m = f.lh && METRICS[f.family];
+  if (!m) return "";
+  const k = f.lh / f.size / (m[0] + m[1]), p = (v) => `${(v * k * 100).toFixed(1)}%`;
+  return `ascent-override:${p(m[0])};descent-override:${p(m[1])};line-gap-override:0%;`;
+};
 // what a face leaves out in an option: its own `lacks`, and the digits when
 // the option draws them in another face (unless the slot is one the digits
 // face `keep`s out of: canvas text can't set a font feature, see below)
 const cutOf = (t, f, slot) => {
-  const d = t.digits && !(t.digits.family === f.family && t.digits.size === f.size) && !t.digits.keep?.includes(slot) ? DIGITS : "";
+  const own = t.digits && t.digits.family === f.family && (t.digits.sizes?.[slot] || t.digits.size) === f.size;
+  const d = t.digits && !own && !t.digits.keep?.includes(slot) ? DIGITS : "";
   return [...new Set(d + (f.lacks || ""))].join("");
 };
 const cutTag = (cut) => (cut ? ` -${cut.replace(DIGITS, "0-9")}` : "");
@@ -206,7 +224,7 @@ const cutTag = (cut) => (cut ? ` -${cut.replace(DIGITS, "0-9")}` : "");
 // the characters it leaves out
 const use = (f, part = "") => ({ ...f, part });
 export const aliasOf = (f) =>
-  `cg ${f.family} ${pct(f)}${f.wght.join() === "400" ? "" : ` w${f.wght.join("-")}`}${f.part === "digits" ? " digits" : cutTag(f.part)}`;
+  `cg ${f.family} ${pct(f)}${f.wght.join() === "400" ? "" : ` w${f.wght.join("-")}`}${f.lh ? ` lh${f.lh}` : ""}${f.part === "digits" ? " digits" : cutTag(f.part)}`;
 const q = (f) => `"${aliasOf(f)}"`;
 
 const slotFace = (t, s) => t.slots[s] || (s === "head" ? t.slots.title : null);
@@ -214,7 +232,7 @@ const slotFace = (t, s) => t.slots[s] || (s === "head" ? t.slots.title : null);
 const usesOf = (t, s) => {
   const f = slotFace(t, s), body = t.slots.body;
   const out = [use(f, cutOf(t, f, s))];
-  if (t.digits && out[0].part.includes("0")) out.push(use(t.digits, "digits"));
+  if (t.digits && out[0].part.includes("0")) out.push(use({ ...t.digits, size: t.digits.sizes?.[s] || t.digits.size }, "digits"));
   const b = use(body, cutOf(t, body));
   if (!out.some((u) => aliasOf(u) === aliasOf(b))) out.push(b);
   return out;
@@ -272,7 +290,7 @@ const weightSpan = (ws, w) => {
 const registered = new Map();
 export const loadFaces = (faces) => {
   if (typeof document === "undefined" || !faces.length) return Promise.resolve();
-  const todo = faces.map((f) => ({ part: "", lacks: "", ...f })).filter((f) => !registered.has(aliasOf(f)));
+  const todo = faces.map((f) => ({ part: "", lacks: "", lh: 0, ...f })).filter((f) => !registered.has(aliasOf(f)));
   if (todo.length) {
     const fams = [...new Map(todo.map((f) => [f.family, f])).values()];
     // one request per family (weights merged), so a bad name spoils nothing else
@@ -295,7 +313,7 @@ export const loadFaces = (faces) => {
           const range = f.part === "digits" ? keepRange(given, DIGITS) : f.part ? cutRange(given, f.part) : given;
           if (f.part === "digits" && !range) continue;
           css.push(`@font-face{font-family:"${aliasOf(f)}";font-style:normal;font-weight:${weightSpan(f.wght, w)};` +
-            `font-display:swap;src:${src};${range ? `unicode-range:${range};` : ""}size-adjust:${pct(f)}%;}`);
+            `font-display:swap;src:${src};${range ? `unicode-range:${range};` : ""}size-adjust:${pct(f)}%;${lineOf(f)}}`);
         }
       }
       if (css.length) {
@@ -312,7 +330,7 @@ export const loadFaces = (faces) => {
       )).catch(() => null));
     }
   }
-  return Promise.all(faces.map((f) => registered.get(aliasOf({ part: "", lacks: "", ...f }))));
+  return Promise.all(faces.map((f) => registered.get(aliasOf({ part: "", lacks: "", lh: 0, ...f }))));
 };
 
 // ---- the live option ---------------------------------------------------

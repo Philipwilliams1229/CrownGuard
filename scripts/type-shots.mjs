@@ -182,15 +182,17 @@ const SIZE = { phone: [844, 390] };
 const DPR = { phone: 3 };
 
 // the pair test, printed: every option's num and body faces (and --faces
-// candidates) at DPR 1 and 2, the pairs under 0.20 named
+// candidates) as the page draws them, at DPR 1 and 2, the pairs under 0.20 named
 if (pairs) {
   for (const dpr of [1, 2]) {
-    const { ctx, page } = await context(1400, 900, dpr);
+    const { ctx, page } = await context(1400, 2400, dpr);
     try {
       const qs = new URLSearchParams({ distinct: "1", ...(faces ? { faces } : {}), ...(args.length ? { opts: ids.join(",") } : {}) });
       await page.goto(`${base}/type-lab.html?${qs}`, { waitUntil: "load" });
       await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 30000 });
-      const r = JSON.parse(await page.evaluate(() => document.body.dataset.result));
+      await page.waitForTimeout(300);
+      const png = await (await page.$("#out > div")).screenshot();
+      const r = await page.evaluate(([u, d]) => window.scoreGlyphs(u, d), [`data:image/png;base64,${png.toString("base64")}`, dpr]);
       console.log(`\nDPR ${dpr} (unhinted): worst pair per size, then every pair under 0.20`);
       for (const [name, sc] of Object.entries(r.data)) {
         const worstOf = sc.map((row) => Math.min(...row).toFixed(2));

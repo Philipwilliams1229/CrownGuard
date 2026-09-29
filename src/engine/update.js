@@ -243,7 +243,8 @@ const SPLASH_CAP = 16;
 // ---- the Powder Works' charge and its shrapnel ----
 // A charge comes down ON its mark: a tight blast that hurts that foe alone,
 // and then the iron flies — `frags` shards spread evenly round the circle
-// (a fresh turn each burst, a little jitter), each flying `fragReach` along
+// (a fresh turn each burst, a little jitter in heading, reach and pace, so
+// the burst breaks up rather than flying as a ring), each flying `fragReach` along
 // the ground and striking the FIRST foe in its path (never the mark), a
 // physical blow of `fragDmg`: a raised shield swallows a shard whole like any
 // other blow, so a burst strips a pip from every shield it finds. Shards run
@@ -299,7 +300,7 @@ const burstCharge = (g, p, target, tms) => {
     g.projectiles.push({
       id: nextId(), x: p.tx, y: p.ty, sx: p.tx, sy: p.ty, targetId: null, tx: p.tx + ex * reach, ty: p.ty + ey * reach,
       total: Math.hypot(ex, ey) * reach, angle: Math.atan2(ey, ex),
-      speed: FRAG_SPEED, delay: 0, dmg: p.fragDmg, dtype: "phys", pierce: false, splash: 0,
+      speed: FRAG_SPEED * (0.75 + Math.random() * 0.5), delay: 0, dmg: p.fragDmg, dtype: "phys", pierce: false, splash: 0,
       burn: hot ? p.burn : 0, burnDur: hot ? p.burnDur : 0, burnSpreads: hot && p.burnSpreads, hot,
       crack: p.crack || 0, crackDur: p.crackDur || 0, slow: 0, slowDur: 0,
       kind: "frag", src: p.src, hitsLeft: 1, hitIds: mark ? [mark.id] : [], ground: true, v: i & 3,

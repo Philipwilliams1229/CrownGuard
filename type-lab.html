@@ -140,7 +140,26 @@ async function survey() {
   }
 }
 
+// ?digits=opts: every option's own digit faces as the game sets them (its
+// num and body stacks, its font features: canvas can't set those, so the
+// pair test sees Grenze's and Alegreya's default hanging figures)
+async function digitsOpts() {
+  await Promise.all(TYPE_IDS.map((id) => loadFaces(facesOf(id)))); await refsLoaded(); await document.fonts.ready;
+  const S = "0O 1lI 5S 8B 2Z 6.67/s 36/s 2.6s +9 1234567890 ×14 1x Lv 10";
+  for (const id of TYPE_IDS) {
+    const t = TYPES[id], st = stacksOf(id);
+    const row = document.createElement("div"); row.className = "row"; row.style.gridTemplateColumns = "150px 1fr";
+    const feat = t.features ? `font-feature-settings:${t.features.replace(/"/g, "'")};` : "";
+    const line = (slot, px, extra = "") => `<div style="font-family:${st[slot].replace(/"/g, "'")};font-size:${px}px;${feat}${extra}">${S}</div>`;
+    row.innerHTML = `<div class="nm"><b>${t.name}</b><br>num 21 / 15 / 12px<br>body 12.6px</div><div style="color:#f0d27a;text-shadow:1px 1px 0 #241a26;line-height:1.35">
+      ${[21, 15, 12].map((px) => line("num", px, `font-size-adjust:${t.numAdjust || "none"}`)).join("")}
+      <div style="color:#e8e0c8">${line("body", 10.5)}</div></div>`;
+    out.appendChild(row);
+  }
+  document.body.dataset.ready = "1";
+}
 async function digits() {
+  if (q.get("digits") === "opts") return digitsOpts();
   // the digit test at true pixels: each face at the size that matches today's
   // digit height, at 12px (card prices, small numbers), 15px (a phone chip)
   // and 21px (a chip). Shoot it at DPR 1 unhinted to see the worst case.
@@ -355,73 +374,91 @@ async function sheets(one) {
 }
 
 // ---- distinctness: how different each confusable pair is, in pixels ----
-// Each glyph is drawn alone, at a CSS size the game uses (12px: a card's
-// prices and small numbers; 15px: a chip on a phone; 21px: a chip), times
-// this window's devicePixelRatio, so the test sees the pixels a screen of
-// that density shows. The score is the share of ink the two glyphs do NOT
-// share, counted in grey levels, not thresholded (a counter blurred half
-// shut is half the same): 0 = the same glyph, 1 = nothing in common.
-// Run it unhinted at DPR 1 and 2: node scripts/type-shots.mjs --pairs
+// ?distinct=1 lays every glyph of the confusable pairs out in the DOM, each
+// alone in a cell, in the faces the game really uses (each option's num and
+// body stacks, with its font features, today's font-size-adjust and the
+// digits faces' unicode-ranges: a canvas can't do all of that), at the CSS
+// sizes the game uses (12px: a card's prices and stat lines; 15px: a chip on
+// a phone; 21px: a chip). scripts/type-shots.mjs --pairs screenshots the grid
+// at DPR 1 and 2 (unhinted) and hands the picture back to scoreGlyphs(),
+// which scores each pair: the share of ink the two glyphs do NOT share,
+// counted in grey levels, not thresholded (a counter blurred half shut is
+// half the same): 0 = the same glyph, 1 = nothing in common.
 // Letters against digits, and digits against digits (a blurred 6 or 9 reads 8).
 const PAIRS = ["0O", "1l", "1I", "5S", "8B", "2Z", "68", "98", "38", "08", "56", "17", "35"];
 const SIZES = [12, 15, 21];
-function pairScore(font, a, b, px) {
-  const S = Math.ceil(px * 2.4);
-  const ink = (ch) => {
-    const c = document.createElement("canvas"); c.width = c.height = S;
-    const x = c.getContext("2d", { willReadFrequently: true });
-    x.font = font.replace("{px}", px); x.textAlign = "center"; x.textBaseline = "alphabetic"; x.fillStyle = "#000";
-    x.fillText(ch, Math.round(S / 2), Math.round(S * 0.72));
-    const d = x.getImageData(0, 0, S, S).data, m = new Float32Array(S * S);
-    for (let i = 0; i < S * S; i++) m[i] = d[i * 4 + 3] / 255;
-    return m;
-  };
-  const A = ink(a), B = ink(b);
-  let diff = 0, all = 0;
-  for (let i = 0; i < A.length; i++) { diff += Math.abs(A[i] - B[i]); all += Math.max(A[i], B[i]); }
-  return diff / Math.max(1e-6, all);
-}
-// the faces an option sets digits in: its num slot, and its body slot (a
-// card's stat lines and the service record are body text)
-const digitFaces = (id) => {
-  const t = TYPES[id], st = stacksOf(id);
-  if (t.plain) return [["num", `400 {px}px ${st.num}`, 0.77], ["body", `400 {px}px ${st.body}`, 1]];
-  return ["num", "body"].map((s) => [s, `${t.slots[s].wght[0]} {px}px ${st[s]}`, 1]);
-};
+const CHARS = [...new Set(PAIRS.join(""))];
 async function distinct() {
   await Promise.all(TYPE_IDS.map((id) => loadFaces(facesOf(id)))); await refsLoaded(); await document.fonts.ready;
-  const dpr = window.devicePixelRatio || 1;
-  const rows = [], data = {};
-  const scoreRow = (font, k) => SIZES.map((css) => PAIRS.map((p) => pairScore(font, p[0], p[1], css * k * dpr)));
+  const rows = [];   // [name, family stack, css extras]
   const only = q.get("opts") ? q.get("opts").split(",") : TYPE_IDS;
   for (const id of only) {
-    for (const [slot, font, k] of digitFaces(id)) {
-      const sc = scoreRow(font, k);
-      data[`${id}.${slot}`] = sc;
-      rows.push([`${TYPES[id].name} ${slot}`, font.replace("{px}px ", ""), sc]);
-    }
+    const t = TYPES[id], st = stacksOf(id);
+    const feat = t.features ? `font-feature-settings:${t.features};` : "";
+    rows.push([`${id}.num`, st.num, `${feat}font-size-adjust:${t.numAdjust || "none"}`]);
+    rows.push([`${id}.body`, st.body, feat]);
   }
   if (q.get("faces")) {
-    // candidates, each at the size that matches today's digit height
-    const fams = q.get("faces").split(",");
-    const faces = fams.map((fw) => { const [family, w] = fw.split(":"); return { family, size: 1, wght: [Number(w) || 400] }; });
+    const faces = q.get("faces").split(",").map((fw) => { const [family, w] = fw.split(":"); return { family, size: 1, wght: [Number(w) || 400] }; });
     await loadFaces(faces); await document.fonts.ready;
+    // each at the size that matches today's digit height
     const ref = metrics(`"Press Start 2P"`).dig * 0.77;
     for (const f of faces) {
-      const fam = `'${aliasOf(f)}'`, k = ref / metrics(fam, f.wght[0]).dig, font = `${f.wght[0]} {px}px ${fam}`;
-      const sc = scoreRow(font, k);
-      data[`${f.family}${f.wght[0] !== 400 ? ":" + f.wght[0] : ""}`] = sc;
-      rows.push([`candidate x${k.toFixed(2)}`, f.family, sc]);
+      const fam = `"${aliasOf(f)}"`, k = ref / metrics(fam, f.wght[0]).dig;
+      rows.push([`${f.family}${f.wght[0] !== 400 ? ":" + f.wght[0] : ""} x${k.toFixed(2)}`, fam, `font-weight:${f.wght[0]}`, k]);
     }
   }
-  const cell = (v) => `<td style="color:${v < 0.2 ? "#ff7a6a" : v < 0.3 ? "#f0d27a" : "#9ad06a"}">${v.toFixed(2)}</td>`;
-  out.innerHTML = `<div class="nm">devicePixelRatio ${dpr} · red under 0.20, gold under 0.30</div><table class="nm" style="border-spacing:6px 3px">
-    <tr><td></td><td></td>${SIZES.map((s) => `<td colspan="${PAIRS.length}">at ${s}px</td><td></td>`).join("")}</tr>
-    <tr><td></td><td>face</td>${SIZES.map(() => PAIRS.map((p) => `<td>${p}</td>`).join("") + "<td>|</td>").join("")}</tr>
-    ${rows.map(([n, f, sc]) => `<tr><td><b>${n}</b></td><td>${f.slice(0, 34)}</td>${sc.map((r) => r.map(cell).join("") + "<td>|</td>").join("")}</tr>`).join("")}</table>`;
-  document.body.dataset.result = JSON.stringify({ dpr, pairs: PAIRS, sizes: SIZES, data });
+  const grid = document.createElement("div");
+  grid.style.cssText = "position:relative;background:#000;color:#fff";
+  const layout = [];
+  let y = 0;
+  for (const [name, fam, extra, k = 1] of rows) {
+    for (const css of SIZES) {
+      const px = css * k, w = Math.ceil(px * 1.6), h = Math.ceil(px * 2.2);
+      const cells = {};
+      CHARS.forEach((ch, i) => {
+        const c = document.createElement("div");
+        c.textContent = ch;
+        c.style.cssText = `position:absolute;left:${i * w}px;top:${y}px;width:${w}px;height:${h}px;line-height:${h}px;text-align:center;font-family:${fam};font-size:${px}px;${extra}`;
+        grid.appendChild(c);
+        cells[ch] = [i * w, y, w, h];
+      });
+      layout.push({ name, css, cells });
+      y += h;
+    }
+  }
+  grid.style.height = `${y}px`; grid.style.width = `${CHARS.length * Math.ceil(21 * 1.6 * 1.6)}px`;
+  out.appendChild(grid);
+  window.glyphLayout = layout;
   document.body.dataset.ready = "1";
 }
+// score the grid from a screenshot of it (a data URL) taken at `dpr`; draws the table
+window.scoreGlyphs = async (url, dpr) => {
+  const img = new Image(); img.src = url; await img.decode();
+  const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+  const cx = cv.getContext("2d", { willReadFrequently: true }); cx.drawImage(img, 0, 0);
+  const ink = ([x, y, w, h]) => {
+    const d = cx.getImageData(Math.round(x * dpr), Math.round(y * dpr), Math.round(w * dpr), Math.round(h * dpr)).data;
+    const m = new Float32Array(d.length / 4);
+    for (let i = 0; i < m.length; i++) m[i] = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 765;
+    return m;
+  };
+  const data = {};
+  for (const { name, css, cells } of window.glyphLayout) {
+    (data[name] ||= []).push(PAIRS.map(([a, b]) => {
+      const A = ink(cells[a]), B = ink(cells[b]);
+      let diff = 0, all = 0;
+      for (let i = 0; i < A.length; i++) { diff += Math.abs(A[i] - B[i]); all += Math.max(A[i], B[i]); }
+      return diff / Math.max(1e-6, all);
+    }));
+  }
+  const cell = (v) => `<td style="color:${v < 0.2 ? "#ff7a6a" : v < 0.3 ? "#f0d27a" : "#9ad06a"}">${v.toFixed(2)}</td>`;
+  out.innerHTML = `<div class="nm">devicePixelRatio ${dpr}, unhinted · red under 0.20, gold under 0.30</div><table class="nm" style="border-spacing:6px 3px">
+    <tr><td></td>${SIZES.map((z) => `<td colspan="${PAIRS.length}">at ${z}px</td><td></td>`).join("")}</tr>
+    <tr><td></td>${SIZES.map(() => PAIRS.map((p) => `<td>${p}</td>`).join("") + "<td>|</td>").join("")}</tr>
+    ${Object.entries(data).map(([n, sc]) => `<tr><td><b>${n}</b></td>${sc.map((r) => r.map(cell).join("") + "<td>|</td>").join("")}</tr>`).join("")}</table>`;
+  return { dpr, pairs: PAIRS, sizes: SIZES, data };
+};
 
 if (q.get("survey")) survey();
 else if (q.get("distinct")) distinct();

@@ -295,6 +295,7 @@ function* riverRows(lab, JP, s, r, mw, mh) {
 // is drawn over it. With it, each kind's box (MASK.box: i0, j0, i1, j1).
 const POND0 = 16, SEA = 64, DECK = 128, KIND = 127;
 let MASK = null;
+let STEP = "";   // (the phase in hand, for the warm-up's longest slice)
 
 // The bake, a slice at a time: each yield is a few ms of work.
 function* bakeSteps(M) {
@@ -305,6 +306,7 @@ function* bakeSteps(M) {
   const s = ((REALM.seed | 0) % 97 + 97) % 97;
   const shapes = PONDS.map(pondShape);
   const JP = RIVERS.length ? shapes.filter((P) => P.open && touchesRiver(P)) : [];
+  STEP = "m-ponds";
   // ponds on their own (painted first; a river may paint over them)
   for (const P of shapes) {
     if (!P.open || JP.includes(P)) continue;
@@ -322,6 +324,7 @@ function* bakeSteps(M) {
     }
     lap("ponds"); yield; t0 = performance.now();
   }
+  STEP = "m-rivers";
   // the rivers, merged as water.js merges them (a smooth union), with any
   // pond that runs into one
   if (RIVERS.length) {
@@ -329,6 +332,7 @@ function* bakeSteps(M) {
     while (!it.next().done) { lap("rivers"); yield; t0 = performance.now(); }
     lap("rivers");
   }
+  STEP = "m-sea";
   // the sea, as world.js paints it: past the waterline read at each
   // pixel's corner (its coastPixel's sd > 0), so the light and its rim
   // start on the foam where the wet sand ends
@@ -348,6 +352,7 @@ function* bakeSteps(M) {
     }
     lap("sea");
   }
+  STEP = "m-bridges";
   // what the bridges cover: each span drawn on its own and read back
   if (BRIDGES.length && typeof document !== "undefined") {
     for (const b of BRIDGES) {
@@ -371,6 +376,7 @@ function* bakeSteps(M) {
       lap("bridges"); yield; t0 = performance.now();
     }
   }
+  STEP = "m-boxes";
   // each kind's box, so a body never scans the whole board for itself
   const box = new Int32Array(128 * 4);
   for (let q = 0; q < 128; q++) { box[q * 4] = mw; box[q * 4 + 1] = mh; box[q * 4 + 2] = -1; box[q * 4 + 3] = -1; }
@@ -385,7 +391,7 @@ function* bakeSteps(M) {
       if (j < box[q + 1]) box[q + 1] = j;
       box[q + 3] = j;
     }
-    if (j % 280 === 279) { lap("boxes"); yield; t0 = performance.now(); }
+    if (j % 120 === 119) { lap("boxes"); yield; t0 = performance.now(); }
   }
   M.box = box;
   lap("boxes");
@@ -408,6 +414,14 @@ export const waterMask = () => {
   while (!stepMask(M));
   return M;
 };
+// The mask if it's ready; null while the idle warm-up is still baking it
+// (the wakes and a hall's ripples wait a few frames rather than stall one).
+// With no warm-up under way (a lab page drawing skiffs on its own), baked now.
+const readyMask = () => {
+  if (MASK && MASK.done && current()) return MASK;
+  if (WARM && !WARM.done && WARM.realm === REALM && WARM.mask === MASK && current()) return null;
+  return waterMask();
+};
 
 // ---- keeping to the water ------------------------------------------------------------
 // Fills the rect (world units) with ctx's fillStyle only over the open water
@@ -416,8 +430,10 @@ export const waterMask = () => {
 // and draws one rect per wet run (rows alike merge); all water, one rect.
 const RA = [], RB = [];
 export const fillWet = (ctx, x, y, w, h) => {
-  const M = MASK && MASK.done && current() ? MASK : waterMask();
-  if (!M.lab || waterMask.noClip) { ctx.fillRect(x, y, w, h); return; }
+  if (waterMask.noClip) { ctx.fillRect(x, y, w, h); return; }
+  const M = readyMask();
+  if (!M) return;   // (a few frames, while the warm-up bakes it)
+  if (!M.lab) { ctx.fillRect(x, y, w, h); return; }
   const r = M.px, mw = M.mw, lab = M.lab;
   const i0 = Math.max(0, Math.floor(x * r + 1e-6)), i1 = Math.min(mw, Math.ceil((x + w) * r - 1e-6));
   const j0 = Math.max(0, Math.floor(y * r + 1e-6)), j1 = Math.min(M.mh, Math.ceil((y + h) * r - 1e-6));
@@ -456,7 +472,8 @@ export const fillWet = (ctx, x, y, w, h) => {
 // a clip was set. Wrap in save/restore.
 export const clipToWater = (ctx, x0, y0, x1, y1, portrait = false) => {
   if (portrait || waterMask.noClip) return 1;
-  const M = waterMask();
+  const M = readyMask();
+  if (!M) return 0;   // (a few frames, while the warm-up bakes it)
   if (!M.lab) return 1;
   const r = M.px, I0 = Math.floor(x0 * r), I1 = Math.ceil(x1 * r) - 1, J0 = Math.floor(y0 * r), J1 = Math.ceil(y1 * r) - 1;
   const key = `${I0},${J0},${I1},${J1}`;
@@ -578,8 +595,8 @@ export const watchRoute = (x, y) => {
 // waterline's own pixel, the one inside it) and the ticks.
 const TONES = {
   sel: { lift: 26, toward: 0.5, maxK: 0.55, rim: [240, 204, 98], rimA: [0.85, 0.4], tick: "rgba(232,196,90,0.9)", ring: "rgba(232,196,90,0.9)" },
-  ok: { lift: 22, toward: 0.5, maxK: 0.5, rim: [156, 236, 150], rimA: [0.8, 0.35], tick: "rgba(150,232,150,0.85)", ring: "rgba(150,232,150,0.6)" },
-  bad: { lift: 18, toward: 0.5, maxK: 0.45, rim: [240, 128, 116], rimA: [0.8, 0.35], tick: "rgba(232,120,110,0.85)", ring: "rgba(232,120,110,0.6)" },
+  ok: { lift: 24, toward: 0.5, maxK: 0.5, rim: [156, 236, 150], rimA: [0.8, 0.35], tick: "rgba(150,232,150,0.85)", ring: "rgba(150,232,150,0.6)" },
+  bad: { lift: 20, toward: 0.5, maxK: 0.45, rim: [240, 128, 116], rimA: [0.8, 0.35], tick: "rgba(232,120,110,0.85)", ring: "rgba(232,120,110,0.6)" },
 };
 const EDGE_IN = 1.5;       // the ticks ride this far in from the waterline
 const CASTLE_X = W - WALL_W + 2;   // past here the castle stands over the water
@@ -597,6 +614,7 @@ function* bodySteps(M, w, B) {
   const want = w.kind === "river" ? w.ri + 1 : w.kind === "pond" ? POND0 + Number(w.id.slice(1)) : SEA;
   let I0 = M.box[want * 4], J0 = M.box[want * 4 + 1], I1 = M.box[want * 4 + 2], J1 = M.box[want * 4 + 3];
   if (I1 < 0) { B.empty = true; return; }
+  STEP = "b-band";
   // the sea: the stretch the coast route runs, from the beach out to a
   // little past the skiffs' lane
   let band = null;
@@ -616,82 +634,102 @@ function* bodySteps(M, w, B) {
   }
   const inBody = (i, j) => (lab[j * mw + i] & KIND) === want && (!band || band(i, j));
   // its own pixels and their box
-  let i0 = mw, i1 = -1, j0 = mh, j1 = -1;
+  STEP = "b-scan";
+  // (rows a slice: about 20k pixels' worth)
+  const per = (w2) => Math.max(4, Math.floor(20000 / Math.max(1, w2)));
+  let i0 = mw, i1 = -1, j0 = mh, j1 = -1, pr = per(I1 - I0 + 1);
   for (let j = J0; j <= J1; j++) {
     for (let i = I0; i <= I1; i++) {
       if (!inBody(i, j)) continue;
       if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; j1 = j;
     }
-    if ((j - J0) % 200 === 199) yield;
+    if ((j - J0) % pr === pr - 1) yield;
   }
   if (i1 < 0) { B.empty = true; return; }
   yield;
   const bw = i1 - i0 + 1, bh = j1 - j0 + 1;
+  STEP = "b-in";
   const IN = new Uint8Array(bw * bh);
   let cut = false;
-  for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) if (inBody(i0 + i, j0 + j)) IN[j * bw + i] = 1;
+  pr = per(bw);
+  for (let j = 0; j < bh; j++) {
+    for (let i = 0; i < bw; i++) if (inBody(i0 + i, j0 + j)) IN[j * bw + i] = 1;
+    if (j % pr === pr - 1) yield;
+  }
   yield;
   const at = (i, j) => (i < 0 || j < 0 || i >= bw || j >= bh ? 0 : IN[j * bw + i]);
   // is (gi, gj) — board pixels — water that isn't this body's? (a cut)
   const other = (gi, gj) => gi >= 0 && gj >= 0 && gi < mw && gj < mh && (lab[gj * mw + gi] & KIND) !== 0 && !(at(gi - i0, gj - j0));
+  STEP = "b-edge";
   // how near the edge each pixel lies (0 = on it, up to 3), for the rim
   const EDGE = new Uint8Array(bw * bh);
+  // an edge only where dry land lies: a body cut off across open water
+  // (the sea's ends, a river running on into another) takes no rim
+  const probe = (ii, jj) => { if (at(ii, jj)) return false; const gi = i0 + ii, gj = j0 + jj; if (gi < 0 || gj < 0 || gi >= mw || gj >= mh) return false; return (lab[gj * mw + gi] & KIND) === 0; };
   for (let j = 0; j < bh; j++) {
     for (let i = 0; i < bw; i++) {
       if (!IN[j * bw + i]) continue;
       let d = 9;
       for (let q = 1; q <= 3 && d === 9; q++) {
-        // an edge only where dry land lies: a body cut off across open water
-        // (the sea's ends, a river running on into another) takes no rim
-        const probe = (ii, jj) => { if (at(ii, jj)) return false; const gi = i0 + ii, gj = j0 + jj; if (gi < 0 || gj < 0 || gi >= mw || gj >= mh) return false; return (lab[gj * mw + gi] & KIND) === 0; };
         if (probe(i - q, j) || probe(i + q, j) || probe(i, j - q) || probe(i, j + q)) d = q - 1;
       }
       EDGE[j * bw + i] = d;
       if (!cut && (other(i0 + i - 1, j0 + j) || other(i0 + i + 1, j0 + j) || other(i0 + i, j0 + j - 1) || other(i0 + i, j0 + j + 1))) cut = true;
     }
-    if (j % 160 === 159) yield;
+    if (j % pr === pr - 1) yield;
   }
   yield;
+  STEP = "b-cut";
   // How near a cut each pixel lies: a chamfer distance (3-4) from every
   // pixel of other water within FEATHER of the box
   let CUT = null;
   if (cut) {
     const P = FEATHER + 1, px0 = Math.max(0, i0 - P), py0 = Math.max(0, j0 - P), px1 = Math.min(mw - 1, i1 + P), py1 = Math.min(mh - 1, j1 + P);
-    const pw = px1 - px0 + 1, ph = py1 - py0 + 1, D = new Uint16Array(pw * ph), INF = 60000;
-    for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) D[j * pw + i] = other(px0 + i, py0 + j) ? 0 : INF;
-    yield;
-    for (let j = 0; j < ph; j++) for (let i = 0, o = j * pw; i < pw; i++) {
-      let d = D[o + i];
-      if (!d) continue;
-      if (i > 0 && D[o + i - 1] + 3 < d) d = D[o + i - 1] + 3;
-      if (j > 0) {
-        const u = o - pw + i;
-        if (D[u] + 3 < d) d = D[u] + 3;
-        if (i > 0 && D[u - 1] + 4 < d) d = D[u - 1] + 4;
-        if (i < pw - 1 && D[u + 1] + 4 < d) d = D[u + 1] + 4;
-      }
-      D[o + i] = d;
+    const pw = px1 - px0 + 1, ph = py1 - py0 + 1, D = new Uint16Array(pw * ph), INF = 60000, pp = per(pw);
+    for (let j = 0; j < ph; j++) {
+      for (let i = 0; i < pw; i++) D[j * pw + i] = other(px0 + i, py0 + j) ? 0 : INF;
+      if (j % pp === pp - 1) yield;
     }
     yield;
-    for (let j = ph - 1; j >= 0; j--) for (let i = pw - 1, o = j * pw; i >= 0; i--) {
-      let d = D[o + i];
-      if (!d) continue;
-      if (i < pw - 1 && D[o + i + 1] + 3 < d) d = D[o + i + 1] + 3;
-      if (j < ph - 1) {
-        const u = o + pw + i;
-        if (D[u] + 3 < d) d = D[u] + 3;
-        if (i < pw - 1 && D[u + 1] + 4 < d) d = D[u + 1] + 4;
-        if (i > 0 && D[u - 1] + 4 < d) d = D[u - 1] + 4;
+    for (let j = 0; j < ph; j++) {
+      for (let i = 0, o = j * pw; i < pw; i++) {
+        let d = D[o + i];
+        if (!d) continue;
+        if (i > 0 && D[o + i - 1] + 3 < d) d = D[o + i - 1] + 3;
+        if (j > 0) {
+          const u = o - pw + i;
+          if (D[u] + 3 < d) d = D[u] + 3;
+          if (i > 0 && D[u - 1] + 4 < d) d = D[u - 1] + 4;
+          if (i < pw - 1 && D[u + 1] + 4 < d) d = D[u + 1] + 4;
+        }
+        D[o + i] = d;
       }
-      D[o + i] = d;
+      if (j % pp === pp - 1) yield;
+    }
+    yield;
+    for (let j = ph - 1; j >= 0; j--) {
+      for (let i = pw - 1, o = j * pw; i >= 0; i--) {
+        let d = D[o + i];
+        if (!d) continue;
+        if (i < pw - 1 && D[o + i + 1] + 3 < d) d = D[o + i + 1] + 3;
+        if (j < ph - 1) {
+          const u = o + pw + i;
+          if (D[u] + 3 < d) d = D[u] + 3;
+          if (i < pw - 1 && D[u + 1] + 4 < d) d = D[u + 1] + 4;
+          if (i > 0 && D[u - 1] + 4 < d) d = D[u - 1] + 4;
+        }
+        D[o + i] = d;
+      }
+      if (j % pp === 0) yield;
     }
     CUT = new Uint8Array(bw * bh);
-    for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) {
-      const d = D[(j0 + j - py0) * pw + (i0 + i - px0)];
-      CUT[j * bw + i] = Math.min(255, Math.round(d / 3));
+    for (let j = 0; j < bh; j++) {
+      for (let i = 0; i < bw; i++) CUT[j * bw + i] = Math.min(255, Math.round(D[(j0 + j - py0) * pw + (i0 + i - px0)] / 3));
+      if (j % pr === pr - 1) yield;
     }
     yield;
   }
+  STEP = "b-march";
   // the waterline: marching squares between pixel centres, each piece
   // turned so the water lies on its left, chained into runs
   const next = new Map();
@@ -706,6 +744,7 @@ function* bodySteps(M, w, B) {
     if (cr < 0) next.set(ka, kb); else next.set(kb, ka);
   };
   for (let j = -1; j < bh; j++) {
+    if (j % pr === pr - 1) yield;
     for (let i = -1; i < bw; i++) {
       const a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), d = at(i, j + 1);
       const n = a + b + c + d;
@@ -722,9 +761,9 @@ function* bodySteps(M, w, B) {
       else if (a) { piece(L, T, i, j); piece(R, Bm, i + 1, j + 1); }
       else { piece(T, R, i + 1, j); piece(Bm, L, i, j + 1); }
     }
-    if (j % 200 === 199) yield;
   }
   yield;
+  STEP = "b-chain";
   const ends = new Set(next.values());
   const chains = [];
   const walk = (k0) => {
@@ -740,9 +779,10 @@ function* bodySteps(M, w, B) {
     pts.push(pos(k));
     return { pts, closed: false };
   };
-  for (const k of [...next.keys()]) if (!ends.has(k) && next.has(k)) chains.push(walk(k));
-  for (const k of [...next.keys()]) if (next.has(k)) chains.push(walk(k));
+  for (const k of [...next.keys()]) if (!ends.has(k) && next.has(k)) { chains.push(walk(k)); yield; }
+  for (const k of [...next.keys()]) if (next.has(k)) { chains.push(walk(k)); yield; }
   yield;
+  STEP = "b-runs";
   // resample each chain a unit apart (world units), ease out the pixel
   // steps, step in off the waterline, and keep only where dry land lies
   // outside
@@ -804,6 +844,7 @@ function* bodySteps(M, w, B) {
         a = -1;
       }
     }
+    yield;
   }
   Object.assign(B, { x0: i0 / r, y0: j0 / r, w: bw / r, h: bh / r, i0, j0, bw, bh, IN, EDGE, CUT, runs, tints: {}, kind: w.kind, pond: w.pond || null });
 }
@@ -846,12 +887,13 @@ const readGround = (ground, x, y, w, h) => {
 // (the same art-pixel grid) and stamped plainly after; a slice at a time.
 // Without the ground (a lab drawing it alone), a thin shine and the rim.
 function* tintSteps(B, tone, ground, out) {
+  STEP = "t-tint";
   const T = TONES[tone], cv = document.createElement("canvas");
   cv.width = B.bw; cv.height = B.bh;
   const c = cv.getContext("2d"), img = c.createImageData(B.bw, B.bh), d = img.data;
   const under = ground ? readGround(ground, B.i0, B.j0, B.bw, B.bh) : null;
   const [sr, sg, sb] = hexRgb(shineOf(B)), ys = 0.299 * sr + 0.587 * sg + 0.114 * sb;
-  const [rr, rg, rb] = T.rim, bw = B.bw, castleI = Math.floor(CASTLE_X * PX) - B.i0;
+  const [rr, rg, rb] = T.rim, bw = B.bw, castleI = Math.floor(CASTLE_X * PX) - B.i0, tpr = Math.max(4, Math.floor(30000 / bw));
   for (let j = 0; j < B.bh; j++) {
     for (let i = 0; i < bw; i++) {
       const k = j * bw + i;
@@ -885,7 +927,7 @@ function* tintSteps(B, tone, ground, out) {
       if (nr === R && ng === G && nb === Bl) continue;
       d[o] = Math.min(255, Math.round(nr)); d[o + 1] = Math.min(255, Math.round(ng)); d[o + 2] = Math.min(255, Math.round(nb)); d[o + 3] = 255;
     }
-    if (j % 160 === 159) yield;
+    if (j % tpr === tpr - 1) yield;
   }
   c.putImageData(img, 0, 0);
   out.cv = cv; out.lit = !!under;
@@ -930,7 +972,8 @@ export const warmWaterReach = (ground = null) => {
     let fin = false;
     do { if (job.steps.next().done) { fin = true; break; } } while (performance.now() - t0 < 5);
     const dt = performance.now() - t0;
-    job.slices = (job.slices || 0) + 1; job.work = (job.work || 0) + dt; job.maxSlice = Math.max(job.maxSlice || 0, dt);
+    job.slices = (job.slices || 0) + 1; job.work = (job.work || 0) + dt;
+    if (dt > (job.maxSlice || 0)) { job.maxSlice = dt; job.maxStep = STEP; }
     if (fin) job.done = true; else setTimeout(pump, 16);
   };
   setTimeout(pump, 300);
@@ -1121,4 +1164,4 @@ waterMask.body = (x, y) => { const M = waterMask(), w = M.lab && watchWater(x, y
 waterMask.tune = (tone, o) => { Object.assign(TONES[tone], o); if (MASK) for (const B of MASK.bodies.values()) if (B.tints) B.tints = {}; };
 // (the lab: is the idle warm-up done, and how did it go: slices, ms of work, the longest slice)
 waterMask.warmed = () => !!(WARM && WARM.done);
-waterMask.warmStats = () => WARM && { done: WARM.done, slices: WARM.slices || 0, work: +(WARM.work || 0).toFixed(1), maxSlice: +(WARM.maxSlice || 0).toFixed(1) };
+waterMask.warmStats = () => WARM && { done: WARM.done, slices: WARM.slices || 0, work: +(WARM.work || 0).toFixed(1), maxSlice: +(WARM.maxSlice || 0).toFixed(1), in: WARM.maxStep };

@@ -891,7 +891,7 @@ const shardShape = (v) => {
     return c === "a" ? 0 : c === "b" ? 1 : c === "c" ? 2 : -1;
   };
 };
-const shardSprite = (heat, v, d) => rotSprite(`shd|${heat}|${v & 3}`, d, 16, shardShape(v), SHARD[heat], INK_LINE, [4, 12, col(SHARD_STREAK[heat]), heat === "hot" ? 235 : 200]);
+const shardSprite = (heat, v, d) => rotSprite(`shd|${heat}|${v & 3}`, d, 16, shardShape(v), SHARD[heat], INK_LINE, [4, heat === "hot" ? 15 : 12, col(SHARD_STREAK[heat]), heat === "hot" ? 250 : 200]);
 
 // orbs: a lit core in a dithered halo that breathes over four frames
 const ORB = {
