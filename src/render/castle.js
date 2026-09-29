@@ -2242,7 +2242,7 @@ export const drawCastleWorks = (ctx, g) => {
         const br = (tt % 3.3) / 3.3;
         key = shift ? "reach" : br > 0.2 && br < 0.6 ? "rest1" : "rest";
       }
-      const cv = workFrame(`bow|${big ? 1 : 0}|${key}`, 36, 36, (c) => drawArcherFrame(c, 23, 33, -1, WALL_FOLK.bowman, key, { big, bowCol: big ? "#3a3a44" : undefined }));
+      const cv = workFrame(`bow|${big ? 1 : 0}|${key}`, 36, 36, (c) => drawArcherFrame(c, 23, 33, -1, WALL_FOLK.bowman, key, { big, bowCol: big ? "#3a3a44" : undefined, quiver: "#7a5334" }));
       // shoulder to shoulder they'd hide each other: every other man stands a step back
       if (cv) ctx.drawImage(cv, BOW_X + 2 - 23 + (Math.round(spots[i] / 24) % 2 ? 4 : -1), y - 33, 36, 36);
     }

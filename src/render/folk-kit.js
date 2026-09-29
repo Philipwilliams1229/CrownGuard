@@ -212,10 +212,14 @@ export const keyed = (keys, p, o = {}) => {
 };
 
 // A cap over a bare head: a crown and a brim that juts forward (+x).
-// o.lift raises the whole cap (brim and crown) off the eye line: at 0 its
-// brim's ink sits on the eye (the build crew's caps, folk.js); 0.5 shows it.
+// It rides half a unit up the brow of a head drawn at (x, y), so the brim's
+// ink (a unit deep) clears the eye's top row and the eye reads under it at
+// 1x; o.lift raises the whole cap (brim and crown) further. Every caller
+// today stands half a unit higher again (the smith and the build crew pass
+// a y 0.5 above the head's, the musketeer lift 0.5): at that height alone
+// the ink still touched the eye, pixel-luck deciding whether it showed.
 export const cap = (ctx, x, y, col, o = {}) => {
-  const hy = y - 0.3 - (o.lift || 0), w = o.wide ? 1.9 : 1;
+  const hy = y - 0.8 - (o.lift || 0), w = o.wide ? 1.9 : 1;
   blob(ctx, [[x - 2.6 * w, hy - 1.8, 1], [x + 3.2 * w, hy - 1.8, 1], [x + 3.4 * w, hy - 1.1, 1], [x - 2.8 * w, hy - 1.1, 1]], darken(col, 0.1), { hi: 0.3 });
   blob(ctx, [[x - 2.4, hy - 1.6, 1], [x - 2.2, hy - 3.3], [x - 0.2, hy - (o.tall ? 5.2 : 4.1)], [x + 2.0, hy - 3.4], [x + 2.5, hy - 1.6, 1]], col, {
     hi: 0.35, then: (c) => { if (o.band) dab(c, x - 2.6, hy - 2.6, 5.4, 0.8, o.band); },

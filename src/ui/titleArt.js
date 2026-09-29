@@ -49,6 +49,17 @@ const layer = (draw, ink = 0) => {
   if (ink) inkOutline(cv, INK, ink);
   return cv;
 };
+// the same over one box of the scene (whole units), drawn at [x0, y0]:
+// the same pixels as a full layer for anything inside the box, and a
+// fraction of the work to harden and ink
+const layerAt = (ctx, x0, y0, w, h, draw, ink = 0) => {
+  const cv = mk(w * U, h * U), c = cv.getContext("2d", RF);
+  c.scale(U, U); c.translate(-x0, -y0);
+  draw(c);
+  crisp(cv);
+  if (ink) inkOutline(cv, INK, ink);
+  ctx.drawImage(cv, x0 * U, y0 * U);
+};
 
 // ---- the sky: dawn, banded and dithered --------------------------------
 const SKY = [[0, "#1c2450"], [0.3, "#33427a"], [0.55, "#5d5f96"], [0.74, "#a07898"], [0.87, "#e0a07c"], [1, "#f6cf8e"]].map(([t, c]) => [t, rgb(c)]);
@@ -287,7 +298,7 @@ function* paintMeadow(G, topAt, o = {}) {
   const flo = o.floor ? new Float32Array(GX * GY) : null;
   const pS = (y) => (far ? far : persp(y)), pV = (y) => (far ? y * 1.67 / far : planeV(y));
   for (let j = 0; j < GY; j++) {
-    if (j === 56) yield;   // the sampling is the heavy half: split it
+    if (j === 56) yield `${o.tag} sampling`;   // the sampling is the heavy half: split it
     const y = top0 + j, s = pS(y), v = pV(y), fine = far ? 0 : ease01((s - 0.2) / 0.5);
     for (let i = 0; i < GX; i++) {
       const x = i, u = (x - 330) / s;
@@ -310,16 +321,20 @@ function* paintMeadow(G, topAt, o = {}) {
       sun[j * GX + i] = f < -1 ? -1 : f > 1 ? 1 : f;
     }
   }
-  yield;
+  yield `${o.tag} sampling, sun`;
   const x0 = o.x0 ?? 0, x1 = o.x1 ?? VW;
   // `lip` (a number, or one per column) how many art px of the brow turn
-  // over into a lit lip, `rim` the least tone it lights to (and warms it);
-  // `tmin` the darkest tone the field may take
-  const tmin = o.tmin ?? 0, rim = o.rim ?? 0;
+  // over into a lit lip, `rim` (the same) the least tone it lights to (and
+  // warms it; 0: a plain edge a step up); `tmin` the darkest tone the field
+  // may take
+  const tmin = o.tmin ?? 0;
+  const xm = (x0 + x1) >> 1;
   for (let px = x0; px < x1; px++) {
+    if (px === xm && o.split) yield `${o.tag} pixels, west`;
     const x = (px + 0.5) / U, top = topAt(x), ptop = Math.max(0, Math.round(top * U));
     const fx = x, xi = Math.min(GX - 2, fx | 0), u = fx - xi;
     const pbot = Math.min(VH, bottom * U), lip = typeof o.lip === "function" ? o.lip(x) : (o.lip ?? 2.2);
+    const rim = typeof o.rim === "function" ? o.rim(x) : (o.rim ?? 0);
     for (let py = ptop; py < pbot; py++) {
       const y = (py + 0.5) / U, fy = y - top0, yi = Math.max(0, Math.min(GY - 2, fy | 0)), w = Math.max(0, Math.min(1, fy - yi));
       const k = yi * GX + xi;
@@ -402,11 +417,12 @@ const PEBBLES = [
   [".LLB.", "LBBBD", "BBBDD", ".DDSS", "..SS."],
 ];
 
-function paintRoadPx(G) {
+function* paintRoadPx(G) {
   const P = G.P, RN = roadNoise();
-  const PX0 = 170 * U, PX1 = 384 * U, PY0 = 164 * U;
+  const PX0 = 170 * U, PX1 = 384 * U, PY0 = 164 * U, PYM = (PY0 + VH) >> 1;
   const rutOn = (al, side) => { const q = roadPlane(al); return vn1(side > 0 ? RN.rutB : RN.rutA, q / 26) * 0.62 + vn1(RN.rutF, q / 9 + (side > 0 ? 40 : 0)) * 0.38 > 0.45; };
   for (let py = PY0; py < VH; py++) {
+    if (py === PYM) yield "road, far half";
     const y = (py + 0.5) / U, hzy = hazeOf(y);
     for (let px = PX0; px < PX1; px++) {
       const x = (px + 0.5) / U, r = roadNear(x, y);
@@ -615,7 +631,9 @@ function paintTurfDetail(G, field, trees) {
       stampRows(G, px - 1, py - 1, DAISY, daisy);
     }
   }
-  // grass: tufts gathering where the turf is lush (low in the field)
+  // grass: tufts gathering where the turf is lush (low in the field), each
+  // rooted low enough that its tallest blade stays on the ground, never
+  // standing up past the hill's brow against the ridge behind
   const blades = [];
   for (let i = 0; i < 1300; i++) {
     const x = hash(i, 11) * SW, y = 168 + hash(i, 12) * 104;
@@ -624,13 +642,23 @@ function paintTurfDetail(G, field, trees) {
     const s = persp(y), dr = ease01((vn2(drift, (x - 330) / s / 50, planeV(y) / 50) - 0.3) / 0.45);
     if (hash(i, 13) > (0.1 + 0.9 * s * s) * (0.25 + 0.75 * dr)) continue;
     if (hash(i, 14) > 0.2 + (0.6 - field.swellAt(x, y)) * 2.6) continue;
-    blades.push([px, py, (0.3 + 0.95 * s) * (0.6 + 0.55 * hash(i, 15)), i]);
+    const sz = (0.3 + 0.95 * s) * (0.6 + 0.55 * hash(i, 15));
+    if (py - 15 * sz < (hillTop(x) + 1.5) * U) continue;
+    blades.push([px, py, sz, i]);
   }
   blades.sort((a, b) => a[1] - b[1]);
+  // grass in a wood's shade takes the floor's own tones (world.js's
+  // floorTuft), but only the blades that stand on the floor: where one
+  // rises out of it onto the open meadow it takes the meadow's darker tuft
+  const onFloor = G.reg.map((r) => (r === 2 ? 1 : 0));
   for (const [px, py, sz, i] of blades) {
     const hl = G.haze(px, py);
-    let cols = i % 4 === 0 ? P.tuftDk[hl] : i % 7 === 0 ? P.tuftLt[hl] : P.tuft[hl];
-    if (G.reg[py * VW + px] === 2) cols = [G.at(px, py, -1), G.at(px, py, 1), G.at(px, py, 3), G.at(px, py, 4)];
+    const cols = i % 4 === 0 ? P.tuftDk[hl] : i % 7 === 0 ? P.tuftLt[hl] : P.tuft[hl];
+    if (onFloor[py * VW + px]) {
+      const fl = [G.at(px, py, -1), G.at(px, py, 1), G.at(px, py, 3), G.at(px, py, 4)], dk = P.tuftDk[hl];
+      pixelTuft((a, b, k) => G.set(a, b, a >= 0 && b >= 0 && a < VW && b < VH && onFloor[b * VW + a] ? fl[k] : dk[k]), (a, b) => G.shift(a, b, -1), px, py, sz, i, [0, 1, 2, 3], sz > 1 ? { n: 5 + (i % 3) } : undefined);
+      continue;
+    }
     pixelTuft((a, b, c) => G.set(a, b, c), (a, b) => G.shift(a, b, -1), px, py, sz, i, cols, sz > 1 ? { n: 5 + (i % 3) } : undefined);
   }
   // wildflowers, each with a few smaller ones of its kind about it
@@ -654,26 +682,56 @@ function paintTurfDetail(G, field, trees) {
 function* paintFarHills(ctx, top, near) {
   const G = groundBuf(ctx);
   yield* paintMeadow(G, top, {
-    far: 0.18, seed: 3, bottom: 206, lip: 2.6, tmin: 2,
+    tag: "far ridge", far: 0.18, seed: 3, bottom: 206, lip: 2.6, tmin: 2,
     haze: (x, y) => 4.4 - Math.min(0.6, (y - top(x)) / 24),
     lift: (x) => -(top(x + 2) - top(x - 2)) * 0.12,
     form: (x) => -(top(x + 2) - top(x - 2)) * 0.4,
     warm: (x) => (0.5 - x / SW) * 0.6,
   });
-  yield;
+  yield "far ridge pixels";
   // farms on its slopes, as on the map's Greenwood: a patchwork of wheat,
-  // ploughland, pasture and ripening barley laid in rows along the fall of
-  // the ground (thinning out and bending with the ridge's folds lower down),
-  // furrowed, each hedged along its lower edge, and a hedgerow or two
-  // running on across the meadow. They take the ridge's own haze (a share
-  // of its hazed grass), so ploughland stays brown and wheat stays gold.
+  // ploughland, green corn and barley in a few farms along the ridge,
+  // thinning out lower down. Each farm is a jittered lattice laid along the
+  // fall of the ground: columns with wandering, leaning sides, and every
+  // column its own rows, so no two fields' feet line up and nothing runs on
+  // as a shelf. Hedges go round the fields they bound (a lumpy one along
+  // each field's foot, a thin one up its sides); some fields are shared
+  // between two crops or cut short, some cells are hedged pasture a shade
+  // off the meadow, and the furrows run across the slope, down it, or not
+  // at all. They take the ridge's own haze (a share of its hazed grass), so
+  // ploughland stays brown and wheat stays gold.
   const KF = [0, 0.08, 0.15, 0.22, 0.3, 0.36];
   const grade = (c) => c.map((v, j) => Math.round(v * GRADE[j]));
   const toRidge = (c) => HAZE_K.map((_, h) => rgb(mix(grade(rgb(c)), G.P.meadow[h][3 * 3 + 1], KF[h])));
   const fp = FARM.map((pair) => pair.map(toRidge));
   const hedge = [darken(GW.TUFT, 0.25), GW.TUFT, mix(GW.GRASS, GW.GRASS_LT, 0.3)].map(toRidge);
-  const fold = lat(359), RH = [5.2, 5.6, 6, 6.6, 7.2, 8, 9];
-  const RB = RH.reduce((a, hh) => [...a, a[a.length - 1] + hh], [0]);
+  const fold = lat(359), clus = lat(361), leanN = lat(367);
+  // the lattice: column k runs between the sides jb(k) and jb(k + 1) (in
+  // units across the slope), its rows between the depths edges[m], edges[m+1]
+  const CW = 23;
+  const jb = (k) => k * CW + (hash(k, 31) - 0.5) * CW * 0.6;
+  const COLS = new Map();
+  const rowsOf = (k) => {
+    if (!COLS.has(k)) {
+      const e = [-hash(k, 32) * 5];
+      for (let m = 0; e[m] < 60; m++) e.push(e[m] + 3.2 + hash(k * 37 + m, 33) * 5.4 + m * 0.45);
+      COLS.set(k, e);
+    }
+    return COLS.get(k);
+  };
+  // what a cell is: 2 a field, 1 hedged pasture, 0 open meadow; farms
+  // gather where the cluster noise is high and thin out down the slope
+  const KINDS = new Map();
+  const kindOf = (k, m) => {
+    const key = k * 64 + m;
+    if (!KINDS.has(key)) {
+      const e = rowsOf(k), dm = (e[m] + e[m + 1]) / 2, cx = (jb(k) + jb(k + 1)) / 2, seed = k * 131 + m * 17 + 1000;
+      const pf = clamp01((vn1(clus, cx / 58 + 3.3) - 0.3) * 2.8) * (1 - clamp01((dm - 22) / 16)) * (m === 0 ? 0.6 : 1);
+      KINDS.set(key, hash(seed, 7) < pf ? 2 : hash(seed, 9) < pf * 0.55 ? 1 : 0);
+    }
+    return KINDS.get(key);
+  };
+  const cellAt = (k, d) => { const e = rowsOf(k); let m = 0; while (e[m + 1] <= d) m++; return m; };
   // how far (x, y) lies beside the near hill's outline, in units: the
   // nearest column where the outline has climbed up past it
   const NX = Array.from({ length: SW + 21 }, (_, k) => near(k - 10));
@@ -695,7 +753,7 @@ function* paintFarHills(ctx, top, near) {
     return cells.get(seed);
   };
   for (let px = 0; px < VW; px++) {
-    const x = (px + 0.5) / U, t = top(x);
+    const x = (px + 0.5) / U, t = top(x), fx = (vn1(fold, x / 46) - 0.5) * 5, ln = (vn1(leanN, x / 90) - 0.5) * 1.1;
     let reach = 1e9;
     for (let dx = -7; dx <= 7; dx++) reach = Math.min(reach, nearAt(x + dx));
     for (let py = Math.ceil((t + 3) * U); py < 206 * U; py++) {
@@ -703,35 +761,46 @@ function* paintFarHills(ctx, top, near) {
       if (G.reg[i] !== 1) continue;
       const y = (py + 0.5) / U;
       if (y + 1.5 > reach && offHill(x, y) < 6) continue;
-      const dz = dith(px, py), d = y - t - 3 + (vn1(fold, x / 46) - 0.5) * 5 * Math.min(1, (y - t) / 22);
-      let row = 0;
-      while (row < RH.length && d >= RB[row + 1]) row++;
-      if (row >= RH.length || d < 0) continue;
-      const rq = row + (d - RB[row]) / RH[row] + dz * 0.1, fr = rq - row;
-      const cw = 20 + hash(row, 5) * 14 + row * 3, cq = (x + hash(row, 6) * 60 + fr * 3) / cw + dz * 0.06, col = Math.floor(cq);
-      const seed = col * 13 + row * 101;
-      const field = hash(seed, 7) > (row < 3 ? 0.5 : 0.4);
-      // a hedgerow running on across the meadow, now and then
-      const hedgeRow = !field && row >= 2 && hash(seed, 9) < 0.5;
-      if ((!field && !hedgeRow) || cq - col < 0.04) continue;           // meadow, or the fence line
-      if (!cellClear(seed, col * cw - hash(row, 6) * 60 - fr * 3, cw, y + (1 - fr) * RH[row])) continue;
-      const h = G.hz[i];
-      if (fr > 0.8) {
-        // the hedge along its foot: lit along its top, lumpy with bushes
-        const lump = hash(Math.floor(x * 1.3), row * 7) < 0.3 ? 0.08 : 0;
-        if (hedgeRow && lump === 0 && hash(Math.floor(x * 0.5), row * 11) < 0.18) continue;
-        G.set(px, py, hedge[fr < 0.86 - lump ? 2 : fr < 0.94 ? 1 : 0][h]);
-        continue;
+      const d = y - t - 3 + fx * Math.min(1, (y - t) / 22);
+      if (d < 0) continue;
+      // the columns lean along the fall of the ground
+      const xs = x + d * ln;
+      let k = Math.floor(xs / CW);
+      if (xs < jb(k)) k--; else if (xs >= jb(k + 1)) k++;
+      const e = rowsOf(k), m = cellAt(k, d), kind = kindOf(k, m);
+      if (!kind) continue;
+      const seed = k * 131 + m * 17 + 1000, xa = jb(k), xb = jb(k + 1);
+      if (!cellClear(seed, xa - (xs - x), xb - xa, y + (e[m + 1] - d))) continue;
+      const h = G.hz[i], toFoot = (e[m + 1] - d) * U, fromW = (xs - xa) * U, toE = (xb - xs) * U;
+      // the hedge along its foot: lit along its top, lumpy with bushes
+      const lump = hash(Math.floor(x * 0.9), seed) < 0.3 ? 1 : 0;
+      if (toFoot < 2 + lump) { G.set(px, py, hedge[toFoot < 1 ? 0 : toFoot < 2 ? 1 : 2][h]); continue; }
+      // and thin ones up its sides (the east one only where no field of
+      // the next column already hedges it)
+      if (fromW < 1 || (toE < 1 && !kindOf(k + 1, cellAt(k + 1, d)))) { G.set(px, py, hedge[1][h]); continue; }
+      if (kind === 1) { G.shift(px, py, hash(seed, 15) < 0.5 ? 1 : -1); continue; }
+      // shared between two crops, or cut short and left to the meadow
+      let fs = seed;
+      if (hash(seed, 11) < 0.4) {
+        const cut = xa + (xb - xa) * (0.35 + 0.3 * hash(seed, 12)), q = (xs - cut) * U;
+        if (q >= 0) {
+          if (hash(seed, 13) < 0.4) { if (q < 1) G.set(px, py, hedge[1][h]); continue; }
+          if (q < 1) { G.set(px, py, hedge[1][h]); continue; }
+          fs = seed + 7;
+        }
       }
-      if (hedgeRow) continue;
-      const f = fp[Math.floor(hash(seed, 8) * FARM.length)];
-      G.set(px, py, f[((py + col) % 3 === 0) ? 1 : 0][h]);
+      const f = fp[CROP[Math.floor(hash(fs, 8) * CROP.length)]], fm = hash(fs, 14);
+      const furrow = fm < 0.45 ? Math.floor(d * U + k) % 3 === 0 : fm < 0.8 ? Math.floor(xs * U) % 3 === 0 : dith(px, py) > 0.86;
+      G.set(px, py, f[furrow ? 1 : 0][h]);
     }
   }
   G.flush();
 }
 // the farms' colours (the map's Greenwood fields): each a field and its furrow
 const FARM = [["#d8bf62", "#c4a84e"], ["#a67e52", "#8e6a44"], ["#9cc462", "#86b052"], ["#c8c46a", "#b0ac58"]];
+// how often each is sown: the ridge's own green takes the green corn in, so
+// the golds and the ploughland carry the patchwork
+const CROP = [0, 0, 0, 1, 1, 1, 2, 2, 3, 3];
 
 // The hay meadow right of the road, where the militiaman forks the stack:
 // mown a step paler than the meadow round it, the cut hay raked into
@@ -1044,8 +1113,9 @@ function paintThreshold(c) {
 }
 // The bank: soil and a lip of turf along the castle's foot (not across the
 // threshold), tufts leaning on the stones, rubble at the corners. Its turf
-// takes the ground's colours (`pal`); the app icon (icon-lab.html) paints it
-// on its own hill in the colours it was drawn with.
+// takes the ground's colours (`pal`; its turf and lip may be a colour, or
+// one per x); the app icon (icon-lab.html) paints it on its own hill in the
+// colours it was drawn with.
 const BANK = { soil: "#5a4430", turf: "#86ba56", lip: "#a4d070", tuftDk: "#3f6e2e", tuftLt: "#8ac050", stone: "#8e8878" };
 function paintBank(c, pal = BANK) {
   const x0 = sx(0), x1 = sx(CS.w), gy = CS.y;
@@ -1053,8 +1123,8 @@ function paintBank(c, pal = BANK) {
     if (x > 347 && x < 373) continue;
     const top = gy - 0.6 - (hash(Math.floor(x * 2), 3) > 0.75 ? 0.5 : 0) - Math.max(0, Math.sin(x / 7)) * 0.6;
     c.fillStyle = pal.soil; c.fillRect(x, top - 0.5, 0.5, 0.5);
-    c.fillStyle = pal.turf; c.fillRect(x, top, 0.5, gy + 3 - top);
-    c.fillStyle = pal.lip; c.fillRect(x, top, 0.5, 0.5);
+    c.fillStyle = typeof pal.turf === "function" ? pal.turf(x) : pal.turf; c.fillRect(x, top, 0.5, gy + 3 - top);
+    c.fillStyle = typeof pal.lip === "function" ? pal.lip(x) : pal.lip; c.fillRect(x, top, 0.5, 0.5);
   }
   for (let k = 0; k < 12; k++) {
     const x = x0 + 2 + hash(k, 21) * (CS.w - 4);
@@ -1112,15 +1182,15 @@ function* paintVista() {
   const cv = mk(VW, VH), ctx = cv.getContext("2d", RF);
   ctx.imageSmoothingEnabled = false;
   paintSky(ctx);
-  yield;
+  yield "sky";
   paintClouds(ctx);
-  yield;
+  yield "clouds";
   // far snowy range, then a nearer blue one
   paintRange(ctx, [[20, 120, 0.9], [78, 104, 0.8], [150, 126, 0.85], [212, 96, 0.75], [276, 118, 0.9], [330, 100, 0.8], [402, 112, 0.85], [470, 98, 0.8]],
     180, ["#8c86b8", "#6e6a9c", "#5a5688", "#f4dce0", "#b8a8c8"], 10);
   paintRange(ctx, [[0, 150, 0.6], [60, 140, 0.55], [128, 152, 0.6], [196, 138, 0.5], [262, 150, 0.6], [318, 142, 0.5], [390, 148, 0.55], [456, 140, 0.5]],
     190, ["#6a7aa0", "#56648a", "#48547a"]);
-  yield;
+  yield "ranges";
   // the far ridge: the same meadow a long way off, hazy, with a line of pines
   const farTop = (x) => 168 + Math.sin(x / 40) * 5 + Math.sin(x / 17 + 1) * 2;
   yield* paintFarHills(ctx, farTop, hillTop);
@@ -1130,19 +1200,25 @@ function* paintVista() {
     if (hash(x, 2) < 0.35) continue;
     ctx.drawImage(farPine, Math.round((x - 3) * U), Math.round((y - 11) * U));
   }
-  yield;
+  yield "farms, pines";
   // the castle's hill and the near meadow (hillTop, above)
   const trees = woodsList();
   // shade: the castle's at its foot and each tree's, thrown down-right (the
-  // meadow asks a row at a time, so only the trees near that row are tried)
-  let rowY0 = NaN, rowTrees = trees;
+  // meadow asks a row at a time, so only the trees near that row are tried).
+  // Where the woods stand deep, their shade is the wood's floor (a hem at
+  // their feet, as the board's woods have); a tree out on the hill's brow
+  // throws only a shadow on the grass (`deepShade`, the share of the last
+  // point's shade thrown by deep trees)
+  const deep = new Set(trees.filter(([tx, ty]) => ty - hillTop(tx) > 7).map((t) => t[2]));
+  let rowY0 = NaN, rowTrees = trees, deepShade = 0;
   const treeShade = (x, y) => {
     if (y !== rowY0) { rowY0 = y; rowTrees = trees.filter(([, ty, , r]) => Math.abs(y - ty - 0.8) <= r * 0.75); }
     let v = 0;
-    for (const [tx, ty, , r] of rowTrees) {
+    deepShade = 0;
+    for (const [tx, ty, k, r] of rowTrees) {
       if (Math.abs(x - tx - r * 0.45) > r * 2.6 || Math.abs(y - ty - 0.8) > r * 0.75) continue;
       const dx = (x - tx - r * 0.45) / (r * 1.25), dy = (y - ty - 0.8) / (r * 0.34), q = dx * dx + dy * dy;
-      if (q < 4) v -= 0.24 * Math.exp(-q * 1.3);
+      if (q < 4) { const e = 0.24 * Math.exp(-q * 1.3); v -= e; if (deep.has(k)) deepShade -= e; }
     }
     return v;
   };
@@ -1156,7 +1232,7 @@ function* paintVista() {
   const east = (x) => ease01((x - 412) / 24);
   const G = groundBuf(ctx);
   const field = yield* paintMeadow(G, hillTop, {
-    seed: 5,
+    tag: "near meadow", seed: 5, split: true,
     shade: (x, y) => treeShade(x, y) + castleShade(x, y),
     // the hill's flanks: lit toward the low sun on the west, falling into
     // shade past the castle on the east (darker there, and kept clear of
@@ -1165,9 +1241,11 @@ function* paintVista() {
     form: (x, y) => flank(x) * 1.6 * Math.exp(-(y - hillTop(x)) / 26),
     warm: (x) => (0.5 - x / SW) * 0.35,
     haze: (x, y) => hazeOf(y) - east(x) * Math.max(0, Math.min(1, (206 - y) / 16)) * 0.75,
-    floor: (sh, x, y) => -sh + castleShade(x, y) - 0.2,
-    // the brow's lit lip all along the hill's outline, but not under the walls
-    lip: (x) => (foot(x) ? -9 : 2.4), rim: 5,
+    floor: (sh, x, y) => -deepShade + castleShade(x, y) - 0.2,
+    // the brow's lit lip along the hill's sunward outline, but not under the
+    // walls; on the east shoulder, falling into shade, a plain edge
+    lip: (x) => (foot(x) ? -9 : flank(x) < -0.05 ? 1 : 2.4),
+    rim: (x) => (flank(x) < -0.05 ? 0 : 5),
   });
   // the castle's contact shadow: a band of the ramp's own shade (two tones
   // down, cool) thrown down-right under the whole footing, frayed in the
@@ -1181,33 +1259,44 @@ function* paintVista() {
       G.lay(i, rg, Math.max(0, Math.min(G.tone[i], 3) - (q < 0.6 ? 2 : 1)), 0, G.hz[i]);
     }
   }
-  yield;
+  yield "near meadow pixels, east; contact shadow";
   // the road up to the gate, wider as it nears
-  paintRoadPx(G);
-  yield;
+  yield* paintRoadPx(G);
+  yield "road, near half";
   paintHayField(G);
-  yield;
+  yield "hay meadow";
   paintTurfDetail(G, field, trees);
   paintRoadDetail(G);
   G.flush();
-  yield;
   // a haystack in the field, forked up by the militiaman who works it
   ctx.drawImage(hayS(), Math.round((HAY[0] - 9) * U), Math.round((HAY[1] - 12) * U));
+  yield "turf and road detail, haystack";
   const castle = castleS();
   ctx.drawImage(castle, Math.round(sx(0) * U), Math.round(sy(0) * U));
-  yield;
+  yield "castle";
   // bedding it in: the cobbled threshold running up into the gate, an earth
   // bank over the footing's foot, grass and a little rubble creeping on it
-  ctx.drawImage(layer(paintThreshold, 1), 0, 0);
+  layerAt(ctx, 334, 164, 46, 26, paintThreshold, 1);
+  // (the bank's turf in the contact shadow's deepest tone, so the shadow
+  // runs up to the footing; its lip a step up. The shadow falls down-right,
+  // so at the west corner the bank steps up into the lit brow beside it)
   const gp = groundPal(), mc = (tn, tp) => hex(gp.meadow[1][tn * 3 + tp]);
-  ctx.drawImage(layer((c) => paintBank(c, { soil: "#57402e", turf: mc(2, 1), lip: mc(4, 2), tuftDk: hex(gp.tuft[1][0]), tuftLt: hex(gp.tuft[1][3]), stone: "#8e8878" })), 0, 0);
+  const west = (x) => (x < 293.5 ? 2 : x < 296 ? 1 : 0);
+  layerAt(ctx, 284, 156, 152, 28, (c) => paintBank(c, {
+    soil: "#57402e", turf: (x) => mc(west(x), west(x) > 1 ? 1 : 0), lip: (x) => mc(west(x) + 1, west(x) > 1 ? 2 : 0),
+    tuftDk: hex(gp.tuft[1][0]), tuftLt: hex(gp.tuft[1][2]), stone: "#8e8878",
+  }));
   // woods closing in on both sides, darker toward the viewer; each tree
   // marks the pixels it covers with its foot's row (`occ`), so the grass and
   // flowers laid on after never grow over a tree that stands nearer
   const occ = new Int16Array(VW * VH);
-  const stand = (s, ox, oy, footY) => {
+  // (each sprite is copied once onto a CPU canvas and read there: one
+  // readback per tree, not one to draw it and another to read it)
+  const stand = (s0, ox, oy, footY) => {
+    const s = mk(s0.width, s0.height), sc = s.getContext("2d", RF);
+    sc.drawImage(s0, 0, 0);
     ctx.drawImage(s, ox, oy);
-    const a = s.getContext("2d").getImageData(0, 0, s.width, s.height).data;
+    const a = sc.getImageData(0, 0, s.width, s.height).data;
     for (let j = 0; j < s.height; j++) {
       const Y = oy + j;
       if (Y < 0 || Y >= VH) continue;
@@ -1226,7 +1315,7 @@ function* paintVista() {
       stand(s, Math.round((x - r * 1.3) * U), Math.round((y - r * 2.6) * U), Math.round(y * U));
     }
   }
-  yield;
+  yield "threshold, bank, woods";
   // the foreground: grass close to the eye, and a few tall flowers
   // (never on the road, where the walkers go)
   {

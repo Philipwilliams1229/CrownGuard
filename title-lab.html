@@ -28,7 +28,8 @@
       for (;;) {
         const a = performance.now();
         r = g.next();
-        times.push(Math.round(performance.now() - a));
+        // each stage yields its name (the last one, the foreground, returns)
+        times.push([r.done ? "foreground, birds" : String(r.value ?? "?"), Math.round(performance.now() - a)]);
         if (r.done) break;
       }
       const total = Math.round(performance.now() - t0);
@@ -63,7 +64,8 @@
           await save(tag + "_z", cv);
         }
       }
-      status.textContent = `stages ms: ${times.join(" ")} | total ${total} ms | max ${Math.max(...times)} ms`;
+      const worst = times.reduce((a, b) => (b[1] > a[1] ? b : a));
+      status.textContent = `stages ms: ${times.map(([n, t]) => `${n} ${t}`).join(" | ")} || total ${total} ms | max ${worst[1]} ms (${worst[0]})`;
       document.title = "DONE";
     </script>
   </body>

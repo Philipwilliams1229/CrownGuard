@@ -19,14 +19,14 @@
       const rows = [
         ["archer", [(c) => F.drawArcher(c, 16, 38, 1, A.base, 0, { pose: "rest" }), (c) => F.drawArcher(c, 16, 38, 1, A.base, 1), (c) => F.drawArcher(c, 16, 38, 1, A.b, 0, { pose: "loose" })]],
         ["crew/engineer", [(c) => F.drawCrew(c, 16, 38, 1, C.engineer, -0.6), (c) => F.drawCrew(c, 16, 38, 1, C.engineer, 0), (c) => F.drawCrew(c, 16, 38, 1, C.engineer, 0.6)]],
-        ["stander clerk/watch", [(c) => F.drawStander(c, 16, 38, 1, C.clerk), (c) => F.drawStander(c, 16, 38, 1, WATCH)]],
+        ["stander clerk/watch", [(c) => F.drawStander(c, 16, 38, 1, C.clerk), (c) => F.drawStander(c, 16, 38, 1, WATCH, { hat: "kettle" })]],
         ["halberd/mason", [(c) => F.drawHalberdier(c, 16, 38, 1, W.guard), (c) => F.drawMason(c, 16, 38, 1, W.mason, 0), (c) => F.drawMason(c, 16, 38, 1, W.mason, 1)]],
         ["mage", [(c) => F.drawMage(c, 16, 38, 1, F.MAGE_FOLK.base, 1, { pose: "idle" }), (c) => F.drawMage(c, 16, 38, 1, F.MAGE_FOLK.a, 2), (c) => F.drawMage(c, 16, 38, 1, F.MAGE_FOLK.b, 3, { pose: "cast" })]],
         ["priest", [(c) => F.drawPriest(c, 16, 38, 1, F.PRIEST_FOLK.base, false), (c) => F.drawPriest(c, 16, 38, 1, F.PRIEST_FOLK.b, true)]],
         ["smith", [(c) => F.drawSmith(c, 16, 38, 1, C.smith, 0), (c) => F.drawSmith(c, 16, 38, 1, C.smith, 1)]],
         ["hooded", [(c) => F.drawHooded(c, 16, 38, 1, C.blade), (c) => F.drawHooded(c, 16, 38, 1, C.bladeGuild)]],
         ["mistress", [(c) => F.drawMistress(c, 16, 38, 1, C.mistress), (c) => F.drawMistress(c, 16, 38, 1, C.mistressCourt)]],
-        ["bomber/alch", [(c) => F.drawBomber(c, 16, 38, 1, C.bomber, false), (c) => F.drawBomber(c, 16, 38, 1, C.bomber, true), (c) => F.drawBomber(c, 16, 38, 1, ALCH, true)]],
+        ["bomber/alch", [(c) => F.drawBomber(c, 16, 38, 1, C.bomber, false), (c) => F.drawBomber(c, 16, 38, 1, C.bomber, true), (c) => F.drawBomber(c, 16, 38, 1, ALCH, true, { vial: true })]],
         ["musketeer", [(c) => F.drawMusketeer(c, 16, 38, 1, C.musketeer, 0), (c) => F.drawMusketeer(c, 16, 38, 1, C.musketeer, 1)]],
       ];
       const CW = 36, CH = 44, cols = 3;
