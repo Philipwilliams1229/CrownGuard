@@ -100,11 +100,16 @@ export const drawEnemy = (ctx, e, time, tms) => {
   const emerging = age < 340;
   const baseAlpha = emerging ? Math.max(0.05, age / 340) : 1;
   if (emerging) ctx.globalAlpha = baseAlpha;
+  // a wraith rising out of the body of a knight it killed: it lifts out of the
+  // ground on the very spot, solidifying as it comes (engine raiseFrom)
+  const rise = e.riseAt !== undefined && tms - e.riseAt < e.riseMs ? (tms - e.riseAt) / e.riseMs : 1;
+  if (rise < 1) ctx.globalAlpha = 0.12 + 0.88 * rise * rise;
   // a solid hit knocks them back a pixel or two before they lean in again
   const knock = e.hitFlash > tms ? -e.face * CELL : 0;
   const lunge = (e.atkAnim > 0 ? CELL * e.face : 0) + knock;
   // fliers hover; small quick critters get a lively hop on their off-frames
   let hover = airborne ? S(Math.sin(time * 3 + e.id) * 3) - (e.boss ? 10 : 7) : 0;
+  if (rise < 1) hover += S((1 - rise) * (1 - rise) * 18);      // sunk in the body, coming up
   if (e.swimming) hover = S(Math.sin(time * 2.4 + e.id) * 2);
   // a knight thrown from a gryphon brought down: he drops from the saddle's
   // height to the road, gathering speed as he falls, and lands with a bump
@@ -194,7 +199,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
       ctx.fillRect(S(gx + 1), S(barY + 6), CELL, CELL);
     }
   }
-  if (emerging) ctx.globalAlpha = 1;
+  if (emerging || rise < 1) ctx.globalAlpha = 1;
 };
 
 // A blade of the Covert in the grass: no shield wall, no banner — a hooded

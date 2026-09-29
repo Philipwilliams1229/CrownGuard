@@ -503,13 +503,18 @@ const killUnit = (g, t, u) => {
 // A wraith's victim does not stay down: where the knight fell, a new wraith
 // rises out of the body (at the killer's strength, paying half). Capped, so a
 // wave of them cannot turn a garrison into an endless brood.
-const BROOD_CAP = 24;
+const BROOD_CAP = 24, RISE_MS = 1300;
 const raiseFrom = (g, killer, u, tms) => {
   if (g.enemies.reduce((n, x) => n + (!x.dead && x.type === killer.type ? 1 : 0), 0) >= BROOD_CAP) return;
   const at = nearestOnPath(u.x, u.y);
   const w = spawnAt(g, killer.type, killer.mult, at.dist ?? killer.dist, tms);
   w.bounty = Math.max(1, Math.ceil(w.bounty / 2));
-  g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: 700, life: 700 });
+  // it comes up OUT of the body, on the very spot the knight fell: it stays
+  // put and rises for RISE_MS (the painter fades and lifts it), then drifts
+  // onto the road and joins the march
+  w.born = tms - 400;
+  w.riseAt = tms; w.riseMs = RISE_MS; w.riseX = u.x; w.riseY = u.y;
+  g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: RISE_MS, life: RISE_MS });
   sfx.play("raise");
 };
 
@@ -1383,7 +1388,8 @@ export function updateGame(g, dt) {
       // archer keeps a healer's stalemate from holding a wave open for ever)
       const standing = e.rangedAtk && e.aiming && (e.pauseLeft ??= 14000) > 0;
       if (standing) e.pauseLeft -= sdt * 1000;
-      if (!stunned && !held && !standing) {
+      const rising = e.riseAt !== undefined && tms - e.riseAt < e.riseMs;
+      if (!stunned && !held && !standing && !rising) {
         const slow = (e.immSlow || e.guard > 0) ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
         const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
         // every foe walks its OWN lane at its own speed: round a bend the
@@ -1417,6 +1423,11 @@ export function updateGame(g, dt) {
       if (e.px != null) e.gait = (e.gait || 0) + Math.hypot(nx - e.px, ny - e.py) / 14;
       e.px = nx; e.py = ny;
       e.x = nx; e.y = ny;
+      // a wraith rising from a fallen knight stays over the body until it is up
+      if (rising) {
+        const k = (tms - e.riseAt) / e.riseMs, s = Math.max(0, (k - 0.6) / 0.4);
+        e.x = e.riseX + (nx - e.riseX) * s; e.y = e.riseY + (ny - e.riseY) * s;
+      }
       // ...and closes on her side of the sky, off its lane, easing back after
       if (e.airAtk) {
         const k = Math.min(1, sdt * 5);
