@@ -187,7 +187,7 @@ export const ENEMIES = {
   },
   wraith: {
     faction: "hollow", hp: 95, speed: 78, bounty: 18, armor: 0, mres: 0.4, size: 17,
-    name: "Wraith", flying: true, holyOnly: true, raisesOnKill: true, haunts: true, swarms: 34, atk: 11, atkRate: 1000, castleDmg: 2,
+    name: "Wraith", flying: true, holyOnly: true, raisesOnKill: true, haunts: true, swarms: 34, atk: 26, atkRate: 900, castleDmg: 2,
     note: "A drowned soul that drifts over the road and lays its cold hands on your knights. Arrows, bolts, stones and plain steel all pass through it: only magic hurts it — wizards, fire, and the Paladin's holy blows, the one kind of knight that can. They bunch up on a soldier, all clawing at once, and whoever they kill rises again as another wraith, so keep your ordinary knights back.",
   },
   ghast: {
