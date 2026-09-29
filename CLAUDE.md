@@ -12,6 +12,24 @@ https://philipwilliams1229.github.io/CrownGuard/ (GitHub Pages, ~1 minute).
 - `art/DESIGN-BRIEF.md` / `art/GEMINI-PROMPTS.md` — sprite sizes and prompts
   if AI-painted images are ever used.
 
+## Open threads (as of 2026-09-29)
+
+Bring these up with the owner; don't act on them unasked.
+- **PARKED: the tower menu taking over the tray.** The owner wants to
+  sketch it first: raise it, but build nothing until the sketch arrives.
+  The tray's Castle / Sandbox / Master buttons crowd each other when all
+  three show; that belongs with this redesign.
+- **Waiting on the owner's playtest:** the range cut (every hall ×0.75),
+  the pricier later levels, the hero xp curve, the Siege Ram rework, the
+  Powder Works numbers (still the strongest on armor) and the Cairnfields'
+  850 start gold. Details are under "Balance and testing".
+- **Put to the owner, no answer yet:** a small pond bunches 3–4 River Watch
+  boats close together; the tower card can cover skiffs on a pond.
+- **Known, not fixed:** `mPierce` does nothing (see the Powder Works
+  notes); square snow patches on the Frostfang map.
+- **Type:** a device that once opened a `?type=` link keeps that option
+  (localStorage `cg-type`); `?type=tidy3` returns it to the default.
+
 ## Default way of working: a team of parallel agents
 
 The owner likes seeing many pieces worked on at once, so for any job with
