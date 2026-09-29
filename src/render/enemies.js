@@ -178,7 +178,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
     ctx.fillRect(x0, barY, Math.max(1, Math.round(w * pct)), e.boss ? 3 : 2);
     if (e.boss) { ctx.fillStyle = "rgba(255,243,210,0.35)"; ctx.fillRect(x0, barY, Math.max(1, Math.round(w * pct)), 1); }
     // armour and rune-ward badges ride the bar's ends
-    if (e.armor >= 0.3 || e.physImmune) { ctx.fillStyle = "#b4bac6"; ctx.fillRect(x0 + w + 2, barY - 1, 3, 3); ctx.fillRect(x0 + w + 3, barY + 2, 1, 1); }
+    if (e.armor >= 0.3 || e.holyOnly) { ctx.fillStyle = "#b4bac6"; ctx.fillRect(x0 + w + 2, barY - 1, 3, 3); ctx.fillRect(x0 + w + 3, barY + 2, 1, 1); }
     if (e.mres >= 0.3) { ctx.fillStyle = "#b890e0"; ctx.fillRect(x0 - 5, barY - 1, 3, 3); ctx.fillRect(x0 - 4, barY + 2, 1, 1); }
   }
   // raised shields / chaplain and magister wards: one pip per blow still to

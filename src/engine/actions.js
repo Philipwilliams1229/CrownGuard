@@ -368,11 +368,12 @@ const CORPSE_TYPES = new Set(["goblin", "wolf", "orc"]);
 // passed so that shields can tell a blow from a burn.
 // `srcId` is the tower that owns this damage, so a long run can be read back
 // as a ledger: who actually earned their footprint and who was decoration.
-export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, melee = false) => {
+export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = false) => {
   let dmg = amount;
-  // a wraith is smoke to everything physical: only a knight's own blade,
-  // swung at arm's length, finds anything to cut (magic still works, less its mres)
-  if (e.physImmune && dtype === "phys" && !melee) return;
+  // a wraith is smoke to everything but the holy: only a Paladin-tree knight's
+  // blow (or the Basilica's sear) touches it — arrows, stones, plain steel,
+  // wizards, fire and poison all pass through (`holy` = the caller is one)
+  if (e.holyOnly && !holy) return;
   // Raised shields and chaplain / magister wards (the blue pips) answer only
   // to steel (owner, 2026-09-28): each PHYSICAL blow takes one pip and is
   // swallowed WHOLE, however big it was, so a boulder wasted costs more than

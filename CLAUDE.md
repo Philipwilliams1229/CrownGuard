@@ -191,9 +191,15 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   engine he marches at the mean pace of the soldiers near him so he stays
   inside the column. Ward every 8 s. Behind a siege ram he comes only from
   war-wave 10, on ~6 waves in 10 (seeded), not every time.
-- **Wraith** (`physImmune`, `haunts`): flying, immune to all physical damage
-  except a knight's sword (`dealDamage`'s `melee` argument), magic works less
-  its `mres`; knights can block and fight it, and it hits back.
+- **Wraith** (`holyOnly`, `haunts`, `raisesOnKill`): flying, and NOTHING hurts
+  it but a Paladin-tree knight's blow or the Basilica's sear (`dealDamage`'s
+  `holy` argument; arrows, stones, plain/berserker knights, wizards, DoT all
+  pass through). Knights can block and fight it and it hits back; a knight it
+  kills rises as a new wraith (`raiseFrom` in update.js, capped at 24 alive).
+  The sim commander cannot play this puzzle (it never places paladins where
+  the wraiths come), so wraith waves are what bleeds the Hollow in the sim;
+  scripted counts were cut to 3-5 and CROWD_WEIGHT to 0.25 to keep it a check,
+  not a wall. Pending the owner's playtest.
 - **Gravecaller**: ten Risen a toll. It is the Hollow's engine; the late
   script keeps callers to 1-2 a wave and the roster cap at 1 for that reason.
 - **`window.push`** (levels-hollow.js, applied in waves.js `push`): multiplies

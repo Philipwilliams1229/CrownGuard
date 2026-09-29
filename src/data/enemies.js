@@ -22,8 +22,9 @@
 //                  behind it can pass while it lives. Value = its half-length
 //   escort         [type, base, perWave, gap] groups always sent in its wake
 //   single         only one of its kind may be on the road at a time
-//   physImmune     physical damage does nothing to it — except the sword
-//                  blows of a knight (magic works, less its `mres`)
+//   holyOnly       nothing hurts it except a Paladin-tree knight's blow (and
+//                  the Basilica's sear); everything else passes through
+//   raisesOnKill   a knight it kills rises again as one of its kind
 //   haunts         flies, but knights can still reach out and fight it
 //   banner*        it buffs the speed and armor of everything around it
 //   summon*        it conjures fresh enemies onto the road as it walks
@@ -176,9 +177,9 @@ export const ENEMIES = {
     note: "Grave-cold fingers on a yew bow, loosing at your knights from outside sword reach. Dead men need no fletching lessons.",
   },
   wraith: {
-    faction: "hollow", hp: 95, speed: 78, bounty: 18, armor: 0, mres: 0.55, size: 17,
-    name: "Wraith", flying: true, physImmune: true, haunts: true, atk: 11, atkRate: 1000, castleDmg: 2,
-    note: "A drowned soul that drifts over the road and lays its cold hands on your knights. Arrows, bolts and stones pass through it; only a knight's sword, or magic (which mostly slides off it), can hurt it.",
+    faction: "hollow", hp: 95, speed: 78, bounty: 18, armor: 0, mres: 0.25, size: 17,
+    name: "Wraith", flying: true, holyOnly: true, raisesOnKill: true, haunts: true, atk: 11, atkRate: 1000, castleDmg: 2,
+    note: "A drowned soul that drifts over the road and lays its cold hands on your knights. Arrows, bolts, stones, spells and plain steel all pass through it; only a Paladin's holy blow can hurt it. Whoever it kills rises again as another wraith — keep your ordinary knights back, or lose them to it.",
   },
   ghast: {
     faction: "hollow", hp: 175, speed: 84, bounty: 16, armor: 0, size: 18,

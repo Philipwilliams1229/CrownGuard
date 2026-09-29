@@ -11,7 +11,7 @@ import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETI
 import { RIVER_ROUTE, riverRouteAt, seaRoute, seaDepthAt, underBridge, routeSpans, clearOfSpans, stationQ } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
-import { PTS, posAt, angleAt, lanePos, TOTAL_LEN } from "./path.js";
+import { PTS, posAt, angleAt, lanePos, nearestOnPath, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt } from "./actions.js";
@@ -438,7 +438,7 @@ const makeEnemy = (type, mult) => {
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: pickLane(d.boss || !!d.roadBlock),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
-    flying: !!d.flying, haunts: !!d.haunts, physImmune: !!d.physImmune, guard: d.guard || 0, guardFlash: 0,
+    flying: !!d.flying, haunts: !!d.haunts, holyOnly: !!d.holyOnly, raisesOnKill: !!d.raisesOnKill, guard: d.guard || 0, guardFlash: 0,
     roadBlock: d.roadBlock || 0, packRange: d.packRange || 0, capDist: Infinity,
     airAtk: d.airAtk || 0, airReach: d.airReach || 0, airFight: null, airOx: 0, airOy: 0,
     immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush,
@@ -497,6 +497,19 @@ const killUnit = (g, t, u) => {
   u.shield = false;
   releaseEnemy(g, g.enemies.find((x) => x.blockedBy === u.id));
   g.effects.push({ type: "poof", x: u.x, y: u.y, ttl: 400 });
+};
+
+// A wraith's victim does not stay down: where the knight fell, a new wraith
+// rises out of the body (at the killer's strength, paying half). Capped, so a
+// wave of them cannot turn a garrison into an endless brood.
+const BROOD_CAP = 24;
+const raiseFrom = (g, killer, u, tms) => {
+  if (g.enemies.reduce((n, x) => n + (!x.dead && x.type === killer.type ? 1 : 0), 0) >= BROOD_CAP) return;
+  const at = nearestOnPath(u.x, u.y);
+  const w = spawnAt(g, killer.type, killer.mult, at.dist ?? killer.dist, tms);
+  w.bounty = Math.max(1, Math.ceil(w.bounty / 2));
+  g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: 700, life: 700 });
+  sfx.play("raise");
 };
 
 // A ranged band (the huntress): holds the rally point, shoots the nearest
@@ -712,7 +725,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               // glances off) — else a Paladin who stuns and heals could hold a
               // shielded levy forever and the wave would never end
               const holy = st.magic && !(target.guard > 0);
-              dealDamage(g, target, dealt, holy ? "magic" : "phys", st.magic, false, t.id, true);
+              dealDamage(g, target, dealt, holy ? "magic" : "phys", st.magic, false, t.id, !!st.magic);
               sfx.play("clink");
               if (st.frenzy) u.frenzy = (u.frenzy || 0) + 1;
               if (st.lifesteal && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
@@ -734,7 +747,10 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
                   g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
                   sfx.play("hit");
                 }
-                if (u.hp <= 0) killUnit(g, t, u);
+                if (u.hp <= 0) {
+                  killUnit(g, t, u);
+                  if (target.raisesOnKill) raiseFrom(g, target, u, tms);
+                }
               }
             }
           }
@@ -1553,7 +1569,7 @@ export function updateGame(g, dt) {
           if (u.state === "dead") continue;
           for (const e of g.enemies) {
             if (e.dead) continue;
-            if (Math.hypot(e.x - u.x, e.y - u.y) <= 42) dealDamage(g, e, st.sear * sdt, "magic", false, true, t.id);
+            if (Math.hypot(e.x - u.x, e.y - u.y) <= 42) dealDamage(g, e, st.sear * sdt, "magic", false, true, t.id, true);
           }
         }
       }
