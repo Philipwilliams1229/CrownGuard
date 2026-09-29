@@ -393,12 +393,16 @@ piece of text picks a role, never a family.
   bold)` — `canvasFont("board", 22, true)` is today's "bold 22px monospace";
   a baked text sprite keys on `typeEpoch()`, which bumps when faces land. The
   board's floating numbers (+12, −3) are fx.js's 5×7 bitmap in every option.
-- **Options: `TYPES`.** `current` is today's look and the default
-  (`DEFAULT_TYPE`) until the owner picks: Silkscreen words, Press Start 2P
-  digits (`font-size-adjust` 0.58), Verdana text, monospace on the board. The
+- **Options: `TYPES`.** The default (`DEFAULT_TYPE`) is `tidy3`, Tidy
+  HUD · Pixel Sans (the owner's pick, 2026-09-29): CG Pixel Sans capitals
+  for the words, Press Start 2P for every digit, Jersey 15 for the tales.
+  `current` is the look before it: Silkscreen words, Press Start 2P digits
+  (`font-size-adjust` 0.58), Verdana text, monospace on the board. The
   others are whole identities: `keep` (Arcade Keep), `letter` (Black
-  Letter), `illuminated`, `pair` (Tidy HUD). Switch with `?type=<id>`
-  (remembered in localStorage `cg-type`; `?type=current` goes back).
+  Letter), `illuminated`, `pair` (Tidy HUD with Silkscreen), `tidy2` (Tidy
+  HUD with Pixel Operator 8). Switch with `?type=<id>` (remembered in
+  localStorage `cg-type`, so a player who picked one keeps it; `?type=tidy3`
+  comes back to the default).
 - **An option's fields.** Each Google face is registered under an alias
   (`"cg <family> <size>"`) whose `@font-face` carries `size-adjust`, so the
   size travels with the face everywhere — never add `font-size-adjust` for
@@ -411,11 +415,13 @@ piece of text picks a role, never a family.
   lists characters it must not draw (they fall through to the option's body
   face); its `lh` sets the height `line-height: normal` gives it.
 - **Loading.** Faces use `font-display: swap`; the page is held hidden until
-  they land, 3 s from navigation at most.
-- **When the owner picks:** set `DEFAULT_TYPE` and move that option's alias
-  rules into a static stylesheet with `<link rel=preload>` for its woff2
-  files, replacing index.html's link, so the first paint never waits on the
-  bundle.
+  they land, 3 s from navigation at most. fonts.js registers every face at
+  boot; index.html only starts the DEFAULT's downloads before the bundle
+  runs: `<link rel=preload>` for its self-hosted woff2 files and (`as=fetch`)
+  for each Google stylesheet the loader fetches, at exactly the loader's URLs
+  (one family per request, `&display=swap`) so its requests reuse them. A
+  new default changes those links. A plain option (`current`) links its own
+  Google stylesheet at boot (`sheet`, held until its `probes` load).
 - **Checking type:** `type-lab.html?opt=<id>` (a specimen sheet; `?opt`, since
   `?type` would switch the game), `?digits=opts` (every option's digits as
   the game sets them), `?survey=1` (candidate faces with their metrics).

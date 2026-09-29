@@ -70,6 +70,10 @@ gate, scenery, Iron and Fen grounds, apron — ten artists):
 
 What the September 29 pass added (crews, soldiers and foes, halls, type, the
 title ground, the River Watch's reach, the Powder Works):
+- **The game's type is Tidy HUD · Pixel Sans** (`tidy3`, the owner's pick):
+  `DEFAULT_TYPE` in `src/ui/fonts.js`, whose preloads sit in index.html
+  (style guide, "Type (HUD)"). Shots of the game show it unless `?type=`
+  says otherwise.
 - **Scratch files go in `scratchpad/<prefix>/`,** never the scratchpad's
   root: artists overwrote each other's `grid.py` there.
 - **Vite ignores `.shots/`** (`server.watch.ignored`), so a lab page or

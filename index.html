@@ -12,12 +12,17 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="icon" href="./icon-192.png" />
-    <!-- today's faces: Silkscreen and Press Start 2P, the "current" type option.
-         Every font the game uses is named in src/ui/fonts.js; another option
-         (?type=<id>) loads its own faces from there. -->
+    <!-- the default type option's faces (tidy3), started before the bundle
+         runs: CG Pixel Sans from ./fonts/, and the two Google stylesheets
+         src/ui/fonts.js fetches (same URLs, so its requests use these). Every
+         font the game uses is named in fonts.js, which loads them all; another
+         option (?type=<id>) loads its own faces from there. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Press+Start+2P&display=swap" />
+    <link rel="preload" as="font" type="font/woff2" href="./fonts/CGPixelSans.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="./fonts/CGPixelSans-Bold.woff2" crossorigin />
+    <link rel="preload" as="fetch" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" crossorigin />
+    <link rel="preload" as="fetch" href="https://fonts.googleapis.com/css2?family=Jersey+15&display=swap" crossorigin />
     <title>Crownguard</title>
     <style>
       /* a touch screen must never bounce, pan, select text, flash on tap or zoom

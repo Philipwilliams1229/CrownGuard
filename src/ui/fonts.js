@@ -26,12 +26,13 @@
 // hand-drawn 5x7 bitmap in render/fx.js, part of the board's pixel art, the
 // same in every option.
 //
-// OPTIONS: "current" is today's exact look (the default until the owner
-// picks); the others are whole identities of two or three families (Google
-// Fonts, or self-hosted: see below). tidy2 and tidy3 are Tidy HUD with
-// another word face (tidyWith). Pick one with ?type=<id> (remembered in localStorage "cg-type");
-// ?type=current goes back. type-lab.html shows them side by side and
-// scripts/type-shots.mjs shoots the real game in each.
+// OPTIONS: whole identities of two or three families (Google Fonts, or
+// self-hosted: see below). The default is tidy3, Tidy HUD with CG Pixel Sans
+// for the words (the owner's pick, 2026-09-29); "current" is the look before
+// it, family for family. tidy2 and tidy3 are Tidy HUD with another word face
+// (tidyWith). Pick one with ?type=<id> (remembered in localStorage "cg-type");
+// a link with no ?type keeps a player's remembered pick. type-lab.html shows
+// them side by side and scripts/type-shots.mjs shoots the real game in each.
 //
 // SIZE TUNING: layouts were built for today's faces, so a new face is never
 // used at its raw size. Each Google face is registered again under an alias
@@ -63,10 +64,12 @@
 // Silkscreen's height and baseline in every browser; renamed wherever the
 // original's licence reserves its name (Pixeloid Sans -> CG Pixel Sans).
 //
-// WHEN THE OWNER PICKS: set DEFAULT_TYPE, and move the chosen option's alias
-// @font-face rules (fetched here at run time) into a static stylesheet with
-// <link rel=preload> for its woff2 files, replacing index.html's link, so the
-// first paint never waits behind the bundle.
+// FIRST PAINT: the game can't paint before the bundle runs, so index.html
+// only starts the default's downloads early: a preload for each of its
+// self-hosted woff2 files and for each Google stylesheet the loader fetches
+// (the same URLs, so the loader's requests are answered from the preloads).
+// A new default changes those links. No option's stylesheet is linked there:
+// a plain option (current) links its own at boot (`sheet`).
 
 const GOOGLE = "https://fonts.googleapis.com/css2";
 const FALLBACK = "Verdana, Geneva, sans-serif";
@@ -115,9 +118,10 @@ const tidyWith = ({ name, sketch, word: [family, files, lacks = ""], k, cap, tun
 };
 
 export const TYPES = {
-  // Today's look, family for family (the style guide's rules: Silkscreen
-  // for words, Press Start 2P with font-size-adjust for digits, Verdana for
-  // long text, the system monospace on the board).
+  // The look before Tidy HUD, family for family (Silkscreen for words, Press
+  // Start 2P with font-size-adjust for digits, Verdana for long text, the
+  // system monospace on the board). Its faces come in Google's own
+  // stylesheet (`sheet`), linked at boot.
   current: {
     name: "Current",
     sketch: "Today's mix of four: Silkscreen words, Press Start 2P digits, Verdana text, monospace on the board.",
@@ -133,6 +137,8 @@ export const TYPES = {
       board: "monospace",
     },
     numAdjust: "0.58",
+    sheet: `${GOOGLE}?family=Silkscreen:wght@400;700&family=Press+Start+2P&display=swap`,
+    probes: ['400 20px "Silkscreen"', '700 20px "Silkscreen"', '400 20px "Press Start 2P"'],
   },
   // All pixel: the Jersey family for every word, on a 25px grid for the big
   // ones and a 15px grid for the rest; Press Start 2P, today's HUD digits,
@@ -259,7 +265,7 @@ export const TYPES = {
 };
 
 export const TYPE_IDS = Object.keys(TYPES);
-export const DEFAULT_TYPE = "current";
+export const DEFAULT_TYPE = "tidy3";
 export const SLOTS = ["mark", "title", "head", "ui", "menu", "num", "body", "map", "board"];
 
 // ---- which option ------------------------------------------------------
@@ -481,13 +487,24 @@ if (typeof document !== "undefined") {
   if (TYPE.features) { root.setProperty("font-feature-settings", TYPE.features); html.dataset.typeFeatures = ""; }
   if (TYPE.caps) html.dataset.typeCaps = "";
   const faces = facesOf(TYPE_ID);
-  if (faces.length) {
+  if (faces.length || TYPE.sheet) {
     // hold the first paint so the title never flashes in the wrong face: until
     // the faces are in, or 3 s after the page began loading (1 s at least)
     const hold = document.createElement("style");
     hold.textContent = "#root{visibility:hidden}";
     document.head.appendChild(hold);
-    ready = loadFaces(faces).then(() => { epoch++; });
+    if (TYPE.sheet) {
+      // a plain option's own stylesheet; loaded (or failed) when its faces are
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = TYPE.sheet;
+      ready = new Promise((r) => { link.onload = r; link.onerror = r; })
+        .then(() => Promise.all((TYPE.probes || []).map((p) => document.fonts.load(p).catch(() => null))))
+        .then(() => { epoch++; });
+      document.head.appendChild(link);
+    } else {
+      ready = loadFaces(faces).then(() => { epoch++; });
+    }
     const now = typeof performance !== "undefined" ? performance.now() : 0;
     Promise.race([ready, new Promise((r) => setTimeout(r, Math.max(1000, 3000 - now)))]).then(() => hold.remove());
   } else if (document.fonts?.ready) {
