@@ -48,7 +48,8 @@ copy what the rebuilt pieces do.
 | The Hollow Court's dead (risen, barrow archer, plague ghast, crypt warden, gravecaller, Hollow King) | `src/render/rigs-hollow.js` | the horde's bending skeleton with real bones; `hlw-lab.html` (on fen and road); four-frame fights (`fightN: 4`; the barrow archer nocks, draws, looses and reaches — its draw arm is a `flip` with the upper arm foreshortened, `o.short`); joint set `irh` |
 | The Hollow Court's beasts and spirits (ghoul, wraith, grave amalgam) | `src/render/rigs-hollowbeasts.js` | `hlb-lab.html` |
 | Anything not in the files above (the generic rig) | `src/render/rigs.js` | entries in the rig files above override these |
-| Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk-kit.js` (the body: head, torso, `legs`, `arm` with its elbow solver, timing helpers) and one file per crew: `folk-archer.js` (eight key poses; `ARCHER_FRAMES` / `drawArcherFrame` name every frame the halls and the castle's bowmen stamp; a raised string upper arm is drawn behind the head so the face reads — the lab can't judge that, look), `folk-casters.js` (mage, priest — their poses are joint-target tables and their timing lives there too: `MAGE_CYCLE`/`magePoseAt`, `mageIdlePose`, `mageBreathPose`, `priestPose`/`priestLight`; the halls only pick frames through them), `folk-workers.js` (winch crew on its crank circle `CREW_FRAMES`/`crankAt`, the smith's blow `SMITH_FRAMES`/`smithHammer`, standers `STANDER_FRAMES` with a spyglass option, the wall's halberdier `HALBERD_FRAMES`/`HALBERD_WALK` and mason `MASON_FRAMES`), `folk-gunners.js` (bombardier/alchemist `bomberFrame`/`bomberCharge`, musketeer `musketFrame`/`musketMuzzle`, falcon-mistress `mistressFrame`/`mistressGlove`, hooded blade `hoodedFrame` — the halls place fuses, flasks, flashes and birds from these, never at fixed offsets); `folk.js` re-exports them all and keeps the build crew | the new body: slim, jointed arms, small hands; joints per "Joints and motion" |
+| Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk-kit.js` (the body: head, torso, `legs`, `arm` with its elbow solver, timing helpers) and one file per crew: `folk-archer.js` (eight key poses; `ARCHER_FRAMES` / `drawArcherFrame` name every frame the halls and the castle's bowmen stamp; each pose's `back` puts the string arm wholly behind the head or wholly in front, see "Limbs and layers" — the lab can't judge that, look), `folk-casters.js` (mage, priest — their poses are joint-target tables and their timing lives there too: `MAGE_CYCLE`/`magePoseAt`, `mageIdlePose`, `mageBreathPose`, `priestPose`/`priestLight`; the halls only pick frames through them), `folk-workers.js` (winch crew on its crank circle `CREW_FRAMES`/`crankAt`, the smith's blow `SMITH_FRAMES`/`smithHammer`, standers `STANDER_FRAMES` with a spyglass option, the wall's halberdier `HALBERD_FRAMES`/`HALBERD_WALK` and mason `MASON_FRAMES`), `folk-gunners.js` (bombardier/alchemist `bomberFrame`/`bomberCharge`, musketeer `musketFrame`/`musketMuzzle`, falcon-mistress `mistressFrame`/`mistressGlove`, hooded blade `hoodedFrame` — the halls place fuses, flasks, flashes and birds from these, never at fixed offsets); `folk.js` re-exports them all and keeps the build crew | the new body: slim, jointed arms, small hands, each limb one inked part (`limb2`); joints per "Joints and motion" |
+| Crew headwear (the trade on every head) | `src/render/folk-kit.js` `hat(ctx, x, y, kind, pal, o)` — kinds in `HAT_KINDS`: `"falconer"` (bycocket, barred hawk feather, braid; `o.plume`), `"wrap"` (the Covert's skull wrap and face scarf; `o.tails`, `o.maskCol`), `"grenadier"` (the bombardier's fur cap, bag and grenade plate; `o.bag`), `"chaperon"` (the alchemist's roundlet) — and `cap()` (smith, hod carrier, setter; the musketeer's broad hat with `wide`/`tall`); `folk-workers.js` `engineerHead` / `clerkHead` / `watchHead` (drawStander's `o.hat`: `"beret"` or `"kettle"`) | drawn over a bare head (`head(..., { hood: false })`) at the same point inside the same nod, so it rides every tilt (folk-gunners.js `onHead`); colours from `pal.hood` / `pal.trim` / `pal.hair`. Sweep options turn a piece about its root the way the head tilts: + lifts what trails back, − lays it flat. `head()`'s peaked cowl (`HOOD`) is the Archery's and the castle crew's alone. Rules in "Crews' headwear" |
 | Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js` |
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type; `IRON_ART.flat` / `HOLLOW_ART.flat` list pieces baked without the 2px ring |
 | The gate's crag (the hill the Greenwood/old realms' cave is cut into) | `src/data/gatecrag.js` (`gateCrag`, `hillAt`, `cragBlocks`) | pure data: scenery.js paints from it AND `buildableAt` refuses halls on it — change its shape only here, then scan that no buildable point lies on opaque gate pixels |
@@ -61,6 +62,8 @@ copy what the rebuilt pieces do.
 | Castle | `src/render/castle.js` (+ `wallDrums`/`wallSlots`/`ballistaSpots`/`TOWER` in `src/data/castle.js`) — a CONCENTRIC castle running off the board's edge: the outer curtain and its walk (the works' crews), the higher inner curtain behind it (its walk — the sentry's beat — and its far parapet cut by the edge, with stairs going down off it), SQUARE open-topped towers built into both walls (see "The castle" below), and one gate block through both walls with the north gate tower rising out of its north end and the KEEP out of its far end (crown banners down its face, red turret, chimney, royal standard). No yard, no houses. Ballistae and spare bowmen stand ON the towers' decks; `drawCastleGround` (called from draw.js under the foes) lays the realm's worn apron, footing stones and a cobbled threshold into the gate; `bakeCastleRun(ya, yb)` paints the same castle past the board's top and bottom for the apron; live bits: banner ripple, a pacing sentry, birds, chimney smoke, torches/braziers | baked per damage tier; ground once per board |
 | Combat effects, projectiles, ground pools, coin pops, status tells | `src/render/fx.js` | painted pixel by pixel once, stamped |
 | River Watch skiffs (a musketeer in the bow — the Powder Works figure — and an oarsman facing the stern) and their musket shot | `src/render/rigs-skiff.js` (`skiffGunPose` off the attack clock, `skiffRowFrame`, `skiffMuzzle` for the engine via `muzzles.js` `skiffShotFrom`; drawn by `drawSkiff` in enemies.js), `src/render/musketfx.js` (`drawMusketShot`: flash, ball, knock, smoke; `fire` for the Fireships) | frames baked per crew colours / gun pose / stroke; joint set `skiff`, lab `skiff-lab.html` |
+| The River Watch's area of control (its water lit, the skiffs' reach rings and carets, wakes kept to the water) | `src/render/waterreach.js` — `waterMask` (which art pixel is which river / pond / sea, and under a deck), `warmWaterReach` (the idle-time bake, from draw.js), `drawWatchWater` (`"tint"` with the water, `"edge"` after its live marks), `drawSkiffReach` / `drawSkiffMarks` / `drawWatchStation` (rings, carets, the build ghost's station), `fillWet` (a wake, ripple or splash on open water only), `clipToWater` (a fixed box: the hall's piles) | its river bank and pond shore MIRROR water.js's `riverField` / `edgeOff` / `pondG`, the sea's world.js's `coastLine`: change the edge in both. Rules in "The River Watch's reach"; lab `skiff-reach-lab.html` |
+| The Powder Works' charge and shrapnel | numbers: `gunpowder` in `src/data/towers.js` (`dmg`, `frags`, `fragDmg`, `fragReach`, `fragBurn`, `crack`, `spot`); engine: `burstCharge` / `fragVictim` / `pierceStrike` in `src/engine/update.js`, the skill tree's perks on the shards in `engine/towers.js` `withPerks`; look: `BLAST.keg` and `drawProjectile` kind `"frag"` in `src/render/fx.js`; the hall `halls/gunpowder.js`, its two men in `folk-gunners.js` | the look under "Rules for halls"; the mechanics and measurements in `CLAUDE.md` "Balance and testing"; judge a change with `node scripts/bench-hall.mjs` (one hall, a steady stream, the real engine) |
 | Dragonbreath's flamethrower jet (from `breathMouth(t)` in halls/wizard.js) and the Inferno Throne's burning ground (g.grounds kind "fire") | `src/render/flames.js` | baked tongues and frames stamped along the jet and the engine's damage cone; world coordinates |
 | A hall rising when bought, levelled, branched or ascended | `src/render/buildanim.js` — `drawRaising(ctx, t, time, paint)`, driven by `t.raised = { at, how, prev }` (set in actions.js `markRaised`); a build's clock and lines are one cached `buildPlan(t)`, its length `raiseSecs(t)`; `src/render/buildcut.js` cuts the hall into pieces; `src/render/builders.js` is the crew | build: a timelapse — builders run out of the castle gate in a straight line (nothing touches them) to a staked plot, the scaffold goes up, the hall is set piece by piece (cut from its own picture along its ink lines: walls course by course under a climbing platform, then the fittings, then the trim), the person is put in last, the scaffold comes down plank by plank and the crew runs home. The hall holds its fire until its person is in (the engine reads the same clock: `src/engine/build.js` `buildClock` / `isBuilt`, `t.readyAt`), and is drawn at rest (`REST`) until then, so combat mid-build never breaks a hand-over; a hall reworked while it goes up keeps its build (`t.raised.build`, actions.js `markRaised`) and the rework's own raise plays once the scaffold is down; beside the castle the ladder side flips to the left. The cut runs a few ms a frame during the crew's run (`pumpCut`). Tune it with `BUILD` in `src/engine/build.js`. level: a mallet and a squash-and-stretch pop; branch/ascend: a gold light column and a bounce. Scales round to whole art pixels; the pieces and the person are snapshots taken at the very moment they hand over to the live hall, so it never jumps (`raise-lab.html?how=build` reports each hand-over: 0 visible pixels). Form sizes are measured via `drawTowerPortrait` — a new hall kind needs a portrait too, and must honour `noFolk` (below) |
 | The build crew (three workers who run out of the castle gate to raise a new hall: a hooded mason with a mallet, a hod carrier, a setter) | `src/render/builders.js` (`builderDrawables(ctx, t, time)`, called by draw.js for every building hall; timing and posts from `buildPlan`); the figures are `drawWorker` / `BUILDER_FOLK` / `WORKER_POSES` in `folk.js` | every frame baked and mirrored once (warmed in idle time, `warmBuilders`), then stamped; they run in straight lines over anything (nothing on the board touches them), wade through water (cut at the waterline, foam rings), ride up on bridges (`bridgeLift`), step out of and back into the gate arch (the castle is drawn over them). The mallet strokes follow the pieces landing (at most one per `STROKE`). Checked in `crew-lab.html` |
@@ -70,8 +73,9 @@ copy what the rebuilt pieces do.
 | The Falconry's hawk (the "talon" stoop) | `src/render/birds.js` — `drawStoop`; the Skyknight's war-eagle is the `eagle` rig in `rigs.js` | hawk poses baked at 15° steps per plumage (`kind`: hawk, the King's Eagle, the Storm Falcons) and stamped. A cast bird leaves her glove (Talon Rain's others their places on the wheel), follows its prey down and the talons — and the damage — land `STOOP_HIT` ms in (update.js `resolveStrikes`), then it flies back to its own place on the wheel by `STOOP_LIFE`; the hall hides it meanwhile (`t.falconsAway`) |
 | The Covert's blades (assassins) — four-frame fights (`fightN: 4` on their RIGS entries: guard, wind-up, strike, follow-through; a blade waiting at the muster crouches in its guard), joint set `cov` | `src/render/rigs-covert.js` (`assassinUnit`, `assassinUnitA/B` for the branches and `assassinUnitAA/AB/BA/BB` for the four finals in `rigs.js` — one rig name per look, since baked frames cache by name; `drawAssassinUnit` in `enemies.js` picks it) | params switch the pieces on: face "gild", hat, veil, beak, long, hem, censer, purse, scroll, pauldron, blade kind |
 | HUD skin | `src/ui/hud/` (`hud.css`, `icons.jsx`, `Chips.jsx`) + `src/ui/theme.js` | |
+| Type: every font family, the type options, canvas fonts | `src/ui/fonts.js` (`TYPES`, the roles' CSS variables, `canvasFont`, `typeEpoch`); `src/ui/theme.js` re-exports the roles | nothing else names a font family; see "Type (HUD)" |
 | The landscape beyond the board (the apron: ground, road and rivers running off, the realm's trees thickening, the wall continuing) | `src/render/apron.js` `paintApron(canvas, { cssW, cssH, dpr, board })`; the wall past the board's ends is castle.js `bakeCastleRun` (towers at the board's rhythm, no seam), never a repeated slice | painted once per realm and layout, cached |
-| Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` | painted once, cached |
+| Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` (`vistaStages`: the vista in named stages) | painted once, cached; see "The campaign map" and "The title screen" |
 | Title-screen crowd and castle life (walkers, guards, the hay-forker; banners, sentry, smoke, torches, birds) | `src/ui/titleCrowd.js`, placed from `ROAD`, `ROAD_W`, `HAY` and `CASTLE_LIFE` in `titleArt.js`; the vista castle matches the board castle (square open-topped towers, red stair turrets, blue crown banners, cobbled threshold) | a second canvas with the vista's own fit, ~30 fps, paused when hidden |
 
 Status tells (`drawStatus` in fx.js) must tell the holds apart at 1x:
@@ -182,6 +186,31 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
   tail — with a full-strength cream streak behind (red-hot for Dragon's
   Breath). They fly at the blast's height and drop as they slow; a foe a
   shard strikes shows the white `spark`.
+- **Anything that swings or wheels at a figure's head height** (a censer, a
+  wheeling bird, a sling) goes BEHIND the figure, its path clears the
+  headwear at the ends of its swing, and its colour stays off the
+  headwear's and the figure's props. The warden's censer (halls/warden.js)
+  is drawn before him, a true pendulum (chain 9, ±1.1 rad, rising at the
+  ends), in dark bronze `#a07a3a`, never the gold of his mitre or of his
+  staff's charm.
+- **The Falconry's wheel** is `wheelAt` in `src/engine/muzzles.js`, which is
+  also where a cast bird leaves from and flies home to: change the wheel
+  there and nowhere else. It wheels clear ABOVE the mistress's hat (`my - 39
+  + sin × 5`: a bird stands 4.5 above and 4 below its centre, her hat and
+  plume reach `my - 29`); at face height it crossed her face. Every wheel
+  bird is drawn UNDER her, her glove and the bird on it, so nothing swaps
+  layers mid-pass.
+- **The catapult's arm cocks above the engineer** (halls/catapult.js
+  `spec`): his head lies on the arc the arm's tip sweeps and the footprint
+  has no room to move him, so the mangonel cocks at −72° (−66° at level 1)
+  and the trebuchet at −102°, its tip out past his back and high. The arm is
+  drawn in 6° steps (`round(a / 6) × 6`), so a cocked angle is a multiple
+  of 6. The trebuchet's sling hangs 7 from the tip, stone in the pouch,
+  while it winds and while it waits (laid in a trough on the bed, its rope
+  ran through his head). The winch and trigger ropes take the arm at
+  `ROPE_AT` (0.4 of its length) and lean in, leaving air before his face.
+  The stop angle, pivot and arm length set where the stone leaves (update.js:
+  14 / 35 + level, the trebuchet 20 / 50): leave them alone.
 
 ## Joints and motion (the September 28 pass)
 
@@ -239,6 +268,49 @@ call for you — a bespoke limb logs its own). Nothing ships red.
   never in step (phase by `t.id`, and by the crewman's index).
 - Frames stay baked (one cache key per pose and frame) and stamped; the
   number of frames per form stays small (≤ 8 per cycle).
+
+**Limbs and layers** (September 29; the owner: no black line between the
+forearm and the upper arm, and arms kept clear of hoods and helms):
+- **One inked part per limb.** Upper arm and forearm, thigh and shin are ONE
+  part: `limb2(ctx, a, b, c, w0, w1, col0, col1, then)` in folk-kit.js
+  (`arm()` and `legs()` use it; `limbStroke` paints a bone into a part
+  already open). What rides on a limb — a gauntlet, a cuff, a sleeve's bell,
+  a knee cop, a greave, an elbow's knob — is a colour step painted INTO that
+  part (`arm()`'s `o.then(c, elbow)`, limb2's `then`), never a part of its
+  own whose ink would ring the joint. The rigs keep the same rule.
+- **An arm against the head goes wholly in front of it or wholly behind,
+  never half through.** In front: an arm held low or out before the face,
+  clear of it. Behind: an arm whose elbow rises past the chin with the hand
+  near the face (the archer's draw, anchor, loose and follow; a throw cocked
+  behind the head) — paint it before `head()` and only the hand after, so
+  the face reads and the elbow shows past the headwear. The archer's poses
+  say which with `back` (0 in front, 1 behind with the hand after the head,
+  2 hand and all behind), and a draw's in-between goes behind by itself once
+  its elbow passes `CHIN` (folk-archer.js). A hand raised behind the head
+  sits past the hood's back edge, so a wrist shows, never a skin ball on the
+  hood.
+- **A raised near arm over the head** (a wind-up): the steel goes BEHIND the
+  head, but the near arm and fist are drawn AFTER it, the elbow behind the
+  head's middle, so the arm covers only the back of the helm and the ear,
+  never the face (the crown's soldiers; a raised gauntlet takes the mail's
+  darker tone so it doesn't melt into the helm). Where an arm in plate or
+  mail is as wide as the helm and would still hide the face (the orc's,
+  Ironclad's and hobgoblin's heaves, the Iron sergeant and chaplain), the
+  head ducks forward and down in that frame and is drawn over the arm, the
+  fist up and back about a unit clear of the helm; if the reach can't clear
+  it, coil the near shoulder back within the trunk (the goblin's knife, the
+  hobgoblin's totem). A raised upper arm in profile stays within ~15° behind
+  upright, or the lab warns "swung back".
+- **A value step between an arm and a hood.** An arm crossing a hood or cowl
+  of its own colour reads as a seam in the hood: give the sleeve a paler
+  shirt (Wren and the crown's bowmen), silk and a lace cuff (the Widow), a
+  leather cuff.
+- **Faces stay open.** Guard and cast poses hold the hand or staff about a
+  unit ahead of the face's front edge. A far-hand shield or bow drawn before
+  the head tucks under the chin (the levy's round shield) or goes behind the
+  skull (the barrow archer's bow). A blade carried on the shoulder lies
+  nearly level under the helm's back rim and across the pauldron's lower
+  half, drawn over both (elbow folded ≤ 140°, wrist ≤ 120°).
 
 ## The castle mark and icons
 
