@@ -235,6 +235,30 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
   the chapter now asks for steel, and the Covert (wards make him prey). A
   ward-caster (`wardEvery/wardHits/wardRange`, `wardFx` for its ring,
   `wardSelf: false` to leave himself out) tops pips up around him.
+- Every hall's reach was cut by a quarter (owner, 2026-09-29): `range`,
+  `mRange`, `auraRange` and `minRange` in towers.js ×0.75, `RALLY_RANGE`
+  96 → 72; range 0 and the whole-map 900/999 halls, hall spacing (`reach`)
+  and lightning's jumps (`arcRange`/`chainRange`) untouched. Measured
+  (`--all --endure`, seeds 1-2, better doctrine): the Greenwood got clearly
+  harder (bramblewick ~3 → ~200, blackbriar 0 → ~160, gw5 ~24 → ~200,
+  ravenscar/cinderholt single digits → 50-120); the Hollow Court barely moved
+  (near 0 before and after); the Iron Marches moved both ways within their
+  noise (ir3 ~165 → ~385, undercliff ~820 → ~1650, ir4 ~208 → ~31, ir5
+  ~1330 → ~580); campaign total 7495 → 10351. Start gold per level is the
+  lever if the owner's playtest finds it too much.
+- The Siege Ram (owner, 2026-09-29: "same rate, fewer in number, higher
+  health, higher physical damage resistance, squashes knights dead — this is
+  where the mages come in"): the same ram waves with about half the rams,
+  HP 1250 → 2300, armor 0.35 → 0.6 (magic untouched), bounty 60, the
+  roster's ram cost 20 / cap 2 and CROWD_WEIGHT 0. Enemy flag `crush`: a
+  knight, militiaman, squire or gate guard who reaches it dies and it rolls
+  on without pausing (runMelee); the hero never targets it. Measured before
+  the range cut (`--chapter iron --endure`, seeds 1-4): ir1-crowstair as
+  before, undercliff and ir5 roughly doubled, the knight-leaning burst plan
+  collapsing at the Citadel. Variants on those two levels: HP 1900 changed
+  nothing at ir5; without the crush undercliff went back to about the old
+  numbers but ir5 did not. So the armor is the ram's main lever (and the
+  crush the Undercliff one). PROVISIONAL pending the owner's playtest.
 - Escorts: a faction's `escort` ({ type, per, max, from }) sends that foe
   along with any wave of `per`+ rank and file (waves.js `escortOf`), marked
   `amid` so startWave spreads it through the middle of the biggest group —
