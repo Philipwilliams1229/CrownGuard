@@ -731,11 +731,14 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               // glances off) — else a Paladin who stuns and heals could hold a
               // shielded levy forever and the wave would never end
               const holy = st.magic && !(target.guard > 0);
+              const hpBefore = target.hp;
               dealDamage(g, target, dealt, holy ? "magic" : "phys", st.magic, false, t.id, !!st.magic);
+              const done = Math.max(0, hpBefore - target.hp);   // what the blow actually took off
               sfx.play("clink");
               if (st.frenzy) u.frenzy = (u.frenzy || 0) + 1;
-              // (a blow that landed on nothing — a wraith, a standing shield against magic — feeds nobody)
-              if (st.lifesteal && u.hp < u.maxHp && !(target.holyOnly && !st.magic) && !(target.guard > 0 && st.magic)) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
+              // lifesteal feeds on the damage actually done — none dealt (a wraith, a
+              // standing shield, armour that turns it), none healed
+              if (st.lifesteal && done > 0 && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + done * st.lifesteal); u.healGlow = 200; }
               g.effects.push({ type: "spark", x: target.x, y: target.y - 6, ttl: 160, gold: !!st.magic || u.atkBuff > 0 });
               if (st.stun && Math.random() < st.stun) target.stunUntil = tms + st.stunDur;
               if (target.dead) { u.targetId = null; u.state = "rally"; }
