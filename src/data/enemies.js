@@ -11,6 +11,8 @@
 //   immSlow        slows and chills do nothing
 //   immStun        stuns and freezes do nothing
 //   trample        melee blocks it can smash through before being held
+//   crush          no one holds it: a knight (militia, squire, gate guard) who
+//                  steps in front of it dies, and it rolls on; the hero keeps clear
 //   flying         knights cannot block it at all
 //   ranged*        it shoots your knights from outside their reach
 //   ward*          it hands out `guard` to nearby allies (wardFx: its look)
@@ -110,10 +112,13 @@ export const ENEMIES = {
     wardEvery: 10000, wardHits: 3, wardRange: 80, wardFx: "aegis",
     note: "A court battle-mage who marches inside the big columns. Every ten seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a physical blow whole, and no magic or fire gets through while one stands. Strip his shields with quick arrows and blades, then kill him before the next aegis; or break them with steel that hits many at once.",
   },
+  // Fewer and far heavier since 2026-09-29 (owner: "higher health, higher
+  // physical damage resistance, squashes knights dead — this is where the
+  // mages come in"): steel barely dents it, magic takes it whole.
   ram: {
-    faction: "iron", hp: 1250, speed: 30, bounty: 40, armor: 0.35, size: 24,
-    name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 4, immSlow: true, immStun: true,
-    note: "Oak and iron on six wheels. Nothing slows it, nothing stuns it, and it takes four bites out of your gate. There is no trick — kill it.",
+    faction: "iron", hp: 2300, speed: 30, bounty: 60, armor: 0.6, mres: 0, size: 24,
+    name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 4, immSlow: true, immStun: true, crush: true,
+    note: "Oak and iron on six wheels. Nothing slows it, nothing stuns it, arrows and blades barely dent it, and any knight who steps in front of it is crushed. Magic burns straight through the oak — this is the mages' work.",
   },
   gryphon: {
     faction: "iron", hp: 190, speed: 88, bounty: 22, armor: 0.2, size: 21,

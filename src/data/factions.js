@@ -95,16 +95,16 @@ export const FACTIONS = {
       [["levy", 24, 380], ["crossbow", 7, 750]],
       [["gryphon", 5, 1250], ["crossbow", 7, 750], ["levy", 8, 520]],
       [["sergeant", 8, 850], ["levy", 14, 480], ["chaplain", 1, 0]],
-      [["ram", 2, 3000], ["levy", 18, 420], ["crossbow", 6, 800]],
+      [["ram", 1, 3000], ["levy", 18, 420], ["crossbow", 6, 800]],
       [["cavalier", 12, 620], ["sergeant", 7, 850], ["chaplain", 2, 4800]],
       [["gryphon", 7, 1000], ["levy", 20, 360], ["ram", 1, 0]],
       // III. the king commits everything
       [["levy", 32, 280], ["cavalier", 9, 560], ["sergeant", 9, 700]],
-      [["ram", 4, 2400], ["crossbow", 13, 520], ["chaplain", 3, 4200], ["levy", 10, 420]],
+      [["ram", 2, 2400], ["crossbow", 13, 520], ["chaplain", 3, 4200], ["levy", 10, 420]],
       [["sergeant", 15, 520], ["chaplain", 3, 3600], ["gryphon", 5, 1150]],
-      [["cavalier", 15, 460], ["ram", 3, 2600], ["levy", 22, 340]],
-      [["ram", 5, 2000], ["sergeant", 11, 620], ["gryphon", 6, 1000], ["chaplain", 3, 4000]],
-      [["levy", 20, 320], ["sergeant", 12, 650], ["chaplain", 3, 2800], ["ram", 4, 2400], ["gryphon", 5, 1100], ["marshal", 1, 0]],
+      [["cavalier", 15, 460], ["ram", 2, 2600], ["levy", 22, 340]],
+      [["ram", 3, 2000], ["sergeant", 11, 620], ["gryphon", 6, 1000], ["chaplain", 3, 4000]],
+      [["levy", 20, 320], ["sergeant", 12, 650], ["chaplain", 3, 2800], ["ram", 2, 2400], ["gryphon", 5, 1100], ["marshal", 1, 0]],
     ],
     roster: [
       { type: "levy", cost: 1.2, gap: 440 },
@@ -113,7 +113,8 @@ export const FACTIONS = {
       { type: "sergeant", cost: 5, gap: 820 },
       { type: "gryphon", cost: 5.4, gap: 1050 },
       { type: "chaplain", cost: 8, gap: 4200, cap: 3 },
-      { type: "ram", cost: 12, gap: 2600, cap: 4 },
+      // the rams come as often as ever, but fewer and heavier (2026-09-29)
+      { type: "ram", cost: 20, gap: 2600, cap: 2 },
     ],
   },
 

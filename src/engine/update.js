@@ -308,7 +308,7 @@ const makeEnemy = (type, mult) => {
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
     flying: !!d.flying, guard: d.guard || 0, guardFlash: 0,
     airAtk: d.airAtk || 0, airReach: d.airReach || 0, airFight: null, airOx: 0, airOy: 0,
-    immSlow: !!d.immSlow, immStun: !!d.immStun,
+    immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush,
     trampleLeft: d.trample || 0, trampleMax: d.trample || 0, trampleEvery: d.trampleEvery || 0, trampleCd: null,
     rangedAtk: d.rangedAtk || 0, rangedRange: d.rangedRange || 0, rangedRate: d.rangedRate || 0, rangedCd: 0,
     wardEvery: d.wardEvery || 0, wardHits: d.wardHits || 0, wardRange: d.wardRange || 0, wardCd: null, wardFx: d.wardFx || null, wardSelf: d.wardSelf !== false,
@@ -524,6 +524,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
           let best = null, bestDist = -1;
           for (const e of g.enemies) {
             if (e.dead || e.flying || e.swimming || e.blockedBy) continue;
+            if (e.crush && t.kind === "hero") continue;      // the hero knows better than to stand in front of a ram
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
           if (best) { best.blockedBy = u.id; u.targetId = best.id; u.state = "moving"; target = best; }
@@ -533,12 +534,23 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
           const dx = target.x - u.x, dy = target.y - u.y;
           const d = Math.hypot(dx, dy);
           if (d > 17) {
-            target.engaged = d < 30;
+            target.engaged = d < 30 && !target.crush;         // a ram never slows for the man walking out to it
             const sp = (st.unitSpeed || 95) * sdt;
             u.x += (dx / d) * sp; u.y += (dy / d) * sp;
             u.face = dx >= 0 ? 1 : -1;
             u.state = "moving";
           } else {
+            // Siege Ram: no man holds six wheels of oak and iron. Whoever
+            // steps in front of it is crushed, and it rolls on without a pause.
+            if (target.crush) {
+              u.hp = 0;
+              g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
+              g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: 14 });
+              g.shake = Math.max(g.shake, 4);
+              sfx.play("hit");
+              killUnit(g, t, u);
+              return;
+            }
             target.engaged = true;
             // Cavalier: the charge rides its first blocker down and gallops on.
             // Whoever steps up second is the one who actually holds him.
