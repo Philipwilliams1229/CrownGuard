@@ -340,7 +340,7 @@ const GOB_FIGHT = {
   // an overhand stab: knife low and forward, raised high over the hood (the
   // arm straight up the back of the head, so the face still reads), down
   // through the target line, carried on past the knee
-  knife: [[[2.2, 2.6], -0.55, [3.2, 1.8]], [[-0.3, -5.0], -1.2, [4.2, 0.9]], [[4.3, 1.3], 0.4, [1.0, 3.4]], [[2.8, 3.7], 1.0, [1.8, 3.0]]],
+  knife: [[[2.2, 2.6], -0.55, [3.2, 1.8]], [[-0.9, -4.9], -1.2, [4.2, 0.9]], [[4.3, 1.3], 0.4, [1.0, 3.4]], [[2.8, 3.7], 1.0, [1.8, 3.0]]],
   // two hands on the spear: level, drawn back to the hip, driven home, dipping on
   // (the far hand rides the haft `grip` behind the near one)
   spear: [[[2.4, 2.6], -0.16, null, 3.0], [[0.2, 3.4], -0.26, null, 2.6], [[4.5, 1.5], 0.02, null, 3.0], [[3.9, 2.4], 0.18, null, 3.0]],
@@ -361,7 +361,10 @@ const goblin = (ctx, p) => {
   const robe = p.robe;
   shadow(ctx, 0.4, -0.1, 4.4, 1.2, 0.22);
   const raise = st.fight && p.weapon === "staff" && st.F === 1;
-  const shN = T(0.8 + (raise ? 0.9 : 0), -5.3), shF = T(-0.8, -5.5);
+  // (the knife's wind-up coils the trunk: the near shoulder draws back, so the
+  // raised arm climbs the back rim of the hood and the face stays clear)
+  const coil = st.fight && p.weapon === "knife" && st.F === 1 ? 0.8 : 0;
+  const shN = T(0.8 + (raise ? 0.9 : 0) - coil, -5.3), shF = T(-0.8, -5.5);
   const A = { up: 2.6, fore: 2.5, w: 1.7 };
   // where the hands go
   let hn, an, hf, grip = 3.2;
@@ -404,7 +407,7 @@ const goblin = (ctx, p) => {
   });
   // the head, pushed forward on a scrawny neck; in a fight it follows the blow
   // (drawn in over the wind-up, thrust after the strike) with its eyes on the foe
-  const hx = st.fight ? (raise ? -0.7 : [0.2, -0.3, 0.7, 0.5][st.F]) : 0, hy = st.fight ? [0, -0.2, 0.2, 0.3][st.F] : 0;
+  const hx = st.fight ? (raise ? -0.7 : st.F === 1 && w === "knife" ? 0.3 : [0.2, -0.3, 0.7, 0.5][st.F]) : 0, hy = st.fight ? [0, -0.2, 0.2, 0.3][st.F] : 0;
   const nk = T(0.9, -6.0), hd = [nk[0] + 1.0 + hx, nk[1] - 2.0 + hy], ha = st.lean * 0.3 + (st.fight ? [0, -0.12, 0.08, 0.1][st.F] : 0);
   goblinHead(ctx, hd[0], hd[1], ha, p, { k: 0.9, hood: p.head === "hood", tuft: p.head === "hood" ? null : p.hair || darken(p.cloth, 0.35), paint: p.feathers ? "#ece0c4" : null });
   if (p.feathers) {
@@ -613,7 +616,7 @@ const TROLL = { L1: 5.7, L2: 5.4, stride: 3.2, lift: 2.2, bob: 1.3, lean: 0.12, 
 // brought down in one smash, and left on the ground a moment after.
 // (in the smash the club arm comes down UNDER the jaw and the head is thrown
 // up roaring, so the arm never wipes out the face)
-const TROLL_FIGHT = [[[3.8, 5.0], -1.5, [3.0, 9.6]], [[-1.0, -7.4], 2.55, [6.8, 3.6]], [[7.2, 7.0], 0.85, [-0.8, 9.6]], [[5.4, 9.0], 1.3, [1.4, 10.4]]];
+const TROLL_FIGHT = [[[3.8, 5.0], -1.5, [3.0, 9.6]], [[-1.0, -7.4], 2.55, [6.8, 3.6]], [[7.2, 7.0], 0.85, [-0.8, 9.6]], [[5.2, 9.7], 1.3, [1.4, 10.4]]];
 const troll = (ctx, p) => {
   const o = TROLL, R = skeleton(p, o), { st, T } = R;
   const skin = p.skin, skinF = darken(skin, 0.26), belly = mix(skin, "#e8dcb0", 0.3), moss = mix(skin, "#86b04a", 0.55);
@@ -656,12 +659,17 @@ const troll = (ctx, p) => {
   // the head, slung low in front of the hump
   // it roars into the wind-up and through the smash, the head thrown back, then down
   const hd = T(8.4, -12.4), F = st.fight ? st.F : -1;
-  trollHead(ctx, hd[0] + ([0.2, -0.4, 0.9, 0.7][F] || 0), hd[1] + ([0, -0.3, -0.9, 1.0][F] || 0), st.lean * 0.4 + ([0, -0.2, -0.12, 0.12][F] || 0), p, F === 1 || F === 2);
-  // the club arm
-  const h = arm(ctx, shN, hn, A, { up: skin });
-  wrist(ctx, h, an);
-  club(ctx, h[0], h[1], an, p.wcol || "#7a5a3a", 12.5);
-  fist(ctx, h[0], h[1], 2.2, skin);
+  const head = () => trollHead(ctx, hd[0] + ([0.2, -0.4, 0.9, 0.7][F] || 0), hd[1] + ([0, -0.3, -0.9, -0.4][F] || 0), st.lean * 0.4 + ([0, -0.2, -0.12, 0.12][F] || 0), p, F === 1 || F === 2);
+  // the club arm (in the follow-through it hangs straight down from the
+  // shoulder behind the bowed head, so the head goes over it; the fist and
+  // the club show below the jaw)
+  const clubArm = () => {
+    const h = arm(ctx, shN, hn, A, { up: skin });
+    wrist(ctx, h, an);
+    club(ctx, h[0], h[1], an, p.wcol || "#7a5a3a", 12.5);
+    fist(ctx, h[0], h[1], 2.2, skin);
+  };
+  if (F === 3) { clubArm(); head(); } else { head(); clubArm(); }
 };
 const trollHead = (ctx, x, y, a, p, roar) => inFrame(ctx, x, y, a, (c0) => {
   const skin = p.skin, eyes = p.eyes || "#e8c14a";

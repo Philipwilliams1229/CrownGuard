@@ -347,7 +347,7 @@ const risen = (ctx, p) => {
   // skull still reads), the broken shield held up
     : pick({ hn: N(1.6 + sw * 0.8, 4.9), an: 0.95 - sw * 0.1, hf: F(3.4, 4.4) }, [
       { hn: N(2.4, 2.6), an: -0.8, hf: F(4.4, 3.6) },
-      { hn: N(-2.9, -4.6), an: -2.35, hf: F(4.6, 3.2) },
+      { hn: N(-3.3, -4.3), an: -2.35, hf: F(4.6, 3.2) },
       { hn: N(3.8, 1.8), an: 0.5, hf: F(3.4, 4.8) },
       { hn: N(2.6, 4.2), an: 1.2, hf: F(3.6, 4.6) }]);
 
@@ -479,10 +479,10 @@ const ghast = (ctx, p) => {
   // arms dangling on the march; in the fight the claws held out low, both
   // arms flung up, slammed down on the foe, and raking on down after
   const H = st.fight ? [
-    { hn: N(4.4, 3.8), hf: F(5.2, 4.2) },
+    { hn: N(4.8, 4.4), hf: F(5.2, 4.2) },
     { hn: N(1.4, -5.8), hf: F(3.4, -5.6) },
-    { hn: N(5.4, 3.0), hf: F(5.8, 2.6) },
-    { hn: N(4.0, 6.0), hf: F(4.6, 6.2) }][st.f]
+    { hn: N(5.6, 4.6), hf: F(5.8, 2.6) },
+    { hn: N(4.4, 6.4), hf: F(4.6, 6.2) }][st.f]
     : { hn: N(1.6 + sw * 0.8, 7.4), hf: F(1.2 - sw * 1.0, 7.6) };
   // the far arm, dangling or raised
   { const a = boneArm(ctx, shF, H.hf, A, skinF, { up: skinF, fore: skinF, upW: 1.05, foreW: 0.9, noElbow: true }); boneHand(ctx, a.hd[0], a.hd[1], 1.2, skinF, st.fight ? 1 : 0.5); }
@@ -516,9 +516,11 @@ const ghast = (ctx, p) => {
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => { for (const [x, y, r] of [[-2.6, -7.4, 2.6], [4.4, -3.6, 3.0], [1.6, -0.8, 2.2]]) glow(c, x, y, r, pus, 0.35); });
   // the head, slung low and forward: swollen, bald, jaw hanging
   // (with both arms flung up they rise behind the lolling head, so it is
-  // drawn after them and the face still reads)
+  // drawn after them and the face still reads; slammed down and raking, the
+  // near arm swings down past the jaw from a shoulder behind the head, so the
+  // head stays over it there too and the claw shows below the gaping jaw)
   const hd = T(5.0, -10.6);
-  const dr = st.fight ? st.drive : 0, flung = st.fight && st.f === 1;
+  const dr = st.fight ? st.drive : 0, flung = st.fight;
   const head = () => ghastHead(ctx, hd[0] + 0.6 * dr, hd[1] + 0.6 * dr, st.lean * 0.2, p, st.fight && (st.f === 1 || st.f === 2), 1.1);
   if (!flung) head();
   { const a = boneArm(ctx, shN, H.hn, A, skin, { up: skin, fore: skin, upW: 1.05, foreW: 0.9, noElbow: true }); boneHand(ctx, a.hd[0], a.hd[1], 1.3, skin, st.fight ? 1 : 0.5); }
@@ -567,7 +569,7 @@ const crypt = (ctx, p) => {
   // brought down, and dragged on through
   const H = st.fight ? [
     { hn: N(3.6, 1.6), an: -1.3, hf: F(6.4, 4.4) },
-    { hn: N(-3.8, -6.1), an: -2.6, hf: F(6.4, 4.2) },
+    { hn: N(-4.3, -5.6), an: -2.6, hf: F(6.4, 4.2) },
     { hn: N(4.4, 3.0), an: 0.7, hf: F(5.0, 5.8) },
     { hn: N(3.4, 5.4), an: 1.3, hf: F(5.4, 5.4) }][st.f]
     : { hn: N(2.4 + sw * 0.3, 3.0), an: -2.08 + sw * 0.04, hf: F(5.8, 5.0) };
@@ -708,8 +710,8 @@ const gravecaller = (ctx, p) => {
   const H = st.fight ? [
     { hn: N(3.9, 2.4), an: -1.48, hf: F(4.6, 3.8), ring: 0.4, toll: 0 },
     { hn: N(4.2, -1.8), an: -1.58, hf: F(4.8, 3.0), ring: -1.2, toll: 0 },
-    { hn: N(2.5, 1.8), an: -1.44, hf: F(5.2, 3.6), ring: 1.05, toll: 1 },
-    { hn: N(2.8, 2.6), an: -1.5, hf: F(5.0, 4.0), ring: 1.3, toll: 0.5 }][st.f]
+    { hn: N(3.7, 1.8), an: -1.42, hf: F(5.2, 3.6), ring: 1.05, toll: 1 },
+    { hn: N(4.0, 2.6), an: -1.46, hf: F(5.0, 4.0), ring: 1.3, toll: 0.5 }][st.f]
     : { hn: N(4.2 + sw * 0.4, 4.4), an: -1.42 + sw * 0.05, hf: F(1.6 - sw * 1.0, 6.2), ring: sw * 0.5, toll: 0 };
   // the cape streaming behind
   const fl = st.fight ? cl(1.6, 0.4) : [0.6, 1.0, 0.4, 0.8][st.f];

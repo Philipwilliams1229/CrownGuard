@@ -15,6 +15,7 @@
 import { lighten, darken, mix, shadow, glow, lin, part } from "./paint.js";
 import { weapon } from "./rigs.js";
 import { HORDE_PAINTERS } from "./rigs-horde.js";
+import { logJoint } from "./folk-kit.js";
 
 const TAU = Math.PI * 2;
 const q = (v) => Math.round(v * 2) / 2;             // snap to the art pixel
@@ -118,7 +119,11 @@ const berserker = (ctx, p, x, y, fight, frame) => {
   const hand = fight ? (frame === 1 ? [5.6, -4.2] : [-1.6, -10.3]) : [2.8 + lean, -4.6];
   const ang = fight ? (frame === 1 ? 0.15 : -2.05) : -2.55 + Math.sin(((p.frame || 0) / 4) * TAU) * 0.1;
   weapon(ctx, r.weapon || "axe", hand[0], hand[1], ang, r.wcol, r.ws || 1);
-  leg(ctx, [sh, hand], [2, 1.7], skin, { extra: (c) => { c.fillStyle = skin; c.beginPath(); c.arc(hand[0], hand[1], 0.95, 0, TAU); c.fill(); } });
+  // two bones that keep their length, the elbow folding the natural way (down
+  // under a forward reach, forward of the head when the axe is up); one inked part
+  const UP = 2.8, FORE = 2.7, el = ik(sh, hand, UP, FORE, 1);
+  logJoint(ctx, "arm", sh, el, hand, { lens: [UP, FORE] });
+  leg(ctx, [sh, el, hand], [2, 1.85, 1.7], skin, { extra: (c) => { c.fillStyle = skin; c.beginPath(); c.arc(hand[0], hand[1], 0.95, 0, TAU); c.fill(); } });
   ctx.restore();
 };
 

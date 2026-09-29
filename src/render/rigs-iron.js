@@ -624,7 +624,7 @@ const hands = (look, st, shN, shF) => {
   // back to the bolt box). grip: how far up the tiller the fore hand holds;
   // held: "far" when only the far hand holds it (at `grip` up the tiller).
   // The trigger hand's forearm runs under the stock like a rifleman's.
-  if (look === "bow") return pick({ hn: N(0.6 + sw * 0.2, 3.3), an: -0.3 + sw * 0.03, grip: 1.2 }, [
+  if (look === "bow") return pick({ hn: N(1.2 + sw * 0.2, 3.4), an: -0.1 + sw * 0.03, grip: 0.5 }, [
     { hn: N(1.4, 2.2), an: -0.5, grip: 1.3 },
     { hn: N(2.3, -1.0), an: -0.04, grip: 1.1 },
     { hn: N(2.0, -1.3), an: -0.2, grip: 1.1, loosed: true },
@@ -633,7 +633,7 @@ const hands = (look, st, shN, shF) => {
   // the far hand as the mace goes up overhead and comes down
   if (look === "chaplain") return pick({ hn: N(2.5 + sw * 0.3, 4.0), an: -0.95 + sw * 0.04, hf: F(3.4 - sw * 0.5, 3.4), sway: sw * 0.6 }, [
     { hn: N(3.2, 1.0), an: -1.25, hf: F(4.6, -1.2), sway: 0.3, bright: true },
-    { hn: N(-3.6, -4.6), an: -2.4, hf: F(4.4, -3.2), sway: -0.4, bright: true },
+    { hn: N(-3.4, -4.2), an: -2.4, hf: F(4.4, -3.2), sway: -0.4, bright: true },
     { hn: N(4.4, 1.6), an: 0.4, hf: F(4.8, -0.6), sway: 0.9, bright: true },
     { hn: N(3.0, 3.8), an: 1.05, hf: F(4.4, 0.6), sway: 1.3, bright: true }]);
   // the Lord Marshal: the war-banner upright on the march; in the fight he
@@ -665,7 +665,7 @@ const hands = (look, st, shN, shF) => {
   // the fight a heavy cut from over the shoulder, the shield covering
   return pick({ hn: N(2.0 + sw * 0.3, 4.1), an: -0.3 - sw * 0.05, hf: F(4.4, 3.2) }, [
     { hn: N(2.8, 1.4), an: -1.2, hf: F(4.8, 2.4) },
-    { hn: N(-3.4, -4.8), an: -2.3, hf: F(5.0, 2.0) },
+    { hn: N(-3.3, -4.4), an: -2.3, hf: F(5.0, 2.0) },
     { hn: N(3.6, 1.3), an: 0.55, hf: F(3.4, 3.6) },
     { hn: N(3.0, 3.8), an: 1.05, hf: F(4.2, 3.0) }]);
 };
@@ -883,7 +883,7 @@ const soldier = (ctx, p) => {
   // (in the heave the head ducks forward and down under the raised weapon, so
   // the fist clears the back of the helm)
   const hd = T(0.85, -9.35); hd[0] += st.fight ? 0.4 * st.drive : 0;
-  if (heave) { hd[0] += 0.5; hd[1] += 0.6; }
+  if (heave) { hd[0] += 0.6; hd[1] += 0.7; }
   const ha = st.lean * 0.3 + (look === "bow" && st.fight ? [0.06, 0.14, 0.02, 0.3][st.f] : 0);
   const head = () => {
     if (look === "levy") kettle(ctx, hd[0], hd[1], ha, p, { brim: 4.4, strap: true, stubble: "#3a2a20" });
@@ -894,6 +894,9 @@ const soldier = (ctx, p) => {
     else if (knight) sallet(ctx, hd[0], hd[1], ha, p, st.fight ? st.f + 1 : st.f);
     else marshalHelm(ctx, hd[0], hd[1], ha, p, st.fight ? st.f + 1 : st.f);
   };
+  // the levy's great round shield rides on the far arm, held up to the chin:
+  // it goes on before the head, so its rim tucks under the jaw instead of over the face
+  if (look === "levy") roundShield(ctx, H.hf[0] + 1.7, H.hf[1] - 0.8, 3.9, 4.8, p.shcol || red);
   // An overhead wind-up (the sergeant's sword, the chaplain's mace cocked back
   // over the shoulder, the marshal's banner reared back): a raised near arm in
   // plate or mail is as wide as the helm and would hide the face, so the arm
@@ -902,14 +905,10 @@ const soldier = (ctx, p) => {
   // of the helm (the sergeant's, the chaplain's); the marshal's plume leaves
   // no room, so there the whole lance is behind: its butt ends under the helm
   // (a short `back`), never across his chest.
-  // the levy's great round shield rides on the far arm, held up to the chin:
-  // it goes on before the head, so its rim tucks under the jaw instead of over the face
-  if (look === "levy") roundShield(ctx, H.hf[0] + 1.7, H.hf[1] - 0.8, 3.9, 4.8, p.shcol || red);
   if (!heave) head();
 
-  // the shield, before the body
-  if (look === "levy") { /* drawn above, under the head */ }
-  else if (look === "sergeant") heater(ctx, H.hf[0] + 0.9, H.hf[1] + 0.1, p.shcol || red, 1.0);
+  // the heaters, before the weapon arm (the levy's round shield went on above)
+  if (look === "sergeant") heater(ctx, H.hf[0] + 0.9, H.hf[1] + 0.1, p.shcol || red, 1.0);
   else if (look === "marshal") heater(ctx, H.hf[0] + 1.0, H.hf[1] + 0.2, p.shcol || red, 1.05);
   else if (knight) heater(ctx, H.hf[0] + 0.8, H.hf[1] + 0.1, p.shcol || red, 0.8);
   if (look === "chaplain") { reliquary(ctx, hfC[0], hfC[1], H.sway, p, H.bright); fist(ctx, hfC[0], hfC[1], 0.95, fistF); }
