@@ -734,7 +734,8 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               dealDamage(g, target, dealt, holy ? "magic" : "phys", st.magic, false, t.id, !!st.magic);
               sfx.play("clink");
               if (st.frenzy) u.frenzy = (u.frenzy || 0) + 1;
-              if (st.lifesteal && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
+              // (a blow that landed on nothing — a wraith, a standing shield against magic — feeds nobody)
+              if (st.lifesteal && u.hp < u.maxHp && !(target.holyOnly && !st.magic) && !(target.guard > 0 && st.magic)) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
               g.effects.push({ type: "spark", x: target.x, y: target.y - 6, ttl: 160, gold: !!st.magic || u.atkBuff > 0 });
               if (st.stun && Math.random() < st.stun) target.stunUntil = tms + st.stunDur;
               if (target.dead) { u.targetId = null; u.state = "rally"; }
