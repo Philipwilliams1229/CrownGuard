@@ -174,8 +174,9 @@ should never have to rediscover it.
 
 Some foes never walk alone, and these are engine rules, not just numbers:
 - **Siege ram** (`roadBlock`, `single`, `escort` in `src/data/enemies.js`): a
-  wall across all three lanes. Nothing behind it passes while it lives —
-  flyers included (`capDist` pass in `update.js`, before the enemy loop; the
+  wall across all three lanes. No walker behind it passes while it lives;
+  flyers sail over it (`capDist` pass in `update.js`, before the enemy loop,
+  rebuilt every frame so the column is released the instant the ram dies; the
   column queues in its lee, per lane). ONE at a time (the spawn queue puts a
   second one back until the first is dead), first out of the wood, and
   `shapeCompany` (waves.js, applied after the swell) always sends its escort

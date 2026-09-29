@@ -1208,7 +1208,9 @@ export function updateGame(g, dt) {
     for (const w of g.enemies) {
       if (w.dead || !w.roadBlock) continue;
       const wall = w.dist - w.roadBlock;
-      const behind = g.enemies.filter((e) => !e.dead && e !== w && !e.swimming && e.dist < w.dist);
+      // (flyers sail over it; and the caps are rebuilt every frame, so the
+      // moment the ram dies the whole column is released at its own pace)
+      const behind = g.enemies.filter((e) => !e.dead && e !== w && !e.swimming && !e.flying && e.dist < w.dist);
       behind.sort((p, q) => q.dist - p.dist);
       const front = [wall, wall, wall];
       for (const e of behind) {
