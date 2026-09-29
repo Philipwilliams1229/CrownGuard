@@ -190,8 +190,9 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   the crowd behind a 30-speed ram arrived in one lump; speed 46 took that back
   to ~1.5x, and a big escort added more, so keep the escort lean (5+0.6a levies,
   3+0.35a bows). The ram's `speed` is the knob if it is still too much.
-- **Cavalry ride round rams** (`mounted` on the cavalier): a wave with a ram
-  sends its cavalry FIRST, then the ram, then the column (`shapeCompany`).
+- **Cavalry ride round rams** (`mounted` on the cavalier): on about half the
+  waves that hold both, the cavalry surge goes FIRST, then the ram, then the
+  column; otherwise the ram leads (`shapeCompany`, seeded by the wave).
 - **Archers stand and shoot** (owner, 2026-09-29): a foe with `rangedAtk`
   (crossbowman, barrow archer) halts while any friendly soldier or hero is in
   its `rangedRange` and marches on once none is left (`e.aiming`, update.js).

@@ -159,11 +159,14 @@ const shapeCompany = (spec, a) => {
   const wallT = spec.find((g) => ENEMIES[g[0]]?.roadBlock)?.[0];
   if (!wallT) return spec;
   const walls = Math.max(1, Math.min(WALLS_MAX, spec.filter((g) => g[0] === wallT).reduce((n, g) => n + g[1], 0)));
-  // the cavalry surge goes first (horses ride round a wall), then the wall,
+  // the cavalry surge may go first (horses ride round a wall), then the wall,
   // then everything that has to march behind it
   const rest = spec.filter((g) => g[0] !== wallT).map((g) => g.slice());
   const horse = rest.filter((g) => ENEMIES[g[0]]?.mounted), foot = rest.filter((g) => !ENEMIES[g[0]]?.mounted);
-  const out = [...horse, [wallT, 1, 0, 1], ...foot];
+  // (not every time: on about half the waves the ram leads and the horse
+  // comes up behind it, riding round it — seeded by the wave)
+  const horseFirst = horse.length && mulberry32(a * 97 + 5)() < 0.5;
+  const out = horseFirst ? [...horse, [wallT, 1, 0, 1], ...foot] : [[wallT, 1, 0, 1], ...rest];
   if (walls > 1) { const more = [wallT, walls - 1, WALL_STAGGER, 1]; more.clock = WALL_STAGGER; out.push(more); }
   out.overlap = spec.overlap;
   const groupOf = (t) => out.find((g) => g[0] === t);
