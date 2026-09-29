@@ -20,7 +20,7 @@ import { useViewport } from "./fit.jsx";
 const NUMBERS = [
   ["count", (v) => `${v} on the field`],
   ["dmg", (v) => `${v} damage`],
-  ["rate", (v) => `every ${(v / 1000).toFixed(2)}s`],
+  ["rate", (v) => `${(1000 / v).toFixed(2)} attacks/s`],
   ["hp", (v) => `${v} health each`],
   ["range", (v) => `${v} range`],
   ["minRange", (v) => `blind within ${v}`],
