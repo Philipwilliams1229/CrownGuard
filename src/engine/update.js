@@ -8,7 +8,7 @@ import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF
 import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X, guardSpots, GUARD_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETINUE, retinueAt } from "../data/bands.js";
-import { RIVER_ROUTE, seaRoute, seaDepthAt, underBridge } from "../data/terrain.js";
+import { RIVER_ROUTE, riverRouteAt, seaRoute, seaDepthAt, underBridge } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, TOTAL_LEN } from "./path.js";
@@ -1563,7 +1563,9 @@ export function updateGame(g, dt) {
       // moored off a coast they patrol the shore; otherwise they work the river
       if (t._pond === undefined) t._pond = pondAt(t.x, t.y) || null;
       if (t._sea === undefined) t._sea = !t._pond && seaDepthAt(t.x, t.y) > 0;
-      const rt = t._pond ? pondRoute(t._pond) : t._sea ? seaRoute() : RIVER_ROUTE;
+      // (on a board with two rivers, the one it is moored in)
+      if (!t._pond && !t._sea && t._river === undefined) t._river = riverRouteAt(t.x, t.y);
+      const rt = t._pond ? pondRoute(t._pond) : t._sea ? seaRoute() : t._river;
       if (!rt) continue;                         // no water, no watch
       const n = st.count || 1;
       if (!t.units) t.units = [];

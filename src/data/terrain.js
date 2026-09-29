@@ -23,7 +23,8 @@ export let RIVERS = [];   // [{ pts, w, segs }] — living water, in world px
 // The first river as a ROUTE something can actually swim: cumulative lengths
 // along its centerline, plus where it passes under the road. Swimmers enter at
 // whichever bank-end lies nearest the spawn and climb out at the crossing.
-export let RIVER_ROUTE = null;
+export let RIVER_ROUTE = null;     // the first river's route: where swimmers cross
+export let RIVER_ROUTES = [];      // one per river (null for a stub under 60 long)
 export let BRIDGES = [];  // [{ x, y, a, d0, d1 }] — where the road spans it
 // The wood the horde marches out of: a band of forest along the board edge
 // nearest the spawn, with a wandering inner boundary. Null where the enemy
@@ -85,6 +86,17 @@ export const inSea = (x, y, m = 0) => seaDepthAt(x, y) > -m;
 // route like the river's ({ total, at(q) }). Cached per coast.
 const SEA_OFF = 16;
 let SEA_ROUTE = null, SEA_ROUTE_OF = null;
+// The route of the river nearest (x, y) — the one a River Watch moored there
+// rows. Null on a board with no river long enough to row.
+export const riverRouteAt = (x, y) => {
+  let best = null, bd = Infinity;
+  RIVER_ROUTES.forEach((rt, i) => {
+    if (!rt) return;
+    const d = distToSegs(RIVERS[i].segs, x, y);
+    if (d < bd) { bd = d; best = rt; }
+  });
+  return best;
+};
 export const seaRoute = () => {
   if (!COAST) return null;
   if (SEA_ROUTE_OF === COAST) return SEA_ROUTE;
@@ -195,9 +207,9 @@ export function regenTerrain(map) {
   });
   // A river you can travel: measure its centerline, then find where the road
   // crosses it. That crossing is the only place a swimmer can climb out.
-  RIVER_ROUTE = null;
-  if (RIVERS.length) {
-    const rv = RIVERS[0];
+  // Every river gets a route (a River Watch rows the one it is moored in);
+  // the swimmers keep to the first.
+  RIVER_ROUTES = RIVERS.map((rv, ri) => {
     const cum = [0];
     for (const sg of rv.segs) cum.push(cum[cum.length - 1] + sg.len);
     const total = cum[cum.length - 1];
@@ -231,9 +243,11 @@ export function regenTerrain(map) {
       const [sx, sy] = posAt(0);
       const [ax, ay] = at(0), [bx, by] = at(total);
       const fromStart = Math.hypot(ax - sx, ay - sy) <= Math.hypot(bx - sx, by - sy);
-      RIVER_ROUTE = { total, at, entry: fromStart ? 0 : total, exitSwim: swimAt, exitRoad: Math.min(TOTAL_LEN - 8, crossD + 10), dir: fromStart ? 1 : -1 };
+      return { ri, total, at, entry: fromStart ? 0 : total, exitSwim: swimAt, exitRoad: Math.min(TOTAL_LEN - 8, crossD + 10), dir: fromStart ? 1 : -1 };
     }
-  }
+    return null;
+  });
+  RIVER_ROUTE = RIVER_ROUTES[0] || null;
 
   // Wherever the road wades in, a bridge carries it: walk the road in small
   // steps, find each stretch inside a river band, and span it with a small
