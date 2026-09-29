@@ -516,7 +516,54 @@ const BLAST = {
   },
 };
 BLAST.shrapnelhit = BLAST.dust;
-const SEEDS = { boom: 3, arcane: 5, frost: 7, dust: 11, shrapnelhit: 13 };
+
+// The Powder Works' charge coming down on its mark: a TIGHT blast that hurts
+// that one foe (owner, 2026-09-29) — a white-hot pop at the body, a few
+// short rays, a knot of flame that sinks into a small puff of smoke. No
+// shockwave ring: the damage that spreads is the shrapnel, and the shards
+// are their own shots (drawProjectile "frag").
+BLAST.keg = {
+  g(G, cx, cy, R, ry, p, seed) {
+    const gy = cy + R * 0.3;                         // the mark's feet, under the pop
+    if (p < 0.3) {
+      wash(G, cx, gy, R * 0.55, ry * 0.5, FIRE[1], 110 * (1 - p / 0.3));
+      wash(G, cx, gy, R * 0.28, ry * 0.26, CREAM, 150 * (1 - p / 0.3));
+    }
+    // a few grains of burning powder kicked onto the turf
+    if (p > 0.15 && p < 0.8) {
+      for (let i = 0; i < 5; i++) {
+        if ((i + Math.floor(p * NF)) % 3 === 0) continue;
+        const a = hash(seed, i + 200) * Math.PI * 2, d = 0.25 + 0.4 * hash(seed, i + 220);
+        G.set(cx + Math.cos(a) * R * d, gy + Math.sin(a) * ry * d, p < 0.5 ? FIRE[1] : FIRE[3]);
+      }
+    }
+  },
+  a(G, cx, cy, R, ry, p, seed) {
+    const Rf = R * 0.3, f = Math.floor(p * NF), by = cy - R * 0.08;
+    // the smoke: a small knot that rises and comes apart
+    if (p > 0.25) {
+      const q = (p - 0.25) / 0.75;
+      const puffs = lobes(cx, by - Rf * 0.5 - q * R * 0.45, Rf * (0.7 + 0.35 * q), 4, seed + 3, 1, 0.7);
+      cloud(G, wane(puffs, q, 0.3, seed), q < 0.4 ? SMOKE_NEW : SMOKE_OLD, seed + 5, { dens: q > 0.8 ? 0.6 : 1 });
+    }
+    // the pop: white-hot, then a knot of flame sinking into the smoke
+    if (p < 0.5) {
+      const s = p < 0.12 ? 1.1 : 1.1 - (p - 0.12) * 2.1;
+      const tones = p < 0.12 ? [CREAM, CREAM, CREAM, FIRE[1]] : p < 0.25 ? [CREAM, FIRE[1], FIRE[2], FIRE[3]]
+        : [FIRE[1], FIRE[2], FIRE[3], FIRE[4]];
+      cloud(G, lobes(cx, by, Rf * 0.75, 4, seed + f, s, 0.6), tones, seed * 3 + f, { heat: true });
+    }
+    // the first instant: short hard rays, the shards' own directions
+    if (p < 0.25) {
+      const L0 = Rf * 0.9, L = Rf * (p < 0.12 ? 2.2 : 1.7);
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2 + hash(seed, k) * 0.5;
+        for (let i = Math.round(L0); i < L; i++) G.set(cx + Math.cos(a) * i, by + Math.sin(a) * i * RY, i < L * 0.7 ? CREAM : FIRE[1]);
+      }
+    }
+  },
+};
+const SEEDS = { boom: 3, arcane: 5, frost: 7, dust: 11, shrapnelhit: 13, keg: 17 };
 
 const bucket = (r) => (r <= 16 ? Math.max(6, Math.round(r / 4) * 4) : Math.round(r / 8) * 8);
 
@@ -825,6 +872,27 @@ const ballShape = (lx, ly) => {
   return d <= 2.2 ? (lx > -1 && ly < 0 ? 0 : 1) : -1;
 };
 
+// the Powder Works' shrapnel: four cuts of jagged iron sliver (art pixels,
+// flying +x, lit from above), each baked at 32 headings with a short bright
+// streak behind it; a Dragon's Breath shard is red-hot
+const SHARD_CUTS = [
+  ["..aab..", ".abbbbc", "abbcc.."],
+  ["aab....", "abbbbc.", "..bccc."],
+  [".aab..", "abbbbc", "..bcc.", "...c.."],
+  ["...ab.", "aabbbc", ".bccc."],
+];
+const SHARD = { iron: pal("#dfe2e8", "#7a7480", "#443c4a"), hot: pal("#fff3d2", "#f0a040", "#9a3a30") };
+const SHARD_STREAK = { iron: "#fff3d2", hot: "#f8d868" };
+const shardShape = (v) => {
+  const m = SHARD_CUTS[v & 3], w = m[0].length, h = m.length;
+  return (lx, ly) => {
+    const x = Math.floor(lx + w / 2), y = Math.floor(ly + h / 2);
+    const c = x >= 0 && y >= 0 && x < w && y < h ? m[y][x] : ".";
+    return c === "a" ? 0 : c === "b" ? 1 : c === "c" ? 2 : -1;
+  };
+};
+const shardSprite = (heat, v, d) => rotSprite(`shd|${heat}|${v & 3}`, d, 16, shardShape(v), SHARD[heat], INK_LINE, [4, 12, col(SHARD_STREAK[heat]), heat === "hot" ? 235 : 200]);
+
 // orbs: a lit core in a dithered halo that breathes over four frames
 const ORB = {
   arcane: pal("#fff3d2", "#e4d0fc", "#b08ad8", "#6a4a9a"),
@@ -926,6 +994,12 @@ export const drawProjectile = (ctx, p, time) => {
   const dx = Math.cos(ang), dy = Math.sin(ang);
   if (p.kind === "ball") {
     put(ctx, rotSprite("mb", dirOf(ang), 30, ballShape, pal("#a4a4b0", "#34343e"), INK_LINE, [4, 26, col("#fff3d2"), 230]), p.x, p.y);
+    return;
+  }
+  if (p.kind === "frag") {
+    // a shard flies out at the height of the blast, dropping as it spends itself
+    const [prog] = flight(p);
+    put(ctx, shardSprite(p.hot ? "hot" : "iron", p.v || 0, dirOf(ang)), p.x, p.y - 4 + prog * prog * 3);
     return;
   }
   if (p.kind === "shell") {

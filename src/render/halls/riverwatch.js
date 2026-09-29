@@ -196,9 +196,11 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   const { lvl, r4, hw } = spec(t);
   const bake = canBake();
   // ripples where the piles stand, and the current dragging past — kept to
-  // the water (a hall moored in a narrow brook would ring its banks)
+  // the water (a hall moored in a narrow brook would ring its banks; the
+  // clip is worked out once per hall). A menu's portrait stands off the
+  // board (no hall moors within 18 of its edge): no clip.
   ctx.save();
-  if (clipToWater(ctx, x - hw - 12, y + 3, x + hw + 12, y + 13, true)) {
+  if (clipToWater(ctx, x - hw - 12, y + 3, x + hw + 12, y + 13, x < 18 || y < 22)) {
     ctx.strokeStyle = "rgba(226,240,246,0.45)"; ctx.lineWidth = 0.8;
     for (const dx of [-hw + 2, 0, hw - 2]) { const r = 3 + ((((time * 6 + dx) % 5) + 5) % 5); ctx.beginPath(); ctx.ellipse(x + dx, y + 7.5, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
     if (r4 === "bb") { const r = 2 + ((time * 4) % 4); ctx.beginPath(); ctx.ellipse(x + CAPSTAN, y + 10, r, r * 0.35, 0, 0, 7); ctx.stroke(); }

@@ -39,13 +39,18 @@ const LEVER = [5.5, -13];
 
 // The numbers of one form's engine: where the arm pivots, how long it is,
 // and the angles it rests, cocks and stops at (degrees from straight up,
-// positive toward the target).
+// positive toward the target). The engineer's head stands on the arc the
+// arm's end sweeps (about -116° from the pivot, and no room in the
+// footprint to step him off it), so the arm cocks ABOVE him: the mangonel's
+// winched back to lie a little over level, its cup (and the stone in it)
+// clear over his cap; the trebuchet's tip stops short of his cap's back.
+// The stop sets where the stone leaves (update.js reads the same tip).
 const spec = (t) => {
   const lvl = t.level, r4 = t.rank4 ? t.branch + t.rank4 : null;
   const hw = 10.5 + lvl * 0.5 + (t.branch ? 0.5 : 0);   // the bed's half-length: it must keep off the road
-  if (t.branch === "a") return { hw, treb: true, px: 3, fh: 34, L: 26, butt: 8, cocked: -118, stop: 48, rest: 0, key: r4 || "a" };
+  if (t.branch === "a") return { hw, treb: true, px: 3, fh: 34, L: 26, butt: 8, cocked: -108, stop: 48, rest: 0, key: r4 || "a" };
   if (t.branch === "b") return { hw, roller: true, key: r4 || "b" };
-  return { hw, px: 3, fh: 20 + lvl, L: 16 + lvl, butt: 3, cocked: -135, stop: 40, rest: 40, key: "l" + lvl };
+  return { hw, px: 3, fh: 20 + lvl, L: 16 + lvl, butt: 3, cocked: lvl === 1 ? -66 : -72, stop: 40, rest: 40, key: "l" + lvl };
 };
 
 // ---- the ground it stands on ----------------------------------------------
@@ -437,7 +442,9 @@ export const drawCatapult = (ctx, t, time) => {
       if (anim === 0) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * 0.55, py + uy * s.L * 0.55, 0.5, ROPE, 0.7);
     } else {
       if (loaded && bake) stamp(ctx, cache.get(`shot|${s.key}`, 10, 10, (c) => boulder(c, 5, 5, 2.5, "#8e8c94", 1)), tx - uy * f * 0.5, ty - 2.2, 5, 5);
-      if (anim === 0 && r < 0.95) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, tx, ty, 0.3, ROPE, 0.7);
+      // the winch rope takes the arm at its middle, so it runs up in front
+      // of the engineer's face rather than across it to the cup
+      if (anim === 0 && r < 0.95) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * 0.5, py + uy * s.L * 0.5, 0.3, ROPE, 0.7);
     }
     layer("f", paintFront);
     // (the trebuchet's standard goes up before its counterweight, so the
@@ -452,7 +459,7 @@ export const drawCatapult = (ctx, t, time) => {
     if (!s.treb && anim === 0 && r >= 0.95 && !t._idle) {
       // cocked and trembling: the rope is taut to the trigger
       ctx.strokeStyle = "rgba(240,224,180,0.95)"; ctx.lineWidth = 0.7;
-      ctx.beginPath(); ctx.moveTo(x - f * (hw - 3), y - WINCH_DY); ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - f * (hw - 3), y - WINCH_DY); ctx.lineTo(px + ux * s.L * 0.5, py + uy * s.L * 0.5); ctx.stroke();
     }
     // a thump of dust at the wheels as it looses
     if (anim > 0.5) for (const sgn of [-1, 1]) soft(ctx, x + sgn * (hw - 1), y + 5, 6 * anim, 2.4, [[0, `rgba(190,170,130,${0.5 * anim})`], [1, "rgba(190,170,130,0)"]]);

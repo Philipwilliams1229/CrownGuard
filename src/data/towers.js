@@ -216,31 +216,36 @@ export const TOWERS = {
   },
   gunpowder: {
     name: "Powder Works", cost: 145, dtype: "phys", proj: "shell",
-    blurb: "TWO MEN, TWO WEAPONS, ALWAYS. A bombardier lobs powder charges into whatever is close, while beside him a musketeer takes one slow, heavy, armor-splitting shot at something further out. Every path makes them a better pair.",
+    blurb: "TWO MEN, TWO WEAPONS, ALWAYS. A bombardier lobs powder charges that burst into flying iron, while beside him a musketeer takes one slow, heavy, armor-splitting shot at something further out. Every path makes them a better pair.",
+    // The bombardier's charge lands ON its mark — a tight blast (dmg) that
+    // hurts that foe alone — and bursts into `frags` shards of `fragDmg`
+    // each, flying `fragReach` round it and striking the first foe in their
+    // path (owner, 2026-09-29: "shrapnel radiates out ... upgrades bring
+    // more shrapnel"). All of it physical: a shield pip swallows a shard.
     levels: [
-      { dmg: 34, rate: 2400, range: 69, splash: 46, mDmg: 58, mRate: 2900, mRange: 126, count: 2 },
-      { dmg: 52, rate: 2300, range: 75, splash: 50, mDmg: 92, mRate: 2800, mRange: 135, count: 2, cost: 110, label: "Better Powder" },
-      { dmg: 76, rate: 2200, range: 81, splash: 55, mDmg: 138, mRate: 2700, mRange: 144, count: 2, cost: 160, label: "The Powder Works" },
+      { dmg: 44, rate: 2400, range: 69, frags: 4, fragDmg: 26, fragReach: 40, mDmg: 58, mRate: 2900, mRange: 126, count: 2 },
+      { dmg: 66, rate: 2300, range: 75, frags: 5, fragDmg: 34, fragReach: 42, mDmg: 92, mRate: 2800, mRange: 135, count: 2, cost: 110, label: "Better Powder" },
+      { dmg: 92, rate: 2200, range: 81, frags: 6, fragDmg: 44, fragReach: 44, mDmg: 138, mRate: 2700, mRange: 144, count: 2, cost: 160, label: "The Powder Works" },
     ],
     // Neither path picks one man over the other: both weapons grow on both,
-    // and each path is a way of working together. The Bombard Yard's blasts
-    // CRACK armor (brittle: +crack physical damage taken for crackDur) and
-    // the musketeer shoots the cracked first; the Long Muskets' musketeer
-    // SPOTS for the bombardier, whose charges follow his mark out to the
-    // musket's reach (engine/update.js, "the Powder Works").
+    // and each path is a way of working together. The Bombard Yard's charges
+    // and every shard they throw CRACK armor (brittle: +crack physical damage
+    // taken for crackDur) and the musketeer shoots the cracked first; the
+    // Long Muskets' musketeer SPOTS for the bombardier, whose charges follow
+    // his mark out to the musket's reach (engine/update.js, "the Powder Works").
     branches: {
       a: {
-        name: "The Bombard Yard", cost: 350, stats: { dmg: 118, rate: 2100, range: 90, splash: 70, burn: 12, burnDur: 2400, crack: 0.25, crackDur: 2600, mDmg: 225, mRate: 2600, mRange: 153, count: 2 }, desc: "Blasts crack armor open, and the musketeer shoots into the cracks first. Both men get the budget.",
+        name: "The Bombard Yard", cost: 350, stats: { dmg: 140, rate: 2100, range: 90, frags: 8, fragDmg: 52, fragReach: 48, burn: 12, burnDur: 2400, crack: 0.25, crackDur: 2600, mDmg: 225, mRate: 2600, mRange: 153, count: 2 }, desc: "Charges and every shard they throw crack armor open, and the musketeer shoots into the cracks.",
         rank4: {
-          a: { name: "The Grand Battery", cost: 680, stats: { dmg: 150, rate: 2000, range: 98, splash: 86, burn: 16, burnDur: 2800, crack: 0.3, crackDur: 3000, shells: 2, mDmg: 290, mRate: 2500, mRange: 158, count: 2 }, desc: "TWO charges a throw, falling wide apart and cracking the whole road for the musket to pick." },
-          b: { name: "Dragon's Breath", cost: 680, stats: { dmg: 130, rate: 2050, range: 94, splash: 80, burn: 28, burnDur: 3400, burnSpread: true, crack: 0.25, crackDur: 2600, mDmg: 262, mRate: 2550, mRange: 154, mBurn: 24, mBurnDur: 3400, count: 2 }, desc: "Pitch in the powder, hot shot in the musket: both set foes alight, and the fire leaps between them." },
+          a: { name: "The Grand Battery", cost: 680, stats: { dmg: 180, rate: 2000, range: 98, frags: 20, fragDmg: 48, fragReach: 54, burn: 16, burnDur: 2800, crack: 0.3, crackDur: 3000, mDmg: 290, mRate: 2500, mRange: 158, count: 2 }, desc: "One great charge a throw and a storm of iron out of it, cracking the whole road for the musket." },
+          b: { name: "Dragon's Breath", cost: 680, stats: { dmg: 150, rate: 2050, range: 94, frags: 12, fragDmg: 44, fragReach: 50, fragBurn: true, burn: 28, burnDur: 3400, burnSpread: true, crack: 0.25, crackDur: 2600, mDmg: 262, mRate: 2550, mRange: 154, mBurn: 24, mBurnDur: 3400, count: 2 }, desc: "Pitch in the powder, hot shot in the musket: red-hot shards set foes alight, and the fire leaps." },
         },
       },
       b: {
-        name: "The Long Muskets", cost: 350, stats: { dmg: 132, rate: 2150, range: 84, splash: 66, mDmg: 255, mRate: 2600, mRange: 188, mPierce: true, spot: true, count: 2 }, desc: "The musketeer spots for the bombardier: every charge follows the musket's mark, out to its reach.",
+        name: "The Long Muskets", cost: 350, stats: { dmg: 150, rate: 2150, range: 84, frags: 7, fragDmg: 52, fragReach: 46, mDmg: 255, mRate: 2600, mRange: 188, mPierce: true, spot: true, count: 2 }, desc: "The musketeer spots for the bombardier: every charge follows the musket's mark, out to its reach.",
         rank4: {
-          a: { name: "The Sharpshooters", cost: 680, stats: { dmg: 150, rate: 2100, range: 87, splash: 68, mDmg: 380, mRate: 2500, mRange: 218, mPierce: true, mCrit: 3, spot: true, count: 2 }, desc: "One held breath: every THIRD musket shot lands triple, and the bombardier's charge follows it in." },
-          b: { name: "The Grapeshot Crew", cost: 680, stats: { dmg: 130, rate: 2100, range: 87, splash: 62, mDmg: 170, mRate: 2400, mRange: 180, mPierce: true, mShots: 4, mSpread: 0.26, spot: true, count: 2 }, desc: "FOUR balls in a spreading fan, every one punching armor, and the charges follow the fan in." },
+          a: { name: "The Sharpshooters", cost: 680, stats: { dmg: 170, rate: 2100, range: 87, frags: 9, fragDmg: 54, fragReach: 48, mDmg: 380, mRate: 2500, mRange: 218, mPierce: true, mCrit: 3, spot: true, count: 2 }, desc: "One held breath: every THIRD musket shot lands triple, and the bombardier's charge follows it in." },
+          b: { name: "The Grapeshot Crew", cost: 680, stats: { dmg: 150, rate: 2100, range: 87, frags: 9, fragDmg: 50, fragReach: 48, mDmg: 170, mRate: 2400, mRange: 180, mPierce: true, mShots: 4, mSpread: 0.26, spot: true, count: 2 }, desc: "FOUR balls in a spreading fan, every one punching armor, and the charges follow the fan in." },
         },
       },
     },

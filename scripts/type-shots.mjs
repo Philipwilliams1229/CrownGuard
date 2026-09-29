@@ -7,11 +7,21 @@
 //   node scripts/type-shots.mjs --base http://127.0.0.1:5174 --prefix typeB_ current
 //   node scripts/type-shots.mjs --dump <dir> current   also write each screen's
 //                                                  computed fonts as JSON (to diff two servers)
+//   node scripts/type-shots.mjs --pairs [--faces "VT323,Tiny5"]   the digit pair
+//                                                  test (type-lab ?distinct) at DPR 1 and 2
 //
 // Screens: home (title, 1133x744), map (campaign map), battle (Free Play, a
 // hall placed and its card open), phone (the same card at 844x390), council
 // (War Council, HEROES), guide (Field Guide, a hall's entry), sheet
 // (type-lab.html?opt=<id>, the specimen sheet).
+// Each is shot at the density of the device it stands for: 1133x744 is an
+// iPad mini (DPR 2), 844x390 an iPhone on its side (DPR 3). The worst case, a
+// 1x desktop screen, is shot too for the screens full of digits (--worst,
+// default battle,phone,sheet), as type_<id>_<screen>_dpr1.png.
+// Chromium runs with --font-render-hinting=none: Linux's default hinting
+// snaps every glyph's advance to a whole pixel (a Mac or an iPad never does),
+// which breaks the spacing of the vector faces and flatters pixel faces at
+// odd sizes. This container has no Verdana: "current" shows DejaVu Sans there.
 // Google Fonts go through curl (headless Chromium behind the proxy can't
 // fetch them), exactly as scripts/shoot.mjs does.
 import { createRequire } from "node:module";
@@ -36,6 +46,10 @@ const base = opt("--base", process.env.CG_DEV || "http://127.0.0.1:5173");
 const prefix = opt("--prefix", "type_");
 const only = opt("--only", "home,map,battle,phone,council,guide,sheet").split(",");
 const dump = opt("--dump", null);
+const worst = opt("--worst", "battle,phone,sheet").split(",").filter((w) => w && w !== "none");
+const faces = opt("--faces", "");
+const pairs = args.includes("--pairs");
+if (pairs) args.splice(args.indexOf("--pairs"), 1);
 const ids = args.length ? args : TYPE_IDS;
 const OUT = path.resolve(".shots");
 fs.mkdirSync(OUT, { recursive: true });
@@ -43,10 +57,10 @@ if (dump) fs.mkdirSync(dump, { recursive: true });
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 const cache = new Map();
-const browser = await chromium.launch();
+const browser = await chromium.launch({ args: ["--font-render-hinting=none"] });
 
-async function context(w, h) {
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, ignoreHTTPSErrors: true });
+async function context(w, h, dpr = 1) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: dpr, ignoreHTTPSErrors: true });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, async (route) => {
     const u = route.request().url();
     try {
@@ -97,7 +111,8 @@ const shot = async (page, id, name) => {
   console.log(`  ${file}`);
 };
 
-// Free Play: START, place an Archer Tower on open grass, open its card
+// Free Play: START, place an Archer Tower on open grass, open its card (the
+// board is the 3:2 canvas; at DPR 2 a backdrop canvas is as wide)
 async function battle(page) {
   await clickText(page, "FREE PLAY");
   await page.waitForTimeout(800);
@@ -108,7 +123,7 @@ async function battle(page) {
   for (let y = 120; y <= 480; y += 40) for (let x = 120; x <= 660; x += 40) tries.push([x, y]);
   for (const [x, y] of tries) {
     const at = await page.evaluate(([bx, by]) => {
-      const g = window.__g, cv = [...document.querySelectorAll("canvas")].find((c) => c.width >= 1600);
+      const g = window.__g, cv = [...document.querySelectorAll("canvas")].find((c) => c.width >= 1600 && Math.abs(c.width / c.height - 1.5) < 0.01);
       if (!g || !cv) return null;
       const r = cv.getBoundingClientRect();
       const sx = r.left + (bx / 840) * r.width, sy = r.top + (by / 560) * r.height;
@@ -126,7 +141,7 @@ async function battle(page) {
   await page.evaluate(() => { if (window.__g) window.__g.buildMode = null; });
   await page.waitForTimeout(2600);   // the crew builds it
   const t = await page.evaluate(() => {
-    const g = window.__g, t = g.towers[0], cv = [...document.querySelectorAll("canvas")].find((c) => c.width >= 1600);
+    const g = window.__g, t = g.towers[0], cv = [...document.querySelectorAll("canvas")].find((c) => c.width >= 1600 && Math.abs(c.width / c.height - 1.5) < 0.01);
     if (!t || !cv) return null;
     const r = cv.getBoundingClientRect();
     return [r.left + (t.x / 840) * r.width, r.top + (t.y / 560) * r.height];
@@ -164,37 +179,66 @@ const MENU = {
   phone: battle,
 };
 const SIZE = { phone: [844, 390] };
+const DPR = { phone: 3 };
 
+// the pair test, printed: every option's num and body faces (and --faces
+// candidates) at DPR 1 and 2, the pairs under 0.20 named
+if (pairs) {
+  for (const dpr of [1, 2]) {
+    const { ctx, page } = await context(1400, 900, dpr);
+    try {
+      const qs = new URLSearchParams({ distinct: "1", ...(faces ? { faces } : {}), ...(args.length ? { opts: ids.join(",") } : {}) });
+      await page.goto(`${base}/type-lab.html?${qs}`, { waitUntil: "load" });
+      await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 30000 });
+      const r = JSON.parse(await page.evaluate(() => document.body.dataset.result));
+      console.log(`\nDPR ${dpr} (unhinted): worst pair per size, then every pair under 0.20`);
+      for (const [name, sc] of Object.entries(r.data)) {
+        const worstOf = sc.map((row) => Math.min(...row).toFixed(2));
+        const bad = sc.flatMap((row, si) => row.map((v, pi) => (v < 0.2 ? `${r.pairs[pi]}@${r.sizes[si]}:${v.toFixed(2)}` : null)).filter(Boolean));
+        console.log(`  ${name.padEnd(26)} ${r.sizes.map((z, i) => `${z}px ${worstOf[i]}`).join("  ")}  ${bad.join(" ")}`);
+      }
+      await page.screenshot({ path: path.join(OUT, `${prefix}pairs_dpr${dpr}.png`), fullPage: true });
+    } catch (e) { console.log(`  FAILED (pairs dpr ${dpr}): ${e.message.split("\n")[0]}`); }
+    finally { await ctx.close(); }
+  }
+  await browser.close();
+  process.exit(0);
+}
+
+const jobs = [];
 for (const id of ids) {
-  console.log(`${id}`);
-  for (const name of only) {
-    if (name === "sheet") {
-      const { ctx, page } = await context(1150, 800);
-      try {
-        await page.goto(`${base}/type-lab.html?opt=${id}`, { waitUntil: "load" });
-        await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 20000 });
-        await page.waitForTimeout(300);
-        const file = path.join(OUT, `${prefix}${id}_sheet.png`);
-        await (await page.$(".sheet")).screenshot({ path: file });
-        console.log(`  ${file}`);
-      } catch (e) { console.log(`  FAILED (${id} sheet): ${e.message.split("\n")[0]}`); }
-      finally { await ctx.close(); }
-      continue;
-    }
-    const steps = MENU[name];
-    if (!steps) { console.log(`  no screen "${name}"`); continue; }
-    const [w, h] = SIZE[name] || [1133, 744];
-    for (let k = 0; k < 2; k++) {
-      const { ctx, page } = await context(w, h);
-      try {
-        await open(page, id);
-        await steps(page);
-        await shot(page, id, name);
-        k = 2;
-      } catch (e) {
-        console.log(`  ${k ? "FAILED" : "retrying"} (${id} ${name}): ${e.message.split("\n")[0]}`);
-      } finally { await ctx.close(); }
-    }
+  for (const name of only) jobs.push([id, name, DPR[name] || 2, ""]);
+  for (const name of worst) jobs.push([id, name, 1, "_dpr1"]);
+}
+let last = null;
+for (const [id, name, dpr, suffix] of jobs) {
+  if (id !== last) { console.log(`${id}`); last = id; }
+  if (name === "sheet") {
+    const { ctx, page } = await context(1150, 800, dpr);
+    try {
+      await page.goto(`${base}/type-lab.html?opt=${id}`, { waitUntil: "load" });
+      await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 20000 });
+      await page.waitForTimeout(300);
+      const file = path.join(OUT, `${prefix}${id}_sheet${suffix}.png`);
+      await (await page.$(".sheet")).screenshot({ path: file });
+      console.log(`  ${file}`);
+    } catch (e) { console.log(`  FAILED (${id} sheet${suffix}): ${e.message.split("\n")[0]}`); }
+    finally { await ctx.close(); }
+    continue;
+  }
+  const steps = MENU[name];
+  if (!steps) { console.log(`  no screen "${name}"`); continue; }
+  const [w, h] = SIZE[name] || [1133, 744];
+  for (let k = 0; k < 3; k++) {
+    const { ctx, page } = await context(w, h, dpr);
+    try {
+      await open(page, id);
+      await steps(page);
+      await shot(page, id, name + suffix);
+      k = 3;
+    } catch (e) {
+      console.log(`  ${k < 2 ? "retrying" : "FAILED"} (${id} ${name}${suffix}): ${e.message.split("\n")[0]}`);
+    } finally { await ctx.close(); }
   }
 }
 await browser.close();

@@ -6,33 +6,48 @@
 // carries its own musket reach round it as it rows.
 //
 // - waterMask(): which art pixel of the board is which water (a river, a
-//   pond, the sea) and which is under a bridge deck. Baked once per realm
-//   (20-60 ms on a shared headless CPU), in idle time (warmWaterReach) or
-//   on first use.
+//   pond, the sea) and which is under a bridge
+//   deck. Baked once per realm, a slice at a time in idle moments after the
+//   board appears (warmWaterReach), with the bodies and their tints after
+//   it, so neither the first skiff nor the first tap pays for it.
 // - drawWatchWater(ctx, g, x, y, tone): the body of water a hall moored at
-//   (x, y) rows, tinted (gold when selected, green / red for the build
-//   ghost) with a dotted edge creeping along its waterline in the range
-//   ring's style. The tint is baked once per body and tone and stamped; the
-//   edge is a few hundred ticks off a baked, arc-length-sampled waterline.
-//   Drawn with the water, under the bridges, so a deck passes over it.
+//   (x, y) rows, LIT: each water pixel lifted a fixed step in light toward
+//   its own water's shine (so black fen water gains as much as blue, and
+//   keeps its hue — never screened with a warm colour, which turned it to
+//   mud or ice), with a 1-2 art-px rim along the waterline in the tone
+//   (gold selected, green / red for the build ghost) and dotted ticks
+//   creeping along it in the range ring's style. Reeds, pads and stones in
+//   the water keep their colour; where a body is cut off across open water
+//   (a confluence, the sea past the skiffs' lane) the light fades out in
+//   steps. The tint is baked once per body and tone and stamped; the edge is
+//   a few hundred ticks off a baked, arc-length-sampled waterline. Drawn
+//   with the water, under the bridges, so a deck passes over it.
 // - drawSkiffReach(ctx, g, t, built): each live skiff's reach, a turning
-//   ring of ticks (the envelope bright, the arcs inside a sister's reach a
-//   faint hint); an upgrade armed in the card adds its new reach, and the
-//   reach of any skiff it adds at her station. drawSkiffMarks, over the
-//   crowd, puts a gold caret over each boat (hollow: a station to come).
-// - clipToWater(ctx, x0, y0, x1, y1): clips to the open water in a box, so
-//   a wake or a ripple never runs up a bank, round a shore, onto the beach
-//   or over a deck. enemies.js (the skiffs) and halls/riverwatch.js use it.
+//   ring of ticks: the fleet's edge bright, each boat's own ring carried on
+//   softer through her sisters' reach (the boat under the cursor all
+//   bright); an upgrade armed in the card adds its new reach, and the reach
+//   of any skiff it adds at her station. No fill: the reach is rings only,
+//   the ground stays the ground. drawSkiffMarks, over the crowd, puts a gold
+//   caret over each boat (hollow: a station to come). drawWatchStation: the
+//   build ghost's first skiff, her station and her reach.
+// - fillWet(ctx, x, y, w, h): fills a rect only over the open water (a
+//   wake's streak, a ripple, an oar's splash), off the mask's bytes, no clip.
+//   clipToWater(ctx, x0, y0, x1, y1): a clip to the open water in a box that
+//   stays put (a hall's piles), baked once per box.
 //
 // Where the water's edge lies is water.js's business: its river bank
 // (riverField's smooth union, edgeOff's wobble, lean and spits) and pond
 // shore (pondG) are MIRRORED below so the tint meets the painted waterline
-// pixel for pixel. Change the edge there and change it here too (compare
-// with skiff-reach-lab.html, zoomed on a bank).
+// pixel for pixel; the sea's is world.js's (coastLine at each pixel's
+// corner, as its tone map hands coastPixel). Change the edge
+// there and change it here too (compare with skiff-reach-lab.html, zoomed on
+// a bank).
 
 import { W, H, WALL_W, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
+import * as TERRAIN from "../data/terrain.js";
 import { PONDS, RIVERS, COAST, BRIDGES, BRIDGE_HALF, RIVER_ROUTE, seaRoute, seaDepthAt, coastLine } from "../data/terrain.js";
+import { TOWERS } from "../data/towers.js";
 import { pondAt } from "../engine/actions.js";
 import { getStats } from "../engine/towers.js";
 import { hash, PX } from "./paint.js";
@@ -238,7 +253,10 @@ const combineRow = (lab, row, y, lo, hi, r, F, segs, rowJP, N) => {
     lab[k] = P && gp < gr ? POND0 + P.k : river || (P ? POND0 + P.k : 0);
   }
 };
-const riverRows = (lab, JP, s, r, mw, mh) => {
+
+// the rows, a slice at a time (a generator: it yields every ROWS_PER rows)
+const ROWS_PER = 48;
+function* riverRows(lab, JP, s, r, mw, mh) {
   const segs = [], many = RIVERS.length > 1;
   const rivs = RIVERS.map((rv, ri) => {
     const hw = rv.w / 2, reach = hw + REACH + (many ? MERGE * 0.5 : 0), list = [];
@@ -253,6 +271,7 @@ const riverRows = (lab, JP, s, r, mw, mh) => {
   const F = { FA: new Float32Array(mw), FB: new Float32Array(mw), SA: new Uint16Array(mw), SB: new Uint16Array(mw), RIV: new Uint8Array(mw) };
   const N = noiseGrid(JP, s, r);
   for (let j = 0; j < mh; j++) {
+    if (j && j % ROWS_PER === 0) yield;
     const y = (j + 0.5) / r;
     const rowJP = JP.length ? JP.filter((P) => y > P.y - P.ry - 12 && y < P.y + P.ry + 12) : JP;
     // this row's reach, cleared, then each river's segments walked in order
@@ -268,19 +287,22 @@ const riverRows = (lab, JP, s, r, mw, mh) => {
     }
     combineRow(lab, j * mw, y, lo, hi, r, F, segs, rowJP, N);
   }
-};
+}
 
 // ---- the mask ------------------------------------------------------------------
 // One byte per art pixel: 0 dry land, 1..15 a river (its index + 1), 16 + k
-// pond k, SEA the sea; DECK set where a bridge is drawn over it.
+// pond k, SEA the sea; DECK set where a bridge
+// is drawn over it. With it, each kind's box (MASK.box: i0, j0, i1, j1).
 const POND0 = 16, SEA = 64, DECK = 128, KIND = 127;
 let MASK = null;
 
-const bakeMask = () => {
+// The bake, a slice at a time: each yield is a few ms of work.
+function* bakeSteps(M) {
   if (!LATTICE) { LATTICE = new Float32Array(65536); for (let i = 0; i < 65536; i++) LATTICE[i] = hash(i, 911); }
-  const r = PX, mw = W * r, mh = H * r, lab = new Uint8Array(mw * mh);
+  const r = M.px, mw = M.mw, mh = M.mh, lab = M.lab, ms = M.ms;
+  let t0 = performance.now();
+  const lap = (k) => { const t = performance.now(); ms[k] = (ms[k] || 0) + t - t0; t0 = t; };
   const s = ((REALM.seed | 0) % 97 + 97) % 97;
-  const ms = { t0: performance.now() };
   const shapes = PONDS.map(pondShape);
   const JP = RIVERS.length ? shapes.filter((P) => P.open && touchesRiver(P)) : [];
   // ponds on their own (painted first; a river may paint over them)
@@ -296,29 +318,36 @@ const bakeMask = () => {
         const f = ellF(P, x, y);
         if (f <= 10 && (f < -15 || f + pondWob(P, x, y) < 0)) lab[j * mw + i] = POND0 + P.k;
       }
+      if (j % ROWS_PER === ROWS_PER - 1) { lap("ponds"); yield; t0 = performance.now(); }
     }
+    lap("ponds"); yield; t0 = performance.now();
   }
-  ms.ponds = performance.now() - ms.t0;
   // the rivers, merged as water.js merges them (a smooth union), with any
   // pond that runs into one
-  if (RIVERS.length) riverRows(lab, JP, s, r, mw, mh);
-  ms.rivers = performance.now() - ms.t0 - ms.ponds;
-  // the sea: past the waterline (seaDepthAt > 0), wherever nothing else
-  // claimed the pixel — the line worked out once per column (or row)
+  if (RIVERS.length) {
+    const it = riverRows(lab, JP, s, r, mw, mh);
+    while (!it.next().done) { lap("rivers"); yield; t0 = performance.now(); }
+    lap("rivers");
+  }
+  // the sea, as world.js paints it: past the waterline read at each
+  // pixel's corner (its coastPixel's sd > 0), so the light and its rim
+  // start on the foam where the wet sand ends
   if (COAST) {
     const e = COAST.edge, along = e === "top" || e === "bottom";
     for (let a = 0, na = along ? mw : mh; a < na; a++) {
-      const line = coastLine((a + 0.5) / r);
-      if (line <= 0) continue;
-      for (let b = 0, nb = along ? mh : mw; b < nb; b++) {
-        const c = (b + 0.5) / r, v = e === "top" || e === "left" ? c : (along ? H : W) - c;
-        if (line - v <= 0) continue;
-        const k = along ? b * mw + a : a * mw + b;
-        if (!lab[k]) lab[k] = SEA;
+      const line = coastLine(a / r);
+      if (line > 0) {
+        for (let b = 0, nb = along ? mh : mw; b < nb; b++) {
+          const c = b / r;
+          if (line - (e === "top" || e === "left" ? c : (along ? H : W) - c) <= 0) continue;
+          const k = along ? b * mw + a : a * mw + b;
+          if (!lab[k]) lab[k] = SEA;
+        }
       }
+      if ((a & 255) === 255) { lap("sea"); yield; t0 = performance.now(); }
     }
+    lap("sea");
   }
-  ms.sea = performance.now() - ms.t0 - ms.ponds - ms.rivers;
   // what the bridges cover: each span drawn on its own and read back
   if (BRIDGES.length && typeof document !== "undefined") {
     for (const b of BRIDGES) {
@@ -328,7 +357,7 @@ const bakeMask = () => {
       if (i1 <= i0 || j1 <= j0) continue;
       const cv = document.createElement("canvas");
       cv.width = i1 - i0; cv.height = j1 - j0;
-      const c = cv.getContext("2d");
+      const c = cv.getContext("2d", { willReadFrequently: true });
       c.imageSmoothingEnabled = false;
       c.translate(-i0, -j0);
       c.scale(r, r);
@@ -339,45 +368,111 @@ const bakeMask = () => {
         // (the deck, not its shadow on the water)
         if (lab[k] && d[((j - j0) * cv.width + (i - i0)) * 4 + 3] > 200) lab[k] |= DECK;
       }
+      lap("bridges"); yield; t0 = performance.now();
     }
   }
-  ms.bridges = performance.now() - ms.t0 - ms.ponds - ms.rivers - ms.sea;
-  bakeMask.ms = ms;
-  return lab;
-};
+  // each kind's box, so a body never scans the whole board for itself
+  const box = new Int32Array(128 * 4);
+  for (let q = 0; q < 128; q++) { box[q * 4] = mw; box[q * 4 + 1] = mh; box[q * 4 + 2] = -1; box[q * 4 + 3] = -1; }
+  for (let j = 0; j < mh; j++) {
+    const o = j * mw;
+    for (let i = 0; i < mw; i++) {
+      const v = lab[o + i];
+      if (!v) continue;
+      const q = (v & KIND) * 4;
+      if (i < box[q]) box[q] = i;
+      if (i > box[q + 2]) box[q + 2] = i;
+      if (j < box[q + 1]) box[q + 1] = j;
+      box[q + 3] = j;
+    }
+    if (j % 280 === 279) { lap("boxes"); yield; t0 = performance.now(); }
+  }
+  M.box = box;
+  lap("boxes");
+}
 
-// the mask for the board in play (rebuilt when the realm changes)
-export const waterMask = () => {
-  if (MASK && MASK.realm === REALM && MASK.rivers === RIVERS && MASK.ponds === PONDS && MASK.coast === COAST && MASK.bridges === BRIDGES && MASK.px === PX) return MASK;
-  const has = RIVERS.length || PONDS.length || COAST;
-  MASK = { realm: REALM, rivers: RIVERS, ponds: PONDS, coast: COAST, bridges: BRIDGES, px: PX, mw: W * PX, mh: H * PX, lab: has ? bakeMask() : null, bodies: new Map() };
+// the mask for the board in play (a new one when the realm changes; its bake
+// may still be under way — waterMask() finishes it, maskJob() does not)
+const current = () => MASK && MASK.realm === REALM && MASK.rivers === RIVERS && MASK.ponds === PONDS && MASK.coast === COAST && MASK.bridges === BRIDGES && MASK.px === PX;
+const maskJob = () => {
+  if (current()) return MASK;
+  const has = !!(RIVERS.length || PONDS.length || COAST), mw = W * PX, mh = H * PX;
+  MASK = { realm: REALM, rivers: RIVERS, ponds: PONDS, coast: COAST, bridges: BRIDGES, px: PX, mw, mh,
+    lab: has ? new Uint8Array(mw * mh) : null, box: null, bodies: new Map(), clips: new Map(), ms: {}, done: !has, job: null };
+  if (has) MASK.job = bakeSteps(MASK);
   return MASK;
 };
-// the one-time bake, done in idle time on a board with water, so the first
-// skiff or the first tap on a River Watch doesn't pay for it
-let WARM = null;
-export const warmWaterReach = () => {
-  if (MASK && MASK.realm === REALM && MASK.rivers === RIVERS) return;
-  if (WARM === REALM || !(RIVERS.length || PONDS.length || COAST)) return;
-  WARM = REALM;
-  const go = () => { if (WARM === REALM) waterMask(); };
-  if (typeof requestIdleCallback === "function") requestIdleCallback(go, { timeout: 1500 });
-  else setTimeout(go, 200);
+const stepMask = (M) => { if (M.done) return true; if (M.job.next().done) { M.done = true; M.job = null; } return M.done; };
+export const waterMask = () => {
+  const M = maskJob();
+  while (!stepMask(M));
+  return M;
 };
 
-// ---- clipping to the water ----------------------------------------------------------
-// Clips ctx to the open water (no deck over it) inside the box, in world
-// units. Returns 0 when there is none (draw nothing), 1 when the box is all
-// water (no clip was needed), 2 when a clip was set. Wrap in save/restore.
-// `portrait`: a painter that also draws stand-ins off the board (a menu's
-// portrait of the hall) draws unclipped where the box holds no water at all.
-export const clipToWater = (ctx, x0, y0, x1, y1, portrait = false) => {
-  const M = waterMask();
-  if (!M.lab || waterMask.noClip) return 1;
+// ---- keeping to the water ------------------------------------------------------------
+// Fills the rect (world units) with ctx's fillStyle only over the open water
+// (no deck over it): a wake's streak, a ripple, an oar's splash. It reads
+// the mask along the rect's own rows — a few hundred bytes a skiff a frame —
+// and draws one rect per wet run (rows alike merge); all water, one rect.
+const RA = [], RB = [];
+export const fillWet = (ctx, x, y, w, h) => {
+  const M = MASK && MASK.done && current() ? MASK : waterMask();
+  if (!M.lab || waterMask.noClip) { ctx.fillRect(x, y, w, h); return; }
   const r = M.px, mw = M.mw, lab = M.lab;
-  const i0 = Math.max(0, Math.floor(x0 * r)), i1 = Math.min(mw - 1, Math.ceil(x1 * r) - 1);
-  const j0 = Math.max(0, Math.floor(y0 * r)), j1 = Math.min(M.mh - 1, Math.ceil(y1 * r) - 1);
-  if (i1 < i0 || j1 < j0) return portrait ? 1 : 0;
+  const i0 = Math.max(0, Math.floor(x * r + 1e-6)), i1 = Math.min(mw, Math.ceil((x + w) * r - 1e-6));
+  const j0 = Math.max(0, Math.floor(y * r + 1e-6)), j1 = Math.min(M.mh, Math.ceil((y + h) * r - 1e-6));
+  if (i1 <= i0 || j1 <= j0) return;
+  let n = 0, top = j0;
+  const flush = (jEnd) => {
+    const ay = Math.max(y, top / r), by = Math.min(y + h, jEnd / r);
+    for (let q = 0; q < n; q += 2) {
+      const ax = Math.max(x, RA[q] / r), bx = Math.min(x + w, RA[q + 1] / r);
+      if (bx > ax && by > ay) ctx.fillRect(ax, ay, bx - ax, by - ay);
+    }
+  };
+  for (let j = j0; j < j1; j++) {
+    const o = j * mw;
+    let m = 0, a = -1;
+    for (let i = i0; i <= i1; i++) {
+      const v = i < i1 ? lab[o + i] : 0, wet = v !== 0 && (v & DECK) === 0;
+      if (wet) { if (a < 0) a = i; } else if (a >= 0) { RB[m++] = a; RB[m++] = i; a = -1; }
+    }
+    if (j > j0) {
+      let same = m === n;
+      for (let q = 0; same && q < m; q++) if (RB[q] !== RA[q]) same = false;
+      if (same) continue;
+      flush(j);
+    }
+    for (let q = 0; q < m; q++) RA[q] = RB[q];
+    n = m; top = j;
+  }
+  flush(j1);
+};
+
+// Clips ctx to the open water (no deck over it) inside a box that stays put
+// (a hall's piles), in world units; the clip is worked out once per box and
+// kept. Returns 0 when there is no water (draw nothing), 1 when the box is
+// all water or `portrait` (a menu's stand-in, off the board: no clip), 2 when
+// a clip was set. Wrap in save/restore.
+export const clipToWater = (ctx, x0, y0, x1, y1, portrait = false) => {
+  if (portrait || waterMask.noClip) return 1;
+  const M = waterMask();
+  if (!M.lab) return 1;
+  const r = M.px, I0 = Math.floor(x0 * r), I1 = Math.ceil(x1 * r) - 1, J0 = Math.floor(y0 * r), J1 = Math.ceil(y1 * r) - 1;
+  const key = `${I0},${J0},${I1},${J1}`;
+  let c = M.clips.get(key);
+  if (!c) {
+    c = clipOf(M, I0, J0, I1, J1);
+    if (M.clips.size > 160) M.clips.clear();   // (a ghost dragged about makes a new box a frame)
+    M.clips.set(key, c);
+  }
+  if (c.v === 2) ctx.clip(c.p);
+  return c.v;
+};
+const clipOf = (M, I0, J0, I1, J1) => {
+  const r = M.px, mw = M.mw, lab = M.lab;
+  const i0 = Math.max(0, I0), i1 = Math.min(mw - 1, I1), j0 = Math.max(0, J0), j1 = Math.min(M.mh - 1, J1);
+  if (i1 < i0 || j1 < j0) return { v: 0 };
   let wet = 0, dry = 0;
   const rows = [];
   for (let j = j0; j <= j1; j++) {
@@ -391,8 +486,8 @@ export const clipToWater = (ctx, x0, y0, x1, y1, portrait = false) => {
     }
     rows.push(row);
   }
-  if (!wet) return portrait ? 1 : 0;
-  if (!dry && i0 === Math.floor(x0 * r) && i1 === Math.ceil(x1 * r) - 1 && j0 === Math.floor(y0 * r) && j1 === Math.ceil(y1 * r) - 1) return 1;
+  if (!wet) return { v: 0 };
+  if (!dry && i0 === I0 && i1 === I1 && j0 === J0 && j1 === J1) return { v: 1 };
   const p = new Path2D();
   // runs that repeat down the rows go in as one rect
   let prev = null, top = j0;
@@ -404,21 +499,59 @@ export const clipToWater = (ctx, x0, y0, x1, y1, portrait = false) => {
     flush(prev, top, j);
     prev = row; top = j;
   }
-  ctx.clip(p);
-  return 2;
+  return { v: 2, p };
 };
 
 // ---- the body of water a hall's skiffs row ------------------------------------------
-// the engine's choice (update.js, "the River Watch"): moored in a pond or
-// mere, a ring round it; off a coast, the coast; otherwise the board's river
-// route, which is the FIRST river (RIVER_ROUTE)
+// The engine's choice (update.js, "the River Watch"): moored in a pond or
+// mere, a ring round it; off a coast, the coast; otherwise a river route.
+// Today that is the board's FIRST river (RIVER_ROUTE) wherever the hall
+// moors; once terrain.js offers a route per river (riverRouteAt(x, y) and
+// RIVER_ROUTES), the one it is moored in — read here by name, so the light
+// follows the engine the day it changes.
+const ROUTE_AT = "riverRouteAt", ROUTES = "RIVER_ROUTES";
+const riverRoute = (x, y) => (typeof TERRAIN[ROUTE_AT] === "function" ? TERRAIN[ROUTE_AT](x, y) : RIVER_ROUTE);
+// which river a route rows: its own `ri`, or the river nearest its middle
+const ROUTE_RIVER = new WeakMap();
+const riverOfRoute = (rt) => {
+  if (rt.ri != null) return rt.ri;
+  let ri = ROUTE_RIVER.get(rt);
+  if (ri === undefined) {
+    const [mx, my] = rt.at(rt.total / 2);
+    let bd = Infinity;
+    ri = 0;
+    RIVERS.forEach((rv, i) => {
+      for (const s2 of rv.segs) {
+        const vx = s2.x2 - s2.x1, vy = s2.y2 - s2.y1, t = Math.max(0, Math.min(1, ((mx - s2.x1) * vx + (my - s2.y1) * vy) / (s2.len * s2.len)));
+        const d = Math.hypot(mx - s2.x1 - vx * t, my - s2.y1 - vy * t);
+        if (d < bd) { bd = d; ri = i; }
+      }
+    });
+    ROUTE_RIVER.set(rt, ri);
+  }
+  return ri;
+};
 export const watchWater = (x, y) => {
   const p = pondAt(x, y);
   if (p) return { id: `p${PONDS.indexOf(p)}`, kind: "pond", pond: p };
-  if (seaDepthAt(x, y) > 0) return seaRoute() ? { id: "sea", kind: "sea" } : null;
-  // (ri: which river the route follows — the engine rows only the first; a
-  // route per river would name the one moored in here)
-  return RIVER_ROUTE ? { id: "r0", kind: "river", ri: 0 } : null;
+  if (seaDepthAt(x, y) > 0) { const rt = seaRoute(); return rt ? { id: "sea", kind: "sea", rt } : null; }
+  const rt = riverRoute(x, y);
+  if (!rt) return null;
+  const ri = riverOfRoute(rt);
+  return { id: `r${ri}`, kind: "river", ri, rt };
+};
+// every body a River Watch on this board could row (for the warm-up)
+const watchBodies = () => {
+  const out = [], routes = Array.isArray(TERRAIN[ROUTES]) ? TERRAIN[ROUTES] : [RIVER_ROUTE];
+  for (const rt of routes) {
+    if (!rt) continue;
+    const ri = riverOfRoute(rt);
+    if (!out.some((w) => w.id === `r${ri}`)) out.push({ id: `r${ri}`, kind: "river", ri, rt });
+  }
+  PONDS.forEach((p, i) => { if (p.t !== "lava" && p.t !== "ice" && p.w >= 50) out.push({ id: `p${i}`, kind: "pond", pond: p }); });
+  const sr = seaRoute();
+  if (sr) out.push({ id: "sea", kind: "sea", rt: sr });
+  return out;
 };
 // the skiffs' rowing line (the engine's own shapes; a pond's is the same
 // ellipse update.js's pondRoute rows)
@@ -426,8 +559,7 @@ const POND_RT = new WeakMap();
 export const watchRoute = (x, y) => {
   const w = watchWater(x, y);
   if (!w) return null;
-  if (w.kind === "sea") return seaRoute();
-  if (w.kind === "river") return RIVER_ROUTE;
+  if (w.rt) return w.rt;
   const p = w.pond;
   let rt = POND_RT.get(p);
   if (!rt) {
@@ -439,64 +571,126 @@ export const watchRoute = (x, y) => {
   return rt;
 };
 
-// The tint LIGHTS the water (screen): a flat gold laid over blue water turns
-// it grey, its complement, where a pale gold screened over it reads as sun
-// on the water — still blue, clearly apart from the water beyond the reach.
+// The tones. The light is a fixed step up (`lift`, in luma) toward the
+// water's own shine — half a hue-keeping brightening, half a mix toward the
+// shine (`toward`) — so every water keeps its colour and the dark fen gains
+// as much as the blue; the tone's colour lives in the rim (rimA: the
+// waterline's own pixel, the one inside it) and the ticks.
 const TONES = {
-  sel: { rgb: [255, 226, 140], fill: 0.22, rim: 0.45, comp: "screen", tick: "rgba(232,196,90,0.9)" },
-  ok: { rgb: [176, 240, 170], fill: 0.2, rim: 0.42, comp: "screen", tick: "rgba(150,232,150,0.85)" },
-  bad: { rgb: [244, 146, 130], fill: 0.2, rim: 0.42, comp: "screen", tick: "rgba(232,120,110,0.85)" },
+  sel: { lift: 26, toward: 0.5, maxK: 0.55, rim: [240, 204, 98], rimA: [0.85, 0.4], tick: "rgba(232,196,90,0.9)", ring: "rgba(232,196,90,0.9)" },
+  ok: { lift: 22, toward: 0.5, maxK: 0.5, rim: [156, 236, 150], rimA: [0.8, 0.35], tick: "rgba(150,232,150,0.85)", ring: "rgba(150,232,150,0.6)" },
+  bad: { lift: 18, toward: 0.5, maxK: 0.45, rim: [240, 128, 116], rimA: [0.8, 0.35], tick: "rgba(232,120,110,0.85)", ring: "rgba(232,120,110,0.6)" },
 };
 const EDGE_IN = 1.5;       // the ticks ride this far in from the waterline
 const CASTLE_X = W - WALL_W + 2;   // past here the castle stands over the water
+const SEA_REACH = 20;      // the lit sea runs this far past the skiffs' lane
+const FEATHER = 16;        // art px: a body cut off across open water fades out over this
 
-// which pixels belong to a body, its box, and its waterline as runs of
-// points one unit apart (only where the water meets dry land — never across
-// open water into another body, nor under the castle)
-const bodyOf = (M, w) => {
-  let B = M.bodies.get(w.id);
-  if (B) return B;
+// A body: which pixels are its own (IN, in its box), how near dry land each
+// lies (EDGE 0 on the waterline .. 3, 9 farther), how near a cut across open
+// water (CUT, art px, FEATHER and more if none), and its waterline as runs
+// of points one unit apart (only where the water meets dry land — never
+// across open water into another body, nor under the castle). Worked out a
+// slice at a time (bodySteps), once per body.
+function* bodySteps(M, w, B) {
   const r = M.px, mw = M.mw, mh = M.mh, lab = M.lab;
-  let want;
-  if (w.kind === "river") want = w.ri + 1;
-  else if (w.kind === "pond") want = POND0 + Number(w.id.slice(1));
-  else want = SEA;
-  // the sea: only the stretch the coast route runs, as far along the shore
-  let uA = -Infinity, uB = Infinity;
-  const alongX = !COAST || COAST.edge === "top" || COAST.edge === "bottom";
+  const want = w.kind === "river" ? w.ri + 1 : w.kind === "pond" ? POND0 + Number(w.id.slice(1)) : SEA;
+  let I0 = M.box[want * 4], J0 = M.box[want * 4 + 1], I1 = M.box[want * 4 + 2], J1 = M.box[want * 4 + 3];
+  if (I1 < 0) { B.empty = true; return; }
+  // the sea: the stretch the coast route runs, from the beach out to a
+  // little past the skiffs' lane
+  let band = null;
   if (w.kind === "sea") {
-    const rt = seaRoute(), a = rt.at(0), b = rt.at(rt.total), k = alongX ? 0 : 1;
-    uA = Math.min(a[k], b[k]) - 14; uB = Math.max(a[k], b[k]) + 14;
+    const e = COAST.edge, alongX = e === "top" || e === "bottom", rt = w.rt, k = alongX ? 0 : 1;
+    const a = rt.at(0), b = rt.at(rt.total);
+    const uA = Math.min(a[k], b[k]) - 14, uB = Math.max(a[k], b[k]) + 14;
+    const lane = seaDepthAt(...rt.at(rt.total / 2)), reach = lane + SEA_REACH;
+    const n = alongX ? mw : mh, line = new Float32Array(n);
+    for (let q = 0; q < n; q++) line[q] = coastLine(q / r);
+    band = (i, j) => {
+      const q = alongX ? i : j, u = (q + 0.5) / r;
+      if (u < uA || u > uB) return false;
+      const c = (alongX ? j : i) / r;
+      return line[q] - (e === "top" || e === "left" ? c : (alongX ? H : W) - c) <= reach;
+    };
   }
-  const inBody = (i, j) => {
-    if (i < 0 || j < 0 || i >= mw || j >= mh) return false;
-    if ((lab[j * mw + i] & KIND) !== want) return false;
-    if (w.kind !== "sea") return true;
-    const u = ((alongX ? i : j) + 0.5) / r;
-    return u >= uA && u <= uB;
-  };
+  const inBody = (i, j) => (lab[j * mw + i] & KIND) === want && (!band || band(i, j));
+  // its own pixels and their box
   let i0 = mw, i1 = -1, j0 = mh, j1 = -1;
-  for (let j = 0; j < mh; j++) for (let i = 0, o = j * mw; i < mw; i++) {
-    if ((lab[o + i] & KIND) !== want || !inBody(i, j)) continue;
-    if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j;
+  for (let j = J0; j <= J1; j++) {
+    for (let i = I0; i <= I1; i++) {
+      if (!inBody(i, j)) continue;
+      if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; j1 = j;
+    }
+    if ((j - J0) % 200 === 199) yield;
   }
-  if (i1 < 0) { B = { empty: true }; M.bodies.set(w.id, B); return B; }
+  if (i1 < 0) { B.empty = true; return; }
+  yield;
   const bw = i1 - i0 + 1, bh = j1 - j0 + 1;
   const IN = new Uint8Array(bw * bh);
-  for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) IN[j * bw + i] = inBody(i0 + i, j0 + j) ? 1 : 0;
+  let cut = false;
+  for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) if (inBody(i0 + i, j0 + j)) IN[j * bw + i] = 1;
+  yield;
   const at = (i, j) => (i < 0 || j < 0 || i >= bw || j >= bh ? 0 : IN[j * bw + i]);
+  // is (gi, gj) — board pixels — water that isn't this body's? (a cut)
+  const other = (gi, gj) => gi >= 0 && gj >= 0 && gi < mw && gj < mh && (lab[gj * mw + gi] & KIND) !== 0 && !(at(gi - i0, gj - j0));
   // how near the edge each pixel lies (0 = on it, up to 3), for the rim
   const EDGE = new Uint8Array(bw * bh);
-  for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) {
-    if (!IN[j * bw + i]) continue;
-    let d = 9;
-    for (let q = 1; q <= 3 && d === 9; q++) {
-      // an edge only where dry land lies: a body cut off across open water
-      // (the sea's ends, a river running on into another) fades no rim
-      const probe = (ii, jj) => { if (at(ii, jj)) return false; const gi = i0 + ii, gj = j0 + jj; if (gi < 0 || gj < 0 || gi >= mw || gj >= mh) return false; return (lab[gj * mw + gi] & KIND) === 0; };
-      if (probe(i - q, j) || probe(i + q, j) || probe(i, j - q) || probe(i, j + q)) d = q - 1;
+  for (let j = 0; j < bh; j++) {
+    for (let i = 0; i < bw; i++) {
+      if (!IN[j * bw + i]) continue;
+      let d = 9;
+      for (let q = 1; q <= 3 && d === 9; q++) {
+        // an edge only where dry land lies: a body cut off across open water
+        // (the sea's ends, a river running on into another) takes no rim
+        const probe = (ii, jj) => { if (at(ii, jj)) return false; const gi = i0 + ii, gj = j0 + jj; if (gi < 0 || gj < 0 || gi >= mw || gj >= mh) return false; return (lab[gj * mw + gi] & KIND) === 0; };
+        if (probe(i - q, j) || probe(i + q, j) || probe(i, j - q) || probe(i, j + q)) d = q - 1;
+      }
+      EDGE[j * bw + i] = d;
+      if (!cut && (other(i0 + i - 1, j0 + j) || other(i0 + i + 1, j0 + j) || other(i0 + i, j0 + j - 1) || other(i0 + i, j0 + j + 1))) cut = true;
     }
-    EDGE[j * bw + i] = d;
+    if (j % 160 === 159) yield;
+  }
+  yield;
+  // How near a cut each pixel lies: a chamfer distance (3-4) from every
+  // pixel of other water within FEATHER of the box
+  let CUT = null;
+  if (cut) {
+    const P = FEATHER + 1, px0 = Math.max(0, i0 - P), py0 = Math.max(0, j0 - P), px1 = Math.min(mw - 1, i1 + P), py1 = Math.min(mh - 1, j1 + P);
+    const pw = px1 - px0 + 1, ph = py1 - py0 + 1, D = new Uint16Array(pw * ph), INF = 60000;
+    for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) D[j * pw + i] = other(px0 + i, py0 + j) ? 0 : INF;
+    yield;
+    for (let j = 0; j < ph; j++) for (let i = 0, o = j * pw; i < pw; i++) {
+      let d = D[o + i];
+      if (!d) continue;
+      if (i > 0 && D[o + i - 1] + 3 < d) d = D[o + i - 1] + 3;
+      if (j > 0) {
+        const u = o - pw + i;
+        if (D[u] + 3 < d) d = D[u] + 3;
+        if (i > 0 && D[u - 1] + 4 < d) d = D[u - 1] + 4;
+        if (i < pw - 1 && D[u + 1] + 4 < d) d = D[u + 1] + 4;
+      }
+      D[o + i] = d;
+    }
+    yield;
+    for (let j = ph - 1; j >= 0; j--) for (let i = pw - 1, o = j * pw; i >= 0; i--) {
+      let d = D[o + i];
+      if (!d) continue;
+      if (i < pw - 1 && D[o + i + 1] + 3 < d) d = D[o + i + 1] + 3;
+      if (j < ph - 1) {
+        const u = o + pw + i;
+        if (D[u] + 3 < d) d = D[u] + 3;
+        if (i < pw - 1 && D[u + 1] + 4 < d) d = D[u + 1] + 4;
+        if (i > 0 && D[u - 1] + 4 < d) d = D[u - 1] + 4;
+      }
+      D[o + i] = d;
+    }
+    CUT = new Uint8Array(bw * bh);
+    for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) {
+      const d = D[(j0 + j - py0) * pw + (i0 + i - px0)];
+      CUT[j * bw + i] = Math.min(255, Math.round(d / 3));
+    }
+    yield;
   }
   // the waterline: marching squares between pixel centres, each piece
   // turned so the water lies on its left, chained into runs
@@ -505,28 +699,32 @@ const bodyOf = (M, w) => {
   // v 1 for the pair (i, j)-(i+1, j), v 0 for (i, j)-(i, j+1)
   const key = (i, j, v) => ((j + 1) * (bw + 2) + (i + 1)) * 2 + v;
   const pos = (k) => { const v = k & 1, c = k >> 1, i = (c % (bw + 2)) - 1, j = Math.floor(c / (bw + 2)) - 1; return v ? [i + 0.5, j] : [i, j + 0.5]; };
-  const piece = (ka, kb, ci, cj, ii, jj) => {
+  const piece = (ka, kb, ii, jj) => {
     // orient a → b so the inside corner (ii, jj) lies on its left (y down)
     const [ax, ay] = pos(ka), [bx, by] = pos(kb);
     const cr = (bx - ax) * (jj - ay) - (by - ay) * (ii - ax);
     if (cr < 0) next.set(ka, kb); else next.set(kb, ka);
   };
-  for (let j = -1; j < bh; j++) for (let i = -1; i < bw; i++) {
-    const a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), d = at(i, j + 1);
-    const n = a + b + c + d;
-    if (n === 0 || n === 4) continue;
-    // the cell's edges: T (a-b), R (b-c), B (d-c), L (a-d)
-    const T = key(i, j, 1), R = key(i + 1, j, 0), Bm = key(i, j + 1, 1), L = key(i, j, 0);
-    const cross = [];
-    if (a !== b) cross.push(T);
-    if (b !== c) cross.push(R);
-    if (d !== c) cross.push(Bm);
-    if (a !== d) cross.push(L);
-    const corner = a ? [i, j] : b ? [i + 1, j] : c ? [i + 1, j + 1] : [i, j + 1];
-    if (cross.length === 2) piece(cross[0], cross[1], i, j, corner[0], corner[1]);
-    else if (a) { piece(L, T, i, j, i, j); piece(R, Bm, i, j, i + 1, j + 1); }
-    else { piece(T, R, i, j, i + 1, j); piece(Bm, L, i, j, i, j + 1); }
+  for (let j = -1; j < bh; j++) {
+    for (let i = -1; i < bw; i++) {
+      const a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), d = at(i, j + 1);
+      const n = a + b + c + d;
+      if (n === 0 || n === 4) continue;
+      // the cell's edges: T (a-b), R (b-c), B (d-c), L (a-d)
+      const T = key(i, j, 1), R = key(i + 1, j, 0), Bm = key(i, j + 1, 1), L = key(i, j, 0);
+      const cross = [];
+      if (a !== b) cross.push(T);
+      if (b !== c) cross.push(R);
+      if (d !== c) cross.push(Bm);
+      if (a !== d) cross.push(L);
+      const corner = a ? [i, j] : b ? [i + 1, j] : c ? [i + 1, j + 1] : [i, j + 1];
+      if (cross.length === 2) piece(cross[0], cross[1], corner[0], corner[1]);
+      else if (a) { piece(L, T, i, j); piece(R, Bm, i + 1, j + 1); }
+      else { piece(T, R, i + 1, j); piece(Bm, L, i, j + 1); }
+    }
+    if (j % 200 === 199) yield;
   }
+  yield;
   const ends = new Set(next.values());
   const chains = [];
   const walk = (k0) => {
@@ -544,6 +742,7 @@ const bodyOf = (M, w) => {
   };
   for (const k of [...next.keys()]) if (!ends.has(k) && next.has(k)) chains.push(walk(k));
   for (const k of [...next.keys()]) if (next.has(k)) chains.push(walk(k));
+  yield;
   // resample each chain a unit apart (world units), ease out the pixel
   // steps, step in off the waterline, and keep only where dry land lies
   // outside
@@ -606,40 +805,139 @@ const bodyOf = (M, w) => {
       }
     }
   }
-  B = { x0: i0 / r, y0: j0 / r, w: bw / r, h: bh / r, bw, bh, IN, EDGE, runs, tints: {} };
-  M.bodies.set(w.id, B);
+  Object.assign(B, { x0: i0 / r, y0: j0 / r, w: bw / r, h: bh / r, i0, j0, bw, bh, IN, EDGE, CUT, runs, tints: {}, kind: w.kind, pond: w.pond || null });
+}
+// the body, whole (finishing a warm-up's work on it, or all of it now)
+const bodyEntry = (M, w) => {
+  let B = M.bodies.get(w.id);
+  if (!B) { B = { ready: false }; B.job = bodySteps(M, w, B); M.bodies.set(w.id, B); }
   return B;
 };
+const stepBody = (B) => { if (!B.ready && B.job.next().done) { B.ready = true; B.job = null; } return B.ready; };
+const bodyOf = (M, w) => { const B = bodyEntry(M, w); while (!stepBody(B)); return B; };
 
-// The tint for one body and tone, baked once. Given the board's baked ground
-// (the same art-pixel grid), the water under it is lit here once, screen by
-// hand, and stamped plainly after; otherwise a tint the stamp screens live.
-const tintOf = (B, tone, ground) => {
-  const key = ground ? tone + "|lit" : tone;
-  if (B.tints[key]) return B.tints[key];
+// the shine a body's light leans toward: its own palette's (water.js
+// pondPalette, the river's REALM.water, coast.js's sea)
+const shineOf = (B) => {
+  const wat = REALM.water;
+  if (B.kind === "pond" && B.pond && B.pond.t === "swamp") return REALM.groundArt === "fen" && wat ? wat.shine : "#7aa078";
+  return wat ? wat.shine : B.kind === "sea" ? "#8cc4d8" : "#a8d8e8";
+};
+const hexRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+// a cut's fade, in three steps, the steps broken on one-unit blocks
+const cutStep = (d, gi, gj) => {
+  if (d >= FEATHER) return 1;
+  const e = d + (hash((gi >> 1) * 7 + 3, (gj >> 1) * 13 + 5) - 0.5) * 5;
+  return e < 5 ? 1 / 3 : e < 10.5 ? 2 / 3 : 1;
+};
+// (the scratch the ground is copied into to be read: reading the live ground
+// canvas itself back could make Chrome keep it off the GPU)
+let SCRATCH = null;
+const readGround = (ground, x, y, w, h) => {
+  if (!SCRATCH) SCRATCH = document.createElement("canvas");
+  SCRATCH.width = w; SCRATCH.height = h;
+  const c = SCRATCH.getContext("2d", { willReadFrequently: true });
+  c.clearRect(0, 0, w, h);
+  c.drawImage(ground, x, y, w, h, 0, 0, w, h);
+  return c.getImageData(0, 0, w, h).data;
+};
+
+// The tint for one body and tone, baked once from the board's baked ground
+// (the same art-pixel grid) and stamped plainly after; a slice at a time.
+// Without the ground (a lab drawing it alone), a thin shine and the rim.
+function* tintSteps(B, tone, ground, out) {
   const T = TONES[tone], cv = document.createElement("canvas");
   cv.width = B.bw; cv.height = B.bh;
   const c = cv.getContext("2d"), img = c.createImageData(B.bw, B.bh), d = img.data;
-  const under = ground ? ground.getContext("2d").getImageData(Math.round(B.x0 * PX), Math.round(B.y0 * PX), B.bw, B.bh).data : null;
-  const [sr, sg, sb] = T.rgb;
-  for (let k = 0; k < B.IN.length; k++) {
-    if (!B.IN[k]) continue;
-    const e = B.EDGE[k], a = e === 0 ? T.rim : e === 1 ? T.rim * 0.8 : e === 2 ? (T.fill + T.rim) * 0.5 : T.fill, o = k * 4;
-    if (under) {
-      // screen: the water plus the light it hasn't got, a share of it
-      d[o] = under[o] + a * sr * (1 - under[o] / 255);
-      d[o + 1] = under[o + 1] + a * sg * (1 - under[o + 1] / 255);
-      d[o + 2] = under[o + 2] + a * sb * (1 - under[o + 2] / 255);
-      d[o + 3] = 255;
-    } else { d[o] = sr; d[o + 1] = sg; d[o + 2] = sb; d[o + 3] = Math.round(a * 255); }
+  const under = ground ? readGround(ground, B.i0, B.j0, B.bw, B.bh) : null;
+  const [sr, sg, sb] = hexRgb(shineOf(B)), ys = 0.299 * sr + 0.587 * sg + 0.114 * sb;
+  const [rr, rg, rb] = T.rim, bw = B.bw, castleI = Math.floor(CASTLE_X * PX) - B.i0;
+  for (let j = 0; j < B.bh; j++) {
+    for (let i = 0; i < bw; i++) {
+      const k = j * bw + i;
+      if (!B.IN[k]) continue;
+      const o = k * 4, e = B.EDGE[k];
+      const f = B.CUT ? cutStep(B.CUT[k], B.i0 + i, B.j0 + j) : 1;
+      const ra = i < castleI ? (e === 0 ? T.rimA[0] : e === 1 ? T.rimA[1] : 0) * f : 0;
+      if (!under) {
+        const a = ra || (T.lift / 160) * f;
+        if (ra) { d[o] = rr; d[o + 1] = rg; d[o + 2] = rb; } else { d[o] = sr; d[o + 1] = sg; d[o + 2] = sb; }
+        d[o + 3] = Math.round(a * 255);
+        continue;
+      }
+      const R = under[o], G = under[o + 1], Bl = under[o + 2], yc = 0.299 * R + 0.587 * G + 0.114 * Bl;
+      // only the water's own tones: reeds, pads, stones awash and the sand
+      // are warmer than any water and keep their colour
+      const cool = clamp01((Bl - R + 3) / 9);
+      let nr = R, ng = G, nb = Bl;
+      const wgt = cool * f * (yc < ys + 12 ? 1 : 0);
+      if (wgt > 0) {
+        // a fixed step up in light: half kept in its own hue (scaled), half
+        // leaning to the shine
+        const sc = Math.min(2, (yc + T.lift) / Math.max(14, yc));
+        const km = Math.min(T.maxK, T.lift / Math.max(10, ys - yc));
+        const tr = R * sc * (1 - T.toward) + (R + (sr - R) * km) * T.toward;
+        const tg = G * sc * (1 - T.toward) + (G + (sg - G) * km) * T.toward;
+        const tb = Bl * sc * (1 - T.toward) + (Bl + (sb - Bl) * km) * T.toward;
+        nr = R + (tr - R) * wgt; ng = G + (tg - G) * wgt; nb = Bl + (tb - Bl) * wgt;
+      }
+      if (ra) { nr += (rr - nr) * ra; ng += (rg - ng) * ra; nb += (rb - nb) * ra; }
+      if (nr === R && ng === G && nb === Bl) continue;
+      d[o] = Math.min(255, Math.round(nr)); d[o + 1] = Math.min(255, Math.round(ng)); d[o + 2] = Math.min(255, Math.round(nb)); d[o + 3] = 255;
+    }
+    if (j % 160 === 159) yield;
   }
   c.putImageData(img, 0, 0);
-  B.tints[key] = { cv, lit: !!under };
-  return B.tints[key];
+  out.cv = cv; out.lit = !!under;
+}
+const tintEntry = (B, tone, ground) => {
+  const key = ground ? tone + "|lit" : tone;
+  let t = B.tints[key];
+  if (!t) { t = { ready: false }; t.job = tintSteps(B, tone, ground, t); B.tints[key] = t; }
+  return t;
+};
+const stepTint = (t) => { if (!t.ready && t.job.next().done) { t.ready = true; t.job = null; } return t.ready; };
+const tintOf = (B, tone, ground) => { const t = tintEntry(B, tone, ground); while (!stepTint(t)); return t; };
+
+// The one-time work, done in idle moments once a board with water is up —
+// the mask, then every body a River Watch could row, then their gold and
+// green tints — a few ms a slice (Safari has no requestIdleCallback), so
+// the first skiff, the first tap on a hall and the first ghost pay nothing.
+let WARM = null;
+function* warmSteps(M, ground) {
+  while (!stepMask(M)) yield;
+  if (!M.lab) return;
+  const list = watchBodies();
+  for (const w of list) { const B = bodyEntry(M, w); while (!stepBody(B)) yield; yield; }
+  if (!ground) return;
+  for (const tone of ["sel", "ok"]) for (const w of list) {
+    const B = bodyOf(M, w);
+    if (B.empty) continue;
+    const t = tintEntry(B, tone, ground);
+    while (!stepTint(t)) yield;
+    yield;
+  }
+}
+export const warmWaterReach = (ground = null) => {
+  if (WARM && WARM.realm === REALM && WARM.rivers === RIVERS && WARM.mask === MASK) return;
+  if (!(RIVERS.length || PONDS.length || COAST)) return;
+  const M = maskJob();
+  const job = { realm: REALM, rivers: RIVERS, mask: M, steps: warmSteps(M, ground && ground.width === W * PX ? ground : null), done: false };
+  WARM = job;
+  const pump = () => {
+    if (WARM !== job || job.done) return;
+    const t0 = performance.now();
+    let fin = false;
+    do { if (job.steps.next().done) { fin = true; break; } } while (performance.now() - t0 < 5);
+    const dt = performance.now() - t0;
+    job.slices = (job.slices || 0) + 1; job.work = (job.work || 0) + dt; job.maxSlice = Math.max(job.maxSlice || 0, dt);
+    if (fin) job.done = true; else setTimeout(pump, 16);
+  };
+  setTimeout(pump, 300);
 };
 
 const EDGE_SPEED = 9;      // units a second the edge's ticks creep along the waterline
-// The water a hall moored at (x, y) rows, tinted and edged. tone: "sel"
+// The water a hall moored at (x, y) rows, lit and edged. tone: "sel"
 // (selected), "ok" / "bad" (the build ghost). part "tint" goes down with the
 // water (pass the board's baked ground to have it lit once and stamped),
 // part "edge" over the water's live marks and the shore's wash; both by
@@ -653,11 +951,9 @@ export const drawWatchWater = (ctx, g, x, y, tone, part = "both", ground = null)
   if (B.empty) return false;
   if (part !== "edge") {
     const tint = tintOf(B, tone, ground && ground.width === W * PX && ground.height === H * PX ? ground : null);
-    const sm = ctx.imageSmoothingEnabled, op = ctx.globalCompositeOperation;
+    const sm = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
-    if (!tint.lit && TONES[tone].comp) ctx.globalCompositeOperation = TONES[tone].comp;
     ctx.drawImage(tint.cv, B.x0, B.y0, B.w, B.h);
-    ctx.globalCompositeOperation = op;
     ctx.imageSmoothingEnabled = sm;
   }
   if (part === "tint") return true;
@@ -684,52 +980,76 @@ export const drawWatchWater = (ctx, g, x, y, tone, part = "both", ground = null)
 
 // ---- the skiffs' own reach -------------------------------------------------------------
 
-// a turning ring of ticks (draw.js's rangeRing), bright where it is the edge
-// of the fleet's reach and faint where a sister boat's reach covers it
-// (faint null: those left out)
-const FAINT = [];
-const ringTicks = (ctx, cx, cy, radius, spin, others, bright, faint) => {
+// A turning ring of ticks (draw.js's rangeRing), each tick with a unit of
+// shadow down and right so it holds on bright grass and pale sand as well
+// as on the fen. Where it is the edge of the fleet's reach, bright; where a
+// sister boat's reach covers it, smaller ticks in a softer tone (null:
+// those left out), so each boat's own ring still reads whole — but not
+// where a sister lying close covers it (others[q][3]): boats bunched round
+// a pond have near enough the same ring, and a sheaf of them is only noise.
+const SOFT = [];
+const TICK_SHADE = "rgba(36,26,38,0.5)", SOFT_SHADE = "rgba(36,26,38,0.28)";
+const ringTicks = (ctx, cx, cy, radius, spin, others, bright, soft) => {
   const ticks = Math.max(24, Math.round((Math.PI * 2 * radius) / 5));
-  ctx.fillStyle = bright;
-  FAINT.length = 0;
+  SOFT.length = 0;
+  const ON = [];
   for (let i = 0; i < ticks; i++) {
     if (i % 4 >= 2) continue;
     const ang = (i / ticks) * Math.PI * 2 + spin;
     const x = S(cx + Math.cos(ang) * radius) - 1, y = S(cy + Math.sin(ang) * radius) - 1;
-    let inside = false;
-    for (let q = 0; q < others.length; q++) { const o = others[q]; if ((x + 1 - o[0]) ** 2 + (y + 1 - o[1]) ** 2 < (o[2] - 2) ** 2) { inside = true; break; } }
-    if (!inside) ctx.fillRect(x, y, 3, 3);
-    else if (faint && i % 8 < 2) FAINT.push(x, y);   // (inside: half as many, a hint of her own ring)
+    let inside = false, near = false;
+    for (let q = 0; q < others.length; q++) { const o = others[q]; if ((x + 1 - o[0]) ** 2 + (y + 1 - o[1]) ** 2 < (o[2] - 2) ** 2) { inside = true; if (o[3]) { near = true; break; } } }
+    if (!inside) ON.push(x, y);
+    else if (soft && !near) SOFT.push(x, y);
   }
-  if (!faint || !FAINT.length) return;
-  ctx.fillStyle = faint;
-  for (let q = 0; q < FAINT.length; q += 2) ctx.fillRect(FAINT[q], FAINT[q + 1], 3, 3);
+  ctx.fillStyle = TICK_SHADE;
+  for (let q = 0; q < ON.length; q += 2) ctx.fillRect(ON[q] + 1, ON[q + 1] + 1, 3, 3);
+  if (soft && SOFT.length) {
+    ctx.fillStyle = SOFT_SHADE;
+    for (let q = 0; q < SOFT.length; q += 2) ctx.fillRect(SOFT[q] + 1.5, SOFT[q + 1] + 1.5, 2, 2);
+    ctx.fillStyle = soft;
+    for (let q = 0; q < SOFT.length; q += 2) ctx.fillRect(SOFT[q] + 0.5, SOFT[q + 1] + 0.5, 2, 2);
+  }
+  ctx.fillStyle = bright;
+  for (let q = 0; q < ON.length; q += 2) ctx.fillRect(ON[q], ON[q + 1], 3, 3);
 };
-// the boat marked: a small gold caret over her crew, bobbing with her (art
+const RING = "rgba(236,200,92,0.95)", RING_SOFT = "rgba(236,200,92,0.6)", RING_NEW = "rgba(255,236,150,1)";
+// the boat marked: a small caret over her crew, bobbing with her (art
 // pixels, half a unit each; a hollow one where a new skiff would take station)
 const CARET = [[-6, 6], [-5, 5], [-4, 4], [-3, 3], [-2, 2], [-1, 1], [0, 0]];   // rows, top down: [from, to] across
-const caret = (ctx, x, y, hollow) => {
+const CARET_GOLD = ["#fff3d2", "#f0cc62"];
+const caret = (ctx, x, y, hollow, cols = CARET_GOLD) => {
   const cx = Math.round(x * 2), cy = Math.round(y * 2);
   ctx.fillStyle = "#241a26";
   CARET.forEach(([a, b], r) => ctx.fillRect((cx + a - 1) / 2, (cy + r - 1) / 2, (b - a + 3) / 2, 1));
   ctx.fillRect(cx / 2 - 0.5, (cy + CARET.length) / 2, 1.5, 0.5);
   CARET.forEach(([a, b], r) => {
     if (hollow && r > 0 && r < CARET.length - 1) {
-      ctx.fillStyle = "#f0cc62";
+      ctx.fillStyle = cols[1];
       ctx.fillRect((cx + a) / 2, (cy + r) / 2, 0.5, 0.5); ctx.fillRect((cx + b) / 2, (cy + r) / 2, 0.5, 0.5);
       return;
     }
-    ctx.fillStyle = r === 0 ? "#fff3d2" : "#f0cc62";
+    ctx.fillStyle = r === 0 ? cols[0] : cols[1];
     ctx.fillRect((cx + a) / 2, (cy + r) / 2, (b - a + 1) / 2, 0.5);
   });
 };
+// a boat's crew and hull, roughly (x ± 15, from 22 above her waterline to 6 below)
+const onBoat = (x, y, bx, by) => Math.abs(x - bx) < 16 && y > by - 23 && y < by + 7;
 // Over the crowd (draw.js calls it after the actors): the selected hall's
-// skiffs, each marked, and where the new ones an armed upgrade adds would sit.
+// skiffs, each marked, and where the new ones an armed upgrade adds would
+// sit. A caret that would sit on a sister's crew (boats bunched at their
+// stations) is left out: the boat still shows, and a caret on the wrong
+// crew would name the wrong boat.
 export const drawSkiffMarks = (ctx, g, t, built) => {
   if (!built || !t.units) return;
   const lift = Math.round(Math.sin(g.time * 3) * 2) / 2;   // (a slow float on top of her own bob)
-  for (const u of t.units) if (u.state !== "dead") caret(ctx, u.x, u.y - (u.hp < u.maxHp ? 34 : 29) + skiffBob(g.time, u.id) + lift, false);
-  for (const [x, y] of newStations(g, t)) caret(ctx, x, y - 29 + lift, true);
+  const boats = t.units.filter((u) => u.state !== "dead");
+  const marks = boats.map((u) => [u.x, u.y - (u.hp < u.maxHp ? 34 : 29) + skiffBob(g.time, u.id) + lift, false]);
+  for (const [x, y] of newStations(g, t)) marks.push([x, y - 29 + lift, true]);
+  marks.forEach(([x, y, hollow], i) => {
+    for (let q = 0; q < boats.length; q++) if (q !== i && onBoat(x, y + 3, boats[q].x, boats[q].y)) return;
+    caret(ctx, x, y, hollow);
+  });
 };
 // where the skiffs an armed upgrade adds would take station
 const newStations = (g, t) => {
@@ -742,8 +1062,10 @@ const newStations = (g, t) => {
 };
 
 // Each live skiff's musket reach while her hall is selected, following her
-// as she rows; with an upgrade armed in the card, the reach it would buy
-// (and a mark where each skiff it adds would take station).
+// as she rows: the fleet's edge bright, each boat's own ring carried on
+// softer inside her sisters' reach, and the boat under the cursor (a mouse)
+// all bright. With an upgrade armed in the card, the reach it would buy
+// (and a mark where each skiff it adds would take station). No fill.
 export const drawSkiffReach = (ctx, g, t, built) => {
   const st = getStats(t);
   const boats = built && t.units ? t.units.filter((u) => u.state !== "dead") : [];
@@ -754,35 +1076,49 @@ export const drawSkiffReach = (ctx, g, t, built) => {
   const R2 = st2 && st2.range && Math.abs(st2.range - R) > 0.5 ? st2.range : 0;
   const extra = built ? newStations(g, t) : [];
   if (!boats.length && !extra.length) return;
-  // the fleet's reach laid down once, however many discs overlap
-  ctx.fillStyle = "rgba(216,179,74,0.08)";
-  ctx.beginPath();
-  for (const u of boats) { ctx.moveTo(u.x + R, u.y); ctx.arc(u.x, u.y, R, 0, Math.PI * 2); }
-  ctx.fill();
-  const discs = boats.map((u) => [u.x, u.y, R]);
+  // the boat under the cursor, if any
+  let focus = -1;
+  if (g.hover && !g.buildMode) {
+    let bd = 24 * 24;
+    boats.forEach((u, i) => { const d = (u.x - g.hover[0]) ** 2 + (u.y - 10 - g.hover[1]) ** 2; if (d < bd) { bd = d; focus = i; } });
+  }
   boats.forEach((u, i) => {
-    ringTicks(ctx, u.x, u.y, R, spin + i * 0.7, discs.filter((_, q) => q !== i), "rgba(232,196,90,0.9)", "rgba(232,196,90,0.13)");
+    if (i === focus) return;
+    const others = [];
+    boats.forEach((v, q) => { if (q !== i) others.push([v.x, v.y, R, Math.hypot(v.x - u.x, v.y - u.y) < R * 0.55]); });
+    ringTicks(ctx, u.x, u.y, R, spin + i * 0.7, others, RING, RING_SOFT);
   });
+  if (focus >= 0) ringTicks(ctx, boats[focus].x, boats[focus].y, R, spin + focus * 0.7, [], RING, null);
   if (R2 || extra.length) {
     const r2 = R2 || R;
     const all = [...boats.map((u) => [u.x, u.y]), ...extra];
     const discs2 = all.map(([x, y]) => [x, y, r2]);
-    if (R2) {
-      ctx.fillStyle = "rgba(250,220,120,0.06)";
-      ctx.beginPath();
-      for (const [x, y] of all) { ctx.moveTo(x + r2, y); ctx.arc(x, y, r2, 0, Math.PI * 2); }
-      ctx.fill();
-    }
     all.forEach(([x, y], i) => {
       const isNew = i >= boats.length;
       if (!R2 && !isNew) return;
-      ringTicks(ctx, x, y, r2, -g.time * 0.8 + i * 0.7, discs2.filter((_, q) => q !== i), "rgba(255,236,150,1)", null);
+      ringTicks(ctx, x, y, r2, -g.time * 0.8 + i * 0.7, discs2.filter((_, q) => q !== i), RING_NEW, null);
     });
   }
 };
+
+// The build ghost's first skiff: where she takes station on the water the
+// hall would moor in (level 1 rows one boat, at the middle of her route) and
+// her reach, faint in the ghost's tone.
+const GHOST_CARET = { ok: ["#e4f8dc", "#96e896"], bad: ["#fbe0d8", "#e8786e"] };
+export const drawWatchStation = (ctx, g, x, y, tone) => {
+  const rt = watchRoute(x, y);
+  if (!rt) return;
+  const [sx, sy] = rt.at(rt.total / 2);
+  ringTicks(ctx, sx, sy, TOWERS.riverwatch.levels[0].range, g.time * 0.5, [], TONES[tone].ring, null);
+  caret(ctx, sx, sy - 10 + Math.round(Math.sin(g.time * 3) * 2) / 2, true, GHOST_CARET[tone] || CARET_GOLD);
+};
+
 // (the lab's timings for the last bake, ms)
-waterMask.parts = () => { const m = bakeMask.ms; return m && { ponds: +m.ponds.toFixed(1), rivers: +m.rivers.toFixed(1), sea: +m.sea.toFixed(1), bridges: +m.bridges.toFixed(1) }; };
+waterMask.parts = () => { const m = MASK && MASK.ms; return m && Object.fromEntries(Object.entries(m).map(([k, v]) => [k, +v.toFixed(1)])); };
 // (the lab's look at a body: its box and waterline runs)
 waterMask.body = (x, y) => { const M = waterMask(), w = M.lab && watchWater(x, y); return w ? bodyOf(M, w) : null; };
 // (the lab's hand on the tones while they're tuned: waterMask.tune("sel", {...}))
 waterMask.tune = (tone, o) => { Object.assign(TONES[tone], o); if (MASK) for (const B of MASK.bodies.values()) if (B.tints) B.tints = {}; };
+// (the lab: is the idle warm-up done, and how did it go: slices, ms of work, the longest slice)
+waterMask.warmed = () => !!(WARM && WARM.done);
+waterMask.warmStats = () => WARM && { done: WARM.done, slices: WARM.slices || 0, work: +(WARM.work || 0).toFixed(1), maxSlice: +(WARM.maxSlice || 0).toFixed(1) };

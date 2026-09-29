@@ -14,10 +14,14 @@
     &crop=x,y,w,h  also save that window of the board, &scale=3 (nearest neighbour)
     &t=7.3         the clock the frame is drawn at (the edge and rings turn with it)
     &perf=200      time draw() over that many frames, selected vs not; printed and in the title
-    &bench=60      time each piece (the water, the skiffs' reach) on its own, and the mask's bake
+    &first=warm    let the idle warm-up run (its slices, work and longest slice are printed),
+                   then time the first selected / ghost frame; &first=cold: no warm-up
+    &bench=60      time each piece (the water, the skiffs' reach, the skiffs with and without
+                   their wakes kept to the water) on its own, and the mask's bake
     &underway=1    every skiff shows her wake this frame (=y: rowing up the screen)
     &noclip=1      the wakes and ripples unclipped, as they were (a before shot)
-    &tune={...}    try a tone for the tint (&tone=sel|ok|bad): rgb, fill, rim, comp
+    &tune={...}    try a tone for the tint (&tone=sel|ok|bad): lift (luma step), toward (0 keep
+                   hue .. 1 mix to the water's shine), maxK, rim [r,g,b], rimA [waterline, inside]
 
   Saves .shots/skiff_<tag>.png (the whole board at 1x) and skiff_<tag>_z.png
   (the crop). The title reads DONE (or FAIL …) when it's finished.
@@ -35,10 +39,15 @@
       import { updateGame, spawnAt } from "/src/engine/update.js";
       import { placeTower, upgradeTower, branchTower, ascendTower, buildableAt } from "/src/engine/actions.js";
       import { draw } from "/src/render/draw.js";
-      import { drawWatchWater, drawSkiffReach, waterMask } from "/src/render/waterreach.js";
+      import { drawWatchWater, drawSkiffReach, waterMask, warmWaterReach } from "/src/render/waterreach.js";
+      import { drawKnightUnit } from "/src/render/enemies.js";
       import { isBuilt } from "/src/engine/build.js";
       import { bakeBridges } from "/src/render/bridge.js";
       import { groundLayer } from "/src/render/world.js";
+      import * as TERRAIN from "/src/data/terrain.js";
+      import * as WATERREACH from "/src/render/waterreach.js";
+      // (for probes run through scripts/shoot.mjs: the page's own module instances)
+      window.LAB = { TERRAIN, WATERREACH, groundLayer };
       const q = new URLSearchParams(location.search);
       const say = (s) => { document.getElementById("status").textContent = s; };
       const post = (name, cv) => fetch(`/__shot?name=${encodeURIComponent(name)}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
@@ -68,6 +77,26 @@
           if (br) branchTower(g, t, br);
           if (r4) ascendTower(g, t, r4);
           t.readyAt = 0; t.raised = null;
+        }
+        // &first=warm: let the idle warm-up run (as the game does once the board
+        // is up), then time the first selected frame; &first=cold: no warm-up,
+        // the first selected frame pays for everything
+        let first = "";
+        if (q.get("first")) {
+          const c0 = document.createElement("canvas"); c0.width = W; c0.height = H;
+          groundLayer(); bakeBridges();   // (baked at the realm's load, before any of this)
+          if (q.get("first") === "warm") {
+            warmWaterReach(groundLayer());   // (as the board's first frame starts it)
+            const w0 = performance.now();
+            while (!waterMask.warmed() && performance.now() - w0 < 20000) await new Promise((r) => setTimeout(r, 50));
+            first += ` warm ${JSON.stringify(waterMask.warmStats())} in ${(performance.now() - w0).toFixed(0)} ms wall;`;
+          }
+          if (t) g.selectedId = t.id;
+          else { g.buildMode = "riverwatch"; g.hover = spot; }
+          const f0 = performance.now(); draw(g, c0, { current: null }); const f1 = performance.now();
+          draw(g, c0, { current: null }); const f2 = performance.now();
+          first += ` first frame ${(f1 - f0).toFixed(1)} ms, next ${(f2 - f1).toFixed(1)} ms;`;
+          g.selectedId = null; g.buildMode = null; g.hover = null;
         }
         const foes = (q.get("foes") || "").split(",").filter(Boolean);
         const ahead = Number(q.get("ahead") ?? 0.4);
@@ -104,7 +133,7 @@
           g.hover = hv.length === 2 && hv.every(Number.isFinite) ? hv : spot;
           if (q.get("gold") != null) g.gold = Number(q.get("gold"));
         }
-        // &tune={"rgb":[255,236,160],"fill":0.2,"rim":0.4,"comp":"screen"}: try a tone for the selection
+        // &tune={"lift":30,"toward":0.4,"rim":[240,204,98],"rimA":[0.85,0.4]}: try a tone for the selection
         waterMask.noClip = q.get("noclip") === "1";   // &noclip=1: the wakes and ripples as they were, unclipped
         if (q.get("tune")) waterMask.tune(q.get("tone") || "sel", JSON.parse(q.get("tune")));
         const cv = document.createElement("canvas");
@@ -147,10 +176,14 @@
           perf += ` | water ${tm(() => { drawWatchWater(c, g, t.x, t.y, "sel", "tint", groundLayer()); drawWatchWater(c, g, t.x, t.y, "sel", "edge"); })}`;
           perf += ` (screened live ${tm(() => drawWatchWater(c, g, t.x, t.y, "sel"))}), reach ${tm(() => drawSkiffReach(c, g, t, isBuilt(t, g)))}`;
           perf += `, one disc+ring ${tm(() => { c.fillStyle = "rgba(216,179,74,0.1)"; c.beginPath(); c.arc(t.x, t.y, 165, 0, 7); c.fill(); for (let i = 0; i < 207; i++) if (i % 4 < 2) { const a = i / 207 * 6.283; c.fillRect(Math.round(t.x + Math.cos(a) * 165), Math.round(t.y + Math.sin(a) * 165), 3, 3); } })}`;
+          // the skiffs themselves (hull, crew, wake kept to the water) vs the same unclipped
+          const boats = () => { for (const u of t.units || []) drawKnightUnit(c, u, t, g.time); };
+          perf += `, skiffs ${tm(boats)}`;
+          waterMask.noClip = true; perf += ` (unclipped ${tm(boats)})`; waterMask.noClip = q.get("noclip") === "1";
           perf += `, frame ${tm(() => draw(g, cv, { current: null }), cv.getContext("2d"))}`;
         }
         const units = t && t.units ? t.units.map((u) => `${u.x | 0},${u.y | 0}${u.state === "dead" ? "x" : ""}`).join(" ") : "";
-        document.title = `DONE spot ${spot.map((v) => v | 0)} skiffs ${units}${perf}`;
+        document.title = `DONE spot ${spot.map((v) => v | 0)} skiffs ${units}${perf}${first}`;
         say(document.title);
       } catch (e) {
         document.title = "FAIL " + e.message; say(document.title + "\n" + e.stack); console.error(e);

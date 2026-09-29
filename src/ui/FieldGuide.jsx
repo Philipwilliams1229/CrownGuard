@@ -25,6 +25,9 @@ const NUMBERS = [
   ["range", (v) => `${v} range`],
   ["minRange", (v) => `blind within ${v}`],
   ["splash", (v) => `${v} splash`],
+  ["frags", (v) => `each charge bursts into ${v} shards`],
+  ["fragDmg", (v) => `${v} damage a shard`],
+  ["fragReach", (v) => `shards fly ${v}`],
   ["shots", (v) => `${v} stones per volley`],
   ["spikes", (v) => `${v} spikes per spin`],
   ["slow", (v) => `${Math.round(v * 100)}% slow aura`],
@@ -56,7 +59,6 @@ const NUMBERS = [
   ["mRate", (v) => `musket fires every ${(v / 1000).toFixed(2)}s`],
   ["mRange", (v) => `musket reaches ${v}`],
   ["mShots", (v) => `${v} balls in a fan`],
-  ["shells", (v) => `${v} charges to a throw`],
   ["trapKind", (v) => `lays ${v === "spike" ? "road spikes" : v === "jaws" ? "bear-iron jaws" : v === "caltrop" ? "caltrop beds" : "pressure mines"}`],
   ["preyMult", (v) => `×${v} vs the class under contract`],
   ["venom", (v) => `${v}/s venom`],
@@ -109,6 +111,9 @@ const TRAITS = [
   ["openContract", "takes ANY foe, on ordinary standing orders"],
   ["mPierce", "the musket punches through any armor"],
   ["mCrit", "every 3rd musket ball lands triple"],
+  ["fragBurn", "red-hot shards set what they strike alight"],
+  ["crack", "charges and shards crack armor, and the musket shoots the cracked first"],
+  ["spot", "the charges follow the musket's mark"],
 ];
 
 export function describe(s) {

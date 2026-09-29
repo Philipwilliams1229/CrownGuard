@@ -292,3 +292,16 @@
    beside its details puts the price on a line of its own, never off the card */
 .cg-card-two .cg-btn--parch { flex-wrap: wrap; }
 .cg-card-two .cg-btn { max-width: 100%; }
+
+/* ---- type options (src/ui/fonts.js) ----
+   Today's label face, Silkscreen, draws its lowercase as capitals. A type
+   option whose label face has true lowercase sets `caps`, and the same
+   places are set in capitals here; their small print, prices and numbers
+   keep their own case. Without an option (today) none of this applies. */
+[data-type-caps] :is(.cg-display, .cg-label, .cg-btn, .cg-banner, .sbs-bt, .sbp-again),
+[data-type-caps] :is([style*="var(--display)"], [style*="var(--title)"]) { text-transform: uppercase; }
+[data-type-caps] :is(.cg-btn--parch, .cg-info-pane, .cg-num, .cg-price, .cg-float, .sbs-note, .sbs-pblurb, .sbs-bs, .sbs-rblurb, .sbp-step),
+[data-type-caps] :is([style*="var(--body)"], [style*="var(--numeric)"]) { text-transform: none; }
+/* an option's font features (fonts.js `features`, e.g. lining figures) reach
+   buttons too: the browser's own button style resets them */
+[data-type-features] :is(button, input, select, textarea) { font-feature-settings: inherit; }

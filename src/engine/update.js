@@ -240,6 +240,93 @@ const LOG_FALLOFF = 0.9, LOG_FLOOR = 0.4;
 // How many bodies one blast can take (a tower may carry its own splashCap).
 const SPLASH_CAP = 16;
 
+// ---- the Powder Works' charge and its shrapnel ----
+// A charge comes down ON its mark: a tight blast that hurts that foe alone,
+// and then the iron flies — `frags` shards spread evenly round the circle
+// (a fresh turn each burst, a little jitter), each flying `fragReach` along
+// the ground and striking the FIRST foe in its path (never the mark), a
+// physical blow of `fragDmg`: a raised shield swallows a shard whole like any
+// other blow, so a burst strips a pip from every shield it finds. Shards run
+// the musket ball's own path-hitting code (hitIds / hitsLeft, below).
+// The burst lies on the ground: its reach is squashed north-south by FRAG_SQ
+// to read as a ring seen at 3/4, like the blasts (render/fx.js RY).
+const FRAG_SQ = 0.8, FRAG_SPEED = 260;
+const inBurst = (o, x, y, r) => {
+  const dx = o.x - x, dy = (o.y - y) / FRAG_SQ;
+  return dx * dx + dy * dy <= r * r;
+};
+// a charge's riders on a foe it (or one of its shards) struck: the Bombard
+// Yard's crack (brittle, as Permafrost's), and fire
+const powderRiders = (e, p, tms, burn) => {
+  if (e.dead) return;
+  if (burn && p.burn) {
+    if (!(e.burnUntil > tms) || e.burnDps <= p.burn) { e.burnDps = p.burn; e.burnSrc = p.src; }
+    e.burnUntil = Math.max(e.burnUntil || 0, tms + p.burnDur);
+    if (p.burnSpreads) e.burnSpread = true;
+  }
+  if (p.crack) {
+    e.brittleAmp = Math.max(e.brittleUntil > tms ? e.brittleAmp : 0, p.crack);
+    e.brittleUntil = Math.max(e.brittleUntil, tms + p.crackDur);
+  }
+};
+const burstCharge = (g, p, target, tms) => {
+  // the mark fell before the charge came down: whoever stands on the spot
+  // takes it (nobody there, and only the shrapnel does any work)
+  let mark = target && !target.flying ? target : null;
+  if (!mark) {
+    let nd = Infinity;
+    for (const e of g.enemies) {
+      if (e.dead || e.flying) continue;
+      const dd = Math.hypot(e.x - p.tx, e.y - p.ty);
+      if (dd <= (e.size || 14) * 0.6 + 4 && dd < nd) { nd = dd; mark = e; }
+    }
+  }
+  sfx.play("boom");
+  g.effects.push({ type: "keg", x: p.tx, y: p.ty, ttl: 320, r: 14 });
+  g.effects.push({ type: "scorch", x: p.tx, y: p.ty, ttl: 2000, life: 2000, r: 9, seed: Math.random() * 6 });
+  if (mark) {
+    dealDamage(g, mark, p.dmg, "phys", false, false, p.src);
+    powderRiders(mark, p, tms, true);
+  }
+  const n = p.frags | 0;
+  if (n <= 0) return;
+  const turn = Math.random() * Math.PI * 2, step = (Math.PI * 2) / n;
+  const hot = p.fragBurn;
+  for (let i = 0; i < n; i++) {
+    const a = turn + i * step + (Math.random() - 0.5) * step * 0.5;
+    const reach = p.fragReach * (0.9 + Math.random() * 0.2);
+    const ex = Math.cos(a), ey = Math.sin(a) * FRAG_SQ;
+    g.projectiles.push({
+      id: nextId(), x: p.tx, y: p.ty, sx: p.tx, sy: p.ty, targetId: null, tx: p.tx + ex * reach, ty: p.ty + ey * reach,
+      total: Math.hypot(ex, ey) * reach, angle: Math.atan2(ey, ex),
+      speed: FRAG_SPEED, delay: 0, dmg: p.fragDmg, dtype: "phys", pierce: false, splash: 0,
+      burn: hot ? p.burn : 0, burnDur: hot ? p.burnDur : 0, burnSpreads: hot && p.burnSpreads, hot,
+      crack: p.crack || 0, crackDur: p.crackDur || 0, slow: 0, slowDur: 0,
+      kind: "frag", src: p.src, hitsLeft: 1, hitIds: mark ? [mark.id] : [], ground: true, v: i & 3,
+    });
+  }
+};
+// the first foe a shard's step [p, p + step along its heading] passes through
+// (a shard is small and quick: a fast game would step it clean over a
+// goblin, so it sweeps the whole step rather than testing where it stands).
+// Only what lies AHEAD of it, and a body a little narrower than a musket
+// ball's mark, so a burst in a packed crowd spreads over it instead of
+// emptying into whoever stands against the mark.
+const fragVictim = (g, p, step) => {
+  const ux = Math.cos(p.angle), uy = Math.sin(p.angle);
+  let best = null, bestAlong = Infinity;
+  for (const e of g.enemies) {
+    if (e.dead || e.flying || p.hitIds.includes(e.id)) continue;
+    const r = (e.size || 14) * 0.5 + 2;
+    const ex = e.x - p.x, ey = e.y - p.y;
+    const along = ex * ux + ey * uy;
+    if (along < 0 || along > step + r || along >= bestAlong) continue;
+    if (Math.abs(ex * uy - ey * ux) > r) continue;
+    best = e; bestAlong = along;
+  }
+  return best;
+};
+
 // Build a fresh enemy instance of `type` with wave HP multiplier `mult`.
 // Used by the spawn queue and by necromancers raising the dead.
 // Dragonbreath: no shots, a held gout of flame. The mage swings it toward
@@ -1362,15 +1449,17 @@ export function updateGame(g, dt) {
 
     // ---- the Powder Works ----
     // Two men on one platform who do NOT share a trigger: the bombardier lobs
-    // powder into whatever is close while the musketeer takes his own slow,
+    // powder at whatever is close while the musketeer takes his own slow,
     // deliberate shot at something much further out. Both grow on every
     // path, and each path is a way of working together: the Bombard Yard's
-    // blasts crack armor (brittle) and the musket takes the cracked first;
+    // charges crack armor (brittle) and the musket takes the cracked first;
     // the Long Muskets' musketeer spots, and the charges follow his mark.
     for (const t of g.towers) {
       if (t.kind !== "gunpowder" || !isBuilt(t, g)) continue;
       const st = getStats(t);
-      // --- the bombardier: short, fat, splashing ---
+      // --- the bombardier: one charge on one foe, and the iron it throws ---
+      // (owner, 2026-09-29: no more circles of damage — "it shoots out pieces
+      // of fragment around a small explosion"). burstCharge (up top) lands it.
       t.cd = (t.cd || 0) - sdt * 1000;
       if (t.cd <= 0) {
         let near = null, nearScore = -Infinity;
@@ -1379,39 +1468,36 @@ export function updateGame(g, dt) {
         const spotted = st.spot && t.spotId != null && tms < t.spotUntil
           ? g.enemies.find((e) => e.id === t.spotId && !e.dead && !e.flying && Math.hypot(e.x - t.x, e.y - t.y) <= st.mRange) : null;
         if (spotted) near = spotted;
-        else for (const e of g.enemies) {
-          if (e.dead || e.flying) continue;
-          if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
-          // he throws where the crowd is thickest, being a man with a bucket of powder
-          let crowd = 0;
-          for (const o of g.enemies) if (!o.dead && Math.hypot(o.x - e.x, o.y - e.y) <= st.splash) crowd++;
-          const score = crowd * 1e6 + e.dist;
-          if (score > nearScore) { nearScore = score; near = e; }
+        else {
+          // he throws where the crowd is thickest, being a man with a bucket
+          // of powder: judged by how many stand in reach of the shrapnel
+          const fr = st.fragReach || 40;
+          for (const e of g.enemies) {
+            if (e.dead || e.flying) continue;
+            if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
+            let crowd = 0;
+            for (const o of g.enemies) if (!o.dead && !o.flying && inBurst(o, e.x, e.y, fr)) crowd++;
+            const score = crowd * 1e6 + e.dist;
+            if (score > nearScore) { nearScore = score; near = e; }
+          }
         }
         if (near) {
           t.cd = st.rate;
           t.anim = 1;
           t.lastAim = t.bAim = Math.atan2(near.y - t.y, near.x - t.x);
-          const throws = st.shells || 1;
-          // the shell leaves the bombardier's hand at the top of his throw
+          // the charge leaves the bombardier's hand at the top of his throw
+          // and comes down ON its mark (it follows him, so a long throw to a
+          // spotted mark still lands where he is walking)
           const [shx, shy] = shellFrom(t);
-          // a long throw to a spotted mark leads it: where it will be walking
-          // when the charge comes down (a close one lands before it matters)
-          let [ax, ay] = [near.x, near.y];
-          if (spotted && !near.swimming && !(near.blockedBy && near.engaged) && !(near.stunUntil > tms)) {
-            const fly = Math.hypot(near.x - shx, near.y - shy) / 200;
-            const slow = near.immSlow ? 0 : Math.max(near.slowUntil > tms ? near.slowPct : 0, near.auraSlow || 0);
-            [ax, ay] = lanePos(Math.min(TOTAL_LEN, near.dist + near.speed * (1 - slow) * fly), near.lane);
-          }
-          for (let i = 0; i < throws; i++) {
-            const sp = throws > 1 ? (i - (throws - 1) / 2) * 34 : 0;
-            g.projectiles.push({
-              x: shx, y: shy, tx: ax + sp, ty: ay + (i % 2 ? -12 : 12) * (throws > 1 ? 1 : 0),
-              t: 0, speed: 200, delay: 0, dmg: st.dmg, dtype: "phys", pierce: false, splash: st.splash, splashCap: st.splashCap || 0,
-              burn: st.burn || 0, burnDur: st.burnDur || 0, slow: 0, slowDur: 0,
-              burnSpreads: !!st.burnSpread, crack: st.crack || 0, crackDur: st.crackDur || 0, kind: "shell", src: t.id, arc: true,
-            });
-          }
+          g.projectiles.push({
+            id: nextId(), x: shx, y: shy, sx: shx, sy: shy, tx: near.x, ty: near.y, targetId: near.id,
+            total: Math.hypot(near.x - shx, near.y - shy),
+            t: 0, speed: 200, delay: 0, dmg: st.dmg, dtype: "phys", pierce: false, splash: 0,
+            burn: st.burn || 0, burnDur: st.burnDur || 0, slow: 0, slowDur: 0,
+            burnSpreads: !!st.burnSpread, crack: st.crack || 0, crackDur: st.crackDur || 0,
+            frags: st.frags || 0, fragDmg: st.fragDmg || 0, fragReach: st.fragReach || 40, fragBurn: !!st.fragBurn,
+            kind: "shell", src: t.id, arc: true,
+          });
           sfx.play("boom");
           g.shake = Math.max(g.shake, 2);
         }
@@ -2032,21 +2118,34 @@ export function updateGame(g, dt) {
         }
       }
       if (p.delay > 0) { p.delay -= sdt * 1000; continue; }
-      // spikes skewer whatever they pass through (no homing, no arrival hit)
-      if (p.kind === "spike" || p.kind === "ball") {
-        for (const e of g.enemies) {
-          if (e.dead || p.hitIds.includes(e.id) || (p.ground && e.flying)) continue;
-          if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) {
-            dealDamage(g, e, p.dmg, p.dtype, false, false, p.src);
-            p.hitIds.push(e.id);
-            if (!e.dead && p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = Math.max(e.slowPct, p.slow); }
-            // Dragon's Breath's hot shot sets what it passes through alight
-            if (!e.dead && p.burn) {
-              e.burnDps = Math.max(e.burnUntil > tms ? e.burnDps : 0, p.burn);
-              e.burnUntil = Math.max(e.burnUntil, tms + p.burnDur);
-              if (p.burnSpreads) e.burnSpread = true;
-            }
-            if (--p.hitsLeft <= 0) { p.done = true; break; }
+      // spikes, musket balls and the Powder Works' shards skewer whatever
+      // they pass through (no homing, no arrival hit), `hitsLeft` bodies
+      if (p.kind === "spike" || p.kind === "ball" || p.kind === "frag") {
+        const strike = (e) => {
+          dealDamage(g, e, p.dmg, p.dtype, false, false, p.src);
+          p.hitIds.push(e.id);
+          if (!e.dead && p.slow) { e.slowUntil = tms + p.slowDur; e.slowPct = Math.max(e.slowPct, p.slow); }
+          // Dragon's Breath's hot shot (and its hot shards) set what they pass through alight
+          if (!e.dead && p.burn) {
+            if (!(e.burnUntil > tms) || e.burnDps <= p.burn) e.burnSrc = p.src;
+            e.burnDps = Math.max(e.burnUntil > tms ? e.burnDps : 0, p.burn);
+            e.burnUntil = Math.max(e.burnUntil, tms + p.burnDur);
+            if (p.burnSpreads) e.burnSpread = true;
+          }
+          // the Bombard Yard's shards crack what they strike, for the musket to pick
+          if (!e.dead && p.crack) powderRiders(e, p, tms, false);
+          if (--p.hitsLeft <= 0) p.done = true;
+        };
+        if (p.kind === "frag") {
+          const e = fragVictim(g, p, Math.min(p.speed * sdt, Math.hypot(p.tx - p.x, p.ty - p.y)));
+          if (e) {
+            strike(e);
+            g.effects.push({ type: "spark", x: e.x, y: e.y - 5, ttl: 180, gold: p.hot });
+          }
+        } else {
+          for (const e of g.enemies) {
+            if (e.dead || p.hitIds.includes(e.id) || (p.ground && e.flying)) continue;
+            if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) { strike(e); if (p.done) break; }
           }
         }
         if (p.done) continue;
@@ -2058,7 +2157,9 @@ export function updateGame(g, dt) {
       const stepLen = p.speed * sdt;
       if (d <= stepLen + 4) {
         p.done = true;
-        if (p.splash > 0) {
+        // the Powder Works' charge: a tight blast on its mark, then the shrapnel
+        if (p.kind === "shell") burstCharge(g, p, target, tms);
+        else if (p.splash > 0) {
           if (!p.mini) sfx.play(p.kind === "rock" ? "rock" : p.kind === "shell" || p.burn ? "boom" : p.slow ? "frost" : "arcane");
           g.effects.push({ type: p.kind === "rock" ? (p.mini ? "shrapnelhit" : "dust") : p.kind === "shell" || p.burn ? "boom" : p.slow ? "frost" : "arcane", x: p.tx, y: p.ty, ttl: 320, r: p.splash });
           // a mark on the ground that outlives the blast: soot, or a rime of frost

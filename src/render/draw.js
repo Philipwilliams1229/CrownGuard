@@ -37,7 +37,7 @@ import { builderDrawables } from "./builders.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign, signGround } from "./scenery.js";
 import { drawWaterLive } from "./water.js";
-import { drawWatchWater, drawSkiffReach, drawSkiffMarks, warmWaterReach } from "./waterreach.js";
+import { drawWatchWater, drawSkiffReach, drawSkiffMarks, drawWatchStation, warmWaterReach } from "./waterreach.js";
 import { drawBridges } from "./bridge.js";
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
@@ -124,7 +124,7 @@ export function draw(g, canvas, bufRef) {
   // dotted edge over the water's live marks (waterreach.js) — laid with the
   // water, so the bridges and everything afloat pass over it. The build
   // ghost shows the water it would moor in, green (or red: no gold).
-  warmWaterReach();
+  warmWaterReach(ground);
   let watch = null;
   {
     const selW = g.selectedId != null && g.towers.find((t) => t.id === g.selectedId);
@@ -204,8 +204,10 @@ export function draw(g, canvas, bufRef) {
     const radius = g.buildMode === "knight" ? RALLY_RANGE : TOWERS[g.buildMode].levels[0].range;
     ctx.fillStyle = ok ? "rgba(140,224,140,0.25)" : "rgba(224,110,100,0.28)";
     ctx.fillRect(S(hx) - 20, S(hy) - 20, 40, 40);
-    // (a River Watch's reach is the water it moors in, laid with the water above)
-    if (g.buildMode !== "riverwatch") {
+    // (a River Watch's reach is the water it moors in, laid with the water
+    // above; here only her first skiff's station and musket reach, faint)
+    if (g.buildMode === "riverwatch") { if (watch && watch[2] !== "sel") drawWatchStation(ctx, g, hx, hy, watch[2]); }
+    else {
       ctx.fillStyle = ok ? "rgba(140,224,140,0.09)" : "rgba(224,110,100,0.09)";
       ctx.beginPath(); ctx.arc(S(hx), S(hy), radius, 0, 7); ctx.fill();
       rangeRing(hx, hy, radius, ok ? "rgba(150,232,150,0.85)" : "rgba(232,120,110,0.85)", g.time * 0.5);

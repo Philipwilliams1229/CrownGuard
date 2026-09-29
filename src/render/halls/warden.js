@@ -299,6 +299,25 @@ export const drawSupportTower = (ctx, t, time) => {
   }
   if (r4 === "aa") glow(ctx, x, y - 26, 14, "#c8f4ff", 0.25 + 0.1 * Math.sin(time * 1.5 + t.id));
 
+  // the censer on its chain under the lintel, swinging BEHIND the warden:
+  // it hangs at his mitre's height, so in front of him it crossed his brow
+  // twice a swing. Now his head hides it as it passes and it shows either
+  // side of him, rising as a pendulum does at the ends of its swing (the
+  // lintel, stamped after him, covers the chain's top).
+  if (arch) {
+    const lt = y - ah - 6, chain = 9;
+    const a = Math.sin(time * 1.6 + t.id) * 0.95;
+    const cx2 = x + Math.sin(a) * chain, cy2 = lt + 2 + Math.cos(a) * chain;
+    ctx.strokeStyle = "#6c727e";
+    ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.moveTo(x, lt + 2); ctx.lineTo(cx2, cy2); ctx.stroke();
+    ball(ctx, cx2, cy2 + 2, 2.4, 2.2, "#d8b34a", { hi: 0.5, lo: 0.4 });
+    for (let i = 0; i < 3; i++) {
+      const py2 = cy2 - 1 - ((time * 12 + i * 6 + t.id * 3) % 14);
+      glow(ctx, cx2 + Math.sin(time * 3 + i) * 2, py2, 1.6, "#d8e6f0", 0.5 - i * 0.12);
+    }
+  }
+
   // ---- the warden: a blessing now and then — the near hand leaves the
   // staff and rises open to head height through in-betweens, crests,
   // holds and comes down (folk-casters.js priestPose) — and while the aura
@@ -338,20 +357,6 @@ export const drawSupportTower = (ctx, t, time) => {
   if (r4 === "aa" || r4 === "ab") for (const s of [-1, 1]) {
     // crystal lamps atop the ice pillars
     glow(ctx, x + s * px0, y - 19, 4, ICE, 0.5 + 0.2 * Math.sin(time * 2 + s));
-  }
-  // the censer on its chain, under the lintel
-  if (arch) {
-    const lt = y - ah - 6;
-    const sw = Math.sin(time * 1.6 + t.id) * 6;
-    const cx2 = x + sw, cy2 = lt + 10 + Math.abs(sw) * 0.25;
-    ctx.strokeStyle = "#6c727e";
-    ctx.lineWidth = 0.6;
-    ctx.beginPath(); ctx.moveTo(x, lt + 2); ctx.lineTo(cx2, cy2); ctx.stroke();
-    ball(ctx, cx2, cy2 + 2, 2.4, 2.2, "#d8b34a", { hi: 0.5, lo: 0.4 });
-    for (let i = 0; i < 3; i++) {
-      const py2 = cy2 - 1 - ((time * 12 + i * 6 + t.id * 3) % 14);
-      glow(ctx, cx2 + Math.sin(time * 3 + i) * 2, py2, 1.6, "#d8e6f0", 0.5 - i * 0.12);
-    }
   }
   // Absolute Zero: shards orbit and snow falls
   if (r4 === "aa") {

@@ -38,7 +38,7 @@ import { coastOutline } from "../data/terrain.js";
 import EnemyIcon from "./EnemyIcon.jsx";
 import { Star } from "./Glyphs.jsx";
 import { MAX_STARS } from "../data/profile.js";
-import { panel, FONT, MAP as MAP_FONT } from "./theme.js";
+import { panel, FONT, HEAD, MAP as MAP_FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
 import { CastleIcon, LockIcon } from "./hud/icons.jsx";
@@ -540,7 +540,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
           <div style={{ fontSize: 9, letterSpacing: 2, color: PARCH.red, fontWeight: "bold" }}>
             CHAPTER {sel.chapter.numeral} · LEVEL {sel.index + 1} · {sel.window.count} WAVES{selBoss ? " · BOSS" : ""}
           </div>
-          <div style={{ fontSize: 17, fontWeight: "bold", color: "#4a2418", margin: "4px 0 4px", lineHeight: 1.2 }}>
+          <div style={{ fontFamily: HEAD, fontSize: 17, fontWeight: "bold", color: "#4a2418", margin: "4px 0 4px", lineHeight: 1.2 }}>
             {sel.name}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -583,7 +583,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
             <div style={{ fontSize: 8.5, letterSpacing: 1.2, color: PARCH.red, fontWeight: "bold", lineHeight: 1.3 }}>
               CH. {sel.chapter.numeral} · LEVEL {sel.index + 1} · {sel.window.count} WAVES{selBoss ? " · BOSS" : ""}
             </div>
-            <div style={{ fontSize: 15, fontWeight: "bold", color: "#4a2418", margin: "3px 0", lineHeight: 1.15 }}>
+            <div style={{ fontFamily: HEAD, fontSize: 15, fontWeight: "bold", color: "#4a2418", margin: "3px 0", lineHeight: 1.15 }}>
               {sel.name}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -621,7 +621,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
     <div style={{ width: "100%", maxWidth: short ? "none" : wide ? 1400 : 780, display: "flex", alignItems: "center", gap: short ? 6 : 10, flexShrink: 0 }}>
       <button style={{ ...woodBtn, padding: compact ? "0 11px" : "0 14px", fontSize: compact ? 12 : 13, flexShrink: 0 }} onClick={onBack}>◀ Menu</button>
       <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
-        <div style={{ fontSize: compact ? 13 : 17, fontWeight: "bold", letterSpacing: compact ? 2 : 4, color: "#e8c65a", textShadow: `2px 2px 0 ${INK}`, whiteSpace: "nowrap" }}>THE CAMPAIGN</div>
+        <div style={{ fontFamily: HEAD, fontSize: compact ? 13 : 17, fontWeight: "bold", letterSpacing: compact ? 2 : 4, color: "#e8c65a", textShadow: `2px 2px 0 ${INK}`, whiteSpace: "nowrap" }}>THE CAMPAIGN</div>
         <div style={{ fontSize: compact ? 9 : 9.5, letterSpacing: 1.5, opacity: 0.7, marginTop: 2 }}>{clearedCount} of {LEVELS.length} held</div>
       </div>
       <button title="The crown's treasury and the castle's works" aria-label="Castle works"

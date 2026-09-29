@@ -11,7 +11,7 @@
 import { CHAPTERS, LEVELS as ALL_LEVELS, isUnlocked } from "../data/campaign.js";
 import { MAX_STARS } from "../data/profile.js";
 import { hash, darken, rgb, ball, blobBall, cone, inkOutline } from "../render/paint.js";
-import { canvasFont } from "./fonts.js";
+import { canvasFont, typeEpoch } from "./fonts.js";
 
 export const U = 2;                         // art pixels per map unit
 export const MAP = { x: 0, y: -250, w: 770, h: 690 };
@@ -526,9 +526,9 @@ const riverPath = (c, rv, grow = 0, from = 0) => {
 // side: "b" below (the default), "a" above, "l" left, "r" right.
 export const LABEL_SIDE = { foxmere: "a", ravenscar: "a", muster: "a", ir5: "a", hl4: "b" };
 export const LABEL_FONT = 6.8;   // map units
-let MEASURE = null;
+let MEASURE = null, MEASURED = -1;   // (re-fonted when a type option's faces land)
 export const textW = (t) => {
-  if (!MEASURE) { MEASURE = mk(8, 8).getContext("2d", RF); MEASURE.font = canvasFont("map", LABEL_FONT * 10, true); }
+  if (MEASURED !== typeEpoch()) { MEASURE = MEASURE || mk(8, 8).getContext("2d", RF); MEASURE.font = canvasFont("map", LABEL_FONT * 10, true); MEASURED = typeEpoch(); }
   return MEASURE.measureText(t).width / 10;
 };
 export const labelBox = (lv) => {

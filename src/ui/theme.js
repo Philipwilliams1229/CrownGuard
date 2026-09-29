@@ -5,19 +5,24 @@
 
 import { FONTS } from "./fonts.js";
 
-// The faces, from fonts.js (the one place a font family is named; it also
-// sets the CSS variables hud.css reads). Each is a family stack:
-export const FONT = FONTS.body;        // long text, blurbs
-export const DISPLAY = FONTS.ui;       // headings and labels
-export const TITLE = FONTS.title;      // screen and card titles
-export const MARK = FONTS.mark;        // the CROWNGUARD wordmark
-export const MENU = FONTS.menu;        // the menu buttons (btn below)
-export const MAP = FONTS.map;          // the campaign map's labels
+// The faces, from fonts.js (the one place a font family is named; it sets
+// the CSS variables these read). FONT, DISPLAY, TITLE, HEAD and NUM are the
+// variables themselves, so hud.css can find their elements (a type option
+// with `caps` sets the DISPLAY and TITLE ones in capitals); MARK, MENU and
+// MAP are family stacks (MAP goes into SVG attributes, which can't read
+// variables).
+export const FONT = "var(--body)";         // long text, blurbs
+export const DISPLAY = "var(--display)";   // headings and labels
+export const TITLE = "var(--title)";       // screen and card titles
+export const HEAD = "var(--head)";         // the campaign map's heads
+export const MARK = FONTS.mark;            // the CROWNGUARD wordmark
+export const MENU = FONTS.menu;            // the menu buttons (btn below)
+export const MAP = FONTS.map;              // the campaign map's labels
 // anything with digits, for inline styles. It carries no font-size-adjust:
 // the War Council's numbers were written with `fontSizeAdjust: 0.58` as a
 // number, which React sends as "0.58px" (ignored), so they have always shown
 // Press Start 2P at full size; kept so. hud.css's .cg-num does apply it.
-export const NUM = { fontFamily: FONTS.num, fontWeight: 400 };
+export const NUM = { fontFamily: "var(--numeric)", fontWeight: 400 };
 
 // the HUD palette: ink rims, plum-slate panels, oak, parchment and gold
 export const INK = "#241a26";
