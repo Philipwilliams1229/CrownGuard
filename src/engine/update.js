@@ -929,6 +929,19 @@ export function updateGame(g, dt) {
   }
 
   if (!g.paused && g.phase === "combat") {
+    // A foe held by someone no longer on the field — a band that stood down
+    // (the retinue, the gate guard), a trimmed garrison — walks on. A stale
+    // hold never lets go by itself, and the wave could never end (it stalled
+    // the Citadel in the sims).
+    if (g.enemies.some((e) => e.blockedBy)) {
+      const holders = new Set();
+      for (const t of g.towers) {
+        if (t.units) for (const u of t.units) if (u.state !== "dead") holders.add(u.id);
+        if (t.eagle) holders.add(t.eagle.id);
+      }
+      for (const b of g.bands || []) for (const u of b.units) if (u.state !== "dead") holders.add(u.id);
+      for (const e of g.enemies) if (e.blockedBy && !holders.has(e.blockedBy)) { e.blockedBy = null; e.engaged = false; }
+    }
     g.spawnTimer += sdt * 1000;
     while (g.spawnQueue.length && g.spawnQueue[0].at <= g.spawnTimer) {
       const s = g.spawnQueue.shift();

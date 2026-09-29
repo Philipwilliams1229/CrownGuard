@@ -264,6 +264,16 @@ function runOnce(opts, quiet, planName) {
           if (g.enemies.length > PERF.foes) PERF.foes = g.enemies.length;
         } else updateGame(g, DT);
         ticks++;
+        // CG_STUCK_DUMP=1: a wave still going after 400 game seconds prints every
+        // foe, hall and band (who holds whom, shields, stuns) and stops the run
+        if (process.env.CG_STUCK_DUMP && g.time - t0 > 400 && !g._dumped) {
+          g._dumped = 1;
+          console.log("STUCK DUMP wave", g.wave, "queue", g.spawnQueue.length, "phase", g.phase, "lives", g.lives);
+          for (const e of g.enemies) console.log(JSON.stringify({ id: e.id, type: e.type, dead: e.dead, hp: Math.round(e.hp), dist: Math.round(e.dist), x: Math.round(e.x), y: Math.round(e.y), blockedBy: e.blockedBy, engaged: e.engaged, sw: e.swimming, fl: e.flying, air: !!e.airFight, stun: e.stunUntil > g.time * 1000, guard: e.guard, speed: e.speed }));
+          for (const t of g.towers) console.log("tower", t.id, t.kind, t.level, t.branch || "", t.rank4 || "", Math.round(t.x), Math.round(t.y), t.units ? JSON.stringify(t.units.map((u) => [u.id, u.state, Math.round(u.hp), u.targetId])) : "");
+          for (const bd of g.bands || []) console.log("band", bd.id, bd.kind, JSON.stringify(bd.units.map((u) => [u.id, u.state, Math.round(u.hp), u.targetId, Math.round(u.x), Math.round(u.y)])));
+          process.exit(0);
+        }
         // the militia horn, blown at the road's last bend whenever it's ready
         // and something is on the road worth blowing it for
         if (MILITIA_ON && (g.militiaCd || 0) <= 0 && g.enemies.some((e) => !e.dead && e.dist > TOTAL_LEN * 0.5)) {
