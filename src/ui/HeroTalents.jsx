@@ -25,12 +25,12 @@ import {
 } from "../data/bands.js";
 import { heroRecord, buyHeroTalent, resetHeroTalents } from "../data/profile.js";
 import EnemyIcon from "./EnemyIcon.jsx";
-import { btn, panel, DISPLAY, GOLD, INK } from "./theme.js";
+import { btn, panel, DISPLAY, GOLD, INK, NUM as NUM_FACE } from "./theme.js";
 
 const HERO_KEYS = Object.keys(HEROES);
 const ON = { background: "#5a4f2c", boxShadow: "inset 0 0 0 2px #7a6a3c" };
-// numbers in the pixel face that keeps 5/8/S apart
-export const NUM = { fontFamily: "'Press Start 2P', 'Silkscreen', Verdana, monospace", fontWeight: 400, fontSizeAdjust: 0.58 };
+// numbers in the digit face (fonts.js "num", with its size correction)
+export const NUM = NUM_FACE;
 const LABEL = { fontFamily: DISPLAY, letterSpacing: 0.5 };
 
 // ---- the two-tap confirm ----

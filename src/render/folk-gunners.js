@@ -82,7 +82,7 @@ const HOODED = {
   foldB: { stride: 0.1, hip: [-0.35, 0.6], lean: -0.03, near: [4.5, -13.0], far: [3.6, -14.0], tuck: true, tails: -0.08 },
   reach: { stride: 0.15, hip: [0.1, 0.4], lean: 0.02, near: [4.7, -10.8], far: [4.0, -14.3], farTuck: true },
   hilt: { stride: 0.2, hip: [0.3, 0.45], lean: 0.05, near: "grip", far: [4.1, -14.2], farTuck: true },
-  crouch: { stride: 0.7, hip: [0.7, 2.0], lean: 0.26, near: "draw", far: [5.0, -12.0], tilt: 0.18, tails: 0.4 },
+  crouch: { stride: 0.7, hip: [0.7, 2.0], lean: 0.26, near: "draw", far: [5.0, -12.0], tilt: 0.18, tails: 0.25 },
 };
 export const HOODED_POSES = Object.keys(HOODED);
 // the dagger at his near hip, in the trunk's frame: the sheath's mouth, the
@@ -152,7 +152,8 @@ export const drawHooded = (ctx, x, y, dir, pal, pose = "fold") => {
 // Her gauntlet is the near arm. carry: the glove at her chest, forearm out
 // level (where a hawk rides); glance: the same, her head up to the wheel of
 // birds; present: the glove raised to show the bird the field; draw: the
-// fist pulled back to her shoulder, weight going back (the anticipation);
+// fist swung down and back to her hip, her weight on the back foot
+// (the anticipation: the bird mantles on it BELOW her face, never over it);
 // cast: the arm thrown out and up, hand open, a step into it — the bird is
 // away; follow: the arm coming down, still open, before she settles.
 // `plume`: her hat's plume trailing the move (hat() "falconer").
@@ -160,7 +161,7 @@ const MIST = {
   carry: { stride: 0.3, hip: [0, 0.2], near: [6.3, -13.4], far: [-2.3, -7.4] },
   glance: { stride: 0.3, hip: [0.1, 0.3], near: [6.2, -13.1], far: [-2.2, -7.3], tilt: -0.26 },
   present: { stride: 0.35, hip: [0.2, 0.3], lean: 0.02, near: [7.6, -20.2], far: [-2.2, -7.4], tilt: -0.12, plume: 0.05 },
-  draw: { stride: 0.5, hip: [-0.5, 0.45], lean: -0.07, near: [4.7, -17.9], far: [-3.0, -7.8], tilt: -0.1, plume: 0.15 },
+  draw: { stride: 0.55, hip: [-0.75, 0.5], lean: -0.1, near: [4.0, -9.8], far: [-3.2, -8.2], tilt: -0.1, plume: 0.15 },
   cast: { stride: 0.5, step: 0.8, hip: [0.7, 0.6], lean: 0.1, near: [9.0, -21.4], open: true, far: [-2.0, -8.0], tilt: -0.16, plume: -0.22 },
   follow: { stride: 0.5, step: 0.8, hip: [0.5, 0.5], lean: 0.06, near: [8.6, -16.0], open: true, far: [-1.8, -7.6], tilt: -0.04, plume: -0.1 },
 };
@@ -220,7 +221,8 @@ export const drawMistress = (ctx, x, y, dir, pal, pose = "present") => {
 //   release  the arm out at the mark, the hand open, the trunk bent after it
 //   follow   the arm swung down across, the trunk over the step
 //   recover  upright again, a fresh charge from the pouch at his hip
-// o.vial: the alchemist's flask instead of a powder charge.
+// o.vial: the alchemist's flask instead of a powder charge (and his
+// chaperon instead of the bombardier's fur cap, hat() "grenadier").
 const BOMB = {
   hold: { stride: 0.7, hip: [0, 0.2], lean: 0.03, near: [4.4, -11.4], far: [5.3, -12.4], ch: [5.4, -13.3], lit: 1, farFront: true },
   breath: { stride: 0.7, hip: [0, 0.65], lean: 0.05, near: [4.5, -11.0], far: [5.4, -12.0], ch: [5.5, -12.9], lit: 1, farFront: true },
@@ -276,7 +278,8 @@ export const drawBomber = (ctx, x, y, dir, pal, pose = "hold", o = {}) => {
   stand(ctx, b, pal);
   if (!p.farFront) far();                   // the off arm swung back: behind him
   b.on(ctx, () => torso(ctx, 0, -17, 10, 8, pal));
-  onHead(ctx, headAt(b, p), (hx, hy) => { head(ctx, hx, hy, pal, { hood: false }); cap(ctx, hx, hy, pal.hood, { tall: true }); });   // a knitted cap
+  // the bombardier's fur cap with its grenade badge; the alchemist's chaperon
+  onHead(ctx, headAt(b, p), (hx, hy) => { head(ctx, hx, hy, pal, { hood: false }); hat(ctx, hx, hy, o.vial ? "chaperon" : "grenadier", pal); });
   if (p.farFront) far();
   const sh = b.P(1.8, -15.6);
   if (p.smear) {
@@ -385,7 +388,7 @@ export const drawMusketeer = (ctx, x, y, dir, pal, pose = 0, o = {}) => {
   ctx.restore();
   onHead(ctx, hd, (hx, hy) => {
     head(ctx, hx, hy, pal, { hood: false });
-    cap(ctx, hx, hy, pal.hood, { wide: true, tall: true, band: pal.trim });   // the broad hat
+    cap(ctx, hx, hy, pal.hood, { wide: true, tall: true, band: pal.trim, lift: 0.5 });   // the broad hat, the eye under its brim
   });
   reach(ctx, b.P(1.8, -15.6), nearHand, pal);
   ctx.restore();

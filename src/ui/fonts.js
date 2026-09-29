@@ -118,7 +118,7 @@ export const TYPES = {
       mark: face("Silkscreen", 0.84, [400, 700]),
       title: face("Silkscreen", 1, [400, 700]),
       ui: face("Silkscreen", 1, [400, 700]),
-      menu: face("Silkscreen", 0.84, [400, 700]),
+      menu: face("Silkscreen", 0.95, [400, 700]),
       num: face("Jersey 15", 1.2),
       body: face("Jersey 15", 1.2),
       map: face("Silkscreen", 0.8, [400, 700]),

@@ -13,6 +13,7 @@
 import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
 import { drawFireGround } from "./flames.js";
 import { hasRig, rigFrame } from "./rigs.js";
+import { canvasFont, typeEpoch } from "../ui/fonts.js";
 
 // ---- palette ---------------------------------------------------------
 const col = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -1032,7 +1033,7 @@ const coinIcon = (G, x0, y0, D) => {
   }
   for (let i = -Math.floor(r * 0.35); i <= Math.floor(r * 0.35); i++) G.set(cx, cy + i, K[2]);
 };
-const textSprite = (text, big, red) => memo(`tx|${text}|${big ? 1 : 0}|${red ? 1 : 0}`, () => {
+const textSprite = (text, big, red) => memo(`tx|${text}|${big ? 1 : 0}|${red ? 1 : 0}|${typeEpoch()}`, () => {
   const coin = !red && /^\+\d+g?$/.test(text);
   const s = coin ? text.replace(/g$/, "") : text;
   const T = TEXT_TONES[red ? "red" : "gold"];
@@ -1054,16 +1055,16 @@ const textSprite = (text, big, red) => memo(`tx|${text}|${big ? 1 : 0}|${red ? 1
     const cv = G.done(INK_LINE, 2);
     return { cv, ax: cv.width >> 1, ay: cv.height >> 1 };
   }
-  // anything else (banners, notices): the system font, thresholded to hard
+  // anything else (banners, notices): the board face (fonts.js), thresholded to hard
   // pixels, shaded in the same bands and inked the same way
   const fs = big ? 26 : 20;
   const m = document.createElement("canvas").getContext("2d");
-  m.font = `bold ${fs}px monospace`;
+  m.font = canvasFont("board", fs, true);
   const w = Math.ceil(m.measureText(s).width) + pad * 2 + 4, h = Math.ceil(fs * 1.25) + pad * 2;
   const cv = document.createElement("canvas");
   cv.width = w; cv.height = h;
   const c = cv.getContext("2d", { willReadFrequently: true });
-  c.font = `bold ${fs}px monospace`; c.textBaseline = "middle"; c.textAlign = "center";
+  c.font = canvasFont("board", fs, true); c.textBaseline = "middle"; c.textAlign = "center";
   c.fillStyle = "#fff"; c.fillText(s, w / 2, h / 2 + 1);
   const img = c.getImageData(0, 0, w, h), d = img.data;
   const top = h / 2 - fs * 0.4, bot = h / 2 + fs * 0.4;

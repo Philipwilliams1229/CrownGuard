@@ -20,11 +20,16 @@ import { limb2, dab, head, torso, legs, arm, hand, elbowFor, logJoint, mixPose }
 //   arr       0 no arrow, 1 nocked (nock at the hand, shaft over the bow
 //             hand), 2 carried in the hand at angle `aa`
 //   back      where the string arm (one inked part, no line across the
-//             elbow) goes against the head: 0 wholly in front (held low or
-//             out in front, clear of the face); 1 wholly behind the head and
-//             hood with only the hand in front of them (the draw, the anchor,
-//             the loose: the elbow shows back past the hood, the face stays
-//             clear); 2 behind, hand and all (at the quiver, behind the neck)
+//             elbow) goes against the head: 0 wholly in front (rest, lift,
+//             bring: held low or out in front, clear of the face); 1 wholly
+//             behind the head and hood with only the hand in front of them
+//             (set and the idle test0, the whole draw, the anchor, the loose,
+//             the follow: the elbow shows back past the hood, the face stays
+//             clear; at the set the upper arm tucks behind the jaw and the
+//             forearm comes out from under the chin); 2 behind, hand and all
+//             (the reach: the arm behind the head, the wrist and hand
+//             showing past the hood's back edge on the fletchings). An
+//             in-between whose elbow rises past the chin goes behind too.
 //   lean/bob  the upper body over the planted feet (the hips follow half
 //             the lean, the knees solve), open: the string fingers spread
 const K = {
@@ -35,20 +40,22 @@ const K = {
   lift: { ns: [0.2, -16.4], fs: [1.0, -16.4], h: [4.6, -12.2], flip: 0, back: 0, g: [7.8, -13.0], rot: 0.22, str: 0, shiver: 0, bend: 0, arr: 0, aa: 0, lean: 0, bob: 0, open: 0 },
   // nocked and set: bow arm up with a soft elbow, fingers on the string,
   // the string elbow raised to take the weight
-  set: { ns: [-0.3, -16.3], fs: [1.2, -16.4], h: [7.5, -17.3], flip: 1, back: 0, g: [9.2, -16.4], rot: 0, str: 1, shiver: 0, bend: 0, arr: 1, aa: 0, lean: -0.1, bob: 0, open: 0 },
+  set: { ns: [-0.3, -16.3], fs: [1.2, -16.4], h: [7.5, -17.3], flip: 1, back: 1, g: [9.2, -16.4], rot: 0, str: 1, shiver: 0, bend: 0, arr: 1, aa: 0, lean: -0.1, bob: 0, open: 0 },
   // full draw: the bow arm has pushed out straight, the string hand is
   // anchored at the cheek, the elbow high behind the head (it shows past the
   // hood, the draw shoulder a touch shrugged); he leans back into the weight
   anchor: { ns: [-0.8, -16.8], fs: [1.2, -16.5], h: [0.9, -19.6], flip: 1, back: 1, g: [9.9, -16.6], rot: -0.03, str: 1, shiver: 0, bend: 1, arr: 1, aa: 0, lean: -0.5, bob: 0, open: 0 },
   // the instant after: the string has slipped, the fingers open and the
-  // hand slides back along the jaw; the bow arm drives on, the bow rolls
-  loose: { ns: [-0.2, -16.2], fs: [1.2, -16.5], h: [0.3, -19.7], flip: 1, back: 1, g: [10.0, -16.4], rot: 0.14, str: 0, shiver: 1, bend: 0, arr: 0, aa: 0, lean: -0.35, bob: 0, open: 1 },
+  // hand slides back along the jaw to the ear (clear of the face, against
+  // the hood); the bow arm drives on, the bow rolls
+  loose: { ns: [-0.2, -16.2], fs: [1.2, -16.5], h: [-0.9, -19.6], flip: 1, back: 1, g: [10.0, -16.4], rot: 0.14, str: 0, shiver: 1, bend: 0, arr: 0, aa: 0, lean: -0.35, bob: 0, open: 1 },
   // follow-through: the hand past the ear, the bow rolled on and settling
   follow: { ns: [-0.3, -16.2], fs: [1.1, -16.4], h: [-2.0, -18.8], flip: 1, back: 1, g: [9.5, -15.8], rot: 0.3, str: 0, shiver: 0.35, bend: 0, arr: 0, aa: 0, lean: -0.15, bob: 0, open: 1 },
-  // over the shoulder to the quiver: elbow up by the head, hand behind the
-  // neck on the fletchings — the whole arm behind the head (back 2), only
-  // the hand showing at the fletchings; the bow arm eases down a little
-  reach: { ns: [-0.4, -16.3], fs: [1.0, -16.4], h: [-3.8, -19.4], flip: 0, back: 2, g: [8.4, -14.6], rot: 0.24, str: 0, shiver: 0, bend: 0, arr: 0, aa: 0, lean: 0.15, bob: 0, open: 0 },
+  // over the shoulder to the quiver: elbow up by the head, the hand behind
+  // the neck on the fletchings, past the hood's back edge — the arm behind
+  // the head (back 2), its wrist and hand showing from behind the hood; the
+  // bow arm eases down a little
+  reach: { ns: [-0.4, -16.3], fs: [1.0, -16.4], h: [-5.1, -18.7], flip: 0, back: 2, g: [8.4, -14.6], rot: 0.24, str: 0, shiver: 0, bend: 0, arr: 0, aa: 0, lean: 0.15, bob: 0, open: 0 },
   // the arrow brought down and round in front of him to the bow, head
   // first, the hand under his chin (the elbow down, the face clear)
   bring: { ns: [-0.4, -16.3], fs: [1.1, -16.4], h: [3.6, -17.2], flip: 0, back: 0, g: [8.9, -15.8], rot: 0.08, str: 0, shiver: 0, bend: 0, arr: 2, aa: -0.12, lean: 0.05, bob: 0, open: 0 },
@@ -93,7 +100,8 @@ export const drawArcherFrame = (ctx, x, y, dir, pal, frame, o = {}) => {
 // just slipped: it snaps straight and shivers, the bow arm drives on, the
 // drawing hand slides back past the ear), "reach" (a hand over the shoulder
 // to the quiver), or any key of ARCHER_POSES; see archerPose for o.to /
-// o.k / o.arrow / o.breath. Without a pose the figure draws by `draw`: the
+// o.k / o.arrow / o.breath; o.quiver its leather (default the dark QUIVER;
+// the castle's bowmen may pass the old oak #7a5334). Without a pose the figure draws by `draw`: the
 // limbs bend, the string comes back to the cheek, the arrow
 // rides on it, and he leans back into the weight.
 export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
@@ -103,6 +111,7 @@ export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
   const bowCol = o.bowCol || "#4a3018";
   const fl = o.fletch || "#e8e0c8";
   const cock = bowCol === "#4a3018" ? "#a04a3f" : fl;
+  const quiver = o.quiver || QUIVER;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(dir * s, s);
@@ -114,8 +123,8 @@ export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
     for (const [i, col] of [[0, fl], [1, "#a04a3f"], [2, fl]].entries()) { c.fillStyle = col; c.beginPath(); c.moveTo(-1.0 + i * 0.9, -6.6); c.lineTo(-0.7 + i * 0.9, -8.6); c.lineTo(-0.2 + i * 0.9, -6.6); c.closePath(); c.fill(); }
     roundRect(c, -1.3, -6.8, 2.6, 7, 0.9);
     // dark leather, so the string arm's elbow reads against it at the draw
-    c.fillStyle = lin(c, -1.3, 0, 1.3, 0, [[0, lighten(QUIVER, 0.3)], [0.5, QUIVER], [1, darken(QUIVER, 0.4)]]); c.fill();
-    c.fillStyle = darken(QUIVER, 0.45); c.fillRect(-1.3, -5.8, 2.6, 0.6); c.fillRect(-1.3, -1.6, 2.6, 0.6);
+    c.fillStyle = lin(c, -1.3, 0, 1.3, 0, [[0, lighten(quiver, 0.3)], [0.5, quiver], [1, darken(quiver, 0.4)]]); c.fill();
+    c.fillStyle = darken(quiver, 0.45); c.fillRect(-1.3, -5.8, 2.6, 0.6); c.fillRect(-1.3, -1.6, 2.6, 0.6);
     c.restore();
   });
   // feet planted a stride apart whatever he does; the hips carry half the lean

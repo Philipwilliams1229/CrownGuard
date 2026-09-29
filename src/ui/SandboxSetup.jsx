@@ -36,6 +36,7 @@ import RealmThumb from "./RealmThumb.jsx";
 import {
   CloseIcon, CoinIcon, HeartIcon, CastleIcon, SkullIcon, FlagIcon, HammerIcon, SwordIcon, ShieldIcon, StarIcon,
 } from "./hud/icons.jsx";
+import "./fonts.js";   // the faces hud.css reads (for pages that open this alone)
 import "./hud/hud.css";
 import "./hud/sandbox.css";
 
@@ -545,7 +546,7 @@ export default function SandboxSetup({ initial, onStart, onBack, initialTab = "f
           {roomy ? (
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <CastleIcon size={22} />
-              <span className="cg-display" style={{ fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>FREE PLAY</span>
+              <span className="cg-display" style={{ fontFamily: "var(--title)", fontSize: 20, fontWeight: 700, letterSpacing: 1, color: "var(--gold)", textShadow: "2px 2px 0 var(--ink)" }}>FREE PLAY</span>
               <span className="sbs-note" style={{ fontSize: 11 }}>Pick a preset, then bend any part of the war.</span>
               <span style={{ flex: 1 }} />
               {presetStatus}

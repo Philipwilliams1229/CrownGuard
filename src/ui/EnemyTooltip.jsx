@@ -5,6 +5,7 @@
 
 import { ENEMIES } from "../data/enemies.js";
 import EnemyIcon from "./EnemyIcon.jsx";
+import { FONT, DISPLAY } from "./theme.js";
 
 const box = {
   position: "absolute",
@@ -21,7 +22,7 @@ const box = {
   fontSize: 11,
   lineHeight: 1.5,
   color: "#f2e6c4",
-  fontFamily: "Verdana, Geneva, sans-serif",
+  fontFamily: FONT,
 };
 
 const Row = ({ label, children }) => (
@@ -41,7 +42,7 @@ export default function EnemyTooltip({ type }) {
         <span style={{ width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: e.boss ? "#4a1e22" : "#231b27", border: "2px solid #241a26", boxShadow: "inset 2px 2px 0 #1b141e", boxSizing: "border-box" }}>
           <EnemyIcon type={type} box={28} />
         </span>
-        <div style={{ fontFamily: "'Silkscreen', Verdana, sans-serif", fontWeight: 700, fontSize: 13, lineHeight: 1.1, color: e.boss ? "#ff8a78" : "#f0d27a", textShadow: "1px 1px 0 #241a26", letterSpacing: 0.5 }}>
+        <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 13, lineHeight: 1.1, color: e.boss ? "#ff8a78" : "#f0d27a", textShadow: "1px 1px 0 #241a26", letterSpacing: 0.5 }}>
           {e.name}{e.boss ? " · BOSS" : ""}
         </div>
       </div>

@@ -7,17 +7,19 @@
 //
 // - waterMask(): which art pixel of the board is which water (a river, a
 //   pond, the sea) and which is under a bridge deck. Baked once per realm
-//   (~20-40 ms), lazily or in idle time (warmWaterReach).
+//   (20-60 ms on a shared headless CPU), in idle time (warmWaterReach) or
+//   on first use.
 // - drawWatchWater(ctx, g, x, y, tone): the body of water a hall moored at
 //   (x, y) rows, tinted (gold when selected, green / red for the build
 //   ghost) with a dotted edge creeping along its waterline in the range
 //   ring's style. The tint is baked once per body and tone and stamped; the
 //   edge is a few hundred ticks off a baked, arc-length-sampled waterline.
 //   Drawn with the water, under the bridges, so a deck passes over it.
-// - drawSkiffReach(ctx, g, t): each live skiff's reach, a turning ring of
-//   ticks (the envelope bright, the arcs inside a sister's reach faint) and
-//   a marker round the boat; an upgrade armed in the card adds its new reach
-//   (and where any new skiff would take station).
+// - drawSkiffReach(ctx, g, t, built): each live skiff's reach, a turning
+//   ring of ticks (the envelope bright, the arcs inside a sister's reach a
+//   faint hint); an upgrade armed in the card adds its new reach, and the
+//   reach of any skiff it adds at her station. drawSkiffMarks, over the
+//   crowd, puts a gold caret over each boat (hollow: a station to come).
 // - clipToWater(ctx, x0, y0, x1, y1): clips to the open water in a box, so
 //   a wake or a ripple never runs up a bank, round a shore, onto the beach
 //   or over a deck. enemies.js (the skiffs) and halls/riverwatch.js use it.
@@ -35,6 +37,7 @@ import { pondAt } from "../engine/actions.js";
 import { getStats } from "../engine/towers.js";
 import { hash, PX } from "./paint.js";
 import { drawBridges } from "./bridge.js";
+import { skiffBob } from "./rigs-skiff.js";
 
 // ---- the water's edge, as water.js paints it ----------------------------------
 
@@ -413,7 +416,9 @@ export const watchWater = (x, y) => {
   const p = pondAt(x, y);
   if (p) return { id: `p${PONDS.indexOf(p)}`, kind: "pond", pond: p };
   if (seaDepthAt(x, y) > 0) return seaRoute() ? { id: "sea", kind: "sea" } : null;
-  return RIVER_ROUTE ? { id: "river", kind: "river" } : null;
+  // (ri: which river the route follows — the engine rows only the first; a
+  // route per river would name the one moored in here)
+  return RIVER_ROUTE ? { id: "r0", kind: "river", ri: 0 } : null;
 };
 // the skiffs' rowing line (the engine's own shapes; a pond's is the same
 // ellipse update.js's pondRoute rows)
@@ -453,7 +458,7 @@ const bodyOf = (M, w) => {
   if (B) return B;
   const r = M.px, mw = M.mw, mh = M.mh, lab = M.lab;
   let want;
-  if (w.kind === "river") want = 1;
+  if (w.kind === "river") want = w.ri + 1;
   else if (w.kind === "pond") want = POND0 + Number(w.id.slice(1));
   else want = SEA;
   // the sea: only the stretch the coast route runs, as far along the shore
@@ -606,39 +611,56 @@ const bodyOf = (M, w) => {
   return B;
 };
 
-// the tint for one body and tone, baked once
-const tintOf = (B, tone) => {
-  if (B.tints[tone]) return B.tints[tone];
+// The tint for one body and tone, baked once. Given the board's baked ground
+// (the same art-pixel grid), the water under it is lit here once, screen by
+// hand, and stamped plainly after; otherwise a tint the stamp screens live.
+const tintOf = (B, tone, ground) => {
+  const key = ground ? tone + "|lit" : tone;
+  if (B.tints[key]) return B.tints[key];
   const T = TONES[tone], cv = document.createElement("canvas");
   cv.width = B.bw; cv.height = B.bh;
   const c = cv.getContext("2d"), img = c.createImageData(B.bw, B.bh), d = img.data;
+  const under = ground ? ground.getContext("2d").getImageData(Math.round(B.x0 * PX), Math.round(B.y0 * PX), B.bw, B.bh).data : null;
+  const [sr, sg, sb] = T.rgb;
   for (let k = 0; k < B.IN.length; k++) {
     if (!B.IN[k]) continue;
-    const e = B.EDGE[k], a = e === 0 ? T.rim : e === 1 ? T.rim * 0.8 : e === 2 ? (T.fill + T.rim) * 0.5 : T.fill;
-    d[k * 4] = T.rgb[0]; d[k * 4 + 1] = T.rgb[1]; d[k * 4 + 2] = T.rgb[2]; d[k * 4 + 3] = Math.round(a * 255);
+    const e = B.EDGE[k], a = e === 0 ? T.rim : e === 1 ? T.rim * 0.8 : e === 2 ? (T.fill + T.rim) * 0.5 : T.fill, o = k * 4;
+    if (under) {
+      // screen: the water plus the light it hasn't got, a share of it
+      d[o] = under[o] + a * sr * (1 - under[o] / 255);
+      d[o + 1] = under[o + 1] + a * sg * (1 - under[o + 1] / 255);
+      d[o + 2] = under[o + 2] + a * sb * (1 - under[o + 2] / 255);
+      d[o + 3] = 255;
+    } else { d[o] = sr; d[o + 1] = sg; d[o + 2] = sb; d[o + 3] = Math.round(a * 255); }
   }
   c.putImageData(img, 0, 0);
-  B.tints[tone] = cv;
-  return cv;
+  B.tints[key] = { cv, lit: !!under };
+  return B.tints[key];
 };
 
 const EDGE_SPEED = 9;      // units a second the edge's ticks creep along the waterline
 // The water a hall moored at (x, y) rows, tinted and edged. tone: "sel"
-// (selected), "ok" / "bad" (the build ghost). Call it with the water (under
-// the bridges); returns false if there is no such water.
-export const drawWatchWater = (ctx, g, x, y, tone) => {
+// (selected), "ok" / "bad" (the build ghost). part "tint" goes down with the
+// water (pass the board's baked ground to have it lit once and stamped),
+// part "edge" over the water's live marks and the shore's wash; both by
+// default. Returns false if there is no such water.
+export const drawWatchWater = (ctx, g, x, y, tone, part = "both", ground = null) => {
   const M = waterMask();
   if (!M.lab) return false;
   const w = watchWater(x, y);
   if (!w) return false;
   const B = bodyOf(M, w);
   if (B.empty) return false;
-  const sm = ctx.imageSmoothingEnabled, op = ctx.globalCompositeOperation;
-  ctx.imageSmoothingEnabled = false;
-  if (TONES[tone].comp) ctx.globalCompositeOperation = TONES[tone].comp;
-  ctx.drawImage(tintOf(B, tone), B.x0, B.y0, B.w, B.h);
-  ctx.globalCompositeOperation = op;
-  ctx.imageSmoothingEnabled = sm;
+  if (part !== "edge") {
+    const tint = tintOf(B, tone, ground && ground.width === W * PX && ground.height === H * PX ? ground : null);
+    const sm = ctx.imageSmoothingEnabled, op = ctx.globalCompositeOperation;
+    ctx.imageSmoothingEnabled = false;
+    if (!tint.lit && TONES[tone].comp) ctx.globalCompositeOperation = TONES[tone].comp;
+    ctx.drawImage(tint.cv, B.x0, B.y0, B.w, B.h);
+    ctx.globalCompositeOperation = op;
+    ctx.imageSmoothingEnabled = sm;
+  }
+  if (part === "tint") return true;
   // the edge: two ticks on, two off, five units apart, creeping along
   ctx.fillStyle = TONES[tone].tick;
   const off = (g.time * EDGE_SPEED) % 20;
@@ -664,30 +686,59 @@ export const drawWatchWater = (ctx, g, x, y, tone) => {
 
 // a turning ring of ticks (draw.js's rangeRing), bright where it is the edge
 // of the fleet's reach and faint where a sister boat's reach covers it
+// (faint null: those left out)
+const FAINT = [];
 const ringTicks = (ctx, cx, cy, radius, spin, others, bright, faint) => {
   const ticks = Math.max(24, Math.round((Math.PI * 2 * radius) / 5));
-  for (let pass = 0; pass < 2; pass++) {
-    ctx.fillStyle = pass ? faint : bright;
-    for (let i = 0; i < ticks; i++) {
-      if (i % 4 >= 2) continue;
-      const ang = (i / ticks) * Math.PI * 2 + spin;
-      const x = cx + Math.cos(ang) * radius, y = cy + Math.sin(ang) * radius;
-      let inside = false;
-      for (const o of others) if ((x - o[0]) ** 2 + (y - o[1]) ** 2 < (o[2] - 2) ** 2) { inside = true; break; }
-      if (inside !== !!pass) continue;
-      ctx.fillRect(S(x) - 1, S(y) - 1, 3, 3);
-    }
-  }
-};
-// the boat marked: a ring of ticks on the water round her hull
-const boatMark = (ctx, x, y, spin, col) => {
-  ctx.fillStyle = col;
-  const n = 20;
-  for (let i = 0; i < n; i++) {
+  ctx.fillStyle = bright;
+  FAINT.length = 0;
+  for (let i = 0; i < ticks; i++) {
     if (i % 4 >= 2) continue;
-    const a = (i / n) * Math.PI * 2 + spin;
-    ctx.fillRect(S(x + Math.cos(a) * 19) - 1, S(y + 3 + Math.sin(a) * 7) - 1, 3, 2);
+    const ang = (i / ticks) * Math.PI * 2 + spin;
+    const x = S(cx + Math.cos(ang) * radius) - 1, y = S(cy + Math.sin(ang) * radius) - 1;
+    let inside = false;
+    for (let q = 0; q < others.length; q++) { const o = others[q]; if ((x + 1 - o[0]) ** 2 + (y + 1 - o[1]) ** 2 < (o[2] - 2) ** 2) { inside = true; break; } }
+    if (!inside) ctx.fillRect(x, y, 3, 3);
+    else if (faint && i % 8 < 2) FAINT.push(x, y);   // (inside: half as many, a hint of her own ring)
   }
+  if (!faint || !FAINT.length) return;
+  ctx.fillStyle = faint;
+  for (let q = 0; q < FAINT.length; q += 2) ctx.fillRect(FAINT[q], FAINT[q + 1], 3, 3);
+};
+// the boat marked: a small gold caret over her crew, bobbing with her (art
+// pixels, half a unit each; a hollow one where a new skiff would take station)
+const CARET = [[-6, 6], [-5, 5], [-4, 4], [-3, 3], [-2, 2], [-1, 1], [0, 0]];   // rows, top down: [from, to] across
+const caret = (ctx, x, y, hollow) => {
+  const cx = Math.round(x * 2), cy = Math.round(y * 2);
+  ctx.fillStyle = "#241a26";
+  CARET.forEach(([a, b], r) => ctx.fillRect((cx + a - 1) / 2, (cy + r - 1) / 2, (b - a + 3) / 2, 1));
+  ctx.fillRect(cx / 2 - 0.5, (cy + CARET.length) / 2, 1.5, 0.5);
+  CARET.forEach(([a, b], r) => {
+    if (hollow && r > 0 && r < CARET.length - 1) {
+      ctx.fillStyle = "#f0cc62";
+      ctx.fillRect((cx + a) / 2, (cy + r) / 2, 0.5, 0.5); ctx.fillRect((cx + b) / 2, (cy + r) / 2, 0.5, 0.5);
+      return;
+    }
+    ctx.fillStyle = r === 0 ? "#fff3d2" : "#f0cc62";
+    ctx.fillRect((cx + a) / 2, (cy + r) / 2, (b - a + 1) / 2, 0.5);
+  });
+};
+// Over the crowd (draw.js calls it after the actors): the selected hall's
+// skiffs, each marked, and where the new ones an armed upgrade adds would sit.
+export const drawSkiffMarks = (ctx, g, t, built) => {
+  if (!built || !t.units) return;
+  const lift = Math.round(Math.sin(g.time * 3) * 2) / 2;   // (a slow float on top of her own bob)
+  for (const u of t.units) if (u.state !== "dead") caret(ctx, u.x, u.y - (u.hp < u.maxHp ? 34 : 29) + skiffBob(g.time, u.id) + lift, false);
+  for (const [x, y] of newStations(g, t)) caret(ctx, x, y - 29 + lift, true);
+};
+// where the skiffs an armed upgrade adds would take station
+const newStations = (g, t) => {
+  if (!g.upPreview || g.upPreview.id !== t.id) return [];
+  const st = getStats(t), st2 = getStats({ ...t, ...g.upPreview.form }), n2 = st2.count || 1;
+  if (n2 <= (st.count || 1)) return [];
+  const rt = watchRoute(t.x, t.y), out = [];
+  if (rt) for (let i = t.units ? t.units.length : 0; i < n2; i++) out.push(rt.at((rt.total * (i + 1)) / (n2 + 1)));
+  return out;
 };
 
 // Each live skiff's musket reach while her hall is selected, following her
@@ -701,12 +752,7 @@ export const drawSkiffReach = (ctx, g, t, built) => {
   let st2 = null;
   if (g.upPreview && g.upPreview.id === t.id) st2 = getStats({ ...t, ...g.upPreview.form });
   const R2 = st2 && st2.range && Math.abs(st2.range - R) > 0.5 ? st2.range : 0;
-  // where the boats a new form adds would take station
-  const extra = [];
-  if (st2 && built && (st2.count || 1) > (st.count || 1)) {
-    const rt = watchRoute(t.x, t.y), n2 = st2.count || 1;
-    if (rt) for (let i = t.units ? t.units.length : 0; i < n2; i++) extra.push(rt.at((rt.total * (i + 1)) / (n2 + 1)));
-  }
+  const extra = built ? newStations(g, t) : [];
   if (!boats.length && !extra.length) return;
   // the fleet's reach laid down once, however many discs overlap
   ctx.fillStyle = "rgba(216,179,74,0.08)";
@@ -715,8 +761,7 @@ export const drawSkiffReach = (ctx, g, t, built) => {
   ctx.fill();
   const discs = boats.map((u) => [u.x, u.y, R]);
   boats.forEach((u, i) => {
-    ringTicks(ctx, u.x, u.y, R, spin + i * 0.7, discs.filter((_, q) => q !== i), "rgba(232,196,90,0.9)", "rgba(232,196,90,0.2)");
-    boatMark(ctx, u.x, u.y, -g.time * 1.6, "rgba(240,206,104,0.95)");
+    ringTicks(ctx, u.x, u.y, R, spin + i * 0.7, discs.filter((_, q) => q !== i), "rgba(232,196,90,0.9)", "rgba(232,196,90,0.13)");
   });
   if (R2 || extra.length) {
     const r2 = R2 || R;
@@ -731,8 +776,7 @@ export const drawSkiffReach = (ctx, g, t, built) => {
     all.forEach(([x, y], i) => {
       const isNew = i >= boats.length;
       if (!R2 && !isNew) return;
-      ringTicks(ctx, x, y, r2, -g.time * 0.8 + i * 0.7, discs2.filter((_, q) => q !== i), "rgba(255,236,150,1)", "rgba(255,236,150,0.32)");
-      if (isNew) boatMark(ctx, x, y, g.time * 1.6, "rgba(255,236,150,0.9)");
+      ringTicks(ctx, x, y, r2, -g.time * 0.8 + i * 0.7, discs2.filter((_, q) => q !== i), "rgba(255,236,150,1)", null);
     });
   }
 };

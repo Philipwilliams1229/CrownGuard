@@ -333,11 +333,15 @@ const risen = (ctx, p) => {
   // shoulder height: a flip pose, the upper arm foreshortened toward us), loose
   // (the string home, the hand flung back past the ear), and a reach over the
   // shoulder to the quiver with the bow lowered. hn "nock" = on the string.
-  const H = archer ? pick({ hn: N(0.6 + sw * 1.0, 4.9), hf: F(3.4 - sw * 0.3, 4.2), ab: -1.42 }, [
+  // `behind`: the bow is not held out clear ahead of him (the march, the reach),
+  // so it rides in the far hand on the far side, drawn behind the trunk and
+  // the skull; `back`: the string hand goes behind the head to the quiver
+  // (the elbow out behind: a flip pose), so the near arm is drawn under the hood.
+  const H = archer ? pick({ hn: N(0.6 + sw * 1.0, 4.9), hf: F(3.5 - sw * 0.3, 4.5), ab: -0.85 + sw * 0.04, behind: true }, [
     { hn: "nock", hf: F(5.6, 0.8), ab: UP + 0.2, arrow: true },
     { hn: N(0.9, -1.5), hf: F(5.8, -1.3), ab: UP + 0.03, arrow: true, draw: true },
     { hn: N(-0.3, -1.7), hf: F(5.8, -1.2), ab: UP + 0.02, draw: true, loosed: true },
-    { hn: N(-2.6, -3.3), hf: F(3.6, 3.8), ab: UP + 0.75 }])
+    { hn: N(-2.8, -1.3), hf: F(3.6, 3.8), ab: UP + 0.75, behind: true, back: true }])
   // the Risen: a notched sword hanging loose on the march; a clumsy hack from
   // over the shoulder (the bone arm straight up the back of the helm, so the
   // skull still reads), the broken shield held up
@@ -354,6 +358,8 @@ const risen = (ctx, p) => {
   });
   // the far arm (the shield arm, or the bow arm)
   const far = boneArm(ctx, shF, H.hf, A, bF, archer ? { up: darken(rot, 0.28), upW: 1.6 } : {});
+  const BR = 1.3;
+  if (archer && H.behind) { bow(ctx, far.hd[0], far.hd[1], H.ab, p.wcol || "#7a5a34", null, 6.6, BR); boneHand(ctx, far.hd[0], far.hd[1], 0.75, bF); }
   // legs of bare bone, a rag knotted round the near thigh
   boneLeg(ctx, R, o, "far", bF);
   boneLeg(ctx, R, o, "near", b, archer ? { rag: rot } : {});
@@ -387,6 +393,9 @@ const risen = (ctx, p) => {
   const nk = T(0.9, -7.6), hd = [nk[0] + hx0 + (st.fight ? 0.5 * st.drive : 0), nk[1] - 2.3];
   part(ctx, (c) => tube(c, nk[0] - 0.2, nk[1] + 0.2, hd[0] - 0.5, hd[1] + 1.8, 0.9, bF));
   const ha = st.lean * 0.3 + (!st.fight ? 0 : archer ? [0.04, 0.06, -0.04, -0.16][st.f] : [-0.04, -0.14, 0.06, 0.12][st.f]);
+  // the string hand to the quiver, behind the head (elbow out behind him)
+  const reach = () => { const h = boneArm(ctx, shN, H.hn, { ...A, flip: true }, b); boneHand(ctx, h.hd[0], h.hd[1], 0.75, b); };
+  if (archer && H.back) reach();
   if (archer) {
     hood(ctx, hd[0], hd[1], ha, p, 0.9, "back");
     skull(ctx, hd[0], hd[1], ha, p, { k: 0.88, open: st.hit ? 0.6 : 0 });
@@ -398,17 +407,21 @@ const risen = (ctx, p) => {
   // the near arm and what it holds
   if (archer) {
     // the bow in the far hand; the string hand on the nock, at the jaw, or away
-    const BR = 1.3, g = far.hd, to = along(g[0], g[1], H.ab);
+    const g = far.hd, to = along(g[0], g[1], H.ab);
     const Aa = H.draw ? { ...A, flip: true, short: 0.75 } : A;
     const tgt = H.hn === "nock" ? to(0, -BR) : H.hn;
     const hn = ik(shN[0], shN[1], tgt[0], tgt[1], A.up * (Aa.short || 1), A.fore, Aa.flip ? 1 : -1)[1];
-    bow(ctx, g[0], g[1], H.ab, p.wcol || "#7a5a34", H.arrow ? hn : null, 6.6, BR);
-    boneHand(ctx, g[0], g[1], 0.75, bF);
+    if (!H.behind) {
+      bow(ctx, g[0], g[1], H.ab, p.wcol || "#7a5a34", H.arrow ? hn : null, 6.6, BR);
+      boneHand(ctx, g[0], g[1], 0.75, bF);
+    }
     // the arrow keeps its length: from the nock through the bow hand
     if (H.arrow) { const dx = g[0] - hn[0], dy = g[1] - hn[1], L = Math.hypot(dx, dy) || 1; blackArrow(ctx, hn[0], hn[1], hn[0] + dx / L * 6.4, hn[1] + dy / L * 6.4, b); }
     if (H.loosed) { ctx.fillStyle = rgba(p.eyes || "#7ce0b8", 0.8); for (let i = 0; i < 3; i++) ctx.fillRect(g[0] + 3.2 + i * 1.6, g[1] - 0.2, 1.0, 0.45); }
-    const h = boneArm(ctx, shN, tgt, Aa, b);
-    boneHand(ctx, h.hd[0], h.hd[1], 0.75, b, st.fight && !H.arrow ? 1 : 0);
+    if (!H.back) {
+      const h = boneArm(ctx, shN, tgt, Aa, b);
+      boneHand(ctx, h.hd[0], h.hd[1], 0.75, b, st.fight && !H.arrow ? 1 : 0);
+    }
   } else {
     brokenShield(ctx, far.hd[0] + 0.7, far.hd[1] + 0.2, 2.3, 2.9, p.shcol || "#6a5238");
     const h = boneArm(ctx, shN, H.hn, A, b);

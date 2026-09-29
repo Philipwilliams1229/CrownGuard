@@ -959,7 +959,7 @@ export default function Crownguard() {
     // over them; they never squash below their words (the menu scrolls then)
     const row = { width: "100%", minHeight: 44, flex: compact ? "1 0 auto" : "0 0 auto", padding: compact ? "4px 6px 5px" : "6px 9px 7px", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: compact ? 2 : 3, textAlign: "left", position: "relative", overflow: "hidden" };
     const title = { fontSize: compact ? 11 : 12, fontWeight: 700, position: "relative", display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" };
-    // the small print is plain Verdana, never the planks' Silkscreen
+    // the small print is the body face, never the planks' display face
     const fine = { fontFamily: "var(--body)", fontWeight: "normal", textShadow: "none", fontSize: compact ? 9 : 10, lineHeight: 1.3, position: "relative" };
     // on a phone an order that is asleep or recharging keeps one line of its tale
     const oneLine = { alignSelf: "stretch", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };

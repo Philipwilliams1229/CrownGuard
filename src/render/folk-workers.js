@@ -53,43 +53,43 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // frame. Faces stay open: eye, nose and jaw show.
 const HK = 1.08;
 const inHead = (pts, x, y) => at(pts, x, y - 0.3, HK);
-// the winch and wheel crew: a snug leather cap with its ear flap down to
-// the jaw and tied under the chin, and the engineer's brass goggles pushed
-// up on the brow, their strap round the crown; his hair shows at the nape
-const ARMING_CAP = [[-2.55, -0.45, 1], [-2.75, -1.7], [-2.4, -2.9], [-1.1, -3.65], [0.6, -3.7], [1.8, -3.2], [2.4, -2.4], [2.45, -1.85, 1], [0.35, -1.55, 1], [0.15, 0.1], [0.0, 1.45, 1], [-0.8, 1.85, 1], [-1.55, 1.3, 1], [-1.65, -0.45, 1]];
+// the winch and wheel crew: a snug leather skullcap, darker than his coat,
+// with a rolled rim a clear row above the brow and a short tab down to the
+// top of the ear (never the jaw: brow, eye, cheek, ear and jaw all show,
+// and a tuft of hair at the nape), and the engineer's brass goggles pushed
+// up on the front of it, their strap round the crown
+const ARMING_CAP = [[2.45, -2.15, 1], [0.3, -1.95, 1], [-0.1, -1.1], [-0.5, -0.35, 1], [-1.3, -0.4, 1], [-1.6, -0.8], [-2.65, -0.7, 1], [-2.8, -1.8], [-2.4, -2.8], [-1.1, -3.4], [0.6, -3.45], [1.8, -3.05], [2.4, -2.55]];
+const NAPE = [[-1.45, -0.75], [-2.75, -0.65], [-2.6, 0.55], [-1.85, 0.95, 1], [-1.3, 0.25]];
 const BRASS = "#d8b34a";
 export const engineerHead = (ctx, x, y, pal) => {
-  const col = pal.hood, hy = y - 0.3, P = (px, py) => [x + px * HK, hy + py * HK];
-  head(ctx, x, y, { ...pal, hair: pal.hair || darken(pal.boots || col, 0.05) }, { hood: false });
+  const col = darken(pal.hood, 0.3), rim = lighten(pal.hood, 0.3), hy = y - 0.3, P = (px, py) => [x + px * HK, hy + py * HK];
+  head(ctx, x, y, { ...pal, hair: null }, { hood: false });
+  blob(ctx, inHead(NAPE, x, y), pal.hair || "#5a3a22", { hi: 0.3 });
   blob(ctx, inHead(ARMING_CAP, x, y), col, {
-    hi: 0.3, lo: 0.4, then: (c) => {
+    hi: 0.3, lo: 0.35, then: (c) => {
       c.lineCap = "round"; c.lineJoin = "round";
-      c.strokeStyle = lighten(col, 0.3); c.lineWidth = 0.9;                        // the rolled rim along the brow and round the back
-      c.beginPath(); c.moveTo(...P(2.45, -1.85)); c.lineTo(...P(0.35, -1.55)); c.stroke();
-      c.beginPath(); c.moveTo(...P(-1.65, -0.45)); c.lineTo(...P(-2.6, -0.45)); c.stroke();
-      c.strokeStyle = darken(col, 0.35); c.lineWidth = 0.45;                       // a stitch down the ear flap
-      c.beginPath(); c.moveTo(...P(-0.9, -1.0)); c.lineTo(...P(-0.85, 1.4)); c.stroke();
-      c.strokeStyle = darken(col, 0.55); c.lineWidth = 0.75;                       // the goggles' strap round the crown
-      c.beginPath(); c.moveTo(...P(1.9, -2.9)); c.quadraticCurveTo(...P(-0.4, -3.3), ...P(-2.8, -1.9)); c.stroke();
+      c.strokeStyle = rim; c.lineWidth = 0.75;                                     // the rolled rim along the brow and round the back
+      c.beginPath(); c.moveTo(...P(2.6, -2.5)); c.lineTo(...P(0.1, -2.3)); c.stroke();
+      c.beginPath(); c.moveTo(...P(-1.5, -1.15)); c.lineTo(...P(-2.9, -1.05)); c.stroke();
+      c.strokeStyle = darken(col, 0.3); c.lineWidth = 0.45;                        // a stitch down the ear tab
+      c.beginPath(); c.moveTo(...P(-0.55, -1.9)); c.lineTo(...P(-0.85, -0.6)); c.stroke();
+      c.strokeStyle = darken(col, 0.5); c.lineWidth = 0.75;                        // the goggles' strap round the crown
+      c.beginPath(); c.moveTo(...P(1.8, -2.75)); c.quadraticCurveTo(...P(-0.4, -3.1), ...P(-2.8, -1.9)); c.stroke();
     },
   });
   // the goggles, a brass-rimmed lens on the front of the crown
   part(ctx, (c) => {
-    const [gx, gy] = P(1.75, -2.95);
-    c.fillStyle = BRASS; c.beginPath(); c.ellipse(gx, gy, 1.0, 0.95, 0, 0, Math.PI * 2); c.fill();
+    const [gx, gy] = P(1.6, -2.7);
+    c.fillStyle = BRASS; c.beginPath(); c.ellipse(gx, gy, 0.95, 0.9, 0, 0, Math.PI * 2); c.fill();
     c.fillStyle = "#2e3a48"; c.beginPath(); c.ellipse(gx + 0.1, gy + 0.05, 0.5, 0.5, 0, 0, Math.PI * 2); c.fill();
     c.fillStyle = "#bfe6f0"; c.fillRect(gx - 0.25, gy - 0.35, 0.45, 0.45);
   });
-  // the chin strap, painted on the jaw (no ink of its own)
-  const [a0, a1] = P(-0.2, 1.4), [b0, b1] = P(1.3, 2.0);
-  ctx.save();
-  ctx.strokeStyle = darken(col, 0.3); ctx.lineWidth = 0.5; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(a0, a1); ctx.lineTo(b0, b1); ctx.stroke();
-  ctx.restore();
 };
-// the Goldworks clerk: a soft velvet beret on a gold band, its crown
-// slumped over the back of the head, a white quill tucked in the band
-const BERET = [[2.35, -1.75, 1], [2.65, -2.8], [1.7, -3.95], [-0.5, -4.5], [-2.8, -4.3], [-4.35, -3.45], [-4.3, -2.5], [-3.2, -2.15], [-2.3, -1.75, 1]];
+// the Goldworks clerk: a soft velvet beret on a gold band, worn flat and
+// slumped over the back of the head (a disc, not a dome: it keeps him
+// inside Goldworks' 30-high bake), a white quill tucked in the band and
+// raked back past the beret's edge
+const BERET = [[2.4, -1.75, 1], [2.7, -2.65], [1.8, -3.35], [-0.4, -3.55], [-2.8, -3.4], [-4.55, -2.95], [-4.55, -2.2], [-3.3, -1.95], [-2.3, -1.75, 1]];
 export const clerkHead = (ctx, x, y, pal) => {
   const col = pal.hood, hy = y - 0.3, P = (px, py) => [x + px * HK, hy + py * HK];
   head(ctx, x, y, { ...pal, hair: pal.hair || "#6a4a30" }, { hood: false });
@@ -97,45 +97,47 @@ export const clerkHead = (ctx, x, y, pal) => {
     hi: 0.38, lo: 0.45, then: (c) => {
       c.fillStyle = pal.trim || "#d8b34a";                                         // the band
       c.beginPath(); c.moveTo(...P(2.5, -1.7)); c.lineTo(...P(2.45, -2.2)); c.lineTo(...P(-2.4, -2.25)); c.lineTo(...P(-2.4, -1.6)); c.closePath(); c.fill();
-      c.strokeStyle = lighten(col, 0.5); c.lineWidth = 0.5;                        // the sheen on the velvet's puff
-      c.beginPath(); c.moveTo(...P(1.5, -3.5)); c.quadraticCurveTo(...P(-0.4, -4.1), ...P(-2.6, -3.8)); c.stroke();
+      c.strokeStyle = lighten(col, 0.5); c.lineWidth = 0.5;                        // the sheen on the velvet's crown
+      c.beginPath(); c.moveTo(...P(1.5, -3.0)); c.quadraticCurveTo(...P(-0.4, -3.4), ...P(-2.6, -3.2)); c.stroke();
       c.strokeStyle = darken(col, 0.4); c.lineWidth = 0.45;                        // the fold where it slumps over the back
-      c.beginPath(); c.moveTo(...P(-1.2, -2.5)); c.quadraticCurveTo(...P(-2.6, -2.7), ...P(-3.8, -2.6)); c.stroke();
+      c.beginPath(); c.moveTo(...P(-1.4, -2.45)); c.quadraticCurveTo(...P(-2.8, -2.6), ...P(-4.0, -2.4)); c.stroke();
     },
   });
-  // the quill, tucked in the band and raked back over the crown (it stays
-  // under y-26 from the feet, inside the halls' 30-high bakes, even on a breath)
+  // the quill, tucked in the band and raked back over the beret's edge,
+  // low enough to stay inside the halls' 30-high bakes even on a breath
   part(ctx, (c) => {
     c.lineCap = "round";
     c.strokeStyle = "#f4ecd8"; c.lineWidth = 0.95;
-    c.beginPath(); c.moveTo(...P(-0.9, -2.2)); c.quadraticCurveTo(...P(-2.4, -4.3), ...P(-4.4, -4.75)); c.stroke();
+    c.beginPath(); c.moveTo(...P(-0.9, -2.2)); c.quadraticCurveTo(...P(-2.9, -3.45), ...P(-5.5, -3.2)); c.stroke();
     c.strokeStyle = "#b8ac98"; c.lineWidth = 0.4;
-    c.beginPath(); c.moveTo(...P(-1.3, -2.6)); c.quadraticCurveTo(...P(-2.5, -4.0), ...P(-4.0, -4.45)); c.stroke();
+    c.beginPath(); c.moveTo(...P(-1.4, -2.55)); c.quadraticCurveTo(...P(-3.0, -3.2), ...P(-5.1, -3.0)); c.stroke();
   });
 };
 // the river watch: a steel kettle hat, its broad brim tipped down all
-// round, over a padded coif in the watch's colour that hides ears and nape
+// round, its underside at the brow so a clear row of skin shows above the
+// eye; under it only a padded coif at the nape in the watch's colour,
+// behind the ear, so ear, cheek, eye and jaw all read
 const STEEL = "#b4bac6";
-const COIF = [[-2.3, 1.9, 1], [-2.7, 0.2], [-2.5, -1.8], [0.6, -2.0], [0.35, -0.4], [0.25, 1.3], [-0.3, 2.1, 1]];
-const KETTLE_DOME = [[-2.25, -1.9, 1], [-2.2, -3.1], [-1.1, -4.3], [0.9, -4.3], [2.1, -3.2], [2.3, -1.9, 1]];
-const KETTLE_BRIM = [[-4.3, -1.25, 1], [-3.0, -2.35], [3.2, -2.35], [4.7, -1.3, 1], [3.1, -1.55], [-2.9, -1.55]];
+const COIF = [[-1.3, -1.7], [-1.2, 0.9], [-1.55, 1.95, 1], [-2.55, 1.85, 1], [-2.85, 0.3], [-2.7, -1.75]];
+const KETTLE_DOME = [[-2.25, -2.1, 1], [-2.3, -3.0], [-1.0, -3.62], [1.0, -3.62], [2.25, -3.0], [2.3, -2.1, 1]];
+const KETTLE_BRIM = [[-4.3, -1.5, 1], [-3.0, -2.5], [3.2, -2.5], [4.6, -1.55, 1], [3.1, -1.8], [-2.9, -1.8]];
 export const watchHead = (ctx, x, y, pal) => {
   const hy = y - 0.3, P = (px, py) => [x + px * HK, hy + py * HK];
   head(ctx, x, y, pal, { hood: false });
   blob(ctx, inHead(COIF, x, y), pal.hood, {
     hi: 0.3, lo: 0.4, then: (c) => {
       c.strokeStyle = darken(pal.hood, 0.35); c.lineWidth = 0.4;                   // quilting
-      for (const qx of [-1.9, -0.9]) { c.beginPath(); c.moveTo(...P(qx, -1.6)); c.lineTo(...P(qx + 0.1, 1.8)); c.stroke(); }
+      c.beginPath(); c.moveTo(...P(-2.0, -1.6)); c.lineTo(...P(-1.95, 1.8)); c.stroke();
     },
   });
   blob(ctx, inHead(KETTLE_DOME, x, y), STEEL, {
     hi: 0.45, lo: 0.5, then: (c) => {
-      c.fillStyle = pal.trim || "#c8b070"; c.fillRect(...P(-2.4, -2.45), 4.9 * HK, 0.55);   // the band of rivets
-      c.fillStyle = "#fff3d2"; c.fillRect(...P(-0.9, -3.9), 0.6, 0.6);           // the glint on the crown
+      c.fillStyle = pal.trim || "#c8b070"; c.fillRect(...P(-2.4, -2.95), 4.9 * HK, 0.55);   // the band of rivets
+      c.fillStyle = "#fff3d2"; c.fillRect(...P(-0.9, -3.5), 0.6, 0.6);            // the glint on the crown
     },
   });
   blob(ctx, inHead(KETTLE_BRIM, x, y), darken(STEEL, 0.08), {
-    hi: 0.5, lo: 0.55, then: (c) => { c.fillStyle = darken(STEEL, 0.5); c.fillRect(...P(-4.4, -1.75), 9.2 * HK, 0.6); },   // its shaded underside
+    hi: 0.5, lo: 0.55, then: (c) => { c.fillStyle = darken(STEEL, 0.5); c.fillRect(...P(-4.4, -2.05), 9.2 * HK, 0.6); },   // its shaded underside
   });
 };
 

@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Type lab</title>
+<!--
+  The type lab: every font identity in src/ui/fonts.js, side by side.
+    /type-lab.html                  every option, one specimen sheet each
+    /type-lab.html?opt=<id>         one option's sheet (what scripts/type-shots.mjs
+                                    saves as .shots/type_<id>_sheet.png)
+    /type-lab.html?survey=1         candidate faces, raw, with their metrics
+                                    against today's faces (for tuning sizes)
+    /type-lab.html?digits=1[&faces=A,B]   the digit test at true pixels
+  (?opt, not ?type: ?type would also switch the game's own option.)
+  The sheets use the real hud.css classes; each sheet sets its option's
+  variables on itself, and its canvas text asks for the option's stacks.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Press+Start+2P&display=swap" />
+<style>
+  html, body { margin: 0; background: #17121b; color: #e8e0c8; }
+  body { padding: 16px; }
+  .row { display: grid; grid-template-columns: 170px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid #3a3440; align-items: center; }
+  .nm { font: 12px monospace; color: #b9ab93; }
+  .nm b { color: #f0d27a; font-size: 13px; }
+  .met { font: 10px monospace; color: #8a8090; }
+  .dig { display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap; }
+  .mark { color: #f2cf4a; letter-spacing: 3px; text-shadow: 0 3px 0 #9a7424, 0 5px 0 #10131a, 3px 5px 0 #10131a; }
+  .tale { max-width: 300px; font-size: 10.5px; line-height: 1.4; }
+
+  /* the specimen sheet */
+  .sheet { width: 1100px; box-sizing: border-box; padding: 18px 20px 22px; margin-bottom: 24px; background: #20242c; border: 3px solid #0d0a10; }
+  .sheet-head { display: flex; align-items: baseline; gap: 14px; font: 13px monospace; color: #b9ab93; margin-bottom: 14px; border-bottom: 1px solid #3a3440; padding-bottom: 8px; }
+  .sheet-head b { font-size: 16px; color: #f0d27a; }
+  .sheet-grid { display: grid; grid-template-columns: 430px 1fr; gap: 18px; }
+  .title-card { background: linear-gradient(180deg, #3a4a7a 0%, #1c2450 100%); padding: 22px 18px 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .cap { font: 10px monospace; color: #7d7488; margin: 10px 0 4px; letter-spacing: 1px; }
+  .cap:first-child { margin-top: 0; }
+  .flexr { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script type="module">
+import "/src/ui/hud/hud.css";
+import { TYPES, TYPE_IDS, aliasOf, loadFaces, stacksOf, facesOf } from "/src/ui/fonts.js";
+
+const q = new URLSearchParams(location.search);
+const out = document.getElementById("out");
+const TALE = "Longbowmen on a timber tower. Slow, far and true: the first hall a realm needs, and the last to fall.";
+const DIGITS = "0O 1lI 5S 8B 2Z 3469 7";
+
+// ---- survey: candidate faces, raw ----
+const CANDIDATES = [
+  // pixel
+  ["Silkscreen", [400, 700]], ["Press Start 2P"], ["Jersey 10"], ["Jersey 15"], ["Jersey 20"], ["Jersey 25"],
+  ["Tiny5"], ["Micro 5"], ["VT323"], ["Handjet", [400, 700]], ["DotGothic16"], ["Workbench"],
+  ["Jacquard 12"], ["Jacquard 24"], ["Jacquarda Bastarda 9"], ["Sixtyfour"], ["Bytesized"], ["Coral Pixels"],
+  ["Doto", [400, 900]], ["Kode Mono", [400, 700]],
+  // medieval / storybook
+  ["Grenze Gotisch", [400, 700]], ["Grenze", [400, 700]], ["Cinzel", [400, 700]], ["Cinzel Decorative", [400, 700]],
+  ["IM Fell English SC"], ["IM Fell English"], ["Alegreya SC", [400, 700]], ["Alegreya", [400, 700]],
+  ["Alegreya Sans SC", [400, 700]], ["Almendra", [400, 700]], ["Almendra SC"], ["Pirata One"], ["UnifrakturMaguntia"],
+  ["MedievalSharp"], ["New Rocker"], ["Uncial Antiqua"], ["Texturina", [400, 700]], ["Germania One"], ["Fondamento"],
+  ["Metamorphous"], ["Cormorant SC", [500, 700]], ["Spectral SC", [400, 700]],
+];
+
+const metrics = (fam, w = 400) => {
+  const c = document.createElement("canvas").getContext("2d");
+  c.font = `${w} 100px ${fam}`;
+  const m = (s) => c.measureText(s);
+  const H = m("H"), x = m("x"), z = m("0");
+  return {
+    cap: H.actualBoundingBoxAscent, xh: x.actualBoundingBoxAscent, dig: z.actualBoundingBoxAscent + z.actualBoundingBoxDescent,
+    wCaps: m("CROWNGUARD").width, wDig: m("0123456789").width, wTale: m(TALE).width,
+  };
+};
+const f1 = (v) => v.toFixed(1);
+// today's faces come from index.html's link: load them before measuring
+const refsLoaded = () => Promise.all(['400 20px "Silkscreen"', '700 20px "Silkscreen"', '20px "Press Start 2P"']
+  .map((f) => document.fonts.load(f, "AZ09")));
+// Press Start 2P's effective scale under font-size-adjust 0.58, read off the DOM
+const psScale = () => {
+  const probe = (adj) => {
+    const s = document.createElement("span");
+    s.textContent = "0123456789";
+    s.style.cssText = `font-family:"Press Start 2P";font-size:100px;position:absolute;visibility:hidden;white-space:nowrap;font-size-adjust:${adj}`;
+    document.body.appendChild(s); const w = s.getBoundingClientRect().width; s.remove(); return w;
+  };
+  return probe("0.58") / probe("none");
+};
+
+async function survey() {
+  const faces = CANDIDATES.map(([family, wght]) => ({ family, size: 1, wght: wght || [400] }));
+  await loadFaces(faces); await refsLoaded();
+  await document.fonts.ready;
+  const ref = {
+    silk: metrics(`"Silkscreen"`), silkB: metrics(`"Silkscreen"`, 700), ps2p: metrics(`"Press Start 2P"`),
+    verd: metrics("Verdana, Geneva, sans-serif"), verdB: metrics("Verdana, Geneva, sans-serif", 700), mono: metrics("monospace", 700),
+  };
+  const psK = psScale();
+  const refLine = (n, r, k = 1) => `<div class="met">${n}: cap ${f1(r.cap * k)} x ${f1(r.xh * k)} dig ${f1(r.dig * k)} | wCaps ${f1(r.wCaps * k)} wDig ${f1(r.wDig * k)} wTale ${f1(r.wTale * k)}</div>`;
+  out.innerHTML = `<div class="nm">references (per 100px): Press Start 2P is shown at its 0.58-adjusted scale ${f1(psK * 100)}%</div>` +
+    refLine("Silkscreen", ref.silk) + refLine("Silkscreen 700", ref.silkB) + refLine("PS2P@0.58", ref.ps2p, psK) +
+    refLine("Verdana (here: its fallback)", ref.verd) + refLine("Verdana bold", ref.verdB) + refLine("monospace bold", ref.mono);
+  for (const f of faces) {
+    const fam = `'${aliasOf(f)}'`;
+    const m = metrics(fam), mb = f.wght.length > 1 ? metrics(fam, f.wght[f.wght.length - 1]) : m;
+    // suggested sizes: match the slot's reference height, never wider (+5%)
+    const fit = (hMe, hRef, wMe, wRef) => Math.min(hRef / hMe, (wRef * 1.05) / wMe);
+    const sug = {
+      ui: fit(m.cap, ref.silk.cap, m.wCaps, ref.silk.wCaps),
+      num: fit(m.dig, ref.ps2p.dig * psK, m.wDig, ref.ps2p.wDig * psK),
+      body: fit(m.xh, ref.verd.xh, m.wTale, ref.verd.wTale),
+      mark: fit(mb.cap, ref.verdB.cap, mb.wCaps, ref.verdB.wCaps),
+      board: fit(mb.cap, ref.mono.cap, mb.wCaps, ref.mono.wCaps),
+    };
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `<div class="nm"><b>${f.family}</b>${refLine("raw", m)}<div class="met">fit: ${Object.entries(sug).map(([k, v]) => `${k} ${v.toFixed(2)}`).join(" · ")}</div></div>
+      <div style="font-family:${fam}">
+        <div class="dig">
+          <span class="mark" style="font-size:40px;font-weight:700">CROWNGUARD</span>
+          <span style="font-size:${21 * sug.num}px;color:#f0d27a">${DIGITS}</span>
+          <span style="font-size:${21 * sug.num * 0.72}px;color:#f0d27a">${DIGITS}</span>
+          <span style="font-size:${12 * sug.ui}px">UPGRADE · SELL · FIRST · STRONG</span>
+        </div>
+        <div class="tale" style="font-size:${10.5 * sug.body}px">${TALE}</div>
+      </div>`;
+    out.appendChild(row);
+  }
+}
+
+async function digits() {
+  // the digit test at true pixels: chip size (21px) and phone scale (x0.72),
+  // each face at the size that matches today's digit height
+  const names = (q.get("faces") || "Press Start 2P,VT323,Kode Mono,Sixtyfour,Doto,Tiny5,Micro 5,DotGothic16,Workbench,Bytesized,Handjet,Jersey 10,Silkscreen,Grenze,Alegreya Sans SC,Cinzel,Texturina,Germania One,IM Fell English SC,Spectral SC").split(",");
+  const faces = names.map((family) => ({ family, size: 1, wght: [400] }));
+  await loadFaces(faces); await refsLoaded(); await document.fonts.ready;
+  const ref = metrics(`"Press Start 2P"`).dig * psScale();
+  for (const f of faces) {
+    const fam = `'${aliasOf(f)}'`, k = ref / metrics(fam).dig;
+    const row = document.createElement("div"); row.className = "row"; row.style.gridTemplateColumns = "150px 1fr";
+    row.innerHTML = `<div class="nm"><b>${f.family}</b> x${k.toFixed(2)}</div><div style="font-family:${fam};color:#f0d27a;text-shadow:2px 2px 0 #241a26">
+      <span style="font-size:${21 * k}px">0O 1lI 5S 8B 2Z 1250 380</span>&nbsp;&nbsp;&nbsp;<span style="font-size:${21 * k * 0.72}px">0O 1lI 5S 8B 2Z 1250 380</span>&nbsp;&nbsp;&nbsp;<span style="font-size:${10 * k}px">0O 1lI 5S 8B 2Z 1250</span></div>`;
+    out.appendChild(row);
+  }
+}
+
+// ---- the specimen sheets ----
+const INK = "#10131a";
+const GUIDE = "The Iron Kingdom marches in step behind its levies. Three shield pips on every levy: only steel breaks them, and while one stands, magic glances off and fire, poison and cold do nothing. Bring muskets, blades and bolts.";
+
+// canvas text the way the board paints it (draw.js banners; fx.js notices:
+// drawn, thresholded to hard pixels, banded in three tones and inked)
+function boardCanvas(st, id) {
+  const S = 2, cw = 560, ch = 150;
+  const cv = document.createElement("canvas");
+  cv.width = cw * S; cv.height = ch * S; cv.style.width = cw + "px"; cv.style.height = ch + "px";
+  const c = cv.getContext("2d");
+  c.scale(S, S);
+  c.fillStyle = "#6f9a48"; c.fillRect(0, 0, cw, ch);
+  c.fillStyle = "#9a7a52"; c.fillRect(0, 96, cw, 26);
+  const plain = !!TYPES[id].plain;
+  const font = (px, bold) => {
+    if (plain) return `${bold ? "bold " : ""}${px}px ${st.board}`;
+    const f = TYPES[id].slots.board, w = bold ? f.wght[f.wght.length - 1] : f.wght[0];
+    return `${w} ${px}px ${st.board}`;
+  };
+  // the wave banner (draw.js drawBanner)
+  const cy = 34, hh = 20;
+  c.fillStyle = "rgba(16,14,20,0.62)"; c.fillRect(0, cy - hh, cw, hh * 2);
+  c.fillStyle = "rgba(216,179,74,0.85)"; c.fillRect(0, cy - hh, cw, 2); c.fillRect(0, cy + hh - 2, cw, 2);
+  c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillStyle = "rgb(240,224,168)"; c.font = font(22, true);
+  const chars = [..."WAVE 12"], gap = 22 * 0.72 + 5;
+  let px = cw / 2 - ((chars.length - 1) * gap) / 2;
+  for (const k of chars) { c.fillText(k, Math.round(px), cy - 7); px += gap; }
+  c.font = font(11); c.fillStyle = "rgba(196,190,176,0.85)"; c.fillText("The Iron Kingdom · 34 foes", cw / 2, cy + 13);
+  // a notice sprite (fx.js textSprite, the non-digit path)
+  const sprite = (s, big) => {
+    const fs = big ? 26 : 20, pad = 3;
+    const m = document.createElement("canvas").getContext("2d"); m.font = font(fs, true);
+    const w = Math.ceil(m.measureText(s).width) + pad * 2 + 4, h = Math.ceil(fs * 1.25) + pad * 2;
+    const o = document.createElement("canvas"); o.width = w; o.height = h;
+    const x = o.getContext("2d", { willReadFrequently: true });
+    x.font = font(fs, true); x.textBaseline = "middle"; x.textAlign = "center"; x.fillStyle = "#fff"; x.fillText(s, w / 2, h / 2 + 1);
+    const img = x.getImageData(0, 0, w, h), d = img.data, top = h / 2 - fs * 0.4, bot = h / 2 + fs * 0.4;
+    const T = [[255, 246, 200], [244, 204, 80], [208, 150, 42]];
+    for (let y = 0; y < h; y++) {
+      const k = T[y < top + (bot - top) * 0.3 ? 0 : y < top + (bot - top) * 0.72 ? 1 : 2];
+      for (let xx = 0; xx < w; xx++) { const i = (y * w + xx) * 4; if (d[i + 3] > 110) { d[i] = k[0]; d[i + 1] = k[1]; d[i + 2] = k[2]; d[i + 3] = 255; } else d[i + 3] = 0; }
+    }
+    x.putImageData(img, 0, 0);
+    // a 2px ink ring (inkOutline, roughly)
+    const r = document.createElement("canvas"); r.width = w + 4; r.height = h + 4;
+    const rc = r.getContext("2d");
+    for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2], [-2, 2], [2, -2], [-1, 0], [1, 0], [0, -1], [0, 1]]) rc.drawImage(o, 2 + dx, 2 + dy);
+    rc.globalCompositeOperation = "source-in"; rc.fillStyle = "#241a26"; rc.fillRect(0, 0, r.width, r.height);
+    rc.globalCompositeOperation = "source-over"; rc.drawImage(o, 2, 2);
+    return r;
+  };
+  c.imageSmoothingEnabled = false;
+  const a = sprite("Boss incoming!", true), b = sprite("Castle wall +2", false);
+  c.drawImage(a, 30, 70, a.width / 2 * 1.4, a.height / 2 * 1.4);
+  c.drawImage(b, 330, 76, b.width / 2 * 1.4, b.height / 2 * 1.4);
+  // the hero's respawn count and PAUSED
+  c.fillStyle = "rgba(20,16,20,0.6)"; c.fillRect(250, 128, 24, 9);
+  c.fillStyle = "#e8d47a"; c.font = font(7, true); c.fillText("6s", 262, 133);
+  c.font = font(24, true); c.fillText("* PAUSED *", 430, 132);
+  return cv;
+}
+
+function mapSvg(st) {
+  const text = (x, y, s, size, extra) => `<text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="bold" font-family='${st.map}' ${extra}>${s}</text>`;
+  const rib = "I. THE GREENWOOD", rw = rib.length * 5.6 + 14;
+  return `<svg width="420" height="92" viewBox="0 0 210 46" shape-rendering="crispEdges" style="background:#5c8ab0">
+    <rect x="12" y="8" width="70" height="10" fill="#ead9aa" stroke="#2a1f1a" stroke-width="0.7"/>
+    ${text(47, 8 + 5 + 6.8 * 0.36, "Foxmere Ford", 6.8, 'fill="#3b2a1c"')}
+    <rect x="12" y="26" width="70" height="10" fill="#ead9aa" stroke="#2a1f1a" stroke-width="0.7"/>
+    ${text(47, 26 + 5 + 6.8 * 0.36, "The Cairnfields", 6.8, 'fill="#3b2a1c"')}
+    <rect x="98" y="16" width="${rw}" height="11" fill="#a8505c" stroke="#2a1f1a" stroke-width="0.9"/>
+    ${text(98 + rw / 2, 16 + 5.5 + 2.9, rib, 8, 'letter-spacing="1.2" fill="#f2dc8a" stroke="#2a1f1a" stroke-width="1.6" paint-order="stroke"')}
+  </svg>`;
+}
+
+function sheet(id) {
+  const t = TYPES[id], st = stacksOf(id);
+  const el = document.createElement("div");
+  el.className = "sheet";
+  // the option's variables, on the sheet (they beat :root's)
+  const vars = { "--mark": st.mark, "--title": st.title, "--display": st.ui, "--menu": st.menu, "--numeric": st.num, "--body": st.body, "--map": st.map, "--num-adjust": t.numAdjust || "none" };
+  for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
+  if (!t.plain) el.style.fontSynthesis = "none";
+  const fams = t.plain ? ["Silkscreen", "Press Start 2P", "Verdana", "monospace"] : [...new Set(Object.values(t.slots).map((f) => f.family))];
+  const menuBtn = (label, gold, sub) => `<button style="font-family:var(--menu);font-weight:bold;cursor:pointer;border:2px solid #241a26;border-radius:0;width:100%;text-align:center;padding:14px 12px;min-height:52px;font-size:14px;letter-spacing:2px;${gold
+    ? "background:#b8902e;color:#2e2016;box-shadow:inset -3px -3px 0 #7e5f1c, inset 3px 3px 0 #ecc85c"
+    : "background:#6b4a2e;color:#f2e6c4;box-shadow:inset -2px -2px 0 #43301e, inset 2px 2px 0 #8a6440"}">${label}${sub ? `<div style="font-size:9px;letter-spacing:1px;opacity:0.85;margin-top:4px;font-weight:normal">${sub}</div>` : ""}</button>`;
+  const chips = `<div class="flexr">
+      <div class="cg-panel cg-chip"><span style="width:18px;height:18px;background:#e8c14a;border:2px solid #241a26;border-radius:50%"></span><span class="cg-num" style="color:var(--gold-lt);min-width:34px">1250</span></div>
+      <div class="cg-panel cg-chip"><span style="width:16px;height:14px;background:#e0574c;border:2px solid #241a26"></span><span class="cg-num" style="color:var(--cream)">18</span><span class="cg-display" style="font-size:13px;color:var(--muted);margin-left:-3px">/20</span></div>
+      <div class="cg-panel" style="padding:6px 10px;display:flex;flex-direction:column;align-items:center"><span class="cg-label" style="font-size:10px;color:var(--muted)">Wave</span><b class="cg-num" style="font-size:15px;color:var(--cream)">12/40</b></div>
+      <span class="cg-num" style="font-size:21px;color:var(--gold-lt)">0O 1lI 5S 8B 2Z</span>
+    </div>`;
+  const card = `<div class="cg-frame" style="width:300px;padding:12px">
+      <div class="cg-label" style="font-size:12px;margin-bottom:8px">Longbow Hall · Level 2</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <button class="cg-btn" style="min-height:34px">First</button><button class="cg-btn" style="min-height:34px">Strong</button>
+      </div>
+      <button class="cg-btn cg-btn--parch" style="width:100%;margin-top:10px;padding:7px 10px 8px;justify-content:space-between;gap:10px">
+        <span style="display:flex;flex-direction:column;gap:3px;min-width:0">
+          <span class="cg-label">Upgrade · Level 3</span>
+          <span class="cg-display" style="font-size:13px;font-weight:700">Yew Longbows</span>
+          <span style="font-size:10px;line-height:1.35;color:#5a4630">${TALE}</span>
+        </span>
+        <span class="cg-price" style="font-size:16px">180</span>
+      </button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        <span style="font-family:var(--body);font-size:10px;color:var(--muted)">14 kills · 23 dps</span>
+        <button class="cg-btn cg-btn--red" style="min-height:36px">Sell <span class="cg-price">45</span></button>
+      </div>
+    </div>`;
+  el.innerHTML = `
+    <div class="sheet-head"><b>${t.name}</b><span>?type=${id}</span><span>${fams.join(" + ")}</span></div>
+    <div style="font:12px monospace;color:#b9ab93;margin:-6px 0 12px">${t.sketch}</div>
+    <div class="sheet-grid">
+      <div>
+        <div class="cap">TITLE SCREEN</div>
+        <div class="title-card">
+          <h1 style="margin:0;font-family:var(--mark);font-weight:bold;color:#f2cf4a;white-space:nowrap;font-size:50px;letter-spacing:6px;text-shadow:0 3px 0 #9a7424, 0 5px 0 ${INK}, 3px 5px 0 ${INK}, -2px 0 0 ${INK}, 2px 0 0 ${INK}, 0 -2px 0 ${INK}">CROWNGUARD</h1>
+          <div style="font-family:var(--body);font-size:12px;letter-spacing:1.5px;color:#f6ead0;text-shadow:1px 1px 0 ${INK}">Hold the road. The castle must not fall.</div>
+          <div style="width:100%;display:flex;flex-direction:column;gap:10px">
+            ${menuBtn("CONTINUE CAMPAIGN", true, "4/24 held · next: Foxmere Ford")}
+            <div style="display:flex;gap:10px">${menuBtn("FREE PLAY")}${menuBtn("FIELD GUIDE")}</div>
+          </div>
+        </div>
+        <div class="cap">SCREEN TITLE · FIELD GUIDE ENTRY (body)</div>
+        <div class="cg-hud" style="background:#2e2633;padding:12px 14px;border:2px solid #241a26">
+          <div style="font-family:var(--title);font-weight:bold;font-size:24px;letter-spacing:3px;color:#d8b34a;text-shadow:2px 2px 0 #241a26">WAR COUNCIL</div>
+          <div class="cg-label" style="margin:8px 0 4px">The Iron Kingdom</div>
+          <div style="font-family:var(--body);font-size:11px;line-height:1.5;color:#e8e0c8">${GUIDE}</div>
+        </div>
+        <div class="cap">CAMPAIGN MAP LABELS (x2)</div>
+        ${mapSvg(st)}
+      </div>
+      <div class="cg-hud">
+        <div class="cap">HUD CHIPS (21px) · 0/O 1/l/I 5/S 8/B 2/Z</div>
+        ${chips}
+        <div class="cap">AT PHONE SCALE 0.72</div>
+        <div style="zoom:0.72">${chips}</div>
+        <div class="cap">THE TOWER CARD (ui, num, body) — AND AT 0.72</div>
+        <div class="flexr" style="align-items:flex-start">${card}<div style="zoom:0.72">${card}</div></div>
+        <div class="cap">THE BOARD'S CANVAS TEXT (banner, notices, PAUSED)</div>
+        <div class="board"></div>
+        <div class="cg-banner won" style="display:inline-block;margin-top:10px;font-family:var(--title)">VICTORY</div>
+      </div>
+    </div>`;
+  out.appendChild(el);
+  return { el, st };
+}
+
+async function sheets(one) {
+  const ids = one && TYPES[one] ? [one] : TYPE_IDS;
+  // try a variation without touching fonts.js: &set=title:Grenze Gotisch:1:700,mark:...
+  if (one && q.get("set") && !TYPES[one].plain) {
+    for (const part of q.get("set").split(",")) {
+      const [slot, family, size, w] = part.split(":");
+      TYPES[one].slots[slot] = { family, size: Number(size) || 1, wght: w ? w.split("-").map(Number) : [400] };
+    }
+  }
+  await Promise.all(ids.map((id) => loadFaces(facesOf(id)))); await refsLoaded();
+  await document.fonts.ready;
+  for (const id of ids) {
+    const { el, st } = sheet(id);
+    el.querySelector(".board").appendChild(boardCanvas(st, id));
+  }
+  document.body.dataset.ready = "1";
+}
+
+// ---- distinctness: how different each confusable pair is, in pixels ----
+// Each glyph is drawn alone at the size it gets in a HUD chip (21px, and
+// x0.72 on a phone), thresholded; the score is the share of inked pixels the
+// two do NOT share (0 = the same glyph, 1 = nothing in common).
+const PAIRS = ["0O", "1l", "1I", "5S", "8B", "2Z", "6b", "9g"];
+function pairScore(font, a, b, px) {
+  const S = 64;
+  const ink = (ch) => {
+    const c = document.createElement("canvas"); c.width = c.height = S;
+    const x = c.getContext("2d", { willReadFrequently: true });
+    x.font = font.replace("{px}", px); x.textAlign = "center"; x.textBaseline = "alphabetic"; x.fillStyle = "#000";
+    x.fillText(ch, S / 2, S * 0.72);
+    const d = x.getImageData(0, 0, S, S).data, m = new Uint8Array(S * S);
+    for (let i = 0; i < S * S; i++) m[i] = d[i * 4 + 3] > 110 ? 1 : 0;
+    return m;
+  };
+  const A = ink(a), B = ink(b);
+  let both = 0, one = 0;
+  for (let i = 0; i < A.length; i++) { if (A[i] && B[i]) both++; else if (A[i] || B[i]) one++; }
+  return one / Math.max(1, both + one);
+}
+async function distinct() {
+  await Promise.all(TYPE_IDS.map((id) => loadFaces(facesOf(id)))); await refsLoaded(); await document.fonts.ready;
+  const rows = [];
+  for (const id of TYPE_IDS) {
+    const t = TYPES[id], st = stacksOf(id);
+    const w = t.plain ? 400 : t.slots.num.wght[0];
+    // today's digits carry font-size-adjust 0.58 (x0.77); the new ones carry it in the face
+    const k = t.plain ? 0.77 : 1;
+    const font = `${w} {px}px ${st.num}`;
+    const sc = (px) => PAIRS.map((p) => pairScore(font, p[0], p[1], px * k).toFixed(2));
+    rows.push(`<tr><td><b>${t.name}</b></td><td>${(t.plain ? "Press Start 2P" : t.slots.num.family)}</td>${sc(21).map((v) => `<td>${v}</td>`).join("")}<td>|</td>${sc(15).map((v) => `<td>${v}</td>`).join("")}</tr>`);
+  }
+  if (q.get("faces")) {
+    // candidates, each at the size that matches today's digit height
+    const fams = q.get("faces").split(",");
+    const faces = fams.map((family) => ({ family, size: 1, wght: [400] }));
+    await loadFaces(faces); await document.fonts.ready;
+    const ref = metrics(`"Press Start 2P"`).dig * 0.77;
+    for (const f of faces) {
+      const fam = `'${aliasOf(f)}'`, k = ref / metrics(fam).dig, font = `400 {px}px ${fam}`;
+      const sc = (px) => PAIRS.map((p) => pairScore(font, p[0], p[1], px * k).toFixed(2));
+      rows.push(`<tr><td>candidate</td><td>${f.family} x${k.toFixed(2)}</td>${sc(21).map((v) => `<td>${v}</td>`).join("")}<td>|</td>${sc(15).map((v) => `<td>${v}</td>`).join("")}</tr>`);
+    }
+  }
+  out.innerHTML = `<table class="nm" style="border-spacing:10px 4px"><tr><td></td><td>num face</td>${PAIRS.map((p) => `<td>${p}</td>`).join("")}<td>|</td>${PAIRS.map((p) => `<td>${p}</td>`).join("")}</tr>
+    <tr><td></td><td></td><td colspan="${PAIRS.length}">at 21px (the chip)</td><td></td><td colspan="${PAIRS.length}">at 15px (the chip on a phone)</td></tr>${rows.join("")}</table>`;
+  document.body.dataset.ready = "1";
+}
+
+if (q.get("survey")) survey();
+else if (q.get("distinct")) distinct();
+else if (q.get("digits")) digits();
+else sheets(q.get("opt"));
+</script>
+</body>
+</html>

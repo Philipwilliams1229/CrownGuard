@@ -259,7 +259,13 @@ const drawSkiff = (ctx, u, t, time) => {
   // under way? The engine keeps no speed, so remember where she was.
   let m = SKIFF_SEEN.get(u);
   if (!m) { m = { x: u.x, y: u.y, moved: -1e9, hunt: u.state === "moving", turned: -1e9 }; SKIFF_SEEN.set(u, m); }
-  if (Math.abs(u.x - m.x) + Math.abs(u.y - m.y) > 0.02) { m.moved = time; m.x = u.x; m.y = u.y; }
+  if (m.hx === undefined) { m.hx = u.face || 1; m.hy = 0; }
+  if (Math.abs(u.x - m.x) + Math.abs(u.y - m.y) > 0.02) {
+    // her heading, eased, so the wake trails the way she really goes
+    const dx = u.x - m.x, dy = u.y - m.y, l = Math.hypot(dx, dy);
+    if (l < 12) { m.hx = m.hx * 0.7 + (dx / l) * 0.3; m.hy = m.hy * 0.7 + (dy / l) * 0.3; }
+    m.moved = time; m.x = u.x; m.y = u.y;
+  }
   const hunting = u.state === "moving";
   if (hunting !== m.hunt) { m.hunt = hunting; m.turned = time; }
   const underway = Math.abs(time - m.moved) < 0.3;
@@ -267,13 +273,18 @@ const drawSkiff = (ctx, u, t, time) => {
   // the wake and the ripples keep to the open water: cut at a bank, a
   // pond's shore, the beach and a bridge's deck (waterreach.js)
   ctx.save();
-  if (clipToWater(ctx, u.x - 40, u.y - 2, u.x + 40, u.y + 14)) {
+  if (clipToWater(ctx, u.x - 40, u.y - 20, u.x + 40, u.y + 26)) {
     if (underway) {
+      // three streaks, wider as they fall behind her: astern along the way
+      // she rows (side-on she is long, end-on short, so the streaks sit
+      // closer astern up and down a river than along one)
+      const hl = Math.hypot(m.hx, m.hy) || 1, hx = m.hx / hl, hy = m.hy / hl;
+      const reach = Math.abs(hx) + Math.abs(hy) * 0.55;
       ctx.fillStyle = "rgba(226,240,246,0.45)";
       for (let i = 0; i < 3; i++) {
-        const back = -u.face * (11 + i * 7);
+        const back = (11 + i * 7) * reach;
         const spread = 4 + i * 3;
-        ctx.fillRect(S(u.x + back - spread), S(u.y + 5 + Math.sin(time * 3 + u.id + i) * 1.5), spread * 2, CELL);
+        ctx.fillRect(S(u.x - hx * back - spread), S(u.y + 5 - hy * back + Math.sin(time * 3 + u.id + i) * 1.5), spread * 2, CELL);
       }
     } else {
       // lying to: a ring of ripple slides off her bow and stern

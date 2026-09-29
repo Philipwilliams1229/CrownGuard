@@ -11,6 +11,7 @@
 import { CHAPTERS, LEVELS as ALL_LEVELS, isUnlocked } from "../data/campaign.js";
 import { MAX_STARS } from "../data/profile.js";
 import { hash, darken, rgb, ball, blobBall, cone, inkOutline } from "../render/paint.js";
+import { canvasFont } from "./fonts.js";
 
 export const U = 2;                         // art pixels per map unit
 export const MAP = { x: 0, y: -250, w: 770, h: 690 };
@@ -527,7 +528,7 @@ export const LABEL_SIDE = { foxmere: "a", ravenscar: "a", muster: "a", ir5: "a",
 export const LABEL_FONT = 6.8;   // map units
 let MEASURE = null;
 export const textW = (t) => {
-  if (!MEASURE) { MEASURE = mk(8, 8).getContext("2d", RF); MEASURE.font = `bold ${LABEL_FONT * 10}px Verdana, Geneva, sans-serif`; }
+  if (!MEASURE) { MEASURE = mk(8, 8).getContext("2d", RF); MEASURE.font = canvasFont("map", LABEL_FONT * 10, true); }
   return MEASURE.measureText(t).width / 10;
 };
 export const labelBox = (lv) => {

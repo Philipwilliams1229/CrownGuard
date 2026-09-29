@@ -5,7 +5,7 @@
 // folk-archer.js, folk-casters.js, folk-workers.js and folk-gunners.js; the
 // build crew in folk.js.
 
-import { lighten, darken, rgba, ball, lin, part } from "./paint.js";
+import { lighten, darken, mix as mixCol, rgba, ball, lin, part } from "./paint.js";
 
 // A rounded limb between two points, shaded across its width. `limbStroke`
 // paints it into a part already open; `limb` makes it a part of its own.
@@ -43,11 +43,16 @@ export const pathPts = (c, pts) => {
   }
   c.closePath();
 };
-export const blob = (ctx, pts, col, o = {}) => part(ctx, (c) => {
+// `fillLit` paints the closed path lit across its bounds into a part already
+// open (several shapes that ink as ONE); `blob` makes it a part of its own.
+export const fillLit = (c, pts, col, o = {}) => {
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   pathPts(c, pts);
   c.fillStyle = lin(c, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), [[0, lighten(col, o.hi ?? 0.3)], [0.5, col], [1, darken(col, o.lo ?? 0.42)]]);
   c.fill();
+};
+export const blob = (ctx, pts, col, o = {}) => part(ctx, (c) => {
+  fillLit(c, pts, col, o);
   if (o.then) { c.save(); pathPts(c, pts); c.clip(); o.then(c); c.restore(); }
 });
 export const at = (pts, x, y, k = 1) => pts.map(([px, py, cn]) => (cn ? [x + px * k, y + py * k, 1] : [x + px * k, y + py * k]));
@@ -207,8 +212,10 @@ export const keyed = (keys, p, o = {}) => {
 };
 
 // A cap over a bare head: a crown and a brim that juts forward (+x).
+// o.lift raises the whole cap (brim and crown) off the eye line: at 0 its
+// brim's ink sits on the eye (the build crew's caps, folk.js); 0.5 shows it.
 export const cap = (ctx, x, y, col, o = {}) => {
-  const hy = y - 0.3, w = o.wide ? 1.9 : 1;
+  const hy = y - 0.3 - (o.lift || 0), w = o.wide ? 1.9 : 1;
   blob(ctx, [[x - 2.6 * w, hy - 1.8, 1], [x + 3.2 * w, hy - 1.8, 1], [x + 3.4 * w, hy - 1.1, 1], [x - 2.8 * w, hy - 1.1, 1]], darken(col, 0.1), { hi: 0.3 });
   blob(ctx, [[x - 2.4, hy - 1.6, 1], [x - 2.2, hy - 3.3], [x - 0.2, hy - (o.tall ? 5.2 : 4.1)], [x + 2.0, hy - 3.4], [x + 2.5, hy - 1.6, 1]], col, {
     hi: 0.35, then: (c) => { if (o.band) dab(c, x - 2.6, hy - 2.6, 5.4, 0.8, o.band); },
@@ -229,18 +236,39 @@ export const cap = (ctx, x, y, col, o = {}) => {
 // pal.hair what shows under it.
 //   "falconer"  a soft hunting hat (a bycocket): a round crown, the brim
 //               drawn to a point over the brow and turned up high behind,
-//               a long plume swept back from the band (o.plume: an extra
-//               sweep in radians, + lifts it, − lets it trail down, for the
-//               figure's secondary motion; o.plumeCol), and under it a braid
-//               down the back (pal.hair; o.braid false: none)
-//   "wrap"      the Covert's close wrap: a cloth bound round the skull from
-//               the brow to the nape and pulled up over the nose and jaw, so
-//               only the eye shows in its slit; a knot behind with two tails
-//               (pal.trim) that stream back (o.tails: their sweep, + lifts)
+//               a hawk's tail feather swept back from the band (tawny,
+//               barred, a dark tip: never the cream of the birds' heads nor
+//               a clerk's white quill; o.plumeCol for another), and under
+//               it a braid down the back (pal.hair; o.braid false: none).
+//               o.plume: the feather's extra sweep in radians about its
+//               quill's root, for the figure's secondary motion: + LIFTS it
+//               (stands it up, as when she pulls back), − lays it flat and
+//               trailing (as she throws forward)
+//   "wrap"      the Covert's close wrap: a dark cloth (pal.hood) bound round
+//               the skull from the brow to the nape, and a scarf (pal.trim,
+//               a shade darker; o.maskCol) pulled up over the nose and jaw
+//               and knotted behind, its two tails streaming back. The eye,
+//               brow and the bridge of the nose show in the slit between
+//               them. o.tails: the tails' extra sweep, + LIFTS them (the
+//               crouch), − lets them hang
+//   "grenadier" the bombardier's fur cap: a short flat-topped drum of rough
+//               dark fur (pal.hood), a cloth bag (o.bag, red) falling from
+//               its crown behind, and a brass plate on the front with a
+//               burning grenade on it — the bomb-thrower's badge. The fur's
+//               edge sits on the brow, so the eye shows under it
+//   "chaperon"  the alchemist's (a scholar's) hat: a padded roundlet round
+//               the head (pal.hood, twisted with pal.trim), a gathered puff
+//               of cloth over the crown and the cornette's short end hanging
+//               behind to the ear. Round and soft, never a point, never a
+//               curtain down the neck (that is a hood again)
+// Signs: every sweep here turns the piece about its root the way the head's
+// own tilt does (+ is clockwise on screen for a figure facing +x), so for
+// anything that trails back off the head + raises it and − drops it.
 // Anything held up in front of the face is drawn after the hat; anything
 // raised behind the head before head().
 const HEAD_K = 1.08;
 const HAIR = "#4a2e20";
+const PLUME = "#b07844";                    // a hawk's tawny tail feather
 // a closed shape in the head's frame, lit and inked as its own part
 const headBlob = (ctx, x, hy, pts, col, o) => blob(ctx, at(pts, x, hy, HEAD_K), col, o);
 // rotate head-frame points [x, y(, 1)] about (px, py) by a
@@ -251,7 +279,6 @@ const turn = (pts, px, py, a) => {
 const HATS = {
   falconer: (ctx, x, hy, pal, o) => {
     const felt = pal.hood, band = pal.trim || darken(felt, 0.35);
-    const plumeCol = o.plumeCol || lighten(pal.trim || "#e8e0c8", 0.35);
     const hair = pal.hair || HAIR;
     // the braid, from under the hat's back down between the shoulders
     if (o.braid !== false) {
@@ -260,14 +287,23 @@ const HATS = {
       });
       headBlob(ctx, x, hy, [[-2.2, -1.6], [-2.4, 0.3], [-1.2, 0.6, 1], [-1.0, -0.8]], hair, { hi: 0.3 });   // under the brim, over the ear's back
     }
-    // the plume, swept back from the band (behind the crown)
-    const sw = -(o.plume || 0), pv = (pts) => at(turn(pts, -1.3, -2.9, sw), x, hy, HEAD_K);
-    blob(ctx, pv([[-0.9, -3.1], [-1.8, -5.0], [-3.5, -6.3], [-5.3, -6.6], [-6.5, -6.1, 1], [-5.0, -5.7], [-3.4, -5.3], [-2.2, -4.2], [-1.6, -2.7]]), plumeCol, {
-      hi: 0.25, lo: 0.3, then: (c) => {
-        const q = pv([[-1.3, -3.0], [-2.1, -4.8], [-3.9, -5.9], [-6.2, -6.1]]);
-        c.strokeStyle = darken(plumeCol, 0.35); c.lineWidth = 0.4;                    // the quill down the vane
-        c.beginPath(); c.moveTo(...q[0]); c.quadraticCurveTo(...q[1], ...q[2]); c.lineTo(...q[3]); c.stroke();
-      },
+    // the plume, a hawk's tail feather swept back from the band (behind the
+    // crown): drawn 0.85 of its old length about its root, so it clears the
+    // perches and the wheel behind her
+    const plumeCol = o.plumeCol || PLUME, bar = darken(plumeCol, 0.55);
+    const sw = o.plume || 0;
+    const pv = (pts) => at(turn(pts.map(([u, v, cn]) => [-1.3 + (u + 1.3) * 0.85, -2.9 + (v + 2.9) * 0.85, cn]), -1.3, -2.9, sw), x, hy, HEAD_K);
+    const vane = pv([[-0.9, -3.1], [-1.8, -5.0], [-3.5, -6.3], [-5.3, -6.6], [-6.5, -6.1, 1], [-5.0, -5.7], [-3.4, -5.3], [-2.2, -4.2], [-1.6, -2.7]]);
+    part(ctx, (c) => {
+      fillLit(c, vane, plumeCol, { hi: 0.25, lo: 0.3 });
+      c.save(); pathPts(c, vane); c.clip();
+      c.strokeStyle = bar; c.lineWidth = 0.7; c.lineCap = "butt";                     // two dark bars across the vane
+      for (const [a, b] of [[[-3.7, -4.2], [-2.1, -6.6]], [[-5.0, -5.0], [-4.0, -7.1]]]) { const [p, q] = pv([a, b]); c.beginPath(); c.moveTo(...p); c.lineTo(...q); c.stroke(); }
+      c.fillStyle = bar; pathPts(c, pv([[-5.7, -7.6, 1], [-7.6, -7.6, 1], [-7.6, -4.6, 1], [-5.7, -4.6, 1]])); c.fill();   // and the dark tip
+      const q = pv([[-1.3, -3.0], [-2.1, -4.8], [-3.9, -5.9], [-5.6, -6.1]]);
+      c.strokeStyle = lighten(plumeCol, 0.3); c.lineWidth = 0.35;                    // the pale quill down the vane
+      c.beginPath(); c.moveTo(...q[0]); c.quadraticCurveTo(...q[1], ...q[2]); c.lineTo(...q[3]); c.stroke();
+      c.restore();
     });
     // the crown, then the brim: peaked over the brow, turned up behind
     headBlob(ctx, x, hy, [[-2.3, -1.8], [-2.3, -3.5], [-1.0, -4.8], [0.9, -4.8], [2.1, -3.6], [2.3, -1.9, 1]], felt, {
@@ -276,26 +312,69 @@ const HATS = {
     headBlob(ctx, x, hy, [[-3.5, -4.3, 1], [-2.4, -2.8], [-0.4, -2.3], [2.2, -2.1], [4.2, -1.3, 1], [2.2, -1.2], [-0.8, -1.4], [-2.6, -1.7], [-3.1, -2.6]], darken(felt, 0.08), { hi: 0.4, lo: 0.4 });
   },
   wrap: (ctx, x, hy, pal, o) => {
-    const cloth = pal.hood, tail = pal.trim || lighten(cloth, 0.3);
-    // the tails, knotted behind and streaming back
-    const tw = -(o.tails || 0);
-    headBlob(ctx, x, hy, turn([[-2.2, -1.2], [-3.8, -1.1], [-5.6, -0.2], [-6.4, 0.6, 1], [-5.0, 0.5], [-3.5, 0.2], [-2.3, 0.0]], -2.3, -0.6, tw), tail, { hi: 0.3 });
-    headBlob(ctx, x, hy, turn([[-2.4, -0.4], [-3.4, 0.9], [-4.4, 2.6], [-4.6, 3.6, 1], [-3.7, 2.4], [-2.8, 1.2], [-2.0, 0.4]], -2.3, -0.6, tw * 0.6), darken(tail, 0.15), { hi: 0.3 });
-    // the wrap over the skull, down the back of the neck: its front edge at
-    // the brow, the ear under it
-    headBlob(ctx, x, hy, [[-2.5, 1.2], [-2.6, -1.4], [-1.7, -2.8], [0.3, -3.1], [1.9, -2.7], [2.6, -1.6], [2.4, -1.2, 1], [0.6, -1.25], [-0.3, -1.1], [-0.8, 0.4], [-1.5, 1.4]], cloth, {
-      hi: 0.3, lo: 0.4, then: (c) => {
+    const cloth = pal.hood, scarf = pal.trim || lighten(cloth, 0.3), mask = o.maskCol || darken(scarf, 0.18);
+    const tw = o.tails || 0, T = (pts, a) => at(turn(pts, -2.3, -0.6, a), x, hy, HEAD_K);
+    // the scarf's knot behind the head and its two tails streaming back, ONE
+    // part (no ink between them); the wrap covers its root
+    part(ctx, (c) => {
+      fillLit(c, T([[-2.2, -1.2], [-3.8, -1.1], [-5.6, -0.2], [-6.4, 0.6, 1], [-5.0, 0.5], [-3.5, 0.2], [-2.3, 0.0]], tw), scarf, { hi: 0.3 });
+      fillLit(c, T([[-2.4, -0.4], [-3.4, 0.9], [-4.4, 2.6], [-4.6, 3.6, 1], [-3.7, 2.4], [-2.8, 1.2], [-2.0, 0.4]], tw * 0.6), darken(scarf, 0.15), { hi: 0.3 });
+      fillLit(c, at([[-3.1, -1.3], [-2.0, -1.5], [-1.8, -0.4], [-2.8, 0.0]], x, hy, HEAD_K), darken(scarf, 0.05), { hi: 0.35 });
+    });
+    // the wrap over the skull and down the back of the neck: its front edge
+    // high on the brow (its ink is the brow line), the ear half under it
+    headBlob(ctx, x, hy, [[-2.5, 1.2], [-2.6, -1.4], [-1.7, -2.8], [0.3, -3.1], [1.9, -2.8], [2.6, -1.95], [2.45, -1.7, 1], [0.6, -1.75], [-0.4, -1.55], [-0.95, 0.1], [-1.5, 1.4]], cloth, {
+      hi: 0.4, lo: 0.4, then: (c) => {
         c.strokeStyle = darken(cloth, 0.45); c.lineWidth = 0.4;                         // a turn of the cloth
-        c.beginPath(); c.moveTo(x - 2.2 * HEAD_K, hy - 2.0 * HEAD_K); c.lineTo(x + 1.6 * HEAD_K, hy - 2.1 * HEAD_K); c.stroke();
+        c.beginPath(); c.moveTo(x - 2.2 * HEAD_K, hy - 2.2 * HEAD_K); c.lineTo(x + 1.6 * HEAD_K, hy - 2.3 * HEAD_K); c.stroke();
       },
     });
-    // the mask: pulled over the nose (it rides up into a point there) and
-    // the jaw, its top edge just under the eye
-    headBlob(ctx, x, hy, [[-1.0, 0.0], [0.5, 0.15, 1], [2.3, 0.05], [3.1, 0.55, 1], [2.3, 1.0], [2.1, 1.8], [1.1, 2.6], [-0.4, 2.5], [-1.4, 1.6]], darken(cloth, 0.05), {
-      hi: 0.35, lo: 0.35, then: (c) => dab(c, x + 0.4 * HEAD_K, hy + 0.12 * HEAD_K, 2.2 * HEAD_K, 0.4, lighten(cloth, 0.25)),   // its hem, catching the light
+    // the scarf over the nose and jaw (it rides to a point past the nose),
+    // its top edge under the eye, a shade lighter than the wrap so the two
+    // read as two cloths and the eye, brow and nose between them as a face
+    headBlob(ctx, x, hy, [[-1.2, 0.4], [0.5, 0.55, 1], [2.3, 0.45], [3.1, 0.85, 1], [2.35, 1.2], [2.1, 1.8], [1.1, 2.6], [-0.4, 2.5], [-1.4, 1.6]], mask, {
+      hi: 0.3, lo: 0.35, then: (c) => dab(c, x + 0.3 * HEAD_K, hy + 0.55 * HEAD_K, 2.3 * HEAD_K, 0.4, lighten(mask, 0.3)),   // its hem, catching the light
     });
-    // the knot
-    headBlob(ctx, x, hy, [[-2.9, -1.2], [-2.0, -1.4], [-1.8, -0.5], [-2.6, -0.1]], darken(tail, 0.05), { hi: 0.35 });
+  },
+  grenadier: (ctx, x, hy, pal, o) => {
+    const fur = pal.hood, bag = o.bag || "#8a2f2a";
+    // the bag, from the crown down the back of the drum
+    headBlob(ctx, x, hy, [[-0.2, -4.3], [-1.6, -4.9], [-3.1, -4.6], [-3.6, -3.5, 1], [-2.9, -3.2, 1], [-2.4, -3.9], [-1.2, -3.9]], bag, {
+      hi: 0.35, lo: 0.4, then: (c) => dab(c, x - 3.5 * HEAD_K, hy - 3.6 * HEAD_K, 0.9, 0.9, "#d8b34a"),   // its tassel
+    });
+    // the drum of fur: flat on top, a rough edge, its hem on the brow
+    headBlob(ctx, x, hy, [[-2.6, -0.8, 1], [-2.9, -1.8], [-2.6, -2.7, 1], [-2.9, -3.5], [-2.3, -4.4, 1], [-1.2, -4.2], [-0.4, -4.55, 1], [0.6, -4.25], [1.5, -4.55, 1], [2.3, -4.2], [2.6, -3.3, 1], [2.45, -2.4], [2.75, -1.55, 1], [2.55, -1.3, 1], [0.8, -1.4], [-0.6, -1.25], [-1.1, -0.5]], fur, {
+      hi: 0.45, lo: 0.4, then: (c) => {
+        c.fillStyle = lighten(fur, 0.4);                                                 // tufts catching the light
+        for (const [u, v] of [[-1.6, -3.9], [-0.1, -4.1], [-2.2, -2.9], [-1.0, -3.1], [-1.9, -1.9]]) c.fillRect(x + u * HEAD_K, hy + v * HEAD_K, 0.6, 0.5);
+        // the brass plate on the front, a grenade with its flame on it
+        const px = x + 0.7 * HEAD_K, py = hy - 3.7 * HEAD_K;
+        c.fillStyle = "#d8b34a"; c.fillRect(px, py, 1.6 * HEAD_K, 2.2 * HEAD_K);
+        c.fillStyle = "#f4dc8a"; c.fillRect(px, py, 0.5, 2.2 * HEAD_K);
+        c.fillStyle = "#6a4a1e"; c.fillRect(px + 0.55 * HEAD_K, py + 1.1 * HEAD_K, 0.8, 0.8);                    // the grenade
+        c.fillStyle = "#e86a2a"; c.fillRect(px + 0.8 * HEAD_K, py + 0.35 * HEAD_K, 0.5, 0.6);                    // its flame
+      },
+    });
+  },
+  chaperon: (ctx, x, hy, pal, o) => {
+    const cloth = pal.hood, twist = pal.trim || lighten(cloth, 0.35);
+    // the cornette's end, a short flap hanging off the back of the roll to
+    // the ear's height (never a curtain down the neck: that reads as a hood)
+    headBlob(ctx, x, hy, [[-2.0, -3.1], [-3.2, -2.8], [-3.8, -1.5], [-3.6, -0.1, 1], [-2.8, -0.5], [-2.5, -1.6]], darken(cloth, 0.12), { hi: 0.3, lo: 0.4 });
+    // the gathered puff over the crown, folds in it
+    headBlob(ctx, x, hy, [[-2.0, -2.9], [-1.8, -4.2], [-0.4, -5.0], [1.2, -4.7], [2.1, -3.6], [1.9, -2.8]], lighten(cloth, 0.08), {
+      hi: 0.4, lo: 0.4, then: (c) => {
+        c.strokeStyle = darken(cloth, 0.35); c.lineWidth = 0.4;
+        for (const [a, b] of [[[-0.9, -3.0], [-0.6, -4.5]], [[0.6, -3.0], [0.5, -4.5]]]) { c.beginPath(); c.moveTo(x + a[0] * HEAD_K, hy + a[1] * HEAD_K); c.lineTo(x + b[0] * HEAD_K, hy + b[1] * HEAD_K); c.stroke(); }
+      },
+    });
+    // the roundlet: a padded roll round the head at the brow, twisted with gold
+    headBlob(ctx, x, hy, [[-2.9, -2.0], [-2.7, -3.3], [-1.2, -3.7], [1.2, -3.6], [2.7, -3.0], [3.0, -2.1], [2.5, -1.35, 1], [0.8, -1.5], [-1.2, -1.35], [-2.6, -1.3]], cloth, {
+      hi: 0.45, lo: 0.4, then: (c) => {
+        c.strokeStyle = mixCol(twist, cloth, 0.35); c.lineWidth = 0.45;
+        for (const u of [-1.7, 0.0, 1.7]) { c.beginPath(); c.moveTo(x + (u - 0.5) * HEAD_K, hy - 1.4 * HEAD_K); c.lineTo(x + (u + 0.5) * HEAD_K, hy - 3.5 * HEAD_K); c.stroke(); }
+      },
+    });
   },
 };
 export const HAT_KINDS = Object.keys(HATS);

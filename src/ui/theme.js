@@ -3,10 +3,21 @@
 // page, and the pause menu all stay in step. The battle HUD's fuller skin
 // (oak frames, parchment, gold) is ui/hud/hud.css, built on these colours.
 
-export const FONT = "Verdana, Geneva, sans-serif";
-// the pixel face for headings and labels (loaded in index.html): Silkscreen,
-// whose C, O, S, 5 and 8 stay distinct even at 10px
-export const DISPLAY = "'Silkscreen', Verdana, Geneva, sans-serif";
+import { FONTS } from "./fonts.js";
+
+// The faces, from fonts.js (the one place a font family is named; it also
+// sets the CSS variables hud.css reads). Each is a family stack:
+export const FONT = FONTS.body;        // long text, blurbs
+export const DISPLAY = FONTS.ui;       // headings and labels
+export const TITLE = FONTS.title;      // screen and card titles
+export const MARK = FONTS.mark;        // the CROWNGUARD wordmark
+export const MENU = FONTS.menu;        // the menu buttons (btn below)
+export const MAP = FONTS.map;          // the campaign map's labels
+// anything with digits, for inline styles. It carries no font-size-adjust:
+// the War Council's numbers were written with `fontSizeAdjust: 0.58` as a
+// number, which React sends as "0.58px" (ignored), so they have always shown
+// Press Start 2P at full size; kept so. hud.css's .cg-num does apply it.
+export const NUM = { fontFamily: FONTS.num, fontWeight: 400 };
 
 // the HUD palette: ink rims, plum-slate panels, oak, parchment and gold
 export const INK = "#241a26";
@@ -15,7 +26,7 @@ export const GOLD = { face: "#d8b34a", lt: "#f0d27a", dk: "#8a6a24" };
 export const CREAM = "#f2e6c4";
 
 export const btn = {
-  fontFamily: FONT, cursor: "pointer", border: `2px solid ${INK}`,
+  fontFamily: MENU, cursor: "pointer", border: `2px solid ${INK}`,
   background: SLATE.btn, color: CREAM, borderRadius: 0,
   padding: "10px 12px", fontSize: 13, textAlign: "left", minHeight: 40,
   boxShadow: `inset -2px -2px 0 ${SLATE.face}, inset 2px 2px 0 ${SLATE.btnLt}`,
@@ -35,5 +46,5 @@ export const overlayPanel = {
 // The gold CROWNGUARD wordmark. `size` is the font size in px.
 export const title = (size) => ({
   margin: 0, fontSize: size, letterSpacing: size * 0.14, color: GOLD.face,
-  textShadow: `2px 2px 0 ${INK}`, fontFamily: DISPLAY, fontWeight: "bold",
+  textShadow: `2px 2px 0 ${INK}`, fontFamily: TITLE, fontWeight: "bold",
 });

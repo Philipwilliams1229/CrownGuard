@@ -8,13 +8,14 @@
     &at=x,y        moor as near this board point as the water allows (default: the first spot found)
     &mode=sel      sel (the hall selected) | ghost (the build ghost at &hover) | plain (neither)
     &hover=x,y     the ghost's cursor (default: the mooring spot); &gold=0 for an unaffordable ghost
-    &preview=4,a,b an upgrade armed in the card (g.upPreview): level, branch, final
+    &preview=2     an upgrade armed in the card (g.upPreview): a level (2), a path (,a) or a final (,,b)
     &foes=orc,orc  spawned up the road so the skiffs have marks; &ahead=0.4 (road fraction)
     &warm=4        seconds stepped before the snap
     &crop=x,y,w,h  also save that window of the board, &scale=3 (nearest neighbour)
     &t=7.3         the clock the frame is drawn at (the edge and rings turn with it)
     &perf=200      time draw() over that many frames, selected vs not; printed and in the title
     &bench=60      time each piece (the water, the skiffs' reach) on its own, and the mask's bake
+    &underway=1    every skiff shows her wake this frame (=y: rowing up the screen)
     &noclip=1      the wakes and ripples unclipped, as they were (a before shot)
     &tune={...}    try a tone for the tint (&tone=sel|ok|bad): rgb, fill, rim, comp
 
@@ -37,6 +38,7 @@
       import { drawWatchWater, drawSkiffReach, waterMask } from "/src/render/waterreach.js";
       import { isBuilt } from "/src/engine/build.js";
       import { bakeBridges } from "/src/render/bridge.js";
+      import { groundLayer } from "/src/render/world.js";
       const q = new URLSearchParams(location.search);
       const say = (s) => { document.getElementById("status").textContent = s; };
       const post = (name, cv) => fetch(`/__shot?name=${encodeURIComponent(name)}`, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
@@ -75,13 +77,25 @@
         // one frame drawn a tenth of a second before the snap, so a skiff that
         // is rowing knows it (drawSkiff keeps no speed) and shows her wake
         { const c0 = document.createElement("canvas"); c0.width = W; c0.height = H; draw(g, c0, { current: null }); for (let i = 0; i < 6; i++) updateGame(g, DT); }
+        // &underway=1: every skiff counts as rowing this frame (nudged half a unit)
+        // (&underway=y: rowing up the screen for a few frames first, so her heading turns)
+        if (q.get("underway") && t && t.units) {
+          const up = q.get("underway") === "y", c1 = document.createElement("canvas"); c1.width = W; c1.height = H;
+          for (let k = 0; k < (up ? 12 : 1); k++) { for (const u of t.units) { if (up) u.y -= 0.8; else u.x += 0.5 * (u.face || 1); } g.time += 1 / 60; draw(g, c1, { current: null }); }
+          for (const u of t.units) { if (up) u.y -= 0.8; else u.x += 0.5 * (u.face || 1); }
+        }
         g.time = Number(q.get("t") ?? g.time);
         g.effects = g.effects.filter((fx) => fx.type === "musket");
         if (MODE === "sel" && t) {
           g.selectedId = t.id;
           if (q.get("preview")) {
             const [pl, pb, pr] = q.get("preview").split(",");
-            g.upPreview = { id: t.id, form: { level: Number(pl), branch: pb || null, rank4: pr || null } };
+            // as the card arms them: { level } for a level, { branch }, { rank4 }
+            const form = {};
+            if (pl) form.level = Number(pl);
+            if (pb) form.branch = pb;
+            if (pr) form.rank4 = pr;
+            g.upPreview = { id: t.id, form };
           }
         }
         if (MODE === "ghost") {
@@ -130,7 +144,8 @@
           const c = bc.getContext("2d"); c.scale(2, 2); c.imageSmoothingEnabled = false;
           // (canvas work is deferred: read a pixel back each time to make it land)
           const tm = (fn, cx = c) => { const run = (f) => { for (let i = 0; i < 5; i++) { f(); cx.getImageData(0, 0, 1, 1); } const t0 = performance.now(); for (let i = 0; i < NB; i++) { g.time += 1 / 60; f(); cx.getImageData(0, 0, 1, 1); } return (performance.now() - t0) / NB; }; return (run(fn) - run(() => {})).toFixed(3); };
-          perf += ` | water ${tm(() => drawWatchWater(c, g, t.x, t.y, "sel"))}, reach ${tm(() => drawSkiffReach(c, g, t, isBuilt(t, g)))}`;
+          perf += ` | water ${tm(() => { drawWatchWater(c, g, t.x, t.y, "sel", "tint", groundLayer()); drawWatchWater(c, g, t.x, t.y, "sel", "edge"); })}`;
+          perf += ` (screened live ${tm(() => drawWatchWater(c, g, t.x, t.y, "sel"))}), reach ${tm(() => drawSkiffReach(c, g, t, isBuilt(t, g)))}`;
           perf += `, one disc+ring ${tm(() => { c.fillStyle = "rgba(216,179,74,0.1)"; c.beginPath(); c.arc(t.x, t.y, 165, 0, 7); c.fill(); for (let i = 0; i < 207; i++) if (i % 4 < 2) { const a = i / 207 * 6.283; c.fillRect(Math.round(t.x + Math.cos(a) * 165), Math.round(t.y + Math.sin(a) * 165), 3, 3); } })}`;
           perf += `, frame ${tm(() => draw(g, cv, { current: null }), cv.getContext("2d"))}`;
         }

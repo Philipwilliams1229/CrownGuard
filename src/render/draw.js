@@ -37,7 +37,7 @@ import { builderDrawables } from "./builders.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
 import { drawTree, drawCastle, drawCastleWorks, drawSpawn, drawSpawnSign, signGround } from "./scenery.js";
 import { drawWaterLive } from "./water.js";
-import { drawWatchWater, drawSkiffReach, warmWaterReach } from "./waterreach.js";
+import { drawWatchWater, drawSkiffReach, drawSkiffMarks, warmWaterReach } from "./waterreach.js";
 import { drawBridges } from "./bridge.js";
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
@@ -117,21 +117,26 @@ export function draw(g, canvas, bufRef) {
 
   // the ground, painted once per realm at full detail, then the water that
   // lives on it and the road's kindling chevrons
-  ctx.drawImage(groundLayer(), 0, 0, W, H);
-  drawWaterLive(ctx, g);
-  drawRoadLive(ctx, g);
+  const ground = groundLayer();
+  ctx.drawImage(ground, 0, 0, W, H);
   // A River Watch's reach is its water: the river, pond or sea stretch its
-  // skiffs row, tinted with a creeping dotted edge (waterreach.js) — laid
-  // with the water, so the bridges and everything afloat pass over it. The
-  // build ghost shows the water it would moor in, green (or red: no gold).
+  // skiffs row, lit (baked once from the ground under it) with a creeping
+  // dotted edge over the water's live marks (waterreach.js) — laid with the
+  // water, so the bridges and everything afloat pass over it. The build
+  // ghost shows the water it would moor in, green (or red: no gold).
   warmWaterReach();
+  let watch = null;
   {
     const selW = g.selectedId != null && g.towers.find((t) => t.id === g.selectedId);
-    if (selW && selW.kind === "riverwatch") drawWatchWater(ctx, g, selW.x, selW.y, "sel");
+    if (selW && selW.kind === "riverwatch") watch = [selW.x, selW.y, "sel"];
     else if (g.buildMode === "riverwatch" && g.hover && buildableAt(g, g.hover[0], g.hover[1], "riverwatch")) {
-      drawWatchWater(ctx, g, g.hover[0], g.hover[1], g.gold >= TOWERS.riverwatch.cost ? "ok" : "bad");
+      watch = [g.hover[0], g.hover[1], g.gold >= TOWERS.riverwatch.cost ? "ok" : "bad"];
     }
   }
+  if (watch) drawWatchWater(ctx, g, watch[0], watch[1], watch[2], "tint", ground);
+  drawWaterLive(ctx, g);
+  drawRoadLive(ctx, g);
+  if (watch) drawWatchWater(ctx, g, watch[0], watch[1], watch[2], "edge");
   // the castle's apron and the cobbled threshold go UNDER the foes, who walk right into the gate
   drawCastleGround(ctx, g.time, Math.min(1, Math.max(0, g.lives) / CASTLE_HP));
 
@@ -347,6 +352,8 @@ export function draw(g, canvas, bufRef) {
   }
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();
+  // a selected River Watch's skiffs, each marked over the crowd
+  if (sel && sel.kind === "riverwatch") drawSkiffMarks(ctx, g, sel, isBuilt(sel, g));
   // the aerostat's tethered bombs ride above the whole fray
   drawTrapBalloons(ctx, g);
 

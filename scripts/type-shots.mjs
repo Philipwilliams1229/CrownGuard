@@ -1,0 +1,200 @@
+// Font identity specimens: the REAL game in each type option (src/ui/fonts.js),
+// shot on the running dev server into .shots/type_<id>_<screen>.png.
+//
+//   node scripts/type-shots.mjs                    every option, every screen
+//   node scripts/type-shots.mjs keep letter        some options
+//   node scripts/type-shots.mjs --only home,battle current
+//   node scripts/type-shots.mjs --base http://127.0.0.1:5174 --prefix typeB_ current
+//   node scripts/type-shots.mjs --dump <dir> current   also write each screen's
+//                                                  computed fonts as JSON (to diff two servers)
+//
+// Screens: home (title, 1133x744), map (campaign map), battle (Free Play, a
+// hall placed and its card open), phone (the same card at 844x390), council
+// (War Council, HEROES), guide (Field Guide, a hall's entry), sheet
+// (type-lab.html?opt=<id>, the specimen sheet).
+// Google Fonts go through curl (headless Chromium behind the proxy can't
+// fetch them), exactly as scripts/shoot.mjs does.
+import { createRequire } from "node:module";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { TYPE_IDS } from "../src/ui/fonts.js";
+
+const load = async () => {
+  try { return await import("playwright"); } catch { /* not a project dependency */ }
+  for (const root of ["/opt/node22/lib/node_modules/", "/usr/lib/node_modules/", "/usr/local/lib/node_modules/"]) {
+    try { return createRequire(root)("playwright"); } catch { /* try the next */ }
+  }
+  throw new Error("playwright not found — install it globally");
+};
+const { chromium } = await load();
+
+// ---- arguments ----
+const args = process.argv.slice(2);
+const opt = (name, dflt) => { const i = args.indexOf(name); if (i < 0) return dflt; const v = args[i + 1]; args.splice(i, 2); return v; };
+const base = opt("--base", process.env.CG_DEV || "http://127.0.0.1:5173");
+const prefix = opt("--prefix", "type_");
+const only = opt("--only", "home,map,battle,phone,council,guide,sheet").split(",");
+const dump = opt("--dump", null);
+const ids = args.length ? args : TYPE_IDS;
+const OUT = path.resolve(".shots");
+fs.mkdirSync(OUT, { recursive: true });
+if (dump) fs.mkdirSync(dump, { recursive: true });
+
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+const cache = new Map();
+const browser = await chromium.launch();
+
+async function context(w, h) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, ignoreHTTPSErrors: true });
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, async (route) => {
+    const u = route.request().url();
+    try {
+      const body = cache.get(u) || execFileSync("curl", ["-sSL", "-A", UA, u]);
+      cache.set(u, body);
+      const css = u.includes("googleapis");
+      await route.fulfill({ status: 200, contentType: css ? "text/css" : "font/woff2", body, headers: { "access-control-allow-origin": "*" } });
+    } catch { await route.abort(); }
+  });
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => console.log(`  pageerror: ${e.message}`));
+  return { ctx, page };
+}
+
+// open the game in an option and wait until its faces are in and the page shows
+async function open(page, id) {
+  await page.goto(`${base}/?type=${id}`, { waitUntil: "load" });
+  await page.waitForFunction(() => {
+    const r = document.getElementById("root");
+    return r && r.childElementCount > 0 && getComputedStyle(r).visibility !== "hidden";
+  }, null, { timeout: 15000 });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(1800);   // the vista fades in
+}
+const clickText = async (page, text) => {
+  // the exact label first (START, not "Last Stand"); else any button holding it
+  const exact = page.getByRole("button", { name: text, exact: true });
+  const b = (await exact.count()) ? exact.first() : page.getByRole("button", { name: text }).first();
+  await b.click({ timeout: 8000 });
+};
+const shot = async (page, id, name) => {
+  await page.evaluate(() => document.fonts.ready);
+  const file = path.join(OUT, `${prefix}${id}_${name}.png`);
+  await page.screenshot({ path: file });
+  if (dump) {
+    const fonts = await page.evaluate(() => {
+      const out = [];
+      for (const el of document.querySelectorAll("body *")) {
+        const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+        if (!own) continue;
+        const cs = getComputedStyle(el), r = el.getBoundingClientRect();
+        out.push([el.textContent.trim().slice(0, 40), cs.fontFamily, cs.fontSize, cs.fontWeight, cs.fontSizeAdjust, cs.letterSpacing, Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]);
+      }
+      return out;
+    });
+    fs.writeFileSync(path.join(dump, `${id}_${name}.json`), JSON.stringify(fonts, null, 0).replace(/\],\[/g, "],\n["));
+  }
+  console.log(`  ${file}`);
+};
+
+// Free Play: START, place an Archer Tower on open grass, open its card
+async function battle(page) {
+  await clickText(page, "FREE PLAY");
+  await page.waitForTimeout(800);
+  await clickText(page, "START");
+  await page.waitForFunction(() => window.__g && window.__g.towers, null, { timeout: 15000 });
+  await page.waitForTimeout(1200);
+  const tries = [];
+  for (let y = 120; y <= 480; y += 40) for (let x = 120; x <= 660; x += 40) tries.push([x, y]);
+  for (const [x, y] of tries) {
+    const at = await page.evaluate(([bx, by]) => {
+      const g = window.__g, cv = [...document.querySelectorAll("canvas")].find((c) => c.width >= 1600);
+      if (!g || !cv) return null;
+      const r = cv.getBoundingClientRect();
+      const sx = r.left + (bx / 840) * r.width, sy = r.top + (by / 560) * r.height;
+      if (document.elementFromPoint(sx, sy) !== cv) return null;
+      g.buildMode = "archer";
+      return [sx, sy];
+    }, [x, y]);
+    if (!at) continue;
+    await page.mouse.click(at[0], at[1]);
+    await page.waitForTimeout(120);
+    const n = await page.evaluate(() => window.__g.towers.length);
+    if (process.env.TS_DEBUG) console.log(`    try ${x},${y}: ${n} halls`);
+    if (n > 0) break;
+  }
+  await page.evaluate(() => { if (window.__g) window.__g.buildMode = null; });
+  await page.waitForTimeout(2600);   // the crew builds it
+  const t = await page.evaluate(() => {
+    const g = window.__g, t = g.towers[0], cv = [...document.querySelectorAll("canvas")].find((c) => c.width >= 1600);
+    if (!t || !cv) return null;
+    const r = cv.getBoundingClientRect();
+    return [r.left + (t.x / 840) * r.width, r.top + (t.y / 560) * r.height];
+  });
+  if (!t) throw new Error("no hall placed");
+  await page.mouse.click(t[0], t[1]);
+  await page.waitForTimeout(700);
+}
+
+// each screen: a fresh page in the option, the steps to reach it, the shot.
+// A teammate's save can reload the page mid-flow, so each gets two tries.
+const MENU = {
+  home: async () => {},
+  guide: async (page) => {
+    await clickText(page, "FIELD GUIDE");
+    await page.waitForTimeout(700);
+    // the first hall's entry
+    await page.evaluate(() => {
+      const grid = [...document.querySelectorAll("button")].filter((b) => b.querySelector("canvas") && b.closest("[style*='position: fixed']"));
+      grid[0]?.click();
+    });
+    await page.waitForTimeout(800);
+  },
+  council: async (page) => {
+    await clickText(page, "WAR COUNCIL");
+    await page.waitForTimeout(600);
+    await clickText(page, "HEROES");
+    await page.waitForTimeout(800);
+  },
+  map: async (page) => {
+    await clickText(page, "NEW CAMPAIGN");
+    await page.waitForTimeout(3000);
+  },
+  battle: battle,
+  phone: battle,
+};
+const SIZE = { phone: [844, 390] };
+
+for (const id of ids) {
+  console.log(`${id}`);
+  for (const name of only) {
+    if (name === "sheet") {
+      const { ctx, page } = await context(1150, 800);
+      try {
+        await page.goto(`${base}/type-lab.html?opt=${id}`, { waitUntil: "load" });
+        await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 20000 });
+        await page.waitForTimeout(300);
+        const file = path.join(OUT, `${prefix}${id}_sheet.png`);
+        await (await page.$(".sheet")).screenshot({ path: file });
+        console.log(`  ${file}`);
+      } catch (e) { console.log(`  FAILED (${id} sheet): ${e.message.split("\n")[0]}`); }
+      finally { await ctx.close(); }
+      continue;
+    }
+    const steps = MENU[name];
+    if (!steps) { console.log(`  no screen "${name}"`); continue; }
+    const [w, h] = SIZE[name] || [1133, 744];
+    for (let k = 0; k < 2; k++) {
+      const { ctx, page } = await context(w, h);
+      try {
+        await open(page, id);
+        await steps(page);
+        await shot(page, id, name);
+        k = 2;
+      } catch (e) {
+        console.log(`  ${k ? "FAILED" : "retrying"} (${id} ${name}): ${e.message.split("\n")[0]}`);
+      } finally { await ctx.close(); }
+    }
+  }
+}
+await browser.close();

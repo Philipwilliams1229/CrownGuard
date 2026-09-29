@@ -38,7 +38,7 @@ import { coastOutline } from "../data/terrain.js";
 import EnemyIcon from "./EnemyIcon.jsx";
 import { Star } from "./Glyphs.jsx";
 import { MAX_STARS } from "../data/profile.js";
-import { panel, FONT } from "./theme.js";
+import { panel, FONT, MAP as MAP_FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
 import { CastleIcon, LockIcon } from "./hud/icons.jsx";
@@ -98,7 +98,7 @@ function Scroll({ lv, open, sel }) {
       <rect x={b.x} y={b.y} width={b.w} height={b.h} fill={face} stroke={sel ? "#f2cf4a" : LINE} strokeWidth={sel ? 1.1 : 0.7} />
       <rect x={b.x + 0.6} y={b.y + 0.6} width={b.w - 1.2} height={0.8} fill={open ? PARCH.lt : "#aca698"} />
       <text x={b.x + b.w / 2} y={b.y + b.h / 2 + LABEL_FONT * 0.36} textAnchor="middle"
-        fontSize={LABEL_FONT} fontWeight="bold" fontFamily={FONT} fill={open ? PARCH.ink : "#46424c"}>
+        fontSize={LABEL_FONT} fontWeight="bold" fontFamily={MAP_FONT} fill={open ? PARCH.ink : "#46424c"}>
         {lv.short || lv.name}
       </text>
     </g>
@@ -119,7 +119,7 @@ function Banner({ ch, open }) {
       <rect x={x} y={y} width={w} height={h} fill={cloth} stroke={LINE} strokeWidth="0.9" />
       <rect x={x + 0.8} y={y + 0.8} width={w - 1.6} height={1.2} fill={lt} />
       <rect x={x + 0.8} y={y + h - 2} width={w - 1.6} height={1.2} fill={dk} />
-      <text x={cx} y={cy + 2.9} textAnchor="middle" fontSize="8" fontWeight="bold" letterSpacing="1.2" fontFamily={FONT}
+      <text x={cx} y={cy + 2.9} textAnchor="middle" fontSize="8" fontWeight="bold" letterSpacing="1.2" fontFamily={MAP_FONT}
         fill={open ? "#f2dc8a" : "#c8c8d4"} stroke={LINE} strokeWidth="1.6" paintOrder="stroke">
         {text}
       </text>

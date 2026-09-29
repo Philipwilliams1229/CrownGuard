@@ -11,7 +11,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Fit, useViewport } from "./fit.jsx";
-import { FONT } from "./theme.js";
+import { FONT, MARK } from "./theme.js";
 import { woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
 import FieldGuide from "./FieldGuide.jsx";
@@ -91,7 +91,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
         <div style={{ display: "flex", flexDirection: compact ? "row" : "column", alignItems: "center", gap: compact ? 12 : 0 }}>
           <CastleIcon size={compact ? 36 : 48} title="Crownguard" />
           <h1 style={{
-            margin: compact ? 0 : "6px 0 0", fontFamily: FONT, fontWeight: "bold", color: "#f2cf4a", whiteSpace: "nowrap",
+            margin: compact ? 0 : "6px 0 0", fontFamily: MARK, fontWeight: "bold", color: "#f2cf4a", whiteSpace: "nowrap",
             fontSize: compact ? 36 : "clamp(26px, 8vw, 50px)", letterSpacing: compact ? 3 : "clamp(2px, 0.8vw, 6px)",
             textShadow: `0 3px 0 #9a7424, 0 5px 0 ${INK}, 3px 5px 0 ${INK}, -2px 0 0 ${INK}, 2px 0 0 ${INK}, 0 -2px 0 ${INK}`,
           }}>

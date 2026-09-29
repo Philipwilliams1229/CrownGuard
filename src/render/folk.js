@@ -142,8 +142,10 @@ const workHead = (ctx, pal, look, tilt) => {
   if (look === "mason") head(ctx, 0.4, -12.7, pal, { hood: true });
   else {
     head(ctx, 0.4, -12.7, pal, { hood: false });
-    if (look === "hod") cap(ctx, 0.4, -12.7, pal.hood, { band: darken(pal.hood, 0.35) });
-    else cap(ctx, 0.4, -12.7, pal.hood, { tall: true, band: lighten(pal.hood, 0.3) });
+    // the caps sit half a unit up the brow (as the smith's does), so the
+    // brim's ink stays above the eye and the eye shows under it
+    if (look === "hod") cap(ctx, 0.4, -13.2, pal.hood, { band: darken(pal.hood, 0.35) });
+    else cap(ctx, 0.4, -13.2, pal.hood, { tall: true, band: lighten(pal.hood, 0.3) });
   }
   ctx.restore();
 };
@@ -195,6 +197,10 @@ const RUN_LEGS = [
 const RUN_SWING = [0, 1, 2, 3, 4, 5].map((f) => -Math.cos((f / 6) * 2 * Math.PI) * 47 + 3);
 const runArm = (sh, sw) => { const bend = 85 + 30 * Math.max(0, Math.min(1, sw / 50)); return { h: handBy(sh, sw, bend), fa: foreBy(sw, bend) }; };
 const RUN_ARMS = RUN_SWING.map((sw, f) => [runArm(SH_N, sw), runArm(SH_F, RUN_SWING[(f + 3) % 6])]);
+// the mason runs with his mallet carried before his chest, its head ahead of
+// and below his chin: the near arm pumps only a little (the far arm and the
+// legs keep the stride), so the mallet never comes up over his face
+const MASON_RUN = RUN_SWING.map((sw) => { const s2 = 17 + ((sw - 3) / 47) * 12, bend = 110; return { h: handBy(SH_N, s2, bend), fa: foreBy(s2, bend) }; });
 const runPose = (look, f, load) => {
   const [hx, hy, a, b] = RUN_LEGS[f % 3];
   const legs = f < 3 ? [a, b] : [b, a];
@@ -202,8 +208,10 @@ const runPose = (look, f, load) => {
   let hands = [na.h, fa.h], lean = 0.3, mallet = null, L = null;
   const bob = f % 3 === 1 ? 0.15 : 0;
   if (look === "mason") {
-    // the mallet pumps with the near arm, its haft across the fist
-    mallet = na.fa - 1.35;
+    // the mallet carried at the ready, its head up ahead of him
+    const m = MASON_RUN[f];
+    hands = [m.h, fa.h];
+    mallet = m.fa - 0.25;
   } else if (load && look === "hod") {
     // the plank on the near shoulder, steadied by the near hand on top of it
     hands = [[4.2, -9.6 + bob], fa.h];
@@ -224,7 +232,7 @@ const workerPose = (look, pose, f, load) => {
     case "run": return runPose(look, f, load);
     case "hammer": {
       const K = [
-        { hip: [-0.3, -7.6], lean: -0.12, hands: [[3.0, -16.6], [3.2, -4.6]], mallet: -2.7 },
+        { hip: [-0.3, -7.6], lean: -0.12, hands: [[4.4, -16.2], [3.2, -4.6]], mallet: -1.85 },   // raised: the fist ahead of the brow, the head up clear of the cap
         { hip: [0.0, -7.5], lean: 0.08, hands: [[6.4, -12.8], [3.4, -5.0]], mallet: -0.95 },
         { hip: [0.3, -7.0], lean: 0.3, hands: [[6.0, -5.2], [2.8, -4.6]], mallet: 0.45 },
       ][f];
@@ -235,8 +243,8 @@ const workerPose = (look, pose, f, load) => {
       const K = [
         { hip: [-0.6, -5.6], lean: 0.5, hands: [[4.0, -2.4], [5.2, -3.0]], load: { kind: "block", x: 4.8, y: -2.2 }, legs: [[2.4, -1.2, 0], [-2.2, -1.2, 0.15]] },
         { hip: [-0.2, -7.3], lean: 0.1, hands: [[3.6, -6.6], [4.6, -7.4]], load: { kind: "block", x: 4.1, y: -7.4 }, legs: STAND_LEGS },
-        { hip: [0.0, -8.0], lean: -0.18, hands: [[4.8, -17.0], [3.4, -17.6]], load: { kind: "block", x: 4.2, y: -19.2 }, legs: [[1.8, -1.7, 0.35], [-1.2, -1.6, 0.35]] },
-        { hip: [0.0, -8.0], lean: -0.14, hands: [[5.2, -17.8], [3.8, -18.2]], load: null, open: true, legs: [[1.8, -1.7, 0.35], [-1.2, -1.6, 0.35]] },
+        { hip: [0.0, -8.0], lean: -0.18, hands: [[6.0, -16.4], [4.6, -17.0]], load: { kind: "block", x: 5.4, y: -18.4 }, legs: [[1.8, -1.7, 0.35], [-1.2, -1.6, 0.35]] },   // overhead, held out ahead of his face
+        { hip: [0.0, -8.0], lean: -0.14, hands: [[6.3, -16.8], [5.0, -17.4]], load: null, open: true, legs: [[1.8, -1.7, 0.35], [-1.2, -1.6, 0.35]] },
       ][f];
       if (!blk) K.load = null;
       return { tilt: -K.lean * 0.3, ...K };
@@ -253,7 +261,7 @@ const workerPose = (look, pose, f, load) => {
     case "jump": {
       const K = [
         { hip: [-0.4, -5.2], lean: 0.4, hands: [[-3.2, -1.0], [-4.9, -1.2]], mallet: 2.3, legs: [[2.0, -1.2, 0], [-1.6, -1.2, 0.2]] },
-        { hip: [0.0, -8.6], lean: 0.02, hands: [[4.8, -16.6], [-3.6, -15.4]], mallet: -1.9, legs: [[2.4, -3.4, -0.2], [-1.4, -4.4, 0.5]] },
+        { hip: [0.0, -8.6], lean: 0.02, hands: [[6.0, -15.8], [-3.6, -15.4]], mallet: -1.9, legs: [[2.4, -3.4, -0.2], [-1.4, -4.4, 0.5]] },
         { hip: [0.0, -8.3], lean: -0.04, hands: [[6.2, -13.8], [-4.8, -13.2]], mallet: -1.4, legs: [[1.4, -0.9, 0.35], [-1.3, -0.7, 0.45]] },
       ][f];
       return { tilt: 0, flap: f === 2 ? -0.5 : 0.3, ...K, mallet: mason ? K.mallet : null };
@@ -268,7 +276,7 @@ const workerPose = (look, pose, f, load) => {
     case "cheer": {
       const hip = f ? [0, -8.2] : [0, -7.8];
       return { hip, lean: -0.06, tilt: -0.15, legs: f ? [[1.5, -1.6, 0.3], [-1.3, -1.6, 0.3]] : STAND_LEGS,
-        hands: [[4.8, -18.2 - f * 0.6], [-3.2, -15.8 - f]], mallet: mason ? -1.75 : null, open: !mason };
+        hands: [[6.4, -17.4 - f * 0.5], [-3.2, -15.8 - f]], mallet: mason ? -1.75 : null, open: !mason };   // the near fist up ahead of the brow
     }
     default:
       return { hip: [0, -7.8], lean: 0.02, legs: STAND_LEGS, hands: [[2.6, -0.9], [-2.4, -1.0]], mallet: mason ? 1.35 : null };

@@ -771,13 +771,17 @@ const HOB = { L1: 5.4, L2: 5.2, stride: 2.8, lift: 2.2, bob: 0.8, lean: 0.14, di
 // man with a long, top-heavy stick: the totem held up before him, hauled back
 // over his shoulder with the skull swinging out behind (the free fist thrust
 // at the foe), brought round and down, and carried low, skull to the dirt.
-const HOB_FIGHT = [[[3.0, 3.6], -1.15, [3.6, 3.2]], [[-0.6, -4.6], -2.85, [5.8, 0.6]], [[4.6, 2.6], 0.55, [0.6, 5.4]], [[3.6, 4.6], 1.0, [1.8, 5.0]]];
+const HOB_FIGHT = [[[3.0, 3.6], -1.15, [3.6, 3.2]], [[-1.4, -6.8], 2.7, [5.8, 0.6]], [[4.6, 2.6], 0.55, [0.6, 5.4]], [[3.6, 4.6], 1.0, [1.8, 5.0]]];
 const hobgoblin = (ctx, p) => {
   const o = HOB, R = skeleton(p, o), { st, T } = R;
   const skin = p.skin, skinF = darken(skin, 0.24), lea = p.cloth, gold = p.cloth2 || "#e8c14a";
   const fur = mix(p.cloth, "#b8ab90", 0.55);
   shadow(ctx, 0.6, -0.1, 6.2, 1.6, 0.24);
-  const shN = T(2.2, -8.8), shF = T(-2.4, -9.0);
+  // in the wind-up the trunk coils: the near shoulder draws back under the
+  // skull, so the arm hauling the totem rises up the back of the helm and the
+  // face stays clear in front of it
+  const coil = st.fight && st.F === 1 ? 2.6 : 0;
+  const shN = T(2.2 - coil, -8.8), shF = T(-2.4, -9.0);
   const A = { up: 3.7, fore: 3.5, w: 2.8 };
   let hn, an, hf;
   if (!st.fight) {
@@ -812,8 +816,8 @@ const hobgoblin = (ctx, p) => {
     });
   });
   const F = st.fight ? st.F : -1;
-  const nk = T(1.4, -10.0), hd = [nk[0] + 1.3 + ([0.1, -0.3, 0.5, 0.4][F] || 0), nk[1] - 2.4 + ([0, 0, 0.3, 0.4][F] || 0)];
-  hobHead(ctx, hd[0], hd[1], st.lean * 0.3 + ([0, -0.1, 0.08, 0.12][F] || 0), p);
+  const nk = T(1.4, -10.0), hd = [nk[0] + 1.3 + ([0.1, 0.3, 0.5, 0.4][F] || 0), nk[1] - 2.4 + ([0, 0.4, 0.3, 0.4][F] || 0)];
+  hobHead(ctx, hd[0], hd[1], st.lean * 0.3 + ([0, 0.04, 0.08, 0.12][F] || 0), p);
   const h = arm(ctx, shN, hn, A, { up: skin, cuff: gold });
   if (st.fight) { wrist(ctx, h, an); totem(ctx, h[0], h[1], an, p, st.f); }
   fist(ctx, h[0], h[1], 1.5, skin);

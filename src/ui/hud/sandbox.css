@@ -39,7 +39,7 @@
 
 /* a value in the numeric face */
 .sbs-val {
-  font-family: var(--numeric); font-weight: 400; font-size-adjust: 0.58; font-variant-numeric: tabular-nums;
+  font-family: var(--numeric); font-weight: 400; font-size-adjust: var(--num-adjust); font-variant-numeric: tabular-nums;
   color: var(--gold-lt); text-shadow: 1px 1px 0 var(--ink); line-height: 1; white-space: nowrap;
 }
 .sbs-val.is-dim { color: var(--muted); }
@@ -83,12 +83,12 @@
 
 /* quick-value chips under a control */
 .sbs-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.sbs-chip { min-height: 32px; min-width: 40px; padding: 0 7px; font-family: var(--numeric); font-size: 9px; font-size-adjust: 0.58; }
+.sbs-chip { min-height: 32px; min-width: 40px; padding: 0 7px; font-family: var(--numeric); font-size: 9px; font-size-adjust: var(--num-adjust); }
 
 /* an on/off switch: a plank that says what it is and whether it is on */
 .sbs-toggle { justify-content: space-between; gap: 10px; padding: 0 10px; text-align: left; }
 .sbs-toggle .sbs-lamp {
-  font-family: var(--numeric); font-size: 9px; font-size-adjust: 0.58; padding: 3px 5px; border: 2px solid var(--ink);
+  font-family: var(--numeric); font-size: 9px; font-size-adjust: var(--num-adjust); padding: 3px 5px; border: 2px solid var(--ink);
   background: var(--slate-dk); color: var(--muted); text-shadow: none; flex-shrink: 0;
 }
 .sbs-toggle.is-on .sbs-lamp { background: var(--gold); color: var(--wood-deep); }

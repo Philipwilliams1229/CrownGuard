@@ -136,12 +136,32 @@ export const drawMage = (ctx, x, y, dir, pal, level = 3, o = {}) => {
   // a sash of the trim colour down the front, leaning with him
   part(ctx, (c) => { c.strokeStyle = pal.trim; c.lineWidth = 1; c.beginPath(); c.moveTo(1.7 + lean, -16.5 + rise * 0.5); c.lineTo(1.7 + (P.step || 0) * 0.3, -1.6); c.stroke(); });
   const farCol = darken(pal.robe, 0.14);
-  const farArm = () => {
-    arm(ctx, R.fsh[0], R.fsh[1], R.free[0], R.free[1], pal, { col: farCol, hand: !P.palm });
-    if (P.palm) openHand(ctx, R.free[0], R.free[1], pal.skin);
-  };
-  if (!P.grip2) farArm();
-  // the staff, always in his fist: grounded, lifted, driven or levelled
+  // the far arm, behind him (with both hands on the staff its fist is laid
+  // over the staff once the staff is drawn)
+  arm(ctx, R.fsh[0], R.fsh[1], R.free[0], R.free[1], pal, { col: farCol, hand: !P.palm && !P.grip2 });
+  if (P.palm && !P.grip2) openHand(ctx, R.free[0], R.free[1], pal.skin);
+  // head and beard: the soldiers' face under the wizard's hat
+  const hx = 0.4 + hl, hy = rise;
+  head(ctx, hx, -20.5 + hy, pal, { hood: false });
+  const sway = -(P.hat || 0) * 0.35;                       // the beard's end trails like the hat's point
+  if (tall) part(ctx, (c) => { c.beginPath(); c.moveTo(hx - 2.8, -19 + hy); c.quadraticCurveTo(hx + 0.2 + sway, -10 + hy, hx + 3.0, -19 + hy); c.closePath(); c.fillStyle = pal.beard || "#e8e0d0"; c.fill(); });
+  else if (level === 2) part(ctx, (c) => ball(c, hx + 0.2 + sway * 0.4, -18 + hy, 2.2, 1.4, pal.beard || "#c8bca8", { hi: 0.3, lo: 0.3 }));
+  part(ctx, (c) => {
+    // brim, then the point, flopping back; it trails the body a frame. The
+    // brim sits at the brow, above the eye, so the face reads under it.
+    // (The long-beard's point stays inside the hall's 40-high bake with a
+    // row to spare, even on a breath.)
+    const hy = rise - 0.8;
+    const px = hx + 1.4 + (tall ? 1.5 : 0) + lean * 0.25 - (P.hat || 0), py = -33 - (tall ? 1.6 : 0) + hy;
+    ball(c, hx, -23 + hy, 5.2, 1.5, pal.hat, { hi: 0.4, lo: 0.4 });
+    c.beginPath(); c.moveTo(hx - 3.8, -23 + hy); c.quadraticCurveTo(hx - 0.4 - (P.hat || 0) * 0.3, -25 + hy, px, py); c.quadraticCurveTo(hx + 2.6 - (P.hat || 0) * 0.3, -26 + hy, hx + 3.4, -23 + hy); c.closePath();
+    c.fillStyle = lin(c, hx - 3.4, 0, hx + 3.6, 0, [[0, lighten(pal.hat, 0.3)], [0.5, pal.hat], [1, darken(pal.hat, 0.45)]]);
+    c.fill();
+    c.fillStyle = pal.trim; c.fillRect(hx - 3.4, -24 + hy, 6.6, 1);
+  });
+  // the staff, always in his fist: grounded, lifted, driven or levelled. It
+  // is held on our side of him, so it is drawn over the hat's brim and the
+  // beard (its fork never passes behind the brim), and under the fists.
   if (R.staff) {
     const { foot, tip, d, a } = R.staff, end = [tip[0] - d[0] * 3.6, tip[1] - d[1] * 3.6];
     part(ctx, (c) => {
@@ -156,29 +176,11 @@ export const drawMage = (ctx, x, y, dir, pal, level = 3, o = {}) => {
       c.restore();
     });
   }
-  if (P.grip2) farArm();
-  // head and beard: the soldiers' face under the wizard's hat
-  const hx = 0.4 + hl, hy = rise;
-  head(ctx, hx, -20.5 + hy, pal, { hood: false });
-  const sway = -(P.hat || 0) * 0.35;                       // the beard's end trails like the hat's point
-  if (tall) part(ctx, (c) => { c.beginPath(); c.moveTo(hx - 2.8, -19 + hy); c.quadraticCurveTo(hx + 0.2 + sway, -10 + hy, hx + 3.0, -19 + hy); c.closePath(); c.fillStyle = pal.beard || "#e8e0d0"; c.fill(); });
-  else if (level === 2) part(ctx, (c) => ball(c, hx + 0.2 + sway * 0.4, -18 + hy, 2.2, 1.4, pal.beard || "#c8bca8", { hi: 0.3, lo: 0.3 }));
-  // the near arm: the staff hand (the apprentice's conjuring hand). It is
-  // on our side of him, so it passes IN FRONT of the beard (never through
-  // it), and under the hat's brim, which is drawn last.
+  if (P.grip2) hand(ctx, R.free[0], R.free[1], pal.skin);   // the far fist round the staff
+  // the near arm: the staff hand (the apprentice's conjuring hand), on our
+  // side of him, so over the beard and the staff; it never rises to the brim
   arm(ctx, R.nsh[0], R.nsh[1], R.hand[0], R.hand[1], pal, { col: pal.robe, hand: !P.push });
   if (P.push) openHand(ctx, R.hand[0], R.hand[1], pal.skin);
-  part(ctx, (c) => {
-    // brim, then the point, flopping back; it trails the body a frame. The
-    // brim sits at the brow, above the eye, so the face reads under it.
-    const hy = rise - 0.8;
-    const px = hx + 1.4 + (tall ? 1.5 : 0) + lean * 0.25 - (P.hat || 0), py = -33 - (tall ? 2 : 0) + hy;
-    ball(c, hx, -23 + hy, 5.2, 1.5, pal.hat, { hi: 0.4, lo: 0.4 });
-    c.beginPath(); c.moveTo(hx - 3.8, -23 + hy); c.quadraticCurveTo(hx - 0.4 - (P.hat || 0) * 0.3, -25 + hy, px, py); c.quadraticCurveTo(hx + 2.6 - (P.hat || 0) * 0.3, -26 + hy, hx + 3.4, -23 + hy); c.closePath();
-    c.fillStyle = lin(c, hx - 3.4, 0, hx + 3.6, 0, [[0, lighten(pal.hat, 0.3)], [0.5, pal.hat], [1, darken(pal.hat, 0.45)]]);
-    c.fill();
-    c.fillStyle = pal.trim; c.fillRect(hx - 3.4, -24 + hy, 6.6, 1);
-  });
   ctx.restore();
 };
 
