@@ -101,9 +101,9 @@ export const drawArcherFrame = (ctx, x, y, dir, pal, frame, o = {}) => {
 // drawing hand slides back past the ear), "reach" (a hand over the shoulder
 // to the quiver), or any key of ARCHER_POSES; see archerPose for o.to /
 // o.k / o.arrow / o.breath; o.quiver its leather (default the dark QUIVER;
-// the castle's bowmen may pass the old oak #7a5334). Without a pose the figure draws by `draw`: the
-// limbs bend, the string comes back to the cheek, the arrow
-// rides on it, and he leans back into the weight.
+// the castle's bowmen may pass the old oak #7a5334). Without a pose the
+// figure draws by `draw`: the limbs bend, the string comes back to the
+// cheek, the arrow rides on it, and he leans back into the weight.
 export const drawArcher = (ctx, x, y, dir, pal, draw = 1, o = {}) => {
   const big = !!o.big;
   const s = big ? 1.15 : 1;

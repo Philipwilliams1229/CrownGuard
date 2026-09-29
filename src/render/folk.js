@@ -11,7 +11,7 @@
 // re-exported here. This file keeps the build crew.
 
 import { lighten, darken, shadow, roundRect, lin, part } from "./paint.js";
-import { limb2, blob, dab, head, torso, legs, hand, arm, cap, UPPER, FORE } from "./folk-kit.js";
+import { limb2, blob, dab, at, head, torso, legs, hand, arm, cap, UPPER, FORE } from "./folk-kit.js";
 export * from "./folk-kit.js";
 export * from "./folk-archer.js";
 export * from "./folk-casters.js";
@@ -135,13 +135,18 @@ const apronOn = (ctx, pal, look, flap) => {
   });
   part(ctx, (c) => { c.strokeStyle = darken(col, 0.3); c.lineWidth = 0.55; c.beginPath(); c.moveTo(0.3, -7.6); c.lineTo(1.0, -9.6); c.stroke(); });   // the neck strap
 };
+// the hair under a cap: only behind the ear and at the nape (head units, as
+// head() draws it), never a fringe on the brow, so no dark band of hair and
+// ink stacks under the brim and the eye reads
+const CAP_HAIR = [[-0.5, -2.1], [-1.9, -1.95], [-2.25, -0.6], [-2.1, 0.55, 1], [-1.35, 0.75, 1], [-1.25, -0.35], [-0.45, -1.3]];
 // the head and its cap, in the upper body's frame (neck at 0.3, -10.5)
 const workHead = (ctx, pal, look, tilt) => {
   ctx.save();
   ctx.translate(0.3, -10.5); ctx.rotate(tilt); ctx.translate(-0.3, 10.5);
   if (look === "mason") head(ctx, 0.4, -12.7, pal, { hood: true });
   else {
-    head(ctx, 0.4, -12.7, pal, { hood: false });
+    head(ctx, 0.4, -12.7, { ...pal, hair: null }, { hood: false });
+    if (pal.hair) blob(ctx, at(CAP_HAIR, 0.4, -13.0, 1.08), pal.hair, { hi: 0.3 });
     // the caps sit half a unit up the brow (as the smith's does), so the
     // brim's ink stays above the eye and the eye shows under it
     if (look === "hod") cap(ctx, 0.4, -13.2, pal.hood, { band: darken(pal.hood, 0.35) });

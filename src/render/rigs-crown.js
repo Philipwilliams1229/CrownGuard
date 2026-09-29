@@ -486,9 +486,10 @@ const grip = (w, st, shN, shF) => {
   // the head (the arm up behind the head, the fist clear of the helm's back,
   // the blade hanging back-down behind), down through the foe, on past the line.
   return [
-    // (the fist ~2.4 out from the shoulder: the elbow folds ~137-139°, the
-    // hilt ~117° off the forearm, the blade ~0.6-0.9 under the helm's rim)
-    { hn: N(2.4 + sw * 0.1, 0.15), an: -3.26 + sw * 0.04, hf: F(4.4, 3.6 + lag), shoulder: true },
+    // (the fist ~2.4 out from the shoulder: the elbow folds 135-139°, the
+    // hilt ~120° off the forearm, the blade 0.8-1.0 under the helm's back
+    // rim and across the pauldron's lower half)
+    { hn: N(2.4 + sw * 0.1, 0.2), an: -3.28 + sw * 0.03, hf: F(4.4, 3.6 + lag), shoulder: true },
     { hn: N(3.0, 2.3), an: -1.0, hf: F(4.6, 3.1) },
     { hn: N(-4.0, -4.6), an: 2.75, hf: F(4.8, 2.5), behind: true },
     { hn: N(5.3, 1.3), an: 0.4, hf: F(3.4, 3.8) },
@@ -680,7 +681,9 @@ const soldier = (ctx, p) => {
   const pl = plated && !kn;
   const nearHand = () => {
     const h = arm(ctx, shN, H.hn, A, colsN);
-    if (plated) pauldron(ctx, shN[0] - 0.2, shN[1] + 0.1, 1.8, steel, pl ? trim : null);
+    // (with the blade on the shoulder the shell rides up a hair, so the
+    // blade crosses its lower half and the helm's rim sits in its curve)
+    if (plated) pauldron(ctx, shN[0] - 0.2, shN[1] + (H.shoulder ? -0.2 : 0.1), 1.8, steel, pl ? trim : null);
     if ((w === "sword" || w === "mace") && !back) blade(h);
     else if (w === "axes" && !back) axe(ctx, h[0], h[1], H.an, p.wcol || "#b8bcc4");
     wrist(h, H.an, w);

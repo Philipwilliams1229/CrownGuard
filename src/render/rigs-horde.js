@@ -455,17 +455,18 @@ const IRONCLAD = { ...ORC, wind: 1.4, follow: 1.5 };
 // far hand could never reach a haft or a shield held out in front.
 const ORC_FIGHT = [
   // the axe across the chest, head up; heaved overhead with the head hanging
-  // back behind the skull (the upper arm straight up the back of the head,
-  // the fists over it, so the face still reads); chopped down through the
-  // line; buried low, the orc bent over it
-  [[1.8, 3.4], -1.05, null, 2.2], [[-2.2, -5.5], 2.85, null, 2.2], [[4.4, 2.8], 0.62, null, 2.6], [[3.4, 4.6], 1.2, null, 2.4],
+  // back behind the skull (the head ducks forward under it and is drawn over
+  // the arms, the fists up and back clear of the skull, the hands slid
+  // together on the haft); chopped down through the line; buried low, the
+  // orc bent over it. [.., turn, grip: the far hand's place down the haft]
+  [[1.8, 3.4], -1.05, null, 2.2], [[-2.6, -6.2], 2.85, null, 2.8, 1.5], [[4.4, 2.8], 0.62, null, 2.6], [[3.4, 4.6], 1.2, null, 2.4],
 ];
 const IRON_FIGHT = [
   // cleaver up behind the shield's edge (ahead of the visor, not across it);
   // raised back over the helm while the shield is pushed out (the arm up the
   // back of the helm, the slit clear); cut down across it as the shield swings
   // aside; the blade carried low past the knee, the shield coming back up
-  [[3.2, 2.4], -1.15, [3.9, 4.6], 3.0], [[-2.2, -5.5], 2.8, [4.6, 3.6], 3.2], [[4.6, 2.6], 0.6, [3.0, 5.6], 2.6], [[3.4, 4.8], 1.35, [3.5, 5.0], 2.8],
+  [[3.2, 2.4], -1.15, [3.9, 4.6], 3.0], [[-2.6, -6.2], 2.8, [4.6, 3.6], 3.2], [[4.6, 2.6], 0.6, [3.0, 5.6], 2.6], [[3.4, 4.8], 1.35, [3.5, 5.0], 2.8],
 ];
 const orc = (ctx, p) => {
   const plate = !!p.armor, o = plate ? IRONCLAD : ORC, R = skeleton(p, o), { st, T } = R;
@@ -476,14 +477,14 @@ const orc = (ctx, p) => {
   const shN = T(2.4, -8.2);
   const A = { up: 3.5, fore: 3.3, w: plate ? 3.0 : 3.1 };
   // hands: the orc two-hands his axe; the Ironclad cuts one-handed behind a shield
-  let hn, an, hf, turn = plate ? 3.0 : 0;
+  let hn, an, hf, turn = plate ? 3.0 : 0, gripAt = 1.8;
   if (!st.fight) {
     hn = plate ? [shN[0] + 0.6 + st.swing * 0.8, shN[1] + 6.0] : [shN[0] + 1.6 + st.swing * 0.6, shN[1] + 6.2];
     // (the Ironclad's cleaver hangs forward-down from a loose wrist, not straight down the arm)
     an = plate ? 0.6 - st.swing * 0.1 : 0.42 - st.swing * 0.06;
   } else {
-    const [N, a, H, tu] = pick(plate ? IRON_FIGHT : ORC_FIGHT, st);
-    hn = [shN[0] + N[0], shN[1] + N[1]]; an = a; turn = tu; hf = H;
+    const [N, a, H, tu, g] = pick(plate ? IRON_FIGHT : ORC_FIGHT, st);
+    hn = [shN[0] + N[0], shN[1] + N[1]]; an = a; turn = tu; hf = H; if (g) gripAt = g;
   }
   const shF = T(-2.6 + turn, -8.4 + turn * 0.1);
   if (plate) hf = st.fight ? [shF[0] + hf[0], shF[1] + hf[1]] : [shF[0] + 3.8 + st.swing * 0.2, shF[1] + 5.4];
@@ -535,7 +536,7 @@ const orc = (ctx, p) => {
   // raised weapon and follows the blow down. In the overhead heave both arms
   // go up BEHIND it (the head juts forward of the shoulders), so it is drawn
   // after them, cleanly in front, and the face reads through the wind-up.
-  const hx = st.fight ? [0.1, -0.3, 0.5, 0.4][st.F] : 0, hy = st.fight ? [0, 0.1, 0.3, 0.5][st.F] : 0;
+  const hx = st.fight ? [0.1, 0.4, 0.5, 0.4][st.F] : 0, hy = st.fight ? [0, 0.9, 0.3, 0.5][st.F] : 0;
   const nk = T(1.8, -9.4), hd = [nk[0] + 1.7 + hx, nk[1] - 1.9 + hy], ha = st.lean * 0.3 + (st.fight ? [0, -0.1, 0.1, 0.16][st.F] : 0);
   const head = () => (plate ? ironHelm(ctx, hd[0], hd[1], ha, p) : orcHead(ctx, hd[0], hd[1], ha, p, { scar: true }));
   const heave = st.fight && st.F === 1;
@@ -553,12 +554,13 @@ const orc = (ctx, p) => {
     hn = ik(shN[0], shN[1], hn[0], hn[1], A.up, A.fore, -1)[1];
     const to = along(hn[0], hn[1], an);
     if (!st.fight) { heavyAxe(ctx, hn[0], hn[1], an, p.wcol || "#b8bcc4"); }
-    const h2 = st.fight ? arm(ctx, shF, to(-1.8), A, armColsF) : null;
+    const h2 = st.fight ? arm(ctx, shF, to(-gripAt), A, armColsF) : null;
     if (st.fight) heavyAxe(ctx, hn[0], hn[1], an, p.wcol || "#b8bcc4");
     if (h2) fist(ctx, h2[0], h2[1], 1.5, skinF);
     const h = arm(ctx, shN, hn, A, armCols);
     wrist(ctx, h, an);
-    pauldron(ctx, shN[0] - 0.4, shN[1] - 0.2, 2.6, lea, true);
+    // (no fur trim in the heave: under the ducked jaw it would show as a sliver)
+    pauldron(ctx, shN[0] - 0.4, shN[1] - 0.2, 2.6, lea, !heave);
     fist(ctx, h[0], h[1], 1.6, skin);
   }
   if (heave) head();
