@@ -683,7 +683,12 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               u.atkCd = st.rate * frenzyMul;
               u.swing = 180;
               const dealt = st.dmg * (1 + (u.atkBuff || 0));
-              dealDamage(g, target, dealt, st.magic ? "magic" : "phys", st.magic, false, t.id);
+              // a holy knight's blade is still steel: while a shield stands
+              // his blow breaks a pip like any other (only magic from afar
+              // glances off) — else a Paladin who stuns and heals could hold a
+              // shielded levy forever and the wave would never end
+              const holy = st.magic && !(target.guard > 0);
+              dealDamage(g, target, dealt, holy ? "magic" : "phys", st.magic, false, t.id);
               sfx.play("clink");
               if (st.frenzy) u.frenzy = (u.frenzy || 0) + 1;
               if (st.lifesteal && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + dealt * st.lifesteal); u.healGlow = 200; }
@@ -1232,6 +1237,7 @@ export function updateGame(g, dt) {
             if (Math.hypot(e2.x - e.x, e2.y - e.y) <= 40) {
               e2.burnUntil = tms + 1300;
               e2.burnDps = e.burnDps * 0.6;
+              e2.burnSrc = e.burnSrc;          // the hall that lit it keeps the credit
             }
           }
         }

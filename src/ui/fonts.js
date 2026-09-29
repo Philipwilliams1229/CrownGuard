@@ -188,11 +188,14 @@ export const DEFAULT_TYPE = "current";
 export const SLOTS = ["mark", "title", "head", "ui", "menu", "num", "body", "map", "board"];
 
 // ---- which option ------------------------------------------------------
+// only TYPES' own ids count: "constructor" or "__proto__" in a link must not
+// pass as an option (and be remembered, blanking every later visit)
+const isType = (id) => typeof id === "string" && Object.prototype.hasOwnProperty.call(TYPES, id);
 const pickType = () => {
   let id = null;
   try {
     const q = new URLSearchParams(window.location.search).get("type");
-    if (q && TYPES[q]) {
+    if (q && isType(q)) {
       id = q;
       try { window.localStorage.setItem("cg-type", q); } catch { /* storage blocked */ }
     }
@@ -200,7 +203,8 @@ const pickType = () => {
   if (!id) {
     try {
       const s = window.localStorage.getItem("cg-type");
-      if (s && TYPES[s]) id = s;
+      if (s && isType(s)) id = s;
+      else if (s) window.localStorage.removeItem("cg-type");   // a stale or bad id
     } catch { /* storage blocked */ }
   }
   return id || DEFAULT_TYPE;
@@ -244,7 +248,7 @@ const usesOf = (t, s) => {
 
 // the family stack each slot of an option uses
 export const stacksOf = (id) => {
-  const t = TYPES[id] || TYPES[DEFAULT_TYPE];
+  const t = isType(id) ? TYPES[id] : TYPES[DEFAULT_TYPE];
   if (t.plain) return { ...t.plain };
   const out = {};
   for (const s of SLOTS) out[s] = [...usesOf(t, s).map(q), FALLBACK].join(", ");
@@ -252,7 +256,7 @@ export const stacksOf = (id) => {
 };
 // the distinct faces (as used) an option needs
 export const facesOf = (id) => {
-  const t = TYPES[id];
+  const t = isType(id) ? TYPES[id] : null;
   if (!t || t.plain) return [];
   const seen = new Map();
   for (const s of SLOTS) for (const u of usesOf(t, s)) seen.set(aliasOf(u), u);

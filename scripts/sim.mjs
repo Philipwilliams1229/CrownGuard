@@ -298,7 +298,9 @@ function runOnce(opts, quiet, planName) {
 function runLevel(opts, quiet) {
   if (ENDURE) {
     const out = ["swarm", "burst"].map((pl) => runOnce(opts, true, pl));
-    const line = (r) => `${r.plan.padEnd(5)} bled ${String(r.bleed.reduce((a, b) => a + b, 0)).padStart(3)}  [${r.bleed.join(" ")}]`;
+    // a run that never finished (a wave that could not end) is flagged, so it
+    // can't pass for a run that bled little
+    const line = (r) => `${r.plan.padEnd(5)} bled ${String(r.bleed.reduce((a, b) => a + b, 0)).padStart(3)}${r.result === "STUCK" ? `  STUCK at wave ${r.wave}/${r.total}` : ""}  [${r.bleed.join(" ")}]`;
     console.log(`${opts.name.padEnd(28)} ${line(out[0])}\n${"".padEnd(28)} ${line(out[1])}`);
     return { name: opts.name, ...out[0] };
   }

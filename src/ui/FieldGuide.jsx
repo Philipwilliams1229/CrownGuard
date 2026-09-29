@@ -53,10 +53,12 @@ const NUMBERS = [
   ["beams", (v) => `${v} beams`],
   ["eagleHp", (v) => `war-eagle: ${v} health`],
   ["eagleDmg", (v) => `${v} eagle talon damage`],
+  ["eagleRate", (v) => `eagle strikes ${(1000 / v).toFixed(2)}/s`],
   ["groundDmg", (v) => `swoops on foot troops for ${v} when the sky is clear`],
+  ["groundRate", (v) => `swoops ${(1000 / v).toFixed(2)}/s`],
   ["autoSeed", (v) => `self-seeds ${v} mines as the horn blows`],
   ["mDmg", (v) => `musket: ${v} damage`],
-  ["mRate", (v) => `musket fires every ${(v / 1000).toFixed(2)}s`],
+  ["mRate", (v) => `musket fires ${(1000 / v).toFixed(2)}/s`],
   ["mRange", (v) => `musket reaches ${v}`],
   ["mShots", (v) => `${v} balls in a fan`],
   ["trapKind", (v) => `lays ${v === "spike" ? "road spikes" : v === "jaws" ? "bear-iron jaws" : v === "caltrop" ? "caltrop beds" : "pressure mines"}`],
@@ -117,7 +119,10 @@ const TRAITS = [
 ];
 
 export function describe(s) {
-  const nums = NUMBERS.filter(([k]) => s[k] != null).map(([k, f]) => f(s[k]));
+  // a pace or reach of 0 marks a hall that never fires or reaches (the Gold
+  // Works, the traps, the beams): no "Infinity attacks/s" or "0 range" for it
+  const PACES = new Set(["rate", "mRate", "eagleRate", "groundRate", "range"]);
+  const nums = NUMBERS.filter(([k]) => s[k] != null && !(PACES.has(k) && !(s[k] > 0))).map(([k, f]) => f(s[k]));
   const traits = TRAITS.filter(([k]) => s[k]).map(([, t]) => t);
   return { nums, traits };
 }
@@ -255,7 +260,7 @@ function EnemyDetail({ type }) {
         ) : null}
         {e.trample ? <Row label="Tramples">{e.trample} blocker{e.trample > 1 ? "s" : ""}</Row> : null}
         {e.flying ? <Row label="Flying">knights can't block</Row> : null}
-        {e.atk > 0 ? <Row label="Vs. knights">{e.atk} damage</Row> : null}
+        {e.crush ? <Row label="Vs. knights">crushes them</Row> : e.atk > 0 ? <Row label="Vs. knights">{e.atk} damage</Row> : null}
         {e.rangedAtk ? <Row label="Shoots knights">{e.rangedAtk} at {e.rangedRange} range</Row> : null}
         {e.heal ? <Row label="Heals warband">{e.heal} per chant</Row> : null}
         {e.wardHits ? <Row label="Wards allies">{e.wardHits} blow{e.wardHits > 1 ? "s" : ""} each, within {e.wardRange} / {(e.wardEvery / 1000).toFixed(1)}s</Row> : null}

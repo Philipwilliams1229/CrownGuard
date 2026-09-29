@@ -962,7 +962,7 @@ function* warmSteps(M, ground) {
 }
 export const warmWaterReach = (ground = null) => {
   if (WARM && WARM.realm === REALM && WARM.rivers === RIVERS && WARM.mask === MASK) return;
-  if (!(RIVERS.length || PONDS.length || COAST)) return;
+  if (!(RIVERS.length || PONDS.length || COAST)) { WARM = null; return; }   // stops the last board's pump
   const M = maskJob();
   const job = { realm: REALM, rivers: RIVERS, mask: M, steps: warmSteps(M, ground && ground.width === W * PX ? ground : null), done: false };
   WARM = job;
