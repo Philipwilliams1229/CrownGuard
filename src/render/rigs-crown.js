@@ -486,7 +486,9 @@ const grip = (w, st, shN, shF) => {
   // the head (the arm up behind the head, the fist clear of the helm's back,
   // the blade hanging back-down behind), down through the foe, on past the line.
   return [
-    { hn: N(2.1 + sw * 0.15, 0.2), an: -3.28 + sw * 0.04, hf: F(4.4, 3.6 + lag), shoulder: true },
+    // (the fist ~2.4 out from the shoulder: the elbow folds ~137-139°, the
+    // hilt ~117° off the forearm, the blade ~0.6-0.9 under the helm's rim)
+    { hn: N(2.4 + sw * 0.1, 0.15), an: -3.26 + sw * 0.04, hf: F(4.4, 3.6 + lag), shoulder: true },
     { hn: N(3.0, 2.3), an: -1.0, hf: F(4.6, 3.1) },
     { hn: N(-4.0, -4.6), an: 2.75, hf: F(4.8, 2.5), behind: true },
     { hn: N(5.3, 1.3), an: 0.4, hf: F(3.4, 3.8) },

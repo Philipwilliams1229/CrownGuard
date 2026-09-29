@@ -816,11 +816,17 @@ const hobgoblin = (ctx, p) => {
     });
   });
   const F = st.fight ? st.F : -1;
-  const nk = T(1.4, -10.0), hd = [nk[0] + 1.3 + ([0.1, 0.3, 0.5, 0.4][F] || 0), nk[1] - 2.4 + ([0, 0.4, 0.3, 0.4][F] || 0)];
-  hobHead(ctx, hd[0], hd[1], st.lean * 0.3 + ([0, 0.04, 0.08, 0.12][F] || 0), p);
-  const h = arm(ctx, shN, hn, A, { up: skin, cuff: gold });
-  if (st.fight) { wrist(ctx, h, an); totem(ctx, h[0], h[1], an, p, st.f); }
-  fist(ctx, h[0], h[1], 1.5, skin);
+  const nk = T(1.4, -10.0), hd = [nk[0] + 1.3 + ([0.1, 0.6, 0.5, 0.4][F] || 0), nk[1] - 2.4 + ([0, 0.8, 0.3, 0.4][F] || 0)];
+  const head = () => hobHead(ctx, hd[0], hd[1], st.lean * 0.3 + ([0, 0.04, 0.08, 0.12][F] || 0), p);
+  const hand = () => {
+    const h = arm(ctx, shN, hn, A, { up: skin, cuff: gold });
+    if (st.fight) { wrist(ctx, h, an); totem(ctx, h[0], h[1], an, p, st.f); }
+    fist(ctx, h[0], h[1], 1.5, skin);
+  };
+  // the wind-up hauls the totem up behind the horned helm: the head (ducked
+  // forward) is drawn over the arm, and the fist shows at the back of the helm
+  // between the near horn and the ear, the haft passing behind the horns
+  if (F === 1) { hand(); head(); } else { head(); hand(); }
 };
 const hobHead = (ctx, x, y, a, p) => {
   goblinHead(ctx, x, y, a, { ...p, skin: p.skin }, { paint: "#c8383a" });

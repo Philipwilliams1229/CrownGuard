@@ -601,13 +601,15 @@ const KNIGHT = { L1: 4.8, L2: 4.6, stride: 2.2, lift: 1.6, bob: 0.5, lean: 0.03,
 const hands = (look, st, shN, shF) => {
   const sw = st.swing, N = (dx, dy) => [shN[0] + dx, shN[1] + dy], F = (dx, dy) => [shF[0] + dx, shF[1] + dy];
   const pick = (march, fight) => (st.fight ? fight[st.f] : march);
-  // the levy: spear upright on the march; in the fight an overhand spear over
-  // the shield rim (the point leaving the little-finger side of the fist)
-  if (look === "levy") return pick({ hn: N(1.1 + sw * 0.3, 3.3), an: -1.32 + sw * 0.04, hf: F(4.4, 2.3) }, [
-    { hn: N(2.8, -1.3), an: 0.16, hf: F(4.6, 1.8) },
-    { hn: N(1.6, -2.3), an: -0.36, hf: F(4.3, 2.0) },
-    { hn: N(3.8, -0.7), an: 0.1, hf: F(4.5, 2.2) },
-    { hn: N(4.0, 0.3), an: 0.34, hf: F(4.6, 2.0) }]);
+  // the levy: spear at the slope on the march, leaning out ahead of his nose;
+  // in the fight he thrusts from behind the shield with the fist at his
+  // collarbone and the point angled up, so the shaft runs back UNDER the jaw
+  // (never across the face): drawn back low to the chest, driven out, over-reached
+  if (look === "levy") return pick({ hn: N(2.3 + sw * 0.3, 3.1), an: -1.22 + sw * 0.04, hf: F(4.4, 2.3) }, [
+    { hn: N(3.0, 0.4), an: -0.22, hf: F(4.6, 1.8) },
+    { hn: N(1.8, 1.6), an: -0.45, hf: F(4.3, 2.0) },
+    { hn: N(4.6, -0.1), an: -0.12, hf: F(4.5, 2.2) },
+    { hn: N(4.4, 0.8), an: 0.06, hf: F(4.6, 2.0) }]);
   // the crossbowman: the arbalest carried at the ready on the march, nose up
   // and forward (the fore hand on the tiller; the prod stands out ahead of the
   // kettle's brim instead of across the face); in the fight a shooting cycle — ready, aim at the cheek, loose
@@ -885,10 +887,13 @@ const soldier = (ctx, p) => {
   // goes up BEHIND the head — the head is drawn after it, cleanly in front —
   // and the blade rises clear above.
   const heave = st.fight && st.f === 1 && (look === "sergeant" || look === "chaplain" || look === "marshal");
+  // the levy's great round shield rides on the far arm, held up to the chin:
+  // it goes on before the head, so its rim tucks under the jaw instead of over the face
+  if (look === "levy") roundShield(ctx, H.hf[0] + 1.7, H.hf[1] - 0.8, 3.9, 4.8, p.shcol || red);
   if (!heave) head();
 
   // the shield, before the body
-  if (look === "levy") roundShield(ctx, H.hf[0] + 1.7, H.hf[1] - 0.8, 3.9, 4.8, p.shcol || red);
+  if (look === "levy") { /* drawn above, under the head */ }
   else if (look === "sergeant") heater(ctx, H.hf[0] + 0.9, H.hf[1] + 0.1, p.shcol || red, 1.0);
   else if (look === "marshal") heater(ctx, H.hf[0] + 1.0, H.hf[1] + 0.2, p.shcol || red, 1.05);
   else if (knight) heater(ctx, H.hf[0] + 0.8, H.hf[1] + 0.1, p.shcol || red, 0.8);
