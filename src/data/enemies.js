@@ -28,6 +28,10 @@
 //   holyOnly       physical damage passes through it — only magic hurts it
 //                  (less `mres`): wizards, fire, the Paladin tree's blows
 //   raisesOnKill   a knight it kills rises again as one of its kind
+//   firstWave      not fielded before this wave of a campaign level; `standIn` (x2)
+//                  takes its place until then (the answer to it — a Paladin hall —
+//                  takes gold to reach)
+//   summonAhead    its summoned foes rise in front of it, not behind
 //   swarms         bunches up: stops beside any friendly soldier within this reach
 //                  and claws at it, however many are already on him
 //   haunts         flies, but knights can still reach out and fight it
@@ -187,7 +191,7 @@ export const ENEMIES = {
   },
   wraith: {
     faction: "hollow", hp: 95, speed: 78, bounty: 18, armor: 0, mres: 0.4, size: 17,
-    name: "Wraith", flying: true, holyOnly: true, raisesOnKill: true, haunts: true, swarms: 34, atk: 26, atkRate: 900, castleDmg: 2,
+    name: "Wraith", flying: true, firstWave: 5, standIn: "ghoul", holyOnly: true, raisesOnKill: true, haunts: true, swarms: 34, atk: 26, atkRate: 900, castleDmg: 2,
     note: "A drowned soul that drifts over the road and lays its cold hands on your knights. Arrows, bolts, stones and plain steel all pass through it: only magic hurts it — wizards, fire, and the Paladin's holy blows, the one kind of knight that can. They bunch up on a soldier, all clawing at once, and whoever they kill rises again as another wraith, so keep your ordinary knights back.",
   },
   ghast: {
@@ -204,8 +208,8 @@ export const ENEMIES = {
   gravecaller: {
     faction: "hollow", hp: 380, speed: 55, bounty: 34, armor: 0, mres: 0.65, size: 18,
     name: "Gravecaller", atk: 10, atkRate: 1000, castleDmg: 2,
-    summonEvery: 5000, summonFirst: 0, summonType: "skeleton", summonCount: 10,
-    note: "A robed thing with a bell, warded against most magic. The first toll rings the moment he leaves the wood, then every five seconds: each pulls ten more Risen up out of the road itself — the flood has a source, and this is it. Silence the bell.",
+    summonEvery: 5000, summonFirst: 0, summonAhead: true, summonType: "skeleton", summonCount: 10,
+    note: "A robed thing with a bell, warded against most magic. The first toll rings the moment he leaves the wood, then every five seconds: each pulls ten more Risen up out of the road itself, in front of him, to meet your line — the flood has a source, and this is it. Silence the bell.",
   },
   amalgam: {
     faction: "hollow", hp: 1050, speed: 36, bounty: 42, armor: 0.2, size: 23,

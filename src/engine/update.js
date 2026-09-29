@@ -448,7 +448,7 @@ const makeEnemy = (type, mult) => {
     bannerRange: d.bannerRange || 0, bannerSpeedAmt: d.bannerSpeed || 0, bannerArmorAmt: d.bannerArmor || 0,
     bannerSpeed: 0, bannerArmor: 0,
     // Hollow Court traits: bells that summon, bodies that split or burst
-    summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonCd: d.summonFirst ?? null,
+    summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonAhead: !!d.summonAhead, summonCd: d.summonFirst ?? null,
     splitInto: d.splitInto || null, splitDrop: !!d.splitDrop, deathBurst: d.deathBurst || null, deathDone: false,
     // falconry marks and alchemical shred
     markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0,
@@ -1321,7 +1321,7 @@ export function updateGame(g, dt) {
         if (e.summonCd <= 0) {
           e.summonCd = e.summonEvery;
           for (let i = 0; i < e.summonCount; i++) {
-            const u = spawnAt(g, e.summonType, e.mult * 0.8, e.dist - 14 - i * 7, tms);
+            const u = spawnAt(g, e.summonType, e.mult * 0.8, e.summonAhead ? Math.min(TOTAL_LEN - 6, e.dist + 16 + i * 7) : e.dist - 14 - i * 7, tms);
             u.bounty = Math.max(1, Math.ceil(u.bounty / 2)); // conjured chaff pays half
             g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: 600, life: 600 });
           }

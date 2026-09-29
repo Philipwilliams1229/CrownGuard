@@ -199,6 +199,9 @@ export const waveSpec = (w) => {
   // thicker, because the crowd reads the level's true (fractional) position
   let spec = scripted ? FACTION.waves[a - 1] : genWave(w);
   spec = spec.filter(([type]) => !BOSSES.has(type));
+  // a foe that needs its answer built first (the wraith: a Paladin hall) waits
+  // for a later wave of the level; a stand-in, doubled, marches in its place
+  spec = spec.map((g) => (ENEMIES[g[0]]?.firstWave > w ? [ENEMIES[g[0]].standIn, g[1] * 2, ...g.slice(2)] : g));
   // every level opens on its own ground: the swell comes in over its first
   // few waves, so a fresh purse never meets a full-grown horde on wave one
   spec = shapeCompany(push(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), WINDOW.push), a);
