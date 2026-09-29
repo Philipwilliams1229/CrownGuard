@@ -448,7 +448,7 @@ const makeEnemy = (type, mult) => {
     bannerRange: d.bannerRange || 0, bannerSpeedAmt: d.bannerSpeed || 0, bannerArmorAmt: d.bannerArmor || 0,
     bannerSpeed: 0, bannerArmor: 0,
     // Hollow Court traits: bells that summon, bodies that split or burst
-    summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonCd: null,
+    summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonCd: d.summonFirst ?? null,
     splitInto: d.splitInto || null, splitDrop: !!d.splitDrop, deathBurst: d.deathBurst || null, deathDone: false,
     // falconry marks and alchemical shred
     markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0,

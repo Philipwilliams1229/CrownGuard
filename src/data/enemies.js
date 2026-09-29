@@ -30,7 +30,8 @@
 //   raisesOnKill   a knight it kills rises again as one of its kind
 //   haunts         flies, but knights can still reach out and fight it
 //   banner*        it buffs the speed and armor of everything around it
-//   summon*        it conjures fresh enemies onto the road as it walks
+//   summon*        it conjures fresh enemies onto the road as it walks (summonFirst: ms to
+//                  its first toll — 0 = the instant it spawns; default a beat in)
 //   splitInto      [type, count] — cut it down and it comes apart into these
 //                  (splitDrop: they fall from where it flew, where it died;
 //                  deathSkin: the rig its death crumbles in)
@@ -201,8 +202,8 @@ export const ENEMIES = {
   gravecaller: {
     faction: "hollow", hp: 380, speed: 55, bounty: 34, armor: 0, mres: 0.65, size: 18,
     name: "Gravecaller", atk: 10, atkRate: 1000, castleDmg: 2,
-    summonEvery: 5200, summonType: "skeleton", summonCount: 10,
-    note: "A robed thing with a bell, warded against most magic. Every toll pulls ten more Risen up out of the road itself — the flood has a source, and this is it. Silence the bell.",
+    summonEvery: 5000, summonFirst: 0, summonType: "skeleton", summonCount: 10,
+    note: "A robed thing with a bell, warded against most magic. The first toll rings the moment he leaves the wood, then every five seconds: each pulls ten more Risen up out of the road itself — the flood has a source, and this is it. Silence the bell.",
   },
   amalgam: {
     faction: "hollow", hp: 1050, speed: 36, bounty: 42, armor: 0.2, size: 23,
