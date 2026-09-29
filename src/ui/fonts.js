@@ -44,7 +44,7 @@
 // every slot (the other faces' aliases leave 0-9 out of their unicode-range,
 // and the digits alias covers only 0-9), so a price, a stat line and a tale
 // count in the same unmistakable figures; `sizes` sizes it per slot, `keep`
-// lists slots that keep their own face's digits. A face may also `lack` other
+// lists slots that keep their own face's digits, `only` the slots it serves. A face may also `lack` other
 // characters (Silkscreen's "&" reads as "$"): they fall through to the next
 // face in the slot's stack, and every stack ends with the option's body face.
 //
@@ -121,6 +121,10 @@ export const TYPES = {
     sketch: "Gothic throughout: carved blackletter for names and titles, its narrow roman sister for every word and number.",
     caps: true,
     features: '"lnum"',
+    // Grenze's own figures are old-style (a 0 stands like an o), and text
+    // baked on a canvas can't ask for its lining ones: the board's digits
+    // come from Germania One, a condensed lining face of the same weight
+    digits: { ...face("Germania One", 0.94), only: ["board"] },
     slots: {
       mark: face("Grenze Gotisch", 1.05, [800]),
       title: face("Grenze Gotisch", 1.05, [700]),
@@ -216,7 +220,7 @@ const lineOf = (f) => {
 // face `keep`s out of: canvas text can't set a font feature, see below)
 const cutOf = (t, f, slot) => {
   const own = t.digits && t.digits.family === f.family && (t.digits.sizes?.[slot] || t.digits.size) === f.size;
-  const d = t.digits && !own && !t.digits.keep?.includes(slot) ? DIGITS : "";
+  const d = t.digits && !own && !t.digits.keep?.includes(slot) && (!t.digits.only || t.digits.only.includes(slot)) ? DIGITS : "";
   return [...new Set(d + (f.lacks || ""))].join("");
 };
 const cutTag = (cut) => (cut ? ` -${cut.replace(DIGITS, "0-9")}` : "");

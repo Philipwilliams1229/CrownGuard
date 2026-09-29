@@ -374,7 +374,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
   const abandon = (
     <button style={{ ...woodBtn, fontSize: 10.5, padding: "6px 14px", minHeight: 44, opacity: 0.85, alignSelf: "center" }}
       onClick={() => { if (confirm("Start the whole campaign over? Every cleared level is forgotten.")) onReset(); }}>
-      Abandon campaign &amp; start over
+      Abandon campaign and start over
     </button>
   );
 

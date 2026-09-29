@@ -329,7 +329,7 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
       </div>
       <button style={{ ...btn, marginTop: 12, fontSize: 10, opacity: 0.7 }}
         onClick={() => { if (confirm("Wipe all-time stats, XP, stars and every skill bought? Campaign progress is kept.")) setProfile({ ...resetProfile() }); }}>
-        Wipe record &amp; skills
+        Wipe record and skills
       </button>
     </div>
   );
