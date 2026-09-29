@@ -16,7 +16,7 @@ const rounded = (t) => {
 // The hall's working numbers, one short phrase per tag.
 export function towerTags(t) {
   const st = rounded(t);
-  const s = (n) => (n / 1000).toFixed(2) + "s";
+  const s = (n) => perSec(n);
   let line;
   if (t.kind === "knight") line = `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${s(st.rate)} · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
   else if (t.kind === "support") line = `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
@@ -32,15 +32,19 @@ export function towerTags(t) {
 }
 
 const sec = (v) => `${(v / 1000).toFixed(1)}s`;
+// a hall's pace is stored as the ms between its shots; the card shows it as
+// shots (or blows) a second, so bigger reads better (owner, 2026-09-29)
+export const perSec = (ms) => `${(1000 / ms).toFixed(2)}/s`;
 const pct = (v) => `${Math.round(v * 100)}%`;
 // The numbers an upgrade can move, in reading order. `lower` marks a stat
-// where less is better (a reload time).
+// whose stored value is better when smaller (the ms between shots, shown as
+// a rate a second; a recharge time).
 const DELTAS = [
   ["count", "Swords", (v) => v],
   ["dmg", "Damage", (v) => Math.round(v)],
   ["trapDmg", "Trap dmg", (v) => Math.round(v)],
   ["dps", "Beam", (v) => `${Math.round(v)}/s`],
-  ["rate", "Reload", (v) => `${(v / 1000).toFixed(2)}s`, true],
+  ["rate", "Fire rate", perSec, true],
   ["range", "Range", (v) => (v >= 900 ? "whole map" : Math.round(v))],
   ["hp", "Health", (v) => Math.round(v)],
   ["splash", "Splash", (v) => Math.round(v)],
@@ -55,7 +59,7 @@ const DELTAS = [
   ["maxCharges", "Charges", (v) => v],
   ["chargeEvery", "Recharge", (v) => `${(v / 1000).toFixed(0)}s`, true],
   ["mDmg", "Musket", (v) => Math.round(v)],
-  ["mRate", "Musket reload", (v) => `${(v / 1000).toFixed(2)}s`, true],
+  ["mRate", "Musket rate", perSec, true],
   ["preyMult", "Vs support", (v) => `×${v}`],
   // the damage mechanics: what hurts beyond the hit itself, and how often
   ["poison", "Poison", (v) => `+${Math.round(v)}/s a hit`],
@@ -73,9 +77,9 @@ const DELTAS = [
   ["logStun", "Log stun", sec],
   ["logSlow", "Log slow", pct],
   ["eagleDmg", "Eagle", (v) => Math.round(v)],
-  ["eagleRate", "Eagle reload", (v) => `${(v / 1000).toFixed(2)}s`, true],
+  ["eagleRate", "Eagle rate", perSec, true],
   ["groundDmg", "Swoop", (v) => Math.round(v)],
-  ["groundRate", "Swoop reload", (v) => `${(v / 1000).toFixed(2)}s`, true],
+  ["groundRate", "Swoop rate", perSec, true],
   ["crit", "Crit", (v) => `1 in ${v}`, true],
   ["critMult", "Crit dmg", (v) => `×${v}`],
   ["mCrit", "Musket crit", (v) => `1 in ${v} ×3`, true],
@@ -101,6 +105,9 @@ const DELTAS = [
 const has = (v) => v != null && v !== 0 && v !== false;
 // what `count` counts, hall by hall
 const COUNT_LABEL = { knight: "Knights", assassin: "Blades", riverwatch: "Skiffs", gunpowder: "Crew" };
+// halls whose people strike rather than shoot
+const RATE_LABEL = { knight: "Attack rate", assassin: "Attack rate" };
+const labelFor = (k, label, kind) => (k === "count" ? COUNT_LABEL[kind] || label : k === "rate" ? RATE_LABEL[kind] || label : label);
 
 // Everything a form has, for the finished card: [{ label, value }] in the
 // DELTAS order, then its traits as words.
@@ -109,7 +116,7 @@ export function formStats(t) {
   const rows = [];
   for (const [k, label, fmt] of DELTAS) {
     if (!has(st[k])) continue;
-    rows.push({ label: k === "count" ? COUNT_LABEL[t.kind] || label : label, value: String(fmt(st[k])) });
+    rows.push({ label: labelFor(k, label, t.kind), value: String(fmt(st[k])) });
   }
   if (t.kind === "goldworks") rows.push({ label: "Paid so far", value: `${Math.round(t.paidTotal || 0)}g` });
   const traits = [];
@@ -136,7 +143,7 @@ export function formDeltas(t, form) {
     if ((!has(av) && !has(bv)) || av === bv) continue;
     const from = has(av) ? fmt(av) : "—", to = has(bv) ? fmt(bv) : "—";
     if (String(from) === String(to)) continue;
-    out.push({ label, from, to, better: !has(av) ? true : !has(bv) ? false : lower ? bv < av : bv > av });
+    out.push({ label: labelFor(k, label, t.kind), from, to, better: !has(av) ? true : !has(bv) ? false : lower ? bv < av : bv > av });
   }
   return out;
 }

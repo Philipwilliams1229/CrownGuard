@@ -80,7 +80,7 @@ export const SKILLS = {
     nodes: [
       { id: "c1", tier: 1, name: "Heavier Stones", per: { dmg: P }, desc: "+5% impact damage a rank." },
       { id: "c2", tier: 1, name: "Truer Ranging", per: { range: P }, desc: "+5% range a rank." },
-      { id: "c3", tier: 2, name: "Greased Winch", needs: ["c1"], per: { rate: P }, desc: "Reload 5% faster a rank." },
+      { id: "c3", tier: 2, name: "Greased Winch", needs: ["c1"], per: { rate: P }, desc: "Shoot 5% faster a rank." },
       { id: "c4", tier: 2, name: "Shattering Shot", needs: ["c2"], per: { splash: P }, desc: "+5% blast radius a rank." },
       { id: "c5", tier: 3, name: "Master Engineer", needs: ["c3", "c4"], per: { dmg: P, range: P }, desc: "+5% damage AND +5% range a rank." },
     ],
