@@ -150,7 +150,8 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // (render/fx.js), cheap enough for a crowd of three hundred all on fire.
   {
     const feetY = e.y + e.size * 0.55 + hover;
-    drawStatus(ctx, e, time, tms, feetY, rigged ? feetY - headroom(skin) : e.y - e.size * 0.8);
+    // (a shielded foe shrugs every status off, so none is shown on it)
+    if (!(e.guard > 0)) drawStatus(ctx, e, time, tms, feetY, rigged ? feetY - headroom(skin) : e.y - e.size * 0.8);
   }
   // the falconer's mark: four gold corners closing on the prey
   if (e.markUntil > tms) {

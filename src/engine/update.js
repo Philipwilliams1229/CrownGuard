@@ -441,7 +441,7 @@ const makeEnemy = (type, mult) => {
     flying: !!d.flying, haunts: !!d.haunts, holyOnly: !!d.holyOnly, raisesOnKill: !!d.raisesOnKill, guard: d.guard || 0, guardFlash: 0,
     roadBlock: d.roadBlock || 0, packRange: d.packRange || 0, capDist: Infinity,
     airAtk: d.airAtk || 0, airReach: d.airReach || 0, airFight: null, airOx: 0, airOy: 0,
-    immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush,
+    immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush, mounted: !!d.mounted,
     trampleLeft: d.trample || 0, trampleMax: d.trample || 0, trampleEvery: d.trampleEvery || 0, trampleCd: null,
     rangedAtk: d.rangedAtk || 0, rangedRange: d.rangedRange || 0, rangedRate: d.rangedRate || 0, rangedCd: 0,
     wardEvery: d.wardEvery || 0, wardHits: d.wardHits || 0, wardRange: d.wardRange || 0, wardCd: null, wardFx: d.wardFx || null, wardSelf: d.wardSelf !== false,
@@ -734,7 +734,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               if (st.stun && Math.random() < st.stun) target.stunUntil = tms + st.stunDur;
               if (target.dead) { u.targetId = null; u.state = "rally"; }
             }
-            if (!target.dead && target.stunUntil <= tms && target.atk > 0) {
+            if (!target.dead && (target.stunUntil <= tms || target.guard > 0) && target.atk > 0) {
               target.meleeCd -= sdt * 1000;
               if (target.meleeCd <= 0) {
                 target.meleeCd = target.atkRate;
@@ -1225,9 +1225,9 @@ export function updateGame(g, dt) {
     for (const w of g.enemies) {
       if (w.dead || !w.roadBlock) continue;
       const wall = w.dist - w.roadBlock;
-      // (flyers sail over it; and the caps are rebuilt every frame, so the
+      // (flyers sail over it and horses ride round it; and the caps are rebuilt every frame, so the
       // moment the ram dies the whole column is released at its own pace)
-      const behind = g.enemies.filter((e) => !e.dead && e !== w && !e.swimming && !e.flying && e.dist < w.dist);
+      const behind = g.enemies.filter((e) => !e.dead && e !== w && !e.swimming && !e.flying && !e.mounted && e.dist < w.dist);
       behind.sort((p, q) => q.dist - p.dist);
       const front = [wall, wall, wall];
       for (const e of behind) {
@@ -1350,7 +1350,8 @@ export function updateGame(g, dt) {
       e.atkAnim = Math.max(0, e.atkAnim - sdt * 1000);
       // discipline and dead weight: sergeants and rams shrug off the chill and
       // the shock that stop everything else
-      const stunned = e.stunUntil > tms && !e.immStun;
+      // (a standing shield shrugs off every status: stun and slow do nothing to a shielded foe)
+      const stunned = e.stunUntil > tms && !e.immStun && !(e.guard > 0);
       // a gryphon at war with a war-eagle hangs in the air to fight her
       const held = (e.blockedBy && e.engaged) || !!e.airFight;
       // ---- the river road ----
@@ -1359,7 +1360,7 @@ export function updateGame(g, dt) {
       // everything you built between the gate and the bridge.
       if (e.swimming) {
         if (!stunned) {
-          const slowW = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
+          const slowW = (e.immSlow || e.guard > 0) ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
           e.swimD += e.speed * 0.85 * (1 - slowW) * sdt * e.swimDir;
         }
         const done = e.swimDir > 0 ? e.swimD >= RIVER_ROUTE.exitSwim : e.swimD <= RIVER_ROUTE.exitSwim;
@@ -1376,8 +1377,14 @@ export function updateGame(g, dt) {
           continue;                       // no road position, no leak check
         }
       }
-      if (!stunned && !held) {
-        const slow = e.immSlow ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
+      // Archers hold their ground while any friendly soldier or hero is in
+      // reach, shooting from afar; once none is left standing they march on.
+      // (`aiming` is last frame's answer; a 14 s budget of standing still per
+      // archer keeps a healer's stalemate from holding a wave open for ever)
+      const standing = e.rangedAtk && e.aiming && (e.pauseLeft ??= 14000) > 0;
+      if (standing) e.pauseLeft -= sdt * 1000;
+      if (!stunned && !held && !standing) {
+        const slow = (e.immSlow || e.guard > 0) ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
         const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
         // every foe walks its OWN lane at its own speed: round a bend the
         // inside lane is shorter, so a foe on it gains road on its neighbours
@@ -1425,7 +1432,7 @@ export function updateGame(g, dt) {
       // never break stride to do it. Nothing blocks this — only killing them.
       if (e.rangedAtk && !stunned) {
         e.rangedCd -= sdt * 1000;
-        if (e.rangedCd <= 0) {
+        {
           let mark = null, markTower = null, bd = e.rangedRange;
           for (const t of unitHosts(g)) {
             for (const u of t.units) {
@@ -1434,7 +1441,8 @@ export function updateGame(g, dt) {
               if (d < bd) { bd = d; mark = u; markTower = t; }
             }
           }
-          if (mark) {
+          e.aiming = !!mark;
+          if (mark && e.rangedCd <= 0) {
             e.rangedCd = e.rangedRate;
             e.atkAnim = 220;
             e.face = mark.x >= e.x ? 1 : -1;
@@ -1452,6 +1460,7 @@ export function updateGame(g, dt) {
           }
         }
       }
+      if (!e.rangedAtk || stunned) e.aiming = false;
       if (e.dist >= TOTAL_LEN) {
         e.dead = true;
         const dmgC = e.castleDmg || 1;

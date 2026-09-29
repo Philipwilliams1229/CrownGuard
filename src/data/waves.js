@@ -148,14 +148,23 @@ const push = (spec, k) => {
 };
 
 // ---- THE WALL ----
-// A wall (the siege ram, `roadBlock` in enemies.js) comes ONE to a wave,
-// first out of the wood, with its escort (`escort` in enemies.js: levies and
-// crossbows) right behind it: the army marches in its lee. Applied after the
-// swell, before escortOf (which decides whether a magister walks with it).
+// A wall (the siege ram, `roadBlock` in enemies.js): the first is out of the
+// wood first, with its escort (`escort` in enemies.js: levies and
+// crossbows) right behind it: the army marches in its lee. If the wave holds
+// more than one, the rest follow on a clock of their own, WALL_STAGGER ms
+// apart (a group with `clock`, see startWave) — never bunched. Applied after
+// the swell, before escortOf (which decides whether a magister walks with it).
+const WALL_STAGGER = 9000, WALLS_MAX = 3;
 const shapeCompany = (spec, a) => {
   const wallT = spec.find((g) => ENEMIES[g[0]]?.roadBlock)?.[0];
   if (!wallT) return spec;
-  const out = [[wallT, 1, 0, 1], ...spec.filter((g) => g[0] !== wallT).map((g) => g.slice())];
+  const walls = Math.max(1, Math.min(WALLS_MAX, spec.filter((g) => g[0] === wallT).reduce((n, g) => n + g[1], 0)));
+  // the cavalry surge goes first (horses ride round a wall), then the wall,
+  // then everything that has to march behind it
+  const rest = spec.filter((g) => g[0] !== wallT).map((g) => g.slice());
+  const horse = rest.filter((g) => ENEMIES[g[0]]?.mounted), foot = rest.filter((g) => !ENEMIES[g[0]]?.mounted);
+  const out = [...horse, [wallT, 1, 0, 1], ...foot];
+  if (walls > 1) { const more = [wallT, walls - 1, WALL_STAGGER, 1]; more.clock = WALL_STAGGER; out.push(more); }
   out.overlap = spec.overlap;
   const groupOf = (t) => out.find((g) => g[0] === t);
   for (const [t, base, per, gap] of ENEMIES[wallT].escort || []) {
@@ -189,7 +198,7 @@ export const waveSpec = (w) => {
   spec = spec.filter(([type]) => !BOSSES.has(type));
   // every level opens on its own ground: the swell comes in over its first
   // few waves, so a fresh purse never meets a full-grown horde on wave one
-  spec = push(shapeCompany(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), a), WINDOW.push);
+  spec = shapeCompany(push(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), WINDOW.push), a);
   spec = escortOf(spec, a);
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);
@@ -234,6 +243,7 @@ const sandboxShape = (sp) => {
     const n = Math.max(1, Math.round(count * SANDBOX.countMul));
     const grp = [type, n, Math.max(60, Math.round(gap * SANDBOX.gapMul)), pay];
     if (sp[i].amid != null) grp.amid = sp[i].amid;   // an escort still walks amid its group
+    if (sp[i].clock != null) grp.clock = sp[i].clock;   // a staggered wall keeps its clock
     return grp;
   });
   // however the sliders are set, a wave stays something the road (and an

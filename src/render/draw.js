@@ -350,7 +350,9 @@ export function draw(g, canvas, bufRef) {
   }
   const tms = g.time * 1000;
   for (const e of g.enemies) {
-    if (!e.dead) drawables.push({ y: e.y + 10, fn: () => (e.flying ? drawEnemy(ctx, e, g.time, tms) : onDeck(e.x, e.y, () => drawEnemy(ctx, e, g.time, tms))) });
+    // (a flyer is sorted above the whole ground crowd — it sails over a siege ram
+    // instead of being painted behind it)
+    if (!e.dead) drawables.push({ y: e.y + 10 + (e.flying ? 1000 : 0), fn: () => (e.flying ? drawEnemy(ctx, e, g.time, tms) : onDeck(e.x, e.y, () => drawEnemy(ctx, e, g.time, tms))) });
   }
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();

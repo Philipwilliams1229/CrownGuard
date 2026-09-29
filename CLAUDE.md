@@ -177,8 +177,12 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   wall across all three lanes. No walker behind it passes while it lives;
   flyers sail over it (`capDist` pass in `update.js`, before the enemy loop,
   rebuilt every frame so the column is released the instant the ram dies; the
-  column queues in its lee, per lane). ONE at a time (the spawn queue puts a
-  second one back until the first is dead), first out of the wood, and
+  column queues in its lee, per lane). Up to 3 a wave (the script's count),
+  the first out of the wood first and the rest on a clock of their own,
+  9 s apart (`WALL_STAGGER`; a group with `clock`, placed in startWave). Flyers
+  are drawn above the ground crowd (draw.js sorts them +1000) so they never
+  clip behind a ram. The `single` flag (one alive at a time) still exists in
+  the spawn queue but no foe uses it now. And
   `shapeCompany` (waves.js, applied after the swell) always sends its escort
   behind it (levies + crossbows, sized by the war-wave). Measured with
   `--endure` against the pre-wall build: the wall ALONE roughly doubled the
@@ -186,6 +190,16 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   the crowd behind a 30-speed ram arrived in one lump; speed 46 took that back
   to ~1.5x, and a big escort added more, so keep the escort lean (5+0.6a levies,
   3+0.35a bows). The ram's `speed` is the knob if it is still too much.
+- **Cavalry ride round rams** (`mounted` on the cavalier): a wave with a ram
+  sends its cavalry FIRST, then the ram, then the column (`shapeCompany`).
+- **Archers stand and shoot** (owner, 2026-09-29): a foe with `rangedAtk`
+  (crossbowman, barrow archer) halts while any friendly soldier or hero is in
+  its `rangedRange` and marches on once none is left (`e.aiming`, update.js).
+  Each archer has a 14 s budget of standing still (`pauseLeft`), so a healed
+  paladin cannot hold a wave open for ever.
+- **A standing shield (`guard > 0`) shrugs off every status**: burn/poison
+  ticks already returned in `dealDamage`; stun and slow are now ignored in
+  the movement code too, and `drawStatus` draws nothing on a shielded foe.
 - **Aegis Magister** (the "shield mage"; `packRange`): never his own group —
   `escortOf` (waves.js) walks him amid the biggest group of a wave, and in the
   engine he marches at the mean pace of the soldiers near him so he stays

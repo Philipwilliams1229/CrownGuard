@@ -91,6 +91,10 @@ export const startWave = (g) => {
   for (const grp of spec) {
     const [type, count, gap, pay = 1] = grp;
     if (grp.amid != null) continue;           // escorts are placed below
+    if (grp.clock != null) {                  // a staggered group: its own clock, off the road's queue
+      for (let i = 0; i < count; i++) queue.push({ type, at: grp.clock + i * gap, mult, pay });
+      continue;
+    }
     const start = delay;
     for (let i = 0; i < count; i++) { queue.push({ type, at: delay, mult, pay }); delay += gap; }
     spans[spec.indexOf(grp)] = [start, delay - gap];

@@ -22,6 +22,7 @@
 //                  so it stays embedded in its company instead of drifting
 //   roadBlock      a wall across the whole road (all three lanes): nothing
 //                  behind it can pass while it lives. Value = its half-length
+//   mounted        horses ride round a siege ram (the wall never holds them)
 //   escort         [type, base, perWave, gap] groups always sent in its wake
 //   single         only one of its kind may be on the road at a time
 //   holyOnly       physical damage passes through it — only magic hurts it
@@ -105,8 +106,8 @@ export const ENEMIES = {
   },
   cavalier: {
     faction: "iron", hp: 120, speed: 120, bounty: 14, armor: 0.1, size: 19,
-    name: "Cavalier", atk: 25, atkRate: 800, castleDmg: 2, trample: 1,
-    note: "A charging lance rides the first knight down and gallops on. Only the second blocker holds him.",
+    name: "Cavalier", atk: 25, atkRate: 800, castleDmg: 2, trample: 1, mounted: true,
+    note: "A charging lance rides the first knight down and gallops on. Only the second blocker holds him. Horses ride round a siege ram, so the cavalry surge comes first and the ram and its column follow.",
   },
   chaplain: {
     faction: "iron", hp: 175, speed: 62, bounty: 18, armor: 0.1, mres: 0.3, size: 16,
@@ -135,7 +136,7 @@ export const ENEMIES = {
     // at 30 the crowd behind it arrived in one lump and doubled the sim's bleed
     faction: "iron", hp: 2300, speed: 46, bounty: 60, armor: 0.6, mres: 0, size: 34,
     name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 4, immSlow: true, immStun: true, crush: true,
-    roadBlock: 50, single: true,
+    roadBlock: 50,
     // it never marches bare: [type, base count, more per war-wave, gap ms]
     escort: [["levy", 5, 0.6, 420], ["crossbow", 3, 0.35, 760]],
     note: "A shed of oak and iron wide as the whole road: nothing marches past it, and the army walks in its lee, knights and crossbows piling up behind. Nothing slows it, nothing stuns it, arrows and blades barely dent it, and any knight who steps in front of it is crushed. Magic burns straight through the oak — this is the mages' work. Kill it, and the column pours through.",

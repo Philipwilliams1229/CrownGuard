@@ -232,7 +232,7 @@ function wallCheck(g) {
   for (const w of rams) {
     let jam = 0;
     for (const e of g.enemies) {
-      if (e.dead || e === w || e.flying) continue;
+      if (e.dead || e === w || e.flying || e.mounted) continue;
       const was = WALL.behind.get(w.id + ":" + e.id);
       if (e.dist < w.dist) { WALL.behind.set(w.id + ":" + e.id, true); if (e.dist > w.dist - w.roadBlock - 8) jam++; }
       else if (was && !e.swimming) { WALL.passes++; WALL.behind.delete(w.id + ":" + e.id); }
