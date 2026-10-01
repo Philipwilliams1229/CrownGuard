@@ -74,7 +74,7 @@ export const KNIGHT_REGEN = 0.01, KNIGHT_REST_REGEN = 0.025;
 export const HERO_RETINUE = {
   aldric: { name: "Squire", rig: "squire", at: [10, 15], joins: "a squire rides to his side!",
     st: { hp: 380, dmg: 30, rate: 760, range: 80, unitSpeed: 105, respawnMs: 10000 } },
-  wren: { name: "Archer", rig: "bowman", at: [10, 20], joins: "an archer takes up the bow beside her!",
+  wren: { name: "Archer", rig: "bowman", at: [10, 15], joins: "an archer takes up the bow beside her!",
     st: { hp: 170, dmg: 24, rate: 760, range: 150, unitSpeed: 115, respawnMs: 9000, ranged: true } },
 };
 // how many followers a hero at `level` has on the field

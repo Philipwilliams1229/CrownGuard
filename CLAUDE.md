@@ -365,6 +365,15 @@ the shamans now walking in the thick of the warband).
   route's ends (`patrolOf`, terrain.js; used by `launchSkiffs`, update.js, and
   `watchRoute` / `drawWatchWater`, waterreach.js, whose lit water is clipped
   to the same stretch). A pond's ring is rowed whole.
+- **Masons' barricades** (owner, 2026-09-30): after every wave the Masons'
+  Guild (castle works) sets spiked stake frames, one a lane, across the road
+  before the Gate Guard: tier 1 one row (150 hp a frame, 5 thorns a blow),
+  tier 2 a second row (280, 9); endless ranks +40%. `syncBarricades` /
+  `barricadePass` (update.js) rebuild them whole whenever the build phase
+  opens; a walker with a blow (`atk` > 0) halts before its lane's frame and
+  hacks it down, pricked at each blow; rams smash through, fliers pass.
+  Art: `src/render/barricade.js` (look at it with `barricade-lab.html`).
+  Wren's archers now join at 10 and 15, like Aldric's squires. Provisional.
 - **Necromancer buffed** (owner, 2026-09-30): hp 420 -> 700, raises every
   3.8 s (was 6), up to 4 fallen a cast (was 3) within 170 (was 150). gw5
   swarm doctrine 100-135 -> 165-254 castle damage; provisional.

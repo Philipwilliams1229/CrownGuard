@@ -44,10 +44,15 @@ export const CASTLE_WORKS = {
   },
   masons: {
     name: "Masons' Guild", icon: "",
-    blurb: "Masons on the wall mend the castle after every wave, and shore up its foot.",
+    blurb: "Masons on the wall mend the castle after every wave, shore up its foot, and raise spiked barricades across the road before the halberdiers.",
+    // After every wave the masons set `spikes` rows of barricades (one stake
+    // frame per lane) in front of where the Gate Guard stands. A foe on foot
+    // halts at one and hacks it down (`spikeHp` health a frame) while the
+    // spikes prick it for `thorns` a blow; a siege ram smashes through, fliers
+    // pass over. They are rebuilt whole every wave (engine/update.js).
     tiers: [
-      { cost: 10000, label: "Mend one life a wave", mend: 1 },
-      { cost: 15000, label: "Mend two, shore the wall", mend: 2, hp: 3 },
+      { cost: 10000, label: "Mend one life a wave, spiked barricades", mend: 1, spikes: 1, spikeHp: 150, thorns: 5 },
+      { cost: 15000, label: "Mend two, shore the wall, a second row of spikes", mend: 2, hp: 3, spikes: 2, spikeHp: 280, thorns: 9 },
     ],
   },
   militia: {
@@ -78,7 +83,7 @@ export const emptyWorks = () => ({ archers: 0, ballista: 0, guards: 0, masons: 0
 export const RANK_COST = (key, r) => CASTLE_WORKS[key].tiers.at(-1).cost * 2 ** (r + 1);
 export const rankLabel = (key, r) => ({
   archers: `Rank ${r}: +${r * 40}% bowmen damage`, ballista: `Rank ${r}: +${r * 40}% bolt damage`,
-  guards: `Rank ${r}: +${r * 40}% halberdiers, hotter oil, +${r * 2} castle life`, masons: `Rank ${r}: mend ${2 + r} lives a wave`,
+  guards: `Rank ${r}: +${r * 40}% halberdiers, hotter oil, +${r * 2} castle life`, masons: `Rank ${r}: mend ${2 + r} lives a wave, +${r * 40}% barricade health and spikes`,
   militia: `Rank ${r}: +${r * 40}% levymen's health and blows`,
 }[key]);
 const ranked = (key, t, r) => {
@@ -87,7 +92,7 @@ const ranked = (key, t, r) => {
   if (key === "archers" || key === "ballista") return { ...t, dmg: t.dmg * m, burn: t.burn ? t.burn * m : t.burn, label: rankLabel(key, r) };
   if (key === "guards") return { ...t, men: t.men * m, dmg: t.dmg * m, oil: (t.oil || 0) * m, hp: (t.hp || 0) + 2 * r, label: rankLabel(key, r) };
   if (key === "militia") return { ...t, men: t.men * m, dmg: t.dmg * m, label: rankLabel(key, r) };
-  if (key === "masons") return { ...t, mend: (t.mend || 0) + r, label: rankLabel(key, r) };
+  if (key === "masons") return { ...t, mend: (t.mend || 0) + r, spikeHp: t.spikeHp * m, thorns: t.thorns * m, label: rankLabel(key, r) };
   return t;
 };
 // The next thing to buy for a work: its next tier, or in the endless its

@@ -1,0 +1,29 @@
+<!doctype html>
+<!-- The Masons' barricades on a real road: three looks (whole, worn, broken) in front of the gate.
+     /barricade-lab.html?realm=thornbrook  — draws the ground, then the barricades x3 scale -->
+<html><head><meta charset="utf-8" /><title>barricade lab</title>
+<style>body{background:#20242c;color:#e8e0c8;font-family:monospace;padding:12px}canvas{image-rendering:pixelated}</style></head>
+<body><div id="s">running…</div><canvas id="cv"></canvas>
+<script type="module">
+  import { W, H } from "/src/data/constants.js";
+  import { selectRealm } from "/src/data/maps.js";
+  import { PTS, nearestOnPath, lanePos } from "/src/engine/path.js";
+  import { GUARD_X } from "/src/data/castle.js";
+  import { drawBarricades } from "/src/render/barricade.js";
+  import { groundLayer } from "/src/render/world.js";
+  const q = new URLSearchParams(location.search);
+  selectRealm(q.get("realm") || "thornbrook");
+  const [gx, gy] = PTS[PTS.length - 1];
+  const gd = nearestOnPath(GUARD_X, gy).dist;
+  const g = { time: 5, barricades: [] };
+  [[0, 1], [1, 0.45], [2, 0.15]].forEach(([i, f]) => g.barricades.push({ dist: gd - 36 - i * 34, segs: [-21, 0, 21].map((lane) => ({ lane, hp: f * 240, maxHp: 240 })) }));
+  const SC = 3, cv = document.getElementById("cv");
+  const x0 = GUARD_X - 150, y0 = gy - 90, w = 190, h = 180;
+  cv.width = w * SC; cv.height = h * SC;
+  const ctx = cv.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.scale(SC, SC); ctx.translate(-x0, -y0);
+  ctx.drawImage(groundLayer(), 0, 0, W, H);
+  drawBarricades(ctx, g);
+  document.getElementById("s").textContent = "DONE gate " + gx + "," + gy + " gd " + gd;
+</script></body></html>

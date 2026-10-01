@@ -27,6 +27,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawGroundBlend } from "./groundblend.js";
 import { drawTraps, drawTrapBalloons } from "./traps.js";
+import { drawBarricades } from "./barricade.js";
 import { drawLog } from "./logs.js";
 import { drawStoop } from "./birds.js";
 import { drawMusketShot } from "./musketfx.js";
@@ -158,6 +159,8 @@ export function draw(g, canvas, bufRef) {
 
   // the trapsmith's work, waiting flush with the road
   drawTraps(ctx, g);
+  // the masons' barricades before the Gate Guard
+  drawBarricades(ctx, g);
 
   // clouds crossing the sun — over the ground, under everything standing on it
   drawCloudShadows(ctx, g.time);

@@ -638,6 +638,72 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
   });
 };
 
+// The Masons' barricades (castle works, castle.js masons): after every wave
+// they set `spikes` rows of stake frames across the road in front of the Gate
+// Guard, one frame to a lane, rebuilt whole each time the build phase opens
+// (or the guild is raised). `g.barricades` is a list of rows
+// { dist, segs: [{ lane, hp, maxHp }] }, outermost first.
+const SPIKE_FIRST = 36, SPIKE_ROW = 34, SPIKE_HOLD = 7, SPIKE_LANES = [-LANE_OFF, 0, LANE_OFF];
+const syncBarricades = (g) => {
+  const tier = g.castle && PTS.length ? workTier(g.castle, "masons", g.castleRanks) : null;
+  const key = tier ? `${tier.spikes}:${tier.spikeHp}` : "";
+  if (g.phase === "build" && (g._spikePhase !== "build" || g._spikeKey !== key)) {
+    g.barricades = [];
+    if (tier && tier.spikes) {
+      const [gx, gy] = PTS[PTS.length - 1];
+      const gd = nearestOnPath(GUARD_X, gy).dist ?? TOTAL_LEN - 16;
+      for (let r = tier.spikes - 1; r >= 0; r--) {
+        const dist = gd - SPIKE_FIRST - r * SPIKE_ROW;
+        if (dist < 30) continue;
+        g.barricades.push({ dist, segs: SPIKE_LANES.map((lane) => ({ lane, hp: tier.spikeHp, maxHp: tier.spikeHp, thorns: tier.thorns })) });
+        const [bx, by] = lanePos(dist, 0);
+        g.effects.push({ type: "dust", x: bx, y: by, ttl: 380, r: 22 });
+      }
+    }
+    g._spikeKey = key;
+  }
+  g._spikePhase = g.phase;
+  if (g.barricades && g.barricades.length && g.phase !== "build") {
+    g.barricades = g.barricades.filter((row) => row.segs.some((sg) => sg.hp > 0));
+  }
+};
+// a foe on foot meets a barricade: it halts before the frame in its lane and
+// hacks at it, pricked by the spikes at each blow. A siege ram rolls through;
+// a foe with no blow to strike (atk 0) simply walks on.
+const barricadePass = (g, e, stunned, sdt, tms) => {
+  if (!(e.atk > 0) && !e.crush) return;
+  const k = e.lane < -LANE_OFF / 2 ? 0 : e.lane > LANE_OFF / 2 ? 2 : 1;
+  for (const row of g.barricades) {
+    const sg = row.segs[k];
+    if (sg.hp <= 0 || e.dist > row.dist) continue;
+    if (e.dist < row.dist - SPIKE_HOLD) return;      // not there yet, and the rows further in are further still
+    if (e.crush) {
+      sg.hp = 0;
+      const [bx, by] = lanePos(row.dist, sg.lane);
+      g.effects.push({ type: "dust", x: bx, y: by, ttl: 420, r: 20 });
+      g.shake = Math.max(g.shake, 3);
+      sfx.play("hit");
+      return;
+    }
+    e.dist = Math.min(e.dist, row.dist - SPIKE_HOLD);
+    e.barred = tms;
+    if (stunned) return;
+    e.meleeCd -= sdt * 1000;
+    if (e.meleeCd <= 0) {
+      e.meleeCd = e.atkRate;
+      e.atkAnim = 200;
+      sg.hp -= e.atk;
+      sg.hitAt = tms;
+      const [bx, by] = lanePos(row.dist, sg.lane);
+      g.effects.push({ type: "hit", x: bx, y: by - 6, ttl: 200 });
+      sfx.play("clink");
+      if (sg.hp <= 0) g.effects.push({ type: "dust", x: bx, y: by, ttl: 420, r: 16 });
+      else dealDamage(g, e, sg.thorns, "phys", false, false, null);
+    }
+    return;
+  }
+};
+
 // The Gate Guard (castle works): halberdiers on the road before the gate,
 // fielded as a band so they block exactly as a garrison's knights do — one
 // foe on foot each, never a flier or a swimmer. Kept in step with the works
@@ -866,6 +932,7 @@ export function updateGame(g, dt) {
     for (const t of g.towers) if (t.kind === "riverwatch" && isBuilt(t, g)) launchSkiffs(g, t, getStats(t));
     // ---- the bands: militia, the hero, and the Gate Guard ----
     syncGateGuard(g);
+    syncBarricades(g);
     syncRetinue(g);
     if (g.bands) {
       g.militiaCd = Math.max(0, (g.militiaCd || 0) - sdt * 1000);
@@ -1497,6 +1564,7 @@ export function updateGame(g, dt) {
         // never onward past a ram's rear, never backward for it either
         e.dist = Math.min(e.dist + (step * pace) / stretch, Math.max(e.capDist, e.dist));
       }
+      if (g.barricades && g.barricades.length && !e.flying && !e.swimming && !rising) barricadePass(g, e, stunned, sdt, tms);
       const [nx, ny, a] = lanePos(e.dist, e.lane);
       // the walk cycle follows the ground actually covered, so no foot slides
       if (e.px != null) e.gait = (e.gait || 0) + Math.hypot(nx - e.px, ny - e.py) / 14;
