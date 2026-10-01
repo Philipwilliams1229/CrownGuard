@@ -692,7 +692,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
 
   return (
     <div style={{
-      height: "100dvh", background: "radial-gradient(ellipse at 50% 40%, #243044 0%, #161b24 75%)", color: "#e8e0c8", fontFamily: FONT,
+      height: "100%", background: "radial-gradient(ellipse at 50% 40%, #243044 0%, #161b24 75%)", color: "#e8e0c8", fontFamily: FONT,
       padding: short ? safePad(6, 8, 6, 8) : wide ? safePad(10, 12, 12, 12) : safePad(8, 10, 10, 10), boxSizing: "border-box", overflow: wide ? "hidden" : "auto",
       display: "flex", flexDirection: "column", alignItems: "center", gap: wide ? 10 : 8,
     }}>

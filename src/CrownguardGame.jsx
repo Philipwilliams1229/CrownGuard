@@ -1392,7 +1392,7 @@ export default function Crownguard() {
     <div ref={hudRef} className="cg-hud" style={{
       // the whole screen: the map and its landscape fill it, the tray stands
       // at the right; everything keeps clear of the notch and home indicator
-      position: "relative", height: "100dvh", background: REALMS[realmId].GRASS_DK || "#17111b", boxSizing: "border-box", overflow: "hidden",
+      position: "relative", height: "100%", background: REALMS[realmId].GRASS_DK || "#17111b", boxSizing: "border-box", overflow: "hidden",
     }}>
         {menuOpen && (() => {
           // on a phone on its side the menu lies in two columns, so it fits at full size

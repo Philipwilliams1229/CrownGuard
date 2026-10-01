@@ -30,6 +30,11 @@
       html, body { margin: 0; height: 100%; overflow: hidden; background: #20242c; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
       body { -webkit-user-select: none; user-select: none; -webkit-text-size-adjust: 100%; }
       button { touch-action: manipulation; }
+      /* the game's root is pinned to all four edges of the screen. On an iPad
+         home-screen install 100vh / 100dvh / height:100% can come out a few
+         px short of the real screen, leaving a gray strip along the bottom;
+         a fixed box with every edge at 0 always reaches the true edges */
+      #root { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; }
     </style>
   </head>
   <body>

@@ -168,7 +168,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
   const pad = (m) => `max(env(safe-area-inset-top), ${m}px) max(env(safe-area-inset-right), ${m}px) max(env(safe-area-inset-bottom), ${m}px) max(env(safe-area-inset-left), ${m}px)`;
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100dvh", overflow: "hidden", background: "#1c2450", color: "#e8e0c8", fontFamily: FONT }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", background: "#1c2450", color: "#e8e0c8", fontFamily: FONT }}>
       <canvas ref={vistaRef} width={VW} height={VH} aria-hidden="true" style={vistaStyle} />
       <canvas ref={crowdRef} width={Math.round(VW * K)} height={Math.round(VH * K)} aria-hidden="true" style={vistaStyle} />
       {/* a shade behind the menu so the words stand off the picture */}
