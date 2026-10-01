@@ -116,7 +116,7 @@ export const pickPrey = (g, t, st) => {
     const cx0 = t.rally ? t.rally.x : t.x, cy0 = t.rally ? t.rally.y : t.y;
     let open = null, openScore = -Infinity;
     for (const e of g.enemies) {
-      if (e.dead || e.flying || e.swimming) continue;
+      if (e.dead || e.flying || e.swimming || isRising(e, g.time * 1000)) continue;
       if (Math.hypot(e.x - cx0, e.y - cy0) > st.range) continue;
       const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
       if (score > openScore) { openScore = score; open = e; }
@@ -129,7 +129,7 @@ export const pickPrey = (g, t, st) => {
   const cx = t.rally ? t.rally.x : t.x, cy = t.rally ? t.rally.y : t.y;
   let best = null, bestScore = -Infinity;
   for (const e of g.enemies) {
-    if (e.dead || e.flying || e.swimming) continue;   // no blade reaches sky or water
+    if (e.dead || e.flying || e.swimming || isRising(e, g.time * 1000)) continue;   // no blade reaches sky or water, or a body still rising
     if (!filter(e)) continue;                          // not on the contract
     const d = Math.hypot(e.x - cx, e.y - cy);
     if (d > st.range && !st.preyAnywhere) continue;
@@ -142,6 +142,11 @@ export const pickPrey = (g, t, st) => {
 // Some evolutions hunt by decree — the Ballista and Comet Sling always take
 // the mightiest foe, and the player can't talk them out of it.
 export const forcedAim = (st) => (st.targeting === "strongest" ? "strong" : null);
+
+// A raised skeleton (or a wraith) climbs out of the ground for riseMs; until it
+// is up nothing may target or hurt it (owner, 2026-10-01: towers were striking
+// the dead down before they stood).
+export const isRising = (e, tms) => e.riseAt !== undefined && tms - e.riseAt < e.riseMs;
 
 // How many foes a splash of radius r centred on `e` would also catch.
 const crowdAt = (g, e, r) => {
@@ -156,8 +161,9 @@ export const pickTarget = (g, t, st) => {
   const mode = forcedAim(st) || t.aim || "first";
   const min = st.minRange || 0;
   let best = null, bestScore = -Infinity, doomed = null, doomedScore = -Infinity;
+  const now = g.time * 1000;
   for (const e of g.enemies) {
-    if (e.dead || (st.groundOnly && e.flying)) continue;
+    if (e.dead || isRising(e, now) || (st.groundOnly && e.flying)) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y);
     if (d > st.range || d < min) continue;
     // shots already in the air will finish it: look past it, so a crowd

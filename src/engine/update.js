@@ -13,7 +13,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, nearestOnPath, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { isBuilt } from "./build.js";
@@ -585,7 +585,7 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
         u.targetId = null;
         let bd2 = RANGED_ENGAGE;
         for (const e of g.enemies) {
-          if (e.dead || (e.flying && !e.haunts) || e.swimming || e.blockedBy || e.crush || e.roadBlock || !(e.atk > 0)) continue;
+          if (e.dead || isRising(e, tms) || (e.flying && !e.haunts) || e.swimming || e.blockedBy || e.crush || e.roadBlock || !(e.atk > 0)) continue;
           const dd = Math.hypot(e.x - u.x, e.y - u.y);
           if (dd < bd2) { bd2 = dd; held = e; }
         }
@@ -802,7 +802,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
         if (!target) {
           let best = null, bestDist = -1;
           for (const e of g.enemies) {
-            if (e.dead || (e.flying && !e.haunts) || e.swimming || e.blockedBy) continue;
+            if (e.dead || isRising(e, tms) || (e.flying && !e.haunts) || e.swimming || e.blockedBy) continue;
             if (e.crush && t.kind === "hero") continue;      // the hero knows better than to stand in front of a ram
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
@@ -1696,7 +1696,7 @@ export function updateGame(g, dt) {
         cd.archers -= sdt * 1000;
         if (cd.archers <= 0) {
           let best = null, bd = Infinity;
-          for (const e of g.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bows.range && d < bd) { bd = d; best = e; } }
+          for (const e of g.enemies) { if (e.dead || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bows.range && d < bd) { bd = d; best = e; } }
           if (best) {
             cd.archers = bows.rate / bows.count;
             cd.shot = (cd.shot + 1) % bows.count;
@@ -1716,7 +1716,7 @@ export function updateGame(g, dt) {
         cd.ballista -= sdt * 1000;
         if (cd.ballista <= 0) {
           let best = null, bh = -1;
-          for (const e of g.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bal.range && e.hp > bh) { bh = e.hp; best = e; } }
+          for (const e of g.enemies) { if (e.dead || isRising(e, tms)) continue; const d = Math.hypot(e.x - gx, e.y - gy); if (d < bal.range && e.hp > bh) { bh = e.hp; best = e; } }
           if (best) {
             cd.ballista = bal.rate / (bal.twin ? 2 : 1);
             cd.shot = (cd.shot + 1) % 2;
@@ -1949,7 +1949,7 @@ export function updateGame(g, dt) {
         // pick the foe furthest along the road that a boat can actually reach
         let mark = null, markQ = 0, markScore = -Infinity;
         for (const e of g.enemies) {
-          if (e.dead || e.flying || e.swimming) continue;
+          if (e.dead || e.flying || e.swimming || isRising(e, tms)) continue;
           const nr = nearOnRiver(e.x, e.y, e);
           if (nr.d > st.range) continue;
           // each skiff may carry her own order (u.aim); without one she follows the hall's

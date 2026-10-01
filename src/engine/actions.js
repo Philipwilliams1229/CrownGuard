@@ -377,6 +377,8 @@ const CORPSE_TYPES = new Set(["goblin", "wolf", "orc", "armored", "boarrider", "
 // as a ledger: who actually earned their footprint and who was decoration.
 export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = false) => {
   let dmg = amount;
+  // a raised body climbing out of the ground can't be hurt until it is up
+  if (e.riseAt !== undefined && g.time * 1000 - e.riseAt < e.riseMs) return;
   // a wraith is smoke to everything PHYSICAL: arrows, stones, plain steel and
   // traps pass through. Magic works (less its mres) — wizards, fire, poison and
   // the Paladin tree's holy blows (`holy` = the caller is one) alike; among the
