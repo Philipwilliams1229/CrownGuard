@@ -26,7 +26,7 @@ export const CASTLE_WORKS = {
     tiers: [
       { cost: 10000, label: "One ballista", dmg: 220, rate: 3200, range: 220 },
       { cost: 15000, label: "Twin ballistae", dmg: 240, rate: 3000, range: 240, twin: true },
-      { cost: 25000, label: "Fire bolts", dmg: 280, rate: 2800, range: 260, twin: true, burn: 16, burnDur: 2500 },
+      { cost: 25000, label: "Fire bolts", dmg: 280, rate: 2800, range: 260, twin: true, burn: 16, burnDur: 3000 },
     ],
   },
   guards: {

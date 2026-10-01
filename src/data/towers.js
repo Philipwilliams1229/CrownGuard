@@ -63,13 +63,13 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Pyromancer", cost: 455, stats: { dmg: 46, rate: 1200, range: 105, splash: 72, burn: 8, burnDur: 2500 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
+        name: "Pyromancer", cost: 455, stats: { dmg: 46, rate: 1200, range: 105, splash: 72, burn: 8, burnDur: 2600 }, desc: "Fireballs with a huge blast that set enemies ablaze — burning damage over time.",
         rank4: {
           // every 5th fireball (poolEvery) leaves the road burning behind it
-          a: { name: "Inferno Throne", cost: 975, stats: { dmg: 80, rate: 1250, range: 109, splash: 76, burn: 9, burnDur: 2500, poolEvery: 5, poolKind: "fire", poolDps: 24, poolDur: 3500, poolR: 36 }, desc: "Fireballs from a throne of flame — every FIFTH is a firestorm that leaves the road burning." },
+          a: { name: "Inferno Throne", cost: 975, stats: { dmg: 80, rate: 1250, range: 109, splash: 76, burn: 9, burnDur: 2600, poolEvery: 5, poolKind: "fire", poolDps: 24, poolDur: 3500, poolR: 36 }, desc: "Fireballs from a throne of flame — every FIFTH is a firestorm that leaves the road burning." },
           // a held gout of flame, not shots: dmg is per SECOND to everything
           // inside the cone (update.js breathe); fire it close to the road
-          b: { name: "Dragonbreath", cost: 975, stats: { dmg: 60, range: 69, breath: true, cone: 0.42, burn: 6, burnDur: 2500 }, desc: "A flamethrower: a cone of dragonfire scorching EVERYTHING in it. Short reach — build it by the road." },
+          b: { name: "Dragonbreath", cost: 975, stats: { dmg: 60, range: 69, breath: true, cone: 0.42, burn: 6, burnDur: 1500 }, desc: "A flamethrower: a cone of dragonfire scorching EVERYTHING in it. Short reach — build it by the road." },
         },
       },
       b: {
@@ -96,14 +96,14 @@ export const TOWERS = {
         name: "Trebuchet", cost: 440, stats: { dmg: 200, rate: 4200, range: 255, minRange: 75, splash: 88 }, desc: "One colossal counterweighted arm: boulders across half the field — but its blind circle grows.",
         rank4: {
           a: { name: "Earthshaker", cost: 1020, stats: { dmg: 260, rate: 4400, range: 262, minRange: 75, splash: 105, slow: 0.3, slowDur: 1600 }, desc: "Boulders that crack the very road — survivors stagger through the rubble, slowed." },
-          b: { name: "Comet Sling", cost: 1020, stats: { dmg: 230, rate: 4200, range: 315, minRange: 75, splash: 80, burn: 9, burnDur: 2500, targeting: "strongest", hitsAir: true }, desc: "Burning stones flung at the MIGHTIEST foe anywhere — even fliers, the only catapult that can." },
+          b: { name: "Comet Sling", cost: 1020, stats: { dmg: 230, rate: 4200, range: 315, minRange: 75, splash: 80, burn: 9, burnDur: 2400, targeting: "strongest", hitsAir: true }, desc: "Burning stones flung at the MIGHTIEST foe anywhere — even fliers, the only catapult that can." },
         },
       },
       b: {
         name: "The Log Roller", cost: 440, stats: { logDmg: 110, rate: 5200, range: 999, minRange: 0, logSpeed: 118, logWidth: 22, splash: 0, roller: true }, desc: "Stops throwing, starts ROLLING: a log down a bearing YOU choose, slowing a bit per foe it crushes.",
         rank4: {
           a: { name: "The Iron Drum", cost: 1020, stats: { logDmg: 190, rate: 5000, range: 999, minRange: 0, logSpeed: 126, logWidth: 28, splash: 0, roller: true, logStun: 900, logSlow: 0.4, logSlowDur: 2000 }, desc: "An iron-banded drum: heavier, wider, and what survives it is left stunned and staggering." },
-          b: { name: "The Powder Keg Run", cost: 1020, stats: { logDmg: 135, rate: 4800, range: 999, minRange: 0, logSpeed: 132, logWidth: 24, splash: 0, roller: true, logBurn: 20, logBurnDur: 2500, logBlast: 96, logBlastDmg: 220 }, desc: "A powder-packed log: it burns all it grinds past, and goes up when it finally leaves the field." },
+          b: { name: "The Powder Keg Run", cost: 1020, stats: { logDmg: 135, rate: 4800, range: 999, minRange: 0, logSpeed: 132, logWidth: 24, splash: 0, roller: true, logBurn: 20, logBurnDur: 3000, logBlast: 96, logBlastDmg: 220 }, desc: "A powder-packed log: it burns all it grinds past, and goes up when it finally leaves the field." },
         },
       },
     },
@@ -131,10 +131,10 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Brazier Wheel", cost: 415, stats: { dmg: 43, rate: 1300, range: 81, nova: true, magic: true, burn: 9, burnDur: 2500 }, desc: "The rim is set alight: rings of flame, not spikes, scorch all in reach. MAGIC — ignores armor.",
+        name: "Brazier Wheel", cost: 415, stats: { dmg: 43, rate: 1300, range: 81, nova: true, magic: true, burn: 9, burnDur: 2400 }, desc: "The rim is set alight: rings of flame, not spikes, scorch all in reach. MAGIC — ignores armor.",
         rank4: {
-          a: { name: "Solar Crown", cost: 975, stats: { dmg: 76, rate: 1250, range: 93, nova: true, magic: true, burn: 14, burnDur: 2500 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
-          b: { name: "Wildheart Pyre", cost: 975, stats: { dmg: 52, rate: 1250, range: 86, nova: true, magic: true, burn: 12, burnDur: 2500, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
+          a: { name: "Solar Crown", cost: 975, stats: { dmg: 76, rate: 1250, range: 93, nova: true, magic: true, burn: 14, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
+          b: { name: "Wildheart Pyre", cost: 975, stats: { dmg: 52, rate: 1250, range: 86, nova: true, magic: true, burn: 12, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
         },
       },
     },
@@ -181,10 +181,10 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Blastworks", cost: 415, stats: { trapDmg: 175, splash: 58, maxCharges: 6, chargeEvery: 2400, range: 146, burn: 10, burnDur: 2500, rate: 0, trapKind: "mine" }, desc: "Pressure mines. Big blasts, burning shrapnel, and a column that learns to fear its own road.",
+        name: "Blastworks", cost: 415, stats: { trapDmg: 175, splash: 58, maxCharges: 6, chargeEvery: 2400, range: 146, burn: 10, burnDur: 2600, rate: 0, trapKind: "mine" }, desc: "Pressure mines. Big blasts, burning shrapnel, and a column that learns to fear its own road.",
         rank4: {
-          a: { name: "Minefield Doctrine", cost: 975, stats: { trapDmg: 165, splash: 54, maxCharges: 7, chargeEvery: 2300, autoSeed: 3, burn: 10, burnDur: 2500, range: 154, rate: 0, trapKind: "mine" }, desc: "Through the horn: mines seed THEMSELVES onto the road as each wave begins, on top of those laid." },
-          b: { name: "The Aerostat Yard", cost: 975, stats: { trapDmg: 210, splash: 66, maxCharges: 7, chargeEvery: 2200, range: 154, burn: 12, burnDur: 2500, stunAll: 700, rate: 0, trapKind: "mine", balloon: 2 }, desc: "Every SECOND charge rises: a balloon bomb that answers only to FLIERS. Its blasts stun survivors." },
+          a: { name: "Minefield Doctrine", cost: 975, stats: { trapDmg: 165, splash: 54, maxCharges: 7, chargeEvery: 2300, autoSeed: 3, burn: 10, burnDur: 2600, range: 154, rate: 0, trapKind: "mine" }, desc: "Through the horn: mines seed THEMSELVES onto the road as each wave begins, on top of those laid." },
+          b: { name: "The Aerostat Yard", cost: 975, stats: { trapDmg: 210, splash: 66, maxCharges: 7, chargeEvery: 2200, range: 154, burn: 12, burnDur: 2800, stunAll: 700, rate: 0, trapKind: "mine", balloon: 2 }, desc: "Every SECOND charge rises: a balloon bomb that answers only to FLIERS. Its blasts stun survivors." },
         },
       },
     },
@@ -235,10 +235,10 @@ export const TOWERS = {
     // his mark out to the musket's reach (engine/update.js, "the Powder Works").
     branches: {
       a: {
-        name: "The Bombard Yard", cost: 455, stats: { dmg: 130, rate: 2100, range: 90, frags: 12, fragDmg: 56, fragReach: 50, burn: 9, burnDur: 2500, crack: 0.25, crackDur: 2600, mDmg: 225, mRate: 2600, mRange: 153, count: 2 }, desc: "Charges and every shard they throw crack armor open, and the musketeer shoots into the cracks.",
+        name: "The Bombard Yard", cost: 455, stats: { dmg: 130, rate: 2100, range: 90, frags: 12, fragDmg: 56, fragReach: 50, burn: 9, burnDur: 2400, crack: 0.25, crackDur: 2600, mDmg: 225, mRate: 2600, mRange: 153, count: 2 }, desc: "Charges and every shard they throw crack armor open, and the musketeer shoots into the cracks.",
         rank4: {
-          a: { name: "The Grand Battery", cost: 1020, stats: { dmg: 130, rate: 2000, range: 98, frags: 32, fragDmg: 46, fragReach: 56, burn: 12, burnDur: 2500, crack: 0.3, crackDur: 3000, mDmg: 290, mRate: 2500, mRange: 158, count: 2 }, desc: "One great charge a throw and a storm of iron out of it, cracking all it strikes for the musket." },
-          b: { name: "Dragon's Breath", cost: 1020, stats: { dmg: 130, rate: 2050, range: 94, frags: 14, fragDmg: 50, fragReach: 52, fragBurn: true, burn: 12, burnDur: 2500, burnSpread: true, crack: 0.25, crackDur: 2600, mDmg: 262, mRate: 2550, mRange: 154, mBurn: 18, mBurnDur: 2500, count: 2 }, desc: "Pitch in the powder, hot shot in the musket: red-hot shards set foes alight, and the fire leaps." },
+          a: { name: "The Grand Battery", cost: 1020, stats: { dmg: 130, rate: 2000, range: 98, frags: 32, fragDmg: 46, fragReach: 56, burn: 12, burnDur: 2800, crack: 0.3, crackDur: 3000, mDmg: 290, mRate: 2500, mRange: 158, count: 2 }, desc: "One great charge a throw and a storm of iron out of it, cracking all it strikes for the musket." },
+          b: { name: "Dragon's Breath", cost: 1020, stats: { dmg: 130, rate: 2050, range: 94, frags: 14, fragDmg: 50, fragReach: 52, fragBurn: true, burn: 12, burnDur: 2600, burnSpread: true, crack: 0.25, crackDur: 2600, mDmg: 262, mRate: 2550, mRange: 154, mBurn: 12, mBurnDur: 3400, count: 2 }, desc: "Pitch in the powder, hot shot in the musket: red-hot shards set foes alight, and the fire leaps." },
         },
       },
       b: {
@@ -267,10 +267,10 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Fireship Wharf", cost: 455, stats: { dmg: 52, rate: 1250, range: 112, hp: 230, count: 2, rowSpeed: 76, splash: 54, burn: 8, burnDur: 2500 }, desc: "Hot shot packed in pitch: slower shots, but each one bursts in flame across the bank.",
+        name: "Fireship Wharf", cost: 455, stats: { dmg: 52, rate: 1250, range: 112, hp: 230, count: 2, rowSpeed: 76, splash: 54, burn: 8, burnDur: 2400 }, desc: "Hot shot packed in pitch: slower shots, but each one bursts in flame across the bank.",
         rank4: {
-          a: { name: "The Hellburner", cost: 1005, stats: { dmg: 64, rate: 1350, range: 120, hp: 260, count: 2, rowSpeed: 76, splash: 64, burn: 10, burnDur: 2500, poolDps: 11, poolDur: 2200, poolR: 26 }, desc: "A hull packed with powder and pitch: every pot leaves the shore burning behind it." },
-          b: { name: "The Chain Boom", cost: 1005, stats: { dmg: 54, rate: 1250, range: 124, hp: 300, count: 3, rowSpeed: 80, splash: 52, burn: 7, burnDur: 2500, stun: 0.2, stunDur: 800 }, desc: "A chain slung between the skiffs and a shot that rings it — what the boom catches stands stunned." },
+          a: { name: "The Hellburner", cost: 1005, stats: { dmg: 64, rate: 1350, range: 120, hp: 260, count: 2, rowSpeed: 76, splash: 64, burn: 10, burnDur: 2600, poolDps: 11, poolDur: 2200, poolR: 26 }, desc: "A hull packed with powder and pitch: every pot leaves the shore burning behind it." },
+          b: { name: "The Chain Boom", cost: 1005, stats: { dmg: 54, rate: 1250, range: 124, hp: 300, count: 3, rowSpeed: 80, splash: 52, burn: 7, burnDur: 2000, stun: 0.2, stunDur: 800 }, desc: "A chain slung between the skiffs and a shot that rings it — what the boom catches stands stunned." },
         },
       },
     },
@@ -310,10 +310,10 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Solar Lance", cost: 455, stats: { dps: 85, range: 93, rampMax: 4, rampTime: 2800, igniteBurn: 14, igniteDur: 2500, rate: 0 }, desc: "Hotter, faster, crueler — and at full focus the beam sets its victim alight.",
+        name: "Solar Lance", cost: 455, stats: { dps: 85, range: 93, rampMax: 4, rampTime: 2800, igniteBurn: 14, igniteDur: 2000, rate: 0 }, desc: "Hotter, faster, crueler — and at full focus the beam sets its victim alight.",
         rank4: {
-          a: { name: "Noon Eternal", cost: 1020, stats: { dps: 92, range: 99, rampMax: 4, rampTime: 2600, igniteBurn: 15, igniteDur: 2500, beamSplash: 42, rate: 0 }, desc: "At full focus the light overflows — everything near the victim burns in the spill." },
-          b: { name: "Sun Spear", cost: 1020, stats: { dps: 85, range: 98, rampMax: 6, rampTime: 3000, igniteBurn: 15, igniteDur: 2500, rate: 0 }, desc: "No ceiling worth the name: the ramp climbs to SIX times, if you have the patience to hold it." },
+          a: { name: "Noon Eternal", cost: 1020, stats: { dps: 92, range: 99, rampMax: 4, rampTime: 2600, igniteBurn: 15, igniteDur: 2200, beamSplash: 42, rate: 0 }, desc: "At full focus the light overflows — everything near the victim burns in the spill." },
+          b: { name: "Sun Spear", cost: 1020, stats: { dps: 85, range: 98, rampMax: 6, rampTime: 3000, igniteBurn: 15, igniteDur: 2200, rate: 0 }, desc: "No ceiling worth the name: the ramp climbs to SIX times, if you have the patience to hold it." },
         },
       },
       b: {

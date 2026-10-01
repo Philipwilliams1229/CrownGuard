@@ -380,11 +380,13 @@ the shamans now walking in the thick of the warband).
   beyond it. A retried wave (`snapshot`) now keeps the flags you posted. New
   men step out of the hall's door and march to the flag, and the build phase
   runs garrisons (`runMelee`, update.js) so they move before the horn too.
-- **Every burn lasts 2.5 s, at 75% of its old damage a second** (owner,
-  2026-09-30): `burnDur`, `mBurnDur`, `igniteDur`, `logBurnDur` all 2500 and
-  `burn`, `mBurn`, `igniteBurn`, `logBurn` x0.75 (towers.js, the castle ballista's
-  fire bolts). Fire pools (`poolDps`) and the 1.3 s spread are untouched. Keep new
-  burns at 2500.
+- **Burns cut to 75% of their old damage a second** (owner, 2026-09-30;
+  durations unchanged — a brief 2.5 s-for-all was reverted): `burn`, `mBurn`,
+  `igniteBurn`, `logBurn` x0.75 (towers.js, the castle ballista's fire bolts),
+  and the Dragon's Breath musket's hot shot lowered again, 24 -> 12 a second
+  (~41 a hit). The owner's aim is ~40 total damage per application on average;
+  with the cut the 22 burns average ~29 (range 9 Dragonbreath .. 60 Log
+  Roller's logs). Fire pools and the 1.3 s spread are untouched.
 - **Necromancer buffed** (owner, 2026-09-30): hp 420 -> 700, raises every
   3.8 s (was 6), up to 4 fallen a cast (was 3) within 170 (was 150). gw5
   swarm doctrine 100-135 -> 165-254 castle damage; provisional.
