@@ -320,7 +320,10 @@ upgrade cards stay in `towerPanel` in `src/CrownguardGame.jsx`; skin in
   stay at 100 characters at most; two taps to buy (arming turns a card gold,
   CONFIRM in its fixed slot); never set `visibility: "visible"` on anything
   inside a hidden layer. A short screen (phone on its side, `compact`):
-  the Targets bar loses its label and shares a row with a slim SELL, the
+  the Targets bar loses its label and shares a row with a slim SELL, its
+  list lays the orders two to a row and is capped to the room under the bar
+  (it scrolls rather than run off the panel: a mage's fifth order, "Most",
+  was once cut off), the
   level card drops its numbers (the banner previews them), the banner's
   picture shrinks; the panel scrolls where it must (SELL, the bar and the
   banner never do).
@@ -379,8 +382,8 @@ the shamans now walking in the thick of the warband).
   (null = follow the hall's `t.aim`), read in update.js's River Watch loop;
   the tray's targets list gains an All / 1 / 2 / 3 row (`fleet`, `who` in
   `TargetsBar`), the bar reads "Mixed" when the boats differ, and the board
-  lights the boat being ordered with a blue caret (`g.skiffPick`,
-  waterreach.js `CARET_PICK`). Choosing All clears every boat's own order.
+  lights the boat being ordered: a big
+  blue caret, never hidden by a sister (`g.skiffPick`, waterreach.js `CARET_PICK`). Choosing All clears every boat's own order.
   Skiffs are numbered by their place in `t.units`, not along the river.
   Provisional, pending the owner's playtest.
 - **Masons' barricades** (owner, 2026-09-30): after every wave the Masons'
@@ -408,7 +411,7 @@ the shamans now walking in the thick of the warband).
   Dragonbreath raised 6 -> 13 a second (~20). Fire pools and the 1.3 s spread are untouched.
 - **Sir Aldric's health doubled** (owner, 2026-09-30: "he goes down real easy"): base 280 -> 560, +84 a level (was 42); his regen scales with it. gw3 sims bled a little less (~35-45 vs 50-75).
 - **Raised foes are bone** (owner, 2026-09-30): the rigs' `revived` variant (`revive` + `boneify`, render/rigs.js) turns flesh to ivory bone with rib-like bars, cloth to dark rags, eyes left witch-fire green. Done on the finished bake, so every rig gets it; see it with `hrd-lab.html?m=[["orc",0.32,0,{"revived":true}]]`.
-- **Corpses never fade** (owner, 2026-09-30): the fallen a necromancer can raise (goblin, wolf, orc, ironclad, boar rider, troll; never a boss or champion) lie where they fell until raised, at half the body's health (`CORPSE_CAP` 120, oldest give way, actions.js) and rise slowly (`NECRO_RISE_MS` 2200, update.js: held on the spot, sunk and faded in as a wraith's rising is, then they walk) and are drawn as a scatter of bones (`render/remains.js`; `hrd-lab.html?c=1`).
+- **Corpses lie only for their wave** (owner, 2026-10-01; before that they never faded and piled up): each carries the wave that felled it (`wave`); clearing a wave (or a sandbox summon fight) sets them dissolving (`dissolveCorpses`, update.js: `fadeAt`/`fadeMs` 1800 ms, `remains.js` drops the bones out piece by piece), and a necromancer raises only corpses of the CURRENT wave that are not dissolving. The fallen a necromancer can raise (goblin, wolf, orc, ironclad, boar rider, troll; never a boss or champion) lie where they fell until raised, at half the body's health (`CORPSE_CAP` 120, oldest give way, actions.js) and rise slowly (`NECRO_RISE_MS` 2200, update.js: held on the spot, sunk and faded in as a wraith's rising is, then they walk) and are drawn as a scatter of bones (`render/remains.js`; `hrd-lab.html?c=1`).
 - **Necromancer buffed** (owner, 2026-09-30): hp 420 -> 700, raises every
   3.8 s (was 6), up to 5 fallen a cast (was 3) within 400 (was 150; later rounds of buffs: 170, 260, 400). gw5
   swarm doctrine 100-135 -> 165-254 castle damage; provisional.

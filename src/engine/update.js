@@ -259,6 +259,14 @@ const launchSkiffs = (g, t, st) => {
 // road points every 7px, for the trapsmith's bench (rebuilt when the road changes)
 let ROAD7 = null;
 
+// When a wave is cleared the bones left on the road dissolve (render/remains.js
+// thins them out over fadeMs); they are gone from g.corpses once `until` passes.
+const CORPSE_DISSOLVE_MS = 1800;
+const dissolveCorpses = (g, tms) => {
+  if (!g.corpses) return;
+  for (const c of g.corpses) if (c.until === Infinity) { c.fadeAt = tms; c.fadeMs = CORPSE_DISSOLVE_MS; c.until = tms + CORPSE_DISSOLVE_MS; }
+};
+
 // A rolling log loses weight to every foe it crushes (update.js, logs).
 const LOG_FALLOFF = 0.9, LOG_FLOOR = 0.4;
 
@@ -1467,7 +1475,8 @@ export function updateGame(g, dt) {
           let raised = 0;
           for (let ci = g.corpses.length - 1; ci >= 0 && raised < 5; ci--) {
             const c = g.corpses[ci];
-            if (c.until <= tms || Math.hypot(c.x - e.x, c.y - e.y) > 400) continue;
+            // only this wave's dead, and none already dissolving
+            if (c.until !== Infinity || c.wave !== g.wave || Math.hypot(c.x - e.x, c.y - e.y) > 400) continue;
             g.corpses.splice(ci, 1);
             raised++;
             const u = makeEnemy(c.type, 1);
@@ -2561,6 +2570,7 @@ export function updateGame(g, dt) {
     // Gold Works payout, no victory
     if (g.summonFight && !g.spawnQueue.length && g.enemies.length === 0 && g.phase === "combat") {
       g.summonFight = false;
+      dissolveCorpses(g, tms);
       g.phase = "build";
       g.buildUntil = g.time + (SANDBOX ? SANDBOX.buildTime : BUILD_TIME);
     }
@@ -2568,6 +2578,7 @@ export function updateGame(g, dt) {
       g.gold += waveBonus(g.wave);
       // the hero learns from every wave the realm lives through, alive or not
       sfx.play("waveClear");
+      dissolveCorpses(g, tms);   // the fallen crumble away: the next wave's necromancer starts with none
       if (g.run) g.run.goldEarned += waveBonus(g.wave);
       // the Gold Works pay out on every wave held
       for (const t of g.towers) {

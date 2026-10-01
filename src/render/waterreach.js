@@ -1113,8 +1113,16 @@ export const drawSkiffMarks = (ctx, g, t, built) => {
   const picked = g.skiffPick != null ? t.units[g.skiffPick] : null;
   for (const [x, y] of newStations(g, t)) marks.push([x, y - 29 + lift, true]);
   marks.forEach(([x, y, hollow], i) => {
+    // the boat being ordered: a big blue caret, never hidden by a sister
+    if (picked && boats[i] === picked) {
+      ctx.save();
+      ctx.translate(x, y - 4); ctx.scale(1.7, 1.7);
+      caret(ctx, 0, 0, false, CARET_PICK);
+      ctx.restore();
+      return;
+    }
     for (let q = 0; q < boats.length; q++) if (q !== i && onBoat(x, y + 3, boats[q].x, boats[q].y)) return;
-    caret(ctx, x, y, hollow, picked && boats[i] === picked ? CARET_PICK : CARET_GOLD);
+    caret(ctx, x, y, hollow, CARET_GOLD);
   });
 };
 // where the skiffs an armed upgrade adds would take station

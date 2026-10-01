@@ -465,11 +465,13 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
     // (a gryphon crumbles without its knight: he has just dropped to the road)
     g.effects.push({ type: "death", etype: ENEMIES[e.type]?.deathSkin || e.sprite || e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived, lite: dying >= 16 && !e.boss });
     // the fallen lie where they fell — a necromancer may call them back (once)
-    // — and they lie there until one does (owner, 2026-09-30), never a boss
-    // or champion; the oldest give way past CORPSE_CAP
+    // — but only while the wave that felled them goes on: when it is cleared
+    // they dissolve (update.js dissolveCorpses), and a necromancer raises only
+    // this wave's dead (owner, 2026-10-01). Never a boss or champion; the
+    // oldest give way past CORPSE_CAP
     if (!e.revived && !e.boss && !ENEMIES[e.type]?.boss && CORPSE_TYPES.has(e.type)) {
       if (!g.corpses) g.corpses = [];
-      g.corpses.push({ type: e.type, sprite: e.sprite, x: e.x, y: e.y, dist: e.dist, lane: e.lane, hp0: e.maxHp, size: e.size, until: Infinity });
+      g.corpses.push({ type: e.type, sprite: e.sprite, x: e.x, y: e.y, dist: e.dist, lane: e.lane, hp0: e.maxHp, size: e.size, wave: g.wave, until: Infinity });
       if (g.corpses.length > CORPSE_CAP) g.corpses.shift();
     }
   }

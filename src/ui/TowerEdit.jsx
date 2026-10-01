@@ -11,6 +11,7 @@
 //                  picture, tap one to read its tale (no damage numbers).
 // These are only the pictures; the game component owns every action.
 
+import { useRef, useState, useLayoutEffect } from "react";
 import TowerPortrait from "./TowerPortrait.jsx";
 import { CoinIcon, SkullIcon, BoltIcon, BladeIcon, MagicIcon, ChevronUp, ChevronDown, LockIcon } from "./hud/icons.jsx";
 import { BookIcon } from "./Glyphs.jsx";
@@ -97,14 +98,32 @@ export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim, f
     );
   }
   if (!modes.length) return null;
+  return <TargetsList {...{ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel }} />;
+}
+
+// (split out so its hooks run only for a bar that has a list)
+function TargetsList({ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel }) {
+  // The list may be taller than the panel it drops over (a phone on its side, a mage's five orders, a
+  // fleet's boat row): cap it at the room left under the bar, in the tray's own scaled pixels, and let
+  // it scroll rather than run off the panel's edge.
+  const wrap = useRef(null);
+  const [room, setRoom] = useState(null);
+  useLayoutEffect(() => {
+    const w = wrap.current, panel = w && w.closest(".cg-panel");
+    if (!open || !panel) return;
+    const wr = w.getBoundingClientRect(), pr = panel.getBoundingClientRect();
+    const k = w.offsetHeight ? wr.height / w.offsetHeight : 1;
+    setRoom(Math.max(90, Math.floor((pr.bottom - wr.bottom - 10) / k)));
+  }, [open, slim, modes.length, fleet && fleet.length]);
+  const two = slim;   // a short screen lays the orders two to a row, an odd one spanning the last
   return (
-    <div style={{ position: "relative", zIndex: 4 }}>
+    <div ref={wrap} style={{ position: "relative", zIndex: 4 }}>
       <button type="button" aria-expanded={open} aria-haspopup="listbox" className={cls("cg-btn cg-btn--slate", open && "is-on")}
         style={{ width: "100%", justifyContent: "space-between", padding: slim ? "0 8px" : "0 10px" }} onClick={onToggle} aria-label={`Targets: ${barLabel}`}>
         {!slim && <span style={{ color: open ? "var(--gold-lt)" : "var(--muted)" }}>Targets</span>}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--gold-lt)" }}>{barLabel}{open ? <ChevronUp size={10} /> : <ChevronDown size={10} />}</span>
       </button>
-      <div role="listbox" aria-hidden={!open} className={cls("cg-drop", open && "is-open")} style={{ left: -8, right: slim ? -86 : -8 }}>
+      <div role="listbox" aria-hidden={!open} className={cls("cg-drop", open && "is-open")} style={{ left: -8, right: slim ? -86 : -8, ...(open && room ? { maxHeight: room } : {}) }}>
         {fleet && (
           <div role="group" aria-label="Which skiff" style={{ display: "flex", gap: 4 }}>
             {["all", ...fleet.map((_, i) => i)].map((w) => (
@@ -114,13 +133,16 @@ export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim, f
             ))}
           </div>
         )}
-        {modes.map((m) => (
-          <button key={m.id} type="button" role="option" aria-selected={shown === m.id} tabIndex={open ? undefined : -1} title={m.hint}
-            className={cls("cg-btn cg-btn--slate", shown === m.id && "is-on")} style={{ width: "100%", justifyContent: "space-between", padding: "0 12px" }}
-            onClick={() => onPick(m.id)}>
-            <span>{m.label}</span>{shown === m.id && <span>✓</span>}
-          </button>
-        ))}
+        <div style={{ display: "grid", gridTemplateColumns: two ? "1fr 1fr" : "1fr", gap: 4 }}>
+          {modes.map((m, i) => (
+            <button key={m.id} type="button" role="option" aria-selected={shown === m.id} tabIndex={open ? undefined : -1} title={m.hint}
+              className={cls("cg-btn cg-btn--slate", shown === m.id && "is-on")}
+              style={{ width: "100%", minWidth: 0, justifyContent: "space-between", padding: "0 10px", ...(two && modes.length % 2 && i === modes.length - 1 ? { gridColumn: "1 / -1" } : {}) }}
+              onClick={() => onPick(m.id)}>
+              <span>{m.label}</span>{shown === m.id && <span>✓</span>}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
