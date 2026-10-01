@@ -1,6 +1,6 @@
 // ============ SOUND OPTIONS ============
-// The sound controls, as one block: used in the pause menu and on the title
-// screen. Everything lives in audio/settings.js and takes effect at once.
+// The sound controls, as one block: used in the pause menu and in the title
+// screen's SETTINGS window. Everything lives in audio/settings.js and takes effect at once.
 //   - Sound: everything on/off (the old speaker button)
 //   - Music: the score on/off, on its own
 //   - two sliders: Music and Effects volume

@@ -15,7 +15,7 @@ import { FONT, MARK } from "./theme.js";
 import { woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
 import FieldGuide from "./FieldGuide.jsx";
-import SoundPanel from "./SoundPanel.jsx";
+import SettingsPanel from "./SettingsPanel.jsx";
 import { LEVELS, hasProgress, currentLevel } from "../data/campaign.js";
 import { starsFree, rankName } from "../data/profile.js";
 import { Star } from "./Glyphs.jsx";
@@ -28,7 +28,7 @@ const INK = "#10131a";
 
 export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil }) {
   const [guideOpen, setGuideOpen] = useState(false);
-  const [soundOpen, setSoundOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const saved = hasProgress(progress);
   const upTo = currentLevel(progress);
   const cleared = LEVELS.filter((l) => progress.cleared[l.id]).length;
@@ -138,13 +138,13 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
         <>
           <button style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>
           <button style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>
-          <button style={{ ...smallBtn, ...span }} onClick={() => setSoundOpen(true)}>SOUND</button>
+          <button style={{ ...smallBtn, ...span }} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
         </>
       ) : (
         <div style={{ display: "flex", gap: 10 }}>
           <button style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>
           <button style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>
-          <button style={smallBtn} onClick={() => setSoundOpen(true)}>SOUND</button>
+          <button style={smallBtn} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
         </div>
       )}
       <div style={{ ...span, fontSize: 10, letterSpacing: 1.5, textAlign: "center", color: "#d8c8a0", marginTop: compact ? 0 : 2 }}>
@@ -211,15 +211,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
 
       {/* outside the <Fit>: a fixed modal inside a transform would pin to it */}
       {guideOpen && <FieldGuide onClose={() => setGuideOpen(false)} />}
-      {soundOpen && (
-        <div onClick={() => setSoundOpen(false)} className="cg-hud" style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(22,14,26,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
-          <div onClick={(e) => e.stopPropagation()} className="cg-frame cg-pop" style={{ width: 340, maxWidth: "100%", maxHeight: "100%", overflow: "auto", padding: "16px 18px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div className="cg-display" style={{ fontSize: 22, fontWeight: 700, letterSpacing: 3, color: "var(--gold)", textAlign: "center", textShadow: "2px 2px 0 var(--ink)" }}>SOUND</div>
-            <SoundPanel />
-            <button className="cg-btn cg-btn--gold" style={{ minHeight: 44 }} onClick={() => setSoundOpen(false)}>Done</button>
-          </div>
-        </div>
-      )}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

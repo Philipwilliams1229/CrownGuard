@@ -432,7 +432,8 @@ chiptune.
   unchanged, `vol` = effects volume). `SFX_GROUPS` are the menu's per-effect
   switches (Gold plink = `coin` + `payout`, Arrows, Blows); add a name there
   to give an effect a switch. `ui/SoundPanel.jsx` is the UI, in the pause menu
-  and behind the title screen's SOUND button.
+  and in the title screen's SETTINGS window (`ui/SettingsPanel.jsx`, a
+  Sound tab; a new tab is one entry in its `TABS`).
 - `sfx.js`: the effects (`LIB`), unchanged recipes; shares its AudioContext
   with the music (`sfx.audio()`).
 - `music.js`: the sequencer + mixer (reverb, compressor), crossfades, pauses
