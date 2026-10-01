@@ -466,7 +466,8 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   `crownguard.*` key plus `cg-type`, base64 behind `CROWNGUARD-SAVE:`) to
   copy, share or paste; Restore replaces the device's save whole and
   reloads. "Start the campaign over" (was the campaign map's Abandon button,
-  now gone from the map) and "Erase everything" (reloads). Every one of
+  now gone from the map; the title screen's campaign button only ever
+  continues, it never wipes) and "Erase everything" (reloads). Every one of
   these is two taps. A new saved key under `crownguard.` travels in the code
   with no change.
 

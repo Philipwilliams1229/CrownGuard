@@ -26,7 +26,7 @@ import { warmMapTerrain } from "./mapArt.js";
 
 const INK = "#10131a";
 
-export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil, onCampaignReset }) {
+export default function HomeScreen({ progress, profile, onContinue, onFreePlay, onCouncil, onCampaignReset }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const saved = hasProgress(progress);
@@ -115,18 +115,17 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
       ...(compact ? { display: "grid", gridTemplateColumns: "1fr 1fr" } : { display: "flex", flexDirection: "column" }),
     }}>
       <Studs />
+      {/* one way into the campaign: it never wipes a save (starting over is
+          in Settings > Progress, two taps) */}
       {saved ? (
-        <>
-          <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>
-            CONTINUE CAMPAIGN
-            <div style={sub}>{cleared}/{LEVELS.length} held · next: {upTo.name}</div>
-          </button>
-          <button style={bigBtn(false)} onClick={onNewCampaign}>NEW CAMPAIGN</button>
-        </>
+        <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>
+          CONTINUE CAMPAIGN
+          <div style={sub}>{cleared}/{LEVELS.length} held · next: {upTo.name}</div>
+        </button>
       ) : (
-        <button style={{ ...bigBtn(true), ...span }} onClick={onNewCampaign}>NEW CAMPAIGN</button>
+        <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>NEW CAMPAIGN</button>
       )}
-      <button style={{ ...bigBtn(false), ...(saved ? null : span) }} onClick={onCouncil}>
+      <button style={{ ...bigBtn(false), ...span }} onClick={onCouncil}>
         WAR COUNCIL
         {free > 0 && (
           <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
