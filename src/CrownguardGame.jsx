@@ -839,6 +839,10 @@ export default function Crownguard() {
   // phones get the compact pieces; the old rails are gone
   const railsOn = false;
   const compact = vp.short;
+  // the home bar sits in the middle of the bottom edge, so on a phone on its
+  // side the corner pieces (wave bar, the tray's foot) run to the edge; only
+  // things over the middle (the tower card) keep the full inset
+  const cornerBot = compact && vp.landscape ? 0 : inset.bottom;
   const cropTop = Math.round((boardCss.vh - boardCss.h) / 2);
   const scaleAt = (origin) => (s === 1 ? {} : { transform: `scale(${s})`, transformOrigin: origin });
   // what the next tap will do, on a parchment ribbon across the top of the board
@@ -1682,7 +1686,7 @@ export default function Crownguard() {
         </div>
         {/* ---- bottom left: the horn, its arrow to the next wave's makeup and the rush switch, and the speed ---- */}
         {ui.result == null && (
-          <div style={{ position: "absolute", left: 8 + inset.left, bottom: 8 + inset.bottom, zIndex: 20, ...scaleAt("bottom left") }}>
+          <div style={{ position: "absolute", left: 8 + inset.left, bottom: 8 + cornerBot, zIndex: 20, ...scaleAt("bottom left") }}>
             {infoOpen && (
               <div className="cg-frame cg-pop" style={{ position: "absolute", left: 0, bottom: "calc(100% + 8px)", padding: 12, minWidth: 230, maxWidth: 340, width: "max-content", transformOrigin: "bottom left" }}>
                 {wavePanel}
@@ -1741,7 +1745,7 @@ export default function Crownguard() {
             position: "absolute", top: 0, left: 0, width: TRAY_D, height: `${100 / s}%`, boxSizing: "border-box",
             transform: s === 1 ? undefined : `scale(${s})`, transformOrigin: "0 0",
             // the oak rim down the tray's left edge is 10 css px wide
-            display: "flex", flexDirection: "column", padding: `${6 + inset.top / s}px 6px ${6 + inset.bottom / s}px ${10 / s + 4}px`, gap: 6,
+            display: "flex", flexDirection: "column", padding: `${6 + inset.top / s}px 6px ${6 + cornerBot / s}px ${10 / s + 4}px`, gap: 6,
           }}>
             {/* head: the wave count and the pause menu */}
             <div style={{ display: "flex", gap: 6, alignItems: "stretch", marginRight: cornerR }}>
