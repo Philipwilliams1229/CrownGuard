@@ -556,13 +556,17 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
   };
   const marchLabel = selUnlocked ? (selCleared ? `Ride Out Again` : `March on ${sel.short || sel.name}`) : <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><LockIcon size={14} /> Sealed</span>;
 
+  // The frame and its studs stand still; only the facts between them scroll
+  // (inside the gold bead, never over it), and the March button stays at
+  // the foot.
   const fullCard = sel && (
     <div style={{
-      ...frame, background: PARCH.face, color: PARCH.ink, padding: 16, boxSizing: "border-box", position: "relative",
-      display: "flex", flexDirection: "column", gap: 10,
-      ...(wide ? { width: CARD_W, flexShrink: 0, height: mapBox ? mapBox.height : "100%", overflowY: "auto", overflowX: "hidden", touchAction: "pan-y" } : { width: "100%" }),
+      ...frame, background: PARCH.face, color: PARCH.ink, padding: 8, boxSizing: "border-box", position: "relative",
+      display: "flex", flexDirection: "column",
+      ...(wide ? { width: CARD_W, flexShrink: 0, height: mapBox ? mapBox.height : "100%", overflow: "hidden" } : { width: "100%" }),
     }}>
       <Studs />
+      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", touchAction: "pan-y", scrollbarWidth: "thin", padding: "8px 8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", gap: 12, flexWrap: wide ? "wrap" : "nowrap", alignItems: "flex-start" }}>
         {thumb(wide ? "100%" : 132)}
         <div style={{ flex: "1 1 200px", minWidth: 0 }}>
@@ -591,9 +595,11 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
         </div>
       )}
       {selUnlocked && heroPick}
-      <div style={{ flex: wide ? 1 : 0 }} />
-      <button style={marchStyle} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
-      {wide && abandon}
+      </div>
+      <div style={{ flexShrink: 0, padding: "0 8px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <button style={marchStyle} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
+        {wide && abandon}
+      </div>
     </div>
   );
 
