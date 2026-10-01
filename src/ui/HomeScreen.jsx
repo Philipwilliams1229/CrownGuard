@@ -26,7 +26,7 @@ import { warmMapTerrain } from "./mapArt.js";
 
 const INK = "#10131a";
 
-export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil }) {
+export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil, onCampaignReset }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const saved = hasProgress(progress);
@@ -211,7 +211,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
 
       {/* outside the <Fit>: a fixed modal inside a transform would pin to it */}
       {guideOpen && <FieldGuide onClose={() => setGuideOpen(false)} />}
-      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} onCampaignReset={onCampaignReset} />}
     </div>
   );
 }

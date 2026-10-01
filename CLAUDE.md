@@ -432,8 +432,7 @@ chiptune.
   unchanged, `vol` = effects volume). `SFX_GROUPS` are the menu's per-effect
   switches (Gold plink = `coin` + `payout`, Arrows, Blows); add a name there
   to give an effect a switch. `ui/SoundPanel.jsx` is the UI: the Sound tab
-  of the SETTINGS window (`ui/SettingsPanel.jsx`), opened from the title
-  screen and the pause menu; a new tab is one entry in its `TABS`.
+  of the SETTINGS window (see "The Settings window" below).
 - `sfx.js`: the effects (`LIB`), unchanged recipes; shares its AudioContext
   with the music (`sfx.audio()`).
 - `music.js`: the sequencer + mixer (reverb, compressor), crossfades, pauses
@@ -451,6 +450,25 @@ chiptune.
   WAV); `lab.send(id)` + `node scripts/music-receive.mjs` saves a WAV into
   `samples/` (gitignored), and `afconvert -f m4af -d aac` makes a phone-sized
   m4a. Nobody can hear a track from a shell: the owner's ears decide.
+
+## The Settings window (2026-10-01, owner request)
+
+`ui/SettingsPanel.jsx`, opened from the title screen's SETTINGS button and
+the pause menu's Settings button. A new tab is one entry in its `TABS`
+(`home: true` keeps it to the title screen).
+- **Sound**: `SoundPanel` (audio/settings.js).
+- **Display**: screen shake and floating numbers, in `data/prefs.js`
+  (`crownguard.prefs.v1`). draw.js reads `prefs.shake` / `prefs.floats`; the
+  HUD half is two flags on `<html>` (`data-no-shake`, `data-no-floats`) that
+  hud.css reads. A new switch: a field in prefs.js DEFAULTS, a read where it
+  matters, a `Switch` in `DisplayPanel`.
+- **Progress** (title screen only): a save code (`data/backup.js`: every
+  `crownguard.*` key plus `cg-type`, base64 behind `CROWNGUARD-SAVE:`) to
+  copy, share or paste; Restore replaces the device's save whole and
+  reloads. "Start the campaign over" (was the campaign map's Abandon button,
+  now gone from the map) and "Erase everything" (reloads). Every one of
+  these is two taps. A new saved key under `crownguard.` travels in the code
+  with no change.
 
 ## Balance and testing
 

@@ -45,6 +45,7 @@ import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
+import { prefs } from "../data/prefs.js";
 
 // The wave announcement: a ribbon that sweeps in, holds, and clears. Drawn in
 // buffer space over the finished board, so it reads at any camera zoom. It's
@@ -112,7 +113,7 @@ export function draw(g, canvas, bufRef) {
   // cached art is stamped pixel for pixel; zoom scales those pixels whole
   ctx.imageSmoothingEnabled = false;
   ctx.scale(RES, RES);
-  if (g.shake > 0) ctx.translate(S((Math.random() - 0.5) * g.shake), S((Math.random() - 0.5) * g.shake));
+  if (g.shake > 0 && prefs.shake) ctx.translate(S((Math.random() - 0.5) * g.shake), S((Math.random() - 0.5) * g.shake));
   ctx.scale(g.cam.zoom, g.cam.zoom);
   ctx.translate(-g.cam.x, -g.cam.y);
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -577,7 +578,7 @@ export function draw(g, canvas, bufRef) {
       }
     } else if (fx.type === "coin") {
       // a minted coin and the take, in the little arcade font
-      drawFloatText(ctx, fx);
+      if (prefs.floats) drawFloatText(ctx, fx);
     } else if (fx.type === "poof") {
       drawPoof(ctx, fx);
     } else if (fx.type === "hit") {
@@ -601,7 +602,7 @@ export function draw(g, canvas, bufRef) {
       ringPx(ctx, fx.x, fx.y, r - 1.5, r - 1.5, 0.5, "#fff3d2");
       ctx.restore();
     } else if (fx.type === "leak") {
-      drawFloatText(ctx, fx, true);
+      if (prefs.floats) drawFloatText(ctx, fx, true);
     } else if (fx.type === "pierce") {
       drawSpark(ctx, fx, "gold", 250);
     }

@@ -784,6 +784,7 @@ export default function Crownguard() {
         onNewCampaign={() => { setProgress(resetProgress()); setScreen("map"); }}
         onFreePlay={() => { setMode("free"); setLevelId(null); openRealmSelect("home"); setScreen("game"); }}
         onCouncil={() => setScreen("council")}
+        onCampaignReset={setProgress}
       />
     );
   }
@@ -804,7 +805,6 @@ export default function Crownguard() {
         onHero={pickHero}
         arrive={arrive}
         onBack={() => setScreen("home")}
-        onReset={() => setProgress(resetProgress())}
         onBuyWork={(chapterId, key, next) => {
           const p = spendTreasury(next.cost);
           if (!p) return;

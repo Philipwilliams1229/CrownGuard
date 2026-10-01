@@ -205,6 +205,9 @@
   text-shadow: 1px 1px 0 var(--ink), -1px 1px 0 var(--ink), 1px -1px 0 var(--ink), -1px -1px 0 var(--ink);
   pointer-events: none; animation: cg-float 0.9s ease-out forwards; white-space: nowrap;
 }
+/* the Settings window's Display switches (data/prefs.js sets these on <html>) */
+[data-no-shake] .cg-hurt { animation: cg-hurt-bg 0.6s linear; }
+[data-no-floats] .cg-float { display: none; }
 
 /* ---- the wave horn ---- */
 @keyframes cg-horn {

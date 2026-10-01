@@ -133,7 +133,7 @@ function Banner({ ch, open }) {
 // `arrive` ({ from, to } level ids): a level was just won — the map opens on
 // the site just left, the camera travels the road to the next, and its card
 // (hero, castle works, march) is there to choose from again.
-export default function CampaignMap({ progress, profile, onStart, onBack, onReset, onBuyWork, heroKey, onHero, arrive }) {
+export default function CampaignMap({ progress, profile, onStart, onBack, onBuyWork, heroKey, onHero, arrive }) {
   const rating = (id) => profile?.stars?.[id] || 0;
   const [selId, setSelId] = useState(() => (arrive && levelById(arrive.to) ? arrive.to : currentLevel(progress).id));
   const [worksOpen, setWorksOpen] = useState(false);
@@ -379,13 +379,6 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
   const selFaction = sel ? FACTIONS[sel.chapter.faction] : null;
   const selBoss = sel ? sel.index === sel.chapter.levels.length - 1 : false;
 
-  const abandon = (
-    <button style={{ ...woodBtn, fontSize: 10.5, padding: "6px 14px", minHeight: 44, opacity: 0.85, alignSelf: "center" }}
-      onClick={() => { if (confirm("Start the whole campaign over? Every cleared level is forgotten.")) onReset(); }}>
-      Abandon campaign and start over
-    </button>
-  );
-
   // ---- the continent ----
   const map = (
     <div style={{
@@ -598,7 +591,6 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
       </div>
       <div style={{ flexShrink: 0, padding: "0 8px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
         <button style={marchStyle} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
-        {wide && abandon}
       </div>
     </div>
   );
@@ -643,11 +635,6 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
       {selUnlocked && <div style={{ flexShrink: 0 }}>{heroPick}</div>}
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
         <button style={{ ...marchStyle, flex: 1, padding: "10px 8px", fontSize: 13, minHeight: 48 }} disabled={!selUnlocked} onClick={() => onStart(sel)}>{marchLabel}</button>
-        <button aria-label="Abandon campaign and start over"
-          style={{ ...woodBtn, flexShrink: 0, width: 62, padding: "4px 6px", fontSize: 9, letterSpacing: 1, lineHeight: 1.25, textAlign: "center", opacity: 0.85 }}
-          onClick={() => { if (confirm("Start the whole campaign over? Every cleared level is forgotten.")) onReset(); }}>
-          START<br />OVER
-        </button>
       </div>
     </div>
   );
@@ -725,7 +712,6 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onRese
           {header}
           {map}
           <div style={{ width: "100%", maxWidth: 780, flexShrink: 0 }}>{card}</div>
-          {!compact && abandon}
         </>
       )}
     </div>
