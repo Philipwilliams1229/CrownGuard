@@ -32,6 +32,7 @@
       when a gravecaller tolls, the fanfare when the realm stands.
     </p>
     <div class="grid" id="grid"></div>
+    <div style="margin-top:14px"><button id="sheet">⭳ render these as one WAV (1.7 s apart, in button order)</button> <span id="sheetlog" style="font-size:11px;opacity:.6"></span></div>
     <label>
       volume
       <input id="vol" type="range" min="0" max="100" />
@@ -47,6 +48,16 @@
         b.onclick = () => sfx.play(name, true);
         grid.appendChild(b);
       }
+      const only = new URLSearchParams(location.search).get("names");
+      window.sheetNames = only ? only.split(",") : sfx.names();
+      document.getElementById("sheet").onclick = async () => {
+        const { wavBytes } = await import("/src/audio/music.js");
+        const buf = await sfx.sheet(window.sheetNames);
+        const b = wavBytes(buf);
+        document.getElementById("sheetlog").textContent = window.sheetNames.join(" · ");
+        window.lastSheet = b;
+        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([b], { type: "audio/wav" })); a.download = "sound-sheet.wav"; a.click();
+      };
       const vol = document.getElementById("vol");
       vol.value = Math.round(sfx.volume * 100);
       vol.oninput = () => sfx.setVolume(vol.value / 100);

@@ -1,0 +1,73 @@
+<!doctype html>
+<!--
+  Dev tool: the music lab. Every track in the game: play it live, or render it
+  to a WAV (offline, one pass) to listen on a phone. Open /music.html with the
+  dev server running. The first click unlocks the audio, as browsers require.
+  `?id=<track>` highlights one; window.lab.render(id) -> WAV bytes (for scripts).
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Crownguard — music lab</title>
+    <style>
+      body { background: #20242c; color: #e8e0c8; font-family: Verdana, sans-serif; margin: 0; padding: 20px; }
+      h1 { font-size: 15px; letter-spacing: 2px; color: #d8b34a; }
+      p { font-size: 11px; opacity: 0.65; max-width: 56em; line-height: 1.5; }
+      .row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-top: 6px; max-width: 760px; background: #2a303b; border: 2px solid #10131a; }
+      .row.on { border-color: #d8b34a; }
+      .row b { width: 170px; font-size: 12px; } .row span { flex: 1; font-size: 11px; opacity: 0.6; }
+      button { background: #3a4150; color: #e8e0c8; border: 2px solid #10131a; padding: 7px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+      label { font-size: 12px; display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+      #log { font-size: 11px; opacity: 0.7; margin-top: 14px; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>MUSIC LAB</h1>
+    <p>Play a track live (it loops), or render one pass to a WAV file you can send to your phone. Volume is the game's own music volume.</p>
+    <div id="list"></div>
+    <label>music volume <input id="vol" type="range" min="0" max="100" /> <button id="stop">stop</button></label>
+    <div id="log"></div>
+    <script type="module">
+      import { music, renderTrack, wavBytes } from "/src/audio/music.js";
+      import { settings, saveSettings } from "/src/audio/settings.js";
+      const list = document.getElementById("list"), log = document.getElementById("log");
+      const rows = {};
+      const paint = () => { for (const [id, r] of Object.entries(rows)) r.classList.toggle("on", music.playing === id); };
+      for (const id of music.ids()) {
+        const t = music.info(id);
+        const row = document.createElement("div"); row.className = "row"; rows[id] = row;
+        row.innerHTML = `<b>${id}</b><span>${t.title || ""} · ${t.bpm} bpm · ${t.key || ""}</span>`;
+        const play = document.createElement("button"); play.textContent = "▶ play";
+        play.onclick = () => { music.unlock(); music.play(id); setTimeout(paint, 80); };
+        const dl = document.createElement("button"); dl.textContent = "⭳ wav";
+        dl.onclick = async () => {
+          log.textContent = `rendering ${id}…`;
+          const b = wavBytes(await renderTrack(id));
+          const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([b], { type: "audio/wav" })); a.download = `${id}.wav`; a.click();
+          log.textContent = `${id}: ${(b.length / 1e6).toFixed(1)} MB`;
+        };
+        row.append(play, dl); list.appendChild(row);
+      }
+      const vol = document.getElementById("vol");
+      vol.value = Math.round(settings.musicVol * 100);
+      vol.oninput = () => { settings.musicVol = vol.value / 100; saveSettings(); };
+      document.getElementById("stop").onclick = () => { music.stop(); paint(); };
+      window.lab = {
+        music,
+        async render(id, opts) { return wavBytes(await renderTrack(id, opts)); },
+        // render + POST to a local receiver (scripts/music-receive.mjs)
+        async send(id, port = 5199, opts) {
+          const b = await this.render(id, opts);
+          const r = await fetch(`http://127.0.0.1:${port}/${id}.wav`, { method: "POST", body: b });
+          return `${id}: ${b.length} bytes -> ${r.status}`;
+        },
+        // loudness check of a render: peak and rms
+        async stats(id) {
+          const buf = await renderTrack(id); const d = buf.getChannelData(0);
+          let pk = 0, sq = 0; for (let i = 0; i < d.length; i++) { pk = Math.max(pk, Math.abs(d[i])); sq += d[i] * d[i]; }
+          return { secs: buf.duration.toFixed(1), peak: pk.toFixed(2), rmsDb: (10 * Math.log10(sq / d.length)).toFixed(1) };
+        },
+      };
+    </script>
+  </body>
+</html>

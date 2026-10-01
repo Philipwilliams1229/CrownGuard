@@ -12,26 +12,30 @@
 //   - every note gets a little random pitch drift, so repetition doesn't
 //     turn into a machine gun.
 //
-// Volume and mute persist in localStorage. The HUD's speaker button and the
-// sound lab (/sound.html) both talk to this module.
+// Volume, mute and the per-effect switches live in settings.js (saved in
+// localStorage); the pause menu and the sound lab (/sound.html) talk to this
+// module. music.js shares this module's AudioContext (sfx.audio()).
+
+import { settings, saveSettings, effectOff } from "./settings.js";
+import { VOICES, DRUMS } from "./instruments.js";
+import { midiToFreq } from "./notation.js";
 
 const HEADLESS = typeof window === "undefined" || !(window.AudioContext || window.webkitAudioContext);
 
-const KEY = "crownguard.sound.v1";
-
-const store = (() => {
-  try {
-    const raw = JSON.parse((typeof localStorage !== "undefined" && localStorage.getItem(KEY)) || "{}");
-    return { muted: !!raw.muted, vol: typeof raw.vol === "number" ? raw.vol : 0.5 };
-  } catch {
-    return { muted: false, vol: 0.5 };
-  }
-})();
+const store = settings;
 
 let ctx = null;
 let master = null;
+let t0 = 0;                     // start offset, so a render can lay sounds end to end
 let voices = 0;                 // live sources, for the safety cap
 const lastAt = {};              // per-sound gate timestamps
+
+// A gentle compressor on the way out, so a pile of horns and hits can't clip.
+function limiter(c) {
+  const comp = c.createDynamicsCompressor();
+  comp.threshold.value = -12; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.15;
+  return comp;
+}
 
 function boot() {
   if (HEADLESS) return null;
@@ -40,15 +44,13 @@ function boot() {
     ctx = new AC();
     master = ctx.createGain();
     master.gain.value = store.muted ? 0 : store.vol;
-    master.connect(ctx.destination);
+    master.connect(limiter(ctx)).connect(ctx.destination);
   }
   if (ctx.state === "suspended") ctx.resume();
   return ctx;
 }
 
-function save() {
-  try { localStorage.setItem(KEY, JSON.stringify({ muted: store.muted, vol: store.vol })); } catch { /* fine */ }
-}
+const save = saveSettings;
 
 // A sound may fire again only after its window has passed.
 function gate(name, ms) {
@@ -65,7 +67,7 @@ const drift = (f, pct = 0.06) => f * (1 + (Math.random() * 2 - 1) * pct);
 // One oscillator with an attack/decay envelope and optional pitch slide.
 function tone({ type = "square", f = 440, to = null, dur = 0.15, gain = 0.2, attack = 0.005, delay = 0, curve = "exp" }) {
   if (!ctx || voices > 28) return;
-  const t = ctx.currentTime + delay;
+  const t = ctx.currentTime + t0 + delay;
   const o = ctx.createOscillator();
   const g = ctx.createGain();
   o.type = type;
@@ -93,7 +95,7 @@ function noise({ dur = 0.2, gain = 0.2, type = "lowpass", from = 2000, to = 300,
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
-  const t = ctx.currentTime + delay;
+  const t = ctx.currentTime + t0 + delay;
   const src = ctx.createBufferSource();
   src.buffer = noiseBuf;
   src.loop = true;
@@ -120,28 +122,40 @@ function bell(f, dur = 1.1, gain = 0.2) {
   }
 }
 
+
+// Play a music-orchestra voice as a sound effect ("horn", "bell", "harp"...),
+// pitched by MIDI note, so the fanfares match the score's instruments.
+function inst(name, midi, dur = 0.3, gain = 0.7, delay = 0) {
+  if (!ctx || voices > 28) return;
+  VOICES[name]?.(ctx, master, midiToFreq(midi), ctx.currentTime + t0 + delay, dur, gain);
+}
+function drum(hit, gain = 0.8, delay = 0) {
+  if (!ctx || voices > 28) return;
+  DRUMS[hit]?.(ctx, master, ctx.currentTime + t0 + delay, gain);
+}
+
 // ---- the library -------------------------------------------------------
 // Each entry: the synth recipe, and how often it may fire (gate ms).
 
 const LIB = {
   // building & economy
-  place:     { ms: 90,  fn: () => { noise({ dur: 0.1, gain: 0.3, from: 900, to: 150 }); tone({ type: "sine", f: 130, to: 55, dur: 0.16, gain: 0.4 }); } },
-  upgrade:   { ms: 90,  fn: () => { tone({ f: drift(440), dur: 0.07, gain: 0.16 }); tone({ f: drift(660), dur: 0.1, gain: 0.16, delay: 0.07 }); } },
-  evolve:    { ms: 200, fn: () => { tone({ f: 523, dur: 0.22, gain: 0.14 }); tone({ f: 659, dur: 0.22, gain: 0.12 }); tone({ type: "triangle", f: 1046, dur: 0.3, gain: 0.1, delay: 0.08 }); } },
-  ascend:    { ms: 300, fn: () => { [523, 659, 784, 1046].forEach((f, i) => tone({ f, dur: 0.12, gain: 0.13, delay: i * 0.07 })); bell(1568, 0.7, 0.08); } },
-  sell:      { ms: 150, fn: () => { tone({ f: 988, dur: 0.06, gain: 0.15 }); tone({ f: 740, dur: 0.09, gain: 0.13, delay: 0.06 }); } },
-  coin:      { ms: 80,  fn: () => { tone({ f: drift(1976, 0.03), dur: 0.05, gain: 0.07 }); tone({ f: drift(2637, 0.03), dur: 0.07, gain: 0.06, delay: 0.045 }); } },
+  place:     { ms: 90,  fn: () => { noise({ dur: 0.1, gain: 0.3, from: 900, to: 150 }); tone({ type: "sine", f: 130, to: 55, dur: 0.16, gain: 0.4 }); inst("lute", 60, 0.2, 0.5, 0.05); } },
+  upgrade:   { ms: 90,  fn: () => { inst("harp", 76, 0.2, 0.7); inst("harp", 83, 0.3, 0.7, 0.07); inst("celesta", 95, 0.3, 0.45, 0.07); } },
+  evolve:    { ms: 200, fn: () => { [72, 76, 79].forEach((m, i) => inst("harp", m, 0.4, 0.7, i * 0.06)); inst("strings", 67, 0.5, 0.8); inst("bell", 91, 1, 0.6, 0.2); } },
+  ascend:    { ms: 300, fn: () => { [72, 76, 79, 84, 88].forEach((m, i) => inst("harp", m, 0.4, 0.7, i * 0.06)); inst("brass", 79, 0.5, 0.7, 0.2); inst("bell", 96, 1.2, 0.7, 0.3); } },
+  sell:      { ms: 150, fn: () => { inst("celesta", 88, 0.2, 0.7); inst("celesta", 81, 0.25, 0.6, 0.07); } },
+  coin:      { ms: 80,  fn: () => { inst("celesta", 96 + Math.round(Math.random() * 2) * 2, 0.15, 0.55); } },
 
   // the horn and the tide
-  horn:      { ms: 400, fn: () => { for (const f of [196, 294]) { tone({ type: "sawtooth", f: f * 0.995, dur: 0.55, gain: 0.1, attack: 0.12 }); tone({ type: "sawtooth", f: f * 1.005, dur: 0.55, gain: 0.1, attack: 0.12 }); } } },
-  bossHorn:  { ms: 900, fn: () => { for (const f of [98, 147]) { tone({ type: "sawtooth", f, dur: 1.0, gain: 0.14, attack: 0.2 }); } noise({ dur: 0.9, gain: 0.1, from: 400, to: 60 }); } },
-  waveClear: { ms: 900, fn: () => { [392, 494, 587].forEach((f, i) => tone({ f, dur: 0.09, gain: 0.14, delay: i * 0.08 })); tone({ f: 784, dur: 0.28, gain: 0.13, delay: 0.24 }); tone({ type: "triangle", f: 988, dur: 0.28, gain: 0.09, delay: 0.24 }); } },
-  won:       { ms: 2000, fn: () => { [262, 330, 392, 523].forEach((f, i) => { tone({ f, dur: 0.16, gain: 0.14, delay: i * 0.13 }); tone({ type: "triangle", f: f * 2, dur: 0.16, gain: 0.08, delay: i * 0.13 }); }); bell(1046, 1.2, 0.1); } },
-  lost:      { ms: 2000, fn: () => { tone({ type: "sawtooth", f: 220, to: 208, dur: 0.5, gain: 0.14 }); tone({ type: "sawtooth", f: 175, to: 165, dur: 0.7, gain: 0.14, delay: 0.45 }); noise({ dur: 1.0, gain: 0.06, from: 500, to: 60, delay: 0.4 }); } },
+  horn:      { ms: 400, fn: () => { inst("horn", 55, 0.5, 0.9); inst("horn", 62, 0.5, 0.8, 0.02); inst("brass", 67, 0.45, 0.5, 0.18); } },
+  bossHorn:  { ms: 900, fn: () => { inst("horn", 43, 1.0, 1); inst("horn", 50, 1.0, 0.9); inst("brass", 55, 0.9, 0.6, 0.25); drum("c", 0.6, 0.0); noise({ dur: 0.9, gain: 0.08, from: 400, to: 60 }); } },
+  waveClear: { ms: 900, fn: () => { inst("brass", 67, 0.12, 0.8); inst("brass", 71, 0.12, 0.8, 0.1); inst("brass", 74, 0.45, 0.9, 0.2); inst("harp", 79, 0.6, 0.7, 0.2); inst("bell", 86, 0.9, 0.5, 0.3); } },
+  won:       { ms: 2000, fn: () => { [60, 64, 67, 72].forEach((m, i) => { inst("brass", m, 0.18, 0.85, i * 0.14); inst("horn", m - 12, 0.2, 0.7, i * 0.14); }); inst("brass", 76, 0.9, 0.9, 0.6); inst("strings", 72, 1.2, 0.9, 0.6); inst("bell", 96, 1.5, 0.7, 0.6); drum("c", 0.7, 0.6); drum("k", 0.8, 0.6); } },
+  lost:      { ms: 2000, fn: () => { inst("strings", 57, 0.7, 0.9); inst("horn", 45, 0.7, 0.9); inst("strings", 53, 1.1, 0.9, 0.55); inst("horn", 41, 1.1, 0.9, 0.55); inst("bell", 65, 1.5, 0.5, 0.55); noise({ dur: 1.0, gain: 0.05, from: 500, to: 60, delay: 0.4 }); } },
   leak:      { ms: 250, fn: () => { tone({ f: 220, dur: 0.08, gain: 0.2 }); tone({ f: 220, dur: 0.08, gain: 0.2, delay: 0.11 }); tone({ type: "sine", f: 110, to: 60, dur: 0.2, gain: 0.3, delay: 0.02 }); } },
 
   // towers at work
-  arrow:     { ms: 50,  fn: () => { tone({ type: "triangle", f: drift(880), to: 240, dur: 0.07, gain: 0.1 }); } },
+  arrow:     { ms: 50,  fn: () => { tone({ type: "triangle", f: drift(880), to: 240, dur: 0.07, gain: 0.08 }); noise({ dur: 0.07, gain: 0.05, type: "bandpass", from: 2600, to: 1400, q: 1.5 }); } },
   bolt:      { ms: 160, fn: () => { tone({ type: "triangle", f: drift(440), to: 110, dur: 0.16, gain: 0.2 }); noise({ dur: 0.08, gain: 0.1, type: "highpass", from: 1200, to: 2400 }); } },
   catapult:  { ms: 200, fn: () => { tone({ type: "sawtooth", f: 90, to: 45, dur: 0.18, gain: 0.12 }); noise({ dur: 0.22, gain: 0.08, type: "bandpass", from: 300, to: 900, q: 1.2 }); } },
   rock:      { ms: 90,  fn: () => { noise({ dur: 0.28, gain: 0.25, from: 1600, to: 120 }); tone({ type: "sine", f: 90, to: 40, dur: 0.22, gain: 0.3 }); } },
@@ -156,7 +170,7 @@ const LIB = {
   // steel on steel
   clink:     { ms: 90,  fn: () => { tone({ type: "triangle", f: drift(2400, 0.1), dur: 0.03, gain: 0.09 }); noise({ dur: 0.025, gain: 0.06, type: "highpass", from: 5000, to: 8000 }); } },
   tink:      { ms: 120, fn: () => { tone({ type: "triangle", f: drift(3200, 0.05), dur: 0.05, gain: 0.1 }); } },
-  hit:       { ms: 100, fn: () => { noise({ dur: 0.05, gain: 0.12, from: 1100, to: 300 }); } },
+  hit:       { ms: 100, fn: () => { noise({ dur: 0.05, gain: 0.12, from: 1100, to: 300 }); tone({ type: "sine", f: drift(150, 0.1), to: 80, dur: 0.07, gain: 0.16 }); } },
   crunch:    { ms: 70,  fn: () => { noise({ dur: 0.09, gain: 0.14, from: 1300, to: 220 }); } },
   enemyBolt: { ms: 120, fn: () => { tone({ type: "triangle", f: drift(660), to: 220, dur: 0.08, gain: 0.08 }); } },
 
@@ -186,13 +200,27 @@ export const sfx = {
   // any number of times, headless or not. `force` skips the gate — the
   // sound lab uses it so rapid clicks always answer.
   play(name, force = false) {
-    if (HEADLESS || store.muted) return;
+    if (HEADLESS || store.muted || effectOff(name)) return;
     const s = LIB[name];
     if (!s || (!force && !gate(name, s.ms))) return;
     if (!boot()) return;
     s.fn();
   },
   names: () => Object.keys(LIB),
+  // Render effects end to end into an AudioBuffer (the lab's "sound sheet"):
+  // each name gets `gap` seconds. Lets the owner hear changes on a phone.
+  async sheet(names, gap = 1.7, sampleRate = 32000) {
+    if (HEADLESS) return null;
+    const off = new OfflineAudioContext(2, Math.ceil((names.length * gap + 2) * sampleRate), sampleRate);
+    const save = { ctx, master, voices };
+    ctx = off; master = off.createGain(); master.gain.value = 1; master.connect(limiter(off)).connect(off.destination); voices = 0;
+    names.forEach((n, i) => { t0 = i * gap + 0.1; voices = 0; LIB[n]?.fn(); });
+    t0 = 0;
+    ({ ctx, master, voices } = save);     // back to the live context before awaiting
+    return off.startRendering();
+  },
+  // the shared context, started if need be (music.js plays through it)
+  audio() { return boot() && { ctx }; },
   get muted() { return store.muted; },
   setMuted(m) {
     store.muted = !!m;

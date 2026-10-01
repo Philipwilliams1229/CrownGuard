@@ -421,6 +421,36 @@ the shamans now walking in the thick of the warband).
   leave corpses too (`CORPSE_TYPES`, actions.js: before, a necromancer walking
   with ironclads had nothing to raise).
 
+## Sound and music (2026-10-01, owner request)
+
+Everything is synthesized live, no audio files. Target for the music: the
+**Pokémon Ruby/Sapphire (GBA)** sound — warm sampled-sounding flutes, reeds,
+strings, harp, brass, a bouncy melodic bass and a small crunchy kit, not bare
+chiptune.
+- `src/audio/settings.js`: ONE store for sound settings (saved in
+  localStorage, key `crownguard.sound.v1`; old `{muted, vol}` saves load
+  unchanged, `vol` = effects volume). `SFX_GROUPS` are the menu's per-effect
+  switches (Gold plink = `coin` + `payout`, Arrows, Blows); add a name there
+  to give an effect a switch. `ui/SoundPanel.jsx` is the UI, in the pause menu
+  and behind the title screen's SOUND button.
+- `sfx.js`: the effects (`LIB`), unchanged recipes; shares its AudioContext
+  with the music (`sfx.audio()`).
+- `music.js`: the sequencer + mixer (reverb, compressor), crossfades, pauses
+  with the tab, starts on the first tap. `instruments.js`: the voices and the
+  drum kit (`VOICES`, `DRUMS`); one owner. `notation.js`: the text notation
+  (read its header) and `compileTrack`; pure, so Node can use it.
+- Tracks are text in `src/audio/tracks/<area>.js` (arrays gathered by
+  `tracks/index.js`). Ids: `<area>-build | -fight | -boss` for greenwood,
+  iron, hollow, plus `title`, `map`, `victory`, `defeat` (the jingles have
+  `loop: false`). `audio/score.js` decides what plays when (`battleScore`
+  runs every frame in the game loop; a boss on the field switches to
+  `-boss`; the faction picks the area; free-play realms use their faction's).
+- Check tracks with `node scripts/music-check.mjs [id]` (parses, fits,
+  instrument ranges, key). Listen with `music.html` (play live or download a
+  WAV); `lab.send(id)` + `node scripts/music-receive.mjs` saves a WAV into
+  `samples/` (gitignored), and `afconvert -f m4af -d aac` makes a phone-sized
+  m4a. Nobody can hear a track from a shell: the owner's ears decide.
+
 ## Balance and testing
 
 - `node scripts/sim.mjs --level <id> --endure` — castle damage per wave for

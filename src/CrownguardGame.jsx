@@ -7,6 +7,9 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
 import { sfx } from "./audio/sfx.js";
+import SoundPanel from "./ui/SoundPanel.jsx";
+import { music } from "./audio/music.js";
+import { battleScore, menuScore } from "./audio/score.js";
 import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
@@ -110,7 +113,6 @@ export default function Crownguard() {
   const [sandboxPanel, setSandboxPanel] = useState(false);
   // where backing out of realm select should land you
   const [realmReturn, setRealmReturn] = useState("home");
-  const [sndMuted, setSndMuted] = useState(sfx.muted);
   // "home" = title screen, "map" = the campaign continent, "game" = battlefield
   const [screen, setScreen] = useState("home");
   // "campaign" = one level of the war, "free" = pick-a-realm endless run
@@ -141,6 +143,8 @@ export default function Crownguard() {
   // the Field Guide opens on a given entry from the ⓘ's tree
   const [guideStart, setGuideStart] = useState(null);
   const level = levelId ? levelById(levelId) : null;
+  // the title, the map and the war council have their own themes; the battlefield picks its own each frame
+  useEffect(() => { if (screen !== "game") music.play(menuScore(screen)); }, [screen]);
   const uiRef = useRef(ui);
   uiRef.current = ui;
 
@@ -475,6 +479,7 @@ export default function Crownguard() {
       // an ability can't take aim for a hero who has fallen
       if (abAim && heroBand(g)?.units[0].state === "dead") g.rallyFor = null;
       draw(g, canvasRef.current, bufRef);
+      music.play(battleScore(g, FACTION.id));
 
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
@@ -1412,12 +1417,10 @@ export default function Crownguard() {
             </button>
           );
           const opts = (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <>
               <button className="cg-btn" onClick={() => openGuide()}><BookIcon size={16} /> Field Guide</button>
-              <button className={cls("cg-btn", sndMuted && "is-on")} onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
-                Sound: {sndMuted ? "Off" : "On"}
-              </button>
-            </div>
+              <SoundPanel compact={two} />
+            </>
           );
           const heroes = (
             <>
