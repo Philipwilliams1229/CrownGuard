@@ -168,18 +168,6 @@ export default function Crownguard() {
   const vp = useViewport();
   const vpRef = useRef(vp);
   vpRef.current = vp;
-  // Some iPads hand a home-screen app a layout a few px shorter than the
-  // screen (innerHeight 712 on a 744 one) — only the page's own background
-  // reaches that last strip, so it takes the colours of the screen above it:
-  // the realm's dark ground beside the tray's slate on a battlefield.
-  useEffect(() => {
-    const dark = (hex, k) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * k).toString(16).padStart(2, "0")).join("");
-    const trayPx = Math.round(252 * vp.scale) + (vp.safe?.right || 0);
-    const bg = screen === "game"
-      ? `linear-gradient(to right, ${dark(REALMS[realmId].GRASS_DK || "#3c322e", 0.45)} calc(100% - ${trayPx}px), #2e2633 calc(100% - ${trayPx}px))`
-      : screen === "home" ? "#1c2450" : screen === "map" ? "#161b24" : "#20242c";
-    document.documentElement.style.background = bg;
-  }, [screen, realmId, vp.scale, vp.safe?.right]);
   const hudRef = useRef(null);
   const [hudBox, setHudBox] = useState({ w: 0, h: 0 });
   useEffect(() => {
