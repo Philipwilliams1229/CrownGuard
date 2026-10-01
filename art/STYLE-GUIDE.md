@@ -73,6 +73,7 @@ copy what the rebuilt pieces do.
 | The Falconry's hawk (the "talon" stoop) | `src/render/birds.js` — `drawStoop`; the Skyknight's war-eagle is the `eagle` rig in `rigs.js` | hawk poses baked at 15° steps per plumage (`kind`: hawk, the King's Eagle, the Storm Falcons) and stamped. A cast bird leaves her glove (Talon Rain's others their places on the wheel), follows its prey down and the talons — and the damage — land `STOOP_HIT` ms in (update.js `resolveStrikes`), then it flies back to its own place on the wheel by `STOOP_LIFE`; the hall hides it meanwhile (`t.falconsAway`) |
 | The Covert's blades (assassins) — four-frame fights (`fightN: 4` on their RIGS entries: guard, wind-up, strike, follow-through; a blade waiting at the muster crouches in its guard), joint set `cov` | `src/render/rigs-covert.js` (`assassinUnit`, `assassinUnitA/B` for the branches and `assassinUnitAA/AB/BA/BB` for the four finals in `rigs.js` — one rig name per look, since baked frames cache by name; `drawAssassinUnit` in `enemies.js` picks it) | params switch the pieces on: face "gild", hat, veil, beak, long, hem, censer, purse, scroll, pauldron, blade kind |
 | HUD skin | `src/ui/hud/` (`hud.css`, `icons.jsx`, `Chips.jsx`) + `src/ui/theme.js` | |
+| The tower edit menu (banner, targets bar, upgrade tree) | `src/ui/TowerEdit.jsx` (pictures) + `towerPanel` in `src/CrownguardGame.jsx` (actions) + `hud.css` "the tower edit menu" | the tray turns into it when a tower is selected; layers (`cg-drop`, `cg-layer`) slide down in hard `steps()`; rules in `CLAUDE.md` |
 | Type: every font family, the type options, canvas fonts | `src/ui/fonts.js` (`TYPES`, the roles' CSS variables, `canvasFont`, `typeEpoch`); `src/ui/theme.js` re-exports the roles | nothing else names a font family; see "Type (HUD)" |
 | The landscape beyond the board (the apron: ground, road and rivers running off, the realm's trees thickening, the wall continuing) | `src/render/apron.js` `paintApron(canvas, { cssW, cssH, dpr, board })`; the wall past the board's ends is castle.js `bakeCastleRun` (towers at the board's rhythm, no seam), never a repeated slice | painted once per realm and layout, cached |
 | Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` (`vistaStages`: the vista in named stages) | painted once, cached; see "The campaign map" and "The title screen" |
@@ -496,10 +497,11 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   recharging keeps one ellipsised line of its tale). It closes on its ✕, a
   second tap on the hero button, a plain tap on the map, Castle, the
   militia, the wave-info arrow, a tower tile or a selected tower; firing an
-  order closes it first. **Popups, never scrolling:** the tower card opens
-  beside its tower (two columns on phones), and only the castle works stays
-  a wide card over the middle of the map in columns; each has its ✕ on the
-  corner and closes on a tap elsewhere.
+  order closes it first. **Popups, never scrolling:** a selected tower's menu
+  takes the tray (banner, targets bar, upgrade, sell; the ⓘ slides the
+  upgrade tree over it: see `CLAUDE.md` "The tower menu is the tray"), and
+  only the castle works stays a wide card over the middle of the map in
+  columns, with its ✕ on the corner; it closes on a tap elsewhere.
   The map stands flush against the tray at its true shape (its decorative
   top/bottom border may be trimmed on short screens); the rest of the screen
   is the realm's landscape (`src/render/apron.js`), never a bar. Everything

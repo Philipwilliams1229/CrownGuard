@@ -15,16 +15,16 @@ https://philipwilliams1229.github.io/CrownGuard/ (GitHub Pages, ~1 minute).
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
-- **PARKED: the tower menu taking over the tray.** The owner wants to
-  sketch it first: raise it, but build nothing until the sketch arrives.
-  The tray's Castle / Sandbox / Master buttons crowd each other when all
-  three show; that belongs with this redesign.
+- **Tower menu is built** (see "The tower menu is the tray"), pending the
+  owner's playtest. Still open: the tray's Castle / Sandbox / Master row
+  crowds when all three show (the label "Castle" clips); that belongs to
+  the tower GRID's state, not the edit menu.
 - **Waiting on the owner's playtest:** the range cut (every hall ×0.75),
   the pricier later levels, the hero xp curve, the Siege Ram rework, the
   Powder Works numbers (still the strongest on armor) and the Cairnfields'
   850 start gold. Details are under "Balance and testing".
 - **Put to the owner, no answer yet:** a small pond bunches 3–4 River Watch
-  boats close together; the tower card can cover skiffs on a pond.
+  boats close together.
 - **Known, not fixed:** `mPierce` does nothing (see the Powder Works
   notes); square snow patches on the Frostfang map.
 - **Type:** a device that once opened a `?type=` link keeps that option
@@ -279,41 +279,49 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   it belongs in `isHonest`.
 - `node scripts/sim.mjs --sandbox <preset|all> [--realm r] [--to N]`.
 
-## The tower menu stays one size
+## The tower menu is the tray (2026-09-30, owner's design)
 
-The owner misclicked when the tower card changed shape between taps, so
-(`towerPanel` in `src/CrownguardGame.jsx`):
-- Both columns are **stage stacks**: every form the hall can reach (each
-  level, the paths, every final form, every finished form) is laid out in
-  one grid cell and only the live one is visible, so the card is as tall as
-  its tallest form from level 1 to the end. Anything new in the card must
-  be in every stage (or reserve its space), never pop in.
-- Sell lives at the foot of the LEFT column, under the targets, and stays
-  there (one-column card: at the card's foot). The right column is all
-  upgrade: its stage stretches to the card's height (a lone level-up or the
-  path cards fill it).
-- No subtitle under the hall's name, no stat chips, no Targets label; targets are equal
-  buttons, two to a row (an odd one spans the last row). A finished hall's
-  card lists every stat (`formStats` in `ui/hud/towerText.js`, driven by its
-  DELTAS table — add a new stat there and it shows in the ⓘ and here). A
-  hall's pace (`rate`, stored as ms between shots) shows as shots or blows a
-  second (`perSec`: "1.25/s"; the Field Guide says "attacks/s"), so bigger
-  reads better (owner, 2026-09-29).
-- Two taps to buy: arming only turns a card gold (`is-armed` keeps the
-  parchment font) and shows CONFIRM in a fixed slot.
-- Path / final-form cards: picture with its price under it, then name +
-  tale; armed, CONFIRM takes the tale's place (same grid cell, so nothing
-  moves). Never set `visibility: "visible"` inside a stage — it shows
-  through the hidden ghost stages; leave it unset. The stat changes are
-  behind the corner ⓘ (`infoCorner`, a thumb-sized hit area at any UI
-  scale, beside the card so it works on unaffordable cards).
-- **Path and final-form `desc` in `src/data/towers.js`: 100 characters at
-  most** (the card shows it whole; a 4-line clamp is only a safety net).
-- The service record (kills and dps, one line, no damage total) is always
-  shown; dps is the current form's average over the seconds a foe was in
-  reach. The targeting buttons carry no hint line.
-- Two columns on a phone or wherever the board is shorter than ~640 design
-  px (the iPad), one column on a tall desktop.
+Selecting a tower turns the tray into its edit menu; nothing floats over the
+board any more. Pictures: `src/ui/TowerEdit.jsx` (`TowerBanner`,
+`TargetsBar`, `UpgradeTree`); the actions, the two-tap buying and the
+upgrade cards stay in `towerPanel` in `src/CrownguardGame.jsx`; skin in
+`hud.css` ("the tower edit menu"). Top to bottom:
+- **Head** (wave, pause) and **foot** (hero, militia) stay. The Castle /
+  Sandbox / Master row is hidden while a tower is edited.
+- **Banner** (`cg-panel`): picture, name, level pips, the ⓘ level with the
+  pips (so a name gets the whole line; `nameSize` steps the type down for
+  names up to 19 letters, a phone lets it wrap to two), then FOUR numbers
+  (the first four rows of `formStats`; arming an upgrade shows the new
+  value in green with a ▸ in the same cell), then kills and dps (+ gold
+  paid for the Gold Works). No ✕: tap the field to leave (handleTap
+  already clears the selection). Names read `levels[n].label` at levels
+  1-3, then the path's, then the final's.
+- **Edit panel**: the TARGETS bar (current choice, a caret) drops its list
+  over the panel with a scrim behind it; a knight/assassin/catapult-roller
+  hall also gets a "Move Rally Flag" / "Aim the Roll" plank under it; a
+  hall that always hunts one foe shows the bar locked; halls that take no
+  orders (Gold Works, traps, auras) have no bar. Below, the live upgrade
+  step (level card, path cards, final cards, or the "Fully upgraded" slip
+  with the numbers past the banner's four and the traits) fills the rest;
+  SELL (two taps) is pinned at the foot and never scrolls.
+- **The ⓘ's layer** (`UpgradeTree`, `cg-layer`) slides down over the panel
+  and the ⓘ becomes a ✕: the hall's whole road as a tree — levels 1-3 in a
+  row, the two paths under level 3, each path's two finals under it. Tap a
+  step to read its name, cost and tale (no damage numbers); the tower's
+  own step glows, the steps it took are gold, the rest dim. "Open in Field
+  Guide" opens `FieldGuide` on this hall (`start={{ tab, pick }}`). The
+  level steps have no tales in `towers.js`, so `treeNodes` writes neutral
+  ones; the paths and finals use their `desc`.
+- One layer at a time (`towerLayer`: "targets" | "info" | null), reset when
+  another tower is selected.
+- **Rules that stand:** paths' and finals' `desc` in `src/data/towers.js`
+  stay at 100 characters at most; two taps to buy (arming turns a card gold,
+  CONFIRM in its fixed slot); never set `visibility: "visible"` on anything
+  inside a hidden layer. A short screen (phone on its side, `compact`):
+  the Targets bar loses its label and shares a row with a slim SELL, the
+  level card drops its numbers (the banner previews them), the banner's
+  picture shrinks; the panel scrolls where it must (SELL, the bar and the
+  banner never do).
 
 ## Castle works are the crown's, everywhere
 

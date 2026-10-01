@@ -275,6 +275,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .cg-up, .cg-down, .cg-hurt, .cg-horn, .cg-pop, .cg-rise, .cg-star, .cg-float { animation: none !important; }
+  .cg-drop, .cg-layer { transition: none !important; }
 }
 
 /* the ✕ that rides a floating card's upper-right corner, outside the part
@@ -283,6 +284,38 @@
   position: absolute; top: -16px; right: -16px; z-index: 2;
   min-width: 40px; min-height: 40px;
 }
+
+/* ---- the tower edit menu (ui/TowerEdit.jsx) ----
+   Layers that slide down over the edit panel in hard steps: the targets
+   list (dropped from its bar) and the ⓘ's upgrade tree. A scrim dims the
+   panel under the targets list; a tap on it folds the list back up. */
+.cg-drop {
+  position: absolute; top: 100%; z-index: 5; margin-top: 2px;
+  display: flex; flex-direction: column; gap: 4px; box-sizing: border-box;
+  padding: 6px 8px 8px; background: var(--slate); border: 2px solid var(--ink); border-top: 0;
+  box-shadow: inset 2px 0 0 var(--slate-lt), inset -2px 0 0 var(--slate-dk), 0 3px 0 rgba(20, 12, 22, 0.45);
+  max-height: 60vh; overflow-y: auto;
+  transform-origin: 50% 0; transform: scaleY(0); visibility: hidden;
+  transition: transform 0.16s steps(4), visibility 0s 0.16s;
+}
+.cg-drop.is-open { transform: none; visibility: visible; transition: transform 0.16s steps(4); }
+.cg-scrim {
+  position: absolute; inset: 0; z-index: 2; background: rgba(20, 12, 22, 0.72);
+  opacity: 0; pointer-events: none;
+}
+.cg-scrim.is-open { opacity: 1; pointer-events: auto; }
+.cg-layer {
+  position: absolute; inset: 0; z-index: 6; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  background: var(--slate); overflow-y: auto; overscroll-behavior: contain;
+  transform: translateY(-104%); visibility: hidden;
+  transition: transform 0.2s steps(4), visibility 0s 0.2s;
+}
+.cg-layer.is-open { transform: none; visibility: visible; transition: transform 0.2s steps(4); }
+/* a step of the upgrade tree: a small square the size of a fifth of the tree */
+.cg-node { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; padding: 0; overflow: hidden; }
+.cg-node.is-dim { filter: grayscale(0.7) brightness(0.72); }
+.cg-node.is-sel { outline: 2px solid var(--cream); outline-offset: 2px; }
 
 /* the phone rails: slimmer chips so a purse fits a thumb-wide column */
 .cg-compact .cg-chip { min-height: 34px; padding: 0 8px 0 6px; gap: 5px; }

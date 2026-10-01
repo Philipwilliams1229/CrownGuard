@@ -331,9 +331,9 @@ const TABS = [
 // the notch sits on a side when the phone lies down; keep clear of it
 const safe = (side, min) => `max(${min}px, env(safe-area-inset-${side}))`;
 
-export default function FieldGuide({ onClose }) {
-  const [tab, setTab] = useState("towers");
-  const [pick, setPick] = useState(null); // the entry being read, if any
+export default function FieldGuide({ onClose, start = null }) {
+  const [tab, setTab] = useState(start?.tab || "towers");
+  const [pick, setPick] = useState(start?.pick ?? null); // the entry being read, if any
   const vp = useViewport();
   const scroller = useRef(null);
 

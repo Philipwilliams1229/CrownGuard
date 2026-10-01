@@ -43,6 +43,7 @@ import SandboxPanel from "./ui/SandboxPanel.jsx";
 import SandboxSetup from "./ui/SandboxSetup.jsx";
 import { levelDeltas, formDeltas, formStats } from "./ui/hud/towerText.js";
 import { useArm } from "./ui/HeroTalents.jsx";
+import { TowerBanner, TargetsBar, UpgradeTree, nodeOf } from "./ui/TowerEdit.jsx";
 import {
   CoinIcon, CastleIcon, SkullIcon, SwordIcon, BoltIcon, PlayIcon, PauseIcon, SpeedIcon, HammerIcon,
   LockIcon, CloseIcon, ChevronUp, ChevronDown, FlagIcon, InfoIcon, ArrowIcon, TargetIcon,
@@ -126,6 +127,14 @@ export default function Crownguard() {
   // which upgrade card has its ⓘ open (its tale laid over the card)
   const [cardInfo, setCardInfo] = useState(null);
   useEffect(() => { setCardInfo(null); }, [ui.selected?.id]);
+  // the tower edit menu's layers: the targets list or the ⓘ's upgrade tree
+  // (only one at a time), and the tree step being read (null = the tower's own)
+  const [towerLayer, setTowerLayer] = useState(null);
+  const [treePick, setTreePick] = useState(null);
+  useEffect(() => { setTowerLayer(null); setTreePick(null); }, [ui.selected?.id]);
+  useEffect(() => { setTreePick(null); }, [ui.selected?.level, ui.selected?.branch, ui.selected?.rank4]);
+  // the Field Guide opens on a given entry from the ⓘ's tree
+  const [guideStart, setGuideStart] = useState(null);
   const level = levelId ? levelById(levelId) : null;
   const uiRef = useRef(ui);
   uiRef.current = ui;
@@ -343,8 +352,9 @@ export default function Crownguard() {
   };
   // Reading the guide holds the battle too — but if the pause menu is behind it,
   // that menu stays in charge of un-pausing.
-  const openGuide = () => {
+  const openGuide = (start = null) => {
     if (G.current) G.current.paused = true;
+    setGuideStart(start);
     setGuideOpen(true);
   };
   const closeGuide = () => {
@@ -869,7 +879,7 @@ export default function Crownguard() {
   // "12/18", or "∞" once the run is past its cap (or has none)
   const capOf = (n) => { const c = victoryWave(); return Number.isFinite(c) && n <= c ? c : "∞"; };
   const capNote = (
-    <div className="cg-parch" style={{ marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
+    <div className="cg-parch" style={{ padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
       <div className="cg-label" style={{ marginBottom: 2, color: "#7a6446" }}>Capped in this sandbox</div>
       This run's settings stop halls at this tier.
     </div>
@@ -1073,7 +1083,7 @@ export default function Crownguard() {
       // (a long left column), the cards share the height instead of leaving
       // a gap above Sell
       return (
-        <div style={{ marginTop: 10, flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
           <div style={{ flex: 1, display: "grid", gridAutoRows: "1fr", gap: 7 }}>
             {opts.map((o) => {
               const id = armId(o.k), can = ghost || ui.gold >= o.f.cost, armed = !ghost && upArm.is(id), open = !ghost && cardInfo === id;
@@ -1122,14 +1132,15 @@ export default function Crownguard() {
       const deltas = ghost ? formDeltas({ ...t, level: L, branch: null, rank4: null }, { level: L + 1 }) : levelDeltas(t);
       return (
         <button data-arm={ghost ? undefined : armId("level")} tabIndex={ghost ? -1 : undefined} className={cls("cg-btn", "cg-btn--parch", armed && "is-armed", !can && "is-poor")} disabled={!can}
-          style={{ width: "100%", flex: 1, marginTop: 10, padding: "7px 10px 8px", alignItems: "center", justifyContent: "space-between", gap: 10 }}
+          style={{ width: "100%", flex: 1, padding: "7px 10px 8px", flexDirection: "column", alignItems: "stretch", justifyContent: "space-between", gap: 10 }}
           onClick={ghost ? undefined : buy2("level", { level: L + 1 }, (tt) => upgradeTower(G.current, tt))}>
           <span className="cg-dim" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
             <span style={slot}>{armed ? confirmTag() : <span className="cg-label">Upgrade · Level {L + 1}</span>}</span>
             <span className="cg-display" style={{ fontSize: 13, fontWeight: 700 }}>{nxt.label}</span>
-            {deltaGrid(deltas)}
+            {/* on a short screen the banner previews the numbers once the card is armed */}
+            {!compact && deltaGrid(deltas)}
           </span>
-          <span style={{ display: "flex", alignItems: "center", fontSize: 18 }}>{price(nxt.cost, can, 16)}</span>
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", fontSize: 18 }}>{price(nxt.cost, can, 16)}</span>
         </button>
       );
     };
@@ -1137,17 +1148,18 @@ export default function Crownguard() {
     const doneBox = (f, form) => {
       const { rows, traits } = formStats({ ...t, ...form });
       return (
-        <div className="cg-parch" style={{ flex: 1, marginTop: 10, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
+        <div className="cg-parch" style={{ flex: 1, padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
           <div className="cg-label" style={{ marginBottom: 3, color: "#7a6446" }}>Fully upgraded</div>
           {f.desc}
-          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 12, rowGap: 1, marginTop: 8 }}>
-            {rows.map((r) => (
+          {/* the banner already shows the first four; the rest of the numbers go here */}
+          {rows.length > 4 && <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 12, rowGap: 1, marginTop: 8 }}>
+            {rows.slice(4).map((r) => (
               <span key={r.label} style={{ display: "contents" }}>
                 <span style={{ color: "#7a6446" }}>{r.label}</span>
                 <b style={{ color: "var(--parch-ink)" }}>{r.value}</b>
               </span>
             ))}
-          </div>
+          </div>}
           {traits.length > 0 && <div style={{ marginTop: 6, color: "#3f7a2a", fontWeight: "bold" }}>{traits.join(" · ")}</div>}
         </div>
       );
@@ -1184,135 +1196,62 @@ export default function Crownguard() {
         stage(`done:${bk}${fk}`, maxed && sel.branch === bk && (sel.rank4 || "") === fk, doneBox(f, { level: 3, branch: bk, rank4: fk || null }));
       }
     }
-    // The left column for any form `f` of this hall ({ level, branch, rank4 }):
-    // the live one, or a ghost laid out only to hold the card's size.
-    const leftCol = (f, live) => {
-      const tt = live ? t : { ...t, ...f };
-      const fb = f.branch ? selDef.branches[f.branch] : null;
-      const ftier = f.rank4 ? 5 : f.branch ? 4 : f.level;
-      return (<>
-                {/* who this is, and how far along its road it has come */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, paddingRight: 16 }}>
-                  <span className="cg-well" style={{ width: 54, height: 54, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <TowerPortrait kind={sel.kind} branch={f.branch} rank4={f.rank4} size={50} />
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: 14, lineHeight: 1.15, textShadow: "1px 1px 0 var(--ink)" }}>
-                      {f.rank4 ? fb.rank4[f.rank4].name : f.branch ? fb.name : selDef.name}
-                    </div>
-                    <div className="cg-pips" style={{ marginTop: 5 }} title="three levels, a path, and a final ascension">
-                      {[1, 2, 3, 4, 5].map((i) => <span key={i} className={cls("cg-pip", i <= ftier && "on", i > 3 && "big")} />)}
-                    </div>
-                  </div>
-                </div>
-
-
-                {/* the service record: what this hall has actually done for you */}
-                {/* always there (zeros before the first foe), so the card never grows */}
-                {(() => {
-                  // average dps of this form: its damage over the seconds a foe
-                  // was in its reach, starting over at every upgrade
-                  const dps = sel.formTime >= 1 ? sel.formDmg / sel.formTime : 0;
-                  const stat = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" };
-                  const n = { fontSize: 13, color: "var(--cream)", textShadow: "1px 1px 0 var(--ink)" };
-                  return (
-                    // kills and dps, always on one line
-                    <div style={{ display: "flex", flexWrap: "nowrap", gap: 12, marginTop: 8, padding: "0 2px", whiteSpace: "nowrap", overflow: "hidden" }}>
-                      <span title="foes this tower struck down" style={stat}><SkullIcon size={12} /><b className="cg-num" style={n}>{sel.kills}</b></span>
-                      <span title="average damage per second while a foe is in range, since the last upgrade" style={stat}><BoltIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--green)" }}>{dps >= 100 ? Math.round(dps) : dps.toFixed(1)}</b> dps</span>
-                      {sel.kind === "goldworks" && <span title="gold this works has paid you this run" style={stat}><CoinIcon size={12} /><b className="cg-num" style={{ ...n, color: "var(--gold-lt)" }}>{Math.round(t.paidTotal || 0)}</b> paid</span>}
-                    </div>
-                  );
-                })()}
-
-                {sel.kind === "catapult" && getStats(tt).roller && (
-                  <button className="cg-btn cg-btn--slate" style={{ width: "100%", marginTop: 10 }}
-                    tabIndex={live ? undefined : -1} onClick={live ? () => { if (G.current) G.current.rallyFor = sel.id; } : undefined}>
-                    <FlagIcon size={14} /> Aim the Roll
-                  </button>
-                )}
-                {(sel.kind === "knight" || sel.kind === "assassin") && (
-                  <button className="cg-btn cg-btn--slate" style={{ width: "100%", marginTop: 10 }}
-                    tabIndex={live ? undefined : -1} onClick={live ? () => { if (G.current) G.current.rallyFor = sel.id; } : undefined}>
-                    <FlagIcon size={14} /> Move Rally Flag
-                  </button>
-                )}
-
-                {sel.kind === "trapsmith" && (
-                  <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, lineHeight: 1.5 }}>
-                    The smith arms the road himself — each finished charge is laid into the widest gap in his reach.
-                  </div>
-                )}
-
-                {/* standing orders: who this tower shoots at */}
-                {(() => {
-                  const st = getStats(tt);
-                  const modes = aimModes(tt, st);
-                  if (!modes.length) return null;
-                  const forced = forcedAim(st);
-                  return (
-                    <div style={{ marginTop: 10 }}>
-                      {forced ? (
-                        <div style={{ fontSize: 10, color: "var(--muted)" }}>
-                          Sworn to the hunt — always takes <b style={{ color: "var(--cream)" }}>the mightiest foe</b>.
-                        </div>
-                      ) : (
-                        <>
-                          {/* every order the same size: two to a row, an odd one out spanning the last */}
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                            {modes.map((m, i) => (
-                              <button key={m.id} title={m.hint}
-                                className={cls("cg-btn cg-btn--slate", sel.aim === m.id && "is-on")}
-                                style={{ minWidth: 0, minHeight: 40, padding: "0 5px", fontSize: 12, ...(modes.length % 2 && i === modes.length - 1 ? { gridColumn: "1 / -1" } : {}) }}
-                                tabIndex={live ? undefined : -1} onClick={live ? () => { const lt = G.current?.towers.find((x) => x.id === sel.id); if (lt) lt.aim = m.id; } : undefined}>
-                                {m.label}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })()}
-
-      </>);
-    };
-    // Every form the hall can take, stacked in one grid cell like the right
-    // column's stages: the card is as tall as its tallest form, always.
-    const forms = [1, 2, 3].map((level) => ({ level, branch: null, rank4: null }));
-    for (const [bk, br] of Object.entries(selDef.branches)) {
-      forms.push({ level: 3, branch: bk, rank4: null });
-      for (const rk of Object.keys(br.rank4 || {})) forms.push({ level: 3, branch: bk, rank4: rk });
-    }
-    const isLive = (f) => f.level === sel.level && f.branch === (sel.branch || null) && f.rank4 === (sel.rank4 || null);
-    return { left: (
-              <div style={{ display: "grid" }}>
-                {forms.map((f) => (
-                  <div key={`${f.level}${f.branch}${f.rank4}`} aria-hidden={isLive(f) ? undefined : true} style={{ gridArea: "1 / 1", minWidth: 0, visibility: isLive(f) ? "visible" : "hidden" }}>{leftCol(f, isLive(f))}</div>
-                ))}
-              </div>
-    ), right: (
-              // the right column: the stage stack takes whatever height the card
-              // has (a lone level-up or the path cards stretch to fill it)
-              <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                <div style={{ flex: 1, display: "grid" }}>
-                  {stages.map((st) => (
-                    <div key={st.key} aria-hidden={st.live ? undefined : true} style={{ gridArea: "1 / 1", minWidth: 0, display: "flex", flexDirection: "column", visibility: st.live ? "visible" : "hidden" }}>{st.node}</div>
-                  ))}
-                </div>
-              </div>
-    ), sell: (
-              // Sell: at the foot of the left column on a two-column card,
-              // at the card's foot on a one-column card
-              <div style={{ marginTop: "auto", paddingTop: 10 }}>
-                {/* selling takes two taps too: an accidental sale can't be undone */}
-                <button data-arm={armId("sell")} className={cls("cg-btn cg-btn--red", upArm.is(armId("sell")) && "is-on")}
-                  style={{ width: "100%", justifyContent: "space-between", ...(upArm.is(armId("sell")) ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : {}) }}
-                  onClick={() => upArm.tap(armId("sell"), withT((tt) => sellTower(G.current, tt)))}>
-                  <span>{upArm.is(armId("sell")) ? "Confirm sale" : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, 13)}
-                </button>
-              </div>
-    ) };
+    // Everything the edit menu shows (ui/TowerEdit.jsx draws the pictures;
+    // every action lives here): the banner, the targets bar, the live step of
+    // the upgrade road, Sell, and the ⓘ's tree.
+    const upgrade = stages.find((x) => x.live)?.node ?? null;
+    const stt = getStats(t);
+    const modes = aimModes(t, stt);
+    const forced = forcedAim(stt);
+    // arming an upgrade previews the numbers it would change in the banner
+    const armedForm = upArm.armed && upArm.armed.startsWith(`up:${sel.id}:`) ? armForms.current[upArm.armed] : null;
+    const preview = armedForm ? Object.fromEntries(formDeltas(t, armedForm).map((d) => [d.label, String(d.to)])) : null;
+    const dps = sel.formTime >= 1 ? sel.formDmg / sel.formTime : 0;
+    const ftier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
+    const rallies = sel.kind === "knight" || sel.kind === "assassin" || (sel.kind === "catapult" && stt.roller);
+    const aimingFlag = ui.rallyFor === sel.id;
+    const layer = (which) => () => setTowerLayer((l) => (l === which ? null : which));
+    const banner = (
+      <TowerBanner kind={sel.kind} name={sel.rank4 ? branchDef.rank4[sel.rank4].name : sel.branch ? branchDef.name : selDef.levels[sel.level - 1]?.label || selDef.name}
+        branch={sel.branch} rank4={sel.rank4} pips={ftier} rows={formStats(t).rows} preview={preview}
+        kills={sel.kills} dps={dps} paid={sel.kind === "goldworks" ? Math.round(t.paidTotal || 0) : null} compact={compact}
+        infoNode={infoCorner(towerLayer === "info" ? "Close the upgrade tree" : "About this tower: its upgrade tree", towerLayer === "info", layer("info"), 40, 56)} />
+    );
+    const targets = (modes.length > 0 || forced || rallies || sel.kind === "trapsmith") ? (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+        {(modes.length > 0 || forced) && (
+          <TargetsBar slim={compact} modes={modes} aim={sel.aim} forced={forced} open={towerLayer === "targets"} onToggle={layer("targets")}
+            onPick={(id) => { withT((tt) => { tt.aim = id; })(); setTowerLayer(null); }} />
+        )}
+        {rallies && (
+          <button className={cls("cg-btn cg-btn--slate", aimingFlag && "is-on")} style={{ width: "100%" }}
+            onClick={() => { setTowerLayer(null); if (G.current) G.current.rallyFor = aimingFlag ? null : sel.id; }}>
+            <FlagIcon size={14} /> {sel.kind === "catapult" ? "Aim the Roll" : "Move Rally Flag"}
+          </button>
+        )}
+        {sel.kind === "trapsmith" && (
+          <div style={{ fontSize: 10, color: "var(--muted)", lineHeight: 1.45 }}>
+            The smith arms the road himself — each finished charge is laid into the widest gap in his reach.
+          </div>
+        )}
+      </div>
+    ) : null;
+    // selling takes two taps too: an accidental sale can't be undone
+    // (on a short screen it is a slim plank beside the targets bar, to save a row)
+    const sellBtn = (slim) => (
+      <button data-arm={armId("sell")} className={cls("cg-btn cg-btn--red", upArm.is(armId("sell")) && "is-on")}
+        style={{ flexShrink: 0, ...(slim ? { width: 72, flexDirection: "column", gap: 2, padding: "0 4px" } : { width: "100%", justifyContent: "space-between" }), ...(upArm.is(armId("sell")) ? { boxShadow: "inset 0 0 0 2px var(--gold)" } : {}) }}
+        onClick={() => upArm.tap(armId("sell"), withT((tt) => sellTower(G.current, tt)))}>
+        <span>{upArm.is(armId("sell")) ? (slim ? "Confirm" : "Confirm sale") : "Sell"}</span>{price(`+${Math.floor(sel.invested * 0.7)}`, true, slim ? 11 : 13)}
+      </button>
+    );
+    const info = (
+      <div className={cls("cg-layer cg-scroll", towerLayer === "info" && "is-open")} aria-hidden={towerLayer !== "info"}>
+        <UpgradeTree kind={sel.kind} def={selDef} cur={sel} picked={treePick} onPick={setTreePick}
+          onGuide={() => openGuide({ tab: "towers", pick: sel.kind })} />
+      </div>
+    );
+    return { banner, targets, upgrade, sell: sellBtn(false), sellSlim: sellBtn(true), info };
   })();
 
   // -- a master-build final, read about before buying --
@@ -1449,7 +1388,7 @@ export default function Crownguard() {
           );
           const opts = (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <button className="cg-btn" onClick={openGuide}><BookIcon size={16} /> Field Guide</button>
+              <button className="cg-btn" onClick={() => openGuide()}><BookIcon size={16} /> Field Guide</button>
               <button className={cls("cg-btn", sndMuted && "is-on")} onClick={() => { sfx.setMuted(!sfx.muted); setSndMuted(sfx.muted); }}>
                 Sound: {sndMuted ? "Off" : "On"}
               </button>
@@ -1512,7 +1451,7 @@ export default function Crownguard() {
           );
         })()}
 
-        {guideOpen && <FieldGuide onClose={closeGuide} />}
+        {guideOpen && <FieldGuide start={guideStart} onClose={closeGuide} />}
       {dragGhost && (
         <div aria-hidden="true" style={{ position: "fixed", left: dragGhost.x, top: dragGhost.y, zIndex: 200, pointerEvents: "none", transform: `translate(-50%, -115%) scale(${s})`, transformOrigin: "50% 100%", opacity: 0.92 }}>
           <span className="cg-well" style={{ display: "flex", padding: 3 }}><TowerPortrait kind={dragGhost.kind} branch={dragGhost.pick?.branch} rank4={dragGhost.pick?.rank4} size={56} /></span>
@@ -1576,31 +1515,6 @@ export default function Crownguard() {
             onBuy={buyWork} />
                   </>
                 ),
-              });
-            })()}
-
-            {sel && towerPanel && ui.rallyFor == null && (() => {
-              const g = G.current;
-              const t = g?.towers.find((x) => x.id === sel.id);
-              if (!t) return null;
-              // beside the tower, on whichever side has more room, level with it;
-              // on a short screen the card lies in two columns so it never scrolls
-              // two columns on a phone, and wherever the board is too short
-              // for the one-column card's tallest hall (~640 design px with Sell)
-              const two = compact || boardCss.vh / s < 640;
-              const bw = boardCss.vw, bh = boardCss.vh;
-              const tx = (((t.x - g.cam.x) * g.cam.zoom) / W) * boardCss.w;
-              const ty = (((t.y - g.cam.y) * g.cam.zoom) / H) * boardCss.h + cropTop;
-              const CW = two ? 500 : 292, cw = CW * s;
-              const flipX = tx > bw * 0.5;
-              const left = Math.max(cardMinL, Math.min(bw - cw - CARD_M, flipX ? tx - 26 * s - cw : tx + 26 * s));
-              const f = Math.min(1, Math.max(0, ty / bh));
-              return floatCard({
-                id: sel.id, left, width: CW, f, origin: `${flipX ? "right" : "left"} center`,
-                closeLabel: "Deselect tower", onClose: () => { if (G.current) G.current.selectedId = null; },
-                children: two
-                  ? <div className="cg-card-two" style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.1fr)", gap: 12, alignItems: "stretch" }}><div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>{towerPanel.left}{towerPanel.sell}</div><div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>{towerPanel.right}</div></div>
-                  : <>{towerPanel.left}{towerPanel.right}{towerPanel.sell}</>,
               });
             })()}
 
@@ -1797,7 +1711,7 @@ export default function Crownguard() {
               </button>
             </div>
             {/* the castle works, and Master Builds when the purse can afford them */}
-            {ui.result == null && (
+            {ui.result == null && !towerPanel && (
               <div style={{ display: "flex", gap: 6 }}>
                 {/* (in the campaign the works are raised on the map, before a level — not in the battle) */}
                 {mode !== "campaign" && (
@@ -1827,6 +1741,26 @@ export default function Crownguard() {
                 whole panel (the grid folds away, keeping its place in the
                 list); on a tall screen it docks at the panel's foot and the
                 grid scrolls on above it */}
+            {/* a selected tower turns the tray into its edit menu: the banner,
+                then one panel (targets bar, the upgrade on offer, Sell at the
+                foot) with the ⓘ's tree and the targets list sliding over it */}
+            {towerPanel && (
+              <>
+                {towerPanel.banner}
+                <div className="cg-panel" style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", gap: 8, padding: 8, background: "var(--slate-in)" }}>
+                  {compact ? (
+                    <div style={{ display: "flex", gap: 6, alignItems: "flex-start", flexShrink: 0 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>{towerPanel.targets}</div>{towerPanel.sellSlim}
+                    </div>
+                  ) : towerPanel.targets}
+                  <div className="cg-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>{towerPanel.upgrade}</div>
+                  {!compact && towerPanel.sell}
+                  <div className={cls("cg-scrim", towerLayer === "targets" && "is-open")} onClick={() => setTowerLayer(null)} />
+                  {towerPanel.info}
+                </div>
+              </>
+            )}
+            {!towerPanel && (
             <div className="cg-panel" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--slate-in)" }}>
               {trayMode !== "build" && trayMode !== "hero" && (
                 <div className="cg-drawer-head" style={{ margin: 0, padding: "4px 4px 4px 10px" }}>
@@ -1922,6 +1856,7 @@ export default function Crownguard() {
               </div>
               {talentPanel}
             </div>
+            )}
 
             {/* foot: the hero, his talents and the militia */}
             {ui.result == null && (
