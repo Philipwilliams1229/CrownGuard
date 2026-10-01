@@ -64,7 +64,7 @@ export const ENEMIES = {
   shaman: { faction: "greenwood", hp: 132, speed: 60, bounty: 16, armor: 0, mres: 0.6, size: 16, name: "Goblin Shaman", atk: 8, atkRate: 1000, castleDmg: 2, heal: 8, healEvery: 3400, packRange: 95, note: "Rune-warded — most magic fizzles against him. His chant mends the WHOLE warband. Silence the healer first." },
   necro: { faction: "greenwood", hp: 700, speed: 44, bounty: 45, armor: 0.1, mres: 0.35, size: 20, name: "Necromancer", atk: 16, atkRate: 1100, castleDmg: 3, raiseEvery: 3800, note: "Where he walks, the fallen rise: slain goblins, wolves, orcs, ironclads and trolls return as half-strength undead. Fell him before the dead outnumber the living." },
   bat: {
-    faction: "greenwood", hp: 30, speed: 135, bounty: 4, armor: 0, size: 12,
+    faction: "greenwood", hp: 24, speed: 135, bounty: 4, armor: 0, size: 12,
     name: "Fell Bat", flying: true, atk: 0, atkRate: 0, castleDmg: 1,
     note: "A shrieking scrap of wing and teeth. It flies clean over your knights — but almost anything that hits it, ends it.",
   },
