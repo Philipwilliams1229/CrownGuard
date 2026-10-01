@@ -63,7 +63,7 @@ export const startWave = (g) => {
   if (!g || g.phase !== "build") return;
   g.snapshot = {
     wave: g.wave, gold: g.gold, lives: g.lives,
-    towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, rank4: t.rank4, invested: t.invested, aim: t.aim,
+    towers: g.towers.map((t) => ({ kind: t.kind, x: t.x, y: t.y, level: t.level, branch: t.branch, rank4: t.rank4, invested: t.invested, aim: t.aim, rally: t.rally ? { ...t.rally } : null,
       kills: t.kills || 0, dmgOut: t.dmgOut || 0, liveTime: t.liveTime || 0, formDmg: t.formDmg || 0, formTime: t.formTime || 0 })),
     // the castle's works and the hero as they stood; the militia goes home
     castle: g.castle ? { ...g.castle } : null,
@@ -159,6 +159,7 @@ export const restartWave = (g) => {
   g.towers = s.towers.map((td) => {
     const t = makeTower(td.kind, td.x, td.y, td.level, td.branch, td.invested, td.rank4);
     t.aim = td.aim || "first";  // a retried wave keeps the orders you gave
+    if (td.rally && t.rally) { t.rally = { ...td.rally }; if (t.units) syncUnits(t); }   // ...and where you posted them
     t.kills = td.kills || 0; t.dmgOut = td.dmgOut || 0; t.liveTime = td.liveTime || 0;
     t.formDmg = td.formDmg || 0; t.formTime = td.formTime || 0;
     return t;

@@ -933,6 +933,14 @@ export function updateGame(g, dt) {
     // ---- the bands: militia, the hero, and the Gate Guard ----
     syncGateGuard(g);
     syncBarricades(g);
+    // a garrison walks to its flag in the quiet of the build phase too, so a
+    // new hall's knights (or a re-posted flag) take their ground before the horn
+    // (in battle the combat pass below runs them)
+    if (g.phase === "build") for (const t of g.towers) {
+      if (t.kind !== "knight" || !isBuilt(t, g)) continue;
+      syncUnits(t, g);
+      runMelee(g, t, getStats(t), unitSlots(t), sdt, tms);
+    }
     syncRetinue(g);
     if (g.bands) {
       g.militiaCd = Math.max(0, (g.militiaCd || 0) - sdt * 1000);

@@ -5,6 +5,8 @@
 import { TOWERS } from "../data/towers.js";
 import { PERK_MODS } from "../data/profile.js";
 import { nextId } from "./ids.js";
+import { nearestOnPath } from "./path.js";
+import { RALLY_RANGE } from "../data/constants.js";
 
 // Which stats the permanent skill trees are allowed to touch, and which way
 // is "better". `rate` is a reload time, so its multiplier goes DOWN to make a
@@ -201,9 +203,22 @@ export const syncUnits = (t, g) => {
   while (t.units.length < n) {
     const slots = unitSlots(t);
     const i = t.units.length;
-    t.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, x: slots[i][0], y: slots[i][1], state: "rally", targetId: null, atkCd: 0, respawn: 0, face: 1, swing: 0, healGlow: 0, atkBuff: 0, shield: false, shieldCd: 0, frenzy: 0 });
+    // a Knight Hall's men step out of its door and march to the flag (the build
+    // phase runs them too, update.js), rather than appearing on it
+    const door = t.kind === "knight";
+    t.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, x: door ? t.x : slots[i][0], y: door ? t.y + 10 : slots[i][1], state: "rally", targetId: null, atkCd: 0, respawn: 0, face: 1, swing: 0, healGlow: 0, atkBuff: 0, shield: false, shieldCd: 0, frenzy: 0 });
   }
   for (const u of t.units) { u.maxHp = st.hp; if (u.state !== "dead") u.hp = Math.min(u.hp, u.maxHp); }
+};
+
+// Where a new Knight Hall's garrison first stands: the closest point on the
+// road's centre line, slid back onto the rally circle's rim if the road lies
+// beyond it. (No road to be found: just south of the hall, as before.)
+const defaultRally = (x, y) => {
+  const r = nearestOnPath(x, y);
+  if (!Number.isFinite(r.d)) return { x, y: y + 28 };
+  const reach = RALLY_RANGE * 0.96, k = r.d > reach ? reach / r.d : 1;
+  return { x: x + (r.x - x) * k, y: y + (r.y - y) * k };
 };
 
 // Build a fresh tower object; knights also muster a rally point south of the hall.
@@ -213,8 +228,9 @@ export const makeTower = (kind, x, y, level = 1, branch = null, invested = null,
     invested: invested ?? TOWERS[kind].cost, lastAim: -Math.PI / 2, anim: 0, shotIdx: 0, critIdx: 0,
   };
   if (kind === "knight") {
-    // knights muster just south of their hall by default
-    t.rally = { x, y: y + 28 };
+    // a new hall posts its knights on the nearest spot of the road, the middle
+    // of it (owner, 2026-09-30) — as near as the rally circle reaches
+    t.rally = defaultRally(x, y);
     syncUnits(t);
   }
   if (kind === "catapult") {

@@ -374,6 +374,12 @@ the shamans now walking in the thick of the warband).
   hacks it down, pricked at each blow; rams smash through, fliers pass.
   Art: `src/render/barricade.js` (look at it with `barricade-lab.html`).
   Wren's archers now join at 10 and 15, like Aldric's squires. Provisional.
+- **Knight Halls post themselves** (owner, 2026-09-30): `defaultRally`
+  (engine/towers.js) puts a new hall's rally flag on the nearest point of the
+  road's centre line, slid onto the rally circle's rim if the road lies
+  beyond it. A retried wave (`snapshot`) now keeps the flags you posted. New
+  men step out of the hall's door and march to the flag, and the build phase
+  runs garrisons (`runMelee`, update.js) so they move before the horn too.
 - **Necromancer buffed** (owner, 2026-09-30): hp 420 -> 700, raises every
   3.8 s (was 6), up to 4 fallen a cast (was 3) within 170 (was 150). gw5
   swarm doctrine 100-135 -> 165-254 castle damage; provisional.
