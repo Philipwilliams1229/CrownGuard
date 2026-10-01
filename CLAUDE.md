@@ -385,8 +385,9 @@ the shamans now walking in the thick of the warband).
   `igniteBurn`, `logBurn` x0.75 (towers.js, the castle ballista's fire bolts),
   and the Dragon's Breath musket's hot shot lowered again, 24 -> 12 a second
   (~41 a hit). The owner's aim is ~40 total damage per application on average;
-  with the cut the 22 burns average ~29 (range 9 Dragonbreath .. 60 Log
-  Roller's logs). Fire pools and the 1.3 s spread are untouched.
+  with the cut the 22 burns averaged ~29. Then (same day) the Log Roller's
+  burning logs were halved (20 -> 10 a second, ~30: it hits everything) and
+  Dragonbreath raised 6 -> 13 a second (~20). Fire pools and the 1.3 s spread are untouched.
 - **Necromancer buffed** (owner, 2026-09-30): hp 420 -> 700, raises every
   3.8 s (was 6), up to 4 fallen a cast (was 3) within 170 (was 150). gw5
   swarm doctrine 100-135 -> 165-254 castle damage; provisional.

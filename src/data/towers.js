@@ -69,7 +69,7 @@ export const TOWERS = {
           a: { name: "Inferno Throne", cost: 975, stats: { dmg: 80, rate: 1250, range: 109, splash: 76, burn: 9, burnDur: 2600, poolEvery: 5, poolKind: "fire", poolDps: 24, poolDur: 3500, poolR: 36 }, desc: "Fireballs from a throne of flame — every FIFTH is a firestorm that leaves the road burning." },
           // a held gout of flame, not shots: dmg is per SECOND to everything
           // inside the cone (update.js breathe); fire it close to the road
-          b: { name: "Dragonbreath", cost: 975, stats: { dmg: 60, range: 69, breath: true, cone: 0.42, burn: 6, burnDur: 1500 }, desc: "A flamethrower: a cone of dragonfire scorching EVERYTHING in it. Short reach — build it by the road." },
+          b: { name: "Dragonbreath", cost: 975, stats: { dmg: 60, range: 69, breath: true, cone: 0.42, burn: 13, burnDur: 1500 }, desc: "A flamethrower: a cone of dragonfire scorching EVERYTHING in it. Short reach — build it by the road." },
         },
       },
       b: {
@@ -103,7 +103,7 @@ export const TOWERS = {
         name: "The Log Roller", cost: 440, stats: { logDmg: 110, rate: 5200, range: 999, minRange: 0, logSpeed: 118, logWidth: 22, splash: 0, roller: true }, desc: "Stops throwing, starts ROLLING: a log down a bearing YOU choose, slowing a bit per foe it crushes.",
         rank4: {
           a: { name: "The Iron Drum", cost: 1020, stats: { logDmg: 190, rate: 5000, range: 999, minRange: 0, logSpeed: 126, logWidth: 28, splash: 0, roller: true, logStun: 900, logSlow: 0.4, logSlowDur: 2000 }, desc: "An iron-banded drum: heavier, wider, and what survives it is left stunned and staggering." },
-          b: { name: "The Powder Keg Run", cost: 1020, stats: { logDmg: 135, rate: 4800, range: 999, minRange: 0, logSpeed: 132, logWidth: 24, splash: 0, roller: true, logBurn: 20, logBurnDur: 3000, logBlast: 96, logBlastDmg: 220 }, desc: "A powder-packed log: it burns all it grinds past, and goes up when it finally leaves the field." },
+          b: { name: "The Powder Keg Run", cost: 1020, stats: { logDmg: 135, rate: 4800, range: 999, minRange: 0, logSpeed: 132, logWidth: 24, splash: 0, roller: true, logBurn: 10, logBurnDur: 3000, logBlast: 96, logBlastDmg: 220 }, desc: "A powder-packed log: it burns all it grinds past, and goes up when it finally leaves the field." },
         },
       },
     },
