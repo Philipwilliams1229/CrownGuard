@@ -1,14 +1,15 @@
 // ============ SETTINGS ============
 // The SETTINGS window (the title screen's, and the pause menu's): a row of
 // tabs over one panel, and Done. A new tab is one more entry in TABS (an id,
-// a name, what it shows, and `home: true` if it belongs on the title screen
-// only). It sits outside any <Fit> (a fixed modal inside a transform would
+// a name, what it shows, and `needsReset: true` if it needs the
+// onCampaignReset handler). It sits outside any <Fit> (a fixed modal inside a transform would
 // pin to it).
 //   Sound     SoundPanel (audio/settings.js)
 //   Display   screen shake, floating numbers (data/prefs.js)
 //   Progress  back up / restore the save as a code (data/backup.js), start
-//             the campaign over, erase everything. Title screen only: a
-//             restore or an erase reloads the page.
+//             the campaign over, erase everything. A restore or an erase
+//             reloads the page; from the pause menu (inBattle) that ends the
+//             battle, and the panel says so.
 import { useState, useReducer, useEffect, useRef } from "react";
 import SoundPanel from "./SoundPanel.jsx";
 import { prefs, setPrefs, onPrefs } from "../data/prefs.js";
@@ -68,7 +69,7 @@ const when = (iso) => {
   return isNaN(d) ? "an earlier date" : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 };
 
-function ProgressPanel({ onCampaignReset }) {
+function ProgressPanel({ onCampaignReset, inBattle }) {
   const arm = useArm();
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState("");
@@ -100,6 +101,7 @@ function ProgressPanel({ onCampaignReset }) {
   const head = (t) => <div className="cg-label" style={{ marginTop: 2 }}>{t}</div>;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {inBattle && <div style={{ ...say, color: "var(--gold-lt)" }}>Restore, Start over and Erase end this battle.</div>}
       {head("Back up")}
       <div style={note}>Your progress is kept on this device only. A save code carries all of it (levels, stars, heroes, settings) to another device.</div>
       <div style={{ display: "flex", gap: 8 }}>
@@ -135,13 +137,14 @@ function ProgressPanel({ onCampaignReset }) {
 const TABS = [
   { id: "sound", name: "Sound", Body: SoundPanel },
   { id: "display", name: "Display", Body: DisplayPanel },
-  { id: "progress", name: "Progress", Body: ProgressPanel, home: true },
+  { id: "progress", name: "Progress", Body: ProgressPanel, needsReset: true },
 ];
 
-// onCampaignReset(progress): given on the title screen, which then shows the
-// Progress tab; the fresh progress is handed back so the screen can redraw.
-export default function SettingsPanel({ onClose, onCampaignReset }) {
-  const tabs = TABS.filter((t) => !t.home || onCampaignReset);
+// onCampaignReset(progress): the fresh progress after "Start the campaign
+// over", handed back so the screen can redraw (the pause menu leaves for the
+// map). Without it there is no Progress tab. inBattle: opened from the pause menu.
+export default function SettingsPanel({ onClose, onCampaignReset, inBattle = false }) {
+  const tabs = TABS.filter((t) => !t.needsReset || onCampaignReset);
   const [tab, setTab] = useState(tabs[0].id);
   const { Body } = tabs.find((t) => t.id === tab);
   return (
@@ -159,7 +162,7 @@ export default function SettingsPanel({ onClose, onCampaignReset }) {
         </div>
         {/* only the tab's own panel scrolls; the title, the tabs and Done stay put */}
         <div className="cg-panel" role="tabpanel" style={{ padding: 12, flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", touchAction: "pan-y", scrollbarWidth: "thin" }}>
-          <Body onCampaignReset={onCampaignReset} />
+          <Body onCampaignReset={onCampaignReset} inBattle={inBattle} />
         </div>
         <button className="cg-btn cg-btn--gold" style={{ minHeight: 44, flexShrink: 0 }} onClick={onClose}>Done</button>
       </div>

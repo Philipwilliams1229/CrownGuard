@@ -1491,7 +1491,11 @@ export default function Crownguard() {
 
         {guideOpen && <FieldGuide start={guideStart} onClose={closeGuide} />}
         {/* over the pause menu, outside its <Fit> (a fixed box inside a transform pins to it) */}
-        {menuOpen && settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+        {menuOpen && settingsOpen && (
+          <SettingsPanel inBattle onClose={() => setSettingsOpen(false)}
+            // a campaign started over leaves its battle for the map; Free Play plays on
+            onCampaignReset={(p) => { setProgress(p); if (mode === "campaign") openMap(); }} />
+        )}
       {dragGhost && (
         <div aria-hidden="true" style={{ position: "fixed", left: dragGhost.x, top: dragGhost.y, zIndex: 200, pointerEvents: "none", transform: `translate(-50%, -115%) scale(${s})`, transformOrigin: "50% 100%", opacity: 0.92 }}>
           <span className="cg-well" style={{ display: "flex", padding: 3 }}><TowerPortrait kind={dragGhost.kind} branch={dragGhost.pick?.branch} rank4={dragGhost.pick?.rank4} size={56} /></span>

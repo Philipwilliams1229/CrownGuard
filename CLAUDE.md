@@ -455,14 +455,15 @@ chiptune.
 
 `ui/SettingsPanel.jsx`, opened from the title screen's SETTINGS button and
 the pause menu's Settings button. A new tab is one entry in its `TABS`
-(`home: true` keeps it to the title screen).
+(`needsReset: true` for one that needs the `onCampaignReset` handler).
 - **Sound**: `SoundPanel` (audio/settings.js).
 - **Display**: screen shake and floating numbers, in `data/prefs.js`
   (`crownguard.prefs.v1`). draw.js reads `prefs.shake` / `prefs.floats`; the
   HUD half is two flags on `<html>` (`data-no-shake`, `data-no-floats`) that
   hud.css reads. A new switch: a field in prefs.js DEFAULTS, a read where it
   matters, a `Switch` in `DisplayPanel`.
-- **Progress** (title screen only): a save code (`data/backup.js`: every
+- **Progress** (both; from the pause menu it warns that these end the
+  battle, and a campaign started over leaves for the map): a save code (`data/backup.js`: every
   `crownguard.*` key plus `cg-type`, base64 behind `CROWNGUARD-SAVE:`) to
   copy, share or paste; Restore replaces the device's save whole and
   reloads. "Start the campaign over" (was the campaign map's Abandon button,
