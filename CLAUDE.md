@@ -431,9 +431,9 @@ chiptune.
   localStorage, key `crownguard.sound.v1`; old `{muted, vol}` saves load
   unchanged, `vol` = effects volume). `SFX_GROUPS` are the menu's per-effect
   switches (Gold plink = `coin` + `payout`, Arrows, Blows); add a name there
-  to give an effect a switch. `ui/SoundPanel.jsx` is the UI, in the pause menu
-  and in the title screen's SETTINGS window (`ui/SettingsPanel.jsx`, a
-  Sound tab; a new tab is one entry in its `TABS`).
+  to give an effect a switch. `ui/SoundPanel.jsx` is the UI: the Sound tab
+  of the SETTINGS window (`ui/SettingsPanel.jsx`), opened from the title
+  screen and the pause menu; a new tab is one entry in its `TABS`.
 - `sfx.js`: the effects (`LIB`), unchanged recipes; shares its AudioContext
   with the music (`sfx.audio()`).
 - `music.js`: the sequencer + mixer (reverb, compressor), crossfades, pauses
