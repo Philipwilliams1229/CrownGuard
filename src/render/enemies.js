@@ -447,7 +447,7 @@ export const drawKnightUnit = (ctx, u, t, time) => {
 export const drawBandUnit = (ctx, u, b, time) => {
   if (u.state === "dead") return;
   const hero = b.kind === "hero";
-  const kind = hero ? (b.hero === "wren" ? "heroHunter" : "heroKnight") : b.kind === "gateguard" ? "halberdier" : b.kind === "retinue" ? b.rig : "farmer";
+  const kind = hero ? (b.hero === "wren" ? "heroHunter" : "heroKnight") : b.kind === "gateguard" ? "halberdier" : b.kind === "retinue" || b.rig ? b.rig : "farmer";
   const fighting = u.state === "fighting";
   const sheet = fighting ? "fight" : "walk";
   // a swordsman winds up then strikes; the huntress holds at full draw and

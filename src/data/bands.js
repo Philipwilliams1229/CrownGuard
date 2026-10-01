@@ -3,6 +3,8 @@
 // and the hero who rides with the campaign. They use the garrison's melee
 // machinery — rally point, slots, blocking, respawn — with their own stats.
 
+import { workTier } from "./castle.js";
+
 // The militia: two farmers with pitchforks, summoned wherever you tap, who
 // hold the road for a while and then go home. Free, on a cooldown.
 export const MILITIA = {
@@ -10,6 +12,26 @@ export const MILITIA = {
   blurb: "Two farmers with pitchforks answer the horn wherever you point — free, for a short while, and again when the cooldown ends.",
   count: 2, hp: 95, dmg: 9, rate: 700, range: 60, unitSpeed: 90,
   life: 15000, cooldown: 24000, respawnMs: 999999,
+};
+
+// The Levy (castle works, data/castle.js): the militia as the crown's works
+// have drilled it. With none built it is MILITIA above, exactly; a built tier
+// names the whole band (count, health, blow, pace, reach, time on the road,
+// recall) and the rig its men wear. Everything that calls the militia or draws
+// its button reads it from here.
+export const militiaStats = (works, ranks = null) => {
+  const t = workTier(works, "militia", ranks);
+  if (!t) return { ...MILITIA, noun: "farmers" };
+  return { ...MILITIA, count: t.count, hp: t.men, dmg: t.dmg, rate: t.rate, range: t.range, life: t.life, cooldown: t.cooldown, noun: t.noun, rig: t.rig };
+};
+const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"];
+export const militiaBlurb = (st) =>
+  `${WORDS[st.count] || st.count} ${st.noun} answer the horn wherever you point — free, for ${Math.round(st.life / 1000)} seconds, and again ${Math.round(st.cooldown / 1000)} seconds on.`;
+// where each man stands round the call: the garrison's three, then wider
+// ranks for the Levy's four and five (update.js falls back to its own three)
+export const MILITIA_STANDS = {
+  4: [[-12, -6], [12, -6], [-12, 10], [12, 10]],
+  5: [[0, -10], [-19, 0], [19, 0], [-9, 12], [9, 12]],
 };
 
 // Heroes start every map at level 1 and grow during the battle, up to
@@ -36,14 +58,21 @@ export const HEROES = {
   },
 };
 export const HERO_MAX_LEVEL = 20;
+// Heroes mend on their own (owner, 2026-09-30): a share of their max health
+// every second, more while they are not in a fight. A knight's own `heal`
+// (flat hp/s) is separate; this one is every hero's and grows with his health.
+export const HERO_REGEN = 0.012, HERO_REST_REGEN = 0.03;
+// ...and so do the knights of a Knight Hall's garrison (owner, 2026-09-30),
+// at a share of their max health a second, on the same footing
+export const KNIGHT_REGEN = 0.01, KNIGHT_REST_REGEN = 0.025;
 // THE RETINUE: a hero who climbs high enough is joined on the field by a
 // follower at each level in `at` — Sir Aldric by squires who hold the road
-// beside him as knights do, Wren by archers who shoot from behind her. They
+// beside him as knights do (at levels 10 and 15; owner, 2026-09-30), Wren by archers who shoot from behind her. They
 // march wherever the hero is sent, fall and come back after respawnMs, and
 // their kills near the hero still teach him (killXp's share). They belong to
 // the battle, like the hero's level: every map starts without them.
 export const HERO_RETINUE = {
-  aldric: { name: "Squire", rig: "squire", at: [10, 20], joins: "a squire rides to his side!",
+  aldric: { name: "Squire", rig: "squire", at: [10, 15], joins: "a squire rides to his side!",
     st: { hp: 380, dmg: 30, rate: 760, range: 80, unitSpeed: 105, respawnMs: 10000 } },
   wren: { name: "Archer", rig: "bowman", at: [10, 20], joins: "an archer takes up the bow beside her!",
     st: { hp: 170, dmg: 24, rate: 760, range: 150, unitSpeed: 115, respawnMs: 9000, ranged: true } },
@@ -132,7 +161,7 @@ export const heroStats = (key, level, talents = null) => {
   const h = HEROES[key];
   if (!h) return null;
   const l = Math.max(0, level - 1);
-  const st = { ...h.base, hp: h.base.hp + h.perLevel.hp * l, dmg: h.base.dmg + h.perLevel.dmg * l, count: 1 };
+  const st = { ...h.base, hp: h.base.hp + h.perLevel.hp * l, dmg: h.base.dmg + h.perLevel.dmg * l, count: 1, regen: HERO_REGEN, restRegen: HERO_REST_REGEN };
   // the abilities, grown with the level; their upgrade lines bend them below
   st.abil = {};
   for (const a of heroAbilities(key)) {

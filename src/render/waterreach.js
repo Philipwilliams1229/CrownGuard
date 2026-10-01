@@ -46,7 +46,7 @@
 import { W, H, WALL_W, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import * as TERRAIN from "../data/terrain.js";
-import { PONDS, RIVERS, COAST, BRIDGES, BRIDGE_HALF, RIVER_ROUTE, seaRoute, seaDepthAt, coastLine, stationQ } from "../data/terrain.js";
+import { PONDS, RIVERS, COAST, BRIDGES, BRIDGE_HALF, RIVER_ROUTE, seaRoute, seaDepthAt, coastLine, stationQ, patrolOf } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { pondAt } from "../engine/actions.js";
 import { getStats } from "../engine/towers.js";
@@ -576,7 +576,7 @@ const POND_RT = new WeakMap();
 export const watchRoute = (x, y) => {
   const w = watchWater(x, y);
   if (!w) return null;
-  if (w.rt) return w.rt;
+  if (w.rt) return patrolOf(w.rt, x, y);   // a river or coast is rowed only PATROL_LEN of it
   const p = w.pond;
   let rt = POND_RT.get(p);
   if (!rt) {
@@ -992,6 +992,26 @@ export const drawWatchWater = (ctx, g, x, y, tone, part = "both", ground = null)
   if (!w) return false;
   const B = bodyOf(M, w);
   if (B.empty) return false;
+  // a river's or the coast's light stops where the patrol does (terrain.js
+  // patrolOf): clipped to a sausage of circles along the stretch they row
+  const pr = w.rt ? patrolOf(w.rt, x, y) : null;
+  const cut = pr && pr !== w.rt;
+  if (cut) {
+    const rad = S(w.kind === "sea" ? 42 : 24);
+    ctx.save();
+    ctx.beginPath();
+    for (let q = 0; q <= pr.total + 0.5; q += 8) {
+      const [px, py] = pr.at(q);
+      ctx.moveTo(S(px) + rad, S(py));
+      ctx.arc(S(px), S(py), rad, 0, Math.PI * 2);
+    }
+    ctx.clip();
+  }
+  const drawn = drawBody(ctx, g, B, tone, part, ground);
+  if (cut) ctx.restore();
+  return drawn;
+};
+const drawBody = (ctx, g, B, tone, part, ground) => {
   if (part !== "edge") {
     const tint = tintOf(B, tone, ground && ground.width === W * PX && ground.height === H * PX ? ground : null);
     const sm = ctx.imageSmoothingEnabled;

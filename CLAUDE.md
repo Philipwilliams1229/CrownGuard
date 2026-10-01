@@ -325,6 +325,47 @@ of each work. The wall's bowmen draw only while they have something to
 shoot: `castleCd.loosed` (update.js) holds each one's last shot, and
 render/castle.js stands them at ease (`rest`, now and then `reach`) after.
 
+The Levy (`militia` in `CASTLE_WORKS`, owner request 2026-09-30) drills the
+free militia horn: four tiers at 8000 / 12000 / 18000 / 25000. Each tier
+names the whole band (count 3 / 4 / 4 / 5, `men` health 105 / 125 / 170 /
+230, `dmg`, `rate`, `range`, `life` 17-24 s, `cooldown` 22 -> 16 s); tier 0
+(nothing bought) is `MILITIA` in bands.js, exactly as it always was, so old
+saves change nothing (`loadCastle` fills any missing work with 0). The
+engine reads it through `militiaStats(works, ranks)` (bands.js), used by
+`callMilitia` (actions.js; counts of 4+ get their own `MILITIA_STANDS` slots,
+the last tier wears the squire rig via `band.rig`, enemies.js) and by the
+HUD button (cooldown drain, tooltip). The endless rank is +40% health and
+blows. A new work needs: `CASTLE_WORKS` + `emptyWorks` + `rankLabel`/`ranked`
+(castle.js), `NO_WORKS` (campaign.js), `WORK_ICON` (ui/CastleWorks.jsx), and
+the `castleKey` string in CrownguardGame.jsx's HUD sync.
+
+## Regen, Wren, shamans, the dock (2026-09-30, owner requests)
+
+Provisional, pending the owner's playtest (sims barely move: the only
+measured shift is gw5's swarm doctrine, 50-60 -> 100-135 castle damage, from
+the shamans now walking in the thick of the warband).
+- **Passive regen:** every hero heals `HERO_REGEN` 1.2% of max health a
+  second (3% when not fighting, `HERO_REST_REGEN`); a Knight Hall's men
+  `KNIGHT_REGEN` 1% / 2.5% at rest (all in `src/data/bands.js`; read in
+  update.js's hero branch and `runMelee`). Retinue and militia do not regen.
+- **Wren is not invisible:** `runRangedBand` lets a hero or retinue archer
+  hold one foe that walks within `RANGED_ENGAGE` (22) of her (`blockedBy`,
+  like a knight's): it stops and strikes her at its own pace, she keeps
+  shooting (the engaged foe first). Rams, fliers (not wraiths), swimmers and
+  foes with no melee `atk` pass her.
+- **The goblin shaman walks amid a group:** `escort: { type: "shaman",
+  gather: true }` in factions.js; `gatherEscort` (waves.js) marks every
+  scripted/generated shaman group `amid` the wave's biggest group of rank and
+  file (gap 0), as the magister walks; he also has `packRange` to keep the
+  column's pace. A wave with only trolls/bosses keeps him as written.
+- **River Watch is a dock:** `buildableAt` demands `atWaterEdge` (terrain.js:
+  within `DOCK_EDGE` 8 px of a river bank, the same inside a pond's rowable
+  ellipse, or within ~22 px of the beach). Its skiffs row only `PATROL_LEN`
+  (`W / 3`) of a river or the coast, centred on the dock and slid inside the
+  route's ends (`patrolOf`, terrain.js; used by `launchSkiffs`, update.js, and
+  `watchRoute` / `drawWatchWater`, waterreach.js, whose lit water is clipped
+  to the same stretch). A pond's ring is rowed whole.
+
 ## Balance and testing
 
 - `node scripts/sim.mjs --level <id> --endure` — castle damage per wave for
@@ -488,8 +529,8 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
   9-10 by the end of a 20-wave script and ~14-15 on a 30-wave map — measure by sweeping `--hero-at 0.2/0.35/0.5/0.65` with
   `node scripts/sim.mjs --level <id>` and taking the best (a player finds
   the fight; a fixed spot can sit behind the towers and earn nothing).
-- Hero retinue (`HERO_RETINUE` in `src/data/bands.js`): at level 10 and
-  again at 20 a follower joins the hero for that battle — squires (block,
+- Hero retinue (`HERO_RETINUE` in `src/data/bands.js`): Sir Aldric's squires
+  join at levels 10 and 15 (owner, 2026-09-30), Wren's archers at 10 and 20; a follower joins the hero for that battle — squires (block,
   as knights) for Sir Aldric, archers (shoot, never block) for Wren. They
   are a `kind: "retinue"` band synced from the hero's level each tick
   (`syncRetinue`, update.js) and follow the hero's rally. A campaign hero

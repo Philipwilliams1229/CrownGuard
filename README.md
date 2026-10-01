@@ -41,8 +41,9 @@ npm run preview # preview that optimized build locally
   blocker) or Wren (a huntress) in the pause menu.
 - **Militia** (bottom-right): two farmers with pitchforks, free, wherever you
   tap, for fifteen seconds. Then the horn needs a moment before it sounds again.
+  The castle works' **Levy** drills them: up to five men, harder, longer, quicker.
 - **Castle works** (🏰, top-right, and on the campaign map): bowmen,
-  ballistae, a gate guard and masons built on the wall itself. In the
+  ballistae, a gate guard, masons and the levy built on the wall itself. In the
   campaign they are paid from the **crown's treasury**: every level you hold
   sends home the gold you finished with plus a tithe of everything you
   earned. Works cost 10,000, then 15,000, then 25,000, and stand at every

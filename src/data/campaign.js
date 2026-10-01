@@ -178,7 +178,7 @@ export function spendTreasury(amount) {
 // realm. Callers still name their scope (a chapter id, or `free:<realm>`);
 // it only picks which of the two castles.
 const castleKey = (scope) => (String(scope).startsWith("free:") ? "free" : "crown");
-const NO_WORKS = { archers: 0, ballista: 0, guards: 0, masons: 0 };
+const NO_WORKS = { archers: 0, ballista: 0, guards: 0, masons: 0, militia: 0 };
 export function loadCastle(scope) {
   const p = loadProgress();
   const key = castleKey(scope);

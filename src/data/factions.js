@@ -28,6 +28,10 @@ export const FACTIONS = {
     types: ["goblin", "wolf", "bat", "orc", "boarrider", "armored", "shaman", "hobgoblin", "troll", "necro", "dragon"],
     // the beast that leads every fifth wave of the Endless March
     endlessBoss: "dragon",
+    // The shaman never walks alone (owner, 2026-09-30): wherever a wave names
+    // him he walks amid its biggest group, a healer in the thick of the
+    // warband (waves.js gatherEscort). He is not added to waves that lack him.
+    escort: { type: "shaman", gather: true, per: 1e9, max: 0, from: 1 },
     waves: [
       // I. raiding parties — goblins first, then the wood empties out
       [["goblin", 14, 650]],

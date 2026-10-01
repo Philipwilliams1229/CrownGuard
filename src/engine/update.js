@@ -7,8 +7,8 @@
 import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, LANE_OFF, pickLane } from "../data/constants.js";
 import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X, guardSpots, GUARD_X } from "../data/castle.js";
-import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETINUE, retinueAt } from "../data/bands.js";
-import { RIVER_ROUTE, riverRouteAt, seaRoute, seaDepthAt, underBridge, routeSpans, clearOfSpans, stationQ } from "../data/terrain.js";
+import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETINUE, retinueAt, KNIGHT_REGEN, KNIGHT_REST_REGEN } from "../data/bands.js";
+import { RIVER_ROUTE, riverRouteAt, seaRoute, seaDepthAt, underBridge, routeSpans, clearOfSpans, stationQ, patrolOf } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, nearestOnPath, TOTAL_LEN } from "./path.js";
@@ -240,8 +240,10 @@ const pondRoute = (p) => {
 const launchSkiffs = (g, t, st) => {
   if (t._pond === undefined) t._pond = pondAt(t.x, t.y) || null;
   if (t._sea === undefined) t._sea = !t._pond && seaDepthAt(t.x, t.y) > 0;
-  if (!t._pond && !t._sea && t._river === undefined) t._river = riverRouteAt(t.x, t.y);
-  const rt = t._pond ? pondRoute(t._pond) : t._sea ? seaRoute() : t._river;
+  // a river or the coast is rowed only PATROL_LEN of it (terrain.js patrolOf)
+  if (!t._pond && !t._sea && t._river === undefined) t._river = patrolOf(riverRouteAt(t.x, t.y), t.x, t.y);
+  if (t._sea && t._seaRt === undefined) t._seaRt = patrolOf(seaRoute(), t.x, t.y);
+  const rt = t._pond ? pondRoute(t._pond) : t._sea ? t._seaRt : t._river;
   if (!rt) return null;
   const n = st.count || 1;
   if (!t.units) t.units = [];
@@ -540,6 +542,8 @@ const levelHero = (g, b) => {
   if (b.level >= HERO_MAX_LEVEL) b.xp = 0;
 };
 
+// how near a foe must come to a ranged hero to stop and fight her
+const RANGED_ENGAGE = 22;
 const runRangedBand = (g, b, st, slots, sdt, tms) => {
   b.units.forEach((u, i) => {
     if (u.state === "dead") {
@@ -560,8 +564,53 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
     const d = Math.hypot(dx, dy);
     if (d > 3) { const sp = Math.min(d, (st.unitSpeed || 100) * sdt); u.x += (dx / d) * sp; u.y += (dy / d) * sp; u.face = dx >= 0 ? 1 : -1; u.state = "moving"; return; }
     u.state = "rally";
+    // A huntress on the road is not invisible: a foe that walks up to her
+    // stops and fights her, as it would a knight (owner, 2026-09-30). She
+    // holds one at a time and keeps shooting; the foe's blows are the same
+    // as against any soldier. Rams roll over, fliers and swimmers pass.
+    if (b.kind === "hero" || b.kind === "retinue") {
+      let held = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead && e.blockedBy === u.id) : null;
+      if (held && Math.hypot(held.x - u.x, held.y - u.y) > RANGED_ENGAGE + 10) { releaseEnemy(g, held); held = null; }
+      if (!held) {
+        u.targetId = null;
+        let bd2 = RANGED_ENGAGE;
+        for (const e of g.enemies) {
+          if (e.dead || (e.flying && !e.haunts) || e.swimming || e.blockedBy || e.crush || e.roadBlock || !(e.atk > 0)) continue;
+          const dd = Math.hypot(e.x - u.x, e.y - u.y);
+          if (dd < bd2) { bd2 = dd; held = e; }
+        }
+        if (held) { held.blockedBy = u.id; u.targetId = held.id; }
+      }
+      if (held) {
+        held.engaged = true;
+        held.face = u.x >= held.x ? 1 : -1;
+        if (held.stunUntil <= tms || held.guard > 0) {
+          held.meleeCd -= sdt * 1000;
+          if (held.meleeCd <= 0) {
+            held.meleeCd = held.atkRate;
+            held.atkAnim = 200;
+            if (u.shield) {
+              u.shield = false; u.shieldCd = 6500;
+              g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
+            } else {
+              u.hp -= held.atk;
+              g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
+              sfx.play("hit");
+            }
+            if (u.hp <= 0) {
+              killUnit(g, b, u);
+              if (held.raisesOnKill) raiseFrom(g, held, u, tms);
+              return;
+            }
+          }
+        }
+      }
+    }
     let best = null, bd = st.range;
-    for (const e of g.enemies) {
+    // she shoots whoever is on her first
+    const onHer = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
+    if (onHer) best = onHer;
+    else for (const e of g.enemies) {
       if (e.dead) continue;
       const dd = Math.hypot(e.x - u.x, e.y - u.y);
       if (dd < bd) { bd = dd; best = e; }
@@ -656,6 +705,8 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
           return;
         }
         if (st.heal && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + st.heal * sdt);
+        // a Knight Hall's men mend on their own (bands.js KNIGHT_REGEN), faster at their post
+        if (t.kind === "knight" && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * (u.state === "fighting" ? KNIGHT_REGEN : KNIGHT_REST_REGEN) * sdt);
         u.atkCd -= sdt * 1000;
         u.swing = Math.max(0, u.swing - sdt * 1000);
         u.healGlow = Math.max(0, (u.healGlow || 0) - sdt * 1000);
@@ -854,6 +905,8 @@ export function updateGame(g, dt) {
           // a hero just out of the gate solidifies as he steps into the light
           if (u.emerge !== undefined) { u.emerge += sdt; u.fade = Math.min(1, u.emerge / 0.7); if (u.fade >= 1) { delete u.emerge; delete u.fade; } }
           levelHero(g, b);
+          // passive regeneration (bands.js HERO_REGEN): a share of max health a second, faster at rest
+          if (u.state !== "dead" && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * (u.state === "fighting" ? b.st.regen : b.st.restRegen) * sdt);
           if (u.state === "dead") { b.deadFor = (b.deadFor || 0) + sdt * 1000; u.dash = null; }
           // abilities recharge whatever he is doing, dead or alive
           if (b.abCd) for (const k in b.abCd) b.abCd[k] = Math.max(0, b.abCd[k] - sdt * 1000);

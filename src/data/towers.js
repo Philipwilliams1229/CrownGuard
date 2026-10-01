@@ -252,7 +252,7 @@ export const TOWERS = {
   },
   riverwatch: {
     name: "River Watch", cost: 130, dtype: "phys", proj: "harpoon", water: true,
-    blurb: "BUILT ON THE WATER — the only hall that can be: moor it in a river, a pond or a mere. Its skiffs row the water under their own orders, carrying muskets to stretches of bank no tower can reach.",
+    blurb: "A DOCK — the only hall that stands on the water, and only at its edge: moor it on the bank of a river, pond or mere. Its skiffs row a third of the board's width of water, carrying muskets to stretches of bank no tower can reach.",
     levels: [
       { dmg: 30, rate: 950, range: 94, hp: 130, count: 1, rowSpeed: 74 },
       { dmg: 40, rate: 900, range: 101, hp: 165, count: 2, rowSpeed: 78, cost: 100, label: "Second Skiff" },

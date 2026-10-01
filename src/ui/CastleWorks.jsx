@@ -1,5 +1,5 @@
 // ============ CASTLE WORKS LIST ============
-// The four works on the castle, their tiers, and a buy button for the next
+// The five works on the castle, their tiers, and a buy button for the next
 // one. Shown inside the game's side panel and on the campaign map; the
 // caller says what purse pays (the crown's treasury, or a free-play run's
 // gold) and does the paying. Wears the battle HUD's skin (hud.css), and
@@ -7,10 +7,10 @@
 
 import { CASTLE_WORKS, nextWork } from "../data/castle.js";
 import "./hud/hud.css";
-import { CoinIcon, ArrowIcon, BallistaIcon, ShieldIcon, HammerIcon } from "./hud/icons.jsx";
+import { CoinIcon, ArrowIcon, BallistaIcon, ShieldIcon, HammerIcon, PitchforkIcon } from "./hud/icons.jsx";
 
 // each work's picture, on the HUD's own pixel grid
-const WORK_ICON = { archers: ArrowIcon, ballista: BallistaIcon, guards: ShieldIcon, masons: HammerIcon };
+const WORK_ICON = { archers: ArrowIcon, ballista: BallistaIcon, guards: ShieldIcon, masons: HammerIcon, militia: PitchforkIcon };
 
 const gold = (n) => n.toLocaleString("en-US");
 
@@ -45,7 +45,7 @@ export default function CastleWorksList({ works, ranks = null, endless = false, 
               </div>
             </div>
             <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, margin: "7px 0 8px" }}>
-              {cur ? <span><b style={{ color: "var(--green)" }}>{cur.label}</b> stands on the wall{rank ? <>, <b style={{ color: "var(--gold-lt)" }}>veteran rank {rank}</b></> : null}.</span> : def.blurb}
+              {cur ? <span><b style={{ color: "var(--green)" }}>{cur.label}</b>{def.here ?? " stands on the wall"}{rank ? <>, <b style={{ color: "var(--gold-lt)" }}>veteran rank {rank}</b></> : null}.</span> : def.blurb}
             </div>
             {next ? (
               <button className={`cg-btn${can ? "" : " is-poor"}`} style={{ width: "100%", justifyContent: "space-between", fontSize: 11 }}

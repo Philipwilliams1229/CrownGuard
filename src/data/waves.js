@@ -218,9 +218,27 @@ export const waveSpec = (w) => {
 // is marked `amid`: startWave spreads its heads through the middle of the
 // wave's biggest group instead of sending them after everything else, so
 // the mage always walks inside the company he shields.
+// An escort the script already names (the goblins' shamans, `gather` in
+// factions.js) is not sent as a group of its own, alone on the road: its
+// heads are marked `amid` and walk through the middle of the wave's biggest
+// group of rank and file, as the magister does. A wave with no such group
+// (only trolls, say) keeps its escort as written.
+const gatherEscort = (spec, type) => {
+  let big = -1, most = 0;
+  spec.forEach(([t, n], i) => {
+    if (t === type || BOSSES.has(t) || ENEMY_BOSS(t) || (CROWD_WEIGHT[t] ?? 0) < 0.3) return;
+    if (n > most) { most = n; big = i; }
+  });
+  if (big < 0) return spec;
+  const out = spec.map((g) => { const c = g.slice(); if (g.amid != null) c.amid = g.amid; if (g.clock != null) c.clock = g.clock; return c; });
+  out.forEach((g) => { if (g[0] === type) { g[2] = 0; g.amid = big; } });
+  out.overlap = spec.overlap;
+  return out;
+};
 const escortOf = (spec, a) => {
   const e = FACTION.escort;
-  if (!e || a < e.from || spec.some(([t]) => t === e.type)) return spec;
+  if (!e || a < e.from) return spec;
+  if (spec.some(([t]) => t === e.type)) return e.gather ? gatherEscort(spec, e.type) : spec;
   // behind a siege ram a magister is a harder-war treat, not a habit: from
   // war-wave 10, on about six waves in ten (seeded by the wave)
   if (spec.some(([t]) => ENEMIES[t]?.roadBlock) && !(a >= 10 && mulberry32(a * 131 + 17)() < 0.6)) return spec;

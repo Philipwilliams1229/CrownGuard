@@ -269,6 +269,21 @@ export function StarIcon({ size = 16, lit = true, style }) {
   return <Grid rows={STAR} size={size} pal={lit ? PAL : { ...PAL, ...STAR_EMPTY }} style={style} />;
 }
 
+// a hay-fork, tines up: the Levy, the militia's drilling
+export const PitchforkIcon = icon([
+  "kbk.kbk.kbk",
+  "kbk.kbk.kbk",
+  "kbk.kbk.kbk",
+  "kbkkkbkkkbk",
+  ".kbbbbbbbk.",
+  "..kkkbkkk..",
+  "....kwk....",
+  "....kwk....",
+  "....kwk....",
+  "....kWk....",
+  "....kkk....",
+]);
+
 // an arrow in flight, head up and to the right: the wall archers, a volley
 const ARROW = [
   "......kkkkk.",

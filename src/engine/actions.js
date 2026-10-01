@@ -5,9 +5,9 @@
 
 import { W, H, BLOCK_DIST, WALL_W, LANE_OFF } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
-import { MILITIA, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
+import { MILITIA, militiaStats, MILITIA_STANDS, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "./path.js";
-import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint } from "../data/terrain.js";
+import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint, atWaterEdge } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { cragBlocks } from "../data/gatecrag.js";
 import { waveSpec, waveHpMult, CROWD_WEIGHT } from "../data/waves.js";
@@ -44,9 +44,10 @@ export const buildableAt = (g, x, y, kind = null) => {
   // which scenery.js paints from, so the rock and the rule agree)
   if (cragBlocks(x, y)) return false;
   for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
-  // A floating hall moors in ANY water — a river, a pond or mere big enough
-  // to row in (not lava, not ice), or just off a coast. Everyone else keeps off it.
-  if (afloat) { if (!inRiver(x, y, 8) && !pondAt(x, y) && !(seaDepthAt(x, y) > 6)) return false; }
+  // A floating hall (the River Watch) moors only at the EDGE of water it can row —
+  // a river, a pond or mere big enough (not lava, not ice), or just off a coast.
+  // Everyone else keeps off it.
+  if (afloat) { if ((!inRiver(x, y, 8) && !pondAt(x, y) && !(seaDepthAt(x, y) > 6)) || !atWaterEdge(x, y)) return false; }
   else {
     for (const p of PONDS) if (Math.abs(x - p.x) < p.w / 2 + 14 && Math.abs(y - p.y) < p.h / 2 + 14) return false;
     if (inRiver(x, y, 14)) return false;
@@ -503,17 +504,25 @@ export const buyCastleWork = (g, key) => {
 };
 
 // ---- bands ----
-// Call the militia to a spot: two farmers, for a while, for nothing.
+// Call the militia to a spot: a few farmers, for a while, for nothing. What
+// the horn raises (how many, how hard, how long, how soon again) is the Levy
+// works' tier, if one is built (bands.js militiaStats); none, the plain two.
 export const callMilitia = (g, x, y) => {
   if (!g || (g.militiaCd || 0) > 0 || SANDBOX?.militia === false) return false;
   if (!g.bands) g.bands = [];
+  const st = militiaStats(g.castle, g.castleRanks);
+  const stands = MILITIA_STANDS[st.count];
   const id = nextId();
   const units = [];
-  for (let i = 0; i < MILITIA.count; i++) {
-    units.push({ id: nextId(), hp: MILITIA.hp, maxHp: MILITIA.hp, x: x + (i ? 12 : -12), y: y + 6, face: 1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
+  for (let i = 0; i < st.count; i++) {
+    const [dx, dy] = stands ? stands[i] : [i ? 12 : -12, 6];
+    units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, x: x + dx, y: y + (stands ? dy : 6), face: 1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
   }
-  g.bands.push({ id, kind: "militia", st: { ...MILITIA }, rally: { x, y }, units, life: MILITIA.life });
-  g.militiaCd = MILITIA.cooldown;
+  const band = { id, kind: "militia", st, rally: { x, y }, units, life: st.life };
+  if (st.rig) band.rig = st.rig;
+  if (stands) band.slots = stands.map(([dx, dy]) => [x + dx, y + dy]);
+  g.bands.push(band);
+  g.militiaCd = st.cooldown;
   g.effects.push({ type: "levelup", x, y, ttl: 500 });
   g.effects.push({ type: "dust", x, y: y + 6, ttl: 400 });
   return true;

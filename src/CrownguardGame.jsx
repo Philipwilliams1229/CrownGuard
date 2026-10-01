@@ -15,7 +15,7 @@ import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadS
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
-import { MILITIA, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
+import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
 import { PTS } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, MAX_STARS } from "./data/profile.js";
@@ -467,7 +467,7 @@ export default function Crownguard() {
       if ((g.freeplay || g.victory) && g.gold >= MASTER_MIN) g.masterSeen = true;
       const masterShow = (g.freeplay || g.victory) && g.masterSeen;
       const pickKey = g.masterPick ? `${g.masterPick.kind}:${g.masterPick.branch}${g.masterPick.rank4 || ""}` : null;
-      const castleKey = g.castle ? `${g.castle.archers}${g.castle.ballista}${g.castle.guards}${g.castle.masons}` : "";
+      const castleKey = g.castle ? `${g.castle.archers}${g.castle.ballista}${g.castle.guards}${g.castle.masons}${g.castle.militia || 0}` : "";
       const hb = heroBand(g);
       const hu = hb?.units[0];
       // the hero's two abilities, as the menu shows them
@@ -904,14 +904,16 @@ export default function Crownguard() {
 
 
   // -- the militia horn and the hero --
+  // (the Levy works change how many answer, for how long, and how soon again)
+  const militiaSt = militiaStats(ui.castle, ui.castleRanks);
   const militiaBtn = ui.result == null && !(mode === "free" && SANDBOX?.militia === false) && (
-    <button aria-label="Call the militia" title={MILITIA.blurb}
+    <button aria-label="Call the militia" title={militiaBlurb(militiaSt)}
       className={cls("cg-btn", ui.rallyFor === "militia" && "is-on")}
       style={{ minHeight: 60, minWidth: 64, flexDirection: "column", gap: 1, padding: "3px 8px", overflow: "hidden" }}
       disabled={ui.militiaSec > 0}
       onClick={() => { const g = G.current; if (!g) return; g.rallyFor = g.rallyFor === "militia" ? null : "militia"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); setCastleOpen(false); setTalentsOpen(false); }}>
       {/* the cooldown drains down the plank like sand */}
-      {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / MILITIA.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
+      {ui.militiaSec > 0 && <span style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${Math.min(100, (100 * ui.militiaSec * 1000) / militiaSt.cooldown)}%`, background: "rgba(20,12,22,0.45)" }} />}
       {hasRig("farmer") ? <EnemyIcon type="farmer" box={28} /> : <span style={{ fontSize: 18 }}>{MILITIA.icon}</span>}
       <span style={{ fontSize: 12, position: "relative" }}>{ui.militiaSec > 0 ? `${ui.militiaSec}s` : "Militia"}</span>
     </button>

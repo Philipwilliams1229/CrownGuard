@@ -149,6 +149,54 @@ const distToSegs = (segs, x, y) => {
 export const inRiver = (x, y, margin = 0) =>
   RIVERS.some((rv) => distToSegs(rv.segs, x, y) < rv.w / 2 + margin);
 
+// ---- the River Watch's dock and its patrol ----
+// The watch is a DOCK (owner, 2026-09-30): it can only be moored at the water's
+// EDGE — within DOCK_EDGE px of a bank, not out in mid-stream or the middle of a
+// mere — and its skiffs patrol only about a third of the board's width of
+// water (PATROL_LEN: a river running right across the board is rowed a sixth
+// of the way either side of the dock). Ponds are small enough that a boat
+// still rows their whole ring.
+export const DOCK_EDGE = 8;
+export const PATROL_LEN = W / 3;
+// true when (x, y), already known to be in water a hall may moor in, lies at
+// the edge: a river bank within DOCK_EDGE, a pond's shore (its rowable
+// ellipse is inset 8 x 6 from the pond's box: the same DOCK_EDGE inside that),
+// or a coast within a hall's length of the beach
+export const atWaterEdge = (x, y) => {
+  if (RIVERS.some((rv) => { const d = distToSegs(rv.segs, x, y); return d < rv.w / 2 + 8 && rv.w / 2 - d <= DOCK_EDGE; })) return true;
+  for (const p of PONDS) {
+    if (p.t === "lava" || p.t === "ice" || p.w < 50) continue;
+    const a = p.w / 2 - 8, b = p.h / 2 - 6;
+    const f = Math.sqrt(((x - p.x) / a) ** 2 + ((y - p.y) / b) ** 2);
+    if (f <= 1 && (1 - f) * Math.min(a, b) <= DOCK_EDGE) return true;
+  }
+  return COAST ? seaDepthAt(x, y) <= 6 + DOCK_EDGE + 8 : false;
+};
+// The stretch of a river or coast route a dock at (x, y) patrols: PATROL_LEN
+// long, centred on the dock's nearest point on the water and slid back inside
+// the route's ends (so a dock near an end rows the whole length on one side).
+// Same { total, at(q) } shape as a route; cached per route and dock. A ring (a
+// pond's) is returned as it is.
+const PATROLS = new WeakMap();
+export const patrolOf = (rt, x, y) => {
+  if (!rt || rt.ring || rt.total <= PATROL_LEN + 1) return rt;
+  let m = PATROLS.get(rt);
+  if (!m) PATROLS.set(rt, (m = new Map()));
+  const key = `${Math.round(x)},${Math.round(y)}`;
+  let p = m.get(key);
+  if (p) return p;
+  let bq = 0, bd = Infinity;
+  for (let q = 0; q <= rt.total; q += 4) {
+    const [px, py] = rt.at(q);
+    const d = (px - x) * (px - x) + (py - y) * (py - y);
+    if (d < bd) { bd = d; bq = q; }
+  }
+  const off = Math.max(0, Math.min(rt.total - PATROL_LEN, bq - PATROL_LEN / 2));
+  p = { total: PATROL_LEN, off, base: rt, at: (q) => rt.at(off + Math.max(0, Math.min(PATROL_LEN, q))) };
+  m.set(key, p);
+  return p;
+};
+
 // A bridge's deck arches over the water: level with the road at each bank,
 // BRIDGE_RISE above it at the middle of the span. The painter and everything
 // that walks the deck share one curve, so feet stay on the planks.

@@ -5,7 +5,7 @@
 // wall archers on the Vale Road and they are on the wall at Thornbrook, at
 // the Citadel Gate and in the Hollowfen too (campaign.js loadCastle). Free
 // Play pays from the run's purse, into a castle of its own shared by every
-// realm. Four works, each in tiers, priced to be fought for.
+// realm. Five works, each in tiers, priced to be fought for.
 
 import { H } from "./constants.js";
 import { inRiver } from "./terrain.js";
@@ -50,9 +50,25 @@ export const CASTLE_WORKS = {
       { cost: 15000, label: "Mend two, shore the wall", mend: 2, hp: 3 },
     ],
   },
+  militia: {
+    name: "The Levy", icon: "", here: ", drilled and waiting on the horn",
+    blurb: "The horn's free farmers, drilled: more of them, harder, longer on the road, and quicker to be called again.",
+    // tier 0 is the plain horn (bands.js MILITIA: two farmers, 95 health, 9 a
+    // blow, 15 s on the road, 24 s to call again). Each tier names the whole
+    // band, not a change to it (engine/actions.js callMilitia reads it through
+    // bands.js militiaStats): `men` is each one's health, `life` and
+    // `cooldown` are ms; `noun` is what the horn raises; `rig` (the last
+    // tier) puts them in the crown's squire's kit instead of a smock.
+    tiers: [
+      { cost: 8000, label: "Three farmers, sharper forks", count: 3, men: 105, dmg: 10, rate: 700, range: 60, life: 17000, cooldown: 22000, noun: "farmers" },
+      { cost: 12000, label: "Four, and a stout hay-hook", count: 4, men: 125, dmg: 12, rate: 680, range: 60, life: 19000, cooldown: 20000, noun: "farmers" },
+      { cost: 18000, label: "Billhooks and leather jerkins", count: 4, men: 170, dmg: 17, rate: 650, range: 62, life: 21000, cooldown: 18000, noun: "yeomen" },
+      { cost: 25000, label: "The Crown's levy, drilled", count: 5, men: 230, dmg: 24, rate: 620, range: 64, life: 24000, cooldown: 16000, noun: "levymen", rig: "squire" },
+    ],
+  },
 };
 
-export const emptyWorks = () => ({ archers: 0, ballista: 0, guards: 0, masons: 0 });
+export const emptyWorks = () => ({ archers: 0, ballista: 0, guards: 0, masons: 0, militia: 0 });
 
 // ENDLESS RANKS: in Free Play, a finished work can be raised again and
 // again — each rank makes its last tier hit harder (or hold longer, or mend
@@ -63,12 +79,14 @@ export const RANK_COST = (key, r) => CASTLE_WORKS[key].tiers.at(-1).cost * 2 ** 
 export const rankLabel = (key, r) => ({
   archers: `Rank ${r}: +${r * 40}% bowmen damage`, ballista: `Rank ${r}: +${r * 40}% bolt damage`,
   guards: `Rank ${r}: +${r * 40}% halberdiers, hotter oil, +${r * 2} castle life`, masons: `Rank ${r}: mend ${2 + r} lives a wave`,
+  militia: `Rank ${r}: +${r * 40}% levymen's health and blows`,
 }[key]);
 const ranked = (key, t, r) => {
   if (!r) return t;
   const m = 1 + 0.4 * r;
   if (key === "archers" || key === "ballista") return { ...t, dmg: t.dmg * m, burn: t.burn ? t.burn * m : t.burn, label: rankLabel(key, r) };
   if (key === "guards") return { ...t, men: t.men * m, dmg: t.dmg * m, oil: (t.oil || 0) * m, hp: (t.hp || 0) + 2 * r, label: rankLabel(key, r) };
+  if (key === "militia") return { ...t, men: t.men * m, dmg: t.dmg * m, label: rankLabel(key, r) };
   if (key === "masons") return { ...t, mend: (t.mend || 0) + r, label: rankLabel(key, r) };
   return t;
 };
