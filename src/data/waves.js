@@ -154,6 +154,15 @@ const push = (spec, k) => {
 // more than one, the rest follow on a clock of their own, WALL_STAGGER ms
 // apart (a group with `clock`, see startWave) — never bunched. Applied after
 // the swell, before escortOf (which decides whether a magister walks with it).
+// A raiser (the necromancer, `raiseEvery`) walks BEHIND the groups of his wave
+// (owner, 2026-09-30): he has to have the fallen to raise, so he is queued
+// last. Applied after shapeCompany and before any `amid` index is set.
+const raisersLast = (spec) => {
+  if (!spec.some((g) => ENEMIES[g[0]]?.raiseEvery)) return spec;
+  const out = [...spec.filter((g) => !ENEMIES[g[0]]?.raiseEvery), ...spec.filter((g) => ENEMIES[g[0]]?.raiseEvery)];
+  out.overlap = spec.overlap;
+  return out;
+};
 const WALL_STAGGER = 9000, WALLS_MAX = 3;
 const shapeCompany = (spec, a) => {
   const wallT = spec.find((g) => ENEMIES[g[0]]?.roadBlock)?.[0];
@@ -191,7 +200,7 @@ export const waveSpec = (w) => {
   const a = absWave(w);
   const scripted = a <= FACTION.waves.length;
   if (!WINDOW) {
-    const sp = escortOf(shapeCompany(swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a), a), a);
+    const sp = escortOf(raisersLast(shapeCompany(swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a), a)), a);
     sp.overlap = overlap(a);
     return SANDBOX ? sandboxShape(sp) : sp;
   }
@@ -204,7 +213,7 @@ export const waveSpec = (w) => {
   spec = spec.map((g) => (ENEMIES[g[0]]?.firstWave > w ? [ENEMIES[g[0]].standIn, g[1] * 2, ...g.slice(2)] : g));
   // every level opens on its own ground: the swell comes in over its first
   // few waves, so a fresh purse never meets a full-grown horde on wave one
-  spec = shapeCompany(push(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), WINDOW.push), a);
+  spec = raisersLast(shapeCompany(push(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), WINDOW.push), a));
   spec = escortOf(spec, a);
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);
