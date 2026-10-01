@@ -1457,15 +1457,15 @@ export function updateGame(g, dt) {
           sfx.play("toll");
         }
       }
-      // Necromancer: calls nearby fallen back to their feet at half strength (up to 4 every raiseEvery; buffed 2026-09-30: hp 420 -> 700, every 6 s -> 3.8 s, reach 150 -> 260: he walks behind the column, so the fallen lie ahead of him)
+      // Necromancer: calls nearby fallen back to their feet at half strength (up to 5 every raiseEvery; buffed 2026-09-30: hp 420 -> 700, every 6 s -> 3.8 s, reach 150 -> 400: he walks behind the column, so the fallen lie ahead of him)
       if (e.raiseEvery && e.silencedUntil <= tms) {
         e.raiseCd = (e.raiseCd ?? e.raiseEvery * 0.5) - sdt * 1000;
         if (e.raiseCd <= 0) {
           e.raiseCd = e.raiseEvery;
           let raised = 0;
-          for (let ci = g.corpses.length - 1; ci >= 0 && raised < 4; ci--) {
+          for (let ci = g.corpses.length - 1; ci >= 0 && raised < 5; ci--) {
             const c = g.corpses[ci];
-            if (c.until <= tms || Math.hypot(c.x - e.x, c.y - e.y) > 260) continue;
+            if (c.until <= tms || Math.hypot(c.x - e.x, c.y - e.y) > 400) continue;
             g.corpses.splice(ci, 1);
             raised++;
             const u = makeEnemy(c.type, 1);
