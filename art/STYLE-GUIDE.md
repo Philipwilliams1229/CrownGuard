@@ -373,6 +373,14 @@ forearm and the upper arm, and arms kept clear of hoods and helms):
   `icon-512/192/180` into `.shots/` with titleArt/titleCrowd's painters; copy
   them over `public/icon-512.png`, `icon-192.png`, `apple-touch-icon.png`.
   Keep key content inside the central 80% circle (Android crops round).
+- **The installed app fills the glass** only because `index.html` lets
+  html/body be `min-height: 100lvh` and unclipped in `display-mode:
+  fullscreen/standalone`: iOS/iPadOS 26 (WebKit bug 301108) gives a
+  see-through-status-bar home-screen app a layout one status bar short
+  (712 of 744 on the iPad mini) while the page is `height: 100%` +
+  `overflow: hidden`, and nothing can paint the strip left over. Don't put
+  `overflow: hidden` / a fixed height back on html or body there.
+  `public/vp.html` measures it (add it to the home screen).
 - **No emoji in the UI.** Pictures are pixel grids in `src/ui/hud/icons.jsx`
   (coin, heart, castle, arrow, ballista bolt, shield, hammer, target, flag…)
   or the game's own art (`TowerPortrait`, `EnemyIcon` with a rig). Plain

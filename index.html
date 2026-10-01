@@ -35,6 +35,17 @@
          px short of the real screen, leaving a gray strip along the bottom;
          a fixed box with every edge at 0 always reaches the true edges */
       #root { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; }
+      /* iOS/iPadOS 26 home-screen app (WebKit bug 301108): with the
+         see-through status bar, a page that is height:100% + overflow:hidden
+         gets a layout one status bar short (712 of 744 on an iPad mini) and a
+         dead gray strip along the bottom. A page at least 100lvh tall and not
+         clipped makes iOS size the layout to the whole screen (measured with
+         vp.html: innerHeight 744, fixed bottom:0 on the glass). Only in the
+         installed app: in a Safari tab 100lvh is taller than the view and
+         the page would scroll. */
+      @media (display-mode: fullscreen), (display-mode: standalone) {
+        html, body { height: auto; min-height: 100lvh; overflow: visible; }
+      }
     </style>
   </head>
   <body>
