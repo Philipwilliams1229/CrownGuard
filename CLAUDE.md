@@ -384,7 +384,10 @@ the shamans now walking in the thick of the warband).
   3.8 s (was 6), up to 4 fallen a cast (was 3) within 170 (was 150). gw5
   swarm doctrine 100-135 -> 165-254 castle damage; provisional.
   He also walks BEHIND his wave's groups now (`raisersLast`, waves.js), so
-  there are fallen to raise.
+  there are fallen to raise; speed 52 -> 44 (Ironclad 55 -> 47), his reach 260
+  (the fallen lie ahead of him), and ironclads, boar riders and trolls now
+  leave corpses too (`CORPSE_TYPES`, actions.js: before, a necromancer walking
+  with ironclads had nothing to raise).
 
 ## Balance and testing
 

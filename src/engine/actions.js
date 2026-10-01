@@ -368,7 +368,7 @@ export const sellTower = (g, t) => {
 };
 
 // which of the fallen a necromancer can call back
-const CORPSE_TYPES = new Set(["goblin", "wolf", "orc"]);
+const CORPSE_TYPES = new Set(["goblin", "wolf", "orc", "armored", "boarrider", "troll"]);
 
 // `tick` marks the slow bleed of fire, poison and standing in lava — it is
 // passed so that shields can tell a blow from a burn.
