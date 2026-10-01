@@ -47,8 +47,8 @@ export const HEROES = {
   aldric: {
     name: "Sir Aldric", title: "the Steadfast", rig: "heroKnight", icon: "",
     blurb: "A knight of the old order: the hardest blocker on the field, and he only gets harder. Every third blow is a shield-bash that stuns.",
-    base: { hp: 280, dmg: 26, rate: 720, range: 100, unitSpeed: 105, respawnMs: 12000, stun: 0.34, stunDur: 900 },
-    perLevel: { hp: 42, dmg: 5 },
+    base: { hp: 560, dmg: 26, rate: 720, range: 100, unitSpeed: 105, respawnMs: 12000, stun: 0.34, stunDur: 900 },
+    perLevel: { hp: 84, dmg: 5 },
   },
   wren: {
     name: "Wren", title: "of the Greenwood", rig: "heroHunter", icon: "",

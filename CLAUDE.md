@@ -396,6 +396,7 @@ the shamans now walking in the thick of the warband).
   with the cut the 22 burns averaged ~29. Then (same day) the Log Roller's
   burning logs were halved (20 -> 10 a second, ~30: it hits everything) and
   Dragonbreath raised 6 -> 13 a second (~20). Fire pools and the 1.3 s spread are untouched.
+- **Sir Aldric's health doubled** (owner, 2026-09-30: "he goes down real easy"): base 280 -> 560, +84 a level (was 42); his regen scales with it. gw3 sims bled a little less (~35-45 vs 50-75).
 - **Necromancer buffed** (owner, 2026-09-30): hp 420 -> 700, raises every
   3.8 s (was 6), up to 4 fallen a cast (was 3) within 170 (was 150). gw5
   swarm doctrine 100-135 -> 165-254 castle damage; provisional.
