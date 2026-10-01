@@ -304,6 +304,13 @@ export default function Crownguard() {
     setScreen("game");
   };
 
+  // Start the level over from its first wave: a campaign level is ridden out
+  // again as written; a Free Play run takes its setup settings again.
+  const restartLevel = () => {
+    if (mode === "campaign" && level) startLevel(level);
+    else if (SANDBOX) startSandboxRun({ ...loadSandbox(), realm: SANDBOX.realm });
+  };
+
   // Buy the next tier of a castle work. In the campaign the crown's
   // treasury pays and the work stands in every realm; in free play the
   // run's purse pays and it stays with the realm.
@@ -1418,6 +1425,13 @@ export default function Crownguard() {
                 onClick={() => { restartWave(G.current); closeMenu(); }}>
                 Restart Wave
               </button>
+              {/* the whole level from the first horn: two taps, since it throws the run away */}
+              {(mode === "campaign" ? !!level : !!SANDBOX) && (
+                <button data-arm="restart-level" className={cls("cg-btn", upArm.is("restart-level") && "is-on")}
+                  onClick={() => upArm.tap("restart-level", () => { closeMenu(); restartLevel(); })}>
+                  {upArm.is("restart-level") ? "Tap again to restart" : "Restart Level"}
+                </button>
+              )}
               {mode === "campaign" ? (
                 <button className="cg-btn" onClick={openMap}>Campaign Map</button>
               ) : (
