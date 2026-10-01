@@ -60,7 +60,7 @@ function readViewport() {
 export function useViewport() {
   const [vp, setVp] = useState(readViewport);
   useEffect(() => {
-    const on = () => setVp((o) => { const n = readViewport(); return n.w === o.w && n.h === o.h && n.safe.bottom === o.safe.bottom && n.safe.left === o.safe.left && n.safe.right === o.safe.right && n.turn === o.turn ? o : n; });
+    const on = () => setVp((o) => { const n = readViewport(); return n.w === o.w && n.h === o.h && n.safe.top === o.safe.top && n.safe.bottom === o.safe.bottom && n.safe.left === o.safe.left && n.safe.right === o.safe.right && n.turn === o.turn ? o : n; });
     window.addEventListener("resize", on);
     window.addEventListener("orientationchange", on);
     window.screen?.orientation?.addEventListener?.("change", on);

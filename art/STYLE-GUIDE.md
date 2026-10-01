@@ -380,7 +380,9 @@ forearm and the upper arm, and arms kept clear of hoods and helms):
   (712 of 744 on the iPad mini) while the page is `height: 100%` +
   `overflow: hidden`, and nothing can paint the strip left over. Don't put
   `overflow: hidden` / a fixed height back on html or body there.
-  `public/vp.html` measures it (add it to the home screen).
+  `public/vp.html` measures it (add it to the home screen). The rule is
+  for tablet-sized screens only (`min-width`/`min-height: 600px`): on an
+  iPhone it pushed the battle HUD and tray down a status bar's height.
 - **No emoji in the UI.** Pictures are pixel grids in `src/ui/hud/icons.jsx`
   (coin, heart, castle, arrow, ballista bolt, shield, hammer, target, flag…)
   or the game's own art (`TowerPortrait`, `EnemyIcon` with a rig). Plain

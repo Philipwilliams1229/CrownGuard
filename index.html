@@ -42,8 +42,12 @@
          clipped makes iOS size the layout to the whole screen (measured with
          vp.html: innerHeight 744, fixed bottom:0 on the glass). Only in the
          installed app: in a Safari tab 100lvh is taller than the view and
-         the page would scroll. */
-      @media (display-mode: fullscreen), (display-mode: standalone) {
+         the page would scroll. Only on a tablet-sized screen, too: on an
+         iPhone it pushed the whole battle HUD down a status bar's height
+         (it reads a top safe area even on its side), and the phone never
+         had the strip. */
+      @media (display-mode: fullscreen) and (min-width: 600px) and (min-height: 600px),
+             (display-mode: standalone) and (min-width: 600px) and (min-height: 600px) {
         html, body { height: auto; min-height: 100lvh; overflow: visible; }
       }
     </style>
