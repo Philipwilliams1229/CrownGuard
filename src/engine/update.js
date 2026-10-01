@@ -1937,7 +1937,8 @@ export function updateGame(g, dt) {
           if (e.dead || e.flying || e.swimming) continue;
           const nr = nearOnRiver(e.x, e.y, e);
           if (nr.d > st.range) continue;
-          const mode = t.aim || "first";
+          // each skiff may carry her own order (u.aim); without one she follows the hall's
+          const mode = u.aim || t.aim || "first";
           const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
           if (score > markScore) { markScore = score; mark = e; markQ = nr.q; }
         }

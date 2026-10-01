@@ -15,6 +15,7 @@ const PAL = {
   w: "#8a6440", W: "#5a3a22",                     // oak
   g: "#9ad06a", G: "#5e9a44",                     // leaf green
   b: "#8ab8e0", B: "#4e78b0",                     // steel blue
+  v: "#c8a4f0", V: "#7a52b0",                     // arcane violet, light and deep
 };
 
 function Grid({ rows, size, title, style, pal = PAL }) {
@@ -101,6 +102,32 @@ export const SwordIcon = icon([
   ".kwk.......",
   "kWk........",
   "kk.........",
+]);
+
+// physical damage on a tower's banner: a 9 x 9 blade, drawn to read at 2x
+export const BladeIcon = icon([
+  "......kk.",
+  ".....kcck",
+  "....kcCk.",
+  ".k.kcCk..",
+  ".kYcCk...",
+  "..kYk....",
+  ".kwk.....",
+  "kwk......",
+  "kk.......",
+]);
+
+// an arcane orb: magic damage, the blade's partner on a tower's banner
+export const MagicIcon = icon([
+  "...kkk...",
+  "..kvvvk..",
+  ".kvcvvVk.",
+  "kvcvvvvVk",
+  "kvvvvvVVk",
+  "kvvvvVVVk",
+  ".kvVVVVk.",
+  "..kVVVk..",
+  "...kkk...",
 ]);
 
 export const BoltIcon = icon([

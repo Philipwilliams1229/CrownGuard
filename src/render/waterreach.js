@@ -1081,6 +1081,7 @@ const RING = "rgba(236,200,92,0.95)", RING_SOFT = "rgba(236,200,92,0.6)", RING_N
 // pixels, half a unit each; a hollow one where a new skiff would take station)
 const CARET = [[-6, 6], [-5, 5], [-4, 4], [-3, 3], [-2, 2], [-1, 1], [0, 0]];   // rows, top down: [from, to] across
 const CARET_GOLD = ["#fff3d2", "#f0cc62"];
+const CARET_PICK = ["#ffffff", "#58c8f0"];
 const caret = (ctx, x, y, hollow, cols = CARET_GOLD) => {
   const cx = Math.round(x * 2), cy = Math.round(y * 2);
   ctx.fillStyle = "#241a26";
@@ -1108,10 +1109,12 @@ export const drawSkiffMarks = (ctx, g, t, built) => {
   const lift = Math.round(Math.sin(g.time * 3) * 2) / 2;   // (a slow float on top of her own bob)
   const boats = t.units.filter((u) => u.state !== "dead");
   const marks = boats.map((u) => [u.x, u.y - (u.hp < u.maxHp ? 34 : 29) + skiffBob(g.time, u.id) + lift, false]);
+  // the skiff being given orders in the tray (g.skiffPick, her place in t.units) wears a bright blue caret
+  const picked = g.skiffPick != null ? t.units[g.skiffPick] : null;
   for (const [x, y] of newStations(g, t)) marks.push([x, y - 29 + lift, true]);
   marks.forEach(([x, y, hollow], i) => {
     for (let q = 0; q < boats.length; q++) if (q !== i && onBoat(x, y + 3, boats[q].x, boats[q].y)) return;
-    caret(ctx, x, y, hollow);
+    caret(ctx, x, y, hollow, picked && boats[i] === picked ? CARET_PICK : CARET_GOLD);
   });
 };
 // where the skiffs an armed upgrade adds would take station

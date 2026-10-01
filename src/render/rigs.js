@@ -325,9 +325,41 @@ export { limb, lit, eye, gait, weapon, shieldOf, biped, beast, bat, dragon };
 // necromancer-raised foes wear grave-pale colours and witch-fire eyes
 const revive = (p) => {
   const out = { ...p };
-  for (const k of ["skin", "cloth", "cloth2", "hair", "col", "belly", "wing", "mane", "cape"]) if (typeof out[k] === "string" && out[k][0] === "#") out[k] = mix(out[k], "#9aa8a0", 0.6);
+  // flesh (and hide, fur and wings) goes to bone; cloth to rotted rags (boneify, below, finishes it)
+  for (const k of ["skin", "col", "belly", "wing", "mane"]) if (typeof out[k] === "string" && out[k][0] === "#") out[k] = mix(out[k], "#e4dcbc", 0.55);
+  for (const k of ["cloth", "cloth2", "hair", "cape"]) if (typeof out[k] === "string" && out[k][0] === "#") out[k] = mix(out[k], "#4a463a", 0.55);
   out.eyes = "#7ce0b8";
   return out;
+};
+
+// ...and their whole figure is turned to bone: the baked pixels are posterised
+// onto a bone ramp (lights ivory, mids dull bone, darks rotted rags), the way a
+// skeleton's carved from one stuff, with rib-like bars across the mids and
+// the witch-fire eyes left alone. (Done on the finished sprite, so every rig —
+// biped, beast, troll — gets it without a line of its own.)
+const BONE = [[168, 238, 230, 204], [128, 206, 194, 160], [88, 150, 136, 108]];   // [min luma, r, g, b]
+const boneify = (cv) => {
+  const c = cv.getContext("2d");
+  const img = c.getImageData(0, 0, cv.width, cv.height), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 8) continue;
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    if (g > 150 && g > r + 28 && g > b + 8) continue;                       // the witch-fire eyes
+    const luma = 0.3 * r + 0.59 * g + 0.11 * b;
+    const x = (i / 4) % cv.width | 0, y = (i / 4 / cv.width) | 0;
+    let tone = BONE.find((t) => luma >= t[0]);
+    if (tone) {
+      // ribs and seams: short dark bars over the mid-bone, in rows, as if the
+      // flesh has gone and the ribcage shows through
+      if (tone === BONE[1] && y % 4 === 0 && (x >> 1) % 3 !== 0) tone = BONE[2];
+      d[i] = tone[1]; d[i + 1] = tone[2]; d[i + 2] = tone[3];
+    } else {
+      // rags and shadow: kept dark, drained of colour, a touch of grave-green
+      const k = Math.max(18, luma * 0.8);
+      d[i] = k * 1.0; d[i + 1] = k * 0.95; d[i + 2] = k * 0.8;
+    }
+  }
+  c.putImageData(img, 0, 0);
 };
 
 export const hasRig = (type) => !!RIGS[type];
@@ -349,6 +381,7 @@ export const rigFrame = (type, sheet, frame, variant = "") => {
   const cv = bakeSprite(hw * 2, up + down, (c) => { c.translate(hw, up); PAINTERS[def.kind](c, { ...p, pose, frame }); });
   // the painter leaves its scale and anchor on the context; flood in pixels
   if (variant === "white") { const c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height); }
+  if (variant === "revived") boneify(cv);
   sp = { cv, ax: hw, ay: up };
   CACHE.set(key, sp);
   return sp;

@@ -131,7 +131,12 @@ export default function Crownguard() {
   // (only one at a time), and the tree step being read (null = the tower's own)
   const [towerLayer, setTowerLayer] = useState(null);
   const [treePick, setTreePick] = useState(null);
-  useEffect(() => { setTowerLayer(null); setTreePick(null); }, [ui.selected?.id]);
+  // which of a River Watch's skiffs the targets list is giving orders to ("all", or her place in the fleet)
+  const [targetWho, setTargetWho] = useState("all");
+  useEffect(() => { setTowerLayer(null); setTreePick(null); setTargetWho("all"); }, [ui.selected?.id]);
+  // the board lights the skiff being ordered (render/waterreach.js drawSkiffMarks)
+  const skiffPick = ui.selected?.kind === "riverwatch" && towerLayer === "targets" && targetWho !== "all" ? targetWho : null;
+  useEffect(() => { if (G.current) G.current.skiffPick = skiffPick; return () => { if (G.current) G.current.skiffPick = null; }; }, [skiffPick]);
   useEffect(() => { setTreePick(null); }, [ui.selected?.level, ui.selected?.branch, ui.selected?.rank4]);
   // the Field Guide opens on a given entry from the ⓘ's tree
   const [guideStart, setGuideStart] = useState(null);
@@ -474,7 +479,9 @@ export default function Crownguard() {
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
       const sel = g.towers.find((t) => t.id === g.selectedId) || null;
-      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${sel.kills || 0}-${Math.round((sel.formDmg || 0) / Math.max(1, sel.formTime || 0))}` : null;
+      // a River Watch's skiffs may each hold their own order (u.aim)
+      const unitAims = sel && sel.kind === "riverwatch" && sel.units ? sel.units.map((u) => u.aim || null) : null;
+      const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${unitAims ? unitAims.join(",") : ""}-${sel.kills || 0}-${Math.round((sel.formDmg || 0) / Math.max(1, sel.formTime || 0))}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
       const camX = Math.round(g.cam.x), camY = Math.round(g.cam.y);
@@ -498,7 +505,7 @@ export default function Crownguard() {
           castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: CASTLE_HP + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
-            kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, formDmg: sel.formDmg || 0, formTime: sel.formTime || 0 } : null,
+            unitAims, kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, formDmg: sel.formDmg || 0, formTime: sel.formTime || 0 } : null,
           selKey, buildMode: g.buildMode, rallyFor, speed: g.speed, paused: g.paused, canRestart, cdSec, zoom: g.cam.zoom, camX, camY, rush: g.rush,
           masterShow, masterOn: !!g.masterBuild,
           masterPick: pickKey, masterPickName: g.masterPick?.name || null,
@@ -1222,13 +1229,24 @@ export default function Crownguard() {
       <TowerBanner kind={sel.kind} name={sel.rank4 ? branchDef.rank4[sel.rank4].name : sel.branch ? branchDef.name : selDef.levels[sel.level - 1]?.label || selDef.name}
         branch={sel.branch} rank4={sel.rank4} pips={ftier} rows={formStats(t).rows} preview={preview}
         kills={sel.kills} dps={dps} paid={sel.kind === "goldworks" ? Math.round(t.paidTotal || 0) : null} compact={compact}
+        dtype={[stt.dmg, stt.dps, stt.trapDmg, stt.colddps].some((v) => v > 0) ? (stt.dtype === "magic" ? "magic" : "phys") : null}
         infoNode={infoCorner(towerLayer === "info" ? "Close the upgrade tree" : "About this tower: its upgrade tree", towerLayer === "info", layer("info"), 40, 56)} />
     );
+    // a River Watch gives each skiff her own order: the list gains a row of "All, 1, 2…"
+    const fleet = sel.kind === "riverwatch" && sel.unitAims && sel.unitAims.length > 1 ? sel.unitAims.map((a) => a || sel.aim || "first") : null;
+    const who = fleet && targetWho !== "all" && targetWho < fleet.length ? targetWho : "all";
+    const pickAim = (id) => {
+      withT((tt) => {
+        if (fleet && who !== "all") { if (tt.units[who]) tt.units[who].aim = id; }
+        else { tt.aim = id; if (tt.units) tt.units.forEach((u) => { u.aim = null; }); }
+      })();
+      if (who === "all") setTowerLayer(null);   // a single boat's list stays open, so the next boat is one tap away
+    };
     const targets = (modes.length > 0 || forced || rallies || sel.kind === "trapsmith") ? (
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
         {(modes.length > 0 || forced) && (
           <TargetsBar slim={compact} modes={modes} aim={sel.aim} forced={forced} open={towerLayer === "targets"} onToggle={layer("targets")}
-            onPick={(id) => { withT((tt) => { tt.aim = id; })(); setTowerLayer(null); }} />
+            fleet={fleet} who={who} onWho={setTargetWho} onPick={pickAim} />
         )}
         {rallies && (
           <button className={cls("cg-btn cg-btn--slate", aimingFlag && "is-on")} style={{ width: "100%" }}

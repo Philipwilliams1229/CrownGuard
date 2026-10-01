@@ -12,7 +12,7 @@
 // These are only the pictures; the game component owns every action.
 
 import TowerPortrait from "./TowerPortrait.jsx";
-import { CoinIcon, SkullIcon, BoltIcon, ChevronUp, ChevronDown, LockIcon } from "./hud/icons.jsx";
+import { CoinIcon, SkullIcon, BoltIcon, BladeIcon, MagicIcon, ChevronUp, ChevronDown, LockIcon } from "./hud/icons.jsx";
 import { BookIcon } from "./Glyphs.jsx";
 
 const cls = (...c) => c.filter(Boolean).join(" ");
@@ -23,7 +23,7 @@ const Price = ({ n, can = true, size = 11 }) => (
 // ---- the banner ----
 // `rows` are the form's numbers ([{ label, value }], first four shown);
 // `preview` maps a label to the value the armed upgrade would give it.
-export function TowerBanner({ kind, name, branch, rank4, pips, rows, preview, kills, dps, paid, infoNode, compact }) {
+export function TowerBanner({ kind, name, branch, rank4, pips, rows, preview, kills, dps, paid, infoNode, compact, dtype }) {
   const cells = rows.slice(0, 4);
   // names run to 19 letters: step the type down so each stays on one line
   const nameSize = compact ? 11 : Math.max(10, Math.min(13, Math.floor(150 / (name.length * 0.8))));
@@ -42,8 +42,17 @@ export function TowerBanner({ kind, name, branch, rank4, pips, rows, preview, ki
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="cg-display" style={{ fontWeight: 700, color: "var(--gold-lt)", fontSize: nameSize, lineHeight: 1.15, textShadow: "1px 1px 0 var(--ink)", ...(compact ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", paddingRight: 14 } : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }}>{name}</div>
-          <div className="cg-pips" style={{ marginTop: 5 }} title="three levels, a path, and a final ascension">
-            {[1, 2, 3, 4, 5].map((i) => <span key={i} className={cls("cg-pip", i <= pips && "on", i > 3 && "big")} />)}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
+            <div className="cg-pips" title="three levels, a path, and a final ascension">
+              {[1, 2, 3, 4, 5].map((i) => <span key={i} className={cls("cg-pip", i <= pips && "on", i > 3 && "big")} />)}
+            </div>
+            {/* what kind of damage it deals, as a symbol: a blade (physical) or an orb (magic: ignores armor) */}
+            {dtype && (
+              <span role="img" title={dtype === "magic" ? "Magic damage: ignores armor" : "Physical damage"}
+                aria-label={dtype === "magic" ? "Magic damage" : "Physical damage"} style={{ display: "flex", lineHeight: 0 }}>
+                {dtype === "magic" ? <MagicIcon size={18} /> : <BladeIcon size={18} />}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -74,8 +83,11 @@ export function TowerBanner({ kind, name, branch, rank4, pips, rows, preview, ki
 // ---- the targets bar and the layer it drops ----
 // `forced`: this hall always hunts one kind of foe (the bar is locked).
 // `slim`: a short screen, where the bar shares its row with Sell (no label).
-export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim }) {
-  const cur = modes.find((m) => m.id === aim) || modes[0];
+// `fleet`: a River Watch's skiffs' orders ([aim, ...], one a boat); `who` is "all" or
+// the boat the list is ordering, `onWho` picks one. The bar reads "Mixed" when they differ.
+export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim, fleet = null, who = "all", onWho }) {
+  const shown = fleet ? (who === "all" ? (fleet.every((a) => a === fleet[0]) ? fleet[0] : null) : fleet[who]) : aim;
+  const barLabel = fleet && !fleet.every((a) => a === fleet[0]) ? "Mixed" : (modes.find((m) => m.id === (fleet ? fleet[0] : aim)) || modes[0]).label;
   if (forced) {
     return (
       <div className="cg-btn cg-btn--slate is-off" style={{ width: "100%", justifyContent: "space-between", cursor: "default", padding: "0 10px" }}>
@@ -88,16 +100,25 @@ export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim })
   return (
     <div style={{ position: "relative", zIndex: 4 }}>
       <button type="button" aria-expanded={open} aria-haspopup="listbox" className={cls("cg-btn cg-btn--slate", open && "is-on")}
-        style={{ width: "100%", justifyContent: "space-between", padding: slim ? "0 8px" : "0 10px" }} onClick={onToggle} aria-label={`Targets: ${cur.label}`}>
+        style={{ width: "100%", justifyContent: "space-between", padding: slim ? "0 8px" : "0 10px" }} onClick={onToggle} aria-label={`Targets: ${barLabel}`}>
         {!slim && <span style={{ color: open ? "var(--gold-lt)" : "var(--muted)" }}>Targets</span>}
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--gold-lt)" }}>{cur.label}{open ? <ChevronUp size={10} /> : <ChevronDown size={10} />}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--gold-lt)" }}>{barLabel}{open ? <ChevronUp size={10} /> : <ChevronDown size={10} />}</span>
       </button>
       <div role="listbox" aria-hidden={!open} className={cls("cg-drop", open && "is-open")} style={{ left: -8, right: slim ? -86 : -8 }}>
+        {fleet && (
+          <div role="group" aria-label="Which skiff" style={{ display: "flex", gap: 4 }}>
+            {["all", ...fleet.map((_, i) => i)].map((w) => (
+              <button key={w} type="button" tabIndex={open ? undefined : -1} aria-pressed={who === w} title={w === "all" ? "Every skiff" : `Skiff ${w + 1}`}
+                className={cls("cg-btn", who === w ? "cg-btn--gold" : "cg-btn--slate")} style={{ flex: w === "all" ? 1.6 : 1, minWidth: 0, padding: 0 }}
+                onClick={() => onWho(w)}>{w === "all" ? "All" : w + 1}</button>
+            ))}
+          </div>
+        )}
         {modes.map((m) => (
-          <button key={m.id} type="button" role="option" aria-selected={aim === m.id} tabIndex={open ? undefined : -1} title={m.hint}
-            className={cls("cg-btn cg-btn--slate", aim === m.id && "is-on")} style={{ width: "100%", justifyContent: "space-between", padding: "0 12px" }}
+          <button key={m.id} type="button" role="option" aria-selected={shown === m.id} tabIndex={open ? undefined : -1} title={m.hint}
+            className={cls("cg-btn cg-btn--slate", shown === m.id && "is-on")} style={{ width: "100%", justifyContent: "space-between", padding: "0 12px" }}
             onClick={() => onPick(m.id)}>
-            <span>{m.label}</span>{aim === m.id && <span>✓</span>}
+            <span>{m.label}</span>{shown === m.id && <span>✓</span>}
           </button>
         ))}
       </div>

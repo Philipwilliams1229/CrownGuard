@@ -288,7 +288,9 @@ upgrade cards stay in `towerPanel` in `src/CrownguardGame.jsx`; skin in
 `hud.css` ("the tower edit menu"). Top to bottom:
 - **Head** (wave, pause) and **foot** (hero, militia) stay. The Castle /
   Sandbox / Master row is hidden while a tower is edited.
-- **Banner** (`cg-panel`): picture, name, level pips, the ⓘ level with the
+- **Banner** (`cg-panel`): picture, name, level pips with a damage-type symbol after them (a
+  blade = physical, an orb = magic; none for halls that deal no damage,
+  like the Gold Works), the ⓘ level with the
   pips (so a name gets the whole line; `nameSize` steps the type down for
   names up to 19 letters, a phone lets it wrap to two), then FOUR numbers
   (the first four rows of `formStats`; arming an upgrade shows the new
@@ -373,6 +375,14 @@ the shamans now walking in the thick of the warband).
   route's ends (`patrolOf`, terrain.js; used by `launchSkiffs`, update.js, and
   `watchRoute` / `drawWatchWater`, waterreach.js, whose lit water is clipped
   to the same stretch). A pond's ring is rowed whole.
+  **Each skiff takes her own order** (owner, 2026-09-30): `u.aim` on a unit
+  (null = follow the hall's `t.aim`), read in update.js's River Watch loop;
+  the tray's targets list gains an All / 1 / 2 / 3 row (`fleet`, `who` in
+  `TargetsBar`), the bar reads "Mixed" when the boats differ, and the board
+  lights the boat being ordered with a blue caret (`g.skiffPick`,
+  waterreach.js `CARET_PICK`). Choosing All clears every boat's own order.
+  Skiffs are numbered by their place in `t.units`, not along the river.
+  Provisional, pending the owner's playtest.
 - **Masons' barricades** (owner, 2026-09-30): after every wave the Masons'
   Guild (castle works) sets spiked stake frames, one a lane, across the road
   before the Gate Guard: tier 1 one row (150 hp a frame, 5 thorns a blow),
@@ -397,6 +407,7 @@ the shamans now walking in the thick of the warband).
   burning logs were halved (20 -> 10 a second, ~30: it hits everything) and
   Dragonbreath raised 6 -> 13 a second (~20). Fire pools and the 1.3 s spread are untouched.
 - **Sir Aldric's health doubled** (owner, 2026-09-30: "he goes down real easy"): base 280 -> 560, +84 a level (was 42); his regen scales with it. gw3 sims bled a little less (~35-45 vs 50-75).
+- **Raised foes are bone** (owner, 2026-09-30): the rigs' `revived` variant (`revive` + `boneify`, render/rigs.js) turns flesh to ivory bone with rib-like bars, cloth to dark rags, eyes left witch-fire green. Done on the finished bake, so every rig gets it; see it with `hrd-lab.html?m=[["orc",0.32,0,{"revived":true}]]`.
 - **Necromancer buffed** (owner, 2026-09-30): hp 420 -> 700, raises every
   3.8 s (was 6), up to 4 fallen a cast (was 3) within 170 (was 150). gw5
   swarm doctrine 100-135 -> 165-254 castle damage; provisional.
