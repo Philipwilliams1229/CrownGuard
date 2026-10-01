@@ -365,6 +365,9 @@ the shamans now walking in the thick of the warband).
   route's ends (`patrolOf`, terrain.js; used by `launchSkiffs`, update.js, and
   `watchRoute` / `drawWatchWater`, waterreach.js, whose lit water is clipped
   to the same stretch). A pond's ring is rowed whole.
+- **Necromancer buffed** (owner, 2026-09-30): hp 420 -> 700, raises every
+  3.8 s (was 6), up to 4 fallen a cast (was 3) within 170 (was 150). gw5
+  swarm doctrine 100-135 -> 165-254 castle damage; provisional.
 
 ## Balance and testing
 

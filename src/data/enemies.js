@@ -62,7 +62,7 @@ export const ENEMIES = {
   armored: { faction: "greenwood", hp: 185, speed: 55, bounty: 14, armor: 0.42, size: 17, name: "Ironclad", atk: 18, atkRate: 900, castleDmg: 2, note: "Half of all physical damage bounces off — magic ignores its armor." },
   troll: { faction: "greenwood", hp: 430, speed: 40, bounty: 26, armor: 0.15, regen: 5, size: 21, name: "Troll", atk: 38, atkRate: 1100, castleDmg: 3, note: "Regenerates health and hits knights hard. Burst it down fast." },
   shaman: { faction: "greenwood", hp: 132, speed: 60, bounty: 16, armor: 0, mres: 0.6, size: 16, name: "Goblin Shaman", atk: 8, atkRate: 1000, castleDmg: 2, heal: 8, healEvery: 3400, packRange: 95, note: "Rune-warded — most magic fizzles against him. His chant mends the WHOLE warband. Silence the healer first." },
-  necro: { faction: "greenwood", hp: 420, speed: 52, bounty: 45, armor: 0.1, mres: 0.35, size: 20, name: "Necromancer", atk: 16, atkRate: 1100, castleDmg: 3, raiseEvery: 6000, note: "Where he walks, the fallen rise: slain goblins, wolves, and orcs return as half-strength undead. Fell him before the dead outnumber the living." },
+  necro: { faction: "greenwood", hp: 700, speed: 52, bounty: 45, armor: 0.1, mres: 0.35, size: 20, name: "Necromancer", atk: 16, atkRate: 1100, castleDmg: 3, raiseEvery: 3800, note: "Where he walks, the fallen rise: slain goblins, wolves, and orcs return as half-strength undead. Fell him before the dead outnumber the living." },
   bat: {
     faction: "greenwood", hp: 30, speed: 135, bounty: 4, armor: 0, size: 12,
     name: "Fell Bat", flying: true, atk: 0, atkRate: 0, castleDmg: 1,
