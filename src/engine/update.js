@@ -506,6 +506,8 @@ const killUnit = (g, t, u) => {
 // rises out of the body (at the killer's strength, paying half). Capped, so a
 // wave of them cannot turn a garrison into an endless brood.
 const BROOD_CAP = 24, RISE_MS = 1300;
+// the necromancer's dead rise slower than a wraith does (owner, 2026-09-30)
+const NECRO_RISE_MS = 2200;
 const raiseFrom = (g, killer, u, tms) => {
   if (g.enemies.reduce((n, x) => n + (!x.dead && x.type === killer.type ? 1 : 0), 0) >= BROOD_CAP) return;
   const at = nearestOnPath(u.x, u.y);
@@ -1474,8 +1476,12 @@ export function updateGame(g, dt) {
             u.bounty = Math.ceil(u.bounty / 2);
             u.revived = true;
             if (c.sprite) u.sprite = c.sprite;   // it rises in the look it fell in
+            // it climbs out of the ground on the spot, slowly (the wraith's
+            // rising, only longer): held there, sunk and faded, then it walks
+            u.born = tms - 400;
+            u.riseAt = tms; u.riseMs = NECRO_RISE_MS; u.riseX = c.x; u.riseY = c.y;
             g.enemies.push(u);
-            g.effects.push({ type: "raise", x: c.x, y: c.y, ttl: 600, life: 600 });
+            g.effects.push({ type: "raise", x: c.x, y: c.y, ttl: NECRO_RISE_MS, life: NECRO_RISE_MS });
             sfx.play("raise");
           }
         }
