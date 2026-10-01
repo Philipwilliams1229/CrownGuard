@@ -120,13 +120,17 @@ export const CROWD_WEIGHT = {
 // Capped at 6x: deep in the Endless March a group of 32 already becomes ~190,
 // and the road (and an iPad) has only so much room.
 export const crowd = (a) => Math.min(6, 1 + Math.max(0, a - 3) * 0.12 * (FACTION.crowdScale ?? 1));
-const swell = (spec, a, warm = 1) => spec.map(([type, count, gap]) => {
+// a foe may have a `minGap` (enemies.js): it never streams in closer than that,
+// swell or no swell (the wraith, which is a nightmare in a bunch)
+const gapFloor = (type, g) => Math.max(g, ENEMIES[type]?.minGap || 0);
+const swell = (spec, a, warm = 1) => spec.map(([type, count, gap0]) => {
+  const gap = gapFloor(type, gap0);
   const k = 1 + (crowd(a) - 1) * warm * (CROWD_WEIGHT[type] ?? 0);   // a may be fractional
   if (k <= 1.001 || BOSSES.has(type)) return [type, count, gap, 1];
   const n = Math.round(count * k);
   // the stream tightens as it thickens, so a wave runs longer but not
   // proportionally longer — and never into a solid wall
-  const g2 = Math.max(90, Math.round(gap / Math.pow(k, 0.9)));
+  const g2 = Math.max(90, gapFloor(type, Math.round(gap / Math.pow(k, 0.9))));
   // pay per head falls almost as fast as the heads multiply
   return [type, n, g2, Math.pow(count / n, 1)];
 });
