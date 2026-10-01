@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Screen test" />
-<link rel="manifest" href="./vp.webmanifest" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-title" content="Screen black" />
+<link rel="manifest" href="./vp-black.webmanifest" />
 <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
-<title>Screen test</title>
+<title>Screen black</title>
 <!-- iPad bottom-bar hunt (WebKit bug 301108: a home-screen app with a
      black-translucent status bar gets a web view one status bar short).
      Green = an ordinary (not fixed) block 100lvh tall, red stripe on its
@@ -39,8 +39,8 @@ function show() {
   const sa = [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].map(parseFloat).join(" / ");
   const fb = document.getElementById("flowbot").getBoundingClientRect();
   document.getElementById("out").textContent = [
-    "TEST A: see-through status bar (as the game)",
-    "status bar style          : black-translucent",
+    "TEST B: black status bar",
+    "status bar style          : black",
     "innerWidth x innerHeight  : " + innerWidth + " x " + innerHeight,
     "screen w x h              : " + screen.width + " x " + screen.height,
     "100lvh                    : " + Math.round(document.getElementById("lv").getBoundingClientRect().height),
