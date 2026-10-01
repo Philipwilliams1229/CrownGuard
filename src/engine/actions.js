@@ -368,6 +368,7 @@ export const sellTower = (g, t) => {
 };
 
 // which of the fallen a necromancer can call back
+const CORPSE_CAP = 120;
 const CORPSE_TYPES = new Set(["goblin", "wolf", "orc", "armored", "boarrider", "troll"]);
 
 // `tick` marks the slow bleed of fire, poison and standing in lava — it is
@@ -463,11 +464,13 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
     for (const fx of g.effects) if (fx.type === "death" && !fx.lite) dying++;
     // (a gryphon crumbles without its knight: he has just dropped to the road)
     g.effects.push({ type: "death", etype: ENEMIES[e.type]?.deathSkin || e.sprite || e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived, lite: dying >= 16 && !e.boss });
-    // the fallen linger a moment — a necromancer may call them back (once)
-    if (!e.revived && CORPSE_TYPES.has(e.type)) {
+    // the fallen lie where they fell — a necromancer may call them back (once)
+    // — and they lie there until one does (owner, 2026-09-30), never a boss
+    // or champion; the oldest give way past CORPSE_CAP
+    if (!e.revived && !e.boss && !ENEMIES[e.type]?.boss && CORPSE_TYPES.has(e.type)) {
       if (!g.corpses) g.corpses = [];
-      g.corpses.push({ type: e.type, sprite: e.sprite, x: e.x, y: e.y, dist: e.dist, lane: e.lane, hp0: e.maxHp, until: g.time * 1000 + 12000 });
-      if (g.corpses.length > 50) g.corpses.shift();
+      g.corpses.push({ type: e.type, sprite: e.sprite, x: e.x, y: e.y, dist: e.dist, lane: e.lane, hp0: e.maxHp, size: e.size, until: Infinity });
+      if (g.corpses.length > CORPSE_CAP) g.corpses.shift();
     }
   }
 };

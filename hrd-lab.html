@@ -4,6 +4,7 @@
   real draw(), at 1x and zoomed. Like shots.html, but marchers may carry
   options: [type, roadFraction, lane, { sprite, fight, revived, hit }].
     /hrd-lab.html?tag=v1&realm=greenwood&crop=x,y,w,h,scale
+    &c=1   also lays a corpse (src/render/remains.js) beside each marcher
   Saves .shots/hrd_board_<tag>.png (whole board) and hrd_zoom_<tag>.png.
 -->
 <html>
@@ -42,7 +43,7 @@
       selectRealm(realm);
       const g = {
         time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 5,
-        towers: [], projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [],
+        towers: [], projectiles: [], effects: [], grounds: [], corpses: q.get("c") ? list.map(([t, f, l = 0], i) => { const d = TOTAL_LEN * f, [px, py] = posAt(d), a = angleAt(d); return { type: t, x: px + Math.cos(a + Math.PI / 2) * (l + 12), y: py + Math.sin(a + Math.PI / 2) * (l + 12), size: ENEMIES[t].size, until: Infinity }; }) : [], spawnQueue: [],
         enemies: list.map(mk), phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null,
         paused: false, buildUntil: null,
       };

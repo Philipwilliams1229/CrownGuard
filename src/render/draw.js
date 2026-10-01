@@ -28,6 +28,7 @@ import { drawEnemy, drawKnightUnit, drawBandUnit } from "./enemies.js";
 import { drawGroundBlend } from "./groundblend.js";
 import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawBarricades } from "./barricade.js";
+import { drawRemains } from "./remains.js";
 import { drawLog } from "./logs.js";
 import { drawStoop } from "./birds.js";
 import { drawMusketShot } from "./musketfx.js";
@@ -161,6 +162,8 @@ export function draw(g, canvas, bufRef) {
   drawTraps(ctx, g);
   // the masons' barricades before the Gate Guard
   drawBarricades(ctx, g);
+  // the fallen a necromancer may raise, lying where they fell
+  drawRemains(ctx, g);
 
   // clouds crossing the sun — over the ground, under everything standing on it
   drawCloudShadows(ctx, g.time);
