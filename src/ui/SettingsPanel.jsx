@@ -113,6 +113,7 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
 
       {head("Restore")}
       <textarea rows={3} value={paste} placeholder="Paste a save code here" style={box} aria-label="Paste a save code"
+        spellCheck={false} autoCorrect="off" autoCapitalize="off" autoComplete="off"
         onChange={(e) => { setPaste(e.target.value); setMsg(null); arm.clear(); }} />
       <button className={cls("cg-btn", arm.is("restore") && "cg-btn--gold")} style={{ minHeight: 44 }} disabled={!paste.trim()} onClick={restore}>
         {arm.is("restore") ? "Tap again to restore" : "Restore"}
