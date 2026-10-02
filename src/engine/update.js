@@ -1243,6 +1243,9 @@ export function updateGame(g, dt) {
         }
       }
     }
+    // the newer heroes' auras on their soldiers (engine/heroes/<key>.js buffs),
+    // laid after the Support halls have cleared and set atkBuff
+    for (const k in HERO_HOOKS) HERO_HOOKS[k].buffs?.(g, sdt, tms);
     // Lead to Gold: the transmuter's aura eats armor off everything inside it
     for (const t of g.towers) {
       if (t.kind !== "goldworks" || t.branch !== "b" || !isBuilt(t, g)) continue;

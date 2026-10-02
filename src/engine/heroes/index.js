@@ -22,6 +22,9 @@
 //   hurt(g, b, u, amount, foe)  what a foe's blow actually takes off him —
 //       return `amount` unchanged unless he is warded (runMelee and the held
 //       foe of runRangedBand).
+//   buffs(g, sdt, tms)  each combat tick, after the Support halls' auras
+//       (which clear every soldier's atkBuff and lay their own): lay the
+//       hero's own atkBuff on soldiers here, never in tick/world. update.js.
 //   reset(g)  a retried wave (actions.js restores its snapshot): drop the
 //       hero's lingering effects from g. A fresh battle starts from a new g,
 //       so world/under/fx must tolerate their arrays being missing.
