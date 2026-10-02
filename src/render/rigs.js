@@ -377,8 +377,10 @@ export const rigFrame = (type, sheet, frame, variant = "") => {
   const { hw, up, down } = def.box;
   let p = def.p;
   if (variant === "revived") p = revive(p);
-  const pose = sheet === "fight" ? "fight" : "walk";
-  const cv = bakeSprite(hw * 2, up + down, (c) => { c.translate(hw, up); PAINTERS[def.kind](c, { ...p, pose, frame }); });
+  // "sky": a bowman's fight frames with the aim raised high (Wren's Arrow
+  // Volley, rigs-crown.js); any other rig paints it as its fight
+  const pose = sheet === "fight" || sheet === "sky" ? "fight" : "walk";
+  const cv = bakeSprite(hw * 2, up + down, (c) => { c.translate(hw, up); PAINTERS[def.kind](c, { ...p, pose, frame, sky: sheet === "sky" }); });
   // the painter leaves its scale and anchor on the context; flood in pixels
   if (variant === "white") { const c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height); }
   if (variant === "revived") boneify(cv);
