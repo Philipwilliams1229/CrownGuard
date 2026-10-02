@@ -118,23 +118,23 @@ export const TOWERS = {
     groundOnly: true,
     blurb: "A spinning wheel that flings spikes in EVERY direction. Blind beyond arm's reach, and to anything that flies — deadly on corners and doubled-back road.",
     levels: [
-      { dmg: 12, rate: 900, range: 66, spikes: 10 },
-      { dmg: 18, rate: 820, range: 71, spikes: 12, cost: 90, label: "Whetted Steel" },
-      { dmg: 26, rate: 740, range: 76, spikes: 14, spikePierce: 2, cost: 160, label: "Twin Rims" },
+      { dmg: 12, rate: 900, range: 53, spikes: 10 },
+      { dmg: 18, rate: 820, range: 57, spikes: 12, cost: 90, label: "Whetted Steel" },
+      { dmg: 26, rate: 740, range: 61, spikes: 14, spikePierce: 2, cost: 160, label: "Twin Rims" },
     ],
     branches: {
       a: {
-        name: "Razor Gale", cost: 415, stats: { dmg: 15, rate: 300, range: 81, spikes: 14, spikePierce: 2 }, desc: "The wheel screams — a near-constant storm of steel shreds everything that hugs it.",
+        name: "Razor Gale", cost: 415, stats: { dmg: 15, rate: 300, range: 65, spikes: 14, spikePierce: 2 }, desc: "The wheel screams — a near-constant storm of steel shreds everything that hugs it.",
         rank4: {
-          a: { name: "Steel Tempest", cost: 975, stats: { dmg: 18, rate: 240, range: 88, spikes: 18, spikePierce: 2 }, desc: "Spikes forged to skewer: eighteen to a volley, each running through its first foe into a second." },
-          b: { name: "Hamstringer", cost: 975, stats: { dmg: 16, rate: 260, range: 86, spikes: 16, spikePierce: 3, slow: 0.35, slowDur: 1500 }, desc: "Barbed spikes lodge in legs and paws — everything struck hobbles away slowed." },
+          a: { name: "Steel Tempest", cost: 975, stats: { dmg: 18, rate: 240, range: 70, spikes: 18, spikePierce: 2 }, desc: "Spikes forged to skewer: eighteen to a volley, each running through its first foe into a second." },
+          b: { name: "Hamstringer", cost: 975, stats: { dmg: 16, rate: 260, range: 69, spikes: 16, spikePierce: 3, slow: 0.35, slowDur: 1500 }, desc: "Barbed spikes lodge in legs and paws — everything struck hobbles away slowed." },
         },
       },
       b: {
-        name: "Brazier Wheel", cost: 415, stats: { dmg: 43, rate: 1300, range: 81, nova: true, magic: true, scorchHaunts: true, burn: 9, burnDur: 2400 }, desc: "The rim is set alight: rings of flame, not spikes, scorch all in reach. MAGIC — ignores armor.",
+        name: "Brazier Wheel", cost: 415, stats: { dmg: 43, rate: 1300, range: 65, nova: true, magic: true, scorchHaunts: true, burn: 9, burnDur: 2400 }, desc: "The rim is set alight: rings of flame, not spikes, scorch all in reach. MAGIC — ignores armor.",
         rank4: {
-          a: { name: "Solar Crown", cost: 975, stats: { dmg: 76, rate: 1250, range: 93, nova: true, magic: true, scorchHaunts: true, burn: 14, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
-          b: { name: "Wildheart Pyre", cost: 975, stats: { dmg: 52, rate: 1250, range: 86, nova: true, magic: true, scorchHaunts: true, burn: 12, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
+          a: { name: "Solar Crown", cost: 975, stats: { dmg: 76, rate: 1250, range: 74, nova: true, magic: true, scorchHaunts: true, burn: 14, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
+          b: { name: "Wildheart Pyre", cost: 975, stats: { dmg: 52, rate: 1250, range: 69, nova: true, magic: true, scorchHaunts: true, burn: 12, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
         },
       },
     },
