@@ -19,7 +19,7 @@ import { sfx } from "../audio/sfx.js";
 import { SANDBOX, tierOpen } from "../data/sandbox.js";
 import { buildClock } from "./build.js";
 import { bandArrowFrom } from "./muzzles.js";
-import { heroHook } from "./heroes/index.js";
+import { heroHook, HERO_HOOKS } from "./heroes/index.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
 // How far a hall's footing reaches from its anchor; two halls stand at least
@@ -173,6 +173,8 @@ export const restartWave = (g) => {
   // still recharging, so a restart can't refill them
   g.bands = [];
   g.volleys = [];
+  // the newer heroes clear their own lingering effects (engine/heroes/<key>.js reset)
+  for (const k in HERO_HOOKS) HERO_HOOKS[k].reset?.(g);
   if (s.hero) {
     const b = fieldHero(g, s.hero.key, s.hero.level, s.hero.rally.x, s.hero.rally.y, s.hero.talents);
     if (b) { b.xp = s.hero.xp; b.abCd = { ...(s.hero.abCd || {}) }; }

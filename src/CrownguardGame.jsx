@@ -1065,12 +1065,24 @@ export default function Crownguard() {
           );
         })}
         {/* before the first horn only: swap him for another hero — he runs into the castle, and the other rides out */}
-        {(h.canSwap || h.swapping) && Object.entries(HEROES).filter(([key]) => key !== h.key).map(([key, other]) => (
-          <button key={key} className={cls("cg-btn", h.swapping ? "cg-btn--slate is-off" : "cg-btn--parch")} disabled={h.swapping} style={row} onClick={() => swap(key)}>
-            <span className="cg-display" style={title}>{hasRig(other.rig) && <EnemyIcon type={other.rig} box={20} />} {h.swapping ? "Changing heroes…" : `Change hero — ${other.name}`}</span>
-            <span style={{ ...fine, color: h.swapping ? "var(--muted)" : "#5a4630" }}>{h.swapping ? "One runs into the castle as the other comes out." : `${h.name} runs into the castle and ${other.name} rides out. Only before the first wave.`}</span>
-          </button>
-        ))}
+        {/* changing heroes: one plank, a portrait tile per other hero (four no longer fit as planks of their own) */}
+        {(h.canSwap || h.swapping) && (
+          <div className={cls("cg-btn", h.swapping ? "cg-btn--slate is-off" : "cg-btn--parch")} style={{ ...row, cursor: "default" }}>
+            <span className="cg-display" style={title}>{h.swapping ? "Changing heroes…" : "Change hero"}</span>
+            <span style={{ ...fine, color: h.swapping ? "var(--muted)" : "#5a4630" }}>{h.swapping ? "One runs into the castle as the other comes out." : `${h.name} runs into the castle and the one you pick rides out. Only before the first wave.`}</span>
+            {!h.swapping && (
+              <span style={{ display: "flex", gap: 5, marginTop: 5, width: "100%", alignSelf: "stretch" }}>
+                {Object.entries(HEROES).filter(([key]) => key !== h.key).map(([key, other]) => (
+                  <button key={key} className="cg-btn cg-btn--slate" title={`${other.name} ${other.title}`} aria-label={`Change hero to ${other.name}`}
+                    style={{ flex: 1, minWidth: 0, minHeight: 44, padding: 2, justifyContent: "center", flexDirection: "column", gap: 1 }} onClick={() => swap(key)}>
+                    {hasRig(other.rig) && <EnemyIcon type={other.rig} box={24} />}
+                    <span style={{ fontSize: 8.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{other.name.split(" ").pop()}</span>
+                  </button>
+                ))}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </>);
   })();
@@ -1441,19 +1453,21 @@ export default function Crownguard() {
           const heroes = (
             <>
               <div className="cg-label" style={{ marginTop: two ? 0 : 4 }}>Hero</div>
-              <div style={{ display: "flex", gap: 8 }}>
+              {/* a portrait tile per hero (five no longer fit as named planks), the chosen one named beneath */}
+              <div style={{ display: "flex", gap: 6 }}>
                 {Object.entries(HEROES).map(([key, h]) => (
-                  <button key={key} title={h.blurb} className={cls("cg-btn cg-btn--slate", heroKey === key && "is-on")}
-                    style={{ flex: 1, minHeight: 56, padding: "4px 6px", justifyContent: "flex-start", gap: 6 }}
+                  <button key={key} title={h.blurb} aria-label={h.name} className={cls("cg-btn cg-btn--slate", heroKey === key && "is-on")}
+                    style={{ flex: 1, minWidth: 0, minHeight: 48, padding: 2, justifyContent: "center" }}
                     onClick={() => pickHero(key)}>
                     {hasRig(h.rig) ? <EnemyIcon type={h.rig} box={30} /> : <span>{h.icon}</span>}
-                    <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
-                      <span style={{ fontSize: 12 }}>{h.name}</span>
-                      <span style={{ fontFamily: "var(--body)", fontWeight: "normal", fontSize: 9.5, textShadow: "none", color: heroKey === key ? "var(--gold-lt)" : "var(--muted)" }}>{heroKey === key ? "riding with you" : "next level"}</span>
-                    </span>
                   </button>
                 ))}
               </div>
+              {HEROES[heroKey] && (
+                <div style={{ fontSize: 12, marginTop: 2 }}>
+                  {HEROES[heroKey].name} <span style={{ fontFamily: "var(--body)", fontSize: 9.5, color: "var(--gold-lt)" }}>· riding with you (a change takes effect next level)</span>
+                </div>
+              )}
             </>
           );
           const leave = (

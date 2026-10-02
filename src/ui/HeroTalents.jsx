@@ -279,13 +279,15 @@ export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, f
         return (
           <button key={k} onClick={() => setPick(k)} aria-label={HEROES[k].name}
             style={{
-              ...btn, position: "relative", display: "flex", flexDirection: rail ? "column" : "row", alignItems: "center",
-              justifyContent: "center", gap: rail ? 4 : 8, padding: "4px 6px", minHeight: rail ? 0 : 52, textAlign: "center",
+              // five heroes: the rail's buttons lay the portrait beside the name
+              // (stacked they overran a phone's height), the top toggle's under it
+              ...btn, position: "relative", display: "flex", flexDirection: rail ? "row" : "column", alignItems: "center",
+              justifyContent: "center", gap: rail ? 5 : 3, padding: "3px 5px", minHeight: rail ? 0 : 52, minWidth: 0, textAlign: "center",
               ...(k === pick ? ON : {}),
             }}>
-            <EnemyIcon type={HEROES[k].rig} box={rail ? 44 : 36} />
-            <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <b style={{ ...LABEL, fontSize: 11, whiteSpace: "nowrap" }}>{HEROES[k].name}</b>
+            <EnemyIcon type={HEROES[k].rig} box={rail ? 30 : 28} />
+            <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 0 }}>
+              <b style={{ ...LABEL, fontSize: rail ? 9.5 : 9, lineHeight: 1.15 }}>{HEROES[k].name}</b>
               <span style={{
                 display: "flex", alignItems: "baseline", gap: 4, padding: "3px 5px", border: `2px solid ${INK}`,
                 ...(can ? { background: GOLD.face, color: INK } : { background: "#262b35" }),

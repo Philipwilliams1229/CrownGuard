@@ -22,6 +22,9 @@
 //   hurt(g, b, u, amount, foe)  what a foe's blow actually takes off him —
 //       return `amount` unchanged unless he is warded (runMelee and the held
 //       foe of runRangedBand).
+//   reset(g)  a retried wave (actions.js restores its snapshot): drop the
+//       hero's lingering effects from g. A fresh battle starts from a new g,
+//       so world/under/fx must tolerate their arrays being missing.
 //
 // Effects that need drawing live in render/heroes/<key>.js.
 import osric from "./osric.js";
