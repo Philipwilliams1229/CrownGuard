@@ -36,6 +36,7 @@ import {
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
 import { drawMage, mageTip, magePoseAt, mageIdlePose, mageBreathPose, MAGE_FOLK } from "../folk.js";
+import { stormCloud, stormSpots, stormBolt } from "../stormcloud.js";
 
 const CACHE = new Map();
 export const resetWizardBakes = () => CACHE.clear();
@@ -330,6 +331,11 @@ export const drawWizardSpire = (ctx, t, time) => {
     }
     for (const r of runes) if (!r.front) rune(ctx, r);
   }
+  // the Stormcallers' clouds hang BEHIND the hall's top: the Sovereign's
+  // gilt crown-ring stands against his black one (there is no headroom
+  // above the ring), the Tempest mage's hat tip against his grey-blue one
+  if (r4 === "bb") cloud(ctx, x, top, time, t, "sovereign");
+  if (r4 === "ba") cloud(ctx, x, top, time, t, "tempest");
   if (canBake) {
     stamp(ctx, baked(`ground|${form}|${v}`, BOX.left + BOX.right, 40, (c) => paintGround(c, tv, BOX.left, 14), false), x, y, BOX.left, 14);
     stamp(ctx, baked(`spire|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBody(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
@@ -460,13 +466,15 @@ export const drawWizardSpire = (ctx, t, time) => {
       const a0 = x - pw + 2, a1 = x + pw - 2, ay = top - 29.5;
       glow(ctx, a0, ay, 4, "#a8f0f8", 0.5); glow(ctx, a1, ay, 4, "#a8f0f8", 0.5);
       if (Math.sin(time * 9 + t.id) > -0.3 || t.anim > 0.3) zig(ctx, a0, ay, a1, ay, time * 1.3, "#e8fcff", 1.2);
-      cloud(ctx, x, top - 44, time, t.id, "#8a94a8", 0.9);
     }
     if (r4 === "bb") {
-      cloud(ctx, x, top - 54, time, t.id, "#4a4a62", 1.2);
-      const strike = ((time * 0.7 + t.id * 0.3) % 1) < 0.08 || t.anim > 0.6;
+      // the cloud (drawn behind the hall, above) strikes the crown-ring:
+      // from its belly beyond the ring's rim to the spike on that side
+      const beat = time * 0.7 + t.id * 0.3;
+      const strike = (beat % 1) < 0.08 || t.anim > 0.6;
       if (strike) {
-        zig(ctx, x + 2, top - 50, x, top - 44, time * 3, "#fff8c0", 1.4);
+        const s = Math.floor(beat) % 2 ? 1 : -1;
+        stormBolt(ctx, x + s * SOV_CLOUD.w * 0.42, top - SOV_CLOUD.base + 1.5, x + s * 13.2, top - 34.5, Math.floor(time * 20) + t.id, ["#f0e070", "#fff8c0", "#ffffff"], 1, 4, 2.2);
         glow(ctx, x, top - 34, 12, "#f0e070", 0.45);
       } else glow(ctx, x, top - 34, 8, "#f0e070", 0.15 + 0.1 * Math.sin(time * 3));
     }
@@ -541,11 +549,32 @@ const zig = (ctx, x0, y0, x1, y1, time, col, w) => {
   ctx.lineWidth = 1;
 };
 
-// A little storm cloud, lumps turning slowly.
-const cloud = (ctx, x, y, time, id, col, s = 1) => {
-  for (let i = 0; i < 5; i++) {
-    const a = time * 0.6 + i * 1.26 + id;
-    ball(ctx, x + Math.cos(a) * 6 * s, y + Math.sin(a) * 1.6 * s, (4 + (i % 2)) * s, 3 * s, col, { hi: 0.3, lo: 0.4 });
+// The Stormcallers' clouds (render/stormcloud.js paints and bakes them).
+// Each sits in the hallshot cell's headroom: base `base` above the walk's
+// lip, `h` tall, so with its ink it stays under the cell's top (y - 93.6).
+//   Tempest Court: grey-blue, quick churn, lit from inside as the coils arc
+//     and when it fires; it hangs just over the mage's hat, behind its tip.
+//   Thunder Sovereign: black, slow, wider, two heads framing the crown-ring
+//     that stands before it;
+//     a dim gold flicker now and then, a full light where it strikes.
+const TEMPEST_CLOUD = { w: 30, h: 8, base: 44.5 };
+const SOV_CLOUD = { w: 46, h: 11, base: 40.5 };
+const cloud = (ctx, x, top, time, t, kind) => {
+  const tempest = kind === "tempest", C = tempest ? TEMPEST_CLOUD : SOV_CLOUD;
+  const seed = 1 + (t.id % 3);
+  let lit = null;
+  const spots = stormSpots(C.w, C.h, seed, 3);
+  if (tempest) {
+    if (Math.sin(time * 9 + t.id) > 0.72 || t.anim > 0.3) lit = spots[Math.floor(time * 6 + t.id) % 3];
+  } else {
+    const beat = time * 0.7 + t.id * 0.3, ph = beat % 1;
+    if (ph < 0.08 || t.anim > 0.6) {
+      const s = Math.floor(beat) % 2 ? 1 : -1;
+      lit = { x: s * C.w * 0.32, y: -C.h * 0.1, r: C.h * 1.1 };
+    } else if (ph > 0.5 && ph < 0.53) lit = spots[Math.floor(beat) % 3];
   }
-  ball(ctx, x, y - 1, 5 * s, 3.4 * s, lighten(col, 0.1), { hi: 0.35, lo: 0.35 });
+  stormCloud(ctx, x + Math.sin(time * 0.4 + t.id) * 0.6, top - C.base, {
+    w: C.w, h: C.h, pal: kind, seed, time, fps: tempest ? 4 : 2, frames: 6, amp: tempest ? 0.6 : 0.4, ink: 2, lit,
+    shape: tempest ? "heap" : "twin",
+  });
 };

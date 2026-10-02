@@ -7,17 +7,16 @@
 // hard steps, light from the upper left.
 import { PX, hash } from "../paint.js";
 import { ringPx } from "../fx.js";
+import { stormCloud, stormShadow, stormSpots } from "../stormcloud.js";
 
 const TAU = Math.PI * 2;
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const stepA = (a, n = 4) => Math.ceil(clamp01(a) * n) / n;
 const snap = (v) => Math.round(v * PX) / PX;
 
-// the storm's colours: the house bolt's cyan-white (fx.js BOLT_TONES) and,
-// for the cloud, a slate that leans to the plum of the board's shadows
+// the storm's colours: the house bolt's cyan-white (fx.js BOLT_TONES); the
+// cloud's own are stormcloud.js CLOUD_PALS.storm
 const BOLT = ["#5ab4f0", "#8ad0f8", "#bfeeff", "#ffffff"];
-const CLOUD = ["#2c2840", "#423e5c", "#5e5c80", "#8a8cae"];
-const SHADE = "42,28,44";
 
 // a square stamp of side s along a line, on the art grid (fx.js stampLine)
 const stampLine = (ctx, x0, y0, x1, y1, s) => {
@@ -140,56 +139,59 @@ const drawStorm = (ctx, fx) => {
 // flash, a ring of light across the struck circle — and thins away.
 const CLOUD_H = 62;
 const thGather = (th, tms) => clamp01((tms - th.t0) / Math.max(1, th.at - th.t0));
-const puffs = (th) => {
-  // the cloud's billows, fixed for the cloud (seeded by where it stands)
-  if (th._puffs) return th._puffs;
-  const sd = Math.round(th.x * 7 + th.y * 13);
-  const out = [];
-  const n = 7;
-  for (let i = 0; i < n; i++) {
-    const t = (i / (n - 1)) * 2 - 1;                   // -1 .. 1 across
-    out.push([t * 0.95 + (hash(sd, i) - 0.5) * 0.15, -0.25 * (1 - t * t) - hash(sd, i + 9) * 0.2, 0.42 + 0.3 * (1 - Math.abs(t)) + 0.1 * hash(sd, i + 20)]);
-  }
-  th._puffs = out;
-  return out;
+// the thunderhead's make: its size from the struck circle (buckets of 8, so
+// a few baked sizes serve every rank of "a wider storm"), one of three
+// shapes (seeded by where it stands), and where it sways
+const thSpec = (th) => {
+  if (th._spec) return th._spec;
+  const w = Math.max(64, Math.round((th.r * 1.55) / 8) * 8), h = Math.round(w * 0.36);
+  const seed = 1 + Math.floor(hash(Math.round(th.x), Math.round(th.y)) * 2);
+  th._spec = { w, h, seed, spots: stormSpots(w, h, seed, 2), sd: Math.round(th.x * 7 + th.y * 13) };
+  return th._spec;
 };
-const drawCloud = (ctx, th, tms, g) => {
+// where its base's middle stands at a moment: it sways a little while it
+// gathers, then drifts off east and up as it thins
+const thBase = (th, tms, after) => {
+  const { sd } = thSpec(th);
+  return [th.x + Math.sin(tms / 520 + sd) * 0.8 + after * 7, th.y - CLOUD_H + 2 - 5 * after];
+};
+const drawCloud = (ctx, th, tms) => {
   const p = thGather(th, tms);
   const k = th.k || 1;
   const after = th.broke ? (tms - th.broke) / (900 * k) : 0;   // 0..1 as it thins
   if (after >= 1) return;
-  const W = th.r * (0.4 + 0.45 * Math.sqrt(p)) * (1 + 0.2 * after);
-  const cx = th.x, cy = th.y - CLOUD_H - 4 * after;
+  const { w, h, seed, spots, sd } = thSpec(th);
+  const [cx, cy] = thBase(th, tms, after);
+  const g = th.broke ? 1 : p;
   const a0 = ctx.globalAlpha;
-  ctx.globalAlpha = a0 * stepA((0.3 + 0.6 * p) * (1 - after));
-  const ps = puffs(th);
-  const sd = Math.round(th.x * 7 + th.y * 13);
-  // billow by billow, back (higher) to front: its dark underside, a lit rim
-  // (the sun upper left), then its body over most of the rim so a crescent
-  // of light shows — each front billow's rim outlines it against the ones behind
-  const order = ps.map((q, i) => i).sort((i, j) => ps[i][1] - ps[j][1]);
-  for (const i of order) {
-    const [u, v, r] = ps[i];
-    const R = r * W * 0.55, RY = R * 0.78, bx = cx + u * W * 0.72, by = cy + v * W * 0.6;
-    for (const [col, sc, ox, oy] of [[CLOUD[0], 1, 0.04, 0.22], [CLOUD[3], 0.94, -0.07, -0.1], [CLOUD[2], 0.95, -0.02, -0.02], [CLOUD[1], 0.97, 0.05, 0.1]]) {
-      ctx.fillStyle = col; ctx.beginPath(); discPath(ctx, bx + ox * R, by + oy * RY, R * sc, RY * sc); ctx.fill();
+  ctx.globalAlpha = a0 * (th.broke ? stepA(1 - after * 0.85, 4) : stepA(0.55 + 0.45 * p, 4));
+  // the light inside: a flicker in its belly, quicker as it ripens; at the
+  // break, a band of light right through it where the stroke leaves
+  let lit = null;
+  const q = th.broke ? (tms - th.broke) / (420 * k) : 1;
+  if (th.broke && q < 0.35) {
+    lit = { x: (hash(sd, 1) - 0.5) * th.r * 0.4, y: -h * 0.2, r: h * (q < 0.15 ? 1.5 : 1) };
+  } else if (!th.broke && p > 0.3) {
+    const slot = Math.floor(tms / 70);
+    if (hash(sd + slot, 3) < 0.2 + 0.6 * p) {
+      const s = spots[Math.floor(hash(sd + slot, 5) * spots.length)], gg = 0.3 + 0.7 * Math.round(g * 6) / 6;
+      lit = { x: s.x * (0.55 + 0.45 * gg), y: s.y * gg * gg, r: s.r * (0.6 + 0.4 * gg) * (p > 0.7 ? 1.2 : 1) };
     }
   }
-  // flickers in its belly, quicker as it ripens: a billow lit from within
-  // and, now and then, a thread of light running along under it
-  if (!th.broke) {
-    const slot = Math.floor(tms / 70), on = hash(sd + slot, 3) < 0.25 + 0.6 * p;
-    if (on) {
-      const [u, v, r] = ps[Math.floor(hash(sd + slot, 5) * ps.length)];
-      const fx0 = cx + u * W * 0.72, fy0 = cy + v * W * 0.45 + 1, R = r * W * 0.3;
-      ctx.globalAlpha = a0 * 0.5 * stepA(0.4 + p);
-      ctx.fillStyle = BOLT[0]; ctx.beginPath(); discPath(ctx, fx0, fy0, R, R * 0.62); ctx.fill();
-      ctx.globalAlpha = a0 * stepA(0.4 + p);
-      ctx.fillStyle = BOLT[2]; ctx.beginPath(); discPath(ctx, fx0, fy0, R * 0.45, R * 0.28); ctx.fill();
-      if (p > 0.4 && hash(sd + slot, 7) < 0.5) {
-        const x1 = cx + (hash(sd + slot, 8) - 0.5) * W, x2 = x1 + (hash(sd + slot, 9) - 0.5) * W * 0.8;
-        strokeBolt(ctx, jag([[x1, cy + 3], [x2, cy + 5 + hash(sd + slot, 10) * 4]], sd + slot, 0, 3, 0.9), 0.45, 0.2);
-      }
+  stormCloud(ctx, cx, cy, {
+    // while it gathers each stage of growth is its own churn frame (fewer
+    // bakes; the growing is the motion), then it churns as it thins
+    w, h, pal: "storm", seed, frames: 4, amp: 1.4,
+    frame: th.broke ? Math.floor(tms / 140) : Math.round(g * 6),
+    grow: g, thin: clamp01((after - 0.12) / 0.88), dark: th.broke ? 0.15 : 0.3 * p, lit,
+  });
+  // now and then a thread of light runs along under it as it ripens
+  if (!th.broke && p > 0.4) {
+    const slot = Math.floor(tms / 70);
+    if (hash(sd + slot, 3) < 0.2 + 0.6 * p && hash(sd + slot, 7) < 0.5) {
+      const x1 = cx + (hash(sd + slot, 8) - 0.5) * w * 0.7, x2 = x1 + (hash(sd + slot, 9) - 0.5) * w * 0.5;
+      ctx.globalAlpha = a0;
+      strokeBolt(ctx, jag([[x1, cy + 5], [x2, cy + 7 + hash(sd + slot, 10) * 4]], sd + slot, 0, 3, 0.9), 0.45, 0.2);
     }
   }
   ctx.globalAlpha = a0;
@@ -202,7 +204,7 @@ const drawBreak = (ctx, th, tms) => {
   const sd = Math.round(th.x * 7 + th.y * 13);
   const fr = Math.floor(age / (45 * k));
   // the stroke: cloud to ground, heavy, with a forked second strand
-  const top = [th.x + (hash(sd, 1) - 0.5) * th.r * 0.4, th.y - CLOUD_H + 3];
+  const top = [th.x + (hash(sd, 1) - 0.5) * th.r * 0.4, th.y - CLOUD_H + 2 + thSpec(th).h * 0.12];
   strokeBolt(ctx, jag([top, [th.x, th.y - 2]], sd, fr, 9, 0.55), 1.9, q);
   if (q < 0.5) strokeBolt(ctx, jag([[top[0] + 8, top[1]], [th.x + (hash(sd, 2) - 0.5) * th.r, th.y - 2]], sd + 5, fr, 7, 0.75), 0.8, q + 0.25);
   // the ground blooms white where it struck, for a blink
@@ -243,12 +245,13 @@ export default {
       const p = thGather(th, tms), k = th.k || 1;
       const after = th.broke ? (tms - th.broke) / (600 * k) : 0;
       if (after >= 1) continue;
-      const R = th.r * (0.5 + 0.5 * p);
-      // three stepped bands, darkest at the heart, nudged down-right (sun upper left)
-      for (const [f, a] of [[1, 0.12], [0.75, 0.12], [0.5, 0.14]]) {
-        ctx.fillStyle = `rgba(${SHADE},${(a * stepA(0.3 + 0.7 * p) * (1 - after)).toFixed(3)})`;
-        ctx.beginPath(); discPath(ctx, th.x + 2, th.y + 1, R * f, R * f * 0.92); ctx.fill();
-      }
+      // the cloud's own footprint (stormcloud.js), nudged down-right away
+      // from the sun, darkening as it gathers and drifting off with it
+      const { w, h, seed } = thSpec(th);
+      const [cx] = thBase(th, tms, th.broke ? (tms - th.broke) / (900 * k) : 0);
+      ctx.globalAlpha = a0 * stepA((0.35 + 0.65 * p) * (1 - after), 4);
+      stormShadow(ctx, cx + 3, th.y + 2, { w, h, seed, grow: th.broke ? 1 : p, thin: after });
+      ctx.globalAlpha = a0;
       if (!th.broke) {
         ctx.globalAlpha = a0 * (0.35 + 0.35 * stepA(p));
         ringPx(ctx, th.x, th.y, th.r, th.r * 0.92, 1, BOLT[1]);
@@ -267,6 +270,6 @@ export default {
     for (const fx of g.effects) if (fx.type === "ysStorm") drawStorm(ctx, fx);
     const list = g.thunderheads;
     if (!list || !list.length) return;
-    for (const th of list) { drawCloud(ctx, th, tms, g); drawBreak(ctx, th, tms); }
+    for (const th of list) { drawCloud(ctx, th, tms); drawBreak(ctx, th, tms); }
   },
 };
