@@ -653,7 +653,13 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
 // Guard, one frame to a lane, rebuilt whole each time the build phase opens
 // (or the guild is raised). `g.barricades` is a list of rows
 // { dist, segs: [{ lane, hp, maxHp }] }, outermost first.
-const SPIKE_FIRST = 36, SPIKE_ROW = 34, SPIKE_HOLD = 7, SPIKE_LANES = [-LANE_OFF, 0, LANE_OFF];
+// SPIKE_FIRST keeps the foes held at the first frame (SPIKE_FIRST + SPIKE_HOLD
+// back from the guard) out of the halberdiers' seizing reach (range x 0.92,
+// 48 at most), so the Gate Guard never walks out to a foe while a frame stands.
+// LEAK_BACK: a foe that gets through hits the castle this far short of the
+// road's end, just behind the halberdiers, not a step inside the gate.
+const LEAK_BACK = 20;
+const SPIKE_FIRST = 66, SPIKE_ROW = 34, SPIKE_HOLD = 7, SPIKE_LANES = [-LANE_OFF, 0, LANE_OFF];
 const syncBarricades = (g) => {
   const tier = g.castle && PTS.length ? workTier(g.castle, "masons", g.castleRanks) : null;
   const key = tier ? `${tier.spikes}:${tier.spikeHp}` : "";
@@ -1671,7 +1677,7 @@ export function updateGame(g, dt) {
           }
         }
       } else if (e.swarms) e.clawing = false;
-      if (e.dist >= TOTAL_LEN) {
+      if (e.dist >= TOTAL_LEN - LEAK_BACK) {
         e.dead = true;
         const dmgC = e.castleDmg || 1;
         // the sandbox's unbreakable castle counts the blow but keeps its walls

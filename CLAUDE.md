@@ -406,6 +406,7 @@ the shamans now walking in the thick of the warband).
   beyond it. A retried wave (`snapshot`) now keeps the flags you posted. New
   men step out of the hall's door and march to the flag, and the build phase
   runs garrisons (`runMelee`, update.js) so they move before the horn too.
+- **Barricades sit clear of the halberdiers; the castle is hit at the gate** (owner, 2026-10-02): the first frame is `SPIKE_FIRST` 66 back from the Gate Guard (was 36), so a foe held at it stands 62+ px from them, past their seizing reach (range x 0.92, at most 48), and they only walk out once a frame breaks; castle archers and the ballista still shoot it. A foe that gets through now costs a life at `TOTAL_LEN - LEAK_BACK` (20, x ~736, just behind the halberds) instead of 18 px inside the gate, where it used to vanish into the arch first. Provisional.
 - **Burns cut to 75% of their old damage a second** (owner, 2026-09-30;
   durations unchanged — a brief 2.5 s-for-all was reverted): `burn`, `mBurn`,
   `igniteBurn`, `logBurn` x0.75 (towers.js, the castle ballista's fire bolts),
