@@ -33,5 +33,6 @@ export const rows = TYPES.flatMap((t) => {
     ...Array.from({ length: n }, (_, f) => cell(t, "fight", f, `fight ${f} ${names[f] || ""}`)),
   ]];
   if (!SKY.includes(t)) return [row];
-  return [row, [`${t}\nsky 0-3 (volley)`, Array.from({ length: n }, (_, f) => cell(t, "fight", f, `sky ${f} ${names[f] || ""}`, true))]];
+  const sky = (CR.CROWN_SKY_NAMES || {})[t] || names;
+  return [row, [`${t}\nsky 0-3 (volley)`, Array.from({ length: n }, (_, f) => cell(t, "fight", f, `sky ${f} ${sky[f] || ""}`, true))]];
 });

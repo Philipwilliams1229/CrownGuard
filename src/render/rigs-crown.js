@@ -1063,6 +1063,7 @@ export const CROWN_FIGHT_FRAMES = Object.fromEntries(Object.keys(CROWN_RIGS).map
 
 // the staff's four fight frames read differently from a blade's (the joint lab's labels)
 export const CROWN_FIGHT_NAMES = { heroStorm: ["ready", "release", "recoil", "recover"] };
+export const CROWN_SKY_NAMES = { heroStorm: ["raise", "hold", "crackle", "hold"] };
 
 // Where Ysolde's crystal is, from her feet, facing +x, in board units at her
 // height (+y down, so dy < 0): the same skeleton and grips the painter uses,
