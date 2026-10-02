@@ -795,6 +795,11 @@ export const CROWN_RIGS = {
   farmer: { kind: "crown", box: { hw: 24, up: 30, down: 4 }, p: { look: "farmer", h: 21, skin: "#e8b990", cloth: "#9a8a62", cloth2: "#5a4a3a", hair: "#d8b860", weapon: "fork", wcol: "#b8bcc4" } },
   heroKnight: { kind: "crown", box: { hw: 22, up: 33, down: 4 }, p: { look: "hero", h: 24, skin: "#e8b990", cloth: "#d4d8e0", cloth2: "#e8c14a", hair: "#dde2ea", cape: "#a0303a", weapon: "sword", wcol: "#f0f0f4", shcol: "#a0303a" } },
   heroHunter: { kind: "crown", box: { hw: 18, up: 30, down: 4 }, p: { look: "hunter", h: 22, skin: "#e8c9a2", cloth: "#4e7f3e", cloth2: "#3a4a2c", hair: "#3f6a34", cape: "#3a5a30", weapon: "bow", wcol: "#6a4428" } },
+  // the newer heroes (data/heroes/): PLACEHOLDERS dressed from the existing
+  // looks until their own figures are painted
+  heroFriar: { kind: "crown", box: { hw: 21, up: 32, down: 4 }, p: { look: "paladin", h: 23, skin: "#e8b990", cloth: "#7a5a3a", cloth2: "#c8a860", hair: "#8a6a4a", weapon: "mace", wcol: "#c8ccd4", shcol: "#7a5a3a" } },
+  heroCaptain: { kind: "crown", box: { hw: 28, up: 40, down: 4 }, p: { look: "guard", h: 24, skin: "#e8b990", cloth: "#c4c8d0", cloth2: "#2e4a7a", hair: "#a08a6a", weapon: "halberd", wcol: "#e0e4ea" } },
+  heroStorm: { kind: "crown", box: { hw: 18, up: 30, down: 4 }, p: { look: "hunter", h: 22, skin: "#e8c9a2", cloth: "#3a4e8a", cloth2: "#26305a", hair: "#3a4e8a", cape: "#2a3466", weapon: "bow", wcol: "#c8d4ec" } },
 };
 export const CROWN_PAINTERS = { crown: soldier };
 

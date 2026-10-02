@@ -48,8 +48,8 @@ const at = (d, lane = 0) => {
 const sAt = (y) => (y < 172 ? 0.4 - (172 - y) * 0.018 : 0.4 + 0.34 * Math.min(1, (y - 172) / 98));
 
 // ---- the cast ----------------------------------------------------------------
-const WALKERS = ["knight", "farmer", "paladin", "berserk", "knight", "farmer", "heroKnight", "heroHunter"];
-const HEROES = new Set(["heroKnight", "heroHunter"]);
+const WALKERS = ["knight", "farmer", "paladin", "berserk", "knight", "farmer", "heroKnight", "heroHunter", "heroFriar", "heroCaptain", "heroStorm"];
+const HEROES = new Set(["heroKnight", "heroHunter", "heroFriar", "heroCaptain", "heroStorm"]);
 const TYPES = ["farmer", "heroHunter", "knight", "heroKnight", "paladin", "berserk"];
 
 // those who stay put: [type, x, y, face, what]

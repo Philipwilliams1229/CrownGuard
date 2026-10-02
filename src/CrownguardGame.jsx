@@ -50,6 +50,7 @@ import { TowerBanner, TargetsBar, UpgradeTree, nodeOf } from "./ui/TowerEdit.jsx
 import {
   CoinIcon, CastleIcon, SkullIcon, SwordIcon, BoltIcon, PlayIcon, PauseIcon, SpeedIcon, HammerIcon,
   LockIcon, CloseIcon, ChevronUp, ChevronDown, FlagIcon, InfoIcon, ArrowIcon, TargetIcon,
+  HeartIcon, MagicIcon, ShieldIcon, PitchforkIcon,
 } from "./ui/hud/icons.jsx";
 
 // Aggregate a wave's spawn list into { type, count } entries, keeping the
@@ -999,7 +1000,9 @@ export default function Crownguard() {
   // tall screen it docks under the grid. Talents are bought on the Home
   // Screen only, with the stars a won map pays --
   const talentBtn = null;
-  const ABIL_ICON = { slam: <HammerIcon size={13} />, charge: <SwordIcon size={13} />, volley: <ArrowIcon size={13} />, heart: <TargetIcon size={13} /> };
+  const ABIL_ICON = { slam: <HammerIcon size={13} />, charge: <SwordIcon size={13} />, volley: <ArrowIcon size={13} />, heart: <TargetIcon size={13} />,
+    sanctuary: <HeartIcon size={13} />, consecrate: <MagicIcon size={13} />, brace: <ShieldIcon size={13} />, levy: <PitchforkIcon size={13} />,
+    storm: <BoltIcon size={13} />, thunder: <TargetIcon size={13} /> };
   const talentPanel = talentsOpen && ui.hero && ui.result == null && (() => {
     const h = ui.hero;
     const g = G.current;
