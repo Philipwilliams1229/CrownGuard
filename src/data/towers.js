@@ -131,10 +131,10 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Brazier Wheel", cost: 415, stats: { dmg: 43, rate: 1300, range: 81, nova: true, magic: true, burn: 9, burnDur: 2400 }, desc: "The rim is set alight: rings of flame, not spikes, scorch all in reach. MAGIC — ignores armor.",
+        name: "Brazier Wheel", cost: 415, stats: { dmg: 43, rate: 1300, range: 81, nova: true, magic: true, scorchHaunts: true, burn: 9, burnDur: 2400 }, desc: "The rim is set alight: rings of flame, not spikes, scorch all in reach. MAGIC — ignores armor.",
         rank4: {
-          a: { name: "Solar Crown", cost: 975, stats: { dmg: 76, rate: 1250, range: 93, nova: true, magic: true, burn: 14, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
-          b: { name: "Wildheart Pyre", cost: 975, stats: { dmg: 52, rate: 1250, range: 86, nova: true, magic: true, burn: 12, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
+          a: { name: "Solar Crown", cost: 975, stats: { dmg: 76, rate: 1250, range: 93, nova: true, magic: true, scorchHaunts: true, burn: 14, burnDur: 2800 }, desc: "A captive shard of the sun. Wider, hotter rings that leave deep burns." },
+          b: { name: "Wildheart Pyre", cost: 975, stats: { dmg: 52, rate: 1250, range: 86, nova: true, magic: true, scorchHaunts: true, burn: 12, burnDur: 2800, burnSpread: true }, desc: "Its fire is ALIVE: flames set by the rings leap hungrily from foe to foe." },
         },
       },
     },

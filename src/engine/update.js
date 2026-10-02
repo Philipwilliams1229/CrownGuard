@@ -2252,7 +2252,8 @@ export function updateGame(g, dt) {
           g.effects.push({ type: "firenova", x: t.x, y: t.y, ttl: 450, r: st.range });
           sfx.play("firenova");
           for (const e of g.enemies) {
-            if (e.dead || e.flying) continue;
+            // the rings lick up at a wraith, which drifts low over the road
+            if (e.dead || (e.flying && !(st.scorchHaunts && e.haunts))) continue;
             if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
             dealDamage(g, e, st.dmg, st.dtype, false, false, t.id);
             if (!e.dead && st.burn) {

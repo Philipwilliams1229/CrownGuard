@@ -163,7 +163,7 @@ export const pickTarget = (g, t, st) => {
   let best = null, bestScore = -Infinity, doomed = null, doomedScore = -Infinity;
   const now = g.time * 1000;
   for (const e of g.enemies) {
-    if (e.dead || isRising(e, now) || (st.groundOnly && e.flying)) continue;
+    if (e.dead || isRising(e, now) || (st.groundOnly && e.flying && !(st.scorchHaunts && e.haunts))) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y);
     if (d > st.range || d < min) continue;
     // shots already in the air will finish it: look past it, so a crowd
