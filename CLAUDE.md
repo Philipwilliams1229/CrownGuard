@@ -232,7 +232,7 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   lays shield pips.
 - **Wraith** (`holyOnly`, `haunts`, `raisesOnKill`): flying, and every
   PHYSICAL blow passes through it (arrows, stones, traps, plain/berserker
-  knights); magic hurts it less its `mres` 0.4 — wizards, fire, poison, and the
+  knights); magic hurts it less its `mres` 0.25 (was 0.4) — wizards, fire, poison, and the
   Paladin tree, the only knights that can (`dealDamage`'s `holy` argument). Knights can block and fight it and it hits back; a knight it
   kills rises as a new wraith (`raiseFrom` in update.js, capped at 24 alive).
   The sim commander cannot play this puzzle (it never places paladins where
