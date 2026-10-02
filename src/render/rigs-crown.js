@@ -108,7 +108,8 @@ const step = (p, o) => {
   }
   if (p.weapon === "bow") {
     const b = SHOOT[f];
-    return { fight: true, f, c: 0, near: [s * 0.9, 0], far: [-s * 1.0, 0], x: b.x, bob: o.bob * b.bob, lean: o.lean + b.lean, swing: 0, head: b.head, fl: b.fl, sk: b.sk };
+    // shooting skyward (the "sky" sheet) she leans back from the hips
+    return { fight: true, f, c: 0, sky: !!p.sky, near: [s * 0.9, 0], far: [-s * 1.0, 0], x: b.x - (p.sky ? 0.3 : 0), bob: o.bob * b.bob, lean: o.lean + b.lean - (p.sky ? 0.1 : 0), swing: 0, head: b.head - (p.sky ? 0.2 : 0), fl: b.fl, sk: b.sk };
   }
   const b = MELEE[f];
   // a pole cocked back rocks the head back with it (the overhead cuts keep
@@ -412,6 +413,29 @@ const hunterHead = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
 // ---- the soldier ------------------------------------------------------------------
 const MAN = { L1: 4.8, L2: 4.6, stride: 2.3, lift: 1.8, bob: 0.6, lean: 0.03, dip: 0.03, lunge: 2.0, hipW: 0.7, thigh: 2.3, shin: 2.0, foot: 3.1, ankle: 0.8 };
 
+// The bow's grips, frame by frame: 0 on the march, then the fight's four.
+// F holds the bow, N the string; `flip` the draw arm's side-view reversal
+// (raised out to the side). An archer at the string stands side-on.
+const bowGrip = (sw, N, F) => [
+  // on the march (and at rest) the bow rides upright in the far hand, its
+  // wood bowed forward and the string toward her, as at the draw
+  { hn: N(0.6 + sw * 1.1, 4.8), hf: F(5.6 - sw * 0.3, 2.9), ab: -Math.PI / 2 - 0.07 },
+  // full draw: the bow arm straight at the mark, the string hand at the jaw, elbow high
+  { hn: N(2.8, -1.5), hf: F(5.9, -0.4), ab: -Math.PI / 2 + 0.06, flip: true, string: true, nock: true },
+  // loose: the string hand flung back past the ear, the elbow back (still
+  // out to the side), the bow arm pushing through; the fist ends fully clear
+  // of the hood's back outline
+  { hn: N(-3.9, -2.3), hf: F(6.2, -0.3), ab: -Math.PI / 2 + 0.2, flip: true, loose: true },
+  // the reach: over the shoulder to the quiver, the elbow back at shoulder
+  // height, the hand up behind the hood (never across the face), the bow lowered
+  { hn: N(-2.3, -3.6), hf: F(5.0, 1.4), ab: -Math.PI / 2 + 0.32, flip: true, draw: true },
+  // nock and begin the draw: the arrow set on the string before the chest,
+  // the string hand out in front of the cowl's lower point, never under it
+  { hn: N(3.4, 0.9), hf: F(5.8, 0.6), ab: -Math.PI / 2 + 0.14, string: true, nock: true, early: true }];
+// how far the "sky" sheet raises a bowman's aim (radians): high enough that
+// the flight clearly goes UP, to come down on its mark far off
+export const SKY_AIM = 0.85;
+
 // Where the hands go, per weapon: the march (the gait's swing), then the four
 // fight frames. Points are offsets from the near shoulder (N) or the far one
 // (F) in board axes, +x toward the foe, +y down; `an` is the weapon's angle
@@ -465,22 +489,15 @@ const grip = (w, st, shN, shF) => {
     { hn: N(-3.6, -5.1), an: 2.75, hf: F(0.8, -4.9), af: -2.5, behind: true },
     { hn: N(5.0, 2.2), an: 0.55, hf: F(1.4, -4.6), af: -2.3 },
     { hn: N(3.2, 5.2), an: 1.45, hf: F(5.3, 2.6), af: 0.55 }][ph];
-  // the bow: F holds the bow, N the string; `flip` the draw arm's side-view
-  // reversal (raised out to the side). An archer at the string stands side-on.
-  if (w === "bow") return [
-    { hn: N(0.6 + sw * 1.1, 4.8), hf: F(4.2 - sw * 0.3, 4.2), ab: 1.64 },
-    // full draw: the bow arm straight at the mark, the string hand at the jaw, elbow high
-    { hn: N(2.8, -1.5), hf: F(5.9, -0.4), ab: -Math.PI / 2 + 0.06, flip: true, string: true, nock: true },
-    // loose: the string hand flung back past the ear, the elbow back (still
-    // out to the side), the bow arm pushing through; the fist ends fully clear
-    // of the hood's back outline
-    { hn: N(-3.9, -2.3), hf: F(6.2, -0.3), ab: -Math.PI / 2 + 0.2, flip: true, loose: true },
-    // the reach: over the shoulder to the quiver, the elbow back at shoulder
-    // height, the hand up behind the hood (never across the face), the bow lowered
-    { hn: N(-2.3, -3.6), hf: F(5.0, 1.4), ab: -Math.PI / 2 + 0.32, flip: true, draw: true },
-    // nock and begin the draw: the arrow set on the string before the chest,
-    // the string hand out in front of the cowl's lower point, never under it
-    { hn: N(3.4, 0.9), hf: F(5.8, 0.6), ab: -Math.PI / 2 + 0.14, string: true, nock: true, early: true }][ph];
+  // the bow (bowGrip)
+  if (w === "bow") {
+    const H = bowGrip(sw, N, F)[ph];
+    // the "sky" sheet: the same draw swung up about each shoulder by SKY_AIM
+    // (both hands keep their reach), the bow tipped back with them
+    if (!st.sky || !st.fight) return H;
+    const up = (p, sh) => { const dx = p[0] - sh[0], dy = p[1] - sh[1], c = Math.cos(-SKY_AIM), s2 = Math.sin(-SKY_AIM); return [sh[0] + dx * c - dy * s2, sh[1] + dx * s2 + dy * c]; };
+    return { ...H, hn: up(H.hn, shN), hf: up(H.hf, shF), ab: H.ab - SKY_AIM };
+  }
   // sword or mace, with a shield on the far arm. On the march the blade lies
   // back along the shoulder, nearly level (the fist up under the chin, the
   // forearm steep before the chest, the hilt across the fist): it crosses the
@@ -712,7 +729,12 @@ const soldier = (ctx, p) => {
       bow(ctx, hf[0], hf[1], H.ab, p.wcol || "#6a4428", H.string ? hn : null, 6.8);
       fist(ctx, hf[0], hf[1], 0.95, fistF);
       if (H.nock) arrow(ctx, hn[0], hn[1], ...to(0, 3.4));
-      if (H.loose) { ctx.fillStyle = "rgba(255,243,210,0.8)"; for (let i = 0; i < 3; i++) ctx.fillRect(hf[0] + 3.6 + i * 1.6, hf[1] - 0.2, 1.0, 0.4); }
+      if (H.loose) {
+        ctx.fillStyle = "rgba(255,243,210,0.8)";
+        // the streaks fly off the way the arrow went (skyward on the "sky" sheet)
+        if (st.sky) for (let i = 0; i < 3; i++) { const [lx, ly] = to(0, 3.9 + i * 1.6); ctx.fillRect(lx - 0.5, ly - 0.2, 1.0, 0.4); }
+        else for (let i = 0; i < 3; i++) ctx.fillRect(hf[0] + 3.6 + i * 1.6, hf[1] - 0.2, 1.0, 0.4);
+      }
       const h = arm(ctx, shN, H.hn, { ...A, bend: H.flip ? 1 : -1 }, armN);
       // at the quiver the fingers close on a fletching
       if (H.draw) blob(ctx, [[h[0] - 0.5, h[1] - 0.6], [h[0] - 0.1, h[1] - 2.4, 1], [h[0] + 0.4, h[1] - 0.6]], "#e8e2d0", { hi: 0.3 });

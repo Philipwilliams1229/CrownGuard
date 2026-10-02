@@ -12,21 +12,25 @@ const FIGHT = CR.CROWN_FIGHT_FRAMES || {};
 const WALK = ["contact", "passing", "contact", "passing"];
 const FIGHT4 = CR.CROWN_FIGHT_NAMES || {};
 
-const cell = (type, pose, frame, note) => ({
+const cell = (type, pose, frame, note, sky = false) => ({
   note,
   draw: (c) => {
     const { kind, p } = rigDef(type);
     c.save(); c.translate(X, Y);
-    CR.CROWN_PAINTERS[kind](c, { ...p, pose, frame });
+    CR.CROWN_PAINTERS[kind](c, { ...p, pose, frame, sky });
     c.restore();
   },
 });
 
-export const rows = TYPES.map((t) => {
+// a bowman's "sky" sheet (Wren's Arrow Volley): the fight's frames, aim raised
+const SKY = ["heroHunter", "bowman"];
+export const rows = TYPES.flatMap((t) => {
   const n = FIGHT[t] || Number(new URLSearchParams(location.search).get("fights")) || 2;
   const names = FIGHT4[t] || (n === 4 ? ["guard", "wind-up", "strike", "follow"] : ["wind-up", "strike"]);
-  return [`${t}\nwalk 0-3 | fight 0-${n - 1}`, [
+  const row = [`${t}\nwalk 0-3 | fight 0-${n - 1}`, [
     ...WALK.map((w, f) => cell(t, "walk", f, `walk ${f} ${w}`)),
     ...Array.from({ length: n }, (_, f) => cell(t, "fight", f, `fight ${f} ${names[f] || ""}`)),
   ]];
+  if (!SKY.includes(t)) return [row];
+  return [row, [`${t}\nsky 0-3 (volley)`, Array.from({ length: n }, (_, f) => cell(t, "fight", f, `sky ${f} ${names[f] || ""}`, true))]];
 });

@@ -629,9 +629,18 @@ export const fireHeroAbility = (g, id, x, y) => {
     g.effects.push({ type: "levelup", x: tx, y: ty, ttl: 500 });
     sfx.play("horn");
   } else if (id === "volley") {
+    // she turns to the spot and looses her flights up into the sky; they
+    // come down on it from her side (update.js lands them, draw.js flies
+    // them, enemies.js plays her "sky" frames off u.volley)
     if (!g.volleys) g.volleys = [];
-    g.volleys.push({ src: b.id, x, y, r: a.r, dmg: a.dmg, tick: a.tick, next: tms + 250, until: tms + a.dur, t0: tms });
-    sfx.play("arrow");
+    u.face = x >= u.x ? 1 : -1;
+    const [hx, hy] = bandArrowFrom(u, true);
+    const last = tms + a.lead + (a.beats - 1) * a.gap;
+    u.volley = { t0: tms, lead: a.lead, gap: a.gap, beats: a.beats, until: last + 240 };
+    g.volleys.push({
+      src: b.id, x, y, r: a.r, dmg: a.dmg, beats: a.beats, gap: a.gap, lead: a.lead, flight: a.flight,
+      fx: hx, fy: hy - 3, t0: tms, loosed: 0, landed: 0, until: last + a.flight + 500,
+    });
   } else if (id === "heart") {
     const mark = heartseekerMark(g, x, y, a.pick);
     if (!mark) return false;                 // nothing there: keep the arrow

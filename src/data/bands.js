@@ -110,9 +110,13 @@ export const HERO_ABILITIES = {
       base: { dmg: 90, knock: 26, reach: 280, width: 22 }, perLevel: { dmg: 16 } },
   ],
   wren: [
-    { id: "volley", name: "Arrow Volley", aim: "ground", unlock: 1, cd: 30000, icon: "volley",
-      desc: "Arrows rain on the spot you tap for three seconds, hitting everything there — fliers too.",
-      base: { dmg: 14, r: 56, dur: 3000, tick: 300 }, perLevel: { dmg: 2.5 } },
+    // four quick flights loosed skyward, `gap` ms apart after a `lead` to
+    // raise the bow; each lands `flight` ms after it leaves the string and
+    // strikes everything in `r` once (owner, 2026-10-02: quicker, fewer and
+    // harder arrows, a faster recharge — was 10 beats of 14 over 3 s, 30 s)
+    { id: "volley", name: "Arrow Volley", aim: "ground", unlock: 1, cd: 18000, icon: "volley",
+      desc: "Wren looses four quick flights skyward; they fall on the spot you tap, hitting everything there — fliers too.",
+      base: { dmg: 24, r: 56, beats: 4, gap: 280, lead: 220, flight: 460 }, perLevel: { dmg: 4 } },
     { id: "heart", name: "Heartseeker", aim: "foe", unlock: 5, cd: 45000, icon: "heart",
       desc: "One great armor-piercing shot at the BIGGEST foe near where you tap — made for bosses.",
       base: { dmg: 280, pick: 80 }, perLevel: { dmg: 48 } },

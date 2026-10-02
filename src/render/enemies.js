@@ -342,6 +342,18 @@ function fightFrame(kind, u, rate, ranged) {
   return fightFrame4(u, r);
 }
 
+// Her frame through an Arrow Volley (null past its end, so -1): full draw
+// while she raises the bow, then at each flight the loose, the reach to the
+// quiver, the nock and the draw again, the last loose held to the end.
+function volleyFrame(v, tms) {
+  if (tms >= v.until) return -1;
+  const s = tms - v.t0 - v.lead;
+  if (s < 0) return 0;
+  const k = Math.floor(s / v.gap), ph = (s % v.gap) / v.gap;
+  if (k >= v.beats - 1) return 1;
+  return ph < 0.3 ? 1 : ph < 0.5 ? 2 : ph < 0.75 ? 3 : 0;
+}
+
 export const drawKnightUnit = (ctx, u, t, time) => {
   if (u.state === "dead") return;
   if (t.kind === "riverwatch") { drawSkiff(ctx, u, t, time); return; }
@@ -449,10 +461,13 @@ export const drawBandUnit = (ctx, u, b, time) => {
   const hero = b.kind === "hero";
   const kind = hero ? (b.hero === "wren" ? "heroHunter" : "heroKnight") : b.kind === "gateguard" ? "halberdier" : b.kind === "retinue" || b.rig ? (u.rig || b.rig) : "farmer";
   const fighting = u.state === "fighting";
-  const sheet = fighting ? "fight" : "walk";
+  // Wren's Arrow Volley: the "sky" sheet, her draw raised high, cycling
+  // loose → quiver → nock → draw once a flight (actions.js u.volley)
+  const sky = hero && u.volley && u.state !== "moving" ? volleyFrame(u.volley, time * 1000) : -1;
+  const sheet = sky >= 0 ? "sky" : fighting ? "fight" : "walk";
   // a swordsman winds up then strikes; the huntress holds at full draw and
   // flings the string hand back for the moment after she looses
-  const frame = u.state === "moving" ? Math.floor(time * 7 + u.id) % 4
+  const frame = sky >= 0 ? sky : u.state === "moving" ? Math.floor(time * 7 + u.id) % 4
     : fighting ? fightFrame(kind, u, u.bow ? b.st.bow.rate : b.st?.rate, !!(b.st?.ranged || u.bow)) : 0;
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, 0.3, time);
   softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3);

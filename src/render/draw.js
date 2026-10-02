@@ -30,6 +30,10 @@ import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawBarricades } from "./barricade.js";
 import { drawRemains } from "./remains.js";
 import { drawLog } from "./logs.js";
+
+// shafts in each flight of Wren's Arrow Volley (the look only: every flight
+// strikes the whole ring once, update.js)
+const VOLLEY_SHAFTS = 6;
 import { drawStoop } from "./birds.js";
 import { drawMusketShot } from "./musketfx.js";
 import { drawRingFx } from "./rings.js";
@@ -454,27 +458,57 @@ export function draw(g, canvas, bufRef) {
     drawProjectile(ctx, p, g.time);
   }
 
-  // Arrow Volley: a rain of shafts over its spot — each falls on a slant
-  // from above, lands, and another takes its place, over a faint mark
+  // Arrow Volley: each flight leaves Wren's bow going up, then comes down
+  // on its spot on a slant from her side and sticks in the ground; the stuck
+  // shafts fade as the volley ends (engine: actions.js, update.js)
   if (g.volleys) {
     const tmsV = g.time * 1000;
+    const hash = (n) => { const x = Math.sin(n) * 43758.5453; return x - Math.floor(x); };
+    // a shaft: fletching at x0,y0, the head at x1,y1
+    const shaft = (x0, y0, x1, y1) => {
+      ctx.strokeStyle = "#3a2a1c"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      ctx.fillStyle = "#c8383a"; ctx.fillRect(S(x0) - 0.5, S(y0) - 0.5, CELL, CELL);
+      ctx.fillStyle = "#d8dce4"; ctx.fillRect(S(x1) - 0.5, S(y1) - 0.5, CELL, CELL);
+    };
     for (const v of g.volleys) {
-      const left = Math.max(0, Math.min(1, (v.until - tmsV) / 400));
-      ctx.save(); ctx.globalAlpha = 0.35 * left;
+      const dx = v.x - v.fx, dy = v.y - v.fy, d = Math.hypot(dx, dy);
+      const ux = d > 8 ? dx / d : 1, uy = d > 8 ? dy / d : 0;
+      // the way down: from high up and back toward her
+      const ox = -ux * 34, oy = -uy * 20 - 66, ol = Math.hypot(ox, oy);
+      const fade = Math.max(0, Math.min(1, (v.until - tmsV) / 450));
+      ctx.save(); ctx.globalAlpha = 0.35 * Math.min(fade, Math.max(0.3, Math.min(1, (tmsV - v.t0) / 300)));
       ringPx(ctx, v.x, v.y, v.r, v.r * 0.62, 1, "#e8dcb4");
       ctx.restore();
-      for (let i = 0; i < 16; i++) {
-        const seed = i * 7.31 + v.t0 * 0.001;
-        const ph = ((tmsV - v.t0) / 420 + (i * 0.37) % 1) % 1;       // 0 high in the air, 1 landed
-        const ang = (Math.sin(seed * 12.9898) * 43758.5453) % 1 * Math.PI * 2;
-        const rr = Math.sqrt(Math.abs((Math.sin(seed * 78.233) * 12345.678) % 1)) * v.r;
-        const gx = v.x + Math.cos(ang) * rr, gy = v.y + Math.sin(ang) * rr * 0.62;
-        const ax = gx - (1 - ph) * 10, ay = gy - (1 - ph) * 46;
-        ctx.globalAlpha = left;
-        ctx.strokeStyle = "#3a2a1c"; ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(ax - 2.5, ay - 9); ctx.lineTo(ax, ay); ctx.stroke();
-        ctx.fillStyle = "#d8dce4"; ctx.fillRect(S(ax) - 0.5, S(ay) - 0.5, CELL, CELL);
-        if (ph > 0.85) { ctx.fillStyle = "rgba(232,220,180,0.7)"; ctx.fillRect(S(gx) - 1, S(gy), CELL * 2, CELL); }
+      const up = v.flight * 0.42, down = v.flight * 0.45;
+      for (let k = 0; k < v.beats; k++) {
+        const L = v.t0 + v.lead + k * v.gap, land = L + v.flight;
+        if (tmsV < L) break;
+        for (let i = 0; i < VOLLEY_SHAFTS; i++) {
+          const seed = v.t0 * 0.0013 + k * 17.3 + i * 3.71;
+          // rising: a fan of shafts climbing out of sight from her bow
+          if (tmsV < L + up) {
+            const q = (tmsV - L) / up, fan = i - (VOLLEY_SHAFTS - 1) / 2;
+            const sx = ux * (8 + Math.abs(fan) * 3) + fan * 5 + (hash(seed) - 0.5) * 4;
+            const hx = v.fx + sx * q, hy = v.fy - 4 - (100 + (i % 3) * 12) * q;
+            ctx.globalAlpha = 1 - q * 0.7;
+            shaft(hx - sx * 0.08, hy + 8, hx, hy);
+            continue;
+          }
+          if (tmsV < land - down) continue;
+          // falling, then stuck where it fell
+          const ang = hash(seed + 1.1) * Math.PI * 2, rr = Math.sqrt(hash(seed + 2.7)) * v.r * 0.95;
+          const gx = v.x + Math.cos(ang) * rr, gy = v.y + Math.sin(ang) * rr * 0.62;
+          if (tmsV < land) {
+            const r1 = (land - tmsV) / down, ax = gx + ox * r1, ay = gy + oy * r1;
+            ctx.globalAlpha = 1;
+            shaft(ax + (ox / ol) * 10, ay + (oy / ol) * 10, ax, ay);
+          } else {
+            ctx.globalAlpha = fade;
+            shaft(gx + (ox / ol) * 5, gy + (oy / ol) * 5, gx, gy);
+            if (tmsV < land + 120) { ctx.fillStyle = "rgba(232,220,180,0.7)"; ctx.fillRect(S(gx) - 1, S(gy), CELL * 2, CELL); }
+          }
+        }
       }
       ctx.globalAlpha = 1;
     }

@@ -616,6 +616,11 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
         }
       }
     }
+    // loosing an Arrow Volley skyward she has no hand for anything else
+    if (u.volley) {
+      if (u.volley.until > tms) { u.state = "fighting"; return; }
+      u.volley = null;
+    }
     let best = null, bd = st.range;
     // she shoots whoever is on her first
     const onHer = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
@@ -1052,16 +1057,19 @@ export function updateGame(g, dt) {
       }
       g.bands = g.bands.filter((b) => !b.gone);
     }
-    // Arrow Volley: the rain falls on its spot in beats, hitting everything
-    // under it — fliers too
+    // Arrow Volley: Wren looses `beats` flights skyward, `gap` apart after
+    // her `lead`; each comes down `flight` later and strikes everything in
+    // its ring once — fliers too. (The arrows linger, stuck in the ground,
+    // until `until`; draw.js.)
     if (g.volleys && g.volleys.length) {
       for (const v of g.volleys) {
-        while (v.next <= tms && v.next <= v.until) {
-          v.next += v.tick;
+        while (v.loosed < v.beats && v.t0 + v.lead + v.loosed * v.gap <= tms) { v.loosed++; sfx.play("arrow"); }
+        while (v.landed < v.beats && v.t0 + v.lead + v.landed * v.gap + v.flight <= tms) {
+          v.landed++;
           for (const e of g.enemies) {
             if (e.dead || e.swimming || Math.hypot(e.x - v.x, e.y - v.y) > v.r) continue;
             dealDamage(g, e, v.dmg, "phys", false, false, v.src);
-            if (Math.random() < 0.35) g.effects.push({ type: "hit", x: e.x, y: e.y - 6, ttl: 200 });
+            if (Math.random() < 0.5) g.effects.push({ type: "hit", x: e.x, y: e.y - 6, ttl: 200 });
           }
         }
       }
