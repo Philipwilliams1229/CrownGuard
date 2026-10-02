@@ -391,6 +391,17 @@ the shamans now walking in the thick of the warband).
   blue caret, never hidden by a sister (`g.skiffPick`, waterreach.js `CARET_PICK`). Choosing All clears every boat's own order.
   Skiffs are numbered by their place in `t.units`, not along the river.
   Provisional, pending the owner's playtest.
+- **Wren's Arrow Volley** (owner, 2026-10-02: "faster, less total arrows,
+  faster reload, fall from the direction of Wren, hit harder"): 4 flights
+  (`beats`) of 24 +4/level, `gap` 280 ms after a 220 ms `lead`, each
+  landing `flight` 460 ms after it leaves the string; cd 18 s (was 10 x 14
+  over 3 s on 30 s). `u.volley` (actions.js) holds her normal shots and
+  plays the rig's `sky` sheet (rigs.js passes `sky`; rigs-crown.js swings
+  the bow draw up by `SKY_AIM` about each shoulder; `volleyFrame` in
+  render/enemies.js). draw.js flies the shafts up from her bow, down on a
+  slant from her side, and leaves them stuck till the volley fades.
+  `joint-lab.html?set=crown&only=heroHunter` shows the sky frames. The sims
+  never fire abilities. Provisional.
 - **Masons' barricades** (owner, 2026-09-30): after every wave the Masons'
   Guild (castle works) sets spiked stake frames, one a lane, across the road
   before the Gate Guard: tier 1 one row (150 hp a frame, 5 thorns a blow),
