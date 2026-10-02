@@ -7,7 +7,7 @@ import * as CR from "/src/render/rigs-crown.js";
 // the rigs are bigger than a crew (the champion's maul goes up past 45 units)
 export const CW = 56, CH = 64;
 const X = 22, Y = 58;
-const TYPES = ["knight", "squire", "paladin", "berserk", "champion", "halberdier", "farmer", "heroKnight", "heroHunter", "bowman"];
+const TYPES = ["knight", "squire", "paladin", "berserk", "champion", "halberdier", "farmer", "heroKnight", "heroHunter", "bowman", "heroFriar", "heroCaptain", "heroStorm"];
 const FIGHT = CR.CROWN_FIGHT_FRAMES || {};
 const WALK = ["contact", "passing", "contact", "passing"];
 const FIGHT4 = CR.CROWN_FIGHT_NAMES || {};
@@ -22,8 +22,9 @@ const cell = (type, pose, frame, note, sky = false) => ({
   },
 });
 
-// a bowman's "sky" sheet (Wren's Arrow Volley): the fight's frames, aim raised
-const SKY = ["heroHunter", "bowman"];
+// a bowman's "sky" sheet (Wren's Arrow Volley): the fight's frames, aim raised;
+// Ysolde's is the staff raised overhead, calling the storm down
+const SKY = ["heroHunter", "bowman", "heroStorm"];
 export const rows = TYPES.flatMap((t) => {
   const n = FIGHT[t] || Number(new URLSearchParams(location.search).get("fights")) || 2;
   const names = FIGHT4[t] || (n === 4 ? ["guard", "wind-up", "strike", "follow"] : ["wind-up", "strike"]);

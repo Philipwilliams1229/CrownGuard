@@ -14,10 +14,12 @@
 // two-bone arms find the weapon. p.look picks the kit worn over it: the
 // garrison knight's blue tabard, the paladin's white-and-gold plate, the
 // berserker's bare chest and war paint, the militia's smock and straw hat,
-// Sir Aldric's silver and red, Wren's hood and longbow. Colours come only
-// from p.skin / cloth / cloth2 / hair / cape / wcol / shcol.
+// Sir Aldric's silver and red, Wren's hood and longbow, Brother Osric's
+// habit and tonsure, Captain Hale's kettle hat and navy tabard, Ysolde's
+// indigo robe, silver hair and storm staff. Colours come only from p.skin /
+// cloth / cloth2 / hair / cape / wcol / shcol (and the captain's p.plume).
 
-import { lighten, darken, mix, ball, lin, part, shadow } from "./paint.js";
+import { lighten, darken, mix, ball, lin, part, shadow, glow } from "./paint.js";
 import { logJoint } from "./folk-kit.js";
 
 // ---- the kit (the same small skeleton as the horde's) ------------------------
@@ -94,6 +96,23 @@ const SHOOT = [
   { x: -0.2, bob: 0.4, lean: 0.05, head: 0.1, fl: 0.7, sk: 0.2 },
   { x: -0.1, bob: 0.4, lean: 0.03, head: 0.1, fl: 0.5, sk: 0.1 },
 ];
+// A storm-caller's staff (Ysolde; enemies.js reads a ranged hero's frames as
+// 0 ready, 1 the release, 2 recoil, 3 recover): she gathers the storm with
+// the staff held up before her, lunges it at the foe as the bolt leaves,
+// rocks back off the jolt and brings it up again. Her "sky" sheet (Thunderclap)
+// leans back with the staff raised high: raise, hold, crackle, hold.
+const CAST = [
+  { x: -0.2, bob: 0.3, lean: -0.02, head: 0, fl: 0.3, sk: 0, near: 0.9 },
+  { x: 0.8, bob: 0.7, lean: 0.12, head: 0.35, fl: 1.2, sk: 0.7, near: 1.25 },
+  { x: -0.5, bob: 0.3, lean: -0.08, head: -0.2, fl: 0.7, sk: -0.3, near: 1.25 },
+  { x: -0.25, bob: 0.4, lean: 0.0, head: 0, fl: 0.4, sk: 0.1, near: 1.0 },
+];
+const CALL = [
+  { x: -0.3, bob: 0.2, lean: -0.05, head: -0.1, fl: 0.4, sk: 0.1, near: 0.9 },
+  { x: -0.5, bob: 0.0, lean: -0.1, head: -0.25, fl: 0.9, sk: 0.3, near: 0.9 },
+  { x: -0.5, bob: 0.1, lean: -0.1, head: -0.25, fl: 1.4, sk: 0.5, near: 0.9 },
+  { x: -0.5, bob: 0.0, lean: -0.1, head: -0.25, fl: 1.0, sk: 0.3, near: 0.9 },
+];
 const step = (p, o) => {
   const f = (p.frame || 0) % 4, s = o.stride;
   if (p.pose !== "fight") {
@@ -110,6 +129,10 @@ const step = (p, o) => {
     const b = SHOOT[f];
     // shooting skyward (the "sky" sheet) she leans back from the hips
     return { fight: true, f, c: 0, sky: !!p.sky, near: [s * 0.9, 0], far: [-s * 1.0, 0], x: b.x - (p.sky ? 0.3 : 0), bob: o.bob * b.bob, lean: o.lean + b.lean - (p.sky ? 0.1 : 0), swing: 0, head: b.head - (p.sky ? 0.2 : 0), fl: b.fl, sk: b.sk };
+  }
+  if (p.weapon === "staff") {
+    const b = (p.sky ? CALL : CAST)[f];
+    return { fight: true, f, c: 0, sky: !!p.sky, near: [s * b.near, 0], far: [-s * 1.0, 0], x: b.x, bob: o.bob * b.bob, lean: o.lean + b.lean, swing: 0, head: b.head, fl: b.fl, sk: b.sk };
   }
   const b = MELEE[f];
   // a pole cocked back rocks the head back with it (the overhead cuts keep
@@ -238,9 +261,17 @@ const axe = (ctx, x, y, a, col, len = 5.6) => {
 
 // the Gate Guard's halberd: a long ash pole, an axe blade on the +v side
 // (toward the foe), a back hook, and a spike to thrust with
-const halberd = (ctx, x, y, a, col, back = 7, fwd = 9.4) => {
+const halberd = (ctx, x, y, a, col, back = 7, fwd = 9.4, tassel = null) => {
   const to = along(x, y, a);
   part(ctx, (c) => haft(c, to, -back, fwd + 2.6, 0.95, OAK));
+  // a captain's tassel hangs from the socket, always straight down
+  if (tassel) part(ctx, (c) => {
+    const [tx, ty] = to(fwd - 2.3, 0);
+    line(c, tx, ty, tx - 0.1, ty + 1.3, 0.45, darken(tassel, 0.3));
+    path(c, [[tx - 0.1, ty + 1.0], [tx + 0.7, ty + 2.1], [tx + 0.5, ty + 3.3, 1], [tx - 0.1, ty + 3.0, 1], [tx - 0.7, ty + 3.3, 1], [tx - 0.7, ty + 2.1]]);
+    c.fillStyle = cel(c, tx - 0.8, ty + 1, tx + 0.8, ty + 3.3, tassel, 0.4, 0.4); c.fill();
+    dab(c, tx - 0.6, ty + 1.5, 1.2, 0.45, BRASS);
+  });
   part(ctx, (c) => {
     const F = fwd;
     const spike = [[...to(F + 1.8, -0.55), 1], [...to(F + 5.6, 0), 1], [...to(F + 1.8, 0.55), 1]];
@@ -263,6 +294,46 @@ const fork = (ctx, x, y, a, col, back = 6, fwd = 8.4) => part(ctx, (c) => {
   for (const v of [-1.3, 0, 1.3]) { c.strokeStyle = col; c.lineWidth = 0.6; c.lineCap = "round"; c.beginPath(); c.moveTo(...to(fwd, v)); c.quadraticCurveTo(...to(fwd + 2.4, v * 1.05), ...to(fwd + 3.8, v * 0.8)); c.stroke(); }
   line(c, ...to(fwd + 0.4, -0.9), ...to(fwd + 2.6, -1.3), 0.3, lighten(col, 0.5));
 });
+
+// Ysolde's storm staff: a blackthorn shaft shod in iron, silver bands under
+// a forked iron crown, and the crystal the crown cradles (its middle at
+// fwd + CRYSTAL_AT along the shaft). o.glow (0-1) lays a soft light round
+// the crystal (translucent, so the ink passes it by); o.flash whitens it as
+// a bolt leaves; o.spark crackles forks of lightning off it.
+const STAFF_WOOD = "#4e3c34", IRON = "#7c8290";
+const CRYSTAL_AT = 2.1;
+const staff = (ctx, x, y, a, col, back, fwd, o = {}) => {
+  const to = along(x, y, a), cx = fwd + CRYSTAL_AT;
+  part(ctx, (c) => {
+    haft(c, to, -back, fwd + 0.4, 0.95, STAFF_WOOD);
+    haft(c, to, -back, -back + 0.9, 1.1, IRON);
+    for (const u of [fwd - 2.0, fwd - 1.1]) haft(c, to, u - 0.22, u + 0.22, 1.35, "#c8ccd8");
+    line(c, ...to(-back + 1.4, -0.2), ...to(fwd - 2.6, -0.2), 0.3, lighten(STAFF_WOOD, 0.3));
+  });
+  if (o.glow) glow(ctx, ...to(cx, 0), 2.6 + o.glow * 1.8, col, 0.16 + o.glow * 0.2);
+  // the crown: two prongs curling up round the crystal, a knob at their root
+  part(ctx, (c) => {
+    c.strokeStyle = IRON; c.lineWidth = 0.6; c.lineCap = "round";
+    for (const v of [-1, 1]) { c.beginPath(); c.moveTo(...to(fwd, 0)); c.quadraticCurveTo(...to(fwd + 0.7, v * 2.1), ...to(cx + 1.3, v * 1.1)); c.stroke(); }
+    ball(c, ...to(fwd + 0.1, 0), 0.75, 0.75, IRON, { hi: 0.5, lo: 0.4 });
+  });
+  part(ctx, (c) => {
+    const pts = [[...to(fwd + 0.5, 0), 1], [...to(cx - 0.1, -0.95), 1], [...to(cx + 1.6, 0), 1], [...to(cx - 0.1, 0.95), 1]];
+    path(c, pts); c.fillStyle = cel(c, ...bbox(pts), o.flash ? lighten(col, 0.5) : col, 0.5, o.flash ? 0.1 : 0.35); c.fill();
+    poly(c, [to(fwd + 0.9, -0.1), to(cx - 0.1, -0.7), to(cx + 0.9, -0.1)], lighten(col, 0.75));
+  });
+  if (o.spark) {
+    // forks of lightning off the crystal (opaque, so the ink rings them)
+    const forks = o.spark === 2 ? [[-0.9, 3.2], [0.5, 3.6], [1.9, 2.9], [-2.2, 2.4]] : [[-1.1, 3.0], [0.9, 3.4], [2.3, 2.5]];
+    ctx.strokeStyle = lighten(col, 0.6); ctx.lineWidth = 0.45; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (const [ang, len] of forks) {
+      const d = a + ang, ux = Math.cos(d), uy = Math.sin(d), [x0, y0] = to(cx, 0);
+      ctx.beginPath(); ctx.moveTo(x0 + ux * 1.4, y0 + uy * 1.4);
+      for (let i = 1; i <= 3; i++) { const r = 1.4 + (len * i) / 3, j = (i % 2 ? 0.7 : -0.6); ctx.lineTo(x0 + ux * r - uy * j, y0 + uy * r + ux * j); }
+      ctx.stroke();
+    }
+  }
+};
 
 // the longbow: limbs along `a` from the grip, bowed toward +v (the mark); the
 // string runs tip to tip, through `nock` when it is drawn
@@ -308,7 +379,10 @@ const pauldron = (ctx, x, y, r, col, trim) => part(ctx, (c) => {
 
 // ---- heads ----------------------------------------------------------------------
 // (0,0) the middle of the skull, +x the face; a man's head is ~4.6 across
-const face = (c0, skin, o = {}) => blob(c0, [[-2.0, 0.2], [-1.9, -1.6], [-0.6, -2.5], [1.2, -2.4], [2.1, -1.4], [2.3, -0.5], [2.8, 0.3, 1], [2.2, 0.8], [2.0, 1.6], [1.1, 2.4], [-0.4, 2.3], [-1.6, 1.4]], skin, {
+// (o.dome raises the crown of the skull, for a bare tonsured pate)
+const FACE = [[-2.0, 0.2], [-1.9, -1.6], [-0.6, -2.5], [1.2, -2.4], [2.1, -1.4], [2.3, -0.5], [2.8, 0.3, 1], [2.2, 0.8], [2.0, 1.6], [1.1, 2.4], [-0.4, 2.3], [-1.6, 1.4]];
+const DOME = [[-2.1, 0.2], [-2.2, -1.7], [-1.1, -3.0], [0.7, -3.2], [1.9, -2.4], [2.3, -1.2], [2.3, -0.5], [2.8, 0.3, 1], [2.2, 0.8], [2.0, 1.6], [1.1, 2.4], [-0.4, 2.3], [-1.6, 1.4]];
+const face = (c0, skin, o = {}) => blob(c0, o.dome ? DOME : FACE, skin, {
   hi: 0.28, lo: 0.35, then: (c) => {
     dab(c, -0.9, -0.3, 0.8, 1.2, darken(skin, 0.22));                   // the ear
     if (o.paint) { dab(c, 0.2, -0.9, 2.6, 0.75, o.paint); dab(c, 0.6, 0.4, 0.5, 1.3, o.paint); }
@@ -410,6 +484,54 @@ const hunterHead = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
   blob(c0, [[1.0, -1.7], [2.0, -1.4], [1.3, -0.4, 1], [0.8, -0.8]], "#8a4a2a", { hi: 0.3 });
 });
 
+// Brother Osric: a bare tonsured pate, a fringe of hair round it from the
+// temple to the nape, round cheeks
+const friarHead = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
+  const hair = p.hair || "#6a4a30";
+  face(c0, p.skin, { dome: true });
+  blob(c0, [[-1.0, 1.2], [-2.5, 1.0], [-2.7, -0.8], [-2.3, -2.0], [-1.0, -2.4], [0.4, -2.3], [1.4, -1.95], [1.7, -1.5, 1], [0.6, -1.65], [-0.5, -1.55], [-1.1, -0.6]], hair, {
+    hi: 0.3, lo: 0.4, then: (c) => { line(c, -2.4, -1.3, -0.2, -1.95, 0.35, lighten(hair, 0.35)); for (const u of [-2.0, -1.2]) line(c, u, -0.4, u + 0.1, 0.9, 0.3, darken(hair, 0.35)); },
+  });
+  // the shine on the pate, and a ruddy cheek
+  dab(c0, -0.5, -2.75, 1.0, 0.5, lighten(p.skin, 0.55));
+  dab(c0, 1.2, 0.5, 0.8, 0.6, mix(p.skin, "#d06a5a", 0.35));
+});
+
+// Captain Hale: a steel kettle hat, its brim turned down, a plume streaming
+// from its crown; grizzled hair at the nape and a heavy grey moustache
+const kettleHead = (ctx, x, y, a, p, fl = 0) => inFrame(ctx, x, y, a, (c0) => {
+  const steel = p.cloth || "#c4c8d0", grey = p.hair || "#a8a49c", plume = p.plume || "#c8383a";
+  blob(c0, [[-0.4, -3.6], [-1.6, -5.4], [-3.6 - fl * 0.3, -6.2], [-5.9 - fl * 0.6, -5.0 + fl * 0.2, 1], [-4.0 - fl * 0.3, -4.9], [-2.6, -4.1], [-1.3, -3.4]], plume, {
+    hi: 0.35, lo: 0.42, then: (c) => { line(c, -1.0, -4.4, -4.6 - fl * 0.4, -5.5, 0.4, lighten(plume, 0.35)); line(c, -1.8, -3.9, -4.8 - fl * 0.5, -4.9, 0.35, darken(plume, 0.4)); },
+  });
+  blob(c0, [[-1.4, 1.8], [-2.6, 1.4], [-2.6, -0.4], [-1.4, -0.6], [-1.0, 1.2]], grey, { hi: 0.4 });
+  face(c0, p.skin, { beard: true, brow: grey });
+  // the moustache, drooping past the corner of the mouth
+  blob(c0, [[0.9, 0.75], [2.1, 0.55], [2.9, 0.9], [2.6, 1.5], [2.2, 2.3, 1], [1.7, 1.4], [1.0, 1.4]], grey, { hi: 0.45, lo: 0.35 });
+  dab(c0, -1.3, -0.6, 0.6, 1.4, grey);
+  // the dome, then the brim: its underside sits two units up over the eye
+  // and turns down only past the face
+  blob(c0, [[-2.4, -1.9], [-2.3, -3.3], [-1.0, -4.3], [0.8, -4.3], [2.1, -3.4], [2.4, -1.9]], steel, {
+    hi: 0.55, lo: 0.4, then: (c) => { line(c, -1.0, -4.0, -2.0, -2.4, 0.45, lighten(steel, 0.7)); dab(c, -3, -2.6, 6, 0.6, darken(steel, 0.35)); },
+  });
+  blob(c0, [[-4.4, -1.0, 1], [-3.4, -2.3], [0, -2.7], [3.2, -2.4], [4.3, -1.5], [4.6, -0.7, 1], [3.4, -1.4], [2.2, -2.0], [0, -2.1], [-3.0, -1.7]], steel, {
+    hi: 0.45, lo: 0.45, then: (c) => { line(c, -3.6, -2.3, 3.4, -2.45, 0.4, lighten(steel, 0.6)); dab(c, 0.2, -2.5, 0.6, 0.5, BRASS); },
+  });
+});
+
+// Ysolde: long silver hair streaming back, a fringe swept over the brow and
+// a silver circlet with a storm-blue stone
+const stormHead = (ctx, x, y, a, p, fl = 0) => inFrame(ctx, x, y, a, (c0) => {
+  const hair = p.hair || "#e4e6ee";
+  blob(c0, [[0.6, -2.6], [-0.8, -3.1], [-2.4, -2.4], [-3.0, -0.6], [-3.2 - fl * 0.2, 2.2], [-3.9 - fl * 0.6, 5.4, 1], [-2.7 - fl * 0.4, 4.6], [-1.9 - fl * 0.3, 5.8, 1], [-1.2, 3.4], [-0.6, 1.0]], hair, {
+    hi: 0.25, lo: 0.4, then: (c) => { line(c, -2.0, -1.6, -2.6 - fl * 0.3, 3.8, 0.4, darken(hair, 0.28)); line(c, -1.0, -2.4, -1.4, 1.0, 0.35, lighten(hair, 0.4)); },
+  });
+  face(c0, p.skin, { brow: darken(hair, 0.2) });
+  blob(c0, [[-2.2, 0.6], [-2.4, -1.6], [-1.2, -2.9], [0.6, -3.0], [1.9, -2.3], [2.4, -1.4, 1], [1.2, -1.75], [0.1, -1.4], [-0.6, -0.6], [-0.9, 0.8]], hair, {
+    hi: 0.3, lo: 0.35, then: (c) => { line(c, -1.6, -2.2, 1.6, -2.2, 0.55, p.cloth2 || "#c8d0e0"); dab(c, 1.3, -2.55, 0.7, 0.7, "#5a8ad8"); line(c, -0.4, -2.8, 1.4, -2.0, 0.3, lighten(hair, 0.5)); },
+  });
+});
+
 // ---- the soldier ------------------------------------------------------------------
 const MAN = { L1: 4.8, L2: 4.6, stride: 2.3, lift: 1.8, bob: 0.6, lean: 0.03, dip: 0.03, lunge: 2.0, hipW: 0.7, thigh: 2.3, shin: 2.0, foot: 3.1, ankle: 0.8 };
 
@@ -435,6 +557,30 @@ const bowGrip = (sw, N, F) => [
 // how far the "sky" sheet raises a bowman's aim (radians): high enough that
 // the flight clearly goes UP, to come down on its mark far off
 export const SKY_AIM = 0.85;
+
+// The storm staff's grips: 0 on the march, the fight's four (ready,
+// release, recoil, recover), then the sky sheet's four (raise, hold, crackle,
+// hold). The staff rides in the near hand (an: its angle, the crystal end
+// first), the far hand open and free. On the march it is a walking staff, its
+// iron shoe swinging just clear of the ground; cast, the crystal is never
+// nearer the face than a unit ahead of it, and the raised arm of the sky
+// sheet reaches up and FORWARD, clear of the face. glow / flash / spark light
+// the crystal (staff()).
+const staffGrip = (st, N, F) => {
+  const sw = st.swing;
+  return [
+    { hn: N(3.3 + sw * 0.5, 3.4), an: -1.43 + sw * 0.06, free: F(0.5 - sw * 1.3, 5.7) },
+    { hn: N(3.6, 1.7), an: -1.38, free: F(4.6, 2.4), glow: 0.8 },
+    { hn: N(5.3, 1.0), an: -0.42, free: F(6.0, 2.4), glow: 1, flash: true, spark: 1 },
+    { hn: N(4.6, 0.6), an: -0.95, free: F(3.4, 4.0), glow: 0.3 },
+    { hn: N(3.8, 1.1), an: -1.22, free: F(3.4, 4.4), glow: 0.5 },
+    { hn: N(3.9, -1.6), an: -1.3, free: F(3.6, 3.6), glow: 0.6 },
+    { hn: N(5.0, -3.4), an: -1.52, free: F(2.8, 4.6), glow: 0.9 },
+    { hn: N(5.0, -3.6), an: -1.55, free: F(2.8, 4.6), glow: 1, flash: true, spark: 2 },
+    { hn: N(5.0, -3.3), an: -1.5, free: F(2.8, 4.6), glow: 0.8, spark: 1 }];
+};
+// the staff's length past the hand (to the crown's root) and behind it
+const STAFF_FWD = 8.0, STAFF_BACK = 11.4;
 
 // Where the hands go, per weapon: the march (the gait's swing), then the four
 // fight frames. Points are offsets from the near shoulder (N) or the far one
@@ -489,6 +635,8 @@ const grip = (w, st, shN, shF) => {
     { hn: N(-3.6, -5.1), an: 2.75, hf: F(0.8, -4.9), af: -2.5, behind: true },
     { hn: N(5.0, 2.2), an: 0.55, hf: F(1.4, -4.6), af: -2.3 },
     { hn: N(3.2, 5.2), an: 1.45, hf: F(5.3, 2.6), af: 0.55 }][ph];
+  // the storm staff, in the near hand, the far hand free (staffGrip)
+  if (w === "staff") return staffGrip(st, N, F)[st.sky && st.fight ? 5 + st.f : ph];
   // the bow (bowGrip)
   if (w === "bow") {
     const H = bowGrip(sw, N, F)[ph];
@@ -520,17 +668,19 @@ const grip = (w, st, shN, shF) => {
 const soldier = (ctx, p) => {
   const k = (p.h ?? 22) / 22; ctx.save(); ctx.scale(k, k);
   const look = p.look, o = MAN, R = skeleton(p, o), { st, T } = R;
-  const plated = look === "knight" || look === "guard" || look === "paladin" || look === "hero" || look === "champion";
+  const plated = look === "knight" || look === "guard" || look === "paladin" || look === "hero" || look === "champion" || look === "captain";
+  // the friar's habit and the storm-caller's robe fall to the ankles
+  const robed = look === "friar" || look === "storm";
   // the Gate Guard is kitted as the garrison's knights are, in the castle's colours
   const kn = look === "knight" || look === "guard";
   const skin = p.skin, skinF = darken(skin, 0.24);
   const steel = p.cloth, trim = p.cloth2;
   shadow(ctx, 0.4, -0.1, 4.8, 1.3, 0.22);
-  const burly = look === "berserk" ? 1.14 : 1;
+  const burly = look === "berserk" ? 1.14 : look === "friar" ? 1.12 : look === "captain" ? 1.05 : 1;
   const w = p.weapon, bowFight = w === "bow" && st.fight;
   // an archer at the string turns side-on: the bow shoulder comes round to the front
   const shN = bowFight ? T(-0.3, -6.6) : T(1.0 * burly, -6.6), shF = bowFight ? T(1.3, -6.9) : T(-1.1 * burly, -6.8);
-  const A = { up: 3.4, fore: 3.2, w: plated ? 2.0 : burly > 1 ? 2.15 : 1.8 };
+  const A = { up: 3.4, fore: 3.2, w: plated ? 2.0 : look === "friar" ? 2.3 : burly > 1 ? 2.15 : look === "storm" ? 1.9 : 1.8 };
   const H = grip(w, st, shN, shF);
   // a two-handed haft runs from the rear hand through the lead hand to the head
   const twoHand = !!H.h2;
@@ -549,6 +699,15 @@ const soldier = (ctx, p) => {
     armN = { up: skin, cuff: trim }; armF = { up: skinF, cuff: darken(trim, 0.25) };
     legN = { thigh: p.cloth, shin: p.cloth, wrap: fur, wrapAt: 0.35, foot: darken(trim, 0.1) };
     fistN = skin; fistF = skinF;
+  } else if (robed) {
+    // wide sleeves of the habit or robe to the wrist; under the hem only the
+    // friar's sandalled feet and the mage's soft boots show
+    const sl = p.cloth, cuff = look === "friar" ? darken(sl, 0.14) : lighten(sl, 0.12);
+    armN = { up: sl, cuff }; armF = { up: darken(sl, 0.25), cuff: darken(cuff, 0.25) };
+    legN = look === "friar"
+      ? { thigh: darken(sl, 0.2), shin: skin, wrap: LEATHER, wrapAt: 0.8, foot: skin, sole: LEATHER }
+      : { thigh: darken(sl, 0.3), shin: "#3e3448", foot: "#3e3448", sole: "#2a2232" };
+    fistN = skin; fistF = skinF;
   } else if (look === "farmer") {
     armN = { up: p.cloth, fore: skin }; armF = { up: darken(p.cloth, 0.25), fore: skinF };
     legN = { thigh: trim, shin: trim, wrap: mix(p.cloth, "#e8dcc0", 0.35), wrapAt: 0.55, foot: "#5a3e28" };
@@ -566,16 +725,20 @@ const soldier = (ctx, p) => {
 
   // the cape, behind everything, streaming as he goes
   if (p.cape && look !== "berserk") {
-    const len = look === "hunter" ? 5.2 : 8.0, fl = st.fl;
+    const len = look === "hunter" ? 5.2 : look === "captain" ? 4.4 : look === "storm" ? 6.6 : 8.0, fl = st.fl;
     const cape = p.cape;
     inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => blob(c, [[1.2, -7.2], [-1.6, -7.4], [-2.9, -5.6], [-3.4 - fl * 0.3, -1.0], [-4.2 - fl, 3.6], [-5.0 - fl * 1.3, len, 1], [-3.6 - fl, len - 0.7, 1], [-2.4 - fl * 0.6, len + 0.1, 1], [-1.0 - fl * 0.3, len - 0.6, 1], [-0.6, 2.0], [-0.2, -4.0]], cape, {
       hi: 0.3, lo: 0.42, then: (cc) => {
         line(cc, -2.2, -4.6, -3.8 - fl, len - 0.4, 0.5, darken(cape, 0.35));
         line(cc, -1.2, -3.0, -1.9 - fl * 0.5, len - 0.4, 0.45, darken(cape, 0.3));
-        if (look === "hero" || look === "champion") { cc.strokeStyle = trim; cc.lineWidth = 0.8; path(cc, [[1.2, -7.2], [-1.6, -7.4], [-2.9, -5.6], [-3.4 - fl * 0.3, -1.0], [-4.2 - fl, 3.6], [-5.0 - fl * 1.3, len, 1], [-3.6 - fl, len - 0.7, 1], [-2.4 - fl * 0.6, len + 0.1, 1], [-1.0 - fl * 0.3, len - 0.6, 1], [-0.6, 2.0], [-0.2, -4.0]]); cc.stroke(); }
+        if (look === "hero" || look === "champion" || look === "captain") { cc.strokeStyle = look === "captain" ? p.shcol || BRASS : trim; cc.lineWidth = 0.8; path(cc, [[1.2, -7.2], [-1.6, -7.4], [-2.9, -5.6], [-3.4 - fl * 0.3, -1.0], [-4.2 - fl, 3.6], [-5.0 - fl * 1.3, len, 1], [-3.6 - fl, len - 0.7, 1], [-2.4 - fl * 0.6, len + 0.1, 1], [-1.0 - fl * 0.3, len - 0.6, 1], [-0.6, 2.0], [-0.2, -4.0]]); cc.stroke(); }
       },
     }));
   }
+  // the friar's cowl, down: it lies over his shoulders and hangs on his back
+  if (look === "friar") inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => blob(c, [[0.4, -8.0], [-1.8, -8.2], [-3.4 * burly, -7.0], [-3.7 * burly - st.fl * 0.2, -4.6], [-2.9 * burly - st.fl * 0.15, -3.0, 1], [-1.8, -4.4], [-0.8, -6.4]], darken(p.cloth, 0.08), {
+    hi: 0.3, lo: 0.45, then: (cc) => line(cc, -1.9, -7.2, -3.0 * burly, -4.0, 0.45, darken(p.cloth, 0.45)),
+  }));
   // what rides on the back: the champion's shield, Wren's quiver
   if (look === "champion") inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => { c.save(); c.translate(-2.6, -4.2); c.rotate(-0.25); kite(c, 0, 0, p.shcol || BRASS, lighten(p.shcol || BRASS, 0.3), "cross", "#f4efe0", 0.95); c.restore(); });
   if (look === "hunter") inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
@@ -598,11 +761,28 @@ const soldier = (ctx, p) => {
   inFrame(ctx, R.hip[0], R.hip[1], st.lean, (c) => {
     const sw = st.sk;
     const hem = look === "farmer" ? 2.6 : look === "berserk" ? 3.0 : 3.4;
-    const skirtCol = kn ? trim : look === "hero" ? p.cape : look === "paladin" || look === "champion" ? mix(steel, "#fff3d2", 0.35) : p.cloth;
-    const hemCol = kn ? darken(trim, 0.35) : look === "farmer" || look === "hunter" || look === "berserk" ? darken(skirtCol, 0.35) : trim;
+    const skirtCol = kn || look === "captain" ? trim : look === "hero" ? p.cape : look === "paladin" || look === "champion" ? mix(steel, "#fff3d2", 0.35) : p.cloth;
+    const hemCol = look === "captain" ? p.shcol || BRASS : kn ? darken(trim, 0.35) : look === "farmer" || look === "hunter" || look === "berserk" ? darken(skirtCol, 0.35) : trim;
     const panel = (pts, col) => blob(c, pts, col, { hi: 0.28, then: (cc) => { cc.fillStyle = hemCol; cc.fillRect(-4, hem - 0.9, 8, 1.2); } });
-    panel([[-2.5, -1.0], [0.2, -1.0], [0.0 - sw * 0.3, hem, 1], [-2.9 - sw * 0.6, hem - 0.3, 1]], darken(skirtCol, 0.15));
-    if (look === "berserk") {
+    if (robed) {
+      // the habit or robe falls from the belt to the ankles; its hem spreads
+      // between the feet, so a stride or a lunge never shows a leg through it
+      const fx = [st.near[0], st.far[0]].map((x) => x - R.hip[0]);
+      const front = Math.max(2.5, Math.max(...fx) + 1.0), rear = Math.min(-2.7, Math.min(...fx) - 1.1);
+      const hemY = -R.hip[1] - (look === "storm" ? 1.1 : 1.6), col = p.cloth;
+      const pts = [[-2.3 * burly, -1.8], [2.2, -1.8], [front * 0.6 + 1.0, hemY * 0.5], [front + sw * 0.3, hemY - 0.3, 1], [(front + rear) / 2 + sw * 0.3, hemY + 0.15], [rear - sw * 0.2, hemY - 0.2, 1], [rear * 0.55 - 1.2 * burly, hemY * 0.45]];
+      blob(c, pts, col, {
+        hi: 0.22, lo: 0.45, then: (cc) => {
+          // folds from the girdle, and the hem: a worn dark edge, or silver
+          for (const [x0, x1] of [[-1.4, rear * 0.7 - sw * 0.2], [0.3, (front + rear) / 2 + sw * 0.4], [1.6, front * 0.8 + sw * 0.2]]) line(cc, x0, 0.4, x1, hemY - 0.6, 0.4, darken(col, 0.38));
+          line(cc, 1.9, 0, front * 0.85, hemY - 1.0, 0.35, lighten(col, 0.25));
+          cc.strokeStyle = look === "storm" ? trim : darken(col, 0.35); cc.lineWidth = look === "storm" ? 1.1 : 0.9;
+          cc.beginPath(); cc.moveTo(rear - 1, hemY - 0.2); cc.quadraticCurveTo((front + rear) / 2, hemY + 0.6, front + 1, hemY - 0.3); cc.stroke();
+          if (look === "storm") line(cc, front - 0.2, hemY - 0.5, 2.0, -1.0, 0.6, trim);
+        },
+      });
+    } else panel([[-2.5, -1.0], [0.2, -1.0], [0.0 - sw * 0.3, hem, 1], [-2.9 - sw * 0.6, hem - 0.3, 1]], darken(skirtCol, 0.15));
+    if (robed) { /* the robe is whole */ } else if (look === "berserk") {
       // a kilt of hide strips, ragged at the hem
       const fur = mix(p.cloth, "#c8b898", 0.55);
       blob(c, [[-2.6, -1.0], [2.5, -1.0], [2.8 + sw, hem, 1], [1.8, hem - 0.8, 1], [1.0 + sw * 0.5, hem + 0.2, 1], [0.1, hem - 0.7, 1], [-0.8, hem + 0.1, 1], [-1.8, hem - 0.6, 1], [-2.9 - sw * 0.5, hem - 0.1, 1]], p.cloth, { then: (cc) => { for (const x of [-1.4, 0.6, 1.9]) line(cc, x, -0.4, x + 0.2, hem, 0.4, darken(p.cloth, 0.45)); } });
@@ -610,10 +790,20 @@ const soldier = (ctx, p) => {
     } else panel([[-0.3, -1.0], [2.4, -1.0], [2.9 + sw, hem - 0.2, 1], [0.2 + sw * 0.4, hem, 1]], skirtCol);
 
     const trunk = [[2.0, 0.2], [2.2, -1.8], [2.7, -4.2], [2.8, -5.9], [1.9, -7.0], [0, -7.4], [-1.8, -7.1], [-2.6, -5.8], [-2.5, -3.6], [-2.0, -1.6], [-2.1, 0.2]].map(([x, y]) => [x * (y < -2 ? burly : 1), y]);
-    const trunkCol = kn ? trim : look === "berserk" ? skin : plated ? steel : p.cloth;
+    const trunkCol = kn || look === "captain" ? trim : look === "berserk" ? skin : plated ? steel : p.cloth;
     blob(c, trunk, trunkCol, {
-      hi: plated && !kn ? 0.5 : 0.3, lo: 0.42, then: (cc) => {
-        if (kn) {
+      hi: plated && !kn && look !== "captain" ? 0.5 : 0.3, lo: 0.42, then: (cc) => {
+        if (look === "captain") {
+          // the Watch's navy tabard, gold at its edges, over a steel
+          // breastplate that shows above it; a gold tower on the breast
+          const gold = p.shcol || BRASS;
+          const bp = [[-3, -8.0], [2.9, -8.0], [3.0, -5.2], [1.4, -4.4], [-3, -4.6]];
+          path(cc, bp.map((q) => [...q, 1])); cc.fillStyle = cel(cc, -3, -8, 3, -4.4, steel, 0.55, 0.4); cc.fill();
+          line(cc, -3, -4.7, 1.3, -4.5, 0.5, gold); line(cc, 1.3, -4.5, 3.0, -5.3, 0.5, gold);
+          line(cc, 1.5, -7.4, 1.9, -5.2, 0.7, lighten(steel, 0.6));
+          line(cc, 2.2, -4.6, 2.1, -1.8, 0.55, gold);
+          dab(cc, 0.3, -3.7, 1.3, 1.5, gold); dab(cc, 0.3, -4.0, 0.4, 0.4, gold); dab(cc, 1.2, -4.0, 0.4, 0.4, gold); dab(cc, 0.75, -3.0, 0.4, 0.8, darken(trim, 0.3));
+        } else if (kn) {
           // the garrison's blue surcoat over mail, a pale cross on the breast;
           // the Gate Guard's is the castle's red, a gold bar across it
           line(cc, 2.1, -6.4, 2.3, -2.2, 0.45, lighten(trim, 0.35));
@@ -637,6 +827,18 @@ const soldier = (ctx, p) => {
           line(cc, 1.2, -3.4, 1.4, -1.8, 0.35, darken(skin, 0.3));
           for (const [x, y] of [[1.6, -6.2], [2.0, -5.4]]) line(cc, x - 1.0, y + 0.4, x + 0.8, y - 0.2, 0.45, "#4a74b8");
           line(cc, 2.2, -7.2, -2.4, -1.4, 1.2, trim); line(cc, 2.2, -7.2, -2.4, -1.4, 0.35, lighten(trim, 0.3));
+        } else if (look === "friar") {
+          // the scapular down his front, the holy sign on its cord
+          dab(cc, 0.9, -7.6, 1.6, 6.2, darken(p.cloth2 || p.cloth, 0.05));
+          line(cc, 0.9, -7.4, 0.9, -1.6, 0.35, darken(p.cloth2 || p.cloth, 0.4));
+          line(cc, -0.4, -7.2, 1.6, -5.0, 0.35, "#4a3020");
+          line(cc, -1.7, -6.6, -2.2, -2.4, 0.45, darken(p.cloth, 0.35));
+        } else if (look === "storm") {
+          // the robe's silver-edged front, crossed at the breast
+          line(cc, 2.4, -7.4, 2.1, -1.4, 0.7, trim);
+          line(cc, 0.2, -7.6, 2.2, -4.8, 0.5, trim);
+          line(cc, -1.5, -6.6, -2.0, -2.4, 0.45, darken(p.cloth, 0.4));
+          line(cc, -0.4, -6.8, 1.5, -2.6, 0.35, lighten(p.cloth, 0.25));
         } else if (look === "farmer") {
           // an open neck, a patch, the smock gathered at a rope belt
           poly(cc, [[0.6, -7.4], [2.4, -7.4], [1.5, -5.6]], skin);
@@ -649,7 +851,13 @@ const soldier = (ctx, p) => {
           for (const y of [-6.0, -5.0, -4.0]) dab(cc, 1.4, y, 0.8, 0.35, lighten(p.cloth, 0.4));
           line(cc, -2.2, -7.2, 2.4, -1.8, 1.0, LEATHER);
         }
-        // the belt
+        // the belt: the friar's rope girdle, the mage's silver sash, or leather
+        if (robed) {
+          const rope = look === "friar" ? "#e0d0a0" : trim;
+          dab(cc, -3, -1.6, 6, look === "friar" ? 0.8 : 1.0, rope);
+          if (look === "friar") for (let x = -2.6; x < 3; x += 0.9) dab(cc, x, -1.4, 0.4, 0.4, darken(rope, 0.3));
+          return;
+        }
         const belt = look === "farmer" ? mix(p.hair || "#d8b860", "#8a7a5a", 0.35) : plated && !kn ? darken(trim, 0.2) : look === "berserk" ? trim : "#4a3020";
         dab(cc, -3, -1.6, 6, 1.0, belt);
         if (look !== "farmer") { dab(cc, 1.3, -1.7, 0.9, 1.2, look === "berserk" ? "#b8bcc4" : BRASS); dab(cc, 1.6, -1.4, 0.35, 0.6, darken(belt, 0.4)); }
@@ -657,7 +865,17 @@ const soldier = (ctx, p) => {
       },
     });
     // the gorget or the collar at the throat
-    if (plated) blob(c, [[-1.2, -7.9], [1.4, -8.0], [1.9, -7.0], [-1.6, -6.9]], kn ? steel : trim, { hi: 0.5 });
+    if (plated) blob(c, [[-1.2, -7.9], [1.4, -8.0], [1.9, -7.0], [-1.6, -6.9]], kn || look === "captain" ? steel : trim, { hi: 0.5 });
+    if (look === "friar") {
+      // the cowl's roll about his neck; the girdle's knotted end; the beads
+      blob(c, [[-2.8, -8.2], [0.8, -8.5], [2.3, -7.6], [1.8, -6.6, 1], [0.2, -6.9], [-1.6, -6.7], [-3.0, -7.0]], darken(p.cloth, 0.05), { hi: 0.35, then: (cc) => line(cc, -2.4, -7.3, 1.6, -7.2, 0.4, darken(p.cloth, 0.4)) });
+      blob(c, [[1.6, -1.2], [2.3, -1.3], [2.5 + st.sk * 0.3, 2.6], [1.9 + st.sk * 0.3, 2.7]], "#e0d0a0", { hi: 0.3, then: (cc) => { for (const y of [0.4, 1.8]) dab(cc, 1.4, y, 2, 0.45, darken("#e0d0a0", 0.3)); } });
+      part(c, (cc) => { for (let i = 0; i < 6; i++) ball(cc, -1.2 + Math.sin(i * 0.6) * 0.9 - st.sk * 0.2 * (i / 5), -0.6 + i * 0.55, 0.38, 0.38, "#5a3424", { hi: 0.5 }); dab(cc, -1.7 - st.sk * 0.2, 2.5, 0.4, 1.2, p.shcol || "#d8d4c8"); dab(cc, -2.0 - st.sk * 0.2, 2.8, 1.0, 0.35, p.shcol || "#d8d4c8"); });
+    }
+    if (look === "storm") {
+      // the storm-grey mantle about her shoulders, its point at the breast
+      blob(c, [[-2.8, -8.0], [1.0, -8.3], [2.5, -7.4], [2.0, -5.6, 1], [0.8, -6.3], [-1.4, -5.9], [-3.0, -6.4]], p.cape || "#6a7080", { hi: 0.35, then: (cc) => { line(cc, -2.4, -6.6, 2.0, -6.0, 0.45, lighten(p.cape || "#6a7080", 0.4)); dab(cc, 0.9, -7.0, 0.8, 0.8, p.wcol || "#bfe6ff"); } });
+    }
     if (look === "hunter") blob(c, [[-2.4, -7.8], [1.2, -7.9], [2.2, -6.8], [0.6, -5.8, 1], [-1.2, -6.4], [-2.6, -6.4]], p.cape || p.cloth, { hi: 0.3 });
   });
 
@@ -668,6 +886,8 @@ const soldier = (ctx, p) => {
   const POLE = w === "halberd" ? 16.4 : 14.2;
   const pole = (h) => {
     if (w === "hammer") hammer(ctx, h[0], h[1], H.an, p.wcol || "#e8d47a");
+    else if (w === "staff") staff(ctx, h[0], h[1], H.an, p.wcol || "#bfe6ff", STAFF_BACK, STAFF_FWD, H);
+    else if (w === "halberd" && look === "captain") halberd(ctx, h[0], h[1], H.an, p.wcol || "#d8dce4", POLE - (H.fwd || 9.4), H.fwd || 9.4, p.plume || "#c8383a");
     else if (w === "halberd") halberd(ctx, h[0], h[1], H.an, p.wcol || "#d8dce4", POLE - (H.fwd || 9.4), H.fwd || 9.4);
     else fork(ctx, h[0], h[1], H.an, p.wcol || "#b8bcc4", POLE - (H.fwd || 8.4), H.fwd || 8.4);
   };
@@ -688,7 +908,16 @@ const soldier = (ctx, p) => {
 
   // the shield, held before the body on the far arm (the head, nearer the
   // eye than the far arm, is drawn over its rim)
-  if (w === "sword" || w === "mace") {
+  if (look === "friar") {
+    // no shield: the far hand holds up his holy sign, a ringed silver cross
+    const [x, y] = H.hf, sv = p.shcol || "#e4e0d4";
+    part(ctx, (c) => {
+      dab(c, x - 0.3, y - 3.6, 0.7, 3.4, sv); dab(c, x - 1.1, y - 2.9, 2.3, 0.65, sv);
+      c.strokeStyle = sv; c.lineWidth = 0.4; c.beginPath(); c.arc(x + 0.05, y - 2.6, 0.85, 0, Math.PI * 2); c.stroke();
+      dab(c, x - 0.3, y - 3.6, 0.35, 2.4, lighten(sv, 0.6));
+    });
+    fist(ctx, x, y, 0.95, fistF);
+  } else if (w === "sword" || w === "mace") {
     const sc = p.shcol || "#3a5474";
     if (look === "knight") kite(ctx, H.hf[0] + 0.9, H.hf[1] + 0.2, sc, "#c4c8d0", "cross", "#e8e2d0");
     else if (look === "hero") kite(ctx, H.hf[0] + 0.9, H.hf[1] + 0.2, sc, trim, "chevron", trim, 1.05);
@@ -760,6 +989,9 @@ const soldier = (ctx, p) => {
   else if (look === "hero") heroHelm(ctx, hd[0], hd[1], ha, p);
   else if (look === "berserk") berserkHead(ctx, hd[0], hd[1], ha, p);
   else if (look === "farmer") farmerHead(ctx, hd[0], hd[1], ha, p);
+  else if (look === "friar") friarHead(ctx, hd[0], hd[1], ha, p);
+  else if (look === "captain") kettleHead(ctx, hd[0], hd[1], ha, p, st.fl);
+  else if (look === "storm") stormHead(ctx, hd[0], hd[1], ha, p, st.fl);
   else hunterHead(ctx, hd[0], hd[1], ha, p);
 
   // the weapon hand
@@ -768,8 +1000,8 @@ const soldier = (ctx, p) => {
     // (cocked behind the head, the haft and rear hand are already down)
     if (!back) { pole(H.hn); farGrip(); }
     leadGrip();
-  } else if (w === "halberd" || w === "fork") {
-    // carried upright in the near hand
+  } else if (w === "halberd" || w === "fork" || w === "staff") {
+    // carried upright in the near hand (the staff in every pose)
     pole(H.hn);
     const h = arm(ctx, shN, H.hn, A, armN);
     wrist(h, H.an, w);
@@ -777,7 +1009,7 @@ const soldier = (ctx, p) => {
   } else if (w === "bow") {
     if (!bowEarly) bowGroup();
   } else nearHand();
-  if (plated && (twoHand || w === "halberd")) pauldron(ctx, shN[0] - 0.2, shN[1] + 0.1, 1.8, steel, trim);
+  if (plated && (twoHand || w === "halberd")) pauldron(ctx, shN[0] - 0.2, shN[1] + 0.1, 1.8, steel, look === "captain" ? p.shcol || BRASS : trim);
   ctx.restore();
 };
 
@@ -795,11 +1027,15 @@ export const CROWN_RIGS = {
   farmer: { kind: "crown", box: { hw: 24, up: 30, down: 4 }, p: { look: "farmer", h: 21, skin: "#e8b990", cloth: "#9a8a62", cloth2: "#5a4a3a", hair: "#d8b860", weapon: "fork", wcol: "#b8bcc4" } },
   heroKnight: { kind: "crown", box: { hw: 22, up: 33, down: 4 }, p: { look: "hero", h: 24, skin: "#e8b990", cloth: "#d4d8e0", cloth2: "#e8c14a", hair: "#dde2ea", cape: "#a0303a", weapon: "sword", wcol: "#f0f0f4", shcol: "#a0303a" } },
   heroHunter: { kind: "crown", box: { hw: 18, up: 30, down: 4 }, p: { look: "hunter", h: 22, skin: "#e8c9a2", cloth: "#4e7f3e", cloth2: "#3a4a2c", hair: "#3f6a34", cape: "#3a5a30", weapon: "bow", wcol: "#6a4428" } },
-  // the newer heroes (data/heroes/): PLACEHOLDERS dressed from the existing
-  // looks until their own figures are painted
-  heroFriar: { kind: "crown", box: { hw: 21, up: 32, down: 4 }, p: { look: "paladin", h: 23, skin: "#e8b990", cloth: "#7a5a3a", cloth2: "#c8a860", hair: "#8a6a4a", weapon: "mace", wcol: "#c8ccd4", shcol: "#7a5a3a" } },
-  heroCaptain: { kind: "crown", box: { hw: 28, up: 40, down: 4 }, p: { look: "guard", h: 24, skin: "#e8b990", cloth: "#c4c8d0", cloth2: "#2e4a7a", hair: "#a08a6a", weapon: "halberd", wcol: "#e0e4ea" } },
-  heroStorm: { kind: "crown", box: { hw: 18, up: 30, down: 4 }, p: { look: "hunter", h: 22, skin: "#e8c9a2", cloth: "#3a4e8a", cloth2: "#26305a", hair: "#3a4e8a", cape: "#2a3466", weapon: "bow", wcol: "#c8d4ec" } },
+  // Brother Osric, battle friar: a russet habit, the cowl down, a rope
+  // girdle, a tonsure; a gilt mace and a silver cross held up in the far hand
+  heroFriar: { kind: "crown", box: { hw: 22, up: 33, down: 4 }, p: { look: "friar", h: 23, skin: "#e8b48a", cloth: "#8a5a3a", cloth2: "#6a4430", hair: "#7a5434", weapon: "mace", wcol: "#e8c860", shcol: "#e4e0d4" } },
+  // Captain Hale of the Watch: the Gate Guard's halberd, a head taller in
+  // a plumed kettle hat, steel over the Watch's navy and gold, a short cape
+  heroCaptain: { kind: "crown", box: { hw: 31, up: 44, down: 4 }, p: { look: "captain", h: 25, skin: "#e2b08a", cloth: "#c4c8d0", cloth2: "#2e4a7a", hair: "#b0aca4", cape: "#24365c", weapon: "halberd", wcol: "#e0e4ea", shcol: "#e0b84a", plume: "#c8383a" } },
+  // Ysolde the Stormcaller: an indigo robe edged in silver, a storm-grey
+  // mantle, silver hair, and the storm staff (stormStaffTip, below)
+  heroStorm: { kind: "crown", box: { hw: 22, up: 36, down: 4 }, p: { look: "storm", h: 22, skin: "#ecd0b4", cloth: "#3c3a7e", cloth2: "#c8d0e4", hair: "#e4e6ee", cape: "#6a7082", weapon: "staff", wcol: "#bfe6ff" } },
 };
 export const CROWN_PAINTERS = { crown: soldier };
 
