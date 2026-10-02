@@ -771,6 +771,8 @@ export const CROWN_RIGS = {
   squire: { kind: "crown", box: { hw: 20, up: 30, down: 4 }, p: { look: "knight", h: 21, skin: "#e8b990", cloth: "#b8bcc4", cloth2: "#a0303a", hair: "#c4c8d0", weapon: "sword", wcol: "#dde2ea", shcol: "#a0303a" } },
   bowman: { kind: "crown", box: { hw: 18, up: 30, down: 4 }, p: { look: "hunter", h: 21, skin: "#e8b990", cloth: "#80703f", cloth2: "#4a3e2c", hair: "#6c5634", weapon: "bow", wcol: "#6a4428" } },
   farmer: { kind: "crown", box: { hw: 24, up: 30, down: 4 }, p: { look: "farmer", h: 21, skin: "#e8b990", cloth: "#9a8a62", cloth2: "#5a4a3a", hair: "#d8b860", weapon: "fork", wcol: "#b8bcc4" } },
+  // the Levy's swordsmen (castle works): a farmer who has put down the fork
+  yeoman: { kind: "crown", box: { hw: 20, up: 30, down: 4 }, p: { look: "farmer", h: 21, skin: "#e8b990", cloth: "#9a8a62", cloth2: "#5a4a3a", hair: "#d8b860", weapon: "sword", wcol: "#c8ccd4", shcol: "#7a5a34" } },
   heroKnight: { kind: "crown", box: { hw: 22, up: 33, down: 4 }, p: { look: "hero", h: 24, skin: "#e8b990", cloth: "#d4d8e0", cloth2: "#e8c14a", hair: "#dde2ea", cape: "#a0303a", weapon: "sword", wcol: "#f0f0f4", shcol: "#a0303a" } },
   heroHunter: { kind: "crown", box: { hw: 18, up: 30, down: 4 }, p: { look: "hunter", h: 22, skin: "#e8c9a2", cloth: "#4e7f3e", cloth2: "#3a4a2c", hair: "#3f6a34", cape: "#3a5a30", weapon: "bow", wcol: "#6a4428" } },
 };

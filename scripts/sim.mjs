@@ -253,6 +253,8 @@ function runOnce(opts, quiet, planName) {
   applyVeterancy(Math.min(3, vet), Math.max(0, vet - 3));
   sampleRoad();
   const g = freshGame(gold);
+  // --levy N: the Levy works at tier N (castle.js militia), so the horn raises that band
+  if (after("levy")) g.castle = { archers: 0, ballista: 0, guards: 0, masons: 0, militia: Number(after("levy")) };
   if (SB) { g.lives = SB.lives; g.wave = SB.startWave - 1; if (!SB.hero) HERO_OFF = true; }
   // the hero waits before the gate, like the game puts him; the commander
   // parks him a little up the road so he meets what the towers let through

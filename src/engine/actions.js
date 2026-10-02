@@ -524,7 +524,12 @@ export const callMilitia = (g, x, y) => {
   const units = [];
   for (let i = 0; i < st.count; i++) {
     const [dx, dy] = stands ? stands[i] : [i ? 12 : -12, 6];
-    units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, x: x + dx, y: y + (stands ? dy : 6), face: 1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null });
+    // the last `bows` of the band are archers (the Levy's upper tiers)
+    const bow = i >= st.count - (st.bows || 0);
+    const hp = bow ? st.bow.men : st.hp;
+    const u = { id: nextId(), hp, maxHp: hp, x: x + dx, y: y + (stands ? dy : 6), face: 1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null };
+    if (bow) { u.bow = true; u.rig = st.bowRig; }
+    units.push(u);
   }
   const band = { id, kind: "militia", st, rally: { x, y }, units, life: st.life };
   if (st.rig) band.rig = st.rig;

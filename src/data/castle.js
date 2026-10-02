@@ -67,8 +67,14 @@ export const CASTLE_WORKS = {
     tiers: [
       { cost: 8000, label: "Three farmers, sharper forks", count: 3, men: 105, dmg: 10, rate: 700, range: 60, life: 17000, cooldown: 22000, noun: "farmers" },
       { cost: 12000, label: "Four, and a stout hay-hook", count: 4, men: 125, dmg: 12, rate: 680, range: 60, life: 19000, cooldown: 20000, noun: "farmers" },
-      { cost: 18000, label: "Billhooks and leather jerkins", count: 4, men: 170, dmg: 17, rate: 650, range: 62, life: 21000, cooldown: 18000, noun: "yeomen" },
-      { cost: 25000, label: "The Crown's levy, drilled", count: 5, men: 230, dmg: 24, rate: 620, range: 64, life: 24000, cooldown: 16000, noun: "levymen", rig: "squire" },
+      // from here the band is mixed (bands.js militiaStats, update.js): `bows`
+      // of the `count` loose arrows instead (`bow`: their health, blow, rate
+      // and reach, physical), the rest hold the road with `men` / `dmg`;
+      // `rig` is the swordsmen's kit, `bowRig` the archers'.
+      { cost: 18000, label: "Swords and shortbows", count: 4, bows: 2, men: 170, dmg: 19, rate: 650, range: 62, life: 21000, cooldown: 18000, noun: "yeomen", rig: "yeoman", bowRig: "bowman", bow: { men: 90, dmg: 11, rate: 900, range: 120 } },
+      // the knights are plainer than a Paladin Order's (280 health, 36 magic
+      // a blow): steel, physical, and less of both
+      { cost: 25000, label: "The Crown's levy: three knights, two archers", count: 5, bows: 2, men: 210, dmg: 24, rate: 700, range: 64, life: 24000, cooldown: 16000, noun: "levymen", rig: "squire", bowRig: "bowman", bow: { men: 120, dmg: 14, rate: 850, range: 130 } },
     ],
   },
 };
@@ -91,7 +97,7 @@ const ranked = (key, t, r) => {
   const m = 1 + 0.4 * r;
   if (key === "archers" || key === "ballista") return { ...t, dmg: t.dmg * m, burn: t.burn ? t.burn * m : t.burn, label: rankLabel(key, r) };
   if (key === "guards") return { ...t, men: t.men * m, dmg: t.dmg * m, oil: (t.oil || 0) * m, hp: (t.hp || 0) + 2 * r, label: rankLabel(key, r) };
-  if (key === "militia") return { ...t, men: t.men * m, dmg: t.dmg * m, label: rankLabel(key, r) };
+  if (key === "militia") return { ...t, men: t.men * m, dmg: t.dmg * m, bow: t.bow && { ...t.bow, men: t.bow.men * m, dmg: t.bow.dmg * m }, label: rankLabel(key, r) };
   if (key === "masons") return { ...t, mend: (t.mend || 0) + r, spikeHp: t.spikeHp * m, thorns: t.thorns * m, label: rankLabel(key, r) };
   return t;
 };

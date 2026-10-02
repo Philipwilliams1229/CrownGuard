@@ -353,7 +353,18 @@ engine reads it through `militiaStats(works, ranks)` (bands.js), used by
 `callMilitia` (actions.js; counts of 4+ get their own `MILITIA_STANDS` slots,
 the last tier wears the squire rig via `band.rig`, enemies.js) and by the
 HUD button (cooldown drain, tooltip). The endless rank is +40% health and
-blows. A new work needs: `CASTLE_WORKS` + `emptyWorks` + `rankLabel`/`ranked`
+blows. **The upper tiers are a mixed band** (owner, 2026-10-02): tier 3 (18000,
+"Swords and shortbows") is four men, two swordsmen (`yeoman`, a farmer rig with
+a sword, 170 health, 19 a blow) and two archers; tier 4 (25000) is five, three
+knights (`squire` rig, 210 health, 24 physical a blow: less of both than a
+Paladin Order's 280 / 36 magic) and two archers (`bowman` rig). A tier's
+`bows` is how many of `count` are archers (the LAST units, so the rear stands
+of `MILITIA_STANDS`), `bow` their health / blow / rate / reach (physical
+arrows), `bowRig` their kit; `callMilitia` marks them `u.bow` / `u.rig`, the
+band loop in update.js runs the two halves as `runMelee` and `runRangedBand`
+over the same units, `drawBandUnit` reads `u.rig`. Tiers 1-2 are unchanged
+pitchfork farmers. `sim.mjs --levy N` plays a level with the Levy at tier N.
+Provisional. A new work needs: `CASTLE_WORKS` + `emptyWorks` + `rankLabel`/`ranked`
 (castle.js), `NO_WORKS` (campaign.js), `WORK_ICON` (ui/CastleWorks.jsx), and
 the `castleKey` string in CrownguardGame.jsx's HUD sync.
 

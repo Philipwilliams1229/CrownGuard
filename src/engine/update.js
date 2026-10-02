@@ -1028,7 +1028,16 @@ export function updateGame(g, dt) {
         const n = st.count || 1;
         const base = [[0, -8], [-12, 6], [12, 6]];
         const slots = b.slots || base.slice(0, n).map(([dx, dy]) => [b.rally.x + dx, b.rally.y + dy]);
-        if (st.ranged) runRangedBand(g, b, st, slots, sdt, tms);
+        if (st.bows) {
+          // a mixed band (the Levy's upper tiers): the swordsmen hold the road
+          // as any garrison does, the archers loose from the rear. Each half is
+          // run as a band of its own over the same unit objects
+          const bowAt = (u) => !!u.bow;
+          const half = (keep) => ({ ...b, units: b.units.filter((u) => bowAt(u) === keep) });
+          const slotsOf = (keep) => slots.filter((_, i) => bowAt(b.units[i]) === keep);
+          runMelee(g, half(false), st, slotsOf(false), sdt, tms);
+          runRangedBand(g, half(true), { ...st, hp: st.bow.men, dmg: st.bow.dmg, rate: st.bow.rate, range: st.bow.range, ranged: true }, slotsOf(true), sdt, tms);
+        } else if (st.ranged) runRangedBand(g, b, st, slots, sdt, tms);
         else runMelee(g, b, st, slots, sdt, tms);
         // at their posts the halberdiers face the road, not the gate behind them
         if (b.kind === "gateguard") for (const u of b.units) if (u.state === "rally") u.face = -1;
