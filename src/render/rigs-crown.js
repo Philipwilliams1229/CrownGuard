@@ -417,7 +417,9 @@ const MAN = { L1: 4.8, L2: 4.6, stride: 2.3, lift: 1.8, bob: 0.6, lean: 0.03, di
 // F holds the bow, N the string; `flip` the draw arm's side-view reversal
 // (raised out to the side). An archer at the string stands side-on.
 const bowGrip = (sw, N, F) => [
-  { hn: N(0.6 + sw * 1.1, 4.8), hf: F(4.2 - sw * 0.3, 4.2), ab: 1.64 },
+  // on the march (and at rest) the bow rides upright in the far hand, its
+  // wood bowed forward and the string toward her, as at the draw
+  { hn: N(0.6 + sw * 1.1, 4.8), hf: F(5.6 - sw * 0.3, 2.9), ab: -Math.PI / 2 - 0.07 },
   // full draw: the bow arm straight at the mark, the string hand at the jaw, elbow high
   { hn: N(2.8, -1.5), hf: F(5.9, -0.4), ab: -Math.PI / 2 + 0.06, flip: true, string: true, nock: true },
   // loose: the string hand flung back past the ear, the elbow back (still
