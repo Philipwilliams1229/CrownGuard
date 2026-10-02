@@ -40,7 +40,9 @@ export const pickLane = (boss = false) =>
 // exactly one buffer pixel, and zoom scales them whole.
 export const RES = 2;
 export const CASTLE_HP = 20;
-export const RALLY_RANGE = 72;
+export const RALLY_RANGE = 90;
+// the Covert's flag keeps the old reach (the Knight Halls' grew by a quarter, 2026-10-02)
+export const ASSASSIN_RALLY_RANGE = 72;
 export const BUILD_TIME = 30;
 // global pacing: <1 slows the whole simulation (enemies, shots, cooldowns)
 // without touching balance — the 1x/2x/4x button multiplies on top

@@ -4,7 +4,7 @@
 // React state for the panels, handles mouse input, and renders the UI.
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE } from "./data/constants.js";
+import { W, H, MY, RES, CASTLE_HP, RALLY_RANGE, ASSASSIN_RALLY_RANGE } from "./data/constants.js";
 import { REALMS, REALM, selectRealm } from "./data/maps.js";
 import { sfx } from "./audio/sfx.js";
 import SettingsPanel from "./ui/SettingsPanel.jsx";
@@ -603,7 +603,8 @@ export default function Crownguard() {
     }
     const dx = x - t.x, dy = y - t.y;
     const d = Math.hypot(dx, dy);
-    const k = d > RALLY_RANGE ? RALLY_RANGE / d : 1;
+    const reach = t.kind === "assassin" ? ASSASSIN_RALLY_RANGE : RALLY_RANGE;
+    const k = d > reach ? reach / d : 1;
     t.rally = { x: t.x + dx * k, y: t.y + dy * k };
     g.effects.push({ type: "levelup", x: t.rally.x, y: t.rally.y, ttl: 500 });
     g.rallyFor = null;
