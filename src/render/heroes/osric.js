@@ -228,8 +228,10 @@ const glintFx = (ctx, gl, tms) => {
   ctx.globalAlpha *= A;
   const id = u.id || 0;
   for (let i = 0; i < 2; i++) {
-    const x = u.x - 5 + i * 9 + (hash(id, i) - 0.5) * 3, y = u.y - 19 - k * 9 - i * 3;
-    cross(ctx, x, y, 1.5, GOLD[2], GOLD[0]);
+    // above the health bar (u.y - 21), drifting up as it fades
+    const x = u.x - 4 + i * 8 + (hash(id, i) - 0.5) * 3, y = u.y - 27 - k * 8 - i * 3;
+    cross(ctx, x + 1 / PX, y + 1 / PX, 2, GOLD[4]);
+    cross(ctx, x, y, 2, GOLD[2], GOLD[0]);
   }
   ctx.restore();
 };

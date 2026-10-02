@@ -67,9 +67,9 @@ const drawPikes = (ctx, u, br, tms, near) => {
     if ((s > 0) !== near) continue;
     const c = Math.cos(an);
     // grounded butt, the point raised a little and leaning out
-    const bx = cx + c * 6, by = cy + s * 2.6;
-    const L = 9 + 8 * k;
-    const px = cx + c * (6 + L), py = cy + s * (2.6 + L * 0.42) - 3 * k;
+    const bx = cx + c * 5, by = cy + s * 2.2;
+    const L = 7 + 7 * k;
+    const px = cx + c * (5 + L), py = cy + s * (2.2 + L * 0.42) - 8 * k;
     pikes.push([bx, by, px, py, c, s, i]);
   }
   if (!pikes.length) return;
@@ -108,18 +108,30 @@ const drawSweep = (ctx, u, tms) => {
   const age = tms - sw.at;
   if (age < 0 || age > 240) return;
   const p = age / 240, f = u.face || 1;
-  const cx = u.x + f * 4, cy = u.y - 2, r = 15 + 4 * p;
+  const cx = u.x + f * 2, cy = u.y - 1, r = 21 + 5 * p;
   // a crescent before him, from high behind to low in front
   ctx.save();
   ctx.globalAlpha *= stepA(1 - p, 3);
-  const a0 = -2.1, a1 = 0.9, n = 14;
+  // (a wide half-moon: his foes stand all round him, so it reaches back
+  // too) — a band of steel light thickest at its leading edge, at the
+  // halberd's height, thinning to nothing behind
+  const a0 = -2.5, a1 = 1.1, n = 44, head = Math.min(1, 0.35 + p * 1.5);
+  ctx.beginPath();
+  const lit = [];
   for (let i = 0; i <= n; i++) {
     const t = i / n, an = a0 + (a1 - a0) * t;
-    if (t > 0.25 + p * 1.1) break;                 // the edge runs ahead of the fade
-    const x = cx + f * Math.cos(an) * r, y = cy + Math.sin(an) * r * 0.75;
-    ctx.fillStyle = t > 0.6 ? STEEL[0] : STEEL[2];
-    ctx.fillRect(sn(x - 1), sn(y - 1), 2, 1.5);
+    if (t > head) break;
+    const w = 1 + 3 * clamp01(1 - (head - t) / 0.5);       // thick at the edge, thin behind
+    const x = cx + f * Math.cos(an) * r, y = cy - 4 + Math.sin(an) * r * 0.55;
+    ctx.rect(sn(x - 0.75), sn(y - w / 2), 1.5, Math.max(1 / PX, w));
+    if (head - t < 0.18) lit.push(x, y);
   }
+  ctx.fillStyle = STEEL[1];
+  ctx.fill();
+  ctx.fillStyle = STEEL[0];
+  ctx.beginPath();
+  for (let i = 0; i < lit.length; i += 2) ctx.rect(sn(lit[i] - 0.75), sn(lit[i + 1] - 0.75), 1.5, 1.5);
+  ctx.fill();
   ctx.restore();
 };
 
@@ -212,25 +224,23 @@ const levyBanner = (ctx, lv, tms) => {
   ctx.fillStyle = INK; ctx.fillRect(sn(x - 1), sn(top - 1), 2, H + 1.5);
   ctx.fillStyle = OAK[0]; ctx.fillRect(sn(x - 0.5), sn(top), 1, H);
   if (H > 12) {
-    // the pennant hangs off the pole toward +x (mirrors cleanly: no lettering)
-    const py = top + 2, w = 13, h = 8, dip = flap ? 1 : 0;
+    // the pennant flies off the pole toward +x (mirrors cleanly: no
+    // lettering), a swallowtail: each row of art pixels runs out to the fly,
+    // the middle rows cut back by the notch; the tails dip as it flaps
+    const py = top + 2, w = 13, h = 8, rows = h * PX, row = 1 / PX;
+    const len = (j) => { const m = Math.abs((j + 0.5) / rows - 0.5) * 2; return w - Math.max(0, 4 * (1 - m * 1.6)) + (flap && j >= rows - 2 ? -1 : 0); };
     ctx.fillStyle = INK;
     ctx.beginPath();
-    ctx.rect(sn(x), sn(py - 1), w + 1, h + 2);
+    for (let j = -2; j < rows + 2; j++) ctx.rect(sn(x), py + j * row, len(Math.max(0, Math.min(rows - 1, j))) + 1, row);
     ctx.fill();
-    ctx.fillStyle = BLUE[1];
-    ctx.fillRect(sn(x + 0.5), sn(py), w, h);
-    // the swallowtail notch, the tails dipping as it flaps
-    ctx.fillStyle = INK;
-    ctx.fillRect(sn(x + w - 3), sn(py + h / 2 - 1.5), 4, 3);
-    ctx.fillStyle = BLUE[0];
-    ctx.fillRect(sn(x + 0.5), sn(py), w, 1.5);                 // lit from above
-    ctx.fillStyle = BLUE[2];
-    ctx.fillRect(sn(x + 0.5), sn(py + h - 1.5 + dip), w - 4, 1.5); // the shadowed hem
+    for (let j = 0; j < rows; j++) {
+      ctx.fillStyle = j < 3 ? BLUE[0] : j >= rows - 3 ? BLUE[2] : BLUE[1];   // lit from above, the hem in shadow
+      ctx.fillRect(sn(x + 0.5), py + j * row, len(j) - 0.5, row);
+    }
     ctx.fillStyle = GOLD[2];
-    ctx.fillRect(sn(x + 3), sn(py), 2, h);                     // a gold band at the hoist
+    ctx.fillRect(sn(x + 3), py, 2, h);                     // a gold band at the hoist
     ctx.fillStyle = GOLD[1];
-    ctx.fillRect(sn(x + 3), sn(py), 1, h);
+    ctx.fillRect(sn(x + 3), py, 1, h);
   }
   // the finial: a gilt point, with a flash as it is planted
   ctx.fillStyle = INK; ctx.fillRect(sn(x - 1.5), sn(top - 3), 3, 3);
@@ -244,12 +254,14 @@ const levyBanner = (ctx, lv, tms) => {
 };
 
 export default {
-  // braced and between blows, he stands in his guard, halberd levelled
+  // braced and between blows, he stands with the halberd set low and
+  // forward, butt to the ground, as a pike is set against a charge (the
+  // crown fight sheet's follow-through frame reads exactly so)
   pose(b, u, time) {
     const tms = time * 1000;
     if (!u.brace || u.brace.until <= tms || u.state === "moving") return null;
     if (u.state === "fighting" && (u.swing > 0 || u.atkCd < (b.st?.rate || 950) * 0.3)) return null;
-    return { sheet: "fight", frame: 0 };
+    return { sheet: "fight", frame: 3 };
   },
 
   under(ctx, g) {

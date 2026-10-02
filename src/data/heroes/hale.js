@@ -20,7 +20,7 @@ export default {
       base: { dmg: 70, dur: 4000, stun: 1200, mounted: 2, harm: 0.5 }, perLevel: { dmg: 12 } },
     { id: "levy", name: "Sound the Levy", aim: "ground", unlock: 5, cd: 45000, icon: "levy",
       desc: "Three watchmen run out to the spot you tap for fifteen seconds; soldiers near it strike a quarter harder.",
-      base: { men: 3, life: 15000, buff: 0.25, buffDur: 8000, r: 90, hp: 260, mdmg: 18, rate: 850, range: 72 }, perLevel: { hp: 20, mdmg: 2 } },
+      base: { men: 3, life: 15000, buff: 0.25, buffDur: 8000, r: 90, hp: 260, mdmg: 14, rate: 850, range: 72 }, perLevel: { hp: 20, mdmg: 2 } },
   ],
   talents: [
     { id: "plate", name: "Watch Plate", desc: "+10% health a rank.", apply: (st, r) => { st.hp = Math.round(st.hp * (1 + 0.1 * r)); } },
