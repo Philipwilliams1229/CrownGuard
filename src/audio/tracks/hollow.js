@@ -2,8 +2,9 @@
 // The third chapter: barrows, fens, drowned villages. Haunted and
 // melancholy rather than merely loud — celesta and bells over a choir,
 // a clarinet in the mist, then organ and tolling brass for the Hollow King.
-//   hollow-build  A harmonic minor, a slow 3/4 waltz of the dead (84 bpm)
-//   hollow-fight  E minor (D# borrowed for the B chord), strings ostinato under an organ hook (128)
+//   hollow-build  A harmonic minor, a slow 3/4 waltz of the dead (76 bpm)
+//   hollow-fight  E minor (D# borrowed for the B chord), strings ostinato under an organ hook (92: the
+//                 owner wants normal waves in the background, 2026-10-02)
 //   hollow-boss   D harmonic minor, a grand dirge in 4/4 (112)
 
 // shift every note in a pattern by n octaves ("e5:4 b5" -> "e4:4 b4")
@@ -64,7 +65,7 @@ const hollowBuild = {
   id: "hollow-build",
   title: "The Quiet Barrows",
   area: "hollow",
-  bpm: 84,
+  bpm: 76,
   meter: 12,
   key: "A harmonic minor",
   level: 1.9,                       // sparse and quiet by nature; lifted to sit with the others
@@ -129,8 +130,8 @@ const FC = {
 const fOst = (cs) => J(cs.map((c) => { const [r, f, o] = FC[c].os; return `${r}:2 ${o} ${f} ${o} ${r} ${o} ${f} ${o}`; }));
 const fStr = (cs) => J(cs.map((c) => `${FC[c].st}:6 ${FC[c].st}:6 ${FC[c].st}:4`));
 const fChoir = (cs) => J(cs.map((c) => `${FC[c].ch}:16`));
-const fBass = (cs) => J(cs.map((c) => { const [r, o] = FC[c].bs; return `${r}:2 ${r} ${o} ${r} ${r} ${r} ${o} ${r}`; }));
-const fTimp = (cs) => J(cs.map((c) => `${FC[c].tp}:4 r:4 ${FC[c].tp}:4 r:4`));
+const fBass = (cs) => J(cs.map((c) => { const [r, o] = FC[c].bs; return `${r}:6 ${r}:2 ${o}:4 ${r}:4`; }));
+const fTimp = (cs) => J(cs.map((c) => `${FC[c].tp}:4 r:12`));
 
 const F_A = ["Em", "D", "C", "B", "Em", "D", "Am", "B"];
 const F_B = ["C", "D", "Em", "Am", "C", "D", "B", "B"];
@@ -150,27 +151,27 @@ const F_LEAD_B = J([
 ]);
 const F_CLAR_BR = J(["a5:8 c6:4 b5:4", "a5:8 e6:4 d6:4", "d#6:8 f#6:4 e6:4", "d#6:4 e6:4 f#6:4 d#6:4"]);
 
-const N = "K.h.S.h.k.h.S.h.";          // an ordinary bar
-const V = "K.h.S.h.k.hkS.o.";          // a bar with a pickup
-const CR = "C.hkS.h.k.h.S.h.";         // a bar that opens with the crash
-const FILL = "K.h.S.h.k.hsSmtM";       // a bar that ends in a tom run
+const N = "m...x...m...x...";          // an ordinary bar: a low tom and a rim, like footsteps
+const V = "m...x...m.m.x...";          // a bar with a pickup
+const CR = "c...x...m...x...";         // a bar that opens with a soft crash
+const FILL = "m...x...m...x.tm";       // a bar that ends in a tom turn
 
 const fightParts = {
-  lead:  { inst: "organ",    gain: 0.85, pan: 0.1,   send: 0.3 },
-  clar:  { inst: "clarinet", gain: 0.6,  pan: 0.3,   send: 0.35 },
-  ost:   { inst: "pizz",     gain: 0.65, pan: -0.25, send: 0.2 },
+  lead:  { inst: "organ",    gain: 0.7,  pan: 0.1,   send: 0.3 },
+  clar:  { inst: "clarinet", gain: 0.5,  pan: 0.3,   send: 0.35 },
+  ost:   { inst: "pizz",     gain: 0.5,  pan: -0.25, send: 0.2 },
   str:   { inst: "strings",  gain: 0.7,  pan: 0.2,   send: 0.35 },
   choir: { inst: "choir",    gain: 0.6,  pan: 0,     send: 0.5 },
-  bass:  { inst: "bass",     gain: 0.9,  pan: 0,     send: 0.05 },
-  timp:  { inst: "timpani",  gain: 0.6,  pan: 0,     send: 0.2 },
-  drums: { inst: "drums",    gain: 0.6,  pan: 0,     send: 0.12 },
+  bass:  { inst: "bass",     gain: 0.75, pan: 0,     send: 0.05 },
+  timp:  { inst: "timpani",  gain: 0.45, pan: 0,     send: 0.2 },
+  drums: { inst: "drums",    gain: 0.45, pan: 0,     send: 0.12 },
 };
 
 const hollowFight = {
   id: "hollow-fight",
   title: "The Dead Walk",
   area: "hollow",
-  bpm: 128,
+  bpm: 92,
   key: "E minor",   // with the B chord's D# borrowed from the harmonic scale
   parts: fightParts,
   sections: {
@@ -215,8 +216,8 @@ const hollowFight = {
       str: fStr(F_BR),
       choir: fChoir(F_BR),
       bass: fBass(F_BR),
-      timp: J([`a1:4 r:4 a1:4 r:4`, `a1:4 r:4 a1:4 r:4`, "b1:2 b1 b1 b1 b1 b1 b1 b1", "b1:2 b1 b1 b1 b1 b1 b1 b1"]),
-      drums: J(["M...m...M...m...", "M...m...M...m...", "M.m.M.m.M.m.M.m.", "SsSsSsSsSsSsSSSS"]),
+      timp: J(["a1:4 r:12", "a1:4 r:12", "b1:4 r:4 b1:4 r:4", "b1:4 r:4 b1:2 b1 b1 b1"]),
+      drums: J(["m.......m.......", "m.......m.......", "m...m...m...m...", "m...m...m.m.s.tm"]),
     } },
   },
   order: ["intro", "A", "B", "A2", "bridge"],

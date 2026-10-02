@@ -30,14 +30,15 @@ const drumBars = (bars, grooves, fill) => {
   const out = [];
   for (let i = 0; i < bars - 1; i++) out.push(grooves[i % grooves.length]);
   out.push(fill);
-  out[0] = "C" + out[0].slice(1);
+  out[0] = (out[0][0] === "K" ? "C" : "c") + out[0].slice(1);   // a soft groove gets a soft crash
   return out.join("|");
 };
 
 // ---- greenwood-fight: Raiders on the Road ------------------------------------
-// C major again, but 144 bpm and driven: octave-pumping bass, a bouncing pizzicato
-// ostinato (3+3+2), an oboe tune that hammers a repeated-note hook (G G C B C E),
-// and brass that thickens the second half of each section.
+// C major again, at a walking 100 bpm (owner, 2026-10-02: normal waves sit in the
+// background; only the boss theme drives): a bass that steps root-fifth in
+// quarters, a pizzicato ostinato (3+3+2), an oboe tune with a repeated-note hook
+// (G G C B C E), brass only in the second half of A2, and a light kit.
 // Form: intro(2) A(8) B(8) A2(8) bridge(8) = 34 bars, loops from A.
 
 const F_CH = {   // pad = held chord, pz = [low, mid, high] for the ostinato, sp = chip sparkle [a, b, c]
@@ -52,9 +53,9 @@ const F_A = ["C", "G", "Am", "Em", "F", "C", "Dm", "G"];
 const F_B = ["Am", "F", "C", "G", "Am", "F", "G", "G"];
 const F_R = ["Dm", "Em", "F", "G", "Dm", "Em", "F", "G"];
 
-// bass: root and its octave pumping in eighths, the last two eighths walk to the next root
-const pump = (r, x, y) => `${r}:2 ${up(r)}:2 ${r}:2 ${up(r)}:2 ${r}:2 ${up(r)}:2 ${x}:2 ${y}:2`;
-const gallop = (r, x) => `${r}:2 ${r}:1 ${r}:1 ${up(r)}:2 ${r}:2 ${r}:2 ${r}:1 ${r}:1 ${up(r)}:2 ${x}:2`;
+// bass: root held, its octave, then the last quarter walks to the next root
+const pump = (r, x, y) => `${r}:6 ${r}:2 ${up(r)}:4 ${y}:4`;           // root (with a pickup), octave, walk on
+const gallop = (r, x) => `${r}:4 ${x}:4 ${up(r)}:4 ${x}:4`;            // the bridge: plain quarters
 const F_BASS_A = [["c2", "e2", "d2"], ["g2", "d3", "b2"], ["a2", "c3", "g2"], ["e2", "g2", "a2"],
                   ["f2", "a2", "g2"], ["c2", "g2", "e2"], ["d2", "a2", "f2"], ["g2", "d3", "b2"]];
 const F_BASS_A2 = [...F_BASS_A.slice(0, 7), ["g2", "b2", "a2"]];          // the last bar leans into the bridge
@@ -64,7 +65,6 @@ const F_BASS_R = [["d2", "a2"], ["e2", "b2"], ["f2", "c3"], ["g2", "d3"], ["d2",
 
 const osti = ([a, b, c]) => `${a}:3 ${c}:3 ${b}:2 ${a}:3 ${c}:3 ${b}:2`;                       // 3+3+2, twice
 const osti8 = ([a, b, c]) => `${a}:2 ${c}:2 ${b}:2 ${c}:2 ${a}:2 ${c}:2 ${b}:2 ${c}:2`;         // plain eighths
-const run16 = ([a, b, c]) => `${a}:1 ${b}:1 ${c}:1 ${b}:1 `.repeat(4);                          // sixteenth runs
 const sparkle = ([a, b, c]) => `r:2 ${a}:2' r:2 ${b}:2' r:2 ${a}:2' r:2 ${c}:2'`;               // off-beat chip glints
 
 const fCh = (names, fn) => J(names.map((n) => fn(F_CH[n])));
@@ -104,8 +104,8 @@ const F_TUNE_R = [
 ];
 
 // the drum bars (16 steps)
-const F_G1 = "K.hhS.hhK.hkS.hh", F_G2 = "K.hhS.hhK.hhS.hk";
-const F_FILL = "K.h.S.h.SsSsttmm", F_FILL2 = "SsSsSsSsSSttmmKK";
+const F_G1 = "k...x...k...x...", F_G2 = "k...x...k.k.x...";
+const F_FILL = "k...x...k...s.tm", F_FILL2 = "k...s...k.s.s.tm";
 
 // ---- greenwood-boss: The Wyrm Wakes ------------------------------------------
 // C minor, 132 bpm. Timpani and a chugging synth bass under a brass hook that
@@ -177,7 +177,7 @@ export default [
     id: "greenwood-build",
     title: "Vale Road (calm)",
     area: "greenwood",
-    bpm: 108,
+    bpm: 88,
     key: "C major",
     parts: {
       lead:  { inst: "flute",   gain: 1.0, pan: 0.1, send: 0.3 },
@@ -222,16 +222,16 @@ export default [
     id: "greenwood-fight",
     title: "Raiders on the Road",
     area: "greenwood",
-    bpm: 144,
+    bpm: 100,
     key: "C major",
     parts: {
-      lead:    { inst: "oboe",    gain: 1.0,  pan: 0.1,   send: 0.25 },
-      brass:   { inst: "brass",   gain: 0.62, pan: -0.15, send: 0.2 },
-      strings: { inst: "strings", gain: 0.5,  pan: 0,     send: 0.4 },
-      pizz:    { inst: "pizz",    gain: 0.55, pan: -0.3,  send: 0.15 },
-      chip:    { inst: "chip",    gain: 0.3,  pan: 0.35,  send: 0.3 },
-      bass:    { inst: "bass",    gain: 0.9,  pan: 0,     send: 0.05 },
-      drums:   { inst: "drums",   gain: 0.55, pan: 0,     send: 0.1 },
+      lead:    { inst: "oboe",    gain: 0.8,   pan: 0.1,   send: 0.25 },
+      brass:   { inst: "brass",   gain: 0.45, pan: -0.15, send: 0.2 },
+      strings: { inst: "strings", gain: 0.55, pan: 0,     send: 0.45 },
+      pizz:    { inst: "pizz",    gain: 0.45, pan: -0.3,  send: 0.15 },
+      chip:    { inst: "chip",    gain: 0.22, pan: 0.35,  send: 0.3 },
+      bass:    { inst: "bass",    gain: 0.75, pan: 0,     send: 0.05 },
+      drums:   { inst: "drums",   gain: 0.4,  pan: 0,     send: 0.1 },
     },
     sections: {
       intro: { bars: 2, play: {
@@ -243,7 +243,6 @@ export default [
       } },
       A: { bars: 8, play: {
         lead: J(F_TUNE_A),
-        brass: rest(4) + " " + oct(J(F_TUNE_A.slice(4)), -1),
         strings: fPad(F_A),
         pizz: fCh(F_A, (c) => osti(c.pz)),
         bass: J(F_BASS_A.map(([r, x, y]) => pump(r, x, y))),
@@ -251,16 +250,15 @@ export default [
       } },
       B: { bars: 8, play: {
         lead: J(F_TUNE_B),
-        brass: rest(4) + " " + oct(J(F_TUNE_B.slice(4)), -1),
         strings: fPad(F_B),
-        pizz: fCh(F_B, (c) => osti8(c.pz)),
+        pizz: fCh(F_B, (c) => osti(c.pz)),
         chip: fCh(F_B, (c) => sparkle(c.sp)),
         bass: J(F_BASS_B.map(([r, x, y]) => pump(r, x, y))),
         drums: drumBars(8, [F_G2, F_G1], F_FILL),
       } },
       A2: { bars: 8, play: {
         lead: J(F_TUNE_A2),
-        brass: oct(J(F_TUNE_A2), -1),
+        brass: rest(4) + " " + oct(J(F_TUNE_A2.slice(4)), -1),
         strings: fPad(F_A),
         pizz: fCh(F_A, (c) => osti(c.pz)),
         chip: fCh(F_A, (c) => sparkle(c.sp)),
@@ -269,11 +267,10 @@ export default [
       } },
       bridge: { bars: 8, play: {
         lead: J(F_TUNE_R),
-        brass: rest(4) + " " + oct(J(F_TUNE_R.slice(4)), -1),
         strings: fPad(F_R),
-        pizz: fCh(F_R, (c) => run16(c.pz)),
+        pizz: fCh(F_R, (c) => osti8(c.pz)),
         bass: J(F_BASS_R.map(([r, x]) => gallop(r, x))),
-        drums: ["C.h.S.h.K.hkS.h.", F_G1, F_G2, F_G1, F_G2, F_G1, F_G2, F_FILL2].join("|"),
+        drums: ["c...x...k...x...", F_G1, F_G2, F_G1, F_G2, F_G1, F_G2, F_FILL2].join("|"),
       } },
     },
     order: ["intro", "A", "B", "A2", "bridge"],

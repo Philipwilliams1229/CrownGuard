@@ -12,7 +12,7 @@ const oct = (src, n) => src.replace(/\b([a-g][#b]?)(\d)/g, (_, p, o) => p + (Num
 const per = (table, names, f) => J(names.map((n) => f(table[n])));
 
 // =========================================================================
-// 1. iron-build — "Marshalling the Line" · D dorian · 104 bpm
+// 1. iron-build — "Marshalling the Line" · D dorian · 86 bpm
 // =========================================================================
 // s strings voicing · h harp [root, fifth, third, top] · b bass [root, fifth, octave] · t timpani
 const BC = {
@@ -53,7 +53,7 @@ const IRON_BUILD = {
   id: "iron-build",
   title: "Marshalling the Line",
   area: "iron",
-  bpm: 104,
+  bpm: 86,
   key: "D dorian",
   parts: {
     oboe:    { inst: "oboe",    gain: 1.0,  pan: 0.1,   send: 0.3 },
@@ -107,7 +107,9 @@ const IRON_BUILD = {
 };
 
 // =========================================================================
-// 2. iron-fight — "The Iron Host Marches" · E minor · 140 bpm
+// 2. iron-fight — "The Iron Host Marches" · E minor · 96 bpm
+// A steady, unhurried march under the play (owner, 2026-10-02: normal waves
+// sit in the background; only the boss theme drives).
 // =========================================================================
 // s strings · p pizz stab triad · b bass [root, fifth, octave] · t timpani
 const FC = {
@@ -119,21 +121,21 @@ const FC = {
   B:  { s: "b3+d#4+f#4", p: "d#4+f#4+b4", b: ["b1", "f#2", "b2"], t: "b1" },
 };
 const fPad    = (c) => `${c.s}:16`;
-const fOstA   = (c) => `${c.b[0]}:2 ${c.b[0]}:2 ${c.b[2]}:2 ${c.b[0]}:2 ${c.b[0]}:2 ${c.b[0]}:2 ${c.b[2]}:2 ${c.b[0]}:2`;
-const fOstB   = (c) => `${c.b[0]}:4 ${c.b[0]}:2 ${c.b[2]}:2 ${c.b[0]}:4 ${c.b[1]}:2 ${c.b[2]}:2`;
+const fOstA   = (c) => `${c.b[0]}:4 ${c.b[2]}:4 ${c.b[0]}:4 ${c.b[1]}:4`;                          // marching quarters
+const fOstB   = (c) => `${c.b[0]}:6 ${c.b[0]}:2 ${c.b[2]}:4 ${c.b[1]}:4`;
 const fQuarter = (c) => `${c.b[0]}:4 ${c.b[0]}:4 ${c.b[0]}:4 ${c.b[0]}:4`;
 const fOff    = (c) => `r:2 ${c.p}:2 r:2 ${c.p}:2 r:2 ${c.p}:2 r:2 ${c.p}:2`;       // upbeat stabs
 const fGallop = (c) => `${c.p}:3 ${c.p}:3 ${c.p}:2 ${c.p}:3 ${c.p}:3 ${c.p}:2`;      // 3+3+2
-const fTimp   = (c) => `${c.t}:4^ r:4 ${c.t}:4 r:2 ${c.t}:2`;
+const fTimp   = (c) => `${c.t}:4 r:12`;                                                  // one stroke a bar
 
 const F_INTRO = ["Em", "Em"];
 const F_A = ["Em", "Em", "C", "D", "Em", "Em", "C", "B"];
 const F_B = ["C", "G", "D", "Em", "C", "G", "Am", "B"];
 const F_BR = ["Em", "Em", "C", "B"];
 
-const fMain = "K.hsS.hsK.hsS.hs", fCrash = "c.hsS.hsK.hsS.hs";
-const fFill1 = "K.hsS.hsK.hsSsSs", fFill2 = "K.hsS.hsKsSsSsSS";
-const fMainB = "K.hsS.osK.hsS.hs";
+const fMain = "k...s...k...s...", fCrash = "c...s...k...s...";
+const fFill1 = "k...s...k...s.s.", fFill2 = "k...s...k.s.s.ss";
+const fMainB = "k...s...k.k.s...";
 
 const FA_LEAD = [
   "e5:3 e5:1 g5:4 b5:4 g5:4", "e5:3 e5:1 g5:4 a5:2 g5:2 e5:4", "c5:3 c5:1 e5:4 g5:4 e5:4", "d5:3 d5:1 f#5:4 a5:4 f#5:4",
@@ -154,17 +156,17 @@ const IRON_FIGHT = {
   id: "iron-fight",
   title: "The Iron Host Marches",
   area: "iron",
-  bpm: 140,
+  bpm: 96,
   key: "E minor",
   parts: {
-    lead:    { inst: "brass",   gain: 1.0,  pan: 0.05,  send: 0.25 },
-    oboe:    { inst: "oboe",    gain: 0.55, pan: 0.2,   send: 0.3 },
-    horn:    { inst: "horn",    gain: 0.65, pan: -0.2,  send: 0.3 },
-    pizz:    { inst: "pizz",    gain: 0.5,  pan: 0.3,   send: 0.2 },
-    strings: { inst: "strings", gain: 0.5,  pan: 0,     send: 0.35 },
-    bass:    { inst: "bass",    gain: 0.9,  pan: 0,     send: 0.05 },
-    timp:    { inst: "timpani", gain: 0.55, pan: 0,     send: 0.25 },
-    drums:   { inst: "drums",   gain: 0.55, pan: 0,     send: 0.08 },
+    lead:    { inst: "brass",   gain: 0.75, pan: 0.05,  send: 0.25 },
+    oboe:    { inst: "oboe",    gain: 0.45, pan: 0.2,   send: 0.3 },
+    horn:    { inst: "horn",    gain: 0.45, pan: -0.2,  send: 0.3 },
+    pizz:    { inst: "pizz",    gain: 0.4,  pan: 0.3,   send: 0.2 },
+    strings: { inst: "strings", gain: 0.55, pan: 0,     send: 0.4 },
+    bass:    { inst: "bass",    gain: 0.75, pan: 0,     send: 0.05 },
+    timp:    { inst: "timpani", gain: 0.45, pan: 0,     send: 0.25 },
+    drums:   { inst: "drums",   gain: 0.4,  pan: 0,     send: 0.08 },
   },
   sections: {
     intro: { bars: 2, play: {
@@ -172,7 +174,7 @@ const IRON_FIGHT = {
       strings: "g3+b3+e4:32",
       bass: "r:16 | " + fOstA(FC.Em),
       timp: "r:16 | e2:4^ r:4 e2:4 r:4",
-      drums: "ssssssssssssssss | ssssssssSSSSSSSS",
+      drums: "s.......s.......|s...s...s.s.s.s.",
     } },
     A: { bars: 8, play: {
       lead: J(FA_LEAD),
@@ -185,7 +187,7 @@ const IRON_FIGHT = {
     B: { bars: 8, play: {
       lead: J(FB_LEAD),
       horn: oct(J(FB_LEAD), -1),
-      pizz: per(FC, F_B, fGallop),
+      pizz: per(FC, F_B, fOff),
       strings: per(FC, F_B, fPad),
       bass: per(FC, F_B, fOstB),
       timp: per(FC, F_B, fTimp),
@@ -197,7 +199,7 @@ const IRON_FIGHT = {
       strings: per(FC, F_BR, fPad),
       bass: per(FC, F_BR, fQuarter),
       timp: J(["e2:4^ r:12", "e2:4^ r:12", "c2:4^ r:4 c2:4 r:4", "b1:2 b1:2 b1:2 b1:2 b1:2^ b1:2^ b1:2^ b1:2^"]),
-      drums: J(["k...x...k...x...", "k.x.x.x.k.x.x.x.", "ssssssssssssssss", "SSSSSSSSSSSSTTMM"]),
+      drums: J(["k...x...k...x...", "k...x...k...x...", "k...x...k.x.x...", "k...s...s.s.s.tm"]),
     } },
     A2: { bars: 8, play: {
       lead: J(FA2_LEAD),

@@ -446,6 +446,12 @@ chiptune.
   `loop: false`). `audio/score.js` decides what plays when (`battleScore`
   runs every frame in the game loop; a boss on the field switches to
   `-boss`; the faction picks the area; free-play realms use their faction's).
+- **Tempo and weight** (owner, 2026-10-02: "too upbeat"): normal waves are
+  background music — the `-fight` tracks sit at 92-100 bpm with quarter-note
+  bass, one timpani stroke a bar, a soft kit (no sixteenth hats or snare
+  rolls) and the leads turned down; the `-build` tracks are slower still
+  (76-88). Only the `-boss` tracks drive (112-132). Keep new tracks inside
+  that ladder.
 - Check tracks with `node scripts/music-check.mjs [id]` (parses, fits,
   instrument ranges, key). Listen with `music.html` (play live or download a
   WAV); `lab.send(id)` + `node scripts/music-receive.mjs` saves a WAV into
