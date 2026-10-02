@@ -126,7 +126,7 @@ export const TOWERS = {
       a: {
         name: "Razor Gale", cost: 415, stats: { dmg: 15, rate: 300, range: 81, spikes: 14, spikePierce: 2 }, desc: "The wheel screams — a near-constant storm of steel shreds everything that hugs it.",
         rank4: {
-          a: { name: "Steel Tempest", cost: 975, stats: { dmg: 18, rate: 240, range: 88, spikes: 18, spikePierce: 4 }, desc: "Spikes forged to skewer: eighteen to a volley, each punching through FOUR foes before it stops." },
+          a: { name: "Steel Tempest", cost: 975, stats: { dmg: 18, rate: 240, range: 88, spikes: 18, spikePierce: 2 }, desc: "Spikes forged to skewer: eighteen to a volley, each running through its first foe into a second." },
           b: { name: "Hamstringer", cost: 975, stats: { dmg: 16, rate: 260, range: 86, spikes: 16, spikePierce: 3, slow: 0.35, slowDur: 1500 }, desc: "Barbed spikes lodge in legs and paws — everything struck hobbles away slowed." },
         },
       },
