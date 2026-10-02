@@ -30,13 +30,20 @@ export function makeSaveCode() {
 }
 
 // Read a pasted code: { at, keys } or throw an Error with a message fit to
-// show the player.
+// show the player. Forgiving about what comes with it: a share sheet's title
+// or a note's text before it, invisible characters a phone's paste slips in,
+// the code pasted twice, a changed case in the head, or the head left off.
 export function readSaveCode(text) {
-  const t = String(text || "").replace(/\s+/g, "");
+  const t = String(text || "").replace(/[\s\u200B-\u200D\u2060\uFEFF]+/g, "");
   if (!t) throw new Error("Paste a save code first.");
-  if (!t.startsWith(HEAD)) throw new Error("That isn't a Crownguard save code.");
+  const at = t.toUpperCase().indexOf(HEAD);
+  const rest = at >= 0 ? t.slice(at + HEAD.length) : t;
+  const next = rest.toUpperCase().indexOf("CROWNGUARD");   // a second copy's head
+  const body = (next >= 0 ? rest.slice(0, next) : rest).match(/^[A-Za-z0-9+/]+=*/);
   let data;
-  try { data = JSON.parse(fromB64(t.slice(HEAD.length))); } catch { throw new Error("That code is damaged: copy the whole of it and try again."); }
+  try { data = JSON.parse(fromB64(body[0])); } catch {
+    throw new Error(at >= 0 ? "That code is damaged: copy the whole of it and try again." : "That isn't a Crownguard save code.");
+  }
   if (!data || data.game !== "crownguard" || !data.keys || typeof data.keys !== "object") throw new Error("That isn't a Crownguard save code.");
   const keys = {};
   for (const [k, v] of Object.entries(data.keys)) if (own(k) && typeof v === "string") keys[k] = v;

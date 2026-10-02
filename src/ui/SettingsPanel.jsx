@@ -87,7 +87,7 @@ function ProgressPanel({ onCampaignReset, inBattle }) {
   const share = async () => {
     const c = code || makeSaveCode();
     setCode(c);
-    try { await navigator.share({ title: "Crownguard save", text: c }); } catch { /* closed the sheet: fine */ }
+    try { await navigator.share({ text: c }); } catch { /* closed the sheet: fine */ }  // no title: Notes and Messages paste it ahead of the code
   };
   const restore = () => {
     let save;
