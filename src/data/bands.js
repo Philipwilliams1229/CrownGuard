@@ -4,6 +4,14 @@
 // machinery — rally point, slots, blocking, respawn — with their own stats.
 
 import { workTier } from "./castle.js";
+import { abilityLine } from "./heroes/kit.js";
+// The newer heroes each keep their whole sheet (hero, abilities, talents,
+// retinue) in a file of their own under data/heroes/, merged in below
+import osric from "./heroes/osric.js";
+import hale from "./heroes/hale.js";
+import ysolde from "./heroes/ysolde.js";
+const MORE_HEROES = [osric, hale, ysolde];
+const more = (part) => Object.fromEntries(MORE_HEROES.filter((h) => h[part]).map((h) => [h.key, h[part]]));
 
 // The militia: two farmers with pitchforks, summoned wherever you tap, who
 // hold the road for a while and then go home. Free, on a cooldown.
@@ -56,6 +64,7 @@ export const HEROES = {
     base: { hp: 180, dmg: 21, rate: 470, range: 155, unitSpeed: 125, respawnMs: 9000, ranged: true, pierce: true, slow: 0.3, slowDur: 1100 },
     perLevel: { hp: 22, dmg: 4 },
   },
+  ...more("hero"),
 };
 export const HERO_MAX_LEVEL = 20;
 // Heroes mend on their own (owner, 2026-09-30): a share of their max health
@@ -76,6 +85,7 @@ export const HERO_RETINUE = {
     st: { hp: 380, dmg: 30, rate: 760, range: 80, unitSpeed: 105, respawnMs: 10000 } },
   wren: { name: "Archer", rig: "bowman", at: [10, 15], joins: "an archer takes up the bow beside her!",
     st: { hp: 170, dmg: 24, rate: 760, range: 150, unitSpeed: 115, respawnMs: 9000, ranged: true } },
+  ...more("retinue"),
 };
 // how many followers a hero at `level` has on the field
 export const retinueAt = (key, level) => (HERO_RETINUE[key]?.at || []).filter((l) => level >= l).length;
@@ -121,6 +131,7 @@ export const HERO_ABILITIES = {
       desc: "One great armor-piercing shot at the BIGGEST foe near where you tap — made for bosses.",
       base: { dmg: 280, pick: 80 }, perLevel: { dmg: 48 } },
   ],
+  ...more("abilities"),
 };
 export const heroAbilities = (key) => HERO_ABILITIES[key] || [];
 
@@ -130,12 +141,6 @@ export const heroAbilities = (key) => HERO_ABILITIES[key] || [];
 // ability numbers) for rank r.
 export const TALENT_COSTS = [5, 6, 8, 10, 13];
 export const TALENT_RANKS = TALENT_COSTS.length;
-// an ability line: +12% damage and 8% off the cooldown a rank, plus `more`
-const abilityLine = (id, name, extra, more) => ({
-  id, name, ability: true,
-  desc: `${name}: +12% damage and 8% faster to recharge a rank${extra ? `; ${extra}` : ""}.`,
-  apply: (st, r) => { const a = st.abil[id]; a.dmg *= 1 + 0.12 * r; a.cd = Math.round(a.cd * (1 - 0.08 * r)); if (more) more(a, r); },
-});
 export const HERO_TALENTS = {
   aldric: [
     { id: "bulwark", name: "Bulwark", desc: "+10% health a rank.", apply: (st, r) => { st.hp = Math.round(st.hp * (1 + 0.1 * r)); } },
@@ -155,6 +160,7 @@ export const HERO_TALENTS = {
     abilityLine("volley", "Arrow Volley", "a wider rain", (a, r) => { a.r += 5 * r; }),
     abilityLine("heart", "Heartseeker", null),
   ],
+  ...more("talents"),
 };
 // what the next rank of a talent costs, or null when it is maxed
 export const talentCost = (rank) => (rank < TALENT_RANKS ? TALENT_COSTS[rank] : null);

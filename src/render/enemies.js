@@ -14,6 +14,8 @@ import { PX } from "./paint.js";
 import { shadow as softShadow } from "./paint.js";
 import { drawStatus } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
+import { HEROES } from "../data/bands.js";
+import { heroPose } from "./heroes/index.js";
 
 // A puff kicked up where a foot lands. The whole thing is a function of the
 // walker's own gait phase, so it needs no state and it stays in step with the
@@ -459,15 +461,17 @@ export const drawKnightUnit = (ctx, u, t, time) => {
 export const drawBandUnit = (ctx, u, b, time) => {
   if (u.state === "dead") return;
   const hero = b.kind === "hero";
-  const kind = hero ? (b.hero === "wren" ? "heroHunter" : "heroKnight") : b.kind === "gateguard" ? "halberdier" : b.kind === "retinue" || b.rig ? (u.rig || b.rig) : "farmer";
+  const kind = hero ? (HEROES[b.hero]?.rig || "heroKnight") : b.kind === "gateguard" ? "halberdier" : b.kind === "retinue" || b.rig ? (u.rig || b.rig) : "farmer";
   const fighting = u.state === "fighting";
   // Wren's Arrow Volley: the "sky" sheet, her draw raised high, cycling
   // loose → quiver → nock → draw once a flight (actions.js u.volley)
   const sky = hero && u.volley && u.state !== "moving" ? volleyFrame(u.volley, time * 1000) : -1;
-  const sheet = sky >= 0 ? "sky" : fighting ? "fight" : "walk";
+  // a newer hero's ability can take the body over (render/heroes/<key>.js pose)
+  const own = hero && sky < 0 ? heroPose(b, u, time) : null;
+  const sheet = own ? own.sheet : sky >= 0 ? "sky" : fighting ? "fight" : "walk";
   // a swordsman winds up then strikes; the huntress holds at full draw and
   // flings the string hand back for the moment after she looses
-  const frame = sky >= 0 ? sky : u.state === "moving" ? Math.floor(time * 7 + u.id) % 4
+  const frame = own ? own.frame : sky >= 0 ? sky : u.state === "moving" ? Math.floor(time * 7 + u.id) % 4
     : fighting ? fightFrame(kind, u, u.bow ? b.st.bow.rate : b.st?.rate, !!(b.st?.ranged || u.bow)) : 0;
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, 0.3, time);
   softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3);

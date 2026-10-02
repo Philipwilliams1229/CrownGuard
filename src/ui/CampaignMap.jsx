@@ -527,25 +527,30 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
       <rect x={selRealm.path[selRealm.path.length - 1][0] * 10 - 1} y={selRealm.path[selRealm.path.length - 1][1] * 10 - 1} width="12" height="12" fill="#d8b34a" />
     </svg>
   );
-  // the hero who rides out: a plank per hero, the chosen one lit
+  // the hero who rides out: a portrait tile per hero (five no longer fit as
+  // named planks), the chosen one lit and named on the line beneath
+  const heroOn = HEROES[heroKey];
   const heroPick = onHero && (
     <div style={{ background: "rgba(59,42,28,0.12)", border: `1px solid ${PARCH.dk}`, padding: compact ? "4px 7px" : "6px 8px" }}>
       <div style={{ fontSize: 8.5, letterSpacing: 2, color: PARCH.red, fontWeight: "bold", marginBottom: 4 }}>HERO</div>
-      <div style={{ display: "flex", gap: 6 }}>
+      <div style={{ display: "flex", gap: 5 }}>
         {Object.entries(HEROES).map(([key, h]) => {
           const on = key === heroKey;
           return (
-            <button key={key} aria-pressed={on} title={h.blurb} onClick={() => onHero(key)}
-              style={{ ...(on ? goldBtn : woodBtn), flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: compact ? "3px 6px" : "5px 8px", textAlign: "left", minHeight: compact ? 40 : 48 }}>
+            <button key={key} aria-pressed={on} aria-label={`${h.name} ${h.title}`} title={h.blurb} onClick={() => onHero(key)}
+              style={{ ...(on ? goldBtn : woodBtn), flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 2, minHeight: compact ? 38 : 46 }}>
               {hasRig(h.rig) && <EnemyIcon type={h.rig} box={compact ? 28 : 34} />}
-              <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, minWidth: 0 }}>
-                <b style={{ fontSize: compact ? 11 : 12 }}>{h.name}</b>
-                <span style={{ fontSize: 8.5, opacity: 0.85 }}>{h.title}</span>
-              </span>
             </button>
           );
         })}
       </div>
+      {heroOn && (
+        <div style={{ marginTop: 4, lineHeight: 1.2 }}>
+          <b style={{ fontSize: compact ? 11 : 12 }}>{heroOn.name}</b>
+          <span style={{ fontSize: 9, opacity: 0.85 }}> {heroOn.title}</span>
+          {!compact && <div style={{ fontSize: 9.5, opacity: 0.85, marginTop: 2 }}>{heroOn.blurb}</div>}
+        </div>
+      )}
     </div>
   );
   const marchStyle = {

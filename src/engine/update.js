@@ -16,6 +16,7 @@ import { nextId } from "./ids.js";
 import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
+import { heroHook, HERO_HOOKS } from "./heroes/index.js";
 import { isBuilt } from "./build.js";
 import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE } from "./muzzles.js";
 
@@ -603,7 +604,8 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
               u.shield = false; u.shieldCd = 6500;
               g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
             } else {
-              u.hp -= held.atk;
+              const hurt = b.kind === "hero" ? heroHook(b.hero)?.hurt : null;
+              u.hp -= hurt ? hurt(g, b, u, held.atk, held) : held.atk;
               g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
               sfx.play("hit");
             }
@@ -637,6 +639,8 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
     u.atkCd = st.rate;
     u.swing = 160;
     const [bx0, by0] = bandArrowFrom(u, b.kind === "hero");   // from the bow hand
+    const own = b.kind === "hero" ? heroHook(b.hero)?.shoot : null;
+    if (own) { own(g, b, u, best, tms); return; }
     const shoot = (e) => g.projectiles.push({ id: nextId(), x: bx0, y: by0, targetId: e.id, tx: e.x, ty: e.y, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0, kind: "arrow", src: b.id });
     shoot(best);
     // Split Shot: now and then a second arrow for the next-nearest foe
@@ -879,6 +883,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               if (st.lifesteal && done > 0 && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + done * st.lifesteal); u.healGlow = 200; }
               g.effects.push({ type: "spark", x: target.x, y: target.y - 6, ttl: 160, gold: !!st.magic || u.atkBuff > 0 });
               if (st.stun && Math.random() < st.stun) target.stunUntil = tms + st.stunDur;
+              if (t.kind === "hero") heroHook(t.hero)?.strike?.(g, t, u, target, dealt, tms);
               if (target.dead) { u.targetId = null; u.state = "rally"; }
             }
             if (!target.dead && (target.stunUntil <= tms || target.guard > 0) && target.atk > 0) {
@@ -891,7 +896,8 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
                   u.shield = false; u.shieldCd = 6500;
                   g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
                 } else {
-                  u.hp -= target.atk;
+                  const hurt = t.kind === "hero" ? heroHook(t.hero)?.hurt : null;
+                  u.hp -= hurt ? hurt(g, t, u, target.atk, target) : target.atk;
                   g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
                   sfx.play("hit");
                 }
@@ -1028,6 +1034,9 @@ export function updateGame(g, dt) {
             if (k === 1) { u.dash = null; u.state = "rally"; g.shake = Math.max(g.shake, 4); g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: 26 }); }
             else continue;                   // mid-charge: no ordinary fighting
           }
+          // the newer heroes' own doings (engine/heroes/<key>.js); true skips the fighting
+          const tick = heroHook(b.hero)?.tick;
+          if (tick && u.state !== "dead" && tick(g, b, u, sdt, tms)) continue;
         }
         const st = b.st;
         const n = st.count || 1;
@@ -1057,6 +1066,8 @@ export function updateGame(g, dt) {
       }
       g.bands = g.bands.filter((b) => !b.gone);
     }
+    // the newer heroes' lingering effects (engine/heroes/<key>.js)
+    for (const k in HERO_HOOKS) HERO_HOOKS[k].world?.(g, sdt, tms);
     // Arrow Volley: Wren looses `beats` flights skyward, `gap` apart after
     // her `lead`; each comes down `flight` later and strikes everything in
     // its ring once — fliers too. (The arrows linger, stuck in the ground,
@@ -1241,6 +1252,9 @@ export function updateGame(g, dt) {
         }
       }
     }
+    // the newer heroes' auras on their soldiers (engine/heroes/<key>.js buffs),
+    // laid after the Support halls have cleared and set atkBuff
+    for (const k in HERO_HOOKS) HERO_HOOKS[k].buffs?.(g, sdt, tms);
     // Lead to Gold: the transmuter's aura eats armor off everything inside it
     for (const t of g.towers) {
       if (t.kind !== "goldworks" || t.branch !== "b" || !isBuilt(t, g)) continue;

@@ -19,6 +19,7 @@ import { sfx } from "../audio/sfx.js";
 import { SANDBOX, tierOpen } from "../data/sandbox.js";
 import { buildClock } from "./build.js";
 import { bandArrowFrom } from "./muzzles.js";
+import { heroHook, HERO_HOOKS } from "./heroes/index.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
 // How far a hall's footing reaches from its anchor; two halls stand at least
@@ -172,6 +173,8 @@ export const restartWave = (g) => {
   // still recharging, so a restart can't refill them
   g.bands = [];
   g.volleys = [];
+  // the newer heroes clear their own lingering effects (engine/heroes/<key>.js reset)
+  for (const k in HERO_HOOKS) HERO_HOOKS[k].reset?.(g);
   if (s.hero) {
     const b = fieldHero(g, s.hero.key, s.hero.level, s.hero.rally.x, s.hero.rally.y, s.hero.talents);
     if (b) { b.xp = s.hero.xp; b.abCd = { ...(s.hero.abCd || {}) }; }
@@ -603,7 +606,12 @@ export const fireHeroAbility = (g, id, x, y) => {
   const a = b.st.abil[id];
   const u = b.units[0];
   const tms = g.time * 1000;
-  if (id === "slam") {
+  // the newer heroes fire their own (engine/heroes/<key>.js)
+  const hook = heroHook(b.hero)?.fire;
+  const went = hook ? hook(g, b, u, a, id, x, y, tms) : undefined;
+  if (went === false) return false;
+  if (went === true) { /* fired: the cooldown below */ }
+  else if (id === "slam") {
     for (const e of g.enemies) {
       if (e.dead || e.flying || e.swimming || Math.hypot(e.x - u.x, e.y - u.y) > a.r) continue;
       dealDamage(g, e, a.dmg, "phys", false, false, b.id);

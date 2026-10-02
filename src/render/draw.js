@@ -30,6 +30,7 @@ import { drawTraps, drawTrapBalloons } from "./traps.js";
 import { drawBarricades } from "./barricade.js";
 import { drawRemains } from "./remains.js";
 import { drawLog } from "./logs.js";
+import { drawHeroUnder, drawHeroFx } from "./heroes/index.js";
 
 // shafts in each flight of Wren's Arrow Volley (the look only: every flight
 // strikes the whole ring once, update.js)
@@ -191,6 +192,8 @@ export function draw(g, canvas, bufRef) {
     const tmsG = g.time * 1000;
     for (const gr of g.grounds) drawGround(ctx, gr, g.time, tmsG);
   }
+  // the newer heroes' marks on the ground (render/heroes/<key>.js)
+  drawHeroUnder(ctx, g);
 
   drawSpawn(ctx, g.time, REALM.spawn);
 
@@ -513,6 +516,9 @@ export function draw(g, canvas, bufRef) {
       ctx.globalAlpha = 1;
     }
   }
+
+  // the newer heroes' bolts, rings and flashes (render/heroes/<key>.js)
+  drawHeroFx(ctx, g);
 
   for (const fx of g.effects) {
     const a = Math.min(1, fx.ttl / 300);

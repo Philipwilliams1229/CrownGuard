@@ -42,11 +42,12 @@ copy what the rebuilt pieces do.
 |---|---|---|
 | Greenwood horde (goblins, orc, Ironclad, troll, shaman, necro, warchief) | `src/render/rigs-horde.js` | shared bending skeleton, 4-frame walk, four-frame fight (`fightN: 4`: guard, wind-up, strike, follow-through; the casters gather, raise, release, recover), sized per rig by `wind`/`follow`/`drive`; joint set `hrd` |
 | Beasts (wolf, boar rider, bat, dragon, wolf rider) | `src/render/rigs-beasts.js` | beast lope; rider reuses the horde goblin |
-| The crown's soldiers (knight, paladin, berserker, champion, militia, Aldric, Wren) | `src/render/rigs-crown.js` | upright human skeleton; four-frame fights (guard, wind-up, strike, follow-through; a bowman: full draw, loose, reach, nock) for every rig in `CROWN_FIGHT_FRAMES`, picked off the attack clock by `fightFrame` in enemies.js; `grip()` holds each weapon within reach, two-handed hafts by both fists; joint set `crown` |
+| The crown's soldiers (knight, paladin, berserker, champion, militia, the heroes Aldric, Wren, Osric, Hale, Ysolde) | `src/render/rigs-crown.js` | upright human skeleton; four-frame fights (guard, wind-up, strike, follow-through; a bowman: full draw, loose, reach, nock) for every rig in `CROWN_FIGHT_FRAMES`, picked off the attack clock by `fightFrame` in enemies.js; `grip()` holds each weapon within reach, two-handed hafts by both fists; joint set `crown` |
 | The Iron Kingdom's foot (levy, crossbowman, knight-sergeant, battle chaplain, Lord Marshal) | `src/render/rigs-iron.js` | upright human skeleton; `irn-lab.html` zooms chosen frames beside the crown's soldiers; four-frame fights (`fightN: 4`; the crossbowman's is a shooting cycle: ready, aim, loose, reload); joint set `irh` (its `analyse()` prints folds, wrists and box spill) |
 | The Iron Kingdom's mounts and engines (cavalier, gryphon knight, siege ram) | `src/render/rigs-ironmounts.js` | gallop, wingbeats, six turning wheels; `irm-lab.html` |
 | The Hollow Court's dead (risen, barrow archer, plague ghast, crypt warden, gravecaller, Hollow King) | `src/render/rigs-hollow.js` | the horde's bending skeleton with real bones; `hlw-lab.html` (on fen and road); four-frame fights (`fightN: 4`; the barrow archer nocks, draws, looses and reaches — its draw arm is a `flip` with the upper arm foreshortened, `o.short`); joint set `irh` |
 | The Hollow Court's beasts and spirits (ghoul, wraith, grave amalgam) | `src/render/rigs-hollowbeasts.js` | `hlb-lab.html` |
+| The newer heroes' effects (Osric's rings and blessed ground, Hale's pike hedge and levy pennant, Ysolde's bolts and thunderhead) | `src/render/heroes/<key>.js` (hooks: `pose`, `under`, `fx`; `src/render/heroes/index.js`) | one file per hero; its engine twin is `src/engine/heroes/<key>.js`. Aldric's and Wren's effects stay in `rings.js` / draw.js |
 | Anything not in the files above (the generic rig) | `src/render/rigs.js` | entries in the rig files above override these |
 | Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk-kit.js` (the body: head, torso, `legs`, `arm` with its elbow solver, timing helpers) and one file per crew: `folk-archer.js` (eight key poses; `ARCHER_FRAMES` / `drawArcherFrame` name every frame the halls and the castle's bowmen stamp; each pose's `back` puts the string arm wholly behind the head or wholly in front, see "Limbs and layers" — the lab can't judge that, look), `folk-casters.js` (mage, priest — their poses are joint-target tables and their timing lives there too: `MAGE_CYCLE`/`magePoseAt`, `mageIdlePose`, `mageBreathPose`, `priestPose`/`priestLight`; the halls only pick frames through them), `folk-workers.js` (winch crew on its crank circle `CREW_FRAMES`/`crankAt`, the smith's blow `SMITH_FRAMES`/`smithHammer`, standers `STANDER_FRAMES` with a spyglass option, the wall's halberdier `HALBERD_FRAMES`/`HALBERD_WALK` and mason `MASON_FRAMES`), `folk-gunners.js` (bombardier/alchemist `bomberFrame`/`bomberCharge`, musketeer `musketFrame`/`musketMuzzle`, falcon-mistress `mistressFrame`/`mistressGlove`, hooded blade `hoodedFrame` — the halls place fuses, flasks, flashes and birds from these, never at fixed offsets); `folk.js` re-exports them all and keeps the build crew | the new body: slim, jointed arms, small hands, each limb one inked part (`limb2`); joints per "Joints and motion" |
 | Crew headwear (the trade on every head) | `src/render/folk-kit.js` `hat(ctx, x, y, kind, pal, o)` — kinds in `HAT_KINDS`: `"falconer"` (bycocket, barred hawk feather, braid; `o.plume`), `"wrap"` (the Covert's skull wrap and face scarf; `o.tails`, `o.maskCol`), `"grenadier"` (the bombardier's fur cap, bag and grenade plate; `o.bag`), `"chaperon"` (the alchemist's roundlet) — and `cap()` (smith, hod carrier, setter; the musketeer's broad hat with `wide`/`tall`); `folk-workers.js` `engineerHead` / `clerkHead` / `watchHead` (drawStander's `o.hat`: `"beret"` or `"kettle"`) | drawn over a bare head (`head(..., { hood: false })`) at the same point inside the same nod, so it rides every tilt (folk-gunners.js `onHead`). Sweep options turn a piece about its root the way the head tilts: + lifts what trails back, − lays it flat. Rules in "Crews' headwear" |
@@ -313,6 +314,30 @@ forearm and the upper arm, and arms kept clear of hoods and helms):
   skull (the barrow archer's bow). A blade carried on the shoulder lies
   nearly level under the helm's back rim and across the pauldron's lower
   half, drawn over both (elbow folded ≤ 140°, wrist ≤ 120°).
+
+## The newer heroes' figures (October 2 pass)
+
+Brother Osric (`heroFriar`), Captain Hale (`heroCaptain`) and Ysolde
+(`heroStorm`) are painted by the crown `soldier` painter like Aldric and
+Wren; every older rig stayed pixel-identical (frame hashes), so new looks
+and weapons must be gated by `look`, `weapon` or an option old rigs never pass.
+- **Robes** (`friar`, `storm`): one ankle-length robe whose hem is shaped
+  from where the feet are, so a stride or a lunge never shows a leg through it.
+- **The friar's wind-up:** his wide sleeve raised over the head hid it, so
+  that arm goes BEHIND the head and the head ducks a little over it. His
+  mace rides upright before the face on the march (shouldered, its head
+  read as a pauldron).
+- **Hale** wears `p.plume` (the kettle hat's plume) and a tasselled
+  halberd; he is h 25, a size above the Gate Guard.
+- **The staff** (`weapon: "staff"`, `staffGrip`): the hand slides along the
+  shaft (`fwd`) so the butt stays off the robe on the release. Fight frames
+  follow the ranged order enemies.js plays (0 ready, 1 release, 2 recoil,
+  3 recover); the `sky` sheet is the staff raised overhead (raise, hold,
+  crackle, hold). `stormStaffTip(sheet, frame)` gives the crystal from her
+  feet for the bolts — use it, never fixed offsets.
+- The crystal's glow stays just under the alpha that would earn it an ink
+  outline. Osric's brown habit is low-contrast on the tan road; the ink
+  carries him, grass flatters him.
 
 ## Crews' headwear (the September 29 pass)
 

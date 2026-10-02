@@ -453,6 +453,47 @@ the shamans now walking in the thick of the warband).
   leave corpses too (`CORPSE_TYPES`, actions.js: before, a necromancer walking
   with ironclads had nothing to raise).
 
+## The newer heroes (2026-10-02, owner's picks)
+
+Brother Osric (battle friar), Captain Hale of the Watch and Ysolde the
+Stormcaller joined Aldric and Wren. Each keeps everything in files of its
+own, so several sessions can work on heroes side by side:
+- `src/data/heroes/<key>.js` — the whole sheet (`hero`, `abilities`,
+  `talents` with `abilityLine` from `data/heroes/kit.js`, `retinue`),
+  merged into HEROES / HERO_ABILITIES / HERO_TALENTS / HERO_RETINUE by
+  bands.js. An ability may carry `aimHint` (the aim ribbon's words for an
+  `aim: "foe"` ability).
+- `src/engine/heroes/<key>.js` — hooks the shared engine calls (header of
+  `engine/heroes/index.js`): `fire` (actions.js fireHeroAbility), `tick`
+  (the hero branch of update.js's bands; true skips the fighting),
+  `world` (every frame), `shoot` (a ranged hero's shot, runRangedBand),
+  `strike` / `hurt` (runMelee and the held foe's blows), `buffs` (after the
+  Support halls clear and lay atkBuff), `reset` (a retried wave).
+- `src/render/heroes/<key>.js` — `pose` (enemies.js), `under` and `fx`
+  (draw.js). Figures in rigs-crown.js (style guide, "The newer heroes'
+  figures"). The hero's rig is `HEROES[key].rig` everywhere.
+- A new hero: a data file, an engine file, a render file, a rig, an entry
+  in each of the three index files, icons in `ABIL_ICON`
+  (CrownguardGame.jsx), and the title crowd's WALKERS/HEROES sets
+  (ui/titleCrowd.js). The pickers (campaign card, pause menu, Change hero,
+  War Council, Free Play) lay out any number of heroes as portrait tiles.
+- **Osric**: holy blows (`st.magic`) + `smite` on the undead (`isUndead`:
+  Hollow faction, raised, wraiths); mends soldiers near him; Sanctuary
+  (heal ring, sears and stuns the undead, dazes the living), Consecrate
+  (blessed ground). Templar retinue (paladin rig).
+- **Hale**: `holds` 3 foes at once and sweeps them all; Brace Pikes
+  (impale and stun what reaches him, riders' trample spent, half harm);
+  Sound the Levy (three watchmen as a militia band, `levy: true`, the
+  player's militia cooldown untouched; an atkBuff ring). Watchman retinue.
+- **Ysolde**: ranged magic lightning that chains and prefers bare targets
+  (magic glances off pips); Chain Storm (aim foe), Thunderclap (aim
+  ground, a thunderhead then a stroke; fliers twice). No retinue.
+- Measured (sims, best post and doctrine, seeds 1-2; abilities never fire
+  in sims): each sits level with Aldric/Wren overall — Osric ahead in the
+  Hollow, Hale ahead in the Iron Marches, Ysolde weak against Iron shields.
+  Sound the Levy measured the strongest of all six abilities (`men`/`life`
+  are its levers). All provisional, pending the owner's playtest.
+
 ## Sound and music (2026-10-01, owner request)
 
 Everything is synthesized live, no audio files. Target for the music: the
