@@ -144,8 +144,12 @@ export default function Crownguard() {
   // the Field Guide opens on a given entry from the ⓘ's tree
   const [guideStart, setGuideStart] = useState(null);
   const level = levelId ? levelById(levelId) : null;
-  // the title, the map and the war council have their own themes; the battlefield picks its own each frame
-  useEffect(() => { if (screen !== "game") music.play(menuScore(screen)); }, [screen]);
+  // the title and the war council have their theme; the campaign map plays its
+  // realm's (CampaignMap) and the battlefield picks its own each frame
+  useEffect(() => { if (screen !== "game" && screen !== "map") music.play(menuScore(screen)); }, [screen]);
+  // the main loop runs on every screen; only the battlefield's frames choose the music
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
   const uiRef = useRef(ui);
   uiRef.current = ui;
 
@@ -234,6 +238,7 @@ export default function Crownguard() {
 
   // opts (the Free Play sandbox): { lives, wave, rush, hero: false, heroKey, heroLevel }
   const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks(), opts = {}) => {
+    music.forget();   // a new battle: its wave music starts from the top
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // dev-server playtest knob: /?gold=5000 pads the war chest. Stripped from
     // production builds, so the shipped game can't be talked into it.
@@ -482,7 +487,7 @@ export default function Crownguard() {
       // an ability can't take aim for a hero who has fallen
       if (abAim && heroBand(g)?.units[0].state === "dead") g.rallyFor = null;
       draw(g, canvasRef.current, bufRef);
-      music.play(battleScore(g, FACTION.id));
+      if (screenRef.current === "game") music.play(battleScore(g, FACTION.id));
 
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;

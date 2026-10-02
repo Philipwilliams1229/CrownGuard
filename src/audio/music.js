@@ -7,6 +7,12 @@
 //                                    otherwise the old one fades out)
 //   music.stop()                    fade to silence
 //   music.want                      what the game last asked for
+//   music.forget()                  a new battle: tracks start from the top
+//
+// A looping track that is faded out remembers its place (the start of the
+// bar it was in), and picks up from there when it is asked for again: the
+// wave music carries on after a boss instead of starting over. forget()
+// clears those places; the music already playing carries on.
 //
 // Like sfx.js it no-ops headless, shares sfx's AudioContext, obeys the
 // settings (muted / music off / music volume), pauses with the tab, and
@@ -96,7 +102,8 @@ function partNodes(ctx, track, c, trackOut) {
 }
 
 class Sequencer {
-  constructor(ctx, c, track, trackOut, startAt) {
+  // from: { si, pos } to start partway (section index, steps into it)
+  constructor(ctx, c, track, trackOut, startAt, from = null) {
     this.ctx = ctx;
     this.track = track;
     this.song = compileTrack(track);
@@ -104,10 +111,25 @@ class Sequencer {
     this.si = 0;                       // index into order
     this.ei = 0;                       // next event in that section
     this.base = startAt;               // ctx time the section started
+    if (from && from.si < this.song.order.length) {
+      const sec = this.song.sections[this.song.order[from.si]];
+      const pos = Math.max(0, Math.min(from.pos, sec.steps - 1));
+      this.si = from.si;
+      this.base = startAt - pos * this.song.stepSec;
+      while (this.ei < sec.events.length && sec.events[this.ei].at < pos) this.ei++;
+    }
     this.done = false;
     this.loop = track.loop !== false;
     this.loopFrom = track.loopFrom || 0;
     this.endsAt = null;                // set when a non-looping track runs out
+  }
+
+  // where the music is now, rounded back to the start of its bar
+  place(now) {
+    const { song } = this;
+    const sec = song.sections[song.order[this.si]];
+    const pos = Math.floor((now - this.base) / song.stepSec / song.meter) * song.meter;
+    return { si: this.si, pos: Math.max(0, Math.min(pos, sec.steps - song.meter)) };
   }
 
   // Schedule every event that starts before `until` (ctx seconds).
@@ -184,6 +206,7 @@ function tick() {
 
 const fading = new Set();
 const warned = new Set();
+const places = new Map();             // track id -> { si, pos } where it was faded out
 
 function startTimer() {
   if (!timer) timer = setInterval(tick, TICK_MS);
@@ -192,6 +215,7 @@ function startTimer() {
 function fadeAndDrop(cur) {
   const { ctx } = live;
   const t = ctx.currentTime;
+  if (cur.seq.loop && !cur.seq.done) places.set(cur.id, cur.seq.place(t));
   cur.out.gain.cancelScheduledValues(t);
   cur.out.gain.setValueAtTime(cur.out.gain.value, t);
   cur.out.gain.linearRampToValueAtTime(0, t + FADE_OUT);
@@ -212,7 +236,7 @@ function begin(id) {
   out.gain.linearRampToValueAtTime(track.level ?? 1, t0 + FADE_IN);
   out.connect(lv.c.master);
   let seq;
-  try { seq = new Sequencer(ctx, lv.c, track, out, t0); } catch (e) { console.warn("music:", e.message); return; }
+  try { seq = new Sequencer(ctx, lv.c, track, out, t0, places.get(id)); } catch (e) { console.warn("music:", e.message); return; }
   current = { id, seq, out };
   seq.advance(ctx.currentTime + LOOKAHEAD);
   startTimer();
@@ -267,6 +291,8 @@ export const music = {
     if (current && live) fadeAndDrop(current);
     current = null;
   },
+  // a new battle: every track starts from the top next time it is asked for
+  forget() { places.clear(); },
   get want() { return want; },
   get playing() { return current?.id || null; },
   ids: () => Object.keys(TRACKS),

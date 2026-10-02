@@ -443,9 +443,18 @@ chiptune.
 - Tracks are text in `src/audio/tracks/<area>.js` (arrays gathered by
   `tracks/index.js`). Ids: `<area>-build | -fight | -boss` for greenwood,
   iron, hollow, plus `title`, `map`, `victory`, `defeat` (the jingles have
-  `loop: false`). `audio/score.js` decides what plays when (`battleScore`
-  runs every frame in the game loop; a boss on the field switches to
-  `-boss`; the faction picks the area; free-play realms use their faction's).
+  `loop: false`). `audio/score.js` decides what plays when; the faction
+  picks the area (free-play realms use their faction's).
+- **One piece per battle** (owner, 2026-10-02: no switching and restarting
+  between waves): the campaign map plays the open card's realm `-build`
+  (`mapScore`, CampaignMap), which runs on unbroken into the level until the
+  first horn; from wave 1 the `-fight` theme plays through every wave AND
+  the build phases between them (`battleScore`, called each frame only while
+  `screen === "game"` — the main loop runs on every screen, and before that
+  gate it overrode the title music). A boss on the field takes over with
+  `-boss`; a looping track faded out remembers its bar (`places`, music.js),
+  so the fight theme picks up where it left off; `music.forget()` (initGame)
+  starts a new battle from the top. The `map` track is unused now.
 - **Tempo and weight** (owner, 2026-10-02: "too upbeat"): normal waves are
   background music — the `-fight` tracks sit at 92-100 bpm with quarter-note
   bass, one timpani stroke a bar, a soft kit (no sixteenth hats or snare

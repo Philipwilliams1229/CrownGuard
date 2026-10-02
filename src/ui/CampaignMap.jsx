@@ -29,6 +29,8 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { useViewport } from "./fit.jsx";
+import { music } from "../audio/music.js";
+import { mapScore } from "../audio/score.js";
 import { CHAPTERS, LEVELS, levelById, isUnlocked, currentLevel, loadCastle } from "../data/campaign.js";
 import CastleWorksList from "./CastleWorks.jsx";
 import { FACTIONS } from "../data/factions.js";
@@ -139,6 +141,9 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
   const [worksOpen, setWorksOpen] = useState(false);
   const [painted, setPainted] = useState(false);
   const sel = levelById(selId);
+  // the open card's realm sets the music; March runs it on into the level
+  const selFactionId = sel?.chapter.faction;
+  useEffect(() => { music.play(mapScore(selFactionId)); }, [selFactionId]);
   const upTo = currentLevel(progress);
   const front = progress.cleared[upTo.id] ? null : upTo;
   const vp = useViewport();
