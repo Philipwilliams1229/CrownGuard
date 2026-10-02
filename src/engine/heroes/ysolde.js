@@ -9,9 +9,9 @@ import * as CR from "../../render/rigs-crown.js";
 
 // The crystal on her staff, from her feet (enemies.js stands the rig's feet at
 // u.y + 9), facing +x: rigs-crown.js measures it off the painted pose when it
-// can (stormStaffTip); until then a hand-set guess — the staff held out at the
+// can (stormStaffTip); until then read off her painted frames — the staff thrust out at the
 // strike, raised overhead on the "sky" sheet.
-const TIP = { fight: [8, -27], sky: [3, -33], walk: [6, -24] };
+const TIP = { fight: [16, -19], sky: [5, -30], walk: [6, -24] };
 export const staffTip = (u, sheet = "fight", frame = 1) => {
   const own = typeof CR.stormStaffTip === "function" ? CR.stormStaffTip(sheet, frame) : null;
   const [dx, dy] = own || TIP[sheet] || TIP.fight;
@@ -94,7 +94,7 @@ export default {
       if (!mark) return false;
       u.face = mark.x >= u.x ? 1 : -1;
       const k = slow(g);
-      u.cast = { kind: "storm", t0: tms, until: tms + 260 * k };
+      u.cast = { kind: "storm", t0: tms, until: tms + 260 };   // a blink: game time, it holds her fire
       const from = staffTip(u, "fight", 1);
       const pts = leapThrough(g, b, mark, a.jumps, a.dmg, 1 - a.fall, a.chainRange, tms, (e) => jolt(e, a.stun, tms));
       g.effects.push({ type: "ysStorm", pts: [from, ...pts], ttl: 520 * k, life: 520 * k, seed: Math.random() * 10 });

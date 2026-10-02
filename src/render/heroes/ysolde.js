@@ -6,7 +6,7 @@
 // Pixel rules as fx.js: everything stamped on the art grid (PX), alpha in
 // hard steps, light from the upper left.
 import { PX, hash } from "../paint.js";
-import { drawFlash, ringPx } from "../fx.js";
+import { ringPx } from "../fx.js";
 
 const TAU = Math.PI * 2;
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -158,21 +158,22 @@ const drawCloud = (ctx, th, tms, g) => {
   const k = th.k || 1;
   const after = th.broke ? (tms - th.broke) / (900 * k) : 0;   // 0..1 as it thins
   if (after >= 1) return;
-  const W = th.r * (0.45 + 0.55 * Math.sqrt(p)) * (1 + 0.25 * after);
+  const W = th.r * (0.4 + 0.45 * Math.sqrt(p)) * (1 + 0.2 * after);
   const cx = th.x, cy = th.y - CLOUD_H - 4 * after;
   const a0 = ctx.globalAlpha;
-  ctx.globalAlpha = a0 * stepA((0.35 + 0.65 * p) * (1 - after));
+  ctx.globalAlpha = a0 * stepA((0.3 + 0.6 * p) * (1 - after));
   const ps = puffs(th);
   const sd = Math.round(th.x * 7 + th.y * 13);
-  // underside dark, body, a lit top-left on each billow
-  const shades = [[CLOUD[0], 0, 2.2, 1], [CLOUD[1], 0, 0, 1], [CLOUD[2], -0.22, -0.3, 0.7], [CLOUD[3], -0.32, -0.45, 0.38]];
-  for (const [col, ox, oy, sc] of shades) {
-    ctx.fillStyle = col; ctx.beginPath();
-    for (const [u, v, r] of ps) {
-      const R = r * W * 0.62 * sc, RY = R * 0.62;
-      discPath(ctx, cx + u * W * 0.75 + ox * R, cy + v * W * 0.5 + oy * (sc === 1 ? 1 : RY) + (oy > 1 ? oy : 0), R, RY);
+  // billow by billow, back (higher) to front: its dark underside, a lit rim
+  // (the sun upper left), then its body over most of the rim so a crescent
+  // of light shows — each front billow's rim outlines it against the ones behind
+  const order = ps.map((q, i) => i).sort((i, j) => ps[i][1] - ps[j][1]);
+  for (const i of order) {
+    const [u, v, r] = ps[i];
+    const R = r * W * 0.55, RY = R * 0.78, bx = cx + u * W * 0.72, by = cy + v * W * 0.6;
+    for (const [col, sc, ox, oy] of [[CLOUD[0], 1, 0.04, 0.22], [CLOUD[3], 0.94, -0.07, -0.1], [CLOUD[2], 0.95, -0.02, -0.02], [CLOUD[1], 0.97, 0.05, 0.1]]) {
+      ctx.fillStyle = col; ctx.beginPath(); discPath(ctx, bx + ox * R, by + oy * RY, R * sc, RY * sc); ctx.fill();
     }
-    ctx.fill();
   }
   // flickers in its belly, quicker as it ripens: a billow lit from within
   // and, now and then, a thread of light running along under it
@@ -180,10 +181,11 @@ const drawCloud = (ctx, th, tms, g) => {
     const slot = Math.floor(tms / 70), on = hash(sd + slot, 3) < 0.25 + 0.6 * p;
     if (on) {
       const [u, v, r] = ps[Math.floor(hash(sd + slot, 5) * ps.length)];
-      ctx.globalAlpha = a0 * (0.5 + 0.5 * stepA(p));
-      ctx.fillStyle = BOLT[1]; ctx.beginPath();
-      discPath(ctx, cx + u * W * 0.75, cy + v * W * 0.5 + 1, r * W * 0.32, r * W * 0.2);
-      ctx.fill();
+      const fx0 = cx + u * W * 0.72, fy0 = cy + v * W * 0.45 + 1, R = r * W * 0.3;
+      ctx.globalAlpha = a0 * 0.5 * stepA(0.4 + p);
+      ctx.fillStyle = BOLT[0]; ctx.beginPath(); discPath(ctx, fx0, fy0, R, R * 0.62); ctx.fill();
+      ctx.globalAlpha = a0 * stepA(0.4 + p);
+      ctx.fillStyle = BOLT[2]; ctx.beginPath(); discPath(ctx, fx0, fy0, R * 0.45, R * 0.28); ctx.fill();
       if (p > 0.4 && hash(sd + slot, 7) < 0.5) {
         const x1 = cx + (hash(sd + slot, 8) - 0.5) * W, x2 = x1 + (hash(sd + slot, 9) - 0.5) * W * 0.8;
         strokeBolt(ctx, jag([[x1, cy + 3], [x2, cy + 5 + hash(sd + slot, 10) * 4]], sd + slot, 0, 3, 0.9), 0.45, 0.2);
@@ -203,15 +205,22 @@ const drawBreak = (ctx, th, tms) => {
   const top = [th.x + (hash(sd, 1) - 0.5) * th.r * 0.4, th.y - CLOUD_H + 3];
   strokeBolt(ctx, jag([top, [th.x, th.y - 2]], sd, fr, 9, 0.55), 1.9, q);
   if (q < 0.5) strokeBolt(ctx, jag([[top[0] + 8, top[1]], [th.x + (hash(sd, 2) - 0.5) * th.r, th.y - 2]], sd + 5, fr, 7, 0.75), 0.8, q + 0.25);
-  // the ground blooms white where it struck
-  if (q < 0.9) drawFlash(ctx, { x: th.x, y: th.y - 3, ttl: 450 * (1 - q / 0.9) });
+  // the ground blooms white where it struck, for a blink
+  if (q < 0.3) {
+    const a0 = ctx.globalAlpha, f = q / 0.3;
+    ctx.globalAlpha = a0 * stepA(1 - f) * 0.7;
+    ctx.fillStyle = BOLT[2]; ctx.beginPath(); discPath(ctx, th.x, th.y, th.r * (0.35 + 0.4 * f), th.r * (0.3 + 0.35 * f)); ctx.fill();
+    ctx.globalAlpha = a0 * stepA(1 - f);
+    ctx.fillStyle = BOLT[3]; ctx.beginPath(); discPath(ctx, th.x, th.y - 1, th.r * 0.18, th.r * 0.14); ctx.fill();
+    ctx.globalAlpha = a0;
+  }
   crack(ctx, th.x, th.y - 2, q, 1.8);
   // a little crack of light on each foe it struck
-  if (th.hits) for (const [x, y] of th.hits) crack(ctx, x, y, clamp01(q * 1.6), 0.8);
+  if (th.hits) for (const [x, y] of th.hits) crack(ctx, x, y, clamp01(q * 1.6), 0.6);
 };
 
 export default {
-  // Chain Storm: a blink of her strike frame; Thunderclap: the staff raised
+  // Chain Storm: her strike frame held a blink; Thunderclap: the staff raised
   // overhead (the "sky" sheet, which falls back to her fight frames on a rig
   // that has none), frames 0-3 across the gathering
   pose(b, u, time) {
@@ -220,7 +229,7 @@ export default {
     const tms = time * 1000;
     if (tms >= c.until || tms < c.t0) return null;
     if (c.kind === "thunder") return { sheet: "sky", frame: Math.min(3, Math.floor(((tms - c.t0) / (c.until - c.t0)) * 4)) };
-    if (c.kind === "storm") return { sheet: "fight", frame: tms - c.t0 < (c.until - c.t0) * 0.5 ? 1 : 2 };
+    if (c.kind === "storm") return { sheet: "fight", frame: 1 };   // held at the thrust the bolt leaves from
     return null;
   },
 
