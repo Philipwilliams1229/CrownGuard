@@ -330,6 +330,11 @@ upgrade cards stay in `towerPanel` in `src/CrownguardGame.jsx`; skin in
 
 ## Castle works are the crown's, everywhere
 
+Buying a work takes two taps (2026-10-02, owner request): the first arms the
+button (gold, a CONFIRM tag in place of the label, 3 s or a press elsewhere
+disarms), the second pays. It is `useArm` inside `ui/CastleWorks.jsx`, so the
+battle card and the campaign map both get it.
+
 One castle for the whole campaign: the treasury's works stand at every level
 of every realm (`loadCastle`/`saveCastle` in `src/data/campaign.js` map any
 chapter id to the `crown` castle; Free Play's `free:<realm>` scopes all map

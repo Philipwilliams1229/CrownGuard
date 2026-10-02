@@ -7,6 +7,7 @@
 
 import { CASTLE_WORKS, nextWork } from "../data/castle.js";
 import "./hud/hud.css";
+import { useArm } from "./HeroTalents.jsx";
 import { CoinIcon, ArrowIcon, BallistaIcon, ShieldIcon, HammerIcon, PitchforkIcon } from "./hud/icons.jsx";
 
 // each work's picture, on the HUD's own pixel grid
@@ -15,6 +16,8 @@ const WORK_ICON = { archers: ArrowIcon, ballista: BallistaIcon, guards: ShieldIc
 const gold = (n) => n.toLocaleString("en-US");
 
 export default function CastleWorksList({ works, ranks = null, endless = false, purse, purseLabel, onBuy, note }) {
+  // two taps to buy: the first arms the button (gold, CONFIRM), the second pays
+  const arm = useArm(3000);
   return (
     <div className="cg-hud" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div className="cg-well" style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: 8 }}>
@@ -47,13 +50,18 @@ export default function CastleWorksList({ works, ranks = null, endless = false, 
             <div style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.45, margin: "7px 0 8px" }}>
               {cur ? <span><b style={{ color: "var(--green)" }}>{cur.label}</b>{def.here ?? " stands on the wall"}{rank ? <>, <b style={{ color: "var(--gold-lt)" }}>veteran rank {rank}</b></> : null}.</span> : def.blurb}
             </div>
-            {next ? (
-              <button className={`cg-btn${can ? "" : " is-poor"}`} style={{ width: "100%", justifyContent: "space-between", fontSize: 11 }}
-                disabled={!can} onClick={() => onBuy(key, next)}>
-                <span className="cg-dim">{next.rank ? "" : have ? "Raise: " : "Build: "}{next.label}</span>
-                <span className={`cg-price${can ? "" : " is-short"}`}><CoinIcon size={13} />{gold(next.cost)}</span>
-              </button>
-            ) : <div className="cg-label" style={{ textAlign: "center", padding: 6, color: "var(--green)" }}>Complete</div>}
+            {next ? (() => {
+              const id = `work:${key}`, armed = can && arm.is(id);
+              return (
+                <button data-arm={id} className={`cg-btn${armed ? " cg-btn--gold" : ""}${can ? "" : " is-poor"}`} style={{ width: "100%", justifyContent: "space-between", fontSize: 11 }}
+                  disabled={!can} onClick={() => arm.tap(id, () => onBuy(key, next))}>
+                  {armed
+                    ? <span style={{ background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontWeight: 700, letterSpacing: 1, lineHeight: "14px", padding: "1px 7px", textShadow: "none" }}>CONFIRM</span>
+                    : <span className="cg-dim">{next.rank ? "" : have ? "Raise: " : "Build: "}{next.label}</span>}
+                  <span className={`cg-price${can ? "" : " is-short"}`} style={armed ? { color: "var(--wood-deep)", textShadow: "none" } : undefined}><CoinIcon size={13} />{gold(next.cost)}</span>
+                </button>
+              );
+            })() : <div className="cg-label" style={{ textAlign: "center", padding: 6, color: "var(--green)" }}>Complete</div>}
           </div>
         );
       })}
