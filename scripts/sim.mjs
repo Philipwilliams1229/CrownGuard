@@ -48,7 +48,7 @@ const { TOTAL_LEN, posAt, nearestOnPath } = await import("../src/engine/path.js"
 const { updateGame } = await import("../src/engine/update.js");
 const { startWave, placeTower, upgradeTower, branchTower, ascendTower, buildableAt, fieldHero, callMilitia, heroBand } = await import("../src/engine/actions.js");
 const { PTS } = await import("../src/engine/path.js");
-// --hero aldric|wren|none : who rides with the commander (default: Sir Aldric,
+// --hero aldric|wren|osric|hale|ysolde|none : who rides with the commander (default: Sir Aldric,
 // because a real player always has one). --no-militia skips the free farmers.
 const HERO = after("hero") || "aldric";
 let HERO_OFF = false;
