@@ -509,7 +509,7 @@ export default function Crownguard() {
       const hb = heroBand(g);
       const hu = hb?.units[0];
       // the hero's two abilities, as the menu shows them
-      const heroAbs = hb ? heroAbilities(hb.hero).map((a) => ({ id: a.id, name: a.name, aim: a.aim, desc: a.desc, ...heroAbilityState(hb, a) })) : [];
+      const heroAbs = hb ? heroAbilities(hb.hero).map((a) => ({ id: a.id, name: a.name, aim: a.aim, aimHint: a.aimHint, desc: a.desc, ...heroAbilityState(hb, a) })) : [];
       const heroKeyUi = hb ? `${hb.hero}|${hb.level}|${hb.xp}|${hu.state}|${Math.round(hu.hp)}|${hu.maxHp}|${hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0}|${heroAbs.map((x) => x.state + (x.sec || "")).join(",")}|${canSwapHero(g) ? 1 : 0}${g.heroSwap ? 2 : 0}` : "";
       const militiaSec = Math.ceil((g.militiaCd || 0) / 1000);
       if (u.masterShow !== masterShow || u.masterOn !== !!g.masterBuild || u.masterPick !== pickKey || u.rallyFor !== rallyFor || u.gold !== Math.floor(g.gold) || u.lives !== g.lives || u.wave !== g.wave || u.phase !== g.phase || u.selKey !== selKey || u.buildMode !== g.buildMode || u.speed !== g.speed || u.paused !== g.paused || u.canRestart !== canRestart || u.cdSec !== cdSec || u.zoom !== g.cam.zoom || u.camX !== camX || u.camY !== camY || u.rush !== g.rush || u.castleKey !== castleKey || u.heroKey !== heroKeyUi || u.militiaSec !== militiaSec) {
@@ -1553,7 +1553,7 @@ export default function Crownguard() {
           {typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:") && (() => {
             const a = ui.hero?.abilities?.find((x) => `ab:${x.id}` === ui.rallyFor);
             return ribbon(a?.aim === "foe"
-              ? <><b>{a.name}</b> — tap near a foe: the biggest one there takes the arrow.</>
+              ? <><b>{a.name}</b> — tap near a foe: {a.aimHint || "the biggest one there takes the arrow."}</>
               : <><b>{a?.name}</b> — tap the map where it should land.</>, "Cancel ability", cancelRally);
           })()}
           {ui.rallyFor != null && ui.rallyFor !== "hero" && ui.rallyFor !== "militia" && !(typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:")) && ribbon(

@@ -29,6 +29,8 @@ export default {
     // Wren's Volley ~630-1260 (aimed well) and Aldric's Slam ~480-1140; it
     // needs no aim and finds the column wherever it bends. (Was 80 + 14.)
     { id: "storm", name: "Chain Storm", aim: "foe", unlock: 1, cd: 20000, icon: "storm",
+      // the aim ribbon's hint (CrownguardGame.jsx; Heartseeker keeps the default)
+      aimHint: "the nearest one there is struck first, and the storm leaps on.",
       desc: "A great bolt at the foe you tap that leaps through up to six foes, jolting each still a moment.",
       base: { dmg: 120, jumps: 6, fall: 0.1, pick: 80, chainRange: 80, stun: 400 }, perLevel: { dmg: 18 } },
     // gathers `delay` ms over the spot (a quick foe can walk out of it), then
