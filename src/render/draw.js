@@ -50,7 +50,7 @@ import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 // zone IV placeholders: longships, ice shells, landing telegraphs, the blizzard
 import { drawShip, drawFrostShells, drawSea, ZONE_FX } from "./rimefx.js";
-import { drawWeather, flierDrop } from "./weatherfx.js";
+import { drawWeather, drawWeatherGround, flierDrop } from "./weatherfx.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
 import { prefs } from "../data/prefs.js";
@@ -176,6 +176,8 @@ export function draw(g, canvas, bufRef) {
 
   // clouds crossing the sun — over the ground, under everything standing on it
   drawCloudShadows(ctx, g.time);
+  // the battle weather's ground half: puddles, splashes, scorches, rock shadows (weatherfx.js)
+  drawWeatherGround(ctx, g);
 
   // Scorch marks and the ground half of every blast (its shockwave and
   // wash), drawn here, before the actors, so the crowd stands IN the blast

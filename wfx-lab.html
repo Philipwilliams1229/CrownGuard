@@ -13,6 +13,8 @@
                      120 without (g.weather = null), and drawWeather alone;
                      results in window.BENCH, the status line and the console
     &nodraw=1        skip the snaps (bench only)
+    &daze=1          daze every soldier before each snap (a lightning stroke's stars)
+    &burn=2          set the first 2 halls burning before each snap (an eruption's hall fire)
 
   Saved to .shots/wfx_<tag>.png, frames two to a row (one with &cols=1).
   Read the bench with:
@@ -82,6 +84,8 @@
       let f = 0;
       if (!q.get("nodraw")) for (const at of SNAPS) {
         step(at);
+        if (q.get("daze")) for (const h of [...g.towers, ...g.bands]) for (const u of h.units || []) u.dazedUntil = g.time * 1000 + 800;
+        if (q.get("burn")) for (const t of g.towers.slice(0, Number(q.get("burn")))) { t.fireMax = 4500; t.fireLeft = 4500 * (1 - (f % 3) * 0.35); }
         draw(g, cv, { current: null });
         const k = cv.width / W, col = f % cols, row = Math.floor(f / cols), fw = cw * RES * SC, fh = ch * RES * SC;
         o.drawImage(cv, cx * k, cy * k, cw * k, ch * k, col * fw, row * (fh + 14 * SC) + 14 * SC, fw, fh);
