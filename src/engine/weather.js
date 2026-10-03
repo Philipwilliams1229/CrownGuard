@@ -48,7 +48,7 @@ export const WEATHER_KINDS = {
   blizzard: {
     name: "Blizzard",
     every: [60, 90], lasts: [12, 15], first: 25, windup: 4, ease: 2.5,
-    fx: { reach: 0.8, shotSpeed: 0.85, flierSpeed: 0.85, fliersLow: true, groundHitsLow: false },
+    fx: { reach: 0.8, shotSpeed: 0.85, flierSpeed: 0.85, fliersLow: true, groundHitsLow: true },   // (owner, 2026-10-03: low fliers are fair game for ground-only halls)
     paint: "blizzard",
     sound: "gust",
   },
