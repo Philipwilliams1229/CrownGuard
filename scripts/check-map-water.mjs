@@ -9,7 +9,8 @@
 //   node scripts/check-map-water.mjs
 
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
-globalThis.document = { createElement: () => ({ getContext: () => null }) };
+// no DOM here: nothing below paints (fonts.js only touches the DOM when
+// there is one, so leave `document` undefined)
 const root = process.cwd();
 const { LEVELS } = await import(root + "/src/data/campaign.js");
 const { REALMS } = await import(root + "/src/data/maps.js");

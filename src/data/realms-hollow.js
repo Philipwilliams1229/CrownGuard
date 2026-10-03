@@ -118,5 +118,38 @@ export default function moreHollowRealms(hollowVariant) {
         decorRecipe: { count: 50, types: ["fengrave", "fengrave", "fencandle", "fengrave", "fenbones", "fengrave", "fencairn", "fengrave", "fencandle", "lichfence", "fengrave", "fenbones"] },
       },
     ),
+
+    // ---- added when the chapter grew to fifteen (2026-10-03) ----
+    // lanternfen  the Bellmarsh creek running out to the western sea (river)
+    // abbeymere   a drowned abbey in its mere (ponds)
+    // barrowdowns the high downs at the fen's north edge (dry)
+    // deadweir    the Blackwater over the drowned kingdom's weir (river)
+    lanternfen: hollowVariant(
+      "lanternfen", "The Lantern Fen", "CORPSE-LIGHTS",
+      "Corpse-lights over the creek where it runs out to the western sea.",
+      20261031,
+      [[0.9, 2], [4, 2], [4, 7], [9, 7], [9, 3], [13.7, 3]],
+      { rivers: [{ pts: [[6.5, -0.5], [6.6, 5], [6.4, 10.5]], w: 26 }] },
+    ),
+    abbeymere: hollowVariant(
+      "abbeymere", "Abbeymere", "THE ABBEY",
+      "An abbey drowned to its bell-tower, its mere filling the cloister.",
+      20261032,
+      [[0.9, 1.5], [12, 1.5], [12, 8], [3, 8], [3, 4.5], [13.7, 4.5]],
+      { ponds: [{ x: 360, y: 300, w: 160, h: 70, t: "swamp" }] },
+    ),
+    barrowdowns: hollowVariant(
+      "barrowdowns", "The Barrowdowns", "THE DOWNS",
+      "The high downs at the fen's north edge, barrow beside barrow.",
+      20261033,
+      [[0.9, 8], [4, 8], [4, 3], [8, 3], [8, 7], [11, 7], [11, 2], [13.7, 2]],
+    ),
+    deadweir: hollowVariant(
+      "deadweir", "The Dead Weir", "THE WEIR",
+      "The Blackwater pouring over the drowned kingdom's weir.",
+      20261034,
+      [[0.9, 2], [4, 2], [4, 7], [9, 7], [9, 3], [13.7, 3]],
+      { rivers: [{ pts: [[6.5, -0.5], [6.6, 5], [6.4, 10.5]], w: 28 }] },
+    ),
   };
 }

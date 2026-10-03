@@ -8,14 +8,17 @@
 // `window: { from, to, count }` reads as "count waves, climbing from war-wave
 // `from` to war-wave `to`" — the war being the faction's eighteen scripted
 // waves and then generated ones. `boss: true` puts the faction's champion on
-// the last wave. Every chapter has eleven levels on the same shape: five
-// twenty-wave levels, five of twenty-five, and a thirty-wave boss, each one
-// starting a little deeper into the war than the last.
+// the last wave. Every chapter has fifteen levels on the same shape: seven
+// twenty-wave levels, seven of twenty-five, and a thirty-wave boss, each one
+// starting a little deeper into the war than the last (the Greenwood runs
+// six and eight). Levels added to a chapter later take windows between their
+// neighbours', so the levels already played keep theirs.
 // The last level of a chapter always ends on the faction's boss wave.
 //
 // Each level's waypoint on the continent map (`pos`) and each chapter's
 // coastline (`region`) come from mapLayout.js; the Iron and Hollow chapters'
-// level lists live in levels-iron.js / levels-hollow.js.
+// level lists live in levels-iron.js / levels-hollow.js, the four maps added
+// to the vale in 2026-10 have their realms in realms-greenwood.js.
 
 import { REGIONS, LEVEL_POS } from "./mapLayout.js";
 import { IRON_LEVELS } from "./levels-iron.js";
@@ -34,7 +37,7 @@ export const CHAPTERS = [
     // the vale runs north now too: the ridge, the deep wood and the burned
     // holt stand on the high ground above the Barrowfields
     levels: [
-      // five twenty-wave levels to learn the vale...
+      // six twenty-wave levels to learn the vale...
       {
         id: "gw1", name: "The Vale Road", realm: "greenwood", short: "Vale Road",
         window: { from: 1, to: 12, count: 20 }, gold: 250,
@@ -44,6 +47,16 @@ export const CHAPTERS = [
         id: "gw2", name: "Thornbrook Ford", realm: "thornbrook", short: "Thornbrook",
         window: { from: 2, to: 14, count: 20 }, gold: 350,
         blurb: "Wolves run ahead of the horde now, and fell bats ride over your knights' heads. The brook is the only thing here that stops for anyone.",
+      },
+      {
+        id: "gullwick", name: "Gullwick Sands", realm: "gullwick", short: "Gullwick",
+        window: { from: 2, to: 14, count: 20 }, gold: 380,
+        blurb: "The vale's south shore, dunes and a fishing hamlet. The road walks the strand with the sea at its back — every tower faces inland, every goblin comes straight at it.",
+      },
+      {
+        id: "millrace", name: "Millrace", realm: "millrace",
+        window: { from: 3, to: 15, count: 20 }, gold: 400,
+        blurb: "The Foxwater turns a mill here before it reaches the sea. The road crosses the race and the river both — hold the bridges, and the wheel keeps turning.",
       },
       {
         id: "foxmere", name: "Foxmere", realm: "foxmere", labelAbove: true,
@@ -60,7 +73,7 @@ export const CHAPTERS = [
         window: { from: 5, to: 20, count: 20 }, gold: 560,
         blurb: "Hedged fields around the old millpond. The road wanders every lane of the farm, and the horde has learned to come down all of it at once.",
       },
-      // ...five twenty-five-wave levels to hold it...
+      // ...eight twenty-five-wave levels to hold it...
       {
         id: "gw4", name: "The Barrowfields", realm: "barrowfields", short: "Barrowfields",
         window: { from: 6, to: 23, count: 25 }, gold: 750,
@@ -70,6 +83,16 @@ export const CHAPTERS = [
         id: "wolfrun", name: "Wolfrun Ford", realm: "wolfrun", short: "Wolfrun",
         window: { from: 7, to: 25, count: 25 }, gold: 800,
         blurb: "Four bridges over one cold river, and a warchief's totem driving the party across all of them. The fords decide who holds the vale.",
+      },
+      {
+        id: "thistlecrag", name: "Thistlecrag", realm: "thistlecrag", labelAbove: true,
+        window: { from: 7, to: 26, count: 25 }, gold: 850,
+        blurb: "Grey crags on the vale's north-west headland, and a road that threads every gap between them. The rocks eat your footings; the trolls don't mind them at all.",
+      },
+      {
+        id: "kingstones", name: "The Kingstones", realm: "kingstones", short: "Kingstones",
+        window: { from: 8, to: 26, count: 25 }, gold: 900,
+        blurb: "An old ring of standing stones on the high down, older than the crown. The road circles it twice; the horde marches round it as if it knew what it was for.",
       },
       {
         id: "ravenscar", name: "Ravenscar", realm: "ravenscar", labelAbove: true,
@@ -243,12 +266,15 @@ export const unlocksFor = (levelId) => Object.keys(TOWER_UNLOCKS).filter((k) => 
 export const unlockLevel = (kind) => levelById(TOWER_UNLOCKS[kind]) || null;
 
 // Levels open in order: the first is always open, the rest need the one
-// before them cleared.
+// before them cleared. A level already cleared stays open even when a new
+// map has since been added before it (the chapters grew from eleven levels
+// to fifteen on 2026-10-03): an old save keeps everything it won, and the
+// new maps open behind the levels they follow.
 export function isUnlocked(levelId, p) {
   if (UNLOCK_ALL) return true;
   const i = LEVELS.findIndex((l) => l.id === levelId);
   if (i <= 0) return i === 0;
-  return !!p.cleared[LEVELS[i - 1].id];
+  return !!p.cleared[levelId] || !!p.cleared[LEVELS[i - 1].id];
 }
 
 // Where "Continue" drops you: the first level not yet cleared, or the last

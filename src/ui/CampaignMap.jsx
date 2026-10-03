@@ -6,7 +6,7 @@
 // countries not yet reached) and an SVG layer for the names, the pulse on
 // the front line, and the taps.
 //
-// All three share the map's unit space (MAP in mapArt.js, 770x690), so the
+// All three share the map's unit space (MAP in mapArt.js, 850x830), so the
 // same picture works on a phone and on a desktop. On a landscape tablet the
 // map takes the height of the screen and the chosen level's card stands
 // beside it; on a phone held upright the card drops below.

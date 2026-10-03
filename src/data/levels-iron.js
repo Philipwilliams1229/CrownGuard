@@ -2,16 +2,17 @@
 // The chapter's levels in marching order (see campaign.js for what the
 // fields mean). Waypoints on the continent map live in mapLayout.js.
 //
-// Eleven levels, shaped like the Greenwood's: five twenty-wave levels to
-// cross the border, five of twenty-five to push into the heartland, and a
-// thirty-wave boss at the Citadel. Each one starts a war-wave deeper than
-// the last, and the early `to`s climb gently so each Iron soldier still
+// Fifteen levels: seven twenty-wave levels to cross the border, seven of
+// twenty-five to push into the heartland, and a thirty-wave boss at the
+// Citadel (the four added 2026-10-03 take windows between their
+// neighbours'). Each one starts a war-wave deeper than the last, and the early `to`s climb gently so each Iron soldier still
 // arrives in the level that introduces him (crossbows and cavaliers on the
 // King's Road, gryphons at the Muster, rams at Ironford, chaplains at
 // Greyhelm). Levels added later (gallowscross, kestrel, coldwater,
-// crowstair) have their realms in realms-iron.js.
+// crowstair, and 2026-10's brinewick, ironmouth, wardenmoor, blackcliff)
+// have their realms in realms-iron.js.
 export const IRON_LEVELS = [
-      // five twenty-wave levels to cross the border...
+      // seven twenty-wave levels to cross the border...
       {
         id: "ir1", name: "The King's Road", realm: "kingsroad", short: "King's Road",
         window: { from: 1, to: 8, count: 20 }, gold: 400,
@@ -28,6 +29,16 @@ export const IRON_LEVELS = [
         blurb: "Crossbowmen shoot your knights down from outside their reach, and gryphons pass clean over the walls. Nothing here fights fair.",
       },
       {
+        id: "brinewick", name: "Brinewick", realm: "brinewick",
+        window: { from: 3, to: 14, count: 20 }, gold: 600,
+        blurb: "The Kingdom's salt-pans on the south shore. Flat as a table, the sea along one edge, and nothing between the column and your towers but the wind.",
+      },
+      {
+        id: "ironmouth", name: "Ironmouth", realm: "ironmouth",
+        window: { from: 4, to: 14, count: 20 }, gold: 620,
+        blurb: "Where the Iron river widens to the sea. Its estuary is the broadest water in the Marches, and the column takes the long bridge over it at a march.",
+      },
+      {
         id: "gallowscross", name: "Gallows Cross", realm: "gallowscross", short: "Gallows",
         window: { from: 4, to: 15, count: 20 }, gold: 640,
         blurb: "Knight-sergeants in plate, and frost won't slow them. The road loops back through its own crossroads — build at the cross and make them pay twice.",
@@ -37,7 +48,7 @@ export const IRON_LEVELS = [
         window: { from: 5, to: 17, count: 20 }, gold: 850,
         blurb: "The river eats half your ground, cavaliers ride the first blocker down, and the siege rams come through the ford anyway.",
       },
-      // ...five of twenty-five into the heartland...
+      // ...seven of twenty-five into the heartland...
       {
         id: "kestrel", name: "Kestrel Head", realm: "kestrel", short: "Kestrel",
         window: { from: 6, to: 20, count: 25 }, gold: 960,
@@ -57,6 +68,16 @@ export const IRON_LEVELS = [
         id: "crowstair", name: "Crowstair", realm: "crowstair",
         window: { from: 9, to: 27, count: 25 }, gold: 1100,
         blurb: "Cavaliers take the long traverses at a gallop. Only at the hairpins do two lanes pass in one tower's reach — build there, and post your knights two deep.",
+      },
+      {
+        id: "wardenmoor", name: "Warden Moor", realm: "wardenmoor", short: "Warden Moor",
+        window: { from: 9, to: 28, count: 25 }, gold: 1150,
+        blurb: "The bare moor behind the eastern peaks, where the Kingdom's wardens drill. Long open lanes for the cavalry, and a ruined wall that is the only cover for anyone.",
+      },
+      {
+        id: "blackcliff", name: "Blackcliff", realm: "blackcliff", labelAbove: true,
+        window: { from: 9, to: 29, count: 25 }, gold: 1200,
+        blurb: "Black sea-cliffs on the Marches' eastern shore. Gryphons nest in the rock and ride the updraught in over your walls; a boat in the cove sees them coming.",
       },
       {
         id: "undercliff", name: "Undercliff", realm: "undercliff",

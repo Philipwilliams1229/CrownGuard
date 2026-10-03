@@ -83,5 +83,38 @@ export default function moreIronRealms(ironVariant) {
         decorRecipe: { count: 18, types: ["ircrag", "ircrag", "irspruce", "ircrag", "irpine", "irtower"] },
       },
     ),
+
+    // ---- added when the chapter grew to fifteen (2026-10-03) ----
+    // brinewick  the south shore's salt-pans: the sea along one edge
+    // ironmouth  the Iron river's estuary, the widest water in the Marches
+    // wardenmoor the bare moor behind the eastern peaks (dry)
+    // blackcliff the eastern sea-cliffs: the sea along the top edge
+    brinewick: ironVariant(
+      "brinewick", "Brinewick",
+      "The Kingdom's salt-pans on the south shore, flat as a table, the sea along one edge.",
+      20261021,
+      [[0.9, 1.5], [6, 1.5], [6, 5], [10, 5], [10, 2], [13.7, 2]],
+      { coast: { edge: "bottom", from: 40, depth: 96, sand: 22 } },
+    ),
+    ironmouth: ironVariant(
+      "ironmouth", "Ironmouth",
+      "Where the Iron river widens to the sea, crossed by one long bridge.",
+      20261022,
+      [[0.9, 2], [4, 2], [4, 7], [9, 7], [9, 3], [13.7, 3]],
+      { rivers: [{ pts: [[6.5, -0.5], [6.6, 5], [6.4, 10.5]], w: 40 }] },
+    ),
+    wardenmoor: ironVariant(
+      "wardenmoor", "Warden Moor",
+      "The bare moor behind the eastern peaks, and a ruined wall across it.",
+      20261023,
+      [[0.9, 8], [4, 8], [4, 3], [8, 3], [8, 7], [11, 7], [11, 2], [13.7, 2]],
+    ),
+    blackcliff: ironVariant(
+      "blackcliff", "Blackcliff",
+      "Black sea-cliffs on the eastern shore, the sea along the top edge.",
+      20261024,
+      [[0.9, 3], [5, 3], [5, 7], [9, 7], [9, 4], [13.7, 4]],
+      { coast: { edge: "top", from: 150, depth: 92, sand: 18 } },
+    ),
   };
 }

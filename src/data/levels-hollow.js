@@ -1,13 +1,14 @@
 // ============ THE HOLLOWFEN: ITS LEVELS ============
 // The chapter's levels in marching order (see campaign.js for what the
 // fields mean). Waypoints on the continent map live in mapLayout.js.
-// Eleven levels, shaped like the Greenwood's: five twenty-wave levels to
-// learn the fen, five of twenty-five to hold it, and a thirty-wave boss.
+// Fifteen levels: seven twenty-wave levels to learn the fen, seven of
+// twenty-five to hold it, and a thirty-wave boss (the four added 2026-10-03
+// take windows between their neighbours').
 // `push` (see waves.js) thickens the rank and file of the early levels: the
 // player comes here from the Iron Marches with strong towers, and the fen is
 // meant to feel like a zombie horde from its first wave (Sept 29 pass).
 export const HOLLOW_LEVELS = [
-      // five twenty-wave levels to learn the fen...
+      // seven twenty-wave levels to learn the fen...
       {
         id: "hl1", name: "The Grave Road", realm: "graveroad", short: "Grave Road",
         window: { from: 1, to: 12, count: 20, push: 2.0 }, gold: 400,
@@ -33,7 +34,17 @@ export const HOLLOW_LEVELS = [
         window: { from: 5, to: 20, count: 20, push: 1.4 }, gold: 550,
         blurb: "Three shores of a mere so still it shows no stars, and hardly a tower's width of dry ground along any of them. Moor a River Watch on the black water — it sees the whole road.",
       },
-      // ...five twenty-five-wave levels to hold it...
+      {
+        id: "lanternfen", name: "The Lantern Fen", realm: "lanternfen", short: "Lantern Fen",
+        window: { from: 5, to: 20, count: 20, push: 1.35 }, gold: 550,
+        blurb: "Corpse-lights dance over the creek where it runs out to the western sea. Follow them and drown; the dead follow them anyway, and the creek doesn't stop them.",
+      },
+      {
+        id: "abbeymere", name: "Abbeymere", realm: "abbeymere",
+        window: { from: 6, to: 21, count: 20, push: 1.3 }, gold: 550,
+        blurb: "An abbey the fen drowned to the bell-tower. Its mere fills the cloister, and the dead monks walk the road around it to vespers that never end.",
+      },
+      // ...seven twenty-five-wave levels to hold it...
       {
         id: "hl3", name: "Wightwood", realm: "wightwood", labelAbove: true,
         window: { from: 6, to: 23, count: 25, push: 1.2 }, gold: 600,
@@ -43,6 +54,11 @@ export const HOLLOW_LEVELS = [
         id: "drownholm", name: "Drownholm", realm: "drownholm",
         window: { from: 7, to: 25, count: 25 }, gold: 750,
         blurb: "A village the fen took back, and six bridges over the Weepwater's two arms. Crypt wardens take them like doors they own; the islands between are all the ground you get.",
+      },
+      {
+        id: "barrowdowns", name: "The Barrowdowns", realm: "barrowdowns", short: "Barrowdowns",
+        window: { from: 7, to: 26, count: 25 }, gold: 800,
+        blurb: "The high downs at the fen's northern edge, the old kings' barrows shoulder to shoulder. Dry ground at last — and every mound on it is open.",
       },
       {
         id: "hl4", name: "The Cairnfields", realm: "cairnfields", short: "Cairnfields", labelAbove: true,
@@ -61,6 +77,11 @@ export const HOLLOW_LEVELS = [
         id: "lichgate", name: "The Lichgate", realm: "lichgate", short: "Lichgate",
         window: { from: 9, to: 30, count: 25 }, gold: 1150,
         blurb: "The crypt hill under the throne, the one dry ground in the fen. The shortest road in the chapter, and the court marching it at a run — everything rides on the field inside the hook.",
+      },
+      {
+        id: "deadweir", name: "The Dead Weir", realm: "deadweir", short: "Dead Weir",
+        window: { from: 10, to: 31, count: 25 }, gold: 1100,
+        blurb: "The Blackwater pours over a weir the drowned kingdom built. Its sluices are the last bridges before the throne, and the court crosses them in force.",
       },
       // ...and the boss, thirty waves deep
       {

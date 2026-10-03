@@ -3,7 +3,7 @@
 // with a cliff lip on their southern faces, three countries that look like
 // three countries (the green vale, the grey-blue Marches, the drowned purple
 // fen), and the dressing that tells them apart. Everything is laid out in the
-// map's own 770x690 unit space (y from -250 to 440) and baked at U art pixels
+// map's own 850x830 unit space (y from -310 to 520) and baked at U art pixels
 // per unit — the same density as the board. The markers, the gold of the
 // walked road and the fog over sealed countries go on a second, cheap layer
 // that is redrawn whenever progress changes (see drawMapState).
@@ -14,7 +14,7 @@ import { hash, darken, rgb, ball, blobBall, cone, inkOutline } from "../render/p
 import { canvasFont, typeEpoch } from "./fonts.js";
 
 export const U = 2;                         // art pixels per map unit
-export const MAP = { x: 0, y: -250, w: 770, h: 690 };
+export const MAP = { x: 0, y: -310, w: 850, h: 830 };
 export const AW = MAP.w * U, AH = MAP.h * U; // art size
 const INK = "#241a26";
 // the levels that have a waypoint (mapLayout.js LEVEL_POS); one not placed

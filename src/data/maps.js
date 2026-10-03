@@ -14,6 +14,7 @@ import { regenTerrain } from "./terrain.js";
 
 import moreIronRealms from "./realms-iron.js";
 import moreHollowRealms from "./realms-hollow.js";
+import moreGreenwoodRealms from "./realms-greenwood.js";
 
 export const REALMS = {
   greenwood: {
@@ -560,7 +561,7 @@ Object.assign(REALMS, {
 
 // the active realm (live binding — reassigned by selectRealm)
 // the chapters' later battlefields, kept in files of their own
-Object.assign(REALMS, moreIronRealms(ironVariant), moreHollowRealms(hollowVariant));
+Object.assign(REALMS, moreGreenwoodRealms(greenwoodVariant), moreIronRealms(ironVariant), moreHollowRealms(hollowVariant));
 
 export let REALM = REALMS.greenwood;
 
