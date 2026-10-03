@@ -61,7 +61,19 @@ const rimLine = (seed, coast, u0, u1, { step = 44, back = 14, types = ["ircrag"]
   return out;
 };
 
-const BLACKCLIFF_COAST = { edge: "top", from: 160, to: 650, depth: 120, sand: 12 };
+// Turn the rim piece nearest each [x, y] (grid px) into something else, so a
+// landmark keeps its place on the rim however the coast's line moves.
+const swapNearest = (list, swaps) => {
+  const out = list.map((d) => ({ ...d }));
+  for (const [x, y, with_] of swaps) {
+    let bi = -1, bd = Infinity;
+    out.forEach((d, i) => { const dd = Math.hypot(d.x - x, d.y - y); if (d.t !== "irheather" && !d.swapped && dd < bd) { bd = dd; bi = i; } });
+    if (bi >= 0) out[bi] = { ...out[bi], ...with_, swapped: true };
+  }
+  return out;
+};
+
+const BLACKCLIFF_COAST = { edge: "top", from: 140, to: 670, depth: 124, sand: 12, ease: 240 };
 
 export default function moreIronRealms(ironVariant) {
   return {
@@ -182,16 +194,13 @@ export default function moreIronRealms(ironVariant) {
       [[0.9, 1.4], [4.8, 1.4], [4.8, 4.4], [1.9, 4.4], [1.9, 7.6], [10.4, 7.6], [10.4, 2.8], [13.7, 2.8]],
       {
         rivers: [
-          // the estuary, widest at the sea (listed first: the reach a River
-          // Watch moored on the mouth rows, and the one the bridge spans)
-          { pts: [[7.0, 6.1], [7.15, 8.2], [7.0, 10.5]], w: 92 },
-          // the river above it, widening as it comes down
-          { pts: [[7.6, 3.4], [7.2, 5.0], [7.05, 6.3]], w: 66 },
-          { pts: [[7.9, -0.5], [7.4, 1.6], [7.6, 3.6]], w: 46 },
-          // the mouth opening to the sea below the bridge, flaring east
-          { pts: [[7.25, 8.9], [7.3, 10.5]], w: 112 },
-          { pts: [[7.45, 9.4], [7.5, 10.5]], w: 136 },
-          { pts: [[7.6, 9.95], [7.7, 10.5]], w: 160 },
+          // the Iron river, one water from the hills to the sea: narrow under
+          // the northern spruce, ~92 wide where the long bridge spans it, then
+          // flaring past the bridge into its estuary (a width per point, ws)
+          {
+            pts: [[7.9, -0.5], [7.4, 1.6], [7.6, 3.6], [7.2, 5.0], [7.05, 6.3], [7.1, 7.6], [7.2, 8.45], [7.55, 9.4], [8.0, 10.5]],
+            w: 92, ws: [38, 44, 54, 64, 78, 92, 104, 220, 420],
+          },
         ],
         light: { tint: "212,224,238", amount: 0.12, vignette: 0.3 },
         decorRecipe: { count: 24, types: ["irspruce", "ircrag", "irpine", "irwall", "irheather", "irspruce", "irheather"] },
@@ -201,11 +210,11 @@ export default function moreIronRealms(ironVariant) {
       { x: 600, y: 420, t: "irtower", s: 1 },
       // the waterfront: a quay with a barge made fast below the bridge, mooring
       // piles above it, the toll-house at the bridge's east foot
-      { x: 304, y: 468, t: "irquay", s: 1.1, v: 2 },
+      { x: 302, y: 460, t: "irquay", s: 1.1, v: 2 },
       { x: 322, y: 282, t: "irmoor", s: 1 },
-      { x: 474, y: 444, t: "irtoll", s: 1 },
-      { x: 290, y: 505, t: "irboat", s: 1, v: 0 },
-      { x: 520, y: 470, t: "irbeacon", s: 0.95 },
+      { x: 500, y: 442, t: "irtoll", s: 1 },
+      { x: 270, y: 488, t: "irboat", s: 1, v: 0 },
+      { x: 560, y: 482, t: "irbeacon", s: 0.95 },
       // a stand of spruce and pine on the east bank's high ground
       { x: 520, y: 34, t: "irspruce", s: 1.1 },
       { x: 556, y: 62, t: "irpine", s: 1 },
@@ -269,11 +278,12 @@ export default function moreIronRealms(ironVariant) {
     ), [
       // the cliff-top round the cove: black stacks whitened by the gulls, and
       // on the one mid-way along the cove's head, the gryphons' eyrie
-      ...rimLine(20261024, BLACKCLIFF_COAST, 196, 618, { step: 40, back: 14, types: ["irstack", "irstack", "irheather"] })
-        .map((d) => (Math.abs(d.x - 350) < 8 && Math.abs(d.y - 93) < 8 ? { ...d, t: "ireyrie", s: 1.2, v: 0 }
-          : Math.abs(d.x - 500) < 8 && Math.abs(d.y - 117) < 8 ? { ...d, t: "ireyrie", s: 0.9, v: 3 } : d)),   // a second nest, its gryphon away: eggs
+      ...swapNearest(rimLine(20261024, BLACKCLIFF_COAST, 196, 618, { step: 40, back: 14, types: ["irstack", "irstack", "irheather"] }), [
+        [372, 90, { t: "ireyrie", s: 1.2, v: 0 }],
+        [472, 74, { t: "ireyrie", s: 0.9, v: 3 }],   // a second nest, its gryphon away: eggs
+      ]),
       // the bones of a ship on the cove's sand
-      { x: 426, y: 100, t: "irwreck", s: 1 },
+      { x: 426, y: 94, t: "irwreck", s: 1 },
       // a beacon on the eastern headland, watching the cove
       { x: 632, y: 34, t: "irbeacon", s: 0.95 },
     ]),

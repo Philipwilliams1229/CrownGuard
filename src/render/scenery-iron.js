@@ -2743,14 +2743,15 @@ const quay = (ctx, x, y, s, o) => {
   const qx0 = x + 4 * s, qx1 = x + 20 * s, qy0 = gy - 26 * s, qy1 = gy + 2 * s;   // the deck, its west edge on the bank
   const bx = x + 27 * s, by0 = gy - 25 * s, by1 = gy;                                // the barge
   // what lies on the water: the deck's shade, the barge's shadow and reflection, ripples
-  ctx.fillStyle = WET(0.3); ctx.fillRect(ap(qx1), ap(qy0 + 2), ap(3 * s), ap(qy1 - qy0));
-  ctx.fillStyle = WET(0.26); ctx.fillRect(ap(bx - 5 * s), ap(by0 + 3), ap(13 * s), ap(by1 - by0 + 2 * s));
-  ctx.fillStyle = WET(0.2); ctx.fillRect(ap(bx - 4 * s), ap(by1 + 1), ap(9 * s), ap(2.5 * s));
+  // (each layer under 0.24 and laid side by side, so no two stack past the ink's 0.43)
+  ctx.fillStyle = WET(0.22); ctx.fillRect(ap(qx1), ap(qy0 + 2), ap(bx - 5 * s - qx1), ap(qy1 - qy0));
+  ctx.fillStyle = WET(0.22); ctx.fillRect(ap(bx - 5 * s), ap(by0 + 3), ap(13 * s), ap(by1 - by0 + 2 * s));
+  ctx.fillStyle = WET(0.2); ctx.fillRect(ap(bx - 4 * s), ap(by1 + 2 * s + 3), ap(9 * s), ap(1.5 * s));
   for (let i = 0; i < 9; i++) {
     const ry = by0 + 2 + hash(sd, i) * (by1 - by0 + 3 * s), side = i % 3 === 0 ? -1 : 1;
-    ctx.fillStyle = GLINT(0.32); ctx.fillRect(ap(side > 0 ? bx + 6 * s + hash(sd, i + 9) * 2 : qx1 + 3.5 * s), ap(ry), ap(2 + hash(sd, i + 19) * 2), 0.5);
+    if (side > 0) { ctx.fillStyle = GLINT(0.22); ctx.fillRect(ap(bx + 8.5 * s + hash(sd, i + 9) * 2), ap(ry), ap(2 + hash(sd, i + 19) * 2), 0.5); }
   }
-  ctx.fillStyle = GLINT(0.3); ctx.fillRect(ap(bx - 3 * s), ap(by1 + 2.5 * s), ap(6 * s), 0.5);
+  ctx.fillStyle = GLINT(0.22); ctx.fillRect(ap(bx - 3 * s), ap(by1 + 4 * s + 3), ap(6 * s), 0.5);
   shadow(ctx, x + 3 * s, gy + 0.5, 9 * s, 2.4 * s, 0.24);
   // the barge: a flat hull, square-sterned, her bow upstream
   part(ctx, (c) => {
@@ -2794,7 +2795,7 @@ const quay = (ctx, x, y, s, o) => {
   });
   for (let yy = qy0 + 1 * s; yy < qy1; yy += 6.5 * s) {
     part(ctx, (c) => { cylinder(c, qx1 - 1 * s, yy - 1.5 * s, 2.2 * s, 5 * s, WOOD_DK, { r: 0.8, hi: 0.35 }); R(c, qx1 - 1 * s, yy + 3 * s, 2.2 * s, 0.5, TAR); ellipse(c, qx1 + 0.1 * s, yy - 1.5 * s, 1.1 * s, 0.5 * s); c.fillStyle = WOOD_LT; c.fill(); });
-    ctx.fillStyle = GLINT(0.34); ctx.fillRect(ap(qx1 + 1.2 * s), ap(yy + 3.5 * s), ap(2 * s), 0.5);
+    ctx.fillStyle = GLINT(0.18); ctx.fillRect(ap(qx1 + 1.2 * s), ap(yy + 3.5 * s), ap(1.2 * s), 0.5);
   }
   // bollards and the lines out to the barge
   part(ctx, (c) => {
@@ -2817,8 +2818,8 @@ const quay = (ctx, x, y, s, o) => {
 // anchor and a coil of rope ashore.
 const mooring = (ctx, x, y, s, o) => {
   const gy = y + 8, sd = o.seed, bx = x + 18 * s, by = gy - 4 * s;
-  ctx.fillStyle = WET(0.24); ctx.fillRect(ap(bx - 3 * s), ap(by - 4 * s), ap(8 * s), ap(11 * s));
-  for (let i = 0; i < 4; i++) { ctx.fillStyle = GLINT(0.32); ctx.fillRect(ap(bx + 4 * s + hash(sd, i) * 2), ap(by - 4 * s + hash(sd, i + 4) * 10 * s), ap(2.5 * s), 0.5); }
+  ctx.fillStyle = WET(0.2); ctx.fillRect(ap(bx - 3 * s), ap(by - 4 * s), ap(8 * s), ap(11 * s));
+  for (let i = 0; i < 4; i++) { ctx.fillStyle = GLINT(0.2); ctx.fillRect(ap(bx + 4 * s + hash(sd, i) * 2), ap(by - 4 * s + hash(sd, i + 4) * 10 * s), ap(2.5 * s), 0.5); }
   shadow(ctx, x + 3 * s, gy + 0.5, 7 * s, 2 * s, 0.24);
   // the boat, lying along the stream
   part(ctx, (c) => {
@@ -2839,7 +2840,7 @@ const mooring = (ctx, x, y, s, o) => {
     }
     c.strokeStyle = "#c8b48a"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(x + 10 * s, gy - 5 * s); c.quadraticCurveTo(x + 13 * s, gy - 6 * s, bx - 1 * s, by - 5 * s); c.stroke();
   });
-  ctx.fillStyle = GLINT(0.34); for (const py of [gy - 4 * s, gy + 2 * s, gy + 7 * s]) ctx.fillRect(ap(x + 10.5 * s), ap(py), ap(2 * s), 0.5);
+  ctx.fillStyle = GLINT(0.3); for (const py of [gy - 4 * s, gy + 2 * s, gy + 7 * s]) ctx.fillRect(ap(x + 10.5 * s), ap(py), ap(2 * s), 0.5);
   // ashore: the anchor and a coil of rope
   part(ctx, (c) => {
     c.strokeStyle = IRON; c.lineWidth = 1; c.lineCap = "round";
