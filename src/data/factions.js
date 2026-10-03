@@ -18,6 +18,8 @@
 //
 // Each wave entry is [enemyType, count, gapMs between spawns].
 
+import { TEST_FACTIONS } from "./faction-rime.js";
+
 export const FACTIONS = {
   greenwood: {
     id: "greenwood",
@@ -180,7 +182,7 @@ export const FACTIONS = {
 export let FACTION = FACTIONS.greenwood;
 
 export function selectFaction(id) {
-  FACTION = FACTIONS[id] || FACTIONS.greenwood;
+  FACTION = FACTIONS[id] || TEST_FACTIONS[id] || FACTIONS.greenwood;   // (TEST_FACTIONS: armies no menu lists yet, faction-rime.js)
   return FACTION;
 }
 // The Free Play sandbox marches an army of its own making (sandbox.js

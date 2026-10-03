@@ -1,0 +1,90 @@
+<!doctype html>
+<!--
+  Zone IV lab: the REAL engine on a realm (default the Rimewatch test board,
+  the Rime Clans' test army), a few halls placed beside the road, one wave
+  started and stepped at 60 fps, and full-board (or cropped) snaps through
+  the real draw() at chosen game seconds — to judge longship landings,
+  blizzards and frozen halls in motion.
+
+    /rim-lab.html?wave=5&snaps=4,6,8,10.4,11&tag=land
+    &realm=rimewatch &faction=rime
+    &towers=archer@0.62:3,wizard@0.35:2,spiker@0.45:3,b
+            (kind@road-fraction:level[,branch[,rank4]] — beside the road there)
+    &squall=6     make a squall bite at 6 s of the wave (the wind rises 4 s before)
+    &crop=x,y,w,h a window of the board (default the whole board); &scale=1
+    &hero=none    (default none)
+
+  Saved to .shots/rim_<tag>.png, frames two to a row, each stamped with its
+  game time and the weather/landing state. Same state shape as scripts/sim.mjs.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>rim lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, ascendTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 1;
+      const SNAPS = (q.get("snaps") || "4,7,10").split(",").map(Number).sort((a, b) => a - b);
+      selectRealm(q.get("realm") || "rimewatch");
+      selectFaction(q.get("faction") || "rime");
+      setWaveWindow(null);
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: CASTLE_HP, wave: (Number(q.get("wave")) || 5) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      for (const spec of (q.get("towers") ?? "archer@0.62:3,wizard@0.3:3,spiker@0.45:3,b").split(",").reduce((acc, p) => (p.includes("@") ? acc.push([p]) : acc[acc.length - 1].push(p), acc), [])) {
+        const [head, br, r4] = spec;
+        const [kind, rest] = head.split("@");
+        const [at, lv] = rest.split(":").map(Number);
+        const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+        let spot = null;
+        for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kind)) { spot = [x, y]; break; }
+        }
+        if (!spot) { console.error("no room for", kind, "at", at); continue; }
+        placeTower(g, kind, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        if (br) branchTower(g, t, br);
+        if (r4) ascendTower(g, t, r4);
+        t.readyAt = 0; t.raised = null;
+      }
+      const DT = 1 / 60;
+      for (let i = 0; i < 30; i++) updateGame(g, DT);      // the halls settle (build phase)
+      startWave(g);
+      const t0 = g.time;
+      updateGame(g, DT);
+      if (q.get("squall") && g.weather) g.weather.next = Number(q.get("squall"));
+      const [cx, cy, cw, ch] = (q.get("crop") || `0,0,${W},${H}`).split(",").map(Number);
+      const cols = Math.min(2, SNAPS.length), rows = Math.ceil(SNAPS.length / cols);
+      const out = document.createElement("canvas"); out.width = cw * SC * cols; out.height = (ch + 14) * SC * rows;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.fillStyle = "#20242c"; o.fillRect(0, 0, out.width, out.height);
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      let f = 0;
+      for (const at of SNAPS) {
+        while (g.time - t0 < at && g.phase === "combat") updateGame(g, DT);
+        draw(g, cv, { current: null });
+        const k = cv.width / W, col = f % cols, row = Math.floor(f / cols);
+        o.drawImage(cv, cx * k, cy * k, cw * k, ch * k, col * cw * SC, row * (ch + 14) * SC + 14 * SC, cw * SC, ch * SC);
+        const ship = g.enemies.find((e) => e.ship && !e.dead), w = g.weather, ice = g.towers.filter((t) => t.iceLeft > 0).length;
+        o.fillStyle = "#e8e0c8"; o.font = `${10 * SC}px monospace`;
+        o.fillText(`${(g.time - t0).toFixed(1)}s  wave ${g.wave}  ${w ? `weather ${w.phase} k${w.k.toFixed(2)}` : "no weather"}  ${ship ? `ship ${Math.round(ship.hp)}/${Math.round(ship.maxHp)}` : ""}  frozen ${ice}  foes ${g.enemies.length}`, col * cw * SC + 4, row * (ch + 14) * SC + 11 * SC);
+        f++;
+      }
+      await fetch(`/__shot?name=rim_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/rim_${TAG}.png`;
+    </script>
+  </body>
+</html>

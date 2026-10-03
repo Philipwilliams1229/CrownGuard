@@ -106,7 +106,7 @@ export const tickWeather = (g, sdt, tms) => {
   }
   if (w.phase === "rising") {
     w.k = Math.max(w.k, 0.85 * Math.min(1, 1 - (w.next - t) / def.windup));
-    if (t >= w.next) { w.phase = "squall"; w.until = t + roll(w, def.lasts); }
+    if (t >= w.next) { w.phase = "squall"; w.until = t + roll(w, def.lasts); g.squalls = (g.squalls || 0) + 1; }
   }
   if (w.phase === "squall") {
     w.k = 1;

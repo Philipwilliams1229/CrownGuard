@@ -48,6 +48,9 @@ import { drawWatchWater, drawSkiffReach, drawSkiffMarks, drawWatchStation, warmW
 import { drawBridges } from "./bridge.js";
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
+// zone IV placeholders: longships, ice shells, landing telegraphs, the blizzard
+import { drawShip, drawFrostShells, ZONE_FX } from "./rimefx.js";
+import { drawWeather, flierDrop } from "./weatherfx.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
 import { prefs } from "../data/prefs.js";
@@ -366,10 +369,15 @@ export function draw(g, canvas, bufRef) {
   for (const e of g.enemies) {
     // (a flyer is sorted above the whole ground crowd — it sails over a siege ram
     // instead of being painted behind it)
-    if (!e.dead) drawables.push({ y: e.y + 10 + (e.flying ? 1000 : 0), fn: () => (e.flying ? drawEnemy(ctx, e, g.time, tms) : onDeck(e.x, e.y, () => drawEnemy(ctx, e, g.time, tms))) });
+    // (a longship is drawn by rimefx.js; in a blizzard fliers come down low, weatherfx.js)
+    if (!e.dead && e.ship) { drawables.push({ y: e.y + 4, fn: () => drawShip(ctx, e, g) }); continue; }
+    const low = e.flying ? flierDrop(g) : 0;
+    if (!e.dead) drawables.push({ y: e.y + 10 + (e.flying ? 1000 : 0), fn: () => (e.flying ? (low ? (ctx.save(), ctx.translate(0, low), drawEnemy(ctx, e, g.time, tms), ctx.restore()) : drawEnemy(ctx, e, g.time, tms)) : onDeck(e.x, e.y, () => drawEnemy(ctx, e, g.time, tms))) });
   }
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.fn();
+  // halls a Rime Seer has shrouded in ice (rimefx.js)
+  drawFrostShells(ctx, g);
   // a selected River Watch's skiffs, each marked over the crowd
   if (sel && sel.kind === "riverwatch") drawSkiffMarks(ctx, g, sel, isBuilt(sel, g));
   // the aerostat's tethered bombs ride above the whole fray
@@ -522,6 +530,8 @@ export function draw(g, canvas, bufRef) {
 
   for (const fx of g.effects) {
     const a = Math.min(1, fx.ttl / 300);
+    // zone IV's effects: landing telegraphs, wrecks, frost casts (rimefx.js)
+    if (ZONE_FX[fx.type]) { ZONE_FX[fx.type](ctx, fx, g); continue; }
     // the towers' and heroes' area effects: novas, waves, marks (rings.js)
     if (drawRingFx(ctx, fx, a, g, "a")) continue;
     if (isBlast(fx.type)) {
@@ -684,6 +694,8 @@ export function draw(g, canvas, bufRef) {
   // Snow, embers, fireflies, leaves, blown grit — all of it derived from
   // g.time in render/atmosphere.js, so there is no state to keep.
   drawAmbient(ctx, g.time);
+  // a realm's battle weather over it (engine/weather.js; weatherfx.js painters)
+  drawWeather(ctx, g);
   ctx.restore();
 
   // The realm's light, laid over the finished board in buffer space so camera

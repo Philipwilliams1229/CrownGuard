@@ -476,6 +476,8 @@ const makeEnemy = (type, mult) => {
     healAmt: d.heal ? d.heal * Math.sqrt(mult) : 0, healEvery: d.healEvery || 0, healCd: null,
     healPct: d.healPct || 0, healCap: (d.healCap || 0) * Math.sqrt(mult), healRange: d.healRange || 0,
     raiseEvery: d.raiseEvery || 0, raiseCd: null, revived: false, healedFlash: 0,
+    // zone IV's frost shroud (engine/rime.js): ice a hall every freezeEvery ms
+    freezeEvery: d.freezeEvery || 0, freezeRange: d.freezeRange || 0, freezeFor: d.freezeFor || 0, freezeFirst: d.freezeFirst ?? null, freezeCd: null,
   };
 };
 

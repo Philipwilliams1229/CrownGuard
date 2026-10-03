@@ -7,6 +7,7 @@ import { PERK_MODS } from "../data/profile.js";
 import { nextId } from "./ids.js";
 import { nearestOnPath } from "./path.js";
 import { RALLY_RANGE } from "../data/constants.js";
+import { WX } from "./weather.js";
 
 // Which stats the permanent skill trees are allowed to touch, and which way
 // is "better". `rate` is a reload time, so its multiplier goes DOWN to make a
@@ -38,9 +39,18 @@ export const getStats = (t) => {
   if (t.branch) {
     const b = def.branches[t.branch];
     const src = t.rank4 && b.rank4 ? b.rank4[t.rank4].stats : b.stats;
-    return withPerks(t.kind, { ...src, dtype: src.magic ? "magic" : def.dtype, groundOnly: !!def.groundOnly && !src.hitsAir });
+    return inWeather(withPerks(t.kind, { ...src, dtype: src.magic ? "magic" : def.dtype, groundOnly: !!def.groundOnly && !src.hitsAir }));
   }
-  return withPerks(t.kind, { ...def.levels[t.level - 1], dtype: def.dtype, groundOnly: !!def.groundOnly });
+  return inWeather(withPerks(t.kind, { ...def.levels[t.level - 1], dtype: def.dtype, groundOnly: !!def.groundOnly }));
+};
+// A squall (engine/weather.js WX.reach) shortens every kind of reach a hall has
+// while it bites: its shots, its musket, its aura. (minRange, hall spacing and
+// lightning's jumps are not reach; the whole-map halls keep a whole map.)
+const REACH_KEYS = ["range", "mRange", "auraRange"];
+const inWeather = (st) => {
+  if (WX.reach === 1) return st;
+  for (const k of REACH_KEYS) if (st[k] > 0 && st[k] < 900) st[k] *= WX.reach;
+  return st;
 };
 
 // ---- targeting ----
@@ -71,7 +81,7 @@ export const aimModes = (t, st) => {
 
 // The Assassin's law: the foes that keep the rest alive — healers, raisers,
 // bell-ringers, banner-lords, ward-chanters — die first, no matter the crowd.
-export const isPrey = (e) => !!(e.healAmt || e.raiseEvery || e.summonEvery || e.bannerRange || e.wardEvery);
+export const isPrey = (e) => !!(e.healAmt || e.raiseEvery || e.summonEvery || e.bannerRange || e.wardEvery || e.freezeEvery);
 
 // Standing orders the Covert can be given. Each names a CLASS of foe to hunt
 // before all others; when none is in reach the blades take the frontmost
@@ -163,7 +173,7 @@ export const pickTarget = (g, t, st) => {
   let best = null, bestScore = -Infinity, doomed = null, doomedScore = -Infinity;
   const now = g.time * 1000;
   for (const e of g.enemies) {
-    if (e.dead || isRising(e, now) || (st.groundOnly && e.flying && !(st.scorchHaunts && e.haunts))) continue;
+    if (e.dead || isRising(e, now) || (st.groundOnly && e.flying && !(st.scorchHaunts && e.haunts) && !(WX.fliersLow && WX.groundHitsLow))) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y);
     if (d > st.range || d < min) continue;
     // shots already in the air will finish it: look past it, so a crowd

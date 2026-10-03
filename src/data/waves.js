@@ -12,6 +12,8 @@
 import { FACTION } from "./factions.js";
 import { SANDBOX } from "./sandbox.js";
 import { ENEMIES } from "./enemies.js";
+import { REALM } from "./maps.js";
+import { MECH } from "./zone-flags.js";
 
 // A campaign level plays a stretch of its faction's WAR rather than the
 // whole thing: `{ from, to, count }` means "count waves, climbing from war-
@@ -112,6 +114,7 @@ export const CROWD_WEIGHT = {
   shaman: 0.1, troll: 0.1, hobgoblin: 0, necro: 0,
   levy: 1, crossbow: 0.7, sergeant: 0.45, cavalier: 0.4, gryphon: 0.35, chaplain: 0.15, ram: 0, magister: 0, unseated: 0,
   skeleton: 1, ghoul: 0.9, bonearcher: 0.7, wraith: 0.3, ghast: 0.4, crypt: 0.35, gravecaller: 0.1, amalgam: 0.2,
+  thrall: 1, huscarl: 0.45, rimeseer: 0.1, longship: 0,
 };
 // A faction may swell less (`crowdScale` in factions.js): the Greenwood is
 // a horde and swells fully; the Iron Kingdom and the Hollow Court both swell
@@ -206,7 +209,7 @@ export const waveSpec = (w) => {
   if (!WINDOW) {
     const sp = escortOf(partyOf(raisersLast(shapeCompany(swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a), a)), a), a);
     sp.overlap = overlap(a);
-    return SANDBOX ? sandboxShape(sp) : sp;
+    return landingsOf(SANDBOX ? sandboxShape(sp) : sp, a, 1);
   }
   // two waves of a level can land on the same war-wave; the later one comes
   // thicker, because the crowd reads the level's true (fractional) position
@@ -221,7 +224,39 @@ export const waveSpec = (w) => {
   spec = escortOf(partyOf(spec, a), a);
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);
-  return spec;
+  return landingsOf(spec, a, Math.min(1, 0.35 + 0.13 * (w - 1)));
+};
+
+// ---- LANDINGS (zone IV) ----
+// A faction may send raiders by sea on some waves: `landings` maps a war-wave
+// to the party aboard, `[[type, count, gap], ...]`, and `landingGen`
+// ({ from, chance, party }) rolls one for generated waves (seeded by the
+// wave, so the preview tells the truth). The party swells like any group. On
+// a realm with `landings` (beach spots, engine/rime.js) each group comes back
+// marked `landing` (the spot's index, seeded by the wave) and `ship` (the
+// hull's foe type): startWave puts them aboard one longship instead of on the
+// road. On a realm without a beach the same groups march out of the wood
+// behind the rest. Appended last, so no `amid` index moves.
+export const landingSpots = () => (MECH.landings && REALM && REALM.landings && REALM.landings.length ? REALM.landings : null);
+const landingParty = (a) => {
+  const fixed = FACTION.landings && FACTION.landings[a];
+  if (fixed) return fixed;
+  const gen = FACTION.landingGen;
+  if (!gen || a < gen.from || a <= FACTION.waves.length) return null;
+  return mulberry32(a * 613 + 29)() < gen.chance ? gen.party : null;
+};
+const landingsOf = (spec, a, warm) => {
+  const party = landingParty(a);
+  if (!party || !party.length) return spec;
+  const spots = landingSpots();
+  const spot = spots ? Math.floor(mulberry32(a * 53 + 11)() * spots.length) : null;
+  const out = spec.map((g) => { const c = g.slice(); if (g.amid != null) c.amid = g.amid; if (g.clock != null) c.clock = g.clock; return c; });
+  for (const grp of swell(party, a, warm)) {
+    if (spots) { grp.landing = spot; grp.ship = FACTION.landingShip || "longship"; }
+    out.push(grp);
+  }
+  out.overlap = spec.overlap;
+  return out;
 };
 
 // ---- ESCORTS ----

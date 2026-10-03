@@ -11,6 +11,10 @@
 //   node scripts/sim.mjs --chapter iron       every level of one chapter
 //   node scripts/sim.mjs --sandbox flood --realm muster --to 30
 //                                             a Free Play sandbox preset
+//   node scripts/sim.mjs --free rimewatch rime --window 1,18,15 --gold 500 --endure
+//                                             a free board played as a campaign level
+//                                             (--window from,to,count; --gold start purse)
+//   ... --no-landings --no-weather --no-freeze   zone IV's mechanics off (data/zone-flags.js)
 //
 // The commander is deliberately a decent player, not a perfect one: it values
 // road coverage, keeps a knight post near the front, mixes physical and magic,
@@ -45,6 +49,11 @@ const { setWaveWindow, scriptedWaves, victoryWave } = await import("../src/data/
 const { startSandbox, endSandbox, fromPreset, PRESETS } = await import("../src/data/sandbox.js");
 const { TOWERS } = await import("../src/data/towers.js");
 const { TOTAL_LEN, posAt, nearestOnPath } = await import("../src/engine/path.js");
+// zone IV's master switches: measure a board with and without each mechanic
+const { MECH } = await import("../src/data/zone-flags.js");
+if (flag("no-landings")) MECH.landings = false;
+if (flag("no-weather")) MECH.weather = false;
+if (flag("no-freeze")) MECH.freeze = false;
 const { updateGame } = await import("../src/engine/update.js");
 const { startWave, placeTower, upgradeTower, branchTower, ascendTower, buildableAt, fieldHero, callMilitia, heroBand } = await import("../src/engine/actions.js");
 const { PTS } = await import("../src/engine/path.js");
@@ -322,7 +331,9 @@ function runOnce(opts, quiet, planName) {
   const towers = g.towers.map((t) => `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`).join(" ") + (hb ? ` + ${hb.name} L${hb.level}` : "");
   if (flag("ledger")) console.log("   ledger: " + g.towers.map((t) => ({ n: `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`, d: t.dmgOut || 0, k: t.kills || 0 }))
     .sort((a, b) => b.d - a.d).map((x) => `${x.n} ${Math.round(x.d / 1000)}k/${x.k}`).join("  "));
-  return { bleed: g.bleed || [], result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName, gold: Math.round(g.gold), earned: Math.round(g.run?.goldEarned || 0) };
+  const zs = g.zoneStats;
+  const zone = zs || g.squalls ? ` | ships ${zs?.ships || 0} sunk ${zs?.sunk || 0} landed ${zs?.landed || 0} lost ${zs?.lost || 0} shrouds ${zs?.shrouds || 0} squalls ${g.squalls || 0}` : "";
+  return { zone, bleed: g.bleed || [], result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName, gold: Math.round(g.gold), earned: Math.round(g.run?.goldEarned || 0) };
 }
 
 // A level gets a real player's persistence: the faction's natural doctrine
@@ -332,7 +343,7 @@ function runLevel(opts, quiet) {
     const out = ["swarm", "burst"].map((pl) => runOnce(opts, true, pl));
     // a run that never finished (a wave that could not end) is flagged, so it
     // can't pass for a run that bled little
-    const line = (r) => `${r.plan.padEnd(5)} bled ${String(r.bleed.reduce((a, b) => a + b, 0)).padStart(3)}${r.result === "STUCK" ? `  STUCK at wave ${r.wave}/${r.total}` : ""}  [${r.bleed.join(" ")}]`;
+    const line = (r) => `${r.plan.padEnd(5)} bled ${String(r.bleed.reduce((a, b) => a + b, 0)).padStart(3)}${r.result === "STUCK" ? `  STUCK at wave ${r.wave}/${r.total}` : ""}  [${r.bleed.join(" ")}]${r.zone}`;
     console.log(`${opts.name.padEnd(28)} ${line(out[0])}\n${"".padEnd(28)} ${line(out[1])}`);
     return { name: opts.name, ...out[0] };
   }
@@ -380,7 +391,8 @@ if (flag("all") || after("chapter")) {
   const realm = after("free") || "greenwood";
   const factionArg = args[args.indexOf("--free") + 2];
   const faction = factionArg && !factionArg.startsWith("--") ? factionArg : (REALMS[realm]?.id === realm ? "greenwood" : "greenwood");
-  runLevel({ realm, faction, window: null, gold: 400, name: `free ${realm} vs ${faction}` }, quiet);
+  const win = after("window") ? (([from, to, count]) => ({ from, to, count }))(after("window").split(",").map(Number)) : null;
+  runLevel({ realm, faction, window: win, gold: Number(after("gold")) || 400, name: `free ${realm} vs ${faction}${win ? ` w${win.from}-${win.to}x${win.count}` : ""}` }, quiet);
 } else if (after("level")) {
   const lv = LEVELS.find((l) => l.id === after("level"));
   if (!lv) { console.error(`no such level: ${after("level")} — ids are ${LEVELS.map((l) => l.id).join(", ")}`); process.exit(1); }

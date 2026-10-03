@@ -235,4 +235,36 @@ export const ENEMIES = {
     summonEvery: 10000, summonFirst: 0, summonType: "skeleton", summonCount: 50,
     note: "Boss. The drowned crown itself. Stuns break against his will, half your magic drowns in him — and every few heartbeats he calls more dead out of the ground to walk in front of him. The court dies when the King does.",
   },
+
+  // ---- THE RIME CLANS (zone IV, art/ZONES-4-5.md) ----
+  // ENGINE STUBS: numbers are first guesses and the looks are borrowed rigs
+  // (render/rimefx.js aliases thrall -> levy, huscarl -> sergeant, rimeseer ->
+  // chaplain) until the clans' own rigs are drawn. Fielded only by the test
+  // faction in data/faction-rime.js, which no level marches yet.
+  //   freezeEvery / freezeRange / freezeFor / freezeFirst   the frost shroud:
+  //             every freezeEvery ms it ices the nearest built hall within
+  //             freezeRange px for freezeFor ms (engine/rime.js)
+  //   ship      a longship: sails in off the sea edge carrying a landing party,
+  //             a target while it sails, never on the road (engine/rime.js)
+  thrall: {
+    faction: "rime", hp: 54, speed: 72, bounty: 6, armor: 0.1, size: 16,
+    name: "Thrall", atk: 12, atkRate: 850, castleDmg: 1,
+    note: "The raiding rank and file: axe, buckler and nothing to lose. They come in floods — and some of them come by sea.",
+  },
+  huscarl: {
+    faction: "rime", hp: 290, speed: 50, bounty: 16, armor: 0.35, guard: 1, size: 18,
+    name: "Huscarl", atk: 26, atkRate: 1000, castleDmg: 2,
+    note: "A mailed house-warrior behind a great round shield: the first blow glances off it, and the mail turns a third of what follows.",
+  },
+  rimeseer: {
+    faction: "rime", hp: 210, speed: 54, bounty: 22, armor: 0, mres: 0.4, size: 17,
+    name: "Rime Seer", atk: 8, atkRate: 1000, castleDmg: 2, packRange: 95,
+    freezeEvery: 9000, freezeFirst: 3000, freezeRange: 130, freezeFor: 4500,
+    note: "She sings frost over the nearest hall in her reach: an ice shell that holds its fire for a few seconds. Fire halls thaw themselves and their neighbours fast. A burning, stunned or silenced seer cannot sing.",
+  },
+  longship: {
+    faction: "rime", hp: 520, speed: 0, bounty: 30, armor: 0.25, size: 30,
+    name: "Longship", ship: true, atk: 0, atkRate: 0, castleDmg: 0,
+    note: "A raiders' longship running in for the beach. Hole it before it grounds: a battered hull lands fewer raiders, and a sunk one lands none.",
+  },
 };

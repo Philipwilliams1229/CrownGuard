@@ -19,6 +19,7 @@ import { sfx } from "../audio/sfx.js";
 import { SANDBOX, tierOpen } from "../data/sandbox.js";
 import { buildClock } from "./build.js";
 import { bandArrowFrom } from "./muzzles.js";
+import { queueLanding } from "./rime.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
 
 export const towerNear = (g, x, y) => g.towers.find((t) => Math.hypot(t.x - x, t.y - y) < 30);
@@ -93,6 +94,7 @@ export const startWave = (g) => {
   for (const grp of spec) {
     const [type, count, gap, pay = 1] = grp;
     if (grp.amid != null) continue;           // escorts are placed below
+    if (grp.landing != null) continue;        // a landing party comes by sea (below)
     if (grp.clock != null) {                  // a staggered group: its own clock, off the road's queue
       for (let i = 0; i < count; i++) queue.push({ type, at: grp.clock + i * gap, mult, pay });
       continue;
@@ -115,6 +117,9 @@ export const startWave = (g) => {
     const [a0, a1] = spans[grp.amid] || [400, 400];
     for (let i = 0; i < count; i++) queue.push({ type, at: Math.round(a0 + (a1 - a0) * (0.25 + 0.5 * (count > 1 ? i / (count - 1) : 0.4))), mult, pay });
   }
+  // zone IV: the wave's landing groups board one longship, which puts out
+  // part-way through the wave (engine/rime.js queueLanding; waves.js landingsOf)
+  queueLanding(g, spec, mult, delay, queue);
   queue.sort((p, q) => p.at - q.at);
   g.spawnQueue = queue;
   g.spawnTimer = 0;

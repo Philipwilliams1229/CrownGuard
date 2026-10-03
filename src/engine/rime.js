@@ -10,8 +10,9 @@
 //             or a [col, row] grid point (the road's nearest point to it)
 //     from    the board edge the ship sails in from ("top" | "bottom" |
 //             "left" | "right"); default the realm's coast edge, else "bottom"
-//     beach   optional [col, row] where the keel grounds; default 38 px off the
-//             road at `at`, on the `from` side
+//     beach   optional [col, row] where the keel grounds; default the
+//             waterline straight out from the road at `at` toward `from` (or
+//             BEACH_OFF px off the road on a board with no coast that way)
 //     sail    optional ms from putting out to beaching (default SAIL_MS)
 // The faction's script says which waves send one and who is aboard
 // (factions: `landings: { warWave: [[type, count, gap], ...] }`, plus
@@ -41,6 +42,7 @@
 
 import { W, H, tileX, tileY, pickLane } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
+import { seaDepthAt } from "../data/terrain.js";
 import { MECH } from "../data/zone-flags.js";
 import { ENEMIES } from "../data/enemies.js";
 import { posAt, angleAt, nearestOnPath, TOTAL_LEN } from "./path.js";
@@ -53,6 +55,7 @@ export const LAND_AT = 0.45;      // the ship puts out this far through the wave
 const LAND_MIN = 4000;            // ...but never in the first few seconds of a wave
 const BEACH_OFF = 38;             // the keel grounds this far off the road's centre
 const OFFBOARD = 70;              // where it puts out from, past the board's edge
+const SLANT = 260;                // ...and how far along the edge from its beach
 
 // A realm's landing spots, resolved onto the live road (null: none).
 export const landingGeom = (i) => {
@@ -69,9 +72,17 @@ export const landingGeom = (i) => {
     const want = from === "bottom" ? [0, 1] : from === "top" ? [0, -1] : from === "left" ? [-1, 0] : [1, 0];
     const s = nx * want[0] + ny * want[1] >= 0 ? 1 : -1;
     bx = rx + nx * s * BEACH_OFF; by = ry + ny * s * BEACH_OFF;
+    // walk out to the waterline, if there is one that way
+    for (let r = 20; r < 240; r += 4) {
+      const x = rx + nx * s * r, y = ry + ny * s * r;
+      if (x < 0 || y < 0 || x > W || y > H) break;
+      if (seaDepthAt(x, y) >= -2) { bx = x; by = y; break; }
+    }
   }
-  const sx = from === "left" ? -OFFBOARD : from === "right" ? W + OFFBOARD : bx + (bx < W / 2 ? 40 : -40);
-  const sy = from === "top" ? -OFFBOARD : from === "bottom" ? H + OFFBOARD : by;
+  // it puts out from past the edge and slants in across the water, so most
+  // of its run is on the board: the warning a watching player gets
+  const sx = from === "left" ? -OFFBOARD : from === "right" ? W + OFFBOARD : bx + (bx < W / 2 ? 1 : -1) * SLANT;
+  const sy = from === "top" ? -OFFBOARD * 0.5 : from === "bottom" ? H + OFFBOARD * 0.5 : by + (by < H / 2 ? 1 : -1) * SLANT * 0.6;
   return { dist, from, rx, ry, bx, by, sx, sy, sail: L.sail || SAIL_MS };
 };
 
@@ -92,8 +103,12 @@ export const queueLanding = (g, spec, mult, roadEnd, queue) => {
 // The spawn loop's half: a ship entry puts out from the sea edge; a raider
 // it lands starts on the road at its landing point. Called for every spawn
 // that carries `ship` or `landAt` (update.js).
+// tallies for the sims (scripts/sim.mjs prints them): ships put out, sunk,
+// raiders landed / lost with a holed hull, halls shrouded (squalls: g.squalls, weather.js)
+export const zoneStats = (g) => (g.zoneStats ||= { ships: 0, sunk: 0, landed: 0, lost: 0, shrouds: 0 });
 export const seaborne = (g, e, s, tms) => {
   if (s.ship) {
+    zoneStats(g).ships++;
     const geo = landingGeom(s.ship.spot);
     if (!geo) { e.dead = true; e.quiet = true; return; }   // (a realm without the spot: never happens via waves.js)
     e.ship = { ...s.ship, geo, t0: tms, mult: s.mult };
@@ -126,7 +141,7 @@ const sailShips = (g, tms) => {
     if (!e.ship) continue;
     const sh = e.ship;
     if (e.dead) {
-      if (!e.quiet && !sh.sunkFx) { sh.sunkFx = true; g.effects.push({ type: "shipsink", x: e.x, y: e.y, face: e.face, ttl: 1600, life: 1600 }); }
+      if (!e.quiet && !sh.sunkFx) { sh.sunkFx = true; const zs = zoneStats(g); zs.sunk++; zs.lost += sh.party.reduce((n, p) => n + p.count, 0); g.effects.push({ type: "shipsink", x: e.x, y: e.y, face: e.face, ttl: 1600, life: 1600 }); }
       continue;
     }
     const geo = sh.geo;
@@ -141,6 +156,7 @@ const sailShips = (g, tms) => {
     let at = g.spawnTimer + 250;
     for (const grp of sh.party) {
       const n = Math.round(grp.count * frac);
+      zoneStats(g).landed += n; zoneStats(g).lost += grp.count - n;
       for (let i = 0; i < n; i++) { g.spawnQueue.push({ type: grp.type, at, mult: sh.mult, pay: grp.pay, landAt: geo.dist, fromX: geo.bx, fromY: geo.by }); at += grp.gap; }
     }
     g.spawnQueue.sort((a, b) => a.at - b.at);
@@ -182,6 +198,7 @@ const castShrouds = (g, sdt, tms) => {
     e.atkAnim = 320;
     best.iceLeft = best.iceMax = e.freezeFor;
     best.iceAt = tms;
+    zoneStats(g).shrouds++;
     g.effects.push({ type: "frostcast", x: e.x, y: e.y - 10, tx: best.x, ty: best.y - 14, ttl: 420, life: 420 });
     g.effects.push({ type: "frostnova", x: best.x, y: best.y, ttl: 400, r: 22 });
     sfx.play("shroud");
