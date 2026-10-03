@@ -52,7 +52,7 @@
 // cloth2, hair, cape, eyes) so revive() and the white hit-flash reach them.
 
 import { lighten, darken, mix, lin, part, shadow, glow } from "./paint.js";
-import { weapon } from "./rigs.js";
+import { weapon, drawRig } from "./rigs.js";
 import { BEAST_PAINTERS } from "./rigs-beasts.js";
 import { rimeJarlRider, RIME_JARL } from "./rigs-rime.js";
 import { logJoint } from "./folk-kit.js";
@@ -139,7 +139,7 @@ const iceBurst = (ctx, x, r, k = 1) => part(ctx, (c) => {
 }, { ink: null });
 // the cracks and frost the stomp leaves on the ground (flat, under the ink)
 const frostCracks = (c, x, r) => {
-  c.fillStyle = "rgba(214,240,252,0.38)";
+  c.fillStyle = "rgba(214,240,252,0.2)";
   c.beginPath(); c.ellipse(x, 0.3, r, r * 0.3, 0, 0, TAU); c.fill();
 };
 
@@ -288,7 +288,6 @@ const frostwolf = (ctx, p) => {
   const k = fight ? WOLF_SEAT_FIGHT[wf] : WOLF_SEAT[wf];
   const b = q(k.bob);
   // a breath of frost from the jaws
-  ctx.fillStyle = "rgba(230,246,252,0.4)";
   const mx = (21.5 + (k.st || 0) * 0.8 + (k.dx || 0)) * s, my = (-17.4 + b) * s;
   ctx.fillStyle = "rgba(230,246,252,0.34)";
   for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.arc(mx + 1.6 + i * 2.6, my - 0.8 - i * 0.9, 0.8 + i * 0.3, 0, TAU); ctx.fill(); }
@@ -895,7 +894,7 @@ const seaserpent = (ctx, p) => {
   if (k.fx === "splash") { foam(ctx, at, 5, 1.3); spray(ctx, at, 6, 7, 4); }
   if (k.fx === "drip") { ctx.fillStyle = FOAM; for (const [x, y] of [[head[0] - 2, head[1] + 4], [head[0] + 4, head[1] + 6], [11, -9], [12.4, -4]]) ctx.fillRect(q(x), q(y), 0.5, 1); }
   if (k.fx === "rings") { rings(ctx, at, 6, 1); ctx.fillStyle = FOAM; for (const [x, y] of [[at - 2, -1], [at + 1, -2.4], [at + 3, -0.6]]) ctx.fillRect(q(x), q(y), 1, 1); }
-  if (!k.fins && !k.dep) glow(ctx, ...add(head, rot([3.9, -1.4], [0, 0], k.tilt)), 1.8, p.eyes || "#e8f070", 0.45);
+  if (!k.fins && !k.dep && head[1] < -2) glow(ctx, ...add(head, rot([3.9, -1.4], [0, 0], k.tilt)), 1.8, p.eyes || "#e8f070", 0.45);
   ctx.restore();
 };
 
@@ -962,11 +961,25 @@ const krakenarm = (ctx, p) => {
   const dep = (k.dep || 0) * len;
   const pts = tentLine([0, 2 + dep], k.a, k.curl, k.pow, len + 2, { floor: k.floor });
   const draw = (c, C) => tentacle(c, C, pts, k.curl, w0, p.col, p.belly);
-  submerged(ctx, draw);
+  // it bursts up through the shore's ice and shingle (engine: up to `inland`
+  // px from the waterline): a hole of black water, broken ice heaved round it
+  const hw = w0 * 0.95;
+  part(ctx, (c) => {
+    c.fillStyle = "#16303a"; c.beginPath(); c.ellipse(0.4, 0.6, hw, hw * 0.34, 0, 0, TAU); c.fill();
+    c.fillStyle = "#2a5464"; c.beginPath(); c.ellipse(0.8, 0.9, hw * 0.7, hw * 0.2, 0, 0, TAU); c.fill();
+  });
   above(ctx, draw);
-  for (const x of crossings(pts)) { foam(ctx, x, w0 * 0.75, 1); }
+  part(ctx, (c) => {
+    // the near lip of the hole, and slabs of ice tipped up round it
+    for (const [dx, dy, w, h, tilt] of [[-hw - 0.6, 0.2, 3.2, 1.8, -0.5], [-hw * 0.4, 1.6, 3.4, 1.6, 0.15], [hw * 0.45, 1.6, 3, 1.5, -0.2], [hw + 0.4, 0.1, 3, 1.9, 0.55]]) {
+      c.save(); c.translate(dx, dy); c.rotate(tilt);
+      c.fillStyle = ICE_DK; c.fillRect(-w / 2, -h / 2, w, h);
+      c.fillStyle = ICE_LT; c.fillRect(-w / 2, -h / 2, w, h * 0.45);
+      c.restore();
+    }
+  });
   const tip = pts[pts.length - 1];
-  if (k.fx === "burst") { spray(ctx, pts[0][0], 7, 10, 1); spray(ctx, 2, 5, 6, 6); foam(ctx, 0, w0, 1.4); }
+  if (k.fx === "burst") { spray(ctx, pts[0][0], 7, 10, 1); spray(ctx, 2, 5, 6, 6); }
   if (k.fx === "drip") { ctx.fillStyle = FOAM; for (const i of [5, 9, 13]) ctx.fillRect(q(pts[i][0] + 2), q(pts[i][1] + 1.5), 0.5, 1); }
   if (k.fx === "slam") { part(ctx, (c) => frostCracks(c, tip[0] - 4, 9), { ink: null }); spray(ctx, tip[0] - 3, 7, 7, 3); iceBurst(ctx, tip[0] - 2, 5, 0.6); }
   if (k.fx === "dust") { ctx.fillStyle = "rgba(226,240,246,0.3)"; ctx.beginPath(); ctx.ellipse(tip[0] - 6, -0.6, 8, 1.6, 0, 0, TAU); ctx.fill(); }
@@ -1017,28 +1030,37 @@ const kraken = (ctx, p) => {
     for (const [x, y, rx, ry] of [[-12, -38, 3, 4], [-4, -44, 2.6, 2.6], [-15, -26, 2, 3], [4, -18, 2, 2.4], [-11, -14, 2.2, 2.4]]) { c.beginPath(); c.ellipse(x, Y(y), rx, ry, 0, 0, TAU); c.fill(); }
     c.fillStyle = C(belly);
     for (const [x, y] of [[-8, -40], [-16, -33], [-1, -38], [10, -16], [-14, -9], [-10, -46], [-4, -22], [14, -9], [-17, -20]]) { c.beginPath(); c.arc(x, Y(y - up * 0.1), 0.9, 0, TAU); c.fill(); }
-    c.fillStyle = C(dark); c.fillRect(-12, Y(-19.6), 22, 0.6); c.fillRect(-9, Y(-21.4), 15, 0.6);
     // the lower face and the beak's lips
-    c.fillStyle = C(mix(col, belly, 0.35)); c.beginPath(); c.ellipse(1, Y(-3.6), 9, 5, 0, 0, TAU); c.fill();
+    c.fillStyle = C(mix(col, belly, 0.18)); c.beginPath(); c.ellipse(1, Y(-3.4), 9, 4.6, 0, 0, TAU); c.fill();
     c.restore();
-    // eyes: great, gold, a bar of a pupil, a heavy lid over each
+    // eyes: great, gold, a thick bar of a pupil; a lid slanting down toward
+    // the beak cuts across the top of each, under a hard brow ridge
     const narrow = k.narrow || 0;
     for (const [ex, ey, r, ff] of [[-7.4, -13, 3, 0.75], [8.2, -12.4, 3.8, 1]]) {
-      c.fillStyle = C(darken(col, 0.38)); c.beginPath(); c.ellipse(ex, Y(ey), r + 1.2, r + 1, 0, 0, TAU); c.fill();
-      c.fillStyle = C(p.eyes || "#f0d050"); c.beginPath(); c.ellipse(ex, Y(ey), r, r * 0.86, 0, 0, TAU); c.fill();
-      c.fillStyle = C(lighten(p.eyes || "#f0d050", 0.45)); c.fillRect(ex - r * 0.5, Y(ey) - r * 0.6, r * 0.5, r * 0.36);
-      c.fillStyle = "#1a1018"; c.fillRect(ex - r * 0.7 + (k.look || 0) * ff, Y(ey) - 0.5, r * 1.4, 1);
-      // a brow ridge slanting down toward the beak, lower when it narrows its eyes
-      const inward = ex < 0 ? 1 : -1, lo = r * (0.15 + narrow * 0.35);
-      c.fillStyle = C(darken(col, 0.32));
-      poly(c, [[ex - r - 1.6, Y(ey) - r - 2], [ex + r + 1.6, Y(ey) - r - 2], [ex + (r + 1.6) * inward, Y(ey) - r + lo + r * 0.7], [ex - (r + 1.6) * inward, Y(ey) - r + lo - 0.2]]); c.fill();
+      const ey2 = Y(ey), inward = ex < 0 ? 1 : -1;
+      const lidOut = ey2 - r * (0.95 - narrow * 0.3), lidIn = ey2 - r * (0.2 - narrow * 0.25);
+      const P = (side, y) => [ex + side * inward * (r + 2), y];
+      c.fillStyle = C(darken(col, 0.42)); c.beginPath(); c.ellipse(ex, ey2, r + 1.1, r * 0.86 + 1, 0, 0, TAU); c.fill();
+      c.save(); c.beginPath(); c.ellipse(ex, ey2, r, r * 0.8, 0, 0, TAU); c.clip();
+      c.fillStyle = C(p.eyes || "#f0d050"); c.fillRect(ex - r, ey2 - r, r * 2, r * 2);
+      c.fillStyle = C(darken(p.eyes || "#f0d050", 0.3)); c.fillRect(ex - r, ey2 + r * 0.35, r * 2, r);
+      c.fillStyle = "#1a1018"; c.fillRect(ex - r * 0.55 + (k.look || 0) * ff, ey2 - 0.7, r * 1.1, 1.5);
+      c.fillStyle = C(darken(col, 0.2)); poly(c, [P(-1, ey2 - r - 1), P(1, ey2 - r - 1), P(1, lidIn), P(-1, lidOut)]); c.fill();
+      c.restore();
+      // the ridge along the lid's edge, running on past the eye
+      c.strokeStyle = C(darken(col, 0.5)); c.lineWidth = 1.3; c.lineCap = "round";
+      c.beginPath(); c.moveTo(...P(-1.15, lidOut - 0.9)); c.lineTo(...P(1.1, lidIn - 0.2)); c.stroke();
+      c.fillStyle = C(lighten(p.eyes || "#f0d050", 0.5)); c.fillRect(ex - r * 0.1 * inward - 0.5, ey2 + r * 0.05, 1, 0.6);
     }
     // the beak: a black parrot's hook, cream at the tip; opened, a dark maw
-    const ro = k.roar || 0, bx = 1.4, by = Y(-3.4);
+    const ro = k.roar || 0, bx = 1.4, by = Y(-3.6);
+    c.save(); c.translate(bx, by); c.scale(1.45, 1.45); c.translate(-bx, -by);
     if (ro) { c.fillStyle = C("#3a1420"); c.beginPath(); c.ellipse(bx + 0.4, by + 1.6 * ro, 4.6, 1 + 3.4 * ro, 0, 0, TAU); c.fill(); c.fillStyle = C("#7a2a3a"); c.beginPath(); c.ellipse(bx + 0.4, by + 2.6 * ro, 2.4, 1.6 * ro, 0, 0, TAU); c.fill(); }
-    c.fillStyle = C("#2a1e26"); curve(c, [[bx - 3.4, by - 1.6], [bx + 1, by - 2.6], [bx + 3.6, by - 0.8], [bx + 2.4, by + 1.6 - ro * 0.8, 1], [bx, by + 0.2 - ro * 0.6], [bx - 2.6, by + 0.4]]); c.fill();
-    c.fillStyle = C("#e0d4b4"); poly(c, [[bx + 1.6, by + 0.2 - ro * 0.6], [bx + 3.4, by - 0.6], [bx + 2.4, by + 1.6 - ro * 0.8]]); c.fill();
+    c.fillStyle = C("#2a1e26"); curve(c, [[bx - 3, by - 1.8], [bx + 0.6, by - 2.8], [bx + 3, by - 1.6], [bx + 3.4, by + 0.4], [bx + 1.4, by + 2.4 - ro * 0.8, 1], [bx + 0.6, by + 0.4 - ro * 0.6], [bx - 2.4, by + 0.2]]); c.fill();
+    c.fillStyle = C("#5a4a50"); poly(c, [[bx - 1.6, by - 1.8], [bx + 1.8, by - 2], [bx + 0.4, by - 1.2]]); c.fill();
+    c.fillStyle = C("#e0d4b4"); poly(c, [[bx + 2.2, by + 0.2 - ro * 0.6], [bx + 3.2, by + 0.2], [bx + 1.4, by + 2.4 - ro * 0.8]]); c.fill();
     if (ro) { c.fillStyle = C("#2a1e26"); curve(c, [[bx - 2.6, by + 1.4 + ro * 3.6], [bx + 2.8, by + 1.2 + ro * 3.6], [bx + 1.8, by + 3 + ro * 3.6, 1], [bx - 1.6, by + 2.8 + ro * 3.6]]); c.fill(); }
+    c.restore();
     c.restore();
     for (const [pts, cu, w] of near) tentacle(c, C, pts, cu, w, col, belly);
   };
@@ -1055,8 +1077,73 @@ const kraken = (ctx, p) => {
   ctx.restore();
 };
 
+// ---- the sea monsters on the board: engine state -> rig frame ------------------------
+// For draw.js / rimefx.js drawSea (engine/serpent.js owns the state): which
+// sheet and frame each monster shows now. drawSeaRig paints it (and its hit
+// flash) and returns true; health bars stay with the caller.
+//   serpent  e.submerged + e.serp.phase "swim" -> "sub.n"; "rise" (still
+//            hidden, rise ms) -> "surface.0/1"; "up" -> "surface.2/3" for its
+//            first 300 ms, then the fight: strike (atkAnim 420) 2 -> 3, the
+//            wind-up 1 in the last 450 ms before e.serp.next, else guard 0;
+//            "dive" (450 ms) -> "dive.0-3"
+//   kraken   e.kr.t0: its first 1200 ms "rise.0-3", its last 1200 ms of
+//            e.kr.stay "sink.0-3"; while any of its arms strikes, the ROAR
+//            (fight 1-3 off that arm's atkAnim); else the breathing idle
+//   arm      e.riseAt / e.riseMs -> "rise.0-3"; a grab (an armGrab effect from
+//            its spot, alive) -> "grab.0-3"; another blow (atkAnim 500) ->
+//            fight 1 (arched), 2 (SLAM), 3 (drag); else the sway
+// The anchor: the serpent's and the kraken's waterline is e.y + 4; the arm's
+// hole is e.y + 3.
+const SEA_LIFT = { serpent: 4, kraken: 4, arm: 3 };
+export const seaFrame = (e, g) => {
+  const tms = g.time * 1000, t = g.time, id = e.id || 0;
+  if (e.sea === "serpent") {
+    const S2 = e.serp; if (!S2) return null;
+    const d = ENEMY_RISE;
+    if (S2.phase === "swim" || e.submerged && S2.phase !== "rise") return { type: "seaserpent", sheet: "walk", frame: `sub.${Math.floor(t * 6 + id) % 4}` };
+    if (S2.phase === "rise") return { type: "seaserpent", sheet: "walk", frame: `surface.${tms - S2.t < d.serpRise * 0.5 ? 0 : 1}` };
+    if (S2.phase === "dive") return { type: "seaserpent", sheet: "walk", frame: `dive.${Math.min(3, Math.floor(((tms - S2.t) / d.serpDive) * 4))}` };
+    const since = tms - S2.t;
+    if (since < 300 && !(e.atkAnim > 0)) return { type: "seaserpent", sheet: "walk", frame: `surface.${since < 150 ? 2 : 3}` };
+    const fr = e.atkAnim > 210 ? 2 : e.atkAnim > 0 ? 3 : S2.next !== undefined && S2.next - tms < 450 ? 1 : 0;
+    return { type: "seaserpent", sheet: "fight", frame: fr };
+  }
+  if (e.sea === "kraken") {
+    const K = e.kr; if (!K) return null;
+    const age = tms - K.t0, stay = K.stay || 75000;
+    if (age < 1200) return { type: "kraken", sheet: "walk", frame: `rise.${Math.floor(age / 300)}` };
+    if (age > stay - 1200) return { type: "kraken", sheet: "walk", frame: `sink.${Math.min(3, Math.floor((age - stay + 1200) / 300))}` };
+    const blow = Math.max(0, ...(K.arms || []).map((a) => (!a.dead && a.atkAnim > 0 ? a.atkAnim : 0)));
+    if (blow > 0) return { type: "kraken", sheet: "fight", frame: blow > 350 ? 1 : blow > 150 ? 2 : 3 };
+    return { type: "kraken", sheet: "walk", frame: Math.floor(t * 3 + id) % 4 };
+  }
+  if (e.sea === "arm") {
+    if (e.riseAt !== undefined && tms - e.riseAt < (e.riseMs || 700)) return { type: "krakenarm", sheet: "walk", frame: `rise.${Math.floor(((tms - e.riseAt) / (e.riseMs || 700)) * 4)}` };
+    const grab = (g.effects || []).find((fx) => fx.type === "armGrab" && fx.x === e.x && fx.y === e.y && fx.ttl > 0);
+    if (grab) return { type: "krakenarm", sheet: "walk", frame: `grab.${Math.min(3, Math.floor((1 - grab.ttl / grab.life) * 4))}` };
+    if (e.atkAnim > 0) return { type: "krakenarm", sheet: "fight", frame: e.atkAnim > 380 ? 1 : e.atkAnim > 200 ? 2 : 3 };
+    return { type: "krakenarm", sheet: "walk", frame: Math.floor(t * 4 + id) % 4 };
+  }
+  return null;
+};
+// the engine's timings these frames are cut to (enemies.js seaserpent rise / dive)
+const ENEMY_RISE = { serpRise: 500, serpDive: 450 };
+export const drawSeaRig = (ctx, e, g) => {
+  const f = seaFrame(e, g);
+  if (!f) return false;
+  const y = e.y + (SEA_LIFT[e.sea] || 4);
+  drawRig(ctx, f.type, e.x, y, e.face || 1, f.sheet, f.frame);
+  if (e.hitFlash > g.time * 1000 && !e.submerged) drawRig(ctx, f.type, e.x, y, e.face || 1, f.sheet, f.frame, "white", 0.6);
+  return true;
+};
+// an arm going down when its time is up (the engine removes the foe and leaves
+// an armSink effect: { x, y, ttl, life }), and the kraken's last dive
+// (krakenSink): ZONE_FX-shaped painters
+export const armSinkFx = (ctx, fx) => drawRig(ctx, "krakenarm", fx.x, fx.y + SEA_LIFT.arm, fx.face || 1, "walk", `sink.${Math.min(3, Math.floor((1 - fx.ttl / fx.life) * 4))}`);
+export const krakenSinkFx = (ctx, fx) => drawRig(ctx, "kraken", fx.x, fx.y + SEA_LIFT.kraken, fx.face || 1, "walk", `sink.${Math.min(3, Math.floor((1 - fx.ttl / fx.life) * 4))}`);
+
 // ---- the roster -----------------------------------------------------------------------
-const FROSTWOLF = { len: 32, col: "#dfe5ea", belly: "#f6f3ea", mane: "#8aa6bc", eyes: "#8ad8f0" };
+const FROSTWOLF = { len: 32, col: "#d4dde5", belly: "#f4f1e8", mane: "#7896ae", eyes: "#8ad8f0" };
 const RAIDER = { skin: "#e8bea0", cloth: "#2f5a58", cloth2: "#cbbfa6", hair: "#d8b860", shcol: "#d8d0bc", wcol: "#c4c8d0" };
 export const RIMEBEAST_RIGS = {
   rimerider: { kind: "rbFrostwolf", fightN: 4, box: { hw: 27, up: 46, down: 4 }, p: { ...FROSTWOLF, ...RAIDER, rider: true } },
@@ -1064,7 +1151,7 @@ export const RIMEBEAST_RIGS = {
   icedrake: { kind: "rbDrake", fly: true, fightN: 4, box: { hw: 42, up: 44, down: 4 }, p: { len: 40, col: "#9cc2d8", belly: "#eef4f4", wing: "#7eaccc", eyes: "#e8fbff" } },
   rimejarl: { kind: "rbMammoth", fightN: 4, box: { hw: 46, up: 82, down: 6 }, p: { len: 54, col: "#6e5442", belly: "#e8eef0", mane: "#3e2e24", cape: "#2f5a58", skin: RIME_JARL.skin, cloth: RIME_JARL.cloth, cloth2: RIME_JARL.cloth2, hair: RIME_JARL.hair, wcol: RIME_JARL.wcol } },
   seaserpent: { kind: "rbSerpent", fightN: 4, box: { hw: 38, up: 40, down: 10 }, p: { len: 40, col: "#3c8478", belly: "#d4ece0", mane: "#86cce0", eyes: "#e8f070" } },
-  kraken: { kind: "rbKraken", fightN: 4, box: { hw: 42, up: 62, down: 12 }, p: { len: 40, col: "#8a4252", belly: "#e2b6aa", mane: "#4a2234", eyes: "#f0d050" } },
+  kraken: { kind: "rbKraken", fightN: 4, box: { hw: 50, up: 74, down: 14 }, p: { len: 48, col: "#8a4252", belly: "#e2b6aa", mane: "#4a2234", eyes: "#f0d050" } },
   krakenarm: { kind: "rbKrakenArm", fightN: 4, box: { hw: 50, up: 54, down: 10 }, p: { len: 44, w: 9.5, col: "#8a4252", belly: "#e2b6aa", mane: "#4a2234" } },
   frostgiant: { kind: "rbGiant", fightN: 4, box: { hw: 34, up: 58, down: 4 }, p: { skin: "#7f93ab", cloth: "#5e4a3a", cloth2: "#8a7860", hair: "#e4ecf0", eyes: "#bfe8ff", wcol: "#e6dcc4" } },
 };

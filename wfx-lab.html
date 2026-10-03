@@ -1,0 +1,115 @@
+<!doctype html>
+<!--
+  Weather lab: rim-lab.html's real-engine stepper, for the weather painters
+  (render/weatherfx.js). A board, a few halls, one wave stepped at 60 fps,
+  snaps through the real draw() at chosen game seconds, and a frame-cost
+  bench of the weather on that busy board.
+
+    /wfx-lab.html?realm=greenwood&faction=greenwood&weather=fog:1&wave=12&snaps=3,8,20&tag=fog
+    &towers=archer@0.62:3,wizard@0.35:2,...   (kind@road-fraction:level[,branch[,rank4]])
+    &squall=6        a squall-rhythm kind bites at 6 s (the wind rises `windup` s before)
+    &crop=x,y,w,h    a window of the board; &scale=2 zooms it (nearest)
+    &bench=120       after the snaps: time draw() 120 times with the weather and
+                     120 without (g.weather = null), and drawWeather alone;
+                     results in window.BENCH, the status line and the console
+    &nodraw=1        skip the snaps (bench only)
+
+  Saved to .shots/wfx_<tag>.png, frames two to a row (one with &cols=1).
+  Read the bench with:
+    node scripts/shoot.mjs "/wfx-lab.html?...&bench=120&nodraw=1" \
+      "new Promise(r=>{const f=()=>document.title==='DONE'?r(JSON.stringify(window.BENCH)):setTimeout(f,200);f()})" 500
+-->
+<html>
+  <head><meta charset="utf-8" /><title>wfx lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, CASTLE_HP, RES } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, ascendTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { drawWeather } from "/src/render/weatherfx.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 1;
+      const SNAPS = (q.get("snaps") || "4,7,10").split(",").map(Number).sort((a, b) => a - b);
+      selectRealm(q.get("realm") || "greenwood");
+      selectFaction(q.get("faction") || "greenwood");
+      setWaveWindow(null);
+      if (q.get("weather")) { const [kind, str] = q.get("weather").split(":"); setLevelWeather(kind === "none" ? null : { kind, strength: Number(str ?? 1) }); }
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: CASTLE_HP, wave: (Number(q.get("wave")) || 8) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      const DEF_TOWERS = "archer@0.12:3,wizard@0.2:3,knight@0.28:3,spiker@0.36:3,b,archer@0.45:3,a,wizard@0.55:3,knight@0.62:3,archer@0.7:3,catapult@0.78:3,wizard@0.86:3,b";
+      for (const spec of (q.get("towers") ?? DEF_TOWERS).split(",").reduce((acc, p) => (p.includes("@") ? acc.push([p]) : acc[acc.length - 1].push(p), acc), [])) {
+        const [head, br, r4] = spec;
+        const [kind, rest] = head.split("@");
+        const [at, lv] = rest.split(":").map(Number);
+        const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+        let spot = null;
+        for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kind)) { spot = [x, y]; break; }
+        }
+        if (!spot) { console.error("no room for", kind, "at", at); continue; }
+        placeTower(g, kind, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        if (br) branchTower(g, t, br);
+        if (r4) ascendTower(g, t, r4);
+        t.readyAt = 0; t.raised = null;
+      }
+      const DT = 1 / 60;
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      startWave(g);
+      const t0 = g.time;
+      updateGame(g, DT);
+      if (q.get("squall") && g.weather) g.weather.next = Number(q.get("squall"));
+      const [cx, cy, cw, ch] = (q.get("crop") || `0,0,${W},${H}`).split(",").map(Number);
+      const cols = Math.min(Number(q.get("cols")) || 2, SNAPS.length), rows = Math.ceil(SNAPS.length / cols);
+      const out = document.createElement("canvas"); out.width = cw * SC * RES * cols; out.height = (ch * RES + 14) * SC * rows;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.fillStyle = "#20242c"; o.fillRect(0, 0, out.width, out.height);
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      const step = (at) => { while (g.time - t0 < at && g.phase === "combat") updateGame(g, DT); };
+      let f = 0;
+      if (!q.get("nodraw")) for (const at of SNAPS) {
+        step(at);
+        draw(g, cv, { current: null });
+        const k = cv.width / W, col = f % cols, row = Math.floor(f / cols), fw = cw * RES * SC, fh = ch * RES * SC;
+        o.drawImage(cv, cx * k, cy * k, cw * k, ch * k, col * fw, row * (fh + 14 * SC) + 14 * SC, fw, fh);
+        const w = g.weather;
+        o.fillStyle = "#e8e0c8"; o.font = `${10 * SC}px monospace`;
+        o.fillText(`${(g.time - t0).toFixed(1)}s  wave ${g.wave}  ${w ? `${w.kind} ${w.phase} k${w.k.toFixed(2)} marks ${w.marks.length}` : "no weather"}  foes ${g.enemies.length}  halls ${g.towers.length}`, col * fw + 4, row * (fh + 14 * SC) + 11 * SC);
+        f++;
+      }
+      if (!q.get("nodraw")) await fetch(`/__shot?name=wfx_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      const N = Number(q.get("bench")) || 0;
+      if (N) {
+        step(SNAPS[SNAPS.length - 1]);
+        // warm (bakes, sprite caches) before timing
+        for (let i = 0; i < 10; i++) { draw(g, cv, { current: null }); g.time += DT; }
+        const time = (fn) => { const a = performance.now(); for (let i = 0; i < N; i++) { fn(); g.time += DT; } return (performance.now() - a) / N; };
+        const wx = g.weather;
+        const withW = time(() => draw(g, cv, { current: null }));
+        g.weather = null;
+        const without = time(() => draw(g, cv, { current: null }));
+        g.weather = wx;
+        const sc = document.createElement("canvas"); sc.width = W * RES; sc.height = H * RES;
+        const sctx = sc.getContext("2d"); sctx.imageSmoothingEnabled = false; sctx.scale(RES, RES);
+        const alone = time(() => drawWeather(sctx, g));
+        window.BENCH = { kind: wx && wx.kind, k: wx && +wx.k.toFixed(2), foes: g.enemies.length, halls: g.towers.length,
+          drawWith: +withW.toFixed(2), drawWithout: +without.toFixed(2), weatherAlone: +alone.toFixed(2) };
+        console.log("BENCH", JSON.stringify(window.BENCH));
+      }
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/wfx_${TAG}.png ${window.BENCH ? JSON.stringify(window.BENCH) : ""}`;
+    </script>
+  </body>
+</html>
