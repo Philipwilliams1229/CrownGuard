@@ -206,6 +206,7 @@ const serpentTick = (g, e, d, ms, tms) => {
 
 // ---- the kraken ----
 const initKraken = (g, e, tms) => {
+  const d = ENEMIES[e.type];
   const sr = seaRoute();
   if (!sr) { gone(e); return; }
   // off the stretch of shore nearest the road's middle: the route point
@@ -229,7 +230,7 @@ const initKraken = (g, e, tms) => {
   }
   e.x = x; e.y = y; e.face = 1; e.lane = 0; e.swimming = true; e.born = tms;
   e.dist = nearestOnPath(x, y).dist;
-  e.kr = { t0: tms, armCd: 1400, arms: [] };
+  e.kr = { t0: tms, armCd: 1400, arms: [], stay: d.stay };
   g.shake = Math.max(g.shake || 0, 5);
   sfx.play("rumble");
   g.effects.push({ type: "krakenRise", x, y, ttl: 1200, life: 1200 });

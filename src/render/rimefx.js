@@ -27,7 +27,7 @@
 // draw.js's `e.sea` hook calls drawSea, which an artist may rewrite freely.
 
 import { S, CELL } from "../data/constants.js";
-import { RIGS } from "./rigs.js";
+import { RIGS, drawRig } from "./rigs.js";
 
 // ---- borrowed looks for the clans' stub foes (data/enemies.js) ----
 // (until rigs-rime.js exists: delete these lines when it lands)
@@ -309,7 +309,7 @@ const drawKraken = (ctx, e, g) => {
   if (e.hitFlash > tms) { ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(S(e.x) - w, S(e.y) - h, w * 2, h); }
   bar(ctx, e.x, e.y - 30, e.hp / e.maxHp, 44);
   // the tide it will go out on: a thin bar of what is left of its stay
-  const stay = 75000;
+  const stay = K.stay || 75000;
   bar(ctx, e.x, e.y - 25, 1 - age / stay, 44, "#7ab8e0");
 };
 
@@ -336,8 +336,49 @@ const drawArm = (ctx, e, g) => {
   if (rise >= 1) bar(ctx, e.x, e.y - 44, e.hp / e.maxHp, 18);
 };
 
+// With the beast artist's rig (rigs-rimebeasts.js: seaserpent / kraken /
+// krakenarm, anchored at the waterline) the monster is drawn from its sheets,
+// picked off the engine's state; without one, the placeholder painters above.
+const q4 = (k) => Math.min(3, Math.max(0, Math.floor(k * 4)));
+const seaFrame = (e, g) => {
+  const tms = g.time * 1000, cyc = Math.floor(g.time * 6 + e.id) % 4;
+  const fight = e.atkAnim > 0 ? q4(1 - e.atkAnim / 500) : null;
+  if (e.sea === "serpent") {
+    const sp = e.serp;
+    if (!sp) return null;
+    if (sp.phase === "swim") return ["walk", `sub.${cyc}`];
+    if (sp.phase === "rise") return ["walk", `surface.${q4((tms - sp.t) / ENEMY_MS.rise)}`];
+    if (sp.phase === "dive") return ["walk", `dive.${q4((tms - sp.t) / ENEMY_MS.dive)}`];
+    return fight != null ? ["fight", fight] : ["walk", cyc];
+  }
+  if (e.sea === "kraken") {
+    const age = tms - (e.kr?.t0 ?? tms);
+    if (age < 1200) return ["walk", `rise.${q4(age / 1200)}`];
+    return ["walk", cyc];
+  }
+  const rise = e.riseAt !== undefined ? (tms - e.riseAt) / (e.riseMs || 700) : 1;
+  if (rise < 1) return ["walk", `rise.${q4(rise)}`];
+  return fight != null ? ["fight", fight] : ["walk", cyc];
+};
+const ENEMY_MS = { rise: 500, dive: 450 };   // (the serpent's rise / dive, enemies.js)
+const seaRig = (ctx, e, g) => {
+  const fr = seaFrame(e, g);
+  if (!fr) return false;
+  const tms = g.time * 1000;
+  drawRig(ctx, e.type, e.x, e.y, e.face || 1, fr[0], fr[1]);
+  if (e.hitFlash > tms && !e.submerged) drawRig(ctx, e.type, e.x, e.y, e.face || 1, fr[0], fr[1], "white", 0.6);
+  return true;
+};
 export const drawSea = (ctx, e, g) => {
   if (!e.seaInit) return;
+  if (RIGS[e.type] && seaRig(ctx, e, g)) {
+    // the bars stay (what is left of it; the kraken's tide)
+    if (e.sea === "kraken" && e.kr) {
+      bar(ctx, e.x, e.y - 46, e.hp / e.maxHp, 44);
+      bar(ctx, e.x, e.y - 41, 1 - (g.time * 1000 - e.kr.t0) / (e.kr.stay || 75000), 44, "#7ab8e0");
+    } else if (!e.submerged && !(e.riseAt !== undefined && g.time * 1000 - e.riseAt < e.riseMs)) bar(ctx, e.x, e.y - 50, e.hp / e.maxHp, e.sea === "arm" ? 18 : 28);
+    return;
+  }
   if (e.sea === "serpent") drawSerpent(ctx, e, g);
   else if (e.sea === "kraken") drawKraken(ctx, e, g);
   else if (e.sea === "arm") drawArm(ctx, e, g);

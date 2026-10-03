@@ -57,7 +57,7 @@ uses; existing levels sim byte-identical). Read the headers of
   `landing`/`ship`; `startWave` queues ONE longship a wave (puts out at 45%
   of the spawn time, ~5 s on screen, horn + red ring at the beach). The ship
   is a `swimming` foe towers and skiffs can hole; the party lands scaled by
-  the hull left. A board with no beach marches the party from the wood.
+  the hull left. A board with NO beach gets NO landing party (owner).
 - **Weather:** `WEATHER_KINDS` registry (every/lasts/windup/fx: reach,
   shotSpeed, foeSpeed, flierSpeed, fliersLow, sight) + a painter in
   `render/weatherfx.js`; a realm opts in with `weather: { kind }`. Live
@@ -65,9 +65,44 @@ uses; existing levels sim byte-identical). Read the headers of
   blizzard: reach x0.8, shots x0.85, fliers low, 4 s wind-up.
 - **Frost shroud:** foe flags `freezeEvery/freezeRange/freezeFor` (the Rime
   Seer 9000/130/4500); a frozen hall stops everything through
-  `fights(t, g)` (build.js) instead of `isBuilt`; fire halls thaw 3x (and
-  2x for frozen neighbours within 72); a stunned, silenced or burning seer
-  can't cast; freezers are prey for the Covert.
+  `fights(t, g)` (build.js) instead of `isBuilt`; every hall thaws the same
+  (owner: no fire bonus); a frozen hall's soldiers stand still but RELEASE
+  the foes they held (`releaseHeld`, rime.js); a stunned, silenced or
+  burning seer can't cast; freezers are prey for the Covert. During a
+  blizzard ground-only halls may hit the low fliers (`groundHitsLow`).
+- **Cold-hardy** (owner): every Rime foe is `frostProof` — the Frost Altar's
+  slows (every form), the frost nova's freeze and Permafrost's brittleness,
+  Absolute Zero's cold DoT do nothing to them; the nova's blast damage still
+  lands; non-frost slows (spikes, caltrops, Earthshaker, Harpooners, the
+  Moon Prism's beam, Osric) still work.
+- **The roster** (enemies.js Rime section, behaviour in rime.js):
+  `berserker` (`rage`, `e.raging`; the frenzied sheet past half health),
+  `rimerider` (wolf rider; half the time the rider marches on as a thrall,
+  `deathSkin: "rimewolf"`), `skald` (the Marshal's banner seam as a
+  war-chant, walks amid the biggest group via `gatherMore`), `frostgiant`
+  (`stomp` dazes soldiers), `icedrake` (flier), boss `rimejarl` on a
+  war-mammoth (trample, shroud, `callLanding`).
+- **Sea monsters** (`src/engine/serpent.js`, `water: "any" | "coast"`;
+  `waves.js dryLand` swaps them on boards without that water):
+  `seaserpent` swims the first river (or the coast) submerged — only a River
+  Watch can hit it — surfaces by prey to maul soldiers or COIL a hall
+  (`t.downLeft` through `fights`), dives on, and slips away at the water's
+  end for 1 life. `kraken`: the body offshore, `krakenarm`s burst up along
+  the shore to grab soldiers, smash halls or sweep the road; each arm cut
+  tears 12% off the body; after 75 s it sinks for 4 lives (never stalls a
+  wave). Test boards `rimefjord` (river + beach), `rimeriver`, `rimedry`.
+- **Rigs:** `rigs-rime.js` (thrall, huscarl, berserker/berserkerRage,
+  rimeseer, skald with a chant sheet at walk 4-7, rimejarlfoot, and the
+  exported `rimeJarlRider` part; joint set `rime`), `rigs-rimebeasts.js`
+  (rimerider, rimewolf, frostgiant, icedrake, the mounted rimejarl,
+  seaserpent, kraken, krakenarm). rimefx.js only aliases a type that has
+  no rig yet.
+- **Weather in every zone** (`src/data/weather-plan.js`): greenwood `fog`,
+  iron `storm`, hollow `gravemist`, rime `blizzard`, ash `eruption`; none
+  in a chapter's first third, 0.35-0.55 in the middle, 0.7-0.9 in the last
+  third, 1 at the boss; a level may set `weather: false` or its own.
+  `sim.mjs --weather kind:strength|none`. Free Play: `weather` /
+  `weatherPower` in sandbox.js (not in isHonest).
 - Test faction `rime` (src/data/faction-rime.js, not in FACTIONS) and board
   `rimewatch` (src/data/realms-rime.js, not in Free Play); placeholder art in
   `render/rimefx.js` (longship, telegraph, ice shell, rig aliases to delete
@@ -75,8 +110,8 @@ uses; existing levels sim byte-identical). Read the headers of
   steps the real engine and snaps it (`?wave=&snaps=&towers=&squall=&crop=`).
 - `node scripts/sim.mjs --free rimewatch rime --window 1,18,15 --gold 600
   --endure`; flags `--no-landings --no-weather --no-freeze`, `--window f,t,n`,
-  `--gold N`. Left to do: the wave preview should show a landing party as its
-  own chip with a ship badge (CrownguardGame.jsx `waveComposition`).
+  `--gold N`. The wave preview shows a landing party as its own chip with a
+  ship badge.
 
 ## Open threads (as of 2026-09-29)
 
