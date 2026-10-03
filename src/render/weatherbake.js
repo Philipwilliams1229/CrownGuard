@@ -422,9 +422,9 @@ export const mistShade = (v) => memo(`msh|${v}`, () => {
 // a rime crust hugging the edge, then fern-like fronds growing in. A stage
 // canvas holds every pixel whose stage is <= s, so the creep only ever grows.
 // side: "t" | "b" | "l" | "r"; D: the strip's depth (units).
-export const frostStrip = (side, D, s) => memo(`fr|${side}|${D}|${s}`, () => {
+export const frostStrip = (side, D, s) => memo(`fr2|${side}|${D}|${s}`, () => {
   const horiz = side === "t" || side === "b";
-  const len = horiz ? W : H - 2 * 34, w = len * PX, d = D * PX;
+  const len = horiz ? W : H, w = len * PX, d = D * PX;     // the side strips run the full height, under the top and bottom ones: no step at the corners
   const G = grid(horiz ? w : d, horiz ? d : w);
   const stage = new Float32Array(w * d).fill(9);       // [along * d + inward]
   const mark = (a, e, st) => { a = Math.round(a); e = Math.round(e); if (a < 0 || a >= w || e < 0 || e >= d) return; const i = a * d + e; if (st < stage[i]) stage[i] = st; };
@@ -622,4 +622,17 @@ export const snowFlake = (v) => memo(`flake|${v}`, () => {
   if (v === 2) { G.set(-0, 0, w, 230); G.set(2, 2, sm, 200); G.set(1, 0, w, 230); }
   for (let s = 2; s < 5 + (v === 2 ? 3 : v); s++) G.set(s, 1 + (s > 4 ? 1 : 0), sm, 190 - s * 22);
   return { cv: G.done(), ax: 0, ay: 1 };
+});
+
+// the blizzard thins over the castle band: a ramp `ramp` units wide, then flat,
+// as a destination-out mask in a 1-unit layer (dithered steps, never a hard edge)
+export const thinBand = (w, ramp, a) => memo(`thin|${w}|${ramp}|${a}`, () => {
+  const G = grid(w, H), k = [0, 0, 0];
+  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) {
+    const v = Math.min(1, x / ramp) * a;
+    let lv = v * 4, b = Math.floor(lv);
+    if (lv - b > thr(x, y)) b++;
+    if (b > 0) G.set(x, y, k, Math.round((b / 4) * 255));
+  }
+  return G.done();
 });

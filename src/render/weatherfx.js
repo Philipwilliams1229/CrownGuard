@@ -76,11 +76,11 @@ const showLayer = (ctx, a = 1, box = null) => {
 // ragged clearings round the halls (r in units; a ladder of baked sizes)
 const RUNGS = [28, 34, 40, 48, 56, 64, 76, 88, 100, 116, 132, 150, 172, 196, 224];
 const rung = (r) => { for (const q of RUNGS) if (q >= r) return q; return 0; };
-const clearHalls = (c, g, r, box = null) => {
+const clearHalls = (c, g, r, box = null, alpha = 1) => {
   const q = rung(r);
   if (!q) { c.clearRect(0, 0, W, H); return; }
   const s = B.clearing(q);
-  c.globalCompositeOperation = "destination-out"; c.globalAlpha = 1;
+  c.globalCompositeOperation = "destination-out"; c.globalAlpha = alpha;
   for (const t of g.towers) {
     const x = t.x, y = t.y - 12;
     if (box && (x + q < box[0] || x - q > box[2] || y + q < box[1] || y - q > box[3])) continue;
@@ -416,9 +416,9 @@ const frost = (ctx, lvl) => {
     if (st < 1 || st > 4 || a < 0.02) continue;
     ctx.globalAlpha = a;
     const s = st / 4;
-    for (const side of ["t", "b", "l", "r"]) {
+    for (const side of ["l", "r", "t", "b"]) {
       const cv = B.frostStrip(side, FROST_D[side], s), w = cv.width / PX, h = cv.height / PX;
-      const x = side === "r" ? W - w : 0, y = side === "b" ? H - h : side === "t" ? 0 : FROST_D.t;
+      const x = side === "r" ? W - w : 0, y = side === "b" ? H - h : 0;
       ctx.drawImage(cv, x, y, w, h);
     }
   }
@@ -443,9 +443,15 @@ const blizzard = (ctx, g, w, def) => {
   const c = layer();
   if (c) {
     wash(c, "224,236,248", 0.16 * k);
-    fillSheet(c, B.snowDrift(false), 2, -t * 70, t * 7, 0.8 * k);
+    fillSheet(c, B.snowDrift(false), 2, -t * 70, t * 7, 0.55 * k);
     fillSheet(c, B.snowSheet(false), 1, -t * 150, t * 46 + wob, k);
-    fillSheet(c, B.snowDrift(true), 2, -t * 250, t * 12 + 40, 0.7 * k);
+    fillSheet(c, B.snowDrift(true), 2, -t * 250, t * 12 + 40, 0.45 * k);
+    // keep what the player must read: the castle band thins, and the snow
+    // eases off in a small soft clearing round every hall
+    c.globalCompositeOperation = "destination-out";
+    const band = B.thinBand(WALL_W + 20 + 40, 40, 0.6);
+    c.drawImage(band, W - band.width, 0);
+    clearHalls(c, g, 34, null, 0.8);
     showLayer(ctx, 1);
   }
   fall(ctx, Math.round(420 * k), (i) => B.snowFlake(i % 9 === 0 ? 3 : i % 3), -340, 92, t, 303, 5);
