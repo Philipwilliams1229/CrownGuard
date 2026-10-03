@@ -31,9 +31,17 @@ neighbours', so the levels already played keep theirs.
   map shows. Pending the owner's playtest: Warden Moor bleeds ~2x Crowstair
   in the sim (late waves; gold barely moves it), the Lantern Fen bleeds on
   its wraith wave, the Kingstones is easy; Blackcliff's gold went 1200 ->
-  1350. Art asked for by the board artists: a plain standing stone, a
-  watermill, fishing-hamlet pieces, a long-barrow variant, rivers with a
-  width per point (Ironmouth's estuary is overlapping segments).
+  1350. The vale's boards got pieces of their own (`scenery-vale.js`:
+  standing stones, a watermill whose wheel turns in Millrace's race, the
+  Gullwick fishing hamlet, marram, thistles).
+
+## Zones IV and V (owner's direction, 2026-10-03)
+
+The plan is `art/ZONES-4-5.md`: zone IV the Rimewater (a new faction, the
+Rime Clans: a frigid sea country with mid-level LANDINGS on about half the
+boards, BLIZZARDS, and TOWER FREEZERS); zone V the Ashen Reach (fire
+biome; the Lord Marshal returns with the Iron remnant, the goblin horde,
+dragons and some new foes). A story layer is sidebarred for later.
 
 ## Open threads (as of 2026-09-29)
 

@@ -55,7 +55,7 @@ copy what the rebuilt pieces do.
 | Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js` |
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type; `IRON_ART.flat` / `HOLLOW_ART.flat` list pieces baked without the 2px ring |
 | The gate's crag (the hill the Greenwood/old realms' cave is cut into) | `src/data/gatecrag.js` (`gateCrag`, `hillAt`, `cragBlocks`) | pure data: scenery.js paints from it AND `buildableAt` refuses halls on it — change its shape only here, then scan that no buildable point lies on opaque gate pixels |
-| A chapter's own scenery: the Iron Marches, the Hollowfen | `src/render/scenery-iron.js` (`IRON_ART`), `src/render/scenery-hollow.js` (`HOLLOW_ART`) | one registry each — `decor` painters, `live` types, bake `box`, ground `dress`, `spawn` gates (REALM.spawn), `turf`/`road` art keyed by REALM.groundArt, and `apron` (the landscape's mix). scenery.js, world.js and apron.js read them LAZILY (they import scenery.js back — never read a registry at module load). Lab pages `irs-lab.html`, `hfs-lab.html` |
+| A chapter's own scenery: the Iron Marches, the Hollowfen, the vale's later pieces | `src/render/scenery-iron.js` (`IRON_ART`), `src/render/scenery-hollow.js` (`HOLLOW_ART`), `src/render/scenery-vale.js` (`VALE_ART`: menhir, stonefall, trilithon, watermill, cottage, boat, netrack, creels, marram, thistle, skeps, haywain) | one registry each — `decor` painters, `live` types, bake `box`, ground `dress`, `spawn` gates (REALM.spawn), `turf`/`road` art keyed by REALM.groundArt, and `apron` (the landscape's mix). scenery.js, world.js and apron.js read them LAZILY (they import scenery.js back — never read a registry at module load). Lab pages `irs-lab.html`, `hfs-lab.html` |
 | Ground (turf tone map, grass, the wood's hem) | `src/render/world.js` (+ `groundblend.js` round halls) | one layer baked per realm, in order: tone map + turf → chapter turf art → `paintRoad` → chapter road art → `bakeWater` |
 | The road (dirt, ruts, chevrons) | `src/render/road.js` — `paintRoad` (the board), `paintRoadStrip` (the apron's road, run in the direction of march), `drawRoadMarks` (chevrons, live) | the Iron and Fen chapters pave over it |
 | Rivers and ponds | `src/render/water.js` — `bakeWater` (bodies, into the ground layer), `drawWaterLive` (current, glints, foam: stamps only), `drawRiver` (standalone, for the apron), `drawPond` | |
@@ -676,6 +676,15 @@ textures." What came of it:
 - **Load cost moved from frames to realm load:** a river board's ground
   layer, spans and gate now bake in ~0.5-0.8 s here (headless, shared CPU).
   Frames got faster; watch the load time on the iPad.
+
+## Hand-placed decor and the spawn sign
+
+- A hand-placed decor entry may pick its look: `v` (and `sd` for a stone's
+  shape); without them `variantOf` (scenery.js) hashes the position, as
+  before.
+- The "THEY COME" sign (`signSpot`, scenery.js) stands by the FIRST stretch
+  of road out of the spawn, clear of trees, water and the road, wholly on
+  the board.
 
 ## The campaign map (`src/ui/mapArt.js`)
 
