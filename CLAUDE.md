@@ -48,6 +48,36 @@ boards, BLIZZARDS, and TOWER FREEZERS); zone V the Ashen Reach (fire
 biome; the Lord Marshal returns with the Iron remnant, the goblin horde,
 dragons and some new foes). A story layer is sidebarred for later.
 
+**Zone IV mechanics are built** (engine only, behind data no campaign level
+uses; existing levels sim byte-identical). Read the headers of
+`src/engine/rime.js` (landings, frost shroud) and `src/engine/weather.js`:
+- **Landings:** a realm's `landings: [{ at, from, beach?, sail? }]` (at = a
+  road fraction or [col,row]); the faction's `landings: { warWave: [groups] }`
+  / `landingGen` say who sails. `waves.js landingsOf` marks the groups
+  `landing`/`ship`; `startWave` queues ONE longship a wave (puts out at 45%
+  of the spawn time, ~5 s on screen, horn + red ring at the beach). The ship
+  is a `swimming` foe towers and skiffs can hole; the party lands scaled by
+  the hull left. A board with no beach marches the party from the wood.
+- **Weather:** `WEATHER_KINDS` registry (every/lasts/windup/fx: reach,
+  shotSpeed, foeSpeed, flierSpeed, fliersLow, sight) + a painter in
+  `render/weatherfx.js`; a realm opts in with `weather: { kind }`. Live
+  multipliers `WX`, state on `g.weather`, seeded clock, combat only. The
+  blizzard: reach x0.8, shots x0.85, fliers low, 4 s wind-up.
+- **Frost shroud:** foe flags `freezeEvery/freezeRange/freezeFor` (the Rime
+  Seer 9000/130/4500); a frozen hall stops everything through
+  `fights(t, g)` (build.js) instead of `isBuilt`; fire halls thaw 3x (and
+  2x for frozen neighbours within 72); a stunned, silenced or burning seer
+  can't cast; freezers are prey for the Covert.
+- Test faction `rime` (src/data/faction-rime.js, not in FACTIONS) and board
+  `rimewatch` (src/data/realms-rime.js, not in Free Play); placeholder art in
+  `render/rimefx.js` (longship, telegraph, ice shell, rig aliases to delete
+  when `rigs-rime.js` exists) and `render/weatherfx.js`. `rim-lab.html`
+  steps the real engine and snaps it (`?wave=&snaps=&towers=&squall=&crop=`).
+- `node scripts/sim.mjs --free rimewatch rime --window 1,18,15 --gold 600
+  --endure`; flags `--no-landings --no-weather --no-freeze`, `--window f,t,n`,
+  `--gold N`. Left to do: the wave preview should show a landing party as its
+  own chip with a ship badge (CrownguardGame.jsx `waveComposition`).
+
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
