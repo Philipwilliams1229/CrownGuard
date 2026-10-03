@@ -31,12 +31,12 @@ export const IRON_LEVELS = [
       {
         id: "brinewick", name: "Brinewick", realm: "brinewick",
         window: { from: 3, to: 14, count: 20 }, gold: 600,
-        blurb: "The Kingdom's salt-pans on the south shore. Flat as a table, the sea along one edge, and nothing between the column and your towers but the wind.",
+        blurb: "The Kingdom's salt-pans on the south shore. The road drops to the beach and runs the sea-dyke flat out, surf on one hand — half of every tower's reach lands in the sea. Moor a boat beside it.",
       },
       {
         id: "ironmouth", name: "Ironmouth", realm: "ironmouth",
         window: { from: 4, to: 14, count: 20 }, gold: 620,
-        blurb: "Where the Iron river widens to the sea. Its estuary is the broadest water in the Marches, and the column takes the long bridge over it at a march.",
+        blurb: "Where the Iron river opens to the sea. A battle on either bank, one long bridge between them, and on the span itself nowhere for a knight to stand — the rams cross it untouched.",
       },
       {
         id: "gallowscross", name: "Gallows Cross", realm: "gallowscross", short: "Gallows",
@@ -72,12 +72,12 @@ export const IRON_LEVELS = [
       {
         id: "wardenmoor", name: "Warden Moor", realm: "wardenmoor", short: "Warden Moor",
         window: { from: 9, to: 28, count: 25 }, gold: 1150,
-        blurb: "The bare moor behind the eastern peaks, where the Kingdom's wardens drill. Long open lanes for the cavalry, and a ruined wall that is the only cover for anyone.",
+        blurb: "The bare moor where the wardens drill. The road runs down the moor and straight back up at a gallop; only the strip between sees both lanes, and the old ruined wall runs right through it.",
       },
       {
         id: "blackcliff", name: "Blackcliff", realm: "blackcliff", labelAbove: true,
-        window: { from: 9, to: 29, count: 25 }, gold: 1200,
-        blurb: "Black sea-cliffs on the Marches' eastern shore. Gryphons nest in the rock and ride the updraught in over your walls; a boat in the cove sees them coming.",
+        window: { from: 9, to: 29, count: 25 }, gold: 1350,
+        blurb: "Black sea-cliffs where the gryphons nest. The road rings a deep cove: inside it there's only a ledge of cliff-top to build on, but a boat in the cove reaches every side.",
       },
       {
         id: "undercliff", name: "Undercliff", realm: "undercliff",

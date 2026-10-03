@@ -9,13 +9,54 @@
 //   kestrel      — the Marches' north shore: the sea along the top edge
 //   coldwater    — two rivers meeting, and four bridges over them
 //   crowstair    — a mountainside climbed in long SLANTED traverses
-import { addFootprints } from "./terrain.js";
+import { addFootprints, coastLineOf, coastSeed } from "./terrain.js";
+import { MX, MY, H } from "./constants.js";
 // The chapter's own pieces (src/render/scenery-iron.js) block building as
 // wide as they stand.
 addFootprints({
   irpine: 12, irspruce: 12, ircrag: 11, irheather: 7, irwall: 16, irgibbet: 9, irmile: 6,
   irbeacon: 8, irwagon: 17, irpikes: 10, irtent: 15, irbanner: 6, irtower: 14, irgate: 6, irruin: 14,
 });
+
+// Hand-placed pieces for a board made by ironVariant: appended to its own
+// decor (the camp's gate tower), in grid px like every realm's `decor`.
+const withDecor = (realm, list) => ({ ...realm, decor: [...(realm.decor || []), ...list] });
+// A ruined drystone wall strung across the moor: pieces every `step` px
+// from x0 to x1 along a gently wandering line, a ruined tower now and then,
+// left open wherever the road (or a breach) passes. Grid px.
+const wallLine = (x0, x1, y, { step = 34, wander = 6, gaps = [], towers = [], seed = 1 } = {}) => {
+  const out = [];
+  for (let x = x0; x <= x1; x += step) {
+    if (gaps.some(([a, b]) => x > a && x < b)) continue;
+    const yy = Math.round(y + wander * Math.sin(x * 0.011 + seed) + wander * 0.5 * Math.sin(x * 0.037 + seed * 2.1));
+    const tw = towers.some((t) => Math.abs(t - x) < step / 2);
+    out.push({ x: Math.round(x), y: yy, t: tw ? "irruin" : "irwall", s: tw ? 1.05 : 1 });
+  }
+  return out;
+};
+// Pieces strung along a coast's cliff-top: one every `step` px measured
+// along the shore (so a steep headland gets its share) from u0 to u1, each
+// standing `back` px inland of the beach, where the grounding pass (which
+// keeps decor off the sand) leaves it. Grid px.
+const rimLine = (seed, coast, u0, u1, { step = 44, back = 14, types = ["ircrag"] } = {}) => {
+  const c = { sand: 22, seed: coastSeed({ seed }), ...coast }, out = [];
+  const at = (u) => Math.max(0, coastLineOf(c, u)) + c.sand + back;
+  let run = step / 2, pu = u0, pv = at(u0), i = 0;
+  for (let u = u0 + 2; u <= u1; u += 2) {
+    const v = at(u);
+    run += Math.hypot(u - pu, v - pv);
+    pu = u; pv = v;
+    if (run < step) continue;
+    run = 0;
+    const vv = v + [0, 9, 3, 12][i % 4];   // staggered, so the line reads as broken rock
+    const [x, y] = c.edge === "top" ? [u, vv] : [u, H - vv];
+    out.push({ x: Math.round(x - MX), y: Math.round(y - MY), t: types[i % types.length], s: 0.9 + (i % 3) * 0.12 });
+    i++;
+  }
+  return out;
+};
+
+const BLACKCLIFF_COAST = { edge: "top", from: 160, to: 650, depth: 120, sand: 12 };
 
 export default function moreIronRealms(ironVariant) {
   return {
@@ -84,37 +125,125 @@ export default function moreIronRealms(ironVariant) {
       },
     ),
 
+
     // ---- added when the chapter grew to fifteen (2026-10-03) ----
-    // brinewick  the south shore's salt-pans: the sea along one edge
-    // ironmouth  the Iron river's estuary, the widest water in the Marches
-    // wardenmoor the bare moor behind the eastern peaks (dry)
-    // blackcliff the eastern sea-cliffs: the sea along the top edge
-    brinewick: ironVariant(
+    // brinewick  the sea-dyke: the road's long straight runs along the beach
+    // ironmouth  the estuary: two battles on two banks, one long bridge
+    // wardenmoor the drill run: a down-and-up lane pair, a ruined wall across
+    // blackcliff the cove: the road rings a bay under the cliffs
+
+    // ---- Brinewick ----
+    // The salt-pans on the south shore. The column drops off the headland to
+    // the beach and marches the sea-dyke, the longest straight on the board,
+    // with the surf on its right hand: a tower there finds land on one side
+    // only. Then it climbs back past the salt-works to the gate.
+    brinewick: withDecor(ironVariant(
       "brinewick", "Brinewick",
-      "The Kingdom's salt-pans on the south shore, flat as a table, the sea along one edge.",
+      "The Kingdom's salt-pans on the south shore. The road drops to the beach and runs the sea-dyke flat out, the surf on one hand — half of every tower's reach lands in the sea.",
       20261021,
-      [[0.9, 1.5], [6, 1.5], [6, 5], [10, 5], [10, 2], [13.7, 2]],
-      { coast: { edge: "bottom", from: 40, depth: 96, sand: 22 } },
-    ),
-    ironmouth: ironVariant(
+      [[0.9, 1.4], [3.4, 1.4], [3.4, 6.3], [10.6, 6.3], [10.6, 2.2], [13.7, 2.2]],
+      {
+        coast: { edge: "bottom", from: 160, depth: 128, sand: 26 },
+        light: { tint: "224,232,240", amount: 0.13, vignette: 0.24 },
+        scatter: { patches: 34, tufts: 26, flowers: 8, flowerCols: ["#eeeadc", "#b87ab0", "#e8cc5a"] },
+        decorRecipe: { count: 22, types: ["irheather", "ircrag", "irheather", "irwall", "irheather"] },
+      },
+    ), [
+      // a beacon on the headland where the road comes down to the shore
+      { x: 96, y: 372, t: "irbeacon", s: 1 },
+      // the salt-works: the pans' banks, the salt-house tower, a cart
+      ...wallLine(290, 452, 140, { step: 36, wander: 2, seed: 4 }),
+      ...wallLine(290, 452, 214, { step: 36, wander: 2, gaps: [[340, 380]], seed: 7 }),
+      { x: 252, y: 178, t: "irtower", s: 1 },
+      { x: 446, y: 178, t: "irwagon", s: 0.95 },
+    ]),
+
+    // ---- Ironmouth ----
+    // The Iron river comes down from the north and opens into its estuary
+    // across the south of the board. The column winds through the west bank,
+    // takes the one long bridge over the mouth, and climbs the east bank to
+    // the gate: two battles, the water between them, and a long stretch of
+    // road no knight can stand on.
+    ironmouth: withDecor(ironVariant(
       "ironmouth", "Ironmouth",
-      "Where the Iron river widens to the sea, crossed by one long bridge.",
+      "Where the Iron river opens to the sea. One long bridge over the mouth, a battle on either bank, and on the span itself nowhere for a knight to stand.",
       20261022,
-      [[0.9, 2], [4, 2], [4, 7], [9, 7], [9, 3], [13.7, 3]],
-      { rivers: [{ pts: [[6.5, -0.5], [6.6, 5], [6.4, 10.5]], w: 40 }] },
-    ),
-    wardenmoor: ironVariant(
+      [[0.9, 1.4], [4.8, 1.4], [4.8, 4.4], [1.9, 4.4], [1.9, 7.6], [10.4, 7.6], [10.4, 2.8], [13.7, 2.8]],
+      {
+        rivers: [
+          // the estuary, widest at the sea (listed first: the reach a River
+          // Watch moored on the mouth rows, and the one the bridge spans)
+          { pts: [[7.0, 6.1], [7.15, 8.2], [7.0, 10.5]], w: 92 },
+          // the river above it, widening as it comes down
+          { pts: [[7.6, 3.4], [7.2, 5.0], [7.05, 6.3]], w: 66 },
+          { pts: [[7.9, -0.5], [7.4, 1.6], [7.6, 3.6]], w: 46 },
+          // the mouth opening to the sea below the bridge, flaring east
+          { pts: [[7.25, 8.9], [7.3, 10.5]], w: 112 },
+          { pts: [[7.45, 9.4], [7.5, 10.5]], w: 136 },
+          { pts: [[7.6, 9.95], [7.7, 10.5]], w: 160 },
+        ],
+        light: { tint: "212,224,238", amount: 0.12, vignette: 0.3 },
+        decorRecipe: { count: 24, types: ["irspruce", "ircrag", "irpine", "irwall", "irheather", "irspruce", "irheather"] },
+      },
+    ), [
+      // the bridge-tower on the east bank, and a beacon looking out to sea
+      { x: 600, y: 420, t: "irtower", s: 1 },
+      { x: 520, y: 470, t: "irbeacon", s: 0.95 },
+      // a stand of spruce and pine on the east bank's high ground
+      { x: 520, y: 34, t: "irspruce", s: 1.1 },
+      { x: 556, y: 62, t: "irpine", s: 1 },
+      { x: 592, y: 26, t: "irspruce", s: 1.2 },
+      { x: 628, y: 58, t: "irspruce", s: 0.95 },
+      { x: 600, y: 96, t: "irheather", s: 1 },
+    ]),
+
+    // ---- Warden Moor ----
+    // The wardens' drill run: the road goes straight down the moor and
+    // straight back up it, two lanes a short field apart from top to bottom.
+    // That one strip sees both the whole way — and the old wall that crosses
+    // the moor runs through it, a ruined tower standing on the best ground.
+    wardenmoor: withDecor(ironVariant(
       "wardenmoor", "Warden Moor",
-      "The bare moor behind the eastern peaks, and a ruined wall across it.",
+      "The bare moor behind the eastern peaks, where the wardens drill. The road runs down the moor and straight back up, and only the strip between sees both — an old ruined wall runs through it.",
       20261023,
-      [[0.9, 8], [4, 8], [4, 3], [8, 3], [8, 7], [11, 7], [11, 2], [13.7, 2]],
-    ),
-    blackcliff: ironVariant(
+      [[0.9, 1.4], [5.6, 1.4], [5.6, 8.5], [8.0, 8.5], [8.0, 1.4], [11.6, 1.4], [11.6, 6.2], [13.7, 6.2]],
+      {
+        light: { tint: "206,214,232", amount: 0.13, vignette: 0.36 },
+        decorRecipe: { count: 30, types: ["irheather", "ircrag", "irheather", "ircrag", "irspruce"] },
+      },
+    ), [
+      // the old wall, broken only where the road goes through it
+      ...wallLine(-8, 650, 262, { gaps: [[241, 345], [356, 460], [529, 633]], towers: [128, 502], seed: 2 }),
+      // a milecastle in the drill strip
+      { x: 350, y: 262, t: "irruin", s: 1.1 },
+      // the wardens' drill camp, below the last lane
+      { x: 496, y: 412, t: "irtent", s: 1 },
+      { x: 560, y: 436, t: "irtent", s: 0.95 },
+      { x: 618, y: 404, t: "irbanner", s: 1 },
+      { x: 612, y: 470, t: "irpikes", s: 1 },
+    ]),
+
+    // ---- Blackcliff ----
+    // A deep cove bites into the cliffs along the top of the board. The road
+    // comes in on the western headland, rings the cove along the cliff-top
+    // and climbs the eastern headland to the gate, with one dip south past
+    // the gryphons' crag. Inside the ring only a ledge of cliff-top is left
+    // to build on, but a boat in the cove reaches every side of it.
+    blackcliff: withDecor(ironVariant(
       "blackcliff", "Blackcliff",
-      "Black sea-cliffs on the eastern shore, the sea along the top edge.",
+      "Black sea-cliffs on the Marches' eastern shore. The road rings a deep cove where the gryphons nest — inside the ring there's only a ledge to build on, but a boat in the cove reaches every side.",
       20261024,
-      [[0.9, 3], [5, 3], [5, 7], [9, 7], [9, 4], [13.7, 4]],
-      { coast: { edge: "top", from: 150, depth: 92, sand: 18 } },
-    ),
+      [[0.9, 1.0], [2.4, 1.0], [2.4, 3.6], [5.9, 3.6], [5.9, 7.0], [8.5, 7.0], [8.5, 3.6], [11.6, 3.6], [11.6, 1.3], [13.7, 1.3]],
+      {
+        coast: BLACKCLIFF_COAST,
+        light: { tint: "204,214,232", amount: 0.15, vignette: 0.38 },
+        decorRecipe: { count: 26, types: ["ircrag", "irheather", "irspruce", "ircrag", "irpine"] },
+      },
+    ), [
+      // the cliff-top round the cove: a broken line of crags
+      ...rimLine(20261024, BLACKCLIFF_COAST, 196, 618, { step: 40, back: 14, types: ["ircrag", "ircrag", "irheather"] }),
+      // a beacon on the eastern headland, watching the cove
+      { x: 632, y: 34, t: "irbeacon", s: 0.95 },
+    ]),
   };
 }
