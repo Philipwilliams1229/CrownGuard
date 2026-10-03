@@ -54,8 +54,9 @@ const DROP_MS = 420, DROP_H = 17;
 
 export const drawEnemy = (ctx, e, time, tms) => {
   // mixed-party foes carry their drawn look on e.sprite; everyone else
-  // wears their type's sheet
-  const skin = e.sprite || e.type;
+  // wears their type's sheet; a berserker past half health wears his
+  // frenzied sheet (his rage grows as he is wounded: engine/rime.js)
+  const skin = e.sprite || (e.type === "berserker" && e.hp < e.maxHp * 0.5 && hasRig("berserkerRage") ? "berserkerRage" : e.type);
   const rigged = hasRig(skin);
   const spr = SPRITES[skin] || { frames: [[""]], rate: 6 };
   // necromancer-raised foes wear grave-pale colors with witch-fire eyes
