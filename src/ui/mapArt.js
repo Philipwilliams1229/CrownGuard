@@ -477,7 +477,7 @@ export const RIVERS = [
   // the Iron river, out of its tarn above the ford, through Ironford, south
   // past the Gallows Cross road, and out through Ironmouth, where it opens
   // into a broad estuary to the southern sea
-  river({ ctrl: [[544, 208], [550, 229], [556, 255], [562, 280], [570, 309], [566, 340], [564, 374], [563, 408], [553, 450], [555, 474], [559, 502]], pins: [[544, 208], [562, 280], [553, 450]], seed: 15, w0: 2.3, w1: 5, flare: [44, 7] }),
+  river({ ctrl: [[544, 208], [550, 229], [556, 255], [562, 280], [570, 309], [566, 340], [564, 374], [563, 408], [553, 450], [554, 472], [557, 494]], pins: [[544, 208], [562, 280], [553, 450]], seed: 15, w0: 2.3, w1: 5, flare: [36, 9] }),
   // the Coldwater: two becks off the eastern peaks meeting at Coldwater,
   // then south to the sea
   river({ ctrl: [[596, 288], [606, 301], [619, 316], [635, 330]], pins: [[635, 330]], seed: 25, w0: 1.6, w1: 2.4, amp: 4 }),
@@ -1840,7 +1840,7 @@ function* fenDressing(base, { add, taken, free, clearOf, onZone, piece }) {
   site(chapel(0), 360, -110, 10);
   // the ruined abbey of Abbeymere on the Abbey Mere's north shore: its two
   // roofless ranges, and its drowned graveyard
-  site(chapel(1), 302, -158, 8) && site(chapel(0), 290, -152, 8);
+  if (site(chapel(1), 314, -156, 10)) site(chapel(0), 300, -160, 10);
   for (const [x, y, v] of [[324, -168, 1], [296, -136, 2], [286, -170, 0]]) site(graves(v), x, y, 5);
   // a drowned hamlet in the western fen, and its graves by the creek
   for (const [x, y, v] of [[292, -100, 1], [300, -92, 2], [340, -96, 0]]) site(drowned(v), x, y, 5, true) || site(drowned(v), x, y, 5);
