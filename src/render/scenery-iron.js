@@ -1952,7 +1952,7 @@ const heap = (c, hx, hgy, r, k = 1) => {
   c.beginPath();
   c.moveTo(hx - r, hgy); c.quadraticCurveTo(hx - r * 0.35, hgy - r * 0.8 * k, hx - r * 0.05, hgy - r * 0.98 * k);
   c.quadraticCurveTo(hx + r * 0.35, hgy - r * 0.8 * k, hx + r, hgy); c.closePath();
-  c.fillStyle = lin(c, hx - r, 0, hx + r, 0, [[0, "#fffaf0"], [0.42, SALT], [0.7, SALT_SH], [1, mix(SALT_SH, "#7a7488", 0.35)]]); c.fill();
+  c.fillStyle = lin(c, hx - r, 0, hx + r, 0, [[0, "#ece6d8"], [0.42, "#d8d2c4"], [0.7, "#b4aea6"], [1, mix(SALT_SH, "#6a6478", 0.4)]]); c.fill();
   c.fillStyle = mix(SALT_SH, "#7a7488", 0.2); c.fillRect(hx - r, ap(hgy - 0.5), r * 2, 0.5);
 };
 // grey smoke (or white steam) rising and drifting east, faded as it climbs
@@ -1973,78 +1973,123 @@ const bar = (ctx, x0, y0, x1, y1, w, col, lit) => {
 };
 
 // ---- Brinewick: the salt-works --------------------------------------------------
-// A salt pan: a shallow bed walled with puddled clay, seen from above — the far
-// bank's inner face, the floor, the near bank's outer face. v: 0 brine let in
-// (sky in it, the first crust at the edges), 1 crusted (white plates, cracks),
-// 2 raked into heaps (a rake across the bank), 3 drying (pale brine, pink crust).
+// A salt bed dug into the turf: low banks of puddled clay gone olive under the
+// grass, soft and a little uneven at their edges and corners, a floor of brine
+// or crust that goes to wet mud at its margins. Painted pixel by pixel and baked
+// flat (no ink: it is ground, not a thing standing on it). Each bed's size,
+// lean and outline come from its seed, so a field of them never ruled straight.
+// v: 0 brine let in (sky in it, a sluice board in the near bank), 1 crusting
+// (muted plates cracked round puddles), 2 raked up (furrows, two heaps, a
+// plank laid in the bed), 3 drying (pale brine, pinkish crust in islands).
+const PAN = {
+  mud: "#5a5244", mudLt: "#6e6552", brine: "#56707c", brineLt: "#7a94a0", glint: "#b4c8d0",
+  crust: "#cfc8b8", crustSh: "#aca598", crustPk: "#c8b4aa",
+};
 const saltPan = (ctx, x, y, s, o) => {
-  const gy = y + 8, v = o.v % 4, sd = o.seed;
-  // puddled clay gone olive under the turf's edge, so a field of pans sits IN the ground
-  const CL = mix(CLAY, REALM.GRASS_DK, 0.3), CL_LT = mix(CLAY_LT, REALM.GRASS, 0.35), CL_DK = mix(CLAY_DK, REALM.GRASS_DK, 0.2);
-  const x0 = ap(x - 17 * s), x1 = ap(x + 17 * s), yT = ap(gy - 15 * s), yB = ap(gy);
-  shadow(ctx, x + 3 * s, gy + 0.5, 20 * s, 2.6 * s, 0.16);
-  ((c) => {
-    R(c, x0 - 0.5, yT - 0.5, x1 - x0 + 1, yB - yT + 1.5, mix(CLAY_DK, "#2a1c2c", 0.3));   // a dark lip round the bank, not an ink ring
-    R(c, x0, yT, x1 - x0, yB - yT, CL);
-    for (let i = 0; i < 14; i++) R(c, x0 + hash(sd, i + 300) * (x1 - x0 - 1), hash(sd, i + 320) < 0.5 ? yT : yB - 2.5 * s, 1, 0.5, i % 3 ? mix(CL, REALM.GRASS_DK, 0.5) : REALM.GRASS_DK);   // turf creeping onto the banks
-    R(c, x0, yT, x1 - x0, 0.5, CL_LT); R(c, x0, yT, 0.5, yB - yT, CL_LT);
-    R(c, x1 - 1, yT + 0.5, 1, yB - yT, CL_DK);
-    // the near bank's outer face, and its lit lip
-    R(c, x0, yB - 2 * s, x1 - x0, 2 * s, darken(CL, 0.22));
-    R(c, x0, yB - 2 * s, x1 - x0, 0.5, CL);
-    for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? CL_DK : CL_LT; px1(c, x0 + 1 + hash(sd, i) * (x1 - x0 - 2), yB - 2 * s - 1 - hash(sd, i + 9) * 1.5); }
-  })(ctx);
-  const fx0 = ap(x0 + 2.5 * s), fx1 = ap(x1 - 2.5 * s), fy0 = ap(yT + 1.5 * s), fy1 = ap(yB - 3.5 * s), iy = ap(fy0 + 1.5 * s);
-  const fw = fx1 - fx0, fh = fy1 - iy;
-  ((c) => {
-    R(c, fx0 - 0.5, fy0, fw + 1, fy1 - fy0 + 0.5, CL_DK);    // the floor's sunk edge
-    R(c, fx0, fy0, fw, iy - fy0, darken(CL, 0.14));          // the far bank's inner face
-    if (v === 0 || v === 3) {
-      R(c, fx0, iy, fw, fh, v === 3 ? mix(BRINE, BRINE_LT, 0.4) : BRINE);
-      R(c, fx0, iy, fw, 1, BRINE_DK); R(c, fx0, iy, 1, fh, BRINE_DK);     // shade under the far and west banks
-      for (let i = 0; i < 6; i++) R(c, fx0 + 2 + hash(sd, i + 20) * (fw - 6), iy + 1.5 + hash(sd, i + 30) * (fh - 2.5), 1.5 + hash(sd, i + 40) * 2.5, 0.5, BRINE_LT);
-      if (v === 0) {
-        // the first salt creeping in from the near and east edges
-        for (let xx = fx0; xx < fx1; xx += 0.5) { const h = hash(sd, Math.round(xx * 2) + 100); if (h < 0.55) R(c, xx, fy1 - (h < 0.2 ? 1 : 0.5), 0.5, h < 0.2 ? 1 : 0.5, SALT); }
-        for (let yy = iy + 1; yy < fy1; yy += 0.5) if (hash(sd, Math.round(yy * 2) + 200) < 0.5) R(c, fx1 - 0.5, yy, 0.5, 0.5, SALT);
-      } else {
-        // drying: pink-white crust in islands
-        for (let i = 0; i < 7; i++) {
-          const cx = fx0 + 3 + hash(sd, i + 60) * (fw - 6), cy = iy + 1.5 + hash(sd, i + 70) * (fh - 3), rw = 1.5 + hash(sd, i + 80) * 3;
-          R(c, cx - rw, cy, rw * 2, 1, i % 3 ? SALT_PK : SALT); R(c, cx - rw * 0.6, cy - 0.5, rw * 1.2, 0.5, SALT); R(c, cx - rw * 0.5, cy + 1, rw, 0.5, SALT_PK);
-        }
-      }
+  const gy = y + 8, v = o.v % 4, sd = o.seed, H = (i) => hash(sd, i);
+  const hw = (13 + H(1) * 5) * s, hh = (6.5 + H(2) * 2.5) * s, cx = x + (H(3) - 0.5) * 3 * s, cy = gy - hh;
+  const bank = 2.6 * s, rr = (3 + H(5) * 2) * s, skew = (H(4) - 0.5) * 0.14;
+  const BK = mix(CLAY, REALM.GRASS_DK, 0.38), BK_LT = mix(CLAY_LT, REALM.GRASS, 0.45), BK_DK = mix(CLAY_DK, REALM.GRASS_DK, 0.35);
+  // signed distance to the bed's outer edge (< 0 inside), a rounded box leaned and wobbled
+  const sdf = (px, py) => {
+    const lx = px - cx - (py - cy) * skew, ly = py - cy;
+    const qx = Math.abs(lx) - (hw - rr), qy = Math.abs(ly) - (hh - rr);
+    return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - rr
+      + (vnoise(sd, 6, px, py) - 0.5) * 1.8 * s + (vnoise(sd + 9, 2, px, py) - 0.5) * 0.7;
+  };
+  const cr = (px, py) => vnoise(sd + 31, 3.2, px, py), cr2 = (px, py) => vnoise(sd + 57, 1.6, px, py);
+  const x0 = ap(cx - hw - 4 * s), x1 = cx + hw + 4 * s, y0 = ap(cy - hh - 3 * s), y1 = cy + hh + 3 * s;
+  for (let py = y0; py < y1; py += 0.5) for (let px = x0; px < x1; px += 0.5) {
+    const d = sdf(px, py);
+    if (d > 1.2) continue;
+    const hp = hash(Math.round(px * 2) * 7 + sd, Math.round(py * 2) * 3 + 1);
+    let col;
+    if (d > 0) {
+      // the bank's foot, broken into the turf
+      if (hp > (1.2 - d) * 0.55) continue;
+      col = mix(BK_DK, REALM.GRASS_DK, 0.55);
+    } else if (d > -bank) {
+      // the bank: a low ridge lit by its slope — outer slope faces out, inner slope in
+      const t = -d / bank;
+      const gx = sdf(px + 0.5, py) - sdf(px - 0.5, py), gq = sdf(px, py + 0.5) - sdf(px, py - 0.5), gl = Math.hypot(gx, gq) || 1;
+      const sgn = t > 0.6 ? -1 : 1, lit = sgn * (gx / gl * -0.6 + gq / gl * -0.8);
+      col = t > 0.3 && t <= 0.6 ? mix(BK, BK_LT, 0.55) : lit > 0.3 ? BK_LT : lit < -0.3 ? BK_DK : BK;
+      if (hp < 0.07) col = REALM.GRASS_DK; else if (hp > 0.95) col = mix(BK_LT, REALM.GRASS, 0.5);
     } else {
-      R(c, fx0, iy, fw, fh, SALT);
-      if (v === 2) for (let yy = iy + 1.5; yy < fy1; yy += 1.5) R(c, fx0, yy, fw, 0.5, mix(SALT, SALT_SH, 0.6));   // rake furrows
-      R(c, fx0, iy, fw, 1, SALT_SH); R(c, fx0, iy, 1, fh, SALT_SH);
-      if (v === 1) {
-        const crack = mix(SALT, SALT_SH, 0.75);
-        let r = 0;
-        for (let yy = iy + 2.5; yy < fy1 - 0.5; yy += 2.5 + hash(sd, r) * 1.5, r++) {
-          for (let xx = fx0 + 1; xx < fx1 - 0.5; xx += 0.5) if (hash(sd, r * 97 + Math.round(xx * 2)) < 0.82) R(c, xx, yy + (Math.sin(xx * 0.9 + r * 2) > 0.6 ? 0.5 : 0), 0.5, 0.5, crack);
-          for (let xx = fx0 + 2 + hash(sd, r + 50) * 3; xx < fx1 - 1; xx += 3.5 + hash(sd, r * 7 + Math.round(xx)) * 3) R(c, xx, yy - 2, 0.5, 2, crack);
-        }
-        for (let i = 0; i < 3; i++) R(c, fx0 + 3 + hash(sd, i + 90) * (fw - 8), iy + 2 + hash(sd, i + 95) * (fh - 4), 2.5, 1, SALT_PK);
+      // the floor: wet mud at the margin, the far bank's shade along its north side
+      const f = -d - bank, north = py < cy - (hh - bank) * 0.45;
+      const n = cr(px, py), n2 = cr2(px, py);
+      if (f < 1 * s + n2 * 0.8) col = hp < 0.5 ? PAN.mud : PAN.mudLt;
+      else if (v === 0) {
+        col = PAN.brine;
+        if (f < 2.2 * s && n > 0.55) col = mix(PAN.crust, PAN.mudLt, 0.4);
+        else if (hash(Math.round(py * 2) + sd, Math.floor(px / 3 + (py % 2))) < 0.05) col = PAN.glint;
+        else if (n2 > 0.72) col = PAN.brineLt;
+      } else if (v === 3) {
+        col = mix(PAN.brine, PAN.brineLt, 0.45);
+        if (n > 0.6) col = Math.abs(n2 - 0.5) < 0.06 ? PAN.crustSh : n > 0.7 ? PAN.crust : PAN.crustPk;
+        else if (hash(Math.round(py * 2) + sd, Math.floor(px / 3)) < 0.04) col = PAN.glint;
+      } else {
+        col = PAN.crust;
+        if (n < 0.24) col = n < 0.2 && hp < 0.06 ? PAN.glint : PAN.brine;              // puddles left in the crust
+        else if (n < 0.3) col = mix(PAN.crust, PAN.mudLt, 0.55);                         // their muddy rims
+        else if (Math.abs(n2 - 0.5) < 0.045) col = PAN.crustSh;                          // the cracks between plates
+        else if (f < 2.4 * s) col = mix(PAN.crust, PAN.mudLt, 0.3);                     // crust going to mud at the margin
+        if (v === 2 && col === PAN.crust && Math.round(py * 2) % 3 === 0) col = PAN.crustSh;   // rake furrows
+        if (v === 1 && col === PAN.crust && n > 0.8) col = PAN.crustPk;
       }
+      if (north && f < 2.6 * s) col = darken(col, 0.18);
     }
-  })(ctx);
-  if (v === 2) {
-    // raked heaps drying on the floor, the rake laid across the near bank
-    part(ctx, (c) => heap(c, x - 8 * s, fy1 - 1, 4 * s));
-    part(ctx, (c) => heap(c, x + 1 * s, fy1 - 0.5, 4.6 * s));
-    part(ctx, (c) => {
-      c.strokeStyle = WOOD_LT; c.lineWidth = 0.9; c.lineCap = "round";
-      c.beginPath(); c.moveTo(x + 4 * s, yB - 1.5 * s); c.lineTo(x + 18 * s, yB - 4.5 * s); c.stroke();
-      R(c, x + 16.5 * s, yB - 7 * s, 1, 5 * s, WOOD_DK);
-    });
-  } else if (v === 0 || v === 3) {
-    // a sluice board in the near bank
-    part(ctx, (c) => { R(c, x - 1.5 * s, yB - 4 * s, 3 * s, 4 * s, WOOD); R(c, x - 1.5 * s, yB - 4 * s, 0.5, 4 * s, WOOD_LT); R(c, x - 1.5 * s, yB - 4 * s, 3 * s, 0.5, WOOD_LT); });
+    ctx.fillStyle = col; ctx.fillRect(px, py, 0.5, 0.5);
   }
-  tuft(ctx, x0 - 0.5, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
-  if (hash(sd, 5) > 0.4) tuft(ctx, x1 + 1, gy + 0.5, 0.45, REALM.TUFT, REALM.GRASS_LT, sd + 1, { n: 3 });
-  if (hash(sd, 6) > 0.5) tuft(ctx, x1 - 2, yT + 1, 0.4, REALM.TUFT, REALM.GRASS_LT, sd + 2, { n: 3 });
+  const nb = ap(cy + hh - bank * 0.6);
+  if (v === 2) {
+    part(ctx, (c) => {   // a plank laid in the bed for the rakers, under the heaps
+      const px = cx + hw * 0.1, py = cy - hh * 0.25, pl = hw * 0.55;
+      R(c, px - pl, py, pl * 2, 1.5 * s, "#7a6044"); R(c, px - pl, py, pl * 2, 0.5, "#97795a");
+    });
+    part(ctx, (c) => heap(c, cx - hw * 0.35, cy + hh * 0.35, 3.6 * s));
+    part(ctx, (c) => heap(c, cx + hw * 0.15, cy + hh * 0.45, 4.2 * s));
+  } else if (v === 0) {
+    part(ctx, (c) => { R(c, cx - 1.5 * s, nb - 2 * s, 3 * s, 3.5 * s, WOOD); R(c, cx - 1.5 * s, nb - 2 * s, 0.5, 3.5 * s, WOOD_LT); R(c, cx - 1.5 * s, nb - 2 * s, 3 * s, 0.5, WOOD_LT); });
+  }
+  if (H(7) > 0.35) tuft(ctx, cx - hw + 1, cy + hh + 1, 0.45, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+  if (H(8) > 0.5) tuft(ctx, cx + hw - 2, cy - hh + 1, 0.4, REALM.TUFT, REALM.GRASS_LT, sd + 1, { n: 3 });
+};
+// The feed: a channel cut up from the shore (south) to the pans, its sluice
+// gate at the sea end, a plank bridge over it. The ditch is flat ground; the
+// gate and planks are inked parts. Its north end runs L units above its feet.
+const sluice = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed, L = 34 * s;
+  const BK = mix(CLAY, REALM.GRASS_DK, 0.38), BK_DK = mix(CLAY_DK, REALM.GRASS_DK, 0.35), BK_LT = mix(CLAY_LT, REALM.GRASS, 0.45);
+  const midx = (py) => x + Math.sin((gy - py) * 0.09 + sd) * 1.6 * s;
+  for (let py = ap(gy - L); py < gy + 1; py += 0.5) {
+    const mx = midx(py), w = (2.2 + vnoise(sd, 5, mx, py) * 0.8) * s;
+    for (let px = ap(mx - w - 2 * s); px < mx + w + 2 * s; px += 0.5) {
+      const d = Math.abs(px - mx) - w, hp = hash(Math.round(px * 2) + sd, Math.round(py * 2));
+      let col;
+      if (d > 1.2 * s) { if (hp > 0.45) continue; col = mix(BK_DK, REALM.GRASS_DK, 0.55); }
+      else if (d > 0) col = px < mx ? BK_DK : BK_LT;            // the cut's faces: the west one shaded, the east lit
+      else if (d > -0.8) col = PAN.mud;
+      else col = hash(Math.round(py * 2) + sd, Math.floor(px * 2)) < 0.06 ? PAN.glint : hp < 0.3 ? PAN.brineLt : PAN.brine;
+      ctx.fillStyle = col; ctx.fillRect(px, py, 0.5, 0.5);
+    }
+  }
+  // the plank bridge
+  const by = gy - L * 0.45, bx = midx(by);
+  part(ctx, (c) => { for (const k of [0, 1]) { R(c, bx - 5 * s, by + k * 2 * s, 10 * s, 1.6 * s, k ? "#8a6c48" : "#9a7a52"); R(c, bx - 5 * s, by + k * 2 * s, 10 * s, 0.5, "#b0905e"); } });
+  // the sluice gate: two posts, a sliding board, its rack and lifting bar
+  part(ctx, (c) => {
+    const gx = midx(gy - 2);
+    cylinder(c, gx - 5 * s, gy - 9 * s, 2 * s, 9 * s, WOOD_DK, { r: 0.6 });
+    cylinder(c, gx + 3 * s, gy - 9 * s, 2 * s, 9 * s, WOOD_DK, { r: 0.6 });
+    R(c, gx - 5.5 * s, gy - 10 * s, 11 * s, 1.5 * s, WOOD); R(c, gx - 5.5 * s, gy - 10 * s, 11 * s, 0.5, WOOD_LT);
+    R(c, gx - 3 * s, gy - 6 * s, 6 * s, 5 * s, "#7a5c3c");
+    for (let k = 1; k < 3; k++) R(c, gx - 3 * s, gy - 6 * s + k * 1.7 * s, 6 * s, 0.5, WOOD_DK);
+    R(c, gx - 0.5, gy - 13 * s, 1, 7 * s, IRON); R(c, gx - 2 * s, gy - 13 * s, 4 * s, 0.8, IRON);
+  });
+  tuft(ctx, x - 6 * s, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+  tuft(ctx, x + 6 * s, gy - L * 0.7, 0.45, REALM.TUFT, REALM.GRASS_LT, sd + 3, { n: 3 });
 };
 
 // The salt-house where the brine is boiled down: a long low house of rubble
@@ -2254,51 +2299,109 @@ const beachedBoat = (ctx, x, y, s, o) => {
   if (hash(sd, 2) > 0.5) tuft(ctx, x - 2 * s, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
 };
 
-// The bones of a ship the dyke-men broke up long ago, run up the strand with
-// her bow in the surf: the keel up the screen (north, to the sea), her frames
-// standing out of the sand in pairs like a ribcage, the stem post still up at
-// the water's end, a few strakes left on at her stern, weed at every root.
-// Laid north of its footing: the keel's near end 12 above the usual feet, so
-// the footprint stays on the grass and the bones lie on the sand and the wash.
+// The bones of a ship the dyke-men broke up long ago, heeled over on her
+// landward side and half sunk in the sand at the water's edge: the keel runs
+// along the beach at a slant (south-west to north-east), her seaward frames
+// curve up out of the sand and lean over toward the land, a run of strakes
+// still on at the stern, the stem post up at the north-east end in the wash,
+// weed and foam round her, and her broken mast lying on the sand beside.
+// Laid north of its footing (the keel 9-25 above its feet), so the footprint
+// stays on the grass and the bones lie on the sand. Baked flat: each timber is
+// an inked part, the drifted sand and the foam are not.
 const wreck = (ctx, x, y, s, o) => {
-  const g0 = y - 4 * s, sd = o.seed, L = 32 * s;
-  const DW = "#7e7268", DW_LT = "#b0a494", DW_DK = "#4e4442";       // timber gone silver in the salt
-  const kx = (t) => x + t * 5 * s;                                       // the keel runs a little east of north
-  shadow(ctx, x + 6 * s, g0 - L * 0.4, 9 * s, L * 0.55, 0.2);
-  const N = 6, st = (i) => 0.12 + (i / (N - 1)) * 0.78;
-  const frame = (c, i) => {
-    const t = st(i), yk = g0 - L * t, cx = kx(t);
-    const w = (6 + Math.sin(t * Math.PI) * 4) * s, hl = (3.5 + hash(sd, i) * 2.5) * s, hr = (1.5 + hash(sd, i + 9) * 3.5) * s;
-    c.lineCap = "round";
-    for (const [col, lw, dx] of [[DW_DK, 1.6 * s, 0], [i % 2 ? DW : lighten(DW, 0.08), 1.6 * s - 1, 0], [DW_LT, 0.5, -0.5]]) {
-      c.strokeStyle = col; c.lineWidth = lw;
-      c.beginPath(); c.moveTo(cx - w + dx, yk - hl); c.quadraticCurveTo(cx - w * 0.95 + dx, yk + 0.5, cx + dx, yk + 0.5); c.quadraticCurveTo(cx + w * 0.95 + dx, yk + 0.5, cx + w + dx, yk - hr); c.stroke();
-    }
-  };
-  // far to near, so the nearer frames stand over the farther
+  const sd = o.seed;
+  const DW = "#7e7268", DW_LT = "#b0a494", DW_DK = "#4e4442";
+  const ax = x - 15 * s, ay = y - 14 * s, bx = x + 21 * s, by = y - 31 * s;          // the keel's ends
+  const len = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len;
+  const sx = uy, sy = -ux;                                                           // toward the sea (up-left of the keel)
+  const K = (t) => [ax + (bx - ax) * t, ay + (by - ay) * t];
+  // the wash round her seaward side, foam caught on the timbers (under the ink's alpha)
+  for (let i = 0; i < 16; i++) {
+    const t = hash(sd, i + 400), [kx, ky] = K(t), off = (7 + hash(sd, i + 420) * 6) * s;
+    ctx.fillStyle = `rgba(240,244,246,${0.18 + hash(sd, i + 440) * 0.18})`;
+    ctx.fillRect(ap(kx + sx * off), ap(ky + sy * off), ap(2 + hash(sd, i + 460) * 3), 0.5);
+  }
+  shadow(ctx, x + 6 * s, y - 18 * s, 20 * s, 7 * s, 0.18);
+  // the landward frames: stubs, mostly buried
   part(ctx, (c) => {
-    // the stem post at the sea end, raking forward
-    const t = 0.98, sx = kx(t), sy = g0 - L * t;
-    c.strokeStyle = DW; c.lineWidth = 2 * s; c.lineCap = "round";
-    c.beginPath(); c.moveTo(sx, sy + 1); c.quadraticCurveTo(sx + 0.5 * s, sy - 7 * s, sx + 2.5 * s, sy - 12 * s); c.stroke();
-    c.strokeStyle = DW_LT; c.lineWidth = 0.5; c.beginPath(); c.moveTo(sx - 0.5 * s, sy); c.quadraticCurveTo(sx, sy - 7 * s, sx + 2 * s, sy - 12 * s); c.stroke();
+    c.strokeStyle = DW_DK; c.lineWidth = 1.4 * s; c.lineCap = "round";
+    for (let i = 0; i < 7; i++) {
+      const t = 0.08 + i * 0.13, [kx, ky] = K(t), l = (1.5 + hash(sd, i + 30) * 2) * s;
+      c.beginPath(); c.moveTo(kx, ky); c.quadraticCurveTo(kx - sx * l, ky - sy * l + 1, kx - sx * l * 1.4 + ux * 0.5, ky - sy * l * 1.4 - 1.5 * s); c.stroke();
+    }
   });
-  part(ctx, (c) => { c.strokeStyle = DW_DK; c.lineWidth = 2 * s; c.beginPath(); c.moveTo(kx(0.02), g0); c.lineTo(kx(0.98), g0 - L * 0.98); c.stroke(); c.strokeStyle = DW_LT; c.lineWidth = 0.6; c.beginPath(); c.moveTo(kx(0.02) - 0.5, g0 - 0.5); c.lineTo(kx(0.98) - 0.5, g0 - L * 0.98 - 0.5); c.stroke(); });
-  for (let i = N - 1; i >= 0; i--) part(ctx, (c) => frame(c, i));
-  // strakes still fast along her west side at the stern
+  // the keel
+  part(ctx, (c) => {
+    c.strokeStyle = DW_DK; c.lineWidth = 2.2 * s; c.lineCap = "round";
+    c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke();
+    c.strokeStyle = DW; c.lineWidth = 1.2 * s; c.beginPath(); c.moveTo(ax, ay - 0.5); c.lineTo(bx, by - 0.5); c.stroke();
+  });
+  // the seaward frames, out from the keel and up, leaning over toward the land
+  const frames = [];
+  for (let i = 0; i < 7; i++) {
+    const t = 0.1 + i * 0.13, [kx, ky] = K(t), taper = Math.sin(Math.min(1, t * 1.15) * Math.PI);
+    const w = (4 + taper * 4) * s, h = (4 + taper * 8 - hash(sd, i) * 3) * s, broken = hash(sd, i + 50) < 0.3;
+    const c1 = [kx + sx * w * 1.1, ky + sy * w * 1.1 + 1];
+    const e = [kx + sx * w * 0.7 - sx * h * 0.15 + ux * 1.2 * s, ky + sy * w * 0.4 - h * (broken ? 0.55 : 1)];
+    frames.push({ k: [kx, ky], c1, e, broken });
+  }
+  for (let i = frames.length - 1; i >= 0; i--) {
+    const f = frames[i];
+    part(ctx, (c) => {
+      c.lineCap = "round";
+      c.strokeStyle = i % 2 ? DW : lighten(DW, 0.08); c.lineWidth = 1.7 * s;
+      c.beginPath(); c.moveTo(f.k[0], f.k[1]); c.quadraticCurveTo(f.c1[0], f.c1[1], f.e[0], f.e[1]); c.stroke();
+      c.strokeStyle = DW_LT; c.lineWidth = 0.5;
+      c.beginPath(); c.moveTo(f.k[0] - 0.5, f.k[1] - 0.5); c.quadraticCurveTo(f.c1[0] - 0.5, f.c1[1] - 0.5, f.e[0] - 0.5, f.e[1] - 0.5); c.stroke();
+      if (f.broken) R(c, f.e[0] - 0.5, f.e[1] - 1, 1.5, 1, DW_LT);       // a splintered head
+    });
+  }
+  // strakes still fast to the first frames at her stern: planks along the hull
   part(ctx, (c) => {
     for (let k = 0; k < 3; k++) {
-      c.strokeStyle = k % 2 ? DW : lighten(DW, 0.12); c.lineWidth = 1.4 * s; c.lineCap = "butt";
-      const t0 = st(0), t1 = st(2) + 0.04;
-      c.beginPath(); c.moveTo(kx(t0) - (6.5 - k * 0.8) * s, g0 - L * t0 - (2 + k * 1.6) * s); c.lineTo(kx(t1) - (7.2 - k * 0.6) * s, g0 - L * t1 - (2.5 + k * 1.6) * s); c.stroke();
+      const q = 0.35 + k * 0.22, pt = (f) => [f.k[0] + (f.e[0] - f.k[0]) * q + (f.c1[0] - f.k[0]) * q * (1 - q) * 1.2, f.k[1] + (f.e[1] - f.k[1]) * q + (f.c1[1] - f.k[1]) * q * (1 - q) * 1.2];
+      const n = k === 2 ? 2 : 3;
+      c.strokeStyle = k % 2 ? DW : lighten(DW, 0.14); c.lineWidth = 1.5 * s; c.lineCap = "butt";
+      c.beginPath(); for (let i = 0; i <= n; i++) { const [px, py] = pt(frames[i]); if (i) c.lineTo(px, py); else c.moveTo(px, py); } c.stroke();
     }
   });
-  // drifted sand and weed at the near end, a fallen strake and a stone
-  ctx.fillStyle = SAND; ctx.fillRect(ap(kx(0) - 5 * s), ap(g0 - 1), ap(10 * s), 1.5);
-  ctx.fillStyle = lighten(SAND, 0.2); ctx.fillRect(ap(kx(0) - 3 * s), ap(g0 - 1.5), ap(6 * s), 0.5);
-  for (let i = 0; i < N; i++) { ctx.fillStyle = "#4e5a34"; ctx.fillRect(ap(kx(st(i)) - (i % 2 ? 4 : -3) * s), ap(g0 - L * st(i) + 0.5), 1.5, 0.5); }
-  part(ctx, (c) => { R(c, x + 6 * s, g0 + 1, 8 * s, 1.5 * s, DW); R(c, x + 6 * s, g0 + 1, 8 * s, 0.5, DW_LT); });
-  stone(ctx, x - 7 * s, g0 + 1, 1.5 * s, 1 * s, GRIT);
+  // the stem post, raking up out of the wash at the sea end
+  part(ctx, (c) => {
+    c.strokeStyle = DW; c.lineWidth = 2 * s; c.lineCap = "round";
+    c.beginPath(); c.moveTo(bx, by); c.quadraticCurveTo(bx + 2 * s, by - 5 * s, bx + 1 * s, by - 11 * s); c.stroke();
+    c.strokeStyle = DW_LT; c.lineWidth = 0.5; c.beginPath(); c.moveTo(bx - 0.6 * s, by); c.quadraticCurveTo(bx + 1.4 * s, by - 5 * s, bx + 0.4 * s, by - 11 * s); c.stroke();
+  });
+  // drifted sand over her landward side and the keel's roots (no ink: it is the beach)
+  for (let i = 0; i < 9; i++) {
+    const t = i / 8, [kx, ky] = K(t), r = (2.2 + hash(sd, i + 70) * 1.8) * s;
+    const mx = kx - sx * 1.5 * s, my = ky - sy * 1.5 * s + 1;
+    ctx.fillStyle = darken(SAND, 0.07); ctx.beginPath(); ctx.ellipse(mx + 0.5, my + 0.5, r, r * 0.4, Math.atan2(uy, ux), 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = mix(SAND, "#b0a68a", hash(sd, i + 90) * 0.6); ctx.beginPath(); ctx.ellipse(mx, my, r * 0.85, r * 0.32, Math.atan2(uy, ux), 0, Math.PI * 2); ctx.fill();
+  }
+  // weed at the roots
+  for (let i = 0; i < 7; i++) {
+    const [kx, ky] = K(0.1 + i * 0.13);
+    ctx.fillStyle = i % 2 ? "#4e5a34" : "#3e4a2c"; ctx.fillRect(ap(kx + sx * 2 * s), ap(ky + sy * 2 * s), 2, 0.5); ctx.fillRect(ap(kx + sx * 2.5 * s + 1), ap(ky + sy * 2.5 * s - 0.5), 1, 0.5);
+  }
+  // her mast, broken off and lying on the sand landward of her, a yard across it and a hank of rope
+  part(ctx, (c) => {
+    const m0 = [ax + 4 * s + uy * -7 * s, ay + 8 * s], m1 = [ax + 30 * s, ay - 3 * s];
+    c.strokeStyle = DW_DK; c.lineWidth = 2.6 * s; c.lineCap = "butt";
+    c.beginPath(); c.moveTo(m0[0], m0[1]); c.lineTo(m1[0], m1[1]); c.stroke();
+    c.strokeStyle = DW; c.lineWidth = 1.6 * s; c.beginPath(); c.moveTo(m0[0], m0[1] - 0.5); c.lineTo(m1[0], m1[1] - 0.5); c.stroke();
+    c.strokeStyle = DW_LT; c.lineWidth = 0.5; c.beginPath(); c.moveTo(m0[0], m0[1] - 1.2); c.lineTo(m1[0], m1[1] - 1.2); c.stroke();
+    // the splintered stump end
+    c.fillStyle = DW_LT; c.beginPath(); c.moveTo(m1[0], m1[1] - 1.5 * s); c.lineTo(m1[0] + 2.5 * s, m1[1] - 0.5 * s); c.lineTo(m1[0] + 1 * s, m1[1]); c.lineTo(m1[0] + 2 * s, m1[1] + 1 * s); c.lineTo(m1[0], m1[1] + 1.3 * s); c.closePath(); c.fill();
+    R(c, m0[0] + 7 * s, m0[1] - 2.6 * s, 0.8, 1.6 * s, IRON);    // a mast band
+  });
+  part(ctx, (c) => {
+    const yx = ax + 14 * s, yy = ay + 6 * s;
+    c.strokeStyle = DW; c.lineWidth = 1.2 * s; c.lineCap = "round";
+    c.beginPath(); c.moveTo(yx - 9 * s, yy + 5.5 * s); c.lineTo(yx + 7 * s, yy - 0.5 * s); c.stroke();   // the yard, fallen alongside
+    c.strokeStyle = "#a89676"; c.lineWidth = 0.5; c.beginPath(); c.arc(yx + 6 * s, yy + 2 * s, 1.6 * s, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.moveTo(yx + 4.5 * s, yy + 2 * s); c.quadraticCurveTo(yx + 2 * s, yy + 4 * s, yx - 1 * s, yy + 2.5 * s); c.stroke();
+  });
+  stone(ctx, x + 18 * s, y + 3 * s, 1.5 * s, 1 * s, GRIT);
 };
 
 // ---- Warden Moor: the drill yard -----------------------------------------------
@@ -2735,83 +2838,113 @@ const eyrie = (ctx, x, y, s, o) => {
 };
 
 // ---- Ironmouth: the waterfront ---------------------------------------------------
-// A timber quay along the bank and a river barge made fast alongside, the
-// water to the EAST. v: the barge's lading — 0 casks, 1 sawn timber, 2 her
-// mast stepped with the oxblood sail brailed up, 3 a heap of sea-coal.
+// The estuary quay: a long timber wharf along the bank (water to its EAST), its
+// landward edge on the turf and its face on piles, a river barge made fast
+// alongside with a jib crane swinging a cask aboard, bollards, casks and
+// crates on the planking, a rowing boat tied at its south end.
+// v: the barge's lading — 0 casks, 1 sawn timber, 2 her mast stepped with the
+// oxblood sail brailed up, 3 a heap of sea-coal. The wharf runs from 38 above
+// its feet to 8 below; the centre (the footprint) stands on the bank behind it.
+const QUAY = { n: 38, sth: 8 };
 const quay = (ctx, x, y, s, o) => {
   const gy = y + 8, v = o.v % 4, sd = o.seed;
-  const qx0 = x + 4 * s, qx1 = x + 20 * s, qy0 = gy - 26 * s, qy1 = gy + 2 * s;   // the deck, its west edge on the bank
-  const bx = x + 27 * s, by0 = gy - 25 * s, by1 = gy;                                // the barge
-  // what lies on the water: the deck's shade, the barge's shadow and reflection, ripples
-  // (each layer under 0.24 and laid side by side, so no two stack past the ink's 0.43)
-  ctx.fillStyle = WET(0.22); ctx.fillRect(ap(qx1), ap(qy0 + 2), ap(bx - 5 * s - qx1), ap(qy1 - qy0));
-  ctx.fillStyle = WET(0.22); ctx.fillRect(ap(bx - 5 * s), ap(by0 + 3), ap(13 * s), ap(by1 - by0 + 2 * s));
-  ctx.fillStyle = WET(0.2); ctx.fillRect(ap(bx - 4 * s), ap(by1 + 2 * s + 3), ap(9 * s), ap(1.5 * s));
-  for (let i = 0; i < 9; i++) {
-    const ry = by0 + 2 + hash(sd, i) * (by1 - by0 + 3 * s), side = i % 3 === 0 ? -1 : 1;
-    if (side > 0) { ctx.fillStyle = GLINT(0.22); ctx.fillRect(ap(bx + 8.5 * s + hash(sd, i + 9) * 2), ap(ry), ap(2 + hash(sd, i + 19) * 2), 0.5); }
+  const qx0 = x + 2 * s, qx1 = x + 24 * s, qy0 = gy - QUAY.n * s, qy1 = gy + QUAY.sth * s;   // the deck
+  const bx = x + 31 * s, bw = 5.5 * s, by0 = gy - 34 * s, by1 = gy - 9 * s;                      // the barge
+  const rbx = x + 30 * s, rby = gy + 2 * s;                                                     // the rowing boat
+  // on the water, side by side so no two layers stack past the ink's alpha: the
+  // wharf's shade, the barge's shadow, ripples off her and off the piles
+  ctx.fillStyle = WET(0.22); ctx.fillRect(ap(qx1), ap(qy0 + 2), ap(bx - bw - qx1), ap(qy1 - qy0));
+  ctx.fillStyle = WET(0.22); ctx.fillRect(ap(bx - bw), ap(by0 + 4), ap(bw * 2 + 2.5 * s), ap(by1 - by0 + 2 * s));
+  ctx.fillStyle = WET(0.2); ctx.fillRect(ap(rbx - 2.5 * s), ap(rby - 3 * s), ap(6.5 * s), ap(10 * s));
+  for (let i = 0; i < 12; i++) {
+    const ry = by0 + 2 + hash(sd, i) * (qy1 - by0);
+    ctx.fillStyle = GLINT(0.22); ctx.fillRect(ap(bx + bw + 3 * s + hash(sd, i + 9) * 3 * s), ap(ry), ap(2 + hash(sd, i + 19) * 2.5), 0.5);
   }
-  ctx.fillStyle = GLINT(0.22); ctx.fillRect(ap(bx - 3 * s), ap(by1 + 4 * s + 3), ap(6 * s), 0.5);
-  shadow(ctx, x + 3 * s, gy + 0.5, 9 * s, 2.4 * s, 0.24);
-  // the barge: a flat hull, square-sterned, her bow upstream
+  ctx.fillStyle = GLINT(0.22); ctx.fillRect(ap(bx - 3 * s), ap(by1 + 2 * s + 3), ap(6 * s), 0.5);
+  shadow(ctx, x + 2 * s, gy + 0.5, 8 * s, 2.2 * s, 0.22);
+  // the barge: a flat hull, square-sterned, her bow upstream; tarred sides, a lighter deck
   part(ctx, (c) => {
-    const bw = 5 * s;
     c.beginPath(); c.moveTo(bx - bw, by1); c.lineTo(bx - bw, by0 + 5 * s); c.quadraticCurveTo(bx - bw, by0, bx, by0 - 1 * s); c.quadraticCurveTo(bx + bw, by0, bx + bw, by0 + 5 * s); c.lineTo(bx + bw, by1); c.closePath();
     c.fillStyle = TAR; c.fill();
     c.beginPath(); c.moveTo(bx - bw + 1, by1 - 1); c.lineTo(bx - bw + 1, by0 + 5 * s); c.quadraticCurveTo(bx - bw + 1, by0 + 1.5, bx, by0 + 0.5); c.quadraticCurveTo(bx + bw - 1, by0 + 1.5, bx + bw - 1, by0 + 5 * s); c.lineTo(bx + bw - 1, by1 - 1); c.closePath();
     c.fillStyle = lin(c, bx - bw, 0, bx + bw, 0, [[0, "#b08a5c"], [0.5, "#96744a"], [1, "#6e5436"]]); c.fill();
     for (let yy = by0 + 4 * s; yy < by1 - 1; yy += 2.5 * s) R(c, bx - bw + 1, yy, bw * 2 - 2, 0.5, "#5e4630");
     R(c, bx - bw + 1, by0 + 5 * s, 0.5, by1 - by0 - 5 * s - 1, lighten(TAR, 0.35));
-    // her stern, the transom seen from the south, and the wet strake at the waterline
     R(c, bx - bw, by1, bw * 2, 2 * s, lighten(TAR, 0.12)); R(c, bx - bw, by1, bw * 2, 0.5, lighten(TAR, 0.4));
     R(c, bx - bw, by1 + 2 * s - 1, bw * 2, 1, TAR);
-    R(c, bx - 0.5, by1 - 3 * s, 1, 4 * s, WOOD_DK);            // the tiller
-    R(c, bx - 0.5, by1 - 3.5 * s, 3 * s, 0.8, WOOD_LT);
+    R(c, bx - 0.5, by1 - 3 * s, 1, 4 * s, WOOD_DK); R(c, bx - 0.5, by1 - 3.5 * s, 3 * s, 0.8, WOOD_LT);   // the tiller
   });
   if (v === 0) {
-    for (const [dx, dy] of [[-2, -18], [2, -17], [-2, -12], [2, -11], [0, -6]]) part(ctx, (c) => keg(c, bx + dx * s, gy + dy * s, 0.55 * s));
+    for (const [dx, dy] of [[-2.5, -26], [2.5, -25], [-2.5, -19], [2.5, -18], [0, -12]]) part(ctx, (c) => keg(c, bx + dx * s, gy + dy * s, 0.6 * s));
   } else if (v === 1) {
-    part(ctx, (c) => { for (let k = 0; k < 4; k++) { cylinder(c, bx - 3.5 * s + k * 1.8 * s, by0 + 4 * s, 1.6 * s, 15 * s, k % 2 ? "#a8845a" : "#b8946a", { r: 0.6 }); R(c, bx - 3.5 * s + k * 1.8 * s, by0 + 4 * s, 1.6 * s, 0.8, "#d8bc8a"); } R(c, bx - 4 * s, by0 + 9 * s, 8 * s, 0.8, IRON); R(c, bx - 4 * s, by0 + 15 * s, 8 * s, 0.8, IRON); });
+    part(ctx, (c) => { for (let k = 0; k < 5; k++) { cylinder(c, bx - 4.5 * s + k * 1.8 * s, by0 + 5 * s, 1.6 * s, 17 * s, k % 2 ? "#a8845a" : "#b8946a", { r: 0.6 }); R(c, bx - 4.5 * s + k * 1.8 * s, by0 + 5 * s, 1.6 * s, 0.8, "#d8bc8a"); } R(c, bx - 5 * s, by0 + 9 * s, 10 * s, 0.8, IRON); R(c, bx - 5 * s, by0 + 17 * s, 10 * s, 0.8, IRON); });
   } else if (v === 2) {
-    part(ctx, (c) => { roundRect(c, bx - 3.5 * s, by0 + 10 * s, 7 * s, 9 * s, 1.5); c.fillStyle = lin(c, bx - 3.5 * s, 0, bx + 3.5 * s, 0, [[0, lighten(CANVAS, 0.2)], [0.5, darken(CANVAS, 0.1)], [1, darken(CANVAS, 0.35)]]); c.fill(); R(c, bx - 3.5 * s, by0 + 14 * s, 7 * s, 0.5, darken(CANVAS, 0.45)); });
+    part(ctx, (c) => { roundRect(c, bx - 4 * s, by0 + 10 * s, 8 * s, 12 * s, 1.5); c.fillStyle = lin(c, bx - 4 * s, 0, bx + 4 * s, 0, [[0, lighten(CANVAS, 0.2)], [0.5, darken(CANVAS, 0.1)], [1, darken(CANVAS, 0.35)]]); c.fill(); for (let k = 1; k < 4; k++) R(c, bx - 4 * s, by0 + 10 * s + k * 3 * s, 8 * s, 0.5, darken(CANVAS, 0.45)); });
     part(ctx, (c) => {
-      cylinder(c, bx - 0.7, by0 - 14 * s, 1.4, 21 * s, WOOD_DK, { r: 0.5 });
-      R(c, bx - 5 * s, by0 - 10 * s, 10 * s, 1, WOOD);
-      roundRect(c, bx - 5 * s, by0 - 9.5 * s, 10 * s, 3 * s, 1.2);
-      c.fillStyle = lin(c, 0, by0 - 9.5 * s, 0, by0 - 6.5 * s, [[0, OX_LT], [0.5, OX], [1, OX_DK]]); c.fill();
-      for (let k = 1; k < 4; k++) R(c, bx - 5 * s + k * 2.5 * s, by0 - 9.5 * s, 0.5, 3 * s, OX_DK);
-      ball(c, bx, by0 - 14.5 * s, 0.8, 0.8, BRASS, { hi: 0.5, lo: 0.3 });
+      cylinder(c, bx - 0.7, by0 - 12 * s, 1.4, 22 * s, WOOD_DK, { r: 0.5 });
+      R(c, bx - 6 * s, by0 - 8 * s, 12 * s, 1, WOOD);
+      roundRect(c, bx - 6 * s, by0 - 7.5 * s, 12 * s, 3 * s, 1.2);
+      c.fillStyle = lin(c, 0, by0 - 7.5 * s, 0, by0 - 4.5 * s, [[0, OX_LT], [0.5, OX], [1, OX_DK]]); c.fill();
+      for (let k = 1; k < 4; k++) R(c, bx - 6 * s + k * 3 * s, by0 - 7.5 * s, 0.5, 3 * s, OX_DK);
+      ball(c, bx, by0 - 12.5 * s, 0.8, 0.8, BRASS, { hi: 0.5, lo: 0.3 });
     });
   } else {
-    part(ctx, (c) => { ball(c, bx, by0 + 12 * s, 4 * s, 7 * s, "#3a3840", { hi: 0.6, lo: 0.3 }); for (let i = 0; i < 6; i++) R(c, bx - 3 * s + hash(sd, i + 60) * 6 * s, by0 + 6 * s + hash(sd, i + 70) * 11 * s, 0.5, 0.5, "#6a6874"); });
+    part(ctx, (c) => { ball(c, bx, by0 + 14 * s, 4.5 * s, 9 * s, "#3a3840", { hi: 0.6, lo: 0.3 }); for (let i = 0; i < 8; i++) R(c, bx - 3 * s + hash(sd, i + 60) * 6 * s, by0 + 9 * s + hash(sd, i + 70) * 18 * s, 0.5, 0.5, "#6a6874"); });
   }
-  // the quay: planks across, a kerb, piles standing proud of its east edge, bollards
+  // the rowing boat tied at the south end, lying along the stream
+  part(ctx, (c) => {
+    const L = 5.5 * s, Wd = 2.6 * s;
+    c.beginPath(); c.moveTo(rbx, rby - L); c.quadraticCurveTo(rbx + Wd, rby - L * 0.5, rbx + Wd, rby + L * 0.4); c.lineTo(rbx + Wd * 0.7, rby + L); c.lineTo(rbx - Wd * 0.7, rby + L); c.lineTo(rbx - Wd, rby + L * 0.4); c.quadraticCurveTo(rbx - Wd, rby - L * 0.5, rbx, rby - L); c.closePath();
+    c.fillStyle = WOOD_LT; c.fill();
+    c.beginPath(); c.moveTo(rbx, rby - L + 1.5); c.quadraticCurveTo(rbx + Wd - 1, rby - L * 0.5, rbx + Wd - 1, rby + L * 0.4); c.lineTo(rbx + Wd * 0.7 - 1, rby + L - 1); c.lineTo(rbx - Wd * 0.7 + 1, rby + L - 1); c.lineTo(rbx - Wd + 1, rby + L * 0.4); c.quadraticCurveTo(rbx - Wd + 1, rby - L * 0.5, rbx, rby - L + 1.5); c.closePath();
+    c.fillStyle = darken(WOOD, 0.15); c.fill();
+    R(c, rbx - Wd + 1, rby - 1 * s, Wd * 2 - 2, 1, WOOD_LT); R(c, rbx - Wd + 1, rby + 2 * s, Wd * 2 - 2, 1, WOOD_LT);
+    R(c, rbx - Wd * 0.7, rby + L, Wd * 1.4, 1.2 * s, darken(WOOD, 0.35));
+  });
+  // the wharf: planks across, its face timber, the south end's edge, piles standing proud
   part(ctx, (c) => {
     R(c, qx0, qy0, qx1 - qx0, qy1 - qy0, WOOD);
-    for (let yy = qy0 + 1.5; yy < qy1; yy += 1.5 * s) { R(c, qx0, yy, qx1 - qx0, 0.5, darken(WOOD, 0.3)); if (hash(sd, Math.round(yy)) > 0.6) R(c, qx0 + hash(sd, Math.round(yy) + 3) * (qx1 - qx0 - 3), yy + 0.5, 3, 0.5, WOOD_LT); }
-    R(c, qx0, qy0, qx1 - qx0, 0.5, WOOD_LT); R(c, qx0, qy0, 0.5, qy1 - qy0, WOOD_LT);
-    R(c, qx1 - 1, qy0, 1, qy1 - qy0, darken(WOOD, 0.35));
+    for (let yy = qy0 + 1.5; yy < qy1; yy += 1.5 * s) { R(c, qx0, yy, qx1 - qx0, 0.5, darken(WOOD, 0.3)); if (hash(sd, Math.round(yy)) > 0.55) R(c, qx0 + hash(sd, Math.round(yy) + 3) * (qx1 - qx0 - 4), yy + 0.5, 4, 0.5, WOOD_LT); }
+    for (let yy = qy0 + 9 * s; yy < qy1; yy += 9 * s) R(c, qx0 + 4 * s, yy, 0.5, 1.5 * s, darken(WOOD, 0.4));   // butt joints
+    R(c, qx0, qy0, qx1 - qx0, 0.5, WOOD_LT);
+    R(c, qx1 - 1.5 * s, qy0, 1.5 * s, qy1 - qy0, darken(WOOD, 0.2)); R(c, qx1 - 1.5 * s, qy0, 0.5, qy1 - qy0, WOOD_LT);   // the face timber
     R(c, qx0, qy1, qx1 - qx0, 1.5 * s, darken(WOOD, 0.35)); R(c, qx0, qy1 + 1.5 * s - 0.5, qx1 - qx0, 0.5, TAR);
+    // its landward edge sinks into the turf
+    for (let yy = qy0; yy < qy1; yy += 0.5) if (hash(sd, Math.round(yy * 2) + 77) < 0.4) R(c, qx0, yy, 0.5 + hash(sd, Math.round(yy * 2) + 99) * 1.5, 0.5, REALM.GRASS_DK);
   });
-  for (let yy = qy0 + 1 * s; yy < qy1; yy += 6.5 * s) {
-    part(ctx, (c) => { cylinder(c, qx1 - 1 * s, yy - 1.5 * s, 2.2 * s, 5 * s, WOOD_DK, { r: 0.8, hi: 0.35 }); R(c, qx1 - 1 * s, yy + 3 * s, 2.2 * s, 0.5, TAR); ellipse(c, qx1 + 0.1 * s, yy - 1.5 * s, 1.1 * s, 0.5 * s); c.fillStyle = WOOD_LT; c.fill(); });
-    ctx.fillStyle = GLINT(0.18); ctx.fillRect(ap(qx1 + 1.2 * s), ap(yy + 3.5 * s), ap(1.2 * s), 0.5);
+  for (let yy = qy0 + 1 * s; yy < qy1; yy += 6 * s) {
+    part(ctx, (c) => { cylinder(c, qx1 - 0.5 * s, yy - 1.5 * s, 2.2 * s, 5 * s, WOOD_DK, { r: 0.8, hi: 0.35 }); R(c, qx1 - 0.5 * s, yy + 3 * s, 2.2 * s, 0.5, TAR); ellipse(c, qx1 + 0.6 * s, yy - 1.5 * s, 1.1 * s, 0.5 * s); c.fillStyle = WOOD_LT; c.fill(); });
   }
-  // bollards and the lines out to the barge
+  // bollards, and the lines out to the barge and the boat
   part(ctx, (c) => {
-    for (const yy of [qy0 + 4 * s, qy1 - 5 * s]) {
-      cylinder(c, qx1 - 3 * s, yy - 2.5 * s, 2 * s, 3 * s, "#4a4e58", { r: 0.8 }); R(c, qx1 - 3 * s, yy - 2.5 * s, 2 * s, 0.5, STEEL);
-      c.strokeStyle = "#c8b48a"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(qx1 - 1 * s, yy - 1.5 * s); c.quadraticCurveTo(qx1 + 2.5 * s, yy, bx - 4.5 * s, yy - 1.5 * s); c.stroke();
+    for (const yy of [by0 + 6 * s, by1 - 4 * s, rby]) {
+      cylinder(c, qx1 - 4.5 * s, yy - 2.5 * s, 2 * s, 3 * s, "#4a4e58", { r: 0.8 }); R(c, qx1 - 4.5 * s, yy - 2.5 * s, 2 * s, 0.5, STEEL);
+      const tx = yy === rby ? rbx - 2 * s : bx - bw;
+      c.strokeStyle = "#c8b48a"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(qx1 - 2.5 * s, yy - 1.5 * s); c.quadraticCurveTo(qx1 + 2 * s, yy, tx, yy - 1.5 * s); c.stroke();
     }
   });
-  // crates and a sack on the deck, a coil of rope
-  part(ctx, (c) => { R(c, qx0 + 1.5 * s, qy0 + 9 * s, 5 * s, 5 * s, "#9a7448"); R(c, qx0 + 1.5 * s, qy0 + 9 * s, 5 * s, 1.5 * s, "#b8925e"); R(c, qx0 + 1.5 * s, qy0 + 11.5 * s, 5 * s, 0.5, WOOD_DK); R(c, qx0 + 6 * s, qy0 + 10 * s, 0.5, 4 * s, WOOD_DK); });
-  part(ctx, (c) => { R(c, qx0 + 2.5 * s, qy0 + 5 * s, 4 * s, 4 * s, "#8a6a40"); R(c, qx0 + 2.5 * s, qy0 + 5 * s, 4 * s, 1.2 * s, "#a8865a"); });
-  part(ctx, (c) => sackL(c, qx0 + 5 * s, qy1 - 6 * s, 0.6 * s));
-  part(ctx, (c) => { ellipse(c, qx0 + 4 * s, qy1 - 1.5 * s, 2.2 * s, 1.1 * s); c.fillStyle = "#c8b48a"; c.fill(); ellipse(c, qx0 + 4 * s, qy1 - 1.5 * s, 1 * s, 0.5 * s); c.fillStyle = WOOD_DK; c.fill(); });
-  // ashore: a cask and a tuft
-  part(ctx, (c) => keg(c, x + 3 * s, gy + 1, 0.7 * s));
-  tuft(ctx, x - 2 * s, gy + 1.5, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+  // the jib crane at the wharf's face, swinging a cask over the barge
+  part(ctx, (c) => {
+    const px = qx1 - 6 * s, pb = gy - 14 * s, pt = pb - 18 * s, tip = [bx + 1 * s, pt - 3 * s];
+    R(c, px - 3 * s, pb - 1 * s, 6 * s, 2 * s, WOOD_DK);
+    cylinder(c, px - 1.2 * s, pt, 2.4 * s, pb - pt, WOOD, { r: 0.6, hi: 0.35 });
+    c.strokeStyle = WOOD; c.lineWidth = 1.6 * s; c.lineCap = "round";
+    c.beginPath(); c.moveTo(px, pb - 6 * s); c.lineTo(tip[0], tip[1]); c.stroke();
+    c.strokeStyle = WOOD_LT; c.lineWidth = 0.5; c.beginPath(); c.moveTo(px, pb - 6 * s - 0.7); c.lineTo(tip[0], tip[1] - 0.7); c.stroke();
+    c.strokeStyle = WOOD_DK; c.lineWidth = 0.9; c.beginPath(); c.moveTo(px, pt); c.lineTo(tip[0], tip[1]); c.stroke();
+    c.strokeStyle = "#c8b48a"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(tip[0], tip[1]); c.lineTo(tip[0], gy - 24 * s); c.stroke();
+    ball(c, px + 1.5 * s, pb - 3 * s, 1.6 * s, 1.6 * s, WOOD_DK, { hi: 0.4, lo: 0.3 });   // the winch drum
+  });
+  part(ctx, (c) => keg(c, bx + 1 * s, gy - 19.5 * s, 0.6 * s));
+  // on the planking: crates, casks, a sack, a coil of rope
+  part(ctx, (c) => { R(c, qx0 + 3 * s, qy0 + 6 * s, 6 * s, 6 * s, "#9a7448"); R(c, qx0 + 3 * s, qy0 + 6 * s, 6 * s, 1.8 * s, "#b8925e"); R(c, qx0 + 3 * s, qy0 + 9 * s, 6 * s, 0.5, WOOD_DK); R(c, qx0 + 8.5 * s, qy0 + 7.5 * s, 0.5, 4.5 * s, WOOD_DK); });
+  part(ctx, (c) => { R(c, qx0 + 4 * s, qy0 + 1.5 * s, 5 * s, 5 * s, "#8a6a40"); R(c, qx0 + 4 * s, qy0 + 1.5 * s, 5 * s, 1.5 * s, "#a8865a"); });
+  part(ctx, (c) => keg(c, qx0 + 6 * s, qy0 + 20 * s, 0.7 * s));
+  part(ctx, (c) => keg(c, qx0 + 10 * s, qy0 + 22 * s, 0.7 * s, true));
+  part(ctx, (c) => sackL(c, qx0 + 7 * s, qy1 - 7 * s, 0.7 * s));
+  part(ctx, (c) => { ellipse(c, qx0 + 13 * s, qy1 - 2 * s, 2.4 * s, 1.2 * s); c.fillStyle = "#c8b48a"; c.fill(); ellipse(c, qx0 + 13 * s, qy1 - 2 * s, 1 * s, 0.5 * s); c.fillStyle = WOOD_DK; c.fill(); });
+  tuft(ctx, x - 1 * s, gy + 2, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+  tuft(ctx, x, qy0 + 4, 0.45, REALM.TUFT, REALM.GRASS_LT, sd + 4, { n: 3 });
 };
 
 // Mooring piles at the water's edge (east), a rowing boat tied to them, an
@@ -2914,12 +3047,12 @@ const tollHouse = (ctx, x, y, s, o) => {
 // ---- the registry ----------------------------------------------------------------
 export const IRON_ART = {
   // baked without the 2px ring: the heather clump's pixel cushions carry their own underline
-  flat: ["irheather", "irpan"],
+  flat: ["irheather", "irpan", "irsluice", "irwreck"],
   decor: {
     irpine: scotsPine, irspruce: spruce, ircrag: crag, irheather: heatherClump, irwall: drystone,
     irgibbet: gibbet, irmile: milestone, irbeacon: beacon, irwagon: wagon, irpikes: pikes,
     irtent: warTent, irbanner: standard, irtower: kingTower, irgate: ironGate, irruin: ruin,
-    irpan: saltPan, irsalthouse: saltHouse, irsalt: saltStore, irboat: beachedBoat, irwreck: wreck,
+    irpan: saltPan, irsluice: sluice, irsalthouse: saltHouse, irsalt: saltStore, irboat: beachedBoat, irwreck: wreck,
     irquintain: quintain, irdummy: dummy, irbutts: butts, irrack: rack, irmuster: muster,
     irstack: seaStack, ireyrie: eyrie, irquay: quay, irmoor: mooring, irtoll: tollHouse,
   },
@@ -2927,8 +3060,8 @@ export const IRON_ART = {
   box: {
     irpine: [26, 58], irspruce: [27, 50], ircrag: [30, 40], irheather: [18, 14], irwall: [26, 22],
     irgibbet: [20, 44], irmile: [10, 16], irwagon: [36, 30], irpikes: [26, 40], irtent: [32, 40], irruin: [26, 40],
-    irpan: [22, 18], irsalt: [20, 18], irboat: [36, 22], irwreck: [26, 54], irdummy: [12, 24], irbutts: [24, 20],
-    irrack: [20, 30], irmuster: [14, 32], irstack: [30, 34], irquay: [44, 44], irmoor: [26, 16], irtoll: [32, 30],
+    irpan: [24, 22], irsluice: [14, 46], irsalt: [20, 18], irboat: [36, 22], irwreck: [40, 52], irdummy: [12, 24], irbutts: [24, 20],
+    irrack: [20, 30], irmuster: [14, 32], irstack: [30, 34], irquay: [48, 58], irmoor: [26, 16], irtoll: [32, 30],
   },
   dress: {
     irpine: [3.5, false], irspruce: [3.5, false], ircrag: [10, true], irmile: [4, false], irgibbet: [4, true], irruin: [11, true],

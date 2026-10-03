@@ -19,8 +19,8 @@ addFootprints({
   // the fifteen-level boards' pieces (2026-10-03): salt-works, drill yard, the
   // gryphons' rock, the waterfront. The water pieces (irquay, irmoor) stand on
   // the bank and reach out east over the river, so only their shore end counts.
-  irpan: 14, irsalthouse: 18, irsalt: 9, irboat: 8, irwreck: 9, irquintain: 8, irdummy: 6, irbutts: 13,
-  irrack: 11, irmuster: 7, irstack: 11, ireyrie: 12, irquay: 6, irmoor: 5, irtoll: 14,
+  irpan: 14, irsluice: 7, irsalthouse: 18, irsalt: 9, irboat: 8, irwreck: 9, irquintain: 8, irdummy: 6, irbutts: 13,
+  irrack: 11, irmuster: 7, irstack: 11, ireyrie: 12, irquay: 8, irmoor: 5, irtoll: 14,
 });
 
 // Hand-placed pieces for a board made by ironVariant: appended to its own
@@ -168,12 +168,22 @@ export default function moreIronRealms(ironVariant) {
     ), [
       // a beacon on the headland where the road comes down to the shore
       { x: 96, y: 372, t: "irbeacon", s: 1 },
-      // the salt-works: two rows of pans (brine let in, crusting, raked up),
-      // the salt-house boiling it down, salt waiting for the cart
-      ...[[1, 0, 3, 1], [2, 0, 1, 2]].flatMap((row, r) => row.map((v, i) => ({ x: 296 + i * 35, y: 150 + r * 17, t: "irpan", s: 1, v }))),
+      // the salt-works: a field of earthen beds (brine let in, crusting, raked
+      // up, drying) of a few sizes, sharing banks, fed by a channel with its
+      // sluice gate on the sea side; the salt-house boiling it down, salt
+      // waiting for the cart
+      { x: 302, y: 145, t: "irpan", s: 1.15, v: 1 },
+      { x: 339, y: 141, t: "irpan", s: 1, v: 0 },
+      { x: 376, y: 147, t: "irpan", s: 1.2, v: 3 },
+      { x: 415, y: 142, t: "irpan", s: 1.05, v: 1 },
+      { x: 318, y: 165, t: "irpan", s: 1.1, v: 2 },
+      { x: 356, y: 168, t: "irpan", s: 1.2, v: 0 },
+      { x: 396, y: 164, t: "irpan", s: 1.05, v: 1 },
+      { x: 433, y: 167, t: "irpan", s: 1, v: 2 },
+      { x: 356, y: 200, t: "irsluice", s: 1 },
       { x: 244, y: 170, t: "irsalthouse", s: 1.1 },
       { x: 260, y: 210, t: "irsalt", s: 1, v: 1 },
-      { x: 352, y: 210, t: "irsalt", s: 0.95, v: 2 },
+      { x: 394, y: 214, t: "irsalt", s: 0.95, v: 2 },
       { x: 432, y: 212, t: "irsalt", s: 1, v: 0 },
       { x: 462, y: 186, t: "irwagon", s: 0.95, v: 2 },
       // boats hauled up on the strand below the headland
@@ -206,15 +216,14 @@ export default function moreIronRealms(ironVariant) {
         decorRecipe: { count: 24, types: ["irspruce", "ircrag", "irpine", "irwall", "irheather", "irspruce", "irheather"] },
       },
     ), [
-      // the bridge-tower on the east bank, and a beacon looking out to sea
+      // the bridge-tower on the east bank
       { x: 600, y: 420, t: "irtower", s: 1 },
-      // the waterfront: a quay with a barge made fast below the bridge, mooring
-      // piles above it, the toll-house at the bridge's east foot
-      { x: 302, y: 460, t: "irquay", s: 1.1, v: 2 },
-      { x: 322, y: 282, t: "irmoor", s: 1 },
-      { x: 500, y: 442, t: "irtoll", s: 1 },
-      { x: 270, y: 488, t: "irboat", s: 1, v: 0 },
-      { x: 560, y: 482, t: "irbeacon", s: 0.95 },
+      // the waterfront on the west bank below the bridge: a long wharf with a
+      // barge made fast and a boat tied at its end, the toll-house at its head
+      { x: 288, y: 478, t: "irquay", s: 1.2, v: 0 },
+      { x: 278, y: 440, t: "irtoll", s: 1 },
+      // a beacon on the east bank looking out to sea
+      { x: 520, y: 470, t: "irbeacon", s: 0.95 },
       // a stand of spruce and pine on the east bank's high ground
       { x: 520, y: 34, t: "irspruce", s: 1.1 },
       { x: 556, y: 62, t: "irpine", s: 1 },
@@ -283,7 +292,7 @@ export default function moreIronRealms(ironVariant) {
         [504, 42, { t: "ireyrie", s: 0.9, v: 3 }],   // a second nest, its gryphon away: eggs
       ]),
       // the bones of a ship on the cove's sand
-      { x: 426, y: 94, t: "irwreck", s: 1 },
+      { x: 426, y: 100, t: "irwreck", s: 1 },
       // a beacon on the eastern headland, watching the cove
       { x: 632, y: 34, t: "irbeacon", s: 0.95 },
     ]),
