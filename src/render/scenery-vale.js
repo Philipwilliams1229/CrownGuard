@@ -337,20 +337,67 @@ const sack = (c, x, gy, s, col = "#d8ccaa") => {
 };
 
 const MILL = { hw: 17, wall: 10.5, frame: 7.5, apex: 12, D: 14, R: 13.5, rx: 0.55 };
-// where the wheel's hub stands from the feet (x, y): ~27 out on the wheel
-// side and ~11 below — the decor is placed so that point is in the race
-const wheelAt = (x, y, s, v) => [x + (v % 2 ? 1 : -1) * (MILL.hw + 10) * s, y + 11 * s];
+// where the wheel's hub stands from the feet (x, y): ~21.5 out on the wheel
+// side and ~11 below, its rim pressed against the mill's corner — the decor
+// is placed so that point is on the race's centre line
+const wheelAt = (x, y, s, v) => [x + (v % 2 ? 1 : -1) * (MILL.hw + 4.5) * s, y + 11 * s];
+// the water's surface across the wheel: everything below it is in the race
+const waterAt = (y, s) => y + 11 * s + MILL.R * s * 0.46;
+const MASON = "#9c9482";
+// the sluice frame across the race upstream of the wheel (the race comes
+// down to the wheel from the north): its middle and its two posts
+const sluiceAt = (wx, wy, s, side) => {
+  const cx = wx + side * 3.5 * s, cy = wy - 17 * s, nx = -side * 7.5 * s, ny = -1.2 * s;
+  return { cx, cy, a: [cx + nx, cy + ny], b: [cx - nx, cy - ny] };
+};
 const millBody = (c, x, y, s, v) => {
   const gy = y + 8, hw = MILL.hw * s, side = v % 2 ? 1 : -1;
   const [wx, wy] = wheelAt(x, y, s, v);
+  const R = MILL.R * s, rx = R * MILL.rx, wl = waterAt(y, s);
   const wallTop = gy - MILL.wall * s, eave = wallTop - MILL.frame * s, apex = eave - MILL.apex * s;
+  const near = x + side * hw;                        // the wall on the wheel's side
   shadow(c, x + 9 * s, gy + 0.5, hw * 1.6, 5 * s, 0.3);
-  // the wheel pit's wall: dressed stone running from the house down into the water
+  // the footing: the mill's front wall carried down past the turf into the
+  // race on the wheel's side, its foot stepping up the bank to the dry end;
+  // wet and mossy at the waterline
   part(c, (cc) => {
-    const x0 = side < 0 ? wx + 3.5 * s : x + hw - 0.5, x1 = side < 0 ? x - hw + 0.5 : wx - 3.5 * s;
-    rubble(cc, x0, gy - 7 * s, x1 - x0, 7 * s + (wy - gy) + 4 * s, "#9c9482", 41);
-    cc.fillStyle = lighten("#9c9482", 0.25); cc.fillRect(x0, gy - 7.5 * s, x1 - x0, 1);
-    cc.fillStyle = darken("#9c9482", 0.3); cc.fillRect(x0, gy - 6.5 * s, x1 - x0, 0.5);
+    const dry = near - side * 7 * s;
+    const P = [[near + side * 1.5, gy - 1], [near + side * 1.5, wl - 0.5], [near - side * 4.5 * s, wl - 0.5], [dry, gy + 2], [dry, gy - 1]];
+    poly(cc, P); cc.save(); cc.clip();
+    rubble(cc, Math.min(near + side * 2, dry) - 1, gy - 1.5, Math.abs(dry - near) + 4, wl - gy + 3, MASON, 41);
+    // a batter: the foot of the wall a shade darker, the waterline green and dark
+    cc.fillStyle = rgba("#2a1c2c", 0.16); cc.fillRect(Math.min(near, dry) - 3, gy + 2.5, Math.abs(dry - near) + 6, wl);
+    for (let px = Math.min(near, dry) - 2; px < Math.max(near, dry) + 2; px += 0.5) {
+      const top = wl - 1.5 - vnoise(px * 0.8, 1, 7) * 2.2;
+      cc.fillStyle = "#4a6a3c"; cc.fillRect(ap(px), ap(top), 0.5, wl + 2 - top);
+      cc.fillStyle = "#2e4a3a"; cc.fillRect(ap(px), ap(wl - 0.5), 0.5, 2);
+      if (hash(Math.round(px * 2), 3) < 0.3) { cc.fillStyle = "#6a8a48"; px1(cc, px, top); }
+    }
+    cc.restore();
+    // the lit top course of the footing where the house stands on it
+    cc.fillStyle = lighten(MASON, 0.28); cc.fillRect(Math.min(near + side * 1.5, dry), ap(gy - 1), Math.abs(dry - near - side * 1.5), 0.5);
+  });
+  // the far bearing: a post in the race beyond the wheel with a cap and a
+  // brace back to the mill, and the sluice frame upstream that feeds it
+  part(c, (cc) => {
+    const px = wx + side * (rx + 2.5 * s);
+    cc.fillStyle = WOOD; cc.fillRect(ap(px - 0.75), ap(wy - 2.5 * s), 1.5, wl - wy + 2.5 * s - 0.5);
+    cc.fillStyle = WOOD_LT; cc.fillRect(ap(px - 0.75), ap(wy - 2.5 * s), 0.5, wl - wy + 2.5 * s - 0.5);
+    cc.fillStyle = WOOD_LT; cc.fillRect(ap(px - 1.5), ap(wy - 3 * s), 3, 1);
+  });
+  // the sluice upstream: two posts either side of the race, a head beam and
+  // the board half drawn, set where the race comes down to the wheel
+  part(c, (cc) => {
+    const { a, b } = sluiceAt(wx, wy, s, side);
+    const H = 4.5 * s;
+    for (const [px, py] of [a, b]) { cc.fillStyle = WOOD_DK; cc.fillRect(ap(px - 0.75), ap(py - H), 1.5, H + 1); cc.fillStyle = WOOD_LT; cc.fillRect(ap(px - 0.75), ap(py - H), 0.5, H + 1); }
+    // the head beam, and the board let down between the posts, wet below
+    cc.strokeStyle = WOOD; cc.lineWidth = 1;
+    cc.beginPath(); cc.moveTo(a[0], a[1] - H); cc.lineTo(b[0], b[1] - H); cc.stroke();
+    cc.strokeStyle = WOOD_LT; cc.lineWidth = 1.5;
+    cc.beginPath(); cc.moveTo(a[0], a[1] - 1.8 * s); cc.lineTo(b[0], b[1] - 1.8 * s); cc.stroke();
+    cc.strokeStyle = "#4a3a2e"; cc.lineWidth = 0.5;
+    cc.beginPath(); cc.moveTo(a[0], a[1] - 0.6 * s); cc.lineTo(b[0], b[1] - 0.6 * s); cc.stroke();
   });
   // the house: stone ground storey, timber-framed limewash above, the gable
   part(c, (cc) => {
@@ -365,15 +412,26 @@ const millBody = (c, x, y, s, v) => {
     cc.fillRect(x - hw, ap(eave), hw * 2, 1);
     cc.fillRect(ap(x - 0.75), apex + 2, 1.5, eave - apex - 2);
     cc.fillStyle = darken(WOOD, 0.25); cc.fillRect(x - hw, ap(wallTop - 0.5), hw * 2, 0.5);
-    // the loft door under the hoist beam, and the beam with its rope and sack
+    // the loft door under the hoist beam
     cc.fillStyle = WOOD_DK; cc.fillRect(ap(x - 2.5 * s), ap(eave - 6.5 * s), 5 * s, 6.5 * s);
     cc.fillStyle = "#3a2c28"; cc.fillRect(ap(x - 2 * s), ap(eave - 6 * s), 4 * s, 6 * s);
     windowAt(cc, x - hw * 0.73, eave + 2 * s, 3.5 * s, 3 * s);
     windowAt(cc, x + hw * 0.52, eave + 2 * s, 3.5 * s, 3 * s);
-    // the ground storey: the door, a small window, a lintel stone over each
-    door(cc, x - 3 * s, gy - 8.5 * s, 6 * s, 8.5 * s, "#6a5a3e");
-    cc.fillStyle = lighten(RUBBLE, 0.2); cc.fillRect(ap(x - 4 * s), ap(gy - 9.5 * s), 8 * s, 1);
-    windowAt(cc, x + side * -hw * 0.62 - 1.5 * s, gy - 8 * s, 3 * s, 3 * s);
+    // the ground storey: the door (on the dry side), a small window, lintels
+    const dx = x - side * hw * 0.32;
+    door(cc, dx - 3 * s, gy - 8.5 * s, 6 * s, 8.5 * s, "#6a5a3e");
+    cc.fillStyle = lighten(RUBBLE, 0.2); cc.fillRect(ap(dx - 4 * s), ap(gy - 9.5 * s), 8 * s, 1);
+    windowAt(cc, x + side * hw * 0.25 - 1.5 * s, gy - 8 * s, 3 * s, 3 * s);
+    // damp and moss up the wall on the wheel's side, where the spray reaches
+    for (let k = 0; k < 18; k++) {
+      const mx = near - side * hash(k, 9) * hw * 0.5, my = gy - hash(k, 13) * hash(k, 17) * 8 * s;
+      cc.fillStyle = hash(k, 5) < 0.5 ? rgba("#4a6a3c", 0.8) : rgba("#2a1c2c", 0.18); px1(cc, mx, my, 1, 0.5);
+    }
+    // the bearing block let into the wall where the axle goes in, iron-strapped
+    const bx = near - side * 0.5 * s - (side < 0 ? 0 : 5 * s);
+    cc.fillStyle = WOOD_DK; cc.fillRect(ap(bx), ap(wy - 3 * s), 5 * s, 5 * s);
+    cc.fillStyle = WOOD; cc.fillRect(ap(bx), ap(wy - 3 * s), 5 * s, 1);
+    cc.fillStyle = IRON; cc.fillRect(ap(bx), ap(wy - 1 * s), 5 * s, 0.75);
   });
   part(c, (cc) => gableRoof(cc, x, eave, hw, apex, MILL.D * s, "tile", 23));
   // the hoist beam out of the gable, a rope and a sack hanging off it
@@ -382,33 +440,40 @@ const millBody = (c, x, y, s, v) => {
     cc.fillStyle = darken(WOOD, 0.3); cc.fillRect(ap(x - 0.25), ap(apex + 2.5), 0.5, 4.5);
     sack(cc, x, apex + 11 * s, 0.75 * s);
   });
-  // the axle's bearing block in the wall
-  part(c, (cc) => { cc.fillStyle = WOOD_DK; cc.fillRect(ap(Math.min(wx, x - side * -hw) + (side < 0 ? 2 : -6)), ap(wy - 1.5), 6, 3); });
-  // sacks of meal by the door, and a barrel
+  // sacks of meal by the door, and a barrel at the dry end
   part(c, (cc) => {
-    sack(cc, x + side * -hw * 0.55 - 3 * s, gy + 1, 0.9 * s);
-    sack(cc, x + side * -hw * 0.55 + 0.5 * s, gy + 1.5, 0.8 * s, "#cfc2a0");
-    const bx = x - side * (hw + 4 * s);
+    const dx = x - side * hw * 0.32;
+    sack(cc, dx - side * 5.5 * s, gy + 1, 0.9 * s);
+    sack(cc, dx - side * 8.5 * s, gy + 1.5, 0.8 * s, "#cfc2a0");
+    const bx = x - side * (hw + 3.5 * s);
     cylinder(cc, bx - 2.6 * s, gy - 6 * s, 5.2 * s, 6.5 * s, "#8a6036", { r: 1.4 });
     cc.fillStyle = IRON; cc.fillRect(bx - 2.6 * s, gy - 4.6 * s, 5.2 * s, 0.6); cc.fillRect(bx - 2.6 * s, gy - 1.8 * s, 5.2 * s, 0.6);
     ellipse(cc, bx, gy - 6 * s, 2.6 * s, 0.9 * s); cc.fillStyle = "#a07a4a"; cc.fill();
   });
 };
 // The wheel, live: an oak rim seen slanting (its face turned to the race),
-// twelve paddles on it, spokes to an iron-bound hub; the low paddles go
-// under the water, which is drawn over them and churns white where they bite.
-const WATER = "#3f78a0";
+// twelve paddles, spokes to an iron-bound hub on the axle that runs into the
+// mill's bearing block. Below the race's surface nothing of it is drawn (the
+// race's own water shows there); along the surface the paddles churn foam,
+// and a white wake runs off downstream with the current.
+const FOAM = ["#f4f8f4", "#d8ecee", "#b0d0dc"];
 const millWheel = (ctx, x, y, s, v, time) => {
   const side = v % 2 ? 1 : -1;
   const [wx, wy] = wheelAt(x, y, s, v);
-  const R = MILL.R * s, rx = R * MILL.rx, ry = R;
+  const R = MILL.R * s, rx = R * MILL.rx, ry = R, wl = waterAt(y, s);
   const turn = time * 0.9 * side;
   const pt = (a, r = 1) => [wx + Math.cos(a) * rx * r, wy + Math.sin(a) * ry * r];
-  const water = wy + ry * 0.48;
   ctx.save();
-  // the shadow on the pit wall behind
-  ctx.fillStyle = "rgba(28,20,30,0.25)"; ellipse(ctx, wx + side * 2.5, wy + 1, rx + 1.5, ry); ctx.fill();
-  // the far rim, then the spokes, then the near rim over them
+  // (cut along a moving, broken surface, never a ruled line)
+  ctx.beginPath(); ctx.moveTo(wx - rx - 8, wy - ry - 8); ctx.lineTo(wx + rx + 8, wy - ry - 8);
+  for (let px = wx + rx + 8; px >= wx - rx - 8; px -= 0.5) ctx.lineTo(px, wl + Math.sin(px * 1.7 + time * 5) * 0.5 + Math.sin(px * 0.6 - time * 3) * 0.5);
+  ctx.closePath(); ctx.clip();
+  // its shadow on the footing and the wall behind it, thrown down-right
+  ctx.fillStyle = "rgba(28,20,30,0.22)"; ellipse(ctx, wx + 2.5, wy + 1.5, rx + 1, ry); ctx.fill();
+  // the axle: from the hub into the bearing block in the wall
+  ctx.fillStyle = WOOD_DK; ctx.fillRect(ap(Math.min(wx, wx - side * (rx + 3))), ap(wy - 1.25), rx + 3, 2.5);
+  ctx.fillStyle = WOOD; ctx.fillRect(ap(Math.min(wx, wx - side * (rx + 3))), ap(wy - 1.25), rx + 3, 0.5);
+  // the far rim, then the spokes, then the paddles and the near rim
   ctx.lineCap = "round";
   ctx.strokeStyle = WOOD_DK; ctx.lineWidth = 1.5;
   ellipse(ctx, wx + side * 1.6, wy, rx, ry); ctx.stroke();
@@ -417,7 +482,6 @@ const millWheel = (ctx, x, y, s, v, time) => {
     ctx.strokeStyle = Math.sin(a) < 0 ? OAK : WOOD; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(ap(wx), ap(wy)); ctx.lineTo(ap(ex), ap(ey)); ctx.stroke();
   }
-  // paddles: boards standing out from the rim, toward the far rim
   for (let k = 0; k < 12; k++) {
     const a = turn + k * Math.PI / 6, [ex, ey] = pt(a, 1);
     const lit = Math.cos(a) * -side > -0.2 && Math.sin(a) < 0.3;
@@ -431,33 +495,44 @@ const millWheel = (ctx, x, y, s, v, time) => {
   ctx.beginPath(); ctx.ellipse(wx, wy, rx - 0.5, ry - 0.5, 0, Math.PI * 0.95, Math.PI * 1.6); ctx.stroke();
   ctx.strokeStyle = "#241a26"; ctx.lineWidth = 0.5;
   ellipse(ctx, wx, wy, rx + 1, ry + 1); ctx.stroke();
-  // the hub: an iron-bound boss on the axle
   ball(ctx, wx, wy, 2, 2.3, WOOD, { hi: 0.4, lo: 0.4 });
   ctx.fillStyle = IRON; ctx.fillRect(ap(wx - 0.5), ap(wy - 0.5), 1, 1);
-  // the race over the wheel's foot: water drawn across it, foam where the paddles bite
-  // (only over the wheel itself: the race's own water lies under it already)
-  ctx.beginPath(); ctx.rect(wx - rx - 4, water, rx * 2 + 8, ry); ctx.clip();
-  ctx.beginPath(); ctx.ellipse(wx + side * 0.8, wy, rx + 1.2, ry + 1, 0, 0, Math.PI * 2); ctx.clip();
-  ctx.fillStyle = rgba(WATER, 0.62); ctx.fillRect(wx - rx - 3, water, rx * 2 + 6, ry);
-  ctx.fillStyle = rgba("#2c5a7c", 0.3); ctx.fillRect(wx - rx - 3, water + 2, rx * 2 + 6, ry);
-  ctx.restore();
-  // foam: a churn along the waterline where the wheel enters, drips off the rising paddles
-  for (let i = 0; i < 9; i++) {
-    const u = (i / 8) * 2 - 1, fx = wx + u * (rx + 1.5);
-    const f = Math.sin(time * 9 + i * 1.7) * 0.5 + 0.5;
-    ctx.fillStyle = f > 0.5 ? "#f4f8f4" : "#c8e0e8";
-    ctx.fillRect(ap(fx), ap(water - 0.5 + (f > 0.8 ? -0.5 : 0)), 1, 0.5 + (Math.abs(u) < 0.6 ? 0.5 : 0));
-  }
-  for (let k = 0; k < 3; k++) {
-    const ph = (time * 1.6 + k / 3) % 1;
-    const dx = wx + side * -(rx * 0.7) + side * k * 0.8, dy = wy - ry * 0.3 + ph * (water - wy + ry * 0.3);
-    ctx.fillStyle = rgba("#dcecf0", 0.85 - ph * 0.5); ctx.fillRect(ap(dx), ap(dy), 0.5, 1);
-  }
-  // the tail race: a white wake running off downstream
+  // drips off the paddles rising out of the water
   for (let k = 0; k < 4; k++) {
-    const ph = (time * 0.7 + k * 0.25) % 1;
-    ctx.fillStyle = rgba("#e8f2f0", 0.7 * (1 - ph));
-    ctx.fillRect(ap(wx + side * 0.5 + ph * 6 * -side * 0 + (k - 1.5) * 2), ap(water + 1 + ph * 4), 1.5, 0.5);
+    const ph = (time * 1.4 + k / 4) % 1;
+    const dx = wx + side * -(rx * (0.55 + 0.1 * k)), dy = wy + ry * 0.1 + ph * (wl - wy - ry * 0.1);
+    ctx.fillStyle = rgba("#dcecf0", 0.8 - ph * 0.5); ctx.fillRect(ap(dx), ap(dy), 0.5, 1);
+  }
+  ctx.restore();
+  // the churn along the surface where the paddles bite: soft broken foam in
+  // the water's own light tones, thickest on the downstream side
+  for (let i = 0; i < 22; i++) {
+    const u = hash(i, 21) * 2 - 1, f = Math.sin(time * (5 + hash(i, 4) * 4) + i * 2.3) * 0.5 + 0.5;
+    if (f < 0.25) continue;
+    const fx = wx + u * (rx + 2.5) + Math.sin(time * 3 + i) * 0.6;
+    const fy = wl - 0.5 + (hash(i, 3) - 0.35) * 3 + (u * -side > 0 ? 0.8 : 0);
+    ctx.fillStyle = rgba(FOAM[Math.floor((1 - f) * 2.99)], 0.3 + 0.5 * f);
+    ctx.fillRect(ap(fx), ap(fy), f > 0.7 ? 1.5 : 0.5, f > 0.85 ? 1 : 0.5);
+  }
+  // spray thrown up where the paddles strike, falling back
+  for (let k = 0; k < 5; k++) {
+    const ph = (time * 1.8 + k / 5) % 1, u = hash(k, 31) - 0.5;
+    const fx = wx + side * (rx * 0.3 - ph * 3) + u * rx, fy = wl - Math.sin(ph * Math.PI) * 3.5;
+    ctx.fillStyle = rgba("#eef6f6", 0.75 * (1 - ph)); ctx.fillRect(ap(fx), ap(fy), 0.5, 0.5);
+  }
+  // the wake: foam streaks drifting off downstream with the race and thinning
+  for (let k = 0; k < 9; k++) {
+    const ph = (time * 0.55 + k / 9) % 1, j = hash(k, 11) - 0.5;
+    const fx = wx + j * rx * 1.2 + ph * 10 * s, fy = wl + 1 + ph * 11 * s + j * 2;
+    ctx.fillStyle = rgba(FOAM[k % 3], 0.6 * (1 - ph));
+    ctx.fillRect(ap(fx), ap(fy), ph < 0.5 ? 1.5 : 1, 0.5);
+  }
+  // the spill under the sluice board
+  const { cx: sx, cy: sy } = sluiceAt(wx, wy, s, side);
+  for (let k = 0; k < 6; k++) {
+    const ph = (time * 1.1 + k / 6) % 1, u = (k - 2.5) / 2.5;
+    ctx.fillStyle = rgba(FOAM[k % 3], 0.55 * (1 - ph));
+    ctx.fillRect(ap(sx + u * 5 * s - side * ph * 2), ap(sy + u * 3.6 * s + 0.5 + ph * 3.5), 1, 0.5);
   }
 };
 const watermill = (ctx, x, y, s, o) => {

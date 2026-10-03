@@ -125,9 +125,10 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
           { pts: [[5.0, -0.5], [5.2, 2.4], [4.9, 4.4], [6.0, 5.7], [7.9, 6.4], [9.3, 7.3]], w: 18 },
         ],
         decor: [
-          // the mill on the island, its wheel turning in the race (the hub
-          // stands ~27 west and ~11 south of the mill's feet, in the water)
-          at(5.79, 4.5, "watermill", 1, 0, 0, 0),
+          // the mill on the island's bank, its footing down in the race and
+          // its wheel turning against its west wall (the hub stands ~21.5
+          // west and ~11 south of the mill's feet, on the race's centre line)
+          at(5.63, 4.42, "watermill", 1, 0, 0, 0),
           // the miller's bees and a loaded wain on the far bank
           at(4.05, 3.0, "skeps", 0.95, 0, 0, 1), at(10.6, 6.2, "haywain", 0.9, 0, 0, 0),
           at(10.4, 3.3, "willow", 1), at(4.0, 5.6, "willow", 0.95), at(8.2, 0.6, "willow", 0.9), at(8.3, 7.6, "willow", 0.9),

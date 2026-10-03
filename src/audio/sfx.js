@@ -148,6 +148,11 @@ const LIB = {
 
   // the horn and the tide
   horn:      { ms: 400, fn: () => { inst("horn", 55, 0.5, 0.9); inst("horn", 62, 0.5, 0.8, 0.02); inst("brass", 67, 0.45, 0.5, 0.18); } },
+  // zone IV (the Rimewater): a longship's war horn off the sea, the squall's
+  // wind getting up, and a hall shrouded in ice (engine/rime.js, weather.js)
+  seaHorn:   { ms: 1200, fn: () => { inst("horn", 38, 1.3, 0.9); inst("horn", 45, 1.1, 0.7, 0.35); noise({ dur: 1.2, gain: 0.05, type: "lowpass", from: 500, to: 120 }); } },
+  gust:      { ms: 2500, fn: () => { noise({ dur: 2.2, gain: 0.07, type: "bandpass", from: 300, to: 1400, q: 0.8 }); noise({ dur: 1.6, gain: 0.04, type: "bandpass", from: 1800, to: 600, q: 1.2, delay: 0.5 }); } },
+  shroud:    { ms: 250, fn: () => { [2093, 1568, 1245].forEach((f, i) => tone({ type: "triangle", f: drift(f, 0.03), dur: 0.22, gain: 0.07, delay: i * 0.05 })); noise({ dur: 0.35, gain: 0.06, type: "highpass", from: 6000, to: 3000 }); } },
   bossHorn:  { ms: 900, fn: () => { inst("horn", 43, 1.0, 1); inst("horn", 50, 1.0, 0.9); inst("brass", 55, 0.9, 0.6, 0.25); drum("c", 0.6, 0.0); noise({ dur: 0.9, gain: 0.08, from: 400, to: 60 }); } },
   waveClear: { ms: 900, fn: () => { inst("brass", 67, 0.12, 0.8); inst("brass", 71, 0.12, 0.8, 0.1); inst("brass", 74, 0.45, 0.9, 0.2); inst("harp", 79, 0.6, 0.7, 0.2); inst("bell", 86, 0.9, 0.5, 0.3); } },
   won:       { ms: 2000, fn: () => { [60, 64, 67, 72].forEach((m, i) => { inst("brass", m, 0.18, 0.85, i * 0.14); inst("horn", m - 12, 0.2, 0.7, i * 0.14); }); inst("brass", 76, 0.9, 0.9, 0.6); inst("strings", 72, 1.2, 0.9, 0.6); inst("bell", 96, 1.5, 0.7, 0.6); drum("c", 0.7, 0.6); drum("k", 0.8, 0.6); } },
