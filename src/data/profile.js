@@ -174,9 +174,12 @@ export const rankProgress = (xp) => (xp % 1000) / 1000;
 
 // XP for finishing a level: the waves you held, weighted by how deep in the
 // war it sits, plus a bonus for the stars you took (180 for a flawless five).
-// Every win pays it, replays included.
+// Every win pays it, replays included. The depth runs 0 -> 1.5 across a
+// chapter whatever its length (it was index x 0.15 over eleven levels; the
+// chapters grew to fifteen on 2026-10-03 and kept the same range).
+const depthIn = (level) => (level.chapter?.levels?.length > 1 ? level.index / (level.chapter.levels.length - 1) : 0) * 1.5;
 export const xpFor = (level, waves, stars) =>
-  Math.round(waves * 40 * (1 + level.chapterIndex * 0.5 + level.index * 0.15)) + stars * 36;
+  Math.round(waves * 40 * (1 + level.chapterIndex * 0.5 + depthIn(level))) + stars * 36;
 
 // ---- banking a finished level ----
 // Returns { stars, newStars, xp, rating } so the victory screen can show what
