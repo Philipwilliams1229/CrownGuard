@@ -40,7 +40,11 @@
 //                  its first toll — 0 = the instant it spawns; default a beat in)
 //   splitInto      [type, count] — cut it down and it comes apart into these
 //                  (splitDrop: they fall from where it flew, where it died;
-//                  deathSkin: the rig its death crumbles in)
+//                  deathSkin: the rig its death crumbles in; splitChance: the
+//                  odds it happens at all, default always — a leak or a raised
+//                  body never splits one that has a chance)
+//   summonAtStart  its summoned foes stream out of the wood at the start of the
+//                  road, not around it (the Warchief's horn)
 //   deathBurst     {r, dmg, dps, dur} — dies violently: hurts knights in r,
 //                  and leaves plague ground that keeps hurting them
 
@@ -71,13 +75,21 @@ export const ENEMIES = {
   boarrider: {
     faction: "greenwood", hp: 140, speed: 108, bounty: 13, armor: 0.1, size: 19,
     name: "Boar Rider", atk: 20, atkRate: 800, castleDmg: 2, trample: 1,
-    note: "A goblin lancer on an angry boar. The charge flattens the first knight who steps up and thunders on — only the second blocker holds it.",
+    // half the time the lancer leaps clear as the boar goes down and marches on
+    // as a goblin (owner, 2026-10-03); the other half he falls with it
+    splitInto: ["goblin", 1], splitDrop: true, splitChance: 0.5, deathSkin: "boarMount",
+    note: "A goblin lancer on an angry boar. The charge flattens the first knight who steps up and thunders on — only the second blocker holds it. Fell the boar and the lancer, one time in two, leaps clear and marches on as a goblin.",
   },
   hobgoblin: {
     faction: "greenwood", hp: 330, speed: 64, bounty: 32, armor: 0.2, size: 20,
     name: "Hobgoblin Warchief", atk: 30, atkRate: 900, castleDmg: 3,
     bannerRange: 130, bannerSpeed: 0.22, bannerArmor: 0.12,
-    note: "The big one with the totem stick. Every goblin, wolf and boar marching near him is faster and harder to kill. Break the totem and the party breaks with it.",
+    // he never marches alone (waves.js partyOf) and keeps the pace of his party;
+    // every 20 s his horn calls 25 more goblins out of the wood at the start of
+    // the road (owner, 2026-10-03). Silence or kill him to stop the horn.
+    packRange: 110,
+    summonEvery: 20000, summonFirst: 12000, summonType: "goblin", summonCount: 25, summonAtStart: true,
+    note: "The big one with the totem stick. Every goblin, wolf and boar marching near him is faster and harder to kill, and he marches in the thick of a goblin party. Every twenty seconds his horn calls twenty-five more goblins out of the wood. Break the totem and the party breaks with it.",
   },
   // MOTHBALLED, not retired: the raft goblin is built, drawn and working —
   // it simply isn't fielded. To bring it back, add ["rafter", 5, 900] to a

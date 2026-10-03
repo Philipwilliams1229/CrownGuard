@@ -467,8 +467,11 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
     // hundred-goblin rout must not cost a hundred thousand pixels a frame.
     let dying = 0;
     for (const fx of g.effects) if (fx.type === "death" && !fx.lite) dying++;
-    // (a gryphon crumbles without its knight: he has just dropped to the road)
-    g.effects.push({ type: "death", etype: ENEMIES[e.type]?.deathSkin || e.sprite || e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived, lite: dying >= 16 && !e.boss });
+    // (a gryphon crumbles without its knight: he has just dropped to the road;
+    // a boar rider's lancer leaps clear half the time, `splitChance`, and the
+    // boar crumbles alone — otherwise the pair go down together)
+    if (e.splitInto) e.splits = e.splitChance == null || (!e.revived && Math.random() < e.splitChance);
+    g.effects.push({ type: "death", etype: (e.splitInto && e.splits !== false && ENEMIES[e.type]?.deathSkin) || e.sprite || e.type, x: e.x, y: e.y, face: e.face, ttl: 550, life: 550, revived: !!e.revived, lite: dying >= 16 && !e.boss });
     // the fallen lie where they fell — a necromancer may call them back (once)
     // — but only while the wave that felled them goes on: when it is cleared
     // they dissolve (update.js dissolveCorpses), and a necromancer raises only

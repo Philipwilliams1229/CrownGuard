@@ -459,8 +459,8 @@ const makeEnemy = (type, mult) => {
     bannerRange: d.bannerRange || 0, bannerSpeedAmt: d.bannerSpeed || 0, bannerArmorAmt: d.bannerArmor || 0,
     bannerSpeed: 0, bannerArmor: 0,
     // Hollow Court traits: bells that summon, bodies that split or burst
-    summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonAhead: !!d.summonAhead, summonCd: d.summonFirst ?? null,
-    splitInto: d.splitInto || null, splitDrop: !!d.splitDrop, deathBurst: d.deathBurst || null, deathDone: false,
+    summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonAhead: !!d.summonAhead, summonAtStart: !!d.summonAtStart, summonCd: d.summonFirst ?? null,
+    splitInto: d.splitInto || null, splitDrop: !!d.splitDrop, splitChance: d.splitChance ?? null, splits: undefined, deathBurst: d.deathBurst || null, deathDone: false,
     // falconry marks and alchemical shred
     markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0,
     x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
@@ -1495,6 +1495,15 @@ export function updateGame(g, dt) {
         e.summonCd = (e.summonCd ?? e.summonEvery * 0.6) - sdt * 1000;
         if (e.summonCd <= 0) {
           e.summonCd = e.summonEvery;
+          if (e.summonAtStart) {
+            // a horn: the party streams out of the wood at the head of the road,
+            // each a tenth of a second behind the last, paying half
+            const at0 = g.spawnTimer;
+            for (let i = 0; i < e.summonCount; i++) g.spawnQueue.push({ type: e.summonType, at: at0 + 200 + i * 110, mult: e.mult, pay: 0.5 });
+            g.spawnQueue.sort((p, q) => p.at - q.at);
+            g.effects.push({ type: "toll", x: e.x, y: e.y - 12, ttl: 550, r: 52 });
+            sfx.play("horn");
+          } else {
           for (let i = 0; i < e.summonCount; i++) {
             const u = spawnAt(g, e.summonType, e.mult * 0.8, e.summonAhead ? Math.min(TOTAL_LEN - 6, e.dist + 16 + i * 7) : e.dist - 14 - i * 7, tms);
             u.bounty = Math.max(1, Math.ceil(u.bounty / 2)); // conjured chaff pays half
@@ -1502,6 +1511,7 @@ export function updateGame(g, dt) {
           }
           g.effects.push({ type: "toll", x: e.x, y: e.y, ttl: 550, r: 46 });
           sfx.play("toll");
+          }
         }
       }
       // Necromancer: calls nearby fallen back to their feet at half strength (up to 5 every raiseEvery; buffed 2026-09-30: hp 420 -> 700, every 6 s -> 3.8 s, reach 150 -> 400: he walks behind the column, so the fallen lie ahead of him)
@@ -1777,7 +1787,10 @@ export function updateGame(g, dt) {
         g.grounds.push({ src: e.sporeOn.src, x: e.x, y: e.y, r: e.sporeOn.r, dps: e.sporeOn.dps, until: tms + e.sporeOn.dur, kind: "spores" });
         g.effects.push({ type: "boom", x: e.x, y: e.y, ttl: 300, r: e.sporeOn.r * 0.7 });
       }
-      if (e.splitInto && e.splitDrop) {
+      // (a foe with only a chance to split rolled it when it was killed; one that
+      // leaked or was swept never splits)
+      const splits = e.splits ?? (e.splitChance == null);
+      if (e.splitInto && splits && e.splitDrop) {
         // a gryphon brought down drops its knight right where it fell: he
         // hits the road in its lane, sits dazed a moment, and marches on
         const [type, n] = e.splitInto;
@@ -1790,7 +1803,7 @@ export function updateGame(g, dt) {
           k.stunUntil = tms + 650;
         }
         g.effects.push({ type: "dust", x: e.x, y: e.y + 4, ttl: 420, r: 22 });
-      } else if (e.splitInto) {
+      } else if (e.splitInto && splits) {
         const [type, n] = e.splitInto;
         for (let i = 0; i < n; i++) spawnAt(g, type, e.mult, e.dist - 4 - i * 9, tms);
         g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 380, r: 30 });

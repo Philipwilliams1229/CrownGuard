@@ -137,6 +137,31 @@ mechanics:
   frames (guard, wind-up, strike, follow-through) says so — `fightN: 4` on
   its RIGS entry, or `CROWN_FIGHT_FRAMES` in rigs-crown.js.
 
+## Warchief and boar riders (2026-10-03, owner requests)
+
+Provisional, pending the owner's playtest ("spawn rates are ok but I'll let you
+know with these changes").
+- **Hobgoblin Warchief** never walks alone: `partyOf` (waves.js, after the ram
+  and raisers are placed, before `escortOf`) gives every wave that holds one a
+  goblin party of `PARTY_BASE` 7 + `PARTY_PER` 0.3 x war-wave goblins a chief
+  (the wave's own goblin group if it is big enough, else grown or appended),
+  and marks him `amid` it; `packRange` 110 keeps his pace with it. His horn is
+  the summon engine with `summonAtStart` (enemies.js): every 20 s (first at
+  12 s) 25 goblins are queued into `g.spawnQueue`, 110 ms apart, so they stream
+  out of the wood at the head of the road at half bounty; a toll ring and the
+  horn sound mark it. He is prey (`isPrey` reads `summonEvery`) and silence
+  stops the horn. A wave with the chief and the necromancer is the heavy one.
+- **Boar riders**: `splitInto: ["goblin", 1]` with `splitChance` 0.5 (rolled in
+  actions.js at the kill, stored on `e.splits`, read by update.js's death
+  loop): half the time the lancer drops from the saddle (`dropAt`, stunned
+  650 ms) and marches on as a goblin, and the boar crumbles alone in the
+  `boarMount` rig (rigs-beasts.js, `deathSkin`). A leak, a sweep or a raised
+  (`revived`) boar never splits. To pay for the survivors the riders were cut:
+  `CROWD_WEIGHT.boarrider` 0.5 -> 0.3 and the endless roster's cost 3.6 -> 5,
+  cap 9 — Cinderholt waves 21/23/24 went 27/49/47 riders -> 15/19/20.
+  `--level cinderholt --endure` bled 253/528 -> 203/473 (swarm/burst, seed
+  default); the burst plan loses wave 12 with or without the change.
+
 ## Several sessions at once
 
 The owner often runs several Claude sessions in this folder at the same

@@ -108,7 +108,7 @@ const ENEMY_BOSS = (t) => !!ENEMIES[t]?.boss;
 // the purse grows far slower than the horde does: more to kill, not more to
 // spend.
 export const CROWD_WEIGHT = {
-  goblin: 1, bat: 0.8, wolf: 0.9, orc: 0.6, boarrider: 0.5, armored: 0.45, rafter: 0.6,
+  goblin: 1, bat: 0.8, wolf: 0.9, orc: 0.6, boarrider: 0.3, armored: 0.45, rafter: 0.6,
   shaman: 0.1, troll: 0.1, hobgoblin: 0, necro: 0,
   levy: 1, crossbow: 0.7, sergeant: 0.45, cavalier: 0.4, gryphon: 0.35, chaplain: 0.15, ram: 0, magister: 0, unseated: 0,
   skeleton: 1, ghoul: 0.9, bonearcher: 0.7, wraith: 0.3, ghast: 0.4, crypt: 0.35, gravecaller: 0.1, amalgam: 0.2,
@@ -204,7 +204,7 @@ export const waveSpec = (w) => {
   const a = absWave(w);
   const scripted = a <= FACTION.waves.length;
   if (!WINDOW) {
-    const sp = escortOf(raisersLast(shapeCompany(swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a), a)), a);
+    const sp = escortOf(partyOf(raisersLast(shapeCompany(swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a), a)), a), a);
     sp.overlap = overlap(a);
     return SANDBOX ? sandboxShape(sp) : sp;
   }
@@ -218,7 +218,7 @@ export const waveSpec = (w) => {
   // every level opens on its own ground: the swell comes in over its first
   // few waves, so a fresh purse never meets a full-grown horde on wave one
   spec = raisersLast(shapeCompany(push(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), WINDOW.push), a));
-  spec = escortOf(spec, a);
+  spec = escortOf(partyOf(spec, a), a);
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);
   return spec;
@@ -245,6 +245,26 @@ const gatherEscort = (spec, type) => {
   if (big < 0) return spec;
   const out = spec.map((g) => { const c = g.slice(); if (g.amid != null) c.amid = g.amid; if (g.clock != null) c.clock = g.clock; return c; });
   out.forEach((g) => { if (g[0] === type) { g[2] = 0; g.amid = big; } });
+  out.overlap = spec.overlap;
+  return out;
+};
+// A warchief (`party` below) never marches alone (owner, 2026-10-03): every wave
+// that holds one also holds a goblin party, and he walks in the thick of it
+// (`amid`, like the shaman), keeping its pace (`packRange`). The wave's own goblin
+// group is the party if it is big enough; otherwise it grows to the size, or a
+// party of the size is sent behind everything else. Applied after the swell, the
+// ram and the raisers have been placed, so no `amid` index is disturbed.
+const PARTY_BASE = 7, PARTY_PER = 0.3;      // goblins a warchief: base + per x war-wave
+const partyOf = (spec, a) => {
+  const chiefs = spec.filter((g) => ENEMIES[g[0]]?.summonAtStart && g[0] !== "goblin");
+  if (!chiefs.length || !FACTION.types.includes("goblin")) return spec;
+  const heads = chiefs.reduce((n, g) => n + g[1], 0);
+  const want = Math.round(heads * (PARTY_BASE + PARTY_PER * a));
+  const out = spec.map((g) => { const c = g.slice(); if (g.amid != null) c.amid = g.amid; if (g.clock != null) c.clock = g.clock; return c; });
+  let big = out.findIndex((g) => g[0] === "goblin" && g.amid == null && g.clock == null);
+  if (big < 0) { out.push(["goblin", want, 380, 0.7]); big = out.length - 1; }
+  else if (out[big][1] < want) out[big][1] = want;
+  out.forEach((g) => { if (chiefs.some((c) => c[0] === g[0])) { g[2] = 0; g.amid = big; } });
   out.overlap = spec.overlap;
   return out;
 };

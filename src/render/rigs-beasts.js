@@ -595,6 +595,8 @@ export const BEAST_RIGS = {
   wolf: { kind: "direwolf", box: { hw: 24, up: 28, down: 4 }, p: { ...WOLF } },
   wolfrider: { kind: "direwolf", box: { hw: 24, up: 44, down: 4 }, p: { ...WOLF, len: 28, skin: "#e8b990", cloth: "#6a3a2a", cloth2: "#3a2018", hair: "#b0503a", rider: { weapon: "axe", wcol: "#b8bcc4" } } },
   boarrider: { kind: "warboar", box: { hw: 26, up: 34, down: 4 }, p: { len: 32, col: "#6e4a38", belly: "#96725c", mane: "#3a2620", eyes: "#e05248", skin: "#6aa04f", cloth: "#5f4326", cloth2: "#3c2a18", hair: "#5a4630", rider: { h: 18, head: "hood", wcol: "#c4c8d0" } } },
+  // the same boar once its lancer has leapt clear (the boar rider's deathSkin)
+  boarMount: { kind: "warboar", box: { hw: 26, up: 22, down: 4 }, p: { len: 32, col: "#6e4a38", belly: "#96725c", mane: "#3a2620", eyes: "#e05248" } },
   bat: { kind: "fellbat", fly: true, box: { hw: 14, up: 20, down: 2 }, p: { h: 10, col: "#4a3a48", wing: "#6a4a62", eyes: "#e05248" } },
   dragon: { kind: "wyrm", fly: true, box: { hw: 56, up: 62, down: 6 }, p: { len: 72, col: "#b4463a", belly: "#ecd4a2", wing: "#6c2630", eyes: "#e8c14a" } },
 };

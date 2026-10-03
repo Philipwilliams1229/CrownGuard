@@ -60,7 +60,9 @@ export const FACTIONS = {
       { type: "bat", cost: 0.8, gap: 320 },
       { type: "wolf", cost: 1.6, gap: 420 },
       { type: "orc", cost: 3, gap: 650 },
-      { type: "boarrider", cost: 3.6, gap: 700 },
+      // (owner, 2026-10-03: Cinderholt's riders were "almost impossible", and half of
+      // them now leap off as goblins — so fewer boars: dearer, and capped)
+      { type: "boarrider", cost: 5, gap: 700, cap: 9 },
       { type: "armored", cost: 4.5, gap: 800 },
       { type: "shaman", cost: 8, gap: 4200, cap: 3 },
       { type: "troll", cost: 11, gap: 2100, cap: 5 },
