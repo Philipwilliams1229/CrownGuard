@@ -37,12 +37,12 @@ export const HOLLOW_LEVELS = [
       {
         id: "lanternfen", name: "The Lantern Fen", realm: "lanternfen", short: "Lantern Fen",
         window: { from: 5, to: 20, count: 20, push: 1.35 }, gold: 550,
-        blurb: "Corpse-lights dance over the creek where it runs out to the western sea. Follow them and drown; the dead follow them anyway, and the creek doesn't stop them.",
+        blurb: "Corpse-lights dance over a black creek winding out to the western sea. Its loops have eaten the best ground — fight from the necks of land inside them, and never follow the lights.",
       },
       {
         id: "abbeymere", name: "Abbeymere", realm: "abbeymere",
         window: { from: 6, to: 21, count: 20, push: 1.3 }, gold: 550,
-        blurb: "An abbey the fen drowned to the bell-tower. Its mere fills the cloister, and the dead monks walk the road around it to vespers that never end.",
+        blurb: "An abbey the fen drowned to the bell-tower. Its mere fills the cloister walks and the dead monks walk the road around it; the garth in the middle holds one hall, and it sees every lane.",
       },
       // ...seven twenty-five-wave levels to hold it...
       {
@@ -58,7 +58,7 @@ export const HOLLOW_LEVELS = [
       {
         id: "barrowdowns", name: "The Barrowdowns", realm: "barrowdowns", short: "Barrowdowns",
         window: { from: 7, to: 26, count: 25 }, gold: 800,
-        blurb: "The high downs at the fen's northern edge, the old kings' barrows shoulder to shoulder. Dry ground at last — and every mound on it is open.",
+        blurb: "The high downs at the fen's northern edge, the old kings' barrows shoulder to shoulder. Dry ground at last — but the mounds sit on the best of it, and every one of them is open.",
       },
       {
         id: "hl4", name: "The Cairnfields", realm: "cairnfields", short: "Cairnfields", labelAbove: true,
@@ -76,12 +76,12 @@ export const HOLLOW_LEVELS = [
       {
         id: "lichgate", name: "The Lichgate", realm: "lichgate", short: "Lichgate",
         window: { from: 9, to: 30, count: 25 }, gold: 1150,
-        blurb: "The crypt hill under the throne, the one dry ground in the fen. The shortest road in the chapter, and the court marching it at a run — everything rides on the field inside the hook.",
+        blurb: "The crypt hill under the throne, the last dry ground before it. The shortest road in the chapter, and the court marching it at a run — everything rides on the field inside the hook.",
       },
       {
         id: "deadweir", name: "The Dead Weir", realm: "deadweir", short: "Dead Weir",
         window: { from: 10, to: 31, count: 25 }, gold: 1100,
-        blurb: "The Blackwater pours over a weir the drowned kingdom built. Its sluices are the last bridges before the throne, and the court crosses them in force.",
+        blurb: "The Blackwater pours through the weir the drowned kingdom built. The road crosses it once, over three sluice bridges side by side — the last place to hold before the throne.",
       },
       // ...and the boss, thirty waves deep
       {

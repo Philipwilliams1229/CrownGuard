@@ -12,7 +12,7 @@
 //   lichgate   THE TOMBS      the shortest road in the fen, through a graveyard
 //   lanternfen CORPSE-LIGHTS  a meandering creek eats the best bend; build on its necks
 //   abbeymere  THE CLOISTER   a flooded cloister walk round a one-hall garth island
-//   barrowdowns THE BARROWS   the one dry board: the barrows sit on the best seats
+//   barrowdowns THE BARROWS   the dry downs: the barrows sit on the best seats
 //   deadweir   THE SLUICES    one crossing, over a weir's three sluice bridges in a row
 // Pond x/y are grid pixels (tile c's centre is c * 48 + 24); river points are
 // [col, row] like the road's. Keep ponds 32+ px clear of the road's centre.
@@ -111,7 +111,7 @@ export default function moreHollowRealms(hollowVariant) {
     // middle buys, so the field inside it is the whole battle.
     lichgate: hollowVariant(
       "lichgate", "The Lichgate", "THE TOMBS",
-      "The crypt hill below the throne, the one dry ground in the fen, and every foot of it a grave. The shortest road in the chapter — and the court comes up it at a run.",
+      "The crypt hill below the throne, the last dry ground before it, and every foot of it a grave. The shortest road in the chapter — and the court comes up it at a run.",
       20261005,
       [[0.9, 7.6], [4.5, 7.6], [4.5, 2.2], [9.5, 2.2], [9.5, 6.4], [13.7, 6.4]],
       {
@@ -189,7 +189,7 @@ export default function moreHollowRealms(hollowVariant) {
     ),
 
     // The downs at the fen's north edge: high, dry and bare, and the old
-    // kings' barrows crowd every rise. No water at all — the one dry board
+    // kings' barrows crowd every rise. No water at all — like the Lichgate, a dry board
     // with room to build, except that the mounds stand on the best seats,
     // so the halls fight for the gaps between them.
     barrowdowns: hollowVariant(
