@@ -17,7 +17,10 @@ import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilt
 import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
-import { isBuilt } from "./build.js";
+import { isBuilt, fights } from "./build.js";
+// zone IV: landings, the frost shroud (fights = built and not frozen), weather
+import { rimeTick, seaborne } from "./rime.js";
+import { tickWeather, WX } from "./weather.js";
 import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE } from "./muzzles.js";
 
 // ---- the Falconry's stoops ------------------------------------------------------
@@ -928,6 +931,11 @@ export function updateGame(g, dt) {
   // the sandbox's bottomless coffers: whatever was spent is back by the next frame
   if (SANDBOX?.infiniteGold) g.gold = INFINITE_GOLD;
   const tms = g.time * 1000;
+  // zone IV (rime.js, weather.js): the weather's clock and its live multipliers
+  // (WX), longships at sea and the frost shroud. Inert on every realm without
+  // `weather` / `landings` and every army without a freezer.
+  tickWeather(g, sdt, tms);
+  if (!g.paused) rimeTick(g, sdt, tms);
   // who owns which id this frame — the damage ledger resolves through this
   g._towerById = new Map(g.towers.map((t) => [t.id, t]));
   if (g.bands) for (const b of g.bands) g._towerById.set(b.id, b);
@@ -1090,7 +1098,7 @@ export function updateGame(g, dt) {
     // (a hall still going up holds its fire, its aura and its people until
     // its person is in: isBuilt, engine/build.js)
     for (const t of g.towers) {
-      if (t.kind !== "trapsmith" || !isBuilt(t, g)) continue;
+      if (t.kind !== "trapsmith" || !fights(t, g)) continue;
       const st = getStats(t);
       if ((t.charges || 0) < st.maxCharges) {
         t.chargeCd = (t.chargeCd ?? st.chargeEvery) - sdt * 1000;
@@ -1187,6 +1195,8 @@ export function updateGame(g, dt) {
         const [wx, wy] = RIVER_ROUTE.at(e.swimD);
         e.x = wx; e.y = wy; e.lane = 0;
       }
+      // a longship putting out from the sea edge, or a raider it landed (rime.js)
+      if (s.ship || s.landAt != null) seaborne(g, e, s, tms);
       g.enemies.push(e);
       // something that size doesn't arrive quietly
       if (e.boss) {
@@ -1209,7 +1219,7 @@ export function updateGame(g, dt) {
     }
     for (const t of unitHosts(g)) for (const u of t.units) u.atkBuff = 0;
     for (const t of g.towers) {
-      if (t.kind !== "support" || !isBuilt(t, g)) continue;
+      if (t.kind !== "support" || !fights(t, g)) continue;
       const st = getStats(t);
       for (const e of g.enemies) {
         if (e.dead) continue;
@@ -1257,7 +1267,7 @@ export function updateGame(g, dt) {
     for (const k in HERO_HOOKS) HERO_HOOKS[k].buffs?.(g, sdt, tms);
     // Lead to Gold: the transmuter's aura eats armor off everything inside it
     for (const t of g.towers) {
-      if (t.kind !== "goldworks" || t.branch !== "b" || !isBuilt(t, g)) continue;
+      if (t.kind !== "goldworks" || t.branch !== "b" || !fights(t, g)) continue;
       const st = getStats(t);
       if (!st.shredAura) continue;
       for (const e of g.enemies) {
@@ -1285,7 +1295,7 @@ export function updateGame(g, dt) {
     // and a flight of them can gang up on one bird.
     for (const e of g.enemies) e.airFight = null;
     for (const t of g.towers) {
-      if (t.kind !== "falconry" || !isBuilt(t, g)) continue;
+      if (t.kind !== "falconry" || !fights(t, g)) continue;
       const st = getStats(t);
       if (!st.skyknight) continue;
       if (!t.eagle) t.eagle = { id: nextId(), hp: st.eagleHp, maxHp: st.eagleHp, x: t.x, y: t.y - 44, targetId: null, atkCd: 0, respawn: 0, hurtCd: 0 };
@@ -1445,7 +1455,7 @@ export function updateGame(g, dt) {
       }
     }
     for (const e of g.enemies) {
-      if (e.dead) continue;
+      if (e.dead || e.ship) continue;    // (a longship sails by rime.js, not the road)
       if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen * sdt);
       // Goblin Shaman: a rhythmic chant mends the WHOLE warband
       // Battle Chaplain: the same, but only for those near him, by a share of
@@ -1607,7 +1617,8 @@ export function updateGame(g, dt) {
       const rising = e.riseAt !== undefined && tms - e.riseAt < e.riseMs;
       if (!stunned && !held && !standing && !rising) {
         const slow = (e.immSlow || e.guard > 0) ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
-        const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt;
+        // (WX: weather.js — a squall's foeSpeed / flierSpeed; 1 on a clear day)
+        const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt * WX.foeSpeed * (e.flying ? WX.flierSpeed : 1);
         // every foe walks its OWN lane at its own speed: round a bend the
         // inside lane is shorter, so a foe on it gains road on its neighbours
         // and the outside lane loses some — the column staggers itself.
@@ -1832,7 +1843,7 @@ export function updateGame(g, dt) {
     g.enemies = g.enemies.filter((e) => !e.dead);
 
     for (const t of g.towers) {
-      if (t.kind !== "knight" || !isBuilt(t, g)) continue;
+      if (t.kind !== "knight" || !fights(t, g)) continue;
       syncUnits(t, g);
       const st = getStats(t);
       const slots = unitSlots(t);
@@ -1858,7 +1869,7 @@ export function updateGame(g, dt) {
     // charges crack armor (brittle) and the musket takes the cracked first;
     // the Long Muskets' musketeer spots, and the charges follow his mark.
     for (const t of g.towers) {
-      if (t.kind !== "gunpowder" || !isBuilt(t, g)) continue;
+      if (t.kind !== "gunpowder" || !fights(t, g)) continue;
       const st = getStats(t);
       // --- the bombardier: one charge on one foe, and the iron it throws ---
       // (owner, 2026-09-29: no more circles of damage — "it shoots out pieces
@@ -1959,7 +1970,7 @@ export function updateGame(g, dt) {
     // of ground no tower will ever be allowed to stand on. If the water is
     // quiet they spread out and hold station.
     for (const t of g.towers) {
-      if (t.kind !== "riverwatch" || !isBuilt(t, g)) continue;
+      if (t.kind !== "riverwatch" || !fights(t, g)) continue;
       const st = getStats(t);
       const rt = launchSkiffs(g, t, st);         // its water, and its boats on it
       if (!rt) continue;                         // no water, no watch
@@ -1999,7 +2010,7 @@ export function updateGame(g, dt) {
         // pick the foe furthest along the road that a boat can actually reach
         let mark = null, markQ = 0, markScore = -Infinity;
         for (const e of g.enemies) {
-          if (e.dead || e.flying || e.swimming || isRising(e, tms)) continue;
+          if (e.dead || e.flying || (e.swimming && !e.ship) || isRising(e, tms)) continue;
           const nr = nearOnRiver(e.x, e.y, e);
           if (nr.d > st.range) continue;
           // each skiff may carry her own order (u.aim); without one she follows the hall's
@@ -2060,7 +2071,7 @@ export function updateGame(g, dt) {
     // column walks straight past while the work is done in the grass. Only a
     // crossbow bolt or grave-rot ever finds one.
     for (const t of g.towers) {
-      if (t.kind !== "assassin" || !isBuilt(t, g)) continue;
+      if (t.kind !== "assassin" || !fights(t, g)) continue;
       syncUnits(t, g);
       const st = getStats(t);
       const slots = unitSlots(t);
@@ -2147,7 +2158,7 @@ export function updateGame(g, dt) {
     resolveStrikes(g, tms);   // the falcons' talons landing
     for (const t of g.towers) {
       t.anim = Math.max(0, t.anim - sdt * 4);
-      if (!isBuilt(t, g)) continue;
+      if (!fights(t, g)) continue;
       if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin" || t.kind === "riverwatch" || t.kind === "gunpowder") continue;
       if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger
       // The Sunforge holds its beam instead of firing: same target, growing
@@ -2493,7 +2504,7 @@ export function updateGame(g, dt) {
       // they pass through (no homing, no arrival hit), `hitsLeft` bodies
       if (p.kind === "spike" || p.kind === "ball" || p.kind === "frag") {
         if (p.kind === "frag") {
-          const e = fragVictim(g, p, Math.min(p.speed * sdt, Math.hypot(p.tx - p.x, p.ty - p.y)));
+          const e = fragVictim(g, p, Math.min(p.speed * WX.shotSpeed * sdt, Math.hypot(p.tx - p.x, p.ty - p.y)));
           if (e) {
             pierceStrike(g, p, e, tms);
             g.effects.push({ type: "spark", x: e.x, y: e.y - 5, ttl: 180, gold: p.hot });
@@ -2511,7 +2522,7 @@ export function updateGame(g, dt) {
       if (target) { p.tx = target.x; p.ty = target.y; }
       const dx = p.tx - p.x, dy = p.ty - p.y;
       const d = Math.hypot(dx, dy);
-      const stepLen = p.speed * sdt;
+      const stepLen = p.speed * WX.shotSpeed * sdt;   // (WX.shotSpeed: a squall slows every shot, weather.js)
       if (d <= stepLen + 4) {
         p.done = true;
         // the Powder Works' charge: a tight blast on its mark, then the shrapnel
