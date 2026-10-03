@@ -680,8 +680,9 @@ textures." What came of it:
 ## The campaign map (`src/ui/mapArt.js`)
 
 - Roads: good as they are — well connected.
-- **A continent to travel** (owner, 2026-09-25): the map is 770x690 units
-  (`MAP` in mapArt.js; y from -250), each chapter with room for 11 stops;
+- **A continent to travel** (owner, 2026-09-25; grown 2026-10-03 for
+  fifteen stops a chapter): the map is 850x830 units (`MAP` in mapArt.js;
+  y from -310), each chapter with room for 15 stops;
   waypoints, name scrolls, road width and dressing keep their on-screen size,
   so the countryside between stops fills with the region's own dressing.
   The layout lives in `src/data/mapLayout.js` (coastlines + waypoints). The
@@ -704,7 +705,22 @@ textures." What came of it:
   The map tells the truth: a level whose realm has `rivers` gets a river
   through its waypoint, one with `ponds` a lake or pool beside it, and no
   river passes near a dry level. After adding a level or moving water, run
-  `node scripts/check-map-water.mjs` and look at `map-lab.html`.
+  `node scripts/check-map-water.mjs` and look at `map-lab.html`. It also
+  fails a DRY level within 10 units of a lake.
+- **Growing a country** (2026-10-03): new land is new lobes of coastline
+  (REGIONS in mapLayout.js), never a rescale — the hand-placed dressing,
+  rivers and set pieces of the old land keep their coordinates. Dress new
+  land with new loops on their own seeds rather than widening the old
+  scatter boxes (that would reshuffle the old land). Check every river
+  mouth, islet, ship, ribbon (`BANNER_AT`) and set piece near a moved coast.
+- **Mountains read as ranges:** `range()` builds peaks up toward its middle
+  (smaller at the rim and ends, snow only on the big central ones) and
+  stands every peak in a skirt of low hills in its country's colour (its
+  foothill palette, tilt and density arguments). No bare grey cones on flat
+  meadow. `river()` takes `flare` to open its last stretch into an estuary.
+- **Never write a non-lake object as `{ x: N, y: N, rx:`** in mapArt.js:
+  the water check reads every such literal as a lake (a dry-ground zone
+  once made the Barrowdowns' waypoint "stand in a lake").
 
 ## The title screen (`src/ui/titleArt.js`)
 

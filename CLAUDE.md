@@ -12,6 +12,29 @@ https://philipwilliams1229.github.io/CrownGuard/ (GitHub Pages, ~1 minute).
 - `art/DESIGN-BRIEF.md` / `art/GEMINI-PROMPTS.md` — sprite sizes and prompts
   if AI-painted images are ever used.
 
+## Fifteen levels a chapter (2026-10-03, owner request)
+
+Each chapter grew from 11 to 15 levels: Greenwood gullwick, millrace,
+thistlecrag, kingstones (realms in the new `src/data/realms-greenwood.js`);
+Iron brinewick, ironmouth, wardenmoor, blackcliff; Hollow lanternfen,
+abbeymere, barrowdowns, deadweir (realms at the end of realms-iron.js /
+realms-hollow.js). Shape: 7 twenty-wave levels, 7 of twenty-five and the
+boss (the Greenwood 6 + 8). New levels take windows and gold BETWEEN their
+neighbours', so the levels already played keep theirs.
+- `isUnlocked` also opens a level that is already cleared, so an old save
+  keeps what it won when a new map lands before it; "Continue" then goes to
+  the first new map not yet cleared.
+- `xpFor`'s depth term runs 0 -> 1.5 over a chapter whatever its length.
+- The continent grew new coast lobes (see the style guide, "The campaign
+  map"); `check-map-water.mjs` holds each board's water (river / ponds /
+  coast / dry) to its waypoint — a new board must keep the water kind the
+  map shows. Pending the owner's playtest: Warden Moor bleeds ~2x Crowstair
+  in the sim (late waves; gold barely moves it), the Lantern Fen bleeds on
+  its wraith wave, the Kingstones is easy; Blackcliff's gold went 1200 ->
+  1350. Art asked for by the board artists: a plain standing stone, a
+  watermill, fishing-hamlet pieces, a long-barrow variant, rivers with a
+  width per point (Ironmouth's estuary is overlapping segments).
+
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
@@ -760,8 +783,8 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   a new best on that map pays the gain in full plus half the rest; a replay
   pays half). Spent ONLY on the Home Screen (War Council → Heroes), never in
   battle: five stat talents + one upgrade line per ability, five ranks at
-  `TALENT_COSTS` 5/6/8/10/13 (294 to max a hero; ~24 maps × ~9-10 per first
-  run). Bank the stars AFTER `bankLevel`, which saves the profile it's given.
+  `TALENT_COSTS` 5/6/8/10/13 (294 to max a hero; 45 maps since 2026-10 ×
+  ~9-10 per first run). Bank the stars AFTER `bankLevel`, which saves the profile it's given.
 - Hero abilities (`HERO_ABILITIES`): two per hero, fired from the hero's
   menu in battle (tap the hero button). The first is ready from the start;
   the second wakes at level 5 of that battle. Engine: `fireHeroAbility` in

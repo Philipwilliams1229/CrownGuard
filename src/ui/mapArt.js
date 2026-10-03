@@ -154,9 +154,10 @@ const FEN_GROUND = {
 };
 // The barrow downs on the fen's north shore stand above the bog: drier,
 // mossier ground and almost no standing water (1 at their heart, 0 off them).
-const DOWNS = { x: 566, y: -258, rx: 132, ry: 40 };
+// (not written as a lake's `{ x, y, rx }`: check-map-water.mjs reads those)
+const DOWNS = { cx: 566, cy: -258, rx: 132, ry: 40 };
 const downsAt = (ax, ay) => {
-  const dx = (ax / U + MAP.x - DOWNS.x) / DOWNS.rx, dy = (ay / U + MAP.y - DOWNS.y) / DOWNS.ry, e = dx * dx + dy * dy;
+  const dx = (ax / U + MAP.x - DOWNS.cx) / DOWNS.rx, dy = (ay / U + MAP.y - DOWNS.cy) / DOWNS.ry, e = dx * dx + dy * dy;
   return e >= 1 ? 0 : smooth(Math.min(1, (1 - e) * 2.2));
 };
 const fenPx = (x, y, band) => {
@@ -477,7 +478,7 @@ export const RIVERS = [
   // the Iron river, out of its tarn above the ford, through Ironford, south
   // past the Gallows Cross road, and out through Ironmouth, where it opens
   // into a broad estuary to the southern sea
-  river({ ctrl: [[544, 208], [550, 229], [556, 255], [562, 280], [570, 309], [566, 340], [564, 374], [563, 408], [553, 450], [554, 472], [557, 494]], pins: [[544, 208], [562, 280], [553, 450]], seed: 15, w0: 2.3, w1: 5, flare: [36, 9] }),
+  river({ ctrl: [[544, 208], [550, 229], [556, 255], [562, 280], [570, 309], [566, 340], [564, 374], [563, 408], [553, 450], [553, 468], [557, 486], [559, 496]], pins: [[544, 208], [562, 280], [553, 450]], seed: 15, w0: 2.3, w1: 5, flare: [44, 13] }),
   // the Coldwater: two becks off the eastern peaks meeting at Coldwater,
   // then south to the sea
   river({ ctrl: [[596, 288], [606, 301], [619, 316], [635, 330]], pins: [[635, 330]], seed: 25, w0: 1.6, w1: 2.4, amp: 4 }),
@@ -491,7 +492,7 @@ export const RIVERS = [
   river({ ctrl: [[496, -210], [501, -174], [503, -130], [516, -100], [528, -70], [533, -42], [540, -14], [550, 22]], pins: [[503, -130], [533, -42]], seed: 17, w0: 1.9, w1: 4, amp: 7, fen: true }),
   // the Lantern creek: out of the Stillmere, slow through Bellmarsh, west
   // under the mire and through Lanternfen, and out to the western sea
-  river({ ctrl: [[466, -80], [450, -68], [430, -64], [410, -54], [391, -42], [375, -47], [357, -55], [337, -64], [318, -78], [301, -86], [284, -92], [262, -98], [246, -101]], pins: [[466, -80], [391, -42], [318, -78]], seed: 18, w0: 1.7, w1: 3.4, amp: 6, fen: true }),
+  river({ ctrl: [[466, -80], [450, -68], [430, -64], [410, -54], [391, -42], [375, -47], [357, -55], [337, -64], [318, -78], [301, -86], [284, -92], [262, -98], [246, -101]], pins: [[466, -80], [391, -42], [318, -78]], seed: 18, w0: 1.7, w1: 4.2, amp: 6, fen: true }),
   // the Weepwater's two arms, meeting at Drownholm and running down into
   // the Stillmere
   river({ ctrl: [[438, -204], [446, -190], [455, -175]], pins: [[455, -175]], seed: 27, w0: 1.4, w1: 2.2, amp: 3, fen: true }),
@@ -1299,11 +1300,12 @@ const lanternPost = (v) => spr(`hf-lamp${v % 3}`, 3, 6, (c) => {
 // the Dead Weir: a broken timber weir across the black river, the water
 // spilling white through its gaps
 const weir = () => spr("hf-weir", 6, 9, (c) => {
-  c.fillStyle = HF.barkDk; for (let k = 0; k < 5; k++) if (k !== 2) c.fillRect(2.2 + (k % 2) * 0.4, 0.6 + k * 1.7, 1.4, 1.3);
-  c.fillStyle = HF.bark; for (let k = 0; k < 5; k++) if (k !== 2) c.fillRect(2.2 + (k % 2) * 0.4, 0.6 + k * 1.7, 1.4, 0.4);
+  c.fillStyle = HF.stDk; for (let k = 0; k < 5; k++) if (k !== 2) c.fillRect(2 + (k % 2) * 0.4, 0.6 + k * 1.7, 1.8, 1.4);
+  c.fillStyle = HF.stLt; for (let k = 0; k < 5; k++) if (k !== 2) c.fillRect(2 + (k % 2) * 0.4, 0.6 + k * 1.7, 1.8, 0.5);
+  c.fillStyle = HF.barkLt; c.fillRect(2.6, 3.8, 0.5, 1.6);
   c.fillStyle = "#c8d8d8"; c.fillRect(3.8, 1.2, 1.2, 0.4); c.fillRect(3.6, 4.2, 1.8, 0.5); c.fillRect(4.2, 5, 1, 0.4); c.fillRect(4, 7.4, 1.2, 0.4);
   c.fillStyle = HF.waterLt; c.fillRect(5, 3.2, 0.8, 0.3); c.fillRect(4.8, 6.4, 0.9, 0.3);
-}, 0);
+});
 // will-o'-the-wisps: a teal light and its glow
 const wisp = (v) => spr(`hf-wisp${v}`, 3, 3, (c) => {
   c.fillStyle = HF.fireDk; c.fillRect(0.5, 1, 2, 1); c.fillRect(1, 0.5, 1, 2);
@@ -1437,7 +1439,8 @@ function* dressing(base) {
     for (const ty of [283, 318, 326, 276]) {
       let i = 0; fox.pts.forEach(([, py], j) => { if (Math.abs(py - ty) < Math.abs(fox.pts[i][1] - ty)) i = j; });
       const [rx, ry] = fox.pts[i], x = rx + 0.6, y = ry + 0.4;
-      if (busy(x + 4, y - 3, 1.5) || busy(x + 7, y - 1, 0.5) || !clearOf(x + 4, y, 6)) continue;
+      // (blind to the river itself: the wheel stands in it)
+      if (dryBusy(x + 4, y - 3, 1.5) || dryBusy(x + 7, y - 1, 0.5) || !clearOf(x + 4, y, 6)) continue;
       add(watermill(), x, y, 2.8, 2, 7.4); taken.push([x + 4, y, 6]); break;
     }
   }
@@ -1456,15 +1459,19 @@ function* dressing(base) {
   // shrink toward its rim (`axis` tilts that spine, in radians), and each
   // peak stands in a skirt of its country's own low hills (`foot`), drawn in
   // front of its base, so no grey cone rises straight off flat meadow.
-  const range = (cx, cy, rx, ry, z, pal, seed, big = 1, foot = null, axis = 0) => {
-    const n = Math.round((rx * ry) / 20) + 20, ca = Math.cos(axis), sa = Math.sin(axis);
+  // Only the big peaks of the spine carry snow; `dense` thins the range.
+  const range = (cx, cy, rx, ry, z, pal, seed, big = 1, foot = null, axis = 0, dense = 1) => {
+    const n = Math.round(((rx * ry) / 20 + 20) * dense), ca = Math.cos(axis), sa = Math.sin(axis);
+    const bare = pal.snow ? { ...pal, snow: null, key: pal.key + "n" } : pal;
     for (let k = 0; k < n; k++) {
       const a = hash(seed, k * 3) * Math.PI * 2, rr = Math.sqrt(hash(seed, k * 3 + 1));
       const lx = Math.cos(a) * rx * rr, ly = Math.sin(a) * ry * rr;
       const x = cx + lx * ca - ly * sa, y = cy + lx * sa + ly * ca;
       // off the spine (the long axis) the peaks fall away
-      const spine = Math.abs(rx >= ry ? Math.sin(a) : Math.cos(a)) * rr;
-      const w = Math.round((12 + hash(seed, k * 3 + 2) * 10) * big * (1.12 - 0.55 * spine)), h = Math.round(w * (0.75 + hash(seed, k) * 0.2));
+      // off the spine (the long axis) the peaks fall away, and a little
+      // toward its two ends too
+      const spine = Math.abs(rx >= ry ? Math.sin(a) : Math.cos(a)) * rr, along = Math.abs(rx >= ry ? Math.cos(a) : Math.sin(a)) * rr;
+      const w = Math.round((12 + hash(seed, k * 3 + 2) * 10) * big * (1.18 - 0.55 * spine - 0.3 * along * along)), h = Math.round(w * (0.75 + hash(seed, k) * 0.2));
       if (w < 7) continue;
       if (!onZone(x, y, z, 3) || !onZone(x - w / 2, y, z, 1) || !onZone(x + w / 2, y, z, 1)) continue;
       // the peak must not stand on a road, a name or a waypoint
@@ -1474,7 +1481,7 @@ function* dressing(base) {
         if (busy(x + sx, y + sy, 0.5)) clearAll = false;
       }
       if (!clearAll || !free(x, y - h / 3, w * 0.55)) continue;
-      add(mountain(w, h, seed * 100 + k, pal), x, y, w * 0.4, w / 2, h - 0.4);
+      add(mountain(w, h, seed * 100 + k, w >= 17 ? pal : bare), x, y, w * 0.4, w / 2, h - 0.4);
       taken.push([x, y - h / 3, w * 0.55]);
       // the foothills across its foot
       if (!foot) continue;
@@ -1487,9 +1494,10 @@ function* dressing(base) {
   };
   // the isthmus wall: grey peaks on the stony upland, its ridge running from
   // the vale's shoulder north-east into the Marches
-  range(331, 229, 62, 50, 3, ROCK, 1, 1, ISTH_HILL, 0.75);
-  // the vale's two little ranges are crags, not alps: no snow, in green hills
-  range(204, -3, 37, 14, 0, CRAG, 4, 0.72, HILLG);
+  range(331, 229, 62, 50, 3, ROCK, 1, 1, ISTH_HILL, 0.75, 0.7);
+  // the vale's one range is Thistlecrag's crags, not alps: bare rock, no
+  // snow, in a skirt of green hills (the knot of cones once on the
+  // Ravenscar coast is downland now: see the hills below)
   range(52, 40, 22, 18, 0, CRAG, 22, 0.72, HILLG, 1.3);
   yield;
   // rolling hills in the vale and on the moors
@@ -1512,6 +1520,7 @@ function* dressing(base) {
   hills(135, -40, 45, 28, 0, HILLG, 34);
   hills(270, 360, 34, 22, 0, HILLG, 35);
   hills(146, 4, 18, 10, 0, HILLG, 36);
+  hills(214, -2, 30, 10, 0, HILLG, 37);
 
   // the woods
   const oaks = (k) => (hash(k, 9) < 0.72 ? oak(Math.floor(hash(k, 8) * 4)) : pine(Math.floor(hash(k, 8) * 3)));
