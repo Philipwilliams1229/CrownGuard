@@ -10,6 +10,10 @@
 //   drownholm  SIX BRIDGES    two arms of the Weepwater, three lanes over both
 //   reedmaze   BOG MAZE       a coiled road with a bog pool in every pocket
 //   lichgate   THE TOMBS      the shortest road in the fen, through a graveyard
+//   lanternfen CORPSE-LIGHTS  a meandering creek eats the best bend; build on its necks
+//   abbeymere  THE CLOISTER   a flooded cloister walk round a one-hall garth island
+//   barrowdowns THE BARROWS   the one dry board: the barrows sit on the best seats
+//   deadweir   THE SLUICES    one crossing, over a weir's three sluice bridges in a row
 // Pond x/y are grid pixels (tile c's centre is c * 48 + 24); river points are
 // [col, row] like the road's. Keep ponds 32+ px clear of the road's centre.
 //
@@ -120,36 +124,135 @@ export default function moreHollowRealms(hollowVariant) {
     ),
 
     // ---- added when the chapter grew to fifteen (2026-10-03) ----
-    // lanternfen  the Bellmarsh creek running out to the western sea (river)
-    // abbeymere   a drowned abbey in its mere (ponds)
-    // barrowdowns the high downs at the fen's north edge (dry)
-    // deadweir    the Blackwater over the drowned kingdom's weir (river)
+    // (each board's water kind is fixed: the continent map shows it, and
+    // scripts/check-map-water.mjs holds the two to each other)
+    // A creek of black water winds down through the middle of the board and
+    // out to the western sea, and the road crosses it just once. Its loops
+    // take the heart of the middle bend: what is left are the necks of land
+    // inside each meander, and those are the seats that reach both lanes.
+    // The coil before the gate is the board's one generous field.
     lanternfen: hollowVariant(
       "lanternfen", "The Lantern Fen", "CORPSE-LIGHTS",
-      "Corpse-lights over the creek where it runs out to the western sea.",
+      "Corpse-lights over a black creek winding out to the western sea. Its loops have eaten the heart of the middle bend — build on the necks of land inside them, and reach over the water.",
       20261031,
-      [[0.9, 2], [4, 2], [4, 7], [9, 7], [9, 3], [13.7, 3]],
-      { rivers: [{ pts: [[6.5, -0.5], [6.6, 5], [6.4, 10.5]], w: 26 }] },
+      [[0.9, 1.2], [2.3, 1.2], [2.3, 6.6], [5.6, 6.6], [5.6, 2.6], [12.3, 2.6], [12.3, 5.2], [9.9, 5.2], [9.9, 8], [13.7, 8]],
+      {
+        rivers: [{ pts: [[7.9, -0.5], [7.7, 1.6], [7.8, 3.0], [7.3, 3.7], [6.9, 4.3], [7.3, 4.9], [8.3, 5.3], [8.7, 5.9], [8.3, 6.6], [7.2, 7.2], [5.6, 8.1], [3.6, 8.6], [1.6, 8.3], [-0.5, 8.5]], w: 26 }],
+        // side pools the creek left behind: one by its mouth, one under the wood
+        ponds: [
+          { x: 130, y: 404, w: 64, h: 34, t: "swamp" },
+          { x: 446, y: 66, w: 60, h: 30, t: "swamp" },
+        ],
+        // the corpse-lights themselves, on stakes along the creek's banks
+        decor: [
+          { x: 424, y: 40, t: "fencandle", s: 0.95 }, { x: 386, y: 230, t: "fencandle", s: 0.9 },
+          { x: 462, y: 324, t: "fencandle", s: 0.85 }, { x: 316, y: 430, t: "fencandle", s: 1 },
+          { x: 208, y: 407, t: "fencandle", s: 0.9 }, { x: 181, y: 462, t: "fencandle", s: 0.95 },
+        ],
+        fenMeadows: 14,
+        // witch-fire: the corpse-lights wash the fen a sickly teal
+        light: { tint: "150,204,190", amount: 0.22, vignette: 0.52 },
+        decorRecipe: { count: 28, types: ["reedbed", "fendead", "fenwillow", "bogpool", "fenbones", "fencandle", "reedbed", "fengrave", "fendead", "fensnag"] },
+      },
     ),
+
+    // The abbey the fen drowned. The mere has filled the cloister walks and
+    // left the garth standing in the middle like an island; the road walks
+    // three sides of the cloister, so the one hall that fits on the garth
+    // reaches all three lanes over the water. The rest is narrow verge.
     abbeymere: hollowVariant(
-      "abbeymere", "Abbeymere", "THE ABBEY",
-      "An abbey drowned to its bell-tower, its mere filling the cloister.",
+      "abbeymere", "Abbeymere", "THE CLOISTER",
+      "An abbey drowned to its bell-tower. The mere fills the cloister walks and leaves the garth an island in the middle — room for one hall, and it reaches every lane round the cloister.",
       20261032,
-      [[0.9, 1.5], [12, 1.5], [12, 8], [3, 8], [3, 4.5], [13.7, 4.5]],
-      { ponds: [{ x: 360, y: 300, w: 160, h: 70, t: "swamp" }] },
+      [[0.9, 8.3], [3.4, 8.3], [3.4, 1.4], [6.38, 1.4], [6.38, 6.5], [10.04, 6.5], [10.04, 1.4], [12.4, 1.4], [12.4, 5], [13.7, 5]],
+      {
+        ponds: [
+          // the four flooded walks round the garth
+          { x: 380, y: 248, w: 32, h: 88, t: "swamp" },
+          { x: 456, y: 248, w: 32, h: 88, t: "swamp" },
+          { x: 418, y: 210, w: 100, h: 32, t: "swamp" },
+          { x: 418, y: 286, w: 100, h: 32, t: "swamp" },
+          // the monks' fishpond, below the cloister
+          { x: 600, y: 420, w: 100, h: 40, t: "swamp" },
+        ],
+        // the drowned church north of the cloister: its bell-tower's top, the
+        // altar shrine, a sunk saint, the lychyard rails
+        decor: [
+          { x: 418, y: 132, t: "bellstone", s: 1.15 },
+          { x: 362, y: 120, t: "fenshrine", s: 1 },
+          { x: 474, y: 118, t: "fenstatue", s: 1 },
+          { x: 382, y: 156, t: "fencandle", s: 0.85 }, { x: 456, y: 160, t: "lichfence", s: 0.95 },
+        ],
+        light: { tint: "168,180,222", amount: 0.21, vignette: 0.5 },
+        decorRecipe: { count: 18, types: ["fengrave", "lichfence", "fenwillow", "fengrave", "reedbed", "fendead", "fencandle", "fenstatue", "fengrave", "bogpool"] },
+      },
     ),
+
+    // The downs at the fen's north edge: high, dry and bare, and the old
+    // kings' barrows crowd every rise. No water at all — the one dry board
+    // with room to build, except that the mounds stand on the best seats,
+    // so the halls fight for the gaps between them.
     barrowdowns: hollowVariant(
-      "barrowdowns", "The Barrowdowns", "THE DOWNS",
-      "The high downs at the fen's north edge, barrow beside barrow.",
+      "barrowdowns", "The Barrowdowns", "THE BARROWS",
+      "The high dry downs at the fen's north edge, the old kings' barrows shoulder to shoulder. Room to build at last — but the mounds stand on the best ground, and every one of them is open.",
       20261033,
-      [[0.9, 8], [4, 8], [4, 3], [8, 3], [8, 7], [11, 7], [11, 2], [13.7, 2]],
+      [[0.9, 4.6], [4.2, 4.6], [4.2, 1.4], [12, 1.4], [12, 4.4], [7, 4.4], [7, 8.2], [13.7, 8.2]],
+      {
+        // drier turf: fewer wet hollows and sedge meadows, a paler sward
+        fenHollows: 2, fenMeadows: 3,
+        GRASS: "#475040", GRASS_DK: "#384031", GRASS_LT: "#5d684c", TUFT: "#30382b",
+        light: { tint: "184,190,214", amount: 0.18, vignette: 0.46 },
+        // the edge of the downs: dead and broken trees, no reeds up here
+        wood: { types: [["fendead", 5], ["fensnag", 2.2], ["fenwillow", 0.8]], hem: false, depth: 0.85 },
+        decor: [
+          // a row of barrows along the rise inside the long bend
+          { x: 404, y: 166, t: "fenbarrow", s: 1.3 }, { x: 470, y: 158, t: "fenbarrow", s: 1.15 },
+          { x: 536, y: 168, t: "fenbarrow", s: 1.35 }, { x: 300, y: 150, t: "fencairn", s: 1.1 },
+          // the kings' barrow field on the open down below, in a line down the slope
+          { x: 74, y: 318, t: "fenbarrow", s: 1.1 }, { x: 132, y: 356, t: "fenbarrow", s: 1.4 },
+          { x: 194, y: 398, t: "fenbarrow", s: 1.2 }, { x: 258, y: 440, t: "fenbarrow", s: 1.45 },
+          { x: 214, y: 324, t: "fencairn", s: 1.0 }, { x: 96, y: 430, t: "fencairn", s: 1.15 },
+          // and along the ridgeway's north verge
+          { x: 330, y: -4, t: "fenbarrow", s: 1.1 }, { x: 452, y: 0, t: "fenbarrow", s: 1.25 },
+          // and two more in the field inside the last bend
+          { x: 520, y: 326, t: "fenbarrow", s: 1.3 }, { x: 636, y: 316, t: "fenbarrow", s: 1.1 },
+        ],
+        decorRecipe: { count: 32, types: ["fencairn", "fengrave", "fenbones", "fencairn", "fensnag", "fengrave", "fencandle", "fendead", "fencairn", "fenbarrow", "fengrave"] },
+      },
     ),
+
+    // The Blackwater comes down from the throne, spreads into the still pool
+    // above the drowned kingdom's weir and pours through its three sluices.
+    // The road crosses once — over all three sluice bridges in a row — and
+    // that crossing is the last place to hold before the gate.
     deadweir: hollowVariant(
-      "deadweir", "The Dead Weir", "THE WEIR",
-      "The Blackwater pouring over the drowned kingdom's weir.",
+      "deadweir", "The Dead Weir", "THE SLUICES",
+      "The Blackwater pours through the drowned kingdom's weir. The road crosses it once, over three sluice bridges in a row — the last place to hold before the throne, and the court knows it.",
       20261034,
-      [[0.9, 2], [4, 2], [4, 7], [9, 7], [9, 3], [13.7, 3]],
-      { rivers: [{ pts: [[6.5, -0.5], [6.6, 5], [6.4, 10.5]], w: 28 }] },
+      [[0.9, 1.4], [6.4, 1.4], [6.4, 3.9], [2.4, 3.9], [2.4, 8.2], [6.6, 8.2], [6.6, 6.4], [11.8, 6.4], [11.8, 3.2], [13.7, 3.2]],
+      {
+        rivers: [
+          // the Blackwater above the weir, and below it
+          { pts: [[9.0, -0.5], [9.2, 0.8], [9.8, 1.9], [9.5, 3.8]], w: 36 },
+          { pts: [[9.5, 7.9], [9.3, 8.9], [9.6, 10.5]], w: 34 },
+          // the three sluices through the weir
+          { pts: [[8.5, 4.4], [8.5, 7.9]], w: 18 },
+          { pts: [[9.5, 4.4], [9.5, 7.9]], w: 18 },
+          { pts: [[10.5, 4.4], [10.5, 7.9]], w: 18 },
+        ],
+        // the still pool backed up above the weir, and the pool it falls into
+        ponds: [
+          { x: 480, y: 196, w: 140, h: 76, t: "swamp" },
+          { x: 480, y: 404, w: 136, h: 40, t: "swamp" },
+        ],
+        decor: [
+          // the drowned kingdom's kings, sunk to the chest, guard the weir
+          { x: 432, y: 448, t: "fenstatue", s: 1.1 },
+          { x: 530, y: 452, t: "fenstatue", s: 1.05 },
+        ],
+        light: { tint: "160,176,220", amount: 0.23, vignette: 0.54 },
+        decorRecipe: { count: 20, types: ["fenstatue", "fendead", "fengrave", "lichfence", "fenwillow", "fenshrine", "fencandle", "reedbed", "fenbones", "fendead"] },
+      },
     ),
   };
 }

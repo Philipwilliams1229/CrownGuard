@@ -42,15 +42,20 @@ const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
 // islets of no account, on top of the three chapters' own coastlines.
 const ISTHMUS = "M270,156 C315,146 360,179 394,208 C425,241 421,291 385,301 C351,311 307,284 288,254 C262,216 255,170 270,156 Z";
 const ISLES = [
-  "M31,-48 C24,-61 37,-71 51,-68 C65,-65 68,-51 58,-41 C48,-34 34,-37 31,-48 Z",
-  "M222,-128 C219,-141 233,-148 243,-144 C254,-141 254,-127 243,-120 C233,-116 226,-120 222,-128 Z",
-  "M333,333 C330,323 340,318 349,321 C357,326 354,337 345,340 C338,342 335,338 333,333 Z",
+  // the lighthouse isle off the north-west headland
+  "M21,-118 C14,-131 27,-141 41,-138 C55,-135 58,-121 48,-111 C38,-104 24,-107 21,-118 Z",
+  // a skerry in the strait under the fen's north-west shore
+  "M363,-272 C360,-285 374,-292 384,-288 C395,-285 395,-271 384,-264 C374,-260 367,-264 363,-272 Z",
+  // a little isle between the vale's south-east lobe and the isthmus
+  "M350,383 C347,373 357,368 366,371 C374,376 371,387 362,390 C355,392 352,388 350,383 Z",
   // a longer isle out in the western sea
   "M104,-150 C98,-164 116,-176 136,-172 C158,-168 172,-160 168,-148 C164,-136 142,-132 124,-136 C112,-139 106,-142 104,-150 Z",
 ];
 // zone ids: 0-2 the chapters, 3 the isthmus (a mountain wall), 4 the islets
 // The set pieces stand on land the coast may not eat: [zone, [x, y]].
 const SET = { castle: [143, 323], citadel: [690, 116], ruin: [686, -152] };
+// broad sandy strands on the vale's coast: [x, y, radius]
+const SANDS = [[298, 362, 30]];
 const SET_LAND = [[0, SET.castle], [1, SET.citadel], [2, SET.ruin]];
 export const ZONES = [...CHAPTERS.map((c) => c.region), ISTHMUS, ISLES];
 
@@ -147,9 +152,16 @@ const FEN_GROUND = {
   heath: ["#342f3c", "#423c4e", "#524a60"].map(rgb),
   cotton: rgb("#d8d8c8"), cottonDk: rgb("#8a8c7e"), rust: rgb("#6e5038"), tuft: rgb("#232a26"),
 };
+// The barrow downs on the fen's north shore stand above the bog: drier,
+// mossier ground and almost no standing water (1 at their heart, 0 off them).
+const DOWNS = { x: 566, y: -258, rx: 132, ry: 40 };
+const downsAt = (ax, ay) => {
+  const dx = (ax / U + MAP.x - DOWNS.x) / DOWNS.rx, dy = (ay / U + MAP.y - DOWNS.y) / DOWNS.ry, e = dx * dx + dy * dy;
+  return e >= 1 ? 0 : smooth(Math.min(1, (1 - e) * 2.2));
+};
 const fenPx = (x, y, band) => {
   const t = band < 0.27 ? 0 : band > 0.75 ? 2 : 1, b = bayer(x, y) * 0.05, F = FEN_GROUND;
-  const m = fbm(x, y, 34, 24);
+  const m = fbm(x, y, 34, 24) + downsAt(x, y) * 0.2;
   const pal = m > 0.6 + b ? F.moss : m < 0.4 - b ? F.heath : F.bog;
   const r = hash((x >> 1) * 5 + 3, (y >> 1) * 7 + 1);
   if (r < 0.007) return (y & 1) ? F.cottonDk : F.cotton;
@@ -286,6 +298,11 @@ function* paintBase() {
       if (col === p.mid && fbm(x, y, 40, 21 + z) > 0.63 + bayer(x, y) * 0.05) col = p.alt;
       // a strip of beach on the lower coasts of the green lands
       if ((z === 0 || z === 4) && inland[i] < 5 && fbm(x, y, 20, 31) > 0.5) col = p.sand;
+      // and the broad strands (Gullwick Sands), wider where nearer their heart
+      else if (z === 0 && inland[i] < 16) for (const [sx, sy, sr] of SANDS) {
+        const dd = Math.hypot(x / U + MAP.x - sx, y / U + MAP.y - sy) / sr;
+        if (dd < 1 && inland[i] < (1 - dd) * 16 + (fbm(x, y, 12, 32) - 0.5) * 8) col = p.sand;
+      }
       put(i, col);
       continue;
     }
@@ -417,7 +434,9 @@ const normals = (pts) => pts.map((_, i) => {
   const tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty) || 1;
   return [-ty / l, tx / l];
 });
-function river({ ctrl, pins = [], seed, w0, w1, amp = 8, fen = false }) {
+// flare: [len, extra] opens the last `len` units into an estuary, `extra`
+// units wider at the mouth than the river's own w1.
+function river({ ctrl, pins = [], seed, w0, w1, amp = 8, fen = false, flare = null }) {
   const base = spline(ctrl);
   const cum = [0];
   for (let i = 1; i < base.length; i++) cum.push(cum[i - 1] + Math.hypot(base[i][0] - base[i - 1][0], base[i][1] - base[i - 1][1]));
@@ -436,7 +455,10 @@ function river({ ctrl, pins = [], seed, w0, w1, amp = 8, fen = false }) {
     const off = ((fbm(sa * 3, seed * 7.3, 66, seed) - 0.5) * 2 * amp + (fbm(sa * 9, seed * 3.1, 36, seed + 5) - 0.5) * 2 * amp * 0.45) * env;
     mid.push([base[i][0] + nb[i][0] * off, base[i][1] + nb[i][1] * off]);
   }
-  const hw = mid.map((_, i) => ((w0 + (w1 - w0) * (cum[i] / L)) / 2) * (0.82 + fbm(cum[i] * 6, seed, 30, seed + 9) * 0.36));
+  const hw = mid.map((_, i) => {
+    const open = flare ? smooth(Math.max(0, Math.min(1, (cum[i] - (L - flare[0])) / flare[0]))) * flare[1] : 0;
+    return ((w0 + (w1 - w0) * (cum[i] / L) + open) / 2) * (0.82 + fbm(cum[i] * 6, seed, 30, seed + 9) * 0.36 * (1 - open / (flare ? flare[1] * 1.6 : 1)));
+  });
   return { pts: mid, hw, nrm: normals(mid), w: Math.max(w0, w1), fen };
 }
 export const RIVERS = [
@@ -445,25 +467,31 @@ export const RIVERS = [
   // the Cinderburn, out of the ridge between the Barrowfields and Cinderholt,
   // down to the Fox Mere
   river({ ctrl: [[235, 58], [224, 77], [231, 97], [223, 117], [214, 138], [216, 160], [206, 180], [204, 206]], pins: [[204, 206]], seed: 19, w0: 1.9, w1: 3.8, amp: 6 }),
-  // out of the Fox Mere to the southern sea
-  river({ ctrl: [[211, 228], [219, 243], [231, 258], [238, 282], [248, 306], [255, 330], [262, 357]], pins: [[211, 228]], seed: 13, w0: 4, w1: 5.4 }),
+  // the Foxwater: out of the Fox Mere, through the mill leat at Millrace and
+  // down across the south-east lobe to the sea, widening into the bay west
+  // of Gullwick Sands
+  river({ ctrl: [[211, 228], [219, 243], [231, 258], [236, 278], [240, 296], [247, 318], [249, 342], [247, 366], [250, 384], [254, 404]], pins: [[211, 228], [240, 296]], seed: 13, w0: 4, w1: 5.4, flare: [22, 2.4] }),
   // the Thornbrook, out of Oakmere's mere, across the farmland, through the
   // ford at Thornbrook and down to the sea
   river({ ctrl: [[75, 199], [88, 213], [105, 223], [128, 235], [150, 248], [158, 269], [165, 292], [167, 320], [172, 357]], pins: [[75, 199], [150, 248]], seed: 14, w0: 2.2, w1: 4, amp: 6 }),
   // the Iron river, out of its tarn above the ford, through Ironford, south
-  river({ ctrl: [[544, 208], [550, 229], [556, 255], [562, 280], [570, 309], [564, 340], [556, 375], [548, 428]], pins: [[544, 208], [562, 280]], seed: 15, w0: 2.3, w1: 4.8 }),
+  // past the Gallows Cross road, and out through Ironmouth, where it opens
+  // into a broad estuary to the southern sea
+  river({ ctrl: [[544, 208], [550, 229], [556, 255], [562, 280], [570, 309], [566, 340], [564, 374], [563, 408], [553, 450], [555, 474], [559, 502]], pins: [[544, 208], [562, 280], [553, 450]], seed: 15, w0: 2.3, w1: 5, flare: [44, 7] }),
   // the Coldwater: two becks off the eastern peaks meeting at Coldwater,
   // then south to the sea
   river({ ctrl: [[596, 288], [606, 301], [619, 316], [635, 330]], pins: [[635, 330]], seed: 25, w0: 1.6, w1: 2.4, amp: 4 }),
-  river({ ctrl: [[656, 262], [650, 285], [642, 308], [635, 330], [638, 352], [644, 374], [648, 404]], pins: [[635, 330]], seed: 26, w0: 1.8, w1: 4, amp: 5 }),
+  river({ ctrl: [[656, 262], [650, 285], [642, 308], [635, 330], [638, 352], [644, 374], [649, 400], [653, 424]], pins: [[635, 330]], seed: 26, w0: 1.8, w1: 4, amp: 5 }),
   // the fen's black rivers: the Blackwater past the Throne of Dust and the
   // Grave Road, out to the eastern sea
-  river({ ctrl: [[632, -212], [645, -186], [655, -162], [658, -130], [650, -100], [660, -70], [675, -42], [704, -50], [743, -62]], pins: [[655, -162], [675, -42]], seed: 16, w0: 2, w1: 4.4, amp: 7, fen: true }),
+  // (it rises in a spring-mire on the northern downs and runs east under the
+  // Dead Weir before it turns south)
+  river({ ctrl: [[582, -250], [597, -246], [614, -241], [634, -232], [643, -212], [646, -186], [655, -162], [658, -130], [650, -100], [660, -70], [675, -42], [704, -50], [743, -62]], pins: [[634, -232], [655, -162], [675, -42]], seed: 16, w0: 1.4, w1: 4.4, amp: 7, fen: true }),
   // the Sorrow, south through the Cairnfields and the Causeway to the sea
   river({ ctrl: [[496, -210], [501, -174], [503, -130], [516, -100], [528, -70], [533, -42], [540, -14], [550, 22]], pins: [[503, -130], [533, -42]], seed: 17, w0: 1.9, w1: 4, amp: 7, fen: true }),
-  // a slow creek through Bellmarsh to the western shore
-  // (it runs out of the Stillmere)
-  river({ ctrl: [[466, -80], [450, -68], [430, -64], [410, -54], [391, -42], [373, -26], [356, -24], [337, -14]], pins: [[466, -80], [391, -42]], seed: 18, w0: 1.7, w1: 3, amp: 6, fen: true }),
+  // the Lantern creek: out of the Stillmere, slow through Bellmarsh, west
+  // under the mire and through Lanternfen, and out to the western sea
+  river({ ctrl: [[466, -80], [450, -68], [430, -64], [410, -54], [391, -42], [375, -47], [357, -55], [337, -64], [318, -78], [301, -86], [284, -92], [262, -98], [246, -101]], pins: [[466, -80], [391, -42], [318, -78]], seed: 18, w0: 1.7, w1: 3.4, amp: 6, fen: true }),
   // the Weepwater's two arms, meeting at Drownholm and running down into
   // the Stillmere
   river({ ctrl: [[438, -204], [446, -190], [455, -175]], pins: [[455, -175]], seed: 27, w0: 1.4, w1: 2.2, amp: 3, fen: true }),
@@ -489,6 +517,8 @@ const MERES = [
   { x: 574, y: -107, rx: 4.4, ry: 3, rot: 0.4, seed: 32, fen: true },
   { x: 589, y: -104, rx: 4, ry: 2.8, rot: 0.1, seed: 33, fen: true },
   { x: 566, y: -145, rx: 3.6, ry: 2.4, rot: 0.5, seed: 34, fen: true },
+  { x: 312, y: -142, rx: 10.5, ry: 6.4, rot: -0.3, seed: 35, fen: true },  // the Abbey Mere, under Abbeymere's ruin
+  { x: 580, y: -251, rx: 4.6, ry: 3, rot: 0.2, seed: 36, fen: true },      // the spring-mire the Blackwater rises in
 ];
 // a lake's shore: a tilted ellipse whose radius wanders with seamless noise
 const lakePath = (c, m, grow = 0) => {
@@ -541,7 +571,7 @@ export const labelBox = (lv) => {
 };
 
 // the chapters' name ribbons, out at sea off their own coasts
-export const BANNER_AT = { greenwood: [178, 372], iron: [662, 422], hollow: [210, -214] };
+export const BANNER_AT = { greenwood: [128, 418], iron: [748, 430], hollow: [206, -226] };
 const BANNERS = CHAPTERS.map((ch) => {
   const n = `${ch.numeral}. ${ch.name}`.length, w = n * 5.6 + 14 + 16, [cx, cy] = BANNER_AT[ch.id];
   return { x: cx - w / 2, y: cy - 8, w, h: 16 };
@@ -560,7 +590,7 @@ const busyField = () => {
   }
   for (const b of BANNERS) c.fillRect(b.x, b.y, b.w, b.h);
   for (const rd of ROADS) { c.lineWidth = 6.4; poly(c, rd.pts); c.stroke(); }
-  for (const rv of RIVERS) { c.lineWidth = rv.w * 2 + 2.4; poly(c, rv.pts); c.stroke(); }
+  for (const rv of RIVERS) { riverPath(c, rv, 1.2 + rv.w * 0.5); c.fill(); }
   for (const m of MERES) { c.beginPath(); c.ellipse(m.x, m.y, m.rx + 2, m.ry + 2, 0, 0, Math.PI * 2); c.fill(); }
   const d = c.getImageData(0, 0, w, h).data, set = new Uint8Array(w * h);
   for (let i = 0; i < w * h; i++) set[i] = d[i * 4 + 3] > 60 ? 1 : 0;
@@ -646,6 +676,10 @@ const mountain = (w, h, seed, pal) => spr(`mt${w}${h}${seed}${pal.key}`, w, h, (
 const ROCK = { key: "r", lit: "#bcb3a2", mid: "#9a9084", dark: "#6e6676", snow: "#f4f0e2", snowDk: "#b4c0d4" };
 const IRONPK = { key: "i", lit: "#b0aa9c", mid: "#8e887c", dark: "#5e5a62", snow: "#eeece2", snowDk: "#aab4c4" };
 const HILLG = { key: "g", lit: "#9cc462", mid: "#82b256", dark: "#5f8f43" };
+// the vale's crags: bare grey-brown rock with no snow on it
+const CRAG = { key: "c", lit: "#bdb4a0", mid: "#9a9080", dark: "#6e6870" };
+// the isthmus's stony upland, for the hills at its peaks' feet
+const ISTH_HILL = { key: "s", mid: "#7c8c66" };
 // a rolling hill: a low lit mound
 const hill = (w, h, seed, pal) => spr(`hl${w}${h}${seed}${pal.key}`, w, h, (c) => {
   c.save(); c.beginPath(); c.rect(0, 0, w, h - 0.01); c.clip();
@@ -786,6 +820,42 @@ const bridge = () => spr("bridge", 7, 5, (c) => {
   c.fillStyle = "#b4ad9c"; c.fillRect(0.4, 1, 6.2, 3);
   c.fillStyle = "#8a8474"; c.fillRect(0.4, 3.2, 6.2, 0.8);
   c.fillStyle = "#cfc7b2"; c.fillRect(0.4, 0.6, 6.2, 0.7); c.fillRect(0.4, 3.9, 6.2, 0.6);
+});
+
+// the mill at Millrace: a whitewashed mill house, its undershot wheel
+// turning in the leat on its west side
+const watermill = () => spr("wmill", 10, 8, (c) => {
+  c.fillStyle = "#e8dcc0"; c.fillRect(3.4, 3.4, 5.8, 4.2);
+  c.fillStyle = "#b8a888"; c.fillRect(7.2, 3.4, 2, 4.2);
+  c.fillStyle = "#a8505c"; poly(c, [[2.8, 3.8], [6.3, 0.6], [9.8, 3.8]]); c.fill();
+  c.fillStyle = "#c46a70"; poly(c, [[2.8, 3.8], [6.3, 0.6], [6.3, 3.8]]); c.fill();
+  c.fillStyle = "#4a3428"; c.fillRect(5.6, 5.6, 1, 2);
+  c.fillStyle = "#e8c070"; c.fillRect(7.6, 4.6, 0.7, 0.7);
+  // the wheel, spokes and paddles, standing in its race
+  c.fillStyle = "#3f7898"; c.fillRect(0, 6.6, 4, 1.4);
+  c.strokeStyle = "#6b4a2e"; c.lineWidth = 0.6;
+  c.beginPath(); c.arc(2, 5, 2, 0, Math.PI * 2); c.stroke();
+  for (let k = 0; k < 4; k++) { const a = k * Math.PI / 4; poly(c, [[2 - Math.cos(a) * 2, 5 - Math.sin(a) * 2], [2 + Math.cos(a) * 2, 5 + Math.sin(a) * 2]]); c.stroke(); }
+  c.fillStyle = "#8cc0d2"; c.fillRect(0.4, 7.2, 1.2, 0.4); c.fillRect(2.8, 7.4, 1, 0.4);
+});
+// a fishing boat drawn up on the sand, and the nets drying on their poles
+const rowboat = (v) => spr(`rboat${v % 2}`, 6, 3, (c) => {
+  c.fillStyle = v % 2 ? "#7a5334" : "#8a6a44"; poly(c, [[0.2, 0.8], [5.8, 0.8], [4.8, 2.6], [1, 2.6]]); c.fill();
+  c.fillStyle = "#5a3c26"; c.fillRect(0.6, 2, 4.8, 0.6);
+  c.fillStyle = v % 2 ? "#a8505c" : "#d8cfb4"; c.fillRect(0.4, 0.8, 5.2, 0.5);
+  c.fillStyle = "#4a3428"; c.fillRect(2.6, 1.2, 0.8, 0.8);
+});
+const nets = () => spr("nets", 7, 4, (c) => {
+  c.fillStyle = "#6b4a2e"; for (const x of [0.6, 3.3, 6]) c.fillRect(x, 0.4, 0.5, 3.4);
+  c.fillStyle = "#8a8474"; poly(c, [[1.1, 0.8], [3.3, 0.8], [3.1, 2.6], [1.3, 2.2]]); c.fill(); poly(c, [[3.8, 0.8], [6, 0.8], [5.8, 2], [4, 2.6]]); c.fill();
+  c.fillStyle = "#5e5a52"; for (let x = 1.4; x < 5.8; x += 0.9) c.fillRect(x, 0.8, 0.3, 1.6);
+}, 0);
+// a ring of grey standing stones on the vale's turf (the King Stones)
+const kingStone = (v) => spr(`kstone${v % 3}`, 2.4, 4.4, (c) => {
+  const h = 3 + (v % 3) * 0.5;
+  c.fillStyle = "#a8a496"; poly(c, [[0.3, 4.2], [0.4, 4.2 - h + 0.5], [1.2, 4.2 - h], [2, 4.2 - h + 0.6], [2.1, 4.2]]); c.fill();
+  c.fillStyle = "#77736a"; c.fillRect(1.4, 4.2 - h + 0.6, 0.7, h - 0.6);
+  c.fillStyle = "#6a9a48"; c.fillRect(0.2, 3.7, 2, 0.5);
 });
 
 // ---- the Iron Marches ---------------------------------------------------
@@ -981,6 +1051,17 @@ const column = (v) => spr(`ik-col${v}`, 14, 5, (c) => {
     if (k < n - 1) { c.fillStyle = IK.wood; c.fillRect(x + 1.2, y - 4.6, 0.3, 3); c.fillStyle = "#dadde4"; c.fillRect(x + 1.2, y - 5, 0.3, 0.5); }
   }
   oxFlag(c, 1 + (n - 1) * 2.1 + 1.3, 3.2, 3.2, 2, 1.2);
+});
+// the salt pans of Brinewick: shallow square pans of brine in stone
+// kerbs, some white with salt, and a raker's hut at their head
+const saltPans = (v) => spr(`ik-salt${v % 2}`, 13, 7, (c) => {
+  c.fillStyle = "#8e8a7e"; c.fillRect(0.4, 1.6, 12.2, 5.2);
+  for (let j = 0; j < 2; j++) for (let i = 0; i < 4; i++) {
+    const k = hash(v * 7 + i, j + 3), x = 0.9 + i * 2.95, y = 2.1 + j * 2.4;
+    c.fillStyle = k < 0.35 ? "#e8ecea" : k < 0.7 ? "#7aa2b0" : "#5f8a9c"; c.fillRect(x, y, 2.4, 1.9);
+    c.fillStyle = k < 0.35 ? "#c4ccce" : "#9ac0cc"; c.fillRect(x, y, 2.4, 0.4);
+  }
+  house(c, v % 2 ? 9.6 : 0.6, 2.2, 2.6, 1.4, 3);
 });
 // a moor fell: a long low swell of turf or heather
 const FELL = [{ key: "mt", mid: "#76825f" }, { key: "mh", mid: "#7a6a58" }];
@@ -1205,6 +1286,24 @@ const fenPost = (v) => spr(`hf-post${v % 2}`, 1.6, 3.2, (c) => {
   c.fillStyle = v % 2 ? HF.barkLt : HF.stLt; c.fillRect(0.3, 0.4, 1, 0.5);
   c.fillStyle = HF.moss; c.fillRect(0.3, 2.4, 1, 0.8);
 });
+// a lantern post of Lanternfen: a crooked stake with a hooded lamp, its
+// witch-fire burning teal (or, on a few, a warm candle)
+const lanternPost = (v) => spr(`hf-lamp${v % 3}`, 3, 6, (c) => {
+  c.fillStyle = HF.barkDk; c.fillRect(1, 1.4, 0.6, 4.6); c.fillRect(1, 1.4, 1.4, 0.4);
+  c.fillStyle = HF.bark; c.fillRect(1, 1.4, 0.3, 4.6);
+  c.fillStyle = "#2e3038"; c.fillRect(1.7, 1.8, 1, 0.4); c.fillRect(1.7, 3.2, 1, 0.3);
+  c.fillStyle = v % 3 === 2 ? "#f2c060" : HF.fire; c.fillRect(1.8, 2.2, 0.8, 1);
+  c.fillStyle = v % 3 === 2 ? "#fff0b8" : HF.fireLt; c.fillRect(2, 2.4, 0.4, 0.5);
+  c.fillStyle = HF.moss; c.fillRect(0.8, 5.4, 1.2, 0.6);
+});
+// the Dead Weir: a broken timber weir across the black river, the water
+// spilling white through its gaps
+const weir = () => spr("hf-weir", 6, 9, (c) => {
+  c.fillStyle = HF.barkDk; for (let k = 0; k < 5; k++) if (k !== 2) c.fillRect(2.2 + (k % 2) * 0.4, 0.6 + k * 1.7, 1.4, 1.3);
+  c.fillStyle = HF.bark; for (let k = 0; k < 5; k++) if (k !== 2) c.fillRect(2.2 + (k % 2) * 0.4, 0.6 + k * 1.7, 1.4, 0.4);
+  c.fillStyle = "#c8d8d8"; c.fillRect(3.8, 1.2, 1.2, 0.4); c.fillRect(3.6, 4.2, 1.8, 0.5); c.fillRect(4.2, 5, 1, 0.4); c.fillRect(4, 7.4, 1.2, 0.4);
+  c.fillStyle = HF.waterLt; c.fillRect(5, 3.2, 0.8, 0.3); c.fillRect(4.8, 6.4, 0.9, 0.3);
+}, 0);
 // will-o'-the-wisps: a teal light and its glow
 const wisp = (v) => spr(`hf-wisp${v}`, 3, 3, (c) => {
   c.fillStyle = HF.fireDk; c.fillRect(0.5, 1, 2, 1); c.fillRect(1, 0.5, 1, 2);
@@ -1316,7 +1415,7 @@ function* dressing(base) {
     }
   };
   // set pieces first, so the woods grow around them
-  const piece = (s, x, y, r, sh, force = false) => { if (!force && busy(x, y - 1, 1)) return; add(s, x, y, sh); taken.push([x, y, r]); };
+  const piece = (s, x, y, r, sh, force = false) => { if (!force && (busy(x, y - 1, 1) || !base.land[artY(y) * AW + artX(x)])) return; add(s, x, y, sh); taken.push([x, y, r]); };
   piece(crownCastle(), ...SET.castle, 14, 9, true);
   piece(windmill(), 207, 275, 6, 3);
   piece(windmill(), 116, 232, 6, 3);
@@ -1325,14 +1424,48 @@ function* dressing(base) {
   for (const [x, y, v] of [[163, 275, 0], [177, 269, 1], [156, 289, 2], [99, 265, 3], [109, 255, 1], [190, 255, 2],
     [124, 140, 0], [132, 134, 2], [116, 132, 1], [226, 36, 3], [236, 44, 0], [40, 222, 1], [48, 228, 3], [232, 220, 1], [240, 228, 0]]) piece(cottage(v), x, y, 4, 2.2);
   for (const [x, y, v] of [[143, 85, 0], [211, 78, 1], [153, 129, 2], [204, 133, 3], [96, 80, 1], [236, 104, 0]]) piece(barrow(v), x, y, 6, 3.5);
+  // the new country: a hamlet under Thistlecrag and one on the Kingstones
+  // road, the fishers of Gullwick Sands, and a farm or two on the lobe
+  for (const [x, y, v] of [[96, 30, 0], [104, 36, 2], [90, 40, 1], [166, -4, 3], [176, -10, 0], [292, 335, 1], [298, 344, 3], [286, 330, 0],
+    [214, 352, 2], [222, 358, 1], [118, -20, 1], [160, 12, 2]]) piece(cottage(v), x, y, 4, 2.2);
+  piece(windmill(), 222, 340, 6, 3);
+  for (const [x, y, v] of [[60, -14, 2], [168, -38, 3], [104, -64, 0]]) piece(barrow(v), x, y, 6, 3.5);
+  // the mill on the Foxwater at Millrace: the first spot by the river, on
+  // the bank, clear of the road and the name
+  {
+    const fox = RIVERS[2];
+    for (const ty of [283, 318, 326, 276]) {
+      let i = 0; fox.pts.forEach(([, py], j) => { if (Math.abs(py - ty) < Math.abs(fox.pts[i][1] - ty)) i = j; });
+      const [rx, ry] = fox.pts[i], x = rx + 0.6, y = ry + 0.4;
+      if (busy(x + 4, y - 3, 1.5) || busy(x + 7, y - 1, 0.5) || !clearOf(x + 4, y, 6)) continue;
+      add(watermill(), x, y, 2.8, 2, 7.4); taken.push([x + 4, y, 6]); break;
+    }
+  }
+  // the King Stones: a ring of grey stones on the turf north-east of the
+  // waypoint
+  for (let k = 0; k < 9; k++) {
+    const a = (k / 9) * Math.PI * 2, x = 153 + Math.cos(a) * 6.5, y = -64 + Math.sin(a) * 3.4;
+    if (!busy(x, y, 0.4)) { add(kingStone(k), x, y, 0.8); taken.push([x, y, 2]); }
+  }
+  // Gullwick Sands: boats drawn up on the beach and the nets on their poles
+  for (const [x, y, v] of [[300, 360, 0], [306, 352, 1], [292, 372, 0], [270, 386, 1], [310, 342, 0]]) if (onZone(x, y, 0, 1) && !busy(x, y, 0.5) && clearOf(x, y, 3)) { add(rowboat(v), x, y, 1.4); taken.push([x, y, 3]); }
+  for (const [x, y] of [[302, 328], [284, 380]]) if (onZone(x, y, 0, 1) && !busy(x, y - 1, 1) && clearOf(x, y, 4)) { add(nets(), x, y, 0); taken.push([x, y, 4]); }
 
-  // mountains: the wall across the isthmus, the Marches' high ranges
-  const range = (cx, cy, rx, ry, z, pal, seed, big = 1) => {
-    const n = Math.round((rx * ry) / 20) + 20;
+  // mountains: the wall across the isthmus, the Marches' high ranges. A
+  // range builds to its spine: the peaks are biggest along its middle and
+  // shrink toward its rim (`axis` tilts that spine, in radians), and each
+  // peak stands in a skirt of its country's own low hills (`foot`), drawn in
+  // front of its base, so no grey cone rises straight off flat meadow.
+  const range = (cx, cy, rx, ry, z, pal, seed, big = 1, foot = null, axis = 0) => {
+    const n = Math.round((rx * ry) / 20) + 20, ca = Math.cos(axis), sa = Math.sin(axis);
     for (let k = 0; k < n; k++) {
       const a = hash(seed, k * 3) * Math.PI * 2, rr = Math.sqrt(hash(seed, k * 3 + 1));
-      const x = cx + Math.cos(a) * rx * rr, y = cy + Math.sin(a) * ry * rr;
-      const w = Math.round((12 + hash(seed, k * 3 + 2) * 10) * big), h = Math.round(w * (0.75 + hash(seed, k) * 0.2));
+      const lx = Math.cos(a) * rx * rr, ly = Math.sin(a) * ry * rr;
+      const x = cx + lx * ca - ly * sa, y = cy + lx * sa + ly * ca;
+      // off the spine (the long axis) the peaks fall away
+      const spine = Math.abs(rx >= ry ? Math.sin(a) : Math.cos(a)) * rr;
+      const w = Math.round((12 + hash(seed, k * 3 + 2) * 10) * big * (1.12 - 0.55 * spine)), h = Math.round(w * (0.75 + hash(seed, k) * 0.2));
+      if (w < 7) continue;
       if (!onZone(x, y, z, 3) || !onZone(x - w / 2, y, z, 1) || !onZone(x + w / 2, y, z, 1)) continue;
       // the peak must not stand on a road, a name or a waypoint
       let clearAll = true;
@@ -1343,11 +1476,21 @@ function* dressing(base) {
       if (!clearAll || !free(x, y - h / 3, w * 0.55)) continue;
       add(mountain(w, h, seed * 100 + k, pal), x, y, w * 0.4, w / 2, h - 0.4);
       taken.push([x, y - h / 3, w * 0.55]);
+      // the foothills across its foot
+      if (!foot) continue;
+      for (let f = 0; f < 2; f++) {
+        const fw = Math.round(w * (0.55 + hash(seed + 7, k * 2 + f) * 0.35)), fx = x + (hash(seed + 9, k * 2 + f) - 0.5) * w * 0.9, fy = y + 0.8 + hash(seed + 11, k + f) * 2.2;
+        if (fw < 6 || !onZone(fx, fy, z, 2) || busy(fx, fy - 1, fw * 0.3)) continue;
+        add(hill(fw, Math.max(3, Math.round(fw * 0.36)), (k + f) % 4, foot), fx, fy, 0);
+      }
     }
   };
-  range(331, 229, 65, 58, 3, ROCK, 1, 1);
-  range(204, -3, 37, 14, 0, ROCK, 4, 0.8);
-  range(52, 40, 24, 20, 0, ROCK, 22, 0.8);
+  // the isthmus wall: grey peaks on the stony upland, its ridge running from
+  // the vale's shoulder north-east into the Marches
+  range(331, 229, 62, 50, 3, ROCK, 1, 1, ISTH_HILL, 0.75);
+  // the vale's two little ranges are crags, not alps: no snow, in green hills
+  range(204, -3, 37, 14, 0, CRAG, 4, 0.72, HILLG);
+  range(52, 40, 22, 18, 0, CRAG, 22, 0.72, HILLG, 1.3);
   yield;
   // rolling hills in the vale and on the moors
   const hills = (cx, cy, rx, ry, z, pal, seed) => {
@@ -1363,6 +1506,12 @@ function* dressing(base) {
   hills(170, 136, 68, 37, 0, HILLG, 5);
   hills(80, 230, 40, 34, 0, HILLG, 23);
   hills(230, 240, 40, 30, 0, HILLG, 24);
+  // the headland's downs round Thistlecrag and the King Stones, and the
+  // swells of the south-east lobe
+  hills(80, 10, 42, 30, 0, HILLG, 33);
+  hills(135, -40, 45, 28, 0, HILLG, 34);
+  hills(270, 360, 34, 22, 0, HILLG, 35);
+  hills(146, 4, 18, 10, 0, HILLG, 36);
 
   // the woods
   const oaks = (k) => (hash(k, 9) < 0.72 ? oak(Math.floor(hash(k, 8) * 4)) : pine(Math.floor(hash(k, 8) * 3)));
@@ -1383,16 +1532,23 @@ function* dressing(base) {
   clump(186, 30, 16, 10, 0, 4.2, oaks, 25);
   clump(40, 170, 12, 16, 0, 4.2, oaks, 26);
   clump(200, 300, 14, 10, 0, 4.2, oaks, 27);
+  // the headland's woods, and copses on the south-east lobe
+  clump(96, -40, 18, 12, 0, 4.2, oaks, 28);
+  clump(176, -58, 13, 9, 0, 3.6, (k) => pine(Math.floor(hash(k, 8) * 3)), 29);
+  clump(46, 2, 10, 14, 0, 4.2, oaks, 30);
+  clump(272, 300, 14, 11, 0, 4.2, oaks, 31);
+  clump(236, 376, 13, 8, 0, 4.2, oaks, 32);
   yield;
   // lone trees across the vale's open ground, sheep in its pastures, hay by
   // its fields
-  for (let k = 0; k < 280; k++) {
-    const x = 34 + hash(k, 201) * 290, y = hash(k, 202) * 330;
+  // (the old vale, then the headland and the south-east lobe on seeds of their own)
+  for (let k = 0; k < 400; k++) {
+    const [x, y] = k < 280 ? [34 + hash(k, 201) * 290, hash(k, 202) * 330] : k < 350 ? [30 + hash(k, 201) * 170, -90 + hash(k, 202) * 92] : [200 + hash(k, 201) * 110, 300 + hash(k, 202) * 95];
     if (!onZone(x, y, 0) || !free(x, y, 5) || busy(x, y, 2)) continue;
     add(oaks(k + 500), x, y, 1.6);
     taken.push([x, y, 3]);
   }
-  for (const [fx, fy, n] of [[129, 197, 6], [211, 163, 5], [51, 218, 4], [58, 143, 4], [120, 290, 4], [230, 200, 4]]) {
+  for (const [fx, fy, n] of [[129, 197, 6], [211, 163, 5], [51, 218, 4], [58, 143, 4], [120, 290, 4], [230, 200, 4], [100, -6, 5], [152, -24, 4], [262, 340, 4], [64, 24, 3]]) {
     for (let k = 0; k < n; k++) {
       const x = fx + (hash(fx, k) - 0.5) * 20, y = fy + (hash(fy, k) - 0.5) * 12;
       if (!onZone(x, y, 0) || !free(x, y, 2) || busy(x, y, 0.5)) continue;
@@ -1400,7 +1556,7 @@ function* dressing(base) {
       taken.push([x, y, 2]);
     }
   }
-  for (const [x, y] of [[190, 286], [105, 292], [224, 299], [180, 303], [130, 262], [90, 240]]) if (onZone(x, y, 0) && free(x, y, 3) && !busy(x, y, 0.5)) { add(hay(), x, y, 1.4); taken.push([x, y, 3]); }
+  for (const [x, y] of [[190, 286], [105, 292], [224, 299], [180, 303], [130, 262], [90, 240], [238, 360], [205, 340], [262, 300], [110, 44], [120, 10]]) if (onZone(x, y, 0) && free(x, y, 3) && !busy(x, y, 0.5)) { add(hay(), x, y, 1.4); taken.push([x, y, 3]); }
   yield;
   yield* fenDressing(base, { add, taken, free, clearOf, onZone, piece });
   yield;
@@ -1437,13 +1593,20 @@ function* dressing(base) {
   site(walledTown(0), 594, 284, 10);
   site(walledTown(1), 515, 392, 12);
   site(walledTown(1), 612, 356, 10);
+  // Ironmouth's town on the estuary's east bank, and the salt pans of
+  // Brinewick along the strand
+  site(walledTown(0), 582, 456, 10);
+  site(saltPans(0), 474, 466, 9) && site(saltPans(1), 466, 452, 8);
   site(borderFort(0), 446, 352, 10);
   site(borderFort(1), 628, 190, 10);
   site(borderFort(0), 588, 72, 12);
+  site(borderFort(1), 776, 296, 12);
   for (const [x, y, v] of [[488, 264, 0], [597, 338, 1], [702, 194, 2], [539, 194, 0], [464, 372, 1], [632, 299, 2],
-    [600, 110, 1], [705, 305, 0], [432, 150, 2], [648, 225, 0], [575, 395, 1]]) site(ironKeep(v), x, y, 6);
+    [600, 110, 1], [705, 305, 0], [432, 150, 2], [648, 225, 0], [575, 395, 1], [745, 262, 2], [785, 150, 0], [512, 448, 1], [628, 410, 2]]) site(ironKeep(v), x, y, 6);
   for (const [x, y, v] of [[524, 70, 1], [470, 106, 0], [712, 162, 1], [722, 245, 0], [446, 390, 1], [600, 400, 0],
-    [560, 214, 1], [620, 258, 0], [680, 380, 1], [412, 238, 0], [456, 276, 1], [660, 140, 0]]) site(watchtower(v), x, y, 6);
+    [560, 214, 1], [620, 258, 0], [680, 380, 1], [412, 238, 0], [456, 276, 1], [660, 140, 0],
+    // beacons along the new east cliffs and the south shore
+    [800, 232, 1], [796, 180, 0], [786, 322, 1], [538, 482, 1], [620, 452, 0], [460, 420, 0]]) site(watchtower(v), x, y, 6);
   site(gallows(), 541, 298, 12);
   // a second camp under the eastern peaks, and the host on the march
   for (const [x, y, v] of [[650, 262, 0], [657, 256, 2], [664, 262, 1], [657, 268, 0], [645, 270, 1]]) site(ikTent(v), x, y, 2, 2);
@@ -1463,15 +1626,20 @@ function* dressing(base) {
     }
   }
   // steadings on the farms
-  for (const [x, y] of [[468, 290], [500, 340], [455, 345], [540, 360], [580, 322], [620, 232], [662, 318], [505, 250], [600, 205], [690, 330], [450, 190], [560, 250]])
+  for (const [x, y] of [[468, 290], [500, 340], [455, 345], [540, 360], [580, 322], [620, 232], [662, 318], [505, 250], [600, 205], [690, 330], [450, 190], [560, 250],
+    [742, 312], [756, 342], [774, 236], [520, 410], [540, 436], [602, 418], [478, 432], [760, 190]])
     site(steading(Math.floor(hash(x, y) * 4)), x, y, 8);
 
   yield;
   // the ranges, the fells and the tors
-  range(554, 136, 90, 39, IR, IRONPK, 2, 1.1);
-  range(706, 260, 27, 78, IR, IRONPK, 3, 0.9);
-  range(650, 340, 40, 26, IR, IRONPK, 23, 0.95);
-  for (const [cx, cy, rx, ry, seed] of [[520, 300, 70, 50, 40], [610, 240, 45, 40, 41], [470, 250, 40, 40, 42]]) {
+  range(554, 136, 90, 39, IR, IRONPK, 2, 1.1, FELL[0]);
+  // the eastern peaks: a spine running north and south, the new coast and
+  // its moors beyond
+  range(708, 256, 24, 88, IR, IRONPK, 3, 0.95, FELL[0], 0.08);
+  range(650, 340, 40, 26, IR, IRONPK, 23, 0.95, FELL[1]);
+  // a lesser knot of fells and crags behind Blackcliff
+  range(762, 160, 22, 13, IR, IRONPK, 41, 0.72, FELL[0], 0.5);
+  for (const [cx, cy, rx, ry, seed] of [[520, 300, 70, 50, 40], [610, 240, 45, 40, 41], [470, 250, 40, 40, 42], [770, 280, 34, 50, 43], [540, 440, 70, 30, 44]]) {
     for (let k = 0; k < (rx * ry) / 160; k++) {
       const x = cx + (hash(seed, k * 2) - 0.5) * 2 * rx, y = cy + (hash(seed, k * 2 + 1) - 0.5) * 2 * ry;
       const w = 12 + (k % 3) * 3, h = Math.round(w * 0.36);
@@ -1481,8 +1649,9 @@ function* dressing(base) {
     }
   }
   yield;
-  for (let k = 0; k < 70; k++) {
-    const x = 405 + hash(k, 301) * 320, y = 70 + hash(k, 302) * 330;
+  // (old country, then the new east coast and south lobe, each on its own seeds)
+  for (let k = 0; k < 100; k++) {
+    const [x, y] = k < 70 ? [405 + hash(k, 301) * 320, 70 + hash(k, 302) * 330] : k < 86 ? [725 + hash(k, 301) * 90, 110 + hash(k, 302) * 250] : [430 + hash(k, 301) * 230, 400 + hash(k, 302) * 95];
     if (onFarm(x, y) || !onZone(x, y, IR, 4) || busy(x, y - 2, 4) || !free(x, y - 2, 5)) continue;
     add(tor(k % 8), x, y, 3); taken.push([x, y - 2, 5]);
   }
@@ -1506,13 +1675,17 @@ function* dressing(base) {
   wood(420, 262, 12, 20, 29);
   wood(575, 355, 12, 9, 30);
   wood(690, 120, 10, 8, 31);
-  for (let k = 0; k < 260; k++) {
-    const x = 405 + hash(k, 311) * 320, y = 70 + hash(k, 312) * 330;
+  wood(598, 470, 16, 10, 32);
+  wood(484, 412, 12, 12, 33);
+  wood(790, 268, 9, 14, 34);
+  wood(738, 196, 10, 9, 35);
+  for (let k = 0; k < 380; k++) {
+    const [x, y] = k < 260 ? [405 + hash(k, 311) * 320, 70 + hash(k, 312) * 330] : k < 320 ? [725 + hash(k, 311) * 90, 110 + hash(k, 312) * 250] : [430 + hash(k, 311) * 230, 400 + hash(k, 312) * 95];
     if (onFarm(x, y) || !onZone(x, y, IR) || busy(x, y - 4, 2) || !free(x, y, 4)) continue;
     add(mp(k + 900), x, y, 1.6); taken.push([x, y, 3]);
   }
   // sheep on the hill pastures
-  for (const [fx, fy, n] of [[500, 285, 5], [612, 222, 5], [470, 305, 4], [655, 250, 4], [545, 345, 4], [520, 200, 4]]) {
+  for (const [fx, fy, n] of [[500, 285, 5], [612, 222, 5], [470, 305, 4], [655, 250, 4], [545, 345, 4], [520, 200, 4], [762, 316, 5], [784, 196, 3], [540, 470, 4]]) {
     for (let k = 0; k < n; k++) {
       const x = fx + (hash(fx, k) - 0.5) * 18, y = fy + (hash(fy, k) - 0.5) * 10;
       if (!onZone(x, y, IR) || !free(x, y, 2) || busy(x, y, 0.5)) continue;
@@ -1530,6 +1703,10 @@ const FARMS = [
   [665, 318, 16, 12, 0.1, 5], [455, 190, 14, 12, 0.35, 6], [598, 205, 14, 10, -0.1, 7], [505, 252, 16, 11, 0.15, 8],
   [540, 368, 18, 12, 0.05, 9], [690, 330, 10, 8, -0.3, 10], [640, 285, 12, 8, 0.2, 11], [455, 355, 10, 8, -0.2, 12],
   [690, 170, 10, 8, 0.25, 13], [560, 310, 10, 7, -0.1, 14],
+  // the new country: Wardenmoor's in-bye, Blackcliff's crofts, the south
+  // lobe's farms either side of the Iron estuary
+  [742, 326, 16, 10, 0.2, 15], [772, 250, 9, 7, -0.3, 16], [522, 424, 22, 12, -0.1, 17], [608, 428, 16, 10, 0.25, 18],
+  [470, 440, 12, 8, 0.3, 19], [756, 176, 10, 7, 0.1, 20],
 ];
 function marchFields(base) {
   const farm = new Uint8Array(MAP.w * MAP.h);
@@ -1577,7 +1754,7 @@ function marchFields(base) {
 
 // the fen's black pools: a sodden green margin, a dark peat bank on the far
 // (north) side, black water, and the moon's glint in broken streaks
-const fenPoolAt = (ax, ay) => fbm(ax, ay, 26, 91);
+const fenPoolAt = (ax, ay) => fbm(ax, ay, 26, 91) - downsAt(ax, ay) * 0.16;
 function fenPools(ctx, base) {
   const img = ctx.getImageData(0, 0, AW, AH), d = img.data;
   const deep = rgb("#12161a"), mid = rgb("#1c2428"), bank = rgb("#1e1a20"), wet = rgb("#4e5c3a"), wetDk = rgb("#3e4a34"), glint = rgb("#7e969e");
@@ -1602,7 +1779,8 @@ function fenPools(ctx, base) {
 // Low mist lying over the fen: bands of pale pixels dithered into the ground,
 // thickest along their middles, kept off the road and the names.
 const MISTS = [[420, -120, 44, 5], [540, -80, 60, 6], [600, -150, 40, 5], [480, -196, 36, 4], [680, -110, 30, 5],
-  [400, -30, 34, 4], [560, -10, 40, 4], [640, -60, 36, 4], [510, -170, 30, 4]];
+  [400, -30, 34, 4], [560, -10, 40, 4], [640, -60, 36, 4], [510, -170, 30, 4],
+  [304, -112, 30, 5], [300, -52, 22, 4], [330, -186, 26, 4], [600, -214, 30, 3]];
 function fenMist(ctx, base) {
   const img = ctx.getImageData(0, 0, AW, AH), d = img.data, pale = rgb("#9ea4b0");
   for (const [mx, my, rx, ry] of MISTS) {
@@ -1660,6 +1838,13 @@ function* fenDressing(base, { add, taken, free, clearOf, onZone, piece }) {
   site(chapel(0), 630, -200, 14) || site(chapel(0), 585, -205, 12);
   site(chapel(1), 702, -76, 10);
   site(chapel(0), 360, -110, 10);
+  // the ruined abbey of Abbeymere on the Abbey Mere's north shore: its two
+  // roofless ranges, and its drowned graveyard
+  site(chapel(1), 302, -158, 8) && site(chapel(0), 290, -152, 8);
+  for (const [x, y, v] of [[324, -168, 1], [296, -136, 2], [286, -170, 0]]) site(graves(v), x, y, 5);
+  // a drowned hamlet in the western fen, and its graves by the creek
+  for (const [x, y, v] of [[292, -100, 1], [300, -92, 2], [340, -96, 0]]) site(drowned(v), x, y, 5, true) || site(drowned(v), x, y, 5);
+  for (const [x, y, v] of [[288, -68, 1], [346, -42, 0]]) site(graves(v), x, y, 5);
   for (const [x, y, v] of [[596, -198, 0], [620, -178, 1], [640, -196, 2], [690, -58, 0], [660, -26, 1], [700, -32, 2], [604, -20, 1], [626, -26, 0], [388, -20, 2]])
     site(graves(v), x, y, 6);
   yield;
@@ -1667,6 +1852,13 @@ function* fenDressing(base, { add, taken, free, clearOf, onZone, piece }) {
   // the Stillmere
   for (const [x, y, v] of [[520, -150, 0], [486, -158, 1], [532, -112, 2], [478, -130, 3], [540, -182, 1], [512, -194, 0], [590, -148, 2], [410, -120, 1], [700, -120, 0], [640, -94, 3]])
     site(fenBarrow(v), x, y, 7);
+  // the Barrow Downs: long rows of the drowned kings' barrows along the
+  // dry ridge, cairns between them, a stone row striding east
+  for (const [x, y, v] of [[478, -250, 0], [492, -262, 1], [526, -256, 2], [540, -244, 3], [470, -230, 1], [530, -222, 0], [556, -262, 2],
+    [574, -232, 1], [596, -266, 3], [460, -246, 2], [512, -272, 0], [612, -256, 1], [546, -276, 2], [488, -224, 3]]) site(fenBarrow(v), x, y, 6);
+  for (const [x, y, v] of [[506, -252, 0], [552, -228, 1], [482, -270, 0], [588, -248, 1], [462, -222, 0], [620, -270, 1]]) site(fenCairn(v), x, y, 4);
+  for (let k = 0; k < 7; k++) site(fenStone(k), 548 + k * 7, -238 - k * 1.6 + (k % 2) * 1.2, 2);
+
   for (const [x, y, v] of [[582, -142, 0], [508, -176, 1], [601, -208, 0], [520, -134, 1], [562, -110, 0],
     [492, -142, 1], [620, -80, 0], [700, -100, 1], [470, -120, 0], [560, -180, 1], [545, -160, 0], [680, -190, 1]]) site(fenCairn(v), x, y, 5);
   const ring = site(fenStone(0), 528, -165, 14);
@@ -1701,8 +1893,13 @@ function* fenDressing(base, { add, taken, free, clearOf, onZone, piece }) {
   wood(470, -178, 30, 22, 6.5, 0.2, 30);
   wood(690, -90, 24, 20, 6, 0.25, 31);
   wood(420, -60, 20, 14, 6, 0.4, 32);
-  for (let k = 0; k < 420; k++) {
-    const x = 360 + hash(k, 401) * 370, y = -220 + hash(k, 402) * 235;
+  // the western fen's drowned woods, thinning toward the abbey
+  wood(296, -118, 22, 24, 4.8, 0.22, 40);
+  wood(318, -190, 26, 12, 5.4, 0.25, 41);
+  wood(296, -56, 14, 10, 5.4, 0.35, 42);
+  // (the old fen, then the west lobe, then a few lone trees on the open downs)
+  for (let k = 0; k < 540; k++) {
+    const [x, y] = k < 420 ? [360 + hash(k, 401) * 370, -220 + hash(k, 402) * 235] : k < 500 ? [266 + hash(k, 401) * 96, -212 + hash(k, 402) * 178] : [440 + hash(k, 401) * 250, -290 + hash(k, 402) * 72];
     if (!onZone(x, y, Z) || inMere(x, y, 1) || !free(x, y, 5) || busy(x, y - 5, 2.4)) continue;
     tree(k + 3000, x, y, 0.3); taken.push([x, y, 3]);
   }
@@ -1735,8 +1932,8 @@ function* fenDressing(base, { add, taken, free, clearOf, onZone, piece }) {
     if (((x - 570) / 36) ** 2 + ((y - -125) / 26) ** 2 > 1 - hash(k, 3) * 0.3 || inMere(x, y, 0.5)) continue;
     reed(k, x, y);
   }
-  for (let k = 0; k < 260; k++) {
-    const x = 360 + hash(k, 411) * 370, y = -220 + hash(k, 412) * 235;
+  for (let k = 0; k < 330; k++) {
+    const [x, y] = k < 260 ? [360 + hash(k, 411) * 370, -220 + hash(k, 412) * 235] : k < 310 ? [266 + hash(k, 411) * 96, -212 + hash(k, 412) * 178] : [440 + hash(k, 411) * 250, -290 + hash(k, 412) * 72];
     if (pool(x, y) < 0.5 && hash(k, 413) < 0.7) continue;
     reed(k, x, y);
   }
@@ -1754,13 +1951,35 @@ function* fenDressing(base, { add, taken, free, clearOf, onZone, piece }) {
     }
   }
   // witch-lights over the black water, and crows over the dead places
-  for (let k = 0; k < 400; k++) {
-    const x = 360 + hash(k, 421) * 370, y = -220 + hash(k, 422) * 235;
+  for (let k = 0; k < 480; k++) {
+    const [x, y] = k < 400 ? [360 + hash(k, 421) * 370, -220 + hash(k, 422) * 235] : [266 + hash(k, 421) * 96, -212 + hash(k, 422) * 178];
     if (!onZone(x, y, Z) || !(pool(x, y) > 0.62 || inMere(x, y, -1)) || dryBusy(x, y, 1) || !clearOf(x, y, 3)) continue;
     add(wisp(k % 2), x, y - 2 - hash(k, 423) * 3, 0); taken.push([x, y, 3]);
   }
-  for (const [x, y, v] of [[676, -186, 0], [382, -196, 1], [612, -214, 1], [520, -200, 0], [700, -30, 1], [560, -60, 0]])
+  for (const [x, y, v] of [[676, -186, 0], [382, -196, 1], [612, -214, 1], [520, -200, 0], [700, -30, 1], [560, -60, 0], [298, -176, 1], [520, -264, 0], [592, -280, 1]])
     if (!busy(x, y, 1)) add(crows(v), x, y, 0);
+  // Lanternfen's lantern posts, set along the creek either side of the
+  // waypoint to light the way over the bog
+  {
+    const cr = RIVERS.find((rv) => rv.fen && rv.pts.some(([x, y]) => Math.hypot(x - 318, y + 78) < 1.5));
+    let run = 0;
+    for (let i = 1; cr && i < cr.pts.length; i++) {
+      const [x, y] = cr.pts[i], [nx, ny] = cr.nrm[i];
+      run += Math.hypot(x - cr.pts[i - 1][0], y - cr.pts[i - 1][1]);
+      if (run < 7 || Math.hypot(x - 318, y + 78) > 46) continue;
+      const side = i & 1 ? 1 : -1, o = cr.hw[i] + 2.2, px = x + nx * o * side, py = y + ny * o * side;
+      if (!onZone(px, py, Z, 1) || dryBusy(px, py, 0.6) || !clearOf(px, py, 2.4)) continue;
+      add(lanternPost(i), px, py, 0.6); taken.push([px, py, 2.4]); run = 0;
+    }
+  }
+  // the Dead Weir across the Blackwater, upstream of the waypoint
+  {
+    const bw = RIVERS.find((rv) => rv.fen && rv.pts.some(([x, y]) => Math.hypot(x - 634, y + 232) < 1.5));
+    if (bw) {
+      let i = 0; bw.pts.forEach(([x, y], j) => { if (Math.hypot(x - 616, y + 240) < Math.hypot(bw.pts[i][0] - 616, bw.pts[i][1] + 240)) i = j; });
+      add(weir(), bw.pts[i][0], bw.pts[i][1] + 4.4, 0, 3, 8.6);
+    }
+  }
 }
 
 // The whole terrain: the base, then water, fields, road, and the dressing.
@@ -1781,8 +2000,10 @@ function* paintTerrain() {
   const fields = layer((c) => {
     const cols = [["#d8bf62", "#c4a84e"], ["#9cc462", "#86b052"], ["#a67e52", "#8e6a44"], ["#c8c46a", "#b0ac58"]];
     let k = 0;
-    for (let gy = 220; gy < 334; gy += 8) for (let gx = 60; gx < 260; gx += 10) {
-      k++;
+    // (k numbers the old cells as before, so the old farmland keeps its look)
+    for (let gy = 220; gy < 384; gy += 8) for (let gx = 60; gx < 300; gx += 10) {
+      const row = (gy - 220) / 8, col = (gx - 60) / 10;
+      k = gx < 260 && gy < 334 ? row * 20 + col + 1 : 2000 + row * 24 + col;
       const x = gx + (hash(k, 1) - 0.5) * 4, y = gy + (hash(k, 2) - 0.5) * 3;
       if (fbm(x * 4, y * 4, 60, 5) < 0.5) continue;
       const w = 7 + hash(k, 3) * 5, h = 5 + hash(k, 4) * 3;
@@ -1875,17 +2096,19 @@ function* paintTerrain() {
   yield;
   // out at sea: the ferry, the serpent, a lighthouse, the compass
   stamp(ctx, ship(), 712, 40, 7, 11);
-  stamp(ctx, ship(), 300, 390, 7, 11);
-  stamp(ctx, serpent(), 70, -100, 17, 9);
-  stamp(ctx, lighthouse(), 44, -52, 2.5, 11.4);
-  stamp(ctx, compass(), 38, 392, 11, 13);
-  stamp(ctx, whirl(), 292, -150, 8, 5);
+  stamp(ctx, ship(), 318, 436, 7, 11);
+  stamp(ctx, ship(), 572, 512, 7, 11);
+  stamp(ctx, serpent(), 52, -196, 17, 9);
+  stamp(ctx, lighthouse(), 37, -122, 2.5, 11.4);
+  stamp(ctx, compass(), 30, 480, 11, 13);
+  stamp(ctx, whirl(), 226, -160, 8, 5);
   // a wreck on the rocks off Saltgrave Strand
   for (const [x, y] of [[598, 28], [620, 30], [584, 24], [640, 26], [600, 36]]) {
     const i = artY(y) * AW + artX(x), j = artY(y) * AW + artX(x + 7);
     if (!base.land[i] && !base.land[j] && base.seaD[i] > 9 && base.seaD[j] > 9 && base.seaD[i] < 40) { stamp(ctx, wreck(), x, y, 7, 6.4); break; }
   }
-  for (const [x, y, v] of [[12, 40, 0], [345, 30, 1], [748, 300, 0], [360, 400, 1], [262, 404, 0], [300, -60, 1], [750, -210, 0], [20, -200, 1], [430, 40, 0], [180, -40, 1], [748, 60, 1]]) {
+  for (const [x, y, v] of [[10, 40, 0], [345, 30, 1], [836, 280, 0], [384, 412, 1], [270, 420, 0], [252, -54, 1], [750, -210, 0], [20, -250, 1], [430, 40, 0], [214, -64, 1], [748, 60, 1],
+    [476, 506, 0], [640, 476, 1], [830, 120, 1], [94, -110, 0], [700, -282, 1], [258, -194, 0]]) {
     const i = artY(y) * AW + artX(x);
     if (!base.land[i] && base.seaD[i] > 6) stamp(ctx, seaRock(v), x, y, 3, 4);
   }
