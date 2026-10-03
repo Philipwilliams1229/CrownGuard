@@ -33,7 +33,12 @@ neighbours', so the levels already played keep theirs.
   its wraith wave, the Kingstones is easy; Blackcliff's gold went 1200 ->
   1350. The vale's boards got pieces of their own (`scenery-vale.js`:
   standing stones, a watermill whose wheel turns in Millrace's race, the
-  Gullwick fishing hamlet, marram, thistles).
+  Gullwick fishing hamlet, marram, thistles); the fen's got will-o'-wisps,
+  long and round barrows, a drowned bell-tower and abbey arcade standing in
+  Abbeymere's water and a sluiced weir at the Dead Weir (`fenRelics`,
+  `fenPools: false` for the dry Barrowdowns). Rivers can widen point by
+  point (`ws`) and coasts set their cove `ease` (style guide, "Water, roads
+  and ground").
 
 ## Zones IV and V (owner's direction, 2026-10-03)
 

@@ -622,6 +622,27 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
 
 ## Water, roads and ground (the September 26 pass)
 
+**Added 2026-10-03 (water engineer):** a river may give a width per point
+(`ws: [...]`, one per point of `pts`; `w` stays a number, its widest, for
+thumbnails and margins) — water, banks, buildable ground, the dock edge,
+bridge spans and skiff masks all follow it, and water wider than 60 px
+shelves gently (Ironmouth's estuary). A coast may set `ease` (the headland
+slope's width, default 110) for rounder coves. Overlapping ponds paint as
+ONE water (`pondGroups`). A river ending in a pond stops its streak, current
+and bank pieces at the pond's shore. The spawn edge's wood keeps clear of
+pieces already on the ground (`clearOfPieces`, terrain.js).
+
+**Fen pieces that stand in water** (`REALM.fenRelics`, scenery-hollow.js):
+ordinary decor is pushed out of water by the grounding pass, so a piece that
+stands IN a pond or river (belltower, arcade, column, sunkking, weir, wisp,
+lanternpost) is listed in `fenRelics` at its waterline (grid px) and drawn
+flat with the lily pads, with a cut waterline, wet band and reflection; it
+blocks nothing, so give a tall one open water or blocked ground behind it.
+`fenPools: false` makes a dry fen board (no turf, road or wood-floor
+puddles). New fen decor: `fenwisp`, `fenlongbarrow`, `fenroundbarrow`,
+`fenstone`, `fenmonks`, `fenhut` — look at them with
+`hfs-lab.html?only=fenwisp,fenlongbarrow,...` (not in its default list).
+
 The owner's ask: "how the bridge goes over the river, the water and river
 look in general, and a big sweep ... textures and paths, grass, other ground
 textures." What came of it:
