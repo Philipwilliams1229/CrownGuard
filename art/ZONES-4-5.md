@@ -5,7 +5,7 @@ that mixes beaten armies under a returning villain. A story layer comes later
 (sidebarred: the Lord Marshal, beaten at the Citadel, goes looking for help
 from the goblins and their dragons).
 
-Names below are working names until the owner signs them off.
+Names below are working names (the owner: "good for now").
 
 ## Zone IV — The Rimewater (the Rime Clans)
 
@@ -49,6 +49,8 @@ split by meltwater, and the River Watch earns its keep.
 | Frost Giant | the troll-weight bruiser; his stomp stuns soldiers |
 | Ice Drake | a lesser flier off the ice cliffs |
 | Longship crew | the landing party (thralls and huscarls) |
+| Sea Serpent | elite, river and coast boards: swims submerged (only skiffs reach it), surfaces to maul soldiers or coil round a hall, dives on |
+| Kraken | boss-tier, coast boards: body offshore, tentacles burst up along the shore to grab soldiers and smash halls; retreats after a time limit and costs lives |
 | BOSS: the Rime Jarl | on a war-mammoth: tramples, freezes halls, calls landings |
 
 ## Zone V — The Ashen Reach (the Marshal's Pact)
@@ -69,8 +71,16 @@ horde he bought, and their dragons.
 - **Bosses:** the Dragon returns mid-chapter; the final boss is the Lord
   Marshal on dragonback — the dragon in flight, then the Marshal unhorsed
   with his banner.
-- A zone V mechanic of its own is still open (ash-fall like the blizzard,
-  or eruptions on the road).
+- Zone V's weather: ERUPTIONS (owner's pick) — telegraphed burning rocks
+  on the road that hurt foes and set halls near them burning.
+
+## Weather in every zone (owner, 2026-10-03)
+
+One signature weather per zone, MORE PREVALENT THE FURTHER INTO AN AREA YOU
+TRAVEL (none in a chapter's first third, rare and mild in the middle, often
+and strong in the last third, strongest at the boss):
+Greenwood MORNING FOG, Iron Marches THUNDERSTORMS (rain + lightning on the
+road), Hollowfen GRAVE MIST, Rimewater BLIZZARD, Ashen Reach ERUPTIONS.
 
 ## Build plan
 
