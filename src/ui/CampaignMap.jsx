@@ -510,8 +510,13 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
       <rect x="0" y="0" width="150" height="100" fill={selRealm.GRASS} />
       {/* the sea, where a realm runs down to the coast, with its beach */}
       {selRealm.coast && <polygon points={coastOutline(selRealm).map(([x, y]) => `${x * 150 / W},${y * 100 / H}`).join(" ")} fill={selRealm.water?.deep || "#3a6a7c"} stroke="#dcc48e" strokeWidth="2.5" strokeLinejoin="round" />}
-      {(selRealm.rivers || []).map((rv, i) => (
-        <polyline key={`rv${i}`} points={rv.pts.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
+      {(selRealm.rivers || []).map((rv, i) => (rv.ws
+        // a river that widens point by point (ws): one stroke per stretch
+        ? rv.pts.slice(1).map(([c, r], k) => (
+          <line key={`rv${i}-${k}`} x1={rv.pts[k][0] * 10 + 5} y1={rv.pts[k][1] * 10 + 5} x2={c * 10 + 5} y2={r * 10 + 5}
+            stroke={selRealm.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.ws[k] + rv.ws[k + 1]) / 10)} strokeLinecap="round" />
+        ))
+        : <polyline key={`rv${i}`} points={rv.pts.map(([c, r]) => `${c * 10 + 5},${r * 10 + 5}`).join(" ")}
           fill="none" stroke={selRealm.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}
           strokeLinejoin="round" strokeLinecap="round" />
       ))}
