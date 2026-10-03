@@ -280,7 +280,7 @@ export default function moreIronRealms(ironVariant) {
       // on the one mid-way along the cove's head, the gryphons' eyrie
       ...swapNearest(rimLine(20261024, BLACKCLIFF_COAST, 196, 618, { step: 40, back: 14, types: ["irstack", "irstack", "irheather"] }), [
         [372, 90, { t: "ireyrie", s: 1.2, v: 0 }],
-        [472, 74, { t: "ireyrie", s: 0.9, v: 3 }],   // a second nest, its gryphon away: eggs
+        [504, 42, { t: "ireyrie", s: 0.9, v: 3 }],   // a second nest, its gryphon away: eggs
       ]),
       // the bones of a ship on the cove's sand
       { x: 426, y: 94, t: "irwreck", s: 1 },
