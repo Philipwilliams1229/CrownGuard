@@ -28,6 +28,8 @@
 
 import { S, CELL } from "../data/constants.js";
 import { RIGS, drawRig } from "./rigs.js";
+// the sea monsters' own frame mapping (waterlines, the arm's grab, the sinks)
+import { drawSeaRig, armSinkFx, krakenSinkFx } from "./rigs-rimebeasts.js";
 
 // ---- borrowed looks for the clans' stub foes (data/enemies.js) ----
 // (until rigs-rime.js exists: delete these lines when it lands)
@@ -371,7 +373,7 @@ const seaRig = (ctx, e, g) => {
 };
 export const drawSea = (ctx, e, g) => {
   if (!e.seaInit) return;
-  if (RIGS[e.type] && seaRig(ctx, e, g)) {
+  if (RIGS[e.type] && (drawSeaRig(ctx, e, g) || seaRig(ctx, e, g))) {
     // the bars stay (what is left of it; the kraken's tide)
     if (e.sea === "kraken" && e.kr) {
       bar(ctx, e.x, e.y - 46, e.hp / e.maxHp, 44);
@@ -400,9 +402,9 @@ Object.assign(ZONE_FX, {
   serpentGone: ringFx("rgba(226,240,246,A)", 8, 30),
   serpentBite: lineFx("rgba(240,240,220,A)"),
   krakenRise: ringFx("rgba(226,240,246,A)", 20, 70),
-  krakenSink: ringFx("rgba(226,240,246,A)", 30, 80),
+  krakenSink: (ctx, fx) => { ringFx("rgba(226,240,246,A)", 30, 80)(ctx, fx); if (RIGS.kraken) krakenSinkFx(ctx, fx); },
   armRise: ringFx("rgba(200,180,160,A)", 4, 18),
-  armSink: ringFx("rgba(226,240,246,A)", 4, 16),
+  armSink: (ctx, fx) => { ringFx("rgba(226,240,246,A)", 4, 16)(ctx, fx); if (RIGS.krakenarm) armSinkFx(ctx, fx); },
   armGrab: lineFx("rgba(154,80,112,A)"),
   armSmash: (ctx, fx) => { ringFx("rgba(180,140,100,A)", 6, 28)(ctx, { ...fx, x: fx.tx, y: fx.ty }); },
   armSweep: lineFx("rgba(106,46,74,A)"),
