@@ -639,7 +639,7 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
     const onHer = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
     if (onHer) best = onHer;
     else for (const e of g.enemies) {
-      if (e.dead) continue;
+      if (e.dead || e.submerged) continue;   // (a serpent under the water: serpent.js)
       const dd = Math.hypot(e.x - u.x, e.y - u.y);
       if (dd < bd) { bd = dd; best = e; }
     }

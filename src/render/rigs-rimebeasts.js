@@ -147,8 +147,10 @@ const frostCracks = (c, x, r) => {
 const SEA = "#1e4656", FOAM = "#eef6f8";
 // what lies under the surface: painted at full strength on a scratch layer
 // with the colours pulled toward the sea, then laid on dim (alpha under the
-// ink's threshold, so it is never outlined): a refraction, not a body
-const submerged = (ctx, fn, a = 0.34) => {
+// ink's threshold, so it is never outlined): a refraction, not a body. Every
+// translucent piece here (this, ripples, rings, mist) is kept faint enough
+// that two of them overlapping still stay under the threshold (~0.43).
+const submerged = (ctx, fn, a = 0.26) => {
   const cv = ctx.canvas;
   if (!cv || !cv.width) return;
   const tmp = document.createElement("canvas");
@@ -164,7 +166,7 @@ const submerged = (ctx, fn, a = 0.34) => {
 const above = (ctx, fn) => part(ctx, (c) => { c.save(); c.beginPath(); c.rect(-400, -400, 800, 400.4); c.clip(); fn(c, (col) => col); c.restore(); });
 // foam where a body cuts the surface: a bright collar and a ripple ring
 const foam = (ctx, x, w, k = 1) => {
-  ctx.fillStyle = "rgba(226,240,246,0.32)";
+  ctx.fillStyle = "rgba(226,240,246,0.15)";
   ctx.beginPath(); ctx.ellipse(x, 0.6, w * 1.6 * k, 1.6 * k, 0, 0, TAU); ctx.fill();
   ctx.fillStyle = FOAM;
   ctx.beginPath(); ctx.ellipse(x, 0.2, w * 0.62, 0.9, 0, 0, TAU); ctx.fill();
@@ -173,7 +175,7 @@ const foam = (ctx, x, w, k = 1) => {
 };
 // spray: drops thrown up off the surface
 const spray = (ctx, x, w, h, seed = 1) => {
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 6; i++) {
     const u = ((i * 37 + seed * 11) % 17) / 17 - 0.5, v = ((i * 53 + seed * 7) % 13) / 13;
     ctx.fillStyle = i % 3 ? FOAM : "#bfe0ea";
     const dx = x + u * w * 2, dy = -v * h - 0.5;
@@ -181,7 +183,7 @@ const spray = (ctx, x, w, h, seed = 1) => {
   }
 };
 const rings = (ctx, x, w, k) => {
-  ctx.strokeStyle = `rgba(226,240,246,${0.36 * k})`; ctx.lineWidth = 0.5;
+  ctx.strokeStyle = `rgba(226,240,246,${0.15 * k})`; ctx.lineWidth = 0.5;
   for (const r of [1, 1.7]) { ctx.beginPath(); ctx.ellipse(x, 0.6, w * r, w * r * 0.26, 0, 0, TAU); ctx.stroke(); }
 };
 
@@ -775,6 +777,284 @@ const jarlSeat = (ctx, p, at, fight, f, inv) => {
   ctx.restore();
 };
 
+// ---- the sea serpent -----------------------------------------------------------------
+// The anchor is the water's surface. Its body is one centreline: humps rolling
+// back along a wave behind the neck (y > 0 under the water), then the neck
+// rising through control points to the head. Above the surface it is solid;
+// under it a dim, sea-tinted refraction; foam collars where it cuts through.
+// pose: A (hump height), ph (the wave's phase), neck (control points from the
+// waterline up), tilt / jaw (the head), dep (the whole beast sunk this far),
+// fins (fin tips only, the submerged swim), fluke (the tail flung up, a dive),
+// fx: "bulge" | "spray" | "drip" | "splash" | "rings".
+const SERP_WALK = (f) => ({ A: 5, ph: f * PI / 2, neck: [[10, -6 + [0, 0.8, 0, -0.8][f]], [11.6, -12], [14.2, -16.6]], tilt: 0.14, jaw: 0.05 });
+const SERP_FIGHT = [
+  { A: 4, ph: 0.4, neck: [[9, -10], [8, -20], [12, -28]], tilt: 0.22, jaw: 0.1 },              // reared, watching
+  { A: 4, ph: 0.9, neck: [[8, -12], [5, -24], [8, -31]], tilt: -0.34, jaw: 0.55 },             // the hiss: drawn back, jaws wide
+  { A: 3.4, ph: 1.4, neck: [[12, -10], [20, -14], [26, -10]], tilt: 0.55, jaw: 0.7, fx: "spray" },  // the strike
+  { A: 3.4, ph: 1.9, neck: [[11, -7], [17, -9], [22, -5]], tilt: 0.32, jaw: 0.14, fx: "splash" },  // follow-through, the head in the spray
+];
+const SERP_EXTRA = {
+  sub: (f) => ({ A: 4, ph: f * PI / 2, neck: [[10, 3], [13, 4], [16, 4.6]], tilt: 0, jaw: 0, dep: 6, fins: true }),
+  surface: (f) => [
+    { A: 3, ph: 0, neck: [[10, 3], [13, 2], [15, 2.4]], tilt: -0.2, jaw: 0, dep: 5, fx: "bulge" },
+    { A: 3, ph: 0.4, neck: [[10, -3], [12, -6], [13, -8]], tilt: -0.7, jaw: 0, dep: 2, fx: "spray" },
+    { A: 3.4, ph: 0.8, neck: [[10, -6], [11.4, -11], [13.4, -15]], tilt: -0.1, jaw: 0.1, fx: "drip" },
+    { ...SERP_FIGHT[0], fx: "drip" },
+  ][f % 4],
+  dive: (f) => [
+    { A: 4, ph: 0.6, neck: [[11, -10], [17, -10], [20, -4]], tilt: 1.2, jaw: 0 },
+    { A: 4, ph: 1.2, neck: [[12, -7], [17, -4], [19, 2]], tilt: 1.45, jaw: 0, fx: "splash", at: 18.6 },
+    { A: 3, ph: 1.8, neck: [[10, 3], [13, 4], [16, 4.6]], tilt: 0, jaw: 0, dep: 4, fluke: true, fx: "rings", at: 16 },
+    { A: 3, ph: 2.4, neck: [[10, 3], [13, 4], [16, 4.6]], tilt: 0, jaw: 0, dep: 9, fx: "rings", at: -4 },
+  ][f % 4],
+};
+const serpentLine = (k) => {
+  const pts = [], X0 = 7, X1 = -31, lam = 15;
+  for (let x = X1; x <= X0 + 0.01; x += 1.5) {
+    const env = Math.min(1, (X0 - x) / 4);
+    pts.push([x, 1.6 - k.A * env * Math.sin((2 * PI * (X0 - x)) / lam - k.ph) + (k.dep || 0)]);
+  }
+  const base = pts[pts.length - 1];
+  const neck = spline([base, ...k.neck.map(([x, y]) => [x, y + (k.dep || 0)])], 4);
+  const all = pts.concat(neck.slice(1));
+  const nb = pts.length;
+  const ws = all.map((_, i) => (i < nb ? 1.6 + 4.4 * Math.pow(i / (nb - 1), 0.7) : 6 - 1.6 * ((i - nb) / (all.length - nb))));
+  return { all, ws, nb };
+};
+const serpentHead = (c, C, p, k, at) => {
+  const col = C(p.col), belly = C(p.belly), fin = C(p.mane);
+  c.save(); c.translate(at[0], at[1]); c.rotate(k.tilt);
+  const jaw = k.jaw, hinge = [1, 1], J = (pt) => rot(pt, hinge, jaw);
+  // the frill fanned behind the jaw, ice-blue, ribbed
+  c.fillStyle = fin;
+  curve(c, [[0.4, -1.4], [-4, -4.6, 1], [-3.2, -2.2], [-6, -0.8, 1], [-3.4, 0.4], [-5.2, 3, 1], [-1, 2], [0.6, 1]]); c.fill();
+  c.fillStyle = darken(fin, 0.3); for (const a of [-0.6, 0.1, 0.8]) { c.save(); c.rotate(a); c.fillRect(-4, -0.25, 3.6, 0.5); c.restore(); }
+  if (jaw) fillPoly(c, [hinge, [9.6, 0.8], J([9.2, 1]), J([3, 2])], C("#4a1a28"));
+  c.fillStyle = tone(c, 0, 0, 0, 3, col, 0.2, 0.4);
+  curve(c, [[0.6, 1], J([9.4, 0.9]), J([9, 1.9]), J([5, 2.7]), [0.4, 2.5]]); c.fill();
+  c.fillStyle = belly; curve(c, [J([2, 2.4]), J([5, 2.4]), J([8.4, 1.8]), J([5, 2.8])]); c.fill();
+  if (jaw > 0.2) { c.fillStyle = C(ICE_LT); for (const x of [3.6, 5.8, 8]) { const t = J([x, 1.1]); poly(c, [[t[0] - 0.4, t[1] + 0.3], [t[0], t[1] - 1.2], [t[0] + 0.4, t[1] + 0.3]]); c.fill(); } poly(c, [[7.6, 0.6], [8.1, 2], [8.6, 0.6]]); c.fill(); }
+  c.fillStyle = tone(c, 0, -4, 0, 1.5, col, 0.3, 0.42);
+  curve(c, [[-1.6, -1.8], [0.8, -3.6], [4, -3.4], [7, -2.2], [9.8, -1], [10.6, 0.1, 1], [9.6, 0.9], [5, 1.1], [1.6, 1.7], [-1.4, 1.6]]); c.fill();
+  // two horns of ice back off the brow, a ridge of scales
+  c.fillStyle = C(ICE); taper(c, [[1.8, -3.2], [-1, -5.4], [-3.4, -6]], [1.4, 0.8, 0.3]);
+  c.fillStyle = darken(col, 0.38); poly(c, [[2.2, -2.6], [5.8, -2], [5.6, -1.5], [2.4, -1.9]]); c.fill();
+  c.fillStyle = C(p.eyes || "#e8f070"); c.fillRect(3.2, -1.8, 1.5, 0.9);
+  c.fillStyle = "#1a1a22"; c.fillRect(4, -1.8, 0.4, 0.9);
+  c.fillStyle = "#1a1a22"; c.fillRect(9.2, -0.7, 0.6, 0.5);
+  c.restore();
+};
+const serpentBody = (c, C, p, k, L) => {
+  const col = C(p.col), belly = C(p.belly), fin = C(p.mane);
+  const { all, ws, nb } = L;
+  // the frill down the back of the neck and the dorsal fin along the humps
+  c.fillStyle = fin;
+  for (let i = 3; i < all.length - 3; i += 2) {
+    const n = normalAt(all, i, true);
+    spike(c, add(all[i], [n[0] * ws[i] * 0.36, n[1] * ws[i] * 0.36]), n, i < nb ? 2 : 2.6, 0.9, 0.55);
+  }
+  c.fillStyle = tone(c, -20, -24, 10, 6, col, 0.32, 0.42); taper(c, all, ws);
+  // the pale belly down the underside, and dark bands of scale across the back
+  const und = all.map((pt, i) => { const n = normalAt(all, i, false); return add(pt, [n[0] * ws[i] * 0.26, n[1] * ws[i] * 0.26]); });
+  c.fillStyle = belly; taper(c, und, ws.map((w) => w * 0.42));
+  c.fillStyle = darken(col, 0.3);
+  for (let i = 2; i < all.length - 2; i += 3) { const n = normalAt(all, i, true); const pt = add(all[i], [n[0] * ws[i] * 0.22, n[1] * ws[i] * 0.22]); c.fillRect(pt[0] - 0.5, pt[1] - 0.5, 1, 1); }
+  // the tail's fluke (flung up on a dive)
+  const t0 = all[0], fl = k.fluke ? [-24, -9 + (k.dep || 0) * 0] : null;
+  if (fl) { c.fillStyle = tone(c, -30, -16, -18, 0, col, 0.3, 0.4); taper(c, [[-22, 2], [-24, -4], [-26, -8]], [3, 2.4, 1.6]); c.fillStyle = fin; curve(c, [[-26, -8], [-31, -13, 1], [-27.4, -9.4], [-28.6, -4.4, 1], [-25, -6.6]]); c.fill(); }
+  else { c.fillStyle = fin; curve(c, [[t0[0] + 1, t0[1]], [t0[0] - 3.4, t0[1] - 2.6, 1], [t0[0] - 2, t0[1]], [t0[0] - 3.4, t0[1] + 2.4, 1]]); c.fill(); }
+};
+const seaserpent = (ctx, p) => {
+  const fight = p.pose === "fight";
+  let k;
+  if (typeof p.frame === "string") { const [sh, n] = p.frame.split("."); k = (SERP_EXTRA[sh] || SERP_EXTRA.sub)(Number(n) || 0); }
+  else k = fight ? SERP_FIGHT[(p.frame || 0) % 4] : SERP_WALK((p.frame || 0) % 4);
+  const s = (p.len ?? 40) / 40;
+  ctx.save(); ctx.scale(s, s);
+  const L = serpentLine(k);
+  const head = L.all[L.all.length - 1];
+  const draw = (c, C) => { serpentBody(c, C, p, k, L); serpentHead(c, C, p, k, head); };
+  submerged(ctx, draw, k.dep > 5 ? 0.3 : 0.26);
+  if (k.fins) {
+    // fin tips slicing the surface over the humps, a vee of wake behind each
+    part(ctx, (c) => { c.fillStyle = p.mane; for (const x of [-20, -5, 9]) fillPoly(c, [[x - 1.6, 0.4], [x - 2.6, -2.6], [x + 1.2, 0.4]], p.mane); });
+    for (const x of [-20, -5, 9]) {
+      ctx.fillStyle = "rgba(226,240,246,0.4)";
+      for (let i = 1; i < 4; i++) { ctx.fillRect(x - 2 - i * 2.4, 0.4 - i * 0.5, 1.6, 0.5); ctx.fillRect(x - 2 - i * 2.4, 0.9 + i * 0.5, 1.6, 0.5); }
+      ctx.fillStyle = FOAM; ctx.fillRect(x - 2, 0.2, 3.4, 0.6);
+    }
+  } else {
+    above(ctx, draw);
+    // foam wherever the line cuts the surface
+    const { all, ws } = L;
+    for (let i = 1; i < all.length; i++) if ((all[i - 1][1] > 0) !== (all[i][1] > 0)) foam(ctx, (all[i - 1][0] + all[i][0]) / 2, ws[i] * 0.8, 0.8);
+  }
+  const at = k.at ?? head[0];
+  if (k.fx === "bulge") { ctx.fillStyle = "rgba(226,240,246,0.15)"; ctx.beginPath(); ctx.ellipse(14, 0, 7, 1.8, 0, 0, TAU); ctx.fill(); foam(ctx, 14, 5); spray(ctx, 14, 4, 3, 2); }
+  if (k.fx === "spray") { spray(ctx, at, 5, 8, 3); spray(ctx, 10, 4, 6, 5); }
+  if (k.fx === "splash") { foam(ctx, at, 5, 1.3); spray(ctx, at, 6, 7, 4); }
+  if (k.fx === "drip") { ctx.fillStyle = FOAM; for (const [x, y] of [[head[0] - 2, head[1] + 4], [head[0] + 4, head[1] + 6], [11, -9], [12.4, -4]]) ctx.fillRect(q(x), q(y), 0.5, 1); }
+  if (k.fx === "rings") { rings(ctx, at, 6, 1); ctx.fillStyle = FOAM; for (const [x, y] of [[at - 2, -1], [at + 1, -2.4], [at + 3, -0.6]]) ctx.fillRect(q(x), q(y), 1, 1); }
+  if (!k.fins && !k.dep) glow(ctx, ...add(head, rot([3.9, -1.4], [0, 0], k.tilt)), 1.8, p.eyes || "#e8f070", 0.45);
+  ctx.restore();
+};
+
+// ---- the kraken -----------------------------------------------------------------------
+// One tentacle: from base along ang0 (radians, -PI/2 straight up), turning by
+// curl over its length (most of it toward the tip as pow rises): suckers on
+// the inner face of the turn. o.floor lays any part that would go below the
+// ground (y > -0.8) along it — a slam.
+const tentLine = (base, ang0, curl, pow, len, o = {}) => {
+  const N = 16, seg = len / N, pts = [base.slice()];
+  let [x, y] = base;
+  for (let i = 1; i <= N; i++) {
+    const a = ang0 + curl * Math.pow(i / N, pow);
+    x += Math.cos(a) * seg; y += Math.sin(a) * seg;
+    if (o.floor && y > -0.8) y = -0.8;
+    pts.push([x, y]);
+  }
+  return pts;
+};
+const tentacle = (c, C, pts, curl, w0, col, belly) => {
+  const N = pts.length - 1, ws = pts.map((_, i) => w0 * Math.pow(1 - i / N, 0.85) + 0.7);
+  const side = curl >= 0 ? 1 : -1;
+  const nrm = (i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(N, i + 1)]; const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [-dy / l * side, dx / l * side]; };
+  c.fillStyle = tone(c, pts[0][0] - 10, pts[0][1] - 30, pts[0][0] + 10, pts[0][1], C(col), 0.3, 0.42); taper(c, pts, ws);
+  // the inner face: pale, with a row of suckers
+  const inn = pts.map((pt, i) => { const n = nrm(i); return [pt[0] + n[0] * ws[i] * 0.26, pt[1] + n[1] * ws[i] * 0.26]; });
+  c.fillStyle = C(belly); taper(c, inn, ws.map((w) => w * 0.44));
+  for (let i = 2; i < N; i++) {
+    const n = nrm(i), r = ws[i] * 0.17, pt = [pts[i][0] + n[0] * ws[i] * 0.34, pts[i][1] + n[1] * ws[i] * 0.34];
+    c.fillStyle = C(lighten(belly, 0.25)); c.beginPath(); c.ellipse(pt[0], pt[1], Math.max(0.5, r), Math.max(0.5, r * 0.8), 0, 0, TAU); c.fill();
+    if (r > 0.6) { c.fillStyle = C(darken(belly, 0.35)); c.fillRect(pt[0] - 0.25, pt[1] - 0.25, 0.5, 0.5); }
+  }
+  // darker mottling along the outer face
+  c.fillStyle = C(darken(col, 0.3));
+  for (let i = 1; i < N - 2; i += 2) { const n = nrm(i); const pt = [pts[i][0] - n[0] * ws[i] * 0.22, pts[i][1] - n[1] * ws[i] * 0.22]; c.fillRect(pt[0] - 0.5, pt[1] - 0.5, 1, 1); }
+};
+// where a centreline cuts the surface (for the foam)
+const crossings = (pts) => { const out = []; for (let i = 1; i < pts.length; i++) if ((pts[i - 1][1] > 0) !== (pts[i][1] > 0)) out.push((pts[i - 1][0] + pts[i][0]) / 2); return out; };
+
+// the arm: a pose is [ang0, curl, pow, o]
+const ARM_WALK = (f) => ({ a: -PI / 2 - 0.08 + 0.13 * Math.sin((f / 4) * TAU), curl: 2.4 + 0.5 * Math.cos((f / 4) * TAU), pow: 2.4 });
+const ARM_FIGHT = [
+  { a: -1.78, curl: 3.6, pow: 2.8 },                    // raised high, the tip curled over
+  { a: -2.02, curl: 1.2, pow: 1.4 },                    // arched back
+  { a: -1.0, curl: 1.95, pow: 1.0, floor: true, fx: "slam" },   // SLAM: laid along the ground ahead
+  { a: -0.55, curl: 0.75, pow: 1.2, floor: true, fx: "dust" },  // dragged back
+];
+const ARM_EXTRA = {
+  rise: (f) => ({ ...ARM_WALK(0), dep: [0.8, 0.55, 0.25, 0][f % 4], fx: f % 4 < 3 ? "burst" : "drip" }),
+  grab: (f) => [
+    { a: -1.2, curl: 1.0, pow: 1.5 },
+    { a: -1.3, curl: 5.4, pow: 3.4 },
+    { a: -1.42, curl: 6.2, pow: 4 },
+    { a: -1.78, curl: 6.2, pow: 4 },
+  ][f % 4],
+  sink: (f) => ({ ...ARM_WALK(0), a: -PI / 2 + 0.25 * (f % 4), dep: [0.15, 0.4, 0.7, 0.95][f % 4], fx: "rings" }),
+};
+const krakenarm = (ctx, p) => {
+  const fight = p.pose === "fight";
+  let k;
+  if (typeof p.frame === "string") { const [sh, n] = p.frame.split("."); k = (ARM_EXTRA[sh] || ARM_EXTRA.rise)(Number(n) || 0); }
+  else k = fight ? ARM_FIGHT[(p.frame || 0) % 4] : ARM_WALK((p.frame || 0) % 4);
+  const len = p.len ?? 44, w0 = p.w ?? 8;
+  const dep = (k.dep || 0) * len;
+  const pts = tentLine([0, 2 + dep], k.a, k.curl, k.pow, len + 2, { floor: k.floor });
+  const draw = (c, C) => tentacle(c, C, pts, k.curl, w0, p.col, p.belly);
+  submerged(ctx, draw);
+  above(ctx, draw);
+  for (const x of crossings(pts)) { foam(ctx, x, w0 * 0.75, 1); }
+  const tip = pts[pts.length - 1];
+  if (k.fx === "burst") { spray(ctx, pts[0][0], 7, 10, 1); spray(ctx, 2, 5, 6, 6); foam(ctx, 0, w0, 1.4); }
+  if (k.fx === "drip") { ctx.fillStyle = FOAM; for (const i of [5, 9, 13]) ctx.fillRect(q(pts[i][0] + 2), q(pts[i][1] + 1.5), 0.5, 1); }
+  if (k.fx === "slam") { part(ctx, (c) => frostCracks(c, tip[0] - 4, 9), { ink: null }); spray(ctx, tip[0] - 3, 7, 7, 3); iceBurst(ctx, tip[0] - 2, 5, 0.6); }
+  if (k.fx === "dust") { ctx.fillStyle = "rgba(226,240,246,0.3)"; ctx.beginPath(); ctx.ellipse(tip[0] - 6, -0.6, 8, 1.6, 0, 0, TAU); ctx.fill(); }
+  if (k.fx === "rings") rings(ctx, 0, w0 * 0.8, 1 - (k.dep || 0) * 0.5);
+};
+
+// the body: pose { h (mantle height), up (risen extra), roar (beak 0-1),
+// arms (arm-root curl), look (pupil), dep (sunk), tilt }
+const KRAKEN_WALK = (f) => ({ h: 46 + [0, 0.5, 1, 0.5][f], arms: [0.5, 0.7, 0.85, 0.65][f], look: [0, 0.3, 0, -0.3][f], narrow: 0.3 });
+const KRAKEN_FIGHT = [
+  { h: 46, arms: 0.6, narrow: 1 },
+  { h: 49, up: 3, arms: 0.9, narrow: 1 },
+  { h: 50, up: 4, arms: 1.2, roar: 1, narrow: 0.4, fx: "spray" },
+  { h: 47, up: 1, arms: 0.5, roar: 0.25 },
+];
+const KRAKEN_EXTRA = {
+  rise: (f) => ({ h: 46, arms: 0, dep: [44, 28, 14, 4][f % 4], fx: f % 4 < 3 ? "bulge" : "drip" }),
+  sink: (f) => ({ h: 46, arms: -0.2, dep: [6, 18, 32, 48][f % 4], tilt: -0.04 * (f % 4 + 1), fx: "bubbles" }),
+};
+const kraken = (ctx, p) => {
+  const fight = p.pose === "fight";
+  let k;
+  if (typeof p.frame === "string") { const [sh, n] = p.frame.split("."); k = (KRAKEN_EXTRA[sh] || KRAKEN_EXTRA.rise)(Number(n) || 0); }
+  else k = fight ? KRAKEN_FIGHT[(p.frame || 0) % 4] : KRAKEN_WALK((p.frame || 0) % 4);
+  const s = (p.len ?? 40) / 40;
+  const col = p.col, belly = p.belly, dark = p.mane;
+  ctx.save(); ctx.scale(s, s);
+  const dep = k.dep || 0, up = k.up || 0, H = k.h + up;
+  const Y = (y) => y + dep - up * 0.2;
+  // arm roots round the base: [base x, ang0, curl, len, w]; the far pair first
+  const ar = k.arms;
+  const ARMS_FAR = [[-15, -1.95 + ar * 0.25, -3.4 + ar * 0.6, 28 + ar * 4, 6], [15, -1.2 - ar * 0.25, 3.4 - ar * 0.6, 28 + ar * 4, 6]];
+  const ARMS_NEAR = [[-9.5, -2.35 + ar * 0.3, -3.8 + ar * 0.8, 23 + ar * 4, 6.6], [10.5, -0.8 - ar * 0.3, 3.8 - ar * 0.8, 23 + ar * 4, 6.6]];
+  const armPts = (arr) => arr.map(([x, a, cu, l, w]) => [tentLine([x, Y(2)], a, cu, 2.2, l), cu, w]);
+  const far = armPts(ARMS_FAR), near = armPts(ARMS_NEAR);
+  // a bulbous sac leaning back over the brow, the head broad at the water
+  const mantle = [[-17.6, Y(3)], [-19, Y(-8)], [-16.4, Y(-18)], [-19.4, Y(-27)], [-21, Y(-H + 8)], [-15, Y(-H - 1)], [-5, Y(-H - 2)], [3, Y(-H + 5)], [6.4, Y(-34)], [11, Y(-24)], [16.6, Y(-15)], [18.4, Y(-5)], [16.6, Y(3)]];
+  const draw = (c, C) => {
+    for (const [pts, cu, w] of far) tentacle(c, (x) => C(darken(x, 0.25)), pts, cu, w, col, belly);
+    c.save(); c.translate(0, Y(0)); c.rotate(k.tilt || 0); c.translate(0, -Y(0));
+    // the mantle: a great lumpy dome, mottled, pale spots, creased at the brow
+    c.fillStyle = tone(c, -18, Y(-H), 18, Y(2), C(col), 0.3, 0.42); curve(c, mantle); c.fill();
+    c.save(); curve(c, mantle); c.clip();
+    c.fillStyle = C(darken(col, 0.28));
+    // the sac's shade on its underside, mottling, pale spots, the brow's folds
+    c.fillStyle = C(darken(col, 0.18)); c.beginPath(); c.ellipse(2, Y(-27), 9, 4, -0.5, 0, TAU); c.fill();
+    c.fillStyle = C(darken(col, 0.3));
+    for (const [x, y, rx, ry] of [[-12, -38, 3, 4], [-4, -44, 2.6, 2.6], [-15, -26, 2, 3], [4, -18, 2, 2.4], [-11, -14, 2.2, 2.4]]) { c.beginPath(); c.ellipse(x, Y(y), rx, ry, 0, 0, TAU); c.fill(); }
+    c.fillStyle = C(belly);
+    for (const [x, y] of [[-8, -40], [-16, -33], [-1, -38], [10, -16], [-14, -9], [-10, -46], [-4, -22], [14, -9], [-17, -20]]) { c.beginPath(); c.arc(x, Y(y - up * 0.1), 0.9, 0, TAU); c.fill(); }
+    c.fillStyle = C(dark); c.fillRect(-12, Y(-19.6), 22, 0.6); c.fillRect(-9, Y(-21.4), 15, 0.6);
+    // the lower face and the beak's lips
+    c.fillStyle = C(mix(col, belly, 0.35)); c.beginPath(); c.ellipse(1, Y(-3.6), 9, 5, 0, 0, TAU); c.fill();
+    c.restore();
+    // eyes: great, gold, a bar of a pupil, a heavy lid over each
+    const narrow = k.narrow || 0;
+    for (const [ex, ey, r, ff] of [[-7.4, -13, 3, 0.75], [8.2, -12.4, 3.8, 1]]) {
+      c.fillStyle = C(darken(col, 0.38)); c.beginPath(); c.ellipse(ex, Y(ey), r + 1.2, r + 1, 0, 0, TAU); c.fill();
+      c.fillStyle = C(p.eyes || "#f0d050"); c.beginPath(); c.ellipse(ex, Y(ey), r, r * 0.86, 0, 0, TAU); c.fill();
+      c.fillStyle = C(lighten(p.eyes || "#f0d050", 0.45)); c.fillRect(ex - r * 0.5, Y(ey) - r * 0.6, r * 0.5, r * 0.36);
+      c.fillStyle = "#1a1018"; c.fillRect(ex - r * 0.7 + (k.look || 0) * ff, Y(ey) - 0.5, r * 1.4, 1);
+      // a brow ridge slanting down toward the beak, lower when it narrows its eyes
+      const inward = ex < 0 ? 1 : -1, lo = r * (0.15 + narrow * 0.35);
+      c.fillStyle = C(darken(col, 0.32));
+      poly(c, [[ex - r - 1.6, Y(ey) - r - 2], [ex + r + 1.6, Y(ey) - r - 2], [ex + (r + 1.6) * inward, Y(ey) - r + lo + r * 0.7], [ex - (r + 1.6) * inward, Y(ey) - r + lo - 0.2]]); c.fill();
+    }
+    // the beak: a black parrot's hook, cream at the tip; opened, a dark maw
+    const ro = k.roar || 0, bx = 1.4, by = Y(-3.4);
+    if (ro) { c.fillStyle = C("#3a1420"); c.beginPath(); c.ellipse(bx + 0.4, by + 1.6 * ro, 4.6, 1 + 3.4 * ro, 0, 0, TAU); c.fill(); c.fillStyle = C("#7a2a3a"); c.beginPath(); c.ellipse(bx + 0.4, by + 2.6 * ro, 2.4, 1.6 * ro, 0, 0, TAU); c.fill(); }
+    c.fillStyle = C("#2a1e26"); curve(c, [[bx - 3.4, by - 1.6], [bx + 1, by - 2.6], [bx + 3.6, by - 0.8], [bx + 2.4, by + 1.6 - ro * 0.8, 1], [bx, by + 0.2 - ro * 0.6], [bx - 2.6, by + 0.4]]); c.fill();
+    c.fillStyle = C("#e0d4b4"); poly(c, [[bx + 1.6, by + 0.2 - ro * 0.6], [bx + 3.4, by - 0.6], [bx + 2.4, by + 1.6 - ro * 0.8]]); c.fill();
+    if (ro) { c.fillStyle = C("#2a1e26"); curve(c, [[bx - 2.6, by + 1.4 + ro * 3.6], [bx + 2.8, by + 1.2 + ro * 3.6], [bx + 1.8, by + 3 + ro * 3.6, 1], [bx - 1.6, by + 2.8 + ro * 3.6]]); c.fill(); }
+    c.restore();
+    for (const [pts, cu, w] of near) tentacle(c, C, pts, cu, w, col, belly);
+  };
+  submerged(ctx, draw, 0.28);
+  above(ctx, draw);
+  // the sea heaving round it: a long foam collar, a foam ring where each arm cuts
+  if (dep < 40) foam(ctx, 0, 17, 1.4);
+  for (const [pts, , w] of near.concat(far)) for (const x of crossings(pts)) foam(ctx, x, w * 0.7, 0.8);
+  if (k.fx === "spray") { spray(ctx, -10, 8, 10, 2); spray(ctx, 10, 8, 10, 7); }
+  if (k.fx === "bulge") { ctx.fillStyle = "rgba(226,240,246,0.15)"; ctx.beginPath(); ctx.ellipse(0, 0, 24, 3.4, 0, 0, TAU); ctx.fill(); spray(ctx, 0, 14, 9, 4); }
+  if (k.fx === "drip") { ctx.fillStyle = FOAM; for (const [x, y] of [[-10, -20], [-4, -36], [6, -30], [12, -14], [-14, -8]]) ctx.fillRect(x, y, 0.5, 1.2); }
+  if (k.fx === "bubbles") { rings(ctx, 0, 16, 1); ctx.fillStyle = FOAM; for (const [x, y] of [[-8, -1.6], [-2, -3], [5, -1.2], [10, -2.6], [1, -5]]) { ctx.beginPath(); ctx.arc(x, y, 0.7, 0, TAU); ctx.fill(); } }
+  if (dep < 8) for (const [ex, ey, r] of [[-7.4, -13, 2], [8.2, -12.4, 2.6]]) glow(ctx, ex, Y(ey), r, p.eyes || "#f0d050", 0.35);
+  ctx.restore();
+};
+
 // ---- the roster -----------------------------------------------------------------------
 const FROSTWOLF = { len: 32, col: "#dfe5ea", belly: "#f6f3ea", mane: "#8aa6bc", eyes: "#8ad8f0" };
 const RAIDER = { skin: "#e8bea0", cloth: "#2f5a58", cloth2: "#cbbfa6", hair: "#d8b860", shcol: "#d8d0bc", wcol: "#c4c8d0" };
@@ -783,6 +1063,9 @@ export const RIMEBEAST_RIGS = {
   rimewolf: { kind: "rbFrostwolf", box: { hw: 27, up: 31, down: 4 }, p: { ...FROSTWOLF } },
   icedrake: { kind: "rbDrake", fly: true, fightN: 4, box: { hw: 42, up: 44, down: 4 }, p: { len: 40, col: "#9cc2d8", belly: "#eef4f4", wing: "#7eaccc", eyes: "#e8fbff" } },
   rimejarl: { kind: "rbMammoth", fightN: 4, box: { hw: 46, up: 82, down: 6 }, p: { len: 54, col: "#6e5442", belly: "#e8eef0", mane: "#3e2e24", cape: "#2f5a58", skin: RIME_JARL.skin, cloth: RIME_JARL.cloth, cloth2: RIME_JARL.cloth2, hair: RIME_JARL.hair, wcol: RIME_JARL.wcol } },
+  seaserpent: { kind: "rbSerpent", fightN: 4, box: { hw: 38, up: 40, down: 10 }, p: { len: 40, col: "#3c8478", belly: "#d4ece0", mane: "#86cce0", eyes: "#e8f070" } },
+  kraken: { kind: "rbKraken", fightN: 4, box: { hw: 42, up: 62, down: 12 }, p: { len: 40, col: "#8a4252", belly: "#e2b6aa", mane: "#4a2234", eyes: "#f0d050" } },
+  krakenarm: { kind: "rbKrakenArm", fightN: 4, box: { hw: 50, up: 54, down: 10 }, p: { len: 44, w: 9.5, col: "#8a4252", belly: "#e2b6aa", mane: "#4a2234" } },
   frostgiant: { kind: "rbGiant", fightN: 4, box: { hw: 34, up: 58, down: 4 }, p: { skin: "#7f93ab", cloth: "#5e4a3a", cloth2: "#8a7860", hair: "#e4ecf0", eyes: "#bfe8ff", wcol: "#e6dcc4" } },
 };
-export const RIMEBEAST_PAINTERS = { rbFrostwolf: frostwolf, rbGiant: giant, rbDrake: drake, rbMammoth: mammoth };
+export const RIMEBEAST_PAINTERS = { rbFrostwolf: frostwolf, rbGiant: giant, rbDrake: drake, rbMammoth: mammoth, rbSerpent: seaserpent, rbKraken: kraken, rbKrakenArm: krakenarm };
