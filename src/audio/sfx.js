@@ -152,6 +152,14 @@ const LIB = {
   // wind getting up, and a hall shrouded in ice (engine/rime.js, weather.js)
   seaHorn:   { ms: 1200, fn: () => { inst("horn", 38, 1.3, 0.9); inst("horn", 45, 1.1, 0.7, 0.35); noise({ dur: 1.2, gain: 0.05, type: "lowpass", from: 500, to: 120 }); } },
   gust:      { ms: 2500, fn: () => { noise({ dur: 2.2, gain: 0.07, type: "bandpass", from: 300, to: 1400, q: 0.8 }); noise({ dur: 1.6, gain: 0.04, type: "bandpass", from: 1800, to: 600, q: 1.2, delay: 0.5 }); } },
+  // the zones' weather (engine/weather.js): fog bell, thunder and its crack,
+  // the grave mist's moan, the eruption's rumble and a falling rock's whistle
+  fogbell:   { ms: 2000, fn: () => { bell(196, 2.2, 0.12); noise({ dur: 1.6, gain: 0.03, type: "lowpass", from: 400, to: 150 }); } },
+  thunder:   { ms: 2500, fn: () => { noise({ dur: 2.4, gain: 0.22, type: "lowpass", from: 260, to: 50 }); tone({ type: "sine", f: 55, to: 32, dur: 1.8, gain: 0.25 }); } },
+  crack:     { ms: 150, fn: () => { noise({ dur: 0.12, gain: 0.35, type: "highpass", from: 3000, to: 900 }); noise({ dur: 1.2, gain: 0.18, type: "lowpass", from: 500, to: 60, delay: 0.08 }); } },
+  moan:      { ms: 2500, fn: () => { tone({ type: "sine", f: 147, to: 131, dur: 1.8, gain: 0.08 }); tone({ type: "sine", f: 220, to: 196, dur: 1.6, gain: 0.05, delay: 0.3 }); noise({ dur: 1.8, gain: 0.03, type: "bandpass", from: 500, to: 300, q: 2 }); } },
+  rumble:    { ms: 2500, fn: () => { noise({ dur: 2.2, gain: 0.2, type: "lowpass", from: 180, to: 40 }); tone({ type: "sawtooth", f: 40, to: 30, dur: 1.6, gain: 0.08 }); } },
+  whistle:   { ms: 300, fn: () => { tone({ type: "sine", f: 1800, to: 500, dur: 0.9, gain: 0.05 }); } },
   shroud:    { ms: 250, fn: () => { [2093, 1568, 1245].forEach((f, i) => tone({ type: "triangle", f: drift(f, 0.03), dur: 0.22, gain: 0.07, delay: i * 0.05 })); noise({ dur: 0.35, gain: 0.06, type: "highpass", from: 6000, to: 3000 }); } },
   bossHorn:  { ms: 900, fn: () => { inst("horn", 43, 1.0, 1); inst("horn", 50, 1.0, 0.9); inst("brass", 55, 0.9, 0.6, 0.25); drum("c", 0.6, 0.0); noise({ dur: 0.9, gain: 0.08, from: 400, to: 60 }); } },
   waveClear: { ms: 900, fn: () => { inst("brass", 67, 0.12, 0.8); inst("brass", 71, 0.12, 0.8, 0.1); inst("brass", 74, 0.45, 0.9, 0.2); inst("harp", 79, 0.6, 0.7, 0.2); inst("bell", 86, 0.9, 0.5, 0.3); } },

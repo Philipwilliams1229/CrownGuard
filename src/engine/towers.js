@@ -7,7 +7,7 @@ import { PERK_MODS } from "../data/profile.js";
 import { nextId } from "./ids.js";
 import { nearestOnPath } from "./path.js";
 import { RALLY_RANGE } from "../data/constants.js";
-import { WX } from "./weather.js";
+import { WX, canSee } from "./weather.js";
 
 // Which stats the permanent skill trees are allowed to touch, and which way
 // is "better". `rate` is a reload time, so its multiplier goes DOWN to make a
@@ -156,7 +156,9 @@ export const forcedAim = (st) => (st.targeting === "strongest" ? "strong" : null
 // A raised skeleton (or a wraith) climbs out of the ground for riseMs; until it
 // is up nothing may target or hurt it (owner, 2026-10-01: towers were striking
 // the dead down before they stood).
-export const isRising = (e, tms) => e.riseAt !== undefined && tms - e.riseAt < e.riseMs;
+// (a sea serpent under the water counts the same: nothing sees it but the
+// River Watch's boats, whose loop asks for it by name — engine/serpent.js)
+export const isRising = (e, tms) => (e.riseAt !== undefined && tms - e.riseAt < e.riseMs) || !!e.submerged;
 
 // How many foes a splash of radius r centred on `e` would also catch.
 const crowdAt = (g, e, r) => {
@@ -175,7 +177,7 @@ export const pickTarget = (g, t, st) => {
   for (const e of g.enemies) {
     if (e.dead || isRising(e, now) || (st.groundOnly && e.flying && !(st.scorchHaunts && e.haunts) && !(WX.fliersLow && WX.groundHitsLow))) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y);
-    if (d > st.range || d < min) continue;
+    if (d > st.range || d < min || !canSee(t, e)) continue;   // (canSee: fog and grave mist, weather.js)
     // shots already in the air will finish it: look past it, so a crowd
     // isn't met by six arrows into one goblin and none into the rest
     const sure = (e.incoming || 0) >= e.hp;

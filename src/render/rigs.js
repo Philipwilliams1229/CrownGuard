@@ -19,6 +19,7 @@ import { IRON_RIGS, IRON_PAINTERS } from "./rigs-iron.js";
 import { IRONMOUNT_RIGS, IRONMOUNT_PAINTERS } from "./rigs-ironmounts.js";
 import { HOLLOW_RIGS, HOLLOW_PAINTERS } from "./rigs-hollow.js";
 import { HOLLOWBEAST_RIGS, HOLLOWBEAST_PAINTERS } from "./rigs-hollowbeasts.js";
+import { RIMEBEAST_RIGS, RIMEBEAST_PAINTERS } from "./rigs-rimebeasts.js";
 import { eagle } from "./rigs-eagle.js";
 import { skiff } from "./rigs-skiff.js";
 
@@ -318,6 +319,8 @@ const PAINTERS = {
   biped, beast, bat, wraith, dragon, gryphon, ram, amalgam, skiff, eagle, ...HORDE_PAINTERS, ...BEAST_PAINTERS, ...CROWN_PAINTERS, ...COVERT_PAINTERS,
   ...IRON_PAINTERS, ...IRONMOUNT_PAINTERS, ...HOLLOW_PAINTERS, ...HOLLOWBEAST_PAINTERS,
 };
+import { RIME_RIGS, RIME_PAINTERS } from "./rigs-rime.js"; Object.assign(RIGS, RIME_RIGS); Object.assign(PAINTERS, RIME_PAINTERS);   // zone IV: the Rime Clans
+Object.assign(RIGS, RIMEBEAST_RIGS); Object.assign(PAINTERS, RIMEBEAST_PAINTERS);   // zone IV beasts (rigs-rimebeasts.js)
 
 // the shared kit, for the roster files
 export { limb, lit, eye, gait, weapon, shieldOf, biped, beast, bat, dragon };

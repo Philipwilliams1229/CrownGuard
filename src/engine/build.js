@@ -50,8 +50,10 @@ export const buildClock = (kind, x, y, at) => {
 // Is the hall up and fighting? (A hall with no build pending always is.)
 export const isBuilt = (t, g) => !(t.readyAt > g.time);
 
-// Is the hall fighting right now? Built, and not shrouded in ice by a Rime
-// Seer (engine/rime.js: t.iceLeft). Every hall's shots, auras, traps, skiffs,
+// Is the hall fighting right now? Built, not shrouded in ice by a Rime Seer
+// (engine/rime.js: t.iceLeft), and not set burning by an eruption's falling
+// rock (engine/weather.js: t.fireLeft). Every hall's shots, auras, traps, skiffs,
 // blades and garrison go through this gate; isBuilt alone still decides
 // whether its people are on the field (a frozen hall's soldiers can be shot).
-export const fights = (t, g) => !(t.readyAt > g.time) && !(t.iceLeft > 0);
+// (t.downLeft: coiled by a sea serpent or smashed by a kraken's arm, engine/serpent.js)
+export const fights = (t, g) => !(t.readyAt > g.time) && !(t.iceLeft > 0) && !(t.fireLeft > 0) && !(t.downLeft > 0);

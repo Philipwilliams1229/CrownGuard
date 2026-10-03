@@ -13,6 +13,7 @@
     &squall=6     make a squall bite at 6 s of the wave (the wind rises 4 s before)
     &crop=x,y,w,h a window of the board (default the whole board); &scale=1
     &hero=none    (default none)
+    &weather=fog:0.8   any weather kind at a strength (engine/weather.js), over the realm's own
 
   Saved to .shots/rim_<tag>.png, frames two to a row, each stamped with its
   game time and the weather/landing state. Same state shape as scripts/sim.mjs.
@@ -31,12 +32,14 @@
       import { updateGame } from "/src/engine/update.js";
       import { placeTower, upgradeTower, branchTower, ascendTower, buildableAt, startWave } from "/src/engine/actions.js";
       import { draw } from "/src/render/draw.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
       const q = new URLSearchParams(location.search);
       const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 1;
       const SNAPS = (q.get("snaps") || "4,7,10").split(",").map(Number).sort((a, b) => a - b);
       selectRealm(q.get("realm") || "rimewatch");
       selectFaction(q.get("faction") || "rime");
       setWaveWindow(null);
+      if (q.get("weather")) { const [kind, str] = q.get("weather").split(":"); setLevelWeather(kind === "none" ? null : { kind, strength: Number(str ?? 1) }); }
       const g = {
         run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: CASTLE_HP, wave: (Number(q.get("wave")) || 5) - 1, phase: "build",
         towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,

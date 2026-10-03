@@ -14,6 +14,8 @@ import { SANDBOX } from "./sandbox.js";
 import { ENEMIES } from "./enemies.js";
 import { REALM } from "./maps.js";
 import { MECH } from "./zone-flags.js";
+// (zone IV: is there water for a sea monster on this board? engine/serpent.js)
+import { hasWater } from "../engine/serpent.js";
 
 // A campaign level plays a stretch of its faction's WAR rather than the
 // whole thing: `{ from, to, count }` means "count waves, climbing from war-
@@ -98,7 +100,7 @@ export function genWave(w) {
   return spec;
 }
 
-const BOSSES = new Set(["dragon", "marshal", "hollowking"]);
+const BOSSES = new Set(["dragon", "marshal", "hollowking", "rimejarl"]);
 const ENEMY_BOSS = (t) => !!ENEMIES[t]?.boss;
 
 // ---- THE CROWD ----
@@ -115,6 +117,7 @@ export const CROWD_WEIGHT = {
   levy: 1, crossbow: 0.7, sergeant: 0.45, cavalier: 0.4, gryphon: 0.35, chaplain: 0.15, ram: 0, magister: 0, unseated: 0,
   skeleton: 1, ghoul: 0.9, bonearcher: 0.7, wraith: 0.3, ghast: 0.4, crypt: 0.35, gravecaller: 0.1, amalgam: 0.2,
   thrall: 1, huscarl: 0.45, rimeseer: 0.1, longship: 0,
+  berserker: 0.6, rimerider: 0.35, skald: 0.1, frostgiant: 0.1, icedrake: 0.6, rimejarl: 0, seaserpent: 0, kraken: 0, krakenarm: 0,
 };
 // A faction may swell less (`crowdScale` in factions.js): the Greenwood is
 // a horde and swells fully; the Iron Kingdom and the Hollow Court both swell
@@ -207,13 +210,13 @@ export const waveSpec = (w) => {
   const a = absWave(w);
   const scripted = a <= FACTION.waves.length;
   if (!WINDOW) {
-    const sp = escortOf(partyOf(raisersLast(shapeCompany(swell(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w), a), a)), a), a);
+    const sp = gatherMore(escortOf(partyOf(raisersLast(shapeCompany(swell(dryLand(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w)), a), a)), a), a));
     sp.overlap = overlap(a);
     return landingsOf(SANDBOX ? sandboxShape(sp) : sp, a, 1);
   }
   // two waves of a level can land on the same war-wave; the later one comes
   // thicker, because the crowd reads the level's true (fractional) position
-  let spec = scripted ? FACTION.waves[a - 1] : genWave(w);
+  let spec = dryLand(scripted ? FACTION.waves[a - 1] : genWave(w));
   spec = spec.filter(([type]) => !BOSSES.has(type));
   // a foe that needs its answer built first (the wraith: a Paladin hall) waits
   // for a later wave of the level; a stand-in, doubled, marches in its place
@@ -221,7 +224,7 @@ export const waveSpec = (w) => {
   // every level opens on its own ground: the swell comes in over its first
   // few waves, so a fresh purse never meets a full-grown horde on wave one
   spec = raisersLast(shapeCompany(push(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), WINDOW.push), a));
-  spec = escortOf(partyOf(spec, a), a);
+  spec = gatherMore(escortOf(partyOf(spec, a), a));
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);
   return landingsOf(spec, a, Math.min(1, 0.35 + 0.13 * (w - 1)));
@@ -235,8 +238,9 @@ export const waveSpec = (w) => {
 // a realm with `landings` (beach spots, engine/rime.js) each group comes back
 // marked `landing` (the spot's index, seeded by the wave) and `ship` (the
 // hull's foe type): startWave puts them aboard one longship instead of on the
-// road. On a realm without a beach the same groups march out of the wood
-// behind the rest. Appended last, so no `amid` index moves.
+// road. On a realm without a beach there is no landing party at all (owner,
+// 2026-10-03; it used to march out of the wood behind the rest), so the wave
+// preview and the sims show none. Appended last, so no `amid` index moves.
 export const landingSpots = () => (MECH.landings && REALM && REALM.landings && REALM.landings.length ? REALM.landings : null);
 const landingParty = (a) => {
   const fixed = FACTION.landings && FACTION.landings[a];
@@ -249,11 +253,30 @@ const landingsOf = (spec, a, warm) => {
   const party = landingParty(a);
   if (!party || !party.length) return spec;
   const spots = landingSpots();
-  const spot = spots ? Math.floor(mulberry32(a * 53 + 11)() * spots.length) : null;
+  if (!spots) return spec;
+  const spot = Math.floor(mulberry32(a * 53 + 11)() * spots.length);
   const out = spec.map((g) => { const c = g.slice(); if (g.amid != null) c.amid = g.amid; if (g.clock != null) c.clock = g.clock; return c; });
   for (const grp of swell(party, a, warm)) {
-    if (spots) { grp.landing = spot; grp.ship = FACTION.landingShip || "longship"; }
+    grp.landing = spot; grp.ship = FACTION.landingShip || "longship";
     out.push(grp);
+  }
+  out.overlap = spec.overlap;
+  return out;
+};
+
+// ---- SEA MONSTERS ON DRY LAND (zone IV) ----
+// A foe that needs water (`water` in enemies.js: the sea serpent wants a river
+// or a coast, the kraken a coast) never marches on a board without it: each
+// head becomes `dry` [type, n] (n of that type a head) or, with no `dry`, the
+// group is left out. Applied to the raw script, before the swell, so every
+// later step (and the wave preview) sees the board's real wave.
+const dryLand = (spec) => {
+  if (!spec.some(([t]) => ENEMIES[t]?.water)) return spec;
+  const out = [];
+  for (const g of spec) {
+    const d = ENEMIES[g[0]];
+    if (!d?.water || hasWater(d.water)) { out.push(g); continue; }
+    if (d.dry && FACTION.types.includes(d.dry[0])) out.push([d.dry[0], Math.max(1, Math.round(g[1] * d.dry[1])), g[2] || 600, ...g.slice(3)]);
   }
   out.overlap = spec.overlap;
   return out;
@@ -301,6 +324,14 @@ const partyOf = (spec, a) => {
   else if (out[big][1] < want) out[big][1] = want;
   out.forEach((g) => { if (chiefs.some((c) => c[0] === g[0])) { g[2] = 0; g.amid = big; } });
   out.overlap = spec.overlap;
+  return out;
+};
+// A faction may name more foes that walk amid the biggest group as its escort
+// does (`gather: [types]` in factions.js — the Rime Clans' skald, whose chant
+// should carry over the thick of the warband). Applied after escortOf.
+const gatherMore = (spec) => {
+  let out = spec;
+  for (const t of FACTION.gather || []) if (out.some(([x]) => x === t)) out = gatherEscort(out, t);
   return out;
 };
 const escortOf = (spec, a) => {

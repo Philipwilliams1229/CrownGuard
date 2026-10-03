@@ -237,34 +237,144 @@ export const ENEMIES = {
   },
 
   // ---- THE RIME CLANS (zone IV, art/ZONES-4-5.md) ----
-  // ENGINE STUBS: numbers are first guesses and the looks are borrowed rigs
-  // (render/rimefx.js aliases thrall -> levy, huscarl -> sergeant, rimeseer ->
-  // chaplain) until the clans' own rigs are drawn. Fielded only by the test
-  // faction in data/faction-rime.js, which no level marches yet.
+  // Fielded only by the test faction in data/faction-rime.js, which no level
+  // marches yet. Numbers are first guesses; looks are borrowed rigs
+  // (render/rimefx.js aliases, each only until rigs-rime.js /
+  // rigs-rimebeasts.js draws the real one). The clans' own flags:
+  //   frostProof  cold-hardy (owner, 2026-10-03: "make freeze towers that slow
+  //             enemies ineffective in zone 4"): the Frost Altar's chill (its
+  //             aura slow, every form), its frost nova's freeze (and the
+  //             Permafrost brittleness that rides on it) and Absolute Zero's
+  //             cold damage do nothing. The nova's own blast still lands, and
+  //             every non-frost slow (spikes, traps, caltrops, harpoons, the
+  //             Earthshaker's cracked road, the Moon Prism's beam) still bites.
+  //             Every Rime foe has it; no other foe does (update.js support loop)
   //   freezeEvery / freezeRange / freezeFor / freezeFirst   the frost shroud:
   //             every freezeEvery ms it ices the nearest built hall within
   //             freezeRange px for freezeFor ms (engine/rime.js)
   //   ship      a longship: sails in off the sea edge carrying a landing party,
   //             a target while it sails, never on the road (engine/rime.js)
+  //   rage      { speed, atk } the berserker: at 0 health left he is
+  //             (1 + speed)x as quick and (1 + atk)x as heavy a hitter,
+  //             in proportion to his wounds on the way (engine/rime.js)
+  //   stomp     { every, r, dmg, daze } the frost giant: while soldiers are
+  //             within r he stamps every `every` ms: dmg to each and their
+  //             blows held back `daze` ms (engine/rime.js)
+  //   callLanding { every, first, party }  the Rime Jarl's war-horn: a longship
+  //             puts in at one of the board's beaches with `party` aboard — at
+  //             most one landing a wave (none if the wave already had its own),
+  //             and none at all on a board with no beach (engine/rime.js)
+  //   sea       a sea monster, moved by engine/serpent.js, never on the road:
+  //             "serpent" (swims a river, else the coast, surfacing to strike),
+  //             "kraken" (a body offshore that sends up arms), "arm" (one arm)
+  //   water     what the board must have for it to march at all: "any" (a river
+  //             or a coast), "coast". `dry: [type, n]` is what marches in its
+  //             place, n per head, on a board without it (waves.js dryLand);
+  //             no `dry` and it is simply left out
   thrall: {
-    faction: "rime", hp: 54, speed: 72, bounty: 6, armor: 0.1, size: 16,
+    faction: "rime", hp: 54, speed: 72, bounty: 6, armor: 0.1, size: 16, frostProof: true,
     name: "Thrall", atk: 12, atkRate: 850, castleDmg: 1,
-    note: "The raiding rank and file: axe, buckler and nothing to lose. They come in floods — and some of them come by sea.",
+    note: "The raiding rank and file: axe, buckler and nothing to lose. They come in floods — and some of them come by sea. Cold-hardy: frost won't slow him.",
   },
   huscarl: {
-    faction: "rime", hp: 290, speed: 50, bounty: 16, armor: 0.35, guard: 1, size: 18,
+    faction: "rime", hp: 290, speed: 50, bounty: 16, armor: 0.35, guard: 1, size: 18, frostProof: true,
     name: "Huscarl", atk: 26, atkRate: 1000, castleDmg: 2,
-    note: "A mailed house-warrior behind a great round shield: the first blow glances off it, and the mail turns a third of what follows.",
+    note: "A mailed house-warrior behind a great round shield: the first blow glances off it, and the mail turns a third of what follows. Cold-hardy: frost won't slow him.",
   },
   rimeseer: {
-    faction: "rime", hp: 210, speed: 54, bounty: 22, armor: 0, mres: 0.4, size: 17,
+    faction: "rime", hp: 210, speed: 54, bounty: 22, armor: 0, mres: 0.4, size: 17, frostProof: true,
     name: "Rime Seer", atk: 8, atkRate: 1000, castleDmg: 2, packRange: 95,
     freezeEvery: 9000, freezeFirst: 3000, freezeRange: 130, freezeFor: 4500,
-    note: "She sings frost over the nearest hall in her reach: an ice shell that holds its fire for a few seconds. Fire halls thaw themselves and their neighbours fast. A burning, stunned or silenced seer cannot sing.",
+    note: "She sings frost over the nearest hall in her reach: an ice shell that holds its fire for a few seconds. A burning, stunned or silenced seer cannot sing. Cold-hardy: frost won't slow her.",
   },
   longship: {
-    faction: "rime", hp: 520, speed: 0, bounty: 30, armor: 0.25, size: 30,
+    faction: "rime", hp: 520, speed: 0, bounty: 30, armor: 0.25, size: 30, frostProof: true,
     name: "Longship", ship: true, atk: 0, atkRate: 0, castleDmg: 0,
     note: "A raiders' longship running in for the beach. Hole it before it grounds: a battered hull lands fewer raiders, and a sunk one lands none.",
+  },
+  berserker: {
+    faction: "rime", hp: 150, speed: 66, bounty: 13, armor: 0, size: 17, frostProof: true,
+    name: "Berserker", atk: 18, atkRate: 800, castleDmg: 2,
+    // wounded, he only gets worse: at a sliver of health he runs ~1.8x and hits ~2.2x
+    rage: { speed: 0.8, atk: 1.2 },
+    note: "Bare-chested and bear-mad. Every wound drives him faster and makes him hit harder — half dead, he is twice the man he was. Kill him in one go, or keep him far from your knights. Cold-hardy: frost won't slow him.",
+  },
+  rimerider: {
+    faction: "rime", hp: 125, speed: 112, bounty: 12, armor: 0.1, size: 19, frostProof: true,
+    name: "Wolf-Rider", atk: 20, atkRate: 750, castleDmg: 2, trample: 1,
+    // as the boar rider: half the time the rider leaps clear of his fallen wolf
+    // and marches on as a thrall (the mount crumbles alone in the `rimewolf` rig)
+    splitInto: ["thrall", 1], splitDrop: true, splitChance: 0.5, deathSkin: "rimewolf",
+    note: "A raider on a frost wolf, fast as the wind off the ice. The charge bowls over the first knight who steps up — only the second holds him. Fell the wolf and, one time in two, the rider leaps clear and marches on afoot. Cold-hardy: frost won't slow him.",
+  },
+  skald: {
+    faction: "rime", hp: 170, speed: 58, bounty: 18, armor: 0.1, mres: 0.25, size: 17, frostProof: true,
+    name: "Skald", atk: 10, atkRate: 1000, castleDmg: 2,
+    // his war-chant is a banner of song: the warband around him marches
+    // quicker (the Marshal's banner seam, speed only); he walks amid the
+    // biggest group (faction `gather`) and keeps its pace
+    bannerRange: 110, bannerSpeed: 0.25, bannerArmor: 0, packRange: 95,
+    note: "A war-poet with a horn and a hundred verses. While he chants, every raider around him marches a quarter faster, and he keeps to the thick of the warband. Silence him, or kill him first. Cold-hardy: frost won't slow him.",
+  },
+  frostgiant: {
+    faction: "rime", hp: 520, speed: 38, bounty: 30, armor: 0.2, size: 22, frostProof: true, immSlow: true,
+    name: "Frost Giant", atk: 44, atkRate: 1200, castleDmg: 3,
+    stomp: { every: 5200, r: 52, dmg: 22, daze: 1800 },
+    note: "A hill of blue hide and hoarfrost with a tree for a club. When soldiers crowd him he stamps: every knight near him is hurt and dazed, his blows held back for a heartbeat. Nothing slows him. Cold-hardy: frost won't slow him.",
+  },
+  icedrake: {
+    faction: "rime", hp: 105, speed: 96, bounty: 10, armor: 0.15, size: 17, frostProof: true,
+    name: "Ice Drake", flying: true, atk: 0, atkRate: 0, castleDmg: 1,
+    note: "A lesser drake off the ice cliffs, scaled like a frozen lake. It sails over every knight you have; arrows skid off its scales a little. Cold-hardy: frost won't slow it.",
+  },
+  rimejarl: {
+    faction: "rime", hp: 6200, speed: 36, bounty: 120, armor: 0.3, mres: 0.2, size: 30, frostProof: true,
+    name: "THE RIME JARL", boss: true, atk: 60, atkRate: 1100, castleDmg: 5, immSlow: true, immStun: true,
+    // on his war-mammoth: rides down soldiers as the Marshal does, and gathers
+    // for another charge every few seconds
+    trample: 3, trampleEvery: 3000,
+    // the mammoth's rider sings frost over halls like a seer, wider and longer
+    freezeEvery: 11000, freezeFirst: 6000, freezeRange: 150, freezeFor: 5000,
+    // and his horn calls a longship in (where there is a beach)
+    callLanding: { every: 26000, first: 12000, party: [["thrall", 10, 220], ["huscarl", 2, 520]] },
+    note: "Boss. The lord of the clans on a war-mammoth. He rides down any three knights who stand in his way and gathers for another charge; his song freezes the halls he passes; and his horn calls a longship to the beach behind your lines. Nothing slows or stuns the mammoth. Cold-hardy: frost won't slow him.",
+  },
+  // ---- the sea monsters (engine/serpent.js) ----
+  seaserpent: {
+    faction: "rime", hp: 900, speed: 54, bounty: 40, armor: 0.25, mres: 0.15, size: 24, frostProof: true,
+    name: "Sea Serpent", atk: 0, atkRate: 0, castleDmg: 1, immSlow: true,
+    sea: "serpent", water: "any", dry: ["berserker", 3],
+    // the swim: `reach` px from the water to its prey; `rise` ms of ripples
+    // before it breaks the surface, `up` ms above water (strikes every
+    // `strikeRate` ms while it is, the first the moment it rises), `dive` ms
+    // going down, `rest` ms submerged before it may rise again
+    reach: 80, rise: 500, up: 2600, dive: 450, rest: 4200, strikeRate: 1250,
+    maul: 70,          // a soldier's (or a skiff's) share of a bite
+    coil: 3500,        // a hall it coils round holds its fire this long
+    note: "A grey coil under the meltwater. It swims the river (or runs the coast), unseen and out of reach of everything but the River Watch's boats — then rises beside a knight, a hero or a hall to maul or crush it. For the few seconds it is up, every hall in reach can hit it. At the river's end it slips away, and that costs you a life. Cold-hardy: frost won't slow it.",
+  },
+  kraken: {
+    faction: "rime", hp: 3400, speed: 0, bounty: 110, armor: 0.2, mres: 0.2, size: 34, frostProof: true,
+    name: "THE KRAKEN", boss: true, atk: 0, atkRate: 0, castleDmg: 4, immSlow: true, immStun: true,
+    sea: "kraken", water: "coast", dry: ["frostgiant", 2],
+    // a body offshore; arms burst up along the shore: every `armEvery` ms a new
+    // one while fewer than `armMax` are up (+1 from war-wave 12), each lives
+    // `armLife` ms. An arm cut down tears `armBlow` of the body's health away.
+    // After `stay` ms it sinks back into the deep — and that costs castleDmg
+    // lives, like a leak (it can never hold a wave open)
+    armEvery: 2600, armMax: 3, armLife: 9500, armBlow: 0.12, stay: 75000, armSpan: 300,
+    note: "Boss. Something vast under the black water. Its arms burst up along the shore to drag soldiers under, smash halls and sweep the road; cut them down and each one tears at the body. The body lies offshore, where only halls and boats in reach can hit it. Kill it before it tires of the game and sinks — it takes four lives with it. Cold-hardy: frost won't slow it.",
+  },
+  krakenarm: {
+    faction: "rime", hp: 240, speed: 0, bounty: 6, armor: 0.1, size: 18, frostProof: true,
+    name: "Kraken Arm", atk: 0, atkRate: 0, castleDmg: 0, immSlow: true,
+    sea: "arm",
+    // `reach` px of shore it can strike; acts every `rate` ms once risen
+    // (`rise` ms, untouchable): grabs a soldier (`grab` damage — a knight is
+    // dragged under), else smashes a hall (holds its fire `smash` ms), else
+    // sweeps the road (`sweep` damage to every soldier within reach)
+    // (`inland`: how far up the shore from the waterline it may burst)
+    reach: 50, inland: 44, rise: 700, rate: 2800, grab: 130, smash: 2600, sweep: 40,
+    note: "One arm of the kraken, thick as a mast. It grabs a soldier and drags him under, smashes a hall flat for a few seconds, or sweeps the road. Every arm cut down wounds the beast. Cold-hardy: frost won't slow it.",
   },
 };

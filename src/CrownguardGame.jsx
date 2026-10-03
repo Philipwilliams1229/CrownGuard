@@ -14,6 +14,8 @@ import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, victoryWave, waveSpec, setWaveWindow } from "./data/waves.js";
+import { setLevelWeather } from "./engine/weather.js";
+import { weatherFor } from "./data/weather-plan.js";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
@@ -60,10 +62,13 @@ function waveComposition(waveNum) {
   const spec = waveSpec(waveNum);
   if (!spec) return [];
   const out = [];
-  for (const [type, count] of spec) {
-    const found = out.find((c) => c.type === type);
+  for (const grp of spec) {
+    const [type, count] = grp;
+    // a landing party (zone IV, waves.js landingsOf) is its own chip, badged with a ship
+    const sea = grp.landing != null;
+    const found = out.find((c) => c.type === type && !!c.sea === sea);
     if (found) found.count += count;
-    else out.push({ type, count });
+    else out.push(sea ? { type, count, sea } : { type, count });
   }
   return out;
 }
@@ -307,6 +312,7 @@ export default function Crownguard() {
     selectRealm(lv.realm);
     endSandbox(lv.chapter.faction);
     setWaveWindow(lv.window);
+    setLevelWeather(weatherFor(lv));   // the chapter's weather, by the level's place in it (data/weather-plan.js)
     setRealmId(lv.realm);
     setFactionId(lv.chapter.faction);
     setMode("campaign");
@@ -758,8 +764,8 @@ export default function Crownguard() {
 
   // enemy chips (icon in a socket + count + hover tooltip) shared by both
   // wave panels; panelKey keeps hover state independent when a type appears in both.
-  const waveChips = (comp, panelKey) => comp.map(({ type, count }) => {
-    const hk = `${panelKey}:${type}`;
+  const waveChips = (comp, panelKey) => comp.map(({ type, count, sea }) => {
+    const hk = `${panelKey}:${type}${sea ? ":sea" : ""}`;
     const boss = ENEMIES[type].boss;
     return (
       <div key={hk}
@@ -770,6 +776,11 @@ export default function Crownguard() {
         {hoverEnemy === hk && <EnemyTooltip type={type} />}
         <span className="cg-well" style={{ width: boss ? 54 : 44, height: boss ? 54 : 44, display: "flex", alignItems: "center", justifyContent: "center", ...(boss ? { background: "#4a1e22" } : {}) }}>
           <EnemyIcon type={type} box={boss ? 44 : 32} />
+          {sea && <svg width="16" height="13" viewBox="0 0 16 13" style={{ position: "absolute", top: -3, right: -5 }} aria-label="lands by sea">
+            <rect x="0" y="0" width="16" height="13" fill="#1c3a52" stroke="#0e1620" strokeWidth="1" />
+            <rect x="7" y="1" width="1" height="7" fill="#e8e0cc" /><rect x="4" y="2" width="7" height="4" fill="#e8e0cc" /><rect x="5" y="2" width="1" height="4" fill="#a8382c" /><rect x="8" y="2" width="1" height="4" fill="#a8382c" />
+            <rect x="2" y="8" width="12" height="2" fill="#7a5634" /><rect x="3" y="10" width="10" height="1" fill="#4a3420" />
+          </svg>}
         </span>
         <span className="cg-num" style={{ fontSize: 13, color: boss ? "#ff8a78" : "var(--cream)", textShadow: "1px 1px 0 var(--ink)" }}>×{count}</span>
       </div>

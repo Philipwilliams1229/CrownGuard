@@ -15,6 +15,7 @@
 //                                             a free board played as a campaign level
 //                                             (--window from,to,count; --gold start purse)
 //   ... --no-landings --no-weather --no-freeze   zone IV's mechanics off (data/zone-flags.js)
+//   ... --weather fog:0.8 | none            any weather at a strength, over the plan (data/weather-plan.js)
 //
 // The commander is deliberately a decent player, not a perfect one: it values
 // road coverage, keeps a knight post near the front, mixes physical and magic,
@@ -51,6 +52,9 @@ const { TOWERS } = await import("../src/data/towers.js");
 const { TOTAL_LEN, posAt, nearestOnPath } = await import("../src/engine/path.js");
 // zone IV's master switches: measure a board with and without each mechanic
 const { MECH } = await import("../src/data/zone-flags.js");
+// a campaign level's weather comes from the plan (data/weather-plan.js); a free run's from its realm
+const { setLevelWeather } = await import("../src/engine/weather.js");
+const { weatherFor } = await import("../src/data/weather-plan.js");
 if (flag("no-landings")) MECH.landings = false;
 if (flag("no-weather")) MECH.weather = false;
 if (flag("no-freeze")) MECH.freeze = false;
@@ -257,6 +261,9 @@ function runOnce(opts, quiet, planName) {
   selectRealm(realm);
   selectFaction(faction);
   setWaveWindow(win || null);
+  // --weather kind:strength | none  overrides the plan / the realm (engine/weather.js)
+  const wxArg = after("weather");
+  setLevelWeather(wxArg ? (wxArg === "none" ? null : { kind: wxArg.split(":")[0], strength: Number(wxArg.split(":")[1] ?? 1) }) : opts.lv ? weatherFor(opts.lv) : undefined);
   let SB = null;
   if (opts.sandbox) { SB = startSandbox(fromPreset(opts.sandbox, { realm })); gold = SB.gold; } else endSandbox(faction);
   applyVeterancy(Math.min(3, vet), Math.max(0, vet - 3));
@@ -332,7 +339,8 @@ function runOnce(opts, quiet, planName) {
   if (flag("ledger")) console.log("   ledger: " + g.towers.map((t) => ({ n: `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`, d: t.dmgOut || 0, k: t.kills || 0 }))
     .sort((a, b) => b.d - a.d).map((x) => `${x.n} ${Math.round(x.d / 1000)}k/${x.k}`).join("  "));
   const zs = g.zoneStats;
-  const zone = zs || g.squalls ? ` | ships ${zs?.ships || 0} sunk ${zs?.sunk || 0} landed ${zs?.landed || 0} lost ${zs?.lost || 0} shrouds ${zs?.shrouds || 0} squalls ${g.squalls || 0}` : "";
+  const zone = (zs ? ` | ships ${zs.ships} sunk ${zs.sunk} landed ${zs.landed} lost ${zs.lost} shrouds ${zs.shrouds}${Object.entries(zs).filter(([k]) => !["ships", "sunk", "landed", "lost", "shrouds"].includes(k)).map(([k, v]) => ` ${k} ${v}`).join("")}` : "")
+    + (g.squalls ? ` | ${g.weather?.kind || "weather"} x${g.squalls}${g.bolts ? ` bolts ${g.bolts}` : ""}${g.rocks ? ` rocks ${g.rocks} halls-burned ${g.hallsBurned || 0}` : ""}` : "");
   return { zone, bleed: g.bleed || [], result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName, gold: Math.round(g.gold), earned: Math.round(g.run?.goldEarned || 0) };
 }
 
@@ -370,7 +378,7 @@ if (flag("all") || after("chapter")) {
     const idx = LEVELS.findIndex((l) => l.id === lv.id);
     setUnlocksFor(lv.id);
     results.push(runLevel({
-      realm: lv.realm, faction: lv.chapter.faction, window: lv.window,
+      realm: lv.realm, faction: lv.chapter.faction, window: lv.window, lv,
       gold: lv.gold, name: `${lv.id} ${lv.name}`, vet: Math.floor(idx / 2),
     }, quiet));
   }
@@ -399,7 +407,7 @@ if (flag("all") || after("chapter")) {
   const idx = LEVELS.findIndex((l) => l.id === lv.id);
   setUnlocksFor(lv.id);
   runLevel({
-    realm: lv.realm, faction: lv.chapter.faction, window: lv.window,
+    realm: lv.realm, faction: lv.chapter.faction, window: lv.window, lv,
     gold: lv.gold, name: `${lv.id} ${lv.name}`, vet: Math.floor(idx / 2),
   }, quiet);
 } else {

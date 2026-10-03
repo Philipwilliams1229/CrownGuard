@@ -26,7 +26,8 @@
 // health it has left (a ship at 40% lands 40% of the party, rounded; a sunk
 // one lands nobody). The party then marches on from the landing point like
 // any group (blocked, slowed, leaking at the gate as usual). A board with no
-// `landings` sends the same groups out of the wood with everyone else.
+// `landings` gets no landing party at all (owner, 2026-10-03: waves.js
+// landingsOf drops the groups there), and a wave has one landing at most.
 //
 // ---- The frost shroud ----
 // A foe with `freezeEvery` (ms) casts, every so often, an ice shell on the
@@ -34,11 +35,22 @@
 // the hall holds its fire (shots, auras, traps, skiffs, its garrison) for
 // `freezeFor` ms. `freezeFirst` (ms) is the first cast after it spawns
 // (default half of freezeEvery). It cannot cast while stunned, silenced or
-// BURNING. Fire halls (any form with a burn, a breath, hot shot or a lava
-// pool) thaw FIRE_SELF x as fast, and thaw every frozen hall within
-// FIRE_NEAR px FIRE_HELP x as fast — fire is the answer to frost.
-// A frozen hall carries t.iceLeft / t.iceMax (ms); engine/build.js `fights`
-// is the gate every hall's fire goes through.
+// BURNING. Every hall thaws at the same pace (owner, 2026-10-03: fire halls
+// get no special thawing). A frozen hall carries t.iceLeft / t.iceMax (ms);
+// engine/build.js `fights` is the gate every hall's fire goes through.
+// A hall that cannot fight (frozen, coiled by a sea serpent, smashed by a
+// kraken's arm, set burning by the weather) keeps its soldiers standing
+// where they are, frozen too — but the FOES they were holding are let go and
+// walk on (owner, 2026-10-03: nothing on the enemy side stands still because
+// of a shroud; releaseHeld below, every frame).
+//
+// ---- the rest of the roster (enemies.js, "THE RIME CLANS") ----
+// `rage` (the berserker: faster and heavier as he is wounded), `stomp` (the
+// frost giant: hurts and dazes soldiers around him — a daze holds their blows
+// back, u.atkCd), `callLanding` (the Rime Jarl's horn: one longship a wave at
+// most, none on a board with no beach). The skald's chant is the Marshal's
+// banner seam (bannerSpeed); the wolf-rider's fall is the boar rider's split.
+// The sea monsters live in engine/serpent.js (seaTick, called from here).
 
 import { W, H, tileX, tileY, pickLane } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
@@ -47,7 +59,10 @@ import { MECH } from "../data/zone-flags.js";
 import { ENEMIES } from "../data/enemies.js";
 import { posAt, angleAt, nearestOnPath, TOTAL_LEN } from "./path.js";
 import { getStats } from "./towers.js";
-import { isBuilt } from "./build.js";
+import { isBuilt, fights } from "./build.js";
+import { landingSpots } from "../data/waves.js";
+import { FACTION } from "../data/factions.js";
+import { seaTick, seaRest, seaToolsRef } from "./serpent.js";
 import { sfx } from "../audio/sfx.js";
 
 export const SAIL_MS = 6500;      // putting out to beaching; ~5 s of it on the board
@@ -109,6 +124,7 @@ export const zoneStats = (g) => (g.zoneStats ||= { ships: 0, sunk: 0, landed: 0,
 export const seaborne = (g, e, s, tms) => {
   if (s.ship) {
     zoneStats(g).ships++;
+    g.shipWave = g.wave;               // one landing a wave at most (the Jarl's horn reads it)
     const geo = landingGeom(s.ship.spot);
     if (!geo) { e.dead = true; e.quiet = true; return; }   // (a realm without the spot: never happens via waves.js)
     e.ship = { ...s.ship, geo, t0: tms, mult: s.mult };
@@ -168,13 +184,6 @@ const sailShips = (g, tms) => {
 };
 
 // ---- the frost shroud ----
-export const FIRE_SELF = 3, FIRE_HELP = 2, FIRE_NEAR = 72;
-// Does this hall's current form burn? (Brazier Wheel, Dragonbreath / Dragon's
-// Breath, fire wizards and stones, hot-shot skiffs, the Solar Lance...)
-export const isFireHall = (t) => {
-  const st = getStats(t);
-  return !!(st.burn || st.mBurn || st.igniteBurn || st.logBurn || st.fragBurn || st.breath || st.poolDps);
-};
 // Can a seer shroud this hall? Built, not already frozen, and a hall that
 // does something a shroud could stop (a plain Gold Works pulls no trigger).
 const shroudable = (t, g) => isBuilt(t, g) && !(t.iceLeft > 0) && !(t.kind === "goldworks" && !t.branch);
@@ -205,19 +214,91 @@ const castShrouds = (g, sdt, tms) => {
   }
 };
 
+// every hall thaws at one pace (fire no longer helps: owner, 2026-10-03)
 const thawHalls = (g, sdt) => {
-  let fires = null;
   for (const t of g.towers) {
     if (!(t.iceLeft > 0)) continue;
-    fires ??= g.towers.filter((h) => isBuilt(h, g) && isFireHall(h));
-    let rate = 1;
-    if (fires.includes(t)) rate = FIRE_SELF;
-    else if (fires.some((h) => !(h.iceLeft > 0) && Math.hypot(h.x - t.x, h.y - t.y) <= FIRE_NEAR)) rate = FIRE_HELP;
-    t.iceLeft -= sdt * 1000 * rate;
-    t.thawFast = rate > 1;
+    t.iceLeft -= sdt * 1000;
     if (t.iceLeft <= 0) { t.iceLeft = 0; g.effects.push({ type: "thaw", x: t.x, y: t.y - 10, ttl: 380, life: 380 }); }
   }
 };
+
+// A hall that can't fight lets go of what its soldiers held: they stand
+// frozen, the foes walk on (owner, 2026-10-03). runMelee is skipped for such
+// a hall (update.js), so nothing grabs them again until it fights once more.
+const releaseHeld = (g) => {
+  let ids = null;
+  for (const t of g.towers) {
+    if (!t.units || fights(t, g) || !isBuilt(t, g)) continue;
+    for (const u of t.units) (ids ||= new Set()).add(u.id);
+  }
+  if (!ids) return;
+  for (const e of g.enemies) if (e.blockedBy && ids.has(e.blockedBy)) { e.blockedBy = null; e.engaged = false; }
+};
+
+// ---- berserkers, frost giants, the Jarl's horn ----
+const roster = (g, sdt, tms) => {
+  const ms = sdt * 1000;
+  for (const e of g.enemies) {
+    if (e.dead || e.ship || e.sea) continue;
+    const d = ENEMIES[e.type];
+    if (!d || d.faction !== "rime") continue;
+    // the berserker: every wound makes him quicker and heavier
+    if (d.rage) {
+      if (e.rageBase == null) e.rageBase = { speed: e.speed, atk: e.atk };
+      const w = Math.max(0, Math.min(1, 1 - e.hp / e.maxHp));
+      e.speed = e.rageBase.speed * (1 + d.rage.speed * w);
+      e.atk = e.rageBase.atk * (1 + d.rage.atk * w);
+      e.raging = w;
+    }
+    // the frost giant stamps when soldiers crowd him
+    if (d.stomp) {
+      const st = d.stomp;
+      e.stompCd = (e.stompCd ?? st.every * 0.5) - ms;
+      if (e.stompCd <= 0 && !(e.stunUntil > tms && !e.immStun) && e.riseAt === undefined) {
+        const hit = [];
+        for (const h of seaHosts(g)) for (const u of h.units) if (u.state !== "dead" && !u.leaving && Math.hypot(u.x - e.x, u.y - e.y) <= st.r) hit.push([h, u]);
+        if (hit.length) {
+          e.stompCd = st.every;
+          e.atkAnim = 420;
+          zoneStats(g).stomps = (zoneStats(g).stomps || 0) + 1;
+          g.effects.push({ type: "stomp", x: e.x, y: e.y + 4, ttl: 520, life: 520, r: st.r });
+          g.shake = Math.max(g.shake || 0, 2.5);
+          sfx.play("rock");
+          for (const [h, u] of hit) {
+            u.atkCd = Math.max(u.atkCd || 0, st.daze);   // dazed: his next blow waits
+            u.dazedUntil = tms + st.daze;
+            if (u.shield) { u.shield = false; u.shieldCd = 6500; continue; }
+            u.hp -= st.dmg * Math.sqrt(e.mult || 1);
+            if (u.hp <= 0) seaKill(g, h, u);
+          }
+        }
+      }
+    }
+    // the Jarl's horn: a longship puts in at a beach — one landing a wave at
+    // most (none if the wave already sent its own), none on a beachless board
+    if (d.callLanding && MECH.landings) {
+      const c = d.callLanding;
+      e.callCd = (e.callCd ?? c.first) - ms;
+      if (e.callCd > 0 || e.silencedUntil > tms) continue;
+      e.callCd = c.every;
+      const spots = landingSpots();
+      if (!spots || g.shipWave === g.wave || g.spawnQueue.some((s) => s.ship)) continue;
+      const spot = (e.id + (g.wave || 0)) % spots.length;
+      g.spawnQueue.unshift({
+        type: FACTION.landingShip || "longship", at: g.spawnTimer, mult: e.mult,
+        ship: { spot, party: c.party.map(([t, n, gap]) => ({ type: t, count: n, gap: Math.max(160, gap || 0), pay: 0.5 })) },
+      });
+      g.shipWave = g.wave;
+      e.atkAnim = 500;
+      g.effects.push({ type: "toll", x: e.x, y: e.y - 16, ttl: 650, r: 60 });
+      zoneStats(g).calls = (zoneStats(g).calls || 0) + 1;
+    }
+  }
+};
+// update.js's unit helpers (registered through serpent.js's tools)
+const seaHosts = (g) => (seaToolsRef.unitHosts ? seaToolsRef.unitHosts(g) : []);
+const seaKill = (g, h, u) => seaToolsRef.killUnit?.(g, h, u);
 
 // update.js calls this once a frame (not while paused), before the spawns
 // and the movement loop. Out of combat the ice simply melts.
@@ -226,10 +307,14 @@ export const rimeTick = (g, sdt, tms) => {
   sailShips(g, tms);
   if (MECH.freeze) castShrouds(g, sdt, tms);
   thawHalls(g, sdt);
+  roster(g, sdt, tms);
+  seaTick(g, sdt, tms);
+  releaseHeld(g);
 };
 
-// Between waves the ice is gone (a retried wave rebuilds its halls fresh).
-export const thawAll = (g) => { for (const t of g.towers) if (t.iceLeft > 0) t.iceLeft = 0; };
+// Between waves the ice is gone (a retried wave rebuilds its halls fresh),
+// and no hall stays coiled or smashed.
+export const thawAll = (g) => { for (const t of g.towers) if (t.iceLeft > 0) t.iceLeft = 0; seaRest(g); };
 
 // what the spawn queue's ship entry is, for the wave preview and the sims
 export const isShipType = (type) => !!ENEMIES[type]?.ship;

@@ -49,7 +49,7 @@ import { drawBridges } from "./bridge.js";
 import { drawCastleGround } from "./castle.js";
 import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 // zone IV placeholders: longships, ice shells, landing telegraphs, the blizzard
-import { drawShip, drawFrostShells, ZONE_FX } from "./rimefx.js";
+import { drawShip, drawFrostShells, drawSea, ZONE_FX } from "./rimefx.js";
 import { drawWeather, flierDrop } from "./weatherfx.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
@@ -371,6 +371,8 @@ export function draw(g, canvas, bufRef) {
     // instead of being painted behind it)
     // (a longship is drawn by rimefx.js; in a blizzard fliers come down low, weatherfx.js)
     if (!e.dead && e.ship) { drawables.push({ y: e.y + 4, fn: () => drawShip(ctx, e, g) }); continue; }
+    // (the sea monsters, engine/serpent.js: drawn by rimefx.js drawSea, never as a rig)
+    if (e.sea) { if (!e.dead) drawables.push({ y: e.y + 4, fn: () => drawSea(ctx, e, g) }); continue; }
     const low = e.flying ? flierDrop(g) : 0;
     if (!e.dead) drawables.push({ y: e.y + 10 + (e.flying ? 1000 : 0), fn: () => (e.flying ? (low ? (ctx.save(), ctx.translate(0, low), drawEnemy(ctx, e, g.time, tms), ctx.restore()) : drawEnemy(ctx, e, g.time, tms)) : onDeck(e.x, e.y, () => drawEnemy(ctx, e, g.time, tms))) });
   }

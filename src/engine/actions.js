@@ -387,6 +387,8 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
   let dmg = amount;
   // a raised body climbing out of the ground can't be hurt until it is up
   if (e.riseAt !== undefined && g.time * 1000 - e.riseAt < e.riseMs) return;
+  // a sea serpent under the water: only a River Watch's boats can reach it (engine/serpent.js)
+  if (e.submerged && g._towerById?.get(srcId)?.kind !== "riverwatch") return;
   // a wraith is smoke to everything PHYSICAL: arrows, stones, plain steel and
   // traps pass through. Magic works (less its mres) — wizards, fire, poison and
   // the Paladin tree's holy blows (`holy` = the caller is one) alike; among the

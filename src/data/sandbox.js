@@ -63,7 +63,13 @@ export const DEFAULTS = {
   // THE PACE
   autoWaves: false,       // the horn sounds itself (Rush) from the start
   buildTime: 30,          // seconds between waves before the horn sounds anyway
+
+  // THE WEATHER (engine/weather.js; never makes a run easier, so not in isHonest)
+  weather: "realm",       // "realm" (the board's own) | "none" | a WEATHER_KINDS kind
+  weatherPower: 0.7,      // its strength, 0.2-1 (a kind's `grade`)
 };
+// the weather choices the setup screen offers (keys of engine/weather.js WEATHER_KINDS)
+export const WEATHER_CHOICES = ["realm", "none", "fog", "storm", "gravemist", "blizzard", "eruption"];
 
 // Bounds for every number, for the setup screen's sliders and steppers
 // (and for sanitising anything loaded from storage).
@@ -83,6 +89,7 @@ export const LIMITS = {
   maxTier: { min: 1, max: 5, step: 1 },
   heroLevel: { min: 1, max: 20, step: 1 },
   buildTime: { min: 3, max: 120, step: 1 },
+  weatherPower: { min: 0.2, max: 1, step: 0.1 },
 };
 
 // ---- presets -----------------------------------------------------------------
@@ -138,6 +145,7 @@ export const sanitize = (raw) => {
   if (Array.isArray(s.towers)) { s.towers = s.towers.filter((k) => TOWERS[k]); if (!s.towers.length) s.towers = null; } else s.towers = null;
   for (const k of ["script", "bosses", "crowd", "infiniteGold", "invincible", "hero", "militia", "autoWaves"]) s[k] = !!s[k];
   if (typeof s.heroKey !== "string" || !s.heroKey) s.heroKey = null;
+  if (!WEATHER_CHOICES.includes(s.weather)) s.weather = DEFAULTS.weather;
   return s;
 };
 

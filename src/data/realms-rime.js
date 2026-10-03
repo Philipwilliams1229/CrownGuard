@@ -12,9 +12,18 @@
 //                           frozen strand with the sea at its back, then
 //                           climbs to the gate; longships beach on the strand
 //                           behind whatever guards its head
+//
+// Three more test boards for the sea monsters (engine/serpent.js), the same
+// road so the sims compare like with like:
+//   rimefjord  a meltwater river runs down the board into the sea and under
+//              the road's strand: the serpent swims the river, the kraken
+//              lies off the strand, longships beach as on the Strand
+//   rimeriver  the river and no sea: the serpent swims it; the kraken (and
+//              any landing party) never come — two frost giants stand in
+//   rimedry    no water at all: neither monster comes (waves.js dryLand)
 
 export default function moreRimeRealms(frostfang) {
-  return {
+  const out = {
     rimewatch: {
       ...frostfang,
       id: "rimewatch",
@@ -36,4 +45,24 @@ export default function moreRimeRealms(frostfang) {
       weather: { kind: "blizzard" },
     },
   };
+  const road = out.rimewatch.path;
+  const river = { pts: [[7.5, -0.5], [7.3, 3.2], [7.8, 6.4], [7.6, 10.5]], w: 28 };
+  out.rimefjord = {
+    ...out.rimewatch, id: "rimefjord", name: "Rimewater Fjord", seed: 20261102,
+    blurb: "Zone IV's monster board: a meltwater river runs into the sea under the strand. The serpent swims the river; the kraken lies off the shore.",
+    rivers: [river], weather: undefined,
+  };
+  out.rimeriver = {
+    ...frostfang, id: "rimeriver", name: "Rime River", tag: "TEST BOARD", tagColor: "#bfe4f2", seed: 20261103,
+    blurb: "Zone IV's river board: no sea, so no longships and no kraken; the serpent swims the meltwater.",
+    path: road, rivers: [river], ponds: [], decor: [],
+    decorRecipe: out.rimewatch.decorRecipe,
+  };
+  out.rimedry = {
+    ...frostfang, id: "rimedry", name: "Rime Fells", tag: "TEST BOARD", tagColor: "#bfe4f2", seed: 20261104,
+    blurb: "Zone IV's dry board: no river, no sea — no sea monsters, no landings.",
+    path: road, ponds: [], decor: [],
+    decorRecipe: out.rimewatch.decorRecipe,
+  };
+  return out;
 }

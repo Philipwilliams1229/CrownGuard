@@ -20,7 +20,8 @@ import { heroHook, HERO_HOOKS } from "./heroes/index.js";
 import { isBuilt, fights } from "./build.js";
 // zone IV: landings, the frost shroud (fights = built and not frozen), weather
 import { rimeTick, seaborne } from "./rime.js";
-import { tickWeather, WX } from "./weather.js";
+import { registerSeaTools } from "./serpent.js";
+import { tickWeather, WX, canSee } from "./weather.js";
 import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE } from "./muzzles.js";
 
 // ---- the Falconry's stoops ------------------------------------------------------
@@ -478,6 +479,9 @@ const makeEnemy = (type, mult) => {
     raiseEvery: d.raiseEvery || 0, raiseCd: null, revived: false, healedFlash: 0,
     // zone IV's frost shroud (engine/rime.js): ice a hall every freezeEvery ms
     freezeEvery: d.freezeEvery || 0, freezeRange: d.freezeRange || 0, freezeFor: d.freezeFor || 0, freezeFirst: d.freezeFirst ?? null, freezeCd: null,
+    // the Rime Clans are cold-hardy (the Frost Altar's chill, nova freeze and
+    // cold do nothing), and their sea monsters move by engine/serpent.js
+    frostProof: !!d.frostProof, sea: d.sea || null,
   };
 };
 
@@ -515,6 +519,8 @@ const killUnit = (g, t, u) => {
   releaseEnemy(g, g.enemies.find((x) => x.blockedBy === u.id));
   g.effects.push({ type: "poof", x: u.x, y: u.y, ttl: 400 });
 };
+// zone IV's sea monsters and frost giants hurt soldiers from engine/serpent.js
+registerSeaTools({ killUnit, spawnAt, unitHosts, dealDamage });
 
 // A wraith's victim does not stay down: where the knight fell, a new wraith
 // rises out of the body (at the killer's strength, paying half). Capped, so a
@@ -853,7 +859,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
             target.engaged = true;
             // Cavalier: the charge rides its first blocker down and gallops on.
             // Whoever steps up second is the one who actually holds him.
-            if (target.trampleLeft > 0) {
+            if (target.trampleLeft > 0 && !WX.noCharge) {   // (a storm's mud bogs the charge down, weather.js)
               target.trampleLeft -= 1;
               u.hp -= target.atk * 2;
               g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
@@ -1225,7 +1231,7 @@ export function updateGame(g, dt) {
       const st = getStats(t);
       for (const e of g.enemies) {
         if (e.dead) continue;
-        if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range) {
+        if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range && !e.frostProof) {   // (cold-hardy Rime foes feel no chill: enemies.js frostProof)
           e.auraSlow = Math.max(e.auraSlow, st.slow);
           // Absolute Zero: the aura itself bites, dealing cold damage
           if (st.colddps) dealDamage(g, e, st.colddps * sdt, "magic", false, true, t.id);
@@ -1242,7 +1248,7 @@ export function updateGame(g, dt) {
             if (e.dead) continue;
             if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
             dealDamage(g, e, st.nova, "magic", false, false, t.id);
-            if (!e.dead) {
+            if (!e.dead && !e.frostProof) {   // (the blast lands; the freeze doesn't, on a cold-hardy foe)
               e.stunUntil = Math.max(e.stunUntil, tms + st.novaFreeze);
               // a freeze holds like a stun but LOOKS like ice (fx.js drawStatus)
               e.frozenUntil = Math.max(e.frozenUntil || 0, tms + st.novaFreeze);
@@ -1457,7 +1463,7 @@ export function updateGame(g, dt) {
       }
     }
     for (const e of g.enemies) {
-      if (e.dead || e.ship) continue;    // (a longship sails by rime.js, not the road)
+      if (e.dead || e.ship || e.sea) continue;    // (a longship sails by rime.js, a sea monster swims by serpent.js, not the road)
       if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen * sdt);
       // Goblin Shaman: a rhythmic chant mends the WHOLE warband
       // Battle Chaplain: the same, but only for those near him, by a share of
@@ -1890,7 +1896,7 @@ export function updateGame(g, dt) {
           const fr = st.fragReach || 40;
           for (const e of g.enemies) {
             if (e.dead || e.flying) continue;
-            if (Math.hypot(e.x - t.x, e.y - t.y) > st.range) continue;
+            if (Math.hypot(e.x - t.x, e.y - t.y) > st.range || !canSee(t, e)) continue;
             let crowd = 0;
             for (const o of g.enemies) if (!o.dead && !o.flying && inBurst(o, e.x, e.y, fr)) crowd++;
             const score = crowd * 1e6 + e.dist;
@@ -1924,7 +1930,7 @@ export function updateGame(g, dt) {
         let far = null, farScore = -Infinity, farCracked = false;
         for (const e of g.enemies) {
           if (e.dead) continue;
-          if (Math.hypot(e.x - t.x, e.y - t.y) > st.mRange) continue;
+          if (Math.hypot(e.x - t.x, e.y - t.y) > st.mRange || !canSee(t, e)) continue;
           const mode = t.aim || "first";
           const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
           // the Bombard Yard's musketeer shoots into the cracks first
@@ -2012,9 +2018,10 @@ export function updateGame(g, dt) {
         // pick the foe furthest along the road that a boat can actually reach
         let mark = null, markQ = 0, markScore = -Infinity;
         for (const e of g.enemies) {
-          if (e.dead || e.flying || (e.swimming && !e.ship) || isRising(e, tms)) continue;
+          // (a sea monster is the boats' quarry, even a serpent under the water: serpent.js)
+          if (e.dead || e.flying || (e.swimming && !e.ship && !e.sea) || (isRising(e, tms) && !e.submerged)) continue;
           const nr = nearOnRiver(e.x, e.y, e);
-          if (nr.d > st.range) continue;
+          if (nr.d > st.range || !canSee(u, e)) continue;   // (fog / grave mist hide it from the boat, weather.js)
           // each skiff may carry her own order (u.aim); without one she follows the hall's
           const mode = u.aim || t.aim || "first";
           const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
@@ -2173,7 +2180,7 @@ export function updateGame(g, dt) {
           let best = null;
           for (const e of g.enemies) {
             if (e.dead) continue;
-            if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range && (!best || e.hp > best.hp)) best = e;
+            if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range && canSee(t, e) && (!best || e.hp > best.hp)) best = e;
           }
           tgt = best;
           t.beamId = best ? best.id : null;

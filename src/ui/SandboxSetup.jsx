@@ -20,7 +20,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import {
-  DEFAULTS, LIMITS, PRESETS, presetById, fromPreset, sanitize, saveSandbox, isHonest, typesOf, isBoss, allTowers,
+  DEFAULTS, LIMITS, PRESETS, presetById, fromPreset, sanitize, saveSandbox, isHonest, typesOf, isBoss, allTowers, WEATHER_CHOICES,
 } from "../data/sandbox.js";
 import { FACTIONS } from "../data/factions.js";
 import { ENEMIES } from "../data/enemies.js";
@@ -49,6 +49,9 @@ const CORE = Object.keys(DEFAULTS).filter((k) => !FREE_KEYS.includes(k));
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const diffs = (s, keys = CORE) => { const base = fromPreset(s.preset); return keys.filter((k) => !same(s[k], base[k])); };
 
+// the weather kinds' names (engine/weather.js WEATHER_KINDS), for the chips
+const WEATHER_NAMES = { fog: "Morning fog", storm: "Thunderstorm", gravemist: "Grave mist", blizzard: "Blizzard", eruption: "Eruption" };
+
 // the tabs, and the settings each one edits (for its "edited" mark)
 const TABS = [
   { id: "field", name: "Battlefield", short: "Field", Icon: FlagIcon, keys: [] },
@@ -56,7 +59,7 @@ const TABS = [
   { id: "purse", name: "Economy", short: "Economy", Icon: CoinIcon, keys: ["gold", "infiniteGold", "bountyMul", "waveBonusMul", "sellRefund"] },
   { id: "castle", name: "Castle", short: "Castle", Icon: CastleIcon, keys: ["lives", "invincible"] },
   { id: "halls", name: "Halls", short: "Halls", Icon: HammerIcon, keys: ["towers", "maxTier"] },
-  { id: "hero", name: "Hero and Pace", short: "Hero", Icon: SwordIcon, keys: ["hero", "heroLevel", "militia", "autoWaves", "buildTime"] },
+  { id: "hero", name: "Hero and Pace", short: "Hero", Icon: SwordIcon, keys: ["hero", "heroLevel", "militia", "autoWaves", "buildTime", "weather", "weatherPower"] },
 ];
 
 // realms, grouped the way the war is: the free realms, then each chapter's
@@ -527,6 +530,16 @@ export default function SandboxSetup({ initial, onStart, onBack, initialTab = "f
           <Toggle on={s.autoWaves} onClick={() => set("autoWaves", !s.autoWaves)} label="Auto-horn" sub="the horn sounds itself (Rush)" Icon={FlagIcon} />
           <Num k="buildTime" s={s} set={set} label="Build time" valueText={`${s.buildTime}s`}
             note="Seconds between waves before the horn sounds anyway." />
+          {/* the battle's weather (engine/weather.js): the board's own, none, or a kind at a strength */}
+          <Head label="Weather" Icon={FlagIcon} />
+          <div className="sbs-chips">
+            {WEATHER_CHOICES.map((c) => (
+              <button type="button" key={c} className={cls("cg-btn cg-btn--slate sbs-chip", s.weather === c && "is-on")} onClick={() => set("weather", c)}>
+                {c === "realm" ? "The board's" : c === "none" ? "Clear" : WEATHER_NAMES[c] || c}
+              </button>
+            ))}
+          </div>
+          <Num k="weatherPower" s={s} set={set} label="Strength" off={s.weather === "realm" || s.weather === "none"} fmt={(v) => `${Math.round(v * 100)}%`} valueText={`${Math.round(s.weatherPower * 100)}%`} />
         </div>
       </div>
     </Fit>
