@@ -51,12 +51,12 @@ export const CHAPTERS = [
       {
         id: "gullwick", name: "Gullwick Sands", realm: "gullwick", short: "Gullwick",
         window: { from: 2, to: 14, count: 20 }, gold: 380,
-        blurb: "The vale's south shore, dunes and a fishing hamlet. The road walks the strand with the sea at its back — every tower faces inland, every goblin comes straight at it.",
+        blurb: "The vale's south shore. The road walks the strand with the sea at its back — every tower faces it from the dunes, and wolves come down the sand at a run.",
       },
       {
         id: "millrace", name: "Millrace", realm: "millrace",
         window: { from: 3, to: 15, count: 20 }, gold: 400,
-        blurb: "The Foxwater turns a mill here before it reaches the sea. The road crosses the race and the river both — hold the bridges, and the wheel keeps turning.",
+        blurb: "The Foxwater turns a mill below the mere. The road walks the mill island with water on both hands — every footing is a riverbank, and the bridges are the only way on.",
       },
       {
         id: "foxmere", name: "Foxmere", realm: "foxmere", labelAbove: true,
@@ -87,12 +87,12 @@ export const CHAPTERS = [
       {
         id: "thistlecrag", name: "Thistlecrag", realm: "thistlecrag", labelAbove: true,
         window: { from: 7, to: 26, count: 25 }, gold: 850,
-        blurb: "Grey crags on the vale's north-west headland, and a road that threads every gap between them. The rocks eat your footings; the trolls don't mind them at all.",
+        blurb: "Grey crags on the north-west headland. The road climbs in long switchbacks with a ridge of rock between every lane — only its gaps watch two. The trolls don't mind the rocks.",
       },
       {
         id: "kingstones", name: "The Kingstones", realm: "kingstones", short: "Kingstones",
         window: { from: 8, to: 26, count: 25 }, gold: 900,
-        blurb: "An old ring of standing stones on the high down, older than the crown. The road circles it twice; the horde marches round it as if it knew what it was for.",
+        blurb: "A ring of standing stones on the high down, older than the crown. The road loops round it and crosses its own track — whoever holds the ring's heart sees the whole loop.",
       },
       {
         id: "ravenscar", name: "Ravenscar", realm: "ravenscar", labelAbove: true,
