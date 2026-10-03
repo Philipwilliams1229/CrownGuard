@@ -20,6 +20,7 @@ import { IRON_ART } from "./scenery-iron.js";
 import { gateCrag, hasCrag, vnoise, sstep } from "../data/gatecrag.js";
 import { pixelTuft, groundKind } from "./groundblend.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
+import { VALE_ART } from "./scenery-vale.js";
 import {
   lighten, darken, mix, rgb, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
   blade, tuft, stone, strokePts, blobPath, blobBall, masonry, hash, ellipse, SUN, lin, rad, bakeSprite, inkOutline, PIXEL, PX, part } from "./paint.js";
@@ -1048,7 +1049,7 @@ export const resetSceneryBakes = () => { SPRITES.clear(); GATE.key = ""; SIGN.ke
 // so whichever loads first, the other's registry isn't ready yet at load.
 let REG = null;
 const reg = () => REG || (REG = (() => {
-  const ART = [IRON_ART, HOLLOW_ART];
+  const ART = [IRON_ART, HOLLOW_ART, VALE_ART];
   return {
     decor: Object.assign({}, ...ART.map((a) => a.decor)),
     box: Object.assign({}, ...ART.map((a) => a.box)),
@@ -1097,12 +1098,15 @@ const DRESS = { tree: [4, false], pine: [3.5, false], snowpine: [3.5, false], ro
 // Stones split each look into three seeded shapes and wander a little in
 // size, so a rocky board doesn't repeat one stamp.
 const STONY = new Set(["rock", "icerock", "obsidian"]);
+// A hand-placed piece may name its look: `v` (and, for a stone, `sd`, its
+// shape) on the decor entry win over the hash; without them nothing changes.
 const variantOf = (d) => {
   const hv = hash(Math.round(d.x), Math.round(d.y));
   if (!d.forest) {
-    if (!STONY.has(d.t)) return { v: Math.floor(hv * 4), band: 0, s: Math.round((d.s || 1) * 10) / 10, sd: 0 };
+    const v = d.v != null ? d.v : Math.floor(hv * 4);
+    if (!STONY.has(d.t)) return { v, band: 0, s: Math.round((d.s || 1) * 10) / 10, sd: 0 };
     const h2 = hash(Math.round(d.x) + 7, Math.round(d.y) + 3);
-    return { v: Math.floor(hv * 4), band: 0, s: Math.round((d.s || 1) * (0.92 + hash(Math.round(d.y), Math.round(d.x)) * 0.17) * 10) / 10, sd: Math.floor(h2 * 3) };
+    return { v, band: 0, s: Math.round((d.s || 1) * (0.92 + hash(Math.round(d.y), Math.round(d.x)) * 0.17) * 10) / 10, sd: d.sd != null ? d.sd : Math.floor(h2 * 3) };
   }
   const dep = forestDepthAt(d.x, d.y);
   return { v: Math.floor(hv * 2), band: dep > 46 ? 2 : dep > 16 ? 1 : 0, s: Math.round((d.s || 1) * 4) / 4, sd: 0 };
@@ -1700,30 +1704,39 @@ export const drawCave = (ctx, time) => drawGate(ctx, time, "cave");
 // the meadow just past the treeline, beside the road, never across it.
 const SIGN = { key: "", cv: null, x: 0, y: 0 };
 const TALL = new Set(["tree", "pine", "snowpine", "deadtree", "willow"]);
+// Where it stands: just past where the road leaves the spawn (the treeline,
+// or the gate's mouth), beside that first stretch of road — never across a
+// later leg of it (a spot whose nearest road is some other stretch reads as
+// belonging to that one), never off the board, with the chevrons clear of
+// the road too. The closer to the road's exit, the better.
 const signSpot = () => {
   let d = FOREST ? 0 : 96;
   for (; FOREST && d < TOTAL_LEN * 0.5; d += 4) {
     const [x, y] = posAt(d);
     if (!FOREST || forestDepthAt(x, y) < -10) break;
   }
-  const C = gateCrag();
-  // a few spots on either side of the road just past the treeline, scored:
-  // clear of the road, the board's edges, the crag, and of anything whose
-  // trunk or crown would stand in the plank's box or the chevrons' column
-  // above it (x ± 33, y - 50 .. y + 4)
+  const exit = d;
+  // (a chapter's own gate — the Marches' camp, the fen's barrow — has no crag)
+  const C = reg().spawn[REALM.spawn] ? null : gateCrag();
+  // spots on either side of the road around the exit, scored: clear of the
+  // road, the board's edges, the crag, and of anything whose trunk or crown
+  // would stand in the plank's box or the chevrons' column above it
+  // (x ± 33, y - 50 .. y + 4)
   const cands = [];
   const off = (x, y) => nearestOnPath(x, y).d;
-  for (const dd of [8, 22, 36, 50, 66, 82, 100, 120]) {
-    const at = Math.min(TOTAL_LEN, d + dd);
+  const [sx0, sy0] = posAt(0);
+  for (let at = FOREST ? 40 : exit; at <= Math.min(TOTAL_LEN, exit + 150); at += 10) {
     const [px, py] = posAt(at);
     const a = angleAt(at) + Math.PI / 2;
-    for (const sd of [-1, 1]) for (const gap of [17, 27, 38]) {
+    for (const sd of [-1, 1]) for (const gap of [17, 27, 38, 50]) {
       const x = px + Math.cos(a) * sd * (PATH_HALF + gap), y = py + Math.sin(a) * sd * (PATH_HALF + gap);
       // the posts must stand on the grass; the plank and the chevrons had
       // better not hang over the road either
       const feet = off(x - 28, y) > PATH_HALF + 3 && off(x, y) > PATH_HALF + 3 && off(x + 28, y) > PATH_HALF + 3 && off(x, y + 6) > PATH_HALF + 2;
       const plank = off(x - 30, y - 12) > PATH_HALF && off(x + 30, y - 12) > PATH_HALF && off(x - 30, y - 24) > PATH_HALF && off(x + 30, y - 24) > PATH_HALF && off(x, y - 24) > PATH_HALF;
-      const chev = off(x, y - 42) > PATH_HALF - 4;
+      const chev = off(x, y - 52) > PATH_HALF + 1 && off(x, y - 40) > PATH_HALF + 1 && off(x - 7, y - 30) > PATH_HALF && off(x + 7, y - 30) > PATH_HALF;
+      // whose stretch of road is it beside?
+      const near = nearestOnPath(x, y), stray = Math.max(0, Math.abs(near.dist - at) - 30);
       const crowd = DECOR.some((o) => !o.forest && Math.abs(o.x - x) < 40 && o.y - y > -14 && o.y - y < 48);
       let trees = 0, overChev = 0;
       for (const o of DECOR) {
@@ -1735,16 +1748,22 @@ const signSpot = () => {
       let wood = 0;
       if (FOREST) for (const [qx, qy] of [[-26, 0], [0, 0], [26, 0], [-20, -22], [20, -22], [0, -44]]) if (forestDepthAt(x + qx, y + qy) > -8) wood++;
       // (the crag as the camera sees it: does any of it rise into the box?)
-      let crag = false;
+      // (how many of its points: a corner just touching the foot of the hill matters less)
+      let crag = 0;
       if (C) {
         for (const [qx, qy] of [[-28, 0], [0, 0], [28, 0], [-24, -24], [0, -24], [24, -24], [-8, -50], [8, -50]]) {
-          for (let z = 0; z <= 48 && !crag; z += 3) if (C.hillAt(x + qx, y + qy + z) > z + 0.3) crag = true;
-          if (crag) break;
+          for (let z = 0; z <= 48; z += 3) if (C.hillAt(x + qx, y + qy + z) > z + 0.3) { crag++; break; }
         }
-        for (const [bx, by, r, hh] of C.rocks) if (Math.abs(bx - x) < 34 + r && by + r * 0.7 > y - 56 && by - hh - r * 0.7 < y + 4) crag = true;
+        for (const [bx, by, r, hh] of C.rocks) if (Math.abs(bx - x) < 34 + r && by + r * 0.7 > y - 56 && by - hh - r * 0.7 < y + 4) crag += 2;
       }
-      const edge = x < 40 || x > W - WALL_W - 40 || y - 50 < 4 || y > H - 10;
-      cands.push({ x, y, score: (feet ? 0 : 200) + (plank ? 0 : 60) + (chev ? 0 : 20) + (crowd ? 30 : 0) + Math.min(5, trees) * 14 + overChev * 40 + wood * 10 + (crag ? 60 : 0) + (edge ? 50 : 0) + dd * 0.25 + gap * 0.4 + y * 0.02 });
+      // the whole sign, chevrons and all, on the board and off the castle
+      // (and clear of the spawn's own gate, cave or barrow)
+      const mouth = Math.hypot(x - sx0, y - sy0) < 74;
+      const edge = x - 34 < 6 || x + 34 > W - WALL_W - 12 || y - 54 < 4 || y + 6 > H - 4;
+      const water = inRiver(x, y, 6) || inRiver(x - 26, y, 2) || inRiver(x + 26, y, 2) || (COAST && seaDepthAt(x, y) > -8);
+      cands.push({ x, y, score: (feet ? 0 : 200) + (plank ? 0 : 60) + (chev ? 0 : 120) + (edge ? 120 : 0) + (water ? 150 : 0) + (mouth ? 80 : 0) + stray * 2
+        + (crowd ? 30 : 0) + Math.min(5, trees) * 14 + overChev * 40 + wood * 10 + Math.min(90, crag * 25)
+        + at * 0.2 + Math.max(0, at - exit) * 0.15 + gap * 0.4 + y * 0.01 });
     }
   }
   cands.sort((p, q) => p.score - q.score);

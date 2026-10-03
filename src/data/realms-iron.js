@@ -16,6 +16,11 @@ import { MX, MY, H } from "./constants.js";
 addFootprints({
   irpine: 12, irspruce: 12, ircrag: 11, irheather: 7, irwall: 16, irgibbet: 9, irmile: 6,
   irbeacon: 8, irwagon: 17, irpikes: 10, irtent: 15, irbanner: 6, irtower: 14, irgate: 6, irruin: 14,
+  // the fifteen-level boards' pieces (2026-10-03): salt-works, drill yard, the
+  // gryphons' rock, the waterfront. The water pieces (irquay, irmoor) stand on
+  // the bank and reach out east over the river, so only their shore end counts.
+  irpan: 14, irsluice: 7, irsalthouse: 18, irsalt: 9, irboat: 8, irwreck: 9, irquintain: 8, irdummy: 6, irbutts: 13,
+  irrack: 11, irmuster: 7, irstack: 11, ireyrie: 12, irquay: 8, irmoor: 5, irtoll: 14,
 });
 
 // Hand-placed pieces for a board made by ironVariant: appended to its own
@@ -56,7 +61,19 @@ const rimLine = (seed, coast, u0, u1, { step = 44, back = 14, types = ["ircrag"]
   return out;
 };
 
-const BLACKCLIFF_COAST = { edge: "top", from: 160, to: 650, depth: 120, sand: 12 };
+// Turn the rim piece nearest each [x, y] (grid px) into something else, so a
+// landmark keeps its place on the rim however the coast's line moves.
+const swapNearest = (list, swaps) => {
+  const out = list.map((d) => ({ ...d }));
+  for (const [x, y, with_] of swaps) {
+    let bi = -1, bd = Infinity;
+    out.forEach((d, i) => { const dd = Math.hypot(d.x - x, d.y - y); if (d.t !== "irheather" && !d.swapped && dd < bd) { bd = dd; bi = i; } });
+    if (bi >= 0) out[bi] = { ...out[bi], ...with_, swapped: true };
+  }
+  return out;
+};
+
+const BLACKCLIFF_COAST = { edge: "top", from: 140, to: 670, depth: 124, sand: 12, ease: 240 };
 
 export default function moreIronRealms(ironVariant) {
   return {
@@ -146,16 +163,32 @@ export default function moreIronRealms(ironVariant) {
         coast: { edge: "bottom", from: 160, depth: 128, sand: 26 },
         light: { tint: "224,232,240", amount: 0.13, vignette: 0.24 },
         scatter: { patches: 34, tufts: 26, flowers: 8, flowerCols: ["#eeeadc", "#b87ab0", "#e8cc5a"] },
-        decorRecipe: { count: 22, types: ["irheather", "ircrag", "irheather", "irwall", "irheather"] },
+        decorRecipe: { count: 26, types: ["irheather", "ircrag", "irheather", "irwall", "irheather"] },
       },
     ), [
       // a beacon on the headland where the road comes down to the shore
       { x: 96, y: 372, t: "irbeacon", s: 1 },
-      // the salt-works: the pans' banks, the salt-house tower, a cart
-      ...wallLine(290, 452, 140, { step: 36, wander: 2, seed: 4 }),
-      ...wallLine(290, 452, 214, { step: 36, wander: 2, gaps: [[340, 380]], seed: 7 }),
-      { x: 252, y: 178, t: "irtower", s: 1 },
-      { x: 446, y: 178, t: "irwagon", s: 0.95 },
+      // the salt-works: a field of earthen beds (brine let in, crusting, raked
+      // up, drying) of a few sizes, sharing banks, fed by a channel with its
+      // sluice gate on the sea side; the salt-house boiling it down, salt
+      // waiting for the cart
+      { x: 302, y: 145, t: "irpan", s: 1.15, v: 1 },
+      { x: 339, y: 141, t: "irpan", s: 1, v: 0 },
+      { x: 376, y: 147, t: "irpan", s: 1.2, v: 3 },
+      { x: 415, y: 142, t: "irpan", s: 1.05, v: 1 },
+      { x: 318, y: 165, t: "irpan", s: 1.1, v: 2 },
+      { x: 356, y: 168, t: "irpan", s: 1.2, v: 0 },
+      { x: 396, y: 164, t: "irpan", s: 1.05, v: 1 },
+      { x: 433, y: 167, t: "irpan", s: 1, v: 2 },
+      { x: 356, y: 200, t: "irsluice", s: 1 },
+      { x: 244, y: 170, t: "irsalthouse", s: 1.1 },
+      { x: 260, y: 210, t: "irsalt", s: 1, v: 1 },
+      { x: 394, y: 214, t: "irsalt", s: 0.95, v: 2 },
+      { x: 432, y: 212, t: "irsalt", s: 1, v: 0 },
+      { x: 462, y: 186, t: "irwagon", s: 0.95, v: 2 },
+      // boats hauled up on the strand below the headland
+      { x: 171, y: 434, t: "irboat", s: 1, v: 2 },
+      { x: 166, y: 454, t: "irboat", s: 1, v: 1 },
     ]),
 
     // ---- Ironmouth ----
@@ -171,23 +204,25 @@ export default function moreIronRealms(ironVariant) {
       [[0.9, 1.4], [4.8, 1.4], [4.8, 4.4], [1.9, 4.4], [1.9, 7.6], [10.4, 7.6], [10.4, 2.8], [13.7, 2.8]],
       {
         rivers: [
-          // the estuary, widest at the sea (listed first: the reach a River
-          // Watch moored on the mouth rows, and the one the bridge spans)
-          { pts: [[7.0, 6.1], [7.15, 8.2], [7.0, 10.5]], w: 92 },
-          // the river above it, widening as it comes down
-          { pts: [[7.6, 3.4], [7.2, 5.0], [7.05, 6.3]], w: 66 },
-          { pts: [[7.9, -0.5], [7.4, 1.6], [7.6, 3.6]], w: 46 },
-          // the mouth opening to the sea below the bridge, flaring east
-          { pts: [[7.25, 8.9], [7.3, 10.5]], w: 112 },
-          { pts: [[7.45, 9.4], [7.5, 10.5]], w: 136 },
-          { pts: [[7.6, 9.95], [7.7, 10.5]], w: 160 },
+          // the Iron river, one water from the hills to the sea: narrow under
+          // the northern spruce, ~92 wide where the long bridge spans it, then
+          // flaring past the bridge into its estuary (a width per point, ws)
+          {
+            pts: [[7.9, -0.5], [7.4, 1.6], [7.6, 3.6], [7.2, 5.0], [7.05, 6.3], [7.1, 7.6], [7.2, 8.45], [7.55, 9.4], [8.0, 10.5]],
+            w: 92, ws: [38, 44, 54, 64, 78, 92, 104, 220, 420],
+          },
         ],
         light: { tint: "212,224,238", amount: 0.12, vignette: 0.3 },
         decorRecipe: { count: 24, types: ["irspruce", "ircrag", "irpine", "irwall", "irheather", "irspruce", "irheather"] },
       },
     ), [
-      // the bridge-tower on the east bank, and a beacon looking out to sea
+      // the bridge-tower on the east bank
       { x: 600, y: 420, t: "irtower", s: 1 },
+      // the waterfront on the west bank below the bridge: a long wharf with a
+      // barge made fast and a boat tied at its end, the toll-house at its head
+      { x: 288, y: 478, t: "irquay", s: 1.2, v: 0 },
+      { x: 278, y: 440, t: "irtoll", s: 1 },
+      // a beacon on the east bank looking out to sea
       { x: 520, y: 470, t: "irbeacon", s: 0.95 },
       // a stand of spruce and pine on the east bank's high ground
       { x: 520, y: 34, t: "irspruce", s: 1.1 },
@@ -209,7 +244,7 @@ export default function moreIronRealms(ironVariant) {
       [[0.9, 1.4], [5.6, 1.4], [5.6, 8.5], [8.0, 8.5], [8.0, 1.4], [11.6, 1.4], [11.6, 6.2], [13.7, 6.2]],
       {
         light: { tint: "206,214,232", amount: 0.13, vignette: 0.36 },
-        decorRecipe: { count: 30, types: ["irheather", "ircrag", "irheather", "ircrag", "irspruce"] },
+        decorRecipe: { count: 38, types: ["irheather", "ircrag", "irheather", "ircrag", "irspruce"] },
       },
     ), [
       // the old wall, broken only where the road goes through it
@@ -221,6 +256,16 @@ export default function moreIronRealms(ironVariant) {
       { x: 560, y: 436, t: "irtent", s: 0.95 },
       { x: 618, y: 404, t: "irbanner", s: 1 },
       { x: 612, y: 470, t: "irpikes", s: 1 },
+      // the drill yard: a weapons rack by the tents, practice men and a pell,
+      // the quintain, the butts against the castle wall, the muster post
+      { x: 454, y: 396, t: "irrack", s: 1 },
+      { x: 480, y: 474, t: "irdummy", s: 1, v: 1 },
+      { x: 512, y: 488, t: "irdummy", s: 1, v: 0 },
+      { x: 544, y: 498, t: "irdummy", s: 1, v: 2 },
+      { x: 576, y: 488, t: "irdummy", s: 1, v: 3 },
+      { x: 660, y: 428, t: "irquintain", s: 1 },
+      { x: 662, y: 490, t: "irbutts", s: 1.1 },
+      { x: 656, y: 372, t: "irmuster", s: 1 },
     ]),
 
     // ---- Blackcliff ----
@@ -237,11 +282,17 @@ export default function moreIronRealms(ironVariant) {
       {
         coast: BLACKCLIFF_COAST,
         light: { tint: "204,214,232", amount: 0.15, vignette: 0.38 },
-        decorRecipe: { count: 26, types: ["ircrag", "irheather", "irspruce", "ircrag", "irpine"] },
+        decorRecipe: { count: 27, types: ["ircrag", "irheather", "irspruce", "ircrag", "irpine"] },
       },
     ), [
-      // the cliff-top round the cove: a broken line of crags
-      ...rimLine(20261024, BLACKCLIFF_COAST, 196, 618, { step: 40, back: 14, types: ["ircrag", "ircrag", "irheather"] }),
+      // the cliff-top round the cove: black stacks whitened by the gulls, and
+      // on the one mid-way along the cove's head, the gryphons' eyrie
+      ...swapNearest(rimLine(20261024, BLACKCLIFF_COAST, 196, 618, { step: 40, back: 14, types: ["irstack", "irstack", "irheather"] }), [
+        [372, 90, { t: "ireyrie", s: 1.2, v: 0 }],
+        [504, 42, { t: "ireyrie", s: 0.9, v: 3 }],   // a second nest, its gryphon away: eggs
+      ]),
+      // the bones of a ship on the cove's sand
+      { x: 426, y: 100, t: "irwreck", s: 1 },
       // a beacon on the eastern headland, watching the cove
       { x: 632, y: 34, t: "irbeacon", s: 0.95 },
     ]),

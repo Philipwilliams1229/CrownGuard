@@ -68,6 +68,19 @@ const vn = (x, y, cell, seed) => {
 const LX = 0.586, LY = 0.81, REACH = 9.5, MERGE = 12;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const smin = (a, b) => { const h = Math.max(MERGE - Math.abs(a - b), 0) / MERGE; return Math.min(a, b) - h * h * MERGE * 0.25; };
+// past one segment's edge, as water.js's segF: a river with a width per
+// point (terrain.js `ws`) carries half-widths hw1/hw2 on its segments
+const segF = (d, t, hw, dh, ck) => (dh === 0 ? d - hw : t > 0 && t < 1 ? (d - (hw + dh * t)) * ck : d - (hw + dh * t));
+// the widest half-width of a segment and its neighbours, as water.js
+// segReach works the field round it (so the two find the same nearest point)
+const wideNear = (rv, s2) => {
+  const q = rv.segs.indexOf(s2), n = rv.segs.length;
+  let m = Math.max(...halfOf(rv, s2));
+  if (q > 0) m = Math.max(m, ...halfOf(rv, rv.segs[q - 1]));
+  if (q < n - 1) m = Math.max(m, ...halfOf(rv, rv.segs[q + 1]));
+  return m;
+};
+const halfOf = (rv, s2) => (s2.hw1 !== undefined ? [s2.hw1, s2.hw2] : [rv.w / 2, rv.w / 2]);
 const spitK = (n52, side) => {
   const k = (n52 - 0.5) * side - 0.05;
   if (k <= 0) return 0;
@@ -90,16 +103,22 @@ const geo = (sg, x, y) => {
   const dx = x - (sg.x1 + sg.vx * t), dy = y - (sg.y1 + sg.vy * t), d = Math.sqrt(dx * dx + dy * dy);
   if (d > 1e-4) { GEO.nx = dx / d; GEO.ny = dy / d; } else { GEO.nx = -sg.ty; GEO.ny = sg.tx; }
   GEO.lat = sg.tx * dy - sg.ty * dx > 0 ? d : -d;
-  GEO.hw = sg.hw;
+  GEO.hw = sg.dh === 0 ? sg.hw : sg.hw + sg.dh * t;
   return GEO;
 };
 const pastEdge = (x, y) => {
   let best = 99;
-  for (const rv of RIVERS) for (const s of rv.segs) {
-    const vx = s.x2 - s.x1, vy = s.y2 - s.y1;
-    const t = Math.max(0, Math.min(1, ((x - s.x1) * vx + (y - s.y1) * vy) / (s.len * s.len)));
-    const f = Math.hypot(x - s.x1 - vx * t, y - s.y1 - vy * t) - rv.w / 2;
-    if (f < best) best = f;
+  for (const rv of RIVERS) {
+    // (a river of changing width by the nearest point of its line, as water.js)
+    let bd = Infinity, bf = 99;
+    for (const s of rv.segs) {
+      const vx = s.x2 - s.x1, vy = s.y2 - s.y1;
+      const t = Math.max(0, Math.min(1, ((x - s.x1) * vx + (y - s.y1) * vy) / (s.len * s.len)));
+      const [hw, hw2] = halfOf(rv, s), dh = hw2 - hw, d = Math.hypot(x - s.x1 - vx * t, y - s.y1 - vy * t);
+      const f = segF(d, t, hw, dh, dh === 0 ? 1 : 1 / Math.sqrt(1 + (dh / s.len) ** 2));
+      if (rv.ws ? d < bd : f < bf) { bd = d; bf = f; }
+    }
+    if (bf < best) best = bf;
   }
   return best;
 };
@@ -143,19 +162,19 @@ const touchesRiver = (P) => {
 
 // one segment's reach along one row
 const segRow = (sg, R, ri, sid, y, i0, i1, r, F) => {
-  const x1 = sg.x1, y1 = sg.y1, vx = sg.vx, vy = sg.vy, L2 = sg.L2, rr = R.reach * R.reach, hw = R.hw, tag = ri + 1;
-  const { FA, FB, SA, SB, RIV } = F;
+  const x1 = sg.x1, y1 = sg.y1, vx = sg.vx, vy = sg.vy, L2 = sg.L2, rr = sg.reach * sg.reach, hw = sg.hw, dh = sg.dh, ck = sg.ck, tag = ri + 1;
+  const { FA, FB, SA, SB, RIV, FD } = F;
   for (let i = i0; i <= i1; i++) {
     const x = (i + 0.5) / r;
     let t = ((x - x1) * vx + (y - y1) * vy) / L2;
     t = t < 0 ? 0 : t > 1 ? 1 : t;
     const dx = x - (x1 + vx * t), dy = y - (y1 + vy * t), d2 = dx * dx + dy * dy;
     if (d2 > rr) continue;
-    const f = Math.sqrt(d2) - hw;
+    const d = Math.sqrt(d2), f = segF(d, t, hw, dh, ck);
     if (RIV[i] !== tag) {
       if (FB[i] < 99) { const a = FA[i], b = FB[i]; FA[i] = smin(a, b); if (b < a) SA[i] = SB[i]; }
-      FB[i] = f; SB[i] = sid; RIV[i] = tag;
-    } else if (f < FB[i]) { FB[i] = f; SB[i] = sid; }
+      FB[i] = f; SB[i] = sid; RIV[i] = tag; FD[i] = d;
+    } else if (R.vary ? d < FD[i] : f < FB[i]) { FB[i] = f; SB[i] = sid; FD[i] = d; }
   }
 };
 // the stretch of a row a segment can reach, into SPAN; false if none
@@ -163,15 +182,16 @@ const SPAN = [0, 0];
 const spanOf = (sg, R, y, r, mw) => {
   if (y < sg.ya || y > sg.yb) return false;
   let ta = 0, tb = 1;
+  const reach = sg.reach;
   if (Math.abs(sg.vy) >= 1e-6) {
-    ta = (y - R.reach - sg.y1) / sg.vy; tb = (y + R.reach - sg.y1) / sg.vy;
+    ta = (y - reach - sg.y1) / sg.vy; tb = (y + reach - sg.y1) / sg.vy;
     if (ta > tb) { const q = ta; ta = tb; tb = q; }
     ta = ta < 0 ? 0 : ta; tb = tb > 1 ? 1 : tb;
     if (ta > tb) return false;
   }
   const xa = sg.x1 + sg.vx * ta, xb = sg.x1 + sg.vx * tb;
-  SPAN[0] = Math.max(0, Math.floor((Math.min(xa, xb) - R.reach) * r));
-  SPAN[1] = Math.min(mw - 1, Math.ceil((Math.max(xa, xb) + R.reach) * r));
+  SPAN[0] = Math.max(0, Math.floor((Math.min(xa, xb) - reach) * r));
+  SPAN[1] = Math.min(mw - 1, Math.ceil((Math.max(xa, xb) + reach) * r));
   return true;
 };
 // The slow noises on water.js's own grid, one unit apart from ITS raster's
@@ -250,7 +270,8 @@ const combineRow = (lab, row, y, lo, hi, r, F, segs, rowJP, N) => {
     if (P) g = g < 99 ? smin(g, gp) : gp;
     const k = row + i;
     if (g >= 0) { if (g < REACH && P) lab[k] = 0; continue; }
-    lab[k] = P && gp < gr ? POND0 + P.k : river || (P ? POND0 + P.k : 0);
+    // (a river that ends out in the pond gives way to it inside its shore, as water.js paints it)
+    lab[k] = P && (gp < gr || P.ends && P.ends.has(river - 1) && gp < -1.5) ? POND0 + P.k : river || (P ? POND0 + P.k : 0);
   }
 };
 
@@ -261,14 +282,15 @@ function* riverRows(lab, JP, s, r, mw, mh) {
   const rivs = RIVERS.map((rv, ri) => {
     const hw = rv.w / 2, reach = hw + REACH + (many ? MERGE * 0.5 : 0), list = [];
     for (const s2 of rv.segs) {
-      const vx = s2.x2 - s2.x1, vy = s2.y2 - s2.y1;
+      const vx = s2.x2 - s2.x1, vy = s2.y2 - s2.y1, [h1, h2] = halfOf(rv, s2), dh = h2 - h1;
       list.push(segs.length);
-      segs.push({ ri, x1: s2.x1, y1: s2.y1, vx, vy, L2: s2.len * s2.len, tx: vx / s2.len, ty: vy / s2.len, hw,
-        ya: Math.min(s2.y1, s2.y2) - reach, yb: Math.max(s2.y1, s2.y2) + reach });
+      const ex = REACH + (many ? MERGE * 0.5 : 0), rc = rv.ws ? wideNear(rv, s2) + ex : reach;
+      segs.push({ ri, x1: s2.x1, y1: s2.y1, vx, vy, L2: s2.len * s2.len, tx: vx / s2.len, ty: vy / s2.len, hw: h1, dh, ck: 1 / Math.sqrt(1 + (dh / s2.len) ** 2),
+        reach: rc, ya: Math.min(s2.y1, s2.y2) - rc, yb: Math.max(s2.y1, s2.y2) + rc });
     }
-    return { hw, reach, list };
+    return { hw, reach, list, vary: !!rv.ws };
   });
-  const F = { FA: new Float32Array(mw), FB: new Float32Array(mw), SA: new Uint16Array(mw), SB: new Uint16Array(mw), RIV: new Uint8Array(mw) };
+  const F = { FA: new Float32Array(mw), FB: new Float32Array(mw), SA: new Uint16Array(mw), SB: new Uint16Array(mw), RIV: new Uint8Array(mw), FD: new Float32Array(mw) };
   const N = noiseGrid(JP, s, r);
   for (let j = 0; j < mh; j++) {
     if (j && j % ROWS_PER === 0) yield;
@@ -306,6 +328,10 @@ function* bakeSteps(M) {
   const s = ((REALM.seed | 0) % 97 + 97) % 97;
   const shapes = PONDS.map(pondShape);
   const JP = RIVERS.length ? shapes.filter((P) => P.open && touchesRiver(P)) : [];
+  for (const P of JP) {
+    P.ends = new Set();
+    RIVERS.forEach((rv, ri) => { const a = rv.pts[0], b = rv.pts[rv.pts.length - 1]; if (pondG(P, a[0], a[1]) < 2 || pondG(P, b[0], b[1]) < 2) P.ends.add(ri); });
+  }
   STEP = "m-ponds";
   // ponds on their own (painted first; a river may paint over them)
   for (const P of shapes) {

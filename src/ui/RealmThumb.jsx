@@ -23,8 +23,13 @@ export default function RealmThumb({ realm, width = 108, height = 72, style }) {
       <rect x="0" y="0" width="150" height="100" fill={r.GRASS} />
       {/* the sea, where a realm runs down to the coast, with its beach */}
       {r.coast && <polygon points={coastOutline(r).map(([x, y]) => `${x * 150 / W},${y * 100 / H}`).join(" ")} fill={r.water?.deep || "#3a6a7c"} stroke="#dcc48e" strokeWidth="2.5" strokeLinejoin="round" />}
-      {(r.rivers || []).map((rv, i) => (
-        <polyline key={`rv${i}`} points={rv.pts.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
+      {(r.rivers || []).map((rv, i) => (rv.ws
+        // a river that widens point by point (ws): one stroke per stretch
+        ? rv.pts.slice(1).map(([c, row], k) => (
+          <line key={`rv${i}-${k}`} x1={rv.pts[k][0] * 10 + 5} y1={rv.pts[k][1] * 10 + 5} x2={c * 10 + 5} y2={row * 10 + 5}
+            stroke={r.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.ws[k] + rv.ws[k + 1]) / 10)} strokeLinecap="round" />
+        ))
+        : <polyline key={`rv${i}`} points={rv.pts.map(([c, row]) => `${c * 10 + 5},${row * 10 + 5}`).join(" ")}
           fill="none" stroke={r.water?.deep || "#3a6478"} strokeWidth={Math.max(4, (rv.w || 32) / 5)}
           strokeLinejoin="round" strokeLinecap="round" />
       ))}

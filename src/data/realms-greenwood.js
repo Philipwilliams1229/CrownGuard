@@ -23,8 +23,17 @@
 // Hand-placed `decor` is in grid px (x = 48·col + 24, y = 48·row + 24, before
 // the border); a decorRecipe's count INCLUDES the hand-placed pieces.
 
-// a hand-placed piece at a grid position
-const at = (c, r, t, s = 1, dx = 0, dy = 0) => ({ x: Math.round(48 * c + 24 + dx), y: Math.round(48 * r + 24 + dy), t, s });
+import { addFootprints } from "./terrain.js";
+
+// The vale's own pieces (src/render/scenery-vale.js) block building as wide
+// as they stand.
+addFootprints({
+  menhir: 8, stonefall: 12, trilithon: 16, watermill: 14, cottage: 15, boat: 13,
+  netrack: 13, creels: 8, marram: 6, thistle: 6, skeps: 10, haywain: 17,
+});
+
+// a hand-placed piece at a grid position (v: which look, where a piece has several)
+const at = (c, r, t, s = 1, dx = 0, dy = 0, v) => ({ x: Math.round(48 * c + 24 + dx), y: Math.round(48 * r + 24 + dy), t, s, ...(v != null ? { v } : {}) });
 
 // a ridge of crag down column c: crags and boulders zigzagging either side
 // of the line, bigger mid-ridge and smaller at its ends, with heather in the
@@ -36,7 +45,8 @@ const ridge = (c, rows) => rows.flatMap((r, i) => {
   const end = Math.min(i, rows.length - 1 - i);   // 0 at the ridge's two ends
   const sz = (t === "rock" ? 1.2 : 1.0) + Math.min(end, 2) * 0.1 + 0.12 * Math.abs(k);
   const out = [at(c, r, t, sz, side * (5 + 4 * Math.abs(k)), 6 * k)];
-  if (i % 3 === 1) out.push(at(c, r, "irheather", 0.9 + 0.2 * Math.abs(k), -side * 16, 4));
+  // heather in the clefts, and here and there a thistle instead
+  if (i % 3 === 1) out.push(at(c, r, i % 2 ? "thistle" : "irheather", 0.9 + 0.2 * Math.abs(k), -side * 16, 4));
   return out;
 });
 // a drystone field wall along row r from column a to b, end to end
@@ -45,6 +55,11 @@ const wall = (a, b, r) => {
   for (let c = a; c <= b + 1e-6; c += 0.56) out.push(at(c, r, "irwall", 1, 0, Math.sin(c * 2.3) * 2));
   return out;
 };
+// the Kingstones' ring, stone by stone round from the east: [type, size, look]
+const RING = [
+  ["menhir", 1.05, 0], ["menhir", 1.0, 3], ["menhir", 1.1, 2], ["stonefall", 1.0, 0], ["menhir", 1.0, 1],
+  ["menhir", 1.1, 0], ["trilithon", 0.9, 0], ["menhir", 1.05, 3], ["menhir", 0.95, 1],
+];
 // rows from a to b every `step`, leaving out the saddles (rows near `gaps`)
 const span = (a, b, step, gaps = []) => {
   const out = [];
@@ -73,16 +88,19 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
         GRASS: "#8db35c", GRASS_DK: "#6d9343", GRASS_LT: "#acce74", TUFT: "#678a3d",
         scatter: { patches: 50, tufts: 150, flowers: 30, flowerCols: ["#e8a0b8", "#f0ece0", "#e0c070"] },
         decor: [
-          // the hamlet on the last dune before the gate: the lookout, the
-          // net-sheds (tents), a fish cart
-          at(12.9, 3.9, "watchtower", 1.05),
-          at(12.45, 3.15, "tent", 1), at(13.2, 3.0, "tent", 0.85), at(12.5, 4.45, "tent", 0.9),
-          at(12.95, 5.0, "irwagon", 0.8),
-          // a few stones and scrub on the dunes inside the loop
-          at(6.9, 5.0, "rock", 1.1), at(7.4, 5.25, "rock", 0.75),
-          at(4.2, 4.95, "pine", 0.95), at(4.7, 5.3, "pine", 0.8), at(9.8, 4.85, "pine", 0.9), at(10.3, 5.2, "tree", 0.8),
+          // the hamlet on the last dune before the gate: a fisher's cottage
+          // and its lobster pots, the lookout, nets drying on their rack, and
+          // the boats drawn up where the grass gives way to the sand
+          at(13.05, 2.8, "cottage", 1.25, 0, 0, 0), at(13.6, 3.62, "creels", 1.1, 0, 0, 1),
+          at(12.95, 4.6, "watchtower", 1.05),
+          at(12.95, 5.6, "netrack", 1.2, 0, 0, 0),
+          at(12.75, 7.2, "boat", 1.1, 0, 0, 0), at(13.55, 6.75, "boat", 0.95, 0, 0, 1),
+          // marram on the dunes, a few stones and wind-bent pines inside the loop
+          at(6.9, 5.0, "rock", 1.1), at(7.4, 5.25, "marram", 1, 0, 0, 2),
+          at(4.2, 4.95, "pine", 0.95), at(4.7, 5.3, "marram", 1, 0, 0, 1), at(9.8, 4.85, "pine", 0.9), at(10.3, 5.2, "marram", 1, 0, 0, 0),
+          at(5.6, 5.45, "marram", 0.9, 0, 0, 0), at(8.6, 5.4, "marram", 1, 0, 0, 2), at(13.55, 6.45, "marram", 0.9, 0, 0, 1),
         ],
-        decorRecipe: { count: 27, types: ["pine", "rock", "pine", "tree", "rock"] },
+        decorRecipe: { count: 30, types: ["pine", "marram", "pine", "tree", "rock", "marram"] },
       },
     ),
 
@@ -107,7 +125,12 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
           { pts: [[5.0, -0.5], [5.2, 2.4], [4.9, 4.4], [6.0, 5.7], [7.9, 6.4], [9.3, 7.3]], w: 18 },
         ],
         decor: [
-          at(6.15, 3.4, "irwagon", 0.85),
+          // the mill on the island's bank, its footing down in the race and
+          // its wheel turning against its west wall (the hub stands ~21.5
+          // west and ~11 south of the mill's feet, on the race's centre line)
+          at(5.63, 4.42, "watermill", 1, 0, 0, 0),
+          // the miller's bees and a loaded wain on the far bank
+          at(4.05, 3.0, "skeps", 0.95, 0, 0, 1), at(10.6, 6.2, "haywain", 0.9, 0, 0, 0),
           at(10.4, 3.3, "willow", 1), at(4.0, 5.6, "willow", 0.95), at(8.2, 0.6, "willow", 0.9), at(8.3, 7.6, "willow", 0.9),
         ],
         decorRecipe: { count: 20, types: ["tree", "willow", "tree", "pine", "rock", "tree"] },
@@ -135,7 +158,7 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
           ...ridge(6.5, span(2.5, 8.9, 0.62, [5.9])),
           ...ridge(9.5, span(1.2, 7.2, 0.62, [2.8])),
         ],
-        decorRecipe: { count: 58, types: ["ircrag", "rock", "irheather", "pine", "rock", "ircrag", "tree"] },
+        decorRecipe: { count: 58, types: ["ircrag", "rock", "irheather", "pine", "thistle", "ircrag", "tree"] },
       },
     ),
 
@@ -155,10 +178,14 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
         GRASS: "#8ab65a", GRASS_DK: "#6a9442", GRASS_LT: "#a8d070", TUFT: "#5f8c3c",
         decor: [
           // the ring: nine stones round an ellipse at (6.5, 6.4)
-          // (spaced by arc length, not angle, so the ends don't crowd)
+          // (spaced by arc length, not angle, so the ends don't crowd): the
+          // great trilithon at its back (north), one stone fallen in the
+          // south-west, the rest standing — tall slabs, a squat one, needles,
+          // two leaning
           ...Array.from({ length: 9 }, (_, i) => {
             const t = (i / 9) * Math.PI * 2 + 0.35, a = t + 0.15 * Math.sin(2 * t);
-            return at(6.5, 6.4, "rock", 1.08 + 0.22 * Math.abs(Math.sin(i * 2.7)), Math.cos(a) * 74, Math.sin(a) * 40);
+            const [type, sz, v] = RING[i];
+            return at(6.5, 6.4, type, sz, Math.cos(a) * 74, Math.sin(a) * 40, v);
           }),
           // field walls across the down, broken where the sheep go through
           ...wall(4.4, 6.0, 3.05), ...wall(7.0, 8.6, 3.0),
@@ -168,7 +195,7 @@ export default function moreGreenwoodRealms(greenwoodVariant) {
           // a hawthorn or two the wind has bent
           at(11.4, 9.0, "tree", 0.9), at(0.9, 6.9, "tree", 0.85),
         ],
-        decorRecipe: { count: 52, types: ["irheather", "rock", "irheather", "tree", "cairn", "irheather", "pine"] },
+        decorRecipe: { count: 52, types: ["irheather", "menhir", "irheather", "tree", "cairn", "thistle", "pine"] },
       },
     ),
   };
