@@ -25,7 +25,15 @@ addFootprints({
   fendead: 10, fenwillow: 16, fensnag: 7, reedbed: 10, bogpool: 13,
   fengrave: 7, fencairn: 9, fenbones: 9, fenstatue: 13, fenshrine: 12,
   bellstone: 11, fencandle: 6, lichfence: 12, fenthrone: 17, fenbarrow: 16,
+  // the fifteen-level pieces: a corpse-light over its stake, a long barrow (a
+  // circle can't hold it: its tail runs ~1.4x past this), a bowl barrow in
+  // its ditch, a standing stone, a row of monks' crosses, the weir-keeper's hut
+  fenwisp: 6, fenlongbarrow: 21, fenroundbarrow: 16, fenstone: 7, fenmonks: 13, fenhut: 17,
 });
+// What stands IN the water is not decor (the grounding pass would walk it
+// ashore): a board lists it as `fenRelics` — [{ x, y, t, s, v }] in grid
+// pixels, (x, y) on the waterline; scenery-hollow.js "the drowned relics".
+// It blocks nothing (the water already does).
 
 export default function moreHollowRealms(hollowVariant) {
   return {
@@ -143,16 +151,24 @@ export default function moreHollowRealms(hollowVariant) {
           { x: 130, y: 404, w: 64, h: 34, t: "swamp" },
           { x: 446, y: 66, w: 60, h: 30, t: "swamp" },
         ],
-        // the corpse-lights themselves, on stakes along the creek's banks
+        // the corpse-lights themselves, hovering over stakes and reeds along
+        // the creek's banks, and out over its black water
         decor: [
-          { x: 424, y: 40, t: "fencandle", s: 0.95 }, { x: 386, y: 230, t: "fencandle", s: 0.9 },
-          { x: 462, y: 324, t: "fencandle", s: 0.85 }, { x: 316, y: 430, t: "fencandle", s: 1 },
-          { x: 208, y: 407, t: "fencandle", s: 0.9 }, { x: 181, y: 462, t: "fencandle", s: 0.95 },
+          { x: 424, y: 40, t: "fenwisp", s: 0.95 }, { x: 386, y: 230, t: "fenwisp", s: 0.9 },
+          { x: 462, y: 324, t: "fenwisp", s: 0.85 }, { x: 316, y: 430, t: "fenwisp", s: 1 },
+          { x: 208, y: 407, t: "fenwisp", s: 0.9 }, { x: 181, y: 462, t: "fenwisp", s: 0.95 },
+        ],
+        fenRelics: [
+          { x: 398, y: 66, t: "wisp", h: 13 }, { x: 436, y: 318, t: "wisp", h: 12, s: 0.9 },
+          { x: 331, y: 392, t: "wisp", h: 14 }, { x: 149, y: 430, t: "wisp", h: 12, s: 0.9 },
+          { x: 452, y: 64, t: "wisp", h: 11, s: 0.85 },
+          // and the lanterns someone hung over it, still burning
+          { x: 358, y: 228, t: "lanternpost" }, { x: 250, y: 426, t: "lanternpost", s: 0.9 },
         ],
         fenMeadows: 14,
         // witch-fire: the corpse-lights wash the fen a sickly teal
         light: { tint: "150,204,190", amount: 0.22, vignette: 0.52 },
-        decorRecipe: { count: 28, types: ["reedbed", "fendead", "fenwillow", "bogpool", "fenbones", "fencandle", "reedbed", "fengrave", "fendead", "fensnag"] },
+        decorRecipe: { count: 28, types: ["reedbed", "fendead", "fenwillow", "bogpool", "fenbones", "fenwisp", "reedbed", "fengrave", "fendead", "fensnag"] },
       },
     ),
 
@@ -174,17 +190,29 @@ export default function moreHollowRealms(hollowVariant) {
           { x: 418, y: 286, w: 100, h: 32, t: "swamp" },
           // the monks' fishpond, below the cloister
           { x: 600, y: 420, w: 100, h: 40, t: "swamp" },
+          // the drowned church north of the cloister: its nave is a black pool
+          { x: 418, y: 128, w: 96, h: 56, t: "swamp" },
         ],
-        // the drowned church north of the cloister: its bell-tower's top, the
-        // altar shrine, a sunk saint, the lychyard rails
+        // what stands in the water: the bell-tower's top out of the nave, the
+        // stumps of its piers round it, the cloister's south arcade standing
+        // in its flooded walk, columns of the inner walk
+        fenRelics: [
+          { x: 418, y: 138, t: "belltower", s: 0.95 },
+          { x: 388, y: 138, t: "column", v: 1, s: 0.9 }, { x: 451, y: 141, t: "column", v: 2, s: 0.85 },
+          { x: 398, y: 150, t: "column", v: 3, s: 0.8 },
+          { x: 418, y: 294, t: "arcade", v: 0, s: 0.88 },
+          { x: 392, y: 218, t: "column", v: 1, s: 0.8 }, { x: 446, y: 222, t: "column", v: 0, s: 0.8 },
+          { x: 460, y: 262, t: "column", v: 2, s: 0.75 }, { x: 378, y: 238, t: "column", v: 3, s: 0.75 },
+          { x: 588, y: 424, t: "column", v: 3, s: 0.8 },
+        ],
+        // on dry ground: the lychyard rails between church and cloister, and
+        // the monks buried south of the cloister by their pond
         decor: [
-          { x: 418, y: 132, t: "bellstone", s: 1.15 },
-          { x: 362, y: 120, t: "fenshrine", s: 1 },
-          { x: 474, y: 118, t: "fenstatue", s: 1 },
-          { x: 382, y: 156, t: "fencandle", s: 0.85 }, { x: 456, y: 160, t: "lichfence", s: 0.95 },
+          { x: 418, y: 176, t: "lichfence", s: 0.95 },
+          { x: 424, y: 442, t: "fenmonks", s: 1 }, { x: 492, y: 468, t: "fenmonks", s: 0.95 },
         ],
         light: { tint: "168,180,222", amount: 0.21, vignette: 0.5 },
-        decorRecipe: { count: 18, types: ["fengrave", "lichfence", "fenwillow", "fengrave", "reedbed", "fendead", "fencandle", "fenstatue", "fengrave", "bogpool"] },
+        decorRecipe: { count: 15, types: ["fengrave", "lichfence", "fenwillow", "fenmonks", "reedbed", "fendead", "fencandle", "fenstatue", "fengrave", "bogpool"] },
       },
     ),
 
@@ -199,25 +227,30 @@ export default function moreHollowRealms(hollowVariant) {
       [[0.9, 4.6], [4.2, 4.6], [4.2, 1.4], [12, 1.4], [12, 4.4], [7, 4.4], [7, 8.2], [13.7, 8.2]],
       {
         // drier turf: fewer wet hollows and sedge meadows, a paler sward
-        fenHollows: 2, fenMeadows: 3,
+        fenHollows: 2, fenMeadows: 3, fenPools: false,
         GRASS: "#475040", GRASS_DK: "#384031", GRASS_LT: "#5d684c", TUFT: "#30382b",
         light: { tint: "184,190,214", amount: 0.18, vignette: 0.46 },
         // the edge of the downs: dead and broken trees, no reeds up here
         wood: { types: [["fendead", 5], ["fensnag", 2.2], ["fenwillow", 0.8]], hem: false, depth: 0.85 },
+        // (long, doored and bowl barrows mixed, so the field never reads as
+        // one stamp; each sits where a barrow of the old layout sat, blocking
+        // about as much. A piece's look follows a hash of where it stands, so
+        // the odd pixel of nudge picks it: sealed or robbed, stone or thorn)
         decor: [
           // a row of barrows along the rise inside the long bend
-          { x: 404, y: 166, t: "fenbarrow", s: 1.3 }, { x: 470, y: 158, t: "fenbarrow", s: 1.15 },
-          { x: 536, y: 168, t: "fenbarrow", s: 1.35 }, { x: 300, y: 150, t: "fencairn", s: 1.1 },
-          // the kings' barrow field on the open down below, in a line down the slope
-          { x: 74, y: 318, t: "fenbarrow", s: 1.1 }, { x: 132, y: 356, t: "fenbarrow", s: 1.4 },
-          { x: 194, y: 398, t: "fenbarrow", s: 1.2 }, { x: 258, y: 440, t: "fenbarrow", s: 1.45 },
-          { x: 214, y: 324, t: "fencairn", s: 1.0 }, { x: 96, y: 430, t: "fencairn", s: 1.15 },
+          { x: 414, y: 166, t: "fenlongbarrow", s: 1.05 }, { x: 475, y: 159, t: "fenbarrow", s: 1.1 },
+          { x: 536, y: 168, t: "fenroundbarrow", s: 1.3 }, { x: 300, y: 150, t: "fencairn", s: 1.1 },
+          // the kings' barrow field on the open down below, in a line down the
+          // slope, standing stones between them
+          { x: 73, y: 319, t: "fenroundbarrow", s: 1.1 }, { x: 133, y: 358, t: "fenlongbarrow", s: 1.1 },
+          { x: 193, y: 399, t: "fenbarrow", s: 1.2 }, { x: 262, y: 442, t: "fenlongbarrow", s: 1.2 },
+          { x: 215, y: 324, t: "fenstone", s: 1.15 }, { x: 97, y: 429, t: "fenstone", s: 1.1 },
           // and along the ridgeway's north verge
-          { x: 330, y: -4, t: "fenbarrow", s: 1.1 }, { x: 452, y: 0, t: "fenbarrow", s: 1.25 },
+          { x: 329, y: -3, t: "fenroundbarrow", s: 1.05 }, { x: 451, y: -1, t: "fenlongbarrow", s: 1.05 },
           // and two more in the field inside the last bend
-          { x: 520, y: 326, t: "fenbarrow", s: 1.3 }, { x: 636, y: 316, t: "fenbarrow", s: 1.1 },
+          { x: 518, y: 327, t: "fenlongbarrow", s: 1.1 }, { x: 635, y: 316, t: "fenroundbarrow", s: 1.1 },
         ],
-        decorRecipe: { count: 32, types: ["fencairn", "fengrave", "fenbones", "fencairn", "fensnag", "fengrave", "fencandle", "fendead", "fencairn", "fenbarrow", "fengrave"] },
+        decorRecipe: { count: 32, types: ["fencairn", "fengrave", "fenbones", "fencairn", "fensnag", "fengrave", "fenstone", "fendead", "fencairn", "fenbarrow", "fenroundbarrow"] },
       },
     ),
 
@@ -245,11 +278,18 @@ export default function moreHollowRealms(hollowVariant) {
           { x: 480, y: 196, w: 140, h: 76, t: "swamp" },
           { x: 480, y: 404, w: 136, h: 40, t: "swamp" },
         ],
-        decor: [
-          // the drowned kingdom's kings, sunk to the chest, guard the weir
-          { x: 432, y: 448, t: "fenstatue", s: 1.1 },
-          { x: 530, y: 452, t: "fenstatue", s: 1.05 },
+        // the weir itself across the head of the sluices; the drowned
+        // kingdom's kings, sunk to the chest in the pool below, guard its
+        // outfall; its old piers stand in the still pool above
+        fenRelics: [
+          { x: 480, y: 240, t: "weir", w: 152, gaps: [432, 480, 528], gw: 18 },
+          { x: 452, y: 412, t: "sunkking", v: 0 }, { x: 509, y: 413, t: "sunkking", v: 1 },
+          { x: 446, y: 192, t: "column", v: 2, s: 0.9 }, { x: 520, y: 200, t: "column", v: 1, s: 0.9 },
+          { x: 470, y: 214, t: "column", v: 3, s: 0.85 },
+          { x: 548, y: 408, t: "wisp", h: 12, s: 0.9 },
         ],
+        // the weir-keeper's hut, by the west end of his weir
+        decor: [{ x: 372, y: 262, t: "fenhut", s: 1 }],
         light: { tint: "160,176,220", amount: 0.23, vignette: 0.54 },
         decorRecipe: { count: 20, types: ["fenstatue", "fendead", "fengrave", "lichfence", "fenwillow", "fenshrine", "fencandle", "reedbed", "fenbones", "fendead"] },
       },

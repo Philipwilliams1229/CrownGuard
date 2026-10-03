@@ -39,7 +39,7 @@ import { lighten, darken, mix, rgba, soft, shadow, ball, glow, blade, tuft, ston
 import { REALM } from "../data/maps.js";
 import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "../engine/path.js";
 import { PONDS, RIVERS, BRIDGES, FOREST, forestDepthAt, inRiver } from "../data/terrain.js";
-import { W, H, PATH_HALF, WALL_W } from "../data/constants.js";
+import { W, H, PATH_HALF, WALL_W, MX, MY } from "../data/constants.js";
 
 export const HOLLOW_ART = { decor: {}, live: [], box: {}, dress: {}, spawn: {}, turf: {}, road: {} };
 // the landscape beyond the board (apron.js): the fen's own landmarks, sown
@@ -1101,6 +1101,417 @@ Object.assign(HOLLOW_ART.box, {
 });
 Object.assign(HOLLOW_ART.dress, { fendead: [3, false], fenwillow: [5, false], fengrave: [6, false], fencairn: [9, false], fenstatue: [13, false], fensnag: [3, false] });
 
+// ---- the fifteen-level pieces (2026-10-03) ------------------------------
+// The four boards added when the chapter grew (lanternfen, abbeymere,
+// barrowdowns, deadweir) brought pieces of their own:
+//   fenwisp        a will-o'-wisp: a corpse-light hovering over a bog-oak
+//                  stake, a reed clump, a snag or a tussock (live)
+//   fenlongbarrow  a long barrow: a tapering mound, kerbed, a forecourt of
+//                  standing slabs at its high end (v 0/1), or robbed — the
+//                  blocking stone down, a trench down its spine and the
+//                  chamber's capstone bared at its tail (v 2/3)
+//   fenroundbarrow a bowl barrow in its ditch: crowned by a stone, dug open,
+//                  a dead thorn on top, or kerbed with a cist lying open
+//   fenstone       a plain standing stone: tall, holed, leaning, or a pair
+//   fenmonks       a row of the monks' little crosses, one leaning or down
+//   fenhut         the weir-keeper's hut, its roof fallen in
+// and the pieces that stand IN the water (`REALM.fenRelics`, drawn flat
+// with the water's dressing — see "the drowned relics" below).
+
+// the barrows' turf: the board's own grass gone a little greener and paler
+const barrowTurf = () => mix(REALM.GRASS, "#56664a", 0.55);
+// Shade a mound already laid as the current path: its dark, the lit body
+// slid toward the sun, a lit crown, and blades of grass picked out over it.
+const shadeMound = (c, path, cx, cy, rx, ry, turf, seed) => {
+  path(c, 0, 0, 1); c.fillStyle = darken(turf, 0.42); c.fill();
+  c.save(); path(c, 0, 0, 1); c.clip();
+  path(c, -rx * 0.06, -ry * 0.2, 0.93); c.fillStyle = turf; c.fill();
+  path(c, -rx * 0.2, -ry * 0.5, 0.62); c.fillStyle = lighten(turf, 0.16); c.fill();
+  const n = Math.round(rx * ry / 5);
+  for (let i = 0; i < n; i++) {
+    const a = hash(seed, i + 5) * Math.PI * 2, d = Math.sqrt(hash(seed, i + 6)) * 0.95;
+    const lit = -Math.cos(a) * d * 0.6 - Math.sin(a) * d * 0.8;
+    c.fillStyle = lit > 0.25 ? lighten(turf, 0.3) : lit > -0.3 ? darken(turf, 0.18) : darken(turf, 0.42);
+    c.fillRect(ap(cx + Math.cos(a) * rx * d), ap(cy + Math.sin(a) * ry * d), 0.5, hash(seed, i + 7) < 0.5 ? 1.5 : 1);
+  }
+  c.restore();
+};
+// a small kerb stone set in the turf
+const kerb = (c, x, y, w, h, col) => standing(c, [[x - w, y + 0.8], [x - w * 0.9, y - h], [x + w * 0.9, y - h - 0.2], [x + w, y + 0.8]], col, 0.8);
+
+// ---- the will-o'-wisp -----------------------------------------------------
+// The light itself: a pale core in a teal halo, drifting in a slow loop,
+// two motes trailing it, its light on the ground (or the water) beneath.
+// Now and then it gutters out and comes back — the fen's lights never hold.
+const wispAt = (t, ph) => [Math.sin(t * 0.62 + ph) * 3.2 + Math.sin(t * 1.7 + ph * 2) * 1.1, Math.sin(t * 1.05 + ph * 1.3) * 2.2];
+const wispLight = (ctx, x, y, s, t, ph, gy, water = false) => {
+  const k = 0.5 + 0.5 * Math.sin(t * 0.41 + ph * 0.7);
+  const fade = smooth01((k - 0.12) / 0.3) * (0.86 + 0.14 * Math.sin(t * 11 + ph * 3));
+  if (fade < 0.02) return;
+  const [dx, dy] = wispAt(t, ph), px = x + dx * s, py = y + dy * s;
+  // its light on what lies beneath: a pool on the turf, a streak on water
+  if (water) {
+    // its double in the black water, broken into wavering dashes
+    for (let q = 0; q < 4; q++) {
+      const w = (3.4 - q * 0.7) * s * (1 + 0.25 * Math.sin(t * 2.3 + q + ph));
+      ctx.fillStyle = rgba(q ? TEAL : "#d8fff0", (0.6 - q * 0.12) * fade);
+      ctx.fillRect(ap(px - w + Math.sin(t * 1.8 + q * 2 + ph) * 0.8), ap(gy + 1 + q * 1.5), ap(w * 2), 0.5);
+    }
+    soft(ctx, px, gy + 2, 12 * s, 3.4 * s, [[0, rgba(TEAL, 0.2 * fade)], [1, rgba(TEAL, 0)]]);
+  } else soft(ctx, px + 1, gy + 0.5, 13 * s, 3.8 * s, [[0, rgba(TEAL, 0.22 * fade)], [1, rgba(TEAL, 0)]]);
+  glow(ctx, px, py, 15 * s, TEAL, 0.26 * fade);
+  glow(ctx, px, py, 6 * s, "#c8fff0", 0.42 * fade);
+  // a crisp ring of teal round the heart
+  ctx.fillStyle = rgba(TEAL, 0.85 * fade);
+  ctx.fillRect(ap(px - 1.5), ap(py - 1), 3, 2); ctx.fillRect(ap(px - 1), ap(py - 1.5), 2, 3);
+  // two motes trailing where it was
+  for (const [lag, a] of [[0.35, 0.55], [0.75, 0.3]]) {
+    const [ex, ey] = wispAt(t - lag, ph);
+    ctx.fillStyle = rgba(TEAL, a * fade);
+    ctx.fillRect(ap(x + ex * s), ap(y + ey * s + lag * 2), 0.5, 0.5);
+  }
+  // the core, a crisp plus of white-teal
+  ctx.fillStyle = rgba("#f4fffa", Math.min(1, fade * 1.3));
+  ctx.fillRect(ap(px - 0.5), ap(py - 1), 1, 2);
+  ctx.fillRect(ap(px - 1), ap(py - 0.5), 2, 1);
+};
+// What it hovers over. v 0: a black bog-oak stake, a rag knotted to it and
+// an iron ring; v 1: a clump of reeds and bulrushes; v 2: a rotten snag;
+// v 3: a sedge tussock with a skull in it.
+const wispBody = (c, ox, oy, v, s) => {
+  const x = ox, gy = oy;
+  shadow(c, x + 3 * s, gy, 7 * s, 2 * s, 0.26);
+  if (v === 0) {
+    const wood = "#3a3530";
+    part(c, (cc) => {
+      limb(cc, x, gy + 0.5, x - 1.4 * s, gy - 18 * s, 2.8 * s, 1.6 * s, wood, 0.6 * s, { hi: 0.42 });
+      // a crooked arm near its head, as if it once held a lantern
+      limb(cc, x - 1.2 * s, gy - 15 * s, x + 3.4 * s, gy - 18.4 * s, 1.2 * s, 0.8 * s, wood, -0.5 * s, { hi: 0.4 });
+    });
+    part(c, (cc) => {
+      // the rag: a grey strip hanging off a knot, its end frayed
+      cc.fillStyle = "#7c7a6c";
+      poly(cc, [[x - 1.6 * s, gy - 12 * s], [x + 0.4 * s, gy - 12.4 * s], [x + 2.4 * s, gy - 8 * s], [x + 1.8 * s, gy - 5.5 * s], [x + 1 * s, gy - 7.5 * s], [x + 0.4 * s, gy - 6 * s], [x - 0.4 * s, gy - 9.5 * s]]);
+      cc.fill();
+      cc.fillStyle = "#a29e8a"; px1(cc, x - 1, gy - 12 * s, 1.5, 0.5);
+      cc.fillStyle = "#56544a"; px1(cc, x + 1.2 * s, gy - 8 * s, 0.5, 2);
+    });
+    c.fillStyle = "#6a4a36"; px1(c, x - 1.6 * s, gy - 4 * s, 1.5, 1); c.fillStyle = "#2a2426"; px1(c, x - 1.1 * s, gy - 3.5 * s, 0.5, 0.5);
+    for (let k = 0; k < 2; k++) sedge(c, x + (k ? 2.6 : -2.8) * s, gy + 0.6, 0.6, 61 + k * 5, 4);
+  } else if (v === 1) {
+    for (let k = 0; k < 7; k++) {
+      const bx = x + (k - 3) * 1.3 * s, h = (8 + hash(k, 71) * 7) * s, lean = (hash(k, 72) - 0.5) * 3 * s;
+      blade(c, bx, gy + 0.6, bx + lean, gy - h, 0.9 * s, "#4c5638", "#9a9460", 0.35);
+    }
+    for (const [bx, h] of [[-1.6, 12], [1.8, 10]]) {
+      c.fillStyle = "#4a4030"; c.fillRect(ap(x + bx * s), ap(gy - h * s), 0.5, h * s);
+      part(c, (cc) => { roundRect(cc, x + bx * s - 0.9, gy - h * s - 3.4 * s, 1.8 + 0.4, 3.6 * s, 0.8); litFill(cc, x + bx * s - 0.9, x + bx * s + 1.3, "#7a5638", 0.3, 0.45); });
+    }
+    c.fillStyle = rgba(BOGW, 0.9); px1(c, x - 4 * s, gy + 0.5, 8 * s, 0.5);
+  } else if (v === 2) {
+    part(c, (cc) => {
+      poly(cc, [[x - 3.4 * s, gy + 0.5], [x - 2.6 * s, gy - 6 * s], [x - 1.6 * s, gy - 9 * s], [x - 0.6 * s, gy - 7 * s], [x + 0.6 * s, gy - 10.5 * s], [x + 1.6 * s, gy - 6.5 * s], [x + 2.6 * s, gy - 5 * s], [x + 3.6 * s, gy + 0.5]]);
+      litFill(cc, x - 3.4 * s, x + 3.6 * s, "#5a5244", 0.36, 0.5);
+      cc.fillStyle = "#2a2426"; px1(cc, x - 0.8 * s, gy - 4.5 * s, 1, 1.5);
+      cc.fillStyle = "#8a6a44"; px1(cc, x + 1.6 * s, gy - 3.5 * s, 1.5, 1);
+    });
+    for (let k = 0; k < 2; k++) sedge(c, x + (k ? 3.4 : -3.6) * s, gy + 0.6, 0.6, 66 + k, 4);
+  } else {
+    for (let k = 0; k < 4; k++) sedge(c, x + (k - 1.5) * 2.2 * s, gy + 0.6 - (k % 2) * 0.6, 0.85, 81 + k, 6);
+    part(c, (cc) => skull(cc, x + 0.6 * s, gy - 1.6 * s, 1.7 * s));
+    for (let k = 0; k < 2; k++) sedge(c, x + (k ? 2.6 : -2.4) * s, gy + 1.4, 0.7, 91 + k, 4);
+  }
+};
+// where each body's light hangs, and how high
+const WISP_AT = [[3.5, -25], [0, -21], [0.5, -18], [0.5, -14]];
+const fenWisp = (ctx, x, y, s, o) => {
+  const v = (o.v || 0) % 4, gy = y + 8, t = o.time || 0;
+  const b = body(`wisp|${v}|${s}`, 22 * s + 8, 22 * s + 12, 11 * s + 4, 18 * s + 6, (c, ox, oy) => wispBody(c, ox, oy, v, s));
+  stampBody(ctx, b, x, gy);
+  const [wx, wy] = WISP_AT[v];
+  wispLight(ctx, x + wx * s, gy + wy * s, s, t, x * 0.13 + y * 0.07, gy);
+};
+
+// ---- barrows ----------------------------------------------------------------
+// A long barrow, laid east-west. Its high end carries the forecourt; it tapers
+// to a low tail. v even: the forecourt at the east end; odd: the west.
+const fenLongBarrow = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8;
+  const turf = barrowTurf(), col = mix(STONE, "#96948a", 0.3);
+  const side = v % 2 ? -1 : 1, robbed = v >= 2;
+  const rx = 30 * s, ry = 11.5 * s, cy = gy - 6 * s;
+  shadow(ctx, x + 6 * s, gy + 0.5, rx + 4, 4.4 * s, 0.3);
+  // the outline: squarish ends, taller at the forecourt end, its back edge
+  // (the top as we see it) higher than its foot
+  const path = (c, ox, oy, k) => {
+    c.beginPath();
+    const N = 26, top = [], bot = [];
+    for (let i = 0; i <= N; i++) {
+      const u = -1 + (2 * i) / N, e = Math.pow(1 - Math.pow(Math.abs(u), 2.6), 1 / 2.6);
+      const hh = ry * k * (0.62 + 0.38 * (u * side + 1) / 2) * (1 + (hash(seed, i) - 0.5) * 0.08);
+      const xx = x + ox + u * rx * k;
+      top.push([xx, cy + oy - hh * Math.pow(e, 0.7) * 1.1]);
+      bot.push([xx, cy + oy + hh * e * 0.5 + (1 - k) * ry * 0.4]);
+    }
+    top.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py)));
+    for (let i = bot.length - 1; i >= 0; i--) c.lineTo(bot[i][0], bot[i][1]);
+    c.closePath();
+  };
+  part(ctx, (c) => shadeMound(c, path, x, cy, rx, ry, turf, seed));
+  if (robbed) {
+    // the robbers' trench down the spine, its spoil heaped either side
+    part(ctx, (c) => {
+      const xa = Math.min(x - side * rx * 0.5, x + side * rx * 0.12), xb = Math.max(x - side * rx * 0.5, x + side * rx * 0.12), ty = cy - ry * 0.62;
+      blobPath(c, (xa + xb) / 2, ty, (xb - xa) / 2, 1.6 * s, seed + 31, 0.1, 10); c.fillStyle = darken(turf, 0.5); c.fill();
+      blobPath(c, (xa + xb) / 2, ty + 0.9 * s, (xb - xa) / 2 - 1, 0.9 * s, seed + 32, 0.1, 10); c.fillStyle = "#4e4838"; c.fill();
+      c.fillStyle = "#7a7058";
+      for (let k = 0; k < 8; k++) px1(c, xa + (xb - xa) * (k / 7) + (hash(seed, k + 40) - 0.5) * 2, ty + 2.4 * s + hash(seed, k + 41) * 1.5, 1.5, 0.5);
+    });
+    // the chamber's capstone bared at the tail: two uprights and the cap
+    const dx = x - side * rx * 0.74;
+    part(ctx, (c) => {
+      c.fillStyle = "#0e1010"; c.fillRect(dx - 4 * s, cy - 4 * s, 8 * s, 5 * s);
+      standing(c, [[dx - 5 * s, cy + 1.5 * s], [dx - 5 * s, cy - 4.5 * s], [dx - 3 * s, cy - 4.5 * s], [dx - 3 * s, cy + 1.5 * s]], col, 0.8);
+      standing(c, [[dx + 3 * s, cy + 1.5 * s], [dx + 3 * s, cy - 4.5 * s], [dx + 5 * s, cy - 4.5 * s], [dx + 5 * s, cy + 1.5 * s]], darken(col, 0.06), 0.8);
+      standing(c, [[dx - 7 * s, cy - 4 * s], [dx - 6 * s, cy - 7.4 * s], [dx + 6.5 * s, cy - 8 * s], [dx + 7.5 * s, cy - 4.4 * s]], lighten(col, 0.06), 2.2 * s);
+      weather(c, dx, cy - 4 * s, 12 * s, 3 * s, seed + 3, 0.9);
+    });
+  }
+  // the forecourt: a shallow crescent of slabs, the tallest blocking the
+  // passage in the middle (fallen, on a robbed barrow), the horns lower
+  const fx = x + side * rx * 0.5, fy = gy - 1 * s;
+  const slabs = [[-9, 5.5, 2.4], [-5, 8.5, 2.2], [5, 8.5, 2.2], [9, 5.5, 2.4]];
+  part(ctx, (c) => { c.fillStyle = "#0e1010"; c.fillRect(fx - 3 * s, fy - 9 * s, 6 * s, 9 * s); });
+  for (const [dx, h, w] of slabs) part(ctx, (c) => {
+    const sx = fx + dx * s, sy = fy + Math.abs(dx) * 0.16 * s;
+    standing(c, [[sx - w * s, sy + 0.5], [sx - w * s * 0.9, sy - h * s], [sx, sy - (h + 1) * s], [sx + w * s * 0.9, sy - h * s * 0.94], [sx + w * s, sy + 0.5]], mix(col, "#8a8c80", hash(seed, dx + 20)), 1 * s);
+    weather(c, sx, sy, w * 2 * s, h * s, seed + dx, 0.6);
+  });
+  if (!robbed) part(ctx, (c) => {
+    standing(c, [[fx - 3.4 * s, fy + 1], [fx - 3.2 * s, fy - 10 * s], [fx - 0.5 * s, fy - 12 * s], [fx + 3.2 * s, fy - 10.6 * s], [fx + 3.4 * s, fy + 1]], lighten(col, 0.04), 1.2 * s);
+    c.strokeStyle = darken(col, 0.5); c.lineWidth = 0.5;
+    c.beginPath(); for (let a = 0; a < 8; a += 0.4) { const r = 0.24 * a * s; const px = fx + Math.cos(a) * r, py = fy - 6.5 * s + Math.sin(a) * r * 0.8; a ? c.lineTo(px, py) : c.moveTo(px, py); } c.stroke();
+    weather(c, fx, fy, 6 * s, 10 * s, seed + 9, 0.7);
+  });
+  else {
+    part(ctx, (c) => standing(c, [[fx + 2 * s, fy + 3.6], [fx + 3 * s, fy + 0.6], [fx + 12 * s, fy + 1], [fx + 11.6 * s, fy + 3.8]], darken(col, 0.06), 1.6));
+    part(ctx, (c) => skull(c, fx - 0.4 * s, fy - 2.6 * s, 1.7 * s));
+  }
+  // the kerb along its foot, gaps where stones were taken
+  for (let i = 0; i < 9; i++) {
+    const u = -0.92 + i * 0.23, kx = x + u * rx;
+    if (Math.abs(kx - fx) < 12 * s || hash(seed, i + 60) < 0.25) continue;
+    const e = Math.pow(1 - Math.pow(Math.abs(u), 2.6), 1 / 2.6), hh = ry * (0.62 + 0.38 * (u * side + 1) / 2);
+    part(ctx, (c) => kerb(c, kx, cy + hh * e * 0.6 + 1, 1.6 * s, 1.6 * s, darken(col, 0.04)));
+  }
+  for (let k = 0; k < 4; k++) sedge(ctx, x + (-26 + k * 17) * s, gy + 1.5, 0.7, seed + k, 4, "#5e6a42", "#9a9460");
+};
+
+// A bowl barrow in its ditch. v 0: a standing stone on its crown; v 1: dug
+// open, a robbers' pit with bones in the spoil; v 2: a dead thorn grown on
+// it; v 3: kerbed round, a cist's lid lying open on top.
+const fenRoundBarrow = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8;
+  const turf = barrowTurf(), col = mix(STONE, "#96948a", 0.3);
+  const rx = 15 * s, ry = 9.5 * s, cy = gy - 4.5 * s;
+  // the ditch round it, and the low bank outside the ditch
+  // (translucent, so the bake's ink ring passes it by: a ditch is no object)
+  blobPath(ctx, x + 1, gy - 1.5 * s, 23 * s, 9 * s, seed + 5, 0.05, 16); ctx.fillStyle = rgba(lighten(REALM.GRASS, 0.3), 0.28); ctx.fill();
+  blobPath(ctx, x + 0.5, gy - 1.8 * s, 21 * s, 7.6 * s, seed + 6, 0.05, 16); ctx.fillStyle = "rgba(18,20,16,0.4)"; ctx.fill();
+  blobPath(ctx, x + 0.5, gy - 1.2 * s, 19.5 * s, 6.4 * s, seed + 7, 0.05, 16); ctx.fillStyle = rgba(lighten(REALM.GRASS, 0.2), 0.3); ctx.fill();
+  shadow(ctx, x + 5 * s, gy, rx + 2, 4 * s, 0.3);
+  const path = (c, ox, oy, k) => blobPath(c, x + ox, cy + oy + (1 - k) * ry * 0.3, rx * k, ry * k, seed, 0.05, 16);
+  part(ctx, (c) => shadeMound(c, path, x, cy, rx, ry, turf, seed));
+  const topY = cy - ry * 0.55;
+  if (v === 0) {
+    part(ctx, (c) => {
+      standing(c, [[x - 2.6 * s, topY + 1.5 * s], [x - 2.8 * s, topY - 9 * s], [x - 1 * s, topY - 13 * s], [x + 1.8 * s, topY - 12 * s], [x + 2.8 * s, topY - 7 * s], [x + 2.6 * s, topY + 1.5 * s]], col, 1.2 * s);
+      weather(c, x, topY + 1, 5 * s, 13 * s, seed + 2, 0.8);
+    });
+  } else if (v === 1) {
+    part(ctx, (c) => {
+      blobPath(c, x - 0.5 * s, topY + 0.5, 6 * s, 2.6 * s, seed + 8, 0.15, 10); c.fillStyle = "#16181a"; c.fill();
+      blobPath(c, x - 0.5 * s, topY + 1.2, 6 * s, 1.6 * s, seed + 9, 0.15, 10); c.fillStyle = "#3e3a30"; c.fill();
+      c.fillStyle = "#6a6250"; for (let k = 0; k < 6; k++) px1(c, x + (hash(seed, k + 30) - 0.5) * 14 * s, topY + 3 * s + hash(seed, k + 31) * 2, 1.5, 0.5);
+    });
+    part(ctx, (c) => longBone(c, x + 5 * s, topY + 3.2 * s, x + 9 * s, topY + 4 * s, 0.9 * s));
+    part(ctx, (c) => skull(c, x - 6.5 * s, topY + 3.4 * s, 1.5 * s));
+  } else if (v === 2) {
+    const wood = "#8c8676";
+    part(ctx, (c) => {
+      limb(c, x + 1 * s, topY + 1, x - 1 * s, topY - 10 * s, 2.4 * s, 1.4 * s, wood, -0.8 * s);
+      limb(c, x - 0.6 * s, topY - 7 * s, x - 7 * s, topY - 13 * s, 1.3 * s, 0.6 * s, wood, -1 * s);
+      limb(c, x - 0.8 * s, topY - 9 * s, x + 5 * s, topY - 16 * s, 1.2 * s, 0.6 * s, wood, 1 * s);
+      limb(c, x - 4 * s, topY - 10.5 * s, x - 5 * s, topY - 15 * s, 0.7 * s, 0.4 * s, wood, 0.4 * s);
+      limb(c, x + 2.6 * s, topY - 12 * s, x + 7.5 * s, topY - 12.6 * s, 0.7 * s, 0.4 * s, wood, -0.4 * s);
+    });
+    // a raven's rag of weed caught in it
+    blade(ctx, x - 6 * s, topY - 12.6 * s, x - 5.8 * s, topY - 8 * s, 0.9 * s, WEED, mix(WEED, "#8a9a6a", 0.4), 0.3);
+  } else {
+    for (let i = 0; i < 8; i++) {
+      const a = Math.PI * (0.06 + i * 0.125), kx = x - Math.cos(a) * rx * 1.02, ky = cy + Math.sin(a) * ry * 0.62 + 1;
+      if (hash(seed, i + 70) < 0.2) continue;
+      part(ctx, (c) => kerb(c, kx, ky, 1.5 * s, 1.5 * s, darken(col, 0.04)));
+    }
+    part(ctx, (c) => {
+      c.fillStyle = "#121414"; c.fillRect(x - 3.4 * s, topY - 1.4 * s, 6.8 * s, 3 * s);
+      standing(c, [[x + 3 * s, topY + 2.6 * s], [x + 3.6 * s, topY - 0.4 * s], [x + 11 * s, topY + 0.6 * s], [x + 10.4 * s, topY + 3.4 * s]], lighten(col, 0.04), 1.4 * s);
+      weather(c, x + 7 * s, topY + 2.6 * s, 7 * s, 3 * s, seed + 11, 0.7);
+    });
+  }
+  for (let k = 0; k < 3; k++) sedge(ctx, x + (-19 + k * 19) * s, gy + 2, 0.7, seed + k, 4, "#5e6a42", "#9a9460");
+};
+
+// ---- a plain standing stone ----------------------------------------------
+// v 0: tall and slim; v 1: broad and holed; v 2: leaning hard; v 3: a pair,
+// one fallen. Lichen on the lit side, moss at the foot, its sward kept short.
+const fenStone = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8;
+  const col = mix(STONE, ["#8e8c80", "#868a82", "#948e80", "#8a8a7c"][v], 0.45);
+  shadow(ctx, x + 4 * s, gy, 8 * s, 2.4 * s, 0.3);
+  const stoneAt = (sx, h, w, lean, sd) => part(ctx, (c) => {
+    c.save(); c.translate(sx, gy); c.rotate(lean);
+    standing(c, [[-w * s, 0.6], [-w * 1.08 * s, -h * 0.55 * s], [-w * 0.7 * s, -h * 0.92 * s], [-w * 0.1 * s, -h * s], [w * 0.62 * s, -h * 0.9 * s], [w * s, -h * 0.5 * s], [w * 0.95 * s, 0.6]], col, 1.3 * s);
+    // a vertical fissure, and the weather on it
+    c.fillStyle = darken(col, 0.45);
+    for (let k = 0; k < 4; k++) px1(c, w * 0.25 * s + Math.sin(k * 1.9 + sd) * 0.5, -h * s * (0.3 + k * 0.13), 0.5, 1.5);
+    weather(c, 0, 0, w * 2 * s, h * s, sd, 0.8);
+    c.fillStyle = LICHEN; px1(c, -w * 0.6 * s, -h * 0.7 * s, 1.5, 1); px1(c, -w * 0.4 * s, -h * 0.45 * s, 1, 0.5);
+    c.restore();
+  });
+  if (v === 0) stoneAt(x, 20, 3, 0.03, seed);
+  else if (v === 1) {
+    part(ctx, (c) => {
+      standing(c, [[x - 6 * s, gy + 0.6], [x - 6.4 * s, gy - 6 * s], [x - 4.6 * s, gy - 12 * s], [x - 1 * s, gy - 14 * s], [x + 2.6 * s, gy - 15.4 * s], [x + 5.4 * s, gy - 11 * s], [x + 6 * s, gy - 4 * s], [x + 5.6 * s, gy + 0.6]], col, 1.6 * s);
+      weather(c, x, gy, 11 * s, 14 * s, seed, 0.9);
+      c.fillStyle = LICHEN; px1(c, x - 4 * s, gy - 9 * s, 1.5, 1); px1(c, x - 3 * s, gy - 5 * s, 1, 0.5);
+    });
+    part(ctx, (c) => {
+      ellipse(c, x - 0.4 * s, gy - 8.4 * s, 1.9 * s, 1.7 * s); c.fillStyle = "#121216"; c.fill();
+      c.fillStyle = lighten(col, 0.2); px1(c, x + 0.6 * s, gy - 8.4 * s, 1, 0.5);
+    });
+  } else if (v === 2) stoneAt(x - 1 * s, 18, 3.4, 0.28, seed);
+  else {
+    stoneAt(x - 4 * s, 16, 2.8, -0.04, seed);
+    part(ctx, (c) => standing(c, [[x + 1 * s, gy + 2.6], [x + 1.6 * s, gy - 1.4 * s], [x + 13 * s, gy - 0.8 * s], [x + 12.6 * s, gy + 2.8]], darken(col, 0.04), 1.8 * s));
+  }
+  for (let k = 0; k < 3; k++) sedge(ctx, x + (-5 + k * 5) * s, gy + 1, 0.62, seed + k, 4, "#5e6a42", "#9a9460");
+};
+
+// ---- the monks' graves ----------------------------------------------------
+// A row of four small stone crosses over low grassed mounds; one leans, and
+// on v odd one has fallen on its mound.
+const fenMonks = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, turf = barrowTurf();
+  const col = mix(STONE, "#94907e", 0.45);
+  shadow(ctx, x + 4 * s, gy + 1, 19 * s, 3 * s, 0.24);
+  for (let i = 0; i < 4; i++) {
+    const cx = x + (-12 + i * 8) * s, cy = gy - (i % 2) * 0.8 * s;
+    part(ctx, (c) => {
+      ellipse(c, cx + 0.6 * s, cy + 1.6 * s, 3.4 * s, 1.5 * s); c.fillStyle = darken(turf, 0.3); c.fill();
+      ellipse(c, cx + 0.2 * s, cy + 1.2 * s, 3 * s, 1.1 * s); c.fillStyle = turf; c.fill();
+      c.fillStyle = lighten(turf, 0.2); px1(c, cx - 1.6 * s, cy + 0.6 * s, 1.5, 0.5);
+    }, { ink: "under" });
+    const fallen = v % 2 === 1 && i === 2;
+    part(ctx, (c) => {
+      c.save();
+      if (fallen) { c.translate(cx + 1 * s, cy + 1 * s); c.rotate(1.35); }
+      else { c.translate(cx, cy); c.rotate(i === 1 ? -0.22 : (hash(seed, i) - 0.5) * 0.12); }
+      const h = 9 * s, w = 1.1 * s;
+      poly(c, [[-w, 0.5], [-w, -h + 3.4 * s], [-3.2 * s, -h + 3.4 * s], [-3.2 * s, -h + 1.6 * s], [-w, -h + 1.6 * s], [-w, -h], [w, -h], [w, -h + 1.6 * s], [3.2 * s, -h + 1.6 * s], [3.2 * s, -h + 3.4 * s], [w, -h + 3.4 * s], [w, 0.5]]);
+      litFill(c, -3.2 * s, 3.2 * s, col, 0.32, 0.42);
+      c.fillStyle = lighten(col, 0.4); px1(c, -w, -h, w * 2, 0.5); px1(c, -3.2 * s, -h + 1.6 * s, 2 * s, 0.5);
+      c.fillStyle = MOSS; if (hash(seed, i + 10) < 0.6) px1(c, -w, -1.5, 1.5, 1);
+      c.fillStyle = LICHEN; px1(c, -2.6 * s, -h + 2.2 * s, 1, 0.5);
+      c.restore();
+    });
+  }
+  for (let k = 0; k < 3; k++) sedge(ctx, x + (-16 + k * 16) * s, gy + 2.6, 0.62, seed + k, 4);
+};
+
+// ---- the weir-keeper's hut ------------------------------------------------
+// A low stone hut, its thatch long gone: the ridge beam and a few rafters
+// left over a dark shell, the west gable and its chimney still standing, the
+// door hanging off one hinge, a spare sluice board leant by it.
+const fenHut = (ctx, x, y, s, o) => {
+  const { seed } = o, gy = y + 8;
+  const col = mix(STONE, "#64625a", 0.55), wood = "#5e5446", dark = "#121214";
+  shadow(ctx, x + 7 * s, gy + 0.5, 22 * s, 4.5 * s, 0.32);
+  const x0 = x - 15 * s, x1 = x + 15 * s, eave = gy - 11 * s, back = gy - 20 * s;
+  // the shell: the floor we see down into, then the back wall's top
+  part(ctx, (c) => {
+    c.fillStyle = dark; c.fillRect(x0, back, x1 - x0, eave - back + 1);
+    // the back wall's inner face, catching what light gets in
+    c.fillStyle = darken(col, 0.3); c.fillRect(x0, back + 1.4 * s, x1 - x0, 4.2 * s);
+    c.fillStyle = darken(col, 0.5); for (let k = 0; k < 6; k++) px1(c, x0 + (2 + k * 5 + hash(seed, k + 20) * 2) * s, back + 1.4 * s, 0.5, 2 * s);
+    c.fillRect(x0, back + 3.4 * s, x1 - x0, 0.5);
+    // the fallen thatch, rotted to a heap on the floor
+    blobPath(c, x - 2 * s, eave - 2.4 * s, 9 * s, 2.6 * s, seed + 3, 0.2, 10); c.fillStyle = "#4a4030"; c.fill();
+    blobPath(c, x - 3 * s, eave - 3.2 * s, 6 * s, 1.6 * s, seed + 4, 0.2, 10); c.fillStyle = "#6a5a3e"; c.fill();
+    c.fillStyle = "#8a7650"; for (let k = 0; k < 5; k++) px1(c, x + (-8 + k * 3.4) * s, eave - 3.6 * s + hash(seed, k) * 1.5, 1.5, 0.5);
+    standing(c, [[x0, back + 2 * s], [x0, back], [x1, back], [x1, back + 2 * s]], lighten(col, 0.06), 1.4 * s);
+  });
+  // the south wall: coursed stone, a dark doorway and a window slit
+  part(ctx, (c) => {
+    standing(c, [[x0, gy + 0.5], [x0, eave], [x1, eave + 1.5 * s], [x1, gy + 0.5]], col, 1.6 * s);
+    c.fillStyle = darken(col, 0.38);
+    for (let r = 0; r < 4; r++) {
+      const yy = eave + 2.4 * s + r * 2.6 * s;
+      px1(c, x0 + 0.5, yy, x1 - x0 - 1, 0.5);
+      for (let k = 0; k < 6; k++) px1(c, x0 + ((k * 5 + (r % 2) * 2.5 + hash(seed, r * 9 + k) * 1.5) % 29) * s, yy - 2.4 * s, 0.5, 2.4 * s);
+    }
+    c.fillStyle = dark; c.fillRect(x - 2 * s, gy - 9 * s, 5 * s, 9 * s);
+    c.fillRect(x + 8 * s, gy - 8 * s, 1.6 * s, 3 * s);
+    weather(c, x, gy, 26 * s, 9 * s, seed + 4, 0.9);
+  });
+  // the door, hanging off its top hinge
+  part(ctx, (c) => {
+    c.save(); c.translate(x + 3 * s, gy - 9 * s); c.rotate(0.32);
+    c.fillStyle = lin(c, -4.5 * s, 0, 0, 0, [[0, lighten(wood, 0.25)], [1, darken(wood, 0.3)]]);
+    c.fillRect(-4.6 * s, 0, 4.6 * s, 8.4 * s);
+    c.fillStyle = darken(wood, 0.45); px1(c, -2.4 * s, 0.5, 0.5, 7.5 * s);
+    c.fillStyle = "#2e2a2c"; c.fillRect(-4.4 * s, 1.4 * s, 4.2 * s, 0.6); c.fillRect(-4.4 * s, 6 * s, 4.2 * s, 0.6);
+    c.restore();
+  });
+  // the west gable, its chimney stack
+  part(ctx, (c) => {
+    poly(c, [[x0 - 1 * s, eave + 0.5], [x0 - 1 * s, back + 2 * s], [x0 + 2.4 * s, back - 5 * s], [x0 + 5 * s, back + 2 * s], [x0 + 5 * s, eave + 0.5]]);
+    litFill(c, x0 - 1 * s, x0 + 5 * s, col, 0.34, 0.42);
+    roundRect(c, x0 - 0.6 * s, back - 11 * s, 4.6 * s, 8 * s, 0.5); litFill(c, x0 - 0.6 * s, x0 + 4 * s, darken(col, 0.04), 0.3, 0.45);
+    c.fillStyle = lighten(col, 0.36); c.fillRect(x0 - 1 * s, back - 11.6 * s, 5.4 * s, 1.2 * s);
+    c.fillStyle = dark; c.fillRect(x0 + 0.6 * s, back - 11.4 * s, 2.2 * s, 0.8 * s);
+  });
+  // the ridge beam and what's left of the rafters
+  const wood2 = "#6a5e4c";
+  part(ctx, (c) => {
+    limb(c, x0 + 2.4 * s, back - 4.6 * s, x1 - 4 * s, back - 3 * s, 1.6 * s, 1.3 * s, wood2, 0.4 * s);
+    for (const [rx0, dy, br] of [[6, 0, 0], [12, 0.2, 1], [19, 0.4, 0], [24, 0.6, 1]]) {
+      const ax = x0 + rx0 * s, ay = back - 4.4 * s + dy * s;
+      limb(c, ax, ay, ax - 1 * s, br ? eave - 4 * s : eave + 0.5, 1 * s, 0.9 * s, wood2, 0.2 * s);
+    }
+  });
+  // a spare sluice board leant against the east end, a rotten coil of rope
+  part(ctx, (c) => {
+    c.save(); c.translate(x1 + 2.4 * s, gy + 0.5); c.rotate(0.22);
+    c.fillStyle = lin(c, -1.8 * s, 0, 1.8 * s, 0, [[0, lighten(wood, 0.3)], [1, darken(wood, 0.35)]]);
+    c.fillRect(-1.8 * s, -13 * s, 3.6 * s, 13 * s);
+    c.fillStyle = "#2e2a2c"; c.fillRect(-1.8 * s, -10 * s, 3.6 * s, 0.6); c.fillRect(-1.8 * s, -3.4 * s, 3.6 * s, 0.6);
+    c.restore();
+  });
+  part(ctx, (c) => { ellipse(c, x - 9 * s, gy + 1.6 * s, 2.6 * s, 1.2 * s); c.fillStyle = "#6a5c44"; c.fill(); ellipse(c, x - 9 * s, gy + 1.5 * s, 1.2 * s, 0.5 * s); c.fillStyle = "#2e2a24"; c.fill(); });
+  for (let k = 0; k < 4; k++) sedge(ctx, x + (-17 + k * 11) * s, gy + 1.5, 0.68, seed + k, 4);
+};
+
+Object.assign(HOLLOW_ART.decor, {
+  fenwisp: fenWisp, fenlongbarrow: fenLongBarrow, fenroundbarrow: fenRoundBarrow,
+  fenstone: fenStone, fenmonks: fenMonks, fenhut: fenHut,
+});
+HOLLOW_ART.live.push("fenwisp");
+Object.assign(HOLLOW_ART.box, {
+  fenlongbarrow: [40, 26], fenroundbarrow: [26, 26], fenstone: [12, 28], fenmonks: [22, 16], fenhut: [26, 36],
+});
+Object.assign(HOLLOW_ART.dress, { fenstone: [5, false] });
+
 // ---- the ground: moss, pools, sedge, bog-cotton -----------------------
 // All of it is painted straight into the ground layer's ART pixels (the
 // layer is W*RES wide and RES = PX, so one buffer pixel is one art pixel).
@@ -1415,6 +1826,9 @@ function paintFenTurf(ctx, kit) {
   const { clear, SW } = kit;
   const H0 = (i, k) => hash(i + 7919, k);
   const R = REALM, K = pixKit(ctx), seed = (R.seed | 0) % 9973;
+  // fenPools: false (a dry board, the Barrowdowns): no standing water in the
+  // turf at all — the hollows stay dry dips and the wood's floor is moss
+  const wet = R.fenPools !== false;
   // a blob of ground stepped darker (a hollow, a meadow's wet floor): the
   // upper-left rim a step deeper, the lower-right lip a step lighter
   const hollow = (x, y, rx, ry, sd, t, rim = true) => {
@@ -1446,7 +1860,7 @@ function paintFenTurf(ctx, kit) {
       const k = H0(i, 3);
       if (k < 0.3) pixMoss(K, x, y, 2 + H0(i, 4) * 2.6, i);
       else if (k < 0.5) pixStick(K, x, y, 5 + H0(i, 5) * 7, H0(i, 6) * Math.PI, i);
-      else if (k < 0.62) pixPuddle(K, x, y, 3 + H0(i, 7) * 5, 1.5 + H0(i, 8) * 1.4, i, { pad: H0(i, 9) < 0.3 });
+      else if (k < 0.62) { if (wet) pixPuddle(K, x, y, 3 + H0(i, 7) * 5, 1.5 + H0(i, 8) * 1.4, i, { pad: H0(i, 9) < 0.3 }); else pixMoss(K, x, y, 2 + H0(i, 4) * 2.6, i); }
       else if (k < 0.85) pixSedge(K, x, y, 0.7 + H0(i, 10) * 0.4, i, 5);
       else hollow(x, y, 6, 2.5, i, 0.22, false);
     }
@@ -1498,11 +1912,11 @@ function paintFenTurf(ctx, kit) {
       const prx = rx0 * f * (q ? 0.85 + hq(32) * 0.3 : 1), pry = Math.max(1.3, ry0 * f * (q ? 0.9 + hq(28) * 0.5 : 1));
       const sx = q ? side * (q === 1 ? 1 : -0.4) : 0;
       const px = x0 + sx * (rx0 + prx) * 0.8 + (hq(25) - 0.5) * 2, py = y0 + (q ? (q & 1 ? 1 : -1) * ry * 0.5 * (0.7 + hq(26) * 0.3) : 0);
-      if (clear(px, py, prx + 3)) pools.push([px, py, prx, pry, i * 5 + q, q === 0 && prx > 7 && H0(i, 29) < 0.6]);
+      if (wet && clear(px, py, prx + 3)) pools.push([px, py, prx, pry, i * 5 + q, q === 0 && prx > 7 && H0(i, 29) < 0.6]);
     }
   }
   // standing water loose in the turf, a few
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < (wet ? 12 : 0); i++) {
     const x = H0(i, 40) * SW, y = H0(i, 41) * H;
     const rx = 2.6 + H0(i, 42) * 4, ry = 1.3 + H0(i, 43) * 1.4;
     if (!clear(x, y, rx + 6) || x > W - WALL_W - 20 || hollows.some(([hx, hy]) => Math.hypot(hx - x, hy - y) < 34)) continue;
@@ -2008,7 +2422,7 @@ function paintFenRoad(ctx) {
     for (let j = K.P(y - ry) - 3; j <= K.P(y + ry) + 3; j++) for (let i = K.P(x - rx) - 3; i <= K.P(x + rx) + 3; i++) if (i >= 0 && j >= 0 && i < PW && j < PH && VIS[j * PW + i]) return true;
     return false;
   };
-  for (let i = 0, got = 0; i < 14 && got < 4; i++) {
+  for (let i = 0, got = 0; i < (R.fenPools === false ? 0 : 14) && got < 4; i++) {
     const dd = 80 + H0(i, 14) * (TOTAL_LEN - 160), [x, y] = posAt(dd), a = angleAt(dd) + Math.PI / 2;
     const off = (H0(i, 15) - 0.5) * PATH_HALF * 1.1;
     const px = x + Math.cos(a) * off, py = y + Math.sin(a) * off;
@@ -2195,6 +2609,542 @@ const bakeWaters = () => {
 };
 const drawWaters = (ctx) => { for (const c of bakeWaters().chunks) ctx.drawImage(c.cv, c.x, c.y, c.w, c.h); };
 
+// ---- the drowned relics: what stands IN the water ------------------------
+// A decor piece is walked out of the water by the grounding pass, so pieces
+// that stand in a mere or a channel are listed apart, in grid pixels like
+// the decor: REALM.fenRelics = [{ x, y, t, s, v }], (x, y) on the waterline.
+//   belltower  the drowned abbey's bell-tower: its belfry and a broken spire
+//   arcade     a run of cloister arcade, two round arches on three columns
+//   column     a lone column: capital and springer, stump, leaning, a drum
+//   sunkking   a king of the drowned kingdom, sunk to the chest, sword held
+//   weir       a weir's masonry and its sluice gates (w: its length; gaps:
+//              each channel's x; gw: a channel's width) — stands on its foot
+//   wisp       a corpse-light hovering over open water (h: its height)
+//   lanternpost  a corpse-lantern hung from a black post in the creek
+// Each is baked once with its waterline: the stone cut flat at the water,
+// a wet band of algae above it, a broken pale lap, and its reflection
+// below in stripes of the water's own dark. Drawn flat over the water with
+// its dressing, before anything stands — so keep them clear of the road
+// and of the halls' ground behind them (a pond already keeps halls 14 off).
+// The ripples, the bell's toll, the sluices' spill and the lights are live.
+
+const relicPal = () => {
+  const wa = REALM.water || {};
+  return { deep: hexC(wa.deep || "#22302c"), edge: hexC(wa.edge || "#2f423c"), shine: hexC(wa.shine || "#4a6a58") };
+};
+// cut a baked sprite at its waterline (art px `wl`) and lay its reflection
+// `R` art px down under it
+const waterCut = (src, wl, R, seed, wx0 = null, wy0 = 0) => {
+  // (the reflection and the lap only where there is water under them)
+  const wetPx = (x, y) => wx0 === null || wetAt(wx0 + (x + 0.5) / PX, wy0 + (y + 0.5) / PX);
+  const w = src.width, H0 = src.height, P = relicPal();
+  const sd = src.getContext("2d").getImageData(0, 0, w, H0).data;
+  const out = document.createElement("canvas");
+  out.width = w; out.height = wl + R;
+  const img = new ImageData(w, wl + R), d = img.data;
+  const at = (x, y) => (y * w + x) * 4;
+  const solid = (x, y) => x >= 0 && x < w && y >= 0 && y < H0 && sd[at(x, y) + 3] > 110;
+  for (let y = 0; y < wl; y++) for (let x = 0; x < w; x++) { const o = at(x, y); d[o] = sd[o]; d[o + 1] = sd[o + 1]; d[o + 2] = sd[o + 2]; d[o + 3] = sd[o + 3]; }
+  // the wet band: darker toward the water, streaked with algae
+  const ALG = [58, 78, 52];
+  for (let k = 1; k <= 6; k++) {
+    const y = wl - k;
+    for (let x = 0; x < w; x++) {
+      const o = at(x, y);
+      if (d[o + 3] < 110) continue;
+      const streak = hash(x + seed, 41) < 0.34 && k <= 3 + hash(x + seed, 42) * 4;
+      const t = streak ? 0.5 : Math.max(0, 0.46 - k * 0.07);
+      const tgt = streak ? ALG : P.deep;
+      d[o] += (tgt[0] - d[o]) * t; d[o + 1] += (tgt[1] - d[o + 1]) * t; d[o + 2] += (tgt[2] - d[o + 2]) * t;
+    }
+  }
+  // the reflection, row for row, in stripes; it wavers a pixel side to side
+  let x0 = w, x1 = -1;
+  for (let x = 0; x < w; x++) if (solid(x, wl - 1)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+  for (let r = 1; r < R; r++) {
+    if (r % 3 === 2) continue;
+    const sy = wl - r, f = r / R, sh = ((r >> 1) & 1) ? 1 : 0;
+    for (let x = 0; x < w; x++) {
+      const sx = x - sh;
+      if (!solid(sx, sy) || !wetPx(x, wl + r)) continue;
+      const o = at(x, wl + r), so = at(sx, sy), m = 0.58 + 0.32 * f;
+      d[o] = sd[so] + (P.deep[0] - sd[so]) * m; d[o + 1] = sd[so + 1] + (P.deep[1] - sd[so + 1]) * m; d[o + 2] = sd[so + 2] + (P.deep[2] - sd[so + 2]) * m;
+      d[o + 3] = Math.round(190 * Math.pow(1 - f, 0.8));
+    }
+  }
+  // the lap: a broken pale line where the water meets the stone, running a
+  // little past it either side
+  if (x1 >= 0) {
+    const L = [P.shine[0] + 40, P.shine[1] + 44, P.shine[2] + 40];
+    for (let x = x0 - 3; x <= x1 + 3; x++) {
+      if (x < 0 || x >= w || hash(x + seed, 43) < 0.22 || !wetPx(x, wl)) continue;
+      const o = at(x, wl);
+      d[o] = Math.min(255, L[0]); d[o + 1] = Math.min(255, L[1]); d[o + 2] = Math.min(255, L[2]); d[o + 3] = 235;
+      if (hash(x + seed, 44) < 0.35 && wl + 1 < wl + R) { const o2 = at(x, wl + 1); d[o2] = P.shine[0]; d[o2 + 1] = P.shine[1]; d[o2 + 2] = P.shine[2]; d[o2 + 3] = 150; }
+    }
+  }
+  out.getContext("2d").putImageData(img, 0, 0);
+  return out;
+};
+
+// The bell-tower's top, the abbey drowned to it: the belfry stage over its
+// string course, two lancets (the bell glimpsed in one), a broken parapet
+// and the spire behind it, its point snapped and its slates holed on the
+// shaded side so the rafters show; the whole of it leaning a little as the
+// mere takes it.
+const belltowerRelic = (c, x, wl, s, v, seed) => {
+  const col = mix(STONE, "#8e8a7e", 0.35), dark = "#0f1113";
+  const hw = 11 * s, top = wl - 26 * s;
+  c.save(); c.translate(x, wl); c.rotate(0.035); c.translate(-x, -wl);
+  // the spire, behind the parapet
+  const snap = top - 24 * s;
+  part(c, (cc) => {
+    // its south face, the snapped point ragged
+    poly(cc, [[x - hw + 1, top + 1], [x - 2.4 * s, snap], [x - 1 * s, snap - 1.6 * s], [x + 0.4 * s, snap + 0.4 * s], [x + 2 * s, snap - 0.8 * s], [x + 3 * s, snap + 1 * s], [x + hw - 1, top + 1]]);
+    litFill(cc, x - hw, x + hw, mix("#5a6068", STONE, 0.3), 0.18, 0.36);
+    // the west face's lit sliver
+    cc.fillStyle = "#98a0aa";
+    poly(cc, [[x - hw + 1, top + 1], [x - 2.4 * s, snap], [x - 2.2 * s, snap + 3 * s], [x - hw + 4 * s, top + 1]]); cc.fill();
+    cc.fillStyle = "#3e434c";
+    poly(cc, [[x + hw - 1, top + 1], [x + 3 * s, snap + 1 * s], [x + 3.4 * s, snap + 4 * s], [x + hw - 3.6 * s, top + 1]]); cc.fill();
+    // slate courses
+    cc.fillStyle = "#3a3e46";
+    for (let k = 1; k < 9; k++) {
+      const yy = top + 1 - k * 2.6 * s, f = (yy - snap) / (top + 1 - snap), half = (hw - 1) * Math.max(0, f);
+      if (half < 2) continue;
+      cc.fillRect(ap(x - half + 2), ap(yy), ap(half * 2 - 3), 0.5);
+      for (let q = 0; q < 4; q++) px1(cc, x - half + 3 + hash(seed, k * 7 + q) * (half * 2 - 5), yy + 0.5, 0.5, 2);
+    }
+    // the hole in its shaded side: dark, rafters across it
+    poly(cc, [[x + 1.4 * s, top - 3 * s], [x + 2.6 * s, top - 14 * s], [x + 4.6 * s, top - 10 * s], [x + 7.6 * s, top - 5.4 * s], [x + 7 * s, top - 1.6 * s]]);
+    cc.fillStyle = dark; cc.fill();
+    // the rafters across the hole, lit on their tops
+    for (const [a, b] of [[[x + 1.8 * s, top - 2.4 * s], [x + 3.4 * s, top - 13 * s]], [[x + 4.6 * s, top - 2 * s], [x + 5.4 * s, top - 9 * s]]]) {
+      const n = 10; for (let q = 0; q <= n; q++) { const px = a[0] + (b[0] - a[0]) * q / n, py = a[1] + (b[1] - a[1]) * q / n; cc.fillStyle = "#4a3e32"; px1(cc, px, py, 1, 1); cc.fillStyle = "#8a7458"; px1(cc, px, py, 0.5, 0.5); }
+    }
+    cc.fillStyle = "#6e5c46"; cc.fillRect(ap(x + 2 * s), ap(top - 7 * s), ap(5.4 * s), 0.5);
+    cc.fillStyle = MOSS; px1(cc, x - hw + 3, top - 1.5 * s, 2, 0.5); px1(cc, x - 5 * s, top - 6 * s, 1.5, 0.5);
+  });
+  // an iron cross, bent, still stuck in the snapped point
+  part(c, (cc) => {
+    cc.save(); cc.translate(x - 0.6 * s, snap); cc.rotate(-0.36);
+    cc.fillStyle = "#4a3c38"; cc.fillRect(-0.5, -10 * s, 1, 10 * s); cc.fillRect(-3.4 * s, -7.6 * s, 6.8 * s, 1);
+    cc.fillStyle = "#9a6a44"; cc.fillRect(-0.5, -10 * s, 0.5, 4 * s); cc.fillRect(-3.4 * s, -7.6 * s, 2.6 * s, 0.5);
+    cc.restore();
+  });
+  // the roof's square seen from above, behind the parapet: just its back rim
+  part(c, (cc) => { cc.fillStyle = darken(col, 0.2); cc.fillRect(x - hw, top - 3 * s, hw * 2, 3 * s); cc.fillStyle = lighten(col, 0.3); cc.fillRect(x - hw, top - 3 * s, hw * 2, 0.5); });
+  // the south face
+  part(c, (cc) => {
+    cc.beginPath(); cc.rect(x - hw, top, hw * 2, wl - top + 4);
+    litFill(cc, x - hw, x + hw, col, 0.2, 0.36);
+    // ashlar courses, the joints staggered
+    cc.fillStyle = darken(col, 0.3);
+    for (let r = 0; r * 2.8 * s < wl - top + 4; r++) {
+      const yy = top + 2 + r * 2.8 * s;
+      cc.fillRect(x - hw, ap(yy), hw * 2, 0.5);
+      for (let q = 0; q < 5; q++) px1(cc, x - hw + ((q * 5.2 + (r % 2) * 2.6 + hash(seed, r * 5 + q) * 1.2) % (hw * 2 / s)) * s, yy - 2.3 * s, 0.5, 2.3 * s);
+    }
+    // the corner pilasters
+    cc.fillStyle = lighten(col, 0.22); cc.fillRect(x - hw, top, 2.6 * s, wl - top + 4);
+    cc.fillStyle = darken(col, 0.32); cc.fillRect(x + hw - 2.6 * s, top, 2.6 * s, wl - top + 4);
+    // the string course under the belfry
+    cc.fillStyle = lighten(col, 0.36); cc.fillRect(x - hw - 0.5, wl - 7.5 * s, hw * 2 + 1, 1);
+    cc.fillStyle = darken(col, 0.48); cc.fillRect(x - hw - 0.5, wl - 7.5 * s + 1, hw * 2 + 1, 0.5);
+    // the head of the window below, the mere standing inside it
+    cc.beginPath(); cc.moveTo(x - 3 * s, wl + 1); cc.lineTo(x - 3 * s, wl - 2.4 * s); cc.quadraticCurveTo(x - 3 * s, wl - 4.6 * s, x, wl - 5.6 * s); cc.quadraticCurveTo(x + 3 * s, wl - 4.6 * s, x + 3 * s, wl - 2.4 * s); cc.lineTo(x + 3 * s, wl + 1); cc.closePath();
+    cc.fillStyle = "#14201e"; cc.fill();
+    cc.fillStyle = lighten(col, 0.28); cc.fillRect(x + 2.6 * s, wl - 3 * s, 0.5, 3 * s);
+    weather(cc, x, wl - 8 * s, hw * 2, 16 * s, seed, 1);
+  });
+  // the lancets: pointed heads, the dark of the belfry behind them
+  for (const lx of [-4.4, 4.4]) part(c, (cc) => {
+    const cx = x + lx * s, w2 = 2.3 * s, y0 = wl - 21.5 * s, y1 = wl - 10 * s;
+    cc.beginPath(); cc.moveTo(cx - w2, y1); cc.lineTo(cx - w2, y0 + 2 * s); cc.quadraticCurveTo(cx - w2, y0 - 0.6 * s, cx, y0 - 2 * s); cc.quadraticCurveTo(cx + w2, y0 - 0.6 * s, cx + w2, y0 + 2 * s); cc.lineTo(cx + w2, y1); cc.closePath();
+    cc.fillStyle = dark; cc.fill();
+    // a lit reveal down its left jamb, a sill
+    cc.fillStyle = lighten(col, 0.3); cc.fillRect(cx + w2 - 0.5, y0 + 1.5 * s, 0.5, y1 - y0 - 1.5 * s);
+    cc.fillStyle = lighten(col, 0.34); cc.fillRect(cx - w2 - 0.5, y1, w2 * 2 + 1, 1);
+    if (lx < 0) {
+      // the bell, glimpsed: its green shoulder and lip
+      cc.fillStyle = "#3e6a5a";
+      cc.beginPath(); cc.moveTo(cx - 1.6 * s, y0 + 7.4 * s); cc.quadraticCurveTo(cx - 1.4 * s, y0 + 2.6 * s, cx + 0.4 * s, y0 + 2.4 * s); cc.quadraticCurveTo(cx + 2 * s, y0 + 3 * s, cx + 2.2 * s, y0 + 7.4 * s); cc.closePath(); cc.fill();
+      cc.fillStyle = "#7ab49c"; cc.fillRect(cx - 1.2 * s, y0 + 3.4 * s, 0.5, 2.4 * s);
+      cc.fillStyle = BRONZE; cc.fillRect(cx - 1.8 * s, y0 + 7.2 * s, 4.2 * s, 0.8);
+    }
+  });
+  // the parapet: merlons along the front, the east corner broken away
+  part(c, (cc) => {
+    for (let k = 0; k < 5; k++) {
+      if (k === 4) continue;
+      const mx = x - hw + k * 4.6 * s, h = (k === 3 ? 1.8 : 3) * s;
+      standing(cc, [[mx, top + 0.5], [mx, top - h], [mx + 3 * s, top - h], [mx + 3 * s, top + 0.5]], lighten(col, 0.04), 1 * s);
+    }
+    standing(cc, [[x + hw - 3 * s, top + 0.5], [x + hw - 2.6 * s, top - 1 * s], [x + hw, top - 0.4 * s], [x + hw, top + 0.5]], col, 0.8);
+  });
+  // weed trailing from the sills and the string course
+  for (const [wx, wy, wl2] of [[-6.6, -10, 5], [2.4, -10, 7], [7.6, -7, 4], [-9.6, -7, 6]]) blade(c, x + wx * s, wl + wy * s, x + (wx + 0.3) * s, wl + (wy + wl2) * s, 0.9 * s, WEED, mix(WEED, "#8a9a6a", 0.4), 0.3);
+  c.restore();
+};
+
+// a run of the cloister arcade: three columns, two round arches and the
+// wall over them. v 0: the east arch broken, its column snapped and a drum
+// down; v 1: whole, the wall over them crumbled ragged and weeded.
+const arcadeRelic = (c, x, wl, s, v, seed) => {
+  const col = mix(STONE, "#9a9486", 0.4);
+  const cols = [-14, 0, 14], capY = wl - 13 * s, topY = wl - 22 * s;
+  const broken = v % 2 === 0;
+  // the wall over the arches, its top seen as a strip (ragged where it fell)
+  part(c, (cc) => {
+    const xr = broken ? x + 4 * s : x + 17 * s;
+    const pts = [[x - 17 * s, capY], [x - 17 * s, topY]];
+    for (let k = 1; k <= 8; k++) { const px = x - 17 * s + (xr - (x - 17 * s)) * k / 8; pts.push([px, topY + (v % 2 || k > 5 ? hash(seed, k) * 4 * s : 0) + (broken && k > 5 ? (k - 5) * 2.4 * s : 0)]); }
+    pts.push([xr, capY - 2 * s]);
+    poly(cc, pts);
+    litFill(cc, x - 17 * s, xr, col, 0.24, 0.38);
+    cc.fillStyle = lighten(col, 0.36); cc.fillRect(x - 17 * s, topY - 1.6 * s, (broken ? 12 : 26) * s, 1.6 * s);
+    cc.fillStyle = darken(col, 0.3);
+    for (let r = 0; r < 3; r++) cc.fillRect(x - 17 * s, ap(topY + 2 * s + r * 2.6 * s), xr - (x - 17 * s), 0.5);
+  });
+  // the arches: dark under each, a ring of voussoirs round it
+  const archAt = (ax, half, whole) => part(c, (cc) => {
+    cc.beginPath(); cc.moveTo(ax - half, capY + 0.5); cc.arc(ax, capY, half, Math.PI, whole ? 0 : -Math.PI * 0.42); if (!whole) cc.lineTo(ax + 1.4 * s, capY + 1); else cc.lineTo(ax + half, capY + 0.5);
+    cc.lineTo(ax + (whole ? half : 1.4 * s), wl + 4); cc.lineTo(ax - half, wl + 4); cc.closePath();
+    cc.fillStyle = "#121416"; cc.fill();
+    cc.strokeStyle = lighten(col, 0.14); cc.lineWidth = 2.4 * s;
+    cc.beginPath(); cc.arc(ax, capY, half + 1.2 * s, Math.PI, whole ? 0 : -Math.PI * 0.42); cc.stroke();
+    cc.strokeStyle = darken(col, 0.4); cc.lineWidth = 0.5;
+    for (let k = 1; k < 7; k++) { const a = Math.PI + (k / 7) * Math.PI; if (!whole && a > Math.PI * 1.58) break; cc.beginPath(); cc.moveTo(ax + Math.cos(a) * half, capY + Math.sin(a) * half); cc.lineTo(ax + Math.cos(a) * (half + 2.4 * s), capY + Math.sin(a) * (half + 2.4 * s)); cc.stroke(); }
+  });
+  archAt(x - 7 * s, 5.2 * s, true);
+  archAt(x + 7 * s, 5.2 * s, !broken);
+  // the columns: shafts with a lit side, cushion capitals, bases under water
+  cols.forEach((dx, i) => part(c, (cc) => {
+    const cx = x + dx * s, snapped = broken && i === 2, cy = snapped ? wl - 7 * s : capY;
+    cc.beginPath(); cc.rect(cx - 1.4 * s, cy, 2.8 * s, wl - cy + 4); litFill(cc, cx - 1.4 * s, cx + 1.4 * s, col, 0.32, 0.4);
+    if (snapped) { poly(cc, [[cx - 1.4 * s, cy + 0.5], [cx - 0.6 * s, cy - 1.2 * s], [cx + 0.4 * s, cy - 0.2 * s], [cx + 1.4 * s, cy - 1.6 * s], [cx + 1.4 * s, cy + 0.5]]); cc.fillStyle = lighten(col, 0.36); cc.fill(); return; }
+    poly(cc, [[cx - 2.6 * s, cy - 2.2 * s], [cx + 2.6 * s, cy - 2.2 * s], [cx + 1.6 * s, cy + 0.4], [cx - 1.6 * s, cy + 0.4]]); litFill(cc, cx - 2.6 * s, cx + 2.6 * s, lighten(col, 0.06), 0.34, 0.4);
+    cc.fillStyle = lighten(col, 0.4); cc.fillRect(cx - 2.6 * s, cy - 2.6 * s, 5.2 * s, 0.6);
+    cc.fillStyle = darken(col, 0.3); cc.fillRect(cx - 1.4 * s, ap(wl - 5 * s), 2.8 * s, 0.5);
+  }));
+  if (broken) {
+    // the fallen drum, half sunk beside the snapped column, and the arch's
+    // last voussoirs hanging
+    part(c, (cc) => { ellipse(cc, x + 19 * s, wl + 1, 3.4 * s, 2.2 * s); litFill(cc, x + 15.6 * s, x + 22.4 * s, col, 0.3, 0.4); ellipse(cc, x + 16.4 * s, wl, 1.2 * s, 2 * s); cc.fillStyle = lighten(col, 0.3); cc.fill(); });
+  }
+  weather(c, x, wl - 6 * s, 30 * s, 14 * s, seed, 1);
+  for (const [wx, wy, ln] of [[-7, -13, 6], [6, -14, 5], [-15, -18, 7]]) blade(c, x + wx * s, wl + wy * s, x + (wx + 0.3) * s, wl + (wy + ln) * s, 0.9 * s, WEED, mix(WEED, "#8a9a6a", 0.4), 0.3);
+};
+
+// a lone column. v 0: tall, its capital and the springing of an arch; v 1:
+// a stump, snapped jagged; v 2: leaning hard, nearly gone; v 3: a fallen
+// drum, only its back above the water.
+const columnRelic = (c, x, wl, s, v, seed) => {
+  const col = mix(STONE, "#9a9486", 0.4);
+  if (v === 3) {
+    part(c, (cc) => { ellipse(cc, x, wl + 1, 5.4 * s, 2.6 * s); litFill(cc, x - 5.4 * s, x + 5.4 * s, col, 0.3, 0.42); ellipse(cc, x - 4.6 * s, wl + 0.5, 1.2 * s, 2.2 * s); cc.fillStyle = lighten(col, 0.3); cc.fill(); });
+    return;
+  }
+  const h = [20, 8, 15][v];
+  part(c, (cc) => {
+    cc.save(); cc.translate(x, wl); cc.rotate(v === 2 ? 0.3 : 0.02);
+    cc.beginPath(); cc.rect(-1.6 * s, -h * s, 3.2 * s, h * s + 4); litFill(cc, -1.6 * s, 1.6 * s, col, 0.32, 0.42);
+    cc.fillStyle = darken(col, 0.3); for (let k = 1; k * 4.4 < h; k++) cc.fillRect(-1.6 * s, ap(-k * 4.4 * s), 3.2 * s, 0.5);
+    if (v === 0) {
+      poly(cc, [[-3 * s, -h * s - 2.4 * s], [3 * s, -h * s - 2.4 * s], [1.8 * s, -h * s + 0.4], [-1.8 * s, -h * s + 0.4]]); litFill(cc, -3 * s, 3 * s, lighten(col, 0.06), 0.34, 0.4);
+      // the springer: the first stones of the arch it held, reaching east
+      poly(cc, [[-3 * s, -h * s - 2.4 * s], [-3 * s, -h * s - 5 * s], [2 * s, -h * s - 6 * s], [6.4 * s, -h * s - 8.6 * s], [7.4 * s, -h * s - 6.4 * s], [3 * s, -h * s - 2.4 * s]]); litFill(cc, -3 * s, 7.4 * s, col, 0.3, 0.4);
+      cc.fillStyle = darken(col, 0.4); px1(cc, 2.2 * s, -h * s - 5.6 * s, 0.5, 3 * s); px1(cc, 4.6 * s, -h * s - 7.4 * s, 0.5, 3 * s);
+    } else {
+      poly(cc, [[-1.6 * s, -h * s + 0.5], [-0.8 * s, -h * s - 1.6 * s], [0.2 * s, -h * s - 0.4 * s], [1.6 * s, -h * s - 2 * s], [1.6 * s, -h * s + 0.5]]); cc.fillStyle = lighten(col, 0.36); cc.fill();
+    }
+    weather(cc, 0, 0, 3 * s, h * s, seed, 1);
+    cc.restore();
+  });
+  blade(c, x - 1 * s, wl - h * s * 0.7, x - 0.8 * s, wl - h * s * 0.7 + 5 * s, 0.9 * s, WEED, mix(WEED, "#8a9a6a", 0.4), 0.3);
+};
+
+// A king of the drowned kingdom, sunk to the chest: his crown gone green,
+// his beard and mantle weeded, both hands on the hilt of a sword whose blade
+// runs down into the water. v odd: head bowed, his crown broken.
+const sunkkingRelic = (c, x, wl, s, v, seed) => {
+  const col = mix(STONE, "#62665e", 0.5), bowed = v % 2 === 1;
+  const hy = wl - (bowed ? 19 : 21) * s;
+  // shoulders and mantle
+  part(c, (cc) => {
+    cc.beginPath();
+    cc.moveTo(x - 12 * s, wl + 4); cc.lineTo(x - 12 * s, wl - 6 * s); cc.quadraticCurveTo(x - 11 * s, wl - 12 * s, x - 5 * s, wl - 13 * s);
+    cc.lineTo(x + 5 * s, wl - 13 * s); cc.quadraticCurveTo(x + 11 * s, wl - 12 * s, x + 12 * s, wl - 6 * s); cc.lineTo(x + 12 * s, wl + 4); cc.closePath();
+    litFill(cc, x - 12 * s, x + 12 * s, col, 0.3, 0.42);
+    // the mantle's folds and its clasp
+    cc.fillStyle = darken(col, 0.36);
+    for (const fx of [-8, -5, 5, 8]) px1(cc, x + fx * s, wl - 9 * s, 0.5, 9 * s);
+    cc.fillStyle = BRONZE; px1(cc, x - 1 * s, wl - 12.4 * s, 2 * s, 1);
+    weather(cc, x, wl, 22 * s, 12 * s, seed, 1);
+  });
+  // the sword: blade down into the water, the guard across his chest
+  part(c, (cc) => {
+    cc.fillStyle = lin(cc, x - 1 * s, 0, x + 1 * s, 0, [[0, lighten(col, 0.3)], [1, darken(col, 0.3)]]);
+    cc.fillRect(x - 0.9 * s, wl - 6 * s, 1.8 * s, 6 * s + 4);
+    poly(cc, [[x - 6 * s, wl - 7.4 * s], [x + 6 * s, wl - 7.4 * s], [x + 6.6 * s, wl - 6.2 * s], [x - 6.6 * s, wl - 6.2 * s]]); litFill(cc, x - 6.6 * s, x + 6.6 * s, VERDI, 0.4, 0.4);
+  });
+  // his hands on the grip
+  part(c, (cc) => {
+    for (const [hx, hy2] of [[-1.6, -10], [1.4, -8.6]]) ball(cc, x + hx * s, wl + hy2 * s, 2.4 * s, 1.8 * s, col, { hi: 0.36, lo: 0.42 });
+    ball(cc, x, wl - 12.4 * s, 1.2 * s, 1.2 * s, VERDI, { hi: 0.4, lo: 0.4 });
+  });
+  // the head: a long face, the beard over the mantle, the crown
+  part(c, (cc) => {
+    poly(cc, [[x - 3 * s, wl - 13 * s], [x - 3.6 * s, hy + 4 * s], [x - 3 * s, hy - 1 * s], [x + 3 * s, hy - 1 * s], [x + 3.6 * s, hy + 4 * s], [x + 3 * s, wl - 13 * s], [x + 1.6 * s, wl - 10.6 * s], [x, wl - 11 * s], [x - 1.6 * s, wl - 10.6 * s]]);
+    litFill(cc, x - 3.6 * s, x + 3.6 * s, lighten(col, 0.04), 0.34, 0.42);
+    cc.fillStyle = "#16141a";
+    px1(cc, x - 2.2 * s, hy + 2.4 * s, 1.5 * s, bowed ? 0.5 : 1); px1(cc, x + 0.8 * s, hy + 2.4 * s, 1.5 * s, bowed ? 0.5 : 1);
+    cc.fillStyle = darken(col, 0.4); px1(cc, x - 0.25, hy + 3.4 * s, 0.5, 1.5 * s); px1(cc, x - 1.4 * s, hy + 6 * s, 2.8 * s, 0.5);
+    for (let k = 0; k < 4; k++) px1(cc, x + (-1.6 + k) * s, wl - 12.6 * s + (k % 2), 0.5, 2);
+  });
+  part(c, (cc) => {
+    const cy = hy - 0.6 * s;
+    const pts = bowed
+      ? [[x - 3.8 * s, cy + 1.6 * s], [x - 4 * s, cy - 1.6 * s], [x - 2.6 * s, cy - 0.2 * s], [x - 1.4 * s, cy - 2.6 * s], [x - 0.2 * s, cy - 0.4 * s], [x + 1.2 * s, cy - 1 * s], [x + 2.2 * s, cy + 0.2 * s], [x + 3.8 * s, cy - 0.4 * s], [x + 3.8 * s, cy + 1.6 * s]]
+      : [[x - 3.8 * s, cy + 1.6 * s], [x - 4 * s, cy - 1.8 * s], [x - 2.6 * s, cy - 0.2 * s], [x - 1.3 * s, cy - 2.8 * s], [x, cy - 0.4 * s], [x + 1.3 * s, cy - 2.8 * s], [x + 2.6 * s, cy - 0.2 * s], [x + 4 * s, cy - 1.8 * s], [x + 3.8 * s, cy + 1.6 * s]];
+    poly(cc, pts); litFill(cc, x - 4 * s, x + 4 * s, VERDI, 0.45, 0.4);
+    cc.fillStyle = "#b8e8d0"; px1(cc, x - 3 * s, cy, 1, 0.5);
+  });
+  for (const [wx, wy, ln] of [[-10, -9, 6], [9, -10, 7], [-3, -11, 5], [2.6, -12, 6]]) blade(c, x + wx * s, wl + wy * s, x + (wx + 0.3) * s, wl + (wy + ln) * s, 0.9 * s, WEED, mix(WEED, "#8a9a6a", 0.4), 0.3);
+};
+
+// A corpse-lantern on a black post driven into the creek bed: a crooked arm,
+// a chain, an iron cage. Its witch-fire flame is live (LANTERN_AT).
+const LANTERN_AT = [6.4, -16.6];
+const lanternpostRelic = (c, x, wl, s, v, seed) => {
+  const wood = "#6a6050";
+  part(c, (cc) => {
+    limb(cc, x + 0.4 * s, wl + 4, x - 0.8 * s, wl - 24 * s, 2.8 * s, 1.8 * s, wood, 0.5 * s, { hi: 0.4 });
+    limb(cc, x - 0.6 * s, wl - 21 * s, x + 7.6 * s, wl - 23.4 * s, 1.4 * s, 1 * s, wood, -0.5 * s, { hi: 0.4 });
+    cc.fillStyle = darken(wood, 0.4); px1(cc, x, wl - 16 * s, 0.5, 9 * s);
+    // a band of iron round the post, and a rag of weed caught on it
+    cc.fillStyle = "#4a4448"; cc.fillRect(x - 1.4 * s, wl - 9 * s, 2.8 * s, 0.8);
+  });
+  const [lx0, ly0] = LANTERN_AT, lx = x + lx0 * s, ly = wl + ly0 * s;
+  c.fillStyle = "#2e2a30";
+  for (let k = 0; k < 3; k++) px1(c, lx, wl - 23 * s + k * 1.1, 0.5, 0.6);
+  part(c, (cc) => {
+    cc.fillStyle = "#1a2420"; roundRect(cc, lx - 2.2 * s, ly - 3 * s, 4.4 * s, 5.4 * s, 0.8); cc.fill();
+    cc.fillStyle = "#3a3438";
+    poly(cc, [[lx - 2.8 * s, ly - 2.8 * s], [lx, ly - 4.8 * s], [lx + 2.8 * s, ly - 2.8 * s]]); cc.fill();
+    cc.fillRect(lx - 2.6 * s, ly + 2.2 * s, 5.2 * s, 1);
+    cc.fillStyle = "#4a4448";
+    px1(cc, lx - 2.2 * s, ly - 2.8 * s, 0.5, 5.2 * s); px1(cc, lx + 1.8 * s, ly - 2.8 * s, 0.5, 5.2 * s); px1(cc, lx - 0.25, ly - 2.8 * s, 0.5, 5.2 * s);
+    cc.fillStyle = "#6a5a4c"; px1(cc, lx - 2.6 * s, ly - 3 * s, 1, 0.5);
+  });
+  blade(c, x - 1.2 * s, wl - 9 * s, x - 1 * s, wl - 4 * s, 0.9 * s, WEED, mix(WEED, "#8a9a6a", 0.4), 0.3);
+};
+
+// [paint, half-width, height above the water, reflection depth] at s = 1
+// (and how wide it stands at the waterline, for its ripples)
+const RELIC_KIT = {
+  belltower: [belltowerRelic, 14, 56, 20, 11.5],
+  arcade: [arcadeRelic, 24, 26, 14, 16],
+  column: [columnRelic, 9, 30, 14, 2.5],
+  sunkking: [sunkkingRelic, 14, 26, 14, 12],
+  lanternpost: [lanternpostRelic, 12, 30, 14, 1.8],
+};
+const RELIC_SPR = new Map();
+const relicSprite = (r) => {
+  const s = r.s || 1, v = r.v || 0, seed = Math.round(r.x * 3 + r.y * 7);
+  const key = `${r.t}|${s}|${v}|${seed}|${REALM.id}`;
+  let sp = RELIC_SPR.get(key);
+  if (sp) return sp;
+  const [paint, bw0, up0, R0] = RELIC_KIT[r.t];
+  const hw = Math.ceil(bw0 * s) + 4, top = Math.ceil(up0 * s) + 4, R = Math.ceil(R0 * s);
+  const cv = bakeSprite(hw * 2, top + 6, (c) => paint(c, hw, top, s, v, seed));
+  sp = { cv: waterCut(cv, Math.round(top * PX), Math.round(R * PX), seed, r.x - hw, r.y - top), hw, top, h: top + R };
+  RELIC_SPR.set(key, sp);
+  return sp;
+};
+
+// The weir: its masonry across the head of the sluices, a timber gate in
+// each between two piers, a beam over them carrying the windlass. The first
+// gate stands half raised, the second hangs askew off one chain, the third
+// is all but shut. Stands on its own foot (the wall's base at y).
+const weirBake = (r) => {
+  const s = r.s || 1, gw = r.gw || 18, gaps = (r.gaps || []).map((g) => g + MX);
+  const half = (r.w || 160) / 2, x0 = r.x + MX - half, x1 = r.x + MX + half, y = r.y + MY;
+  const col = mix(STONE, "#585a52", 0.62), wood = "#5a5042", seed = Math.round(x0 * 3 + y * 7);
+  const pad = 6, top = 24 * s, bot = 10;
+  const cv = bakeSprite(x1 - x0 + pad * 2, top + bot, (c) => {
+    const ox = pad - x0, oy = top - y;
+    c.translate(ox, oy);
+    const fh = 7 * s, ch = 3 * s;
+    // the wall in runs between the channels
+    const runs = []; let a = x0;
+    for (const g of gaps) { runs.push([a, g - gw / 2 - 4.5 * s]); a = g + gw / 2 + 4.5 * s; }
+    runs.push([a, x1]);
+    for (const [ra, rb] of runs) if (rb - ra > 1) part(c, (cc) => {
+      standing(cc, [[ra, y + 0.5], [ra, y - fh], [rb, y - fh], [rb, y + 0.5]], col, ch);
+      cc.fillStyle = darken(col, 0.34);
+      for (let row = 0; row < 3; row++) {
+        const yy = y - fh + 2.4 * s + row * 2.3 * s;
+        cc.fillRect(ra, ap(yy), rb - ra, 0.5);
+        for (let q = ra + ((row * 3.1 + hash(seed, row + ra) * 3) % 6) * s; q < rb - 1; q += (5 + hash(seed, q) * 3) * s) px1(cc, q, yy - 2.3 * s, 0.5, 2.3 * s);
+      }
+      // the coping's joints, and the weather on it
+      cc.fillStyle = darken(col, 0.18);
+      for (let q = ra + 3 * s; q < rb - 1; q += 6 * s) px1(cc, q, y - fh - ch, 0.5, ch);
+      weather(cc, (ra + rb) / 2, y, rb - ra, fh, seed + ra, 1);
+      // water-stain runs down the face, darkest at its foot
+      cc.fillStyle = rgba("#1c2624", 0.35); cc.fillRect(ra, y - 2.2 * s, rb - ra, 2.2 * s + 0.5);
+      for (let q = ra + 1; q < rb - 1; q += 2.5) if (hash(q, seed + 7) < 0.45) { cc.fillStyle = rgba("#24302a", 0.5); cc.fillRect(ap(q), y - fh + hash(q, 9) * 3, 0.5, fh * (0.4 + hash(q, 10) * 0.6)); }
+      cc.fillStyle = "#3a4a3a"; for (let q = ra; q < rb - 1; q += 1.5) if (hash(q, seed) < 0.4) px1(cc, q, y - 1 - hash(q, seed + 1) * 2.4 * s, 0.5, 1 + hash(q, 3) * 1.5);
+    });
+    // squat abutments where the weir runs into the banks
+    for (const ex of [x0 + 3 * s, x1 - 3 * s]) part(c, (cc) => {
+      standing(cc, [[ex - 3.4 * s, y + 0.5], [ex - 3.4 * s, y - 10 * s], [ex + 3.4 * s, y - 10.6 * s], [ex + 3.4 * s, y + 0.5]], col, 3 * s);
+      cc.fillStyle = darken(col, 0.36); for (let k = 1; k < 4; k++) cc.fillRect(ex - 3.4 * s, ap(y - 10 * s + k * 2.8 * s), 6.8 * s, 0.5);
+      weather(cc, ex, y, 6 * s, 10 * s, seed + ex, 1);
+    });
+    gaps.forEach((g, i) => {
+      const pl = g - gw / 2 - 2.6 * s, pr = g + gw / 2 + 2.6 * s, ph = 13 * s;
+      // the gate between the piers' grooves
+      const lift = [4, 2.4, 1.2][i % 3] * s, skew = i % 3 === 1 ? 0.2 : 0;
+      part(c, (cc) => {
+        cc.save(); cc.translate(g, y - 3 * s - lift); cc.rotate(skew);
+        const gw2 = gw / 2 + 0.5;
+        cc.fillStyle = lin(cc, 0, -8 * s, 0, 0, [[0, lighten(wood, 0.28)], [1, darken(wood, 0.3)]]);
+        cc.fillRect(-gw2, -8 * s, gw2 * 2, 8 * s);
+        cc.fillStyle = darken(wood, 0.45);
+        for (let k = 1; k < 4; k++) cc.fillRect(-gw2, ap(-k * 2.1 * s), gw2 * 2, 0.5);
+        cc.fillStyle = "#2c282c"; cc.fillRect(-gw2, -6.8 * s, gw2 * 2, 0.8); cc.fillRect(-gw2, -1.8 * s, gw2 * 2, 0.8);
+        cc.fillStyle = "#7a5038"; px1(cc, -gw2 + 2, -6.8 * s, 1.5, 0.5); px1(cc, gw2 - 4, -1.8 * s, 1, 0.5);
+        // its foot dark with the wet
+        cc.fillStyle = "#1e2624"; cc.fillRect(-gw2, -0.8, gw2 * 2, 0.8);
+        // the rack-rod up to the windlass
+        cc.fillStyle = "#3a3438"; cc.fillRect(-0.5, -8 * s - (ph - 8 * s + 4 * s - lift), 1, ph - 8 * s + 4 * s - lift);
+        cc.restore();
+      });
+      // the piers: square, a chamfered cap, iron cramps in the cap
+      for (const px of [pl, pr]) part(c, (cc) => {
+        standing(cc, [[px - 2.6 * s, y + 0.5], [px - 2.6 * s, y - ph], [px + 2.6 * s, y - ph], [px + 2.6 * s, y + 0.5]], lighten(col, 0.03), 2.6 * s);
+        cc.fillStyle = darken(col, 0.36);
+        for (let k = 1; k < 5; k++) cc.fillRect(px - 2.6 * s, ap(y - ph + k * 2.8 * s), 5.2 * s, 0.5);
+        cc.fillStyle = "#3a3438"; px1(cc, px - 0.5, y - ph - 2 * s, 1, 0.5);
+        weather(cc, px, y, 5 * s, ph, seed + px, 1);
+      });
+      // the beam over the piers, and the windlass drum on it
+      part(c, (cc) => {
+        const by = y - ph - 2.4 * s;
+        cc.fillStyle = lin(cc, 0, by - 1.8 * s, 0, by + 0.6, [[0, lighten(wood, 0.3)], [1, darken(wood, 0.35)]]);
+        cc.fillRect(pl - 2.4 * s, by - 1.8 * s, pr - pl + 4.8 * s, 2.4 * s);
+        ball(cc, g, by - 2.6 * s, 2.4 * s, 2 * s, wood, { hi: 0.3, lo: 0.4 });
+        cc.fillStyle = "#2c282c"; cc.fillRect(g - 2.4 * s, by - 2.8 * s, 4.8 * s, 0.6);
+        // its spoked wheel, side on: a spoke or two sticking out
+        cc.fillStyle = darken(wood, 0.2); cc.fillRect(g + 2.4 * s, by - 5.4 * s, 0.8, 5.4 * s); cc.fillRect(g + 1 * s, by - 3 * s, 3.4 * s, 0.6);
+      });
+    });
+  });
+  return { cv, x: x0 - pad, y: y - top, w: x1 - x0 + pad * 2, h: top + bot, gaps, gw, wy: y, s };
+};
+
+// the live water by the relics: rings spreading from their waterlines,
+// kept to the water, and broken behind the stone
+const wetAt = (x, y) => PONDS.some((p) => p.t !== "lava" && ((x - p.x) / (p.w / 2 - 4)) ** 2 + ((y - p.y) / (p.h / 2 - 3)) ** 2 < 1) || inRiver(x, y, -4);
+const ripples = (ctx, x, y, hw, t, ph, n = 2, big = 0) => {
+  for (let q = 0; q < n; q++) {
+    const life = (t * 0.22 + ph + q / n) % 1, rx = hw + 2 + life * (10 + big), ry = rx * 0.3;
+    const a = 0.55 * (1 - life) * Math.min(1, life * 6);
+    if (a < 0.03) continue;
+    ctx.fillStyle = rgba("#9ab4b2", a);
+    const N = Math.round(10 + rx * 0.9);
+    for (let k = 0; k < N; k++) {
+      if ((k + q) % 3 === 0) continue;
+      const an = (k / N) * Math.PI * 2, px = x + Math.cos(an) * rx, py = y + 1 + Math.sin(an) * ry;
+      if (py < y + 0.5 && Math.abs(px - x) < hw) continue;
+      if (!wetAt(px, py)) continue;
+      ctx.fillRect(ap(px), ap(py), 1.5, 0.5);
+    }
+  }
+};
+const RELICS = { key: "", list: [], weirs: [] };
+const relicSet = () => {
+  const list = REALM.fenRelics || [];
+  const key = `${REALM.id}|${list.length}|${PONDS.length}`;
+  if (RELICS.key === key) return RELICS;
+  RELICS.key = key;
+  RELICS.list = list.filter((r) => r.t !== "weir").map((r) => ({ ...r, x: r.x + MX, y: r.y + MY })).sort((a, b) => a.y - b.y);
+  RELICS.weirs = typeof document === "undefined" ? [] : list.filter((r) => r.t === "weir").map(weirBake);
+  return RELICS;
+};
+const drawRelics = (ctx, time) => {
+  if (!REALM.fenRelics) return;
+  const R = relicSet();
+  const t = time || 0;
+  for (const wr of R.weirs) {
+    // the spill under each gate: the sheet, then foam where it lands
+    wr.gaps.forEach((g, i) => {
+      const lift = [4, 2.4, 1.2][i % 3] * wr.s, y0 = wr.wy - 3 * wr.s, hw = wr.gw / 2;
+      ctx.fillStyle = rgba("#2c3e38", 1); ctx.fillRect(g - hw, y0 - lift, hw * 2, lift + 3 * wr.s);
+      // the sheet pouring under the gate, pale where it breaks over the sill
+      ctx.fillStyle = rgba("#7e9a92", 0.85); ctx.fillRect(g - hw, ap(y0 - lift), hw * 2, 0.5);
+      ctx.fillStyle = rgba("#a8c4bc", 0.6 + 0.2 * Math.sin(t * 7 + i)); ctx.fillRect(g - hw + 0.5, ap(wr.wy - 0.5), hw * 2 - 1, 1);
+      for (let k = 0; k < 6; k++) {
+        const ph = (t * 1.6 + k * 0.37 + i * 0.21) % 1, px = g - hw + 1 + (k + 0.5) * (hw * 2 - 2) / 6;
+        ctx.fillStyle = rgba("#b8ccc4", 0.7 * (1 - ph));
+        ctx.fillRect(ap(px), ap(y0 - lift + ph * (lift + 6)), 0.5, 1.5);
+      }
+      for (let k = 0; k < 10; k++) {
+        const ph = (t * 0.9 + k * 0.23 + i * 0.5) % 1, px = g + (hash(k, i + 3) - 0.5) * (hw * 2 - 3) * (0.6 + ph * 0.4);
+        ctx.fillStyle = rgba("#e4f2ec", 0.85 * (1 - ph));
+        ctx.fillRect(ap(px), ap(wr.wy + 0.5 + ph * 9), ph < 0.35 ? 2 : 1, 0.5);
+      }
+    });
+    ctx.drawImage(wr.cv, wr.x, wr.y, wr.w, wr.h);
+  }
+  for (const r of R.list) {
+    const ph = hash(Math.round(r.x), Math.round(r.y));
+    if (r.t === "wisp") { wispLight(ctx, r.x, r.y - (r.h || 14), r.s || 1, t, ph * 9, r.y, true); continue; }
+    if (!RELIC_KIT[r.t]) continue;
+    const sp = relicSprite(r), s = r.s || 1;
+    const hw = (r.t === "column" && r.v === 3 ? 5.4 : RELIC_KIT[r.t][4]) * s;
+    ripples(ctx, r.x, r.y, hw, t, ph, 2);
+    ctx.drawImage(sp.cv, r.x - sp.hw, r.y - sp.top, sp.hw * 2, sp.h);
+    if (r.t === "belltower") {
+      // the drowned bell tolls by itself, silent: a light in the belfry,
+      // then a ring going out over the whole mere
+      const toll = (t * 0.09 + ph) % 1, k = toll < 0.12 ? Math.sin((toll / 0.12) * Math.PI) : 0;
+      const lx = r.x - 4.4 * s + 0.035 * 16 * s, ly = r.y - 16 * s;
+      glow(ctx, lx, ly, 6 * s, TEAL, 0.07 + 0.3 * k);
+      glow(ctx, lx + 8.8 * s, ly, 5 * s, TEAL, 0.05 + 0.2 * k);
+      if (toll < 0.5) {
+        const life = toll / 0.5, rx = 14 * s + life * 60, ry = rx * 0.32, a = 0.75 * (1 - life);
+        ctx.fillStyle = rgba(TEAL, a);
+        const N = Math.round(rx * 1.4);
+        for (let q = 0; q < N; q++) {
+          if (q % 4 === 0) continue;
+          const an = (q / N) * Math.PI * 2, px = r.x + Math.cos(an) * rx, py = r.y + 1 + Math.sin(an) * ry;
+          if (py < r.y && Math.abs(px - r.x) < 13 * s) continue;
+          if (wetAt(px, py)) ctx.fillRect(ap(px), ap(py), 1.5, 0.5);
+        }
+      }
+    } else if (r.t === "lanternpost") {
+      const fx = r.x + LANTERN_AT[0] * s, fy = r.y + LANTERN_AT[1] * s + 1.4 * s;
+      witchFlame(ctx, fx, fy, 1.1 * s, t, ph * 9);
+      // its light on the water under it, wavering
+      const f = 0.7 + 0.3 * Math.sin(t * 9 + ph * 5);
+      soft(ctx, fx, r.y + 2, 9 * s, 2.6 * s, [[0, rgba(TEAL, 0.16 * f)], [1, rgba(TEAL, 0)]]);
+      for (let q = 0; q < 3; q++) { ctx.fillStyle = rgba(TEAL, (0.5 - q * 0.13) * f); ctx.fillRect(ap(fx - 2 + q * 0.5 + Math.sin(t * 2 + q) * 0.6), ap(r.y + 2 + q * 1.5), ap(4 - q), 0.5); }
+    } else if (r.t === "sunkking") {
+      // the king's eyes kindle now and then
+      const k = Math.max(0, Math.sin(t * 0.5 + ph * 7) - 0.7) / 0.3;
+      if (k > 0) {
+        const ey = r.y - ((r.v || 0) % 2 ? 19 : 21) * s + 2.6 * s;
+        ctx.fillStyle = rgba(TEAL, k);
+        ctx.fillRect(ap(r.x - 2 * s), ap(ey), 1, 0.5); ctx.fillRect(ap(r.x + 1 * s), ap(ey), 1, 0.5);
+        glow(ctx, r.x, ey, 4 * s, TEAL, 0.2 * k);
+      }
+    }
+  }
+};
+
 // ---- the gate: a great barrow ----------------------------------------
 // The dead come out of the ground. A long grassed mound at the road's
 // first yards, kerbed with stones; a doorway of three great slabs, skulls
@@ -2347,6 +3297,7 @@ const bakeGate = () => {
 const drawBarrowGate = (ctx, time) => {
   if (!PTS.length) return;
   drawWaters(ctx);
+  drawRelics(ctx, time);
   const G = bakeGate();
   ctx.drawImage(G.cv, G.bx, G.by, G.bw, G.bh);
   // witch-light breathing in the passage and in the lintel's spirals

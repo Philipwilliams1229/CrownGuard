@@ -49,8 +49,9 @@ export const forestDepthAt = (x, y) =>
 // A realm may run down to the sea along one board edge (map.coast: { edge:
 // "top" | "bottom" | "left" | "right", from, to, depth, sand, seed }). The
 // waterline wanders `depth` px in from the edge between `from` and `to`
-// (px along that edge), easing out into headlands past either end, and a
-// band of `sand` px of beach lies between the water and the grass.
+// (px along that edge), easing out into headlands past either end over
+// `ease` px (default 110: steep sides on a cove; 200+ for a softer bay), and
+// a band of `sand` px of beach lies between the water and the grass.
 export let COAST = null;
 const coastUV = (x, y) =>
   COAST.edge === "top" ? [x, y] : COAST.edge === "bottom" ? [x, H - y] : COAST.edge === "left" ? [y, x] : [y, W - x];
@@ -59,8 +60,8 @@ export const coastLine = (u) => coastLineOf(COAST, u);
 // the same for any realm's coast (the menus draw realms that aren't loaded)
 export const coastSeed = (map) => (map.seed % 89) * 0.41;
 export const coastLineOf = (c, u) => {
-  const { from = -1e9, to = 1e9, depth, seed = 0 } = c;
-  const r = Math.min(1, Math.max(0, (u - from) / 110), Math.max(0, (to - u) / 110));
+  const { from = -1e9, to = 1e9, depth, seed = 0, ease = 110 } = c;
+  const r = Math.min(1, Math.max(0, (u - from) / ease), Math.max(0, (to - u) / ease));
   const e = r * r * (3 - 2 * r);
   const wander = 13 * Math.sin(u * 0.019 + seed) + 8 * Math.sin(u * 0.047 + seed * 2.3) + 4 * Math.sin(u * 0.12 + seed * 0.7);
   return (depth + wander) * e - (1 - e) * 40;
@@ -143,11 +144,59 @@ const distToSegs = (segs, x, y) => {
   return best;
 };
 
+// A river may carry a width per corner point (map.rivers[i].ws, one per
+// pts entry), so it can widen smoothly into an estuary or narrow to a
+// brook. Each segment then holds the half-widths at its ends (hw1, hw2;
+// equal on a river of one width) and these ask the width where they stand.
+// How far (x, y) stands past one segment's (unwobbled) edge: the distance to
+// its line less the half-width at the nearest point, squared up to the
+// tapered side's own normal (ck) so a flaring bank keeps its true distance.
+const segPast = (s, x, y) => {
+  const vx = s.x2 - s.x1, vy = s.y2 - s.y1;
+  const t = Math.max(0, Math.min(1, ((x - s.x1) * vx + (y - s.y1) * vy) / (s.len * s.len)));
+  const f = Math.hypot(x - (s.x1 + vx * t), y - (s.y1 + vy * t)) - (s.hw1 + (s.hw2 - s.hw1) * t);
+  return t > 0 && t < 1 ? f * s.ck : f;
+};
+// past a river's edge (< 0 in the water), over all its segments; NEAR keeps
+// the winning segment's distance to the line and its half-width there
+// (on a river of changing width, the width at the NEAREST point of its line,
+// as water.js paints it: a wide stretch's round end never bulges back over
+// a narrow one)
+const NEAR = { d: 0, hw: 0 };
+export const riverPast = (rv, x, y) => {
+  if (!rv.ws) { const d = distToSegs(rv.segs, x, y); NEAR.d = d; NEAR.hw = rv.w / 2; return d - rv.w / 2; }
+  let bd = Infinity, best = Infinity;
+  for (const s of rv.segs) {
+    const vx = s.x2 - s.x1, vy = s.y2 - s.y1;
+    const t = Math.max(0, Math.min(1, ((x - s.x1) * vx + (y - s.y1) * vy) / (s.len * s.len)));
+    const d = Math.hypot(x - (s.x1 + vx * t), y - (s.y1 + vy * t));
+    if (d < bd) { bd = d; best = segPast(s, x, y); NEAR.d = d; NEAR.hw = s.hw1 + (s.hw2 - s.hw1) * t; }
+  }
+  return best;
+};
+// A river's corner widths carried onto buildSmooth's points (path.js; its
+// fillet radius R is 34): each corner's fillet blends them with the curve's
+// own weights, so the width runs as smoothly as the line.
+const SMOOTH_R = 34;
+const smoothWidths = (RAW, ws) => {
+  const n = RAW.length, w = (i) => ws[Math.min(i, ws.length - 1)] ?? 32, out = [w(0)];
+  for (let i = 1; i < n - 1; i++) {
+    const d1 = Math.hypot(RAW[i][0] - RAW[i - 1][0], RAW[i][1] - RAW[i - 1][1]);
+    const d2 = Math.hypot(RAW[i + 1][0] - RAW[i][0], RAW[i + 1][1] - RAW[i][1]);
+    const r1 = Math.min(SMOOTH_R, d1 * 0.45), r2 = Math.min(SMOOTH_R, d2 * 0.45);
+    const wa = w(i) + (w(i - 1) - w(i)) * (r1 / d1), wb = w(i) + (w(i + 1) - w(i)) * (r2 / d2);
+    out.push(wa);
+    for (let s = 1; s <= 7; s++) { const u = s / 7; out.push((1 - u) * (1 - u) * wa + 2 * (1 - u) * u * w(i) + u * u * wb); }
+  }
+  out.push(w(n - 1));
+  return out;
+};
+
 // True when (x,y) stands in running water (plus a bank margin). The build
 // check and the scatter both ask this — nothing grows in the river, and
 // nothing gets built in it.
 export const inRiver = (x, y, margin = 0) =>
-  RIVERS.some((rv) => distToSegs(rv.segs, x, y) < rv.w / 2 + margin);
+  RIVERS.some((rv) => (rv.ws ? riverPast(rv, x, y) < margin : distToSegs(rv.segs, x, y) < rv.w / 2 + margin));
 
 // ---- the River Watch's dock and its patrol ----
 // The watch is a DOCK (owner, 2026-09-30): it can only be moored at the water's
@@ -163,12 +212,22 @@ export const PATROL_LEN = W / 3;
 // ellipse is inset 8 x 6 from the pond's box: the same DOCK_EDGE inside that),
 // or a coast within a hall's length of the beach
 export const atWaterEdge = (x, y) => {
-  if (RIVERS.some((rv) => { const d = distToSegs(rv.segs, x, y); return d < rv.w / 2 + 8 && rv.w / 2 - d <= DOCK_EDGE; })) return true;
-  for (const p of PONDS) {
-    if (p.t === "lava" || p.t === "ice" || p.w < 50) continue;
+  if (RIVERS.some((rv) => {
+    if (rv.ws) { riverPast(rv, x, y); return NEAR.d < NEAR.hw + 8 && NEAR.hw - NEAR.d <= DOCK_EDGE; }
+    const d = distToSegs(rv.segs, x, y); return d < rv.w / 2 + 8 && rv.w / 2 - d <= DOCK_EDGE;
+  })) return true;
+  // (a pond's rowable ellipse: f <= 1 inside it, `depth` how far in)
+  const rowable = (p) => {
+    if (p.t === "lava" || p.t === "ice" || p.w < 50) return null;
     const a = p.w / 2 - 8, b = p.h / 2 - 6;
     const f = Math.sqrt(((x - p.x) / a) ** 2 + ((y - p.y) / b) ** 2);
-    if (f <= 1 && (1 - f) * Math.min(a, b) <= DOCK_EDGE) return true;
+    return f <= 1 ? (1 - f) * Math.min(a, b) : null;
+  };
+  for (const p of PONDS) {
+    const depth = rowable(p);
+    // (where ponds overlap, the shore of one out in the other's open water
+    // is no shore at all)
+    if (depth !== null && depth <= DOCK_EDGE && !PONDS.some((q) => { if (q === p) return false; const dq = rowable(q); return dq !== null && dq > DOCK_EDGE; })) return true;
   }
   return COAST ? seaDepthAt(x, y) <= 6 + DOCK_EDGE + 8 : false;
 };
@@ -274,19 +333,31 @@ export function regenTerrain(map) {
   // way, carrying a width. Built FIRST (and with no randomness) so the
   // scatter below can keep its feet dry without its rng stream shifting.
   RIVERS = (map.rivers || []).map((rv) => {
-    // a river that leaves the grid leaves the board too, border and all
-    const pts = buildSmooth(rv.pts.map(([c, r]) => [
-      c < 0.2 ? -12 : c > 14.8 ? SW + 12 : tileX(c),   // (under the castle's stone from there on)
-      r < 0.2 ? -12 : r > 9.8 ? H + 12 : tileY(r),
+    // a river that leaves the grid leaves the board too, border and all (a
+    // river with a width per point runs out by its half-width more, so its
+    // round end lies off the board however wide it has grown)
+    const out = (k) => (Array.isArray(rv.ws) && rv.ws.length ? (rv.ws[Math.min(k, rv.ws.length - 1)] ?? 32) / 2 : 0);
+    const pts = buildSmooth(rv.pts.map(([c, r], k) => [
+      c < 0.2 ? -12 - out(k) : c > 14.8 ? SW + 12 : tileX(c),   // (under the castle's stone from there on)
+      r < 0.2 ? -12 - out(k) : r > 9.8 ? H + 12 + out(k) : tileY(r),
     ]));
+    // (a width per corner: carried onto the smoothed points; the river's `w`
+    // is then its widest, for anything that only wants a safe margin)
+    const ws = Array.isArray(rv.ws) && rv.ws.length ? smoothWidths(rv.pts.map(([c, r], k) => [
+      c < 0.2 ? -12 - out(k) : c > 14.8 ? SW + 12 : tileX(c), r < 0.2 ? -12 - out(k) : r > 9.8 ? H + 12 + out(k) : tileY(r),
+    ]), rv.ws) : null;
+    const w = ws ? Math.max(...ws) : rv.w || 32;
     const segs = [];
     for (let i = 0; i < pts.length - 1; i++) {
       const [x1, y1] = pts[i];
       const [x2, y2] = pts[i + 1];
       const len = Math.hypot(x2 - x1, y2 - y1);
-      if (len > 0.001) segs.push({ x1, y1, x2, y2, len });
+      if (len > 0.001) {
+        const hw1 = ws ? ws[i] / 2 : w / 2, hw2 = ws ? ws[i + 1] / 2 : w / 2, k = (hw2 - hw1) / len;
+        segs.push({ x1, y1, x2, y2, len, hw1, hw2, ck: 1 / Math.sqrt(1 + k * k) });
+      }
     }
-    return { pts, w: rv.w || 32, segs };
+    return ws ? { pts, w, ws, segs } : { pts, w, segs };
   });
   // A river you can travel: measure its centerline, then find where the road
   // crosses it. That crossing is the only place a swimmer can climb out.
@@ -295,7 +366,24 @@ export function regenTerrain(map) {
   RIVER_ROUTES = RIVERS.map((rv, ri) => {
     const cum = [0];
     for (const sg of rv.segs) cum.push(cum[cum.length - 1] + sg.len);
-    const total = cum[cum.length - 1];
+    let total = cum[cum.length - 1];
+    // (a river with a width per point runs on past the board by its
+    // half-width: its route keeps to the board, 12 px past the edge at most,
+    // as any other river's ends lie)
+    let q0 = 0;
+    if (rv.ws) {
+      const on = (q) => {
+        let i = 0;
+        while (i < rv.segs.length - 1 && cum[i + 1] < q) i++;
+        const sg = rv.segs[i], t = sg.len > 0 ? Math.max(0, Math.min(1, (q - cum[i]) / sg.len)) : 0;
+        const x = sg.x1 + (sg.x2 - sg.x1) * t, y = sg.y1 + (sg.y2 - sg.y1) * t;
+        return x >= -12.5 && y >= -12.5 && y <= H + 12.5 && x <= W + 12.5;
+      };
+      let q1 = total;
+      while (q0 < total && !on(q0)) q0 += 1;
+      while (q1 > q0 && !on(q1)) q1 -= 1;
+      total = q1 - q0;
+    }
     if (total > 60) {
       let crossD = 0, crossBest = Infinity;
       for (let d = 0; d <= TOTAL_LEN; d += 4) {
@@ -311,11 +399,11 @@ export function regenTerrain(map) {
         for (let t = 0; t <= 1; t += 0.1) {
           const px = sg.x1 + (sg.x2 - sg.x1) * t, py = sg.y1 + (sg.y2 - sg.y1) * t;
           const dd = Math.hypot(px - cx, py - cy);
-          if (dd < swimBest) { swimBest = dd; swimAt = cum[i] + sg.len * t; }
+          if (dd < swimBest) { swimBest = dd; swimAt = cum[i] + sg.len * t - q0; }
         }
       }
       const at = (d) => {
-        const q = Math.max(0, Math.min(total, d));
+        const q = q0 + Math.max(0, Math.min(total, d));
         let i = 0;
         while (i < rv.segs.length - 1 && cum[i + 1] < q) i++;
         const sg = rv.segs[i];
@@ -341,7 +429,7 @@ export function regenTerrain(map) {
     let inside = false, d0 = 0;
     for (let d = 0; d <= TOTAL_LEN; d += 4) {
       const [x, y] = posAt(d);
-      const wet = distToSegs(rv.segs, x, y) < rv.w / 2 + 3;
+      const wet = rv.ws ? riverPast(rv, x, y) < 3 : distToSegs(rv.segs, x, y) < rv.w / 2 + 3;
       if (wet && !inside) { inside = true; d0 = d; }
       if (inside && (!wet || d + 4 > TOTAL_LEN)) {
         inside = false;
@@ -454,6 +542,10 @@ export function regenTerrain(map) {
     if (edge) {
       FOREST = { edge, seed: (map.seed % 97) * 0.37, depth: map.wood?.depth ?? 1 };
       const frng = mulberry32((map.seed ^ 0xf03e57) >>> 0);
+      // the pieces already standing (the realm's own and the recipe's): a
+      // tree of the wood never grows over one — it steps aside, or gives way
+      const ground = DECOR.filter((d) => !d.forest);
+      const woodTypes = new Set(map.wood ? map.wood.types.map(([tt]) => tt) : ["tree", "pine"]);
       const span = edge === "left" ? H : W;
       for (let u = -12; u < span + 12; u += 25) {
         const bound = forestBound(u, FOREST.seed);
@@ -467,12 +559,44 @@ export function regenTerrain(map) {
           const deep = 1 - Math.max(0, dpt) / Math.max(1, bound);
           const s = 0.95 + frng() * 0.35 + deep * 0.3;
           const t = map.wood ? pickWood(map.wood.types, frng()) : frng() < 0.68 ? "tree" : "pine";
-          DECOR.push({ x, y, t, s: s * (frng() < 0.2 ? 1.2 : 1), forest: true });
+          const tree = { x, y, t, s: s * (frng() < 0.2 ? 1.2 : 1), forest: true };
+          // (every draw above is made first, so a tree given way below never
+          // shifts the rest of the wood)
+          if (clearOfPieces(tree, ground, woodTypes)) DECOR.push(tree);
         }
       }
     }
   }
 }
+
+// A tree of the edge wood stands clear of every piece already on the ground
+// (a grave, bones, a bog pool, a rock), its canopy included: the trunk keeps
+// its footprint off the piece, and the crown, which stands up the screen of
+// the trunk, must not hide one behind it. Trees of the wood's own kinds may
+// crowd each other as a wood does. A tree that overlaps steps away from the
+// piece, up to 18 px, onto dry ground clear of the road; else it is dropped.
+const covers = (tree, d) => {
+  const ft = decorFootprint(tree), fp = decorFootprint(d);
+  const ax = (d.x - tree.x) / (ft + fp * 0.8), ay = (d.y - (tree.y - ft * 0.9)) / (ft * 1.9 + fp * 0.8);
+  return ax * ax + ay * ay < 1;
+};
+const clearOfPieces = (tree, ground, woodTypes) => {
+  const block = ground.filter((d) => !woodTypes.has(d.t) && Math.abs(d.x - tree.x) < 80 && Math.abs(d.y - tree.y) < 90);
+  if (!block.length) return true;
+  for (let step = 0; step <= 3; step++) {
+    const hit = block.find((d) => covers(tree, d));
+    if (!hit) {
+      if (step === 0) return true;
+      // (where it stepped to must still be honest ground)
+      return nearestOnPath(tree.x, tree.y).d >= PATH_HALF + 12 && !inPond(PONDS, tree.x, tree.y) && !inRiver(tree.x, tree.y, 6) && tree.x <= W - WALL_W - 6;
+    }
+    if (step === 3) break;
+    const dx = tree.x - hit.x, dy = tree.y - hit.y, l = Math.hypot(dx, dy) || 1;
+    tree.x += (dx / l) * 6;
+    tree.y += (dy / l) * 6;
+  }
+  return false;
+};
 
 const pickWood = (types, r) => {
   const tot = types.reduce((a, [, w]) => a + w, 0);

@@ -203,6 +203,22 @@ const wetMask = (S) => {
   const L = layerOf(S), c = L.c;
   c.strokeStyle = "#fff"; c.lineCap = "round"; c.lineJoin = "round";
   for (const rv of RIVERS) {
+    if (rv.ws) {
+      // a river with a width per point: each segment a tapered band with
+      // round ends (its half-widths hw1, hw2 from terrain.js)
+      c.fillStyle = "#fff";
+      for (const sg of rv.segs) {
+        const nx = -(sg.y2 - sg.y1) / sg.len, ny = (sg.x2 - sg.x1) / sg.len;
+        c.beginPath();
+        c.moveTo(sg.x1 + nx * sg.hw1, sg.y1 + ny * sg.hw1); c.lineTo(sg.x2 + nx * sg.hw2, sg.y2 + ny * sg.hw2);
+        c.lineTo(sg.x2 - nx * sg.hw2, sg.y2 - ny * sg.hw2); c.lineTo(sg.x1 - nx * sg.hw1, sg.y1 - ny * sg.hw1);
+        c.closePath(); c.fill();
+        c.beginPath(); c.arc(sg.x2, sg.y2, sg.hw2, 0, Math.PI * 2); c.fill();
+      }
+      const s0 = rv.segs[0];
+      if (s0) { c.beginPath(); c.arc(s0.x1, s0.y1, s0.hw1, 0, Math.PI * 2); c.fill(); }
+      continue;
+    }
     c.lineWidth = rv.w;
     c.beginPath();
     rv.pts.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y)));

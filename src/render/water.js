@@ -216,23 +216,87 @@ const LM = 56;      // one landmark (a rock, a log, a snag, a reed bed) per patc
 // round off like a real confluence: `A` holds the rivers painted before,
 // `B` the one being painted, and the two are blended at shading time.
 const MERGE = 12;
+// Each segment's half-width at its two ends. A river of one width has them
+// equal; one with a width per point (terrain.js `ws`) carries them on its
+// segments — or, for a copy made elsewhere (the apron's longer river), as
+// `ws` alongside its points, matched to its segments here.
+const HALFS = new WeakMap();
+const segHalfs = (rv) => {
+  let H2 = HALFS.get(rv);
+  if (H2 && H2.n === rv.segs.length) return H2;
+  const n = rv.segs.length, a = new Float64Array(n), b = new Float64Array(n);
+  // (a copy that carries neither — the apron's river, run on past the board
+  // from the board's own points — borrows the board river's widths: its
+  // first width before them, its last after)
+  let ws = rv.ws;
+  if (!ws && !(n && rv.segs[0].hw1 !== undefined)) {
+    for (const src of RIVERS) {
+      if (!src.ws || src === rv) continue;
+      const off = rv.pts.indexOf(src.pts[0]);
+      if (off < 0) continue;
+      ws = rv.pts.map((_, i) => src.ws[Math.max(0, Math.min(src.ws.length - 1, i - off))]);
+      break;
+    }
+  }
+  if (n && rv.segs[0].hw1 !== undefined) rv.segs.forEach((sg, q) => { a[q] = sg.hw1; b[q] = sg.hw2; });
+  else if (ws && ws.length === rv.pts.length) {
+    let i = 0;
+    rv.segs.forEach((sg, q) => {
+      const P = rv.pts;
+      while (i < P.length - 1 && !(P[i][0] === sg.x1 && P[i][1] === sg.y1 && P[i + 1][0] === sg.x2 && P[i + 1][1] === sg.y2)) i++;
+      if (i < P.length - 1) { a[q] = ws[i] / 2; b[q] = ws[i + 1] / 2; i++; } else { a[q] = b[q] = rv.w / 2; i = 0; }
+    });
+  } else a.fill(rv.w / 2), b.fill(rv.w / 2);
+  H2 = { n, a, b };
+  HALFS.set(rv, H2);
+  return H2;
+};
+// past one segment's (unwobbled) edge; on a flaring segment the distance is
+// squared up to the tapered side's own normal (a river of one width takes
+// the plain sum, to the bit)
+// how far round each segment the field must be worked: its river's
+// half-width plus `extra` — on a river of changing width, the wider of it
+// and its neighbours' (each pixel takes the width at the nearest point of
+// the line, and at a joint the two segments share one width, so the
+// nearest segment of any pixel near the water is always among those worked,
+// and a narrow reach above an estuary still scans only its own few px)
+const segReach = (rv, HS, extra) => {
+  const n = HS.n, out = new Float64Array(n);
+  let vary = false;
+  for (let q = 0; q < n; q++) if (HS.a[q] !== HS.b[q] || HS.a[q] !== HS.a[0]) vary = true;
+  if (!vary) return out.fill(rv.w / 2 + extra);
+  for (let q = 0; q < n; q++) {
+    let m = Math.max(HS.a[q], HS.b[q]);
+    if (q > 0) m = Math.max(m, HS.a[q - 1]);
+    if (q < n - 1) m = Math.max(m, HS.b[q + 1]);
+    out[q] = m + extra;
+  }
+  return out;
+};
+const segF = (d, t, hw, dh, ck) => (dh === 0 ? d - hw : t > 0 && t < 1 ? (d - (hw + dh * t)) * ck : d - (hw + dh * t));
 const smin = (a, b) => { const h = Math.max(MERGE - Math.abs(a - b), 0) / MERGE; return Math.min(a, b) - h * h * MERGE * 0.25; };
 const riverField = (R, rivers) => {
   const { pw, ph, r, x0, y0 } = R, N = pw * ph;
-  const FA = new Float32Array(N).fill(99), FB = new Float32Array(N).fill(99);
+  const FA = new Float32Array(N).fill(99), FB = new Float32Array(N).fill(99), FD = new Float32Array(N);
   const SA = new Uint16Array(N), SB = new Uint16Array(N), RIV = new Uint8Array(N);
   const LO = new Int32Array(ph).fill(pw), HI = new Int32Array(ph).fill(-1);   // each row's reach
   const segs = [];
   rivers.forEach((rv, ri) => {
-    const hw = rv.w / 2, reach = hw + REACH + (rivers.length > 1 ? MERGE * 0.5 : 0);
+    const HS = segHalfs(rv), RCH = segReach(rv, HS, REACH + (rivers.length > 1 ? MERGE * 0.5 : 0));
+    // (a river of changing width takes, per pixel, the width at the NEAREST
+    // point of its line — so a wide stretch's round end never bulges back
+    // over a narrow one; a river of one width is the same either way)
+    let vary = false;
+    for (let q = 0; q < HS.n; q++) if (HS.a[q] !== HS.b[q] || HS.a[q] !== HS.a[0]) vary = true;
     // the distance down the river, counted from where it first comes onto
     // the board, so the apron's longer copy of the river agrees with it
     let cum = 0, anchor = null;
     for (const s of rv.segs) { if (anchor === null && s.x1 >= 0 && s.y1 >= 0 && s.x1 <= W && s.y1 <= H) anchor = cum; cum += s.len; }
     cum = -(anchor || 0);
-    for (const s of rv.segs) {
-      const vx = s.x2 - s.x1, vy = s.y2 - s.y1, sid = segs.length;
-      segs.push({ x1: s.x1, y1: s.y1, vx, vy, L2: s.len * s.len, tx: vx / s.len, ty: vy / s.len, hw, cum, len: s.len });
+    rv.segs.forEach((s, q) => {
+      const vx = s.x2 - s.x1, vy = s.y2 - s.y1, sid = segs.length, reach = RCH[q];
+      const hw = HS.a[q], dh = HS.b[q] - HS.a[q], ck = 1 / Math.sqrt(1 + (dh / s.len) ** 2);
+      segs.push({ x1: s.x1, y1: s.y1, vx, vy, L2: s.len * s.len, tx: vx / s.len, ty: vy / s.len, hw, dh, ck, cum, len: s.len, ri });
       cum += s.len;
       const j0 = Math.max(0, Math.floor((Math.min(s.y1, s.y2) - reach - y0) * r));
       const j1 = Math.min(ph - 1, Math.ceil((Math.max(s.y1, s.y2) + reach - y0) * r));
@@ -259,15 +323,15 @@ const riverField = (R, rivers) => {
           t = t < 0 ? 0 : t > 1 ? 1 : t;
           const dx = x - (s.x1 + vx * t), dy = y - (s.y1 + vy * t), d2 = dx * dx + dy * dy;
           if (d2 > rr) continue;
-          const f = Math.sqrt(d2) - hw, k = row + i;
+          const d = Math.sqrt(d2), f = segF(d, t, hw, dh, ck), k = row + i;
           if (RIV[k] !== ri + 1) {
             // this river's first touch here: fold what came before into A
             if (FB[k] < 99) { const a = FA[k], b = FB[k]; FA[k] = smin(a, b); if (b < a) SA[k] = SB[k]; }
-            FB[k] = f; SB[k] = sid; RIV[k] = ri + 1;
-          } else if (f < FB[k]) { FB[k] = f; SB[k] = sid; }
+            FB[k] = f; SB[k] = sid; RIV[k] = ri + 1; FD[k] = d;
+          } else if (vary ? d < FD[k] : f < FB[k]) { FB[k] = f; SB[k] = sid; FD[k] = d; }
         }
       }
-    }
+    });
   });
   return { FA, FB, SA, SB, segs, LO, HI };
 };
@@ -281,19 +345,25 @@ const geo = (sg, x, y) => {
   if (d > 1e-4) { GEO.nx = dx / d; GEO.ny = dy / d; } else { GEO.nx = -sg.ty; GEO.ny = sg.tx; }
   GEO.lat = sg.tx * dy - sg.ty * dx > 0 ? d : -d;
   GEO.u = sg.cum + t * sg.len;
-  GEO.hw = sg.hw;
+  GEO.hw = sg.dh === 0 ? sg.hw : sg.hw + sg.dh * t;
   return GEO;
 };
 // how far a point stands past the water's (unwobbled) edge, over all rivers
 const pastEdge = (rivers, x, y) => {
   let best = 99;
   for (const rv of rivers) {
-    for (const s of rv.segs) {
-      const vx = s.x2 - s.x1, vy = s.y2 - s.y1;
+    const HS = segHalfs(rv);
+    // (by the nearest point of its line, as riverField)
+    let bd = Infinity, bf = 99, vary = false;
+    for (let q = 0; q < HS.n; q++) if (HS.a[q] !== HS.b[q] || HS.a[q] !== HS.a[0]) vary = true;
+    for (let q = 0; q < rv.segs.length; q++) {
+      const s = rv.segs[q], vx = s.x2 - s.x1, vy = s.y2 - s.y1;
       const t = Math.max(0, Math.min(1, ((x - s.x1) * vx + (y - s.y1) * vy) / (s.len * s.len)));
-      const f = Math.hypot(x - s.x1 - vx * t, y - s.y1 - vy * t) - rv.w / 2;
-      if (f < best) best = f;
+      const dh = HS.b[q] - HS.a[q], d = Math.hypot(x - s.x1 - vx * t, y - s.y1 - vy * t);
+      const f = segF(d, t, HS.a[q], dh, dh === 0 ? 1 : 1 / Math.sqrt(1 + (dh / s.len) ** 2));
+      if (vary ? d < bd : f < bf) { bd = d; bf = f; }
     }
+    if (bf < best) best = bf;
   }
   return best;
 };
@@ -346,6 +416,16 @@ const touchesRiver = (P, rivers) => {
     if (pastEdge(rivers, P.x + ca * (ca > 0 ? P.rxE : P.rx), P.y + Math.sin(a) * P.ry) < 3) return true;
   }
   return false;
+};
+
+// which of these rivers end out in pond P's water (by either end)
+const riversEndingIn = (P, rivers) => {
+  const out = new Set();
+  rivers.forEach((rv, ri) => {
+    const a = rv.pts[0], b = rv.pts[rv.pts.length - 1];
+    if (pondG(P, a[0], a[1]) < 2 || pondG(P, b[0], b[1]) < 2) out.add(ri);
+  });
+  return out;
 };
 
 // A clump of rushes at (x, y) in world units: tapered blades, darker at the
@@ -484,6 +564,10 @@ const riverBody = (rivers, wa, view, r) => {
   const JP = shapes.filter((P) => P.kind !== "lava" && P.kind !== "ice" && touchesRiver(P, rivers));
   const loose = shapes.filter((P) => !JP.includes(P));
   JP.forEach(pondPrep);
+  // a river that ends out in a pond's water gives way to the pond a little
+  // inside its shore: its channel, current and bank dressing stop there
+  JP.forEach((P) => { P.ends = riversEndingIn(P, rivers); });
+  const endPonds = JP.filter((P) => P.ends.size);
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   for (const rv of rivers) for (const [x, y] of rv.pts) {
     const m = rv.w / 2 + PAD;
@@ -536,7 +620,7 @@ const riverBody = (rivers, wa, view, r) => {
       }
       if (f >= REACH && !P) continue;
       const gi = R.gx + i;
-      let nx = 0, ny = 1, lat = 0, u = 0, hw = 10, e = 0, g = 99;
+      let nx = 0, ny = 1, lat = 0, u = 0, hw = 10, e = 0, g = 99, rivI = -1;
       const gx = x - x0, gy = y - y0, ia = gx | 0, ja = gy | 0, fx = gx - ia, fy = gy - ja;
       const c00 = ja * cw + ia;
       if (!SD[c00]) fill(c00);
@@ -551,6 +635,7 @@ const riverBody = (rivers, wa, view, r) => {
       const n13 = SV[o00 + 5] * w00 + SV[o10 + 5] * w10 + SV[o01 + 5] * w01 + SV[o11 + 5] * w11;
       if (fb < 99) {
         ({ nx, ny, lat, u, hw } = geo(segs[SB[k]], x, y));
+        rivI = segs[SB[k]].ri;
         if (fa < 99 && Math.abs(fa - fb) < MERGE) {
           // in a confluence: turn the normal between the two rivers' own
           const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (fb - fa) / MERGE));
@@ -559,8 +644,8 @@ const riverBody = (rivers, wa, view, r) => {
           nx = A.nx * h + bx * (1 - h); ny = A.ny * h + by * (1 - h);
           const l = Math.hypot(nx, ny) || 1;
           nx /= l; ny /= l;
-          if (h < 0.5) { lat = bl; u = bu; hw = bh; } else { lat = A.lat; u = A.u; hw = A.hw; }
-        } else if (fa < fb) ({ nx, ny, lat, u, hw } = geo(segs[SA[k]], x, y));
+          if (h < 0.5) { lat = bl; u = bu; hw = bh; } else { lat = A.lat; u = A.u; hw = A.hw; rivI = segs[SA[k]].ri; }
+        } else if (fa < fb) { ({ nx, ny, lat, u, hw } = geo(segs[SA[k]], x, y)); rivI = segs[SA[k]].ri; }
         e = edgeOff(n42, n90, n52, n13, lat, hw, LX * nx + LY * ny);
         g = f + e;
       }
@@ -587,10 +672,10 @@ const riverBody = (rivers, wa, view, r) => {
       }
       const dp = -g, L = LX * nx + LY * ny, V = ny < 0 ? -ny : 0;
       let t, shade;
-      if (P && gp + (vn(x, y, 6, s + 33) - 0.5) * 6 < gr) {
+      if (P && (gp + (vn(x, y, 6, s + 33) - 0.5) * 6 < gr || P.ends.size && P.ends.has(rivI) && gp < -1.5 + (vn(x, y, 3, s + 36) - 0.5) * 2.5)) {
         // the pond's own water (its bands, its glare, its scum)
         shade = dp < (L < 0 ? -L : 0) * 3.2 + V * 0.7 + (pNP - 0.5) * 1.6;
-        t = pondTone(P, x, y, dp, L, shade, gi, gj, r);
+        t = pondTone(P, x, y, dp, -ellField(P, x, y).f, L, shade, gi, gj, r);
         if (t === T_BED && dp > 1 && hash(gi * 5 + 1, gj * 3 + 2) > 0.982) pebbles.push(i, j);
       } else {
         // the bank on the sun's side throws its shadow onto the water
@@ -599,14 +684,24 @@ const riverBody = (rivers, wa, view, r) => {
         // tapers to a point at both ends
         const n30 = SV[o00 + 3] * w00 + SV[o10 + 3] * w10 + SV[o01 + 3] * w01 + SV[o11 + 3] * w11;
         const bars = clamp01((n30 - 0.5) * 4) * (L > 0 ? 1 : 0.3);
-        const bw = bars > 0.06 ? 0.3 + bars * 4.4 : 0;
-        const sh = Math.max(2.0 + (N42 - 0.5) * 1.6 + SPIT * 1.4, bw + 0.8);
+        let bw = bars > 0.06 ? 0.3 + bars * 4.4 : 0;
+        let sh = Math.max(2.0 + (N42 - 0.5) * 1.6 + SPIT * 1.4, bw + 0.8), mw = dark ? 3.4 : 2.4;
+        // wide water (an estuary, a broad reach: half-width past 30) shelves
+        // gently: its gravel bars, shallows and middle water run wider in
+        // proportion, in slow drifts, so it never reads as one deep slab
+        const wd = hw > 30 ? hw - 30 : 0;
+        if (wd > 0) {
+          const k = 0.55 + vn(x, y, 34, s + 37) * 0.9;
+          if (bw > 0) bw *= 1 + wd * 0.025 * k;
+          sh = Math.max(sh + wd * 0.1 * k, bw + 0.8);
+          mw += wd * 0.08 * k;
+        }
         if (dp < px1) t = L > 0.12 ? (vn(x, y, 3, s + 7) > 0.46 ? T_FOAM : T_LAP) : T_LINE;
         else if (dp < bw) {
           t = T_BED;
           if (bars > 0.5 && dp > 1.2 && hash(gi * 5 + 1, gj * 3 + 2) > 0.975) pebbles.push(i, j);
         } else if (dp < sh) t = T_SHAL;
-        else if (dp < sh + (dark ? 3.4 : 2.4) + (vn(x, y, 2.4, s + 34) - 0.5) * 1.4) t = T_MID;
+        else if (dp < sh + mw + (vn(x, y, 2.4, s + 34) - 0.5) * 1.4) t = T_MID;
         else {
           // the channel wanders inside the banks; the sky lies on it in streaks
           const mean = (vn(u, hw, 64, s + 8) - 0.5) * hw * 0.9;
@@ -651,11 +746,11 @@ const riverBody = (rivers, wa, view, r) => {
   const wetAt = (x, y, lo, hi) => { const pe = pastEdge(rivers, x, y); return pe >= lo && pe <= hi; };
   const seen = new Set();
   for (const rv of rivers) {
-    const hw = rv.w / 2;
-    for (const sg of rv.segs) {
-      const tx = (sg.x2 - sg.x1) / sg.len, ty = (sg.y2 - sg.y1) / sg.len;
+    const HS = segHalfs(rv);
+    rv.segs.forEach((sg, sq) => {
+      const tx = (sg.x2 - sg.x1) / sg.len, ty = (sg.y2 - sg.y1) / sg.len, hw1 = HS.a[sq], dh = HS.b[sq] - hw1;
       for (let dd = 0; dd < sg.len; dd += 4) {
-        const cx = sg.x1 + tx * dd, cy = sg.y1 + ty * dd;
+        const cx = sg.x1 + tx * dd, cy = sg.y1 + ty * dd, hw = dh === 0 ? hw1 : hw1 + dh * (dd / sg.len);
         const ci = Math.floor(cx / LM), cj = Math.floor(cy / LM), key = ci * 4096 + cj;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -700,8 +795,10 @@ const riverBody = (rivers, wa, view, r) => {
           if (inside(x, y, 4) && !nearRoad(x, y, 8) && wetAt(x, y, -4.5, -1)) stand.push({ k: "pebbles", x, y, seed: key });
         }
       }
-    }
+    });
   }
+  // (nothing of a river's own stands out in the pond it ends in)
+  if (endPonds.length) for (let q = stand.length - 1; q >= 0; q--) if (endPonds.some((P) => pondG(P, stand[q].x, stand[q].y) < 1)) stand.splice(q, 1);
   stand.sort((a, b) => a.y - b.y);
   const wet = (i, j) => i >= 0 && j >= 0 && i < pw && j < ph && TB[j * pw + i] !== 0;
   for (const o of stand) {
@@ -751,7 +848,8 @@ const samplerOf = (rv) => {
   let total = 0;
   for (const sg of rv.segs) total += sg.len;
   const n = Math.max(2, Math.ceil(total / 2) + 1);
-  const X = new Float32Array(n), Y = new Float32Array(n), TX = new Float32Array(n), TY = new Float32Array(n);
+  const X = new Float32Array(n), Y = new Float32Array(n), TX = new Float32Array(n), TY = new Float32Array(n), HW = new Float64Array(n);
+  const HS = segHalfs(rv);
   let si = 0, acc = 0;
   for (let q = 0; q < n; q++) {
     const d = Math.min(total, q * 2);
@@ -759,8 +857,14 @@ const samplerOf = (rv) => {
     const sg = rv.segs[si], t = Math.max(0, Math.min(1, (d - acc) / sg.len));
     X[q] = sg.x1 + (sg.x2 - sg.x1) * t; Y[q] = sg.y1 + (sg.y2 - sg.y1) * t;
     TX[q] = (sg.x2 - sg.x1) / sg.len; TY[q] = (sg.y2 - sg.y1) / sg.len;
+    const dh = HS.b[si] - HS.a[si];
+    HW[q] = dh === 0 ? HS.a[si] : HS.a[si] + dh * t;
   }
-  S = { n, X, Y, TX, TY, total };
+  // the samples out in the water of a pond this river ends in (no current there)
+  let wet = null;
+  const ends = PONDS.map(pondShape).filter((P) => P.kind !== "lava" && P.kind !== "ice" && riversEndingIn(P, [rv]).size);
+  if (ends.length) { wet = new Uint8Array(n); for (let q = 0; q < n; q++) if (ends.some((P) => pondG(P, X[q], Y[q]) < 0)) wet[q] = 1; }
+  S = { n, X, Y, TX, TY, HW, total, wet };
   SAMPLERS.set(rv, S);
   return S;
 };
@@ -801,7 +905,7 @@ const snapH = (v) => Math.round(v * PX) / PX;
 // the marks on one river at `time`; `clip` = [x0, y0, x1, y1] keeps them to
 // what can be seen
 const drawCurrent = (ctx, rv, time, wa, clip) => {
-  const S = samplerOf(rv), hw = rv.w / 2;
+  const S = samplerOf(rv);
   if (S.total < 20) return;
   const n = Math.max(4, Math.round(S.total / 17));
   const ga = ctx.globalAlpha;
@@ -812,7 +916,8 @@ const drawCurrent = (ctx, rv, time, wa, clip) => {
     const speed = bank ? 7 + hash(i, 6) * 4 : 15 + hash(i, 7) * 8;
     let d = hash(i * 7 + cyc, 3) * S.total + u * P * speed;
     if (d >= S.total) d -= S.total;
-    const q = Math.min(S.n - 1, Math.round(d / 2));
+    const q = Math.min(S.n - 1, Math.round(d / 2)), hw = S.HW[q];
+    if (S.wet && S.wet[q]) continue;
     const lat0 = bank ? (hash(i * 7 + cyc, 4) < 0.5 ? -1 : 1) * (hw - 3.2) : (hash(i * 7 + cyc, 4) * 2 - 1) * Math.max(1, hw - 6);
     const lat = lat0 + Math.sin(u * 6.283 + i) * (bank ? 0.4 : 1.4);
     const tx = S.TX[q], ty = S.TY[q];
@@ -1243,6 +1348,166 @@ const pondBody = (p) => {
   return body;
 };
 
+// ---- ponds that overlap: one water ---------------------------------------------
+// Loose ponds (clear or swamp, not run into a river) whose shores cross are
+// painted together, as the rivers are: one raster, the shores joined by a
+// smooth union, so no pond's bank is drawn over its neighbour's water. The
+// tones read one pond's noise (the group's first) and every member's glare;
+// each member still dresses its own shore, where that shore is still a shore.
+const PMERGE = 8;
+const psmin = (a, b) => { const h = Math.max(PMERGE - Math.abs(a - b), 0) / PMERGE; return Math.min(a, b) - h * h * PMERGE * 0.25; };
+const overlaps = (A, B) => {
+  if (Math.abs(A.x - B.x) > A.rx + B.rx + 8 || Math.abs(A.y - B.y) > A.ry + B.ry + 8) return false;
+  for (let q = 0; q < 64; q++) {
+    const a = (q / 64) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+    if (ellField(B, A.x + ca * (ca > 0 ? A.rxE : A.rx), A.y + sa * A.ry).f < 4) return true;
+    if (ellField(A, B.x + ca * (ca > 0 ? B.rxE : B.rx), B.y + sa * B.ry).f < 4) return true;
+  }
+  return false;
+};
+// the board's loose ponds in groups (a lone pond is a group of one)
+const pondGroups = () => {
+  const loose = PONDS.filter((p) => !pondBody(p).joined);
+  const shapes = loose.map(pondShape), grp = loose.map((_, i) => i);
+  const root = (i) => (grp[i] === i ? i : (grp[i] = root(grp[i])));
+  for (let i = 0; i < loose.length; i++) for (let j = i + 1; j < loose.length; j++) {
+    const a = shapes[i], b = shapes[j];
+    if (a.kind !== b.kind || (a.kind !== "clear" && a.kind !== "swamp")) continue;
+    if (overlaps(a, b)) grp[root(j)] = root(i);
+  }
+  const out = new Map();
+  loose.forEach((p, i) => { const k = root(i); if (!out.has(k)) out.set(k, []); out.get(k).push(p); });
+  return [...out.values()];
+};
+const GROUP_BODIES = new Map();
+const groupBody = (ps) => {
+  const Ps = ps.map((p) => pondPrep(pondShape(p))), P0 = Ps[0], kind = P0.kind, pal = pondPalette(ps[0]);
+  const key = ps.map((p) => `${p.x}|${p.y}|${p.w}|${p.h}|${p.t || ""}`).join(";") + `|${REALM.id}|${pal.deep}`;
+  let body = GROUP_BODIES.get(key);
+  if (body) return body;
+  if (GROUP_BODIES.size > 6) GROUP_BODIES.clear();
+  const r = PX, M = 10, TOP = 16;
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  for (const P of Ps) { bx0 = Math.min(bx0, P.x - P.rx - M); by0 = Math.min(by0, P.y - P.ry - M - TOP); bx1 = Math.max(bx1, P.x + P.rx + M); by1 = Math.max(by1, P.y + P.ry + M); }
+  const x0 = Math.floor(bx0 * r) / r, y0 = Math.floor(by0 * r) / r, x1 = Math.ceil(bx1 * r) / r, y1 = Math.ceil(by1 * r) / r;
+  const pw = Math.round((x1 - x0) * r), ph = Math.round((y1 - y0) * r);
+  const R = raster(x0, y0, pw, ph, r);
+  const B = bankTones(kind === "swamp" && bankKey() === "green" ? "fen" : bankKey());
+  const WT = waterTones(pal, B), T = WT.T, S = WT.S;
+  // the tones' own noise is the first pond's, its glare every member's
+  const TP = { ...P0, dashes: new Map() };
+  for (const P of Ps) for (const [k, v] of P.dashes) TP.dashes.set(k, [...(TP.dashes.get(k) || []), ...v]);
+  const WM = new Uint8Array(pw * ph), pebbles = [];
+  const wetAt = (x, y) => { let g = 99; for (const P of Ps) { const v = pondG(P, x, y); g = g === 99 ? v : psmin(g, v); } return g; };
+  for (let j = 0; j < ph; j++) {
+    const y = y0 + (j + 0.5) / r, gj = R.gy + j;
+    for (let i = 0; i < pw; i++) {
+      const x = x0 + (i + 0.5) / r, gi = R.gx + i;
+      // each member's shore, joined smoothly; the normal turned between the two nearest
+      let g = 99, nx = 0, ny = 1, df = -99, np = 0.5, best = 99, m = P0.m;
+      for (const P of Ps) {
+        const f = ellField(P, x, y).f;
+        if (f > M + 6) continue;
+        const qx = ELL.nx, qy = ELL.ny, v = f > 14 ? f : f + pondWob(P, x, y);
+        if (g === 99) { g = v; nx = qx; ny = qy; }
+        else {
+          const h = clamp01(0.5 + 0.5 * (g - v) / PMERGE);
+          g = psmin(g, v);
+          nx = qx * h + nx * (1 - h); ny = qy * h + ny * (1 - h);
+          const l = Math.hypot(nx, ny) || 1;
+          nx /= l; ny /= l;
+        }
+        if (v < best) { best = v; np = NP; m = P.m; }
+        if (-f > df) df = -f;
+      }
+      if (g === 99 || g > M) continue;
+      const k = j * pw + i;
+      if (g >= 0) { R.put(i, j, bankPx(B, g, nx, ny, x, y, gi, gj, P0.s, r)); continue; }
+      WM[k] = 1;
+      const dp = -g, L = LX * nx + LY * ny, V = ny < 0 ? -ny : 0;
+      const shade = dp < (L < 0 ? -L : 0) * 3.2 + V * 0.7 + (np - 0.5) * 1.6;
+      TP.m = m;
+      const t = pondTone(TP, x, y, dp, df, L, shade, gi, gj, r);
+      if (t === T_BED && dp > 1 && hash(gi * 5 + 1, gj * 3 + 2) > 0.982) pebbles.push(i, j);
+      R.put(i, j, (shade ? S : T)[t]);
+    }
+  }
+  for (let q = 0; q < pebbles.length; q += 2) {
+    const sz = (0.55 + hash(pebbles[q], pebbles[q + 1]) * 0.5) * r;
+    stonePx(R, pebbles[q], pebbles[q + 1], sz * 1.3, sz, WT.pebs[(q >> 1) % 2], null, null);
+  }
+  // each member's dressing (as pondBody lays it), where its shore is still
+  // a shore and its water still open
+  const wetP = (i, j) => i >= 0 && j >= 0 && i < pw && j < ph && WM[j * pw + i] === 1;
+  const openShore = (x, y) => wetAt(x, y) > -2.5 || !Ps.some((Q) => pondG(Q, x, y) < -3);
+  const stuff = [];
+  for (const P of Ps) {
+    const { s, rx, ry, big, huge, p } = P;
+    const others = Ps.filter((Q) => Q !== P);
+    const shore = (x, y) => !others.some((Q) => pondG(Q, x, y) < 1);
+    const nR = huge ? 5 : big ? 3 : 1 + (hash(s, 70) < 0.5 ? 1 : 0);
+    for (let q = 0; q < nR; q++) {
+      const a = q === 0 ? -2.3 + (hash(s, 71) - 0.5) * 0.5 : hash(s, q + 72) * Math.PI * 2;
+      const [x, y] = shoreAt(P, a, -0.8);
+      if (nearestOnPath(x, y).d < PATH_HALF + 12 || !shore(x, y)) continue;
+      stuff.push({ k: "rushes", x, y, seed: s * 7 + q, big });
+    }
+    if (B.pads && kind === "clear" || kind === "swamp" && REALM.groundArt !== "fen") {
+      const nP = big ? 4 : 1 + Math.floor(hash(s, 80) * 2);
+      for (let q = 0; q < nP; q++) {
+        const a = hash(s, q + 81) * Math.PI * 2, d = 0.55 + hash(s, q + 82) * 0.3;
+        const x = p.x + Math.cos(a) * rx * d, y = p.y + Math.sin(a) * ry * d;
+        if (wetAt(x, y) < -3) stuff.push({ k: "pad", x, y, seed: s * 11 + q });
+      }
+    }
+    if (kind === "clear") {
+      for (let q = 0; q < (big ? 4 : 2); q++) {
+        const a = -0.2 + hash(s, q + 90) * 2.6;
+        const [x, y] = shoreAt(P, a, -2.6);
+        if (shore(x, y)) stuff.push({ k: "pebbles", x, y, seed: s * 13 + q });
+      }
+    }
+    if (kind === "swamp" && big) {
+      const nS = huge ? 3 : 1, nI = huge ? 2 : 0;
+      for (let q = 0; q < nS + nI; q++) {
+        const a = hash(s, q + 150) * Math.PI * 2, d = 0.3 + hash(s, q + 151) * 0.42;
+        const x = p.x + Math.cos(a) * rx * d, y = p.y + Math.sin(a) * ry * d;
+        if (wetAt(x, y) > -7 || !openShore(x, y)) continue;
+        stuff.push({ k: q < nS ? "snag" : "island", x, y, seed: s * 17 + q, huge });
+      }
+    }
+  }
+  stuff.sort((a, b) => a.y - b.y);
+  const padC = [C("#6a9a48"), C("#4e7a36"), C("#3a5a2a")], bloom = C("#f4ece4"), heart = C("#e8c050");
+  for (const o of stuff) {
+    const [ci, cj] = R.at(o.x, o.y);
+    if (o.k === "rushes") rushPx(R, B, o.x, o.y, o.big ? 1 : 0.85, o.seed);
+    else if (o.k === "snag") snagPx(R, B, WT, o.x, o.y, o.seed, wetP, o.huge ? 1.5 : 1.25);
+    else if (o.k === "island") islandPx(R, B, WT, o.x, o.y, o.seed, wetP);
+    else if (o.k === "pebbles") {
+      for (let q = 0; q < 3; q++) {
+        const sz = (0.7 + hash(o.seed, q) * 0.6) * r;
+        stonePx(R, ci + Math.round((hash(o.seed, q + 3) - 0.5) * 6 * r), cj + Math.round((hash(o.seed, q + 6) - 0.5) * 2 * r), sz * 1.3, sz, WT.pebs[q % 2], null, S[T_SHAL]);
+      }
+    } else {
+      const pr = (1.6 + hash(o.seed, 1) * 1.1) * r, notch = hash(o.seed, 2) * Math.PI * 2;
+      for (let j = -Math.ceil(pr); j <= Math.ceil(pr); j++) {
+        for (let i = -Math.ceil(pr * 1.3); i <= Math.ceil(pr * 1.3); i++) {
+          const u = i / (pr * 1.3), v = j / (pr * 0.75), q = u * u + v * v;
+          if (q > 1) continue;
+          const an = Math.atan2(v, u);
+          if (Math.abs(((an - notch + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.35 && q > 0.1) continue;
+          R.put(ci + i, cj + j, q > 0.6 && v > 0 ? padC[2] : u + v < -0.4 ? padC[0] : padC[1]);
+        }
+      }
+      if (hash(o.seed, 3) < 0.35) { R.put(ci, cj - 1, bloom); R.put(ci - 1, cj - 1, bloom); R.put(ci + 1, cj - 1, bloom); R.put(ci, cj - 2, bloom); R.put(ci, cj - 1, heart); }
+    }
+  }
+  body = { cv: toCanvas(R), x: x0, y: y0, w: pw / r, h: ph / r };
+  GROUP_BODIES.set(key, body);
+  return body;
+};
+
 // The live bits on a pond: glints drifting with the wind, a swamp bubble,
 // the ice twinkling, lava bubbling.
 const TWINKLE = new Map();
@@ -1345,11 +1610,11 @@ const boardKey = () => `${REALM.id}|${RIVERS.length}|${RIVERS[0]?.pts.length}|${
 export const bakeWater = (ctx) => {
   const sm = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  const late = [];
-  for (const p of PONDS) {
-    const b = pondBody(p);
-    if (b.joined) late.push(b);
-    else ctx.drawImage(b.cv, b.x, b.y, b.w, b.h);
+  const late = PONDS.map(pondBody).filter((b) => b.joined);
+  // loose ponds, a group of overlapping ones painted as one water
+  for (const ps of pondGroups()) {
+    const b = ps.length > 1 ? groupBody(ps) : pondBody(ps[0]);
+    ctx.drawImage(b.cv, b.x, b.y, b.w, b.h);
   }
   BOARD.key = boardKey();
   BOARD.rocks = [];
