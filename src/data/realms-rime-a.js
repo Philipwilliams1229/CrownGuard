@@ -48,6 +48,15 @@ export default function rimeBoardsA(rimeVariant) {
         coast: { edge: "bottom", from: 60, to: 770, depth: 180, sand: 24, ease: 190 },
         // the ship sails straight up the cove and grounds below the road
         landings: [{ at: [7.8, 4.4], from: "bottom", put: [7.6, 10.6] }],
+        // on the shingle (grid px, foot points ~8 above the waterline): the
+        // fishers' boats under the steading, an old longship hauled up at the
+        // cove's west end; the landing beach under the road kept clear
+        strand: [
+          { x: 228, y: 327, t: "rmlongship", s: 1, v: 1 },
+          { x: 518, y: 313, t: "rmboat", s: 1, v: 0 }, { x: 548, y: 306, t: "rmboat", s: 0.95, v: 1 },
+          { x: 600, y: 382, t: "rmsealrock", s: 1 },
+          { x: 132, y: 412, t: "rmrock", s: 0.9, v: 1 },
+        ],
         decor: [
           // the fishers' steading on the east headland over the cove
           at(12.5, 6.4, "rmlonghouse", 1.05, 0, 0, 1), at(13.25, 7.5, "rmrack", 1),
@@ -80,6 +89,14 @@ export default function rimeBoardsA(rimeVariant) {
           { x: 250, y: 46, t: "skerry", s: 1 }, { x: 352, y: 92, t: "seals", s: 1 }, { x: 420, y: 128, t: "seals", s: 0.85 },
           { x: 470, y: 40, t: "skerry", s: 0.9 }, { x: 560, y: 96, t: "floe", s: 0.9 }, { x: 170, y: 104, t: "floe", s: 0.8 },
         ],
+        // on the shingle under the sea (foot points just below the waterline)
+        strand: [
+          { x: 224, y: 156, t: "rmrack", s: 0.95 },
+          { x: 300, y: 154, t: "rmlongship", s: 1, v: 0 },
+          { x: 362, y: 141, t: "rmsealrock", s: 1 },
+          { x: 422, y: 163, t: "rmboat", s: 1, v: 0 }, { x: 452, y: 168, t: "rmboat", s: 0.9, v: 1 },
+          { x: 502, y: 140, t: "rmrock", s: 0.9, v: 2 },
+        ],
         decor: [
           // the headland the road comes out of, west of the sea
           at(0.3, 2.3, "rmspruce", 1.1), at(1.0, 1.7, "rmspruce", 0.95), at(0.4, 1.0, "rmspruce", 1.05),
@@ -110,6 +127,11 @@ export default function rimeBoardsA(rimeVariant) {
           ws: [20, 22, 26, 30, 34, 40, 48, 62, 78, 94, 100],
           w: 100,
         }],
+        // a boat and a fish rack on the fjord's south bank
+        strand: [
+          { x: 96, y: 245, t: "rmboat", s: 1, v: 1 },
+          { x: 176, y: 236, t: "rmrack", s: 0.95 },
+        ],
         decor: [
           // the glacier's foot: the river comes out from under a frozen fall
           at(11.85, 0.15, "rmicefall", 1.1, 0, 0, 0), at(11.5, 1.9, "rmrock", 0.9, 0, 0, 2),
@@ -139,11 +161,20 @@ export default function rimeBoardsA(rimeVariant) {
           { at: [4.6, 6.0], from: "bottom", put: [5.4, 10.6] },
           { at: [10.6, 6.0], from: "bottom", put: [9.8, 10.6] },
         ],
+        // on the shingle (foot points ~8 above the waterline): the flensing
+        // strand in the pocket between the shore legs, the whalers' longship
+        // and boat under their longhouse, seals on the west point; both
+        // landing beaches (under the shore legs) kept clear
+        strand: [
+          { x: 412, y: 364, t: "rmwhale", s: 1.3, v: 0 }, { x: 350, y: 376, t: "rmwhale", s: 1.15, v: 1 },
+          { x: 166, y: 393, t: "rmrack", s: 0.95 },
+          { x: 612, y: 426, t: "rmlongship", s: 1, v: 1 },
+          { x: 664, y: 476, t: "rmboat", s: 1, v: 0 },
+          { x: 104, y: 458, t: "rmsealrock", s: 1 },
+        ],
         decor: [
-          // the flensing strand in the pocket between the two shore legs
-          at(7.75, 6.15, "rmwhale", 1.3, 0, 0, 0), at(6.95, 6.75, "rmwhale", 1.15, 0, 0, 1),
-          // the whalers' longhouse on the east headland, its rack and a boat
-          at(12.8, 6.6, "rmlonghouse", 1.05, 0, 0, 1), at(13.3, 5.4, "rmrack", 0.95), at(12.3, 7.85, "rmboat", 1),
+          // the whalers' longhouse on the east headland
+          at(12.8, 6.6, "rmlonghouse", 1.05, 0, 0, 1), at(13.3, 5.4, "rmrack", 0.95),
           // the west shore below the first strand
           at(1.0, 7.6, "rmspruce", 1), at(0.4, 6.8, "rmspruce", 0.95), at(1.5, 8.4, "rmrock", 0.9, 0, 0, 3),
           // spruce up on the fells

@@ -47,8 +47,7 @@ export default function rimeBoardsC(rimeVariant) {
         ],
         decor: [
           // bergs stranded on the shores when the mere fell
-          { x: 206, y: 96, t: "rmicefall", v: 1, s: 1.1 }, { x: 232, y: 64, t: "rmrock", v: 2, s: 0.9 },
-          { x: 530, y: 160, t: "rmicefall", v: 1, s: 1 }, { x: 540, y: 196, t: "rmrock", v: 1, s: 0.8 },
+          { x: 232, y: 64, t: "rmrock", v: 2, s: 0.9 }, { x: 540, y: 196, t: "rmrock", v: 1, s: 0.8 },
           { x: 300, y: 300, t: "rmicefall", v: 1, s: 0.8 },
           // a fishing steading on the north shore
           { x: 344, y: 26, t: "rmlonghouse", v: 0, s: 1 }, { x: 410, y: 36, t: "rmrack", s: 1 },
@@ -58,6 +57,11 @@ export default function rimeBoardsC(rimeVariant) {
           { x: 22, y: 420, t: "rmspruce", s: 1 }, { x: 660, y: 270, t: "rmspruce", s: 1.1 },
           { x: 690, y: 300, t: "rmspruce", s: 0.9 }, { x: 650, y: 446, t: "rmspruce", s: 1 },
           { x: 610, y: 20, t: "rmspruce", s: 1 },
+        ],
+        // bergs stranded right on the waterline (strand: placed after grounding, unmoved)
+        strand: [
+          { x: 206, y: 98, t: "rmicefall", v: 1, s: 1.1 },
+          { x: 532, y: 162, t: "rmicefall", v: 1, s: 1 },
         ],
       },
     ),
@@ -102,7 +106,6 @@ export default function rimeBoardsC(rimeVariant) {
         ],
         decor: [
           // what the kraken left on the head of the firth
-          { x: 352, y: 146, t: "rmwhale", v: 1, s: 1 }, { x: 462, y: 150, t: "rmwhale", v: 0, s: 0.9 },
           // a steading nobody fishes from now
           { x: 330, y: 24, t: "rmlonghouse", v: 1, s: 1 }, { x: 396, y: 30, t: "rmrack", s: 0.9 },
           { x: 270, y: 30, t: "rmboat", v: 0, s: 1 },
@@ -112,6 +115,13 @@ export default function rimeBoardsC(rimeVariant) {
           { x: 30, y: 140, t: "rmspruce", s: 1.1 }, { x: 22, y: 330, t: "rmspruce", s: 1 },
           { x: 50, y: 360, t: "rmspruce", s: 0.85 }, { x: 680, y: 30, t: "rmspruce", s: 1.1 },
           { x: 660, y: 446, t: "rmspruce", s: 1 },
+        ],
+        // on the shingle at the firth's head and down its west shore
+        strand: [
+          { x: 352, y: 164, t: "rmwhale", v: 1, s: 1 },
+          { x: 424, y: 168, t: "rmwhale", v: 0, s: 0.85 },
+          { x: 388, y: 166, t: "rmboat", v: 1, s: 0.9 },
+          { x: 302, y: 300, t: "rmboat", v: 0, s: 0.85 },
         ],
       },
     ),
@@ -133,13 +143,19 @@ export default function rimeBoardsC(rimeVariant) {
           // the hold: longhouses round the skalds' picture stone
           { x: 88, y: 292, t: "rmlonghouse", v: 0, s: 1.1 }, { x: 176, y: 356, t: "rmlonghouse", v: 1, s: 1 },
           { x: 96, y: 410, t: "rmlonghouse", v: 0, s: 1 }, { x: 160, y: 288, t: "rmskaldstone", s: 1.1 },
-          { x: 136, y: 334, t: "rmrunestone", s: 0.9 }, { x: 178, y: 424, t: "rmrack", s: 1 },
+          { x: 136, y: 334, t: "rmrunestone", s: 0.9 },
           // the hold's ships drawn up on the strand below it
-          { x: 228, y: 430, t: "rmlongship", v: 1, s: 1 }, { x: 196, y: 462, t: "rmboat", v: 0, s: 0.9 },
           // the cliff-top
           { x: 210, y: 14, t: "rmrock", v: 1, s: 1 }, { x: 470, y: 12, t: "rmrock", v: 3, s: 0.9 },
           { x: 690, y: 30, t: "rmspruce", s: 1 }, { x: 30, y: 30, t: "rmspruce", s: 1.1 },
           { x: 64, y: 54, t: "rmspruce", s: 0.85 },
+        ],
+        // the hold's strand, west of where the road comes down to it
+        strand: [
+          { x: 230, y: 445, t: "rmlongship", v: 1, s: 1 },
+          { x: 198, y: 484, t: "rmboat", v: 0, s: 0.9 },
+          { x: 262, y: 414, t: "rmrack", s: 0.9 },
+          { x: 662, y: 442, t: "rmsealrock", s: 0.9 },
         ],
       },
     ),
@@ -164,11 +180,19 @@ export default function rimeBoardsC(rimeVariant) {
           { x: 92, y: 192, t: "rmskaldstone", s: 1.15 }, { x: 104, y: 214, t: "rmrunestone", s: 1 },
           { x: 100, y: 392, t: "rmrunestone", s: 0.9 },
           // his fleet drawn up on the strand
-          { x: 380, y: 111, t: "rmlongship", v: 0, s: 1 }, { x: 560, y: 100, t: "rmlongship", v: 1, s: 1 },
-          { x: 646, y: 196, t: "rmwhale", v: 0, s: 1 }, { x: 476, y: 150, t: "rmrack", s: 0.9 },
+          { x: 646, y: 196, t: "rmwhale", v: 0, s: 1 },
           { x: 680, y: 160, t: "rmboat", v: 1, s: 0.9 },
           { x: 690, y: 420, t: "rmspruce", s: 1.1 }, { x: 650, y: 450, t: "rmspruce", s: 0.9 },
           { x: 330, y: 456, t: "rmrock", v: 2, s: 0.9 }, { x: 20, y: 456, t: "rmspruce", s: 1 },
+        ],
+        // the Jarl's fleet drawn up along his strand, between and over the crests
+        strand: [
+          { x: 196, y: 110, t: "rmlongship", v: 0, s: 1 },
+          { x: 356, y: 86, t: "rmlongship", v: 1, s: 1 },
+          { x: 520, y: 100, t: "rmlongship", v: 0, s: 1 },
+          { x: 284, y: 90, t: "rmboat", v: 1, s: 0.9 },
+          { x: 412, y: 94, t: "rmrack", s: 0.9 },
+          { x: 108, y: 70, t: "rmsealrock", s: 0.9 },
         ],
       },
     ),

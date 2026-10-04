@@ -92,14 +92,22 @@ export default function rimeBoardsB(rimeVariant) {
           { x: 332, y: 18, t: "skerry", s: 0.9 }, { x: 374, y: 110, t: "floe", s: 0.85 },
           { x: 310, y: 186, t: "seals", s: 0.85 },
         ],
+        // on the shingle at the head of the sound, either side of where the
+        // raiders beach: a longship drawn up, an old whale skull, a boat
+        strand: [
+          { x: 282, y: 246, t: "rmlongship", s: 1, v: 0 },
+          { x: 378, y: 260, t: "rmwhale", s: 0.85, v: 1 },
+          { x: 404, y: 246, t: "rmboat", s: 0.9, v: 1 },
+        ],
         decorRecipe: { count: 34, types: ["rmspruce", "rmspruce", "rmrock", "rmtussock", "rmspruce"] },
         decor: [
           // ice crags flanking the sound's mouth
           { x: 192, y: -4, t: "rmicefall", s: 1, v: 1 },
           { x: 488, y: 0, t: "rmicefall", s: 0.95, v: 1 },
-          // boats drawn up at the head of the sound, where the longships beach
-          { x: 290, y: 294, t: "rmboat", s: 0.95, v: 0 },
-          { x: 434, y: 290, t: "rmboat", s: 0.9, v: 1 },
+          // dead grass at the head of the sound (keeps the scattered spruce
+          // off the strip where the raiders jump down)
+          { x: 315, y: 272, t: "rmtussock", s: 1 },
+          { x: 392, y: 284, t: "rmtussock", s: 0.9 },
           // the wolf-riders' muster below the road: their halls and racks
           { x: 260, y: 462, t: "rmlonghouse", s: 1, v: 0 },
           { x: 466, y: 466, t: "rmlonghouse", s: 1, v: 1 },
@@ -183,17 +191,26 @@ export default function rimeBoardsB(rimeVariant) {
           { x: 392, y: 468, t: "seals", s: 1 }, { x: 344, y: 482, t: "skerry", s: 0.9 },
           { x: 438, y: 490, t: "skerry", s: 0.8 }, { x: 210, y: 488, t: "floe", s: 0.8 }, { x: 580, y: 480, t: "floe", s: 0.75 },
         ],
+        // on the shingle: the seal colony hauled out on the headland between
+        // the coves (the coves themselves kept clear for the keels), the old
+        // landing's longship and boat west of the first cove, a whale's ribs
+        // and a boat east of the second
+        strand: [
+          { x: 120, y: 427, t: "rmlongship", s: 1, v: 1 },
+          { x: 170, y: 402, t: "rmboat", s: 0.9, v: 0 },
+          { x: 370, y: 408, t: "rmsealrock", s: 1 },
+          { x: 430, y: 410, t: "rmsealrock", s: 0.9 },
+          { x: 480, y: 410, t: "rmsealrock", s: 0.95 },
+          { x: 600, y: 384, t: "rmboat", s: 0.9, v: 1 },
+          { x: 640, y: 394, t: "rmwhale", s: 1, v: 0 },
+        ],
         decorRecipe: { count: 34, types: ["rmspruce", "rmrock", "rmtussock", "rmspruce"] },
         decor: [
           // the headland between the coves, the seals hauled out on it
-          { x: 380, y: 380, t: "rmsealrock", s: 1 },
-          { x: 424, y: 388, t: "rmsealrock", s: 0.85 },
           { x: 364, y: 336, t: "rmrock", s: 0.9, v: 3 },
           // the raiders' old landing west of the first cove: a longship drawn
           // up, its fish rack and a whale's ribs
-          { x: 112, y: 392, t: "rmlongship", s: 1, v: 1 },
           { x: 20, y: 340, t: "rmrack", s: 0.9 },
-          { x: 654, y: 374, t: "rmwhale", s: 1, v: 0 },
           // spruce on the high ground north of the bay
           { x: 380, y: 20, t: "rmspruce", s: 1.05 },
           { x: 430, y: 52, t: "rmspruce", s: 0.95 },
@@ -217,11 +234,19 @@ export default function rimeBoardsB(rimeVariant) {
           { x: 600, y: 2, t: "berg", s: 1 }, { x: 480, y: -10, t: "floe", s: 0.9 },
           { x: 684, y: 32, t: "floe", s: 0.8 }, { x: 540, y: 46, t: "seals", s: 0.8 },
         ],
+        // on the strand: the fishers' boats and racks where the shingle is
+        // widest, seals and a whale's ribs further along under the road
+        strand: [
+          { x: 430, y: 48, t: "rmboat", s: 0.9, v: 1 },
+          { x: 480, y: 70, t: "rmlongship", s: 1, v: 0 },
+          { x: 520, y: 92, t: "rmrack", s: 0.9 },
+          { x: 580, y: 100, t: "rmsealrock", s: 0.9 },
+          { x: 650, y: 92, t: "rmwhale", s: 0.95, v: 0 },
+        ],
         decorRecipe: { count: 36, types: ["rmrock", "rmspruce", "rmtussock", "rmrock"] },
         decor: [
           // the head of the strand: a fishers' landing, a whale's skull
           { x: 380, y: 76, t: "rmrack", s: 0.95 },
-          { x: 430, y: 102, t: "rmboat", s: 0.9, v: 1 },
           { x: 320, y: 52, t: "rmwhale", s: 0.95, v: 1 },
           // the steading in the north-west, spruce round it
           { x: 110, y: 78, t: "rmlonghouse", s: 1, v: 0 },
