@@ -176,6 +176,12 @@ export const FACTIONS = {
   },
 };
 
+// Zone IV's Rime Clans (faction-rime.js), listed for Free Play playtests while
+// the Rimewater has no campaign levels yet (owner, 2026-10-04). `preview`
+// keeps them out of "Every Army" (sandbox.js armiesOf), so the all-army
+// presets still mean the three crowns.
+Object.assign(FACTIONS, TEST_FACTIONS);
+
 // The army currently marching. Module exports are live bindings, so the engine
 // and the panels pick up a change here without being re-wired — the same trick
 // selectRealm() uses for terrain.

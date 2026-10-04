@@ -103,16 +103,22 @@ export const PRESETS = [
   { id: "blitz", name: "Blitz", tag: "FAST", blurb: "Foes half again as quick, ten seconds between waves, and the horn blows itself.", patch: { speedMul: 1.5, autoWaves: true, buildTime: 10 } },
   { id: "threecrowns", name: "War of Three Crowns", tag: "ALL ARMIES", blurb: "The Horde, the Iron Kingdom and the Hollow Court on one road, taking turns to lead.", patch: { army: "all", script: false, gold: 400 } },
   { id: "laststand", name: "Last Stand", tag: "HARDCORE", blurb: "One life. Leaner bounties. No militia. Every leak ends it.", patch: { lives: 1, bountyMul: 0.75, militia: false } },
+  // previews of what is coming (owner, 2026-10-04): zone IV's Rime Clans on
+  // their test strand (landings, blizzards, frost shrouds, the sea monsters
+  // on the fjord boards), and zone V's eruptions over the Ember Wastes
+  { id: "rimewater", name: "The Rimewater", tag: "ZONE IV PREVIEW", blurb: "The Rime Clans off the frozen sea: longships beaching behind your lines, blizzards, seers who ice your halls, a serpent and a kraken in the water. Not tuned yet: 50 lives to see it all.", patch: { army: "rime", realm: "rimewatch", gold: 1000, lives: 50 } },
+  { id: "eruptions", name: "Ashen Eruptions", tag: "ZONE V PREVIEW", blurb: "The Ember Wastes with the earth awake: burning rocks rain on the road and set halls near it alight.", patch: { realm: "ember", weather: "eruption", weatherPower: 1 } },
   { id: "chaos", name: "Chaos", tag: "STRESS TEST", blurb: "Every army, five times the crowd, infinite gold and an unbreakable castle. How much can the road hold?", patch: { army: "all", script: false, countMul: 5, gapMul: 0.4, infiniteGold: true, invincible: true } },
 ];
 export const presetById = (id) => PRESETS.find((p) => p.id === id) || PRESETS[0];
 
 // Settings from a preset, keeping the chosen battlefield.
-export const fromPreset = (id, keep = {}) => ({ ...DEFAULTS, ...presetById(id).patch, preset: id, realm: keep.realm ?? DEFAULTS.realm });
+// (a preview preset brings its own battlefield)
+export const fromPreset = (id, keep = {}) => ({ ...DEFAULTS, ...presetById(id).patch, preset: id, realm: presetById(id).patch.realm ?? keep.realm ?? DEFAULTS.realm });
 
 // ---- what the choices mean -----------------------------------------------------
 // The armies a setting draws from.
-export const armiesOf = (s) => (s.army === "all" ? Object.keys(FACTIONS) : [s.army in FACTIONS ? s.army : "greenwood"]);
+export const armiesOf = (s) => (s.army === "all" ? Object.keys(FACTIONS).filter((id) => !FACTIONS[id].preview) : [s.army in FACTIONS ? s.army : "greenwood"]);
 // Every foe the chosen armies could field (roster, script, champions), for the
 // setup screen's toggles. Mothballed foes (the raft goblin) are included —
 // the sandbox is where they get to walk again.

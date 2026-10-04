@@ -22,6 +22,7 @@ export const RIME = {
   name: "The Rime Clans",
   tag: "RAIDERS",
   tagColor: "#bfe4f2",
+  preview: true,   // in Free Play's army list, never in "Every Army"
   blurb: "Raiders off the frozen sea: thralls in floods, mailed huscarls, seers who sing frost over your halls — and longships that beach behind your lines.",
   types: ["thrall", "huscarl", "rimeseer", "berserker", "rimerider", "skald", "frostgiant", "icedrake", "seaserpent", "kraken", "rimejarl"],
   crowdScale: 0.6,

@@ -66,6 +66,8 @@ const TABS = [
 const REALM_GROUPS = [
   { name: "The Free Realms", ids: ["proving", "greenwood", "frostfang", "mistmoor", "ember"] },
   ...CHAPTERS.map((ch) => ({ name: `${ch.numeral}. ${ch.name}`, ids: ch.levels.map((l) => l.realm).filter((id) => id !== "greenwood") })),
+  // zone IV's test boards, for playtests before its campaign exists
+  { name: "IV. The Rimewater (preview)", ids: ["rimewatch", "rimefjord", "rimeriver", "rimedry"] },
 ].map((g) => ({ ...g, ids: g.ids.filter((id) => REALMS[id]) }));
 
 const TIERS = [
@@ -342,7 +344,7 @@ export default function SandboxSetup({ initial, onStart, onBack, initialTab = "f
 
   // ---- tab: ENEMIES ----
   const armies = [...Object.values(FACTIONS).map((f) => ({ id: f.id, name: f.name, short: f.name.replace(/^The /, ""), tag: f.tag, color: f.tagColor, icons: f.types, lead: f.endlessBoss || f.types[0] })),
-    { id: "all", name: "Every Army", short: "Every Army", tag: "ALL CROWNS", color: "var(--gold-lt)", icons: Object.values(FACTIONS).map((f) => f.endlessBoss).filter(Boolean), lead: null }];
+    { id: "all", name: "Every Army", short: "Every Army", tag: "ALL CROWNS", color: "var(--gold-lt)", icons: Object.values(FACTIONS).filter((f) => !f.preview).map((f) => f.endlessBoss).filter(Boolean), lead: null }];
   const foeCount = s.types ? s.types.length : allTypes.length;
   const foesTab = (
     <div style={{ display: "flex", gap: 12, height: "100%" }}>

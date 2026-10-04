@@ -523,7 +523,7 @@ export default function Crownguard() {
         setUi({
           heroKey: heroKeyUi, militiaSec,
           hero: hb ? { key: hb.hero, name: hb.name, level: hb.level, xp: hb.xp, next: heroXpFor(hb.level), dead: hu.state === "dead", hp: Math.max(0, Math.round(hu.hp)), maxHp: hu.maxHp, respawn: hu.state === "dead" ? Math.ceil(hu.respawn / 1000) : 0, abilities: heroAbs, canSwap: canSwapHero(g), swapping: !!g.heroSwap } : null,
-          castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: CASTLE_HP + worksBonusHp(g.castle, g.castleRanks),
+          castleKey, castle: { ...(g.castle || emptyWorks()) }, castleRanks: { ...(g.castleRanks || {}) }, maxLives: (SANDBOX ? SANDBOX.lives : CASTLE_HP) + worksBonusHp(g.castle, g.castleRanks),
           gold: Math.floor(g.gold), lives: g.lives, wave: g.wave, phase: g.phase,
           selected: sel ? { id: sel.id, kind: sel.kind, level: sel.level, branch: sel.branch, rank4: sel.rank4, invested: sel.invested, aim: sel.aim,
             unitAims, kills: sel.kills || 0, dmgOut: sel.dmgOut || 0, formDmg: sel.formDmg || 0, formTime: sel.formTime || 0 } : null,

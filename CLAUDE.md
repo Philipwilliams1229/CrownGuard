@@ -124,8 +124,15 @@ uses; existing levels sim byte-identical). Read the headers of
   `ui/WeatherForecast.jsx`): fog exact (the same per-wave roll), the timed
   kinds named when a spell rises before the wave's last foe leaves the
   wood, "likely" when it would rise within about one road-walk after.
-- Test faction `rime` (src/data/faction-rime.js, not in FACTIONS) and board
-  `rimewatch` (src/data/realms-rime.js, not in Free Play); placeholder art in
+- **Playtest previews in Free Play** (owner, 2026-10-04): the Rime Clans
+  are merged into FACTIONS (`preview: true` keeps them out of "Every
+  Army"), the four rime boards are a "IV. The Rimewater (preview)" group,
+  and two presets exist: "The Rimewater" (rimewatch, the Rime army, 1000
+  gold, 50 lives: the army is untuned) and "Ashen Eruptions" (the Ember
+  Wastes under eruptions). A preset may bring its own `realm` (fromPreset).
+  The lives chip's max reads the sandbox's lives in Free Play.
+- Test faction `rime` (src/data/faction-rime.js) and board
+  `rimewatch` (src/data/realms-rime.js); placeholder art in
   `render/rimefx.js` (longship, telegraph, ice shell, rig aliases to delete
   when `rigs-rime.js` exists) and `render/weatherfx.js`. `rim-lab.html`
   steps the real engine and snaps it (`?wave=&snaps=&towers=&squall=&crop=`).
