@@ -344,6 +344,17 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   the crowd behind a 30-speed ram arrived in one lump; speed 46 took that back
   to ~1.5x, and a big escort added more, so keep the escort lean (5+0.6a levies,
   3+0.35a bows). The ram's `speed` is the knob if it is still too much.
+- **Rams from wave 15, 20 s apart; healers walk in the column** (owner,
+  2026-10-04, provisional): `wallFrom: 15` on the Iron faction drops every
+  `roadBlock` group from a level's waves 1-14 (waves.js, campaign windows
+  only; Free Play keeps its script), so the early levels are ram-free and a
+  20-wave map gets them on its last six. `WALL_STAGGER` 9000 -> 20000 ms
+  between rams (second one on its own clock, a third 20 s after). `gather:
+  ["chaplain"]` marks the Battle Chaplain `amid` like the magister, and
+  `gatherEscort` picks a FOOT group for a healer (never riders or fliers
+  unless the wave has nothing else). Iron `--endure` after: all 15 held,
+  `--check-wall` 0 passes; bleed about even to a little lower (ir2 283/213 ->
+  242/109, crowstair 1776/622 -> 1275/704).
 - **Cavalry ride round rams** (`mounted` on the cavalier): on about half the
   waves that hold both, the cavalry surge goes FIRST, then the ram, then the
   column; otherwise the ram leads (`shapeCompany`, seeded by the wave).

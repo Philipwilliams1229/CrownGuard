@@ -173,7 +173,7 @@ const raisersLast = (spec) => {
   out.overlap = spec.overlap;
   return out;
 };
-const WALL_STAGGER = 9000, WALLS_MAX = 3;
+const WALL_STAGGER = 20000, WALLS_MAX = 3;   // 9000 -> 20000 (owner, 2026-10-04: "pretty spaced out")
 const shapeCompany = (spec, a) => {
   const wallT = spec.find((g) => ENEMIES[g[0]]?.roadBlock)?.[0];
   if (!wallT) return spec;
@@ -218,6 +218,9 @@ export const waveSpec = (w) => {
   // thicker, because the crowd reads the level's true (fractional) position
   let spec = dryLand(scripted ? FACTION.waves[a - 1] : genWave(w));
   spec = spec.filter(([type]) => !BOSSES.has(type));
+  // a faction may hold its wall back (`wallFrom`, factions.js): no siege ram
+  // on a level's early waves, whatever the script says (owner, 2026-10-04)
+  if (FACTION.wallFrom && w < FACTION.wallFrom) spec = spec.filter(([type]) => !ENEMIES[type]?.roadBlock);
   // a foe that needs its answer built first (the wraith: a Paladin hall) waits
   // for a later wave of the level; a stand-in, doubled, marches in its place
   spec = spec.map((g) => (ENEMIES[g[0]]?.firstWave > w ? [ENEMIES[g[0]].standIn, g[1] * 2, ...g.slice(2)] : g));
@@ -295,11 +298,18 @@ const dryLand = (spec) => {
 // group of rank and file, as the magister does. A wave with no such group
 // (only trolls, say) keeps its escort as written.
 const gatherEscort = (spec, type) => {
-  let big = -1, most = 0;
-  spec.forEach(([t, n], i) => {
-    if (t === type || BOSSES.has(t) || ENEMY_BOSS(t) || (CROWD_WEIGHT[t] ?? 0) < 0.3) return;
-    if (n > most) { most = n; big = i; }
-  });
+  // (a healer keeps to the foot column: horse and wings outrun him, so a
+  // group of riders or fliers is only chosen when the wave has nothing else)
+  const pick = (afoot) => {
+    let big = -1, most = 0;
+    spec.forEach(([t, n], i) => {
+      if (t === type || BOSSES.has(t) || ENEMY_BOSS(t) || (CROWD_WEIGHT[t] ?? 0) < 0.3) return;
+      if (afoot && (ENEMIES[t]?.mounted || ENEMIES[t]?.flying)) return;
+      if (n > most) { most = n; big = i; }
+    });
+    return big;
+  };
+  const big = ENEMIES[type]?.healPct ? (pick(true) >= 0 ? pick(true) : pick(false)) : pick(false);
   if (big < 0) return spec;
   const out = spec.map((g) => { const c = g.slice(); if (g.amid != null) c.amid = g.amid; if (g.clock != null) c.clock = g.clock; return c; });
   out.forEach((g) => { if (g[0] === type) { g[2] = 0; g.amid = big; } });
