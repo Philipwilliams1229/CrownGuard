@@ -47,12 +47,12 @@
 
 import { W, H, PATH_HALF, RES, MX, MY } from "../data/constants.js";
 import { PTS, TOTAL_LEN, posAt, angleAt, nearestOnPath } from "../engine/path.js";
-import { COAST, PONDS, inSea, seaDepthAt, coastLine, inRiver, forestDepthAt, DECOR } from "../data/terrain.js";
+import { COAST, PONDS, RIVERS, inSea, seaDepthAt, coastLine, inRiver, forestDepthAt, DECOR } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
 import {
   lighten, darken, mix, rgb, rgba, soft, shadow, ball, glow, cylinder, hash, ellipse, lin, bakeSprite, inkOutline, part, PX,
 } from "./paint.js";
-import { turfTones } from "./world.js";
+import { turfTones, groundLayer } from "./world.js";
 
 // ---- the Rimewater's colours -------------------------------------------------
 const INK = "#241a26";
@@ -229,26 +229,36 @@ const rimeTurf = (ctx, kit) => {
     if (!at0) continue;
     const [cx, cy] = at0, sd = (rng() * 1e5) | 0;
     taken.push([cx, cy, rx + 3]);
+    // (the same sheet as the meres', at a puddle's scale: a shaded north
+    // rim and a wet thaw line on the sunlit south, snow streaked over the
+    // windward half, a clear dark window in the lee, cracks with a lit lip)
     const wob = (a) => 1 + (vn(Math.cos(a) * 1.4 + 9, Math.sin(a) * 1.4 + 9, sd) - 0.5) * 0.35;
+    const WIN = [Math.round(IC[0][0] * 0.55), Math.round(IC[0][1] * 0.55), Math.round(IC[0][2] * 0.6)], WET = [22, 40, 54];
+    const wx = cx - rx * 0.3, wy = cy + ry * 0.15;                  // where the window lies (downwind of the middle)
     for (let py = P(cy - ry - 2); py <= P(cy + ry + 2); py++) for (let px = P(cx - rx - 2); px <= P(cx + rx + 2); px++) {
       const x = (px / K - cx) / rx, y = (py / K - cy) / ry, a = Math.atan2(y, x), q = Math.hypot(x, y) / wob(a);
       if (q > 1.18) continue;
       if (q > 1) { if (y < 0) shift(px, py, -1, 0); else shift(px, py, 1, 2); continue; }   // the sunk rim: shaded north, lit south
-      // the ice: dark under the north rim, paling south; streaks of glare
-      const g = y * 0.5 + 0.35 + (vn(px / 5, py / 2, sd) - 0.5) * 0.4;
-      let k = q > 0.84 && y < 0 ? 0 : g < 0.2 ? 1 : g < 0.62 ? 2 : 3;
+      if (q > 0.9 && y > 0.3) { set(px, py, WET); continue; }                                 // the thaw line along the sunlit edge
+      if (q > 0.84 && y < 0) { set(px, py, IC[0]); continue; }                                 // the north rim's shadow on the ice
+      const u = windU(px / K, py / K), v = windV(px / K, py / K);
+      const S = vn(u / 7, v / 2.2, sd + 3) - x * 0.18;                                            // snow streaks, more on the windward (west) half
+      if (S > 0.62 && q < 0.92) { shift(px, py, S > 0.72 ? 1 : 0, S > 0.72 ? 2 : 1); continue; }
+      const wd = Math.hypot((px / K - wx) / (rx * 0.42), (py / K - wy) / (ry * 0.5)) + (vn(px / 2.5, py / 2.5, sd + 5) - 0.5) * 0.5;
+      if (wd < 1 && q < 0.8) { set(px, py, ((px + py * 2 + sd) % 11) < 1 && y > -0.2 ? IC[1] : WIN); continue; }   // the window, the sun's sheen across it
+      let k = y < -0.1 ? 2 : 3;
       if (((px + py * 2 + sd) % 23) < 2 && q < 0.8) k = 4;
-      if (vn(px / 3, py / 3, sd + 4) > 0.74 && q < 0.9) { shift(px, py, 0); continue; }   // a dusting of snow left on it
       set(px, py, IC[k]);
     }
-    // a crack or two
-    for (let c = 0; c < 1 + (rng() * 2 | 0); c++) {
-      let x = P(cx + (rng() - 0.5) * rx), y = P(cy + (rng() - 0.5) * ry * 0.6), a = rng() * 6.3;
-      for (let k = 0; k < rx * 1.6; k++) {
-        a += (rng() - 0.5) * 0.9; x += Math.round(Math.cos(a)); y += Math.round(Math.sin(a) * 0.6);
+    // cracks, from the rim inward, a lit lip on their upper-left side
+    for (let c = 0; c < 2 + (rng() * 2 | 0); c++) {
+      const a0 = rng() * 6.3;
+      let x = P(cx + Math.cos(a0) * rx * 0.8), y = P(cy + Math.sin(a0) * ry * 0.8), a = a0 + Math.PI + (rng() - 0.5) * 0.8;
+      for (let k = 0; k < rx * 1.4; k++) {
+        a += (rng() - 0.5) * 0.5; x += Math.round(Math.cos(a)); y += Math.round(Math.sin(a) * 0.6);
         const xx = (x / K - cx) / rx, yy = (y / K - cy) / ry;
         if (xx * xx + yy * yy > 0.8) break;
-        set(x, y, IC[0]); if (k & 1) set(x, y - 1, IC[4]);
+        set(x, y, IC[0]); if (k & 1) set(x - 1, y - 1, IC[4]);
       }
     }
   }
@@ -752,14 +762,25 @@ const rmicefall = (ctx, x, y, s, o) => {
       // the ice curtain: columns of blue ice, lit edges, icicle tips
       const top = gy - h * 0.78;
       for (let k = 0; k < 9; k++) {
-        const cx = x - 6 * s + k * 1.5 * s, len = h * 0.78 - hash(sd, k) * 3 * s, wd = (1.3 + hash(sd, k + 9)) * s;
-        c.fillStyle = k % 3 === 0 ? ICE[3] : ICE[2]; c.fillRect(ap(cx), top + hash(sd, k + 3) * 2, wd, len);
-        c.fillStyle = ICE[4]; c.fillRect(ap(cx), top + 2, 0.5, len * 0.8);
-        c.fillStyle = ICE[1]; c.fillRect(ap(cx + wd - 0.5), top + 3, 0.5, len * 0.7);
+        const cx = x - 6 * s + k * 1.5 * s, len = h * 0.78 - hash(sd, k) * 3 * s, wd = (1.3 + hash(sd, k + 9)) * s, t0 = top + hash(sd, k + 3) * 2;
+        // each column: pale ice, a blue depth down its middle, a lit left
+        // edge and a dark right one, tapering to an icicle's tip
+        c.fillStyle = k % 3 === 0 ? ICE[3] : ICE[2]; c.fillRect(ap(cx), t0, wd, len - 1.5 * s);
+        c.fillStyle = k % 3 === 1 ? ICE[0] : ICE[1]; c.fillRect(ap(cx + wd * 0.4), t0 + len * 0.3, 0.5, len * 0.55);
+        c.fillStyle = ICE[4]; c.fillRect(ap(cx), t0 + 1, 0.5, len * 0.7);
+        c.fillStyle = ICE[1]; c.fillRect(ap(cx + wd - 0.5), t0 + 2, 0.5, len * 0.6);
+        c.fillStyle = ICE[2]; c.fillRect(ap(cx + wd * 0.25), t0 + len - 1.5 * s, Math.max(0.5, wd * 0.5), 1.5 * s);   // the tip
+        if (hash(sd, k + 20) < 0.5) { c.fillStyle = ICE[1]; c.fillRect(ap(cx + wd * 0.25), ap(t0 + len), 0.5, 0.5); }
       }
+      // the frozen pool at its foot: a sheet with a dark window, cracks, snow at its rim
+      c.fillStyle = ICE[1]; ellipse(c, x + 0.5, gy + 0.8, 9.5 * s, 2.6 * s); c.fill();
       c.fillStyle = ICE[3]; ellipse(c, x, gy, 9 * s, 2.4 * s); c.fill();
-      c.fillStyle = ICE[4]; c.fillRect(ap(x - 6 * s), ap(gy - 1), 5 * s, 0.5);
-      c.fillStyle = ICE[1]; c.fillRect(ap(x + 2 * s), ap(gy + 1), 5 * s, 0.5);
+      c.fillStyle = mix(ICE[0], "#1f3a4a", 0.55); ellipse(c, x + 2 * s, gy + 0.4, 3.2 * s, 1 * s); c.fill();
+      c.fillStyle = ICE[1]; c.fillRect(ap(x + 1 * s), ap(gy + 0.3), 2 * s, 0.5);
+      c.fillStyle = ICE[0]; for (let k = 0; k < 5; k++) px1(c, x - 7 * s + k * 1.6 * s, gy - 0.5 + Math.sin(k * 1.7) * 0.7, 1.5, 0.5);
+      c.fillStyle = ICE[4]; for (let k = 0; k < 5; k += 2) px1(c, x - 7.5 * s + k * 1.6 * s, gy - 1 + Math.sin(k * 1.7) * 0.7, 1, 0.5);
+      c.fillStyle = SNOW; c.fillRect(ap(x - 8 * s), ap(gy - 1.8), 3 * s, 0.5); c.fillRect(ap(x + 4 * s), ap(gy - 1.5), 3.5 * s, 0.5);
+      c.fillStyle = ICE[1]; c.fillRect(ap(x + 2 * s), ap(gy + 1.5), 5 * s, 0.5);
     });
   } else {
     // an ice crag: seracs of blue ice, snow on their tops, dark cracks
@@ -1198,13 +1219,271 @@ const rimeGateTree = (d) => {
   return 0;
 };
 
-// ============ WHAT STANDS IN THE WATER ============
-// Ice floes, small bergs, skerries and seal rocks, drawn flat over the water
-// (with the gate's layer, before anything stands): each baked once with its
-// waterline — an underwater skirt in pale teal, the waterline lapped, a dark
-// reflection — and a live lap of foam round it. REALM.rimeFloes lists them
-// (grid px, on the waterline); a board with sea or meres and no list gets a
-// few sown, clear of the road and the beach.
+// ============ THE ICE ON THE WATER ============
+// Still water freezes from its shores (REALM.rimeIce, see the header): a
+// sheet of fast ice baked once a board OVER the painted water, keyed to
+// world coordinates, drawn with the gate's layer (after water.js's live
+// marks, so nothing glints through it). Nature's terms:
+//  - the shore edge is thick: a frost rim beside a shaded bank, a thin wet
+//    THAW line beside a sunlit one (the light comes from the upper left);
+//  - snow lies over part of the sheet in streaks along THE wind, piled
+//    against the shore the wind blows onto; where it blew off, clear dark
+//    WINDOWS show the deep water, with the sun's sheen across them;
+//  - a crack network: dark hairlines with a lit upper-left lip, branching,
+//    a few long ones out from the shore;
+//  - PRESSURE RIDGES where two sheets met (a lit crest over a shadow,
+//    rubble on it) and on sea ice LEADS of open water along the ridge line;
+//  - the seaward edge is ragged, its face shaded over a dark wet line of
+//    water, and beyond it BRASH: loose cakes drifting slowly (baked, stamped
+//    live), then the floes and bergs.
+//  - a fishing hole, chipped through a big mere's sheet.
+// The sheet is art over water: skiffs row under it, ships sail through it,
+// so it stays thin (a sea band of ~5-26 px), and a LANDING beach keeps a lane
+// of open water (the longships' lane) through it.
+// `rimeFastIceAt(x, y)` (0..1) tells coast.js where the sea is covered.
+const ICE_SHEET = { key: "", B: null };
+const SEA_ICE = { top: 14, bottom: 8, left: 10, right: 10 };    // base thickness by coast edge (units)
+const MERE_ICE = 8;
+// the sheet's own tones (RGB)
+const RGB_ICE = ICE.map(hexRGB);
+const RGB_SNOW = [SNOW_DK, SNOW_SH, SNOW, SNOW_LT].map(hexRGB);
+const RGB_CRACK = hexRGB("#3b5a70"), RGB_RIDGE_SH = hexRGB("#5d82a0");
+const lerp3 = (a, b, t) => [Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t), Math.round(a[2] + (b[2] - a[2]) * t)];
+
+// where the longships land: a lane of open water is kept through the ice
+const landingSpots = () => {
+  const out = [];
+  for (const L of REALM.landings || []) {
+    if (!L || L.at == null) continue;
+    if (Array.isArray(L.at)) out.push([L.at[0] * 48 + 24 + MX, L.at[1] * 48 + 24 + MY]);
+    else if (PTS.length > 1) out.push(posAt(Math.max(0.05, Math.min(0.95, L.at)) * TOTAL_LEN));
+  }
+  return out;
+};
+
+const iceBake = () => {
+  const key = `${REALM.id}|${PTS.length}|${PONDS.length}|${COAST ? COAST.edge + COAST.depth : ""}|${RES}`;
+  if (ICE_SHEET.key === key) return ICE_SHEET.B;
+  ICE_SHEET.key = key; ICE_SHEET.B = null;
+  if (typeof document === "undefined" || REALM.rimeIce === false || RES !== PX) return null;
+  const opt = REALM.rimeIce || {};
+  const seaT = COAST && opt.sea !== false ? (opt.sea ?? SEA_ICE[COAST.edge] ?? 9) : 0;
+  const mereT = opt.mere === false ? 0 : (opt.mere ?? MERE_ICE);
+  // (an "ice" pond is painted frozen whole by water.js; lava never)
+  const ponds = mereT ? PONDS.filter((p) => !p.t || p.t === "swamp") : [];
+  if (!seaT && !ponds.length) return null;
+  const K = PX, PW = W * K, PH = H * K, N = PW * PH, sd = (REALM.seed | 0) % 9973;
+  const st = new Uint8Array(N);      // 0 land, 1 still water (ice forms), 2 water kept open (a river, the castle's water, a landing lane)
+  const who = new Uint8Array(N);     // 1 the sea, 2+i pond i
+  const base = [seaT];               // thickness per `who` - 1
+  // ---- the sea, by its geometry
+  if (seaT) {
+    const e = COAST.edge, along = e === "top" || e === "bottom", span = along ? PW : PH;
+    const line = new Float32Array(span + 1);
+    for (let i = 0; i <= span; i++) line[i] = Math.max(0, coastLine(i / K));
+    for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) {
+      const u = along ? i : j, v = along ? (e === "top" ? j : PH - 1 - j) : (e === "left" ? i : PW - 1 - i);
+      if (line[u] * K - v <= 0) continue;
+      const k = j * PW + i;
+      st[k] = i > (W - 96) * K ? 2 : 1; who[k] = 1;
+    }
+  }
+  // ---- the meres, by the colour of the painted water (the shore is wobbled by water.js)
+  if (ponds.length) {
+    const g = groundLayer().getContext("2d").getImageData(0, 0, PW, PH).data;
+    ponds.forEach((p, n) => {
+      const m = Math.min(p.w, p.h) / 2;
+      base.push(Math.min(mereT, Math.max(3, m * 0.42)));
+      const x0 = Math.max(0, Math.floor((p.x - p.w / 2 - 14) * K)), x1 = Math.min(PW - 1, Math.ceil((p.x + p.w / 2 + 14) * K));
+      const y0 = Math.max(0, Math.floor((p.y - p.h / 2 - 14) * K)), y1 = Math.min(PH - 1, Math.ceil((p.y + p.h / 2 + 14) * K));
+      for (let j = y0; j <= y1; j++) for (let i = x0; i <= x1; i++) {
+        const k = j * PW + i;
+        if (st[k]) continue;
+        const o = k << 2, r = g[o], gg = g[o + 1], b = g[o + 2];
+        // the cold water's tones: teal-blue (green well over red, blue over green), or the channel's near-black blue
+        if ((gg - r >= 20 && b - gg >= 8 && r + gg + b < 490) || (b - r >= 20 && r + gg + b < 210)) { st[k] = 1; who[k] = 2 + n; }
+      }
+    });
+  }
+  // rivers run on; the longships' lanes stay open (a lane lies at the
+  // stretch of shore nearest the landing's road spot)
+  const lanes = landingSpots().map(([lx, ly]) => {
+    let bx = lx, by = ly, bd = Infinity;
+    for (let j = 0; j < PH; j += 2) for (let i = 0; i < PW; i += 2) {
+      if (st[j * PW + i] !== 1) continue;
+      const q = (i / K - lx) ** 2 + (j / K - ly) ** 2;
+      if (q < bd) { bd = q; bx = i / K; by = j / K; }
+    }
+    return [bx, by];
+  });
+  if (RIVERS.length || lanes.length) for (let j = 0; j < PH; j += 1) for (let i = 0; i < PW; i += 1) {
+    const k = j * PW + i;
+    if (st[k] !== 1) continue;
+    const x = i / K, y = j / K;
+    if (RIVERS.length && inRiver(x, y, 1)) { st[k] = 2; continue; }
+    for (const [lx, ly] of lanes) {
+      const rr = 46 * (0.8 + 0.4 * vn(x / 9, y / 9, sd + 3));
+      if (Math.hypot(x - lx, y - ly) < rr) { st[k] = 2; break; }
+    }
+  }
+  // ---- distance to the nearest land pixel (two sweeps, carrying the seed)
+  const sx = new Int16Array(N), sy = new Int16Array(N), d2 = new Int32Array(N);
+  const FAR = 0x3fffffff;
+  for (let k = 0, j = 0; j < PH; j++) for (let i = 0; i < PW; i++, k++) {
+    if (st[k]) { d2[k] = FAR; sx[k] = -1; } else { d2[k] = 0; sx[k] = i; sy[k] = j; }
+  }
+  const take = (k, i, j, n) => {
+    if (sx[n] < 0) return;
+    const dx = i - sx[n], dy = j - sy[n], q = dx * dx + dy * dy;
+    if (q < d2[k]) { d2[k] = q; sx[k] = sx[n]; sy[k] = sy[n]; }
+  };
+  for (let j = 1; j < PH; j++) {
+    const row = j * PW, up = row - PW;
+    for (let i = 0; i < PW; i++) { const k = row + i; if (!d2[k]) continue; take(k, i, j, up + i); if (i) { take(k, i, j, up + i - 1); take(k, i, j, k - 1); } if (i < PW - 1) take(k, i, j, up + i + 1); }
+    for (let i = PW - 2; i >= 0; i--) { const k = row + i; if (d2[k]) take(k, i, j, k + 1); }
+  }
+  for (let j = PH - 2; j >= 0; j--) {
+    const row = j * PW, dn = row + PW;
+    for (let i = PW - 1; i >= 0; i--) { const k = row + i; if (!d2[k]) continue; take(k, i, j, dn + i); if (i < PW - 1) { take(k, i, j, dn + i + 1); take(k, i, j, k + 1); } if (i) take(k, i, j, dn + i - 1); }
+    for (let i = 1; i < PW; i++) { const k = row + i; if (d2[k]) take(k, i, j, k - 1); }
+  }
+  // ---- the sheet
+  const cv = document.createElement("canvas"); cv.width = PW; cv.height = PH;
+  const c = cv.getContext("2d"), img = c.createImageData(PW, PH), D = img.data;
+  let bx0 = PW, by0 = PH, bx1 = 0, by1 = 0;                          // the painted box, so the frame stamps only that
+  const put = (k, col) => {
+    const o = k << 2; D[o] = col[0]; D[o + 1] = col[1]; D[o + 2] = col[2]; D[o + 3] = 255;
+    const i = k % PW, j = (k - i) / PW;
+    if (i < bx0) bx0 = i; if (i > bx1) bx1 = i; if (j < by0) by0 = j; if (j > by1) by1 = j;
+  };
+  const isIce = (k) => k >= 0 && k < N && D[(k << 2) + 3] === 255 && st[k] === 1;
+  const wa = REALM.water || {}, deep = hexRGB(wa.deep || "#1f3a4a");
+  const WET = lerp3(deep, [6, 18, 28], 0.4), WIN = lerp3(deep, RGB_ICE[0], 0.3), WIN_LT = lerp3(deep, RGB_ICE[1], 0.62);
+  const LX = 0.586, LY = 0.81;                         // the light, down and to the right
+  const cover = new Uint8Array(W * H);
+  const streak = (px, py) => { const L = 3 + (hash(py, sd + 5) * 5 | 0), id = Math.floor((px + hash(py, sd + 6) * 9) / L); return hash(id, py * 31 + sd); };
+  const dz0 = (px, py) => hash(Math.floor(px / 3), py + sd);
+  const thick = new Float32Array(N);                   // the local sheet thickness, for the dressing passes
+  const starts = [], cakes = [], holes = [];
+  const rng = mulberry((REALM.seed ^ 0x1ce5) >>> 0);
+  for (let k = 0, j = 0; j < PH; j++) for (let i = 0; i < PW; i++, k++) {
+    if (st[k] !== 1 || !d2[k]) continue;
+    const d = Math.sqrt(d2[k]) / K, x = i / K, y = j / K, ax = sx[k] / K, ay = sy[k] / K;
+    const nx = (x - ax) / d, ny = (y - ay) / d;         // the shore's outward normal, land to water
+    // the sheet's reach from this stretch of shore: smooth along the shore, ragged at the pixel
+    let T = base[who[k] - 1] * (0.6 + 0.8 * vn(ax / 16, ay / 16, sd + 1)) + (vn(x / 3.5, y / 3.5, sd + 2) - 0.5) * 2.6;
+    if (T < 1.6) T = 1.6;
+    thick[k] = T;
+    if (d > T + 1.1) {
+      // brash: loose cakes beyond the edge
+      if (d < T + 3.2 && (i % K) === 0 && (j % K) === 0 && hash(i, j + sd) < 0.007 && cakes.length < 44) cakes.push({ x, y, z: (hash(j, i + sd) * 3) | 0, v: (hash(i + 7, j) * 3) | 0, tx: -ny, ty: nx, ph: hash(i, j) * 6.28 });
+      continue;
+    }
+    if (d > T) { put(k, WET); continue; }              // the dark water under the sheet's edge
+    if ((i % K) === 1 && (j % K) === 1 && who[k] === 1) cover[(j >> 1) * W + (i >> 1)] = 255;
+    const q = d / T, lit = nx * LX + ny * LY;           // lit < 0: a sunlit shore; > 0: the bank's shade falls on the water
+    const shade = lit > 0.3 && d < 1.6 + lit * 1.4;
+    if (d > T - Math.min(0.9, T * 0.2)) { put(k, shade ? RGB_ICE[1] : RGB_ICE[2]); continue; }   // the edge's face
+    if (d > T - 1.4 && T > 4 && !shade && dz0(i, j) > 0.45) { put(k, RGB_ICE[4]); continue; }   // its lip catching the light
+    // snow: drifts along the wind, piled where the wind blows onto the shore, thinning out to the edge
+    const u = windU(x, y), v = windV(x, y);
+    let S = fbm(u / 38, v / 11, sd + 11) + (1 - q) * 0.1 - (nx * WC + ny * WS) * 0.1 - 0.13;
+    const dz = streak(i, j);
+    // the shore: a wet thaw line on a sunlit bank, a frost rim on a shaded one
+    if (d < 0.6 && lit < -0.3) { put(k, WET); continue; }
+    if (d < Math.min(T * 0.3, lit < -0.3 ? 1.1 : 1.3 + vn(x / 3, y / 3, sd + 4) * 1.2)) { put(k, shade ? RGB_SNOW[1] : dz > 0.55 ? RGB_SNOW[3] : RGB_SNOW[2]); continue; }
+    // a pressure ridge where two sheets met, and (at sea) a lead beside it
+    const ridgeOn = vn(ax / 30, ay / 30, sd + 5) > 0.48 && T > 4.5;
+    const rd = T * (0.5 + (vn(ax / 22, ay / 22, sd + 6) - 0.5) * 0.3);
+    if (ridgeOn && Math.abs(d - rd) < 0.55) { put(k, d < rd ? (dz > 0.4 ? RGB_SNOW[3] : RGB_SNOW[2]) : hash(i, j + 3) < 0.3 ? RGB_SNOW[1] : RGB_RIDGE_SH); continue; }
+    if (ridgeOn && who[k] === 1 && d > rd + 0.8 && d < rd + 1.6 && vn(ax / 40, ay / 40, sd + 7) > 0.55) { put(k, WET); continue; }
+    if (S > 0.6) { put(k, shade ? RGB_SNOW[1] : dz > 0.6 ? RGB_SNOW[3] : RGB_SNOW[2]); continue; }
+    if (S > 0.54) { put(k, RGB_SNOW[shade ? 0 : 1]); continue; }       // a drift's blue lee edge
+    if (S < 0.42 && q > 0.2 && vn(x / 13, y / 8, sd + 9) < (who[k] === 1 ? 0.42 : 0.37) + (vn(x / 3, y / 3, sd + 10) - 0.5) * 0.12) {
+      // a clear window: deep water seen through the ice, the sun's sheen laid across it
+      const band = (x * 0.8 - y * 1.3 + 400) % 17;
+      put(k, !shade && band < 1.2 && vn(x / 10, y / 10, sd + 8) > 0.45 ? WIN_LT : WIN);
+      if ((i % K) === 0 && (j % K) === 0 && hash(i, j + 9) < 0.006 && d > 1.5) starts.push([i, j, 1]);
+      continue;
+    }
+    // bare ice: pale where it is thick by the shore, bluer out toward the edge
+    let t = q < 0.4 ? (dz > 0.7 ? 3 : 2) : q < 0.8 ? 2 : dz > 0.5 ? 2 : 1;
+    if (shade) t = Math.max(0, t - 1);
+    if (hash(i, j * 3 + 11) > 0.988) t = 4;
+    put(k, RGB_ICE[t]);
+    if ((i % K) === 0 && (j % K) === 0 && d > 1.2 && d < 2.6 && hash(i, j + 13) < 0.02) starts.push([i, j, 0]);
+    if ((i % K) === 0 && (j % K) === 0 && q > 0.3 && q < 0.7 && T > 6 && hash(i, j + 19) < 0.0025) starts.push([i, j, 2]);
+    if (who[k] > 1 && (i % K) === 0 && (j % K) === 0 && q > 0.35 && q < 0.6 && hash(i, j + 17) < 0.004) holes.push([i, j, who[k]]);
+  }
+  // ---- cracks: from the shore inward and across the sheet, a lit lip up-left
+  const crack = (i, j, a0, len, swing, depth) => {
+    let x = i, y = j, a = a0;
+    for (let s = 0; s < len; s++) {
+      a += (rng() - 0.5) * 0.3; a = Math.max(a0 - swing, Math.min(a0 + swing, a));
+      x += Math.cos(a); y += Math.sin(a);
+      const ci = Math.round(x), cj = Math.round(y), k = cj * PW + ci;
+      if (!isIce(k) || (st[k] === 1 && Math.sqrt(d2[k]) / K > thick[k] - 1)) return;
+      put(k, RGB_CRACK);
+      const kl = k - PW - 1;
+      if (isIce(kl) && D[(kl << 2)] !== RGB_CRACK[0]) put(kl, RGB_ICE[4]);
+      if (depth < 2 && s === Math.round(len * (0.45 + rng() * 0.3)) && rng() < 0.6) crack(ci, cj, a + (rng() < 0.5 ? 0.6 : -0.6), len * 0.45, 0.35, depth + 1);
+    }
+  };
+  for (const [i, j, win] of starts) {
+    const k = j * PW + i, nx = i - sx[k], ny = j - sy[k], a0 = Math.atan2(ny, nx) + (rng() - 0.5) * 1.2;
+    crack(i, j, win === 2 ? a0 + Math.PI / 2 * (rng() < 0.5 ? 1 : -1) : a0, (win === 1 ? 4 : win === 2 ? 14 + rng() * 16 : 6 + rng() * 9) * K + (rng() < 0.2 ? 14 * K : 0), win === 2 ? 0.35 : 0.5, 0);
+  }
+  // a fishing hole on a big mere, with the chips round it
+  for (const n of new Set(holes.map((h) => h[2]))) {
+    const p = ponds[n - 2]; if (!p || p.w < 80) continue;
+    const [i, j] = holes.find((h) => h[2] === n);
+    for (let dy = -3 * K; dy <= 3 * K; dy++) for (let dx = -4 * K; dx <= 4 * K; dx++) {
+      const k = (j + dy) * PW + i + dx, r = Math.hypot(dx / 2.2, dy / 1.5) / K;
+      if (!isIce(k)) continue;
+      if (r < 1) put(k, WET); else if (r < 1.6) put(k, dy < 0 ? RGB_ICE[1] : RGB_ICE[4]); else if (r < 2.8 && hash(dx, dy + sd) < 0.25) put(k, RGB_SNOW[3]);
+    }
+  }
+  c.putImageData(img, 0, 0);
+  const box = bx1 >= bx0 ? [bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1] : null;
+  ICE_SHEET.B = { cv, cover, cakes, box };
+  return ICE_SHEET.B;
+};
+// How much fast ice lies on the sea at board point (x, y): 1 under the sheet,
+// 0 on open water (coast.js keeps its swell off the ice). Art only.
+export const rimeFastIceAt = (x, y) => {
+  const B = iceBake();
+  if (!B || x < 0 || y < 0 || x >= W || y >= H) return 0;
+  return B.cover[(y | 0) * W + (x | 0)] / 255;
+};
+
+// ---- brash: the loose cakes beyond the sheet's edge, drifting slowly ----
+// (three looks at three sizes, each stamped at its own size: no scaling)
+const CAKES = [];
+const cakeSprite = (v, z) => {
+  const key = v * 3 + z;
+  if (CAKES[key]) return CAKES[key];
+  return (CAKES[key] = bakeSprite(8, 6, (c) => {
+    const x = 4, y = 3, r = 1.1 + z * 0.55 + v * 0.2, sd = v * 7 + z;
+    const pts = []; for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, j = 1 + (hash(sd, i) - 0.5) * 0.4; pts.push([x + Math.cos(a) * r * j, y + Math.sin(a) * r * 0.5 * j]); }
+    poly(c, pts.map(([px, py]) => [px, py + 1])); c.fillStyle = rgba(ICE[0], 0.9); c.fill();           // its dark side and the water under it
+    poly(c, pts.map(([px, py]) => [px, py + 0.5])); c.fillStyle = ICE[1]; c.fill();
+    poly(c, pts); c.fillStyle = v === 1 ? ICE[3] : ICE[2]; c.fill();
+    c.fillStyle = v === 1 ? ICE[4] : ICE[3]; c.fillRect(ap(x - r * 0.6), ap(y - r * 0.3), r * 0.7, 0.5);
+  }, false));
+};
+const drawBrash = (ctx, B, time) => {
+  for (const ck of B.cakes) {
+    const sp = cakeSprite(ck.v, ck.z), sl = Math.sin(time * 0.21 + ck.ph) * 5;     // a slow drift along the shore, there and back
+    const x = ap(ck.x + ck.tx * sl), y = ap(ck.y + ck.ty * sl + Math.round(Math.sin(time * 0.7 + ck.ph * 3) * 0.5 * PX) / PX);
+    ctx.drawImage(sp, x - 4, y - 3, 8, 6);
+  }
+};
+
+// ---- floes, bergs, skerries, seals ----
+// Each baked once with its waterline: the lit lap, an underwater skirt in
+// pale teal, a dark reflection in the water, lit faces to the upper left.
+// REALM.rimeFloes lists them (grid px, on the waterline); a board with sea
+// or meres and no list gets a few sown, clear of the road and the beach.
 const FLOES = { key: "", list: [] };
 const floeList = () => {
   const key = `${REALM.id}|${PONDS.length}|${COAST ? COAST.edge : ""}`;
@@ -1241,37 +1520,75 @@ const floeSprite = (f) => {
   let sp = FLOE_SP.get(key);
   if (sp) return sp;
   const wa = REALM.water || {}, deep = wa.deep || "#1f3a4a", edge = wa.edge || "#2c5266";
-  const hw = Math.ceil(24 * s), top = Math.ceil(26 * s), bot = Math.ceil(10 * s);
+  const hw = Math.ceil(26 * s), top = Math.ceil(26 * s), bot = Math.ceil(10 * s);
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
     const x = hw, y = top, sd = v * 31 + s * 10;
-    const blob = (rx, ry, k) => { const pts = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, j = 1 + (hash(sd + k, i) - 0.5) * 0.4; pts.push([x + Math.cos(a) * rx * j, y + Math.sin(a) * ry * j]); } return pts; };
-    if (f.t === "floe") {
-      const rx = (8 + v * 1.5) * s, ry = rx * 0.42, th = 1.5 * s;
-      poly(c, blob(rx * 1.18, ry * 1.4, 1)); c.fillStyle = rgba(mix(edge, ICE[2], 0.45), 0.85); c.fill();      // the skirt underwater
+    const blob = (rx, ry, k, n = 12) => { const pts = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, j = 1 + (hash(sd + k, i) - 0.5) * 0.4; pts.push([x + Math.cos(a) * rx * j, y + Math.sin(a) * ry * j]); } return pts; };
+    const skirt = (rx, ry) => { c.fillStyle = rgba(mix(edge, ICE[2], 0.45), 0.85); ellipse(c, x, y + 1.2, rx, ry); c.fill(); };
+    const reflect = (rx, ry, dx = 1.5) => { c.fillStyle = rgba(deep, 0.75); ellipse(c, x + dx, y + ry * 0.9 + 1, rx * 0.85, ry * 0.55); c.fill(); };
+    if (f.t === "floe" || f.t === "seals") {
+      const big = f.t === "seals", rx = (big ? 13 : 8 + v * 1.5) * s, ry = rx * 0.42, th = (big ? 2.2 : 1.6) * s;
+      skirt(rx * 1.22, ry * 1.5);
+      reflect(rx, ry + th);
       const pts = blob(rx, ry, 2);
-      poly(c, pts.map(([px, py]) => [px, py + th])); c.fillStyle = ICE[1]; c.fill();                        // its side
-      poly(c, pts); c.fillStyle = lin(c, x - rx, y - ry, x + rx, y + ry, [[0, SNOW_LT], [0.5, SNOW], [1, "#c8d8e4"]]); c.fill();
-      c.fillStyle = ICE[2]; for (let i = 0; i < 6; i++) px1(c, x + (hash(sd, i) - 0.5) * rx * 1.2, y + (hash(sd, i + 9) - 0.5) * ry, 1.5, 0.5);
-      c.fillStyle = ICE[4]; c.fillRect(ap(x - rx * 0.7), ap(y + ry - 0.2), rx * 0.9, 0.5);
+      part(c, (cc) => {
+        // the side face down to the waterline, the dark line of water along it
+        poly(cc, pts.map(([px, py]) => [px, py + th])); cc.fillStyle = ICE[1]; cc.fill();
+        cc.fillStyle = rgba(deep, 0.9); cc.fillRect(ap(x - rx * 0.9), ap(y + ry + th - 0.5), rx * 1.6, 0.5);
+        cc.fillStyle = ICE[2]; cc.fillRect(ap(x - rx * 0.95), ap(y + ry * 0.2 + th * 0.5), rx * 0.5, 0.5);
+      });
+      part(c, (cc) => {
+        // the top: pale ice, snow drifted over its windward (left) half, a lit rim, a clear window
+        poly(cc, pts); cc.fillStyle = ICE[3]; cc.fill();
+        cc.save(); cc.clip();
+        cc.fillStyle = SNOW; ellipse(cc, x - rx * 0.3, y - ry * 0.1, rx * 0.75, ry * 0.8); cc.fill();
+        cc.fillStyle = SNOW_LT; cc.fillRect(ap(x - rx * 0.8), ap(y - ry * 0.55), rx * 0.9, 0.5);
+        cc.fillStyle = SNOW_SH; cc.fillRect(ap(x - rx * 0.1), ap(y + ry * 0.35), rx * 0.5, 0.5);
+        cc.fillStyle = mix(deep, ICE[1], 0.3); cc.fillRect(ap(x + rx * 0.35), ap(y - ry * 0.1), 2.5 * s, 1 * s);
+        cc.fillStyle = ICE[4]; px1(cc, x + rx * 0.4, y - ry * 0.1, 1, 0.5);
+        cc.fillStyle = ICE[1]; for (let i = 0; i < 3; i++) px1(cc, x + (hash(sd, i) - 0.2) * rx, y + (hash(sd, i + 9) - 0.5) * ry, 1.5, 0.5);
+        cc.restore();
+      });
+      if (big) {
+        part(c, (cc) => seal(cc, x - 5 * s, y - ry * 0.3, s * 0.9, 1, sd, true));
+        part(c, (cc) => seal(cc, x + 4 * s, y - ry * 0.05, s * 0.85, -1, sd + 1, false));
+        if (v % 2) part(c, (cc) => seal(cc, x - 1 * s, y + ry * 0.45, s * 0.7, 1, sd + 2, true));
+      }
     } else if (f.t === "berg") {
-      const rx = (9 + v) * s, hh = (12 + v * 2) * s;
-      c.fillStyle = rgba(mix(edge, ICE[2], 0.5), 0.85); ellipse(c, x, y + 1.5, rx * 1.3, 4 * s); c.fill();
-      c.fillStyle = rgba(deep, 0.7); c.fillRect(x - rx * 0.8, ap(y + 1), rx * 1.6, 2.5 * s);                 // its reflection's dark
+      const rx = (9 + v) * s, hh = (13 + v * 2) * s;
+      skirt(rx * 1.35, 4.2 * s);
+      // its shadow in the water, long and to the right
+      c.fillStyle = rgba(deep, 0.78); ellipse(c, x + rx * 0.4, y + 2.4 * s, rx * 1.1, 2.6 * s); c.fill();
       const P = [[x - rx, y], [x - rx * 0.8, y - hh * 0.55], [x - rx * 0.35, y - hh], [x + rx * 0.2, y - hh * 0.8], [x + rx * 0.55, y - hh * 0.92], [x + rx, y - hh * 0.3], [x + rx * 0.9, y]];
-      poly(c, P); c.fillStyle = lin(c, x - rx, 0, x + rx, 0, [[0, ICE[4]], [0.3, ICE[3]], [0.62, ICE[2]], [1, ICE[1]]]); c.fill();
-      c.save(); c.clip();
-      c.fillStyle = ICE[1]; for (let t = 0; t < hh * 0.7; t += 0.5) { px1(c, x - rx * 0.1 + Math.sin(t * 0.4) * 1.5, y - t); px1(c, x + rx * 0.5 + Math.sin(t * 0.5 + 2), y - t * 0.8); }
-      snowCap(c, [[x - rx * 0.85, y - hh * 0.55], [x - rx * 0.35, y - hh * 1.02], [x + rx * 0.2, y - hh * 0.82], [x + rx * 0.55, y - hh * 0.95], [x + rx * 0.8, y - hh * 0.55], [x + rx * 0.3, y - hh * 0.7], [x - rx * 0.4, y - hh * 0.72]]);
-      c.fillStyle = ICE[0]; c.fillRect(x - rx, ap(y - 1.2 * s), rx * 2, 1.2 * s);
-      c.restore();
+      part(c, (cc) => {
+        poly(cc, P); cc.fillStyle = lin(cc, x - rx, 0, x + rx, 0, [[0, ICE[4]], [0.3, ICE[3]], [0.62, ICE[2]], [1, ICE[1]]]); cc.fill();
+        cc.save(); cc.clip();
+        // the shaded face on the right, a blue depth in its cleft, lit edges on the left
+        poly(cc, [[x + rx * 0.2, y - hh * 0.8], [x + rx * 0.55, y - hh * 0.92], [x + rx, y - hh * 0.3], [x + rx * 0.9, y], [x + rx * 0.25, y]]); cc.fillStyle = ICE[1]; cc.fill();
+        cc.fillStyle = ICE[0]; for (let t = 0; t < hh * 0.72; t += 0.5) { px1(cc, x + rx * 0.22 + Math.sin(t * 0.4) * 1.2, y - t); }
+        cc.fillStyle = ICE[1]; for (let t = 0; t < hh * 0.5; t += 0.5) px1(cc, x - rx * 0.45 + Math.sin(t * 0.5 + 2) * 0.8, y - t * 0.8);
+        cc.fillStyle = ICE[4]; for (let t = 0; t < hh * 0.5; t += 0.5) px1(cc, x - rx * 0.8 + t * 0.45 * (rx / hh) * 1.6, y - hh * 0.55 - t * 0.8);
+        snowCap(cc, [[x - rx * 0.85, y - hh * 0.55], [x - rx * 0.35, y - hh * 1.02], [x + rx * 0.2, y - hh * 0.82], [x + rx * 0.55, y - hh * 0.95], [x + rx * 0.8, y - hh * 0.55], [x + rx * 0.3, y - hh * 0.7], [x - rx * 0.4, y - hh * 0.72]]);
+        // the waterline: the ice gone dark and wet where the sea laps it, foam above
+        cc.fillStyle = mix(deep, ICE[0], 0.5); cc.fillRect(x - rx, ap(y - 1.4 * s), rx * 2, 1.4 * s);
+        cc.fillStyle = ICE[4]; for (let i = 0; i < 6; i++) if (hash(sd, i + 40) < 0.7) px1(cc, x - rx * 0.9 + i * rx * 0.33, y - 1.6 * s, 1.5, 0.5);
+        cc.restore();
+      });
     } else {
-      // a skerry: black rock awash, gull-streaked; seals hauled out on it
+      // a skerry: black rock awash, wet and dark at the waterline, rime on its north side, gull-streaked
       const rx = 10 * s, ry = 5 * s;
       c.fillStyle = rgba(mix(edge, "#5a6a70", 0.3), 0.8); ellipse(c, x, y + 1, rx * 1.25, ry * 0.9); c.fill();
+      c.fillStyle = rgba(deep, 0.7); ellipse(c, x + 2, y + ry * 0.55 + 1, rx * 0.9, ry * 0.5); c.fill();
       blackRock(c, x, y + 1, rx, ry * 1.3, sd, 2, 0);
-      c.fillStyle = "#e8e4d8"; for (let i = 0; i < 6; i++) px1(c, x + (hash(sd, i + 20) - 0.5) * rx * 1.3, y - ry * 0.5 - hash(sd, i + 30) * ry * 0.5, 0.5, 0.5);
-      c.fillStyle = SNOW; ellipse(c, x - rx * 0.45, y - ry * 0.75, rx * 0.35, 1.2 * s); c.fill();
-      if (f.t === "seals") { seal(c, x - 3 * s, y - ry * 0.75, s * 0.9, 1, sd, true); seal(c, x + 4 * s, y - ry * 0.4, s * 0.85, -1, sd + 1, false); }
+      part(c, (cc) => {
+        // the wet band at the waterline, a sheen pixel or two on it
+        cc.fillStyle = rgba("#101418", 0.55); cc.fillRect(x - rx * 0.95, ap(y - 1.2 * s), rx * 1.9, 1.6 * s);
+        cc.fillStyle = rgba(ICE[3], 0.7); px1(cc, x - rx * 0.5, y - 1.2 * s, 2, 0.5); px1(cc, x + rx * 0.3, y - 0.9 * s, 1.5, 0.5);
+        // rime: frost on the cold north face, on the rock's top edges
+        cc.fillStyle = SNOW_LT; for (let i = 0; i < 7; i++) { const px = x - rx * 0.8 + i * rx * 0.26; px1(cc, px, y - ry * 1.15 - hash(sd, i + 50) * ry * 0.9, 1.5 + hash(sd, i + 60), 0.5); }
+        cc.fillStyle = SNOW; ellipse(cc, x - rx * 0.45, y - ry * 0.75, rx * 0.35, 1.2 * s); cc.fill();
+        cc.fillStyle = "#e8e4d8"; for (let i = 0; i < 5; i++) px1(cc, x + (hash(sd, i + 20) - 0.5) * rx * 1.3, y - ry * 0.4 - hash(sd, i + 30) * ry * 0.5, 0.5, 1);
+      });
     }
   }, true);
   sp = { cv, hw, top, bot };
@@ -1282,72 +1599,27 @@ const drawFloes = (ctx, time) => {
   if (typeof document === "undefined") return;
   for (const f of floeList()) {
     const sp = floeSprite(f), s = f.s || 1, ph = hash(Math.round(f.x), Math.round(f.y));
-    const bob = Math.round(Math.sin(time * 1.1 + ph * 6) * 0.6 * PX) / PX * (f.t === "floe" ? 1 : 0);
+    const floe = f.t === "floe" || f.t === "seals";
+    const bob = Math.round(Math.sin(time * 0.55 + ph * 6) * 0.6 * PX) / PX * (floe ? 1 : 0);
     ctx.drawImage(sp.cv, f.x - sp.hw, f.y - sp.top + bob, sp.hw * 2, sp.top + sp.bot);
-    // the lap of foam round it
-    const rx = (f.t === "berg" ? 12 : f.t === "floe" ? 10 : 12) * s, ry = rx * 0.38;
+    // the slow lap of foam round it
+    const rx = (f.t === "berg" ? 12 : f.t === "seals" ? 15 : f.t === "floe" ? 10 : 12) * s, ry = rx * 0.38;
     ctx.fillStyle = "rgba(226,240,246,0.7)";
     for (let k = 0; k < 14; k++) {
-      if ((k + Math.floor(time * 2 + ph * 9)) % 3 === 0) continue;
-      const a = k / 14 * Math.PI * 2 + time * 0.15, px = f.x + Math.cos(a) * rx * (1.05 + 0.08 * Math.sin(time * 2 + k)), py = f.y + 1.5 + Math.sin(a) * ry;
+      if ((k + Math.floor(time * 0.6 + ph * 9)) % 3 === 0) continue;
+      const a = k / 14 * Math.PI * 2 + time * 0.08, px = f.x + Math.cos(a) * rx * (1.05 + 0.08 * Math.sin(time * 0.9 + k)), py = f.y + 1.5 + Math.sin(a) * ry;
       if (py < f.y) continue;
       ctx.fillRect(ap(px), ap(py), 1.5, 0.5);
     }
   }
 };
 
-// Shore ice: a broken rim of pale ice frozen to the waterline all along the
-// coast, thicker in the coves, with loose cakes of it a little way out.
-// Baked once a board, drawn with the floes.
-const SHORE = { key: "", cv: null };
-const shoreIce = () => {
-  const key = `${REALM.id}|${COAST ? COAST.edge + COAST.depth : ""}`;
-  if (SHORE.key === key) return SHORE.cv;
-  SHORE.key = key; SHORE.cv = null;
-  if (!COAST || typeof document === "undefined") return null;
-  const cv = document.createElement("canvas"); cv.width = W * PX; cv.height = H * PX;
-  const c = cv.getContext("2d"), img = c.createImageData(cv.width, cv.height), D = img.data;
-  const IC = ICE.map(hexRGB), sd = (REALM.seed | 0) % 9973;
-  const put = (px, py, col, a = 255) => { if (px < 0 || py < 0 || px >= cv.width || py >= cv.height) return; const o = (py * cv.width + px) << 2; D[o] = col[0]; D[o + 1] = col[1]; D[o + 2] = col[2]; D[o + 3] = a; };
-  const e = COAST.edge, along = e === "top" || e === "bottom", span = (along ? W : H) * PX;
-  // the rim: walk the waterline art pixel by art pixel
-  for (let i = 0; i < span; i++) {
-    const u = i / PX;
-    for (let k = 0; k < 7 * PX; k++) {
-      const out = k / PX;                                  // units out to sea from the waterline
-      const thick = 1.2 + vn(u / 14, 0.5, sd) * 3.2 + (vn(u / 4, 2.5, sd) - 0.5) * 1.5;
-      if (out > thick) break;
-      if (vn(u / 6, out / 2 + 7, sd + 2) < 0.22 && out > 0.8) continue;       // breaks in it
-      // the board point `out` beyond the waterline
-      let bx, by;
-      if (e === "bottom") { by = H - Math.max(0, coastLineDepth(u)) + out; bx = u; }
-      else if (e === "top") { by = Math.max(0, coastLineDepth(u)) - out; bx = u; }
-      else if (e === "left") { bx = Math.max(0, coastLineDepth(u)) - out; by = u; }
-      else { bx = W - Math.max(0, coastLineDepth(u)) + out; by = u; }
-      if (bx > W - 96) continue;
-      const col = out > thick - 0.6 ? IC[2] : out < 0.6 ? IC[4] : hash(i, k + sd) < 0.12 ? IC[2] : IC[3];
-      put(Math.round(bx * PX), Math.round(by * PX), col);
-    }
-  }
-  c.putImageData(img, 0, 0);
-  // loose cakes a little way out
-  const rng = mulberry((REALM.seed ^ 0x1ce) >>> 0);
-  for (let k = 0; k < span / PX / 26; k++) {
-    const u = rng() * span / PX, out = 6 + rng() * 22, d0 = Math.max(0, coastLineDepth(u));
-    const [bx, by] = e === "bottom" ? [u, H - d0 + out] : e === "top" ? [u, d0 - out] : e === "left" ? [d0 - out, u] : [W - d0 + out, u];
-    if (bx > W - 100 || bx < 2 || by < 2 || by > H - 2 || seaDepthAt(bx, by) < 5) continue;
-    const r = 1.2 + rng() * 2.6;
-    c.fillStyle = ICE[2]; ellipse(c, ap(bx) * PX, ap(by + 0.5) * PX, r * PX, r * 0.42 * PX); c.fill();
-    c.fillStyle = ICE[4]; ellipse(c, ap(bx) * PX, ap(by) * PX, r * PX * 0.9, r * 0.36 * PX); c.fill();
-  }
-  SHORE.cv = cv;
-  return cv;
-};
-const coastLineDepth = (u) => coastLine(u);
-
 const drawRimeGate = (ctx, time) => {
+  if (typeof document !== "undefined") {
+    const B = iceBake();
+    if (B && B.box) { const [x, y, w, h] = B.box; ctx.drawImage(B.cv, x, y, w, h, x / PX, y / PX, w / PX, h / PX); drawBrash(ctx, B, time); }
+  }
   drawFloes(ctx, time);
-  { const si = shoreIce(); if (si) ctx.drawImage(si, 0, 0, W, H); }
   if (PTS.length < 2 || typeof document === "undefined") return;
   drawGateFar(ctx, time);
   if (!hasNear()) drawGateNear(ctx);
