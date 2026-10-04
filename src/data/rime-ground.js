@@ -80,6 +80,8 @@ export const makeRimeVariant = (frostfang) => (id, name, tag, blurb, seed, path,
   PATH_DK: "#8e9ea8",
   PATH_EDGE: "#566672",
   PEBBLE: "#dce6ea",
+  // the beach: cold grey shingle (coast.js reads coastSand)
+  coastSand: "#9fa5a8",
   // the cold sea: black-green, white-capped
   water: { deep: "#1f3a4a", edge: "#2c5266", shine: "#9cc8dc" },
   bridge: { kind: "stone", stone: "#9aa4ac", cope: "#c4ccd2", moss: "#6c7c84", lamp: "#ffd88a" },
