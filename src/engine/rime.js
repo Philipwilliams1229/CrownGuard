@@ -96,8 +96,12 @@ export const landingGeom = (i) => {
   }
   // it puts out from past the edge and slants in across the water, so most
   // of its run is on the board: the warning a watching player gets
-  const sx = from === "left" ? -OFFBOARD : from === "right" ? W + OFFBOARD : bx + (bx < W / 2 ? 1 : -1) * SLANT;
-  const sy = from === "top" ? -OFFBOARD * 0.5 : from === "bottom" ? H + OFFBOARD * 0.5 : by + (by < H / 2 ? 1 : -1) * SLANT * 0.6;
+  let sx = from === "left" ? -OFFBOARD : from === "right" ? W + OFFBOARD : bx + (bx < W / 2 ? 1 : -1) * SLANT;
+  let sy = from === "top" ? -OFFBOARD * 0.5 : from === "bottom" ? H + OFFBOARD * 0.5 : by + (by < H / 2 ? 1 : -1) * SLANT * 0.6;
+  // a board may say where the ship puts out from ([col, row]; a row like
+  // -0.6 or 10.6 is off the edge), so it sails up a narrow firth's water
+  // rather than over the snow beside it
+  if (L.put) { sx = tileX(L.put[0]); sy = tileY(L.put[1]); }
   return { dist, from, rx, ry, bx, by, sx, sy, sail: L.sail || SAIL_MS };
 };
 
