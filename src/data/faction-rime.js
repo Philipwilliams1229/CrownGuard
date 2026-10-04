@@ -13,9 +13,10 @@
 // The full roster (enemies.js, "THE RIME CLANS"): thralls, huscarls, rime
 // seers, berserkers, wolf-riders (`rimerider`), skalds, frost giants, ice
 // drakes, the Rime Jarl (the boss, on his war-mammoth) and the sea monsters —
-// the sea serpent (a river or a coast) and the kraken (a coast), both swapped
-// for land foes on a board without their water (waves.js dryLand). Every one
-// is cold-hardy (`frostProof`): the Frost Altar's chill does nothing to them.
+// the sea serpent and the kraken — NEUTRAL hazards that strike friend and foe
+// near the water (engine/serpent.js), left out on a board with no water
+// (waves.js dryLand). Every one is cold-hardy (`frostProof`): the Frost
+// Altar's chill does nothing to them.
 export const RIME = {
   id: "rime",
   name: "The Rime Clans",
@@ -28,10 +29,10 @@ export const RIME = {
   // skalds, whose chant should carry over the most raiders (waves.js gatherMore)
   escort: { type: "rimeseer", gather: true, per: 1e9, max: 0, from: 1 },
   gather: ["skald"],
-  // the Endless March's champions, in turn: the Jarl, then the kraken (on a
-  // board with no coast the kraken's turn sends two frost giants instead)
+  // the Endless March's champion: the Jarl (the sea monsters are neutral
+  // hazards, never champions)
   endlessBoss: "rimejarl",
-  bosses: ["rimejarl", "kraken"],
+  bosses: ["rimejarl"],
   // ---- landings ----
   // war-wave -> the party aboard (waves.js landingsOf). Five of eighteen: the
   // surprise lands mid-wave, never every wave. A board without `landings`
@@ -78,7 +79,6 @@ export const RIME = {
     { type: "skald", cost: 8, gap: 3000, cap: 2 },
     { type: "rimeseer", cost: 9, gap: 4000, cap: 3 },
     { type: "frostgiant", cost: 9, gap: 2000, cap: 4 },
-    { type: "seaserpent", cost: 14, gap: 6000, cap: 2 },
   ],
 };
 

@@ -20,7 +20,7 @@ import { heroHook, HERO_HOOKS } from "./heroes/index.js";
 import { isBuilt, fights } from "./build.js";
 // zone IV: landings, the frost shroud (fights = built and not frozen), weather
 import { rimeTick, seaborne } from "./rime.js";
-import { registerSeaTools } from "./serpent.js";
+import { registerSeaTools, seaHold } from "./serpent.js";
 import { tickWeather, WX, canSee } from "./weather.js";
 import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE } from "./muzzles.js";
 
@@ -482,6 +482,9 @@ const makeEnemy = (type, mult) => {
     // the Rime Clans are cold-hardy (the Frost Altar's chill, nova freeze and
     // cold do nothing), and their sea monsters move by engine/serpent.js
     frostProof: !!d.frostProof, sea: d.sea || null,
+    // (the sea monsters are NEUTRAL hazards, and the serpent and kraken come
+    // in submerged: serpent.js)
+    neutral: !!d.sea, submerged: d.sea === "serpent" || d.sea === "kraken",
   };
 };
 
@@ -819,6 +822,8 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
           if (Math.hypot(u.x - gr.x, u.y - gr.y) <= gr.r) u.hp -= gr.dps * sdt;
         }
         if (u.hp <= 0) { killUnit(g, t, u); return; }
+        // seized by a sea monster: he stands and hacks at it (serpent.js seaHold)
+        if (u.seizedBy && seaHold(g, t, st, u, tms)) return;
 
         let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
         // tight leash: knights break off quickly once a foe leaves the rally circle
@@ -1220,7 +1225,7 @@ export function updateGame(g, dt) {
     for (const b of g.enemies) {
       if (b.dead || !b.bannerRange || b.silencedUntil > tms) continue;
       for (const e of g.enemies) {
-        if (e.dead || Math.hypot(e.x - b.x, e.y - b.y) > b.bannerRange) continue;
+        if (e.dead || e.neutral || Math.hypot(e.x - b.x, e.y - b.y) > b.bannerRange) continue;
         e.bannerSpeed = Math.max(e.bannerSpeed, b.bannerSpeedAmt);
         e.bannerArmor = Math.max(e.bannerArmor, b.bannerArmorAmt);
       }
@@ -1500,7 +1505,7 @@ export function updateGame(g, dt) {
           g.effects.push({ type: "wardwave", x: e.x, y: e.y, ttl: e.wardFx === "aegis" ? 800 : 550, r: e.wardRange, kind: e.wardFx || "ward" });
           sfx.play("ward");
           for (const e2 of g.enemies) {
-            if (e2.dead || (e2 === e && !e.wardSelf) || Math.hypot(e2.x - e.x, e2.y - e.y) > e.wardRange) continue;
+            if (e2.dead || e2.neutral || (e2 === e && !e.wardSelf) || Math.hypot(e2.x - e.x, e2.y - e.y) > e.wardRange) continue;
             e2.guard = Math.max(e2.guard, e.wardHits);
             e2.guardFlash = tms + 400;
           }
@@ -1592,7 +1597,7 @@ export function updateGame(g, dt) {
       // (a standing shield shrugs off every status: stun and slow do nothing to a shielded foe)
       const stunned = e.stunUntil > tms && !e.immStun && !(e.guard > 0);
       // a gryphon at war with a war-eagle hangs in the air to fight her
-      const held = (e.blockedBy && e.engaged) || !!e.airFight;
+      const held = (e.blockedBy && e.engaged) || !!e.airFight || !!e.seized;   // (e.seized: in a sea monster's grip, serpent.js)
       // ---- the river road ----
       // A swimmer answers to the current, not the highway: it paddles to the
       // crossing, climbs the bank there, and joins the march already past
@@ -1644,7 +1649,7 @@ export function updateGame(g, dt) {
         if (e.packRange) {
           let n = 0, sum = 0;
           for (const o of g.enemies) {
-            if (o.dead || o === e || o.packRange || o.flying || o.boss || o.roadBlock) continue;
+            if (o.dead || o === e || o.packRange || o.flying || o.boss || o.roadBlock || o.neutral) continue;
             if (Math.hypot(o.x - e.x, o.y - e.y) > e.packRange) continue;
             n++; sum += o.speed * (1 + (o.bannerSpeed || 0));
           }
@@ -2180,7 +2185,8 @@ export function updateGame(g, dt) {
           let best = null;
           for (const e of g.enemies) {
             if (e.dead) continue;
-            if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range && canSee(t, e) && (!best || e.hp > best.hp)) best = e;
+            // (a neutral sea monster only when it holds one of ours, or nothing else is there)
+            if (Math.hypot(e.x - t.x, e.y - t.y) <= st.range && canSee(t, e) && (!best || !!(best.neutral && !best.menacing) > !!(e.neutral && !e.menacing) || (!!(best.neutral && !best.menacing) === !!(e.neutral && !e.menacing) && e.hp > best.hp))) best = e;
           }
           tgt = best;
           t.beamId = best ? best.id : null;

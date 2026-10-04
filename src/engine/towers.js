@@ -190,6 +190,9 @@ export const pickTarget = (g, t, st) => {
     else score = e.dist;
     // a falconer's bird takes the sky before anything on the ground
     if (st.airMult && e.flying) score += 1e9;
+    // a neutral sea monster (serpent.js) is shot only when it holds one of
+    // ours, or when nothing of the army is in reach
+    if (e.neutral && !e.menacing) score -= 1e13;
     if (sure) { if (score > doomedScore) { doomedScore = score; doomed = e; } }
     else if (score > bestScore) { bestScore = score; best = e; }
   }

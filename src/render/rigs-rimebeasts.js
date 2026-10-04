@@ -1121,6 +1121,8 @@ export const seaFrame = (e, g) => {
     if (e.riseAt !== undefined && tms - e.riseAt < (e.riseMs || 700)) return { type: "krakenarm", sheet: "walk", frame: `rise.${Math.floor(((tms - e.riseAt) / (e.riseMs || 700)) * 4)}` };
     const grab = (g.effects || []).find((fx) => fx.type === "armGrab" && fx.x === e.x && fx.y === e.y && fx.ttl > 0);
     if (grab) return { type: "krakenarm", sheet: "walk", frame: `grab.${Math.min(3, Math.floor((1 - grab.ttl / grab.life) * 4))}` };
+    // (still holding what it grabbed, engine/serpent.js m.hold: wrap and squeeze in turn)
+    if (e.hold) return { type: "krakenarm", sheet: "walk", frame: `grab.${2 + (Math.floor(t * 2.5 + id) % 2)}` };
     if (e.atkAnim > 0) return { type: "krakenarm", sheet: "fight", frame: e.atkAnim > 380 ? 1 : e.atkAnim > 200 ? 2 : 3 };
     return { type: "krakenarm", sheet: "walk", frame: Math.floor(t * 4 + id) % 4 };
   }

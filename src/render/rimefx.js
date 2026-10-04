@@ -169,6 +169,7 @@ export const drawFrostShells = (ctx, g) => {
   }
   drawDowned(ctx, g, tms);
   drawDazed(ctx, g, tms);
+  drawHolds(ctx, g, tms);
 };
 
 
@@ -371,13 +372,28 @@ const seaRig = (ctx, e, g) => {
   if (e.hitFlash > tms && !e.submerged) drawRig(ctx, e.type, e.x, e.y, e.face || 1, fr[0], fr[1], "white", 0.6);
   return true;
 };
+// the kraken under the water as it roams (engine/serpent.js: e.submerged
+// while it swims): a great dark shape and a churn of wake, no rig
+const drawKrakenDeep = (ctx, e, g) => {
+  const t = g.time;
+  ctx.save();
+  ctx.translate(S(e.x), S(e.y));
+  ctx.fillStyle = "rgba(20,8,18,0.32)";
+  ctx.beginPath(); ctx.ellipse(0, 0, 30, 13, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "rgba(20,8,18,0.22)";
+  for (let i = 0; i < 6; i++) { const a = i * 1.05 + Math.sin(t * 1.4 + i) * 0.2; ctx.fillRect(S(Math.cos(a) * 34) - 3, S(Math.sin(a) * 15) - 2, 6, 4); }
+  ctx.fillStyle = "rgba(226,240,246,0.5)";
+  for (let i = -3; i <= 3; i++) ctx.fillRect(S(i * 9 + Math.sin(t * 2 + i) * 3), S(-12 + Math.abs(i) * 2), 5, CELL);
+  ctx.restore();
+};
 export const drawSea = (ctx, e, g) => {
   if (!e.seaInit) return;
+  if (e.sea === "kraken" && e.kr && e.kr.phase === "swim") { drawKrakenDeep(ctx, e, g); return; }
   if (RIGS[e.type] && (drawSeaRig(ctx, e, g) || seaRig(ctx, e, g))) {
     // the bars stay (what is left of it; the kraken's tide)
     if (e.sea === "kraken" && e.kr) {
       bar(ctx, e.x, e.y - 46, e.hp / e.maxHp, 44);
-      bar(ctx, e.x, e.y - 41, 1 - (g.time * 1000 - e.kr.t0) / (e.kr.stay || 75000), 44, "#7ab8e0");
+
     } else if (!e.submerged && !(e.riseAt !== undefined && g.time * 1000 - e.riseAt < e.riseMs)) bar(ctx, e.x, e.y - 50, e.hp / e.maxHp, e.sea === "arm" ? 18 : 28);
     return;
   }
@@ -415,3 +431,30 @@ Object.assign(ZONE_FX, {
   },
   stomp: (ctx, fx) => { ringFx("rgba(200,232,255,A)", 6, fx.r || 50)(ctx, fx); },
 });
+
+// ---- what a sea monster holds (engine/serpent.js m.hold) ----
+// PLACEHOLDER: a loop of tentacle (or coil) round the held creature's middle,
+// squeezing, and a rope of it back to the arm / the serpent's head
+const drawHolds = (ctx, g, tms) => {
+  for (const m of g.enemies) {
+    if (m.dead || !m.hold || !m.sea) continue;
+    const v = m.hold.u || m.hold.e;
+    if (!v) continue;
+    const arm = m.sea === "arm";
+    const col = arm ? KRAK : SERP, lt = arm ? KRAK_LT : SERP_LT, dk = arm ? KRAK_DK : SERP_DK;
+    const sq = Math.sin(tms / 160 + m.id) * 1.5;
+    // the rope from the monster to its victim
+    const fx = m.x, fy = m.y - (arm ? 22 : 18), tx = v.x, ty = v.y - 9;
+    for (let i = 1; i < 7; i++) {
+      const u = i / 7, x = fx + (tx - fx) * u, y = fy + (ty - fy) * u - Math.sin(u * Math.PI) * 6;
+      ctx.fillStyle = dk; ctx.fillRect(S(x) - 3, S(y) - 3, 6, 6);
+      ctx.fillStyle = col; ctx.fillRect(S(x) - 2, S(y) - 2, 4, 4);
+    }
+    // the loop round its middle
+    const w = 9 + sq;
+    ctx.fillStyle = dk; ctx.fillRect(S(v.x - w) - 1, S(ty) - 3, w * 2 + 2, 7);
+    ctx.fillStyle = col; ctx.fillRect(S(v.x - w), S(ty) - 2, w * 2, 5);
+    ctx.fillStyle = lt; ctx.fillRect(S(v.x - w), S(ty) - 2, w * 2, CELL);
+    if (arm) { ctx.fillStyle = SUCK; for (let x = -w + 3; x < w - 1; x += 5) ctx.fillRect(S(v.x + x), S(ty) + 1, CELL, CELL); }
+  }
+};

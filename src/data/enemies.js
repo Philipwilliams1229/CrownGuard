@@ -264,12 +264,14 @@ export const ENEMIES = {
   //             puts in at one of the board's beaches with `party` aboard — at
   //             most one landing a wave (none if the wave already had its own),
   //             and none at all on a board with no beach (engine/rime.js)
-  //   sea       a sea monster, moved by engine/serpent.js, never on the road:
-  //             "serpent" (swims a river, else the coast, surfacing to strike),
-  //             "kraken" (a body offshore that sends up arms), "arm" (one arm)
-  //   water     what the board must have for it to march at all: "any" (a river
-  //             or a coast), "coast". `dry: [type, n]` is what marches in its
-  //             place, n per head, on a board without it (waves.js dryLand);
+  //   sea       a sea monster, moved by engine/serpent.js, never on the road,
+  //             NEUTRAL (strikes friend and foe, never the castle, never holds
+  //             a wave open): "serpent" (swims a river, else the coast,
+  //             surfacing to strike), "kraken" (roams the coast, else the
+  //             river, surfacing to send up its arms), "arm" (one tentacle)
+  //   water     what the board must have for it to come at all: "any" (a river
+  //             or a coast) or "coast"; `dry: [type, n]` marches n of that type
+  //             a head in its place on a board without it (waves.js dryLand);
   //             no `dry` and it is simply left out
   thrall: {
     faction: "rime", hp: 54, speed: 72, bounty: 6, armor: 0.1, size: 16, frostProof: true,
@@ -340,41 +342,44 @@ export const ENEMIES = {
     note: "Boss. The lord of the clans on a war-mammoth. He rides down any three knights who stand in his way and gathers for another charge; his song freezes the halls he passes; and his horn calls a longship to the beach behind your lines. Nothing slows or stuns the mammoth. Cold-hardy: frost won't slow him.",
   },
   // ---- the sea monsters (engine/serpent.js) ----
+  // NEUTRAL hazards (owner, 2026-10-04): they strike whatever is near the
+  // water, friend or foe, never hurt the castle (castleDmg 0) and never hold
+  // a wave open; a foe they kill pays nothing, killing one pays its bounty
   seaserpent: {
     faction: "rime", hp: 900, speed: 54, bounty: 40, armor: 0.25, mres: 0.15, size: 24, frostProof: true,
-    name: "Sea Serpent", atk: 0, atkRate: 0, castleDmg: 1, immSlow: true,
-    sea: "serpent", water: "any", dry: ["berserker", 3],
+    name: "Sea Serpent", atk: 0, atkRate: 0, castleDmg: 0, immSlow: true,
+    sea: "serpent", water: "any",
     // the swim: `reach` px from the water to its prey; `rise` ms of ripples
     // before it breaks the surface, `up` ms above water (strikes every
     // `strikeRate` ms while it is, the first the moment it rises), `dive` ms
     // going down, `rest` ms submerged before it may rise again
     reach: 80, rise: 500, up: 2600, dive: 450, rest: 4200, strikeRate: 1250,
-    maul: 70,          // a soldier's (or a skiff's) share of a bite
+    maul: 40,          // a bite (x sqrt wave mult) on the creature it holds
     coil: 3500,        // a hall it coils round holds its fire this long
-    note: "A grey coil under the meltwater. It swims the river (or runs the coast), unseen and out of reach of everything but the River Watch's boats — then rises beside a knight, a hero or a hall to maul or crush it. For the few seconds it is up, every hall in reach can hit it. At the river's end it slips away, and that costs you a life. Cold-hardy: frost won't slow it.",
+    note: "A grey coil under the meltwater, and no one's ally. It swims the river (or runs the coast), unseen and out of reach of everything but the River Watch's boats — then rises beside whatever stands near the water, raider or knight, to seize and maul it, or coils round a hall. Held, a knight hacks back; while it is up, every hall in reach can hit it. At the water's end it slips away. Cold-hardy: frost won't slow it.",
   },
   kraken: {
-    faction: "rime", hp: 3400, speed: 0, bounty: 110, armor: 0.2, mres: 0.2, size: 34, frostProof: true,
-    name: "THE KRAKEN", boss: true, atk: 0, atkRate: 0, castleDmg: 4, immSlow: true, immStun: true,
-    sea: "kraken", water: "coast", dry: ["frostgiant", 2],
-    // a body offshore; arms burst up along the shore: every `armEvery` ms a new
-    // one while fewer than `armMax` are up (+1 from war-wave 12), each lives
-    // `armLife` ms. An arm cut down tears `armBlow` of the body's health away.
-    // After `stay` ms it sinks back into the deep — and that costs castleDmg
-    // lives, like a leak (it can never hold a wave open)
-    armEvery: 2600, armMax: 3, armLife: 9500, armBlow: 0.12, stay: 75000, armSpan: 300,
-    note: "Boss. Something vast under the black water. Its arms burst up along the shore to drag soldiers under, smash halls and sweep the road; cut them down and each one tears at the body. The body lies offshore, where only halls and boats in reach can hit it. Kill it before it tires of the game and sinks — it takes four lives with it. Cold-hardy: frost won't slow it.",
+    faction: "rime", hp: 9000, speed: 30, bounty: 150, armor: 0.2, mres: 0.2, size: 34, frostProof: true,
+    name: "THE KRAKEN", atk: 0, atkRate: 0, castleDmg: 0, immSlow: true, immStun: true,
+    sea: "kraken", water: "any",
+    // it roams the water (the coast first, else the river) mostly submerged;
+    // with a creature within `reach` and its `rest` over it surfaces for up to
+    // `up` ms, sending up a tentacle every `armEvery` ms (up to `armMax` at
+    // once) at the creatures within `armSpan`. A tentacle cut down tears
+    // `armBlow` of the body's max health away
+    reach: 120, up: 15000, rest: 7000, armEvery: 900, armMax: 4, armSpan: 140, armBlow: 0.04,
+    note: "Something vast under the black water, and no one's ally. It roams the sea or the river unseen, then surfaces where anything stands near the shore and sends up three or four arms at once: each seizes a raider or a soldier and crushes it slowly while it hacks to break free. Cut an arm down and it lets go — and the beast feels it. Killing the body is a feat. Cold-hardy: frost won't slow it.",
   },
   krakenarm: {
-    faction: "rime", hp: 240, speed: 0, bounty: 6, armor: 0.1, size: 18, frostProof: true,
+    faction: "rime", hp: 130, speed: 0, bounty: 6, armor: 0.1, size: 18, frostProof: true,
     name: "Kraken Arm", atk: 0, atkRate: 0, castleDmg: 0, immSlow: true,
     sea: "arm",
-    // `reach` px of shore it can strike; acts every `rate` ms once risen
-    // (`rise` ms, untouchable): grabs a soldier (`grab` damage — a knight is
-    // dragged under), else smashes a hall (holds its fire `smash` ms), else
-    // sweeps the road (`sweep` damage to every soldier within reach)
-    // (`inland`: how far up the shore from the waterline it may burst)
-    reach: 50, inland: 44, rise: 700, rate: 2800, grab: 130, smash: 2600, sweep: 40,
-    note: "One arm of the kraken, thick as a mast. It grabs a soldier and drags him under, smashes a hall flat for a few seconds, or sweeps the road. Every arm cut down wounds the beast. Cold-hardy: frost won't slow it.",
+    // bursts up (`rise` ms, untouchable) at the waterline, or up to `inland`
+    // px ashore, within `reach` of its mark; seizes the creature and squeezes
+    // it (`grip` x sqrt wave mult every `gripRate` ms) till one of them dies;
+    // with no creature in reach it smashes a hall (`smash` ms) and sinks;
+    // it sinks after `armLife` ms whatever happens
+    reach: 46, inland: 40, rise: 600, grip: 12, gripRate: 900, smash: 2600, armLife: 12000,
+    note: "One arm of the kraken, thick as a mast. It seizes whatever it can reach — raider or soldier — and crushes it slowly; a knight caught in it hacks to break free. Every arm cut down wounds the beast. Cold-hardy: frost won't slow it.",
   },
 };
