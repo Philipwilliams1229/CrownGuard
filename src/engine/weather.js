@@ -38,7 +38,7 @@ import { REALM } from "../data/maps.js";
 import { mulberry32, W, WALL_W } from "../data/constants.js";
 import { MECH } from "../data/zone-flags.js";
 import { SANDBOX } from "../data/sandbox.js";
-import { waveHpMult } from "../data/waves.js";
+import { waveHpMult, waveSpec } from "../data/waves.js";
 import { getStats } from "./towers.js";
 import { dealDamage } from "./actions.js";
 import { posAt, angleAt, TOTAL_LEN } from "./path.js";
@@ -91,18 +91,22 @@ export const WEATHER_KINDS = {
     paint: "fog", sound: "fogbell",
   },
   // ---- the Iron Marches: THUNDERSTORM ----
-  // Rain (a modest slow, and a charge bogs down in the mud) and lightning on
-  // the road: a flicker and a mark, `boltWarn` ms, then a stroke of magic
-  // that dazes everyone caught in it, foes and your own soldiers alike. It
-  // seeks steel: of the foes round the crowd it aims at, the best armoured
-  // draws it.
+  // Rain (a modest slow, and a charge bogs down in the mud) and lightning:
+  // a flicker and a mark, `boltWarn` ms, then a stroke of magic that dazes
+  // everyone caught in it, foes and your own soldiers alike. It falls at
+  // RANDOM where the fighters are (owner, 2026-10-04: "too much of a buff"):
+  // near a random live foe on the road or a random soldier/hero of yours,
+  // jittered `boltJitter` px, so it hits whoever happens to be there. A foe
+  // with any magic resistance (mres > 0) or a standing shield takes nothing
+  // from it, neither harm nor daze. Your soldiers are hurt (never below 1)
+  // and can't strike for `boltDaze` ms.
   storm: {
     name: "Thunderstorm",
     every: [45, 70], lasts: [16, 22], first: 25, windup: 4, ease: 3,
     fx: { foeSpeed: 0.9, noCharge: true },
-    boltEvery: [2.5, 4], boltWarn: 600, boltR: 34, boltDmg: 70, boltStun: 700, boltUnit: 40, boltDaze: 900,
+    boltEvery: [4, 6], boltWarn: 600, boltR: 30, boltJitter: 34, boltDmg: 40, boltStun: 500, boltUnit: 45, boltDaze: 1100,
     grade: (s) => ({ every: span(100, 130, 45, 70, s), lasts: span(10, 14, 16, 22, s), first: lerp(55, 25, s),
-      boltEvery: span(5, 7, 2.5, 4, s), boltDmg: lerp(40, 70, s), fx: { foeSpeed: 1 - 0.1 * s } }),
+      boltEvery: span(7, 10, 4, 6, s), boltDmg: lerp(25, 40, s), fx: { foeSpeed: 1 - 0.1 * s } }),
     tick: (g, w, def, sdt, tms) => strikes(g, w, def, tms, "bolt"),
     paint: "storm", sound: "thunder",
   },
@@ -204,7 +208,7 @@ export const tickWeather = (g, sdt, tms) => {
     if (w.wave !== g.wave) {
       w.wave = g.wave;
       // (seeded by the realm and the wave, so a retried wave has the same morning)
-      w.foggy = mulberry32((REALM.seed || 1) * 7 + g.wave * 7919)() < def.chance;
+      w.foggy = foggyWave(def, g.wave);   // (the forecast reads the same roll)
       w.t0 = t;
       if (w.foggy) { w.k = 1; w.phase = "squall"; if (def.sound) sfx.play(def.sound); g.squalls = (g.squalls || 0) + 1; }
     }
@@ -248,6 +252,7 @@ const strikes = (g, w, def, tms, kind) => {
   const every = kind === "bolt" ? def.boltEvery : def.rockEvery;
   if (w.clock < (w.strikeAt ?? 0)) return;
   w.strikeAt = w.clock + roll(w, every);
+  w.def = def;
   const pt = kind === "bolt" ? boltPoint(g, w) : rockPoint(g, w);
   if (!pt) return;
   const warn = kind === "bolt" ? def.boltWarn : def.rockWarn;
@@ -255,25 +260,23 @@ const strikes = (g, w, def, tms, kind) => {
   if (kind === "rock") sfx.play("whistle");
 };
 const roadOK = (x) => x < W - WALL_W - NO_CLOSER;
-// lightning: the thickest knot of foes among a few sampled, then the best
-// armoured foe near it (it seeks steel)
+// lightning: a random point near a random live fighter — a foe on the road,
+// or one of your soldiers or the hero (not a boat on the water), jittered
 const boltPoint = (g, w) => {
-  const live = g.enemies.filter((e) => !e.dead && !e.ship && roadOK(e.x));
+  const live = [];
+  for (const e of g.enemies) if (!e.dead && !e.ship && !e.swimming && roadOK(e.x)) live.push(e);
+  for (const h of [...g.towers, ...(g.bands || [])]) {
+    if (h.kind === "riverwatch") continue;
+    for (const u of h.units || []) if (u.state !== "dead" && roadOK(u.x)) live.push(u);
+  }
   if (!live.length) return null;
-  let best = null, most = -1;
-  for (let i = 0; i < 6; i++) {
-    const e = live[Math.floor(w.rng() * live.length)];
-    let n = 0;
-    for (const o of live) if (Math.abs(o.x - e.x) < 45 && Math.abs(o.y - e.y) < 45) n++;
-    if (n > most) { most = n; best = e; }
+  for (let tries = 0; tries < 4; tries++) {
+    const f = live[Math.floor(w.rng() * live.length)];
+    const a = w.rng() * Math.PI * 2, r = w.rng() * (w.def?.boltJitter ?? 34);
+    const x = f.x + Math.cos(a) * r, y = f.y + Math.sin(a) * r * 0.7;
+    if (roadOK(x)) return [x, y];
   }
-  let steel = best, sa = -1;
-  for (const o of live) {
-    if (Math.hypot(o.x - best.x, o.y - best.y) > 50) continue;
-    const a = (o.armor || 0) + (o.guard || 0) * 0.2;
-    if (a > sa) { sa = a; steel = o; }
-  }
-  return [steel.x, steel.y];
+  return null;
 };
 // a falling rock: anywhere along the road (a little off it now and then),
 // leaning toward where the foes are
@@ -299,6 +302,8 @@ const landStrikes = (g, w, def, tms) => {
     if (m.kind === "bolt") {
       for (const e of g.enemies) {
         if (e.dead || e.ship || Math.hypot(e.x - m.x, e.y - m.y) > m.r) continue;
+        // the magic-resistant and the shielded shrug it off entirely
+        if ((e.mres || 0) > 0 || e.guard > 0) continue;
         dealDamage(g, e, def.boltDmg * mult, "magic", false, false, null);
         if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil, tms + def.boltStun);
       }
@@ -369,4 +374,39 @@ const driftMist = (g, w, def, sdt, tms) => {
       if (dx * dx + dy * dy <= b.r * b.r) { e.misted = tms; break; }
     }
   }
+};
+
+// ---- the forecast (the wave preview, ui/WeatherForecast.jsx) ----
+// What weather wave `n` will bring, or null for a clear wave:
+//   { kind, text, sure }
+// Fog is exact: it reads the same per-wave roll tickWeather makes. A timed
+// kind (storm, mist, blizzard, eruption) is `sure` when its next spell rises
+// before the wave's last foe is out of the wood (the wave certainly lasts
+// that long), and "likely" (sure: false) when it would rise within the time
+// a foe takes to walk the road after that (likelyAfter); otherwise nothing.
+export const FORECAST = { fog: "Morning fog", storm: "Storm rolling in", gravemist: "Grave mist", blizzard: "Blizzard", eruption: "Eruptions" };
+const LIKELY = { fog: "Fog likely", storm: "Storm likely", gravemist: "Grave mist likely", blizzard: "Blizzard likely", eruption: "Eruptions likely" };
+// the last foe out of the wood still has the road to walk (~55 px/s)
+const likelyAfter = () => Math.max(20, TOTAL_LEN / 55);
+export const foggyWave = (def, n) => mulberry32((REALM.seed || 1) * 7 + n * 7919)() < def.chance;
+// about how long wave n takes to come out of the wood, s (startWave's queue, roughly)
+const spawnSpan = (n) => {
+  const spec = waveSpec(n) || [];
+  const ov = spec.overlap || 0;
+  let ms = 400;
+  for (const g of spec) if (g.amid == null && g.clock == null && g.landing == null) ms += ((g[1] - 1) * g[2] + 900) * (1 - ov * 0.5);
+  return ms / 1000;
+};
+export const forecast = (g, n) => {
+  const def = weatherDef();
+  if (!def || !g || n < 1) return null;
+  const now = n === g.wave && g.phase === "combat";
+  if (def.rhythm === "wave") return foggyWave(def, n) ? { kind: def.kind, text: FORECAST[def.kind] || def.name, sure: true } : null;
+  const w = g.weather;
+  if (now && w && (w.bite || w.phase === "rising")) return { kind: def.kind, text: FORECAST[def.kind] || def.name, sure: true };
+  const clock = w ? w.clock : 0, rise = (w ? w.next : def.first) - def.windup;
+  const left = spawnSpan(n) - (now ? (g.spawnTimer || 0) / 1000 : 0);
+  if (rise <= clock + Math.max(0, left)) return { kind: def.kind, text: FORECAST[def.kind] || def.name, sure: true };
+  if (rise <= clock + Math.max(0, left) + likelyAfter()) return { kind: def.kind, text: LIKELY[def.kind] || def.name, sure: false };
+  return null;
 };

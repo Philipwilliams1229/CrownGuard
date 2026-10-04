@@ -103,6 +103,16 @@ uses; existing levels sim byte-identical). Read the headers of
   third, 1 at the boss; a level may set `weather: false` or its own.
   `sim.mjs --weather kind:strength|none`. Free Play: `weather` /
   `weatherPower` in sandbox.js (not in isHonest).
+  Lightning (owner, 2026-10-04): lands at a random spot near a random live
+  fighter (any foe or friendly soldier/hero, jittered 34 px), never near
+  the castle; 25-40 magic x the wave's health scaling, a 0.5 s stun, every
+  4-6 s at full strength; foes with `mres > 0` or a standing shield take
+  nothing; soldiers lose 45 (never below 1) and can't strike 1.1 s. The Iron
+  chapter sims about even with vs without it. The wave preview FORECASTS
+  the next wave's weather (`forecast(g, wave)` in weather.js,
+  `ui/WeatherForecast.jsx`): fog exact (the same per-wave roll), the timed
+  kinds named when a spell rises before the wave's last foe leaves the
+  wood, "likely" when it would rise within about one road-walk after.
 - Test faction `rime` (src/data/faction-rime.js, not in FACTIONS) and board
   `rimewatch` (src/data/realms-rime.js, not in Free Play); placeholder art in
   `render/rimefx.js` (longship, telegraph, ice shell, rig aliases to delete

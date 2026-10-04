@@ -16,6 +16,7 @@ import { ENEMIES } from "./data/enemies.js";
 import { scriptedWaves, victoryWave, waveSpec, setWaveWindow } from "./data/waves.js";
 import { setLevelWeather } from "./engine/weather.js";
 import { weatherFor } from "./data/weather-plan.js";
+import WeatherForecast from "./ui/WeatherForecast.jsx";
 import { SANDBOX, startSandbox, endSandbox, runHonest, tierOpen, hallOpen, loadSandbox } from "./data/sandbox.js";
 import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextLevel, levelById, loadCastle, saveCastle, towerUnlocked, unlocksFor, unlockLevel, bankTreasury, spendTreasury } from "./data/campaign.js";
 import CastleWorksList from "./ui/CastleWorks.jsx";
@@ -1351,6 +1352,7 @@ export default function Crownguard() {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 10 }}>
         {comp.length ? waveChips(comp, fighting ? "cur" : "next") : <span style={{ fontSize: 11, color: "var(--muted)" }}>Nothing yet.</span>}
       </div>
+      <WeatherForecast g={G.current} wave={nextWave} />
       <button
         title="Sound the horn the moment a wave is cleared, for the full early-start bonus every time"
         className={cls("cg-btn cg-btn--slate", ui.rush && "is-on")}
@@ -1749,6 +1751,7 @@ export default function Crownguard() {
                       ))}
                     </span>
                   )}
+                  <WeatherForecast g={G.current} wave={nextWave} compact />
                   {!fighting && ui.cdSec != null && (
                     <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, paddingLeft: 2 }}>
                       <span className="cg-num" style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 11, textShadow: "none" }}>+{Math.min(45, Math.ceil(ui.cdSec * 1.5))}<CoinIcon size={11} /></span>
