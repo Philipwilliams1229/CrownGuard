@@ -1055,6 +1055,9 @@ const reg = () => REG || (REG = (() => {
     box: Object.assign({}, ...ART.map((a) => a.box)),
     dress: Object.assign({}, ...ART.map((a) => a.dress)),
     spawn: Object.assign({}, ...ART.map((a) => a.spawn)),
+    // a chapter gate's own rule for the edge wood round it (drop a tree that
+    // would hide its mouth, lift one onto its mound): HOLLOW_ART.gateTree
+    gateTree: Object.assign({}, ...ART.map((a) => a.gateTree || {})),
     live: new Set(["obelisk", "watchtower", "banner", "reeds", ...ART.flatMap((a) => a.live)]),
     // pieces that carry their own underline and take no 2px ring when baked
     flat: new Set(ART.flatMap((a) => a.flat || [])),
@@ -1161,6 +1164,9 @@ export const drawTree = (ctx, d, time) => {
   let lift = 0;
   if (d.forest && GATE.hAt && GATE.rid === REALM.id && (REALM.spawn === "grove" || !REALM.spawn)) {
     lift = gateTree(d);
+    if (lift < 0) return;
+  } else if (reg().gateTree[REALM.spawn]) {
+    lift = reg().gateTree[REALM.spawn](d);
     if (lift < 0) return;
   }
   if (lift) { ctx.save(); ctx.translate(0, -Math.round(lift * PX) / PX); }

@@ -10,6 +10,7 @@ import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint, atWaterEdge } from "../data/terrain.js";
 import { TOWERS } from "../data/towers.js";
 import { cragBlocks } from "../data/gatecrag.js";
+import { barrowBlocks } from "../data/barrowgate.js";
 import { waveSpec, waveHpMult, CROWD_WEIGHT } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
 import { makeTower, syncUnits, getStats } from "./towers.js";
@@ -45,6 +46,9 @@ export const buildableAt = (g, x, y, kind = null) => {
   // nor on the crag the gate is cut into (its shape lives in data/gatecrag.js,
   // which scenery.js paints from, so the rock and the rule agree)
   if (cragBlocks(x, y)) return false;
+  // nor on the Hollowfen's great barrow (data/barrowgate.js, the same shape
+  // scenery-hollow.js paints)
+  if (barrowBlocks(x, y)) return false;
   for (const d of DECOR) if (Math.hypot(d.x - x, d.y - y) < decorFootprint(d) + 8) return false;
   // A floating hall (the River Watch) moors only at the EDGE of water it can row —
   // a river, a pond or mere big enough (not lava, not ice), or just off a coast.

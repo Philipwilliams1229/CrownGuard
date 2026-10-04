@@ -248,18 +248,23 @@ const IRON_GROUND = {
     flowerCols: ["#b87ab0", "#e8cc5a", "#8e9ad8", "#eeeadc"],
   },
 };
-// The camp's gate tower stands beside the road's first yards (north side), a
-// piece of decor so it sorts with the pines around it (grid px: the road
-// enters at the left edge on row path[0][1]).
-// On a road that leaves the edge on a slant, it stands 36 px along that
-// slant and off to its northern side.
+// The camp's gatehouse (scenery-iron.js, "the gate the Iron army comes out of")
+// is two sorted pieces so the column passes through its arch: the far tower,
+// sorted north of the road (at the tower), and the wall with the near tower
+// (v 9), sorted south of it. Their x, y only sort them and block halls; the
+// art stands where the road really leaves the edge.
 const ironGate = (path) => {
   if (path[0][0] >= 2) return undefined;
   const sx = -18, sy = path[0][1] * 48 + 24, nx = path[1][0] * 48 + 24, ny = path[1][1] * 48 + 24;
   const l = Math.hypot(nx - sx, ny - sy) || 1, ux = (nx - sx) / l, uy = (ny - sy) / l;
-  const [px, py] = uy >= 0 ? [uy, -ux] : [-uy, ux];
-  const off = 34 + 28 * Math.abs(ux * uy);   // its foot clear of the road; more room on a slant
-  return [{ x: Math.round(sx + ux * 36 + px * off), y: Math.round(sy + uy * 36 + py * off) - 8, t: "irgate", s: 1 }];
+  // (scenery-iron.js plan(): the wall 34 along the road, its face turned at
+  // least 0.87 rad south of east, the far tower hw + 8 along it)
+  const phi = Math.atan2(uy, ux), psi = Math.max(phi, 0.87);
+  const e = 32 / Math.max(0.4, Math.cos(psi - phi)) + 11;
+  return [
+    { x: Math.round(sx + ux * 34 + Math.sin(psi) * e), y: Math.round(sy + uy * 34 - Math.cos(psi) * e), t: "irgate", s: 1 },
+    { x: Math.round(sx + ux * 36 - uy * 40), y: Math.round(sy + uy * 36 + ux * 40), t: "irgate", s: 1, v: 9 },
+  ];
 };
 const ironVariant = (id, name, blurb, seed, path, extra = {}) => ({
   ...IRON_GROUND, id, name, blurb, seed, path,

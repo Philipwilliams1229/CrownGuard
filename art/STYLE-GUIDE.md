@@ -708,6 +708,30 @@ textures." What came of it:
 - There is NO "THEY COME" sign any more (owner, 2026-10-04: removed); the
   spawn gate itself says where the enemy comes from.
 
+## The enemy entrances (spawn gates)
+
+The bar is the Greenwood's crag cave (scenery.js, `data/gatecrag.js`): ONE
+place the road visibly comes out of, built into the board's edge, the wood
+growing round and over it, the road worn dark at the mouth. Each chapter's
+gate works out its own geometry from the road (left, slanted and top
+entries) and keeps footprints honest (`cragBlocks` / `barrowBlocks` in
+actions.js `buildableAt`).
+- **The Hollowfen: a great barrow** (2026-10-04; scenery-hollow.js, shape
+  data in `src/data/barrowgate.js`: `gateGeom`, `barrowBlocks`,
+  `FULL_MOUND` true, `setFullMound` for labs) — a turf-roofed mound with a
+  horned forecourt of drystone and slabs, a portal with spiral-cut lintel,
+  the causeway flags running into a dark passage with witch-light and eyes,
+  grave-goods at the threshold. `HOLLOW_ART.gateTree.barrowgate` (called by
+  scenery.js `drawTree` through `reg().gateTree[REALM.spawn]`) drops edge
+  trees that would hide the portal and lifts others onto the mound.
+- **The Iron Marches: a palisade gatehouse** (2026-10-04; scenery-iron.js)
+  the road passes THROUGH: log wall with a fighting walk, oxblood banner
+  over the arch, brazier, raised portcullis, a timber tower at each end,
+  tents and smoke behind. Two sorted decor pieces from maps.js `ironGate`:
+  the far tower (`irgate`) north of the road, the wall + near tower
+  (`irgate`, `v: 9`) south of it, so the column is hidden in the passage
+  and marches out of the arch.
+
 ## The campaign map (`src/ui/mapArt.js`)
 
 - Roads: good as they are — well connected.
