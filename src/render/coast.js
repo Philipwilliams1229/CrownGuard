@@ -41,7 +41,8 @@ const DEF_WATER = { deep: "#3a6a7c", edge: "#4a8094", shine: "#8cc4d8" };
 // each country's sand: the Vale's warm gold, the Marches' grey shingle-sand,
 // the fen's drab silt
 const SANDS = { vale: "#dcc48e", iron: "#c2b89c", fen: "#9e977c" };
-const land = (R) => (R.groundArt === "iron" ? "iron" : R.groundArt === "fen" ? "fen" : "vale");
+// (the Rimewater takes the Iron coast's shingle, in its own cold `coastSand`)
+const land = (R) => (R.groundArt === "iron" || R.groundArt === "rime" ? "iron" : R.groundArt === "fen" ? "fen" : "vale");
 
 // ---- noise -----------------------------------------------------------------
 const LAT = new Float32Array(65536);
@@ -132,7 +133,7 @@ const toXY = (edge, u, v) => (edge === "top" ? [u, v] : edge === "bottom" ? [u, 
 // shallows, then out through the blue to the deep. A swell's crest is one
 // step lighter than the water it rides, its shade one step darker.
 export const coastTones = (R) => {
-  const wat = R.water || DEF_WATER, kind = land(R), sand = SANDS[kind];
+  const wat = R.water || DEF_WATER, kind = land(R), sand = R.coastSand || SANDS[kind];
   const foam = kind === "fen" ? mix(lighten(wat.shine, 0.42), "#d8d8c0", 0.25) : mix(lighten(wat.shine, 0.62), "#fff3d2", 0.3);
   const ramp = [
     foam,
