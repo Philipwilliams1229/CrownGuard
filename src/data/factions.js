@@ -91,6 +91,11 @@ export const FACTIONS = {
     // every `per` heads of rank and file, up to `max`, from war-wave `from`
     // on (waves.js escortOf). They walk in the thick of the biggest group.
     escort: { type: "magister", per: 34, max: 2, from: 4 },
+    // healers march in the thick of the biggest group, not as a trickle behind
+    // it (owner, 2026-10-04; waves.js gatherMore)
+    gather: ["chaplain"],
+    // no siege ram before wave 15 of a level (owner, 2026-10-04; waves.js)
+    wallFrom: 15,
     waves: [
       // I. the border levies — shields up, in step
       [["levy", 18, 600]],
