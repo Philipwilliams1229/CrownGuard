@@ -117,7 +117,7 @@ const BANKS = {
   green: { earth: "#8a6844", dark: "#664b33", wet: "#4c3a2c", lit: "#ae8e5c", pebble: "#d4c8a8", peb2: "#a09682", top: "#4a3628", rock: "#a39d90", rush: ["#3f6a30", "#5e8f3c", "#8cbc58"], head: "#6e4a2c", pads: true, wood: ["#a88a64", "#7a5c3e", "#4e3a2a"] },
   iron: { earth: "#72685a", dark: "#544c42", wet: "#3c3632", lit: "#968b76", pebble: "#c2beb2", peb2: "#8e8a80", top: "#38322c", rock: "#8e8c86", rush: ["#3e4a34", "#5a6a48", "#8b976a"], head: "#5a4636", pads: false, wood: ["#968a78", "#6c6052", "#443c34"] },
   fen: { earth: "#4e4232", dark: "#3a3026", wet: "#28221c", lit: "#66583e", pebble: "#9c947e", peb2: "#6e6856", top: "#241e18", rock: "#6c6a60", rush: ["#4a5438", "#6e7448", "#b8ac74"], head: "#5e4030", pads: false, wood: ["#8a8068", "#5c5444", "#36302a"] },
-  snow: { earth: "#b8cad8", dark: "#9fb4c6", wet: "#8aa2b6", lit: "#f2f7fa", pebble: "#ffffff", peb2: "#c8d8e4", top: "#7f98ac", rock: "#9aa8b4", rush: ["#6a7a6a", "#8a9a86", "#c8d0c0"], head: "#6a5a4a", pads: false, wood: ["#a4968a", "#786c60", "#4c443c"] },
+  snow: { earth: "#b8cad8", dark: "#9fb4c6", wet: "#8aa2b6", lit: "#f2f7fa", pebble: "#ffffff", peb2: "#c8d8e4", top: "#7f98ac", rock: "#9aa8b4", rush: ["#5e5440", "#8e7e58", "#cbbd92"], head: "#4e3e30", pads: false, wood: ["#a4968a", "#786c60", "#4c443c"] },
   ash: { earth: "#3a302c", dark: "#2c2422", wet: "#8a3018", lit: "#5c4e48", pebble: "#6e5e56", peb2: "#4a3e3a", top: "#1a1414", rock: "#4a4040", rush: [], head: "#000", pads: false, wood: ["#4a3e38", "#2e2624", "#1a1414"] },
 };
 const bankKey = () => (REALM.groundArt === "iron" ? "iron" : REALM.groundArt === "fen" || REALM.ambient === "fireflies" ? "fen" : REALM.ambient === "snow" ? "snow" : REALM.ambient === "embers" ? "ash" : "green");

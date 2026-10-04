@@ -146,6 +146,16 @@ uses; existing levels sim byte-identical). Read the headers of
   gold, 50 lives: the army is untuned) and "Ashen Eruptions" (the Ember
   Wastes under eruptions). A preset may bring its own `realm` (fromPreset).
   The lives chip's max reads the sandbox's lives in Free Play.
+- **The Rimewater campaign** (zone IV, 2026-10-04): chapter `rime` in
+  CHAPTERS, levels in `src/data/levels-rime.js` (7 x 20, 7 x 25, the boss),
+  boards in `realms-rime-a/b/c.js` made with `rimeVariant`
+  (`src/data/rime-ground.js`: groundArt "rime", spawn "rimegate", the
+  spruce wood, cold `coastSand`). Its art is `src/render/scenery-rime.js`
+  (RIME_ART; world.js/apron.js read it too); decor types `rm*`; pieces IN
+  water `rimeFloes`, pieces ON a beach or bank `strand: [...]` (terrain.js
+  pushes them after the grounding pass, unmoved). Landings may set `put`
+  (where the ship puts out). Music `rime-build/-fight/-boss`. On the
+  continent the Rimewater is zone 5 (after the isthmus 3 and islets 4).
 - Test faction `rime` (src/data/faction-rime.js) and board
   `rimewatch` (src/data/realms-rime.js); placeholder art in
   `render/rimefx.js` (longship, telegraph, ice shell, rig aliases to delete

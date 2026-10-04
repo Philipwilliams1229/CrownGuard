@@ -527,6 +527,12 @@ export function regenTerrain(map) {
     return false;
   });
 
+  // pieces that stand ON the beach or a bank (a realm's `strand` list: the
+  // Rimewater's drawn-up longships, whale bones, racks, seal rocks) skip the
+  // grounding pass: placed as written (grid px), sorted with the actors like
+  // any decor and blocking halls by their footprint. Keep them off the road.
+  for (const d of map.strand || []) DECOR.push({ ...d, x: d.x + MX, y: d.y + MY, strand: true });
+
   // ---- the forest ----
   // Where the horde comes out of the trees, the trees are real: a wood that
   // fills the board edge behind the spawn and runs its whole length, dense
