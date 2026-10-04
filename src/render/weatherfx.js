@@ -616,5 +616,15 @@ export const drawWeather = (ctx, g) => {
   drawToast(ctx, g);
 };
 
+// The weather's veil over the landscape BEYOND the board (the apron is baked
+// once, so the game lays this colour over it each frame): the same darkening
+// the board's own layer gets, so a long storm leaves no lit edge. null = none.
+const VEIL = { storm: ["14,20,40", 0.42], blizzard: ["224,236,248", 0.3], eruption: ["136,54,26", 0.22], fog: ["226,230,224", 0.32] };
+export const weatherVeil = (g) => {
+  const w = g?.weather, v = w && VEIL[w.paint];
+  if (!v || !(w.k > 0.01)) return null;
+  return `rgba(${v[0]},${(v[1] * Math.min(1, w.k)).toFixed(3)})`;
+};
+
 // how far a flier comes down in this weather (px; draw.js nudges fliers by it)
 export const flierDrop = (g) => (g.weather && g.weather.k > 0 && WEATHER_KINDS[g.weather.kind]?.fx?.fliersLow ? 6 * g.weather.k : 0);
