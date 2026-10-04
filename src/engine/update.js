@@ -864,7 +864,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
             target.engaged = true;
             // Cavalier: the charge rides its first blocker down and gallops on.
             // Whoever steps up second is the one who actually holds him.
-            if (target.trampleLeft > 0 && !WX.noCharge) {   // (a storm's mud bogs the charge down, weather.js)
+            if (target.trampleLeft > 0 && !(WX.noCharge > 0 && Math.random() < WX.noCharge)) {   // (a storm's mud bogs the charge down — more often as the rain builds, weather.js)
               target.trampleLeft -= 1;
               u.hp -= target.atk * 2;
               g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });

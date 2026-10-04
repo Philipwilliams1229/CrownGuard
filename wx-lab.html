@@ -1,0 +1,110 @@
+<!doctype html>
+<!--
+  Weather lab: the REAL engine and draw() on a level's board, the weather's
+  level clock set where you want it, snapped as it runs (engine/weather.js).
+
+    /wx-lab.html?realm=crowstair&faction=iron&wave=15&weather=storm:1&rise=-3&snaps=0,8,16,24,32,40&bolt=1&tag=x
+      rise=S     put the clock S seconds after the first spell starts rolling in
+                 (negative: before it); snaps are seconds of combat from there
+      bolt=1     after the snaps, run on to the first lightning stroke and snap it
+      freeze=1   instead: run the wave to its end and snap its last frame, a frame
+                 10 s into the build phase, and one 1 s after the next horn
+      towers=archer@0.3:3,knight@0.45:2   (kind@road-fraction:level[,branch])
+  Saved to .shots/wx_<tag>.png, two frames to a row, stamped with the clock.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>wx lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { setLevelWeather, weatherDef, segAt, forecast } from "/src/engine/weather.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", DT = 1 / 60;
+      selectRealm(q.get("realm") || "crowstair");
+      selectFaction(q.get("faction") || "iron");
+      setWaveWindow(null);
+      const [kind, str] = (q.get("weather") || "storm:1").split(":");
+      setLevelWeather({ kind, strength: Number(str ?? 1) });
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (Number(q.get("wave")) || 15) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      for (const spec of (q.get("towers") ?? "archer@0.3:3,knight@0.45:3,wizard@0.6:2").split(",").reduce((acc, p) => (p.includes("@") ? acc.push([p]) : acc[acc.length - 1].push(p), acc), [])) {
+        const [head, br] = spec, [kd, rest] = head.split("@"), [at, lv] = rest.split(":").map(Number);
+        const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+        let spot = null;
+        for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; }
+        }
+        if (!spot) continue;
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        if (br) branchTower(g, t, br);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      // put the clock where asked: S seconds from the first spell's rolling in
+      const def = weatherDef(), w = g.weather;
+      let s, t = 0;
+      do { s = segAt(w, def, t); t = s.t1; } while (s.ph !== "rising" && t < 5000);
+      w.clock = Math.max(0, s.t0 + Number(q.get("rise") ?? -3));
+      updateGame(g, DT);
+      const frames = [];
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      const snap = (label) => {
+        draw(g, cv, { current: null });
+        const c = document.createElement("canvas"); c.width = W; c.height = H + 14;
+        const o = c.getContext("2d"); o.fillStyle = "#20242c"; o.fillRect(0, 0, c.width, c.height);
+        o.drawImage(cv, 0, 0, cv.width, cv.height, 0, 14, W, H);
+        o.fillStyle = "#e8e0c8"; o.font = "10px monospace";
+        const f = forecast(g, g.phase === "combat" ? g.wave : g.wave + 1);
+        o.fillText(`${label}  clock ${g.weather.clock.toFixed(1)}s  ${g.phase} w${g.wave}  ${g.weather.phase} k${g.weather.k.toFixed(2)}  bolts ${g.bolts || 0}  forecast "${f?.text}"`, 4, 11);
+        frames.push(c);
+      };
+      const hold = () => { g.lives = 9999; if (g.phase === "build") g.buildUntil = null; };
+      if (q.get("freeze")) {
+        startWave(g);
+        while (g.phase === "combat") { updateGame(g, DT); hold(); if (g.phase === "combat" && !g.spawnQueue.length && g.enemies.length === 1) { snap("last foe of the wave"); } }
+        frames.length = Math.min(frames.length, 1);
+        if (!frames.length) snap("wave cleared");
+        for (let i = 0; i < 60 * 10; i++) { updateGame(g, DT); hold(); }
+        snap("10 s into the build phase");
+        startWave(g);
+        for (let i = 0; i < 60; i++) { updateGame(g, DT); hold(); }
+        snap("1 s after the next horn");
+      } else {
+        startWave(g);
+        const c0 = g.weather.clock;
+        for (const at of (q.get("snaps") || "0,10,20,30").split(",").map(Number)) {
+          while (g.weather.clock - c0 < at) { updateGame(g, DT); hold(); if (g.phase !== "combat") startWave(g); }
+          snap(`+${at}s`);
+        }
+        if (q.get("bolt")) {
+          for (let i = 0; i < 60 * 120; i++) {
+            updateGame(g, DT); hold(); if (g.phase !== "combat") startWave(g);
+            if (g.effects.some((e) => e.type === "wxbolt" && e.life - e.ttl < 40)) { snap("the first stroke"); break; }
+          }
+        }
+      }
+      const cols = 2, rows = Math.ceil(frames.length / cols);
+      const out = document.createElement("canvas"); out.width = W * cols; out.height = (H + 14) * rows;
+      const ox = out.getContext("2d");
+      frames.forEach((c, i) => ox.drawImage(c, (i % cols) * W, Math.floor(i / cols) * (H + 14)));
+      await fetch(`/__shot?name=wx_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/wx_${TAG}.png`;
+    </script>
+  </body>
+</html>

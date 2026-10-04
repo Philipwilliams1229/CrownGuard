@@ -1,7 +1,10 @@
 // ============ THE WEATHER FORECAST ============
 // A small chip in the wave preview: the weather the next wave will bring
 // (engine/weather.js `forecast`), an icon and a few words; nothing on a
-// clear wave. `compact` is the folded wave chip's version (the icon alone).
+// level without weather. Stages (engine/weather.js forecast): "Clear", a
+// spell brewing (it rolls in during the wave), rolling in, at its height,
+// passing. `compact` is the folded wave chip's version (the icon alone,
+// nothing when clear).
 // Pixel icons drawn as SVG rects, one per kind.
 
 import { forecast } from "../engine/weather.js";
@@ -15,6 +18,8 @@ const PX = {
   gravemist: [["#9ab49a", [[1, 4, 6, 2], [6, 6, 7, 2], [2, 9, 9, 2]]], ["#c4d4c0", [[3, 4, 2, 1], [8, 6, 2, 1]]]],
   // blizzard: flakes
   blizzard: [["#eef6ff", [[3, 2, 2, 2], [9, 3, 2, 2], [6, 6, 2, 2], [2, 9, 2, 2], [10, 10, 2, 2]]]],
+  // clear: a pale sun
+  clear: [["#f0d878", [[5, 3, 4, 8], [3, 5, 8, 4]]], ["#fff4c0", [[6, 5, 2, 2]]]],
   // eruptions: a falling ember rock
   eruption: [["#3a2420", [[6, 7, 5, 5]]], ["#f08838", [[7, 8, 2, 2], [3, 3, 2, 2], [1, 1, 2, 2]]]],
 };
@@ -28,11 +33,12 @@ export const WeatherIcon = ({ kind, size = 16 }) => (
 export default function WeatherForecast({ g, wave, compact = false }) {
   const f = forecast(g, wave);
   if (!f) return null;
-  if (compact) return <span title={f.text} style={{ display: "flex", alignItems: "center" }}><WeatherIcon kind={f.kind} size={14} /></span>;
+  const icon = f.stage === "clear" ? "clear" : f.kind;
+  if (compact) return f.stage === "clear" ? null : <span title={f.text} style={{ display: "flex", alignItems: "center" }}><WeatherIcon kind={icon} size={14} /></span>;
   return (
-    <div title={f.sure ? "the next wave brings this weather" : "this weather may rise during the next wave"}
+    <div title={f.stage === "clear" ? "no weather is due during this wave" : f.sure ? "the weather this wave will bring" : "this weather may roll in during the wave"}
       style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "3px 6px", background: "rgba(20,26,36,0.55)", border: "2px solid var(--ink)", width: "fit-content" }}>
-      <WeatherIcon kind={f.kind} size={16} />
+      <WeatherIcon kind={icon} size={16} />
       <span style={{ fontSize: 11, color: "var(--cream)", fontStyle: f.sure ? "normal" : "italic" }}>{f.text}</span>
     </div>
   );

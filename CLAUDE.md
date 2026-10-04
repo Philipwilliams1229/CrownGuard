@@ -114,12 +114,27 @@ uses; existing levels sim byte-identical). Read the headers of
   third, 1 at the boss; a level may set `weather: false` or its own.
   `sim.mjs --weather kind:strength|none`. Free Play: `weather` /
   `weatherPower` in sandbox.js (not in isHonest).
+  **One smooth clock per level** (owner, 2026-10-04: "a storm rolling in",
+  never popping in or out at a wave boundary, can't be waited out): battle
+  seconds from the first horn, advancing ONLY in combat; between waves the
+  state (k, darkness, rain) FREEZES and keeps animating, no strikes or rocks
+  fall. Each spell is calm -> rolling in -> height -> passing, every length
+  seeded (`segAt` exported for labs). Storm: first calm 50-75 s (mild
+  70-100), rolls in 25-40 s, holds 2-4 min (mild 1-2), passes 25-40 s
+  (lightning stops first), calm 70-120 s (mild 120-200); bolts every 10-14 s
+  at its height (mild 16-22), sparse for the first 30 s. Effects ramp with
+  k (a charge bogs down with chance = k). Blizzard 15-22 / 25-40 / 15-22 s;
+  grave mist 20-30 / 30-50 / 20-30 s (hides foes past k 0.4); eruptions only
+  at the height; fog levels open thick from the first build phase, lift
+  after 25-40 s of battle over 30-45 s, and banks drift back on the clock.
+  Forecast wording per stage (brewing / rolling in / height / passing,
+  "likely" in italics). `wx-lab.html?rise=S&snaps=&bolt=1&freeze=1`.
   Lightning (owner, 2026-10-04): lands at a random spot near a random live
   fighter (any foe or friendly soldier/hero, jittered 34 px), never near
   the castle; 25-40 magic x the wave's health scaling, a 0.5 s stun, every
   4-6 s at full strength; foes with `mres > 0` or a standing shield take
   nothing; soldiers lose 45 (never below 1) and can't strike 1.1 s. The Iron
-  chapter sims about even with vs without it. The wave preview FORECASTS
+  chapter sims about even with vs without it (+1.2% on the level clock). The wave preview FORECASTS
   the next wave's weather (`forecast(g, wave)` in weather.js,
   `ui/WeatherForecast.jsx`): fog exact (the same per-wave roll), the timed
   kinds named when a spell rises before the wave's last foe leaves the

@@ -172,7 +172,8 @@ const fog = (ctx, g, w, def) => {
   if (thick > 0.01) { c.globalAlpha = thick; c.drawImage(F.thick, -ox1, 0); c.drawImage(F.thick, W - ox1, 0); }
   if (patchy > 0.01) { c.globalAlpha = patchy; c.drawImage(F.patchy, -ox2, 0); c.drawImage(F.patchy, W - ox2, 0); }
   // the sun breaking through: the fog itself warms, lit in slanting shafts
-  const sun = k < 0.995 ? clamp01((1 - k) / 0.55) : 0;
+  // (only as it LIFTS: fog drifting in comes grey, without the sun)
+  const sun = w.phase === "easing" && k < 0.995 ? clamp01((1 - k) / 0.55) : 0;
   if (sun > 0) {
     c.globalCompositeOperation = "source-atop";
     c.globalAlpha = sun * 0.2; c.fillStyle = "#fff0c4"; c.fillRect(0, 0, W, H);
@@ -425,13 +426,10 @@ const frost = (ctx, lvl) => {
   ctx.restore();
 };
 // how far the frost has crept: a little as the wind rises, then in over the
-// first seconds of the squall (stateless: from the squall's own clock)
-const frostLevel = (w, def) => {
+// first seconds of the squall (stateless: from the level clock's segment, w.seg)
+const frostLevel = (w) => {
   if (w.phase === "rising") return 0.3 * w.k;
-  if (w.phase === "squall") {
-    const L = def?.lasts ? (def.lasts[0] + def.lasts[1]) / 2 : 12;
-    return 0.3 + 0.7 * clamp01((w.clock - (w.until - L)) / 6);
-  }
+  if (w.phase === "squall") return (0.3 + 0.7 * clamp01((w.clock - (w.seg?.t0 ?? w.clock)) / 6)) * w.k;
   return w.k;                                   // easing: it melts off with the wind
 };
 const blizzard = (ctx, g, w, def) => {
