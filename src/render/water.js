@@ -1284,7 +1284,7 @@ const ICE_S = ["#6c8aa2", "#8eaabc", "#a8c0d0", "#c0d4e0", "#d8e6ee"].map((c) =>
 const ICE_CRACK = C("#58798e"), ICE_CRACK_LT = C("#ffffff", 0.85);
 // the sheet's wet thaw line and the open water under its edge, the dark
 // windows (and the sheen across them), a pressure ridge's shadow, snow on it
-const ICE_WET = C("#1c3444"), ICE_WIN = C("#2b4a5e"), ICE_WIN_LT = C("#4d7590"), ICE_RIDGE_SH = C("#7e9fb6"), ICE_SNOW = C("#eef4f7"), ICE_SNOW_LT = C("#ffffff");
+const ICE_WET = C("#1c3444"), ICE_WIN = C("#355972"), ICE_WIN_LT = C("#5a8098"), ICE_RIDGE_SH = C("#7e9fb6"), ICE_SNOW = C("#eef4f7"), ICE_SNOW_LT = C("#ffffff");
 const LAVA = ["#4a1a16", "#86281a", "#c8461c", "#ee8430", "#fcc45a", "#fff0b8"].map((c) => C(c));
 const CRUST = [C("#2e201e"), C("#4a302a"), C("#7a4c36")];
 const HEAT = [C("#e0602a", 0.2), C("#e0602a", 0.1)];
@@ -1490,7 +1490,7 @@ const pondBody = (p) => {
         let t;
         if (S > 0.6) t = shade ? ICE_S[dz > 0.6 ? 4 : 3] : dz > 0.6 ? ICE_SNOW_LT : ICE_SNOW;
         else if (S > 0.54) t = shade ? ICE_S[2] : ICE[3];
-        else if (dp > 2.5 && vn(x, y, 7, s + 41) < 0.33 + (vn(x, y, 3, s + 50) - 0.5) * 0.12) {
+        else if (dp > 2.5 && vn(x, y, Math.min(7, m * 0.4), s + 41) < 0.3 + (vn(x, y, 3, s + 50) - 0.5) * 0.12) {
           const band = (x * 0.8 - y * 1.3 + 400) % 17;
           t = !shade && band < 1.2 && vn(x, y, 10, s + 42) > 0.45 ? ICE_WIN_LT : ICE_WIN;
         } else {
