@@ -49,8 +49,8 @@ split by meltwater, and the River Watch earns its keep.
 | Frost Giant | the troll-weight bruiser; his stomp stuns soldiers |
 | Ice Drake | a lesser flier off the ice cliffs |
 | Longship crew | the landing party (thralls and huscarls) |
-| Sea Serpent | elite, river and coast boards: swims submerged (only skiffs reach it), surfaces to maul soldiers or coil round a hall, dives on |
-| Kraken | boss-tier, coast boards: body offshore, tentacles burst up along the shore to grab soldiers and smash halls; retreats after a time limit and costs lives |
+| Sea Serpent | a NEUTRAL hazard on river and coast boards (owner, 2026-10-04): swims submerged (only skiffs reach it), surfaces to maul whoever is near the water — foes and soldiers alike — or coil round a hall, dives on; never costs a life; a held knight fights back |
+| Kraken | a NEUTRAL hazard (owner, 2026-10-04): roams the water like the serpent and surfaces with 3-4 tentacles at once; a tentacle grabs a soldier OR a foe, who takes damage slowly and hacks at it to break free; tentacles have modest health and towers target them; the body has a huge pool of health (killable, unlikely); never costs a life |
 | BOSS: the Rime Jarl | on a war-mammoth: tramples, freezes halls, calls landings |
 
 ## Zone V — The Ashen Reach (the Marshal's Pact)
@@ -75,6 +75,12 @@ horde he bought, and their dragons.
   on the road that hurt foes and set halls near them burning.
 
 ## Weather in every zone (owner, 2026-10-03)
+
+Owner's answers 2026-10-04: lightning strikes at RANDOM within the areas
+where there are fighters (both sides), weaker overall (it was too much of a
+player buff), and does nothing to magic-resistant foes; the wave preview
+FORECASTS the next wave's weather; grave mist stays as it is until the owner
+has played it.
 
 One signature weather per zone, MORE PREVALENT THE FURTHER INTO AN AREA YOU
 TRAVEL (none in a chapter's first third, rare and mild in the middle, often
