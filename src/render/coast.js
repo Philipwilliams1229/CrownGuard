@@ -22,14 +22,22 @@
 //   shells, pebbles and weed on the tideline, marram on the dune edge, and
 //   driftwood — each drawn pixel by pixel, the solid ones inked, all kept
 //   clear of the realm's decor and of each other.
-// - drawShoreLive (every frame) runs the swash: a thin sheet of water with a
-//   foam front sliding up the wet sand and back, out of step along the shore,
-//   and a few glints winking on the swell; it parts round the rocks at the
-//   waterline (shorter beside them), its foam dies back in runs, and on a
-//   steep shore neighbouring fronts join in a stair instead of dots. The sheet is one staircase outline per unbroken run, the foam
-//   axis-aligned rects on the art grid (neighbours merged): four fills a
-//   frame, crisp, ~0.35 ms on the dev box.
-
+// - drawShoreLive (every frame) is the sea's motion, all on the swell's one
+//   clock: three crests roll in from 108 units out at 5.5 units a second
+//   (the Rimewater's slower, a narrow inlet's smaller), each a broken line
+//   of lit water with its shade under it bent to the depth contours; at the
+//   bar a crest steepens and breaks into a line of foam that runs over the
+//   shallows dissolving in runs, parts round the rocks awash (foam heaped on
+//   their seaward faces, a lee of flat water behind) and never crosses a
+//   river's mouth (water.js riverMouths: a standing chop bobs there); at the
+//   lip it feeds the swash, a thin sheet with a foam front sliding up the wet
+//   sand and back in step with the crests (later in the bays), every wave's
+//   size shared along the shore, leaving foam flecks and a wet gleam at its
+//   high-water mark that go pixel by pixel; glints ride the sunlit crests.
+//   Fast ice (SEA_ICE.at) stops all of it. Rects on the art grid merged
+//   along the shore, a fill per tone: ~0.8 ms a frame in headless Chromium
+//   on the cloud box, where the old swash alone read 0.43.
+//
 import { W, H, PATH_HALF, WALL_W } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { nearestOnPath, PTS } from "../engine/path.js";

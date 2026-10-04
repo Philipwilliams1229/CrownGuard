@@ -1350,11 +1350,13 @@ const iceBake = () => {
   // ---- the sheet
   const cv = document.createElement("canvas"); cv.width = PW; cv.height = PH;
   const c = cv.getContext("2d"), img = c.createImageData(PW, PH), D = img.data;
-  let bx0 = PW, by0 = PH, bx1 = 0, by1 = 0;                          // the painted box, so the frame stamps only that
+  // the painted box of each water (the sea, each mere), so a frame stamps only those
+  const boxes = base.map(() => [PW, PH, 0, 0]);
   const put = (k, col) => {
     const o = k << 2; D[o] = col[0]; D[o + 1] = col[1]; D[o + 2] = col[2]; D[o + 3] = 255;
-    const i = k % PW, j = (k - i) / PW;
-    if (i < bx0) bx0 = i; if (i > bx1) bx1 = i; if (j < by0) by0 = j; if (j > by1) by1 = j;
+    const i = k % PW, j = (k - i) / PW, b = boxes[who[k] - 1];
+    if (!b) return;
+    if (i < b[0]) b[0] = i; if (i > b[2]) b[2] = i; if (j < b[1]) b[1] = j; if (j > b[3]) b[3] = j;
   };
   const isIce = (k) => k >= 0 && k < N && D[(k << 2) + 3] === 255 && st[k] === 1;
   const wa = REALM.water || {}, deep = hexRGB(wa.deep || "#1f3a4a");
@@ -1444,7 +1446,7 @@ const iceBake = () => {
     }
   }
   c.putImageData(img, 0, 0);
-  const box = bx1 >= bx0 ? [bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1] : null;
+  const box = boxes.filter((b) => b[2] >= b[0]).map((b) => [b[0], b[1], b[2] - b[0] + 1, b[3] - b[1] + 1]);
   ICE_SHEET.B = { cv, cover, cakes, box };
   return ICE_SHEET.B;
 };
@@ -1617,7 +1619,7 @@ const drawFloes = (ctx, time) => {
 const drawRimeGate = (ctx, time) => {
   if (typeof document !== "undefined") {
     const B = iceBake();
-    if (B && B.box) { const [x, y, w, h] = B.box; ctx.drawImage(B.cv, x, y, w, h, x / PX, y / PX, w / PX, h / PX); drawBrash(ctx, B, time); }
+    if (B) { for (const [x, y, w, h] of B.box) ctx.drawImage(B.cv, x, y, w, h, x / PX, y / PX, w / PX, h / PX); drawBrash(ctx, B, time); }
   }
   drawFloes(ctx, time);
   if (PTS.length < 2 || typeof document === "undefined") return;

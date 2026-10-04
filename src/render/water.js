@@ -161,7 +161,7 @@ const waterTones = (wa, B, sand = B.pebble) => {
     mix(bed, lighten(B.pebble, 0.15), 0.42), mix(bed, wa.deep, 0.5),
     mix(shal, "#5a7040", 0.32), mix(shal, "#8a9a58", 0.5),
     mix(sand, wa.edge, 0.42), mix(mix(sand, wa.edge, 0.3), wa.shine, 0.3),
-    mix(mix(wa.edge, wa.deep, 0.25), sand, 0.22), mix(mix(wa.edge, wa.deep, 0.5), sand, 0.1),
+    mix(mix(wa.edge, wa.deep, 0.2), sand, 0.32), mix(mix(wa.edge, wa.deep, 0.45), sand, 0.2),
   ];
   const wet = (c, k) => mix(c, wa.edge, k);
   return {
@@ -485,7 +485,10 @@ const mouthOf = (rv) => {
       if (seaDepthAt(x, y) < 0) continue;
       // (the bar lies off the channel's centre, to one side or the other)
       const hb = hash(Math.round(x), Math.round(y) + 7);
-      m = { x, y, hw, nx: tx * dir, ny: ty * dir, sand, span: sand + MOUTH_RUN, bar: (hb < 0.5 ? -1 : 1) * (0.22 + Math.abs(hb - 0.5) * 0.5) };
+      // (the longshore drift bends the silt fan down the coast: the shore's
+      // direction taken across the river, one way or the other by seed)
+      const along = COAST.edge === "top" || COAST.edge === "bottom", drift = (hash(Math.round(x) + 3, Math.round(y)) < 0.5 ? -1 : 1) * 0.6 * Math.abs(along ? -ty : tx);
+      m = { x, y, hw, nx: tx * dir, ny: ty * dir, sand, span: sand + MOUTH_RUN, bar: (hb < 0.5 ? -1 : 1) * (0.22 + Math.abs(hb - 0.5) * 0.5), drift };
       break;
     }
   }
@@ -799,13 +802,15 @@ const riverBody = (rivers, wa, view, r) => {
         // out in the sea: the river's silt, a fan of paler shallows that
         // spreads from the mouth and dissolves (in drifts, never a screen)
         // within FAN; the channel's own tongue and the bar run out into it
-        const M = MS[rivI], hwE = hw + wide, hwF = hwE * 0.9 + sd * 0.8, al = Math.abs(lat);
-        const across = clamp01(1 - (lat / hwF) * (lat / hwF));
-        const dens = Math.pow(1 - Math.min(1, sd / FAN), 1.3) * across * (0.7 + 0.6 * vn(x, y, 9, s + 62)) * mnear;
+        // a solid tongue along the channel's line (bent down-coast by the
+        // longshore drift), paling and dissolving outward in a fine dither
+        const M = MS[rivI], hwE = hw + wide, hwF = hwE * 0.9 + sd * 0.8;
+        const lt = lat - M.drift * sd * 0.35, al = Math.abs(lt), ac = al / hwF;
+        const dens = 1.3 * Math.pow(1 - Math.min(1, sd / FAN), 1.2) * clamp01(1.25 - 1.25 * ac * ac) * (0.85 + 0.3 * vn(x, y, 9, s + 62)) * mnear;
         const bar = sd < 4 + hwE * 0.12 && Math.abs(lat - M.bar * hwE) < hwE * 0.12 * clamp01(1 - sd / 8) + (vn(x, y, 4, s + 64) - 0.5) * 1.6;
-        if (!bar && vn(x, y, 5, s + 61) * 0.8 + hash(gi, gj + 3) * 0.2 > dens) continue;
+        if (!bar && vn(x, y, 2.5, s + 61) * 0.55 + hash(gi, gj + 3) * 0.45 > dens) continue;
         shade = false;
-        t = bar ? T_BAR : sd < 8 + hwE * 0.2 && al < hwE * 0.55 ? T_SILT2 : T_SILT;
+        t = bar ? T_BAR : dens > 0.95 && sd < 14 + hwE * 0.3 ? T_SILT2 : T_SILT;
       } else {
         // the bank on the sun's side throws its shadow onto the water
         shade = dp < (L < 0 ? -L : 0) * 3.0 + V * 0.6 + (N13 - 0.5) * 1.4;
