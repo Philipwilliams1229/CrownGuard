@@ -694,7 +694,9 @@ chiptune.
   (read its header) and `compileTrack`; pure, so Node can use it.
 - Tracks are text in `src/audio/tracks/<area>.js` (arrays gathered by
   `tracks/index.js`). Ids: `<area>-build | -fight | -boss` for greenwood,
-  iron, hollow, plus `title`, `map`, `victory`, `defeat` (the jingles have
+  iron, hollow, rime (zone IV: G dorian 6/8 "The Grey Swell", B minor
+  rowing "Longships", F# minor "The Rime Jarl"; lute + glassy pad and one
+  shared horn call are its own sound), plus `title`, `map`, `victory`, `defeat` (the jingles have
   `loop: false`). `audio/score.js` decides what plays when; the faction
   picks the area (free-play realms use their faction's).
 - **One piece per battle** (owner, 2026-10-02: no switching and restarting
