@@ -53,7 +53,7 @@ const ISLES = [
 ];
 // zone ids: 0-2 the chapters, 3 the isthmus (a mountain wall), 4 the islets
 // The set pieces stand on land the coast may not eat: [zone, [x, y]].
-const SET = { castle: [143, 323], citadel: [690, 116], ruin: [686, -152], jarl: [554, -577] };
+const SET = { castle: [143, 323], citadel: [690, 116], ruin: [686, -152], jarl: [550, -578] };
 // broad sandy strands on the vale's coast: [x, y, radius]
 const SANDS = [[298, 362, 30]];
 const SET_LAND = [[0, SET.castle], [1, SET.citadel], [2, SET.ruin], [5, SET.jarl]];
@@ -218,14 +218,13 @@ const rimePx = (x, y, band, inl) => {
   // black rock only where the wind scours a shadowed slope bare, blue ice in
   // the broad hollows, and dun tundra breaking through in the south
   const rock = fbm(x, y, 24, 120) + (0.5 - band) * 0.22, ice = fbm(x, y, 60, 121);
-  if (rock > 0.8 + b) return hash(x >> 1, (y >> 1) + 7) < 0.1 ? R.snow[0] : R.rock[Math.min(2, t + (rock > 0.82 ? 0 : 1))];
+  if (rock > 0.83) return rock < 0.845 ? R.snow[0] : R.rock[Math.min(2, t + (rock > 0.87 ? 0 : 1))];
   if (ice > 0.7 + b) return (y % 7 === 3 && vnoise(x, y, 5, 126) > 0.62) ? R.glint : R.ice[t];
   if (south > 0.05 && fbm(x, y, 26, 122) < 0.12 + south * 0.2 - b) return R.tundra[t];
   // drifts: long ripples combed WSW-ENE by the wind, one pixel of shadow each
   const k = Math.floor(y * 1 - x * 0.28 + vnoise(x, y, 26, 123) * 22);
   if (k % 9 === 0 && vnoise(x, y, 11, 124) > 0.42) return t ? R.drift : R.snow[0];
   const r = hash((x >> 1) * 7 + 5, (y >> 1) * 3 + 9);
-  if (r < 0.002) return R.fleck;
   return R.snow[t];
 };
 // The cold sea round it, and its ice: floes thickening northward into pack,
@@ -236,9 +235,12 @@ const FLOE = { body: rgb("#d4e2ea"), lit: rgb("#f4f9fb"), thin: rgb("#a4bccc"), 
 // whose size grows with the ice's density (so northward they crowd into
 // pack, with dark leads between). inFloe answers for one art pixel.
 const FC = 20;
-const floeDens = (y) => {
-  const my = y / U + MAP.y;
-  return smooth(Math.max(0, Math.min(1, (-380 - my) / 110))) * 0.45 + smooth(Math.max(0, Math.min(1, (-585 - my) / 45))) * 0.55;
+// (drifting floes thin out away from the Rimewater, west and south; the
+// pack along the top of the world lies right across it)
+const floeDens = (x, y) => {
+  const my = y / U + MAP.y, mx = x / U + MAP.x;
+  const drift = smooth(Math.max(0, Math.min(1, (-380 - my) / 120))) * (0.25 + 0.75 * smooth(Math.max(0, Math.min(1, (mx - 120) / 170))));
+  return drift * 0.45 + smooth(Math.max(0, Math.min(1, (-585 - my) / 45))) * 0.55;
 };
 const inFloe = (x, y, dens) => {
   const cy = Math.floor(y / FC), sx = x + (cy & 1) * (FC >> 1), cx = Math.floor(sx / FC), k = cx * 977 + cy * 131;
@@ -254,7 +256,7 @@ const inFloe = (x, y, dens) => {
 // fast ice along the Rimewater's own shores (dist: art px from its coast)
 const seaIce = (x, y, dist, nearRime) => {
   if (dist < 4) return null;
-  const dens = Math.min(1, floeDens(y) + (nearRime && dist < 26 ? 0.45 * (1 - dist / 26) : 0));
+  const dens = Math.min(1, floeDens(x, y) + (nearRime && dist < 26 ? 0.45 * (1 - dist / 26) : 0));
   if (dens < 0.04) return null;
   if (inFloe(x, y, dens)) return inFloe(x, y - 1, dens) ? (hash(x >> 1, y) < 0.04 ? FLOE.thin : FLOE.body) : FLOE.lit;
   if (inFloe(x, y - 1, dens) || inFloe(x, y - 2, dens)) return FLOE.shade;
@@ -471,6 +473,16 @@ const bake = (w, h, draw, ink = 1) => {
 const layer = (draw, edge = null) => {
   const cv = mk(), c = cv.getContext("2d", RF);
   toArt(c);
+  draw(c);
+  crisp(cv);
+  if (edge) inkOutline(cv, edge, 1);
+  return cv;
+};
+// The same, but only a box of the map (x0, y0, w, h in map units): far
+// cheaper to harden and ink for something that covers one corner of it.
+const layerBox = (x0, y0, w, h, draw, edge = null) => {
+  const cv = mk(Math.ceil(w * U), Math.ceil(h * U)), c = cv.getContext("2d", RF);
+  c.setTransform(U, 0, 0, U, -x0 * U, -y0 * U); c.imageSmoothingEnabled = false;
   draw(c);
   crisp(cv);
   if (edge) inkOutline(cv, edge, 1);
@@ -1562,25 +1574,25 @@ const longRoof = (c, x, y, w, h, v) => {
 // smoke going up from a roof hole, leaning with the wind
 const smoke = (c, x, y, n = 3) => {
   for (let k = 0; k < n; k++) {
-    const r = 0.7 + k * 0.32, px = x + k * 0.9, py = y - k * 1.5;
+    const r = 0.95 + k * 0.42, px = x + k * 1.2, py = y - k * 1.9;
     c.fillStyle = k ? RK.smoke : RK.smokeDk; c.beginPath(); c.arc(px, py, r, 0, Math.PI * 2); c.fill();
   }
 };
 // a longhouse, its smoke rising
-const longhouse = (v) => spr(`rm-long${v}`, 11, 10, (c) => {
-  longRoof(c, 0.9, 9.6, 8.6 - (v % 2) * 1.6, 2, v);
-  smoke(c, 4 + (v % 3) * 0.6, 4.2, 3);
+const longhouse = (v) => spr(`rm-long${v}`, 12, 13, (c) => {
+  longRoof(c, 0.9, 12.6, 8.6 - (v % 2) * 1.6, 2, v);
+  smoke(c, 3.4 + (v % 3) * 0.6, 6.4, 3);
 });
 // a steading: the longhouse, a storehouse on posts and a byre
-const steadingR = (v) => spr(`rm-stead${v}`, 14, 10, (c) => {
-  longRoof(c, 0.9, 9.6, 7.4, 1.9, v);
-  if (v % 2) longRoof(c, 9.2, 9.6, 3.6, 1.4, v + 1);
+const steadingR = (v) => spr(`rm-stead${v}`, 14, 13, (c) => {
+  longRoof(c, 0.9, 12.6, 7.4, 1.9, v);
+  if (v % 2) longRoof(c, 9.2, 12.6, 3.6, 1.4, v + 1);
   else {
-    c.fillStyle = RK.woodDk; c.fillRect(9.6, 8.4, 0.5, 1.2); c.fillRect(11.8, 8.4, 0.5, 1.2);
-    c.fillStyle = RK.wood; c.fillRect(9.2, 6.6, 3.6, 1.9);
-    c.fillStyle = RK.snow; poly(c, [[8.8, 6.8], [11, 4.8], [13.2, 6.8]]); c.fill();
+    c.fillStyle = RK.woodDk; c.fillRect(9.6, 11.4, 0.5, 1.2); c.fillRect(11.8, 11.4, 0.5, 1.2);
+    c.fillStyle = RK.wood; c.fillRect(9.2, 9.6, 3.6, 1.9);
+    c.fillStyle = RK.snow; poly(c, [[8.8, 9.8], [11, 7.8], [13.2, 9.8]]); c.fill();
   }
-  smoke(c, 3.6 + (v % 2), 4.4, 3);
+  smoke(c, 3 + (v % 2), 6.6, 3);
 });
 // a dark spruce of the sheltered south, snow lying on its tiers
 const rimePine = (v) => spr(`rm-pine${v}`, 6, 11, (c) => {
@@ -1687,36 +1699,41 @@ const krakenArms = () => spr("rm-kraken", 16, 9, (c) => {
 // long roof and beast-heads on its gables, two lesser halls behind, the
 // palisade round them and a gate, braziers burning, his blue war-banner
 // over all, and the smoke of the feast going up
-const jarlHall = () => spr("rm-jarl", 34, 26, (c) => {
-  // the lesser halls behind
-  longRoof(c, 2.2, 15.4, 9, 2, 1);
-  longRoof(c, 21.6, 14.6, 9.6, 2, 2);
-  smoke(c, 7, 9.2, 3); smoke(c, 26, 8.4, 3);
-  // the great hall
-  longRoof(c, 6.4, 21.2, 20.4, 3.6, 0);
-  c.fillStyle = RK.gold; c.fillRect(15.6, 17.2, 2.6, 0.6);
-  c.fillStyle = RK.door; c.fillRect(15.9, 17.8, 2, 3.4);
-  c.fillStyle = RK.red; c.fillRect(15.9, 17.8, 0.4, 3.4); c.fillRect(17.5, 17.8, 0.4, 3.4);
-  // the beast-heads on its gables, gilded
+const jarlHall = () => spr("rm-jarl", 38, 30, (c) => {
+  // the lesser halls behind, and their smoke
+  longRoof(c, 1.6, 18, 10, 2.2, 1);
+  longRoof(c, 25.4, 17.4, 10.4, 2.2, 2);
+  smoke(c, 5.4, 10.4, 3); smoke(c, 29, 9.8, 3);
+  // the great hall, long and high
+  longRoof(c, 7, 25.6, 23.6, 4.6, 0);
+  // its carved porch and doors
+  c.fillStyle = RK.woodDk; poly(c, [[16, 25.6], [16, 20.6], [18.8, 18.6], [21.6, 20.6], [21.6, 25.6]]); c.fill();
+  c.fillStyle = RK.snow; poly(c, [[15.6, 20.9], [18.8, 18.2], [22, 20.9], [21, 20.9], [18.8, 19.2], [16.6, 20.9]]); c.fill();
+  c.fillStyle = RK.door; c.fillRect(17.4, 21.6, 2.8, 4);
+  c.fillStyle = RK.red; c.fillRect(17.4, 21.6, 0.5, 4); c.fillRect(19.7, 21.6, 0.5, 4);
+  c.fillStyle = RK.gold; c.fillRect(17.2, 21, 3.2, 0.6);
+  // shields hung along its walls
+  for (let k = 0; k < 8; k++) { if (k === 3 || k === 4) continue; c.fillStyle = k % 2 ? RK.gold : RK.blue; c.beginPath(); c.arc(9 + k * 2.6, 23.2, 0.65, 0, Math.PI * 2); c.fill(); }
+  // the gilded beast-heads rearing off its gables
   c.fillStyle = RK.gold;
-  for (const [gx, d] of [[6.2, -1], [27, 1]]) { poly(c, [[gx, 13], [gx + d * 1.8, 10.6], [gx + d * 2.6, 11], [gx + d * 1.4, 12.2], [gx + d * 0.6, 13.6]]); c.fill(); }
-  smoke(c, 13, 9.4, 4); smoke(c, 20.6, 9.8, 3);
-  // the palisade along the front, and its gate
-  for (let x = 0.6; x < 33.6; x += 1.1) {
-    if (x > 14.8 && x < 19.4) continue;
-    const h = 2.4 + (Math.round(x * 10) % 3) * 0.3;
-    c.fillStyle = Math.round(x * 10) % 2 ? RK.wood : RK.woodLt; c.fillRect(x, 25.6 - h, 0.9, h);
-    c.fillStyle = RK.snow; c.fillRect(x, 25.6 - h - 0.3, 0.9, 0.5);
+  for (const [gx, d] of [[7.2, -1], [30.4, 1]]) { poly(c, [[gx, 16.4], [gx + d * 1.2, 13.4], [gx + d * 2.8, 12.6], [gx + d * 3.2, 13.6], [gx + d * 2, 14], [gx + d * 1, 16.8]]); c.fill(); }
+  smoke(c, 13.4, 11.6, 4); smoke(c, 24, 12, 4);
+  // the palisade round the yard, snow on its stakes, and its gate
+  for (let x = 0.6; x < 37.4; x += 1.15) {
+    if (x > 16.4 && x < 21.4) continue;
+    const h = 2 + (Math.round(x * 10) % 3) * 0.3;
+    c.fillStyle = Math.round(x * 10) % 2 ? RK.wood : RK.woodLt; c.fillRect(x, 29.6 - h, 0.95, h);
+    c.fillStyle = RK.snow; c.fillRect(x, 29.6 - h - 0.3, 0.95, 0.5);
   }
-  c.fillStyle = RK.woodDk; c.fillRect(14.6, 21.6, 0.8, 4); c.fillRect(18.8, 21.6, 0.8, 4); c.fillRect(14.6, 21.4, 5, 0.8);
+  c.fillStyle = RK.woodDk; c.fillRect(16.2, 26, 0.9, 3.6); c.fillRect(20.6, 26, 0.9, 3.6); c.fillRect(16, 25.8, 5.7, 0.9);
   // braziers either side of the gate
-  for (const bx of [13.2, 20.6]) { c.fillStyle = RK.stoneDk; c.fillRect(bx, 23.4, 1.2, 2.2); c.fillStyle = RK.fire; c.fillRect(bx, 22.4, 1.2, 1); c.fillStyle = "#ffe08a"; c.fillRect(bx + 0.3, 22.2, 0.6, 0.6); }
+  for (const bx of [14.6, 22.2]) { c.fillStyle = RK.stoneDk; c.fillRect(bx, 27.4, 1.3, 2.2); c.fillStyle = RK.fire; c.fillRect(bx, 26.3, 1.3, 1.1); c.fillStyle = "#ffe08a"; c.fillRect(bx + 0.35, 26.1, 0.6, 0.6); }
   // the war-banner on its pole: ice-blue, a white star of frost
-  c.fillStyle = RK.woodDk; c.fillRect(29.4, 1.2, 0.6, 15);
-  c.fillStyle = RK.blue; poly(c, [[30, 1.6], [33.6, 1.6], [33.6, 6], [31.8, 5], [30, 6]]); c.fill();
-  c.fillStyle = RK.blueLt; c.fillRect(30, 1.6, 3.6, 0.6);
-  c.fillStyle = RK.snow; c.fillRect(31.5, 2.6, 0.6, 2); c.fillRect(30.8, 3.3, 2, 0.6);
-  c.fillStyle = RK.gold; c.fillRect(29.2, 0.6, 1, 0.8);
+  c.fillStyle = RK.woodDk; c.fillRect(33.4, 1.2, 0.7, 16.6);
+  c.fillStyle = RK.blue; poly(c, [[34.1, 1.6], [37.8, 1.6], [37.8, 6.4], [36, 5.3], [34.1, 6.4]]); c.fill();
+  c.fillStyle = RK.blueLt; c.fillRect(34.1, 1.6, 3.7, 0.6);
+  c.fillStyle = RK.snow; c.fillRect(35.6, 2.7, 0.7, 2.2); c.fillRect(34.9, 3.45, 2.1, 0.7);
+  c.fillStyle = RK.gold; c.fillRect(33.2, 0.6, 1.1, 0.8);
 });
 
 // ---- the dressing ------------------------------------------------------
@@ -2452,7 +2469,7 @@ function* rimeDressing(base, { add, taken, free, clearOf, onZone, piece, range, 
   // the strands: whale ribs on Whalebone Bay and the shingle, longships
   // drawn up by the raiders' landings
   for (const [x, y, v] of [[508, -330, 0], [524, -328, 1], [494, -326, 1], [454, -322, 0], [560, -326, 1], [282, -440, 0], [744, -326, 1]]) strand(whaleRibs(v), x, y, 9, 0.8, 3.6, 1.2);
-  for (const [x, y, v] of [[712, -328, 0], [728, -330, 1], [318, -422, 0], [300, -426, 1], [440, -466, 0], [752, -540, 1], [578, -582, 0], [596, -588, 1], [472, -588, 0], [540, -606, 1], [650, -604, 0]]) strand(shipBeached(v), x, y, 8, 0.6, 3.4, 1.4);
+  for (const [x, y, v] of [[684, -326, 0], [758, -334, 1], [728, -330, 1], [318, -422, 0], [300, -426, 1], [440, -466, 0], [752, -540, 1], [578, -582, 0], [596, -588, 1], [472, -588, 0], [540, -606, 1], [650, -604, 0]]) strand(shipBeached(v), x, y, 8, 0.6, 3.4, 1.4);
 }
 
 // The whole terrain: the base, then water, fields, road, and the dressing.
@@ -2529,7 +2546,8 @@ function* paintTerrain() {
   yield;
   // the Rimewater's glaciers: blue-white ice, lit along their western edge,
   // banded with crevasses across the flow and a dark moraine down the middle
-  const glaciers = layer((c) => {
+  const GB = [250, -600, 470, 190];   // the box the glaciers lie in
+  const glaciers = layerBox(...GB, (c) => {
     c.lineCap = "round";
     for (const gl of GLACIERS) {
       c.fillStyle = RK.iceDk; glacierPath(c, gl); c.fill();
@@ -2554,23 +2572,28 @@ function* paintTerrain() {
       c.restore();
     }
   }, INK);
-  ctx.drawImage(onLand(glaciers), 0, 0);
+  {
+    const g = glaciers.getContext("2d", RF);
+    g.globalCompositeOperation = "destination-in"; g.drawImage(landMask, -artX(GB[0]), -artY(GB[1]));
+    ctx.drawImage(glaciers, artX(GB[0]), artY(GB[1]));
+  }
   // ...and the ice field each rises in, dithered out into the snow (over the
   // tongue's inked head, so it flows out of the field rather than starting)
   {
-    const img = ctx.getImageData(0, 0, AW, AH), d = img.data, ice = rgb(RK.ice), lit = rgb(RK.iceLt), dk = rgb(RK.iceDk);
+    const bx = artX(GB[0]), by = artY(GB[1]), bw = glaciers.width, bh = glaciers.height;
+    const img = ctx.getImageData(bx, by, bw, bh), d = img.data, ice = rgb(RK.ice), lit = rgb(RK.iceLt), dk = rgb(RK.iceDk);
     for (const gl of GLACIERS) {
       const [sx, sy] = gl.pts[0], R = gl.w0 * 0.95;
       for (let y = artY(sy - R); y <= artY(sy + R); y++) for (let x = artX(sx - R * 1.3); x <= artX(sx + R * 1.3); x++) {
-        const i = y * AW + x;
-        if (x < 0 || y < 0 || x >= AW || y >= AH || !base.land[i] || base.zone[i] !== RZ) continue;
+        const i = y * AW + x, j = (y - by) * bw + (x - bx);
+        if (x < bx || y < by || x >= bx + bw || y >= by + bh || !base.land[i] || base.zone[i] !== RZ) continue;
         const ux = x / U + MAP.x, uy = y / U + MAP.y, e = Math.hypot((ux - sx) / 1.3, uy - sy) / R + (vnoise(x, y, 7, 130 + gl.seed) - 0.5) * 0.5;
         if (e > 1 || bayer(x, y) < (e - 0.45) * 1.8 || busy(ux, uy, 0.5)) continue;
         const c = vnoise(x, y, 5, 140) > 0.62 ? lit : (y % 6 === 0 && hash(x >> 2, y) < 0.3 ? dk : ice);
-        d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2];
+        d[j * 4] = c[0]; d[j * 4 + 1] = c[1]; d[j * 4 + 2] = c[2];
       }
     }
-    ctx.putImageData(img, 0, 0);
+    ctx.putImageData(img, bx, by);
   }
   yield;
 
@@ -2646,7 +2669,7 @@ function* paintTerrain() {
     if (atSea(x, y, 6)) stamp(ctx, berg(v), x, y, 4.5, 6.2);
   for (const [x, y, v] of [[588, -523, 0], [598, -518, 1]]) stamp(ctx, berg(v + 3), x, y, 4.5, 6.2);
   if (atSea(776, -546, 3)) stamp(ctx, krakenArms(), 776, -546, 8, 8.6);
-  for (const [x, y, v] of [[586, -596, 1], [262, -446, 0], [470, -456, 1], [612, -296, 0], [690, -292, 1], [786, -612, 0]])
+  for (const [x, y, v] of [[586, -596, 1], [262, -446, 0], [470, -456, 1], [612, -296, 0], [560, -300, 1], [786, -612, 0]])
     if (atSea(x, y, 2)) stamp(ctx, shipSail(v), x, y, 6, 9.6);
   return { canvas: cv, base };
 }

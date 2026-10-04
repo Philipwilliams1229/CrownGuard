@@ -137,14 +137,18 @@ export default function rimeBoardsB(rimeVariant) {
         ],
         decorRecipe: { count: 36, types: ["rmspruce", "rmrock", "rmspruce", "rmtussock"] },
         decor: [
-          // the glacier's snout along the top: frozen falls where the two
-          // channels pour out, ice crags across the island's head
-          { x: 132, y: 0, t: "rmicefall", s: 1.1, v: 0 },
-          { x: 546, y: 0, t: "rmicefall", s: 1.1, v: 0 },
-          { x: 260, y: -2, t: "rmicefall", s: 1, v: 1 },
-          { x: 340, y: -10, t: "rmicefall", s: 1.1, v: 1 },
-          { x: 418, y: 0, t: "rmicefall", s: 0.95, v: 1 },
-          { x: 300, y: 46, t: "rmrock", s: 0.9, v: 2 },
+          // the glacier's snout along the top: a wall of ice crags across
+          // the island's head and either bank, a frozen fall beside each
+          // channel where it pours out from under the ice
+          { x: 70, y: -12, t: "rmicefall", s: 1.3, v: 1 },
+          { x: 122, y: -8, t: "rmicefall", s: 1.2, v: 0 },
+          { x: 250, y: -10, t: "rmicefall", s: 1.5, v: 1 },
+          { x: 306, y: -16, t: "rmicefall", s: 1.6, v: 1 },
+          { x: 362, y: -10, t: "rmicefall", s: 1.45, v: 1 },
+          { x: 418, y: -12, t: "rmicefall", s: 1.3, v: 0 },
+          { x: 562, y: -8, t: "rmicefall", s: 1.25, v: 0 },
+          { x: 616, y: -14, t: "rmicefall", s: 1.35, v: 1 },
+          { x: 290, y: 44, t: "rmrock", s: 0.9, v: 2 },
           // boulders the ice dropped at the island's foot
           { x: 362, y: 428, t: "rmrock", s: 0.95, v: 1 },
           // a spruce wood on the west bank
@@ -159,8 +163,8 @@ export default function rimeBoardsB(rimeVariant) {
           { x: 654, y: 472, t: "rmrack", s: 0.9 },
           { x: 664, y: 390, t: "rmspruce", s: 1 },
           { x: 560, y: 490, t: "rmspruce", s: 0.95 },
-          { x: 606, y: 20, t: "rmspruce", s: 1 },
-          { x: 662, y: 52, t: "rmspruce", s: 1.1 },
+          { x: 606, y: 72, t: "rmspruce", s: 1 },
+          { x: 664, y: 46, t: "rmspruce", s: 1.1 },
         ],
       },
     ),
@@ -182,11 +186,12 @@ export default function rimeBoardsB(rimeVariant) {
         decorRecipe: { count: 34, types: ["rmspruce", "rmrock", "rmtussock", "rmspruce"] },
         decor: [
           // the headland between the coves, the seals hauled out on it
-          { x: 392, y: 378, t: "rmsealrock", s: 1 },
+          { x: 380, y: 380, t: "rmsealrock", s: 1 },
+          { x: 424, y: 388, t: "rmsealrock", s: 0.85 },
           { x: 364, y: 336, t: "rmrock", s: 0.9, v: 3 },
           // the raiders' old landing west of the first cove: a longship drawn
           // up, its fish rack and a whale's ribs
-          { x: 64, y: 396, t: "rmlongship", s: 1, v: 1 },
+          { x: 112, y: 392, t: "rmlongship", s: 1, v: 1 },
           { x: 20, y: 340, t: "rmrack", s: 0.9 },
           { x: 654, y: 374, t: "rmwhale", s: 1, v: 0 },
           // spruce on the high ground north of the bay

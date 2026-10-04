@@ -67,7 +67,7 @@ const WOOD = "#5a4430", WOOD_LT = "#7e6244", WOOD_DK = "#3a2a1e", TAR = "#2e2a2c
 const TURF = "#5c6448", TURF_LT = "#7c8458", TURF_DK = "#3e4432";
 const STRAW = ["#5e5236", "#8a7646", "#b49a5c", "#d6c08a"];
 const BONE = "#ddd6c4", BONE_DK = "#a49c88";
-const SEAL = "#6a6460", SEAL_LT = "#8e8780", SEAL_DK = "#46403e";
+const SEAL = "#9a9084", SEAL_LT = "#c0b6a6", SEAL_DK = "#5e564e";
 
 const ap = (v) => Math.round(v * PX) / PX;
 const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
@@ -322,19 +322,21 @@ const rimeRoad = (ctx) => {
   const R = REALM, seed = (R.seed | 0) % 100000;
   const cv = ctx.canvas, PW = cv.width, PHh = cv.height, K = PW / W;
   const img = ctx.getImageData(0, 0, PW, PHh), d = img.data;
-  const STN = ["#3e3c42", "#55525a", "#6a676e", "#827f86", "#9c99a0"].map(hexRGB);
+  // the old flags: a cool grey only a few steps below the trodden snow
+  const STN = ["#8e989e", "#9aa4aa", "#a6b0b5", "#b2bbbf", "#c8d0d4"].map(hexRGB);
+  const DUST = [hexRGB("#d8e2e8"), hexRGB("#e8f0f4")];
   const GRIT = [hexRGB("#8a8270"), hexRGB("#6e6656")];
   const put = (px, py, c) => { if (px < 0 || py < 0 || px >= PW || py >= PHh) return; const o = (py * PW + px) << 2; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; };
-  const half = PATH_HALF - 4;
+  const half = PATH_HALF - 5;
   // where the road bends, no flags
-  const bendy = (dd) => { const a0 = angleAt(Math.max(0, dd - 14)), a1 = angleAt(Math.min(TOTAL_LEN, dd + 14)); let da = Math.abs(a1 - a0); if (da > Math.PI) da = 2 * Math.PI - da; return da > 0.06; };
+  const bendy = (dd) => { const a0 = angleAt(Math.max(0, dd - 16)), a1 = angleAt(Math.min(TOTAL_LEN, dd + 16)); let da = Math.abs(a1 - a0); if (da > Math.PI) da = 2 * Math.PI - da; return da > 0.06; };
   // courses: boundaries along the road
   const courses = [];
   for (let s = 0, k = 0; s < TOTAL_LEN; k++) { courses.push(s); s += 6 + hash(k, seed + 3) * 5; }
   let ci = 0;
-  for (let dd = 60; dd < TOTAL_LEN - 50; dd += 0.5 / K * 2) {
-    const patch = vn(dd / 75, 0.5, seed + 31);
-    if (patch < 0.6 || bendy(dd)) continue;
+  for (let dd = 70; dd < TOTAL_LEN - 50; dd += 0.5 / K * 2) {
+    const patch = vn(dd / 60, 0.5, seed + 31);
+    if (patch < 0.68 || bendy(dd)) continue;
     while (ci < courses.length - 2 && courses[ci + 1] <= dd) ci++;
     const c0 = courses[ci], c1 = courses[ci + 1], fu = (dd - c0) / (c1 - c0);
     const [x0, y0] = posAt(dd), a = angleAt(dd), nx = -Math.sin(a), ny = Math.cos(a);
@@ -342,15 +344,22 @@ const rimeRoad = (ctx) => {
       // stones across this course: widths 5-9, the joints staggered by course
       let acc = -half - hash(ci, seed) * 6, si = 0, w = 0;
       while (acc <= o) { w = 5 + hash(ci * 13 + si, seed + 9) * 4; acc += w; si++; }
+      // only some stones show at all: the rest lie under the snow
+      const sid = ci * 31 + si;
+      const want = (patch - 0.68) * 2.4 + 0.12 - Math.pow(Math.abs(o) / half, 2) * 0.4;
+      if (hash(sid, seed + 17) > want) continue;
       const fo = (o - (acc - w)) / w;
-      // snow over them: thick at the patch's ends and the road's edges
-      const cover = vn(dd / 9, o / 7, seed + 41) + (0.6 - Math.min(0.6, patch - 0.6) * 4) * 0.6 + Math.pow(Math.abs(o) / half, 3) * 0.6;
-      if (cover > 0.92) continue;
+      // each stone's edge broken: corners rounded off, a ragged snow line
+      const ex = Math.min(fu, 1 - fu) * (c1 - c0), ey = Math.min(fo, 1 - fo) * w;
+      const rag = (hash(Math.round(dd * 4), Math.round(o * 4) + sid) - 0.5) * 1.2;
+      if (ex < 0.6 + rag * 0.5 || ey < 0.6 + rag * 0.5 || Math.hypot(Math.max(0, 1.8 - ex), Math.max(0, 1.8 - ey)) > 1.5 + rag) continue;
       const px = Math.round((x0 + nx * o) * K), py = Math.round((y0 + ny * o) * K);
-      const joint = fu < 0.07 || fo < 0.06;
-      if (joint) { put(px, py, cover > 0.6 ? hexRGB("#e8f0f4") : STN[0]); continue; }
-      const tn = vn(dd / 20, o / 14, seed + 51) * 2 + (fu < 0.2 || fo < 0.18 ? 1 : 0) - (fu > 0.86 || fo > 0.88 ? 1 : 0);
-      put(px, py, STN[Math.max(1, Math.min(4, Math.round(tn + 1.2)))]);
+      // snow dusting over it in drifts; a lit upper-left edge, a shaded lower
+      const dust = vn(dd / 4, o / 4, seed + 41);
+      if (dust > 0.7) { put(px, py, DUST[dust > 0.8 ? 1 : 0]); continue; }
+      const edgeLit = (ex < 1.3 && fu < 0.5) || (ey < 1.3 && fo < 0.5), edgeDk = (ex < 1.3 && fu >= 0.5) || (ey < 1.3 && fo >= 0.5);
+      const tn = 1.6 + (vn(dd / 22, o / 16, seed + 51) - 0.5) * 1.6 + (edgeLit ? 1 : 0) - (edgeDk ? 1 : 0);
+      put(px, py, STN[Math.max(0, Math.min(4, Math.round(tn)))]);
     }
   }
   // churned grit along the lanes, sparse
@@ -401,11 +410,15 @@ const rmspruce = (ctx, x, y, s, o) => {
       const L = [cx - w, by + droop * 0.4], Rr = [cx + w * 0.96, by + droop * 0.2];
       poly(c, [L, [cx - w * 0.55, by + droop * 0.9], [cx, by + droop], [cx + w * 0.5, by + droop * 0.9], Rr, [tx + w * 0.12, ty], [tx - w * 0.12, ty]]);
       c.fillStyle = lin(c, cx - w, 0, cx + w, 0, [[0, lit], [0.45, mid], [1, dk]]); c.fill();
-      // the snow load along the tier's top, slumping off the west tip
-      const sl = [[cx - w * 0.98, by + droop * 0.25], [tx - w * 0.1, ty + 0.8 * s], [tx + w * 0.1, ty + 0.6 * s], [cx + w * 0.55, by - 0.4 * s], [cx + w * 0.2, by + 0.6 * s], [cx - w * 0.5, by + droop * 0.35]];
+      // the snow load: on the upper half of the rim each tier shows below
+      // the next, heaviest in the middle, thin toward the tips; the drooping
+      // lower edge stays dark green
+      const band = (h - 6 * s) / N, sy0 = by - band * 0.95, sy1 = by + droop * 0.15 - band * 0.42;
+      const sl = [[cx - w * 0.82, by + droop * 0.05 - band * 0.25], [cx - w * 0.5, sy0], [cx + w * 0.42, sy0 + 0.4 * s], [cx + w * 0.78, by - band * 0.3],
+        [cx + w * 0.42, sy1 + 0.4 * s], [cx, sy1 + Math.sin(i * 2.1 + sd) * 0.5 * s], [cx - w * 0.45, sy1 - 0.2 * s]];
       poly(c, sl); c.fillStyle = band === 2 ? "#c4d2de" : SNOW; c.fill();
-      c.fillStyle = band === 2 ? "#a8bccc" : SNOW_SH; c.fillRect(ap(cx), ap(by - 0.2 * s), w * 0.45, 0.5);
-      c.fillStyle = band === 2 ? "#dce6ee" : SNOW_LT; c.fillRect(ap(cx - w * 0.7), ap(by + droop * 0.1 - 0.6 * s), w * 0.4, 0.5);
+      c.fillStyle = band === 2 ? "#a8bccc" : SNOW_SH; c.fillRect(ap(cx + w * 0.05), ap(sy1), w * 0.4, 0.5);
+      c.fillStyle = band === 2 ? "#dce6ee" : SNOW_LT; c.fillRect(ap(cx - w * 0.45), ap(sy0 + 0.3), w * 0.45, 0.5);
     }
     // the leader, snow on its tip
     c.fillStyle = dk; c.fillRect(ap(x + lean - 0.5), gy - h - 1.5 * s, 1, 3 * s);
@@ -458,23 +471,27 @@ const rmrock = (ctx, x, y, s, o) => {
 const rmcairn = (ctx, x, y, s, o) => {
   const gy = y + 8, sd = o.seed;
   shadow(ctx, x + 4 * s, gy + 1, 9 * s, 3 * s, 0.3);
-  const rows = [[4, 3.4, 2.9], [3, 2.9, 2.6], [2, 2.6, 2.4], [1, 2.4, 2.4]];
+  // flat slabs of black stone, each course narrower, set a little askew
+  const courses = [[9, 3], [7.5, 2.6], [6, 2.4], [4.4, 2.2], [3, 2]];
   let yy = gy;
-  rows.forEach(([n, rw, rh], ri) => {
-    for (let k = 0; k < n; k++) {
-      const cx = x + (k - (n - 1) / 2) * rw * 1.55 * s + (hash(sd, ri * 7 + k) - 0.5) * s, cy = yy - rh * s;
-      part(ctx, (c) => {
-        ball(c, cx, cy, rw * s, rh * s, ROCK[3], { hi: 0.4, lo: 0.6 });
-        c.fillStyle = SNOW; ellipse(c, cx - 0.4 * s, cy - rh * s * 0.55, rw * s * 0.75, rh * s * 0.38); c.fill();
-        c.fillStyle = SNOW_LT; px1(c, cx - rw * s * 0.5, cy - rh * s * 0.75, 1, 0.5);
-      });
-    }
-    yy -= rh * 1.55 * s;
+  courses.forEach(([cw, ch], ri) => {
+    const cx = x + (hash(sd, ri) - 0.5) * 1.6 * s, hw = cw * s * (0.9 + hash(sd, ri + 9) * 0.2), hh = ch * s;
+    part(ctx, (c) => {
+      const tl = (hash(sd, ri + 20) - 0.5) * 1.2 * s;
+      poly(c, [[cx - hw, yy], [cx - hw * 0.94, yy - hh + tl], [cx + hw * 0.9, yy - hh - tl], [cx + hw, yy]]);
+      c.fillStyle = lin(c, cx - hw, 0, cx + hw, 0, [[0, ROCK[4]], [0.5, ROCK[3]], [1, ROCK[1]]]); c.fill();
+      c.fillStyle = ROCK[5]; c.fillRect(ap(cx - hw * 0.9), ap(yy - hh + 0.2), hw * 0.8, 0.5);
+      c.fillStyle = ROCK[0]; c.fillRect(ap(cx - hw * (0.3 - hash(sd, ri + 4) * 0.4)), ap(yy - hh + 0.6), 0.5, hh - 0.6);
+      // snow on its top ledge, more on the west
+      c.fillStyle = SNOW; c.fillRect(ap(cx - hw * 0.95), ap(yy - hh - 0.6 + tl * 0.5), hw * (1 + hash(sd, ri + 30) * 0.6), 1);
+    });
+    yy -= hh * 0.92;
   });
+  ctx.fillStyle = SNOW; ctx.fillRect(ap(x - 2.5 * s), ap(yy - 1), 4.5 * s, 1.2);
   // a clan's teal rag on a stick at the top
-  ctx.fillStyle = WOOD_DK; ctx.fillRect(ap(x + 0.5), yy - 6 * s, 1, 6 * s + 1);
-  ctx.fillStyle = TEAL; ctx.fillRect(ap(x + 1.5), ap(yy - 6 * s), 3 * s, 1.5); ctx.fillStyle = TEAL_LT; ctx.fillRect(ap(x + 1.5), ap(yy - 6 * s), 2 * s, 0.5);
-  groundDrift(ctx, x - 6 * s, gy + 0.5, 4 * s, sd);
+  ctx.fillStyle = WOOD_DK; ctx.fillRect(ap(x + 0.5), yy - 7 * s, 1, 7 * s + 1);
+  ctx.fillStyle = TEAL; ctx.fillRect(ap(x + 1.5), ap(yy - 7 * s), 3 * s, 1.5); ctx.fillStyle = TEAL_LT; ctx.fillRect(ap(x + 1.5), ap(yy - 7 * s), 2 * s, 0.5);
+  groundDrift(ctx, x - 7 * s, gy + 0.5, 4 * s, sd);
 };
 
 // ---- rune stone and skald's stone -------------------------------------------------
@@ -550,20 +567,25 @@ const boneArc = (c, x0, y0, x1, y1, lift, wid) => {
 const rmwhale = (ctx, x, y, s, o) => {
   const gy = y + 8, sd = o.seed, v = o.v % 2;
   if (v === 0) {
-    // the ribs: pairs of arches standing out of the snow along a buried spine
+    // the ribs: curved bones hooking up out of the snow from a buried spine,
+    // all bowed the same way, tallest at the chest; the far row paler
     shadow(ctx, x + 5 * s, gy + 1, 26 * s, 4 * s, 0.26);
-    const n = 6;
-    for (let k = n - 1; k >= 0; k--) {
-      const t = k / (n - 1), cx = x - 18 * s + t * 34 * s, cy = gy - 6 * s + t * 4 * s, span = (5 + Math.sin(t * Math.PI) * 4) * s;
+    const n = 7;
+    for (const row of [0, 1]) for (let k = 0; k < n; k++) {
+      const t = k / (n - 1), bx = x - 19 * s + t * 34 * s + row * 2 * s, by = gy - 2.5 * s + t * 2 * s - row * 3 * s;
+      const hgt = (8 + Math.sin(Math.min(1, t * 1.2) * Math.PI) * 10) * s * (row ? 0.85 : 1);
       part(ctx, (c) => {
-        boneArc(c, cx - span * 0.2, cy - span * 0.9, cx - 2 * s, cy + 1.5 * s, (10 + Math.sin(t * Math.PI) * 6) * s * 0.5, 1.6 * s);
-        boneArc(c, cx + span * 0.25, cy - span * 0.95, cx + 3 * s, cy + 2 * s, (10 + Math.sin(t * Math.PI) * 6) * s * 0.4, 1.4 * s);
-        c.fillStyle = SNOW; ellipse(c, cx, cy + 2 * s, 3 * s, 1.4 * s); c.fill();
+        c.lineCap = "round";
+        const pth = () => { c.beginPath(); c.moveTo(bx, by); c.bezierCurveTo(bx - 3 * s, by - hgt * 0.5, bx + 1 * s, by - hgt, bx + 6 * s, by - hgt * 0.92); };
+        c.lineWidth = 2 * s; c.strokeStyle = row ? BONE_DK : "#b4ac98"; pth(); c.stroke();
+        c.lineWidth = 1.1 * s; c.strokeStyle = row ? "#cfc8b4" : BONE; pth(); c.stroke();
+        c.fillStyle = SNOW; ellipse(c, bx + 0.5, by + 0.5, 2.4 * s, 1.1 * s); c.fill();
+        c.fillStyle = SNOW_LT; px1(c, bx + 3.5 * s, by - hgt * 1.0, 1.5, 0.5);
       });
     }
     // the backbone's knuckles in the drift
-    ctx.fillStyle = BONE_DK; for (let k = 0; k < 9; k++) px1(ctx, x - 20 * s + k * 4.4 * s, gy - 4 * s + k * 0.5 * s, 1.5, 1);
-    groundDrift(ctx, x - 20 * s, gy, 8 * s, sd); groundDrift(ctx, x + 6 * s, gy + 1, 9 * s, sd + 1);
+    ctx.fillStyle = BONE_DK; for (let k = 0; k < 9; k++) px1(ctx, x - 20 * s + k * 4.4 * s, gy - 2 * s + k * 0.3 * s, 1.5, 1);
+    groundDrift(ctx, x - 20 * s, gy, 8 * s, sd); groundDrift(ctx, x + 8 * s, gy + 1, 9 * s, sd + 1);
   } else {
     // the skull: a long flat rostrum ending in the brain-case, the jaw beside
     shadow(ctx, x + 4 * s, gy + 1, 24 * s, 4 * s, 0.3);
@@ -695,11 +717,11 @@ const rmrack = (ctx, x, y, s, o) => {
   });
   part(ctx, (c) => {
     // stockfish hung in pairs: grey-gold bodies, tails up, dark heads down
-    for (let k = 0; k < 9; k++) {
-      const fx = x - span + 2 * s + k * (span * 2 - 4 * s) / 8, len = (7 + hash(sd, k) * 3) * s, top = gy - hh + 0.8;
+    for (let k = 0; k < 6; k++) {
+      const fx = x - span + 3 * s + k * (span * 2 - 6 * s) / 5, len = (6 + hash(sd, k) * 3) * s, top = gy - hh + 0.8;
       for (const off of [-0.7, 0.7]) {
-        c.fillStyle = k % 3 === 1 ? "#a89474" : "#b8a682"; c.fillRect(ap(fx + off * s - 0.6), top, 1.3 * s, len);
-        c.fillStyle = "#d8c8a0"; c.fillRect(ap(fx + off * s - 0.6), top, 0.5, len);
+        c.fillStyle = k % 3 === 1 ? "#7e6e5a" : "#94826a"; c.fillRect(ap(fx + off * s - 0.6), top, 1.3 * s, len);
+        c.fillStyle = "#b8a684"; c.fillRect(ap(fx + off * s - 0.6), top, 0.5, len);
         c.fillStyle = "#5e5246"; c.fillRect(ap(fx + off * s - 0.6), top + len - 1.2 * s, 1.3 * s, 1.2 * s);
       }
     }
@@ -754,7 +776,7 @@ const rmicefall = (ctx, x, y, s, o) => {
 
 // ---- a seal colony on a shore rock ------------------------------------------------
 const seal = (c, x, y, s, dir, sd, up) => {
-  const L = 4.6 * s;
+  const L = 5.4 * s;
   c.fillStyle = SEAL_DK; ellipse(c, x + 0.4, y + 0.4, L, 1.8 * s); c.fill();
   c.fillStyle = lin(c, 0, y - 2 * s, 0, y + 1.5 * s, [[0, SEAL_LT], [0.6, SEAL], [1, SEAL_DK]]); ellipse(c, x, y, L, 1.7 * s); c.fill();
   // head (raised or down), flippers, mottling
@@ -765,7 +787,7 @@ const seal = (c, x, y, s, dir, sd, up) => {
   c.fillStyle = SEAL_LT; for (let k = 0; k < 3; k++) px1(c, x + (hash(sd, k) - 0.5) * L, y - 1 * s + hash(sd, k + 3) * 1.2, 0.5, 0.5);
 };
 const rmsealrock = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed, w = 16 * s, h = 7 * s;
+  const gy = y + 8, sd = o.seed, w = 15 * s, h = 5.5 * s;
   shadow(ctx, x + 4 * s, gy + 1, w * 1.1, 3.4 * s, 0.32);
   blackRock(ctx, x, gy, w, h, sd, 2, 0);
   part(ctx, (c) => {
@@ -941,26 +963,29 @@ const rimeGeom = () => {
   const slope = de > 0.1 ? ds / de : 0;
   const sd = (REALM.seed | 0) % 9973;
   const sRoad = (e) => s0 + (e - e0) * slope;
-  const FD = left ? 46 : 44, SW = left ? 14 : 7;
+  const FD = left ? 44 : 42, SW = left ? 9 : 6;
   const sR = sRoad(FD);
-  const foot = (s) => FD + (vn(s / 34, 1.5, sd) - 0.5) * 12 * sstep(30, 70, Math.abs(s - sR));
-  const amp = (s) => 1 - sstep(80, 165, Math.abs(s - sR));
+  // the foot wanders out in lobes (each lobe's flanks show a south face),
+  // calm by the cleft so the mouth sits square to the road
+  const foot = (s) => FD + ((vn(s / 26, 1.5, sd) - 0.5) * 24 + (vn(s / 9, 4.5, sd) - 0.5) * 5) * sstep(28, 62, Math.abs(s - sR));
+  const amp = (s) => 1 - sstep(85, 170, Math.abs(s - sR));
   const F0 = foot(sR);
   const cw = (e) => PATH_HALF + 4 + 9 * sstep(F0 - SW - 8, F0 + 2, e);
   const hgt = (e, s) => {
     const a = amp(s);
     if (a <= 0) return 0;
-    const F = foot(s) - (1 - a) * 30;
-    let h = G_HMAX * a * sstep(F, F - SW, e);
+    const F = foot(s) - (1 - a) * 34;
+    let h = G_HMAX * Math.sqrt(a) * sstep(F, F - SW, e);
     if (h <= 0) return 0;
-    h += G_HMAX * 0.28 * a * (vn(e / 8, s / 8, sd + 5) - 0.4) * sstep(F - SW, F - SW - 10, e);
+    h += 2.2 * (vn(e / 7, s / 7, sd + 5) - 0.5) * sstep(F - SW, F - SW - 6, e);
     const b = Math.abs(s - sRoad(e)) * Math.cos(Math.atan(slope)), c = cw(e);
-    return Math.max(0, h * sstep(c, c + 7, b));
+    return Math.max(0, h * sstep(c, c + 6, b));
   };
   Object.assign(GEOM, { key, left, e0, s0, slope, sRoad, FD, SW, sR, F0, cw, hgt, foot, amp, sd, far: null, near: null });
-  // the gate: posts either side of the road at the mouth
-  const eg = F0 - 3, sg = sRoad(eg), off = PATH_HALF + 3;
-  GEOM.gate = { eg, posts: [sg - off, sg + off] };
+  // the gate: posts either side of the road at the mouth; on a left entry
+  // turned to face south-east (the north post set back), so its lintel reads
+  const eg = F0 - 4, sg = sRoad(eg), off = PATH_HALF + 3, turn = left ? 9 : 0;
+  GEOM.gate = { eg, posts: [sg - off, sg + off], es: [eg - turn, eg + turn] };
   return GEOM;
 };
 const toBoard = (G, e, s) => (G.left ? [e, s] : [s, e]);
@@ -969,22 +994,23 @@ export const rimeIceAt = (x, y) => { if (!PTS.length) return 0; const G = rimeGe
 // a carved post: banded teal/ochre, a dragon head on top looking outward
 const gatePost = (c, x, gy, h, out, sd) => {
   part(c, (cc) => {
-    cc.fillStyle = WOOD_DK; cc.fillRect(ap(x - 1.8), gy - h, 3.6, h);
-    cc.fillStyle = WOOD; cc.fillRect(ap(x - 1.8), gy - h, 1.4, h);
+    cc.fillStyle = WOOD_DK; cc.fillRect(ap(x - 2.4), gy - h, 4.8, h);
+    cc.fillStyle = WOOD; cc.fillRect(ap(x - 2.4), gy - h, 1.6, h);
+    cc.fillStyle = "#2a1e16"; cc.fillRect(ap(x + 1.9), gy - h, 0.5, h);
     for (let k = 0; k < 4; k++) {
       const by = gy - h * (0.22 + k * 0.17);
-      cc.fillStyle = k % 2 ? TEAL : OCHRE; cc.fillRect(ap(x - 1.8), ap(by), 3.6, 2);
-      cc.fillStyle = k % 2 ? TEAL_LT : OCHRE_LT; cc.fillRect(ap(x - 1.8), ap(by), 1.4, 2);
+      cc.fillStyle = k % 2 ? TEAL : OCHRE; cc.fillRect(ap(x - 2.4), ap(by), 4.8, 2);
+      cc.fillStyle = k % 2 ? TEAL_LT : OCHRE_LT; cc.fillRect(ap(x - 2.4), ap(by), 1.6, 2);
       cc.fillStyle = WOOD_DK; px1(cc, x - 0.5, by + 0.5, 1, 1);
     }
     // frost on the windward edge, a drift at the foot
-    cc.fillStyle = FROST; cc.fillRect(ap(x - 1.8), gy - h * 0.9, 0.5, h * 0.6);
+    cc.fillStyle = FROST; cc.fillRect(ap(x - 2.4), gy - h * 0.9, 0.5, h * 0.6);
     cc.fillStyle = SNOW; ellipse(cc, x - 0.5, gy, 3.5, 1.3); cc.fill();
   });
   part(c, (cc) => {
     // the neck curling up and out, the head with an open jaw
     const nx = x, ny = gy - h;
-    cc.lineCap = "round"; cc.lineWidth = 2.6; cc.strokeStyle = WOOD_DK;
+    cc.lineCap = "round"; cc.lineWidth = 3.2; cc.strokeStyle = WOOD_DK;
     cc.beginPath(); cc.moveTo(nx, ny + 1); cc.quadraticCurveTo(nx - out * 0.5, ny - 6, nx + out * 2.5, ny - 7.5); cc.stroke();
     cc.lineWidth = 1; cc.strokeStyle = WOOD_LT; cc.beginPath(); cc.moveTo(nx - 0.6, ny); cc.quadraticCurveTo(nx - out * 0.9, ny - 5.6, nx + out * 2.2, ny - 8); cc.stroke();
     const hx = nx + out * 2.5, hy = ny - 7.5;
@@ -1027,7 +1053,8 @@ const bakeRimeGate = () => {
   // for each screen column: ground samples far (north) to near (south)
   for (let px = 0; px < PW; px++) {
     const bx = bx0 + (px + 0.5) / PX;
-    let prevSy = -1e9, prevH = 0;
+    let prevSy = -1e9, prevH = 0, lipPy = -1e9, onTop = false;
+    const icl = 2 + Math.floor(Math.pow(hash(px, 3 + sd), 2) * 9), icOn = hash(px >> 1, 91 + sd) < 0.55;
     for (let gy = by0 - 2; gy <= by1 + G_HMAX; gy += step) {
       const e = left ? bx : gy, s = left ? gy : bx;
       const hh = G.hgt(e, s);
@@ -1053,36 +1080,37 @@ const bakeRimeGate = () => {
       const sl = Math.hypot(gxB, gyB);
       const lit = (gxB * 0.42 + gyB * 0.58) / Math.max(0.25, sl) * Math.min(1, sl * 1.5) - (gyB < 0 ? Math.min(0.5, -gyB * 0.2) : 0);
       const dz = hash(px, Math.floor(gy * 2) + sd) - 0.5;
-      let col;
+      let col = null;
       if (sl < 0.55) {
         // the top: snow, ridged by the wind, lit toward the sun
-        const t = 2.4 + lit * 1.6 + dz * 0.8 + (vn(e / 5, s / 9, sd + 9) - 0.5) * 1.2;
-        col = SN[Math.max(1, Math.min(4, Math.round(t)))];
+        let t = 3 + lit * 1.4 + dz * 0.6 + (vn(e / 6, s / 12, sd + 9) - 0.5) * 0.9;
+        // crevasses across the ice, running out to the foot: a blue crack, lit lip
+        const F = G.foot(s), cr = (s + 5 * Math.sin(e / 7 + sd)) / 23, fc = cr - Math.floor(cr), ci = Math.floor(cr);
+        if (e < F - G.SW - 2 && hash(ci, sd) < 0.55 && e > F - G.SW - 4 - hash(ci, sd + 1) * 26) { if (fc < 0.04) col = IC[0]; else if (fc < 0.08) col = IC[2]; else if (fc < 0.12) t = 4; }
+        if (!col) col = SN[Math.max(1, Math.min(4, Math.round(t)))];
       } else {
-        // a face: blue ice in vertical streaks, black rock showing through,
-        // snow lying on its ledges, a white lip and icicles where it breaks
-        const streak = hash(px >> 1, 77 + sd) * 0.8 + hash(px, 13) * 0.4;
-        let t = 2 + lit * 1.8 + (streak - 0.6) * 1.2;
-        const rocky = vn(s / 11, e / 5 + gy / 9, sd + 3) > 0.68 && sl > 1.4;
-        if (rocky) col = RK[Math.max(1, Math.min(5, Math.round(2.5 + lit * 2 + dz)))];
-        else col = IC[Math.max(0, Math.min(4, Math.round(t)))];
-        if (prevH - hh > 1.6 && prevH > G_HMAX * 0.5 && hash(px, 5) < 0.75) col = SN[3];        // the lip
+        // a face: blue ice in vertical streaks, black rock showing through
+        // in bands, a white lip and icicles where it breaks from the top
+        const rocky = vn(s / 13, (gy - hh) / 7, sd + 3) > 0.7 && sl > 1.2;
+        col = rocky ? RK[Math.max(1, Math.min(5, Math.round(2.4 + lit * 2 + dz * 0.6)))] : null;
       }
+      if (sl < 0.55) onTop = true;
+      else if (onTop) { onTop = false; lipPy = Math.floor((prevSy - by0) * PX); }
+      const faceT = (q) => {
+        // lit by its facing, paler under the lip, darkening to its foot,
+        // in vertical streaks a few pixels wide
+        const fd = Math.max(0, Math.min(1, (q - lipPy) / (G_HMAX * PX * 0.9)));
+        const st = (hash(px >> 2, 77 + sd) - 0.5) * 0.9 + (hash(px >> 1, 78 + sd) - 0.5) * 0.4;
+        let k = Math.round(2.3 + lit * 1.4 + st - fd * 1.6);
+        if (q - lipPy <= 1) return SN[3];
+        if (icOn && q - lipPy < icl) k = q - lipPy < icl - 1 ? 4 : 3;
+        return IC[Math.max(0, Math.min(4, k))];
+      };
       // fill the run this sample covers: a drop is a face, painted down to here
       const p0 = Math.floor((prevSy - by0) * PX);
       if (spy > p0 + 1 && prevSy > -1e8) {
-        for (let q = p0 + 1; q <= spy; q++) {
-          const f = (q - p0) / (spy - p0);
-          // icicles hanging under a lip; the face darkening toward its foot
-          let c2 = col;
-          if (sl >= 0.55 && !RK.includes(col)) {
-            const k = Math.max(0, Math.min(4, Math.round(2 + lit * 1.8 + (hash(px >> 1, 77 + sd) - 0.5) - f * 1.2)));
-            c2 = IC[k];
-            if (f < 0.35 && hash(px, 91 + sd) < 0.4 && q - p0 < 2 + hash(px, 3) * 7) c2 = IC[4];
-          }
-          put(img, px, q, c2);
-        }
-      } else put(img, px, spy, col);
+        for (let q = p0 + 1; q <= spy; q++) put(img, px, q, col && sl >= 0.55 ? col : sl >= 0.55 ? faceT(q) : col);
+      } else put(img, px, spy, sl >= 0.55 && !col ? faceT(spy) : col);
       prevSy = sy; prevH = hh;
     }
   }
@@ -1090,19 +1118,28 @@ const bakeRimeGate = () => {
   near.getContext("2d").putImageData(ni, 0, 0);
   inkOutline(far, INK, 1, "under"); inkOutline(near, INK, 1, "under");
   // the gate
-  const { eg, posts } = G.gate, PH_ = 30;
+  const { posts, es } = G.gate, PH_ = 32;
   const draw = (cv, fn) => { const c = cv.getContext("2d"); c.save(); c.imageSmoothingEnabled = false; c.scale(PX, PX); c.translate(-bx0, -by0); fn(c); c.restore(); };
-  const [pnx, pny] = toBoard(G, eg, posts[0]), [psx, psy] = toBoard(G, eg, posts[1]);
+  const [pnx, pny] = toBoard(G, es[0], posts[0]), [psx, psy] = toBoard(G, es[1], posts[1]);
   const gate = (c) => {
     if (left) {
-      // the lintel runs north-south over the road: its top and its east face
-      const top = pny - PH_, bot = psy - PH_;
-      c.fillStyle = WOOD_DK; c.fillRect(ap(pnx - 1.5), ap(top - 2), 4.5, bot - top + 3);
-      c.fillStyle = WOOD; c.fillRect(ap(pnx - 1.5), ap(top - 2), 2, bot - top + 3);
-      c.fillStyle = SNOW; c.fillRect(ap(pnx - 1.5), ap(top - 2.5), 1.5, bot - top + 3);
-      for (let k = 0; k < 5; k++) shield(c, pnx + 3.2, top + 6 + k * (bot - top - 8) / 4, 1.6, 2.6, k);
+      // a rope slung from head to head across the road, sagging, hung with
+      // shields and, at its lowest, a horned skull: reads at any angle
+      const ax = pnx, ay = pny - PH_ + 3, bx = psx, by = psy - PH_ + 3, sag = 9;
+      const at = (t) => [ax + (bx - ax) * t, ay + (by - ay) * t + sag * 4 * t * (1 - t)];
+      for (let t = 0; t <= 1; t += 0.01) { const [rx, ry] = at(t); c.fillStyle = "#3a2e26"; c.fillRect(ap(rx - 0.25), ap(ry), 1, 1); c.fillStyle = "#8e7656"; c.fillRect(ap(rx - 0.25), ap(ry), 0.5, 0.5); }
+      for (let k = 0; k < 4; k++) { const [rx, ry] = at(0.16 + k * 0.23 + (k > 1 ? 0.0 : 0)); if (k === 2) continue; c.fillStyle = "#3a2e26"; c.fillRect(ap(rx), ap(ry), 0.5, 2); shield(c, rx + 0.25, ry + 4.2, 2.1, 2.3, k); }
+      // the skull: a pale dome, dark eyes, horns curling up
+      const [kx, ky] = at(0.55);
+      c.fillStyle = "#3a2e26"; c.fillRect(ap(kx), ap(ky), 0.5, 1.5);
+      c.fillStyle = BONE_DK; ellipse(c, kx + 0.5, ky + 3.6, 2.2, 2); c.fill();
+      c.fillStyle = BONE; ellipse(c, kx + 0.1, ky + 3.2, 1.8, 1.6); c.fill();
+      c.fillStyle = "#2a2226"; px1(c, kx - 1, ky + 3.4, 1, 0.5); px1(c, kx + 0.5, ky + 3.4, 1, 0.5);
+      c.strokeStyle = BONE; c.lineWidth = 0.7; c.lineCap = "round";
+      c.beginPath(); c.moveTo(kx - 1.6, ky + 2.6); c.quadraticCurveTo(kx - 4.2, ky + 2.2, kx - 3.4, ky - 0.6); c.stroke();
+      c.beginPath(); c.moveTo(kx + 1.8, ky + 2.6); c.quadraticCurveTo(kx + 4.4, ky + 2.2, kx + 3.6, ky - 0.6); c.stroke();
     } else {
-      const top = pny - PH_, lx = Math.min(pnx, psx), rx = Math.max(pnx, psx);
+      const top = pny - PH_ + 1, lx = Math.min(pnx, psx), rx = Math.max(pnx, psx);
       c.fillStyle = WOOD_DK; c.fillRect(lx - 2, ap(top - 2.5), rx - lx + 4, 4);
       c.fillStyle = WOOD; c.fillRect(lx - 2, ap(top - 2.5), rx - lx + 4, 1.2);
       c.fillStyle = SNOW; c.fillRect(lx - 2, ap(top - 3.2), rx - lx + 4, 1);
@@ -1147,7 +1184,7 @@ const rimeGateTree = (d) => {
   const G = rimeGeom(), e = G.left ? d.x : d.y, s = G.left ? d.y : d.x;
   if (G.hgt(e, s) > 0.5 || G.hgt(e + 6, s) > 0.5 || G.hgt(e, s - 6) > 0.5) return -1;
   const sg = G.sRoad(G.gate.eg);
-  if (G.left) { if (Math.abs(d.x - G.gate.eg) < 22 && d.y > sg - PATH_HALF - 10 && d.y < sg + PATH_HALF + 52) return -1; }
+  if (G.left) { if (d.x > G.gate.eg - 24 && d.x < G.gate.eg + 50 && d.y > sg - PATH_HALF - 10 && d.y < sg + PATH_HALF + 56) return -1; }
   else if (Math.abs(d.x - sg) < PATH_HALF + 18 && d.y < G.F0 + 52) return -1;
   return 0;
 };

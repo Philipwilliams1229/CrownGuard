@@ -1,7 +1,7 @@
 // Does the campaign map tell the truth about water? Every level whose realm
 // has a river (data/maps.js rivers) must have a map river through its
 // waypoint; every level with ponds/bogs a lake or pool beside it (within
-// ~22 units, edge to waypoint); and no river may pass within 14 units of a
+// ~22 units, edge to waypoint; fen and ice meres count); and no river may pass within 14 units of a
 // dry level, nor any lake within 10 of one; a coastal realm (map.coast) must stand within ~24 units of
 // its country's shore. (Distances are in map units; the map was laid out
 // ~1.7x larger on 2026-09-25 and these grew with it.) A level with no
@@ -18,17 +18,22 @@ const { RIVERS } = await import(root + "/src/ui/mapArt.js");
 const src = (await import("fs")).readFileSync(root + "/src/ui/mapArt.js", "utf8");
 const meres = [...src.matchAll(/\{ x: (-?[\d.]+), y: (-?[\d.]+), rx: ([\d.]+)/g)].map((m) => ({ x: +m[1], y: +m[2], rx: +m[3] }));
 const { CHAPTERS } = await import(root + "/src/data/campaign.js");
-// sample a chapter's coastline (an SVG path of M and C commands)
+// sample a chapter's coastline (an SVG path of M, C, L and Z commands; a
+// region may hold several closed shapes, each starting with its own M)
 const shore = (d) => {
-  const nums = d.match(/-?[\d.]+/g).map(Number), out = [];
-  let [x, y] = nums.slice(0, 2);
-  for (let i = 2; i + 5 < nums.length; i += 6) {
-    const [a, b, c, e, f, g] = nums.slice(i, i + 6);
-    for (let t = 0; t <= 1; t += 0.05) {
-      const u = 1 - t;
-      out.push([u * u * u * x + 3 * u * u * t * a + 3 * u * t * t * c + t * t * t * f, u * u * u * y + 3 * u * u * t * b + 3 * u * t * t * e + t * t * t * g]);
+  const out = [];
+  let x = 0, y = 0;
+  for (const [, cmd, args] of d.matchAll(/([MCLZ])([^MCLZ]*)/g)) {
+    const nums = (args.match(/-?[\d.]+/g) || []).map(Number);
+    if (cmd === "M" || cmd === "L") for (let i = 0; i + 1 < nums.length; i += 2) { [x, y] = [nums[i], nums[i + 1]]; out.push([x, y]); }
+    if (cmd === "C") for (let i = 0; i + 5 < nums.length; i += 6) {
+      const [a, b, c, e, f, g] = nums.slice(i, i + 6);
+      for (let t = 0; t <= 1; t += 0.05) {
+        const u = 1 - t;
+        out.push([u * u * u * x + 3 * u * u * t * a + 3 * u * t * t * c + t * t * t * f, u * u * u * y + 3 * u * u * t * b + 3 * u * t * t * e + t * t * t * g]);
+      }
+      [x, y] = [f, g];
     }
-    [x, y] = [f, g];
   }
   return out;
 };
