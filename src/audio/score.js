@@ -3,7 +3,7 @@
 // get a track id (see tracks/index.js). CrownguardGame calls it every frame
 // in battle and music.play() ignores a repeat.
 
-const AREAS = ["greenwood", "iron", "hollow"];
+const AREAS = ["greenwood", "iron", "hollow", "rime"];   // rime: zone IV, the Rime Clans
 
 // The area a faction's music belongs to (anything unknown plays Greenwood's).
 export const areaOf = (factionId) => (AREAS.includes(factionId) ? factionId : "greenwood");

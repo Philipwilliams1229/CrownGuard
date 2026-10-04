@@ -5,48 +5,161 @@
 // (scripts/check-map-water.mjs): coast / river / ponds / dry, as noted.
 // A coastal board marked LANDING beaches a longship mid-level: it needs a
 // `landings` entry (engine/rime.js) on its strand, beside the road.
-// STUB boards: a designer replaces each with the real one.
+//
+//   frostwake  THE COVE      (coast, LANDING) the chapter's first board: a
+//                            plain road whose long middle leg skirts one
+//                            sheltered cove; the ship beaches there, half the
+//                            road from the gate, in full view of the fields
+//                            above the leg — the landing taught on its own
+//   skerryway  THE SHELF     (coast) the sea takes the north of the board; the
+//                            road zigzags four times across the narrow shelf
+//                            under it, every northern turn on the strand where
+//                            the kraken hunts, the pockets alternately open to
+//                            the sea and closed by a bend
+//   icefjord   THE FJORD     (river) a glacier river runs west down the board
+//                            between the first two lanes, a creek at its head
+//                            and a broad fjord at its mouth: banks to build on
+//                            in the east, water no hall bridges in the west,
+//                            and the serpent swimming the whole of it
+//   whalebone  TWO STRANDS   (coast, LANDING) the road comes down to the bay
+//                            twice; a ship may beach on either strand, early
+//                            or late, and the bone-strewn pocket between them
+//                            is the one ground that watches both
+//   frostmere  THE MERES     (ponds) black meres fill the inside of the road's
+//                            bends, where the towers would stand: build on the
+//                            outside, or row the meres with the River Watch;
+//                            no sea, so no monsters and no ships
+const at = (c, r, t, s = 1, dx = 0, dy = 0, v) => ({ x: Math.round(48 * c + 24 + dx), y: Math.round(48 * r + 24 + dy), t, s, ...(v != null ? { v } : {}) });
+
 export default function rimeBoardsA(rimeVariant) {
   return {
-    // COAST — LANDING
+    // ---- Frostwake Strand (COAST, LANDING) ----
+    // Out of the fells, down to the shore, along the head of the cove and up
+    // to the gate. The cove is the only sea on the board; its sand runs up to
+    // the road's long middle leg, and that is where the longship grounds.
     frostwake: rimeVariant(
-      "frostwake", "Frostwake Strand", "THE SHORE",
-      "Stub board.",
+      "frostwake", "Frostwake Strand", "THE COVE",
+      "The Rimewater's first shore. The road walks the head of a sheltered cove — and halfway along it the raiders' longship runs up the sand behind your first towers.",
       20261202,
-      [[0.9, 1.5], [4.5, 1.5], [4.5, 6.4], [11, 6.4], [11, 2.5], [13.7, 2.5]],
-      { coast: { edge: "bottom", from: 60, to: 720, depth: 110, sand: 22 }, landings: [{ at: 0.62, from: "bottom" }] },
+      [[0.9, 1.6], [3.6, 1.6], [3.6, 4.4], [11, 4.4], [11, 1.8], [13.7, 1.8]],
+      {
+        coast: { edge: "bottom", from: 120, to: 690, depth: 178, sand: 24, ease: 150 },
+        landings: [{ at: [7.8, 4.4], from: "bottom" }],
+        decor: [
+          // a lookout on the east headland over the cove
+          at(12.1, 6.4, "watchtower", 1.05), at(12.8, 6.9, "icerock", 0.9), at(11.6, 7.2, "snowpine", 0.9),
+          // the west headland: pines and a cairn where the fells come down
+          at(0.5, 6.2, "snowpine", 1.1), at(1.2, 6.9, "snowpine", 0.95), at(0.4, 7.6, "snowpine", 1),
+          at(1.5, 5.6, "icerock", 1), at(2.1, 6.3, "cairn", 0.9),
+          // the open field above the cove: a few stones, a lone pine
+          at(6.6, 2.2, "icerock", 0.9), at(9.2, 1.0, "snowpine", 1), at(9.7, 1.5, "snowpine", 0.85),
+          at(5.2, 0.4, "snowpine", 0.95), at(1.4, 3.6, "crystal", 0.9), at(0.6, 3.2, "snowpine", 1),
+        ],
+        decorRecipe: { count: 16, types: ["snowpine", "snowpine", "icerock", "snowpine", "crystal"] },
+      },
     ),
-    // COAST
+
+    // ---- The Skerry Way (COAST) ----
+    // The sea along the top; the land is a shelf under it, and the road
+    // zigzags across the shelf four times on its way east.
     skerryway: rimeVariant(
-      "skerryway", "The Skerry Way", "THE SHORE",
-      "Stub board.",
+      "skerryway", "The Skerry Way", "THE SHELF",
+      "A shelf of land under a black sea. The road zigzags four times between strand and snowfield — every northern turn is on the beach, where the deep things hunt.",
       20261203,
-      [[0.9, 1.5], [4.5, 1.5], [4.5, 6.4], [11, 6.4], [11, 2.5], [13.7, 2.5]],
-      { coast: { edge: "bottom", from: 60, to: 720, depth: 110, sand: 22 } },
+      [[0.9, 4.6], [2.6, 4.6], [2.6, 8.4], [5.6, 8.4], [5.6, 4.6], [8.6, 4.6], [8.6, 8.4], [11.6, 8.4], [11.6, 4.6], [13.7, 4.6]],
+      {
+        coast: { edge: "top", from: 110, to: 650, depth: 178, sand: 24, ease: 130 },
+        decor: [
+          // the headland the road comes out of, west of the sea
+          at(0.3, 2.3, "snowpine", 1.1), at(1.0, 1.7, "snowpine", 0.95), at(0.5, 1.0, "snowpine", 1.05),
+          at(1.5, 2.8, "icerock", 1),
+          // the east headland by the gate
+          at(13.2, 2.2, "snowpine", 1), at(12.6, 2.9, "icerock", 0.9), at(13.4, 3.3, "snowpine", 0.9),
+          // the snowfield along the bottom
+          at(4.1, 9.4, "snowpine", 0.9), at(7.1, 9.5, "icerock", 0.85), at(10.1, 9.4, "snowpine", 0.9),
+        ],
+        decorRecipe: { count: 14, types: ["snowpine", "icerock", "snowpine", "crystal"] },
+      },
     ),
-    // RIVER
+
+    // ---- Ice-Fjord (RIVER) ----
+    // The glacier stands off the top-right; its river comes down past the
+    // gate's fields, under the road's one bridge, and widens west into the
+    // fjord between the first lane and the second.
     icefjord: rimeVariant(
-      "icefjord", "Ice-Fjord", "THE RIVER",
-      "Stub board.",
+      "icefjord", "Ice-Fjord", "THE FJORD",
+      "A glacier river runs west between the first two lanes — a creek at its head, a fjord at its mouth. Bank halls reach both lanes, and something long swims beneath them.",
       20261204,
-      [[0.9, 2], [4, 2], [4, 7], [10, 7], [10, 3], [13.7, 3]],
-      { rivers: [{ pts: [[7.5, -0.5], [7.3, 3.2], [7.8, 6.4], [7.6, 10.5]], w: 28 }] },
+      [[0.9, 1.0], [10.4, 1.0], [10.4, 6.0], [2.4, 6.0], [2.4, 8.7], [13.7, 8.7]],
+      {
+        rivers: [{
+          pts: [[12.5, -0.6], [12.3, 1.4], [11.6, 2.9], [10.4, 3.5], [8.0, 3.3], [5.4, 3.6], [2.8, 3.4], [-0.6, 3.6]],
+          ws: [22, 24, 28, 32, 40, 54, 70, 86],
+          w: 86,
+        }],
+        decor: [
+          // the glacier's foot: ice and crystal by the river's head
+          at(13.3, 0.4, "crystal", 1.1), at(13.0, 1.4, "icerock", 1.1), at(11.4, 0.3, "crystal", 0.9),
+          // pines on the east fields
+          at(12.6, 4.6, "snowpine", 1), at(13.2, 5.3, "snowpine", 0.9), at(11.6, 6.6, "icerock", 0.9),
+          // the west shore of the low field
+          at(0.6, 5.6, "snowpine", 1.05), at(0.4, 6.6, "snowpine", 0.95), at(1.1, 7.4, "icerock", 0.9),
+          at(6.4, 7.4, "cairn", 0.9),
+        ],
+        decorRecipe: { count: 16, types: ["snowpine", "snowpine", "icerock", "crystal"] },
+      },
     ),
-    // COAST — LANDING
+
+    // ---- Whalebone Bay (COAST, LANDING) ----
+    // The road comes down to the bay twice. Two strands, and a ship may run
+    // up either: the west one under the road's head, the east one by its tail.
     whalebone: rimeVariant(
-      "whalebone", "Whalebone Bay", "THE SHORE",
-      "Stub board.",
+      "whalebone", "Whalebone Bay", "TWO STRANDS",
+      "A whaling bay ribbed with old bones. The road comes down to the water twice, and a longship may beach on either strand — early behind your first towers, or late, near the gate.",
       20261205,
-      [[0.9, 1.5], [4.5, 1.5], [4.5, 6.4], [11, 6.4], [11, 2.5], [13.7, 2.5]],
-      { coast: { edge: "bottom", from: 60, to: 720, depth: 110, sand: 22 }, landings: [{ at: 0.62, from: "bottom" }] },
+      [[0.9, 1.4], [3.2, 1.4], [3.2, 6.0], [6.0, 6.0], [6.0, 2.2], [9.4, 2.2], [9.4, 6.0], [11.8, 6.0], [11.8, 3.4], [13.7, 3.4]],
+      {
+        coast: { edge: "bottom", from: 100, to: 700, depth: 126, sand: 26, ease: 130 },
+        landings: [{ at: [4.6, 6.0], from: "bottom" }, { at: [10.6, 6.0], from: "bottom" }],
+        decor: [
+          // the flensing strand in the pocket between the two shore legs
+          at(7.6, 6.7, "boneheap", 1.1), at(7.0, 6.9, "boneheap", 0.9),
+          at(8.3, 5.2, "cairn", 0.85),
+          // pines up on the fells
+          at(4.6, 0.4, "snowpine", 1), at(5.2, 0.9, "snowpine", 0.9), at(10.8, 0.6, "snowpine", 1.05),
+          at(12.6, 1.3, "snowpine", 0.95), at(1.2, 3.4, "snowpine", 1), at(0.6, 4.2, "snowpine", 0.9),
+          at(7.6, 3.6, "icerock", 0.9), at(13.1, 5.5, "icerock", 1),
+        ],
+        decorRecipe: { count: 16, types: ["snowpine", "snowpine", "icerock", "crystal"] },
+      },
     ),
-    // PONDS
+
+    // ---- Frostmere (PONDS) ----
+    // Black meres too deep to freeze, lying in the inside of the road's bends.
     frostmere: rimeVariant(
       "frostmere", "Frostmere", "THE MERES",
-      "Stub board.",
+      "Black meres too deep to freeze lie in the crooks of the road, where towers would stand. Build on the outside of the bends — or put boats on the water.",
       20261206,
-      [[0.9, 1.5], [11, 1.5], [11, 8], [3, 8], [3, 4.5], [13.7, 4.5]],
-      { ponds: [{ x: 360, y: 280, w: 120, h: 60 }] },
+      [[0.9, 4.8], [3.2, 4.8], [3.2, 1.4], [7, 1.4], [7, 8.2], [10.8, 8.2], [10.8, 3.4], [13.7, 3.4]],
+      {
+        ponds: [
+          // the north mere, in the crook of the road's first loop
+          { x: 270, y: 196, w: 100, h: 112 },
+          { x: 262, y: 268, w: 84, h: 64 },
+          // the long mere in the crook of the second loop
+          { x: 451, y: 246, w: 96, h: 120 },
+          { x: 455, y: 330, w: 84, h: 82 },
+          // a small one out on the south-west snowfield
+          { x: 96, y: 412, w: 92, h: 48 },
+        ],
+        decor: [
+          at(0.4, 0.6, "snowpine", 1.05), at(1.2, 0.3, "snowpine", 0.9), at(0.6, 1.6, "icerock", 0.9),
+          at(12.4, 0.6, "snowpine", 1), at(13.1, 1.2, "snowpine", 0.9), at(8.6, 0.4, "crystal", 0.9),
+          at(12.6, 7.6, "snowpine", 1), at(13.2, 8.4, "icerock", 0.9),
+          at(4.8, 8.8, "snowpine", 0.95), at(2.4, 8.2, "cairn", 0.9),
+        ],
+        decorRecipe: { count: 16, types: ["snowpine", "snowpine", "icerock", "crystal"] },
+      },
     ),
   };
 }
