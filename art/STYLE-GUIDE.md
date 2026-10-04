@@ -700,14 +700,13 @@ textures." What came of it:
   layer, spans and gate now bake in ~0.5-0.8 s here (headless, shared CPU).
   Frames got faster; watch the load time on the iPad.
 
-## Hand-placed decor and the spawn sign
+## Hand-placed decor (and the old spawn sign)
 
 - A hand-placed decor entry may pick its look: `v` (and `sd` for a stone's
   shape); without them `variantOf` (scenery.js) hashes the position, as
   before.
-- The "THEY COME" sign (`signSpot`, scenery.js) stands by the FIRST stretch
-  of road out of the spawn, clear of trees, water and the road, wholly on
-  the board.
+- There is NO "THEY COME" sign any more (owner, 2026-10-04: removed); the
+  spawn gate itself says where the enemy comes from.
 
 ## The campaign map (`src/ui/mapArt.js`)
 
