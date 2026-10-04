@@ -51,7 +51,7 @@
 // Colour params keep the generic names (col, belly, mane, wing, skin, cloth,
 // cloth2, hair, cape, eyes) so revive() and the white hit-flash reach them.
 
-import { lighten, darken, mix, lin, part, shadow, glow } from "./paint.js";
+import { lighten, darken, mix, lin, part, shadow, glow, bakeSprite, PX } from "./paint.js";
 import { weapon, drawRig } from "./rigs.js";
 import { BEAST_PAINTERS } from "./rigs-beasts.js";
 import { rimeJarlRider, RIME_JARL } from "./rigs-rime.js";
@@ -793,6 +793,9 @@ const SERP_FIGHT = [
   { A: 3.4, ph: 1.9, neck: [[11, -7], [17, -9], [22, -5]], tilt: 0.32, jaw: 0.14, fx: "splash" },  // follow-through, the head in the spray
 ];
 const SERP_EXTRA = {
+  // holding: the humps stay up, the neck goes under at the front and comes up
+  // again beside its victim (drawSeaHold paints that part)
+  hold: (f) => ({ A: 4.6, ph: f * PI / 2, neck: [[9, 1.5], [10.4, 4], [12, 5.6]], tilt: 0, jaw: 0, fx: "rings", at: 11 }),
   sub: (f) => ({ A: 4, ph: f * PI / 2, neck: [[10, 3], [13, 4], [16, 4.6]], tilt: 0, jaw: 0, dep: 6, fins: true }),
   surface: (f) => [
     { A: 3, ph: 0, neck: [[10, 3], [13, 2], [15, 2.4]], tilt: -0.2, jaw: 0, dep: 5, fx: "bulge" },
@@ -996,6 +999,7 @@ const KRAKEN_FIGHT = [
   { h: 47, up: 1, arms: 0.5, roar: 0.25 },
 ];
 const KRAKEN_EXTRA = {
+  deep: (f) => ({ deep: true, f: f % 4 }),
   rise: (f) => ({ h: 46, arms: 0, dep: [44, 28, 14, 4][f % 4], fx: f % 4 < 3 ? "bulge" : "drip" }),
   sink: (f) => ({ h: 46, arms: -0.2, dep: [6, 18, 32, 48][f % 4], tilt: -0.04 * (f % 4 + 1), fx: "bubbles" }),
 };
@@ -1004,6 +1008,7 @@ const kraken = (ctx, p) => {
   let k;
   if (typeof p.frame === "string") { const [sh, n] = p.frame.split("."); k = (KRAKEN_EXTRA[sh] || KRAKEN_EXTRA.rise)(Number(n) || 0); }
   else k = fight ? KRAKEN_FIGHT[(p.frame || 0) % 4] : KRAKEN_WALK((p.frame || 0) % 4);
+  if (k.deep) { krakenDeep(ctx, p, k.f); return; }
   const s = (p.len ?? 40) / 40;
   const col = p.col, belly = p.belly, dark = p.mane;
   ctx.save(); ctx.scale(s, s);
@@ -1103,6 +1108,7 @@ export const seaFrame = (e, g) => {
     if (S2.phase === "swim" || e.submerged && S2.phase !== "rise") return { type: "seaserpent", sheet: "walk", frame: `sub.${Math.floor(t * 6 + id) % 4}` };
     if (S2.phase === "rise") return { type: "seaserpent", sheet: "walk", frame: `surface.${tms - S2.t < d.serpRise * 0.5 ? 0 : 1}` };
     if (S2.phase === "dive") return { type: "seaserpent", sheet: "walk", frame: `dive.${Math.min(3, Math.floor(((tms - S2.t) / d.serpDive) * 4))}` };
+    if (e.hold && (e.hold.u || e.hold.e)) return { type: "seaserpent", sheet: "walk", frame: `hold.${Math.floor(t * 4 + id) % 4}` };
     const since = tms - S2.t;
     if (since < 300 && !(e.atkAnim > 0)) return { type: "seaserpent", sheet: "walk", frame: `surface.${since < 150 ? 2 : 3}` };
     const fr = e.atkAnim > 210 ? 2 : e.atkAnim > 0 ? 3 : S2.next !== undefined && S2.next - tms < 450 ? 1 : 0;
@@ -1118,6 +1124,7 @@ export const seaFrame = (e, g) => {
     return { type: "kraken", sheet: "walk", frame: Math.floor(t * 3 + id) % 4 };
   }
   if (e.sea === "arm") {
+    if (e.hold && (e.hold.u || e.hold.e)) return { type: "krakenarm", skip: true };     // drawSeaHold paints all of it
     if (e.riseAt !== undefined && tms - e.riseAt < (e.riseMs || 700)) return { type: "krakenarm", sheet: "walk", frame: `rise.${Math.floor(((tms - e.riseAt) / (e.riseMs || 700)) * 4)}` };
     const grab = (g.effects || []).find((fx) => fx.type === "armGrab" && fx.x === e.x && fx.y === e.y && fx.ttl > 0);
     if (grab) return { type: "krakenarm", sheet: "walk", frame: `grab.${Math.min(3, Math.floor((1 - grab.ttl / grab.life) * 4))}` };
@@ -1133,6 +1140,7 @@ const ENEMY_RISE = { serpRise: 500, serpDive: 450 };
 export const drawSeaRig = (ctx, e, g) => {
   const f = seaFrame(e, g);
   if (!f) return false;
+  if (f.skip) return true;
   const y = e.y + (SEA_LIFT[e.sea] || 4);
   drawRig(ctx, f.type, e.x, y, e.face || 1, f.sheet, f.frame);
   if (e.hitFlash > g.time * 1000 && !e.submerged) drawRig(ctx, f.type, e.x, y, e.face || 1, f.sheet, f.frame, "white", 0.6);
@@ -1143,6 +1151,219 @@ export const drawSeaRig = (ctx, e, g) => {
 // (krakenSink): ZONE_FX-shaped painters
 export const armSinkFx = (ctx, fx) => drawRig(ctx, "krakenarm", fx.x, fx.y + SEA_LIFT.arm, fx.face || 1, "walk", `sink.${Math.min(3, Math.floor((1 - fx.ttl / fx.life) * 4))}`);
 export const krakenSinkFx = (ctx, fx) => drawRig(ctx, "kraken", fx.x, fx.y + SEA_LIFT.kraken, fx.face || 1, "walk", `sink.${Math.min(3, Math.floor((1 - fx.ttl / fx.life) * 4))}`);
+
+// ---- the kraken roaming under the water ------------------------------------------
+// Seen from above through the black water: a vast dim shape, the sac leading,
+// the eight arms streaming behind it, a bulge of water over it and a vee of
+// wake. Everything translucent (never inked) but the foam. Facing +x = the way
+// it swims; four frames of the arms' wave. (drawRig(…, "walk", "deep.n"))
+// a shape painted solid on a scratch layer, then laid on dim (never inked)
+const dim = (ctx, fn, a) => {
+  const cv = ctx.canvas;
+  if (!cv || !cv.width) return;
+  const tmp = document.createElement("canvas");
+  tmp.width = cv.width; tmp.height = cv.height;
+  const t = tmp.getContext("2d");
+  t.imageSmoothingEnabled = false;
+  t.setTransform(ctx.getTransform());
+  fn(t);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha *= a; ctx.drawImage(tmp, 0, 0); ctx.restore();
+};
+const krakenDeep = (ctx, p, f) => {
+  const ph = (f / 4) * TAU;
+  // all of it on ONE layer laid on dim, so nothing stacks past the ink's
+  // threshold: the heave of water over it, the body, a paler back, the eyes'
+  // gleam, a vee of wake off its brow
+  dim(ctx, (c) => {
+    c.fillStyle = "#5e8a98"; c.beginPath(); c.ellipse(8, 0, 19, 8.5, 0, 0, TAU); c.fill();
+    c.fillStyle = "#1c0a18";
+    for (let i = 0; i < 8; i++) {
+      const row = (i % 4) - 1.5, pts = [];
+      for (let j = 0; j <= 10; j++) {
+        const u = j / 10;
+        pts.push([-6 - u * 34, row * (4.2 + u * 2.2) + Math.sin(ph + u * 5 + i) * (1 + u * 2.4)]);
+      }
+      taper(c, pts, pts.map((_, j) => 3.4 * (1 - j / 11) + 0.6));
+    }
+    curve(c, [[-10, -6], [4, -9], [16, -7], [22, -2], [22, 3], [14, 7], [2, 8.6], [-10, 6.4], [-14, 0]]); c.fill();
+    c.fillStyle = "#4a1e3a"; curve(c, [[-4, -4], [8, -6], [16, -4], [18, 0], [10, 2], [-2, 1]]); c.fill();
+    c.fillStyle = "#c8a840"; for (const y of [-5.4, 5.6]) c.fillRect(q(-3.5), q(y - 0.6), 2, 1);
+    c.fillStyle = FOAM;
+    for (let i = 0; i < 6; i++) {
+      const x = 22 - i * 6.5, o = 3 + i * 2.6, w = (i + f) % 2 ? 2 : 3;
+      c.fillRect(q(x), q(-o), w, 0.5); c.fillRect(q(x), q(o), w, 0.5);
+    }
+    c.fillRect(21.5, -1.5 + (f % 2) * 0.5, 2, 0.5); c.fillRect(22.5, 0.5, 1.5, 0.5);
+    c.fillRect(q(16 - f), -7.5, 1, 0.5); c.fillRect(q(14 + f), 7, 1, 0.5);
+  }, 0.4);
+};
+export const drawKrakenDeepRig = (ctx, e, g) => drawRig(ctx, "kraken", e.x, e.y, e.face || 1, "walk", `deep.${Math.floor(g.time * 3 + (e.id || 0)) % 4}`);
+
+// ---- what a sea monster holds ------------------------------------------------------
+// A kraken's arm seizes a creature (a raider or a soldier: engine/serpent.js
+// m.hold, u.seizedBy / e.seized) and the serpent coils round one. Drawn over
+// the crowd (rimefx.js drawHolds): the arm rises out of its hole (or the
+// serpent's neck out of the water beside its humps), arcs over to the victim,
+// comes round its waist in a band across the front, then a second band higher
+// up, and the tip (the serpent's head) curls over the shoulder. The bands are
+// kept narrow and low so the figure — a knight we want to save — still reads.
+// Baked per (monster kind, offset to the victim in 2-unit steps, victim size,
+// squeeze frame), stamped mirrored when the victim lies to the left.
+const HOLD_CACHE = new Map();
+const holdTube = (c, pts, ws, col, belly, o = {}) => {
+  // the body of a limb along pts, ws wide; its underside (down-right of the
+  // line) pale with suckers (an arm) or belly scutes (the serpent); the top
+  // mottled or frilled
+  const N = pts.length - 1;
+  const nrm = (i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(N, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    let n = [-dy / l, dx / l];
+    if (n[0] * 0.45 + n[1] < 0) n = [-n[0], -n[1]];
+    return n;
+  };
+  if (o.frill) {
+    c.fillStyle = o.frill;
+    for (let i = 2; i < N - 1; i += 2) { const n = nrm(i); spike(c, [pts[i][0] - n[0] * ws[i] * 0.36, pts[i][1] - n[1] * ws[i] * 0.36], [-n[0], -n[1]], 1.8, 0.8, 0.3); }
+  }
+  c.fillStyle = tone(c, pts[0][0] - 12, pts[0][1] - 20, pts[0][0] + 12, pts[0][1] + 8, col, 0.32, 0.42); taper(c, pts, ws);
+  const bk = o.suck ? 0.42 : 0.26;
+  const und = pts.map((pt, i) => { const n = nrm(i); return [pt[0] + n[0] * ws[i] * (0.5 - bk * 0.55), pt[1] + n[1] * ws[i] * (0.5 - bk * 0.55)]; });
+  c.fillStyle = belly; taper(c, und, ws.map((w) => w * bk));
+  if (!o.suck) {
+    // the serpent's back: a dark dorsal line with paler scale flecks
+    const top = pts.map((pt, i) => { const n = nrm(i); return [pt[0] - n[0] * ws[i] * 0.14, pt[1] - n[1] * ws[i] * 0.14]; });
+    c.fillStyle = darken(col, 0.22); taper(c, top, ws.map((w) => w * 0.24));
+  }
+  for (let i = 1; i < N; i += o.suck ? 1 : 2) {
+    const n = nrm(i), pt = [pts[i][0] + n[0] * ws[i] * 0.3, pts[i][1] + n[1] * ws[i] * 0.3];
+    if (o.suck) {
+      const r = Math.max(0.5, ws[i] * 0.16);
+      if (i % 2) { c.fillStyle = lighten(belly, 0.3); c.beginPath(); c.ellipse(pt[0], pt[1], r, r * 0.85, 0, 0, TAU); c.fill(); }
+      if (r > 0.6 && i % 2) { c.fillStyle = darken(belly, 0.4); c.fillRect(pt[0] - 0.25, pt[1] - 0.25, 0.5, 0.5); }
+    } else { c.fillStyle = darken(belly, 0.28); c.fillRect(pt[0] - 0.25, pt[1] - 0.25, 0.5, 0.5); }
+    const tp = [pts[i][0] - n[0] * ws[i] * 0.2, pts[i][1] - n[1] * ws[i] * 0.2];
+    if (i % 3 === 1) { c.fillStyle = darken(col, 0.32); c.fillRect(tp[0] - 0.5, tp[1] - 0.5, 1, 1); }
+  }
+  // a lit ridge along the top
+  c.fillStyle = lighten(col, 0.35);
+  for (let i = 1; i < N; i += 2) { const n = nrm(i); const tp = [pts[i][0] - n[0] * ws[i] * 0.36, pts[i][1] - n[1] * ws[i] * 0.36]; c.fillRect(tp[0] - 0.25, tp[1] - 0.25, 0.5, 0.5); }
+};
+// widths along a spline by arc length: from w0 through to w1
+const widthsAlong = (pts, stops) => {
+  const L = [0];
+  for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const tot = L[L.length - 1] || 1;
+  return L.map((l) => {
+    const u = l / tot;
+    for (let k = 1; k < stops.length; k++) if (u <= stops[k][0]) { const [u0, w0] = stops[k - 1], [u1, w1] = stops[k]; return w0 + (w1 - w0) * ((u - u0) / (u1 - u0 || 1)); }
+    return stops[stops.length - 1][1];
+  });
+};
+const paintHold = (c, kind, adx, dy, hw, f, waist) => {
+  const arm = kind === "a";
+  const sq = [0, 0.5, 1, 0.5][f];
+  const P = arm ? RIMEBEAST_RIGS.krakenarm.p : RIMEBEAST_RIGS.seaserpent.p;
+  const col = P.col, belly = P.belly;
+  const dist = Math.hypot(adx, dy);
+  // where the limb leaves the water, its arc over, the waist band (dy is the
+  // victim's waist; its chest about 4.5 higher, its head from 9 up: kept clear)
+  const up = -Math.min(arm ? 12 : 13, 4 + dist * 0.24);
+  const archY = Math.min(up, dy - 4) - (arm ? 2 : 3);
+  const band = [[adx - hw - 0.8, dy + 1], [adx + 0.2, dy + 1.8 - sq * 0.3], [adx + hw + 1, dy + 0.6]];
+  let ctrlA;
+  if (arm) ctrlA = [[0, 1.6], [adx * 0.05, up * 0.6], [adx * 0.18 + 1, up], [adx * 0.55, archY], [adx - hw - 3.4, dy - 1.4], ...band];
+  else {
+    // the serpent comes up out of the water and slithers over the ground to
+    // its victim in S-bends (it lies on the ground: feet level is dy + waist),
+    // then climbs its legs into the coils
+    const fy = dy + waist, gx = adx - hw - 2.4, n = Math.max(2, Math.round(Math.hypot(gx, fy) / 14));
+    const len = Math.hypot(gx, fy) || 1, px = -fy / len, py = gx / len;
+    ctrlA = [[0, 1.2]];
+    for (let i = 1; i < n; i++) { const u = i / n, a = (i % 2 ? 1 : -1) * Math.min(5, len * 0.12); ctrlA.push([gx * u + px * a, fy * u + py * a - 0.5]); }
+    ctrlA.push([gx, fy - 1], [adx - hw - 2.2, dy + 3], ...band);
+  }
+  const A = spline(ctrlA, 4);
+  const wA = widthsAlong(A, arm ? [[0, 8.6], [0.25, 6], [0.7, 3.8], [0.85, 3], [1, 2.7 - sq * 0.3]] : [[0, 5.4], [0.6, 4.8], [0.85, 3.8], [1, 3 - sq * 0.3]]);
+  // the second band across the chest, out from behind the near side; then the
+  // tip (the serpent's head) rising off the far shoulder, clear of the face
+  const ctrlB = arm
+    ? [[adx - hw - 0.8, dy - 3.6], [adx, dy - 4.4 - sq * 0.2], [adx + hw + 1.4, dy - 5.4], [adx + hw + 3, dy - 8], [adx + hw + 4.4, dy - 10.6], [adx + hw + 5.8, dy - 10.4], [adx + hw + 5.4, dy - 9]]
+    : [[adx - hw - 1, dy - 3.6], [adx, dy - 4.2 - sq * 0.2], [adx + hw + 1.4, dy - 5.4], [adx + hw + 3.4, dy - 9], [adx + hw + 3.8, dy - 14], [adx + hw + 2.4, dy - 18]];
+  const B = spline(ctrlB, 4);
+  const wB = widthsAlong(B, arm ? [[0, 2.6], [0.45, 2.4], [0.8, 1.4], [1, 0.7]] : [[0, 3], [0.6, 2.8], [1, 2.6]]);
+  // the water where it comes up: the arm's hole through the ice and shingle,
+  // or a foam collar off the serpent's back
+  if (arm) part(c, (cc) => {
+    cc.fillStyle = "#16303a"; cc.beginPath(); cc.ellipse(0.4, 0.6, 9, 3, 0, 0, TAU); cc.fill();
+    cc.fillStyle = "#2a5464"; cc.beginPath(); cc.ellipse(0.8, 0.9, 6.3, 1.8, 0, 0, TAU); cc.fill();
+  });
+  if (!arm) { c.fillStyle = "rgba(20,20,26,0.22)"; taper(c, A.slice(0, -10).map(([x, y]) => [x + 1, y + 1.6]), wA.slice(0, -10).map((w) => w * 0.9)); }
+  part(c, (cc) => {
+    cc.save(); cc.beginPath(); cc.rect(-400, -400, 900, 900); cc.rect(-10, 0.6, 20, 7); cc.clip("evenodd");
+    holdTube(cc, A, wA, col, belly, arm ? { suck: true } : { frill: P.mane });
+    cc.restore();
+  });
+  part(c, (cc) => holdTube(cc, B, wB, col, belly, arm ? { suck: true } : { frill: P.mane }));
+  if (!arm) {
+    // the head reared over the far shoulder, jaws at the victim's head
+    const at = B[B.length - 1];
+    part(c, (cc) => {
+      cc.save(); cc.translate(at[0], at[1]); cc.scale(-0.8, 0.8);
+      serpentHead(cc, (x) => x, P, { tilt: 0.35, jaw: 0.35 + sq * 0.35 }, [0, 0]);
+      cc.restore();
+    });
+  }
+  if (arm) part(c, (cc) => {
+    for (const [dx, dy2, w, h, tilt] of [[-9.6, 0.2, 3.2, 1.8, -0.5], [-3.8, 1.6, 3.4, 1.6, 0.15], [4.3, 1.6, 3, 1.5, -0.2], [9.4, 0.1, 3, 1.9, 0.55]]) {
+      cc.save(); cc.translate(dx, dy2); cc.rotate(tilt);
+      cc.fillStyle = ICE_DK; cc.fillRect(-w / 2, -h / 2, w, h);
+      cc.fillStyle = ICE_LT; cc.fillRect(-w / 2, -h / 2, w, h * 0.45);
+      cc.restore();
+    }
+  });
+  else foam(c, 0.4, 4.6, 1);
+  // the squeeze: drops wrung out at the waist band
+  if (sq >= 1) { c.fillStyle = FOAM; c.fillRect(q(adx + hw + 1.8), q(dy + 2), 0.5, 1); c.fillRect(q(adx - hw - 1.4), q(dy + 2.8), 0.5, 1); }
+};
+const holdSprite = (kind, adx, dy, hw, f, white, waist) => {
+  const key = `${kind}|${adx}|${dy}|${hw}|${f}|${waist}|${white ? 1 : 0}`;
+  let sp = HOLD_CACHE.get(key);
+  if (sp) return sp;
+  if (HOLD_CACHE.size > 240) HOLD_CACHE.clear();
+  const x0 = -18, y0 = Math.min(-26, dy - 24), x1 = adx + hw + 18, y1 = Math.max(10, dy + waist + 10);
+  const cv = bakeSprite(x1 - x0, y1 - y0, (c) => { c.translate(-x0, -y0); paintHold(c, kind, adx, dy, hw, f, waist); });
+  if (white) { const c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height); }
+  sp = { cv, ax: -x0, ay: -y0 };
+  HOLD_CACHE.set(key, sp);
+  return sp;
+};
+// m: the monster (a krakenarm or a seaserpent with m.hold: { u } a soldier
+// or { e } a foe)
+export const drawSeaHold = (ctx, m, g) => {
+  const v = m && m.hold && (m.hold.u || m.hold.e);
+  if (!v) return;
+  const arm = m.sea === "arm";
+  const tms = g.time * 1000;
+  const ox = arm ? m.x : m.x + (m.face || 1) * 10.5, oy = m.y + (arm ? SEA_LIFT.arm : SEA_LIFT.serpent);
+  // the victim's waist: a soldier stands at u.y + 9, a foe at e.y + size * 0.55
+  const foe = !!m.hold.e;
+  const feet = foe ? v.y + v.size * 0.55 : v.y + 9;
+  const waist = foe ? Math.max(7, v.size * 0.5) : 8.5;
+  const hw = q(foe ? Math.max(3.6, v.size * 0.27) : 4);
+  const dx = v.x - ox, dy = Math.round((feet - waist - oy) / 2) * 2;
+  const adx = Math.max(6, Math.round(Math.abs(dx) / 2) * 2), dir = dx >= 0 ? 1 : -1;
+  const f = Math.floor(g.time * 3 + (m.id || 0)) % 4;
+  const draw = (sp, a = 1) => {
+    const w = sp.cv.width / PX, h = sp.cv.height / PX;
+    ctx.save(); if (a !== 1) ctx.globalAlpha *= a;
+    ctx.translate(ox, oy); if (dir < 0) ctx.scale(-1, 1);
+    ctx.drawImage(sp.cv, -sp.ax, -sp.ay, w, h);
+    ctx.restore();
+  };
+  const wq = Math.round(waist);
+  draw(holdSprite(arm ? "a" : "s", adx, dy, hw, f, false, wq));
+  if (m.hitFlash > tms) draw(holdSprite(arm ? "a" : "s", adx, dy, hw, f, true, wq), 0.45);
+};
 
 // ---- the roster -----------------------------------------------------------------------
 const FROSTWOLF = { len: 32, col: "#d4dde5", belly: "#f4f1e8", mane: "#7896ae", eyes: "#8ad8f0" };

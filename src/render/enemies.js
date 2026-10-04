@@ -121,6 +121,9 @@ export const drawEnemy = (ctx, e, time, tms) => {
     hover -= p < 0.8 ? S(DROP_H * (1 - (p / 0.8) ** 2)) : S(Math.sin((p - 0.8) / 0.2 * Math.PI) * 1.5);
   }
   if (!rigged && (e.type === "goblin" || e.type === "wolf" || e.type === "ghoul") && frame % 2 === 1 && !fighting) hover -= CELL;
+  // seized by a sea monster (engine/serpent.js): lifted a little off the
+  // ground in its coils, wriggling
+  if (e.seized) hover -= S(2.5 + Math.sin(time * 9 + e.id) * 0.8);
   if (rigged) {
     // rigged foes: baked frames, feet on the ground line, mirrored to face
     // (a gryphon at war with a war-eagle fights in the air: e.airFight)
@@ -482,7 +485,9 @@ export const drawBandUnit = (ctx, u, b, time) => {
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.ellipse(u.x + 1, u.y + 9, 11, 4.2, 0, 0, Math.PI * 2); ctx.stroke();
   }
-  drawRig(ctx, kind, u.x, u.y + 9, u.face, sheet, frame);
+  // seized by a sea monster (engine/serpent.js): lifted in its coils, wriggling
+  const lift = u.seizedBy ? 2.5 + Math.sin(time * 9 + u.id) * 0.8 : 0;
+  drawRig(ctx, kind, u.x, u.y + 9 - lift, u.face, sheet, frame);
   // the huntress at the string: a short pull when she has just loosed
   if (u.healGlow > 0) { ctx.fillStyle = "rgba(150,224,150,0.5)"; ctx.fillRect(S(u.x - 4), S(u.y - 26), CELL * 4, CELL); }
   // health: the hero always shows his, a farmer only once hurt

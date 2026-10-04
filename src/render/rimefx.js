@@ -29,7 +29,7 @@
 import { S, CELL } from "../data/constants.js";
 import { RIGS, drawRig } from "./rigs.js";
 // the sea monsters' own frame mapping (waterlines, the arm's grab, the sinks)
-import { drawSeaRig, armSinkFx, krakenSinkFx } from "./rigs-rimebeasts.js";
+import { drawSeaRig, armSinkFx, krakenSinkFx, drawSeaHold, drawKrakenDeepRig } from "./rigs-rimebeasts.js";
 
 // ---- borrowed looks for the clans' stub foes (data/enemies.js) ----
 // (until rigs-rime.js exists: delete these lines when it lands)
@@ -373,15 +373,15 @@ const seaRig = (ctx, e, g) => {
   return true;
 };
 // the kraken under the water as it roams (engine/serpent.js: e.submerged
-// while it swims): a great dark shape and a churn of wake, no rig
+// while it swims): its dim shape seen through the sea, a bulge and a vee of
+// wake (rigs-rimebeasts.js, the kraken rig's "deep" frames)
 const drawKrakenDeep = (ctx, e, g) => {
+  if (RIGS.kraken) { drawKrakenDeepRig(ctx, e, g); return; }
   const t = g.time;
   ctx.save();
   ctx.translate(S(e.x), S(e.y));
   ctx.fillStyle = "rgba(20,8,18,0.32)";
   ctx.beginPath(); ctx.ellipse(0, 0, 30, 13, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "rgba(20,8,18,0.22)";
-  for (let i = 0; i < 6; i++) { const a = i * 1.05 + Math.sin(t * 1.4 + i) * 0.2; ctx.fillRect(S(Math.cos(a) * 34) - 3, S(Math.sin(a) * 15) - 2, 6, 4); }
   ctx.fillStyle = "rgba(226,240,246,0.5)";
   for (let i = -3; i <= 3; i++) ctx.fillRect(S(i * 9 + Math.sin(t * 2 + i) * 3), S(-12 + Math.abs(i) * 2), 5, CELL);
   ctx.restore();
@@ -433,28 +433,13 @@ Object.assign(ZONE_FX, {
 });
 
 // ---- what a sea monster holds (engine/serpent.js m.hold) ----
-// PLACEHOLDER: a loop of tentacle (or coil) round the held creature's middle,
-// squeezing, and a rope of it back to the arm / the serpent's head
+// The arm (or the serpent's neck) coiled round the held creature, drawn over
+// the crowd: rigs-rimebeasts.js drawSeaHold (the arm's own rig steps aside
+// while it holds; the serpent's shows only its humps).
 const drawHolds = (ctx, g, tms) => {
   for (const m of g.enemies) {
     if (m.dead || !m.hold || !m.sea) continue;
-    const v = m.hold.u || m.hold.e;
-    if (!v) continue;
-    const arm = m.sea === "arm";
-    const col = arm ? KRAK : SERP, lt = arm ? KRAK_LT : SERP_LT, dk = arm ? KRAK_DK : SERP_DK;
-    const sq = Math.sin(tms / 160 + m.id) * 1.5;
-    // the rope from the monster to its victim
-    const fx = m.x, fy = m.y - (arm ? 22 : 18), tx = v.x, ty = v.y - 9;
-    for (let i = 1; i < 7; i++) {
-      const u = i / 7, x = fx + (tx - fx) * u, y = fy + (ty - fy) * u - Math.sin(u * Math.PI) * 6;
-      ctx.fillStyle = dk; ctx.fillRect(S(x) - 3, S(y) - 3, 6, 6);
-      ctx.fillStyle = col; ctx.fillRect(S(x) - 2, S(y) - 2, 4, 4);
-    }
-    // the loop round its middle
-    const w = 9 + sq;
-    ctx.fillStyle = dk; ctx.fillRect(S(v.x - w) - 1, S(ty) - 3, w * 2 + 2, 7);
-    ctx.fillStyle = col; ctx.fillRect(S(v.x - w), S(ty) - 2, w * 2, 5);
-    ctx.fillStyle = lt; ctx.fillRect(S(v.x - w), S(ty) - 2, w * 2, CELL);
-    if (arm) { ctx.fillStyle = SUCK; for (let x = -w + 3; x < w - 1; x += 5) ctx.fillRect(S(v.x + x), S(ty) + 1, CELL, CELL); }
+    if (!(m.hold.u || m.hold.e)) continue;
+    drawSeaHold(ctx, m, g);
   }
 };
