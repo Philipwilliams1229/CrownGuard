@@ -536,4 +536,3 @@ export const seaRest = (g) => {
   if (!tools.unitHosts) return;
   for (const h of tools.unitHosts(g)) for (const u of h.units) if (u.seizedBy) u.seizedBy = null;
 };
-export const _seaDebug = { holeFor: (...a) => holeFor(...a), route };   // (for scratch tests)

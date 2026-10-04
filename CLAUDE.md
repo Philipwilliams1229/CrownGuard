@@ -82,15 +82,26 @@ uses; existing levels sim byte-identical). Read the headers of
   war-chant, walks amid the biggest group via `gatherMore`), `frostgiant`
   (`stomp` dazes soldiers), `icedrake` (flier), boss `rimejarl` on a
   war-mammoth (trample, shroud, `callLanding`).
-- **Sea monsters** (`src/engine/serpent.js`, `water: "any" | "coast"`;
-  `waves.js dryLand` swaps them on boards without that water):
-  `seaserpent` swims the first river (or the coast) submerged — only a River
-  Watch can hit it — surfaces by prey to maul soldiers or COIL a hall
-  (`t.downLeft` through `fights`), dives on, and slips away at the water's
-  end for 1 life. `kraken`: the body offshore, `krakenarm`s burst up along
-  the shore to grab soldiers, smash halls or sweep the road; each arm cut
-  tears 12% off the body; after 75 s it sinks for 4 lives (never stalls a
-  wave). Test boards `rimefjord` (river + beach), `rimeriver`, `rimedry`.
+- **Sea monsters are NEUTRAL hazards** (owner, 2026-10-04;
+  `src/engine/serpent.js`, `water: "any"`, left out of a board with no
+  water): they never cost a life (`castleDmg` 0), attack whatever is near
+  the water — foes, soldiers, the hero, skiffs; halls only when no creature
+  is in reach — and never hold a wave open (once the hostile army is done
+  every monster dives and leaves). A foe a monster kills pays nothing;
+  killing a monster pays its bounty. Towers rank a monster below every
+  hostile foe unless it is holding one of ours (`e.menacing`); wards,
+  banners, pack pace and healers skip them (`neutral`). `seaserpent`
+  swims a river (or the coast) submerged, only skiffs reach it; it surfaces
+  by prey and SEIZES it (maul 40 x sqrt(mult)), or coils a hall. `kraken`
+  roams like the serpent (coast first) with a 9000 hp body (x the wave; 4%
+  per tentacle cut) and surfaces where a tentacle can reach someone: up to
+  4 `krakenarm`s (130 hp x the wave) each seize a random one of the six
+  nearest creatures and squeeze 12 x sqrt(mult) every 900 ms, smash a hall
+  if no one is in reach, sink after 12 s. A SEIZED soldier (`u.seizedBy`,
+  `seaHold` in runMelee) or foe (`e.seized`, treated as held) strikes the
+  monster at its own pace and is freed when it dies. zoneStats: grabsFoe,
+  grabsFriend, freedFoe, freedFriend, armsCut, killsFoe, killsFriend.
+  Test boards `rimefjord` (river + beach), `rimeriver`, `rimedry`.
 - **Rigs:** `rigs-rime.js` (thrall, huscarl, berserker/berserkerRage,
   rimeseer, skald with a chant sheet at walk 4-7, rimejarlfoot, and the
   exported `rimeJarlRider` part; joint set `rime`), `rigs-rimebeasts.js`
