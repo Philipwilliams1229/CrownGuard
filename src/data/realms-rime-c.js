@@ -131,11 +131,11 @@ export default function rimeBoardsC(rimeVariant) {
         ],
         decor: [
           // the hold: longhouses round the skalds' picture stone
-          { x: 54, y: 290, t: "rmlonghouse", v: 0, s: 1.1 }, { x: 150, y: 352, t: "rmlonghouse", v: 1, s: 1 },
-          { x: 60, y: 400, t: "rmlonghouse", v: 0, s: 1 }, { x: 128, y: 286, t: "rmskaldstone", s: 1.1 },
-          { x: 104, y: 330, t: "rmrunestone", s: 0.9 }, { x: 160, y: 420, t: "rmrack", s: 1 },
+          { x: 88, y: 292, t: "rmlonghouse", v: 0, s: 1.1 }, { x: 176, y: 356, t: "rmlonghouse", v: 1, s: 1 },
+          { x: 96, y: 410, t: "rmlonghouse", v: 0, s: 1 }, { x: 160, y: 288, t: "rmskaldstone", s: 1.1 },
+          { x: 136, y: 334, t: "rmrunestone", s: 0.9 }, { x: 178, y: 424, t: "rmrack", s: 1 },
           // the hold's ships drawn up on the strand below it
-          { x: 238, y: 442, t: "rmlongship", v: 1, s: 1 }, { x: 196, y: 462, t: "rmboat", v: 0, s: 0.9 },
+          { x: 228, y: 430, t: "rmlongship", v: 1, s: 1 }, { x: 196, y: 462, t: "rmboat", v: 0, s: 0.9 },
           // the cliff-top
           { x: 210, y: 14, t: "rmrock", v: 1, s: 1 }, { x: 470, y: 12, t: "rmrock", v: 3, s: 0.9 },
           { x: 690, y: 30, t: "rmspruce", s: 1 }, { x: 30, y: 30, t: "rmspruce", s: 1.1 },
@@ -160,12 +160,12 @@ export default function rimeBoardsC(rimeVariant) {
         ],
         decor: [
           // the Jarl's hall above his gate
-          { x: 44, y: 260, t: "rmlonghouse", v: 0, s: 1.25 }, { x: 70, y: 340, t: "rmlonghouse", v: 1, s: 1 },
-          { x: 30, y: 196, t: "rmskaldstone", s: 1.15 }, { x: 104, y: 214, t: "rmrunestone", s: 1 },
+          { x: 84, y: 262, t: "rmlonghouse", v: 0, s: 1.25 }, { x: 98, y: 344, t: "rmlonghouse", v: 1, s: 1 },
+          { x: 92, y: 192, t: "rmskaldstone", s: 1.15 }, { x: 104, y: 214, t: "rmrunestone", s: 1 },
           { x: 100, y: 392, t: "rmrunestone", s: 0.9 },
           // his fleet drawn up on the strand
-          { x: 372, y: 116, t: "rmlongship", v: 0, s: 1 }, { x: 640, y: 120, t: "rmlongship", v: 1, s: 1 },
-          { x: 40, y: 122, t: "rmwhale", v: 0, s: 1 }, { x: 470, y: 132, t: "rmrack", s: 0.9 },
+          { x: 380, y: 111, t: "rmlongship", v: 0, s: 1 }, { x: 560, y: 100, t: "rmlongship", v: 1, s: 1 },
+          { x: 646, y: 196, t: "rmwhale", v: 0, s: 1 }, { x: 476, y: 150, t: "rmrack", s: 0.9 },
           { x: 680, y: 160, t: "rmboat", v: 1, s: 0.9 },
           { x: 690, y: 420, t: "rmspruce", s: 1.1 }, { x: 650, y: 450, t: "rmspruce", s: 0.9 },
           { x: 330, y: 456, t: "rmrock", v: 2, s: 0.9 }, { x: 20, y: 456, t: "rmspruce", s: 1 },

@@ -7,10 +7,12 @@
 // `landings` entry (engine/rime.js) on its strand, beside the road.
 //
 //   frostwake  THE COVE      (coast, LANDING) the chapter's first board: a
-//                            plain road whose long middle leg skirts one
-//                            sheltered cove; the ship beaches there, half the
-//                            road from the gate, in full view of the fields
-//                            above the leg — the landing taught on its own
+//                            plain road (a hook out of the gate, then one
+//                            long leg along the head of a sheltered cove);
+//                            the ship sails straight up the cove and beaches
+//                            below that leg, ~40% of the road from the gate,
+//                            in full view of the field above it — the landing
+//                            taught on its own
 //   skerryway  THE SHELF     (coast) the sea takes the north of the board; the
 //                            road zigzags four times across the narrow shelf
 //                            under it, every northern turn on the strand where
@@ -34,8 +36,8 @@ const at = (c, r, t, s = 1, dx = 0, dy = 0, v) => ({ x: Math.round(48 * c + 24 +
 export default function rimeBoardsA(rimeVariant) {
   return {
     // ---- Frostwake Strand (COAST, LANDING) ----
-    // Out of the fells, down to the shore, along the head of the cove and up
-    // to the gate. The cove is the only sea on the board; its sand runs up to
+    // Out of the glacier gate in a hook, down to the shore, along the head of
+    // the cove and up to the gate. The cove is the only sea on the board; its sand runs up to
     // the road's long middle leg, and that is where the longship grounds.
     frostwake: rimeVariant(
       "frostwake", "Frostwake Strand", "THE COVE",
@@ -68,7 +70,7 @@ export default function rimeBoardsA(rimeVariant) {
     // zigzags across the shelf four times on its way east.
     skerryway: rimeVariant(
       "skerryway", "The Skerry Way", "THE SHELF",
-      "A shelf of land under a black sea. The road zigzags four times between strand and snowfield — every northern turn is on the beach, where the deep things hunt.",
+      "A shelf of snow under a black sea. The road zigzags four times between strand and snowfield, and the deep things hunt along every northern turn.",
       20261203,
       [[0.9, 4.6], [2.6, 4.6], [2.6, 8.4], [5.6, 8.4], [5.6, 4.6], [8.6, 4.6], [8.6, 8.4], [11.6, 8.4], [11.6, 4.6], [13.7, 4.6]],
       {
@@ -139,7 +141,7 @@ export default function rimeBoardsA(rimeVariant) {
         ],
         decor: [
           // the flensing strand in the pocket between the two shore legs
-          at(7.7, 6.2, "rmwhale", 1.1, 0, 0, 0), at(7.0, 6.75, "rmwhale", 1, 0, 0, 1),
+          at(7.75, 6.15, "rmwhale", 1.3, 0, 0, 0), at(6.95, 6.75, "rmwhale", 1.15, 0, 0, 1),
           // the whalers' longhouse on the east headland, its rack and a boat
           at(12.8, 6.6, "rmlonghouse", 1.05, 0, 0, 1), at(13.3, 5.4, "rmrack", 0.95), at(12.3, 7.85, "rmboat", 1),
           // the west shore below the first strand
@@ -163,11 +165,13 @@ export default function rimeBoardsA(rimeVariant) {
       {
         ponds: [
           // the north mere, in the crook of the road's first loop
-          { x: 270, y: 196, w: 100, h: 112 },
-          { x: 262, y: 268, w: 84, h: 64 },
+          { x: 274, y: 200, w: 100, h: 118 },
+          { x: 262, y: 264, w: 88, h: 70 },
+          { x: 296, y: 160, w: 60, h: 44 },
           // the long mere in the crook of the second loop
-          { x: 451, y: 246, w: 96, h: 120 },
-          { x: 455, y: 330, w: 84, h: 82 },
+          { x: 446, y: 250, w: 92, h: 128 },
+          { x: 468, y: 326, w: 82, h: 86 },
+          { x: 470, y: 208, w: 52, h: 60 },
           // a small one out on the south-west snowfield
           { x: 96, y: 412, w: 92, h: 48 },
         ],
@@ -175,7 +179,7 @@ export default function rimeBoardsA(rimeVariant) {
         decor: [
           at(0.4, 0.6, "rmspruce", 1.05), at(1.2, 0.3, "rmspruce", 0.9), at(0.6, 1.6, "rmrock", 0.9, 0, 0, 1),
           at(12.4, 0.6, "rmspruce", 1), at(13.1, 1.2, "rmspruce", 0.9), at(8.6, 0.4, "rmskaldstone", 1),
-          at(12.6, 7.6, "rmspruce", 1), at(13.2, 8.4, "rmrock", 0.9, 0, 0, 2),
+          at(12.6, 7.6, "rmspruce", 1), at(13.2, 8.4, "rmrock", 0.9, 0, 0, 2), at(12.2, 9.05, "rmlonghouse", 1), at(13.25, 7.0, "rmspruce", 0.9),
           at(4.8, 8.8, "rmspruce", 0.95), at(2.4, 8.2, "rmrunestone", 0.95), at(1.0, 9.0, "rmtussock", 1),
         ],
         decorRecipe: { count: 14, types: ["rmspruce", "rmspruce", "rmrock", "rmtussock"] },
