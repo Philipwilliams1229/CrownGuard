@@ -156,6 +156,12 @@ uses; existing levels sim byte-identical). Read the headers of
   pushes them after the grounding pass, unmoved). Landings may set `put`
   (where the ship puts out). Music `rime-build/-fight/-boss`. On the
   continent the Rimewater is zone 5 (after the isthmus 3 and islets 4).
+  Sims at publish (`--chapter rime --endure`, seeds 1-2, better doctrine):
+  all 15 held, no stuck waves; 28-58 castle damage on the first five,
+  ~100-460 in the middle, Kraken Firth ~730 (its landings: the sim never
+  docks a River Watch to sink a ship, 0 of 7 sunk), Skaldhold ~600, the
+  Jarl's Fjord 1000-1340 (about the Iron back half). Pending the owner's
+  playtest.
 - Test faction `rime` (src/data/faction-rime.js) and board
   `rimewatch` (src/data/realms-rime.js); placeholder art in
   `render/rimefx.js` (longship, telegraph, ice shell, rig aliases to delete
