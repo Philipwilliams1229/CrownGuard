@@ -218,7 +218,12 @@ const rimePx = (x, y, band, inl) => {
   // black rock only where the wind scours a shadowed slope bare, blue ice in
   // the broad hollows, and dun tundra breaking through in the south
   const rock = fbm(x, y, 24, 120) + (0.5 - band) * 0.22, ice = fbm(x, y, 60, 121);
-  if (rock > 0.83) return rock < 0.845 ? R.snow[0] : R.rock[Math.min(2, t + (rock > 0.87 ? 0 : 1))];
+  if (rock > 0.855) {
+    // an outcrop: snow lying along its top, a rim of blue shadow round it
+    if (rock < 0.87) return R.snow[0];
+    if (fbm(x, y - 3, 24, 120) + (0.5 - band) * 0.22 < 0.87) return R.snow[2];
+    return R.rock[Math.min(2, t + (rock > 0.89 ? 0 : 1))];
+  }
   if (ice > 0.7 + b) return (y % 7 === 3 && vnoise(x, y, 5, 126) > 0.62) ? R.glint : R.ice[t];
   if (south > 0.05 && fbm(x, y, 26, 122) < 0.12 + south * 0.2 - b) return R.tundra[t];
   // drifts: long ripples combed WSW-ENE by the wind, one pixel of shadow each
@@ -293,9 +298,12 @@ function* paintBase() {
   const W8 = 84, G = 4, gw = Math.ceil(w / G) + 1, gh = Math.ceil(h / G) + 1;
   // the warp is smooth, so work it out on a coarse grid and blend between
   const wxg = new Float32Array(gw * gh), wyg = new Float32Array(gw * gh);
+  // (and the Rimewater's finer fraying, on the same grid, north of y -310)
+  const fxg = new Float32Array(gw * gh), fyg = new Float32Array(gw * gh), FINE = (-310 - MAP.y) * U;
   for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
     wxg[gy * gw + gx] = (fbm(gx * G, gy * G, 110, 71) - 0.5) * W8;
     wyg[gy * gw + gx] = (fbm(gx * G, gy * G, 110, 72) - 0.5) * W8;
+    if (gy * G <= FINE + G) { fxg[gy * gw + gx] = (vnoise(gx * G, gy * G, 16, 73) - 0.5) * 16; fyg[gy * gw + gx] = (vnoise(gx * G, gy * G, 16, 74) - 0.5) * 16; }
   }
   const bil = (f, x, y) => {
     const fx = x / G, fy = y / G, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy, i = iy * gw + ix;
@@ -310,7 +318,7 @@ function* paintBase() {
     // shape, and frayed finer instead: a rocky, ragged shore. Nothing south of
     // y -310 changes.)
     const my = y / U + MAP.y, rf = my >= -310 ? 1 : my <= -345 ? 0.5 : 1 - smooth((-310 - my) / 35) * 0.5;
-    const fx = rf < 1 ? (vnoise(x, y, 16, 73) - 0.5) * 16 * (1 - rf) : 0, fy = rf < 1 ? (vnoise(x, y, 16, 74) - 0.5) * 16 * (1 - rf) : 0;
+    const fx = rf < 1 ? bil(fxg, x, y) * (1 - rf) : 0, fy = rf < 1 ? bil(fyg, x, y) * (1 - rf) : 0;
     const wx = Math.round(x + bil(wxg, x, y) * rf + fx), wy = Math.round(y + bil(wyg, x, y) * rf + fy);
     const j = Math.max(0, Math.min(h - 1, wy)) * w + Math.max(0, Math.min(w - 1, wx));
     let best = -1, bv = 0, n = 0;
@@ -715,7 +723,7 @@ const riverPath = (c, rv, grow = 0, from = 0) => {
 // ---- the labels' ground ----------------------------------------------
 // Where each waypoint's name scroll sits, so the dressing keeps clear of it.
 // side: "b" below (the default), "a" above, "l" left, "r" right.
-export const LABEL_SIDE = { foxmere: "a", ravenscar: "a", muster: "a", ir5: "a", hl4: "b" };
+export const LABEL_SIDE = { foxmere: "a", ravenscar: "a", muster: "a", ir5: "a", hl4: "b", frostwake: "r" };
 export const LABEL_FONT = 6.8;   // map units
 let MEASURE = null, MEASURED = -1;   // (re-fonted when a type option's faces land)
 export const textW = (t) => {
@@ -1669,6 +1677,13 @@ const berg = (v) => spr(`rm-berg${v % 3}`, 9, 7, (c) => {
   c.fillStyle = RK.ice; poly(c, [[1, 5.8], [1.4, t + 1.4], [w * 0.55, t + 1], [w * 0.5, 5.8]]); c.fill();
   c.fillStyle = RK.iceLt; poly(c, [[1.4, t + 1.4], [2.4, t], [w * 0.6, t - 0.4], [w + 0.6, t + 0.6], [w + 1, t + 1.8], [w * 0.55, t + 1]]); c.fill();
   c.fillStyle = RK.iceDp; c.fillRect(w * 0.7, t + 2.4, 0.4, 2.6);
+});
+// a bergy bit: a lump of glacier ice afloat
+const bergBit = (v) => spr(`rm-bit${v % 3}`, 4, 3.4, (c) => {
+  const w = 2.4 + (v % 3) * 0.4;
+  c.fillStyle = "#4f86a4"; c.fillRect(0.4, 2.6, w + 0.8, 0.6);
+  c.fillStyle = RK.iceDk; poly(c, [[0.6, 2.8], [0.9, 1.2], [w * 0.6, 0.6], [w + 0.8, 1.4], [w + 1, 2.8]]); c.fill();
+  c.fillStyle = RK.iceLt; poly(c, [[0.9, 1.2], [w * 0.6, 0.6], [w + 0.4, 1.2], [w * 0.5, 1.8]]); c.fill();
 });
 // black crags breaking the snow
 const rimeCrag = (v) => spr(`rm-crag${v % 4}`, 7, 4.6, (c) => {
@@ -2668,8 +2683,10 @@ function* paintTerrain() {
   for (const [x, y, v] of [[206, -520, 0], [196, -606, 1], [322, -630, 2], [560, -630, 0], [766, -624, 1], [838, -566, 2], [842, -336, 0], [222, -346, 1], [836, -492, 2], [128, -560, 0], [88, -470, 1], [640, -630, 2], [452, -632, 1]])
     if (atSea(x, y, 6)) stamp(ctx, berg(v), x, y, 4.5, 6.2);
   for (const [x, y, v] of [[588, -523, 0], [598, -518, 1]]) stamp(ctx, berg(v + 3), x, y, 4.5, 6.2);
+  // bergy bits calved off the glaciers that reach the sea
+  for (const [x, y, v] of [[254, -509, 0], [246, -520, 1], [238, -506, 2], [387, -592, 1], [474, -600, 0]]) if (atSea(x, y, 1.5)) stamp(ctx, bergBit(v), x, y, 2, 3);
   if (atSea(776, -546, 3)) stamp(ctx, krakenArms(), 776, -546, 8, 8.6);
-  for (const [x, y, v] of [[586, -596, 1], [262, -446, 0], [470, -456, 1], [612, -296, 0], [560, -300, 1], [786, -612, 0]])
+  for (const [x, y, v] of [[586, -596, 1], [262, -446, 0], [470, -456, 1], [592, -294, 0], [560, -300, 1], [786, -612, 0]])
     if (atSea(x, y, 2)) stamp(ctx, shipSail(v), x, y, 6, 9.6);
   return { canvas: cv, base };
 }
