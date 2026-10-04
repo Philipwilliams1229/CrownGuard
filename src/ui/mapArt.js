@@ -53,13 +53,38 @@ const ISLES = [
 ];
 // zone ids: 0-2 the chapters, 3 the isthmus (a mountain wall), 4 the islets
 // The set pieces stand on land the coast may not eat: [zone, [x, y]].
-const SET = { castle: [143, 323], citadel: [690, 116], ruin: [686, -152] };
+const SET = { castle: [143, 323], citadel: [690, 116], ruin: [686, -152], jarl: [618, -579] };
 // broad sandy strands on the vale's coast: [x, y, radius]
 const SANDS = [[298, 362, 30]];
-const SET_LAND = [[0, SET.castle], [1, SET.citadel], [2, SET.ruin]];
+const SET_LAND = [[0, SET.castle], [1, SET.citadel], [2, SET.ruin], [5, SET.jarl]];
 // (a chapter after the first three — the Rimewater — comes after the
 // isthmus and the islets, so their ids 3 and 4 never move: zone 5 is it)
-export const ZONES = [...CHAPTERS.slice(0, 3).map((c) => c.region), ISTHMUS, ISLES, ...CHAPTERS.slice(3).map((c) => c.region)];
+// The Rimewater's own isles, skerries and holms ride with its zone (painted in
+// its snow, not the green islets'): [x, y, rx, ry, seed], a noisy blob each
+// (not written as a lake's `{ x, y, rx }`: check-map-water.mjs reads those).
+const RIME_ISLES = [
+  [238, -452, 15, 9, 1],    // the Wolf Holm, off the Wolfsound's mouth
+  [252, -566, 10, 7, 2],    // a holm off the north-west cape
+  [630, -301, 6.5, 4.5, 3], // the Skerry Way's skerries
+  [659, -298, 5.5, 4, 4],
+  [829, -440, 8, 11, 5],    // the eastern holms
+  [834, -404, 5.5, 5, 6],
+  [742, -300, 6, 4, 7],     // a holm off Frostwake Strand
+];
+const blobPath = ([x, y, rx, ry, seed]) => {
+  let d = "";
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2, k = 0.8 + hash(seed * 31 + i, 77) * 0.35;
+    d += `${i ? "L" : "M"}${(x + Math.cos(a) * rx * k).toFixed(1)},${(y + Math.sin(a) * ry * k).toFixed(1)} `;
+  }
+  return d + "Z";
+};
+export const ZONES = [...CHAPTERS.slice(0, 3).map((c) => c.region), ISTHMUS, ISLES,
+  ...CHAPTERS.slice(3).map((c) => (c.id === "rime" ? [c.region, ...RIME_ISLES.map(blobPath)] : c.region))];
+// a chapter's zone id (the isthmus and the islets sit between the third
+// chapter and the fourth)
+const zoneOfChapter = (k) => (k < 3 ? k : k + 2);
+const RZ = 5;   // the Rimewater's zone
 
 const toArt = (c) => { c.setTransform(U, 0, 0, U, -MAP.x * U, -MAP.y * U); c.imageSmoothingEnabled = false; };
 const mk = (w = AW, h = AH) => { const cv = document.createElement("canvas"); cv.width = w; cv.height = h; return cv; };
@@ -175,6 +200,52 @@ const fenPx = (x, y, band) => {
   return pal[t];
 };
 
+// The Rimewater: wind-packed snow (blue in its shadows), drifts combed out
+// by the north-easter, blue ice in the hollows, black rock where the wind
+// scours the snow off, and in the sheltered south dun tundra showing
+// through; grey shingle on the strands.
+const RIME = {
+  snow: ["#aebfd0", "#cfdce8", "#eef4f8"].map(rgb),
+  ice: ["#6f9cbe", "#8db6d2", "#b0d2e6"].map(rgb),
+  rock: ["#2c3039", "#40454f", "#5a606a"].map(rgb),
+  tundra: ["#5e5f52", "#737562", "#8c8c72"].map(rgb),
+  drift: rgb("#9fb2c6"), glint: rgb("#ffffff"), shingle: ["#6a6c70", "#8a8c8e", "#a6a8a8"].map(rgb), fleck: rgb("#2a2e36"),
+};
+const rimePx = (x, y, band, inl) => {
+  const t = band < 0.27 ? 0 : band > 0.75 ? 2 : 1, b = bayer(x, y) * 0.05, R = RIME;
+  const my = y / U + MAP.y, south = smooth(Math.max(0, Math.min(1, (my + 440) / 100)));
+  if (inl < 4 + fbm(x, y, 14, 125) * 4 && fbm(x, y, 20, 31) > 0.46) return R.shingle[hash(x >> 1, y >> 1) < 0.2 ? 0 : t];
+  const rock = fbm(x, y, 28, 120), ice = fbm(x, y, 44, 121);
+  if (rock > 0.67 + b - south * 0.03) return hash(x >> 1, (y >> 1) + 7) < 0.08 ? R.snow[1] : R.rock[t];
+  if (ice > 0.66 + b) return (y % 7 === 3 && vnoise(x, y, 5, 126) > 0.6) ? R.glint : R.ice[t];
+  if (south > 0.05 && fbm(x, y, 30, 122) < 0.2 + south * 0.2 - b) return R.tundra[t];
+  // drifts: long ripples combed WSW-ENE by the wind, one pixel of shadow each
+  const k = Math.floor(y * 1 - x * 0.28 + vnoise(x, y, 26, 123) * 22);
+  if (k % 9 === 0 && vnoise(x, y, 11, 124) > 0.42) return t ? R.drift : R.snow[0];
+  const r = hash((x >> 1) * 7 + 5, (y >> 1) * 3 + 9);
+  if (r < 0.006) return R.fleck;
+  return R.snow[t];
+};
+// The cold sea round it, and its ice: floes thickening northward into pack,
+// fast ice along its own shores, the odd lead of open water.
+const COLD = { deep: "#203a54", mid: "#284763", shal: "#355f7c", reef: "#5b8ca2" };
+const FLOE = { body: rgb("#d6e3ec"), lit: rgb("#f6fafc"), thin: rgb("#a9c0d0"), shade: rgb("#18304a") };
+const floeV = (x, y) => vnoise(x, y, 9, 57) * 0.62 + vnoise(x, y, 3.4, 58) * 0.38;
+const seaIce = (x, y, my, dist, cold) => {
+  if (dist < 4) return null;
+  const pack = smooth(Math.max(0, Math.min(1, (-570 - my) / 55)));
+  const lead = vnoise(x, y, 60, 59);
+  const dens = cold * (0.22 + pack * 0.62 + (dist < 22 ? 0.18 : 0)) * (lead < 0.3 ? 0.4 : 1);
+  const thr = 0.8 - dens * 0.42;
+  const v = floeV(x, y);
+  if (v > thr) {
+    if (floeV(x, y - 1) <= thr) return FLOE.lit;
+    return v < thr + 0.025 ? FLOE.thin : FLOE.body;
+  }
+  if (floeV(x, y - 2) > thr || floeV(x, y - 1) > thr) return FLOE.shade;
+  return null;
+};
+
 // ---- the base: land, cliffs, sea ------------------------------------
 function* paintBase() {
   const w = AW, h = AH, N = w * h;
@@ -191,7 +262,7 @@ function* paintBase() {
     yield;
   }
   const keep = ZONES.map(() => new Float32Array(N));
-  const anchors = [...LEVELS.map((lv) => [CHAPTERS.indexOf(lv.chapter), lv.pos]), ...SET_LAND];
+  const anchors = [...LEVELS.map((lv) => [zoneOfChapter(CHAPTERS.indexOf(lv.chapter)), lv.pos]), ...SET_LAND];
   for (const [k, pos] of anchors) {
     const r = 16 * U;
     const cx = Math.round((pos[0] - MAP.x) * U), cy = Math.round((pos[1] - MAP.y) * U);
@@ -218,7 +289,12 @@ function* paintBase() {
   if (y === h >> 1) yield;
   for (let x = 0; x < w; x++) {
     const i = y * w + x;
-    const wx = Math.round(x + bil(wxg, x, y)), wy = Math.round(y + bil(wyg, x, y));
+    // (the Rimewater's coast is warped half as hard, so its fjords keep their
+    // shape, and frayed finer instead: a rocky, ragged shore. Nothing south of
+    // y -310 changes.)
+    const my = y / U + MAP.y, rf = my >= -310 ? 1 : my <= -345 ? 0.5 : 1 - smooth((-310 - my) / 35) * 0.5;
+    const fx = rf < 1 ? (vnoise(x, y, 16, 73) - 0.5) * 16 * (1 - rf) : 0, fy = rf < 1 ? (vnoise(x, y, 16, 74) - 0.5) * 16 * (1 - rf) : 0;
+    const wx = Math.round(x + bil(wxg, x, y) * rf + fx), wy = Math.round(y + bil(wyg, x, y) * rf + fy);
     const j = Math.max(0, Math.min(h - 1, wy)) * w + Math.max(0, Math.min(w - 1, wx));
     let best = -1, bv = 0, n = 0;
     for (let k = 0; k < soft.length; k++) {
@@ -277,7 +353,8 @@ function* paintBase() {
   const img = new ImageData(w, h), d = img.data;
   const put = (i, c) => { const [r, g, b] = typeof c === "string" ? rgb(c) : c; d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b; d[i * 4 + 3] = 255; };
   const P = BIOME.map((b) => ({ lo: rgb(b.lo), mid: rgb(b.mid), hi: rgb(b.hi), alt: rgb(b.alt), sand: rgb(b.sand), cliff: b.cliff.map(rgb), lip: rgb(darken(b.lo, 0.35)) }));
-  const S = { deep: rgb(SEA.deep), mid: rgb(SEA.mid), shal: rgb(SEA.shal), reef: rgb(SEA.reef), foam: rgb(SEA.foam), swell: rgb(SEA.swell), ink: rgb(INK) };
+  const S = { deep: rgb(SEA.deep), mid: rgb(SEA.mid), shal: rgb(SEA.shal), reef: rgb(SEA.reef), foam: rgb(SEA.foam), swell: rgb(SEA.swell), ink: rgb(INK),
+    cDeep: rgb(COLD.deep), cMid: rgb(COLD.mid), cShal: rgb(COLD.shal), cReef: rgb(COLD.reef) };
 
   for (let y = 0; y < h; y++) {
   if (y === h >> 1) yield;
@@ -298,6 +375,7 @@ function* paintBase() {
       const band = v + (bayer(x, y) - 0.5) * 0.2;
       if (z === 1) { put(i, moorPx(x, y, band)); continue; }
       if (z === 2) { put(i, fenPx(x, y, band)); continue; }
+      if (z === RZ) { put(i, rimePx(x, y, band, inland[i])); continue; }
       let col = band < 0.27 ? p.lo : band > 0.75 ? p.hi : p.mid;
       // broad patches of the country's second colour (heather, moss, meadow)
       if (col === p.mid && fbm(x, y, 40, 21 + z) > 0.63 + bayer(x, y) * 0.05) col = p.alt;
@@ -327,6 +405,17 @@ function* paintBase() {
     if (dist <= 1.5) { put(i, S.ink); continue; }
     if (dist <= 3 + n * 0.6 && vnoise(x, y, 3, 52) > 0.28) { put(i, S.foam); continue; }
     const b = dist + (bayer(x, y) - 0.5) * 5 + n;
+    // north of the strait the sea turns cold (dithered in), and carries ice
+    const my = y / U + MAP.y;
+    if (my < -288) {
+      const cold = smooth(Math.min(1, (-288 - my) / 60));
+      if (bayer(x, y) < cold) {
+        const ice = seaIce(x, y, my, dist, cold);
+        if (ice) { put(i, ice); continue; }
+        put(i, b < 9 ? S.cReef : b < 20 ? S.cShal : b < 34 ? S.cMid : S.cDeep);
+        continue;
+      }
+    }
     put(i, b < 9 ? S.reef : b < 20 ? S.shal : b < 34 ? S.mid : S.deep);
   }
   }
@@ -335,7 +424,7 @@ function* paintBase() {
   for (let k = 0; k < 560; k++) {
     const x = Math.floor(hash(k, 61) * (w - 12)), y = Math.floor(hash(k, 62) * (h - 6));
     const i = y * w + x;
-    if (sea.D[i] < 22) continue;
+    if (sea.D[i] < 22 || y / U + MAP.y < -300) continue;
     const len = 5 + Math.floor(hash(k, 63) * 5);
     for (let t = 0; t < len; t++) {
       const yy = y + (t === 0 || t === len - 1 ? 1 : 0);
@@ -345,7 +434,7 @@ function* paintBase() {
 
   const cv = mk();
   cv.getContext("2d", RF).putImageData(img, 0, 0);
-  return { cv, land, zone, cliff, seaD: sea.D, zoneOf: sea.L };
+  return { cv, land, zone, cliff, seaD: sea.D, zoneOf: sea.L, inland };
 }
 
 // ---- small tools -----------------------------------------------------
@@ -441,7 +530,7 @@ const normals = (pts) => pts.map((_, i) => {
 });
 // flare: [len, extra] opens the last `len` units into an estuary, `extra`
 // units wider at the mouth than the river's own w1.
-function river({ ctrl, pins = [], seed, w0, w1, amp = 8, fen = false, flare = null }) {
+function river({ ctrl, pins = [], seed, w0, w1, amp = 8, fen = false, ice = false, flare = null }) {
   const base = spline(ctrl);
   const cum = [0];
   for (let i = 1; i < base.length; i++) cum.push(cum[i - 1] + Math.hypot(base[i][0] - base[i - 1][0], base[i][1] - base[i - 1][1]));
@@ -464,7 +553,7 @@ function river({ ctrl, pins = [], seed, w0, w1, amp = 8, fen = false, flare = nu
     const open = flare ? smooth(Math.max(0, Math.min(1, (cum[i] - (L - flare[0])) / flare[0]))) * flare[1] : 0;
     return ((w0 + (w1 - w0) * (cum[i] / L) + open) / 2) * (0.82 + fbm(cum[i] * 6, seed, 30, seed + 9) * 0.36 * (1 - open / (flare ? flare[1] * 1.6 : 1)));
   });
-  return { pts: mid, hw, nrm: normals(mid), w: Math.max(w0, w1), fen };
+  return { pts: mid, hw, nrm: normals(mid), w: Math.max(w0, w1), fen, ice };
 }
 export const RIVERS = [
   // the Wolfrun, off the northern hills, through the Wolfrun fords, out west
@@ -501,6 +590,16 @@ export const RIVERS = [
   // the Stillmere
   river({ ctrl: [[438, -204], [446, -190], [455, -175]], pins: [[455, -175]], seed: 27, w0: 1.4, w1: 2.2, amp: 3, fen: true }),
   river({ ctrl: [[478, -206], [468, -192], [455, -175], [462, -155], [468, -132], [474, -112], [477, -100]], pins: [[455, -175]], seed: 28, w0: 1.6, w1: 3.2, amp: 4, fen: true }),
+  // the Rimewater's meltwaters, milky glacier-blue (ice: true), each out of a
+  // glacier's snout: the Ice-Fjord's river, out of the eastern ice and down
+  // through Ice-Fjord into its fjord
+  river({ ctrl: [[606, -426], [594, -410], [582, -392], [574, -376], [571, -362], [571, -350], [571, -340]], pins: [[574, -376]], seed: 41, w0: 1.4, w1: 3.4, amp: 4, ice: true }),
+  // the Calving river, off the great glacier, through Glacier Foot and into
+  // the Wolfsound
+  river({ ctrl: [[392, -534], [380, -514], [370, -500], [362, -486], [357, -472], [353, -462], [351, -452]], pins: [[362, -486]], seed: 42, w0: 1.6, w1: 3.6, amp: 4, ice: true }),
+  // the Drakewater, out of the fells' ice above Drakesfell, east under the
+  // fells to the eastern sea
+  river({ ctrl: [[676, -548], [665, -524], [652, -496], [664, -478], [690, -470], [722, -468], [758, -466], [790, -462], [816, -460]], pins: [[652, -496]], seed: 43, w0: 1.4, w1: 4, amp: 6, ice: true, flare: [20, 3] }),
 ];
 // Lakes and tarns, each named for the level it sits by; fen pools are the
 // bog's black water. rot tilts the long axis; seed shapes the shore.
@@ -524,6 +623,10 @@ const MERES = [
   { x: 566, y: -145, rx: 3.6, ry: 2.4, rot: 0.5, seed: 34, fen: true },
   { x: 312, y: -142, rx: 10.5, ry: 6.4, rot: -0.3, seed: 35, fen: true },  // the Abbey Mere, under Abbeymere's ruin
   { x: 580, y: -251, rx: 4.6, ry: 3, rot: 0.2, seed: 36, fen: true },      // the spring-mire the Blackwater rises in
+  // the Rimewater's meres: deep, cold and rimmed with ice (ice: true)
+  { x: 432, y: -394, rx: 9.5, ry: 5.6, rot: -0.25, seed: 37, ice: true },  // the Frostmere, by Frostmere
+  { x: 456, y: -401, rx: 4.6, ry: 3, rot: 0.3, seed: 38, ice: true },      // and its little sister
+  { x: 593, y: -521, rx: 11.5, ry: 6.6, rot: 0.2, seed: 39, ice: true },   // the Bergwater, choked with bergs
 ];
 // a lake's shore: a tilted ellipse whose radius wanders with seamless noise
 const lakePath = (c, m, grow = 0) => {
@@ -2036,16 +2139,19 @@ function* paintTerrain() {
   // rivers and lakes: an inked bank, a pale shallows rim, deep water, and a
   // glint of current down the wider reaches. Fen water is black, moonlit.
   const PAL = { shal: "#5f9cb6", deep: "#3f7898", glint: "#8cc0d2" }, FEN = { shal: "#4a5c58", deep: "#161c20", glint: "#a8c0c4" };
+  // the Rimewater's water: milky glacier-blue rivers, meres dark under an ice rim
+  const ICEW = { shal: "#8cc2d4", deep: "#4f8eaa", glint: "#e8f6fa" }, MEREW = { shal: "#d4e6ee", deep: "#2c5674", glint: "#a8d0e2" };
+  const wpal = (o, mere = false) => (o.fen ? FEN : o.ice ? (mere ? MEREW : ICEW) : PAL);
   const water = layer((c) => {
-    for (const rv of RIVERS) { c.fillStyle = (rv.fen ? FEN : PAL).shal; riverPath(c, rv); c.fill(); }
-    for (const m of MERES) { c.fillStyle = (m.fen ? FEN : PAL).shal; lakePath(c, m); c.fill(); }
-    for (const rv of RIVERS) { c.fillStyle = (rv.fen ? FEN : PAL).deep; riverPath(c, rv, -0.45); c.fill(); }
-    for (const m of MERES) { c.fillStyle = (m.fen ? FEN : PAL).deep; lakePath(c, m, -1.1); c.fill(); }
+    for (const rv of RIVERS) { c.fillStyle = wpal(rv).shal; riverPath(c, rv); c.fill(); }
+    for (const m of MERES) { c.fillStyle = wpal(m, true).shal; lakePath(c, m); c.fill(); }
+    for (const rv of RIVERS) { c.fillStyle = wpal(rv).deep; riverPath(c, rv, -0.45); c.fill(); }
+    for (const m of MERES) { c.fillStyle = wpal(m, true).deep; lakePath(c, m, m.ice ? -1.8 : -1.1); c.fill(); }
   }, INK);
   const shine = layer((c) => {
     c.lineJoin = "round"; c.lineCap = "round";
     for (const rv of RIVERS) {
-      c.strokeStyle = (rv.fen ? FEN : PAL).glint; c.lineWidth = 0.5;
+      c.strokeStyle = wpal(rv).glint; c.lineWidth = 0.5;
       // broken glints along the reaches wide enough to show them
       for (let i = 0; i < rv.pts.length - 3; i += 7) {
         if (rv.hw[i] < 1 || hash(i, 71 + rv.pts.length) < 0.35) continue;
@@ -2054,7 +2160,7 @@ function* paintTerrain() {
       }
     }
     for (const m of MERES) {
-      c.strokeStyle = (m.fen ? FEN : PAL).glint; c.lineWidth = 0.5;
+      c.strokeStyle = wpal(m, true).glint; c.lineWidth = 0.5;
       for (let k = 0; k < 2; k++) {
         const y = m.y - m.ry * 0.3 + k * m.ry * 0.45, x = m.x - m.rx * 0.35 + k * m.rx * 0.2;
         c.beginPath(); c.moveTo(x - m.rx * 0.22, y); c.lineTo(x + m.rx * 0.22, y); c.stroke();
@@ -2187,7 +2293,7 @@ const cloudPuff = (v, lit = false) => {
 const SEALED = new Map();
 export function terrainFor(progress) {
   const T = mapTerrain();
-  const sealed = CHAPTERS.map((ch, k) => (isUnlocked(ch.levels[0].id, progress) ? -1 : k)).filter((k) => k >= 0);
+  const sealed = CHAPTERS.map((ch, k) => (isUnlocked(ch.levels[0].id, progress) ? -1 : zoneOfChapter(k))).filter((k) => k >= 0);
   const key = sealed.join(",");
   if (!key) return T.canvas;
   if (SEALED.has(key)) return SEALED.get(key);
