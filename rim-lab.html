@@ -14,6 +14,8 @@
     &crop=x,y,w,h a window of the board (default the whole board); &scale=1
     &hero=none    (default none)
     &weather=fog:0.8   any weather kind at a strength (engine/weather.js), over the realm's own
+    &seed=7       a seeded Math.random (repeatable runs); window.__snaps holds a
+                  line of state per snap (held soldiers / foes, sea monsters)
 
   Saved to .shots/rim_<tag>.png, frames two to a row, each stamped with its
   game time and the weather/landing state. Same state shape as scripts/sim.mjs.
@@ -34,6 +36,9 @@
       import { draw } from "/src/render/draw.js";
       import { setLevelWeather } from "/src/engine/weather.js";
       const q = new URLSearchParams(location.search);
+      // &seed=N: a seeded Math.random, so a run can be repeated (lanes, picks)
+      if (q.get("seed")) { let a = Number(q.get("seed")) | 0; Math.random = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+      window.__snaps = [];   // one line of state per snap (read it back with shoot.mjs "window.__snaps")
       const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 1;
       const SNAPS = (q.get("snaps") || "4,7,10").split(",").map(Number).sort((a, b) => a - b);
       selectRealm(q.get("realm") || "rimewatch");
@@ -84,6 +89,7 @@
         const ship = g.enemies.find((e) => e.ship && !e.dead), w = g.weather, ice = g.towers.filter((t) => t.iceLeft > 0).length;
         o.fillStyle = "#e8e0c8"; o.font = `${10 * SC}px monospace`;
         o.fillText(`${(g.time - t0).toFixed(1)}s  wave ${g.wave}  ${w ? `weather ${w.phase} k${w.k.toFixed(2)}` : "no weather"}  ${ship ? `ship ${Math.round(ship.hp)}/${Math.round(ship.maxHp)}` : ""}  frozen ${ice}  foes ${g.enemies.length}`, col * cw * SC + 4, row * (ch + 14) * SC + 11 * SC);
+        window.__snaps.push(`${(g.time - t0).toFixed(1)}s held soldiers ${g.towers.flatMap((t) => t.units || []).filter((u) => u.seizedBy && u.state !== "dead").length} held foes ${g.enemies.filter((e) => e.seized && !e.dead).length} sea ${g.enemies.filter((e) => e.sea && !e.dead).map((e) => e.type + (e.hold ? "*" : "")).join(",")}`);
         f++;
       }
       await fetch(`/__shot?name=rim_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
