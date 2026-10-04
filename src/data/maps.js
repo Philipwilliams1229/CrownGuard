@@ -15,7 +15,11 @@ import { regenTerrain } from "./terrain.js";
 import moreIronRealms from "./realms-iron.js";
 import moreHollowRealms from "./realms-hollow.js";
 import moreGreenwoodRealms from "./realms-greenwood.js";
-import moreRimeRealms from "./realms-rime.js";   // zone IV test board (no chapter yet)
+import moreRimeRealms from "./realms-rime.js";   // zone IV test boards (Free Play previews, sims)
+import { makeRimeVariant } from "./rime-ground.js";
+import rimeBoardsA from "./realms-rime-a.js";      // zone IV's fifteen campaign boards, five a file
+import rimeBoardsB from "./realms-rime-b.js";
+import rimeBoardsC from "./realms-rime-c.js";
 
 export const REALMS = {
   greenwood: {
@@ -569,6 +573,10 @@ Object.assign(REALMS, {
 // the chapters' later battlefields, kept in files of their own
 Object.assign(REALMS, moreGreenwoodRealms(greenwoodVariant), moreIronRealms(ironVariant), moreHollowRealms(hollowVariant));
 Object.assign(REALMS, moreRimeRealms(REALMS.frostfang));
+{
+  const rimeVariant = makeRimeVariant(REALMS.frostfang);
+  Object.assign(REALMS, rimeBoardsA(rimeVariant), rimeBoardsB(rimeVariant), rimeBoardsC(rimeVariant));
+}
 
 export let REALM = REALMS.greenwood;
 

@@ -23,6 +23,7 @@
 import { REGIONS, LEVEL_POS } from "./mapLayout.js";
 import { IRON_LEVELS } from "./levels-iron.js";
 import { HOLLOW_LEVELS } from "./levels-hollow.js";
+import { RIME_LEVELS } from "./levels-rime.js";
 
 export const CHAPTERS = [
   {
@@ -140,6 +141,18 @@ export const CHAPTERS = [
     // the great fen NORTH of the Iron Marches, across a narrow strait —
     // the continent scrolls, so the war can march up the map as it grows
     levels: HOLLOW_LEVELS,
+  },
+  {
+    id: "rime",
+    numeral: "IV",
+    name: "The Rimewater",
+    faction: "rime",
+    color: "#8fc4dc",
+    colorDk: "#4a7488",
+    label: [140, -40],
+    blurb: "Beyond the fen lies a frozen sea, and the clans that sail it have heard the crown is weak. Their longships are already on the water.",
+    // north across the water from the Hollowfen (zone IV, 2026-10-04)
+    levels: RIME_LEVELS,
   },
 ];
 

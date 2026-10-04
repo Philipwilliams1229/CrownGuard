@@ -3,7 +3,7 @@
 // with a cliff lip on their southern faces, three countries that look like
 // three countries (the green vale, the grey-blue Marches, the drowned purple
 // fen), and the dressing that tells them apart. Everything is laid out in the
-// map's own 850x830 unit space (y from -310 to 520) and baked at U art pixels
+// map's own 850x1160 unit space (y from -640 to 520) and baked at U art pixels
 // per unit — the same density as the board. The markers, the gold of the
 // walked road and the fog over sealed countries go on a second, cheap layer
 // that is redrawn whenever progress changes (see drawMapState).
@@ -14,7 +14,7 @@ import { hash, darken, rgb, ball, blobBall, cone, inkOutline } from "../render/p
 import { canvasFont, typeEpoch } from "./fonts.js";
 
 export const U = 2;                         // art pixels per map unit
-export const MAP = { x: 0, y: -310, w: 850, h: 830 };
+export const MAP = { x: 0, y: -640, w: 850, h: 1160 };
 export const AW = MAP.w * U, AH = MAP.h * U; // art size
 const INK = "#241a26";
 // the levels that have a waypoint (mapLayout.js LEVEL_POS); one not placed
@@ -57,7 +57,9 @@ const SET = { castle: [143, 323], citadel: [690, 116], ruin: [686, -152] };
 // broad sandy strands on the vale's coast: [x, y, radius]
 const SANDS = [[298, 362, 30]];
 const SET_LAND = [[0, SET.castle], [1, SET.citadel], [2, SET.ruin]];
-export const ZONES = [...CHAPTERS.map((c) => c.region), ISTHMUS, ISLES];
+// (a chapter after the first three — the Rimewater — comes after the
+// isthmus and the islets, so their ids 3 and 4 never move: zone 5 is it)
+export const ZONES = [...CHAPTERS.slice(0, 3).map((c) => c.region), ISTHMUS, ISLES, ...CHAPTERS.slice(3).map((c) => c.region)];
 
 const toArt = (c) => { c.setTransform(U, 0, 0, U, -MAP.x * U, -MAP.y * U); c.imageSmoothingEnabled = false; };
 const mk = (w = AW, h = AH) => { const cv = document.createElement("canvas"); cv.width = w; cv.height = h; return cv; };
@@ -118,6 +120,8 @@ export const BIOME = [
   { lo: "#6c7c5a", mid: "#7c8c66", hi: "#929c78", alt: "#8a8a70", cliff: ["#9a8c78", "#76695a", "#554a40"], sand: "#d4c498" },
   // the islets
   { lo: "#5f7a48", mid: "#7ea05a", hi: "#a0bc70", alt: "#8aa060", cliff: ["#a89478", "#80705a", "#5a4c40"], sand: "#e2d29a" },
+  // the Rimewater: snowfield and blue ice over black rock (a first pass)
+  { lo: "#b8c8d2", mid: "#d2dee6", hi: "#eef4f8", alt: "#a8bcc8", cliff: ["#7e8a94", "#5c6670", "#3e464e"], sand: "#c8ccc4" },
 ];
 
 // The Marches' moor, three kinds of ground banded by the hill shading (lo,
@@ -572,7 +576,7 @@ export const labelBox = (lv) => {
 };
 
 // the chapters' name ribbons, out at sea off their own coasts
-export const BANNER_AT = { greenwood: [128, 418], iron: [748, 430], hollow: [206, -226] };
+export const BANNER_AT = { greenwood: [128, 418], iron: [748, 430], hollow: [206, -226], rime: [180, -600] };
 const BANNERS = CHAPTERS.map((ch) => {
   const n = `${ch.numeral}. ${ch.name}`.length, w = n * 5.6 + 14 + 16, [cx, cy] = BANNER_AT[ch.id];
   return { x: cx - w / 2, y: cy - 8, w, h: 16 };
