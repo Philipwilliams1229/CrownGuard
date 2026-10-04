@@ -790,6 +790,15 @@ actions.js `buildableAt`).
 - **Never write a non-lake object as `{ x: N, y: N, rx:`** in mapArt.js:
   the water check reads every such literal as a lake (a dry-ground zone
   once made the Barrowdowns' waypoint "stand in a lake").
+- **The Rimewater (zone IV, 2026-10-04):** a chapter maps to its zone
+  through `zoneOfChapter` (never the chapter index: the isthmus and islets
+  are zones 3-4, the Rimewater zone 5); its islands go in `RIME_ISLES`, its
+  water is `ice: true` (frozen-rim meres), its glaciers in `GLACIERS` count
+  as busy ground for dressing, its coast is warped at half strength so the
+  fjords keep their shape, and `rimeDressing` holds its ranges, woods,
+  steadings, rune stones, strand pieces and the Jarl's hall (`SET.jarl`).
+  The base pixel loops run in eighths (stage timing). check-map-water.mjs
+  reads multi-shape regions (M/C/L/Z).
 
 ## The title screen (`src/ui/titleArt.js`)
 

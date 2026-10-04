@@ -214,10 +214,10 @@ const RIME = {
 const rimePx = (x, y, band, inl) => {
   const t = band < 0.27 ? 0 : band > 0.75 ? 2 : 1, b = bayer(x, y) * 0.05, R = RIME;
   const my = y / U + MAP.y, south = smooth(Math.max(0, Math.min(1, (my + 440) / 100)));
-  if (inl < 4 + fbm(x, y, 14, 125) * 4 && fbm(x, y, 20, 31) > 0.46) return R.shingle[hash(x >> 1, y >> 1) < 0.2 ? 0 : t];
+  if (inl < 8 && inl < 4 + vnoise(x, y, 14, 125) * 4 && fbm(x, y, 20, 31) > 0.46) return R.shingle[hash(x >> 1, y >> 1) < 0.2 ? 0 : t];
   // black rock only where the wind scours a shadowed slope bare, blue ice in
   // the broad hollows, and dun tundra breaking through in the south
-  const rock = fbm(x, y, 24, 120) + (0.5 - band) * 0.22, ice = fbm(x, y, 60, 121);
+  const rock = fbm(x, y, 24, 120) + (0.5 - band) * 0.22, ice = vnoise(x, y, 60, 121) * 0.72 + vnoise(x, y, 20, 127) * 0.28;
   if (rock > 0.855) {
     // an outcrop: snow lying along its top, a rim of blue shadow round it
     if (rock < 0.87) return R.snow[0];
@@ -225,10 +225,10 @@ const rimePx = (x, y, band, inl) => {
     return R.rock[Math.min(2, t + (rock > 0.89 ? 0 : 1))];
   }
   if (ice > 0.7 + b) return (y % 7 === 3 && vnoise(x, y, 5, 126) > 0.62) ? R.glint : R.ice[t];
-  if (south > 0.05 && fbm(x, y, 26, 122) < 0.12 + south * 0.2 - b) return R.tundra[t];
+  if (south > 0.05 && vnoise(x, y, 26, 122) * 0.7 + vnoise(x, y, 9, 128) * 0.3 < 0.12 + south * 0.2 - b) return R.tundra[t];
   // drifts: long ripples combed WSW-ENE by the wind, one pixel of shadow each
   const k = Math.floor(y * 1 - x * 0.28 + vnoise(x, y, 26, 123) * 22);
-  if (k % 9 === 0 && vnoise(x, y, 11, 124) > 0.42) return t ? R.drift : R.snow[0];
+  if (k % 9 === 0 && hash(x >> 3, k) > 0.3) return t ? R.drift : R.snow[0];
   const r = hash((x >> 1) * 7 + 5, (y >> 1) * 3 + 9);
   return R.snow[t];
 };
@@ -247,16 +247,30 @@ const floeDens = (x, y) => {
   const drift = smooth(Math.max(0, Math.min(1, (-380 - my) / 120))) * (0.25 + 0.75 * smooth(Math.max(0, Math.min(1, (mx - 120) / 170))));
   return drift * 0.45 + smooth(Math.max(0, Math.min(1, (-585 - my) / 45))) * 0.55;
 };
+// (each cell's dice are thrown once and kept: angle, squash, jitter)
+const FLOE_CELLS = new Map();
+const floeCell = (cx, cy) => {
+  const key = cx * 4096 + cy;
+  let f = FLOE_CELLS.get(key);
+  if (!f) {
+    const k = cx * 977 + cy * 131, a = hash(k, 65) * 3.1416;
+    f = { h1: hash(k, 61), h2: hash(k, 62), j1: hash(k, 63) - 0.5, j2: hash(k, 64) - 0.5, ca: Math.cos(a), sa: Math.sin(a),
+      ku: 0.75 + hash(k, 66) * 0.5, kv: 0.8 + hash(k, 67) * 0.6, kc: 0.62 + hash(k, 68) * 0.18 };
+    FLOE_CELLS.set(key, f);
+  }
+  return f;
+};
 const inFloe = (x, y, dens) => {
-  const cy = Math.floor(y / FC), sx = x + (cy & 1) * (FC >> 1), cx = Math.floor(sx / FC), k = cx * 977 + cy * 131;
-  const h1 = hash(k, 61);
-  if (h1 > 0.1 + dens * 0.9) return 0;
-  const r = FC * 0.5 * Math.min(1.02, 0.22 + hash(k, 62) * 0.5 + dens * 0.36);
-  const ox = (cx + 0.5) * FC + (hash(k, 63) - 0.5) * Math.max(0, FC - 2 * r), oy = (cy + 0.5) * FC + (hash(k, 64) - 0.5) * Math.max(0, FC - 2 * r);
-  const a = hash(k, 65) * 3.1416, ca = Math.cos(a), sa = Math.sin(a), dx = sx - ox, dy = (y - oy) * 1.35;
-  const u = Math.abs(dx * ca - dy * sa) * (0.75 + hash(k, 66) * 0.5), v = Math.abs(dx * sa + dy * ca) * (0.8 + hash(k, 67) * 0.6);
-  const d = Math.max(u, v, (u + v) * (0.62 + hash(k, 68) * 0.18)) + (vnoise(x, y, 4, 69) - 0.5) * 3;
-  return d < r ? 1 : 0;
+  const cy = Math.floor(y / FC), sx = x + (cy & 1) * (FC >> 1), cx = Math.floor(sx / FC), f = floeCell(cx, cy);
+  if (f.h1 > 0.1 + dens * 0.9) return 0;
+  const r = FC * 0.5 * Math.min(1.02, 0.22 + f.h2 * 0.5 + dens * 0.36), slack = Math.max(0, FC - 2 * r);
+  const dx = sx - ((cx + 0.5) * FC + f.j1 * slack), dy = (y - ((cy + 0.5) * FC + f.j2 * slack)) * 1.35;
+  const u = Math.abs(dx * f.ca - dy * f.sa) * f.ku, v = Math.abs(dx * f.sa + dy * f.ca) * f.kv;
+  const d = Math.max(u, v, (u + v) * f.kc);
+  // (the ragged edge only where it matters)
+  if (d < r - 1.6) return 1;
+  if (d > r + 1.6) return 0;
+  return d + (vnoise(x, y, 4, 69) - 0.5) * 3 < r ? 1 : 0;
 };
 // fast ice along the Rimewater's own shores (dist: art px from its coast)
 const seaIce = (x, y, dist, nearRime) => {
@@ -311,7 +325,7 @@ function* paintBase() {
   };
   const land = new Uint8Array(N), zone = new Int8Array(N).fill(-1);
   for (let y = 0; y < h; y++) {
-  if (y === h >> 1) yield;
+  if (y && y % (h >> 3) === 0) yield;   // (in eighths: each stage stays short)
   for (let x = 0; x < w; x++) {
     const i = y * w + x;
     // (the Rimewater's coast is warped half as hard, so its fjords keep their
@@ -382,7 +396,7 @@ function* paintBase() {
     cDeep: rgb(COLD.deep), cMid: rgb(COLD.mid), cShal: rgb(COLD.shal), cReef: rgb(COLD.reef) };
 
   for (let y = 0; y < h; y++) {
-  if (y === h >> 1) yield;
+  if (y && y % (h >> 3) === 0) yield;   // (in eighths: each stage stays short)
   for (let x = 0; x < w; x++) {
     const i = y * w + x;
     const z = zone[i];
@@ -2589,7 +2603,7 @@ function* paintTerrain() {
   }, INK);
   {
     const g = glaciers.getContext("2d", RF);
-    g.globalCompositeOperation = "destination-in"; g.drawImage(landMask, -artX(GB[0]), -artY(GB[1]));
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = "destination-in"; g.drawImage(landMask, -artX(GB[0]), -artY(GB[1]));
     ctx.drawImage(glaciers, artX(GB[0]), artY(GB[1]));
   }
   // ...and the ice field each rises in, dithered out into the snow (over the
