@@ -21,6 +21,7 @@ import { gateCrag, hasCrag, vnoise, sstep } from "../data/gatecrag.js";
 import { pixelTuft, groundKind } from "./groundblend.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
 import { VALE_ART } from "./scenery-vale.js";
+import { RIME_ART } from "./scenery-rime.js";
 import {
   lighten, darken, mix, rgb, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
   blade, tuft, stone, strokePts, blobPath, blobBall, masonry, hash, ellipse, SUN, lin, rad, bakeSprite, inkOutline, PIXEL, PX, part } from "./paint.js";
@@ -1049,7 +1050,7 @@ export const resetSceneryBakes = () => { SPRITES.clear(); GATE.key = ""; SIGN.ke
 // so whichever loads first, the other's registry isn't ready yet at load.
 let REG = null;
 const reg = () => REG || (REG = (() => {
-  const ART = [IRON_ART, HOLLOW_ART, VALE_ART];
+  const ART = [IRON_ART, HOLLOW_ART, VALE_ART, RIME_ART];
   return {
     decor: Object.assign({}, ...ART.map((a) => a.decor)),
     box: Object.assign({}, ...ART.map((a) => a.box)),

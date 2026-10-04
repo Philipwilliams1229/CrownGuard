@@ -1,0 +1,1285 @@
+// ============ RENDER: SCENERY OF THE RIMEWATER ============
+// Zone IV, the Rime Clans' frigid sea country (art/ZONES-4-5.md): the
+// chapter's own snow ground, its gate and its pieces, plugged into the shared
+// renderers through one registry object, the same shape as IRON_ART (read
+// that header in scenery-iron.js). Nothing here runs at module load, so the
+// import of the shared kit back from scenery.js is safe. Every Rimewater
+// board gets all of it from rimeVariant (src/data/rime-ground.js); the
+// footprints are registered there (data never imports render).
+//
+// The country: drifted snow under a low white sky, wind ripples and
+// sastrugi all laid along ONE wind (from the west-north-west), black
+// wind-scoured rock breaking through, frozen puddles, dead grass poking out
+// of the drifts; dark spruce bowed under snow; the clans' sea-teal and
+// ochre on their carving, shields and sails; frost-blue ice everywhere.
+//
+// Ground art key: "rime" (rimeTurf repaints the whole snow field itself —
+// no square patches: its tones come from long wind-stretched drifts, never a
+// thresholded lattice — and rimeRoad lays old flagstones showing through the
+// packed snow of the track).
+// Spawn kind: "rimegate" — a glacier wall along the spawn edge, the road
+// coming out of a cleft cut through it, a carved clan gate (dragon-head
+// posts, a lintel hung with shields) standing in the mouth. Works for left
+// and top entries. Two decor pieces from rime-ground.js: "rmgate" v 9 (the
+// near cleft wall and the gate's lintel, sorted SOUTH of the road so the
+// column walks under it) and "rmice" (draws nothing: hall-blockers along
+// the ice). The rest is the spawn layer, under the foes.
+// Pieces IN the water (REALM.rimeFloes, drawn with the gate, like the fen's
+// relics): floe, berg, seals, skerry. A board with water and no list gets a
+// few floes sown in its sea or meres; `rimeFloes: false` turns that off.
+//
+// Pieces (decor types; a decor entry's `v` picks the look):
+//   rmspruce     snow-laden spruce (the edge wood's tree too)
+//   rmrock       black wind-scoured rock, snow in its lee (v0-3 shapes)
+//   rmlonghouse  turf-roofed longhouse, carved gables, smoke (live);
+//                v odd: the door and the woodpile on the other end
+//   rmrunestone  a rune stone, a serpent band cut and painted teal/ochre
+//   rmskaldstone a skald's tall picture stone (mushroom head, a ship cut on it)
+//   rmwhale      v0 a whale's ribs arching out of the snow, v1 its skull+jaw
+//   rmboat       a small boat upturned on stones (v odd: the other way)
+//   rmlongship   a longship drawn up on rollers, prow east (v1: prow west);
+//                the hull runs ~10 below its feet: feet on the sand line
+//   rmrack       a fish-drying rack hung with stockfish
+//   rmcairn      a cairn of black stones, snow-capped
+//   rmicefall    v0 a frozen waterfall on a black crag, v1 an ice crag
+//   rmsealrock   a seal colony hauled out on a shore rock
+//   rmtussock    a tussock of dead grass in a drift (flat)
+
+import { W, H, PATH_HALF, RES, MX, MY } from "../data/constants.js";
+import { PTS, TOTAL_LEN, posAt, angleAt, nearestOnPath } from "../engine/path.js";
+import { COAST, PONDS, inSea, seaDepthAt, inRiver, forestDepthAt, DECOR } from "../data/terrain.js";
+import { REALM } from "../data/maps.js";
+import {
+  lighten, darken, mix, rgb, rgba, soft, shadow, ball, glow, cylinder, hash, ellipse, lin, bakeSprite, inkOutline, part, PX,
+} from "./paint.js";
+import { turfTones } from "./world.js";
+
+// ---- the Rimewater's colours -------------------------------------------------
+const INK = "#241a26";
+const SNOW = "#e6eef2", SNOW_LT = "#f8fbfc", SNOW_SH = "#b8c8d8", SNOW_DK = "#90a6bc";
+const ROCK = ["#1c1b22", "#28272f", "#36353e", "#47464f", "#5c5a64", "#74727c"];
+const ICE = ["#4e7690", "#6f96ae", "#93bacd", "#b8d8e6", "#dcf0f6"];
+const SPRUCE = ["#1f3a34", "#284840", "#33584c", "#3f6a5a"];
+const TEAL = "#2f7f7a", TEAL_LT = "#4fa59a", TEAL_DK = "#1e5452";
+const OCHRE = "#c8902e", OCHRE_LT = "#e2b452", OCHRE_DK = "#8e6020";
+const FROST = "#a8d8f0";
+const WOOD = "#5a4430", WOOD_LT = "#7e6244", WOOD_DK = "#3a2a1e", TAR = "#2e2a2c";
+const TURF = "#5c6448", TURF_LT = "#7c8458", TURF_DK = "#3e4432";
+const STRAW = ["#5e5236", "#8a7646", "#b49a5c", "#d6c08a"];
+const BONE = "#ddd6c4", BONE_DK = "#a49c88";
+const SEAL = "#6a6460", SEAL_LT = "#8e8780", SEAL_DK = "#46403e";
+
+const ap = (v) => Math.round(v * PX) / PX;
+const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
+const poly = (c, pts) => { c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py))); c.closePath(); };
+const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const mulberry = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+
+// value noise, eased, on an integer lattice (x, y in lattice cells)
+const vn = (x, y, seed) => {
+  const xi = Math.floor(x), yi = Math.floor(y), u = x - xi, v = y - yi;
+  const su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
+  const a = hash(xi + seed * 7, yi), b = hash(xi + 1 + seed * 7, yi), c = hash(xi + seed * 7, yi + 1), d = hash(xi + 1 + seed * 7, yi + 1);
+  return (a + (b - a) * su) * (1 - sv) + (c + (d - c) * su) * sv;
+};
+const fbm = (x, y, seed) => vn(x, y, seed) * 0.55 + vn(x * 2.03 + 5.1, y * 2.03 + 1.7, seed + 3) * 0.3 + vn(x * 4.1 + 2.3, y * 4.1 + 8.9, seed + 7) * 0.15;
+
+// THE wind: from the west-north-west, a little down the board as it goes east
+const WA = 0.2, WC = Math.cos(WA), WS = Math.sin(WA);
+const windU = (x, y) => x * WC + y * WS;           // along the wind
+const windV = (x, y) => -x * WS + y * WC;          // across it
+
+// ============ THE GROUND ============
+// rimeTurf repaints every turf pixel of the layer (the sea, the beach and
+// anything off the board's turf are left as world.js painted them), so the
+// Frostfang tone map's grey hollows never show. One snow field:
+//  - DRIFTS: fbm stretched ~3:1 along the wind, lit on their sunward
+//    (upper-left) slopes, a cool blue lee on their downwind side;
+//  - WIND RIPPLES: fine crest lines across the wind on the drifts' backs,
+//    dashed, lit crest over a blue shadow pixel;
+//  - SASTRUGI: sharp lens-shaped ridges in clusters, along the wind;
+//  - SCOURED ROCK: a few black outcrops, snow packed on their windward side;
+//  - FROZEN PUDDLES: sunk ice lenses, a shaded north rim, cracks, dusting;
+//  - TUSSOCKS: dead grass poking out of little drifts;
+//  - the edge wood's floor in the spruces' cold shade, needles on it.
+// Tones come from the realm's own turf ramp (world.js turfTones), so the
+// apron beyond the board (which paints that ramp) meets it at the seam.
+const rimeTurf = (ctx, kit) => {
+  if (typeof document === "undefined") return;
+  const R = REALM, seed = (R.seed | 0) % 100000;
+  const cv = ctx.canvas, PW = cv.width, PHh = cv.height, K = PW / W;
+  const img = ctx.getImageData(0, 0, PW, PHh), d = img.data;
+  const T = turfTones(R).meadow;          // [r, g, b] at tone * 3 + temp
+  const sand = COAST ? (COAST.sand ?? 22) : 0;
+  // ---- the fields, every FS units, eased between
+  const FS = 2, FW = Math.ceil(W / FS) + 3, FH = Math.ceil(H / FS) + 3;
+  const drift = new Float32Array(FW * FH), rip = new Float32Array(FW * FH), wood = new Float32Array(FW * FH);
+  for (let j = 0; j < FH; j++) for (let i = 0; i < FW; i++) {
+    const x = i * FS, y = j * FS, u = windU(x, y), v = windV(x, y);
+    const wx = (vn(x / 90, y / 90, seed + 1) - 0.5) * 40, wy = (vn(x / 90 + 7, y / 90, seed + 2) - 0.5) * 30;
+    drift[j * FW + i] = fbm((u + wx) / 150, (v + wy) / 48, seed + 11);
+    rip[j * FW + i] = vn(u / 70, v / 34, seed + 21);
+    wood[j * FW + i] = forestDepthAt(x, y);
+  }
+  const at = (F, x, y) => {
+    const fx = Math.max(0, x / FS), fy = Math.max(0, y / FS);
+    const xi = Math.min(FW - 2, fx | 0), yi = Math.min(FH - 2, fy | 0), u = fx - xi, v = fy - yi, k = yi * FW + xi;
+    return (F[k] * (1 - u) + F[k + 1] * u) * (1 - v) + (F[k + FW] * (1 - u) + F[k + FW + 1] * u) * v;
+  };
+  // a pixel is ours if it is board turf: not the sea, the beach or its fringe
+  const own = new Uint8Array(PW * PHh);
+  const tone = new Uint8Array(PW * PHh), temp = new Uint8Array(PW * PHh);
+  const put = (i, c) => { const o = i << 2; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; };
+  // wind-streak dither: runs 3-7 px long along each row
+  const streak = (px, py) => { const L = 3 + (hash(py, seed + 5) * 5 | 0), id = Math.floor((px + hash(py, seed + 6) * 9) / L); return hash(id, py * 31 + seed); };
+  for (let py = 0; py < PHh; py++) {
+    const y = py / K;
+    for (let px = 0; px < PW; px++) {
+      const x = px / K, i = py * PW + px;
+      if (COAST) {
+        const sd = seaDepthAt(x, y);
+        // (the beach's own dithered edge is kept: a streaky hand-over band)
+        if (sd > -sand - 2 || (sd > -sand - 6 && streak(px, py) < (sd + sand + 6) / 4)) continue;
+      }
+      own[i] = 1;
+      const D = at(drift, x, y);
+      // slope of the drifts: lit facing the sun (upper left), lee downwind
+      const gx = (at(drift, x + 2, y) - at(drift, x - 2, y)) / 4, gy = (at(drift, x, y + 2) - at(drift, x, y - 2)) / 4;
+      const sun = Math.max(-1, Math.min(1, -(gx * 0.42 + gy * 0.58) * 42));
+      const lee = (gx * WC + gy * WS) * 60;                 // < 0: falling away downwind
+      const dz = streak(px, py) - 0.5, dz2 = streak(px + 37, py + 3) - 0.5;
+      let tt = 0.52 + (D - 0.5) * 0.55 + sun * 0.3 + dz * 0.1;
+      let tn = tt < 0.3 ? 2 : tt < 0.69 ? 3 : tt < 0.86 ? 4 : 5;
+      let tp = lee + dz2 * 0.5 < -0.55 ? 0 : sun + dz2 * 0.4 > 0.35 ? 2 : 1;
+      if (lee + dz2 * 0.4 < -1.15 && tn > 2) tn--;          // the deep lee, one step down and blue
+      // wind ripples on the drifts' backs: fine lines across the wind
+      const m = at(rip, x, y) * sstep(0.38, 0.62, D);
+      if (m > 0.42) {
+        const u = windU(x, y), v = windV(x, y);
+        const ph = (v + 2.2 * Math.sin(u * 0.045 + D * 7)) / 4.5, f = ph - Math.floor(ph);
+        const dash = hash(Math.floor((u + hash(Math.floor(ph), seed) * 20) / (5 + (Math.floor(ph) & 3) * 2)), Math.floor(ph) + seed) < 0.55 + (m - 0.42) * 1.2;
+        if (dash) {
+          if (f < 0.11) { tn = Math.min(6, tn + 1); tp = 2; } else if (f < 0.22) { tn = Math.max(1, tn - 1); tp = 0; }
+        }
+      }
+      // the wood's floor: the spruces' cold shade
+      const wd = at(wood, x, y);
+      if (wd + dz * 8 > -4) { tn = Math.max(1, tn - (wd > 18 ? 2 : 1)); tp = 0; }
+      tone[i] = tn; temp[i] = tp;
+      put(i, T[tn * 3 + tp]);
+    }
+  }
+  const P = (v) => Math.round(v * K);
+  const shift = (px, py, dt, tp = -1) => {
+    if (px < 0 || py < 0 || px >= PW || py >= PHh) return;
+    const i = py * PW + px; if (!own[i]) return;
+    const n = Math.max(0, Math.min(6, tone[i] + dt)); tone[i] = n; if (tp >= 0) temp[i] = tp;
+    put(i, T[n * 3 + temp[i]]);
+  };
+  const set = (px, py, c) => { if (px < 0 || py < 0 || px >= PW || py >= PHh) return; const i = py * PW + px; if (!own[i]) return; own[i] = 2; put(i, c); };
+  const rng = mulberry((R.seed ^ 0x51e7) >>> 0);
+  const taken = [];
+  const free = (x, y, r) => kit.clear(x, y, r) && !taken.some(([tx, ty, tr]) => Math.hypot(tx - x, (ty - y) * 1.3) < tr + r)
+    && !DECOR.some((q) => !q.forest && Math.hypot(q.x - x, (q.y - y) * 1.4) < 12 * (q.s || 1) + r);
+  const spot = (r, tries = 30) => {
+    for (let k = 0; k < tries; k++) {
+      const x = 16 + rng() * (kit.SW - 32), y = 16 + rng() * (H - 32);
+      if (free(x, y, r)) return [x, y];
+    }
+    return null;
+  };
+
+  // ---- scoured rock: a few black outcrops breaking the snow
+  const RK = ROCK.map(hexRGB);
+  const nRock = 4 + (rng() * 4 | 0);
+  for (let n = 0; n < nRock; n++) {
+    const big = n < 2, r = big ? 7 + rng() * 5 : 3 + rng() * 4;
+    const at0 = spot(r + 6);
+    if (!at0) continue;
+    const [cx, cy] = at0, sd = (rng() * 1e5) | 0;
+    taken.push([cx, cy, r + 4]);
+    const rr = (a) => r * (0.62 + 0.55 * vn(Math.cos(a) * 1.6 + 3, Math.sin(a) * 1.6 + 3, sd));
+    const x0 = P(cx - r * 1.4), x1 = P(cx + r * 1.4), y0 = P(cy - r), y1 = P(cy + r);
+    // its shadow on the snow, thrown down-right, cool
+    for (let py = y0; py <= y1 + P(3); py++) for (let px = x0; px <= x1 + P(4); px++) {
+      const x = px / K - cx - 2.2, y = (py / K - cy - 1.6) * 1.6, a = Math.atan2(y, x);
+      if (Math.hypot(x, y) < rr(a) * 0.95) shift(px, py, -1, 0);
+    }
+    for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+      const x = px / K - cx, y = (py / K - cy) * 1.6, a = Math.atan2(y, x), q = Math.hypot(x, y) / rr(a);
+      if (q > 1) continue;
+      // lit on the upper left, dark down-right; the bottom rim darkest
+      const lit = -(x / r) * 0.5 - (y / r) * 0.7 + (vn(px / 3, py / 3, sd) - 0.5) * 0.9;
+      let k = lit > 0.55 ? 4 : lit > 0.1 ? 3 : lit > -0.4 ? 2 : 1;
+      if (q > 0.86 && y > 0) k = 0;
+      // snow packed on the windward (west) side and lying in its pockets
+      const snowy = (x / r < -0.25 + vn(px / 4, py / 5, sd + 1) * 0.5 && q < 0.95) || (vn(px / 2.5, py / 2.5, sd + 2) > 0.7 && y < r * 0.4);
+      if (snowy) { const i = py * PW + px; if (own[i]) { tone[i] = lit > 0 ? 5 : 4; temp[i] = lit > 0 ? 2 : 0; set(px, py, T[tone[i] * 3 + temp[i]]); } }
+      else set(px, py, RK[k]);
+    }
+  }
+
+  // ---- frozen puddles: sunk lenses of ice
+  const IC = ICE.map(hexRGB);
+  const nPud = 3 + (rng() * 4 | 0);
+  for (let n = 0; n < nPud; n++) {
+    const rx = 4.5 + rng() * 7, ry = rx * (0.4 + rng() * 0.12);
+    const at0 = spot(rx + 5);
+    if (!at0) continue;
+    const [cx, cy] = at0, sd = (rng() * 1e5) | 0;
+    taken.push([cx, cy, rx + 3]);
+    const wob = (a) => 1 + (vn(Math.cos(a) * 1.4 + 9, Math.sin(a) * 1.4 + 9, sd) - 0.5) * 0.35;
+    for (let py = P(cy - ry - 2); py <= P(cy + ry + 2); py++) for (let px = P(cx - rx - 2); px <= P(cx + rx + 2); px++) {
+      const x = (px / K - cx) / rx, y = (py / K - cy) / ry, a = Math.atan2(y, x), q = Math.hypot(x, y) / wob(a);
+      if (q > 1.18) continue;
+      if (q > 1) { if (y < 0) shift(px, py, -1, 0); else shift(px, py, 1, 2); continue; }   // the sunk rim: shaded north, lit south
+      // the ice: dark under the north rim, paling south; streaks of glare
+      const g = y * 0.5 + 0.35 + (vn(px / 5, py / 2, sd) - 0.5) * 0.4;
+      let k = q > 0.84 && y < 0 ? 0 : g < 0.2 ? 1 : g < 0.62 ? 2 : 3;
+      if (((px + py * 2 + sd) % 23) < 2 && q < 0.8) k = 4;
+      if (vn(px / 3, py / 3, sd + 4) > 0.74 && q < 0.9) { shift(px, py, 0); continue; }   // a dusting of snow left on it
+      set(px, py, IC[k]);
+    }
+    // a crack or two
+    for (let c = 0; c < 1 + (rng() * 2 | 0); c++) {
+      let x = P(cx + (rng() - 0.5) * rx), y = P(cy + (rng() - 0.5) * ry * 0.6), a = rng() * 6.3;
+      for (let k = 0; k < rx * 1.6; k++) {
+        a += (rng() - 0.5) * 0.9; x += Math.round(Math.cos(a)); y += Math.round(Math.sin(a) * 0.6);
+        const xx = (x / K - cx) / rx, yy = (y / K - cy) / ry;
+        if (xx * xx + yy * yy > 0.8) break;
+        set(x, y, IC[0]); if (k & 1) set(x, y - 1, IC[4]);
+      }
+    }
+  }
+
+  // ---- sastrugi: sharp ridges carved by the wind, in clusters
+  const nSas = 6 + (rng() * 5 | 0);
+  for (let n = 0; n < nSas; n++) {
+    const at0 = spot(14);
+    if (!at0) continue;
+    const [cx, cy] = at0, cnt = 3 + (rng() * 5 | 0);
+    for (let k = 0; k < cnt; k++) {
+      const sx = cx + (rng() - 0.5) * 22, sy = cy + (rng() - 0.5) * 12;
+      if (!free(sx, sy, 3)) continue;
+      const len = 5 + rng() * 9, hw = 0.9 + rng() * 1.1, L = Math.round(len * K);
+      for (let t = 0; t <= L; t++) {
+        const f = t / L, w = Math.max(1, Math.round(hw * K * Math.sin(Math.PI * Math.pow(f, 0.7))));
+        const x = P(sx) + Math.round(t * WC), y = P(sy) + Math.round(t * WS);
+        shift(x, y - w, 2, 2);                         // the lit crest
+        for (let q = 1 - w; q < 0; q++) shift(x, y + q, 1, 2);
+        shift(x, y, -1, 0); shift(x, y + 1, -2, 0);    // its blue face and the sharp shadow under it
+        if (w > 1) shift(x, y + 2, -1, 0);
+      }
+    }
+  }
+
+  // ---- tussocks: dead grass poking out of little drifts
+  const ST = STRAW.map(hexRGB);
+  const nTus = 10 + (rng() * 8 | 0);
+  for (let n = 0; n < nTus; n++) {
+    const at0 = spot(6);
+    if (!at0) continue;
+    const cnt = 1 + (rng() * 4 | 0);
+    for (let k = 0; k < cnt; k++) {
+      const tx = at0[0] + (rng() - 0.5) * 14, ty = at0[1] + (rng() - 0.5) * 7;
+      if (!free(tx, ty, 2)) continue;
+      const bx = P(tx), by = P(ty), wN = 2 + (rng() * 3 | 0);
+      // its drift: a lit mound and a blue lee to the east
+      for (let q = -wN - 2; q <= wN + 4; q++) { shift(bx + q, by + 1, q < 2 ? 1 : -1, q < 2 ? 2 : 0); if (Math.abs(q) < wN) shift(bx + q, by, 1, 2); }
+      const blades = 3 + (rng() * 5 | 0);
+      for (let b = 0; b < blades; b++) {
+        const ox = Math.round((rng() - 0.5) * wN * 2), hgt = 2 + (rng() * 5 | 0), lean = rng() < 0.65 ? 1 : 0;
+        for (let h = 0; h < hgt; h++) {
+          const yy = by - h, xx = bx + ox + (lean && h > hgt / 2 ? 1 : 0);
+          set(xx, yy, ST[h === hgt - 1 ? 3 : h > hgt / 2 ? 2 : h > 0 ? 1 : 0]);
+        }
+      }
+      taken.push([tx, ty, 3]);
+    }
+  }
+
+  // ---- needles and twigs on the wood's floor; glints on the open snow
+  const NE = [hexRGB("#34463c"), hexRGB("#4a5a46"), hexRGB("#5a4a3a")];
+  for (let k = 0; k < 2600; k++) {
+    const x = rng() * kit.SW, y = rng() * H, px = P(x), py = P(y);
+    const wd = forestDepthAt(x, y);
+    if (wd > -2 && hash(px, py) < 0.5) { const c = NE[(rng() * 3) | 0]; set(px, py, c); if (rng() < 0.4) set(px + 1, py + (rng() < 0.5 ? 1 : -1), c); }
+    else if (wd < -10 && k < 700) { const i = py * PW + px; if (own[i] === 1 && tone[i] >= 4) shift(px, py, 2, 2); }
+  }
+  ctx.putImageData(img, 0, 0);
+};
+
+// ---- the road: a trodden track over old flagstones ------------------------
+// paintRoad (road.js) has laid the packed snow, its runners and ruts in the
+// realm's PATH colours. Over it, in a few stretches, the clans' old road
+// shows through: courses of dark flagstones (lengths and widths varying,
+// tones from noise patches, never per stone), snow lying in their joints and
+// drifted over their ends; churned grit along the lanes. No flags in bends
+// (a flag belongs wholly to one arm) nor at the gate's cleft.
+const rimeRoad = (ctx) => {
+  if (typeof document === "undefined" || PTS.length < 2) return;
+  const R = REALM, seed = (R.seed | 0) % 100000;
+  const cv = ctx.canvas, PW = cv.width, PHh = cv.height, K = PW / W;
+  const img = ctx.getImageData(0, 0, PW, PHh), d = img.data;
+  const STN = ["#3e3c42", "#55525a", "#6a676e", "#827f86", "#9c99a0"].map(hexRGB);
+  const GRIT = [hexRGB("#8a8270"), hexRGB("#6e6656")];
+  const put = (px, py, c) => { if (px < 0 || py < 0 || px >= PW || py >= PHh) return; const o = (py * PW + px) << 2; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; };
+  const half = PATH_HALF - 4;
+  // where the road bends, no flags
+  const bendy = (dd) => { const a0 = angleAt(Math.max(0, dd - 14)), a1 = angleAt(Math.min(TOTAL_LEN, dd + 14)); let da = Math.abs(a1 - a0); if (da > Math.PI) da = 2 * Math.PI - da; return da > 0.06; };
+  // courses: boundaries along the road
+  const courses = [];
+  for (let s = 0, k = 0; s < TOTAL_LEN; k++) { courses.push(s); s += 6 + hash(k, seed + 3) * 5; }
+  let ci = 0;
+  for (let dd = 60; dd < TOTAL_LEN - 50; dd += 0.5 / K * 2) {
+    const patch = vn(dd / 75, 0.5, seed + 31);
+    if (patch < 0.6 || bendy(dd)) continue;
+    while (ci < courses.length - 2 && courses[ci + 1] <= dd) ci++;
+    const c0 = courses[ci], c1 = courses[ci + 1], fu = (dd - c0) / (c1 - c0);
+    const [x0, y0] = posAt(dd), a = angleAt(dd), nx = -Math.sin(a), ny = Math.cos(a);
+    for (let o = -half; o <= half; o += 0.5) {
+      // stones across this course: widths 5-9, the joints staggered by course
+      let acc = -half - hash(ci, seed) * 6, si = 0, w = 0;
+      while (acc <= o) { w = 5 + hash(ci * 13 + si, seed + 9) * 4; acc += w; si++; }
+      const fo = (o - (acc - w)) / w;
+      // snow over them: thick at the patch's ends and the road's edges
+      const cover = vn(dd / 9, o / 7, seed + 41) + (0.6 - Math.min(0.6, patch - 0.6) * 4) * 0.6 + Math.pow(Math.abs(o) / half, 3) * 0.6;
+      if (cover > 0.92) continue;
+      const px = Math.round((x0 + nx * o) * K), py = Math.round((y0 + ny * o) * K);
+      const joint = fu < 0.07 || fo < 0.06;
+      if (joint) { put(px, py, cover > 0.6 ? hexRGB("#e8f0f4") : STN[0]); continue; }
+      const tn = vn(dd / 20, o / 14, seed + 51) * 2 + (fu < 0.2 || fo < 0.18 ? 1 : 0) - (fu > 0.86 || fo > 0.88 ? 1 : 0);
+      put(px, py, STN[Math.max(1, Math.min(4, Math.round(tn + 1.2)))]);
+    }
+  }
+  // churned grit along the lanes, sparse
+  const rng = mulberry((R.seed ^ 0x77a1) >>> 0);
+  for (let k = 0; k < TOTAL_LEN * 0.9; k++) {
+    const dd = rng() * TOTAL_LEN, lane = [-18, 0, 18][(rng() * 3) | 0] + (rng() - 0.5) * 8;
+    const [x0, y0] = posAt(dd), a = angleAt(dd);
+    const px = Math.round((x0 - Math.sin(a) * lane) * K), py = Math.round((y0 + Math.cos(a) * lane) * K);
+    put(px, py, GRIT[rng() < 0.6 ? 0 : 1]); if (rng() < 0.5) put(px + 1, py, GRIT[0]);
+  }
+  ctx.putImageData(img, 0, 0);
+};
+
+// ============ THE PIECES ============
+// Painted with paths into baked sprites (scenery.js inks the silhouette);
+// feet at (x, y + 8). Sun from the upper left: lit west faces, shaded east,
+// snow on every top, a cool contact shadow down-right.
+const snowCap = (c, pts, sh = true) => {
+  poly(c, pts); c.fillStyle = SNOW; c.fill();
+  if (sh) { c.save(); c.clip(); c.fillStyle = SNOW_LT; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]); c.fillRect(Math.min(...xs), Math.min(...ys), (Math.max(...xs) - Math.min(...xs)) * 0.45, 1); c.restore(); }
+};
+const groundDrift = (c, x, gy, w, sd) => {
+  // a little drift banked round a foot: lit crest, blue lee to the east
+  c.fillStyle = SNOW_SH; ellipse(c, x + w * 0.25, gy + 0.6, w * 1.05, 1.9); c.fill();
+  c.fillStyle = SNOW; ellipse(c, x - w * 0.1, gy, w * 0.95, 1.6); c.fill();
+  c.fillStyle = SNOW_LT; c.fillRect(ap(x - w * 0.8), ap(gy - 1.2), w * 0.8, 0.5);
+  if (hash(sd, 9) < 0.6) { c.fillStyle = STRAW[2]; px1(c, x - w * 0.7, gy - 1.5, 0.5, 1.5); px1(c, x - w * 0.6, gy - 2, 0.5, 2); }
+};
+
+// ---- the snow-laden spruce --------------------------------------------------
+// Narrow and dark, its tiers drooping under the snow: each tier a skirt lit on
+// its west side, a white load along its top that slumps over the tip, a blue
+// underside. The edge wood darkens it by depth (band 0-2).
+const SPR_BAND = [["#2e544a", "#3c6858", "#1f3a34"], ["#264840", "#33594c", "#1a322e"], ["#1e3b36", "#284a40", "#14282a"]];
+const rmspruce = (ctx, x, y, s, o) => {
+  const gy = y + 8, band = o.forest ? o.band || 0 : 0, sd = o.seed;
+  const [mid, lit, dk] = SPR_BAND[band];
+  const h = (38 + (o.v % 2) * 6) * s, w0 = (10.5 + hash(sd, 1) * 2) * s, lean = (hash(sd, 2) - 0.5) * 1.6 * s;
+  if (!o.forest) shadow(ctx, x + 7 * s, gy + 1, w0 * 1.1, 3.4 * s, 0.3);
+  part(ctx, (c) => { c.fillStyle = WOOD_DK; c.fillRect(ap(x - 1.2 * s), gy - 6 * s, 2.4 * s, 6 * s); c.fillStyle = WOOD; c.fillRect(ap(x - 1.2 * s), gy - 6 * s, 1, 6 * s); });
+  const N = 6;
+  part(ctx, (c) => {
+    for (let i = 0; i < N; i++) {
+      const f0 = i / N, f1 = (i + 1.35) / N;
+      const by = gy - 4 * s - (h - 6 * s) * f0, ty = gy - 4 * s - (h - 6 * s) * f1;
+      const cx = x + lean * f0, tx = x + lean * f1, w = w0 * (1 - f0 * 0.82) * (1 + (hash(sd, i + 5) - 0.5) * 0.14);
+      const droop = 2.6 * s * (1 - f0 * 0.5);
+      const L = [cx - w, by + droop * 0.4], Rr = [cx + w * 0.96, by + droop * 0.2];
+      poly(c, [L, [cx - w * 0.55, by + droop * 0.9], [cx, by + droop], [cx + w * 0.5, by + droop * 0.9], Rr, [tx + w * 0.12, ty], [tx - w * 0.12, ty]]);
+      c.fillStyle = lin(c, cx - w, 0, cx + w, 0, [[0, lit], [0.45, mid], [1, dk]]); c.fill();
+      // the snow load along the tier's top, slumping off the west tip
+      const sl = [[cx - w * 0.98, by + droop * 0.25], [tx - w * 0.1, ty + 0.8 * s], [tx + w * 0.1, ty + 0.6 * s], [cx + w * 0.55, by - 0.4 * s], [cx + w * 0.2, by + 0.6 * s], [cx - w * 0.5, by + droop * 0.35]];
+      poly(c, sl); c.fillStyle = band === 2 ? "#c4d2de" : SNOW; c.fill();
+      c.fillStyle = band === 2 ? "#a8bccc" : SNOW_SH; c.fillRect(ap(cx), ap(by - 0.2 * s), w * 0.45, 0.5);
+      c.fillStyle = band === 2 ? "#dce6ee" : SNOW_LT; c.fillRect(ap(cx - w * 0.7), ap(by + droop * 0.1 - 0.6 * s), w * 0.4, 0.5);
+    }
+    // the leader, snow on its tip
+    c.fillStyle = dk; c.fillRect(ap(x + lean - 0.5), gy - h - 1.5 * s, 1, 3 * s);
+    c.fillStyle = SNOW; c.fillRect(ap(x + lean - 1), gy - h - 2 * s, 1.5, 1);
+  });
+};
+
+// ---- black scoured rock ------------------------------------------------------
+const rockShape = (x, gy, w, h, sd, v) => {
+  const n = 9, pts = [];
+  for (let k = 0; k <= n; k++) {
+    const t = k / n, a = Math.PI * (1 + t);           // the upper half, west to east
+    const j = 1 + (hash(sd + v * 17, k) - 0.5) * 0.5 * (k % 2 ? 1.2 : 0.7);
+    pts.push([x + Math.cos(a) * w * j, gy + Math.sin(a) * h * j * (v === 2 ? 0.7 : 1) - (v === 3 && k > n / 2 ? h * 0.25 : 0)]);
+  }
+  return pts;
+};
+const blackRock = (c, x, gy, w, h, sd, v, snowy = 1) => {
+  const pts = rockShape(x, gy, w, h, sd, v);
+  part(c, (cc) => {
+    poly(cc, [...pts, [x + w, gy + 1], [x - w, gy + 1]]);
+    cc.fillStyle = lin(cc, x - w, gy - h, x + w, gy, [[0, ROCK[4]], [0.4, ROCK[3]], [0.75, ROCK[2]], [1, ROCK[1]]]); cc.fill();
+    cc.save(); cc.clip();
+    // facets: a lit top plane, dark cracks running down
+    poly(cc, [...pts.slice(1, 6).map(([px, py]) => [px, py]), [x + w * 0.1, gy - h * 0.35], [x - w * 0.6, gy - h * 0.25]]);
+    cc.fillStyle = ROCK[4]; cc.fill();
+    cc.fillStyle = ROCK[5];
+    for (let k = 1; k < 5; k++) px1(cc, pts[k][0] + 0.5, pts[k][1] + 0.6, 1.5, 0.5);
+    cc.fillStyle = ROCK[0];
+    for (let k = 0; k < 3; k++) { const cx = x + (hash(sd, k + 40) - 0.3) * w * 1.2; for (let t = 0; t < h * 0.6; t += 0.5) px1(cc, cx + Math.sin(t + k) * 0.6, gy - t - 0.5); }
+    // snow: on the top and banked on the windward (west) flank
+    if (snowy) {
+      cc.fillStyle = SNOW;
+      poly(cc, [...pts.slice(0, 7).map(([px, py], i) => [px, py - 0.3]), [pts[6][0] - w * 0.15, pts[6][1] + h * 0.22], [x - w * 0.2, gy - h * 0.5 + 1.5], [x - w * 0.75, gy - h * 0.1], [x - w * 1.05, gy + 1]]);
+      cc.fill();
+      cc.fillStyle = SNOW_SH; for (let k = 2; k < 7; k++) px1(cc, pts[k][0], pts[k][1] + h * 0.18 + hash(sd, k) * 1.5, 1.5, 0.5);
+      cc.fillStyle = SNOW_LT; for (let k = 1; k < 4; k++) px1(cc, pts[k][0], pts[k][1] + 0.2, 1.5, 0.5);
+    }
+    cc.restore();
+  });
+};
+const rmrock = (ctx, x, y, s, o) => {
+  const gy = y + 8, v = o.v % 4, w = (9 + v * 1.5) * s, h = (8 + (v === 1 ? 4 : 0)) * s;
+  shadow(ctx, x + 4 * s, gy + 1, w * 1.15, 3.2 * s, 0.32);
+  blackRock(ctx, x, gy, w, h, o.seed, v);
+  groundDrift(ctx, x - w * 0.6, gy + 0.5, w * 0.55, o.seed);
+};
+
+// ---- a cairn of black stones ----------------------------------------------------
+const rmcairn = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed;
+  shadow(ctx, x + 4 * s, gy + 1, 9 * s, 3 * s, 0.3);
+  const rows = [[4, 3.4, 2.9], [3, 2.9, 2.6], [2, 2.6, 2.4], [1, 2.4, 2.4]];
+  let yy = gy;
+  rows.forEach(([n, rw, rh], ri) => {
+    for (let k = 0; k < n; k++) {
+      const cx = x + (k - (n - 1) / 2) * rw * 1.55 * s + (hash(sd, ri * 7 + k) - 0.5) * s, cy = yy - rh * s;
+      part(ctx, (c) => {
+        ball(c, cx, cy, rw * s, rh * s, ROCK[3], { hi: 0.4, lo: 0.6 });
+        c.fillStyle = SNOW; ellipse(c, cx - 0.4 * s, cy - rh * s * 0.55, rw * s * 0.75, rh * s * 0.38); c.fill();
+        c.fillStyle = SNOW_LT; px1(c, cx - rw * s * 0.5, cy - rh * s * 0.75, 1, 0.5);
+      });
+    }
+    yy -= rh * 1.55 * s;
+  });
+  // a clan's teal rag on a stick at the top
+  ctx.fillStyle = WOOD_DK; ctx.fillRect(ap(x + 0.5), yy - 6 * s, 1, 6 * s + 1);
+  ctx.fillStyle = TEAL; ctx.fillRect(ap(x + 1.5), ap(yy - 6 * s), 3 * s, 1.5); ctx.fillStyle = TEAL_LT; ctx.fillRect(ap(x + 1.5), ap(yy - 6 * s), 2 * s, 0.5);
+  groundDrift(ctx, x - 6 * s, gy + 0.5, 4 * s, sd);
+};
+
+// ---- rune stone and skald's stone -------------------------------------------------
+const slab = (c, x, gy, w, h, col, sd, head = 0) => {
+  // an upright slab, rounded crown (head: a mushroom-headed picture stone)
+  c.beginPath();
+  c.moveTo(x - w, gy);
+  if (head) {
+    c.lineTo(x - w * 0.82, gy - h * 0.62); c.lineTo(x - w * 1.12, gy - h * 0.72);
+    c.quadraticCurveTo(x - w * 1.2, gy - h * 1.02, x, gy - h * 1.02); c.quadraticCurveTo(x + w * 1.2, gy - h * 1.02, x + w * 1.12, gy - h * 0.72);
+    c.lineTo(x + w * 0.82, gy - h * 0.62);
+  } else {
+    c.lineTo(x - w * 0.95, gy - h * 0.72); c.quadraticCurveTo(x - w * 0.9, gy - h * 1.02, x + w * 0.1, gy - h); c.quadraticCurveTo(x + w * 0.95, gy - h * 0.95, x + w * 0.9, gy - h * 0.6);
+  }
+  c.lineTo(x + w, gy); c.closePath();
+  c.fillStyle = lin(c, x - w, 0, x + w, 0, [[0, lighten(col, 0.25)], [0.5, col], [1, darken(col, 0.35)]]); c.fill();
+};
+const rmrunestone = (ctx, x, y, s, o) => {
+  const gy = y + 8, w = 5.5 * s, h = 21 * s, sd = o.seed, col = "#7e7c80";
+  shadow(ctx, x + 5 * s, gy + 1, 8 * s, 2.8 * s, 0.3);
+  part(ctx, (c) => {
+    slab(c, x, gy, w, h, col, sd);
+    c.save(); c.clip();
+    // the serpent band: a ribbon looping down the face, ochre with teal edges
+    c.lineWidth = 1.6 * s; c.strokeStyle = TEAL_DK; c.beginPath();
+    const path = (cc, ox) => { cc.beginPath(); cc.moveTo(x - w * 0.55 + ox, gy - 2 * s); cc.bezierCurveTo(x - w * 0.9 + ox, gy - h * 0.6, x + w * 0.9 + ox, gy - h * 0.55, x + w * 0.4 + ox, gy - h * 0.86); cc.bezierCurveTo(x + w * 0.1 + ox, gy - h * 0.98, x - w * 0.5 + ox, gy - h * 0.82, x - w * 0.2 + ox, gy - h * 0.66); };
+    path(c, 0); c.stroke();
+    c.lineWidth = 0.9 * s; c.strokeStyle = OCHRE; path(c, 0); c.stroke();
+    // runes cut along the band: short dark ticks
+    c.fillStyle = "#3a3840";
+    for (let k = 0; k < 9; k++) { const t = k / 9; px1(c, x - w * 0.55 + Math.sin(t * 5) * w * 0.4, gy - 3 * s - t * h * 0.55, 0.5, 1.2); }
+    // the serpent's head, a teal eye; frost in the cut
+    c.fillStyle = OCHRE_LT; px1(c, x - w * 0.25, gy - h * 0.67, 1.5, 1);
+    c.fillStyle = FROST; px1(c, x - w * 0.6, gy - h * 0.35, 1, 0.5); px1(c, x + w * 0.3, gy - h * 0.5, 0.5, 0.5);
+    c.restore();
+    snowCap(c, [[x - w * 0.85, gy - h * 0.86], [x - w * 0.3, gy - h * 1.01], [x + w * 0.5, gy - h * 0.98], [x + w * 0.85, gy - h * 0.82], [x + w * 0.2, gy - h * 0.88]]);
+  });
+  groundDrift(ctx, x - 4 * s, gy + 0.5, 5 * s, sd);
+};
+const rmskaldstone = (ctx, x, y, s, o) => {
+  const gy = y + 8, w = 5.2 * s, h = 30 * s, sd = o.seed, col = "#8a8278";
+  shadow(ctx, x + 6 * s, gy + 1, 9 * s, 3 * s, 0.3);
+  part(ctx, (c) => {
+    slab(c, x, gy, w, h, col, sd, 1);
+    c.save(); c.clip();
+    // panels cut in bands: a sun-wheel in the head, a ship under sail, waves
+    c.fillStyle = darken(col, 0.3); c.fillRect(x - w * 1.2, gy - h * 0.66, w * 2.4, 0.5); c.fillRect(x - w, gy - h * 0.34, w * 2, 0.5);
+    c.strokeStyle = OCHRE; c.lineWidth = 0.6; ellipse(c, x, gy - h * 0.83, w * 0.55, w * 0.55); c.stroke();
+    c.fillStyle = OCHRE_LT; for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; px1(c, x + Math.cos(a) * w * 0.3, gy - h * 0.83 + Math.sin(a) * w * 0.3); }
+    // the ship: teal hull, prow and stern curling, an ochre sail
+    const sy = gy - h * 0.42;
+    c.fillStyle = TEAL; poly(c, [[x - w * 0.8, sy - 1.6], [x + w * 0.8, sy - 1.6], [x + w * 0.5, sy], [x - w * 0.5, sy]]); c.fill();
+    c.fillRect(ap(x - w * 0.85), ap(sy - 3.2), 0.6, 1.8); c.fillRect(ap(x + w * 0.75), ap(sy - 3.2), 0.6, 1.8);
+    c.fillStyle = OCHRE; c.fillRect(ap(x - w * 0.42), ap(sy - 8.5 * s), w * 0.84, 5.5 * s);
+    c.fillStyle = OCHRE_DK; for (let k = 0; k < 3; k++) c.fillRect(ap(x - w * 0.42 + k * w * 0.32), ap(sy - 8.5 * s), 0.5, 5.5 * s);
+    c.fillStyle = WOOD_DK; c.fillRect(ap(x - 0.25), ap(sy - 9.5 * s), 0.5, 8 * s);
+    c.fillStyle = TEAL_LT; for (let k = 0; k < 5; k++) px1(c, x - w * 0.8 + k * w * 0.4, gy - h * 0.2 + (k % 2) * 0.6, 1.2, 0.5);
+    c.restore();
+    snowCap(c, [[x - w * 1.12, gy - h * 0.92], [x - w * 0.4, gy - h * 1.03], [x + w * 0.6, gy - h * 1.02], [x + w * 1.1, gy - h * 0.88], [x, gy - h * 0.94]]);
+    c.fillStyle = SNOW; c.fillRect(ap(x - w * 1.1), ap(gy - h * 0.72), w * 0.7, 0.8);
+  });
+  groundDrift(ctx, x - 4 * s, gy + 0.5, 5.5 * s, sd);
+};
+
+// ---- whale bones -------------------------------------------------------------------
+const boneArc = (c, x0, y0, x1, y1, lift, wid) => {
+  const mx = (x0 + x1) / 2, my = Math.min(y0, y1) - lift;
+  c.lineCap = "round"; c.lineWidth = wid + 1; c.strokeStyle = BONE_DK;
+  c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(mx, my, x1, y1); c.stroke();
+  c.lineWidth = wid; c.strokeStyle = BONE; c.beginPath(); c.moveTo(x0, y0 - 0.3); c.quadraticCurveTo(mx, my - 0.3, x1, y1 - 0.3); c.stroke();
+  c.lineWidth = 0.5; c.strokeStyle = "#f4efe2"; c.beginPath(); c.moveTo(x0, y0 - wid * 0.4); c.quadraticCurveTo(mx, my - wid * 0.4, mx, my - wid * 0.25); c.stroke();
+};
+const rmwhale = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed, v = o.v % 2;
+  if (v === 0) {
+    // the ribs: pairs of arches standing out of the snow along a buried spine
+    shadow(ctx, x + 5 * s, gy + 1, 26 * s, 4 * s, 0.26);
+    const n = 6;
+    for (let k = n - 1; k >= 0; k--) {
+      const t = k / (n - 1), cx = x - 18 * s + t * 34 * s, cy = gy - 6 * s + t * 4 * s, span = (5 + Math.sin(t * Math.PI) * 4) * s;
+      part(ctx, (c) => {
+        boneArc(c, cx - span * 0.2, cy - span * 0.9, cx - 2 * s, cy + 1.5 * s, (10 + Math.sin(t * Math.PI) * 6) * s * 0.5, 1.6 * s);
+        boneArc(c, cx + span * 0.25, cy - span * 0.95, cx + 3 * s, cy + 2 * s, (10 + Math.sin(t * Math.PI) * 6) * s * 0.4, 1.4 * s);
+        c.fillStyle = SNOW; ellipse(c, cx, cy + 2 * s, 3 * s, 1.4 * s); c.fill();
+      });
+    }
+    // the backbone's knuckles in the drift
+    ctx.fillStyle = BONE_DK; for (let k = 0; k < 9; k++) px1(ctx, x - 20 * s + k * 4.4 * s, gy - 4 * s + k * 0.5 * s, 1.5, 1);
+    groundDrift(ctx, x - 20 * s, gy, 8 * s, sd); groundDrift(ctx, x + 6 * s, gy + 1, 9 * s, sd + 1);
+  } else {
+    // the skull: a long flat rostrum ending in the brain-case, the jaw beside
+    shadow(ctx, x + 4 * s, gy + 1, 24 * s, 4 * s, 0.3);
+    part(ctx, (c) => {
+      poly(c, [[x - 22 * s, gy - 3 * s], [x - 4 * s, gy - 6.5 * s], [x + 8 * s, gy - 10 * s], [x + 15 * s, gy - 8 * s], [x + 16 * s, gy - 1 * s], [x + 6 * s, gy], [x - 8 * s, gy - 0.5 * s], [x - 22 * s, gy - 1.5 * s]]);
+      c.fillStyle = lin(c, 0, gy - 10 * s, 0, gy, [[0, "#f2ecdc"], [0.5, BONE], [1, BONE_DK]]); c.fill();
+      c.fillStyle = "#5a5246"; ellipse(c, x + 9 * s, gy - 4.5 * s, 2.2 * s, 1.5 * s); c.fill();
+      c.fillStyle = BONE_DK; c.fillRect(x - 20 * s, ap(gy - 2.6 * s), 22 * s, 0.5);
+      c.fillStyle = SNOW; poly(c, [[x + 2 * s, gy - 8 * s], [x + 8 * s, gy - 10.3 * s], [x + 14 * s, gy - 8.6 * s], [x + 8 * s, gy - 8.4 * s]]); c.fill();
+    });
+    part(ctx, (c) => {
+      c.lineCap = "round"; c.lineWidth = 2 * s; c.strokeStyle = BONE_DK; c.beginPath(); c.moveTo(x - 18 * s, gy + 4 * s); c.quadraticCurveTo(x - 2 * s, gy + 1 * s, x + 12 * s, gy + 4.5 * s); c.stroke();
+      c.lineWidth = 1.3 * s; c.strokeStyle = BONE; c.beginPath(); c.moveTo(x - 18 * s, gy + 3.6 * s); c.quadraticCurveTo(x - 2 * s, gy + 0.6 * s, x + 12 * s, gy + 4 * s); c.stroke();
+    });
+    groundDrift(ctx, x - 16 * s, gy + 4.5 * s, 6 * s, sd);
+  }
+};
+
+// ---- boats ------------------------------------------------------------------------
+// clinker strakes: a hull's side as bands, each lit along its upper lap
+const strakes = (c, x0, x1, top, bot, n, col, f) => {
+  for (let b = 0; b < n; b++) {
+    const t0 = b / n, t1 = (b + 1) / n;
+    c.fillStyle = b % 2 ? col : lighten(col, 0.08);
+    c.beginPath();
+    for (let k = 0; k <= 24; k++) { const u = k / 24, xx = x0 + (x1 - x0) * u, [ya, yb] = f(u); c.lineTo(xx, ya + (yb - ya) * t0); }
+    for (let k = 24; k >= 0; k--) { const u = k / 24, xx = x0 + (x1 - x0) * u, [ya, yb] = f(u); c.lineTo(xx, ya + (yb - ya) * t1); }
+    c.closePath(); c.fill();
+    c.fillStyle = lighten(col, 0.3);
+    for (let k = 1; k < 24; k++) { const u = k / 24, [ya, yb] = f(u); px1(c, x0 + (x1 - x0) * u, ya + (yb - ya) * t0); }
+  }
+};
+const rmboat = (ctx, x, y, s, o) => {
+  const gy = y + 8 + 2 * s, L = 13 * s, H = 5 * s, dir = o.v % 2 ? -1 : 1, sd = o.seed;
+  shadow(ctx, x + 4 * s, gy + 1, L * 1.25, 3 * s, 0.32);
+  // the stones it rests on
+  part(ctx, (c) => { for (const k of [-0.6, 0.55]) ball(c, x + k * L, gy - 0.6, 2.2 * s, 1.4 * s, ROCK[3]); });
+  part(ctx, (c) => {
+    const base = gy - 1.4 * s, prof = (u) => base - H * (1 - u * u);
+    c.beginPath(); c.moveTo(x - L, base + 0.5);
+    for (let k = 0; k <= 24; k++) { const u = -1 + k / 12; c.lineTo(x + u * L, prof(u) - (u * dir > 0.8 ? (u * dir - 0.8) * 6 * s : 0)); }
+    c.lineTo(x + L, base + 0.5); c.closePath(); c.fillStyle = TAR; c.fill(); c.save(); c.clip();
+    strakes(c, x - L, x + L, 0, 0, 3, "#3a3436", (u) => { const uu = u * 2 - 1; return [prof(uu), base]; });
+    c.fillStyle = TEAL; c.fillRect(x - L, ap(base - 1.2 * s), L * 2, 1); c.fillStyle = TEAL_LT; c.fillRect(x - L, ap(base - 1.2 * s), L * 2, 0.5);
+    c.fillStyle = rgba("#2a1c2c", 0.3); c.fillRect(x + L * 0.3, base - H - 4, L, H + 6);
+    c.restore();
+    // snow along the keel
+    c.fillStyle = SNOW; c.beginPath();
+    for (let k = 0; k <= 16; k++) { const u = -0.8 + k / 10; c.lineTo(x + u * L, prof(u) - 0.8); }
+    for (let k = 16; k >= 0; k--) { const u = -0.8 + k / 10; c.lineTo(x + u * L, prof(u) + 0.6 + Math.sin(k * 1.7 + sd) * 0.4); }
+    c.fill();
+  });
+  groundDrift(ctx, x - L * 0.9, gy, 4 * s, sd);
+};
+// A longship hauled up on rollers: its long south side in clinker, a row of
+// shields along the rail (teal and ochre), the dragon prow curling up at the
+// bow, the stern post curling at the other end, the mast down along the
+// deck on crutches with its striped sail furled to the yard.
+const rmlongship = (ctx, x, y, s, o) => {
+  const dir = o.v % 2 ? -1 : 1, gy = y + 8 + 6 * s, L = 30 * s, H = 7.5 * s, sd = o.seed;
+  const X = (u) => x + u * L * dir;                         // u -1 stern .. 1 bow
+  const keel = (u) => gy - 1.5 * s - Math.pow(Math.abs(u), 3) * 4 * s;
+  const rail = (u) => gy - 1.5 * s - H - Math.pow(Math.abs(u), 2.4) * 3.5 * s;
+  shadow(ctx, x + 6 * s, gy + 1.5, L * 1.15, 4 * s, 0.32);
+  // rollers under the keel
+  part(ctx, (c) => { for (const u of [-0.55, 0, 0.55]) { c.fillStyle = WOOD; c.fillRect(ap(X(u) - 1.2 * s), ap(gy - 1.2 * s), 2.4 * s, 2.4 * s); c.fillStyle = WOOD_LT; c.fillRect(ap(X(u) - 1.2 * s), ap(gy - 1.2 * s), 2.4 * s, 0.5); } });
+  part(ctx, (c) => {
+    c.beginPath();
+    for (let k = 0; k <= 40; k++) { const u = -1 + k / 20; c.lineTo(X(u), rail(u)); }
+    for (let k = 40; k >= 0; k--) { const u = -1 + k / 20; c.lineTo(X(u), keel(u)); }
+    c.closePath(); c.fillStyle = "#3a302a"; c.fill(); c.save(); c.clip();
+    const x0 = Math.min(X(-1), X(1)), x1 = Math.max(X(-1), X(1));
+    strakes(c, x0, x1, 0, 0, 4, "#4a3a2e", (t) => { const u = (t * 2 - 1) * dir; return [rail(u), keel(u)]; });
+    c.fillStyle = rgba("#2a1c2c", 0.28); c.fillRect(x0, keel(0) - 2.5 * s, x1 - x0, 4 * s);
+    c.restore();
+  });
+  // prow and stern posts, curling up
+  part(ctx, (c) => {
+    for (const end of [1, -1]) {
+      const bx = X(end * 0.97), by = rail(end * 0.97), up = (end === 1 ? 13 : 10) * s, k = end * dir;
+      c.lineCap = "round"; c.lineWidth = 2.2 * s; c.strokeStyle = "#3a302a";
+      c.beginPath(); c.moveTo(bx - k * 2 * s, by + 3 * s); c.quadraticCurveTo(bx + k * 3 * s, by - up * 0.4, bx + k * 1.5 * s, by - up); c.stroke();
+      c.lineWidth = 1; c.strokeStyle = "#5e4a38"; c.beginPath(); c.moveTo(bx - k * 1.6 * s, by + 2 * s); c.quadraticCurveTo(bx + k * 2.4 * s, by - up * 0.4, bx + k * 1.1 * s, by - up + 0.5); c.stroke();
+      if (end === 1) {
+        // the dragon's head: snout forward, ochre jaw, a teal eye, crest
+        const hx = bx + k * 1.5 * s, hy = by - up;
+        c.fillStyle = OCHRE_DK; poly(c, [[hx - k * 1.5 * s, hy - 1.5 * s], [hx + k * 4.5 * s, hy - 0.6 * s], [hx + k * 4.2 * s, hy + 1.2 * s], [hx - k * 0.5 * s, hy + 1.8 * s]]); c.fill();
+        c.fillStyle = OCHRE_LT; c.fillRect(ap(Math.min(hx, hx + k * 4 * s)), ap(hy - 1.2 * s), 4 * s, 0.5);
+        c.fillStyle = TEAL_LT; px1(c, hx + k * 1.2 * s, hy - 0.6 * s, 1, 0.5);
+        c.fillStyle = "#3a302a"; for (let q = 0; q < 3; q++) px1(c, hx - k * (1 + q) * s, hy - (2 + q * 0.6) * s, 1, 1);
+      } else { c.fillStyle = OCHRE; ellipse(c, bx + k * 1.2 * s, by - up - 0.6, 1.4 * s, 1.4 * s); c.fill(); }
+    }
+  });
+  // the mast and yard along the deck on two crutches; the sail furled, striped
+  part(ctx, (c) => {
+    for (const u of [-0.45, 0.4]) { c.fillStyle = WOOD_DK; c.fillRect(ap(X(u) - 0.5), rail(u) - 6 * s, 1, 6 * s); }
+    const yy = rail(0) - 6 * s;
+    c.fillStyle = WOOD; c.fillRect(Math.min(X(-0.62), X(0.62)), ap(yy - 0.6), L * 1.24, 1.4);
+    for (let k = 0; k < 8; k++) {
+      const u = -0.5 + k * 0.125;
+      c.fillStyle = k % 2 ? OCHRE : "#b84a3c"; c.fillRect(ap(Math.min(X(u), X(u + 0.125))), ap(yy + 0.6), L * 0.125, 2.2 * s);
+    }
+    c.fillStyle = SNOW; c.fillRect(Math.min(X(-0.5), X(0.5)), ap(yy - 1), L, 0.8);
+  });
+  // shields along the rail (drawn last, on the hull's side)
+  part(ctx, (c) => {
+    for (let k = 0; k < 9; k++) {
+      const u = -0.68 + k * 0.17, cx = X(u), cy = rail(u) + 2.2 * s;
+      c.fillStyle = k % 2 ? TEAL : OCHRE; ellipse(c, cx, cy, 2.1 * s, 2.1 * s); c.fill();
+      c.fillStyle = k % 2 ? TEAL_LT : OCHRE_LT; ellipse(c, cx - 0.5, cy - 0.5, 1.1 * s, 1.1 * s); c.fill();
+      c.fillStyle = "#c4c8d0"; px1(c, cx - 0.25, cy - 0.25, 1, 1);
+    }
+  });
+  groundDrift(ctx, X(-0.9), gy + 0.5, 6 * s, sd);
+};
+
+// ---- a fish-drying rack ----------------------------------------------------------
+const rmrack = (ctx, x, y, s, o) => {
+  const gy = y + 8, span = 14 * s, hh = 15 * s, sd = o.seed;
+  shadow(ctx, x + 6 * s, gy + 1, span * 1.1, 3 * s, 0.26);
+  part(ctx, (c) => {
+    for (const e of [-1, 1]) {
+      c.strokeStyle = WOOD_DK; c.lineWidth = 1.4 * s; c.lineCap = "round";
+      c.beginPath(); c.moveTo(x + e * span - 3 * s, gy); c.lineTo(x + e * span + 1 * s, gy - hh); c.stroke();
+      c.beginPath(); c.moveTo(x + e * span + 3 * s, gy + 0.5); c.lineTo(x + e * span - 1 * s, gy - hh); c.stroke();
+    }
+    c.fillStyle = WOOD; c.fillRect(x - span - 2, ap(gy - hh - 0.5), span * 2 + 4, 1.3);
+    c.fillStyle = WOOD_LT; c.fillRect(x - span - 2, ap(gy - hh - 0.5), span * 2 + 4, 0.5);
+  });
+  part(ctx, (c) => {
+    // stockfish hung in pairs: grey-gold bodies, tails up, dark heads down
+    for (let k = 0; k < 9; k++) {
+      const fx = x - span + 2 * s + k * (span * 2 - 4 * s) / 8, len = (7 + hash(sd, k) * 3) * s, top = gy - hh + 0.8;
+      for (const off of [-0.7, 0.7]) {
+        c.fillStyle = k % 3 === 1 ? "#a89474" : "#b8a682"; c.fillRect(ap(fx + off * s - 0.6), top, 1.3 * s, len);
+        c.fillStyle = "#d8c8a0"; c.fillRect(ap(fx + off * s - 0.6), top, 0.5, len);
+        c.fillStyle = "#5e5246"; c.fillRect(ap(fx + off * s - 0.6), top + len - 1.2 * s, 1.3 * s, 1.2 * s);
+      }
+    }
+    c.fillStyle = SNOW; c.fillRect(x - span - 2, ap(gy - hh - 1.2), span * 2 + 4, 0.8);
+  });
+  groundDrift(ctx, x - span, gy + 0.5, 4 * s, sd);
+};
+
+// ---- frozen waterfall / ice crag ------------------------------------------------------
+const rmicefall = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed, v = o.v % 2;
+  shadow(ctx, x + 7 * s, gy + 1.5, 20 * s, 4 * s, 0.32);
+  if (v === 0) {
+    // a black crag, a curtain of ice frozen down its south face into a pool
+    const w = 17 * s, h = 26 * s;
+    part(ctx, (c) => {
+      poly(c, [[x - w, gy], [x - w * 0.95, gy - h * 0.55], [x - w * 0.6, gy - h * 0.9], [x - w * 0.1, gy - h], [x + w * 0.45, gy - h * 0.86], [x + w * 0.9, gy - h * 0.5], [x + w, gy]]);
+      c.fillStyle = lin(c, x - w, 0, x + w, 0, [[0, ROCK[4]], [0.45, ROCK[2]], [1, ROCK[1]]]); c.fill();
+      c.save(); c.clip();
+      c.fillStyle = ROCK[0]; for (let k = 0; k < 5; k++) { const cx = x - w * 0.8 + k * w * 0.4; for (let t = 0; t < h * 0.7; t += 0.5) px1(c, cx + Math.sin(t * 0.4 + k) * 1.2, gy - t); }
+      snowCap(c, [[x - w * 0.98, gy - h * 0.56], [x - w * 0.6, gy - h * 0.92], [x - w * 0.1, gy - h * 1.02], [x + w * 0.45, gy - h * 0.88], [x + w * 0.9, gy - h * 0.52], [x + w * 0.4, gy - h * 0.74], [x - w * 0.2, gy - h * 0.8], [x - w * 0.7, gy - h * 0.6]]);
+      c.restore();
+    });
+    part(ctx, (c) => {
+      // the ice curtain: columns of blue ice, lit edges, icicle tips
+      const top = gy - h * 0.78;
+      for (let k = 0; k < 9; k++) {
+        const cx = x - 6 * s + k * 1.5 * s, len = h * 0.78 - hash(sd, k) * 3 * s, wd = (1.3 + hash(sd, k + 9)) * s;
+        c.fillStyle = k % 3 === 0 ? ICE[3] : ICE[2]; c.fillRect(ap(cx), top + hash(sd, k + 3) * 2, wd, len);
+        c.fillStyle = ICE[4]; c.fillRect(ap(cx), top + 2, 0.5, len * 0.8);
+        c.fillStyle = ICE[1]; c.fillRect(ap(cx + wd - 0.5), top + 3, 0.5, len * 0.7);
+      }
+      c.fillStyle = ICE[3]; ellipse(c, x, gy, 9 * s, 2.4 * s); c.fill();
+      c.fillStyle = ICE[4]; c.fillRect(ap(x - 6 * s), ap(gy - 1), 5 * s, 0.5);
+      c.fillStyle = ICE[1]; c.fillRect(ap(x + 2 * s), ap(gy + 1), 5 * s, 0.5);
+    });
+  } else {
+    // an ice crag: seracs of blue ice, snow on their tops, dark cracks
+    const spires = [[-9, 14, 4.5], [-2, 22, 5.5], [6, 17, 5], [12, 10, 4]];
+    spires.forEach(([dx, hh, wd], i) => part(ctx, (c) => {
+      const cx = x + dx * s, h = hh * s * (0.9 + hash(sd, i) * 0.2), w = wd * s;
+      poly(c, [[cx - w, gy], [cx - w * 0.8, gy - h * 0.7], [cx - w * 0.2, gy - h], [cx + w * 0.5, gy - h * 0.88], [cx + w, gy - h * 0.3], [cx + w, gy]]);
+      c.fillStyle = lin(c, cx - w, 0, cx + w, 0, [[0, ICE[4]], [0.35, ICE[3]], [0.7, ICE[2]], [1, ICE[1]]]); c.fill();
+      c.save(); c.clip();
+      c.fillStyle = ICE[0]; for (let t = 0; t < h * 0.6; t += 0.5) px1(c, cx + Math.sin(t * 0.5 + i) * w * 0.3, gy - t * 1.2);
+      snowCap(c, [[cx - w * 0.85, gy - h * 0.7], [cx - w * 0.2, gy - h * 1.02], [cx + w * 0.55, gy - h * 0.9], [cx + w * 0.2, gy - h * 0.78], [cx - w * 0.4, gy - h * 0.7]]);
+      c.restore();
+    }));
+  }
+  groundDrift(ctx, x - 14 * s, gy + 1, 6 * s, sd);
+};
+
+// ---- a seal colony on a shore rock ------------------------------------------------
+const seal = (c, x, y, s, dir, sd, up) => {
+  const L = 4.6 * s;
+  c.fillStyle = SEAL_DK; ellipse(c, x + 0.4, y + 0.4, L, 1.8 * s); c.fill();
+  c.fillStyle = lin(c, 0, y - 2 * s, 0, y + 1.5 * s, [[0, SEAL_LT], [0.6, SEAL], [1, SEAL_DK]]); ellipse(c, x, y, L, 1.7 * s); c.fill();
+  // head (raised or down), flippers, mottling
+  const hx = x + dir * L * 0.9, hy = y - (up ? 2.2 : 0.8) * s;
+  c.fillStyle = SEAL; ellipse(c, hx, hy, 1.5 * s, 1.3 * s); c.fill();
+  c.fillStyle = "#1a1618"; px1(c, hx + dir * 0.6 * s, hy - 0.3 * s); px1(c, hx + dir * 1.3 * s, hy + 0.3 * s);
+  c.fillStyle = SEAL_DK; px1(c, x - dir * L, y - 0.6 * s, 1.5, 1); px1(c, x - dir * (L + 0.8 * s), y + 0.2 * s, 1.5, 1);
+  c.fillStyle = SEAL_LT; for (let k = 0; k < 3; k++) px1(c, x + (hash(sd, k) - 0.5) * L, y - 1 * s + hash(sd, k + 3) * 1.2, 0.5, 0.5);
+};
+const rmsealrock = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed, w = 16 * s, h = 7 * s;
+  shadow(ctx, x + 4 * s, gy + 1, w * 1.1, 3.4 * s, 0.32);
+  blackRock(ctx, x, gy, w, h, sd, 2, 0);
+  part(ctx, (c) => {
+    c.fillStyle = SNOW; ellipse(c, x - w * 0.6, gy - h * 0.5, w * 0.3, 1.5 * s); c.fill();
+    c.fillStyle = "#e8e4d8"; for (let k = 0; k < 7; k++) px1(c, x + (hash(sd, k + 20) - 0.5) * w * 1.4, gy - h * 0.4 - hash(sd, k + 30) * h * 0.4, 0.5, 0.5);
+  });
+  part(ctx, (c) => {
+    seal(c, x - 6 * s, gy - h * 0.62, s, 1, sd, true);
+    seal(c, x + 6 * s, gy - h * 0.48, s * 0.95, -1, sd + 1, false);
+    seal(c, x + 1 * s, gy - 1.6 * s, s * 0.9, 1, sd + 2, false);
+    if (o.v % 2) seal(c, x - 12 * s, gy - 1.2 * s, s * 0.75, -1, sd + 3, true);
+  });
+};
+
+// ---- a tussock of dead grass in its drift (flat: it carries its own underline)
+const rmtussock = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed;
+  ctx.fillStyle = SNOW_SH; ellipse(ctx, x + 2 * s, gy + 0.6, 7 * s, 1.8 * s); ctx.fill();
+  ctx.fillStyle = SNOW; ellipse(ctx, x, gy, 6 * s, 2 * s); ctx.fill();
+  const n = 9 + (o.v % 3) * 2;
+  for (let k = 0; k < n; k++) {
+    const bx = x + (hash(sd, k) - 0.5) * 9 * s, hh = (4 + hash(sd, k + 20) * 6) * s, lean = (0.4 + hash(sd, k + 40) * 1.4) * s;
+    ctx.strokeStyle = STRAW[k % 4]; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(ap(bx), gy - 0.5); ctx.quadraticCurveTo(bx, gy - hh * 0.6, bx + lean * 2, gy - hh); ctx.stroke();
+  }
+  ctx.fillStyle = STRAW[0]; ctx.fillRect(ap(x - 3 * s), ap(gy - 0.5), 6 * s, 0.5);
+  ctx.fillStyle = SNOW_LT; ctx.fillRect(ap(x - 4 * s), ap(gy - 1), 3 * s, 0.5);
+};
+
+// ---- the longhouse (live: its smoke) ------------------------------------------------
+// Long and low: drystone-and-turf walls, a turf roof heavy with snow (the turf
+// shows only at the eaves, straw hanging from it), the gable boards crossed
+// over each end of the ridge and carved into dragon heads (ochre, teal eyes),
+// a timber door with a teal lintel, a woodpile, smoke from the roof-hole.
+const BODIES = new Map();
+const longhouseBody = (s, v) => {
+  const key = `lh|${s}|${v}`;
+  let sp = BODIES.get(key);
+  if (sp) return sp;
+  const hw = Math.ceil(30 * s + 8), top = Math.ceil(38 * s + 8), bot = Math.ceil(12 + 6 * s);
+  const cv = bakeSprite(hw * 2, top + bot, (c) => {
+    const x = hw, gy = top + 8, L = 23 * s, dir = v % 2 ? -1 : 1;
+    shadow(c, x + 6 * s, gy + 1.5, L * 1.2, 4.5 * s, 0.32);
+    // the walls: a low south face of stone courses under turf
+    part(c, (cc) => {
+      poly(cc, [[x - L, gy], [x - L - 0.5, gy - 6 * s], [x + L + 0.5, gy - 6 * s], [x + L, gy]]);
+      cc.fillStyle = "#6a6660"; cc.fill(); cc.save(); cc.clip();
+      for (let r = 0; r < 3; r++) for (let k = 0; k < 14; k++) {
+        const sx = x - L + (k + (r % 2) * 0.5) * (L * 2 / 13), sy = gy - 1.8 * s - r * 1.9 * s;
+        cc.fillStyle = hash(k, r + 3) < 0.5 ? "#7e7a72" : "#5e5a56"; cc.fillRect(ap(sx), ap(sy), L * 2 / 13 - 0.5, 1.4 * s);
+        cc.fillStyle = "#948e84"; cc.fillRect(ap(sx), ap(sy), L * 2 / 13 - 1, 0.5);
+      }
+      cc.fillStyle = rgba("#2a1c2c", 0.25); cc.fillRect(x - L, gy - 6 * s, L * 2, 1.2);
+      cc.restore();
+    });
+    // the door, near one end
+    const dx = x - dir * L * 0.55;
+    part(c, (cc) => {
+      cc.fillStyle = WOOD_DK; cc.fillRect(ap(dx - 3 * s), ap(gy - 6.5 * s), 6 * s, 6.5 * s);
+      cc.fillStyle = "#1a1416"; cc.fillRect(ap(dx - 2 * s), ap(gy - 5.2 * s), 4 * s, 5.2 * s);
+      cc.fillStyle = WOOD; cc.fillRect(ap(dx - 1.6 * s), ap(gy - 4.8 * s), 3.2 * s, 4.8 * s);
+      cc.fillStyle = WOOD_LT; cc.fillRect(ap(dx - 1.6 * s), ap(gy - 4.8 * s), 0.5, 4.8 * s);
+      cc.fillStyle = TEAL; cc.fillRect(ap(dx - 3.2 * s), ap(gy - 7 * s), 6.4 * s, 1.2 * s); cc.fillStyle = TEAL_LT; cc.fillRect(ap(dx - 3.2 * s), ap(gy - 7 * s), 6.4 * s, 0.5);
+      cc.fillStyle = OCHRE; px1(cc, dx - 0.5, gy - 6.9 * s, 1, 1);
+    });
+    // the roof: turf, the snow on it, the eave's fringe, the north slope's sliver
+    const eave = (u) => gy - 6 * s + Math.pow(Math.abs(u), 4) * 0.8 * s;
+    const ridge = (u) => gy - 25 * s + u * u * 2.5 * s;
+    const R0 = -0.86, R1 = 0.86;
+    part(c, (cc) => {
+      cc.beginPath();
+      cc.moveTo(x - L - 1.5 * s, eave(-1) + 0.5);
+      for (let k = 0; k <= 20; k++) { const u = R0 + (R1 - R0) * k / 20; cc.lineTo(x + u * L, ridge(u) - 2.6 * s); }
+      cc.lineTo(x + L + 1.5 * s, eave(1) + 0.5);
+      cc.closePath();
+      cc.fillStyle = TURF; cc.fill(); cc.save(); cc.clip();
+      // snow over most of it: lit on the west, blue to the east, ridged along the slope
+      cc.beginPath();
+      cc.moveTo(x - L - 1, eave(-1) - 2.2 * s);
+      for (let k = 0; k <= 20; k++) { const u = R0 + (R1 - R0) * k / 20; cc.lineTo(x + u * L, ridge(u) - 3 * s); }
+      cc.lineTo(x + L + 1, eave(1) - 2.2 * s);
+      for (let k = 20; k >= 0; k--) { const u = -1 + 2 * k / 20; cc.lineTo(x + u * L * 1.02, eave(u) - 2 * s - Math.sin(k * 1.9) * 0.6 * s); }
+      cc.closePath();
+      cc.fillStyle = lin(cc, x - L, 0, x + L, 0, [[0, SNOW_LT], [0.35, SNOW], [0.8, "#d4e0ea"], [1, SNOW_SH]]); cc.fill();
+      // the snow's slope lines and the ridge's crest
+      cc.fillStyle = SNOW_SH;
+      for (let k = 0; k < 7; k++) { const u = -0.8 + k * 0.27; for (let t = 0.2; t < 0.85; t += 0.08) px1(cc, x + u * L + t * 2, ridge(u) + (eave(u) - ridge(u)) * t); }
+      cc.fillStyle = "#fffaf0"; for (let k = 0; k <= 30; k++) { const u = -0.85 + k * 0.056; px1(cc, x + u * L, ridge(u) - 2.6 * s, 1, 0.5); }
+      // the turf eave: green-brown, straw hanging
+      cc.fillStyle = TURF_DK; cc.fillRect(x - L - 2, eave(0) - 1.6 * s, L * 2 + 4, 2 * s);
+      cc.fillStyle = TURF_LT; for (let k = 0; k < 40; k++) px1(cc, x - L + k * L / 20, eave(0) - 2 * s + hash(k, 5), 1, 0.5);
+      cc.restore();
+      cc.fillStyle = STRAW[1]; for (let k = 0; k < 30; k++) { const ex = x - L + k * L / 15 + hash(k, 2); px1(cc, ex, eave(0) + 0.3, 0.5, 0.8 + hash(k, 9) * 1.4); }
+    });
+    // the smoke-hole: a little louvred hood on the ridge
+    part(c, (cc) => {
+      const hx = x + dir * L * 0.15, hy = ridge(0.15) - 3.5 * s;
+      cc.fillStyle = WOOD_DK; cc.fillRect(ap(hx - 2.5 * s), ap(hy - 2 * s), 5 * s, 2.5 * s);
+      cc.fillStyle = WOOD; cc.fillRect(ap(hx - 2.5 * s), ap(hy - 2 * s), 5 * s, 0.8);
+      cc.fillStyle = SNOW; cc.fillRect(ap(hx - 3 * s), ap(hy - 2.6 * s), 6 * s, 0.8);
+    });
+    // the gables: barge boards crossed above each ridge end, carved into dragon heads
+    for (const e of [-1, 1]) part(c, (cc) => {
+      const gx = x + e * L * 0.88, gyR = ridge(e * 0.86) - 2.6 * s;
+      cc.lineCap = "round"; cc.lineWidth = 1.4 * s;
+      for (const side of [-1, 1]) {
+        cc.strokeStyle = WOOD_DK; cc.beginPath(); cc.moveTo(gx + side * 3.5 * s, gyR + 7 * s); cc.lineTo(gx - side * 2.5 * s, gyR - 5 * s); cc.stroke();
+        // the head at the board's top end, snout out, ochre
+        const hx = gx - side * 2.5 * s, hy = gyR - 5 * s;
+        cc.fillStyle = OCHRE; poly(cc, [[hx, hy - 1 * s], [hx - side * 3 * s, hy - 0.3 * s], [hx - side * 2.6 * s, hy + 1 * s], [hx + side * 0.4 * s, hy + 1 * s]]); cc.fill();
+        cc.fillStyle = OCHRE_LT; px1(cc, Math.min(hx, hx - side * 2.6 * s), hy - 0.8 * s, 2.4 * s, 0.5);
+        cc.fillStyle = TEAL_LT; px1(cc, hx - side * 1.2 * s, hy - 0.5 * s);
+      }
+    });
+    // the woodpile at the far end, snow on it
+    part(c, (cc) => {
+      const wx = x + dir * (L + 3 * s);
+      for (let r = 0; r < 3; r++) for (let k = 0; k < 3 - (r === 2 ? 1 : 0); k++) {
+        const lx = wx + (k - 1) * 2.2 * s + (r % 2) * 1.1 * s, ly = gy - 1.2 * s - r * 2 * s;
+        cc.fillStyle = WOOD; ellipse(cc, lx, ly, 1.1 * s, 1.1 * s); cc.fill(); cc.fillStyle = "#c4a070"; px1(cc, lx - 0.5, ly - 0.5, 1, 1);
+      }
+      cc.fillStyle = SNOW; cc.fillRect(ap(wx - 3 * s), ap(gy - 6.4 * s), 6 * s, 1);
+    });
+    groundDrift(c, x - L - 1, gy + 0.5, 5 * s, 3);
+  });
+  sp = { cv, hw, top, bot, smoke: [hw + (v % 2 ? -1 : 1) * 23 * s * 0.15, top + 8 - 25 * s - 6 * s] };
+  BODIES.set(key, sp);
+  return sp;
+};
+// smoke: puffs rising from a point, leaning downwind, fading; on the 2-unit grid
+const smokePuffs = (ctx, x, y, time, n = 6, col = "196,200,208", a0 = 0.5) => {
+  for (let k = 0; k < n; k++) {
+    const ph = (time * 0.22 + k / n) % 1, r = 1.2 + ph * 3.6;
+    const px = x + ph * 10 + Math.sin(time * 0.9 + k * 1.7) * 1.2, py = y - ph * 20;
+    ctx.fillStyle = `rgba(${col},${(a0 * (1 - ph)).toFixed(3)})`;
+    ellipse(ctx, ap(px), ap(py), ap(r) || 0.5, ap(r * 0.8) || 0.5); ctx.fill();
+  }
+};
+const rmlonghouse = (ctx, x, y, s, o) => {
+  if (typeof document === "undefined") return;
+  const ss = Math.round(s * 10) / 10, sp = longhouseBody(ss, o.v || 0);
+  ctx.drawImage(sp.cv, x - sp.hw, y - sp.top, sp.hw * 2, sp.top + sp.bot);
+  smokePuffs(ctx, x - sp.hw + sp.smoke[0], y - sp.top + sp.smoke[1], (o.time || 0) + (o.seed % 7));
+};
+
+// ============ THE GATE THE RAIDERS COME OUT OF ============
+// A glacier wall along the spawn edge, ~90 units either side of the road and
+// fading into the spruce wood beyond; the road comes out of a CLEFT cut
+// through it (flaring at its mouth, its floor in the north wall's cold
+// shadow), and a carved clan gate stands in the mouth: two posts, painted in
+// bands and topped with dragon heads looking out, a lintel hung with shields.
+// The ice is a height field in edge-local coordinates (e: depth in from the
+// board's edge, s: along it) rendered in the board's camera pixel by pixel —
+// ground far to near, each sample lifted by its height, steep drops filled as
+// faces — and baked once a board into two layers:
+//   far:  everything north of the road (left entry) or all of the ice (top
+//         entry), the cleft's shadow, the north gate post; drawn in the spawn
+//         layer, under the foes and the wood.
+//   near: the cleft's south wall (left entry) and the gate's lintel and
+//         posts; drawn by the "rmgate" v 9 piece, sorted south of the road,
+//         so the column walks under the lintel and behind the south wall.
+// Everything is worked out from the road (PTS) — the pieces' own x, y only
+// sort them and block halls, like the Iron camp's gatehouse.
+const G_HMAX = 26;
+const GEOM = { key: "" };
+const rimeGeom = () => {
+  const key = `${REALM.id}|${PTS[0]}|${PTS[1]}|${PTS.length}`;
+  if (GEOM.key === key) return GEOM;
+  const [x0, y0] = posAt(0), [x1, y1] = posAt(Math.min(60, TOTAL_LEN));
+  const left = x0 <= y0;
+  const e0 = left ? x0 : y0, s0 = left ? y0 : x0;
+  const de = left ? x1 - x0 : y1 - y0, ds = left ? y1 - y0 : x1 - x0;
+  const slope = de > 0.1 ? ds / de : 0;
+  const sd = (REALM.seed | 0) % 9973;
+  const sRoad = (e) => s0 + (e - e0) * slope;
+  const FD = left ? 46 : 44, SW = left ? 14 : 7;
+  const sR = sRoad(FD);
+  const foot = (s) => FD + (vn(s / 34, 1.5, sd) - 0.5) * 12 * sstep(30, 70, Math.abs(s - sR));
+  const amp = (s) => 1 - sstep(80, 165, Math.abs(s - sR));
+  const F0 = foot(sR);
+  const cw = (e) => PATH_HALF + 4 + 9 * sstep(F0 - SW - 8, F0 + 2, e);
+  const hgt = (e, s) => {
+    const a = amp(s);
+    if (a <= 0) return 0;
+    const F = foot(s) - (1 - a) * 30;
+    let h = G_HMAX * a * sstep(F, F - SW, e);
+    if (h <= 0) return 0;
+    h += G_HMAX * 0.28 * a * (vn(e / 8, s / 8, sd + 5) - 0.4) * sstep(F - SW, F - SW - 10, e);
+    const b = Math.abs(s - sRoad(e)) * Math.cos(Math.atan(slope)), c = cw(e);
+    return Math.max(0, h * sstep(c, c + 7, b));
+  };
+  Object.assign(GEOM, { key, left, e0, s0, slope, sRoad, FD, SW, sR, F0, cw, hgt, foot, amp, sd, far: null, near: null });
+  // the gate: posts either side of the road at the mouth
+  const eg = F0 - 3, sg = sRoad(eg), off = PATH_HALF + 3;
+  GEOM.gate = { eg, posts: [sg - off, sg + off] };
+  return GEOM;
+};
+const toBoard = (G, e, s) => (G.left ? [e, s] : [s, e]);
+export const rimeIceAt = (x, y) => { if (!PTS.length) return 0; const G = rimeGeom(); return G.left ? G.hgt(x, y) : G.hgt(y, x); };
+
+// a carved post: banded teal/ochre, a dragon head on top looking outward
+const gatePost = (c, x, gy, h, out, sd) => {
+  part(c, (cc) => {
+    cc.fillStyle = WOOD_DK; cc.fillRect(ap(x - 1.8), gy - h, 3.6, h);
+    cc.fillStyle = WOOD; cc.fillRect(ap(x - 1.8), gy - h, 1.4, h);
+    for (let k = 0; k < 4; k++) {
+      const by = gy - h * (0.22 + k * 0.17);
+      cc.fillStyle = k % 2 ? TEAL : OCHRE; cc.fillRect(ap(x - 1.8), ap(by), 3.6, 2);
+      cc.fillStyle = k % 2 ? TEAL_LT : OCHRE_LT; cc.fillRect(ap(x - 1.8), ap(by), 1.4, 2);
+      cc.fillStyle = WOOD_DK; px1(cc, x - 0.5, by + 0.5, 1, 1);
+    }
+    // frost on the windward edge, a drift at the foot
+    cc.fillStyle = FROST; cc.fillRect(ap(x - 1.8), gy - h * 0.9, 0.5, h * 0.6);
+    cc.fillStyle = SNOW; ellipse(cc, x - 0.5, gy, 3.5, 1.3); cc.fill();
+  });
+  part(c, (cc) => {
+    // the neck curling up and out, the head with an open jaw
+    const nx = x, ny = gy - h;
+    cc.lineCap = "round"; cc.lineWidth = 2.6; cc.strokeStyle = WOOD_DK;
+    cc.beginPath(); cc.moveTo(nx, ny + 1); cc.quadraticCurveTo(nx - out * 0.5, ny - 6, nx + out * 2.5, ny - 7.5); cc.stroke();
+    cc.lineWidth = 1; cc.strokeStyle = WOOD_LT; cc.beginPath(); cc.moveTo(nx - 0.6, ny); cc.quadraticCurveTo(nx - out * 0.9, ny - 5.6, nx + out * 2.2, ny - 8); cc.stroke();
+    const hx = nx + out * 2.5, hy = ny - 7.5;
+    cc.fillStyle = OCHRE_DK; poly(cc, [[hx - out * 1, hy - 1.8], [hx + out * 4.2, hy - 1], [hx + out * 4.4, hy + 0.2], [hx + out * 1.5, hy + 0.3], [hx + out * 3.8, hy + 1.6], [hx - out * 0.3, hy + 1.8]]); cc.fill();
+    cc.fillStyle = OCHRE_LT; cc.fillRect(ap(Math.min(hx, hx + out * 3.8)), ap(hy - 1.4), 3.6, 0.5);
+    cc.fillStyle = TEAL_LT; px1(cc, hx + out * 1.2, hy - 1, 1, 0.5);
+    cc.fillStyle = WOOD_DK; for (let q = 0; q < 3; q++) px1(cc, nx - out * (0.2 + q * 0.6), ny - 2.5 - q * 1.6, 1, 1);
+    cc.fillStyle = SNOW; cc.fillRect(ap(Math.min(hx - out, hx + out * 3)), ap(hy - 2.4), 3.4, 0.7);
+  });
+};
+const shield = (c, x, y, rx, ry, k) => {
+  c.fillStyle = k % 2 ? TEAL : OCHRE; ellipse(c, x, y, rx, ry); c.fill();
+  c.fillStyle = k % 2 ? TEAL_DK : OCHRE_DK; ellipse(c, x + rx * 0.25, y + ry * 0.25, rx * 0.7, ry * 0.7); c.fill();
+  c.fillStyle = k % 2 ? TEAL_LT : OCHRE_LT; ellipse(c, x - rx * 0.3, y - ry * 0.3, rx * 0.45, ry * 0.45); c.fill();
+  c.fillStyle = "#c4c8d0"; px1(c, x - 0.25, y - 0.25, 1, 1);
+  c.fillStyle = "#3a3438"; px1(c, x - rx, y, 0.5, 0.5); px1(c, x + rx - 0.5, y, 0.5, 0.5);
+};
+
+// bake the ice and the gate (once a board)
+const bakeRimeGate = () => {
+  const G = rimeGeom();
+  if (G.far) return G;
+  const left = G.left, smin = G.sR - 175, smax = G.sR + 175, emax = G.FD + 12;
+  const bx0 = left ? -2 : Math.max(-2, smin), by0 = left ? Math.max(-2, smin - G_HMAX - 6) : -2;
+  const bx1 = left ? emax + 4 : Math.min(W, smax), by1 = left ? Math.min(H + 2, smax + 4) : emax + 4;
+  const w = bx1 - bx0, h = by1 - by0, PW = Math.ceil(w * PX), PH = Math.ceil(h * PX);
+  const mk = () => { const cv = document.createElement("canvas"); cv.width = PW; cv.height = PH; return cv; };
+  const far = mk(), near = mk();
+  const fi = far.getContext("2d").createImageData(PW, PH), ni = near.getContext("2d").createImageData(PW, PH);
+  const IC = ICE.map(hexRGB), RK = ROCK.map(hexRGB);
+  const SN = [hexRGB("#a8bccc"), hexRGB("#c4d4e0"), hexRGB("#dce8ee"), hexRGB("#eef4f6"), hexRGB("#fbfdfd")];
+  const sd = G.sd;
+  const put = (img, px, py, c, a = 255) => {
+    if (px < 0 || py < 0 || px >= PW || py >= PH) return;
+    const o = (py * PW + px) << 2, D = img.data;
+    if (a < 255 && D[o + 3]) return;
+    D[o] = c[0]; D[o + 1] = c[1]; D[o + 2] = c[2]; D[o + 3] = a;
+  };
+  const step = 0.5;
+  // for each screen column: ground samples far (north) to near (south)
+  for (let px = 0; px < PW; px++) {
+    const bx = bx0 + (px + 0.5) / PX;
+    let prevSy = -1e9, prevH = 0;
+    for (let gy = by0 - 2; gy <= by1 + G_HMAX; gy += step) {
+      const e = left ? bx : gy, s = left ? gy : bx;
+      const hh = G.hgt(e, s);
+      const sy = gy - hh, spy = Math.floor((sy - by0) * PX);
+      const nearSide = left && s > G.sRoad(e);
+      const img = nearSide ? ni : fi;
+      if (hh < 0.4) {
+        // the cleft's floor (the road) in the north wall's shadow, and the
+        // foot of the ice in its own
+        const inCleft = e < G.F0 + 2 && Math.abs(s - G.sRoad(e)) < G.cw(e) + 7 && G.amp(s) > 0.5;
+        const hn = left ? G.hgt(e - 3, s - 7) : G.hgt(e - 7, s - 3);
+        if ((inCleft && e < G.F0 - 1 + (hash(px, spy) - 0.5) * 3) || hn > 6) {
+          for (let q = Math.max(spy, Math.floor((prevSy - by0) * PX) + 1); q <= spy + 1; q++) put(fi, px, q, [40, 58, 92], 82);
+        }
+        prevSy = sy; prevH = hh;
+        continue;
+      }
+      // the surface's slope and light
+      const hx = (G.hgt(e + (left ? 1 : 0), s + (left ? 0 : 1)) - G.hgt(e - (left ? 1 : 0), s - (left ? 0 : 1))) / 2;
+      const hy = (G.hgt(e + (left ? 0 : 1), s + (left ? 1 : 0)) - G.hgt(e - (left ? 0 : 1), s - (left ? 1 : 0))) / 2;
+      // (hx, hy) in board axes
+      const gxB = left ? hx : hy, gyB = left ? hy : hx;
+      const sl = Math.hypot(gxB, gyB);
+      const lit = (gxB * 0.42 + gyB * 0.58) / Math.max(0.25, sl) * Math.min(1, sl * 1.5) - (gyB < 0 ? Math.min(0.5, -gyB * 0.2) : 0);
+      const dz = hash(px, Math.floor(gy * 2) + sd) - 0.5;
+      let col;
+      if (sl < 0.55) {
+        // the top: snow, ridged by the wind, lit toward the sun
+        const t = 2.4 + lit * 1.6 + dz * 0.8 + (vn(e / 5, s / 9, sd + 9) - 0.5) * 1.2;
+        col = SN[Math.max(1, Math.min(4, Math.round(t)))];
+      } else {
+        // a face: blue ice in vertical streaks, black rock showing through,
+        // snow lying on its ledges, a white lip and icicles where it breaks
+        const streak = hash(px >> 1, 77 + sd) * 0.8 + hash(px, 13) * 0.4;
+        let t = 2 + lit * 1.8 + (streak - 0.6) * 1.2;
+        const rocky = vn(s / 11, e / 5 + gy / 9, sd + 3) > 0.68 && sl > 1.4;
+        if (rocky) col = RK[Math.max(1, Math.min(5, Math.round(2.5 + lit * 2 + dz)))];
+        else col = IC[Math.max(0, Math.min(4, Math.round(t)))];
+        if (prevH - hh > 1.6 && prevH > G_HMAX * 0.5 && hash(px, 5) < 0.75) col = SN[3];        // the lip
+      }
+      // fill the run this sample covers: a drop is a face, painted down to here
+      const p0 = Math.floor((prevSy - by0) * PX);
+      if (spy > p0 + 1 && prevSy > -1e8) {
+        for (let q = p0 + 1; q <= spy; q++) {
+          const f = (q - p0) / (spy - p0);
+          // icicles hanging under a lip; the face darkening toward its foot
+          let c2 = col;
+          if (sl >= 0.55 && !RK.includes(col)) {
+            const k = Math.max(0, Math.min(4, Math.round(2 + lit * 1.8 + (hash(px >> 1, 77 + sd) - 0.5) - f * 1.2)));
+            c2 = IC[k];
+            if (f < 0.35 && hash(px, 91 + sd) < 0.4 && q - p0 < 2 + hash(px, 3) * 7) c2 = IC[4];
+          }
+          put(img, px, q, c2);
+        }
+      } else put(img, px, spy, col);
+      prevSy = sy; prevH = hh;
+    }
+  }
+  far.getContext("2d").putImageData(fi, 0, 0);
+  near.getContext("2d").putImageData(ni, 0, 0);
+  inkOutline(far, INK, 1, "under"); inkOutline(near, INK, 1, "under");
+  // the gate
+  const { eg, posts } = G.gate, PH_ = 30;
+  const draw = (cv, fn) => { const c = cv.getContext("2d"); c.save(); c.imageSmoothingEnabled = false; c.scale(PX, PX); c.translate(-bx0, -by0); fn(c); c.restore(); };
+  const [pnx, pny] = toBoard(G, eg, posts[0]), [psx, psy] = toBoard(G, eg, posts[1]);
+  const gate = (c) => {
+    if (left) {
+      // the lintel runs north-south over the road: its top and its east face
+      const top = pny - PH_, bot = psy - PH_;
+      c.fillStyle = WOOD_DK; c.fillRect(ap(pnx - 1.5), ap(top - 2), 4.5, bot - top + 3);
+      c.fillStyle = WOOD; c.fillRect(ap(pnx - 1.5), ap(top - 2), 2, bot - top + 3);
+      c.fillStyle = SNOW; c.fillRect(ap(pnx - 1.5), ap(top - 2.5), 1.5, bot - top + 3);
+      for (let k = 0; k < 5; k++) shield(c, pnx + 3.2, top + 6 + k * (bot - top - 8) / 4, 1.6, 2.6, k);
+    } else {
+      const top = pny - PH_, lx = Math.min(pnx, psx), rx = Math.max(pnx, psx);
+      c.fillStyle = WOOD_DK; c.fillRect(lx - 2, ap(top - 2.5), rx - lx + 4, 4);
+      c.fillStyle = WOOD; c.fillRect(lx - 2, ap(top - 2.5), rx - lx + 4, 1.2);
+      c.fillStyle = SNOW; c.fillRect(lx - 2, ap(top - 3.2), rx - lx + 4, 1);
+      for (let k = 0; k < 5; k++) shield(c, lx + 6 + k * (rx - lx - 12) / 4, top + 3.5, 2.6, 2.4, k);
+      c.fillStyle = OCHRE; ellipse(c, (lx + rx) / 2, top - 0.5, 2.2, 1.6); c.fill();
+    }
+  };
+  if (left) {
+    draw(far, (c) => gatePost(c, pnx, pny, PH_, 1, sd));
+    draw(near, (c) => { gatePost(c, psx, psy, PH_, 1, sd + 1); part(c, gate); });
+  } else {
+    draw(near, (c) => { gatePost(c, pnx, pny, PH_, -1, sd); gatePost(c, psx, psy, PH_, 1, sd + 1); part(c, gate); });
+  }
+  G.far = far; G.near = near; G.box = [bx0, by0, w, h];
+  return G;
+};
+const drawGateFar = (ctx, time) => {
+  const G = bakeRimeGate(), [x, y, w, h] = G.box;
+  ctx.drawImage(G.far, x, y, w, h);
+  // spindrift blowing off the lip of the ice, downwind
+  for (let k = 0; k < 10; k++) {
+    const ph = (time * 0.35 + k * 0.137) % 1, u = hash(k, 3) * 300 - 150;
+    const [lx, ly] = toBoard(G, G.foot(G.sR + u) - G.SW - 2, G.sR + u);
+    if (G.amp(G.sR + u) < 0.4 || Math.abs(u) < G.cw(G.F0) + 4) continue;
+    ctx.fillStyle = `rgba(240,248,252,${(0.75 * (1 - ph)).toFixed(2)})`;
+    ctx.fillRect(ap(lx + ph * 22), ap(ly - G_HMAX + ph * 6 + Math.sin(time * 3 + k) * 1.5), 1, 0.5);
+  }
+};
+const drawGateNear = (ctx) => { const G = bakeRimeGate(), [x, y, w, h] = G.box; ctx.drawImage(G.near, x, y, w, h); };
+const GATE_NEAR_V = 9;
+const PIECES = { key: "", near: false };
+const hasNear = () => {
+  const key = `${REALM.id}|${PTS[0]}|${DECOR.length}`;
+  if (PIECES.key !== key) { PIECES.key = key; PIECES.near = DECOR.some((d) => d.t === "rmgate" && d.v === GATE_NEAR_V); }
+  return PIECES.near;
+};
+const rmgate = (ctx, x, y, s, o) => { if (PTS.length < 2 || typeof document === "undefined") return; if (o.v === GATE_NEAR_V) drawGateNear(ctx); };
+const rmice = () => {};
+// the edge wood round the gate: no tree on the ice, none hiding the mouth
+const rimeGateTree = (d) => {
+  if (!d.forest || PTS.length < 2) return 0;
+  const G = rimeGeom(), e = G.left ? d.x : d.y, s = G.left ? d.y : d.x;
+  if (G.hgt(e, s) > 0.5 || G.hgt(e + 6, s) > 0.5 || G.hgt(e, s - 6) > 0.5) return -1;
+  const sg = G.sRoad(G.gate.eg);
+  if (G.left) { if (Math.abs(d.x - G.gate.eg) < 22 && d.y > sg - PATH_HALF - 10 && d.y < sg + PATH_HALF + 52) return -1; }
+  else if (Math.abs(d.x - sg) < PATH_HALF + 18 && d.y < G.F0 + 52) return -1;
+  return 0;
+};
+
+// ============ WHAT STANDS IN THE WATER ============
+// Ice floes, small bergs, skerries and seal rocks, drawn flat over the water
+// (with the gate's layer, before anything stands): each baked once with its
+// waterline — an underwater skirt in pale teal, the waterline lapped, a dark
+// reflection — and a live lap of foam round it. REALM.rimeFloes lists them
+// (grid px, on the waterline); a board with sea or meres and no list gets a
+// few sown, clear of the road and the beach.
+const FLOES = { key: "", list: [] };
+const floeList = () => {
+  const key = `${REALM.id}|${PONDS.length}|${COAST ? COAST.edge : ""}`;
+  if (FLOES.key === key) return FLOES.list;
+  FLOES.key = key;
+  let list = [];
+  if (Array.isArray(REALM.rimeFloes)) list = REALM.rimeFloes.map((f) => ({ ...f, x: f.x + MX, y: f.y + MY }));
+  else if (REALM.rimeFloes !== false) {
+    const rng = mulberry((REALM.seed ^ 0xf10e) >>> 0);
+    const ok = (x, y, r) => nearestOnPath(x, y).d > PATH_HALF + 16 + r && x > 10 && x < W - 110 && y > 10 && y < H - 6 && !list.some((f) => Math.hypot(f.x - x, f.y - y) < 34);
+    if (COAST) {
+      const kinds = ["floe", "floe", "berg", "floe", "skerry", "floe", "seals", "floe"];
+      for (let k = 0, n = 0; k < 400 && n < 7; k++) {
+        const x = rng() * W, y = rng() * H, dd = seaDepthAt(x, y);
+        if (dd < 24 || dd > 120 || !ok(x, y, 10)) continue;
+        list.push({ x, y, t: kinds[n % kinds.length], s: 0.8 + rng() * 0.45, v: (rng() * 4) | 0 }); n++;
+      }
+    }
+    for (const p of PONDS) {
+      if (p.t || p.w < 60) continue;
+      for (let k = 0, n = 0; k < 60 && n < (p.w > 110 ? 2 : 1); k++) {
+        const a = rng() * 6.28, r = rng() * 0.42, x = p.x + Math.cos(a) * p.w * r, y = p.y + Math.sin(a) * p.h * r;
+        if (!ok(x, y, 0)) continue;
+        list.push({ x, y, t: "floe", s: 0.6 + rng() * 0.3, v: (rng() * 4) | 0 }); n++;
+      }
+    }
+  }
+  FLOES.list = list.sort((a, b) => a.y - b.y);
+  return list;
+};
+const FLOE_SP = new Map();
+const floeSprite = (f) => {
+  const s = Math.round((f.s || 1) * 10) / 10, v = (f.v || 0) % 4, key = `${f.t}|${s}|${v}|${REALM.id}`;
+  let sp = FLOE_SP.get(key);
+  if (sp) return sp;
+  const wa = REALM.water || {}, deep = wa.deep || "#1f3a4a", edge = wa.edge || "#2c5266";
+  const hw = Math.ceil(24 * s), top = Math.ceil(26 * s), bot = Math.ceil(10 * s);
+  const cv = bakeSprite(hw * 2, top + bot, (c) => {
+    const x = hw, y = top, sd = v * 31 + s * 10;
+    const blob = (rx, ry, k) => { const pts = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, j = 1 + (hash(sd + k, i) - 0.5) * 0.4; pts.push([x + Math.cos(a) * rx * j, y + Math.sin(a) * ry * j]); } return pts; };
+    if (f.t === "floe") {
+      const rx = (8 + v * 1.5) * s, ry = rx * 0.42, th = 1.5 * s;
+      poly(c, blob(rx * 1.18, ry * 1.4, 1)); c.fillStyle = rgba(mix(edge, ICE[2], 0.45), 0.85); c.fill();      // the skirt underwater
+      const pts = blob(rx, ry, 2);
+      poly(c, pts.map(([px, py]) => [px, py + th])); c.fillStyle = ICE[1]; c.fill();                        // its side
+      poly(c, pts); c.fillStyle = lin(c, x - rx, y - ry, x + rx, y + ry, [[0, SNOW_LT], [0.5, SNOW], [1, "#c8d8e4"]]); c.fill();
+      c.fillStyle = ICE[2]; for (let i = 0; i < 6; i++) px1(c, x + (hash(sd, i) - 0.5) * rx * 1.2, y + (hash(sd, i + 9) - 0.5) * ry, 1.5, 0.5);
+      c.fillStyle = ICE[4]; c.fillRect(ap(x - rx * 0.7), ap(y + ry - 0.2), rx * 0.9, 0.5);
+    } else if (f.t === "berg") {
+      const rx = (9 + v) * s, hh = (12 + v * 2) * s;
+      c.fillStyle = rgba(mix(edge, ICE[2], 0.5), 0.85); ellipse(c, x, y + 1.5, rx * 1.3, 4 * s); c.fill();
+      c.fillStyle = rgba(deep, 0.7); c.fillRect(x - rx * 0.8, ap(y + 1), rx * 1.6, 2.5 * s);                 // its reflection's dark
+      const P = [[x - rx, y], [x - rx * 0.8, y - hh * 0.55], [x - rx * 0.35, y - hh], [x + rx * 0.2, y - hh * 0.8], [x + rx * 0.55, y - hh * 0.92], [x + rx, y - hh * 0.3], [x + rx * 0.9, y]];
+      poly(c, P); c.fillStyle = lin(c, x - rx, 0, x + rx, 0, [[0, ICE[4]], [0.3, ICE[3]], [0.62, ICE[2]], [1, ICE[1]]]); c.fill();
+      c.save(); c.clip();
+      c.fillStyle = ICE[1]; for (let t = 0; t < hh * 0.7; t += 0.5) { px1(c, x - rx * 0.1 + Math.sin(t * 0.4) * 1.5, y - t); px1(c, x + rx * 0.5 + Math.sin(t * 0.5 + 2), y - t * 0.8); }
+      snowCap(c, [[x - rx * 0.85, y - hh * 0.55], [x - rx * 0.35, y - hh * 1.02], [x + rx * 0.2, y - hh * 0.82], [x + rx * 0.55, y - hh * 0.95], [x + rx * 0.8, y - hh * 0.55], [x + rx * 0.3, y - hh * 0.7], [x - rx * 0.4, y - hh * 0.72]]);
+      c.fillStyle = ICE[0]; c.fillRect(x - rx, ap(y - 1.2 * s), rx * 2, 1.2 * s);
+      c.restore();
+    } else {
+      // a skerry: black rock awash, gull-streaked; seals hauled out on it
+      const rx = 10 * s, ry = 5 * s;
+      c.fillStyle = rgba(mix(edge, "#5a6a70", 0.3), 0.8); ellipse(c, x, y + 1, rx * 1.25, ry * 0.9); c.fill();
+      blackRock(c, x, y + 1, rx, ry * 1.3, sd, 2, 0);
+      c.fillStyle = "#e8e4d8"; for (let i = 0; i < 6; i++) px1(c, x + (hash(sd, i + 20) - 0.5) * rx * 1.3, y - ry * 0.5 - hash(sd, i + 30) * ry * 0.5, 0.5, 0.5);
+      c.fillStyle = SNOW; ellipse(c, x - rx * 0.45, y - ry * 0.75, rx * 0.35, 1.2 * s); c.fill();
+      if (f.t === "seals") { seal(c, x - 3 * s, y - ry * 0.75, s * 0.9, 1, sd, true); seal(c, x + 4 * s, y - ry * 0.4, s * 0.85, -1, sd + 1, false); }
+    }
+  }, true);
+  sp = { cv, hw, top, bot };
+  FLOE_SP.set(key, sp);
+  return sp;
+};
+const drawFloes = (ctx, time) => {
+  if (typeof document === "undefined") return;
+  for (const f of floeList()) {
+    const sp = floeSprite(f), s = f.s || 1, ph = hash(Math.round(f.x), Math.round(f.y));
+    const bob = Math.round(Math.sin(time * 1.1 + ph * 6) * 0.6 * PX) / PX * (f.t === "floe" ? 1 : 0);
+    ctx.drawImage(sp.cv, f.x - sp.hw, f.y - sp.top + bob, sp.hw * 2, sp.top + sp.bot);
+    // the lap of foam round it
+    const rx = (f.t === "berg" ? 12 : f.t === "floe" ? 10 : 12) * s, ry = rx * 0.38;
+    ctx.fillStyle = "rgba(226,240,246,0.7)";
+    for (let k = 0; k < 14; k++) {
+      if ((k + Math.floor(time * 2 + ph * 9)) % 3 === 0) continue;
+      const a = k / 14 * Math.PI * 2 + time * 0.15, px = f.x + Math.cos(a) * rx * (1.05 + 0.08 * Math.sin(time * 2 + k)), py = f.y + 1.5 + Math.sin(a) * ry;
+      if (py < f.y) continue;
+      ctx.fillRect(ap(px), ap(py), 1.5, 0.5);
+    }
+  }
+};
+
+const drawRimeGate = (ctx, time) => {
+  drawFloes(ctx, time);
+  if (PTS.length < 2 || typeof document === "undefined") return;
+  drawGateFar(ctx, time);
+  if (!hasNear()) drawGateNear(ctx);
+};
+
+// ============ THE REGISTRY ============
+export const RIME_ART = {
+  // baked without the 2px ring: the tussock carries its own underline
+  flat: ["rmtussock", "rmice"],
+  decor: {
+    rmspruce, rmrock, rmcairn, rmrunestone, rmskaldstone, rmwhale, rmboat, rmlongship, rmrack,
+    rmicefall, rmsealrock, rmtussock, rmlonghouse, rmgate, rmice,
+  },
+  live: ["rmlonghouse", "rmgate", "rmice"],
+  box: {
+    rmspruce: [16, 50], rmrock: [18, 18], rmcairn: [12, 24], rmrunestone: [10, 26], rmskaldstone: [10, 36],
+    rmwhale: [30, 26], rmboat: [18, 12], rmlongship: [36, 28], rmrack: [20, 20], rmicefall: [24, 30],
+    rmsealrock: [22, 14], rmtussock: [10, 12],
+  },
+  dress: {},
+  spawn: { rimegate: drawRimeGate },
+  gateTree: { rimegate: rimeGateTree },
+  turf: { rime: rimeTurf },
+  road: { rime: rimeRoad },
+  // the country beyond the board (render/apron.js): no biome of its own (the
+  // frost biome is the Frostfang Pass's too), but its pieces may go out there
+  apron: {
+    landscape: ["rmspruce", "rmrock", "rmcairn", "rmicefall", "rmtussock"],
+    tall: ["rmspruce"],
+  },
+};
