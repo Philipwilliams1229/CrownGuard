@@ -125,7 +125,9 @@ export const armiesOf = (s) => (s.army === "all" ? Object.keys(FACTIONS).filter(
 export const typesOf = (s) => {
   const out = [];
   for (const id of armiesOf(s)) for (const t of FACTIONS[id].types) if (!out.includes(t)) out.push(t);
-  for (const [t, d] of Object.entries(ENEMIES)) if (armiesOf(s).includes(d.faction) && !out.includes(t)) out.push(t);
+  // (never a piece that only something else brings: the longship a landing
+  // sails in, the kraken's arms)
+  for (const [t, d] of Object.entries(ENEMIES)) if (armiesOf(s).includes(d.faction) && !d.ship && d.sea !== "arm" && !out.includes(t)) out.push(t);
   return out;
 };
 export const isBoss = (t) => !!ENEMIES[t]?.boss;

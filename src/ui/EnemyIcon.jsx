@@ -12,21 +12,24 @@ export default function EnemyIcon({ type, box = 26 }) {
   const ref = useRef(null);
   const rigged = hasRig(type);
   const spr = rigged ? null : SPRITES[type];
+  // a foe with neither a rig nor a pixel map yet draws an empty box, never a crash
+  const blank = !rigged && !spr?.frames;
   let w, h;
   if (rigged) { const b = rigDef(type).box; w = b.hw * 2; h = b.up + b.down; }
+  else if (blank) { w = h = box; }
   else { const map = spr.frames[0]; const px = spr.px || 2; w = map[0].length * px; h = map.length * px; }
   const scale = box / Math.max(w, h);
   const dens = rigged ? PX : 1;
 
   useEffect(() => {
     const c = ref.current;
-    if (!c) return;
+    if (!c || blank) return;
     const ctx = c.getContext("2d");
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, w * dens, h * dens);
     if (rigged) ctx.drawImage(rigFrame(type, "walk", 0).cv, 0, 0);
     else drawSprite(ctx, spr, spr.pal, 0, w / 2, h / 2, false);
-  }, [type, w, h, spr, rigged, dens]);
+  }, [type, w, h, spr, rigged, dens, blank]);
 
   return (
     <canvas
