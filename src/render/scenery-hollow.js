@@ -37,9 +37,10 @@
 
 import { lighten, darken, mix, rgba, soft, shadow, ball, glow, blade, tuft, stone, hash, lin, rad, blobPath, part, bakeSprite, inkOutline, roundRect, ellipse, PX, SUN } from "./paint.js";
 import { REALM } from "../data/maps.js";
-import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "../engine/path.js";
+import { PTS, SEGS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "../engine/path.js";
 import { PONDS, RIVERS, BRIDGES, FOREST, forestDepthAt, inRiver } from "../data/terrain.js";
-import { W, H, PATH_HALF, WALL_W, MX, MY } from "../data/constants.js";
+import { W, H, PATH_HALF, LANE_OFF, WALL_W, MX, MY } from "../data/constants.js";
+import { vnoise as cnoise, sstep } from "../data/gatecrag.js";
 
 export const HOLLOW_ART = { decor: {}, live: [], box: {}, dress: {}, spawn: {}, turf: {}, road: {} };
 // the landscape beyond the board (apron.js): the fen's own landmarks, sown
@@ -3145,152 +3146,648 @@ const drawRelics = (ctx, time) => {
   }
 };
 
-// ---- the gate: a great barrow ----------------------------------------
-// The dead come out of the ground. A long grassed mound at the road's
-// first yards, kerbed with stones; a doorway of three great slabs, skulls
-// set along its lintel and spirals cut in it; standing stones in a broken
-// ring about it. The still part is baked once per realm; the fog that
-// spills out down the road, the eyes in the dark, the candles by the door
-// and the witch-light in the spirals are live.
-const GATE = { key: "", cv: null, dark: null };
-const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const bakeGate = () => {
-  const key = `${REALM.id}|${PTS[0]}|${PTS.length}|${REALM.GRASS}`;
-  if (GATE.key === key) return GATE;
-  GATE.key = key;
-  const [px, py] = PTS[0], [qx, qy] = PTS[1] || PTS[0];
-  const L = Math.hypot(qx - px, qy - py) || 1, tx = (qx - px) / L, ty = (qy - py) / L;
-  // the doorway sits a little inside the edge, the whole mound on the board
-  // walk in along the road until the whole mound fits on the board, so the
-  // door stands on the road even where it comes in on a slant
-  let gx = px + tx * 30, gy = py + ty * 30;
-  for (let d = 30; d < 200; d += 2) {
-    const [x, y] = posAt(d);
-    gx = x; gy = y;
-    if (x >= 62 && y >= 48 && x <= W - WALL_W - 70 && y <= H - 30) break;
+// ---- the gate: the great barrow of the drowned kings ---------------------
+// The dead come out of the ground. The road runs into a long turf-roofed
+// barrow built into the board's edge — a heightfield, like the Greenwood's
+// crag, drawn column by column the way the camera sees it — its front cut
+// square into a forecourt walled with great standing slabs and drystone
+// between them. The passage's portal stands in the middle: two jambs and a
+// cracked lintel cut with spirals, its dark lit far back by witch-fire.
+// Kerbstones ring the mound's foot, two tall stones mark the forecourt's
+// horns, the causeway's sunken flags run out of the passage into the road,
+// and bones and grave-goods lie spilled on the threshold. The portal faces
+// down the road, turned toward the camera as the crag's mouth is, so a road
+// from the left edge, on a slant or from the top all come out of it.
+// The drowned wood stands round and over the mound: HOLLOW_ART.gateTree
+// (read by scenery.js drawTree) lifts the trees whose feet stand on it up
+// onto its turf, and drops those whose crowns would hide the portal.
+// Baked once per realm; live: the witch-light's breath, the eyes, the fog
+// creeping out of the passage, the corpse-candles at the jambs.
+const INK = "#241a26", BG_INK = hexC(INK), BG_SHADE = [28, 20, 30];
+const GEO = { key: "", g: null };
+const gateGeom = () => {
+  const key = `${REALM.id}|${PTS[0]}|${PTS.length}|${TOTAL_LEN}`;
+  if (GEO.key === key) return GEO.g;
+  GEO.key = key; GEO.g = null;
+  if (PTS.length < 2) return null;
+  const seed = (REALM.seed || 7) % 9973;
+  // the road's first stretch: which way it leaves the portal
+  const [ax, ay] = posAt(0), [bx, by] = posAt(40);
+  let dx = bx - ax, dy = by - ay;
+  const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+  // the face looks down the road, turned toward the camera (a road leaving
+  // along the screen turns it further, or the portal is seen edge-on)
+  const side = Math.abs(dx) > 0.6;
+  let nx = dx, ny = dy + Math.max(0.5, 1.1 * Math.abs(dx));
+  const nl = Math.hypot(nx, ny); nx /= nl; ny /= nl;
+  const tx = -ny, ty = nx;
+  const cosT = Math.max(0.5, nx * dx + ny * dy);
+  // the opening clears the outer lanes' marchers; the jambs stand at the
+  // road's edges
+  const HW = Math.round((LANE_OFF + 4) / cosT + 1);
+  const ZA = side ? 31 : 28, LT = 8, HM = ZA + LT + 25;
+  const RV = HW + 46, FW = HW + 22, CB = 28, CV = side ? 14 : 0;
+  // the forecourt's wall: straight across the portal, its wings curving
+  // forward into horns
+  const uF = (v) => { const k = Math.max(0, Math.abs(v) - HW * 0.7) / (FW - HW * 0.7); return 14 * k * k; };
+  let mx = ax, my = ay, d0 = 12;
+  const face = (s, z, du = 0) => { const u = uF(s) + du; return [mx + tx * s + nx * u, my + ty * s + ny * u - z]; };
+  // set the portal in until its lintel lies on the board
+  for (d0 = 14; d0 <= 72; d0 += 2) {
+    [mx, my] = posAt(d0);
+    let ok = true;
+    for (let s = -HW - 9; s <= HW + 9; s += 3) for (const z of [0, ZA + LT + 3]) { const [px, py] = face(s, z); if (px < 8 || py < 4 || px > W - WALL_W - 8) ok = false; }
+    if (ok) break;
   }
-  const mx = gx, my = gy - 15, rx = 56, ry = 30;
-  GATE.gx = gx; GATE.gy = gy; GATE.tx = tx; GATE.ty = ty;
-  const B = { x0: Math.floor(gx - 92), y0: Math.floor(gy - 96), w: 184, h: 164 };
-  GATE.bx = B.x0; GATE.by = B.y0; GATE.bw = B.w; GATE.bh = B.h;
-  const turf = mix(REALM.GRASS, "#56664a", 0.55);
-  const col = mix(STONE, "#96948a", 0.3);
-  // standing stones in a broken ring, off the road and on the board
-  const ring = [];
-  for (let i = 0; i < 11; i++) {
-    const a = Math.PI * 2 * (i / 11) + 0.2 + (hash(i, 7) - 0.5) * 0.25;
-    const sx = mx + Math.cos(a) * (rx + 12 + hash(i, 8) * 6), sy = my + Math.sin(a) * (ry + 13 + hash(i, 9) * 5);
-    if (nearestOnPath(sx, sy).d < PATH_HALF + 8 || sx < 8 || sy < 16 || sx > W - WALL_W - 10 || sy > H - 6) continue;
-    if (hash(i, 10) < 0.2) continue;
-    ring.push({ x: sx, y: sy, h: 14 + hash(i, 11) * 10, w: 3.4 + hash(i, 12) * 1.6, ln: (hash(i, 13) - 0.5) * 0.3, seed: i * 13 + 5, fallen: false });
+  // from the top, the portal steps down the road far enough that the mound
+  // behind it shows on the board, short of the road's first bend
+  if (!side) {
+    let bend = 40;
+    const a0 = Math.atan2(dy, dx);
+    while (bend < 200 && Math.abs(Math.atan2(Math.sin(angleAt(bend) - a0), Math.cos(angleAt(bend) - a0))) < 0.35) bend += 2;
+    while (my < 74 && d0 + 2 <= bend - 40) { d0 += 2; [mx, my] = posAt(d0); }
   }
-  const stoneAt = (c, st) => part(c, (cc) => {
-    if (st.fallen) {
-      standing(cc, [[st.x - st.h * 0.5, st.y + 1], [st.x - st.h * 0.5, st.y - st.w * 0.9], [st.x + st.h * 0.5, st.y - st.w], [st.x + st.h * 0.5, st.y + 1]], col, 2);
-      weather(cc, st.x, st.y + 1, st.h, st.w, st.seed, 1);
-      return;
+  // the road beyond the portal (the stretch before it runs inside the hill)
+  const after = SEGS.filter((sg) => sg.start + sg.len > d0 - 2 && sg.start < d0 + 420);
+  const roadD = (x, y) => {
+    let best = 1e9;
+    for (const sg of after) {
+      const vx = sg.x2 - sg.x1, vy = sg.y2 - sg.y1;
+      const t = Math.max(0, Math.min(1, ((x - sg.x1) * vx + (y - sg.y1) * vy) / (sg.len * sg.len)));
+      const ex = x - sg.x1 - vx * t, ey = y - sg.y1 - vy * t, d = ex * ex + ey * ey;
+      if (d < best) best = d;
     }
-    cc.save(); cc.translate(st.x, st.y); cc.rotate(st.ln);
-    standing(cc, [[-st.w, 0.5], [-st.w * 1.08, -st.h * 0.7], [-st.w * 0.6, -st.h], [st.w * 0.5, -st.h * 0.97], [st.w, -st.h * 0.62], [st.w * 0.95, 0.5]], col, 1.6);
-    weather(cc, 0, 0, st.w * 2, st.h, st.seed, 0.7);
+    return Math.sqrt(best);
+  };
+  const wet = (x, y, m = 6) => inRiver(x, y, m) || PONDS.some((p) => ((x - p.x) / (p.w / 2 + m + 2)) ** 2 + ((y - p.y) / (p.h / 2 + m + 2)) ** 2 < 1);
+  const NEARW = (x, y) => wet(x, y, 30);
+  const cutAt = (v) => uF(v) + 70 * sstep(FW - 4, FW + 16, Math.abs(v));
+  const hillAt = (x, y) => {
+    const rx = x - mx, ry = y - my;
+    const u = rx * nx + ry * ny, v = rx * tx + ry * ty, av = Math.abs(v);
+    if (u > cutAt(v)) return 0;
+    // a great round mound, its heart a way behind the portal
+    const w1 = cnoise(x / 15, y / 15, seed + 3) - 0.5;
+    const r = Math.hypot(u + CB, v + CV) / (RV + w1 * 12);
+    if (r >= 1) return 0;
+    let z = HM * Math.pow(1 - r * r, 0.72) + (cnoise(x / 10, y / 10, seed + 5) - 0.5) * 3.4 * (1 - r);
+    // beside the portal the mound stops at the road's edge in a turf bank
+    if (!(u < uF(v) + 0.5 && av < HW + 7)) z = Math.min(z, (roadD(x, y) - PATH_HALF - 1 + w1 * 4) * 2.4);
+    // and it eases down before water, never a sheer cut into a river or mere
+    if (z > 0 && NEARW(x, y)) { if (wet(x, y, 6)) return 0; z = Math.min(z, wet(x, y, 13) ? 3 : wet(x, y, 20) ? 9 : wet(x, y, 28) ? 18 : z); }
+    return Math.max(0, z);
+  };
+  // the forecourt wall's height along it (what the slabs stand against)
+  const wallH = (s) => { const [px, py] = face(s, 0, -1.2); return hillAt(px, py); };
+  const g = { seed, side, mx, my, nx, ny, tx, ty, dx, dy, cosT, HW, ZA, LT, HM, RV, FW, CB, CV, uF, cutAt, face, hillAt, roadD, wet, wallH, d0, trees: new Map() };
+  // where the portal and its wall stand on screen, column by column (for
+  // the wood: a crown over these must give way)
+  const cols = [];
+  for (let s = -FW - 4; s <= FW + 4; s += 3) {
+    const [fx, fy] = face(s, 0, 2);
+    const top = Math.abs(s) < HW + 10 ? ZA + LT + 3 : Math.max(8, wallH(s) + 4);
+    cols.push([fx, fy - top, fy + 6]);
+  }
+  g.cols = cols;
+  GEO.g = g;
+  return g;
+};
+
+// The wood round the barrow (scenery.js drawTree asks, per tree of the
+// edge wood): -1 drops it, a height lifts it onto the mound, 0 leaves it.
+const barrowTree = (d) => {
+  const G = gateGeom();
+  if (!G) return 0;
+  let m = G.trees.get(d);
+  if (m !== undefined) return m;
+  m = 0;
+  const z = G.hillAt(d.x, d.y), s = d.s || 1;
+  const slope = Math.abs(G.hillAt(d.x, d.y + 3) - G.hillAt(d.x, d.y - 3)) / 6 + Math.abs(G.hillAt(d.x + 3, d.y) - G.hillAt(d.x - 3, d.y)) / 6;
+  const rx = d.x - G.mx, ry = d.y - G.my, u = rx * G.nx + ry * G.ny, v = rx * G.tx + ry * G.ty;
+  const front = u > G.uF(v) - 3;
+  // a crown hanging over the portal or its wall, from in front of it; a
+  // trunk that would rise out of the stones, from behind
+  const cx0 = d.x - 15 * s, cx1 = d.x + 15 * s, cy0 = d.y - 54 * s - z, cy1 = d.y + 9 - z;
+  let hides = false;
+  for (const [cx, top, bot] of G.cols) {
+    if (cx < cx0 - 2 || cx > cx1 + 2) continue;
+    if (front ? cy1 > top && cy0 < bot : d.y - z > top - 2 && d.y - z < bot + 4) { hides = true; break; }
+  }
+  if (hides) m = -1;
+  // the forecourt stays open, and so does the threshold
+  else if (front && u < G.uF(v) + 46 && Math.abs(v) < G.FW + 12) m = -1;
+  // (on the turf a tree may stand on a slope; on the cut banks it can't)
+  else if (z > 2.5 && slope > 2.4) m = -1;
+  else if (z > 0.8) m = d.t === "reedbed" || d.t === "bogpool" ? -1 : z;
+  G.trees.set(d, m);
+  return m;
+};
+HOLLOW_ART.gateTree = { barrowgate: barrowTree };
+HOLLOW_ART.gateGeom = gateGeom;   // (for the lab pages and probes)
+
+// A great slab standing at (x, y) with its broad face turned to (fx, fy):
+// its face a rough outline in (across, up), pushed back by its thickness
+// so its top and one edge show, lit from the left; lichen and moss on it,
+// its foot wet and dark. `o.z0` raises it (a lintel on its jambs).
+const bgSlab = (c, x, y, fx, fy, w, h, dep, col, seed, o = {}) => {
+  const ax = -fy, ay = fx;                    // along the face
+  const z0 = o.z0 || 0, lean = o.lean || 0;
+  const j = (k) => (hash(seed, k) - 0.5);
+  const outline = o.flat
+    ? [[-w, 0], [-w - 0.4, h * 0.5 + j(1)], [-w * 0.92, h + j(2) * 0.8], [-w * 0.55, h + 0.4 + j(3) * 0.8], [-w * 0.3, h - 0.6 + j(14)], [-w * 0.05, h + 0.3 + j(15) * 0.6], [w * 0.3, h + j(16) * 0.8], [w * 0.62, h - 0.5 + j(4) * 0.8], [w * 0.85, h + 0.2], [w + 0.4, h * 0.55 + j(5)], [w, 0]]
+    : [[-w, 0], [-w * (1.05 + j(1) * 0.1), h * (0.55 + j(2) * 0.12)], [-w * (0.75 + j(3) * 0.2), h * (0.93 + j(4) * 0.06)], [w * (-0.15 + j(5) * 0.3), h], [w * (0.5 + j(6) * 0.2), h * (0.95 + j(7) * 0.05)], [w * (1.0 + j(8) * 0.08), h * (0.62 + j(9) * 0.14)], [w, 0]];
+  const P = outline.map(([a, z]) => [x + ax * (a + lean * z), y + ay * (a + lean * z) - z - z0]);
+  const ox = -fx * dep, oy = -fy * dep;
+  const B = P.map(([px, py]) => [px + ox, py + oy]);
+  const xs = P.concat(B).map((p) => p[0]), ys = P.concat(B).map((p) => p[1]);
+  const box = [Math.min(...xs) - 2, Math.min(...ys) - 2, Math.max(...xs) + 2, Math.max(...ys) + 2];
+  const top = lighten(col, 0.32), sideC = darken(col, 0.22);
+  inkPart(c, (cc) => {
+    poly(cc, B); cc.fillStyle = top; cc.fill();
+    for (let i = 0; i < P.length - 1; i++) {
+      const [p0, p1] = [P[i], P[i + 1]];
+      poly(cc, [p0, p1, [p1[0] + ox, p1[1] + oy], [p0[0] + ox, p0[1] + oy]]);
+      // edges along the top take the light; the ends are its sides
+      const ex = p1[0] - p0[0], ey = p1[1] - p0[1];
+      cc.fillStyle = Math.abs(ey) < Math.abs(ex) * 1.2 ? top : sideC;
+      cc.fill();
+    }
+    poly(cc, P);
+    if (o.even) { cc.fillStyle = lin(cc, 0, Math.min(...P.map((p) => p[1])), 0, Math.max(...P.map((p) => p[1])), [[0, lighten(col, 0.1)], [0.6, col], [1, darken(col, 0.24)]]); cc.fill(); }
+    else litFill(cc, Math.min(...P.map((p) => p[0])), Math.max(...P.map((p) => p[0])), col, 0.2, 0.36);
+    // weathering: the foot wet and dark, a crack, lichen, moss on the top
+    cc.save(); poly(cc, P); cc.clip();
+    cc.fillStyle = rgba(darken(col, 0.5), 0.55);
+    cc.fillRect(Math.min(...xs) - 1, Math.max(...P.map((p) => p[1])) - 1.6 - (o.z0 ? 99 : 0), w * 3 + 4, 2.2);
+    if (!o.noCrack && h > 7) {
+      cc.fillStyle = darken(col, 0.48);
+      let ca = j(11) * w * 1.1, cz = h * (0.35 + hash(seed, 12) * 0.4);
+      for (let k = 0; k < 5; k++) {
+        px1(cc, x + ax * ca, y + ay * ca - cz - z0, 0.5, 1);
+        ca += j(13 + k) * 1.4; cz -= 1;
+      }
+    }
+    cc.fillStyle = LICHEN;
+    for (let k = 0; k < Math.round(2 + w * h / 40); k++) {
+      const a = j(20 + k) * w * 1.5, z = h * (0.15 + hash(seed, 40 + k) * 0.7);
+      px1(cc, x + ax * a, y + ay * a - z - z0, hash(seed, 60 + k) < 0.5 ? 1 : 0.5, 0.5);
+    }
     cc.restore();
-  });
-  GATE.cv = bakeSprite(B.w, B.h, (c) => {
-    c.translate(-B.x0, -B.y0);
-    const behind = ring.filter((st) => st.y < my).sort((a, b) => a.y - b.y), front = ring.filter((st) => st.y >= my).sort((a, b) => a.y - b.y);
-    for (const st of ring) shadow(c, st.x + 4, st.y + 0.5, st.w * 2, 2, 0.28);
-    behind.forEach((st) => stoneAt(c, st));
-    // the mound: its shade thrown down-right, a turfed body lit from the
-    // upper left in three tones, and heather and sedge over its back
-    shadow(c, mx + 10, my + ry * 0.7, rx + 6, ry * 0.55, 0.34);
-    part(c, (cc) => {
-      blobPath(cc, mx, my, rx, ry, 91, 0.05, 16);
-      cc.fillStyle = darken(turf, 0.42); cc.fill();
-      cc.save(); blobPath(cc, mx, my, rx, ry, 91, 0.05, 16); cc.clip();
-      blobPath(cc, mx - rx * 0.06, my - ry * 0.12, rx * 0.96, ry * 0.88, 92, 0.06, 14); cc.fillStyle = darken(turf, 0.14); cc.fill();
-      blobPath(cc, mx - rx * 0.16, my - ry * 0.26, rx * 0.8, ry * 0.68, 93, 0.08, 14); cc.fillStyle = turf; cc.fill();
-      blobPath(cc, mx - rx * 0.32, my - ry * 0.46, rx * 0.5, ry * 0.38, 94, 0.14, 12); cc.fillStyle = lighten(turf, 0.2); cc.fill();
-      // grass lying over the mound's curve, in short strokes
-      for (let i = 0; i < 70; i++) {
-        const a = hash(i, 24) * Math.PI * 2, d = Math.sqrt(hash(i, 25)) * 0.92;
-        const hx = mx + Math.cos(a) * rx * d, hy = my + Math.sin(a) * ry * d;
-        const lit = -Math.cos(a) * d * 0.6 - Math.sin(a) * d * 0.8;
-        cc.fillStyle = lit > 0.2 ? lighten(turf, 0.32) : lit > -0.3 ? darken(turf, 0.2) : darken(turf, 0.45);
-        cc.fillRect(ap(hx), ap(hy), 0.5, 1.5);
+    if (o.moss !== false) {
+      cc.fillStyle = MOSS;
+      for (let k = 0; k < Math.round(w * 0.8); k++) {
+        const t = hash(seed, 80 + k) * (B.length - 1), i = Math.floor(t), f = t - i;
+        const px = B[i][0] + (B[i + 1][0] - B[i][0]) * f, py = B[i][1] + (B[i + 1][1] - B[i][1]) * f;
+        if (py > Math.min(...ys) + (h > 6 ? h * 0.5 : 99)) continue;
+        px1(cc, px, py + 0.5, 1, 0.5);
+        if (hash(seed, 90 + k) < 0.35) { cc.fillStyle = MOSS_LT; px1(cc, px, py, 0.5, 0.5); cc.fillStyle = MOSS; }
       }
-      // heather and rust moss over the crown
-      for (let i = 0; i < 40; i++) {
-        const a = hash(i, 20) * Math.PI * 2, d = Math.sqrt(hash(i, 21));
-        const hx = mx + Math.cos(a) * rx * d * 0.9, hy = my + Math.sin(a) * ry * d * 0.8;
-        const k = hash(i, 22);
-        cc.fillStyle = k < 0.3 ? "#5a4a5e" : k < 0.5 ? "#6a4a3a" : k < 0.75 ? lighten(turf, 0.26) : darken(turf, 0.2);
-        cc.fillRect(ap(hx), ap(hy), 1, 0.5);
+    }
+    if (o.after) o.after(cc, P, ax, ay);
+  }, INK, box, null);
+  return P;
+};
+
+// The bake: a pixel buffer for the mound (heightfield), then the stones,
+// the flags, the bones laid on as inked pieces.
+const GATE = { key: "", cv: null };
+const bakeGate = () => {
+  const key = `${REALM.id}|${PTS[0]}|${PTS.length}|${TOTAL_LEN}|${REALM.GRASS}`;
+  if (GATE.key === key) return GATE;
+  GATE.key = key; GATE.cv = null;
+  const G = gateGeom();
+  if (!G || typeof document === "undefined") return GATE;
+  const { seed, mx, my, nx, ny, tx, ty, HW, ZA, LT, HM, FW, uF, cutAt, face, hillAt, roadD, wallH } = G;
+  // ---- what the bake covers ----
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  const grow = (x, y, pad = 4) => { x0 = Math.min(x0, x - pad); y0 = Math.min(y0, y - pad); x1 = Math.max(x1, x + pad); y1 = Math.max(y1, y + pad); };
+  for (let y = my - 200; y <= my + 200; y += 4) for (let x = mx - 200; x <= mx + 200; x += 4) {
+    if (x < -10 || y < -10 || x > W - WALL_W || y > H + 10) continue;
+    const z = hillAt(x, y);
+    if (z > 0.2) { grow(x, y, 6); grow(x, y - z, 6); }
+  }
+  for (let s = -FW - 30; s <= FW + 30; s += 6) for (const du of [0, 50]) { const [fx, fy] = face(s, 0, du); grow(fx, fy, 8); const [gx, gy] = face(s, 34, 0); grow(gx, gy, 6); }
+  x0 = Math.floor(Math.max(0, x0)); y0 = Math.floor(Math.max(0, y0));
+  x1 = Math.ceil(Math.min(W - WALL_W, x1)); y1 = Math.ceil(Math.min(H, y1));
+  const w = x1 - x0, h = y1 - y0;
+  if (w <= 0 || h <= 0) return GATE;
+  const toFace = (x, y) => { const rx = x - mx, ry = y - my; return [rx * tx + ry * ty, rx * nx + ry * ny]; };   // [s, u] on the ground
+  const onGround = (s, u) => [mx + tx * s + nx * u, my + ty * s + ny * u];
+  // colours
+  const turf = mix(REALM.GRASS, "#5a6c42", 0.34);
+  const TURF = [lighten(turf, 0.22), lighten(turf, 0.09), turf, darken(turf, 0.2), darken(turf, 0.38)].map(hexC);
+  const HEATH = [mix(turf, "#7a5c74", 0.45), mix(turf, "#5c4660", 0.45), mix(darken(turf, 0.3), "#3e3446", 0.5)].map(hexC), RUST = [mix(turf, "#7a5a40", 0.5), mix(darken(turf, 0.2), "#5e4434", 0.5)].map(hexC);
+  const DRY = ["#6e6c60", "#64645a", "#5a5a52", "#4a4a44", "#34342f"].map(hexC);
+  const scol = mix(STONE, "#596056", 0.52);
+
+  GATE.cv = bakeSprite(w, h, (c) => {
+    c.translate(-x0, -y0);
+    // ---- the causeway's sunken flags, running out of the passage ----
+    const SL = SLAB.map((q) => lighten(`#${q.map((v) => v.toString(16).padStart(2, "0")).join("")}`, 0.12));
+    const rows = [[0.6, 6.4], [7.4, 13.6], [14.8, 20.4], [21.8, 26.6]];
+    rows.forEach(([ua, ub], r) => {
+      const lim = HW - 3 - r * 3;
+      let s = -lim + hash(r, seed + 1) * 4;
+      let k = 0;
+      while (s < lim - 3) {
+        const sw = 8 + hash(k, seed + r * 17) * 9, s1 = Math.min(lim, s + sw);
+        const keep = hash(k + 5, seed + r * 31) < 0.92 - r * 0.2;
+        if (keep && s1 - s > 3) {
+          const jj = (q) => (hash(k * 7 + q, seed + r * 13) - 0.5) * 1.2;
+          const Q = [onGround(s + 0.6 + jj(1), ua + jj(2) * 0.6), onGround(s1 - 0.6 + jj(3), ua + jj(4) * 0.6), onGround(s1 - 0.6 + jj(5), ub + jj(6) * 0.6), onGround(s + 0.6 + jj(7), ub + jj(8) * 0.6)];
+          const col = SL[Math.floor(hash(k, seed + r * 7 + 3) * SL.length)];
+          // a bed of black mud round it, then the stone, lit along its far
+          // edge and shaded along its near one
+          poly(c, Q.map(([qx, qy]) => [qx + 0.6, qy + 0.8])); c.fillStyle = mix(REALM.PATH_DK, "#2c3a34", 0.5); c.fill();
+          poly(c, Q); c.fillStyle = darken(col, 0.06 + r * 0.04); c.fill();
+          c.save(); poly(c, Q); c.clip();
+          const lit = Q.reduce((a, b) => (a[1] + a[0] * 0.6 < b[1] + b[0] * 0.6 ? a : b));
+          c.fillStyle = lighten(col, 0.18);
+          poly(c, [Q[0], Q[1], [Q[1][0] - nx * 1, Q[1][1] - ny * 1 + 1], [Q[0][0] - nx * 1, Q[0][1] - ny * 1 + 1]]); c.fill();
+          c.fillStyle = darken(col, 0.3);
+          poly(c, [Q[2], Q[3], [Q[3][0] - nx * 0.9, Q[3][1] - ny * 0.9 - 0.5], [Q[2][0] - nx * 0.9, Q[2][1] - ny * 0.9 - 0.5]]); c.fill();
+          if (hash(k, seed + r + 50) < 0.5) { c.fillStyle = "rgb(76,100,52)"; px1(c, lit[0] + 1.5, lit[1] + 1.5, 1.5, 0.5); }
+          if (hash(k, seed + r + 60) < 0.4) { c.fillStyle = darken(col, 0.4); const [qx, qy] = onGround((s + s1) / 2, (ua + ub) / 2); px1(c, qx - 1, qy, 2, 0.5); px1(c, qx + 0.5, qy + 0.5, 1.5, 0.5); }
+          c.restore();
+        }
+        s = s1 + 0.4 + hash(k, seed + 9) * 1.2; k++;
       }
-      cc.restore();
     });
-    for (const [ox, oy, hh, ln] of [[-0.62, -0.38, 17, -0.08], [0.6, -0.34, 14, 0.1], [-0.3, -0.72, 12, 0.02]]) {
-      stoneAt(c, { x: mx + ox * rx, y: my + oy * ry, h: hh, w: 3.8, ln, seed: Math.round(ox * 100), fallen: false });
-    }
-    for (let i = 0; i < 14; i++) {
-      const a = Math.PI * (1.05 + hash(i, 30) * 0.9), d = 0.3 + hash(i, 31) * 0.6;
-      sedge(c, mx + Math.cos(a) * rx * d, my + Math.sin(a) * ry * d + 2, 0.7 + hash(i, 32) * 0.3, i + 60, 4, "#5e6a42", "#9a9460");
-    }
-    // the kerb: a row of low stones along the mound's foot
-    for (let i = 0; i < 16; i++) {
-      const a = Math.PI * (0.02 + (i / 15) * 0.96);
-      const kx = mx + Math.cos(a) * rx * 0.99, ky = my + Math.sin(a) * ry * 0.96;
-      if (Math.abs(kx - gx) < 26) continue;
-      part(c, (cc) => standing(cc, [[kx - 3.2, ky + 1.5], [kx - 3, ky - 2.4], [kx + 2.8, ky - 2.6], [kx + 3.2, ky + 1.5]], darken(col, 0.05 + hash(i, 40) * 0.1), 1.2));
-    }
-    // the doorway: the passage's dark, then three great slabs
-    const dT = gy - 20, dB = gy + 14, dW = 16;
-    c.fillStyle = "#0a0c0c";
-    c.fillRect(gx - dW, dT, dW * 2, dB - dT);
-    for (let k = 0; k < 3; k++) { c.fillStyle = rgba("#1a2420", 0.9 - k * 0.3); c.fillRect(gx - dW, dB - 2 - k * 2, dW * 2, 2); }
-    for (const [sx, w] of [[-dW - 8, 8], [dW, 8]]) part(c, (cc) => {
-      standing(cc, [[gx + sx, dB + 1], [gx + sx - (sx < 0 ? 0.6 : -0.6), dT - 1], [gx + sx + w, dT - 1], [gx + sx + w + (sx < 0 ? 0.4 : -0.4), dB + 1]], col, 1);
-      cc.fillStyle = darken(col, 0.4); px1(cc, gx + sx + w - 2, dT + 4, 0.5, dB - dT - 8);
-      weather(cc, gx + sx + w / 2, dB, w, dB - dT, sx < 0 ? 3 : 4, 0.9);
-    });
-    part(c, (cc) => {
-      standing(cc, [[gx - dW - 11, dT + 1], [gx - dW - 10, dT - 8], [gx + dW + 10, dT - 8.6], [gx + dW + 11, dT + 1]], lighten(col, 0.04), 2.6);
-      // spirals cut along its face
-      cc.strokeStyle = darken(col, 0.48); cc.lineWidth = 0.6;
-      for (const ox of [-15, 0, 15]) {
-        cc.beginPath();
-        for (let a = 0; a < 10; a += 0.35) { const r = 0.32 * a; const sx = gx + ox + Math.cos(a) * r, sy = dT - 3.6 + Math.sin(a) * r * 0.75; a ? cc.lineTo(sx, sy) : cc.moveTo(sx, sy); }
-        cc.stroke();
-      }
-      cc.fillStyle = MOSS; px1(cc, gx - dW - 10, dT - 9, 4, 1); px1(cc, gx + 6, dT - 9.6, 3, 0.5);
-    });
-    // skulls set along the lintel
-    for (const ox of [-18, -7, 5, 17]) part(c, (cc) => skull(cc, gx + ox, dT - 12, 2.5));
-    front.forEach((st) => stoneAt(c, st));
-    // the threshold: bones scattered where the road leaves the door
-    for (let i = 0; i < 4; i++) {
-      const bx = gx + (hash(i, 50) - 0.5) * 44, by = dB + 3 + hash(i, 51) * 14;
-      if (hash(i, 52) < 0.4) part(c, (cc) => skull(cc, bx, by, 1.8));
-      else part(c, (cc) => longBone(cc, bx - 3, by, bx + 3, by + (hash(i, 53) - 0.5) * 3, 1));
-    }
-  });
-  // the dark spilling out of the door across the road, dithered
-  GATE.dark = bakeSprite(B.w, B.h, (c) => {
+
     const cv = c.canvas, PW = cv.width, PH = cv.height;
     const img = c.getImageData(0, 0, PW, PH), dd = img.data;
-    for (let yy = 0; yy < PH; yy++) for (let xx = 0; xx < PW; xx++) {
-      const x = B.x0 + xx / PX, y = B.y0 + yy / PX;
-      const ddx = (x - gx) / 30, ddy = (y - (gy + 12)) / 16;
-      const r = Math.hypot(ddx, ddy * (y < gy + 12 ? 2 : 1));
-      const a = Math.max(0, 1 - r) * (y > gy - 6 ? 1 : 0);
-      const lvl = Math.min(3, Math.floor(a * 3.4 + BAYER4[(yy & 3) * 4 + (xx & 3)] / 16));
-      if (lvl <= 0) continue;
-      const o = (yy * PW + xx) * 4;
-      dd[o] = 10; dd[o + 1] = 16; dd[o + 2] = 14; dd[o + 3] = [0, 60, 110, 160][lvl];
+    const put = (i, col, a = 255) => { const o = i * 4; dd[o] = col[0]; dd[o + 1] = col[1]; dd[o + 2] = col[2]; dd[o + 3] = a; };
+    const blend = (i, col, a) => {
+      const o = i * 4, a0 = dd[o + 3] / 255, k = a / 255, ao = k + a0 * (1 - k);
+      if (ao <= 0) return;
+      for (let q = 0; q < 3; q++) dd[o + q] = Math.round((col[q] * k + dd[o + q] * a0 * (1 - k)) / ao);
+      dd[o + 3] = Math.round(ao * 255);
+    };
+    const wx = (px) => x0 + (px + 0.5) / PX, wy = (py) => y0 + (py + 0.5) / PX;
+
+    // ---- the heightfield, an art pixel apart (sampled every 2 units) ----
+    const GX = PW, GYn = Math.ceil((h + HM + 14) * PX);
+    const Hg = new Float32Array(GX * GYn);
+    const STEP = 2, CX = Math.ceil(GX / PX / STEP) + 2, CY = Math.ceil(GYn / PX / STEP) + 2;
+    const Hc = new Float32Array(CX * CY);
+    for (let cy = 0; cy < CY; cy++) for (let cx = 0; cx < CX; cx++) Hc[cy * CX + cx] = hillAt(x0 + cx * STEP, y0 + cy * STEP);
+    let hmax = 0;
+    for (let gy = 0; gy < GYn; gy++) {
+      const fy = (gy + 0.5) / PX / STEP, cy = Math.floor(fy), ty2 = fy - cy;
+      for (let gx = 0; gx < GX; gx++) {
+        const fx = (gx + 0.5) / PX / STEP, cx = Math.floor(fx), tx2 = fx - cx;
+        const a = Hc[cy * CX + cx], b = Hc[cy * CX + cx + 1], c2 = Hc[(cy + 1) * CX + cx], d2 = Hc[(cy + 1) * CX + cx + 1];
+        // (the forecourt's cut stays sharp: no blur across it)
+        let z = (a * (1 - tx2) + b * tx2) * (1 - ty2) + (c2 * (1 - tx2) + d2 * tx2) * ty2;
+        if ((a === 0) + (b === 0) + (c2 === 0) + (d2 === 0) >= 1 && Math.max(a, b, c2, d2) > 6) z = hillAt(wx(gx), wy(gy));
+        Hg[gy * GX + gx] = z; if (z > hmax) hmax = z;
+      }
+    }
+    const Hs = (gx, gy) => Hg[Math.max(0, Math.min(GYn - 1, gy)) * GX + Math.max(0, Math.min(GX - 1, gx))];
+    const Lx = -0.391, Ly = -0.485, Lz = 0.782;
+    let LG = 0;
+    const litAt = (gx, gy) => {
+      const hx = (Hs(gx + 2, gy) - Hs(gx - 2, gy)) * PX / 4, hy = (Hs(gx, gy + 2) - Hs(gx, gy - 2)) * PX / 4;
+      LG = Math.hypot(hx, hy);
+      const ex = hx * 2.3, ey = hy * 2.3;
+      return (-Lx * ex - Ly * ey + Lz) / Math.sqrt(ex * ex + ey * ey + 1);
+    };
+    const shaded = (gx, gy, z) => {
+      for (let k = 1; k <= 16; k += 2) {
+        const qx = gx - Math.round(0.586 * k * PX), qy = gy - Math.round(0.81 * k * PX);
+        if (Hs(qx, qy) > z + k * 2.4) return true;
+      }
+      return false;
+    };
+    // the shadow the mound throws on the ground, down-right
+    if (hmax > 0) for (let py = 0; py < PH; py += PX) for (let px = 0; px < PW; px += PX) {
+      if (!shaded(px, py, 0)) continue;
+      for (let q = 0; q < PX; q++) for (let r = 0; r < PX; r++) if (py + q < PH && px + r < PW && Hs(px + r, py + q) <= 0.3) blend((py + q) * PW + px + r, BG_SHADE, 74);
+    }
+    // the dark spilling out of the passage across the threshold, in hard
+    // steps whose edges break into clumps
+    for (let py = 0; py < PH; py++) for (let px = 0; px < PW; px++) {
+      const [s, u] = toFace(wx(px), wy(py));
+      if (u < -2 || u > 20 || Math.abs(s) > HW + 6) continue;
+      const a = (1 - Math.max(0, u) / 20) * (1 - (s / (HW + 6)) ** 2);
+      const lvl = Math.min(3, Math.floor(a * 3.3 + (cnoise(px / 5, py / 5, seed + 23) - 0.5) * 0.9));
+      if (lvl > 0) blend(py * PW + px, [12, 18, 16], [0, 22, 40, 58][lvl]);
+      const gl = (1 - Math.max(0, u) / 11) * (1 - (s / (HW * 0.7)) ** 2) + (cnoise(px / 4, py / 4, seed + 29) - 0.5) * 0.5;
+      if (gl > 0.45 && u > -1) blend(py * PW + px, [96, 200, 168], gl > 0.75 ? 34 : 18);
+    }
+
+    // ---- the mound, front to back per column ----
+    const kindPx = new Uint8Array(PW * PH);   // 1 forecourt wall, 2 turf, 4 the low foot left to the field
+    const zPx = new Float32Array(PW * PH), gyPx = new Int32Array(PW * PH), lPx = new Float32Array(PW * PH);
+    const castPx = new Uint8Array(PW * PH), sPx = new Float32Array(PW * PH);
+    if (hmax > 0) for (let px = 0; px < PW; px++) {
+      let front = PH;
+      for (let gy = GYn - 1; gy >= 0; gy--) {
+        const z = Hg[gy * GX + px];
+        if (z <= 0.35) { if (gy < front) front = gy; continue; }
+        const sp = Math.floor(gy - z * PX);
+        if (sp >= front) continue;
+        const l = litAt(px, gy), gr = LG;
+        const cast = shaded(px, gy, z);
+        const [s, u] = toFace(wx(px), wy(gy));
+        const wall = u > cutAt(s) - 7 && Math.abs(s) < FW + 8;
+        for (let q = Math.max(0, sp); q < Math.min(front, PH); q++) {
+          const i = q * PW + px;
+          const steep = q > sp + 1 || gr > 1.6;
+          kindPx[i] = steep && wall ? 1 : 2;
+          zPx[i] = z - (q - sp) / PX; gyPx[i] = gy; lPx[i] = steep && !wall ? Math.min(l, -0.1) : l; castPx[i] = cast ? 1 : 0; sPx[i] = s;
+        }
+        front = Math.max(0, sp);
+        if (front <= 0) break;
+      }
+    }
+    for (let py = 0; py < PH; py++) for (let px = 0; px < PW; px++) {
+      const i = py * PW + px, k = kindPx[i];
+      if (!k) continue;
+      const z = zPx[i];
+      if (k === 1) {
+        // drystone: low courses of flat fen stone, a tone each, dark joints
+        const course = Math.floor(z / 2.6 + hash(Math.floor(sPx[i] / 9), seed) * 0.4);
+        const off = course * 2.7 + hash(course, seed + 3) * 5;
+        const bw = 3.4 + hash(course, seed + 4) * 2.6 + hash(Math.floor((sPx[i] + off) / 7), course + seed) * 3;
+        const blk = Math.floor((sPx[i] + off) / bw);
+        const fz = z / 2.6 + hash(Math.floor(sPx[i] / 9), seed) * 0.4 - course;
+        const fs = ((sPx[i] + off) / bw) - blk;
+        let t = 1 + Math.floor(hash(blk * 31 + course, seed + 5) * 2.2) + castPx[i];
+        if (fz < 0.24) t = 4; else if (fs < 0.12) t = 3; else if (fz > 0.8) t = Math.max(0, t - 1);
+        let col = DRY[Math.min(4, t)];
+        if (t < 3 && cnoise(px / 9, py / 9, seed + 6) > 0.68) col = TURF[Math.min(4, t + 1)];
+        put(i, col);
+        continue;
+      }
+      // the low foot melts into the field along a ragged line
+      if (z < 3.2 + (cnoise(px / 5, py / 5, seed + 19) - 0.5) * 2.6) {
+        kindPx[i] = 4;
+        if (castPx[i]) blend(i, BG_SHADE, 74);
+        continue;
+      }
+      const l = lPx[i];
+      let t = (l > 0.985 ? 0 : l > 0.8 ? 1 : l > 0.55 ? 2 : l > 0.22 ? 3 : 4) + castPx[i];
+      t = Math.max(0, Math.min(4, t + (t === 1 && cnoise(px / 4, py / 4, seed + 8) > 0.78 ? -1 : 0) + (cnoise(px / 9, py / 9, seed + 3) < 0.15 ? 1 : 0)));
+      let col = TURF[t];
+      // heather and rusty moss in drifts over the crown; grass blades lying
+      // over the curve, a tone up or down
+      const hz = cnoise(px / 13, py / 13, seed + 31);
+      if (hz > 0.76 && t >= 1 && t <= 3 && hash(px >> 1, (py >> 1) + seed) < 0.55) col = HEATH[Math.min(2, t - 1)];
+      else if (hz < 0.14 && t >= 2 && t <= 3 && hash(px >> 1, (py >> 1) + seed) < 0.5) col = RUST[t >= 3 ? 1 : 0];
+      // tussocks: a lit cap over a shaded foot, in clumps
+      const tu = cnoise(px / 2.2, py / 2.2, seed + 33);
+      if (col === TURF[t] && cnoise(px / 14, py / 14, seed + 34) > 0.45) {
+        if (tu > 0.8) col = TURF[Math.max(0, t - 1)];
+        else if (py > 1 && cnoise(px / 2.2, (py - 2) / 2.2, seed + 33) > 0.8 && tu < 0.7) col = TURF[Math.min(4, t + 1)];
+      }
+      put(i, col);
+    }
+    // the turf's lip where it breaks over the wall: a lit rim, the first
+    // course under it in the turf's shade, strands of it hanging down
+    for (let py = 1; py < PH - 4; py++) for (let px = 0; px < PW; px++) {
+      const i = py * PW + px;
+      if (kindPx[i] === 2 && kindPx[i + PW] === 1) {
+        if (kindPx[i + 2 * PW] !== 1 || kindPx[i + 3 * PW] !== 1) continue;
+        put(i, TURF[0]); put(i + PW, TURF[3]); kindPx[i + PW] = 3;
+        const hang = hash(px, py + seed) < 0.34 ? 1 + Math.floor(hash(px + 1, py + seed) * 4) : 0;
+        for (let q = 2; q < 2 + hang; q++) if (kindPx[i + q * PW] === 1) put(i + q * PW, TURF[q === 1 + hang ? 4 : 3]);
+      }
+    }
+
+    // ---- the passage: the dark between the jambs ----
+    const Z = (px, py) => { const s = (wx(px) - mx) / tx; return [s, my + ty * s - wy(py)]; };   // on the portal's face
+    const mouth = new Uint8Array(PW * PH);
+    const LIP = (s) => (cnoise(s / 2.4 + 9, 0.5, seed) - 0.55) * 2;
+    const FJ = (s) => (cnoise(s / 1.7 + 30, 2.5, seed + 21) - 0.5) * 1.6;
+    const floorC = hexC(REALM.PATH_DK), dark = [10, 13, 12];
+    const floorDk = mixC(floorC, dark, 0.6).map(Math.round), glowC = [22, 46, 40], glowC2 = [16, 30, 27];
+    for (let py = 0; py < PH; py++) for (let px = 0; px < PW; px++) {
+      const [s, z] = Z(px, py);
+      if (Math.abs(s) >= HW + 0.5 || z < LIP(s) || z > ZA + 0.5) continue;
+      const i = py * PW + px;
+      mouth[i] = 1;
+      const r = z + FJ(s);
+      let col = r < 3.4 ? floorC : r < 7.4 ? floorDk : dark;
+      // the flags run on in: a joint across each course, and between slabs
+      if (r < 7.4) {
+        const row = r < 3.4 ? 0 : 1, rz = r < 3.4 ? r : r - 3.4;
+        const sj = (s + row * 4.3 + hash(row, seed + 7) * 6) / (6.5 + row * 1.5);
+        if (rz > (row ? 3.2 : 2.8) || sj - Math.floor(sj) < 0.08) col = row ? dark : floorDk;
+        else if (rz < 0.6 && !row) col = mixC(floorC, [255, 243, 210], 0.12).map(Math.round);
+      }
+      // the witch-fire far back down the passage: a green dark, in steps
+      if (col === dark) {
+        const e = Math.hypot(s / (HW * 0.34), (z - ZA * 0.62) / (ZA * 0.22)) + (cnoise(px / 4, py / 4, seed + 41) - 0.5) * 0.25;
+        if (e < 0.5) col = glowC; else if (e < 1) col = glowC2;
+      }
+      put(i, col);
+    }
+    // the lintel's underside shows in the first rows of the dark
+    for (let py = 1; py < PH; py++) for (let px = 0; px < PW; px++) {
+      const i = py * PW + px;
+      if (!mouth[i] || mouth[i - PW] && py > 1 && mouth[i - 2 * PW]) continue;
+      const [, z] = Z(px, py);
+      if (z < ZA * 0.5) continue;
+      put(i, mouth[i - PW] ? [40, 42, 38] : [62, 64, 58]);
+    }
+
+    // ---- ink round the mound where it stands up off the ground ----
+    const solidK = (j) => kindPx[j] > 0 && kindPx[j] < 4;
+    const out = new Uint8Array(PW * PH);
+    for (let py = 1; py < PH - 1; py++) for (let px = 1; px < PW - 1; px++) {
+      const i = py * PW + px;
+      if (solidK(i) || mouth[i]) continue;
+      const z0 = kindPx[i] === 4 ? zPx[i] : 0;
+      if ((solidK(i - 1) && zPx[i - 1] - z0 > 2.2) || (solidK(i + 1) && zPx[i + 1] - z0 > 2.2) || (solidK(i - PW) && zPx[i - PW] - z0 > 2.2) || (solidK(i + PW) && kindPx[i + PW] !== 2 && zPx[i + PW] - z0 > 2.2)) out[i] = 1;
+    }
+    for (let i = 0; i < PW * PH; i++) if (out[i]) put(i, BG_INK, 235);
+    // the foot of the mound in its own shade
+    for (let py = 0; py < PH - 2; py++) for (let px = 0; px < PW; px++) {
+      const i = py * PW + px;
+      if (!solidK(i) || solidK(i + PW) || mouth[i + PW] || out[i + PW]) continue;
+      if (zPx[i] < 3.5) { blend(i + PW, BG_SHADE, 110); blend(i + 2 * PW, BG_SHADE, 55); }
     }
     c.putImageData(img, 0, 0);
+
+    // is the ground at (x, y) seen, or does the mound stand in front of it?
+    const seen = (x, y, hh = 0) => {
+      const px = Math.round((x - x0) * PX), py = Math.round((y - hh - y0) * PX);
+      if (px < 0 || py < 0 || px >= PW || py >= PH) return false;
+      const i = py * PW + px;
+      return !solidK(i) || Math.abs(gyPx[i] - Math.round((y - y0) * PX)) <= 3;
+    };
+
+    // ---- the kerb: low stones round the mound's foot ----
+    const kerb = [];
+    const { RV, CB, CV } = G, ccx = mx - nx * CB - tx * CV, ccy = my - ny * CB - ty * CV;
+    // a ring round the mound's foot...
+    for (let th = 0; th < Math.PI * 2; th += 0.02) {
+      const ox = Math.cos(th), oy = Math.sin(th);
+      if (oy < -0.5) continue;
+      let rr = RV;
+      for (let it = 0; it < 3; it++) rr = (RV + (cnoise((ccx + ox * rr) / 15, (ccy + oy * rr) / 15, seed + 3) - 0.5) * 12) * 0.985;
+      const x = ccx + ox * rr, y = ccy + oy * rr;
+      const [s, u] = toFace(x, y);
+      if (u > cutAt(s) - 5 && Math.abs(s) < FW + 6) continue;
+      if (roadD(x, y) < PATH_HALF + 3 || hillAt(x - ox * 3, y - oy * 3) < 1.5) continue;
+      kerb.push([x, y, ox, oy]);
+    }
+    // ...and along the turf bank where it stops at the road
+    for (let dd = G.d0 + 4; dd < G.d0 + 260; dd += 2) {
+      const [px, py] = posAt(dd), a = angleAt(dd), qx = -Math.sin(a), qy = Math.cos(a);
+      for (const sg of [-1, 1]) {
+        const x = px + qx * sg * (PATH_HALF + 3.2), y = py + qy * sg * (PATH_HALF + 3.2);
+        if (roadD(x, y) < PATH_HALF + 2.5 || hillAt(x + qx * sg * 4, y + qy * sg * 4) < 4) continue;
+        const [s, u] = toFace(x, y);
+        if (u > cutAt(s) - 5 && Math.abs(s) < HW + 8) continue;
+        kerb.push([x, y, -qx * sg, -qy * sg]);
+      }
+    }
+    const kept = [];
+    for (const k of kerb) if (kept.every((q) => Math.hypot(q[0] - k[0], q[1] - k[1]) > 7.4)) kept.push(k);
+    kept.sort((a, b) => a[1] - b[1]);
+    kept.forEach(([x, y, ox, oy], k) => {
+      if (x < x0 + 4 || x > x1 - 4 || y > y1 - 2 || y < y0 + 8 || !seen(x, y + 1, 1)) return;
+      const hh = 2.6 + hash(k, seed + 70) * 2, ww = 3 + hash(k, seed + 71) * 1.6;
+      shadow(c, x + 2.5, y + 1, ww + 1.5, 1.3, 0.3);
+      bgSlab(c, x, y, ox, oy, ww, hh, 1.8, darken(scol, 0.04 + hash(k, seed + 72) * 0.12), seed + 300 + k, { moss: hash(k, seed + 73) < 0.7 });
+    });
+
+    // ---- the forecourt wall's slabs, the portal, the lintel ----
+    const parts = [];
+    const normAt = (s) => {   // the wall's own facing where it curves
+      const e = 0.5, du = (uF(s + e) - uF(s - e)) / (2 * e);
+      const fx = nx - tx * du, fy = ny - ty * du, l = Math.hypot(fx, fy);
+      return [fx / l, fy / l];
+    };
+    for (const sg of [-1, 1]) {
+      // the jamb: a great orthostat each side
+      const sj = sg * (HW + 3.4);
+      const [jx, jy] = face(sj, 0, 0.6);
+      parts.push({ y: jy, fn: () => bgSlab(c, jx, jy, nx, ny, 5.2, ZA + 1.5, 5.5, scol, seed + (sg > 0 ? 11 : 12), { lean: sg * -0.03, flat: true }) });
+      // the wing: slabs stepping down the curving wall into the horns
+      let s = HW + 10 + hash(sg, seed + 2) * 2, k = 0;
+      while (s < FW + 2) {
+        const ss = sg * s, [fx, fy] = face(ss, 0, 1.4), [ox, oy] = normAt(ss);
+        const wh = wallH(ss);
+        const hh = Math.max(7, Math.min(ZA - 2, wh * (0.82 + hash(k, seed + sg * 7) * 0.3) + 2));
+        const ww = 3.6 + hash(k, seed + sg * 9) * 1.6;
+        if (fx > x0 + 2 && fx < x1 - 2 && fy < y1 - 1 && roadD(fx, fy) > PATH_HALF - (k ? 1 : 9)) {
+          const kk = k;
+          parts.push({ y: fy, fn: () => bgSlab(c, fx, fy, ox, oy, ww, hh, 3.6, darken(scol, hash(kk, seed + 5) * 0.1), seed + 40 + kk * 7 + (sg > 0 ? 0 : 3), { lean: (hash(kk, seed + 6) - 0.5) * 0.12 }) });
+        }
+        s += ww * 2 + 1.2 + hash(k, seed + 8) * 2.4; k++;
+      }
+    }
+    // the lintel: one great slab across both jambs, cracked through, three
+    // spirals cut in its face
+    const [lx, ly] = face(0, 0, 1.2);
+    const lintelY = Math.max(face(HW + 3, 0)[1], face(-HW - 3, 0)[1]) + 0.1;
+    GATE.spirals = [];
+    parts.push({ y: lintelY, fn: () => bgSlab(c, lx, ly, nx, ny, HW + 8, LT, 4.2, lighten(scol, 0.02), seed + 7, {
+      z0: ZA, flat: true, noCrack: true, even: true,
+      after: (cc, P, ax, ay) => {
+        const at = (a, z) => [lx + ax * a, ly + ay * a - z - ZA];
+        // the crack, a zigzag down through it, moss in it
+        cc.fillStyle = darken(scol, 0.55);
+        let a = HW * 0.18;
+        for (let z = LT; z > 0; z -= 0.5) { const [px, py] = at(a, z); px1(cc, px, py, 0.5, 0.5); a += (hash(Math.round(z * 2), seed + 90) - 0.45) * 0.9; }
+        cc.fillStyle = MOSS; { const [px, py] = at(HW * 0.18, LT); px1(cc, px - 1, py, 2.5, 0.5); }
+        // turf and weed draping over its top edge from the mound above
+        for (let q = 0; q < 16; q++) {
+          const a2 = (hash(q, seed + 120) - 0.5) * 2 * (HW + 4), len = 1 + Math.floor(hash(q, seed + 121) * 4);
+          const [px, py] = at(a2, LT + 0.3);
+          for (let r = 0; r < len; r++) { cc.fillStyle = r === len - 1 ? "#3a4a30" : hash(q, seed + 122) < 0.5 ? MOSS : "#4e6238"; px1(cc, px + (r > 1 ? 0.5 : 0), py + r * 0.5, 0.5 + (r ? 0 : 0.5), 0.5); }
+        }
+        // spirals: cut lines, the witch-light sits in their eyes (live)
+        cc.strokeStyle = darken(scol, 0.42); cc.lineWidth = 0.5;
+        for (const sa of [-HW * 0.52, -HW * 0.02, HW * 0.5]) {
+          cc.beginPath();
+          for (let q = 0; q < 11; q += 0.3) { const r = 0.3 * q; const [px, py] = at(sa + Math.cos(q) * r * 1.1, LT * 0.5 + Math.sin(q) * r * 0.62); q ? cc.lineTo(px, py) : cc.moveTo(px, py); }
+          cc.stroke();
+          GATE.spirals.push(at(sa, LT * 0.5));
+        }
+      },
+    }) });
+    if (!HOLLOW_ART.dbgNoParts) parts.sort((a, b) => a.y - b.y).forEach((p) => p.fn());
+
+    // roots and weed hanging off the lintel into the dark
+    for (let k = 0; k < 12; k++) {
+      const s = -HW + 3 + (k + hash(k, seed + 95)) * ((HW * 2 - 6) / 12);
+      const [hx, hy] = face(s, ZA - 0.6, 0);
+      const len = 2 + Math.round(hash(k, seed + 96) * 8);
+      for (let q = 0; q < len; q++) {
+        c.fillStyle = q > len - 2 ? "#2c3428" : hash(k, seed + 97) < 0.5 ? "#4e5e44" : "#5a4a38";
+        px1(c, hx + Math.round(Math.sin(q * 0.8 + k) * 0.6) * 0.5, hy + q * 0.5, 0.5, 0.5);
+      }
+    }
+
+    // ---- the horns: a tall stone each side, one leaning ----
+    for (const sg of [-1, 1]) {
+      const ss = sg * (FW + 8), [fx, fy] = face(ss, 0, 12);
+      if (fx < x0 + 6 || fx > x1 - 6 || fy > y1 - 3 || fy < y0 + 30 || roadD(fx, fy) < PATH_HALF + 6 || G.wet(fx, fy)) continue;
+      const [ox, oy] = normAt(sg * FW);
+      const hh = 22 + hash(sg, seed + 30) * 6;
+      shadow(c, fx + 7, fy + 1, 9, 2.4, 0.3);
+      bgSlab(c, fx, fy, ox, oy, 4.4, hh, 3.6, scol, seed + 200 + sg, { lean: sg > 0 ? 0.1 : -0.02 });
+    }
+
+    // ---- the threshold: bones and grave-goods spilled out of the passage ----
+    const goods = [];
+    for (let k = 0; k < 11; k++) {
+      const sg = hash(k, seed + 100) < 0.5 ? -1 : 1;
+      const s = sg * (HW * 0.42 + hash(k, seed + 101) * (HW * 0.7)), u = 2 + hash(k, seed + 102) * 22;
+      const [gx, gy] = onGround(s, uF(s) + u);
+      if (gx < x0 + 4 || gx > x1 - 4 || gy < y0 + 4 || gy > y1 - 4) continue;
+      goods.push([gx, gy, k]);
+    }
+    goods.sort((a, b) => a[1] - b[1]);
+    for (const [gx, gy, k] of goods) {
+      const what = k % 6;
+      part(c, (cc) => {
+        if (what === 0) skull(cc, gx, gy, 1.9);
+        else if (what === 1 || what === 4) longBone(cc, gx - 3, gy, gx + 3, gy + (hash(k, seed + 103) - 0.5) * 3, 1);
+        else if (what === 2) {
+          // a rusted helm on its side
+          ball(cc, gx, gy - 1, 2.6, 2.1, "#6a5848", { hi: 0.3, lo: 0.45 });
+          cc.fillStyle = "#2b2430"; cc.fillRect(ap(gx - 1.5), ap(gy - 1), 3, 0.5);
+          cc.fillStyle = "#8e5c38"; px1(cc, gx + 1, gy - 2.5, 1, 0.5);
+        } else if (what === 3) {
+          // a sword in the mud, verdigris on its guard
+          cc.fillStyle = "#8c8e88"; cc.fillRect(ap(gx - 4), ap(gy), 7, 0.5);
+          cc.fillStyle = "#5c5e5a"; cc.fillRect(ap(gx - 4), ap(gy + 0.5), 7, 0.5);
+          cc.fillStyle = VERDI; cc.fillRect(ap(gx + 3), ap(gy - 1), 0.5, 2.5);
+          cc.fillStyle = "#4a3a2c"; cc.fillRect(ap(gx + 3.5), ap(gy - 0.2), 2, 1);
+        } else {
+          // a broken urn, its grave-coins spilled
+          ball(cc, gx, gy - 1.6, 2.2, 2.4, "#8a6448", { hi: 0.32, lo: 0.42 });
+          cc.fillStyle = "#2b2420"; cc.fillRect(ap(gx - 1), ap(gy - 3.6), 2, 0.5);
+          cc.fillStyle = "#d8b34a"; px1(cc, gx + 3, gy, 0.5, 0.5); px1(cc, gx + 4.5, gy + 0.5, 0.5, 0.5); px1(cc, gx + 2.5, gy + 1.5, 0.5, 0.5);
+          cc.fillStyle = VERDI; px1(cc, gx + 3.5, gy + 1, 0.5, 0.5);
+        }
+      });
+    }
+
+    // ---- sedge, bog-cotton and a few grave-markers on the mound ----
+    for (let k = 0; k < 46; k++) {
+      const x = x0 + hash(k, seed + 110) * w, y = y0 + hash(k, seed + 111) * (h + HM * 0.6);
+      const z = hillAt(x, y);
+      if (z < 6) continue;
+      const [s, u] = toFace(x, y);
+      if (u > uF(s) - 5 && Math.abs(s) < FW + 4) continue;
+      if (!seen(x, y, z)) continue;
+      if (hash(k, seed + 112) < 0.8) sedge(c, x, y - z, 0.6 + hash(k, seed + 113) * 0.35, k + seed, 4, "#5e6a42", "#9a9460");
+      else { c.fillStyle = "#e8e2d2"; px1(c, x, y - z - 2, 1, 1); px1(c, x + 1.5, y - z - 3, 0.5, 0.5); c.fillStyle = "#6c6e44"; px1(c, x + 0.25, y - z - 1, 0.5, 1); }
+    }
   }, false);
-  GATE.candles = [[gx - 29, gy + 17], [gx + 29, gy + 17]];
-  GATE.eyes = [[gx - 6, gy - 4, 0], [gx + 6, gy + 3, 2.3], [gx - 1, gy - 11, 4.1]];
+  GATE.x = x0; GATE.y = y0; GATE.w = w; GATE.h = h;
+  // live: the witch-light, the eyes, the candles, the fog's way out
+  GATE.light = face(0, ZA * 0.42, -1);
+  GATE.eyes = [[-HW * 0.36, 0.36, 0], [HW * 0.3, 0.5, 2.7], [HW * 0.02, 0.66, 5.1]].map(([s, k, ph]) => [...face(s, ZA * k, -0.5), ph]);
+  GATE.candles = [-1, 1].map((sg) => face(sg * (HW + 2), 0, 7.5)).filter(([x, y]) => x > 4 && y < H - 4 && roadD(x, y) > PATH_HALF - 6);
+  GATE.mouth = face(0, 0, 2);
+  GATE.HW = HW; GATE.nx = nx; GATE.ny = ny; GATE.tx = tx; GATE.ty = ty;
   return GATE;
 };
 
@@ -3299,31 +3796,32 @@ const drawBarrowGate = (ctx, time) => {
   drawWaters(ctx);
   drawRelics(ctx, time);
   const G = bakeGate();
-  ctx.drawImage(G.cv, G.bx, G.by, G.bw, G.bh);
-  // witch-light breathing in the passage and in the lintel's spirals
+  if (!G.cv) return;
+  ctx.drawImage(G.cv, G.x, G.y, G.w, G.h);
+  // the witch-light breathing far down the passage, and in the spirals
   const breathe = 0.5 + 0.5 * Math.sin(time * 1.3);
-  glow(ctx, G.gx, G.gy + 2, 11, TEAL, 0.06 + breathe * 0.08);
-  ctx.fillStyle = rgba(TEAL, 0.25 + breathe * 0.5);
-  for (const ox of [-15, 0, 15]) { ctx.fillRect(ap(G.gx + ox - 0.5), ap(G.gy - 24.6), 1, 1); }
+  glow(ctx, G.light[0], G.light[1], G.HW * 0.55, TEAL, 0.07 + breathe * 0.08);
+  ctx.fillStyle = rgba(TEAL, 0.2 + breathe * 0.5);
+  for (const [sx, sy] of G.spirals || []) ctx.fillRect(ap(sx - 0.25), ap(sy - 0.25), 0.5, 0.5);
   // eyes in the dark, blinking out of step
   G.eyes.forEach(([ex, ey, ph], i) => {
     const t = time * 0.8 + ph;
     if (Math.sin(t) < -0.3 || Math.sin(t * 6.3) > 0.95) return;
+    const X = ap(ex), Y = ap(ey);
     ctx.fillStyle = rgba(TEAL, 0.25);
-    ctx.fillRect(ap(ex - 3.5), ap(ey - 0.5), 3, 2); ctx.fillRect(ap(ex + 0.5), ap(ey - 0.5), 3, 2);
+    ctx.fillRect(X - 3, Y - 0.5, 2.5, 1.5); ctx.fillRect(X + 0.5, Y - 0.5, 2.5, 1.5);
     ctx.fillStyle = i === 1 ? "#d8fff0" : TEAL;
-    ctx.fillRect(ap(ex - 3), ap(ey), 1.5, 1); ctx.fillRect(ap(ex + 1), ap(ey), 1.5, 1);
+    ctx.fillRect(X - 2.5, Y, 1.5, 0.5); ctx.fillRect(X + 1, Y, 1.5, 0.5);
   });
-  ctx.drawImage(G.dark, G.bx, G.by, G.bw, G.bh);
-  // fog creeping out of the door and down the road
+  // fog creeping out of the passage and down the road
   for (let i = 0; i < 6; i++) {
     const life = ((time * 0.13 + i / 6) % 1);
-    const along = 6 + life * 70, side = Math.sin(i * 2.4 + time * 0.3) * 14;
-    const fx = G.gx + G.tx * along * 0.8 - G.ty * side, fy = G.gy + 14 + life * 6 + G.ty * along * 0.5 + G.tx * side * 0.3;
-    const a = Math.sin(life * Math.PI) * 0.16;
+    const along = 4 + life * 60, side = Math.sin(i * 2.4 + time * 0.3) * G.HW * 0.4;
+    const fx = G.mouth[0] + G.nx * along + G.tx * side, fy = G.mouth[1] + G.ny * along + G.ty * side;
+    const a = Math.sin(life * Math.PI) * 0.15;
     soft(ctx, fx, fy, 12 + life * 16, 4 + life * 4, [[0, rgba("#b8ccc4", a)], [1, rgba("#b8ccc4", 0)]]);
   }
-  // corpse-candles either side of the door
+  // corpse-candles at the jambs' feet
   for (const [cx, cy] of G.candles) {
     ctx.fillStyle = "#d8ceb0"; ctx.fillRect(ap(cx - 1), ap(cy - 5), 2, 5);
     ctx.fillStyle = "#241a26"; ctx.fillRect(ap(cx - 1.5), ap(cy), 3, 0.5);

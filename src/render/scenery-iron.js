@@ -38,7 +38,7 @@
 
 import { W, H, PATH_HALF, RES } from "../data/constants.js";
 import { PTS, SEGS, TOTAL_LEN, nearestOnPath } from "../engine/path.js";
-import { FOREST, forestDepthAt, PONDS, RIVERS, inRiver } from "../data/terrain.js";
+import { FOREST, forestDepthAt, PONDS, RIVERS, inRiver, DECOR } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, blade, tuft, stone,
@@ -817,162 +817,413 @@ const kingTower = (ctx, x, y, s, o) => {
 };
 
 // ---- the gate the Iron army comes out of ------------------------------------
-// The Kingdom's forward camp lies off the board's edge in the pines; its
-// palisade runs down the edge, with a timber gate-tower on the near side of
-// the road. Everything tall stands NORTH of the road (drawn under the foes, so
-// nothing can stand in front of them); the south flank is a low stake line.
-// The still parts bake once per realm; the banner and the brazier live.
-const CAMP = { key: "", ground: null, build: null, x0: 0, y0: 0, w: 0, h: 0, tx: 0, ty: 0 };
+// The Kingdom's forward camp lies off the board's edge in the pines, and the
+// road comes out of it through the camp's GATEHOUSE: two timber towers on
+// stone footings and a fighting walk between them over an arch as wide as the
+// road, the gates thrown open, the dark of the camp beyond. It is drawn in the
+// castle's camera mirrored (castle.js leans every face east): a point z high
+// is drawn z up the board and LEAN_W·z to the WEST, so the gatehouse shows the
+// board its gate face as the castle shows its west face, and runs off the
+// board's edge as the castle does. Where the road leaves the edge level or on
+// a slant (every board but one) the gate faces EAST across it, L0 along the
+// road from where the column forms (PTS[0]); where it drops in steeply from
+// the top corner (Greyhelm) the gate faces SOUTH over it.
+// Its walls are painted pixel by pixel through that camera (a face is a
+// texture of p along it and z up it), so every plank and log stays crisp.
+// Two layers:
+//  - drawIronCamp, the spawn layer (under the foes and the wood): the ground
+//    — the flags worn and muddy out of the arch, the gatehouse's shadow, the
+//    camp's dark — and the palisade running off into the pines from both
+//    towers, the north leaf of the gate swung back, tents' peaks behind it.
+//  - the "irgate" piece, sorted with the pines (maps.js ironGate places it):
+//    the gatehouse, baked once per board, with its banner, brazier and
+//    pennant live and the camp's smoke over it. It stands wherever the road
+//    really leaves the edge; the piece's own x, y only sort it. Sorted SOUTH
+//    of the road it hides the column in the passage, which then marches out
+//    of the arch; sorted north of it (as placed before) the column is drawn
+//    over the passage while it fades in.
+const LEAN_W = 1;
+const GT = {
+  plank: ["#24180f", "#36261a", "#4a3523", "#5e442d", "#735638", "#8a6943", "#a27e52"],
+  post: ["#1e140e", "#2e2016", "#422e1f", "#573d28", "#6d4e33", "#86623f", "#9e774d"],
+  log: ["#2c2018", "#443224", "#5e4631", "#785c3f", "#93744f", "#ad8d62", "#c6a77a"],
+  stone: ["#353338", "#4c4a4c", "#64615e", "#7e7a72", "#989386", "#b0ab9a", "#c8c2ae"],
+  iron: ["#141418", "#202228", "#2e3038", "#454852", "#646a76", "#8a909c", "#b8bcc6"],
+  mud: ["#2a2220", "#3a2e26", "#4a3b2e", "#5a4936", "#6a5840"],
+};
+const GTR = {};
+const gt = (mat, i) => {
+  let r = GTR[mat];
+  if (!r) r = GTR[mat] = GT[mat].map(hexRGB);
+  return r[Math.max(0, Math.min(r.length - 1, Math.round(i)))];
+};
+const DARK_IN = [hexRGB("#120d10"), hexRGB("#1a1315"), hexRGB("#22191a"), hexRGB("#2c2120"), hexRGB("#3a2a24")];
+const EMBER = hexRGB("#5a2618");
+
+// A raster in art pixels over the board box (x0, y0, w, h): faces write into it.
+const raster = (x0, y0, w, h) => {
+  const PW = Math.ceil(w * PX), PH = Math.ceil(h * PX);
+  return { x0, y0, w, h, PW, PH, d: new Uint8ClampedArray(PW * PH * 4) };
+};
+const rput = (S, i, c, a = 255) => { const o = i * 4; S.d[o] = c[0]; S.d[o + 1] = c[1]; S.d[o + 2] = c[2]; S.d[o + 3] = a; };
+// a vertical face: from ground point (ox, oy) along the unit (ax, ay) for L,
+// z0..z1 high; tex(p, z) gives its colour there (or null: open)
+const vface = (S, ox, oy, ax, ay, L, z0, z1, tex) => {
+  const den = ax - LEAN_W * ay;
+  if (Math.abs(den) < 1e-3 || L <= 0) return;
+  let nx = 1e9, xx = -1e9, ny = 1e9, xy = -1e9;
+  for (const p of [0, L]) for (const z of [z0, z1]) {
+    const X = ox + ax * p - LEAN_W * z, Y = oy + ay * p - z;
+    nx = Math.min(nx, X); xx = Math.max(xx, X); ny = Math.min(ny, Y); xy = Math.max(xy, Y);
+  }
+  const X0 = Math.max(0, Math.floor((nx - S.x0) * PX)), X1 = Math.min(S.PW, Math.ceil((xx - S.x0) * PX));
+  const Y0 = Math.max(0, Math.floor((ny - S.y0) * PX)), Y1 = Math.min(S.PH, Math.ceil((xy - S.y0) * PX));
+  for (let py = Y0; py < Y1; py++) {
+    const sy = S.y0 + (py + 0.5) / PX - oy;
+    for (let px = X0; px < X1; px++) {
+      const sx = S.x0 + (px + 0.5) / PX - ox;
+      const p = (sx - LEAN_W * sy) / den;
+      if (p < 0 || p >= L) continue;
+      const z = ay * p - sy;
+      if (z < z0 || z >= z1) continue;
+      const c = tex(p, z);
+      if (c) rput(S, py * S.PW + px, c);
+    }
+  }
+};
+// a level top Z high over the ground rectangle [xa, xb] x [ya, yb]
+const tface = (S, xa, xb, ya, yb, Z, tex) => {
+  const X0 = Math.max(0, Math.floor((xa - LEAN_W * Z - S.x0) * PX)), X1 = Math.min(S.PW, Math.ceil((xb - LEAN_W * Z - S.x0) * PX));
+  const Y0 = Math.max(0, Math.floor((ya - Z - S.y0) * PX)), Y1 = Math.min(S.PH, Math.ceil((yb - Z - S.y0) * PX));
+  for (let py = Y0; py < Y1; py++) for (let px = X0; px < X1; px++) {
+    const c = tex(S.x0 + (px + 0.5) / PX + LEAN_W * Z - xa, S.y0 + (py + 0.5) / PX + Z - ya);
+    if (c) rput(S, py * S.PW + px, c);
+  }
+};
+// the raster into a baked sprite (inked round, or not, like any bake)
+const rasterSprite = (S, ink, after) => bakeSprite(S.w, S.h, (c) => {
+  const img = c.createImageData(S.PW, S.PH);
+  img.data.set(S.d);
+  c.putImageData(img, 0, 0);
+  if (after) { c.save(); c.translate(-S.x0, -S.y0); after(c); c.restore(); }
+}, ink);
+
+// ---- the gatehouse's surfaces --------------------------------------------------
+// `side` is how a face stands to the sun (upper left): "T" a top in the sun,
+// "S" a south face, "E" an east face (the deepest shade); `zs` is how much
+// height one art pixel covers on it (an east face packs 1 unit a column).
+const LIGHT = { T: 1.4, S: 0.2, E: -0.3 };
+// pointed logs standing in a row, w wide each, their tips at top(p)
+const logRow = (p, z, top, side, seed, w = 2) => {
+  const k = Math.floor(p / w), f = p / w - k;
+  const tip = top - 1.6 * Math.abs(f * 2 - 1) - hash(k, seed) * 0.6;
+  if (z >= tip) return null;
+  const l = LIGHT[side] + (hash(k, seed + 3) - 0.5) * 0.7;
+  if (f > 0.82) return gt("log", 1 + l * 0.5);
+  if (z > tip - 0.9) return gt("log", 4.6 + l);
+  return gt("log", (f < 0.42 ? 3.9 : 3) + l);
+};
+// a timber wall: a stone footing, lapped boards between corner posts, a slit
+// and an iron band; `foot` how high the stone stands
+const timberWall = (p, z, L, side, seed, o = {}) => {
+  const zs = side === "E" ? 1 : 0.5, l = LIGHT[side];
+  const foot = o.foot ?? 5;
+  if (z < foot) {
+    const c = Math.floor(z / 2.5), fz = z / 2.5 - c;
+    if (fz > 1 - zs / 2.5 * 0.99) return gt("stone", 1.4 + l * 0.4);
+    const off = hash(c, seed + 5) * 4, k = Math.floor((p + off) / 4.5), f = (p + off) / 4.5 - k;
+    if (f < 0.11) return gt("stone", 1.6 + l * 0.4);
+    return gt("stone", 3.3 + l + (hash(k * 5 + c, seed) - 0.5) * 0.9 - (z < 1 ? 0.8 : 0));
+  }
+  const post = o.post ?? 2;
+  if (p < post) return gt("post", (p < 0.5 ? 4.6 : 3.4) + l);
+  if (p > L - post) return gt("post", (p > L - 0.5 ? 1.6 : 2.6) + l);
+  if (o.slit && Math.abs(p - L / 2) < 0.6 && z > o.slit && z < o.slit + 4.5) return gt("iron", 0);
+  if (o.band && z >= o.band && z < o.band + (side === "E" ? 1 : 1)) return gt("iron", 2.4 + l * 0.5 + (Math.floor(p / 0.5) % 6 === 0 ? 1.4 : 0));
+  const bz = (z - foot) / 3, b = Math.floor(bz), fz = bz - b;
+  if (fz < zs / 3 * 0.99) return gt("plank", 1 + l * 0.4);
+  const off = hash(b, seed + 9) * 11, k = Math.floor((p + off) / (6 + hash(b, seed + 1) * 5));
+  return gt("plank", 3.1 + l + (fz > 1 - zs / 3 ? 0.8 : 0) + (hash(k * 3 + b, seed + 2) - 0.5) * 0.9);
+};
+// a deck of boards seen from above, shaded in the lee of its north and west
+// breastworks
+const deck = (x, y, w, h, seed, along) => {
+  const u = along === "x" ? y : x, v = along === "x" ? x : y;
+  const b = Math.floor(u / 2), f = u / 2 - b;
+  let t = 4.1 + (hash(Math.floor((v + hash(b, seed) * 7) / 6) * 7 + b, seed) - 0.5) * 0.8;
+  if (f > 0.75) t -= 1.6;
+  if (x < 2.2 || y < 2.2) t -= 1.4;
+  return gt("plank", t);
+};
+// the gate face over the passage: p from -hw to hw along it, the arch AT high
+// with knee braces in its corners, the raised portcullis's teeth under the
+// lintel, and through it the passage running into the camp's dark
+const ARCH_TOP = 19;
+const gateFace = (pl, z, hw, ZG, side, seed) => {
+  const zs = side === "E" ? 1 : 0.5, l = LIGHT[side];
+  const a = Math.abs(pl), jam = hw - 2.5;
+  const brace = a > jam - 5 ? ARCH_TOP - (a - (jam - 5)) * 0.95 : ARCH_TOP;
+  if (a < jam && z < brace) {
+    // through the arch: the portcullis drawn up into the lintel, its iron-shod
+    // teeth hanging just below it; the floor lit a little at the mouth; the
+    // camp's fires a red smoulder far down the passage
+    if (z > ARCH_TOP - 2.2 && z < ARCH_TOP - 0.8) return gt("post", 1.2);
+    const tk = pl / 3 - Math.floor(pl / 3);
+    if (z > ARCH_TOP - 4.6 && z < ARCH_TOP - 0.8 && tk < 0.28) return gt("iron", z < ARCH_TOP - 3.6 ? 4.6 : 2.6);
+    const low = Math.max(0, 1 - z / 6);
+    const glowy = Math.max(0, 1 - Math.abs(pl) / (hw * 0.55)) * Math.max(0, 1 - Math.abs(z - 4) / 5);
+    const di = Math.min(4, Math.floor(low * 3.2 + hash(Math.floor(pl * 2), Math.floor(z / zs)) * 0.9));
+    const base = DARK_IN[di];
+    if (glowy > 0.35 && hash(Math.floor(pl * 2) + 7, Math.floor(z / zs)) < glowy * 0.7) return mixRGB(base, EMBER, 0.5);
+    return base;
+  }
+  if (a < jam && z < brace + 1.8) return gt("post", 2.8 + l);       // the knee braces
+  if (z >= ZG) return logRow(pl + hw, z, ZG + 6, side, seed);       // the breastwork
+  if (a >= jam) {
+    // the jambs: squared posts, lit on their west / north faces, hinge straps
+    if ((z > 3.5 && z < 3.5 + 1.2) || (z > 14 && z < 14 + 1.2)) return gt("iron", 2.2 + l * 0.5);
+    return gt("post", (a > hw - 0.6 ? 1.8 : a > jam + 1.6 ? 2.6 : 3.6) + l);
+  }
+  if (z < ARCH_TOP + 3) {
+    // the lintel: one great beam, bolted
+    if (z < ARCH_TOP + zs) return gt("post", 1.2 + l);
+    const bolt = Math.abs(((pl + hw) % 6) - 3) < 0.5 && Math.abs(z - (ARCH_TOP + 1.6)) < 0.6;
+    return bolt ? gt("iron", 4.4) : gt("post", 3 + l + (z > ARCH_TOP + 3 - zs ? 0.9 : 0));
+  }
+  // boarded up to the walk
+  const bz = (z - ARCH_TOP - 3) / 3, b = Math.floor(bz), fz = bz - b;
+  if (fz < zs / 3 * 0.99) return gt("plank", 1 + l * 0.4);
+  return gt("plank", 3 + l + (hash(Math.floor((pl + hash(b, seed) * 9) / 7) + b * 5, seed) - 0.5) * 0.8);
+};
+const mixRGB = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+// ---- the gatehouse's plan ---------------------------------------------------------
+// Worked out once per board from where the road leaves the edge. Local frame:
+// F the road's middle on the gate face (ground), A along the face (north to
+// south, or west to east), N into the gate (back toward the camp).
+const GATE_L0 = 28;          // the gate face this far along the road from PTS[0]
+const GATE_L0S = 28;         // ... where the road drops in from the top corner
+const plan = () => {
+  const [sx, sy] = PTS[0], [nx, ny] = PTS[1];
+  const l = Math.hypot(nx - sx, ny - sy) || 1, ux = (nx - sx) / l, uy = (ny - sy) / l;
+  const south = uy > 0.5;
+  const L0 = south ? GATE_L0S : GATE_L0;
+  const F = [sx + ux * L0, sy + uy * L0];
+  const A = south ? [1, 0] : [0, 1], N = south ? [0, -1] : [-1, 0];
+  const hw = PATH_HALF / Math.max(0.3, south ? uy : Math.abs(ux)) + 2;
+  return { south, ux, uy, F, A, N, hw, L0, D: 14, ZG: 26, w1: 15, z1: 38, w2: 13, z2: 34, P: 6 };
+};
+// a local rectangle (p0..p1 along A, d0..d1 along N) as a ground box
+const boxOf = (G, p0, p1, d0, d1) => {
+  const xs = [], ys = [];
+  for (const p of [p0, p1]) for (const d of [d0, d1]) { xs.push(G.F[0] + G.A[0] * p + G.N[0] * d); ys.push(G.F[1] + G.A[1] * p + G.N[1] * d); }
+  return { xa: Math.min(...xs), xb: Math.max(...xs), ya: Math.min(...ys), yb: Math.max(...ys) };
+};
+
+// One box of the gatehouse: its far breastworks, its deck, then its south and
+// east faces (the breastwork rising off their tops). `front(face)` names the
+// face toward the board; `wallTex` paints the rest.
+const paintBox = (S, b, Z, P, tex, o = {}) => {
+  const { xa, xb, ya, yb } = b, seed = o.seed ?? 1;
+  if (P > 0 && !o.noNorth) vface(S, xa, ya + 0.8, 1, 0, xb - xa, Z, Z + P, (p, z) => logRow(p, z, Z + P - 0.5, "S", seed + 11));
+  if (P > 0 && !o.noWest) vface(S, xa + 0.8, ya, 0, 1, yb - ya, Z, Z + P, (p, z) => logRow(p, z, Z + P - 0.5, "E", seed + 13));
+  tface(S, xa, xb, ya, yb, Z, (x, y) => deck(x, y, xb - xa, yb - ya, seed, o.along || "x"));
+  if (!o.noSouth) vface(S, xa, yb, 1, 0, xb - xa, 0, Z + P, (p, z) => (z >= Z ? (P > 0 ? logRow(p, z, Z + P, "S", seed + 17) : null) : tex("S", p, z, xb - xa)));
+  if (!o.noEast) vface(S, xb, ya, 0, 1, yb - ya, 0, Z + P, (p, z) => (z >= Z && !o.eastOwnsTop ? (P > 0 ? logRow(p, z, Z + P, "E", seed + 19) : null) : tex("E", p, z, yb - ya)));
+};
+
+// the swung-back leaf of the gate: pointed logs, two straps and a brace
+const leafTex = (side, seed) => (p, z) => {
+  if (z > 15.5) return logRow(p, z, 17.5, side, seed);
+  const l = LIGHT[side];
+  if ((z > 3 && z < 4.4) || (z > 11 && z < 12.4)) return gt("iron", 2.6 + l * 0.5);
+  if (Math.abs(z - (4.4 + (p / 20) * 6.6)) < 0.9) return gt("post", 2.4 + l);
+  return logRow(p, z, 99, side, seed);
+};
+
+// ---- the standing gatehouse (the irgate piece's bake) -------------------------------
+const GATEH = { key: "", cv: null, x0: 0, y0: 0, w: 0, h: 0, G: null, fire: null, pole: null, flag: null, smoke: [] };
+const bakeGatehouse = () => {
+  const key = `${REALM.id}|${PTS[0]}|${PTS[1]}`;
+  if (GATEH.key === key) return GATEH;
+  GATEH.key = key;
+  const G = plan(), { hw, D, ZG, w1, z1, w2, z2, P } = G;
+  GATEH.G = G;
+  const T1 = boxOf(G, -hw - w1, -hw, -1, D + 1), C = boxOf(G, -hw, hw, 0, D), T2 = boxOf(G, hw, hw + w2, -1, D + 1);
+  const x0 = Math.floor(Math.min(T1.xa, T2.xa, C.xa) - z1 * LEAN_W - 4), x1 = Math.ceil(Math.max(T1.xb, T2.xb, C.xb) + 30);
+  const y0 = Math.floor(Math.min(T1.ya, C.ya) - z1 - P - 30), y1 = Math.ceil(Math.max(T2.yb, C.yb) + 26);
+  const S = raster(x0, y0, x1 - x0, y1 - y0);
+  const frontE = !G.south;
+  const wall = (seed, slitAt) => (side, p, z, L) => timberWall(p, z, L, side, seed, { slit: (side === "E") === frontE ? slitAt : 0, band: 22 });
+  // the near tower (north, or west), the walk over the arch, the far tower
+  paintBox(S, T1, z1, P, wall(3, 26), { seed: 3, along: frontE ? "x" : "y" });
+  paintBox(S, C, ZG, P, (side, p, z) => {
+    const isFront = (side === "E") === frontE;
+    if (!isFront) return timberWall(p, z, 1e9, side, 5, { post: 0 });
+    // the face's own p runs from its north (west) end: make it local
+    const pl = frontE ? p + C.ya - G.F[1] : p + C.xa - G.F[0];
+    return gateFace(pl, z, hw, ZG, side, 7);
+  }, frontE ? { seed: 5, noNorth: true, along: "x", eastOwnsTop: true } : { seed: 5, noWest: true, along: "y" });
+  paintBox(S, T2, z2, P, wall(9, 23), { seed: 9, along: frontE ? "x" : "y" });
+  // (the walk's front breastwork belongs to the gate face; on a south-facing
+  // gate the walk's south face is the front)
+  // the far leaf, swung out wide against the verge beyond the far tower
+  if (frontE) {
+    const hx = G.F[0] + 1, hy = G.F[1] + hw + 0.5, ang = 1.05;
+    vface(S, hx, hy, Math.cos(ang), Math.sin(ang), 20, 0, 18, leafTex("S", 21));
+  }
+  // live bits' places: the brazier over the arch, the pennant pole on the near
+  // tower, the banner on the gate face, smoke rising out of the camp behind
+  const proj = (x, y, z) => [x - LEAN_W * z, y - z];
+  const mid = (b) => [(b.xa + b.xb) / 2, (b.ya + b.yb) / 2];
+  const [cmx, cmy] = mid(C), [t1x, t1y] = mid(T1);
+  GATEH.fire = proj(T1.xb - 4, T1.yb - 4, z1 + 1);
+  GATEH.pole = proj(T1.xa + 3, T1.ya + 3, z1);
+  GATEH.flag = frontE ? proj(C.xb, G.F[1], ZG + 3) : proj(G.F[0], C.yb, ZG + 3);
+  const back = (k, s) => proj(G.F[0] + G.N[0] * (D + 2 + k) + G.A[0] * s, G.F[1] + G.N[1] * (D + 2 + k) + G.A[1] * s, 20);
+  GATEH.smoke = [back(0, -hw * 0.4), back(4, hw * 0.5)];
+  GATEH.cv = rasterSprite(S, true, (c) => {
+    // the pennant's pole and the brazier's iron basket
+    const [px, py] = GATEH.pole;
+    if (py - 16 > 2) {
+      cylinder(c, px - 0.6, py - 16, 1.2, 16, WOOD_DK, { r: 0.4 });
+      ball(c, px, py - 16, 1, 1, BRASS, { hi: 0.5, lo: 0.3 });
+    } else GATEH.pole = null;
+    const [bx, by] = GATEH.fire;
+    c.fillStyle = IRON;
+    for (const dx of [-2.5, -0.5, 1.5]) c.fillRect(ap(bx + dx), ap(by - 3), 1, 3.5);
+    c.fillRect(ap(bx - 3), ap(by - 1), 7, 1);
+    c.fillRect(ap(bx - 0.5), ap(by), 1, 1.5);
+    ellipse(c, bx + 0.5, by - 3, 3.5, 1.1); c.fillStyle = "#3a2420"; c.fill();
+    // the banner's crossbar
+    const [fx, fy] = GATEH.flag;
+    c.fillStyle = IRON; c.fillRect(ap(fx - 7), ap(fy - 1), 13, 1);
+    c.fillStyle = BRASS; c.fillRect(ap(fx - 7.5), ap(fy - 1.5), 1, 1.5); c.fillRect(ap(fx + 6), ap(fy - 1.5), 1, 1.5);
+  });
+  GATEH.x0 = x0; GATEH.y0 = y0; GATEH.w = S.w; GATEH.h = S.h;
+  return GATEH;
+};
+const drawGatehouse = (ctx, time) => {
+  const B = bakeGatehouse();
+  ctx.drawImage(B.cv, B.x0, B.y0, B.w, B.h);
+  const [fx, fy] = B.flag;
+  const sway = Math.sin(time * 1.6) * 0.7 + Math.sin(time * 2.9 + 1) * 0.25;
+  cloth(ctx, ap(fx - 5.5), ap(fy), 11, 16, sway);
+  fire(ctx, B.fire[0] + 0.5, B.fire[1] - 3, 0.75, time, 2.1);
+  if (B.pole) pennant(ctx, B.pole[0] + 0.6, B.pole[1] - 15.5, 11, 4, time, 1.3);
+  smoke(ctx, B.smoke[0][0], B.smoke[0][1], time, 0.1, 1.3, "140,138,144", 0.34);
+  smoke(ctx, B.smoke[1][0], B.smoke[1][1], time, 0.57, 1, "140,138,144", 0.28);
+};
+const ironGate = (ctx, x, y, s, o) => { if (PTS.length > 1) drawGatehouse(ctx, o.time); };
+
+// ---- the camp's ground and palisade (the spawn layer) -------------------------------
+const CAMP = { key: "", ground: null, build: null, x0: 0, y0: 0, w: 0, h: 0, alone: false };
+const tentPeak = (c, x, gy, s, seed) => {
+  // a bell tent's cone over the stakes: oxblood, lit on the sun side, a grey
+  // valance, a brass finial
+  const R = 7 * s, h = 12 * s;
+  part(c, (cc) => {
+    cc.beginPath(); cc.moveTo(x, gy - h); cc.lineTo(x + R, gy); cc.quadraticCurveTo(x, gy + 1.5 * s, x - R, gy); cc.closePath();
+    cc.fillStyle = lin(cc, x - R, 0, x + R, 0, [[0, lighten(OX, 0.22)], [0.5, OX], [1, OX_DK]]); cc.fill();
+    cc.fillStyle = rgba("#2a1c2c", 0.3);
+    for (const k of [-0.5, 0.5]) { cc.beginPath(); cc.moveTo(x, gy - h); cc.lineTo(x + k * R - 0.3, gy); cc.lineTo(x + k * R + 0.3, gy); cc.fill(); }
+    cc.fillStyle = STEEL; cc.fillRect(ap(x - R), ap(gy - 1.5), R * 2, 1.5);
+    cc.fillStyle = darken(STEEL, 0.3); cc.fillRect(ap(x), ap(gy - 1.5), R, 1.5);
+  });
+  part(c, (cc) => { cc.fillStyle = WOOD_DK; cc.fillRect(ap(x - 0.5), gy - h - 3 * s, 1, 3 * s); ball(cc, x, gy - h - 3 * s, 0.9, 0.9, BRASS, { hi: 0.5, lo: 0.3 }); });
+};
 const bakeCamp = () => {
-  const key = `${REALM.id}|${PTS[0]}|${PTS.length}`;
+  const key = `${REALM.id}|${PTS[0]}|${PTS[1]}`;
   if (CAMP.key === key) return CAMP;
   CAMP.key = key;
-  const [, sy] = PTS[0];
-  const x0 = 0, y0 = Math.max(0, Math.floor(sy - 130)), y1 = Math.min(H, Math.ceil(sy + 120)), w = 110, h = y1 - y0;
+  const G = plan(), { hw, D, w1, w2, L0, ux, uy } = G;
+  CAMP.alone = !DECOR.some((d) => d.t === "irgate");
+  const [sx, sy] = PTS[0];
+  const x0 = -8, y0 = Math.floor(Math.max(-10, Math.min(sy, G.F[1]) - 140)), x1 = Math.ceil(G.F[0] + (G.south ? hw + 120 : 80)), y1 = Math.ceil(Math.min(H + 10, Math.max(sy, G.F[1]) + (G.south ? 80 : 150)));
+  const w = x1 - x0, h = y1 - y0;
   CAMP.x0 = x0; CAMP.y0 = y0; CAMP.w = w; CAMP.h = h;
-  const ly = sy - y0;   // the road's line inside the sprite
-  // 1. the ground: trampled mud at the gate, ruts, the camp's shadow deepening
-  //    toward the edge so the column comes out of the dark
-  CAMP.ground = bakeSprite(w, h, (c) => {
-    // trampled ground round the gate: two stepped bands of shade, not a soft disc
-    c.fillStyle = "rgba(58,46,36,0.2)"; ellipse(c, 34, ly + 2, 38, 30); c.fill();
-    c.fillStyle = "rgba(58,46,36,0.22)"; ellipse(c, 30, ly + 2, 24, 18); c.fill();
-    for (let i = 0; i < 26; i++) {
-      const rx = 4 + hash(i, 5) * 70, ry = ly + (hash(i, 6) - 0.5) * 60;
-      c.fillStyle = rgba(i % 3 ? "#4a3c30" : "#6a5a44", 0.55);
-      c.fillRect(ap(rx), ap(ry), 1 + (i % 2), 0.5);
+  // the gatehouse's footprint and how tall it stands there (for its shadow)
+  const T1 = boxOf(G, -hw - w1, -hw, -1, D + 1), C = boxOf(G, -hw, hw, 0, D), T2 = boxOf(G, hw, hw + w2, -1, D + 1);
+  const tall = [[T1, G.z1], [C, G.ZG], [T2, G.z2]];
+  const SUN = [0.42, 0.3];            // shadow per unit of height (light from the upper left)
+  // 1. the ground: the flags worn and mired out of the arch, the gatehouse's
+  //    shadow, the camp's dark behind the gate (stepped, dithered: no blur)
+  const G1 = raster(x0, y0, w, h);
+  const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const shade = hexRGB("#1c1620"), dark = hexRGB("#0e0c10");
+  for (let py = 0; py < G1.PH; py++) for (let px = 0; px < G1.PW; px++) {
+    const X = x0 + (px + 0.5) / PX, Y = y0 + (py + 0.5) / PX;
+    const rx = X - sx, ry = Y - sy;
+    const al = rx * ux + ry * uy, ac = Math.abs(-rx * uy + ry * ux);   // along / across the road's first leg
+    const bay = B4[(py & 3) * 4 + (px & 3)] / 16;
+    const i = py * G1.PW + px;
+    // in shadow? (walk back toward the sun, up to each block's height)
+    let sh = false;
+    for (const [b, z] of tall) {
+      const tmin = Math.max(0, (X - b.xb) / SUN[0], (Y - b.yb) / SUN[1]);
+      const tmax = Math.min(z, (X - b.xa) / SUN[0], (Y - b.ya) / SUN[1]);
+      if (tmin <= tmax) { sh = tmin < z - 3 || bay < (z - tmin) / 3; break; }
     }
-    const cv = c.canvas, PW = cv.width, PH = cv.height;
-    const img = c.getImageData(0, 0, PW, PH), dd = img.data;
-    const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-    for (let py = 0; py < PH; py++) for (let pxx = 0; pxx < PW; pxx++) {
-      const X = pxx / PX, Y = py / PX + y0;
-      const across = Math.abs(Y - sy);
-      if (across > PATH_HALF + 16 || X > 44) continue;
-      const a = Math.min(1, (44 - X) / 40) * Math.min(1, (PATH_HALF + 16 - across) / 20);
-      const lvl = Math.min(4, Math.floor(a * 4 + B4[(py & 3) * 4 + (pxx & 3)] / 16));
-      if (lvl <= 0) continue;
-      const o = (py * PW + pxx) * 4, al = [0, 60, 110, 160, 205][lvl] / 255;
-      dd[o] = Math.round(dd[o] * (1 - al) + 14 * al); dd[o + 1] = Math.round(dd[o + 1] * (1 - al) + 14 * al); dd[o + 2] = Math.round(dd[o + 2] * (1 - al) + 18 * al);
-      dd[o + 3] = Math.max(dd[o + 3], Math.round(255 * al));
+    if (ac < PATH_HALF + 3 && al < L0 - 1) {
+      // the road inside the gate and back into the camp: dark
+      const lvl = Math.min(4, Math.floor(2.6 + (L0 - al) / 10 + bay));
+      rput(G1, i, dark, [0, 70, 130, 180, 220][lvl]);
+      continue;
     }
-    c.putImageData(img, 0, 0);
-  }, false);
-  // 2. what stands: the palisade (north and south wings), the gate leaf swung
-  //    back along the road's north side, the tower, the stake line
-  const stake = (c, x, gy, hh, k) => {
-    cylinder(c, x - 1.6, gy - hh, 3.2, hh, k % 3 ? WOOD : mix(WOOD, "#7a6a50", 0.3), { r: 0.8, hi: 0.35, lo: 0.55 });
-    c.fillStyle = mix(WOOD_LT, "#c8a878", 0.4);
-    c.beginPath(); c.moveTo(x - 1.6, gy - hh + 0.5); c.lineTo(x, gy - hh - 2.6); c.lineTo(x + 1.6, gy - hh + 0.5); c.closePath(); c.fill();
-  };
-  CAMP.tx = 50; CAMP.ty = ly - PATH_HALF - 8;   // the tower's foot
-  CAMP.build = bakeSprite(w, h, (c) => {
-    // north wing of the palisade: behind the gate tower, back up into the wood
-    part(c, (cc) => {
-      for (let k = 0, yy = CAMP.ty - 70; yy <= CAMP.ty - 20; yy += 2.6, k++) {
-        if (yy < -4) continue;
-        stake(cc, 30 + Math.sin(k * 1.7) * 0.6 + (yy - CAMP.ty) * -0.12, yy, 17 + hash(k, 3) * 3, k);
+    if (ac < PATH_HALF + 1 && al >= L0 - 1 && al < L0 + 46) {
+      // the flags out of the arch: mud trodden into their joints, thinning
+      const k = 1 - (al - L0) / 46;
+      const n = vnoise(91, 5, X, Y) * 0.65 + vnoise(93, 2, X, Y) * 0.35;
+      const rut = Math.abs(ac - 12) < 1.6 || Math.abs(ac - 4) < 1 && n > 0.45;
+      if (n < 0.28 + k * 0.42 || (rut && k > 0.25)) {
+        const mt = rut ? 0.6 : n < 0.2 + k * 0.2 ? 1.2 : 2.6 + (hash(px >> 1, py >> 1) - 0.5) * 0.8;
+        rput(G1, i, gt("mud", mt), Math.round(255 * Math.min(0.92, 0.35 + k * 0.6)));
+        continue;
       }
-    });
-    // south wing: set well back from the road, and low
-    part(c, (cc) => {
-      for (let k = 0, yy = ly + PATH_HALF + 20; yy < Math.min(h + 4, ly + PATH_HALF + 90); yy += 2.6, k++) stake(cc, 30 + Math.sin(k * 1.3) * 0.6 + (yy - ly) * 0.1, yy, 13 + hash(k, 4) * 3, k);
-    });
-    // a low cheval-de-frise pushed aside at the south verge
-    part(c, (cc) => {
-      const cx = 44, gy = ly + PATH_HALF + 16;
-      cylinder(cc, cx - 12, gy - 4, 24, 2.4, WOOD, { r: 1 });
-      cc.lineCap = "round"; cc.lineWidth = 1.2;
-      for (let k = 0; k < 5; k++) {
-        const kx = cx - 10 + k * 5;
-        cc.strokeStyle = WOOD_LT; cc.beginPath(); cc.moveTo(kx - 3, gy); cc.lineTo(kx + 2.5, gy - 8); cc.stroke();
-        cc.strokeStyle = WOOD; cc.beginPath(); cc.moveTo(kx + 3, gy); cc.lineTo(kx - 2.5, gy - 8); cc.stroke();
-      }
-    });
+    }
+    if (sh) { rput(G1, i, shade, 96); continue; }
+    // trampled ground about the gate's feet, off the road
+    if (ac >= PATH_HALF && ac < PATH_HALF + 18 && al > L0 - 30 && al < L0 + 26) {
+      const n = vnoise(97, 3, X, Y);
+      if (n < 0.38 - (ac - PATH_HALF) / 60) rput(G1, i, gt("mud", 2 + (n < 0.25 ? -1 : 0)), 150);
+    }
+  }
+  CAMP.ground = rasterSprite(G1, false);
+  // 2. what stands here under the wood: the palisade's wings off both towers,
+  //    leaning with the gatehouse, the near leaf swung back, tents beyond
+  const B2 = raster(x0, y0, w, h);
+  const logs = (side, seed) => (p, z) => (z < 0.8 ? gt("log", 1) : logRow(p, z, 15, side, seed, 2.4));
+  if (!G.south) {
+    // north wing: from the near tower's back corner up into the pines, bending west
+    const n0 = [T1.xa + 1.5, T1.ya + 1];
+    const nd = [-0.22, -1], nl = Math.hypot(nd[0], nd[1]);
+    // (stakes run north: paint from the far end so the near ones overlap)
+    vface(B2, n0[0] + nd[0] / nl * 64, n0[1] + nd[1] / nl * 64, -nd[0] / nl, -nd[1] / nl, 64, 0, 16, logs("E", 31));
+    const s0 = [T2.xa + 1.5, T2.yb - 1], sd2 = [-0.22, 1], sl = Math.hypot(sd2[0], sd2[1]);
+    vface(B2, s0[0], s0[1], sd2[0] / sl, sd2[1] / sl, 70, 0, 16, logs("E", 33));
+    // the near leaf of the gate, swung back against the north verge
+    const hx = G.F[0] + 1, hy = G.F[1] - hw - 0.5, ang = -1.05;
+    vface(B2, hx, hy, Math.cos(ang), Math.sin(ang), 20, 0, 18, leafTex("S", 23));
+  } else {
+    // a south-facing gate: the wing runs east from the far tower into the wood
+    vface(B2, T2.xb - 1, T2.ya + 2, 1, -0.12, 64, 0, 16, logs("S", 35));
+  }
+  CAMP.build = rasterSprite(B2, true, (c) => {
+    if (G.south) return;
+    // the camp's tents behind the wings
+    tentPeak(c, T1.xa - 12, T1.ya - 22, 1, 1);
+    tentPeak(c, T2.xa - 10, T2.yb + 34, 0.9, 2);
   });
   return CAMP;
 };
-// The gate tower itself stands in the depth-sorted pass (a decor piece,
-// "irgate", placed by maps.js's ironVariant beside the road's first yards), so
-// the pines behind it can't bury it. Feet at (x, y + 8); the gate leaf swings
-// back along the road's north verge to the west of it, the first stakes of the
-// palisade behind.
-const PALE = (c, x, gy, hh, k) => {
-  cylinder(c, x - 1.6, gy - hh, 3.2, hh, k % 3 ? WOOD : mix(WOOD, "#7a6a50", 0.3), { r: 0.8, hi: 0.35, lo: 0.55 });
-  c.fillStyle = mix(WOOD_LT, "#c8a878", 0.4);
-  c.beginPath(); c.moveTo(x - 1.6, gy - hh + 0.5); c.lineTo(x, gy - hh - 2.6); c.lineTo(x + 1.6, gy - hh + 0.5); c.closePath(); c.fill();
-};
-const gateBody = (c, x, y) => {
-  const TW = 24, fx = x, gy = y + 8;
-  // the palisade's first stakes, running back from the gate post
-  part(c, (cc) => { for (let k = 0, yy = gy - 22; yy <= gy + 4; yy += 2.6, k++) PALE(cc, x - 28 + (yy - gy) * -0.12, yy, 17 + hash(k, 9) * 3, k); });
-  shadow(c, fx + 10, gy + 1, 18, 4, 0.34);
-  part(c, (cc) => {
-    ashlar(cc, fx - TW / 2 - 1, gy - 7, TW + 2, 7, darken(ASHLAR, 0.06), 3);
-    // planked walls between corner posts
-    cc.fillStyle = lin(cc, fx - TW / 2, 0, fx + TW / 2, 0, [[0, WOOD_LT], [0.5, WOOD], [1, WOOD_DK]]);
-    cc.fillRect(fx - TW / 2 + 1, gy - 34, TW - 2, 27);
-    cc.fillStyle = WOOD_DK;
-    for (let k = 1; k < 6; k++) cc.fillRect(ap(fx - TW / 2 + 1 + k * (TW - 2) / 6), gy - 34, 0.5, 27);
-    cc.fillStyle = IRON; cc.fillRect(fx - TW / 2 + 1, gy - 22, TW - 2, 1); cc.fillRect(fx - TW / 2 + 1, gy - 12, TW - 2, 1);
-    for (const px of [fx - TW / 2, fx + TW / 2 - 3]) cylinder(cc, px, gy - 36, 3, 29, WOOD_DK, { r: 0.6, hi: 0.3 });
-    // the east side in shade
-    cc.fillStyle = darken(WOOD, 0.45);
-    cc.beginPath(); cc.moveTo(fx + TW / 2, gy - 36); cc.lineTo(fx + TW / 2 + 4, gy - 38); cc.lineTo(fx + TW / 2 + 4, gy - 9); cc.lineTo(fx + TW / 2, gy - 7); cc.closePath(); cc.fill();
-  });
-  part(c, (cc) => {
-    const dt = gy - 36;
-    // the fighting deck's breastwork, jutting out over the shaft
-    cc.fillStyle = darken(WOOD, 0.55); cc.fillRect(fx - TW / 2 - 3, dt - 6, TW + 10, 4);
-    cc.fillStyle = lin(cc, 0, dt - 2, 0, dt + 5, [[0, WOOD_LT], [1, WOOD_DK]]);
-    cc.fillRect(fx - TW / 2 - 3, dt - 2, TW + 6, 7);
-    cc.fillStyle = WOOD_DK; for (let k = 1; k < 7; k++) cc.fillRect(ap(fx - TW / 2 - 3 + k * (TW + 6) / 7), dt - 2, 0.5, 7);
-    for (let k = 0; k < 8; k++) { cc.fillStyle = mix(WOOD_LT, "#c8a878", 0.35); const kx = fx - TW / 2 - 3 + k * (TW + 6) / 8; cc.beginPath(); cc.moveTo(kx, dt - 2); cc.lineTo(kx + (TW + 6) / 16, dt - 5); cc.lineTo(kx + (TW + 6) / 8, dt - 2); cc.fill(); }
-    cc.fillStyle = darken(WOOD, 0.5); cc.fillRect(fx + TW / 2 + 3, dt - 4, 4, 8);
-    cc.fillStyle = WOOD_DK; for (const bx of [-TW / 2 - 2, TW / 2]) { cc.beginPath(); cc.moveTo(fx + bx, dt + 5); cc.lineTo(fx + bx + 2, dt + 5); cc.lineTo(fx + bx + (bx < 0 ? 3 : -1), dt + 10); cc.closePath(); cc.fill(); }
-  });
-  part(c, (cc) => cloth(cc, fx - 5, gy - 30, 10, 16, 0));
-  // the pennant's pole and the brazier's iron basket on the deck
-  part(c, (cc) => {
-    cylinder(cc, fx - 8.6, gy - 64, 1.4, 24, WOOD_DK, { r: 0.4 });
-    ball(cc, fx - 7.9, gy - 64, 1.1, 1.1, BRASS, { hi: 0.5, lo: 0.3 });
-    const bx = fx + 6, by = gy - 42;
-    cc.fillStyle = IRON;
-    for (const dx of [-3, -1, 1, 3]) cc.fillRect(ap(bx + dx), by - 3, 0.8, 4);
-    cc.fillRect(bx - 3.5, by - 1, 7.5, 1);
-    ellipse(cc, bx + 0.4, by - 3, 3.8, 1.2); cc.fillStyle = "#3a2420"; cc.fill();
-  });
-  // the gate leaf, swung open against the north verge
-  part(c, (cc) => {
-    const ly = gy + 7, lx = x - 26;
-    cc.fillStyle = lin(cc, 0, ly - 16, 0, ly, [[0, WOOD_LT], [0.5, WOOD], [1, WOOD_DK]]);
-    cc.fillRect(lx, ly - 16, 20, 16);
-    cc.fillStyle = WOOD_DK; for (let k = 1; k < 5; k++) cc.fillRect(lx + k * 4, ly - 16, 0.5, 16);
-    cc.fillStyle = IRON; cc.fillRect(lx, ly - 13, 20, 1.2); cc.fillRect(lx, ly - 4.5, 20, 1.2);
-    cc.beginPath(); cc.moveTo(lx + 1, ly - 12); cc.lineTo(lx + 18, ly - 5); cc.lineTo(lx + 18, ly - 3.5); cc.lineTo(lx + 1, ly - 10.5); cc.fill();
-    for (let k = 0; k < 5; k++) { cc.fillStyle = mix(WOOD_LT, "#c8a878", 0.35); cc.beginPath(); cc.moveTo(lx + k * 4, ly - 16); cc.lineTo(lx + k * 4 + 2, ly - 18.5); cc.lineTo(lx + k * 4 + 4, ly - 16); cc.fill(); }
-    // the gate post it hangs from
-    cylinder(cc, lx - 3, ly - 22, 3.5, 22, WOOD_DK, { r: 0.8, hi: 0.3 });
-  });
-};
-const ironGate = (ctx, x, y, s, o) => {
-  const sp = body("gate", 34, 64, 20, (c, bx, by) => gateBody(c, bx, by));
-  stampBody(ctx, sp, x, y);
-  pennant(ctx, x - 7.4, y + 8 - 63, 11, 4, o.time, 1.3);
-  fire(ctx, x + 6.4, y + 8 - 45, 0.8, o.time, 2.1);
-};
 const drawIronCamp = (ctx, time) => {
-  if (!PTS.length) return;
+  if (PTS.length < 2) return;
   const C = bakeCamp();
   ctx.drawImage(C.ground, C.x0, C.y0, C.w, C.h);
   ctx.drawImage(C.build, C.x0, C.y0, C.w, C.h);
-  const ox = C.x0, oy = C.y0;
-  // smoke from the camp beyond the palisade
-  for (let i = 0; i < 4; i++) {
-    const t = (time * 0.22 + i / 4) % 1;
-    const sx = ox + 10 + Math.sin(time * 0.7 + i * 1.9) * 3 + t * 16, sy2 = oy + C.ty - 30 - t * 40;
-    soft(ctx, sx, sy2, 4 + t * 7, 3 + t * 5, [[0, `rgba(150,150,158,${0.26 * (1 - t)})`], [1, "rgba(150,150,158,0)"]]);
-  }
+  // a board with no "irgate" piece (a road off a top edge) stands its
+  // gatehouse here instead, under the foes
+  if (C.alone) drawGatehouse(ctx, time);
 };
 
 // ---- the ground: heather, bracken, bare stone ----------------------------------
