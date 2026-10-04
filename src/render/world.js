@@ -19,10 +19,11 @@ import { paintShore, drawShoreLive, coastTones, coastPixel } from "./coast.js";
 import { paintRoad, drawRoadMarks } from "./road.js";
 import { bakeWater } from "./water.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
+import { RIME_ART } from "./scenery-rime.js";
 import { groundKind, pixelTuft, strawOf } from "./groundblend.js";
 // a chapter's own ground art, keyed by REALM.groundArt (looked up when the
 // ground is painted, never at load — see the import cycle note in scenery.js)
-const artFor = (part, key) => IRON_ART[part]?.[key] || HOLLOW_ART[part]?.[key];
+const artFor = (part, key) => IRON_ART[part]?.[key] || HOLLOW_ART[part]?.[key] || RIME_ART[part]?.[key];
 
 let layer = null;
 let layerKey = "";

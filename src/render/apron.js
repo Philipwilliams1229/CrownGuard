@@ -40,6 +40,7 @@ import { DECOR, RIVERS, FOREST, COAST, forestDepthAt, seaDepthAt } from "../data
 import { drawTree, drawRiver } from "./scenery.js";
 import { IRON_ART } from "./scenery-iron.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
+import { RIME_ART } from "./scenery-rime.js";
 import { bakeCastleRun } from "./castle.js";
 import { mix, darken, lighten, rgba, hash, tuft, stone, shadow, soft, strokePts, blobBall, bakeSprite, part, PX } from "./paint.js";
 import { turfTones } from "./world.js";
@@ -112,7 +113,7 @@ let joined = false;
 const joinChapters = () => {
   if (joined) return;
   joined = true;
-  for (const { apron } of [IRON_ART, HOLLOW_ART]) {
+  for (const { apron } of [IRON_ART, HOLLOW_ART, RIME_ART]) {
     if (!apron) continue;
     if (apron.biome && apron.big && BIOMES[apron.biome]) BIOMES[apron.biome] = { ...BIOMES[apron.biome], big: apron.big };
     for (const t of apron.landscape || []) LANDSCAPE.add(t);
