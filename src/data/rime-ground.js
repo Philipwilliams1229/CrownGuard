@@ -39,7 +39,7 @@ addFootprints({
 // The gate's pieces, from the road (grid px; the border adds MX/MY = 40):
 // the near piece ("rmgate" v 9) 36 along the road and 40 to its right, so it
 // sorts after the column in the cleft; "rmice" blockers along the glacier
-// (scenery-rime.js: ice ~46 deep at the road, fading out ~80-165 either side)
+// (scenery-rime.js: ice ~54 deep at the road (48 on a top entry), fading out ~80-165 either side)
 // so no hall stands on the ice.
 const B = 40;
 const rimeGate = (path) => {
@@ -53,8 +53,8 @@ const rimeGate = (path) => {
   // the ice: e is depth from the board's edge (board px), s along it
   const e0 = (left ? sx : sy) + B, s0 = (left ? sy : sx) + B;
   const de = left ? ux : uy, ds = left ? uy : ux, slope = de > 0.1 ? ds / de : 0;
-  const sR = s0 + (46 - e0) * slope, span = left ? 560 : 840;
-  for (const [off, e] of [[64, 26], [94, 26], [124, 20]]) for (const sg of [-1, 1]) {
+  const sR = s0 + (54 - e0) * slope, span = left ? 560 : 840;
+  for (const [off, e] of [[64, 32], [94, 32], [124, 24]]) for (const sg of [-1, 1]) {
     const s = sR + sg * off;
     if (s < 10 || s > span - (left ? 10 : 110)) continue;
     out.push(left ? { x: e - B, y: Math.round(s - B), t: "rmice", s: 1 } : { x: Math.round(s - B), y: e - B, t: "rmice", s: 1 });

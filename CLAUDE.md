@@ -180,7 +180,7 @@ Bring these up with the owner; don't act on them unasked.
 - **Put to the owner, no answer yet:** a small pond bunches 3–4 River Watch
   boats close together.
 - **Known, not fixed:** `mPierce` does nothing (see the Powder Works
-  notes); square snow patches on the Frostfang map.
+  notes); square snow patches on the Frostfang map (the Rimewater boards repaint their turf and have none).
 - **Type:** a device that once opened a `?type=` link keeps that option
   (localStorage `cg-type`); `?type=tidy3` returns it to the default.
 

@@ -1044,7 +1044,7 @@ const banner = (ctx, x, y, s, time) => {
 const SPRITES = new Map();
 // how many bakes the scenery holds, and their pixels (for the lab pages)
 export const sceneryBakeStats = () => { let px = 0; for (const sp of SPRITES.values()) px += sp.cv.width * sp.cv.height; return { n: SPRITES.size, mb: +(px * 4 / 1048576).toFixed(1) }; };
-export const resetSceneryBakes = () => { SPRITES.clear(); GATE.key = ""; SIGN.key = ""; resetCastleBakes(); };
+export const resetSceneryBakes = () => { SPRITES.clear(); GATE.key = ""; resetCastleBakes(); };
 // the chapters' own pieces (scenery-iron.js, scenery-hollow.js) join the kit.
 // Gathered on first use, never at load: those files import this one back,
 // so whichever loads first, the other's registry isn't ready yet at load.

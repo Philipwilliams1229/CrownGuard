@@ -57,7 +57,7 @@ copy what the rebuilt pieces do.
 | The gate's crag (the hill the Greenwood/old realms' cave is cut into) | `src/data/gatecrag.js` (`gateCrag`, `hillAt`, `cragBlocks`) | pure data: scenery.js paints from it AND `buildableAt` refuses halls on it — change its shape only here, then scan that no buildable point lies on opaque gate pixels |
 | Weather (every zone) | `src/render/weatherfx.js` (the painters, keyed by kind; `drawWeatherGround` for the ground half — puddles, scorches, a rock's shadow — called in draw.js right after the cloud shadows; the toast, hall fires, daze stars) and `src/render/weatherbake.js` (every bake: noise, stepped dither layers, sprites — done once per realm in idle slices) | read-only on game state; one full-board layer per kind, near rain/snow as sparse stamps; check with `wfx-lab.html` (`&weather=kind:strength`, `&bench=N` frame cost, `&burn=N`, `&daze=1`) |
 | The Rime Clans (zone IV) | `src/render/rigs-rime.js` (thrall, huscarl, berserker + `berserkerRage`, rimeseer, skald — chant sheet at walk 4-7 — rimejarlfoot, and the exported seated `rimeJarlRider`; joint set `rime`), `src/render/rigs-rimebeasts.js` (rimerider, rimewolf, frostgiant, icedrake, the mounted `rimejarl`, seaserpent, kraken, krakenarm; joint set `rmb`) | the sea monsters' extra frames are walk-sheet strings (`"sub.0-3"`, `"surface.0-3"`, `"dive.0-3"`, `"rise.0-3"`, `"grab.0-3"`, `"sink.0-3"`); `drawSeaRig(ctx, e, g)` maps engine/serpent.js's state to them (waterline at e.y + 4) and rimefx.js's `drawSea` calls it; `armSinkFx` / `krakenSinkFx` paint the sinks; `drawSeaHold(ctx, m, g)` draws a tentacle or the serpent coiled round whoever it holds (baked, cached by offset; the arm's standing rig is skipped while it holds; serpent humps use `hold.0-3`), `drawKrakenDeepRig` the submerged kraken's dim shape (`deep.0-3`); a seized unit or foe is lifted ~2.5 px and wriggles (render/enemies.js) |
-| A chapter's own scenery: the Iron Marches, the Hollowfen, the vale's later pieces | `src/render/scenery-iron.js` (`IRON_ART`), `src/render/scenery-hollow.js` (`HOLLOW_ART`), `src/render/scenery-vale.js` (`VALE_ART`: menhir, stonefall, trilithon, watermill, cottage, boat, netrack, creels, marram, thistle, skeps, haywain) | one registry each — `decor` painters, `live` types, bake `box`, ground `dress`, `spawn` gates (REALM.spawn), `turf`/`road` art keyed by REALM.groundArt, and `apron` (the landscape's mix). scenery.js, world.js and apron.js read them LAZILY (they import scenery.js back — never read a registry at module load). Lab pages `irs-lab.html`, `hfs-lab.html` |
+| A chapter's own scenery: the Iron Marches, the Hollowfen, the vale's later pieces | `src/render/scenery-iron.js` (`IRON_ART`), `src/render/scenery-hollow.js` (`HOLLOW_ART`), `src/render/scenery-vale.js` (`VALE_ART`: menhir, stonefall, trilithon, watermill, cottage, boat, netrack, creels, marram, thistle, skeps, haywain), `src/render/scenery-rime.js` (`RIME_ART`: the Rimewater's `rm*` pieces, `rimegate`, `rimeFloes`) | one registry each — `decor` painters, `live` types, bake `box`, ground `dress`, `spawn` gates (REALM.spawn), `turf`/`road` art keyed by REALM.groundArt, and `apron` (the landscape's mix). scenery.js, world.js and apron.js read them LAZILY (they import scenery.js back — never read a registry at module load). Lab pages `irs-lab.html`, `hfs-lab.html`, `rsc-lab.html` (`?tag=&scale=&only=&wood=1`) |
 | Ground (turf tone map, grass, the wood's hem) | `src/render/world.js` (+ `groundblend.js` round halls) | one layer baked per realm, in order: tone map + turf → chapter turf art → `paintRoad` → chapter road art → `bakeWater` |
 | The road (dirt, ruts, chevrons) | `src/render/road.js` — `paintRoad` (the board), `paintRoadStrip` (the apron's road, run in the direction of march), `drawRoadMarks` (chevrons, live) | the Iron and Fen chapters pave over it |
 | Rivers and ponds | `src/render/water.js` — `bakeWater` (bodies, into the ground layer), `drawWaterLive` (current, glints, foam: stamps only), `drawRiver` (standalone, for the apron), `drawPond` | |
@@ -119,6 +119,20 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
 - Keep a board CALM at 1x: open turf with a few strong landmarks, like the
   Greenwood. Ground texture (heather, moss, paving joints) gathers into a
   few drifts and stays low-contrast, or it fights the foes for attention.
+- **The Rimewater** (2026-10-04; `src/data/rime-ground.js` `makeRimeVariant`,
+  art in scenery-rime.js): `groundArt "rime"` repaints the whole turf (drifts
+  along one west-north-west wind, wind ripples, sastrugi, scoured rock,
+  frozen puddles; tones from the realm's own ramp, so the apron meets it),
+  the road is packed snow over sparse old flagstones. A coast board's beach
+  is grey shingle (`coastSand`, any realm may set it; coast.js treats
+  "rime" land as "iron"). Two lists of its own, both in GRID px:
+  `strand: [{ x, y, t, s?, v? }]` — pieces standing ON the beach or a bank
+  (drawn-up longships, whale bones, racks, seal rocks) that skip the
+  grounding pass, foot at (x, y + 8), still blocking halls; and
+  `rimeFloes: [{ x, y, t: floe|berg|seals|skerry, s, v }]` in the water
+  (left out: a few are sown; `false`: none). Pieces and footprints: the
+  header of scenery-rime.js. A board's `extra.decor` joins the gate's
+  pieces, never replaces them.
 
 ## Rules for halls (towers)
 
