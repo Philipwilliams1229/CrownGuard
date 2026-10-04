@@ -136,7 +136,11 @@ const faces = () => {
   FACES = { gy, coast: COAST, f };
   return f;
 };
-const nearMouth = (G, u) => G.mouths.some((m) => Math.abs(u - m.u) < m.hw * 1.5);
+// how much a river's mouth takes the surf off u: 0 clear of it, rising over
+// the last hw * 0.8 toward the channel to 1 at hw * 0.7 from its middle
+// (the band dies into the plume, no cut edge)
+const mouthAt = (G, u) => { let m = 0; for (const o of G.mouths) m = Math.max(m, Math.min(1, (o.hw * 1.5 - Math.abs(u - o.u)) / (o.hw * 0.8))); return m; };
+const nearMouth = (G, u) => mouthAt(G, u) >= 1;
 const idx = (G, u) => { const i = Math.round((u - U0) * 2); return i < 0 ? 0 : i >= G.n ? G.n - 1 : i; };
 // (x, y) → [u along the edge, v in from it]
 const toUV = (edge, x, y) => (edge === "top" ? [x, y] : edge === "bottom" ? [x, H - y] : edge === "left" ? [y, x] : [y, W - x]);
@@ -184,7 +188,7 @@ export const coastTones = (R) => {
 
 // ---- the sea -----------------------------------------------------------------
 // The line of breakers: how far out it stands at u (sample i), on its bar.
-const breakAt = (G, u, i) => Math.max(5.5, 9 + 2 * Math.sin(u * 0.031 + G.seed) + 2.6 * (vn(u, 11.5, 23) - 0.5) + (G.line[i] - G.lineM[i]) * 0.9);
+const breakAt = (G, u, i) => Math.max(5.5, 9 + 2 * Math.sin(u * 0.031 + G.seed) + 2.6 * (vn(u, 11.5, 23) - 0.5) + (G.line[i] - G.lineM[i]) * 0.9) + (G.mouths ? mouthAt(G, U0 + i / 2) * 4 : 0);
 // where the breakers are spilling (foam) rather than still standing (a lit swell)
 const breaking = (u) => vn(u, 7.1, 6) > 0.42;
 // A mark on the open water at (u, dp): 0 none, 1 a swell's crest (its tail),
@@ -248,16 +252,16 @@ const seaPx = (T, G, i, dp, kd, x, y, dpA, kdA, iA) => {
   if (fb < 0) {
     // the breaking wave's face, just under its crest, in shade
     const fbA = dpA - breakAt(G, uA, iA);
-    if (fbA >= 0 && fbA < 2 * px && breaking(uA) && !nearMouth(G, U0 + iA / 2)) return R[4];
+    if (fbA >= 0 && fbA < 2 * px && breaking(uA) && vn(uA, 9.4, 3) > mouthAt(G, U0 + iA / 2) * 1.05) return R[4];
     // lace over the shallows: streaks strung along the shore, thinning out
     // toward the breakers
-    const n = vn(u * 0.28, dp, 2.1), w = 0.012 + 0.06 * (1 - dp / cb);
+    const n = vn(u * 0.28, dp, 2.1), w = (0.012 + 0.06 * (1 - dp / cb)) * (1 - mouthAt(G, U0 + i / 2));
     if (Math.abs(n - 0.5) < w && vn(u, 3.3 + dp * 0.3, 5) > 0.38) return R[1];
     return dp < 4.2 + (vn(x, y, 5) - 0.5) * 3 ? R[2] : R[3];
   }
   // the breakers' crest: foam where it spills, a lit swell where it stands;
   // spray thrown back ragged over the wave's back
-  const brk = breaking(u) && !nearMouth(G, U0 + i / 2);
+  const mth = mouthAt(G, U0 + i / 2), brk = breaking(u) && vn(u, 9.4, 3) > mth * 1.05;
   if (fb < 2 * px) return brk ? R[0] : fb < px ? R[2] : R[3];
   if (brk && fb < 2 * px + vn(x, y, 1.5) * 1.9 && vn(x + 40, y, 0.9) > 0.3) return R[1];
   // the open water: bands by depth, their edges wandering
@@ -756,10 +760,10 @@ const liveGeo = () => {
   const open = Math.min(1, Math.max(0.4, ((COAST.to ?? 1e9) - (COAST.from ?? -1e9)) / 420));
   // the river mouths (water.js, when it has them): no surf or swash across
   // a channel, a chop where the current meets the swell
-  const mouths = G.mouths, inMouth = (u) => nearMouth(G, u);
+  const mouths = G.mouths;
   // ---- the columns, half a unit wide: where each depth K lies (VT), the bar
   const nc = Math.floor(G.span * 2), NK = SW_K / SW_KS + 1;
-  const VT = new Float32Array(nc * NK).fill(NaN), cbK = new Float32Array(nc), ok = new Uint8Array(nc);
+  const VT = new Float32Array(nc * NK).fill(NaN), cbK = new Float32Array(nc), ok = new Uint8Array(nc), mt = new Float32Array(nc);
   const arcC = new Float32Array(nc), stC = new Float32Array(nc), xC = new Float32Array(nc), yC = new Float32Array(nc);
   for (let c = 0; c < nc; c++) {
     const u = (c + 0.5) / 2, i = idx(G, u);
@@ -767,7 +771,7 @@ const liveGeo = () => {
     arcC[c] = G.arcS[i];
     const nfs = nfK(G, i, 20); stC[c] = nfs * nfs;
     if (line < 2 || (G.along && u > W - WALL_W - 13)) continue;
-    ok[c] = inMouth(u) ? 2 : 1;
+    mt[c] = mouthAt(G, u); ok[c] = mt[c] >= 1 ? 2 : 1;
     const cb = breakAt(G, G.arc[i], i);
     // the bar in K, the headlands (the shore out past its smoothed line)
     // breaking first
@@ -804,7 +808,8 @@ const liveGeo = () => {
   const skip = rockSpots(G).shoreRocks.map((r) => [r.u - 6, r.u + 9]);
   for (let u = 0; u < G.span; u++) {
     if (G.along && u > W - WALL_W + 2) break;
-    if (inMouth(u + 0.5)) continue;
+    const mth = mouthAt(G, u + 0.5);
+    if (mth >= 1) continue;
     let dd = 99;
     for (const [a, b] of skip) dd = Math.min(dd, u + 0.5 < a ? a - u - 0.5 : u + 0.5 > b ? u + 0.5 - b : 0);
     if (dd <= 0) continue;
@@ -813,7 +818,7 @@ const liveGeo = () => {
     // no swash where fast ice lies on the waterline
     if (ice) { const [ix, iy] = toXY(G.edge, u + 0.5, v - 1); if (ice(ix, iy)) continue; }
     us.push(u); vs.push(v);
-    reach.push((2.4 + 2.8 * vn(u, 7.7, 31)) / G.nf[i] * (dd < 8 ? Math.sqrt(dd / 8) : 1) * open);
+    reach.push((2.4 + 2.8 * vn(u, 7.7, 31)) / G.nf[i] * (dd < 8 ? Math.sqrt(dd / 8) : 1) * open * (1 - mth));
     // the swash comes later in the bays (the shore in from its smoothed
     // line), and columns drift a little out of step in runs
     del.push(Math.min(5, Math.max(0, G.line[i] - G.lineS[i]) * 0.2) + 1.6 * vn(u, 3.3, 47));
@@ -832,7 +837,7 @@ const liveGeo = () => {
   const lace = cold ? mix(X.ramp[1], "#9aa8b0", 0.35) : X.ramp[1];
   LIVE = {
     coast: COAST, id: REALM.id, ice, edge: G.edge, along: G.along, speed, open, cold,
-    nc, NK, VT, cbK, ok, arcC, stC, xC, yC, maxK, rocks, rockOf, rockDu, chop, crest: [],
+    nc, NK, VT, cbK, ok, mt, arcC, stC, xC, yC, maxK, rocks, rockOf, rockDu, chop, crest: [],
     n: us.length, us: Float32Array.from(us), vs: Float32Array.from(vs), reach: Float32Array.from(reach), del: Float32Array.from(del), hs: Float32Array.from(hs),
     sheet: rgba(X.ramp[2], 0.55),
     // the fill styles, by index: the ramp 0-8, then foam, lace, the gleam, the glint
@@ -895,7 +900,7 @@ export function drawShoreLive(ctx, g) {
   const ice = SEA_ICE.at;
 
   // ---- the swell and the surf ----
-  const nc = L.nc, NK = L.NK, VT = L.VT, cold = L.cold, rocks = L.rocks, rockOf = L.rockOf, rockDu = L.rockDu, okA = L.ok, cbA = L.cbK, xA = L.xC, yA = L.yC;
+  const nc = L.nc, NK = L.NK, VT = L.VT, cold = L.cold, rocks = L.rocks, rockOf = L.rockOf, rockDu = L.rockDu, okA = L.ok, mtA = L.mt, cbA = L.cbK, xA = L.xC, yA = L.yC;
   for (let r = 0; r < SW_N; r++) {
     const ph = (t * L.speed + r * SW_S) / SW_K, gen = Math.floor(ph);
     const seed = r * 977 + gen * 131;
@@ -920,7 +925,8 @@ export function drawShoreLive(ctx, g) {
         // a crest: in segments with gaps between, each bowed seaward in its
         // middle, thinner and shorter where its contour runs steep (and
         // none over a river's plume, where the current flattens it)
-        if (hN[c] > dens || (okA[c] === 2 && K < cb + 14)) continue;
+        // (and they thin out into a river's plume, where the current flattens them)
+        if (hN[c] > dens * (1 - mtA[c] * (K < cb + 14 ? 1 : 0.6))) continue;
         Kc = K + bowA[c];
         // round the rocks awash: a lee of flat water behind each, and the
         // crest bows out round its seaward face
@@ -938,7 +944,7 @@ export function drawShoreLive(ctx, g) {
         // in runs; none across a river's mouth, none in a rock's lee
         if (okA[c] === 2) continue;
         const age = (cb - K) / Math.max(4, cb - 1);
-        if (dis[c] > 1.1 - age * 1.1) continue;
+        if (dis[c] > 1.1 - age * 1.1 - mtA[c] * 1.2) continue;
         if (rj >= 0) { const rk = rocks[rj]; if (K > rk.K - 9 && K < rk.K + rk.top + 1.5) continue; }
         Kc = K; si = age > 0.5 && laceA[c] ? S_LACE : S_FOAM;
         if (age < 0.3) si = -1;   // white water: the bore and its lace behind

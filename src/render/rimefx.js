@@ -158,10 +158,22 @@ export const drawFrostShells = (ctx, g) => {
     ctx.fillRect(S(t.x - w), S(t.y - h), w * 2, CELL);                 // lit top edge
     ctx.fillRect(S(t.x - w), S(t.y - h), CELL, h + 8);                 // lit left edge
     ctx.fillRect(S(t.x - w + 6), S(t.y - h + 6), CELL, 14);            // a glint
-    // cracks that grow as it thaws
-    ctx.fillStyle = "rgba(90,140,180,0.8)";
+    // rime along the top, a blue depth down the shaded right side, and
+    // icicles hanging off its lower edge (shorter as it thaws)
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    for (let i = 0; i < 6; i++) ctx.fillRect(S(t.x - w + 2 + i * 7), S(t.y - h - 1), CELL * 2, CELL);
+    ctx.fillStyle = "rgba(90,140,180,0.55)";
+    ctx.fillRect(S(t.x + w - 5), S(t.y - h + 4), CELL * 2, h);
+    for (let i = 0; i < 5; i++) { const L = Math.round((4 + (i * 7) % 6) * (0.4 + 0.6 * k)); ctx.fillRect(S(t.x - w + 3 + i * 9), S(t.y + 8), CELL, L); ctx.fillRect(S(t.x - w + 3 + i * 9), S(t.y + 8 + L), CELL * 0.5, CELL); }
+    // cracks that branch and grow as it thaws, each with a lit lip
+    ctx.fillStyle = "rgba(60,100,140,0.85)";
     const cracks = Math.round((1 - k) * 6);
-    for (let i = 0; i < cracks; i++) ctx.fillRect(S(t.x - w + 6 + i * 6), S(t.y - h + 10 + (i * 13) % 26), CELL, 8);
+    for (let i = 0; i < cracks; i++) {
+      const cx = S(t.x - w + 6 + i * 6), cy = S(t.y - h + 10 + (i * 13) % 26);
+      ctx.fillRect(cx, cy, CELL, 8); ctx.fillRect(cx + (i % 2 ? CELL : -CELL), cy + 8, CELL, 5); ctx.fillRect(cx + (i % 2 ? CELL : -CELL), cy + 13, CELL * 2 * (i % 2 ? 1 : -1), CELL);
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    for (let i = 0; i < cracks; i++) ctx.fillRect(S(t.x - w + 6 + i * 6) - CELL, S(t.y - h + 10 + (i * 13) % 26) - CELL, CELL, 4);
     ctx.restore();
     // a small timer bar under it
     ctx.fillStyle = "rgba(16,14,20,0.6)"; ctx.fillRect(S(t.x) - 12, S(t.y) + 10, 24, 3);

@@ -53,6 +53,7 @@ import {
   lighten, darken, mix, rgb, rgba, soft, shadow, ball, glow, cylinder, hash, ellipse, lin, bakeSprite, inkOutline, part, PX,
 } from "./paint.js";
 import { turfTones, groundLayer } from "./world.js";
+import { SEA_ICE } from "./coast.js";
 
 // ---- the Rimewater's colours -------------------------------------------------
 const INK = "#241a26";
@@ -1242,7 +1243,7 @@ const rimeGateTree = (d) => {
 // of open water (the longships' lane) through it.
 // `rimeFastIceAt(x, y)` (0..1) tells coast.js where the sea is covered.
 const ICE_SHEET = { key: "", B: null };
-const SEA_ICE = { top: 14, bottom: 8, left: 10, right: 10 };    // base thickness by coast edge (units)
+const SEA_THICK = { top: 14, bottom: 8, left: 10, right: 10 };    // base thickness by coast edge (units)
 const MERE_ICE = 8;
 // the sheet's own tones (RGB)
 const RGB_ICE = ICE.map(hexRGB);
@@ -1264,10 +1265,10 @@ const landingSpots = () => {
 const iceBake = () => {
   const key = `${REALM.id}|${PTS.length}|${PONDS.length}|${COAST ? COAST.edge + COAST.depth : ""}|${RES}`;
   if (ICE_SHEET.key === key) return ICE_SHEET.B;
-  ICE_SHEET.key = key; ICE_SHEET.B = null;
+  ICE_SHEET.key = key; ICE_SHEET.B = null; SEA_ICE.at = null;
   if (typeof document === "undefined" || REALM.rimeIce === false || RES !== PX) return null;
   const opt = REALM.rimeIce || {};
-  const seaT = COAST && opt.sea !== false ? (opt.sea ?? SEA_ICE[COAST.edge] ?? 9) : 0;
+  const seaT = COAST && opt.sea !== false ? (opt.sea ?? SEA_THICK[COAST.edge] ?? 9) : 0;
   const mereT = opt.mere === false ? 0 : (opt.mere ?? MERE_ICE);
   // (an "ice" pond is painted frozen whole by water.js; lava never)
   const ponds = mereT ? PONDS.filter((p) => !p.t || p.t === "swamp") : [];
@@ -1378,7 +1379,7 @@ const iceBake = () => {
     thick[k] = T;
     if (d > T + 1.1) {
       // brash: loose cakes beyond the edge
-      if (d < T + 3.2 && (i % K) === 0 && (j % K) === 0 && hash(i, j + sd) < 0.007 && cakes.length < 44) cakes.push({ x, y, z: (hash(j, i + sd) * 3) | 0, v: (hash(i + 7, j) * 3) | 0, tx: -ny, ty: nx, ph: hash(i, j) * 6.28 });
+      if (d < T + 3.2 && (i % K) === 0 && (j % K) === 0 && hash(i, j + sd) < 0.007 && cakes.length < 36) cakes.push({ x, y, z: (hash(j, i + sd) * 3) | 0, v: (hash(i + 7, j) * 3) | 0, tx: -ny, ty: nx, ph: hash(i, j) * 6.28 });
       continue;
     }
     if (d > T) { put(k, WET); continue; }              // the dark water under the sheet's edge
@@ -1448,6 +1449,8 @@ const iceBake = () => {
   c.putImageData(img, 0, 0);
   const box = boxes.filter((b) => b[2] >= b[0]).map((b) => [b[0], b[1], b[2] - b[0] + 1, b[3] - b[1] + 1]);
   ICE_SHEET.B = { cv, cover, cakes, box };
+  // coast.js keeps its swell, surf and swash off the fast ice
+  if (seaT) SEA_ICE.at = (x, y) => x >= 0 && y >= 0 && x < W && y < H && cover[(y | 0) * W + (x | 0)] > 0;
   return ICE_SHEET.B;
 };
 // How much fast ice lies on the sea at board point (x, y): 1 under the sheet,

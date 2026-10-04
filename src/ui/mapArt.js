@@ -618,7 +618,7 @@ function river({ ctrl, pins = [], seed, w0, w1, amp = 8, fen = false, ice = fals
     const nib = taper > 0 ? 0.22 + 0.78 * smooth(Math.min(1, cum[i] / taper)) : 1;
     return ((w0 + (w1 - w0) * Math.min(1, cum[i] / Lm) + open + fan) / 2) * (0.82 + fbm(cum[i] * 6, seed, 30, seed + 9) * 0.36 * (1 - open / (flare ? flare[1] * 1.6 : 1))) * nib;
   });
-  return { pts: mid, hw: widths(L), nrm: normals(mid), cum, len: L, w: Math.max(w0, w1), fen, ice, sea: sea || null, spring, lake, deepTo, widths };
+  return { pts: mid, hw: widths(L), nrm: normals(mid), cum, len: L, w: Math.max(w0, w1), fen, ice, sea: sea || null, spring, lake, deepTo, widths, seed };
 }
 // Fit a sea river to the painted coast: its mouth opens 3 units past its
 // last point on land (the data's end may lie far out in the warped sea),
@@ -2717,19 +2717,26 @@ function* paintTerrain() {
   for (const m of mouths) { fitMouth(m.rv, m.i); m.hw = m.rv.hw[m.i]; }
   const waterMask = mk(), wm = waterMask.getContext("2d", RF);
   wm.drawImage(landMask, 0, 0);
-  if (mouths.length) {
-    const solidMask = mk(), smi = new ImageData(AW, AH);
-    for (let i = 0; i < AW * AH; i++) smi.data[i * 4 + 3] = base.land[i] || base.cliff[i] ? 255 : 0;
-    solidMask.getContext("2d", RF).putImageData(smi, 0, 0);
-    wm.save(); wm.beginPath();
-    for (const m of mouths) { const r = (m.hw + 8) * U; wm.moveTo(artX(m.x) + r, artY(m.y)); wm.arc(artX(m.x), artY(m.y), r, 0, Math.PI * 2); }
-    wm.clip(); wm.drawImage(solidMask, 0, 0); wm.restore();
+  for (const m of mouths) {
+    // (the cliff pixels within reach of the mouth, box by box: cheap)
+    const r = Math.ceil((m.hw + 8) * U), cx = artX(m.x), cy = artY(m.y);
+    const x0 = Math.max(0, cx - r), y0 = Math.max(0, cy - r), w = Math.min(AW, cx + r) - x0, h = Math.min(AH, cy + r) - y0;
+    if (w <= 0 || h <= 0) continue;
+    const box = wm.getImageData(x0, y0, w, h), bd = box.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y0 + y) * AW + x0 + x;
+      if (base.cliff[i] && Math.hypot(x0 + x - cx, y0 + y - cy) <= r) bd[(y * w + x) * 4 + 3] = 255;
+    }
+    wm.putImageData(box, x0, y0);
   }
   const onWater = (layerCv) => { const c = layerCv.getContext("2d", RF); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "destination-in"; c.drawImage(waterMask, 0, 0); return layerCv; };
   ctx.drawImage(onWater(water), 0, 0);
   ctx.drawImage(onWater(shine), 0, 0);
+  const waterMs = performance.now() - tWater;
+  yield;
+  const tMouth = performance.now();
   riverMouths(ctx, base, mouths);
-  if (typeof location !== "undefined" && location.search.includes("mwdebug")) console.error(`water stage ${Math.round(performance.now() - tWater)}ms; mouths ` + mouths.map((m) => `${m.rv.seed}:i${m.i}/${m.rv.pts.length} hw${m.hw.toFixed(1)} end-seaD${(base.seaD[artY(m.rv.pts[m.rv.pts.length - 1][1]) * AW + artX(m.rv.pts[m.rv.pts.length - 1][0])] / U).toFixed(1)}`).join(" ") + " | no mouth: " + RIVERS.filter((rv) => rv.sea && !mouthOf(rv, base)).map((rv) => rv.seed).join(","));
+  if (typeof location !== "undefined" && location.search.includes("mwdebug")) console.error(`water stage ${Math.round(waterMs)}ms, mouths ${Math.round(performance.now() - tMouth)}ms; mouths ` + mouths.map((m) => `${m.rv.seed}:i${m.i}/${m.rv.pts.length} hw${m.hw.toFixed(1)} end-seaD${(base.seaD[artY(m.rv.pts[m.rv.pts.length - 1][1]) * AW + artX(m.rv.pts[m.rv.pts.length - 1][0])] / U).toFixed(1)}`).join(" ") + " | no mouth: " + RIVERS.filter((rv) => rv.sea && !mouthOf(rv, base)).map((rv) => rv.seed).join(","));
   yield;
   // the Rimewater's glaciers: blue-white ice, lit along their western edge,
   // banded with crevasses across the flow and a dark moraine down the middle
