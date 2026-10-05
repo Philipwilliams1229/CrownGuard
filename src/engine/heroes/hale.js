@@ -29,7 +29,9 @@
 // - Sound the Levy (`fire`, aim none): two watchmen (halberdier rig) and two
 //   crossbowmen (a mixed "militia" band, `levy` set so nothing mistakes it
 //   for the player's horn; its cooldown is untouched) fall in on the spot he
-//   stands: the soldiers a step ahead of him, the crossbows behind. For
+//   stands: the soldiers a step ahead of him, the crossbows behind. They
+//   fight until they drop (no clock, no respawn); sounding the horn again
+//   replaces whatever is left with four fresh men. For
 //   `buffDur` ms every friendly soldier within `r` of him strikes `buff`
 //   harder (atkBuff, laid by `buffs` after the Support halls' auras, which
 //   clear it every tick).
@@ -144,10 +146,17 @@ export default {
     if (id === "levy") {
       if (u.state === "dead") return false;
       if (!g.bands) g.bands = [];
+      // a fresh levy replaces whoever is left of the last one
+      for (const old of g.bands) {
+        if (!old.levy || old.heroId !== b.id) continue;
+        for (const m of old.units) if (m.state !== "dead") { releaseEnemy(g, g.enemies.find((e) => e.blockedBy === m.id)); g.effects.push({ type: "poof", x: m.x, y: m.y, ttl: 350 }); }
+        old.gone = true;
+      }
+      g.bands = g.bands.filter((x) => !x.gone);
       const men = Math.max(1, Math.round(a.men)), bows = Math.max(0, Math.round(a.bows));
       const n = men + bows;
       const st = {
-        count: n, bows, hp: Math.round(a.hp), dmg: a.mdmg, rate: a.rate || 850, range: a.range || 72, unitSpeed: 115, respawnMs: 999999,
+        count: n, bows, hp: Math.round(a.hp), dmg: a.mdmg, rate: a.rate || 850, range: a.range || 72, unitSpeed: 115, respawnMs: Infinity,
         bow: { men: Math.round(a.bowHp), dmg: a.bowDmg, rate: a.bowRate, range: a.bowRange }, bowRig: "crossbow",
       };
       // they fall in on his own spot: the watchmen a step ahead of him, the
@@ -164,7 +173,7 @@ export default {
         if (bow) { un.bow = true; un.rig = "crossbow"; }
         return un;
       });
-      g.bands.push({ id: nextId(), kind: "militia", levy: true, heroId: b.id, rig: "halberdier", st, rally: { x, y }, slots, units, life: a.life });
+      g.bands.push({ id: nextId(), kind: "militia", levy: true, heroId: b.id, rig: "halberdier", st, rally: { x, y }, slots, units, life: Infinity });
       // the horn's call and the banner's flash play in real time (`k`); the
       // heart it puts into the soldiers lasts `buffDur` of game time
       const k = Math.max(1, g.speed || 1);
@@ -277,6 +286,8 @@ export default {
   world(g, sdt, tms) {
     if (g.haleLevy) g.haleLevy = g.haleLevy.filter((lv) => Math.max(lv.until + 600, lv.t0 + 900 * lv.k) > tms);
     if (g.haleFx) g.haleFx = g.haleFx.filter((f) => f.until > tms);
+    // a levy with no one left standing is done with
+    if (g.bands) for (const b of g.bands) if (b.levy && b.units.every((m) => m.state === "dead")) b.gone = true;
   },
 
   reset(g) {

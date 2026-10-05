@@ -20,8 +20,8 @@ export default {
       desc: "Planted where he stands, three wide halberd swings, each a half-circle before him: all it reaches is struck and stunned, riders twice over.",
       base: { dmg: 40, beats: 3, lead: 320, gap: 520, r: 68, stun: 700, mounted: 2, harm: 0.6 }, perLevel: { dmg: 6 } },
     { id: "levy", name: "Sound the Levy", aim: "none", unlock: 5, cd: 45000, icon: "levy",
-      desc: "Two watchmen and two crossbowmen fall in on the spot he stands for fifteen seconds; soldiers near him strike a quarter harder.",
-      base: { men: 2, bows: 2, life: 15000, buff: 0.25, buffDur: 8000, r: 90, hp: 260, mdmg: 14, rate: 850, range: 72, bowHp: 150, bowDmg: 13, bowRate: 1000, bowRange: 130 }, perLevel: { hp: 20, mdmg: 2, bowHp: 12, bowDmg: 1.5 } },
+      desc: "Two watchmen and two crossbowmen fall in where he stands and fight until they drop; calling again replaces them with fresh men.",
+      base: { men: 2, bows: 2, buff: 0.25, buffDur: 8000, r: 90, hp: 260, mdmg: 14, rate: 850, range: 72, bowHp: 150, bowDmg: 13, bowRate: 1000, bowRange: 130 }, perLevel: { hp: 20, mdmg: 2, bowHp: 12, bowDmg: 1.5 } },
   ],
   talents: [
     { id: "plate", name: "Watch Plate", desc: "+10% health a rank.", apply: (st, r) => { st.hp = Math.round(st.hp * (1 + 0.1 * r)); } },
@@ -30,7 +30,7 @@ export default {
     { id: "line", name: "Hold the Line", desc: "Holds one more foe at ranks 3 and 5.", apply: (st, r) => { st.holds += (r >= 3 ? 1 : 0) + (r >= 5 ? 1 : 0); } },
     { id: "muster", name: "Muster", desc: "Back on his feet 12% sooner a rank.", apply: (st, r) => { st.respawnMs = Math.round(st.respawnMs * (1 - 0.12 * r)); } },
     abilityLine("brace", "Halberd Sweep", "a longer reach", (a, r) => { a.r += 4 * r; a.stun += 100 * r; }),
-    abilityLine("levy", "Sound the Levy", "the watchmen stay longer", (a, r) => { a.life += 1500 * r; a.mdmg *= 1 + 0.12 * r; a.bowDmg *= 1 + 0.12 * r; }),
+    abilityLine("levy", "Sound the Levy", "sturdier men", (a, r) => { a.hp *= 1 + 0.1 * r; a.bowHp *= 1 + 0.1 * r; a.mdmg *= 1 + 0.12 * r; a.bowDmg *= 1 + 0.12 * r; }),
   ],
   // his retinue: watchmen of the castle (the Gate Guard's halberdiers)
   retinue: { name: "Watchman", rig: "halberdier", at: [10, 15], joins: "a watchman falls in beside him!",
