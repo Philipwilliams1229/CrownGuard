@@ -714,6 +714,48 @@ textures." What came of it:
   layer, spans and gate now bake in ~0.5-0.8 s here (headless, shared CPU).
   Frames got faster; watch the load time on the iPad.
 
+**The water pass (2026-10-04, owner: rivers cut off at seas and lakes, more
+and better motion, ice).** Rules that came of it:
+
+- **Estuaries** (water.js `mouthOf`/`funnelAt`): a river whose end lies in
+  the sea gets a mouth. Over the last 70 px plus the beach the channel is
+  held within 3 px of the honest edge, then flares over the last 40 px of
+  sand (`MOUTH_FLARE`) to about twice its width at the waterline; the banks
+  lower into wet sand (no earth face), a sand bar parts the channel, the
+  channel stripe fades, and a silt fan (`T_SILT`, sand-tinted) runs out as a
+  solid tongue bent down-coast by a seeded longshore drift (`M.drift`) and
+  dissolves within `FAN` 60 px in a fine dither, never a screen and never a
+  box (the pixel loop runs past the bank field out to FAN in the sea).
+  Nothing else of a river is ever painted in the sea. `riverMouths()` hands
+  coast.js the mouths; actions.js keeps halls `hw * 2.2 + 14` off them. The
+  gameplay edge (terrain.js) is never widened.
+- **Water motion is baked marks at the water's own pace** (`drawWaterLive`,
+  under ~0.5 ms a frame; Dead Weir's five rivers are the heaviest): a
+  river's marks gather in the fast middle, run faster through narrows and
+  slower in wide reaches, at the banks and into a mouth; banks lap in three
+  steps on a 2-4 s cycle (`lapSprite`, one spot every ~34 px, alternating
+  banks); rocks and stone bridge piers (`boardPiers`) shed a four-step foam
+  tail; ponds take one seeded wind per realm (`windOf`) with ripple bands
+  drifting at ~2 u/s, glints on the wind and a ring every 9-16 s; black fen
+  water gets dim moonlit greys. Every mark fades in three alpha steps and
+  moves with the water; nothing blinks in place. `scratchpad/rv/perf.html`
+  measured it; `shots.html` takes `extra.time` for frames of motion.
+- **The sea moves on one clock, the swell's** (coast.js `drawShoreLive`):
+  three crests 36 units apart roll in along the baked depth contours at
+  5.5 u/s (a wave every ~6.5 s; the Rimewater x0.65; a narrow inlet scaled
+  by its opening), steepen and break into surf at the bar (headlands
+  first), and the swash rises in step with them; a wave's size is shared
+  along the whole shore, and a big one comes now and then. Never give the
+  shore a second timer. Live water is 1-px rects on the art grid merged
+  along the shore, one fill per tone; crest patterns are baked once per
+  crest. Rocks awash take a lee and heaped foam seaward. Glints ride sunlit
+  crests only, never on a cold sea. Nothing surfs across a river mouth:
+  `mouthAt` tapers the breakers, surf and swash away over the last 0.8
+  half-widths, the bar curls seaward, and the calm narrows with depth; a
+  standing chop sits in the channel. Fast ice stops the sea: scenery that
+  lays ice on the water sets `SEA_ICE.at(x, y)` (coast.js). Cost ~0.7 ms
+  a frame here (software raster); `SW_N` 3 -> 2 is the lever.
+
 ## Hand-placed decor (and the old spawn sign)
 
 - A hand-placed decor entry may pick its look: `v` (and `sd` for a stone's
@@ -746,6 +788,24 @@ actions.js `buildableAt`).
   (`irgate`, `v: 9`) south of it, so the column is hidden in the passage
   and marches out of the arch.
 
+- **Ice on the water** (2026-10-04, scenery-rime.js `iceBake`): still water
+  freezes from its shores: ONE sheet baked a board over the painted water
+  (a wet thaw line beside a sunlit bank, a frost rim beside a shaded one,
+  snow streaked along the wind and piled on the downwind shore, clear dark
+  windows with the sun's sheen, cracks with a lit upper-left lip, pressure
+  ridges and leads at sea, a shaded edge face over a dark wet line, brash
+  cakes drifting slowly beyond it, a fishing hole on a big mere).
+  `REALM.rimeIce: false | { sea, mere }` sets the thickness (sea by coast
+  edge: top 14 / bottom 8 / sides 10; meres 8, capped by the mere's size);
+  rivers, the castle's water and a landing's lane stay open. It is art over
+  water (skiffs row under it, keep the sea band thin). `rimeFastIceAt(x, y)`
+  (0..1) and coast.js's `SEA_ICE.at` tell the coast where its swell and
+  swash stop. An `ice` pond (water.js) uses the same vocabulary; frozen
+  puddles and the icefall's pool are the same sheet at small scale. Floes
+  carry a waterline, a side face and a reflection; bergs a lit face, a blue
+  cleft and a shadow in the water; skerries are wet and dark with rime on
+  the north side; `seals` is a floe with seals on it.
+
 ## The campaign map (`src/ui/mapArt.js`)
 
 - Roads: good as they are — well connected.
@@ -776,6 +836,23 @@ actions.js `buildableAt`).
   river passes near a dry level. After adding a level or moving water, run
   `node scripts/check-map-water.mjs` and look at `map-lab.html`. It also
   fails a DRY level within 10 units of a lake.
+- **Water meets water with one outline** (2026-10-04): rivers and meres are
+  one inked layer, so a river leaving or entering a lake and two becks
+  meeting share an outline, never a line across the junction. A river
+  flagged `sea: true` (or `{ bars, fan }`) gets a mouth: `fitMouth` opens
+  its flare 3 units past its LAST POINT ON THE PAINTED LAND (not the data's
+  end: the coast is warped), the water mask lets it run over the coast's
+  ink and down a cliff face as a notch, and the `riverMouths` stage paints
+  the channel out over the sea's ink line, a plume of silt (the sea's bands
+  pushed coastward plus `SILT`, Bayer-dithered, no surf) that dissolves in
+  a few units, sand bars across the flow in the big estuaries, peat and
+  salt-marsh mud for a fen river, a milky plume for a glacier river. It
+  repaints only the sea's own tones, so ice and set pieces stand. A river
+  rising in the open tapers to a nib (`taper`, default 12 units) or wells
+  from a `spring` pool; one out of a mere starts INSIDE it (`lake: "from"`),
+  one into a mere fans out and its deep channel dies short (`lake:
+  "into"`). A mere's shallows rim is wider on its lee (east) shore. Check a
+  mouth with `map-lab.html?...&scale=4&crop=x,y,w,h&mwdebug=1`.
 - **Growing a country** (2026-10-03): new land is new lobes of coastline
   (REGIONS in mapLayout.js), never a rescale — the hand-placed dressing,
   rivers and set pieces of the old land keep their coordinates. Dress new

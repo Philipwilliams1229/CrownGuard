@@ -172,6 +172,24 @@ uses; existing levels sim byte-identical). Read the headers of
   `--gold N`. The wave preview shows a landing party as its own chip with a
   ship badge.
 
+## The water pass (2026-10-04, owner request)
+
+"Rivers in the world map don't blend with the oceans or lakes ... more
+movement in the water on the levels ... the ice in the north could look much
+better." Four artists by file (mapArt.js water, water.js, coast.js,
+scenery-rime.js + water.js's ice branches); the rules are in the style guide
+("The water pass", "Ice on the water", "Water meets water with one
+outline"). Engine side: `actions.js` keeps halls off a river mouth's funnel
+and fan (`riverMouths()`, render/water.js). Pending the owner's playtest:
+the swell's speed and crest contrast, the river marks' density, whether the
+fast-ice band hides a River Watch skiff on the north-coast boards
+(scenery-rime.js's report: clip the patrol where `rimeFastIceAt > 0`, or
+set `rimeIce: { sea: 8 }` on skerryway / wolfsound / saltreach /
+jarlsfjord). The only campaign board with a river AND a coast is none: the
+estuary shows on the test board `rimefjord` until a level gets one.
+Lesson: the session limit cut three of four agents off; resume a cut-off
+agent with a tool-call budget instead of starting a fresh one.
+
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
