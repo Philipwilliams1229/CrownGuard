@@ -286,8 +286,6 @@ export default {
   world(g, sdt, tms) {
     if (g.haleLevy) g.haleLevy = g.haleLevy.filter((lv) => Math.max(lv.until + 600, lv.t0 + 900 * lv.k) > tms);
     if (g.haleFx) g.haleFx = g.haleFx.filter((f) => f.until > tms);
-    // a levy with no one left standing is done with
-    if (g.bands) for (const b of g.bands) if (b.levy && b.units.every((m) => m.state === "dead")) b.gone = true;
   },
 
   reset(g) {

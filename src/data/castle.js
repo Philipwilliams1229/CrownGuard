@@ -57,24 +57,23 @@ export const CASTLE_WORKS = {
   },
   militia: {
     name: "The Levy", icon: "", here: ", drilled and waiting on the horn",
-    blurb: "The horn's free farmers, drilled: more of them, harder, longer on the road, and quicker to be called again.",
+    blurb: "The horn's free farmers, drilled: more of them, harder, and quicker to be called again (they fight until they fall).",
     // tier 0 is the plain horn (bands.js MILITIA: two farmers, 95 health, 9 a
-    // blow, 15 s on the road, 24 s to call again). Each tier names the whole
+    // blow, 24 s to call again; the men stay until they fall). Each tier names the whole
     // band, not a change to it (engine/actions.js callMilitia reads it through
-    // bands.js militiaStats): `men` is each one's health, `life` and
-    // `cooldown` are ms; `noun` is what the horn raises; `rig` (the last
+    // bands.js militiaStats): `men` is each one's health, `cooldown` is ms; `noun` is what the horn raises; `rig` (the last
     // tier) puts them in the crown's squire's kit instead of a smock.
     tiers: [
-      { cost: 8000, label: "Three farmers, sharper forks", count: 3, men: 105, dmg: 10, rate: 700, range: 60, life: 17000, cooldown: 22000, noun: "farmers" },
-      { cost: 12000, label: "Four, and a stout hay-hook", count: 4, men: 125, dmg: 12, rate: 680, range: 60, life: 19000, cooldown: 20000, noun: "farmers" },
+      { cost: 8000, label: "Three farmers, sharper forks", count: 3, men: 105, dmg: 10, rate: 700, range: 60, cooldown: 22000, noun: "farmers" },
+      { cost: 12000, label: "Four, and a stout hay-hook", count: 4, men: 125, dmg: 12, rate: 680, range: 60, cooldown: 20000, noun: "farmers" },
       // from here the band is mixed (bands.js militiaStats, update.js): `bows`
       // of the `count` loose arrows instead (`bow`: their health, blow, rate
       // and reach, physical), the rest hold the road with `men` / `dmg`;
       // `rig` is the swordsmen's kit, `bowRig` the archers'.
-      { cost: 18000, label: "Swords and shortbows", count: 4, bows: 2, men: 170, dmg: 19, rate: 650, range: 62, life: 21000, cooldown: 18000, noun: "yeomen", rig: "yeoman", bowRig: "bowman", bow: { men: 90, dmg: 11, rate: 900, range: 120 } },
+      { cost: 18000, label: "Swords and shortbows", count: 4, bows: 2, men: 170, dmg: 19, rate: 650, range: 62, cooldown: 18000, noun: "yeomen", rig: "yeoman", bowRig: "bowman", bow: { men: 90, dmg: 11, rate: 900, range: 120 } },
       // the knights are plainer than a Paladin Order's (280 health, 36 magic
       // a blow): steel, physical, and less of both
-      { cost: 25000, label: "The Crown's levy: three knights, two archers", count: 5, bows: 2, men: 210, dmg: 24, rate: 700, range: 64, life: 24000, cooldown: 16000, noun: "levymen", rig: "squire", bowRig: "bowman", bow: { men: 120, dmg: 14, rate: 850, range: 130 } },
+      { cost: 25000, label: "The Crown's levy: three knights, two archers", count: 5, bows: 2, men: 210, dmg: 24, rate: 700, range: 64, cooldown: 16000, noun: "levymen", rig: "squire", bowRig: "bowman", bow: { men: 120, dmg: 14, rate: 850, range: 130 } },
     ],
   },
 };

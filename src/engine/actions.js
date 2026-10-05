@@ -549,6 +549,13 @@ export const buyCastleWork = (g, key) => {
 export const callMilitia = (g, x, y) => {
   if (!g || (g.militiaCd || 0) > 0 || SANDBOX?.militia === false) return false;
   if (!g.bands) g.bands = [];
+  // the horn answered again: whoever is left of the last call is replaced by fresh men
+  for (const old of g.bands) {
+    if (old.kind !== "militia" || old.levy) continue;
+    for (const m of old.units) if (m.state !== "dead") { releaseEnemy(g, g.enemies.find((e) => e.blockedBy === m.id)); g.effects.push({ type: "poof", x: m.x, y: m.y, ttl: 350 }); }
+    old.gone = true;
+  }
+  g.bands = g.bands.filter((b) => !b.gone);
   const st = militiaStats(g.castle, g.castleRanks);
   const stands = MILITIA_STANDS[st.count];
   const id = nextId();

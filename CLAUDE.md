@@ -612,7 +612,11 @@ render/castle.js stands them at ease (`rest`, now and then `reach`) after.
 The Levy (`militia` in `CASTLE_WORKS`, owner request 2026-09-30) drills the
 free militia horn: four tiers at 8000 / 12000 / 18000 / 25000. Each tier
 names the whole band (count 3 / 4 / 4 / 5, `men` health 105 / 125 / 170 /
-230, `dmg`, `rate`, `range`, `life` 17-24 s, `cooldown` 22 -> 16 s); tier 0
+230, `dmg`, `rate`, `range`, `cooldown` 22 -> 16 s). **The men have no clock**
+(owner, 2026-10-05, the same as Hale's levy): they stand until they fall,
+and sounding the horn again (cooldown up) replaces whoever is left with a
+fresh band (`callMilitia`); a band with no one standing is dropped (update.js);
+the tiers' old `life` is gone, `MILITIA.life` is Infinity; tier 0
 (nothing bought) is `MILITIA` in bands.js, exactly as it always was, so old
 saves change nothing (`loadCastle` fills any missing work with 0). The
 engine reads it through `militiaStats(works, ranks)` (bands.js), used by

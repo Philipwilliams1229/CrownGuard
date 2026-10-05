@@ -995,6 +995,8 @@ export function updateGame(g, dt) {
       g.militiaCd = Math.max(0, (g.militiaCd || 0) - sdt * 1000);
       for (const b of g.bands) {
         if (b.kind === "militia") {
+          // (a call with no one left standing is done with; the rest stand until they fall)
+          if (b.units.every((u) => u.state === "dead")) { b.gone = true; continue; }
           b.life -= sdt * 1000;
           if (b.life <= 0) {
             for (const u of b.units) { if (u.state !== "dead") { releaseEnemy(g, g.enemies.find((x) => x.blockedBy === u.id)); g.effects.push({ type: "poof", x: u.x, y: u.y, ttl: 350 }); } }
