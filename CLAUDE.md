@@ -751,7 +751,12 @@ own, so several sessions can work on heroes side by side:
   (lead 260 ms, gap 520, both x game speed), each striking EVERY ground foe
   in the 180-degree half-ellipse before him (reach `r` 68, depth x0.7):
   40 +6/level physical, 700 ms stun, riders x2, a rider's trample spent on
-  it, he takes 0.6 harm while it lasts. Drawn as a steel arc (alternating
+  it, he takes 0.6 harm while it lasts. He is PLANTED for all three swings
+  (owner, 2026-10-05: feet and facing locked at the press; `tick` pins them
+  and skips runMelee, held foes still strike him) and plays the rig's own
+  `sweep` sheet (six frames, `SWEEP` + its grips in rigs-crown.js: guard,
+  blade drawn back, blade coming round, strike, follow-through, recover;
+  keyed in render/heroes/hale.js `pose`). Drawn as a steel arc (alternating
   fore/backhand) plus a dotted reach ring. **Sound the Levy** (aim none now):
   2 watchmen (halberdier) + 2 crossbowmen (`crossbow` rig, `bows` mixed band
   as the Levy works' upper tiers) fall in ON him, soldiers a step ahead, bows

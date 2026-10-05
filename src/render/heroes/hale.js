@@ -1,9 +1,9 @@
 // ============ CAPTAIN HALE'S EFFECTS ON THE BOARD ============
 // (see ./index.js for the hooks; engine/heroes/hale.js keeps the state.)
 //
-//   u.brace      Halberd Sweep: for the three swings he stands in the sweep
-//                pose (wind-up, strike, follow-through each beat); `pose` reads
-//                it, the arcs themselves are g.haleFx.
+//   u.brace      Halberd Sweep: for the three swings he plays the rig's
+//                "sweep" sheet (wind-up, blade round, strike, follow-through
+//                each beat); `pose` reads it, the arcs are g.haleFx.
 //   g.haleFx     one swing: a half-circle of steel light run across the ground
 //                in front of him at the halberd's height, head first, thick at
 //                its leading edge and thinning behind, with a faint dotted
@@ -226,17 +226,18 @@ const levyBanner = (ctx, lv, tms) => {
 };
 
 export default {
-  // through the three swings the captain's body is ours: guard, wind-up,
-  // strike and follow-through each beat, in step with the arcs (engine
-  // swings at `lead` then every `gap`, all stretched by `k`)
+  // through the three swings the captain's body is ours: the "sweep" sheet
+  // (rigs-crown.js SWEEP: guard, wind-up, the blade coming round, strike,
+  // follow-through, recover), keyed to the beat. The engine lands each blow
+  // at `lead` then every `gap` (all stretched by `k`); the arc is drawn from
+  // 130 ms before the blow.
   pose(b, u, time) {
     const tms = time * 1000, br = u.brace;
-    if (!br || br.until <= tms || u.state === "moving") return null;
+    if (!br || br.until <= tms) return null;
     const rel = (tms - br.t0) / br.k;
-    // the beat nearest ahead or just behind (a swing lasts ~300 ms)
     const i = Math.max(0, Math.min(br.beats - 1, Math.round((rel - br.lead) / br.gap)));
-    const d = rel - (br.lead + i * br.gap);          // ms from this beat's strike
-    return { sheet: "fight", frame: d < -170 ? 0 : d < 0 ? 1 : d < 90 ? 2 : d < 380 ? 3 : 0 };
+    const d = rel - (br.lead + i * br.gap);          // ms from this beat's blow
+    return { sheet: "sweep", frame: d < -250 ? 0 : d < -130 ? 1 : d < -30 ? 2 : d < 90 ? 3 : d < 250 ? 4 : d < 330 ? 5 : 0 };
   },
 
   under(ctx, g) {

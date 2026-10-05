@@ -22,7 +22,10 @@
 //   physical and a `stun`-ms stun, `mounted` times the blow for riders and
 //   tramplers. A rider's trample within the swing's reach is spent on the
 //   halberd (`trampleLeft` 0; the Lord Marshal's re-arms on its own clock).
-//   While the swings last he takes `harm` of every blow (`hurt`).
+//   While the swings last he is planted (his feet and facing are locked at
+//   the press: `tick` pins them and skips runMelee, so he neither walks nor
+//   turns nor trades his ordinary blows) and takes `harm` of every blow
+//   (`hurt`); the foes he holds keep striking him on their own clocks.
 // - Sound the Levy (`fire`, aim none): two watchmen (halberdier rig) and two
 //   crossbowmen (a mixed "militia" band, `levy` set so nothing mistakes it
 //   for the player's horn; its cooldown is untouched) fall in on the spot he
@@ -39,6 +42,7 @@ import { sfx } from "../../audio/sfx.js";
 const HOLD_R = 26;        // how close a foe must come to him to be held (a knight closes to 17)
 const HOLD_SLACK = 12;    // ...and how far it may be pushed (a charge's knock) before he lets it go
 const TRAMPLE_R = 44;     // a charging rider's trample is spent on the halberd from this far (it closes fast at 4x)
+const SWING_LEAD = 130;   // ms of the arc already run when a swing lands (render/heroes/hale.js draws from it)
 const FLAT = 0.7;         // the ground's squash: the sweep's reach is `r` across, `r * FLAT` deep
 
 // a foe he could hold besides his first: on foot, on the road, not a ram
@@ -70,7 +74,10 @@ const swing = (g, b, u, br, i, tms) => {
     g.effects.push({ type: "hit", x: e.x, y: e.y - 6, ttl: 240 });
     hit++;
   }
-  (g.haleFx ||= []).push({ kind: "sweep", x: u.x, y: u.y, f, r: br.r, flip: i % 2, t0: tms, k: br.k, until: tms + 380 * br.k, hit });
+  // (the arc is drawn from a little before the blow, so the blade is crossing
+  // the half-circle as it lands, not just starting out)
+  const t0 = tms - SWING_LEAD * br.k;
+  (g.haleFx ||= []).push({ kind: "sweep", x: u.x, y: u.y, f, r: br.r, flip: i % 2, t0, k: br.k, until: t0 + 380 * br.k, hit });
   if (hit) g.shake = Math.max(g.shake, 2);
   sfx.play(hit ? "crunch" : "whistle");
 };
@@ -93,6 +100,29 @@ function hurt(g, b, u, amount) {
   return braced(u, tms) ? amount * (u.brace.harm ?? 0.6) : amount;
 }
 
+// the foes he holds stand and strike him on their own clocks (runMelee's
+// trade of blows, for the foe it holds); one that has slipped out of reach
+// does not
+const heldBlows = (g, b, u, ids, sdt, tms) => {
+  for (const id of ids) {
+    const e = g.enemies.find((x) => x.id === id);
+    if (!e || e.dead || e.blockedBy !== u.id) continue;
+    if (Math.hypot(e.x - u.x, e.y - u.y) > HOLD_R + HOLD_SLACK) continue;
+    e.engaged = true;
+    e.face = u.x >= e.x ? 1 : -1;
+    if ((e.stunUntil <= tms || e.guard > 0) && e.atk > 0) {
+      e.meleeCd -= sdt * 1000;
+      if (e.meleeCd <= 0) {
+        e.meleeCd = e.atkRate;
+        e.atkAnim = 200;
+        u.hp -= hurt(g, b, u, e.atk, e);
+        g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
+        sfx.play("hit");
+      }
+    }
+  }
+};
+
 export default {
   fire(g, b, u, a, id, x, y, tms) {
     if (id === "brace") {
@@ -107,7 +137,7 @@ export default {
       if (near && nd <= a.r * 1.5) u.face = near.x >= u.x ? 1 : -1;
       // (stretched by the game speed, as Aldric's slam: the same real time at 1x, 2x and 4x)
       const k = Math.max(1, g.speed || 1);
-      u.brace = { t0: tms, k, until: tms + (a.lead + (a.beats - 1) * a.gap + 380) * k, done: 0, beats: a.beats, lead: a.lead, gap: a.gap, dmg: a.dmg, r: a.r, stun: a.stun, mounted: a.mounted, harm: a.harm };
+      u.brace = { x: u.x, y: u.y, face: u.face < 0 ? -1 : 1, t0: tms, k, until: tms + (a.lead + (a.beats - 1) * a.gap + 380) * k, done: 0, beats: a.beats, lead: a.lead, gap: a.gap, dmg: a.dmg, r: a.r, stun: a.stun, mounted: a.mounted, harm: a.harm };
       g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 360, r: 14 });
       return true;
     }
@@ -147,8 +177,21 @@ export default {
   },
 
   tick(g, b, u, sdt, tms) {
-    if (braced(u, tms)) runSwings(g, b, u, tms);
-    else if (u.brace && u.brace.until + 600 < tms) u.brace = null;
+    if (braced(u, tms)) {
+      // planted for the swings: no walking, no turning, no ordinary blows
+      const br = u.brace;
+      runSwings(g, b, u, tms);
+      u.x = br.x; u.y = br.y; u.face = br.face; u.dash = null; u.state = "fighting";
+      const ids = u.holds ? [...u.holds] : [];
+      if (u.targetId && !ids.includes(u.targetId)) ids.push(u.targetId);
+      heldBlows(g, b, u, ids, sdt, tms);
+      if (u.hp > 0) return true;
+      // he fell to them: let all go and let runMelee lay him down this tick
+      u.brace = null;
+      releaseAll(g, u);
+      return false;
+    }
+    if (u.brace && u.brace.until + 600 < tms) u.brace = null;
     const cap = Math.max(0, (b.st.holds || 1) - 1);
     if (!u.holds) u.holds = [];
     // sent to a new post (the rally moved): he lets go of everything but the
@@ -195,23 +238,7 @@ export default {
         u.holds.push(e.id);
       }
     }
-    // the held ones stand and strike him on their own clocks (runMelee's
-    // trade of blows, for the foe it holds)
-    for (const id of u.holds) {
-      const e = g.enemies.find((x) => x.id === id);
-      e.engaged = true;
-      e.face = u.x >= e.x ? 1 : -1;
-      if ((e.stunUntil <= tms || e.guard > 0) && e.atk > 0) {
-        e.meleeCd -= sdt * 1000;
-        if (e.meleeCd <= 0) {
-          e.meleeCd = e.atkRate;
-          e.atkAnim = 200;
-          u.hp -= hurt(g, b, u, e.atk, e);
-          g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
-          sfx.play("hit");
-        }
-      }
-    }
+    heldBlows(g, b, u, u.holds, sdt, tms);
     // he fell to them: let all of them go now (runMelee lays him down this tick)
     if (u.hp <= 0) releaseAll(g, u);
     return false;

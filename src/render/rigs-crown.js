@@ -113,7 +113,24 @@ const CALL = [
   { x: -0.5, bob: 0.1, lean: -0.1, head: -0.25, fl: 1.4, sk: 0.5, near: 0.9 },
   { x: -0.5, bob: 0.0, lean: -0.1, head: -0.25, fl: 1.0, sk: 0.3, near: 0.9 },
 ];
+// Captain Hale's Halberd Sweep ("sweep" sheet, six frames): 0 guard, 1 wind-up
+// (the blade drawn back behind him, the shaft across his front, the trunk
+// turned away), 2 the blade coming round low and forward, 3 the strike (a step
+// in, the pole driven level at the full stretch of the arms), 4 the follow-
+// through (the blade carried on up past the line), 5 recover.
+const SWEEP = [
+  { near: 0.9, far: -1.0, x: -0.2, bob: 0.3, lean: 0.02, head: 0, fl: 0.4, sk: 0 },
+  { near: 0.9, far: -1.1, x: -1.3, bob: 0.5, lean: -0.2, head: -0.3, fl: 0.1, sk: -0.5 },
+  { near: 0.9, far: -1.0, x: 0.2, bob: 0.8, lean: 0.04, head: 0.2, fl: 0.9, sk: 0.4 },
+  { near: -1, far: -1.0, x: 1.1, bob: 1.1, lean: 0.2, head: 0.45, fl: 1.4, sk: 0.9 },
+  { near: -1, far: -1.0, x: 0.8, bob: 0.9, lean: 0.12, head: 0.3, fl: 1.9, sk: 0.6 },
+  { near: 0.9, far: -1.0, x: 0.1, bob: 0.4, lean: 0.04, head: 0.05, fl: 0.9, sk: 0.2 },
+];
 const step = (p, o) => {
+  if (p.sweep && p.weapon === "halberd") {
+    const f = (p.frame || 0) % SWEEP.length, b = SWEEP[f], s = o.stride;
+    return { fight: true, f, c: 0, hit: f === 3, sweep: true, near: [s * b.near, 0], far: [s * b.far, 0], x: b.x * (b.x > 0 ? o.lunge : 1), bob: o.bob * b.bob, lean: o.lean + b.lean, swing: 0, head: b.head, fl: b.fl, sk: b.sk };
+  }
   const f = (p.frame || 0) % 4, s = o.stride;
   if (p.pose !== "fight") {
     const c = [1, 0, -1, 0][f];
@@ -596,7 +613,7 @@ const STAFF_FWD = 8.0, STAFF_LEN = 19.4;
 // the forearm's line through a cut, and never folds back toward the elbow.
 const grip = (w, st, shN, shF) => {
   const sw = st.swing, N = (dx, dy) => [shN[0] + dx, shN[1] + dy], F = (dx, dy) => [shF[0] + dx, shF[1] + dy];
-  const ph = st.fight ? 1 + st.f : 0;
+  const ph = st.fight ? 1 + st.f : 0;   // (the sweep sheet's frames are its own, above)
   // the shield trails the body's bob by a frame
   const lag = st.fight ? 0 : [-0.25, 0.25, -0.25, 0.25][st.f];
   if (w === "hammer") return [
@@ -618,6 +635,18 @@ const grip = (w, st, shN, shF) => {
   // enough that the pole clears the face (the far arm swings free); in the
   // fight it is levelled, drawn back, driven straight out at the foe, then
   // its blade chops down
+  if (w === "halberd" && st.sweep) return [
+    { hn: N(3.2, 3.0), h2: N(0.3, 4.7), fwd: 9.4 },
+    // wind-up: the blade drawn back behind him, up past the shoulder, the
+    // shaft slanting down across his front into the far hand
+    { hn: N(-2.4, 0.6), h2: N(1.4, 3.6), fwd: 9.4, behind: true },
+    // the blade coming round, low and forward
+    { hn: N(3.8, 3.6), h2: N(0.8, 1.9), fwd: 9.4 },
+    // the strike: level, at the full stretch
+    { hn: N(5.6, 1.7), h2: N(2.4, 2.4), fwd: 10.4 },
+    // follow-through: carried on up past the line
+    { hn: N(4.4, -0.3), h2: N(2.2, 2.9), fwd: 9.8 },
+    { hn: N(3.2, 3.0), h2: N(0.3, 4.7), fwd: 9.4 }][st.f];
   if (w === "halberd") return [
     { hn: N(3.4 + sw * 0.3, 3.4), an: -1.34 + sw * 0.04, free: F(0.5 - sw * 1.3, 5.7) },
     { hn: N(3.2, 3.0), h2: N(0.3, 4.7), fwd: 9.4 },
