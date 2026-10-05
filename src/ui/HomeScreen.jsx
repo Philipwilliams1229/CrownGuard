@@ -11,7 +11,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Fit, useViewport } from "./fit.jsx";
-import { FONT, MARK } from "./theme.js";
+import { FONT, MARK, COUNCIL_NAME } from "./theme.js";
 import { woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
 import FieldGuide from "./FieldGuide.jsx";
@@ -19,16 +19,18 @@ import SettingsPanel from "./SettingsPanel.jsx";
 import { LEVELS, hasProgress, currentLevel } from "../data/campaign.js";
 import { starsFree, rankName } from "../data/profile.js";
 import { Star } from "./Glyphs.jsx";
-import { CastleIcon } from "./hud/icons.jsx";
+import { CastleIcon, CoinIcon } from "./hud/icons.jsx";
+import CastleWorksModal from "./CastleWorksModal.jsx";
 import { titleVistaAsync, VW, VH } from "./titleArt.js";
 import { startCrowd } from "./titleCrowd.js";
 import { warmMapTerrain } from "./mapArt.js";
 
 const INK = "#10131a";
 
-export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil, onCampaignReset }) {
+export default function HomeScreen({ progress, profile, onNewCampaign, onContinue, onFreePlay, onCouncil, onBuyWork, onCampaignReset }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [worksOpen, setWorksOpen] = useState(false);
   // NEW CAMPAIGN over a save is two taps: the first only warns, the second wipes
   const [armNew, setArmNew] = useState(false);
   const armTimer = useRef(0);
@@ -43,6 +45,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
   const upTo = currentLevel(progress);
   const cleared = LEVELS.filter((l) => progress.cleared[l.id]).length;
   const free = starsFree(profile);
+  const treasury = progress.treasury || 0;
   const vp = useViewport();
   const compact = vp.short && vp.landscape;                      // phone on its side
   const wide = !compact && vp.w >= 820 && vp.w / vp.h >= 1.25;   // iPad on its side, desktop
@@ -91,8 +94,17 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
     fontSize: compact ? 13 : 14, letterSpacing: compact ? 1.5 : 2, fontWeight: "bold",
   });
   const smallBtn = { ...bigBtn(false), fontSize: compact ? 12 : 12.5, letterSpacing: 1.5 };
+  // the two halves of the stars-and-gold row
+  const pairBtn = { ...bigBtn(false), flex: 1, minWidth: 0, padding: compact ? "8px 6px" : "12px 6px", fontSize: compact ? 12 : 13, letterSpacing: 1 };
   const span = compact ? { gridColumn: "1 / -1" } : null;
   const sub = { fontSize: 9, letterSpacing: 1, opacity: 0.85, marginTop: compact ? 2 : 4, fontWeight: "normal" };
+  // over a save NEW CAMPAIGN takes two taps: the first only warns
+  const newBtn = (
+    <button style={compact ? smallBtn : bigBtn(armNew)} onClick={tapNew}>
+      {armNew ? "TAP AGAIN" : "NEW CAMPAIGN"}
+      {armNew && <div style={sub}>forgets the {cleared} held</div>}
+    </button>
+  );
 
   // the wordmark and motto; the defenders themselves are out on the road
   // in the picture (titleCrowd.js)
@@ -128,32 +140,38 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
       {/* over a save, CONTINUE leads and NEW CAMPAIGN takes two taps (it
           wipes the levels held); with no save there is nothing to wipe */}
       {saved ? (
-        <>
-          <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>
-            CONTINUE CAMPAIGN
-            <div style={sub}>{cleared}/{LEVELS.length} held · next: {upTo.name}</div>
-          </button>
-          <button style={bigBtn(armNew)} onClick={tapNew}>
-            {armNew ? "TAP AGAIN" : "NEW CAMPAIGN"}
-            {armNew && <div style={sub}>forgets the {cleared} held</div>}
-          </button>
-        </>
+        <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>
+          CONTINUE CAMPAIGN
+          <div style={sub}>{cleared}/{LEVELS.length} held · next: {upTo.name}</div>
+        </button>
       ) : (
         <button style={{ ...bigBtn(true), ...span }} onClick={onContinue}>NEW CAMPAIGN</button>
       )}
-      <button style={{ ...bigBtn(false), ...(saved ? null : span) }} onClick={onCouncil}>
-        WAR COUNCIL
-        {free > 0 && (
-          <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-            <Star size={11} /> {free} star{free > 1 ? "s" : ""} to spend
+      {saved && !compact && newBtn}
+      {/* where the crown spends what it has won: stars on the heroes and
+          the towers' skills, gold on the castle */}
+      <div style={{ ...span, display: "flex", gap: compact ? 8 : 10 }}>
+        <button style={pairBtn} onClick={onCouncil}>
+          {COUNCIL_NAME}
+          <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 11 }}>
+            {free > 0 ? <><Star size={11} /> {free} to spend</> : <span style={{ opacity: 0.6, color: "#e8e0c8" }}>stars buy upgrades</span>}
           </div>
-        )}
-      </button>
+        </button>
+        <button style={pairBtn} onClick={() => setWorksOpen(true)}>
+          CASTLE WORKS
+          <div style={{ ...sub, color: "#f2cf4a", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 11 }}>
+            {treasury > 0 ? <><CoinIcon size={11} /> {treasury.toLocaleString("en-US")}</> : <span style={{ opacity: 0.6, color: "#e8e0c8" }}>gold builds the wall</span>}
+          </div>
+        </button>
+      </div>
       {compact ? (
+        // a two-wide grid: over a save NEW CAMPAIGN joins the small buttons
+        // (it is the one that wipes things, so it sits low)
         <>
+          {saved && newBtn}
           <button style={smallBtn} onClick={onFreePlay}>FREE PLAY</button>
           <button style={smallBtn} onClick={() => setGuideOpen(true)}>FIELD GUIDE</button>
-          <button style={{ ...smallBtn, ...span }} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
+          <button style={{ ...smallBtn, ...(saved ? null : span) }} onClick={() => setSettingsOpen(true)}>SETTINGS</button>
         </>
       ) : (
         <div style={{ display: "flex", gap: 10 }}>
@@ -201,7 +219,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
       }} />
 
       <div style={{ position: "absolute", inset: 0, boxSizing: "border-box", padding: pad(compact ? 10 : 18) }}>
-        <Fit deps={[compact, wide, blurb, saved, free > 0]}>
+        <Fit deps={[compact, wide, blurb, saved, free > 0, treasury > 0]}>
           {compact ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", paddingLeft: "clamp(0px, 4vw, 48px)" }}>
               <div style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
@@ -227,6 +245,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
       {/* outside the <Fit>: a fixed modal inside a transform would pin to it */}
       {guideOpen && <FieldGuide onClose={() => setGuideOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} onCampaignReset={onCampaignReset} />}
+      {worksOpen && <CastleWorksModal treasury={treasury} short={compact} onBuy={onBuyWork} onClose={() => setWorksOpen(false)} />}
     </div>
   );
 }

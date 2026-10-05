@@ -818,6 +818,16 @@ export default function Crownguard() {
   // (its pop-up takes over), keeping the board clear and one panel showing at a time.
   const drawerVisible = buildOpen && !ui.buildMode && !sel;
 
+  // A castle work bought from the crown's treasury, on the map or the title screen.
+  const buyTreasuryWork = (chapterId, key, next) => {
+    const p = spendTreasury(next.cost);
+    if (!p) return;
+    const works = loadCastle(chapterId);
+    works[key] = (works[key] || 0) + 1;
+    saveCastle(chapterId, works);
+    setProgress(loadProgress());
+  };
+
   // Title screen: the campaign goes through the map, Free Play through realm select.
   if (screen === "home") {
     return (
@@ -828,6 +838,7 @@ export default function Crownguard() {
         onNewCampaign={() => { setProgress(resetProgress()); setScreen("map"); }}
         onFreePlay={() => { setMode("free"); setLevelId(null); openRealmSelect("home"); setScreen("game"); }}
         onCouncil={() => setScreen("council")}
+        onBuyWork={(key, next) => buyTreasuryWork("crown", key, next)}
         onCampaignReset={setProgress}
       />
     );
@@ -849,14 +860,7 @@ export default function Crownguard() {
         onHero={pickHero}
         arrive={arrive}
         onBack={() => setScreen("home")}
-        onBuyWork={(chapterId, key, next) => {
-          const p = spendTreasury(next.cost);
-          if (!p) return;
-          const works = loadCastle(chapterId);
-          works[key] = (works[key] || 0) + 1;
-          saveCastle(chapterId, works);
-          setProgress(loadProgress());
-        }}
+        onBuyWork={buyTreasuryWork}
       />
     );
   }

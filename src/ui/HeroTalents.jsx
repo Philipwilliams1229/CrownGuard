@@ -13,11 +13,14 @@
 // else, or three seconds, disarms it. Works by touch; nothing needs hover.
 //
 // Layouts (chosen by the War Council, which passes `layout`):
-//  - "wide": iPads and desktops. Both heroes side by side, sizes times `z`.
-//  - "rail": a phone on its side. The two heroes are a rail down the left;
+//  - "wide": iPads and desktops. The heroes are a row across the top, the
+//    chosen hero's sheet below it, sizes times `z`.
+//  - "rail": a phone on its side. The heroes are a rail down the left;
 //    the chosen hero's talents read three across.
-//  - "stack": a phone held upright. The two heroes are a toggle across the
+//  - "stack": a phone held upright. The heroes are a toggle across the
 //    top; the talents read two across.
+// Every layout shows ONE hero at a time: tap a hero, then read their sheet
+// (the way the towers' tab works).
 
 import { useState, useEffect } from "react";
 import {
@@ -254,24 +257,14 @@ export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, f
   );
   const smallNote = <div style={{ fontSize: 9.5, opacity: 0.55, lineHeight: 1.4 }}>{line}</div>;
 
-  if (layout === "wide") {
-    return fitted(
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 * z, maxWidth: 1180, margin: "0 auto" }}>
-        <div style={{ fontSize: 11 * z, opacity: 0.7, textAlign: "center" }}>{line}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 * z, alignItems: "start" }}>
-          {HERO_KEYS.map((k) => sheet(k, 2, true, null))}
-        </div>
-      </div>,
-      [layout, z, deps],
-    );
-  }
-
-  // the hero picker for phones: a rail on the left, or a toggle across the top
+  // The hero picker, as the tower picker is: pick a hero, then read their
+  // sheet. A rail on the left (a phone on its side), or a row across the top.
   const rail = layout === "rail";
+  const wide = layout === "wide";
   const picker = (
     <div style={rail
       ? { display: "grid", gridTemplateRows: `repeat(${HERO_KEYS.length}, 1fr)`, gap: 6, width: 124, flexShrink: 0, minHeight: 0 }
-      : { display: "grid", gridTemplateColumns: `repeat(${HERO_KEYS.length}, 1fr)`, gap: 6, flexShrink: 0 }}>
+      : { display: "grid", gridTemplateColumns: `repeat(${HERO_KEYS.length}, 1fr)`, gap: wide ? 8 : 6, flexShrink: 0, ...(wide ? { width: "100%", maxWidth: 800 * z, margin: "0 auto" } : {}) }}>
       {HERO_KEYS.map((k) => {
         const { points, talents } = heroRecord(profile, k);
         // gold when the bank can buy a rank of something
@@ -282,12 +275,12 @@ export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, f
               // five heroes: the rail's buttons lay the portrait beside the name
               // (stacked they overran a phone's height), the top toggle's under it
               ...btn, position: "relative", display: "flex", flexDirection: rail ? "row" : "column", alignItems: "center",
-              justifyContent: "center", gap: rail ? 5 : 3, padding: "3px 5px", minHeight: rail ? 0 : 52, minWidth: 0, textAlign: "center",
+              justifyContent: "center", gap: rail ? 5 : 3, padding: wide ? "6px 5px" : "3px 5px", minHeight: rail ? 0 : wide ? 76 : 52, minWidth: 0, textAlign: "center",
               ...(k === pick ? ON : {}),
             }}>
-            <EnemyIcon type={HEROES[k].rig} box={rail ? 30 : 28} />
+            <EnemyIcon type={HEROES[k].rig} box={rail ? 30 : wide ? 44 : 28} />
             <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 0 }}>
-              <b style={{ ...LABEL, fontSize: rail ? 9.5 : 9, lineHeight: 1.15 }}>{HEROES[k].name}</b>
+              <b style={{ ...LABEL, fontSize: rail ? 9.5 : wide ? 11 : 9, lineHeight: 1.15 }}>{HEROES[k].name}</b>
               <span style={{
                 display: "flex", alignItems: "baseline", gap: 4, padding: "3px 5px", border: `2px solid ${INK}`,
                 ...(can ? { background: GOLD.face, color: INK } : { background: "#262b35" }),
@@ -301,7 +294,15 @@ export default function HeroTalents({ profile, setProfile, layout, z = 1, arm, f
       })}
     </div>
   );
-  const body = fitted(sheet(pick, rail ? 3 : 2, false, smallNote), [layout, pick, deps]);
+  const body = wide
+    ? fitted(
+      <div style={{ maxWidth: 800 * z, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10 * z }}>
+        {sheet(pick, 3, true, null)}
+        <div style={{ fontSize: 10 * z, opacity: 0.6, lineHeight: 1.5, textAlign: "center" }}>{line}</div>
+      </div>,
+      [layout, z, pick, deps],
+    )
+    : fitted(sheet(pick, rail ? 3 : 2, false, smallNote), [layout, pick, deps]);
   return rail ? (
     <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 8 }}>{picker}{body}</div>
   ) : (

@@ -1,4 +1,4 @@
-// ============ THE WAR COUNCIL ============
+// ============ SKILLS & HEROES (once the "War Council") ============
 // Where stars are spent. One tab per tower, each with a small three-tier
 // skill tree: two openers, two follow-ups that need an opener, and a capstone
 // that needs both. Bought nodes are permanent and apply in every battle.
@@ -38,7 +38,7 @@ import {
 import { LEVELS } from "../data/campaign.js";
 import TowerPortrait from "./TowerPortrait.jsx";
 import { Star } from "./Glyphs.jsx";
-import { btn, panel, title, FONT } from "./theme.js";
+import { btn, panel, title, FONT, COUNCIL_NAME } from "./theme.js";
 import { useViewport, Fit } from "./fit.jsx";
 import HeroTalents, { useArm, ArmBand, ARMED } from "./HeroTalents.jsx";
 
@@ -200,7 +200,7 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
   const backBtn = (
     <button style={{ ...btn, padding: "6px 12px", fontSize: 12, minHeight: 40, flexShrink: 0 }} onClick={onBack}>◀ Menu</button>
   );
-  const heading = <div style={{ ...title(phone ? 13 : 15), whiteSpace: "nowrap" }}>WAR COUNCIL</div>;
+  const heading = <div style={{ ...title(phone ? 13 : 15), whiteSpace: "nowrap" }}>{COUNCIL_NAME}</div>;
   const purse = (
     <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, flexShrink: 0 }}>
       <Star size={16} /> <b style={{ color: "#e8d47a" }}>{free}</b>
@@ -223,7 +223,7 @@ export default function WarCouncil({ profile, setProfile, onBack }) {
   );
   const tabs = (
     <div style={{ display: "flex", gap: 6, flexShrink: 0, ...(upright ? { width: "100%" } : {}) }}>
-      {[["skills", phone ? "TREES" : "SKILL TREES"], ["heroes", "HEROES"], ["stats", phone ? "STATS" : "ALL-TIME"]].map(([id, label]) => (
+      {[["skills", "TOWERS"], ["heroes", "HEROES"], ["stats", phone ? "STATS" : "ALL-TIME"]].map(([id, label]) => (
         <button key={id} onClick={() => { setTab(id); arm.clear(); }}
           style={{
             ...btn, flex: upright ? 1 : "0 0 auto", textAlign: "center", fontSize: 11, letterSpacing: 1,

@@ -40,6 +40,22 @@ neighbours', so the levels already played keep theirs.
   point (`ws`) and coasts set their cove `ease` (style guide, "Water, roads
   and ground").
 
+## Home screen: Skills & Heroes, Castle Works (2026-10-05, owner request)
+
+Provisional, pending the owner's look (not yet seen in a browser by the session that wrote it).
+- The title menu has a row of two under CONTINUE: **SKILLS & HEROES** (the old
+  War Council; the name is `COUNCIL_NAME` in `ui/theme.js`, read by the button and
+  the screen's heading, so renaming is one line) and **CASTLE WORKS** (the crown's
+  treasury, the same box the campaign map opens: `ui/CastleWorksModal.jsx`, used by
+  both; `buyTreasuryWork` in CrownguardGame.jsx pays for either). Over a save,
+  NEW CAMPAIGN (still two taps) sits lower: under CONTINUE on wide/column, beside
+  FREE PLAY in the compact grid.
+- The screen's tabs read TOWERS / HEROES / ALL-TIME (was SKILL TREES). The HEROES
+  tab shows ONE hero at a time on every layout, picked from a row (wide), rail
+  (phone on its side) or toggle (upright), as the towers' tab does; before, the
+  wide layout showed every hero's sheet at once.
+- Other names offered to the owner: Training Grounds, Barracks, Upgrades, War Room.
+
 ## Tower XP and the hall unlocks (2026-10-05, owner request)
 
 Provisional, pending the owner's playtest.
@@ -725,7 +741,7 @@ own, so several sessions can work on heroes side by side:
   in each of the three index files, icons in `ABIL_ICON`
   (CrownguardGame.jsx), and the title crowd's WALKERS/HEROES sets
   (ui/titleCrowd.js). The pickers (campaign card, pause menu, Change hero,
-  War Council, Free Play) lay out any number of heroes as portrait tiles.
+  Skills & Heroes, Free Play) lay out any number of heroes as portrait tiles.
 - **Osric**: holy blows (`st.magic`) + `smite` on the undead (`isUndead`:
   Hollow faction, raised, wraiths); mends soldiers near him; Sanctuary
   (heal ring, sears and stuns the undead, dazes the living), Consecrate
@@ -991,7 +1007,7 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
 - Hero stars: a WON map pays the hero's level at the end of the scripted
   waves (never Endless) as that hero's own stars (`profile.bankHeroStars`:
   a new best on that map pays the gain in full plus half the rest; a replay
-  pays half). Spent ONLY on the Home Screen (War Council → Heroes), never in
+  pays half). Spent ONLY on the Home Screen (Skills & Heroes → Heroes), never in
   battle: five stat talents + one upgrade line per ability, five ranks at
   `TALENT_COSTS` 5/6/8/10/13 (294 to max a hero; 45 maps since 2026-10 ×
   ~9-10 per first run). Bank the stars AFTER `bankLevel`, which saves the profile it's given.

@@ -24,6 +24,9 @@ export const MAP = FONTS.map;              // the campaign map's labels
 // Press Start 2P at full size; kept so. hud.css's .cg-num does apply it.
 export const NUM = { fontFamily: "var(--numeric)", fontWeight: 400 };
 
+// what the stars screen is called (it was the "War Council"): the title menu's button and the screen's heading
+export const COUNCIL_NAME = "SKILLS & HEROES";
+
 // the HUD palette: ink rims, plum-slate panels, oak, parchment and gold
 export const INK = "#241a26";
 export const SLATE = { face: "#2e2633", lt: "#4a3e50", dk: "#1b141e", btn: "#4a3e50", btnLt: "#62546a" };

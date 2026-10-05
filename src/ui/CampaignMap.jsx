@@ -31,8 +31,8 @@ import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { useViewport } from "./fit.jsx";
 import { music } from "../audio/music.js";
 import { mapScore } from "../audio/score.js";
-import { CHAPTERS, LEVELS, levelById, isUnlocked, currentLevel, loadCastle } from "../data/campaign.js";
-import CastleWorksList from "./CastleWorks.jsx";
+import { CHAPTERS, LEVELS, levelById, isUnlocked, currentLevel } from "../data/campaign.js";
+import CastleWorksModal from "./CastleWorksModal.jsx";
 import { FACTIONS } from "../data/factions.js";
 import { REALMS } from "../data/maps.js";
 import { W, H } from "../data/constants.js";
@@ -42,7 +42,7 @@ import { HEROES } from "../data/bands.js";
 import { hasRig } from "../render/rigs.js";
 import { Star } from "./Glyphs.jsx";
 import { MAX_STARS } from "../data/profile.js";
-import { panel, FONT, HEAD, MAP as MAP_FONT } from "./theme.js";
+import { FONT, HEAD, MAP as MAP_FONT } from "./theme.js";
 import { PARCH, woodBtn, goldBtn, frame } from "./frames.js";
 import Studs from "./Studs.jsx";
 import { CastleIcon, LockIcon } from "./hud/icons.jsx";
@@ -675,27 +675,9 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
   );
 
   // ---- the castle works, bought here between levels from the treasury ----
-  // The box's head (title and X) stays put while the works scroll beneath
-  // it; a tap on the dark around the box closes it too. On a phone on its
-  // side the box goes wide and the works stand two abreast.
   const works = worksOpen && sel && (
-    <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(12,12,16,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: safePad(10, 12, 10, 12), boxSizing: "border-box" }}
-      onClick={() => setWorksOpen(false)}>
-      <div style={{ ...panel, ...frame, width: "100%", maxWidth: short ? 620 : 380, maxHeight: "100%", display: "flex", flexDirection: "column", padding: short ? "10px 12px 12px" : 16, boxSizing: "border-box" }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 10, letterSpacing: 2, opacity: 0.75, flex: 1, display: "flex", alignItems: "center", gap: 6 }}><CastleIcon size={14} /> CASTLE WORKS</span>
-          <button aria-label="Close" style={{ ...woodBtn, padding: "0 14px", fontSize: 13, flexShrink: 0 }} onClick={() => setWorksOpen(false)}>✕</button>
-        </div>
-        <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", touchAction: "pan-y", scrollbarWidth: "thin" }}>
-          <CastleWorksList
-            works={loadCastle(sel.chapter.id)}
-            purse={progress.treasury || 0}
-            purseLabel="THE CROWN'S TREASURY"
-            note="Every level you hold sends its leftover gold home. Spend it here on the crown's castle: what you build stands at every level, in every realm."
-            onBuy={(key, next) => onBuyWork(sel.chapter.id, key, next)} />
-        </div>
-      </div>
-    </div>
+    <CastleWorksModal treasury={progress.treasury} short={short} onClose={() => setWorksOpen(false)}
+      onBuy={(key, next) => onBuyWork(sel.chapter.id, key, next)} />
   );
 
   return (
