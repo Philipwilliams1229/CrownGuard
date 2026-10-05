@@ -83,13 +83,13 @@ export const WEATHER_KINDS = {
   // The battle opens in the morning fog (`startThick`: thick from the first
   // build phase, so it never pops in at a horn), which holds a while and
   // burns off; later banks drift back in and lift again on the same clock.
-  // While thick a hall sees only `sight` px (divided by k, so it opens out as
-  // the fog thins): long-reach halls lose their reach, close ones don't notice.
+  // While thick every hall reaches 25% less far (owner, 2026-10-05: a
+  // percentage, not a fixed sight in px), easing back as the fog thins.
   fog: {
     name: "Morning Fog", startThick: true,
     first: [0, 0], calm: [90, 140], rollIn: [25, 35], lasts: [25, 40], rollOut: [30, 45],
-    fx: { sight: 85 },
-    grade: (s) => ({ calm: span(150, 220, 90, 140, s), lasts: span(10, 20, 25, 40, s), fx: { sight: lerp(105, 85, s) } }),
+    fx: { reach: 0.75 },
+    grade: (s) => ({ calm: span(150, 220, 90, 140, s), lasts: span(10, 20, 25, 40, s) }),
     paint: "fog", sound: "fogbell",
   },
   // ---- the Iron Marches: THUNDERSTORM ----

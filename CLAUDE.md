@@ -123,14 +123,14 @@ Provisional, pending the owner's playtest.
 ## Weather brief on the level card (2026-10-05, owner request)
 
 Provisional, pending the owner's look. The campaign map's level card (full and
-phone versions) has a WEATHER section under ON THE ROAD: `ui/WeatherBrief.jsx`
+phone versions) has a WEATHER section (the old ON THE ROAD enemy row was removed, owner 2026-10-05): `ui/WeatherBrief.jsx`
 shows the kind's pixel icon (`WeatherIcon`, WeatherForecast.jsx; the sun for
 "Clear skies"), its name, strength pips (Mild / Strong / Fierce from the
 chapter plan's strength) and when it first comes, with an (i) that unfolds what it
 does, how often it returns and how to meet it. The wording is `data/weather-info.js`
 (`briefOf(spec)`): lore and advice written per kind, every number read from the
 graded kind via `weatherDefOf` (engine/weather.js), so a retuned kind retells
-itself. A new kind needs an entry in `WEATHER_INFO` there, a `FORECAST` line
+itself. **Fog is a percentage now** (owner, 2026-10-05): every hall reaches 25% less far while it is thick (`fx.reach` 0.75, eased by k as it lifts), no fixed sight in px; the `sight` machinery stays in the engine, unused. Not re-simmed. A new kind needs an entry in `WEATHER_INFO` there, a `FORECAST` line
 (weather.js) and an icon in WeatherForecast.jsx's `PX`. The card asks
 `weatherFor(level) ?? realm.weather`, the same call the battle makes. The
 in-battle wave preview chip (ui/WeatherForecast.jsx) has the same (i), reading

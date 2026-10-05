@@ -23,8 +23,8 @@ export const strengthPips = (s) => (s >= 0.85 ? 3 : s >= 0.6 ? 2 : 1);
 export const WEATHER_INFO = {
   fog: {
     blurb: "A morning fog hangs over the greenwood. The battle opens in it; it burns off as the day wears on, and later banks drift back in.",
-    effects: (d) => [`While it is thick, a hall can only see foes within ${Math.round(d.fx.sight)} px, and sees further as the fog thins.`],
-    tip: "Long-reach halls (archers, mages, ballistae) lose the most. Short reach and knights hardly notice, so keep some close to the road.",
+    effects: (d) => [`While it is thick, every hall reaches ${pct(1 - d.fx.reach)} less far. Their reach returns as the fog thins.`],
+    tip: "Build closer to the road while the fog is thick. Knights fight what is in front of them, so they do not mind it.",
     opens: () => "Opens in thick fog",
   },
   storm: {

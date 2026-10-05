@@ -33,7 +33,6 @@ import { music } from "../audio/music.js";
 import { mapScore } from "../audio/score.js";
 import { CHAPTERS, LEVELS, levelById, isUnlocked, currentLevel } from "../data/campaign.js";
 import CastleWorksModal from "./CastleWorksModal.jsx";
-import { FACTIONS } from "../data/factions.js";
 import { REALMS } from "../data/maps.js";
 import { W, H } from "../data/constants.js";
 import { coastOutline } from "../data/terrain.js";
@@ -383,7 +382,6 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
   const selUnlocked = sel ? isUnlocked(sel.id, progress) : false;
   const selCleared = sel ? !!progress.cleared[sel.id] : false;
   const selRealm = sel ? REALMS[sel.realm] : null;
-  const selFaction = sel ? FACTIONS[sel.chapter.faction] : null;
   const selBoss = sel ? sel.index === sel.chapter.levels.length - 1 : false;
   // the weather the level will bring (the same call the battle makes; a chapter the plan does not name falls back on the realm's own)
   const selWeather = sel ? (weatherFor(sel) ?? selRealm?.weather ?? null) : null;
@@ -598,14 +596,6 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
       <div style={{ fontSize: 12, lineHeight: 1.55, color: "#4a3826" }}>
         {selUnlocked ? sel.blurb : "The road this way is not yours yet. Take the level before it first."}
       </div>
-      {selUnlocked && (
-        <div style={{ background: "rgba(59,42,28,0.12)", border: `1px solid ${PARCH.dk}`, padding: "6px 8px" }}>
-          <div style={{ fontSize: 8.5, letterSpacing: 2, color: PARCH.red, fontWeight: "bold", marginBottom: 4 }}>ON THE ROAD</div>
-          <div style={{ display: "flex", gap: 4, alignItems: "flex-end", flexWrap: "wrap", minHeight: 28 }}>
-            {selFaction.types.map((ty) => <EnemyIcon key={ty} type={ty} box={26} />)}
-          </div>
-        </div>
-      )}
       {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} />}
       {selUnlocked && heroPick}
       </div>
@@ -643,14 +633,6 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
         <div style={{ fontSize: 11, lineHeight: 1.45, color: "#4a3826" }}>
           {selUnlocked ? sel.blurb : "The road this way is not yours yet. Take the level before it first."}
         </div>
-        {selUnlocked && (
-          <div style={{ background: "rgba(59,42,28,0.12)", border: `1px solid ${PARCH.dk}`, padding: "4px 7px", display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontSize: 8, letterSpacing: 1.5, color: PARCH.red, fontWeight: "bold", lineHeight: 1.25, flexShrink: 0 }}>ON THE<br />ROAD</div>
-            <div style={{ display: "flex", gap: 3, alignItems: "flex-end", flexWrap: "wrap", minHeight: 24 }}>
-              {selFaction.types.map((ty) => <EnemyIcon key={ty} type={ty} box={22} />)}
-            </div>
-          </div>
-        )}
         {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} compact />}
       </div>
       {selUnlocked && <div style={{ flexShrink: 0 }}>{heroPick}</div>}
