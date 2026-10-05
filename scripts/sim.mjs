@@ -86,6 +86,10 @@ const setUnlocksFor = (levelId) => {
   UNLOCKED = new Set(Object.keys(TOWERS).filter((k) => towerUnlocked(k, { cleared })));
 };
 const { recomputePerks } = await import("../src/data/profile.js");
+// the commander plays like a veteran: tower XP gates the paths and finals in
+// the game, but the sims buy whatever they like unless --xp-gate is given
+const { XP_RULES } = await import("../src/data/towerxp.js");
+XP_RULES.gate = flag("xp-gate");
 const { SKILLS } = await import("../src/data/skills.js");
 
 // ---- veterancy --------------------------------------------------------
@@ -224,7 +228,7 @@ const commander = (g) => {
 // ---- one run ----------------------------------------------------------
 
 const freshGame = (gold) => ({
-  run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 },
+  run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, towerXp: {},
   gold, lives: CASTLE_HP, wave: 0, phase: "build",
   towers: [], enemies: [], projectiles: [], effects: [],
   spawnQueue: [], spawnTimer: 0, speed: 4, paused: false,
@@ -338,6 +342,8 @@ function runOnce(opts, quiet, planName) {
   const towers = g.towers.map((t) => `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`).join(" ") + (hb ? ` + ${hb.name} L${hb.level}` : "");
   if (flag("ledger")) console.log("   ledger: " + g.towers.map((t) => ({ n: `${t.kind}${t.level}${t.branch || ""}${t.rank4 || ""}`, d: t.dmgOut || 0, k: t.kills || 0 }))
     .sort((a, b) => b.d - a.d).map((x) => `${x.n} ${Math.round(x.d / 1000)}k/${x.k}`).join("  "));
+  // --xp: what each hall type learned over the level (data/towerxp.js)
+  if (flag("xp")) console.log("   tower xp: " + Object.entries(g.towerXp || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${Math.round(n)}`).join("  "));
   const zs = g.zoneStats;
   const zone = (zs ? ` | ships ${zs.ships} sunk ${zs.sunk} landed ${zs.landed} lost ${zs.lost} shrouds ${zs.shrouds}${Object.entries(zs).filter(([k]) => !["ships", "sunk", "landed", "lost", "shrouds"].includes(k)).map(([k, v]) => ` ${k} ${v}`).join("")}` : "")
     + (g.squalls ? ` | ${g.weather?.kind || "weather"} x${g.squalls}${g.bolts ? ` bolts ${g.bolts}` : ""}${g.rocks ? ` rocks ${g.rocks} halls-burned ${g.hallsBurned || 0}` : ""}` : "");

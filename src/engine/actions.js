@@ -19,6 +19,7 @@ import { nextId } from "./ids.js";
 import { recordFavored, favoredFor } from "../data/profile.js";
 import { sfx } from "../audio/sfx.js";
 import { SANDBOX, tierOpen } from "../data/sandbox.js";
+import { tierGate, addTowerXp, xpForKill, ASSIST_SHARE } from "../data/towerxp.js";
 import { buildClock } from "./build.js";
 import { bandArrowFrom } from "./muzzles.js";
 import { queueLanding } from "./rime.js";
@@ -79,6 +80,7 @@ export const startWave = (g) => {
     castle: g.castle ? { ...g.castle } : null,
     castleRanks: g.castleRanks ? { ...g.castleRanks } : null,
     militiaCd: g.militiaCd || 0,
+    towerXp: { ...(g.towerXp || {}) },
     hero: (() => { const b = g.bands?.find((x) => x.kind === "hero"); return b ? { key: b.hero, level: b.level, xp: b.xp, talents: { ...(b.talents || {}) }, rally: { ...b.rally }, abCd: { ...(b.abCd || {}) } } : null; })(),
   };
   if (g.buildUntil != null) {
@@ -182,6 +184,7 @@ export const restartWave = (g) => {
   if (s.castle) g.castle = { ...s.castle };
   g.castleRanks = s.castleRanks ? { ...s.castleRanks } : g.castleRanks && {};
   g.militiaCd = s.militiaCd || 0;
+  g.towerXp = { ...(s.towerXp || {}) };   // a retried wave earns its experience only once
   // the hero comes back as the wave found him: level, xp, and his abilities
   // still recharging, so a restart can't refill them
   g.bands = [];
@@ -285,7 +288,7 @@ export const placeMasterTower = (g, kind, x, y, pick = null) => {
       name: rank4 ? br.rank4[rank4].name : br.name,
     };
   }
-  if (g.gold < plan.cost || !buildableAt(g, x, y, kind)) return;
+  if (g.gold < plan.cost || !buildableAt(g, x, y, kind) || !tierGate(kind, plan.rank4 ? 5 : 4, g).open) return;
   g.gold -= plan.cost;
   g.towers.push(makeTower(kind, x, y, 3, plan.branch, plan.cost, plan.rank4));
   markRaised(g, g.towers[g.towers.length - 1], "build");
@@ -344,7 +347,7 @@ export const upgradeTower = (g, t) => {
 
 export const branchTower = (g, t, key) => {
   const br = TOWERS[t.kind].branches[key];
-  if (t.branch || t.level < 3 || g.gold < br.cost || !tierOpen(4)) return;
+  if (t.branch || t.level < 3 || g.gold < br.cost || !tierOpen(4) || !tierGate(t.kind, 4, g).open) return;
   const prevB = formOf(t);
   g.gold -= br.cost; t.branch = key; t.invested += br.cost;
   markRaised(g, t, "branch", prevB);
@@ -358,7 +361,7 @@ export const branchTower = (g, t, key) => {
 
 // Rank-4 "Final Ascension": a branched tower evolves once more, permanently.
 export const ascendTower = (g, t, key) => {
-  if (!t.branch || t.rank4 || !tierOpen(5)) return;
+  if (!t.branch || t.rank4 || !tierOpen(5) || !tierGate(t.kind, 5, g).open) return;
   const r4 = TOWERS[t.kind].branches[t.branch].rank4?.[key];
   if (!r4 || g.gold < r4.cost) return;
   const prevR = formOf(t);
@@ -438,6 +441,13 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
   if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;
   if (e.hp <= 0 && !e.dead) {
     if (src) src.kills = (src.kills || 0) + 1;
+    // each hall type learns from its kills (data/towerxp.js); the Warden
+    // Mage, who kills nothing herself, from every foe that falls in her aura
+    if (!SANDBOX && g.towerXp) {
+      const worth = xpForKill(e.bounty);
+      if (src) addTowerXp(g, src.kind, worth);
+      if (src?.kind !== "support" && g.towers.some((tw) => tw.kind === "support" && Math.hypot(tw.x - e.x, tw.y - e.y) <= (getStats(tw).range || 0))) addTowerXp(g, "support", worth * ASSIST_SHARE);
+    }
     // the hero learns only from deaths: his own kills in full, and a share
     // of any that fall within a few strides of him (bands.js killXp)
     {

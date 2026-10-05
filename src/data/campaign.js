@@ -263,15 +263,33 @@ export const hasProgress = (p) => Object.keys(p.cleared).length > 0;
 export const UNLOCK_ALL = false;
 
 // ---- the towers, earned ----
-// The crown marches out with four halls. The rest are learned on the road:
-// clear the named level and the hall is yours everywhere, Free Play too.
+// The crown marches out with three halls: archers, knights and the wizard.
+// The rest are learned on the road, ten of them in the order the war needs
+// them (2026-10-05, owner: the Bladewheel first, then the Catapult, then the
+// Warden Mage, and more road between them than before): clear the named
+// level and the hall is yours from the next one on. Free Play opens them all.
+// Spread across the continent's sixty levels the gaps run 2, 3, 2, 4, 3, 4,
+// 4, 4, 4 — a hall to learn, and a few maps to learn it on.
 export const TOWER_UNLOCKS = {
-  catapult: "gw1", spiker: "gw2", riverwatch: "foxmere", goldworks: "gw3", trapsmith: "gw4", falconry: "wolfrun",
-  gunpowder: "cinderholt", assassin: "ir1", sunforge: "ir3",
+  spiker: "gw1",          //  1  Bladewheel
+  catapult: "gullwick",   //  3  Catapult
+  support: "gw3",         //  6  Warden Mage
+  riverwatch: "gw4",      //  8  River Watch (Wolfrun's river is next)
+  goldworks: "ravenscar", // 12  Gold Works
+  trapsmith: "gw5",       // 15  Trapsmith
+  falconry: "brinewick",  // 19  Falconry
+  assassin: "kestrel",    // 23  Assassin's Covert
+  gunpowder: "wardenmoor",// 27  Powder Works
+  sunforge: "hl1",        // 31  Sunforge
 };
+// A hall is learned by clearing its level OR any level marching after it,
+// so a save that was already past the place keeps what it had.
 export const towerUnlocked = (kind, p) => {
   const need = TOWER_UNLOCKS[kind];
-  return !need || !!p?.cleared?.[need];
+  if (!need) return true;
+  if (p?.cleared?.[need]) return true;
+  const at = LEVELS.findIndex((l) => l.id === need);
+  return at >= 0 && LEVELS.some((l, i) => i > at && p?.cleared?.[l.id]);
 };
 // What a level's clearing opens, for the victory card.
 export const unlocksFor = (levelId) => Object.keys(TOWER_UNLOCKS).filter((k) => TOWER_UNLOCKS[k] === levelId);

@@ -9,6 +9,7 @@
 
 import { SKILLS, foldMods, spentOn, nextCost, nodeUnlocked, isMaxed } from "./skills.js";
 import { HERO_TALENTS, talentCost, talentsSpent } from "./bands.js";
+import { TOWERS } from "./towers.js";
 
 const KEY = "crownguard.profile.v1";
 
@@ -33,6 +34,9 @@ const EMPTY = () => ({
   // ranks bought with them on the Home Screen, and the best level the hero
   // has ended each map at (a new best pays in full, a replay half)
   heroes: {},
+  // { towerKind: xp } — each hall type's own experience, earned by using it
+  // (data/towerxp.js); the paths and finals open as it grows
+  towerXp: {},
   stats: {
     levelsCleared: 0,   // clears, including repeats
     levelsLost: 0,
@@ -55,8 +59,15 @@ export function loadProfile() {
       perks: raw.perks && typeof raw.perks === "object" ? raw.perks : {},
       favored: raw.favored && typeof raw.favored === "object" ? raw.favored : {},
       heroes: raw.heroes && typeof raw.heroes === "object" ? raw.heroes : {},
+      towerXp: raw.towerXp && typeof raw.towerXp === "object" ? raw.towerXp : {},
       stats: { ...p.stats, ...(raw.stats || {}) },
     };
+    // Tower XP came later (2026-10-05). A save that has already fought is
+    // not locked out of what it had: every hall starts with the paths open
+    // and the finals still to be earned.
+    if (!raw.towerXp && (raw.stats?.levelsCleared > 0 || raw.stats?.kills > 0)) {
+      out.towerXp = Object.fromEntries(Object.keys(TOWERS).map((k) => [k, VETERAN_XP]));
+    }
     // Ratings used to be out of three: a flawless 3 becomes a flawless 5,
     // a 2 (60% of the castle or better) a 3, a bloody 1 stays a 1. Stars
     // already spent stay spent, so the rescale hands out the difference.
@@ -79,12 +90,20 @@ export function loadProfile() {
 }
 
 export function saveProfile(p) {
+  // experience only ever grows, and it is banked from outside React (the
+  // battle's exits), so a profile handed in from a stale state never takes
+  // back what the towers have earned since
+  const xp = { ...(p.towerXp || {}) };
+  for (const [k, n] of Object.entries(TOWER_XP)) xp[k] = Math.max(xp[k] || 0, n);
+  p.towerXp = xp;
   try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* private mode — play on */ }
   recomputePerks(p);
+  TOWER_XP = xp;
   return p;
 }
 
 export function resetProfile() {
+  TOWER_XP = {};
   return saveProfile(EMPTY());
 }
 
@@ -148,6 +167,36 @@ export function resetHeroTalents(key) {
   const h = heroRecord(p, key);
   p.heroes = { ...p.heroes, [key]: { ...h, points: h.points + talentsSpent(h.talents), talents: {} } };
   return writeRaw(p);
+}
+
+// ---- towers' xp ----
+// Banked when a campaign battle ends (the engine's ledger is g.towerXp, see
+// data/towerxp.js). `TOWER_XP` is a live binding the engine's gate reads, so
+// it never parses storage mid-battle; it follows every saveProfile. Banked
+// AFTER bankLevel, which saves the profile it is handed: this reads and
+// writes storage fresh, as the heroes' stars do.
+// A save with no towerXp yet that has fought before opens the paths.
+// XP a hall type needs before its paths (tier 4) and finals (tier 5) may be
+// bought; the rest of the rules are in data/towerxp.js.
+export const TIER_XP = { 4: 1800, 5: 7000 };
+export const VETERAN_XP = TIER_XP[4];
+export let TOWER_XP = {};
+export const bankedTowerXp = (kind) => Math.floor(TOWER_XP[kind] || 0);
+// Returns what was added and the tiers it crossed: { gained: {kind: n}, opened: [{ kind, tier }] }
+export function bankTowerXp(ledger) {
+  const gained = {}, opened = [];
+  const p = loadProfile();
+  for (const [kind, n] of Object.entries(ledger || {})) {
+    const add = Math.floor(n);
+    if (!(add > 0) || !TOWERS[kind]) continue;
+    const had = p.towerXp[kind] || 0;
+    p.towerXp[kind] = had + add;
+    gained[kind] = add;
+    for (const [tier, need] of Object.entries(TIER_XP)) if (had < need && p.towerXp[kind] >= need) opened.push({ kind, tier: Number(tier) });
+  }
+  if (Object.keys(gained).length) writeRaw(p);
+  TOWER_XP = p.towerXp;
+  return { gained, opened };
 }
 
 // ---- stars ----
@@ -270,4 +319,4 @@ export function recomputePerks(p) {
 
 // Prime the live binding at import time so a battle started straight from a
 // reload already fights with the player's permanent upgrades.
-recomputePerks(loadProfile());
+{ const boot = loadProfile(); recomputePerks(boot); TOWER_XP = boot.towerXp || {}; }

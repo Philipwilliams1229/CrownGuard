@@ -40,6 +40,43 @@ neighbours', so the levels already played keep theirs.
   point (`ws`) and coasts set their cove `ease` (style guide, "Water, roads
   and ground").
 
+## Tower XP and the hall unlocks (2026-10-05, owner request)
+
+Provisional, pending the owner's playtest.
+- **Three halls at the start** (archer, knight, wizard). The rest are learned
+  by clearing a level (`TOWER_UNLOCKS`, campaign.js), in this order and with
+  these gaps over the continent's 60 levels: Bladewheel gw1 (1), Catapult
+  gullwick (3), Warden Mage gw3 (6), River Watch gw4 (8), Gold Works
+  ravenscar (12), Trapsmith gw5 (15), Falconry brinewick (19), Assassin's
+  Covert kestrel (23), Powder Works wardenmoor (27), Sunforge hl1 (31). The
+  Warden Mage is locked on the first levels now. `towerUnlocked` also opens a
+  hall once ANY later level is cleared, so an old save keeps what it had.
+- **Tower XP, per hall TYPE** (`src/data/towerxp.js`, header has the rules):
+  levels 1-3 are free; the PATHS (tier 4) need `TIER_XP[4]` 1800 and the FINALS
+  (tier 5) `TIER_XP[5]` 7000 (raised from 600 / 2400 the same day, owner: a harder
+  first area) (both live in profile.js, re-exported). XP is
+  earned in campaign battles by a hall's kills (1 + a tenth of the bounty),
+  the Warden Mage's aura kills (x0.25), the Gold Works' wages (x0.3) and 6
+  XP for every wave a kind stands through. The ledger is `g.towerXp` (kept
+  by the retry-wave snapshot); `bankLedger` (CrownguardGame.jsx) banks it into
+  `profile.towerXp` when a battle ends or is left (the profile merges with max,
+  so a stale React profile never takes XP back). The gate (`tierGate`) reads
+  banked + ledger, so a hall can ripen mid-battle; it guards `branchTower`,
+  `ascendTower` and `placeMasterTower` (the master menu hides forms not yet
+  earned). Free Play (sandbox / `g.freeplay`) opens every tier and earns
+  nothing; `UNLOCK_ALL` opens all for testing. A save that has already
+  fought gets `VETERAN_XP` (the paths) on every hall, finals still to earn.
+  UI: a "Locked" card with a progress bar replaces the paths/finals cards
+  (`lockNote` in towerPanel); the end-of-battle card lists "Hall experience".
+- Measured with `node scripts/sim.mjs --chapter greenwood --endure --xp`: a main
+  hall (archer/knight/wizard) earns ~450-600 XP a level on the first six
+  levels, ~700-1000 mid-chapter, 2000+ on the Warrens (cumulative archer:
+  ~1500 after Gullwick, ~4700 after the Barrowfields, ~7900 after the
+  Kingstones). So paths open about level 4 and finals about level 11 for a
+  hall used from the start; halls learned later start from zero. The sims buy
+  whatever they like unless `--xp-gate` is given. Early levels bled a little
+  more without the Warden Mage (gw2 / Gullwick burst plan ~100-140 vs 20-35).
+
 ## Zones IV and V (owner's direction, 2026-10-03)
 
 The plan is `art/ZONES-4-5.md`: zone IV the Rimewater (a new faction, the

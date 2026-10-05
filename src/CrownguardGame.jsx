@@ -24,7 +24,8 @@ import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
 import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
 import { PTS } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
-import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, MAX_STARS } from "./data/profile.js";
+import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, bankTowerXp, bankedTowerXp, MAX_STARS } from "./data/profile.js";
+import { tierGate, TIER_XP } from "./data/towerxp.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
@@ -133,6 +134,8 @@ export default function Crownguard() {
   const [profile, setProfile] = useState(loadProfile);
   // what the level just ended awarded: { rating, newStars, xp }
   const [award, setAward] = useState(null);
+  // what each hall type learned in the battle just ended (bankLedger below)
+  const [xpAward, setXpAward] = useState(null);
   // which master-menu final the player is reading about: {kind, branch, rank4, name, cost, desc, stats}
   const [masterInfo, setMasterInfo] = useState(null);
   // which upgrade card has its ⓘ open (its tale laid over the card)
@@ -247,6 +250,7 @@ export default function Crownguard() {
 
   // opts (the Free Play sandbox): { lives, wave, rush, hero: false, heroKey, heroLevel }
   const initGame = useCallback((startGold = 250, freeplay = true, castle = emptyWorks(), opts = {}) => {
+    bankLedger(G.current);   // the battle being left behind banks what its halls learned
     music.forget();   // a new battle: its wave music starts from the top
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // dev-server playtest knob: /?gold=5000 pads the war chest. Stripped from
@@ -256,6 +260,8 @@ export default function Crownguard() {
     G.current = {
       // tallies for the profile — banked when the level ends
       run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 },
+      // what each hall type learned this battle (data/towerxp.js); banked when it ends
+      towerXp: {},
       gold: START_GOLD, lives: (opts.lives ?? CASTLE_HP) + worksBonusHp(castle), wave: opts.wave ?? 0, phase: "build",
       // the works built on this castle: they came with the crown (one castle
       // for every realm, data/campaign.js loadCastle), and stay
@@ -321,6 +327,7 @@ export default function Crownguard() {
     setMode("campaign");
     setLevelId(lv.id);
     setAward(null);
+    setXpAward(null);
     setArrive(null);
     castleScope.current = lv.chapter.id;
     initGame(lv.gold, false, loadCastle(castleScope.current));
@@ -363,7 +370,19 @@ export default function Crownguard() {
     openMap();
     if (from && nxt) setArrive({ from: from.id, to: nxt.id });
   };
+  // The experience the halls earned in a campaign battle goes into the
+  // profile when the battle ends or is left (data/towerxp.js). The ledger is
+  // emptied as it is banked, and so is the retry-wave snapshot's copy, so
+  // nothing is counted twice. Returns { gained, opened } or null.
+  const bankLedger = (g) => {
+    if (!g || g.freeplay || SANDBOX || !g.towerXp || !Object.keys(g.towerXp).length) return null;
+    const r = bankTowerXp(g.towerXp);
+    g.towerXp = {};
+    if (g.snapshot) g.snapshot.towerXp = {};
+    return r;
+  };
   const openMap = () => {
+    bankLedger(G.current);
     if (G.current) G.current.paused = false;
     setArrive(null);
     setMenuOpen(false);
@@ -396,6 +415,7 @@ export default function Crownguard() {
     setGuideOpen(false);
   };
   const goHome = () => {
+    bankLedger(G.current);
     if (G.current) G.current.paused = false;
     setMenuOpen(false);
     setRealmOpen(false);
@@ -450,6 +470,7 @@ export default function Crownguard() {
     const lv = levelById(levelId);
     if (!lv) return;
     const won = ui.result === "won";
+    setXpAward(bankLedger(g));
     // a fall AFTER the level was already won is the Endless March ending,
     // not the level being lost — bank the extra waves like a free run's tail
     if (!won && g?.victory) {
@@ -1135,6 +1156,25 @@ export default function Crownguard() {
       <span style={{ background: "var(--ink)", color: "var(--gold-lt)", fontFamily: "var(--display)", fontSize: 11, fontWeight: 700, letterSpacing: 1, lineHeight: "14px", padding: "1px 7px", textShadow: "none" }}>CONFIRM</span>
     );
     const slot = { display: "flex", alignItems: "center", height: 16 };
+    // A hall's paths and finals are earned by using the hall (data/towerxp.js):
+    // until then the card says how far along it is, and what is waiting
+    const lockNote = (tier) => {
+      const gate = tierGate(sel.kind, tier, g);
+      const pct = Math.min(100, Math.round((gate.have / Math.max(1, gate.need)) * 100));
+      const waiting = tier === 4 ? Object.values(selDef.branches) : Object.values(selDef.branches[sel.branch]?.rank4 || {});
+      const how = sel.kind === "support" ? "every foe that falls in its aura" : sel.kind === "goldworks" ? "the wages it pays" : "its kills";
+      return (
+        <div className="cg-parch" style={{ padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
+          <div className="cg-label" style={{ marginBottom: 2, color: "#7a6446" }}>Locked · {tier === 4 ? "paths" : "final forms"}</div>
+          This hall learns them with use: <b>{gate.need} XP</b>, earned by {how} and every wave it stands through, on any map.
+          <div style={{ height: 8, background: "#d9c8a0", border: "1px solid #7a6446", margin: "6px 0 3px" }}><div style={{ width: `${pct}%`, height: "100%", background: "#c8962e" }} /></div>
+          <div className="cg-num" style={{ fontWeight: "bold", color: "var(--parch-ink)" }}>{gate.have} / {gate.need} XP</div>
+          {waiting.length > 0 && <div style={{ marginTop: 5, color: "#7a6446" }}>Waiting: {waiting.map((w) => w.name).join(" · ")}</div>}
+        </div>
+      );
+    };
+    // what holds a tier back from being bought (the sandbox's cap, or experience)
+    const holdFor = (tier) => (!tierOpen(tier) ? capNote : !tierGate(sel.kind, tier, g).open ? lockNote(tier) : null);
     // The path / final-form choices. Every card is the same size and stays
     // it: the grid's rows all match the tallest card (a long name may wrap),
     // the price sits under the picture, the tale (100 characters at most,
@@ -1241,7 +1281,7 @@ export default function Crownguard() {
     }
     const base = { ...t, level: 3, branch: null, rank4: null };
     const pathsLive = !sel.branch && sel.level === 3;
-    stage("paths", pathsLive, pathsLive && !tierOpen(4) ? capNote : formChoices(
+    stage("paths", pathsLive, (pathsLive && holdFor(4)) || formChoices(
       Object.entries(selDef.branches).map(([bk, br]) => ({
         k: `branch:${bk}`, f: br, form: { branch: bk }, look: { branch: bk },
         deltas: formDeltas(pathsLive ? t : base, { branch: bk }), buy: (tt) => branchTower(G.current, tt, bk),
@@ -1249,7 +1289,7 @@ export default function Crownguard() {
     for (const [bk, br] of Object.entries(selDef.branches)) {
       if (br.rank4) {
         const live = sel.branch === bk && !sel.rank4;
-        stage(`fin:${bk}`, live, live && !tierOpen(5) ? capNote : formChoices(
+        stage(`fin:${bk}`, live, (live && holdFor(5)) || formChoices(
           Object.entries(br.rank4).map(([rk, r4]) => ({
             k: `ascend:${rk}`, f: r4, form: { rank4: rk }, look: { branch: bk, rank4: rk },
             deltas: formDeltas(live ? t : { ...base, branch: bk }, { rank4: rk }), buy: (tt) => ascendTower(G.current, tt, rk),
@@ -1664,6 +1704,27 @@ export default function Crownguard() {
                         <span style={{ color: "var(--muted)" }}>what was left, and a tithe of what was earned · {(progress.treasury || 0).toLocaleString("en-US")} banked</span></span>
                     </div>
                   )}
+                  {/* what the halls learned in this battle (data/towerxp.js) */}
+                  {campaign && xpAward && Object.keys(xpAward.gained).length > 0 && (
+                    <div className="cg-well" style={{ display: "flex", flexDirection: "column", gap: 5, padding: "6px 10px", fontSize: 10.5, textAlign: "left", lineHeight: 1.35 }}>
+                      <span className="cg-label" style={{ fontSize: 10 }}>Hall experience</span>
+                      {Object.entries(xpAward.gained).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => {
+                        const opened = xpAward.opened.filter((o) => o.kind === k).map((o) => (o.tier === 4 ? "Paths open!" : "Final forms open!"));
+                        const have = bankedTowerXp(k);
+                        const goal = have < TIER_XP[4] ? TIER_XP[4] : have < TIER_XP[5] ? TIER_XP[5] : 0;
+                        return (
+                          <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <TowerPortrait kind={k} size={26} />
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <b>{TOWERS[k].name}</b> <b className="cg-num" style={{ color: "var(--gold-lt)", textShadow: "1px 1px 0 var(--ink)" }}>+{n} XP</b>
+                              <span style={{ color: "var(--muted)" }}> · {goal ? `${have} / ${goal}` : `${have}, fully learned`}</span>
+                            </span>
+                            {opened.length > 0 && <b style={{ color: "var(--green)", whiteSpace: "nowrap" }}>{opened.join(" ")}</b>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   {campaign && won && award?.first && unlocksFor(level.id).length > 0 && (
                     <div className="cg-parch" style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 14px" }}>
                       {unlocksFor(level.id).map((k) => (
@@ -1696,7 +1757,7 @@ export default function Crownguard() {
                     )}
                     {won && (
                       <button className={cls("cg-btn", !(campaign && nxt) && "cg-btn--gold")} style={big}
-                        onClick={() => { const g = G.current; if (g) { g.phase = "build"; g.buildUntil = g.time + 30; } setAward(null); }}>
+                        onClick={() => { const g = G.current; if (g) { g.phase = "build"; g.buildUntil = g.time + 30; } setAward(null); setXpAward(null); }}>
                         Endless March
                       </button>
                     )}
@@ -1865,11 +1926,11 @@ export default function Crownguard() {
                   <>
           {masterOn ? (
                 /* the master menu: each tower's every ascension, bought outright */
-                Object.entries(TOWERS).filter(([key]) => hallAvail(key)).map(([key, def]) => (
+                Object.entries(TOWERS).filter(([key]) => hallAvail(key) && masterPlans(key).some((pl) => tierGate(key, pl.rank4 ? 5 : 4, G.current).open)).map(([key, def]) => (
                   <div key={key} style={{ marginBottom: 12 }}>
                     <div className="cg-label" style={{ fontSize: 11, margin: "2px 0 6px" }}>{def.name}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-                      {masterPlans(key).map((plan) => {
+                      {masterPlans(key).filter((pl) => tierGate(key, pl.rank4 ? 5 : 4, G.current).open).map((plan) => {
                         const pk = `${key}:${plan.branch}${plan.rank4 || ""}`;
                         const can = ui.gold >= plan.cost;
                         const active = ui.buildMode === key && ui.masterPick === pk;

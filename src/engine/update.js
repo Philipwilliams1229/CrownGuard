@@ -6,6 +6,7 @@
 
 import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF, LANE_OFF, pickLane } from "../data/constants.js";
 import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
+import { addTowerXp, DUTY_XP, WAGE_SHARE } from "../data/towerxp.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X, guardSpots, GUARD_X } from "../data/castle.js";
 import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETINUE, retinueAt, KNIGHT_REGEN, KNIGHT_REST_REGEN } from "../data/bands.js";
 import { RIVER_ROUTE, riverRouteAt, seaRoute, seaDepthAt, underBridge, routeSpans, clearOfSpans, stationQ, patrolOf } from "../data/terrain.js";
@@ -2657,6 +2658,8 @@ export function updateGame(g, dt) {
       sfx.play("waveClear");
       dissolveCorpses(g, tms);   // the fallen crumble away: the next wave's necromancer starts with none
       if (g.run) g.run.goldEarned += waveBonus(g.wave);
+      // every kind of hall that stood through the wave learns a little from it
+      for (const k of new Set(g.towers.map((t) => t.kind))) addTowerXp(g, k, DUTY_XP);
       // the Gold Works pay out on every wave held
       for (const t of g.towers) {
         if (t.kind !== "goldworks") continue;
@@ -2669,6 +2672,7 @@ export function updateGame(g, dt) {
           g.gold += pay;
           t.paidTotal = (t.paidTotal || 0) + pay;
           if (g.run) g.run.goldEarned += pay;
+          addTowerXp(g, "goldworks", pay * WAGE_SHARE);
           g.effects.push({ type: "coin", x: t.x, y: t.y - 26, ttl: 1100, text: `+${pay}g` });
           sfx.play("payout");
         } else if (st.hoard) {
