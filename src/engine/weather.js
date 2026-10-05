@@ -175,7 +175,12 @@ const specNow = () => {
 export const weatherDef = () => {
   const w = specNow();
   if (!w || !MECH.weather) return null;
-  const kind = WEATHER_KINDS[w.kind];
+  return weatherDefOf(w);
+};
+// The same, for any spec (the campaign card's weather brief reads it before a
+// battle exists): null for an unknown kind.
+export const weatherDefOf = (w) => {
+  const kind = w && WEATHER_KINDS[w.kind];
   if (!kind) return null;
   const gr = w.strength != null && kind.grade ? kind.grade(Math.max(0, Math.min(1, w.strength))) : {};
   return { ...kind, ...gr, ...w, fx: { ...kind.fx, ...(gr.fx || {}), ...(w.fx || {}) } };

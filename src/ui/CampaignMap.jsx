@@ -38,6 +38,8 @@ import { REALMS } from "../data/maps.js";
 import { W, H } from "../data/constants.js";
 import { coastOutline } from "../data/terrain.js";
 import EnemyIcon from "./EnemyIcon.jsx";
+import WeatherBrief from "./WeatherBrief.jsx";
+import { weatherFor } from "../data/weather-plan.js";
 import { HEROES } from "../data/bands.js";
 import { hasRig } from "../render/rigs.js";
 import { Star } from "./Glyphs.jsx";
@@ -383,6 +385,8 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
   const selRealm = sel ? REALMS[sel.realm] : null;
   const selFaction = sel ? FACTIONS[sel.chapter.faction] : null;
   const selBoss = sel ? sel.index === sel.chapter.levels.length - 1 : false;
+  // the weather the level will bring (the same call the battle makes; a chapter the plan does not name falls back on the realm's own)
+  const selWeather = sel ? (weatherFor(sel) ?? selRealm?.weather ?? null) : null;
 
   // ---- the continent ----
   const map = (
@@ -602,6 +606,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
           </div>
         </div>
       )}
+      {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} />}
       {selUnlocked && heroPick}
       </div>
       <div style={{ flexShrink: 0, padding: "0 8px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -646,6 +651,7 @@ export default function CampaignMap({ progress, profile, onStart, onBack, onBuyW
             </div>
           </div>
         )}
+        {selUnlocked && <WeatherBrief key={sel.id} spec={selWeather} compact />}
       </div>
       {selUnlocked && <div style={{ flexShrink: 0 }}>{heroPick}</div>}
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>

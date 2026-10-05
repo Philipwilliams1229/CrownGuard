@@ -120,6 +120,21 @@ Provisional, pending the owner's playtest.
   whatever they like unless `--xp-gate` is given. Early levels bled a little
   more without the Warden Mage (gw2 / Gullwick burst plan ~100-140 vs 20-35).
 
+## Weather brief on the level card (2026-10-05, owner request)
+
+Provisional, pending the owner's look. The campaign map's level card (full and
+phone versions) has a WEATHER section under ON THE ROAD: `ui/WeatherBrief.jsx`
+shows the kind's pixel icon (`WeatherIcon`, WeatherForecast.jsx; the sun for
+"Clear skies"), its name, strength pips (Mild / Strong / Fierce from the
+chapter plan's strength) and when it first comes, with an (i) that unfolds what it
+does, how often it returns and how to meet it. The wording is `data/weather-info.js`
+(`briefOf(spec)`): lore and advice written per kind, every number read from the
+graded kind via `weatherDefOf` (engine/weather.js), so a retuned kind retells
+itself. A new kind needs an entry in `WEATHER_INFO` there, a `FORECAST` line
+(weather.js) and an icon in WeatherForecast.jsx's `PX`. The card asks
+`weatherFor(level) ?? realm.weather`, the same call the battle makes. The
+in-battle wave preview chip is unchanged.
+
 ## Zones IV and V (owner's direction, 2026-10-03)
 
 The plan is `art/ZONES-4-5.md`: zone IV the Rimewater (a new faction, the
