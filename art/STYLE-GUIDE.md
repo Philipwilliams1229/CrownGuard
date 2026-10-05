@@ -867,8 +867,22 @@ actions.js `buildableAt`).
   lines, crevasse arcs concave downstream with a blue core, lateral
   moraines on the lower reach. Check with `map-lab.html?scale=4&crop=300,
   -640,64,52` (pack and shore) and `crop=412,-418,64,42` (the Frostmere).
-  Still open: the pack's plates sit on a jittered 20-px grid (a cell-crack
-  split of one sheet would read better), no calving face, no sastrugi.
+  The pack is a SHEET cracked into plates (`inFloe`: a jittered Voronoi
+  of 24-px cells, a lead where the two nearest seeds stand within a
+  noise-wandered width that shrinks with `floeDens`; a plate drops out on
+  its seed's dice where the ice thins), so plates are irregular polygons
+  of varied size with a hair of dark lead between them in the north and
+  open water between floes at the edge; ridges lie in patches of the
+  pinched leads, brash is 2x2 bits at the edge; `ICE_MEMO` caches each
+  pixel's answer for its neighbours. A glacier with `calves: true` floats
+  out over the water to a flat front (`glacierPath(..., cap=false)`; the
+  layer's mask takes in the tongue, `seaIce` keeps open water round the
+  snout): a lit top, a pale face with blue clefts, a dark waterline,
+  fallen blocks and `bergBit`s drifting off (each berg a lit left face, a
+  shaded right face, a cleft, a waterline and a shadow). The snowfield
+  carries sparse wind-combed sastrugi dashes and a blue shadow band on the
+  south-east lee of each range (`RIME_RANGES` mirrors `rimeDressing`'s
+  `range(...)` calls: move a range, move both).
 - **Growing a country** (2026-10-03): new land is new lobes of coastline
   (REGIONS in mapLayout.js), never a rescale — the hand-placed dressing,
   rivers and set pieces of the old land keep their coordinates. Dress new

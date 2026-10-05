@@ -181,11 +181,9 @@ scenery-rime.js + water.js's ice branches); the rules are in the style guide
 ("The water pass", "Ice on the water", "Water meets water with one
 outline"). Engine side: `actions.js` keeps halls off a river mouth's funnel
 and fan (`riverMouths()`, render/water.js). Pending the owner's playtest:
-the swell's speed and crest contrast, the river marks' density, whether the
-fast-ice band hides a River Watch skiff on the north-coast boards
-(scenery-rime.js's report: clip the patrol where `rimeFastIceAt > 0`, or
-set `rimeIce: { sea: 8 }` on skerryway / wolfsound / saltreach /
-jarlsfjord). The only campaign board with a river AND a coast is none: the
+the swell's speed and crest contrast, the river marks' density. The sea's
+ice sheet is capped at `SEA_CAP` 11 px (scenery-rime.js) so a River Watch
+skiff, rowing 16 px out, always has open water under it. The only campaign board with a river AND a coast is none: the
 estuary shows on the test board `rimefjord` until a level gets one.
 Lesson: the session limit cut three of four agents off; resume a cut-off
 agent with a tool-call budget instead of starting a fresh one.
