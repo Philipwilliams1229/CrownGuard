@@ -133,7 +133,13 @@ graded kind via `weatherDefOf` (engine/weather.js), so a retuned kind retells
 itself. A new kind needs an entry in `WEATHER_INFO` there, a `FORECAST` line
 (weather.js) and an icon in WeatherForecast.jsx's `PX`. The card asks
 `weatherFor(level) ?? realm.weather`, the same call the battle makes. The
-in-battle wave preview chip is unchanged.
+in-battle wave preview chip (ui/WeatherForecast.jsx) has the same (i), reading
+`briefOf(weatherDef())`. **Fog and mist beyond the board:** they paint on the board's
+own canvas, so a taller screen (iPad) showed them stop at its edge. Each painter
+leaves its finished layer in `EDGE` (render/weatherfx.js) and `paintWeatherEdge`
+draws it MIRRORED around the board on a canvas under the board (`edgeRef` in
+CrownguardGame.jsx, beside the veil div). Storm / blizzard / eruption still use
+only the flat `weatherVeil` beyond the board.
 
 ## Zones IV and V (owner's direction, 2026-10-03)
 

@@ -33,7 +33,7 @@ import {
 } from "./engine/actions.js";
 import { updateGame } from "./engine/update.js";
 import { draw } from "./render/draw.js";
-import { weatherVeil } from "./render/weatherfx.js";
+import { weatherVeil, paintWeatherEdge } from "./render/weatherfx.js";
 import { paintApron } from "./render/apron.js";
 import TowerPortrait from "./ui/TowerPortrait.jsx";
 import EnemyIcon from "./ui/EnemyIcon.jsx";
@@ -174,6 +174,7 @@ export default function Crownguard() {
   // and the tower being dragged out of the tray
   const apronRef = useRef(null);
   const veilRef = useRef(null);
+  const edgeRef = useRef(null);
   const tileDrag = useRef(null);
   // the tower picture that follows a finger dragging it out of the tray,
   // and whether a phone's tray shows its locked halls
@@ -181,6 +182,8 @@ export default function Crownguard() {
   const [showLocked, setShowLocked] = useState(false);
   // the canvas's css size (w, h), and the visible box it's shown in (vw, vh)
   const [boardCss, setBoardCss] = useState({ w: 720, h: 480, vw: 720, vh: 480, x: 0, y: 0 });
+  const boardCssRef = useRef(boardCss);
+  boardCssRef.current = boardCss;
   // The screen, and the whole battle screen's box inside the safe area. When
   // the screen is wider than the 3:2 board (a phone on its side, a desktop),
   // the spare width becomes two RAILS beside the board that carry the HUD, so
@@ -520,6 +523,13 @@ export default function Crownguard() {
       draw(g, canvasRef.current, bufRef);
       // the weather darkens the landscape beyond the board too (render/weatherfx.js weatherVeil)
       if (veilRef.current) { const v = weatherVeil(g) || "transparent"; if (veilRef.current.style.background !== v) veilRef.current.style.background = v; }
+      // and fog / mist run out over it, mirrored at the board's edges
+      { const bc = boardCssRef.current, ec = edgeRef.current;
+        if (ec && bc.cw) {
+          const dpr = Math.min(2, window.devicePixelRatio || 1);
+          if (ec.width !== Math.round(bc.cw * dpr) || ec.height !== Math.round(bc.ch * dpr)) { ec.width = Math.round(bc.cw * dpr); ec.height = Math.round(bc.ch * dpr); ec._wxOn = true; }
+          paintWeatherEdge(ec, { x: bc.x, y: bc.y + Math.round((bc.vh - bc.h) / 2), w: bc.w, h: bc.h }, dpr);
+        } }
       if (screenRef.current === "game") music.play(battleScore(g, FACTION.id));
 
       // mirror a snapshot of state into React so the panels update
@@ -1595,6 +1605,7 @@ export default function Crownguard() {
         onPointerDown={(e) => { if (e.target === e.currentTarget || e.target === apronRef.current) trayHome(); }}>
         <canvas ref={apronRef} aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", opacity: ui.zoom > 1 ? 0.45 : 1, transition: "opacity 0.3s" }} />
         <div ref={veilRef} aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
+        <canvas ref={edgeRef} aria-hidden="true" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", pointerEvents: "none" }} />
         <div style={{ position: "absolute", left: boardCss.x, top: boardCss.y, width: boardCss.vw, height: boardCss.vh, overflow: "hidden", background: REALMS[realmId].GRASS }}>
           <canvas
             ref={canvasRef} width={W * RES} height={H * RES}

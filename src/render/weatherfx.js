@@ -89,6 +89,37 @@ const clearHalls = (c, g, r, box = null, alpha = 1) => {
   c.globalCompositeOperation = "source-over";
 };
 
+// ---- the weather beyond the board ----
+// Fog and mist live on the board's own canvas, so a screen taller or wider than
+// the board (an iPad) showed them stop dead at its edge. The painter leaves its
+// finished layer in EDGE each frame; paintWeatherEdge lays it out over the
+// landscape around the board, MIRRORED at each edge (no seam), on a canvas
+// that sits under the board. null when no fog or mist is up.
+let EDGE = null;
+export const paintWeatherEdge = (cv, board, dpr = 1) => {
+  if (!cv) return;
+  const e = EDGE;
+  const on = !!(e && e.a > 0.01 && board && board.w > 0);
+  if (!on) { if (cv._wxOn) { cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); cv._wxOn = false; } return; }
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  c.imageSmoothingEnabled = false;
+  c.globalAlpha = e.a;
+  const { x, y, w, h } = board;
+  const nx = Math.ceil(Math.max(x, cv.width / dpr - x - w) / w), ny = Math.ceil(Math.max(y, cv.height / dpr - y - h) / h);
+  for (let iy = -ny; iy <= ny; iy++) for (let ix = -nx; ix <= nx; ix++) {
+    if (!ix && !iy) continue;                      // the board itself is drawn by the board
+    const fx = Math.abs(ix) & 1, fy = Math.abs(iy) & 1;
+    const tx = x + ix * w, ty = y + iy * h;
+    if (tx + w < 0 || ty + h < 0 || tx > cv.width / dpr || ty > cv.height / dpr) continue;
+    c.setTransform(dpr * (w / W) * (fx ? -1 : 1), 0, 0, dpr * (h / H) * (fy ? -1 : 1), dpr * (tx + (fx ? w : 0)), dpr * (ty + (fy ? h : 0)));
+    c.drawImage(e.cv, 0, 0);
+  }
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  cv._wxOn = true;
+};
+
 // ---- patterns: a baked sheet scrolled over the whole board in one fill ----
 const PATS = new WeakMap();
 const fillSheet = (ctx, cv, scale, ox, oy, a) => {
@@ -183,6 +214,7 @@ const fog = (ctx, g, w, def) => {
   const sight = (def?.fx?.sight || 85) / Math.max(0.05, k);
   clearHalls(c, g, sight * 1.1);
   showLayer(ctx, 1);
+  EDGE = { cv: LAYER, a: 1 };
 };
 
 // ================= STORM =================
@@ -380,6 +412,7 @@ const gravemist = (ctx, g, w) => {
   for (const box of boxes) clearHalls(c, g, 36, box);
   const a = step4(k);
   for (const box of boxes) if (box[2] > box[0] && box[3] > box[1]) showLayer(ctx, a, box);
+  EDGE = { cv: LAYER, a };
   // wisps curling up off the banks, and now and then a face or a hand in one
   w.banks.forEach((b, bi) => {
     for (let i = 0; i < 3; i++) {
@@ -607,6 +640,7 @@ export const drawWeatherGround = (ctx, g) => {
 };
 // over everything (world space, inside the camera)
 export const drawWeather = (ctx, g) => {
+  EDGE = null;
   hallFires(ctx, g);
   dazed(ctx, g);
   const w = g.weather;
