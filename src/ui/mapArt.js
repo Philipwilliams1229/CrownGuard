@@ -211,9 +211,22 @@ const RIME = {
   tundra: ["#5e5f52", "#737562", "#8c8c72"].map(rgb),
   drift: rgb("#9fb2c6"), glint: rgb("#ffffff"), shingle: ["#6a6c70", "#8a8c8e", "#a6a8a8"].map(rgb), fleck: rgb("#2a2e36"),
 };
+// the ranges' boxes (as rimeDressing stands them: keep the two lists the
+// same), for the cool shadow each throws on the snow to its south-east
+const RIME_RANGES = [[440, -553, 104, 24], [716, -418, 26, 56], [430, -411, 78, 12], [700, -566, 32, 14], [306, -548, 16, 26], [612, -462, 26, 14]];
 const rimePx = (x, y, band, inl) => {
   const t = band < 0.27 ? 0 : band > 0.75 ? 2 : 1, b = bayer(x, y) * 0.05, R = RIME;
-  const my = y / U + MAP.y, south = smooth(Math.max(0, Math.min(1, (my + 440) / 100)));
+  const my = y / U + MAP.y, mx = x / U + MAP.x, south = smooth(Math.max(0, Math.min(1, (my + 440) / 100)));
+  // the lee of a range: a band of blue shadow dithered out south-east of it
+  for (const [rx, ry, rw, rh] of RIME_RANGES) {
+    const dx = mx - rx, dy = my - ry;
+    if (dx + dy < 2 || Math.abs(dx) > rw / 2 + 9 || Math.abs(dy) > rh / 2 + 9) continue;
+    const e = Math.hypot(dx / (rw / 2 + 8), dy / (rh / 2 + 8)) + (vnoise(x, y, 6, 129) - 0.5) * 0.3;
+    if (e < 1 && bayer(x, y) < (1 - e) * 1.6 + 0.1) return R.snow[0];
+  }
+  // sastrugi: sparse one-pixel dashes combed along the wind (WSW-ENE)
+  const wl = Math.floor(y + x * 0.28), wd = Math.floor((x - y * 0.28) / 5), wh = hash(wl, wd + 400);
+  if (wh < 0.07 && band < 0.75) return wh < 0.035 ? R.snow[2] : R.drift;
   if (inl < 8 && inl < 4 + vnoise(x, y, 14, 125) * 4 && fbm(x, y, 20, 31) > 0.46) return R.shingle[hash(x >> 1, y >> 1) < 0.2 ? 0 : t];
   // black rock only where the wind scours a shadowed slope bare, blue ice in
   // the broad hollows, and dun tundra breaking through in the south
@@ -236,10 +249,13 @@ const rimePx = (x, y, band, inl) => {
 // fast ice along its own shores, the odd lead of open water.
 const COLD = { deep: "#233f5a", mid: "#2c4c68", shal: "#3a6480", reef: "#5e90a6" };
 const FLOE = { body: rgb("#c9dbe5"), snow: rgb("#e2ebf1"), lit: rgb("#f6fafc"), thin: rgb("#a4bccc"), line: rgb("#7f9cb2"), shade: rgb("#1a3149"), ridge: rgb("#6a8aa4") };
-// Floes are plates, one to a cell of a jittered grid: an octagon-ish slab
-// whose size grows with the ice's density (so northward they crowd into
-// pack, with dark leads between). inFloe answers for one art pixel.
-const FC = 20;
+// The pack is a continuous sheet cracked into plates: each cell of a grid
+// throws one jittered seed, a plate is the ground nearest one seed (the
+// nearest of the 3x3 neighbouring cells' seeds), and a LEAD of open water
+// lies where the two nearest seeds stand almost as close — wider where the
+// ice is thin (its width wanders with noise), a hair where the pack is
+// dense. A plate drops out into open water on its own dice where the ice
+// thins, so the pack's edge frays into floes. inFloe answers for one pixel.
 // (drifting floes thin out away from the Rimewater, west and south; the
 // pack along the top of the world lies right across it)
 const floeDens = (x, y) => {
@@ -247,30 +263,25 @@ const floeDens = (x, y) => {
   const drift = smooth(Math.max(0, Math.min(1, (-380 - my) / 120))) * (0.25 + 0.75 * smooth(Math.max(0, Math.min(1, (mx - 120) / 170))));
   return drift * 0.45 + smooth(Math.max(0, Math.min(1, (-585 - my) / 45))) * 0.55;
 };
-// (each cell's dice are thrown once and kept: angle, squash, jitter)
-const FLOE_CELLS = new Map();
-const floeCell = (cx, cy) => {
+const VC = 24;
+const SEEDS = new Map();
+const seedOf = (cx, cy) => {
   const key = cx * 4096 + cy;
-  let f = FLOE_CELLS.get(key);
-  if (!f) {
-    const k = cx * 977 + cy * 131, a = hash(k, 65) * 3.1416;
-    f = { h1: hash(k, 61), h2: hash(k, 62), j1: hash(k, 63) - 0.5, j2: hash(k, 64) - 0.5, ca: Math.cos(a), sa: Math.sin(a),
-      ku: 0.75 + hash(k, 66) * 0.5, kv: 0.8 + hash(k, 67) * 0.6, kc: 0.62 + hash(k, 68) * 0.18 };
-    FLOE_CELLS.set(key, f);
-  }
+  let f = SEEDS.get(key);
+  if (!f) { const k = cx * 977 + cy * 131; f = [(cx + 0.12 + hash(k, 61) * 0.76) * VC, (cy + 0.12 + hash(k, 62) * 0.76) * VC, hash(k, 63)]; SEEDS.set(key, f); }
   return f;
 };
 const inFloe = (x, y, dens) => {
-  const cy = Math.floor(y / FC), sx = x + (cy & 1) * (FC >> 1), cx = Math.floor(sx / FC), f = floeCell(cx, cy);
-  if (f.h1 > 0.1 + dens * 0.9) return 0;
-  const r = FC * 0.5 * Math.min(1.08, 0.22 + f.h2 * 0.5 + dens * 0.46), slack = Math.max(0, FC - 2 * r);
-  const dx = sx - ((cx + 0.5) * FC + f.j1 * slack), dy = (y - ((cy + 0.5) * FC + f.j2 * slack)) * 1.35;
-  const u = Math.abs(dx * f.ca - dy * f.sa) * f.ku, v = Math.abs(dx * f.sa + dy * f.ca) * f.kv;
-  const d = Math.max(u, v, (u + v) * f.kc);
-  // (the ragged edge only where it matters)
-  if (d < r - 1.6) return 1;
-  if (d > r + 1.6) return 0;
-  return d + (vnoise(x, y, 4, 69) - 0.5) * 3 < r ? 1 : 0;
+  const cx = Math.floor(x / VC), cy = Math.floor(y / VC);
+  let d1 = 1e9, d2 = 1e9, drop = 0;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const sd = seedOf(cx + i, cy + j), ex = x - sd[0], ey = (y - sd[1]) * 1.25;
+    const d = Math.sqrt(ex * ex + ey * ey);
+    if (d < d1) { d2 = d1; d1 = d; drop = sd[2]; } else if (d < d2) d2 = d;
+  }
+  if (drop > 0.06 + dens * 0.94) return 0;
+  const lead = (0.9 + (1 - dens) * 7) * (0.5 + vnoise(x, y, 7, 69) * 1);
+  return d2 - d1 > lead ? 1 : 0;
 };
 // The sea ice, one art pixel at a time (dist: art px from the coast):
 // FAST ICE, a sheet welded to the Rimewater's own shores and filling its
@@ -283,14 +294,21 @@ const inFloe = (x, y, dens) => {
 // under it and drifted snow on top. The longships ride in open water.
 const OPEN_WATER = [[586, -596], [262, -446], [470, -456], [592, -294], [560, -300], [786, -612]];
 const fastEdge = (x, y) => 5 + vnoise(x, y, 18, 75) * 7;   // units out from the shore
+let ICE_MEMO = null;   // 0 unasked, 1 water, 2 ice (a pixel's answer, kept for its neighbours' reads)
 const iceAt = (x, y, dist, nearRime, pack) => {
   if (dist < 2) return 0;
+  if (x < 0 || y < 0 || x >= AW || y >= AH) return 0;
+  ICE_MEMO = ICE_MEMO || new Uint8Array(AW * AH);
+  const i = y * AW + x, m = ICE_MEMO[i];
+  if (m) return m - 1;
+  let ice = 0;
   if (nearRime) {
     const fd = dist / U - fastEdge(x, y);
-    if (fd < 0) return 1;
-    if (fd < 2.5 && vnoise(x, y, 4, 78) > 0.4 + fd * 0.2) return 1;
+    if (fd < 0 || (fd < 2.5 && vnoise(x, y, 4, 78) > 0.4 + fd * 0.2)) ice = 1;
   }
-  return pack >= 0.04 && inFloe(x, y, pack) ? 1 : 0;
+  if (!ice && pack >= 0.04 && inFloe(x, y, pack)) ice = 1;
+  ICE_MEMO[i] = ice + 1;
+  return ice;
 };
 const seaIce = (x, y, dist, nearRime) => {
   if (dist < 2) return null;
@@ -298,16 +316,17 @@ const seaIce = (x, y, dist, nearRime) => {
   if (!nearRime && pack < 0.04) return null;
   const mx = x / U + MAP.x, my = y / U + MAP.y;
   for (const [ox, oy] of OPEN_WATER) { const e = Math.hypot(mx - ox, my - oy); if (e < 6.5 + vnoise(x, y, 5, 76) * 2.5) return null; }
+  for (const gl of GLACIERS) { if (!gl.calves) continue; const [sx, sy] = gl.pts[gl.pts.length - 1]; const e = Math.hypot(mx - sx, my - sy); if (e < gl.w1 * 0.9 + 6 + vnoise(x, y, 5, 76) * 4) return null; }
   // (the neighbours' answers read the same fields: no seams)
   const at = (dx, dy) => iceAt(x + dx, y + dy, dist, nearRime, pack);
   if (!at(0, 0)) {
     if (at(0, -1) || at(0, -2)) return FLOE.shade;
     // a pinched lead in the pack: rafted, ridged ice
-    if (pack > 0.65 && ((at(-2, 0) && at(2, 0)) || (at(0, -2) && at(0, 2)))) return hash(x, y) < 0.5 ? FLOE.ridge : FLOE.lit;
+    if (pack > 0.7 && vnoise(x, y, 12, 70) > 0.62 && ((at(-2, 0) && at(2, 0)) || (at(0, -2) && at(0, 2)))) return hash(x, y) < 0.5 ? FLOE.ridge : FLOE.lit;
     // the brash fringe at the pack's edge
-    const br = 0.4 * Math.max(0, 1 - Math.abs(pack - 0.4) / 0.2);
-    if (br > 0 && hash(x >> 1, y) < br) return FLOE.body;
-    if (br > 0 && hash(x >> 1, y - 1) < br) return FLOE.shade;
+    const br = 0.2 * Math.max(0, 1 - Math.abs(pack - 0.4) / 0.2);
+    if (br > 0 && hash(x >> 1, y >> 1) < br) return (y & 1) ? FLOE.body : FLOE.lit;
+    if (br > 0 && hash(x >> 1, (y - 2) >> 1) < br) return FLOE.shade;
     return null;
   }
   if (!at(-1, 0) || !at(0, -1)) return FLOE.lit;
@@ -748,11 +767,11 @@ const MERES = [
 // pts run from the ice field down to the snout; w0/w1 the width at each end.
 const GLACIERS = [
   { pts: [[458, -575], [442, -567], [425, -553], [409, -545], [397, -537]], w0: 13, w1: 5, seed: 1 },  // the Calving river's, above Glacier Foot
-  { pts: [[346, -545], [358, -553], [372, -559], [382, -568], [387, -579]], w0: 11, w1: 7, seed: 2 },  // into the western fjord
-  { pts: [[506, -543], [496, -553], [486, -562], [479, -574], [474, -588]], w0: 12, w1: 7, seed: 3 },  // into the middle fjord
+  { pts: [[346, -545], [358, -553], [372, -559], [382, -568], [387, -579]], w0: 11, w1: 7, seed: 2, calves: true },  // into the western fjord
+  { pts: [[506, -543], [496, -553], [486, -562], [479, -574], [474, -588]], w0: 12, w1: 7, seed: 3, calves: true },  // into the middle fjord
   { pts: [[664, -449], [648, -438], [632, -436], [618, -430], [608, -427]], w0: 12, w1: 4.5, seed: 4 }, // the Ice-Fjord river's
   { pts: [[706, -578], [696, -569], [684, -559], [677, -550]], w0: 10, w1: 4, seed: 5 },              // the Drakewater's, under the fells
-  { pts: [[340, -524], [322, -516], [302, -517], [282, -513], [264, -514]], w0: 13, w1: 10, seed: 6 }, // calving into the western sea
+  { pts: [[340, -524], [322, -516], [302, -517], [282, -513], [264, -514]], w0: 13, w1: 10, seed: 6, calves: true }, // calving into the western sea
 ].map((g) => {
   const base = spline(g.pts, 0.8), nb = normals(base), n = base.length;
   // a gentle wander, held at the snout
@@ -761,14 +780,15 @@ const GLACIERS = [
   const hw = pts.map((_, i) => ((g.w0 + (g.w1 - g.w0) * Math.sqrt(i / (n - 1))) / 2) * (0.86 + fbm(i * 9, g.seed * 40, 30, g.seed + 60) * 0.28));
   return { ...g, pts, nrm, hw };
 });
-const glacierPath = (c, gl, grow = 0) => {
+// (cap: the rounded snout; a calving tongue ends flat at its front instead)
+const glacierPath = (c, gl, grow = 0, cap = true) => {
   const L = [], R = [];
   gl.pts.forEach(([x, y], i) => { const [nx, ny] = gl.nrm[i], h = gl.hw[i] + grow; L.push([x + nx * h, y + ny * h]); R.push([x - nx * h, y - ny * h]); });
   c.beginPath();
   L.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
   // a rounded snout
   const e = gl.pts.length - 1, [ex, ey] = gl.pts[e], [nx, ny] = gl.nrm[e], h = gl.hw[e] + grow;
-  c.arc(ex, ey, h, Math.atan2(ny, nx), Math.atan2(ny, nx) + Math.PI, true);
+  if (cap) c.arc(ex, ey, h, Math.atan2(ny, nx), Math.atan2(ny, nx) + Math.PI, true);
   for (let i = R.length - 1; i >= 0; i--) c.lineTo(R[i][0], R[i][1]);
   c.closePath();
 };
@@ -1895,11 +1915,16 @@ const berg = (v) => spr(`rm-berg${v % 3}`, 9, 7, (c) => {
   c.fillStyle = RK.iceDp; c.fillRect(w * 0.7, t + 2.4, 0.4, 2.6);
 });
 // a bergy bit: a lump of glacier ice afloat
-const bergBit = (v) => spr(`rm-bit${v % 3}`, 4, 3.4, (c) => {
-  const w = 2.4 + (v % 3) * 0.4;
-  c.fillStyle = "#4f86a4"; c.fillRect(0.4, 2.6, w + 0.8, 0.6);
-  c.fillStyle = RK.iceDk; poly(c, [[0.6, 2.8], [0.9, 1.2], [w * 0.6, 0.6], [w + 0.8, 1.4], [w + 1, 2.8]]); c.fill();
-  c.fillStyle = RK.iceLt; poly(c, [[0.9, 1.2], [w * 0.6, 0.6], [w + 0.4, 1.2], [w * 0.5, 1.8]]); c.fill();
+const bergBit = (v) => spr(`rm-bit${v % 3}`, 5.5, 4.6, (c) => {
+  const w = 3 + (v % 3) * 0.5, k = w * (0.45 + (v % 3) * 0.08);
+  // its shadow in the water, and the waterline
+  c.fillStyle = "#1a3149"; c.fillRect(0.8, 3.6, w + 0.6, 0.6);
+  c.fillStyle = "#4f86a4"; c.fillRect(0.3, 3.1, w + 1.2, 0.5);
+  // the lit left face, the shaded right one, a blue cleft between
+  c.fillStyle = RK.iceLt; poly(c, [[0.4, 3.2], [0.8, 1.6], [k, 0.5], [k + 0.2, 3.2]]); c.fill();
+  c.fillStyle = RK.iceDk; poly(c, [[k + 0.2, 3.2], [k, 0.5], [w + 0.2, 1.1], [w + 1, 2], [w + 1.1, 3.2]]); c.fill();
+  c.fillStyle = RK.ice; poly(c, [[k, 0.5], [w + 0.2, 1.1], [w, 1.5], [k + 0.3, 1.2]]); c.fill();
+  c.fillStyle = RK.iceDp; c.fillRect(k + 0.1, 1.2, 0.45, 2);
 });
 // black crags breaking the snow
 const rimeCrag = (v) => spr(`rm-crag${v % 4}`, 7, 4.6, (c) => {
@@ -2811,9 +2836,9 @@ function* paintTerrain() {
   const glaciers = layerBox(...GB, (c) => {
     c.lineCap = "round";
     for (const gl of GLACIERS) {
-      c.fillStyle = RK.iceDk; glacierPath(c, gl); c.fill();
-      c.fillStyle = RK.ice; glacierPath(c, gl, -0.9); c.fill();
-      c.save(); glacierPath(c, gl, -0.9); c.clip();
+      c.fillStyle = RK.iceDk; glacierPath(c, gl, 0, !gl.calves); c.fill();
+      c.fillStyle = RK.ice; glacierPath(c, gl, -0.9, !gl.calves); c.fill();
+      c.save(); glacierPath(c, gl, -0.9, !gl.calves); c.clip();
       c.strokeStyle = RK.iceLt; c.lineWidth = 0.9;
       // (on the side facing the north-west sun)
       const m = gl.nrm[gl.nrm.length >> 1], sd = m[0] + m[1] < 0 ? 1 : -1;
@@ -2846,9 +2871,61 @@ function* paintTerrain() {
     }
   }, INK);
   {
+    // (a calving tongue floats on out over the water to its front)
+    const glMask = mk(), gm = glMask.getContext("2d", RF);
+    gm.drawImage(landMask, 0, 0); toArt(gm); gm.fillStyle = "#fff";
+    for (const gl of GLACIERS) if (gl.calves) { glacierPath(gm, gl, 1.2, false); gm.fill(); }
     const g = glaciers.getContext("2d", RF);
-    g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = "destination-in"; g.drawImage(landMask, -artX(GB[0]), -artY(GB[1]));
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = "destination-in"; g.drawImage(glMask, -artX(GB[0]), -artY(GB[1]));
     ctx.drawImage(glaciers, artX(GB[0]), artY(GB[1]));
+  }
+  // the calving front: where a tongue reaches the sea its snout is a broken
+  // ice cliff — a lit top, a pale face split by blue clefts, a dark line at
+  // the waterline, fallen blocks at its foot and bergs drifting off it
+  for (const gl of GLACIERS) {
+    if (!gl.calves) continue;   // (ends on land: a river's source)
+    const k = gl.pts.length - 1;
+    const [x, y] = gl.pts[k], [bx, by] = gl.pts[k - 3], L = Math.hypot(x - bx, y - by) || 1;
+    const tx = (x - bx) / L, ty = (y - by) / L, [nx, ny] = gl.nrm[k], hw = gl.hw[k];
+    const B = hw + 12, box = layerBox(x - B, y - B, B * 2, B * 2, (c) => {
+      const F = [], T = [];
+      for (let o = -hw - 0.6; o <= hw + 0.6; o += 1.2) { const j = 0.9 + hash(Math.round(o * 3), gl.seed + 30) * 1.6; F.push([x + nx * o + tx * j, y + ny * o + ty * j]); T.push([x + nx * o - tx * 0.8, y + ny * o - ty * 0.8]); }
+      // the face, from the land's edge out to the broken front line
+      // the water in its shadow first, then the face
+      c.fillStyle = "#2a4a60"; poly(c, [...T, ...F.slice().reverse().map(([fx, fy]) => [fx + tx * 1.6, fy + ty * 1.6])]); c.closePath(); c.fill();
+      c.fillStyle = RK.iceLt; poly(c, [...T, ...F.slice().reverse()]); c.closePath(); c.fill();
+      c.fillStyle = RK.ice; poly(c, [...T.map(([ux, uy], i) => [ux * 0.45 + F[i][0] * 0.55, uy * 0.45 + F[i][1] * 0.55]), ...F.slice().reverse()]); c.closePath(); c.fill();
+      // its lit top along the land's edge
+      c.strokeStyle = RK.iceLt; c.lineWidth = 1; poly(c, T); c.stroke();
+      // blue clefts down the face
+      c.strokeStyle = RK.iceDp; c.lineWidth = 0.45;
+      for (let i = 1; i < F.length - 1; i++) { if (hash(i, gl.seed + 31) < 0.45) continue; const [fx, fy] = F[i], [ux, uy] = T[i]; c.beginPath(); c.moveTo(ux * 0.5 + fx * 0.5, uy * 0.5 + fy * 0.5); c.lineTo(fx, fy); c.stroke(); }
+      // the dark waterline at the foot
+      c.strokeStyle = "#1a3149"; c.lineWidth = 0.8; poly(c, F); c.stroke();
+      // fallen blocks awash at its foot
+      for (let i = 0; i < 4; i++) {
+        const o = -hw + (i + 0.5) * (hw * 2 / 4) + (hash(i, gl.seed + 32) - 0.5) * 2, d = 2.2 + hash(i, gl.seed + 33) * 2.5;
+        const px = x + nx * o + tx * d, py = y + ny * o + ty * d;
+        c.fillStyle = "#1a3149"; c.fillRect(px - 0.7, py + 0.3, 1.5, 0.5);
+        c.fillStyle = RK.iceDk; c.fillRect(px - 0.6, py - 0.5, 1.2, 0.9);
+        c.fillStyle = RK.iceLt; c.fillRect(px - 0.6, py - 0.5, 0.6, 0.5);
+      }
+    }, INK);
+    // (the front stands only on the water: the land and its ink keep)
+    const bc = box.getContext("2d", RF), bi = bc.getImageData(0, 0, box.width, box.height), bd = bi.data, ox = artX(x - B), oy = artY(y - B);
+    for (let yy = 0; yy < box.height; yy++) for (let xx = 0; xx < box.width; xx++) {
+      const ax = ox + xx, ay = oy + yy;
+      if (ax < 0 || ay < 0 || ax >= AW || ay >= AH || base.land[ay * AW + ax]) bd[(yy * box.width + xx) * 4 + 3] = 0;
+    }
+    bc.putImageData(bi, 0, 0);
+    ctx.drawImage(box, ox, oy);
+    // and bergs calved off it, drifting out
+    for (let i = 0; i < 3; i++) {
+      const o = (hash(i, gl.seed + 34) - 0.5) * hw * 2.4, d = 6 + hash(i, gl.seed + 35) * 9;
+      const px = x + nx * o + tx * d, py = y + ny * o + ty * d, ai = artY(py) * AW + artX(px);
+      if (ai < 0 || ai >= AW * AH || base.land[ai] || base.cliff[ai] || base.seaD[ai] < 3) continue;
+      stamp(ctx, bergBit(i + gl.seed), px, py, 2.7, 3.6);
+    }
   }
   // ...and the ice field each rises in, dithered out into the snow (over the
   // tongue's inked head, so it flows out of the field rather than starting)
@@ -2942,7 +3019,7 @@ function* paintTerrain() {
     if (atSea(x, y, 6)) stamp(ctx, berg(v), x, y, 4.5, 6.2);
   for (const [x, y, v] of [[588, -523, 0], [598, -518, 1]]) stamp(ctx, berg(v + 3), x, y, 4.5, 6.2);
   // bergy bits calved off the glaciers that reach the sea
-  for (const [x, y, v] of [[254, -509, 0], [246, -520, 1], [238, -506, 2], [387, -592, 1], [474, -600, 0]]) if (atSea(x, y, 1.5)) stamp(ctx, bergBit(v), x, y, 2, 3);
+  for (const [x, y, v] of [[254, -509, 0], [246, -520, 1], [238, -506, 2], [387, -592, 1], [474, -600, 0]]) if (atSea(x, y, 1.5)) stamp(ctx, bergBit(v), x, y, 2.7, 3.6);
   if (atSea(776, -546, 3)) stamp(ctx, krakenArms(), 776, -546, 8, 8.6);
   for (const [x, y, v] of [[586, -596, 1], [262, -446, 0], [470, -456, 1], [592, -294, 0], [560, -300, 1], [786, -612, 0]])
     if (atSea(x, y, 2)) stamp(ctx, shipSail(v), x, y, 6, 9.6);
