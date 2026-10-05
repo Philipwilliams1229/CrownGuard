@@ -693,10 +693,17 @@ own, so several sessions can work on heroes side by side:
   Hollow faction, raised, wraiths); mends soldiers near him; Sanctuary
   (heal ring, sears and stuns the undead, dazes the living), Consecrate
   (blessed ground). Templar retinue (paladin rig).
-- **Hale**: `holds` 3 foes at once and sweeps them all; Brace Pikes
-  (impale and stun what reaches him, riders' trample spent, half harm);
-  Sound the Levy (three watchmen as a militia band, `levy: true`, the
-  player's militia cooldown untouched; an atkBuff ring). Watchman retinue.
+- **Hale**: `holds` 3 foes at once and sweeps them all. **Halberd Sweep**
+  (id `brace` kept for saved talents; owner, 2026-10-05): three swings
+  (lead 260 ms, gap 520, both x game speed), each striking EVERY ground foe
+  in the 180-degree half-ellipse before him (reach `r` 68, depth x0.7):
+  40 +6/level physical, 700 ms stun, riders x2, a rider's trample spent on
+  it, he takes 0.6 harm while it lasts. Drawn as a steel arc (alternating
+  fore/backhand) plus a dotted reach ring. **Sound the Levy** (aim none now):
+  2 watchmen (halberdier) + 2 crossbowmen (`crossbow` rig, `bows` mixed band
+  as the Levy works' upper tiers) fall in ON him, soldiers a step ahead, bows
+  behind; the buff ring is centred on him, the pennant planted by his shoulder.
+  `hale-lab.html?fire=brace|levy` snaps either on the real engine. Provisional.
 - **Ysolde**: ranged magic lightning that chains and prefers bare targets
   (magic glances off pips); Chain Storm (aim foe), Thunderclap (aim
   ground, a thunderhead then a stroke; fliers twice). No retinue.

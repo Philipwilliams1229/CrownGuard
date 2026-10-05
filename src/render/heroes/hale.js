@@ -1,22 +1,25 @@
 // ============ CAPTAIN HALE'S EFFECTS ON THE BOARD ============
 // (see ./index.js for the hooks; engine/heroes/hale.js keeps the state.)
 //
-//   u.brace      Brace Pikes: a hedge of eight pikes grounded round his feet,
-//                butts in, steel points out, the near half drawn over him and
-//                the far half under; a glint runs from point to point. They
-//                drive out as he sets them and draw back in at the end.
-//   g.haleFx     an impaling: a steel star where the point went in, splinters
-//                flying off it (bigger and with a jolt on a rider).
-//   u.sweep      his halberd's sweep through every foe he holds: a pale arc
+//   u.brace      Halberd Sweep: for the three swings he stands in the sweep
+//                pose (wind-up, strike, follow-through each beat); `pose` reads
+//                it, the arcs themselves are g.haleFx.
+//   g.haleFx     one swing: a half-circle of steel light run across the ground
+//                in front of him at the halberd's height, head first, thick at
+//                its leading edge and thinning behind, with a faint dotted
+//                half-ring on the ground showing the reach; a spark star where
+//                the blade is at the head of it. Beats alternate fore- and
+//                backhand (the arc runs the other way).
+//   u.sweep      his passive blow's sweep through every foe he holds: a pale arc
 //                of steel before him for a moment after the blow.
 //   g.haleLevy   Sound the Levy: the horn's call rings off him (arcs of gold
-//                lifting from his head), and at the spot a crown-blue pennant
+//                lifting from his head), and beside him a crown-blue pennant
 //                is planted while the heart lasts, with a gold ring run out to
 //                the reach of it and left lying as a dotted ring.
 //
 // Pixel art as in rings.js: rows of art pixels snapped to the grid, alpha in a
 // few hard steps, no gradients.
-import { PX, hash } from "../paint.js";
+import { PX } from "../paint.js";
 import { ringPx } from "../fx.js";
 
 const INK = "#241a26", STEEL = ["#fff3d2", "#e0e4ea", "#c4c8d0", "#8a90a0"], OAK = ["#a07a52", "#7a5334"];
@@ -49,55 +52,45 @@ const star = (ctx, x, y, s, col, core) => {
 
 const hale = (g) => g.bands?.find((b) => b.kind === "hero" && b.hero === "hale" && !b.leaving) || null;
 
-// ---- Brace Pikes ----
-const PIKES = 8;
-// how far the pikes stand out: they drive out as he sets them (180 ms) and
-// draw back in over the last 300
-const braceOut = (br, tms) => Math.min(easeOut((tms - br.t0) / 180), clamp01((br.until - tms) / 300));
-// each pike: butt near his feet, point out on the ground ellipse; `near`
-// picks the half south of him (drawn over him), else the far half
-const drawPikes = (ctx, u, br, tms, near) => {
-  const k = braceOut(br, tms);
-  if (k <= 0) return;
-  const cx = u.x, cy = u.y + 8;
-  const turn = (u.id % 7) * 0.13 + Math.PI / PIKES;
-  const pikes = [];
-  for (let i = 0; i < PIKES; i++) {
-    const an = turn + (i / PIKES) * TAU, s = Math.sin(an);
-    if ((s > 0) !== near) continue;
-    const c = Math.cos(an);
-    // grounded butt, the point raised a little and leaning out
-    const bx = cx + c * 5, by = cy + s * 2.2;
-    const L = 7 + 7 * k;
-    const px = cx + c * (5 + L), py = cy + s * (2.2 + L * 0.42) - 8 * k;
-    pikes.push([bx, by, px, py, c, s, i]);
-  }
-  if (!pikes.length) return;
+// ---- Halberd Sweep ----
+const FLAT = 0.7;                 // the ground's squash (engine/heroes/hale.js uses the same)
+const SWING_MS = 300;             // the head of the arc crosses the half-circle in this long (real time)
+// one swing: `p` runs 0..1 across the half-circle. The ground ring is the
+// reach (the engine's own half-ellipse); the trail rides 8 up, at the blade
+const drawSwing = (ctx, fx, tms) => {
+  const age = (tms - fx.t0) / fx.k;
+  if (age < 0 || age > 380) return;
+  const p = clamp01(age / SWING_MS), fade = stepA(1 - clamp01((age - SWING_MS) / 80), 3);
+  if (fade <= 0) return;
+  const f = fx.f, R = fx.r, cx = fx.x, cy = fx.y + 6;
   ctx.save();
-  ctx.globalAlpha *= stepA(k * 1.5, 3);
-  // ink first (a 2-pixel outline), then the ash shafts, then the steel heads
-  for (const [bx, by, px, py] of pikes) pxLine(ctx, bx, by, px, py, 2, INK);
-  for (const [bx, by, px, py, c, s] of pikes) {
-    const hx = px - c * 3.2, hy = py - s * 1.3 + 1.2;
-    pxLine(ctx, bx, by, hx, hy, 1, OAK[1]);
-    pxLine(ctx, px - c * 3.6 - 0.5 / PX, py - s * 1.5 + 1.4, px, py, 1.5, INK);
-    pxLine(ctx, hx, hy, px, py, 1, STEEL[2]);
-    ctx.fillStyle = STEEL[0];
-    ctx.fillRect(sn(px - 0.5), sn(py - 0.5), 1 / PX, 1 / PX);
+  ctx.globalAlpha *= fade;
+  // the reach, a dotted half-ring on the ground, there while the swing is
+  ctx.globalAlpha *= 0.5;
+  ctx.fillStyle = STEEL[3];
+  ctx.beginPath();
+  for (let i = 0; i <= 18; i++) {
+    const an = -Math.PI / 2 + (i / 18) * Math.PI;
+    ctx.rect(sn(cx + f * Math.cos(an) * R), sn(cy + Math.sin(an) * R * FLAT), 1.5, 1);
   }
-  // the glint runs round the points, one pike at a time
-  const at = Math.floor((tms - br.t0) / 130) % PIKES;
-  for (const [, , px, py, , , i] of pikes) if (i === at) star(ctx, px, py - 0.5, 2.5, STEEL[1], STEEL[0]);
-  ctx.restore();
-};
-// as he sets them: a ring of steel sparks driven out to the points
-const braceSet = (ctx, u, br, tms) => {
-  const age = (tms - br.t0) / Math.max(1, (br.k || 1));
-  if (age > 320) return;
-  const p = age / 320, r = 10 + 14 * easeOut(p);
-  ctx.save();
-  ctx.globalAlpha *= stepA(1 - p, 3);
-  ringPx(ctx, u.x, u.y + 8, r, r * 0.45, 1, STEEL[1]);
+  ctx.fill();
+  ctx.globalAlpha /= 0.5;
+  // the trail: from the far edge round to the near (or back), head first
+  const n = 40, head = easeOut(p * 1.1) * 0.98 + 0.02;
+  const lit = [];
+  let px0 = null, py0 = null;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    if (t > head) break;
+    const an = -Math.PI / 2 + (fx.flip ? 1 - t : t) * Math.PI;
+    const w = 1 + 3.5 * clamp01(1 - (head - t) / 0.45);
+    // (the blade's own run is a touch outside the reach, so the edge reads)
+    const x = cx + f * Math.cos(an) * R * 0.92, y = cy - 8 + Math.sin(an) * R * FLAT * 0.92;
+    if (px0 !== null) pxLine(ctx, px0, py0, x, y, w, head - t < 0.12 ? STEEL[0] : STEEL[1]);
+    if (head - t < 0.12) lit.push(x, y);
+    px0 = x; py0 = y;
+  }
+  if (lit.length && p < 1) star(ctx, lit[lit.length - 2], lit[lit.length - 1], 3.5, STEEL[1], STEEL[0]);
   ctx.restore();
 };
 
@@ -131,27 +124,6 @@ const drawSweep = (ctx, u, tms) => {
   ctx.fillStyle = STEEL[0];
   ctx.beginPath();
   for (let i = 0; i < lit.length; i += 2) ctx.rect(sn(lit[i] - 0.75), sn(lit[i + 1] - 0.75), 1.5, 1.5);
-  ctx.fill();
-  ctx.restore();
-};
-
-// ---- an impaling ----
-const drawImpale = (ctx, f, tms) => {
-  const life = f.life || 420, p = (tms - f.t0) / life;
-  if (p < 0 || p >= 1) return;
-  const s = f.big ? 6 : 4, x = f.x, y = f.y - 7;
-  ctx.save();
-  ctx.globalAlpha *= stepA(1 - p, 3);
-  star(ctx, x, y, s * (0.6 + 0.6 * easeOut(p * 2)), STEEL[1], STEEL[0]);
-  // splinters thrown off the point, away from him
-  const away = Math.atan2(f.y - f.hy, f.x - f.hx);
-  const n = f.big ? 6 : 4, sd = (Math.floor(f.x) * 7 + Math.floor(f.t0)) % 997;
-  ctx.fillStyle = f.big ? OAK[0] : STEEL[2];
-  ctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const an = away + (hash(sd, i) - 0.5) * 1.8, d = (4 + 10 * hash(sd, i + 9)) * easeOut(p * 1.4);
-    ctx.rect(sn(x + Math.cos(an) * d), sn(y + Math.sin(an) * d * 0.7 + p * p * 6), 1, 1);
-  }
   ctx.fill();
   ctx.restore();
 };
@@ -213,7 +185,7 @@ const levyBanner = (ctx, lv, tms) => {
   const A = levyFade(lv, tms);
   if (A <= 0) return;
   const up = easeOut((tms - lv.t0) / (200 * lv.k)), H = 30 * up;
-  const x = lv.x, base = lv.y + 2, top = base - H;
+  const x = lv.x + (lv.bx || 0), base = lv.y + 2, top = base - H;   // (planted a little off his shoulder)
   const flap = Math.floor(tms / 180) % 2;
   ctx.save();
   ctx.globalAlpha *= A;
@@ -254,31 +226,29 @@ const levyBanner = (ctx, lv, tms) => {
 };
 
 export default {
-  // braced and between blows, he stands with the halberd set low and
-  // forward, butt to the ground, as a pike is set against a charge (the
-  // crown fight sheet's follow-through frame reads exactly so)
+  // through the three swings the captain's body is ours: guard, wind-up,
+  // strike and follow-through each beat, in step with the arcs (engine
+  // swings at `lead` then every `gap`, all stretched by `k`)
   pose(b, u, time) {
-    const tms = time * 1000;
-    if (!u.brace || u.brace.until <= tms || u.state === "moving") return null;
-    if (u.state === "fighting" && (u.swing > 0 || u.atkCd < (b.st?.rate || 950) * 0.3)) return null;
-    return { sheet: "fight", frame: 3 };
+    const tms = time * 1000, br = u.brace;
+    if (!br || br.until <= tms || u.state === "moving") return null;
+    const rel = (tms - br.t0) / br.k;
+    // the beat nearest ahead or just behind (a swing lasts ~300 ms)
+    const i = Math.max(0, Math.min(br.beats - 1, Math.round((rel - br.lead) / br.gap)));
+    const d = rel - (br.lead + i * br.gap);          // ms from this beat's strike
+    return { sheet: "fight", frame: d < -170 ? 0 : d < 0 ? 1 : d < 90 ? 2 : d < 380 ? 3 : 0 };
   },
 
   under(ctx, g) {
     const tms = g.time * 1000;
     if (g.haleLevy) for (const lv of g.haleLevy) levyGround(ctx, lv, tms);
-    const b = hale(g), u = b?.units[0];
-    if (u && u.state !== "dead" && u.brace && u.brace.until > tms) drawPikes(ctx, u, u.brace, tms, false);
   },
 
   fx(ctx, g) {
     const tms = g.time * 1000;
     const b = hale(g), u = b?.units[0];
-    if (u && u.state !== "dead") {
-      if (u.brace && u.brace.until > tms) { drawPikes(ctx, u, u.brace, tms, true); braceSet(ctx, u, u.brace, tms); }
-      drawSweep(ctx, u, tms);
-    }
-    if (g.haleFx) for (const f of g.haleFx) if (f.kind === "impale") drawImpale(ctx, f, tms);
+    if (u && u.state !== "dead") drawSweep(ctx, u, tms);
+    if (g.haleFx) for (const f of g.haleFx) if (f.kind === "sweep") drawSwing(ctx, f, tms);
     if (g.haleLevy) for (const lv of g.haleLevy) { levyBanner(ctx, lv, tms); drawHorn(ctx, lv, tms); }
   },
 };

@@ -14,18 +14,22 @@
 //   stall a wave.)
 // - His blow sweeps (`strike`): each of his foes besides the one he struck
 //   takes the same blow, physical, through dealDamage.
-// - Brace Pikes (`fire`, aim none): for `dur` ms he is braced (u.brace).
-//   Each foe on foot that comes within IMPALE_R of him is impaled once for
-//   `dmg` and stunned `stun` ms — `mounted` times over for riders and
-//   tramplers. A trampler's trample is spent on him: `trampleLeft` goes to 0
-//   (the Lord Marshal's re-arms on its own clock), so runMelee's ride-down
-//   never fires and he holds the horse. He takes `harm` of every blow (`hurt`).
-// - Sound the Levy (`fire`, aim ground): `men` watchmen (a "militia" band in
-//   the halberdier rig, `levy` set so nothing mistakes it for the player's
-//   horn; its cooldown is untouched) run out from him to the spot, or rise
-//   to the horn there if it is far; for `buffDur` ms every friendly soldier
-//   within `r` of the spot strikes `buff` harder (atkBuff, laid by `buffs`
-//   after the Support halls' auras, which clear it every tick).
+// - Halberd Sweep (`fire`, aim none; id `brace`): he swings the halberd
+//   `beats` times (u.brace, first at `lead` ms, then every `gap`; both
+//   stretched by the game speed so the player can see them). Each swing
+//   strikes every foe on the ground in the half-circle before him (180
+//   degrees, the side he faces, reach `r` on the ground ellipse): `dmg`
+//   physical and a `stun`-ms stun, `mounted` times the blow for riders and
+//   tramplers. A rider's trample within the swing's reach is spent on the
+//   halberd (`trampleLeft` 0; the Lord Marshal's re-arms on its own clock).
+//   While the swings last he takes `harm` of every blow (`hurt`).
+// - Sound the Levy (`fire`, aim none): two watchmen (halberdier rig) and two
+//   crossbowmen (a mixed "militia" band, `levy` set so nothing mistakes it
+//   for the player's horn; its cooldown is untouched) fall in on the spot he
+//   stands: the soldiers a step ahead of him, the crossbows behind. For
+//   `buffDur` ms every friendly soldier within `r` of him strikes `buff`
+//   harder (atkBuff, laid by `buffs` after the Support halls' auras, which
+//   clear it every tick).
 import { dealDamage, releaseEnemy } from "../actions.js";
 import { isRising } from "../towers.js";
 import { isBuilt } from "../build.js";
@@ -34,9 +38,8 @@ import { sfx } from "../../audio/sfx.js";
 
 const HOLD_R = 26;        // how close a foe must come to him to be held (a knight closes to 17)
 const HOLD_SLACK = 12;    // ...and how far it may be pushed (a charge's knock) before he lets it go
-const IMPALE_R = 40;      // the pikes' reach when braced: a halberd's length, so a rider galloping past in the far lane still meets them
-const TRAMPLE_R = 44;     // a charging rider's trample is spent on him from this far (it closes fast at 4x)
-const RUN_OUT = 150;      // the levy runs out from him to a spot this near; further, it rises there
+const TRAMPLE_R = 44;     // a charging rider's trample is spent on the halberd from this far (it closes fast at 4x)
+const FLAT = 0.7;         // the ground's squash: the sweep's reach is `r` across, `r * FLAT` deep
 
 // a foe he could hold besides his first: on foot, on the road, not a ram
 // (rams and walls are never held — runMelee's own hero filter), not rising
@@ -53,77 +56,89 @@ const releaseAll = (g, u) => {
   u.holds = [];
 };
 
-// Brace Pikes: whatever reaches him is impaled — once a brace — and a
-// charging rider's trample breaks on the halberd instead of on him.
-const runBrace = (g, b, u, tms) => {
-  const br = u.brace;
+// one swing: everything on the ground in the half-circle before him
+const swing = (g, b, u, br, i, tms) => {
+  const f = u.face < 0 ? -1 : 1;
+  let hit = 0;
   for (const e of g.enemies) {
     if (e.dead || e.flying || e.swimming || isRising(e, tms)) continue;
-    const d = Math.hypot(e.x - u.x, e.y - u.y);
+    const dx = (e.x - u.x) * f, dy = (e.y - u.y) / FLAT;
+    if (dx < -4 || Math.hypot(dx, dy) > br.r) continue;      // (a body's width of slack behind the line)
     const rider = e.mounted || e.trampleMax > 0;
-    if (e.trampleLeft > 0 && !e.crush && (d <= TRAMPLE_R || e.id === u.targetId)) {
+    dealDamage(g, e, br.dmg * (rider ? br.mounted : 1), "phys", false, false, b.id);
+    if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil || 0, tms + br.stun);
+    g.effects.push({ type: "hit", x: e.x, y: e.y - 6, ttl: 240 });
+    hit++;
+  }
+  (g.haleFx ||= []).push({ kind: "sweep", x: u.x, y: u.y, f, r: br.r, flip: i % 2, t0: tms, k: br.k, until: tms + 380 * br.k, hit });
+  if (hit) g.shake = Math.max(g.shake, 2);
+  sfx.play(hit ? "crunch" : "whistle");
+};
+
+const runSwings = (g, b, u, tms) => {
+  const br = u.brace;
+  for (const e of g.enemies) {
+    if (e.dead || e.flying || e.swimming || e.crush || !(e.trampleLeft > 0)) continue;
+    if (Math.hypot(e.x - u.x, e.y - u.y) <= TRAMPLE_R || e.id === u.targetId) {
       e.trampleLeft = 0;
       if (e.trampleEvery) e.trampleCd = e.trampleEvery;
     }
-    if (d > IMPALE_R || br.hit.includes(e.id)) continue;
-    br.hit.push(e.id);
-    dealDamage(g, e, br.dmg * (rider ? br.mounted : 1), "phys", false, false, b.id);
-    if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil || 0, tms + br.stun);
-    // (a flash stretched by the game speed, as Aldric's slam: the same real
-    // time at 1x, 2x and 4x)
-    const life = 420 * Math.max(1, g.speed || 1);
-    (g.haleFx ||= []).push({ kind: "impale", x: e.x, y: e.y, hx: u.x, hy: u.y, t0: tms, life, until: tms + life, big: rider });
-    g.effects.push({ type: "hit", x: e.x, y: e.y - 6, ttl: 240 });
-    if (rider) g.shake = Math.max(g.shake, 3);
-    sfx.play(rider ? "crunch" : "stab");
   }
+  while (br.done < br.beats && tms >= br.t0 + (br.lead + br.done * br.gap) * br.k) swing(g, b, u, br, br.done++, tms);
 };
 
-// braced, he takes `harm` of every blow, and a foe that strikes him through
-// the pikes meets them (if it somehow reached him unimpaled)
-function hurt(g, b, u, amount, foe) {
+// while he swings he takes `harm` of every blow
+function hurt(g, b, u, amount) {
   const tms = g.time * 1000;
-  if (!braced(u, tms)) return amount;
-  if (foe && !u.brace.hit.includes(foe.id)) runBrace(g, b, u, tms);
-  return amount * (u.brace.harm ?? 0.5);
+  return braced(u, tms) ? amount * (u.brace.harm ?? 0.6) : amount;
 }
 
 export default {
   fire(g, b, u, a, id, x, y, tms) {
     if (id === "brace") {
       if (u.state === "dead") return false;
-      u.brace = { t0: tms, until: tms + a.dur, hit: [], dmg: a.dmg, stun: a.stun, mounted: a.mounted, harm: a.harm, k: Math.max(1, g.speed || 1) };
-      g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 360, r: 16 });
-      g.shake = Math.max(g.shake, 2);
-      sfx.play("spike");
+      // he turns to the nearest foe he can reach, so the half-circle is on it
+      let near = null, nd = Infinity;
+      for (const e of g.enemies) {
+        if (e.dead || e.flying || e.swimming) continue;
+        const d = Math.hypot(e.x - u.x, (e.y - u.y) / FLAT);
+        if (d < nd) { nd = d; near = e; }
+      }
+      if (near && nd <= a.r * 1.5) u.face = near.x >= u.x ? 1 : -1;
+      // (stretched by the game speed, as Aldric's slam: the same real time at 1x, 2x and 4x)
+      const k = Math.max(1, g.speed || 1);
+      u.brace = { t0: tms, k, until: tms + (a.lead + (a.beats - 1) * a.gap + 380) * k, done: 0, beats: a.beats, lead: a.lead, gap: a.gap, dmg: a.dmg, r: a.r, stun: a.stun, mounted: a.mounted, harm: a.harm };
+      g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 360, r: 14 });
       return true;
     }
     if (id === "levy") {
+      if (u.state === "dead") return false;
       if (!g.bands) g.bands = [];
-      const n = Math.max(1, Math.round(a.men));
-      const st = { count: n, hp: Math.round(a.hp), dmg: a.mdmg, rate: a.rate || 850, range: a.range || 72, unitSpeed: 115, respawnMs: 999999 };
-      // round the spot: one ahead, the rest in a shallow fan behind
+      const men = Math.max(1, Math.round(a.men)), bows = Math.max(0, Math.round(a.bows));
+      const n = men + bows;
+      const st = {
+        count: n, bows, hp: Math.round(a.hp), dmg: a.mdmg, rate: a.rate || 850, range: a.range || 72, unitSpeed: 115, respawnMs: 999999,
+        bow: { men: Math.round(a.bowHp), dmg: a.bowDmg, rate: a.bowRate, range: a.bowRange }, bowRig: "crossbow",
+      };
+      // they fall in on his own spot: the watchmen a step ahead of him, the
+      // crossbows behind (the swordsmen are the first `men` units, the
+      // archers the last `bows`, as the Levy works' mixed bands)
+      const f = u.face < 0 ? -1 : 1, x = u.x, y = u.y;
       const slots = [];
-      for (let i = 0; i < n; i++) {
-        if (i === 0) { slots.push([x, y - 8]); continue; }
-        const side = i % 2 ? -1 : 1, row = Math.ceil(i / 2);
-        slots.push([x + side * 12 * row, y + 6 + (row - 1) * 4]);
-      }
-      // he blows the horn and they run out from behind him; a far spot hears
-      // it and the watch turns out there
-      const alive = u.state !== "dead";
-      const near = alive && Math.hypot(x - u.x, y - u.y) <= RUN_OUT;
-      const units = slots.map(([sx, sy], i) => ({
-        id: nextId(), hp: st.hp, maxHp: st.hp, x: near ? u.x + (i - (n - 1) / 2) * 6 : sx, y: near ? u.y + 4 : sy,
-        face: x >= u.x ? 1 : -1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null,
-      }));
+      for (let i = 0; i < men; i++) slots.push([x + f * 16, y + (men === 1 ? 0 : (i / (men - 1) - 0.5) * 20)]);
+      for (let i = 0; i < bows; i++) slots.push([x - f * 15, y + (bows === 1 ? 2 : (i / (bows - 1) - 0.5) * 20 + 2)]);
+      const units = slots.map(([sx, sy], i) => {
+        const bow = i >= men;
+        const hp = bow ? st.bow.men : st.hp;
+        const un = { id: nextId(), hp, maxHp: hp, x: x + (i - (n - 1) / 2) * 3, y: y + 3, face: f, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null };
+        if (bow) { un.bow = true; un.rig = "crossbow"; }
+        return un;
+      });
       g.bands.push({ id: nextId(), kind: "militia", levy: true, heroId: b.id, rig: "halberdier", st, rally: { x, y }, slots, units, life: a.life });
       // the horn's call and the banner's flash play in real time (`k`); the
       // heart it puts into the soldiers lasts `buffDur` of game time
       const k = Math.max(1, g.speed || 1);
-      (g.haleLevy ||= []).push({ x, y, r: a.r, buff: a.buff, t0: tms, until: tms + a.buffDur, k, hx: alive ? u.x : x, hy: alive ? u.y : y });
-      if (alive) u.face = x >= u.x ? 1 : -1;
-      if (!near) for (const [sx, sy] of slots) g.effects.push({ type: "dust", x: sx, y: sy + 6, ttl: 400 });
+      (g.haleLevy ||= []).push({ x, y, r: a.r, buff: a.buff, t0: tms, until: tms + a.buffDur, k, hx: x, hy: y, bx: -f * 26 });
       g.effects.push({ type: "levelup", x, y, ttl: 500 });
       sfx.play("horn");
       return true;
@@ -132,7 +147,7 @@ export default {
   },
 
   tick(g, b, u, sdt, tms) {
-    if (braced(u, tms)) runBrace(g, b, u, tms);
+    if (braced(u, tms)) runSwings(g, b, u, tms);
     else if (u.brace && u.brace.until + 600 < tms) u.brace = null;
     const cap = Math.max(0, (b.st.holds || 1) - 1);
     if (!u.holds) u.holds = [];

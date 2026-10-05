@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  Captain Hale's abilities on the real engine: he stands on the road with a
+  few goblins held round him, fires one ability and every `every`-th frame is
+  snapped through the real draw().
+
+    /hale-lab.html?fire=brace&frames=16&every=4&tag=x&lvl=6
+    fire=brace|levy   &foes=6   &crop=w,h   &scale=3   &speed=1 (game speed)
+
+  Saved to .shots/hale_<tag>.png, four frames to a row, each stamped with
+  its game time.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>hale lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, CASTLE_HP } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { TOTAL_LEN, posAt } from "/src/engine/path.js";
+      import { updateGame, spawnAt } from "/src/engine/update.js";
+      import { fieldHero, fireHeroAbility } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 3, FIRE = q.get("fire") || "brace";
+      const N = Number(q.get("frames")) || 16, EVERY = Number(q.get("every")) || 4, NF = Number(q.get("foes") ?? 6);
+      const [CW, CH] = (q.get("crop") || "170,120").split(",").map(Number);
+      selectRealm(q.get("realm") || "greenwood");
+      selectFaction(q.get("faction") || "greenwood");
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: CASTLE_HP, wave: 5, phase: "combat",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: Number(q.get("speed")) || 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,
+      };
+      const [rx, ry] = posAt(TOTAL_LEN * (Number(q.get("at")) || 0.5));
+      const b = fieldHero(g, "hale", Number(q.get("lvl")) || 6, rx, ry);
+      const u = b.units[0]; u.state = "rally"; u.face = 1;
+      const DT = 1 / 60;
+      for (let i = 0; i < 60; i++) updateGame(g, DT);
+      for (let i = 0; i < NF; i++) spawnAt(g, "goblin", 3, 0, g.time * 1000);
+      g.enemies.slice(-NF).forEach((e, i) => { e.x = u.x + (i % 2 ? -1 : 1) * (14 + 12 * (i >> 1)); e.y = u.y + ((i >> 1) % 3 - 1) * 15; e.speed = 0; e.maxHp = e.hp = 4000; e.atk = 0; });
+      u.face = 1;
+      console.log("fired", fireHeroAbility(g, FIRE, u.x, u.y));
+      const cols = Math.min(4, N), rows = Math.ceil(N / cols);
+      const out = document.createElement("canvas"); out.width = CW * SC * cols; out.height = (CH + 12) * SC * rows;
+      const o = out.getContext("2d"); o.imageSmoothingEnabled = false; o.fillStyle = "#20242c"; o.fillRect(0, 0, out.width, out.height);
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      for (let f = 0; f < N; f++) {
+        draw(g, cv, { current: null });
+        const k = cv.width / W, cx = u.x - CW / 2, cy = u.y - CH * 0.6;
+        const col = f % cols, row = Math.floor(f / cols);
+        o.drawImage(cv, cx * k, cy * k, CW * k, CH * k, col * CW * SC, row * (CH + 12) * SC + 12 * SC, CW * SC, CH * SC);
+        o.fillStyle = "#e8e0c8"; o.font = `${6 * SC}px monospace`; o.fillText(`${g.time.toFixed(3)}s`, col * CW * SC + 4, row * (CH + 12) * SC + 9 * SC);
+        for (let i = 0; i < EVERY; i++) updateGame(g, DT);
+      }
+      await fetch(`/__shot?name=hale_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/hale_${TAG}.png`;
+    </script>
+  </body>
+</html>
