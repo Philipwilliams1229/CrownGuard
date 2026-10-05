@@ -422,9 +422,20 @@ and weapons must be gated by `look`, `weapon` or an option old rigs never pass.
   (712 of 744 on the iPad mini) while the page is `height: 100%` +
   `overflow: hidden`, and nothing can paint the strip left over. Don't put
   `overflow: hidden` / a fixed height back on html or body there.
-  `public/vp.html` measures it (add it to the home screen). The rule is
+  `public/vp.html` measures it (add it to the home screen; a tap there
+  draws a yellow ring where the browser thinks the finger landed). The rule is
   for tablet-sized screens only (`min-width`/`min-height: 600px`): on an
   iPhone it pushed the battle HUD and tray down a status bar's height.
+- **Taps land under the finger** only because `src/ui/viewportGuard.js`
+  (started in main.jsx) scrolls the page back to 0,0 whenever it or the
+  visual viewport slips off its origin. The same iOS 26 bug family leaves a
+  home-screen app with a hidden offset one status bar tall (after a turn to
+  portrait and back, a swipe that nudges the 100lvh page, a return from the
+  background): the fixed root still paints flush, but hit-testing follows
+  the shifted page, so every tap lands 32 px off (owner, 2026-10-05: "I have
+  to touch below what I want"). If it ever comes back, the fallback is to
+  drop `black-translucent` (a solid status bar; then the 100lvh rule above
+  is no longer needed either).
 - **No emoji in the UI.** Pictures are pixel grids in `src/ui/hud/icons.jsx`
   (coin, heart, castle, arrow, ballista bolt, shield, hammer, target, flag…)
   or the game's own art (`TowerPortrait`, `EnemyIcon` with a rig). Plain
