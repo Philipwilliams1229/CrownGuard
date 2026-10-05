@@ -25,19 +25,25 @@ const shotSink = {
   },
 };
 
-// The version shown on the title screen (ui/BuildTag.jsx): package version,
-// the commit count as a build number, the short hash, and a * when the tree
-// has uncommitted changes. A build bakes it in (__BUILD__); the dev server
-// answers GET /__version fresh on every page load, with the time of the
-// newest edit under src/, so a refresh that picked up new work is visible.
+// The version shown on the title screen (ui/BuildTag.jsx): the day, a build
+// number that counts the commits made that day (build 1, build 2, ... and
+// back to 1 tomorrow; a * when the tree has uncommitted work on top), a time
+// stamp, the package version and the short hash. A build bakes it in
+// (__BUILD__); the dev server answers GET /__version fresh on every page
+// load, with the time of the newest edit under src/ (or the last commit, if
+// later), so a refresh that picked up new work is visible.
 const git = (cmd) => { try { return execSync(`git ${cmd}`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; } };
 const pkgVersion = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
-const buildInfo = () => ({
-  version: pkgVersion,
-  build: Number(git("rev-list --count HEAD")) || 0,
-  hash: git("rev-parse --short HEAD"),
-  dirty: git("status --porcelain").length > 0,
-});
+const buildInfo = () => {
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+  return {
+    version: pkgVersion,
+    today: Number(git(`rev-list --count --since=${midnight.toISOString()} HEAD`)) || 0,
+    committed: (Number(git("log -1 --format=%ct")) || 0) * 1000,
+    hash: git("rev-parse --short HEAD"),
+    dirty: git("status --porcelain").length > 0,
+  };
+};
 const newestEdit = (dir) => {
   let t = 0;
   for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
