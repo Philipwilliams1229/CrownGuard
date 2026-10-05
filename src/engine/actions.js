@@ -8,6 +8,7 @@ import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js"
 import { MILITIA, militiaStats, MILITIA_STANDS, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
 import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint, atWaterEdge } from "../data/terrain.js";
+import { riverMouths } from "../render/water.js";
 import { TOWERS } from "../data/towers.js";
 import { cragBlocks } from "../data/gatecrag.js";
 import { barrowBlocks } from "../data/barrowgate.js";
@@ -60,6 +61,9 @@ export const buildableAt = (g, x, y, kind = null) => {
   }
   // the sea takes nothing but the River Watch; the beach is honest ground
   if (!afloat && inSea(x, y, 14)) return false;
+  // ... except where a river opens into the sea: its funnel and silt fan
+  // (water.js `mouthOf`) spread across the beach, so no hall stands there
+  if (!afloat) for (const m of riverMouths()) if (Math.hypot(x - m.x, y - m.y) < m.hw * 2.2 + 14) return false;
   const r = reachOf(kind);
   if (g.towers.some((t) => Math.hypot(t.x - x, t.y - y) < r + reachOf(t.kind))) return false;
   return true;

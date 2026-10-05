@@ -7,9 +7,12 @@
 // banks, shallows, channel, gravel bars, rocks, logs, snags and rushes) and
 // each pond's go into the ground layer through bakeWater(ctx), which world.js
 // calls while it paints the ground (after the road). Per frame,
-// drawWaterLive(ctx, g) only stamps a few dozen tiny baked marks: the
-// current's ripples and glints drifting downstream, foam at the rocks, glints
-// on the ponds, lava bubbles.
+// drawWaterLive(ctx, g) only stamps a hundred or so tiny baked marks: the
+// current's ripples and glints riding downstream at the water's own pace,
+// the lapping at the banks, foam at the rocks and stone piers with its tail
+// shed downstream, wind ripple drifting across the ponds, a ring from a
+// fish, lava bubbles. Where a river meets the sea it ends in an ESTUARY
+// (see "estuaries" below; riverMouths() tells coast.js where).
 //
 // How a bank reads in the 3/4 camera (sun up-left, looking north):
 // - the far (north) bank shows an earth FACE, a sliver in one place and a
@@ -28,7 +31,7 @@
 // river across the seam. A pond that runs into a river is painted WITH the
 // river, as one water (a smooth union of the two shapes, the river's colours).
 
-import { PONDS, RIVERS } from "../data/terrain.js";
+import { PONDS, RIVERS, COAST, BRIDGES, seaDepthAt } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
 import { W, H, RES, WALL_W, PATH_HALF } from "../data/constants.js";
 import { nearestOnPath } from "../engine/path.js";
@@ -141,8 +144,12 @@ const bankTones = (key) => {
 // dark waterline, a gravel bar's lit and shaded rims, scum — and each again
 // in the bank's shadow. On black (fen) water the steps are set apart
 // harder, and the shallows lean to peat-brown, so three tones still show.
+// At a river's mouth: a sand bar (and its lit rim) and the silt fan out in
+// the sea (its paler shallows, and the channel's own tongue), tinted with
+// the beach's sand (`sand`).
 const T_CHAN = 0, T_DEEP = 1, T_MID = 2, T_SHAL = 3, T_BED = 4, T_PEB = 5, T_REFL = 6, T_FOAM = 7, T_LAP = 8, T_LINE = 9, T_BEDLT = 10, T_BEDDK = 11, T_SCUM = 12, T_SCUMLT = 13;
-const waterTones = (wa, B) => {
+const T_BAR = 14, T_BARLT = 15, T_SILT = 16, T_SILT2 = 17;
+const waterTones = (wa, B, sand = B.pebble) => {
   const dark = lum(wa.deep) < 0.2;
   const mid = mix(wa.deep, wa.edge, dark ? 0.75 : 0.5);
   const shal = dark ? mix(wa.edge, mix(B.lit, wa.shine, 0.5), 0.3) : wa.edge;
@@ -153,6 +160,8 @@ const waterTones = (wa, B) => {
     dark ? mix(mid, "#b4bcb6", 0.3) : mix(mid, wa.shine, 0.3), lighten(wa.shine, 0.42), mix(shal, wa.shine, 0.42), darken(wa.edge, 0.42),
     mix(bed, lighten(B.pebble, 0.15), 0.42), mix(bed, wa.deep, 0.5),
     mix(shal, "#5a7040", 0.32), mix(shal, "#8a9a58", 0.5),
+    mix(sand, wa.edge, 0.42), mix(mix(sand, wa.edge, 0.3), wa.shine, 0.3),
+    mix(mix(wa.edge, wa.deep, 0.2), sand, 0.32), mix(mix(wa.edge, wa.deep, 0.45), sand, 0.2),
   ];
   const wet = (c, k) => mix(c, wa.edge, k);
   return {
@@ -283,6 +292,13 @@ const riverField = (R, rivers) => {
   const segs = [];
   rivers.forEach((rv, ri) => {
     const HS = segHalfs(rv), RCH = segReach(rv, HS, REACH + (rivers.length > 1 ? MERGE * 0.5 : 0));
+    // (round a river's mouth the field must reach across the funnel and the silt fan)
+    const M = mouthOf(rv);
+    if (M) rv.segs.forEach((s, q) => {
+      const far = M.span + Math.max(HS.a[q], HS.b[q]) * (1 + WIDEN) + FAN;
+      const vx = s.x2 - s.x1, vy = s.y2 - s.y1, t = Math.max(0, Math.min(1, ((M.x - s.x1) * vx + (M.y - s.y1) * vy) / (s.len * s.len)));
+      if (Math.hypot(M.x - s.x1 - vx * t, M.y - s.y1 - vy * t) < far) RCH[q] = Math.max(RCH[q], Math.max(HS.a[q], HS.b[q]) * (1 + WIDEN) + FAN + 8);
+    });
     // (a river of changing width takes, per pixel, the width at the NEAREST
     // point of its line — so a wide stretch's round end never bulges back
     // over a narrow one; a river of one width is the same either way)
@@ -428,6 +444,86 @@ const riversEndingIn = (P, rivers) => {
   return out;
 };
 
+// ---- estuaries: where a river meets the sea -----------------------------------
+// A river whose end lies in the sea (or on its beach) has a MOUTH: the point
+// where its centreline crosses the waterline. Over its last stretch the
+// channel opens into a funnel — held to 3 units past the honest edge until
+// the last MOUTH_FLARE of sand (halls may stand 14 off the honest edge
+// above that), then flaring to about twice its width at the waterline —
+// its banks lower into the beach's wet sand (no earth face, a dark
+// waterline and a damp strip), a sand bar parts the channel into braids at
+// the mouth, the channel stripe and the sky's streaks fade out, and past
+// the waterline a fan of silt-pale shallows spreads into the sea and
+// dissolves within FAN. The gameplay edge (terrain.js riverPast,
+// atWaterEdge) is never widened. riverMouths() hands coast.js the mouths,
+// so its surf and swash can part round them.
+const MOUTH_RUN = 70;     // the funnel begins this far above the beach's top
+const MOUTH_FLARE = 40;   // the last stretch of shore the channel flares across (actions.js keeps halls off `riverMouths()` by hw*2.2 + 14)
+const FAN = 60;           // how far out to sea the silt fan reaches
+const WIDEN = 1.1;        // the half-width grows by this much of itself at the waterline
+// the beach's sand, as coast.js paints it (a realm's `coastSand`, else its country's)
+const SANDS = { vale: "#dcc48e", iron: "#c2b89c", fen: "#9e977c" };
+const beachSand = () => REALM.coastSand || SANDS[REALM.groundArt === "iron" || REALM.groundArt === "rime" ? "iron" : REALM.groundArt === "fen" ? "fen" : "vale"];
+const MOUTHS = new WeakMap();
+const mouthOf = (rv) => {
+  if (!COAST) return null;
+  const hit = MOUTHS.get(rv);
+  if (hit && hit.coast === COAST) return hit.m;
+  const sand = COAST.sand || 0, pts = rv.pts, a = pts[0], b = pts[pts.length - 1];
+  const atEnd = seaDepthAt(b[0], b[1]) > -sand - 2, atHead = !atEnd && seaDepthAt(a[0], a[1]) > -sand - 2;
+  let m = null;
+  if (atEnd || atHead) {
+    // walk the centreline from the land end to its first point in the sea
+    const HS = segHalfs(rv), walk = [];
+    rv.segs.forEach((sg, q) => {
+      const tx = (sg.x2 - sg.x1) / sg.len, ty = (sg.y2 - sg.y1) / sg.len, dh = HS.b[q] - HS.a[q];
+      for (let dd = 0; dd < sg.len; dd += 2) walk.push([sg.x1 + tx * dd, sg.y1 + ty * dd, tx, ty, HS.a[q] + dh * (dd / sg.len)]);
+    });
+    if (atHead) walk.reverse();
+    const dir = atEnd ? 1 : -1;
+    for (const [x, y, tx, ty, hw] of walk) {
+      if (seaDepthAt(x, y) < 0) continue;
+      // (the bar lies off the channel's centre, to one side or the other)
+      const hb = hash(Math.round(x), Math.round(y) + 7);
+      // (the longshore drift bends the silt fan down the coast: the shore's
+      // direction taken across the river, one way or the other by seed)
+      const along = COAST.edge === "top" || COAST.edge === "bottom", drift = (hash(Math.round(x) + 3, Math.round(y)) < 0.5 ? -1 : 1) * 0.6 * Math.abs(along ? -ty : tx);
+      m = { x, y, hw, nx: tx * dir, ny: ty * dir, sand, span: sand + MOUTH_RUN, bar: (hb < 0.5 ? -1 : 1) * (0.22 + Math.abs(hb - 0.5) * 0.5), drift };
+      break;
+    }
+  }
+  MOUTHS.set(rv, { coast: COAST, m });
+  return m;
+};
+// how far the funnel stands open at a pixel of its river: k 0 above it and 1
+// at the waterline, `wide` the water's extra half-width there, `near` 0
+// beyond the mouth's reach; sd is the pixel's sea depth
+const FUN = { k: 0, wide: 0, near: 0 };
+const funnelAt = (M, x, y, hw, sd) => {
+  FUN.k = 0; FUN.wide = 0; FUN.near = 0;
+  if (!M || sd < -M.span) return FUN;
+  const dd = Math.hypot(x - M.x, y - M.y), far = M.span + hw * (1 + WIDEN) + FAN;
+  if (dd > far) return FUN;
+  const near = dd < M.span ? 1 : 1 - (dd - M.span) / (far - M.span);
+  const q = sd >= 0 ? 1 : clamp01((sd + M.span) / M.span), fl = sd >= 0 ? 1 : clamp01((sd + MOUTH_FLARE) / MOUTH_FLARE);
+  FUN.k = q * q * (3 - 2 * q) * near;
+  FUN.near = near;
+  // (the banks diverge gently over the whole flare, quickest at the waterline)
+  FUN.wide = 3 * FUN.k + Math.max(0, hw * WIDEN - 3) * fl * fl * (0.6 + 0.4 * fl) * near;
+  return FUN;
+};
+// The board's river mouths, for coast.js: where each river's centreline
+// crosses the waterline, its half-width there (funnel and all) and the unit
+// direction out to sea. Empty on a board with no river running into the sea.
+export const riverMouths = () => {
+  const out = [];
+  for (const rv of RIVERS) {
+    const M = mouthOf(rv);
+    if (M) out.push({ x: M.x, y: M.y, hw: M.hw * (1 + WIDEN), nx: M.nx, ny: M.ny });
+  }
+  return out;
+};
+
 // A clump of rushes at (x, y) in world units: tapered blades, darker at the
 // root, some with a velvet head (the fen's are straw-pale and headless).
 const rushPx = (R, B, x, y, sc, seed) => {
@@ -557,8 +653,15 @@ const islandPx = (R, B, WT, x, y, seed, wet) => {
 const riverBody = (rivers, wa, view, r) => {
   if (!rivers.length) return null;
   const key = bankKey(), fen = key === "fen";
-  const B = bankTones(key), WT = waterTones(wa || DEFAULT_WATER, B), dark = WT.dark;
+  const WA = wa || DEFAULT_WATER, sandHex = COAST ? beachSand() : BANKS[key].pebble;
+  const B = bankTones(key), WT = waterTones(WA, B, sandHex), dark = WT.dark;
   const s = ((REALM.seed | 0) % 97 + 97) % 97;
+  // each river's mouth in the sea (null for one that has none), and the
+  // beach's wet sand its banks lower into there (coast.js's own tones)
+  const MS = rivers.map(mouthOf);
+  const ANYM = MS.some(Boolean);
+  const wetSand = mix(darken(sandHex, 0.3), WA.edge, 0.12);
+  const SN = { line: C(mix(darken(sandHex, 0.46), WA.deep, 0.2)), wet: C(wetSand), wetLt: C(mix(wetSand, sandHex, 0.45)) };
   // a pond the river runs into is painted here, with it, as one water
   const shapes = PONDS.map(pondShape);
   const JP = shapes.filter((P) => P.kind !== "lava" && P.kind !== "ice" && touchesRiver(P, rivers));
@@ -618,9 +721,13 @@ const riverBody = (rivers, wa, view, r) => {
         const v = pondG(Q, x, y);
         if (v < REACH && v < gp) { gp = v; P = Q; pnx = ELL.nx; pny = ELL.ny; pNP = NP; }
       }
-      if (f >= REACH && !P) continue;
+      // (past the bank field only the silt fan is painted: out in the sea by
+      // a mouth the loop runs on to FAN, so the fan's ellipse is never cut
+      // to the field's band)
+      if (f >= REACH && !P && !(ANYM && f < FAN + 8 && seaDepthAt(x, y) >= 0)) continue;
       const gi = R.gx + i;
       let nx = 0, ny = 1, lat = 0, u = 0, hw = 10, e = 0, g = 99, rivI = -1;
+      let sd = -999, mk = 0, wide = 0, mnear = 0;   // at a river's mouth: sea depth, funnel, extra width
       const gx = x - x0, gy = y - y0, ia = gx | 0, ja = gy | 0, fx = gx - ia, fy = gy - ja;
       const c00 = ja * cw + ia;
       if (!SD[c00]) fill(c00);
@@ -648,6 +755,14 @@ const riverBody = (rivers, wa, view, r) => {
         } else if (fa < fb) { ({ nx, ny, lat, u, hw } = geo(segs[SA[k]], x, y)); rivI = segs[SA[k]].ri; }
         e = edgeOff(n42, n90, n52, n13, lat, hw, LX * nx + LY * ny);
         g = f + e;
+        if (MS[rivI]) {
+          sd = seaDepthAt(x, y);
+          const F = funnelAt(MS[rivI], x, y, hw, sd);
+          mk = F.k; wide = F.wide; mnear = F.near;
+          // (the funnel opens a little more on one bank than the other)
+          if (wide > 3) wide = 3 + (wide - 3) * (0.8 + 0.4 * (lat > 0 ? n90 : 1 - n90));
+          g -= wide;
+        }
       }
       const gr = g;
       let pwt = 0;
@@ -662,10 +777,20 @@ const riverBody = (rivers, wa, view, r) => {
         } else { pwt = 1; g = gp; nx = pnx; ny = pny; }
       }
       if (g >= 0) {
+        if (mk > 0 && sd > -MS[rivI].sand - 3) {
+          // on the beach the bank lowers into the wet sand: a dark waterline
+          // and a damp strip, no earth; out in the sea, nothing at all
+          if (sd >= 0 || g >= REACH) continue;
+          const c = g < 0.6 + px1 ? SN.line : g < 2.2 + mk * 2.5 + (vn(x, y, 5, s + 40) - 0.5) * 2 ? (vn(x, y, 3, s + 41) > 0.5 ? SN.wet : SN.wetLt) : null;
+          if (c) R.put(i, j, c);
+          continue;
+        }
         if (g < REACH && (P || !loose.length || !inPondWater(loose, x, y))) {
           const n21 = SV[o00 + 4] * w00 + SV[o10 + 4] * w10 + SV[o01 + 4] * w01 + SV[o11 + 4] * w11;
           const n7 = SV[o00 + 6] * w00 + SV[o10 + 6] * w10 + SV[o01 + 6] * w01 + SV[o11 + 6] * w11;
-          const c = bankPx(B, g, nx, ny, x, y, gi, gj, s, r, 5 + (e < 0 ? e : 0) + pwt * 4, SPIT * (1 - pwt), n21, n7);
+          // (above the beach a funnel's banks lower as the sea nears)
+          const cap = (5 + (e < 0 ? e : 0) + pwt * 4) * (1 - mk * 0.85);
+          const c = bankPx(B, g, nx, ny, x, y, gi, gj, s, r, cap, SPIT * (1 - pwt) * (1 - mk), n21, n7);
           if (c) { if (c[3] === 255) { const o = k * 4; D[o] = c[0]; D[o + 1] = c[1]; D[o + 2] = c[2]; D[o + 3] = 255; } else R.put(i, j, c); }
         }
         continue;
@@ -677,6 +802,21 @@ const riverBody = (rivers, wa, view, r) => {
         shade = dp < (L < 0 ? -L : 0) * 3.2 + V * 0.7 + (pNP - 0.5) * 1.6;
         t = pondTone(P, x, y, dp, -ellField(P, x, y).f, L, shade, gi, gj, r);
         if (t === T_BED && dp > 1 && hash(gi * 5 + 1, gj * 3 + 2) > 0.982) pebbles.push(i, j);
+      } else if (sd >= 0) {
+        // out in the sea: the river's silt, a fan of paler shallows that
+        // spreads from the mouth and dissolves (in drifts, never a screen)
+        // within FAN; the channel's own tongue and the bar run out into it
+        // a solid tongue along the channel's line (bent down-coast by the
+        // longshore drift), paling and dissolving outward in a fine dither
+        const M = MS[rivI], hwE = hw + wide, hwF = hwE * 0.9 + sd * 0.8;
+        const lt = lat - M.drift * sd * 0.35, al = Math.abs(lt), ac = al / hwF;
+        const dens = 1.3 * Math.pow(1 - Math.min(1, sd / FAN), 1.2) * clamp01(1.25 - 1.25 * ac * ac) * (0.85 + 0.3 * vn(x, y, 9, s + 62)) * mnear;
+        const bar = sd < 4 + hwE * 0.12 && Math.abs(lat - M.bar * hwE) < hwE * 0.12 * clamp01(1 - sd / 8) + (vn(x, y, 4, s + 64) - 0.5) * 1.6;
+        // (nothing at all in the sea where the fan's density is 0: its
+        // edge is the ellipse |lat'| = hwF, widening with sd, never a box)
+        if (!bar && (dens <= 0 || vn(x, y, 2.5, s + 61) * 0.55 + hash(gi, gj + 3) * 0.45 > dens)) continue;
+        shade = false;
+        t = bar ? T_BAR : dens > 0.95 && sd < 14 + hwE * 0.3 ? T_SILT2 : T_SILT;
       } else {
         // the bank on the sun's side throws its shadow onto the water
         shade = dp < (L < 0 ? -L : 0) * 3.0 + V * 0.6 + (N13 - 0.5) * 1.4;
@@ -696,6 +836,9 @@ const riverBody = (rivers, wa, view, r) => {
           sh = Math.max(sh + wd * 0.1 * k, bw + 0.8);
           mw += wd * 0.08 * k;
         }
+        // in a funnel the water shelves: shallows and middle water run
+        // wider, the gravel wider still, as the sea nears
+        if (mk > 0) { const hwE = hw + wide; sh += mk * hwE * 0.3; mw += mk * hwE * 0.25; bw *= 1 + mk * 0.5; }
         if (dp < px1) t = L > 0.12 ? (vn(x, y, 3, s + 7) > 0.46 ? T_FOAM : T_LAP) : T_LINE;
         else if (dp < bw) {
           t = T_BED;
@@ -705,8 +848,14 @@ const riverBody = (rivers, wa, view, r) => {
         else {
           // the channel wanders inside the banks; the sky lies on it in streaks
           const mean = (vn(u, hw, 64, s + 8) - 0.5) * hw * 0.9;
-          t = Math.abs(lat - mean) < hw * (dark ? 0.34 : 0.26) ? T_CHAN : T_DEEP;
-          if (vn(u, lat * 12, 20, s + 9) > 0.8) t = T_REFL;
+          // (at a mouth the channel stripe narrows away and the sky's streaks go)
+          t = Math.abs(lat - mean) < hw * (dark ? 0.34 : 0.26) * (1 - mk) ? T_CHAN : T_DEEP;
+          if (mk < 0.5 && vn(u, lat * 12, 20, s + 9) > 0.8) t = T_REFL;
+        }
+        // a sand bar parts the channel into braids across the last of the beach
+        if (mk > 0.6 && sd > -MOUTH_FLARE - 8 && dp > px1) {
+          const M = MS[rivI], hwE = hw + wide;
+          if (Math.abs(lat - M.bar * hwE) < hwE * 0.12 * clamp01((sd + MOUTH_FLARE + 8) / 14) + (vn(x, y, 4, s + 64) - 0.5) * 1.6) t = T_BAR;
         }
       }
       TB[k] = t + 1 + (shade ? 32 : 0);
@@ -725,6 +874,10 @@ const riverBody = (rivers, wa, view, r) => {
         const ul = i > 0 && j > 0 ? TB[k - pw - 1] : 0, dr = i < pw - 1 && j < ph - 1 ? TB[k + pw + 1] : 0;
         if (ul && !bedAt(ul) && !edgeAt(ul)) t = T_BEDLT;
         else if (dr && !bedAt(dr) && !edgeAt(dr)) t = T_BEDDK;
+      } else if (t === T_BAR) {
+        // a sand bar at a mouth: lit along its upper-left rim
+        const ul = i > 0 && j > 0 ? TB[k - pw - 1] : 0;
+        if (ul && (ul & 31) - 1 !== T_BAR) t = T_BARLT;
       }
       const c = (v & 32 ? S : T)[t], o = k * 4;
       D[o] = c[0]; D[o + 1] = c[1]; D[o + 2] = c[2]; D[o + 3] = 255;
@@ -755,6 +908,7 @@ const riverBody = (rivers, wa, view, r) => {
         if (seen.has(key)) continue;
         seen.add(key);
         if (cx > W - WALL_W - 14 && cx < W + 40 && cy > -20 && cy < H + 20) continue;   // under the castle
+        if (COAST && seaDepthAt(cx, cy) > -(COAST.sand + 6)) continue;                  // on the beach or in the sea: a mouth is bare
         const h = hash(ci * 31 + s, cj * 17 + 5), h2 = hash(ci * 13 + s, cj * 29 + 7), h3 = hash(ci * 7 + s, cj * 11 + 3);
         let side = (ci + cj) & 1 ? 1 : -1;
         if (spitAt(cx + ty * side * hw, cy - tx * side * hw, -side, s) > spitAt(cx - ty * side * hw, cy + tx * side * hw, side, s) + 0.3) side = -side;
@@ -860,11 +1014,41 @@ const samplerOf = (rv) => {
     const dh = HS.b[si] - HS.a[si];
     HW[q] = dh === 0 ? HS.a[si] : HS.a[si] + dh * t;
   }
-  // the samples out in the water of a pond this river ends in (no current there)
-  let wet = null;
+  // the samples out in the water of a pond this river ends in, or in the sea
+  // (no current there); and at a mouth how far the funnel stands open (FK),
+  // where the current slows and fans out
+  let wet = null, FK = null;
   const ends = PONDS.map(pondShape).filter((P) => P.kind !== "lava" && P.kind !== "ice" && riversEndingIn(P, [rv]).size);
   if (ends.length) { wet = new Uint8Array(n); for (let q = 0; q < n; q++) if (ends.some((P) => pondG(P, X[q], Y[q]) < 0)) wet[q] = 1; }
-  S = { n, X, Y, TX, TY, HW, total, wet };
+  const M = mouthOf(rv);
+  if (M) {
+    wet = wet || new Uint8Array(n);
+    FK = new Float32Array(n);
+    for (let q = 0; q < n; q++) {
+      const sd = seaDepthAt(X[q], Y[q]);
+      if (sd >= -1) { wet[q] = 1; continue; }
+      FK[q] = funnelAt(M, X[q], Y[q], HW[q], sd).k;
+    }
+  }
+  let hwSum = 0;
+  for (let q = 0; q < n; q++) hwSum += HW[q];
+  // the lapping marks: a spot on each bank's water's edge every LAP_GAP or
+  // so (spits and all), with its heading and which side it lies, skipping
+  // water with no bank (a pond's, the sea's, a mouth's beach)
+  const s = ((REALM.seed | 0) % 97 + 97) % 97, laps = [];
+  for (let d = 9, q = 0; d < total - 6; d += LAP_GAP + (hash(q, 61) - 0.5) * 8, q++) {
+    const k = Math.min(n - 1, Math.round(d / 2));
+    if (wet && wet[k]) continue;
+    if (FK && FK[k] > 0.3) continue;
+    const tx = TX[k], ty = TY[k], hw = HW[k], side = q & 1 ? 1 : -1;
+    const nx = -ty * side, ny = tx * side, ex = X[k] + nx * hw, ey = Y[k] + ny * hw;
+    const off = edgeOff(vn(ex, ey, 42, s + 11), vn(ex, ey, 90, s + 13), vn(ex, ey, 52, s + 15), vn(ex, ey, 13, s), side, hw, LX * nx + LY * ny);
+    const l = hw - off - 0.8;
+    if (l < 3) continue;
+    const b = ((Math.round(Math.atan2(ty, tx) / (Math.PI * 2) * 16) % 16) + 16) % 16;
+    laps.push({ x: X[k] + nx * l, y: Y[k] + ny * l, b, side, p: 2.2 + hash(q, 62) * 1.8, ph: hash(q, 63) });
+  }
+  S = { n, X, Y, TX, TY, HW, total, wet, FK, hwMean: hwSum / n, laps };
   SAMPLERS.set(rv, S);
   return S;
 };
@@ -904,30 +1088,100 @@ const snapH = (v) => Math.round(v * PX) / PX;
 
 // the marks on one river at `time`; `clip` = [x0, y0, x1, y1] keeps them to
 // what can be seen
+// The lapping at a bank, 16 headings x 3 steps x 2 sides: the water drawn
+// up pale over the bank's foot, then back a pixel, then only the dark
+// waterline showing — a soft tone change on a 2-4 s cycle, never a blink.
+const LAP_GAP = 34;
+const LAPS = new Map();
+const lapSprite = (wa, b, f, side) => {
+  const key = `${wa.edge}${wa.shine}|${b}|${f}|${side}`;
+  let cv = LAPS.get(key);
+  if (cv) return cv;
+  const n = MARK_SZ * PX, c0 = n / 2 - 0.5;
+  cv = document.createElement("canvas");
+  cv.width = cv.height = n;
+  const c = cv.getContext("2d");
+  const a = (b / 16) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+  // al along the heading, ac across it toward the bank
+  const dot = (al, ac, col) => { c.fillStyle = col; c.fillRect(Math.round(c0 + ca * al - sa * ac * side), Math.round(c0 + sa * al + ca * ac * side), 1, 1); };
+  const dark = lum(wa.deep) < 0.2, pale = dark ? mix(wa.edge, "#b4bcb6", 0.35) : mix(wa.edge, lighten(wa.shine, 0.3), 0.6), line = darken(wa.edge, 0.42);
+  if (f === 0) { for (let k = -3; k <= 2; k++) dot(k, 0, pale); dot(-1, -1, pale); dot(0, -1, pale); }
+  else if (f === 1) { for (let k = -2; k <= 1; k++) dot(k, -1, pale); dot(-3, 0, line); dot(2, 0, line); }
+  else { for (let k = -3; k <= 2; k++) dot(k, 0, line); }
+  LAPS.set(key, cv);
+  return cv;
+};
+// the foam shed downstream of a rock or a pier, 16 headings x 4 steps: a
+// pair of fleck lines leaving its wake, each step further on and fainter
+const TAIL_SZ = 16;
+const TAILS = new Map();
+const tailSprite = (wa, b, f) => {
+  const key = `${wa.edge}${wa.shine}|${b}|${f}`;
+  let cv = TAILS.get(key);
+  if (cv) return cv;
+  const n = TAIL_SZ * PX, c0 = n / 2 - 0.5;
+  cv = document.createElement("canvas");
+  cv.width = cv.height = n;
+  const c = cv.getContext("2d");
+  const a = (b / 16) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+  const dot = (al, ac, col) => { c.fillStyle = col; c.fillRect(Math.round(c0 + ca * al - sa * ac), Math.round(c0 + sa * al + ca * ac), 1, 1); };
+  const bright = lighten(wa.shine, 0.45), soft = mix(wa.edge, wa.shine, 0.5);
+  for (const sd of [-1, 1]) {
+    // one line leads the other by a step, so the two never read as a glyph
+    const d0 = 1 + f * 1.8 + (sd < 0 ? 0 : 1), ac = sd * (1.5 + f * 0.4);
+    dot(d0, ac, f < 2 ? bright : soft);
+    if (f < 3) dot(d0 + 2 + (f & 1), ac + sd * 0.6, soft);
+    if (f < 2) dot(d0 + 4, ac, soft);
+  }
+  TAILS.set(key, cv);
+  return cv;
+};
+// where a heading lands among the 16 baked ones
+const headOf = (tx, ty) => ((Math.round(Math.atan2(ty, tx) / (Math.PI * 2) * 16) % 16) + 16) % 16;
+
+// The current on one river at `time`; `clip` = [x0, y0, x1, y1] keeps it to
+// what can be seen. The marks ride the centreline downstream: ripples and
+// the sun's glints, most of them in the fast middle, foam flecks creeping
+// along the banks; the pace comes from the water (faster through a narrow
+// reach, slower through a wide one and toward the banks, slowing and fanning
+// out into the sea at a mouth), every mark fading in and out in three steps.
+// Along the banks the lapping marks step through their cycle in place.
 const drawCurrent = (ctx, rv, time, wa, clip) => {
   const S = samplerOf(rv);
   if (S.total < 20) return;
-  const n = Math.max(4, Math.round(S.total / 17));
+  const n = Math.max(6, Math.round(S.total / 10));
   const ga = ctx.globalAlpha;
   for (let i = 0; i < n; i++) {
-    const kind = hash(i, 5), type = kind < 0.64 ? 0 : kind < 0.84 ? 2 : 1;
-    const P = 3.2 + hash(i, 1) * 3, tt = time + hash(i, 2) * P, cyc = Math.floor(tt / P), u = tt / P - cyc;
+    const kind = hash(i, 5), type = kind < 0.68 ? 0 : kind < 0.86 ? 2 : 1;
     const bank = type === 2;
-    const speed = bank ? 7 + hash(i, 6) * 4 : 15 + hash(i, 7) * 8;
-    let d = hash(i * 7 + cyc, 3) * S.total + u * P * speed;
+    const P = (bank ? 5 : 4.5) + hash(i, 1) * 3, tt = time + hash(i, 2) * P, cyc = Math.floor(tt / P), u = tt / P - cyc;
+    const d0 = hash(i * 7 + cyc, 3) * S.total, q0 = Math.min(S.n - 1, Math.round(d0 / 2)), hw0 = S.HW[q0];
+    // its place across the stream: the banks' flecks at the edge, the rest
+    // gathered toward the middle (a glint only in the sunlit middle)
+    const v = hash(i * 7 + cyc, 4) * 2 - 1, sg = v < 0 ? -1 : 1, av = Math.abs(v);
+    const rel = bank ? 1 : type === 1 ? av * av * 0.45 : Math.pow(av, 1.6);
+    const fk0 = S.FK ? S.FK[q0] : 0;
+    const lat0 = bank ? sg * (hw0 - 3.2) : sg * rel * Math.max(1, hw0 - 5.5) * (1 + fk0 * WIDEN * 0.8);
+    // the pace: by the reach's width against the river's, the place across it, the mouth
+    const speed = (bank ? 5 + hash(i, 6) * 2.5 : 11 + hash(i, 7) * 4) * Math.min(1.5, Math.max(0.65, S.hwMean / hw0)) * (1 - 0.5 * rel * rel) * (1 - 0.6 * fk0);
+    let d = d0 + u * P * speed;
     if (d >= S.total) d -= S.total;
     const q = Math.min(S.n - 1, Math.round(d / 2)), hw = S.HW[q];
     if (S.wet && S.wet[q]) continue;
-    const lat0 = bank ? (hash(i * 7 + cyc, 4) < 0.5 ? -1 : 1) * (hw - 3.2) : (hash(i * 7 + cyc, 4) * 2 - 1) * Math.max(1, hw - 6);
-    const lat = lat0 + Math.sin(u * 6.283 + i) * (bank ? 0.4 : 1.4);
+    const lat = Math.max(-hw + 1.5, Math.min(hw - 1.5, lat0 + Math.sin(u * 6.283 + i) * (bank ? 0.4 : 1.2)));
     const tx = S.TX[q], ty = S.TY[q];
     const x = S.X[q] - ty * lat, y = S.Y[q] + tx * lat;
     if (clip && (x < clip[0] || y < clip[1] || x > clip[2] || y > clip[3])) continue;
     // fade in and out in three steps, never a smooth blend
     const f = u < 0.12 || u > 0.88 ? 0.34 : u < 0.24 || u > 0.76 ? 0.67 : 1;
-    const b = ((Math.round(Math.atan2(ty, tx) / (Math.PI * 2) * 16) % 16) + 16) % 16;
     ctx.globalAlpha = ga * f * (type === 0 ? 0.85 : type === 1 ? 1 : 0.75);
-    ctx.drawImage(markSprite(wa, type, b), snapH(x) - MARK_SZ / 2, snapH(y) - MARK_SZ / 2, MARK_SZ, MARK_SZ);
+    ctx.drawImage(markSprite(wa, type, headOf(tx, ty)), snapH(x) - MARK_SZ / 2, snapH(y) - MARK_SZ / 2, MARK_SZ, MARK_SZ);
+  }
+  ctx.globalAlpha = ga * 0.9;
+  for (const L of S.laps) {
+    if (clip && (L.x < clip[0] || L.y < clip[1] || L.x > clip[2] || L.y > clip[3])) continue;
+    const ph = (time / L.p + L.ph) % 1, f = ph < 0.38 ? 0 : ph < 0.64 ? 1 : 2;
+    ctx.drawImage(lapSprite(wa, L.b, f, L.side), snapH(L.x) - MARK_SZ / 2, snapH(L.y) - MARK_SZ / 2, MARK_SZ, MARK_SZ);
   }
   ctx.globalAlpha = ga;
 };
@@ -950,11 +1204,44 @@ const foamSprite = (wa, v) => {
   FOAMS.set(key, cv);
   return cv;
 };
+// (and the foam shed downstream of each in a short, slow tail: four steps
+// on a 2.4 s cycle, out of step rock by rock)
 const drawRockFoam = (ctx, rocks, time, wa) => {
+  const ga = ctx.globalAlpha;
   for (const k of rocks) {
     const v = Math.floor(time * 2.5 + hash(k.seed, 1) * 4) % 3;
-    ctx.drawImage(foamSprite(wa, v), snapH(k.x - 5 + k.tx), snapH(k.y - 5 + k.ty * 0.8), 10, 10);
+    if (!k.pier || k.up) ctx.drawImage(foamSprite(wa, v), snapH(k.x - 5 + k.tx), snapH(k.y - 5 + k.ty * 0.8), 10, 10);
+    if (k.pier && k.up) continue;
+    const ph = (time / 2.4 + hash(k.seed, 2)) % 1, f = Math.floor(ph * 4);
+    const ox = k.x + k.tx * (k.rx + 0.5), oy = k.y + k.ty * (k.ry + 0.5);
+    ctx.globalAlpha = ga * (f === 3 ? 0.55 : 0.85);
+    ctx.drawImage(tailSprite(wa, headOf(k.tx, k.ty), f), snapH(ox) - TAIL_SZ / 2, snapH(oy) - TAIL_SZ / 2, TAIL_SZ, TAIL_SZ);
+    ctx.globalAlpha = ga;
   }
+};
+// The piers of the board's stone bridges (the Iron Marches' kind; bridge.js
+// gives a span over wide water a cutwater either side, its nose PIER_OUT
+// along the stream from the span's centre): the current foams at the one
+// upstream and sheds its tail off the one downstream.
+const PIER_OUT = 40;
+const boardPiers = () => {
+  const out = [];
+  if (REALM.bridge?.kind !== "stone") return out;
+  for (const b of BRIDGES) {
+    for (const rv of RIVERS) {
+      const S = samplerOf(rv);
+      let bq = -1, bd = Infinity;
+      for (let q = 0; q < S.n; q++) { const d = Math.hypot(S.X[q] - b.x, S.Y[q] - b.y); if (d < bd) { bd = d; bq = q; } }
+      if (bq < 0 || bd > S.HW[bq] || S.HW[bq] * 2 <= 26) continue;
+      const tx = S.TX[bq], ty = S.TY[bq];
+      for (const sd of [-1, 1]) {
+        const q = Math.max(0, Math.min(S.n - 1, bq + Math.round(sd * PIER_OUT / 2)));
+        if (S.wet && S.wet[q]) continue;
+        out.push({ x: S.X[q], y: S.Y[q], tx, ty, rx: 2.6, ry: 1.9, seed: (b.x | 0) * 7 + sd, pier: true, up: sd < 0 });
+      }
+    }
+  }
+  return out;
 };
 
 // The world rectangle a context can paint into (its canvas through the
@@ -1001,6 +1288,9 @@ export const drawRiver = (ctx, rv, time, water) => {
 const ICE = ["#7c9fb4", "#a4c2d2", "#c4dbe6", "#e0eef4", "#f8fcfd"].map((c) => C(c));
 const ICE_S = ["#6c8aa2", "#8eaabc", "#a8c0d0", "#c0d4e0", "#d8e6ee"].map((c) => C(c));
 const ICE_CRACK = C("#58798e"), ICE_CRACK_LT = C("#ffffff", 0.85);
+// the sheet's wet thaw line and the open water under its edge, the dark
+// windows (and the sheen across them), a pressure ridge's shadow, snow on it
+const ICE_WET = C("#1c3444"), ICE_WIN = C("#355972"), ICE_WIN_LT = C("#5a8098"), ICE_RIDGE_SH = C("#7e9fb6"), ICE_SNOW = C("#eef4f7"), ICE_SNOW_LT = C("#ffffff");
 const LAVA = ["#4a1a16", "#86281a", "#c8461c", "#ee8430", "#fcc45a", "#fff0b8"].map((c) => C(c));
 const CRUST = [C("#2e201e"), C("#4a302a"), C("#7a4c36")];
 const HEAT = [C("#e0602a", 0.2), C("#e0602a", 0.1)];
@@ -1187,24 +1477,35 @@ const pondBody = (p) => {
       const dp = -g, L = LX * nx + LY * ny, V = ny < 0 ? -ny : 0;
       const shade = dp < (L < 0 ? -L : 0) * 3.2 + V * 0.7 + (NP - 0.5) * 1.6;
       if (kind === "ice") {
-        // frost at the rim (thick and thin, broken), pale ice, clear dark ice
-        // in the middle where it is thickest, and the sun's sheen laid
-        // across it in diagonal bands
+        // A sheet of ice over dark water (scenery-rime.js lays the same
+        // vocabulary on the Rimewater's meres): a thick frost rim beside a
+        // shaded bank, a thin wet THAW line beside a sunlit one; snow in
+        // streaks along the wind (from the west-north-west), piled against
+        // the shore; clear dark WINDOWS where it blew off, the sun's sheen
+        // across them; a pressure ridge where two sheets met (a lit crest
+        // over a shadow); bare ice paler where it is thick by the shore
+        const thaw = L > 0.3 && !shade;
+        if (dp < 0.6 && thaw) { R.put(i, j, ICE_WET); continue; }
+        const rim = thaw ? 1.1 : 1.6 + vn(x, y, 3, s + 45) * 1.4;
+        if (dp < rim) { R.put(i, j, vn(x, y, 4, s + 46) > 0.3 ? (shade ? ICE_S[4] : ICE_SNOW_LT) : (shade ? ICE_S[3] : ICE[3])); continue; }
+        const u = x * 0.98 + y * 0.2, v = y * 0.98 - x * 0.2;
+        const S = vn(u / 3.4, v, 11, s + 44) * 0.7 + vn(u / 1.6, v, 5, s + 47) * 0.3 + Math.max(0, 7 - dp) * 0.02 - 0.08;
+        const dz = hash(Math.floor((gi + hash(gj, s + 5) * 9) / (3 + (hash(gj, s + 6) * 5 | 0))), gj * 31 + s);
+        const rd = m * 0.45 + (vn(x, y, 22, s + 49) - 0.5) * m * 0.3, ridge = m > 14 && vn(x, y, 30, s + 48) > 0.5 && Math.abs(dp - rd) < 0.55;
+        if (ridge) { R.put(i, j, dp < rd ? (dz > 0.4 ? ICE_SNOW_LT : ICE_SNOW) : hash(gi, gj + 3) < 0.3 ? ICE_S[3] : ICE_RIDGE_SH); continue; }
         let t;
-        if (dp < 0.45 + vn(x, y, 5, s + 45) * 1.1 && vn(x, y, 4, s + 46) > 0.3) t = 3;
-        else if (dp < 3 + (vn(x, y, 6, s + 40) - 0.5) * 2) t = 2;
-        else {
-          const cl = vn(x, y, 16, s + 41);
-          t = cl < 0.36 && dp > m * 0.35 ? 0 : cl < 0.5 ? 1 : 2;
-          const band = ((x * 0.8 - y * 1.3 + 400) % 23), on = hash(Math.floor((x * 1.3 + y * 0.8) / 5), s + 43) > 0.4 && vn(x, y, 12, s + 42) > 0.42;
-          if (!shade && on && band < 1.1) t = 4;
-          else if (!shade && on && band < 1.7) t = 3;
-          if (hash(gi, gj * 3 + 11) > 0.985) t = 3;
+        if (S > 0.6) t = shade ? ICE_S[dz > 0.6 ? 4 : 3] : dz > 0.6 ? ICE_SNOW_LT : ICE_SNOW;
+        else if (S > 0.54) t = shade ? ICE_S[2] : ICE[3];
+        else if (dp > 2.5 && vn(x, y, Math.min(7, m * 0.4), s + 41) < 0.3 + (vn(x, y, 3, s + 50) - 0.5) * 0.12) {
+          const band = (x * 0.8 - y * 1.3 + 400) % 17;
+          t = !shade && band < 1.2 && vn(x, y, 10, s + 42) > 0.45 ? ICE_WIN_LT : ICE_WIN;
+        } else {
+          const q = dp / Math.max(4, m * 0.9);
+          let k = q < 0.4 ? (dz > 0.7 ? 3 : 2) : dz > 0.5 ? 2 : 1;
+          if (hash(gi, gj * 3 + 11) > 0.988) k = 4;
+          t = (shade ? ICE_S : ICE)[k];
         }
-        // snow blown out onto the ice, drifted against the shore
-        const drift = vn(x, y, 7, s + 44);
-        if (dp < 7 && drift > 0.6 - (7 - dp) * 0.02) t = drift > 0.66 - (7 - dp) * 0.02 ? 4 : 3;
-        R.put(i, j, (shade ? ICE_S : ICE)[t]);
+        R.put(i, j, t);
         continue;
       }
       if (kind === "lava") {
@@ -1241,12 +1542,13 @@ const pondBody = (p) => {
   // ice: cracks running in from the rim, each a dark line with a lit lip on
   // its upper-left side, bending a little but never doubling back
   if (kind === "ice") {
-    const nC = 3 + (big ? 2 : 0);
+    // (the first two on a big sheet run long, right across it)
+    const nC = 5 + (big ? 3 : 0);
     for (let q = 0; q < nC; q++) {
       const a0 = (q / nC + hash(s, q + 60) * 0.25) * Math.PI * 2;
       let x = p.x + Math.cos(a0) * rx * 0.88, y = p.y + Math.sin(a0) * ry * 0.88;
       const h0 = Math.atan2((p.y - y) / 0.7, p.x - x) + (hash(s, q + 61) - 0.5) * 0.7;
-      const len = (8 + hash(s, q + 63) * 14) * r;
+      const len = (8 + hash(s, q + 63) * 14 + (big && q < 2 ? rx * 1.1 : 0)) * r;
       let a = h0;
       for (let k = 0; k < len; k++) {
         a += (hash(q * 97 + k, s + 64) - 0.5) * 0.22;
@@ -1508,8 +1810,7 @@ const groupBody = (ps) => {
   return body;
 };
 
-// The live bits on a pond: glints drifting with the wind, a swamp bubble,
-// the ice twinkling, lava bubbling.
+// the ice's twinkle and the bubbles (a swamp's, lava's)
 const TWINKLE = new Map();
 const twinkleSprite = (col, big) => {
   const key = col + big;
@@ -1543,19 +1844,106 @@ const bubbleSprite = (lava, f) => {
   BUBBLES.set(key, cv);
   return cv;
 };
+// ---- the wind on still water ------------------------------------------------
+// One wind a realm (seeded): its heading among the 16 baked ones and the
+// unit vector the ripple bands drift along.
+const WINDS = new Map();
+const windOf = () => {
+  let w = WINDS.get(REALM.id);
+  if (w) return w;
+  const b = (((REALM.seed | 0) * 7 + 5) % 16 + 16) % 16, a = (b / 16) * Math.PI * 2;
+  w = { b, x: Math.cos(a), y: Math.sin(a) };
+  WINDS.set(REALM.id, w);
+  return w;
+};
+// a band of wind ripple: four short crests lying across the wind,
+// staggered, two tones (on black water the moon's grey)
+const BAND_SZ = 18;
+const BANDS = new Map();
+const bandSprite = (wa, b) => {
+  const key = `${wa.deep}${wa.edge}${wa.shine}|${b}`;
+  let cv = BANDS.get(key);
+  if (cv) return cv;
+  const n = BAND_SZ * PX, c0 = n / 2 - 0.5;
+  cv = document.createElement("canvas");
+  cv.width = cv.height = n;
+  const c = cv.getContext("2d");
+  const a = (b / 16) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+  const dot = (al, ac, col) => { c.fillStyle = col; c.fillRect(Math.round(c0 + ca * al - sa * ac), Math.round(c0 + sa * al + ca * ac), 1, 1); };
+  const dark = lum(wa.deep) < 0.2;
+  const main = dark ? mix(wa.edge, "#b4bcb6", 0.3) : mix(wa.edge, wa.shine, 0.55), soft = dark ? mix(wa.deep, "#b4bcb6", 0.2) : mix(wa.deep, wa.shine, 0.38);
+  for (let q = 0; q < 5; q++) {
+    const al = -6 + q * 2.8, at = (hash(q, 71) - 0.5) * 6, len = 3 + Math.floor(hash(q, 72) * 2.5);
+    for (let k = 0; k < len; k++) dot(al, at + k - len / 2, q & 1 ? soft : main);
+  }
+  BANDS.set(key, cv);
+  return cv;
+};
+// a ring spreading from a rising fish or a drip, in four steps: a dot, a
+// small ring, a wider one, a broken faint one
+const RING_SZ = 12;
+const RINGS = new Map();
+const ringSprite = (wa, f) => {
+  const key = `${wa.deep}${wa.edge}${wa.shine}|${f}`;
+  let cv = RINGS.get(key);
+  if (cv) return cv;
+  const n = RING_SZ * PX, c0 = n / 2 - 0.5;
+  cv = document.createElement("canvas");
+  cv.width = cv.height = n;
+  const c = cv.getContext("2d");
+  const dark = lum(wa.deep) < 0.2;
+  const main = dark ? mix(wa.edge, "#b4bcb6", 0.35) : mix(wa.edge, lighten(wa.shine, 0.2), 0.6), soft = dark ? mix(wa.deep, "#b4bcb6", 0.22) : mix(wa.deep, wa.shine, 0.4);
+  const rx = [1.3, 2.4, 3.7, 5][f] * PX, ry = rx * 0.62;
+  c.fillStyle = f < 2 ? main : soft;
+  for (let q = 0; q < 28; q++) {
+    if (f >= 2 && hash(q, f + 3) < 0.25 * f) continue;
+    const ang = (q / 28) * Math.PI * 2;
+    c.fillRect(Math.round(c0 + Math.cos(ang) * rx), Math.round(c0 + Math.sin(ang) * ry), 1, 1);
+  }
+  if (f === 0) { c.fillStyle = lighten(wa.shine, dark ? 0.1 : 0.4); c.fillRect(Math.round(c0), Math.round(c0), 1, 1); }
+  RINGS.set(key, cv);
+  return cv;
+};
+
+// The live bits on a pond: wind ripple in bands drifting slowly across the
+// water, the sky's reflections shimmering (glints drifting with the wind, in
+// three steps), now and then a ring from a rising fish or a drip, a swamp
+// bubble; the ice twinkling, lava bubbling.
 const pondLive = (ctx, p, time, body) => {
   const rx = p.w / 2, ry = p.h / 2, s = body.s, ga = ctx.globalAlpha;
   const inside = (u, v) => u * u + v * v < 1;
   if (body.kind === "clear" || body.kind === "swamp") {
-    const wa = body.pal, n = body.kind === "swamp" ? 2 : p.w >= 80 ? 6 : 3;
+    const wa = body.pal, dark = body.kind === "swamp" || lum(wa.deep) < 0.2, wind = windOf();
+    const hwx = rx * 0.8, hwy = ry * 0.75;
+    // the glints: a few, drifting slowly along the wind
+    const n = dark ? 2 : p.w >= 80 ? 5 : 3;
     for (let i = 0; i < n; i++) {
-      const P = 4 + hash(i, s + 1) * 3, tt = time + hash(i, s + 2) * P, cyc = Math.floor(tt / P), u = tt / P - cyc;
+      const P = 6 + hash(i, s + 1) * 3, tt = time + hash(i, s + 2) * P, cyc = Math.floor(tt / P), u = tt / P - cyc;
       const a = hash(i * 5 + cyc, s + 3) * Math.PI * 2, d = Math.sqrt(hash(i * 5 + cyc, s + 4)) * 0.62;
-      const x = p.x + Math.cos(a) * rx * d + u * P * 2.5, y = p.y + Math.sin(a) * ry * d;
-      if (!inside((x - p.x) / (rx * 0.8), (y - p.y) / (ry * 0.75))) continue;
-      ctx.globalAlpha = ga * (u < 0.15 || u > 0.85 ? 0.34 : u < 0.3 || u > 0.7 ? 0.67 : 1) * 0.85;
+      const x = p.x + Math.cos(a) * rx * d + u * P * 1.4 * wind.x, y = p.y + Math.sin(a) * ry * d + u * P * 1.4 * wind.y;
+      if (!inside((x - p.x) / hwx, (y - p.y) / hwy)) continue;
+      ctx.globalAlpha = ga * (u < 0.15 || u > 0.85 ? 0.34 : u < 0.3 || u > 0.7 ? 0.67 : 1) * (dark ? 0.7 : 0.85);
       const type = hash(i, s + 5) < 0.3 ? 1 : 0;
-      ctx.drawImage(markSprite(wa, type, 0), snapH(x) - MARK_SZ / 2, snapH(y) - MARK_SZ / 2, MARK_SZ, MARK_SZ);
+      ctx.drawImage(markSprite(wa, type, wind.b), snapH(x) - MARK_SZ / 2, snapH(y) - MARK_SZ / 2, MARK_SZ, MARK_SZ);
+    }
+    // bands of wind ripple crossing the water on the realm's wind, slowly,
+    // each fading in and out in three steps as it nears the shore
+    const nb = Math.max(2, Math.min(6, Math.round(p.w * p.h / 2600)));
+    const L = Math.abs(wind.x) * rx * 2 + Math.abs(wind.y) * ry * 2 + 14, wd = Math.abs(wind.y) * rx + Math.abs(wind.x) * ry;
+    for (let i = 0; i < nb; i++) {
+      const pos = ((time * 2.2 + hash(i, s + 40) * L) % L) - L / 2, across = (hash(i, s + 41) - 0.5) * 1.5 * wd;
+      const x = p.x + wind.x * pos - wind.y * across, y = p.y + wind.y * pos + wind.x * across;
+      const u = (x - p.x) / hwx, v = (y - p.y) / hwy, q = u * u + v * v;
+      if (q >= 1) continue;
+      ctx.globalAlpha = ga * (q > 0.8 ? 0.34 : q > 0.6 ? 0.67 : 1) * (dark ? 0.6 : 0.8);
+      ctx.drawImage(bandSprite(wa, wind.b), snapH(x) - BAND_SZ / 2, snapH(y) - BAND_SZ / 2, BAND_SZ, BAND_SZ);
+    }
+    // now and then a ring: a fish rising, a drip from the reeds
+    const RP = 9 + hash(s, 9) * 7, rt = time + hash(s, 10) * RP, rc = Math.floor(rt / RP), ru = rt / RP - rc;
+    if (ru < 0.17) {
+      const a = hash(rc, s + 11) * Math.PI * 2, d = Math.sqrt(hash(rc, s + 12)) * 0.55, f = Math.min(3, Math.floor(ru / 0.0425));
+      ctx.globalAlpha = ga * (f === 3 ? 0.5 : 0.85);
+      ctx.drawImage(ringSprite(wa, f), snapH(p.x + Math.cos(a) * rx * d) - RING_SZ / 2, snapH(p.y + Math.sin(a) * ry * d) - RING_SZ / 2, RING_SZ, RING_SZ);
     }
     if (body.kind === "swamp") {
       // now and then a bubble rises out of the muck
@@ -1621,7 +2009,7 @@ export const bakeWater = (ctx) => {
   const body = riverBody(RIVERS, REALM.water, [0, 0, W, H], RES);
   if (body) {
     ctx.drawImage(body.cv, body.x, body.y, body.w, body.h);
-    BOARD.rocks = body.rocks;
+    BOARD.rocks = body.rocks.concat(boardPiers());
   }
   // a pond painted with its river: what stands in it goes over the water
   for (const b of late) ctx.drawImage(b.cv, b.x, b.y, b.w, b.h);
