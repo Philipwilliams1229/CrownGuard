@@ -808,7 +808,9 @@ const riverBody = (rivers, wa, view, r) => {
         const lt = lat - M.drift * sd * 0.35, al = Math.abs(lt), ac = al / hwF;
         const dens = 1.3 * Math.pow(1 - Math.min(1, sd / FAN), 1.2) * clamp01(1.25 - 1.25 * ac * ac) * (0.85 + 0.3 * vn(x, y, 9, s + 62)) * mnear;
         const bar = sd < 4 + hwE * 0.12 && Math.abs(lat - M.bar * hwE) < hwE * 0.12 * clamp01(1 - sd / 8) + (vn(x, y, 4, s + 64) - 0.5) * 1.6;
-        if (!bar && vn(x, y, 2.5, s + 61) * 0.55 + hash(gi, gj + 3) * 0.45 > dens) continue;
+        // (nothing at all in the sea where the fan's density is 0: its
+        // edge is the ellipse |lat'| = hwF, widening with sd, never a box)
+        if (!bar && (dens <= 0 || vn(x, y, 2.5, s + 61) * 0.55 + hash(gi, gj + 3) * 0.45 > dens)) continue;
         shade = false;
         t = bar ? T_BAR : dens > 0.95 && sd < 14 + hwE * 0.3 ? T_SILT2 : T_SILT;
       } else {
