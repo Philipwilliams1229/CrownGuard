@@ -93,9 +93,9 @@ Provisional, pending the owner's playtest.
   Warden Mage is locked on the first levels now. `towerUnlocked` also opens a
   hall once ANY later level is cleared, so an old save keeps what it had.
 - **Tower XP, per hall TYPE** (`src/data/towerxp.js`, header has the rules):
-  levels 1-3 are free; the PATHS (tier 4) need `TIER_XP[4]` 1800 and the FINALS
-  (tier 5) `TIER_XP[5]` 7000 (raised from 600 / 2400 the same day, owner: a harder
-  first area) (both live in profile.js, re-exported). XP is
+  levels 1-3 are free; the PATHS (tier 4) need `TIER_XP[4]` 2500 and the FINALS
+  (tier 5) `TIER_XP[5]` 10000 (raised from 600 / 2400, then 1800 / 7000, the
+  same day: the owner wants a harder first area) (both live in profile.js, re-exported). XP is
   earned in campaign battles by a hall's kills (1 + a tenth of the bounty),
   the Warden Mage's aura kills (x0.25), the Gold Works' wages (x0.3) and 6
   XP for every wave a kind stands through. The ledger is `g.towerXp` (kept
@@ -114,8 +114,9 @@ Provisional, pending the owner's playtest.
   hall (archer/knight/wizard) earns ~450-600 XP a level on the first six
   levels, ~700-1000 mid-chapter, 2000+ on the Warrens (cumulative archer:
   ~1500 after Gullwick, ~4700 after the Barrowfields, ~7900 after the
-  Kingstones). So paths open about level 4 and finals about level 11 for a
-  hall used from the start; halls learned later start from zero. The sims buy
+  Kingstones). At 1800 / 7000 paths opened about level 4 and finals about
+  level 11; at 2500 / 10000 expect about level 5-6 and level 14-15 (the
+  chapter's end) for a hall used from the start; halls learned later start from zero. The sims buy
   whatever they like unless `--xp-gate` is given. Early levels bled a little
   more without the Warden Mage (gw2 / Gullwick burst plan ~100-140 vs 20-35).
 

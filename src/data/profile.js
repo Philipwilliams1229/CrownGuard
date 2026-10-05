@@ -178,7 +178,7 @@ export function resetHeroTalents(key) {
 // A save with no towerXp yet that has fought before opens the paths.
 // XP a hall type needs before its paths (tier 4) and finals (tier 5) may be
 // bought; the rest of the rules are in data/towerxp.js.
-export const TIER_XP = { 4: 1800, 5: 7000 };
+export const TIER_XP = { 4: 2500, 5: 10000 };
 export const VETERAN_XP = TIER_XP[4];
 export let TOWER_XP = {};
 export const bankedTowerXp = (kind) => Math.floor(TOWER_XP[kind] || 0);
