@@ -21,6 +21,7 @@ import { starsFree, rankName } from "../data/profile.js";
 import { Star } from "./Glyphs.jsx";
 import { CastleIcon, CoinIcon } from "./hud/icons.jsx";
 import CastleWorksModal from "./CastleWorksModal.jsx";
+import BuildTag from "./BuildTag.jsx";
 import { titleVistaAsync, VW, VH } from "./titleArt.js";
 import { startCrowd } from "./titleCrowd.js";
 import { warmMapTerrain } from "./mapArt.js";
@@ -49,10 +50,6 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
   const vp = useViewport();
   const compact = vp.short && vp.landscape;                      // phone on its side
   const wide = !compact && vp.w >= 820 && vp.w / vp.h >= 1.25;   // iPad on its side, desktop
-  // the blurb is the first thing to go when height is short, and on a phone
-  // held upright it would sit on the road where the crowd walks
-  const blurb = !compact && !vp.narrow && vp.h >= (wide ? 600 : 640);
-
   // Paint the vista a frame after the menu shows; then, while the player
   // reads the menu, quietly lay out the campaign map so it opens at once.
   const vistaRef = useRef(null);
@@ -186,14 +183,6 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
     </div>
   );
 
-  const story = blurb && (
-    <div style={{ fontSize: 10, textAlign: "center", maxWidth: 340, lineHeight: 1.6, color: "#e8e0c8", textShadow: `1px 1px 0 ${INK}, 0 0 5px rgba(16,19,34,0.95)` }}>
-      March the campaign from the Greenwood, through the Iron
-      Marches, and down into the drowned Hollowfen — or pick any
-      realm and army in Free Play and hold out against the Endless March.
-    </div>
-  );
-
   // the vista and the crowd over it share one placement
   const vistaStyle = {
     position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
@@ -219,7 +208,7 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
       }} />
 
       <div style={{ position: "absolute", inset: 0, boxSizing: "border-box", padding: pad(compact ? 10 : 18) }}>
-        <Fit deps={[compact, wide, blurb, saved, free > 0, treasury > 0]}>
+        <Fit deps={[compact, wide, saved, free > 0, treasury > 0]}>
           {compact ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", paddingLeft: "clamp(0px, 4vw, 48px)" }}>
               <div style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
@@ -235,12 +224,13 @@ export default function HomeScreen({ progress, profile, onNewCampaign, onContinu
               <div style={{ width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
                 {title}
                 {board}
-                {story}
               </div>
             </div>
           )}
         </Fit>
       </div>
+
+      <BuildTag style={{ position: "absolute", left: "max(env(safe-area-inset-left), 10px)", bottom: "max(env(safe-area-inset-bottom), 6px)" }} />
 
       {/* outside the <Fit>: a fixed modal inside a transform would pin to it */}
       {guideOpen && <FieldGuide onClose={() => setGuideOpen(false)} />}
