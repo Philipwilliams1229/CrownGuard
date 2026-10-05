@@ -19,7 +19,8 @@
 // for the whole save, travelling in the save code) when the battle ends,
 // win or lose, but while it runs the gate reads banked + ledger, so a hall
 // can ripen mid-battle. Free Play (the sandbox) opens every tier and earns
-// nothing; UNLOCK_ALL (campaign.js) opens everything for testing.
+// nothing, and so does the Endless March after a level is won (`g.victory`; a
+// campaign level's own waves are what teach); UNLOCK_ALL (campaign.js) opens everything for testing.
 //
 // Numbers are PROVISIONAL, pending the owner's playtest: see CLAUDE.md.
 
@@ -58,7 +59,7 @@ export const tierGate = (kind, tier, g) => {
 
 // Add to this battle's ledger. A no-op in the sandbox (and a freeplay game).
 export const addTowerXp = (g, kind, n) => {
-  if (!g || SANDBOX || g.freeplay || !(n > 0) || !TOWERS[kind]) return;
+  if (!g || SANDBOX || g.freeplay || g.victory || !(n > 0) || !TOWERS[kind]) return;   // no XP in Free Play or the Endless March
   const led = g.towerXp || (g.towerXp = {});
   led[kind] = (led[kind] || 0) + n;
 };

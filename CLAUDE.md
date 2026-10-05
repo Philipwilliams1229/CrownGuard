@@ -80,7 +80,8 @@ Provisional, pending the owner's playtest.
   banked + ledger, so a hall can ripen mid-battle; it guards `branchTower`,
   `ascendTower` and `placeMasterTower` (the master menu hides forms not yet
   earned). Free Play (sandbox / `g.freeplay`) opens every tier and earns
-  nothing; `UNLOCK_ALL` opens all for testing. A save that has already
+  nothing, and so does the Endless March after a win (`g.victory`, owner
+  2026-10-05); `UNLOCK_ALL` opens all for testing. A save that has already
   fought gets `VETERAN_XP` (the paths) on every hall, finals still to earn.
   UI: a "Locked" card with a progress bar replaces the paths/finals cards
   (`lockNote` in towerPanel); the end-of-battle card lists "Hall experience".
