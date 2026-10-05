@@ -292,6 +292,14 @@ agent with a tool-call budget instead of starting a fresh one.
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **TOP OF THE LIST for the next session (owner, 2026-10-05): the fog needs
+  work.** The owner did not say what is wrong: ask what they saw before changing
+  anything. What exists: the Greenwood's Morning Fog (`fog` in
+  `engine/weather.js`: now every hall reaches 25% less far while thick, no
+  px sight; not re-simmed), its painter (`fog` in `render/weatherfx.js`, plus
+  the mirrored copy beyond the board for tall screens, `paintWeatherEdge`),
+  the tower clearings it still draws (cosmetic now), the forecast wording and
+  the card / chip ⓘ (`data/weather-info.js`).
 - **Tower menu is built** (see "The tower menu is the tray"), pending the
   owner's playtest. Still open: the tray's Castle / Sandbox / Master row
   crowds when all three show (the label "Castle" clips); that belongs to
