@@ -476,12 +476,14 @@ const kettle = (ctx, x, y, a, p, o = {}) => inFrame(ctx, x, y, a, (c0) => {
   // the brim, seen a little from above: a lit top and a dark rolled edge
   blob(c0, [[-brim, -0.8, 1], [-brim + 0.8, -1.9], [0, -2.3], [brim - 0.4, -1.8], [brim + 0.3, -0.4, 1], [brim - 0.8, -0.2], [0, -0.7], [-brim + 1.2, -0.3]], steel, {
     hi: 0.55, lo: 0.4, then: (c) => {
-      c.strokeStyle = darken(steel, 0.45); c.lineWidth = 0.5;
+      c.strokeStyle = o.rim || darken(steel, 0.45); c.lineWidth = o.rim ? 0.65 : 0.5;
       c.beginPath(); c.moveTo(-brim, -0.6); c.quadraticCurveTo(0, -0.1, brim + 0.3, -0.4); c.stroke();
-      for (const rx of [-2.2, 0.2, 2.4]) dab(c, rx, -1.6, 0.45, 0.45, lighten(steel, 0.6));
+      for (const rx of [-2.2, 0.2, 2.4]) dab(c, rx, -1.6, 0.45, 0.45, o.rim ? lighten(o.rim, 0.4) : lighten(steel, 0.6));
     },
   });
   if (o.strap) line(c0, 1.2, -0.4, 0.8, 2.3, 0.4, LEATHER);
+  // a short feather tucked in the band, streaming back (the Errant company's)
+  if (o.feather) blob(c0, [[-0.6, -3.8], [-1.8, -4.9], [-3.4, -5.2], [-5.2, -4.3, 1], [-3.4, -3.9], [-1.8, -3.3]], o.feather, { hi: 0.2, lo: 0.32, then: (c) => line(c, -1.2, -4.3, -4.2, -4.6, 0.35, darken(o.feather, 0.25)) });
 });
 
 // the sergeant's barbute: a deep bowl down to the jaw, a T cut for the face
@@ -597,6 +599,8 @@ const ROBE = { L1: 4.8, L2: 4.6, stride: 1.9, lift: 1.2, bob: 0.45, lean: 0.03, 
 // the crossbowman stands his ground to shoot (see step); the levy thrusts
 // from behind his shield, barely stepping out of the line
 const SHOOTER = { ...MAN, shoot: true };
+// the crown company's fight frame -> this file's pose (0 ready, 1 aim, 2 loose, 3 reload)
+const CROWN_SHOOT = [1, 2, 0, 3];
 const LEVY = { ...MAN, lunge: 0.6, hitLean: 0.08 };
 const KNIGHT = { L1: 4.8, L2: 4.6, stride: 2.2, lift: 1.6, bob: 0.5, lean: 0.03, dip: 0.03, lunge: 1.3, hipW: 0.8, thigh: 2.4, shin: 2.1, foot: 3.2, ankle: 0.85, hitLean: 0.18 };
 
@@ -671,6 +675,9 @@ const hands = (look, st, shN, shF) => {
 };
 
 const soldier = (ctx, p) => {
+  // the crown's crossbow company plays the garrison's ranged order (enemies.js
+  // fightFrame: 0 aim, 1 loose, 2 recoil, 3 reload) through the same four poses
+  if (p.house === "crown" && p.look === "bow" && p.pose === "fight") p = { ...p, frame: CROWN_SHOOT[(p.frame || 0) % 4] };
   const k = (p.h ?? 22) / 22; ctx.save(); ctx.scale(k, k);
   const look = p.look;
   const knight = look === "unseated", mage = look === "magister";
@@ -690,7 +697,7 @@ const soldier = (ctx, p) => {
 
   // limb colours
   let armN, armF, legN, fistN, fistF;
-  const hose = mix(under, "#3a3440", 0.62), boot = LEATHER;
+  const hose = p.house === "crown" ? mix(red, "#2a2630", 0.38) : mix(under, "#3a3440", 0.62), boot = LEATHER;   // (the crown company: dark green hose)
   if (plated) {
     const mail = mix(darken(steel, 0.2), "#7a808c", 0.4);
     // the rider is plated to the shoulder; the foot wear mail on the upper arm
@@ -853,6 +860,12 @@ const soldier = (ctx, p) => {
             line(cc, 2.4, -6.6, 2.6, -2.2, 0.4, lighten(red, 0.3));
             towerDevice(cc, 1.4, -4.6, 0.7);
           } else {
+            if (p.house === "crown") {
+              // the company's green tabard down the front, the order's brass chevron on it
+              poly(cc, [[-1.4, -7.6], [3.2, -7.6], [3.2, 0.6], [-1.4, 0.6]], red);
+              line(cc, 2.5, -6.6, 2.7, -2.2, 0.4, lighten(red, 0.3));
+              poly(cc, [[-1.4, -4.6], [0.9, -3.2], [3.2, -4.6], [3.2, -3.7], [0.9, -2.3], [-1.4, -3.7]], p.trim || BRASS);
+            }
             // the hood's capelet over the shoulders
             poly(cc, [[-3, -7.6], [3, -7.6], [3, -5.6], [1.2, -4.8], [-0.6, -5.4], [-3, -5.2]], red);
             dab(cc, -3, -5.6, 6, 0.4, darken(red, 0.35));
@@ -887,7 +900,7 @@ const soldier = (ctx, p) => {
   const ha = st.lean * 0.3 + (look === "bow" && st.fight ? [0.06, 0.14, 0.02, 0.3][st.f] : 0);
   const head = () => {
     if (look === "levy") kettle(ctx, hd[0], hd[1], ha, p, { brim: 4.4, strap: true, stubble: "#3a2a20" });
-    else if (look === "bow") kettle(ctx, hd[0], hd[1], ha, p, { brim: 3.4, hood: red });
+    else if (look === "bow") kettle(ctx, hd[0], hd[1], ha, p, p.house === "crown" ? { brim: 3.4, hood: red, rim: p.trim || BRASS, feather: p.plume } : { brim: 3.4, hood: red });
     else if (look === "sergeant") barbute(ctx, hd[0], hd[1], ha, p);
     else if (look === "chaplain") mitre(ctx, hd[0], hd[1], ha, p);
     else if (mage) magHood(ctx, hd[0], hd[1], ha, p);
@@ -970,5 +983,26 @@ export const IRON_RIGS = {
   magister: { kind: "ironFoot", box: { hw: 20, up: 37, down: 4 }, fightN: 4, p: { look: "magister", h: 23, skin: SKIN, cloth: OX, cloth2: "#4a4c58", hair: BLUED, col: "#9ab6d8", wcol: "#34363f" } },
   unseated: { kind: "ironFoot", box: { hw: 19, up: 32, down: 4 }, fightN: 4, p: { look: "unseated", h: 23.5, skin: SKIN, cloth: OX, cloth2: BLUED, hair: BLUED, cape: "#6a2226", mane: "#b08850", wcol: "#dde2ea", shcol: OX } },
   marshal: { kind: "ironFoot", box: { hw: 25, up: 46, down: 4 }, fightN: 4, p: { look: "marshal", h: 30, skin: SKIN, cloth: OX, cloth2: "#646a78", hair: "#5a606e", cape: "#6a2226", plume: "#e8e0cc", wcol: "#c4c8d0", shcol: OX } },
+};
+// The crown's Crossbow Company (the Knights Errant's second form; a garrison
+// unit, not a foe): the Iron crossbowman's figure and arbalest in the crown's
+// livery (p.house "crown"): cloth = the green hood, tabard and bolt flights,
+// cloth2 = dark gunmetal brigandine, hair = the gunmetal kettle hat, trim =
+// its brass rim and the tabard's chevron, plume = a short off-white feather.
+// His four fight frames follow rigs-crown.js's ranged order (CROWN_SHOOT).
+IRON_RIGS.errantBow = { kind: "ironFoot", box: { hw: 20, up: 30, down: 4 }, fightN: 4, p: { look: "bow", house: "crown", h: 22, skin: "#e8b990", cloth: "#2f6b3f", cloth2: "#555d6a", hair: "#626a78", trim: "#c9a24a", plume: "#e8e2d0", wcol: "#a4aab6" } };
+// Where his bolt leaves: the arbalest's nose, in board units from his feet
+// (facing +x, y down, at his own height). sheet "walk" | "fight"; frame 0-3 in
+// the garrison's order (fight: 0 aim, 1 loose, 2 recoil, 3 reload).
+export const errantBowMuzzle = (sheet = "fight", frame = 0) => {
+  const p = { ...IRON_RIGS.errantBow.p, pose: sheet === "walk" ? "walk" : "fight", frame: sheet === "walk" ? frame : CROWN_SHOOT[frame % 4] };
+  const k = (p.h ?? 22) / 22, { st, T } = skeleton(p, SHOOTER);
+  const shN = T(1.0, -6.6), shF = T(-1.1, -6.8), H = hands("bow", st, shN, shF);
+  const A = { up: 3.1, fore: 2.9 };
+  const KB = 1.15, pu = 5.4;
+  const hn = ik(shN[0], shN[1], H.hn[0], H.hn[1], A.up, A.fore, -1)[1];
+  const to = along(hn[0], hn[1], H.an);
+  const [x, y] = to((pu + 3.2) * KB, -0.4 * KB);
+  return [Math.round(x * k * 10) / 10, Math.round(y * k * 10) / 10];
 };
 export const IRON_PAINTERS = { ironFoot: soldier };

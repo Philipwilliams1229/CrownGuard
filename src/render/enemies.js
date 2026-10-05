@@ -365,11 +365,12 @@ export const drawKnightUnit = (ctx, u, t, time) => {
   if (t.kind === "riverwatch") { drawSkiff(ctx, u, t, time); return; }
   if (t.kind === "assassin") { drawAssassinUnit(ctx, u, t, time); return; }
   const r4 = t.rank4 && t.branch ? t.branch + t.rank4 : null;
-  const berserk = t.branch === "b";
+  const errant = t.branch === "b";
   const paladin = t.branch === "a";
   const giant = r4 === "aa";
   const rider = r4 === "ba";
-  const pal = giant ? KNIGHT_PALS.champion : paladin ? KNIGHT_PALS.paladin : berserk ? KNIGHT_PALS.berserk : KNIGHT_PALS.base;
+  const bow = !!u.bow;                       // a Crossbow Company crossbowman
+  const pal = giant ? KNIGHT_PALS.champion : paladin ? KNIGHT_PALS.paladin : errant ? KNIGHT_PALS.errant : KNIGHT_PALS.base;
   const frame = u.state === "moving" ? Math.floor(time * 8 + u.id) % 2 : 0;
   // Bored soldiers: a rallied knight with nothing to fight will, every so
   // often, stoop for a blade of grass, toe a pebble down the field, or
@@ -395,10 +396,12 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     }
   }
   {
-    const kind = rider ? "wolfrider" : giant ? "champion" : paladin ? "paladin" : berserk ? "berserk" : "knight";
+    const want = bow ? "errantBow" : rider ? "errantRider" : giant ? "champion" : paladin ? "paladin" : errant ? "errant" : "knight";
+    const kind = hasRig(want) ? want : "knight";
     const fighting = u.state === "fighting";
     const rsheet = fighting ? "fight" : "walk";
-    const rframe = u.state === "moving" ? Math.floor(time * (rider ? 9 : 7) + u.id) % 4 : fighting ? fightFrame(kind, u, getStats(t).rate, false) : 0;
+    const st = getStats(t);
+    const rframe = u.state === "moving" ? Math.floor(time * (rider ? 9 : 7) + u.id) % 4 : fighting ? fightFrame(kind, u, bow ? st.bowRate : st.rate, bow) : 0;
     const face = (u.face < 0) !== glance ? -1 : 1;
     drawRig(ctx, kind, u.x, u.y + 9 + stoop, face, rsheet, rframe);
     if (fidget === 0 && fp >= 0.3 && fp < 0.62) {
@@ -419,15 +422,6 @@ export const drawKnightUnit = (ctx, u, t, time) => {
     ctx.fillRect(S(u.x) - 1, wy2 - 2, 2, 2);
     ctx.fillRect(S(u.x) - 3, wy2, 6, 2);
     ctx.fillRect(S(u.x) - 1, wy2 + 2, 2, 2);
-  }
-  // Blood Frenzy: rising red motes as the stacks build
-  if (r4 === "bb" && u.frenzy > 0) {
-    ctx.fillStyle = "#e05248";
-    const n = Math.min(3, Math.ceil(u.frenzy / 3));
-    for (let i = 0; i < n; i++) {
-      const fy = u.y - 14 - ((time * 26 + i * 8 + u.id * 5) % 12);
-      ctx.fillRect(S(u.x - 6 + i * 6), S(fy), CELL, CELL);
-    }
   }
   if (paladin && u.swing > 120) {
     ctx.fillStyle = "rgba(232,212,122,0.35)";
@@ -450,7 +444,7 @@ export const drawKnightUnit = (ctx, u, t, time) => {
   }
   if (u.hp < u.maxHp) {
     const pct = Math.max(0, u.hp / u.maxHp);
-    // slim, and over the soldier's own head: a wolf rider and the champion
+    // slim, and over the soldier's own head: a mounted knight and the champion
     // stand far taller than a knight
     const by = u.y - (rider ? 33 : giant ? 42 : 21);
     ctx.fillStyle = "rgba(36,26,38,0.85)";

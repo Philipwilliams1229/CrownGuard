@@ -7,7 +7,7 @@ import * as CR from "/src/render/rigs-crown.js";
 // the rigs are bigger than a crew (the champion's maul goes up past 45 units)
 export const CW = 56, CH = 64;
 const X = 22, Y = 58;
-const TYPES = ["knight", "squire", "paladin", "berserk", "champion", "halberdier", "farmer", "heroKnight", "heroHunter", "bowman", "heroFriar", "heroCaptain", "heroStorm"];
+const TYPES = ["knight", "errant", "squire", "paladin", "berserk", "champion", "halberdier", "farmer", "heroKnight", "heroHunter", "bowman", "heroFriar", "heroCaptain", "heroStorm"];
 const FIGHT = CR.CROWN_FIGHT_FRAMES || {};
 const WALK = ["contact", "passing", "contact", "passing"];
 const FIGHT4 = CR.CROWN_FIGHT_NAMES || {};

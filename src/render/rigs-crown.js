@@ -444,6 +444,35 @@ const greatHelm = (ctx, x, y, a, p, o = {}) => inFrame(ctx, x, y, a, (c0) => {
   });
 });
 
+// the Knights Errant's helm: a closed bascinet under a pointed, hinged visor
+// (a hound's snout), brass at the brow, the aventail's edge and the hinge, and
+// a tall off-white plume streaming back from the crown (p.cloth the plate,
+// p.hair the plume). Distinct from the paladin's flat-topped great helm.
+const ERR_BRASS = "#c9a24a";
+export const errantHelm = (ctx, x, y, a, p, fl = 0) => inFrame(ctx, x, y, a, (c0) => {
+  const plate = p.cloth || "#4c525e", steel = lighten(plate, 0.16), plume = p.hair || "#e8e2d0", brass = ERR_BRASS;
+  blob(c0, [[1.7, -3.2], [1.2, -5.4], [-0.2, -7.0], [-2.8 - fl * 0.4, -7.0], [-5.6 - fl * 0.9, -5.4 + fl * 0.3, 1], [-3.8 - fl * 0.5, -4.9], [-3.0, -3.4], [-0.6, -2.9]], plume, {
+    hi: 0.2, lo: 0.32, then: (c) => { line(c, 0.6, -4.4, -4.0 - fl * 0.5, -5.7, 0.4, darken(plume, 0.22)); line(c, 0.4, -5.8, -2.6, -6.5, 0.35, lighten(plume, 0.3)); },
+  });
+  blob(c0, [[-2.8, 2.6, 1], [-3.0, -0.6], [-2.5, -2.9], [-0.6, -3.7], [1.8, -3.3], [2.9, -1.8], [3.2, -0.2], [2.8, 1.6], [2.2, 2.8, 1], [0.6, 3.0, 1]], steel, {
+    hi: 0.6, lo: 0.36, then: (c) => {
+      line(c, -0.6, -3.5, -2.6, -0.6, 0.45, lighten(steel, 0.7));
+      dab(c, -3.2, -1.95, 6.6, 0.6, brass);                                  // the brass browband
+      dab(c, -3.2, 2.35, 6.6, 0.5, darken(brass, 0.12));                     // the aventail's edge
+      dab(c, -0.4, -3.9, 1.5, 1.0, brass);                                   // the plume's socket
+      for (const rx of [-2.2, -1.0]) dab(c, rx, 0.9, 0.45, 0.45, lighten(steel, 0.7));
+    },
+  });
+  blob(c0, [[1.1, -2.2, 1], [3.1, -2.0], [4.8, 0.5, 1], [4.0, 2.2], [2.3, 2.6, 1], [0.9, 1.2]], lighten(plate, 0.32), {
+    hi: 0.5, lo: 0.36, then: (c) => {
+      dab(c, 1.7, -0.9, 2.8, 0.55, INKY);                                    // the sight
+      for (const [bx, by] of [[3.0, 0.7], [3.5, 1.3], [2.5, 1.5]]) dab(c, bx, by, 0.4, 0.4, darken(plate, 0.4));
+      line(c, 1.5, -1.9, 4.2, 0.1, 0.4, lighten(plate, 0.9));
+      dab(c, 0.9, -1.4, 0.7, 0.7, lighten(brass, 0.4));                      // the hinge
+    },
+  });
+});
+
 // Sir Aldric's helm: open-faced, silver, a gilt browband and a red crest
 const heroHelm = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
   const steel = p.hair || "#dde2ea", gold = p.cloth2 || "#e8c14a", crest = p.cape || "#a0303a";
@@ -701,11 +730,11 @@ const grip = (w, st, shN, shF) => {
 const soldier = (ctx, p) => {
   const k = (p.h ?? 22) / 22; ctx.save(); ctx.scale(k, k);
   const look = p.look, o = MAN, R = skeleton(p, o), { st, T } = R;
-  const plated = look === "knight" || look === "guard" || look === "paladin" || look === "hero" || look === "champion" || look === "captain";
+  const plated = look === "knight" || look === "errant" || look === "guard" || look === "paladin" || look === "hero" || look === "champion" || look === "captain";
   // the friar's habit and the storm-caller's robe fall to the ankles
   const robed = look === "friar" || look === "storm";
   // the Gate Guard is kitted as the garrison's knights are, in the castle's colours
-  const kn = look === "knight" || look === "guard";
+  const kn = look === "knight" || look === "errant" || look === "guard";
   const skin = p.skin, skinF = darken(skin, 0.24);
   const steel = p.cloth, trim = p.cloth2;
   shadow(ctx, 0.4, -0.1, 4.8, 1.3, 0.22);
@@ -846,7 +875,12 @@ const soldier = (ctx, p) => {
           // the garrison's blue surcoat over mail, a pale cross on the breast;
           // the Gate Guard's is the castle's red, a gold bar across it
           line(cc, 2.1, -6.4, 2.3, -2.2, 0.45, lighten(trim, 0.35));
-          if (look === "guard") dab(cc, -0.7, -5.0, 3.2, 1.0, BRASS);
+          if (look === "errant") {
+            // the Errant's green surcoat: a brass chevron on the breast, brass down the front edge
+            line(cc, 2.6, -6.2, 2.8, -2.0, 0.5, ERR_BRASS);
+            poly(cc, [[-2.8, -6.3], [0.4, -4.5], [3.2, -6.1], [3.2, -4.9], [0.4, -3.2], [-2.8, -5.1]], ERR_BRASS);
+            line(cc, -2.8, -6.2, 0.4, -4.5, 0.35, lighten(ERR_BRASS, 0.45));
+          } else if (look === "guard") dab(cc, -0.7, -5.0, 3.2, 1.0, BRASS);
           else { dab(cc, 0.3, -6.2, 0.8, 3.4, "#e8e2d0"); dab(cc, -0.7, -5.2, 2.8, 0.8, "#e8e2d0"); }
           dab(cc, -3, -7.8, 6, 1.3, mix(darken(steel, 0.25), "#8a909c", 0.4));
           line(cc, -2.6, -6.4, 2.9, -6.4, 0.4, lighten(steel, 0.25));
@@ -959,6 +993,7 @@ const soldier = (ctx, p) => {
   } else if (w === "sword" || w === "mace") {
     const sc = p.shcol || "#3a5474";
     if (look === "knight") kite(ctx, H.hf[0] + 0.9, H.hf[1] + 0.2, sc, "#c4c8d0", "cross", "#e8e2d0");
+    else if (look === "errant") kite(ctx, H.hf[0] + 0.9, H.hf[1] + 0.2, sc, ERR_BRASS, "chevron", ERR_BRASS, 1.08);
     else if (look === "hero") kite(ctx, H.hf[0] + 0.9, H.hf[1] + 0.2, sc, trim, "chevron", trim, 1.05);
     else kite(ctx, H.hf[0] + 0.9, H.hf[1] + 0.2, sc, lighten(sc, 0.35), "cross", "#f4efe0");
   }
@@ -972,11 +1007,12 @@ const soldier = (ctx, p) => {
   // elbow sits behind the head's middle, so the arm covers only the back of
   // the helm and the ear, never the face.
   const pl = plated && !kn;
+  const pTrim = look === "errant" ? ERR_BRASS : pl ? trim : null;
   const nearHand = () => {
     const h = arm(ctx, shN, H.hn, A, colsN);
     // (with the blade on the shoulder the shell rides up a hair, so the
     // blade crosses its lower half and the helm's rim sits in its curve)
-    if (plated) pauldron(ctx, shN[0] - 0.2, shN[1] + (H.shoulder ? -0.2 : 0.1), 1.8, steel, pl ? trim : null);
+    if (plated) pauldron(ctx, shN[0] - 0.2, shN[1] + (H.shoulder ? -0.2 : 0.1), 1.8, steel, pTrim);
     if ((w === "sword" || w === "mace") && !back) blade(h);
     else if (w === "axes" && !back) axe(ctx, h[0], h[1], H.an, p.wcol || "#b8bcc4");
     wrist(h, H.an, w);
@@ -1029,6 +1065,7 @@ const soldier = (ctx, p) => {
   if (armBehind) { hd[0] += 0.5; hd[1] += 0.4; }
   const ha = st.lean * 0.3;
   if (look === "knight") bascinet(ctx, hd[0], hd[1], ha, p, { plume: trim });
+  else if (look === "errant") errantHelm(ctx, hd[0], hd[1], ha, p, st.fl * 0.35);
   else if (look === "guard") bascinet(ctx, hd[0], hd[1], ha, p, { band: BRASS });
   else if (look === "paladin") greatHelm(ctx, hd[0], hd[1], ha, p);
   else if (look === "champion") greatHelm(ctx, hd[0], hd[1], ha, p, { steel: p.cloth, crown: p.hair || "#e8c14a" });
@@ -1062,6 +1099,10 @@ const soldier = (ctx, p) => {
 // ---- the roster -------------------------------------------------------------------
 export const CROWN_RIGS = {
   knight: { kind: "crown", box: { hw: 20, up: 30, down: 4 }, p: { look: "knight", h: 22, skin: "#e8b990", cloth: "#b8bcc4", cloth2: "#3a5474", hair: "#c4c8d0", weapon: "sword", wcol: "#dde2ea", shcol: "#3a5474" } },
+  // the Knights Errant (the Knight Garrison's second path): gunmetal plate, a
+  // forest-green surcoat and kite shield with a brass chevron, a plumed visored
+  // bascinet (errantHelm). p.cloth the plate, cloth2 the green, hair the plume.
+  errant: { kind: "crown", box: { hw: 21, up: 32, down: 4 }, p: { look: "errant", h: 22, skin: "#e8b990", cloth: "#58606e", cloth2: "#2f6b3f", hair: "#e8e2d0", weapon: "sword", wcol: "#dde2ea", shcol: "#2f6b3f" } },
   paladin: { kind: "crown", box: { hw: 21, up: 30, down: 4 }, p: { look: "paladin", h: 22, skin: "#e8b990", cloth: "#e0dccf", cloth2: "#d8b34a", hair: "#e8e2d0", weapon: "mace", wcol: "#e8c860", shcol: "#d8b34a" } },
   berserk: { kind: "crown", box: { hw: 20, up: 30, down: 4 }, p: { look: "berserk", h: 22, skin: "#e8b990", cloth: "#6a3a2a", cloth2: "#3a2018", hair: "#b0503a", weapon: "axes", wcol: "#b8bcc4" } },
   champion: { kind: "crown", box: { hw: 34, up: 46, down: 4 }, p: { look: "champion", h: 34, skin: "#e8b990", cloth: "#e0dccf", cloth2: "#d8b34a", hair: "#e8c14a", cape: "#3a5474", weapon: "hammer", wcol: "#e8c860", shcol: "#d8b34a" } },
@@ -1090,7 +1131,10 @@ export const CROWN_PAINTERS = { crown: soldier };
 // Every crown soldier's fight sheet has four frames (enemies.js fightFrame
 // picks them off the attack clock): melee 0 guard, 1 wind-up, 2 strike,
 // 3 follow-through; the bow 0 full draw, 1 loose, 2 reach to the quiver, 3 nock.
-export const CROWN_FIGHT_FRAMES = Object.fromEntries(Object.keys(CROWN_RIGS).map((t) => [t, 4]));
+// (errantBow, the Crossbow Company's shooter, is painted by rigs-iron.js and
+// errantRider, the Lancer Order's horseman, by rigs-ironmounts.js: both play
+// the garrison's four-frame orders)
+export const CROWN_FIGHT_FRAMES = { ...Object.fromEntries(Object.keys(CROWN_RIGS).map((t) => [t, 4])), errantBow: 4, errantRider: 4 };
 
 // the staff's four fight frames read differently from a blade's (the joint lab's labels)
 export const CROWN_FIGHT_NAMES = { heroStorm: ["ready", "release", "recoil", "recover"] };

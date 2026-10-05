@@ -45,10 +45,12 @@ export const TOWERS = {
         },
       },
       b: {
-        name: "Berserker Hall", cost: 415, stats: { dmg: 20, rate: 320, range: 60, hp: 150, count: 4 }, desc: "FOUR berserkers with whirling axes. Frailer than knights, but a storm of steel.",
+        name: "Knights Errant", cost: 415, stats: { dmg: 38, rate: 640, range: 60, hp: 180, count: 4 }, desc: "FOUR plate knights in green and iron. Lighter than paladins, but they swing fast and in number.",
         rank4: {
-          a: { name: "Wolf Lodge", cost: 1020, stats: { dmg: 24, rate: 300, range: 98, hp: 175, count: 4, unitSpeed: 150, respawnMs: 4000, rider: true }, desc: "Berserkers on great wolves: faster than anything on the road, and back from the dead in a heartbeat." },
-          b: { name: "Blood Frenzy", cost: 1020, stats: { dmg: 22, rate: 300, range: 60, hp: 160, count: 4, frenzy: true, lifesteal: 0.25 }, desc: "Every wound they deal feeds them — and the longer they fight, the faster the axes swing." },
+          a: { name: "Lancer Order", cost: 1020, stats: { dmg: 46, rate: 600, range: 98, hp: 210, count: 4, unitSpeed: 150, respawnMs: 4000, rider: true }, desc: "Knights on armoured destriers: faster than anything on the road, and quick back in the saddle." },
+          // two knights hold the line, two crossbowmen loose from behind them
+          // at ANYTHING in reach, fliers included (engine: bows / bow* stats)
+          b: { name: "Crossbow Company", cost: 1020, stats: { dmg: 48, rate: 640, range: 60, hp: 230, count: 4, bows: 2, bowHp: 120, bowDmg: 38, bowRate: 800, bowRange: 125 }, desc: "Two knights hold the road; two crossbowmen shoot over their shoulders, fliers included." },
         },
       },
     },

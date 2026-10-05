@@ -39,7 +39,7 @@
       selectRealm(q.get("realm") || "greenwood");
       selectFaction(q.get("faction") || "greenwood");
       const g = {
-        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: CASTLE_HP, wave: 1, phase: "combat",
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: CASTLE_HP, wave: 1, freeplay: true, phase: "combat",
         towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
         selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
         cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0,

@@ -40,6 +40,31 @@ neighbours', so the levels already played keep theirs.
   point (`ws`) and coasts set their cove `ease` (style guide, "Water, roads
   and ground").
 
+## Knights Errant replace the Berserker path (2026-10-05, owner request)
+
+Provisional, pending the owner's playtest ("barbarians don't fit the aesthetic").
+The Knight Garrison's path `b` (ids unchanged, so saves keep their forms):
+- **Knights Errant** (was Berserker Hall): 4 plate knights, dmg 38 / 640 ms /
+  180 hp (the berserkers were 20 / 320 ms / 150: same dps, heavier blows).
+  Livery: gunmetal plate, forest green, brass, off-white plume (distinct from
+  the base knight's steel+navy, the paladins' ivory+gold, Aldric's red, Iron's
+  oxblood). Rigs `errant`, `errantRider`, `errantBow`; hall in halls/garrison.js.
+- **Lancer Order** (b.a, was Wolf Lodge): the same four mounted
+  (`rider: true`, `unitSpeed` 150, `errantRider` = the Iron destrier painter with
+  `p.house: "crown"`); the rally slots spread wider for a horse's length.
+- **Crossbow Company** (b.b, was Blood Frenzy): `count` 4 with `bows: 2` and
+  flat `bowHp/bowDmg/bowRate/bowRange`. syncUnits flags the LAST `bows` units
+  `u.bow` (`u.rig = "errantBow"`); `runGarrison` (update.js) runs the knights
+  with `runMelee` and the bowmen with `runRangedBand` over the same units, as
+  the Levy's mixed bands do, so the bolts hit ANY foe in reach, fliers included.
+  Skill-tree perks scale the `bow*` stats too (withPerks, BOW_PERK).
+- `frenzy` / `lifesteal` stay in the engine but no hall uses them. The old
+  `berserk` and `wolfrider` rigs are still registered (rimefx.js aliases name
+  them); nothing in the army draws them.
+- Lab note: `shotlab.html` and `bench-hall.mjs` now need `freeplay: true` in
+  the game state or the tower-XP gate refuses the paths (shotlab has it; the
+  bench still reports one number for every knight form).
+
 ## Home screen: Skills & Heroes, Castle Works (2026-10-05, owner request)
 
 Provisional, pending the owner's look (not yet seen in a browser by the session that wrote it).

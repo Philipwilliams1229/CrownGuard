@@ -880,7 +880,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
             u.face = dx >= 0 ? 1 : -1;
             target.face = -u.face;
             if (u.atkCd <= 0) {
-              // Blood Frenzy: each hit stacks attack speed and feeds the berserker
+              // frenzy: each hit stacks attack speed (no hall has it now; the engine keeps it)
               const frenzyMul = st.frenzy ? 1 - Math.min(0.45, (u.frenzy || 0) * 0.06) : 1;
               u.atkCd = st.rate * frenzyMul;
               u.swing = 180;
@@ -937,6 +937,20 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
       });
 };
 
+// A Knight Garrison's people for one tick. Most halls are all swordsmen
+// (runMelee); a mixed company (the Crossbow Company: `bows` of its `count`
+// are crossbowmen, flagged `u.bow` by syncUnits) runs each half as a band of
+// its own over the same unit objects, as the Levy's upper tiers do — the
+// knights hold the road, the crossbowmen loose from behind them at the
+// nearest foe in reach, fliers included.
+const runGarrison = (g, t, st, slots, sdt, tms) => {
+  if (!st.bows) { runMelee(g, t, st, slots, sdt, tms); return; }
+  const half = (keep) => ({ ...t, units: t.units.filter((u) => !!u.bow === keep) });
+  const slotsOf = (keep) => slots.filter((_, i) => !!t.units[i].bow === keep);
+  runMelee(g, half(false), st, slotsOf(false), sdt, tms);
+  runRangedBand(g, half(true), { ...st, hp: st.bowHp, dmg: st.bowDmg, rate: st.bowRate, range: st.bowRange, ranged: true }, slotsOf(true), sdt, tms);
+};
+
 export function updateGame(g, dt) {
   // time keeps its pace while a menu is open (the old tactical half-speed is gone)
   const speed = g.speed * BASE_SPEED;
@@ -988,7 +1002,7 @@ export function updateGame(g, dt) {
     if (g.phase === "build") for (const t of g.towers) {
       if (t.kind !== "knight" || !isBuilt(t, g)) continue;
       syncUnits(t, g);
-      runMelee(g, t, getStats(t), unitSlots(t), sdt, tms);
+      runGarrison(g, t, getStats(t), unitSlots(t), sdt, tms);
     }
     syncRetinue(g);
     if (g.bands) {
@@ -1863,7 +1877,7 @@ export function updateGame(g, dt) {
       syncUnits(t, g);
       const st = getStats(t);
       const slots = unitSlots(t);
-      runMelee(g, t, st, slots, sdt, tms);
+      runGarrison(g, t, st, slots, sdt, tms);
       // Radiant Basilica: holy ground around each living paladin sears nearby foes
       if (st.sear) {
         for (const u of t.units) {

@@ -21,6 +21,15 @@
 //             beneath. The wheels turn with the walk; the ram draws back and
 //             strikes in the fight.
 //
+//   errantRider  the same destrier and rider in the crown's house colours (p.house
+//             "crown": the Knights Errant's Lancer Order): a dapple-grey horse
+//             under a forest-green, brass-edged caparison with the order's brass
+//             chevron, a steel chanfron and crinet; the rider in gunmetal plate
+//             and a green surcoat, a plumed visored bascinet (errantHelm,
+//             rigs-crown.js), a green kite shield and a couched lance with a
+//             green pennon. Every house branch is gated by p.house, so the
+//             Iron cavalier is unchanged to the pixel.
+//
 // A compact Iron rider (blued plate, oxblood surcoat, sallet) is built here —
 // the foot soldiers live in rigs-iron.js. Colours ride in the params (skin,
 // cloth = steel, cloth2 = surcoat, cape = caparison / hides, hair = black-iron
@@ -29,6 +38,7 @@
 
 import { lighten, darken, lin, part, shadow } from "./paint.js";
 import { logJoint } from "./folk-kit.js";
+import { errantHelm } from "./rigs-crown.js";
 
 // ---- the kit ------------------------------------------------------------------
 const TAU = Math.PI * 2;
@@ -139,6 +149,7 @@ const helm = (ctx, x, y, a, p) => inFrame(ctx, x, y, 0, 0, a, (c0) => {
 
 const rider = (ctx, p, o) => {
   const steel = p.cloth, coat = p.cloth2, iron = p.hair;
+  const crown = p.house === "crown", BR = p.trim || BRASS;
   const L = o.lean || 0;
   const T = (x, y) => rot([x, y], [0, 0], L);
   // far arm: the reins and the small heater shield on the forearm
@@ -159,7 +170,7 @@ const rider = (ctx, p, o) => {
     blob(c0, [[-2.5, 0.8, 1], [-2.8, -3.0], [-2.4, -6.4], [-1.1, -7.9], [0.9, -8.0], [2.3, -6.9], [2.8, -4.3], [2.4, -1.6], [2.9, 0.8, 1]], coat, {
       hi: 0.32, lo: 0.42, then: (c) => {
         fillPath(c, [[0.9, -8.2], [2.6, -7.2], [3.2, -4.6], [1.8, -4.8], [1.2, -6.8]], steel, { hi: 0.55, lo: 0.3 });  // the breastplate at the arm-hole
-        dab(c, -3, -2.6, 6.2, 0.9, iron); dab(c, 1.0, -2.6, 0.9, 0.9, BRASS);
+        dab(c, -3, -2.6, 6.2, 0.9, iron); dab(c, 1.0, -2.6, 0.9, 0.9, BR);
         line(c, -1.6, -6.6, -2.2, -3.6, 0.45, lighten(coat, 0.3));
       },
     });
@@ -170,16 +181,22 @@ const rider = (ctx, p, o) => {
     const sc = o.shieldAt || [6.4, -9.4];
     const [x, y] = sc;
     ctx.save(); ctx.translate(x, y); ctx.scale(1.25, 1.25); ctx.translate(-x, -y);
-    blob(ctx, [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]], coat, {
+    // (the crown's is a longer kite, rimmed in brass, the order's chevron on it)
+    const sp = crown
+      ? [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.6], [x + 0.9, y + 3.4], [x, y + 4.8, 1], [x - 0.9, y + 3.4], [x - 2.4, y + 0.6]]
+      : [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]];
+    blob(ctx, sp, coat, {
       hi: 0.18, lo: 0.4, then: (c) => {
-        tower(c, x, y + 0.2, 0.85, lighten(steel, 0.25));
-        c.strokeStyle = iron; c.lineWidth = 0.8; path(c, [[x - 2.3, y - 2.8, 1], [x + 2.3, y - 2.8, 1], [x + 2.4, y + 0.2], [x + 0.9, y + 2.2], [x, y + 3.2, 1], [x - 0.9, y + 2.2], [x - 2.4, y + 0.2]]); c.stroke();
-        dab(c, x - 2.1, y - 2.7, 4.2, 0.45, lighten(steel, 0.5));
+        if (crown) poly(c, [[x - 2.6, y + 0.2], [x, y - 1.8], [x + 2.6, y + 0.1], [x + 2.6, y + 1.1], [x, y - 0.7], [x - 2.6, y + 1.2]], BR);
+        else tower(c, x, y + 0.2, 0.85, lighten(steel, 0.25));
+        c.strokeStyle = crown ? BR : iron; c.lineWidth = 0.8; path(c, sp); c.stroke();
+        dab(c, x - 2.1, y - 2.7, 4.2, 0.45, crown ? lighten(coat, 0.35) : lighten(steel, 0.5));
       },
     });
     ctx.restore();
   }
-  helm(ctx, ...T(1.0, -10.4), L * 0.6, p);
+  if (crown) errantHelm(ctx, ...T(1.0, -10.4), L * 0.6, { cloth: steel, hair: p.plume || "#e8e2d0" }, (o.fl || 0) * 0.35);
+  else helm(ctx, ...T(1.0, -10.4), L * 0.6, p);
   // the lance: couched under the near arm (or raised, on a gryphon), striped
   // in the colours, a vamplate at the grip and a swallow-tailed pennon
   const hand = o.hand || [2.8, -4.8], a = o.lance ?? 0, dir = [Math.cos(a), Math.sin(a)], nrm = [-dir[1], dir[0]];
@@ -209,7 +226,7 @@ const rider = (ctx, p, o) => {
   part(ctx, (c) => { c.fillStyle = cel(c, hand[0] - 1.2, hand[1] - 1.2, hand[0] + 1.2, hand[1] + 1.2, steel, 0.5, 0.4); c.beginPath(); c.ellipse(hand[0] + 0.2, hand[1], 1.2, 1.1, 0, 0, TAU); c.fill(); });
   // the pauldron over the near shoulder
   blob(ctx, [[sh[0] - 2.0, sh[1] + 1.2, 1], [sh[0] - 1.8, sh[1] - 0.8], [sh[0] - 0.2, sh[1] - 1.9], [sh[0] + 1.6, sh[1] - 1.1], [sh[0] + 2.1, sh[1] + 1.1, 1]], steel, {
-    hi: 0.55, lo: 0.42, then: (c) => { line(c, sh[0] - 1.8, sh[1] + 0.2, sh[0] + 1.9, sh[1] + 0.3, 0.5, iron); dab(c, sh[0] - 0.8, sh[1] - 1.2, 0.55, 0.55, lighten(steel, 0.7)); },
+    hi: 0.55, lo: 0.42, then: (c) => { line(c, sh[0] - 1.8, sh[1] + 0.2, sh[0] + 1.9, sh[1] + 0.3, 0.5, crown ? BR : iron); dab(c, sh[0] - 0.8, sh[1] - 1.2, 0.55, 0.55, lighten(steel, 0.7)); },
   });
 };
 
@@ -232,6 +249,17 @@ const HORSE_FIGHT = [
   { bob: 0, pitch: -0.3, dx: -1, head: -0.3, tail: 1.6, hem: [-0.4, 0], fn: [11.5, -9.5, -1.4], ff: [14, -7.5, -0.9], hn: [-6.5, 0, 0.4], hf: [-4, 0, 0.3], lance: -0.34, thrust: -1.6, lean: -0.18, fl: 1.4 },
   // the strike: the whole weight thrown forward down the lance
   { bob: 0.5, pitch: 0.07, dx: 2, head: 0.16, tail: -0.5, hem: [1, 1], fn: [15, 0, 0.4], ff: [11.5, -1, 0], hn: [-9, 0, 0.3], hf: [-12.5, -1.5, -0.6], lance: 0.1, thrust: 3.2, lean: 0.26, fl: 0.6 },
+];
+// The crown's Lancer Order stands and fights on the spot, so it has four fight
+// frames (rigs-crown.js CROWN_FIGHT_FRAMES; enemies.js plays them off the
+// attack clock): 0 guard (planted, the lance levelled), 1 wind-up (the rear,
+// as the Iron cavalier's first frame), 2 strike (as its second), 3 follow-
+// through (the weight forward, the point carried past the line).
+const HORSE_FIGHT4 = [
+  { bob: 0, pitch: -0.04, dx: 0, head: 0.05, tail: 0.25, hem: [0.3, 0.4], fn: [10.5, 0, 0.45], ff: [7, 0, 0.1], hn: [-8, 0, 0.3], hf: [-10.5, 0, 0.2], lance: -0.04, thrust: 0.4, lean: 0.06, fl: 0.4 },
+  HORSE_FIGHT[0],
+  HORSE_FIGHT[1],
+  { bob: 0.3, pitch: 0.05, dx: 1, head: 0.12, tail: -0.2, hem: [0.8, 0.7], fn: [14, 0, 0.3], ff: [11, -0.5, 0.1], hn: [-9, 0, 0.3], hf: [-11.5, -0.8, -0.4], lance: 0.2, thrust: 2.4, lean: 0.22, fl: 0.9 },
 ];
 const FORE = { l1: 5, l2: 4.1, pas: 1.4, ws: [2.9, 1.9, 1.5], bend: -1 };
 const HIND = { l1: 4.9, l2: 4.7, pas: 1.4, ws: [3.4, 2.1, 1.5], bend: 1 };
@@ -261,9 +289,10 @@ const horseLeg = (ctx, root, [hx, hy, lean], o, col, sock) => {
 
 const destrier = (ctx, p) => {
   const fight = p.pose === "fight";
-  const k = fight ? HORSE_FIGHT[(p.frame || 0) % 2] : HORSE_RUN[(p.frame || 0) % 4];
+  const k = fight ? (p.fightN4 ? HORSE_FIGHT4 : HORSE_FIGHT)[(p.frame || 0) % (p.fightN4 ? 4 : 2)] : HORSE_RUN[(p.frame || 0) % 4];
   const s = (p.len ?? 34) / 34;
   const col = p.col, cape = p.cape, steel = p.cloth, iron = p.hair, mane = p.mane, sock = p.belly;
+  const crown = p.house === "crown", BR = p.trim || BRASS;
   const far = darken(col, 0.3), farSock = darken(sock, 0.35);
   shadow(ctx, 1.5, 0.4, 14 * s, 2.4 * s, 0.3);
   ctx.save(); ctx.scale(s, s);
@@ -296,6 +325,8 @@ const destrier = (ctx, p) => {
       poly(c, [Hd([0.6, -1.2]), Hd([-0.2, -3.2]), Hd([1.8, -1.2])], darken(col, 0.3));
       c.fillStyle = cel(c, 9, -26, 18, -12, lighten(col, 0.08), 0.3, 0.42);
       taper(c, [nb, lerp(nb, P0, 0.5), P0], [7.4, 5.2, 4.0]);
+      // a dapple-grey: darker rings scattered over the neck
+      if (crown) for (const [t, v] of [[0.15, 1.2], [0.35, -0.8], [0.5, 1.4], [0.68, -0.2], [0.82, 1.0]]) { c.fillStyle = darken(col, 0.14); const [dx2, dy2] = lerp(nb, P0, t); c.fillRect(dx2 - 0.4, dy2 + v - 0.3, 0.9, 0.7); }
     });
     // the head
     inFrame(c0, P0[0], P0[1], 0, 0, ha, (c1) => {
@@ -311,8 +342,8 @@ const destrier = (ctx, p) => {
       blob(c1, [[-0.2, -1.9, 1], [2.8, -1.5], [5.6, 0.8], [7.2, 2.6], [6.6, 3.4, 1], [4.4, 2.1], [2.2, 1.2], [0.1, 0.4, 1]], lighten(steel, 0.22), {
         hi: 0.6, lo: 0.35, then: (c) => {
           line(c, 0.2, -1.5, 6.6, 2.0, 0.8, lighten(steel, 0.75));
-          line(c, 1.4, 0.9, 5.8, 3.0, 0.5, iron);
-          dab(c, 3.6, 0.2, 0.5, 0.5, BRASS); dab(c, 5.2, 1.3, 0.5, 0.5, BRASS);
+          line(c, 1.4, 0.9, 5.8, 3.0, 0.5, crown ? BR : iron);
+          dab(c, 3.6, 0.2, 0.5, 0.5, BR); dab(c, 5.2, 1.3, 0.5, 0.5, BR);
         },
       });
       part(c1, (c) => { poly(c, [[0.6, -1.5], [2.4, -3.9], [1.9, -1.2]], lighten(steel, 0.3)); poly(c, [[1.5, -1.8], [2.4, -3.9], [1.9, -1.2]], darken(steel, 0.25)); });
@@ -321,7 +352,7 @@ const destrier = (ctx, p) => {
       part(c1, (c) => {
         poly(c, [[-1.0, -1.0], [-1.9, -3.2], [0.5, -1.4]], lighten(col, 0.12)); poly(c, [[-0.7, -1.3], [-1.4, -2.6], [0.1, -1.4]], darken(col, 0.45));
         poly(c, [[-0.4, -1.6], [0.9, -2.4], [1.4, -0.9], [0.4, -0.4]], mane);
-        c.strokeStyle = BRASS; c.lineWidth = 0.5; c.beginPath(); c.arc(5.3, 4.5, 0.65, 0, TAU); c.stroke();
+        c.strokeStyle = BR; c.lineWidth = 0.5; c.beginPath(); c.arc(5.3, 4.5, 0.65, 0, TAU); c.stroke();
         line(c, 5.0, 4.3, 0.2, 0.9, 0.5, iron);
       });
     });
@@ -361,10 +392,16 @@ const destrier = (ctx, p) => {
         polyline(c, [[-12.6, -16.2], [-6, -18.2], [0, -18.5], [6, -18.2], [10.6, -16.4]], 0.9, lighten(cape, 0.4));
         // the hem band
         const band = hem.map(([x, y]) => [x, y - 1.3]);
-        polyline(c, [[x0 - 1, band[0][1]], ...band, [x1 + 1, band[band.length - 1][1]]], 1.2, iron);
-        band.forEach(([x, y], i) => { if (i % 2 === 0 && i > 0 && i < n) dab(c, x - 0.25, y - 0.25, 0.5, 0.5, BRASS); });
+        polyline(c, [[x0 - 1, band[0][1]], ...band, [x1 + 1, band[band.length - 1][1]]], 1.2, crown ? BR : iron);
+        band.forEach(([x, y], i) => { if (i % 2 === 0 && i > 0 && i < n) dab(c, x - 0.25, y - 0.25, 0.5, 0.5, crown ? darken(cape, 0.3) : BRASS); });
         // the device
-        tower(c, -7.4, -11.6, 1.1, lighten(steel, 0.3));
+        if (crown) {
+          // the order's chevron, twice, in brass edged with deep green
+          for (const [dy, w] of [[0, 1.5], [2.6, 1.1]]) {
+            poly(c, [[-11.4, -13.4 + dy], [-7.6, -10.6 + dy], [-3.8, -13.4 + dy], [-3.8, -13.4 + dy + w], [-7.6, -10.6 + dy + w + 0.4], [-11.4, -13.4 + dy + w]], darken(cape, 0.35));
+            poly(c, [[-11.0, -13.2 + dy], [-7.6, -10.9 + dy], [-4.2, -13.2 + dy], [-4.2, -13.2 + dy + w - 0.3], [-7.6, -10.9 + dy + w], [-11.0, -13.2 + dy + w - 0.3]], BR);
+          }
+        } else tower(c, -7.4, -11.6, 1.1, lighten(steel, 0.3));
         // the breast-strap
         polyline(c, [[12.8, -13.6], [9.6, -12.2], [7.6, -12.6]], 1, iron);
       },
@@ -373,16 +410,20 @@ const destrier = (ctx, p) => {
   // the war saddle's cantle and pommel, the rider between
   const seat = [-0.8, -18.6];
   const lean = fight ? k.lean : 0.12;
-  const rein = [5.6, -6.2];
+  let rein = [5.6, -6.2];
+  // (the crown's rider keeps his rein hand within his far arm's reach, even
+  // when the horse rears and he sits back, and holds the lance a touch further
+  // from the shoulder, so neither elbow folds past the joint lab's limits)
+  if (crown) { const sh = rot([0.1, -7.2], [0, 0], lean), dx = rein[0] - sh[0], dy = rein[1] - sh[1], d = Math.hypot(dx, dy); if (d > 5.9) rein = [sh[0] + dx * 5.9 / d, sh[1] + dy * 5.9 / d]; }
   body((c0) => {
     blob(c0, [[-3.4, -18.4, 1], [-4.6, -21.4], [-3.4, -21.6], [-2.2, -18.8, 1]], darken(cape, 0.35), { hi: 0.35 });
-    blob(c0, [[2.0, -18.6, 1], [2.8, -20.8], [3.8, -20.4], [3.8, -18.4, 1]], darken(cape, 0.35), { hi: 0.35, then: (c) => dab(c, 2.8, -20.4, 0.6, 0.6, BRASS) });
+    blob(c0, [[2.0, -18.6, 1], [2.8, -20.8], [3.8, -20.4], [3.8, -18.4, 1]], darken(cape, 0.35), { hi: 0.35, then: (c) => dab(c, 2.8, -20.4, 0.6, 0.6, BR) });
     // the reins, bit to fist
     const bit = add(rot([5.3 * 1.12, 4.5 * 1.12], [0, 0], ha), P0);
     part(c0, (c) => polyline(c, [bit, [bit[0] - 4, bit[1] + 1.2], add(seat, rein)], 0.55, iron));
     c0.save(); c0.translate(...seat);
     const thrust = fight ? k.thrust : 0;
-    rider(c0, p, { lean, lance: k.lance, hand: [2.8 + thrust, -5.8 + (fight && k.lance < -0.3 ? -0.8 : 0)], rein, fl: k.fl, len: 23 });
+    rider(c0, p, { lean, lance: k.lance, hand: [2.8 + thrust + (crown ? 1 : 0), -5.8 + (fight && k.lance < -0.3 ? -0.8 : 0)], rein, fl: k.fl, len: 23, log: p.log });
     c0.restore();
   });
   ctx.restore();
@@ -826,4 +867,11 @@ export const IRONMOUNT_RIGS = {
   gryphonMount: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER, riderless: true } },
   ram: { kind: "siegeram", box: { hw: 60, up: 62, down: 6 }, p: { len: 66, col: "#6a4a2e", cape: "#7a2a2c", ...IRON_RIDER, cloth2: "#521a1e" } },
 };
+// The Knights Errant's Lancer Order (the Knight Garrison's second path): the
+// crown's livery on the same destrier. cloth = gunmetal plate, cloth2 = forest
+// green (surcoat, shield, pennon), cape = the caparison, hair = dark harness
+// leather, trim = brass, plume = the helm's off-white plume; col / belly / mane
+// a dapple-grey horse with pale stockings and a charcoal mane and tail.
+const ERRANT_RIDER = { len: 30, house: "crown", skin: "#e8b990", cloth: "#58606e", cloth2: "#2f6b3f", hair: "#3a3026", trim: "#c9a24a", plume: "#e8e2d0", col: "#a9aeb8", belly: "#dfe1e6", mane: "#5c616c", cape: "#2f6b3f" };
+IRONMOUNT_RIGS.errantRider = { kind: "destrier", fightN: 4, box: { hw: 35, up: 44, down: 4 }, p: { ...ERRANT_RIDER, fightN4: true } };
 export const IRONMOUNT_PAINTERS = { destrier, wargryphon: gryphon, siegeram: siegeRam };

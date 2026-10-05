@@ -101,6 +101,8 @@ export const skiffShotFrom = (u, time) => {
 // bowman is drawn at 21/22 of Wren's height).
 export const bandArrowFrom = (u, hero) => {
   const s = hero ? 1 : 21 / 22, f = u.face < 0 ? -1 : 1;
+  // a Crossbow Company crossbowman (rigs-iron.js errantBow): the arbalest's nose, further out
+  if (u.rig === "errantBow") return [u.x + f * 13, u.y + 9 - 18];
   return [u.x + f * 6.9 * s, u.y + 9 - 16.6 * s];
 };
 

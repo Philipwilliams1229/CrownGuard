@@ -525,7 +525,8 @@ export const ASSASSIN_PALS = {
 export const KNIGHT_PALS = {
   base: { o: INK, a: "#8a8f9a", d: "#5f636d", s: "#e0b088", p: "#b04a3c", h: "#a04a3f" },
   paladin: { o: INK, a: "#d8cfae", d: "#b0a67f", s: "#e0b088", p: "#e0c070", h: "#d8b34a" },
-  berserk: { o: INK, a: "#8a5f3f", d: "#63432b", s: "#e0b088", p: "#b04a3c" },
+  // Knights Errant: dark gunmetal plate, forest-green plume (art/STYLE-GUIDE.md, the knights' livery)
+  errant: { o: INK, a: "#6a7282", d: "#4c525e", s: "#e0b088", p: "#2f6b3f", h: "#2f6b3f" },
   champion: { o: INK, a: "#e8e0c4", d: "#c8b878", s: "#e0b088", p: "#e8c14a", h: "#d8b34a" },
 };
 

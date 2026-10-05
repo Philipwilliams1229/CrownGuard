@@ -16,6 +16,7 @@ import { WX, canSee } from "./weather.js";
 const PERK_STATS = ["dmg", "range", "hp", "splash", "slow", "heal", "rate", "income", "trapDmg", "dps", "fragReach"];
 
 // Fold the player's permanent upgrades for this tower kind into its stats.
+const BOW_PERK = [["bowDmg", "dmg"], ["bowHp", "hp"], ["bowRange", "range"], ["bowRate", "rate"]];
 const withPerks = (kind, st) => {
   const mods = PERK_MODS[kind];
   if (!mods) return st;
@@ -29,6 +30,9 @@ const withPerks = (kind, st) => {
   // the Powder Works' shrapnel is most of its damage: "more powder in the
   // charge" drives the shards as hard as the charge
   if (mods.dmg && st.fragDmg != null) st.fragDmg *= mods.dmg;
+  // the Crossbow Company's bowmen are soldiers of the hall: the same perks
+  // (damage, health, reach, pace) reach their numbers too
+  for (const [bk, k] of BOW_PERK) if (mods[k] != null && st[bk] != null) st[bk] = st[bk] * mods[k];
   return st;
 };
 
@@ -201,8 +205,11 @@ export const pickTarget = (g, t, st) => {
 
 // World positions where a garrison's knights stand, around its rally flag.
 export const unitSlots = (t) => {
-  const n = getStats(t).count || 1;
-  const base = [[0, -11], [-14, 3], [14, 3], [0, 15]];
+  const st = getStats(t), n = st.count || 1;
+  // a mixed company (the Crossbow Company): the knights stand shoulder to
+  // shoulder at the front, the crossbowmen a step behind them
+  // (mounted knights, a horse's length long, stand further apart)
+  const base = st.bows ? [[-12, -8], [12, -8], [-9, 10], [9, 10]] : st.rider ? [[0, -17], [-23, 4], [23, 4], [0, 22]] : [[0, -11], [-14, 3], [14, 3], [0, 15]];
   return base.slice(0, n).map(([dx, dy]) => [t.rally.x + dx, t.rally.y + dy]);
 };
 
@@ -227,9 +234,17 @@ export const syncUnits = (t, g) => {
     // a Knight Hall's men step out of its door and march to the flag (the build
     // phase runs them too, update.js), rather than appearing on it
     const door = t.kind === "knight";
-    t.units.push({ id: nextId(), hp: st.hp, maxHp: st.hp, x: door ? t.x : slots[i][0], y: door ? t.y + 10 : slots[i][1], state: "rally", targetId: null, atkCd: 0, respawn: 0, face: 1, swing: 0, healGlow: 0, atkBuff: 0, shield: false, shieldCd: 0, frenzy: 0 });
+    const bow = i >= n - (st.bows || 0), hp = bow ? st.bowHp : st.hp;
+    t.units.push({ id: nextId(), hp, maxHp: hp, x: door ? t.x : slots[i][0], y: door ? t.y + 10 : slots[i][1], state: "rally", targetId: null, atkCd: 0, respawn: 0, face: 1, swing: 0, healGlow: 0, atkBuff: 0, shield: false, shieldCd: 0, frenzy: 0 });
   }
-  for (const u of t.units) { u.maxHp = st.hp; if (u.state !== "dead") u.hp = Math.min(u.hp, u.maxHp); }
+  // the LAST `bows` of a mixed company are crossbowmen (they take the rear slots)
+  const bows = st.bows || 0;
+  t.units.forEach((u, i) => {
+    const bow = i >= n - bows;
+    if (bow) { u.bow = true; u.rig = "errantBow"; } else if (u.bow) { delete u.bow; delete u.rig; }
+    u.maxHp = bow ? st.bowHp : st.hp;
+    if (u.state !== "dead") u.hp = Math.min(u.hp, u.maxHp);
+  });
 };
 
 // Where a new Knight Hall's garrison first stands: the closest point on the

@@ -9,7 +9,7 @@ import { getStats } from "../../engine/towers.js";
 // perks leave stats fractional on purpose — round for the panel
 const rounded = (t) => {
   const st = { ...getStats(t) };
-  for (const k of ["dmg", "hp", "range", "splash", "heal", "colddps", "fragDmg", "fragReach"]) if (typeof st[k] === "number") st[k] = Math.round(st[k]);
+  for (const k of ["dmg", "hp", "range", "splash", "heal", "colddps", "fragDmg", "fragReach", "bowDmg", "bowHp", "bowRange"]) if (typeof st[k] === "number") st[k] = Math.round(st[k]);
   return st;
 };
 
@@ -18,7 +18,9 @@ export function towerTags(t) {
   const st = rounded(t);
   const s = (n) => perSec(n);
   let line;
-  if (t.kind === "knight") line = `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${s(st.rate)} · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.unitSpeed ? " · wolf-swift" : ""}`;
+  if (t.kind === "knight") line = st.bows
+    ? `${(st.count || 1) - st.bows} knights · ${st.dmg} dmg · ${s(st.rate)} · ${st.hp} hp · ${st.bows} crossbows · ${st.bowDmg} dmg · ${s(st.bowRate)} · ${st.bowRange} rng · shoot fliers`
+    : `${st.count || 1} knight${(st.count || 1) > 1 ? "s" : ""} · ${st.dmg} dmg · ${s(st.rate)} · ${st.hp} hp${st.magic ? " · magic" : ""}${st.heal ? " · self-heal" : ""}${st.sear ? " · searing ground" : ""}${st.frenzy ? " · frenzy + lifesteal" : ""}${st.rider ? " · mounted" : ""}`;
   else if (t.kind === "support") line = `${Math.round(st.slow * 100)}% slow aura · ${st.range} range${st.colddps ? ` · ${st.colddps} cold dps` : ""}${st.nova ? " · frost novas freeze" : ""}${st.brittle ? " · brittles foes (+phys dmg)" : ""}${st.heal ? ` · mends knights ${st.heal}/s` : ""}${st.shield ? " · shields knights" : ""}${st.mend ? " · +1 castle HP per wave" : ""}`;
   else if (t.kind === "gunpowder") line = `bombard ${Math.round(st.dmg)} dmg · ${st.frags} × ${st.fragDmg} shrapnel · ${st.range} rng${st.burn ? " · burning" : ""}${st.fragBurn ? " · red-hot shards" : ""}${st.burnSpread ? " · fire spreads" : ""}${st.crack ? " · charges and shards crack armor" : ""} · musket ${Math.round(st.mDmg)} dmg · ${s(st.mRate)} · ${st.mRange} rng${st.mPierce ? " · pierces" : ""}${st.mCrit ? " · every 3rd triples" : ""}${st.mShots > 1 ? ` · ${st.mShots}-ball fan` : ""}${st.mBurn ? " · hot shot burns" : ""}${st.crack ? " · shoots the cracked first" : ""}${st.spot ? " · spots for the bombs" : ""}`;
   else if (t.kind === "riverwatch") line = `${st.count || 1} skiff${(st.count || 1) > 1 ? "s" : ""} · ${Math.round(st.dmg)} dmg · ${s(st.rate)} · ${st.range} rng${st.splash ? ` · ${st.splash} splash` : ""}${st.burn ? " · burning pitch" : ""}${st.pierce ? " · pierces armor" : ""}${st.slow ? " · harpoons drag" : ""}${st.stun ? " · the boom stuns" : ""} · rows the river`;
@@ -50,6 +52,12 @@ const DELTAS = [
   ["rate", "Fire rate", perSec, true],
   ["range", "Range", (v) => (v >= 900 ? "whole map" : Math.round(v))],
   ["hp", "Health", (v) => Math.round(v)],
+  // the Crossbow Company's two crossbowmen (they shoot fliers too)
+  ["bows", "Crossbowmen", (v, st) => `${v} of the ${st.count}`],
+  ["bowDmg", "Bolt", (v) => Math.round(v)],
+  ["bowRate", "Bolt rate", perSec, true],
+  ["bowRange", "Bolt range", (v) => Math.round(v)],
+  ["bowHp", "Bowmen health", (v) => Math.round(v)],
   ["splash", "Splash", (v) => Math.round(v)],
   // the Powder Works' charge: how many shards it throws, and what each one hits for
   ["frags", "Shrapnel", (v, st) => `${v} × ${Math.round(st.fragDmg || 0)}`, false, "fragDmg"],
@@ -133,6 +141,8 @@ export function formStats(t) {
   if (st.pierce) traits.push("pierces armor");
   if (st.groundOnly) traits.push("ground only");
   if (st.airMult || st.hitsAir) traits.push("hits fliers");
+  if (st.bows) traits.push("crossbows hit fliers");
+  if (st.rider) traits.push("mounted");
   if (st.spot) traits.push("musket spots for the bombs");
   return { rows, traits };
 }
