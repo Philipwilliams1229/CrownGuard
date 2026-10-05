@@ -853,6 +853,22 @@ actions.js `buildableAt`).
   one into a mere fans out and its deep channel dies short (`lake:
   "into"`). A mere's shallows rim is wider on its lee (east) shore. Check a
   mouth with `map-lab.html?...&scale=4&crop=x,y,w,h&mwdebug=1`.
+- **Sea ice on the map** (2026-10-05, mapArt.js): `seaIce` paints every
+  cold-sea pixel from `iceAt` (fast ice within `fastEdge`, 5-12 units of
+  the Rimewater's own shore and through its fjords, with a broken fringe;
+  else a pack floe from `inFloe`, crowding northward with `floeDens`).
+  Every plate is lit upper-left, has a waterline lower-right and a shadow
+  line in the water beneath; the fast sheet carries a tide crack and
+  noise-contour cracks, the pack rafted ridges in pinched leads and a brash
+  fringe at its edge; `OPEN_WATER` keeps the anchored longships clear. The
+  ice is asked before the surf, so no foam on a sheet. Frozen meres (`ice:
+  true`) go through `frozenMere`: an ice sheet with a NW thaw rim, NE snow
+  drift, two dark windows and cracks, never a dark pool. Glaciers: flow
+  lines, crevasse arcs concave downstream with a blue core, lateral
+  moraines on the lower reach. Check with `map-lab.html?scale=4&crop=300,
+  -640,64,52` (pack and shore) and `crop=412,-418,64,42` (the Frostmere).
+  Still open: the pack's plates sit on a jittered 20-px grid (a cell-crack
+  split of one sheet would read better), no calving face, no sastrugi.
 - **Growing a country** (2026-10-03): new land is new lobes of coastline
   (REGIONS in mapLayout.js), never a rescale — the hand-placed dressing,
   rivers and set pieces of the old land keep their coordinates. Dress new

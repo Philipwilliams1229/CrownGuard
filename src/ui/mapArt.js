@@ -235,7 +235,7 @@ const rimePx = (x, y, band, inl) => {
 // The cold sea round it, and its ice: floes thickening northward into pack,
 // fast ice along its own shores, the odd lead of open water.
 const COLD = { deep: "#233f5a", mid: "#2c4c68", shal: "#3a6480", reef: "#5e90a6" };
-const FLOE = { body: rgb("#d4e2ea"), lit: rgb("#f4f9fb"), thin: rgb("#a4bccc"), shade: rgb("#1a3149") };
+const FLOE = { body: rgb("#c9dbe5"), snow: rgb("#e2ebf1"), lit: rgb("#f6fafc"), thin: rgb("#a4bccc"), line: rgb("#7f9cb2"), shade: rgb("#1a3149"), ridge: rgb("#6a8aa4") };
 // Floes are plates, one to a cell of a jittered grid: an octagon-ish slab
 // whose size grows with the ice's density (so northward they crowd into
 // pack, with dark leads between). inFloe answers for one art pixel.
@@ -263,7 +263,7 @@ const floeCell = (cx, cy) => {
 const inFloe = (x, y, dens) => {
   const cy = Math.floor(y / FC), sx = x + (cy & 1) * (FC >> 1), cx = Math.floor(sx / FC), f = floeCell(cx, cy);
   if (f.h1 > 0.1 + dens * 0.9) return 0;
-  const r = FC * 0.5 * Math.min(1.02, 0.22 + f.h2 * 0.5 + dens * 0.36), slack = Math.max(0, FC - 2 * r);
+  const r = FC * 0.5 * Math.min(1.08, 0.22 + f.h2 * 0.5 + dens * 0.46), slack = Math.max(0, FC - 2 * r);
   const dx = sx - ((cx + 0.5) * FC + f.j1 * slack), dy = (y - ((cy + 0.5) * FC + f.j2 * slack)) * 1.35;
   const u = Math.abs(dx * f.ca - dy * f.sa) * f.ku, v = Math.abs(dx * f.sa + dy * f.ca) * f.kv;
   const d = Math.max(u, v, (u + v) * f.kc);
@@ -272,14 +272,54 @@ const inFloe = (x, y, dens) => {
   if (d > r + 1.6) return 0;
   return d + (vnoise(x, y, 4, 69) - 0.5) * 3 < r ? 1 : 0;
 };
-// fast ice along the Rimewater's own shores (dist: art px from its coast)
+// The sea ice, one art pixel at a time (dist: art px from the coast):
+// FAST ICE, a sheet welded to the Rimewater's own shores and filling its
+// fjords, its seaward edge ragged and broken into pieces, cracked (the
+// contour lines of a noise field), a tide crack along the shore; and the
+// PACK, floes that crowd northward into plates parted by dark leads, rafted
+// into ridges where the leads pinch, with a brash fringe of small bits where
+// the pack meets open water. Every plate is lit on its upper-left edge and
+// darkens to a waterline lower-right, with a line of shadow in the water
+// under it and drifted snow on top. The longships ride in open water.
+const OPEN_WATER = [[586, -596], [262, -446], [470, -456], [592, -294], [560, -300], [786, -612]];
+const fastEdge = (x, y) => 5 + vnoise(x, y, 18, 75) * 7;   // units out from the shore
+const iceAt = (x, y, dist, nearRime, pack) => {
+  if (dist < 2) return 0;
+  if (nearRime) {
+    const fd = dist / U - fastEdge(x, y);
+    if (fd < 0) return 1;
+    if (fd < 2.5 && vnoise(x, y, 4, 78) > 0.4 + fd * 0.2) return 1;
+  }
+  return pack >= 0.04 && inFloe(x, y, pack) ? 1 : 0;
+};
 const seaIce = (x, y, dist, nearRime) => {
-  if (dist < 4) return null;
-  const dens = Math.min(1, floeDens(x, y) + (nearRime && dist < 26 ? 0.45 * (1 - dist / 26) : 0));
-  if (dens < 0.04) return null;
-  if (inFloe(x, y, dens)) return inFloe(x, y - 1, dens) ? (hash(x >> 1, y) < 0.04 ? FLOE.thin : FLOE.body) : FLOE.lit;
-  if (inFloe(x, y - 1, dens) || inFloe(x, y - 2, dens)) return FLOE.shade;
-  return null;
+  if (dist < 2) return null;
+  const pack = floeDens(x, y);
+  if (!nearRime && pack < 0.04) return null;
+  const mx = x / U + MAP.x, my = y / U + MAP.y;
+  for (const [ox, oy] of OPEN_WATER) { const e = Math.hypot(mx - ox, my - oy); if (e < 6.5 + vnoise(x, y, 5, 76) * 2.5) return null; }
+  // (the neighbours' answers read the same fields: no seams)
+  const at = (dx, dy) => iceAt(x + dx, y + dy, dist, nearRime, pack);
+  if (!at(0, 0)) {
+    if (at(0, -1) || at(0, -2)) return FLOE.shade;
+    // a pinched lead in the pack: rafted, ridged ice
+    if (pack > 0.65 && ((at(-2, 0) && at(2, 0)) || (at(0, -2) && at(0, 2)))) return hash(x, y) < 0.5 ? FLOE.ridge : FLOE.lit;
+    // the brash fringe at the pack's edge
+    const br = 0.4 * Math.max(0, 1 - Math.abs(pack - 0.4) / 0.2);
+    if (br > 0 && hash(x >> 1, y) < br) return FLOE.body;
+    if (br > 0 && hash(x >> 1, y - 1) < br) return FLOE.shade;
+    return null;
+  }
+  if (!at(-1, 0) || !at(0, -1)) return FLOE.lit;
+  if (!at(1, 0) || !at(0, 1)) return FLOE.thin;
+  if (nearRime) {
+    const du = dist / U;
+    // the tide crack along the shore, and the cracks nearer the edge
+    if (du > 3.2 && du < 4.2 && hash(x, y) < 0.7) return FLOE.line;
+    const fd = du - fastEdge(x, y), v = vnoise(x, y, 8, 77), tol = fd > -3 ? 0.035 : 0.02;
+    if (fd < 0.5 && (Math.abs(v - 0.5) < tol || (fd > -4 && Math.abs(v - 0.34) < 0.014))) return FLOE.line;
+  }
+  return vnoise(x, y, 6, 79) > 0.5 ? FLOE.snow : FLOE.body;
 };
 
 // ---- the base: land, cliffs, sea ------------------------------------
@@ -442,13 +482,14 @@ function* paintBase() {
     const dist = sea.D[i];
     const n = vnoise(x, y, 9, 51) * 3;
     if (dist <= 1.5) { put(i, S.ink); continue; }
+    // north of the strait the sea turns cold (dithered in), and carries ice
+    // (the ice before the surf: no foam on a fast-ice sheet)
+    const my = y / U + MAP.y;
+    const ice = my < -280 ? seaIce(x, y, dist, sea.L[i] === RZ) : null;
+    if (ice) { put(i, ice); continue; }
     if (dist <= 3 + n * 0.6 && vnoise(x, y, 3, 52) > 0.28) { put(i, S.foam); continue; }
     const b = dist + (bayer(x, y) - 0.5) * 5 + n;
-    // north of the strait the sea turns cold (dithered in), and carries ice
-    const my = y / U + MAP.y;
     if (my < -280) {
-      const ice = seaIce(x, y, dist, sea.L[i] === RZ);
-      if (ice) { put(i, ice); continue; }
       const cold = smooth(Math.min(1, (-280 - my) / 110));
       if (bayer(x, y) < cold) { put(i, b < 9 ? S.cReef : b < 20 ? S.cShal : b < 34 ? S.cMid : S.cDeep); continue; }
     }
@@ -745,6 +786,32 @@ const lakePath = (c, m, grow = 0, lee = 0) => {
     i ? c.lineTo(x, y) : c.moveTo(x, y);
   }
   c.closePath();
+};
+// A frozen mere: an ice sheet over the water, a thin rim of dark thaw along
+// the sunlit (north-west) shore, snow drifted over its windward (north-east)
+// half in combed streaks, a couple of dark windows of clear ice with a lit
+// lip, and cracks running from them. Dithered on the art grid.
+const frozenMere = (c, m) => {
+  c.fillStyle = "#2c5674"; lakePath(c, m, -0.6); c.fill();
+  c.save(); c.translate(0.5, 0.5);
+  c.fillStyle = "#dbe8ef"; lakePath(c, m, -1.1); c.fill();
+  lakePath(c, m, -1.1); c.clip();
+  const px = 1 / U;
+  for (let y = m.y - m.ry * 1.4; y < m.y + m.ry * 1.4; y += px) for (let x = m.x - m.rx * 1.4; x < m.x + m.rx * 1.4; x += px) {
+    const ax = Math.round(x * U), ay = Math.round(y * U);
+    const wind = ((x - m.x) / m.rx - (y - m.y) / m.ry) * 0.5 + 0.5 + (vnoise(ax, ay, 8, 81) - 0.5) * 0.5;
+    const drift = Math.max(0, wind * 1.1 - 0.35);
+    if (bayer(ax, ay) < drift) { c.fillStyle = Math.floor(ay - ax * 0.28) % 7 === 0 ? "#c3d3df" : "#f2f7fa"; c.fillRect(x, y, px, px); }
+  }
+  const win = [[m.x - m.rx * 0.32, m.y + m.ry * 0.22, m.rx * 0.2, m.ry * 0.24], [m.x + m.rx * 0.28, m.y - m.ry * 0.12, m.rx * 0.13, m.ry * 0.17]];
+  c.lineWidth = 0.5; c.lineCap = "round";
+  for (const [wx, wy, rx, ry] of win) {
+    c.fillStyle = "#2c5674"; c.beginPath(); c.ellipse(wx, wy, rx, ry, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = "#8cc2d4"; c.beginPath(); c.ellipse(wx, wy, rx, ry, 0, Math.PI * 0.95, Math.PI * 1.55); c.stroke();
+    c.strokeStyle = "#9ebcd0"; c.beginPath(); c.moveTo(wx + rx * 0.8, wy + ry * 0.3); c.lineTo(wx + rx * 2.2, wy + ry * 1.4); c.lineTo(wx + rx * 3.4, wy + ry * 1.2); c.stroke();
+    c.beginPath(); c.moveTo(wx - rx * 0.6, wy - ry * 0.7); c.lineTo(wx - rx * 1.6, wy - ry * 2.2); c.stroke();
+  }
+  c.restore();
 };
 // a river's banks as one filled outline (grow widens it: shallows, ink);
 // from/to cut it to a stretch of its points, and a stretch cut short at
@@ -2689,7 +2756,7 @@ function* paintTerrain() {
     for (const rv of RIVERS) { c.fillStyle = wpal(rv).shal; riverPath(c, rv); c.fill(); }
     for (const m of MERES) { c.fillStyle = wpal(m, true).shal; lakePath(c, m); c.fill(); }
     for (const rv of RIVERS) { c.fillStyle = wpal(rv).deep; riverPath(c, rv, -0.45, 0, rv.deepTo); c.fill(); }
-    for (const m of MERES) { c.fillStyle = wpal(m, true).deep; lakePath(c, m, m.ice ? -1.8 : -1.1, 0.4); c.fill(); }
+    for (const m of MERES) { if (m.ice) { frozenMere(c, m); continue; } c.fillStyle = wpal(m, true).deep; lakePath(c, m, -1.1, 0.4); c.fill(); }
   }, INK);
   const shine = layer((c) => {
     c.lineJoin = "round"; c.lineCap = "round";
@@ -2751,14 +2818,26 @@ function* paintTerrain() {
       // (on the side facing the north-west sun)
       const m = gl.nrm[gl.nrm.length >> 1], sd = m[0] + m[1] < 0 ? 1 : -1;
       c.beginPath(); gl.pts.forEach(([x, y], i) => { const [nx, ny] = gl.nrm[i], o = gl.hw[i] * 0.6 * sd; i ? c.lineTo(x + nx * o, y + ny * o) : c.moveTo(x + nx * o, y + ny * o); }); c.stroke();
-      // crevasses: short broken strokes across the flow, thickest where the
-      // ice spills down toward its snout
-      c.strokeStyle = RK.iceDp; c.lineWidth = 0.5;
+      // flow lines down the tongue, faint, following its bends
+      c.strokeStyle = "#cadde8"; c.lineWidth = 0.4;
+      for (const o of [-0.45, -0.15, 0.2, 0.5]) { c.beginPath(); gl.pts.forEach(([x, y], i) => { const [nx, ny] = gl.nrm[i], k = gl.hw[i] * o; i ? c.lineTo(x + nx * k, y + ny * k) : c.moveTo(x + nx * k, y + ny * k); }); c.stroke(); }
+      // crevasses: arcs across the flow, bowed concave downstream (the ends
+      // lead, the middle lags), blue in their depths, thickest where the ice
+      // spills down toward its snout
       for (let i = 4; i < gl.pts.length - 2; i++) {
-        if (hash(i, gl.seed * 13) > 0.08 + (i / gl.pts.length) * 0.16) continue;
-        const [x, y] = gl.pts[i], [nx, ny] = gl.nrm[i], h = gl.hw[i] * (0.18 + hash(i, gl.seed) * 0.3), off = (hash(i, gl.seed + 5) - 0.5) * gl.hw[i] * 1.1;
-        const tx = -ny * 0.5, ty = nx * 0.5;
-        c.beginPath(); c.moveTo(x + nx * (off - h) - tx, y + ny * (off - h) - ty); c.lineTo(x + nx * off + tx, y + ny * off + ty); c.lineTo(x + nx * (off + h) - tx, y + ny * (off + h) - ty); c.stroke();
+        if (hash(i, gl.seed * 13) > 0.1 + (i / gl.pts.length) * 0.2) continue;
+        const [x, y] = gl.pts[i], [nx, ny] = gl.nrm[i], h = gl.hw[i] * (0.3 + hash(i, gl.seed) * 0.4), off = (hash(i, gl.seed + 5) - 0.5) * gl.hw[i] * 0.9;
+        const tx = ny * 0.9, ty = -nx * 0.9;   // (downstream)
+        const arc = () => { c.beginPath(); c.moveTo(x + nx * (off - h) + tx, y + ny * (off - h) + ty); c.quadraticCurveTo(x + nx * off - tx * 1.4, y + ny * off - ty * 1.4, x + nx * (off + h) + tx, y + ny * (off + h) + ty); };
+        c.strokeStyle = RK.iceDp; c.lineWidth = 0.8; arc(); c.stroke();
+        c.strokeStyle = "#4f86a4"; c.lineWidth = 0.35; arc(); c.stroke();
+      }
+      // lateral moraines: broken dark rock along both edges of the lower reach
+      c.strokeStyle = "#5a606a"; c.lineWidth = 0.5;
+      for (const sd2 of [1, -1]) for (let i = gl.pts.length >> 2; i < gl.pts.length - 2; i += 2) {
+        if (hash(i, gl.seed + 20 + sd2) < 0.35) continue;
+        const [x0, y0] = gl.pts[i], [x1, y1] = gl.pts[i + 1], [nx, ny] = gl.nrm[i], k = (gl.hw[i] - 1.2) * sd2;
+        c.beginPath(); c.moveTo(x0 + nx * k, y0 + ny * k); c.lineTo(x1 + nx * k, y1 + ny * k); c.stroke();
       }
       // the medial moraine, a broken dark line down its lower reach
       c.strokeStyle = "#6a707c"; c.lineWidth = 0.45;
