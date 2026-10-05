@@ -1243,7 +1243,10 @@ const rimeGateTree = (d) => {
 // of open water (the longships' lane) through it.
 // `rimeFastIceAt(x, y)` (0..1) tells coast.js where the sea is covered.
 const ICE_SHEET = { key: "", B: null };
-const SEA_THICK = { top: 14, bottom: 8, left: 10, right: 10 };    // base thickness by coast edge (units)
+const SEA_THICK = { top: 11, bottom: 8, left: 10, right: 10 };    // base thickness by coast edge (units)
+// The River Watch rows the coast SEA_OFF (16) px out (terrain.js): the sea
+// sheet never reaches past SEA_CAP, so a skiff always rows open water.
+const SEA_CAP = 11;
 const MERE_ICE = 8;
 // the sheet's own tones (RGB)
 const RGB_ICE = ICE.map(hexRGB);
@@ -1376,6 +1379,7 @@ const iceBake = () => {
     // the sheet's reach from this stretch of shore: smooth along the shore, ragged at the pixel
     let T = base[who[k] - 1] * (0.6 + 0.8 * vn(ax / 16, ay / 16, sd + 1)) + (vn(x / 3.5, y / 3.5, sd + 2) - 0.5) * 2.6;
     if (T < 1.6) T = 1.6;
+    if (who[k] === 1 && T > SEA_CAP) T = SEA_CAP;
     thick[k] = T;
     if (d > T + 1.1) {
       // brash: loose cakes beyond the edge
