@@ -477,7 +477,7 @@ const makeEnemy = (type, mult) => {
     swims: !!d.swims, swimming: false, swimD: 0, swimDir: 1,
     healAmt: d.heal ? d.heal * Math.sqrt(mult) : 0, healEvery: d.healEvery || 0, healCd: null,
     healPct: d.healPct || 0, healCap: (d.healCap || 0) * Math.sqrt(mult), healRange: d.healRange || 0,
-    raiseEvery: d.raiseEvery || 0, raiseCd: null, revived: false, healedFlash: 0,
+    raiseEvery: d.raiseEvery || 0, standOff: d.standOff || 0, raiseCd: null, revived: false, healedFlash: 0,
     // zone IV's frost shroud (engine/rime.js): ice a hall every freezeEvery ms
     freezeEvery: d.freezeEvery || 0, freezeRange: d.freezeRange || 0, freezeFor: d.freezeFor || 0, freezeFirst: d.freezeFirst ?? null, freezeCd: null,
     // the Rime Clans are cold-hardy (the Frost Altar's chill, nova freeze and
@@ -1554,20 +1554,19 @@ export function updateGame(g, dt) {
           }
         }
       }
-      // Necromancer: calls nearby fallen back to their feet at half strength (up to 5 every raiseEvery; buffed 2026-09-30: hp 420 -> 700, every 6 s -> 3.8 s, reach 150 -> 400: he walks behind the column, so the fallen lie ahead of him)
+      // Necromancer: calls the fallen of this wave back to their feet at FULL strength, from anywhere on the board (up to 5 every raiseEvery; the first at once; the clock only starts when a raise lands, so he is ready the moment one falls). 2026-10-05: reach 400 -> infinite, half -> full health, 3.8 -> 3 s, stands off soldiers (standOff) instead of fighting
       if (e.raiseEvery && e.silencedUntil <= tms) {
-        e.raiseCd = (e.raiseCd ?? e.raiseEvery * 0.5) - sdt * 1000;
+        e.raiseCd = (e.raiseCd ?? 0) - sdt * 1000;
         if (e.raiseCd <= 0) {
-          e.raiseCd = e.raiseEvery;
           let raised = 0;
           for (let ci = g.corpses.length - 1; ci >= 0 && raised < 5; ci--) {
             const c = g.corpses[ci];
             // only this wave's dead, and none already dissolving
-            if (c.until !== Infinity || c.wave !== g.wave || Math.hypot(c.x - e.x, c.y - e.y) > 400) continue;
+            if (c.until !== Infinity || c.wave !== g.wave) continue;
             g.corpses.splice(ci, 1);
             raised++;
             const u = makeEnemy(c.type, 1);
-            u.hp = u.maxHp = Math.max(1, Math.round(c.hp0 * 0.5));
+            u.hp = u.maxHp = Math.max(1, Math.round(c.hp0));
             u.dist = c.dist; u.lane = c.lane; u.x = c.x; u.y = c.y;
             u.bounty = Math.ceil(u.bounty / 2);
             u.revived = true;
@@ -1580,6 +1579,7 @@ export function updateGame(g, dt) {
             g.effects.push({ type: "raise", x: c.x, y: c.y, ttl: NECRO_RISE_MS, life: NECRO_RISE_MS });
             sfx.play("raise");
           }
+          e.raiseCd = raised ? e.raiseEvery : 0;   // nothing to raise: stay ready
         }
       }
       if (e.burnUntil > tms) {
@@ -1642,7 +1642,7 @@ export function updateGame(g, dt) {
       // reach, shooting from afar; once none is left standing they march on.
       // (`aiming` is last frame's answer; a 14 s budget of standing still per
       // archer keeps a healer's stalemate from holding a wave open for ever)
-      const standing = (e.rangedAtk && e.aiming && (e.pauseLeft ??= 14000) > 0) || (e.clawing && (e.clawLeft ??= 22000) > 0);
+      const standing = ((e.rangedAtk || e.standOff) && e.aiming && (e.pauseLeft ??= 14000) > 0) || (e.clawing && (e.clawLeft ??= 22000) > 0);
       if (standing) { if (e.clawing) e.clawLeft -= sdt * 1000; else e.pauseLeft -= sdt * 1000; }
       const rising = e.riseAt !== undefined && tms - e.riseAt < e.riseMs;
       if (!stunned && !held && !standing && !rising) {
@@ -1729,7 +1729,17 @@ export function updateGame(g, dt) {
           }
         }
       }
-      if (!e.rangedAtk || stunned) e.aiming = false;
+      // A standoff foe (the necromancer) never shoots: it only keeps `standOff`
+      // away from any soldier or hero, letting its dead do the fighting
+      if (e.standOff && !e.rangedAtk && !stunned) {
+        let near = false;
+        for (const t of unitHosts(g)) {
+          for (const u of t.units) if (u.state !== "dead" && Math.hypot(u.x - e.x, u.y - e.y) < e.standOff) { near = true; break; }
+          if (near) break;
+        }
+        e.aiming = near;
+      }
+      if ((!e.rangedAtk && !e.standOff) || stunned) e.aiming = false;
       // Wraiths bunch up: any soldier within reach draws every wraith that
       // passes, and they all claw at it at once (no blocker is needed, so one
       // knight can be swarmed by many — and each one it kills raises another)
