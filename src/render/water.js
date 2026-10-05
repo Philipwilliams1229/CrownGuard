@@ -659,6 +659,7 @@ const riverBody = (rivers, wa, view, r) => {
   // each river's mouth in the sea (null for one that has none), and the
   // beach's wet sand its banks lower into there (coast.js's own tones)
   const MS = rivers.map(mouthOf);
+  const ANYM = MS.some(Boolean);
   const wetSand = mix(darken(sandHex, 0.3), WA.edge, 0.12);
   const SN = { line: C(mix(darken(sandHex, 0.46), WA.deep, 0.2)), wet: C(wetSand), wetLt: C(mix(wetSand, sandHex, 0.45)) };
   // a pond the river runs into is painted here, with it, as one water
@@ -720,7 +721,10 @@ const riverBody = (rivers, wa, view, r) => {
         const v = pondG(Q, x, y);
         if (v < REACH && v < gp) { gp = v; P = Q; pnx = ELL.nx; pny = ELL.ny; pNP = NP; }
       }
-      if (f >= REACH && !P) continue;
+      // (past the bank field only the silt fan is painted: out in the sea by
+      // a mouth the loop runs on to FAN, so the fan's ellipse is never cut
+      // to the field's band)
+      if (f >= REACH && !P && !(ANYM && f < FAN + 8 && seaDepthAt(x, y) >= 0)) continue;
       const gi = R.gx + i;
       let nx = 0, ny = 1, lat = 0, u = 0, hw = 10, e = 0, g = 99, rivI = -1;
       let sd = -999, mk = 0, wide = 0, mnear = 0;   // at a river's mouth: sea depth, funnel, extra width

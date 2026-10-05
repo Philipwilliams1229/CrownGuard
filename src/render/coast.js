@@ -255,7 +255,9 @@ const seaPx = (T, G, i, dp, kd, x, y, dpA, kdA, iA) => {
     if (fbA >= 0 && fbA < 2 * px && breaking(uA) && vn(uA, 9.4, 3) > mouthAt(G, U0 + iA / 2) * 1.05) return R[4];
     // lace over the shallows: streaks strung along the shore, thinning out
     // toward the breakers
-    const n = vn(u * 0.28, dp, 2.1), w = (0.012 + 0.06 * (1 - dp / cb)) * (1 - mouthAt(G, U0 + i / 2));
+    // (the mouth's calm narrows with depth and its edge wanders, so the plume
+    // has no box round it: nothing of it past ~70 px out)
+    const n = vn(u * 0.28, dp, 2.1), w = (0.012 + 0.06 * (1 - dp / cb)) * (1 - mouthAt(G, U0 + i / 2) * Math.max(0, 1 - dp / 70 - (vn(u, dp, 7) - 0.5) * 0.5));
     if (Math.abs(n - 0.5) < w && vn(u, 3.3 + dp * 0.3, 5) > 0.38) return R[1];
     return dp < 4.2 + (vn(x, y, 5) - 0.5) * 3 ? R[2] : R[3];
   }
