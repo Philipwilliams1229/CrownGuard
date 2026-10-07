@@ -594,7 +594,7 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
     // stops and fights her, as it would a knight (owner, 2026-09-30). She
     // holds one at a time and keeps shooting; the foe's blows are the same
     // as against any soldier. Rams roll over, fliers and swimmers pass.
-    if (b.kind === "hero" || b.kind === "retinue") {
+    if (b.kind === "hero" || b.kind === "retinue" || b.levy) {   // (Hale's levy bowmen too: a foe that walks up to them fights them)
       let held = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead && e.blockedBy === u.id) : null;
       if (held && Math.hypot(held.x - u.x, held.y - u.y) > RANGED_ENGAGE + 10) { releaseEnemy(g, held); held = null; }
       if (!held) {

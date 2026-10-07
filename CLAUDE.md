@@ -832,6 +832,11 @@ own, so several sessions can work on heroes side by side:
   2 watchmen (halberdier) + 2 crossbowmen (`crossbow` rig, `bows` mixed band
   as the Levy works' upper tiers) fall in ON him, soldiers a step ahead, bows
   behind; the buff ring is centred on him, the pennant planted by his shoulder.
+  The crossbows take post `BOWS_BACK` 44 px back down the road from him (not
+  on his spot), and are engaged like Wren: `runRangedBand`'s hold-one-foe branch
+  runs for `b.levy` bands too, so a foe that gets past Hale stops and fights
+  them (owner, 2026-10-07). The Levy works' and Knights Errant's bowmen are
+  still never engaged.
   They have no clock and never respawn: they fight until they drop (owner,
   2026-10-05), and sounding the horn again (when the 45 s cooldown is up)
   replaces whoever is left with four fresh men; a retried wave drops them.

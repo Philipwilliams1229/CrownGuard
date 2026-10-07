@@ -20,7 +20,7 @@ export default {
       desc: "Planted where he stands, three wide halberd swings, each a half-circle before him: all it reaches is struck and stunned, riders twice over.",
       base: { dmg: 40, beats: 3, lead: 320, gap: 520, r: 68, stun: 700, mounted: 2, harm: 0.6 }, perLevel: { dmg: 6 } },
     { id: "levy", name: "Sound the Levy", aim: "none", unlock: 5, cd: 45000, icon: "levy",
-      desc: "Two watchmen and two crossbowmen fall in where he stands and fight until they drop; calling again replaces them with fresh men.",
+      desc: "Two watchmen fall in where he stands, two crossbowmen a little way behind on the road; they fight until they drop; calling again replaces them with fresh men.",
       base: { men: 2, bows: 2, buff: 0.25, buffDur: 8000, r: 90, hp: 260, mdmg: 14, rate: 850, range: 72, bowHp: 150, bowDmg: 13, bowRate: 1000, bowRange: 130 }, perLevel: { hp: 20, mdmg: 2, bowHp: 12, bowDmg: 1.5 } },
   ],
   talents: [
