@@ -594,7 +594,7 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
     // stops and fights her, as it would a knight (owner, 2026-09-30). She
     // holds one at a time and keeps shooting; the foe's blows are the same
     // as against any soldier. Rams roll over, fliers and swimmers pass.
-    if (b.kind === "hero" || b.kind === "retinue" || b.levy) {   // (Hale's levy bowmen too: a foe that walks up to them fights them)
+    {   // (every ranged band: a foe that walks up to a bowman fights him, as it would any soldier)
       let held = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead && e.blockedBy === u.id) : null;
       if (held && Math.hypot(held.x - u.x, held.y - u.y) > RANGED_ENGAGE + 10) { releaseEnemy(g, held); held = null; }
       if (!held) {
@@ -1009,8 +1009,20 @@ export function updateGame(g, dt) {
       g.militiaCd = Math.max(0, (g.militiaCd || 0) - sdt * 1000);
       for (const b of g.bands) {
         if (b.kind === "militia") {
-          // (a call with no one left standing is done with; the rest stand until they fall)
+          // (a call with no one left standing is done with)
           if (b.units.every((u) => u.state === "dead")) { b.gone = true; continue; }
+          // The horn's own timer (owner, 2026-10-07): when it is ready to sound
+          // again the old call is recalled, so the horn is always on hand. Men
+          // in a fight finish it first; only when none is engaged do they leave.
+          // (Hale's levy keeps its own rules: no clock.)
+          if (!b.levy && (g.militiaCd || 0) <= 0) {
+            b.recalled = true;
+          }
+          if (b.recalled && !b.units.some((u) => u.state !== "dead" && (u.state === "fighting" || g.enemies.some((e) => !e.dead && e.blockedBy === u.id)))) {
+            for (const u of b.units) if (u.state !== "dead") g.effects.push({ type: "poof", x: u.x, y: u.y, ttl: 350 });
+            b.gone = true;
+            continue;
+          }
           b.life -= sdt * 1000;
           if (b.life <= 0) {
             for (const u of b.units) { if (u.state !== "dead") { releaseEnemy(g, g.enemies.find((x) => x.blockedBy === u.id)); g.effects.push({ type: "poof", x: u.x, y: u.y, ttl: 350 }); } }

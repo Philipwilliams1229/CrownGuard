@@ -57,9 +57,9 @@ export const CASTLE_WORKS = {
   },
   militia: {
     name: "The Levy", icon: "", here: ", drilled and waiting on the horn",
-    blurb: "The horn's free farmers, drilled: more of them, harder, and quicker to be called again (they fight until they fall).",
+    blurb: "The horn's free farmers, drilled: more of them, harder, and quicker to be called again (they leave when the horn is ready, once any fight is done).",
     // tier 0 is the plain horn (bands.js MILITIA: two farmers, 95 health, 9 a
-    // blow, 24 s to call again; the men stay until they fall). Each tier names the whole
+    // blow, 24 s to call again; the men are recalled when the horn is ready, once any fight is done). Each tier names the whole
     // band, not a change to it (engine/actions.js callMilitia reads it through
     // bands.js militiaStats): `men` is each one's health, `cooldown` is ms; `noun` is what the horn raises; `rig` (the last
     // tier) puts them in the crown's squire's kit instead of a smock.

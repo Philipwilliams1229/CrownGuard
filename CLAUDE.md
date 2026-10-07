@@ -447,6 +447,28 @@ know with these changes").
   `--level cinderholt --endure` bled 253/528 -> 203/473 (swarm/burst, seed
   default); the burst plan loses wave 12 with or without the change.
 
+## Bowmen post back and are engaged; the militia is recalled (2026-10-07, owner request)
+
+Provisional, pending the owner's playtest.
+- **Every bowman of a mixed band** (Crossbow Company of the Knights Errant, the
+  Levy works' tiers 3-4, Hale's Sound the Levy) takes post `BOWS_BACK` 44 px back
+  down the road (toward the castle) from the front line: `bowPosts(x, y, n)` in
+  engine/towers.js, used by `unitSlots` (garrison, from the rally flag),
+  `callMilitia` (from the call) and Hale's `fire`. The front men keep their
+  stands; the archers start at the call and walk back.
+- **`runRangedBand`'s hold-one-foe branch runs for every ranged band now** (it
+  was heroes and retinue only): a foe that walks within `RANGED_ENGAGE` 22 of a
+  bowman stops and fights him, he keeps shooting it first. So a foe that gets
+  past the front men meets the archers as any soldier.
+- **The militia is recalled by its own timer** (replaces "no clock", 2026-10-05):
+  when `g.militiaCd` reaches 0 (the horn can sound again) the band is marked
+  `recalled`; it leaves in a poof as soon as no man is fighting (state
+  "fighting", or holding a foe via `blockedBy`), so a band in a fight finishes it
+  (or dies) first. Hale's levy (`b.levy`) is not recalled: no clock. Sounding
+  the horn again still replaces whoever is left. Wording in bands.js / castle.js.
+  Checked headless: tier 4 gone at the 16 s cooldown with no foes, at ~40 s when
+  a column held it; bowmen held foes in both it and the Crossbow Company.
+
 ## Several sessions at once
 
 The owner often runs several Claude sessions in this folder at the same
@@ -833,10 +855,8 @@ own, so several sessions can work on heroes side by side:
   as the Levy works' upper tiers) fall in ON him, soldiers a step ahead, bows
   behind; the buff ring is centred on him, the pennant planted by his shoulder.
   The crossbows take post `BOWS_BACK` 44 px back down the road from him (not
-  on his spot), and are engaged like Wren: `runRangedBand`'s hold-one-foe branch
-  runs for `b.levy` bands too, so a foe that gets past Hale stops and fights
-  them (owner, 2026-10-07). The Levy works' and Knights Errant's bowmen are
-  still never engaged.
+  on his spot; `bowPosts` in engine/towers.js) and are engaged like Wren (see
+  "Bowmen post back and are engaged", below).
   They have no clock and never respawn: they fight until they drop (owner,
   2026-10-05), and sounding the horn again (when the 45 s cooldown is up)
   replaces whoever is left with four fresh men; a retried wave drops them.

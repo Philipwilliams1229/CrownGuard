@@ -14,7 +14,7 @@ import { cragBlocks } from "../data/gatecrag.js";
 import { barrowBlocks } from "../data/barrowgate.js";
 import { waveSpec, waveHpMult, CROWD_WEIGHT } from "../data/waves.js";
 import { ENEMIES } from "../data/enemies.js";
-import { makeTower, syncUnits, getStats } from "./towers.js";
+import { makeTower, syncUnits, getStats, bowPosts } from "./towers.js";
 import { nextId } from "./ids.js";
 import { recordFavored, favoredFor } from "../data/profile.js";
 import { sfx } from "../audio/sfx.js";
@@ -560,6 +560,16 @@ export const callMilitia = (g, x, y) => {
   const stands = MILITIA_STANDS[st.count];
   const id = nextId();
   const units = [];
+  // the archers (the last `bows`) post themselves a little back down the road
+  // from the call, in reach of whatever the men in front engage (towers.js bowPosts)
+  const nBows = Math.min(st.bows || 0, st.count - 1);
+  const posts = nBows ? bowPosts(x, y, nBows) : [];
+  const slotAt = (i) => {
+    const b = i - (st.count - nBows);
+    if (b >= 0) return posts[b];
+    const [dx, dy] = stands ? stands[i] : [i ? 12 : -12, 6];
+    return [x + dx, y + (stands ? dy : 6)];
+  };
   for (let i = 0; i < st.count; i++) {
     const [dx, dy] = stands ? stands[i] : [i ? 12 : -12, 6];
     // the last `bows` of the band are archers (the Levy's upper tiers)
@@ -571,7 +581,7 @@ export const callMilitia = (g, x, y) => {
   }
   const band = { id, kind: "militia", st, rally: { x, y }, units, life: st.life };
   if (st.rig) band.rig = st.rig;
-  if (stands) band.slots = stands.map(([dx, dy]) => [x + dx, y + dy]);
+  if (stands) band.slots = stands.map((_, i) => slotAt(i));
   g.bands.push(band);
   g.militiaCd = st.cooldown;
   g.effects.push({ type: "levelup", x, y, ttl: 500 });

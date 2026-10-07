@@ -30,17 +30,15 @@
 //   crossbowmen (a mixed "militia" band, `levy` set so nothing mistakes it
 //   for the player's horn; its cooldown is untouched) fall in: the watchmen
 //   on the spot he stands, a step ahead of him, the crossbows a little way back down the road
-//   (BOWS_BACK), where any foe that gets past him stops and fights them. They
+//   (towers.js bowPosts), where any foe that gets past him stops and fights them. They
 //   fight until they drop (no clock, no respawn); sounding the horn again
 //   replaces whatever is left with four fresh men. For
 //   `buffDur` ms every friendly soldier within `r` of him strikes `buff`
 //   harder (atkBuff, laid by `buffs` after the Support halls' auras, which
 //   clear it every tick).
 import { dealDamage, releaseEnemy } from "../actions.js";
-import { isRising } from "../towers.js";
+import { isRising, bowPosts } from "../towers.js";
 import { isBuilt } from "../build.js";
-import { nearestOnPath, lanePos, TOTAL_LEN } from "../path.js";
-import { LANE_OFF } from "../../data/constants.js";
 import { nextId } from "../ids.js";
 import { sfx } from "../../audio/sfx.js";
 
@@ -48,7 +46,6 @@ const HOLD_R = 26;        // how close a foe must come to him to be held (a knig
 const HOLD_SLACK = 12;    // ...and how far it may be pushed (a charge's knock) before he lets it go
 const TRAMPLE_R = 44;     // a charging rider's trample is spent on the halberd from this far (it closes fast at 4x)
 const SWING_LEAD = 130;   // ms of the arc already run when a swing lands (render/heroes/hale.js draws from it)
-const BOWS_BACK = 44;     // the crossbows take post this far back down the road (toward the castle), well inside their reach of his fight
 const FLAT = 0.7;         // the ground's squash: the sweep's reach is `r` across, `r * FLAT` deep
 
 // a foe he could hold besides his first: on foot, on the road, not a ram
@@ -172,8 +169,7 @@ export default {
       // the crossbows take post a little back down the road, in reach of
       // whatever he engages; a foe that walks past him meets them there and
       // fights them like any soldier (runRangedBand's `levy` engage)
-      const at = nearestOnPath(x, y).dist ?? 0, backAt = Math.min(at + BOWS_BACK, TOTAL_LEN - 70);
-      for (let i = 0; i < bows; i++) { const [lx, ly] = lanePos(backAt, bows === 1 ? 0 : (i / (bows - 1) - 0.5) * LANE_OFF); slots.push([lx, ly]); }
+      slots.push(...bowPosts(x, y, bows));
       const units = slots.map(([sx, sy], i) => {
         const bow = i >= men;
         const hp = bow ? st.bow.men : st.hp;

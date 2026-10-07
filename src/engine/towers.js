@@ -5,8 +5,8 @@
 import { TOWERS } from "../data/towers.js";
 import { PERK_MODS } from "../data/profile.js";
 import { nextId } from "./ids.js";
-import { nearestOnPath } from "./path.js";
-import { RALLY_RANGE } from "../data/constants.js";
+import { nearestOnPath, lanePos, TOTAL_LEN } from "./path.js";
+import { RALLY_RANGE, LANE_OFF } from "../data/constants.js";
 import { WX, canSee } from "./weather.js";
 
 // Which stats the permanent skill trees are allowed to touch, and which way
@@ -203,14 +203,29 @@ export const pickTarget = (g, t, st) => {
   return best || doomed;
 };
 
+// Where the bowmen of a mixed company post themselves (the Crossbow Company,
+// the Levy's archers, Hale's crossbows; owner, 2026-10-07): a little way back
+// down the road from the front line at (x, y), toward the castle, spread across
+// the lanes, so they loose over the soldiers' shoulders at whatever those
+// engage, and a foe that walks past meets them like any soldier.
+export const BOWS_BACK = 44;
+export const bowPosts = (x, y, n) => {
+  const at = nearestOnPath(x, y).dist ?? 0, back = Math.min(at + BOWS_BACK, TOTAL_LEN - 70);
+  const out = [];
+  for (let i = 0; i < n; i++) { const [lx, ly] = lanePos(back, n === 1 ? 0 : (i / (n - 1) - 0.5) * LANE_OFF); out.push([lx, ly]); }
+  return out;
+};
+
 // World positions where a garrison's knights stand, around its rally flag.
 export const unitSlots = (t) => {
   const st = getStats(t), n = st.count || 1;
   // a mixed company (the Crossbow Company): the knights stand shoulder to
-  // shoulder at the front, the crossbowmen a step behind them
+  // shoulder at the front, the crossbowmen back down the road behind them
   // (mounted knights, a horse's length long, stand further apart)
-  const base = st.bows ? [[-12, -8], [12, -8], [-9, 10], [9, 10]] : st.rider ? [[0, -17], [-23, 4], [23, 4], [0, 22]] : [[0, -11], [-14, 3], [14, 3], [0, 15]];
-  return base.slice(0, n).map(([dx, dy]) => [t.rally.x + dx, t.rally.y + dy]);
+  const bows = Math.min(st.bows || 0, n - 1);
+  const base = bows ? [[-12, -8], [12, -8], [0, -8], [0, 4]] : st.rider ? [[0, -17], [-23, 4], [23, 4], [0, 22]] : [[0, -11], [-14, 3], [14, 3], [0, 15]];
+  const front = base.slice(0, n - bows).map(([dx, dy]) => [t.rally.x + dx, t.rally.y + dy]);
+  return bows ? front.concat(bowPosts(t.rally.x, t.rally.y, bows)) : front;
 };
 
 // Ensure a garrison has the right number of knight units, and refresh their max HP.

@@ -14,11 +14,13 @@ const MORE_HEROES = [osric, hale, ysolde];
 const more = (part) => Object.fromEntries(MORE_HEROES.filter((h) => h[part]).map((h) => [h.key, h[part]]));
 
 // The militia: two farmers with pitchforks, summoned wherever you tap, who
-// hold the road until they fall (no clock; owner, 2026-10-05). Free, on a
-// cooldown; sounding the horn again replaces whoever is left with fresh men.
+// hold the road until the horn can sound again (owner, 2026-10-07): when the
+// cooldown ends the call is recalled, at once if no one is fighting, else once
+// the fight is over (update.js). Free, on a cooldown; sounding the horn again
+// replaces whoever is left with fresh men.
 export const MILITIA = {
   name: "Militia", icon: "",
-  blurb: "Two farmers with pitchforks answer the horn wherever you point — free, they fight until they fall, and the horn answers again when the cooldown ends.",
+  blurb: "Two farmers with pitchforks answer the horn wherever you point — free, they hold the road until the horn can answer again (and finish any fight first).",
   count: 2, hp: 95, dmg: 9, rate: 700, range: 60, unitSpeed: 90,
   life: Infinity, cooldown: 24000, respawnMs: Infinity,
 };
@@ -35,7 +37,7 @@ export const militiaStats = (works, ranks = null) => {
 };
 const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"];
 export const militiaBlurb = (st) =>
-  `${WORDS[st.count] || st.count} ${st.noun}${st.bows ? ` (${WORDS[st.bows].toLowerCase()} with bows)` : ""} answer the horn wherever you point — free, they fight until they fall, and the horn answers again ${Math.round(st.cooldown / 1000)} seconds on.`;
+  `${WORDS[st.count] || st.count} ${st.noun}${st.bows ? ` (${WORDS[st.bows].toLowerCase()} with bows)` : ""} answer the horn wherever you point — free, they stand until the horn answers again ${Math.round(st.cooldown / 1000)} seconds on (finishing any fight first).`;
 // where each man stands round the call: the garrison's three, then wider
 // ranks for the Levy's four and five (update.js falls back to its own three)
 export const MILITIA_STANDS = {
