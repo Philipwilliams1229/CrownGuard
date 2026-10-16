@@ -427,7 +427,7 @@ and weapons must be gated by `look`, `weapon` or an option old rigs never pass.
   for tablet-sized screens only (`min-width`/`min-height: 600px`): on an
   iPhone it pushed the battle HUD and tray down a status bar's height.
 - **Taps land under the finger** only because `src/ui/viewportGuard.js`
-  (started in main.jsx) scrolls the page back to 0,0 whenever it or the
+  (started in boot.jsx) scrolls the page back to 0,0 whenever it or the
   visual viewport slips off its origin. The same iOS 26 bug family leaves a
   home-screen app with a hidden offset one status bar tall (after a turn to
   portrait and back, a swipe that nudges the 100lvh page, a return from the

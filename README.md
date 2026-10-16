@@ -68,7 +68,7 @@ under `src/`. Behavior is identical — this is organization only.
 | `src/render/` | The "painter": `enemies.js`, `towers.js`, `scenery.js`, and `draw.js` (the master frame: pixel pipeline, camera, depth sorting, effects). |
 | `src/ui/` | `PixelIcon.jsx` — the little pixel figures used in menus. |
 | `src/CrownguardGame.jsx` | The thin React shell: state, the animation loop, mouse input, and the on-screen panels. |
-| `src/main.jsx` | Entry point that mounts the game. |
+| `src/main.jsx` | Entry point: puts the iOS app's save back (`src/native/keep.js`), then loads `src/boot.jsx`, which mounts the game. |
 
 ### How a frame flows
 

@@ -10,6 +10,7 @@ import { sfx } from "./audio/sfx.js";
 import SettingsPanel from "./ui/SettingsPanel.jsx";
 import { music } from "./audio/music.js";
 import { battleScore, menuScore } from "./audio/score.js";
+import { onAway } from "./native/app.js";
 import { FACTIONS, FACTION, selectFaction } from "./data/factions.js";
 import { TOWERS } from "./data/towers.js";
 import { ENEMIES } from "./data/enemies.js";
@@ -417,6 +418,15 @@ export default function Crownguard() {
     if (G.current && !menuOpen) G.current.paused = false;
     setGuideOpen(false);
   };
+  // Leaving the game (another app, the home screen, a call, a hidden tab)
+  // halts a battle under the pause menu, as the pause button does, so no one
+  // comes back to a battle that ran on without them.
+  const awayRef = useRef(null);
+  awayRef.current = () => {
+    const g = G.current;
+    if (screen === "game" && g && !g.paused && g.phase !== "won" && g.phase !== "lost") openMenu();
+  };
+  useEffect(() => onAway(() => awayRef.current()), []);
   const goHome = () => {
     bankLedger(G.current);
     if (G.current) G.current.paused = false;

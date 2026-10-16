@@ -1,10 +1,7 @@
-import { createRoot } from "react-dom/client";
-import CrownguardGame from "./CrownguardGame.jsx";
-import TurnDevice from "./ui/TurnDevice.jsx";
-import { guardViewport } from "./ui/viewportGuard.js";
+// Entry point. In the iOS app the save may first have to be put back from its
+// native copy (native/keep.js), and every store reads its key when its module
+// loads, so the game's modules are imported only after that. On the web
+// keepSaves returns at once.
+import { keepSaves } from "./native/keep.js";
 
-// Entry point: mount the game into the <div id="root"> in index.html. The
-// game is landscape-only: TurnDevice covers every screen while a touch
-// screen is held upright. guardViewport keeps an iPad's taps on target.
-guardViewport();
-createRoot(document.getElementById("root")).render(<><CrownguardGame /><TurnDevice /></>);
+keepSaves().finally(() => import("./boot.jsx"));

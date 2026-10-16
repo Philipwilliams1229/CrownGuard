@@ -64,11 +64,15 @@
 // Silkscreen's height and baseline in every browser; renamed wherever the
 // original's licence reserves its name (Pixeloid Sans -> CG Pixel Sans).
 //
+// KEPT FACES: Press Start 2P and Jersey 15, the default's two Google faces,
+// are kept in public/fonts/ too (KEPT, below) and load as self-hosted ones,
+// so the default option fetches nothing from Google (the iOS app must work
+// offline). Other options still fetch theirs.
+//
 // FIRST PAINT: the game can't paint before the bundle runs, so index.html
 // only starts the default's downloads early: a preload for each of its
-// self-hosted woff2 files and for each Google stylesheet the loader fetches
-// (the same URLs, so the loader's requests are answered from the preloads).
-// A new default changes those links. No option's stylesheet is linked there:
+// woff2 files (the same URLs the loader's rules name, so they are answered
+// from the preloads). A new default changes those links. No option's stylesheet is linked there:
 // a plain option (current) links its own at boot (`sheet`).
 
 const GOOGLE = "https://fonts.googleapis.com/css2";
@@ -81,7 +85,17 @@ const DIGITS = "0123456789";
 // for a face whose own ascent and descent stand taller (set with the
 // ascent/descent overrides, which Chrome and Firefox honour; Safari keeps the
 // face's own, a pixel or two taller)
-const face = (family, size = 1, wght = [400], lacks = "", lh = 0) => ({ family, size, wght, lacks, lh });
+const face = (family, size = 1, wght = [400], lacks = "", lh = 0) => ({ family, size, wght, lacks, lh, ...kept(family, wght) });
+// Google faces the default option uses, kept in public/fonts/ as well (Google's
+// own latin-subset files, OFL licences beside them), so the game, and above all
+// the iOS app, which may be offline, never waits on Google for them. A face
+// named here loads like a self-hosted one, with the latin subset's range.
+const KEPT = { "Press Start 2P": { 400: "PressStart2P.woff2" }, "Jersey 15": { 400: "Jersey15.woff2" } };
+const LATIN = "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD";
+function kept(family, wght) {
+  const files = KEPT[family];
+  return files && wght.every((w) => files[w]) ? { files, range: LATIN } : {};
+}
 // a self-hosted face (public/fonts/): `files` maps each weight to its file
 const own = (family, files, size = 1, lacks = "") =>
   ({ family, files, size, wght: Object.keys(files).map(Number).sort((a, b) => a - b), lacks, lh: 0 });
@@ -410,7 +424,7 @@ export const loadFaces = (faces) => {
   if (todo.length) {
     // self-hosted: the rules go in now, so the files start loading at once
     const mine = todo.filter((f) => f.files);
-    addStyle(mine.flatMap((f) => f.wght.map((w) => aliasRule(f, w, ownSrc(f.files[w]), undefined))).filter(Boolean));
+    addStyle(mine.flatMap((f) => f.wght.map((w) => aliasRule(f, w, ownSrc(f.files[w]), f.range))).filter(Boolean));
     const google = todo.filter((f) => !f.files);
     const fams = [...new Map(google.map((f) => [f.family, f])).values()];
     // one request per family (weights merged), so a bad name spoils nothing else

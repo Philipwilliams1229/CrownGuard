@@ -13,22 +13,20 @@
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="icon" href="./icon-192.png" />
     <!-- the default type option's faces (tidy3), started before the bundle
-         runs: CG Pixel Sans from ./fonts/, and the two Google stylesheets
-         src/ui/fonts.js fetches (same URLs, so its requests use these). Every
-         font the game uses is named in fonts.js, which loads them all; another
-         option (?type=<id>) loads its own faces from there. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+         runs, all from ./fonts/ (nothing from Google: the iOS app may be
+         offline). Every font the game uses is named in src/ui/fonts.js, which
+         loads them all; another option (?type=<id>) loads its own faces from
+         there. -->
     <link rel="preload" as="font" type="font/woff2" href="./fonts/CGPixelSans.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="./fonts/CGPixelSans-Bold.woff2" crossorigin />
-    <link rel="preload" as="fetch" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" crossorigin />
-    <link rel="preload" as="fetch" href="https://fonts.googleapis.com/css2?family=Jersey+15&display=swap" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="./fonts/PressStart2P.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="./fonts/Jersey15.woff2" crossorigin />
     <title>Crownguard</title>
     <style>
       /* a touch screen must never bounce, pan, select text, flash on tap or zoom
          the page: every screen fits the window, and only panels' own lists scroll */
       html, body { margin: 0; height: 100%; overflow: hidden; background: #20242c; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-      body { -webkit-user-select: none; user-select: none; -webkit-text-size-adjust: 100%; }
+      body { -webkit-user-select: none; user-select: none; -webkit-text-size-adjust: 100%; -webkit-touch-callout: none; }
       button { touch-action: manipulation; }
       /* the game's root is pinned to all four edges of the screen. On an iPad
          home-screen install 100vh / 100dvh / height:100% can come out a few

@@ -12,6 +12,47 @@ https://philipwilliams1229.github.io/CrownGuard/ (GitHub Pages, ~1 minute).
 - `art/DESIGN-BRIEF.md` / `art/GEMINI-PROMPTS.md` — sprite sizes and prompts
   if AI-painted images are ever used.
 
+## The iOS app (2026-10-16, owner request)
+
+The game ships to the App Store as itself, wrapped by **Capacitor 8** (no
+Swift rewrite): `capacitor.config.ts` (appId `com.philipwilliams.crownguard`:
+never change it, nor `server.hostname`/`iosScheme`), the Xcode project in
+`ios/` (Swift Package Manager, no CocoaPods). Free, iPhone + iPad. The owner
+builds on their Mac and uploads to TestFlight: **`APP-STORE.md`** is their
+step-by-step; keep it right when the flow changes. Pending: the owner's first
+build (nothing native has been compiled yet: this container has no Swift or
+Xcode, so keep edits under `ios/` few and plain, and say they're unbuilt).
+- `npm run ios` = build + `cap sync ios` + open Xcode (Mac only);
+  `npm run ios:sync` without the open. A new Capacitor plugin: `npm install`
+  it, then `npx cap sync ios` (rewrites `ios/App/CapApp-SPM/Package.swift`;
+  commit it). Generated and ignored: `ios/App/App/public` (the copied
+  dist/), `capacitor.config.json`, `config.xml`.
+- Native choices: iOS 17 minimum; landscape only on both (the iPad also
+  `UIRequiresFullScreen`, deprecated in iPadOS 26 but still honoured; if an
+  upload ever refuses it, list all four iPad orientations instead:
+  TurnDevice covers upright); status bar hidden (`UIStatusBarHidden`, read by
+  Capacitor); `ITSAppUsesNonExemptEncryption` false; `GameViewController`
+  (bottom of `SceneDelegate.swift`) fades the home bar and defers edge swipes.
+  Icon `AppIcon-512@2x.png` = `public/icon-512.png` x2 nearest-neighbour
+  (opaque, as Apple requires); the launch image is plain #20242c.
+- **Saves are mirrored natively** (`src/native/keep.js`): iOS may clear a web
+  view's localStorage, so the app copies all of it to Capacitor Preferences
+  (UserDefaults) a second after any change and on leaving the app, and puts
+  it back at launch if the stamp key `cg-keep` is gone. `main.jsx` awaits
+  `keepSaves()` and only then imports `boot.jsx` (the old entry), since the
+  stores read their keys at module load. Web: does nothing.
+  `node scripts/keep-test.mjs` tests it.
+- **Leaving pauses a battle** (web and app): `onAway` (`src/native/app.js`:
+  page hidden, or the app going inactive) opens the pause menu in battle.
+- **The default type needs no network**: Press Start 2P and Jersey 15 are in
+  `public/fonts/` (Google's latin subset files, OFL) and load as self-hosted
+  faces (`KEPT` in `ui/fonts.js`); other `?type=` options still fetch theirs.
+- `public/privacy.html` is the App Store's privacy policy URL; if the game
+  ever sends data anywhere, it and the App Store's privacy answers change.
+  No support page yet (it needs a contact the owner picks).
+- To check on a device: sound vs the silent switch, Copy/Share of the save
+  code, speed on an older iPhone, the notch's safe areas, iPadOS 26 windows.
+
 ## Fifteen levels a chapter (2026-10-03, owner request)
 
 Each chapter grew from 11 to 15 levels: Greenwood gullwick, millrace,
