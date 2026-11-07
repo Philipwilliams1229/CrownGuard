@@ -193,7 +193,7 @@ export const drawArcherTowerPixel = (ctx, t, time) => {
   const recoil = t.anim > 0.4 ? CELL : 0;
   // at ease, the crew sweeps the horizon slowly instead of holding an aim —
   // and someone up there has a spyglass that catches the light
-  const dir = t._idle ? (Math.sin(time * 0.55 + t.id) >= 0 ? 1 : -1) : (Math.cos(t.lastAim) >= 0 ? 1 : -1);
+  const dir = Math.cos(t.lastAim) >= 0 ? 1 : -1;   // at rest, still the way of the last shot
   if (t._idle && Math.sin(time * 1.3 + t.id * 2.7) > 0.93) {
     ctx.fillStyle = "#f4f0e4";
     ctx.fillRect(x + dir * (pw - 4), y - h - 10, 2, 2);

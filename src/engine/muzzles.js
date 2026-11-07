@@ -58,13 +58,14 @@ export const staffFrom = (t) => {
 // The Powder Works stands one way for good: its store faces the road it was
 // built to watch (the nearest point of it), the musketeer on that side of
 // the deck and the bombardier behind him. Only the two men turn, each to
-// his own last shot, and each holds it until his next (t.bAim, t.mAim).
+// his own last shot, and each holds it until his next (t.bAim, t.mAim);
+// before his first shot each faces left, away from the castle.
 export const powderHome = (t) => {
   if (t.face0 == null) t.face0 = !SEGS.length || nearestOnPath(t.x, t.y).x >= t.x ? 1 : -1;
   return t.face0;
 };
-export const bomberFacing = (t) => (t.bAim == null ? powderHome(t) : Math.cos(t.bAim) >= 0 ? 1 : -1);
-export const musketFacing = (t) => (t.mAim == null ? powderHome(t) : Math.cos(t.mAim) >= 0 ? 1 : -1);
+export const bomberFacing = (t) => (t.bAim == null ? -1 : Math.cos(t.bAim) >= 0 ? 1 : -1);
+export const musketFacing = (t) => (t.mAim == null ? -1 : Math.cos(t.mAim) >= 0 ? 1 : -1);
 
 // The musketeer's ball at the muzzle as the shot kicks (halls/gunpowder.js:
 // he stands 6.5 out from the hall on its deck, 9 + level up, and 2.5 above

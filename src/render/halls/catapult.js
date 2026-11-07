@@ -351,7 +351,7 @@ export const drawCatapult = (ctx, t, time) => {
   const x = t.x, y = t.y;
   const s = spec(t), hw = s.hw;
   const r4 = t.rank4 ? t.branch + t.rank4 : null;
-  const f = t._idle ? 1 : (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
+  const f = Math.cos(t.lastAim || 0) >= 0 ? 1 : -1;   // at rest, still the way of the last throw
   const bake = canBake();
   const r = readiness(t);
   const anim = t.anim || 0;

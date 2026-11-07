@@ -576,7 +576,7 @@ export const drawArcherTower = (ctx, t, time) => {
   };
   if (r4 === "ba") {
     const loosed = t.anim > 0.3 ? 1 : 0;
-    const dir = t._idle ? (Math.sin(time * 0.35 + t.id) >= 0 ? 1 : -1) : aimDir;
+    const dir = aimDir;   // at rest, still the way of the last bolt
     const bcv = canBake ? baked(`siege|${loosed}`, 50, 40, (c) => siegeBow(c, 22, 34, loosed)) : null;
     if (bcv) stamp(ctx, bcv, x - dir * 2, dy + 1, 22, 34, dir); else siegeBow(ctx, x, dy + 1, loosed);
     // the winch's spokes turn while it cocks
@@ -611,7 +611,7 @@ export const drawArcherTower = (ctx, t, time) => {
       if (letDown < LETDOWN[LETDOWN.length - 1][0]) {
         dir = aimDir;
         frame = LETDOWN.find(([end]) => letDown < end)[1];
-      } else if (t._idle) [frame, dir] = idleFrame(time, t.id, sp.i);
+      } else if (t._idle) { [frame] = idleFrame(time, t.id, sp.i); dir = aimDir; }   // at ease, but still facing the last shot
       else {
         dir = aimDir;
         let el;

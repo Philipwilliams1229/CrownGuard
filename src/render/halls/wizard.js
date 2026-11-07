@@ -341,7 +341,7 @@ export const drawWizardSpire = (ctx, t, time) => {
     stamp(ctx, baked(`spire|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBody(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   } else paintBody(ctx, t, x, y);
   const aimDir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
-  const dir = idle ? (Math.sin(time * 0.5 + t.id) >= 0 ? 1 : -1) : aimDir;
+  const dir = aimDir;   // at rest he keeps facing the way of his last cast
   // Dragonbreath's breath, 0..1 (eased by the engine)
   const on = r4 === "ab" && !idle && t.breath ? t.breath.on : 0;
 

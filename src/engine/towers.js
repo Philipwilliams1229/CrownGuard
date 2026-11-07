@@ -276,7 +276,7 @@ const defaultRally = (x, y) => {
 export const makeTower = (kind, x, y, level = 1, branch = null, invested = null, rank4 = null) => {
   const t = {
     id: nextId(), kind, x, y, level, branch, rank4, cd: 0, aim: "first",
-    invested: invested ?? TOWERS[kind].cost, lastAim: -Math.PI / 2, anim: 0, shotIdx: 0, critIdx: 0,
+    invested: invested ?? TOWERS[kind].cost, lastAim: Math.PI, anim: 0, shotIdx: 0, critIdx: 0,
   };
   if (kind === "knight") {
     // a new hall posts its knights on the nearest spot of the road, the middle

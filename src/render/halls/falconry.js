@@ -192,7 +192,8 @@ export const drawFalconry = (ctx, t, time) => {
     glow(ctx, rx, ry, 4, "#b8e0ff", 0.6);
   }
   const pal = court ? CREW_FOLK.mistressCourt : aviary ? ROYAL : CREW_FOLK.mistress;
-  const dir = t._idle ? 1 : (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
+  // at rest she keeps facing the way she last cast (left before her first)
+  const dir = Math.cos(t.lastAim || 0) >= 0 ? 1 : -1;
   const my = y - h - 2 + (lvl === 1 ? -1 : 0);
   const kindOf = (b) => r4 === "ab" ? "storm" : (r4 === "ba" && b === 0) ? "king" : "hawk";
   const bird = (bx, by, wing, kind) => {

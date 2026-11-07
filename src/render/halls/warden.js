@@ -333,7 +333,7 @@ export const drawSupportTower = (ctx, t, time) => {
   t._blessW = work; t._blessAt = time;
   const frame = priestPose(time, t.id, work);
   const pal = PRIEST_FOLK[key] || PRIEST_FOLK.base;
-  const dir = t._idle ? (Math.sin(time * 0.4 + t.id) >= 0 ? 1 : -1) : (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
+  const dir = Math.cos(t.lastAim || 0) >= 0 ? 1 : -1;   // at rest, still the way he last faced
   const py = y - 1;
   if (t.noFolk) { /* no warden yet: nor his hands' light, nor his halo */ }
   else if (canBake) {

@@ -286,6 +286,11 @@ call for you — a bespoke limb logs its own). Nothing ships red.
 - **Idle is alive but calm:** a breath (one art pixel) every few seconds, a
   glance, a shift of weight; crews on one hall and on neighbouring halls are
   never in step (phase by `t.id`, and by the crewman's index).
+- **A crew at rest keeps its facing** (owner, 2026-11-07): it faces the way
+  of its last shot (`t.lastAim`) and holds it once no foe is in range, never
+  turning back to the right or about on a timer; before its first shot it
+  faces left, away from the castle. An idle glance is a head or a pose, not
+  a flip of the whole figure.
 - Frames stay baked (one cache key per pose and frame) and stamped; the
   number of frames per form stays small (≤ 8 per cycle).
 

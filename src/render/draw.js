@@ -297,7 +297,7 @@ export function draw(g, canvas, bufRef) {
     // their crew's timers, and a missing one poisoned a whole frame (NaN glow)
     const ghost = {
       kind: g.buildMode, x: S(hx), y: S(hy), level: 1,
-      branch: null, rank4: null, id: 0, anim: 0, lastAim: 0, rally: null, range: 0,
+      branch: null, rank4: null, id: 0, anim: 0, lastAim: Math.PI, rally: null, range: 0,
       cd: 0, aim: "first", shotIdx: 0, critIdx: 0, invested: 0, units: [], kills: 0, dmgOut: 0,
       liveTime: 0, _idle: true, charges: 0, ramp: 0, mAnim: 0, eagle: null,
     };

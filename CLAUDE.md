@@ -488,6 +488,17 @@ know with these changes").
   `--level cinderholt --endure` bled 253/528 -> 203/473 (swarm/burst, seed
   default); the burst plan loses wave 12 with or without the change.
 
+## Halls keep their facing at rest (2026-11-07, owner request)
+
+A hall's crew faces the way of its last shot and HOLDS it when no foe is in
+range; before its first shot it faces LEFT, away from the castle (`lastAim`
+starts at `Math.PI`, engine/towers.js; the build ghost in draw.js too). Gone:
+the Falconry / Covert / Catapult snapping right at rest, and the idle glancing
+about of the archers (crew and siege bow), wizard, Warden and the old pixel
+archer. The Powder Works' two men face left until each first shoots
+(`bomberFacing` / `musketFacing`, muzzles.js); its store still faces the road.
+The River Watch's watchman still glances about (he never aims).
+
 ## Bowmen post back and are engaged; the militia is recalled (2026-10-07, owner request)
 
 Provisional, pending the owner's playtest.
@@ -836,10 +847,13 @@ the shamans now walking in the thick of the warband).
   raise reach infinite (any of the wave's corpses on the board), every 3 s
   (`raiseEvery` 3000), the first at once, raised at FULL health (was half; the
   bounty is still half); the clock restarts only when a raise lands, so he is
-  ready the instant a corpse exists. `atk: 0` (no soldier blocks or fights him)
-  and `standOff: 100` (enemies.js; update.js): like an archer he halts while any
-  friendly soldier or hero is within 100 (archers 80-82, same 14 s `pauseLeft`
-  budget), but he never shoots. Measured `--level gw5 --endure`: swarm 58 -> 119,
+  ready the instant a corpse exists. `standOff: 100` (enemies.js; update.js):
+  like an archer he halts while any friendly soldier or hero is within 100
+  (archers 80-82, same 14 s `pauseLeft` budget), but he never shoots. He was
+  `atk: 0`, but soldiers still seized and beat him while he never struck back
+  (owner, 2026-11-07: "militia took them out no problem"), so he now has
+  `atk` 30 every 1100 ms (his fight sheet plays it); gw5 `--endure` seeds 1-2
+  barely moved (swarm 155/149 -> 155/203, burst unchanged). Measured `--level gw5 --endure`: swarm 58 -> 119,
   burst 957 -> 1121 castle damage (noisy). Ordinary towers never had a prey
   priority (`pickTarget` follows the tray's order only); the Covert's contract
   orders (Support / Healers / Raisers ...) are its tray choices and stay.

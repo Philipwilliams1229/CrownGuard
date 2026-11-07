@@ -232,7 +232,7 @@ export const drawAssassin = (ctx, t, time) => {
   // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
   const s = spec(t), r4 = s.r4;
-  const f = t._idle ? 1 : (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
+  const f = Math.cos(t.lastAim || 0) >= 0 ? 1 : -1;   // at rest, still the way of the last strike
   const bake = canBake(), id5 = t.id % 5;
   const layer = (name, fn) => {
     if (!bake) { fn(ctx, t, x, y, f); return; }
