@@ -1268,6 +1268,10 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   (hl4) went 750 → 850 start gold to absorb it — PROVISIONAL, pending the
   owner's playtest (more gold is not monotonic in the sim there: 800, 900
   and 950 each lost seeds that 850 won).
+- **The Goblin Warrens (gw5) start with 1500 gold** (was 1000; owner,
+  2026-11-07: "couldn't get past wave 3", with the Fierce fog lingering).
+  `--endure` seeds 1-2: the opening waves bleed ~0; swarm 388/156 ->
+  170/439 (noise), burst 1064/1076 -> 856/691.
 - The owner playtests; the sims are a floor, not a target.
 - The board is 840x560 (3:2): an 80px right border holds the castle band
   (wall face at `W - WALL_W` = 738). See art/STYLE-GUIDE.md "The board's

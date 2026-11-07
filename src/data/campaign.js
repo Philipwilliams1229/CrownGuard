@@ -113,7 +113,7 @@ export const CHAPTERS = [
       // ...and the boss, thirty waves deep
       {
         id: "gw5", name: "The Goblin Warrens", realm: "warrens", short: "The Warrens",
-        window: { from: 11, to: 34, count: 30, boss: true }, gold: 1000,
+        window: { from: 11, to: 34, count: 30, boss: true }, gold: 1500,   // 1000 -> 1500 (owner, 2026-11-07: "couldn't get past wave 3")
         blurb: "The mouth of the burrow. Necromancers raise your kills against you — and the dragon is home.",
       },
     ],
