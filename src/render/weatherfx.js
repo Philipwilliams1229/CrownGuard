@@ -45,6 +45,7 @@ import { forestDepthAt, inRiver, inSea, COAST } from "../data/terrain.js";
 import { canvasFont } from "../ui/fonts.js";
 import { PX } from "./paint.js";
 import * as B from "./weatherbake.js";
+import { apronShade } from "./apron.js";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const frac = (v) => v - Math.floor(v);
@@ -78,7 +79,7 @@ const RUNGS = [28, 34, 40, 48, 56, 64, 76, 88, 100, 116, 132, 150, 172, 196, 224
 const rung = (r) => { for (const q of RUNGS) if (q >= r) return q; return 0; };
 const clearHalls = (c, g, r, box = null, alpha = 1) => {
   const q = rung(r);
-  if (!q) { c.clearRect(0, 0, W, H); return; }
+  if (!q) { const R = c.canvas === WIDE ? WR : [0, 0, W, H]; c.clearRect(R[0], R[1], R[2] - R[0], R[3] - R[1]); return; }
   const s = B.clearing(q);
   c.globalCompositeOperation = "destination-out"; c.globalAlpha = alpha;
   for (const t of g.towers) {
@@ -91,30 +92,89 @@ const clearHalls = (c, g, r, box = null, alpha = 1) => {
 
 // ---- the weather beyond the board ----
 // Fog and mist live on the board's own canvas, so a screen taller or wider than
-// the board (an iPad) showed them stop dead at its edge. The painter leaves its
-// finished layer in EDGE each frame; paintWeatherEdge lays it out over the
-// landscape around the board, MIRRORED at each edge (no seam), on a canvas
-// that sits under the board. null when no fog or mist is up.
-let EDGE = null;
+// the board (an iPad) showed them stop dead at its edge. So they paint into a
+// WIDE layer that runs as far past each edge as the screen needs (NEED, set by
+// the last paintWeatherEdge; 0 on a screen with nothing beyond the board) —
+// the same banks (periodic both ways, so they tile on), the land's field
+// easing out (weatherbake.js bakeFogWide), the clearings round halls near the
+// edge — and the board shows its middle while paintWeatherEdge lays the whole
+// of it, once and unmirrored, on a canvas under the board. (Until 2026-11-07 it
+// MIRRORED the board's layer at each edge: seams, and flipped clearings.)
+let NEED = [0, 0, 0, 0], NEED_RAW = [0, 0, 0, 0];   // units past the left, top, right, bottom edge
+let WIDE = null, WR = [0, 0, W, H];                 // the wide layer and its world rect
+let EDGE = null;                                     // { a } while fog or mist is up
+const isWide = () => WR[0] < 0 || WR[1] < 0 || WR[2] > W || WR[3] > H;
+// the wide layer, cleared, its context in world units
+const wideLayer = () => {
+  if (typeof document === "undefined") return null;
+  const [l, t, r, b] = NEED, ww = W + l + r, hh = H + t + b;
+  if (!WIDE) WIDE = B.mk(ww, hh);
+  if (WIDE.width !== ww || WIDE.height !== hh) { WIDE.width = ww; WIDE.height = hh; }
+  WR = [-l, -t, W + r, H + b];
+  const c = WIDE.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.globalCompositeOperation = "source-over"; c.globalAlpha = 1;
+  c.imageSmoothingEnabled = false;
+  c.clearRect(0, 0, ww, hh);
+  c.setTransform(1, 0, 0, 1, l, t);
+  return c;
+};
+// the board's part of it (or of a box in it) onto the board
+const showWide = (ctx, a = 1, box = null) => {
+  const x0 = Math.max(0, box ? box[0] : 0), y0 = Math.max(0, box ? box[1] : 0);
+  const x1 = Math.min(W, box ? box[2] : W), y1 = Math.min(H, box ? box[3] : H);
+  if (x1 <= x0 || y1 <= y0) return;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false; ctx.globalAlpha = a;
+  ctx.drawImage(WIDE, x0 - WR[0], y0 - WR[1], x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+  ctx.restore();
+};
+// a sheet repeated over the layer's rect, slid `ox` units left
+const tile = (c, cv, ox) => {
+  const tw = cv.width, th = cv.height;
+  const sx = Math.floor((WR[0] + ox) / tw) * tw - ox, sy = Math.floor(WR[1] / th) * th;
+  for (let y = sy; y < WR[3]; y += th) for (let x = sx; x < WR[2]; x += tw) c.drawImage(cv, x, y);
+};
+const FADE = 48;   // past the wide layer's reach (a screen far bigger than the board) its rim fades out
 export const paintWeatherEdge = (cv, board, dpr = 1) => {
   if (!cv) return;
+  const ok = !!(board && board.w > 0 && board.h > 0);
+  if (ok) {
+    // how far the screen runs past each edge, for the next frame's wide layer
+    const sx = board.w / W, sy = board.h / H, cw = cv.width / dpr, ch = cv.height / dpr;
+    NEED_RAW = [board.x / sx, board.y / sy, (cw - board.x - board.w) / sx, (ch - board.y - board.h) / sy];
+    NEED = NEED_RAW.map((v) => (v <= 1 ? 0 : Math.min(B.FOG_WIDE, Math.ceil(v / 8) * 8 + 8)));
+  }
   const e = EDGE;
-  const on = !!(e && e.a > 0.01 && board && board.w > 0);
+  const on = !!(ok && e && e.a > 0.01 && WIDE && isWide());
   if (!on) { if (cv._wxOn) { cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); cv._wxOn = false; } return; }
   const c = cv.getContext("2d");
   c.setTransform(1, 0, 0, 1, 0, 0);
   c.clearRect(0, 0, cv.width, cv.height);
   c.imageSmoothingEnabled = false;
+  const sx = board.w / W, sy = board.h / H;
+  c.setTransform(dpr * sx, 0, 0, dpr * sy, dpr * board.x, dpr * board.y);   // world units
   c.globalAlpha = e.a;
-  const { x, y, w, h } = board;
-  const nx = Math.ceil(Math.max(x, cv.width / dpr - x - w) / w), ny = Math.ceil(Math.max(y, cv.height / dpr - y - h) / h);
-  for (let iy = -ny; iy <= ny; iy++) for (let ix = -nx; ix <= nx; ix++) {
-    if (!ix && !iy) continue;                      // the board itself is drawn by the board
-    const fx = Math.abs(ix) & 1, fy = Math.abs(iy) & 1;
-    const tx = x + ix * w, ty = y + iy * h;
-    if (tx + w < 0 || ty + h < 0 || tx > cv.width / dpr || ty > cv.height / dpr) continue;
-    c.setTransform(dpr * (w / W) * (fx ? -1 : 1), 0, 0, dpr * (h / H) * (fy ? -1 : 1), dpr * (tx + (fx ? w : 0)), dpr * (ty + (fy ? h : 0)));
-    c.drawImage(e.cv, 0, 0);
+  c.drawImage(WIDE, WR[0], WR[1]);
+  c.globalAlpha = 1;
+  // the apron under it was baked with the board's vignette and a falloff with
+  // distance; the fog takes the same shade, as the board's fog takes its grade
+  apronShade(c, WR[0], WR[1], WR[2], WR[3]);
+  // a side the layer can't reach the screen's edge on fades out at its rim
+  const capped = NEED_RAW.map((v, i) => v > NEED[i] + 1);
+  if (capped.some(Boolean)) {
+    c.globalCompositeOperation = "destination-out";
+    const [x0, y0, x1, y1] = WR;
+    const side = (gx0, gy0, gx1, gy1, rx, ry, rw, rh) => {
+      const gr = c.createLinearGradient(gx0, gy0, gx1, gy1);
+      gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,1)");
+      c.fillStyle = gr; c.fillRect(rx, ry, rw, rh);
+    };
+    if (capped[0]) side(x0 + FADE, 0, x0, 0, x0, y0, FADE, y1 - y0);
+    if (capped[1]) side(0, y0 + FADE, 0, y0, x0, y0, x1 - x0, FADE);
+    if (capped[2]) side(x1 - FADE, 0, x1, 0, x1 - FADE, y0, FADE, y1 - y0);
+    if (capped[3]) side(0, y1 - FADE, 0, y1, x0, y1 - FADE, x1 - x0, FADE);
+    c.globalCompositeOperation = "source-over";
   }
   c.setTransform(1, 0, 0, 1, 0, 0);
   cv._wxOn = true;
@@ -160,7 +220,8 @@ const warm = (kind) => {
   WARMING = key;
   // one bake per idle slice, so no slice runs long
   const jobs = {
-    fog: [fogArt, B.fogShafts, ...RUNGS.slice(4).map((r) => () => B.clearing(r))],
+    fog: [fogArt, B.fogShafts, ...RUNGS.slice(4).map((r) => () => B.clearing(r)),
+      () => { if (NEED.some((v) => v > 0)) fogLandWide(); }, () => { if (NEED.some((v) => v > 0)) B.fogShafts(B.FOG_WIDE); }],
     storm: [B.stormShade, () => B.rainSheet(false), () => [0, 1, 2].forEach(B.rainDrop), () => puddles().forEach((p) => B.puddle(p.wu, p.v))],
     blizzard: [() => B.snowDrift(false), () => B.snowDrift(true), () => B.snowSheet(false),
       ...["t", "b", "l", "r"].flatMap((sd) => [1, 2, 3, 4].map((i) => () => B.frostStrip(sd, FROST_D[sd], i / 4)))],
@@ -186,35 +247,38 @@ const landAt = (x, y) => {
   return v;
 };
 const fogArt = () => B.bakeFog(realmKey(), landAt);
+const fogLandWide = () => B.bakeFogWide(realmKey(), landAt);
 
 const fog = (ctx, g, w, def) => {
   const k = w.k, t = g.time;
   if (k < 0.02) return;
-  const F = fogArt(), c = layer();
+  const F = fogArt(), c = wideLayer();
   if (!c) return;
+  const wide = isWide();
   // the lie of the land: thick over the wood and the water, the last to go
   c.globalAlpha = Math.min(1, k * 1.9);
-  c.drawImage(F.land, 0, 0);
+  if (wide) c.drawImage(fogLandWide(), -B.FOG_WIDE, -B.FOG_WIDE); else c.drawImage(F.land, 0, 0);
   // the banks, drifting east on the morning air; as it burns off the thick
   // banks give way to patches
   const thick = Math.pow(clamp01((k - 0.25) / 0.75), 0.8);
   const patchy = Math.min(1, k / 0.25) * (1 - thick * 0.55);
   const ox1 = frac(t * 5 / W) * W, ox2 = frac((t * 9 + 310) / W) * W;
-  if (thick > 0.01) { c.globalAlpha = thick; c.drawImage(F.thick, -ox1, 0); c.drawImage(F.thick, W - ox1, 0); }
-  if (patchy > 0.01) { c.globalAlpha = patchy; c.drawImage(F.patchy, -ox2, 0); c.drawImage(F.patchy, W - ox2, 0); }
+  if (thick > 0.01) { c.globalAlpha = thick; tile(c, F.thick, ox1); }
+  if (patchy > 0.01) { c.globalAlpha = patchy; tile(c, F.patchy, ox2); }
   // the sun breaking through: the fog itself warms, lit in slanting shafts
   // (only as it LIFTS: fog drifting in comes grey, without the sun)
   const sun = w.phase === "easing" && k < 0.995 ? clamp01((1 - k) / 0.55) : 0;
   if (sun > 0) {
     c.globalCompositeOperation = "source-atop";
-    c.globalAlpha = sun * 0.2; c.fillStyle = "#fff0c4"; c.fillRect(0, 0, W, H);
-    c.globalAlpha = sun * 0.85; c.drawImage(B.fogShafts(), -80 + Math.sin(t * 0.07) * 50, 0);
+    c.globalAlpha = sun * 0.2; c.fillStyle = "#fff0c4"; c.fillRect(WR[0], WR[1], WR[2] - WR[0], WR[3] - WR[1]);
+    const m = wide ? B.FOG_WIDE : 0;
+    c.globalAlpha = sun * 0.85; c.drawImage(B.fogShafts(m), -80 - m + Math.sin(t * 0.07) * 50, -m);
   }
   // every hall sees out to `sight`: the fog thins round it as far
   const sight = (def?.fx?.sight || 85) / Math.max(0.05, k);
   clearHalls(c, g, sight * 1.1);
-  showLayer(ctx, 1);
-  EDGE = { cv: LAYER, a: 1 };
+  showWide(ctx, 1);
+  EDGE = { a: 1 };
 };
 
 // ================= STORM =================
@@ -387,7 +451,7 @@ const storm = (ctx, g, w) => {
 const gravemist = (ctx, g, w) => {
   const k = w.k, t = g.time;
   if (!w.banks.length || k < 0.02) return;
-  const c = layer();
+  const c = wideLayer();
   if (!c) return;
   const boxes = [];
   w.banks.forEach((b, bi) => {
@@ -406,13 +470,13 @@ const gravemist = (ctx, g, w) => {
       box[0] = Math.min(box[0], bx - s0.ax); box[1] = Math.min(box[1], by - s0.ay);
       box[2] = Math.max(box[2], bx + s0.ax); box[3] = Math.max(box[3], by - s0.ay + s0.cv.height);
     }
-    if (box[2] > box[0]) boxes.push(box.map((v, i) => Math.max(0, Math.min(i % 2 ? H : W, Math.round(v)))));
+    if (box[2] > box[0]) boxes.push(box.map((v, i) => Math.max(WR[i % 2], Math.min(WR[2 + (i % 2)], Math.round(v)))));
   });
   c.globalAlpha = 1;
   for (const box of boxes) clearHalls(c, g, 36, box);
   const a = step4(k);
-  for (const box of boxes) if (box[2] > box[0] && box[3] > box[1]) showLayer(ctx, a, box);
-  EDGE = { cv: LAYER, a };
+  for (const box of boxes) if (box[2] > box[0] && box[3] > box[1]) showWide(ctx, a, box);
+  EDGE = { a };
   // wisps curling up off the banks, and now and then a face or a hand in one
   w.banks.forEach((b, bi) => {
     for (let i = 0; i < 3; i++) {
@@ -653,7 +717,9 @@ export const drawWeather = (ctx, g) => {
 // The weather's veil over the landscape BEYOND the board (the apron is baked
 // once, so the game lays this colour over it each frame): the same darkening
 // the board's own layer gets, so a long storm leaves no lit edge. null = none.
-const VEIL = { storm: ["14,20,40", 0.42], blizzard: ["224,236,248", 0.3], eruption: ["136,54,26", 0.22], fog: ["226,230,224", 0.32] };
+// (No fog veil: the board gets no fog wash, so a flat one beyond it read as a
+// band; the fog itself runs out past the board now, see paintWeatherEdge.)
+const VEIL = { storm: ["14,20,40", 0.42], blizzard: ["224,236,248", 0.3], eruption: ["136,54,26", 0.22] };
 export const weatherVeil = (g) => {
   const w = g?.weather, v = w && VEIL[w.paint];
   if (!v || !(w.k > 0.01)) return null;

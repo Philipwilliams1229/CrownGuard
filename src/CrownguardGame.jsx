@@ -533,7 +533,7 @@ export default function Crownguard() {
       draw(g, canvasRef.current, bufRef);
       // the weather darkens the landscape beyond the board too (render/weatherfx.js weatherVeil)
       if (veilRef.current) { const v = weatherVeil(g) || "transparent"; if (veilRef.current.style.background !== v) veilRef.current.style.background = v; }
-      // and fog / mist run out over it, mirrored at the board's edges
+      // and fog / mist run out over it (weatherfx.js paints them wide enough)
       { const bc = boardCssRef.current, ec = edgeRef.current;
         if (ec && bc.cw) {
           const dpr = Math.min(2, window.devicePixelRatio || 1);

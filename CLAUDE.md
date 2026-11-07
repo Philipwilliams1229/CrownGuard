@@ -176,11 +176,23 @@ itself. **Fog is a percentage now** (owner, 2026-10-05): every hall reaches 25% 
 `weatherFor(level) ?? realm.weather`, the same call the battle makes. The
 in-battle wave preview chip (ui/WeatherForecast.jsx) has the same (i), reading
 `briefOf(weatherDef())`. **Fog and mist beyond the board:** they paint on the board's
-own canvas, so a taller screen (iPad) showed them stop at its edge. Each painter
-leaves its finished layer in `EDGE` (render/weatherfx.js) and `paintWeatherEdge`
-draws it MIRRORED around the board on a canvas under the board (`edgeRef` in
-CrownguardGame.jsx, beside the veil div). Storm / blizzard / eruption still use
-only the flat `weatherVeil` beyond the board.
+own canvas, so a taller screen (iPad) showed them stop at its edge. They paint
+into a WIDE layer (render/weatherfx.js `wideLayer`) that runs as far past each
+edge as the screen needs (`NEED`, measured by the last `paintWeatherEdge`, at
+most `FOG_WIDE` 160 units, its rim faded beyond that; 0 on a phone, which keeps
+the old board-sized layer); the board shows its middle and `paintWeatherEdge`
+lays the whole of it, once and unmirrored, on a canvas under the board
+(`edgeRef` in CrownguardGame.jsx, beside the veil div), shaded with the apron's
+own vignette and falloff (`apronShade`, apron.js) as the board's fog is by its
+grade. So the fog banks are periodic BOTH ways (cells 140x80 / 70x40 / 35x20,
+weatherbake.js), the land's field runs on past the edge easing to the edges'
+mean (`bakeFogWide`), and the sun shafts are baked wide (`fogShafts(m)`).
+Before 2026-11-07 the layer was MIRRORED at each edge (owner, on an iPad:
+"rough, like mirrored at the edges"), and a flat fog veil over the apron made
+a band of its own; fog has no `weatherVeil` now. Storm / blizzard / eruption
+still use only the flat `weatherVeil` beyond the board. Look at it in Free
+Play at an iPad size (e.g. 1180x820); `window.__g.weather.clock` jumps the
+spell (`segAt` in engine/weather.js finds a phase).
 
 ## Zones IV and V (owner's direction, 2026-10-03)
 
@@ -338,7 +350,8 @@ Bring these up with the owner; don't act on them unasked.
   anything. What exists: the Greenwood's Morning Fog (`fog` in
   `engine/weather.js`: now every hall reaches 25% less far while thick, no
   px sight; not re-simmed), its painter (`fog` in `render/weatherfx.js`, plus
-  the mirrored copy beyond the board for tall screens, `paintWeatherEdge`),
+  the wide layer beyond the board for tall screens, `paintWeatherEdge`; the
+  mirrored edges the owner saw on the iPad were replaced 2026-11-07),
   the tower clearings it still draws (cosmetic now), the forecast wording and
   the card / chip ⓘ (`data/weather-info.js`).
 - **Tower menu is built** (see "The tower menu is the tray"), pending the

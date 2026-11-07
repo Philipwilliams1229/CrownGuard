@@ -1319,10 +1319,46 @@ function grade(ctx, x0, y0, x1, y1) {
   }
 }
 
+// The apron's darkening (the vignette and the falloff with distance), for a
+// layer laid over the apron AFTER its bake: the fog and mist beyond the board
+// (weatherfx.js paintWeatherEdge). Both are plain blends toward a dark, so
+// laid "source-atop" over that layer they shade it just as they would have
+// had it lain under them (the board's own fog is under the board's grade).
+// The tint (multiply, ~1%) and a realm's glow (added) are left out. World
+// units, the caller's transform; the falloff mask is kept per realm and rect.
+let SHADE = null;
+export function apronShade(ctx, x0, y0, x1, y1) {
+  const L = REALM.light || DEFAULT_LIGHT, op = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = "source-atop";
+  if (L.vignette > 0) {
+    const gr = ctx.createRadialGradient(W / 2, H / 2, H * 0.34, W / 2, H / 2, H * 0.92);
+    gr.addColorStop(0, "rgba(12,10,18,0)");
+    gr.addColorStop(0.62, `rgba(12,10,18,${L.vignette * 0.35})`);
+    gr.addColorStop(1, `rgba(12,10,18,${L.vignette})`);
+    ctx.fillStyle = gr;
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  }
+  const key = `${REALM.id}|${x0}|${y0}|${x1}|${y1}`;
+  if (!SHADE || SHADE.key !== key) SHADE = { key, cv: falloffMask(x0, y0, x1, y1) };
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(SHADE.cv, x0, y0, SHADE.cv.width * FALL_S, SHADE.cv.height * FALL_S);
+  ctx.restore();
+  ctx.globalCompositeOperation = op;
+}
+
 // Darker and quieter with distance from the board: a small mask, one texel
 // per 6 world units, stretched smooth over the whole rect.
+const FALL_S = 6;
 function falloff(ctx, x0, y0, x1, y1) {
-  const S = 6, mw = Math.ceil((x1 - x0) / S) + 1, mh = Math.ceil((y1 - y0) / S) + 1;
+  const cv = falloffMask(x0, y0, x1, y1);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(cv, x0, y0, cv.width * FALL_S, cv.height * FALL_S);
+  ctx.restore();
+}
+function falloffMask(x0, y0, x1, y1) {
+  const S = FALL_S, mw = Math.ceil((x1 - x0) / S) + 1, mh = Math.ceil((y1 - y0) / S) + 1;
   const cv = document.createElement("canvas");
   cv.width = mw; cv.height = mh;
   const c = cv.getContext("2d"), img = c.createImageData(mw, mh), d = img.data;
@@ -1334,8 +1370,5 @@ function falloff(ctx, x0, y0, x1, y1) {
     }
   }
   c.putImageData(img, 0, 0);
-  ctx.save();
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(cv, x0, y0, mw * S, mh * S);
-  ctx.restore();
+  return cv;
 }

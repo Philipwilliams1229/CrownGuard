@@ -82,10 +82,13 @@ export const memo = (key, make) => { let s = MEMO.get(key); if (!s) { if (MEMO.s
 // F: a density field (Float32Array, tw x th, 0..1). Each texel becomes one of
 // 5 levels (alpha `al`), the fraction between levels dithered; a texel on the
 // upper-left (sun) side of a thicker patch takes `lit`, on the lower-right
-// `shade`, the thickest `core`. `wrap` makes the neighbour test periodic in x.
+// `shade`, the thickest `core`. `wrap` makes the neighbour test periodic
+// (both ways: every wrapped field tiles in x and y).
 const stepped = (F, tw, th, lo, hi, al, cols, wrap, floor = 0) => {
   const G = grid(tw, th), lit = C(cols.lit), base = C(cols.base), shade = C(cols.shade), core = C(cols.core);
-  const at = (x, y) => F[Math.max(0, Math.min(th - 1, y)) * tw + (wrap ? ((x % tw) + tw) % tw : Math.max(0, Math.min(tw - 1, x)))];
+  const at = wrap
+    ? (x, y) => F[(((y % th) + th) % th) * tw + (((x % tw) + tw) % tw)]
+    : (x, y) => F[Math.max(0, Math.min(th - 1, y)) * tw + Math.max(0, Math.min(tw - 1, x))];
   for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
     const f = F[y * tw + x];
     const v = floor + (1 - floor) * sstep(lo, hi, f);
@@ -101,40 +104,70 @@ const stepped = (F, tw, th, lo, hi, al, cols, wrap, floor = 0) => {
 };
 
 // ---- FOG -------------------------------------------------------------------
-// Two fields: the BANKS (periodic in x, drifting) and the LIE OF THE LAND
-// (static: thick over the wood, the water and the hollows by it). Each baked
-// thick and patchy, so as the sun burns it off the banks break into patches.
+// Two fields: the BANKS (periodic both ways, drifting: their cells divide the
+// board, so beyond it, on a tall screen, they tile on with no seam) and the
+// LIE OF THE LAND (static: thick over the wood, the water and the hollows by
+// it). The banks are baked thick and patchy, so as the sun burns it off they
+// break into patches. bakeFogWide is the land again over the board and
+// FOG_WIDE units past each edge, where it eases to the edges' mean.
 const FOG_COLS = { lit: "#fbf3e0", base: "#e2e7e6", shade: "#b9c3cc", core: "#eef1ee" };
 const FOG_AL = [0, 62, 104, 146, 186];
-export const bakeFog = (key, landAt) => memo(`fog|${key}`, () => {
-  const tw = W, th = H;
-  const B = new Float32Array(tw * th);
-  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
-    B[y * tw + x] = 0.52 * vnoise(x, y, 140, 84, 11, 6) + 0.3 * vnoise(x, y, 70, 40, 12, 12) + 0.18 * vnoise(x, y, 35, 22, 13, 24);
-  }
-  // the land, sampled every 8 units and eased between
+// the land over a world rect (x0, y0 multiples of 8), sampled every 8 units
+// and eased between; past the board's edge each sample takes the nearest
+// edge's value, easing to the mean of all four edges over LAND_EASE units
+const LAND_EASE = 120;
+const landField = (landAt, x0, y0, tw, th) => {
   const S8 = 8, sw = Math.ceil(tw / S8) + 2, sh = Math.ceil(th / S8) + 2, L8 = new Float32Array(sw * sh);
-  for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) L8[j * sw + i] = landAt(i * S8, j * S8);
+  const out = (x, y) => x < 0 || y < 0 || x > W + S8 || y > H + S8;
+  let mean = 0;
+  if (out(x0, y0) || out(x0 + tw, y0 + th)) {
+    let n = 0;
+    for (let i = 0; i < W; i += S8) { mean += landAt(i, 0) + landAt(i, H - 1); n += 2; }
+    for (let j = 0; j < H; j += S8) { mean += landAt(0, j) + landAt(W - 1, j); n += 2; }
+    mean /= n;
+  }
+  for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) {
+    const x = x0 + i * S8, y = y0 + j * S8;
+    if (!out(x, y)) { L8[j * sw + i] = landAt(x, y); continue; }
+    const cx = Math.max(0, Math.min(W - 1, x)), cy = Math.max(0, Math.min(H - 1, y)), e = landAt(cx, cy);
+    L8[j * sw + i] = e + (mean - e) * sstep(0, LAND_EASE, Math.hypot(x - cx, y - cy));
+  }
   const L = new Float32Array(tw * th);
   for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
     const u = x / S8, v = y / S8, i = Math.floor(u), j = Math.floor(v), fx = u - i, fy = v - j;
     const l = (L8[j * sw + i] * (1 - fx) + L8[j * sw + i + 1] * fx) * (1 - fy) + (L8[(j + 1) * sw + i] * (1 - fx) + L8[(j + 1) * sw + i + 1] * fx) * fy;
-    L[y * tw + x] = l * (0.55 + 0.6 * vnoise(x, y, 46, 30, 14)) + 0.06 * vnoise(x, y, 18, 12, 15);
+    L[y * tw + x] = l * (0.55 + 0.6 * vnoise(x0 + x, y0 + y, 46, 30, 14)) + 0.06 * vnoise(x0 + x, y0 + y, 18, 12, 15);
+  }
+  return L;
+};
+export const bakeFog = (key, landAt) => memo(`fog|${key}`, () => {
+  const tw = W, th = H;
+  const B = new Float32Array(tw * th);
+  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+    B[y * tw + x] = 0.52 * vnoise(x, y, 140, 80, 11, 6, 7) + 0.3 * vnoise(x, y, 70, 40, 12, 12, 14) + 0.18 * vnoise(x, y, 35, 20, 13, 24, 28);
   }
   return {
     thick: stepped(B, tw, th, 0.28, 0.74, FOG_AL, FOG_COLS, true, 0.22),
     patchy: stepped(B, tw, th, 0.5, 0.82, FOG_AL, FOG_COLS, true, 0),
-    land: stepped(L, tw, th, 0.18, 0.7, FOG_AL, FOG_COLS, false, 0),
+    land: stepped(landField(landAt, 0, 0, tw, th), tw, th, 0.18, 0.7, FOG_AL, FOG_COLS, false, 0),
   };
 });
+// how far (units) the wide fog runs past each edge of the board
+export const FOG_WIDE = 160;
+export const bakeFogWide = (key, landAt) => memo(`fogw|${key}`, () => {
+  const tw = W + 2 * FOG_WIDE, th = H + 2 * FOG_WIDE;
+  return stepped(landField(landAt, -FOG_WIDE, -FOG_WIDE, tw, th), tw, th, 0.18, 0.7, FOG_AL, FOG_COLS, false, 0);
+});
 // warm light breaking through: shafts from the upper left, as wide bands on a
-// diagonal (one layer a little wider than the board, swayed slowly)
-export const fogShafts = () => memo("fogshafts", () => {
-  const tw = W + 160, th = H, G = grid(tw, th), k = C("#ffe2a8");
+// diagonal (one layer a little wider than the board, swayed slowly). `m`: run
+// m units past the board's top, bottom and sides too (the wide fog)
+export const fogShafts = (m = 0) => memo(`fogshafts|${m}`, () => {
+  const tw = W + 160 + 2 * m, th = H + 2 * m, G = grid(tw, th), k = C("#ffe2a8");
   for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
-    const u = x + y * 0.62;                                   // along the slant
+    const X = x - m, Y = y - m;
+    const u = X + Y * 0.62;                                   // along the slant
     const band = vnoise(u, 0, 64, 1, 21) * 0.75 + vnoise(u, 0, 23, 1, 22) * 0.25;
-    const v = sstep(0.55, 0.8, band) * (0.45 + 0.55 * (1 - y / th));
+    const v = sstep(0.55, 0.8, band) * (0.45 + 0.55 * (1 - Math.max(0, Math.min(1, Y / H))));
     let lv = v * 3, b = Math.floor(lv);
     if (lv - b > thr(x, y)) b++;
     if (b > 0) G.set(x, y, k, [0, 70, 130, 180][Math.min(3, b)]);
