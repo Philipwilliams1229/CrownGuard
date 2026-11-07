@@ -128,8 +128,9 @@ Provisional, pending the owner's playtest.
 - **Three halls at the start** (archer, knight, wizard). The rest are learned
   by clearing a level (`TOWER_UNLOCKS`, campaign.js), in this order and with
   these gaps over the continent's 60 levels: Bladewheel gw1 (1), Catapult
-  gullwick (3), Warden Mage gw3 (6), River Watch gw4 (8), Gold Works
-  ravenscar (12), Trapsmith gw5 (15), Falconry brinewick (19), Assassin's
+  gullwick (3), Warden Mage gw3 (6), River Watch gw4 (8), Trapsmith
+  ravenscar (12), Gold Works gw5 (15) (swapped 2026-11-07, owner: the
+  Gold Works waits until the first region is won), Falconry brinewick (19), Assassin's
   Covert kestrel (23), Powder Works wardenmoor (27), Sunforge hl1 (31). The
   Warden Mage is locked on the first levels now. `towerUnlocked` also opens a
   hall once ANY later level is cleared, so an old save keeps what it had.
