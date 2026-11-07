@@ -6,7 +6,7 @@
 import { W, H, BLOCK_DIST, WALL_W, LANE_OFF } from "../data/constants.js";
 import { CASTLE_WORKS, emptyWorks, workTier, nextWork } from "../data/castle.js";
 import { MILITIA, militiaStats, MILITIA_STANDS, HEROES, heroStats, heroAbilities, killXp, KILL_NEAR } from "../data/bands.js";
-import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "./path.js";
+import { PTS, nearestOnPath, onRoad, posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { DECOR, PONDS, inRiver, inSea, seaDepthAt, decorFootprint, atWaterEdge } from "../data/terrain.js";
 import { riverMouths } from "../render/water.js";
 import { TOWERS } from "../data/towers.js";
@@ -595,6 +595,7 @@ export const fieldHero = (g, key, level = 1, x, y, talents = {}, xp = 0) => {
   if (!h || !g) return null;
   if (!g.bands) g.bands = [];
   const st = heroStats(key, level, talents);
+  ({ x, y } = onRoad(x, y));   // a hero always stands on the road
   const band = {
     id: nextId(), kind: "hero", hero: key, name: h.name, level, xp, talents: { ...(talents || {}) }, st, rally: { x, y }, home: { x, y },
     units: [{ id: nextId(), hp: st.hp, maxHp: st.hp, x, y, face: -1, atkCd: 0, swing: 0, respawn: 0, state: "rally", targetId: null }],
@@ -674,7 +675,7 @@ export const fireHeroAbility = (g, id, x, y) => {
     // he rides at the spot, as far as his reach allows; the engine carries
     // him there (update.js) and he holds it as his new post
     const dx = x - u.x, dy = y - u.y, d = Math.hypot(dx, dy) || 1, k = Math.min(1, a.reach / d);
-    const tx = u.x + dx * k, ty = u.y + dy * k;
+    const { x: tx, y: ty } = onRoad(u.x + dx * k, u.y + dy * k);   // and lands on the road
     releaseEnemy(g, g.enemies.find((e) => e.blockedBy === u.id));
     u.targetId = null;
     u.dash = { tx, ty, hit: [] };
