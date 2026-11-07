@@ -201,13 +201,13 @@ too. While any weather is up the rings draw ABOVE it (`drawRanges` after
 the engine, unused. A new kind needs an entry in `WEATHER_INFO` there, a `FORECAST` line
 (weather.js) and an icon in WeatherForecast.jsx's `PX`. The card asks
 `weatherFor(level) ?? realm.weather`, the same call the battle makes. The
-in-battle wave preview chip (ui/WeatherForecast.jsx) has the same (i), reading
-`briefOf(weatherDef())`, under a RIGHT NOW section first (owner, 2026-11-07):
-`nowOf(g)` (data/weather-info.js) gives the stage word, a strength bar (k), the
-effects this moment read from the live multipliers `WX` (so the numbers are
-the engine's), and what comes next: the fog's "half as thick by wave X, gone by
-wave Y" (`fogLength`), a timed kind's seconds of fighting left in its phase
-from `w.seg`. **Fog and mist beyond the board:** they paint on the board's
+in-battle wave preview chip (ui/WeatherForecast.jsx) has an (i) that shows
+ONLY the weather right now (owner, 2026-11-07: "too much wordy explanation ...
+just show current effects"): `nowOf(g)` (data/weather-info.js) gives the stage
+word, a strength bar (k) and the effects this moment read from the live
+multipliers `WX` (so the numbers are the engine's). `nowOf` also works out what
+comes next (`next`: the fog's "half as thick by wave X, gone by wave Y", a timed
+kind's seconds of fighting left), which the chip does not show. **Fog and mist beyond the board:** they paint on the board's
 own canvas, so a taller screen (iPad) showed them stop at its edge. They paint
 into a WIDE layer (render/weatherfx.js `wideLayer`) that runs as far past each
 edge as the screen needs (`NEED`, measured by the last `paintWeatherEdge`, at
