@@ -159,12 +159,15 @@ Colours stay in the rig params so `revive()` and the hit-flash reach them.
   front edge, with their own contact shadow, and inside `x ± 9`, clear of
   the blend's corner clumps. Never half-sunk into a footing or wall. A prop
   that stands in front of the crew is drawn AFTER the crew.
-- **Narrow halls** (the Bladewheel) may stand closer: a hall's `roadClear`
-  and `reach` in `src/data/towers.js` override the road gap (42 for the
-  Bladewheel) and the spacing to neighbours (reach 12, default 15; two
+- **Narrow halls** (the Bladewheel, and the Warden Mage since 2026-11-07)
+  may stand closer: a hall's `roadClear`
+  and `reach` in `src/data/towers.js` override the road gap (42 for both)
+  and the spacing to neighbours (reach 12, default 15; two
   halls stand `reachA + reachB` apart). Its ground art must then keep inside
   `FOOT_NARROW` (`rx 13, ry 9`, kitB.js) — pass `{ foot: FOOT_NARROW }` to
-  `padB` and the same to `skirtB`. Check with `twb-lab.html?kinds=spiker&ell=1`.
+  `padB` and the same to `skirtB` (the Warden clips its ground layer to it).
+  Check with `twb-lab.html?kinds=spiker,support&ell=1` (the overlay reads
+  `roadClear`).
 - **`t.noFolk`: every hall can be painted without its people.** The build
   lays the hall first and puts the person in last, so `drawTowerPortrait(ctx,
   { ...t, noFolk: true }, time)` must paint the hall exactly as usual minus

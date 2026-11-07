@@ -329,6 +329,7 @@ export const TOWERS = {
   },
   support: {
     name: "Warden Mage", cost: 110, dtype: "magic", proj: "aura",
+    roadClear: 42, reach: 12,   // a narrow hall, as the Bladewheel (owner, 2026-11-07)
     blurb: "A frost-touched mage on an altar — biting cold slows every enemy in the aura.",
     levels: [
       { slow: 0.15, range: 75, rate: 0 },
