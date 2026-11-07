@@ -345,6 +345,15 @@ agent with a tool-call budget instead of starting a fresh one.
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **BEFORE PUBLISHING (owner, 2026-11-07): no "Retry Wave" in the campaign.**
+  "Makes it more challenging. Keep it how it is for now, but before publishing
+  I'll want that change." Not done yet on purpose. The button is on the defeat
+  card in CrownguardGame.jsx (`ui.canRestart` -> `restartWave`); in a campaign
+  battle hide it, so Restart Level becomes the gold button, and reword the
+  card's "Retry the wave with your gold and towers restored" line to match.
+  Free Play keeps it. Ask the owner whether the Endless March after a
+  campaign win counts as campaign. The retry-wave snapshot (`snapshot`) can
+  stay in the engine.
 - **TOP OF THE LIST for the next session (owner, 2026-10-05): the fog needs
   work.** The owner did not say what is wrong: ask what they saw before changing
   anything. What exists: the Greenwood's Morning Fog (`fog` in
