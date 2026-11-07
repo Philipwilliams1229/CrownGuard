@@ -64,13 +64,24 @@ const versionSink = {
   },
 };
 
+// The build's stamp, baked into the game (__BUILD__) and written beside it as
+// version.json, which native/fresh.js reads at launch to spot an old cached copy.
+const BUILD = { ...buildInfo(), built: Date.now() };
+const versionFile = {
+  name: "version-file",
+  apply: "build",
+  generateBundle() {
+    this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ built: BUILD.built, hash: BUILD.hash }) });
+  },
+};
+
 // Vite config: enables React support (JSX) for the dev server and build.
 // base "./" makes every asset path relative, so the built game runs from
 // any folder or subpath — including GitHub Pages at /CrownGuard/.
 export default defineConfig({
   base: "./",
-  plugins: [react(), shotSink, versionSink],
-  define: { __BUILD__: JSON.stringify({ ...buildInfo(), built: Date.now() }) },
+  plugins: [react(), shotSink, versionSink, versionFile],
+  define: { __BUILD__: JSON.stringify(BUILD) },
   // lab screenshots land in .shots/; a write there must not reload every page
   server: { watch: { ignored: ["**/.shots/**"] } },
 });

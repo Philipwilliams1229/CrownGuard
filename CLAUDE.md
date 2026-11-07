@@ -42,6 +42,15 @@ Xcode, so keep edits under `ios/` few and plain, and say they're unbuilt).
   `keepSaves()` and only then imports `boot.jsx` (the old entry), since the
   stores read their keys at module load. Web: does nothing.
   `node scripts/keep-test.mjs` tests it.
+- **The web game opens the newest build** (owner, 2026-11-07: a home-screen
+  icon kept showing the previous build after a push): GitHub Pages lets a
+  browser reuse the page for 10 minutes. The build writes `version.json`
+  (vite.config.js `versionFile`, the same stamp as `__BUILD__`); at launch,
+  on the web only, `freshen()` (src/native/fresh.js, awaited by main.jsx)
+  fetches it past every cache and, if it is newer than the running build,
+  reloads once from `?v=<built>`, which no cache holds (sessionStorage guard,
+  2 s timeout, never in the app or the dev server). Only helps from the first
+  build that carries it; until a device has loaded that one, wait the 10 min.
 - **Leaving pauses a battle** (web and app): `onAway` (`src/native/app.js`:
   page hidden, or the app going inactive) opens the pause menu in battle.
 - **The default type needs no network**: Press Start 2P and Jersey 15 are in
