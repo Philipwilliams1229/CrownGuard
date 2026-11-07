@@ -128,8 +128,9 @@ Provisional, pending the owner's playtest.
 - **Three halls at the start** (archer, knight, wizard). The rest are learned
   by clearing a level (`TOWER_UNLOCKS`, campaign.js), in this order and with
   these gaps over the continent's 60 levels: Bladewheel gw1 (1), Catapult
-  gullwick (3), Warden Mage gw3 (6), River Watch gw4 (8), Gold Works
-  ravenscar (12), Trapsmith gw5 (15), Falconry brinewick (19), Assassin's
+  gullwick (3), Warden Mage gw3 (6), River Watch gw4 (8), Trapsmith
+  ravenscar (12), Gold Works gw5 (15) (swapped 2026-11-07, owner: the
+  Gold Works waits until the first region is won), Falconry brinewick (19), Assassin's
   Covert kestrel (23), Powder Works wardenmoor (27), Sunforge hl1 (31). The
   Warden Mage is locked on the first levels now. `towerUnlocked` also opens a
   hall once ANY later level is cleared, so an old save keeps what it had.
@@ -558,6 +559,19 @@ about of the archers (crew and siege bow), wizard, Warden and the old pixel
 archer. The Powder Works' two men face left until each first shoots
 (`bomberFacing` / `musketFacing`, muzzles.js); its store still faces the road.
 The River Watch's watchman still glances about (he never aims).
+
+## Heroes stand on the road (2026-11-07, owner request)
+
+"Ranged heroes are way stronger because they never go down": a hero parked in
+the grass shot the column with nothing reaching him. Now every hero's post is
+ON the road: `onRoad(x, y)` (engine/path.js) gives the nearest spot no further
+than `LANE_OFF` (21, the outer marching lanes) from the centre line, and a tap
+already inside that keeps its spot. Applied to the move order (`handleTap`,
+CrownguardGame.jsx: a tap off the road sends him to the nearest spot), the
+starting post (`fieldHero`, which used to stand him 40-55 px off the road on
+most boards) and Aldric's Charge (its landing). So foes walk into a ranged hero
+and hold her (`RANGED_ENGAGE`). The sims already posted the hero on the centre
+line, so they barely move. Provisional, pending the owner's playtest.
 
 ## Bowmen post back and are engaged; the militia is recalled (2026-10-07, owner request)
 

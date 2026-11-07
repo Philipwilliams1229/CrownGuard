@@ -23,7 +23,7 @@ import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextL
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
 import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
-import { PTS } from "./engine/path.js";
+import { PTS, onRoad } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, bankTowerXp, bankedTowerXp, MAX_STARS } from "./data/profile.js";
 import { tierGate, TIER_XP } from "./data/towerxp.js";
@@ -670,7 +670,9 @@ export default function Crownguard() {
     if (!g || g.phase === "won" || g.phase === "lost" || g.paused) return;
     if (g.rallyFor === "hero") {
       const b = heroBand(g);
-      if (b) { b.rally = { x, y }; g.effects.push({ type: "levelup", x, y, ttl: 500 }); }
+      // he goes only where the foe walks: a tap off the road sends him to
+      // the nearest spot on it (owner, 2026-11-07)
+      if (b) { const p = onRoad(x, y); b.rally = p; g.effects.push({ type: "levelup", x: p.x, y: p.y, ttl: 500 }); }
       g.rallyFor = null;
       return;
     }
@@ -1630,7 +1632,7 @@ export default function Crownguard() {
             <>Placing <b>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — tap the {TOWERS[ui.buildMode].water ? "water" : "grass"}{ui.buildMode === "knight" ? "; knights muster south of the hall" : ""}.</>,
             "Cancel placement", () => { if (G.current) G.current.buildMode = null; })}
           {ui.rallyFor === "hero" && ribbon(
-            <><b>{ui.hero?.name}</b> awaits your word — tap where the hero should go.</>, "Cancel hero move", cancelRally)}
+            <><b>{ui.hero?.name}</b> awaits your word — tap where on the road the hero should stand.</>, "Cancel hero move", cancelRally)}
           {ui.rallyFor === "militia" && ribbon(
             <>Sounding for the <b>militia</b> — tap where the farmers should stand.</>, "Cancel militia call", cancelRally)}
           {typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:") && (() => {
