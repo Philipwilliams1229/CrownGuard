@@ -7,12 +7,14 @@
 // icon sits on the same dark tile the battle's forecast chip uses.
 
 import { useState, useRef, useEffect } from "react";
+import useTap from "./useTap.js";
 import { WeatherIcon } from "./WeatherForecast.jsx";
 import { briefOf } from "../data/weather-info.js";
 import { PARCH, woodBtn } from "./frames.js";
 
 export default function WeatherBrief({ spec, compact = false }) {
   const [open, setOpen] = useState(false);
+  const tap = useTap();   // one tap opens it on a phone too (no echoing click)
   const more = useRef(null);
   // the card scrolls: bring the unfolded details into view
   useEffect(() => { if (open && more.current) more.current.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, [open]);
@@ -50,7 +52,7 @@ export default function WeatherBrief({ spec, compact = false }) {
           </div>
           <div style={{ fontSize: 10, opacity: 0.85 }}>{b.opens}</div>
         </div>
-        <button aria-expanded={open} aria-label={open ? "Hide weather details" : "About this weather"} onClick={() => setOpen(!open)}
+        <button aria-expanded={open} aria-label={open ? "Hide weather details" : "About this weather"} {...tap(() => setOpen((o) => !o))}
           style={{ ...woodBtn, width: 30, height: 30, minHeight: 30, minWidth: 30, padding: 0, flexShrink: 0, fontFamily: "Georgia, serif", fontStyle: "italic", fontWeight: "bold", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {open ? "×" : "i"}
         </button>

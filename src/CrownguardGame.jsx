@@ -39,6 +39,7 @@ import { paintApron } from "./render/apron.js";
 import TowerPortrait from "./ui/TowerPortrait.jsx";
 import EnemyIcon from "./ui/EnemyIcon.jsx";
 import EnemyTooltip from "./ui/EnemyTooltip.jsx";
+import useTap from "./ui/useTap.js";
 import HomeScreen from "./ui/HomeScreen.jsx";
 import CampaignMap from "./ui/CampaignMap.jsx";
 import WarCouncil from "./ui/WarCouncil.jsx";
@@ -86,6 +87,7 @@ export default function Crownguard() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);   // the pause menu's Settings window
   const [hoverEnemy, setHoverEnemy] = useState(null);
+  const chipTap = useTap();
   const [buildOpen, setBuildOpen] = useState(false);
   // the incoming-wave chip folds down to a small arrow when the board needs the room
   const [infoOpen, setInfoOpen] = useState(false);
@@ -817,9 +819,11 @@ export default function Crownguard() {
     const boss = ENEMIES[type].boss;
     return (
       <div key={hk}
-        onMouseEnter={() => setHoverEnemy(hk)}
-        onMouseLeave={() => setHoverEnemy((cur) => (cur === hk ? null : cur))}
-        onClick={() => setHoverEnemy((cur) => (cur === hk ? null : hk))}
+        // a mouse opens it by hovering (and a click keeps it); a finger's tap
+        // toggles it, once (useTap: no emulated hover, no echoing click)
+        onPointerEnter={(e) => { if (e.pointerType === "mouse") setHoverEnemy(hk); }}
+        onPointerLeave={(e) => { if (e.pointerType === "mouse") setHoverEnemy((cur) => (cur === hk ? null : cur)); }}
+        {...chipTap((e) => setHoverEnemy((cur) => (e.type === "click" ? hk : cur === hk ? null : hk)))}
         style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
         {hoverEnemy === hk && <EnemyTooltip type={type} />}
         <span className="cg-well" style={{ width: boss ? 54 : 44, height: boss ? 54 : 44, display: "flex", alignItems: "center", justifyContent: "center", ...(boss ? { background: "#4a1e22" } : {}) }}>
