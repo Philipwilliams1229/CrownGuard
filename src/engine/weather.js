@@ -278,7 +278,7 @@ export const tickWeather = (g, sdt, tms) => {
 // wave puts it back where that wave began. No set length (an open Free Play
 // run): 20 waves.
 const FOG_EASE = 3;          // s, how fast the drawn progress follows the wave's
-const fogLength = () => { const n = victoryWave(); return Number.isFinite(n) && n > 0 ? n : 20; };
+export const fogLength = () => { const n = victoryWave(); return Number.isFinite(n) && n > 0 ? n : 20; };
 export const fogThickness = (p) => Math.max(0, Math.min(1, 1 - 2 * p));
 const fogTick = (g, w, def, sdt, combat) => {
   const N = fogLength(), n = g.wave || 0;

@@ -4,12 +4,14 @@
 // level without weather. Stages (engine/weather.js forecast): "Clear", a
 // spell brewing (it rolls in during the wave), rolling in, at its height,
 // passing. `compact` is the folded wave chip's version (the icon alone,
-// nothing when clear).
+// nothing when clear). Its (i) unfolds the weather RIGHT NOW first (how hard
+// it blows, its effects this moment, what comes next: weather-info.js nowOf),
+// then what the kind is and does (briefOf, the level card's words).
 // Pixel icons drawn as SVG rects, one per kind.
 
 import { useState } from "react";
 import { forecast, weatherDef } from "../engine/weather.js";
-import { briefOf } from "../data/weather-info.js";
+import { briefOf, nowOf } from "../data/weather-info.js";
 
 const PX = {
   // fog: three soft bars
@@ -38,8 +40,10 @@ export default function WeatherForecast({ g, wave, compact = false }) {
   if (!f) return null;
   const icon = f.stage === "clear" ? "clear" : f.kind;
   if (compact) return f.stage === "clear" ? null : <span title={f.text} style={{ display: "flex", alignItems: "center" }}><WeatherIcon kind={icon} size={14} /></span>;
-  // the (i): what this weather does (data/weather-info.js, the same words as the level card)
+  // the (i): the weather right now, then what it is (data/weather-info.js)
   const b = open ? briefOf(weatherDef()) : null;
+  const now = open ? nowOf(g) : null;
+  const head = { fontSize: 8.5, letterSpacing: 2, fontWeight: "bold", color: "var(--muted)" };
   return (
     <div style={{ marginBottom: 8, padding: "3px 6px", background: "rgba(20,26,36,0.55)", border: "2px solid var(--ink)", width: "fit-content", maxWidth: "100%", boxSizing: "border-box" }}>
       <div title={f.stage === "clear" ? "no weather is due during this wave" : f.sure ? "the weather this wave will bring" : "this weather may roll in during the wave"}
@@ -53,7 +57,24 @@ export default function WeatherForecast({ g, wave, compact = false }) {
       </div>
       {b && (
         <div style={{ marginTop: 5, paddingTop: 5, borderTop: "1px dashed rgba(255,255,255,0.25)", fontSize: 10.5, lineHeight: 1.5, color: "var(--cream)", display: "flex", flexDirection: "column", gap: 4, maxWidth: 260 }}>
-          <div><b>{b.name}</b> · {b.word}</div>
+          {now && (
+            <>
+              <div style={head}>RIGHT NOW</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <WeatherIcon kind={now.level > 2 ? now.kind : "clear"} size={14} />
+                <b>{now.title}</b>
+                <span title={`${now.level}% of its full strength`} aria-label={`${now.level}% of its full strength`}
+                  style={{ width: 54, height: 6, marginLeft: "auto", background: "rgba(255,255,255,0.15)", border: "1px solid var(--ink)", position: "relative" }}>
+                  <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${now.level}%`, background: "var(--cream)" }} />
+                </span>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 14 }}>
+                {now.lines.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+              {now.next && <div style={{ opacity: 0.9 }}>{now.next}</div>}
+            </>
+          )}
+          <div style={{ ...head, marginTop: now ? 3 : 0, paddingTop: now ? 5 : 0, borderTop: now ? "1px dashed rgba(255,255,255,0.25)" : "none" }}>{b.name.toUpperCase()} · {b.word.toUpperCase()}</div>
           <div>{b.blurb}</div>
           <ul style={{ margin: 0, paddingLeft: 14 }}>
             {b.effects.map((t, i) => <li key={i}>{t}</li>)}

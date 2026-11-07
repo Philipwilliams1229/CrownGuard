@@ -202,7 +202,12 @@ the engine, unused. A new kind needs an entry in `WEATHER_INFO` there, a `FORECA
 (weather.js) and an icon in WeatherForecast.jsx's `PX`. The card asks
 `weatherFor(level) ?? realm.weather`, the same call the battle makes. The
 in-battle wave preview chip (ui/WeatherForecast.jsx) has the same (i), reading
-`briefOf(weatherDef())`. **Fog and mist beyond the board:** they paint on the board's
+`briefOf(weatherDef())`, under a RIGHT NOW section first (owner, 2026-11-07):
+`nowOf(g)` (data/weather-info.js) gives the stage word, a strength bar (k), the
+effects this moment read from the live multipliers `WX` (so the numbers are
+the engine's), and what comes next: the fog's "half as thick by wave X, gone by
+wave Y" (`fogLength`), a timed kind's seconds of fighting left in its phase
+from `w.seg`. **Fog and mist beyond the board:** they paint on the board's
 own canvas, so a taller screen (iPad) showed them stop at its edge. They paint
 into a WIDE layer (render/weatherfx.js `wideLayer`) that runs as far past each
 edge as the screen needs (`NEED`, measured by the last `paintWeatherEdge`, at

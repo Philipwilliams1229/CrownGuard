@@ -5,7 +5,7 @@
 // kind (engine/weather.js weatherDefOf), so a retuned kind retells itself;
 // only the lore and the advice are written here, one entry per kind.
 
-import { weatherDefOf, strengthTier } from "../engine/weather.js";
+import { weatherDefOf, strengthTier, weatherDef, WX, FORECAST, fogLength } from "../engine/weather.js";
 
 const pct = (x) => `${Math.round(x * 100)}%`;
 const secs = ([a, b]) => {
@@ -77,3 +77,50 @@ export const briefOf = (spec) => {
     blurb: info.blurb || "", effects: info.effects ? info.effects(d) : [], tip: info.tip || "",
   };
 };
+
+// ---- the weather RIGHT NOW (the battle's wave panel, ui/WeatherForecast.jsx) ----
+// How hard it blows at this moment (g.weather), what that does to the fight
+// (read from the live multipliers WX, so every number is the one the engine is
+// using), and what comes next on the level's clock. null with no weather.
+const about = (s) => (s < 20 ? `${Math.max(1, Math.round(s))} s` : s < 90 ? `${Math.round(s / 5) * 5} s` : `${+(s / 60).toFixed(1)} min`);
+const less = (m) => Math.round((1 - m) * 100);
+export const nowOf = (g) => {
+  const def = weatherDef(), w = g && g.weather;
+  if (!def || !w) return null;
+  const words = FORECAST[def.kind] || {};
+  const peak = def.peak ?? 1, k = w.k || 0;
+  // its strength now, against the strongest it can blow
+  const level = Math.round(Math.min(1, k) * 100);
+  let title;
+  if (def.fade) title = k <= 0.02 ? "Fog gone" : (w.thick ?? 1) >= 0.999 ? words.height : words.easing;
+  else title = { calm: "Calm", rising: words.rising, squall: words.height, easing: words.easing }[w.phase] || def.name;
+  // what it does at this moment (WX holds the multipliers the engine applies)
+  const lines = [];
+  if (w.bite) {
+    if (WX.reach < 0.995) lines.push(`Every hall reaches ${less(WX.reach)}% less far.`);
+    if (WX.shotSpeed < 0.995) lines.push(`Every shot flies ${less(WX.shotSpeed)}% slower.`);
+    if (WX.foeSpeed < 0.995) lines.push(`Foes march ${less(WX.foeSpeed)}% slower.`);
+    if (WX.flierSpeed < 0.995) lines.push(`Fliers are ${less(WX.flierSpeed)}% slower.`);
+    if (WX.fliersLow) lines.push(WX.groundHitsLow ? "Fliers come down low: halls that cannot hit the air can shoot them." : "Fliers come down low.");
+    if (WX.noCharge > 0.01) lines.push(`A cavalry charge bogs down in the mud ${Math.round(WX.noCharge * 100)}% of the time.`);
+    if (WX.mistSight) lines.push(`A foe inside a bank of mist can only be targeted from ${WX.mistSight} px${w.banks?.length ? ` (${w.banks.length} bank${w.banks.length > 1 ? "s" : ""} on the road)` : ""}.`);
+    if (w.phase === "squall" && def.boltEvery) lines.push(`Lightning strikes near a fighter about every ${secs(def.boltEvery)}.`);
+    if (w.phase === "squall" && def.rockEvery) lines.push(`Burning rocks fall about every ${secs(def.rockEvery)}.`);
+  }
+  if (!lines.length) lines.push("No effect on the fight right now.");
+  // what comes next
+  let next = "";
+  if (def.fade) {
+    const N = fogLength(), half = Math.ceil(N / 4), gone = Math.ceil(N / 2), r = w.thick ?? (k / peak);
+    next = r <= 0 ? "It will not return this level."
+      : r > 0.5 ? `About half as thick by wave ${half}, and gone by wave ${gone}.`
+        : `Gone by wave ${gone}.`;
+  } else if (w.seg && w.clock != null) {
+    const left = Math.max(0, w.seg.t1 - w.clock);
+    next = { calm: `The next spell begins in about ${about(left)} of fighting.`, rising: `At full strength in about ${about(left)}.`,
+      squall: `It passes in about ${about(left)} of fighting.`, easing: `Clear in about ${about(left)}.` }[w.phase] || "";
+    if (next) next += g.phase === "combat" ? "" : " Its clock stands still between waves.";
+  }
+  return { kind: def.kind, title, level, lines, next };
+};
+
