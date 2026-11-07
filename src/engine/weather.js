@@ -50,6 +50,9 @@ const lerp = (a, b, s) => a + (b - a) * s;
 export const strengthTier = (s) => (s >= 0.85 ? 3 : s >= 0.6 ? 2 : 1);
 // the fog's thickness at each step: x the 35% reach cut = 15%, 25%, 35%
 const FOG_PEAK = { 1: 15 / 35, 2: 25 / 35, 3: 1 };
+// and where it settles once it has thinned (owner, 2026-11-07): a Fierce fog
+// never lifts all the way, a light fog that still costs 5% of every reach
+const FOG_FLOOR = { 1: 0, 2: 0, 3: 5 / 35 };
 const span = (a0, a1, b0, b1, s) => [lerp(a0, b0, s), lerp(a1, b1, s)];
 
 // ---- the kinds ----
@@ -92,12 +95,13 @@ export const WEATHER_KINDS = {
   // It thins smoothly through each wave's fighting and holds still between
   // waves. Its thickness k is its bite: every hall reaches 35% x k less far.
   // The strength meter's three steps set how thick it gets (`peak`): Mild
-  // 15%, Strong 25%, Fierce 35% less reach at the start.
+  // 15%, Strong 25%, Fierce 35% less reach at the start. A Fierce fog thins
+  // only to a light fog (`floor`: 5% less reach) and lingers all level.
   fog: {
     name: "Morning Fog", fade: true, startThick: true,
     fx: { reach: 0.65 },
     peak: 1,
-    grade: (s) => ({ peak: FOG_PEAK[strengthTier(s)] }),
+    grade: (s) => ({ peak: FOG_PEAK[strengthTier(s)], floor: FOG_FLOOR[strengthTier(s)] }),
     paint: "fog", sound: "fogbell",
   },
   // ---- the Iron Marches: THUNDERSTORM ----
@@ -270,7 +274,8 @@ export const tickWeather = (g, sdt, tms) => {
 // ---- the fading fog ----
 // Its thickness follows the level's progress p (waves done, plus how far the
 // wave in hand has got, out of the level's waves): 1 at the start, 0.5 at
-// p 0.25, 0 at p 0.5 (x the strength's peak). How far a wave has got is its
+// p 0.25, 0 at p 0.5, scaled between the kind's `floor` (0, or a Fierce
+// fog's light fog that stays) and its `peak`. How far a wave has got is its
 // spawn clock over the time its last foe needs to come out of the wood and
 // walk the road; a wave cleared sooner leaves the rest to be caught up early
 // in the next. `w.fogP` eases toward that ONLY in combat (3 s), so the fog
@@ -296,10 +301,10 @@ const fogTick = (g, w, def, sdt, combat) => {
     const target = (n - 1 + f) / N;
     if (target > w.fogP) w.fogP += (target - w.fogP) * Math.min(1, sdt / FOG_EASE);
   }
-  const r = fogThickness(w.fogP), peak = def.peak ?? 1;
-  w.thick = r;                           // 0..1 of its own peak (the painter's sun and clearings)
-  w.k = peak * r;
-  w.phase = r >= 0.999 ? "squall" : r > 0 ? "easing" : "calm";
+  const r = fogThickness(w.fogP), peak = def.peak ?? 1, floor = Math.min(peak, def.floor || 0);
+  w.thick = r;                           // 0..1 of the way from its floor to its peak (the painter's sun)
+  w.k = floor + (peak - floor) * r;
+  w.phase = r >= 0.999 ? "squall" : r > 0 ? "easing" : floor > 0 ? "lingering" : "calm";
   w.bite = w.k > 0.02;
   if (w.bite) applyFx(def, w.k);
 };
@@ -462,7 +467,7 @@ const driftMist = (g, w, def, sdt, tms) => {
 // lasts that long); "likely" (sure: false) when it would start within about
 // one road-walk after that; otherwise "Clear".
 export const FORECAST = {
-  fog:       { brewing: "Fog drifting in", rising: "Fog rolling in", height: "Thick fog", easing: "Fog lifting", likely: "Fog likely" },
+  fog:       { brewing: "Fog drifting in", rising: "Fog rolling in", height: "Thick fog", easing: "Fog lifting", lingering: "Light fog", likely: "Fog likely" },
   storm:     { brewing: "Storm brewing", rising: "Storm rolling in", height: "Storm overhead", easing: "Storm passing", likely: "Storm likely" },
   gravemist: { brewing: "Mist gathering", rising: "Mist rising", height: "Grave mist", easing: "Mist thinning", likely: "Mist likely" },
   blizzard:  { brewing: "Snow coming", rising: "Wind rising", height: "Blizzard", easing: "Blizzard easing", likely: "Snow likely" },
@@ -486,7 +491,7 @@ export const forecast = (g, n) => {
   if (def.fade) {
     // the fog as wave n opens: where the level's progress will stand then
     const r = fogThickness(Math.max(w.fogP || 0, (n - 1) / fogLength()));
-    return say(r >= 0.999 ? "height" : r > 0 ? "easing" : "clear");
+    return say(r >= 0.999 ? "height" : r > 0 ? "easing" : def.floor > 0 ? "lingering" : "clear");
   }
   const seg = segAt(w, def, w.clock);
   if (seg.ph === "rising") return say("rising");

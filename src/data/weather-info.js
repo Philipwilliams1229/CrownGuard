@@ -24,7 +24,9 @@ export const WEATHER_INFO = {
   fog: {
     blurb: "A morning fog hangs over the greenwood. The battle opens in it, and it thins as the day wears on.",
     effects: (d) => [`At its thickest, every hall reaches ${pct((1 - d.fx.reach) * (d.peak ?? 1))} less far. Their reach returns as the fog thins.`],
-    rhythm: () => "Half as thick a quarter of the way through the level, gone by halfway, and it does not come back",
+    rhythm: (d) => d.floor > 0
+      ? `Half as thick a quarter of the way through the level, then by halfway a light fog that stays all level (${pct((1 - d.fx.reach) * d.floor)} less reach)`
+      : "Half as thick a quarter of the way through the level, gone by halfway, and it does not come back",
     tip: "Build closer to the road while the fog is thick. Knights fight what is in front of them, so they do not mind it.",
     opens: () => "Opens in thick fog",
   },
@@ -92,7 +94,7 @@ export const nowOf = (g) => {
   // its strength now, against the strongest it can blow
   const level = Math.round(Math.min(1, k) * 100);
   let title;
-  if (def.fade) title = k <= 0.02 ? "Fog gone" : (w.thick ?? 1) >= 0.999 ? words.height : words.easing;
+  if (def.fade) title = k <= 0.02 ? "Fog gone" : (w.thick ?? 1) >= 0.999 ? words.height : w.phase === "lingering" ? words.lingering : words.easing;
   else title = { calm: "Calm", rising: words.rising, squall: words.height, easing: words.easing }[w.phase] || def.name;
   // what it does at this moment (WX holds the multipliers the engine applies)
   const lines = [];
@@ -112,9 +114,10 @@ export const nowOf = (g) => {
   let next = "";
   if (def.fade) {
     const N = fogLength(), half = Math.ceil(N / 4), gone = Math.ceil(N / 2), r = w.thick ?? (k / peak);
-    next = r <= 0 ? "It will not return this level."
-      : r > 0.5 ? `About half as thick by wave ${half}, and gone by wave ${gone}.`
-        : `Gone by wave ${gone}.`;
+    const end = def.floor > 0 ? `down to a light fog by wave ${gone}, which stays` : `gone by wave ${gone}`;
+    next = r <= 0 ? (def.floor > 0 ? "A light fog lingers for the rest of the level." : "It will not return this level.")
+      : r > 0.5 ? `About half as thick by wave ${half}, and ${end}.`
+        : `${end[0].toUpperCase()}${end.slice(1)}.`;
   } else if (w.seg && w.clock != null) {
     const left = Math.max(0, w.seg.t1 - w.clock);
     next = { calm: `The next spell begins in about ${about(left)} of fighting.`, rising: `At full strength in about ${about(left)}.`,

@@ -183,9 +183,19 @@ back where that wave began. Thickness k bites as `fx.reach` 0.65 x k (35% less
 reach at k 1). The strength meter's three steps (`strengthTier`, weather.js;
 the card's pips read it) set the thickness `peak`: Mild 15/35, Strong 25/35,
 Fierce 1, so 15% / 25% / 35% less reach at the start (gw3-thistlecrag Mild;
-kingstones, ravenscar, blackbriar Strong; cinderholt and gw5 Fierce). The
-painter's sun and hall clearings read `w.thick` (k over the peak), so a Mild
-fog opens thinner, never as if lifting. The forecast says Thick fog / Fog
+kingstones, ravenscar, blackbriar Strong; cinderholt and gw5 Fierce). A
+FIERCE fog never lifts all the way (owner, 2026-11-07): it thins to a light
+fog, `floor` (FOG_FLOOR 5/35, so 5% less reach), by halfway and lingers all
+level (phase "lingering", forecast "Light fog"); k = floor + (peak - floor) x
+thickness. It is DRAWN as heavy as k `LINGER_LOOK` 0.3 (weatherfx.js) so the
+late waves stand in visible patches. Measured `--endure` seeds 1-2, fade-to-0
+-> floor: Cinderholt swarm 116/85 -> 215/192, burst 344/361 -> 421/453; the
+Warrens swarm 206/307 -> 388/156, burst ~1030 -> ~1070. Each hall stands in a
+fixed 48-unit pocket of clearer air (`FOG_POCKET`): until 2026-11-07 the pocket
+was the old sight / thickness and, below ~40% thickness, cleared the WHOLE
+layer, so the fog looked gone waves before it was (owner: "gone at 10 instead
+of 13" on Cinderholt). The painter's sun reads `w.thick` (0..1 from floor to
+peak), so a Mild fog opens thinner, never as if lifting. The forecast says Thick fog / Fog
 lifting / Clear from where the level will stand at that wave.
 `sim.mjs --wx-trace` prints k at each horn. Measured `--endure`, seeds 1-2,
 all ten fog levels, both doctrines: 9453 castle damage before, 9149 after

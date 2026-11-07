@@ -11,8 +11,8 @@
 // engine never reads anything here.
 //
 //   fog        drifting banks with dithered, lit edges (the land's own field
-//              thick over the wood and the water), cleared in a ragged circle
-//              round every hall as wide as it can see; as it burns off it
+//              thick over the wood and the water), a small ragged pocket of
+//              clearer air round every hall; as it burns off it
 //              breaks into patches and warms, with shafts of morning light
 //   storm      a cooler, darker sky with cloud shadow racing over, slanted
 //              rain in two depths, splashes and puddles on the road (that
@@ -247,10 +247,18 @@ const landAt = (x, y) => {
   return v;
 };
 const fogArt = () => B.bakeFog(realmKey(), landAt);
+const FOG_POCKET = 48;   // units, the clearing round each hall (a RUNGS size)
 const fogLandWide = () => B.bakeFogWide(realmKey(), landAt);
 
+// A Fierce fog's lingering light fog (engine/weather.js FOG_FLOOR, k ~0.14)
+// is drawn as heavy as k LINGER_LOOK, eased in as it settles, so the late
+// waves stand in low patches you can see (owner, 2026-11-07: "look a bit
+// cooler"); its bite stays the engine's k.
+const LINGER_LOOK = 0.3;
 const fog = (ctx, g, w, def) => {
-  const k = w.k, t = g.time;
+  const floor = def?.floor || 0;
+  const k = floor > 0 && w.k < LINGER_LOOK ? w.k + (LINGER_LOOK - floor) * clamp01((LINGER_LOOK - w.k) / (LINGER_LOOK - floor)) : w.k;
+  const t = g.time;
   if (k < 0.02) return;
   const F = fogArt(), c = wideLayer();
   if (!c) return;
@@ -278,8 +286,10 @@ const fog = (ctx, g, w, def) => {
     c.globalAlpha = sun * 0.85; c.drawImage(B.fogShafts(m), -80 - m + Math.sin(t * 0.07) * 50, -m);
   }
   // every hall sees out to `sight`: the fog thins round it as far
-  const sight = (def?.fx?.sight || 85) / Math.max(0.05, w.thick ?? k);
-  clearHalls(c, g, sight * 1.1);
+  // each hall stands in a small pocket of clearer air. (Until 2026-11-07 the
+  // pocket grew as the fog thinned, from the old fixed sight, and below ~40%
+  // thickness it cleared the whole layer: the fog looked gone waves early.)
+  clearHalls(c, g, FOG_POCKET);
   showWide(ctx, 1);
   EDGE = { a: 1 };
 };
