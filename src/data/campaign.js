@@ -275,8 +275,9 @@ export const TOWER_UNLOCKS = {
   catapult: "gullwick",   //  3  Catapult
   support: "gw3",         //  6  Warden Mage
   riverwatch: "gw4",      //  8  River Watch (Wolfrun's river is next)
-  goldworks: "ravenscar", // 12  Gold Works
-  trapsmith: "gw5",       // 15  Trapsmith
+  trapsmith: "ravenscar", // 12  Trapsmith
+  goldworks: "gw5",       // 15  Gold Works (owner, 2026-11-07: not before the
+                          //     Greenwood is won; swapped with the Trapsmith)
   falconry: "brinewick",  // 19  Falconry
   assassin: "kestrel",    // 23  Assassin's Covert
   gunpowder: "wardenmoor",// 27  Powder Works
