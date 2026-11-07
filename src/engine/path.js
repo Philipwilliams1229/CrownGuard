@@ -5,7 +5,10 @@
 // rebuilds everything in place, and because ES module exports are live
 // bindings, every importer sees the new road immediately.
 
-import { W, WALL_W, tileX, tileY } from "../data/constants.js";
+import { W, WALL_W, tileX, tileY, LANE_OFF } from "../data/constants.js";
+
+// how far off the centre line a hero may post: the outer lanes
+const ROAD_POST = LANE_OFF;
 
 export let PTS = [];
 export let SEGS = [];
@@ -103,4 +106,16 @@ export function nearestOnPath(x, y) {
     if (d < best.d) best = { d, x: px, y: py, dist: s.start + t * s.len };
   }
   return best;
+}
+
+// The hero's post is always ON the road (owner, 2026-11-07: a ranged hero
+// standing in the grass "never goes down"): the nearest spot of it to (x, y),
+// no further from the centre line than the outer marching lanes, so the
+// column walks into whoever stands there. A tap already on the road keeps
+// its spot. (No road: the point as given.)
+export function onRoad(x, y) {
+  const r = nearestOnPath(x, y);
+  if (!Number.isFinite(r.d)) return { x, y };
+  const k = r.d > ROAD_POST ? ROAD_POST / r.d : 1;
+  return { x: r.x + (x - r.x) * k, y: r.y + (y - r.y) * k };
 }
