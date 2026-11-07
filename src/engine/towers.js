@@ -37,15 +37,19 @@ const withPerks = (kind, st) => {
 };
 
 // The active stats for a tower: its rank-4 form if ascended, else its branch
-// stats if evolved, else its level stats — with permanent upgrades applied.
-export const getStats = (t) => {
+// stats if evolved, else its level stats — with permanent upgrades applied,
+// and the weather's cut to its reach while it bites.
+export const getStats = (t) => inWeather(getStatsClear(t));
+// The same in clear weather: the reach a hall has once the fog (or a squall)
+// is gone. draw.js rings it beside the shortened reach while weather bites.
+export const getStatsClear = (t) => {
   const def = TOWERS[t.kind];
   if (t.branch) {
     const b = def.branches[t.branch];
     const src = t.rank4 && b.rank4 ? b.rank4[t.rank4].stats : b.stats;
-    return inWeather(withPerks(t.kind, { ...src, dtype: src.magic ? "magic" : def.dtype, groundOnly: !!def.groundOnly && !src.hitsAir }));
+    return withPerks(t.kind, { ...src, dtype: src.magic ? "magic" : def.dtype, groundOnly: !!def.groundOnly && !src.hitsAir });
   }
-  return inWeather(withPerks(t.kind, { ...def.levels[t.level - 1], dtype: def.dtype, groundOnly: !!def.groundOnly }));
+  return withPerks(t.kind, { ...def.levels[t.level - 1], dtype: def.dtype, groundOnly: !!def.groundOnly });
 };
 // A squall (engine/weather.js WX.reach) shortens every kind of reach a hall has
 // while it bites: its shots, its musket, its aura. (minRange, hall spacing and

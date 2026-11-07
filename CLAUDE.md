@@ -191,7 +191,14 @@ lifting / Clear from where the level will stand at that wave.
 all ten fog levels, both doctrines: 9453 castle damage before, 9149 after
 (Cinderholt swarm ~200 -> ~100, the Warrens swarm 155/203 -> 206/307, the
 rest within noise): the old fog's returning banks bit late, where the bleed
-is. The `sight` machinery stays in the engine, unused. A new kind needs an entry in `WEATHER_INFO` there, a `FORECAST` line
+is. **Range rings show it** (owner, 2026-11-07): placing or selecting a hall
+rings its reach NOW (`getStats`, with the weather's cut and its skill-tree
+perks; the build ghost used the raw level-1 range before) and, while weather
+cuts reach, a second slate ring at its full reach (`getStatsClear`,
+engine/towers.js; `fullRing` in draw.js); an armed upgrade's preview gets both
+too. While any weather is up the rings draw ABOVE it (`drawRanges` after
+`drawWeather`), else under the halls as before. The `sight` machinery stays in
+the engine, unused. A new kind needs an entry in `WEATHER_INFO` there, a `FORECAST` line
 (weather.js) and an icon in WeatherForecast.jsx's `PX`. The card asks
 `weatherFor(level) ?? realm.weather`, the same call the battle makes. The
 in-battle wave preview chip (ui/WeatherForecast.jsx) has the same (i), reading

@@ -17,7 +17,7 @@ import { DECOR, PONDS, RIVERS, BRIDGES, bridgeLift, underBridge } from "../data/
 import { groundLayer, drawRoadLive } from "./world.js";
 import { ball as pip, glow as glowFx, shadow as softShadow, cylinder } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
-import { getStats } from "../engine/towers.js";
+import { getStats, getStatsClear } from "../engine/towers.js";
 import { isBuilt } from "../engine/build.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
@@ -217,44 +217,67 @@ export function draw(g, canvas, bufRef) {
     }
   };
 
-  if (g.buildMode && g.hover) {
-    const [hx, hy] = g.hover;
-    const ok = buildableAt(g, hx, hy, g.buildMode) && g.gold >= TOWERS[g.buildMode].cost;
-    const radius = g.buildMode === "knight" ? RALLY_RANGE : TOWERS[g.buildMode].levels[0].range;
-    ctx.fillStyle = ok ? "rgba(140,224,140,0.25)" : "rgba(224,110,100,0.28)";
-    ctx.fillRect(S(hx) - 20, S(hy) - 20, 40, 40);
-    // (a River Watch's reach is the water it moors in, laid with the water
-    // above; here only her first skiff's station and musket reach, faint)
-    if (g.buildMode === "riverwatch") { if (watch && watch[2] !== "sel") drawWatchStation(ctx, g, hx, hy, watch[2]); }
-    else {
-      ctx.fillStyle = ok ? "rgba(140,224,140,0.09)" : "rgba(224,110,100,0.09)";
-      ctx.beginPath(); ctx.arc(S(hx), S(hy), radius, 0, 7); ctx.fill();
-      rangeRing(hx, hy, radius, ok ? "rgba(150,232,150,0.85)" : "rgba(232,120,110,0.85)", g.time * 0.5);
-      const minR = TOWERS[g.buildMode].levels[0].minRange;
-      if (minR) rangeRing(hx, hy, minR, "rgba(232,120,110,0.7)", -g.time * 0.7);
-    }
-  }
+  // While weather cuts every hall's reach (the fog, a blizzard: WX.reach), a
+  // hall's ring is its reach NOW, and a second, slate ring shows its full reach
+  // for when the weather passes (owner, 2026-11-07).
+  const FULL_RING = "rgba(58,78,110,0.8)";   // slate: it only shows over fog or snow
+  const fullRing = (cx, cy, now, full) => {
+    if (!(full - now > 0.5)) return;
+    rangeRing(cx, cy, full, FULL_RING, -g.time * 0.35);
+  };
 
   const sel = g.towers.find((t) => t.id === g.selectedId);
-  // a River Watch fights from its skiffs: each one's own reach, following her
-  if (sel && sel.kind === "riverwatch") drawSkiffReach(ctx, g, sel, isBuilt(sel, g));
-  else if (sel) {
-    const st = getStats(sel);
-    const radius = sel.kind === "knight" ? RALLY_RANGE : st.range;
-    ctx.fillStyle = "rgba(216,179,74,0.1)";
-    ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), radius, 0, 7); ctx.fill();
-    rangeRing(sel.x, sel.y, radius, "rgba(232,196,90,0.9)", g.time * 0.5);
-    if (st.minRange) rangeRing(sel.x, sel.y, st.minRange, "rgba(232,120,110,0.7)", -g.time * 0.7);
-    // an upgrade armed in the panel: the reach it would buy, in bright gold
-    if (g.upPreview && g.upPreview.id === sel.id && sel.kind !== "knight") {
-      const st2 = getStats({ ...sel, ...g.upPreview.form });
-      if (st2.range && Math.abs(st2.range - radius) > 0.5) {
-        ctx.fillStyle = "rgba(250,220,120,0.08)";
-        ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), st2.range, 0, 7); ctx.fill();
-        rangeRing(sel.x, sel.y, st2.range, "rgba(255,236,150,1)", -g.time * 0.8);
+  // The rings of the hall being placed or selected. Under the halls in clear
+  // weather; ABOVE the weather while any is up (owner, 2026-11-07: the fog
+  // washed them out), since they are the player's measure, not the world.
+  const overWeather = !!(g.weather && g.weather.k > 0.02);
+  const drawRanges = () => {
+    if (g.buildMode && g.hover) {
+      const [hx, hy] = g.hover;
+      const ok = buildableAt(g, hx, hy, g.buildMode) && g.gold >= TOWERS[g.buildMode].cost;
+      // the reach the new hall will have as it stands now (its skill-tree perks
+      // and the weather), and in clear weather
+      const ghostT = { kind: g.buildMode, level: 1 };
+      const radius = g.buildMode === "knight" ? RALLY_RANGE : getStats(ghostT).range;
+      const fullR = g.buildMode === "knight" ? RALLY_RANGE : getStatsClear(ghostT).range;
+      ctx.fillStyle = ok ? "rgba(140,224,140,0.25)" : "rgba(224,110,100,0.28)";
+      ctx.fillRect(S(hx) - 20, S(hy) - 20, 40, 40);
+      // (a River Watch's reach is the water it moors in, laid with the water
+      // above; here only her first skiff's station and musket reach, faint)
+      if (g.buildMode === "riverwatch") { if (watch && watch[2] !== "sel") drawWatchStation(ctx, g, hx, hy, watch[2]); }
+      else {
+        ctx.fillStyle = ok ? "rgba(140,224,140,0.09)" : "rgba(224,110,100,0.09)";
+        ctx.beginPath(); ctx.arc(S(hx), S(hy), radius, 0, 7); ctx.fill();
+        rangeRing(hx, hy, radius, ok ? "rgba(150,232,150,0.85)" : "rgba(232,120,110,0.85)", g.time * 0.5);
+        fullRing(hx, hy, radius, fullR);
+        const minR = TOWERS[g.buildMode].levels[0].minRange;
+        if (minR) rangeRing(hx, hy, minR, "rgba(232,120,110,0.7)", -g.time * 0.7);
       }
     }
-  }
+
+    // a River Watch fights from its skiffs: each one's own reach, following her
+    if (sel && sel.kind === "riverwatch") drawSkiffReach(ctx, g, sel, isBuilt(sel, g));
+    else if (sel) {
+      const st = getStats(sel);
+      const radius = sel.kind === "knight" ? RALLY_RANGE : st.range;
+      ctx.fillStyle = "rgba(216,179,74,0.1)";
+      ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), radius, 0, 7); ctx.fill();
+      rangeRing(sel.x, sel.y, radius, "rgba(232,196,90,0.9)", g.time * 0.5);
+      if (sel.kind !== "knight") fullRing(sel.x, sel.y, radius, getStatsClear(sel).range);
+      if (st.minRange) rangeRing(sel.x, sel.y, st.minRange, "rgba(232,120,110,0.7)", -g.time * 0.7);
+      // an upgrade armed in the panel: the reach it would buy, in bright gold
+      if (g.upPreview && g.upPreview.id === sel.id && sel.kind !== "knight") {
+        const st2 = getStats({ ...sel, ...g.upPreview.form });
+        if (st2.range && Math.abs(st2.range - radius) > 0.5) {
+          ctx.fillStyle = "rgba(250,220,120,0.08)";
+          ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), st2.range, 0, 7); ctx.fill();
+          rangeRing(sel.x, sel.y, st2.range, "rgba(255,236,150,1)", -g.time * 0.8);
+          fullRing(sel.x, sel.y, st2.range, getStatsClear({ ...sel, ...g.upPreview.form }).range);
+        }
+      }
+    }
+  };
+  if (!overWeather) drawRanges();
 
   // Paints one tower of `kind` at (x, y). Used both for the real thing and
   // for the ghost under the cursor, so what you preview is what you get.
@@ -692,6 +715,7 @@ export function draw(g, canvas, bufRef) {
   drawAmbient(ctx, g.time);
   // a realm's battle weather over it (engine/weather.js; weatherfx.js painters)
   drawWeather(ctx, g);
+  if (overWeather) { ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; drawRanges(); }
   ctx.restore();
 
   // The realm's light, laid over the finished board in buffer space so camera
