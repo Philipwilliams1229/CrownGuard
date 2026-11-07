@@ -16,6 +16,7 @@
       import * as T from "/src/render/towers.js";
       import { groundLayer } from "/src/render/world.js";
       import { getStats } from "/src/engine/towers.js";
+      import { TOWERS } from "/src/data/towers.js";
       const q = new URLSearchParams(location.search);
       const KINDS = (q.get("kinds") || "catapult").split(","), TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 1;
       selectRealm(q.get("realm") || "greenwood");
@@ -59,7 +60,8 @@
           const st = getStats(t);
           t.cd = (st.rate || 1000) * row.cdf;
           try { P[KIND](ctx, t, time); } catch (e) { console.error(e); ctx.fillStyle = "red"; ctx.fillText(String(e.message).slice(0, 30), 4, 12); }
-          { if (q.get("ell")) { ctx.strokeStyle = "rgba(255,0,255,0.9)"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(t.x, t.y + 3, KIND === "spiker" ? 13 : 18, KIND === "spiker" ? 9 : 13, 0, 0, 7); ctx.stroke(); ctx.strokeStyle = "rgba(0,255,255,0.7)"; ctx.beginPath(); ctx.arc(t.x, t.y, KIND === "spiker" ? 10 : 16, 0, 7); ctx.stroke(); } }
+          const NARROW = !!(TOWERS[KIND] && TOWERS[KIND].roadClear) || q.get("narrow") === "1";
+          { if (q.get("ell")) { ctx.strokeStyle = "rgba(255,0,255,0.9)"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(t.x, t.y + 3, NARROW ? 13 : 18, NARROW ? 9 : 13, 0, 0, 7); ctx.stroke(); ctx.strokeStyle = "rgba(0,255,255,0.7)"; ctx.beginPath(); ctx.arc(t.x, t.y, NARROW ? 10 : 16, 0, 7); ctx.stroke(); } }
           ctx.restore();
         }));
         let out = cv;
