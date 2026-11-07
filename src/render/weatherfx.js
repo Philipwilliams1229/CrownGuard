@@ -267,7 +267,10 @@ const fog = (ctx, g, w, def) => {
   if (patchy > 0.01) { c.globalAlpha = patchy; tile(c, F.patchy, ox2); }
   // the sun breaking through: the fog itself warms, lit in slanting shafts
   // (only as it LIFTS: fog drifting in comes grey, without the sun)
-  const sun = w.phase === "easing" && k < 0.995 ? clamp01((1 - k) / 0.55) : 0;
+  // (`w.thick`: how thick against its own peak, so a mild fog that opens thin
+  // is not lit as if it were already lifting)
+  const rel = w.thick ?? k;
+  const sun = w.phase === "easing" && rel < 0.995 ? clamp01((1 - rel) / 0.55) : 0;
   if (sun > 0) {
     c.globalCompositeOperation = "source-atop";
     c.globalAlpha = sun * 0.2; c.fillStyle = "#fff0c4"; c.fillRect(WR[0], WR[1], WR[2] - WR[0], WR[3] - WR[1]);
@@ -275,7 +278,7 @@ const fog = (ctx, g, w, def) => {
     c.globalAlpha = sun * 0.85; c.drawImage(B.fogShafts(m), -80 - m + Math.sin(t * 0.07) * 50, -m);
   }
   // every hall sees out to `sight`: the fog thins round it as far
-  const sight = (def?.fx?.sight || 85) / Math.max(0.05, k);
+  const sight = (def?.fx?.sight || 85) / Math.max(0.05, w.thick ?? k);
   clearHalls(c, g, sight * 1.1);
   showWide(ctx, 1);
   EDGE = { a: 1 };
@@ -666,7 +669,7 @@ let TOAST = null, LAST = { phase: "calm", k: 0, g: null };
 const TOAST_S = 3.2;
 const watchToast = (g, w) => {
   if (LAST.g !== g) LAST = { phase: "calm", k: 0, g };      // a new battle: whatever is coming in now gets its toast
-  const fogIn = w.paint === "fog" && w.k > 0.5 && LAST.k <= 0.5;
+  const fogIn = w.paint === "fog" && w.k > 0.1 && LAST.k <= 0.1;
   if (fogIn || (w.phase === "rising" && LAST.phase !== "rising")) TOAST = { kind: w.paint, name: WEATHER_KINDS[w.kind]?.name || w.kind, at: g.time };
   LAST.phase = w.phase; LAST.k = w.k;
 };

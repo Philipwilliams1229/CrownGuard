@@ -5,7 +5,7 @@
 // kind (engine/weather.js weatherDefOf), so a retuned kind retells itself;
 // only the lore and the advice are written here, one entry per kind.
 
-import { weatherDefOf } from "../engine/weather.js";
+import { weatherDefOf, strengthTier } from "../engine/weather.js";
 
 const pct = (x) => `${Math.round(x * 100)}%`;
 const secs = ([a, b]) => {
@@ -16,14 +16,15 @@ const secs = ([a, b]) => {
 };
 
 // strength (0..1) in words
-export const strengthWord = (s) => (s >= 0.85 ? "Fierce" : s >= 0.6 ? "Strong" : "Mild");
-export const strengthPips = (s) => (s >= 0.85 ? 3 : s >= 0.6 ? 2 : 1);
+export const strengthPips = (s) => strengthTier(s);
+export const strengthWord = (s) => ["Mild", "Strong", "Fierce"][strengthTier(s) - 1];
 
 // the lore and advice, and the line of each effect the kind has
 export const WEATHER_INFO = {
   fog: {
-    blurb: "A morning fog hangs over the greenwood. The battle opens in it; it burns off as the day wears on, and later banks drift back in.",
-    effects: (d) => [`While it is thick, every hall reaches ${pct(1 - d.fx.reach)} less far. Their reach returns as the fog thins.`],
+    blurb: "A morning fog hangs over the greenwood. The battle opens in it, and it thins as the day wears on.",
+    effects: (d) => [`At its thickest, every hall reaches ${pct((1 - d.fx.reach) * (d.peak ?? 1))} less far. Their reach returns as the fog thins.`],
+    rhythm: () => "Half as thick a quarter of the way through the level, gone by halfway, and it does not come back",
     tip: "Build closer to the road while the fog is thick. Knights fight what is in front of them, so they do not mind it.",
     opens: () => "Opens in thick fog",
   },
@@ -72,7 +73,7 @@ export const briefOf = (spec) => {
   return {
     kind: d.kind, name: d.name, strength: s, word: strengthWord(s), pips: strengthPips(s),
     opens: info.opens ? info.opens(d) : d.startThick ? "Opens in thick fog" : `First spell ${secs(d.first)} into the fight`,
-    rhythm: `Comes back about every ${secs(d.calm)} of fighting, and lasts ${secs(d.lasts)}`,
+    rhythm: info.rhythm ? info.rhythm(d) : `Comes back about every ${secs(d.calm)} of fighting, and lasts ${secs(d.lasts)}`,
     blurb: info.blurb || "", effects: info.effects ? info.effects(d) : [], tip: info.tip || "",
   };
 };

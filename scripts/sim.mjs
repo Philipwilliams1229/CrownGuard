@@ -16,6 +16,7 @@
 //                                             (--window from,to,count; --gold start purse)
 //   ... --no-landings --no-weather --no-freeze   zone IV's mechanics off (data/zone-flags.js)
 //   ... --weather fog:0.8 | none            any weather at a strength, over the plan (data/weather-plan.js)
+//   ... --wx-trace                          print the weather's k as each wave opens
 //
 // The commander is deliberately a decent player, not a perfect one: it values
 // road coverage, keeps a knight post near the front, mixes physical and magic,
@@ -293,6 +294,8 @@ function runOnce(opts, quiet, planName) {
       commander(g);
       if (ENDURE) g.lives = 999;
       const livesBefore = g.lives;
+      // --wx-trace: the weather's strength as each wave opens (the fog's fade)
+      if (flag("wx-trace") && g.weather) (g.wxTrace ||= []).push(`${g.wave + 1}:${g.weather.k.toFixed(2)}`);
       startWave(g);
       const foes = g.spawnQueue.length, t0 = g.time, earned0 = g.run.goldEarned;
       // fight the whole wave
@@ -346,6 +349,7 @@ function runOnce(opts, quiet, planName) {
   if (flag("xp")) console.log("   tower xp: " + Object.entries(g.towerXp || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${Math.round(n)}`).join("  "));
   const zs = g.zoneStats;
   const zone = (zs ? ` | ships ${zs.ships} sunk ${zs.sunk} landed ${zs.landed} lost ${zs.lost} shrouds ${zs.shrouds}${Object.entries(zs).filter(([k]) => !["ships", "sunk", "landed", "lost", "shrouds"].includes(k)).map(([k, v]) => ` ${k} ${v}`).join("")}` : "")
+    + (g.wxTrace ? ` | ${g.weather?.kind} k at each horn ${g.wxTrace.join(" ")}` : "")
     + (g.squalls ? ` | ${g.weather?.kind || "weather"} x${g.squalls}${g.bolts ? ` bolts ${g.bolts}` : ""}${g.rocks ? ` rocks ${g.rocks} halls-burned ${g.hallsBurned || 0}` : ""}` : "");
   return { zone, bleed: g.bleed || [], result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName, gold: Math.round(g.gold), earned: Math.round(g.run?.goldEarned || 0) };
 }

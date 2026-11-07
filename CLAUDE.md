@@ -171,7 +171,27 @@ chapter plan's strength) and when it first comes, with an (i) that unfolds what 
 does, how often it returns and how to meet it. The wording is `data/weather-info.js`
 (`briefOf(spec)`): lore and advice written per kind, every number read from the
 graded kind via `weatherDefOf` (engine/weather.js), so a retuned kind retells
-itself. **Fog is a percentage now** (owner, 2026-10-05): every hall reaches 25% less far while it is thick (`fx.reach` 0.75, eased by k as it lifts), no fixed sight in px; the `sight` machinery stays in the engine, unused. Not re-simmed. A new kind needs an entry in `WEATHER_INFO` there, a `FORECAST` line
+itself. **The fog fades with the level** (owner, 2026-11-07; replaces the
+2026-10-05 spells): it opens at its thickest from the first build phase and
+thins with the level's progress — half as thick a quarter of the way through
+its waves, gone by halfway (15 waves: midway through wave 8), never back.
+`fade: true` on the kind, `fogTick` in engine/weather.js: progress = waves
+done + the wave in hand's spawn clock over (its last spawn + a road-walk), out
+of `victoryWave()` (20 for an open Free Play run); `w.fogP` eases toward it
+only in combat (3 s), so it holds still between waves; a retried wave puts it
+back where that wave began. Thickness k bites as `fx.reach` 0.65 x k (35% less
+reach at k 1). The strength meter's three steps (`strengthTier`, weather.js;
+the card's pips read it) set the thickness `peak`: Mild 15/35, Strong 25/35,
+Fierce 1, so 15% / 25% / 35% less reach at the start (gw3-thistlecrag Mild;
+kingstones, ravenscar, blackbriar Strong; cinderholt and gw5 Fierce). The
+painter's sun and hall clearings read `w.thick` (k over the peak), so a Mild
+fog opens thinner, never as if lifting. The forecast says Thick fog / Fog
+lifting / Clear from where the level will stand at that wave.
+`sim.mjs --wx-trace` prints k at each horn. Measured `--endure`, seeds 1-2,
+all ten fog levels, both doctrines: 9453 castle damage before, 9149 after
+(Cinderholt swarm ~200 -> ~100, the Warrens swarm 155/203 -> 206/307, the
+rest within noise): the old fog's returning banks bit late, where the bleed
+is. The `sight` machinery stays in the engine, unused. A new kind needs an entry in `WEATHER_INFO` there, a `FORECAST` line
 (weather.js) and an icon in WeatherForecast.jsx's `PX`. The card asks
 `weatherFor(level) ?? realm.weather`, the same call the battle makes. The
 in-battle wave preview chip (ui/WeatherForecast.jsx) has the same (i), reading
@@ -279,8 +299,8 @@ uses; existing levels sim byte-identical). Read the headers of
   at its height (mild 16-22), sparse for the first 30 s. Effects ramp with
   k (a charge bogs down with chance = k). Blizzard 15-22 / 25-40 / 15-22 s;
   grave mist 20-30 / 30-50 / 20-30 s (hides foes past k 0.4); eruptions only
-  at the height; fog levels open thick from the first build phase, lift
-  after 25-40 s of battle over 30-45 s, and banks drift back on the clock.
+  at the height; fog fades with the level's waves instead (`fade`, see
+  "Weather brief on the level card").
   Forecast wording per stage (brewing / rolling in / height / passing,
   "likely" in italics). `wx-lab.html?rise=S&snaps=&bolt=1&freeze=1`.
   Lightning (owner, 2026-10-04): lands at a random spot near a random live
@@ -354,15 +374,11 @@ Bring these up with the owner; don't act on them unasked.
   Free Play keeps it. Ask the owner whether the Endless March after a
   campaign win counts as campaign. The retry-wave snapshot (`snapshot`) can
   stay in the engine.
-- **TOP OF THE LIST for the next session (owner, 2026-10-05): the fog needs
-  work.** The owner did not say what is wrong: ask what they saw before changing
-  anything. What exists: the Greenwood's Morning Fog (`fog` in
-  `engine/weather.js`: now every hall reaches 25% less far while thick, no
-  px sight; not re-simmed), its painter (`fog` in `render/weatherfx.js`, plus
-  the wide layer beyond the board for tall screens, `paintWeatherEdge`; the
-  mirrored edges the owner saw on the iPad were replaced 2026-11-07),
-  the tower clearings it still draws (cosmetic now), the forecast wording and
-  the card / chip ⓘ (`data/weather-info.js`).
+- **The fog was reworked 2026-11-07** (owner's design): it fades with the
+  level (see "Weather brief on the level card") and runs past the board on
+  tall screens without mirroring. Pending the owner's playtest of both; the
+  grave mist is still to be looked at by the owner. `wx-lab.html`'s `?rise=`
+  reads the spell schedule, which the fog no longer has (storms etc. only).
 - **Tower menu is built** (see "The tower menu is the tray"), pending the
   owner's playtest. Still open: the tray's Castle / Sandbox / Master row
   crowds when all three show (the label "Castle" clips); that belongs to

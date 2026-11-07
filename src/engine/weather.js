@@ -21,8 +21,9 @@
 //   "squall"  calm -> rising (windup s, drawn only) -> squall (bites, `lasts`
 //             s) -> easing (ease s) -> calm for `every` s. First spell at
 //             ~`first` s into the level's combat.
-//   "wave"    (fog) each wave, with `chance`, starts thick and holds `hold` s,
-//             then burns off over `burn` s; `k` falls with it.
+//   "fade"    (fog, `fade: true`) thick from the first build phase, thinning
+//             with the LEVEL's progress: half as thick a quarter of the way
+//             through its waves, gone by halfway, never back (fogTick below).
 // The clock runs only in combat and is seeded from the realm's seed and the
 // kind, never Math.random, so a sim is the same run with weather on or off
 // apart from the weather itself.
@@ -38,13 +39,17 @@ import { REALM } from "../data/maps.js";
 import { mulberry32, W, WALL_W } from "../data/constants.js";
 import { MECH } from "../data/zone-flags.js";
 import { SANDBOX } from "../data/sandbox.js";
-import { waveHpMult, waveSpec } from "../data/waves.js";
+import { waveHpMult, waveSpec, victoryWave } from "../data/waves.js";
 import { getStats } from "./towers.js";
 import { dealDamage } from "./actions.js";
 import { posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { sfx } from "../audio/sfx.js";
 
 const lerp = (a, b, s) => a + (b - a) * s;
+// the strength meter's three steps (the level card's pips: Mild, Strong, Fierce)
+export const strengthTier = (s) => (s >= 0.85 ? 3 : s >= 0.6 ? 2 : 1);
+// the fog's thickness at each step: x the 35% reach cut = 15%, 25%, 35%
+const FOG_PEAK = { 1: 15 / 35, 2: 25 / 35, 3: 1 };
 const span = (a0, a1, b0, b1, s) => [lerp(a0, b0, s), lerp(a1, b1, s)];
 
 // ---- the kinds ----
@@ -80,16 +85,19 @@ export const WEATHER_KINDS = {
     paint: "blizzard", sound: "gust",
   },
   // ---- the Greenwood: MORNING FOG ----
-  // The battle opens in the morning fog (`startThick`: thick from the first
-  // build phase, so it never pops in at a horn), which holds a while and
-  // burns off; later banks drift back in and lift again on the same clock.
-  // While thick every hall reaches 25% less far (owner, 2026-10-05: a
-  // percentage, not a fixed sight in px), easing back as the fog thins.
+  // (owner, 2026-11-07) The battle opens in the fog at its thickest, from the
+  // first build phase, and it thins as the LEVEL goes on (`fade`, fogTick):
+  // half as thick a quarter of the way through the level's waves, gone by
+  // halfway (15 waves: gone midway through wave 8), and it never comes back.
+  // It thins smoothly through each wave's fighting and holds still between
+  // waves. Its thickness k is its bite: every hall reaches 35% x k less far.
+  // The strength meter's three steps set how thick it gets (`peak`): Mild
+  // 15%, Strong 25%, Fierce 35% less reach at the start.
   fog: {
-    name: "Morning Fog", startThick: true,
-    first: [0, 0], calm: [90, 140], rollIn: [25, 35], lasts: [25, 40], rollOut: [30, 45],
-    fx: { reach: 0.75 },
-    grade: (s) => ({ calm: span(150, 220, 90, 140, s), lasts: span(10, 20, 25, 40, s) }),
+    name: "Morning Fog", fade: true, startThick: true,
+    fx: { reach: 0.65 },
+    peak: 1,
+    grade: (s) => ({ peak: FOG_PEAK[strengthTier(s)] }),
     paint: "fog", sound: "fogbell",
   },
   // ---- the Iron Marches: THUNDERSTORM ----
@@ -240,6 +248,7 @@ export const tickWeather = (g, sdt, tms) => {
   const w = ensure(g, def);
   burnHalls(g, sdt);
   const combat = g.phase === "combat";
+  if (def.fade) { fogTick(g, w, def, sdt, combat); return; }
   if (combat) w.clock += sdt;            // between waves the clock (and so the weather) stands still
   else w.marks.length = 0;               // no one is fighting: a gathering stroke never falls
   const seg = segAt(w, def, w.clock);
@@ -258,6 +267,43 @@ export const tickWeather = (g, sdt, tms) => {
   // telegraphed strikes land even if the height has just passed
   landStrikes(g, w, def, tms);
 };
+// ---- the fading fog ----
+// Its thickness follows the level's progress p (waves done, plus how far the
+// wave in hand has got, out of the level's waves): 1 at the start, 0.5 at
+// p 0.25, 0 at p 0.5 (x the strength's peak). How far a wave has got is its
+// spawn clock over the time its last foe needs to come out of the wood and
+// walk the road; a wave cleared sooner leaves the rest to be caught up early
+// in the next. `w.fogP` eases toward that ONLY in combat (3 s), so the fog
+// never jumps at a horn and waiting between waves can't thin it. A retried
+// wave puts it back where that wave began. No set length (an open Free Play
+// run): 20 waves.
+const FOG_EASE = 3;          // s, how fast the drawn progress follows the wave's
+const fogLength = () => { const n = victoryWave(); return Number.isFinite(n) && n > 0 ? n : 20; };
+export const fogThickness = (p) => Math.max(0, Math.min(1, 1 - 2 * p));
+const fogTick = (g, w, def, sdt, combat) => {
+  const N = fogLength(), n = g.wave || 0;
+  if (w.fogWave == null || n < w.fogWave) w.fogP = Math.max(0, n - (combat ? 1 : 0)) / N;   // a new battle, or a retried wave
+  if (n !== w.fogWave) {
+    // a new wave: how long its foes take to come out and walk the road
+    let last = 0;
+    for (const q of g.spawnQueue || []) last = Math.max(last, q.at || 0);
+    w.fogSpan = last + (TOTAL_LEN / 55) * 1000;
+    w.fogWave = n;
+  }
+  w.marks.length = 0;
+  if (combat && n > 0) {
+    const f = Math.min(1, (g.spawnTimer || 0) / Math.max(1000, w.fogSpan || 1));
+    const target = (n - 1 + f) / N;
+    if (target > w.fogP) w.fogP += (target - w.fogP) * Math.min(1, sdt / FOG_EASE);
+  }
+  const r = fogThickness(w.fogP), peak = def.peak ?? 1;
+  w.thick = r;                           // 0..1 of its own peak (the painter's sun and clearings)
+  w.k = peak * r;
+  w.phase = r >= 0.999 ? "squall" : r > 0 ? "easing" : "calm";
+  w.bite = w.k > 0.02;
+  if (w.bite) applyFx(def, w.k);
+};
+
 // the kind's fx at strength k: multipliers ease from 1, chances scale, flags
 // switch at half strength, fog's sight opens as it thins
 const applyFx = (def, k) => {
@@ -437,6 +483,11 @@ export const forecast = (g, n) => {
   if (!def || !g || n < 1) return null;
   const w = ensure(g, def), words = FORECAST[def.kind] || {};
   const say = (stage, sure = true) => ({ kind: def.kind, stage, text: stage === "clear" ? "Clear" : words[stage] || def.name, sure });
+  if (def.fade) {
+    // the fog as wave n opens: where the level's progress will stand then
+    const r = fogThickness(Math.max(w.fogP || 0, (n - 1) / fogLength()));
+    return say(r >= 0.999 ? "height" : r > 0 ? "easing" : "clear");
+  }
   const seg = segAt(w, def, w.clock);
   if (seg.ph === "rising") return say("rising");
   if (seg.ph === "squall") return say("height");
