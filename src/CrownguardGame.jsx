@@ -23,7 +23,7 @@ import { CHAPTERS, loadProgress, markCleared, resetProgress, currentLevel, nextL
 import CastleWorksList from "./ui/CastleWorks.jsx";
 import { CASTLE_WORKS, emptyWorks, worksBonusHp } from "./data/castle.js";
 import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL, heroAbilities } from "./data/bands.js";
-import { PTS } from "./engine/path.js";
+import { PTS, onRoad } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, bankTowerXp, bankedTowerXp, MAX_STARS } from "./data/profile.js";
 import { tierGate, TIER_XP } from "./data/towerxp.js";
@@ -39,6 +39,7 @@ import { paintApron } from "./render/apron.js";
 import TowerPortrait from "./ui/TowerPortrait.jsx";
 import EnemyIcon from "./ui/EnemyIcon.jsx";
 import EnemyTooltip from "./ui/EnemyTooltip.jsx";
+import useTap from "./ui/useTap.js";
 import HomeScreen from "./ui/HomeScreen.jsx";
 import CampaignMap from "./ui/CampaignMap.jsx";
 import WarCouncil from "./ui/WarCouncil.jsx";
@@ -86,6 +87,7 @@ export default function Crownguard() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);   // the pause menu's Settings window
   const [hoverEnemy, setHoverEnemy] = useState(null);
+  const chipTap = useTap();
   const [buildOpen, setBuildOpen] = useState(false);
   // the incoming-wave chip folds down to a small arrow when the board needs the room
   const [infoOpen, setInfoOpen] = useState(false);
@@ -670,7 +672,9 @@ export default function Crownguard() {
     if (!g || g.phase === "won" || g.phase === "lost" || g.paused) return;
     if (g.rallyFor === "hero") {
       const b = heroBand(g);
-      if (b) { b.rally = { x, y }; g.effects.push({ type: "levelup", x, y, ttl: 500 }); }
+      // he goes only where the foe walks: a tap off the road sends him to
+      // the nearest spot on it (owner, 2026-11-07)
+      if (b) { const p = onRoad(x, y); b.rally = p; g.effects.push({ type: "levelup", x: p.x, y: p.y, ttl: 500 }); }
       g.rallyFor = null;
       return;
     }
@@ -815,9 +819,11 @@ export default function Crownguard() {
     const boss = ENEMIES[type].boss;
     return (
       <div key={hk}
-        onMouseEnter={() => setHoverEnemy(hk)}
-        onMouseLeave={() => setHoverEnemy((cur) => (cur === hk ? null : cur))}
-        onClick={() => setHoverEnemy((cur) => (cur === hk ? null : hk))}
+        // a mouse opens it by hovering (and a click keeps it); a finger's tap
+        // toggles it, once (useTap: no emulated hover, no echoing click)
+        onPointerEnter={(e) => { if (e.pointerType === "mouse") setHoverEnemy(hk); }}
+        onPointerLeave={(e) => { if (e.pointerType === "mouse") setHoverEnemy((cur) => (cur === hk ? null : cur)); }}
+        {...chipTap((e) => setHoverEnemy((cur) => (e.type === "click" ? hk : cur === hk ? null : hk)))}
         style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
         {hoverEnemy === hk && <EnemyTooltip type={type} />}
         <span className="cg-well" style={{ width: boss ? 54 : 44, height: boss ? 54 : 44, display: "flex", alignItems: "center", justifyContent: "center", ...(boss ? { background: "#4a1e22" } : {}) }}>
@@ -1630,7 +1636,7 @@ export default function Crownguard() {
             <>Placing <b>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — tap the {TOWERS[ui.buildMode].water ? "water" : "grass"}{ui.buildMode === "knight" ? "; knights muster south of the hall" : ""}.</>,
             "Cancel placement", () => { if (G.current) G.current.buildMode = null; })}
           {ui.rallyFor === "hero" && ribbon(
-            <><b>{ui.hero?.name}</b> awaits your word — tap where the hero should go.</>, "Cancel hero move", cancelRally)}
+            <><b>{ui.hero?.name}</b> awaits your word — tap where on the road the hero should stand.</>, "Cancel hero move", cancelRally)}
           {ui.rallyFor === "militia" && ribbon(
             <>Sounding for the <b>militia</b> — tap where the farmers should stand.</>, "Cancel militia call", cancelRally)}
           {typeof ui.rallyFor === "string" && ui.rallyFor.startsWith("ab:") && (() => {

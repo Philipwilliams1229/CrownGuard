@@ -527,6 +527,18 @@ know with these changes").
   `--level cinderholt --endure` bled 253/528 -> 203/473 (swarm/burst, seed
   default); the burst plan loses wave 12 with or without the change.
 
+## One tap opens an info pop-up (2026-11-07, owner report)
+
+"The first tap on an enemy type flashes the info and closes it; the second
+stays" (wave info panel; the weather (i) too). A finger sends emulated mouse
+events: the chip opened on `mouseenter` and the click that followed toggled it
+shut. Tap-to-open toggles now use `ui/useTap.js`: a finger acts on lift (not if
+it slid), the browser's echoing click is ignored; a mouse acts on click. The
+wave chips hover only for a real mouse (`onPointerEnter`, pointerType
+"mouse"). Used by the chips (CrownguardGame.jsx `waveChips`), WeatherForecast
+and WeatherBrief; use it for any new little toggle. Checked in Chromium's
+iPhone/iPad emulation, not yet on a real iOS device.
+
 ## Halls keep their facing at rest (2026-11-07, owner request)
 
 A hall's crew faces the way of its last shot and HOLDS it when no foe is in
@@ -537,6 +549,19 @@ about of the archers (crew and siege bow), wizard, Warden and the old pixel
 archer. The Powder Works' two men face left until each first shoots
 (`bomberFacing` / `musketFacing`, muzzles.js); its store still faces the road.
 The River Watch's watchman still glances about (he never aims).
+
+## Heroes stand on the road (2026-11-07, owner request)
+
+"Ranged heroes are way stronger because they never go down": a hero parked in
+the grass shot the column with nothing reaching him. Now every hero's post is
+ON the road: `onRoad(x, y)` (engine/path.js) gives the nearest spot no further
+than `LANE_OFF` (21, the outer marching lanes) from the centre line, and a tap
+already inside that keeps its spot. Applied to the move order (`handleTap`,
+CrownguardGame.jsx: a tap off the road sends him to the nearest spot), the
+starting post (`fieldHero`, which used to stand him 40-55 px off the road on
+most boards) and Aldric's Charge (its landing). So foes walk into a ranged hero
+and hold her (`RANGED_ENGAGE`). The sims already posted the hero on the centre
+line, so they barely move. Provisional, pending the owner's playtest.
 
 ## Bowmen post back and are engaged; the militia is recalled (2026-10-07, owner request)
 
