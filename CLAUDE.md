@@ -549,6 +549,18 @@ know with these changes").
   `--level cinderholt --endure` bled 253/528 -> 203/473 (swarm/burst, seed
   default); the burst plan loses wave 12 with or without the change.
 
+## One tap opens an info pop-up (2026-11-07, owner report)
+
+"The first tap on an enemy type flashes the info and closes it; the second
+stays" (wave info panel; the weather (i) too). A finger sends emulated mouse
+events: the chip opened on `mouseenter` and the click that followed toggled it
+shut. Tap-to-open toggles now use `ui/useTap.js`: a finger acts on lift (not if
+it slid), the browser's echoing click is ignored; a mouse acts on click. The
+wave chips hover only for a real mouse (`onPointerEnter`, pointerType
+"mouse"). Used by the chips (CrownguardGame.jsx `waveChips`), WeatherForecast
+and WeatherBrief; use it for any new little toggle. Checked in Chromium's
+iPhone/iPad emulation, not yet on a real iOS device.
+
 ## Halls keep their facing at rest (2026-11-07, owner request)
 
 A hall's crew faces the way of its last shot and HOLDS it when no foe is in

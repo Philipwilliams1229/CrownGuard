@@ -9,6 +9,7 @@
 // Pixel icons drawn as SVG rects, one per kind.
 
 import { useState } from "react";
+import useTap from "./useTap.js";
 import { forecast } from "../engine/weather.js";
 import { nowOf } from "../data/weather-info.js";
 
@@ -35,6 +36,7 @@ export const WeatherIcon = ({ kind, size = 16 }) => (
 
 export default function WeatherForecast({ g, wave, compact = false }) {
   const [open, setOpen] = useState(false);
+  const tap = useTap();   // one tap opens it on a phone too (no echoing click)
   const f = forecast(g, wave);
   if (!f) return null;
   const icon = f.stage === "clear" ? "clear" : f.kind;
@@ -48,7 +50,7 @@ export default function WeatherForecast({ g, wave, compact = false }) {
         style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <WeatherIcon kind={icon} size={16} />
         <span style={{ fontSize: 11, color: "var(--cream)", fontStyle: f.sure ? "normal" : "italic" }}>{f.text}</span>
-        <button aria-expanded={open} aria-label={open ? "Hide weather details" : "About this weather"} onClick={() => setOpen(!open)}
+        <button aria-expanded={open} aria-label={open ? "Hide weather details" : "About this weather"} {...tap(() => setOpen((o) => !o))}
           style={{ width: 20, height: 20, minWidth: 20, padding: 0, marginLeft: 2, cursor: "pointer", background: "rgba(255,255,255,0.12)", border: "1px solid var(--ink)", color: "var(--cream)", fontFamily: "Georgia, serif", fontStyle: "italic", fontWeight: "bold", fontSize: 12, lineHeight: 1 }}>
           {open ? "×" : "i"}
         </button>
