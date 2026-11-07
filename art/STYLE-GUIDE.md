@@ -32,6 +32,30 @@ copy what the rebuilt pieces do.
   big-headed. Readable faces (eyes, nose, jaw — a face in a hood's shadow is
   fine), shoulders, real hands on real weapons. They face +x; the game mirrors
   them, so nothing may be lettered or lopsided in a way that breaks mirrored.
+- **The hi-bit bake (2026-11-07):** a creature rig is drawn at THREE
+  subpixels per art pixel and voted down (`STYLE.ss` 3 in paint.js:
+  `bakeSprite(..., { ss })`, `voteDown`: each 3x3 block takes its fullest
+  colour bucket, a tie going to paint over empty, and the mean of that
+  bucket), so every curved edge lands on a whole pixel instead of canvas
+  anti-aliasing; `part()` widens its seams to match. Only `rigFrame` asks
+  for it: halls, crews, scenery and the castle still bake at 1x (a vote for
+  them is a follow-up: the cost is in `part()`'s per-part readback, which a
+  part-id buffer would remove). Eyes, glints, teeth and the like are
+  `pix(ctx, x, y, w, h, col)` marks, not `dab`/fillRect: with `STYLE.face`
+  on they snap to the art grid (at least one whole pixel), so a one- or
+  two-pixel feature is painted as pixels and never smeared. A glint over an
+  eye takes `{ glint: true }` and is skipped where it would not fill a pixel
+  of its own. Draw new eyes with `pix`; keep brows and mouths as lines or
+  `pix` as the figure needs. Cost: a frame bakes in ~20 ms at ss 3 against
+  ~3 ms at 1x (headless Chrome, 4 CPUs), so a level pre-bakes the rigs its
+  waves will send a frame a tick from its start (`src/render/warm.js`:
+  `rosterRigs` reads `waveSpec` for the scripted waves, `warmRigs` bakes
+  walk + fight sheets; called in `initGame`). The hit flash (`white`) is a
+  copy of the base frame, never a second bake; `revived` still bakes its
+  own. `hibit-lab.html?types=a,b&ss=3&scale=4&tag=x` lays now / face / ss /
+  both for any rigs (with 1x strips) into `.shots/hibit_<tag>.png`;
+  `shots.html?style=ss:1,face:0` shoots the real board with the old bake.
+  Both dials off = the art exactly as it was before this pass.
 - **Composition stays:** the forest band on the left/top edge, the castle
   wall down the right edge, the three-lane dirt road, the board border, the
   floating HUD. Polish, don't restyle.
@@ -1063,6 +1087,10 @@ actions.js `buildableAt`).
 - `perf.html` (frame ms vs number of foes) and `perfboard.html` (a packed
   late board, per hall kind) are the yardsticks. A packed board of ~90 halls
   and 350 foes draws in ~13 ms on the dev Mac.
+- A rig frame bakes in ~20 ms with the 3x vote (see "The hi-bit bake"), so
+  the level pre-bakes its roster; a raised foe or a sandbox summon still bakes
+  on sight. `inkOutline` scans the whole layer once but runs its ring passes
+  only over the painted box: a part is a small piece of a big layer.
 
 ## How to look at your work
 

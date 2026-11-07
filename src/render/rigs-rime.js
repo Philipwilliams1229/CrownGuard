@@ -50,7 +50,7 @@
 // wcol / shcol, so the necromancer's pale revive and the white hit-flash
 // reach everything.
 
-import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow } from "./paint.js";
+import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow, pix } from "./paint.js";
 import { logJoint } from "./folk-kit.js";
 
 // ---- the kit (copied from rigs-iron.js: the same small skeleton) -------------------
@@ -362,8 +362,8 @@ const face = (c0, skin, o = {}) => blob(c0, FACE, skin, {
     dab(c, -0.9, -0.3, 0.8, 1.2, darken(skin, 0.24));                      // the ear
     if (o.woad) dab(c, 0.2, -1.5, 3, 1.3, o.woad);                          // woad across the eyes
     line(c, 0.6, -1.2, 1.9, -1.0, o.soft ? 0.4 : 0.55, darken(o.brow || skin, 0.6));
-    dab(c, 1.0, -0.72, 0.62, 0.85, o.eyes || INKY);
-    if (!o.eyes) dab(c, 1.0, -0.72, 0.3, 0.3, "#fff3d2");
+    pix(c, 1.0, -0.72, 0.62, 0.85, o.eyes || INKY);
+    if (!o.eyes) pix(c, 1.0, -0.72, 0.3, 0.3, "#fff3d2", { glint: true });
     line(c, 1.9, 0.0, 2.3, 0.6, 0.4, darken(skin, 0.3));                   // the nose's side
     if (o.sing) dab(c, 1.4, 1.0, 1.0, 0.9, "#4a2028");                      // the mouth open in song
     else dab(c, 1.4, 1.3, 0.9, 0.35, darken(skin, 0.45));
@@ -433,7 +433,7 @@ const bearHood = (c0, fur, o = {}) => blob(c0, [[-2.9, 0.6], [-3.1, -1.6], [-2.1
   hi: 0.32, lo: 0.45, then: (c) => {
     for (let i = 0; i < 6; i++) line(c, -2.6 + i * 0.9, -3.4 + Math.abs(i - 2) * 0.25, -2.9 + i * 0.9, -2.2 + Math.abs(i - 2) * 0.25, 0.3, darken(fur, 0.3));
     dab(c, 4.1, -3.0, 0.9, 0.8, INKY);                                        // the bear's nose
-    dab(c, 1.6, -3.3, 0.55, 0.45, o.eye || INKY);                             // its dead eye
+    pix(c, 1.6, -3.3, 0.55, 0.45, o.eye || INKY);                             // its dead eye
     dab(c, 3.4, -1.9, 0.45, 0.6, BONE); dab(c, 2.6, -1.95, 0.4, 0.5, BONE);                                      // a fang over his brow
   },
 });

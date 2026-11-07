@@ -45,6 +45,7 @@ import WarCouncil from "./ui/WarCouncil.jsx";
 import FieldGuide, { describe } from "./ui/FieldGuide.jsx";
 import { BookIcon, Star } from "./ui/Glyphs.jsx";
 import { hasRig } from "./render/rigs.js";
+import { warmRigs, rosterRigs } from "./render/warm.js";
 import { useViewport, Fit } from "./ui/fit.jsx";
 import "./ui/hud/hud.css";
 import { GoldChip, LivesChip } from "./ui/hud/Chips.jsx";
@@ -282,11 +283,16 @@ export default function Crownguard() {
     // the hero rides out and waits before the gate: level 1 on every new
     // map, with the talents bought on the Home Screen. What level he ends a
     // won map's scripted waves at is paid out as his stars (see below).
+    let heroRig = null;
     if (opts.hero !== false) {
       const [gx, gy] = PTS[PTS.length - 1];
       const hk = opts.heroKey && HEROES[opts.heroKey] ? opts.heroKey : heroKey;
       fieldHero(G.current, hk, opts.heroLevel || 1, gx - 70, gy + (gy > H / 2 ? -50 : 50), heroRecord(loadProfile(), hk).talents);
+      heroRig = HEROES[hk].rig;
     }
+    // bake the rigs this level's waves will send (and the hero's) a frame a
+    // tick through the build phase, so none bakes on sight (render/warm.js)
+    warmRigs([...rosterRigs(), heroRig]);
     setHeroAward(null);
     setBuildOpen(false);
     setCastleOpen(false);

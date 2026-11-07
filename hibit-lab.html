@@ -1,0 +1,75 @@
+<!doctype html>
+<!--
+  Dev tool: the "hi-bit" trial — one creature rig under the four
+  combinations of paint.js's STYLE.ss (draw at 4x, vote each block down to
+  one pixel) and STYLE.face (eyes, glints and teeth as whole pixels):
+    now | face | ss | both      (rows), walk 0-3 + fight frames (columns)
+  enlarged nearest-neighbour by `scale`, with each row's 1x strip at the
+  right (what the player sees). Saved to .shots/hibit_<tag>.png.
+    /hibit-lab.html?types=goblin,knight,heroKnight&scale=4&ss=4&tag=v1
+  `only=face|ss|both` paints one trial beside "now"; `bg=hex` the ground.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>Crownguard — hi-bit lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { RIGS, rigFrame, resetRigBakes } from "/src/render/rigs.js";
+      import { setStyle } from "/src/render/paint.js";
+      import { CROWN_FIGHT_FRAMES } from "/src/render/rigs-crown.js";
+      const q = new URLSearchParams(location.search);
+      const types = (q.get("types") || "goblin,knight,heroKnight").split(",");
+      const TAG = q.get("tag") || "trial", SC = Number(q.get("scale")) || 4, SS = Number(q.get("ss")) || 4;
+      const BG = q.get("bg") || "#7eab54";
+      const ALL = [["now", 1, 0], ["face", 1, 1], ["ss", SS, 0], ["both", SS, 1]];
+      const only = q.get("only");
+      const trials = only ? ALL.filter(([n]) => n === "now" || n === only) : ALL;
+      const framesOf = (t) => {
+        const n = RIGS[t]?.fightN === 4 || CROWN_FIGHT_FRAMES?.[t] === 4 ? 4 : 2;
+        return [["walk", 0], ["walk", 1], ["walk", 2], ["walk", 3], ...Array.from({ length: n }, (_, i) => ["fight", i])];
+      };
+      // bake every trial first (each needs its own style and a cleared cache)
+      const baked = new Map();
+      for (const [name, ss, face] of trials) {
+        setStyle({ ss, face }); resetRigBakes();
+        for (const t of types) for (const [sheet, fr] of framesOf(t)) {
+          const sp = rigFrame(t, sheet, fr);
+          const cv = document.createElement("canvas"); cv.width = sp.cv.width; cv.height = sp.cv.height;
+          cv.getContext("2d").drawImage(sp.cv, 0, 0);
+          baked.set(`${name}|${t}|${sheet}|${fr}`, cv);
+        }
+      }
+      setStyle({ ss: 1, face: 0 }); resetRigBakes();
+      const LABEL = 56, PAD = 6;
+      const blocks = types.map((t) => {
+        const f0 = baked.get(`now|${t}|walk|0`);
+        const cw = f0.width + PAD, ch = f0.height + PAD, n = framesOf(t).length;
+        return { t, cw, ch, n, w: LABEL + cw * n * SC + 12 + cw * n, h: ch * SC * trials.length + 16 };
+      });
+      const W = Math.max(...blocks.map((b) => b.w)), H = blocks.reduce((a, b) => a + b.h, 0);
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+      let y = 0;
+      for (const b of blocks) {
+        ctx.fillStyle = "#fff"; ctx.font = "12px monospace"; ctx.fillText(b.t, 4, y + 12);
+        trials.forEach(([name], ti) => {
+          const ry = y + 16 + ti * b.ch * SC;
+          ctx.fillStyle = ti % 2 ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.04)";
+          ctx.fillRect(0, ry, W, b.ch * SC);
+          ctx.fillStyle = "#fff"; ctx.fillText(name, 4, ry + b.ch * SC / 2);
+          framesOf(b.t).forEach(([sheet, fr], i) => {
+            const sp = baked.get(`${name}|${b.t}|${sheet}|${fr}`);
+            ctx.drawImage(sp, LABEL + (i * b.cw + PAD / 2) * SC, ry + (PAD / 2) * SC, sp.width * SC, sp.height * SC);
+            ctx.drawImage(sp, LABEL + b.cw * b.n * SC + 12 + i * b.cw + PAD / 2, ry + PAD / 2, sp.width, sp.height);
+          });
+        });
+        y += b.h;
+      }
+      document.body.appendChild(cv);
+      fetch("/__shot?name=hibit_" + TAG, { method: "POST", body: cv.toDataURL("image/png").slice(22) })
+        .then(() => { document.title = "DONE"; document.getElementById("status").textContent = "saved .shots/hibit_" + TAG + ".png"; });
+    </script>
+  </body>
+</html>

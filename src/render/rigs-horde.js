@@ -11,7 +11,7 @@
 // cloth2 / hair / cape / wcol / shcol, so the necromancer's pale revive still
 // reaches everything.
 
-import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow } from "./paint.js";
+import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow, pix } from "./paint.js";
 import { logJoint } from "./folk-kit.js";
 
 // ---- the kit ----------------------------------------------------------------
@@ -282,11 +282,11 @@ const goblinHead = (ctx, x, y, a, p, o = {}) => inFrame(ctx, x, y, a, (c0) => {
       if (o.hood) dab(c, -3, -3, 7, 2.2, darken(skin, 0.25));
       // the brow, cut down toward the nose, and the eyes under it
       line(c, 0.3, -1.4, 2.3, -0.9, 0.6, darken(skin, 0.55));
-      dab(c, 1.0, -0.9, 1.0, 0.6, eyes); dab(c, 2.3, -0.9, 0.5, 0.6, eyes);
-      dab(c, 1.0, -0.9, 0.5, 0.3, lighten(eyes, 0.5));
+      pix(c, 1.0, -0.9, 1.0, 0.6, eyes); pix(c, 2.3, -0.9, 0.5, 0.6, eyes);
+      pix(c, 1.0, -0.9, 0.5, 0.3, lighten(eyes, 0.5), { glint: true });
       // a grin with a fang in it
       line(c, 0.9, 1.2, 2.3, 0.9, 0.45, darken(skin, 0.6));
-      dab(c, 1.6, 0.9, 0.5, 0.6, "#ece0c4");
+      pix(c, 1.6, 0.9, 0.5, 0.6, "#ece0c4");
       if (o.paint) { dab(c, 0.6, -0.1, 0.5, 1.2, o.paint); dab(c, 1.6, 0, 0.5, 1.0, o.paint); }
     },
   });
@@ -312,7 +312,7 @@ const orcHead = (ctx, x, y, a, p, o = {}) => inFrame(ctx, x, y, a, (c0) => {
     then: (c) => {
       // brow ridge, a squint of yellow under it
       path(c, [[0.2, -2.0, 1], [3.4, -1.6, 1], [3.2, -0.8, 1], [0.4, -1.1, 1]]); c.fillStyle = darken(skin, 0.28); c.fill();
-      dab(c, 1.6, -0.9, 1.1, 0.55, eyes); dab(c, 2.9, -0.9, 0.5, 0.55, eyes);
+      pix(c, 1.6, -0.9, 1.1, 0.55, eyes); pix(c, 2.9, -0.9, 0.5, 0.55, eyes);
       // flat nose, the mouth line, the jaw's shadow
       dab(c, 3.4, -0.4, 0.7, 0.9, darken(skin, 0.18));
       line(c, 2.0, 1.4, 3.8, 1.3, 0.45, darken(skin, 0.6));

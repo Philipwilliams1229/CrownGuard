@@ -5,7 +5,7 @@
 // folk-archer.js, folk-casters.js, folk-workers.js and folk-gunners.js; the
 // build crew in folk.js.
 
-import { lighten, darken, mix as mixCol, rgba, ball, lin, part } from "./paint.js";
+import { lighten, darken, mix as mixCol, rgba, ball, lin, part, pix } from "./paint.js";
 
 // A rounded limb between two points, shaded across its width. `limbStroke`
 // paints it into a part already open; `limb` makes it a part of its own.
@@ -72,8 +72,8 @@ export const head = (ctx, x, y, pal, o = {}) => {
       dab(c, x - 1.0 * k, hy - 0.3, 0.8, 1.2, darken(pal.skin, 0.22));                 // the ear
       c.strokeStyle = darken(pal.skin, 0.55); c.lineWidth = 0.5;
       c.beginPath(); c.moveTo(x + 0.6 * k, hy - 1.3 * k); c.lineTo(x + 1.9 * k, hy - 1.1 * k); c.stroke();   // brow
-      dab(c, x + 1.05 * k, hy - 0.8 * k, 0.65, 0.9, INKY); dab(c, x + 1.05 * k, hy - 0.8 * k, 0.3, 0.3, "#fff3d2");
-      dab(c, x + 1.5 * k, hy + 1.3 * k, 0.8, 0.4, darken(pal.skin, 0.45));             // the mouth
+      pix(c, x + 1.05 * k, hy - 0.8 * k, 0.65, 0.9, INKY); pix(c, x + 1.05 * k, hy - 0.8 * k, 0.3, 0.3, "#fff3d2", { glint: true });
+      pix(c, x + 1.5 * k, hy + 1.3 * k, 0.8, 0.4, darken(pal.skin, 0.45));             // the mouth
       if (hooded) { c.fillStyle = rgba(darken(pal.skin, 0.45), 0.55); c.fillRect(x - 3, hy - 3, 7, 1.6); }   // shade under the hood
     },
   });

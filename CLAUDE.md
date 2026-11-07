@@ -12,6 +12,35 @@ https://philipwilliams1229.github.io/CrownGuard/ (GitHub Pages, ~1 minute).
 - `art/DESIGN-BRIEF.md` / `art/GEMINI-PROMPTS.md` — sprite sizes and prompts
   if AI-painted images are ever used.
 
+## The hi-bit sprite pass (2026-11-07, owner request)
+
+Provisional, pending the owner's look on a device (the comparison sheets were
+sent in the session; `hibit-lab.html` remakes them). From a GRAYFALL post
+the owner found ("the sprites are Python, not drawings"); the rules are in
+the style guide under "The look" → "The hi-bit bake".
+- **Creature rigs bake at 3x and vote down** (`STYLE.ss` 3, paint.js
+  `bakeSprite` `{ ss }` / `voteDown`; only `rigFrame` asks for it), and
+  **eyes, glints and teeth are whole-pixel `pix()` marks** (`STYLE.face` 1)
+  in rigs.js's `eye`, the horde/crown/iron/hollow/rime/covert heads and the
+  crews' `head` in folk-kit.js. Other dabs (rivets, brass eyes on mounts,
+  the gunners' sight glints) were left as they were. Halls and crews are NOT
+  voted yet (same change, but `part()`'s per-part readback makes a big bake
+  dear; a part-id buffer is the fix if the owner wants it everywhere).
+- **Cost and the pre-bake:** ~20 ms a frame at ss 3 (was ~3; ss 4 ~33, ss 2
+  ~9 but rougher), measured over all 76 rigs' 550 frames in headless Chrome.
+  `src/render/warm.js` bakes a level's roster (`rosterRigs`: the scripted
+  waves' types, their looks, splits, death skins, summons and landing hulls)
+  plus the hero a frame a tick from `initGame`; the hit flash copies the base
+  frame instead of re-baking. To check on a device: a stutter in the first
+  seconds of a level's build phase, and on the first raised foe of a Hollow
+  level (its bone variant bakes on sight). Turning the whole pass off is
+  `ss: 1, face: 0` in paint.js's STYLE.
+- Also from that post, not done: springs for capes and plumes baked into the
+  walk loop (the owner's "stiff animation"), and a rig gate script (every rig
+  has both sheets, no joint-lab reds, heights within ~8% of their class).
+- `inkOutline` now limits its ring passes to the painted box (pixel-identical,
+  measured on the default rows of the lab sheet).
+
 ## The iOS app (2026-10-16, owner request)
 
 The game ships to the App Store as itself, wrapped by **Capacitor 8** (no

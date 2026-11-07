@@ -19,7 +19,7 @@
 // crown, cape, belly = the ghast's gut, mane = drowned weed, eyes = witch-fire,
 // wcol / shcol = weapon and shield.
 
-import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow } from "./paint.js";
+import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow, pix } from "./paint.js";
 import { logJoint } from "./folk-kit.js";
 
 // ---- the kit (as rigs-horde.js) --------------------------------------------------
@@ -537,7 +537,7 @@ const ghastHead = (ctx, x, y, a, p, roar, k = 1) => inFrame(ctx, x, y, a, (c0) =
       // sunken sockets, the pale sick eyes, a slack jaw hanging open
       c.fillStyle = darken(skin, 0.5); c.beginPath(); c.ellipse(1.9, -0.6, 1.0, 0.9, 0, 0, Math.PI * 2); c.fill();
       c.beginPath(); c.ellipse(3.4, -0.6, 0.45, 0.8, 0, 0, Math.PI * 2); c.fill();
-      dab(c, 1.6, -0.9, 0.6, 0.6, eyes); dab(c, 3.3, -0.9, 0.35, 0.6, eyes);
+      pix(c, 1.6, -0.9, 0.6, 0.6, eyes); pix(c, 3.3, -0.9, 0.35, 0.6, eyes);
       path(c, [[1.6, 1.4, 1], [3.9, 1.2, 1], [3.8, roar ? 3.6 : 2.8, 1], [2.0, roar ? 3.4 : 2.6, 1]]); c.fillStyle = "#2a1a24"; c.fill();
       dab(c, 2.2, 1.4, 1.2, 0.4, "#c8c0a0");
       dab(c, -1.4, -2.6, 1.4, 1.0, mix(skin, "#5a4a78", 0.45));

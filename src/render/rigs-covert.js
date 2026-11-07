@@ -19,7 +19,7 @@
 // knife in the off hand, p.vials a bandolier of poison (its colour), p.venom
 // a poisoned edge (its colour).
 
-import { lighten, darken, mix, ball, lin, part, shadow } from "./paint.js";
+import { lighten, darken, mix, ball, lin, part, shadow, pix } from "./paint.js";
 import { logJoint } from "./folk-kit.js";
 
 // ---- the kit (the same small skeleton as the crown's) ---------------------------
@@ -275,8 +275,8 @@ const hoodHead = (ctx, x, y, a, p, tr = 0) => inFrame(ctx, x, y, a, (c0) => {
       if (p.face !== "gild") {   // (the gilded face is its own part, below)
         path(c, [[2.6, -0.9, 1], [2.25, 0.2], [2.2, 1.4], [2.5, 2.4, 1], [1.2, 2.2], [0.9, 0.2], [1.3, -1.0]]); c.fillStyle = shade; c.fill();
         dab(c, 2.35, 0.1, 0.6, 0.9, mix(shade, skin, 0.45));                      // the nose
-        dab(c, 1.45, -0.55, 0.85, 0.55, eyes);                                    // the eye's glint
-        dab(c, 1.45, -0.55, 0.4, 0.28, lighten(eyes, 0.6));
+        pix(c, 1.45, -0.55, 0.85, 0.55, eyes);                                    // the eye's glint
+        pix(c, 1.45, -0.55, 0.4, 0.28, lighten(eyes, 0.6), { glint: true });
         // the mask over the mouth and jaw
         const m = p.mask || darken(hood, 0.2);
         path(c, [[3.0, 0.9, 1], [2.6, 2.6, 1], [0.5, 2.6, 1], [0.6, 1.0], [1.4, 0.7]]);
@@ -299,7 +299,7 @@ const hoodHead = (ctx, x, y, a, p, tr = 0) => inFrame(ctx, x, y, a, (c0) => {
     blob(c0, [[1.2, -1.9, 1], [3.3, -1.5, 1], [3.0, -0.2], [3.5, 0.9, 1], [3.1, 2.1], [2.3, 3.2, 1], [1.0, 3.0, 1], [0.4, 1.0], [0.6, -1.0]], g, {
       hi: 0.55, lo: 0.5, then: (c) => {
         dab(c, 1.1, -0.75, 1.9, 0.65, "#1c1420");                                   // the eye slit
-        dab(c, 1.55, -0.7, 0.6, 0.4, eyes);
+        pix(c, 1.55, -0.7, 0.6, 0.4, eyes);
         dab(c, 2.75, -0.5, 0.5, 1.4, lighten(g, 0.6));                               // the nose ridge
         line(c, 1.5, 2.05, 2.75, 1.9, 0.35, darken(g, 0.5));                        // the mouth
         dab(c, 0.5, -1.3, 2.9, 0.4, darken(g, 0.3));                                // the brow's shadow
@@ -316,7 +316,7 @@ const hoodHead = (ctx, x, y, a, p, tr = 0) => inFrame(ctx, x, y, a, (c0) => {
     blob(c0, [[3.4, -2.3, 1], [3.9, 0.2], [...vb(3.8, 3.3), 1], [...vb(2.9, 4.1), 1], [...vb(1.7, 3.6), 1], [...vb(0.6, 4.0), 1], vb(0.1, 2.6), [0.9, 0.2], [1.3, -2.6, 1]], v, {
       hi: 0.3, lo: 0.3, then: (c) => {
         for (let r = 0; r < 6; r++) for (let xx = 0.6 + (r % 2) * 0.55; xx < 3.9; xx += 1.1) dab(c, xx, -1.6 + r * 0.9, 0.45, 0.45, mix(v, lace, 0.45));
-        dab(c, 1.2, -0.75, 1.1, 0.7, eyes); dab(c, 1.35, -0.7, 0.45, 0.3, lighten(eyes, 0.6));
+        pix(c, 1.2, -0.75, 1.1, 0.7, eyes); pix(c, 1.35, -0.7, 0.45, 0.3, lighten(eyes, 0.6), { glint: true });
         line(c, 3.7, -2.0, ...vb(3.8, 3.2), 0.7, lace);                             // the lace edge down the front
       },
     });

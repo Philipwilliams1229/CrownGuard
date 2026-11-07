@@ -19,7 +19,7 @@
 // indigo robe, silver hair and storm staff. Colours come only from p.skin /
 // cloth / cloth2 / hair / cape / wcol / shcol (and the captain's p.plume).
 
-import { lighten, darken, mix, ball, lin, part, shadow, glow } from "./paint.js";
+import { lighten, darken, mix, ball, lin, part, shadow, glow, pix } from "./paint.js";
 import { logJoint } from "./folk-kit.js";
 
 // ---- the kit (the same small skeleton as the horde's) ------------------------
@@ -402,8 +402,8 @@ const face = (c0, skin, o = {}) => blob(c0, o.dome ? DOME : FACE, skin, {
     dab(c, -0.9, -0.3, 0.8, 1.2, darken(skin, 0.22));                   // the ear
     if (o.paint) { dab(c, 0.2, -0.9, 2.6, 0.75, o.paint); dab(c, 0.6, 0.4, 0.5, 1.3, o.paint); }
     line(c, 0.6, -1.25, 1.8, -1.05, 0.5, darken(o.brow || skin, 0.55));  // brow
-    dab(c, 1.0, -0.75, 0.62, 0.85, INKY); dab(c, 1.0, -0.75, 0.3, 0.3, "#fff3d2");
-    if (!o.beard) dab(c, 1.5, 1.25, 0.8, 0.35, darken(skin, 0.45));
+    pix(c, 1.0, -0.75, 0.62, 0.85, INKY); pix(c, 1.0, -0.75, 0.3, 0.3, "#fff3d2", { glint: true });
+    if (!o.beard) pix(c, 1.5, 1.25, 0.8, 0.35, darken(skin, 0.45));
     if (o.shade) { c.fillStyle = darken(skin, 0.3); c.fillRect(-3, -3, 7, 1.5); }
   },
 });

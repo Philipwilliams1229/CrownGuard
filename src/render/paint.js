@@ -19,7 +19,13 @@ export const PIXEL = true;
 // The style dials. `line` is the ink outline's thickness in art pixels (0 =
 // none); `bands` is how many flat tones a shaded shape gets (0 = keep each
 // shape's own stops). The lab pages turn these; the game keeps PX = RES.
-export const STYLE = { line: 2, bands: 3, inner: 1 };
+// `ss` supersamples a sprite bake that asks for it (rigFrame does): the
+// figure is drawn at ss x the art resolution and each block of ss x ss votes
+// for the final pixel (a majority, never an average), so curved edges come
+// out as whole pixels instead of canvas anti-aliasing. `face` snaps every
+// `pix()` mark (eyes, teeth, buttons) to the art grid. Both off = the art
+// as it was; `hibit-lab.html` compares the four combinations.
+export const STYLE = { line: 2, bands: 3, inner: 1, ss: 3, face: 1 };
 export const setStyle = (o) => { Object.assign(STYLE, o); if (o.px) PX = o.px; };
 // the lab pages try other densities; the game itself keeps PX = RES
 export const setPX = (v) => { PX = v; };
@@ -337,15 +343,23 @@ export const inkOutline = (cv, ink = INK_LINE, passes = STYLE.line, only = null)
   const img = c.getImageData(0, 0, w, h);
   const d = img.data;
   const solid = new Uint8Array(w * h);
-  // translucent ground shadows are not part of the silhouette
-  for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 110 ? 1 : 0;
+  // translucent ground shadows are not part of the silhouette; the ring
+  // passes run only over the painted box (a part is a small piece of a big
+  // layer, and a supersampled layer is sixteen times bigger still)
+  let bx0 = w, by0 = h, bx1 = -1, by1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (d[i * 4 + 3] > 110) { solid[i] = 1; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+  }
+  if (bx1 < 0) return cv;
   const [r, g, b] = rgb(ink);
+  const X0 = Math.max(0, bx0 - passes), Y0 = Math.max(0, by0 - passes), X1 = Math.min(w - 1, bx1 + passes), Y1 = Math.min(h - 1, by1 + passes);
   // grow the silhouette outward `line` times, inking each new ring
   let ring = solid;
   for (let pass = 0; pass < passes; pass++) {
     const next = new Uint8Array(ring);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
+    for (let y = Y0; y <= Y1; y++) {
+      for (let x = X0; x <= X1; x++) {
         const i = y * w + x;
         if (ring[i]) continue;
         const near = only === "under"
@@ -356,24 +370,93 @@ export const inkOutline = (cv, ink = INK_LINE, passes = STYLE.line, only = null)
     }
     ring = next;
   }
-  c.putImageData(img, 0, 0);
+  c.putImageData(img, 0, 0, X0, Y0, X1 - X0 + 1, Y1 - Y0 + 1);
   return cv;
 };
 
+// Supersampled bake -> art pixels by majority vote. Each ss x ss block is
+// bucketed by colour (5 bits a channel) and alpha (2 bits); the fullest
+// bucket wins (a tie goes to the painted bucket over the empty one) and the
+// pixel takes the mean of that bucket, so a smooth shadow still grades while
+// every edge lands on a whole pixel. The hi-bit "downsample by vote".
+const voteDown = (hi, cv, ss) => {
+  const W = cv.width, H = cv.height, HW = hi.width;
+  const src = hi.getContext("2d").getImageData(0, 0, hi.width, hi.height).data;
+  const c = cv.getContext("2d");
+  const out = c.createImageData(W, H), d = out.data;
+  const n = ss * ss, keys = new Int32Array(n), cnt = new Int32Array(n);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let m = 0;
+      for (let sy = 0; sy < ss; sy++) for (let sx = 0; sx < ss; sx++) {
+        const i = ((y * ss + sy) * HW + x * ss + sx) * 4, a = src[i + 3];
+        const k = a < 16 ? -1 : ((src[i] >> 3) << 12) | ((src[i + 1] >> 3) << 7) | ((src[i + 2] >> 3) << 2) | (a >> 6);
+        let j = 0;
+        while (j < m && keys[j] !== k) j++;
+        if (j === m) { keys[m] = k; cnt[m] = 1; m++; } else cnt[j]++;
+      }
+      let best = 0;
+      for (let j = 1; j < m; j++) if (cnt[j] > cnt[best] || (cnt[j] === cnt[best] && keys[best] === -1)) best = j;
+      const o = (y * W + x) * 4;
+      if (keys[best] === -1) { d[o + 3] = 0; continue; }
+      let r = 0, g = 0, b = 0, a = 0, t = 0;
+      for (let sy = 0; sy < ss; sy++) for (let sx = 0; sx < ss; sx++) {
+        const i = ((y * ss + sy) * HW + x * ss + sx) * 4, al = src[i + 3];
+        const k = al < 16 ? -1 : ((src[i] >> 3) << 12) | ((src[i + 1] >> 3) << 7) | ((src[i + 2] >> 3) << 2) | (al >> 6);
+        if (k !== keys[best]) continue;
+        r += src[i]; g += src[i + 1]; b += src[i + 2]; a += al; t++;
+      }
+      d[o] = r / t; d[o + 1] = g / t; d[o + 2] = b / t; d[o + 3] = a / t;
+    }
+  }
+  c.putImageData(out, 0, 0);
+};
+
 // While a sprite bakes, `part()` can ink each piece of it separately.
+// `o.ss` > 1 draws at that many subpixels per art pixel and votes them down
+// (see voteDown); part() widens its seams to match so they survive the vote.
 let BAKING = null;
-export const bakeSprite = (w, h, draw, outline = true) => {
+export const bakeSprite = (w, h, draw, outline = true, o = {}) => {
+  const ss = o.ss > 1 ? Math.round(o.ss) : 1;
   const cv = document.createElement("canvas");
   cv.width = Math.ceil(w * PX);
   cv.height = Math.ceil(h * PX);
-  const c = cv.getContext("2d");
+  const hi = ss > 1 ? document.createElement("canvas") : cv;
+  if (ss > 1) { hi.width = cv.width * ss; hi.height = cv.height * ss; }
+  const c = hi.getContext("2d", ss > 1 ? { willReadFrequently: true } : undefined);
   c.imageSmoothingEnabled = false;
-  c.scale(PX, PX);
+  c.scale(PX * ss, PX * ss);
   const outer = BAKING;
-  BAKING = { w: cv.width, h: cv.height };
+  BAKING = { w: hi.width, h: hi.height, ss };
   try { draw(c); } finally { BAKING = outer; }
+  if (ss > 1) voteDown(hi, cv, ss);
   if (outline && PIXEL && STYLE.line > 0) inkOutline(cv);
   return cv;
+};
+
+// A whole-pixel mark: an eye, its glint, a tooth, a rivet. A plain fillRect
+// unless STYLE.face is on; then its box in device space snaps to the art
+// grid (one art pixel = ss subpixels inside a supersampled bake), at least
+// one pixel each way, so a one- or two-pixel feature is painted as pixels
+// and never smeared by anti-aliasing. Painted in order with everything
+// else, so a hood drawn after it still covers it. `o.glint` marks a
+// highlight laid over a mark: it is painted only where it fills a pixel of
+// its own, so a one-pixel eye never turns pale under its own glint.
+export const pix = (ctx, x, y, w, h, col, o = {}) => {
+  ctx.fillStyle = col;
+  if (!STYLE.face) { ctx.fillRect(x, y, w, h); return; }
+  const m = ctx.getTransform(), g = BAKING?.ss || 1;
+  if (o.glint && (Math.hypot(m.a * w, m.b * w) < g || Math.hypot(m.c * h, m.d * h) < g)) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [px, py] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) {
+    const dx = (m.a * px + m.c * py + m.e) / g, dy = (m.b * px + m.d * py + m.f) / g;
+    if (dx < x0) x0 = dx; if (dx > x1) x1 = dx; if (dy < y0) y0 = dy; if (dy > y1) y1 = dy;
+  }
+  const snap1 = (lo, hi) => { let a = Math.round(lo), b = Math.round(hi); if (b <= a) { a = Math.floor((lo + hi) / 2); b = a + 1; } return [a, b]; };
+  const [X0, X1] = snap1(x0, x1), [Y0, Y1] = snap1(y0, y1);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillRect(X0 * g, Y0 * g, (X1 - X0) * g, (Y1 - Y0) * g);
+  ctx.restore();
 };
 
 // One piece of a sprite — a trunk, a leaf lobe, a roof, a limb. While
@@ -399,7 +482,7 @@ export const part = (ctx, fn, o = {}) => {
     c.setTransform(ctx.getTransform());
     fn(c);
     c.restore();
-    inkOutline(layer, INK_LINE, STYLE.inner, o.ink || null);
+    inkOutline(layer, INK_LINE, STYLE.inner * (BAKING.ss || 1), o.ink || null);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(layer, 0, 0);

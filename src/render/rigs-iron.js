@@ -39,7 +39,7 @@
 // wcol / shcol, so the necromancer's pale revive and the white hit-flash
 // reach everything.
 
-import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow } from "./paint.js";
+import { lighten, darken, mix, rgba, ball, glow, lin, part, shadow, pix } from "./paint.js";
 import { logJoint } from "./folk-kit.js";
 
 // ---- the kit (the same small skeleton as the horde's and the crown's) -----------
@@ -446,8 +446,8 @@ const face = (c0, skin, o = {}) => blob(c0, [[-2.0, 0.2], [-1.9, -1.6], [-0.6, -
   hi: 0.26, lo: 0.36, then: (c) => {
     dab(c, -0.9, -0.3, 0.8, 1.2, darken(skin, 0.24));                    // the ear
     line(c, 0.6, -1.2, 1.9, -1.0, 0.55, darken(o.brow || skin, 0.6));   // a hard brow
-    dab(c, 1.0, -0.72, 0.62, 0.85, o.eyes || INKY);
-    if (!o.eyes) dab(c, 1.0, -0.72, 0.3, 0.3, "#fff3d2");
+    pix(c, 1.0, -0.72, 0.62, 0.85, o.eyes || INKY);
+    if (!o.eyes) pix(c, 1.0, -0.72, 0.3, 0.3, "#fff3d2", { glint: true });
     line(c, 1.9, 0.0, 2.3, 0.6, 0.4, darken(skin, 0.3));                 // the nose's side
     if (o.beard) blob(c, [[-0.6, 0.3], [1.0, 1.0], [2.4, 1.0], [2.6, 2.0], [1.8, 3.4, 1], [0.6, 3.0], [-0.6, 2.2]], o.beard, { hi: 0.3 });
     else { dab(c, 1.4, 1.3, 0.9, 0.35, darken(skin, 0.45)); dab(c, 0.4, 0.4, 0.4, 1.4, darken(skin, 0.14)); }  // a set mouth, a weathered cheek
@@ -493,7 +493,7 @@ const barbute = (ctx, x, y, a, p) => inFrame(ctx, x, y, a, (c0) => {
     hi: 0.5, lo: 0.45, then: (c) => {
       // the T: eyes across, the mouth down; the face deep in its shadow
       poly(c, [[0.5, -1.3], [3.2, -1.2], [3.2, -0.1], [2.5, -0.1], [2.4, 3.4], [1.3, 3.4], [1.35, -0.1], [0.5, -0.2]], darken(p.skin, 0.55));
-      dab(c, 1.6, -1.0, 0.7, 0.6, p.eyes || INKY);
+      pix(c, 1.6, -1.0, 0.7, 0.6, p.eyes || INKY);
       dab(c, 1.45, 0.3, 0.9, 1.2, darken(p.skin, 0.4));
       // the medial ridge, lit, and a brass rivet at the temple
       line(c, -0.6, -3.5, -2.6, 0.8, 0.5, lighten(steel, 0.6));

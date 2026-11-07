@@ -11,6 +11,8 @@
   extra:    fields merged into the game state (e.g. grounds, effects, time)
   (a marcher may carry a 4th element: fields merged into that foe, e.g.
   { dropAt: 7150 } for an unseated knight mid-fall at the default time 7.3)
+  ?style=ss:1,face:0 sets paint.js's STYLE dials before anything bakes (the
+  page's own module instance: a dynamic import() from the console may not be).
 -->
 <html>
   <head>
@@ -26,6 +28,11 @@
       import { posAt, angleAt, TOTAL_LEN } from "/src/engine/path.js";
       import { draw } from "/src/render/draw.js";
       import { ENEMIES } from "/src/data/enemies.js";
+      import { setStyle } from "/src/render/paint.js";
+      {
+        const st = new URLSearchParams(location.search).get("style");
+        if (st) setStyle(Object.fromEntries(st.split(",").map((kv) => kv.split(":")).map(([k, v]) => [k, Number(v)])));
+      }
 
       const mk = (type, dist, lane = 0) => {
         const d = ENEMIES[type];

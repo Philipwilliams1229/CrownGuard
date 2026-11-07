@@ -9,7 +9,7 @@
 // Sheets: "walk" (4 frames), "fight" (2 frames), and for fliers "fly" (4).
 
 import {
-  lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, blobBall, lin, part, bakeSprite, PX, hash,
+  lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone, blobBall, lin, part, bakeSprite, PX, hash, pix, STYLE,
 } from "./paint.js";
 import { HORDE_RIGS, HORDE_PAINTERS } from "./rigs-horde.js";
 import { BEAST_RIGS, BEAST_PAINTERS } from "./rigs-beasts.js";
@@ -30,7 +30,8 @@ const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => {
   c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
 });
 const lit = (ctx, x0, w, col) => lin(ctx, x0 - w / 2, 0, x0 + w / 2, 0, [[0, lighten(col, 0.3)], [0.5, col], [1, darken(col, 0.45)]]);
-const eye = (ctx, x, y, col = "#2a2230", r = 0.6) => { ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, y, r, r * 1.15, 0, 0, Math.PI * 2); ctx.fill(); };
+// an eye: a dark mark a little taller than wide (a whole pixel or two with STYLE.face on)
+const eye = (ctx, x, y, col = "#2a2230", r = 0.6) => pix(ctx, x - r * 0.5, y - r * 0.9, r, r * 1.8, col);
 
 // the walk cycle: leg and arm swing, foot lift, body bob for a 4-frame sheet
 const gait = (frame, stride) => {
@@ -383,9 +384,14 @@ export const rigFrame = (type, sheet, frame, variant = "") => {
   // "sky": a bowman's fight frames with the aim raised high (Wren's Arrow
   // Volley, rigs-crown.js); any other rig paints it as its fight
   const pose = sheet === "fight" || sheet === "sky" || sheet === "sweep" ? "fight" : "walk";
-  const cv = bakeSprite(hw * 2, up + down, (c) => { c.translate(hw, up); PAINTERS[def.kind](c, { ...p, pose, frame, sky: sheet === "sky", sweep: sheet === "sweep" }); });
-  // the painter leaves its scale and anchor on the context; flood in pixels
-  if (variant === "white") { const c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height); }
+  let cv;
+  if (variant === "white") {
+    // the hit flash is the plain frame flooded white: copy it, never bake twice
+    const base = rigFrame(type, sheet, frame).cv;
+    cv = document.createElement("canvas"); cv.width = base.width; cv.height = base.height;
+    const c = cv.getContext("2d"); c.drawImage(base, 0, 0);
+    c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height);
+  } else cv = bakeSprite(hw * 2, up + down, (c) => { c.translate(hw, up); PAINTERS[def.kind](c, { ...p, pose, frame, sky: sheet === "sky", sweep: sheet === "sweep" }); }, true, { ss: STYLE.ss });
   if (variant === "revived") boneify(cv);
   sp = { cv, ax: hw, ay: up };
   CACHE.set(key, sp);
