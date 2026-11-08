@@ -564,7 +564,9 @@ reaches); when the free ones ahead are the greater part, he walks on after
 them, past the fight (a free knight may still seize him). Checked headless
 (one knight that holds one levy, 14 levies): old rule kept 1-3 of 14 in his
 ward while 13 walked past, new rule ~9 of 14; with six knights holding all
-six levies he still stands off 63 back with all six in his ward.
+six levies he still stands off 63 back with all six in his ward. Iron
+`--endure` seed 1, better doctrine: 9272 -> 9424 (Blackcliff 1399 -> 1535,
+the rest within ~10; all 15 held, none stuck).
 
 **The Siege Ram gives** (owner, same day: "it was tanking the whole wave"):
 `mres` -0.5 (magic hits it x1.5; a negative mres reads "Weak to magic +50%"
