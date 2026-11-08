@@ -541,7 +541,10 @@ the necromancer's standOff code in update.js, same 14 s `pauseLeft` budget;
 archers halt at 80-82, the necromancer at 100). At 50 the foes his column
 sends into your knights still stand inside his 80 ward ring, so he keeps
 shielding them while out of their reach. He still strikes back (`atk` 12) if
-a soldier walks out to him.
+a soldier walks out to him. Measured `--chapter iron --endure`, seeds 1-2,
+better doctrine per level: chapter total 8079 / 8237 -> 8473 / 7623 castle
+damage (noise; per level the seeds disagree, e.g. ir5 975 -> 1209 on seed 1,
+1229 -> 956 on seed 2). All 15 held. The sims never single him out.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
