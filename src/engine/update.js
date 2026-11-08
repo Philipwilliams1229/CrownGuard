@@ -1024,9 +1024,11 @@ export function updateGame(g, dt) {
   if (!g.traps) g.traps = [];     // the trapsmith's armed road
 
   // The trapsmith's bench runs in the quiet of the build phase as much as in
-  // battle: charges accumulate whether or not anyone watches, and the smith
-  // walks his stretch of road and arms it himself — one charge at a beat,
-  // always into the widest uncovered gap in his reach.
+  // battle: charges accumulate (to the rack's limit) whether or not anyone
+  // watches. But the smith walks his stretch of road and arms it himself ONLY
+  // while a wave is on (owner, 2026-11-08: the field was covered before the
+  // first horn): one charge at a beat, always into the widest uncovered gap
+  // in his reach. Between waves he waits with his rack stocked.
   if (!g.paused && (g.phase === "combat" || g.phase === "build")) {
     // ---- the River Watch's boats are on the water from the moment it's built ----
     for (const t of g.towers) if (t.kind === "riverwatch" && isBuilt(t, g)) launchSkiffs(g, t, getStats(t));
@@ -1191,7 +1193,7 @@ export function updateGame(g, dt) {
       // level-ups can raise the ceiling; never hold more than it allows
       t.charges = Math.min(t.charges || 0, st.maxCharges);
       t.layCd = Math.max(0, (t.layCd || 0) - sdt * 1000);
-      if ((t.charges || 0) > 0 && t.layCd <= 0) {
+      if (g.phase === "combat" && (t.charges || 0) > 0 && t.layCd <= 0) {
         // Density is the smith's whole argument now: he fills his stretch of
         // road rather than rationing it, so the only limit is how fast the
         // bench works. He still prefers bare ground, but 6px is "bare".
@@ -2112,10 +2114,11 @@ export function updateGame(g, dt) {
         if (u.hp <= 0) { killUnit(g, t, u); return; }
 
         // pick the foe furthest along the road that a boat can actually reach
+        // (fliers too: owner, 2026-11-08 — the muskets shoot up at them)
         let mark = null, markQ = 0, markScore = -Infinity;
         for (const e of g.enemies) {
           // (a sea monster is the boats' quarry, even a serpent under the water: serpent.js)
-          if (e.dead || e.flying || (e.swimming && !e.ship && !e.sea) || (isRising(e, tms) && !e.submerged)) continue;
+          if (e.dead || (e.swimming && !e.ship && !e.sea) || (isRising(e, tms) && !e.submerged)) continue;
           const nr = nearOnRiver(e.x, e.y, e);
           if (nr.d > st.range || !canSee(u, e)) continue;   // (fog / grave mist hide it from the boat, weather.js)
           // each skiff may carry her own order (u.aim); without one she follows the hall's
@@ -2155,8 +2158,9 @@ export function updateGame(g, dt) {
             dealDamage(g, e2, st.dmg * 0.55, "phys", false, false, t.id);
           }
         }
+        // (the burst stays on the ground; a flier takes it only as the mark)
         for (const e2 of g.enemies) {
-          if (e2.dead || e2.flying) continue;
+          if (e2.dead || (e2.flying && e2 !== mark)) continue;
           const dd = Math.hypot(e2.x - mark.x, e2.y - mark.y);
           if (dd > (st.splash || 1)) continue;
           if (st.burn) { e2.burnUntil = tms + st.burnDur; e2.burnDps = st.burn; e2.burnSrc = t.id; }
@@ -2166,7 +2170,7 @@ export function updateGame(g, dt) {
           if (st.slow) { mark.slowUntil = tms + st.slowDur; mark.slowPct = Math.max(mark.slowPct, st.slow); }
           if (st.burn && !st.splash) { mark.burnUntil = tms + st.burnDur; mark.burnDps = st.burn; mark.burnSrc = t.id; }
         }
-        if (st.poolDps) g.grounds.push({ src: t.id, x: mark.x, y: mark.y, r: st.poolR || 30, dps: st.poolDps, until: tms + (st.poolDur || 2600), kind: "lava" });
+        if (st.poolDps && !mark.flying) g.grounds.push({ src: t.id, x: mark.x, y: mark.y, r: st.poolR || 30, dps: st.poolDps, until: tms + (st.poolDur || 2600), kind: "lava" });
       });
     }
 
