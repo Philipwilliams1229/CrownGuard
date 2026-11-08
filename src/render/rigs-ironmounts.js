@@ -867,6 +867,8 @@ const IRON_RIDER = { skin: "#e0b08a", cloth: "#6c7280", cloth2: "#7a2a2c", hair:
 export const IRONMOUNT_RIGS = {
   cavalier: { kind: "destrier", box: { hw: 34, up: 46, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER } },
   cavalierMount: { kind: "destrier", box: { hw: 34, up: 46, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER, riderless: true } },
+  // a cavalier's horse that threw its rider in a storm (enemy `loosehorse`, weather.js spook)
+  loosehorse: { kind: "destrier", box: { hw: 34, up: 46, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER, riderless: true } },
   gryphon: { kind: "wargryphon", fly: true, fightN: 4, box: { hw: 33, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
   // the same beast once its knight has fallen (the gryphon's deathSkin)
   gryphonMount: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER, riderless: true } },

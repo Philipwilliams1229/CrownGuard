@@ -22,7 +22,7 @@ import { isBuilt, fights } from "./build.js";
 // zone IV: landings, the frost shroud (fights = built and not frozen), weather
 import { rimeTick, seaborne } from "./rime.js";
 import { registerSeaTools, seaHold } from "./serpent.js";
-import { tickWeather, WX, canSee } from "./weather.js";
+import { tickWeather, WX, canSee, floodFoe, floodUnit } from "./weather.js";
 import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE } from "./muzzles.js";
 
 // ---- the Falconry's stoops ------------------------------------------------------
@@ -577,8 +577,10 @@ const levelHero = (g, b) => {
 
 // how near a foe must come to a ranged hero to stop and fight her
 const RANGED_ENGAGE = 22;
-const runRangedBand = (g, b, st, slots, sdt, tms) => {
+const runRangedBand = (g, b, st, slots, sdtAll, tms) => {
   b.units.forEach((u, i) => {
+    // (wading in a flooded stretch of road he moves and shoots slower: weather.js)
+    const sdt = sdtAll * floodUnit(u);
     if (u.state === "dead") {
       u.respawn -= sdt * 1000;
       if (u.respawn <= 0) { u.state = "rally"; u.hp = st.hp; u.x = slots[i][0]; u.y = slots[i][1]; u.targetId = null; }
@@ -619,7 +621,7 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
         held.engaged = true;
         held.face = u.x >= held.x ? 1 : -1;
         if (held.stunUntil <= tms || held.guard > 0) {
-          held.meleeCd -= sdt * 1000;
+          held.meleeCd -= sdtAll * 1000 * floodFoe(held);
           if (held.meleeCd <= 0) {
             held.meleeCd = held.atkRate;
             held.atkAnim = 200;
@@ -736,7 +738,7 @@ const barricadePass = (g, e, stunned, sdt, tms) => {
     e.dist = Math.min(e.dist, row.dist - SPIKE_HOLD);
     e.barred = tms;
     if (stunned) return;
-    e.meleeCd -= sdt * 1000;
+    e.meleeCd -= sdt * 1000 * floodFoe(e);
     if (e.meleeCd <= 0) {
       e.meleeCd = e.atkRate;
       e.atkAnim = 200;
@@ -897,8 +899,10 @@ const rollOver = (g, ram, tms) => {
 // One garrison's (or band's) fighters for one tick: respawn, hold the rally
 // point, seize a passing foe, walk to it, trade blows. Shared by the Knight
 // Garrison, the militia and the melee hero.
-const runMelee = (g, t, st, slots, sdt, tms) => {
+const runMelee = (g, t, st, slots, sdtAll, tms) => {
       t.units.forEach((u, i) => {
+        // (wading in a flooded stretch of road he moves and strikes slower: weather.js)
+        const sdt = sdtAll * floodUnit(u);
         if (u.state === "dead") {
           u.respawn -= sdt * 1000;
           if (u.respawn <= 0) { u.state = "rally"; u.hp = st.hp; u.x = slots[i][0]; u.y = slots[i][1]; u.targetId = null; u.frenzy = 0; u.shield = false; u.shieldCd = 0; }
@@ -1024,7 +1028,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               if (target.dead) { u.targetId = null; u.state = "rally"; }
             }
             if (!target.dead && (target.stunUntil <= tms || target.guard > 0) && target.atk > 0) {
-              target.meleeCd -= sdt * 1000;
+              target.meleeCd -= sdtAll * 1000 * floodFoe(target);
               if (target.meleeCd <= 0) {
                 target.meleeCd = target.atkRate;
                 target.atkAnim = 200;
@@ -1878,7 +1882,8 @@ export function updateGame(g, dt) {
         const slow = (e.immSlow || e.guard > 0) ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
         // (WX: weather.js — a squall's flierSpeed, the storm's mud (foeSpeed: ground foes
         // only, never fliers or ships); 1 on a clear day)
-        const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt * (e.flying ? WX.flierSpeed : e.swimming || e.ship ? 1 : WX.foeSpeed);
+        // (a ram sinks deeper in the mud, WX.ramMud; and anyone wades slower through a flooded stretch, floodFoe)
+        const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt * (e.flying ? WX.flierSpeed : e.swimming || e.ship ? 1 : WX.foeSpeed * (e.roadBlock ? WX.ramMud : 1)) * floodFoe(e);
         // every foe walks its OWN lane at its own speed: round a bend the
         // inside lane is shorter, so a foe on it gains road on its neighbours
         // and the outside lane loses some — the column staggers itself.
@@ -1930,7 +1935,7 @@ export function updateGame(g, dt) {
       // Crossbowmen: they shoot your knights from outside sword reach and
       // never break stride to do it. Nothing blocks this — only killing them.
       if (e.rangedAtk && !stunned) {
-        e.rangedCd -= sdt * 1000;
+        e.rangedCd -= sdt * 1000 * floodFoe(e);
         {
           let mark = null, markTower = null, bd = e.rangedRange;
           for (const t of unitHosts(g)) {
@@ -1988,7 +1993,7 @@ export function updateGame(g, dt) {
         e.clawing = !!prey;
         if (prey) {
           e.face = prey.x >= e.x ? 1 : -1;
-          e.meleeCd -= sdt * 1000;
+          e.meleeCd -= sdt * 1000 * floodFoe(e);
           if (e.meleeCd <= 0) {
             e.meleeCd = e.atkRate;
             e.atkAnim = 200;

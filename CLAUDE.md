@@ -295,6 +295,35 @@ hushed when paused), with a "Rain" switch in the Sound settings.
 castle damage (noise; all 15 held, none stuck). The sim commander never builds
 a Powder Works, so the duds never show in it.
 
+**The storm is dangerous too** (owner's picks, same day; provisional):
+- Lightning strikes HALLS: `boltHall` 0.25 of strokes aim at a random hall;
+  every hall within the stroke's `r` + 12 is struck for `boltShock` 3000 ms
+  (`t.shockLeft`, build.js `fights`; a Knight Garrison, Covert or River Watch
+  keeps its men fighting, only the hall is struck). Every FOOT soldier in the
+  stroke, yours (`u.downUntil`, as a ram's trample) or theirs (`stunUntil`;
+  bosses, riders and fliers only `boltStun` 0.5 s), is stunned 3 s. The
+  shielded and magic-resistant still take nothing. `g.hallsStruck`.
+- Thunder spooks horses: a cavalier within `boltSpook` 90 of a stroke throws
+  his knight 60% of the time (`spook`, weather.js: the cavalier is removed with
+  no bounty, an `unhorsed` knight drops dazed 1.2 s and a `loosehorse` bolts
+  on, each with his share of health). The Loose Horse (enemies.js): 110 hp,
+  speed 175 (the cavalier 120), no blow, 1 life, armor 0.2, `trapBane`; rig
+  `loosehorse` = the riderless destrier (rigs-ironmounts.js). `g.spooked`.
+- Rams sink in the mud: `ramMud` 0.8 by wet on top of the mud's 0.9 (x0.72).
+- Gryphons fly low (`fliersLow`/`groundHitsLow`, the blizzard's): ground-only
+  halls shoot them from k 0.5; traps still never touch a flier.
+- The road FLOODS: `floods` 3 (2 when mild) stretches of `floodLen` 90 per
+  board (`floodSites`: by a river or pond first, never on a bridge, 200 apart,
+  clear of the wood and the gate), under water from wet 0.3, full at 0.8,
+  spreading from the middle (`w.floods`, `WX.floods`). Anyone wading (foes by
+  road distance, `floodFoe`; soldiers within 27 px of it, `floodUnit`) moves
+  and strikes `floodSlow` 30% slower: runMelee / runRangedBand scale each
+  man's own `sdt`, foes' step and meleeCd / rangedCd. Halls untouched.
+  Measured `--chapter iron --endure`, seeds 1-2, better doctrine, against the
+  first round: 8907 / 8821 -> 9086 / 8781 (noise; all 15 held, none stuck;
+  3-16 halls struck and 0-8 horses spooked a level). The sim prints
+  `halls-struck` and `spooked`.
+
 ## Zones IV and V (owner's direction, 2026-10-03)
 
 The plan is `art/ZONES-4-5.md`: zone IV the Rimewater (a new faction, the

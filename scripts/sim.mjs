@@ -350,7 +350,7 @@ function runOnce(opts, quiet, planName) {
   const zs = g.zoneStats;
   const zone = (zs ? ` | ships ${zs.ships} sunk ${zs.sunk} landed ${zs.landed} lost ${zs.lost} shrouds ${zs.shrouds}${Object.entries(zs).filter(([k]) => !["ships", "sunk", "landed", "lost", "shrouds"].includes(k)).map(([k, v]) => ` ${k} ${v}`).join("")}` : "")
     + (g.wxTrace ? ` | ${g.weather?.kind} k at each horn ${g.wxTrace.join(" ")}` : "")
-    + (g.squalls ? ` | ${g.weather?.kind || "weather"} x${g.squalls}${g.bolts ? ` bolts ${g.bolts}` : ""}${g.boltArcs ? ` arcs ${g.boltArcs}` : ""}${g.duds ? ` duds ${g.duds}` : ""}${g.rocks ? ` rocks ${g.rocks} halls-burned ${g.hallsBurned || 0}` : ""}` : "");
+    + (g.squalls ? ` | ${g.weather?.kind || "weather"} x${g.squalls}${g.bolts ? ` bolts ${g.bolts}` : ""}${g.boltArcs ? ` arcs ${g.boltArcs}` : ""}${g.duds ? ` duds ${g.duds}` : ""}${g.hallsStruck ? ` halls-struck ${g.hallsStruck}` : ""}${g.spooked ? ` spooked ${g.spooked}` : ""}${g.rocks ? ` rocks ${g.rocks} halls-burned ${g.hallsBurned || 0}` : ""}` : "");
   return { zone, bleed: g.bleed || [], result, wave: g.wave, total, lives: g.lives, leaked: CASTLE_HP - g.lives, towers, plan: planName, gold: Math.round(g.gold), earned: Math.round(g.run?.goldEarned || 0) };
 }
 

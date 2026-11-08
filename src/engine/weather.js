@@ -43,6 +43,8 @@ import { waveHpMult, waveSpec, victoryWave } from "../data/waves.js";
 import { getStats } from "./towers.js";
 import { dealDamage } from "./actions.js";
 import { posAt, angleAt, TOTAL_LEN } from "./path.js";
+import { spawnAt } from "./update.js";
+import { inRiver } from "../data/terrain.js";
 import { sfx } from "../audio/sfx.js";
 
 const lerp = (a, b, s) => a + (b - a) * s;
@@ -141,14 +143,31 @@ export const WEATHER_KINDS = {
   //   up to `boltArcs` x wet more ground foes, each within `boltArcR` of the
   //   last, for `boltArcDmg` of its blow (the shielded and magic-resistant
   //   are passed over).
+  // And it is dangerous (owner, 2026-11-08, the second round):
+  //   - a stroke may fall on a HALL (`boltHall` of them aim at one): every
+  //     hall within its reach is struck and holds its fire `boltShock` ms
+  //     (t.shockLeft, build.js `fights`), and every foot soldier in it, yours
+  //     or theirs, is stunned as long (riders and fliers only `boltStun`)
+  //   - the thunder spooks horses: a cavalier within `boltSpook` of a stroke
+  //     throws its knight (`spookChance`): he lands dazed and fights on foot,
+  //     and the riderless horse (`loosehorse`) bolts for the gate, faster
+  //   - rams sink in the mud: `ramMud` more slowly on soaked ground
+  //   - gryphons fly low in the downpour (fliersLow): ground-only halls can
+  //     shoot them (never traps)
+  //   - the road FLOODS in places (`floods` stretches of `floodLen`, from wet
+  //     0.3, full at 0.8; floodSites/tickFloods below): everyone wading in
+  //     one, foe or soldier, moves and strikes `floodSlow` slower. Halls are
+  //     untouched.
   storm: {
     name: "Thunderstorm", soaks: true, wetIn: 45, wetOut: 60,
     first: [50, 75], calm: [70, 120], rollIn: [25, 40], lasts: [120, 240], rollOut: [25, 40],
-    fx: { foeSpeed: 0.9, noCharge: 1, fire: 0.5, misfire: 0.3, charged: 1, riverReach: 1.15 },
-    boltEvery: [10, 14], boltRamp: 30, boltWarn: 600, boltR: 30, boltJitter: 34, boltDmg: 40, boltStun: 500, boltUnit: 45, boltDaze: 1100,
+    fx: { foeSpeed: 0.9, noCharge: 1, fire: 0.5, misfire: 0.3, charged: 1, riverReach: 1.15, ramMud: 0.8, fliersLow: true, groundHitsLow: true },
+    boltEvery: [10, 14], boltRamp: 30, boltWarn: 600, boltR: 30, boltJitter: 34, boltDmg: 40, boltStun: 500, boltUnit: 45,
+    boltShock: 3000, boltHall: 0.25, boltSpook: 90, spookChance: 0.6,
     boltArcs: 3, boltArcR: 70, boltArcDmg: 0.6,
+    floods: 3, floodLen: 90, floodSlow: 0.3,
     grade: (s) => ({ first: span(70, 100, 50, 75, s), calm: span(120, 200, 70, 120, s), lasts: span(60, 120, 120, 240, s), peak: lerp(0.65, 1, s),
-      boltEvery: span(16, 22, 10, 14, s), boltDmg: lerp(25, 40, s), boltArcs: s < 0.5 ? 2 : 3,
+      boltEvery: span(16, 22, 10, 14, s), boltDmg: lerp(25, 40, s), boltArcs: s < 0.5 ? 2 : 3, floods: s < 0.5 ? 2 : 3,
       fx: { foeSpeed: 1 - 0.1 * s, fire: 1 - lerp(0.3, 0.5, s), misfire: lerp(0.15, 0.3, s), riverReach: 1 + lerp(0.1, 0.15, s) } }),
     tick: (g, w, def, sdt, tms) => strikes(g, w, def, tms, "bolt"),
     paint: "storm", sound: "thunder",
@@ -184,7 +203,7 @@ export const WEATHER_KINDS = {
 };
 
 const NEUTRAL = { reach: 1, shotSpeed: 1, foeSpeed: 1, flierSpeed: 1, fliersLow: false, groundHitsLow: false, noCharge: 0, sight: 0, mistSight: 0, mistStamp: -1,
-  fire: 1, misfire: 0, charged: 0, riverReach: 1 };
+  fire: 1, misfire: 0, charged: 0, riverReach: 1, ramMud: 1, floods: null, floodSlow: 0 };
 // The live multipliers, reset every frame by tickWeather.
 export const WX = { ...NEUTRAL };
 
@@ -299,6 +318,7 @@ export const tickWeather = (g, sdt, tms) => {
   }
   w.bite = w.k > 0.02 || w.wet > 0.02;
   if (w.bite) applyFx(def, w.k, def.soaks ? w.wet : w.k);
+  if (def.floods) tickFloods(w, def);
   // strikes (lightning, rocks) only at the spell's height, in combat; mist
   // banks drift while there is mist and a fight
   if (def.tick && (def.paint === "gravemist" ? w.k > 0.02 : w.phase === "squall") && (combat || def.paint === "gravemist")) def.tick(g, w, def, combat ? sdt : 0, tms);
@@ -347,10 +367,10 @@ const fogTick = (g, w, def, sdt, combat) => {
 // the kind's fx at strength k: multipliers ease from 1, chances scale, flags
 // switch at half strength, fog's sight opens as it thins. A kind that soaks
 // the ground drives the mud and the rivers by `wet` instead of k.
-const BY_WET = new Set(["foeSpeed", "riverReach"]);
+const BY_WET = new Set(["foeSpeed", "riverReach", "ramMud"]);
 const applyFx = (def, k, wet = k) => {
   const fx = def.fx;
-  for (const key of ["reach", "shotSpeed", "foeSpeed", "flierSpeed", "fire", "riverReach"]) if (fx[key] != null) WX[key] = 1 + (fx[key] - 1) * (BY_WET.has(key) ? wet : k);
+  for (const key of ["reach", "shotSpeed", "foeSpeed", "flierSpeed", "fire", "riverReach", "ramMud"]) if (fx[key] != null) WX[key] = 1 + (fx[key] - 1) * (BY_WET.has(key) ? wet : k);
   if (fx.noCharge) WX.noCharge = fx.noCharge * wet;
   if (fx.misfire) WX.misfire = fx.misfire * k;
   if (fx.charged) WX.charged = fx.charged * k;
@@ -381,7 +401,13 @@ const strikes = (g, w, def, tms, kind) => {
 const roadOK = (x) => x < W - WALL_W - NO_CLOSER;
 // lightning: a random point near a random live fighter — a foe on the road,
 // or one of your soldiers or the hero (not a boat on the water), jittered
+const HALL_R = 12;        // px: a hall is struck if the stroke falls this much past its reach
 const boltPoint = (g, w) => {
+  // now and then the stroke seeks out a hall (the tallest thing on the field)
+  if (w.rng() < (w.def?.boltHall ?? 0)) {
+    const halls = g.towers.filter((t) => roadOK(t.x));
+    if (halls.length) { const t = halls[Math.floor(w.rng() * halls.length)]; return [t.x, t.y]; }
+  }
   const live = [];
   for (const e of g.enemies) if (!e.dead && !e.ship && !e.swimming && roadOK(e.x)) live.push(e);
   for (const h of [...g.towers, ...(g.bands || [])]) {
@@ -424,7 +450,9 @@ const landStrikes = (g, w, def, tms) => {
         // the magic-resistant and the shielded shrug it off entirely
         if ((e.mres || 0) > 0 || e.guard > 0) continue;
         dealDamage(g, e, def.boltDmg * mult, "magic", false, false, null);
-        if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil, tms + def.boltStun);
+        // a man on foot is knocked senseless (bosses only staggered); riders and fliers just jolted
+        const foot = !e.flying && !e.mounted && !e.swimming && !e.boss;
+        if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil, tms + (foot ? def.boltShock || def.boltStun : def.boltStun));
       }
       // the stroke runs on through the wet ground: from where it fell to the
       // nearest ground foe within boltArcR, then on from him, up to boltArcs
@@ -448,12 +476,29 @@ const landStrikes = (g, w, def, tms) => {
         fx0 = nxt.x; fy0 = nxt.y;
         g.boltArcs = (g.boltArcs || 0) + 1;
       }
-      // your own soldiers and the hero are dazed too, and singed — never killed
-      for (const h of [...g.towers, ...(g.bands || [])]) for (const u of h.units || []) {
-        if (u.state === "dead" || Math.hypot(u.x - m.x, u.y - m.y) > m.r) continue;
-        u.hp = Math.max(1, u.hp - def.boltUnit);
-        u.atkCd = Math.max(u.atkCd || 0, def.boltDaze);
-        u.dazedUntil = tms + def.boltDaze;
+      // your own soldiers and the hero are stunned too, and singed — never killed
+      // (not the River Watch's boats: they are on the water, not the field)
+      const shock = def.boltShock || 1100;
+      for (const h of [...g.towers, ...(g.bands || [])]) {
+        if (h.kind === "riverwatch") continue;
+        for (const u of h.units || []) {
+          if (u.state === "dead" || Math.hypot(u.x - m.x, u.y - m.y) > m.r) continue;
+          u.hp = Math.max(1, u.hp - def.boltUnit);
+          u.atkCd = Math.max(u.atkCd || 0, shock);
+          u.downUntil = Math.max(u.downUntil || 0, tms + shock);
+          u.dazedUntil = tms + shock;
+        }
+      }
+      // halls in its reach are struck: they hold their fire (build.js fights)
+      for (const t of g.towers) {
+        if (Math.hypot(t.x - m.x, t.y - m.y) > m.r + HALL_R) continue;
+        t.shockLeft = t.shockMax = Math.max(t.shockLeft || 0, shock);
+        g.hallsStruck = (g.hallsStruck || 0) + 1;
+      }
+      // the thunder spooks the horses: a cavalier near the stroke may throw his knight
+      if (def.boltSpook) for (const e of [...g.enemies]) {
+        if (e.dead || e.type !== "cavalier" || Math.hypot(e.x - m.x, e.y - m.y) > def.boltSpook) continue;
+        if (w.rng() < (def.spookChance ?? 0.6)) spook(g, e, tms);
       }
       g.effects.push({ type: "wxbolt", x: m.x, y: m.y, ttl: 420, life: 420, r: m.r });
       g.shake = Math.max(g.shake, 3);
@@ -485,12 +530,96 @@ const burnsAnyway = (t) => {
   const st = getStats(t);
   return !!(st.burn || st.mBurn || st.igniteBurn || st.logBurn || st.fragBurn || st.breath || st.poolDps);
 };
-// halls set burning cool off; between waves they are put out
+// halls set burning cool off, and halls struck by lightning come round;
+// between waves both are over
 const burnHalls = (g, sdt) => {
   for (const t of g.towers) {
-    if (!(t.fireLeft > 0)) continue;
-    t.fireLeft = g.phase === "combat" ? Math.max(0, t.fireLeft - sdt * 1000) : 0;
+    if (t.fireLeft > 0) t.fireLeft = g.phase === "combat" ? Math.max(0, t.fireLeft - sdt * 1000) : 0;
+    if (t.shockLeft > 0) t.shockLeft = g.phase === "combat" ? Math.max(0, t.shockLeft - sdt * 1000) : 0;
   }
+};
+
+// ---- the thunder spooks a horse ----
+// The cavalier is gone (no bounty, no kill: nobody killed him): his knight
+// lands where he was, dazed, and the horse bolts on riderless, each with the
+// share of health the cavalier had left.
+const spook = (g, e, tms) => {
+  const left = Math.max(0.05, e.hp / (e.maxHp || e.hp || 1));
+  e.dead = true; e.deathDone = true; e.spooked = true;
+  const k = spawnAt(g, "unhorsed", e.mult, e.dist - 6, tms);
+  const h = spawnAt(g, "loosehorse", e.mult, e.dist, tms);
+  for (const u of [k, h]) {
+    u.lane = e.lane; u.x = e.x; u.y = e.y; u.face = e.face; u.born = undefined;
+    u.hp = Math.max(1, u.maxHp * left);
+  }
+  k.dropAt = tms;
+  k.stunUntil = tms + 1200;
+  h.stunUntil = tms + 250;              // a rear, and away
+  g.effects.push({ type: "dust", x: e.x, y: e.y + 4, ttl: 420, r: 22 });
+  g.effects.push({ type: "wxspook", x: e.x, y: e.y, ttl: 600, life: 600 });
+  g.spooked = (g.spooked || 0) + 1;
+};
+
+// ---- the flooded road ----
+// Where the road floods, chosen once per board: low stretches beside a river
+// or pond first (never on a bridge), then the rest seeded along the road,
+// kept apart, clear of the wood's mouth and the gate. Each lies under water
+// from wet 0.3 (deepest at 0.8), spreading from its middle as it deepens;
+// w.floods = [{ c, d0, d1, depth, pts }] (pts: the flooded road every 10 px,
+// for soldiers off the centre line; the painter reads it too).
+let SITES = null, SITES_KEY = "";
+const floodSites = (def) => {
+  const n = def.floods || 0, key = `${REALM?.id}|${REALM?.seed}|${TOTAL_LEN | 0}|${n}`;
+  if (SITES && SITES_KEY === key) return SITES;
+  const rng = mulberry32(((REALM?.seed || 1) * 977) ^ 0xf100d);
+  const half = (def.floodLen || 90) / 2, lo = 120 + half, hi = TOTAL_LEN - 220 - half;
+  const cand = [];
+  for (let d = lo; d <= hi; d += 8) {
+    const [x, y] = posAt(d);
+    if (inRiver(x, y, 6)) continue;                       // a bridge stands above the water
+    let score = rng() * 1.5;
+    if (inRiver(x, y, 70)) score += 3;
+    for (const p of REALM?.ponds || []) if (Math.hypot(x - p.x, y - p.y) < (p.w || 40) / 2 + 70) score += 2;
+    cand.push({ d, score });
+  }
+  cand.sort((a, b) => b.score - a.score);
+  const out = [];
+  for (const c of cand) {
+    if (out.length >= n) break;
+    if (out.some((o) => Math.abs(o - c.d) < 200)) continue;
+    // the stretch itself must stay off the bridges
+    let dry = true;
+    for (let d = c.d - half; d <= c.d + half && dry; d += 10) { const [x, y] = posAt(d); if (inRiver(x, y, 4)) dry = false; }
+    if (dry) out.push(c.d);
+  }
+  SITES_KEY = key; SITES = out.sort((a, b) => a - b);
+  return SITES;
+};
+const FLOOD_FROM = 0.3, FLOOD_FULL = 0.8, FLOOD_W = 27;    // FLOOD_W: px either side of the centre line a soldier is in it
+const tickFloods = (w, def) => {
+  const depth = smooth(((w.wet || 0) - FLOOD_FROM) / (FLOOD_FULL - FLOOD_FROM));
+  if (depth <= 0.01) { w.floods = []; return; }
+  const half = (def.floodLen || 90) / 2 * (0.45 + 0.55 * depth);
+  w.floods = floodSites(def).map((c) => {
+    const d0 = Math.max(0, c - half), d1 = Math.min(TOTAL_LEN, c + half), pts = [];
+    for (let d = d0; d <= d1; d += 10) pts.push(posAt(d));
+    return { c, d0, d1, depth, pts };
+  });
+  WX.floods = w.floods;
+  WX.floodSlow = def.floodSlow ?? 0.3;
+};
+// how fast someone moves and strikes where he stands (1: dry ground)
+export const floodFoe = (e) => {
+  const F = WX.floods;
+  if (!F || !F.length || e.flying || e.swimming || e.ship || e.sea) return 1;
+  for (const f of F) if (e.dist >= f.d0 && e.dist <= f.d1) return 1 - WX.floodSlow * f.depth;
+  return 1;
+};
+export const floodUnit = (u) => {
+  const F = WX.floods;
+  if (!F || !F.length) return 1;
+  for (const f of F) for (const [x, y] of f.pts) if (Math.abs(u.x - x) < FLOOD_W && Math.abs(u.y - y) < FLOOD_W && Math.hypot(u.x - x, u.y - y) < FLOOD_W) return 1 - WX.floodSlow * f.depth;
+  return 1;
 };
 
 // ---- grave mist ----
