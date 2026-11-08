@@ -1193,7 +1193,15 @@ export function updateGame(g, dt) {
       // level-ups can raise the ceiling; never hold more than it allows
       t.charges = Math.min(t.charges || 0, st.maxCharges);
       t.layCd = Math.max(0, (t.layCd || 0) - sdt * 1000);
-      if (g.phase === "combat" && (t.charges || 0) > 0 && t.layCd <= 0) {
+      // `maxCharges` is also the most of his traps that may lie on the road
+      // at once (owner, 2026-11-08): a worn-out strip makes room for the next
+      let down = 0;
+      if (g.phase === "combat" && (t.charges || 0) > 0 && t.layCd <= 0) for (const tr of g.traps) if (tr.byTower === t.id) down++;
+      if (g.phase === "combat" && (t.charges || 0) > 0 && t.layCd <= 0 && down < st.maxCharges) {
+       // a throw lays `layCount` traps for one charge (the Caltrop Field: three)
+       const throwN = Math.min(st.layCount || 1, st.maxCharges - down);
+       let laid = 0;
+       for (let k = 0; k < throwN; k++) {
         // Density is the smith's whole argument now: he fills his stretch of
         // road rather than rationing it, so the only limit is how fast the
         // bench works. He still prefers bare ground, but 6px is "bare".
@@ -1232,13 +1240,21 @@ export function updateGame(g, dt) {
           // a yard with aerostats floats every Nth charge instead of burying it
           const floats = !!(st.balloon && ((t.layIdx = (t.layIdx || 0) + 1) % st.balloon === 0));
           // `a`: the road's heading there, so a spike plank can lie across it
+          // a spike strip (`trapHits`) stays down and strikes up to that many
+          // foes, each once (`hit`); everything else springs once and is gone
+          const strip = !floats && st.trapHits ? { hitsLeft: st.trapHits, hitsMax: st.trapHits, hit: new Set() } : null;
           g.traps.push({ x: best[0], y: best[1], a: best[2], byTower: t.id, branch: t.branch, rank4: t.rank4,
-            kind: floats ? "balloon" : (st.trapKind || "spike"), sky: floats });
+            kind: floats ? "balloon" : (st.trapKind || "spike"), sky: floats, ...strip });
+          laid++;
+          g.effects.push({ type: "dust", x: best[0], y: best[1], ttl: 300, r: 14 });
+        }
+        if (!best) break;
+       }
+       if (laid) {
           t.charges -= 1;
           t.layCd = 420;
-          g.effects.push({ type: "dust", x: best[0], y: best[1], ttl: 300, r: 14 });
           sfx.play("place");
-        }
+       }
       }
     }
   }
@@ -1487,6 +1503,25 @@ export function updateGame(g, dt) {
         }
       }
       if (!victim) continue;
+      // A spike strip stays down: it strikes each foe that walks over it once,
+      // light and alone (no blast), until it has struck `hitsLeft` of them
+      if (tr.hitsLeft != null) {
+        let struck = 0;
+        for (let i = -1; i <= 1 && tr.hitsLeft > 0; i++) for (let j = -1; j <= 1 && tr.hitsLeft > 0; j++) {
+          const list = egrid.get((cx + i) * 1000 + cy + j);
+          if (list) for (const e of list) {
+            if (tr.hitsLeft <= 0) break;
+            if (e.dead || e.flying || tr.hit.has(e.id) || Math.hypot(e.x - tr.x, e.y - tr.y) >= reach) continue;
+            tr.hit.add(e.id); tr.hitsLeft--; struck++;
+            const bane = e.trapBane || 0;
+            dealDamage(g, e, st.trapDmg * (bane || 1), "phys", !!bane, false, tr.byTower);
+            if (!e.dead && st.slow) { e.slowUntil = Math.max(e.slowUntil || 0, tms + st.slowDur); e.slowPct = Math.max(e.slowPct || 0, st.slow); }
+          }
+        }
+        if (struck && (tr.hitPlink = (tr.hitPlink || 0) + 1) % 3 === 1) sfx.play("trapSnap");
+        if (tr.hitsLeft <= 0) { g.traps.splice(ti, 1); g.effects.push({ type: "dust", x: tr.x, y: tr.y, ttl: 260, r: 12 }); }
+        continue;
+      }
       g.traps.splice(ti, 1);
       const r4 = tr.branch ? tr.branch + (tr.rank4 || "") : "";
       g.effects.push({ type: tr.branch === "b" ? "boom" : "dust", x: tr.x, y: tr.y - (wantsFly ? 14 : 0), ttl: 340, r: st.splash || 34 });

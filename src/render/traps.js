@@ -458,6 +458,10 @@ export const drawTraps = (ctx, g) => {
     const tx = tr.x, ty = tr.y;
     const kind = tr.kind || (tr.sky ? "balloon" : tr.branch === "b" ? "mine" : "jaws");
     const seed = hash(Math.round(tx * 2), Math.round(ty * 2));
+    // a spike strip or caltrop wears as it strikes: it fades toward half
+    // strength by its last stab (engine: tr.hitsLeft of tr.hitsMax)
+    const worn = tr.hitsMax ? 0.45 + 0.55 * Math.max(0, tr.hitsLeft) / tr.hitsMax : 1;
+    if (worn < 1) ctx.globalAlpha = worn;
     if (kind === "spike") {
       // the plank lies ACROSS the road: a road running across the screen
       // gets the upright plank, one running up it the level plank
@@ -484,6 +488,7 @@ export const drawTraps = (ctx, g) => {
       const v = tr.rank4 === "a" && tr.branch === "a" ? 1 : 0;
       put(ctx, B.jaws[v] || (B.jaws[v] = bakeJaws(v)), tx, ty);
     }
+    if (worn < 1) ctx.globalAlpha = 1;
   }
 };
 

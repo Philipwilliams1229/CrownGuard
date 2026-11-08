@@ -718,6 +718,24 @@ them), so at each horn he lays them out one every 420 ms. The sweep between
 waves is unchanged. A Free Play summon fight between waves is combat, so he
 lays for it. Checked headless; not simmed.
 
+**Spike strips, one-shot bombs** (owner, same day). The levels and the
+Caltrop Field lay strips that STAY DOWN: a trap with `trapHits` (towers.js)
+is laid with `hitsLeft`/`hitsMax` and a `hit` Set; each ground foe that
+walks within 15 is stabbed once (`trapDmg`, the level's slow, `trapBane`
+riders/ram through armor x1.5), no blast; it goes when `hitsLeft` runs out
+(update.js trap loop) and draws fainter as it wears (render/traps.js `worn`).
+Levels: 14 / 18 / 24 a stab, 5 / 10 / 10 foes a strip, `maxCharges` 10 / 10 /
+15. `maxCharges` is now ALSO the most of a smith's traps on the road at once
+(the laying loop counts them), so a worn strip makes room for the next.
+Caltrop Field: `layCount` 3 caltrops a charge, 12 a stab, 12 foes each,
+slow 55% 2.2 s, 30 on the road; its old root and slowing ground are gone.
+One-shot as before: Springworks' jaws (unchanged), Guillotine Gate (no root:
+slow 50% 2.5 s, finishes under 20%, never a boss), Blastworks 175 -> 230,
+splash 58 -> 64, no fire, Aerostat Yard 210 -> 270, splash 66 -> 72, no
+fire (stun and balloons kept). Minefield Doctrine untouched (still burns).
+Checked headless (`scripts`-style test: 30 sturdy goblins through each form)
+and `marathon.mjs --to 40` (no errors). The sims never build a Trapsmith.
+
 ## Heroes stand on the road (2026-11-07, owner request)
 
 "Ranged heroes are way stronger because they never go down": a hero parked in
