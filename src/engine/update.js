@@ -325,6 +325,13 @@ const burstCharge = (g, p, target, tms) => {
       if (dd <= (e.size || 14) * 0.6 + 4 && dd < nd) { nd = dd; mark = e; }
     }
   }
+  if (p.dud) {
+    // damp powder: it lands, hisses and goes out — no blast, no shards
+    g.effects.push({ type: "wxfizzle", x: p.tx, y: p.ty, ttl: 700, life: 700 });
+    sfx.play("fizzle");
+    g.duds = (g.duds || 0) + 1;
+    return;
+  }
   sfx.play("boom");
   g.effects.push({ type: "keg", x: p.tx, y: p.ty, ttl: 320, r: 14 });
   g.effects.push({ type: "scorch", x: p.tx, y: p.ty, ttl: 2000, life: 2000, r: 9, seed: Math.random() * 6 });
@@ -1801,7 +1808,8 @@ export function updateGame(g, dt) {
         }
       }
       if (e.burnUntil > tms) {
-        dealDamage(g, e, e.burnDps * sdt, "magic", false, true, e.burnSrc);
+        // (WX.fire: the storm's rain douses every burn, weather.js)
+        dealDamage(g, e, e.burnDps * WX.fire * sdt, "magic", false, true, e.burnSrc);
         // Wildheart Pyre / Hellburner: flames leap from burning foes to nearby unburned ones
         if (e.burnSpread) {
           for (const e2 of g.enemies) {
@@ -1822,7 +1830,7 @@ export function updateGame(g, dt) {
           if (gr.kind === "plague" || (gr.kind === "fire" && e.flying)) continue;
           if (gr.until <= tms || Math.hypot(e.x - gr.x, e.y - gr.y) > gr.r) continue;
           if (gr.kind === "caltrops") { e.auraSlow = Math.max(e.auraSlow, gr.slowPct || 0.35); continue; }
-          dealDamage(g, e, gr.dps * sdt, "magic", false, true, gr.src);
+          dealDamage(g, e, gr.dps * (gr.kind === "lava" || gr.kind === "fire" ? WX.fire : 1) * sdt, "magic", false, true, gr.src);
         }
       }
       if (e.dead) continue;
@@ -1868,8 +1876,9 @@ export function updateGame(g, dt) {
       const rising = e.riseAt !== undefined && tms - e.riseAt < e.riseMs;
       if (!stunned && !held && !standing && !waiting && !rising) {
         const slow = (e.immSlow || e.guard > 0) ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
-        // (WX: weather.js — a squall's foeSpeed / flierSpeed; 1 on a clear day)
-        const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt * WX.foeSpeed * (e.flying ? WX.flierSpeed : 1);
+        // (WX: weather.js — a squall's flierSpeed, the storm's mud (foeSpeed: ground foes
+        // only, never fliers or ships); 1 on a clear day)
+        const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt * (e.flying ? WX.flierSpeed : e.swimming || e.ship ? 1 : WX.foeSpeed);
         // every foe walks its OWN lane at its own speed: round a bend the
         // inside lane is shorter, so a foe on it gains road on its neighbours
         // and the outside lane loses some — the column staggers itself.
@@ -2177,6 +2186,8 @@ export function updateGame(g, dt) {
             burnSpreads: !!st.burnSpread, crack: st.crack || 0, crackDur: st.crackDur || 0,
             frags: st.frags || 0, fragDmg: st.fragDmg || 0, fragReach: st.fragReach || 40, fragBurn: !!st.fragBurn,
             kind: "shell", src: t.id, arc: true,
+            // the storm's rain gets into the powder: now and then a dud (weather.js WX.misfire)
+            dud: WX.misfire > 0 && Math.random() < WX.misfire,
           });
           sfx.play("boom");
           g.shake = Math.max(g.shake, 2);

@@ -70,6 +70,12 @@ const span = (a0, a1, b0, b1, s) => [lerp(a0, b0, s), lerp(a1, b1, s)];
 //     fliersLow     fliers come down low (drawn lower)
 //     groundHitsLow while fliers are low, ground-only halls may shoot them
 //     noCharge      the chance (x k) that a cavalry charge bogs down instead of riding a blocker down
+//     fire          x every burn and burning pool (rain douses them)
+//     misfire       the chance a Powder Works charge lands a dud (x k)
+//     charged       0..1, the air full of lightning: a Stormcaller's arcs leap further (towers.js)
+//     riverReach    x the River Watch's reach (the rivers run high)
+//   soaks   the kind wets the ground: `w.wet` chases k (wetIn / wetOut s),
+//           and foeSpeed, noCharge and riverReach follow the wet, not k
 //     sight         a hall cannot target a foe further than this from itself
 //                   (fog: divided by k, so it opens as the fog burns off)
 //     mistSight     a foe inside a mist bank can only be targeted from this close
@@ -107,21 +113,43 @@ export const WEATHER_KINDS = {
   // ---- the Iron Marches: THUNDERSTORM ----
   // It ROLLS IN (owner, 2026-10-04): after a calm the sky darkens little by
   // little and the rain builds from a few drops to a downpour over `rollIn`
-  // s (the rain's slow and the bogged charge ramp with it); once it is heavy
-  // the lightning begins, sparse at first and building over `boltRamp` s; it
-  // holds `lasts` s, then the lightning stops first, the rain eases and the
-  // sky lightens over `rollOut` s. A stroke lands at RANDOM near a random live
-  // fighter — any foe on the road or a soldier/hero of yours — jittered
-  // `boltJitter` px; a foe with magic resistance (mres > 0) or a standing
-  // shield takes nothing; your soldiers are hurt (never below 1) and can't
-  // strike for `boltDaze` ms. Strokes fall only in combat.
+  // s; once it is heavy the lightning begins, sparse at first and building
+  // over `boltRamp` s; it holds `lasts` s, then the lightning stops first, the
+  // rain eases and the sky lightens over `rollOut` s. A stroke lands at RANDOM
+  // near a random live fighter — any foe on the road or a soldier/hero of
+  // yours — jittered `boltJitter` px; a foe with magic resistance (mres > 0)
+  // or a standing shield takes nothing; your soldiers are hurt (never below
+  // 1) and can't strike for `boltDaze` ms. Strokes fall only in combat.
+  //
+  // THE RAIN BITES (owner, 2026-11-08: "pretty lackluster" — it only slowed
+  // foes, which helped you). Two clocks: `k`, how hard it rains NOW, and
+  // `w.wet`, how SOAKED the ground is, which chases k (`soaks`: up in
+  // `wetIn` s of downpour, lagging the rain, and dries over `wetOut` s;
+  // still between waves). The rain changes WHICH halls work, not just how
+  // fast foes walk:
+  //   by k (the rain falling)
+  //     fire       x every burn and every burning pool (lava, fire): doused
+  //     misfire    the chance a Powder Works charge lands a dud (damp powder)
+  //     charged    a Stormcaller's lightning leaps one foe further (from k
+  //                0.5) and its leaps reach up to 25% x k further; Ysolde's
+  //                bolts leap once more too
+  //   by wet (the ground)
+  //     foeSpeed   mud: ground foes march slower (not fliers, not ships)
+  //     noCharge   mud: a cavalry charge bogs down
+  //     riverReach x the River Watch's reach: the rivers run high
+  //   a stroke of lightning runs on through the wet: from where it lands to
+  //   up to `boltArcs` x wet more ground foes, each within `boltArcR` of the
+  //   last, for `boltArcDmg` of its blow (the shielded and magic-resistant
+  //   are passed over).
   storm: {
-    name: "Thunderstorm",
+    name: "Thunderstorm", soaks: true, wetIn: 45, wetOut: 60,
     first: [50, 75], calm: [70, 120], rollIn: [25, 40], lasts: [120, 240], rollOut: [25, 40],
-    fx: { foeSpeed: 0.9, noCharge: 1 },
+    fx: { foeSpeed: 0.9, noCharge: 1, fire: 0.5, misfire: 0.3, charged: 1, riverReach: 1.15 },
     boltEvery: [10, 14], boltRamp: 30, boltWarn: 600, boltR: 30, boltJitter: 34, boltDmg: 40, boltStun: 500, boltUnit: 45, boltDaze: 1100,
+    boltArcs: 3, boltArcR: 70, boltArcDmg: 0.6,
     grade: (s) => ({ first: span(70, 100, 50, 75, s), calm: span(120, 200, 70, 120, s), lasts: span(60, 120, 120, 240, s), peak: lerp(0.65, 1, s),
-      boltEvery: span(16, 22, 10, 14, s), boltDmg: lerp(25, 40, s), fx: { foeSpeed: 1 - 0.1 * s } }),
+      boltEvery: span(16, 22, 10, 14, s), boltDmg: lerp(25, 40, s), boltArcs: s < 0.5 ? 2 : 3,
+      fx: { foeSpeed: 1 - 0.1 * s, fire: 1 - lerp(0.3, 0.5, s), misfire: lerp(0.15, 0.3, s), riverReach: 1 + lerp(0.1, 0.15, s) } }),
     tick: (g, w, def, sdt, tms) => strikes(g, w, def, tms, "bolt"),
     paint: "storm", sound: "thunder",
   },
@@ -155,7 +183,8 @@ export const WEATHER_KINDS = {
   },
 };
 
-const NEUTRAL = { reach: 1, shotSpeed: 1, foeSpeed: 1, flierSpeed: 1, fliersLow: false, groundHitsLow: false, noCharge: 0, sight: 0, mistSight: 0, mistStamp: -1 };
+const NEUTRAL = { reach: 1, shotSpeed: 1, foeSpeed: 1, flierSpeed: 1, fliersLow: false, groundHitsLow: false, noCharge: 0, sight: 0, mistSight: 0, mistStamp: -1,
+  fire: 1, misfire: 0, charged: 0, riverReach: 1 };
 // The live multipliers, reset every frame by tickWeather.
 export const WX = { ...NEUTRAL };
 
@@ -262,8 +291,14 @@ export const tickWeather = (g, sdt, tms) => {
   w.k = kAt(seg, def, w.clock);
   if (w.phase === "rising" && was !== "rising") { w.gust = tms; if (def.sound && combat) sfx.play(def.sound); g.squalls = (g.squalls || 0) + 1; }
   if (w.phase === "squall" && was !== "squall") w.strikeAt = w.clock + 1;
-  w.bite = w.k > 0.02;
-  if (w.bite) applyFx(def, w.k);
+  // the ground soaks as it rains and dries after, only while there is fighting
+  if (def.soaks) {
+    const wet = w.wet || 0;
+    if (combat) w.wet = w.k > wet ? Math.min(w.k, wet + sdt / (def.wetIn || 25)) : Math.max(w.k, wet - sdt / (def.wetOut || 45));
+    else w.wet = wet;
+  }
+  w.bite = w.k > 0.02 || w.wet > 0.02;
+  if (w.bite) applyFx(def, w.k, def.soaks ? w.wet : w.k);
   // strikes (lightning, rocks) only at the spell's height, in combat; mist
   // banks drift while there is mist and a fight
   if (def.tick && (def.paint === "gravemist" ? w.k > 0.02 : w.phase === "squall") && (combat || def.paint === "gravemist")) def.tick(g, w, def, combat ? sdt : 0, tms);
@@ -310,11 +345,15 @@ const fogTick = (g, w, def, sdt, combat) => {
 };
 
 // the kind's fx at strength k: multipliers ease from 1, chances scale, flags
-// switch at half strength, fog's sight opens as it thins
-const applyFx = (def, k) => {
+// switch at half strength, fog's sight opens as it thins. A kind that soaks
+// the ground drives the mud and the rivers by `wet` instead of k.
+const BY_WET = new Set(["foeSpeed", "riverReach"]);
+const applyFx = (def, k, wet = k) => {
   const fx = def.fx;
-  for (const key of ["reach", "shotSpeed", "foeSpeed", "flierSpeed"]) if (fx[key] != null) WX[key] = 1 + (fx[key] - 1) * k;
-  if (fx.noCharge) WX.noCharge = fx.noCharge * k;
+  for (const key of ["reach", "shotSpeed", "foeSpeed", "flierSpeed", "fire", "riverReach"]) if (fx[key] != null) WX[key] = 1 + (fx[key] - 1) * (BY_WET.has(key) ? wet : k);
+  if (fx.noCharge) WX.noCharge = fx.noCharge * wet;
+  if (fx.misfire) WX.misfire = fx.misfire * k;
+  if (fx.charged) WX.charged = fx.charged * k;
   if (fx.fliersLow) WX.fliersLow = k > 0.5;
   if (fx.groundHitsLow) WX.groundHitsLow = k > 0.5;
   if (fx.sight) WX.sight = k > 0.04 ? fx.sight / k : 0;
@@ -386,6 +425,28 @@ const landStrikes = (g, w, def, tms) => {
         if ((e.mres || 0) > 0 || e.guard > 0) continue;
         dealDamage(g, e, def.boltDmg * mult, "magic", false, false, null);
         if (!e.dead && !e.immStun) e.stunUntil = Math.max(e.stunUntil, tms + def.boltStun);
+      }
+      // the stroke runs on through the wet ground: from where it fell to the
+      // nearest ground foe within boltArcR, then on from him, up to boltArcs
+      // x wet leaps (the shielded and the magic-resistant are passed over)
+      const leaps = Math.round((def.boltArcs || 0) * (w.wet ?? 0));
+      let fx0 = m.x, fy0 = m.y;
+      const struck = new Set();
+      for (let j = 0; j < leaps; j++) {
+        let nxt = null, nd = def.boltArcR || 70;
+        for (const e of g.enemies) {
+          if (e.dead || e.ship || e.swimming || e.flying || struck.has(e) || (e.mres || 0) > 0 || e.guard > 0) continue;
+          if (Math.hypot(e.x - m.x, e.y - m.y) <= m.r && j === 0) continue;      // the stroke itself had him
+          const dd = Math.hypot(e.x - fx0, e.y - fy0);
+          if (dd < nd) { nd = dd; nxt = e; }
+        }
+        if (!nxt) break;
+        struck.add(nxt);
+        g.effects.push({ type: "wxarc", x0: fx0, y0: fy0, x1: nxt.x, y1: nxt.y, ttl: 360, life: 360, seed: (g.bolts || 0) * 7 + j });
+        dealDamage(g, nxt, def.boltDmg * mult * (def.boltArcDmg ?? 0.6), "magic", false, false, null);
+        if (!nxt.dead && !nxt.immStun) nxt.stunUntil = Math.max(nxt.stunUntil, tms + def.boltStun);
+        fx0 = nxt.x; fy0 = nxt.y;
+        g.boltArcs = (g.boltArcs || 0) + 1;
       }
       // your own soldiers and the hero are dazed too, and singed — never killed
       for (const h of [...g.towers, ...(g.bands || [])]) for (const u of h.units || []) {

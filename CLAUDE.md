@@ -268,6 +268,30 @@ still use only the flat `weatherVeil` beyond the board. Look at it in Free
 Play at an iPad size (e.g. 1180x820); `window.__g.weather.clock` jumps the
 spell (`segAt` in engine/weather.js finds a phase).
 
+## The storm's rain bites (2026-11-08, owner request)
+
+"Upgrading the rain mechanic ... pretty lackluster": the Iron Marches'
+thunderstorm only slowed foes 10% (which helped you) and its rain barely
+showed. Provisional, pending the owner's playtest. Engine (engine/weather.js,
+the `storm` kind's header has the rules): two clocks, `w.k` (how hard it
+rains now) and `w.wet` (how soaked the ground is: chases k, up over `wetIn`
+45 s, dries over `wetOut` 60 s, still between waves; `soaks: true`). The rain
+changes WHICH halls work. By k: `fire` x0.5 on every burn and lava/fire pool
+(update.js burn tick and grounds loop), `misfire` 30% of Powder Works charges
+land a dud (`p.dud`, burstCharge: a `wxfizzle` effect and the `fizzle` sound,
+no blast, no shards; `g.duds`), `charged` (towers.js `inWeather`: a
+Stormcaller's `arc` +1 from k 0.5 and `arcRange` up to x1.25; Ysolde one leap
+more). By wet: mud `foeSpeed` 0.9 (ground foes only now: fliers and ships
+were slowed before), `noCharge`, `riverReach` x1.15 on the River Watch. A
+stroke of lightning runs on through the wet to up to `boltArcs` 3 x wet more
+ground foes, each within `boltArcR` 70 of the last, for `boltArcDmg` 0.6 of
+its blow (`wxarc` effects; `g.boltArcs`). Mild storms grade it all down
+(fire 0.7, misfire 15%, river 1.1, 2 arcs). The card's brief and the battle's
+(i) list every effect (data/weather-info.js). Sound: `sfx.bed("rain", k)`, a
+looping rain bed (BEDS in sfx.js; CrownguardGame's loop sets it each frame,
+hushed when paused), with a "Rain" switch in the Sound settings.
+`sim.mjs` prints `arcs` and `duds` beside the bolts.
+
 ## Zones IV and V (owner's direction, 2026-10-03)
 
 The plan is `art/ZONES-4-5.md`: zone IV the Rimewater (a new faction, the
@@ -351,7 +375,7 @@ uses; existing levels sim byte-identical). Read the headers of
   70-100), rolls in 25-40 s, holds 2-4 min (mild 1-2), passes 25-40 s
   (lightning stops first), calm 70-120 s (mild 120-200); bolts every 10-14 s
   at its height (mild 16-22), sparse for the first 30 s. Effects ramp with
-  k (a charge bogs down with chance = k). Blizzard 15-22 / 25-40 / 15-22 s;
+  k (the mud and rivers follow the ground's soak, `w.wet`: see "The storm's rain bites"). Blizzard 15-22 / 25-40 / 15-22 s;
   grave mist 20-30 / 30-50 / 20-30 s (hides foes past k 0.4); eruptions only
   at the height; fog fades with the level's waves instead (`fade`, see
   "Weather brief on the level card").

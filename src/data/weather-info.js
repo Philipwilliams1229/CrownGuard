@@ -31,13 +31,14 @@ export const WEATHER_INFO = {
     opens: () => "Opens in thick fog",
   },
   storm: {
-    blurb: "Dark clouds roll in over the marches, the rain builds to a downpour, and lightning begins to fall.",
+    blurb: "Dark clouds roll in over the marches, the rain builds to a downpour and soaks the field, and lightning begins to fall.",
     effects: (d) => [
-      `Rain slows every foe by ${pct(1 - d.fx.foeSpeed)} and can bog a cavalry charge down in the mud.`,
-      `Lightning strikes near a random fighter, friend or foe, about every ${secs(d.boltEvery)} at its height: ${Math.round(d.boltDmg)} magic damage and a brief stun.`,
-      "A foe with magic resistance or a standing shield takes nothing. Your soldiers lose a little health and cannot strike for a moment.",
+      `The rain douses fire: burns and burning ground do ${pct(1 - d.fx.fire)} less damage. Powder gets damp: up to ${pct(d.fx.misfire)} of Powder Works charges fizzle out.`,
+      `The charged air helps lightning: a Stormcaller's bolts leap to one more foe and reach up to 25% further. The swollen rivers give the River Watch ${pct(d.fx.riverReach - 1)} more reach.`,
+      `As the ground soaks, the mud slows every foe on foot by up to ${pct(1 - d.fx.foeSpeed)} and can bog a cavalry charge down.`,
+      `Lightning strikes near a random fighter, friend or foe, about every ${secs(d.boltEvery)} at its height: ${Math.round(d.boltDmg)} magic damage and a brief stun, then it runs through the wet ground to up to ${d.boltArcs} more foes. Shielded and magic-resistant foes take nothing.`,
     ],
-    tip: "The rain is your friend: foes arrive slower and more spread out. Keep soldiers back from the thick of it while the lightning falls.",
+    tip: "Lean on lightning and the River Watch while it pours; fire and powder are weak until it passes. Keep soldiers out of the thick of it while the lightning falls.",
   },
   gravemist: {
     blurb: "Cold banks of grave mist rise out of the fen and drift along the road, hiding what walks in them.",
@@ -101,12 +102,17 @@ export const nowOf = (g) => {
   if (w.bite) {
     if (WX.reach < 0.995) lines.push(`Every hall reaches ${less(WX.reach)}% less far.`);
     if (WX.shotSpeed < 0.995) lines.push(`Every shot flies ${less(WX.shotSpeed)}% slower.`);
-    if (WX.foeSpeed < 0.995) lines.push(`Foes march ${less(WX.foeSpeed)}% slower.`);
+    if (WX.foeSpeed < 0.995) lines.push(`The mud slows foes on foot by ${less(WX.foeSpeed)}%.`);
     if (WX.flierSpeed < 0.995) lines.push(`Fliers are ${less(WX.flierSpeed)}% slower.`);
     if (WX.fliersLow) lines.push(WX.groundHitsLow ? "Fliers come down low: halls that cannot hit the air can shoot them." : "Fliers come down low.");
     if (WX.noCharge > 0.01) lines.push(`A cavalry charge bogs down in the mud ${Math.round(WX.noCharge * 100)}% of the time.`);
+    if (WX.fire < 0.995) lines.push(`Burns and burning ground do ${less(WX.fire)}% less damage.`);
+    if (WX.misfire > 0.005) lines.push(`${Math.round(WX.misfire * 100)}% of Powder Works charges fizzle out.`);
+    if (WX.charged >= 0.5) lines.push(`Stormcaller bolts leap to one more foe and reach ${Math.round(WX.charged * 25)}% further.`);
+    else if (WX.charged > 0.02) lines.push(`Stormcaller bolts reach ${Math.round(WX.charged * 25)}% further.`);
+    if (WX.riverReach > 1.005) lines.push(`The River Watch reaches ${Math.round((WX.riverReach - 1) * 100)}% further.`);
     if (WX.mistSight) lines.push(`A foe inside a bank of mist can only be targeted from ${WX.mistSight} px${w.banks?.length ? ` (${w.banks.length} bank${w.banks.length > 1 ? "s" : ""} on the road)` : ""}.`);
-    if (w.phase === "squall" && def.boltEvery) lines.push(`Lightning strikes near a fighter about every ${secs(def.boltEvery)}.`);
+    if (w.phase === "squall" && def.boltEvery) lines.push(`Lightning strikes near a fighter about every ${secs(def.boltEvery)}${def.boltArcs && Math.round(def.boltArcs * (w.wet || 0)) > 0 ? ` and runs on to ${Math.round(def.boltArcs * w.wet)} more foe${Math.round(def.boltArcs * w.wet) > 1 ? "s" : ""}` : ""}.`);
     if (w.phase === "squall" && def.rockEvery) lines.push(`Burning rocks fall about every ${secs(def.rockEvery)}.`);
   }
   if (!lines.length) lines.push("No effect on the fight right now.");
