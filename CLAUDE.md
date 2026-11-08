@@ -590,7 +590,9 @@ high" and is testing it; levers: `trapBane` 1 (pierce only, 98) or drop the
 pierce in the trap loop (x1.5 on top of armor, ~59).
 Later the same day (owner) its health went 2300 -> 1500 and its speed
 46 -> 38 (the column walks in its lee at that pace; at 30 it once arrived
-in one lump and doubled the Iron back half's bleed). Not simmed.
+in one lump and doubled the Iron back half's bleed). `--level crowstair /
+ir5 --endure --check-wall` seed 1, better doctrine: 858 -> 750 and 1478 ->
+1569 (flat; 0 passes of a live ram, up to 116 / 154 foes in its lee).
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer
