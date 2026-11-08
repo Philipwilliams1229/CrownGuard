@@ -254,25 +254,25 @@ export const TOWERS = {
   },
   riverwatch: {
     name: "River Watch", cost: 130, dtype: "phys", proj: "harpoon", water: true,
-    blurb: "A DOCK — the only hall that stands on the water, and only at its edge: moor it on the bank of a river, pond or mere. Its skiffs row a third of the board's width of water, carrying muskets to stretches of bank no tower can reach.",
+    blurb: "A DOCK — the only hall that stands on the water, and only at its edge: moor it on the bank of a river, pond or mere. Its skiffs row a third of the board's width of water, carrying muskets to stretches of bank no tower can reach, and at fliers overhead.",
     levels: [
-      { dmg: 30, rate: 950, range: 94, hp: 130, count: 1, rowSpeed: 74 },
-      { dmg: 40, rate: 900, range: 101, hp: 165, count: 2, rowSpeed: 78, cost: 100, label: "Second Skiff" },
-      { dmg: 56, rate: 860, range: 109, hp: 210, count: 2, rowSpeed: 82, cost: 170, label: "The River Watch" },
+      { dmg: 30, rate: 950, range: 103, hitsAir: true, hp: 130, count: 1, rowSpeed: 74 },
+      { dmg: 40, rate: 900, range: 111, hitsAir: true, hp: 165, count: 2, rowSpeed: 78, cost: 100, label: "Second Skiff" },
+      { dmg: 56, rate: 860, range: 120, hitsAir: true, hp: 210, count: 2, rowSpeed: 82, cost: 170, label: "The River Watch" },
     ],
     branches: {
       a: {
-        name: "Harbour Patrol", cost: 455, stats: { dmg: 64, rate: 620, range: 116, hp: 250, count: 3, rowSpeed: 96 }, desc: "THREE swift skiffs working the whole length of the water, firing twice as fast as any watchman.",
+        name: "Harbour Patrol", cost: 455, stats: { dmg: 64, rate: 620, range: 128, hitsAir: true, hp: 250, count: 3, rowSpeed: 96 }, desc: "THREE swift skiffs working the whole length of the water, firing twice as fast as any watchman.",
         rank4: {
-          a: { name: "The Crown Navy", cost: 1005, stats: { dmg: 70, rate: 600, range: 124, hp: 290, count: 4, rowSpeed: 104 }, desc: "FOUR skiffs under an admiral's pennant — the river belongs to the crown, and its banks know it." },
-          b: { name: "Harpooners", cost: 1005, stats: { dmg: 96, rate: 700, range: 128, hp: 270, count: 3, rowSpeed: 96, pierce: true, slow: 0.35, slowDur: 1600 }, desc: "Harpoon guns: barbed iron on a line punches through any armor and drags what it hits to a crawl." },
+          a: { name: "The Crown Navy", cost: 1005, stats: { dmg: 70, rate: 600, range: 136, hitsAir: true, hp: 290, count: 4, rowSpeed: 104 }, desc: "FOUR skiffs under an admiral's pennant — the river belongs to the crown, and its banks know it." },
+          b: { name: "Harpooners", cost: 1005, stats: { dmg: 96, rate: 700, range: 141, hitsAir: true, hp: 270, count: 3, rowSpeed: 96, pierce: true, slow: 0.35, slowDur: 1600 }, desc: "Harpoon guns: barbed iron on a line punches through any armor and drags what it hits to a crawl." },
         },
       },
       b: {
-        name: "Fireship Wharf", cost: 455, stats: { dmg: 52, rate: 1250, range: 112, hp: 230, count: 2, rowSpeed: 76, splash: 54, burn: 8, burnDur: 2400 }, desc: "Hot shot packed in pitch: slower shots, but each one bursts in flame across the bank.",
+        name: "Fireship Wharf", cost: 455, stats: { dmg: 52, rate: 1250, range: 123, hitsAir: true, hp: 230, count: 2, rowSpeed: 76, splash: 54, burn: 8, burnDur: 2400 }, desc: "Hot shot packed in pitch: slower shots, but each one bursts in flame across the bank.",
         rank4: {
-          a: { name: "The Hellburner", cost: 1005, stats: { dmg: 64, rate: 1350, range: 120, hp: 260, count: 2, rowSpeed: 76, splash: 64, burn: 10, burnDur: 2600, poolDps: 11, poolDur: 2200, poolR: 26 }, desc: "A hull packed with powder and pitch: every pot leaves the shore burning behind it." },
-          b: { name: "The Chain Boom", cost: 1005, stats: { dmg: 54, rate: 1250, range: 124, hp: 300, count: 3, rowSpeed: 80, splash: 52, burn: 7, burnDur: 2000, stun: 0.2, stunDur: 800 }, desc: "A chain slung between the skiffs and a shot that rings it — what the boom catches stands stunned." },
+          a: { name: "The Hellburner", cost: 1005, stats: { dmg: 64, rate: 1350, range: 132, hitsAir: true, hp: 260, count: 2, rowSpeed: 76, splash: 64, burn: 10, burnDur: 2600, poolDps: 11, poolDur: 2200, poolR: 26 }, desc: "A hull packed with powder and pitch: every pot leaves the shore burning behind it." },
+          b: { name: "The Chain Boom", cost: 1005, stats: { dmg: 54, rate: 1250, range: 136, hitsAir: true, hp: 300, count: 3, rowSpeed: 80, splash: 52, burn: 7, burnDur: 2000, stun: 0.2, stunDur: 800 }, desc: "A chain slung between the skiffs and a shot that rings it — what the boom catches stands stunned." },
         },
       },
     },

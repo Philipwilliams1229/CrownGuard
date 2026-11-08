@@ -676,6 +676,16 @@ archer. The Powder Works' two men face left until each first shoots
 (`bomberFacing` / `musketFacing`, muzzles.js); its store still faces the road.
 The River Watch's watchman still glances about (he never aims).
 
+## The River Watch shoots fliers (2026-11-08, owner request)
+
+The skiffs' mark scan (update.js, "the River Watch") no longer skips
+`e.flying`; every step carries `hitsAir: true` (so the card and the Field
+Guide say "hits fliers"), and every step's `range` went up 10% (94-128 ->
+103-141). A Fireship's splash, burn and stun still touch only the ground
+round the mark (a flier takes them only as the mark itself), and the
+Hellburner leaves no fire pool under a flier. Checked headless (Ironford, a
+level-3 dock alone killed 27 of 60 bats); not simmed. Provisional.
+
 ## The Trapsmith lays only in a wave (2026-11-08, owner request)
 
 "Trap layer started covering the field before the first wave started": the

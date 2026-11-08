@@ -2114,10 +2114,11 @@ export function updateGame(g, dt) {
         if (u.hp <= 0) { killUnit(g, t, u); return; }
 
         // pick the foe furthest along the road that a boat can actually reach
+        // (fliers too: owner, 2026-11-08 — the muskets shoot up at them)
         let mark = null, markQ = 0, markScore = -Infinity;
         for (const e of g.enemies) {
           // (a sea monster is the boats' quarry, even a serpent under the water: serpent.js)
-          if (e.dead || e.flying || (e.swimming && !e.ship && !e.sea) || (isRising(e, tms) && !e.submerged)) continue;
+          if (e.dead || (e.swimming && !e.ship && !e.sea) || (isRising(e, tms) && !e.submerged)) continue;
           const nr = nearOnRiver(e.x, e.y, e);
           if (nr.d > st.range || !canSee(u, e)) continue;   // (fog / grave mist hide it from the boat, weather.js)
           // each skiff may carry her own order (u.aim); without one she follows the hall's
@@ -2157,8 +2158,9 @@ export function updateGame(g, dt) {
             dealDamage(g, e2, st.dmg * 0.55, "phys", false, false, t.id);
           }
         }
+        // (the burst stays on the ground; a flier takes it only as the mark)
         for (const e2 of g.enemies) {
-          if (e2.dead || e2.flying) continue;
+          if (e2.dead || (e2.flying && e2 !== mark)) continue;
           const dd = Math.hypot(e2.x - mark.x, e2.y - mark.y);
           if (dd > (st.splash || 1)) continue;
           if (st.burn) { e2.burnUntil = tms + st.burnDur; e2.burnDps = st.burn; e2.burnSrc = t.id; }
@@ -2168,7 +2170,7 @@ export function updateGame(g, dt) {
           if (st.slow) { mark.slowUntil = tms + st.slowDur; mark.slowPct = Math.max(mark.slowPct, st.slow); }
           if (st.burn && !st.splash) { mark.burnUntil = tms + st.burnDur; mark.burnDps = st.burn; mark.burnSrc = t.id; }
         }
-        if (st.poolDps) g.grounds.push({ src: t.id, x: mark.x, y: mark.y, r: st.poolR || 30, dps: st.poolDps, until: tms + (st.poolDur || 2600), kind: "lava" });
+        if (st.poolDps && !mark.flying) g.grounds.push({ src: t.id, x: mark.x, y: mark.y, r: st.poolR || 30, dps: st.poolDps, until: tms + (st.poolDur || 2600), kind: "lava" });
       });
     }
 
