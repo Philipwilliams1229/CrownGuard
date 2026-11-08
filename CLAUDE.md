@@ -707,8 +707,9 @@ iPhone/iPad emulation, not yet on a real iOS device.
 ## The hero's button arms his move (2026-11-08, owner request)
 
 Tapping the hero's button in the tray's foot, or the hero himself on the
-field, opens his menu AND arms the move: the next tap on the field sends him
-there (onto the road, as before) and folds the menu away. The menu's Move
+field, opens his menu AND arms the move: the first tap on the field sends him
+there (onto the road, as before) and leaves the menu open; the next tap on
+the field (or his button again) folds it away. The menu's Move
 (flag) plank is gone. `openHeroMenu` (CrownguardGame.jsx) does both; a
 `useEffect` on `talentsOpen` (up with the other hooks, above the screens'
 early returns) clears `g.rallyFor === "hero"` whenever the menu folds by any

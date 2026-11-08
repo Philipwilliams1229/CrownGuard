@@ -679,8 +679,9 @@ export default function Crownguard() {
       // he goes only where the foe walks: a tap off the road sends him to
       // the nearest spot on it (owner, 2026-11-07)
       if (b) { const p = onRoad(x, y); b.rally = p; g.effects.push({ type: "levelup", x: p.x, y: p.y, ttl: 500 }); }
+      // his menu stays open (owner, 2026-11-08): the next tap on the field
+      // folds it away, as any field tap does, and so does his button
       g.rallyFor = null;
-      setTalentsOpen(false);   // his menu folds away once he has his orders
       return;
     }
     if (g.rallyFor === "militia") {
