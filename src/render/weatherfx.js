@@ -14,11 +14,16 @@
 //              thick over the wood and the water), a small ragged pocket of
 //              clearer air round every hall; as it burns off it
 //              breaks into patches and warms, with shafts of morning light
-//   storm      a cooler, darker sky with cloud shadow racing over, slanted
-//              rain in two depths, splashes and puddles on the road (that
-//              glint in the flash); a strike gathers static (a glow on the
-//              ground, sparks drawn in, a faint leader down the bolt's own
-//              path), then a forked bolt from the top: a white flash frame,
+//   storm      a cooler, darker sky with cloud shadow racing over; a downpour
+//              in depths (far and mid sheets, three sizes of near drops) that
+//              gusts lean over while a curtain of heavier rain sweeps across,
+//              spray in the heaviest; the GROUND soaks with w.wet (the road
+//              darkens and holds the sky, puddles open and grow, rivers run
+//              brown with foam, stretches of road flood: w.floods), rings on
+//              every water, splashes off the road, roofs and shoulders; burning
+//              foes steam, Stormcaller halls crackle, a stroke runs on to a foe
+//              (wxarc), a wet charge fizzles (wxfizzle); a strike gathers
+//              static, then a forked bolt from the top: a white flash frame,
 //              a flicker, an afterglow and a branching scorch
 //   gravemist  low green-grey banks hugging the road, lobes that curl and
 //              sway along its bends, wisps rising, now and then a face or a
@@ -30,7 +35,8 @@
 //              smoke; the landing flashes, throws chips and a dust ring (the
 //              engine leaves the scorch)
 // Plus: halls set burning (flame tongues after render/flames.js and smoke),
-// dazed soldiers (a wheel of electric stars), and a small toast — the kind's
+// halls struck by lightning (t.shockLeft: crackles and a blue glow), horses
+// spooked by thunder (wxspook), dazed soldiers (a wheel of electric stars), and a small toast — the kind's
 // icon and name — for three seconds as a weather comes in.
 //
 // Cost: every wash is a baked layer or a pattern fill (render/weatherbake.js
@@ -1027,14 +1033,14 @@ const hallShocks = (ctx, g) => {
     if (!(h.shockLeft > 0)) continue;
     const q = clamp01(h.shockLeft / (h.shockMax || 3000)), fr = Math.floor(tms / 45), id = h.id | 0;
     ctx.globalAlpha = step4(0.35 + 0.65 * q);
-    put(ctx, B.staticGlow(15, q > 0.5 ? 2 : 1), h.x, h.y - 1);
+    put(ctx, B.staticGlow(20, q > 0.5 ? 2 : 1), h.x, h.y - 1);
     ctx.globalAlpha = 1;
-    for (let i = 0; i < (q > 0.5 ? 3 : 2); i++) {
+    for (let i = 0; i < (q > 0.5 ? 4 : 2); i++) {
       if ((fr + i + id) % 4 === 0) continue;
-      const ax = h.x + (B.h2(fr + id, i, 320) - 0.5) * 26, ay = h.y - 4 - B.h2(fr + id, i, 321) * 46;
-      const bx = ax + (B.h2(fr + id, i, 322) - 0.5) * 16, by = ay + (B.h2(fr + id, i, 323) - 0.5) * 16;
-      const pts = jag(ax, ay, bx, by, fr * 5 + i + id, 2.5);
-      zap(ctx, pts, 1, "#5a74e0"); zap(ctx, pts, 0.5, "#ffffff");
+      const ax = h.x + (B.h2(fr + id, i, 320) - 0.5) * 28, ay = h.y - 4 - B.h2(fr + id, i, 321) * 48;
+      const bx = ax + (B.h2(fr + id, i, 322) - 0.5) * 24, by = ay + (B.h2(fr + id, i, 323) - 0.5) * 22;
+      const pts = jag(ax, ay, bx, by, fr * 5 + i + id, 3);
+      zap(ctx, pts, 1.5, "#4a64d0"); zap(ctx, pts, 1, "#a8c0ff"); zap(ctx, pts, 0.5, "#ffffff");
       putC(ctx, B.mote("#ffffff", "#7c98e8"), bx - 0.75, by - 0.75);
     }
   }
