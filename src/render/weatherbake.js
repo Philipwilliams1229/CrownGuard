@@ -618,3 +618,293 @@ export const thinBand = (w, ramp, a) => memo(`thin|${w}|${ramp}|${a}`, () => {
   }
   return G.done();
 });
+
+// ---- STORM: the downpour (the 2026-11-08 rain pass) -------------------------------
+// Rain falls at a slant dx/dy = -lean (the wind blows to -x); a gust leans it
+// further, so every streak is baked at the four leans of RAIN_LEAN. The far
+// and mid sheets live in the 1-unit layer (1 texel a unit: a streak there is
+// a whole unit wide, so it survives a screen that shows the board smaller
+// than RES); the near drops are stamped at the art grid, two art pixels wide.
+export const RAIN_LEAN = [0.25, 0.33, 0.42, 0.5];
+const streak = (set, x0, y0, L, s, body, head, a0, a1, side = null) => {
+  for (let i = 0; i < L; i++) {
+    const x = x0 - i * s, y = y0 + i, a = Math.round(a0 + (a1 - a0) * (i / L));
+    if (i >= L - 2) set(x, y, head, Math.min(255, a1 + 25)); else set(x, y, body, a);
+    if (side) set(x + 1, y, side, Math.round(a * 0.5));
+  }
+};
+// far: short, dim and dense; mid: longer, brighter, with a lit head
+export const rainFar = (lean = 0) => sheet(`rf|${lean}`, 120, 120, (set, w, h) => {
+  for (let i = 0; i < 90; i++) streak(set, h2(i, 1, 53) * w, h2(i, 2, 53) * h, Math.round(5 + 5 * h2(i, 3, 53)), RAIN_LEAN[lean], C("#8a9abc"), C("#aebcd8"), 60, 150);
+}, 1);
+export const rainMid = (lean = 0) => sheet(`rm|${lean}`, 140, 140, (set, w, h) => {
+  for (let i = 0; i < 36; i++) streak(set, h2(i, 1, 55) * w, h2(i, 2, 55) * h, Math.round(11 + 8 * h2(i, 3, 55)), RAIN_LEAN[lean], C("#bccae2"), C("#eef4ff"), 90, 205);
+}, 1);
+// a near drop: v 0 short and thin, 1 long and two pixels wide, 2 the big close
+// ones; a cool dark pixel down its lee side so it reads on the pale road too
+export const rainDrop = (v, lean = 0) => memo(`drop2|${v}|${lean}`, () => {
+  const s = RAIN_LEAN[lean], L = [10, 16, 24][v] * PX, G = grid(Math.ceil(L * s) + 4, L);
+  const body = C(v === 2 ? "#dde7f8" : "#c4d2ea"), head = C("#ffffff"), lee = C("#2e3a52");
+  for (let i = 0; i < L; i++) {
+    const x = Math.round((L - i) * s) + 1, a = Math.round((v ? 70 : 50) + (v ? 170 : 150) * (i / L));
+    G.set(x, i, i >= L - 3 ? head : body, i >= L - 3 ? 250 : a);
+    if (v) G.set(x + 1, i, body, Math.round(a * (v === 2 ? 0.85 : 0.55)));
+    if (v) G.set(x + 2, i, lee, Math.round(a * 0.35));
+  }
+  return { cv: G.done(), ax: 0, ay: 0 };
+});
+// a curtain of heavier rain swept across by a gust: a slanted band (at the
+// gust's full lean), streaky along the slant, lumpy along its length; stepped
+// and dithered, 1 texel a unit. Its centre line is at x = CURTAIN_W/2 at mid-height.
+export const CURTAIN_W = 240;
+export const rainCurtain = () => memo("curtain2", () => {
+  const s = RAIN_LEAN[3], tw = Math.ceil(CURTAIN_W + s * H) + 4, G = grid(tw, H);
+  const cols = [C("#7c889e"), C("#8a96ac"), C("#9ca8bc"), C("#b0bacb")], al = [0, 30, 50, 70, 90];
+  for (let y = 0; y < H; y++) for (let x = 0; x < tw; x++) {
+    const u = (x - s * (H / 2 - y) - (tw - CURTAIN_W) / 2) / CURTAIN_W;    // 0..1 across the band
+    if (u <= 0 || u >= 1) continue;
+    const prof = Math.pow(Math.sin(u * Math.PI), 1.4);
+    const along = x + s * y;                                                // constant along a streak
+    const v = prof * (0.2 + 0.35 * vnoise(along, 0, 7, 1, 321) + 0.6 * vnoise(along * 0.6, y, 34, 60, 322));
+    let lv = Math.min(1, v) * 4, b = Math.floor(lv);
+    if (lv - b > thr(x, y)) b++;
+    b = Math.min(4, b);
+    if (b > 0) G.set(x, y, cols[b - 1], al[b]);
+  }
+  return plain(G.done());
+});
+// spray off the ground in the heaviest rain: low pale drift (2 units a texel)
+export const rainSpray = () => drift("spray2", 240, 140, 40, 28, 0.5, 0.9, [0, 18, 32, 46, 58], { lit: "#e2e8f2", base: "#bcc8d8", shade: "#9aa8bc", core: "#e8eef6" }, 51);
+
+// a splash: 0 the drop arriving, 1 a crown flicking up, 2 a ring and the
+// crown's drops falling back, 3 a faint broken ring. big: a road / puddle splash
+export const splash = (f, big = 0) => memo(`spl2|${f}|${big}`, () => {
+  const G = grid(20, 13), cx = 10, cy = 9, hi = C("#f4f8ff"), lo = C("#a8bcd8");
+  const P = (pts, k, a = 255) => { for (const [x, y] of pts) G.set(cx + x, cy + y, k, a); };
+  if (f === 0) { P([[0, 0], [1, 0], [0, -1], [1, -1]], hi); P([[0, -3], [1, -4]], lo, 180); }
+  if (f === 1) {
+    P([[-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [3, 0]], lo, 230);
+    P([[-2, -2], [3, -2], [-1, -4], [2, -4], [0, -5]], hi);
+    if (big) P([[-4, -3], [5, -3], [-3, -5], [4, -6]], hi, 230);
+  }
+  if (f >= 2) {
+    const rx = (f === 2 ? 3.5 : 5.5) * (big ? 1.3 : 1), ry = rx * 0.42;
+    for (let a = 0; a < 44; a++) { const t = (a / 44) * Math.PI * 2; if (f === 3 && a % 3 === 0) continue; G.set(cx + 0.5 + Math.cos(t) * rx, cy + Math.sin(t) * ry, Math.sin(t) > 0 ? hi : lo, f === 2 ? 230 : 130); }
+    if (f === 2) P(big ? [[-5, -3], [6, -2], [-3, -5], [4, -4]] : [[-3, -2], [4, -3]], hi, 210);
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
+// a puddle on the road (wu units across, 4 shapes): soaked mud round it, the
+// far lip dark, dark water holding a band of the storm's sky and a glint,
+// the near rim catching the light
+export const puddle = (wu, v) => memo(`pud2|${wu}|${v}`, () => {
+  const rx = (wu / 2) * PX, ry = rx * 0.42, pad = 7, G = grid(rx * 2 + pad * 2, ry * 2 + pad * 2), cx = G.W / 2, cy = G.H / 2;
+  const halo = C("#262329"), deep = C("#1f283a"), mid = C("#2e3c58"), sky = C("#6a7ea2"), glint = C("#d0dcf0"), lip = C("#1a161c"), rim = C("#b4c4dc");
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry, d = Math.hypot(dx, dy);
+    const e = 0.8 + 0.3 * vnoise(x, y, Math.max(3, rx * 0.5), Math.max(2, ry * 0.7), 90 + v);
+    if (d > e + 0.4) continue;
+    if (d > e) { if (thr(x, y) < ((e + 0.4 - d) / 0.4) * 0.85) G.set(x, y, halo, 105); continue; }
+    const edge = d > e - (rx > 14 ? 0.12 : 0.18);
+    if (edge) { G.set(x, y, dy < 0 ? lip : rim, dy < 0 ? 210 : 190); continue; }
+    const band = dx * 0.55 + dy * 0.45;
+    const k = band > -0.44 && band < -0.36 && Math.abs(dy) < 0.45 ? glint : band > -0.6 && band < -0.18 ? sky : band < 0.3 ? mid : deep;
+    G.set(x, y, k, 220);
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
+// a raindrop's ring in a puddle or on open water: 4 frames, the drop's
+// strike, then a ring spreading and breaking up (the near half lit)
+export const dimple = (f, big = 0) => memo(`dim|${f}|${big}`, () => {
+  const G = grid(18, 9), cx = 9, cy = 4.5, hi = C("#e6eef8"), lo = C("#9fb6d0");
+  if (f === 0) { G.set(cx, cy, hi); G.set(cx - 1, cy, hi); G.set(cx, cy - 2, hi, 200); return { cv: G.done(), ax: cx, ay: cy }; }
+  const rx = [0, 2.2, 3.8, 5.6][f] * (big ? 1.25 : 1), ry = rx * 0.42;
+  for (let a = 0; a < 40; a++) {
+    const t = (a / 40) * Math.PI * 2;
+    if (f === 3 && a % 3 === 0) continue;
+    G.set(cx + Math.cos(t) * rx, cy + Math.sin(t) * ry, Math.sin(t) > 0 ? hi : lo, f === 1 ? 235 : f === 2 ? 190 : 120);
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
+// a curd of foam riding a swollen river: 16 headings, 3 sizes; a lumpy
+// fleck drawn out along the flow, bright on its upper-left, grey under
+export const foam = (hd, v) => memo(`foam3|${hd}|${v}`, () => {
+  const a = (hd / 16) * Math.PI * 2, L = (3.5 + v * 1.5) * PX, Wd = (0.9 + v * 0.3) * PX, n = Math.ceil(L) + 4, G = grid(n * 2, n * 2), c = n;
+  const ca = Math.cos(a), sa = Math.sin(a), hi = C("#f4f8f4"), mid = C("#d2dcd6"), lo = C("#8ea0a0");
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    const dx = x + 0.5 - c, dy = (y + 0.5 - c) / 0.8;
+    const u = (dx * ca + dy * sa) / L, w = (-dx * sa + dy * ca) / Wd, d = Math.hypot(u, w);
+    const e = 0.75 + 0.35 * vnoise(x, y, 2, 2, 350 + hd * 3 + v);
+    if (d > e) continue;
+    if (d > e * 0.7 && bay(x, y) > 0.6) continue;
+    G.set(x, y, dy > 1 && d > e * 0.5 ? lo : d < e * 0.55 ? hi : mid, 235);
+  }
+  return { cv: G.done(), ax: c, ay: c };
+});
+
+// The soaked road, baked once per board at 1 texel a unit: `film` darkens the
+// road's stone (and the bridges' decks), `sheen` is the storm's sky caught in
+// the wet in low patches and a few glints. `segs` are the road's segments
+// (path.js SEGS); nothing past x = xMax (the gate). `rects` are the 60 x 40
+// tiles that hold any road: the painter draws only those.
+const TILE_W = 60, TILE_H = 40;
+// a copy on a plain canvas (a grid's is willReadFrequently, so CPU-backed):
+// a big layer stamped every frame stays on the GPU
+const plain = (src) => { const cv = mk(src.width, src.height); cv.getContext("2d").drawImage(src, 0, 0); return cv; };
+const tilesOf = (G) => {
+  const out = [];
+  for (let ty = 0; ty < G.H; ty += TILE_H) for (let tx = 0; tx < G.W; tx += TILE_W) {
+    let any = false;
+    for (let y = ty; y < Math.min(G.H, ty + TILE_H) && !any; y++) for (let x = tx; x < Math.min(G.W, tx + TILE_W); x++) if (G.al(x, y)) { any = true; break; }
+    if (any) out.push([tx, ty, Math.min(TILE_W, G.W - tx), Math.min(TILE_H, G.H - ty)]);
+  }
+  return out;
+};
+export const wetRoad = (key, segs, xMax) => memo(`wetroad2|${key}`, () => {
+  const D = new Float32Array(W * H).fill(99), R = 36;
+  for (const s of segs) {
+    const vx = s.x2 - s.x1, vy = s.y2 - s.y1, l2 = vx * vx + vy * vy || 1;
+    const x0 = Math.max(0, Math.floor(Math.min(s.x1, s.x2) - R)), x1 = Math.min(W - 1, Math.ceil(Math.max(s.x1, s.x2) + R));
+    const y0 = Math.max(0, Math.floor(Math.min(s.y1, s.y2) - R)), y1 = Math.min(H - 1, Math.ceil(Math.max(s.y1, s.y2) + R));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const t = Math.max(0, Math.min(1, ((x + 0.5 - s.x1) * vx + (y + 0.5 - s.y1) * vy) / l2));
+      const d = Math.hypot(x + 0.5 - s.x1 - vx * t, y + 0.5 - s.y1 - vy * t);
+      if (d < D[y * W + x]) D[y * W + x] = d;
+    }
+  }
+  // one pass: the film (dark) with the sky's sheen set into it; the sheen alone
+  // again for the lightning's flash
+  const F = grid(W, H), S = grid(W, H), film = C("#141a28"), sh = [C("#3e4c6a"), C("#5a6c90"), C("#8a9cc0")], gl = C("#dfe8fa");
+  for (let y = 0; y < H; y++) for (let x = 0; x < xMax; x++) {
+    const d = D[y * W + x];
+    if (d > 34) continue;
+    const v = d < 27 ? 1 : 1 - (d - 27) / 7;
+    if (v < thr(x, y)) continue;
+    let k = film, a = 230;
+    if (d <= 30) {
+      const n = 0.55 * vnoise(x, y, 22, 8, 301) + 0.45 * vnoise(x, y, 7, 3, 302);
+      let lv = sstep(0.6, 0.84, n) * 3, b = Math.floor(lv);
+      if (lv - b > thr(x + 1, y)) b++;
+      b = Math.min(3, b);
+      if (b > 0) { k = sh[b - 1]; a = 255; S.set(x, y, k, [0, 90, 130, 170][b]); }
+      else if (h2(x, y, 303) < 0.01 && d < 26) { k = gl; a = 255; S.set(x, y, gl, 220); }
+    }
+    F.set(x, y, k, a);
+  }
+  F.done(); S.done();
+  return { wet: plain(F.cv), sheen: plain(S.cv), rects: tilesOf(F) };
+});
+// a swollen river's muddy churn, 1 texel a unit, where `inWater(x, y)` holds
+// inside `box` [x0, y0, x1, y1]: brown silt in streaks, stepped
+export const riverSilt = (key, inWater, boxes) => memo(`silt3|${key}`, () => {
+  const G = grid(W, H), ks = [C("#6a4c2c"), C("#8c6638"), C("#b08650")];
+  for (const [bx0, by0, bx1, by1] of boxes) {
+    for (let y = Math.max(0, by0 | 0); y < Math.min(H, by1); y++) for (let x = Math.max(0, bx0 | 0); x < Math.min(W, bx1); x++) {
+      if (G.al(x, y) || !inWater(x + 0.5, y + 0.5)) continue;
+      const n = 0.6 * vnoise(x, y, 16, 7, 311) + 0.4 * vnoise(x, y, 5, 3, 312);
+      const b = n > 0.68 ? 2 : n > 0.46 ? 1 : 0;
+      if (b === 0 && thr(x, y) > 0.7) continue;
+      G.set(x, y, ks[b], [170, 200, 185][b]);
+    }
+  }
+  G.done();
+  return { cv: plain(G.cv), rects: tilesOf(G) };
+});
+
+// steam: off a doused burning foe (a wisp, 6 frames rising and coming apart)
+// and off a powder charge that fizzled (a puff, sizes in units, 2 shapes)
+export const steamWisp = (f) => memo(`stw|${f}`, () => {
+  const G = grid(12 * PX, 18 * PX), k = C("#eef2f6"), k2 = C("#b4bec8");
+  const up = f / 5;
+  for (let s = 0; s < 34; s++) {
+    const u = s / 34;
+    const x = 6 * PX + Math.sin(u * 5 + f * 0.6) * (1 + u * 3) * PX;
+    const y = (17 - u * (9 + up * 6)) * PX;
+    if (h2(s, f, 331) < up * 0.6 + u * 0.25) continue;
+    const w = u < 0.35 ? 3 : 2;
+    for (let i = 0; i < w; i++) G.set(x + i, y, i === 0 ? k : k2, Math.round(215 * (1 - up * 0.45)));
+  }
+  return { cv: G.done(), ax: 6 * PX, ay: 17 * PX };
+});
+const STEAM = [C("#f2f4f6"), C("#ccd4dc"), C("#a2acb8")];
+export const steamPuff = (r, v) => memo(`stp|${r}|${v}`, () => {
+  const R = r * PX, G = grid(R * 2.4 + 2, R * 2.4 + 2), c = G.W / 2;
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    const nx = (x + 0.5 - c) / R, ny = (y + 0.5 - c) / R, d = Math.hypot(nx, ny);
+    const e = 0.8 + 0.3 * vnoise(x, y, Math.max(2, R * 0.45), Math.max(2, R * 0.45), 340 + v);
+    if (d > e) continue;
+    const q = d / e;
+    if (bay(x, y) >= 1.1 - q * 0.55) continue;
+    const l = -(nx * 0.55 + ny * 0.64);
+    G.set(x, y, STEAM[q < 0.5 && l > -0.2 ? 0 : l > 0.2 || q < 0.7 ? 1 : 2], 225);
+  }
+  return { cv: G.done(), ax: c, ay: c };
+});
+// the dud: a powder charge lying sodden where it fell, its fuse drowned
+export const dudKeg = () => memo("dud", () => {
+  const G = grid(16, 16), cx = 7.5, cy = 9.5, R = 5;
+  const k = [C("#5a5660"), C("#38343e"), C("#221e28")], hi = C("#a8b4cc");
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const dx = (x + 0.5 - cx) / R, dy = (y + 0.5 - cy) / R, d = Math.hypot(dx, dy);
+    if (d > 1) continue;
+    const l = -(dx * 0.6 + dy * 0.8);
+    G.set(x, y, k[l > 0.35 ? 0 : l > -0.3 ? 1 : 2]);
+  }
+  G.set(5, 6, hi); G.set(6, 6, hi); G.set(5, 7, hi);                     // wet glint
+  G.set(9, 4, C("#6a5038")); G.set(10, 3, C("#6a5038")); G.set(11, 3, C("#3a3030"));   // the drowned fuse
+  return { cv: G.done(INK), ax: 8, ay: 10 };
+});
+
+// ---- the flooded road (engine/weather.js w.floods) -------------------------------
+// Standing floodwater is built in a 1-unit layer: rim discs first (a pale
+// muddy scum line), water discs over them along the flooded centre line,
+// then the water's texture laid source-atop. r in units; kind 0 rim, 1 water.
+export const floodDisc = (r, kind) => memo(`fd|${r}|${kind}`, () => {
+  const R = r + (kind ? 0 : 2), n = Math.ceil(R) * 2 + 2, G = grid(n, n), c = n / 2;
+  const k = C(kind ? "#4a4436" : "#a2967a");
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const dx = x + 0.5 - c, dy = (y + 0.5 - c) / 0.8, d = Math.hypot(dx, dy);
+    const e = R * (0.9 + 0.12 * vnoise(Math.atan2(dy, dx) * 5 + 30, 0, 1, 1, 360 + r));
+    if (d > e) continue;
+    if (d > e - 2 && thr(x, y) < (d - (e - 2)) / 2) continue;      // a dithered, ragged edge
+    G.set(x, y, k, 255);
+  }
+  return { cv: plain(G.done()), r: c };
+});
+// the floodwater's face, periodic: muddy brown-grey, darker deeps, the storm's
+// sky lying in long pale bands, specks of scum (1 texel a unit)
+export const floodTex = () => memo("ftex2", () => {
+  const tw = 96, th = 64, G = grid(tw, th);
+  const deep = C("#3a3830"), base = C("#57513f"), silt = C("#6e6450"), sky = C("#6c7586"), hi = C("#929eb2"), scum = C("#b0a684");
+  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+    const n = 0.6 * vnoise(x, y, 24, 16, 371, 4, 4) + 0.4 * vnoise(x, y, 8, 8, 372, 12, 8);
+    // short, broken streaks of the storm's sky lying on it
+    const b = vnoise(x, y, 24, 4, 373, 4, 16) * (0.55 + 0.45 * vnoise(x, y, 12, 8, 375, 8, 8));
+    let k = n < 0.36 ? deep : n > 0.66 ? silt : base;
+    if (b > 0.58) k = b > 0.68 && thr(x, y) > 0.5 ? hi : sky;
+    if (h2(x, y, 374) < 0.012) k = scum;
+    G.set(x, y, k, 255);
+  }
+  return plain(G.done());
+});
+// a wake round the legs of someone wading (rx units; 2 frames): a broken
+// ring, bright on its near side
+export const wake = (rx, f) => memo(`wk|${rx}|${f}`, () => {
+  const R = rx * PX * (f ? 1.15 : 1), G = grid(R * 2 + 6, R + 6), cx = G.W / 2, cy = G.H / 2, hi = C("#e2e8ee"), lo = C("#9aa4a8");
+  const n = Math.ceil(R * 7);
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    if (Math.floor((i / n) * 14 + f) % 4 === 0) continue;
+    G.set(cx + Math.cos(t) * R, cy + Math.sin(t) * R * 0.42, Math.sin(t) > 0 ? hi : lo, Math.sin(t) > 0 ? 230 : 150);
+  }
+  return { cv: G.done(), ax: cx, ay: cy };
+});
+// a horse startled by the thunder: white dashes flung up and out (3 frames)
+export const startle = (f) => memo(`stl|${f}`, () => {
+  const G = grid(30, 22), cx = 15, cy = 19, k = C("#ffffff"), k2 = C("#c8d4ea");
+  for (let i = 0; i < 5; i++) {
+    const a = -Math.PI / 2 + (i - 2) * 0.48, r0 = 5 + f * 3, L = f === 2 ? 2 : 4;
+    for (let s = 0; s < L; s++) { const x = cx + Math.cos(a) * (r0 + s), y = cy + Math.sin(a) * (r0 + s); G.set(x, y, s < 2 ? k : k2); G.set(x + 1, y, s < 2 ? k : k2, 200); }
+  }
+  return { cv: G.done(INK), ax: cx, ay: cy };
+});
