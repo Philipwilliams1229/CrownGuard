@@ -555,6 +555,9 @@ rest rate (2.5%, hero 3%) while archers shot him, so a lone crossbowman took
 56 s to kill a level-3 Garrison knight and never killed a Paladin. Any drop
 in health since the last tick counts as harm. Paladins' flat `heal` and the
 Lifebinder are untouched (a lone archer still never fells a Paladin).
+Measured `--chapter iron --endure` seeds 1-2, better doctrine, against the
+magister change alone: 8473 / 7623 -> 7801 / 7638 (noise; all 15 held). The
+sims' castle damage barely sees a knight's health. Provisional.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
