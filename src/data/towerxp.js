@@ -6,7 +6,14 @@
 //
 // What earns XP (all of it filed under the hall's kind, so selling a hall or
 // raising ten of them never loses or multiplies it by itself):
-//   - a kill the hall makes: 1 XP + a tenth of the foe's bounty (xpForKill)
+//   - harm the hall does (owner, 2026-11-08: the Trapsmith wore foes down
+//     but seldom had the kill): every foe is worth 1 XP + a tenth of its
+//     bounty (xpForKill), paid out as it is hurt — a blow that takes a
+//     fifth of its max health pays a fifth of that — and the hall that
+//     kills it takes whatever is left unpaid (the share the hero, the castle
+//     or the bands dealt). Overkill pays nothing, and a foe never pays more
+//     than its worth (healed and hurt again, `e.xpPaid` caps it). When halls
+//     alone fell a foe, the halls between them earn what one kill did before.
 //   - the Warden Mage, which kills little itself: a quarter of that for
 //     every foe that dies inside its aura (once a kill, however many Mages
 //     stand)

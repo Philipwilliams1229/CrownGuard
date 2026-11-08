@@ -446,16 +446,27 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
   const credited = Math.max(0, Math.min(dmg, e.hp));
   const src = srcId != null && g._towerById ? g._towerById.get(srcId) : null;
   if (src) { src.dmgOut = (src.dmgOut || 0) + credited; src.formDmg = (src.formDmg || 0) + credited; }
+  // each hall type learns from the harm it does (data/towerxp.js): a blow
+  // is worth its share of the foe's health in the foe's kill XP, so a hall
+  // that wears foes down (traps, burns) learns as one that finishes them;
+  // the killing blow takes whatever share is left (harm the hero, the
+  // castle or the bands did). `e.xpPaid` keeps a mended foe from paying twice.
+  if (src && !SANDBOX && g.towerXp && credited > 0 && e.maxHp > 0) {
+    const worth = xpForKill(e.bounty);
+    const share = Math.min(worth - (e.xpPaid || 0), (worth * credited) / e.maxHp);
+    if (share > 0) { addTowerXp(g, src.kind, share); e.xpPaid = (e.xpPaid || 0) + share; }
+  }
   e.hp -= dmg;
   // brief white flash on solid hits (DoT ticks are too small to strobe)
   if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;
   if (e.hp <= 0 && !e.dead) {
     if (src) src.kills = (src.kills || 0) + 1;
-    // each hall type learns from its kills (data/towerxp.js); the Warden
-    // Mage, who kills nothing herself, from every foe that falls in her aura
+    // the killing hall takes the rest of the foe's XP (its blows have paid
+    // their share above); the Warden Mage, who harms nothing herself, learns
+    // from every foe that falls in her aura (data/towerxp.js)
     if (!SANDBOX && g.towerXp) {
       const worth = xpForKill(e.bounty);
-      if (src) addTowerXp(g, src.kind, worth);
+      if (src) addTowerXp(g, src.kind, Math.max(0, worth - (e.xpPaid || 0)));
       if (src?.kind !== "support" && g.towers.some((tw) => tw.kind === "support" && Math.hypot(tw.x - e.x, tw.y - e.y) <= (getStats(tw).range || 0))) addTowerXp(g, "support", worth * ASSIST_SHARE);
     }
     // the hero learns only from deaths: his own kills in full, and a share

@@ -1216,7 +1216,7 @@ export default function Crownguard() {
       const gate = tierGate(sel.kind, tier, g);
       const pct = Math.min(100, Math.round((gate.have / Math.max(1, gate.need)) * 100));
       const waiting = tier === 4 ? Object.values(selDef.branches) : Object.values(selDef.branches[sel.branch]?.rank4 || {});
-      const how = sel.kind === "support" ? "every foe that falls in its aura" : sel.kind === "goldworks" ? "the wages it pays" : "its kills";
+      const how = sel.kind === "support" ? "every foe that falls in its aura" : sel.kind === "goldworks" ? "the wages it pays" : "the harm it does";
       return (
         <div className="cg-parch" style={{ padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
           <div className="cg-label" style={{ marginBottom: 2, color: "#7a6446" }}>Locked · {tier === 4 ? "paths" : "final forms"}</div>
