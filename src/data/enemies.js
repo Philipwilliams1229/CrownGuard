@@ -148,11 +148,14 @@ export const ENEMIES = {
   // 2026-11-08 (owner): hp 200 -> 300, and he stands off your soldiers at
   // `standOff` 50 (the archers' halt, nearer than their 80) so the column
   // he shields still fights inside his 80 ward ring while he hangs back.
+  // Later the same day (owner): the aegis comes every 3 s (was 8) but lays
+  // ONE shield a cast (`wardStep` 1) on everyone in reach, up to three (it
+  // used to refill all three at once).
   magister: {
     faction: "iron", hp: 300, speed: 58, bounty: 30, armor: 0, mres: 0.3, size: 17,
     name: "Aegis Magister", atk: 12, atkRate: 1000, castleDmg: 2,
-    wardEvery: 8000, wardHits: 3, wardRange: 80, packRange: 95, wardFx: "aegis", standOff: 50,
-    note: "A court battle-mage who marches inside the big columns. Every eight seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a physical blow whole, and no magic or fire gets through while one stands. Strip his shields with quick arrows and blades, then kill him before the next aegis (he keeps the column's pace, and hangs a few steps back once it meets your soldiers, still close enough to shield it); or break them with steel that hits many at once.",
+    wardEvery: 3000, wardHits: 3, wardStep: 1, wardRange: 80, packRange: 95, wardFx: "aegis", standOff: 50,
+    note: "A court battle-mage who marches inside the big columns. Every three seconds his aegis lays another blue shield on himself and every soldier around him, up to three each. Each shield swallows a physical blow whole, and no magic or fire gets through while one stands. Strip them faster than he lays them with quick arrows and blades, then kill him (he keeps the column's pace, and hangs a few steps back once it meets your soldiers, still close enough to shield it); or break them with steel that hits many at once.",
   },
   // Fewer and far heavier since 2026-09-29 (owner: "higher health, higher
   // physical damage resistance, squashes knights dead — this is where the

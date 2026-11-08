@@ -545,6 +545,12 @@ a soldier walks out to him. Measured `--chapter iron --endure`, seeds 1-2,
 better doctrine per level: chapter total 8079 / 8237 -> 8473 / 7623 castle
 damage (noise; per level the seeds disagree, e.g. ir5 975 -> 1209 on seed 1,
 1229 -> 956 on seed 2). All 15 held. The sims never single him out.
+Later the same day (owner) his aegis went to every 3 s (`wardEvery` 3000,
+was 8000) but lays ONE shield a cast (`wardStep` 1, enemy field read in
+update.js's ward loop) on everyone within 80, up to `wardHits` 3; before,
+each cast refilled all three. A warder without `wardStep` still refills.
+The ring and the ward sound play every cast. The Field Guide's row reads
+"+1 shield every 3.0s, up to 3". Provisional ("may need tweaking").
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer

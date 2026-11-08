@@ -460,7 +460,7 @@ const makeEnemy = (type, mult) => {
     immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush, mounted: !!d.mounted,
     trampleLeft: d.trample || 0, trampleMax: d.trample || 0, trampleEvery: d.trampleEvery || 0, trampleCd: null,
     rangedAtk: d.rangedAtk || 0, rangedRange: d.rangedRange || 0, rangedRate: d.rangedRate || 0, rangedCd: 0,
-    wardEvery: d.wardEvery || 0, wardHits: d.wardHits || 0, wardRange: d.wardRange || 0, wardCd: null, wardFx: d.wardFx || null, wardSelf: d.wardSelf !== false,
+    wardEvery: d.wardEvery || 0, wardHits: d.wardHits || 0, wardStep: d.wardStep || 0, wardRange: d.wardRange || 0, wardCd: null, wardFx: d.wardFx || null, wardSelf: d.wardSelf !== false,
     bannerRange: d.bannerRange || 0, bannerSpeedAmt: d.bannerSpeed || 0, bannerArmorAmt: d.bannerArmor || 0,
     bannerSpeed: 0, bannerArmor: 0,
     // Hollow Court traits: bells that summon, bodies that split or burst
@@ -1550,8 +1550,9 @@ export function updateGame(g, dt) {
       }
       // Battle Chaplain: lays a ward over the soldiers around him that eats one
       // blow each. Re-cast on a rhythm, so killing him is the only real answer.
-      // The Aegis Magister casts the same way, wider and slower, and tops
-      // every shield around him back up to three, his own among them.
+      // The Aegis Magister casts the same way, wider, and lays one more shield
+      // (`wardStep`) on everyone around him, up to three, his own among them;
+      // a warder with no wardStep tops every shield back up to wardHits.
       if (e.wardEvery && e.silencedUntil <= tms) {
         e.wardCd = (e.wardCd ?? e.wardEvery * (e.wardFx === "aegis" ? 0.25 : 0.5)) - sdt * 1000;
         if (e.wardCd <= 0) {
@@ -1560,8 +1561,9 @@ export function updateGame(g, dt) {
           sfx.play("ward");
           for (const e2 of g.enemies) {
             if (e2.dead || e2.neutral || (e2 === e && !e.wardSelf) || Math.hypot(e2.x - e.x, e2.y - e.y) > e.wardRange) continue;
-            e2.guard = Math.max(e2.guard, e.wardHits);
-            e2.guardFlash = tms + 400;
+            const was = e2.guard || 0;
+            e2.guard = e.wardStep ? Math.min(e.wardHits, was + e.wardStep) : Math.max(was, e.wardHits);
+            if (e2.guard > was) e2.guardFlash = tms + 400;
           }
         }
       }
