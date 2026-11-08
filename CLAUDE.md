@@ -721,6 +721,19 @@ castle or militia). Picking an ability hands the aim to it. A fallen hero's
 menu opens without arming, and a hero who falls while armed is disarmed.
 Checked in headless Chromium (mouse at 1180x820, touch at 844x390).
 
+## A hall dropped where it can't stand waits on the board (2026-11-08, owner request)
+
+Dragging a hall out of the tray: the picture riding above the finger has no
+dark socket behind it now (a drop shadow only). A finger that lifts where the
+hall can't stand (road, water, too near another hall) no longer loses it: the
+ghost stays there in red (`park`, `parkRef` / `parked` in CrownguardGame.jsx)
+and the ribbon says to drag it to a clear spot. A finger dragged ANYWHERE on
+the board then nudges the parked hall by its own movement (`dragRef.nudge`,
+so the hall never hides under the finger), and lifting builds it if the spot
+is clear, else it waits again; a plain tap still tries the tapped spot. The
+✕, the tile tapped again or another hall picked drops it. A mouse is
+unchanged. Checked in headless Chromium with touch events; not yet on a device.
+
 ## Halls keep their facing at rest (2026-11-07, owner request)
 
 A hall's crew faces the way of its last shot and HOLDS it when no foe is in
