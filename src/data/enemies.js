@@ -124,9 +124,13 @@ export const ENEMIES = {
     note: "Plate over padding, and too disciplined to falter — frost and briars slow him not at all. Magic still bites.",
   },
   cavalier: {
-    faction: "iron", hp: 120, speed: 120, bounty: 14, armor: 0.1, size: 19,
+    // 2026-11-08 (owner): hp 120 -> 180, armor 0.1 -> 0.2 (the horse's barding:
+    // arrows still bite), and half the time the knight survives his horse's
+    // death and fights on foot (`unhorsed`, plate that turns steel)
+    faction: "iron", hp: 180, speed: 120, bounty: 14, armor: 0.2, size: 19,
     name: "Cavalier", atk: 25, atkRate: 800, castleDmg: 2, trample: 1, mounted: true,
-    note: "A charging lance rides the first knight down and gallops on. Only the second blocker holds him. Horses ride round a siege ram, so the cavalry surge comes first and the ram and its column follow.",
+    splitInto: ["unhorsed", 1], splitDrop: true, splitChance: 0.5, deathSkin: "cavalierMount",
+    note: "A charging lance rides the first knight down and gallops on. Only the second blocker holds him. Horses ride round a siege ram, so the cavalry surge comes first and the ram and its column follow. Kill the horse and, half the time, its knight rolls clear and fights on foot in heavy plate.",
   },
   chaplain: {
     faction: "iron", hp: 175, speed: 62, bounty: 18, armor: 0.1, mres: 0.3, size: 16,
@@ -172,6 +176,13 @@ export const ENEMIES = {
     // reach of a war-eagle break off to lance her, and a flight gangs up
     airAtk: 60, airReach: 52,
     note: "A knight on a warbred gryphon, armored wing to talon. It sails over every blocker you have, and its plate turns arrows. It hunts your war-eagles in the air, and a flight of them will gang up on one. Bring it down and the knight on its back drops to the road and marches on.",
+  },
+  // a cavalier's knight who outlived his horse (owner, 2026-11-08): slower
+  // than the saddle, but in full plate that turns arrows and blades
+  unhorsed: {
+    faction: "iron", hp: 110, speed: 62, bounty: 7, armor: 0.5, size: 17,
+    name: "Unhorsed Knight", atk: 24, atkRate: 900, castleDmg: 1,
+    note: "A cavalier who lived through his horse's fall. On foot he is slow, but his plate turns half of every arrow and blade. Magic goes straight through it.",
   },
   unseated: {
     faction: "iron", hp: 100, speed: 66, bounty: 8, armor: 0.3, size: 17,

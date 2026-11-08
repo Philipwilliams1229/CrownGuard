@@ -982,6 +982,8 @@ export const IRON_RIGS = {
   chaplain: { kind: "ironFoot", box: { hw: 18, up: 32, down: 4 }, fightN: 4, p: { look: "chaplain", h: 23, skin: SKIN, cloth: OX, cloth2: "#e0d8c4", hair: "#c8c0b0", wcol: "#6c7280" } },
   magister: { kind: "ironFoot", box: { hw: 20, up: 37, down: 4 }, fightN: 4, p: { look: "magister", h: 23, skin: SKIN, cloth: OX, cloth2: "#4a4c58", hair: BLUED, col: "#9ab6d8", wcol: "#34363f" } },
   unseated: { kind: "ironFoot", box: { hw: 19, up: 32, down: 4 }, fightN: 4, p: { look: "unseated", h: 23.5, skin: SKIN, cloth: OX, cloth2: BLUED, hair: BLUED, cape: "#6a2226", mane: "#b08850", wcol: "#dde2ea", shcol: OX } },
+  // the cavalier's knight on foot: the unseated knight's kit, the cavalier's caparison red
+  unhorsed: { kind: "ironFoot", box: { hw: 19, up: 32, down: 4 }, fightN: 4, p: { look: "unseated", h: 23.5, skin: SKIN, cloth: OX, cloth2: BLUED, hair: BLUED, cape: "#7a2a2c", mane: "#b08850", wcol: "#dde2ea", shcol: OX } },
   marshal: { kind: "ironFoot", box: { hw: 25, up: 46, down: 4 }, fightN: 4, p: { look: "marshal", h: 30, skin: SKIN, cloth: OX, cloth2: "#646a78", hair: "#5a606e", cape: "#6a2226", plume: "#e8e0cc", wcol: "#c4c8d0", shcol: OX } },
 };
 // The crown's Crossbow Company (the Knights Errant's second form; a garrison

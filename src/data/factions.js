@@ -85,7 +85,7 @@ export const FACTIONS = {
     tag: "AN ARMY",
     tagColor: "#9ab6d8",
     blurb: "Not a horde — a war machine. Shield walls, crossbows that outrange your knights, gryphons overhead, battle-mages who shield whole columns, and siege engines nothing can slow.",
-    types: ["levy", "crossbow", "cavalier", "sergeant", "gryphon", "unseated", "chaplain", "magister", "ram", "marshal"],
+    types: ["levy", "crossbow", "cavalier", "sergeant", "gryphon", "unseated", "unhorsed", "chaplain", "magister", "ram", "marshal"],
     endlessBoss: "marshal",
     // An Aegis Magister marches inside any wave that has grown big: one for
     // every `per` heads of rank and file, up to `max`, from war-wave `from`

@@ -420,11 +420,15 @@ const destrier = (ctx, p) => {
     blob(c0, [[2.0, -18.6, 1], [2.8, -20.8], [3.8, -20.4], [3.8, -18.4, 1]], darken(cape, 0.35), { hi: 0.35, then: (c) => dab(c, 2.8, -20.4, 0.6, 0.6, BR) });
     // the reins, bit to fist
     const bit = add(rot([5.3 * 1.12, 4.5 * 1.12], [0, 0], ha), P0);
-    part(c0, (c) => polyline(c, [bit, [bit[0] - 4, bit[1] + 1.2], add(seat, rein)], 0.55, iron));
-    c0.save(); c0.translate(...seat);
-    const thrust = fight ? k.thrust : 0;
-    rider(c0, p, { lean, lance: k.lance, hand: [2.8 + thrust + (crown ? 1 : 0), -5.8 + (fight && k.lance < -0.3 ? -0.8 : 0)], rein, fl: k.fl, len: 23, log: p.log });
-    c0.restore();
+    // (p.riderless: the cavalierMount skin, the horse its death crumbles
+    // in once the knight has rolled clear: no reins in hand, no rider)
+    if (!p.riderless) {
+      part(c0, (c) => polyline(c, [bit, [bit[0] - 4, bit[1] + 1.2], add(seat, rein)], 0.55, iron));
+      c0.save(); c0.translate(...seat);
+      const thrust = fight ? k.thrust : 0;
+      rider(c0, p, { lean, lance: k.lance, hand: [2.8 + thrust + (crown ? 1 : 0), -5.8 + (fight && k.lance < -0.3 ? -0.8 : 0)], rein, fl: k.fl, len: 23, log: p.log });
+      c0.restore();
+    }
   });
   ctx.restore();
   solidify(ctx);
@@ -862,6 +866,7 @@ const siegeRam = (ctx, p) => {
 const IRON_RIDER = { skin: "#e0b08a", cloth: "#6c7280", cloth2: "#7a2a2c", hair: "#2e3038" };
 export const IRONMOUNT_RIGS = {
   cavalier: { kind: "destrier", box: { hw: 34, up: 46, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER } },
+  cavalierMount: { kind: "destrier", box: { hw: 34, up: 46, down: 4 }, p: { len: 34, col: "#5a4c54", belly: "#d8d0c0", mane: "#2a2228", cape: "#7a2a2c", ...IRON_RIDER, riderless: true } },
   gryphon: { kind: "wargryphon", fly: true, fightN: 4, box: { hw: 33, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER } },
   // the same beast once its knight has fallen (the gryphon's deathSkin)
   gryphonMount: { kind: "wargryphon", fly: true, box: { hw: 28, up: 50, down: 6 }, p: { len: 34, col: "#b08850", belly: "#e8e0cc", mane: "#8a6a3e", wing: "#6e5238", cape: "#7a2a2c", eyes: "#e8a830", ...IRON_RIDER, riderless: true } },

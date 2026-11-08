@@ -578,6 +578,17 @@ Measured `--endure` seed 1, better doctrine, against the commit before it:
 Iron 8140 -> 8281, Hollow 481 -> 505 castle damage (noise; all 30 held, none
 stuck). Provisional, pending the owner's playtest.
 
+**Cavaliers lose their horse, not always their knight** (owner, 2026-11-08):
+cavalier hp 120 -> 180, armor 0.1 -> 0.2 (the horse's barding; arrows still
+bite). `splitInto: ["unhorsed", 1]`, `splitDrop`, `splitChance` 0.5 (the
+boar rider's machinery): half the time the knight rolls clear where the horse
+fell, dazed 650 ms, and fights on as an **Unhorsed Knight** (`unhorsed`: 110
+hp, armor 0.5, speed 62, 24 a blow, bounty 7); the horse crumbles alone in
+`cavalierMount` (the destrier painter with `p.riderless`: no rider, no
+reins, rigs-ironmounts.js). His figure is the unseated knight's (`look:
+"unseated"`, rigs-iron.js) in the cavalier's caparison red. Checked
+headless: 516 of 1000 killed cavaliers rolled clear.
+
 ## Warchief and boar riders (2026-10-03, owner requests)
 
 Provisional, pending the owner's playtest ("spawn rates are ok but I'll let you
