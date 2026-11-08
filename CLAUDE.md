@@ -560,6 +560,7 @@ Later the same day (owner) his aegis went to every 3 s (`wardEvery` 3000,
 was 8000) but lays ONE shield a cast (`wardStep` 1, enemy field read in
 update.js's ward loop) on everyone within 80, up to `wardHits` 3; before,
 each cast refilled all three. A warder without `wardStep` still refills.
+Himself he refills to all three every cast (owner, same day).
 The ring and the ward sound play every cast. The Field Guide's row reads
 "+1 shield every 3.0s, up to 3". Measured `--chapter iron --endure` seed 1,
 better doctrine, against the gryphon change: 8447 -> 9272 (+10%; Crowstair

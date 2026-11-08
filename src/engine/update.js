@@ -1662,7 +1662,9 @@ export function updateGame(g, dt) {
           for (const e2 of g.enemies) {
             if (e2.dead || e2.neutral || (e2 === e && !e.wardSelf) || Math.hypot(e2.x - e.x, e2.y - e.y) > e.wardRange) continue;
             const was = e2.guard || 0;
-            e2.guard = e.wardStep ? Math.min(e.wardHits, was + e.wardStep) : Math.max(was, e.wardHits);
+            // (a stepping warder lays one a cast on the others but tops HIMSELF
+            // back up to full every cast: the Aegis Magister, owner 2026-11-08)
+            e2.guard = e.wardStep && e2 !== e ? Math.min(e.wardHits, was + e.wardStep) : Math.max(was, e.wardHits);
             if (e2.guard > was) e2.guardFlash = tms + 400;
           }
         }
