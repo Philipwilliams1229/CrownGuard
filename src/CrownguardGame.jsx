@@ -186,6 +186,10 @@ export default function Crownguard() {
   // the tower picture that follows a finger dragging it out of the tray,
   // and whether a phone's tray shows its locked halls
   const [dragGhost, setDragGhost] = useState(null);
+  // a hall a finger left where it can't stand stays there, red, waiting: the
+  // kind parked (the ref, for the pointer handlers; the state, for the ribbon)
+  const parkRef = useRef(null);
+  const [parked, setParked] = useState(null);
   const [showLocked, setShowLocked] = useState(false);
   // the canvas's css size (w, h), and the visible box it's shown in (vw, vh)
   const [boardCss, setBoardCss] = useState({ w: 720, h: 480, vw: 720, vh: 480, x: 0, y: 0 });
@@ -592,6 +596,21 @@ export default function Crownguard() {
 
   // ---- input ----
   const dragRef = useRef({ down: false, panned: false, sx: 0, sy: 0, cx: 0, cy: 0 });
+  // A finger's placement that missed (owner, 2026-11-08): the hall stays on
+  // the board where it was tried instead of vanishing, and a finger dragged
+  // anywhere on the board nudges it from there (it never hides under the
+  // finger); lifting builds it if the spot is clear, else it waits again.
+  const park = (on) => {
+    const g = G.current;
+    parkRef.current = on && g?.buildMode ? g.buildMode : null;
+    if (!parkRef.current && g) g.hover = null;
+    setParked(parkRef.current);
+  };
+  // the parked hall goes when its placement ends (built, cancelled, another picked)
+  useEffect(() => {
+    if (parkRef.current && ui.buildMode !== parkRef.current) park(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ui.buildMode]);
 
   // The mouse wheel zooms toward the cursor. A native listener, because the
   // page must not scroll while the board is under the pointer.
@@ -761,7 +780,10 @@ export default function Crownguard() {
       return;
     }
     dragRef.current = { down: true, panned: false, sx: px, sy: py, cx: g.cam.x, cy: g.cam.y };
-    if (g.buildMode) g.hover = worldPos(ev);
+    // a parked hall: the finger nudges it from where it stands
+    const nudge = g.buildMode && ev.pointerType !== "mouse" && parkRef.current === g.buildMode && g.hover;
+    if (nudge) dragRef.current.nudge = { hx: g.hover[0], hy: g.hover[1], moved: false };
+    else if (g.buildMode) g.hover = worldPos(ev);
   };
   const onCanvasMove = (ev) => {
     const g = G.current;
@@ -780,8 +802,19 @@ export default function Crownguard() {
       clampCamTo(g, z);
       return;
     }
-    g.hover = worldPos(ev);
     const d = dragRef.current;
+    if (d.down && d.nudge && g.buildMode) {
+      const [px, py] = screenPos(ev);
+      if (d.nudge.moved || Math.hypot(px - d.sx, py - d.sy) > 6) d.nudge.moved = true;
+      if (d.nudge.moved) {
+        g.hover = [
+          Math.min(W, Math.max(0, d.nudge.hx + (px - d.sx) / g.cam.zoom)),
+          Math.min(H, Math.max(0, d.nudge.hy + (py - d.sy) / g.cam.zoom)),
+        ];
+      }
+      return;
+    }
+    g.hover = worldPos(ev);
     if (d.down && !g.buildMode && g.cam.zoom > 1) {
       const [px, py] = screenPos(ev);
       if (d.panned || Math.hypot(px - d.sx, py - d.sy) > 6) {
@@ -803,17 +836,25 @@ export default function Crownguard() {
     }
     const d = dragRef.current;
     if (d.down && !d.panned && g) {
-      const [x, y] = worldPos(ev);
+      // a nudged hall is built where it was nudged to; a plain tap, where tapped
+      const [x, y] = d.nudge?.moved && g.hover ? g.hover : worldPos(ev);
+      const placing = !!g.buildMode;
       handleTap(x, y);
-      // a finger leaves no hover behind it; a mouse keeps its ghost
-      if (ev.pointerType !== "mouse") g.hover = null;
+      // a finger leaves no hover behind it (a mouse keeps its ghost), except
+      // a hall that could not stand there: it waits on the spot
+      if (ev.pointerType !== "mouse") {
+        if (placing && g.buildMode) { g.hover = [x, y]; park(true); }
+        else park(false);
+      }
     }
     d.down = false;
+    d.nudge = null;
   };
   const onCanvasCancel = (ev) => {
     ptrs.current.delete(ev.pointerId);
     if (ptrs.current.size < 2) pinchRef.current = null;
     dragRef.current.down = false;
+    dragRef.current.nudge = null;
   };
 
   const sel = ui.selected;
@@ -1507,10 +1548,14 @@ export default function Crownguard() {
       tileDrag.current = null;
       setDragGhost(null);
       if (!d || d.mode !== "drag" || e.type === "pointercancel") return;
-      d.dropped = true;
       const at = toWorld(e);
       if (at) handleTap(at[0], at[1]);
-      if (G.current && e.pointerType !== "mouse") G.current.hover = null;
+      // dropped where it can't stand, it stays there (red) to be nudged;
+      // dropped off the board, it waits in hand as a tapped tile does
+      if (G.current && e.pointerType !== "mouse") {
+        if (at && G.current.buildMode) { G.current.hover = at; park(true); }
+        else park(false);
+      }
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -1637,7 +1682,8 @@ export default function Crownguard() {
         )}
       {dragGhost && (
         <div aria-hidden="true" style={{ position: "fixed", left: dragGhost.x, top: dragGhost.y, zIndex: 200, pointerEvents: "none", transform: `translate(-50%, -115%) scale(${s})`, transformOrigin: "50% 100%", opacity: 0.92 }}>
-          <span className="cg-well" style={{ display: "flex", padding: 3 }}><TowerPortrait kind={dragGhost.kind} branch={dragGhost.pick?.branch} rank4={dragGhost.pick?.rank4} size={56} /></span>
+          {/* the hall alone, no socket behind it, so the board shows round it */}
+          <span style={{ display: "flex", filter: "drop-shadow(0 3px 2px rgba(0,0,0,0.45))" }}><TowerPortrait kind={dragGhost.kind} branch={dragGhost.pick?.branch} rank4={dragGhost.pick?.rank4} size={56} /></span>
         </div>
       )}
 
@@ -1658,7 +1704,9 @@ export default function Crownguard() {
 
           {/* top centre: what the next tap will do */}
           {ui.buildMode && ribbon(
-            <>Placing <b>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — tap the {TOWERS[ui.buildMode].water ? "water" : "grass"}{ui.buildMode === "knight" ? "; knights muster south of the hall" : ""}.</>,
+            parked === ui.buildMode
+              ? <>It can't stand there — drag on the board to slide <b>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> to a clear spot, then lift.</>
+              : <>Placing <b>{(ui.masterOn && ui.masterPickName) || TOWERS[ui.buildMode].name}</b> — tap the {TOWERS[ui.buildMode].water ? "water" : "grass"}{ui.buildMode === "knight" ? "; knights muster south of the hall" : ""}.</>,
             "Cancel placement", () => { if (G.current) G.current.buildMode = null; })}
           {ui.rallyFor === "hero" && ribbon(
             <><b>{ui.hero?.name}</b> awaits your word — tap where on the road the hero should stand.</>, "Cancel hero move", cancelRally)}
