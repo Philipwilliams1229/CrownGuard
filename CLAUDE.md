@@ -591,6 +591,12 @@ headless: 516 of 1000 killed cavaliers rolled clear. Measured `--chapter
 iron --endure` seed 1, better doctrine: 8281 -> 9308 castle damage (+12%;
 the back half: Blackcliff 1111 -> 1501, ir5 1249 -> 1633), all 15 held,
 none stuck. Provisional, pending the owner's playtest.
+The same day the **Gryphon Knight** got the same coin flip: `splitChance` 0.5
+(its knight used to survive every fall; a dead rider crumbles with the
+gryphon whole, the `deathSkin` only plays when he rolls clear), armor 0.2 ->
+0.3. A fallen rider is dazed `dropStun` ms (enemy field, default 650; 1000
+for the gryphon's and the cavalier's knights, the boar and wolf riders keep
+650). Checked headless: 505 of 1000 gryphons dropped a knight.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 

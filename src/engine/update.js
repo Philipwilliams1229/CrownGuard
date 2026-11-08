@@ -465,7 +465,7 @@ const makeEnemy = (type, mult) => {
     bannerSpeed: 0, bannerArmor: 0,
     // Hollow Court traits: bells that summon, bodies that split or burst
     summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonAhead: !!d.summonAhead, summonAtStart: !!d.summonAtStart, summonCd: d.summonFirst ?? null,
-    splitInto: d.splitInto || null, splitDrop: !!d.splitDrop, splitChance: d.splitChance ?? null, splits: undefined, deathBurst: d.deathBurst || null, deathDone: false,
+    splitInto: d.splitInto || null, splitDrop: !!d.splitDrop, splitChance: d.splitChance ?? null, dropStun: d.dropStun || 650, splits: undefined, deathBurst: d.deathBurst || null, deathDone: false,
     // falconry marks and alchemical shred
     markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0,
     x: PTS[0][0], y: PTS[0][1], face: 1, atkAnim: 0, auraSlow: 0,
@@ -1888,7 +1888,7 @@ export function updateGame(g, dt) {
           k.x = e.x; k.y = e.y; k.face = e.face;
           k.born = undefined;
           k.dropAt = tms;                        // the renderer drops him from the saddle
-          k.stunUntil = tms + 650;
+          k.stunUntil = tms + e.dropStun;        // dazed by the fall (`dropStun`, 650 ms unless the foe says)
         }
         g.effects.push({ type: "dust", x: e.x, y: e.y + 4, ttl: 420, r: 22 });
       } else if (e.splitInto && splits) {

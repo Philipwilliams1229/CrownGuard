@@ -129,7 +129,7 @@ export const ENEMIES = {
     // death and fights on foot (`unhorsed`, plate that turns steel)
     faction: "iron", hp: 180, speed: 120, bounty: 14, armor: 0.2, size: 19,
     name: "Cavalier", atk: 25, atkRate: 800, castleDmg: 2, trample: 1, mounted: true,
-    splitInto: ["unhorsed", 1], splitDrop: true, splitChance: 0.5, deathSkin: "cavalierMount",
+    splitInto: ["unhorsed", 1], splitDrop: true, splitChance: 0.5, dropStun: 1000, deathSkin: "cavalierMount",
     note: "A charging lance rides the first knight down and gallops on. Only the second blocker holds him. Horses ride round a siege ram, so the cavalry surge comes first and the ram and its column follow. Kill the horse and, half the time, its knight rolls clear and fights on foot in heavy plate.",
   },
   chaplain: {
@@ -168,14 +168,16 @@ export const ENEMIES = {
     note: "A shed of oak and iron wide as the whole road: nothing marches past it, and the army walks in its lee, knights and crossbows piling up behind. Nothing slows it, nothing stuns it, arrows and blades barely dent it, and any knight who steps in front of it is crushed. Magic burns straight through the oak — this is the mages' work. Kill it, and the column pours through.",
   },
   gryphon: {
-    faction: "iron", hp: 190, speed: 88, bounty: 22, armor: 0.2, size: 21,
+    // 2026-11-08 (owner): armor 0.2 -> 0.3, and the knight lives through the
+    // fall only half the time (was always), dazed a full second when he does
+    faction: "iron", hp: 190, speed: 88, bounty: 22, armor: 0.3, size: 21,
     name: "Gryphon Knight", flying: true, atk: 0, atkRate: 900, castleDmg: 2,
     // bring the beast down and its knight falls with it, and walks on
-    splitInto: ["unseated", 1], splitDrop: true, deathSkin: "gryphonMount",
+    splitInto: ["unseated", 1], splitDrop: true, splitChance: 0.5, dropStun: 1000, deathSkin: "gryphonMount",
     // nothing on the road can touch it, but it fights in the air: any in
     // reach of a war-eagle break off to lance her, and a flight gangs up
     airAtk: 60, airReach: 52,
-    note: "A knight on a warbred gryphon, armored wing to talon. It sails over every blocker you have, and its plate turns arrows. It hunts your war-eagles in the air, and a flight of them will gang up on one. Bring it down and the knight on its back drops to the road and marches on.",
+    note: "A knight on a warbred gryphon, armored wing to talon. It sails over every blocker you have, and its plate turns arrows. It hunts your war-eagles in the air, and a flight of them will gang up on one. Bring it down and, half the time, the knight on its back survives the fall and marches on.",
   },
   // a cavalier's knight who outlived his horse (owner, 2026-11-08): slower
   // than the saddle, but in full plate that turns arrows and blades
