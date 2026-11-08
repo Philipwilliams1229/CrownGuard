@@ -323,6 +323,14 @@ a Powder Works, so the duds never show in it.
   first round: 8907 / 8821 -> 9086 / 8781 (noise; all 15 held, none stuck;
   3-16 halls struck and 0-8 horses spooked a level). The sim prints
   `halls-struck` and `spooked`.
+- Lightning sooner, more often, in flurries (owner, same day): strokes begin
+  while the storm is still rolling in, once k reaches `boltFrom` 0.6 of its
+  peak (the first ~24 s into a rise, was the height + 1 s), every `boltEvery`
+  7-10 s at full (was 10-14; mild 12-16, was 16-22), sparse over `boltRamp`
+  20 s from the spell's first stroke (`w.strikeFrom`). `burstChance` 0.2 (mild
+  0.12) of strokes start a FLURRY: `burstN` 2-3 more, `burstGap` 0.18-0.4 s
+  apart, each near the last (`burstSpread` 140; `w.burstLeft`, `w.burstAt`).
+  Headless, one full storm: 38 strokes in 4 min with 6 flurries.
 
 ## Zones IV and V (owner's direction, 2026-10-03)
 

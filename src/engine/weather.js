@@ -162,12 +162,17 @@ export const WEATHER_KINDS = {
     name: "Thunderstorm", soaks: true, wetIn: 45, wetOut: 60,
     first: [50, 75], calm: [70, 120], rollIn: [25, 40], lasts: [120, 240], rollOut: [25, 40],
     fx: { foeSpeed: 0.9, noCharge: 1, fire: 0.5, misfire: 0.3, charged: 1, riverReach: 1.15, ramMud: 0.8, fliersLow: true, groundHitsLow: true },
-    boltEvery: [10, 14], boltRamp: 30, boltWarn: 600, boltR: 30, boltJitter: 34, boltDmg: 40, boltStun: 500, boltUnit: 45,
+    // (owner, 2026-11-08: sooner and more often, and now and then a FLURRY:
+    // `burstChance` of strokes bring 2-3 more (`burstN`) `burstGap` s apart,
+    // each near the last, within `burstSpread`). Strokes begin once the rain
+    // is at `boltFrom` of its peak, still rolling in.
+    boltEvery: [7, 10], boltFrom: 0.6, burstChance: 0.2, burstN: [2, 3], burstGap: [0.18, 0.4], burstSpread: 140,
+    boltRamp: 20, boltWarn: 600, boltR: 30, boltJitter: 34, boltDmg: 40, boltStun: 500, boltUnit: 45,
     boltShock: 3000, boltHall: 0.25, boltSpook: 90, spookChance: 0.6,
     boltArcs: 3, boltArcR: 70, boltArcDmg: 0.6,
     floods: 3, floodLen: 90, floodSlow: 0.3,
     grade: (s) => ({ first: span(70, 100, 50, 75, s), calm: span(120, 200, 70, 120, s), lasts: span(60, 120, 120, 240, s), peak: lerp(0.65, 1, s),
-      boltEvery: span(16, 22, 10, 14, s), boltDmg: lerp(25, 40, s), boltArcs: s < 0.5 ? 2 : 3, floods: s < 0.5 ? 2 : 3,
+      boltEvery: span(12, 16, 7, 10, s), burstChance: lerp(0.12, 0.2, s), boltDmg: lerp(25, 40, s), boltArcs: s < 0.5 ? 2 : 3, floods: s < 0.5 ? 2 : 3,
       fx: { foeSpeed: 1 - 0.1 * s, fire: 1 - lerp(0.3, 0.5, s), misfire: lerp(0.15, 0.3, s), riverReach: 1 + lerp(0.1, 0.15, s) } }),
     tick: (g, w, def, sdt, tms) => strikes(g, w, def, tms, "bolt"),
     paint: "storm", sound: "thunder",
@@ -309,7 +314,7 @@ export const tickWeather = (g, sdt, tms) => {
   w.seg = seg;
   w.k = kAt(seg, def, w.clock);
   if (w.phase === "rising" && was !== "rising") { w.gust = tms; if (def.sound && combat) sfx.play(def.sound); g.squalls = (g.squalls || 0) + 1; }
-  if (w.phase === "squall" && was !== "squall") w.strikeAt = w.clock + 1;
+  if (w.phase === "rising" && was !== "rising") { w.strikeAt = null; w.burstLeft = 0; }   // a new spell: its strikes start afresh
   // the ground soaks as it rains and dries after, only while there is fighting
   if (def.soaks) {
     const wet = w.wet || 0;
@@ -321,7 +326,9 @@ export const tickWeather = (g, sdt, tms) => {
   if (def.floods) tickFloods(w, def);
   // strikes (lightning, rocks) only at the spell's height, in combat; mist
   // banks drift while there is mist and a fight
-  if (def.tick && (def.paint === "gravemist" ? w.k > 0.02 : w.phase === "squall") && (combat || def.paint === "gravemist")) def.tick(g, w, def, combat ? sdt : 0, tms);
+  // (the storm's lightning starts while it is still rolling in, at `boltFrom` of its peak)
+  const striking = w.phase === "squall" || (def.boltFrom != null && w.phase === "rising" && w.k >= def.boltFrom * (def.peak ?? 1));
+  if (def.tick && (def.paint === "gravemist" ? w.k > 0.02 : striking) && (combat || def.paint === "gravemist")) def.tick(g, w, def, combat ? sdt : 0, tms);
   if (def.paint === "gravemist" && w.k <= 0.02) w.banks.length = 0;
   // telegraphed strikes land even if the height has just passed
   landStrikes(g, w, def, tms);
@@ -387,13 +394,20 @@ const applyFx = (def, k, wet = k) => {
 const NO_CLOSER = 40;     // px short of the wall's face
 const strikes = (g, w, def, tms, kind) => {
   const every = kind === "bolt" ? def.boltEvery : def.rockEvery;
-  if (w.clock < (w.strikeAt ?? 0)) return;
-  // sparse at first, building over `boltRamp` s of the spell's height
-  const ramp = Math.min(1, (w.clock - (w.seg?.t0 ?? 0)) / (def.boltRamp || 1));
-  w.strikeAt = w.clock + roll(w, every) * (1 + 1.5 * (1 - ramp));
+  // the spell's first strike comes a second after strikes may begin
+  if (w.strikeAt == null) { w.strikeAt = w.clock + 1; w.strikeFrom = w.clock; }
+  if (w.clock < w.strikeAt) return;
+  // sparse at first, building over `boltRamp` s from the spell's first strike
+  const ramp = Math.min(1, (w.clock - (w.strikeFrom ?? 0)) / (def.boltRamp || 1));
   w.def = def;
-  const pt = kind === "bolt" ? boltPoint(g, w) : rockPoint(g, w);
+  // a flurry: the strokes after the first fall fast, each near the last
+  const inBurst = w.burstLeft > 0;
+  if (inBurst) w.burstLeft--;
+  else if (def.burstChance && w.rng() < def.burstChance * ramp) w.burstLeft = Math.round(roll(w, def.burstN || [2, 3]));
+  w.strikeAt = w.clock + (w.burstLeft > 0 ? roll(w, def.burstGap) : roll(w, every) * (1 + 1.5 * (1 - ramp)));
+  const pt = kind === "bolt" ? boltPoint(g, w, inBurst ? w.burstAt : null) : rockPoint(g, w);
   if (!pt) return;
+  if (kind === "bolt") w.burstAt = pt;
   const warn = kind === "bolt" ? def.boltWarn : def.rockWarn;
   w.marks.push({ kind, x: pt[0], y: pt[1], r: kind === "bolt" ? def.boltR : def.rockR, t0: tms, at: tms + warn });
   if (kind === "rock") sfx.play("whistle");
@@ -402,19 +416,22 @@ const roadOK = (x) => x < W - WALL_W - NO_CLOSER;
 // lightning: a random point near a random live fighter — a foe on the road,
 // or one of your soldiers or the hero (not a boat on the water), jittered
 const HALL_R = 12;        // px: a hall is struck if the stroke falls this much past its reach
-const boltPoint = (g, w) => {
+const boltPoint = (g, w, near = null) => {
+  // in a flurry, only what stands near the last stroke
+  const spread = w.def?.burstSpread ?? 140;
+  const close = (x, y) => !near || Math.hypot(x - near[0], y - near[1]) <= spread;
   // now and then the stroke seeks out a hall (the tallest thing on the field)
   if (w.rng() < (w.def?.boltHall ?? 0)) {
-    const halls = g.towers.filter((t) => roadOK(t.x));
+    const halls = g.towers.filter((t) => roadOK(t.x) && close(t.x, t.y));
     if (halls.length) { const t = halls[Math.floor(w.rng() * halls.length)]; return [t.x, t.y]; }
   }
   const live = [];
-  for (const e of g.enemies) if (!e.dead && !e.ship && !e.swimming && roadOK(e.x)) live.push(e);
+  for (const e of g.enemies) if (!e.dead && !e.ship && !e.swimming && roadOK(e.x) && close(e.x, e.y)) live.push(e);
   for (const h of [...g.towers, ...(g.bands || [])]) {
     if (h.kind === "riverwatch") continue;
-    for (const u of h.units || []) if (u.state !== "dead" && roadOK(u.x)) live.push(u);
+    for (const u of h.units || []) if (u.state !== "dead" && roadOK(u.x) && close(u.x, u.y)) live.push(u);
   }
-  if (!live.length) return null;
+  if (!live.length) return near ? boltPoint(g, w) : null;   // nothing near: anywhere
   for (let tries = 0; tries < 4; tries++) {
     const f = live[Math.floor(w.rng() * live.length)];
     const a = w.rng() * Math.PI * 2, r = w.rng() * (w.def?.boltJitter ?? 34);

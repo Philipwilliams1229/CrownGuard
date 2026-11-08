@@ -33,7 +33,7 @@ export const WEATHER_INFO = {
   storm: {
     blurb: "Dark clouds roll in over the marches, the rain builds to a downpour and floods the road, and lightning begins to fall.",
     effects: (d) => [
-      `Lightning strikes about every ${secs(d.boltEvery)} at its height, near a fighter or on one of your halls: ${Math.round(d.boltDmg)} magic damage, and a struck hall and every soldier on foot in the blast, yours or theirs, are stunned ${+(d.boltShock / 1000).toFixed(1)} s. It runs on through the wet to up to ${d.boltArcs} more foes. Shielded and magic-resistant foes take nothing.`,
+      `Lightning begins while the storm is still rolling in, then strikes about every ${secs(d.boltEvery)}, near a fighter or on one of your halls, and now and then in a flurry of three or four strokes in a moment: ${Math.round(d.boltDmg)} magic damage, and a struck hall and every soldier on foot in the blast, yours or theirs, are stunned ${+(d.boltShock / 1000).toFixed(1)} s. It runs on through the wet to up to ${d.boltArcs} more foes. Shielded and magic-resistant foes take nothing.`,
       `The thunder spooks the cavalry: a cavalier near a stroke may throw his knight, who fights on foot, while the riderless horse bolts for the gate even faster.`,
       `The road floods in places: anyone wading through, foe or soldier, moves and strikes ${pct(d.floodSlow)} slower. The mud slows foes on foot by ${pct(1 - d.fx.foeSpeed)} and siege rams by ${pct(1 - d.fx.foeSpeed * d.fx.ramMud)}.`,
       `Gryphons fly low in the downpour: halls that cannot hit the air can shoot them (traps still can't).`,
@@ -115,9 +115,9 @@ export const nowOf = (g) => {
     if (WX.floods && WX.floods.length) lines.push(`${WX.floods.length} stretch${WX.floods.length > 1 ? "es" : ""} of road flooded: anyone wading moves and strikes ${Math.round(WX.floodSlow * WX.floods[0].depth * 100)}% slower.`);
     if (WX.riverReach > 1.005) lines.push(`The River Watch reaches ${Math.round((WX.riverReach - 1) * 100)}% further.`);
     if (WX.mistSight) lines.push(`A foe inside a bank of mist can only be targeted from ${WX.mistSight} px${w.banks?.length ? ` (${w.banks.length} bank${w.banks.length > 1 ? "s" : ""} on the road)` : ""}.`);
-    if (w.phase === "squall" && def.boltEvery) {
+    if (def.boltEvery && (w.phase === "squall" || (def.boltFrom != null && w.phase === "rising" && k >= def.boltFrom * peak))) {
       const runs = def.boltArcs ? Math.round(def.boltArcs * (w.wet || 0)) : 0;
-      lines.push(`Lightning strikes about every ${secs(def.boltEvery)}, near a fighter or on a hall, stunning halls and soldiers on foot ${+((def.boltShock || 0) / 1000).toFixed(1)} s${def.boltSpook ? " and spooking horses" : ""}${runs > 0 ? `; it runs on to ${runs} more foe${runs > 1 ? "s" : ""}` : ""}.`);
+      lines.push(`Lightning strikes about every ${secs(def.boltEvery)}, near a fighter or on a hall, sometimes several at once, stunning halls and soldiers on foot ${+((def.boltShock || 0) / 1000).toFixed(1)} s${def.boltSpook ? " and spooking horses" : ""}${runs > 0 ? `; it runs on to ${runs} more foe${runs > 1 ? "s" : ""}` : ""}.`);
     }
     if (w.phase === "squall" && def.rockEvery) lines.push(`Burning rocks fall about every ${secs(def.rockEvery)}.`);
   }
