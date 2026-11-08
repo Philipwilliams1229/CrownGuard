@@ -546,6 +546,9 @@ better doctrine per level: chapter total 8079 / 8237 -> 8473 / 7623 castle
 damage (noise; per level the seeds disagree, e.g. ir5 975 -> 1209 on seed 1,
 1229 -> 956 on seed 2). All 15 held. The sims never single him out.
 
+The same day the foe archers' bolts went up 25% (owner: they "had almost no
+effect"): Crossbowman `rangedAtk` 12 -> 15, Barrow Archer 10 -> 12.5.
+
 ## Warchief and boar riders (2026-10-03, owner requests)
 
 Provisional, pending the owner's playtest ("spawn rates are ok but I'll let you
