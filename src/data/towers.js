@@ -172,6 +172,8 @@ export const TOWERS = {
     // `trapHits` foes have been struck; the jaws, the Guillotine and the bombs
     // stay one-shot blasts. `maxCharges` is both his stock and the most of his
     // traps that may lie on the road at once; `layCount` traps go down a throw.
+    // Jaws (`trapCatches`: Springworks, Guillotine Gate) bite and hold one foe
+    // at a time for `root` ms, then re-set, until they have made that many catches.
     name: "Trapsmith", cost: 110, dtype: "phys", proj: "trap",
     blurb: "Arms the ROAD itself. Spike strips that stay down and stab every foe who walks over them, until worn out.",
     levels: [
@@ -181,16 +183,16 @@ export const TOWERS = {
     ],
     branches: {
       a: {
-        name: "Springworks", cost: 415, stats: { trapDmg: 120, splash: 34, maxCharges: 8, chargeEvery: 1900, range: 146, root: 2200, rate: 0, trapKind: "jaws" }, desc: "Bear-iron jaws instead of spikes: whatever steps in is HELD FAST — a block with no knight in it.",
+        name: "Springworks", cost: 415, stats: { trapDmg: 110, trapCatches: 3, root: 2000, maxCharges: 10, chargeEvery: 1900, range: 146, rate: 0, trapKind: "jaws" }, desc: "Bear-iron jaws that bite and HOLD a foe 2 s, then spring open and re-set: three catches each.",
         rank4: {
-          a: { name: "Guillotine Gate", cost: 975, stats: { trapDmg: 150, splash: 36, maxCharges: 9, chargeEvery: 1700, range: 150, slow: 0.5, slowDur: 2500, execute: 0.2, rate: 0, trapKind: "jaws" }, desc: "One-shot blades: they slow what they cut, and finish outright anything under a fifth of its health." },
+          a: { name: "Guillotine Gate", cost: 975, stats: { trapDmg: 130, trapCatches: 3, root: 3000, execute: 0.2, maxCharges: 10, chargeEvery: 1700, range: 150, rate: 0, trapKind: "jaws" }, desc: "Jaws hold 3 s, three catches each; a catch left under a fifth of its health spends the jaw to die." },
           b: { name: "Caltrop Field", cost: 975, stats: { trapDmg: 12, trapHits: 12, layCount: 3, maxCharges: 30, chargeEvery: 1500, range: 150, slow: 0.55, slowDur: 2200, rate: 0, trapKind: "caltrop" }, desc: "Caltrops thrown three at a time: each prick is light, but it drags the column to a crawl." },
         },
       },
       b: {
-        name: "Blastworks", cost: 415, stats: { trapDmg: 230, splash: 64, maxCharges: 6, chargeEvery: 2400, range: 146, rate: 0, trapKind: "mine" }, desc: "Pressure mines: one big blast each, tearing through everything packed round the foe who steps on it.",
+        name: "Blastworks", cost: 415, stats: { trapDmg: 190, splash: 58, maxCharges: 6, chargeEvery: 2400, range: 146, rate: 0, trapKind: "mine" }, desc: "Pressure mines: one big blast each, tearing through everything packed round the foe who steps on it.",
         rank4: {
-          a: { name: "Minefield Doctrine", cost: 975, stats: { trapDmg: 165, splash: 54, maxCharges: 7, chargeEvery: 2300, autoSeed: 3, burn: 10, burnDur: 2600, range: 154, rate: 0, trapKind: "mine" }, desc: "Through the horn: mines seed THEMSELVES onto the road as each wave begins, on top of those laid." },
+          a: { name: "Minefield Doctrine", cost: 975, stats: { trapDmg: 240, splash: 64, maxCharges: 7, chargeEvery: 2300, autoSeed: 3, range: 154, rate: 0, trapKind: "mine" }, desc: "Through the horn: mines seed THEMSELVES onto the road as each wave begins, on top of those laid." },
           b: { name: "The Aerostat Yard", cost: 975, stats: { trapDmg: 270, splash: 72, maxCharges: 7, chargeEvery: 2200, range: 154, stunAll: 700, rate: 0, trapKind: "mine", balloon: 2 }, desc: "Every SECOND charge rises: a balloon bomb that answers only to FLIERS. Its blasts stun survivors." },
         },
       },

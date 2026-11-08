@@ -1242,7 +1242,10 @@ export function updateGame(g, dt) {
           // `a`: the road's heading there, so a spike plank can lie across it
           // a spike strip (`trapHits`) stays down and strikes up to that many
           // foes, each once (`hit`); everything else springs once and is gone
-          const strip = !floats && st.trapHits ? { hitsLeft: st.trapHits, hitsMax: st.trapHits, hit: new Set() } : null;
+          const strip = floats ? null
+            : st.trapHits ? { hitsLeft: st.trapHits, hitsMax: st.trapHits, hit: new Set() }
+            : st.trapCatches ? { catchLeft: st.trapCatches, catchMax: st.trapCatches, hit: new Set(), holdId: null, holdUntil: 0, rearmAt: 0 }
+            : null;
           g.traps.push({ x: best[0], y: best[1], a: best[2], byTower: t.id, branch: t.branch, rank4: t.rank4,
             kind: floats ? "balloon" : (st.trapKind || "spike"), sky: floats, ...strip });
           laid++;
@@ -1493,6 +1496,46 @@ export function updateGame(g, dt) {
       const owner = g._towerById.get(tr.byTower);
       const st = owner ? getStats(owner) : { trapDmg: 60, splash: 34, slow: 0.3, slowDur: 1400 };
       const wantsFly = !!tr.sky || tr.kind === "balloon";
+      // Jaws (`trapCatches`: Springworks, Guillotine Gate) bite ONE foe and
+      // hold it `root` ms, then spring open and re-set, until they have made
+      // `catchLeft` catches. Bosses are bitten but never held. A Guillotine's
+      // catch left under `execute` of its health (not a boss) is finished, and
+      // that spends the jaw. A foe is caught by the same jaw only once.
+      if (tr.catchLeft != null) {
+        if (tr.holdId != null) {
+          const held = g.enemies.find((e) => e.id === tr.holdId);
+          if (held && !held.dead && tms < tr.holdUntil) continue;
+          tr.holdId = null; tr.rearmAt = tms + 300;
+        }
+        if (tr.catchLeft <= 0) { g.traps.splice(ti, 1); continue; }
+        if (tms < tr.rearmAt) continue;
+        let prey = null;
+        const jx = (tr.x / 30) | 0, jy = (tr.y / 30) | 0;
+        for (let i = -1; i <= 1 && !prey; i++) for (let j = -1; j <= 1 && !prey; j++) {
+          const list = egrid.get((jx + i) * 1000 + jy + j);
+          if (list) for (const e of list) {
+            if (e.dead || e.flying || e.swimming || tr.hit.has(e.id) || Math.hypot(e.x - tr.x, e.y - tr.y) >= 15) continue;
+            prey = e; break;
+          }
+        }
+        if (!prey) continue;
+        tr.hit.add(prey.id); tr.catchLeft--;
+        sfx.play("trapSnap");
+        g.effects.push({ type: "dust", x: tr.x, y: tr.y, ttl: 300, r: 16 });
+        const bane = prey.trapBane || 0;
+        dealDamage(g, prey, st.trapDmg * (bane || 1), "phys", !!bane, false, tr.byTower);
+        if (prey.dead) { tr.rearmAt = tms + 300; continue; }
+        if (st.execute && !prey.boss && prey.hp / prey.maxHp <= st.execute) {
+          dealDamage(g, prey, prey.hp + 9999, "phys", true, false, tr.byTower);
+          g.traps.splice(ti, 1);
+          g.effects.push({ type: "dust", x: tr.x, y: tr.y, ttl: 340, r: 22 });
+          continue;
+        }
+        if (prey.boss || !st.root) { tr.rearmAt = tms + 300; continue; }
+        prey.stunUntil = Math.max(prey.stunUntil || 0, tms + st.root);
+        tr.holdId = prey.id; tr.holdUntil = tms + st.root;
+        continue;
+      }
       let victim = null;
       const cx = (tr.x / 30) | 0, cy = (tr.y / 30) | 0, reach = wantsFly ? 20 : 15;
       for (let i = -1; i <= 1 && !victim; i++) for (let j = -1; j <= 1 && !victim; j++) {

@@ -460,7 +460,8 @@ export const drawTraps = (ctx, g) => {
     const seed = hash(Math.round(tx * 2), Math.round(ty * 2));
     // a spike strip or caltrop wears as it strikes: it fades toward half
     // strength by its last stab (engine: tr.hitsLeft of tr.hitsMax)
-    const worn = tr.hitsMax ? 0.45 + 0.55 * Math.max(0, tr.hitsLeft) / tr.hitsMax : 1;
+    const worn = tr.hitsMax ? 0.45 + 0.55 * Math.max(0, tr.hitsLeft) / tr.hitsMax
+      : tr.catchMax ? 0.45 + 0.55 * Math.max(0, tr.catchLeft) / tr.catchMax : 1;
     if (worn < 1) ctx.globalAlpha = worn;
     if (kind === "spike") {
       // the plank lies ACROSS the road: a road running across the screen

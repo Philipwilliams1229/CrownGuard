@@ -729,10 +729,22 @@ Levels: 14 / 18 / 24 a stab, 5 / 10 / 10 foes a strip, `maxCharges` 10 / 10 /
 (the laying loop counts them), so a worn strip makes room for the next.
 Caltrop Field: `layCount` 3 caltrops a charge, 12 a stab, 12 foes each,
 slow 55% 2.2 s, 30 on the road; its old root and slowing ground are gone.
-One-shot as before: Springworks' jaws (unchanged), Guillotine Gate (no root:
-slow 50% 2.5 s, finishes under 20%, never a boss), Blastworks 175 -> 230,
-splash 58 -> 64, no fire, Aerostat Yard 210 -> 270, splash 66 -> 72, no
-fire (stun and balloons kept). Minefield Doctrine untouched (still burns).
+Then (same day) the JAWS re-set: a trap with `trapCatches` (laid with
+`catchLeft`/`catchMax`, a `hit` Set, `holdId`/`holdUntil`/`rearmAt`) bites
+ONE ground foe once (`trapDmg`), holds it `root` ms (stunUntil; bosses are
+bitten, never held), springs open 300 ms after, and goes when its catches
+are spent. Springworks: 110 a bite, hold 2 s, 3 catches, 10 on the road.
+Guillotine Gate: 130, hold 3 s, 3 catches, 10 on the road; a catch left
+under `execute` 20% (not a boss) is killed and SPENDS the jaw. One-shot
+bombs: Blastworks 175 -> 190 (splash 58), Minefield Doctrine 165 -> 240,
+splash 54 -> 64, Aerostat Yard 210 -> 270, splash 66 -> 72: no fire on any
+of them now (the Aerostat keeps its stun and balloons, the Minefield its
+self-seeding). Damage per goblin on the real engine (one hall beside the
+road, 60 goblins at 1e5 hp, a head every 0.5 s / 0.15 s; scratch harness,
+not in scripts/): level 3 114/87, Springworks 136/73 (+ the holds),
+Guillotine 143/72 (+ holds, + finishing), Caltrop Field 129/131,
+Blastworks 118/152, Minefield 191/249, Aerostat 110/239 (half its charges
+are balloons for fliers).
 Checked headless (`scripts`-style test: 30 sturdy goblins through each form)
 and `marathon.mjs --to 40` (no errors). The sims never build a Trapsmith.
 

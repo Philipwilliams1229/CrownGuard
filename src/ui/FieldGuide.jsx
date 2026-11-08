@@ -47,6 +47,7 @@ const NUMBERS = [
   ["maxCharges", (v) => `up to ${v} traps on the road`],
   ["trapHits", (v) => `each strip stabs ${v} foes before it wears out`],
   ["layCount", (v) => `throws ${v} at a time`],
+  ["trapCatches", (v) => `each jaw holds ${v} foes in turn, then wears out`],
   ["trapDmg", (v) => `${v} trap damage`],
   ["airMult", (v) => `×${v} vs fliers`],
   ["mark", (v) => `marks prey +${Math.round(v * 100)}% from all towers`],
