@@ -213,20 +213,6 @@ const sheet = (key, tw, th, paint, px = PX) => memo(key, () => {
   paint(set, G.W, G.H);
   return G.done();
 });
-// rain: slanted streaks (dx/dy = -0.25), a brighter head at the foot
-export const rainSheet = (near) => near
-  ? sheet("rain|n", 150, 130, (set, w, h) => {
-    for (let i = 0; i < 34; i++) {
-      const x0 = h2(i, 1, 51) * w, y0 = h2(i, 2, 51) * h, L = Math.round((7 + 6 * h2(i, 3, 51)) * PX);
-      for (let s = 0; s < L; s++) set(x0 - s * 0.25, y0 + s, s > L - 3 ? C("#f0f6ff") : C("#b4c6e2"), s > L - 3 ? 235 : 150 + Math.round(70 * s / L));
-    }
-  })
-  : sheet("rain|f1", 110, 96, (set, w, h) => {          // 1 texel a unit: the far rain lives in the layer
-    for (let i = 0; i < 46; i++) {
-      const x0 = h2(i, 1, 53) * w, y0 = h2(i, 2, 53) * h, L = Math.round(4 + 4 * h2(i, 3, 53));
-      for (let s = 0; s < L; s++) set(x0 - s * 0.25, y0 + s, C("#8c9cbc"), 90 + Math.round(60 * s / L));
-    }
-  }, 1);
 // snow: far — fine single art pixels; near — fat flakes with a wind smear
 export const snowSheet = (near) => near
   ? sheet("snow|n", 170, 130, (set, w, h) => {
@@ -335,38 +321,6 @@ export const mote = (hot, rim) => memo(`mote|${hot}|${rim}`, () => {
   const G = grid(3, 3), a = C(hot), b = C(rim);
   G.set(1, 0, b); G.set(0, 1, b); G.set(2, 1, b); G.set(1, 2, b); G.set(1, 1, a);
   return G.done();
-});
-// a rain splash, 4 frames: the drop, a crown flicking up, a ring, a faint ring
-export const splash = (f) => memo(`spl|${f}`, () => {
-  const G = grid(14, 8), cx = 7, cy = 5, hi = C("#eef4ff"), lo = C("#a8bcd8");
-  if (f === 0) { G.set(cx, cy, hi); G.set(cx - 1, cy, hi); G.set(cx, cy - 1, lo, 200); }
-  if (f === 1) { G.set(cx - 2, cy - 2, hi); G.set(cx + 2, cy - 2, hi); G.set(cx - 3, cy - 3, lo, 220); G.set(cx + 3, cy - 3, lo, 220); G.set(cx - 1, cy, lo); G.set(cx, cy, lo); G.set(cx + 1, cy, lo); }
-  if (f >= 2) {
-    const rx = f === 2 ? 3.5 : 5.5, ry = rx * 0.4;
-    for (let a = 0; a < 40; a++) { const t = (a / 40) * Math.PI * 2; if (f === 3 && a % 3 === 0) continue; G.set(cx + Math.cos(t) * rx, cy + Math.sin(t) * ry, Math.sin(t) > 0 ? hi : lo, f === 2 ? 220 : 140); }
-  }
-  return { cv: G.done(), ax: cx, ay: cy };
-});
-// a puddle on the road: dark water holding a sliver of sky, a lit far rim
-export const puddle = (wu, v) => memo(`pud|${wu}|${v}`, () => {
-  const rx = (wu / 2) * PX, ry = rx * 0.42, G = grid(rx * 2 + 4, ry * 2 + 4), cx = G.W / 2, cy = G.H / 2;
-  const deep = C("#263044"), sky = C("#9aaccc"), rim = C("#d4e0f0"), mud = C("#34302e");
-  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
-    const dx = (x - cx) / rx, dy = (y - cy) / ry;
-    const e = 0.82 + 0.3 * vnoise(x, y, rx * 0.5, ry * 0.7, 90 + v);
-    const d = Math.hypot(dx, dy);
-    if (d > e) continue;
-    const edge = d > e - 0.18;
-    const refl = dx * 0.6 + dy * 0.3 < -0.15 && dx * 0.6 + dy * 0.3 > -0.5 && !edge;
-    G.set(x, y, edge ? (dy > 0 ? rim : mud) : refl ? sky : deep, edge ? (dy > 0 ? 200 : 150) : refl ? 185 : 190);
-  }
-  return { cv: G.done(), ax: cx, ay: cy };
-});
-// a ripple in a puddle (2 frames)
-export const ripple = (f) => memo(`rip|${f}`, () => {
-  const G = grid(12, 6), rx = f ? 4.5 : 2.5, ry = rx * 0.42, k = C("#c8d6ea");
-  for (let a = 0; a < 30; a++) { const t = (a / 30) * Math.PI * 2; G.set(6 + Math.cos(t) * rx, 3 + Math.sin(t) * ry, k, f ? 110 : 190); }
-  return { cv: G.done(), ax: 6, ay: 3 };
 });
 // the daze: a wheel of little electric stars round a soldier's head
 export const dazeWheel = (f) => memo(`daze|${f}`, () => {
@@ -643,11 +597,6 @@ export const weatherIcon = (kind) => memo(`ico|${kind}`, () => {
 
 // ---- single falling things, stamped one by one (the near rain and snow: a
 // sparse stamp touches far fewer pixels than a whole-board pattern fill) ----
-export const rainDrop = (v) => memo(`drop|${v}`, () => {
-  const L = Math.round((7 + v * 3) * PX), G = grid(Math.ceil(L * 0.25) + 2, L);
-  for (let s = 0; s < L; s++) G.set(Math.round((L - s) * 0.25), s, s > L - 3 ? C("#f0f6ff") : C("#b4c6e2"), s > L - 3 ? 235 : 150 + Math.round(70 * s / L));
-  return { cv: G.done(), ax: 0, ay: 0 };
-});
 export const snowFlake = (v) => memo(`flake|${v}`, () => {
   const G = grid(14, 4), w = C("#ffffff"), m = C("#e6eef8"), sm = C("#dfe9f5");
   if (v === 3) { for (let s = 0; s < 13; s++) G.set(s, 1 + Math.floor(s / 7), C("#f4f8fc"), s < 2 ? 230 : 130); return { cv: G.done(), ax: 0, ay: 1 }; }
