@@ -169,7 +169,7 @@ export const ENEMIES = {
   ram: {
     // speed 30 -> 46 with the wall: the whole army walks at the ram's pace, and
     // at 30 the crowd behind it arrived in one lump and doubled the sim's bleed
-    faction: "iron", hp: 2300, speed: 46, bounty: 60, armor: 0.6, mres: -0.5, trapBane: 1.5, size: 34,
+    faction: "iron", hp: 1500, speed: 46, bounty: 60, armor: 0.6, mres: -0.5, trapBane: 1.5, size: 34,
     name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 5, immSlow: true, immStun: true, crush: true,
     roadBlock: 50,
     // it never marches bare: [type, base count, more per war-wave, gap ms]

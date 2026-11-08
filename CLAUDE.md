@@ -588,6 +588,7 @@ it pierces its 0.6 armor and is x1.5, update.js trap loop: a level-3 spike
 under a ram, and rams seldom leak). The owner finds the trap bite "a bit
 high" and is testing it; levers: `trapBane` 1 (pierce only, 98) or drop the
 pierce in the trap loop (x1.5 on top of armor, ~59).
+Later the same day (owner) its health went 2300 -> 1500. Not simmed.
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer
