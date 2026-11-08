@@ -565,6 +565,15 @@ well clear of every hall's seizing reach (range x 0.92 round the rally flag:
 48-59) except the Lancer Order's (90). Not simmed. And an archer may now
 stand and shoot for 30 s before it marches on (`STAND_MS`, update.js; was
 14 s), and so may the necromancer and magister (same budget, same day).
+Then (same day, owner: archers "showing up after the soldiers have been
+killed, so towers just snap to them") archers got +25% health (Crossbowman
+72 -> 90, Barrow Archer 66 -> 83) and march INSIDE the column:
+`archersAmid` (waves.js, applied last in both `waveSpec` chains) marks every
+`rangedAtk` group `amid` the wave's biggest foot group of rank and file (no
+riders, fliers, rams, bosses, other escorts); startWave spreads them from
+40% of that group's span to its end (`ARCHER_SPREAD`, actions.js), never
+closer than `ARCHER_GAP` 350 ms, so a big company runs a little past the
+column's tail. A wave with no such column keeps its archers as written.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 

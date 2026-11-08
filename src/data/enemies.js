@@ -113,7 +113,7 @@ export const ENEMIES = {
     note: "Three raised shields: only steel breaks them. Each swallows one physical blow whole, however big it was, and while any stand, magic and fire do nothing. Strip them with quick arrows and blades, or with something that hits the whole column at once.",
   },
   crossbow: {
-    faction: "iron", hp: 72, speed: 74, bounty: 9, armor: 0, size: 16,
+    faction: "iron", hp: 90, speed: 74, bounty: 9, armor: 0, size: 16,
     name: "Crossbowman", atk: 9, atkRate: 1000, castleDmg: 1,
     rangedAtk: 18.75, rangedRange: 100, rangedRate: 1800,
     note: "Shoots your knights down from outside their reach, and never stops walking to do it. Kill them early or your line bleeds out.",
@@ -199,7 +199,7 @@ export const ENEMIES = {
     note: "It remembers being hungry, and nothing else. Comes on all fours, fast as a wolf, and does not tire.",
   },
   bonearcher: {
-    faction: "hollow", hp: 66, speed: 68, bounty: 10, armor: 0, mres: 0.15, size: 16,
+    faction: "hollow", hp: 83, speed: 68, bounty: 10, armor: 0, mres: 0.15, size: 16,
     name: "Barrow Archer", atk: 8, atkRate: 1000, castleDmg: 1,
     rangedAtk: 15.6, rangedRange: 98, rangedRate: 2000,
     note: "Grave-cold fingers on a yew bow, loosing at your knights from outside sword reach. Dead men need no fletching lessons.",

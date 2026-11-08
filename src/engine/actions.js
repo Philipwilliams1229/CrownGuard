@@ -70,6 +70,7 @@ export const buildableAt = (g, x, y, kind = null) => {
   return true;
 };
 
+const ARCHER_SPREAD = [0.4, 1], ARCHER_GAP = 350;   // archers' place in their column (startWave)
 export const startWave = (g) => {
   if (!g || g.phase !== "build") return;
   g.snapshot = {
@@ -121,10 +122,19 @@ export const startWave = (g) => {
   // an escort (the Iron Kingdom's Aegis Magister, waves.js escortOf) walks in
   // the thick of the group it came with: its heads spread evenly through
   // that group's middle, the first a quarter of the way in
+  // (archers, waves.js archersAmid, fill its back half instead: from 40% of
+  // the way in to its end, never closer than ARCHER_GAP ms, so a big company
+  // of bows runs on a little past the column's tail rather than bunching)
   for (const grp of spec) {
     if (grp.amid == null) continue;
     const [type, count, , pay = 1] = grp;
     const [a0, a1] = spans[grp.amid] || [400, 400];
+    if (ENEMIES[type]?.rangedAtk) {
+      const lo = a0 + (a1 - a0) * ARCHER_SPREAD[0], hi = a0 + (a1 - a0) * ARCHER_SPREAD[1];
+      const step = count > 1 ? Math.max(ARCHER_GAP, (hi - lo) / (count - 1)) : 0;
+      for (let i = 0; i < count; i++) queue.push({ type, at: Math.round(count > 1 ? lo + step * i : (lo + hi) / 2), mult, pay });
+      continue;
+    }
     for (let i = 0; i < count; i++) queue.push({ type, at: Math.round(a0 + (a1 - a0) * (0.25 + 0.5 * (count > 1 ? i / (count - 1) : 0.4))), mult, pay });
   }
   // zone IV: the wave's landing groups board one longship, which puts out

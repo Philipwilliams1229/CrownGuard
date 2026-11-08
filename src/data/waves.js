@@ -210,7 +210,7 @@ export const waveSpec = (w) => {
   const a = absWave(w);
   const scripted = a <= FACTION.waves.length;
   if (!WINDOW) {
-    const sp = gatherMore(escortOf(partyOf(raisersLast(shapeCompany(swell(dryLand(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w)), a), a)), a), a));
+    const sp = archersAmid(gatherMore(escortOf(partyOf(raisersLast(shapeCompany(swell(dryLand(w <= scriptedWaves() ? FACTION.waves[a - 1] : genWave(w)), a), a)), a), a)));
     sp.overlap = overlap(a);
     return landingsOf(SANDBOX ? sandboxShape(sp) : sp, a, 1);
   }
@@ -227,7 +227,7 @@ export const waveSpec = (w) => {
   // every level opens on its own ground: the swell comes in over its first
   // few waves, so a fresh purse never meets a full-grown horde on wave one
   spec = raisersLast(shapeCompany(push(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), WINDOW.push), a));
-  spec = gatherMore(escortOf(partyOf(spec, a), a));
+  spec = archersAmid(gatherMore(escortOf(partyOf(spec, a), a)));
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);
   return landingsOf(spec, a, Math.min(1, 0.35 + 0.13 * (w - 1)));
@@ -336,6 +336,30 @@ const partyOf = (spec, a) => {
   out.overlap = spec.overlap;
   return out;
 };
+// Archers (`rangedAtk`: the crossbowman, the barrow archer) march in the back
+// half of the wave's biggest foot column of rank and file (owner, 2026-11-08:
+// they used to come after the soldiers were dead, so every tower turned on
+// them at once). They are marked `amid` that group, and startWave spreads them
+// from 40% of its span to its end (`ARCHER_SPREAD`), so they reach bow range
+// while its front is still fighting your knights. A wave with no such column
+// (only fliers or riders, say) keeps its archers as written. Applied last, so
+// no other `amid` index moves.
+const archersAmid = (spec) => {
+  if (!spec.some((g) => ENEMIES[g[0]]?.rangedAtk && g.amid == null && g.clock == null)) return spec;
+  let big = -1, most = 0;
+  spec.forEach((g, i) => {
+    const t = g[0], d = ENEMIES[t];
+    if (!d || d.rangedAtk || g.amid != null || g.clock != null || BOSSES.has(t) || ENEMY_BOSS(t)) return;
+    if ((CROWD_WEIGHT[t] ?? 0) < 0.3 || d.mounted || d.flying || d.roadBlock) return;
+    if (g[1] > most) { most = g[1]; big = i; }
+  });
+  if (big < 0) return spec;
+  const out = spec.map((g) => { const c = g.slice(); if (g.amid != null) c.amid = g.amid; if (g.clock != null) c.clock = g.clock; return c; });
+  out.forEach((g) => { if (ENEMIES[g[0]]?.rangedAtk && g.amid == null && g.clock == null) { g[2] = 0; g.amid = big; } });
+  out.overlap = spec.overlap;
+  return out;
+};
+
 // A faction may name more foes that walk amid the biggest group as its escort
 // does (`gather: [types]` in factions.js — the Rime Clans' skald, whose chant
 // should carry over the thick of the warband). Applied after escortOf.
