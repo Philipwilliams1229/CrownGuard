@@ -604,6 +604,9 @@ Later the same day (owner) its health went 2300 -> 1500 and its speed
 in one lump and doubled the Iron back half's bleed). `--level crowstair /
 ir5 --endure --check-wall` seed 1, better doctrine: 858 -> 750 and 1478 ->
 1569 (flat; 0 passes of a live ram, up to 116 / 154 foes in its lee).
+Then (owner, same day) health back up 1500 -> 2000 (speed stays 38): the
+same check, seed 1, better doctrine: Crowstair 750 -> 754, the Citadel Gate
+1569 -> 1926; 0 passes of a live ram.
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer
