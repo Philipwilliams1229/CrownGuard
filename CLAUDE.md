@@ -645,7 +645,10 @@ for the gryphon's and the cavalier's knights, the boar and wolf riders keep
 Later the same day the cavalier's horse got the ram's trap weakness too
 (`trapBane` 1.5: a trap's blow pierces its 0.2 armor and is x1.5, so a
 level-3 spike 78 -> 147; checked headless). A 180-hp horse dies to two
-level-3 spikes. Not simmed.
+level-3 spikes. Then (owner: "all mounted units like that") the Boar Rider
+and the Wolf-Rider too (`trapBane` 1.5, armor 0.1: a level-3 spike 88 ->
+147). Not the Gryphon Knight (it flies: only the Aerostat's balloons reach
+it) nor the Rime Jarl's mammoth (a boss). Not simmed.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 

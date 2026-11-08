@@ -73,7 +73,7 @@ export const ENEMIES = {
     note: "A shrieking scrap of wing and teeth. It flies clean over your knights — but almost anything that hits it, ends it.",
   },
   boarrider: {
-    faction: "greenwood", hp: 140, speed: 108, bounty: 13, armor: 0.1, size: 19,
+    faction: "greenwood", hp: 140, speed: 108, bounty: 13, armor: 0.1, trapBane: 1.5, size: 19,
     name: "Boar Rider", atk: 20, atkRate: 800, castleDmg: 2, trample: 1,
     // half the time the lancer leaps clear as the boar goes down and marches on
     // as a goblin (owner, 2026-10-03); the other half he falls with it
@@ -327,7 +327,7 @@ export const ENEMIES = {
     note: "Bare-chested and bear-mad. Every wound drives him faster and makes him hit harder — half dead, he is twice the man he was. Kill him in one go, or keep him far from your knights. Cold-hardy: frost won't slow him.",
   },
   rimerider: {
-    faction: "rime", hp: 125, speed: 112, bounty: 12, armor: 0.1, size: 19, frostProof: true,
+    faction: "rime", hp: 125, speed: 112, bounty: 12, armor: 0.1, trapBane: 1.5, size: 19, frostProof: true,
     name: "Wolf-Rider", atk: 20, atkRate: 750, castleDmg: 2, trample: 1,
     // as the boar rider: half the time the rider leaps clear of his fallen wolf
     // and marches on as a thrall (the mount crumbles alone in the `rimewolf` rig)
