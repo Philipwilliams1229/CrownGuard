@@ -56,4 +56,8 @@ export const isBuilt = (t, g) => !(t.readyAt > g.time);
 // blades and garrison go through this gate; isBuilt alone still decides
 // whether its people are on the field (a frozen hall's soldiers can be shot).
 // (t.downLeft: coiled by a sea serpent or smashed by a kraken's arm, engine/serpent.js)
-export const fights = (t, g) => !(t.readyAt > g.time) && !(t.iceLeft > 0) && !(t.fireLeft > 0) && !(t.downLeft > 0);
+// (t.shockLeft: struck by the storm's lightning, engine/weather.js; a hall whose
+// soldiers are out on the field keeps them fighting: only the hall is struck)
+const SOLDIER_HALLS = new Set(["knight", "assassin", "riverwatch"]);
+export const fights = (t, g) => !(t.readyAt > g.time) && !(t.iceLeft > 0) && !(t.fireLeft > 0) && !(t.downLeft > 0)
+  && !(t.shockLeft > 0 && !SOLDIER_HALLS.has(t.kind));

@@ -551,6 +551,9 @@ export default function Crownguard() {
           paintWeatherEdge(ec, { x: bc.x, y: bc.y + Math.round((bc.vh - bc.h) / 2), w: bc.w, h: bc.h }, dpr);
         } }
       if (screenRef.current === "game") music.play(battleScore(g, FACTION.id));
+      // the storm's rain, heard: loudness with the downpour, hushed under the pause menu
+      { const w = g.weather, rain = screenRef.current === "game" && w && w.paint === "storm" && g.phase !== "won" && g.phase !== "lost" ? w.k : 0;
+        sfx.bed("rain", g.paused ? rain * 0.4 : rain); }
 
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;

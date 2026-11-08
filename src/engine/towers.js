@@ -39,7 +39,7 @@ const withPerks = (kind, st) => {
 // The active stats for a tower: its rank-4 form if ascended, else its branch
 // stats if evolved, else its level stats — with permanent upgrades applied,
 // and the weather's cut to its reach while it bites.
-export const getStats = (t) => inWeather(getStatsClear(t));
+export const getStats = (t) => inWeather(getStatsClear(t), t);
 // The same in clear weather: the reach a hall has once the fog (or a squall)
 // is gone. draw.js rings it beside the shortened reach while weather bites.
 export const getStatsClear = (t) => {
@@ -54,8 +54,17 @@ export const getStatsClear = (t) => {
 // A squall (engine/weather.js WX.reach) shortens every kind of reach a hall has
 // while it bites: its shots, its musket, its aura. (minRange, hall spacing and
 // lightning's jumps are not reach; the whole-map halls keep a whole map.)
+// The storm gives as well as takes (weather.js, owner 2026-11-08): a
+// Stormcaller's lightning leaps one foe further in the charged air (from
+// WX.charged 0.5) and up to 25% further each leap, and the River Watch rows
+// further on the swollen rivers (WX.riverReach).
 const REACH_KEYS = ["range", "mRange", "auraRange"];
-const inWeather = (st) => {
+const inWeather = (st, t) => {
+  if (WX.charged > 0 && st.arc) {
+    if (WX.charged >= 0.5) st.arc += 1;
+    st.arcRange = (st.arcRange || 90) * (1 + 0.25 * WX.charged);
+  }
+  if (WX.riverReach !== 1 && t && t.kind === "riverwatch" && st.range > 0) st.range *= WX.riverReach;
   if (WX.reach === 1) return st;
   for (const k of REACH_KEYS) if (st[k] > 0 && st[k] < 900) st[k] *= WX.reach;
   return st;

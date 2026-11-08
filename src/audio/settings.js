@@ -17,6 +17,7 @@ export const SFX_GROUPS = [
   { id: "coin",   label: "Gold plink",        names: ["coin", "payout"] },
   { id: "arrows", label: "Arrows & bolts",    names: ["arrow", "bolt", "enemyBolt"] },
   { id: "hits",   label: "Blows & clanks",    names: ["hit", "crunch", "clink", "tink", "spike", "stab"] },
+  { id: "rain",   label: "Rain",              names: ["rain"] },
 ];
 
 const DEFAULTS = { muted: false, vol: 0.5, musicVol: 0.5, music: true, off: {} };

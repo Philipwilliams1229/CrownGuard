@@ -4,6 +4,7 @@
 // without breaking it (dealDamage); a shielded foe also shrugs off her jolts.
 import { dealDamage } from "../actions.js";
 import { isRising } from "../towers.js";
+import { WX } from "../weather.js";
 import { sfx } from "../../audio/sfx.js";
 import * as CR from "../../render/rigs-crown.js";
 
@@ -75,7 +76,8 @@ export default {
       if (bare) { target = bare; u.face = target.x >= u.x ? 1 : -1; }
     }
     const from = staffTip(u, "fight", 1);
-    const pts = leapThrough(g, b, target, 1 + (st.chain || 0), st.dmg * (1 + (u.atkBuff || 0)), st.chainFall ?? 0.6, st.chainRange || 60, tms);
+    // (the storm's charged air: one leap more, weather.js WX.charged)
+    const pts = leapThrough(g, b, target, 1 + (st.chain || 0) + (WX.charged >= 0.5 ? 1 : 0), st.dmg * (1 + (u.atkBuff || 0)), st.chainFall ?? 0.6, st.chainRange || 60, tms);
     g.effects.push({ type: "bolt", pts: [from, ...pts], ttl: 200, seed: Math.random() * 10 });
     sfx.play("zap");
   },

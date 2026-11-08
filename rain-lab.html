@@ -1,0 +1,140 @@
+<!doctype html>
+<!--
+  Rain lab: wx-lab.html's real engine and draw() on a level's board under the
+  storm, but kept at the game's REAL resolution (RES art pixels a unit), with
+  the storm's strength and the ground's wetness pinned, fake effects pushed in
+  and an optional frame-cost bench (render/weatherfx.js storm painters).
+
+    /rain-lab.html?realm=ironford&faction=iron&wave=7&weather=storm:1&snaps=2,4&k=1&wet=1&tag=x
+      k=V        pin w.k (how hard it rains) before each snap; wet=V pin w.wet
+      snaps      seconds of combat from the first horn (the clock starts at the
+                 spell's height unless rise=S is given, as in wx-lab)
+      shock=MS   the first two halls struck, MS of 3000 ms of their shock left
+      bolt=MS    push a lightning stroke MS ms old onto the first foe
+      fx=1       push a wxarc, a wxfizzle and set a few foes burning before each snap
+      focus=i    crop round the i-th hall (100 x 100 units)
+      crop=x,y,w,h   a window of the board (units); scale=N zooms it (nearest)
+      half=1     draw the frame at half size, smoothed (a phone showing the board
+                 at less than RES)
+      old=1      with bench: also time the painters as they were before the rain pass
+                 (a copy in scratchpad/rain/, gitignored)
+      bench=N    after the snaps, time draw() N times with and without the
+                 weather, and the storm's two halves alone (window.BENCH)
+      towers=... as wx-lab (kind@road-fraction:level[,branch])
+  Saved to .shots/rain_<tag>.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>rain lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, RES } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { drawWeather, drawWeatherGround } from "/src/render/weatherfx.js";
+      import { setLevelWeather, weatherDef, segAt } from "/src/engine/weather.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", DT = 1 / 60, SC = Number(q.get("scale")) || 1;
+      selectRealm(q.get("realm") || "ironford");
+      selectFaction(q.get("faction") || "iron");
+      setWaveWindow(null);
+      const [kind, str] = (q.get("weather") || "storm:1").split(":");
+      setLevelWeather({ kind, strength: Number(str ?? 1) });
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (Number(q.get("wave")) || 7) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0, freeplay: true,
+      };
+      for (const spec of (q.get("towers") ?? "archer@0.2:3,knight@0.32:3,wizard@0.45:3,b,gunpowder@0.58:3,archer@0.7:3,wizard@0.82:2").split(",").reduce((acc, p) => (p.includes("@") ? acc.push([p]) : acc[acc.length - 1].push(p), acc), [])) {
+        const [head, br] = spec, [kd, rest] = head.split("@"), [at, lv] = rest.split(":").map(Number);
+        const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+        let spot = null;
+        for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; }
+        }
+        if (!spot) continue;
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        if (br) branchTower(g, t, br);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      const def = weatherDef(), w = g.weather;
+      let s, t = 0;
+      do { s = segAt(w, def, t); t = s.t1; } while (s.ph !== (q.get("rise") ? "rising" : "squall") && t < 5000);
+      w.clock = Math.max(0, s.t0 + Number(q.get("rise") ?? 2));
+      updateGame(g, DT);
+      const hold = () => { g.lives = 9999; if (g.phase === "build") g.buildUntil = null; };
+      const pin = () => { if (!g.weather) return; if (q.get("k")) g.weather.k = Number(q.get("k")); if (q.get("wet")) g.weather.wet = Number(q.get("wet")); };
+      const ft = q.get("focus") != null ? g.towers[Number(q.get("focus"))] : null;
+      const [cx, cy, cw, ch] = ft ? [Math.round(ft.x - 50), Math.round(ft.y - 85), 100, 100] : (q.get("crop") || `0,0,${W},${H}`).split(",").map(Number);
+      const half = !!q.get("half");
+      const snaps = (q.get("snaps") || "3,6").split(",").map(Number);
+      const cols = Math.min(Number(q.get("cols")) || (cw < W ? 3 : 1), snaps.length), rows = Math.ceil(snaps.length / cols);
+      const fw = cw * RES * SC / (half ? 2 : 1), fh = ch * RES * SC / (half ? 2 : 1);
+      const out = document.createElement("canvas"); out.width = fw * cols; out.height = (fh + 16) * rows;
+      const o = out.getContext("2d"); o.fillStyle = "#20242c"; o.fillRect(0, 0, out.width, out.height);
+      const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES;
+      const fake = () => {
+        const foes = g.enemies.filter((e) => e.hp > 0);
+        if (foes.length >= 2) {
+          const a = foes[0], b = foes[Math.min(foes.length - 1, 3)];
+          g.effects.push({ type: "wxarc", x0: a.x - 30, y0: a.y + 6, x1: a.x, y1: a.y, ttl: 330, life: 400, seed: 7 });
+          g.effects.push({ type: "wxarc", x0: a.x, y0: a.y, x1: b.x, y1: b.y, ttl: 250, life: 400, seed: 11 });
+          for (const e of foes.slice(0, 6)) { e.burnUntil = g.time * 1000 + 3000; e.burnDps = e.burnDps || 1; }
+          g.effects.push({ type: "wxfizzle", x: b.x + 20, y: b.y + 18, ttl: 500, life: 700 });
+          g.effects.push({ type: "wxspook", x: b.x - 30, y: b.y, ttl: 450, life: 600 });
+          g.effects.push({ type: "wxfizzle", x: b.x + 50, y: b.y + 18, ttl: 250, life: 700 });
+        }
+      };
+      startWave(g);
+      const t0 = g.time;
+      snaps.forEach((at, i) => {
+        while (g.time - t0 < at) { pin(); updateGame(g, DT); hold(); if (g.phase !== "combat") startWave(g); }
+        pin();
+        if (q.get("fx")) fake();
+        if (q.get("shock")) for (const t of g.towers.slice(0, 2)) { t.shockMax = 3000; t.shockLeft = Number(q.get("shock")); }
+        if (q.get("bolt")) { const e = g.enemies.find((e) => e.hp > 0); if (e) g.effects.push({ type: "wxbolt", x: e.x + 10, y: e.y, r: 30, ttl: 1000 - Number(q.get("bolt")), life: 1000 }); }
+        draw(g, cv, { current: null });
+        const col = i % cols, row = Math.floor(i / cols);
+        o.imageSmoothingEnabled = half;
+        o.drawImage(cv, cx * RES, cy * RES, cw * RES, ch * RES, col * fw, row * (fh + 16) + 16, fw, fh);
+        o.fillStyle = "#e8e0c8"; o.font = "11px monospace";
+        o.fillText(`+${at}s  ${g.weather.phase} k${g.weather.k.toFixed(2)} wet${(g.weather.wet ?? -1).toFixed(2)}  foes ${g.enemies.length}`, col * fw + 4, row * (fh + 16) + 12);
+      });
+      await fetch(`/__shot?name=rain_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      const N = Number(q.get("bench")) || 0;
+      if (N) {
+        for (let i = 0; i < 10; i++) { pin(); draw(g, cv, { current: null }); g.time += DT; }
+        const time = (fn) => { const a = performance.now(); for (let i = 0; i < N; i++) { pin(); fn(); g.time += DT; } return (performance.now() - a) / N; };
+        const wx = g.weather;
+        const withW = time(() => draw(g, cv, { current: null }));
+        g.weather = null;
+        const without = time(() => draw(g, cv, { current: null }));
+        g.weather = wx;
+        const sc = document.createElement("canvas"); sc.width = W * RES; sc.height = H * RES;
+        const sctx = sc.getContext("2d"); sctx.imageSmoothingEnabled = false; sctx.scale(RES, RES);
+        const ground = time(() => drawWeatherGround(sctx, g));
+        const sky = time(() => drawWeather(sctx, g));
+        let old = {};
+        if (q.get("old")) {
+          const O = await import("/scratchpad/rain/oldfx.js");
+          for (let i = 0; i < 5; i++) { O.drawWeatherGround(sctx, g); O.drawWeather(sctx, g); }
+          old = { oldGround: +time(() => O.drawWeatherGround(sctx, g)).toFixed(2), oldSky: +time(() => O.drawWeather(sctx, g)).toFixed(2) };
+        }
+        window.BENCH = { ...old, k: +wx.k.toFixed(2), wet: wx.wet, foes: g.enemies.length, halls: g.towers.length,
+          drawWith: +withW.toFixed(2), drawWithout: +without.toFixed(2), ground: +ground.toFixed(2), sky: +sky.toFixed(2) };
+      }
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/rain_${TAG}.png ${window.BENCH ? JSON.stringify(window.BENCH) : ""}`;
+    </script>
+  </body>
+</html>

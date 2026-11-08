@@ -197,6 +197,15 @@ export const ENEMIES = {
     name: "Unhorsed Knight", atk: 24, atkRate: 900, castleDmg: 1,
     note: "A cavalier who lived through his horse's fall. On foot he is slow, but his plate turns half of every arrow and blade. Magic goes straight through it.",
   },
+  // a cavalier's horse that threw its rider at a lightning stroke (owner,
+  // 2026-11-08: weather.js spook): no one on its back to rein it in, so it
+  // bolts down the road faster than it was ridden. No lance, no blow; your
+  // soldiers can still catch it by the bridle and hold it.
+  loosehorse: {
+    faction: "iron", hp: 110, speed: 175, bounty: 6, armor: 0.2, trapBane: 1.5, size: 19,
+    name: "Loose Horse", atk: 0, atkRate: 1000, castleDmg: 1, mounted: true,
+    note: "A cavalier's horse that threw its knight when the lightning cracked. Riderless and terrified it bolts for the gate faster than any charge. It never fights back.",
+  },
   unseated: {
     faction: "iron", hp: 100, speed: 66, bounty: 8, armor: 0.3, size: 17,
     name: "Unseated Knight", atk: 22, atkRate: 900, castleDmg: 1,

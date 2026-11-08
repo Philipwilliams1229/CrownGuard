@@ -268,6 +268,73 @@ still use only the flat `weatherVeil` beyond the board. Look at it in Free
 Play at an iPad size (e.g. 1180x820); `window.__g.weather.clock` jumps the
 spell (`segAt` in engine/weather.js finds a phase).
 
+## The storm's rain bites (2026-11-08, owner request)
+
+"Upgrading the rain mechanic ... pretty lackluster": the Iron Marches'
+thunderstorm only slowed foes 10% (which helped you) and its rain barely
+showed. Provisional, pending the owner's playtest. Engine (engine/weather.js,
+the `storm` kind's header has the rules): two clocks, `w.k` (how hard it
+rains now) and `w.wet` (how soaked the ground is: chases k, up over `wetIn`
+45 s, dries over `wetOut` 60 s, still between waves; `soaks: true`). The rain
+changes WHICH halls work. By k: `fire` x0.5 on every burn and lava/fire pool
+(update.js burn tick and grounds loop), `misfire` 30% of Powder Works charges
+land a dud (`p.dud`, burstCharge: a `wxfizzle` effect and the `fizzle` sound,
+no blast, no shards; `g.duds`), `charged` (towers.js `inWeather`: a
+Stormcaller's `arc` +1 from k 0.5 and `arcRange` up to x1.25; Ysolde one leap
+more). By wet: mud `foeSpeed` 0.9 (ground foes only now: fliers and ships
+were slowed before), `noCharge`, `riverReach` x1.15 on the River Watch. A
+stroke of lightning runs on through the wet to up to `boltArcs` 3 x wet more
+ground foes, each within `boltArcR` 70 of the last, for `boltArcDmg` 0.6 of
+its blow (`wxarc` effects; `g.boltArcs`). Mild storms grade it all down
+(fire 0.7, misfire 15%, river 1.1, 2 arcs). The card's brief and the battle's
+(i) list every effect (data/weather-info.js). Sound: `sfx.bed("rain", k)`, a
+looping rain bed (BEDS in sfx.js; CrownguardGame's loop sets it each frame,
+hushed when paused), with a "Rain" switch in the Sound settings.
+`sim.mjs` prints `arcs` and `duds` beside the bolts. Measured `--chapter iron
+--endure`, seeds 1-2, better doctrine per level: 9033 / 9164 -> 8907 / 8821
+castle damage (noise; all 15 held, none stuck). The sim commander never builds
+a Powder Works, so the duds never show in it.
+
+**The storm is dangerous too** (owner's picks, same day; provisional):
+- Lightning strikes HALLS: `boltHall` 0.25 of strokes aim at a random hall;
+  every hall within the stroke's `r` + 12 is struck for `boltShock` 3000 ms
+  (`t.shockLeft`, build.js `fights`; a Knight Garrison, Covert or River Watch
+  keeps its men fighting, only the hall is struck). Every FOOT soldier in the
+  stroke, yours (`u.downUntil`, as a ram's trample) or theirs (`stunUntil`;
+  bosses, riders and fliers only `boltStun` 0.5 s), is stunned 3 s. The
+  shielded and magic-resistant still take nothing. `g.hallsStruck`.
+- Thunder spooks horses: a cavalier within `boltSpook` 90 of a stroke throws
+  his knight 60% of the time (`spook`, weather.js: the cavalier is removed with
+  no bounty, an `unhorsed` knight drops dazed 1.2 s and a `loosehorse` bolts
+  on, each with his share of health). The Loose Horse (enemies.js): 110 hp,
+  speed 175 (the cavalier 120), no blow, 1 life, armor 0.2, `trapBane`; rig
+  `loosehorse` = the riderless destrier (rigs-ironmounts.js). `g.spooked`.
+- Rams sink in the mud: `ramMud` 0.8 by wet on top of the mud's 0.9 (x0.72).
+- Gryphons fly low (`fliersLow`/`groundHitsLow`, the blizzard's): ground-only
+  halls shoot them from k 0.5; traps still never touch a flier.
+- The road FLOODS: `floods` 3 (2 when mild) stretches of `floodLen` 90 per
+  board (`floodSites`: by a river or pond first, never on a bridge, 200 apart,
+  clear of the wood and the gate), under water from wet 0.3, full at 0.8,
+  spreading from the middle (`w.floods`, `WX.floods`). Anyone wading (foes by
+  road distance, `floodFoe`; soldiers within 27 px of it, `floodUnit`) moves
+  and strikes `floodSlow` 30% slower: runMelee / runRangedBand scale each
+  man's own `sdt`, foes' step and meleeCd / rangedCd. Halls untouched.
+  Measured `--chapter iron --endure`, seeds 1-2, better doctrine, against the
+  first round: 8907 / 8821 -> 9086 / 8781 (noise; all 15 held, none stuck;
+  3-16 halls struck and 0-8 horses spooked a level). The sim prints
+  `halls-struck` and `spooked`.
+- Lightning sooner, more often, in flurries (owner, same day): strokes begin
+  while the storm is still rolling in, once k reaches `boltFrom` 0.6 of its
+  peak (the first ~24 s into a rise, was the height + 1 s), every `boltEvery`
+  7-10 s at full (was 10-14; mild 12-16, was 16-22), sparse over `boltRamp`
+  20 s from the spell's first stroke (`w.strikeFrom`). `burstChance` 0.2 (mild
+  0.12) of strokes start a FLURRY: `burstN` 2-3 more, `burstGap` 0.18-0.4 s
+  apart, each near the last (`burstSpread` 140; `w.burstLeft`, `w.burstAt`).
+  Headless, one full storm: 38 strokes in 4 min with 6 flurries. Iron
+  `--endure` seeds 1-2, better doctrine: strokes 744 / 750 -> 1633 / 1668 a
+  chapter, halls struck ~360 -> ~850, castle damage 9086 / 8781 -> 8429 / 8970
+  (noise; all 15 held, none stuck).
+
 ## Zones IV and V (owner's direction, 2026-10-03)
 
 The plan is `art/ZONES-4-5.md`: zone IV the Rimewater (a new faction, the
@@ -351,7 +418,7 @@ uses; existing levels sim byte-identical). Read the headers of
   70-100), rolls in 25-40 s, holds 2-4 min (mild 1-2), passes 25-40 s
   (lightning stops first), calm 70-120 s (mild 120-200); bolts every 10-14 s
   at its height (mild 16-22), sparse for the first 30 s. Effects ramp with
-  k (a charge bogs down with chance = k). Blizzard 15-22 / 25-40 / 15-22 s;
+  k (the mud and rivers follow the ground's soak, `w.wet`: see "The storm's rain bites"). Blizzard 15-22 / 25-40 / 15-22 s;
   grave mist 20-30 / 30-50 / 20-30 s (hides foes past k 0.4); eruptions only
   at the height; fog fades with the level's waves instead (`fade`, see
   "Weather brief on the level card").

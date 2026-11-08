@@ -159,6 +159,8 @@ const LIB = {
   crack:     { ms: 150, fn: () => { noise({ dur: 0.12, gain: 0.35, type: "highpass", from: 3000, to: 900 }); noise({ dur: 1.2, gain: 0.18, type: "lowpass", from: 500, to: 60, delay: 0.08 }); } },
   moan:      { ms: 2500, fn: () => { tone({ type: "sine", f: 147, to: 131, dur: 1.8, gain: 0.08 }); tone({ type: "sine", f: 220, to: 196, dur: 1.6, gain: 0.05, delay: 0.3 }); noise({ dur: 1.8, gain: 0.03, type: "bandpass", from: 500, to: 300, q: 2 }); } },
   rumble:    { ms: 2500, fn: () => { noise({ dur: 2.2, gain: 0.2, type: "lowpass", from: 180, to: 40 }); tone({ type: "sawtooth", f: 40, to: 30, dur: 1.6, gain: 0.08 }); } },
+  // a Powder Works charge with wet powder: a hiss of steam and a sputter (weather.js misfire)
+  fizzle:    { ms: 200, fn: () => { noise({ dur: 0.55, gain: 0.07, type: "highpass", from: 5200, to: 2400 }); noise({ dur: 0.18, gain: 0.05, type: "bandpass", from: 900, to: 300, q: 2, delay: 0.04 }); tone({ type: "sine", f: drift(420), to: 180, dur: 0.25, gain: 0.03, delay: 0.05 }); } },
   whistle:   { ms: 300, fn: () => { tone({ type: "sine", f: 1800, to: 500, dur: 0.9, gain: 0.05 }); } },
   shroud:    { ms: 250, fn: () => { [2093, 1568, 1245].forEach((f, i) => tone({ type: "triangle", f: drift(f, 0.03), dur: 0.22, gain: 0.07, delay: i * 0.05 })); noise({ dur: 0.35, gain: 0.06, type: "highpass", from: 6000, to: 3000 }); } },
   bossHorn:  { ms: 900, fn: () => { inst("horn", 43, 1.0, 1); inst("horn", 50, 1.0, 0.9); inst("brass", 55, 0.9, 0.6, 0.25); drum("c", 0.6, 0.0); noise({ dur: 0.9, gain: 0.08, from: 400, to: 60 }); } },
@@ -206,6 +208,40 @@ const LIB = {
   ward:      { ms: 400, fn: () => { tone({ type: "triangle", f: 880, dur: 0.14, gain: 0.08 }); tone({ type: "triangle", f: 1109, dur: 0.2, gain: 0.07, delay: 0.08 }); } },
 };
 
+// ---- beds: a looping sound whose loudness is set every frame -----------
+// The storm's rain (CrownguardGame's loop calls sfx.bed("rain", level), level
+// 0..1 from the weather): a hiss of drops over a low wash, eased so it swells
+// and dies away with the rain. A bed never starts the audio context itself
+// (that waits for the first tap); muting and the Rain switch silence it.
+const BEDS = {
+  rain: (c) => {
+    const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    // white noise with sparse louder ticks: drops, not a hiss of static
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.004 ? 2.2 : 0.55);
+    const src = c.createBufferSource(); src.buffer = buf; src.loop = true;
+    const hi = c.createBiquadFilter(); hi.type = "bandpass"; hi.frequency.value = 3200; hi.Q.value = 0.5;
+    const lo = c.createBiquadFilter(); lo.type = "lowpass"; lo.frequency.value = 420; lo.Q.value = 0.4;
+    const gh = c.createGain(); gh.gain.value = 0.55;
+    const gl = c.createGain(); gl.gain.value = 1;
+    const out = c.createGain(); out.gain.value = 0;
+    src.connect(hi).connect(gh).connect(out);
+    src.connect(lo).connect(gl).connect(out);
+    out.connect(master);
+    src.start();
+    return { out, peak: 0.11 };
+  },
+};
+const beds = {};
+function bed(name, level) {
+  if (HEADLESS || !ctx || !BEDS[name]) return;
+  const v = store.muted || effectOff(name) ? 0 : Math.max(0, Math.min(1, level || 0));
+  let b = beds[name];
+  if (!b) { if (v <= 0.001) return; b = beds[name] = BEDS[name](ctx); b.v = -1; }
+  if (Math.abs(v - b.v) < 0.01) return;
+  b.v = v;
+  b.out.gain.setTargetAtTime(v * v * b.peak, ctx.currentTime, 0.6);
+}
+
 // ---- public face -------------------------------------------------------
 
 export const sfx = {
@@ -220,6 +256,8 @@ export const sfx = {
     s.fn();
   },
   names: () => Object.keys(LIB),
+  // a looping bed's loudness now (0..1): see BEDS
+  bed,
   // Render effects end to end into an AudioBuffer (the lab's "sound sheet"):
   // each name gets `gap` seconds. Lets the owner hear changes on a phone.
   async sheet(names, gap = 1.7, sampleRate = 32000) {

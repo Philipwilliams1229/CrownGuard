@@ -14,11 +14,16 @@
 //              thick over the wood and the water), a small ragged pocket of
 //              clearer air round every hall; as it burns off it
 //              breaks into patches and warms, with shafts of morning light
-//   storm      a cooler, darker sky with cloud shadow racing over, slanted
-//              rain in two depths, splashes and puddles on the road (that
-//              glint in the flash); a strike gathers static (a glow on the
-//              ground, sparks drawn in, a faint leader down the bolt's own
-//              path), then a forked bolt from the top: a white flash frame,
+//   storm      a cooler, darker sky with cloud shadow racing over; a downpour
+//              in depths (far and mid sheets, three sizes of near drops) that
+//              gusts lean over while a curtain of heavier rain sweeps across,
+//              spray in the heaviest; the GROUND soaks with w.wet (the road
+//              darkens and holds the sky, puddles open and grow, rivers run
+//              brown with foam, stretches of road flood: w.floods), rings on
+//              every water, splashes off the road, roofs and shoulders; burning
+//              foes steam, Stormcaller halls crackle, a stroke runs on to a foe
+//              (wxarc), a wet charge fizzles (wxfizzle); a strike gathers
+//              static, then a forked bolt from the top: a white flash frame,
 //              a flicker, an afterglow and a branching scorch
 //   gravemist  low green-grey banks hugging the road, lobes that curl and
 //              sway along its bends, wisps rising, now and then a face or a
@@ -30,7 +35,8 @@
 //              smoke; the landing flashes, throws chips and a dust ring (the
 //              engine leaves the scorch)
 // Plus: halls set burning (flame tongues after render/flames.js and smoke),
-// dazed soldiers (a wheel of electric stars), and a small toast — the kind's
+// halls struck by lightning (t.shockLeft: crackles and a blue glow), horses
+// spooked by thunder (wxspook), dazed soldiers (a wheel of electric stars), and a small toast — the kind's
 // icon and name — for three seconds as a weather comes in.
 //
 // Cost: every wash is a baked layer or a pattern fill (render/weatherbake.js
@@ -40,8 +46,8 @@
 import { W, H, WALL_W, RES } from "../data/constants.js";
 import { WEATHER_KINDS, weatherDef } from "../engine/weather.js";
 import { REALM } from "../data/maps.js";
-import { TOTAL_LEN, posAt, lanePos } from "../engine/path.js";
-import { forestDepthAt, inRiver, inSea, COAST } from "../data/terrain.js";
+import { TOTAL_LEN, SEGS, posAt, lanePos } from "../engine/path.js";
+import { forestDepthAt, inRiver, inSea, COAST, RIVERS, PONDS, BRIDGES, underBridge } from "../data/terrain.js";
 import { canvasFont } from "../ui/fonts.js";
 import { PX } from "./paint.js";
 import * as B from "./weatherbake.js";
@@ -222,7 +228,9 @@ const warm = (kind) => {
   const jobs = {
     fog: [fogArt, B.fogShafts, ...RUNGS.slice(4).map((r) => () => B.clearing(r)),
       () => { if (NEED.some((v) => v > 0)) fogLandWide(); }, () => { if (NEED.some((v) => v > 0)) B.fogShafts(B.FOG_WIDE); }],
-    storm: [B.stormShade, () => B.rainSheet(false), () => [0, 1, 2].forEach(B.rainDrop), () => puddles().forEach((p) => B.puddle(p.wu, p.v))],
+    storm: [B.stormShade, () => { B.rainFar(0); B.rainMid(0); B.rainMid(3); }, () => [0, 1, 2].forEach((v) => [0, 1, 2, 3].forEach((l) => B.rainDrop(v, l))),
+      B.rainSpray, B.rainCurtain, B.floodTex, wetRoadArt, () => { if (RIVERS.length) siltArt(); }, waterSpots, riverLines,
+      () => puddles().forEach((p) => { for (let wu = 4; wu <= p.wu; wu += 2) B.puddle(wu, p.v); })],
     blizzard: [() => B.snowDrift(false), () => B.snowDrift(true), () => B.snowSheet(false),
       ...["t", "b", "l", "r"].flatMap((sd) => [1, 2, 3, 4].map((i) => () => B.frostStrip(sd, FROST_D[sd], i / 4)))],
     eruption: [B.ashHaze, B.ashSheet, () => { for (let v = 0; v < 3; v++) for (let f = 0; f < 8; f++) B.boulder(ROCK_R, v, f); }],
@@ -295,18 +303,158 @@ const fog = (ctx, g, w, def) => {
 };
 
 // ================= STORM =================
-// puddles: where they lie on this board (a stretch of road each)
-const puddles = () => B.memo(`puds|${realmKey()}`, () => {
-  const out = [], n = 18;
+// The downpour (rain pass, 2026-11-08: the owner found the old rain
+// "pretty lackluster"). The SKY half (storm): a cooler, darker sky with cloud
+// shadow racing over, far and mid rain sheets in one 1-unit layer (whole-unit
+// streaks, so they survive a screen smaller than RES), crisp near drops in
+// three depths, and every GUST_P s a gust: the rain leans over and a curtain
+// of heavier rain sweeps across the board. In the heaviest rain a low spray
+// drifts over the ground; drops splash off the halls' roofs and the foes'
+// shoulders; burning foes steam; Stormcaller halls crackle; a stroke runs on
+// through the wet to a foe (wxarc); a powder charge fizzles (wxfizzle).
+// The GROUND half (stormGround) reads `w.wet` (how soaked the ground is;
+// engine/weather.js), never k: the road darkens and takes a sheen of the
+// storm's sky, puddles open and grow on it, rings pepper the puddles, rivers,
+// ponds and sea, a swollen river runs brown with foam, and splashes jump.
+const wetOf = (w) => clamp01(w.wet ?? w.k);
+// how much rain is falling: it gets going faster than the sky darkens, so a
+// storm rolling in (k 0.25) already rains (0.44); the sky's wash follows k
+const rainOf = (k) => 1 - (1 - clamp01(k)) ** 2;
+const RAIN_N = [210, 120, 24];          // near drops at k 1 (thin / long / big)
+const RAIN_VY = [520, 610, 720];        // their fall, units/s
+const GUST_P = 19, GUST_D = 7;          // a gust every GUST_P s (somewhere in it), lasting GUST_D s
+const LEAN0 = B.RAIN_LEAN[0], LEAN1 = B.RAIN_LEAN[3];
+// the wind now: G how hard a gust blows (0..1), E its integral (s) for the
+// drift (closed form, so stateless), u the time into this cycle's gust
+const gustAt = (t) => {
+  const c = Math.floor(t / GUST_P), o = B.h2(c, 1, 260) * (GUST_P - GUST_D), u = t - c * GUST_P - o;
+  const G = u > 0 && u < GUST_D ? Math.sin((Math.PI * u) / GUST_D) ** 2 : 0;
+  const part = u <= 0 ? 0 : u >= GUST_D ? GUST_D / 2 : u / 2 - (GUST_D / (4 * Math.PI)) * Math.sin((2 * Math.PI * u) / GUST_D);
+  return { G, E: (c * GUST_D) / 2 + part, u, str: 0.65 + 0.35 * B.h2(c, 2, 260) };
+};
+// how far the wind has carried something falling at vy (units, -x)
+const driftOf = (vy, t, E) => vy * (LEAN0 * t + (LEAN1 - LEAN0) * E);
+
+// puddles: where they lie on this board (a stretch of road each, a few at its
+// edges), each with the wetness `th` it opens at and its full size `wu`
+const puddles = () => B.memo(`puds2|${realmKey()}`, () => {
+  const out = [], n = 30;
   for (let i = 0; i < n; i++) {
-    const d = TOTAL_LEN * ((i + 0.5 + (B.h2(i, 1, 200) - 0.5) * 0.7) / n);
+    const d = TOTAL_LEN * ((i + 0.5 + (B.h2(i, 1, 200) - 0.5) * 0.8) / n);
     if (d < 20 || d > TOTAL_LEN - 30) continue;
-    const [x, y] = lanePos(d, (B.h2(i, 2, 200) - 0.5) * 22);
-    if (x > W - WALL_W - 10) continue;
-    out.push({ x, y, wu: 2 * Math.round(5 + B.h2(i, 3, 200) * 5), v: i % 4, i });
+    const edge = i % 5 === 4;
+    const [x, y] = lanePos(d, edge ? (B.h2(i, 4, 200) < 0.5 ? -1 : 1) * 27 : (B.h2(i, 2, 200) - 0.5) * 30);
+    if (x > W - WALL_W - 10 || x < 4) continue;
+    if (BRIDGES.some((b) => d > b.d0 - 6 && d < b.d1 + 6)) continue;
+    const wu = 2 * Math.round(edge ? 5 + B.h2(i, 3, 200) * 3 : 7 + B.h2(i, 3, 200) * 8);
+    out.push({ x, y, wu, v: i & 3, i, th: 0.08 + 0.55 * B.h2(i, 5, 200) });
   }
   return out;
 });
+// how big a puddle is at this wetness (even units; 0 = not yet)
+const puddleW = (p, wet) => {
+  if (wet <= p.th) return 0;
+  const grow = clamp01(((wet - p.th) / (1 - p.th)) * 1.15);
+  return Math.max(4, 2 * Math.round((p.wu * (0.35 + 0.65 * grow)) / 2));
+};
+// spots of open water on this board, for the rain's rings
+const waterAt = (x, y) => (RIVERS.length && inRiver(x, y, -3))
+  || PONDS.some((p) => Math.hypot((x - p.x) / ((p.w || 40) / 2), (y - p.y) / ((p.h || 30) / 2)) < 0.78)
+  || (COAST && inSea(x, y, -5));
+const waterSpots = () => B.memo(`wspots|${realmKey()}`, () => {
+  const out = [];
+  for (let y = 4; y < H - 4; y += 7) for (let x = 4; x < W - WALL_W - 4; x += 7) {
+    const px = x + B.h2(x, y, 270) * 6, py = y + B.h2(x, y, 271) * 6;
+    if (waterAt(px, py) && !underBridge(px, py, 10)) out.push([px, py]);
+  }
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(B.h2(i, 3, 272) * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  return out.slice(0, 500);
+});
+// each river's centreline, sampled every 4 units, for the foam to ride
+const riverLines = () => B.memo(`rlines|${realmKey()}`, () => RIVERS.map((rv) => {
+  const P = [];
+  for (const s of rv.segs) {
+    const n = Math.max(1, Math.round(s.len / 4)), tx = (s.x2 - s.x1) / s.len, ty = (s.y2 - s.y1) / s.len;
+    for (let q = 0; q < n; q++) P.push([s.x1 + (s.x2 - s.x1) * (q / n), s.y1 + (s.y2 - s.y1) * (q / n), tx, ty]);
+  }
+  return { P, hw: (rv.w || 30) / 2 };
+}));
+const wetRoadArt = () => B.wetRoad(realmKey(), SEGS, W - WALL_W - 4);
+const siltArt = () => B.riverSilt(realmKey(), (x, y) => inRiver(x, y, -2) && !underBridge(x, y, 6),
+  RIVERS.map((rv) => { const xs = rv.pts.map((p) => p[0] ?? p.x), ys = rv.pts.map((p) => p[1] ?? p.y), m = (rv.w || 30) + 30; return [Math.min(...xs) - m, Math.min(...ys) - m, Math.max(...xs) + m, Math.max(...ys) + m]; }));
+// a baked board-sized layer drawn only where it holds anything
+const putTiles = (ctx, cv, rects) => { for (const [x, y, w, h] of rects) ctx.drawImage(cv, x, y, w, h, x, y, w, h); };
+
+// ---- the flooded road (w.floods, engine/weather.js): standing water over the
+// road, built in its own 1-unit layer (water discs along the flooded centre
+// line, the water's face laid source-atop, a pale scum rim slid in behind),
+// rain rings on it and wakes round everyone wading
+const FLOODS = new Map();                // a flood's layer, kept until its size changes: c -> { key, cv, x0, y0 }
+const FLOOD_R = 30;                      // the disc's radius at depth 0 (+6 at depth 1): spills a little past the road
+const inFlood = (F, x, y, m) => F.some((f) => f.pts.some(([px, py]) => Math.abs(x - px) < m && Math.abs(y - py) < m));
+const floodLayer = (f, R) => {
+  const P = f.pts, n = P.length, key = `${realmKey()}|${n}|${R}|${Math.round(P[0][0])}|${Math.round(P[0][1])}`;
+  let L = FLOODS.get(f.c);
+  if (L && L.key === key) return L;
+  let x0 = W, y0 = H, x1 = 0, y1 = 0;
+  for (const [x, y] of P) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  x0 = Math.floor(x0 - R - 4); y0 = Math.floor(y0 - R - 4); x1 = Math.ceil(x1 + R + 4); y1 = Math.ceil(y1 + R + 4);
+  const cv = L?.cv || B.mk(1, 1);
+  cv.width = x1 - x0; cv.height = y1 - y0;
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  const rAt = (i) => Math.round(R * (i === 0 || i === n - 1 ? 0.72 : i === 1 || i === n - 2 ? 0.9 : 1));
+  P.forEach(([x, y], i) => { const s = B.floodDisc(rAt(i), 1); c.drawImage(s.cv, Math.round(x - x0 - s.r), Math.round(y - y0 - s.r)); });
+  c.globalCompositeOperation = "source-atop";
+  const pat = c.createPattern(B.floodTex(), "repeat");
+  if (pat.setTransform) pat.setTransform(new DOMMatrix([1, 0, 0, 1, -x0, -y0]));
+  c.fillStyle = pat; c.fillRect(0, 0, cv.width, cv.height);
+  c.globalCompositeOperation = "destination-over";
+  P.forEach(([x, y], i) => { const s = B.floodDisc(rAt(i), 0); c.drawImage(s.cv, Math.round(x - x0 - s.r), Math.round(y - y0 - s.r)); });
+  c.globalCompositeOperation = "source-over";
+  L = { key, cv, x0, y0 };
+  FLOODS.set(f.c, L);
+  return L;
+};
+const drawFloods = (ctx, g, F, rk) => {
+  if (typeof document === "undefined") return;
+  const t = g.time;
+  for (const f of F) {
+    const P = f.pts, n = P.length;
+    if (!n || !(f.depth > 0.01)) continue;
+    const R = Math.round(FLOOD_R + 6 * f.depth), L = floodLayer(f, R);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = Math.min(0.92, 0.45 + 0.5 * f.depth);
+    ctx.drawImage(L.cv, L.x0, L.y0);
+    ctx.restore();
+    // rain rings peppering it
+    const rings = Math.round(n * 1.4 * rk);
+    for (let i = 0; i < rings; i++) {
+      const Pd = 0.45 + B.h2(i, 1, 380) * 0.25, q = (t + B.h2(i, 2, 380) * Pd) / Pd, cyc = Math.floor(q), fr = Math.floor(frac(q) * 5);
+      if (fr > 3) continue;
+      const [x, y] = P[Math.floor(B.h2(i, cyc, 381) * n)];
+      put(ctx, B.dimple(fr, i % 3 === 0), x + (B.h2(i, cyc, 382) - 0.5) * R * 1.3, y + (B.h2(i, cyc, 383) - 0.5) * R);
+    }
+  }
+  // wakes round the legs of everyone wading
+  const wf = Math.floor(t * 4);
+  for (const e of g.enemies) {
+    if (e.flying || e.dead || !(e.hp > 0)) continue;
+    const f = F.find((f) => e.dist >= f.d0 + 4 && e.dist <= f.d1 - 4);
+    if (!f) continue;
+    const sz = e.size || 10;
+    ctx.globalAlpha = step4(0.4 + f.depth * 0.6);
+    put(ctx, B.wake(Math.max(4, Math.min(12, Math.round(sz * 0.6))), (wf + (e.id | 0)) & 1), e.x, e.y + sz * 0.5);
+  }
+  for (const h of [...g.towers, ...(g.bands || [])]) for (const u of h.units || []) {
+    if (u.state === "dead" || u.boat || !inFlood(F, u.x, u.y, 22)) continue;
+    ctx.globalAlpha = 0.9;
+    put(ctx, B.wake(5, (wf + (u.id | 0)) & 1), u.x, u.y + 5);
+  }
+  ctx.globalAlpha = 1;
+};
+
 // the lightning's flash now (0..1), from the newest bolt
 const boltFlash = (g) => {
   let f = 0;
@@ -323,7 +471,7 @@ const SEEN = new WeakSet();
 let SCORCH = [];
 
 const stormGround = (ctx, g, w) => {
-  const k = w.k, t = g.time, tms = t * 1000;
+  const k = w.k, t = g.time, tms = t * 1000, wet = wetOf(w);
   // remember new strikes for their scorch, forget old ones
   for (const fx of g.effects) {
     if (fx.type !== "wxbolt" || SEEN.has(fx)) continue;
@@ -331,6 +479,35 @@ const stormGround = (ctx, g, w) => {
     SCORCH.push({ x: fx.x, y: fx.y, r: Math.round(fx.r * 0.5), v: boltSeed(fx.x, fx.y) & 3, t: t - (fx.life - fx.ttl) / 1000 });
   }
   if (SCORCH.length) SCORCH = SCORCH.filter((s) => t - s.t < 4.5 && s.t <= t + 0.1);
+  const flash = boltFlash(g);
+  // the soaked road: its stone darkens, then holds the storm's sky (and the flash)
+  if (wet > 0.02) {
+    const R = wetRoadArt();
+    ctx.globalAlpha = step4(wet) * 0.42;
+    putTiles(ctx, R.wet, R.rects);
+    if (flash > 0) { ctx.globalAlpha = flash * 0.7 * wet; putTiles(ctx, R.sheen, R.rects); }
+    // a swollen river runs brown and churns
+    if (RIVERS.length && wet > 0.35) {
+      const sw = clamp01((wet - 0.35) / 0.65);
+      const S = siltArt();
+      ctx.globalAlpha = step4(sw) * 0.62;
+      putTiles(ctx, S.cv, S.rects);
+      ctx.globalAlpha = 1;
+      riverLines().forEach((L, ri) => {
+        const n = Math.round((L.P.length / 4) * sw);
+        for (let i = 0; i < n; i++) {
+          const P = 2.2 + B.h2(i, 1, 280 + ri) * 1.6, q = (t + B.h2(i, 2, 280 + ri) * P) / P, cyc = Math.floor(q), u = frac(q);
+          const j0 = Math.floor(B.h2(i, cyc, 282 + ri) * L.P.length), j = Math.min(L.P.length - 1, j0 + Math.floor(u * 9));
+          const [x, y, tx, ty] = L.P[j], lat = (B.h2(i, cyc, 284 + ri) - 0.5) * 1.4 * L.hw;
+          const hd = ((Math.round((Math.atan2(ty, tx) / (Math.PI * 2)) * 16) % 16) + 16) % 16;
+          ctx.globalAlpha = step4(Math.min(1, u * 4, (1 - u) * 4));
+          put(ctx, B.foam(hd, (i + cyc) % 3), x + tx * u * 4 - ty * lat, y + ty * u * 4 + tx * lat);
+        }
+      });
+    }
+  }
+  const F = w.floods;
+  if (F && F.length) drawFloods(ctx, g, F, rainOf(k));
   for (const s of SCORCH) {
     const age = t - s.t;
     ctx.globalAlpha = step4(age < 3.5 ? 1 : (4.5 - age));
@@ -339,28 +516,49 @@ const stormGround = (ctx, g, w) => {
     if (age < 0.9) { ctx.globalAlpha = step4(1 - age / 0.9); put(ctx, B.staticGlow(Math.round(s.r * 1.2), 2), s.x, s.y + 3); }
   }
   ctx.globalAlpha = 1;
-  // puddles fill as it rains, and glint in the flash
-  if (k > 0.05) {
-    const flash = boltFlash(g), pa = step4(k);
+  // puddles open as it soaks, grow, and shrink as it dries; rain rings in them
+  if (wet > 0.05) {
     for (const p of puddles()) {
-      ctx.globalAlpha = pa;
-      put(ctx, B.puddle(p.wu, p.v), p.x, p.y);
-      const ph = frac(t * 1.7 + p.i * 0.37);
-      if (k > 0.5 && ph < 0.5) { ctx.globalAlpha = pa; put(ctx, B.ripple(ph < 0.25 ? 0 : 1), p.x + (B.h2(p.i, Math.floor(t * 1.7), 201) - 0.5) * p.wu * 0.5, p.y); }
-      if (flash > 0) { ctx.globalAlpha = flash; ctx.fillStyle = "#f4f8ff"; ctx.fillRect(sn(p.x - p.wu * 0.3), sn(p.y - 1), p.wu * 0.4, 1); }
+      const wu = puddleW(p, wet);
+      if (!wu || (F && F.length && inFlood(F, p.x, p.y, 34))) continue;
+      ctx.globalAlpha = step4((wet - p.th) / 0.1);
+      put(ctx, B.puddle(wu, p.v), p.x, p.y);
+      if (k > 0.12) {
+        const rings = Math.min(3, 1 + Math.floor(wu / 9));
+        for (let r = 0; r < rings; r++) {
+          const P = 0.5 + B.h2(p.i, r, 202) * 0.3, q = (t + B.h2(p.i, r + 7, 202) * P) / P, cyc = Math.floor(q), f = Math.floor(frac(q) * 5);
+          if (f > 3 || B.h2(p.i * 5 + r, cyc, 203) > rainOf(k) * 1.2) continue;
+          put(ctx, B.dimple(f), p.x + (B.h2(p.i + r, cyc, 204) - 0.5) * wu * 0.6, p.y + (B.h2(p.i + r, cyc, 205) - 0.5) * wu * 0.2);
+        }
+      }
+      if (flash > 0) { ctx.globalAlpha = flash; ctx.fillStyle = "#f4f8ff"; ctx.fillRect(sn(p.x - wu * 0.3), sn(p.y - 1), wu * 0.4, 1); }
     }
     ctx.globalAlpha = 1;
-    // splashes on the road, and fainter ones on the turf
-    const n = Math.round(30 * k);
+  }
+  const rk = rainOf(k);
+  if (k > 0.05) {
+    // rings peppering the rivers, ponds and sea
+    const spots = waterSpots();
+    if (spots.length) {
+      const n = Math.round(Math.min(spots.length, 90) * rk);
+      for (let i = 0; i < n; i++) {
+        const P = 0.45 + B.h2(i, 1, 290) * 0.25, q = (t + B.h2(i, 2, 290) * P) / P, cyc = Math.floor(q), f = Math.floor(frac(q) * 5);
+        if (f > 3) continue;
+        const [x, y] = spots[Math.floor(B.h2(i, cyc, 291) * spots.length)];
+        put(ctx, B.dimple(f, i % 4 === 0), x, y);
+      }
+    }
+    // splashes jumping on the road, and smaller ones in the turf
+    const n = Math.round(56 * rk);
     for (let i = 0; i < n; i++) {
       const P = 0.32 + B.h2(i, 1, 210) * 0.22, q = (t + B.h2(i, 2, 210) * P) / P, cyc = Math.floor(q), f = Math.floor(frac(q) * 5);
       if (f > 3) continue;
-      const road = i < 20;
+      const road = i < 34;
       let x, y;
-      if (road) [x, y] = lanePos(B.h2(i, cyc, 211) * TOTAL_LEN, (B.h2(i, cyc, 212) - 0.5) * 30);
+      if (road) [x, y] = lanePos(B.h2(i, cyc, 211) * TOTAL_LEN, (B.h2(i, cyc, 212) - 0.5) * 56);
       else { x = B.h2(i, cyc, 213) * (W - WALL_W); y = B.h2(i, cyc, 214) * H; }
-      ctx.globalAlpha = road ? 1 : 0.55;
-      put(ctx, B.splash(f), x, y);
+      ctx.globalAlpha = road ? 1 : 0.7;
+      put(ctx, B.splash(f, road ? 1 : 0), x, y);
     }
     ctx.globalAlpha = 1;
   }
@@ -388,20 +586,188 @@ const arc = (ctx, x0, y0, x1, y1, seed, col) => {
   }
   ctx.fill();
 };
+// a jagged electric line through pts, each pixel a square of side s units
+const zap = (ctx, pts, s, col) => {
+  ctx.fillStyle = col; ctx.beginPath();
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], st = Math.max(1, Math.ceil(Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * PX));
+    for (let q = 0; q <= st; q++) ctx.rect(sn(ax + (bx - ax) * q / st - s / 2), sn(ay + (by - ay) * q / st - s / 2), s, s);
+  }
+  ctx.fill();
+};
+const jag = (x0, y0, x1, y1, seed, amp) => {
+  const len = Math.hypot(x1 - x0, y1 - y0) || 1, n = Math.max(3, Math.round(len / 7)), nx = -(y1 - y0) / len, ny = (x1 - x0) / len, pts = [[x0, y0]];
+  for (let i = 1; i < n; i++) { const j = (B.h2(seed, i, 225) - 0.5) * amp * 2; pts.push([x0 + (x1 - x0) * i / n + nx * j, y0 + (y1 - y0) * i / n + ny * j * 0.6]); }
+  pts.push([x1, y1]);
+  return pts;
+};
+// a stroke running on through the wet to a foe: a crackling arc along the
+// ground, climbing the foe, bright, flickering, then gone over its life
+const wxArcs = (ctx, g, tms) => {
+  for (const fx of g.effects) {
+    if (fx.type !== "wxarc") continue;
+    const age = fx.life - fx.ttl, q = age / (fx.life || 1), fr = Math.floor(tms / 40), seed = (fx.seed | 0) * 31 + fr;
+    if (q > 0.2 && (fr + (fx.seed | 0)) % 3 === 0) continue;               // the flicker
+    const a = q < 0.2 ? 1 : step4(1 - (q - 0.2) / 0.8);
+    if (a <= 0) continue;
+    ctx.globalAlpha = a;
+    const pts = jag(fx.x0, fx.y0, fx.x1, fx.y1, seed, 5);
+    zap(ctx, pts, 1.5, "#4a64d0");
+    zap(ctx, pts, 1, "#a8c0ff");
+    zap(ctx, pts, 0.5, "#ffffff");
+    if (q < 0.6) zap(ctx, jag(fx.x0, fx.y0, fx.x1, fx.y1, seed + 7, 8), 0.5, "#c8d8ff");
+    // up the foe it found
+    const up = jag(fx.x1, fx.y1, fx.x1 + (B.h2(seed, 1, 226) - 0.5) * 6, fx.y1 - 16, seed + 3, 3);
+    zap(ctx, up, 1, "#a8c0ff"); zap(ctx, up, 0.5, "#ffffff");
+    put(ctx, B.staticGlow(7, q < 0.3 ? 2 : 1), fx.x1, fx.y1);
+    if (q < 0.35) put(ctx, B.staticGlow(6, 1), fx.x0, fx.y0);
+    for (let i = 0; i < 4; i++) {
+      const an = B.h2(seed, i, 227) * 6.28, rr = 3 + 6 * B.h2(seed, i, 228);
+      putC(ctx, B.mote(i % 2 ? "#ffffff" : "#fff2a0", "#7c98e8"), fx.x1 + Math.cos(an) * rr - 0.75, fx.y1 - 8 + Math.sin(an) * rr - 0.75);
+    }
+  }
+  ctx.globalAlpha = 1;
+};
+// a powder charge whose powder got wet: it lands a dud and hisses
+const wxFizzles = (ctx, g, tms) => {
+  for (const fx of g.effects) {
+    if (fx.type !== "wxfizzle") continue;
+    const age = fx.life - fx.ttl, q = clamp01(age / (fx.life || 700)), seed = boltSeed(fx.x, fx.y);
+    if (q < 0.3) { ctx.globalAlpha = 1; put(ctx, B.splash(Math.min(3, Math.floor(q * 13)), 1), fx.x, fx.y + 2); }
+    ctx.globalAlpha = step4(Math.min(1, (1 - q) * 4));
+    put(ctx, B.dudKeg(), fx.x, fx.y);
+    // the fuse sputters, and dies
+    if (q < 0.65) {
+      const fr = Math.floor(tms / 55);
+      for (let i = 0; i < 4 - Math.floor(q * 6); i++) {
+        if ((fr + i) % 3 === 0) continue;
+        const dx = (B.h2(seed + fr, i, 235) - 0.3) * 6, dy = -B.h2(seed + fr, i, 236) * 5;
+        ctx.globalAlpha = 1;
+        putC(ctx, B.mote(i % 2 ? "#ffe08a" : "#fff3d2", "#d8683a"), fx.x + 1.5 + dx, fx.y - 5 + dy);
+      }
+    }
+    // a puff of steam, then another, rising and thinning
+    for (let i = 0; i < 3; i++) {
+      const qq = (q - i * 0.14) / 0.7;
+      if (qq <= 0 || qq >= 1) continue;
+      ctx.globalAlpha = step4((1 - qq) * 0.95);
+      put(ctx, B.steamPuff(3 + Math.round(qq * 4), (seed + i) & 1), fx.x + 1 + (i - 1) * 3 + qq * 4, fx.y - 6 - qq * 16 - i * 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+};
+// the rain on things: splashes off the halls' roofs and the foes' shoulders,
+// steam off burning foes, crackles on the Stormcaller's spires
+const onThings = (ctx, g, k, tms) => {
+  const t = g.time, rk = rainOf(k);
+  if (k > 0.1) {
+    const per = rk > 0.6 ? 3 : 2;
+    for (const h of g.towers) for (let s = 0; s < per; s++) {
+      const P = 0.42 + B.h2(h.id | 0, s, 300) * 0.2, q = (t + B.h2(h.id | 0, s + 9, 300) * P) / P, cyc = Math.floor(q), f = Math.floor(frac(q) * 4);
+      if (f > 2 || B.h2(h.id | 0, cyc * 3 + s, 301) > rk) continue;
+      put(ctx, B.splash(f, 0), h.x + (B.h2(h.id | 0, cyc * 7 + s, 302) - 0.5) * 22, h.y - 34 - B.h2(h.id | 0, cyc * 5 + s, 303) * 14);
+    }
+    let n = 0;
+    for (const e of g.enemies) {
+      if (e.dead || e.hp <= 0 || n > 90) continue;
+      const id = e.id | 0, P = 0.55 + B.h2(id, 1, 304) * 0.3, q = (t + B.h2(id, 2, 304) * P) / P, cyc = Math.floor(q), f = Math.floor(frac(q) * 5);
+      if (f > 2 || B.h2(id, cyc, 305) > rk * 0.8) continue;
+      n++;
+      const sz = e.size || 10;
+      put(ctx, B.splash(f, 0), e.x + (B.h2(id, cyc, 306) - 0.5) * sz, e.y - sz * 1.15 + (e.flying ? -6 : 0));
+    }
+  }
+  // burning foes are doused: steam wisps rise off them
+  if (k > 0.2) {
+    ctx.globalAlpha = step4(0.35 + 0.6 * k);
+    for (const e of g.enemies) {
+      if (!(e.burnUntil > tms) || e.dead || e.hp <= 0) continue;
+      const id = e.id | 0, sz = e.size || 10;
+      for (let i = 0; i < 2; i++) {
+        const f = Math.floor(frac(t * 1.3 + i * 0.5 + B.h2(id, i, 307)) * 6);
+        put(ctx, B.steamWisp(f), e.x + (i ? 3 : -3) + (B.h2(id, i, 308) - 0.5) * 4, e.y - sz * 0.7);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  // the Stormcaller's halls drink the storm: little crackles dance on top
+  if (k > 0.5) {
+    for (const h of g.towers) {
+      if (h.kind !== "wizard" || h.branch !== "b") continue;
+      const id = h.id | 0, cyc = Math.floor(t / 0.55 + B.h2(id, 1, 310)), on = B.h2(id, cyc, 311) < 0.35 + 0.5 * (k - 0.5);
+      if (!on || frac(t / 0.55 + B.h2(id, 1, 310)) > 0.45) continue;
+      const fr = Math.floor(tms / 45);
+      for (let i = 0; i < 2; i++) {
+        const ax = h.x + (B.h2(id, cyc * 4 + i, 312) - 0.5) * 20, ay = h.y - 46 - B.h2(id, cyc * 4 + i, 313) * 24;
+        const bx = ax + (B.h2(fr, i, 314) - 0.5) * 16, by = ay + (B.h2(fr, i, 315) - 0.5) * 10 - 3;
+        const pts = jag(ax, ay, bx, by, fr * 3 + i + id, 2.5);
+        zap(ctx, pts, 1, "#6a84e8"); zap(ctx, pts, 0.5, "#ffffff");
+        putC(ctx, B.mote("#ffffff", "#7c98e8"), bx - 0.75, by - 0.75);
+        if (i === 0) putC(ctx, B.mote("#e8f0ff", "#7c98e8"), ax - 0.75, ay - 0.75);
+      }
+    }
+  }
+};
+
+// a sheet's two leans crossfaded by the gust, drifted by the wind
+const leanSheet = (c, sheetOf, vy, t, wind, a, lean = true) => {
+  const ox = -driftOf(vy, t, wind.E), oy = t * vy;
+  if (wind.G < 0.98 || !lean) fillSheet(c, sheetOf(0), 1, ox, oy, lean ? a * (1 - wind.G) : a);
+  if (wind.G > 0.02 && lean) fillSheet(c, sheetOf(3), 1, ox, oy, a * wind.G);
+};
+// near drops falling across the board, stateless (seeded by i)
+const rainFall = (ctx, n, v, li, t, wind, seed) => {
+  const s = B.rainDrop(v, li), w = s.cv.width / PX, h = s.cv.height / PX, PW = W + 60, PH = H + 60, vy = RAIN_VY[v];
+  for (let i = 0; i < n; i++) {
+    const sp = 0.85 + 0.3 * B.h2(i, 3, seed), dy = vy * sp;
+    const x = ((B.h2(i, 1, seed) * PW - driftOf(dy, t, wind.E)) % PW + PW) % PW - 30;
+    const y = ((B.h2(i, 2, seed) * PH + dy * t) % PH + PH) % PH - 30 - h;
+    ctx.drawImage(s.cv, sn(x), sn(y), w, h);
+  }
+};
 
 const storm = (ctx, g, w) => {
   const k = w.k, t = g.time, tms = t * 1000;
-  // the sky closes in: darker and cooler, cloud shadow racing over
-  // (the sky, its cloud shadow and the far rain share one 1-unit layer: one blit)
+  const wind = gustAt(t);
+  if (k < 0.25) wind.G *= k / 0.25;
+  // the sky closes in: darker and cooler, cloud shadow racing over; the far
+  // and mid rain, the spray and a gust's curtain share one 1-unit layer: one blit
   const c = layer();
   if (c) {
-    wash(c, "14,20,40", 0.3 * k);
+    wash(c, "14,20,40", 0.28 * k);
     fillSheet(c, B.stormShade(), 2, t * 38, t * 9, k);
-    fillSheet(c, B.rainSheet(false), 1, -t * 88, t * 350, 0.85 * k);
+    const spray = clamp01((k - 0.55) / 0.45) * (0.7 + 0.3 * wind.G);
+    if (spray > 0.01) fillSheet(c, B.rainSpray(), 2, -t * (60 + 90 * wind.G), t * 5, spray);
+    const rk = rainOf(k);
+    leanSheet(c, B.rainFar, 330, t, wind, Math.min(1, 1.1 * rk), false);   // the far rain keeps its slant: one fill
+    leanSheet(c, B.rainMid, 440, t, wind, Math.min(1, 0.95 * rk));
+    // the gust's curtain of heavier rain sweeping across
+    if (wind.G > 0.01 && k > 0.2) {
+      const cv = B.rainCurtain(), cw = cv.width, xc = W + 160 - ((W + 320) * wind.u) / GUST_D;
+      const a = k * wind.str * Math.sqrt(Math.sin((Math.PI * wind.u) / GUST_D));
+      c.globalAlpha = a;
+      c.drawImage(cv, Math.round(xc - cw / 2), 0);
+      c.save();
+      const s = LEAN1, hw = B.CURTAIN_W * 0.3;
+      c.beginPath();
+      c.moveTo(xc + s * (H / 2) - hw, 0); c.lineTo(xc + s * (H / 2) + hw, 0);
+      c.lineTo(xc - s * (H / 2) + hw, H); c.lineTo(xc - s * (H / 2) - hw, H);
+      c.closePath(); c.clip();
+      fillSheet(c, B.rainMid(3), 1, -driftOf(520, t, wind.E) + 37, t * 520 + 51, a * 0.75);
+      c.restore();
+      c.globalAlpha = 1;
+    }
     showLayer(ctx, 1);
   }
-  // the near rain, crisp at the art grid
-  fall(ctx, Math.round(520 * k), (i) => B.rainDrop(i % 3), -134, 540, t, 301);
+  // the near rain, crisp at the art grid, in three depths; a gust leans it
+  // over and thickens it
+  const li = Math.round(wind.G * 3), more = (1 + 0.35 * wind.G) * rainOf(k);
+  rainFall(ctx, Math.round(RAIN_N[0] * more), 0, li, t, wind, 301);
+  rainFall(ctx, Math.round(RAIN_N[1] * more), 1, li, t, wind, 302);
+  rainFall(ctx, Math.round(RAIN_N[2] * more), 2, li, t, wind, 303);
+  onThings(ctx, g, k, tms);
+  wxFizzles(ctx, g, tms);
+  wxArcs(ctx, g, tms);
   // a strike gathering: sparks drawn in and rising, little arcs, a faint leader
   for (const m of w.marks) {
     if (m.kind !== "bolt") continue;
@@ -665,6 +1031,37 @@ const hallFires = (ctx, g) => {
     }
   }
 };
+// halls struck by the storm's lightning (t.shockLeft, engine/weather.js):
+// stunned, they hold their fire; sparks crackle over them and a faint blue
+// glow lies at the foot, both dying down as the shock wears off
+const hallShocks = (ctx, g) => {
+  const tms = g.time * 1000;
+  for (const h of g.towers) {
+    if (!(h.shockLeft > 0)) continue;
+    const q = clamp01(h.shockLeft / (h.shockMax || 3000)), fr = Math.floor(tms / 45), id = h.id | 0;
+    ctx.globalAlpha = step4(0.35 + 0.65 * q);
+    put(ctx, B.staticGlow(20, q > 0.5 ? 2 : 1), h.x, h.y - 1);
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < (q > 0.5 ? 4 : 2); i++) {
+      if ((fr + i + id) % 4 === 0) continue;
+      const ax = h.x + (B.h2(fr + id, i, 320) - 0.5) * 28, ay = h.y - 4 - B.h2(fr + id, i, 321) * 48;
+      const bx = ax + (B.h2(fr + id, i, 322) - 0.5) * 24, by = ay + (B.h2(fr + id, i, 323) - 0.5) * 22;
+      const pts = jag(ax, ay, bx, by, fr * 5 + i + id, 3);
+      zap(ctx, pts, 1.5, "#4a64d0"); zap(ctx, pts, 1, "#a8c0ff"); zap(ctx, pts, 0.5, "#ffffff");
+      putC(ctx, B.mote("#ffffff", "#7c98e8"), bx - 0.75, by - 0.75);
+    }
+  }
+};
+// a horse spooked by the thunder (wxspook): white dashes flung up over it
+const spooks = (ctx, g) => {
+  for (const fx of g.effects) {
+    if (fx.type !== "wxspook") continue;
+    const q = clamp01((fx.life - fx.ttl) / (fx.life || 600));
+    ctx.globalAlpha = step4(1 - q * 0.8);
+    put(ctx, B.startle(Math.min(2, Math.floor(q * 3))), fx.x, fx.y - 20);
+  }
+  ctx.globalAlpha = 1;
+};
 // soldiers dazed by a lightning stroke: a wheel of little electric stars
 const dazed = (ctx, g) => {
   const tms = g.time * 1000;
@@ -713,13 +1110,15 @@ export const drawWeatherGround = (ctx, g) => {
   if (!w) { if (SCORCH.length) SCORCH = []; return; }
   warm(w.paint);
   const f = GROUND[w.paint];
-  if (f && (w.k > 0.01 || w.marks?.length || SCORCH.length)) f(ctx, g, w);
+  if (f && (w.k > 0.01 || w.wet > 0.01 || w.marks?.length || SCORCH.length)) f(ctx, g, w);
 };
 // over everything (world space, inside the camera)
 export const drawWeather = (ctx, g) => {
   EDGE = null;
   hallFires(ctx, g);
+  hallShocks(ctx, g);
   dazed(ctx, g);
+  spooks(ctx, g);
   const w = g.weather;
   if (!w) return;
   watchToast(g, w);
