@@ -533,6 +533,16 @@ mechanics:
   frames (guard, wind-up, strike, follow-through) says so — `fightN: 4` on
   its RIGS entry, or `CROWN_FIGHT_FRAMES` in rigs-crown.js.
 
+## The Aegis Magister hangs back (2026-11-08, owner request)
+
+Provisional, pending the owner's playtest. Health 200 -> 300, and he stands
+off your soldiers like the archers, only nearer: `standOff: 50` (enemies.js;
+the necromancer's standOff code in update.js, same 14 s `pauseLeft` budget;
+archers halt at 80-82, the necromancer at 100). At 50 the foes his column
+sends into your knights still stand inside his 80 ward ring, so he keeps
+shielding them while out of their reach. He still strikes back (`atk` 12) if
+a soldier walks out to him.
+
 ## Warchief and boar riders (2026-10-03, owner requests)
 
 Provisional, pending the owner's playtest ("spawn rates are ok but I'll let you

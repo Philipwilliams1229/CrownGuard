@@ -141,11 +141,14 @@ export const ENEMIES = {
   // his own: waves.js adds him to any wave big enough to need him) and throws
   // three shields over everything close around him on a slow beat (his aura
   // was 140 wide until shields turned all magic; 80 now, about a chaplain's).
+  // 2026-11-08 (owner): hp 200 -> 300, and he stands off your soldiers at
+  // `standOff` 50 (the archers' halt, nearer than their 80) so the column
+  // he shields still fights inside his 80 ward ring while he hangs back.
   magister: {
-    faction: "iron", hp: 200, speed: 58, bounty: 30, armor: 0, mres: 0.3, size: 17,
+    faction: "iron", hp: 300, speed: 58, bounty: 30, armor: 0, mres: 0.3, size: 17,
     name: "Aegis Magister", atk: 12, atkRate: 1000, castleDmg: 2,
-    wardEvery: 8000, wardHits: 3, wardRange: 80, packRange: 95, wardFx: "aegis",
-    note: "A court battle-mage who marches inside the big columns. Every eight seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a physical blow whole, and no magic or fire gets through while one stands. Strip his shields with quick arrows and blades, then kill him before the next aegis (he keeps the column's pace, so he never strays from the soldiers he shields); or break them with steel that hits many at once.",
+    wardEvery: 8000, wardHits: 3, wardRange: 80, packRange: 95, wardFx: "aegis", standOff: 50,
+    note: "A court battle-mage who marches inside the big columns. Every eight seconds he throws his aegis over himself and the company around him — three blue shields on every soldier, each swallowing a physical blow whole, and no magic or fire gets through while one stands. Strip his shields with quick arrows and blades, then kill him before the next aegis (he keeps the column's pace, and hangs a few steps back once it meets your soldiers, still close enough to shield it); or break them with steel that hits many at once.",
   },
   // Fewer and far heavier since 2026-09-29 (owner: "higher health, higher
   // physical damage resistance, squashes knights dead — this is where the

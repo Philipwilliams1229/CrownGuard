@@ -1741,8 +1741,8 @@ export function updateGame(g, dt) {
           }
         }
       }
-      // A standoff foe (the necromancer) never shoots: it only keeps `standOff`
-      // away from any soldier or hero, letting its dead do the fighting
+      // A standoff foe (the necromancer, the Aegis Magister) never shoots: it keeps `standOff`
+      // away from any soldier or hero, letting its dead / its column do the fighting
       if (e.standOff && !e.rangedAtk && !stunned) {
         let near = false;
         for (const t of unitHosts(g)) {
