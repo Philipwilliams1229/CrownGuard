@@ -872,7 +872,9 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   2026-11-08 the 2nd/3rd rams are `clock: -1` and come out a third / two
   thirds of the way along the column, each leading its share, and a wave
   gets one ram per `RAM_COLUMN` 12 foot rank and file at most: the owner saw
-  one roll out alone at the end of Ironmouth's wave 20). Flyers
+  one roll out alone at the end of Ironmouth's wave 20; with the magister's
+  wait, Iron `--endure --check-wall` seed 1: 9412 -> 9185, all 15 held, 0
+  passes of a live ram). Flyers
   are drawn above the ground crowd (draw.js sorts them +1000) so they never
   clip behind a ram. The `single` flag (one alive at a time) still exists in
   the spawn queue but no foe uses it now. And
