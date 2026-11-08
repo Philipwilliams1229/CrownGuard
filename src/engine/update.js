@@ -585,6 +585,7 @@ const runRangedBand = (g, b, st, slots, sdt, tms) => {
       if (Math.hypot(u.x - gr.x, u.y - gr.y) <= gr.r) u.hp -= gr.dps * sdt;
     }
     if (u.hp <= 0) { killUnit(g, b, u); return; }
+    if (u.downUntil > tms) { u.state = "rally"; return; }   // knocked flat by a ram (trample)
     const hx = slots[i][0], hy = slots[i][1];
     const dx = hx - u.x, dy = hy - u.y;
     const d = Math.hypot(dx, dy);
@@ -852,6 +853,39 @@ const mended = (u) => { u.prevHp = u.hp; };
 // A ram's trample (owner, 2026-11-08): the man it hits is down this long, and
 // it will not trample him again for RAM_RETRAMPLE_MS (he hacks at its flank)
 const RAM_KNOCK_MS = 1500, RAM_RETRAMPLE_MS = 4000;
+// Trample one man (a knight, militiaman, gate guard, the hero or his men, any
+// band's): `crushDmg` (none = the old outright kill), he lets go of whatever
+// he held, is thrown off the ram's path and down RAM_KNOCK_MS, and takes its
+// flank rather than its front for RAM_RETRAMPLE_MS.
+const trample = (g, host, u, ram, tms) => {
+  u.hp -= ram.crushDmg || u.hp;
+  g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
+  g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: 14 });
+  g.shake = Math.max(g.shake, 4);
+  sfx.play("hit");
+  releaseEnemy(g, g.enemies.find((x) => x.blockedBy === u.id));
+  u.targetId = null; u.state = "rally";
+  if (u.hp <= 0) { killUnit(g, host, u); return; }
+  u.downUntil = tms + RAM_KNOCK_MS;
+  u.flankOf = ram.id; u.flankUntil = tms + RAM_RETRAMPLE_MS;
+  // thrown clear of its path, off to the side of the road it rolls on
+  const [, , ra] = lanePos(ram.dist, ram.lane || 0);
+  const side = Math.sign((u.x - ram.x) * -Math.sin(ra) + (u.y - ram.y) * Math.cos(ra)) || 1;
+  u.x += -Math.sin(ra) * side * 14; u.y += Math.cos(ra) * side * 14;
+};
+// ...and every man a ram rolls over, whether or not he stepped out to meet
+// it (owner, same day: "make it so heroes get hit too, and any reinforcements
+// they call"): within RAM_REACH of it, the River Watch's boats excepted
+const RAM_REACH = 18;
+const rollOver = (g, ram, tms) => {
+  for (const h of unitHosts(g)) {
+    if (h.kind === "riverwatch" || h.leaving) continue;
+    for (const u of h.units) {
+      if (u.state === "dead" || (u.flankOf === ram.id && u.flankUntil > tms)) continue;
+      if (Math.hypot(u.x - ram.x, u.y - ram.y) < RAM_REACH) trample(g, h, u, ram, tms);
+    }
+  }
+};
 
 // One garrison's (or band's) fighters for one tick: respawn, hold the rally
 // point, seize a passing foe, walk to it, trade blows. Shared by the Knight
@@ -895,7 +929,6 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
           let best = null, bestDist = -1;
           for (const e of g.enemies) {
             if (e.dead || isRising(e, tms) || (e.flying && !e.haunts) || e.swimming || e.blockedBy) continue;
-            if (e.crush && t.kind === "hero") continue;      // the hero knows better than to stand in front of a ram
             if (e.crush && u.flankOf === e.id && u.flankUntil > tms) continue;   // the ram that just trampled him: he takes its flank instead (below)
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
@@ -941,23 +974,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
             // down RAM_KNOCK_MS, and it rolls on without a pause. A man who
             // lives takes its flank (above) and is not trampled again by it
             // for RAM_RETRAMPLE_MS.
-            if (target.crush) {
-              u.hp -= target.crushDmg || u.hp;
-              g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
-              g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: 14 });
-              g.shake = Math.max(g.shake, 4);
-              sfx.play("hit");
-              releaseEnemy(g, target);
-              u.targetId = null; u.state = "rally";
-              if (u.hp <= 0) { killUnit(g, t, u); return; }
-              u.downUntil = tms + RAM_KNOCK_MS;
-              u.flankOf = target.id; u.flankUntil = tms + RAM_RETRAMPLE_MS;
-              // thrown clear of its path, off to the side of the road it rolls on
-              const [, , ra] = lanePos(target.dist, target.lane || 0);
-              const side = Math.sign((u.x - target.x) * -Math.sin(ra) + (u.y - target.y) * Math.cos(ra)) || 1;
-              u.x += -Math.sin(ra) * side * 14; u.y += Math.cos(ra) * side * 14;
-              return;
-            }
+            if (target.crush) { trample(g, t, u, target, tms); return; }
             target.engaged = true;
             // Cavalier: the charge rides its first blocker down and gallops on.
             // Whoever steps up second is the one who actually holds him.
@@ -1680,6 +1697,7 @@ export function updateGame(g, dt) {
         if (e.dist >= cap - 1) front[k] = Math.max(e.dist, cap) - 9;
       }
     }
+    for (const w of g.enemies) if (!w.dead && w.crush && !w.swimming) rollOver(g, w, tms);
     for (const e of g.enemies) {
       if (e.dead || e.ship || e.sea) continue;    // (a longship sails by rime.js, a sea monster swims by serpent.js, not the road)
       if (e.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.regen * sdt);

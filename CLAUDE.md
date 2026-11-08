@@ -627,6 +627,17 @@ own blows) and is not trampled by that ram again for `RAM_RETRAMPLE_MS`
 archers; Garrison L3 / Errant / Lancer / Levy knights live on 25-55;
 Paladins, the Champion and the gate halberdiers shrug it off. Headless: L3
 knights 200 -> 25, down 1.5 s, then 56 into its flank; L1 still dies.
+Then (owner, same day) it tramples **heroes and every reinforcement** too:
+`rollOver` (update.js, run for each live `crush` foe right after the ram-wall
+pass) tramples any unit of any band (garrisons, heroes, retinue, militia,
+Hale's levy; not skiffs, not a band `leaving`) within `RAM_REACH` 18 of it,
+whether or not he was fighting it, with the same `trample` (175, knocked
+aside, downed, the re-trample grace), and a ranged unit downed by it stops
+shooting for the 1.5 s. Heroes no longer keep clear of a ram: a melee hero
+fights it like a knight (hacks its flank after the trample). Headless: every
+hero lost 175 and went down, Wren at 100 hp died; Aldric's squires, Hale's
+watchmen and crossbows hit; plain militia (95) die. `--level crowstair
+--endure --check-wall` seed 1, better doctrine 754 -> 721, 0 passes.
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer
