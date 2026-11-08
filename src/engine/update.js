@@ -805,16 +805,33 @@ const syncRetinue = (g) => {
 // with him (behind, beside, or held in a fight with your soldiers, which his
 // ward already reaches from where he stands) against those walking free more
 // than COLUMN_PAST ahead. True when the free ones ahead are the greater part.
-const COLUMN_SPAN = 260, COLUMN_PAST = 40;
+// (his column is its foot rank and file: no archers, healers or other
+// captains, rams, riders' horses in the air, or neutral monsters)
+const COLUMN_SPAN = 260, COLUMN_PAST = 40, COLUMN_LAG = 60, COLUMN_WAIT_MS = 20000;
+const inColumn = (o, e) => o !== e && !o.dead && !o.neutral && !o.flying && !o.swimming && !o.boss && !o.rangedAtk && !o.packRange && !o.roadBlock;
 const columnGone = (g, e) => {
   let ahead = 0, here = 0;
   for (const o of g.enemies) {
-    if (o === e || o.dead || o.neutral || o.flying || o.swimming || o.boss) continue;
+    if (!inColumn(o, e)) continue;
     const dd = o.dist - e.dist;
     if (dd < -COLUMN_SPAN || dd > COLUMN_SPAN) continue;
     if (dd > COLUMN_PAST && !o.blockedBy) ahead++; else here++;
   }
   return ahead > here;
+};
+// ...and the other way (owner, 2026-11-08: "one just charged ahead even when
+// there was a huge group of soldiers behind him"): while most of his column
+// is more than COLUMN_LAG behind him, and at least three of them, he waits
+// for it, up to COLUMN_WAIT_MS a wave, so he walks in its thick, not before it.
+const columnBehind = (g, e) => {
+  let behind = 0, here = 0;
+  for (const o of g.enemies) {
+    if (!inColumn(o, e)) continue;
+    const dd = o.dist - e.dist;
+    if (dd < -COLUMN_SPAN || dd > COLUMN_SPAN) continue;
+    if (dd < -COLUMN_LAG) behind++; else here++;
+  }
+  return behind >= 3 && behind > here;
 };
 
 // How long a foe may stand still before it marches on regardless (see the
@@ -1785,8 +1802,11 @@ export function updateGame(g, dt) {
       // keeps a healer's stalemate from holding a wave open for ever: STAND_MS)
       const standing = ((e.rangedAtk || e.standOff) && e.aiming && (e.pauseLeft ??= STAND_MS) > 0) || (e.clawing && (e.clawLeft ??= 22000) > 0);
       if (standing) { if (e.clawing) e.clawLeft -= sdt * 1000; else e.pauseLeft -= sdt * 1000; }
+      // a captain who follows his column waits for it when it falls behind him
+      const waiting = !standing && e.followColumn && !stunned && !held && (e.waitLeft ??= COLUMN_WAIT_MS) > 0 && columnBehind(g, e);
+      if (waiting) e.waitLeft -= sdt * 1000;
       const rising = e.riseAt !== undefined && tms - e.riseAt < e.riseMs;
-      if (!stunned && !held && !standing && !rising) {
+      if (!stunned && !held && !standing && !waiting && !rising) {
         const slow = (e.immSlow || e.guard > 0) ? 0 : Math.max(e.slowUntil > tms ? e.slowPct : 0, e.auraSlow || 0);
         // (WX: weather.js — a squall's foeSpeed / flierSpeed; 1 on a clear day)
         const step = e.speed * (1 + (e.bannerSpeed || 0)) * (1 - slow) * sdt * WX.foeSpeed * (e.flying ? WX.flierSpeed : 1);

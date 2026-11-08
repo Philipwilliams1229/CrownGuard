@@ -161,8 +161,8 @@ const push = (spec, k) => {
 // A wall (the siege ram, `roadBlock` in enemies.js): the first is out of the
 // wood first, with its escort (`escort` in enemies.js: levies and
 // crossbows) right behind it: the army marches in its lee. If the wave holds
-// more than one, the rest follow on a clock of their own, WALL_STAGGER ms
-// apart (a group with `clock`, see startWave) — never bunched. Applied after
+// more than one, the rest come out further along the column, each leading
+// its share of it (`clock: -1`, see shapeCompany and startWave). Applied after
 // the swell, before escortOf (which decides whether a magister walks with it).
 // A raiser (the necromancer, `raiseEvery`) walks BEHIND the groups of his wave
 // (owner, 2026-09-30): he has to have the fallen to raise, so he is queued
@@ -173,20 +173,24 @@ const raisersLast = (spec) => {
   out.overlap = spec.overlap;
   return out;
 };
-const WALL_STAGGER = 20000, WALLS_MAX = 3;   // 9000 -> 20000 (owner, 2026-10-04: "pretty spaced out")
+// Every ram leads a column (owner, 2026-11-08: "siege ram should only spawn
+// with large columns behind it ... wave 20 on Ironmouth had one spawn at the
+// end"; it used to follow on its own 20 s clock, alone). The order is the
+// owner's: the cavalry charge first (horses ride round a wall), then the
+// ram, then the foot column with its healers and magisters in the thick of
+// it (gatherEscort / escortOf) and the archers at its back (archersAmid). A
+// wave gets one ram per RAM_COLUMN heads of foot rank and file at most; the
+// 2nd and 3rd are marked `clock: -1` and startWave spreads them through the
+// column (a third / two thirds of the way along), so each leads its share.
+const WALLS_MAX = 3, RAM_COLUMN = 12;
+const columnFoot = (t) => { const d = ENEMIES[t]; return !!d && !d.roadBlock && !d.mounted && !d.flying && !d.rangedAtk && !BOSSES.has(t) && !ENEMY_BOSS(t) && (CROWD_WEIGHT[t] ?? 0) >= 0.3; };
 const shapeCompany = (spec, a) => {
   const wallT = spec.find((g) => ENEMIES[g[0]]?.roadBlock)?.[0];
   if (!wallT) return spec;
-  const walls = Math.max(1, Math.min(WALLS_MAX, spec.filter((g) => g[0] === wallT).reduce((n, g) => n + g[1], 0)));
-  // the cavalry surge may go first (horses ride round a wall), then the wall,
-  // then everything that has to march behind it
+  let walls = Math.max(1, Math.min(WALLS_MAX, spec.filter((g) => g[0] === wallT).reduce((n, g) => n + g[1], 0)));
   const rest = spec.filter((g) => g[0] !== wallT).map((g) => g.slice());
   const horse = rest.filter((g) => ENEMIES[g[0]]?.mounted), foot = rest.filter((g) => !ENEMIES[g[0]]?.mounted);
-  // (not every time: on about half the waves the ram leads and the horse
-  // comes up behind it, riding round it — seeded by the wave)
-  const horseFirst = horse.length && mulberry32(a * 97 + 5)() < 0.5;
-  const out = horseFirst ? [...horse, [wallT, 1, 0, 1], ...foot] : [[wallT, 1, 0, 1], ...rest];
-  if (walls > 1) { const more = [wallT, walls - 1, WALL_STAGGER, 1]; more.clock = WALL_STAGGER; out.push(more); }
+  const out = [...horse, [wallT, 1, 0, 1], ...foot];
   out.overlap = spec.overlap;
   const groupOf = (t) => out.find((g) => g[0] === t);
   for (const [t, base, per, gap] of ENEMIES[wallT].escort || []) {
@@ -196,6 +200,9 @@ const shapeCompany = (spec, a) => {
     if (g) { if (g[1] < want) g[1] = want; }
     else out.push([t, want, gap, 1]);
   }
+  const column = out.reduce((n, g) => n + (columnFoot(g[0]) ? g[1] : 0), 0);
+  walls = Math.max(1, Math.min(walls, Math.floor(column / RAM_COLUMN)));
+  if (walls > 1) { const more = [wallT, walls - 1, 0, 1]; more.clock = -1; out.push(more); }
   return out;
 };
 
@@ -304,6 +311,8 @@ const gatherEscort = (spec, type) => {
     let big = -1, most = 0;
     spec.forEach(([t, n], i) => {
       if (t === type || BOSSES.has(t) || ENEMY_BOSS(t) || (CROWD_WEIGHT[t] ?? 0) < 0.3) return;
+      // (never amid the archers: they walk amid a column themselves, archersAmid)
+      if (ENEMIES[t]?.rangedAtk || ENEMIES[t]?.roadBlock) return;
       if (afoot && (ENEMIES[t]?.mounted || ENEMIES[t]?.flying)) return;
       if (n > most) { most = n; big = i; }
     });
@@ -379,7 +388,8 @@ const escortOf = (spec, a) => {
   spec.forEach(([t, n], i) => {
     if (BOSSES.has(t) || ENEMY_BOSS(t) || (CROWD_WEIGHT[t] ?? 0) < 0.3) return;
     heads += n;
-    if (n > most) { most = n; big = i; }
+    // (he walks amid the foot column, never amid the archers, archersAmid)
+    if (n > most && !ENEMIES[t]?.rangedAtk && !ENEMIES[t]?.roadBlock) { most = n; big = i; }
   });
   const n = Math.min(e.max, Math.floor(heads / e.per));
   if (n < 1 || big < 0) return spec;

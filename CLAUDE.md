@@ -590,6 +590,15 @@ ward while 13 walked past, new rule ~9 of 14; with six knights holding all
 six levies he still stands off 63 back with all six in his ward. Iron
 `--endure` seed 1, better doctrine: 9272 -> 9424 (Blackcliff 1399 -> 1535,
 the rest within ~10; all 15 held, none stuck).
+He also **waits for his column** (owner, same day: "one just charged ahead
+even when there was a huge group of soldiers behind him"): `columnBehind`
+(update.js) holds him while at least three of his column, and more than
+are with him, are over `COLUMN_LAG` 60 behind him (a `waiting` flag in the
+movement, budget `COLUMN_WAIT_MS` 20 s a foe). His column (`inColumn`) is
+the foot rank and file: no archers, healers/captains (`packRange`), rams,
+fliers or monsters. Headless: spawned 100-250 ahead of 12 levies, he
+settles ~60 ahead of their middle with 6-10 in his ward (was ~150-190
+ahead, 0-2 in it).
 
 **The Siege Ram gives** (owner, same day: "it was tanking the whole wave"):
 `mres` -0.5 (magic hits it x1.5; a negative mres reads "Weak to magic +50%"
@@ -859,7 +868,11 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   rebuilt every frame so the column is released the instant the ram dies; the
   column queues in its lee, per lane). Up to 3 a wave (the script's count),
   the first out of the wood first and the rest on a clock of their own,
-  9 s apart (`WALL_STAGGER`; a group with `clock`, placed in startWave). Flyers
+  9 s apart (`WALL_STAGGER`; a group with `clock`, placed in startWave; SINCE
+  2026-11-08 the 2nd/3rd rams are `clock: -1` and come out a third / two
+  thirds of the way along the column, each leading its share, and a wave
+  gets one ram per `RAM_COLUMN` 12 foot rank and file at most: the owner saw
+  one roll out alone at the end of Ironmouth's wave 20). Flyers
   are drawn above the ground crowd (draw.js sorts them +1000) so they never
   clip behind a ram. The `single` flag (one alive at a time) still exists in
   the spawn queue but no foe uses it now. And
@@ -881,9 +894,14 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   unless the wave has nothing else). Iron `--endure` after: all 15 held,
   `--check-wall` 0 passes; bleed about even to a little lower (ir2 283/213 ->
   242/109, crowstair 1776/622 -> 1275/704).
-- **Cavalry ride round rams** (`mounted` on the cavalier): on about half the
-  waves that hold both, the cavalry surge goes FIRST, then the ram, then the
-  column; otherwise the ram leads (`shapeCompany`, seeded by the wave).
+- **Cavalry ride round rams** (`mounted` on the cavalier): the cavalry surge
+  goes FIRST, then the ram, then the foot column with its healers and
+  magisters amid it, then the archers at its back (owner, 2026-11-08: "a
+  good difficult wave pattern"; before, the ram led on about half the
+  waves). Healers and magisters never walk `amid` the archers' group now
+  (gatherEscort / escortOf skip `rangedAtk`): on Ironmouth's wave 20 they
+  had, and, the archers being amid the levies themselves, came out right
+  behind the ram.
 - **Archers stand and shoot** (owner, 2026-09-29): a foe with `rangedAtk`
   (crossbowman, barrow archer) halts while any friendly soldier or hero is in
   its `rangedRange` and marches on once none is left (`e.aiming`, update.js).

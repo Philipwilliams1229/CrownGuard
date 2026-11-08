@@ -101,23 +101,32 @@ export const startWave = (g) => {
   let delay = 400;
   const spec = waveSpec(g.wave);
   const ov = spec.overlap || 0;
-  const spans = [];
+  const spans = [], spread = [];
+  let wallAt = null, lastAt = delay;
   for (const grp of spec) {
     const [type, count, gap, pay = 1] = grp;
     if (grp.amid != null) continue;           // escorts are placed below
     if (grp.landing != null) continue;        // a landing party comes by sea (below)
+    if (grp.clock != null && grp.clock < 0) { spread.push(grp); continue; }   // later rams: spread through the column (below)
     if (grp.clock != null) {                  // a staggered group: its own clock, off the road's queue
       for (let i = 0; i < count; i++) queue.push({ type, at: grp.clock + i * gap, mult, pay });
       continue;
     }
     const start = delay;
-    for (let i = 0; i < count; i++) { queue.push({ type, at: delay, mult, pay }); delay += gap; }
+    if (wallAt == null && ENEMIES[type]?.roadBlock) wallAt = start;
+    for (let i = 0; i < count; i++) { queue.push({ type, at: delay, mult, pay }); lastAt = delay; delay += gap; }
     spans[spec.indexOf(grp)] = [start, delay - gap];
     // the next group sets out before this one is done, deep in the war —
     // but only rank and file stream in together; the trolls, shamans and
     // warchiefs still get a road to themselves, so a wall stays readable
     const o = (CROWD_WEIGHT[type] ?? 0) >= 0.4 ? ov : 0;
     delay = start + (delay - start) * (1 - o) + 900 * (1 - o);
+  }
+  // the 2nd and 3rd rams of a wave (waves.js shapeCompany) each lead a share
+  // of the column: they come out a third and two thirds of the way along it
+  for (const grp of spread) {
+    const [type, count, , pay = 1] = grp, a0 = wallAt ?? 400;
+    for (let j = 1; j <= count; j++) queue.push({ type, at: Math.round(a0 + (lastAt - a0) * j / (count + 1)), mult, pay });
   }
   // an escort (the Iron Kingdom's Aegis Magister, waves.js escortOf) walks in
   // the thick of the group it came with: its heads spread evenly through
