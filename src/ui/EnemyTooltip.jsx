@@ -50,7 +50,8 @@ export default function EnemyTooltip({ type }) {
       <Row label="Health">{e.hp}</Row>
       <Row label="Speed">{e.speed}</Row>
       <Row label="Armor">{e.armor > 0 ? `${Math.round(e.armor * 100)}% physical` : "none"}</Row>
-      {e.mres ? <Row label="Magic resist">{Math.round(e.mres * 100)}%</Row> : null}
+      {e.mres > 0 ? <Row label="Magic resist">{Math.round(e.mres * 100)}%</Row> : e.mres < 0 ? <Row label="Weak to magic">+{Math.round(-e.mres * 100)}%</Row> : null}
+      {e.trapBane ? <Row label="Weak to traps">through armor, +{Math.round((e.trapBane - 1) * 100)}%</Row> : null}
       {e.flying ? <Row label="Flying">can't be blocked</Row> : null}
       {e.regen ? <Row label="Regen">{e.regen}/s</Row> : null}
       {e.crush ? <Row label="Vs. knights">crushed</Row> : e.atk > 0 ? <Row label="Vs. knights">{e.atk} dmg</Row> : null}

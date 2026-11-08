@@ -566,6 +566,12 @@ them, past the fight (a free knight may still seize him). Checked headless
 ward while 13 walked past, new rule ~9 of 14; with six knights holding all
 six levies he still stands off 63 back with all six in his ward.
 
+**The Siege Ram gives** (owner, same day: "it was tanking the whole wave"):
+`mres` -0.5 (magic hits it x1.5; a negative mres reads "Weak to magic +50%"
+in the Field Guide and the enemy tooltip), `trapBane` 1.5 (a trap's blow on
+it pierces its 0.6 armor and is x1.5, update.js trap loop: a level-3 spike
+98 -> 147, was 39), and `castleDmg` 4 -> 5. Checked headless.
+
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer
 10 -> 12.5 -> 15.6. And regen's rest rate now waits for `HURT_REST_MS` 5000

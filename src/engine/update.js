@@ -443,7 +443,7 @@ const makeEnemy = (type, mult) => {
   return {
     id: nextId(), type, sprite: v ? v.sprite : null,
     hp: d.hp * mult, maxHp: d.hp * mult, mult, dist: 0,
-    speed: d.speed * (v?.speedMul || 1) * (SANDBOX ? SANDBOX.speedMul : 1), armor: d.armor, mres: d.mres || 0, regen: d.regen || 0,
+    speed: d.speed * (v?.speedMul || 1) * (SANDBOX ? SANDBOX.speedMul : 1), armor: d.armor, mres: d.mres || 0, trapBane: d.trapBane || 0, regen: d.regen || 0,
     // A foe's purse used to be fixed while its health inflated forever, so by
     // the eightieth wave you were paid a wave-one wage to kill a wave-eighty
     // troll. The purse now follows the meat, at a quarter of its rate.
@@ -1506,7 +1506,10 @@ export function updateGame(g, dt) {
           dealDamage(g, e, e.hp + 9999, "phys", true, false, tr.byTower);
           continue;
         }
-        dealDamage(g, e, st.trapDmg * (full ? 1 : 0.6), "phys", false, false, tr.byTower);
+        // a foe with `trapBane` (the siege ram: traps smash its wheels) takes
+        // trap blows through its armor and that many times over
+        const bane = e.trapBane || 0;
+        dealDamage(g, e, st.trapDmg * (full ? 1 : 0.6) * (bane || 1), "phys", !!bane, false, tr.byTower);
         if (e.dead) continue;
         if (full && st.root && !e.boss) e.stunUntil = Math.max(e.stunUntil, tms + st.root);
         if (st.stunAll) e.stunUntil = Math.max(e.stunUntil, tms + st.stunAll);

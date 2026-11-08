@@ -252,7 +252,8 @@ function EnemyDetail({ type }) {
         <Row label="Health">{e.hp}</Row>
         <Row label="Speed">{e.speed}</Row>
         <Row label="Armor">{e.armor > 0 ? `${Math.round(e.armor * 100)}% physical` : "none"}</Row>
-        {e.mres ? <Row label="Magic resist">{Math.round(e.mres * 100)}%</Row> : null}
+        {e.mres > 0 ? <Row label="Magic resist">{Math.round(e.mres * 100)}%</Row> : e.mres < 0 ? <Row label="Weak to magic">+{Math.round(-e.mres * 100)}%</Row> : null}
+        {e.trapBane ? <Row label="Weak to traps">through armor, +{Math.round((e.trapBane - 1) * 100)}%</Row> : null}
         {e.guard ? <Row label="Shield">swallows {e.guard} physical blow{e.guard > 1 ? "s" : ""}; magic and fire can't pass it</Row> : null}
         {e.regen ? <Row label="Regeneration">{e.regen}/s</Row> : null}
         {e.immSlow || e.immStun ? (

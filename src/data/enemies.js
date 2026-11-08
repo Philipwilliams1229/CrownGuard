@@ -162,15 +162,18 @@ export const ENEMIES = {
   // Fewer and far heavier since 2026-09-29 (owner: "higher health, higher
   // physical damage resistance, squashes knights dead — this is where the
   // mages come in"): steel barely dents it, magic takes it whole.
+  // 2026-11-08 (owner: "it was tanking the whole wave"): magic bites it half
+  // again (mres -0.5), the trapsmith's traps go through its armor and hit it
+  // half again (`trapBane` 1.5, update.js's trap loop), and a leak costs 5.
   ram: {
     // speed 30 -> 46 with the wall: the whole army walks at the ram's pace, and
     // at 30 the crowd behind it arrived in one lump and doubled the sim's bleed
-    faction: "iron", hp: 2300, speed: 46, bounty: 60, armor: 0.6, mres: 0, size: 34,
-    name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 4, immSlow: true, immStun: true, crush: true,
+    faction: "iron", hp: 2300, speed: 46, bounty: 60, armor: 0.6, mres: -0.5, trapBane: 1.5, size: 34,
+    name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 5, immSlow: true, immStun: true, crush: true,
     roadBlock: 50,
     // it never marches bare: [type, base count, more per war-wave, gap ms]
     escort: [["levy", 5, 0.6, 420], ["crossbow", 3, 0.35, 760]],
-    note: "A shed of oak and iron wide as the whole road: nothing marches past it, and the army walks in its lee, knights and crossbows piling up behind. Nothing slows it, nothing stuns it, arrows and blades barely dent it, and any knight who steps in front of it is crushed. Magic burns straight through the oak — this is the mages' work. Kill it, and the column pours through.",
+    note: "A shed of oak and iron wide as the whole road: nothing marches past it, and the army walks in its lee, knights and crossbows piling up behind. Nothing slows it, nothing stuns it, arrows and blades barely dent it, and any knight who steps in front of it is crushed. Magic burns through the oak and bites it half again — this is the mages' work — and traps on the road smash its wheels through the plate. Kill it, and the column pours through.",
   },
   gryphon: {
     // 2026-11-08 (owner): armor 0.2 -> 0.3, and the knight lives through the
