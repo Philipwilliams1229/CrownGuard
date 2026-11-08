@@ -264,7 +264,7 @@ function EnemyDetail({ type }) {
         ) : null}
         {e.trample ? <Row label="Tramples">{e.trample} blocker{e.trample > 1 ? "s" : ""}</Row> : null}
         {e.flying ? <Row label="Flying">knights can't block</Row> : null}
-        {e.crush ? <Row label="Vs. knights">crushes them</Row> : e.atk > 0 ? <Row label="Vs. knights">{e.atk} damage</Row> : null}
+        {e.crush ? <Row label="Vs. knights">{e.crushDmg ? `tramples for ${e.crushDmg}, throws aside` : "crushes them"}</Row> : e.atk > 0 ? <Row label="Vs. knights">{e.atk} damage</Row> : null}
         {e.rangedAtk ? <Row label="Shoots knights">{e.rangedAtk} at {e.rangedRange} range</Row> : null}
         {e.heal ? <Row label="Heals warband">{e.heal} per chant</Row> : null}
         {e.wardHits ? <Row label="Wards allies">{e.wardStep ? `+${e.wardStep} shield every ${(e.wardEvery / 1000).toFixed(1)}s, up to ${e.wardHits}, within ${e.wardRange}` : <>{e.wardHits} blow{e.wardHits > 1 ? "s" : ""} each, within {e.wardRange} / {(e.wardEvery / 1000).toFixed(1)}s</>}</Row> : null}

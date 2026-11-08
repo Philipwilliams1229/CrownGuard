@@ -617,6 +617,16 @@ ir5 --endure --check-wall` seed 1, better doctrine: 858 -> 750 and 1478 ->
 Then (owner, same day) health back up 1500 -> 2000 (speed stays 38): the
 same check, seed 1, better doctrine: Crowstair 750 -> 754, the Citadel Gate
 1569 -> 1926; 0 passes of a live ram.
+Its **crush no longer kills outright** (owner, same day): `crushDmg` 175
+(enemies.js) tramples the man who steps in front of it (runMelee in
+update.js; no `crushDmg` = the old kill), releases him, throws him 14 off
+its path and downs him `RAM_KNOCK_MS` 1500 (`u.downUntil`); a survivor then
+hacks at its FLANK as it rolls past (`u.flankOf`, never blocking it, his
+own blows) and is not trampled by that ram again for `RAM_RETRAMPLE_MS`
+4000. 175 kills Garrison L1-2, every militia and the Levy's farmers and
+archers; Garrison L3 / Errant / Lancer / Levy knights live on 25-55;
+Paladins, the Champion and the gate halberdiers shrug it off. Headless: L3
+knights 200 -> 25, down 1.5 s, then 56 into its flank; L1 still dies.
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer

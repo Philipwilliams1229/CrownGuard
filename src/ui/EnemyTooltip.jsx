@@ -54,7 +54,7 @@ export default function EnemyTooltip({ type }) {
       {e.trapBane ? <Row label="Weak to traps">through armor, +{Math.round((e.trapBane - 1) * 100)}%</Row> : null}
       {e.flying ? <Row label="Flying">can't be blocked</Row> : null}
       {e.regen ? <Row label="Regen">{e.regen}/s</Row> : null}
-      {e.crush ? <Row label="Vs. knights">crushed</Row> : e.atk > 0 ? <Row label="Vs. knights">{e.atk} dmg</Row> : null}
+      {e.crush ? <Row label="Vs. knights">{e.crushDmg ? `tramples for ${e.crushDmg}` : "crushed"}</Row> : e.atk > 0 ? <Row label="Vs. knights">{e.atk} dmg</Row> : null}
       <Row label="Castle dmg">{e.castleDmg}</Row>
       <Row label="Bounty">{e.bounty}g</Row>
 

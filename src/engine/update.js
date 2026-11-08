@@ -457,7 +457,7 @@ const makeEnemy = (type, mult) => {
     flying: !!d.flying, haunts: !!d.haunts, holyOnly: !!d.holyOnly, raisesOnKill: !!d.raisesOnKill, swarms: d.swarms || 0, guard: d.guard || 0, guardFlash: 0,
     roadBlock: d.roadBlock || 0, packRange: d.packRange || 0, capDist: Infinity,
     airAtk: d.airAtk || 0, airReach: d.airReach || 0, airFight: null, airOx: 0, airOy: 0,
-    immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush, mounted: !!d.mounted,
+    immSlow: !!d.immSlow, immStun: !!d.immStun, crush: !!d.crush, crushDmg: d.crushDmg || 0, mounted: !!d.mounted,
     trampleLeft: d.trample || 0, trampleMax: d.trample || 0, trampleEvery: d.trampleEvery || 0, trampleCd: null,
     rangedAtk: d.rangedAtk || 0, rangedRange: d.rangedRange || 0, rangedRate: d.rangedRate || 0, rangedCd: 0,
     wardEvery: d.wardEvery || 0, wardHits: d.wardHits || 0, wardStep: d.wardStep || 0, wardRange: d.wardRange || 0, wardCd: null, wardFx: d.wardFx || null, wardSelf: d.wardSelf !== false,
@@ -849,6 +849,10 @@ const resting = (u, tms) => {
 };
 const mended = (u) => { u.prevHp = u.hp; };
 
+// A ram's trample (owner, 2026-11-08): the man it hits is down this long, and
+// it will not trample him again for RAM_RETRAMPLE_MS (he hacks at its flank)
+const RAM_KNOCK_MS = 1500, RAM_RETRAMPLE_MS = 4000;
+
 // One garrison's (or band's) fighters for one tick: respawn, hold the rally
 // point, seize a passing foe, walk to it, trade blows. Shared by the Knight
 // Garrison, the militia and the melee hero.
@@ -879,6 +883,8 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
         if (u.hp <= 0) { killUnit(g, t, u); return; }
         // seized by a sea monster: he stands and hacks at it (serpent.js seaHold)
         if (u.seizedBy && seaHold(g, t, st, u, tms)) return;
+        // knocked aside by a ram (below): down for RAM_KNOCK_MS
+        if (u.downUntil > tms) { u.state = "rally"; return; }
 
         let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
         // tight leash: knights break off quickly once a foe leaves the rally circle
@@ -890,9 +896,33 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
           for (const e of g.enemies) {
             if (e.dead || isRising(e, tms) || (e.flying && !e.haunts) || e.swimming || e.blockedBy) continue;
             if (e.crush && t.kind === "hero") continue;      // the hero knows better than to stand in front of a ram
+            if (e.crush && u.flankOf === e.id && u.flankUntil > tms) continue;   // the ram that just trampled him: he takes its flank instead (below)
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
           if (best) { best.blockedBy = u.id; u.targetId = best.id; u.state = "moving"; target = best; }
+        }
+        // A man a ram has trampled and who still stands hacks at its flank as
+        // it rolls past (never in front of it: he holds nothing), until
+        // RAM_RETRAMPLE_MS is up and he may step in its way again.
+        if (!target && u.flankOf != null && u.flankUntil > tms) {
+          const ram = g.enemies.find((e) => e.id === u.flankOf && !e.dead);
+          if (ram && Math.hypot(ram.x - t.rally.x, ram.y - t.rally.y) <= st.range + 12) {
+            const dx = ram.x - u.x, dy = ram.y - u.y, d = Math.hypot(dx, dy);
+            u.face = dx >= 0 ? 1 : -1;
+            if (d > 24) {
+              const sp = (st.unitSpeed || 95) * sdt;
+              u.x += (dx / d) * sp; u.y += (dy / d) * sp; u.state = "moving";
+            } else {
+              u.state = "fighting";
+              if (u.atkCd <= 0) {
+                u.atkCd = st.rate; u.swing = 180;
+                dealDamage(g, ram, st.dmg * (1 + (u.atkBuff || 0)), st.magic ? "magic" : "phys", st.magic, false, t.id, !!st.magic);
+                g.effects.push({ type: "spark", x: ram.x, y: ram.y - 6, ttl: 160, gold: !!st.magic });
+                sfx.play("clink");
+              }
+            }
+            return;
+          }
         }
 
         if (target) {
@@ -906,14 +936,26 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
             u.state = "moving";
           } else {
             // Siege Ram: no man holds six wheels of oak and iron. Whoever
-            // steps in front of it is crushed, and it rolls on without a pause.
+            // steps in front of it is trampled for `crushDmg` (owner,
+            // 2026-11-08: 175; it used to kill outright) and thrown aside,
+            // down RAM_KNOCK_MS, and it rolls on without a pause. A man who
+            // lives takes its flank (above) and is not trampled again by it
+            // for RAM_RETRAMPLE_MS.
             if (target.crush) {
-              u.hp = 0;
+              u.hp -= target.crushDmg || u.hp;
               g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
               g.effects.push({ type: "dust", x: u.x, y: u.y + 6, ttl: 420, r: 14 });
               g.shake = Math.max(g.shake, 4);
               sfx.play("hit");
-              killUnit(g, t, u);
+              releaseEnemy(g, target);
+              u.targetId = null; u.state = "rally";
+              if (u.hp <= 0) { killUnit(g, t, u); return; }
+              u.downUntil = tms + RAM_KNOCK_MS;
+              u.flankOf = target.id; u.flankUntil = tms + RAM_RETRAMPLE_MS;
+              // thrown clear of its path, off to the side of the road it rolls on
+              const [, , ra] = lanePos(target.dist, target.lane || 0);
+              const side = Math.sign((u.x - target.x) * -Math.sin(ra) + (u.y - target.y) * Math.cos(ra)) || 1;
+              u.x += -Math.sin(ra) * side * 14; u.y += Math.cos(ra) * side * 14;
               return;
             }
             target.engaged = true;

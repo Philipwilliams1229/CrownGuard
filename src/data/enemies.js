@@ -12,7 +12,8 @@
 //   immStun        stuns and freezes do nothing
 //   trample        melee blocks it can smash through before being held
 //   crush          no one holds it: a knight (militia, squire, gate guard) who
-//                  steps in front of it dies, and it rolls on; the hero keeps clear
+//                  steps in front of it is trampled for `crushDmg` (or killed, with
+//                  none) and knocked aside, and it rolls on; the hero keeps clear
 //   flying         knights cannot block it at all
 //   ranged*        it shoots your knights from outside their reach
 //   ward*          it hands out `guard` to nearby allies (wardFx: its look)
@@ -171,11 +172,11 @@ export const ENEMIES = {
     // speed 30 -> 46 with the wall: the whole army walks at the ram's pace, and
     // at 30 the crowd behind it arrived in one lump and doubled the sim's bleed
     faction: "iron", hp: 2000, speed: 38, bounty: 60, armor: 0.6, mres: -0.5, trapBane: 1.5, size: 34,
-    name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 5, immSlow: true, immStun: true, crush: true,
+    name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 5, immSlow: true, immStun: true, crush: true, crushDmg: 175,
     roadBlock: 50,
     // it never marches bare: [type, base count, more per war-wave, gap ms]
     escort: [["levy", 5, 0.6, 420], ["crossbow", 3, 0.35, 760]],
-    note: "A shed of oak and iron wide as the whole road: nothing marches past it, and the army walks in its lee, knights and crossbows piling up behind. Nothing slows it, nothing stuns it, arrows and blades barely dent it, and any knight who steps in front of it is crushed. Magic burns through the oak and bites it half again — this is the mages' work — and traps on the road smash its wheels through the plate. Kill it, and the column pours through.",
+    note: "A shed of oak and iron wide as the whole road: nothing marches past it, and the army walks in its lee, knights and crossbows piling up behind. Nothing slows it, nothing stuns it, arrows and blades barely dent it, and any knight who steps in front of it is trampled flat and thrown aside (a stout one lives to hack at its flank). Magic burns through the oak and bites it half again — this is the mages' work — and traps on the road smash its wheels through the plate. Kill it, and the column pours through.",
   },
   gryphon: {
     // 2026-11-08 (owner): armor 0.2 -> 0.3, and the knight lives through the
