@@ -700,6 +700,26 @@ and the Wolf-Rider too (`trapBane` 1.5, armor 0.1: a level-3 spike 88 ->
 147). Not the Gryphon Knight (it flies: only the Aerostat's balloons reach
 it) nor the Rime Jarl's mammoth (a boss). Not simmed.
 
+## Idle soldiers gang up (2026-11-08, owner request)
+
+"If there's idle knights during a battle, allow them to gang up ... Same for
+militia too." `runMelee` (update.js), so every melee band: Knight Halls, the
+militia and the Levy's swordsmen, the hero, retinue, Hale's watchmen. Still
+ONE holder a foe (`blockedBy`); a man with no FREE foe in his circle (range x
+0.92 round his post) now joins a comrade's fight on a HELD foe in it (held by
+any of ours: a knight, the hero, a militiaman, a bowman a foe caught), the
+one with the most health first, and keeps it while it lives. He holds
+nothing: the foe strikes back only at its holder (its `meleeCd` runs only
+for the holder), a cavalier's charge spends itself only on the holder, and
+the leash never releases a foe he does not hold. He stands at a side of his
+own (12 x 8 off the foe, by his place in the hall), and leaves for a free
+foe the moment one comes in reach; if the holder falls, the joiner takes the
+hold. Never a ram (`crush`), a flier or a swimmer. Headless (`x3` health):
+a level-3 Garrison on one troll killed it in ~21 s, 3 men on it (before: one
+man, alive after 60 s, its regen outpacing him); two trolls 28 s; six levies
+9.4 -> 8.6 s; tier-0 militia on an orc (x1) killed it in 6 s (before, it
+walked through them).
+
 ## Warchief and boar riders (2026-10-03, owner requests)
 
 Provisional, pending the owner's playtest ("spawn rates are ok but I'll let you

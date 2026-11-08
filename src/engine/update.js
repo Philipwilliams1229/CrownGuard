@@ -922,8 +922,13 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
 
         let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
         // tight leash: knights break off quickly once a foe leaves the rally circle
-        if (target && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 12) { releaseEnemy(g, target); target = null; u.targetId = null; }
+        if (target && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 12) { if (target.blockedBy === u.id) releaseEnemy(g, target); target = null; u.targetId = null; }
         if (!target && u.targetId) u.targetId = null;
+        // A man who had no foe of his own and joined a comrade's fight (below)
+        // leaves it the moment a free foe comes into reach: holding the road
+        // comes first.
+        const joined = target && target.blockedBy !== u.id ? target : null;
+        if (joined) { target = null; u.targetId = null; }
 
         if (!target) {
           let best = null, bestDist = -1;
@@ -933,6 +938,20 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
             if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && e.dist > bestDist) { bestDist = e.dist; best = e; }
           }
           if (best) { best.blockedBy = u.id; u.targetId = best.id; u.state = "moving"; target = best; }
+        }
+        // Ganging up (owner, 2026-11-08): with no free foe in reach, an idle man
+        // joins a comrade's fight (any of ours: a knight, the hero, a militiaman,
+        // a bowman a foe has caught) on a held foe within his circle, the
+        // sturdiest first, so a lone strong foe left held by one man falls
+        // faster. He holds nothing (the foe stays its holder's), and the foe
+        // strikes back only at its holder. Never a ram, a flier or a swimmer.
+        if (!target) {
+          let best = joined && !joined.dead && joined.blockedBy != null && !isRising(joined, tms) ? joined : null;
+          if (!best) for (const e of g.enemies) {
+            if (e.dead || e.blockedBy == null || e.blockedBy === u.id || e.crush || isRising(e, tms) || (e.flying && !e.haunts) || e.swimming) continue;
+            if (Math.hypot(e.x - t.rally.x, e.y - t.rally.y) <= st.range * 0.92 && (!best || e.hp > best.hp)) best = e;
+          }
+          if (best) { u.targetId = best.id; target = best; }
         }
         // A man a ram has trampled and who still stands hacks at its flank as
         // it rolls past (never in front of it: he holds nothing), until
@@ -959,10 +978,14 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
         }
 
         if (target) {
-          const dx = target.x - u.x, dy = target.y - u.y;
+          const holds = target.blockedBy === u.id;
+          // a joiner takes a side of the foe of his own (by his place in the hall)
+          const ja = holds ? 0 : (i * 2.1 + 1) % (Math.PI * 2);
+          const ax = holds ? target.x : target.x + Math.cos(ja) * 12, ay = holds ? target.y : target.y + Math.sin(ja) * 8;
+          const dx = ax - u.x, dy = ay - u.y;
           const d = Math.hypot(dx, dy);
-          if (d > 17) {
-            target.engaged = d < 30 && !target.crush;         // a ram never slows for the man walking out to it
+          if (d > (holds ? 17 : 6)) {
+            if (holds) target.engaged = d < 30 && !target.crush;   // a ram never slows for the man walking out to it
             const sp = (st.unitSpeed || 95) * sdt;
             u.x += (dx / d) * sp; u.y += (dy / d) * sp;
             u.face = dx >= 0 ? 1 : -1;
@@ -978,7 +1001,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
             target.engaged = true;
             // Cavalier: the charge rides its first blocker down and gallops on.
             // Whoever steps up second is the one who actually holds him.
-            if (target.trampleLeft > 0 && !(WX.noCharge > 0 && Math.random() < WX.noCharge)) {   // (a storm's mud bogs the charge down — more often as the rain builds, weather.js)
+            if (holds && target.trampleLeft > 0 && !(WX.noCharge > 0 && Math.random() < WX.noCharge)) {   // (a storm's mud bogs the charge down — more often as the rain builds, weather.js)
               target.trampleLeft -= 1;
               u.hp -= target.atk * 2;
               g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 260 });
@@ -990,8 +1013,8 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               return;
             }
             u.state = "fighting";
-            u.face = dx >= 0 ? 1 : -1;
-            target.face = -u.face;
+            u.face = target.x - u.x >= 0 ? 1 : -1;
+            if (holds) target.face = -u.face;
             if (u.atkCd <= 0) {
               // frenzy: each hit stacks attack speed (no hall has it now; the engine keeps it)
               const frenzyMul = st.frenzy ? 1 - Math.min(0.45, (u.frenzy || 0) * 0.06) : 1;
@@ -1016,7 +1039,7 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
               if (t.kind === "hero") heroHook(t.hero)?.strike?.(g, t, u, target, dealt, tms);
               if (target.dead) { u.targetId = null; u.state = "rally"; }
             }
-            if (!target.dead && (target.stunUntil <= tms || target.guard > 0) && target.atk > 0) {
+            if (holds && !target.dead && (target.stunUntil <= tms || target.guard > 0) && target.atk > 0) {
               target.meleeCd -= sdt * 1000;
               if (target.meleeCd <= 0) {
                 target.meleeCd = target.atkRate;
