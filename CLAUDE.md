@@ -538,7 +538,7 @@ mechanics:
 Provisional, pending the owner's playtest. Health 200 -> 300, and he stands
 off your soldiers like the archers, only nearer: `standOff: 50` (enemies.js;
 the necromancer's standOff code in update.js, same 14 s `pauseLeft` budget;
-archers halt at 80-82, the necromancer at 100). At 50 the foes his column
+archers halt at 98-100 since the same day, the necromancer at 100). At 50 the foes his column
 sends into your knights still stand inside his 80 ward ring, so he keeps
 shielding them while out of their reach. He still strikes back (`atk` 12) if
 a soldier walks out to him. Measured `--chapter iron --endure`, seeds 1-2,
@@ -558,6 +558,11 @@ Lifebinder are untouched (a lone archer still never fells a Paladin).
 Measured `--chapter iron --endure` seeds 1-2, better doctrine, against the
 magister change alone: 8473 / 7623 -> 7801 / 7638 (noise; all 15 held). The
 sims' castle damage barely sees a knight's health. Provisional.
+Then (same day, owner: archers "still just don't feel threatening") their
+reach went up ~22%: Crossbowman `rangedRange` 82 -> 100, Barrow Archer 80 ->
+98. It is also how far back they halt from your soldiers, so they now stand
+well clear of every hall's seizing reach (range x 0.92 round the rally flag:
+48-59) except the Lancer Order's (90). Not simmed.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
