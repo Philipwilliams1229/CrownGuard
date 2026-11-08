@@ -537,7 +537,7 @@ mechanics:
 
 Provisional, pending the owner's playtest. Health 200 -> 300, and he stands
 off your soldiers like the archers, only nearer: `standOff: 50` (enemies.js;
-the necromancer's standOff code in update.js, same 14 s `pauseLeft` budget;
+the necromancer's standOff code in update.js, same `pauseLeft` budget, 30 s;
 archers halt at 98-100 since the same day, the necromancer at 100). At 50 the foes his column
 sends into your knights still stand inside his 80 ward ring, so he keeps
 shielding them while out of their reach. He still strikes back (`atk` 12) if
@@ -563,8 +563,8 @@ reach went up ~22%: Crossbowman `rangedRange` 82 -> 100, Barrow Archer 80 ->
 98. It is also how far back they halt from your soldiers, so they now stand
 well clear of every hall's seizing reach (range x 0.92 round the rally flag:
 48-59) except the Lancer Order's (90). Not simmed. And an archer may now
-stand and shoot for 30 s before it marches on (`ARCHER_STAND_MS`, update.js;
-was 14 s); the necromancer and magister keep 14 s (`STANDOFF_MS`).
+stand and shoot for 30 s before it marches on (`STAND_MS`, update.js; was
+14 s), and so may the necromancer and magister (same budget, same day).
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
@@ -719,7 +719,7 @@ Some foes never walk alone, and these are engine rules, not just numbers:
 - **Archers stand and shoot** (owner, 2026-09-29): a foe with `rangedAtk`
   (crossbowman, barrow archer) halts while any friendly soldier or hero is in
   its `rangedRange` and marches on once none is left (`e.aiming`, update.js).
-  Each archer has a 30 s budget of standing still (`pauseLeft`, `ARCHER_STAND_MS`;
+  Each archer has a 30 s budget of standing still (`pauseLeft`, `STAND_MS`;
   14 s until 2026-11-08), so a healed paladin cannot hold a wave open for ever.
 - **A standing shield (`guard > 0`) shrugs off every status**: burn/poison
   ticks already returned in `dealDamage`; stun and slow are now ignored in
@@ -977,7 +977,7 @@ the shamans now walking in the thick of the warband).
   bounty is still half); the clock restarts only when a raise lands, so he is
   ready the instant a corpse exists. `standOff: 100` (enemies.js; update.js):
   like an archer he halts while any friendly soldier or hero is within 100
-  (archers 80-82, same 14 s `pauseLeft` budget), but he never shoots. He was
+  (archers 98-100 now, same `pauseLeft` budget, 30 s since 2026-11-08), but he never shoots. He was
   `atk: 0`, but soldiers still seized and beat him while he never struck back
   (owner, 2026-11-07: "militia took them out no problem"), so he now has
   `atk` 30 every 1100 ms (his fight sheet plays it); gw5 `--endure` seeds 1-2

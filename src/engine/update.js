@@ -802,7 +802,8 @@ const syncRetinue = (g) => {
 
 // How long a foe may stand still before it marches on regardless (see the
 // enemy loop): archers (rangedAtk) and standoff foes (necromancer, magister)
-const ARCHER_STAND_MS = 30000, STANDOFF_MS = 14000;
+// alike, 30 s since 2026-11-08 (owner; was 14)
+const STAND_MS = 30000;
 
 // Does this man mend at the rest rate? Not in a sword fight, and not hurt in
 // the last HURT_REST_MS (bands.js). Any drop in health since the last call
@@ -1677,9 +1678,8 @@ export function updateGame(g, dt) {
       // Archers hold their ground while any friendly soldier or hero is in
       // reach, shooting from afar; once none is left standing they march on.
       // (`aiming` is last frame's answer; a budget of standing still per foe
-      // keeps a healer's stalemate from holding a wave open for ever: an
-      // archer 30 s since 2026-11-08 (owner; was 14), a standoff foe 14 s)
-      const standing = ((e.rangedAtk || e.standOff) && e.aiming && (e.pauseLeft ??= (e.rangedAtk ? ARCHER_STAND_MS : STANDOFF_MS)) > 0) || (e.clawing && (e.clawLeft ??= 22000) > 0);
+      // keeps a healer's stalemate from holding a wave open for ever: STAND_MS)
+      const standing = ((e.rangedAtk || e.standOff) && e.aiming && (e.pauseLeft ??= STAND_MS) > 0) || (e.clawing && (e.clawLeft ??= 22000) > 0);
       if (standing) { if (e.clawing) e.clawLeft -= sdt * 1000; else e.pauseLeft -= sdt * 1000; }
       const rising = e.riseAt !== undefined && tms - e.riseAt < e.riseMs;
       if (!stunned && !held && !standing && !rising) {
