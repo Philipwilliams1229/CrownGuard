@@ -642,6 +642,10 @@ for the gryphon's and the cavalier's knights, the boar and wolf riders keep
 650). Checked headless: 505 of 1000 gryphons dropped a knight. Measured
 `--chapter iron --endure` seed 1, better doctrine, against the cavalier change:
 9308 -> 8447 (fewer knights walk on than before; all 15 held, none stuck).
+Later the same day the cavalier's horse got the ram's trap weakness too
+(`trapBane` 1.5: a trap's blow pierces its 0.2 armor and is x1.5, so a
+level-3 spike 78 -> 147; checked headless). A 180-hp horse dies to two
+level-3 spikes. Not simmed.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 

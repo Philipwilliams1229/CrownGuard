@@ -126,11 +126,12 @@ export const ENEMIES = {
   cavalier: {
     // 2026-11-08 (owner): hp 120 -> 180, armor 0.1 -> 0.2 (the horse's barding:
     // arrows still bite), and half the time the knight survives his horse's
-    // death and fights on foot (`unhorsed`, plate that turns steel)
-    faction: "iron", hp: 180, speed: 120, bounty: 14, armor: 0.2, size: 19,
+    // death and fights on foot (`unhorsed`, plate that turns steel). Later
+    // the same day: traps cripple a galloping horse (`trapBane` 1.5, as the ram)
+    faction: "iron", hp: 180, speed: 120, bounty: 14, armor: 0.2, trapBane: 1.5, size: 19,
     name: "Cavalier", atk: 25, atkRate: 800, castleDmg: 2, trample: 1, mounted: true,
     splitInto: ["unhorsed", 1], splitDrop: true, splitChance: 0.5, dropStun: 1000, deathSkin: "cavalierMount",
-    note: "A charging lance rides the first knight down and gallops on. Only the second blocker holds him. Horses ride round a siege ram, so the cavalry surge comes first and the ram and its column follow. Kill the horse and, half the time, its knight rolls clear and fights on foot in heavy plate.",
+    note: "A charging lance rides the first knight down and gallops on. Only the second blocker holds him. Horses ride round a siege ram, so the cavalry surge comes first and the ram and its column follow. Traps on the road cripple a galloping horse. Kill the horse and, half the time, its knight rolls clear and fights on foot in heavy plate.",
   },
   chaplain: {
     faction: "iron", hp: 175, speed: 62, bounty: 18, armor: 0.1, mres: 0.3, size: 16,
