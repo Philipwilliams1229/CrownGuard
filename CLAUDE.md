@@ -562,7 +562,9 @@ Then (same day, owner: archers "still just don't feel threatening") their
 reach went up ~22%: Crossbowman `rangedRange` 82 -> 100, Barrow Archer 80 ->
 98. It is also how far back they halt from your soldiers, so they now stand
 well clear of every hall's seizing reach (range x 0.92 round the rally flag:
-48-59) except the Lancer Order's (90). Not simmed.
+48-59) except the Lancer Order's (90). Not simmed. And an archer may now
+stand and shoot for 30 s before it marches on (`ARCHER_STAND_MS`, update.js;
+was 14 s); the necromancer and magister keep 14 s (`STANDOFF_MS`).
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
@@ -717,8 +719,8 @@ Some foes never walk alone, and these are engine rules, not just numbers:
 - **Archers stand and shoot** (owner, 2026-09-29): a foe with `rangedAtk`
   (crossbowman, barrow archer) halts while any friendly soldier or hero is in
   its `rangedRange` and marches on once none is left (`e.aiming`, update.js).
-  Each archer has a 14 s budget of standing still (`pauseLeft`), so a healed
-  paladin cannot hold a wave open for ever.
+  Each archer has a 30 s budget of standing still (`pauseLeft`, `ARCHER_STAND_MS`;
+  14 s until 2026-11-08), so a healed paladin cannot hold a wave open for ever.
 - **A standing shield (`guard > 0`) shrugs off every status**: burn/poison
   ticks already returned in `dealDamage`; stun and slow are now ignored in
   the movement code too, and `drawStatus` draws nothing on a shielded foe.
