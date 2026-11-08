@@ -330,7 +330,10 @@ a Powder Works, so the duds never show in it.
   20 s from the spell's first stroke (`w.strikeFrom`). `burstChance` 0.2 (mild
   0.12) of strokes start a FLURRY: `burstN` 2-3 more, `burstGap` 0.18-0.4 s
   apart, each near the last (`burstSpread` 140; `w.burstLeft`, `w.burstAt`).
-  Headless, one full storm: 38 strokes in 4 min with 6 flurries.
+  Headless, one full storm: 38 strokes in 4 min with 6 flurries. Iron
+  `--endure` seeds 1-2, better doctrine: strokes 744 / 750 -> 1633 / 1668 a
+  chapter, halls struck ~360 -> ~850, castle damage 9086 / 8781 -> 8429 / 8970
+  (noise; all 15 held, none stuck).
 
 ## Zones IV and V (owner's direction, 2026-10-03)
 
