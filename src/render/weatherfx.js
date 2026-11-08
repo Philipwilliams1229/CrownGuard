@@ -229,7 +229,7 @@ const warm = (kind) => {
     fog: [fogArt, B.fogShafts, ...RUNGS.slice(4).map((r) => () => B.clearing(r)),
       () => { if (NEED.some((v) => v > 0)) fogLandWide(); }, () => { if (NEED.some((v) => v > 0)) B.fogShafts(B.FOG_WIDE); }],
     storm: [B.stormShade, () => { B.rainFar(0); B.rainMid(0); B.rainMid(3); }, () => [0, 1, 2].forEach((v) => [0, 1, 2, 3].forEach((l) => B.rainDrop(v, l))),
-      B.rainSpray, B.rainCurtain, wetRoadArt, () => { if (RIVERS.length) siltArt(); }, waterSpots, riverLines,
+      B.rainSpray, B.rainCurtain, B.floodTex, wetRoadArt, () => { if (RIVERS.length) siltArt(); }, waterSpots, riverLines,
       () => puddles().forEach((p) => { for (let wu = 4; wu <= p.wu; wu += 2) B.puddle(wu, p.v); })],
     blizzard: [() => B.snowDrift(false), () => B.snowDrift(true), () => B.snowSheet(false),
       ...["t", "b", "l", "r"].flatMap((sd) => [1, 2, 3, 4].map((i) => () => B.frostStrip(sd, FROST_D[sd], i / 4)))],
@@ -389,37 +389,44 @@ const putTiles = (ctx, cv, rects) => { for (const [x, y, w, h] of rects) ctx.dra
 // road, built in its own 1-unit layer (water discs along the flooded centre
 // line, the water's face laid source-atop, a pale scum rim slid in behind),
 // rain rings on it and wakes round everyone wading
-let FLOODCV = null, FLOODPAT = null;
+const FLOODS = new Map();                // a flood's layer, kept until its size changes: c -> { key, cv, x0, y0 }
 const FLOOD_R = 30;                      // the disc's radius at depth 0 (+6 at depth 1): spills a little past the road
 const inFlood = (F, x, y, m) => F.some((f) => f.pts.some(([px, py]) => Math.abs(x - px) < m && Math.abs(y - py) < m));
+const floodLayer = (f, R) => {
+  const P = f.pts, n = P.length, key = `${realmKey()}|${n}|${R}|${Math.round(P[0][0])}|${Math.round(P[0][1])}`;
+  let L = FLOODS.get(f.c);
+  if (L && L.key === key) return L;
+  let x0 = W, y0 = H, x1 = 0, y1 = 0;
+  for (const [x, y] of P) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  x0 = Math.floor(x0 - R - 4); y0 = Math.floor(y0 - R - 4); x1 = Math.ceil(x1 + R + 4); y1 = Math.ceil(y1 + R + 4);
+  const cv = L?.cv || B.mk(1, 1);
+  cv.width = x1 - x0; cv.height = y1 - y0;
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  const rAt = (i) => Math.round(R * (i === 0 || i === n - 1 ? 0.72 : i === 1 || i === n - 2 ? 0.9 : 1));
+  P.forEach(([x, y], i) => { const s = B.floodDisc(rAt(i), 1); c.drawImage(s.cv, Math.round(x - x0 - s.r), Math.round(y - y0 - s.r)); });
+  c.globalCompositeOperation = "source-atop";
+  const pat = c.createPattern(B.floodTex(), "repeat");
+  if (pat.setTransform) pat.setTransform(new DOMMatrix([1, 0, 0, 1, -x0, -y0]));
+  c.fillStyle = pat; c.fillRect(0, 0, cv.width, cv.height);
+  c.globalCompositeOperation = "destination-over";
+  P.forEach(([x, y], i) => { const s = B.floodDisc(rAt(i), 0); c.drawImage(s.cv, Math.round(x - x0 - s.r), Math.round(y - y0 - s.r)); });
+  c.globalCompositeOperation = "source-over";
+  L = { key, cv, x0, y0 };
+  FLOODS.set(f.c, L);
+  return L;
+};
 const drawFloods = (ctx, g, F, rk) => {
   if (typeof document === "undefined") return;
-  if (!FLOODCV) FLOODCV = B.mk(W, H);
-  const c = FLOODCV.getContext("2d"), t = g.time;
-  c.setTransform(1, 0, 0, 1, 0, 0); c.imageSmoothingEnabled = false; c.globalAlpha = 1;
-  if (!FLOODPAT) FLOODPAT = c.createPattern(B.floodTex(), "repeat");
+  const t = g.time;
   for (const f of F) {
     const P = f.pts, n = P.length;
     if (!n || !(f.depth > 0.01)) continue;
-    const R = Math.round(FLOOD_R + 6 * f.depth);
-    let x0 = W, y0 = H, x1 = 0, y1 = 0;
-    for (const [x, y] of P) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-    x0 = Math.max(0, Math.floor(x0 - R - 4)); y0 = Math.max(0, Math.floor(y0 - R - 4)); x1 = Math.min(W, Math.ceil(x1 + R + 4)); y1 = Math.min(H, Math.ceil(y1 + R + 4));
-    if (x1 <= x0 || y1 <= y0) continue;
-    const rAt = (i) => Math.round(R * (i === 0 || i === n - 1 ? 0.72 : i === 1 || i === n - 2 ? 0.9 : 1));
-    c.globalCompositeOperation = "source-over";
-    c.clearRect(x0, y0, x1 - x0, y1 - y0);
-    P.forEach(([x, y], i) => { const s = B.floodDisc(rAt(i), 1); c.drawImage(s.cv, Math.round(x - s.r), Math.round(y - s.r)); });
-    c.globalCompositeOperation = "source-atop";
-    if (FLOODPAT.setTransform) FLOODPAT.setTransform(new DOMMatrix([1, 0, 0, 1, Math.round(t * 3) % 96, 0]));
-    c.fillStyle = FLOODPAT; c.fillRect(x0, y0, x1 - x0, y1 - y0);
-    c.globalCompositeOperation = "destination-over";
-    P.forEach(([x, y], i) => { const s = B.floodDisc(rAt(i), 0); c.drawImage(s.cv, Math.round(x - s.r), Math.round(y - s.r)); });
-    c.globalCompositeOperation = "source-over";
+    const R = Math.round(FLOOD_R + 6 * f.depth), L = floodLayer(f, R);
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.globalAlpha = Math.min(0.92, 0.45 + 0.5 * f.depth);
-    ctx.drawImage(FLOODCV, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+    ctx.drawImage(L.cv, L.x0, L.y0);
     ctx.restore();
     // rain rings peppering it
     const rings = Math.round(n * 1.4 * rk);

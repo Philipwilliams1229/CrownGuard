@@ -74,7 +74,7 @@
       w.clock = Math.max(0, s.t0 + Number(q.get("rise") ?? 2));
       updateGame(g, DT);
       const hold = () => { g.lives = 9999; if (g.phase === "build") g.buildUntil = null; };
-      const pin = () => { if (q.get("k")) g.weather.k = Number(q.get("k")); if (q.get("wet")) g.weather.wet = Number(q.get("wet")); };
+      const pin = () => { if (!g.weather) return; if (q.get("k")) g.weather.k = Number(q.get("k")); if (q.get("wet")) g.weather.wet = Number(q.get("wet")); };
       const ft = q.get("focus") != null ? g.towers[Number(q.get("focus"))] : null;
       const [cx, cy, cw, ch] = ft ? [Math.round(ft.x - 50), Math.round(ft.y - 85), 100, 100] : (q.get("crop") || `0,0,${W},${H}`).split(",").map(Number);
       const half = !!q.get("half");
