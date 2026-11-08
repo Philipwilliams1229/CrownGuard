@@ -77,6 +77,11 @@ export const HERO_REGEN = 0.012, HERO_REST_REGEN = 0.03;
 // ...and so do the knights of a Knight Hall's garrison (owner, 2026-09-30),
 // at a share of their max health a second, on the same footing
 export const KNIGHT_REGEN = 0.01, KNIGHT_REST_REGEN = 0.025;
+// The rest rate waits until a man has gone HURT_REST_MS without losing
+// health (owner, 2026-11-08): before, any knight or hero not in a sword fight
+// mended at the rest rate, so foe archers shooting him barely scratched him.
+// Now any harm (bolts, ground, blows) keeps him on the fighting rate.
+export const HURT_REST_MS = 5000;
 // THE RETINUE: a hero who climbs high enough is joined on the field by a
 // follower at each level in `at` — Sir Aldric by squires who hold the road
 // beside him as knights do (at levels 10 and 15; owner, 2026-09-30), Wren by archers who shoot from behind her. They

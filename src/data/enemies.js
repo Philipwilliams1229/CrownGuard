@@ -115,7 +115,7 @@ export const ENEMIES = {
   crossbow: {
     faction: "iron", hp: 72, speed: 74, bounty: 9, armor: 0, size: 16,
     name: "Crossbowman", atk: 9, atkRate: 1000, castleDmg: 1,
-    rangedAtk: 15, rangedRange: 82, rangedRate: 1800,
+    rangedAtk: 18.75, rangedRange: 82, rangedRate: 1800,
     note: "Shoots your knights down from outside their reach, and never stops walking to do it. Kill them early or your line bleeds out.",
   },
   sergeant: {
@@ -201,7 +201,7 @@ export const ENEMIES = {
   bonearcher: {
     faction: "hollow", hp: 66, speed: 68, bounty: 10, armor: 0, mres: 0.15, size: 16,
     name: "Barrow Archer", atk: 8, atkRate: 1000, castleDmg: 1,
-    rangedAtk: 12.5, rangedRange: 80, rangedRate: 2000,
+    rangedAtk: 15.6, rangedRange: 80, rangedRate: 2000,
     note: "Grave-cold fingers on a yew bow, loosing at your knights from outside sword reach. Dead men need no fletching lessons.",
   },
   wraith: {

@@ -546,8 +546,15 @@ better doctrine per level: chapter total 8079 / 8237 -> 8473 / 7623 castle
 damage (noise; per level the seeds disagree, e.g. ir5 975 -> 1209 on seed 1,
 1229 -> 956 on seed 2). All 15 held. The sims never single him out.
 
-The same day the foe archers' bolts went up 25% (owner: they "had almost no
-effect"): Crossbowman `rangedAtk` 12 -> 15, Barrow Archer 10 -> 12.5.
+The same day the foe archers' bolts went up twice by 25% (owner: they "had
+almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer
+10 -> 12.5 -> 15.6. And regen's rest rate now waits for `HURT_REST_MS` 5000
+without harm (bands.js; `resting` / `mended` in update.js, for a Knight
+Hall's men and the hero): before, a man not in a sword fight mended at the
+rest rate (2.5%, hero 3%) while archers shot him, so a lone crossbowman took
+56 s to kill a level-3 Garrison knight and never killed a Paladin. Any drop
+in health since the last tick counts as harm. Paladins' flat `heal` and the
+Lifebinder are untouched (a lone archer still never fells a Paladin).
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 

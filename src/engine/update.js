@@ -8,7 +8,7 @@ import { RESPAWN_MS, W, H, MX, MXR, BUILD_TIME, CASTLE_HP, BASE_SPEED, PATH_HALF
 import { SANDBOX, INFINITE_GOLD } from "../data/sandbox.js";
 import { addTowerXp, DUTY_XP, WAGE_SHARE } from "../data/towerxp.js";
 import { workTier, worksBonusHp, bowmenSpots, ballistaSpots, ballistaMuzzle, BOW_X, guardSpots, GUARD_X } from "../data/castle.js";
-import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETINUE, retinueAt, KNIGHT_REGEN, KNIGHT_REST_REGEN } from "../data/bands.js";
+import { MILITIA, heroStats, heroXpFor, HERO_MAX_LEVEL, heroAbilities, HERO_RETINUE, retinueAt, KNIGHT_REGEN, KNIGHT_REST_REGEN, HURT_REST_MS } from "../data/bands.js";
 import { RIVER_ROUTE, riverRouteAt, seaRoute, seaDepthAt, underBridge, routeSpans, clearOfSpans, stationQ, patrolOf } from "../data/terrain.js";
 import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
@@ -800,6 +800,16 @@ const syncRetinue = (g) => {
   }
 };
 
+// Does this man mend at the rest rate? Not in a sword fight, and not hurt in
+// the last HURT_REST_MS (bands.js). Any drop in health since the last call
+// counts as hurt, whatever dealt it, so call it every tick and then `mended`.
+const resting = (u, tms) => {
+  if (u.hp < (u.prevHp ?? u.hp)) u.hurtAt = tms;
+  const hurt = u.hurtAt != null && tms >= u.hurtAt && tms - u.hurtAt < HURT_REST_MS;
+  return u.state !== "fighting" && !hurt;
+};
+const mended = (u) => { u.prevHp = u.hp; };
+
 // One garrison's (or band's) fighters for one tick: respawn, hold the rally
 // point, seize a passing foe, walk to it, trade blows. Shared by the Knight
 // Garrison, the militia and the melee hero.
@@ -812,7 +822,12 @@ const runMelee = (g, t, st, slots, sdt, tms) => {
         }
         if (st.heal && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + st.heal * sdt);
         // a Knight Hall's men mend on their own (bands.js KNIGHT_REGEN), faster at their post
-        if (t.kind === "knight" && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * (u.state === "fighting" ? KNIGHT_REGEN : KNIGHT_REST_REGEN) * sdt);
+        // (the rest rate only after HURT_REST_MS unharmed: `resting`)
+        if (t.kind === "knight") {
+          const rest = resting(u, tms);
+          if (u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * (rest ? KNIGHT_REST_REGEN : KNIGHT_REGEN) * sdt);
+          mended(u);
+        }
         u.atkCd -= sdt * 1000;
         u.swing = Math.max(0, u.swing - sdt * 1000);
         u.healGlow = Math.max(0, (u.healGlow || 0) - sdt * 1000);
@@ -1058,7 +1073,12 @@ export function updateGame(g, dt) {
           if (u.emerge !== undefined) { u.emerge += sdt; u.fade = Math.min(1, u.emerge / 0.7); if (u.fade >= 1) { delete u.emerge; delete u.fade; } }
           levelHero(g, b);
           // passive regeneration (bands.js HERO_REGEN): a share of max health a second, faster at rest
-          if (u.state !== "dead" && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * (u.state === "fighting" ? b.st.regen : b.st.restRegen) * sdt);
+          // (the rest rate only after HURT_REST_MS unharmed: `resting`)
+          if (u.state !== "dead") {
+            const rest = resting(u, tms);
+            if (u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * (rest ? b.st.restRegen : b.st.regen) * sdt);
+            mended(u);
+          }
           if (u.state === "dead") { b.deadFor = (b.deadFor || 0) + sdt * 1000; u.dash = null; }
           // abilities recharge whatever he is doing, dead or alive
           if (b.abCd) for (const k in b.abCd) b.abCd[k] = Math.max(0, b.abCd[k] - sdt * 1000);
