@@ -596,7 +596,9 @@ The same day the **Gryphon Knight** got the same coin flip: `splitChance` 0.5
 gryphon whole, the `deathSkin` only plays when he rolls clear), armor 0.2 ->
 0.3. A fallen rider is dazed `dropStun` ms (enemy field, default 650; 1000
 for the gryphon's and the cavalier's knights, the boar and wolf riders keep
-650). Checked headless: 505 of 1000 gryphons dropped a knight.
+650). Checked headless: 505 of 1000 gryphons dropped a knight. Measured
+`--chapter iron --endure` seed 1, better doctrine, against the cavalier change:
+9308 -> 8447 (fewer knights walk on than before; all 15 held, none stuck).
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
