@@ -7,4 +7,8 @@
 import { keepSaves } from "./native/keep.js";
 import { freshen } from "./native/fresh.js";
 
-freshen().then((reloading) => { if (!reloading) keepSaves().finally(() => import("./boot.jsx")); });
+// (if the game's own code can't be fetched, a page kept from before the
+// last push asked for files that push replaced: index.html's rescue reloads)
+freshen().then((reloading) => {
+  if (!reloading) keepSaves().finally(() => import("./boot.jsx").catch((err) => { console.error(err); window.__cgBootFailed?.(); }));
+});

@@ -52,6 +52,40 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- A page kept from before the last push can ask for game files the push
+         replaced (GitHub Pages keeps the page 10 minutes; the old files are
+         gone at once), and the screen stays gray (owner, 2026-11-08). If one
+         of the game's own files fails to load, or nothing has drawn in 15 s,
+         load the page again from an address no cache holds, once a session;
+         if that was already tried, show a Reload button instead of a gray
+         screen. Plain script, before the bundle, so it works when the bundle
+         is the file that failed. -->
+    <script>
+      (function () {
+        var KEY = "cg-stale", done = false;
+        function stuck() { return !document.getElementById("root").firstChild; }
+        // (the iOS app holds its own files, so there it only offers the button)
+        var app = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+        function rescue() {
+          if (done) return;
+          if (!stuck()) { try { sessionStorage.removeItem(KEY); } catch (e) {} return; }
+          done = true;
+          var tried = app; try { tried = tried || sessionStorage.getItem(KEY) === "1"; sessionStorage.setItem(KEY, "1"); } catch (e) {}
+          if (!tried) { var u = new URL(location.href); u.searchParams.set("v", String(Date.now())); location.replace(u.toString()); return; }
+          var b = document.createElement("button");
+          b.textContent = "Reload Crownguard";
+          b.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px 22px;font:16px sans-serif;color:#f0e6c8;background:#3a3f4c;border:2px solid #c9a24a;border-radius:6px";
+          b.onclick = function () { try { sessionStorage.removeItem(KEY); } catch (e) {} var u = new URL(location.href); u.searchParams.set("v", String(Date.now())); location.replace(u.toString()); };
+          document.body.appendChild(b);
+        }
+        window.addEventListener("error", function (ev) {
+          var t = ev.target;
+          if (t && (t.tagName === "SCRIPT" || t.tagName === "LINK") && /\/assets\//.test(t.src || t.href || "")) setTimeout(rescue, 300);
+        }, true);
+        window.__cgBootFailed = function () { setTimeout(rescue, 0); };
+        setTimeout(rescue, 15000);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

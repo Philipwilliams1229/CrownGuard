@@ -51,6 +51,17 @@ Xcode, so keep edits under `ios/` few and plain, and say they're unbuilt).
   reloads once from `?v=<built>`, which no cache holds (sessionStorage guard,
   2 s timeout, never in the app or the dev server). Only helps from the first
   build that carries it; until a device has loaded that one, wait the 10 min.
+- **A stale page rescues itself** (owner, 2026-11-08: a gray screen after two
+  pushes nine minutes apart): a page kept from before a push asks for
+  `assets/` files the push replaced, so the bundle (and `freshen()` in it)
+  never runs. A plain inline script in index.html, before the bundle, watches
+  for an `assets/` script or stylesheet that fails to load, a failed
+  `import("./boot.jsx")` (main.jsx calls `window.__cgBootFailed`), or an
+  empty `#root` after 15 s, and reloads once a session from `?v=<now>`
+  (sessionStorage `cg-stale`); if that was tried, or in the iOS app, it shows
+  a "Reload Crownguard" button. Tested on a local build with a page whose
+  bundle was missing. Pushing main twice inside 10 minutes is what strands a
+  device on a build without this guard.
 - **Leaving pauses a battle** (web and app): `onAway` (`src/native/app.js`:
   page hidden, or the app going inactive) opens the pause menu in battle.
 - **The default type needs no network**: Press Start 2P and Jersey 15 are in
