@@ -692,6 +692,19 @@ wave chips hover only for a real mouse (`onPointerEnter`, pointerType
 and WeatherBrief; use it for any new little toggle. Checked in Chromium's
 iPhone/iPad emulation, not yet on a real iOS device.
 
+## The hero's button arms his move (2026-11-08, owner request)
+
+Tapping the hero's button in the tray's foot, or the hero himself on the
+field, opens his menu AND arms the move: the next tap on the field sends him
+there (onto the road, as before) and folds the menu away. The menu's Move
+(flag) plank is gone. `openHeroMenu` (CrownguardGame.jsx) does both; a
+`useEffect` on `talentsOpen` (up with the other hooks, above the screens'
+early returns) clears `g.rallyFor === "hero"` whenever the menu folds by any
+road (its ✕, a second tap on the button, a tower picked from the grid, the
+castle or militia). Picking an ability hands the aim to it. A fallen hero's
+menu opens without arming, and a hero who falls while armed is disarmed.
+Checked in headless Chromium (mouse at 1180x820, touch at 844x390).
+
 ## Halls keep their facing at rest (2026-11-07, owner request)
 
 A hall's crew faces the way of its last shot and HOLDS it when no foe is in
