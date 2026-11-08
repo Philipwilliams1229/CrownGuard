@@ -718,7 +718,9 @@ hold. Never a ram (`crush`), a flier or a swimmer. Headless (`x3` health):
 a level-3 Garrison on one troll killed it in ~21 s, 3 men on it (before: one
 man, alive after 60 s, its regen outpacing him); two trolls 28 s; six levies
 9.4 -> 8.6 s; tier-0 militia on an orc (x1) killed it in 6 s (before, it
-walked through them).
+walked through them). `--endure` seed 1, better doctrine: Iron 8900 -> 9245,
+Greenwood 871 -> 896 (noise: the sims' castle damage barely sees the
+knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
