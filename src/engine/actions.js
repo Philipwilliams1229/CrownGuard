@@ -19,7 +19,7 @@ import { nextId } from "./ids.js";
 import { recordFavored, favoredFor } from "../data/profile.js";
 import { sfx } from "../audio/sfx.js";
 import { SANDBOX, tierOpen } from "../data/sandbox.js";
-import { tierGate, addTowerXp, xpForKill, ASSIST_SHARE } from "../data/towerxp.js";
+import { tierGate, addTowerXp, xpForKill, ASSIST_SHARE, HARM_XP } from "../data/towerxp.js";
 import { buildClock } from "./build.js";
 import { bandArrowFrom } from "./muzzles.js";
 import { queueLanding } from "./rime.js";
@@ -446,16 +446,25 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
   const credited = Math.max(0, Math.min(dmg, e.hp));
   const src = srcId != null && g._towerById ? g._towerById.get(srcId) : null;
   if (src) { src.dmgOut = (src.dmgOut || 0) + credited; src.formDmg = (src.formDmg || 0) + credited; }
+  // the Trapsmith learns from the harm it does, not only its kills
+  // (data/towerxp.js HARM_XP): a blow pays its share of the foe's health in
+  // the foe's kill XP, never more than the whole (`e.harmXp`, a mended foe)
+  if (src && HARM_XP.has(src.kind) && !SANDBOX && g.towerXp && credited > 0 && e.maxHp > 0) {
+    const worth = xpForKill(e.bounty);
+    const share = Math.min(worth - (e.harmXp || 0), (worth * credited) / e.maxHp);
+    if (share > 0) { addTowerXp(g, src.kind, share); e.harmXp = (e.harmXp || 0) + share; }
+  }
   e.hp -= dmg;
   // brief white flash on solid hits (DoT ticks are too small to strobe)
   if (dmg >= 3) e.hitFlash = g.time * 1000 + 110;
   if (e.hp <= 0 && !e.dead) {
     if (src) src.kills = (src.kills || 0) + 1;
-    // each hall type learns from its kills (data/towerxp.js); the Warden
-    // Mage, who kills nothing herself, from every foe that falls in her aura
+    // each hall type learns from its kills (data/towerxp.js; a Trapsmith's
+    // kill pays only what its blows have not already); the Warden Mage, who
+    // kills nothing herself, from every foe that falls in her aura
     if (!SANDBOX && g.towerXp) {
       const worth = xpForKill(e.bounty);
-      if (src) addTowerXp(g, src.kind, worth);
+      if (src) addTowerXp(g, src.kind, HARM_XP.has(src.kind) ? Math.max(0, worth - (e.harmXp || 0)) : worth);
       if (src?.kind !== "support" && g.towers.some((tw) => tw.kind === "support" && Math.hypot(tw.x - e.x, tw.y - e.y) <= (getStats(tw).range || 0))) addTowerXp(g, "support", worth * ASSIST_SHARE);
     }
     // the hero learns only from deaths: his own kills in full, and a share

@@ -26,7 +26,7 @@ import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL,
 import { PTS, onRoad } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, bankTowerXp, bankedTowerXp, MAX_STARS } from "./data/profile.js";
-import { tierGate, TIER_XP } from "./data/towerxp.js";
+import { tierGate, TIER_XP, HARM_XP } from "./data/towerxp.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
@@ -94,6 +94,10 @@ export default function Crownguard() {
   const [castleOpen, setCastleOpen] = useState(false);
   // the hero's menu (move, abilities), and what a hero's win paid in stars
   const [talentsOpen, setTalentsOpen] = useState(false);
+  // the menu folding away (by any road) calls off the hero's armed move (openHeroMenu)
+  useEffect(() => {
+    if (!talentsOpen && G.current?.rallyFor === "hero") G.current.rallyFor = null;
+  }, [talentsOpen]);
   const [heroAward, setHeroAward] = useState(null);
   // Upgrades take two taps, for touch: the first arms a button (it turns gold,
   // lists what changes, and the map shows the new reach); the second buys.
@@ -530,8 +534,8 @@ export default function Crownguard() {
       // a garrison sold mid-move takes its rally prompt with it
       const abAim = typeof g.rallyFor === "string" && g.rallyFor.startsWith("ab:");
       if (g.rallyFor != null && g.rallyFor !== "hero" && g.rallyFor !== "militia" && !abAim && !g.towers.some((t) => t.id === g.rallyFor)) g.rallyFor = null;
-      // an ability can't take aim for a hero who has fallen
-      if (abAim && heroBand(g)?.units[0].state === "dead") g.rallyFor = null;
+      // an ability can't take aim, nor he take a post, while the hero is down
+      if ((abAim || g.rallyFor === "hero") && heroBand(g)?.units[0].state === "dead") g.rallyFor = null;
       draw(g, canvasRef.current, bufRef);
       // the weather darkens the landscape beyond the board too (render/weatherfx.js weatherVeil)
       if (veilRef.current) { const v = weatherVeil(g) || "transparent"; if (veilRef.current.style.background !== v) veilRef.current.style.background = v; }
@@ -675,6 +679,8 @@ export default function Crownguard() {
       // he goes only where the foe walks: a tap off the road sends him to
       // the nearest spot on it (owner, 2026-11-07)
       if (b) { const p = onRoad(x, y); b.rally = p; g.effects.push({ type: "levelup", x: p.x, y: p.y, ttl: 500 }); }
+      // his menu stays open (owner, 2026-11-08): the next tap on the field
+      // folds it away, as any field tap does, and so does his button
       g.rallyFor = null;
       return;
     }
@@ -712,11 +718,12 @@ export default function Crownguard() {
     setTalentsOpen(false);
     const t = towerNear(g, x, y);
     if (t) { g.selectedId = t.id; return; }
-    // tapping the hero himself asks where he should go
+    // tapping the hero himself opens his menu, as his button does: the
+    // next tap on the field sends him there
     {
       const b = heroBand(g);
       const u = b?.units[0];
-      if (u && u.state !== "dead" && Math.hypot(x - u.x, y - (u.y - 6)) < 16) { g.rallyFor = "hero"; g.selectedId = null; return; }
+      if (u && u.state !== "dead" && Math.hypot(x - u.x, y - (u.y - 6)) < 16) { openHeroMenu(); return; }
     }
     // selected garrison: click inside its circle to move the rally flag
     const selT = g.towers.find((tt) => tt.id === g.selectedId);
@@ -996,6 +1003,20 @@ export default function Crownguard() {
     else if (which === "talents") setTalentsOpen(true);
     else setInfoOpen(true);
   };
+  // The hero's menu and his move go together (owner, 2026-11-08): opening
+  // it (his button, or a tap on him) arms the move, so the next tap on the
+  // field sends him there; the menu folding away by any road disarms it.
+  // An ability takes over the aim when it is picked. (The disarming effect
+  // sits with the other hooks, above the screens' early returns.)
+  const openHeroMenu = () => {
+    const g = G.current;
+    if (!g) return;
+    trayHome();
+    g.buildMode = null;
+    setBuildOpen(false);
+    setTalentsOpen(true);
+    g.rallyFor = heroBand(g)?.units[0].state === "dead" ? null : "hero";
+  };
   const buildCols = 2;
 
   // -- the purse, the castle, the level --
@@ -1040,7 +1061,15 @@ export default function Crownguard() {
       <button aria-label={`${ui.hero.name}: move and abilities`} title={HEROES[ui.hero.key]?.blurb}
         className={cls("cg-btn cg-btn--slate", (talentsOpen || aiming) && "is-on", ui.hero.dead && "is-off", anyReady && !talentsOpen && "cg-horn")}
         style={{ flex: 1, minHeight: 60, minWidth: heroSlim ? 0 : 150, padding: "5px 8px 5px 5px", gap: 7, justifyContent: "flex-start" }}
-        onClick={() => { const g = G.current; if (!g) return; if (aiming) { g.rallyFor = null; return; } g.rallyFor = null; trayOpen("talents"); }}>
+        onClick={() => {
+          const g = G.current;
+          if (!g) return;
+          // open: a second tap folds the menu and the move away
+          if (talentsOpen) { g.rallyFor = null; trayHome(); return; }
+          // an ability waiting for its spot: the tap calls it off
+          if (aiming) { g.rallyFor = null; return; }
+          openHeroMenu();
+        }}>
         <span className="cg-well" style={{ width: 42, height: 46, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           {hasRig(HEROES[ui.hero.key]?.rig) ? <EnemyIcon type={HEROES[ui.hero.key].rig} box={34} /> : <span style={{ fontSize: 20 }}>{HEROES[ui.hero.key]?.icon}</span>}
         </span>
@@ -1061,7 +1090,8 @@ export default function Crownguard() {
   })();
 
 
-  // -- the hero's menu: move him, or fire one of his two abilities. It opens
+  // -- the hero's menu: his two abilities (opening it arms his move, see
+  // openHeroMenu: the next tap on the field sends him there). It opens
   // in the tray right above his button, never over the field, so the slam
   // can be watched landing: on a phone it takes the tower grid's place, on a
   // tall screen it docks under the grid. Talents are bought on the Home
@@ -1074,7 +1104,6 @@ export default function Crownguard() {
     const h = ui.hero;
     const g = G.current;
     const close = () => trayHome();
-    const move = () => { if (!g || h.dead) return; close(); g.rallyFor = "hero"; g.selectedId = null; g.buildMode = null; setBuildOpen(false); };
     const fire = (a) => {
       if (!g || a.state !== "ready") return;
       close();
@@ -1112,10 +1141,6 @@ export default function Crownguard() {
           <span style={h.dead ? { color: "#e07a72" } : undefined}>{h.dead ? `back in ${h.respawn}s` : `${h.hp}/${h.maxHp} hp`}</span>
           <span title="Experience comes only from kills nearby">{max ? "max level" : `xp ${h.xp}/${h.next}${compact ? "" : " · from kills"}`}</span>
         </div>
-        <button className={cls("cg-btn", h.dead ? "cg-btn--slate is-off" : "cg-btn--parch")} disabled={h.dead} style={row} onClick={move}>
-          <span className="cg-display" style={title}><FlagIcon size={13} /> Move</span>
-          <span style={{ ...fine, color: h.dead ? "var(--muted)" : "#5a4630" }}>{h.dead ? `Back in the fight in ${h.respawn}s.` : compact ? "Then tap where to stand." : "Then tap the map where to stand."}</span>
-        </button>
         {h.abilities.map((a) => {
           const ready = a.state === "ready";
           const label = ready ? (a.aim === "none" ? "Ready — tap to use" : a.aim === "foe" ? "Ready — tap a foe" : "Ready — tap to aim")
@@ -1192,7 +1217,7 @@ export default function Crownguard() {
       const gate = tierGate(sel.kind, tier, g);
       const pct = Math.min(100, Math.round((gate.have / Math.max(1, gate.need)) * 100));
       const waiting = tier === 4 ? Object.values(selDef.branches) : Object.values(selDef.branches[sel.branch]?.rank4 || {});
-      const how = sel.kind === "support" ? "every foe that falls in its aura" : sel.kind === "goldworks" ? "the wages it pays" : "its kills";
+      const how = sel.kind === "support" ? "every foe that falls in its aura" : sel.kind === "goldworks" ? "the wages it pays" : HARM_XP.has(sel.kind) ? "the harm it does" : "its kills";
       return (
         <div className="cg-parch" style={{ padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
           <div className="cg-label" style={{ marginBottom: 2, color: "#7a6446" }}>Locked · {tier === 4 ? "paths" : "final forms"}</div>

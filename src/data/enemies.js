@@ -166,10 +166,11 @@ export const ENEMIES = {
   // 2026-11-08 (owner: "it was tanking the whole wave"): magic bites it half
   // again (mres -0.5), the trapsmith's traps go through its armor and hit it
   // half again (`trapBane` 1.5, update.js's trap loop), and a leak costs 5.
+  // Health 2300 -> 1500 -> 2000 the same day (owner), speed 46 -> 38.
   ram: {
     // speed 30 -> 46 with the wall: the whole army walks at the ram's pace, and
     // at 30 the crowd behind it arrived in one lump and doubled the sim's bleed
-    faction: "iron", hp: 1500, speed: 38, bounty: 60, armor: 0.6, mres: -0.5, trapBane: 1.5, size: 34,
+    faction: "iron", hp: 2000, speed: 38, bounty: 60, armor: 0.6, mres: -0.5, trapBane: 1.5, size: 34,
     name: "Siege Ram", atk: 32, atkRate: 1200, castleDmg: 5, immSlow: true, immStun: true, crush: true,
     roadBlock: 50,
     // it never marches bare: [type, base count, more per war-wave, gap ms]

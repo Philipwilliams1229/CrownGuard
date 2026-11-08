@@ -159,7 +159,18 @@ Provisional, pending the owner's playtest.
   (tier 5) `TIER_XP[5]` 10000 (raised from 600 / 2400, then 1800 / 7000, the
   same day: the owner wants a harder first area) (both live in profile.js, re-exported). XP is
   earned in campaign battles by a hall's kills (1 + a tenth of the bounty),
-  the Warden Mage's aura kills (x0.25), the Gold Works' wages (x0.3) and 6
+  except the Trapsmith, which learns from the HARM it does (owner,
+  2026-11-08: it wears foes down but seldom has the kill; `HARM_XP` in
+  towerxp.js, dealDamage in actions.js): a blow that takes a fifth of a
+  foe's max health pays a fifth of its kill XP, its own kill pays only the
+  rest, overkill pays nothing, `e.harmXp` caps a mended foe at its worth.
+  Every other hall still gets the full kill (sims byte-identical). In the
+  Greenwood sims (`--xp --ledger`, seeds 1-2) halls earn per 1k damage:
+  archer 15, knight 16, catapult 10, wizard 8, Bladewheel 7 (duty XP
+  included); damage XP pays the average, so the Trapsmith should land near
+  the catapult / wizard (it is never simmed). Scratch harness, a level-3
+  Trapsmith upstream of a level-3 archer: at x4 hp ~1 -> ~138 XP a run.
+  Also the Warden Mage's aura kills (x0.25), the Gold Works' wages (x0.3) and 6
   XP for every wave a kind stands through. The ledger is `g.towerXp` (kept
   by the retry-wave snapshot); `bankLedger` (CrownguardGame.jsx) banks it into
   `profile.towerXp` when a battle ends or is left (the profile merges with max,
@@ -594,6 +605,9 @@ Later the same day (owner) its health went 2300 -> 1500 and its speed
 in one lump and doubled the Iron back half's bleed). `--level crowstair /
 ir5 --endure --check-wall` seed 1, better doctrine: 858 -> 750 and 1478 ->
 1569 (flat; 0 passes of a live ram, up to 116 / 154 foes in its lee).
+Then (owner, same day) health back up 1500 -> 2000 (speed stays 38): the
+same check, seed 1, better doctrine: Crowstair 750 -> 754, the Citadel Gate
+1569 -> 1926; 0 passes of a live ram.
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer
@@ -692,6 +706,20 @@ wave chips hover only for a real mouse (`onPointerEnter`, pointerType
 "mouse"). Used by the chips (CrownguardGame.jsx `waveChips`), WeatherForecast
 and WeatherBrief; use it for any new little toggle. Checked in Chromium's
 iPhone/iPad emulation, not yet on a real iOS device.
+
+## The hero's button arms his move (2026-11-08, owner request)
+
+Tapping the hero's button in the tray's foot, or the hero himself on the
+field, opens his menu AND arms the move: the first tap on the field sends him
+there (onto the road, as before) and leaves the menu open; the next tap on
+the field (or his button again) folds it away. The menu's Move
+(flag) plank is gone. `openHeroMenu` (CrownguardGame.jsx) does both; a
+`useEffect` on `talentsOpen` (up with the other hooks, above the screens'
+early returns) clears `g.rallyFor === "hero"` whenever the menu folds by any
+road (its ✕, a second tap on the button, a tower picked from the grid, the
+castle or militia). Picking an ability hands the aim to it. A fallen hero's
+menu opens without arming, and a hero who falls while armed is disarmed.
+Checked in headless Chromium (mouse at 1180x820, touch at 844x390).
 
 ## Halls keep their facing at rest (2026-11-07, owner request)
 
