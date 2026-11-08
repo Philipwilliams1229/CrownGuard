@@ -550,7 +550,10 @@ was 8000) but lays ONE shield a cast (`wardStep` 1, enemy field read in
 update.js's ward loop) on everyone within 80, up to `wardHits` 3; before,
 each cast refilled all three. A warder without `wardStep` still refills.
 The ring and the ward sound play every cast. The Field Guide's row reads
-"+1 shield every 3.0s, up to 3". Provisional ("may need tweaking").
+"+1 shield every 3.0s, up to 3". Measured `--chapter iron --endure` seed 1,
+better doctrine, against the gryphon change: 8447 -> 9272 (+10%; Crowstair
+511 -> 852, Warden Moor 1108 -> 1302, the first levels and the Citadel flat;
+all 15 held, none stuck). Provisional ("may need tweaking").
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer
