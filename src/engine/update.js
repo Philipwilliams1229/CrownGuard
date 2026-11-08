@@ -1024,9 +1024,11 @@ export function updateGame(g, dt) {
   if (!g.traps) g.traps = [];     // the trapsmith's armed road
 
   // The trapsmith's bench runs in the quiet of the build phase as much as in
-  // battle: charges accumulate whether or not anyone watches, and the smith
-  // walks his stretch of road and arms it himself — one charge at a beat,
-  // always into the widest uncovered gap in his reach.
+  // battle: charges accumulate (to the rack's limit) whether or not anyone
+  // watches. But the smith walks his stretch of road and arms it himself ONLY
+  // while a wave is on (owner, 2026-11-08: the field was covered before the
+  // first horn): one charge at a beat, always into the widest uncovered gap
+  // in his reach. Between waves he waits with his rack stocked.
   if (!g.paused && (g.phase === "combat" || g.phase === "build")) {
     // ---- the River Watch's boats are on the water from the moment it's built ----
     for (const t of g.towers) if (t.kind === "riverwatch" && isBuilt(t, g)) launchSkiffs(g, t, getStats(t));
@@ -1191,7 +1193,7 @@ export function updateGame(g, dt) {
       // level-ups can raise the ceiling; never hold more than it allows
       t.charges = Math.min(t.charges || 0, st.maxCharges);
       t.layCd = Math.max(0, (t.layCd || 0) - sdt * 1000);
-      if ((t.charges || 0) > 0 && t.layCd <= 0) {
+      if (g.phase === "combat" && (t.charges || 0) > 0 && t.layCd <= 0) {
         // Density is the smith's whole argument now: he fills his stretch of
         // road rather than rationing it, so the only limit is how fast the
         // bench works. He still prefers bare ground, but 6px is "bare".

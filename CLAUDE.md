@@ -676,6 +676,16 @@ archer. The Powder Works' two men face left until each first shoots
 (`bomberFacing` / `musketFacing`, muzzles.js); its store still faces the road.
 The River Watch's watchman still glances about (he never aims).
 
+## The Trapsmith lays only in a wave (2026-11-08, owner request)
+
+"Trap layer started covering the field before the first wave started": the
+smith now arms the road only while `g.phase === "combat"` (update.js, the
+trapsmith loop); before the first horn and between waves he waits. His bench
+still stocks charges then, up to `maxCharges` (the rack on the hall shows
+them), so at each horn he lays them out one every 420 ms. The sweep between
+waves is unchanged. A Free Play summon fight between waves is combat, so he
+lays for it. Checked headless; not simmed.
+
 ## Heroes stand on the road (2026-11-07, owner request)
 
 "Ranged heroes are way stronger because they never go down": a hero parked in
