@@ -587,7 +587,10 @@ hp, armor 0.5, speed 62, 24 a blow, bounty 7); the horse crumbles alone in
 `cavalierMount` (the destrier painter with `p.riderless`: no rider, no
 reins, rigs-ironmounts.js). His figure is the unseated knight's (`look:
 "unseated"`, rigs-iron.js) in the cavalier's caparison red. Checked
-headless: 516 of 1000 killed cavaliers rolled clear.
+headless: 516 of 1000 killed cavaliers rolled clear. Measured `--chapter
+iron --endure` seed 1, better doctrine: 8281 -> 9308 castle damage (+12%;
+the back half: Blackcliff 1111 -> 1501, ir5 1249 -> 1633), all 15 held,
+none stuck. Provisional, pending the owner's playtest.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
