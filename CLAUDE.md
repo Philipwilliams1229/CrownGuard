@@ -572,7 +572,11 @@ the rest within ~10; all 15 held, none stuck).
 `mres` -0.5 (magic hits it x1.5; a negative mres reads "Weak to magic +50%"
 in the Field Guide and the enemy tooltip), `trapBane` 1.5 (a trap's blow on
 it pierces its 0.6 armor and is x1.5, update.js trap loop: a level-3 spike
-98 -> 147, was 39), and `castleDmg` 4 -> 5. Checked headless.
+98 -> 147, was 39), and `castleDmg` 4 -> 5. Checked headless. Iron
+`--endure` seed 1: 9424 -> 9396 (flat: the sim's commander seldom lays traps
+under a ram, and rams seldom leak). The owner finds the trap bite "a bit
+high" and is testing it; levers: `trapBane` 1 (pierce only, 98) or drop the
+pierce in the trap loop (x1.5 on top of armor, ~59).
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer
