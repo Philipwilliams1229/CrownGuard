@@ -554,6 +554,17 @@ The ring and the ward sound play every cast. The Field Guide's row reads
 better doctrine, against the gryphon change: 8447 -> 9272 (+10%; Crowstair
 511 -> 852, Warden Moor 1108 -> 1302, the first levels and the Citadel flat;
 all 15 held, none stuck). Provisional ("may need tweaking").
+And he **follows his column** (owner, same day: he hung back at the first
+knights while most of his column walked past them, unshielded):
+`followColumn: true` (enemies.js) lets `columnGone` (update.js) override his
+stand-off. It counts his foot troops within `COLUMN_SPAN` 260 of road: free
+ones (not held, `blockedBy` null) more than `COLUMN_PAST` 40 ahead of him
+against everyone else (behind, beside, or held in a fight his ring already
+reaches); when the free ones ahead are the greater part, he walks on after
+them, past the fight (a free knight may still seize him). Checked headless
+(one knight that holds one levy, 14 levies): old rule kept 1-3 of 14 in his
+ward while 13 walked past, new rule ~9 of 14; with six knights holding all
+six levies he still stands off 63 back with all six in his ward.
 
 The same day the foe archers' bolts went up twice by 25% (owner: they "had
 almost no effect"): Crossbowman `rangedAtk` 12 -> 15 -> 18.75, Barrow Archer

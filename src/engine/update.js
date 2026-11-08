@@ -477,7 +477,7 @@ const makeEnemy = (type, mult) => {
     swims: !!d.swims, swimming: false, swimD: 0, swimDir: 1,
     healAmt: d.heal ? d.heal * Math.sqrt(mult) : 0, healEvery: d.healEvery || 0, healCd: null,
     healPct: d.healPct || 0, healCap: (d.healCap || 0) * Math.sqrt(mult), healRange: d.healRange || 0,
-    raiseEvery: d.raiseEvery || 0, standOff: d.standOff || 0, raiseCd: null, revived: false, healedFlash: 0,
+    raiseEvery: d.raiseEvery || 0, standOff: d.standOff || 0, followColumn: !!d.followColumn, raiseCd: null, revived: false, healedFlash: 0,
     // zone IV's frost shroud (engine/rime.js): ice a hall every freezeEvery ms
     freezeEvery: d.freezeEvery || 0, freezeRange: d.freezeRange || 0, freezeFor: d.freezeFor || 0, freezeFirst: d.freezeFirst ?? null, freezeCd: null,
     // the Rime Clans are cold-hardy (the Frost Altar's chill, nova freeze and
@@ -798,6 +798,23 @@ const syncRetinue = (g) => {
     g.effects.push({ type: "levelup", x, y, ttl: 700 });
     g.effects.push({ type: "dust", x, y: y + 6, ttl: 400 });
   }
+};
+
+// Has a standoff captain's column marched on without him? Counts his foot
+// troops within COLUMN_SPAN of road behind him and ahead of him: those still
+// with him (behind, beside, or held in a fight with your soldiers, which his
+// ward already reaches from where he stands) against those walking free more
+// than COLUMN_PAST ahead. True when the free ones ahead are the greater part.
+const COLUMN_SPAN = 260, COLUMN_PAST = 40;
+const columnGone = (g, e) => {
+  let ahead = 0, here = 0;
+  for (const o of g.enemies) {
+    if (o === e || o.dead || o.neutral || o.flying || o.swimming || o.boss) continue;
+    const dd = o.dist - e.dist;
+    if (dd < -COLUMN_SPAN || dd > COLUMN_SPAN) continue;
+    if (dd > COLUMN_PAST && !o.blockedBy) ahead++; else here++;
+  }
+  return ahead > here;
 };
 
 // How long a foe may stand still before it marches on regardless (see the
@@ -1776,6 +1793,11 @@ export function updateGame(g, dt) {
           for (const u of t.units) if (u.state !== "dead" && Math.hypot(u.x - e.x, u.y - e.y) < e.standOff) { near = true; break; }
           if (near) break;
         }
+        // a captain who follows his column (`followColumn`: the Aegis Magister)
+        // stops hanging back once most of it has marched on past your soldiers
+        // (owner, 2026-11-08: he waited at the first knights while the column
+        // walked on without its shields): he goes after it, past the fight
+        if (near && e.followColumn && columnGone(g, e)) near = false;
         e.aiming = near;
       }
       if ((!e.rangedAtk && !e.standOff) || stunned) e.aiming = false;
