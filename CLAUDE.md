@@ -574,6 +574,9 @@ riders, fliers, rams, bosses, other escorts); startWave spreads them from
 40% of that group's span to its end (`ARCHER_SPREAD`, actions.js), never
 closer than `ARCHER_GAP` 350 ms, so a big company runs a little past the
 column's tail. A wave with no such column keeps its archers as written.
+Measured `--endure` seed 1, better doctrine, against the commit before it:
+Iron 8140 -> 8281, Hollow 481 -> 505 castle damage (noise; all 30 held, none
+stuck). Provisional, pending the owner's playtest.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
