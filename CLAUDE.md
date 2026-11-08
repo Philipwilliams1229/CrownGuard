@@ -158,20 +158,19 @@ Provisional, pending the owner's playtest.
   levels 1-3 are free; the PATHS (tier 4) need `TIER_XP[4]` 2500 and the FINALS
   (tier 5) `TIER_XP[5]` 10000 (raised from 600 / 2400, then 1800 / 7000, the
   same day: the owner wants a harder first area) (both live in profile.js, re-exported). XP is
-  earned in campaign battles by the HARM a hall does (owner, 2026-11-08: the
-  Trapsmith wore foes down but seldom had the kill): each foe is worth 1 + a
-  tenth of its bounty, paid out to the halls that hurt it in proportion to
-  the share of its max health each blow took (dealDamage, actions.js;
-  overkill pays nothing, `e.xpPaid` caps a mended foe at its worth), and the
-  killing hall takes whatever is unpaid (the share the hero, castle or bands
-  dealt). Measured `--chapter greenwood --endure --xp`, seeds 1-2, against
-  kill-only: wizard +46%, catapult +3%, archer -25%, knight -17% over the
-  chapter (paths open about a level later for archer / knight, about a level
-  sooner for the wizard; the knight's finals no longer open inside the
-  Greenwood). A scratch harness (a level-3 Trapsmith upstream of a level-3
-  archer, goblins + orcs): at x4 hp the Trapsmith went from ~1 XP a run to
-  ~138; at x1, where it kills nearly everything, ~276 -> ~233. Also
-  the Warden Mage's aura kills (x0.25), the Gold Works' wages (x0.3) and 6
+  earned in campaign battles by a hall's kills (1 + a tenth of the bounty),
+  except the Trapsmith, which learns from the HARM it does (owner,
+  2026-11-08: it wears foes down but seldom has the kill; `HARM_XP` in
+  towerxp.js, dealDamage in actions.js): a blow that takes a fifth of a
+  foe's max health pays a fifth of its kill XP, its own kill pays only the
+  rest, overkill pays nothing, `e.harmXp` caps a mended foe at its worth.
+  Every other hall still gets the full kill (sims byte-identical). In the
+  Greenwood sims (`--xp --ledger`, seeds 1-2) halls earn per 1k damage:
+  archer 15, knight 16, catapult 10, wizard 8, Bladewheel 7 (duty XP
+  included); damage XP pays the average, so the Trapsmith should land near
+  the catapult / wizard (it is never simmed). Scratch harness, a level-3
+  Trapsmith upstream of a level-3 archer: at x4 hp ~1 -> ~138 XP a run.
+  Also the Warden Mage's aura kills (x0.25), the Gold Works' wages (x0.3) and 6
   XP for every wave a kind stands through. The ledger is `g.towerXp` (kept
   by the retry-wave snapshot); `bankLedger` (CrownguardGame.jsx) banks it into
   `profile.towerXp` when a battle ends or is left (the profile merges with max,

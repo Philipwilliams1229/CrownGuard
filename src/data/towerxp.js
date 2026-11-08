@@ -6,14 +6,13 @@
 //
 // What earns XP (all of it filed under the hall's kind, so selling a hall or
 // raising ten of them never loses or multiplies it by itself):
-//   - harm the hall does (owner, 2026-11-08: the Trapsmith wore foes down
-//     but seldom had the kill): every foe is worth 1 XP + a tenth of its
-//     bounty (xpForKill), paid out as it is hurt — a blow that takes a
-//     fifth of its max health pays a fifth of that — and the hall that
-//     kills it takes whatever is left unpaid (the share the hero, the castle
-//     or the bands dealt). Overkill pays nothing, and a foe never pays more
-//     than its worth (healed and hurt again, `e.xpPaid` caps it). When halls
-//     alone fell a foe, the halls between them earn what one kill did before.
+//   - a kill the hall makes: 1 XP + a tenth of the foe's bounty (xpForKill)
+//   - the Trapsmith (HARM_XP; owner, 2026-11-08: it wears foes down but
+//     seldom has the kill) learns from the HARM it does instead: a blow that
+//     takes a fifth of a foe's max health pays a fifth of the foe's kill XP,
+//     and its own kill pays only what its blows have not. Overkill pays
+//     nothing, and a mended foe never pays it more than the whole. The hall
+//     that finishes a trapped foe still gets the full kill, as before.
 //   - the Warden Mage, which kills little itself: a quarter of that for
 //     every foe that dies inside its aura (once a kill, however many Mages
 //     stand)
@@ -42,6 +41,8 @@ export { TIER_XP };
 // tier 4 (the two paths) and tier 5 (the four finals) may be bought. Tiers
 // 1-3 (the base hall and its two levels) never ask for any.
 export const DUTY_XP = 6;
+// hall types that learn from the harm they do, not only their kills
+export const HARM_XP = new Set(["trapsmith"]);
 export const ASSIST_SHARE = 0.25;    // the Warden Mage's share of a kill's XP
 export const WAGE_SHARE = 0.3;       // the Gold Works' XP per gold of wage
 // A kill is worth 1 XP and a tenth of the foe's bounty on top, so a troll or

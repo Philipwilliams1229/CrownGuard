@@ -26,7 +26,7 @@ import { MILITIA, militiaStats, militiaBlurb, HEROES, heroXpFor, HERO_MAX_LEVEL,
 import { PTS, onRoad } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, bankTowerXp, bankedTowerXp, MAX_STARS } from "./data/profile.js";
-import { tierGate, TIER_XP } from "./data/towerxp.js";
+import { tierGate, TIER_XP, HARM_XP } from "./data/towerxp.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
@@ -1217,7 +1217,7 @@ export default function Crownguard() {
       const gate = tierGate(sel.kind, tier, g);
       const pct = Math.min(100, Math.round((gate.have / Math.max(1, gate.need)) * 100));
       const waiting = tier === 4 ? Object.values(selDef.branches) : Object.values(selDef.branches[sel.branch]?.rank4 || {});
-      const how = sel.kind === "support" ? "every foe that falls in its aura" : sel.kind === "goldworks" ? "the wages it pays" : "the harm it does";
+      const how = sel.kind === "support" ? "every foe that falls in its aura" : sel.kind === "goldworks" ? "the wages it pays" : HARM_XP.has(sel.kind) ? "the harm it does" : "its kills";
       return (
         <div className="cg-parch" style={{ padding: "7px 9px", fontSize: 10.5, lineHeight: 1.45, color: "#5a4630" }}>
           <div className="cg-label" style={{ marginBottom: 2, color: "#7a6446" }}>Locked · {tier === 4 ? "paths" : "final forms"}</div>
