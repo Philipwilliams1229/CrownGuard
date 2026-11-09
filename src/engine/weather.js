@@ -514,6 +514,7 @@ const landStrikes = (g, w, def, tms) => {
       // halls in its reach are struck: they hold their fire (build.js fights)
       for (const t of g.towers) {
         if (Math.hypot(t.x - m.x, t.y - m.y) > m.r + HALL_R) continue;
+        if (!(t.shockLeft > 0)) t.shockAt = g.time;      // the moment it froze (draw.js holds its picture there)
         t.shockLeft = t.shockMax = Math.max(t.shockLeft || 0, shock);
         g.hallsStruck = (g.hallsStruck || 0) + 1;
       }

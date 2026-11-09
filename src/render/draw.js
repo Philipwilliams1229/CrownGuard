@@ -18,7 +18,7 @@ import { groundLayer, drawRoadLive } from "./world.js";
 import { ball as pip, glow as glowFx, shadow as softShadow, cylinder } from "./paint.js";
 import { TOWERS } from "../data/towers.js";
 import { getStats, getStatsClear } from "../engine/towers.js";
-import { isBuilt } from "../engine/build.js";
+import { isBuilt, shocked } from "../engine/build.js";
 import { buildableAt } from "../engine/actions.js";
 import { SPRITES, UNDEAD_PALS } from "../sprites/sprites.js";
 import { hasRig, rigPixels, drawRig, rigDef } from "./rigs.js";
@@ -290,19 +290,23 @@ export function draw(g, canvas, bufRef) {
     ctx.restore();
   };
   const paintTowerRaw = (t) => {
-    if (t.kind === "archer") drawArcherTower(ctx, t, g.time);
-    else if (t.kind === "wizard") drawWizardSpire(ctx, t, g.time);
-    else if (t.kind === "support") drawSupportTower(ctx, t, g.time);
-    else if (t.kind === "catapult") drawCatapult(ctx, t, g.time);
-    else if (t.kind === "spiker") drawBladewheel(ctx, t, g.time);
-    else if (t.kind === "goldworks") drawGoldworks(ctx, t, g.time);
-    else if (t.kind === "trapsmith") drawTrapsmith(ctx, t, g.time);
-    else if (t.kind === "assassin") drawAssassin(ctx, t, g.time);
-    else if (t.kind === "falconry") drawFalconry(ctx, t, g.time);
-    else if (t.kind === "sunforge") drawSunforge(ctx, t, g.time);
-    else if (t.kind === "riverwatch") drawRiverwatchHall(ctx, t, g.time);
-    else if (t.kind === "gunpowder") drawGunpowder(ctx, t, g.time);
-    else drawGarrison(ctx, t, g.time);
+    // a hall stunned by the storm's lightning holds still, frozen at the
+    // moment it was struck, for as long as its sparks crackle (engine/build.js
+    // shocked, weather.js t.shockAt; owner, 2026-11-09)
+    const time = shocked(t) && t.shockAt != null ? t.shockAt : g.time;
+    if (t.kind === "archer") drawArcherTower(ctx, t, time);
+    else if (t.kind === "wizard") drawWizardSpire(ctx, t, time);
+    else if (t.kind === "support") drawSupportTower(ctx, t, time);
+    else if (t.kind === "catapult") drawCatapult(ctx, t, time);
+    else if (t.kind === "spiker") drawBladewheel(ctx, t, time);
+    else if (t.kind === "goldworks") drawGoldworks(ctx, t, time);
+    else if (t.kind === "trapsmith") drawTrapsmith(ctx, t, time);
+    else if (t.kind === "assassin") drawAssassin(ctx, t, time);
+    else if (t.kind === "falconry") drawFalconry(ctx, t, time);
+    else if (t.kind === "sunforge") drawSunforge(ctx, t, time);
+    else if (t.kind === "riverwatch") drawRiverwatchHall(ctx, t, time);
+    else if (t.kind === "gunpowder") drawGunpowder(ctx, t, time);
+    else drawGarrison(ctx, t, time);
   };
 
   // whoever stands on a bridge is drawn up on its arched deck

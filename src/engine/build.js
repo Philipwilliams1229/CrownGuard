@@ -59,5 +59,8 @@ export const isBuilt = (t, g) => !(t.readyAt > g.time);
 // (t.shockLeft: struck by the storm's lightning, engine/weather.js; a hall whose
 // soldiers are out on the field keeps them fighting: only the hall is struck)
 const SOLDIER_HALLS = new Set(["knight", "assassin", "riverwatch"]);
+// a hall the storm's lightning has struck and stunned (its soldiers' halls
+// are only marked, never stunned); the painters freeze it (draw.js)
+export const shocked = (t) => t.shockLeft > 0 && !SOLDIER_HALLS.has(t.kind);
 export const fights = (t, g) => !(t.readyAt > g.time) && !(t.iceLeft > 0) && !(t.fireLeft > 0) && !(t.downLeft > 0)
-  && !(t.shockLeft > 0 && !SOLDIER_HALLS.has(t.kind));
+  && !shocked(t);

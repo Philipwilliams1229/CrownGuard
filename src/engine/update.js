@@ -18,7 +18,7 @@ import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilt
 import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
-import { isBuilt, fights } from "./build.js";
+import { isBuilt, fights, shocked } from "./build.js";
 // zone IV: landings, the frost shroud (fights = built and not frozen), weather
 import { rimeTick, seaborne } from "./rime.js";
 import { registerSeaTools, seaHold } from "./serpent.js";
@@ -2467,7 +2467,7 @@ export function updateGame(g, dt) {
     }
     resolveStrikes(g, tms);   // the falcons' talons landing
     for (const t of g.towers) {
-      t.anim = Math.max(0, t.anim - sdt * 4);
+      if (!shocked(t)) t.anim = Math.max(0, t.anim - sdt * 4);   // (a stunned hall's picture holds still)
       if (!fights(t, g)) continue;
       if (t.kind === "knight" || t.kind === "support" || t.kind === "trapsmith" || t.kind === "assassin" || t.kind === "riverwatch" || t.kind === "gunpowder") continue;
       if (t.kind === "goldworks" && !t.branch) continue;   // the mint pulls no trigger

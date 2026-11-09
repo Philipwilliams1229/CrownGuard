@@ -320,7 +320,13 @@ a Powder Works, so the duds never show in it.
   keeps its men fighting, only the hall is struck). Every FOOT soldier in the
   stroke, yours (`u.downUntil`, as a ram's trample) or theirs (`stunUntil`;
   bosses, riders and fliers only `boltStun` 0.5 s), is stunned 3 s. The
-  shielded and magic-resistant still take nothing. `g.hallsStruck`.
+  shielded and magic-resistant still take nothing. `g.hallsStruck`. A
+  stunned hall's PICTURE holds still too (owner, 2026-11-09): build.js
+  `shocked(t)`; weather.js stamps `t.shockAt` when a shock starts; draw.js
+  paints a shocked hall at `t.shockAt` instead of `g.time`, and update.js
+  holds its `t.anim` while it lasts (its `cd` already waits), so the crew
+  freeze mid-pose while the sparks (weatherfx.js `hallShocks`) crackle.
+  `rain-lab.html?shock=3000&focus=0&snaps=3,3.5,4` shows it.
 - Thunder spooks horses: a cavalier within `boltSpook` 90 of a stroke throws
   his knight 60% of the time (`spook`, weather.js: the cavalier is removed with
   no bounty, an `unhorsed` knight drops dazed 1.2 s and a `loosehorse` bolts
