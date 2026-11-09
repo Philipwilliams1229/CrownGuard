@@ -326,7 +326,7 @@ const RAIN_N = [210, 120, 24];          // near drops at k 1 (thin / long / big)
 // the spray, a gust's curtain), and how much of the sky's darkening (the
 // wash, the racing cloud shadow, the veil beyond the board). The ground's
 // soak (wet road, puddles, floods) is drawn in full: it is what the mud reads by.
-const RAIN_LOOK = 0.5, SKY_LOOK = 0.5;
+const RAIN_LOOK = 0.5, SKY_LOOK = 0.75;   // (the sky back up to 0.75 the same day, owner)
 const RAIN_VY = [520, 610, 720];        // their fall, units/s
 const GUST_P = 19, GUST_D = 7;          // a gust every GUST_P s (somewhere in it), lasting GUST_D s
 const LEAN0 = B.RAIN_LEAN[0], LEAN1 = B.RAIN_LEAN[3];
