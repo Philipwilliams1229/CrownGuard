@@ -11,6 +11,7 @@
       crop=x,y,w,h  one window of the board instead (units)
       times=a,b   game seconds to snap at (the live ripples move); default 0
       cols=N      spans a row
+  The status line reports how long the board's spans took to bake.
   Saved to .shots/bwl_<tag>.png.
 -->
 <html>
@@ -26,6 +27,7 @@
       import { setLevelWeather } from "/src/engine/weather.js";
       import { BRIDGES } from "/src/data/terrain.js";
       import { draw } from "/src/render/draw.js";
+      import { bakeBridges } from "/src/render/bridge.js";
       const q = new URLSearchParams(location.search);
       const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 3, R = Number(q.get("r")) || 70;
       selectRealm(q.get("realm") || "ironford");
@@ -38,6 +40,7 @@
         selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
         cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0, freeplay: true,
       };
+      const tb = performance.now(); bakeBridges(); const bakeMs = performance.now() - tb;
       const only = q.get("only") ? q.get("only").split(",").map(Number) : null;
       const boxes = q.get("crop") ? [q.get("crop").split(",").map(Number)]
         : BRIDGES.map((b, i) => [i, b]).filter(([i]) => !only || only.includes(i))
@@ -61,7 +64,7 @@
         o.fillText(`${cx},${cy} ${cw}x${ch}  t${t}`, col * fw + 4, row * (fh + 16) + 12);
       });
       await fetch(`/__shot?name=bwl_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
-      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/bwl_${TAG}.png ${BRIDGES.length} spans`;
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/bwl_${TAG}.png ${BRIDGES.length} spans, spans baked in ${bakeMs.toFixed(0)} ms`;
     </script>
   </body>
 </html>

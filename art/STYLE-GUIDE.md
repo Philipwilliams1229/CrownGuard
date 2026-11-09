@@ -613,9 +613,30 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   a teal lamp — varied per span by `hash(b.x, b.y)`).
 - Height reads only through what faces SOUTH or is sloped: across spans show
   a south face (trestle opening or arches); up-screen spans show bents whose
-  caps and piles stand past the deck's edges, pitched-stone abutment slopes
-  beside the parts over land, and a two-tone shadow on the water (a gloom
-  band widening with height, then the thrown part).
+  caps and piles stand past the deck's edges, banking beside the parts over
+  land, and a two-tone shadow on the water (a gloom band widening with
+  height, then the thrown part).
+- **Where the river meets a span** (2026-11-09, owner: "work on the visuals
+  with rivers, especially around the bridges"): the banking beside an
+  up-screen span is a HEIGHT FIELD (slope over land, water two units below
+  the banks, the deck solid); where it meets water to its south it stands
+  in the river as a retaining face with a wet foot line, and its top ends in
+  a dressed coping strip, never a raw cut. Stone banking is steep
+  (`EMB_STONE` 0.9). Up-screen stone piers are LOW STARLINGS with their nose
+  along the current (`cutwater()`'s direction, `streamDir()`), drawn under
+  the deck. An across span's face is REFLECTED in the water below it
+  (`reflection()`: the arches close into rings, the stones go to
+  water-tinted shade broken into thinning ripple dashes; `REFLECT_A` 0.85,
+  `REFLECT_MIX` 0.42), with no dark outline at the waterline, so the arch
+  openings run into their reflection; timber and fen trestles too. Wide
+  water gets an even number of arches about `ARCH_SPAN` 22 wide (a pier
+  mid-stream). The corner walls of an across span are short, low footings at
+  the bank. Pier foam (water.js `boardPiers`) sits where the river's line
+  leaves the deck's footprint (`PIER_OUT` 4 past its side), at the starling
+  noses on any crossing angle. Look at every span of a board with
+  `bridge-water-lab.html` (`realm, scale, only, crop`; it prints the bake
+  time, all baked once per board). Still open: the dark band under an
+  up-screen deck's edge plus its starling make a busy corner at 4x zoom.
 - Wing walls run ALONG the bank on its land side (found from the wet mask
   from the deck's end); the outer end has no ink and sinks under a grass
   tuft. Where the road runs onto a deck: no silhouette ink, only a dark 1px

@@ -1220,24 +1220,31 @@ const drawRockFoam = (ctx, rocks, time, wa) => {
   }
 };
 // The piers of the board's stone bridges (the Iron Marches' kind; bridge.js
-// gives a span over wide water a cutwater either side, its nose PIER_OUT
-// along the stream from the span's centre): the current foams at the one
-// upstream and sheds its tail off the one downstream.
-const PIER_OUT = 40;
+// gives a span over wide water a pier whose nose stands out past each side
+// of the deck, along the stream): the current foams at the one upstream and
+// sheds its tail off the one downstream. Each is found where the river's
+// line leaves the deck's footprint, PIER_OUT past its side.
+const PIER_OUT = 4;
+const DECK_HALF = 35;      // terrain.js BRIDGE_HALF
 const boardPiers = () => {
   const out = [];
   if (REALM.bridge?.kind !== "stone") return out;
   for (const b of BRIDGES) {
+    const c = Math.cos(b.a), s = Math.sin(b.a), half = (b.d1 - b.d0) / 2;
+    const frame = (x, y) => [(x - b.x) * c + (y - b.y) * s, -(x - b.x) * s + (y - b.y) * c];
     for (const rv of RIVERS) {
       const S = samplerOf(rv);
       let bq = -1, bd = Infinity;
       for (let q = 0; q < S.n; q++) { const d = Math.hypot(S.X[q] - b.x, S.Y[q] - b.y); if (d < bd) { bd = d; bq = q; } }
       if (bq < 0 || bd > S.HW[bq] || S.HW[bq] * 2 <= 26) continue;
-      const tx = S.TX[bq], ty = S.TY[bq];
       for (const sd of [-1, 1]) {
-        const q = Math.max(0, Math.min(S.n - 1, bq + Math.round(sd * PIER_OUT / 2)));
+        let q = bq;
+        for (; q > 0 && q < S.n - 1; q += sd) {
+          const [u, v] = frame(S.X[q], S.Y[q]);
+          if (Math.abs(v) > DECK_HALF + PIER_OUT || Math.abs(u) > half + 6) break;
+        }
         if (S.wet && S.wet[q]) continue;
-        out.push({ x: S.X[q], y: S.Y[q], tx, ty, rx: 2.6, ry: 1.9, seed: (b.x | 0) * 7 + sd, pier: true, up: sd < 0 });
+        out.push({ x: S.X[q], y: S.Y[q], tx: S.TX[q], ty: S.TY[q], rx: 2.6, ry: 1.9, seed: (b.x | 0) * 7 + sd, pier: true, up: sd < 0 });
       }
     }
   }

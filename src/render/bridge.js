@@ -56,7 +56,9 @@ const POST_V = 34;          // the line the rail posts stand on
 const DROP = 2;             // the water lies this far below the banks
 const K = [0.56, 0.44];     // where a thing's shadow falls, per unit of height
 const PILE_OUT = 3.4;
-const EMB = 0.62;           // an abutment's pitched side: its fall per unit out from the deck       // an up-screen bent's outer pile stands this far past the deck's edge
+const EMB = 0.62;           // an abutment's pitched side: its fall per unit out from the deck
+const EMB_STONE = 0.9;
+const ARCH_SPAN = 22;        // a stone span's arches: about this wide each (wider water, more arches)      // the stone kind's, steeper: dressed walling, not a bank of rubble
 
 // ---- colour, as plain numbers (the bake paints pixel by pixel) -----------
 const CREAM = [255, 243, 210], PLUM = [42, 28, 44];
@@ -123,6 +125,18 @@ const frameOf = (b) => {
   // the side that faces the sun (its rail throws a shadow onto the deck)
   const sunSide = (-s * SUN.x + c * SUN.y) > 0 ? 1 : -1;
   return { b, c, s, half, mid, L, at, onTop, onFaceV, wet, wetRun, slope, near, sunSide, useMask };
+};
+
+// the way the nearest river runs at (x, y), a unit vector downstream
+const streamDir = (x, y) => {
+  let best = Infinity, t = [1, 0];
+  for (const rv of RIVERS) for (const sg of rv.segs) {
+    const dx = sg.x2 - sg.x1, dy = sg.y2 - sg.y1, l2 = dx * dx + dy * dy || 1;
+    const k = Math.max(0, Math.min(1, ((x - sg.x1) * dx + (y - sg.y1) * dy) / l2));
+    const d = Math.hypot(sg.x1 + dx * k - x, sg.y1 + dy * k - y);
+    if (d < best) { best = d; t = [dx / Math.sqrt(l2), dy / Math.sqrt(l2)]; }
+  }
+  return t;
 };
 
 // ---- the bake's canvases -------------------------------------------------
@@ -508,6 +522,17 @@ const bakeSpan = (b, pal) => {
   };
   const ground = (X, Y) => { const x = X - b.x, y = Y - b.y; return [x * F.c + y * F.s, -x * F.s + y * F.c]; };
   S.bareList.push((X, Y) => { const [u, v] = ground(X, Y); return Math.abs(u) > F.half - 0.4 && Math.abs(v) < 33.2; });
+  // the near face's foot where it stands in the water: no ink, so the arches'
+  // dark openings run straight into their reflection
+  if (F.near) {
+    const v0 = F.near * HALF;
+    S.bareList.push((X, Y) => {
+      const u = (X - b.x + v0 * F.s) / F.c;
+      if (Math.abs(u) > F.half || !F.wet(u, v0 + F.near * 0.6)) return false;
+      const yw = b.y + u * F.s + v0 * F.c + DROP;
+      return Y > yw - 0.3 && Y < yw + 1.6;
+    });
+  }
 
   // ---- the wing walls: at each corner where the deck's side meets the bank,
   // a short retaining wall runs along the bank on its land side, its face to
@@ -543,8 +568,11 @@ const bakeSpan = (b, pal) => {
       // beside an up-screen span it retains the embankment, so its top runs
       // from the deck's height down into the turf
       const zD = F.near ? 0 : Math.max(0, F.L(au) - 0.6);
-      const len = Math.max(stone ? 9.5 : 7.5 + hash(e + 3, sd + (b.x | 0)) * 2, zD / EMB + 2.5);
-      wing.push({ A: [au, av], dir: [du, dv], n: [nu, nv], len, T, zA: Math.max(stone ? 2.8 : 2.2, zD), zB: 0.1, e, sd });
+      // beside an across span the stone kind's is a squat footing at the bank (a tall
+      // long one, seen end-on down the bank, read as a stray post)
+      const len = Math.max(stone ? (F.near ? 5.5 : 9.5) : 7.5 + hash(e + 3, sd + (b.x | 0)) * 2, zD / EMB + 2.5);
+      const zW = F.near ? (stone ? 1.6 : 1.6) : stone ? 2.8 : 2.2;
+      wing.push({ A: [au, av], dir: [du, dv], n: [nu, nv], len, T, zA: Math.max(zW, zD), zB: 0.1, e, sd });
     }
   }
   const [, byC] = F.at(0, 0);
@@ -593,10 +621,19 @@ const bakeSpan = (b, pal) => {
     if (!run) return { run: null, piers: [] };
     run = [Math.max(run[0], -F.half + 4.5), Math.min(run[1], F.half - 4.5)];
     if (run[1] - run[0] < 4) return { run: null, piers: [] };
-    // one pier mid-stream (mid-span if the stream allows), where the deck is highest
+    // one pier mid-stream (mid-span if the stream allows), where the deck is
+    // highest; a wide water gets an even number of arches (a pier mid-stream
+    // still, where the current foams), each about ARCH_SPAN across, so they
+    // stay round instead of flattening into slots under the low deck
     const wide = run[1] - run[0] > (F.near ? 24 : 18);
     const up = run[0] + 7 < 0 && run[1] - 7 > 0 ? 0 : (run[0] + run[1]) / 2;
-    return { run, piers: wide ? [up] : [] };
+    if (!wide) return { run, piers: [] };
+    const half2 = Math.max(1, Math.round(Math.min(up - run[0], run[1] - up) / ARCH_SPAN));
+    const piers = [up];
+    for (let k = 1; k < half2; k++) {
+      piers.push(up - ((up - run[0]) * k) / half2, up + ((run[1] - up) * k) / half2);
+    }
+    return { run, piers: piers.sort((a, b2) => a - b2) };
   };
 
   // ======== back to front ========
@@ -605,32 +642,93 @@ const bakeSpan = (b, pal) => {
   // thing the camera sees the height of: lit on the sun side, in shade on
   // the other, broadest at the bank, dying away at the deck's ends.
   if (!F.near) {
-    const road2 = rgb(REALM.PATH_DK || "#9e7d4e");
-    const zE = (u, v) => Math.max(0, F.L(u) - (Math.abs(v) - HALF) * EMB);
-    const box = spanBox(F, -HALF - 1 - BRIDGE_RISE / EMB, HALF + 1 + BRIDGE_RISE / EMB, -0.5, 8.5);
+    // The bank beside the deck is a height field: the embankment's slope
+    // over the land, the water DROP below the banks, the deck itself a solid
+    // block. Each screen pixel is found by marching its ray down from above
+    // (a point z up at ground y is drawn at y - z), so where the embankment
+    // meets the river it stands on it as a retaining wall: its face shows
+    // wherever the water lies south of it (the camera sees it), and either
+    // way its top ends in a dressed coping, never a raw cut through the bank.
+    const em = stone ? EMB_STONE : EMB;
+    const zE = (u, v) => Math.max(0, F.L(u) - (Math.abs(v) - HALF) * em);
+    const reachE = HALF + 1 + BRIDGE_RISE / em;
+    const hAt = (x, y, o) => {
+      const u = x * F.c + y * F.s, v = -x * F.s + y * F.c, av = Math.abs(v);
+      o[0] = u; o[1] = v;
+      if (Math.abs(u) > F.half + 0.5 || av > reachE) return 0;
+      if (av < HALF - 0.3) return F.L(u) + 1;              // the deck: solid
+      if (F.wet(u, v)) return -DROP;
+      return Math.abs(u) > F.half ? 0 : zE(u, v);
+    };
+    const box = spanBox(F, -reachE, reachE, -DROP - 1, 8.5);
+    const q0 = [0, 0], q1 = [0, 0];
+    const HM = BRIDGE_RISE + 1.5, DZ = 0.25;
     surfacePiece(S, B, box, (X, Y, o) => {
       const x = X - b.x, y = Y - b.y;
-      let z = 2, u = 0, v = 0;
-      for (let k = 0; k < 7; k++) {
-        u = x * F.c + (y + z) * F.s; v = -x * F.s + (y + z) * F.c;
-        z = zE(u, v);
+      // the ray's two ends both over the deck, or both past the banking:
+      // nothing of it shows here
+      const va = Math.abs(-x * F.s + (y + HM) * F.c), vb = Math.abs(-x * F.s + (y - DROP) * F.c);
+      if ((va < HALF - 0.6 && vb < HALF - 0.6) || (va > reachE && vb > reachE && (va - reachE) * (vb - reachE) > 0)) return -1;
+      let z = HM, h = 0, hit = false;
+      // coarse steps, then a fine one back: the edge to a quarter unit
+      for (; z >= -DROP - 0.01; z -= DZ * 2) {
+        h = hAt(x, y + z, q0);
+        if (z <= h) { hit = true; break; }
       }
-      if (Math.abs(u) > F.half || Math.abs(v) < HALF - 0.3 || z < 0.2 || F.wet(u, v)) return -1;
-      o[0] = u; o[1] = z;
+      if (!hit) return -1;
+      if (z + DZ <= HM) { const h2 = hAt(x, y + z + DZ, q1); if (z + DZ <= h2) { z += DZ; h = hAt(x, y + z, q0); } }
+      const u = q0[0], v = q0[1], av = Math.abs(v);
+      if (av < HALF - 0.3 || Math.abs(u) > F.half) return -1;
+      const sdv = v > 0 ? 1 : 0;
+      if (h - z > DZ * 1.5) {
+        // a face: the embankment's end standing on the water (or on the
+        // turf, where the slope ends higher than the ground before it)
+        if (h < 0.3) return -1;
+        o[0] = X; o[1] = z;
+        const south = hAt(x, y + z + 0.6, q1);
+        if (south > -DROP + 0.1 && z < 0) return -1;
+        if (south <= -DROP + 0.1 && z < -DROP + 0.5) return 9;  // its wet line
+        const row = Math.floor((z + DROP) / 1.6);
+        return 4000 + sdv * 2000 + row * 128 + Math.floor((X * 1.0 + 40 + (row & 1) * 1.6) / 3.2);
+      }
+      if (h < 0.2) return -1;
+      o[0] = u; o[1] = h;
+      // the top's rim, where it drops to the water north or south of it: a
+      // dressed coping a unit wide
+      const n1 = hAt(x, y + z - 1.1, q1), s1 = hAt(x, y + z + 1.1, q1);
+      if (h - n1 > 1.2 || h - s1 > 1.2) return 3000 + sdv * 500 + Math.floor((X + 40) / 3.6);
       // pitched stone in courses along the slope: dressed for the stone
       // kind, rough fieldstone for the timber ones
-      const d = Math.abs(v) - HALF;
+      const d = av - HALF;
       const row = Math.floor(d / (stone ? 1.5 : 1.3));
       const blk = Math.floor((u + 60 + (row & 1) * 1.3 + (stone ? 0 : hash(row, 7) * 1.1)) / (stone ? 3.2 : 2.3 + hash(row, 8) * 0.8));
-      return 10 + (row * 64 + blk) * 2 + (v > 0 ? 1 : 0);
+      return 10 + (row * 64 + blk) * 2 + sdv;
     }, (id, u, z, e, i, j) => {
-      const sd = id & 1 ? 1 : -1, lit = sd === F.sunSide;
+      const sd = id >= 6000 ? 1 : id >= 4000 ? -1 : id >= 3500 ? 1 : id >= 3000 ? -1 : id & 1 ? 1 : -1;
+      const lit = sd === F.sunSide;
+      if (id === 9) return mx(dk(deep, 0.5), moss, 0.2);
+      if (id >= 4000) {
+        // the retaining face, looking south over the water
+        let col = dk(stoneT[Math.floor(hash(id, 37) * 3)], 0.16);
+        if (z < -DROP + 1.2) col = mx(dk(col, 0.22), moss, 0.35);
+        if (e.joint) return dk(col, 0.36);
+        if (e.lip) return lt(col, 0.12);
+        return col;
+      }
+      if (id >= 3000) {
+        const cope = rgb(P.cope || "#bab09a");
+        let col = stone ? mx(cope, stoneT[1], hash(id, 3) * 0.4) : lt(stoneT[0], 0.06);
+        if (!lit) col = dk(col, 0.1);
+        if (e.joint) return dk(col, 0.3);
+        if (e.lip) return lt(col, 0.18);
+        return col;
+      }
       let col = stoneT[Math.floor(hash(id, 33) * 3)];
-      col = lit ? lt(col, 0.05) : dk(col, 0.26);
+      col = lit ? lt(col, 0.05) : dk(col, 0.2);
       // its toe grows over with the turf it sinks into
       if (z < 0.75 && hash(i, j >> 1) < 0.75 - z * 0.6) return hash(i * 3, j) < 0.5 ? grass[1] : (lit ? grass[2] : grass[0]);
       if (!stone && fen && hash(id, 9) < 0.3 && hash(i, j) < 0.5) col = mx(col, moss, 0.6);
-      if (e.joint) return dk(col, 0.34);
+      if (e.joint) return dk(col, stone ? 0.24 : 0.3);
       if (e.lip) return lt(col, lit ? 0.14 : 0.08);
       return col;
     }, 0);
@@ -661,6 +759,21 @@ const bakeSpan = (b, pal) => {
   // show above its parapet); the near side's and an up-screen span's come
   // after the deck
   const cope = rgb(P.cope || "#bab09a");
+  // beside an up-screen span the piers' noses stand out from under the deck
+  // into the stream, low starlings pointed along the current (up- and
+  // downstream alike), under the deck's edge: drawn before it
+  if (stone && !F.near) {
+    for (const sd of [-1, 1]) {
+      for (const up of piersOf(sd * HALF + sd * 0.6).piers) {
+        const [px, py] = F.at(up, sd * HALF);
+        let [tx, ty] = streamDir(px, py);
+        let tu = tx * F.c + ty * F.s, tv = -tx * F.s + ty * F.c;
+        if (tv * sd < 0) { tu = -tu; tv = -tv; }
+        if (Math.abs(tv) < 0.35) { tv = 0.35 * sd; const l = Math.hypot(tu, tv); tu /= l; tv /= l; }
+        cutwater(S, B, F, up, sd, stoneT, moss, ripples, cope, deep, [tu, tv]);
+      }
+    }
+  }
 
   // ---- the face that looks at the camera ----------------------------------
   if (F.near) {
@@ -870,10 +983,8 @@ const bakeSpan = (b, pal) => {
   // the rail (or parapet) on the sun side throws its shadow across the deck
   deckShadow(S, B, F, P, posts);
 
-  if (stone) {
-    for (const sd of F.near ? [F.near] : [-1, 1]) {
-      for (const up of piersOf(sd * HALF + sd * 0.6).piers) cutwater(S, B, F, up, sd, stoneT, moss, ripples, cope, deep);
-    }
+  if (stone && F.near) {
+    for (const up of piersOf(F.near * HALF + F.near * 0.6).piers) cutwater(S, B, F, up, F.near, stoneT, moss, ripples, cope, deep);
   }
 
   drawWing(wingFront);
@@ -890,6 +1001,7 @@ const bakeSpan = (b, pal) => {
   // ---- all together: the shadow under, the span over ------------------------
   const G = layerOf(S);
   over(G, shadowLayer(F, S, P, posts, water));
+  if (F.near) over(G, reflection(S, B, F, P, deep, rgb(water.shine || "#a8d8e8")), REFLECT_A);
   over(G, B);
   // the witch-light's glow (the fen's lanterns): two hard rings, no blur
   const lamp = posts.find((p) => p.lamp);
@@ -922,6 +1034,49 @@ const bakeSpan = (b, pal) => {
     if (L0 || R0) seen.push({ ...r, l: L0, r: R0 });
   }
   return { cv: G.cv, x0, y0, w: S.pw / PX, h: S.ph / PX, px: PX, ripples: seen, shine: water.shine, lampAt, lamp: P.lamp, fen };
+};
+
+// ---- the face's reflection ---------------------------------------------------
+// Under a span that runs across the screen the water mirrors the face that
+// looks at the camera: the arches' dark openings close into rings, the
+// stones go to water-tinted shade, and the image breaks into ripple dashes
+// that thin out the further down it reaches. Baked with the span, clipped to
+// the water, laid under it (at REFLECT_A), so the river plainly runs on under
+// the deck instead of starting at the face's foot.
+const REFLECT_A = 0.85;      // how strongly the water shows the face
+const REFLECT_MIX = 0.42;    // how far a reflected stone goes to the water's own deep tone
+const reflection = (S, B, F, P, deep, shine) => {
+  const sd = F.near, v0 = sd * HALF, b = F.b;
+  const R = layerOf(S);
+  const bd = B.c.getImageData(0, 0, S.pw, S.ph).data;
+  const img = R.c.createImageData(S.pw, S.ph), d = img.data;
+  const faceH = P.kind === "stone" ? 5 : KERB_H;
+  for (let i = 0; i < S.pw; i++) {
+    const X = S.x0 + (i + 0.5) / PX, u = (X - b.x + v0 * F.s) / F.c;
+    if (Math.abs(u) > F.half + 1 || !F.wet(u, v0 + sd * 0.6)) continue;
+    const yw = b.y + u * F.s + v0 * F.c + DROP, jw = Math.round((yw - S.y0) * PX);
+    const D = Math.round((F.L(u) + faceH + DROP) * PX * 0.85);
+    for (let k = 0; k < D; k++) {
+      const jd = jw + k, t = k / D;
+      if (jd < 0 || jd >= S.ph || S.wet[jd * S.pw + i] !== 1) continue;
+      // the ripples: a row now and then slides a pixel, and the image comes
+      // apart in dashes, more of them the further down
+      const row = jd >> 1, sh = hash(row, 71 + (b.x | 0)) < 0.28 ? (hash(row, 72) < 0.5 ? -1 : 1) : 0;
+      const dash = Math.floor((i + hash(row, 73) * 9) / (3 + Math.floor(hash(row, 74) * 5)));
+      if (hash(dash, row * 3 + 75) < t * t * 0.9 + (k < 2 ? 0 : 0.04)) continue;
+      const is = i + sh, js = jw - 1 - k;
+      if (is < 0 || is >= S.pw || js < 0) continue;
+      const q = (js * S.pw + is) * 4;
+      if (bd[q + 3] === 0) continue;
+      let col = mx([bd[q], bd[q + 1], bd[q + 2]], deep, REFLECT_MIX + t * 0.25);
+      // the line where the face stands in the water catches a little light
+      if (k < 2 && hash(i >> 1, 76) < 0.5) col = mx(col, shine, 0.3);
+      const o = (jd * S.pw + i) * 4;
+      d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255;
+    }
+  }
+  R.c.putImageData(img, 0, 0);
+  return R;
 };
 
 // ---- a wing wall, pixel by pixel ------------------------------------------
@@ -1145,8 +1300,9 @@ const stoneFace = (S, B, F, P, sd, v0, { run, piers }, stoneT, moss, voidC, unde
   const arches = [];
   if (run) {
     if (piers.length) {
-      const up = piers[0];
-      arches.push([run[0] - 0.5, up - 2.2], [up + 2.2, run[1] + 0.5]);
+      let a0 = run[0] - 0.5;
+      for (const up of piers) { arches.push([a0, up - 2.2]); a0 = up + 2.2; }
+      arches.push([a0, run[1] + 0.5]);
     } else arches.push([run[0] - 1, run[1] + 1]);
   }
   const RING = 2.1;
@@ -1217,14 +1373,21 @@ const stoneFace = (S, B, F, P, sd, v0, { run, piers }, stoneT, moss, voidC, unde
 // side into the stream and carried up as a refuge flush with the coping.
 // Coursed blocks, each face one flat tone (the lit face and the shaded one),
 // a damp green foot and a wet line where it stands in the river.
-const cutwater = (S, B, F, up, sd, stoneT, moss, ripples, cope, deep) => {
+const cutwater = (S, B, F, up, sd, stoneT, moss, ripples, cope, deep, dir = null) => {
   const v0 = sd * HALF, out = sd * 4.4;
   // on the face of an across span it stops as a starling where the arches
-  // spring, so the pier plainly carries them; beside an up-screen span it
-  // rises to the coping as a refuge, the span's height standing on the water
-  const zt = F.near ? -DROP + 3.4 : F.L(up) + 5;
+  // spring, so the pier plainly carries them; beside an up-screen span it is
+  // the same low starling, its nose along the current (`dir`, in the span's
+  // frame, pointing out from under the deck), reaching in under the deck
+  const zt = -DROP + 3.4;
   const t = stoneT[1];
-  const A = [up - 2.8, v0 - sd * 0.3], Bp = [up + 2.8, v0 - sd * 0.3], N = [up, v0 + out];
+  let A = [up - 2.8, v0 - sd * 0.3], Bp = [up + 2.8, v0 - sd * 0.3], N = [up, v0 + out];
+  if (dir) {
+    const [tu, tv] = dir, pu = -tv, pv = tu, back = 6;
+    A = [up + pu * 2.8 - tu * back, v0 + pv * 2.8 - tv * back];
+    Bp = [up - pu * 2.8 - tu * back, v0 - pv * 2.8 - tv * back];
+    N = [up + tu * 5, v0 + tv * 5];
+  }
   const cu = (A[0] + Bp[0] + N[0]) / 3, cv = (A[1] + Bp[1] + N[1]) / 3;
   const faces = [];
   for (const [p, q] of [[A, N], [N, Bp]]) {
@@ -1275,7 +1438,7 @@ const cutwater = (S, B, F, up, sd, stoneT, moss, ripples, cope, deep) => {
     if (e.lip) return lt(col, fc.lit ? 0.12 : 0.07);
     return col;
   });
-  const [rx, ry] = F.at(up, v0 + out, -DROP);
+  const [rx, ry] = F.at(N[0], N[1], -DROP);
   ripples.push({ x: rx, y: ry + 0.8, w: 2.5, seed: up * 0.9 + sd });
 };
 
