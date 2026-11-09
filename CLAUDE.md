@@ -909,18 +909,22 @@ the generic tower fire; the Skyknight keeps its old path):
   (`crewOf` in CrownguardGame.jsx: a skiff's or a bird's `aim`; TargetsBar
   `crewName`). A bird passes over a foe a sister already hunts while it has
   another choice.
-- **The mark reaches anywhere:** any MARKED foe is in every falcon's reach
-  wherever it walks (fog or not); others only within the hall's range. A bird
-  goes back to the foe it last struck, anywhere on the board, until that foe
-  is dead (`bird.preyId`). A far stoop lands later (up to x3 `STOOP_HIT`).
+- **A bird chases its own prey anywhere:** a bird takes a NEW prey only
+  within the hall's range (since 2026-11-09, owner: "Falconry seems to have
+  unlimited range"; at first any marked foe anywhere was fair game, so
+  Kingsight's board-wide mark and other halls' marks pulled the birds across
+  the map), and goes back to the foe it last struck, anywhere on the board,
+  until that foe is dead (`bird.preyId`). A far stoop lands later (up to x3
+  `STOOP_HIT`). Headless: a levy struck twice in range was struck 4 more
+  times out to 388 away; a levy marked far off and never in range, 0.
 - **The flock strikes as often as the hall did:** a bird's clock is `rate` x
   birds / `shots` (Talon Rain's 3 strikes a cast became its 3 birds' clocks),
   so the hall's numbers on the card still read true. The falconer's cast pose
   follows bird 0 (`t.castRate`). Measured (one hall by the road, 40 sturdy
   levies, 40 s, old -> new damage): L1 215 -> 225, L2 340 -> 393, L3 656 ->
   725, Royal Aviary 1173 -> 1218, Warhawk Court 611 -> 682, Storm Falcons
-  2129 -> 2368, Talon Rain 1458 -> 2030, Kingsight 1401 -> 1662 (the birds
-  now strike marked foes past their range). Talon Rain's text now says it
+  2129 -> 2368, Talon Rain 1458 -> 2030, Kingsight 1401 -> 1662 (measured while
+  marked foes anywhere were fair game). Talon Rain's text now says it
   dives three times as often; a Falconry's `shots` row reads "Dives".
 
 ## Warchief and boar riders (2026-10-03, owner requests)

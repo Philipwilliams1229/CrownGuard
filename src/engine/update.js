@@ -81,8 +81,8 @@ const resolveStrikes = (g, tms) => {
 // standing order (`b.aim`, null = the hall's `t.aim`; the tray's targets list
 // gains an All / 1 / 2 / 3 row as the River Watch's skiffs do) and its own
 // PREY: the foe it last struck (and so marked) it goes back to, anywhere on
-// the board, until that foe is dead. Any MARKED foe is in every falcon's
-// reach, wherever it walks; the rest only within the hall's range. A bird
+// the board, until that foe is dead. A NEW prey is only ever taken within
+// the hall's range (owner, 2026-11-09). A bird
 // passes over a foe a sister already hunts while it has another choice.
 // The flock strikes as often as the old hall did: each bird's clock is the
 // hall's `rate` x birds / `shots` (Talon Rain's three strikes a cast are its
@@ -93,8 +93,10 @@ const falconPick = (g, t, st, bird, birds, tms) => {
   let best = null, bestScore = -Infinity;
   for (const e of g.enemies) {
     if (e.dead || e.submerged || isRising(e, tms)) continue;
-    const marked = e.markUntil > tms;
-    if (!marked && (Math.hypot(e.x - t.x, e.y - t.y) > st.range || !canSee(t, e))) continue;
+    // a FIRST strike only within the hall's circle (owner, 2026-11-09: marks
+    // anywhere let the birds reach the whole board); the chase after it is
+    // the bird's own prey (flyFalcons), which it follows anywhere
+    if (Math.hypot(e.x - t.x, e.y - t.y) > st.range || !canSee(t, e)) continue;
     let score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
     if (e.flying) score += 1e9;                                   // a falconer's bird takes the sky first
     if (birds.some((o) => o !== bird && o.preyId === e.id)) score -= 1e11;   // a sister's prey: only if nothing else
