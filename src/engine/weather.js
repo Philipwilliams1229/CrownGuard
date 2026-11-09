@@ -73,6 +73,7 @@ const span = (a0, a1, b0, b1, s) => [lerp(a0, b0, s), lerp(a1, b1, s)];
 //     groundHitsLow while fliers are low, ground-only halls may shoot them
 //     noCharge      the chance (x k) that a cavalry charge bogs down instead of riding a blocker down
 //     fire          x every burn and burning pool (rain douses them)
+//     burnOut       how much faster a burn or burning pool runs out (1.5: 50% faster)
 //     misfire       the chance a Powder Works charge lands a dud (x k)
 //     charged       0..1, the air full of lightning: a Stormcaller's arcs leap further (towers.js)
 //     riverReach    x the River Watch's reach (the rivers run high)
@@ -131,6 +132,7 @@ export const WEATHER_KINDS = {
   // fast foes walk:
   //   by k (the rain falling)
   //     fire       x every burn and every burning pool (lava, fire): doused
+  //     burnOut    and they go out 50% faster (owner, 2026-11-09)
   //     misfire    the chance a Powder Works charge lands a dud (damp powder)
   //     charged    a Stormcaller's lightning leaps one foe further (from k
   //                0.5) and its leaps reach up to 25% x k further; Ysolde's
@@ -161,19 +163,22 @@ export const WEATHER_KINDS = {
   storm: {
     name: "Thunderstorm", soaks: true, wetIn: 45, wetOut: 60,
     first: [50, 75], calm: [70, 120], rollIn: [25, 40], lasts: [120, 240], rollOut: [25, 40],
-    fx: { foeSpeed: 0.9, noCharge: 1, fire: 0.5, misfire: 0.3, charged: 1, riverReach: 1.15, ramMud: 0.8, fliersLow: true, groundHitsLow: true },
+    fx: { foeSpeed: 0.9, noCharge: 1, fire: 0.5, burnOut: 1.5, misfire: 0.3, charged: 1, riverReach: 1.15, ramMud: 0.8, fliersLow: true, groundHitsLow: true },
     // (owner, 2026-11-08: sooner and more often, and now and then a FLURRY:
     // `burstChance` of strokes bring 2-3 more (`burstN`) `burstGap` s apart,
     // each near the last, within `burstSpread`). Strokes begin once the rain
     // is at `boltFrom` of its peak, still rolling in.
-    boltEvery: [7, 10], boltFrom: 0.6, burstChance: 0.2, burstN: [2, 3], burstGap: [0.18, 0.4], burstSpread: 140,
-    boltRamp: 20, boltWarn: 600, boltR: 30, boltJitter: 34, boltDmg: 40, boltStun: 500, boltUnit: 45,
+    // (2026-11-09, owner: "more frequent still" — was 7-10 s; and "the status
+    // effect area of the strikes larger" — boltR 30 -> 45, the stroke's blast,
+    // stun and the halls it strikes)
+    boltEvery: [5, 7], boltFrom: 0.6, burstChance: 0.2, burstN: [2, 3], burstGap: [0.18, 0.4], burstSpread: 140,
+    boltRamp: 20, boltWarn: 600, boltR: 45, boltJitter: 34, boltDmg: 40, boltStun: 500, boltUnit: 45,
     boltShock: 3000, boltHall: 0.25, boltSpook: 90, spookChance: 0.6,
     boltArcs: 3, boltArcR: 70, boltArcDmg: 0.6,
     floods: 3, floodLen: 90, floodSlow: 0.3,
     grade: (s) => ({ first: span(70, 100, 50, 75, s), calm: span(120, 200, 70, 120, s), lasts: span(60, 120, 120, 240, s), peak: lerp(0.65, 1, s),
-      boltEvery: span(12, 16, 7, 10, s), burstChance: lerp(0.12, 0.2, s), boltDmg: lerp(25, 40, s), boltArcs: s < 0.5 ? 2 : 3, floods: s < 0.5 ? 2 : 3,
-      fx: { foeSpeed: 1 - 0.1 * s, fire: 1 - lerp(0.3, 0.5, s), misfire: lerp(0.15, 0.3, s), riverReach: 1 + lerp(0.1, 0.15, s) } }),
+      boltEvery: span(9, 12, 5, 7, s), burstChance: lerp(0.12, 0.2, s), boltDmg: lerp(25, 40, s), boltArcs: s < 0.5 ? 2 : 3, floods: s < 0.5 ? 2 : 3,
+      fx: { foeSpeed: 1 - 0.1 * s, fire: 1 - lerp(0.3, 0.5, s), burnOut: 1 + lerp(0.3, 0.5, s), misfire: lerp(0.15, 0.3, s), riverReach: 1 + lerp(0.1, 0.15, s) } }),
     tick: (g, w, def, sdt, tms) => strikes(g, w, def, tms, "bolt"),
     paint: "storm", sound: "thunder",
   },
@@ -208,7 +213,7 @@ export const WEATHER_KINDS = {
 };
 
 const NEUTRAL = { reach: 1, shotSpeed: 1, foeSpeed: 1, flierSpeed: 1, fliersLow: false, groundHitsLow: false, noCharge: 0, sight: 0, mistSight: 0, mistStamp: -1,
-  fire: 1, misfire: 0, charged: 0, riverReach: 1, ramMud: 1, floods: null, floodSlow: 0 };
+  fire: 1, burnOut: 1, misfire: 0, charged: 0, riverReach: 1, ramMud: 1, floods: null, floodSlow: 0 };
 // The live multipliers, reset every frame by tickWeather.
 export const WX = { ...NEUTRAL };
 
@@ -377,7 +382,7 @@ const fogTick = (g, w, def, sdt, combat) => {
 const BY_WET = new Set(["foeSpeed", "riverReach", "ramMud"]);
 const applyFx = (def, k, wet = k) => {
   const fx = def.fx;
-  for (const key of ["reach", "shotSpeed", "foeSpeed", "flierSpeed", "fire", "riverReach", "ramMud"]) if (fx[key] != null) WX[key] = 1 + (fx[key] - 1) * (BY_WET.has(key) ? wet : k);
+  for (const key of ["reach", "shotSpeed", "foeSpeed", "flierSpeed", "fire", "burnOut", "riverReach", "ramMud"]) if (fx[key] != null) WX[key] = 1 + (fx[key] - 1) * (BY_WET.has(key) ? wet : k);
   if (fx.noCharge) WX.noCharge = fx.noCharge * wet;
   if (fx.misfire) WX.misfire = fx.misfire * k;
   if (fx.charged) WX.charged = fx.charged * k;

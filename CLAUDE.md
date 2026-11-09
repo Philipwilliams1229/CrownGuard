@@ -343,6 +343,14 @@ a Powder Works, so the duds never show in it.
   `--endure` seeds 1-2, better doctrine: strokes 744 / 750 -> 1633 / 1668 a
   chapter, halls struck ~360 -> ~850, castle damage 9086 / 8781 -> 8429 / 8970
   (noise; all 15 held, none stuck).
+- Strikes more often still, a wider blast, and fire goes out faster (owner,
+  2026-11-09): `boltEvery` 5-7 s at full (mild 9-12), `boltR` 30 -> 45 (the
+  stroke's blast, its 3 s stun and the halls it strikes, r + 12), and
+  `burnOut` 1.5 (mild 1.3): every burn and lava/fire pool runs out that much
+  faster in the rain (update.js burn tick and grounds filter), on top of
+  `fire` x0.5, so a full storm leaves a burn about a third of its damage.
+  Headless: a 2.6 s burn lasts 1.75 s; one full storm 38 -> 53 strokes, 6 -> 8
+  flurries.
 
 ## Zones IV and V (owner's direction, 2026-10-03)
 

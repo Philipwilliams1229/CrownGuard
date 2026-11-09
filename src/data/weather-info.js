@@ -37,7 +37,7 @@ export const WEATHER_INFO = {
       `The thunder spooks the cavalry: a cavalier near a stroke may throw his knight, who fights on foot, while the riderless horse bolts for the gate even faster.`,
       `The road floods in places: anyone wading through, foe or soldier, moves and strikes ${pct(d.floodSlow)} slower. The mud slows foes on foot by ${pct(1 - d.fx.foeSpeed)} and siege rams by ${pct(1 - d.fx.foeSpeed * d.fx.ramMud)}.`,
       `Gryphons fly low in the downpour: halls that cannot hit the air can shoot them (traps still can't).`,
-      `The rain douses fire (${pct(1 - d.fx.fire)} less burn damage) and dampens powder (up to ${pct(d.fx.misfire)} of Powder Works charges fizzle). The charged air helps lightning: Stormcaller bolts leap to one more foe and reach further. The swollen rivers give the River Watch ${pct(d.fx.riverReach - 1)} more reach.`,
+      `The rain douses fire (burns do ${pct(1 - d.fx.fire)} less damage and go out ${pct((d.fx.burnOut ?? 1) - 1)} faster) and dampens powder (up to ${pct(d.fx.misfire)} of Powder Works charges fizzle). The charged air helps lightning: Stormcaller bolts leap to one more foe and reach further. The swollen rivers give the River Watch ${pct(d.fx.riverReach - 1)} more reach.`,
     ],
     tip: "Don't crowd halls together, or one stroke stuns them all. Lean on lightning and the River Watch while it pours; fire and powder are weak until it passes. Watch for loose horses.",
   },
@@ -107,7 +107,7 @@ export const nowOf = (g) => {
     if (WX.flierSpeed < 0.995) lines.push(`Fliers are ${less(WX.flierSpeed)}% slower.`);
     if (WX.fliersLow) lines.push(WX.groundHitsLow ? "Fliers come down low: halls that cannot hit the air can shoot them (traps still can't)." : "Fliers come down low.");
     if (WX.noCharge > 0.01) lines.push(`A cavalry charge bogs down in the mud ${Math.round(WX.noCharge * 100)}% of the time.`);
-    if (WX.fire < 0.995) lines.push(`Burns and burning ground do ${less(WX.fire)}% less damage.`);
+    if (WX.fire < 0.995) lines.push(`Burns and burning ground do ${less(WX.fire)}% less damage${WX.burnOut > 1.005 ? ` and go out ${Math.round((WX.burnOut - 1) * 100)}% faster` : ""}.`);
     if (WX.misfire > 0.005) lines.push(`${Math.round(WX.misfire * 100)}% of Powder Works charges fizzle out.`);
     if (WX.charged >= 0.5) lines.push(`Stormcaller bolts leap to one more foe and reach ${Math.round(WX.charged * 25)}% further.`);
     else if (WX.charged > 0.02) lines.push(`Stormcaller bolts reach ${Math.round(WX.charged * 25)}% further.`);

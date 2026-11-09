@@ -1837,6 +1837,8 @@ export function updateGame(g, dt) {
       if (e.burnUntil > tms) {
         // (WX.fire: the storm's rain douses every burn, weather.js)
         dealDamage(g, e, e.burnDps * WX.fire * sdt, "magic", false, true, e.burnSrc);
+        // (and goes out faster in the rain: WX.burnOut)
+        if (WX.burnOut > 1) e.burnUntil -= sdt * 1000 * (WX.burnOut - 1);
         // Wildheart Pyre / Hellburner: flames leap from burning foes to nearby unburned ones
         if (e.burnSpread) {
           for (const e2 of g.enemies) {
@@ -3012,6 +3014,8 @@ export function updateGame(g, dt) {
   if (!g.paused) {
     for (const fx of g.effects) fx.ttl -= sdt * 1000;
     g.effects = g.effects.filter((fx) => fx.ttl > 0);
+    // the storm's rain puts burning ground out faster (weather.js WX.burnOut)
+    if (WX.burnOut > 1) for (const gr of g.grounds) if (gr.kind === "lava" || gr.kind === "fire") gr.until -= sdt * 1000 * (WX.burnOut - 1);
     g.grounds = g.grounds.filter((gr) => gr.until > tms);
     if (g.corpses) g.corpses = g.corpses.filter((c) => c.until > tms);
     if (g.shake > 0) g.shake = Math.max(0, g.shake - dt * 30);
