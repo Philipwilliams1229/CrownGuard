@@ -841,7 +841,12 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
   plank and the tap-to-move are gone for it (`ASSASSIN_RALLY_RANGE` and
   postRally's branch are dead code now). Range x1.25 on all nine steps
   (72-92 -> 90-115), and attack speed +25% (`rate` x0.8: 2000-1500 ->
-  1600-1200 ms, owner, same day).
+  1600-1200 ms, owner, same day). Then damage and attack speed +15% more
+  (owner, same day: two level-2 blades couldn't kill a Magister before he
+  left their reach): `dmg` x1.15 (46-150 -> 53-172), `rate` /1.15 (1600-1200
+  -> 1391-1043 ms). Headless, a Magister walking past one Covert (he is in
+  its reach ~2.5-4 s; x = his wave health): level 2 kills him at x1 only
+  (300 hp), level 3 at up to x3 (900 hp, was x1.5).
 - **Blades slip under shields:** `dealDamage`'s 9th argument `slips` skips
   the blue-pip block (no pip spent, the cut lands whole); the Covert's cuts
   pass it, and so do its venom ticks (the poison tick checks
