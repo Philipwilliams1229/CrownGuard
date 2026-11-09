@@ -1705,8 +1705,19 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
   - The skill tree drives the shards: the `dmg` perk scales `fragDmg` too
     (engine/towers.js `withPerks`) and "Wider Bursts" (g3) is +5%
     `fragReach` a rank. The tree never touches the musket.
-  - He throws where the most foes stand within `fragReach`; the hall has no
-    "Most" button (it has no splash).
+  - Each man takes his OWN order (owner, 2026-11-09): `t.crew` [bombardier,
+    musketeer] (`powderCrew`, engine/towers.js; `{ aim }`, null = the hall's
+    `t.aim`), with a Both / Bombs / Musket row in the targets list (the
+    skiffs' `fleet` row; `CREW_LABELS` in CrownguardGame.jsx names its
+    buttons). The hall offers "Most" now (`aimModes`): the bombardier starts
+    on it (where the most foes stand within `fragReach`, as he always threw),
+    the musketeer on the hall's First; a musketeer on Most shoots the
+    thickest knot within 40. The Long Muskets' spotting still overrides the
+    bombardier's order. Headless: Strong / Last / First each took the right
+    foe for each man. Selecting or placing the hall draws BOTH reaches: the
+    bombardier's gold ring (`range`) and the musketeer's steel-blue one
+    (`mRange`, `musketRing` in draw.js), each with its clear-weather ring and
+    the armed upgrade's preview.
   - Measure with `node scripts/bench-hall.mjs`: one hall beside the road, a
     steady stream (crowd / armor / iron; `--mix all` adds ironpack), the
     real engine, dps per second a foe is in reach. `--peers` adds the other

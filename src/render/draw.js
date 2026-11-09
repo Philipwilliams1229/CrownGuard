@@ -225,6 +225,17 @@ export function draw(g, canvas, bufRef) {
     if (!(full - now > 0.5)) return;
     rangeRing(cx, cy, full, FULL_RING, -g.time * 0.35);
   };
+  // The Powder Works has two men with two reaches (owner, 2026-11-09: "show
+  // two circles"): the bombardier's is the hall's own ring, the musketeer's
+  // (`mRange`) a second one in steel blue, its fill fainter, under it.
+  const MUSKET_RING = "rgba(150,196,236,0.9)", MUSKET_FILL = "rgba(150,196,236,0.06)";
+  const musketRing = (cx, cy, st, clear, color = MUSKET_RING) => {
+    if (!st.mRange) return;
+    ctx.fillStyle = MUSKET_FILL;
+    ctx.beginPath(); ctx.arc(S(cx), S(cy), st.mRange, 0, 7); ctx.fill();
+    rangeRing(cx, cy, st.mRange, color, -g.time * 0.4);
+    if (clear) fullRing(cx, cy, st.mRange, clear.mRange);
+  };
 
   const sel = g.towers.find((t) => t.id === g.selectedId);
   // The rings of the hall being placed or selected. Under the halls in clear
@@ -246,6 +257,7 @@ export function draw(g, canvas, bufRef) {
       // above; here only her first skiff's station and musket reach, faint)
       if (g.buildMode === "riverwatch") { if (watch && watch[2] !== "sel") drawWatchStation(ctx, g, hx, hy, watch[2]); }
       else {
+        if (g.buildMode === "gunpowder") musketRing(hx, hy, getStats(ghostT), getStatsClear(ghostT));
         ctx.fillStyle = ok ? "rgba(140,224,140,0.09)" : "rgba(224,110,100,0.09)";
         ctx.beginPath(); ctx.arc(S(hx), S(hy), radius, 0, 7); ctx.fill();
         rangeRing(hx, hy, radius, ok ? "rgba(150,232,150,0.85)" : "rgba(232,120,110,0.85)", g.time * 0.5);
@@ -260,6 +272,7 @@ export function draw(g, canvas, bufRef) {
     else if (sel) {
       const st = getStats(sel);
       const radius = sel.kind === "knight" ? RALLY_RANGE : st.range;
+      if (sel.kind === "gunpowder") musketRing(sel.x, sel.y, st, getStatsClear(sel));
       ctx.fillStyle = "rgba(216,179,74,0.1)";
       ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), radius, 0, 7); ctx.fill();
       rangeRing(sel.x, sel.y, radius, "rgba(232,196,90,0.9)", g.time * 0.5);
@@ -268,6 +281,7 @@ export function draw(g, canvas, bufRef) {
       // an upgrade armed in the panel: the reach it would buy, in bright gold
       if (g.upPreview && g.upPreview.id === sel.id && sel.kind !== "knight") {
         const st2 = getStats({ ...sel, ...g.upPreview.form });
+        if (sel.kind === "gunpowder" && st2.mRange && Math.abs(st2.mRange - st.mRange) > 0.5) musketRing(sel.x, sel.y, st2, null, "rgba(205,232,255,1)");
         if (st2.range && Math.abs(st2.range - radius) > 0.5) {
           ctx.fillStyle = "rgba(250,220,120,0.08)";
           ctx.beginPath(); ctx.arc(S(sel.x), S(sel.y), st2.range, 0, 7); ctx.fill();

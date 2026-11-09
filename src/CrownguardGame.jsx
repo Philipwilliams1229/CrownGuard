@@ -27,11 +27,13 @@ import { PTS, onRoad } from "./engine/path.js";
 import { coastOutline } from "./data/terrain.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, bankTowerXp, bankedTowerXp, MAX_STARS } from "./data/profile.js";
 import { tierGate, TIER_XP, HARM_XP } from "./data/towerxp.js";
-import { getStats, aimModes, forcedAim } from "./engine/towers.js";
+import { getStats, aimModes, forcedAim, powderCrew } from "./engine/towers.js";
 import { syncBirds } from "./engine/muzzles.js";
 // the hall members that may each take their own order: a River Watch's skiffs, a Falconry's birds
-const crewOf = (t) => (t.kind === "riverwatch" || t.kind === "assassin" ? t.units || null : t.kind === "falconry" ? syncBirds(t, getStats(t)) : null);
-const CREW_NAME = { riverwatch: "Skiff", falconry: "Falcon", assassin: "Blade" };
+const crewOf = (t) => (t.kind === "riverwatch" || t.kind === "assassin" ? t.units || null : t.kind === "falconry" ? syncBirds(t, getStats(t)) : t.kind === "gunpowder" ? powderCrew(t) : null);
+const CREW_NAME = { riverwatch: "Skiff", falconry: "Falcon", assassin: "Blade", gunpowder: "Crew" };
+// a crew whose members are told apart by trade, not number: [short label, full name]
+const CREW_LABELS = { gunpowder: [["Bombs", "The bombardier"], ["Musket", "The musketeer"]] };
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
   startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
@@ -1440,7 +1442,7 @@ export default function Crownguard() {
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
         {(modes.length > 0 || forced) && (
           <TargetsBar slim={compact} modes={modes} aim={sel.aim} forced={forced} open={towerLayer === "targets"} onToggle={layer("targets")}
-            fleet={fleet} who={who} onWho={setTargetWho} onPick={pickAim} explain={sel.kind === "assassin"} crewName={CREW_NAME[sel.kind] || "Skiff"} />
+            fleet={fleet} who={who} onWho={setTargetWho} onPick={pickAim} explain={sel.kind === "assassin"} crewName={CREW_NAME[sel.kind] || "Skiff"} crewLabels={CREW_LABELS[sel.kind]} />
         )}
         {rallies && (
           <button className={cls("cg-btn cg-btn--slate", aimingFlag && "is-on")} style={{ width: "100%" }}

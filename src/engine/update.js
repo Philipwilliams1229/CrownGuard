@@ -14,7 +14,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, nearestOnPath, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising, coverMuster, COVER_CHASE } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising, coverMuster, COVER_CHASE, powderCrew } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
@@ -2253,15 +2253,20 @@ export function updateGame(g, dt) {
           ? g.enemies.find((e) => e.id === t.spotId && !e.dead && !e.flying && Math.hypot(e.x - t.x, e.y - t.y) <= st.mRange) : null;
         if (spotted) near = spotted;
         else {
-          // he throws where the crowd is thickest, being a man with a bucket
-          // of powder: judged by how many stand in reach of the shrapnel
+          // he throws by his own order (`powderCrew`, owner 2026-11-09): "Most"
+          // (his first and usual: where the crowd is thickest, judged by how
+          // many stand in reach of the shrapnel), First, Last, Strong or Weak
           const fr = st.fragReach || 40;
+          const mode = powderCrew(t)[0].aim || t.aim || "most";
           for (const e of g.enemies) {
             if (e.dead || e.flying) continue;
             if (Math.hypot(e.x - t.x, e.y - t.y) > st.range || !canSee(t, e)) continue;
-            let crowd = 0;
-            for (const o of g.enemies) if (!o.dead && !o.flying && inBurst(o, e.x, e.y, fr)) crowd++;
-            const score = crowd * 1e6 + e.dist;
+            let score;
+            if (mode === "most") {
+              let crowd = 0;
+              for (const o of g.enemies) if (!o.dead && !o.flying && inBurst(o, e.x, e.y, fr)) crowd++;
+              score = crowd * 1e6 + e.dist;
+            } else score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
             if (score > nearScore) { nearScore = score; near = e; }
           }
         }
@@ -2295,8 +2300,13 @@ export function updateGame(g, dt) {
         for (const e of g.enemies) {
           if (e.dead) continue;
           if (Math.hypot(e.x - t.x, e.y - t.y) > st.mRange || !canSee(t, e)) continue;
-          const mode = t.aim || "first";
-          const score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
+          const mode = powderCrew(t)[1].aim || t.aim || "first";   // (his own order, or the hall's)
+          let score;
+          if (mode === "most") {   // the thickest knot of foes in his reach
+            score = 0;
+            for (const o of g.enemies) if (!o.dead && Math.hypot(o.x - e.x, o.y - e.y) < 40) score++;
+            score = score * 1e6 + e.dist;
+          } else score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
           // the Bombard Yard's musketeer shoots into the cracks first
           const cracked = !!st.crack && e.brittleUntil > tms;
           if (cracked !== farCracked ? cracked : score > farScore) { farScore = score; far = e; farCracked = cracked; }

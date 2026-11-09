@@ -89,7 +89,7 @@ export function TowerBanner({ kind, name, branch, rank4, pips, rows, preview, ki
 // `fleet`: a River Watch's skiffs' orders ([aim, ...], one a boat); `who` is "all" or
 // the boat the list is ordering, `onWho` picks one. The bar reads "Mixed" when they differ.
 // `explain`: each order gets an (i) that says what it hunts, with examples (the Covert's contracts).
-export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim, fleet = null, who = "all", onWho, explain = false, crewName = "Skiff" }) {
+export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim, fleet = null, who = "all", onWho, explain = false, crewName = "Skiff", crewLabels = null }) {
   const shown = fleet ? (who === "all" ? (fleet.every((a) => a === fleet[0]) ? fleet[0] : null) : fleet[who]) : aim;
   const barLabel = fleet && !fleet.every((a) => a === fleet[0]) ? "Mixed" : (modes.find((m) => m.id === (fleet ? fleet[0] : aim)) || modes[0]).label;
   if (forced) {
@@ -101,11 +101,11 @@ export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim, f
     );
   }
   if (!modes.length) return null;
-  return <TargetsList {...{ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel, explain, crewName }} />;
+  return <TargetsList {...{ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel, explain, crewName, crewLabels }} />;
 }
 
 // (split out so its hooks run only for a bar that has a list)
-function TargetsList({ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel, explain, crewName }) {
+function TargetsList({ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel, explain, crewName, crewLabels }) {
   const [infoId, setInfoId] = useState(null);   // the order whose (i) is open
   const tap = useTap();
   useEffect(() => { if (!open) setInfoId(null); }, [open]);
@@ -137,9 +137,9 @@ function TargetsList({ modes, aim, open, onToggle, onPick, slim, fleet, who, onW
         {fleet && (
           <div role="group" aria-label={`Which ${crewName.toLowerCase()}`} style={{ display: "flex", gap: 4 }}>
             {["all", ...fleet.map((_, i) => i)].map((w) => (
-              <button key={w} type="button" tabIndex={open ? undefined : -1} aria-pressed={who === w} title={w === "all" ? `Every ${crewName.toLowerCase()}` : `${crewName} ${w + 1}`}
-                className={cls("cg-btn", who === w ? "cg-btn--gold" : "cg-btn--slate")} style={{ flex: w === "all" ? 1.6 : 1, minWidth: 0, padding: 0 }}
-                onClick={() => onWho(w)}>{w === "all" ? "All" : w + 1}</button>
+              <button key={w} type="button" tabIndex={open ? undefined : -1} aria-pressed={who === w} title={w === "all" ? (crewLabels ? "Both" : `Every ${crewName.toLowerCase()}`) : crewLabels ? crewLabels[w][1] : `${crewName} ${w + 1}`}
+                className={cls("cg-btn", who === w ? "cg-btn--gold" : "cg-btn--slate")} style={{ flex: w === "all" ? (crewLabels ? 1 : 1.6) : crewLabels ? 1.4 : 1, minWidth: 0, padding: 0 }}
+                onClick={() => onWho(w)}>{w === "all" ? (crewLabels ? "Both" : "All") : crewLabels ? crewLabels[w][0] : w + 1}</button>
             ))}
           </div>
         )}

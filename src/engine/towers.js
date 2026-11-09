@@ -93,13 +93,23 @@ export const aimModes = (t, st) => {
   // an Open Contract guild takes ordinary orders; every other covert takes a class
   if (t.kind === "assassin") return st.openContract ? ASSASSIN_OPEN_AIM : ASSASSIN_AIM;
   if (t.kind === "knight" || t.kind === "support" || t.kind === "spiker" || t.kind === "trapsmith" || t.kind === "goldworks" || t.kind === "sunforge") return [];
-  return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0);
+  // the Powder Works' shards make "Most" mean something for both its men
+  return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0 || t.kind === "gunpowder");
 };
 
 // A blade keeps after its mark until the mark is this many times the hall's
 // range from the tent (owner, 2026-11-09: "keep hunting ... double their
 // range"); a NEW mark is only ever taken within the range itself.
 export const COVER_CHASE = 2;
+
+// The Powder Works' two men each take their own order (owner, 2026-11-09):
+// `t.crew` [bombardier, musketeer], each `{ aim }` (null = the hall's
+// `t.aim`). The bombardier starts on "Most" (where the shards catch the
+// biggest crowd, as he always threw), the musketeer on the hall's order.
+export const powderCrew = (t) => {
+  if (!t.crew || t.crew.length !== 2) t.crew = [{ aim: "most" }, { aim: null }];
+  return t.crew;
+};
 
 // The Covert has no rally flag (owner, 2026-11-09): its reach is a ring round
 // the tent, and its idle blades wait beside the tent OFF the road (same day:
