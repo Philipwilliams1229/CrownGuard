@@ -52,6 +52,7 @@ import { canvasFont } from "../ui/fonts.js";
 import { PX } from "./paint.js";
 import * as B from "./weatherbake.js";
 import { apronShade } from "./apron.js";
+import { drawnSpans } from "./bridge.js";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const frac = (v) => v - Math.floor(v);
@@ -359,13 +360,16 @@ const puddles = () => B.memo(`puds3|${realmKey()}`, () => {
     if (x > W - WALL_W - 10 || x < 4) continue;
     const wu = 2 * Math.round(edge ? 5 + B.h2(i, 3, 200) * 3 : 7 + B.h2(i, 3, 200) * 8);
     // never on a bridge, nor so near one that a full-grown puddle laps onto its deck
-    if (BRIDGES.some((b) => d > b.d0 - wu / 2 - 12 && d < b.d1 + wu / 2 + 12) || onDeck(x, y, wu / 2 + 6)) continue;
+    if (DECKS().some((b) => d > b.d0 - wu / 2 - 12 && d < b.d1 + wu / 2 + 12) || onDeck(x, y, wu / 2 + 6)) continue;
     out.push({ x, y, wu, v: i & 3, i, th: 0.08 + 0.55 * B.h2(i, 5, 200) });
   }
   return out;
 });
 // within `pad` of a bridge's deck (its span along the road, rail to rail)
-const onDeck = (x, y, pad = 0) => BRIDGES.some((b) => {
+// the decks as bridge.js draws them: a span over a slanting river runs on,
+// flat, past its own ends until the road meets dry ground (bridge.js endsOver)
+const DECKS = () => B.memo(`decks|${realmKey()}`, drawnSpans);
+const onDeck = (x, y, pad = 0) => DECKS().some((b) => {
   const dx = x - b.x, dy = y - b.y, c = Math.cos(b.a), s = Math.sin(b.a);
   return Math.abs(dx * c + dy * s) < (b.d1 - b.d0) / 2 + pad && Math.abs(-dx * s + dy * c) < BRIDGE_HALF + pad;
 });
@@ -374,7 +378,7 @@ const onDeck = (x, y, pad = 0) => BRIDGES.some((b) => {
 // (pad: units past the deck's ends and sides; `inside` clips TO the decks
 // instead of out of them)
 const deckPath = (ctx, padL, padW) => {
-  for (const b of BRIDGES) {
+  for (const b of DECKS()) {
     const c = Math.cos(b.a), s = Math.sin(b.a), hl = (b.d1 - b.d0) / 2 + padL, hw = BRIDGE_HALF + padW;
     const pt = (u, v) => [b.x + u * c - v * s, b.y + u * s + v * c];
     const q = [pt(-hl, -hw), pt(hl, -hw), pt(hl, hw), pt(-hl, hw)];
@@ -401,7 +405,7 @@ const SILT_A = 0.3;
 // they fill early (the arch sheds its water at once) and dry last
 const bridgePools = () => B.memo(`bpools|${realmKey()}`, () => {
   const out = [];
-  BRIDGES.forEach((b, bi) => {
+  DECKS().forEach((b, bi) => {
     [[b.d0, -1], [b.d1, 1]].forEach(([d, dir], ei) => {
       const big = 2 * Math.round(8 + B.h2(bi, ei, 290) * 3), small = 2 * Math.round(4 + B.h2(bi, ei, 291) * 2);
       const side = B.h2(bi, ei, 292) < 0.5 ? -1 : 1;

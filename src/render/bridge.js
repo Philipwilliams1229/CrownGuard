@@ -21,7 +21,7 @@
 //   fen    — the Hollowfen's grey, mossy, gap-toothed version of it
 //   stone  — the Iron Marches' dressed-stone arch bridge with parapets
 
-import { BRIDGES, RIVERS, archAt, inRiver, BRIDGE_HALF, BRIDGE_RISE } from "../data/terrain.js";
+import { BRIDGES, RIVERS, CHEVRONS, archAt, inRiver, BRIDGE_HALF, BRIDGE_RISE } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
 import { PX, SUN, INK_LINE, rgb, rgba, hash } from "./paint.js";
 
@@ -68,12 +68,15 @@ const dk = (a, t) => mx(a, PLUM, t);
 const css = (a) => `rgb(${a[0] | 0},${a[1] | 0},${a[2] | 0})`;
 
 // ---- the span's frame ------------------------------------------------------
-const frameOf = (b) => {
+// `arch`: the span whose arch the deck follows, when `b` is that span run on
+// past its ends (see endsOver): flat at the road's level out there, so the
+// arch, and with it bridgeLift, keeps the span's own length.
+const frameOf = (b, arch = b) => {
   const c = Math.cos(b.a), s = Math.sin(b.a);
   const half = (b.d1 - b.d0) / 2, mid = (b.d0 + b.d1) / 2;
   // the arch, tabled: the bake asks it at every pixel
   const TAB = new Float32Array(Math.ceil((half + 12) * 2 * 20) + 2);
-  for (let k = 0; k < TAB.length; k++) TAB[k] = archAt(b, mid - half - 12 + k / 20);
+  for (let k = 0; k < TAB.length; k++) TAB[k] = archAt(arch, mid - half - 12 + k / 20);
   const L = (u) => {
     const q = (u + half + 12) * 20;
     if (q <= 0) return TAB[0];
@@ -138,6 +141,44 @@ const streamDir = (x, y) => {
   }
   return t;
 };
+
+// How far the deck must run on past the span's ends so the road meets solid
+// ground. The span (terrain.js) covers where the road's CENTRE LINE is wet;
+// a river crossing on a slant still reaches into the road's outer lanes past
+// each end, and its water would show between the road and the parapet. The
+// deck carries on, flat, over that wedge to END_LAND past the last wet spot
+// within the road's width. Returns the span so lengthened (each end by what
+// it needs: its centre moves along the road), or `b` itself.
+const END_LAND = 3;          // solid ground past the water before the deck ends
+const END_MAX = 34;          // never more than this
+const CHEV_R = 5.5;         // half a road chevron's mark, along the road
+export const endsOver = (b) => {
+  const c = Math.cos(b.a), s = Math.sin(b.a), half = (b.d1 - b.d0) / 2;
+  const ext = [0, 0];
+  [-1, 1].forEach((e, n) => {
+    for (let k = 0; k <= END_MAX; k += 0.5) {
+      const u = e * (half + k);
+      for (let v = -HALF - 1; v <= HALF + 1; v += 1) {
+        if (inRiver(b.x + u * c - v * s, b.y + u * s + v * c, 2.5)) { ext[n] = Math.min(END_MAX, k + END_LAND); break; }
+      }
+    }
+  });
+  if (!ext[0] && !ext[1]) return b;
+  // a road chevron the new end would cut in two goes under the deck whole
+  // (road.js keeps them 8 clear of the span's own ends only)
+  const ends = [b.d0 - ext[0], b.d1 + ext[1]];
+  // (a chevron's mark reaches CHEV_R along the road from its centre)
+  for (const ch of CHEVRONS) {
+    if (ext[1] && Math.abs(ch.d - ends[1]) < CHEV_R) ext[1] = ch.d + CHEV_R - b.d1;
+    if (ext[0] && Math.abs(ch.d - ends[0]) < CHEV_R) ext[0] = b.d0 - (ch.d - CHEV_R);
+  }
+  const sh = (ext[1] - ext[0]) / 2;
+  return { ...b, x: b.x + sh * c, y: b.y + sh * s, d0: b.d0 - ext[0], d1: b.d1 + ext[1] };
+};
+
+// every span as it is DRAWN (lengthened where it needs), for the weather's
+// painters: no wet film, puddle or flood may lie on a deck (weatherfx.js)
+export const drawnSpans = () => BRIDGES.map(endsOver);
 
 // ---- the bake's canvases -------------------------------------------------
 const layerOf = (S) => {
@@ -410,7 +451,9 @@ const shadowLayer = (F, S, P, posts, water) => {
   }
   harden(U.cv);
   const deep = rgb(water.deep), shine = rgb(water.shine || "#a8d8e8");
-  const band = dk(deep, 0.66), thrown = dk(deep, 0.44);
+  // (the gloom a step under the thrown shade, not black: beside an up-screen
+  // deck it runs the whole span and a near-black band read as a hole)
+  const band = dk(deep, F.near ? 0.66 : 0.56), thrown = dk(deep, 0.44);
   const tc = T.c, img = tc.getImageData(0, 0, S.pw, S.ph), d = img.data;
   const ud = cu.getImageData(0, 0, S.pw, S.ph).data;
   const onWater = (i, j) => { const jw = j - DROP * PX; return jw >= 0 && S.wet[jw * S.pw + i] === 1; };
@@ -459,8 +502,9 @@ const postsOf = (F) => {
 };
 
 // ---- the span, baked ------------------------------------------------------
-const bakeSpan = (b, pal) => {
-  const F = frameOf(b);
+const bakeSpan = (b0, pal) => {
+  const b = endsOver(b0);
+  const F = frameOf(b, b0);
   const P = paletteOf(pal);
   const water = REALM.water || DEFAULT_WATER;
   const fen = P.kind === "fen", stone = P.kind === "stone";
@@ -488,7 +532,7 @@ const bakeSpan = (b, pal) => {
 
   // each span its own: which corner carries a lantern (if any), and in the
   // Hollowfen which bits have rotted away
-  const R = (k) => hash(((b.x | 0) * 7 + k * 13) | 0, ((b.y | 0) * 3 + k * 5) | 0);
+  const R = (k) => hash(((b0.x | 0) * 7 + k * 13) | 0, ((b0.y | 0) * 3 + k * 5) | 0);
   // the rail posts and newels (timber), or the end pillars (stone)
   const posts = [];
   const us = postsOf(F);

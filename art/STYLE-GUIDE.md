@@ -635,8 +635,17 @@ and a desktop. The system lives in `src/ui/fit.jsx`:
   leaves the deck's footprint (`PIER_OUT` 4 past its side), at the starling
   noses on any crossing angle. Look at every span of a board with
   `bridge-water-lab.html` (`realm, scale, only, crop`; it prints the bake
-  time, all baked once per board). Still open: the dark band under an
-  up-screen deck's edge plus its starling make a busy corner at 4x zoom.
+  time, all baked once per board). **No water between the road and a
+  span:** terrain.js sizes a span from where the road's CENTRE LINE is wet,
+  so a river crossing on a slant still reached the outer lanes past its ends;
+  the deck now runs on FLAT past each end until the road meets dry ground
+  (bridge.js `endsOver`: `END_LAND` 3 past the last wet spot within the
+  road's width, `END_MAX` 34, nudged past a road chevron), the arch keeping
+  the span's own length (so `bridgeLift` is unchanged). `drawnSpans()` gives
+  the decks as drawn; weatherfx.js keeps its wet film, puddles and floods off
+  them. The gloom under an up-screen deck's edge is `dk(deep, 0.56)`. (The
+  true fix would be terrain.js sizing d0/d1 from the road's full width;
+  `endsOver` then returns the span unchanged.)
 - Wing walls run ALONG the bank on its land side (found from the wet mask
   from the deck's end); the outer end has no ink and sinks under a grass
   tuft. Where the road runs onto a deck: no silhouette ink, only a dark 1px
