@@ -1717,7 +1717,11 @@ the pause menu's Settings button. A new tab is one entry in its `TABS`
     foe for each man. Selecting or placing the hall draws BOTH reaches: the
     bombardier's gold ring (`range`) and the musketeer's steel-blue one
     (`mRange`, `musketRing` in draw.js), each with its clear-weather ring and
-    the armed upgrade's preview.
+    the armed upgrade's preview. The bombs (charge and shards) never touch a flier,
+    the musket hits anything; the card says so (towerText.js traits "bombs
+    hit the ground only" / "musket hits fliers", the Field Guide's `frags`
+    trait; owner, 2026-11-09). Headless (Bombard Yard, musket held, 20 s):
+    goblins lost 1373, the bats flying over them 0.
   - Measure with `node scripts/bench-hall.mjs`: one hall beside the road, a
     steady stream (crowd / armor / iron; `--mix all` adds ironpack), the
     real engine, dps per second a foe is in reach. `--peers` adds the other

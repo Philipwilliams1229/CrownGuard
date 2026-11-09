@@ -86,6 +86,7 @@ const TRAITS = [
   ["burnSpread", "fire leaps between foes"],
   ["breath", "a flamethrower — its damage is PER SECOND to everything in the cone"],
   ["frag", "bursts into shrapnel"],
+  ["frags", "bombs hit the ground only; the musket hits fliers"],   // (the Powder Works)
   ["spikePierce", "spikes skewer through"],
   ["rider", "mounted — very fast"],
   ["giant", "one colossal champion"],
