@@ -841,13 +841,15 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
   pass it, and so do its venom ticks (the poison tick checks
   `poisonSrc`'s kind). Headless: a 3-pip chaplain took 4 cuts and kept all
   3 pips.
-- **Nothing stops for a blade:** crossbowmen / barrow archers never take a
-  blade as their mark (so they neither halt nor shoot at one), standOff
+- **Nothing stops for a blade:** crossbowmen / barrow archers take a blade
+  as their mark ONLY while it is ON the road (`PATH_HALF` of the centre
+  line) and fighting (owner, same day: "only if they are on the road engaged
+  and fighting something"); then they halt and shoot it as any soldier.
+  Headless: three crossbowmen killed two level-3 blades cutting a chaplain
+  in ~6 s, and never aimed at blades idling by the tent. StandOff
   foes (necromancer, magister) never hang back from one, wraiths never claw
   one, and a ram's `rollOver` never tramples one (they cut from the side).
-  So a blade is hurt only by plague ground, a plague burst, lightning and sea
-  monsters now. Headless: three crossbowmen spent 0 frames aiming (was 378,
-  and they killed a blade).
+  Before the rework the archers shot a blade anywhere in reach.
 - **The Battle Chaplain is prey:** `isPrey` and the Healers order read
   `healPct` too (the chaplain heals by `healPct`, so he was never on the
   Covert's contract before).

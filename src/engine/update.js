@@ -1964,11 +1964,14 @@ export function updateGame(g, dt) {
         {
           let mark = null, markTower = null, bd = e.rangedRange;
           for (const t of unitHosts(g)) {
-            if (t.kind === "assassin") continue;   // a blade in the grass is no line to stand and shoot at
+            const blade = t.kind === "assassin";
             for (const u of t.units) {
-              if (u.state === "dead") continue;
+              // a Covert blade is a mark only while it stands ON the road
+              // cutting at someone (owner, 2026-11-09); one in the grass, or
+              // on its way, is no line to stand and shoot at
+              if (u.state === "dead" || (blade && u.state !== "fighting")) continue;
               const d = Math.hypot(u.x - e.x, u.y - e.y);
-              if (d < bd) { bd = d; mark = u; markTower = t; }
+              if (d < bd && (!blade || nearestOnPath(u.x, u.y).d <= PATH_HALF)) { bd = d; mark = u; markTower = t; }
             }
           }
           e.aiming = !!mark;
