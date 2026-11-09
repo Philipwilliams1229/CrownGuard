@@ -11,7 +11,8 @@ export const HOLLOW_LEVELS = [
       // seven twenty-wave levels to learn the fen...
       {
         id: "hl1", name: "The Grave Road", realm: "graveroad", short: "Grave Road",
-        window: { from: 1, to: 12, count: 20, push: 2.0 }, gold: 400,
+        // war-waves 1-12 -> 2-13 (owner, 2026-11-09: "way too easy")
+        window: { from: 2, to: 13, count: 20, push: 2.0 }, gold: 400,
         blurb: "Across the strait and into the fen, and the dead walking its causeway in floods. They are worth almost nothing — and there are so, so many.",
       },
       {

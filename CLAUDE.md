@@ -933,6 +933,32 @@ the generic tower fire; the Skyknight keeps its old path):
   marked foes anywhere were fair game). Talon Rain's text now says it
   dives three times as often; a Falconry's `shots` row reads "Dives".
 
+## The Hollowfen bites (2026-11-09, owner request)
+
+"Hallowfen was way too easy for my first level there." Provisional, pending
+the owner's playtest. The sims agreed: the whole chapter bled ~500-600
+castle damage (`--chapter hollow --endure`, seeds 1-2, better doctrine), the
+Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
+- **Risen get back up** (owner's pick): felled by a PHYSICAL blow (arrows,
+  stones, plain steel, traps) a Risen pulls its bones together where it fell
+  `reformMs` 2000 later at `reassemble` 0.5 of its health and half its
+  bounty, once (enemies.js; `dealDamage` marks `e.reforms`, update.js's death
+  loop raises it with the necromancer's rising: untouchable while it climbs,
+  then `revived`, bone-pale). Magic, fire and holy (Paladin) blows put it down
+  for good. Its magic resistance stays 0.4 (owner). The Gravecaller's and
+  Hollow King's conjured Risen reassemble too. `sim.mjs` prints `reformed`
+  (~800-1800 a Grave Road run). Field Guide row "On death".
+- **Tougher chaff:** Risen hp 44 -> 60, Ghoul 72 -> 95.
+- **The Grave Road** (hl1) window 1-12 -> 2-13 (gold 400, push 2.0 kept).
+  Less gold or more `push` only loaded its first waves; grave mist did nothing.
+- Measured, seeds 1/2: chapter 490 / 604 -> 3941 / 3871, all 15 held, none
+  stuck (the swarm doctrine bleeds 300-800 on most levels now, the burst one
+  100-470; the Dead Weir 451 / 746 is the worst). The Grave Road 6-7 ->
+  132-156, still the chapter's gentlest (Saltgrave ~350). Reassembly alone
+  moved the Grave Road only 7 -> ~15: the sim's halls are mostly wizards,
+  catapults and Paladins. Levers: `reassemble` / `reformMs`, the two hp
+  figures, hl1's `window`.
+
 ## Restarting takes two taps (2026-11-09, owner request)
 
 Every restart button now arms on the first tap and acts on the second (the
