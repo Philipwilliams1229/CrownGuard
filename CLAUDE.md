@@ -350,7 +350,9 @@ a Powder Works, so the duds never show in it.
   faster in the rain (update.js burn tick and grounds filter), on top of
   `fire` x0.5, so a full storm leaves a burn about a third of its damage.
   Headless: a 2.6 s burn lasts 1.75 s; one full storm 38 -> 53 strokes, 6 -> 8
-  flurries.
+  flurries. Iron `--endure` seeds 1-2, better doctrine: strokes 1633 / 1668
+  -> 2267 / 2208 a chapter, halls struck ~850 -> ~1750, castle damage 8429 /
+  8970 -> 9273 / 9270 (+10% / +3%; all 15 held, none stuck).
 
 ## Zones IV and V (owner's direction, 2026-10-03)
 
