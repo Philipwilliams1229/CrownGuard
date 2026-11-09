@@ -825,6 +825,39 @@ walked through them). `--endure` seed 1, better doctrine: Iron 8900 -> 9245,
 Greenwood 871 -> 896 (noise: the sims' castle damage barely sees the
 knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
 
+## The Covert reworked (2026-11-09, owner request)
+
+"Make the assassin class a bit better." Provisional, pending the owner's playtest.
+- **No rally flag:** the reach is a ring round the TENT (`pickPrey` centres on
+  `t.x/t.y`; the blades drop a mark once it is past `range` + half its body
+  from the tent, so they cut for as long as it is in reach) and idle blades
+  wait just before its door (`coverMuster`, engine/towers.js: tent + 22 down;
+  the loop pulls an old save's flag home every tick). The "Move Rally Flag"
+  plank and the tap-to-move are gone for it (`ASSASSIN_RALLY_RANGE` and
+  postRally's branch are dead code now). Range x1.25 on all nine steps
+  (72-92 -> 90-115).
+- **Blades slip under shields:** `dealDamage`'s 9th argument `slips` skips
+  the blue-pip block (no pip spent, the cut lands whole); the Covert's cuts
+  pass it, and so do its venom ticks (the poison tick checks
+  `poisonSrc`'s kind). Headless: a 3-pip chaplain took 4 cuts and kept all
+  3 pips.
+- **Nothing stops for a blade:** crossbowmen / barrow archers never take a
+  blade as their mark (so they neither halt nor shoot at one), standOff
+  foes (necromancer, magister) never hang back from one, wraiths never claw
+  one, and a ram's `rollOver` never tramples one (they cut from the side).
+  So a blade is hurt only by plague ground, a plague burst, lightning and sea
+  monsters now. Headless: three crossbowmen spent 0 frames aiming (was 378,
+  and they killed a blade).
+- **The Battle Chaplain is prey:** `isPrey` and the Healers order read
+  `healPct` too (the chaplain heals by `healPct`, so he was never on the
+  Covert's contract before).
+- **The (i) beside each order** (TargetsBar `explain`, only the Covert): says
+  what the order hunts and lists examples READ from the roster through
+  `PREY_FILTERS` (`ui/coverOrders.js`, fliers / swimmers / neutrals left
+  out, bosses' capitals turned to names), so a retuned foe lists itself. On a
+  short screen the orders go one a row when they carry an (i), and the note
+  scrolls into view. Checked in headless Chromium at 1180x820 and 844x390.
+
 ## Warchief and boar riders (2026-10-03, owner requests)
 
 Provisional, pending the owner's playtest ("spawn rates are ok but I'll let you

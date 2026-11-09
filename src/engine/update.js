@@ -14,7 +14,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, nearestOnPath, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising, coverMuster } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
@@ -888,7 +888,7 @@ const trample = (g, host, u, ram, tms) => {
 const RAM_REACH = 18;
 const rollOver = (g, ram, tms) => {
   for (const h of unitHosts(g)) {
-    if (h.kind === "riverwatch" || h.leaving) continue;
+    if (h.kind === "riverwatch" || h.kind === "assassin" || h.leaving) continue;   // (a blade cuts from the side, never in its path)
     for (const u of h.units) {
       if (u.state === "dead" || (u.flankOf === ram.id && u.flankUntil > tms)) continue;
       if (Math.hypot(u.x - ram.x, u.y - ram.y) < RAM_REACH) trample(g, h, u, ram, tms);
@@ -1122,7 +1122,7 @@ export function updateGame(g, dt) {
     if ((t.readyAt || 0) > g.time || !g.enemies.length) continue;
     const r = getStats(t).range;
     if (!r) continue;
-    const c = (t.kind === "knight" || t.kind === "assassin") && t.rally ? t.rally : t;
+    const c = t.kind === "knight" && t.rally ? t.rally : t;
     for (const e of g.enemies) {
       if (e.dead) continue;
       const rr = r + (e.size || 14) * 0.4;
@@ -1851,7 +1851,7 @@ export function updateGame(g, dt) {
           }
         }
       }
-      if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic", false, true, e.poisonSrc);
+      if (!e.dead && e.poisonUntil > tms) dealDamage(g, e, e.poisonDps * sdt, "magic", false, true, e.poisonSrc, false, g._towerById?.get(e.poisonSrc)?.kind === "assassin");
       // Lava and burning ground scorch anyone standing in them. Plague
       // ground is the dead's own filth — it only troubles the living knights.
       if (!e.dead) {
@@ -1964,6 +1964,7 @@ export function updateGame(g, dt) {
         {
           let mark = null, markTower = null, bd = e.rangedRange;
           for (const t of unitHosts(g)) {
+            if (t.kind === "assassin") continue;   // a blade in the grass is no line to stand and shoot at
             for (const u of t.units) {
               if (u.state === "dead") continue;
               const d = Math.hypot(u.x - e.x, u.y - e.y);
@@ -1994,6 +1995,7 @@ export function updateGame(g, dt) {
       if (e.standOff && !e.rangedAtk && !stunned) {
         let near = false;
         for (const t of unitHosts(g)) {
+          if (t.kind === "assassin") continue;   // (nor does he hang back from one)
           for (const u of t.units) if (u.state !== "dead" && Math.hypot(u.x - e.x, u.y - e.y) < e.standOff) { near = true; break; }
           if (near) break;
         }
@@ -2011,7 +2013,7 @@ export function updateGame(g, dt) {
       if (e.swarms && !stunned && !held) {
         let prey = null, host = null, pd = e.swarms;
         for (const t of unitHosts(g)) for (const u of t.units) {
-          if (u.state === "dead") continue;
+          if (u.state === "dead" || t.kind === "assassin") continue;
           const d = Math.hypot(u.x - e.x, u.y - e.y);
           if (d < pd) { pd = d; prey = u; host = t; }
         }
@@ -2384,6 +2386,9 @@ export function updateGame(g, dt) {
       if (t.kind !== "assassin" || !fights(t, g)) continue;
       syncUnits(t, g);
       const st = getStats(t);
+      // no rally flag (owner, 2026-11-09): the reach is a ring round the tent
+      // and the blades wait by its door (an old save's flag is pulled home)
+      t.rally = coverMuster(t);
       const slots = unitSlots(t);
       t.units.forEach((u, i) => {
         if (u.state === "dead") {
@@ -2400,8 +2405,9 @@ export function updateGame(g, dt) {
         if (u.hp <= 0) { killUnit(g, t, u); return; }
 
         let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
-        // a blade keeps its mark only while the mark keeps to the ground it hunts
-        if (target && !st.preyAnywhere && Math.hypot(target.x - t.rally.x, target.y - t.rally.y) > st.range + 30) { target = null; u.targetId = null; }
+        // a blade keeps cutting at its mark for as long as the mark is in the
+        // tent's reach (a little slack for its body), and only then lets it go
+        if (target && !st.preyAnywhere && Math.hypot(target.x - t.x, target.y - t.y) > st.range + (target.size || 14) * 0.5) { target = null; u.targetId = null; }
         // and an ORDER outranks whatever the blade happens to be doing: the
         // moment a named foe walks into reach, the current throat is forgotten
         const order = orderFilter(t, st);
@@ -2453,7 +2459,7 @@ export function updateGame(g, dt) {
               if (st.venomNoHeal) target.noHealUntil = tms + st.venomDur;
               if (st.spores) target.sporeOn = { dps: st.spores, r: st.sporeR, dur: st.sporeDur, src: t.id };
             }
-            dealDamage(g, target, dmg, "phys", !!st.pierce, false, t.id);
+            dealDamage(g, target, dmg, "phys", !!st.pierce, false, t.id, false, true);   // (under any shield: `slips`)
             if (!target.dead && st.silence) {
               target.silencedUntil = tms + st.silence;
               g.effects.push({ type: "silence", x: target.x, y: target.y - target.size - 6, ttl: 900 });

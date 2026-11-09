@@ -749,7 +749,7 @@ export default function Crownguard() {
     }
     // selected garrison: click inside its circle to move the rally flag
     const selT = g.towers.find((tt) => tt.id === g.selectedId);
-    if (selT && (selT.kind === "knight" || selT.kind === "assassin" || (selT.kind === "catapult" && getStats(selT).roller)) && Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE * 1.6) {
+    if (selT && (selT.kind === "knight" || (selT.kind === "catapult" && getStats(selT).roller)) && Math.hypot(x - selT.x, y - selT.y) <= RALLY_RANGE * 1.6) {
       postRally(g, selT, x, y);
       return;
     }
@@ -1410,7 +1410,7 @@ export default function Crownguard() {
     const preview = armedForm ? Object.fromEntries(formDeltas(t, armedForm).map((d) => [d.label, String(d.to)])) : null;
     const dps = sel.formTime >= 1 ? sel.formDmg / sel.formTime : 0;
     const ftier = sel.rank4 ? 5 : sel.branch ? 4 : sel.level;
-    const rallies = sel.kind === "knight" || sel.kind === "assassin" || (sel.kind === "catapult" && stt.roller);
+    const rallies = sel.kind === "knight" || (sel.kind === "catapult" && stt.roller);   // (the Covert has no flag: its reach is round the tent)
     const aimingFlag = ui.rallyFor === sel.id;
     const layer = (which) => () => setTowerLayer((l) => (l === which ? null : which));
     const banner = (
@@ -1434,7 +1434,7 @@ export default function Crownguard() {
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
         {(modes.length > 0 || forced) && (
           <TargetsBar slim={compact} modes={modes} aim={sel.aim} forced={forced} open={towerLayer === "targets"} onToggle={layer("targets")}
-            fleet={fleet} who={who} onWho={setTargetWho} onPick={pickAim} />
+            fleet={fleet} who={who} onWho={setTargetWho} onPick={pickAim} explain={sel.kind === "assassin"} />
         )}
         {rallies && (
           <button className={cls("cg-btn cg-btn--slate", aimingFlag && "is-on")} style={{ width: "100%" }}

@@ -11,9 +11,11 @@
 //                  picture, tap one to read its tale (no damage numbers).
 // These are only the pictures; the game component owns every action.
 
-import { useRef, useState, useLayoutEffect } from "react";
+import { useRef, useState, useLayoutEffect, useEffect } from "react";
+import useTap from "./useTap.js";
+import { coverExamples, coverSays } from "./coverOrders.js";
 import TowerPortrait from "./TowerPortrait.jsx";
-import { CoinIcon, SkullIcon, BoltIcon, BladeIcon, MagicIcon, ChevronUp, ChevronDown, LockIcon } from "./hud/icons.jsx";
+import { CoinIcon, SkullIcon, BoltIcon, BladeIcon, MagicIcon, ChevronUp, ChevronDown, LockIcon, InfoIcon, CloseIcon } from "./hud/icons.jsx";
 import { BookIcon } from "./Glyphs.jsx";
 
 const cls = (...c) => c.filter(Boolean).join(" ");
@@ -86,7 +88,8 @@ export function TowerBanner({ kind, name, branch, rank4, pips, rows, preview, ki
 // `slim`: a short screen, where the bar shares its row with Sell (no label).
 // `fleet`: a River Watch's skiffs' orders ([aim, ...], one a boat); `who` is "all" or
 // the boat the list is ordering, `onWho` picks one. The bar reads "Mixed" when they differ.
-export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim, fleet = null, who = "all", onWho }) {
+// `explain`: each order gets an (i) that says what it hunts, with examples (the Covert's contracts).
+export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim, fleet = null, who = "all", onWho, explain = false }) {
   const shown = fleet ? (who === "all" ? (fleet.every((a) => a === fleet[0]) ? fleet[0] : null) : fleet[who]) : aim;
   const barLabel = fleet && !fleet.every((a) => a === fleet[0]) ? "Mixed" : (modes.find((m) => m.id === (fleet ? fleet[0] : aim)) || modes[0]).label;
   if (forced) {
@@ -98,11 +101,16 @@ export function TargetsBar({ modes, aim, forced, open, onToggle, onPick, slim, f
     );
   }
   if (!modes.length) return null;
-  return <TargetsList {...{ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel }} />;
+  return <TargetsList {...{ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel, explain }} />;
 }
 
 // (split out so its hooks run only for a bar that has a list)
-function TargetsList({ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel }) {
+function TargetsList({ modes, aim, open, onToggle, onPick, slim, fleet, who, onWho, shown, barLabel, explain }) {
+  const [infoId, setInfoId] = useState(null);   // the order whose (i) is open
+  const tap = useTap();
+  useEffect(() => { if (!open) setInfoId(null); }, [open]);
+  const infoMode = explain && modes.find((m) => m.id === infoId);
+  const examples = infoMode ? coverExamples(infoMode.id) : [];
   // The list may be taller than the panel it drops over (a phone on its side, a mage's five orders, a
   // fleet's boat row): cap it at the room left under the bar, in the tray's own scaled pixels, and let
   // it scroll rather than run off the panel's edge.
@@ -114,8 +122,10 @@ function TargetsList({ modes, aim, open, onToggle, onPick, slim, fleet, who, onW
     const wr = w.getBoundingClientRect(), pr = panel.getBoundingClientRect();
     const k = w.offsetHeight ? wr.height / w.offsetHeight : 1;
     setRoom(Math.max(90, Math.floor((pr.bottom - wr.bottom - 10) / k)));
-  }, [open, slim, modes.length, fleet && fleet.length]);
-  const two = slim;   // a short screen lays the orders two to a row, an odd one spanning the last
+  }, [open, slim, modes.length, fleet && fleet.length, infoId]);
+  const two = slim && !explain;   // a short screen lays the orders two to a row, an odd one spanning the last (one a row when each has its (i))
+  const note = useRef(null);
+  useEffect(() => { if (infoId && note.current) note.current.scrollIntoView({ block: "nearest" }); }, [infoId]);
   return (
     <div ref={wrap} style={{ position: "relative", zIndex: 4 }}>
       <button type="button" aria-expanded={open} aria-haspopup="listbox" className={cls("cg-btn cg-btn--slate", open && "is-on")}
@@ -134,15 +144,38 @@ function TargetsList({ modes, aim, open, onToggle, onPick, slim, fleet, who, onW
           </div>
         )}
         <div style={{ display: "grid", gridTemplateColumns: two ? "1fr 1fr" : "1fr", gap: 4 }}>
-          {modes.map((m, i) => (
-            <button key={m.id} type="button" role="option" aria-selected={shown === m.id} tabIndex={open ? undefined : -1} title={m.hint}
-              className={cls("cg-btn cg-btn--slate", shown === m.id && "is-on")}
-              style={{ width: "100%", minWidth: 0, justifyContent: "space-between", padding: "0 10px", ...(two && modes.length % 2 && i === modes.length - 1 ? { gridColumn: "1 / -1" } : {}) }}
-              onClick={() => onPick(m.id)}>
-              <span>{m.label}</span>{shown === m.id && <span>✓</span>}
-            </button>
-          ))}
+          {modes.map((m, i) => {
+            const pick = (
+              <button key={m.id} type="button" role="option" aria-selected={shown === m.id} tabIndex={open ? undefined : -1} title={m.hint}
+                className={cls("cg-btn cg-btn--slate", shown === m.id && "is-on")}
+                style={{ width: "100%", minWidth: 0, justifyContent: "space-between", padding: "0 10px", ...(!explain && two && modes.length % 2 && i === modes.length - 1 ? { gridColumn: "1 / -1" } : {}) }}
+                onClick={() => onPick(m.id)}>
+                <span>{m.label}</span>{shown === m.id && <span>✓</span>}
+              </button>
+            );
+            if (!explain) return pick;
+            // the order and its (i), side by side
+            return (
+              <div key={m.id} style={{ display: "flex", gap: 4, minWidth: 0, ...(two && modes.length % 2 && i === modes.length - 1 ? { gridColumn: "1 / -1" } : {}) }}>
+                {pick}
+                <button type="button" tabIndex={open ? undefined : -1} aria-label={`What ${m.label} hunts`} aria-expanded={infoId === m.id}
+                  className={cls("cg-btn", infoId === m.id ? "cg-btn--gold" : "cg-btn--slate")} style={{ flexShrink: 0, width: 30, minWidth: 0, padding: 0 }}
+                  {...tap(() => setInfoId((v) => (v === m.id ? null : m.id)))}>
+                  {infoId === m.id ? <CloseIcon size={9} /> : <InfoIcon size={12} />}
+                </button>
+              </div>
+            );
+          })}
         </div>
+        {infoMode && (
+          <div ref={note} role="note" style={{ padding: "6px 8px", background: "var(--parch)", border: "2px solid var(--ink)", boxShadow: "inset 2px 2px 0 var(--parch-lt), inset -2px -2px 0 var(--parch-dk)",
+            fontFamily: "var(--body)", fontSize: 10.5, lineHeight: 1.4, color: "#5a4630", textShadow: "none", textAlign: "left" }}>
+            <div style={{ fontWeight: 700, color: "#3c2a18" }}>{infoMode.label}</div>
+            <div>{coverSays(infoMode.id) || infoMode.hint}</div>
+            {examples.length > 0 && <div style={{ marginTop: 3 }}><b>Such as:</b> {examples.join(", ")}.</div>}
+            {examples.length > 0 && <div style={{ marginTop: 3, fontStyle: "italic" }}>Under contract the blades take ONLY these, and wait when none is in reach. They never reach fliers.</div>}
+          </div>
+        )}
       </div>
     </div>
   );

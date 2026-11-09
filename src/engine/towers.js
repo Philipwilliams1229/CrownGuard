@@ -96,16 +96,20 @@ export const aimModes = (t, st) => {
   return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0);
 };
 
+// The Covert has no rally flag (owner, 2026-11-09): its reach is a ring round
+// the tent and its idle blades wait just before the tent's door.
+export const coverMuster = (t) => ({ x: t.x, y: t.y + 22 });
+
 // The Assassin's law: the foes that keep the rest alive — healers, raisers,
 // bell-ringers, banner-lords, ward-chanters — die first, no matter the crowd.
-export const isPrey = (e) => !!(e.healAmt || e.raiseEvery || e.summonEvery || e.bannerRange || e.wardEvery || e.freezeEvery);
+export const isPrey = (e) => !!(e.healAmt || e.healPct || e.raiseEvery || e.summonEvery || e.bannerRange || e.wardEvery || e.freezeEvery);
 
 // Standing orders the Covert can be given. Each names a CLASS of foe to hunt
 // before all others; when none is in reach the blades take the frontmost
 // instead, so an order never leaves a guildsman idle.
 export const PREY_FILTERS = {
   prey: isPrey,
-  healer: (e) => !!(e.healAmt || e.wardEvery),
+  healer: (e) => !!(e.healAmt || e.healPct || e.wardEvery),
   raiser: (e) => !!(e.raiseEvery || e.summonEvery),
   banner: (e) => !!e.bannerRange,
   brute: (e) => !!(e.boss || e.armor >= 0.3 || e.trampleMax),
@@ -116,7 +120,7 @@ export const PREY_FILTERS = {
 // Only the Open Contract ascension will touch a common soldier.
 export const ASSASSIN_AIM = [
   { id: "prey", label: "Support", hint: "healers, bells and banners — and no one else" },
-  { id: "healer", label: "Healers", hint: "chant-singers and ward-casters ONLY" },
+  { id: "healer", label: "Healers", hint: "healers, chaplains and ward-casters ONLY" },
   { id: "raiser", label: "Raisers", hint: "necromancers and bell-ringers ONLY" },
   { id: "banner", label: "Banners", hint: "banner-lords and warchiefs ONLY" },
   { id: "brute", label: "Armor", hint: "the armored and the mighty ONLY — bosses, plate, chargers" },
@@ -140,7 +144,7 @@ export const pickPrey = (g, t, st) => {
   // player's standing order decides which of them dies first.
   if (st.openContract) {
     const mode = t.aim || "first";
-    const cx0 = t.rally ? t.rally.x : t.x, cy0 = t.rally ? t.rally.y : t.y;
+    const cx0 = t.x, cy0 = t.y;   // (the Covert's reach is round its tent)
     let open = null, openScore = -Infinity;
     for (const e of g.enemies) {
       if (e.dead || e.flying || e.swimming || isRising(e, g.time * 1000)) continue;
@@ -153,7 +157,7 @@ export const pickPrey = (g, t, st) => {
   // Everyone else is under contract: the named class or nobody. A guild with
   // no valid mark on the board simply waits — that is what you paid for.
   const filter = PREY_FILTERS[t.aim] || PREY_FILTERS.prey;
-  const cx = t.rally ? t.rally.x : t.x, cy = t.rally ? t.rally.y : t.y;
+  const cx = t.x, cy = t.y;
   let best = null, bestScore = -Infinity;
   for (const e of g.enemies) {
     if (e.dead || e.flying || e.swimming || isRising(e, g.time * 1000)) continue;   // no blade reaches sky or water, or a body still rising
@@ -303,8 +307,8 @@ export const makeTower = (kind, x, y, level = 1, branch = null, invested = null,
     t.rally = { x, y: y + 40 };
   }
   if (kind === "assassin") {
-    // the covert's blades muster in the grass a little downroad of the tent
-    t.rally = { x, y: y + 30 };
+    // the covert's blades wait by the tent's door (no flag to move)
+    t.rally = coverMuster(t);
     t.aim = "prey";
     syncUnits(t);
   }
