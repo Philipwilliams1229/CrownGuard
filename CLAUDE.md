@@ -290,7 +290,11 @@ its blow (`wxarc` effects; `g.boltArcs`). Mild storms grade it all down
 (i) list every effect (data/weather-info.js). Sound: `sfx.bed("rain", k)`, a
 looping rain bed (BEDS in sfx.js; CrownguardGame's loop sets it each frame,
 hushed when paused), with a "Rain" switch in the Sound settings.
-`sim.mjs` prints `arcs` and `duds` beside the bolts. Measured `--chapter iron
+The look was halved the next day (owner, 2026-11-09: "too much, even on mild
+storm"): `RAIN_LOOK` 0.5 (drops, far/mid sheets, spray, gust curtain) and
+`SKY_LOOK` 0.5 (the wash, cloud shadow and the storm's `VEIL` beyond the
+board) in render/weatherfx.js; the ground's soak (wet road, puddles, floods)
+is drawn in full. `sim.mjs` prints `arcs` and `duds` beside the bolts. Measured `--chapter iron
 --endure`, seeds 1-2, better doctrine per level: 9033 / 9164 -> 8907 / 8821
 castle damage (noise; all 15 held, none stuck). The sim commander never builds
 a Powder Works, so the duds never show in it.

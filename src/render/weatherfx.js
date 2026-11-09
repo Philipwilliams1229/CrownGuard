@@ -320,7 +320,13 @@ const wetOf = (w) => clamp01(w.wet ?? w.k);
 // how much rain is falling: it gets going faster than the sky darkens, so a
 // storm rolling in (k 0.25) already rains (0.44); the sky's wash follows k
 const rainOf = (k) => 1 - (1 - clamp01(k)) ** 2;
-const RAIN_N = [210, 120, 24];          // near drops at k 1 (thin / long / big)
+const RAIN_N = [210, 120, 24];          // near drops at k 1 (thin / long / big), before RAIN_LOOK
+// (owner, 2026-11-09: "too much, even on a mild storm ... like 50 percent")
+// how much of the rain's look is drawn (the drops, the far and mid sheets,
+// the spray, a gust's curtain), and how much of the sky's darkening (the
+// wash, the racing cloud shadow, the veil beyond the board). The ground's
+// soak (wet road, puddles, floods) is drawn in full: it is what the mud reads by.
+const RAIN_LOOK = 0.5, SKY_LOOK = 0.5;
 const RAIN_VY = [520, 610, 720];        // their fall, units/s
 const GUST_P = 19, GUST_D = 7;          // a gust every GUST_P s (somewhere in it), lasting GUST_D s
 const LEAN0 = B.RAIN_LEAN[0], LEAN1 = B.RAIN_LEAN[3];
@@ -734,17 +740,17 @@ const storm = (ctx, g, w) => {
   // and mid rain, the spray and a gust's curtain share one 1-unit layer: one blit
   const c = layer();
   if (c) {
-    wash(c, "14,20,40", 0.28 * k);
-    fillSheet(c, B.stormShade(), 2, t * 38, t * 9, k);
-    const spray = clamp01((k - 0.55) / 0.45) * (0.7 + 0.3 * wind.G);
+    wash(c, "14,20,40", 0.28 * k * SKY_LOOK);
+    fillSheet(c, B.stormShade(), 2, t * 38, t * 9, k * SKY_LOOK);
+    const spray = clamp01((k - 0.55) / 0.45) * (0.7 + 0.3 * wind.G) * RAIN_LOOK;
     if (spray > 0.01) fillSheet(c, B.rainSpray(), 2, -t * (60 + 90 * wind.G), t * 5, spray);
-    const rk = rainOf(k);
+    const rk = rainOf(k) * RAIN_LOOK;
     leanSheet(c, B.rainFar, 330, t, wind, Math.min(1, 1.1 * rk), false);   // the far rain keeps its slant: one fill
     leanSheet(c, B.rainMid, 440, t, wind, Math.min(1, 0.95 * rk));
     // the gust's curtain of heavier rain sweeping across
     if (wind.G > 0.01 && k > 0.2) {
       const cv = B.rainCurtain(), cw = cv.width, xc = W + 160 - ((W + 320) * wind.u) / GUST_D;
-      const a = k * wind.str * Math.sqrt(Math.sin((Math.PI * wind.u) / GUST_D));
+      const a = k * wind.str * Math.sqrt(Math.sin((Math.PI * wind.u) / GUST_D)) * RAIN_LOOK;
       c.globalAlpha = a;
       c.drawImage(cv, Math.round(xc - cw / 2), 0);
       c.save();
@@ -761,7 +767,7 @@ const storm = (ctx, g, w) => {
   }
   // the near rain, crisp at the art grid, in three depths; a gust leans it
   // over and thickens it
-  const li = Math.round(wind.G * 3), more = (1 + 0.35 * wind.G) * rainOf(k);
+  const li = Math.round(wind.G * 3), more = (1 + 0.35 * wind.G) * rainOf(k) * RAIN_LOOK;
   rainFall(ctx, Math.round(RAIN_N[0] * more), 0, li, t, wind, 301);
   rainFall(ctx, Math.round(RAIN_N[1] * more), 1, li, t, wind, 302);
   rainFall(ctx, Math.round(RAIN_N[2] * more), 2, li, t, wind, 303);
@@ -1131,7 +1137,7 @@ export const drawWeather = (ctx, g) => {
 // the board's own layer gets, so a long storm leaves no lit edge. null = none.
 // (No fog veil: the board gets no fog wash, so a flat one beyond it read as a
 // band; the fog itself runs out past the board now, see paintWeatherEdge.)
-const VEIL = { storm: ["14,20,40", 0.42], blizzard: ["224,236,248", 0.3], eruption: ["136,54,26", 0.22] };
+const VEIL = { storm: ["14,20,40", 0.42 * SKY_LOOK], blizzard: ["224,236,248", 0.3], eruption: ["136,54,26", 0.22] };
 export const weatherVeil = (g) => {
   const w = g?.weather, v = w && VEIL[w.paint];
   if (!v || !(w.k > 0.01)) return null;
