@@ -47,7 +47,7 @@ import { W, H, WALL_W, RES } from "../data/constants.js";
 import { WEATHER_KINDS, weatherDef } from "../engine/weather.js";
 import { REALM } from "../data/maps.js";
 import { TOTAL_LEN, SEGS, posAt, lanePos } from "../engine/path.js";
-import { forestDepthAt, inRiver, inSea, COAST, RIVERS, PONDS, BRIDGES, underBridge } from "../data/terrain.js";
+import { forestDepthAt, inRiver, inSea, COAST, RIVERS, PONDS, BRIDGES, BRIDGE_HALF, underBridge } from "../data/terrain.js";
 import { canvasFont } from "../ui/fonts.js";
 import { PX } from "./paint.js";
 import * as B from "./weatherbake.js";
@@ -343,7 +343,7 @@ const driftOf = (vy, t, E) => vy * (LEAN0 * t + (LEAN1 - LEAN0) * E);
 
 // puddles: where they lie on this board (a stretch of road each, a few at its
 // edges), each with the wetness `th` it opens at and its full size `wu`
-const puddles = () => B.memo(`puds2|${realmKey()}`, () => {
+const puddles = () => B.memo(`puds3|${realmKey()}`, () => {
   const out = [], n = 30;
   for (let i = 0; i < n; i++) {
     const d = TOTAL_LEN * ((i + 0.5 + (B.h2(i, 1, 200) - 0.5) * 0.8) / n);
@@ -351,12 +351,32 @@ const puddles = () => B.memo(`puds2|${realmKey()}`, () => {
     const edge = i % 5 === 4;
     const [x, y] = lanePos(d, edge ? (B.h2(i, 4, 200) < 0.5 ? -1 : 1) * 27 : (B.h2(i, 2, 200) - 0.5) * 30);
     if (x > W - WALL_W - 10 || x < 4) continue;
-    if (BRIDGES.some((b) => d > b.d0 - 6 && d < b.d1 + 6)) continue;
     const wu = 2 * Math.round(edge ? 5 + B.h2(i, 3, 200) * 3 : 7 + B.h2(i, 3, 200) * 8);
+    // never on a bridge, nor so near one that a full-grown puddle laps onto its deck
+    if (BRIDGES.some((b) => d > b.d0 - wu / 2 - 12 && d < b.d1 + wu / 2 + 12) || onDeck(x, y, wu / 2 + 6)) continue;
     out.push({ x, y, wu, v: i & 3, i, th: 0.08 + 0.55 * B.h2(i, 5, 200) });
   }
   return out;
 });
+// within `pad` of a bridge's deck (its span along the road, rail to rail)
+const onDeck = (x, y, pad = 0) => BRIDGES.some((b) => {
+  const dx = x - b.x, dy = y - b.y, c = Math.cos(b.a), s = Math.sin(b.a);
+  return Math.abs(dx * c + dy * s) < (b.d1 - b.d0) / 2 + pad && Math.abs(-dx * s + dy * c) < BRIDGE_HALF + pad;
+});
+// standing water (puddles, floods) is clipped off every bridge deck: whatever
+// lies beside a bridge stops at its end (owner, 2026-11-09)
+const clipDecks = (ctx) => {
+  if (!BRIDGES.length) return;
+  ctx.beginPath();
+  ctx.rect(-40, -40, W + 80, H + 80);
+  for (const b of BRIDGES) {
+    const c = Math.cos(b.a), s = Math.sin(b.a), hl = (b.d1 - b.d0) / 2 + 3, hw = BRIDGE_HALF + 3;
+    const pt = (u, v) => [b.x + u * c - v * s, b.y + u * s + v * c];
+    const q = [pt(-hl, -hw), pt(hl, -hw), pt(hl, hw), pt(-hl, hw)];
+    ctx.moveTo(...q[0]); for (let i = 1; i < 4; i++) ctx.lineTo(...q[i]); ctx.closePath();
+  }
+  ctx.clip("evenodd");
+};
 // how big a puddle is at this wetness (even units; 0 = not yet)
 const puddleW = (p, wet) => {
   if (wet <= p.th) return 0;
@@ -513,7 +533,7 @@ const stormGround = (ctx, g, w) => {
     }
   }
   const F = w.floods;
-  if (F && F.length) drawFloods(ctx, g, F, rainOf(k));
+  if (F && F.length) { ctx.save(); clipDecks(ctx); drawFloods(ctx, g, F, rainOf(k)); ctx.restore(); }
   for (const s of SCORCH) {
     const age = t - s.t;
     ctx.globalAlpha = step4(age < 3.5 ? 1 : (4.5 - age));
@@ -524,6 +544,8 @@ const stormGround = (ctx, g, w) => {
   ctx.globalAlpha = 1;
   // puddles open as it soaks, grow, and shrink as it dries; rain rings in them
   if (wet > 0.05) {
+    ctx.save();
+    clipDecks(ctx);
     for (const p of puddles()) {
       const wu = puddleW(p, wet);
       if (!wu || (F && F.length && inFlood(F, p.x, p.y, 34))) continue;
@@ -539,6 +561,7 @@ const stormGround = (ctx, g, w) => {
       }
       if (flash > 0) { ctx.globalAlpha = flash; ctx.fillStyle = "#f4f8ff"; ctx.fillRect(sn(p.x - wu * 0.3), sn(p.y - 1), wu * 0.4, 1); }
     }
+    ctx.restore();
     ctx.globalAlpha = 1;
   }
   const rk = rainOf(k);

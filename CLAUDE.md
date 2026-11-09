@@ -295,7 +295,9 @@ storm"): `RAIN_LOOK` 0.5 (drops, far/mid sheets, spray, gust curtain) and
 `SKY_LOOK` 0.5, then 0.75 (owner: "push the darkness back up 25 percent")
 (the wash, cloud shadow and the storm's `VEIL` beyond the
 board) in render/weatherfx.js; the ground's soak (wet road, puddles, floods)
-is drawn in full. `sim.mjs` prints `arcs` and `duds` beside the bolts. Measured `--chapter iron
+is drawn in full. Standing water stays off bridges (owner, 2026-11-09):
+puddles are placed clear of a deck by their full size (`onDeck`), and
+`clipDecks` cuts puddles and floods out of every deck (weatherfx.js). `sim.mjs` prints `arcs` and `duds` beside the bolts. Measured `--chapter iron
 --endure`, seeds 1-2, better doctrine per level: 9033 / 9164 -> 8907 / 8821
 castle damage (noise; all 15 held, none stuck). The sim commander never builds
 a Powder Works, so the duds never show in it.
@@ -319,7 +321,9 @@ a Powder Works, so the duds never show in it.
   halls shoot them from k 0.5; traps still never touch a flier.
 - The road FLOODS: `floods` 3 (2 when mild) stretches of `floodLen` 90 per
   board (`floodSites`: by a river or pond first, never on a bridge, 200 apart,
-  clear of the wood and the gate), under water from wet 0.3, full at 0.8,
+  clear of the wood and the gate, and since 2026-11-09 `FLOOD_SPILL` 44 of
+  road clear of every bridge span: Ironford has room for 2), under water from
+  wet 0.3, full at 0.8,
   spreading from the middle (`w.floods`, `WX.floods`). Anyone wading (foes by
   road distance, `floodFoe`; soldiers within 27 px of it, `floodUnit`) moves
   and strikes `floodSlow` 30% slower: runMelee / runRangedBand scale each

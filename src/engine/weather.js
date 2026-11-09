@@ -44,7 +44,7 @@ import { getStats } from "./towers.js";
 import { dealDamage } from "./actions.js";
 import { posAt, angleAt, TOTAL_LEN } from "./path.js";
 import { spawnAt } from "./update.js";
-import { inRiver } from "../data/terrain.js";
+import { inRiver, BRIDGES } from "../data/terrain.js";
 import { sfx } from "../audio/sfx.js";
 
 const lerp = (a, b, s) => a + (b - a) * s;
@@ -607,12 +607,16 @@ const floodSites = (def) => {
     // the stretch itself must stay off the bridges
     let dry = true;
     for (let d = c.d - half; d <= c.d + half && dry; d += 10) { const [x, y] = posAt(d); if (inRiver(x, y, 4)) dry = false; }
+    // and its water, spilling FLOOD_SPILL past the stretch's ends, never reaches a
+    // bridge's deck (owner, 2026-11-09: floodwater ran up onto the bridges)
+    if (BRIDGES.some((b) => c.d + half + FLOOD_SPILL > b.d0 && c.d - half - FLOOD_SPILL < b.d1)) dry = false;
     if (dry) out.push(c.d);
   }
   SITES_KEY = key; SITES = out.sort((a, b) => a - b);
   return SITES;
 };
 const FLOOD_FROM = 0.3, FLOOD_FULL = 0.8, FLOOD_W = 27;    // FLOOD_W: px either side of the centre line a soldier is in it
+const FLOOD_SPILL = 44;      // px of road past a flood's ends its drawn water may reach (weatherfx FLOOD_R + depth, and a margin)
 const tickFloods = (w, def) => {
   const depth = smooth(((w.wet || 0) - FLOOD_FROM) / (FLOOD_FULL - FLOOD_FROM));
   if (depth <= 0.01) { w.floods = []; return; }
