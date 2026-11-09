@@ -857,6 +857,9 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
   out, bosses' capitals turned to names), so a retuned foe lists itself. On a
   short screen the orders go one a row when they carry an (i), and the note
   scrolls into view. Checked in headless Chromium at 1180x820 and 844x390.
+- `marathon.mjs --to 40` (every hall): no engine errors. `--chapter iron
+  --endure` seed 1, better doctrine: 9245 -> 9131 (the sims seldom field a
+  Covert); all 15 held, none stuck.
 
 ## Warchief and boar riders (2026-10-03, owner requests)
 
