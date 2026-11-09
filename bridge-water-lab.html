@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+  Bridge-water lab: a board's bridges through the real draw(), no foes, no
+  halls, no weather, at the game's real resolution (RES art px a unit), each
+  span cropped round itself and zoomed. For judging how a river runs to,
+  under and out from each span.
+
+    /bridge-water-lab.html?realm=ironford&faction=iron&scale=3&tag=x
+      only=i,j    just these spans (BRIDGES index)
+      r=R         half the crop's side, units (default 70)
+      crop=x,y,w,h  one window of the board instead (units)
+      times=a,b   game seconds to snap at (the live ripples move); default 0
+      cols=N      spans a row
+  Saved to .shots/bwl_<tag>.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>bridge water lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, RES } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { setLevelWeather } from "/src/engine/weather.js";
+      import { BRIDGES } from "/src/data/terrain.js";
+      import { draw } from "/src/render/draw.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", SC = Number(q.get("scale")) || 3, R = Number(q.get("r")) || 70;
+      selectRealm(q.get("realm") || "ironford");
+      selectFaction(q.get("faction") || "iron");
+      setWaveWindow(null);
+      setLevelWeather(null);
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1000, lives: 20, wave: 0, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0, freeplay: true,
+      };
+      const only = q.get("only") ? q.get("only").split(",").map(Number) : null;
+      const boxes = q.get("crop") ? [q.get("crop").split(",").map(Number)]
+        : BRIDGES.map((b, i) => [i, b]).filter(([i]) => !only || only.includes(i))
+          .map(([, b]) => [Math.round(b.x - R), Math.round(b.y - R), 2 * R, 2 * R]);
+      const times = (q.get("times") || "0").split(",").map(Number);
+      const cells = [];
+      for (const t of times) for (const bx of boxes) cells.push([t, bx]);
+      const cols = Math.min(Number(q.get("cols")) || 3, cells.length), rows = Math.ceil(cells.length / cols);
+      const fw = Math.max(...boxes.map((b) => b[2])) * RES * SC, fh = Math.max(...boxes.map((b) => b[3])) * RES * SC;
+      const out = document.createElement("canvas"); out.width = fw * cols; out.height = (fh + 16) * rows;
+      const o = out.getContext("2d"); o.fillStyle = "#20242c"; o.fillRect(0, 0, out.width, out.height);
+      const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES;
+      draw(g, cv, { current: null });
+      cells.forEach(([t, [cx, cy, cw, ch]], i) => {
+        g.time = t;
+        draw(g, cv, { current: null });
+        const col = i % cols, row = Math.floor(i / cols);
+        o.imageSmoothingEnabled = false;
+        o.drawImage(cv, cx * RES, cy * RES, cw * RES, ch * RES, col * fw, row * (fh + 16) + 16, cw * RES * SC, ch * RES * SC);
+        o.fillStyle = "#e8e0c8"; o.font = "11px monospace";
+        o.fillText(`${cx},${cy} ${cw}x${ch}  t${t}`, col * fw + 4, row * (fh + 16) + 12);
+      });
+      await fetch(`/__shot?name=bwl_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/bwl_${TAG}.png ${BRIDGES.length} spans`;
+    </script>
+  </body>
+</html>
