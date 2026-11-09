@@ -96,6 +96,11 @@ export const aimModes = (t, st) => {
   return AIM_MODES.filter((m) => m.id !== "most" || st.splash > 0);
 };
 
+// A blade keeps after its mark until the mark is this many times the hall's
+// range from the tent (owner, 2026-11-09: "keep hunting ... double their
+// range"); a NEW mark is only ever taken within the range itself.
+export const COVER_CHASE = 2;
+
 // The Covert has no rally flag (owner, 2026-11-09): its reach is a ring round
 // the tent, and its idle blades wait beside the tent OFF the road (same day:
 // "stay off the road in their idle state"): spots round the tent, the front
@@ -167,15 +172,16 @@ export const ASSASSIN_OPEN_AIM = [
 ];
 
 // The class a tower's standing order names, or null when it hunts by position.
-export const orderFilter = (t, st) => (st && st.openContract ? null : PREY_FILTERS[t && t.aim] || PREY_FILTERS.prey);
+// (`aim`: a blade's own order, owner 2026-11-09; the hall's when it has none)
+export const orderFilter = (t, st, aim = t && t.aim) => (st && st.openContract ? null : PREY_FILTERS[aim] || PREY_FILTERS.prey);
 
 // Which foe a blade goes for, by its tower's standing order. Priority-class
 // foes outrank everything; a Kingslayer's order reaches the whole field.
-export const pickPrey = (g, t, st) => {
+export const pickPrey = (g, t, st, aim = t.aim) => {
   // An Open Contract hunts like any other tower: everything is fair, and the
   // player's standing order decides which of them dies first.
   if (st.openContract) {
-    const mode = t.aim || "first";
+    const mode = aim || "first";
     const cx0 = t.x, cy0 = t.y;   // (the Covert's reach is round its tent)
     let open = null, openScore = -Infinity;
     for (const e of g.enemies) {
@@ -188,7 +194,7 @@ export const pickPrey = (g, t, st) => {
   }
   // Everyone else is under contract: the named class or nobody. A guild with
   // no valid mark on the board simply waits — that is what you paid for.
-  const filter = PREY_FILTERS[t.aim] || PREY_FILTERS.prey;
+  const filter = PREY_FILTERS[aim] || PREY_FILTERS.prey;
   const cx = t.x, cy = t.y;
   let best = null, bestScore = -Infinity;
   for (const e of g.enemies) {

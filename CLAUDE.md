@@ -847,6 +847,17 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
   -> 1391-1043 ms). Headless, a Magister walking past one Covert (he is in
   its reach ~2.5-4 s; x = his wave health): level 2 kills him at x1 only
   (300 hp), level 3 at up to x3 (900 hp, was x1.5).
+- **They hunt past their reach, each on his own order** (owner, same day):
+  a blade takes a NEW mark only within the tent's range, but keeps after it
+  until it is `COVER_CHASE` 2 x the range from the tent (engine/towers.js;
+  was range + half its body). Each blade may hold his own order (`u.aim`,
+  null = the hall's; `pickPrey` / `orderFilter` take an `aim`), with the
+  same All / 1 / 2 / 3 row in the targets list as the skiffs and falcons
+  (`crewOf` / `CREW_NAME` in CrownguardGame.jsx). A bought blade steps out at
+  once (actions.js syncs a Covert's units on every upgrade; before, the new
+  one came at the next horn). Headless, the Magister test again: level 2
+  now kills him up to x2 (600 hp), level 3 at x3; two blades told Healers and
+  Support took the chaplain and the magister walking side by side.
 - **Blades slip under shields:** `dealDamage`'s 9th argument `slips` skips
   the blue-pip block (no pip spent, the cut lands whole); the Covert's cuts
   pass it, and so do its venom ticks (the poison tick checks

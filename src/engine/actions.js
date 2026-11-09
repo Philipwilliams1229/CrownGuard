@@ -345,6 +345,7 @@ export const completeTower = (g, t) => {
   markRaised(g, t, "ascend", prevC);
   sfx.play("ascend");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
+  if (t.kind === "assassin") syncUnits(t, g);   // (a new blade steps out at once, not at the next horn)
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
   g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1300, life: 1300, gold: true });
   g.effects.push({ type: "flash", x: t.x, y: t.y - 10, ttl: 550 });
@@ -360,6 +361,7 @@ export const upgradeTower = (g, t) => {
   markRaised(g, t, "level", prevL);
   sfx.play("upgrade");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
+  if (t.kind === "assassin") syncUnits(t, g);   // (a new blade steps out at once, not at the next horn)
   g.effects.push({ type: "levelup", x: t.x, y: t.y, ttl: 600 });
   g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 700, life: 700, gold: false });
 };
@@ -373,6 +375,7 @@ export const branchTower = (g, t, key) => {
   recordFavored(t.kind, { branch: key });
   sfx.play("evolve");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
+  if (t.kind === "assassin") syncUnits(t, g);   // (a new blade steps out at once, not at the next horn)
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
   g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1100, life: 1100, gold: true });
   g.effects.push({ type: "flash", x: t.x, y: t.y - 10, ttl: 450 });
@@ -389,6 +392,7 @@ export const ascendTower = (g, t, key) => {
   recordFavored(t.kind, { rank4: { [t.branch]: key } });
   sfx.play("ascend");
   if (t.kind === "knight") { syncUnits(t, g); for (const u of t.units) if (u.state !== "dead") u.hp = u.maxHp; }
+  if (t.kind === "assassin") syncUnits(t, g);   // (a new blade steps out at once, not at the next horn)
   g.effects.push({ type: "evolve", x: t.x, y: t.y, ttl: 900 });
   g.effects.push({ type: "burst", x: t.x, y: t.y - 12, ttl: 1300, life: 1300, gold: true });
   g.effects.push({ type: "flash", x: t.x, y: t.y - 10, ttl: 550 });

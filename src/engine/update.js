@@ -14,7 +14,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, nearestOnPath, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising, coverMuster } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising, coverMuster, COVER_CHASE } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
@@ -2466,18 +2466,22 @@ export function updateGame(g, dt) {
         if (u.hp <= 0) { killUnit(g, t, u); return; }
 
         let target = u.targetId ? g.enemies.find((e) => e.id === u.targetId && !e.dead) : null;
-        // a blade keeps cutting at its mark for as long as the mark is in the
-        // tent's reach (a little slack for its body), and only then lets it go
-        if (target && !st.preyAnywhere && Math.hypot(target.x - t.x, target.y - t.y) > st.range + (target.size || 14) * 0.5) { target = null; u.targetId = null; }
+        // a blade takes a mark only within the tent's reach, but once on it he
+        // hunts it out to COVER_CHASE times that reach (owner, 2026-11-09)
+        // before he lets it go and comes home
+        if (target && !st.preyAnywhere && Math.hypot(target.x - t.x, target.y - t.y) > st.range * COVER_CHASE) { target = null; u.targetId = null; }
         // and an ORDER outranks whatever the blade happens to be doing: the
-        // moment a named foe walks into reach, the current throat is forgotten
-        const order = orderFilter(t, st);
+        // moment a named foe walks into reach, the current throat is forgotten.
+        // Each blade may hold his own order (`u.aim`; null = the hall's), as a
+        // River Watch's skiffs and a Falconry's birds do.
+        const aim = u.aim || t.aim;
+        const order = orderFilter(t, st, aim);
         if (target && order && !order(target)) {
-          const named = pickPrey(g, t, st);
+          const named = pickPrey(g, t, st, aim);
           if (named && order(named)) { target = named; u.targetId = named.id; }
         }
         if (!target) {
-          target = pickPrey(g, t, st);
+          target = pickPrey(g, t, st, aim);
           u.targetId = target ? target.id : null;
         }
         if (!target) {
