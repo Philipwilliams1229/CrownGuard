@@ -8,10 +8,10 @@ import { ENEMIES } from "../data/enemies.js";
 import { PREY_FILTERS } from "../engine/towers.js";
 
 const SAYS = {
-  prey: "Foes who guard the column without healing it: ward-casters who lay blue shields, and seers who freeze your halls.",
+  prey: "Foes who strengthen the column without healing it: ward-casters who lay blue shields, seers who freeze your halls, and banner-lords and war-chanters who harden and hasten those around them.",
   healer: "Foes who mend the column around them.",
   raiser: "Foes who bring MORE foes: raisers of the dead and those who call reinforcements.",
-  banner: "Foes whose banner or war-chant hardens or hastens the column around them.",
+  ranged: "Foes who shoot your soldiers from afar: crossbowmen and archers. They stand off your knights, so the blades go to them.",
   first: "The foe nearest your castle.",
   last: "The foe furthest back down the road.",
   strong: "The foe with the most health left.",

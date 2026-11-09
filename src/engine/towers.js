@@ -141,36 +141,37 @@ export const coverMuster = (t) => { const [x, y] = coverSlots(t)[0]; return { x,
 // bell-ringers, banner-lords, ward-chanters — die first, no matter the crowd.
 export const isPrey = (e) => !!(e.healAmt || e.healPct || e.raiseEvery || e.summonEvery || e.bannerRange || e.wardEvery || e.freezeEvery);
 
-// Each support foe belongs to ONE of the Covert's classes (owner, 2026-11-09:
+// Each foe the Covert hunts belongs to ONE of its classes (owner, 2026-11-09:
 // "enemies should only get one category"), checked in this order: one who
 // heals is a Healer, one who raises the dead or calls more foes a Raiser (the
-// Warchief's horn makes him one), one with a banner or war-chant a Banner,
-// and the rest (the Aegis Magister's wards, the Rime Seer's frost) Support.
+// Warchief's horn makes him one), one with wards, frost, a banner or a
+// war-chant Support (the Banners order was folded into it the same day), and
+// one who shoots from afar (`rangedAtk`: crossbowmen, barrow archers) Ranged.
 export const coverClass = (e) =>
   e.healAmt || e.healPct ? "healer"
   : e.raiseEvery || e.summonEvery ? "raiser"
-  : e.bannerRange ? "banner"
-  : e.wardEvery || e.freezeEvery ? "prey"
+  : e.wardEvery || e.freezeEvery || e.bannerRange ? "prey"
+  : e.rangedAtk ? "ranged"
   : null;
 
 // Standing orders the Covert can be given: each names ONE class of foe.
-// (The Armor order is gone, owner 2026-11-09; a saved "brute" falls back to
-// Support through `PREY_FILTERS[aim] || PREY_FILTERS.prey`.)
+// (The Armor and Banners orders are gone, owner 2026-11-09; a saved "brute" or
+// "banner" falls back to Support through `PREY_FILTERS[aim] || PREY_FILTERS.prey`.)
 export const PREY_FILTERS = {
   prey: (e) => coverClass(e) === "prey",
   healer: (e) => coverClass(e) === "healer",
   raiser: (e) => coverClass(e) === "raiser",
-  banner: (e) => coverClass(e) === "banner",
+  ranged: (e) => coverClass(e) === "ranged",
 };
 
 // A covert's order is a CONTRACT, not a preference: the guild takes the
 // named class and NOTHING else, and stands idle when none is on the board.
 // Only the Open Contract ascension will touch a common soldier.
 export const ASSASSIN_AIM = [
-  { id: "prey", label: "Support", hint: "ward-casters and frost-seers ONLY" },
+  { id: "prey", label: "Support", hint: "ward-casters, frost-seers, banner-lords and war-chanters ONLY" },
   { id: "healer", label: "Healers", hint: "foes who heal their column ONLY" },
   { id: "raiser", label: "Raisers", hint: "raisers of the dead and callers of more foes ONLY" },
-  { id: "banner", label: "Banners", hint: "banner-lords and war-chanters ONLY" },
+  { id: "ranged", label: "Ranged", hint: "crossbowmen and archers ONLY" },
 ];
 
 // what an Open Contract may be told instead: the ordinary orders any tower takes

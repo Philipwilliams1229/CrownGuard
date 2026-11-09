@@ -881,11 +881,17 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
   class, in this order: heals -> Healers (Goblin Shaman, Battle Chaplain);
   raises or summons -> Raisers (Necromancer, Gravecaller, the Hollow King,
   and the Hobgoblin Warchief, whose horn calls goblins though he also bears a
-  banner); a banner or war-chant -> Banners (Lord Marshal, Skald); wards or
-  frost -> Support (Aegis Magister, Rime Seer, the Rime Jarl). Support is
+  banner); wards, frost, a banner or war-chant -> Support (Aegis Magister,
+  Rime Seer, the Rime Jarl, Lord Marshal, Skald); shoots -> Ranged. Support is
   its own class now, not every support foe. The Armor order (`brute`) is
   gone; a save that held it falls back to Support. `isPrey` (the blades'
   `preyMult` and the other prey reads) is still every support foe.
+  Then (owner, same day) **Banners folded into Support** (Lord Marshal,
+  Skald) and a **Ranged** order took its place: foes with `rangedAtk`
+  (Crossbowman, Barrow Archer). A saved "banner" falls back to Support.
+  Ranged foes are not `isPrey`, so the blades cut them at plain damage (no
+  `preyMult`). Headless: a blade on Ranged took a crossbowman, its sister on
+  Support the magister beside it.
 - **The (i) beside each order** (TargetsBar `explain`, only the Covert): says
   what the order hunts and lists examples READ from the roster through
   `PREY_FILTERS` (`ui/coverOrders.js`, fliers / swimmers / neutrals left
