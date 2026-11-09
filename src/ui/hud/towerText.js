@@ -29,7 +29,7 @@ export function towerTags(t) {
   else if (t.kind === "goldworks") line = `pays ${Math.round(st.income + (t.mintBonus || 0))}g a wave${st.compound ? ` · grows +${st.compound} each wave` : ""}${st.hoard ? " · hoard doubles or withholds" : ""}${st.mend ? " · mends the castle" : ""}${st.bountyAura ? ` · kills nearby pay +${Math.round(st.bountyAura * 100)}%` : ""}${st.shredAura ? " · aura strips armor" : ""}${st.midas ? " · midas shots" : ""} · paid ${Math.round(t.paidTotal || 0)}g so far`;
   else if (t.kind === "sunforge") line = `${Math.round(st.dps)}/s beam, ramps ×${st.rampMax} · ${st.range} rng${st.beams > 1 ? ` · ${st.beams} beams` : ""}${st.igniteBurn ? " · ignites at full focus" : ""}${st.beamSplash ? " · spills over at focus" : ""}${st.wellRoot ? " · pins its victim" : ""}${st.beamSlow ? " · slows the held" : ""}`;
   else if (st.breath) line = `${st.dmg}/s flamethrower · hits all in its cone · ${st.range} rng${st.burn ? " · burning" : ""} · magic`;
-  else line = `${st.dmg} dmg${st.shots ? ` ×${st.shots} stones` : ""}${st.spikes ? ` ×${st.spikes} spikes` : ""} · ${s(st.rate)} · ${st.range} rng${st.nova ? " · flame ring hits all in reach" : ""}${st.spikePierce > 1 ? " · spikes skewer through" : ""}${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash` : ""}${st.poolDps ? (st.poolEvery ? ` · every ${st.poolEvery}th leaves fire` : " · burning ground") : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
+  else line = `${st.dmg} dmg${st.shots ? ` ×${st.shots} ${t.kind === "falconry" ? "dives" : "stones"}` : ""}${st.spikes ? ` ×${st.spikes} spikes` : ""} · ${s(st.rate)} · ${st.range} rng${st.nova ? " · flame ring hits all in reach" : ""}${st.spikePierce > 1 ? " · spikes skewer through" : ""}${st.arc ? ` · chains ×${st.arc}` : ""}${st.zapStun ? " · shocks can stun" : ""}${st.minRange ? ` · blind under ${st.minRange}` : ""}${st.splash ? ` · ${st.splash} splash` : ""}${st.poolDps ? (st.poolEvery ? ` · every ${st.poolEvery}th leaves fire` : " · burning ground") : ""}${st.burnSpread ? " · fire spreads" : ""}${st.frag ? " · shrapnel bursts" : ""}${st.pierce ? " · pierces armor" : ""}${st.dtype === "magic" ? " · magic" : ""}`;
   return line.split("·").map((x) => x.trim()).filter(Boolean);
 }
 
@@ -127,7 +127,7 @@ const COUNT_LABEL = { knight: "Knights", assassin: "Blades", riverwatch: "Skiffs
 const DMG_LABEL = { gunpowder: "Charge" };
 // halls whose people strike rather than shoot
 const RATE_LABEL = { knight: "Attack rate", assassin: "Attack rate" };
-const labelFor = (k, label, kind) => (k === "count" ? COUNT_LABEL[kind] || label : k === "rate" ? RATE_LABEL[kind] || label : k === "dmg" ? DMG_LABEL[kind] || label : label);
+const labelFor = (k, label, kind) => (k === "count" ? COUNT_LABEL[kind] || label : k === "rate" ? RATE_LABEL[kind] || label : k === "dmg" ? DMG_LABEL[kind] || label : k === "shots" && kind === "falconry" ? "Dives" : label);
 
 // Everything a form has, for the finished card: [{ label, value }] in the
 // DELTAS order, then its traits as words.

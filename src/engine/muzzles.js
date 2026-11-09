@@ -127,9 +127,18 @@ export const falconPerch = (t) => {
   const h = lvl === 1 ? 22 : lvl === 2 ? 28 : t.branch ? 34 : 32;
   return { h, my: t.y - h - 2 + (lvl === 1 ? -1 : 0) };
 };
-export const falconCount = (t, st) => {
-  const r4 = t.rank4 ? t.branch + t.rank4 : null;
-  return r4 === "bb" ? 3 : st.shots >= 3 ? 3 : (t.branch === "a" || falconLvl(t) >= 2) ? 2 : 1;
+// One bird a level (owner, 2026-11-09): 1 / 2 / 3, and the paths and finals
+// keep three (the Skyknight's hall, which rides its eagle, still shows two).
+export const falconCount = (t, st) => (st && st.skyknight ? 2 : Math.min(3, falconLvl(t)));
+// the hall's birds as hunters (update.js flyFalcons): one record a bird, its
+// own order (`aim`), clock (`cd`, staggered so they don't all go at once)
+// and prey; kept to the count as the hall grows. `every` is a bird's clock.
+export const syncBirds = (t, st, every = st.rate) => {
+  const n = st.skyknight ? 0 : falconCount(t, st);
+  if (!t.birds) t.birds = [];
+  if (t.birds.length > n) t.birds.length = n;
+  while (t.birds.length < n) t.birds.push({ aim: null, cd: (every * t.birds.length) / Math.max(1, n), preyId: null });
+  return t.birds;
 };
 export const falconKind = (t, b) => {
   const r4 = t.rank4 ? t.branch + t.rank4 : null;

@@ -28,6 +28,9 @@ import { coastOutline } from "./data/terrain.js";
 import { loadProfile, bankLevel, bankFreeRun, heroRecord, bankHeroStars, bankTowerXp, bankedTowerXp, MAX_STARS } from "./data/profile.js";
 import { tierGate, TIER_XP, HARM_XP } from "./data/towerxp.js";
 import { getStats, aimModes, forcedAim } from "./engine/towers.js";
+import { syncBirds } from "./engine/muzzles.js";
+// the hall members that may each take their own order: a River Watch's skiffs, a Falconry's birds
+const crewOf = (t) => (t.kind === "riverwatch" ? t.units || null : t.kind === "falconry" ? syncBirds(t, getStats(t)) : null);
 import {
   towerNear, placeTower, upgradeTower, branchTower, ascendTower, sellTower,
   startWave, restartWave, masterPlan, masterPlans, placeMasterTower, MASTER_MIN, buyCastleWork, raiseCastleWork, nextCastleWork, callMilitia, fieldHero, heroBand, heroAbilityState, fireHeroAbility, canSwapHero, swapHero,
@@ -558,8 +561,9 @@ export default function Crownguard() {
       // mirror a snapshot of state into React so the panels update
       const u = uiRef.current;
       const sel = g.towers.find((t) => t.id === g.selectedId) || null;
-      // a River Watch's skiffs may each hold their own order (u.aim)
-      const unitAims = sel && sel.kind === "riverwatch" && sel.units ? sel.units.map((u) => u.aim || null) : null;
+      // a River Watch's skiffs and a Falconry's birds may each hold their own order (aim)
+      const crew = sel ? crewOf(sel) : null;
+      const unitAims = crew ? crew.map((u) => u.aim || null) : null;
       const selKey = sel ? `${sel.id}-${sel.level}-${sel.branch}-${sel.rank4}-${sel.aim}-${unitAims ? unitAims.join(",") : ""}-${sel.kills || 0}-${Math.round((sel.formDmg || 0) / Math.max(1, sel.formTime || 0))}` : null;
       const canRestart = !!g.snapshot && (g.phase === "combat" || g.phase === "lost" || (g.phase === "build" && g.wave > 0));
       const cdSec = g.phase === "build" && g.buildUntil != null ? Math.max(0, Math.ceil(g.buildUntil - g.time)) : null;
@@ -1420,13 +1424,14 @@ export default function Crownguard() {
         dtype={[stt.dmg, stt.dps, stt.trapDmg, stt.colddps].some((v) => v > 0) ? (stt.dtype === "magic" ? "magic" : "phys") : null}
         infoNode={infoCorner(towerLayer === "info" ? "Close the upgrade tree" : "About this tower: its upgrade tree", towerLayer === "info", layer("info"), 40, 56)} />
     );
-    // a River Watch gives each skiff her own order: the list gains a row of "All, 1, 2…"
-    const fleet = sel.kind === "riverwatch" && sel.unitAims && sel.unitAims.length > 1 ? sel.unitAims.map((a) => a || sel.aim || "first") : null;
+    // a River Watch gives each skiff her own order, a Falconry each bird: the list gains a row of "All, 1, 2…"
+    const fleet = (sel.kind === "riverwatch" || sel.kind === "falconry") && sel.unitAims && sel.unitAims.length > 1 ? sel.unitAims.map((a) => a || sel.aim || "first") : null;
     const who = fleet && targetWho !== "all" && targetWho < fleet.length ? targetWho : "all";
     const pickAim = (id) => {
       withT((tt) => {
-        if (fleet && who !== "all") { if (tt.units[who]) tt.units[who].aim = id; }
-        else { tt.aim = id; if (tt.units) tt.units.forEach((u) => { u.aim = null; }); }
+        const crew = crewOf(tt) || [];
+        if (fleet && who !== "all") { if (crew[who]) crew[who].aim = id; }
+        else { tt.aim = id; crew.forEach((u) => { u.aim = null; }); }
       })();
       if (who === "all") setTowerLayer(null);   // a single boat's list stays open, so the next boat is one tap away
     };
@@ -1434,7 +1439,7 @@ export default function Crownguard() {
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
         {(modes.length > 0 || forced) && (
           <TargetsBar slim={compact} modes={modes} aim={sel.aim} forced={forced} open={towerLayer === "targets"} onToggle={layer("targets")}
-            fleet={fleet} who={who} onWho={setTargetWho} onPick={pickAim} explain={sel.kind === "assassin"} />
+            fleet={fleet} who={who} onWho={setTargetWho} onPick={pickAim} explain={sel.kind === "assassin"} crewName={sel.kind === "falconry" ? "Falcon" : "Skiff"} />
         )}
         {rallies && (
           <button className={cls("cg-btn cg-btn--slate", aimingFlag && "is-on")} style={{ width: "100%" }}

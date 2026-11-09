@@ -200,11 +200,11 @@ export const TOWERS = {
   },
   falconry: {
     name: "Falconry", cost: 130, dtype: "phys", proj: "talon",
-    blurb: "A falcon that owns the sky: double talons against fliers, and every strike MARKS its prey to take more from all your towers.",
+    blurb: "A falcon a level, each on its own orders: double talons against fliers, and every strike MARKS its prey to take more from all your towers. A bird hunts the foe it marked anywhere on the field until it falls.",
     levels: [
       { dmg: 26, rate: 1400, range: 112, airMult: 2, mark: 0.2, markDur: 2500 },
       { dmg: 42, rate: 1350, range: 120, airMult: 2, mark: 0.2, markDur: 2500, cost: 90, label: "Second Falcon" },
-      { dmg: 62, rate: 1300, range: 128, airMult: 2, mark: 0.25, markDur: 3000, cost: 160, label: "Master Falconer" },
+      { dmg: 62, rate: 1300, range: 128, airMult: 2, mark: 0.25, markDur: 3000, cost: 160, label: "Third Falcon" },
     ],
     branches: {
       a: {
@@ -218,7 +218,7 @@ export const TOWERS = {
         name: "Warhawk Court", cost: 440, stats: { dmg: 55, rate: 1250, range: 135, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3 }, desc: "The marks turn surgical: marked foes also shed a third of their armor — your arrows bite again.",
         rank4: {
           a: { name: "Kingsight", cost: 1005, stats: { dmg: 87, rate: 1000, range: 150, airMult: 2, mark: 0.3, markDur: 3200, markShred: 0.3, kingsight: true }, desc: "The court's eye never closes: the mightiest foe on the field is ALWAYS marked, everywhere, forever." },
-          b: { name: "Talon Rain", cost: 1005, stats: { dmg: 55, rate: 1250, range: 142, airMult: 2.2, mark: 0.3, markDur: 3200, markShred: 0.3, shots: 3 }, desc: "Three birds aloft at once — every volley marks three different victims." },
+          b: { name: "Talon Rain", cost: 1005, stats: { dmg: 55, rate: 1250, range: 142, airMult: 2.2, mark: 0.3, markDur: 3200, markShred: 0.3, shots: 3 }, desc: "The mews dives three times as often, and every bird hunts and marks a victim of its own." },
         },
       },
     },

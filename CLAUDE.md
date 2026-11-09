@@ -880,6 +880,33 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
   --endure` seed 1, better doctrine: 9245 -> 9131 (the sims seldom field a
   Covert); all 15 held, none stuck.
 
+## Falcons hunt one by one (2026-11-09, owner request)
+
+Provisional, pending the owner's playtest. `flyFalcons` (update.js, before
+the generic tower fire; the Skyknight keeps its old path):
+- **A bird a level:** `falconCount` (muzzles.js) is 1 / 2 / 3, and every path
+  and final keeps three (the Skyknight's hall still shows two). Level 3 is
+  labelled "Third Falcon" (was Master Falconer).
+- **Each bird hunts alone:** `t.birds` (`syncBirds`, muzzles.js) holds each
+  bird's own clock, order (`aim`, null = the hall's) and prey. The tray's
+  targets list gains an All / 1 / 2 / 3 row as the River Watch's skiffs do
+  (`crewOf` in CrownguardGame.jsx: a skiff's or a bird's `aim`; TargetsBar
+  `crewName`). A bird passes over a foe a sister already hunts while it has
+  another choice.
+- **The mark reaches anywhere:** any MARKED foe is in every falcon's reach
+  wherever it walks (fog or not); others only within the hall's range. A bird
+  goes back to the foe it last struck, anywhere on the board, until that foe
+  is dead (`bird.preyId`). A far stoop lands later (up to x3 `STOOP_HIT`).
+- **The flock strikes as often as the hall did:** a bird's clock is `rate` x
+  birds / `shots` (Talon Rain's 3 strikes a cast became its 3 birds' clocks),
+  so the hall's numbers on the card still read true. The falconer's cast pose
+  follows bird 0 (`t.castRate`). Measured (one hall by the road, 40 sturdy
+  levies, 40 s, old -> new damage): L1 215 -> 225, L2 340 -> 393, L3 656 ->
+  725, Royal Aviary 1173 -> 1218, Warhawk Court 611 -> 682, Storm Falcons
+  2129 -> 2368, Talon Rain 1458 -> 2030, Kingsight 1401 -> 1662 (the birds
+  now strike marked foes past their range). Talon Rain's text now says it
+  dives three times as often; a Falconry's `shots` row reads "Dives".
+
 ## Warchief and boar riders (2026-10-03, owner requests)
 
 Provisional, pending the owner's playtest ("spawn rates are ok but I'll let you

@@ -21,7 +21,7 @@ import {
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { getStats } from "../../engine/towers.js";
-import { wheelAt } from "../../engine/muzzles.js";
+import { wheelAt, falconCount } from "../../engine/muzzles.js";
 import { drawMistress, mistressFrame, mistressGlove, CREW_FOLK } from "../folk.js";
 
 const cache = spriteCache();
@@ -217,13 +217,13 @@ export const drawFalconry = (ctx, t, time) => {
       if (Math.sin(time * 6) > 0) glow(ctx, gx - dir * 1.4, gy - 2.6, 2, "#ffffff", 0.9);
     }
   } else {
-    const birds = r4 === "bb" ? 3 : st.shots >= 3 ? 3 : (aviary || lvl >= 2) ? 2 : 1;
+    const birds = falconCount(t, st);
     // her cast (mistressFrame): the glove at her chest; the bird comes down to
     // it and she raises it (present), draws the fist back (the bird mantles),
     // throws the arm out and the bird is away (cast, the stoop's streak off
     // her hand), follows through and settles. Idle: a bird rides the glove
     // now and then while she watches the others wheel.
-    const rate = st.rate || 1300, clock = time + t.id * 0.83;
+    const rate = t.castRate || st.rate || 1300, clock = time + t.id * 0.83;   // (bird 0's own clock: update.js flyFalcons)
     const perchedIdle = t._idle && ((time / 11) + t.id * 0.71) % 1 < 0.45;
     const pose = mistressFrame(t.cd > 0 ? rate - t.cd : Infinity, t.cd || 0, rate, { idle: t._idle, perched: perchedIdle, clock });
     // a bird cast at a foe is away until it is back on the wheel (update.js

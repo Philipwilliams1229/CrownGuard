@@ -23,7 +23,7 @@ import { isBuilt, fights, shocked } from "./build.js";
 import { rimeTick, seaborne } from "./rime.js";
 import { registerSeaTools, seaHold } from "./serpent.js";
 import { tickWeather, WX, canSee, floodFoe, floodUnit } from "./weather.js";
-import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE } from "./muzzles.js";
+import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE, syncBirds } from "./muzzles.js";
 
 // ---- the Falconry's stoops ------------------------------------------------------
 // A cast bird reaches its prey STOOP_HIT ms later (following it down) and is
@@ -74,6 +74,64 @@ const resolveStrikes = (g, tms) => {
     }
   }
   g.strikes = fresh;
+};
+
+// ---- the Falconry's birds, each its own hunter (owner, 2026-11-09) -------------
+// A bird a level (falconCount: 1 / 2 / 3). Each keeps its own clock, its own
+// standing order (`b.aim`, null = the hall's `t.aim`; the tray's targets list
+// gains an All / 1 / 2 / 3 row as the River Watch's skiffs do) and its own
+// PREY: the foe it last struck (and so marked) it goes back to, anywhere on
+// the board, until that foe is dead. Any MARKED foe is in every falcon's
+// reach, wherever it walks; the rest only within the hall's range. A bird
+// passes over a foe a sister already hunts while it has another choice.
+// The flock strikes as often as the old hall did: each bird's clock is the
+// hall's `rate` x birds / `shots` (Talon Rain's three strikes a cast are its
+// birds' three clocks). A far stoop takes longer (up to 3x) to land.
+const FAR_STOOP = 3;
+const falconPick = (g, t, st, bird, birds, tms) => {
+  const mode = bird.aim || t.aim || "first";
+  let best = null, bestScore = -Infinity;
+  for (const e of g.enemies) {
+    if (e.dead || e.submerged || isRising(e, tms)) continue;
+    const marked = e.markUntil > tms;
+    if (!marked && (Math.hypot(e.x - t.x, e.y - t.y) > st.range || !canSee(t, e))) continue;
+    let score = mode === "last" ? -e.dist : mode === "strong" ? e.hp : mode === "weak" ? -e.hp : e.dist;
+    if (e.flying) score += 1e9;                                   // a falconer's bird takes the sky first
+    if (birds.some((o) => o !== bird && o.preyId === e.id)) score -= 1e11;   // a sister's prey: only if nothing else
+    if (e.neutral && !e.menacing) score -= 1e13;
+    if (score > bestScore) { bestScore = score; best = e; }
+  }
+  return best;
+};
+const flyFalcons = (g, t, st, sdt, tms) => {
+  const n = falconCount(t, st);
+  const every = (st.rate * n) / (st.shots || 1);
+  syncBirds(t, st, every);
+  t.castRate = every;   // (the falconer's cast pose times itself to bird 0: halls/falconry.js)
+  const away = (t.falconsAway || []).filter((a) => a.back > g.time);
+  let cast = false;
+  t.birds.forEach((bird, b) => {
+    bird.cd -= sdt * 1000;
+    if (bird.preyId != null && !g.enemies.some((e) => e.id === bird.preyId && !e.dead)) bird.preyId = null;
+    if (bird.cd > 0 || away.some((a) => a.b === b)) return;
+    const prey = bird.preyId != null ? g.enemies.find((e) => e.id === bird.preyId) : null;
+    const v = prey && !prey.submerged ? prey : falconPick(g, t, st, bird, t.birds, tms);
+    if (!v) return;
+    bird.cd = every;
+    bird.preyId = v.id;
+    const [sx, sy] = b === 0 ? gloveBirdAt(t, "cast") : wheelAt(t, b, n, g.time);
+    const far = Math.min(FAR_STOOP, Math.max(1, Math.hypot(v.x - sx, v.y - sy) / Math.max(60, st.range)));
+    const hit = STOOP_HIT * far, life = STOOP_LIFE * far, back = g.time + life / 1000;
+    const fx = { type: "talon", x1: sx, y1: sy, x2: v.x, y2: v.y - 6, ttl: life, life, hit, kind: falconKind(t, b), home: wheelAt(t, b, n, back) };
+    g.effects.push(fx);
+    away.push({ b, back });
+    (g.strikes || (g.strikes = [])).push({ at: tms + hit, id: v.id, others: [v.id], fx, src: t.id, dmg: st.dmg, air: st.airMult, mark: st.mark, markDur: st.markDur, markShred: st.markShred || 0, diveStun: st.diveStun || 0, diveStunDur: st.diveStunDur || 0, chain: st.chain ? st.chainRange : 0, kind: fx.kind });
+    if (b === 0) { t.cd = every; t.anim = 1; t.lastAim = Math.atan2(v.y - t.y, v.x - t.x); }
+    cast = true;
+  });
+  if (t.birds[0]) t.cd = Math.max(0, t.birds[0].cd);
+  t.falconsAway = away;
+  if (cast) sfx.play("falcon");
 };
 
 // ---- the Skyknight's war-eagle -------------------------------------------------
@@ -2532,6 +2590,7 @@ export function updateGame(g, dt) {
         continue;
       }
       if (t.kind === "wizard" && t.branch === "a" && t.rank4 === "b") { breathe(g, t, sdt, tms); continue; }
+      if (t.kind === "falconry" && !getStats(t).skyknight) { flyFalcons(g, t, getStats(t), sdt, tms); continue; }
       t.cd -= sdt * 1000;
       if (t.cd > 0) continue;
       const st = getStats(t);
