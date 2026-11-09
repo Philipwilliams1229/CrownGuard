@@ -831,11 +831,17 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
 - **No rally flag:** the reach is a ring round the TENT (`pickPrey` centres on
   `t.x/t.y`; the blades drop a mark once it is past `range` + half its body
   from the tent, so they cut for as long as it is in reach) and idle blades
-  wait just before its door (`coverMuster`, engine/towers.js: tent + 22 down;
-  the loop pulls an old save's flag home every tick). The "Move Rally Flag"
+  wait beside it OFF the road (owner, same day): `coverSlots` (engine/towers.js)
+  tries spots round the tent, front first, then the sides, then behind, at
+  22 / 30 / 38 out, keeping each clear of the road's centre line by
+  `PATH_HALF` + 4 and 13 from the others (cached per tent; `unitSlots` uses
+  it, `coverMuster` is its first spot, and the loop pulls an old save's flag
+  home every tick). Headless, 31 tents by the road on five boards: no idle
+  blade nearer the centre line than 36, 52 of 62 in front of their tent. The "Move Rally Flag"
   plank and the tap-to-move are gone for it (`ASSASSIN_RALLY_RANGE` and
   postRally's branch are dead code now). Range x1.25 on all nine steps
-  (72-92 -> 90-115).
+  (72-92 -> 90-115), and attack speed +25% (`rate` x0.8: 2000-1500 ->
+  1600-1200 ms, owner, same day).
 - **Blades slip under shields:** `dealDamage`'s 9th argument `slips` skips
   the blue-pip block (no pip spent, the cut lands whole); the Covert's cuts
   pass it, and so do its venom ticks (the poison tick checks
@@ -853,6 +859,17 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
 - **The Battle Chaplain is prey:** `isPrey` and the Healers order read
   `healPct` too (the chaplain heals by `healPct`, so he was never on the
   Covert's contract before).
+- **One class a foe, four orders** (owner, same day: "take armor off of the
+  options. Enemies should only get one category. Magister goes to
+  support"): `coverClass(e)` (engine/towers.js) puts each support foe in ONE
+  class, in this order: heals -> Healers (Goblin Shaman, Battle Chaplain);
+  raises or summons -> Raisers (Necromancer, Gravecaller, the Hollow King,
+  and the Hobgoblin Warchief, whose horn calls goblins though he also bears a
+  banner); a banner or war-chant -> Banners (Lord Marshal, Skald); wards or
+  frost -> Support (Aegis Magister, Rime Seer, the Rime Jarl). Support is
+  its own class now, not every support foe. The Armor order (`brute`) is
+  gone; a save that held it falls back to Support. `isPrey` (the blades'
+  `preyMult` and the other prey reads) is still every support foe.
 - **The (i) beside each order** (TargetsBar `explain`, only the Covert): says
   what the order hunts and lists examples READ from the roster through
   `PREY_FILTERS` (`ui/coverOrders.js`, fliers / swimmers / neutrals left

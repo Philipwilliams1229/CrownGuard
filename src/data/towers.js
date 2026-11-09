@@ -288,23 +288,23 @@ export const TOWERS = {
     name: "Assassin's Covert", cost: 140, dtype: "phys", proj: "shadow",
     blurb: "Sends BLADES out from the tent, as far as its reach. They hold no ground — the column walks right past them — their knives slip under shields, and they kill by standing order: healers, bell-ringers, banner-lords, whoever you name.",
     levels: [
-      { dmg: 46, rate: 2000, range: 90, hp: 70, count: 1, unitSpeed: 118, preyMult: 1.5 },
-      { dmg: 52, rate: 1950, range: 98, hp: 90, count: 2, unitSpeed: 122, preyMult: 1.5, cost: 100, label: "Second Blade" },
-      { dmg: 76, rate: 1900, range: 105, hp: 115, count: 2, unitSpeed: 126, preyMult: 1.75, cost: 170, label: "Master of the Order" },
+      { dmg: 46, rate: 1600, range: 90, hp: 70, count: 1, unitSpeed: 118, preyMult: 1.5 },
+      { dmg: 52, rate: 1560, range: 98, hp: 90, count: 2, unitSpeed: 122, preyMult: 1.5, cost: 100, label: "Second Blade" },
+      { dmg: 76, rate: 1520, range: 105, hp: 115, count: 2, unitSpeed: 126, preyMult: 1.75, cost: 170, label: "Master of the Order" },
     ],
     branches: {
       a: {
-        name: "The Silent Court", cost: 470, stats: { dmg: 120, rate: 1850, range: 110, hp: 150, count: 2, unitSpeed: 128, preyMult: 2, pierce: true, cull: 0.18 }, desc: "Two blades afield: they pierce armor, strike support foes TWICE as hard, and finish the nearly-dead.",
+        name: "The Silent Court", cost: 470, stats: { dmg: 120, rate: 1480, range: 110, hp: 150, count: 2, unitSpeed: 128, preyMult: 2, pierce: true, cull: 0.18 }, desc: "Two blades afield: they pierce armor, strike support foes TWICE as hard, and finish the nearly-dead.",
         rank4: {
-          a: { name: "Kingslayer", cost: 1050, stats: { dmg: 150, rate: 1850, range: 115, hp: 175, count: 2, unitSpeed: 132, preyMult: 2.2, pierce: true, cull: 0.22, preyAnywhere: true }, desc: "No healer, herald or bell-ringer is safe ANYWHERE — the Court's knives cross the map for them." },
-          b: { name: "The Open Contract", cost: 1050, stats: { dmg: 104, rate: 1750, range: 115, hp: 175, count: 3, unitSpeed: 132, preyMult: 1.4, pierce: true, cull: 0.2, silence: 3000, openContract: true }, desc: "Three blades for ANY name: first, last, strongest, weakest. They block nothing; the cut silences." },
+          a: { name: "Kingslayer", cost: 1050, stats: { dmg: 150, rate: 1480, range: 115, hp: 175, count: 2, unitSpeed: 132, preyMult: 2.2, pierce: true, cull: 0.22, preyAnywhere: true }, desc: "No healer, herald or bell-ringer is safe ANYWHERE — the Court's knives cross the map for them." },
+          b: { name: "The Open Contract", cost: 1050, stats: { dmg: 104, rate: 1400, range: 115, hp: 175, count: 3, unitSpeed: 132, preyMult: 1.4, pierce: true, cull: 0.2, silence: 3000, openContract: true }, desc: "Three blades for ANY name: first, last, strongest, weakest. They block nothing; the cut silences." },
         },
       },
       b: {
-        name: "Nightshade Guild", cost: 470, stats: { dmg: 62, rate: 1750, range: 109, hp: 130, count: 3, unitSpeed: 130, preyMult: 1.75, venom: 26, venomDur: 3200 }, desc: "THREE envenomed guildsmen in the grass. The wound is only the start — the poison does the rest.",
+        name: "Nightshade Guild", cost: 470, stats: { dmg: 62, rate: 1400, range: 109, hp: 130, count: 3, unitSpeed: 130, preyMult: 1.75, venom: 26, venomDur: 3200 }, desc: "THREE envenomed guildsmen in the grass. The wound is only the start — the poison does the rest.",
         rank4: {
-          a: { name: "Widow's Kiss", cost: 1050, stats: { dmg: 92, rate: 1500, range: 118, hp: 170, count: 3, unitSpeed: 134, preyMult: 2, venom: 58, venomDur: 3600, venomNoHeal: true }, desc: "A venom no chant can outsing: while it burns, the victim CANNOT BE HEALED by anything that prays." },
-          b: { name: "Plague Bearer", cost: 1050, stats: { dmg: 84, rate: 1500, range: 118, hp: 170, count: 3, unitSpeed: 134, preyMult: 2, venom: 40, venomDur: 3200, spores: 36, sporeR: 50, sporeDur: 2600 }, desc: "Whoever dies with the venom in them BURSTS into a spore-cloud that sickens the column behind." },
+          a: { name: "Widow's Kiss", cost: 1050, stats: { dmg: 92, rate: 1200, range: 118, hp: 170, count: 3, unitSpeed: 134, preyMult: 2, venom: 58, venomDur: 3600, venomNoHeal: true }, desc: "A venom no chant can outsing: while it burns, the victim CANNOT BE HEALED by anything that prays." },
+          b: { name: "Plague Bearer", cost: 1050, stats: { dmg: 84, rate: 1200, range: 118, hp: 170, count: 3, unitSpeed: 134, preyMult: 2, venom: 40, venomDur: 3200, spores: 36, sporeR: 50, sporeDur: 2600 }, desc: "Whoever dies with the venom in them BURSTS into a spore-cloud that sickens the column behind." },
         },
       },
     },

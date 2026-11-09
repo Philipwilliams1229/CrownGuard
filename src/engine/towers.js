@@ -6,7 +6,7 @@ import { TOWERS } from "../data/towers.js";
 import { PERK_MODS } from "../data/profile.js";
 import { nextId } from "./ids.js";
 import { nearestOnPath, lanePos, TOTAL_LEN } from "./path.js";
-import { RALLY_RANGE, LANE_OFF } from "../data/constants.js";
+import { RALLY_RANGE, LANE_OFF, PATH_HALF } from "../data/constants.js";
 import { WX, canSee } from "./weather.js";
 
 // Which stats the permanent skill trees are allowed to touch, and which way
@@ -97,33 +97,65 @@ export const aimModes = (t, st) => {
 };
 
 // The Covert has no rally flag (owner, 2026-11-09): its reach is a ring round
-// the tent and its idle blades wait just before the tent's door.
-export const coverMuster = (t) => ({ x: t.x, y: t.y + 22 });
+// the tent, and its idle blades wait beside the tent OFF the road (same day:
+// "stay off the road in their idle state"): spots round the tent, the front
+// first, then its sides, then behind it, each clear of the road by a margin
+// and of each other. Worked out once per tent (it never moves).
+const COVER_ANGLES = [90, 45, 135, 0, 180, -45, 225, -90].map((a) => (a * Math.PI) / 180);
+const COVER_CLEAR = PATH_HALF + 4;
+const coverCache = new WeakMap();
+export const coverSlots = (t) => {
+  const key = `${Math.round(t.x)},${Math.round(t.y)}`;
+  const hit = coverCache.get(t);
+  if (hit && hit.key === key) return hit.slots;
+  const slots = [];
+  for (const r of [22, 30, 38]) for (const a of COVER_ANGLES) {
+    if (slots.length >= 4) break;
+    const x = t.x + Math.cos(a) * r, y = t.y + Math.sin(a) * r * 0.8;
+    if (nearestOnPath(x, y).d <= COVER_CLEAR) continue;
+    if (slots.some(([ox, oy]) => Math.hypot(ox - x, oy - y) < 13)) continue;
+    slots.push([x, y]);
+  }
+  while (slots.length < 4) slots.push([t.x, t.y + 22]);   // (no clear ground at all: by the door)
+  coverCache.set(t, { key, slots });
+  return slots;
+};
+export const coverMuster = (t) => { const [x, y] = coverSlots(t)[0]; return { x, y }; };
 
 // The Assassin's law: the foes that keep the rest alive — healers, raisers,
 // bell-ringers, banner-lords, ward-chanters — die first, no matter the crowd.
 export const isPrey = (e) => !!(e.healAmt || e.healPct || e.raiseEvery || e.summonEvery || e.bannerRange || e.wardEvery || e.freezeEvery);
 
-// Standing orders the Covert can be given. Each names a CLASS of foe to hunt
-// before all others; when none is in reach the blades take the frontmost
-// instead, so an order never leaves a guildsman idle.
+// Each support foe belongs to ONE of the Covert's classes (owner, 2026-11-09:
+// "enemies should only get one category"), checked in this order: one who
+// heals is a Healer, one who raises the dead or calls more foes a Raiser (the
+// Warchief's horn makes him one), one with a banner or war-chant a Banner,
+// and the rest (the Aegis Magister's wards, the Rime Seer's frost) Support.
+export const coverClass = (e) =>
+  e.healAmt || e.healPct ? "healer"
+  : e.raiseEvery || e.summonEvery ? "raiser"
+  : e.bannerRange ? "banner"
+  : e.wardEvery || e.freezeEvery ? "prey"
+  : null;
+
+// Standing orders the Covert can be given: each names ONE class of foe.
+// (The Armor order is gone, owner 2026-11-09; a saved "brute" falls back to
+// Support through `PREY_FILTERS[aim] || PREY_FILTERS.prey`.)
 export const PREY_FILTERS = {
-  prey: isPrey,
-  healer: (e) => !!(e.healAmt || e.healPct || e.wardEvery),
-  raiser: (e) => !!(e.raiseEvery || e.summonEvery),
-  banner: (e) => !!e.bannerRange,
-  brute: (e) => !!(e.boss || e.armor >= 0.3 || e.trampleMax),
+  prey: (e) => coverClass(e) === "prey",
+  healer: (e) => coverClass(e) === "healer",
+  raiser: (e) => coverClass(e) === "raiser",
+  banner: (e) => coverClass(e) === "banner",
 };
 
 // A covert's order is a CONTRACT, not a preference: the guild takes the
 // named class and NOTHING else, and stands idle when none is on the board.
 // Only the Open Contract ascension will touch a common soldier.
 export const ASSASSIN_AIM = [
-  { id: "prey", label: "Support", hint: "healers, bells and banners — and no one else" },
-  { id: "healer", label: "Healers", hint: "healers, chaplains and ward-casters ONLY" },
-  { id: "raiser", label: "Raisers", hint: "necromancers and bell-ringers ONLY" },
-  { id: "banner", label: "Banners", hint: "banner-lords and warchiefs ONLY" },
-  { id: "brute", label: "Armor", hint: "the armored and the mighty ONLY — bosses, plate, chargers" },
+  { id: "prey", label: "Support", hint: "ward-casters and frost-seers ONLY" },
+  { id: "healer", label: "Healers", hint: "foes who heal their column ONLY" },
+  { id: "raiser", label: "Raisers", hint: "raisers of the dead and callers of more foes ONLY" },
+  { id: "banner", label: "Banners", hint: "banner-lords and war-chanters ONLY" },
 ];
 
 // what an Open Contract may be told instead: the ordinary orders any tower takes
@@ -236,6 +268,7 @@ export const bowPosts = (x, y, n) => {
 // World positions where a garrison's knights stand, around its rally flag.
 export const unitSlots = (t) => {
   const st = getStats(t), n = st.count || 1;
+  if (t.kind === "assassin") return coverSlots(t).slice(0, n);   // (idle by the tent, off the road)
   // a mixed company (the Crossbow Company): the knights stand shoulder to
   // shoulder at the front, the crossbowmen back down the road behind them
   // (mounted knights, a horse's length long, stand further apart)
