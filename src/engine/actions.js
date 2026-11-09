@@ -490,6 +490,9 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
       if (hb && (src === hb || (hu && hu.state !== "dead" && Math.hypot(hu.x - e.x, hu.y - e.y) < KILL_NEAR))) hb.xp = (hb.xp || 0) + killXp(e, src === hb);
     }
     e.dead = true;
+    // a Risen knocked apart by steel, arrows or stones gets back up, once
+    // (`reassemble`, enemies.js); magic and holy blows end it (update.js)
+    if (e.reassemble && !e.revived && dtype === "phys" && !holy) e.reforms = true;
     // a transmuter's aura makes every nearby death pay better — in fractions,
     // carried over, so a one-coin goblin in the aura pays 1.25 and not 2
     let pay = e.bounty;

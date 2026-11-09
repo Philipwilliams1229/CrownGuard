@@ -532,6 +532,7 @@ const makeEnemy = (type, mult) => {
     bannerSpeed: 0, bannerArmor: 0,
     // Hollow Court traits: bells that summon, bodies that split or burst
     summonEvery: d.summonEvery || 0, summonType: d.summonType || null, summonCount: d.summonCount || 0, summonAhead: !!d.summonAhead, summonAtStart: !!d.summonAtStart, summonCd: d.summonFirst ?? null,
+    reassemble: d.reassemble || 0, reformMs: d.reformMs || 2000, reforms: false,
     splitInto: d.splitInto || null, splitDrop: !!d.splitDrop, splitChance: d.splitChance ?? null, dropStun: d.dropStun || 650, splits: undefined, deathBurst: d.deathBurst || null, deathDone: false,
     // falconry marks and alchemical shred
     markUntil: 0, markAmp: 0, markShredAmt: 0, shredAura: 0,
@@ -2189,6 +2190,21 @@ export function updateGame(g, dt) {
         for (let i = 0; i < n; i++) spawnAt(g, type, e.mult, e.dist - 4 - i * 9, tms);
         g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 380, r: 30 });
         g.shake = Math.max(g.shake, 2);
+      }
+      // a Risen felled by a physical blow pulls its bones back together where
+      // it fell, untouchable while it rises, at `reassemble` of its health and
+      // half its bounty; the second time it stays down (`revived`, which also
+      // paints it bone-pale)
+      if (e.reforms) {
+        const u = spawnAt(g, e.type, e.mult, e.dist, tms);
+        u.lane = e.lane; u.x = e.x; u.y = e.y; u.face = e.face;
+        u.hp = Math.max(1, Math.round(u.maxHp * e.reassemble));
+        u.bounty = Math.max(1, Math.ceil(u.bounty / 2));
+        u.revived = true;
+        u.born = tms - 400;
+        u.riseAt = tms; u.riseMs = e.reformMs; u.riseX = e.x; u.riseY = e.y;
+        g.effects.push({ type: "raise", x: e.x, y: e.y, ttl: e.reformMs, life: e.reformMs });
+        g.reformed = (g.reformed || 0) + 1;
       }
       if (e.deathBurst) {
         const b = e.deathBurst;

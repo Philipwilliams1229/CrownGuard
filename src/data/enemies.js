@@ -222,9 +222,14 @@ export const ENEMIES = {
   // The dead of a drowned kingdom. They come in floods, they keep coming
   // while their callers stand, and killing some of them is its own mistake.
   skeleton: {
-    faction: "hollow", hp: 44, speed: 70, bounty: 5, armor: 0, mres: 0.4, size: 15,
+    faction: "hollow", hp: 44, speed: 70, bounty: 5, armor: 0, mres: 0.15, size: 15,
     name: "Risen", atk: 9, atkRate: 850, castleDmg: 1,
-    note: "A dead soldier walking under someone else's orders, and half the fire and lightning thrown at it goes through the bones. Worth almost nothing, stops almost nothing — and arrives in floods that do not end.",
+    // bones that get back up (owner, 2026-11-09): felled by a PHYSICAL blow it
+    // falls apart and pulls itself together `reformMs` later at `reassemble` of
+    // its health, once (update.js death loop); magic, fire or holy blows put it
+    // down for good (dealDamage marks `e.reforms`)
+    reassemble: 0.5, reformMs: 2000,
+    note: "A dead soldier walking under someone else's orders. Arrows, stones and steel only knock it apart: the bones pull themselves together and it gets back up, once. Fire, magic and holy blows put it down for good. Worth almost nothing — and arrives in floods that do not end.",
   },
   ghoul: {
     faction: "hollow", hp: 72, speed: 138, bounty: 8, armor: 0, size: 16,

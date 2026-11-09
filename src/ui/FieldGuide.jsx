@@ -272,6 +272,7 @@ function EnemyDetail({ type }) {
         {e.bannerRange ? <Row label="Banner">+{Math.round(e.bannerSpeed * 100)}% speed, +{Math.round(e.bannerArmor * 100)}% armor</Row> : null}
         {e.summonEvery ? <Row label="Summons">{e.summonCount} {ENEMIES[e.summonType]?.name || e.summonType}{e.summonCount > 1 ? "s" : ""} / {(e.summonEvery / 1000).toFixed(1)}s</Row> : null}
         {e.splitInto ? <Row label="On death">{e.splitDrop ? "drops" : "splits into"} {e.splitInto[1] > 1 ? `${e.splitInto[1]} ` : "its "}{ENEMIES[e.splitInto[0]]?.name || e.splitInto[0]}{e.splitInto[1] > 1 ? "s" : ""}</Row> : null}
+        {e.reassemble ? <Row label="On death">gets back up once at {Math.round(e.reassemble * 100)}% health, unless magic or holy</Row> : null}
         {e.deathBurst ? <Row label="On death">bursts — {e.deathBurst.dmg} dmg to knights + plague ground</Row> : null}
         <Row label="Castle damage">{e.castleDmg}</Row>
       </div>
