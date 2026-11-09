@@ -858,6 +858,9 @@ knights); all 30 held, none stuck. Provisional, pending the owner's playtest.
   one came at the next horn). Headless, the Magister test again: level 2
   now kills him up to x2 (600 hp), level 3 at x3; two blades told Healers and
   Support took the chaplain and the magister walking side by side.
+  Then damage +15% once more (owner, same day): `dmg` 53-172 -> 61-198 (the
+  rates unchanged). The Magister test: level 2 now kills him at x3 (900 hp)
+  too; level 1 still only at x1.
 - **Blades slip under shields:** `dealDamage`'s 9th argument `slips` skips
   the blue-pip block (no pip spent, the cut lands whole); the Covert's cuts
   pass it, and so do its venom ticks (the poison tick checks
