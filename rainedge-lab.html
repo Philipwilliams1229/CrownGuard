@@ -1,0 +1,119 @@
+<!doctype html>
+<!--
+  Rain-edge lab: the board inside a screen bigger than it (an iPad's), as the
+  game lays it out: the apron (render/apron.js), the weather's veil, the edge
+  canvas (weatherfx.js paintWeatherEdge: fog, mist and now the storm's rain
+  beyond the board) and the board on top. rain-lab.html's params (realm,
+  weather, k, wet, snaps, towers) plus sw,sh = the board area in CSS px
+  (default 1000x820, an iPad on its side minus the tray). Saved to
+  .shots/rain_<tag>.png.
+-->
+<!--
+  Rain lab: wx-lab.html's real engine and draw() on a level's board under the
+  storm, but kept at the game's REAL resolution (RES art pixels a unit), with
+  the storm's strength and the ground's wetness pinned, fake effects pushed in
+  and an optional frame-cost bench (render/weatherfx.js storm painters).
+
+    /rain-lab.html?realm=ironford&faction=iron&wave=7&weather=storm:1&snaps=2,4&k=1&wet=1&tag=x
+      k=V        pin w.k (how hard it rains) before each snap; wet=V pin w.wet
+      snaps      seconds of combat from the first horn (the clock starts at the
+                 spell's height unless rise=S is given, as in wx-lab)
+      shock=MS   the first two halls struck, MS of 3000 ms of their shock left
+      bolt=MS    push a lightning stroke MS ms old onto the first foe
+      fx=1       push a wxarc, a wxfizzle and set a few foes burning before each snap
+      focus=i    crop round the i-th hall (100 x 100 units)
+      crop=x,y,w,h   a window of the board (units); scale=N zooms it (nearest)
+      half=1     draw the frame at half size, smoothed (a phone showing the board
+                 at less than RES)
+      old=1      with bench: also time the painters as they were before the rain pass
+                 (a copy in scratchpad/rain/, gitignored)
+      bench=N    after the snaps, time draw() N times with and without the
+                 weather, and the storm's two halves alone (window.BENCH)
+      towers=... as wx-lab (kind@road-fraction:level[,branch])
+  Saved to .shots/rain_<tag>.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>rain lab</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">running…</div>
+    <script type="module">
+      import { W, H, RES } from "/src/data/constants.js";
+      import { selectRealm } from "/src/data/maps.js";
+      import { selectFaction } from "/src/data/factions.js";
+      import { setWaveWindow } from "/src/data/waves.js";
+      import { TOTAL_LEN, posAt, angleAt } from "/src/engine/path.js";
+      import { updateGame } from "/src/engine/update.js";
+      import { placeTower, upgradeTower, branchTower, buildableAt, startWave } from "/src/engine/actions.js";
+      import { draw } from "/src/render/draw.js";
+      import { drawWeather, drawWeatherGround, paintWeatherEdge, weatherVeil } from "/src/render/weatherfx.js";
+      import { paintApron } from "/src/render/apron.js";
+      import { setLevelWeather, weatherDef, segAt } from "/src/engine/weather.js";
+      const q = new URLSearchParams(location.search);
+      const TAG = q.get("tag") || "x", DT = 1 / 60, SC = Number(q.get("scale")) || 1;
+      selectRealm(q.get("realm") || "ironford");
+      selectFaction(q.get("faction") || "iron");
+      setWaveWindow(null);
+      const [kind, str] = (q.get("weather") || "storm:1").split(":");
+      setLevelWeather({ kind, strength: Number(str ?? 1) });
+      const g = {
+        run: { kills: 0, goldEarned: 0, towersBuilt: 0, leaks: 0 }, gold: 1e7, lives: 9999, wave: (Number(q.get("wave")) || 7) - 1, phase: "build",
+        towers: [], enemies: [], projectiles: [], effects: [], spawnQueue: [], spawnTimer: 0, speed: 1, paused: false,
+        selectedId: null, buildMode: null, hover: null, time: 0, shake: 0, snapshot: null,
+        cam: { zoom: 1, x: 0, y: 0 }, buildUntil: null, buildMenuOpen: false, victory: false, rush: false, bands: [], militiaCd: 0, freeplay: true,
+      };
+      for (const spec of (q.get("towers") ?? "archer@0.2:3,knight@0.32:3,wizard@0.45:3,b,gunpowder@0.58:3,archer@0.7:3,wizard@0.82:2").split(",").reduce((acc, p) => (p.includes("@") ? acc.push([p]) : acc[acc.length - 1].push(p), acc), [])) {
+        const [head, br] = spec, [kd, rest] = head.split("@"), [at, lv] = rest.split(":").map(Number);
+        const d0 = at * TOTAL_LEN, [rx, ry] = posAt(d0), a = angleAt(d0);
+        let spot = null;
+        for (let r = 50; r < 130 && !spot; r += 3) for (const s of [1, -1]) {
+          const x = rx + Math.cos(a + Math.PI / 2) * r * s, y = ry + Math.sin(a + Math.PI / 2) * r * s;
+          if (buildableAt(g, x, y, kd)) { spot = [x, y]; break; }
+        }
+        if (!spot) continue;
+        placeTower(g, kd, spot[0], spot[1]);
+        const t = g.towers[g.towers.length - 1];
+        for (let l = 1; l < (lv || 1); l++) upgradeTower(g, t);
+        if (br) branchTower(g, t, br);
+        t.readyAt = 0; t.raised = null;
+      }
+      for (let i = 0; i < 30; i++) updateGame(g, DT);
+      const def = weatherDef(), w = g.weather;
+      let s, t = 0;
+      do { s = segAt(w, def, t); t = s.t1; } while (s.ph !== (q.get("rise") ? "rising" : "squall") && t < 5000);
+      w.clock = Math.max(0, s.t0 + Number(q.get("rise") ?? 2));
+      updateGame(g, DT);
+      const hold = () => { g.lives = 9999; if (g.phase === "build") g.buildUntil = null; };
+      const pin = () => { if (!g.weather) return; if (q.get("k")) g.weather.k = Number(q.get("k")); if (q.get("wet")) g.weather.wet = Number(q.get("wet")); };
+      const SW = Number(q.get("sw")) || 1000, SH = Number(q.get("sh")) || 820, DPR = 2;
+      const bw = SW, bh = Math.round(SW * H / W), board = { x: 0, y: Math.round((SH - bh) / 2), w: bw, h: bh };
+      const apron = document.createElement("canvas");
+      paintApron(apron, { cssW: SW, cssH: SH, dpr: DPR, board });
+      const edge = document.createElement("canvas"); edge.width = SW * DPR; edge.height = SH * DPR;
+      const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES;
+      const snaps = (q.get("snaps") || "3").split(",").map(Number);
+      const out = document.createElement("canvas"); out.width = SW * DPR; out.height = (SH * DPR + 24) * snaps.length;
+      const o = out.getContext("2d"); o.fillStyle = "#20242c"; o.fillRect(0, 0, out.width, out.height);
+      startWave(g);
+      const t0 = g.time;
+      snaps.forEach((at, i) => {
+        while (g.time - t0 < at) { pin(); updateGame(g, DT); hold(); if (g.phase !== "combat") startWave(g); }
+        pin();
+        draw(g, cv, { current: null });
+        paintWeatherEdge(edge, board, DPR);
+        draw(g, cv, { current: null });
+        paintWeatherEdge(edge, board, DPR);
+        const y0 = i * (SH * DPR + 24) + 24;
+        o.drawImage(apron, 0, y0, SW * DPR, SH * DPR);
+        const v = weatherVeil(g); if (v) { o.fillStyle = v; o.fillRect(0, y0, SW * DPR, SH * DPR); }
+        o.drawImage(edge, 0, y0);
+        o.imageSmoothingEnabled = false;
+        o.drawImage(cv, board.x * DPR, y0 + board.y * DPR, board.w * DPR, board.h * DPR);
+        o.fillStyle = "#e8e0c8"; o.font = "16px monospace";
+        o.fillText(`+${at}s  ${g.weather.phase} k${g.weather.k.toFixed(2)} wet${(g.weather.wet ?? -1).toFixed(2)}`, 6, y0 - 6);
+      });
+      await fetch(`/__shot?name=rain_${TAG}`, { method: "POST", body: out.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = `saved .shots/rain_${TAG}.png`;
+    </script>
+  </body>
+</html>

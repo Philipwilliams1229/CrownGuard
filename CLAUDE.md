@@ -298,11 +298,17 @@ board) in render/weatherfx.js; the ground's soak (wet road, puddles, floods)
 is drawn in full. Standing water stays off bridges (owner, 2026-11-09):
 puddles are placed clear of a deck by their full size (`onDeck`), and
 `clipDecks` cuts puddles and floods out of every deck (weatherfx.js). The wet
-road's film is clipped off the decks too, and each deck is darkened with a
-MULTIPLY tint instead (`wetDecks`, `DECK_WET` #a8b0c2), so its stones and arch
-shading show through (owner, 2026-11-09: "look bad around the bridges": the
-film flattened the decks); the swollen river's silt is `SILT_A` 0.3 (was
-0.62, a blotchy brown camouflage). `sim.mjs` prints `arcs` and `duds` beside the bolts. Measured `--chapter iron
+road's film is clipped off the decks too: a deck stays DRY (owner, 2026-11-09:
+"it shouldn't really have it considering how curved the bridge is. But you
+can add the muddy pools on either side"); its run-off gathers in brown pools
+just off both ends (`bridgePools`, `B.puddle(wu, v, mud)`), which fill early
+and dry last. The swollen river's silt is `SILT_A` 0.3 (was 0.62, a blotchy
+brown camouflage). The rain also falls PAST the board (same day: an iPad's
+strips above and below had only the flat veil): `paintWeatherEdge` draws the
+far / mid sheets (the same patterns at the same offsets, so no seam) and near
+drops at the board's density over the edge canvas (`edgeRain`, `RAIN_EDGE`
+set by the storm painter). `rainedge-lab.html` shows the board inside an
+iPad-sized screen with the apron, veil and edge canvas. `sim.mjs` prints `arcs` and `duds` beside the bolts. Measured `--chapter iron
 --endure`, seeds 1-2, better doctrine per level: 9033 / 9164 -> 8907 / 8821
 castle damage (noise; all 15 held, none stuck). The sim commander never builds
 a Powder Works, so the duds never show in it.

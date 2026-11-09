@@ -152,14 +152,19 @@ export const paintWeatherEdge = (cv, board, dpr = 1) => {
     NEED = NEED_RAW.map((v) => (v <= 1 ? 0 : Math.min(B.FOG_WIDE, Math.ceil(v / 8) * 8 + 8)));
   }
   const e = EDGE;
-  const on = !!(ok && e && e.a > 0.01 && WIDE && isWide());
-  if (!on) { if (cv._wxOn) { cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); cv._wxOn = false; } return; }
+  const fogOn = !!(ok && e && e.a > 0.01 && WIDE && isWide());
+  // the storm's rain falls past the board too (owner, 2026-11-09: on an iPad
+  // the strips above and below the board had only a flat veil, no rain)
+  const rain = ok && RAIN_EDGE && RAIN_EDGE.rk > 0.01 && NEED_RAW.some((v) => v > 1) ? RAIN_EDGE : null;
+  if (!fogOn && !rain) { if (cv._wxOn) { cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); cv._wxOn = false; } return; }
   const c = cv.getContext("2d");
   c.setTransform(1, 0, 0, 1, 0, 0);
   c.clearRect(0, 0, cv.width, cv.height);
   c.imageSmoothingEnabled = false;
   const sx = board.w / W, sy = board.h / H;
   c.setTransform(dpr * sx, 0, 0, dpr * sy, dpr * board.x, dpr * board.y);   // world units
+  if (rain) edgeRain(c, rain, [-NEED_RAW[0] - 2, -NEED_RAW[1] - 2, W + NEED_RAW[2] + 2, H + NEED_RAW[3] + 2]);
+  if (!fogOn) { c.setTransform(1, 0, 0, 1, 0, 0); cv._wxOn = true; return; }
   c.globalAlpha = e.a;
   c.drawImage(WIDE, WR[0], WR[1]);
   c.globalAlpha = 1;
@@ -188,7 +193,7 @@ export const paintWeatherEdge = (cv, board, dpr = 1) => {
 
 // ---- patterns: a baked sheet scrolled over the whole board in one fill ----
 const PATS = new WeakMap();
-const fillSheet = (ctx, cv, scale, ox, oy, a) => {
+const fillSheet = (ctx, cv, scale, ox, oy, a, rect = null) => {
   if (a <= 0.01) return;
   let m = PATS.get(ctx);
   if (!m) PATS.set(ctx, (m = new Map()));
@@ -199,7 +204,8 @@ const fillSheet = (ctx, cv, scale, ox, oy, a) => {
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.globalAlpha = a; ctx.fillStyle = p;
-  ctx.fillRect(0, 0, W, H);
+  if (rect) ctx.fillRect(rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1]);
+  else ctx.fillRect(0, 0, W, H);
   ctx.restore();
 };
 // n things falling across the board at (vx, vy) units/s, each its own sprite
@@ -382,26 +388,34 @@ const clipDecks = (ctx, padL = 3, padW = 3) => {
   deckPath(ctx, padL, padW);
   ctx.clip("evenodd");
 };
-// A bridge deck gets wet differently (owner, 2026-11-09: "rain effects look
-// bad around the bridges"): the road's film painted flat over a deck and
-// wiped out its arch's shading. So the film is clipped off the decks and each
-// deck is darkened by a MULTIPLY of the same weight instead, which keeps its
-// stones and its arch. DECK_WET: the colour it multiplies by at full soak.
-const DECK_WET = "#a8b0c2";
+// A bridge's deck stays dry (owner, 2026-11-09: "the water on top of the
+// bridge ... shouldn't really have it considering how curved the bridge is.
+// But you can add the muddy pools on either side"): the wet road's film,
+// puddles and floods are clipped off every deck, and the run-off gathers in
+// muddy pools at each end of the span (bridgePools).
 // how strongly a swollen river's brown silt shows (was 0.62: a blotchy
 // camouflage over the water, worst beside the bridges)
 const SILT_A = 0.3;
-const wetDecks = (ctx, wet) => {
-  if (!BRIDGES.length || wet <= 0.02) return;
-  ctx.save();
-  ctx.globalCompositeOperation = "multiply";
-  ctx.globalAlpha = step4(wet);
-  ctx.fillStyle = DECK_WET;
-  ctx.beginPath();
-  deckPath(ctx, 0, 0);
-  ctx.fill();
-  ctx.restore();
-};
+// the run-off from each arched deck pools at both its ends: a bigger muddy
+// pool just off the span and a smaller one beside it, across the lanes;
+// they fill early (the arch sheds its water at once) and dry last
+const bridgePools = () => B.memo(`bpools|${realmKey()}`, () => {
+  const out = [];
+  BRIDGES.forEach((b, bi) => {
+    [[b.d0, -1], [b.d1, 1]].forEach(([d, dir], ei) => {
+      const big = 2 * Math.round(8 + B.h2(bi, ei, 290) * 3), small = 2 * Math.round(4 + B.h2(bi, ei, 291) * 2);
+      const side = B.h2(bi, ei, 292) < 0.5 ? -1 : 1;
+      for (const [wu, lat, step, th] of [[big, side * (5 + B.h2(bi, ei, 293) * 5), big / 2 + 5, 0.06], [small, -side * 15, small / 2 + 9, 0.18]]) {
+        const dd = d + dir * step;
+        if (dd < 20 || dd > TOTAL_LEN - 30) continue;
+        const [x, y] = lanePos(dd, lat);
+        if (x > W - WALL_W - 10 || onDeck(x, y, wu / 2 + 2)) continue;
+        out.push({ x, y, wu, v: (bi * 2 + ei) & 3, i: 900 + bi * 4 + ei * 2 + (wu === big ? 0 : 1), th, mud: true });
+      }
+    });
+  });
+  return out;
+});
 // how big a puddle is at this wetness (even units; 0 = not yet)
 const puddleW = (p, wet) => {
   if (wet <= p.th) return 0;
@@ -540,7 +554,6 @@ const stormGround = (ctx, g, w) => {
     putTiles(ctx, R.wet, R.rects);
     if (flash > 0) { ctx.globalAlpha = flash * 0.7 * wet; putTiles(ctx, R.sheen, R.rects); }
     ctx.restore();
-    wetDecks(ctx, wet);
     // a swollen river runs brown and churns
     if (RIVERS.length && wet > 0.35) {
       const sw = clamp01((wet - 0.35) / 0.65);
@@ -575,11 +588,11 @@ const stormGround = (ctx, g, w) => {
   if (wet > 0.05) {
     ctx.save();
     clipDecks(ctx);
-    for (const p of puddles()) {
+    for (const p of [...puddles(), ...bridgePools()]) {
       const wu = puddleW(p, wet);
       if (!wu || (F && F.length && inFlood(F, p.x, p.y, 34))) continue;
       ctx.globalAlpha = step4((wet - p.th) / 0.1);
-      put(ctx, B.puddle(wu, p.v), p.x, p.y);
+      put(ctx, B.puddle(wu, p.v, !!p.mud), p.x, p.y);
       if (k > 0.12) {
         const rings = Math.min(3, 1 + Math.floor(wu / 9));
         for (let r = 0; r < rings; r++) {
@@ -768,18 +781,32 @@ const onThings = (ctx, g, k, tms) => {
 };
 
 // a sheet's two leans crossfaded by the gust, drifted by the wind
-const leanSheet = (c, sheetOf, vy, t, wind, a, lean = true) => {
+const leanSheet = (c, sheetOf, vy, t, wind, a, lean = true, rect = null) => {
   const ox = -driftOf(vy, t, wind.E), oy = t * vy;
-  if (wind.G < 0.98 || !lean) fillSheet(c, sheetOf(0), 1, ox, oy, lean ? a * (1 - wind.G) : a);
-  if (wind.G > 0.02 && lean) fillSheet(c, sheetOf(3), 1, ox, oy, a * wind.G);
+  if (wind.G < 0.98 || !lean) fillSheet(c, sheetOf(0), 1, ox, oy, lean ? a * (1 - wind.G) : a, rect);
+  if (wind.G > 0.02 && lean) fillSheet(c, sheetOf(3), 1, ox, oy, a * wind.G, rect);
+};
+// the rain beyond the board (paintWeatherEdge): the far and mid sheets run on
+// seamlessly (the same patterns at the same offsets, in world units), and
+// near drops fall over the whole screen at the board's density (the board's
+// own canvas covers its middle)
+let RAIN_EDGE = null;           // { t, wind, rk, more } from the last storm frame
+const edgeRain = (c, R, box) => {
+  const { t, wind, rk, more } = R;
+  leanSheet(c, B.rainFar, 330, t, wind, Math.min(1, 1.1 * rk), false, box);
+  leanSheet(c, B.rainMid, 440, t, wind, Math.min(1, 0.95 * rk), true, box);
+  const li = Math.round(wind.G * 3), area = Math.max(0, (box[2] - box[0]) * (box[3] - box[1]) - W * H) / (W * H);
+  for (let v = 0; v < 3; v++) rainFall(c, Math.round(RAIN_N[v] * more * area), v, li, t, wind, 401 + v, box);
 };
 // near drops falling across the board, stateless (seeded by i)
-const rainFall = (ctx, n, v, li, t, wind, seed) => {
-  const s = B.rainDrop(v, li), w = s.cv.width / PX, h = s.cv.height / PX, PW = W + 60, PH = H + 60, vy = RAIN_VY[v];
+const rainFall = (ctx, n, v, li, t, wind, seed, box = null) => {
+  const s = B.rainDrop(v, li), w = s.cv.width / PX, h = s.cv.height / PX, vy = RAIN_VY[v];
+  const X0 = box ? box[0] - 30 : -30, Y0 = box ? box[1] - 30 : -30;
+  const PW = box ? box[2] - box[0] + 60 : W + 60, PH = box ? box[3] - box[1] + 60 : H + 60;
   for (let i = 0; i < n; i++) {
     const sp = 0.85 + 0.3 * B.h2(i, 3, seed), dy = vy * sp;
-    const x = ((B.h2(i, 1, seed) * PW - driftOf(dy, t, wind.E)) % PW + PW) % PW - 30;
-    const y = ((B.h2(i, 2, seed) * PH + dy * t) % PH + PH) % PH - 30 - h;
+    const x = ((B.h2(i, 1, seed) * PW - driftOf(dy, t, wind.E)) % PW + PW) % PW + X0;
+    const y = ((B.h2(i, 2, seed) * PH + dy * t) % PH + PH) % PH + Y0 - h;
     ctx.drawImage(s.cv, sn(x), sn(y), w, h);
   }
 };
@@ -820,6 +847,7 @@ const storm = (ctx, g, w) => {
   // the near rain, crisp at the art grid, in three depths; a gust leans it
   // over and thickens it
   const li = Math.round(wind.G * 3), more = (1 + 0.35 * wind.G) * rainOf(k) * RAIN_LOOK;
+  RAIN_EDGE = { t, wind, rk: rainOf(k) * RAIN_LOOK, more };
   rainFall(ctx, Math.round(RAIN_N[0] * more), 0, li, t, wind, 301);
   rainFall(ctx, Math.round(RAIN_N[1] * more), 1, li, t, wind, 302);
   rainFall(ctx, Math.round(RAIN_N[2] * more), 2, li, t, wind, 303);
@@ -1173,6 +1201,7 @@ export const drawWeatherGround = (ctx, g) => {
 // over everything (world space, inside the camera)
 export const drawWeather = (ctx, g) => {
   EDGE = null;
+  RAIN_EDGE = null;
   hallFires(ctx, g);
   hallShocks(ctx, g);
   dazed(ctx, g);

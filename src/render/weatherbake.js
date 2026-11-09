@@ -697,9 +697,12 @@ export const splash = (f, big = 0) => memo(`spl2|${f}|${big}`, () => {
 // a puddle on the road (wu units across, 4 shapes): soaked mud round it, the
 // far lip dark, dark water holding a band of the storm's sky and a glint,
 // the near rim catching the light
-export const puddle = (wu, v) => memo(`pud2|${wu}|${v}`, () => {
+// (mud: the brown run-off pool at a bridge's foot, owner 2026-11-09)
+const MUD = { halo: "#2a2219", deep: "#3a2c1c", mid: "#54402a", sky: "#7c6a50", glint: "#c8b894", lip: "#1e1810", rim: "#a28c68" };
+export const puddle = (wu, v, mud = false) => memo(`pud2|${wu}|${v}|${mud ? 1 : 0}`, () => {
   const rx = (wu / 2) * PX, ry = rx * 0.42, pad = 7, G = grid(rx * 2 + pad * 2, ry * 2 + pad * 2), cx = G.W / 2, cy = G.H / 2;
-  const halo = C("#262329"), deep = C("#1f283a"), mid = C("#2e3c58"), sky = C("#6a7ea2"), glint = C("#d0dcf0"), lip = C("#1a161c"), rim = C("#b4c4dc");
+  const P = mud ? MUD : { halo: "#262329", deep: "#1f283a", mid: "#2e3c58", sky: "#6a7ea2", glint: "#d0dcf0", lip: "#1a161c", rim: "#b4c4dc" };
+  const halo = C(P.halo), deep = C(P.deep), mid = C(P.mid), sky = C(P.sky), glint = C(P.glint), lip = C(P.lip), rim = C(P.rim);
   for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
     const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry, d = Math.hypot(dx, dy);
     const e = 0.8 + 0.3 * vnoise(x, y, Math.max(3, rx * 0.5), Math.max(2, ry * 0.7), 90 + v);
