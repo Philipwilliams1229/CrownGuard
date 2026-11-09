@@ -1640,9 +1640,10 @@ export default function Crownguard() {
           );
           const leave = (
             <>
-              <button className="cg-btn" disabled={!ui.canRestart}
-                onClick={() => { restartWave(G.current); closeMenu(); }}>
-                Restart Wave
+              {/* two taps, as the level's (owner, 2026-11-09): it throws the wave's fighting away */}
+              <button data-arm="restart-wave" className={cls("cg-btn", upArm.is("restart-wave") && "is-on")} disabled={!ui.canRestart}
+                onClick={() => upArm.tap("restart-wave", () => { restartWave(G.current); closeMenu(); })}>
+                {upArm.is("restart-wave") ? "Tap again to restart" : "Restart Wave"}
               </button>
               {/* the whole level from the first horn: two taps, since it throws the run away */}
               {(mode === "campaign" ? !!level : !!SANDBOX) && (
@@ -1877,10 +1878,17 @@ export default function Crownguard() {
                       </button>
                     )}
                     {!won && ui.canRestart && (
-                      <button className="cg-btn cg-btn--gold" style={big} onClick={() => restartWave(G.current)}>Retry Wave {ui.wave}</button>
+                      <button data-arm="retry-wave" className={cls("cg-btn cg-btn--gold", upArm.is("retry-wave") && "is-on")} style={big}
+                        onClick={() => upArm.tap("retry-wave", () => restartWave(G.current))}>
+                        {upArm.is("retry-wave") ? "Tap again to retry" : `Retry Wave ${ui.wave}`}
+                      </button>
                     )}
+                    {/* both take two taps (owner, 2026-11-09): a stray tap never throws the run away */}
                     {!won && campaign && (
-                      <button className="cg-btn" style={big} onClick={() => startLevel(level)}>Restart Level</button>
+                      <button data-arm="retry-level" className={cls("cg-btn", upArm.is("retry-level") && "is-on")} style={big}
+                        onClick={() => upArm.tap("retry-level", () => startLevel(level))}>
+                        {upArm.is("retry-level") ? "Tap again to restart" : "Restart Level"}
+                      </button>
                     )}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>

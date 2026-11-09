@@ -933,6 +933,16 @@ the generic tower fire; the Skyknight keeps its old path):
   marked foes anywhere were fair game). Talon Rain's text now says it
   dives three times as often; a Falconry's `shots` row reads "Dives".
 
+## Restarting takes two taps (2026-11-09, owner request)
+
+Every restart button now arms on the first tap and acts on the second (the
+game's `upArm`, `useArm` from ui/HeroTalents.jsx: 3 s, a press elsewhere
+disarms; the label reads "Tap again to restart" / "Tap again to retry"):
+the pause menu's Restart Wave (`restart-wave`; its Restart Level already
+did) and the defeat card's Retry Wave (`retry-wave`) and Restart Level
+(`retry-level`). Checked in headless Chromium: one tap armed Restart Wave and
+the wave ran on; the second put it back to its build phase.
+
 ## Warchief and boar riders (2026-10-03, owner requests)
 
 Provisional, pending the owner's playtest ("spawn rates are ok but I'll let you
