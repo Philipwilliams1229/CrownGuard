@@ -297,7 +297,12 @@ storm"): `RAIN_LOOK` 0.5 (drops, far/mid sheets, spray, gust curtain) and
 board) in render/weatherfx.js; the ground's soak (wet road, puddles, floods)
 is drawn in full. Standing water stays off bridges (owner, 2026-11-09):
 puddles are placed clear of a deck by their full size (`onDeck`), and
-`clipDecks` cuts puddles and floods out of every deck (weatherfx.js). `sim.mjs` prints `arcs` and `duds` beside the bolts. Measured `--chapter iron
+`clipDecks` cuts puddles and floods out of every deck (weatherfx.js). The wet
+road's film is clipped off the decks too, and each deck is darkened with a
+MULTIPLY tint instead (`wetDecks`, `DECK_WET` #a8b0c2), so its stones and arch
+shading show through (owner, 2026-11-09: "look bad around the bridges": the
+film flattened the decks); the swollen river's silt is `SILT_A` 0.3 (was
+0.62, a blotchy brown camouflage). `sim.mjs` prints `arcs` and `duds` beside the bolts. Measured `--chapter iron
 --endure`, seeds 1-2, better doctrine per level: 9033 / 9164 -> 8907 / 8821
 castle damage (noise; all 15 held, none stuck). The sim commander never builds
 a Powder Works, so the duds never show in it.

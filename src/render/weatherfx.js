@@ -365,17 +365,42 @@ const onDeck = (x, y, pad = 0) => BRIDGES.some((b) => {
 });
 // standing water (puddles, floods) is clipped off every bridge deck: whatever
 // lies beside a bridge stops at its end (owner, 2026-11-09)
-const clipDecks = (ctx) => {
-  if (!BRIDGES.length) return;
-  ctx.beginPath();
-  ctx.rect(-40, -40, W + 80, H + 80);
+// (pad: units past the deck's ends and sides; `inside` clips TO the decks
+// instead of out of them)
+const deckPath = (ctx, padL, padW) => {
   for (const b of BRIDGES) {
-    const c = Math.cos(b.a), s = Math.sin(b.a), hl = (b.d1 - b.d0) / 2 + 3, hw = BRIDGE_HALF + 3;
+    const c = Math.cos(b.a), s = Math.sin(b.a), hl = (b.d1 - b.d0) / 2 + padL, hw = BRIDGE_HALF + padW;
     const pt = (u, v) => [b.x + u * c - v * s, b.y + u * s + v * c];
     const q = [pt(-hl, -hw), pt(hl, -hw), pt(hl, hw), pt(-hl, hw)];
     ctx.moveTo(...q[0]); for (let i = 1; i < 4; i++) ctx.lineTo(...q[i]); ctx.closePath();
   }
+};
+const clipDecks = (ctx, padL = 3, padW = 3) => {
+  if (!BRIDGES.length) return;
+  ctx.beginPath();
+  ctx.rect(-40, -40, W + 80, H + 80);
+  deckPath(ctx, padL, padW);
   ctx.clip("evenodd");
+};
+// A bridge deck gets wet differently (owner, 2026-11-09: "rain effects look
+// bad around the bridges"): the road's film painted flat over a deck and
+// wiped out its arch's shading. So the film is clipped off the decks and each
+// deck is darkened by a MULTIPLY of the same weight instead, which keeps its
+// stones and its arch. DECK_WET: the colour it multiplies by at full soak.
+const DECK_WET = "#a8b0c2";
+// how strongly a swollen river's brown silt shows (was 0.62: a blotchy
+// camouflage over the water, worst beside the bridges)
+const SILT_A = 0.3;
+const wetDecks = (ctx, wet) => {
+  if (!BRIDGES.length || wet <= 0.02) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = step4(wet);
+  ctx.fillStyle = DECK_WET;
+  ctx.beginPath();
+  deckPath(ctx, 0, 0);
+  ctx.fill();
+  ctx.restore();
 };
 // how big a puddle is at this wetness (even units; 0 = not yet)
 const puddleW = (p, wet) => {
@@ -509,14 +534,18 @@ const stormGround = (ctx, g, w) => {
   // the soaked road: its stone darkens, then holds the storm's sky (and the flash)
   if (wet > 0.02) {
     const R = wetRoadArt();
+    ctx.save();
+    clipDecks(ctx, 0, 0);
     ctx.globalAlpha = step4(wet) * 0.42;
     putTiles(ctx, R.wet, R.rects);
     if (flash > 0) { ctx.globalAlpha = flash * 0.7 * wet; putTiles(ctx, R.sheen, R.rects); }
+    ctx.restore();
+    wetDecks(ctx, wet);
     // a swollen river runs brown and churns
     if (RIVERS.length && wet > 0.35) {
       const sw = clamp01((wet - 0.35) / 0.65);
       const S = siltArt();
-      ctx.globalAlpha = step4(sw) * 0.62;
+      ctx.globalAlpha = step4(sw) * SILT_A;
       putTiles(ctx, S.cv, S.rects);
       ctx.globalAlpha = 1;
       riverLines().forEach((L, ri) => {
