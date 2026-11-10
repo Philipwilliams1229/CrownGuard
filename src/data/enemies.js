@@ -269,7 +269,8 @@ export const ENEMIES = {
     // necromancer does, so his own dead stand between him and your line
     summonEvery: 5000, summonFirst: 0, summonAhead: true, summonType: "skeleton", summonCount: 25,
     standOff: 100, packRange: 110,
-    note: "A robed thing with a bell, warded against most magic, who walks in the thick of the dead and keeps well back from your soldiers. The first toll rings the moment he leaves the wood, then every five seconds: each pulls twenty-five more Risen up out of the road itself, in front of him, to meet your line — the flood has a source, and this is it. Reach past it and silence the bell.",
+    guard: 3,   // three shield pips (owner, 2026-11-10): steel must strip them before magic bites
+    note: "A robed thing with a bell, warded against most magic and behind three shields only steel can break, who walks in the thick of the dead and keeps well back from your soldiers. The first toll rings the moment he leaves the wood, then every five seconds: each pulls twenty-five more Risen up out of the road itself, in front of him, to meet your line — the flood has a source, and this is it. Reach past it and silence the bell.",
   },
   amalgam: {
     faction: "hollow", hp: 1050, speed: 36, bounty: 42, armor: 0.2, size: 23,

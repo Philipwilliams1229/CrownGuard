@@ -977,6 +977,9 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   through the column, so their bells ring on their own clocks); the roster
   keeps cap 1, which genWave lifts to 2 from ten waves past the script.
   `CROWD_WEIGHT.gravecaller` 0.1 -> 0 so the swell never makes three.
+  Then `guard` 3 (owner, same day): three blue pips, never refilled; each
+  physical blow takes one, magic and burns glance off until they are gone
+  (the Covert's blades slip under them).
 
 ## Restarting takes two taps (2026-11-09, owner request)
 
