@@ -246,13 +246,13 @@ export const ENEMIES = {
   },
   wraith: {
     // hp 95 -> 143, speed 78 -> 98, atkRate 900 -> 720 (owner, 2026-11-10: +50% / +25% / +25%);
-    // then (owner, same day: "too strong") hp 120 and atkRate back to 900
+    // then (owner, same day: "too strong") hp 120 and atkRate back to 900; then 800
     // guard 1 (owner, 2026-11-10: early magic halls took them before they
     // reached the line): a pip like any other, only a physical blow breaks
     // it (arrows and plain steel strip it though they can't hurt a wraith),
     // and magic does nothing until it is gone (dealDamage)
     faction: "hollow", hp: 120, speed: 98, bounty: 18, armor: 0, mres: 0.25, guard: 1, size: 17,
-    name: "Wraith", flying: true, minGap: 1500, firstWave: 5, standIn: "ghoul", holyOnly: true, raisesOnKill: true, haunts: true, swarms: 34, atk: 23, atkRate: 900, castleDmg: 2,
+    name: "Wraith", flying: true, minGap: 1500, firstWave: 5, standIn: "ghoul", holyOnly: true, raisesOnKill: true, haunts: true, swarms: 34, atk: 23, atkRate: 800, castleDmg: 2,
     note: "A drowned soul that drifts over the road and lays its cold hands on your knights. It comes behind a shield that only steel can break, and magic does nothing until it is gone; but arrows, bolts, stones and plain steel pass through the wraith itself: only magic hurts it — wizards, fire, and the Paladin's holy blows, the one kind of knight that can. They bunch up on a soldier, all clawing at once, and whoever they kill rises again as another wraith, so keep your ordinary knights back.",
   },
   // The Barrow Wight (owner, 2026-11-10): a heavy wraith out of the old
@@ -268,7 +268,8 @@ export const ENEMIES = {
     note: "A barrow-king's shade in a tarnished crown, behind three shields only steel can break. Arrows, stones and plain steel strip the shields but pass through the wight itself: only magic and the Paladin's holy blows hurt it, and nothing magic lands until the shields are gone. Its slow, heavy blows drink half of what they take, and a knight it kills rises as a wraith.",
   },
   ghast: {
-    faction: "hollow", hp: 175, speed: 84, bounty: 16, armor: 0, size: 18,
+    // mres 0.35 (owner, 2026-11-10)
+    faction: "hollow", hp: 175, speed: 84, bounty: 16, armor: 0, mres: 0.35, size: 18,
     name: "Plague Ghast", atk: 16, atkRate: 900, castleDmg: 2,
     deathBurst: { r: 55, dmg: 26, dps: 12, dur: 3500 },
     note: "Swollen with grave-rot, and sent ahead of the court at a shambling run to fall on your knights. Kill it at arm's length and it bursts — scalding every knight nearby and leaving a pool of filth that keeps eating at them. Kill it FAR from your line, or let the towers do it.",
