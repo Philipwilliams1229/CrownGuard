@@ -1003,6 +1003,25 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   physical blow takes one, magic and burns glance off until they are gone
   (the Covert's blades slip under them).
 
+## The Hollow opens on half a flood (2026-11-10, owner request)
+
+"Couldn't even get past the first wave ... Bellmarsh. We do need to drop
+flood count for earlier waves then let it ramp up as the level progressed."
+Bellmarsh's wave 1 was 26 Ghouls (115 hp, speed 138) and 44 Risen against
+550 gold: the level's `push` 1.5 applies unwarmed from wave 1. Now the
+Hollow faction has `openRamp: { from: 0.5, waves: 6 }` (factions.js; waves.js
+`openRamp`, after `push` in the campaign chain): its rank and file (crowd
+weight 0.9+, Risen and Ghouls) march at half their count on a level's wave 1,
++10% a wave, whole from wave 6. Each thinned head pays 1/k more, so a wave's
+purse stays the same and the halls still rise (`s.pay` above 1 now applies
+too, update.js spawn). Measured `--level ... --endure`, seeds 1/2, better
+doctrine, against the Log Roller build: wave 1 bleed Grave Road 67-69 ->
+24-26, Saltgrave 30-57 -> 1-25, Causeway 41-52 -> 5-20, Bellmarsh 32-55 ->
+3-22; level totals Grave Road 203 / 212 -> 148 / 158, Saltgrave 525 / 613 ->
+461 / 461, Causeway 467 / 487 -> 454 / 435, Bellmarsh 483 / 569 -> 482 / 564.
+(Without the purse kept, Bellmarsh's late waves bled ~2x: fewer kills, fewer
+halls.) Levers: `from`, `waves`.
+
 ## The Log Roller loses momentum (2026-11-10, owner request)
 
 "Log roller is so op for these guys" (the Hollow's floods: one log rolled

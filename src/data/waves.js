@@ -157,6 +157,26 @@ const push = (spec, k) => {
   return out;
 };
 
+// A faction may open each campaign level on a thinner flood (`openRamp`,
+// factions.js: { from, waves }): its rank-and-file heads (crowd weight 0.9+)
+// start at `from` of their count on a level's wave 1 and grow evenly to the
+// full count by wave `waves` (owner, 2026-11-10: the Hollow's first waves
+// overran the player before the halls were up). Applied after `push`.
+const openRamp = (spec, w) => {
+  const r = FACTION.openRamp;
+  if (!r || !WINDOW) return spec;
+  const k = Math.min(1, r.from + (1 - r.from) * (w - 1) / Math.max(1, r.waves - 1));
+  if (k >= 1) return spec;
+  // (fewer heads, the same purse: each pays 1/k, so the halls still rise)
+  const out = spec.map(([type, count, gap, pay = 1]) => {
+    if ((CROWD_WEIGHT[type] ?? 0) < 0.9) return [type, count, gap, pay];
+    const n = Math.max(1, Math.round(count * k));
+    return [type, n, gap, pay * (count / n)];
+  });
+  out.overlap = spec.overlap;
+  return out;
+};
+
 // ---- THE WALL ----
 // A wall (the siege ram, `roadBlock` in enemies.js): the first is out of the
 // wood first, with its escort (`escort` in enemies.js: levies and
@@ -233,7 +253,7 @@ export const waveSpec = (w) => {
   spec = spec.map((g) => (ENEMIES[g[0]]?.firstWave > w ? [ENEMIES[g[0]].standIn, g[1] * 2, ...g.slice(2)] : g));
   // every level opens on its own ground: the swell comes in over its first
   // few waves, so a fresh purse never meets a full-grown horde on wave one
-  spec = raisersLast(shapeCompany(push(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), WINDOW.push), a));
+  spec = raisersLast(shapeCompany(openRamp(push(swell(spec, absWaveF(w), Math.min(1, 0.35 + 0.13 * (w - 1))), WINDOW.push), w), a));
   spec = archersAmid(gatherMore(escortOf(partyOf(spec, a), a)));
   if (WINDOW.boss && w === WINDOW.count) spec = [...spec, [FACTION.endlessBoss, 1, 0, 1]];
   spec.overlap = overlap(a);

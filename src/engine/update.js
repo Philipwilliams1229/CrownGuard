@@ -1487,7 +1487,8 @@ export function updateGame(g, dt) {
       }
       const e = makeEnemy(s.type, s.mult);
       if (ENEMIES[s.type]?.single) justSpawned.add(s.type);
-      if (s.pay != null && s.pay < 1) e.bounty = Math.max(1, Math.round(e.bounty * s.pay));   // a crowd pays less a head
+      // a crowd pays less a head; a thinned opening (waves.js openRamp) more
+      if (s.pay != null && s.pay !== 1) e.bounty = Math.max(1, Math.round(e.bounty * s.pay));
       e.born = tms;                       // the renderer fades them out of the wood
       // a swimmer puts in at the bank nearest the gate and takes the river
       if (e.swims && RIVER_ROUTE) {

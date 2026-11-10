@@ -141,6 +141,9 @@ export const FACTIONS = {
     // the gravecaller walks amid the biggest column (waves.js gatherMore;
     // owner, 2026-11-10: "hides in the flood")
     gather: ["gravecaller"],
+    // each level opens on half the flood and grows to all of it by wave 6
+    // (waves.js openRamp; owner, 2026-11-10: Bellmarsh's first wave overran)
+    openRamp: { from: 0.5, waves: 6 },
     crowdScale: 0.85,   // 0.6 -> 0.85 (owner, 2026-11-10: "the flood of enemies chapter")
     name: "The Hollow Court",
     tag: "THE DEAD",
