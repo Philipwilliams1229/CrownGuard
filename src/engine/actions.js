@@ -439,7 +439,9 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
   // a knife in the gap that neither spends a pip nor is stopped by one.
   if (e.guard > 0 && !slips) {
     if (!tick) {
-      if (dtype === "phys") e.guard -= 1;
+      // (a wraith, `holyOnly`, takes no physical blow at all: the first blow
+      // that can touch it, magic or holy, breaks its pip instead)
+      if (dtype === "phys" || e.holyOnly) e.guard -= 1;
       e.guardFlash = g.time * 1000 + 300;
       sfx.play("tink");
     }

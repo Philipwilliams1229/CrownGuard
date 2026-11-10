@@ -965,6 +965,11 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   7906, all 15 held, none stuck (Iron ~8000-9000).
 - **Wraiths** (owner, 2026-11-10): hp 95 -> 143, speed 78 -> 98, a claw every
   720 ms (was 900; the owner gave no figure, so +25% like the speed).
+  Then `guard` 1 (owner, same day: "kept getting taken out by early magic
+  towers"). Physical blows pass through a wraith, so its pip is broken by
+  the first blow that can touch it, magic or holy (`dealDamage`: a
+  `holyOnly` foe loses a pip to any non-tick blow); burns do nothing while it
+  stands. Without that, a pip would have made it immune to wizards.
   With the flood, seeds 1/2: 8525 / 8332, all 15 held, none stuck (the Grave
   Road ~200, the Dead Weir ~1070, the Lichgate ~810).
 - **The Gravecaller hides in the flood** (owner, 2026-11-10): 25 Risen a toll

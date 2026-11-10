@@ -245,9 +245,12 @@ export const ENEMIES = {
   },
   wraith: {
     // hp 95 -> 143, speed 78 -> 98, atkRate 900 -> 720 (owner, 2026-11-10: +50% / +25% / +25%)
-    faction: "hollow", hp: 143, speed: 98, bounty: 18, armor: 0, mres: 0.25, size: 17,
+    // guard 1 (owner, 2026-11-10: early magic halls took them before they
+    // reached the line): physical blows pass through a wraith, so its pip is
+    // broken by the first blow that CAN touch it, magic or holy (dealDamage)
+    faction: "hollow", hp: 143, speed: 98, bounty: 18, armor: 0, mres: 0.25, guard: 1, size: 17,
     name: "Wraith", flying: true, minGap: 1500, firstWave: 5, standIn: "ghoul", holyOnly: true, raisesOnKill: true, haunts: true, swarms: 34, atk: 23, atkRate: 720, castleDmg: 2,
-    note: "A drowned soul that drifts over the road and lays its cold hands on your knights. Arrows, bolts, stones and plain steel all pass through it: only magic hurts it — wizards, fire, and the Paladin's holy blows, the one kind of knight that can. They bunch up on a soldier, all clawing at once, and whoever they kill rises again as another wraith, so keep your ordinary knights back.",
+    note: "A drowned soul that drifts over the road and lays its cold hands on your knights. Arrows, bolts, stones and plain steel all pass through it, and a shield swallows the first spell that finds it: only magic hurts it — wizards, fire, and the Paladin's holy blows, the one kind of knight that can. They bunch up on a soldier, all clawing at once, and whoever they kill rises again as another wraith, so keep your ordinary knights back.",
   },
   ghast: {
     faction: "hollow", hp: 175, speed: 84, bounty: 16, armor: 0, size: 18,
