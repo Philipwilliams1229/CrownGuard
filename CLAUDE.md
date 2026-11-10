@@ -959,7 +959,8 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   catapults and Paladins. Levers: `reassemble` / `reformMs`, the two hp
   figures, hl1's `window`.
 - **The flood** (owner, 2026-11-10: "this should be the flood of enemies
-  chapter"): Risen 60 -> 75, Ghoul 95 -> 115, the Hollow's `crowdScale` 0.6
+  chapter"): Risen 60 -> 75 (back to 60 the same day, owner: "too far with
+  the buffs on the skeletons"), Ghoul 95 -> 115, the Hollow's `crowdScale` 0.6
   -> 0.85 (factions.js; the crowd grows with the war-wave, so it adds most on
   the late levels). Measured without the wraith change, seeds 1/2: 8196 /
   7906, all 15 held, none stuck (Iron ~8000-9000).
@@ -978,8 +979,8 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   catapult and a Bladewheel take a wraith with a pip, none without.
   With the flood, seeds 1/2: 8525 / 8332, all 15 held, none stuck (the Grave
   Road ~200, the Dead Weir ~1070, the Lichgate ~810).
-- **The Gravecaller hides in the flood** (owner, 2026-11-10): 25 Risen a toll
-  (was 10), packed into ~80 of road ahead of him (update.js summon loop, so a
+- **The Gravecaller hides in the flood** (owner, 2026-11-10): 10 Risen a toll
+  (25 for a few hours: the chapter simmed ~36000, 15 ~18500), packed into ~80 of road ahead of him (update.js summon loop, so a
   caller standing off never raises them behind your line); he walks amid the
   wave's biggest column (`gather: ["gravecaller"]` on the Hollow faction,
   waves.js gatherMore) at its pace (`packRange` 110) and halts `standOff` 100
@@ -1286,7 +1287,7 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   the wraiths come), so wraith waves are what bleeds the Hollow in the sim;
   scripted counts were cut to 3-5 and CROWD_WEIGHT to 0.25 to keep it a check,
   not a wall. Pending the owner's playtest.
-- **Gravecaller**: twenty-five Risen a toll (ten until 2026-11-10). It is the Hollow's engine; the late
+- **Gravecaller**: ten Risen a toll (25 briefly on 2026-11-10: ~4x the bleed). It is the Hollow's engine; the late
   script keeps callers to 1-2 a wave and the roster cap at 1 for that reason.
 - **`window.push`** (levels-hollow.js, applied in waves.js `push`): multiplies
   the rank-and-file heads of an early level from wave 1, unwarmed, for a

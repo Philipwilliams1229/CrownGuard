@@ -222,9 +222,10 @@ export const ENEMIES = {
   // The dead of a drowned kingdom. They come in floods, they keep coming
   // while their callers stand, and killing some of them is its own mistake.
   skeleton: {
-    faction: "hollow", hp: 75, speed: 70, bounty: 5, armor: 0, mres: 0.4, size: 15,
+    faction: "hollow", hp: 60, speed: 70, bounty: 5, armor: 0, mres: 0.4, size: 15,
     name: "Risen", atk: 9, atkRate: 850, castleDmg: 1,
-    // hp 44 -> 60 -> 75, the ghoul 72 -> 95 -> 115 (owner, 2026-11-09/10: the fen was too easy)
+    // hp 44 -> 60 -> 75 -> 60, the ghoul 72 -> 95 -> 115 (owner, 2026-11-09/10: the fen
+    // was too easy; then "we went too far with the buffs on the skeletons")
     // bones that get back up (owner, 2026-11-09): felled by a PHYSICAL blow it
     // falls apart and pulls itself together `reformMs` later at `reassemble` of
     // its health, once (update.js death loop); magic, fire or holy blows put it
@@ -267,14 +268,14 @@ export const ENEMIES = {
   gravecaller: {
     faction: "hollow", hp: 380, speed: 55, bounty: 34, armor: 0, mres: 0.65, size: 18,
     name: "Gravecaller", atk: 10, atkRate: 1000, castleDmg: 2,
-    // (owner, 2026-11-10) 25 a toll (was 10), and he hides in the flood: he
+    // (owner, 2026-11-10) he hides in the flood: he
     // walks amid the wave's biggest column (factions.js `gather`) at its pace
     // (`packRange`) and halts `standOff` 100 from your soldiers, as the
     // necromancer does, so his own dead stand between him and your line
-    summonEvery: 5000, summonFirst: 0, summonAhead: true, summonType: "skeleton", summonCount: 25,
+    summonEvery: 5000, summonFirst: 0, summonAhead: true, summonType: "skeleton", summonCount: 10,
     standOff: 100, packRange: 110,
     guard: 3,   // three shield pips (owner, 2026-11-10): steel must strip them before magic bites
-    note: "A robed thing with a bell, warded against most magic and behind three shields only steel can break, who walks in the thick of the dead and keeps well back from your soldiers. The first toll rings the moment he leaves the wood, then every five seconds: each pulls twenty-five more Risen up out of the road itself, in front of him, to meet your line — the flood has a source, and this is it. Reach past it and silence the bell.",
+    note: "A robed thing with a bell, warded against most magic and behind three shields only steel can break, who walks in the thick of the dead and keeps well back from your soldiers. The first toll rings the moment he leaves the wood, then every five seconds: each pulls ten more Risen up out of the road itself, in front of him, to meet your line — the flood has a source, and this is it. Reach past it and silence the bell.",
   },
   amalgam: {
     faction: "hollow", hp: 1050, speed: 36, bounty: 42, armor: 0.2, size: 23,
