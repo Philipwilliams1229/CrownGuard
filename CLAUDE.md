@@ -969,7 +969,13 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   towers"). A pip like every other (owner): only a physical blow breaks
   it, magic and burns do nothing while it stands. `dealDamage` checks the
   shield BEFORE the wraith's "physical passes through" rule, so arrows and
-  plain steel strip a wraith's pip though they can't hurt it after.
+  plain steel strip a wraith's pip though they can't hurt it after. And the
+  ground-only halls' PHYSICAL blows reach a wraith while it has a pip
+  (`lowShield(e)`, engine/towers.js: `haunts` and `guard` > 0): the
+  catapult and Bladewheel aim at it (pickTarget), stones' splash and spikes
+  strike it, Powder Works shards too (fragVictim); once its pips are gone they
+  ignore it again. Traps still never touch a flier. Checked headless: a
+  catapult and a Bladewheel take a wraith with a pip, none without.
   With the flood, seeds 1/2: 8525 / 8332, all 15 held, none stuck (the Grave
   Road ~200, the Dead Weir ~1070, the Lichgate ~810).
 - **The Gravecaller hides in the flood** (owner, 2026-11-10): 25 Risen a toll

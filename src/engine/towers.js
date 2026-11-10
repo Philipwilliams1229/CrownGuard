@@ -228,6 +228,11 @@ export const forcedAim = (st) => (st.targeting === "strongest" ? "strong" : null
 // the dead down before they stood).
 // (a sea serpent under the water counts the same: nothing sees it but the
 // River Watch's boats, whose loop asks for it by name — engine/serpent.js)
+// A wraith (or wight) still behind a blue pip drifts low enough for the
+// ground-only halls' physical blows to strike the shield: stones and their
+// splash, Bladewheel spikes, Powder Works shards (owner, 2026-11-10). Once its
+// pips are gone they pass through it again, so those halls stop aiming at it.
+export const lowShield = (e) => !!(e.haunts && e.guard > 0);
 export const isRising = (e, tms) => (e.riseAt !== undefined && tms - e.riseAt < e.riseMs) || !!e.submerged;
 
 // How many foes a splash of radius r centred on `e` would also catch.
@@ -245,7 +250,7 @@ export const pickTarget = (g, t, st) => {
   let best = null, bestScore = -Infinity, doomed = null, doomedScore = -Infinity;
   const now = g.time * 1000;
   for (const e of g.enemies) {
-    if (e.dead || isRising(e, now) || (st.groundOnly && e.flying && !(st.scorchHaunts && e.haunts) && !(WX.fliersLow && WX.groundHitsLow))) continue;
+    if (e.dead || isRising(e, now) || (st.groundOnly && e.flying && !(st.scorchHaunts && e.haunts) && !(st.dtype === "phys" && lowShield(e)) && !(WX.fliersLow && WX.groundHitsLow))) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y);
     if (d > st.range || d < min || !canSee(t, e)) continue;   // (canSee: fog and grave mist, weather.js)
     // shots already in the air will finish it: look past it, so a crowd

@@ -14,7 +14,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { victoryWave, waveBonus } from "../data/waves.js";
 import { PTS, posAt, angleAt, lanePos, nearestOnPath, TOTAL_LEN } from "./path.js";
 import { nextId } from "./ids.js";
-import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising, coverMuster, COVER_CHASE, powderCrew } from "./towers.js";
+import { getStats, syncUnits, unitSlots, pickTarget, isPrey, pickPrey, orderFilter, archerLayout, isRising, coverMuster, COVER_CHASE, powderCrew, lowShield } from "./towers.js";
 import { dealDamage, releaseEnemy, startWave, pondAt, fieldHero } from "./actions.js";
 import { sfx } from "../audio/sfx.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
@@ -427,7 +427,7 @@ const fragVictim = (g, p, step) => {
   const ux = Math.cos(p.angle), uy = Math.sin(p.angle);
   let best = null, bestAlong = Infinity;
   for (const e of g.enemies) {
-    if (e.dead || e.flying || p.hitIds.includes(e.id)) continue;
+    if (e.dead || (e.flying && !lowShield(e)) || p.hitIds.includes(e.id)) continue;
     const r = (e.size || 14) * 0.5 + 2;
     const ex = e.x - p.x, ey = e.y - p.y;
     const along = ex * ux + ey * uy;
@@ -2925,7 +2925,7 @@ export function updateGame(g, dt) {
           }
         } else {
           for (const e of g.enemies) {
-            if (e.dead || p.hitIds.includes(e.id) || (p.ground && e.flying)) continue;
+            if (e.dead || p.hitIds.includes(e.id) || (p.ground && e.flying && !(p.dtype === "phys" && lowShield(e)))) continue;
             if (Math.hypot(e.x - p.x, e.y - p.y) <= (e.size || 14) * 0.7 + 3) { pierceStrike(g, p, e, tms); if (p.done) break; }
           }
         }
@@ -2957,7 +2957,7 @@ export function updateGame(g, dt) {
           const cap = p.splashCap || SPLASH_CAP;
           const hit = [];
           for (const e of g.enemies) {
-            if (e.dead || (p.ground && e.flying)) continue;
+            if (e.dead || (p.ground && e.flying && !(p.dtype === "phys" && lowShield(e)))) continue;
             const dd = Math.hypot(e.x - p.tx, e.y - p.ty);
             if (dd <= p.splash) hit.push([dd, e]);
           }
