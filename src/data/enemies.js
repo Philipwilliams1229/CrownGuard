@@ -292,7 +292,9 @@ export const ENEMIES = {
     note: "A robed thing with a bell, warded against most magic and behind three shields only steel can break, who walks in the thick of the dead and keeps well back from your soldiers. The first toll rings the moment he leaves the wood, then every five seconds: each pulls ten more Risen up out of the road itself, in front of him, to meet your line — the flood has a source, and this is it. Reach past it and silence the bell.",
   },
   amalgam: {
-    faction: "hollow", hp: 1050, speed: 36, bounty: 42, armor: 0.2, size: 23,
+    // armor 0.2 -> 0, mres 0.2 (owner, 2026-11-10: the ghast's way, it shrugs
+    // off magic rather than steel)
+    faction: "hollow", hp: 1050, speed: 36, bounty: 42, armor: 0, mres: 0.2, size: 23,
     name: "Grave Amalgam", atk: 30, atkRate: 1100, castleDmg: 3,
     splitInto: ["ghoul", 3],
     note: "Many dead things stitched into one slow tide of a body. Cutting it down is half the work: it comes apart into three ghouls at a sprint.",

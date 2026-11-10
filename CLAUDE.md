@@ -972,7 +972,8 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   With the Barrow Wight, seeds 1/2: 8922 / 9127 -> 7993 / 8743, all 15 held
   (the Dead Weir ~1120 -> ~920, the Throne ~830 -> ~640). Then (owner, same
   day: "feels pretty good") the claw to 800 ms, and the Plague Ghast got
-  `mres` 0.35 (it had none).
+  `mres` 0.35 (it had none), and the Grave Amalgam the same way: armor 0.2 ->
+  0, `mres` 0.2.
   Then `guard` 1 (owner, same day: "kept getting taken out by early magic
   towers"). A pip like every other (owner): only a physical blow breaks
   it, magic and burns do nothing while it stands. `dealDamage` checks the
