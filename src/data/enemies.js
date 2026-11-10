@@ -222,9 +222,9 @@ export const ENEMIES = {
   // The dead of a drowned kingdom. They come in floods, they keep coming
   // while their callers stand, and killing some of them is its own mistake.
   skeleton: {
-    faction: "hollow", hp: 60, speed: 70, bounty: 5, armor: 0, mres: 0.4, size: 15,
+    faction: "hollow", hp: 75, speed: 70, bounty: 5, armor: 0, mres: 0.4, size: 15,
     name: "Risen", atk: 9, atkRate: 850, castleDmg: 1,
-    // hp 44 -> 60, the ghoul 72 -> 95 (owner, 2026-11-09: the fen was too easy)
+    // hp 44 -> 60 -> 75, the ghoul 72 -> 95 -> 115 (owner, 2026-11-09/10: the fen was too easy)
     // bones that get back up (owner, 2026-11-09): felled by a PHYSICAL blow it
     // falls apart and pulls itself together `reformMs` later at `reassemble` of
     // its health, once (update.js death loop); magic, fire or holy blows put it
@@ -233,7 +233,7 @@ export const ENEMIES = {
     note: "A dead soldier walking under someone else's orders. Arrows, stones and steel only knock it apart: the bones pull themselves together and it gets back up, once. Fire, magic and holy blows put it down for good, though half the fire and lightning thrown at it goes through the bones. Worth almost nothing — and arrives in floods that do not end.",
   },
   ghoul: {
-    faction: "hollow", hp: 95, speed: 138, bounty: 8, armor: 0, size: 16,
+    faction: "hollow", hp: 115, speed: 138, bounty: 8, armor: 0, size: 16,
     name: "Ghoul", atk: 14, atkRate: 700, castleDmg: 1,
     note: "It remembers being hungry, and nothing else. Comes on all fours, fast as a wolf, and does not tire.",
   },

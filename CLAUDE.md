@@ -958,6 +958,11 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   moved the Grave Road only 7 -> ~15: the sim's halls are mostly wizards,
   catapults and Paladins. Levers: `reassemble` / `reformMs`, the two hp
   figures, hl1's `window`.
+- **The flood** (owner, 2026-11-10: "this should be the flood of enemies
+  chapter"): Risen 60 -> 75, Ghoul 95 -> 115, the Hollow's `crowdScale` 0.6
+  -> 0.85 (factions.js; the crowd grows with the war-wave, so it adds most on
+  the late levels). Measured without the wraith change, seeds 1/2: 8196 /
+  7906, all 15 held, none stuck (Iron ~8000-9000).
 - **Wraiths** (owner, 2026-11-10): hp 95 -> 143, speed 78 -> 98, a claw every
   720 ms (was 900; the owner gave no figure, so +25% like the speed).
 

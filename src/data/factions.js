@@ -138,7 +138,7 @@ export const FACTIONS = {
     // levels at the very edge of falling on most seeds). The September 29
     // "zombie horde" bump lives in the script's bigger chaff groups and in
     // the early levels' `push` (levels-hollow.js), not in this swell.
-    crowdScale: 0.6,
+    crowdScale: 0.85,   // 0.6 -> 0.85 (owner, 2026-11-10: "the flood of enemies chapter")
     name: "The Hollow Court",
     tag: "THE DEAD",
     tagColor: "#b08ad8",
