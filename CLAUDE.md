@@ -1020,7 +1020,9 @@ doctrine, against the Log Roller build: wave 1 bleed Grave Road 67-69 ->
 3-22; level totals Grave Road 203 / 212 -> 148 / 158, Saltgrave 525 / 613 ->
 461 / 461, Causeway 467 / 487 -> 454 / 435, Bellmarsh 483 / 569 -> 482 / 564.
 (Without the purse kept, Bellmarsh's late waves bled ~2x: fewer kills, fewer
-halls.) Levers: `from`, `waves`.
+halls.) Levers: `from`, `waves`. Whole chapter, seeds 1/2: 8626 / 9120 ->
+8033 / 7859 (all 15 held, none stuck; per level within noise, the Dead Weir
+905 / 912 -> 1145 / 755).
 
 ## The Log Roller loses momentum (2026-11-10, owner request)
 
