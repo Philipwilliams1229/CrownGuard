@@ -958,6 +958,8 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   moved the Grave Road only 7 -> ~15: the sim's halls are mostly wizards,
   catapults and Paladins. Levers: `reassemble` / `reformMs`, the two hp
   figures, hl1's `window`.
+- **Wraiths** (owner, 2026-11-10): hp 95 -> 143, speed 78 -> 98, a claw every
+  720 ms (was 900; the owner gave no figure, so +25% like the speed).
 
 ## Restarting takes two taps (2026-11-09, owner request)
 
