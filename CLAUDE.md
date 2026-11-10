@@ -966,6 +966,9 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   7906, all 15 held, none stuck (Iron ~8000-9000).
 - **Wraiths** (owner, 2026-11-10): hp 95 -> 143, speed 78 -> 98, a claw every
   720 ms (was 900; the owner gave no figure, so +25% like the speed).
+  Then (owner, same day: "the wraiths are too strong") hp 143 -> 120 and the
+  claw back to 900 ms; speed 98 and the pip kept. Next levers if still too
+  much: only half their kills rise, or `BROOD_CAP` 24 -> 12 (update.js).
   Then `guard` 1 (owner, same day: "kept getting taken out by early magic
   towers"). A pip like every other (owner): only a physical blow breaks
   it, magic and burns do nothing while it stands. `dealDamage` checks the
