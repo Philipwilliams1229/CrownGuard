@@ -1012,7 +1012,9 @@ waves past the script), `CROWD_WEIGHT` 0; `firstWave` 8 with two ghasts
 standing in. First seen late on the Sunken Causeway; 3-7 a level after.
 Figure: the wraith's painter (`hbWraith`) at h 34, darker, cold blue eyes,
 bronze weed and a tarnished circlet (`p.crown`, rigs-hollowbeasts.js).
-Field Guide rows "Life drain" and "Its kills".
+Field Guide rows "Life drain" and "Its kills". Measured `--chapter hollow
+--endure`, seeds 1/2, better doctrine: 8588 / 8751 -> 8922 / 9127 (+4%; the
+Barrowdowns ~420 -> ~645, the Reedmaze ~620 -> ~890), all 15 held, none stuck.
 
 ## Restarting takes two taps (2026-11-09, owner request)
 
