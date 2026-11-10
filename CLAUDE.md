@@ -1017,7 +1017,11 @@ The card shows "Momentum -3% a foe" (towerText.js `logDrag`). Checked with a
 counter on a scratch copy (Wightwood seed 1): 19 logs stalled, all at 25
 bodies. The sim's commander aims logs ACROSS the road (3 bodies a log on
 average, 22 at most), so the sims barely see this; the owner rolls them down
-it.
+it. Chapter sim `--chapter hollow --endure --ledger`, seeds 1/2, better
+doctrine, against the build before it (wraith 800 ms, ghast and amalgam
+mres): 8457 / 9067 -> 8626 / 9120 castle damage (all 15 held, none stuck);
+the Log Rollers' damage fell ~28% (1526k / 1612k -> 1089k / 1176k over ~35
+halls a chapter) even with the sim's short rolls.
 
 ## The Barrow Wight (2026-11-10, owner request)
 
