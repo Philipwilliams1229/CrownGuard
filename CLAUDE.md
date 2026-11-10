@@ -965,6 +965,18 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   7906, all 15 held, none stuck (Iron ~8000-9000).
 - **Wraiths** (owner, 2026-11-10): hp 95 -> 143, speed 78 -> 98, a claw every
   720 ms (was 900; the owner gave no figure, so +25% like the speed).
+  With the flood, seeds 1/2: 8525 / 8332, all 15 held, none stuck (the Grave
+  Road ~200, the Dead Weir ~1070, the Lichgate ~810).
+- **The Gravecaller hides in the flood** (owner, 2026-11-10): 25 Risen a toll
+  (was 10), packed into ~80 of road ahead of him (update.js summon loop, so a
+  caller standing off never raises them behind your line); he walks amid the
+  wave's biggest column (`gather: ["gravecaller"]` on the Hollow faction,
+  waves.js gatherMore) at its pace (`packRange` 110) and halts `standOff` 100
+  from your soldiers (the necromancer's code and 30 s budget). Two on the
+  script's war-waves 15 and 17 (they come out a quarter and three quarters
+  through the column, so their bells ring on their own clocks); the roster
+  keeps cap 1, which genWave lifts to 2 from ten waves past the script.
+  `CROWD_WEIGHT.gravecaller` 0.1 -> 0 so the swell never makes three.
 
 ## Restarting takes two taps (2026-11-09, owner request)
 
@@ -1260,7 +1272,7 @@ Some foes never walk alone, and these are engine rules, not just numbers:
   the wraiths come), so wraith waves are what bleeds the Hollow in the sim;
   scripted counts were cut to 3-5 and CROWD_WEIGHT to 0.25 to keep it a check,
   not a wall. Pending the owner's playtest.
-- **Gravecaller**: ten Risen a toll. It is the Hollow's engine; the late
+- **Gravecaller**: twenty-five Risen a toll (ten until 2026-11-10). It is the Hollow's engine; the late
   script keeps callers to 1-2 a wave and the roster cap at 1 for that reason.
 - **`window.push`** (levels-hollow.js, applied in waves.js `push`): multiplies
   the rank-and-file heads of an early level from wave 1, unwarmed, for a

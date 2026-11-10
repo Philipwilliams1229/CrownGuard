@@ -263,8 +263,13 @@ export const ENEMIES = {
   gravecaller: {
     faction: "hollow", hp: 380, speed: 55, bounty: 34, armor: 0, mres: 0.65, size: 18,
     name: "Gravecaller", atk: 10, atkRate: 1000, castleDmg: 2,
-    summonEvery: 5000, summonFirst: 0, summonAhead: true, summonType: "skeleton", summonCount: 10,
-    note: "A robed thing with a bell, warded against most magic. The first toll rings the moment he leaves the wood, then every five seconds: each pulls ten more Risen up out of the road itself, in front of him, to meet your line — the flood has a source, and this is it. Silence the bell.",
+    // (owner, 2026-11-10) 25 a toll (was 10), and he hides in the flood: he
+    // walks amid the wave's biggest column (factions.js `gather`) at its pace
+    // (`packRange`) and halts `standOff` 100 from your soldiers, as the
+    // necromancer does, so his own dead stand between him and your line
+    summonEvery: 5000, summonFirst: 0, summonAhead: true, summonType: "skeleton", summonCount: 25,
+    standOff: 100, packRange: 110,
+    note: "A robed thing with a bell, warded against most magic, who walks in the thick of the dead and keeps well back from your soldiers. The first toll rings the moment he leaves the wood, then every five seconds: each pulls twenty-five more Risen up out of the road itself, in front of him, to meet your line — the flood has a source, and this is it. Reach past it and silence the bell.",
   },
   amalgam: {
     faction: "hollow", hp: 1050, speed: 36, bounty: 42, armor: 0.2, size: 23,

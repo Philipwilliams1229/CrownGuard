@@ -1857,8 +1857,11 @@ export function updateGame(g, dt) {
             g.effects.push({ type: "toll", x: e.x, y: e.y - 12, ttl: 550, r: 52 });
             sfx.play("horn");
           } else {
+          // (a toll ahead packs its dead into ~80 of road, so a caller standing
+          // off 100 from your line never raises them behind it)
+          const step = e.summonAhead ? Math.min(7, 64 / Math.max(1, e.summonCount - 1)) : 7;
           for (let i = 0; i < e.summonCount; i++) {
-            const u = spawnAt(g, e.summonType, e.mult * 0.8, e.summonAhead ? Math.min(TOTAL_LEN - 6, e.dist + 16 + i * 7) : e.dist - 14 - i * 7, tms);
+            const u = spawnAt(g, e.summonType, e.mult * 0.8, e.summonAhead ? Math.min(TOTAL_LEN - 6, e.dist + 16 + i * step) : e.dist - 14 - i * 7, tms);
             u.bounty = Math.max(1, Math.ceil(u.bounty / 2)); // conjured chaff pays half
             g.effects.push({ type: "raise", x: u.x, y: u.y, ttl: 600, life: 600 });
           }

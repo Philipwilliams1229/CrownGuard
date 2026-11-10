@@ -138,6 +138,9 @@ export const FACTIONS = {
     // levels at the very edge of falling on most seeds). The September 29
     // "zombie horde" bump lives in the script's bigger chaff groups and in
     // the early levels' `push` (levels-hollow.js), not in this swell.
+    // the gravecaller walks amid the biggest column (waves.js gatherMore;
+    // owner, 2026-11-10: "hides in the flood")
+    gather: ["gravecaller"],
     crowdScale: 0.85,   // 0.6 -> 0.85 (owner, 2026-11-10: "the flood of enemies chapter")
     name: "The Hollow Court",
     tag: "THE DEAD",
@@ -163,9 +166,9 @@ export const FACTIONS = {
       // III. the court in session
       [["crypt", 3, 2200], ["ghast", 5, 1400], ["bonearcher", 8, 700], ["skeleton", 30, 260]],
       [["wraith", 5, 800], ["gravecaller", 1, 0], ["skeleton", 30, 280]],
-      [["amalgam", 3, 2600], ["crypt", 3, 2200], ["gravecaller", 1, 0], ["skeleton", 24, 280]],
+      [["amalgam", 3, 2600], ["crypt", 3, 2200], ["gravecaller", 2, 0], ["skeleton", 24, 280]],
       [["skeleton", 60, 170], ["ghoul", 20, 300], ["bonearcher", 10, 600]],
-      [["ghast", 6, 1200], ["amalgam", 3, 2400], ["wraith", 3, 900], ["gravecaller", 1, 0], ["skeleton", 24, 280]],
+      [["ghast", 6, 1200], ["amalgam", 3, 2400], ["wraith", 3, 900], ["gravecaller", 2, 0], ["skeleton", 24, 280]],
       [["skeleton", 30, 260], ["crypt", 3, 2000], ["gravecaller", 1, 0], ["amalgam", 2, 2800], ["hollowking", 1, 0]],
     ],
     roster: [
@@ -175,7 +178,7 @@ export const FACTIONS = {
       { type: "wraith", cost: 5, gap: 900 },
       { type: "ghast", cost: 4, gap: 1400 },
       { type: "crypt", cost: 8, gap: 2200 },
-      { type: "gravecaller", cost: 14, gap: 5200, cap: 1 },
+      { type: "gravecaller", cost: 14, gap: 5200, cap: 1 },   // (+1 from 10 waves past the script: two on the deepest)
       { type: "amalgam", cost: 13, gap: 2600, cap: 2 },
     ],
   },
