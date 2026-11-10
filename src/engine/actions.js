@@ -423,11 +423,6 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
   if (e.riseAt !== undefined && g.time * 1000 - e.riseAt < e.riseMs) return;
   // a sea serpent under the water: only a River Watch's boats can reach it (engine/serpent.js)
   if (e.submerged && g._towerById?.get(srcId)?.kind !== "riverwatch") return;
-  // a wraith is smoke to everything PHYSICAL: arrows, stones, plain steel and
-  // traps pass through. Magic works (less its mres) — wizards, fire, poison and
-  // the Paladin tree's holy blows (`holy` = the caller is one) alike; among the
-  // knights only the Paladin tree can touch it
-  if (e.holyOnly && !holy && dtype !== "magic") return;
   // Raised shields and chaplain / magister wards (the blue pips) answer only
   // to steel (owner, 2026-09-28): each PHYSICAL blow takes one pip and is
   // swallowed WHOLE, however big it was, so a boulder wasted costs more than
@@ -439,14 +434,20 @@ export const dealDamage = (g, e, amount, dtype, pierce, tick, srcId, holy = fals
   // a knife in the gap that neither spends a pip nor is stopped by one.
   if (e.guard > 0 && !slips) {
     if (!tick) {
-      // (a wraith, `holyOnly`, takes no physical blow at all: the first blow
-      // that can touch it, magic or holy, breaks its pip instead)
-      if (dtype === "phys" || e.holyOnly) e.guard -= 1;
+      if (dtype === "phys") e.guard -= 1;
       e.guardFlash = g.time * 1000 + 300;
       sfx.play("tink");
     }
     return;
   }
+  // a wraith is smoke to everything PHYSICAL: arrows, stones, plain steel and
+  // traps pass through. Magic works (less its mres) — wizards, fire, poison and
+  // the Paladin tree's holy blows (`holy` = the caller is one) alike; among the
+  // knights only the Paladin tree can touch it
+  // (after the shield, so a wraith's pips break like anyone's: steel, arrows
+  // and stones strip them, though once they are gone they pass through it;
+  // owner, 2026-11-10)
+  if (e.holyOnly && !holy && dtype !== "magic") return;
   const tmsD = g.time * 1000;
   // a falconer's mark: everything hits the marked harder
   if (e.markUntil > tmsD) dmg *= 1 + (e.markAmp || 0);

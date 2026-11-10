@@ -258,7 +258,7 @@ function EnemyDetail({ type }) {
         <Row label="Armor">{e.armor > 0 ? `${Math.round(e.armor * 100)}% physical` : "none"}</Row>
         {e.mres > 0 ? <Row label="Magic resist">{Math.round(e.mres * 100)}%</Row> : e.mres < 0 ? <Row label="Weak to magic">+{Math.round(-e.mres * 100)}%</Row> : null}
         {e.trapBane ? <Row label="Weak to traps">through armor, +{Math.round((e.trapBane - 1) * 100)}%</Row> : null}
-        {e.guard ? <Row label="Shield">{e.holyOnly ? <>swallows the first {e.guard > 1 ? `${e.guard} spells or holy blows` : "spell or holy blow"} that finds it</> : <>swallows {e.guard} physical blow{e.guard > 1 ? "s" : ""}; magic and fire can't pass it</>}</Row> : null}
+        {e.guard ? <Row label="Shield">swallows {e.guard} physical blow{e.guard > 1 ? "s" : ""}; magic and fire can't pass it</Row> : null}
         {e.regen ? <Row label="Regeneration">{e.regen}/s</Row> : null}
         {e.immSlow || e.immStun ? (
           <Row label="Immune to">{[e.immSlow && "slows", e.immStun && "stuns"].filter(Boolean).join(" & ")}</Row>
