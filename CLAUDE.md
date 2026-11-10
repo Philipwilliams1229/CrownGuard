@@ -1003,6 +1003,22 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   physical blow takes one, magic and burns glance off until they are gone
   (the Covert's blades slip under them).
 
+## The Log Roller loses momentum (2026-11-10, owner request)
+
+"Log roller is so op for these guys" (the Hollow's floods: one log rolled
+down a straight causeway took the whole column). Provisional ("we'll see how
+that feels"). update.js rolling logs: every body a log crushes costs it
+`logDrag` of its momentum (towers.js: Log Roller 0.03, Iron Drum 0.015,
+Powder Keg Run 0.05), its speed falls with it, and at `LOG_STALL` 0.25 it
+stops and breaks apart (25 / 50 / 15 bodies); the Powder Keg goes up right
+there (`logBlast`), or as before when it leaves the field. Its blows no
+longer pierce armor, and the falloff's floor `LOG_FLOOR` is 0.2 (was 0.4).
+The card shows "Momentum -3% a foe" (towerText.js `logDrag`). Checked with a
+counter on a scratch copy (Wightwood seed 1): 19 logs stalled, all at 25
+bodies. The sim's commander aims logs ACROSS the road (3 bodies a log on
+average, 22 at most), so the sims barely see this; the owner rolls them down
+it.
+
 ## The Barrow Wight (2026-11-10, owner request)
 
 A heavy wraith, `wight` in enemies.js (Hollow). Provisional, pending the

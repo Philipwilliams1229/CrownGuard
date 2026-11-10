@@ -92,6 +92,7 @@ const DELTAS = [
   ["poolDps", "Fire pool", (v) => `${Math.round(v)}/s`],
   ["igniteBurn", "Ignite", (v) => `${Math.round(v)}/s`],
   ["logDmg", "Log", (v) => Math.round(v)],
+  ["logDrag", "Momentum", (v) => `-${+(v * 100).toFixed(1)}% a foe`, true],
   ["logBurn", "Log burn", (v) => `${Math.round(v)}/s`],
   ["logBlastDmg", "Log blast", (v) => Math.round(v)],
   ["logStun", "Log stun", sec],

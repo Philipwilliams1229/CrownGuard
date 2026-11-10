@@ -334,7 +334,21 @@ const dissolveCorpses = (g, tms) => {
 };
 
 // A rolling log loses weight to every foe it crushes (update.js, logs).
-const LOG_FALLOFF = 0.9, LOG_FLOOR = 0.4;
+// a log's blow falls 10% a body it rolls over, never under LOG_FLOOR of its
+// weight (0.4 until 2026-11-10); each body also costs it `logDrag` of its
+// momentum (towers.js), and at LOG_STALL it stops and breaks apart (owner,
+// 2026-11-10: "Log roller is so op" against the Hollow's floods)
+const LOG_FALLOFF = 0.9, LOG_FLOOR = 0.2, LOG_STALL = 0.25;
+// the Powder Keg Run's log goes up where it stops, or as it leaves the field
+const logBlast = (g, lg, bx, by) => {
+  g.effects.push({ type: "boom", x: bx, y: by, ttl: 420, r: lg.blast });
+  g.shake = Math.max(g.shake, 6);
+  sfx.play("boom");
+  for (const e of g.enemies) {
+    if (e.dead || Math.hypot(e.x - bx, e.y - by) > lg.blast) continue;
+    dealDamage(g, e, lg.blastDmg, "phys", false, false, lg.src);
+  }
+};
 
 // How many bodies one blast can take (a tower may carry its own splashCap).
 const SPLASH_CAP = 16;
@@ -2661,7 +2675,8 @@ export function updateGame(g, dt) {
         if (!g.logs) g.logs = [];
         g.logs.push({
           id: nextId(), src: t.id, x: t.x, y: t.y, a: bearing, via: null, bearing,
-          speed: st.logSpeed || 118, dmg: st.logDmg || 120, w: st.logWidth || 22,
+          speed: st.logSpeed || 118, speed0: st.logSpeed || 118, mom: 1, drag: st.logDrag ?? 0.03,
+          dmg: st.logDmg || 120, w: st.logWidth || 22,
           stun: st.logStun || 0, slow: st.logSlow || 0, slowDur: st.logSlowDur || 0,
           burn: st.logBurn || 0, burnDur: st.logBurnDur || 0,
           blast: st.logBlast || 0, blastDmg: st.logBlastDmg || 0,
@@ -2884,27 +2899,32 @@ export function updateGame(g, dt) {
           lg.hitIds.push(e.id);
           // every body it rolls over takes some of its weight: 10% less for
           // the next, never under 40% — the head of a column takes the worst
-          dealDamage(g, e, lg.dmg * Math.max(LOG_FLOOR, Math.pow(LOG_FALLOFF, lg.hitIds.length - 1)), "phys", true, false, lg.src);
+          // (armor counts now: pierce false; owner, 2026-11-10)
+          dealDamage(g, e, lg.dmg * Math.max(LOG_FLOOR, Math.pow(LOG_FALLOFF, lg.hitIds.length - 1)), "phys", false, false, lg.src);
           g.effects.push({ type: "dust", x: e.x, y: e.y, ttl: 260, r: 16 });
           if (!e.dead) {
             if (lg.stun && !e.immStun) e.stunUntil = Math.max(e.stunUntil, tms + lg.stun);
             if (lg.slow && !e.immSlow) { e.slowUntil = tms + lg.slowDur; e.slowPct = Math.max(e.slowPct, lg.slow); }
             if (lg.burn) { e.burnUntil = tms + lg.burnDur; e.burnDps = lg.burn; e.burnSrc = lg.src; }
           }
+          // every body it crushes costs it momentum; spent, it stops dead
+          lg.mom -= lg.drag;
+          lg.speed = lg.speed0 * Math.max(0, lg.mom);
+          if (lg.mom <= LOG_STALL) { lg.stalled = true; break; }
+        }
+        if (lg.stalled) {
+          // it grinds to a halt in the crowd and breaks apart (the powder keg
+          // goes up right there, in the thick of them)
+          lg.done = true;
+          g.effects.push({ type: "dust", x: lg.x, y: lg.y, ttl: 520, r: 30 });
+          if (lg.blast) logBlast(g, lg, lg.x, lg.y);
+          else sfx.play("rock");
+          continue;
         }
         // off the board: the powder keg makes its point on the way out
         if (lg.x < -40 || lg.x > FIELD_W + 40 || lg.y < -40 || lg.y > H + 40) {
           lg.done = true;
-          if (lg.blast) {
-            const bx = Math.max(0, Math.min(FIELD_W, lg.x)), by = Math.max(0, Math.min(H, lg.y));
-            g.effects.push({ type: "boom", x: bx, y: by, ttl: 420, r: lg.blast });
-            g.shake = Math.max(g.shake, 6);
-            sfx.play("boom");
-            for (const e of g.enemies) {
-              if (e.dead || Math.hypot(e.x - bx, e.y - by) > lg.blast) continue;
-              dealDamage(g, e, lg.blastDmg, "phys", false, false, lg.src);
-            }
-          }
+          if (lg.blast) logBlast(g, lg, Math.max(0, Math.min(FIELD_W, lg.x)), Math.max(0, Math.min(H, lg.y)));
         }
       }
       g.logs = g.logs.filter((lg) => !lg.done);
