@@ -146,7 +146,7 @@ export const FACTIONS = {
     tag: "THE DEAD",
     tagColor: "#b08ad8",
     blurb: "The drowned kingdom under the fen has remembered it was a kingdom. Skeletons in floods, wraiths over your blockers, bells that raise more — and some of them are worse dead than alive.",
-    types: ["skeleton", "ghoul", "bonearcher", "wraith", "ghast", "crypt", "gravecaller", "amalgam", "hollowking"],
+    types: ["skeleton", "ghoul", "bonearcher", "wraith", "wight", "ghast", "crypt", "gravecaller", "amalgam", "hollowking"],
     endlessBoss: "hollowking",
     waves: [
       // I. the fen gives up its dead — a zombie horde: floods, and floods again
@@ -166,9 +166,9 @@ export const FACTIONS = {
       // III. the court in session
       [["crypt", 3, 2200], ["ghast", 5, 1400], ["bonearcher", 8, 700], ["skeleton", 30, 260]],
       [["wraith", 5, 800], ["gravecaller", 1, 0], ["skeleton", 30, 280]],
-      [["amalgam", 3, 2600], ["crypt", 3, 2200], ["gravecaller", 2, 0], ["skeleton", 24, 280]],
+      [["amalgam", 3, 2600], ["crypt", 3, 2200], ["gravecaller", 2, 0], ["wight", 1, 0], ["skeleton", 24, 280]],
       [["skeleton", 60, 170], ["ghoul", 20, 300], ["bonearcher", 10, 600]],
-      [["ghast", 6, 1200], ["amalgam", 3, 2400], ["wraith", 3, 900], ["gravecaller", 2, 0], ["skeleton", 24, 280]],
+      [["ghast", 6, 1200], ["amalgam", 3, 2400], ["wraith", 3, 900], ["wight", 1, 0], ["gravecaller", 2, 0], ["skeleton", 24, 280]],
       [["skeleton", 30, 260], ["crypt", 3, 2000], ["gravecaller", 1, 0], ["amalgam", 2, 2800], ["hollowking", 1, 0]],
     ],
     roster: [
@@ -176,6 +176,7 @@ export const FACTIONS = {
       { type: "ghoul", cost: 1.6, gap: 420 },
       { type: "bonearcher", cost: 2.2, gap: 700 },
       { type: "wraith", cost: 5, gap: 900 },
+      { type: "wight", cost: 20, gap: 4000, cap: 1 },   // the Barrow Wight (+1 from ten waves past the script)
       { type: "ghast", cost: 4, gap: 1400 },
       { type: "crypt", cost: 8, gap: 2200 },
       { type: "gravecaller", cost: 14, gap: 5200, cap: 1 },   // (+1 from 10 waves past the script: two on the deepest)

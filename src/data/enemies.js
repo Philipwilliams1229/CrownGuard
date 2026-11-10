@@ -254,6 +254,18 @@ export const ENEMIES = {
     name: "Wraith", flying: true, minGap: 1500, firstWave: 5, standIn: "ghoul", holyOnly: true, raisesOnKill: true, haunts: true, swarms: 34, atk: 23, atkRate: 720, castleDmg: 2,
     note: "A drowned soul that drifts over the road and lays its cold hands on your knights. It comes behind a shield that only steel can break, and magic does nothing until it is gone; but arrows, bolts, stones and plain steel pass through the wraith itself: only magic hurts it — wizards, fire, and the Paladin's holy blows, the one kind of knight that can. They bunch up on a soldier, all clawing at once, and whoever they kill rises again as another wraith, so keep your ordinary knights back.",
   },
+  // The Barrow Wight (owner, 2026-11-10): a heavy wraith out of the old
+  // kings' barrows. Everything the wraith is (flies, only magic and holy
+  // blows hurt it, claws at any soldier near, a knight it kills rises as a
+  // WRAITH, `raisesAs`), slower and far tougher, behind three blue pips that
+  // only steel breaks, with heavy slow blows that heal it for half the harm
+  // they do (`drain`, update.js drainOn). Comes rarely: 1-2 a wave.
+  wight: {
+    faction: "hollow", hp: 600, speed: 75, bounty: 45, armor: 0, mres: 0.35, guard: 3, size: 21,
+    name: "Barrow Wight", flying: true, minGap: 4000, firstWave: 8, standIn: "ghast", holyOnly: true, raisesOnKill: true, raisesAs: "wraith", haunts: true, swarms: 34,
+    atk: 60, atkRate: 1800, drain: 0.5, castleDmg: 4,
+    note: "A barrow-king's shade in a tarnished crown, behind three shields only steel can break. Arrows, stones and plain steel strip the shields but pass through the wight itself: only magic and the Paladin's holy blows hurt it, and nothing magic lands until the shields are gone. Its slow, heavy blows drink half of what they take, and a knight it kills rises as a wraith.",
+  },
   ghast: {
     faction: "hollow", hp: 175, speed: 84, bounty: 16, armor: 0, size: 18,
     name: "Plague Ghast", atk: 16, atkRate: 900, castleDmg: 2,

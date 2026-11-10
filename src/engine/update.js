@@ -521,6 +521,7 @@ const makeEnemy = (type, mult) => {
     boss: !!d.boss, size: d.size, atk: d.atk, atkRate: d.atkRate, castleDmg: d.castleDmg || 1,
     lane: pickLane(d.boss || !!d.roadBlock),
     // Iron Kingdom traits: shields, discipline, charges, volleys, wards, banners
+    drain: d.drain || 0,
     flying: !!d.flying, haunts: !!d.haunts, holyOnly: !!d.holyOnly, raisesOnKill: !!d.raisesOnKill, swarms: d.swarms || 0, guard: d.guard || 0, guardFlash: 0,
     roadBlock: d.roadBlock || 0, packRange: d.packRange || 0, capDist: Infinity,
     airAtk: d.airAtk || 0, airReach: d.airReach || 0, airFight: null, airOx: 0, airOy: 0,
@@ -597,13 +598,20 @@ registerSeaTools({ killUnit, spawnAt, unitHosts, dealDamage });
 // A wraith's victim does not stay down: where the knight fell, a new wraith
 // rises out of the body (at the killer's strength, paying half). Capped, so a
 // wave of them cannot turn a garrison into an endless brood.
+// a foe with `drain` (the Barrow Wight) heals by that share of the harm its
+// blow did (owner, 2026-11-10: "life drain")
+const drainOn = (e, dealt, tms) => {
+  if (!e.drain || !(dealt > 0)) return;
+  e.hp = Math.min(e.maxHp, e.hp + dealt * e.drain);
+  e.healedFlash = tms + 450;
+};
 const BROOD_CAP = 24, RISE_MS = 1300;
 // the necromancer's dead rise slower than a wraith does (owner, 2026-09-30)
 const NECRO_RISE_MS = 2200;
 const raiseFrom = (g, killer, u, tms) => {
   if (g.enemies.reduce((n, x) => n + (!x.dead && x.type === killer.type ? 1 : 0), 0) >= BROOD_CAP) return;
   const at = nearestOnPath(u.x, u.y);
-  const w = spawnAt(g, killer.type, killer.mult, at.dist ?? killer.dist, tms);
+  const w = spawnAt(g, ENEMIES[killer.type]?.raisesAs || killer.type, killer.mult, at.dist ?? killer.dist, tms);
   w.bounty = Math.max(1, Math.ceil(w.bounty / 2));
   // it comes up OUT of the body, on the very spot the knight fell: it stays
   // put and rises for RISE_MS (the painter fades and lifts it), then drifts
@@ -691,7 +699,9 @@ const runRangedBand = (g, b, st, slots, sdtAll, tms) => {
               g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
             } else {
               const hurt = b.kind === "hero" ? heroHook(b.hero)?.hurt : null;
+              const was = u.hp;
               u.hp -= hurt ? hurt(g, b, u, held.atk, held) : held.atk;
+              drainOn(held, was - Math.max(0, u.hp), tms);
               g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
               sfx.play("hit");
             }
@@ -1122,7 +1132,9 @@ const runMelee = (g, t, st, slots, sdtAll, tms) => {
                   g.effects.push({ type: "flash", x: u.x, y: u.y - 6, ttl: 300 });
                 } else {
                   const hurt = t.kind === "hero" ? heroHook(t.hero)?.hurt : null;
+                  const was = u.hp;
                   u.hp -= hurt ? hurt(g, t, u, target.atk, target) : target.atk;
+                  drainOn(target, was - Math.max(0, u.hp), tms);
                   g.effects.push({ type: "hit", x: u.x, y: u.y - 10, ttl: 200 });
                   sfx.play("hit");
                 }
@@ -2095,7 +2107,9 @@ export function updateGame(g, dt) {
               prey.shield = false; prey.shieldCd = 6500;
               g.effects.push({ type: "flash", x: prey.x, y: prey.y - 6, ttl: 300 });
             } else {
+              const was = prey.hp;
               prey.hp -= e.atk;
+              drainOn(e, was - Math.max(0, prey.hp), tms);
               g.effects.push({ type: "hit", x: prey.x, y: prey.y - 10, ttl: 200 });
               sfx.play("hit");
             }

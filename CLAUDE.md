@@ -979,6 +979,8 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   catapult and a Bladewheel take a wraith with a pip, none without.
   With the flood, seeds 1/2: 8525 / 8332, all 15 held, none stuck (the Grave
   Road ~200, the Dead Weir ~1070, the Lichgate ~810).
+- After the rollback (Risen 60, toll 10, with the Gravecaller's hiding,
+  pips and the wraith changes), seeds 1/2: 8588 / 8751, all 15 held.
 - **The Gravecaller hides in the flood** (owner, 2026-11-10): 10 Risen a toll
   (25 for a few hours: the chapter simmed ~36000, 15 ~18500), packed into ~80 of road ahead of him (update.js summon loop, so a
   caller standing off never raises them behind your line); he walks amid the
@@ -992,6 +994,25 @@ Grave Road 6-7, all in its first two waves; the Iron Marches bleed ~8000-9000.
   Then `guard` 3 (owner, same day): three blue pips, never refilled; each
   physical blow takes one, magic and burns glance off until they are gone
   (the Covert's blades slip under them).
+
+## The Barrow Wight (2026-11-10, owner request)
+
+A heavy wraith, `wight` in enemies.js (Hollow). Provisional, pending the
+owner's playtest. Everything the wraith is (flies, `holyOnly`, `haunts`,
+`swarms`, `raisesOnKill`) with hp 600, speed 75, mres 0.35, `guard` 3 (pips
+like every other: only physical blows break them, magic waits; the
+ground-only halls reach it while it has one, `lowShield`), a blow of 60
+every 1800 ms, castleDmg 4, bounty 45. **Life drain:** `drain` 0.5 heals it
+for half the harm each blow does (`drainOn` in update.js, at all three places
+a foe's blow lands: a held foe on its holder, a ranged band's holder, a
+swarmer's claw). A soldier it kills rises as a WRAITH (`raisesAs`, read by
+`raiseFrom`; the brood cap counts that type). Rare: `minGap` 4000, one on the
+script's war-waves 15 and 17, the roster at cost 20 / cap 1 (2 from ten
+waves past the script), `CROWD_WEIGHT` 0; `firstWave` 8 with two ghasts
+standing in. First seen late on the Sunken Causeway; 3-7 a level after.
+Figure: the wraith's painter (`hbWraith`) at h 34, darker, cold blue eyes,
+bronze weed and a tarnished circlet (`p.crown`, rigs-hollowbeasts.js).
+Field Guide rows "Life drain" and "Its kills".
 
 ## Restarting takes two taps (2026-11-09, owner request)
 

@@ -115,7 +115,7 @@ export const CROWD_WEIGHT = {
   goblin: 1, bat: 0.8, wolf: 0.9, orc: 0.6, boarrider: 0.3, armored: 0.45, rafter: 0.6,
   shaman: 0.1, troll: 0.1, hobgoblin: 0, necro: 0,
   levy: 1, crossbow: 0.7, sergeant: 0.45, cavalier: 0.4, gryphon: 0.35, chaplain: 0.15, ram: 0, magister: 0, unseated: 0, unhorsed: 0, loosehorse: 0,
-  skeleton: 1, ghoul: 0.9, bonearcher: 0.7, wraith: 0.3, ghast: 0.4, crypt: 0.35, gravecaller: 0, amalgam: 0.2,
+  skeleton: 1, ghoul: 0.9, bonearcher: 0.7, wraith: 0.3, wight: 0, ghast: 0.4, crypt: 0.35, gravecaller: 0, amalgam: 0.2,
   thrall: 1, huscarl: 0.45, rimeseer: 0.1, longship: 0,
   berserker: 0.6, rimerider: 0.35, skald: 0.1, frostgiant: 0.1, icedrake: 0.6, rimejarl: 0, seaserpent: 0, kraken: 0, krakenarm: 0,
 };

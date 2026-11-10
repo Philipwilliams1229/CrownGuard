@@ -325,6 +325,16 @@ const wraith = (ctx, p) => {
     c.fillStyle = eyes; c.fillRect(3.4, -27.6, 1, 0.6); c.fillRect(5, -27.6, 0.6, 0.6);
     c.fillStyle = lighten(eyes, 0.5); c.fillRect(3.4, -27.6, 0.5, 0.5);
   });
+  // a barrow-king's tarnished circlet round the hood (the Barrow Wight)
+  if (p.crown) part(ctx, (c) => {
+    const gold = p.crown;
+    c.fillStyle = darken(gold, 0.2);
+    poly(c, [[-3.8, -30.4], [4.8, -30.2], [5, -29], [-3.6, -29.2]]); c.fill();
+    c.fillStyle = gold;
+    for (const x of [-2.6, 0.6, 3.8]) { poly(c, [[x - 1, -30.2], [x, -32.8], [x + 1, -30.2]]); c.fill(); }
+    c.fillStyle = lighten(gold, 0.4); c.fillRect(0.2, -30, 0.8, 0.5);
+    c.fillStyle = "#3a7a8a"; c.fillRect(0.3, -29.9, 0.6, 0.6);
+  });
   // fen-weed draped over the crown and down the back, a strand off the shoulder
   part(ctx, (c) => {
     stroke(c, [[0.6, -33], [-2.2, -32.2], [-4.4, -28.8], [-5.6, -24], [-6.6, -19.4 + Math.sin(ph) * 0.4]], 0.9, weed);
@@ -490,6 +500,8 @@ const amalgam = (ctx, p) => {
 export const HOLLOWBEAST_RIGS = {
   ghoul: { kind: "hbGhoul", box: { hw: 24, up: 26, down: 4 }, p: { len: 28, col: "#7c8a70", belly: "#b4bc9c", mane: "#4a5448", cloth: "#4a3a5e", hair: "#5a5246", eyes: "#7ce0b8" } },
   wraith: { kind: "hbWraith", fly: true, box: { hw: 16, up: 36, down: 4 }, p: { h: 26, col: "#566a80", mane: "#0e0c16", cloth2: "#4e6a52", skin: "#b4c6c8", hair: "#5e6662", eyes: "#7ce0b8" } },
+  // the Barrow Wight: the wraith's figure a third bigger, barrow-dark, cold-eyed, crowned
+  wight: { kind: "hbWraith", fly: true, box: { hw: 21, up: 48, down: 5 }, p: { h: 34, col: "#3e4658", mane: "#08070e", cloth2: "#5a5034", skin: "#a8b4bc", hair: "#7a7468", eyes: "#9cd4ff", crown: "#b08a3a" } },
   amalgam: { kind: "hbAmalgam", box: { hw: 29, up: 44, down: 5 }, p: { h: 33, col: "#6e7c64", belly: "#a4a88a", mane: "#6a5670", cloth: "#3e3448", hair: "#b4a684", cloth2: "#4a5a50", eyes: "#7ce0b8" } },
 };
 export const HOLLOWBEAST_PAINTERS = { hbGhoul: ghoul, hbWraith: wraith, hbAmalgam: amalgam };
