@@ -3,8 +3,7 @@
 // upright where a goblin is hunched, a commander's bearing. Yellow-green skin, a
 // horned iron helm rimmed in gold, long ears out under it, red eyes under a
 // heavy brow, a jutting jaw with two fangs. A fur mantle over a hide cuirass, a
-// gold medallion, a red sash and a kilt of hide strips, a trophy skull and his
-// curled war horn at the belt. In the FAR fist his TOTEM-BANNER: a tall pole with
+// gold medallion, a red sash and a kilt of hide strips, a trophy skull at the belt. In the FAR fist his TOTEM-BANNER: a tall pole with
 // a crossbar, a horned skull on top, feathers and a strip of red banner cloth
 // hung from the bar; planted beside him it stands higher than his horns, and he
 // swings it two-handed as a mace.
@@ -12,12 +11,12 @@
 // carried upright like a standard), attack (the totem heaved overhead and smashed
 // down with a step) and HORN: his summons on the march. `horn` is built from the
 // very same walkPose call as `walk`, so frame k of one has exactly frame k of the
-// other's legs and body height; the near hand lifts the horn off his belt to his
+// other's legs and body height; the near hand lifts the horn to his
 // mouth, the head goes back, the cheeks puff.
 import { mat, flat } from "./pix.js";
 import { walkPose, sampleKeys, scaled, HUMAN, ik } from "./rig.js";
 
-const SKIN = mat("#7a9a48"), HIDE = mat("#5a3a2a"), DARK = mat("#3a2820"), FUR = mat("#8e7c5e"), BOOT = mat("#46342a");
+const SKIN = mat("#7a9a48"), HIDE = mat("#5a3a2a"), DARK = mat("#3a2820"), FUR = mat("#74624a"), BOOT = mat("#46342a");
 const GOLD = mat("#e8c14a", { contrast: 1.15 }), IRON = mat("#7c808c", { contrast: 1.15 }), BONE = mat("#e8dfc6"), WOOD = mat("#6a4a2a");
 const RED = mat("#c8383a"), F_GOLD = mat("#e8c14a"), F_BLUE = mat("#3a80c0"), HORN = mat("#c8ae7e");
 const EYE = flat("#e05248"), GLINT = flat("#ffb070"), MOUTH = flat("#2c1a22"), SOCK = flat("#2a1c26");
@@ -50,8 +49,8 @@ const BLINK = swap(HEAD, { 5: "..GGGGGGGGGGGG...", 6: "..GGGBBBGGBBBHH.." });
 const GLANCE = swap(HEAD, { 5: "..GGGeEbGGeEbG...", 6: "..GGGEEbGGEEbHH.." });
 // the smash's roar: the jaw dropped a row, the mouth open on the fangs
 const ROAR = swap(HEAD, { 9: "..gGGGGTMMMMT.nn.", 10: "..gGGGGMMMMMMGG..", 11: "..gGGGGTMMMMTGG..", 12: "...gGGGGGGGGGGG..", 13: "....ggGGGGGGGg...", 14: "......gggggg....." });
-// the horn: eyes screwed shut, the cheek puffed out (P), the lips on the mouthpiece
-const BLOW = swap(HEAD, { 5: "..GGGGGGGGGGGG...", 6: "..GGGBBBGGBBBHH..", 8: "..GGGGPPPGGgnLLNN", 9: "..gGGPPPPPGGG.nn.", 10: "..gGGGPPPGGMMGG.." });
+// the horn: the eyes glaring over it, the cheek puffed out (P), the lips on the mouthpiece
+const BLOW = swap(HEAD, { 8: "..GGGGPPPGGgnLLNN", 9: "..gGGPPPPPGGG.nn.", 10: "..gGGGPPPGGMMGG.." });
 const LEG = {
   I: { m: IRON }, i: { m: IRON, bias: -1 }, Y: { m: GOLD, fix: 3 }, y: { m: GOLD, fix: 1 },
   G: { m: SKIN }, g: { m: SKIN, bias: -1 }, N: { m: SKIN, fix: 2 }, n: { m: SKIN, fix: 1 }, L: { m: SKIN, fix: 3 }, H: { m: SKIN, fix: 4 }, P: { m: SKIN, fix: 3 },
@@ -71,7 +70,7 @@ const SKULL = [
 const TROPHY = [".BBB.", "BBBBB", "BeBeB", ".BBB.", ".b.b."];
 const SKULL_LEG = { B: { m: BONE }, b: { m: BONE, bias: -1 }, T: { m: BONE, fix: 3 }, e: { m: SOCK }, n: { m: SOCK } };
 
-export const BOX = { w: 108, h: 104, ox: 38, oy: 96 };
+export const BOX = { w: 108, h: 98, ox: 35, oy: 90 };
 export const BONES = scaled(HUMAN, 1.25, { spine: 14, neck: 1.6, upper: 8.4, fore: 8, shN: -5.2, shF: 4.8, hipN: -2.4, hipF: 2.6 });
 const TOT = 54;                        // the pole, foot to the crossbar
 
@@ -199,9 +198,8 @@ export const draw = (px, { sk, lag1, lag2 }) => {
     px.stamp(TROPHY, P[0] - 4.4 + sw * 0.6, P[1] + 4.4, SKULL_LEG, 4.22, { ax: 2, ay: 2, ball: [2.5, 2.2, 3, 3] });
   }
 
-  // ---- the fur mantle: over both shoulders and down the back, tufted along its edge
+  // ---- the fur mantle: a thick collar over both shoulders, tufted along its edge
   px.part();
-  px.poly([[C[0] - 8.6, C[1] - 2.6], [C[0] - 3, C[1] - 4], [C[0] - 3, C[1] + 1], [C[0] - 5.6 + sh * 0.2, C[1] + 5.6], [C[0] - 7 + sh * 0.3, C[1] + 4.2], [C[0] - 8.6 + sh * 0.3, C[1] + 6.4], [C[0] - 10 + sh * 0.2, C[1] + 3.6]], FUR, 4.3, { round: 0.8, cast: 1 });
   px.ellipse(C[0] - 0.2, C[1] - 2, 9, 3.5, FUR, 4.4, { cast: 1 });
   for (const [x, y] of [[-6.6, 2.8], [-3.8, 3.6], [-1, 3.2], [2, 3.8], [4.8, 3.4], [7.4, 2.4]]) px.dot(C[0] - 0.2 + x, C[1] - 2 + y, FUR, 4.4);
 
@@ -226,25 +224,20 @@ export const draw = (px, { sk, lag1, lag2 }) => {
     px.dot(b[0] - 4.6 + ex * 0.4, b[1] + 2.2 + ey * 0.4, GOLD, 6.6, { fix: 3 }); px.dot(b[0] - 4.6 + ex * 0.4, b[1] + 3.2 + ey * 0.4, GOLD, 6.6, { fix: 1 });
   }
 
-  // ---- the war horn: on his belt, or at his lips
+  // ---- the war horn, at his lips (it is out of sight under the mantle otherwise)
   const mouth = [hx + 7.4, hy - 0.6], hornHand = [hx + 9.4, hy + 2.6];
   let bell = null;
   if (blow) {
-    const a = [hx + 10.4, hy + 2.6], b = [hx + 13.4, hy + 1.2]; bell = [hx + 14.6, hy - 3.6];
+    // a curled horn: down from the lips, round, and up to a flared bell that opens forward and up
+    const a = [hx + 10.4, hy + 2.8], b = [hx + 14, hy + 2.4]; bell = [hx + 16.8, hy - 1.6];
     px.part();
     px.capsule(mouth[0], mouth[1], 0.8, a[0], a[1], 1.4, HORN, 8.2, { cast: 1 });
-    px.capsule(a[0], a[1], 1.4, b[0], b[1], 2, HORN, 8.2, { cast: 1 });
-    px.capsule(b[0], b[1], 2, bell[0], bell[1], 2.7, HORN, 8.2, { cast: 1 });
+    px.capsule(a[0], a[1], 1.4, b[0], b[1], 2.1, HORN, 8.2, { cast: 1 });
+    px.capsule(b[0], b[1], 2.1, bell[0], bell[1], 2.9, HORN, 8.2, { cast: 1 });
+    px.line(a[0] + 1.2, a[1] - 1.6, a[0] + 1.6, a[1] + 1.8, GOLD, 8.22, { fix: 3 });
     px.part();
-    px.ellipse(bell[0] + 0.2, bell[1] - 1.6, 3, 1.7, GOLD, 8.24, { rot: 0.15 });
-    px.ellipse(bell[0] + 0.2, bell[1] - 2, 1.9, 0.9, MOUTH, 8.26, { rot: 0.15 });
-  } else {
-    const sw = cl(sh * 1.2, -2.4, 2.4), h0 = [P[0] + 5, P[1] + 0.2];
-    px.part();
-    px.capsule(h0[0], h0[1] + 0.6, 0.8, h0[0] + 0.4 + sw * 0.5, h0[1] + 4, 1.3, HORN, 4.25, { cast: 1 });
-    px.capsule(h0[0] + 0.4 + sw * 0.5, h0[1] + 4, 1.3, h0[0] + 3 + sw, h0[1] + 5.6, 1.8, HORN, 4.25, { cast: 1 });
-    px.capsule(h0[0] + 3 + sw, h0[1] + 5.6, 1.8, h0[0] + 5.4 + sw, h0[1] + 3.8, 2.3, HORN, 4.25, { cast: 1 });
-    px.dot(h0[0] + 5.8 + sw, h0[1] + 3, MOUTH, 4.27); px.dot(h0[0] + 6.6 + sw, h0[1] + 3.6, MOUTH, 4.27);
+    px.ellipse(bell[0] + 1, bell[1] - 1.4, 1.9, 3.3, GOLD, 8.24, { rot: -0.6 });
+    px.ellipse(bell[0] + 1.4, bell[1] - 1.6, 1, 2.2, MOUTH, 8.26, { rot: -0.6 });
   }
 
   // ---- the near arm over it all: a gold armband, a studded wristband. It swings free, takes the pole below the far fist
@@ -256,15 +249,17 @@ export const draw = (px, { sk, lag1, lag2 }) => {
     px.part();
     px.capsule(sN[0], sN[1] + 0.8, 3.2, eN[0], eN[1], 2.9, SKIN, az, { cast: 1 });
     px.capsule(eN[0], eN[1], 2.8, hdN[0], hdN[1], 2.7, SKIN, az, { cast: 1 });
-    const a0 = mix(sN, eN, 0.74), a1 = mix(sN, eN, 0.84);
-    px.capsule(a0[0], a0[1], 3.05, a1[0], a1[1], 3, GOLD, az + 0.04, { cast: 1 });
+    const a0 = mix(sN, eN, 0.76), a1 = mix(sN, eN, 0.92);
+    { const u = [eN[0] - sN[0], eN[1] - sN[1]], l = Math.hypot(u[0], u[1]) || 1, n = [-u[1] / l * 3.1, u[0] / l * 3.1];
+      px.poly([[a0[0] + n[0], a0[1] + n[1]], [a0[0] - n[0], a0[1] - n[1]], [a1[0] - n[0], a1[1] - n[1]], [a1[0] + n[0], a1[1] + n[1]]], GOLD, az + 0.04, { round: 0.85 }); }
     const b0 = mix(eN, hdN, 0.5), b1 = mix(eN, hdN, 0.74);
     px.capsule(b0[0], b0[1], 2.9, b1[0], b1[1], 2.9, DARK, az + 0.05, { cast: 1, floor: 1 });
     px.dot(mix(b0, b1, 0.5)[0], mix(b0, b1, 0.5)[1], GOLD, az + 0.06, { fix: 3 });
     // the mantle's near shoulder, over the arm's root
     px.part();
-    px.ellipse(sN[0] - 0.2, sN[1] - 0.8, 4.6, 3.8, FUR, 8, { cast: 1 });
-    for (const x of [-3, -0.6, 1.8, 3.6]) px.dot(sN[0] - 0.2 + x, sN[1] + 2.8 - Math.abs(x) * 0.25, FUR, 8);
+    px.ellipse(sN[0] - 0.2, sN[1] - 1, 4.4, 3.2, FUR, 8, { cast: 1 });
+    for (const x of [-3.4, -1.2, 1, 3.2]) { px.dot(sN[0] - 0.2 + x, sN[1] + 2 - Math.abs(x) * 0.2, FUR, 8); px.dot(sN[0] - 0.2 + x, sN[1] + 3 - Math.abs(x) * 0.2, FUR, 8); }
+    px.dot(sN[0] - 2.2, sN[1] - 2.2, FUR, 8.01, { fix: 3 }); px.dot(sN[0] + 0.8, sN[1] - 2.8, FUR, 8.01, { fix: 3 }); px.dot(sN[0] - 0.4, sN[1] - 0.6, FUR, 8.01, { fix: 1 });
     px.part();
     px.ellipse(hdN[0], hdN[1], 2.7, 2.7, SKIN, blow ? 8.3 : up ? 5.7 : 8.3);
   }
@@ -295,13 +290,13 @@ export const fx = (px, F, info, clip) => {
   }
   if (clip === "horn" && info.bell) {
     // three short arcs of sound leaving the bell, each wider and fainter than the last
-    const [bx0, by0] = info.bell, ax = 0.3, ay = -0.95;
+    const [bx0, by0] = info.bell, ax = 0.96, ay = -0.26;
     for (let i = 0; i < 3; i++) {
-      const u = (ph * 2 + i / 3) % 1, r = 5 + u * 11, half = 0.34 + u * 0.22, n = Math.ceil(r * half * 2.2);
+      const u = (ph * 2 + i / 3) % 1, r = 6 + u * 13, half = 0.42 + u * 0.2, n = Math.ceil(r * half * 2.2);
       if (u > 0.9) continue;
       for (let k = 0; k <= n; k++) {
         const a = Math.atan2(ay, ax) + (k / n - 0.5) * 2 * half;
-        px.dot(bx0 + 0.4 + Math.cos(a) * r, by0 - 2 + Math.sin(a) * r, u < 0.5 ? SOUND : SOUND2, 20, NL);
+        px.dot(bx0 + 1.4 + Math.cos(a) * r, by0 - 1.6 + Math.sin(a) * r, u < 0.55 ? SOUND : SOUND2, 20, u < 0.3 ? {} : NL);
       }
     }
   }
@@ -341,16 +336,16 @@ export const CLIPS = {
       const p = sampleKeys([
         { t: 0, p: GUARD },
         // the near hand comes across to the pole and it leaves the ground
-        { t: 0.14, e: "io", p: { ...GUARD, rx: -0.6, aF: [1.5, 0.8, 0], tot: -0.12, gk: 1, grip: 33, g2: 1 } },
+        { t: 0.14, e: "io", p: { ...GUARD, rx: -0.6, aF: [1.5, 0.8, 0], tot: -0.12, gk: 1, grip: 29, g2: 1 } },
         // the heave: up and back over the helm, the weight on the back foot, the front foot off the ground
-        { t: 0.34, e: "out", p: { ...GUARD, rx: -2.6, drop: 0.6, rise: 1, lean: -0.1, twist: -0.4, hx: 0.2, hy: -0.4, aF: [2.85, 0.82, 0], fF: [3, 2.4], tot: -0.72, gk: 1, grip: 34, g2: 1 } },
-        { t: T0, e: "io", p: { ...GUARD, rx: -3.2, drop: 0.4, rise: 1.4, lean: -0.15, twist: -0.5, hx: 0, hy: -0.6, aF: [3, 0.85, 0], fF: [3.4, 3.2], tot: -0.92, gk: 1, grip: 34, g2: 1, roar: 1 } },
+        { t: 0.34, e: "out", p: { ...GUARD, rx: -2.6, drop: 0.6, rise: 1, lean: -0.1, twist: -0.4, hx: 0.2, hy: -0.4, aF: [2.85, 0.82, 0], fF: [3, 2.4], tot: -0.72, gk: 1, grip: 28, g2: 1 } },
+        { t: T0, e: "io", p: { ...GUARD, rx: -3.2, drop: 0.4, rise: 1.4, lean: -0.15, twist: -0.5, hx: 0, hy: -0.6, aF: [3, 0.85, 0], fF: [3.4, 3.2], tot: -0.92, gk: 1, grip: 28, g2: 1, roar: 1 } },
         // the smash: a step in, the skull comes down on him
-        { t: T1, e: "in3", p: { ...GUARD, rx: 3.8, drop: 3.2, lean: 0.44, twist: 0.5, hx: 1.6, hy: 1.4, aF: [0.6, 0.94, 0], fF: [9, 0], tot: 1.74, gk: 1, grip: 34, g2: 1, roar: 1 } },
-        { t: 0.63, e: "out", p: { ...GUARD, rx: 4.4, drop: 4, lean: 0.5, twist: 0.6, hx: 1.8, hy: 1.8, aF: [0.54, 0.94, 0], fF: [9, 0], tot: 1.82, gk: 1, grip: 34, g2: 1, roar: 1 } },
-        { t: 0.76, e: "io", p: { ...GUARD, rx: 4, drop: 3.4, lean: 0.46, twist: 0.5, hx: 1.6, hy: 1.4, aF: [0.58, 0.94, 0], fF: [9, 0], tot: 1.76, gk: 1, grip: 34, g2: 1 } },
+        { t: T1, e: "in3", p: { ...GUARD, rx: 3.8, drop: 3.2, lean: 0.44, twist: 0.5, hx: 1.6, hy: 1.4, aF: [0.6, 0.94, 0], fF: [9, 0], tot: 1.66, gk: 1, grip: 28, g2: 1, roar: 1 } },
+        { t: 0.63, e: "out", p: { ...GUARD, rx: 4.4, drop: 4, lean: 0.5, twist: 0.6, hx: 1.8, hy: 1.8, aF: [0.54, 0.94, 0], fF: [9, 0], tot: 1.72, gk: 1, grip: 28, g2: 1, roar: 1 } },
+        { t: 0.76, e: "io", p: { ...GUARD, rx: 4, drop: 3.4, lean: 0.46, twist: 0.5, hx: 1.6, hy: 1.4, aF: [0.58, 0.94, 0], fF: [9, 0], tot: 1.68, gk: 1, grip: 28, g2: 1 } },
         // he hauls it upright again and plants it
-        { t: 0.9, e: "io", p: { ...GUARD, rx: 1.4, drop: 1, lean: 0.14, aF: [1.2, 0.86, 0], fF: [6.4, 1.8], tot: 0.7, gk: 1, grip: 33, g2: 0.7 } },
+        { t: 0.9, e: "io", p: { ...GUARD, rx: 1.4, drop: 1, lean: 0.14, aF: [1.2, 0.86, 0], fF: [6.4, 1.8], tot: 0.7, gk: 1, grip: 30, g2: 0.7 } },
         { t: 1, e: "out", p: GUARD },
       ], ph);
       // the jar of the blow up the pole

@@ -49,7 +49,7 @@ const LEG = {
   G: { m: SKIN }, g: { m: SKIN, bias: -1 }, L: { m: SKIN, fix: 3 }, T: { m: BONE, fix: 3 }, X: { m: MOUTH },
 };
 
-export const BOX = { w: 104, h: 96, ox: 48, oy: 88 };
+export const BOX = { w: 100, h: 86, ox: 48, oy: 78 };
 // the orc's bones, squarer at the shoulder
 export const BONES = scaled(HUMAN, 1.1, { thigh: 8.5, shin: 8, ankle: 2.2, spine: 18.5, neck: 1, upper: 9, fore: 8.5, shN: -7.8, shF: 7.2, hipN: -3, hipF: 3.2 });
 

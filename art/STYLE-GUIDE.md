@@ -1227,7 +1227,11 @@ little more premium": readable body parts and faces, "more fluid and natural
 animations", spell light on casters (their reference: a ~48 px pixel wizard).
 Two rounds of concepts settled the look; the kit then moved into
 `src/render/pix/` and the first five figures went onto the board: Sir Aldric
-(`heroKnight`), Wren (`heroHunter`), `goblin`, `orc`, `necro`. Every other
+(`heroKnight`), Wren (`heroHunter`), `goblin`, `orc`, `necro`. **The whole
+Greenwood horde followed on 2026-11-13** (four artists, a file each):
+`goblinBare` (a variant of fig-goblin.js), `armored` (fig-ironclad.js),
+`troll`, `shaman`, `hobgoblin` (fig-warchief.js), `wolf`, `boarrider` and
+its riderless `boarMount` (fig-boar.js), `bat`, `dragon`. Every other
 type still draws its old rig, and "New sprites" on the Settings window's
 Display tab turns the new ones off. The Spire mage is drawn (fig-mage.js)
 but tower crews are a separate system and still the old ones.
@@ -1251,6 +1255,15 @@ but tower crews are a separate system and still the old ones.
   (false when the engine already flies the real thing, like Wren's arrow).
   Nothing else: the hit flash, the bone look of a raised foe (`boneify`), the
   death crumble and the health bar's height all come off the same frames.
+  Two more fields when a figure needs them: `variant` (a second look of one
+  figure, handed to its `draw` as `o.variant`: the bare-headed goblin, the
+  boar with no rider; the first look must stay pixel-identical, so `cmp` its
+  renders before and after) and `casts` (something done ON THE MARCH: a
+  walk-shaped clip with the walk's exact legs, `n` and `ms`, worn while an
+  engine clock says so; `marchSheet` reads `{ clip, clock, every, lead, hold }`:
+  the shaman's `chant` off `healCd`, the warchief's `horn` off `summonCd`, the
+  necromancer's `raise` off `raiseCd`). Build the walk and the cast on ONE
+  shared leg function (`march(ph)` in fig-shaman.js) so they cannot drift.
   Check with `rigshot.html?types=<type>` (the old frame numbers through the
   new figure), `shotlab.html?...&foes=<type>` and `&hero=aldric|wren` (the
   real engine), and `perf.html` (500 foes drew in ~5.5 ms with the new ones in).
@@ -1262,7 +1275,24 @@ but tower crews are a separate system and still the old ones.
   locked dead straight). Nothing ships red. The old `joint-lab.html` is for
   the old rigs and crews only.
 - **Walk pace:** a foe's `per` in `PIX` is its speed x its walk clip's seconds
-  / 14 (gait units), so it steps at the cadence it was drawn at.
+  / 14 (gait units), so it steps at the cadence it was drawn at. (A gallop
+  drawn without foot-skate would cycle in ~200 ms and strobe: the wolf and
+  boar keep their drawn 330 / 380 ms and let the feet slide a little.)
+- **Four legs:** `pix/beast.js` is the four-legged skeleton (`solveBeast`:
+  a fixed-length arched spine, withers, croup, skull, tail, four legs folded
+  through `ik`, hock back and wrist forward; `gallop`, `walkGait`,
+  `beastFrames`, `scaledQuad`). `fig-wolf.js` is the short worked example,
+  `fig-boar.js` carries a rider. A figure that is not a biped exports
+  `BONES = HUMAN` (unused) and reads its own pose fields off `F.sk.p`.
+- **Fliers** (`fig-bat.js`, `fig-dragon.js`): `walk` is the wingbeat (and
+  `idle` the same clip), driven by the clock (`walkByTime`), not the ground;
+  the `BOX`'s foot point is the GROUND under the body, which rides above it.
+  The dragon's `attack` (a fire breath with its own light) is drawn but the
+  engine never asks for it: the boss has no blow (`atk: 0`).
+- **No hitch on a first step:** `warmPix()` (pixrigs.js, started by the
+  board's first frame) bakes every figure's walk, both facings, in idle
+  slices of 4 ms, biggest first. Most frames bake in under a millisecond;
+  the dragon's take 5-15 ms each on the dev Mac, the only ones that matter.
 - **One sun:** a figure facing left is drawn from frames baked with
   `flip: true` and then mirrored, so its light never flips. Do not mirror a
   right-facing bake by hand.
@@ -1273,10 +1303,29 @@ but tower crews are a separate system and still the old ones.
   fifths. To make something else cast light (burning ground, a blast, a
   torch), `addLight(x, y, r, col, k)` it in the same place. "Spell light" on
   the Display tab turns it all off (`prefs.spellLight`).
-- **Still to move over:** every other rig (the rest of the horde, the crown's
-  soldiers, Iron, Hollow, Rime), tower crews starting with the Spire mage,
-  and the joint lab onto the new skeleton. Wren's arrow still leaves the old
-  bow hand in `engine/muzzles.js` (within a pixel or two of the new one).
+- **Still to move over:** every other rig (the crown's soldiers, Iron,
+  Hollow, Rime), tower crews starting with the Spire mage. `pix-lab.html`
+  is bipeds only: beasts and fliers have no joint lab yet.
+- **What the horde's artists found weak** (nothing here blocks; fix when a
+  figure is next opened): the troll's club flips from front to back in one
+  frame late in its recovery and his far arm reads as a tube; the Ironclad's
+  blade is hidden under the smear on the strike; the shaman's chant shows the
+  far arm as a dark bar; the warchief's horn clip is the weakest read at
+  board size (he carries the totem in the FAR fist so the pole never crosses
+  his face, and has no horn at his belt); the wolf's hind legs hang limp on
+  one gallop frame; the boar's legs are short and dark; the dragon's near
+  wing is edge-on for two frames and its head cannot pitch (a stamped grid
+  does not rotate: a pitched head needs more grids).
+- **Kit lessons from that pass:** a dark material's lit tones come out warm
+  and pale, so a "darker ruff" needs `bias: -1` or `fix` plus `floor: 1`;
+  parts of the SAME material do not separate (give a sleeve on a robe its own
+  slightly lighter material, or `edge: true` on skin over skin); a thing
+  trailing by `lag` turns into comb streaks on a one-frame lunge unless
+  clamped; an arm or weapon that turns a full circle needs its angles written
+  past 2 pi by hand (poses lerp raw numbers); a pose key cannot be unset
+  between keys in `sampleKeys`; small separate claws come out as a comb
+  under the silhouette line (keep them to one proud pixel); "this end rests
+  on the ground" is the figure's job (`clubOf` in fig-troll.js).
 
 ### The kit and the rules the concepts settled
 
@@ -1345,7 +1394,8 @@ but tower crews are a separate system and still the old ones.
   grid, `H` is the cloth at a fixed tone, `h` its shadow, `d` a dark lining,
   and two letters mark the sunlit band for each facing (`A` when the sun is
   behind her, `F` when she is re-lit facing left); the legend is built per
-  bake from `o.flip` (`hoodLegend` in fig-archer.js). A hood reads as a hood
+  bake from `o.flip` (it was `hoodLegend` in fig-archer.js, gone with the
+  hood: the cap needs none). A hood reads as a hood
   when its rim stands forward of the brow and far cheek, the lining shows
   round the face, it wraps under the chin, and it runs into a mantle a tone
   apart from the tunic. **That hood was still rejected** ("really bad ...
@@ -1359,7 +1409,8 @@ but tower crews are a separate system and still the old ones.
   (frames of a figure, saved to `.shots/`; `&flip=1`, `&line=`, `&bg=`),
   `node scripts/concept-render.mjs fig=<name> clips=idle,walk zoom=10 frames=0,2,5 tag=<shot>`
   (the same strip with no browser; `ext=1` prints pixel extents for sizing a
-  `BOX`), `concept-sheet.html` (the owner's sheet, live; its script is `concept/sheet.js`), `concept-now.html` (saves
+  `BOX`; `flip=1` and `variant=` reach the figure's `draw`, and every light a
+  figure returns is laid on, as `bake.js` does), `concept-sheet.html` (the owner's sheet, live; its script is `concept/sheet.js`), `concept-now.html` (saves
   today's rigs as the strip the sheet's "today" column reads), and `node
   scripts/build-concept-sheet.mjs` (one self-contained page in
   `concept/dist/`, for publishing).

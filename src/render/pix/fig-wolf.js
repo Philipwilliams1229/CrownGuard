@@ -124,7 +124,7 @@ export const draw = (px, F) => {
   const top = (u) => (u < 0.45 ? [m0[0] + (m1[0] - m0[0]) * (u / 0.45), m0[1] + (m1[1] - m0[1]) * (u / 0.45) - 2.4 - u * 2] : [m1[0] + (m2[0] - m1[0]) * ((u - 0.45) / 0.55), m1[1] + (m2[1] - m1[1]) * ((u - 0.45) / 0.55) - 3.3 + (u - 0.45) * 2.6]);
   TUFTS.forEach(([h, ln], i) => {
     const q = top((i + 0.5) / TUFTS.length), x = Math.round(q[0]), y = Math.round(q[1]);
-    const up = 0.6 + h * (0.25 + hk * 0.75), bk = ln * (1 + (1 - hk) * 2.2) + wx * 1.2 - (1 - hk) * 0;
+    const up = 0.6 + h * (0.25 + hk * 0.75), bk = Math.min(4, ln * (1 + (1 - hk) * 2.2) + wx * 0.6);
     px.poly([[x - 1.6, y + 1.4], [x + 1.6, y + 1.2], [x - bk, y - up + wy * (i % 2 ? 0.9 : 0.5)]], MANE, 4.6, { fix: 1, cast: 0 });
   });
 
@@ -161,7 +161,7 @@ export const fx = (px, F, info, clip) => {
     for (let i = 0; i <= n; i++) { const t = i / n, a = a0 + (a1 - a0) * t, w = Math.sin(Math.PI * t); out.push([cx + Math.cos(a) * r0, cy + Math.sin(a) * r0]); inn.unshift([cx + Math.cos(a) * (r0 - (r0 - r1) * w), cy + Math.sin(a) * (r0 - (r0 - r1) * w)]); }
     px.poly([...out, ...inn], m, z, { noLine: true });
   };
-  arc(8.4, 6, -1.05, 1.05, SNAP2, 20); arc(8.4, 6.9, -0.6, 0.6, SNAP, 20.1);
+  arc(8.6, 5.6, -1.05, 1.05, SNAP2, 20); arc(8.6, 6.6, -0.62, 0.62, SNAP, 20.1);
 };
 
 const STAND = { drop: 0.6, pitch: 0.05, arch: 0.06, neck: 0.02, hx: 0, hy: 0, jaw: 0.5, tail: -0.62, curl: 0.2, hackle: 1, ear: 0, clamp: 0,

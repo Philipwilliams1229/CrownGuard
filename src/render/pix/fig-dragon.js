@@ -79,7 +79,7 @@ const legend = (mouth, deep) => ({
 });
 const LEG = legend(MOUTH, MOUTH), LEG_HOT = legend(THROAT, THROAT2);
 
-export const BOX = { w: 236, h: 144, ox: 106, oy: 134 };
+export const BOX = { w: 236, h: 138, ox: 106, oy: 128 };
 export const BONES = HUMAN;            // unused: a flier poses itself
 
 const TAU = Math.PI * 2, RAD = Math.PI / 180;
@@ -169,21 +169,38 @@ const tube = (px, pts, z, paint) => {
   let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
   for (let i = 0; i + 1 < pts.length; i++) {
     const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1e-6;
-    segs.push([a[0], a[1], a[2], dx, dy, len * len, b[2] - a[2], REST_S[i], REST_S[i + 1] - REST_S[i], a[3], b[3] - a[3], dx / len, dy / len]);
-    const R = Math.max(a[2], b[2]) + 1;
+    const R = Math.max(a[2], b[2]) + 1, G = R * 1.35;   // G: as far as this stretch can matter to a pixel (the soft normal looks a little past the skin)
+    segs.push([a[0], a[1], a[2], dx, dy, len * len, b[2] - a[2], REST_S[i], REST_S[i + 1] - REST_S[i], a[3], b[3] - a[3], dx / len, dy / len,
+      Math.min(a[0], b[0]) - G, Math.max(a[0], b[0]) + G, Math.min(a[1], b[1]) - G, Math.max(a[1], b[1]) + G]);
     x0 = Math.min(x0, a[0] - R, b[0] - R); x1 = Math.max(x1, a[0] + R, b[0] + R); y0 = Math.min(y0, a[1] - R, b[1] - R); y1 = Math.max(y1, a[1] + R, b[1] + R);
   }
-  for (let j = Math.floor(y0); j <= Math.ceil(y1); j++) for (let i = Math.floor(x0); i <= Math.ceil(x1); i++) {
-    const x = i + 0.5, y = j + 0.5;
+  const Q = new Float32Array(segs.length), VX = new Float32Array(segs.length), VY = new Float32Array(segs.length);
+  const row = [];
+  for (let j = Math.floor(y0); j <= Math.ceil(y1); j++) {
+   const y = j + 0.5;
+   row.length = 0;
+   for (let k = 0; k < segs.length; k++) if (y >= segs[k][15] && y <= segs[k][16]) row.push(k);
+   if (!row.length) continue;
+   for (let i = Math.floor(x0); i <= Math.ceil(x1); i++) {
+    const x = i + 0.5;
     let bq = 1, bs = null, bt = 0, bx = 0, by = 0, br = 1;
-    for (const s of segs) {
+    for (const k of row) {
+      const s = segs[k];
+      if (x < s[13] || x > s[14]) { Q[k] = 9; continue; }
       const t = cl(((x - s[0]) * s[3] + (y - s[1]) * s[4]) / s[5], 0, 1), r = s[2] + s[6] * t;
       const vx = x - s[0] - s[3] * t, vy = y - s[1] - s[4] * t, q = Math.hypot(vx, vy) / r;
+      Q[k] = q; VX[k] = vx / r; VY[k] = vy / r;
       if (q < bq) { bq = q; bs = s; bt = t; bx = vx; by = vy; br = r; }
     }
     if (!bs) continue;
-    const o = paint(bs[7] + bs[8] * bt, bs[9] + bs[10] * bt, (-bx * bs[12] + by * bs[11]) / br, bx / br, by / br);
+    // the normal: every stretch of spine about as near as the nearest has its say, so the light
+    // stays smooth in the hollow of a bend (where many stretches are equally near and the nearest
+    // one changes pixel by pixel)
+    let nx = 0, ny = 0, ws = 0;
+    for (const k of row) { const d = Q[k] - bq; if (d > 0.3) continue; const w = Math.exp(-d * 16); nx += VX[k] * w; ny += VY[k] * w; ws += w; }
+    const o = paint(bs[7] + bs[8] * bt, bs[9] + bs[10] * bt, (-bx * bs[12] + by * bs[11]) / br, nx / ws, ny / ws);
     if (o) px.dot(x, y, o.m, z, o);
+   }
   }
 };
 
@@ -279,8 +296,8 @@ export const draw = (px, { sk }, o = {}) => {
 
   // ---- the far legs, a tone down
   // tucked for flight: the hind legs trail back under the tail's root, the forelegs fold under the chest
-  const hind = (ox, oy) => [[-17 + ox, -23 + oy + b], [-10.5 + ox - dang * 0.3, -14.5 + oy + b + dang * 0.4], [-21 + ox - dang * 0.8, -10.5 + oy + b + dang], [-26.5 + ox - dang, -8.6 + oy + b + dang * 1.3]];
-  const fore = (ox, oy) => [[16 + ox, -22 + oy + b], [10 + ox - dang * 0.3, -15 + oy + b + dang * 0.4], [17 + ox - dang * 0.6, -12.2 + oy + b + dang], [21 + ox - dang * 0.7, -10 + oy + b + dang * 1.2]];
+  const hind = (ox, oy) => [[-17 + ox, -23 + oy + b], [-10.5 + ox - dang * 0.3, -15.5 + oy + b + dang * 0.4], [-21 + ox - dang * 0.8, -13 + oy + b + dang], [-27 + ox - dang, -12.4 + oy + b + dang * 1.3]];
+  const fore = (ox, oy) => [[16 + ox, -22 + oy + b], [10 + ox - dang * 0.3, -16 + oy + b + dang * 0.4], [17 + ox - dang * 0.6, -14.4 + oy + b + dang], [21.5 + ox - dang * 0.7, -13 + oy + b + dang * 1.2]];
   leg(px, hind(7, -2.5), [5, 3.7, 2.6, 2.2], 1, -1);
   leg(px, fore(7, -2.5), [4.4, 3.3, 2.4, 2], 1, -1);
 
@@ -317,7 +334,7 @@ export const draw = (px, { sk }, o = {}) => {
 
   // ---- the near legs: the haunch stands off the flank
   px.part();
-  px.ellipse(-17, -25 + b, 9.4, 7.6, RED, 2.6, { rot: 0.5, vb: -0.28, edge: true, cast: 1, floor: 1 });
+  px.ellipse(-17, -25 + b, 9.4, 7.6, RED, 2.6, { rot: 0.5, round: 0.72, vb: -0.2, edge: true, cast: 1, floor: 1 });
   leg(px, hind(0, 0), [5.6, 4, 2.8, 2.4], 2.62, 0);
   leg(px, fore(0, 0), [4.8, 3.6, 2.6, 2.2], 2.62, 0);
 
@@ -335,7 +352,7 @@ export const draw = (px, { sk }, o = {}) => {
 
   // ---- light: the fire at the mouth; before it, the furnace kindling in the throat
   const mouth = [hx + 19, hy + 3.5], fire = p.fire || 0, lights = [];
-  if (fire > 0.03) lights.push({ x: mouth[0] + 22, y: mouth[1] + 10, r: 108, col: "#ffb040", k: cl(fire * 0.66, 0, 0.66) });
+  if (fire > 0.03) lights.push({ x: mouth[0] + 22, y: mouth[1] + 10, r: 108, col: "#ffb040", k: cl(fire * 0.58, 0, 0.58) });
   else if (heat > 0.05) { const t = P[11]; lights.push({ x: t[0] + 5, y: t[1] + 2, r: 34, col: "#ff9a30", k: heat * 0.9 }); }
   return { light: lights[0] || null, lights, mouth, fire, reach: p.reach || 0, tail: p.tail || 0, nose: [hx + 21, hy - 3], heat };
 };

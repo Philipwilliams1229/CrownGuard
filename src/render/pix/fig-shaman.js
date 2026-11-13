@@ -58,7 +58,7 @@ const LEG = {
   Y: { m: GOLD, fix: 3 }, y: { m: GOLD, fix: 1 }, W: { m: BONE, fix: 3 },
 };
 
-export const BOX = { w: 76, h: 72, ox: 22, oy: 64 };
+export const BOX = { w: 78, h: 74, ox: 22, oy: 66 };
 export const BONES = scaled(HUMAN, 0.75, { spine: 8, neck: 1, upper: 5.2, fore: 5.2, shN: -2.8, shF: 2.6, hipN: -1.7, hipF: 1.8 });
 const STAFF = 36;                      // the shaft, foot to the collar under the claw
 
@@ -265,7 +265,7 @@ export const CLIPS = {
     },
   },
   walk: {
-    n: 8, ms: 620, loop: true, lag: 0.09,
+    n: 8, ms: 560, loop: true, lag: 0.09,
     pose: (ph) => {
       const w = march(ph), a = Math.cos(ph * TAU);
       // the staff's foot: planted while the body passes it, then swung on ahead
@@ -276,7 +276,7 @@ export const CLIPS = {
   },
   // the heal, on the march: the very walk above with the staff thrust up, the head thrown back, the orb blazing
   chant: {
-    n: 8, ms: 620, loop: true, lag: 0.09,
+    n: 8, ms: 560, loop: true, lag: 0.09,
     pose: (ph) => {
       const w = march(ph), b = Math.sin(ph * TAU * 2);
       return { ...w, hx: 0.4, hy: -1, aF: [1.52 + 0.14 * b, 1, 0], aN: [1.2 + 0.14 * b, 0.8, 0], staff: 0.02 + 0.06 * Math.sin(ph * TAU), gk: 1, grip: 9, glow: 1.1 + 0.25 * b, chant: 1 };

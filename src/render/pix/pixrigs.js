@@ -28,6 +28,14 @@ import * as archer from "./fig-archer.js";
 import * as goblin from "./fig-goblin.js";
 import * as orc from "./fig-orc.js";
 import * as necro from "./fig-necro.js";
+import * as ironclad from "./fig-ironclad.js";
+import * as troll from "./fig-troll.js";
+import * as shaman from "./fig-shaman.js";
+import * as warchief from "./fig-warchief.js";
+import * as wolf from "./fig-wolf.js";
+import * as boar from "./fig-boar.js";
+import * as bat from "./fig-bat.js";
+import * as dragon from "./fig-dragon.js";
 
 const mk = (NAME, mod) => ({ ...mod, NAME });
 // fig     the figure
@@ -48,8 +56,21 @@ const mk = (NAME, mod) => ({ ...mod, NAME });
 export const PIX = {
   heroKnight: { fig: mk("knight", knight), atk: "attack", hit: 0.5, legacy: [0, 4, 6, 7], fx: true },
   heroHunter: { fig: mk("archer", archer), atk: "attack", hit: 0.62, legacy: [7, 9, 10, 12], sky: [0, 1, 2, 3], fx: false },
-  goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3, legacy: [0, 4, 5, 6], fx: true },
+  // ---- the Greenwood horde ----
+  goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
+  goblinBare: { fig: mk("goblin", goblin), variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },
   orc: { fig: mk("orc", orc), atk: "attack", hit: 0.55, per: 4, legacy: [0, 6, 7, 9], fx: true },
+  armored: { fig: mk("ironclad", ironclad), atk: "attack", hit: 0.583, per: 3.5, legacy: [0, 5, 7, 8], fx: true },
+  troll: { fig: mk("troll", troll), atk: "attack", hit: 0.6, per: 3.6, legacy: [0, 7, 9, 10], fx: true },
+  // (the shaman's chant: healCd runs down to each heal and is reset to healEvery)
+  shaman: { fig: mk("shaman", shaman), atk: "attack", hit: 0.52, per: 2.4, legacy: [0, 4, 6, 7], fx: true, casts: [{ clip: "chant", clock: "healCd", every: "healEvery", lead: 500, hold: 700 }] },
+  // (the warchief's horn: summonCd, the same way)
+  hobgoblin: { fig: mk("warchief", warchief), atk: "attack", hit: 0.54, per: 3.5, legacy: [0, 5, 7, 8], fx: true, casts: [{ clip: "horn", clock: "summonCd", every: "summonEvery", lead: 900, hold: 900 }] },
+  wolf: { fig: mk("wolf", wolf), atk: "attack", hit: 0.52, per: 3.4, legacy: [0, 3, 4, 6], fx: true },
+  boarrider: { fig: mk("boar", boar), atk: "attack", hit: 0.48, per: 2.9, legacy: [0, 3, 5, 6], fx: true },
+  boarMount: { fig: mk("boar", boar), variant: "loose", atk: "attack", hit: 0.48, per: 2.9, legacy: [0, 3, 5, 6], fx: true },
+  bat: { fig: mk("bat", bat), atk: "attack", hit: 0.56, legacy: [0, 2, 4, 5], fx: false },
+  dragon: { fig: mk("dragon", dragon), atk: "attack", hit: 0.4, legacy: [0, 4, 6, 9], fx: true },
   // (his raise: the engine resets raiseCd to raiseEvery when the dead get up, and holds it at 0 while there are none)
   necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 3, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
 };
@@ -82,6 +103,29 @@ const clipFrame = (d, sheet, frame) => {
 export const pixRec = (type, sheet, frame, left = false) => {
   const d = PIX[type], [clip, f] = clipFrame(d, sheet, frame);
   return bakeFrame(d.fig, clip, f, { flip: left, variant: d.variant });
+};
+
+// Baking ahead. A frame is baked the first time the board asks for it: under a
+// millisecond for most figures, 5-15 ms for the dragon (measured on the dev Mac).
+// So that no figure hitches the first time it walks on, the walks are baked in
+// the quiet moments after the game loads: a few milliseconds at a time, the
+// biggest figures first, both facings. Anything not reached yet still bakes on demand.
+let warming = false;
+export const warmPix = () => {
+  if (warming || typeof document === "undefined" || prefs.newSprites === false) return;
+  warming = true;
+  const jobs = [];
+  for (const type of Object.keys(PIX).sort((a, b) => PIX[b].fig.BOX.w * PIX[b].fig.BOX.h - PIX[a].fig.BOX.w * PIX[a].fig.BOX.h)) {
+    const d = PIX[type], n = d.fig.CLIPS.walk.n;
+    for (const flip of [false, true]) for (let f = 0; f < n; f++) jobs.push([d, f, flip]);
+  }
+  const later = (fn) => (typeof requestIdleCallback === "function" ? requestIdleCallback(fn, { timeout: 400 }) : setTimeout(fn, 60));
+  const step = () => {
+    const t0 = performance.now();
+    while (jobs.length && performance.now() - t0 < 4) { const [d, f, flip] = jobs.shift(); bakeFrame(d.fig, "walk", f, { flip, variant: d.variant }); }
+    if (jobs.length) later(step);
+  };
+  setTimeout(() => later(step), 1500);
 };
 
 // Where an attack clip stands, from the attack clock: `until` ms to the next

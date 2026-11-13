@@ -39,7 +39,7 @@ import { drawStoop } from "./birds.js";
 import { drawMusketShot } from "./musketfx.js";
 import { drawRingFx } from "./rings.js";
 import { drawBreath } from "./flames.js";
-import { beginLights, addLight } from "./pix/pixrigs.js";
+import { beginLights, addLight, warmPix } from "./pix/pixrigs.js";
 import { drawRaising, raiseSecs, raiseHidesPips } from "./buildanim.js";
 import { builderDrawables } from "./builders.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
@@ -333,6 +333,7 @@ export function draw(g, canvas, bufRef) {
   const drawables = [];
   // what burns this frame, for the redrawn figures' firelight (render/pix/pixrigs.js):
   // a Dragonbreath jet is three lights along its reach, flickering in steps
+  warmPix();      // (once: bakes the new figures' walks in the background so none hitches on its first step)
   beginLights();
   if (prefs.spellLight !== false) for (const t of g.towers) if (t.breath && t.breath.on > 0) {
     const b = t.breath, fl = [1, 0.86, 0.94, 0.8, 1, 0.9, 0.78, 0.96][Math.floor(g.time * 14 + (t.id | 0)) % 8];

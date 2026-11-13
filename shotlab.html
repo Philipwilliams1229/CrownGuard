@@ -12,6 +12,7 @@
     &ahead=30    how far up the road from the hall the first foe starts
     &up=0.7      how much of the crop lies above the hall's foot
     &hero=wren   field Wren (or aldric) beside the hall, for the bands' bows
+    &set=summonCd:1500,hp:9999   fields laid on every foe at the start
 
   Saved to .shots/shotlab_<tag>.png, frames left to right, four to a row,
   each stamped with its game time. Uses the same state shape as scripts/sim.mjs.
@@ -60,6 +61,8 @@
       t.readyAt = 0; t.raised = null;                                   // built at once
       if (q.get("hero")) { const b = fieldHero(g, q.get("hero"), 1, spot[0] + 30, spot[1] + 10); if (b) b.rally = { x: rx, y: ry }; }
       FOES.forEach((type, i) => spawnAt(g, type, 1, d0 + Number(q.get("ahead") ?? 30) - i * 16, 0));
+      // &set=summonCd:1500,hp:9999  fields laid on every foe at the start (a clock about to run out, a foe that won't die)
+      for (const kv of (q.get("set") || "").split(",").filter(Boolean)) { const [k, v] = kv.split(":"); for (const e of g.enemies) { e[k] = Number(v); if (k === "hp") e.maxHp = Number(v); } }
       const DT = 1 / 60;
       for (let i = 0; i < WARM * 60; i++) updateGame(g, DT);
       const cols = Math.min(4, N), rows = Math.ceil(N / cols);

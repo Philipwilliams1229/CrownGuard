@@ -76,10 +76,13 @@ Xcode, so keep edits under `ios/` few and plain, and say they're unbuilt).
 
 The owner wants the sprites "a little more premium": readable body parts
 and faces, "more fluid and natural animations", spell light on casters.
-Two rounds of concepts settled the look, and **the first five figures are in
-the game**: Sir Aldric, Wren, goblin, orc, necromancer, drawn by the pixel
-sculptor in `src/render/pix/`. Read `art/STYLE-GUIDE.md` "The new sprites"
-before touching any figure: it has the contract and how to add the next one.
+Two rounds of concepts settled the look, and **the first figures are in
+the game**: Sir Aldric, Wren and (since 2026-11-13, "Yes, the horde next")
+the whole Greenwood horde: goblin (hooded and bare), orc, Ironclad, troll,
+shaman, warchief, wolf, boar rider, bat, dragon, necromancer, drawn by the
+pixel sculptor in `src/render/pix/`. Read `art/STYLE-GUIDE.md` "The new
+sprites" before touching any figure: it has the contract and how to add the
+next one.
 - **Decided by the owner** (their words): "i love the direction"; outline C
   (the one-pixel tinted line); "Definitely want just one sun!"; "I love the
   spell light", go with the recommendation (on by default, a switch in
@@ -87,14 +90,20 @@ before touching any figure: it has the contract and how to add the next one.
   Wren in the hunting cap and feather ("C for sure that's awesome"), after
   two hoods were rejected ("that hood is really bad sorry"); the mage,
   goblin, orc and necromancer "look great".
-- **Provisional, pending the owner's playtest:** the five figures on the
+- **Provisional, pending the owner's playtest:** the figures on the
   board (8-frame walks, 11-16 frame attacks timed off the attack clock, a real
   idle for heroes), firelight from Dragonbreath on any new figure in the jet,
   and two Display switches, "New sprites" and "Spell light" (`data/prefs.js`).
   Old and new figures share the board until the rest are redrawn, so the
-  heavier old outline shows beside the new one: that is expected for now.
+  heavier old outline shows beside the new one: that is expected for now
+  (the Greenwood's FOES are all new; its soldiers, crews and the other three
+  armies are not). The owner has NOT yet seen the horde's nine new figures:
+  the goblin, orc and necromancer are the only foes they have approved.
+  The shaman's chant, the warchief's horn and the necromancer's raise show
+  on the march (`casts` in `PIX`); the dragon's fire-breath clip is drawn
+  but unused (the boss has no blow).
 - **Next, in the order agreed with the owner:** the rest of the rigs a few
-  at a time (keep each chapter's colours: style guide, "The three armies'
+  at a time (crown soldiers, then Iron, Hollow, Rime) (keep each chapter's colours: style guide, "The three armies'
   colours"), tower crews starting with the Spire mage (`fig-mage.js` is drawn,
   with a `breath` clip for Dragonbreath), then the joint lab on the new
   skeleton. Ask before changing a figure the owner has already approved.
@@ -107,7 +116,16 @@ before touching any figure: it has the contract and how to add the next one.
   Light measured at about +0.8 ms for 300 lit figures on the dev Mac.
 - How it ran: the lead wrote the kit and the first figure (the mage), then
   two artists drew the goblin + orc and the necromancer against it as the
-  worked example, each in its own `fig-*.js`.
+  worked example, each in its own `fig-*.js`. The horde ran the same way with
+  four artists (heavies; goblin kin; four-legged, who also wrote `beast.js`;
+  fliers) on one shared brief, each reporting its `BOX`, clips, the blow's
+  phase and the four legacy frames, which is all the lead needs to fill a
+  `PIX` entry. The usage limit cut all four off mid-pass: a WIP commit, then
+  `SendMessage` with a tool-call budget, brought each back with its context.
+  Artists look at their work with `node scripts/concept-render.mjs` (no
+  browser); only the lead puts figures on the board and checks them in
+  `shotlab.html` (`&set=healCd:900,hp:9999` lays fields on the lab's foes, to
+  catch a cast or keep a foe alive).
 - **The same day, two castle fixes** (owner: soldiers on the home screen
   "entirely obscured by the walls in front of them"; board walls "weirdly
   clippy" or not making sense geometrically): the title castle's garrison now
