@@ -1,6 +1,7 @@
 // Node twin of concept-strip.html (same bake steps as concept/bake.js): renders a concept
 // figure's frames to .shots/<tag>.png with no browser. ext=1 prints each clip's pixel extents
 // (for sizing a figure's BOX).
+// marks=1 prints each frame's named points (a crew figure's staff head, bow hand, muzzle: art px from the feet).
 //   node scripts/concept-render.mjs fig=goblin clips=idle,walk zoom=10 frames=0,2,4 crop=x,y,w,h bg=grass flip=1 tag=cptg_x
 import zlib from "node:zlib";
 import fs from "node:fs";
@@ -28,6 +29,7 @@ const bake = (name) => {
     // extents, for box checks
     let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1;
     for (let j = 0; j < img.h; j++) for (let i = 0; i < img.w; i++) if (img.data[(j * img.w + i) * 4 + 3]) { x0 = Math.min(x0, i); x1 = Math.max(x1, i); y0 = Math.min(y0, j); y1 = Math.max(y1, j); }
+    if (q.marks && info.marks) console.log(name, f, JSON.stringify(Object.fromEntries(Object.entries(info.marks).map(([k, v]) => [k, v.map((n) => Math.round(n * 10) / 10)]))));
     out.push({ img, ext: [x0, y0, x1, y1] });
   }
   return out;

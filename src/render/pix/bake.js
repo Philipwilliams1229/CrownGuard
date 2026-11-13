@@ -11,6 +11,7 @@ import { frameAt } from "./rig.js";
 //   glow   an overlay: its OWN spell's light on it (null when it casts none)
 //   fx     the spell itself (fireball, sparks, a blade's smear), or null
 //   light  { x, y, r, col, k } where its own light sits (for the ground's glow)
+//   marks  named points the figure's draw gave ({ tip: [x, y] }, art pixels from the feet, facing +x), or null
 // and rimOf(frame, dir, col) gives the overlay for a light off to one side.
 // A frame is drawn as stamps: cv, then any overlays at whatever strength the
 // moment calls for (globalAlpha), then fx. That is the whole run-time cost of light.
@@ -37,7 +38,7 @@ export const bakeFrame = (fig, name, f, o = {}) => {
     fig.fx(fxp, F, info, name);
     if (fxp.m.some((m) => m >= 0)) fx = toCanvas(fxp.resolve({ line: "tint" }));
   }
-  return (arr[f] = { cv, glow, fx, ox: fig.BOX.ox, oy: fig.BOX.oy, ph: F.ph, light: info.light || own[0] || null, px, rims: new Map() });
+  return (arr[f] = { cv, glow, fx, ox: fig.BOX.ox, oy: fig.BOX.oy, ph: F.ph, light: info.light || own[0] || null, marks: info.marks || null, px, rims: new Map() });
 };
 export const bakeClip = (fig, name, o = {}) => { const out = []; for (let f = 0; f < fig.CLIPS[name].n; f++) out.push(bakeFrame(fig, name, f, o)); return out; };
 
