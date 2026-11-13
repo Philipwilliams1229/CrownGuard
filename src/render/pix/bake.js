@@ -27,14 +27,17 @@ export const bakeFrame = (fig, name, f, o = {}) => {
   const px = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
   const info = fig.draw(px, F, o) || {};
   const cv = toCanvas(px.resolve({ flip: o.flip, line: o.line }));
-  const glow = info.light && info.light.k > 0.02 ? toCanvas(px.lightLayer(info.light)) : null;
+  // its own light: one (info.light) or several (info.lights), each laid into the one glow overlay
+  const own = (info.lights || (info.light ? [info.light] : [])).filter((l) => l && l.k > 0.02);
+  let glow = null;
+  if (own.length) { glow = toCanvas(px.lightLayer(own[0])); for (const l of own.slice(1)) glow.getContext("2d").drawImage(toCanvas(px.lightLayer(l)), 0, 0); }
   let fx = null;
   if (fig.fx) {
     const fxp = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
     fig.fx(fxp, F, info, name);
     if (fxp.m.some((m) => m >= 0)) fx = toCanvas(fxp.resolve({ line: "tint" }));
   }
-  return (arr[f] = { cv, glow, fx, ox: fig.BOX.ox, oy: fig.BOX.oy, ph: F.ph, light: info.light || null, px, rims: new Map() });
+  return (arr[f] = { cv, glow, fx, ox: fig.BOX.ox, oy: fig.BOX.oy, ph: F.ph, light: info.light || own[0] || null, px, rims: new Map() });
 };
 export const bakeClip = (fig, name, o = {}) => { const out = []; for (let f = 0; f < fig.CLIPS[name].n; f++) out.push(bakeFrame(fig, name, f, o)); return out; };
 

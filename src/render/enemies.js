@@ -6,7 +6,7 @@ import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS } from "../sprites/sprites.js";
 import { hasRig, rigDef, drawRig, rigFrame, hasPix } from "./rigs.js";
-import { atkFrac, walkByGait, walkByTime } from "./pix/pixrigs.js";
+import { atkFrac, walkByGait, walkByTime, marchSheet } from "./pix/pixrigs.js";
 import { skiffGunPose, skiffRowFrame, skiffBlade, skiffBob, SKIFF_LIFT } from "./rigs-skiff.js";
 import { fillWet } from "./waterreach.js";
 import * as CROWN from "./rigs-crown.js";
@@ -151,7 +151,8 @@ export const drawEnemy = (ctx, e, time, tms) => {
     // the clip's strike lands on the engine's
     let ps = rsheet, pf = rframe;
     if (hasPix(skin)) {
-      if (rsheet === "walk") pf = walkByGait(skin, e.gait, e.id);
+      // (a flier's "walk" is its wingbeat, on the clock; a walker may be mid-chant or sounding a horn)
+      if (rsheet === "walk") { pf = def.fly ? walkByTime(skin, time, e.id) : walkByGait(skin, e.gait, e.id); if (!def.fly) ps = marchSheet(skin, e, tms); }
       else { ps = "atk"; pf = clocked ? atkFrac(skin, e.meleeCd, e.atkRate) : (time * 1.1 + e.id * 0.37) % 1; }
     }
     drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, variant);

@@ -80,6 +80,7 @@ export class Pix {
     this.bias = new Float32Array(n); this.vb = new Float32Array(n);
     this.fix = new Int8Array(n).fill(-1);
     this.pid = new Int16Array(n); this.cast = new Uint8Array(n); this.flag = new Uint8Array(n);
+    this.floor = new Uint8Array(n);
     this._pid = 0;
   }
   // start a new part: shapes of one part never shadow or line each other
@@ -91,6 +92,7 @@ export class Pix {
     this.m[k] = m; this.z[k] = z; this.nx[k] = nx; this.ny[k] = ny; this.nz[k] = nz;
     this.bias[k] = o.bias || 0; this.vb[k] = o.vb || 0; this.fix[k] = o.fix ?? -1;
     this.pid[k] = this._pid; this.cast[k] = o.cast ?? 1;
+    this.floor[k] = o.floor || 0;      // the darkest tone shadows may push this pixel to (dark cloth: floor 1, or a shadow reads as a hole)
     this.flag[k] = (o.edge ? F_EDGE : 0) | (o.noLine ? F_NOLINE : 0);
   }
   // a limb: a capsule from a (radius ra) to b (radius rb), round in section
@@ -231,7 +233,7 @@ export class Pix {
         const nb = [k - 1, k + 1, k - w, k + w];
         for (const q of nb) if (q >= 0 && q < n && this.m[q] >= 0 && (this.flag[q] & F_EDGE) && this.pid[q] !== this.pid[k] && this.z[q] > this.z[k] + 0.2) { t -= 1; break; }
       }
-      lv[k] = clamp(t, 0, 4);
+      lv[k] = clamp(t, this.fix[k] >= 0 ? 0 : this.floor[k], 4);
       const c = MATS[m].c[lv[k]];
       out[k * 4] = c[0]; out[k * 4 + 1] = c[1]; out[k * 4 + 2] = c[2]; out[k * 4 + 3] = 255;
     }

@@ -124,5 +124,6 @@ export const frameAt = (clip, f, B) => {
     return solve(clip.pose(ph), B);
   };
   const ph = clip.loop ? f / clip.n : f / (clip.n - 1);
-  return { ph, sk: at(ph), lag1: at(ph - (clip.lag ?? 0.07)), lag2: at(ph - (clip.lag ?? 0.07) * 2) };
+  // `at(ph)`: the skeleton at any other moment of the clip (for an effect that must know where a hand WAS)
+  return { ph, sk: at(ph), lag1: at(ph - (clip.lag ?? 0.07)), lag2: at(ph - (clip.lag ?? 0.07) * 2), at };
 };

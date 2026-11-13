@@ -38,6 +38,12 @@ const mk = (NAME, mod) => ({ ...mod, NAME });
 // sky     the same for the old "sky" sheet (Wren's Arrow Volley)
 // fx      draw the clip's own effect layer (a blade's smear). Off where the
 //         engine already flies the real thing (Wren's arrow).
+// variant a look of the same figure (handed to its draw as o.variant): the bare-headed
+//         goblin, the boar without its rider
+// casts   things it does ON THE MARCH, each a walk-shaped clip in step with "walk" (same
+//         legs, other arms and light) worn while an engine clock says so:
+//         { clip, clock, every, lead, hold }: from `lead` ms before e[clock] runs out
+//         until `hold` ms after it is reset to e[every]
 export const PIX = {
   heroKnight: { fig: mk("knight", knight), atk: "attack", hit: 0.5, legacy: [0, 4, 6, 7], fx: true },
   heroHunter: { fig: mk("archer", archer), atk: "attack", hit: 0.62, legacy: [7, 9, 10, 12], sky: [0, 1, 2, 3], fx: false },
@@ -51,6 +57,15 @@ export const hasPix = (type) => prefs.newSprites !== false && Object.prototype.h
 export const pixBox = (type) => { const { w, h, ox, oy } = PIX[type].fig.BOX; return { hw: Math.max(ox, w - ox) / 2, up: oy / 2, down: (h - oy) / 2 }; };
 
 const frac = (v) => v - Math.floor(v);
+// the walk sheet a marching foe wears just now: "walk", or a cast it is in the middle of
+export const marchSheet = (type, e, tms = 0) => {
+  for (const c of PIX[type].casts || []) {
+    const cd = e[c.clock], every = e[c.every];
+    if (cd == null || !every || (e.silencedUntil || 0) > tms) continue;
+    if (cd <= c.lead || every - cd < c.hold) return c.clip;
+  }
+  return "walk";
+};
 // (sheet, frame) as the game gives them -> [clip, frame index]
 const clipFrame = (d, sheet, frame) => {
   const C = d.fig.CLIPS, f = typeof frame === "number" ? frame : 0;
@@ -58,12 +73,13 @@ const clipFrame = (d, sheet, frame) => {
   if (sheet === "atk") { const c = C[d.atk]; return [d.atk, Math.max(0, Math.min(c.n - 1, Math.round(f * (c.n - 1))))]; }
   if (sheet === "sky" && d.sky) return ["sky", d.sky[(f | 0) % d.sky.length]];
   if (sheet === "fight" || sheet === "sky" || sheet === "sweep") return [d.atk, d.legacy[(f | 0) % 4] ?? 0];
-  const c = C.walk; return ["walk", Math.floor(frac(f / 4) * c.n) % c.n];
+  // "walk", a flier's "fly" (its walk clip is its wingbeat), or a marching cast: all loops in step
+  const name = C[sheet] && C[sheet].loop ? sheet : "walk", c = C[name]; return [name, Math.floor(frac(f / 4) * c.n) % c.n];
 };
 // the baked frame record (bake.js) for what the game asked; left: the figure faces left
 export const pixRec = (type, sheet, frame, left = false) => {
   const d = PIX[type], [clip, f] = clipFrame(d, sheet, frame);
-  return bakeFrame(d.fig, clip, f, { flip: left });
+  return bakeFrame(d.fig, clip, f, { flip: left, variant: d.variant });
 };
 
 // Where an attack clip stands, from the attack clock: `until` ms to the next
