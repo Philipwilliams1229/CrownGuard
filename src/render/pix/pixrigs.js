@@ -32,7 +32,8 @@ import * as necro from "./fig-necro.js";
 const mk = (NAME, mod) => ({ ...mod, NAME });
 // fig     the figure
 // atk     the clip a blow plays;  hit: where in it (0..1) the blow lands
-// per     gait units (14 px of road each, engine update.js e.gait) to one walk cycle
+// per     gait units (14 px of road each, engine update.js e.gait) to one walk cycle:
+//         the foe's speed x the walk clip's seconds / 14, so it steps at the pace it was drawn at
 // legacy  the clip frames that stand for the old four fight frames (melee: guard,
 //         wind-up, strike, follow-through; a bowman: full draw, loose, reach, nock)
 // sky     the same for the old "sky" sheet (Wren's Arrow Volley)
@@ -47,10 +48,10 @@ const mk = (NAME, mod) => ({ ...mod, NAME });
 export const PIX = {
   heroKnight: { fig: mk("knight", knight), atk: "attack", hit: 0.5, legacy: [0, 4, 6, 7], fx: true },
   heroHunter: { fig: mk("archer", archer), atk: "attack", hit: 0.62, legacy: [7, 9, 10, 12], sky: [0, 1, 2, 3], fx: false },
-  goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 2.3, legacy: [0, 4, 5, 6], fx: true },
-  orc: { fig: mk("orc", orc), atk: "attack", hit: 0.55, per: 2.4, legacy: [0, 6, 7, 9], fx: true },
+  goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3, legacy: [0, 4, 5, 6], fx: true },
+  orc: { fig: mk("orc", orc), atk: "attack", hit: 0.55, per: 4, legacy: [0, 6, 7, 9], fx: true },
   // (his raise: the engine resets raiseCd to raiseEvery when the dead get up, and holds it at 0 while there are none)
-  necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 2.9, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
+  necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 3, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
 };
 export const hasPix = (type) => prefs.newSprites !== false && Object.prototype.hasOwnProperty.call(PIX, type);
 

@@ -1,0 +1,72 @@
+<!doctype html>
+<!--
+  Pix lab: the joint lab for the new sprites (render/pix). Every frame of a
+  figure's clip, plain and again with its solved bones over it, and each
+  joint judged against a real body's limits (art/STYLE-GUIDE.md "Joints and
+  motion"). The solver already keeps bones their length and folds elbows and
+  knees the right way; what a pose can still get wrong is asked here:
+    red    an upper arm swung back past 75 degrees from hanging without `flip`
+           (an elbow up behind the head must be a flip pose), or an elbow or
+           knee folded tighter than 35 degrees
+    amber  an upper arm back past 55 degrees; a limb locked dead straight
+           (reach 1: it reads stiff unless it is a thrust's last frame)
+    /pix-lab.html?fig=knight&clip=attack&zoom=5&tag=pixlab_knight
+    &variant=<v>  &flip=1  &bones=0 (plain only)
+  Bipeds only (figures built on rig.js's skeleton). Saved to .shots/<tag>.png.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>pix lab</title></head>
+  <body style="background:#14171d;color:#e8e0c8;font-family:monospace;margin:12px">
+    <div id="status">painting</div>
+    <pre id="notes" style="white-space:pre-wrap"></pre>
+    <script type="module">
+      import { bakeClip } from "/src/render/pix/bake.js";
+      import { frameAt } from "/src/render/pix/rig.js";
+      const q = new URLSearchParams(location.search);
+      const name = q.get("fig") || "knight", clipName = q.get("clip") || "attack", Z = Number(q.get("zoom")) || 5;
+      const fig = { ...(await import(`/src/render/pix/fig-${name}.js`)), NAME: name };
+      const clip = fig.CLIPS[clipName], o = { flip: !!q.get("flip"), variant: q.get("variant") || "" };
+      const frames = bakeClip(fig, clipName, o), { w, h, ox, oy } = fig.BOX, bones = q.get("bones") !== "0";
+      const cv = document.createElement("canvas"); cv.width = frames.length * w * Z; cv.height = h * Z * (bones ? 2 : 1) + 18;
+      const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      const deg = (r) => Math.round((r * 180) / Math.PI), notes = [];
+      // an upper limb's angle from hanging straight down, + toward the foe, - behind
+      const swing = (a, b) => Math.atan2(b[0] - a[0], b[1] - a[1]);
+      // the fold at a joint: 180 = straight, small = folded tight
+      const fold = (a, b, c) => { const v1 = [a[0] - b[0], a[1] - b[1]], v2 = [c[0] - b[0], c[1] - b[1]]; return deg(Math.acos(Math.max(-1, Math.min(1, (v1[0] * v2[0] + v1[1] * v2[1]) / (Math.hypot(...v1) * Math.hypot(...v2) || 1))))); };
+      frames.forEach((fr, i) => {
+        const F = frameAt(clip, i, fig.BONES), s = F.sk, x0 = i * w * Z;
+        ctx.fillStyle = i % 2 ? "#7eab54" : "#86b35a"; ctx.fillRect(x0, 0, w * Z, cv.height - 18);
+        for (const row of bones ? [0, 1] : [0]) {
+          ctx.globalAlpha = row ? 0.45 : 1;
+          for (const layer of [fr.cv, fr.glow, fr.fx]) if (layer) ctx.drawImage(layer, x0, row * h * Z, w * Z, h * Z);
+          ctx.globalAlpha = 1;
+        }
+        ctx.fillStyle = "#14171d"; ctx.fillRect(x0, cv.height - 18, w * Z, 18);
+        ctx.fillStyle = "#e8e0c8"; ctx.font = "12px monospace"; ctx.fillText(`${i}`, x0 + 4, cv.height - 5);
+        if (!bones || !s.sN) return;
+        const P = ([x, y]) => [x0 + (x + ox) * Z, h * Z + (y + oy) * Z];
+        const seg = (a, b, col) => { ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.stroke(); };
+        const dot = (a, col) => { ctx.fillStyle = col; const [x, y] = P(a); ctx.fillRect(x - 2, y - 2, 5, 5); };
+        const judge = (label, sh, el, hd, pose, isLeg) => {
+          const back = -deg(swing(sh, el)), f = fold(sh, el, hd), flip = !isLeg && pose && pose[2] > 0.5;
+          let col = "#58e06a";
+          if (!isLeg && !flip && back > 75) { col = "#ff5a4a"; notes.push(`frame ${i} ${label}: upper arm ${back} deg behind hanging (red: make it a flip pose or bring it forward)`); }
+          else if (!isLeg && !flip && back > 55) { col = "#ffc04a"; notes.push(`frame ${i} ${label}: upper arm ${back} deg behind hanging (amber)`); }
+          if (f < 35) { col = "#ff5a4a"; notes.push(`frame ${i} ${label}: folded to ${f} deg (red: under 35)`); }
+          else if (f > 176 && !isLeg) { if (col === "#58e06a") col = "#ffc04a"; }
+          seg(sh, el, col); seg(el, hd, col); dot(el, col);
+        };
+        seg(s.P, s.C, "#9ad0ff"); seg(s.C, s.N, "#9ad0ff");
+        judge("far leg", s.hF, s.kF, s.anF, null, true); judge("near leg", s.hN, s.kN, s.anN, null, true);
+        judge("far arm", s.sF, s.eF, s.hdF, s.p.aF, false); judge("near arm", s.sN, s.eN, s.hdN, s.p.aN, false);
+        for (const j of [s.P, s.C, s.N, s.hdN, s.hdF, s.anN, s.anF]) dot(j, "#fff3d2");
+      });
+      document.body.append(cv);
+      document.getElementById("notes").textContent = `${name} / ${clipName}: ${frames.length} frames, ${clip.ms} ms\n` + (notes.length ? notes.join("\n") : "every joint inside its limits");
+      const tag = q.get("tag");
+      if (tag) await fetch("/__shot?name=" + tag, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      document.title = "DONE"; document.getElementById("status").textContent = "done " + (tag || "");
+    </script>
+  </body>
+</html>

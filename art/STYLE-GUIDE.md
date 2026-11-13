@@ -1254,6 +1254,15 @@ but tower crews are a separate system and still the old ones.
   Check with `rigshot.html?types=<type>` (the old frame numbers through the
   new figure), `shotlab.html?...&foes=<type>` and `&hero=aldric|wren` (the
   real engine), and `perf.html` (500 foes drew in ~5.5 ms with the new ones in).
+- **The joint lab for these is `pix-lab.html?fig=<name>&clip=<clip>&zoom=5&tag=<shot>`:**
+  every frame plain and again with its solved bones over it. The solver
+  already keeps bones their length and folds elbows and knees the right way;
+  the lab flags what a pose can still get wrong (an upper arm swung back past
+  55 / 75 degrees without `flip`, a joint folded under 35 degrees, a limb
+  locked dead straight). Nothing ships red. The old `joint-lab.html` is for
+  the old rigs and crews only.
+- **Walk pace:** a foe's `per` in `PIX` is its speed x its walk clip's seconds
+  / 14 (gait units), so it steps at the cadence it was drawn at.
 - **One sun:** a figure facing left is drawn from frames baked with
   `flip: true` and then mirrored, so its light never flips. Do not mirror a
   right-facing bake by hand.
