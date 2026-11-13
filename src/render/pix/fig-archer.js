@@ -153,7 +153,16 @@ export const fx = (px, { ph, sk }, info, clip) => {
 };
 
 const READY = { aF: [0.72, 0.78, 0], bow: 0.32, aN: [0.42, 0.74, 0], draw: 0, arrow: 0, fN: [-1.8, 0], fF: [2, 0] };
+const SKY = [
+  { aF: [2.2, 1, 0], bow: -0.66, aN: [2.55, 0.42, 1], draw: 1, arrow: 1, lean: -0.1, twist: -0.7, rise: 0.8, hy: -0.6 },
+  { aF: [2.15, 1, 0], bow: -0.52, aN: [3.25, 0.6, 1], draw: 0, arrow: 0, lean: -0.06, twist: -0.9, rise: 0.5, hy: -0.6 },
+  { aF: [1.95, 0.96, 0], bow: -0.34, aN: [3.3, 0.55, 1], draw: 0, arrow: 0, lean: -0.03, twist: -0.8, hy: -0.3 },
+  { aF: [1.75, 0.9, 0], bow: -0.14, aN: [1.7, 0.5, 0], draw: 0.2, arrow: 1, lean: -0.04, twist: -0.4, hy: -0.3 },
+];
 export const CLIPS = {
+  // the Arrow Volley's four poses, aimed high (the game picks them by number as her
+  // volley's flights go: full draw, loose, the reach to the quiver, the nock)
+  sky: { n: 4, ms: 400, loop: false, lag: 0.01, pose: (ph) => ({ ...READY, fN: [-2.4, 0], fF: [2.6, 0], ...SKY[Math.round(ph * 3)] }) },
   idle: {
     n: 8, ms: 1900, loop: true, lag: 0.1,
     pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 1); return { ...READY, rise: 0.5 + 0.5 * b, aF: [0.72, 0.78 - 0.03 * (0.5 + 0.5 * b), 0], bow: 0.32 + 0.02 * b2, sway: b2 * 0.8, blink: ph > 0.5 && ph < 0.62 ? 1 : 0 }; },

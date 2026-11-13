@@ -11,10 +11,10 @@
   <body style="background:#14171d;color:#e8e0c8;font-family:monospace;margin:12px">
     <div id="status">painting</div>
     <script type="module">
-      import { bakeClip } from "/concept/bake.js";
+      import { bakeClip } from "/src/render/pix/bake.js";
       const q = new URLSearchParams(location.search);
       const name = q.get("fig") || "mage";
-      const fig = { ...(await import(`/concept/fig-${name}.js`)), NAME: name };
+      const fig = { ...(await import(`/src/render/pix/fig-${name}.js`)), NAME: name };
       const clips = (q.get("clips") || Object.keys(fig.CLIPS).join(",")).split(",");
       const Z = Number(q.get("zoom")) || 5, bg = { grass: "#82b256", road: "#c8a46c", dark: "#2a2e3a" }[q.get("bg") || "grass"];
       const o = { flip: !!q.get("flip"), line: q.get("line") || "tint", variant: q.get("variant") || "" };

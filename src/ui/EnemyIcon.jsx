@@ -5,7 +5,8 @@
 
 import { useRef, useEffect } from "react";
 import { SPRITES, drawSprite } from "../sprites/sprites.js";
-import { hasRig, rigDef, rigFrame } from "../render/rigs.js";
+import { hasRig, rigDef, rigFrame, hasPix } from "../render/rigs.js";
+import { pixIcon } from "../render/pix/pixrigs.js";
 import { PX } from "../render/paint.js";
 
 export default function EnemyIcon({ type, box = 26 }) {
@@ -15,7 +16,10 @@ export default function EnemyIcon({ type, box = 26 }) {
   // a foe with neither a rig nor a pixel map yet draws an empty box, never a crash
   const blank = !rigged && !spr?.frames;
   let w, h;
-  if (rigged) { const b = rigDef(type).box; w = b.hw * 2; h = b.up + b.down; }
+  // a redrawn figure is framed by its own pixels (its box has room for a swung sword)
+  const icon = rigged && hasPix(type) ? pixIcon(type) : null;
+  if (icon) { w = icon.w; h = icon.h; }
+  else if (rigged) { const b = rigDef(type).box; w = b.hw * 2; h = b.up + b.down; }
   else if (blank) { w = h = box; }
   else { const map = spr.frames[0]; const px = spr.px || 2; w = map[0].length * px; h = map.length * px; }
   const scale = box / Math.max(w, h);
@@ -27,9 +31,10 @@ export default function EnemyIcon({ type, box = 26 }) {
     const ctx = c.getContext("2d");
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, w * dens, h * dens);
-    if (rigged) ctx.drawImage(rigFrame(type, "walk", 0).cv, 0, 0);
+    if (icon) ctx.drawImage(icon.cv, 0, 0);
+    else if (rigged) ctx.drawImage(rigFrame(type, "walk", 0).cv, 0, 0);
     else drawSprite(ctx, spr, spr.pal, 0, w / 2, h / 2, false);
-  }, [type, w, h, spr, rigged, dens, blank]);
+  }, [type, w, h, spr, rigged, dens, blank, icon]);
 
   return (
     <canvas

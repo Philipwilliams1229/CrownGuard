@@ -39,6 +39,7 @@ import { drawStoop } from "./birds.js";
 import { drawMusketShot } from "./musketfx.js";
 import { drawRingFx } from "./rings.js";
 import { drawBreath } from "./flames.js";
+import { beginLights, addLight } from "./pix/pixrigs.js";
 import { drawRaising, raiseSecs, raiseHidesPips } from "./buildanim.js";
 import { builderDrawables } from "./builders.js";
 import { drawArcherTower, drawWizardSpire, drawGarrison, drawSupportTower, drawCatapult, drawBladewheel, drawGoldworks, drawTrapsmith, drawFalconry, drawSunforge, drawAssassin, drawRiverwatchHall, drawGunpowder } from "./towers.js";
@@ -330,6 +331,14 @@ export function draw(g, canvas, bufRef) {
     ctx.save(); ctx.translate(0, -lift); fn(); ctx.restore();
   };
   const drawables = [];
+  // what burns this frame, for the redrawn figures' firelight (render/pix/pixrigs.js):
+  // a Dragonbreath jet is three lights along its reach, flickering in steps
+  beginLights();
+  if (prefs.spellLight !== false) for (const t of g.towers) if (t.breath && t.breath.on > 0) {
+    const b = t.breath, fl = [1, 0.86, 0.94, 0.8, 1, 0.9, 0.78, 0.96][Math.floor(g.time * 14 + (t.id | 0)) % 8];
+    const k = Math.min(1, b.on * 1.4) * fl, ca = Math.cos(b.ang), sa = Math.sin(b.ang), r = b.len * 0.42 + 16;
+    for (const q of [0.4, 0.7, 1]) addLight(t.x + ca * b.len * q, t.y + sa * b.len * q, r, "#ffb040", k);
+  }
   for (const d of DECOR) drawables.push({ y: d.y + 14, fn: () => drawTree(ctx, d, g.time) });
   // the tower you're about to buy, standing on the spot at half weight
   if (g.buildMode && g.hover) {

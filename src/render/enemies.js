@@ -5,7 +5,8 @@
 import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS } from "../sprites/sprites.js";
-import { hasRig, rigDef, drawRig, rigFrame } from "./rigs.js";
+import { hasRig, rigDef, drawRig, rigFrame, hasPix } from "./rigs.js";
+import { atkFrac, walkByGait, walkByTime } from "./pix/pixrigs.js";
 import { skiffGunPose, skiffRowFrame, skiffBlade, skiffBob, SKIFF_LIFT } from "./rigs-skiff.js";
 import { fillWet } from "./waterreach.js";
 import * as CROWN from "./rigs-crown.js";
@@ -145,8 +146,16 @@ export const drawEnemy = (ctx, e, time, tms) => {
       : Math.floor(time * (rsheet === "fight" ? 5 : 8) + e.id) % n;
     const feet = e.y + e.size * 0.55 + hover;
     const variant = e.revived ? "revived" : "";
-    drawRig(ctx, skin, e.x + lunge, feet, e.face, rsheet, rframe, variant);
-    if (e.hitFlash > tms) drawRig(ctx, skin, e.x + lunge, feet, e.face, rsheet, rframe, "white", 0.7);
+    // a redrawn figure (render/pix) takes a phase, not one of four frames: its
+    // walk from the ground covered, its blow timed off the same attack clock so
+    // the clip's strike lands on the engine's
+    let ps = rsheet, pf = rframe;
+    if (hasPix(skin)) {
+      if (rsheet === "walk") pf = walkByGait(skin, e.gait, e.id);
+      else { ps = "atk"; pf = clocked ? atkFrac(skin, e.meleeCd, e.atkRate) : (time * 1.1 + e.id * 0.37) % 1; }
+    }
+    drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, variant);
+    if (e.hitFlash > tms) drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, "white", 0.7);
   } else {
     drawSprite(ctx, sheet, pal, frame, e.x + lunge, e.y + hover, e.face < 0);
     // white flash on solid hits
@@ -469,8 +478,16 @@ export const drawBandUnit = (ctx, u, b, time) => {
   const sheet = own ? own.sheet : sky >= 0 ? "sky" : fighting ? "fight" : "walk";
   // a swordsman winds up then strikes; the huntress holds at full draw and
   // flings the string hand back for the moment after she looses
-  const frame = own ? own.frame : sky >= 0 ? sky : u.state === "moving" ? Math.floor(time * 7 + u.id) % 4
+  let frame = own ? own.frame : sky >= 0 ? sky : u.state === "moving" ? Math.floor(time * 7 + u.id) % 4
     : fighting ? fightFrame(kind, u, u.bow ? b.st.bow.rate : b.st?.rate, !!(b.st?.ranged || u.bow)) : 0;
+  // a redrawn figure (render/pix): a real idle while standing, a smooth march,
+  // and a blow timed off the attack clock
+  let psheet = sheet;
+  if (hasPix(kind) && !own && sky < 0) {
+    if (u.state === "moving") frame = walkByTime(kind, time, u.id);
+    else if (fighting) { psheet = "atk"; frame = atkFrac(kind, u.atkCd, u.bow ? b.st.bow.rate : b.st?.rate); }
+    else { psheet = "idle"; frame = time + u.id * 1.3; }
+  }
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 8, u.id, 0.3, time);
   softShadow(ctx, u.x + 1, u.y + 9, hero ? 7 : 6, 2.6, 0.3);
   // the hero stands in a ring of gold so he can be found in a crowd
@@ -481,7 +498,7 @@ export const drawBandUnit = (ctx, u, b, time) => {
   }
   // seized by a sea monster (engine/serpent.js): lifted in its coils, wriggling
   const lift = u.seizedBy ? 2.5 + Math.sin(time * 9 + u.id) * 0.8 : 0;
-  drawRig(ctx, kind, u.x, u.y + 9 - lift, u.face, sheet, frame);
+  drawRig(ctx, kind, u.x, u.y + 9 - lift, u.face, psheet, frame);
   // the huntress at the string: a short pull when she has just loosed
   if (u.healGlow > 0) { ctx.fillStyle = "rgba(150,224,150,0.5)"; ctx.fillRect(S(u.x - 4), S(u.y - 26), CELL * 4, CELL); }
   // health: the hero always shows his, a farmer only once hurt

@@ -22,6 +22,8 @@ import { HOLLOWBEAST_RIGS, HOLLOWBEAST_PAINTERS } from "./rigs-hollowbeasts.js";
 import { RIMEBEAST_RIGS, RIMEBEAST_PAINTERS } from "./rigs-rimebeasts.js";
 import { eagle } from "./rigs-eagle.js";
 import { skiff } from "./rigs-skiff.js";
+import { PIX, hasPix, pixBox, pixRec, lightAt, pixRim } from "./pix/pixrigs.js";
+import { prefs } from "../data/prefs.js";
 
 // ---- shared bits -----------------------------------------------------------
 const limb = (ctx, x0, y0, x1, y1, w, col) => part(ctx, (c) => {
@@ -366,13 +368,62 @@ const boneify = (cv) => {
 };
 
 export const hasRig = (type) => !!RIGS[type];
-export const rigDef = (type) => RIGS[type];
+// A type the pixel sculptor has redrawn (render/pix/pixrigs.js) answers with
+// its new figure's box while "New sprites" is on; the old entry otherwise.
+const PIXDEF = {};
+export const rigDef = (type) => (hasPix(type) ? (PIXDEF[type] || (PIXDEF[type] = { ...RIGS[type], box: pixBox(type), fightN: 4, pix: true })) : RIGS[type]);
+export { hasPix };
+
+// ---- the new figures behind the old doors ------------------------------------
+// A pix frame's looks, made once each: "white" (the hit flash), "revived" (bone).
+const lookOf = (rec, variant) => {
+  if (!variant) return rec.cv;
+  const looks = rec.looks || (rec.looks = {});
+  if (looks[variant]) return looks[variant];
+  const cv = document.createElement("canvas"); cv.width = rec.cv.width; cv.height = rec.cv.height;
+  const c = cv.getContext("2d"); c.drawImage(rec.cv, 0, 0);
+  if (variant === "white") { c.globalCompositeOperation = "source-in"; c.fillStyle = "#f4f2ea"; c.fillRect(0, 0, cv.width, cv.height); }
+  else if (variant === "revived") boneify(cv);
+  return (looks[variant] = cv);
+};
+// rigFrame's answer for a pix type: the frame set in the rig's symmetric box, as
+// every caller that measures or copies a frame expects (icons, the death crumble)
+const pixSprite = (type, sheet, frame, variant) => {
+  const rec = pixRec(type, sheet, frame), key = "box" + variant;
+  if (rec[key]) return rec[key];
+  const b = pixBox(type), cv = document.createElement("canvas");
+  cv.width = b.hw * 4; cv.height = rec.cv.height;
+  cv.getContext("2d").drawImage(lookOf(rec, variant), b.hw * 2 - rec.ox, 0);
+  return (rec[key] = { cv, ax: b.hw, ay: b.up });
+};
+// drawRig's work for a pix type: the frame baked for the way it faces (one sun),
+// then whatever light falls on it, its own glow, and its blow's effect
+const drawPix = (ctx, type, x, y, dir, sheet, frame, variant, alpha) => {
+  const left = dir < 0, rec = pixRec(type, sheet, frame, left), w = rec.cv.width / 2, h = rec.cv.height / 2, ax = rec.ox / 2, ay = rec.oy / 2;
+  ctx.save();
+  if (alpha !== 1) ctx.globalAlpha *= alpha;
+  ctx.translate(x, y); if (left) ctx.scale(-1, 1);
+  ctx.drawImage(lookOf(rec, variant), -ax, -ay, w, h);
+  if (!variant) {
+    if (prefs.spellLight !== false) {
+      const L = lightAt(x, y);
+      if (L) { const a = ctx.globalAlpha; ctx.globalAlpha = a * L.k; ctx.drawImage(pixRim(rec, (L.dx >= 0 ? 1 : -1) * (left ? -1 : 1), L.col), -ax, -ay, w, h); ctx.globalAlpha = a; }
+      if (rec.glow) ctx.drawImage(rec.glow, -ax, -ay, w, h);
+    }
+    if (rec.fx && PIX[type].fx) ctx.drawImage(rec.fx, -ax, -ay, w, h);
+  }
+  ctx.restore();
+};
 
 const CACHE = new Map();
 export const resetRigBakes = () => CACHE.clear();
 
 // A baked frame: { cv, ax, ay } with the anchor (feet, centre) inside it.
 export const rigFrame = (type, sheet, frame, variant = "") => {
+  if (hasPix(type)) return pixSprite(type, sheet, frame, variant);
+  // the old rigs know walk and fight sheets and whole frames: a standing soldier is walk 0
+  if (sheet === "idle" || sheet === "atk") { sheet = sheet === "atk" ? "fight" : "walk"; frame = 0; }
+  if (typeof frame === "number") frame = Math.floor(frame);
   const key = `${type}|${sheet}|${frame}|${variant}`;
   let sp = CACHE.get(key);
   if (sp) return sp;
@@ -393,6 +444,7 @@ export const rigFrame = (type, sheet, frame, variant = "") => {
 };
 
 export const drawRig = (ctx, type, x, y, dir, sheet, frame, variant = "", alpha = 1) => {
+  if (hasPix(type)) { drawPix(ctx, type, x, y, dir, sheet, frame, variant, alpha); return; }
   const { cv, ax, ay } = rigFrame(type, sheet, frame, variant);
   const w = cv.width / PX, h = cv.height / PX;
   if (alpha !== 1) { ctx.save(); ctx.globalAlpha *= alpha; }

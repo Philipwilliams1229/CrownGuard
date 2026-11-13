@@ -45,6 +45,12 @@ function DisplayPanel() {
       <Switch label="Floating numbers" on={prefs.floats} onFlip={() => setPrefs({ floats: !prefs.floats })}>
         The gold that pops up from a kill, the damage a foe does at the wall, and the sums beside your gold and castle.
       </Switch>
+      <Switch label="New sprites" on={prefs.newSprites} onFlip={() => setPrefs({ newSprites: !prefs.newSprites })}>
+        The redrawn figures, with smoother walks and attacks. So far: Sir Aldric, Wren, goblins, orcs and the necromancer. Off shows the older drawings.
+      </Switch>
+      <Switch label="Spell light" on={prefs.spellLight} onFlip={() => setPrefs({ spellLight: !prefs.spellLight })}>
+        Spells and fire light the redrawn figures near them. Turn it off if battles run slowly on this device.
+      </Switch>
     </div>
   );
 }

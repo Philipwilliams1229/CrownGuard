@@ -9,11 +9,16 @@
 //           (draw.js), and the sums that float off the gold and castle chips
 //           (hud.css .cg-float)
 //
+//   newSprites  the redrawn figures (render/pix/pixrigs.js) stand in for the
+//           old rigs wherever one exists; off, every figure is the old one
+//   spellLight  spells and fires light the redrawn figures near them (one
+//           more stamp per lit figure; off for a device that struggles)
+//
 // The HUD half works through two flags on <html> (data-no-shake,
 // data-no-floats) that hud.css reads, so no component needs to know.
 
 const KEY = "crownguard.prefs.v1";
-const DEFAULTS = { shake: true, floats: true };
+const DEFAULTS = { shake: true, floats: true, newSprites: true, spellLight: true };
 
 function load() {
   try {

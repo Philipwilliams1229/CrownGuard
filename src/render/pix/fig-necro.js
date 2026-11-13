@@ -255,6 +255,19 @@ export const fx = (px, { ph }, info, clip) => {
 const READY = { lean: 0.07, hx: 1.5, hy: 0.6, aF: [0.95, 0.72, 0], aN: [0.38, 0.8, 0], fN: [-1.8, 0], fF: [2, 0], staff: 0.05, lift: 0, glow: 0.12, claw: 0.1, sway: 0, eye: 0, flare: 0, gust: 0 };
 const TAU = Math.PI * 2;
 export const CLIPS = {
+  // his blow, for when a soldier reaches him (the game: he "strikes back hard"): the staff
+  // drawn back and up, the crystal waking, then driven at the man with a step in
+  strike: {
+    n: 12, ms: 900, loop: false, lag: 0.06,
+    pose: (ph) => sampleKeys([
+      { t: 0, p: READY },
+      { t: 0.3, e: "out", p: { ...READY, rx: -1.4, lean: -0.02, aF: [0.55, 0.7, 0], aN: [0.9, 0.7, 0], staff: -0.26, lift: 3, glow: 0.4, claw: 0.6, eye: 1 } },
+      { t: 0.42, e: "io", p: { ...READY, rx: -1.8, lean: -0.05, aF: [0.46, 0.72, 0], aN: [1, 0.72, 0], staff: -0.34, lift: 3.6, glow: 0.55, claw: 0.7, eye: 1 } },
+      { t: 0.54, e: "in3", p: { ...READY, rx: 2.2, drop: 1, lean: 0.3, hx: 2.6, hy: 1.4, aF: [1.25, 1, 0], aN: [-0.4, 0.85, 0], fF: [5, 0], staff: 0.9, lift: 7, glow: 0.95, claw: 0.3, eye: 1, gust: 0.6 } },
+      { t: 0.66, e: "out", p: { ...READY, rx: 2.6, drop: 1.2, lean: 0.34, hx: 2.8, hy: 1.6, aF: [1.15, 1, 0], aN: [-0.55, 0.85, 0], fF: [5, 0], staff: 1.05, lift: 7, glow: 0.6, eye: 1 } },
+      { t: 1, e: "io", p: READY },
+    ], ph),
+  },
   idle: {
     n: 8, ms: 2400, loop: true, lag: 0.12,
     pose: (ph) => {

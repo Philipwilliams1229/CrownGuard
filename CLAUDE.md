@@ -72,49 +72,39 @@ Xcode, so keep edits under `ios/` few and plain, and say they're unbuilt).
   No support page yet (it needs a contact the owner picks).
 - To check on a device: sound vs the silent switch, Copy/Share of the save
   code, speed on an older iPhone, the notch's safe areas, iPadOS 26 windows.
-## Sprite concepts, rounds 1-2; the castle pass (2026-11-12, owner request)
+## The new sprites; the castle pass (2026-11-12, owner request)
 
 The owner wants the sprites "a little more premium": readable body parts
-and faces, "more fluid and natural animations", spell light on casters,
-and asked for "a couple rounds of concepts" BEFORE a new sprite animation
-system is built. **Two rounds are done and the owner loves the direction;
-nothing in the game uses the new sprites yet.** The next step, once they
-answer round 2, is building the sprite animation system in the game.
-- The kit and six concept figures live in `concept/` (Sir Aldric, Wren, a
-  Spire mage, goblin, orc, necromancer), shown on `concept-sheet.html`;
-  read `art/STYLE-GUIDE.md` "Sprite concepts: the pixel sculptor" first. The
-  sheet is published to the owner as a private Artifact page ("Crownguard
-  Sprite Concepts"); rebuild it with `node scripts/build-concept-sheet.mjs`.
-- **Decided (owner, after round 1):** keep the proportions (~3.8 heads; "all
-  the characters look great"); outline C, the one-pixel tinted line; ONE SUN
-  for both facings ("Definitely want just one sun!"); spell light is wanted
-  ("I love the spell light"), with "an option for performance graphics" if it
-  costs anything. Their notes on figures: Sir Aldric's long moustache made him
-  look "like he's just 😑 the whole time"; "Wren could use a bit more of a
-  hood"; the mage, goblin, orc and necromancer are right.
-- **Round 2 answered those:** three faces for Aldric (A trimmed moustache, B
-  short beard, C clean-shaven), a deep hand-shaded hood and mantle for Wren,
-  light rebuilt as baked overlays (one extra stamp per lit figure), a
-  Dragon's Breath scene, and a speed test that runs on the owner's own device.
-  **The owner's answers (same day):** spell light "looks awesome", go with
-  the recommendation (on by default, a "Spell light" switch on the Display
-  tab); Sir Aldric is CLEAN-SHAVEN (face C: "the moustache isn't reading
-  well"; `fig-knight.js` defaults to it); Wren's round 2 hood "is really bad
-  sorry ... I really can't put my finger on why". They asked for "a quick
-  sketch ... of a couple more hood options", design changes welcome.
-- **Put to the owner, no answer yet: Wren's headwear.** Four sketches
-  (`SKETCHES` in `fig-archer.js`, drawn with `variant`): A `ranger` a pointed
-  hood with the face open, B `down` hood down and a ponytail, C `cap` a
-  hunting cap and feather, D `kerchief`. Her default is still the rejected
-  round 2 hood: when they pick, make it the default and delete the rest.
-- The plan given to the owner for the system: wire the kit into the board a
-  figure at a time, starting with these six, today's rigs staying until each
-  replacement is ready; 8-frame walks and 11-16 frame attacks; one sun; spell
-  and fire light with the Settings switch; the joint lab rebuilt on the new
-  skeleton (elbows and knees are solved, they cannot fold the wrong way).
+and faces, "more fluid and natural animations", spell light on casters.
+Two rounds of concepts settled the look, and **the first five figures are in
+the game**: Sir Aldric, Wren, goblin, orc, necromancer, drawn by the pixel
+sculptor in `src/render/pix/`. Read `art/STYLE-GUIDE.md` "The new sprites"
+before touching any figure: it has the contract and how to add the next one.
+- **Decided by the owner** (their words): "i love the direction"; outline C
+  (the one-pixel tinted line); "Definitely want just one sun!"; "I love the
+  spell light", go with the recommendation (on by default, a switch in
+  Settings); Sir Aldric clean-shaven ("the moustache isn't reading well");
+  Wren in the hunting cap and feather ("C for sure that's awesome"), after
+  two hoods were rejected ("that hood is really bad sorry"); the mage,
+  goblin, orc and necromancer "look great".
+- **Provisional, pending the owner's playtest:** the five figures on the
+  board (8-frame walks, 11-16 frame attacks timed off the attack clock, a real
+  idle for heroes), firelight from Dragonbreath on any new figure in the jet,
+  and two Display switches, "New sprites" and "Spell light" (`data/prefs.js`).
+  Old and new figures share the board until the rest are redrawn, so the
+  heavier old outline shows beside the new one: that is expected for now.
+- **Next, in the order agreed with the owner:** the rest of the rigs a few
+  at a time (keep each chapter's colours: style guide, "The three armies'
+  colours"), tower crews starting with the Spire mage (`fig-mage.js` is drawn,
+  with a `breath` clip for Dragonbreath), then the joint lab on the new
+  skeleton. Ask before changing a figure the owner has already approved.
+- The concept sheet is still published to the owner as a private Artifact
+  page ("Crownguard Sprite Concepts"); `node scripts/build-concept-sheet.mjs`
+  rebuilds it from `concept-sheet.html` + `concept/sheet.js`.
 - The measured answer to "how feasible is more fidelity": the board has no
   spare pixels (an art pixel is 1 to 1.3 screen pixels); the gain is better
   pixels and more frames, plus 2x sculpts for menus and the title screen.
+  Light measured at about +0.8 ms for 300 lit figures on the dev Mac.
 - How it ran: the lead wrote the kit and the first figure (the mage), then
   two artists drew the goblin + orc and the necromancer against it as the
   worked example, each in its own `fig-*.js`.

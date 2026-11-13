@@ -15,27 +15,28 @@ import { frameAt } from "./rig.js";
 // A frame is drawn as stamps: cv, then any overlays at whatever strength the
 // moment calls for (globalAlpha), then fx. That is the whole run-time cost of light.
 const CACHE = new Map();
-export const bakeClip = (fig, name, o = {}) => {
+// one frame, baked the first time it is asked for (the board asks frame by frame, so
+// a figure walking on for the first time costs one small bake, not a whole clip)
+export const bakeFrame = (fig, name, f, o = {}) => {
   const key = `${fig.NAME}|${name}|${o.flip ? 1 : 0}|${o.line || "tint"}|${o.variant || ""}`;
-  if (CACHE.has(key)) return CACHE.get(key);
-  const clip = fig.CLIPS[name], out = [];
-  for (let f = 0; f < clip.n; f++) {
-    const F = frameAt(clip, f, fig.BONES);
-    const px = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
-    const info = fig.draw(px, F, o) || {};
-    const cv = toCanvas(px.resolve({ flip: o.flip, line: o.line }));
-    const glow = info.light && info.light.k > 0.02 ? toCanvas(px.lightLayer(info.light)) : null;
-    let fx = null;
-    if (fig.fx) {
-      const fxp = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
-      fig.fx(fxp, F, info, name);
-      if (fxp.m.some((m) => m >= 0)) fx = toCanvas(fxp.resolve({ line: "tint" }));
-    }
-    out.push({ cv, glow, fx, ox: fig.BOX.ox, oy: fig.BOX.oy, ph: F.ph, light: info.light || null, px, rims: new Map() });
+  const clip = fig.CLIPS[name];
+  let arr = CACHE.get(key);
+  if (!arr) CACHE.set(key, (arr = new Array(clip.n)));
+  if (arr[f]) return arr[f];
+  const F = frameAt(clip, f, fig.BONES);
+  const px = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
+  const info = fig.draw(px, F, o) || {};
+  const cv = toCanvas(px.resolve({ flip: o.flip, line: o.line }));
+  const glow = info.light && info.light.k > 0.02 ? toCanvas(px.lightLayer(info.light)) : null;
+  let fx = null;
+  if (fig.fx) {
+    const fxp = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
+    fig.fx(fxp, F, info, name);
+    if (fxp.m.some((m) => m >= 0)) fx = toCanvas(fxp.resolve({ line: "tint" }));
   }
-  CACHE.set(key, out);
-  return out;
+  return (arr[f] = { cv, glow, fx, ox: fig.BOX.ox, oy: fig.BOX.oy, ph: F.ph, light: info.light || null, px, rims: new Map() });
 };
+export const bakeClip = (fig, name, o = {}) => { const out = []; for (let f = 0; f < fig.CLIPS[name].n; f++) out.push(bakeFrame(fig, name, f, o)); return out; };
 
 // the overlay for light falling on a frame from one side: dir points toward
 // the light in the SPRITE's own space (+x is the way the figure faces)

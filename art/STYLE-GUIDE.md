@@ -1220,32 +1220,63 @@ dev server; view them from there):
   sees) as well as zoomed. Never launch Chrome from a shell — it trips a
   macOS security prompt; use the app's browser pane.
 
-## Sprite concepts: the pixel sculptor (rounds 1-2, 2026-11-12)
+## The new sprites: the pixel sculptor (2026-11-12)
 
-**CONCEPT ONLY: nothing in the game draws with this yet.** The owner asked
-for "more fidelity ... a little more premium", readable body parts and
-faces, "more fluid and natural animations" and spell light on the caster
-(their reference: a ~48 px pixel wizard). Round 1 is six figures (Sir
-Aldric, Wren, a Spire mage, goblin, orc, necromancer) and a sheet of
-choices put to the owner; their answers decide round 2 and whether the
-game's rigs move over.
+**In the game now, a figure at a time.** The owner asked for sprites "a
+little more premium": readable body parts and faces, "more fluid and natural
+animations", spell light on casters (their reference: a ~48 px pixel wizard).
+Two rounds of concepts settled the look; the kit then moved into
+`src/render/pix/` and the first five figures went onto the board: Sir Aldric
+(`heroKnight`), Wren (`heroHunter`), `goblin`, `orc`, `necro`. Every other
+type still draws its old rig, and "New sprites" on the Settings window's
+Display tab turns the new ones off. The Spire mage is drawn (fig-mage.js)
+but tower crews are a separate system and still the old ones.
 
-- **Decided by the owner after round 1** ("I love the direction ... all the
-  characters look great"): the proportions stand (~3.8 heads); the outline is
-  the ONE-pixel TINTED line (`line: "tint"`, the default); ONE SUN ("Definitely
-  want just one sun!"): a figure facing left is drawn from frames baked with
-  `flip: true`, never from mirrored light; spell light is wanted, with a
-  Settings switch if it costs anything (it barely does: see "Light is
-  overlays"). After round 2: Sir Aldric is clean-shaven (face `c`, the
-  default), spell light goes in on by default with a Display switch, and
-  Wren's round 2 hood was REJECTED; four headwear sketches are with the
-  owner (`SKETCHES` in fig-archer.js).
+- **How the board uses them** (`src/render/pix/pixrigs.js`, header has the
+  whole contract): `PIX` maps a rig type to its figure. `rigs.js` asks
+  `hasPix(type)` at its three doors (`rigDef`, `rigFrame`, `drawRig`), so
+  every caller keeps working. The board no longer picks one of four frames
+  for these: `drawRig` takes sheet `"walk"` with a FRACTIONAL frame 0..4
+  (`walkByGait` for foes, from `e.gait`; `walkByTime` for soldiers), `"idle"`
+  with seconds, and `"atk"` with 0..1 through the attack clip, which
+  `atkFrac(type, msUntilBlow, msBetweenBlows)` works out from the same attack
+  clock the engine uses (`e.meleeCd` / `e.atkRate`, `u.atkCd` / rate), so the
+  clip's strike lands on the engine's blow. Old frame numbers still work
+  (`legacy` in `PIX`: which clip frames stand for guard, wind-up, strike,
+  follow-through), which is what the title crowd, icons and lab pages pass.
+- **A new figure on the board:** draw it (`fig-<name>.js`: idle, walk and a
+  blow clip, plus any ability sheet the game asks for by name, like Wren's
+  `sky`), add it to `PIX` with `atk`, `hit` (where in the clip the blow
+  lands), `per` (gait units to one walk cycle, for foes), `legacy`, and `fx`
+  (false when the engine already flies the real thing, like Wren's arrow).
+  Nothing else: the hit flash, the bone look of a raised foe (`boneify`), the
+  death crumble and the health bar's height all come off the same frames.
+  Check with `rigshot.html?types=<type>` (the old frame numbers through the
+  new figure), `shotlab.html?...&foes=<type>` and `&hero=aldric|wren` (the
+  real engine), and `perf.html` (500 foes drew in ~5.5 ms with the new ones in).
+- **One sun:** a figure facing left is drawn from frames baked with
+  `flip: true` and then mirrored, so its light never flips. Do not mirror a
+  right-facing bake by hand.
+- **Light on the board:** a caster's own glow is the frame's `glow` overlay.
+  Fires are `LIGHTS` (pixrigs.js): draw.js clears the list each frame and adds
+  three lights along every live Dragonbreath jet; `drawRig` stamps the rim
+  overlay (`pixRim`) on any new figure inside one, at the light's strength in
+  fifths. To make something else cast light (burning ground, a blast, a
+  torch), `addLight(x, y, r, col, k)` it in the same place. "Spell light" on
+  the Display tab turns it all off (`prefs.spellLight`).
+- **Still to move over:** every other rig (the rest of the horde, the crown's
+  soldiers, Iron, Hollow, Rime), tower crews starting with the Spire mage,
+  and the joint lab onto the new skeleton. Wren's arrow still leaves the old
+  bow hand in `engine/muzzles.js` (within a pixel or two of the new one).
+
+### The kit and the rules the concepts settled
+
 - **The finding:** a man on the board is ~44 art px tall and an art pixel is
   already 1 to 1.3 screen pixels (phone to iPad), the same density as the
   reference. There is no room for MORE pixels on the board; the gain is
   better pixels (shading, line, proportion, frames). Zoomed-in places (menus,
   hero cards, the title screen) could take the same puppets sculpted at 2x.
-- **The kit** (`concept/`, no dependencies on the game):
+- **The kit** (`src/render/pix/`, no dependencies on the rest of the game but `data/prefs.js`):
   - `pix.js`: the sculptor. Parts (`capsule`, `ellipse`, `poly` with `round`,
     `line`, `dot`, `stamp` for hand-pixelled grids, `tone`/`toneLine`) write
     material, depth and a normal; `resolve()` shades each material on its own
@@ -1265,7 +1296,8 @@ game's rigs move over.
     ears, hems.
   - `fig-<name>.js`: one figure each (`BOX`, `BONES`, `draw`, optional `fx`
     for the spell or smear, `CLIPS` idle / walk / attack-or-cast).
-    `figures.js` is the cast; `bake.js` turns a clip into frames.
+    `figures.js` is the concept sheet's cast; `bake.js` turns a clip into
+  frames, one at a time and only when first asked for (`bakeFrame`).
 - **Rules that came of it** (keep them if this goes into the game):
   heads are hand-pixelled grids (~12 px, two-pixel-tall eyes, a proud nose)
   stamped on WHOLE pixels so a face never shimmers; about 3.8 heads tall
@@ -1318,7 +1350,7 @@ game's rigs move over.
   (frames of a figure, saved to `.shots/`; `&flip=1`, `&line=`, `&bg=`),
   `node scripts/concept-render.mjs fig=<name> clips=idle,walk zoom=10 frames=0,2,5 tag=<shot>`
   (the same strip with no browser; `ext=1` prints pixel extents for sizing a
-  `BOX`), `concept-sheet.html` (the owner's sheet, live), `concept-now.html` (saves
+  `BOX`), `concept-sheet.html` (the owner's sheet, live; its script is `concept/sheet.js`), `concept-now.html` (saves
   today's rigs as the strip the sheet's "today" column reads), and `node
   scripts/build-concept-sheet.mjs` (one self-contained page in
   `concept/dist/`, for publishing).

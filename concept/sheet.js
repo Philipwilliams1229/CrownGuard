@@ -4,8 +4,8 @@
 // Decided in round 1: the tinted one-pixel outline, and one sun for both
 // facings (a figure drawn facing left is re-lit, never mirrored light and all).
 // Runs from the dev server (concept-sheet.html) and, bundled, as one page.
-import { FIGS } from "./figures.js";
-import { bakeClip, rimOf } from "./bake.js";
+import { FIGS } from "../src/render/pix/figures.js";
+import { bakeClip, rimOf } from "../src/render/pix/bake.js";
 
 // today's rigs: one strip, 8 cells a row (walk 0-3, fight 0-3), native art pixels
 const NOW = window.NOW_META;
