@@ -1236,9 +1236,10 @@ game's rigs move over.
   want just one sun!"): a figure facing left is drawn from frames baked with
   `flip: true`, never from mirrored light; spell light is wanted, with a
   Settings switch if it costs anything (it barely does: see "Light is
-  overlays"). Still open after round 2: which of Sir Aldric's three faces
-  (`VARIANTS` a / b / c in fig-knight.js; b is the stand-in) and whether
-  Wren's new hood is right.
+  overlays"). After round 2: Sir Aldric is clean-shaven (face `c`, the
+  default), spell light goes in on by default with a Display switch, and
+  Wren's round 2 hood was REJECTED; four headwear sketches are with the
+  owner (`SKETCHES` in fig-archer.js).
 - **The finding:** a man on the board is ~44 art px tall and an art pixel is
   already 1 to 1.3 screen pixels (phone to iPad), the same density as the
   reference. There is no room for MORE pixels on the board; the gain is
@@ -1306,7 +1307,13 @@ game's rigs move over.
   bake from `o.flip` (`hoodLegend` in fig-archer.js). A hood reads as a hood
   when its rim stands forward of the brow and far cheek, the lining shows
   round the face, it wraps under the chin, and it runs into a mantle a tone
-  apart from the tunic.
+  apart from the tunic. **That hood was still rejected** ("really bad ...
+  I can't put my finger on why"). The lead's read: it ringed her whole face,
+  chin and far cheek included, widened her head by two pixels, and was the
+  darkest thing on her. Rule since: a face stays at the FRONT EDGE of the
+  head's outline with the nose proud of everything; headwear covers the crown
+  and the near side only, never under the chin or beyond the far cheek, and
+  never makes the head wider than its neighbours' (13 px).
 - **Looking at it:** `concept-strip.html?fig=<name>&clips=idle,walk&zoom=10&frames=0,2,5&crop=x,y,w,h&tag=<shot>`
   (frames of a figure, saved to `.shots/`; `&flip=1`, `&line=`, `&bg=`),
   `node scripts/concept-render.mjs fig=<name> clips=idle,walk zoom=10 frames=0,2,5 tag=<shot>`

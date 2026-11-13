@@ -96,10 +96,17 @@ answer round 2, is building the sprite animation system in the game.
   short beard, C clean-shaven), a deep hand-shaded hood and mantle for Wren,
   light rebuilt as baked overlays (one extra stamp per lit figure), a
   Dragon's Breath scene, and a speed test that runs on the owner's own device.
-  **Put to the owner, no answer yet:** which face (A / B / C), and whether
-  Wren's hood is right. Told to the owner: light measured at about +0.8 ms
-  for 300 lit figures on the dev Mac, so build it in on by default AND add a
-  "Spell light" switch on the Display tab.
+  **The owner's answers (same day):** spell light "looks awesome", go with
+  the recommendation (on by default, a "Spell light" switch on the Display
+  tab); Sir Aldric is CLEAN-SHAVEN (face C: "the moustache isn't reading
+  well"; `fig-knight.js` defaults to it); Wren's round 2 hood "is really bad
+  sorry ... I really can't put my finger on why". They asked for "a quick
+  sketch ... of a couple more hood options", design changes welcome.
+- **Put to the owner, no answer yet: Wren's headwear.** Four sketches
+  (`SKETCHES` in `fig-archer.js`, drawn with `variant`): A `ranger` a pointed
+  hood with the face open, B `down` hood down and a ponytail, C `cap` a
+  hunting cap and feather, D `kerchief`. Her default is still the rejected
+  round 2 hood: when they pick, make it the default and delete the rest.
 - The plan given to the owner for the system: wire the kit into the board a
   figure at a time, starting with these six, today's rigs staying until each
   replacement is ready; 8-frame walks and 11-16 frame attacks; one sun; spell

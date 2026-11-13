@@ -91,7 +91,7 @@ const leg = (px, h, k, an, z, b) => {
 };
 
 export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
-  const face = FACES[o.variant] ? o.variant : "b";
+  const face = FACES[o.variant] ? o.variant : "c";
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5);
   const sway = p.sway || 0;

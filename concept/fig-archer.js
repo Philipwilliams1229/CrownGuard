@@ -5,7 +5,7 @@
 import { mat, flat } from "./pix.js";
 import { walkPose, sampleKeys, HUMAN, scaled } from "./rig.js";
 
-const HOOD = mat("#346440"), LINING = mat("#1e3428"), TUNIC = mat("#5a8c44"), CLOAK = mat("#335a30"), SKIN = mat("#eccaa4"), HAIR = mat("#b5623a");
+const RANGER = mat("#3d7448"), RUSSET = mat("#8a5a36"), HOOD = mat("#346440"), LINING = mat("#1e3428"), TUNIC = mat("#5a8c44"), CLOAK = mat("#335a30"), SKIN = mat("#eccaa4"), HAIR = mat("#b5623a");
 const LEG_C = mat("#6a4c34"), BOOT = mat("#4a3224"), LEATHER = mat("#7a5232"), BOW = mat("#6a4424", { contrast: 1.15 }), GOLD = mat("#d8b34a");
 const SHIRT = mat("#d8cdb0"), STEEL = mat("#c4cad6", { contrast: 1.2 }), EYE = flat("#2a1c2c"), LIP = flat("#b86a5a"), STRING = flat("#f2ead4", { line: "#6a5a48" });
 const FLETCH = mat("#e8dcc0"), FLETCH_R = mat("#b03440"), STREAK = flat("#fff3d2", { emis: true, line: "#d8cdb0" });
@@ -56,6 +56,54 @@ const LEG = {
   H: { m: HOOD }, h: { m: HOOD, bias: -1 }, R: { m: HAIR }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 },
   e: { m: SKIN, fix: 0 }, E: { m: EYE }, m: { m: LIP }, d: { m: LINING },
 };
+// ---- round 3 sketches (the owner: round 2's hood "is really bad ... I really
+// can't put my finger on why"). Why, as far as I can tell: it ringed her whole
+// face like a sock, chin and far cheek included, it made her head two pixels
+// wider, and it was the darkest thing on her. These keep the face at the FRONT
+// EDGE of the head's outline, nose proud of everything:
+//   ranger            an open-faced hood: cloth over the crown and down the
+//                     near side to the jaw, a thin rim above the brow, a soft
+//                     point flopping back, nothing under the chin or beyond the face
+//   down              no hood up at all: auburn hair, a ponytail, the hood
+//                     lying rolled at her nape
+//   cap               the same hair under a peaked hunting cap with a feather
+//   kerchief          the same hair under a green kerchief knotted at the back
+const HEAD_RANGER = [
+  "....AAAFF....",
+  "..AAAAAHFFF..",
+  ".AAAHHHHHHFF.",
+  ".AAHHHHhhhhhF",
+  "AAHHHhRRsssS.",
+  "AHHHhRSSESSE.",
+  "AHHHhRSSESSEN",
+  "HHHHhSSSSSSS.",
+  ".HHHHhSSSmm..",
+  ".hHHHhhSSS...",
+  "..hhhhhh.....",
+];
+const HEAD_BARE = [
+  "....QQQRR....",
+  "..QQQQRRRRR..",
+  ".QQRRRRRRRRR.",
+  ".QRRRRRRrRRR.",
+  "RRRRRrRRRsss.",
+  "RRRRrRSSESSE.",
+  "RRRrrSSSESSEN",
+  ".RrrSSSSSSSS.",
+  "....sSSSSmm..",
+  "......SSSS...",
+];
+const HEAD_KERCHIEF = [
+  "....AAAFF....",
+  "..AAAAAHFFF..",
+  ".AAAHHHHHHFF.",
+  ".hhhhhhhhhhh.",
+  ...HEAD_BARE.slice(4),
+];
+const BLINK_RANGER = blinkOf(HEAD_RANGER, 5), BLINK_BARE = blinkOf(HEAD_BARE, 5), BLINK_KERCHIEF = blinkOf(HEAD_KERCHIEF, 5);
+const clothLegend = (M, flip) => ({ ...LEG, H: { m: M, fix: 2 }, h: { m: M, fix: 1 }, A: { m: M, fix: flip ? 2 : 3 }, F: { m: M, fix: flip ? 3 : 2 } });
+const HAIR_LEG = { ...LEG, R: { m: HAIR, fix: 2 }, r: { m: HAIR, fix: 1 }, Q: { m: HAIR, fix: 3 } };
+export const SKETCHES = { ranger: "Pointed hood, face open", down: "Hood down, ponytail", cap: "Hunting cap and feather", kerchief: "Kerchief and ponytail" };
 // the hand-shaded hood's tones, for the sun behind her (as drawn) or before her (re-lit for facing left)
 const hoodLegend = (flip) => ({ ...LEG, H: { m: HOOD, fix: 2 }, h: { m: HOOD, fix: 1 }, d: { m: LINING, fix: 1 }, A: { m: HOOD, fix: flip ? 2 : 3 }, F: { m: HOOD, fix: flip ? 3 : 2 } });
 
@@ -119,25 +167,69 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   // the quiver's strap across the chest
   px.toneLine(C[0] - 3.4, C[1] - 0.6, P[0] + 3, P[1] - 5, -1, tun);
 
-  // head, and the hood's point hanging back off it
-  const hx = Math.round(N[0]), hyy = Math.round(N[1]), tp = cl(vx * 2 + vx2 * 1.4, -2, 3) - sway * 0.4;
-  if (old) {
+  // head and headwear, by variant: "" round 2's hood, "old" round 1's, and round 3's sketches
+  const hx = Math.round(N[0]), hyy = Math.round(N[1]), tp = cl(vx * 2 + vx2 * 1.4, -2, 3) - sway * 0.4, hv = o.variant || "";
+  const mantle = (M, b) => {
+    px.part();
+    px.poly([[C[0] - 5.4, C[1] - 2.6], [C[0] + 5.2, C[1] - 2.6], [C[0] + 6.2, C[1] + 1.4], [C[0] + 3.4, C[1] + 3.2], [C[0] + 0.6 - vx * 0.5, C[1] + 4.6], [C[0] - 2.6, C[1] + 3], [C[0] - 6.4, C[1] + 1.8]], M, 5, { round: 0.9, cast: 1, bias: b });
+    px.line(C[0] + 0.6 - vx * 0.5, C[1] + 2.4, C[0] + 0.6 - vx * 0.5, C[1] + 2.4, GOLD, 5.02, { fix: 3 });
+  };
+  const braid = () => {
+    px.part();
+    px.capsule(hx - 2.4, hyy + 0.6, 1.3, hx - 3.2 - vx, hyy + 4.6, 1.1, HAIR, 6.2);
+    px.dot(hx - 3.6 - vx, hyy + 5.6, GOLD, 6.22, { fix: 3 });
+  };
+  if (hv === "old") {
     px.part();
     px.capsule(hx - 4, hyy - 6, 1.7, hx - 7.2 - tp, hyy - 3.4 + Math.abs(tp) * 0.2, 0.7, HOOD, 5.9, { bias: -1 });
     px.part();
     px.stamp(p.blink ? BLINK_OLD : HEAD_OLD, hx, hyy, LEG, 6, { ax: 6, ay: 9, ball: [6.5, 5, 7, 6.5], cast: 2 });
-  } else {
-    // the mantle: the hood's own cloth, down over both shoulders to a point on the chest
+    braid();
+  } else if (hv === "ranger") {
+    const M = RANGER;
+    mantle(M, 0);
+    // the hood's soft point: up off the crown and flopping back, a beat behind
     px.part();
-    px.poly([[C[0] - 5.4, C[1] - 2.6], [C[0] + 5.2, C[1] - 2.6], [C[0] + 6.2, C[1] + 1.4], [C[0] + 3.4, C[1] + 3.2], [C[0] + 0.6 - vx * 0.5, C[1] + 4.6], [C[0] - 2.6, C[1] + 3], [C[0] - 6.4, C[1] + 1.8]], HOOD, 5, { round: 0.9, cast: 1, bias: -1 });
-    px.line(C[0] + 0.6 - vx * 0.5, C[1] + 2.4, C[0] + 0.6 - vx * 0.5, C[1] + 2.4, GOLD, 5.02, { fix: 3 });
+    px.capsule(hx - 2.2, hyy - 8.2, 2.6, hx - 5.6 - tp * 0.5, hyy - 11, 1.6, M, 5.9);
+    px.capsule(hx - 5.6 - tp * 0.5, hyy - 11, 1.6, hx - 8.6 - tp, hyy - 12.6 + Math.abs(tp) * 0.4, 0.5, M, 5.9);
+    px.part();
+    px.stamp(p.blink ? BLINK_RANGER : HEAD_RANGER, hx, hyy, clothLegend(M, !!o.flip), 6, { ax: 7, ay: 10, cast: 2 });
+    braid();
+  } else if (hv === "down" || hv === "cap" || hv === "kerchief") {
+    mantle(RANGER, 0);
+    if (hv === "down") { px.part(); px.ellipse(hx - 4.2, hyy + 1.6, 3.5, 2.3, RANGER, 5.8, { bias: -1 }); }   // the hood, rolled at her nape
+    // the ponytail, tied with gold, swinging a beat behind
+    px.part();
+    px.capsule(hx - 4.8, hyy - 6.4, 1.8, hx - 7.8 - tp * 0.7, hyy - 3.6, 1.5, HAIR, 5.9);
+    px.capsule(hx - 7.8 - tp * 0.7, hyy - 3.6, 1.5, hx - 8.8 - tp, hyy + 1.8, 0.7, HAIR, 5.9);
+    if (hv === "kerchief") {
+      // the knot's two tails at the back of her head
+      px.part();
+      px.capsule(hx - 5.2, hyy - 7.2, 0.9, hx - 8.2 - tp, hyy - 8.6 + Math.abs(tp) * 0.3, 0.7, RANGER, 5.95, { bias: -1 });
+      px.capsule(hx - 5.2, hyy - 6.8, 0.9, hx - 8.6 - tp, hyy - 6 + Math.abs(tp) * 0.3, 0.7, RANGER, 5.95, { bias: -1 });
+      px.part();
+      px.stamp(p.blink ? BLINK_KERCHIEF : HEAD_KERCHIEF, hx, hyy, { ...HAIR_LEG, ...clothLegend(RANGER, !!o.flip), R: HAIR_LEG.R, r: HAIR_LEG.r, Q: HAIR_LEG.Q }, 6, { ax: 7, ay: 10, cast: 2 });
+    } else {
+      px.part();
+      px.stamp(p.blink ? BLINK_BARE : HEAD_BARE, hx, hyy, HAIR_LEG, 6, { ax: 7, ay: 10, cast: 2 });
+      px.dot(hx - 5.4, hyy - 5.6, GOLD, 6.02, { fix: 3 });
+    }
+    if (hv === "cap") {
+      // a peaked hunting cap: the crown, a long brim to a point over her brow, a feather raked back
+      px.part();
+      px.capsule(hx - 1.6, hyy - 10.6, 0.9, hx - 5 - tp * 0.5, hyy - 13.8, 0.9, FLETCH, 6.35);
+      px.capsule(hx - 5 - tp * 0.5, hyy - 13.8, 0.9, hx - 7.4 - tp, hyy - 15, 0.6, FLETCH_R, 6.35);
+      px.part();
+      px.poly([[hx - 4.6, hyy - 8.4], [hx + 5.2, hyy - 8.4], [hx + 2.6, hyy - 12.6], [hx - 3.4, hyy - 12]], RANGER, 6.4, { round: 0.9 });
+      px.part();
+      px.poly([[hx - 5.6, hyy - 7.2], [hx + 9.2, hyy - 7], [hx + 4.8, hyy - 9.4], [hx - 5.2, hyy - 9.6]], RANGER, 6.5, { round: 0.6, bias: -1, cast: 2 });
+    }
+  } else {
+    mantle(HOOD, -1);
     px.part();
     px.stamp(p.blink ? BLINK : HEAD, hx, hyy, hoodLegend(!!o.flip), 6, { ax: 7, ay: 11, ball: [7, 6, 8, 7.5], cast: 2 });
+    braid();
   }
-  // her braid over the near shoulder
-  px.part();
-  px.capsule(hx - 2.4, hyy + 0.6, 1.3, hx - 3.2 - vx, hyy + 4.6, 1.1, HAIR, 6.2);
-  px.dot(hx - 3.6 - vx, hyy + 5.6, GOLD, 6.22, { fix: 3 });
 
   // the string (through the near fingers once she draws) and the arrow on it
   const nock = dr > 0.12 ? hdN : null;

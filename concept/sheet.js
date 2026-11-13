@@ -238,15 +238,13 @@ const bust = (host, fig, variant, label, sub, o = {}) => {
 const faces = () => {
   const host = $("#faces"), k = FIGS.knight;
   bust(host, k, "r1", "Round 1", "the long moustache read as a flat mouth");
-  for (const [v, label] of Object.entries(k.VARIANTS)) bust(host, k, v, `${v.toUpperCase()} · ${label}`, v === "b" ? "used in the rest of this page" : "&nbsp;");
+  for (const [v, label] of Object.entries(k.VARIANTS)) bust(host, k, v, `${v.toUpperCase()} · ${label}`, v === "c" ? "your pick: used in the rest of this page" : "&nbsp;");
 };
 
 // ---- 4. Wren's hood ------------------------------------------------------------------
 const hood = () => {
   const host = $("#hood"), a = FIGS.archer;
-  bust(host, a, "old", "Round 1", "it sat on her head like a cap", { y: 50 });
-  bust(host, a, "", "Round 2", "a deep hood: its rim stands forward of her face, dark lining shows inside, and it runs down into a mantle over the shoulders", { y: 50 });
-  bust(host, a, "", "Round 2, facing left", "re-lit: the sun is still upper left", { y: 50, dir: -1 });
+  [["ranger", "A"], ["down", "B"], ["cap", "C"], ["kerchief", "D"]].forEach(([v, letter]) => bust(host, a, v, `${letter} · ${a.SKETCHES[v]}`, "&nbsp;", { y: 51 }));
 };
 
 // ---- 5. the cast ---------------------------------------------------------------------
