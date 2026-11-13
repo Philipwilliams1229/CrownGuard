@@ -5,14 +5,19 @@
 import { mat, flat } from "./pix.js";
 import { walkPose, sampleKeys, HUMAN, scaled } from "./rig.js";
 
-const HOOD = mat("#467a3c"), TUNIC = mat("#5a8c44"), CLOAK = mat("#335a30"), SKIN = mat("#eccaa4"), HAIR = mat("#b5623a");
+const HOOD = mat("#346440"), LINING = mat("#1e3428"), TUNIC = mat("#5a8c44"), CLOAK = mat("#335a30"), SKIN = mat("#eccaa4"), HAIR = mat("#b5623a");
 const LEG_C = mat("#6a4c34"), BOOT = mat("#4a3224"), LEATHER = mat("#7a5232"), BOW = mat("#6a4424", { contrast: 1.15 }), GOLD = mat("#d8b34a");
 const SHIRT = mat("#d8cdb0"), STEEL = mat("#c4cad6", { contrast: 1.2 }), EYE = flat("#2a1c2c"), LIP = flat("#b86a5a"), STRING = flat("#f2ead4", { line: "#6a5a48" });
 const FLETCH = mat("#e8dcc0"), FLETCH_R = mat("#b03440"), STREAK = flat("#fff3d2", { emis: true, line: "#d8cdb0" });
 
 // hood up, the face framed by it and a sweep of auburn hair
 // (H hood, h hood a tone down, R hair, S skin, s skin a tone down, E eye, N nose, m lips)
-const HEAD = [
+// Round 2 (owner: "Wren could use a bit more of a hood"): the first one sat
+// on her head like a cap. This one is a deep hood: its rim stands forward of
+// her brow and far cheek, its dark lining shows round the face, it wraps under
+// the chin, and it runs down into a mantle over the shoulders (drawn in draw()).
+// `old: true` keeps round 1's for the before/after.
+const HEAD_OLD = [
   "....HHHHH....",
   "..HHHHHHHHH..",
   ".HHHHHHHHHHH.",
@@ -25,11 +30,34 @@ const HEAD = [
   "..HHhRSSS....",
   "...HHhh......",
 ];
-const BLINK = HEAD.map((r, i) => (i === 5 ? ".HHhRRSSSSS.." : i === 6 ? ".HHhRSSeSSeN." : r));
+// The new hood is shaded by hand, not as a ball (a ball lit it in blotches):
+// H the cloth, h its shadow (under the rim, under the chin), d the dark lining,
+// A the band the sun catches when it stands behind her, F the band it catches
+// when she is drawn facing left and re-lit (see hoodLegend).
+const HEAD = [
+  "....AAAFFF....",
+  "..AAAAAFFFFF..",
+  ".AAAAAHHFFFFF.",
+  ".AAHHHHHHHHHFF",
+  "AAHHHhhhhhhhHF",
+  "AAHHhdRRsssSHF",
+  "AHHHhdRRSESSEH",
+  ".HHHhdRSSESSEN",
+  ".HHHhdRSSSSSS.",
+  ".HHhhddRSSmmS.",
+  "..hhhhddSSSS..",
+  "..hhhhhhddd...",
+  "...hhhhhhh....",
+];
+const blinkOf = (rows, r0) => rows.map((r, i) => (i === r0 ? r.replace(/E/g, "S") : i === r0 + 1 ? r.replace(/E/g, "e") : r));
+const BLINK = blinkOf(HEAD, 6), BLINK_OLD = blinkOf(HEAD_OLD, 5);
+export const VARIANTS = { "": "Deep hood and mantle", old: "Round 1's hood" };
 const LEG = {
   H: { m: HOOD }, h: { m: HOOD, bias: -1 }, R: { m: HAIR }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 },
-  e: { m: SKIN, fix: 0 }, E: { m: EYE }, m: { m: LIP },
+  e: { m: SKIN, fix: 0 }, E: { m: EYE }, m: { m: LIP }, d: { m: LINING },
 };
+// the hand-shaded hood's tones, for the sun behind her (as drawn) or before her (re-lit for facing left)
+const hoodLegend = (flip) => ({ ...LEG, H: { m: HOOD, fix: 2 }, h: { m: HOOD, fix: 1 }, d: { m: LINING, fix: 1 }, A: { m: HOOD, fix: flip ? 2 : 3 }, F: { m: HOOD, fix: flip ? 3 : 2 } });
 
 export const BOX = { w: 92, h: 72, ox: 30, oy: 62 };
 export const BONES = scaled(HUMAN, 1, { thigh: 8.8, shin: 8.3, shN: -2.6, shF: 2.6, hipN: -1.2, hipF: 1.3 });
@@ -43,7 +71,8 @@ const leg = (px, h, k, an, z, b) => {
   px.ellipse(an[0] + 1.2, an[1] + 0.9, 2.6, 1.4, BOOT, z + 0.03, { bias: b });
 };
 
-export const draw = (px, { sk, lag1, lag2 }) => {
+export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
+  const old = o.variant === "old";
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5), sway = p.sway || 0;
 
@@ -92,10 +121,19 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // head, and the hood's point hanging back off it
   const hx = Math.round(N[0]), hyy = Math.round(N[1]), tp = cl(vx * 2 + vx2 * 1.4, -2, 3) - sway * 0.4;
-  px.part();
-  px.capsule(hx - 4, hyy - 6, 1.7, hx - 7.2 - tp, hyy - 3.4 + Math.abs(tp) * 0.2, 0.7, HOOD, 5.9, { bias: -1 });
-  px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hyy, LEG, 6, { ax: 6, ay: 9, ball: [6.5, 5, 7, 6.5], cast: 2 });
+  if (old) {
+    px.part();
+    px.capsule(hx - 4, hyy - 6, 1.7, hx - 7.2 - tp, hyy - 3.4 + Math.abs(tp) * 0.2, 0.7, HOOD, 5.9, { bias: -1 });
+    px.part();
+    px.stamp(p.blink ? BLINK_OLD : HEAD_OLD, hx, hyy, LEG, 6, { ax: 6, ay: 9, ball: [6.5, 5, 7, 6.5], cast: 2 });
+  } else {
+    // the mantle: the hood's own cloth, down over both shoulders to a point on the chest
+    px.part();
+    px.poly([[C[0] - 5.4, C[1] - 2.6], [C[0] + 5.2, C[1] - 2.6], [C[0] + 6.2, C[1] + 1.4], [C[0] + 3.4, C[1] + 3.2], [C[0] + 0.6 - vx * 0.5, C[1] + 4.6], [C[0] - 2.6, C[1] + 3], [C[0] - 6.4, C[1] + 1.8]], HOOD, 5, { round: 0.9, cast: 1, bias: -1 });
+    px.line(C[0] + 0.6 - vx * 0.5, C[1] + 2.4, C[0] + 0.6 - vx * 0.5, C[1] + 2.4, GOLD, 5.02, { fix: 3 });
+    px.part();
+    px.stamp(p.blink ? BLINK : HEAD, hx, hyy, hoodLegend(!!o.flip), 6, { ax: 7, ay: 11, ball: [7, 6, 8, 7.5], cast: 2 });
+  }
   // her braid over the near shoulder
   px.part();
   px.capsule(hx - 2.4, hyy + 0.6, 1.3, hx - 3.2 - vx, hyy + 4.6, 1.1, HAIR, 6.2);
@@ -150,8 +188,8 @@ export const CLIPS = {
     pose: (ph) => sampleKeys([
       { t: 0, p: { ...READY, arrow: 1 } },
       { t: 0.14, e: "io", p: { aF: [1.05, 0.86, 0], bow: 0.12, aN: [1.2, 0.56, 0], draw: 0.15, arrow: 1, twist: -0.2, fN: [-1.8, 0], fF: [2, 0] } },
-      { t: 0.4, e: "out", p: { rx: -0.6, lean: -0.06, twist: -0.7, rise: 0.6, aF: [1.5, 1, 0], bow: 0, aN: [2.05, 0.36, 1], draw: 1, arrow: 1, fN: [-2.4, 0], fF: [2.6, 0] } },
-      { t: 0.58, e: "io", p: { rx: -0.8, lean: -0.08, twist: -0.8, rise: 1, aF: [1.52, 1, 0], bow: 0, aN: [2.08, 0.4, 1], draw: 1, arrow: 1, fN: [-2.4, 0], fF: [2.6, 0] } },
+      { t: 0.4, e: "out", p: { rx: -0.6, lean: -0.06, twist: -0.7, rise: 0.6, aF: [1.5, 1, 0], bow: 0, aN: [1.8, 0.38, 1], draw: 1, arrow: 1, fN: [-2.4, 0], fF: [2.6, 0] } },
+      { t: 0.58, e: "io", p: { rx: -0.8, lean: -0.08, twist: -0.8, rise: 1, aF: [1.52, 1, 0], bow: 0, aN: [1.82, 0.42, 1], draw: 1, arrow: 1, fN: [-2.4, 0], fF: [2.6, 0] } },
       { t: 0.64, e: "in3", p: { rx: -0.3, lean: -0.02, twist: -1, rise: 0.6, aF: [1.46, 1, 0], bow: 0.16, aN: [2.75, 0.62, 1], draw: 0, arrow: 0, fN: [-2.4, 0], fF: [2.6, 0] } },
       { t: 0.78, e: "out", p: { rx: 0, lean: 0, twist: -0.8, aF: [1.3, 0.96, 0], bow: 0.24, aN: [3.1, 0.6, 1], draw: 0, arrow: 0, fN: [-2.4, 0], fF: [2.6, 0] } },
       { t: 1, e: "io", p: READY },

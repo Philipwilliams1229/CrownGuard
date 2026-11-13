@@ -58,7 +58,8 @@ export const sampleKeys = (keys, ph) => {
   return { ...REST, ...keys[keys.length - 1].p };
 };
 
-const ik = (ax, ay, tx, ty, l1, l2, side) => {
+// two bones from a to the target: where the joint between them goes (side +1 / -1 picks the fold)
+export const ik = (ax, ay, tx, ty, l1, l2, side) => {
   let dx = tx - ax, dy = ty - ay, d = Math.hypot(dx, dy) || 1e-6;
   const max = (l1 + l2) * 0.999, min = Math.abs(l1 - l2) + 0.01;
   if (d > max) { tx = ax + (dx / d) * max; ty = ay + (dy / d) * max; d = max; dx = tx - ax; dy = ty - ay; }

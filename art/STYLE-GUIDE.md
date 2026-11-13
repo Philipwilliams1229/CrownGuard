@@ -1220,7 +1220,7 @@ dev server; view them from there):
   sees) as well as zoomed. Never launch Chrome from a shell — it trips a
   macOS security prompt; use the app's browser pane.
 
-## Sprite concepts: the pixel sculptor (round 1, 2026-11-12)
+## Sprite concepts: the pixel sculptor (rounds 1-2, 2026-11-12)
 
 **CONCEPT ONLY: nothing in the game draws with this yet.** The owner asked
 for "more fidelity ... a little more premium", readable body parts and
@@ -1230,6 +1230,15 @@ Aldric, Wren, a Spire mage, goblin, orc, necromancer) and a sheet of
 choices put to the owner; their answers decide round 2 and whether the
 game's rigs move over.
 
+- **Decided by the owner after round 1** ("I love the direction ... all the
+  characters look great"): the proportions stand (~3.8 heads); the outline is
+  the ONE-pixel TINTED line (`line: "tint"`, the default); ONE SUN ("Definitely
+  want just one sun!"): a figure facing left is drawn from frames baked with
+  `flip: true`, never from mirrored light; spell light is wanted, with a
+  Settings switch if it costs anything (it barely does: see "Light is
+  overlays"). Still open after round 2: which of Sir Aldric's three faces
+  (`VARIANTS` a / b / c in fig-knight.js; b is the stand-in) and whether
+  Wren's new hood is right.
 - **The finding:** a man on the board is ~44 art px tall and an art pixel is
   already 1 to 1.3 screen pixels (phone to iPad), the same density as the
   reference. There is no room for MORE pixels on the board; the gain is
@@ -1267,6 +1276,37 @@ game's rigs move over.
   frames; a caster returns a `light` whose strength follows the pose's `glow`.
   At board size the tinted 1 px line is softer against grass than the old
   2 px ring: the sheet lets the owner compare.
+- **Light is overlays** (round 2; this is how the game should do it).
+  `Pix.lightLayer(light)` returns the light alone: its colour with a stepped
+  alpha wherever a part faces it, and on the outline that side. `bake.js`
+  keeps three things per frame: `cv` (the figure in sunlight), `glow` (its
+  own spell's light, strength baked in from the pose's `glow`) and
+  `rimOf(frame, dir, col)` (light from one side, e.g. `[1, -0.35]` = from in
+  front and a little above, in the sprite's own space; baked on first use).
+  Lighting a figure at run time is ONE more stamp with `globalAlpha` = the
+  strength, flicker included (step it: 0, 0.2 ... 1). Nothing is computed per
+  frame. Measured on the sheet (a 1680 x 1120 canvas, 300 figures): about
+  +0.8 ms on the dev Mac to light all 300 at once; a real jet lights 10-30.
+  Recommendation given to the owner: on by default, plus a "Spell light"
+  switch on the Display tab (`data/prefs.js`). The sheet's Dragon's Breath
+  scene (`breath()` in sheet.js) is the worked example: the mage's `breath`
+  clip, an eight-frame jet painted once, foes' rim strength from their
+  distance to the fire.
+- **Faces** (round 2): Sir Aldric's first face had a five-pixel moustache
+  straight across it and read as a flat mouth (the owner: "like he's just 😑
+  the whole time"). Nothing runs straight across a face: a moustache sits
+  under the nose only, a beard follows the jaw, and BROWS (two mid-brown
+  pixels above each eye, a tone lighter than the eye so they do not merge)
+  carry the expression.
+- **Hoods and other big cloth on a head are shaded by hand** (round 2: Wren's
+  first hood, lit as a ball, came out in blotches and read as a cap). In the
+  grid, `H` is the cloth at a fixed tone, `h` its shadow, `d` a dark lining,
+  and two letters mark the sunlit band for each facing (`A` when the sun is
+  behind her, `F` when she is re-lit facing left); the legend is built per
+  bake from `o.flip` (`hoodLegend` in fig-archer.js). A hood reads as a hood
+  when its rim stands forward of the brow and far cheek, the lining shows
+  round the face, it wraps under the chin, and it runs into a mantle a tone
+  apart from the tunic.
 - **Looking at it:** `concept-strip.html?fig=<name>&clips=idle,walk&zoom=10&frames=0,2,5&crop=x,y,w,h&tag=<shot>`
   (frames of a figure, saved to `.shots/`; `&flip=1`, `&line=`, `&bg=`),
   `node scripts/concept-render.mjs fig=<name> clips=idle,walk zoom=10 frames=0,2,5 tag=<shot>`
@@ -1275,8 +1315,9 @@ game's rigs move over.
   today's rigs as the strip the sheet's "today" column reads), and `node
   scripts/build-concept-sheet.mjs` (one self-contained page in
   `concept/dist/`, for publishing).
-- **Asked for by the artists, not built yet:** export `ik` from rig.js (or a
-  pose field "this hand goes to that point") for two-handed weapons; a floor
+- **Asked for by the artists, not built yet** (`ik` is exported from rig.js
+  now; a pose field "this hand goes to that point" for two-handed weapons is
+  not): a floor
   of tone 1 under cast shadows on dark materials (they read as holes); an
   ink line between parts of the SAME dark material (a sleeve on a robe); more
   than one extra light a frame; an fx layer drawn BEHIND the figure; `F.at(ph)`

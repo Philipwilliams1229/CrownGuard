@@ -3,6 +3,7 @@
   Concept strip: every frame of a concept figure's clips, zoomed, saved to .shots/.
     /concept-strip.html?fig=mage&clips=idle,walk,cast&zoom=5&tag=cpt_mage
     &frames=0,2,4 (only these)  &crop=x0,y0,w,h (sprite pixels)
+    &variant=<name> (a figure's option, e.g. a face)  &light=0 (leave its own spell's light off)
     &flip=1 (baked for a mirrored sprite)  &line=tint|ink|ink2|none  &bg=grass|road|dark
 -->
 <html>
@@ -16,7 +17,7 @@
       const fig = { ...(await import(`/concept/fig-${name}.js`)), NAME: name };
       const clips = (q.get("clips") || Object.keys(fig.CLIPS).join(",")).split(",");
       const Z = Number(q.get("zoom")) || 5, bg = { grass: "#82b256", road: "#c8a46c", dark: "#2a2e3a" }[q.get("bg") || "grass"];
-      const o = { flip: !!q.get("flip"), line: q.get("line") || "tint" };
+      const o = { flip: !!q.get("flip"), line: q.get("line") || "tint", variant: q.get("variant") || "" };
       const only = q.get("frames") ? q.get("frames").split(",").map(Number) : null;
       const rows = clips.map((c) => bakeClip(fig, c, o)).map((r) => (only ? only.map((i) => r[i]).filter(Boolean) : r));
       // crop=x0,y0,w,h in sprite pixels (default: the whole box)
@@ -29,7 +30,7 @@
         ctx.fillStyle = (i + j) % 2 ? bg : bg + "e6"; ctx.fillStyle = bg; ctx.fillRect(i * w * Z, j * h * Z, w * Z, h * Z);
         if ((i + j) % 2) { ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(i * w * Z, j * h * Z, w * Z, h * Z); }
         ctx.fillStyle = "rgba(42,28,44,0.28)"; ctx.fillRect((i * w + f.ox - cx0 - 7) * Z, (j * h + f.oy - cy0 - 1) * Z, 15 * Z, 2 * Z);
-        ctx.drawImage(f.cv, cx0, cy0, w, h, i * w * Z, j * h * Z, w * Z, h * Z);
+        for (const layer of [f.cv, q.get("light") === "0" ? null : f.glow, f.fx]) if (layer) ctx.drawImage(layer, cx0, cy0, w, h, i * w * Z, j * h * Z, w * Z, h * Z);
       }));
       document.body.append(cv);
       const tag = q.get("tag");

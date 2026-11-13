@@ -40,6 +40,7 @@
   .stage { background: var(--panel); border: 2px solid var(--rim); padding: 10px; display: flex; justify-content: center; overflow: hidden; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 12px; }
   .grid.three { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .grid.four { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(324px, 1fr)); gap: 12px; }
   .stack { display: flex; flex-direction: column; gap: 12px; }
   figure.card { margin: 0; background: var(--panel); border: 2px solid var(--rim); padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
@@ -53,6 +54,7 @@
   .seg button { font: 400 18px/1 var(--display); letter-spacing: 0.04em; color: var(--muted); background: none; border: 0; padding: 9px 14px; min-height: 40px; cursor: pointer; }
   .seg button + button { border-left: 2px solid var(--rim); }
   .seg button.on { background: var(--gold); color: #241a26; }
+  #bench-go { color: var(--text); }
   .seg button:focus-visible { outline: 2px solid var(--text); outline-offset: -4px; }
   .ask { background: var(--panel); border: 2px solid var(--rim); border-left: 6px solid var(--gold); padding: 14px 16px; }
   .ask ol { margin: 8px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; max-width: 68ch; }
@@ -65,63 +67,56 @@
 <body>
 <main>
   <header>
-    <p class="kicker">Crownguard · sprite concepts · round 1</p>
-    <h1>Same size, better pixels</h1>
-    <p class="lede">Six figures redrawn in a new way: sculpted pixel by pixel instead of drawn as shapes and hardened. Bigger, readable heads and faces, one-pixel outlines in each material's own dark, five-tone shading, twice the frames or more, and spells that light the caster.</p>
+    <p class="kicker">Crownguard · sprite concepts · round 2</p>
+    <h1>One sun, and firelight</h1>
+    <p class="lede">Your round 1 notes, applied: the thin tinted outline and a single sun are now the standard everywhere on this page, Sir Aldric has a new face, Wren has a real hood, and the spell light is rebuilt the way the game would run it, shown on Dragon's Breath.</p>
   </header>
 
   <section>
-    <div class="head"><div><h2>On the road</h2><p class="note">Foes march right; the crown's own face left and are re-lit, so the sun stays in the upper left for everyone.</p></div></div>
-    <div class="stage" id="road"></div>
+    <div class="head"><div><h2>Dragon's Breath</h2><p class="note">The glow reaches a foe before the fire does, then every part of him that faces the jet takes its colour, flickering with the flame. The mage is lit by his own staff and the road by the plume.</p></div><div class="bar" id="breath-bar"></div></div>
+    <div class="stage" id="breath"></div>
   </section>
 
   <section>
-    <div class="head"><div><h2>The cast</h2><p class="note">Every attack is wind-up, a fast strike, follow-through, settle. Cloth, plumes, hat points and ears trail a beat behind the body.</p></div><div class="bar" id="cast-bar"></div></div>
+    <div class="head"><div><h2>What the light costs</h2><p class="note">Measured just now on the device you are holding, on a canvas the size of the game board.</p></div><div class="bar"><div class="seg"><button type="button" id="bench-go">Measure again</button></div></div></div>
+    <div class="facts" id="bench"><div class="fact"><b>…</b>Measuring.</div></div>
+    <p>Nothing about the light is worked out while you play. Each drawing of a figure gets a second, see-through drawing made ahead of time that holds only the lit edges. Lighting a figure is stamping that second drawing on top, and the flicker is just how strongly it is stamped. So the cost is one extra stamp per lit figure, only while something is burning near it.</p>
+    <p>My recommendation: build it in, on by default, and still add a "Spell light" switch to the Display tab in Settings. The switch costs almost nothing to make and gives an old phone a way out.</p>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>Sir Aldric's face</h2><p class="note">You were right: the long moustache was a flat line under two dots. In all three, nothing runs straight across the face, and he has brows now, which is where the expression comes from.</p></div></div>
+    <div class="grid four" id="faces"></div>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>Wren's hood</h2></div></div>
+    <div class="grid three" id="hood"></div>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>The cast</h2><p class="note">All six with this round's changes.</p></div><div class="bar" id="cast-bar"></div></div>
     <div class="grid" id="cast"></div>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>On the road</h2><p class="note">Foes march right; the crown's own face left, re-lit.</p></div></div>
+    <div class="stage" id="road"></div>
   </section>
 
   <section>
     <div class="head"><div><h2>Today beside the concept</h2><p class="note">Left of each pair is the sprite in the game now, at the same scale.</p></div><div class="bar" id="compare-bar"></div></div>
     <div class="pairs" id="compare"></div>
-  </section>
-
-  <section>
-    <div class="head"><div><h2>At board size</h2><p class="note">About what an iPad shows during a battle: today's figures on top, the concepts below. Nothing here is enlarged. Try the three outlines from Choice 1 here: a heavier line holds better against the grass at this size.</p></div><div class="bar" id="board-bar"></div></div>
+    <p class="note">And at about the size an iPad shows them in a battle, today's on top:</p>
     <div class="stage" id="board"></div>
-    <div class="facts">
-      <div class="fact"><b>44 px</b>A man on the board is about 44 art pixels tall, today and in these concepts. Your reference wizard is about 48.</div>
-      <div class="fact"><b>1 to 1.3</b>Screen pixels per art pixel during a battle (phone to iPad). The board has no room for more pixels, so the gain has to come from better ones.</div>
-      <div class="fact"><b>2x later</b>The same puppets can be re-sculpted at double size for the places that are zoomed in: menus, hero cards, the title screen.</div>
-    </div>
-  </section>
-
-  <section>
-    <div class="head"><div><h2>What "more fluid" means</h2><p class="note">Sir Aldric's walk, every drawing laid out.</p></div></div>
-    <div class="stack" id="frames"></div>
-  </section>
-
-  <section>
-    <div class="head"><div><h2>Choice 1 · the outline</h2><p class="note">The concepts above use C.</p></div></div>
-    <div class="grid three" id="lines"></div>
-  </section>
-
-  <section>
-    <div class="head"><div><h2>Choice 2 · one sun</h2><p class="note">Today a figure walking left is the right-facing drawing flipped, so its light flips too. Re-lighting costs a second set of drawings per figure and nothing while playing.</p></div></div>
-    <div class="grid three" id="sun"></div>
-  </section>
-
-  <section>
-    <div class="head"><div><h2>Choice 3 · spell light</h2><p class="note">In the game this would be one extra stamp per lit figure, only while a spell is burning.</p></div></div>
-    <div class="grid three" id="lit"></div>
   </section>
 
   <section class="ask">
-    <h2>What I need from you for round 2</h2>
+    <h2>What happens next</h2>
     <ol>
-      <li><b>Proportions.</b> These stand about 3.8 heads tall; today's figures are 4.5 and the style guide says "never big-headed". The bigger head is what makes the faces readable. Keep it, go further toward your reference (about 3.3), or pull back?</li>
-      <li><b>Outline.</b> A, B or C.</li>
-      <li><b>Light.</b> Keep one sun for both facings? Keep spell light, and should towers and torches cast it too?</li>
-      <li><b>Which of the six is closest to what you want, and which is furthest?</b> That tells me where to push.</li>
+      <li><b>Pick Aldric's face:</b> A, B or C. And tell me if Wren's hood is right now.</li>
+      <li><b>Then I build the real thing.</b> With the look settled, the next step is the sprite animation system inside the game: this drawing method wired into the board, a figure at a time, starting with the six here. Today's sprites stay until each replacement is ready, so the game never breaks.</li>
+      <li><b>What it brings with it:</b> 8-frame walks and 11 to 16 frame attacks, one sun whichever way a figure faces, spell and fire light with a Settings switch, and the joint lab rebuilt around the new skeleton, where elbows and knees cannot bend the wrong way.</li>
     </ol>
   </section>
 </main>

@@ -72,23 +72,39 @@ Xcode, so keep edits under `ios/` few and plain, and say they're unbuilt).
   No support page yet (it needs a contact the owner picks).
 - To check on a device: sound vs the silent switch, Copy/Share of the save
   code, speed on an older iPhone, the notch's safe areas, iPadOS 26 windows.
-## Sprite concepts, round 1; the castle pass (2026-11-12, owner request)
+## Sprite concepts, rounds 1-2; the castle pass (2026-11-12, owner request)
 
 The owner wants the sprites "a little more premium": readable body parts
 and faces, "more fluid and natural animations", spell light on casters,
 and asked for "a couple rounds of concepts" BEFORE a new sprite animation
-system is built. **Round 1 is with the owner; nothing in the game uses the
-new sprites yet. Ask what they chose before building on it.**
+system is built. **Two rounds are done and the owner loves the direction;
+nothing in the game uses the new sprites yet.** The next step, once they
+answer round 2, is building the sprite animation system in the game.
 - The kit and six concept figures live in `concept/` (Sir Aldric, Wren, a
   Spire mage, goblin, orc, necromancer), shown on `concept-sheet.html`;
   read `art/STYLE-GUIDE.md` "Sprite concepts: the pixel sculptor" first. The
-  sheet was published to the owner as a private Artifact page ("Crownguard
+  sheet is published to the owner as a private Artifact page ("Crownguard
   Sprite Concepts"); rebuild it with `node scripts/build-concept-sheet.mjs`.
-- Put to the owner, no answer yet: proportions (the concepts are ~3.8 heads
-  tall; today's rigs 4.5, and the style guide says "never big-headed"), the
-  outline (2 px ink ring | 1 px ink | 1 px tinted), one sun for both facings
-  (a second bake per figure), spell light (and whether towers and torches
-  cast it), and which figure is closest / furthest.
+- **Decided (owner, after round 1):** keep the proportions (~3.8 heads; "all
+  the characters look great"); outline C, the one-pixel tinted line; ONE SUN
+  for both facings ("Definitely want just one sun!"); spell light is wanted
+  ("I love the spell light"), with "an option for performance graphics" if it
+  costs anything. Their notes on figures: Sir Aldric's long moustache made him
+  look "like he's just 😑 the whole time"; "Wren could use a bit more of a
+  hood"; the mage, goblin, orc and necromancer are right.
+- **Round 2 answered those:** three faces for Aldric (A trimmed moustache, B
+  short beard, C clean-shaven), a deep hand-shaded hood and mantle for Wren,
+  light rebuilt as baked overlays (one extra stamp per lit figure), a
+  Dragon's Breath scene, and a speed test that runs on the owner's own device.
+  **Put to the owner, no answer yet:** which face (A / B / C), and whether
+  Wren's hood is right. Told to the owner: light measured at about +0.8 ms
+  for 300 lit figures on the dev Mac, so build it in on by default AND add a
+  "Spell light" switch on the Display tab.
+- The plan given to the owner for the system: wire the kit into the board a
+  figure at a time, starting with these six, today's rigs staying until each
+  replacement is ready; 8-frame walks and 11-16 frame attacks; one sun; spell
+  and fire light with the Settings switch; the joint lab rebuilt on the new
+  skeleton (elbows and knees are solved, they cannot fold the wrong way).
 - The measured answer to "how feasible is more fidelity": the board has no
   spare pixels (an art pixel is 1 to 1.3 screen pixels); the gain is better
   pixels and more frames, plus 2x sculpts for menus and the title screen.

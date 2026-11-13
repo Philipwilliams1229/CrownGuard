@@ -235,26 +235,12 @@ export class Pix {
       const c = MATS[m].c[lv[k]];
       out[k * 4] = c[0]; out[k * 4 + 1] = c[1]; out[k * 4 + 2] = c[2]; out[k * 4 + 3] = 255;
     }
-    // extra lights: the rim facing each light takes its colour, in steps
-    for (const lt of o.lights || []) {
-      if (!lt.k) continue;
-      const col = hex2rgb(lt.col);
-      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-        const k = j * w + i, m = this.m[k];
-        if (m < 0 || MATS[m].emis) continue;
-        const dx = lt.x + this.ox - (i + 0.5), dy = lt.y + this.oy - (j + 0.5), d = Math.hypot(dx, dy) || 1;
-        const e = Math.max(0, (this.nx[k] * dx + this.ny[k] * dy) / d * 0.82 + this.nz[k] * 0.42);
-        const g = e * clamp(1 - d / lt.r, 0, 1) * lt.k * 1.9;
-        const a = g > 0.72 ? 0.78 : g > 0.42 ? 0.5 : g > 0.2 ? 0.24 : 0;
-        if (!a) continue;
-        for (let c = 0; c < 3; c++) out[k * 4 + c] = out[k * 4 + c] + (col[c] - out[k * 4 + c]) * a + (a > 0.6 ? 18 : 0);
-      }
-    }
     // the outline
+    const ring = new Uint8Array(n);
     if (mode !== "none") {
       const solid = new Uint8Array(n);
       for (let k = 0; k < n; k++) solid[k] = this.m[k] >= 0 && !(this.flag[k] & F_NOLINE) ? 1 : 0;
-      const ring = (src, passCol) => {
+      const pass = (src, passCol) => {
         const add = [];
         for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
           const k = j * w + i;
@@ -270,27 +256,55 @@ export class Pix {
           const M = this.m[q] >= 0 ? MATS[this.m[q]] : null;
           const c = passCol || !M ? INK : lit ? M.lineLit : M.line;
           out[k * 4] = c[0]; out[k * 4 + 1] = c[1]; out[k * 4 + 2] = c[2]; out[k * 4 + 3] = 255;
-          src[k] = 2;
+          src[k] = 2; ring[k] = 1;
         }
       };
-      ring(solid, mode === "tint" ? null : INK);
-      if (mode === "ink2") ring(solid, INK);
-      // a light also catches the line on its side
-      for (const lt of o.lights || []) {
-        if (!lt.k) continue;
-        const col = hex2rgb(lt.col);
-        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-          const k = j * w + i;
-          if (solid[k] !== 2) continue;
-          const dx = lt.x + this.ox - (i + 0.5), dy = lt.y + this.oy - (j + 0.5), d = Math.hypot(dx, dy) || 1;
-          // lit if the body lies on the far side of this pixel from the light
-          const bi = i - Math.round(dx / d), bj = j - Math.round(dy / d);
-          if (bi < 0 || bj < 0 || bi >= w || bj >= h || this.m[bj * w + bi] < 0) continue;
-          const g = clamp(1 - d / lt.r, 0, 1) * lt.k;
-          const a = g > 0.6 ? 0.7 : g > 0.35 ? 0.42 : g > 0.15 ? 0.2 : 0;
-          for (let c = 0; c < 3; c++) out[k * 4 + c] = out[k * 4 + c] + (col[c] - out[k * 4 + c]) * a;
-        }
+      pass(solid, mode === "tint" ? null : INK);
+      if (mode === "ink2") pass(solid, INK);
+    }
+    this._ring = ring;
+    // extra lights: each is an overlay (lightLayer) laid over the frame
+    for (const lt of o.lights || []) {
+      if (!lt.k) continue;
+      const ov = this.lightLayer(lt).data;
+      for (let k = 0; k < n; k++) { const a = ov[k * 4 + 3] / 255; if (a) for (let c = 0; c < 3; c++) out[k * 4 + c] += (ov[k * 4 + c] - out[k * 4 + c]) * a; }
+    }
+    return { data: out, w, h, ox: this.ox, oy: this.oy };
+  }
+
+  // One extra light as an OVERLAY of its own: the light's colour, with a
+  // stepped alpha wherever a part faces it (and on the outline that side).
+  // Stamped over the resolved frame it lights the figure; at run time its
+  // strength is just the stamp's alpha. This is how the game would do spell
+  // light: one more baked sprite per frame, one more stamp per lit figure.
+  //   { x, y, r, col, k }      a point light, in sprite pixels (a staff's crystal)
+  //   { dir: [dx, dy], col, k } light from far off, no falloff (a jet of fire
+  //                            off to one side); dir points TOWARD the light
+  // Call resolve() first (it finds the outline).
+  lightLayer(lt) {
+    const { w, h } = this, n = w * h, out = new Uint8ClampedArray(n * 4), col = hex2rgb(lt.col), hot = mix3(col, [255, 250, 235], 0.32);
+    const far = !!lt.dir, wrap = lt.wrap ?? (far ? 0.14 : 0.42), K = lt.k ?? 1, ring = this._ring;
+    let ux = 0, uy = 0;
+    if (far) { const l = Math.hypot(lt.dir[0], lt.dir[1]) || 1; ux = lt.dir[0] / l; uy = lt.dir[1] / l; }
+    const A = [0, 61, 128, 199];
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const k = j * w + i, m = this.m[k], lined = ring && ring[k];
+      if (!lined && (m < 0 || MATS[m].emis)) continue;
+      let dx = ux, dy = uy, fall = 1;
+      if (!far) { dx = lt.x + this.ox - (i + 0.5); dy = lt.y + this.oy - (j + 0.5); const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d; fall = clamp(1 - d / lt.r, 0, 1); }
+      let s = 0;
+      if (lined) {
+        // the line is lit where the body lies on its far side from the light
+        const bi = i - Math.round(dx), bj = j - Math.round(dy);
+        if (bi < 0 || bj < 0 || bi >= w || bj >= h || this.m[bj * w + bi] < 0) continue;
+        const g = fall * K; s = g > 0.6 ? 3 : g > 0.35 ? 2 : g > 0.15 ? 1 : 0;
+      } else {
+        const e = Math.max(0, (this.nx[k] * dx + this.ny[k] * dy) * 0.82 + this.nz[k] * wrap);
+        const g = e * fall * K * 1.9; s = g > 0.72 ? 3 : g > 0.42 ? 2 : g > 0.2 ? 1 : 0;
       }
+      if (!s) continue;
+      const c = s === 3 && !lined ? hot : col;
+      out[k * 4] = c[0]; out[k * 4 + 1] = c[1]; out[k * 4 + 2] = c[2]; out[k * 4 + 3] = A[s];
     }
     return { data: out, w, h, ox: this.ox, oy: this.oy };
   }

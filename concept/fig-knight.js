@@ -13,12 +13,50 @@ const BLADE = mat("#d4dae4", { contrast: 1.35 }), EYE = flat("#2a1c2c"), SMEAR =
 // the head: a domed helm with a gold brow band, a mail coif round the neck,
 // the face open (M steel, m a tone down, G gold, c mail, S skin, s skin a tone
 // down, E eye, N nose a tone up, B moustache)
-const HEAD = [
+const TOP = [
   ".....MMMM....",
   "...MMMMMMMM..",
   "..MMMMMMMMMM.",
   ".MMMMMMMMMMM.",
   ".GGGGGGGGGGG.",
+];
+// Three faces (round 2: the owner read the first one's long moustache as a flat
+// mouth, "like he's just 😑 the whole time"). The fix in all three: nothing runs
+// straight across the face, and the brows say something.
+//   a  a trimmed moustache under the nose, a set jaw, a brow drawn down
+//   b  a short brown beard round the jaw
+//   c  clean-shaven: brows and a firm mouth
+const FACES = {
+  a: [
+    ".cMsbbssbbs..",
+    ".cMSSESSSES..",
+    ".cmSSESSSESN.",
+    ".cmSSSSSSSSN.",
+    ".ccmSSSSBBB..",
+    "..ccmSSSsS...",
+    "..cccccc.....",
+  ],
+  b: [
+    ".cMsbbssbbs..",
+    ".cMSSESSSES..",
+    ".cmSSESSSESN.",
+    ".cBSSSSSSSSN.",
+    ".cBBSSSBBBB..",
+    "..cBBBBBBB...",
+    "..cccBBB.....",
+  ],
+  c: [
+    ".cMsbbssbbs..",
+    ".cMSSESSSES..",
+    ".cmSSESSSESN.",
+    ".cmSSSSSSSSN.",
+    ".ccmSSSSSSS..",
+    "..ccmSSSll...",
+    "..cccccc.....",
+  ],
+};
+// round 1's face, kept only so the sheet can show the before
+FACES.r1 = [
   ".cMssssssss..",
   ".cMSSESSSES..",
   ".cmSSESSSESN.",
@@ -27,10 +65,15 @@ const HEAD = [
   "..ccmSSSS....",
   "..cccccc.....",
 ];
-const BLINK = HEAD.map((r, i) => (i === 6 ? ".cMSSSSSSSS.." : i === 7 ? ".cmSSeSSSeSN." : r));
+const HEADS = {}, BLINKS = {};
+for (const k in FACES) {
+  HEADS[k] = [...TOP, ...FACES[k]];
+  BLINKS[k] = HEADS[k].map((r, i) => (i === 6 ? r.replace(/E/g, "S") : i === 7 ? r.replace(/E/g, "e") : r));
+}
+export const VARIANTS = { a: "Trimmed moustache", b: "Short beard", c: "Clean-shaven" };
 const LEG = {
   M: { m: STEEL }, m: { m: STEEL, bias: -1 }, G: { m: GOLD }, c: { m: MAIL }, S: { m: SKIN }, s: { m: SKIN, bias: -1 },
-  N: { m: SKIN, bias: 1 }, e: { m: SKIN, fix: 0 }, E: { m: EYE }, B: { m: HAIR },
+  N: { m: SKIN, bias: 1 }, e: { m: SKIN, fix: 0 }, E: { m: EYE }, B: { m: HAIR }, b: { m: HAIR, fix: 2 }, l: { m: SKIN, fix: 0 },
 };
 
 export const BOX = { w: 84, h: 72, ox: 34, oy: 62 };
@@ -47,7 +90,8 @@ const leg = (px, h, k, an, z, b) => {
   px.ellipse(an[0] + 1.2, an[1] + 0.9, 2.8, 1.4, MAIL, z + 0.03, { bias: b });
 };
 
-export const draw = (px, { sk, lag1, lag2 }) => {
+export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
+  const face = FACES[o.variant] ? o.variant : "b";
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5);
   const sway = p.sway || 0;
@@ -90,7 +134,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the head
   const hx = Math.round(N[0]), hyy = Math.round(N[1]);
   px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hyy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2 });
+  px.stamp(p.blink ? BLINKS[face] : HEADS[face], hx, hyy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2 });
   // the plume: red, rooted on the crown, streaming back a beat behind
   const pl = cl(vx * 2 + vx2 * 1.5, -3, 3) - sway * 0.5, rx0 = hx + 0.5, ry0 = hyy - 10;
   px.part();

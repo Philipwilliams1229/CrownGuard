@@ -43,20 +43,23 @@ const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export const draw = (px, { sk, lag1, lag2 }) => {
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, anN, anF } = sk;
-  const vx = cl(C[0] - lag1.C[0], -2, 2), vx2 = cl(lag1.C[0] - lag2.C[0], -2, 2);
+  // (gust: a wind in his face, e.g. his own jet's back-blast, bends hat and hem back)
+  const vx = cl(C[0] - lag1.C[0] + (p.gust || 0), -2.4, 2.4), vx2 = cl(lag1.C[0] - lag2.C[0] + (p.gust || 0) * 0.6, -2.4, 2.4);
 
   // the staff, in the far fist, standing before him: an ember crystal in a gold claw
   const tl = p.staff ?? 0.04, d = [Math.sin(tl), -Math.cos(tl)], lo = p.staffLo ?? 16.6, up = 14.5;
   const foot = [hdF[0] - d[0] * lo, hdF[1] - d[1] * lo], tip = [hdF[0] + d[0] * up, hdF[1] + d[1] * up];
   px.part();
-  px.capsule(foot[0], foot[1], 0.95, tip[0], tip[1], 0.95, WOOD, 1.5, { edge: true });
+  // (braced for the breath he swings it across his chest: then it lies in front of him)
+  const sz = (p.staffFront || 0) > 0.5 ? 7 : 1.5;
+  px.capsule(foot[0], foot[1], 0.95, tip[0], tip[1], 0.95, WOOD, sz, { edge: true });
   const orb = [tip[0] + d[0] * 2.6, tip[1] + d[1] * 2.6], g = p.glow || 0;
   px.part();
-  px.capsule(tip[0] - d[0] * 1.2, tip[1] - d[1] * 1.2, 1.4, tip[0] + d[0] * 0.6, tip[1] + d[1] * 0.6, 2, GOLD, 1.55);
+  px.capsule(tip[0] - d[0] * 1.2, tip[1] - d[1] * 1.2, 1.4, tip[0] + d[0] * 0.6, tip[1] + d[1] * 0.6, 2, GOLD, sz + 0.05);
   px.part();
-  if (g > 0.55) { px.ellipse(orb[0], orb[1], 3.3, 3.3, FLAME, 1.6); px.ellipse(orb[0], orb[1], 2, 2, HOT, 1.62); }
-  else if (g > 0.2) { px.ellipse(orb[0], orb[1], 2.9, 2.9, FLAME, 1.6); px.ellipse(orb[0] - 0.3, orb[1] - 0.3, 1.3, 1.3, HOT, 1.62); }
-  else { px.ellipse(orb[0], orb[1], 2.8, 2.8, EMBER, 1.6); px.dot(orb[0] - 1.3, orb[1] - 1.3, HOT, 1.62); px.dot(orb[0] - 0.3, orb[1] - 1.3, HOT, 1.62); }
+  if (g > 0.55) { px.ellipse(orb[0], orb[1], 3.3, 3.3, FLAME, sz + 0.1); px.ellipse(orb[0], orb[1], 2, 2, HOT, sz + 0.12); }
+  else if (g > 0.2) { px.ellipse(orb[0], orb[1], 2.9, 2.9, FLAME, sz + 0.1); px.ellipse(orb[0] - 0.3, orb[1] - 0.3, 1.3, 1.3, HOT, sz + 0.12); }
+  else { px.ellipse(orb[0], orb[1], 2.8, 2.8, EMBER, sz + 0.1); px.dot(orb[0] - 1.3, orb[1] - 1.3, HOT, sz + 0.12); px.dot(orb[0] - 0.3, orb[1] - 1.3, HOT, sz + 0.12); }
 
   // the far arm, a tone down, behind the body; its fist on the staff
   px.part();
@@ -145,6 +148,17 @@ export const CLIPS = {
   walk: {
     n: 8, ms: 760, loop: true, lag: 0.08,
     pose: (ph) => { const w = walkPose(ph, { stride: 4.2, lift: 2.2, swing: 0.36, bob: 1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, aF: [0.8 + 0.12 * a, 0.86, 0], staff: 0.08 - 0.2 * a, staffLo: 15.6, glow: 0 }; },
+  },
+  // Dragon's Breath: braced behind a levelled staff, pouring fire (the jet itself is the
+  // scene's, it runs far past his box). He leans against it, the staff shudders, and the
+  // back-blast streams hat and hem behind him.
+  breath: {
+    n: 8, ms: 520, loop: true, lag: 0.1,
+    pose: (ph) => {
+      const a = ph * Math.PI * 2, s = Math.sin(a * 2), s2 = Math.sin(a * 3 + 1);
+      return { rx: -0.9 + 0.35 * s, drop: 1.2, lean: -0.08 + 0.02 * s2, hx: 0.5, fN: [-3.6, 0], fF: [3.8, 0], aF: [1.5, 0.98, 0], aN: [1.42, 0.7, 0],
+        staff: 1.5 + 0.035 * s, staffLo: 13, staffFront: 1, glow: 0.9 + 0.1 * s2, gust: 1.3 + 0.5 * s2 };
+    },
   },
   cast: {
     n: 14, ms: 1150, loop: false, lag: 0.06,

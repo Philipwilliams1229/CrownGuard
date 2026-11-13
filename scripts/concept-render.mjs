@@ -17,7 +17,7 @@ const bake = (name) => {
   for (let f = 0; f < clip.n; f++) {
     const F = frameAt(clip, f, fig.BONES);
     const px = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
-    const info = fig.draw(px, F, {}) || {};
+    const info = fig.draw(px, F, { variant: q.variant || "" }) || {};
     const img = px.resolve({ flip: !!q.flip, line: q.line, lights: info.light ? [info.light] : [] });
     if (fig.fx) {
       const fxp = new Pix(fig.BOX.w, fig.BOX.h, fig.BOX.ox, fig.BOX.oy);
