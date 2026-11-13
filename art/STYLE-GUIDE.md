@@ -81,7 +81,7 @@ copy what the rebuilt pieces do.
 | Type: every font family, the type options, canvas fonts | `src/ui/fonts.js` (`TYPES`, the roles' CSS variables, `canvasFont`, `typeEpoch`); `src/ui/theme.js` re-exports the roles | nothing else names a font family; see "Type (HUD)" |
 | The landscape beyond the board (the apron: ground, road and rivers running off, the realm's trees thickening, the wall continuing) | `src/render/apron.js` `paintApron(canvas, { cssW, cssH, dpr, board })`; the wall past the board's ends is castle.js `bakeCastleRun` (towers at the board's rhythm, no seam), never a repeated slice | painted once per realm and layout, cached. Fog and mist run on over it from ONE wide layer (weatherfx.js `paintWeatherEdge`), never a mirrored or repeated copy of the board's: the banks tile seamlessly, the land's fog eases out, and the layer takes the apron's vignette and falloff (`apronShade`) |
 | Campaign map / title screen | `src/ui/mapArt.js`, `src/ui/titleArt.js` (`vistaStages`: the vista in named stages) | painted once, cached; see "The campaign map" and "The title screen" |
-| Title-screen crowd and castle life (walkers, guards, the hay-forker; banners, sentry, smoke, torches, birds) | `src/ui/titleCrowd.js`, placed from `ROAD`, `ROAD_W`, `HAY` and `CASTLE_LIFE` in `titleArt.js`; the vista castle matches the board castle (square open-topped towers, red stair turrets, blue crown banners, cobbled threshold) | a second canvas with the vista's own fit, ~30 fps, paused when hidden |
+| Title-screen crowd and castle life (walkers, guards, the hay-forker; banners, the garrison on the towers, smoke, torches, birds) | `src/ui/titleCrowd.js`, placed from `ROAD`, `ROAD_W`, `HAY` and `CASTLE_LIFE` in `titleArt.js`; the vista castle matches the board castle (square open-topped towers, red stair turrets, blue crown banners, cobbled threshold) | a second canvas with the vista's own fit, ~30 fps, paused when hidden |
 
 Status tells (`drawStatus` in fx.js) must tell the holds apart at 1x:
 slow = a dizzy star wheel over the head (more stars and a lazier turn as
@@ -993,6 +993,25 @@ actions.js `buildableAt`).
   the west corner; with no palette it keeps the app icon's. Where the hill
   falls away from the sun (the east shoulder) the brow is a plain 1-px edge
   a tone up, not the warm lit rim.
+- **Nobody hides behind a wall** (owner, 2026-11-12: "soldiers who are
+  entirely obscured by the walls in front of them"). Nothing that could read
+  as a man is baked into the castle sprite: no helmet tips, no weapon arms
+  peeping over merlons (the old `ballistaPeep` and `kettleHat` are gone). The
+  garrison is live (`CASTLE_LIFE.garrison`, drawn by titleCrowd.js
+  `drawGarrison`): the board castle's own wall folk (`drawHalberdier`,
+  `drawArcherFrame`) at 0.36 (the gate knights are 0.4), feet `MAN_FEET` 2.4
+  under the sill so the parapet hides only the legs. A manned parapet (`PAR`,
+  `mannedCrenels`) has merlons `MAN_H` 4 high (5 on the keep and rear
+  towers), set on whole art pixels, and crenels at least a man wide (4+); a
+  post is always a crenel's middle, and `wallClip` shows a man in the crenels
+  and over the merlon tops. A pacing man carries something tall (the halberd)
+  so he can be followed behind a merlon. Liveries are picked against the
+  ground behind: wine and steel against the sky, crown blue against stone.
+  Birds perch only on merlons against the sky, never beside a post. Check
+  with `title-lab.html?crowd=1&t=<s>&k=2.25` (K = the home screen's overlay
+  pixels per vista pixel) and at `k=1`. The app icon's PNGs in `public/` were
+  baked from the older castle; re-save them with `icon-lab.html?save=1` when
+  the icon is next touched.
 - **Stages:** `vistaStages()` yields each stage's name and every ground stage
   stays under ~50 ms (the castle bake, ~130-200 ms, is the one over). Small
   overlays (the threshold, the bank) use `layerAt(ctx, x0, y0, w, h, draw,
@@ -1035,12 +1054,40 @@ actions.js `buildableAt`).
   inner parapet `HI` above), its end cut on the slant of its own face, its
   first merlon standing against the tower. So the painting order is
   stretch, tower, stretch, tower… north to south, and the tower's south face
-  is clipped to what the walls in front leave in sight. The footing and a
-  string course at the outer walk's height wrap the tower's proud foot; the
+  is clipped to what the walls in front leave in sight. The footing wraps
+  the tower's proud foot; the string course at the outer walk's height
+  crosses only the south face of the proud foot, never up the flank; the
   tower throws its shadow down-right over the walls south and east of it.
   Tower decks and the keep's top are a shade warmer than the walks (`DECK`),
   so a tower reads apart from the wall at a glance; each has a red stair
   turret and an oak trapdoor, set a little differently per tower.
+- **Three values, sun from the upper left** (2026-11-12 pass; owner: "areas
+  of the wall that get weirdly clippy or don't make sense geometrically"):
+  tops lightest (walks, decks); west faces sunlit (`westFace`), a tower's a
+  notch lighter than the curtain's behind it, with a thin lit line up the
+  corner where it turns south; south faces in shade. Never let west and
+  south faces share a value, or a tower stops reading as a box.
+- **What is on a south face leans with it:** a plumb line on a south face
+  leans as the face's corners do (LEAN per unit of height). Slits, doors and
+  turret fronts are laid in leaning rows (`sbox`), and the keep's banners
+  lean in `bannerFrames`. Only live things stay upright: figures, poles,
+  flames.
+- **Stair turrets stand on the flags inside the parapet** (`stairTurret`):
+  west wall, south wall with its door, roof wholly inside the rim, shadow
+  down-right. Paint floor, north and side merlons, turret, south merlons.
+- **The gate arch is in a west face,** so it shows only LEAN x its height
+  wide: keep it tall (`ARCH`, 21 high, 54 wide, piers either side for the
+  torches on their brackets). Its mouth is painted pixel by pixel (voussoir
+  ring, torchlit north wall, portcullis lattice with teeth). The passage
+  floor is a sprite under the stone (`CASTLE.floor`), so no ink crosses the
+  road. The gate top is a flagged deck with the portcullis slot, an oak
+  windlass and rimmed murder holes. No barbican: it would stand over the
+  Gate Guard's posts and hide the south lane.
+- **Standing clear:** a walk runs on behind the tower south of it, whose
+  platform hides it from `tN - 4`. Wall slots end 17 above the platform (feet
+  5 clear of the merlons) and start 28 below a tower's foot (`wallSlots`);
+  `towerDeck` is `foot - 21`. The sentry walks x 824; stairs open from
+  x 830.5. No figure's feet ever lie on a merlon.
 - **The gate:** one gate block through both walls; its south face runs on
   up, sheer, as the keep's (one face, one piece — no ledge). The keep is the
   castle's landmark: crown banners and a lit slit down its face, turret,
@@ -1073,7 +1120,7 @@ actions.js `buildableAt`).
   (`src/render/apron.js`) asks `bakeCastleRun` for the lengths past the
   top and bottom, a little in under the board, which hides their cut ends.
   Never repeat a slice of the board's wall out there.
-- Check it with `cas-lab.html?job=[["name","greenwood",[],{"lives":20},[690,0,150,560,3]]]`
+- Check it with `cas-lab.html?audit=<tag>&set=full|quick|gw|tiers|realms` (review strips, no long job) or `cas-lab.html?job=[["name","greenwood",[],{"lives":20},[690,0,150,560,3]]]`
   (lives 20/14/9/4 are the four damage tiers; `castle: {archers, ballista,
   guards, masons}` puts the works' crews on it), `cas-lab.html?bench=<realm>`
   for the bake timings, and `apron-lab.html?layouts=ipadtall,tablet` for the
@@ -1172,6 +1219,64 @@ dev server; view them from there):
 - Always take a BEFORE shot, then judge at 1x board size (what the player
   sees) as well as zoomed. Never launch Chrome from a shell — it trips a
   macOS security prompt; use the app's browser pane.
+
+## Sprite concepts: the pixel sculptor (round 1, 2026-11-12)
+
+**CONCEPT ONLY: nothing in the game draws with this yet.** The owner asked
+for "more fidelity ... a little more premium", readable body parts and
+faces, "more fluid and natural animations" and spell light on the caster
+(their reference: a ~48 px pixel wizard). Round 1 is six figures (Sir
+Aldric, Wren, a Spire mage, goblin, orc, necromancer) and a sheet of
+choices put to the owner; their answers decide round 2 and whether the
+game's rigs move over.
+
+- **The finding:** a man on the board is ~44 art px tall and an art pixel is
+  already 1 to 1.3 screen pixels (phone to iPad), the same density as the
+  reference. There is no room for MORE pixels on the board; the gain is
+  better pixels (shading, line, proportion, frames). Zoomed-in places (menus,
+  hero cards, the title screen) could take the same puppets sculpted at 2x.
+- **The kit** (`concept/`, no dependencies on the game):
+  - `pix.js`: the sculptor. Parts (`capsule`, `ellipse`, `poly` with `round`,
+    `line`, `dot`, `stamp` for hand-pixelled grids, `tone`/`toneLine`) write
+    material, depth and a normal; `resolve()` shades each material on its own
+    five-tone hue-shifted ramp (`mat("#hex")`; shadows lean plum, lights warm),
+    drops 1-2 px contact shadows from parts in front, inks a ONE-pixel line
+    (`line`: `tint` = each material's own dark, lighter sunward | `ink` |
+    `ink2` = today's 2 px ring), and lays extra `lights` over the frame from
+    the stored normals (spell light). `flip: true` bakes a frame for a sprite
+    drawn mirrored, so the sun stays upper-left whichever way it faces.
+  - `rig.js`: bones and clips. A pose is hips, lean, twist, head offset, each
+    arm as `[angle, reach, flip]` about its shoulder (hands travel on arcs),
+    each foot as `[x, lift]`; elbows and knees are SOLVED (they cannot
+    break). `walkPose` plants and swings the feet on a real path;
+    `sampleKeys` eases between key poses (`in3` for a strike, `out`/`over`
+    for the follow-through). `frameAt` also hands a costume two earlier
+    moments (`lag1`, `lag2`) for whatever trails: capes, plumes, hat points,
+    ears, hems.
+  - `fig-<name>.js`: one figure each (`BOX`, `BONES`, `draw`, optional `fx`
+    for the spell or smear, `CLIPS` idle / walk / attack-or-cast).
+    `figures.js` is the cast; `bake.js` turns a clip into frames.
+- **Rules that came of it** (keep them if this goes into the game):
+  heads are hand-pixelled grids (~12 px, two-pixel-tall eyes, a proud nose)
+  stamped on WHOLE pixels so a face never shimmers; about 3.8 heads tall
+  (today's rigs are 4.5: put to the owner); the far arm and leg sit a tone
+  down; small trim accents (gold collar, cuff, buckle) instead of extra
+  outlines; a near arm cocked back over the shoulder passes BEHIND the helm
+  (`nb` in fig-knight.js) so the face stays open; a fast blade leaves one
+  solid two-tone crescent (never a fan of dashes) on its one or two fastest
+  frames; a caster returns a `light` whose strength follows the pose's `glow`.
+  At board size the tinted 1 px line is softer against grass than the old
+  2 px ring: the sheet lets the owner compare.
+- **Looking at it:** `concept-strip.html?fig=<name>&clips=idle,walk&zoom=10&frames=0,2,5&crop=x,y,w,h&tag=<shot>`
+  (frames of a figure, saved to `.shots/`; `&flip=1`, `&line=`, `&bg=`),
+  `concept-sheet.html` (the owner's sheet, live), `concept-now.html` (saves
+  today's rigs as the strip the sheet's "today" column reads), and `node
+  scripts/build-concept-sheet.mjs` (one self-contained page in
+  `concept/dist/`, for publishing).
+- **Traps:** a lab page must import a figure by its plain path (a
+  cache-busting `?v=` gives it its own copy of `pix.js`, with an empty
+  material table); a `requestAnimationFrame` clock can start slightly
+  negative: clamp it before picking a frame.
 
 ## AI-generated art (Gemini / Nano Banana)
 

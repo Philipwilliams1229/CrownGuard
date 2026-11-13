@@ -899,11 +899,13 @@ const hayS = () => bakeSprite(20, 14, (c) => {
 // hill at it: SQUARE towers with open, battlemented tops (merlons against the
 // sky), corbelled parapets, small red-roofed stair turrets keeping a little red
 // on the skyline, a tall keep behind, and the gatehouse with its portcullis.
-// Ballista arms and a crewman's kettle hat peep between the merlons. What
-// moves (flags, the gate's crown banners, torches, smoke, the sentry on the
-// wall walk, birds) is drawn live by titleCrowd.js at the anchors in
-// CASTLE_LIFE, never baked here.
-const ST = "#aca494", ROOF = "#a8505c", STEEL = "#c4c8d0", OAK = "#7a5334";
+// The front towers' parapets are MANNED (see PAR): lower merlons and crenels
+// a man wide, so the garrison shows from the thigh up. What moves (flags, the
+// gate's crown banners, torches, smoke, the garrison on the towers, birds) is
+// drawn live by titleCrowd.js at the anchors in CASTLE_LIFE, never baked here.
+// Nothing that could be mistaken for a man hiding behind a merlon is baked in
+// (owner, 2026-11: "soldiers who are entirely obscured by the walls").
+const ST = "#aca494", ROOF = "#a8505c";
 // sprite size and anchor: the gate's sill (cx, G) sits at scene (360, 172)
 const CS = { w: 132, h: 128, cx: 66, g: 124, x: 360, y: 172 };
 const G = CS.g, CX = CS.cx, CURTAIN_GAP = 3.8;
@@ -925,8 +927,16 @@ const crenels = (x0, x1, mw = 4, gap = 2.6) => {
   const n = Math.max(2, Math.round((x1 - x0 - mw) / (mw + gap)) + 1);
   return { x0, x1, mw, step: (x1 - x0 - mw) / (n - 1), n };
 };
-const crenelRow = (c, cr, y, col, seed, h = 5) =>
-  merlons(c, (cr.x0 + cr.x1) / 2, y, (cr.x1 - cr.x0) / 2, col, { step: cr.step, w: cr.mw, h, seed });
+const crenelRow = (c, cr, y, col, seed, h = 5) => {
+  if (!cr.xs) return merlons(c, (cr.x0 + cr.x1) / 2, y, (cr.x1 - cr.x0) / 2, col, { step: cr.step, w: cr.mw, h, seed });
+  cr.xs.forEach((x, i) => merlons(c, x + cr.mw / 2, y, cr.mw / 2, col, { w: cr.mw, h, seed: seed + i * 7 }));
+};
+// a manned parapet's merlons, each set on a whole art pixel (`xs`: their left
+// edges), so a man in a crenel stands between crisp stone edges
+const mannedCrenels = (x0, x1, mw, n) => {
+  const snap = (v) => Math.round(v * 2) / 2, step = (x1 - x0 - mw) / (n - 1);
+  return { x0, x1, mw, n, xs: Array.from({ length: n }, (_, i) => snap(x0 + i * step)) };
+};
 
 // a pyramid roof in shingle rows, the sunward half lit, a gold knop on top
 const pyramid = (ctx, x, eave, hw, h, col) => {
@@ -943,8 +953,8 @@ const pyramid = (ctx, x, eave, hw, h, col) => {
   part(ctx, (c) => ball(c, x, eave - h, 1.1, 1.1, "#d8b34a", { hi: 0.5, lo: 0.3 }));
 };
 
-// a square tower (or wall block) with a corbelled parapet and merlons;
-// returns its crenel layout so things can peep between the merlons
+// a square tower (or wall block) with a corbelled parapet and merlons
+// (`o.cr` a crenel layout of its own, `o.mh` the merlons' height)
 const block = (c, x, top, w, bottom, col, seed, o = {}) => {
   const x0 = x - w / 2, lip = o.lip ?? 1.2, band = o.band ?? 5;
   ashlar(c, x0, top + band, w, bottom - top - band, col, seed, { course: 3.6, block: 5.5, moss: o.moss, r: 0.8, lo: 0.5 });
@@ -956,26 +966,10 @@ const block = (c, x, top, w, bottom, col, seed, o = {}) => {
     }
   });
   ashlar(c, x0 - lip, top, w + lip * 2, band, lighten(col, 0.06), seed + 9, { course: 2.5, block: 5, r: 0.5, hi: 0.35 });
-  const cr = crenels(x0 - lip, x0 + w + lip, 4, o.gap ?? 2.6);
-  if (o.peep) o.peep(cr);
-  crenelRow(c, cr, top + 0.5, lighten(col, 0.12), seed);
+  const cr = o.cr ?? crenels(x0 - lip, x0 + w + lip, 4, o.gap ?? 2.6);
+  crenelRow(c, cr, top + 0.5, lighten(col, 0.12), seed, o.mh ?? 5);
   return cr;
 };
-
-// a ballista standing on a gate tower's deck, facing us: the bow's arms
-// and its bolt head showing over the merlons
-const ballistaPeep = (c, x, y) => part(c, (cc) => {
-  cc.strokeStyle = OAK; cc.lineWidth = 1.1; cc.lineCap = "round";
-  cc.beginPath(); cc.moveTo(x - 5, y - 1.8); cc.quadraticCurveTo(x - 2.5, y + 0.6, x, y + 0.4); cc.quadraticCurveTo(x + 2.5, y + 0.6, x + 5, y - 1.8); cc.stroke();
-  cc.strokeStyle = "#e8e0c8"; cc.lineWidth = 0.4;
-  cc.beginPath(); cc.moveTo(x - 5, y - 1.8); cc.lineTo(x, y + 2); cc.lineTo(x + 5, y - 1.8); cc.stroke();
-  cc.fillStyle = darken(OAK, 0.3); cc.fillRect(x - 1, y - 1.2, 2, 5);
-  cc.fillStyle = STEEL; cc.beginPath(); cc.moveTo(x, y - 3.4); cc.lineTo(x + 1.3, y - 1.4); cc.lineTo(x, y + 0.2); cc.lineTo(x - 1.3, y - 1.4); cc.closePath(); cc.fill();
-});
-const kettleHat = (c, x, y) => part(c, (cc) => {
-  ball(cc, x, y, 1.9, 1.5, STEEL, { hi: 0.5, lo: 0.45 });
-  cc.fillStyle = darken(STEEL, 0.3); cc.fillRect(x - 2.6, y + 0.8, 5.2, 0.7);
-});
 
 // the layout, shared with the live layer
 const L = {
@@ -984,6 +978,19 @@ const L = {
   corner: [[13, G - 70, 24], [119, G - 70, 24]], cornerTurret: [[21.5, G - 80, 7], [110.5, G - 80, 7]],
   curtain: [20, 112, G - 48], gateTower: [[CX - 16, G - 64, 12], [CX + 16, G - 64, 12]], gateWall: [CX, G - 56, 22],
   arch: [CX, G - 16, 8],
+};
+// The manned parapets: the four front towers, where the garrison stands
+// (CASTLE_LIFE.garrison). A wall man is ~9 units tall and 4 wide at the
+// castle's distance (the gate knights are 10), so here the merlons are MAN_H
+// high (5 elsewhere) and the crenels a man wide: he stands MAN_FEET under the
+// sill, so the parapet hides his legs and he shows from the coat's hem up in a
+// crenel, his head over the merlon tops as he passes behind one.
+//   corner towers: 4 merlons, 3 crenels 4-4.5 wide; gate towers: a merlon at
+//   each corner and one shooting bay 6 wide between
+const MAN_H = 4, MAN_FEET = 2.4, LIP = { corner: 1.6, gateTower: 1.4 }, SEED = { corner: 70, gateTower: 60 };
+const PAR = {
+  corner: L.corner.map(([x, , w]) => mannedCrenels(x - w / 2 - LIP.corner, x + w / 2 + LIP.corner, 3.5, 4)),
+  gateTower: L.gateTower.map(([x, , w]) => mannedCrenels(x - w / 2 - LIP.gateTower, x + w / 2 + LIP.gateTower, 4.5, 2)),
 };
 
 const castleS = () => bakeSprite(CS.w, CS.h, (c) => {
@@ -1010,14 +1017,15 @@ const castleS = () => bakeSprite(CS.w, CS.h, (c) => {
   }
   // the curtain wall, its merlons against the keep's foot
   const [c0, c1, ct] = L.curtain;
-  block(c, (c0 + c1) / 2, ct, c1 - c0, G, darken(ST, 0.07), 11, { lip: 0.8, moss: 0.5, gap: CURTAIN_GAP });
-  // the gatehouse: the wall over the gate, then its two towers (ballistae up top)
+  block(c, (c0 + c1) / 2, ct, c1 - c0, G, darken(ST, 0.07), 11, { lip: 0.8, moss: 0.5, gap: CURTAIN_GAP, mh: MAN_H });
+  // the gatehouse: the wall over the gate, then its two towers (a bowman's
+  // shooting bay on each)
   const [gx, gt, gw] = L.gateWall;
-  block(c, gx, gt, gw, G, darken(ST, 0.04), 21, { lip: 1 });
-  for (const [x, t, w] of L.gateTower) {
-    block(c, x, t, w, G, ST, 60 + x, { lip: 1.4, moss: 0.6, peep: () => ballistaPeep(c, x, t - 4.2) });
+  block(c, gx, gt, gw, G, darken(ST, 0.04), 21, { lip: 1, mh: MAN_H });
+  L.gateTower.forEach(([x, t, w], i) => {
+    block(c, x, t, w, G, ST, SEED.gateTower + x, { lip: LIP.gateTower, moss: 0.6, cr: PAR.gateTower[i], mh: MAN_H });
     slit(c, x, t + 32, 6);
-  }
+  });
   // the arch, its ring of voussoirs, the dark passage and the portcullis
   const [ax, ay, ar] = L.arch;
   part(c, (cc) => {
@@ -1058,18 +1066,43 @@ const castleS = () => bakeSprite(CS.w, CS.h, (c) => {
   });
   // torches at the gate (their flames burn live)
   for (const x of [ax - ar - 3.6, ax + ar + 3.6]) torchBracket(c, x, G - 17);
-  // the corner towers, a crewman's hat between the merlons of one
-  for (const [x, t, w] of L.corner) {
-    block(c, x, t, w, G, ST, 70 + x, { lip: 1.6, moss: 0.8, peep: (cr) => { if (x > CX) kettleHat(c, cr.x0 + cr.mw + cr.step * 1 + (cr.step - cr.mw) / 2, t - 2.6); } });
+  // the corner towers (the sentry's beat on one, a watchman on the other)
+  L.corner.forEach(([x, t, w], i) => {
+    block(c, x, t, w, G, ST, SEED.corner + x, { lip: LIP.corner, moss: 0.8, cr: PAR.corner[i], mh: MAN_H });
     slit(c, x, t + 16, 7, false); slit(c, x, t + 38, 7, x < CX);
-  }
+  });
   // the footing course the whole castle stands on, broken by the gate
   footing(c, (1 + ax - ar - 2) / 2, G, (ax - ar - 2 - 1) / 2 - 2, darken(ST, 0.14), 5, 4.5);
   footing(c, (ax + ar + 2 + 131) / 2, G, (131 - ax - ar - 2) / 2 - 2, darken(ST, 0.14), 9, 4.5);
 });
 
 // Where the live bits go, in scene units (see titleCrowd.js).
-const curtainCr = crenels(L.curtain[0] - 0.8, L.curtain[1] + 0.8, 4, CURTAIN_GAP);
+// A manned parapet for the live layer: where a man's feet go, the sill that
+// hides his legs, and each merlon [x0, x1, top] (buildkit's merlons() makes
+// some half a unit taller, by the same hash).
+const merlonTop = (top, seed, i, h = MAN_H) => top + 0.5 - h - (hash(seed, i) > 0.6 ? 0.5 : 0);
+const parapet = (cr, top, seed) => ({
+  x0: sx(cr.x0), x1: sx(cr.x1), sill: sy(top) - 0.5, feet: sy(top) - 0.5 + MAN_FEET,
+  mer: cr.xs.map((x, i) => [sx(x), sx(x + cr.mw), sy(merlonTop(top, seed + i * 7, 0))]),
+});
+const crenelMid = (P, i) => (P.mer[i][1] + P.mer[i + 1][0]) / 2;
+const GARRISON = (() => {
+  const [wc, ec] = L.corner.map(([x, t], i) => parapet(PAR.corner[i], t, SEED.corner + x));
+  const [wg, eg] = L.gateTower.map(([x, t], i) => parapet(PAR.gateTower[i], t, SEED.gateTower + x));
+  return {
+    s: 0.36,                                                            // a wall man's size (the gate knights are 0.4)
+    posts: [
+      { who: "sentry", on: wc, beat: [crenelMid(wc, 0), crenelMid(wc, 2)] },   // paces the west tower, stops in its end crenels
+      { who: "guard", on: ec, x: crenelMid(ec, 1), face: 1 },                 // a halberdier keeping watch on the east tower
+      { who: "bowman", on: wg, x: crenelMid(wg, 0), face: -1 },               // a bowman in each gate tower's bay
+      { who: "bowman", on: eg, x: crenelMid(eg, 0), face: 1 },
+    ],
+  };
+})();
+// a merlon's top, for a bird to settle on: merlon `i` of the block at
+// [x, top, w] with lip `lip` and seed `seed` (as castleS paints it)
+const perchOn = ([x, top, w], lip, seed, i, cr = crenels(x - w / 2 - lip, x + w / 2 + lip)) =>
+  [sx(cr.x0 + i * cr.step + cr.mw / 2), sy(merlonTop(top, seed, i, 5)) - 0.1];
 export const CASTLE_LIFE = {
   gate: [CS.x, CS.y],
   // the gate's opening under the raised portcullis, and the passage floor's
@@ -1080,16 +1113,16 @@ export const CASTLE_LIFE = {
   banners: L.gateTower.map(([x, t]) => [sx(x), sy(t + 7.4)]),            // the crown banners on the gate towers
   torches: [sx(L.arch[0] - L.arch[2] - 3.6), sx(L.arch[0] + L.arch[2] + 3.6)].map((x) => [x, sy(G - 22.8)]),
   chimney: [sx(L.chimney[0]), sy(L.chimney[1] - 0.5)],
-  // the wall walk: the sentry walks [x0, x1] with his feet hidden behind
-  // the parapet top at `y`; he shows only in the gaps between merlons
-  walk: {
-    x0: sx(L.corner[0][0] + 15), x1: sx(L.gateTower[0][0] - 8.5), y: sy(L.curtain[2] + 0.5), top: sy(L.curtain[2] + 0.5 - 5),
-    gaps: Array.from({ length: curtainCr.n - 1 }, (_, i) => [sx(curtainCr.x0 + i * curtainCr.step + curtainCr.mw), sx(curtainCr.x0 + (i + 1) * curtainCr.step)]),
-  },
-  // merlon tops where birds settle
+  // the garrison on the front towers: each man stands behind a parapet
+  // (`on`: feet, sill, merlons) that hides his legs; titleCrowd.js clips him
+  // to the crenels and the air over the merlons
+  garrison: GARRISON,
+  // merlon tops where birds settle: against the sky, where a bird reads as
+  // a bird, and never beside a man's post (the east tower's far corner, the
+  // rear towers, the keep's west corner)
   perches: [
-    [sx(L.corner[0][0] - 11.6), sy(L.corner[0][1] - 4.6)], [sx(L.corner[1][0] + 11.6), sy(L.corner[1][1] - 4.6)],
-    [sx(L.gateTower[1][0] + 5.4), sy(L.gateTower[1][1] - 4.6)], [sx(L.keep[0] - 16.4), sy(L.keep[1] - 4.6)],
+    [(GARRISON.posts[1].on.mer[3][0] + GARRISON.posts[1].on.mer[3][1]) / 2, GARRISON.posts[1].on.mer[3][2] - 0.1], perchOn(L.rear[0], 1, 40 + L.rear[0][0], 1),
+    perchOn(L.rear[1], 1, 40 + L.rear[1][0], 0), perchOn(L.keep, 1.4, 3, 0),
   ],
 };
 

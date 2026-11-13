@@ -144,7 +144,9 @@ export const GATE_TOWER_N = -58, GATE_TOWER_S = 90;   // gate towers' feet, from
 export const TOWER = { x0: 741, n: 5.5, s: 26.5, h: 38.5 };
 // the platform a tower's crew stands on, as [x, feet y]
 // (toward its south-west, clear of the stair turret toward the back)
-export const towerDeck = (foot) => [771, foot - 17];
+// (its feet stand 9 clear of the platform's south edge at foot - 12, so the
+// flags show below them and the south merlons stand wholly in front)
+export const towerDeck = (foot) => [771, foot - 21];
 // The Gate Ballista stands on the gate towers' platforms: the north one
 // first, the south one too once there are two. Feet positions, and where
 // the bolt leaves the bow.
@@ -185,11 +187,16 @@ export const wallDrums = (gy) => {
 };
 export const wallSlots = (gy) => {
   // the stretches of walk crews may use: clear of the gate towers
-  // (a crew's feet land 8 below its slot; north of a tower they must stand
-  // clear of its raised platform, which reaches up to foot - n - h - 3)
+  // (a crew's feet land 8 below its slot. The walk runs on BEHIND the tower
+  // south of it, whose raised platform hides it from foot - n - h - 4 down —
+  // its north merlons' tops: a man must stand wholly north of that with a
+  // few flags showing below his boots, or he reads as standing on the
+  // merlons. So the last slot is 17 above the platform: feet 9 clear. South
+  // of a tower the first slot is 28 below its foot: he stands on the walk
+  // just out of its door, his head no higher than the lintel.)
   // (and north of the gate the ballista rises off its tower: stand clear of that too)
-  const runs = [[26, gy + GATE_TOWER_N - 63], [gy + GATE_TOWER_S + 30, H - 12]];
-  const blocked = wallDrums(gy).map((f) => [f - TOWER.n - TOWER.h - 10, f + 30]);
+  const runs = [[26, gy + GATE_TOWER_N - 67], [gy + GATE_TOWER_S + 30, H - 12]];
+  const blocked = wallDrums(gy).map((f) => [f - TOWER.n - TOWER.h - 17, f + 28]);
   const out = [];
   for (const [a0, b0] of runs) {
     // split the run by the drums standing in it

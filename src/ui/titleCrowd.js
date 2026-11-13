@@ -17,6 +17,7 @@
 import { rigFrame } from "../render/rigs.js";
 import { PX, bakeSprite, part, lighten, darken, blobBall, cylinder, hash } from "../render/paint.js";
 import { flame } from "../render/buildkit.js";
+import { drawHalberdier, drawArcherFrame, WALL_FOLK } from "../render/folk.js";
 import { VW, ROAD, ROAD_W, HAY, CASTLE_LIFE as CL } from "./titleArt.js";
 
 // ---- the road as a path ----------------------------------------------------
@@ -79,7 +80,7 @@ const pitch = (t, seed) => {
 
 // the frames the crowd uses, baked a few at a time before it starts
 const NEEDED = [];
-for (const t of TYPES) for (let f = 0; f < 4; f++) NEEDED.push([t, "walk", f]);   // (the sentry is a knight)
+for (const t of TYPES) for (let f = 0; f < 4; f++) NEEDED.push([t, "walk", f]);
 for (let f = 0; f < 4; f++) NEEDED.push(["farmer", "fight", f]);
 
 // a contact shadow: a plum ellipse, hard-edged, baked once
@@ -102,8 +103,9 @@ const shadowSprite = () => {
 // Baked once as small frame sets at the art's own density, stamped live: the
 // royal standard on the keep, pennants on the stair turrets, the two crown
 // banners on the gatehouse, torches either side of the gate, chimney smoke,
-// a sentry on the wall walk, and a few birds wheeling over the towers who
-// now and then settle on a merlon.
+// the garrison on the front towers (a pacing sentry, a watchman, a bowman
+// over each gate banner), and a few birds wheeling over the towers who now
+// and then settle on a merlon.
 const BLUE = "#34508e", GOLD = "#d8b34a";
 const band3 = (v, col) => (v > 0.35 ? lighten(col, 0.18) : v < -0.35 ? darken(col, 0.3) : col);
 // a flag streaming from a pole at (1, 1): length `len`, depth `dep`, rippling
@@ -180,15 +182,88 @@ const put = (ctx, D, cv, x, y, ax = 0, ay = 0, face = 1) => {
   else { ctx.save(); ctx.translate(px, 0); ctx.scale(-1, 1); ctx.drawImage(cv, 0, py, w, h); ctx.restore(); }
 };
 
-// the sentry: paces his stretch of the wall walk, pausing at each end to look out
-const SENTRY_S = 0.34;
-const sentryAt = (t) => {
-  const { x0, x1 } = CL.walk, v = 2.4, pause = 3.2, leg = (x1 - x0) / v, T = 2 * (leg + pause);
-  const u = (t + 4) % T;
-  if (u < pause) return { x: x0, face: -1, moving: false };
+// ---- the garrison ---------------------------------------------------------------
+// The board castle's own wall folk (folk-workers.js drawHalberdier, folk-archer.js
+// drawArcherFrame, as render/castle.js stamps them), standing behind the front
+// towers' parapets at CL.garrison's posts. Each is clipped to what a parapet
+// leaves in sight: the crenels down to the sill, and the air over each merlon.
+// So a man shows from the thigh up in a crenel and by his head (and his
+// halberd) as he passes behind a merlon: never a helmet tip alone.
+// Liveries are picked for the ground behind them: the halberdiers stand
+// against the sky in the gate guard's wine coat and steel hood, the bowmen
+// against the keep's stone in the crown's blue.
+const WALL = CL.garrison, WALL_S = WALL.s;
+const HALB_PAL = WALL_FOLK.guard, BOW_PAL = { ...WALL_FOLK.bowman, coat: "#3a5474" };
+// sprite boxes and anchors (the feet), in the figures' own units
+const HALB = { w: 32, h: 48, ax: 16, ay: 44 }, BOW = { w: 40, h: 36, ax: 20, ay: 32 };
+const BOW_KEYS = ["rest", "rest1", "lift", "test0", "test1"];
+// the frames, baked a few at a time: h<dir>f0-2 (at ease, a breath, a look
+// out), h<dir>w0-3 (a pacing step), a<dir><key> (the bowman at ease, and
+// trying his string)
+const wallBakes = () => {
+  const jobs = [];
+  for (const dir of [1, -1]) {
+    for (let f = 0; f < 3; f++) jobs.push([`h${dir}f${f}`, () => bakeSprite(HALB.w, HALB.h, (c) => drawHalberdier(c, HALB.ax, HALB.ay, dir, HALB_PAL, { frame: f }))]);
+    for (let w = 0; w < 4; w++) jobs.push([`h${dir}w${w}`, () => bakeSprite(HALB.w, HALB.h, (c) => drawHalberdier(c, HALB.ax, HALB.ay, dir, HALB_PAL, { walk: w }))]);
+    for (const k of BOW_KEYS) jobs.push([`a${dir}${k}`, () => bakeSprite(BOW.w, BOW.h, (c) => drawArcherFrame(c, BOW.ax, BOW.ay, dir, BOW_PAL, k, { quiver: "#7a5334" }))]);
+  }
+  const out = [];
+  for (let i = 0; i < jobs.length; i += 4) out.push(() => ({ wall: Object.fromEntries(jobs.slice(i, i + 4).map(([k, f]) => [k, f()])) }));
+  return out;
+};
+
+// the sentry: paces his beat, stopping in the crenel at each end to look out
+const STEP = 6.5 * WALL_S / 4;          // ground covered per walk frame (the board sentry's stride)
+const sentryAt = (t, [x0, x1]) => {
+  const v = 1.9, pause = 4, leg = (x1 - x0) / v, T = 2 * (leg + pause);
+  const u = (t + 9) % T;
+  if (u < pause) return { x: x0, face: -1, moving: false, u };
   if (u < pause + leg) return { x: x0 + (u - pause) * v, face: 1, moving: true, ph: (u - pause) * v };
-  if (u < 2 * pause + leg) return { x: x1, face: 1, moving: false };
+  if (u < 2 * pause + leg) return { x: x1, face: 1, moving: false, u: u - pause - leg };
   return { x: x1 - (u - 2 * pause - leg) * v, face: -1, moving: true, ph: (u - 2 * pause - leg) * v };
+};
+// who stands where, and in which frame, at time t
+const wallMan = (p, i, t) => {
+  if (p.who === "sentry") {
+    const s = sentryAt(t, p.beat);
+    // halted: grounds the halberd, then looks out over the field
+    return { box: HALB, x: s.x, key: `h${s.face}` + (s.moving ? `w${Math.floor(s.ph / STEP) % 4}` : s.u < 0.5 ? "f0" : "f2") };
+  }
+  if (p.who === "guard") {
+    const u = (t + i * 3.7) % 11;
+    return { box: HALB, x: p.x, key: `h${p.face}` + (u > 7.5 ? "f2" : Math.sin(t * 1.3 + i) > 0.4 ? "f1" : "f0") };
+  }
+  // a bowman: at ease, breathing; then he brings the bow up and stands with
+  // it ready a while, and tries his string before he lowers it again
+  const P = 12 + i * 2.5, u = (t + i * 5.3) % P, up = P - 7, test = ["test0", "test1", "test1", "test0"], k = Math.floor((u - up - 3) / 0.22);
+  const key = u < up ? (Math.sin(t * 1.1 + i * 2) > 0.3 ? "rest1" : "rest") : k >= 0 && k < test.length ? test[k] : "lift";
+  return { box: BOW, x: p.x, key: `a${p.face}${key}` };
+};
+// what a parapet leaves in sight: each crenel down to the sill, and the air
+// over each merlon (its ink a half unit proud)
+const wallClip = (ctx, D, P) => {
+  const R = (v) => Math.round(v * D), INK = 0.5;
+  ctx.beginPath();
+  let x = P.x0 - INK;
+  for (const [m0, m1, top] of P.mer) {
+    if (m0 - INK > x) ctx.rect(R(x), 0, R(m0 - INK) - R(x), R(P.sill));
+    ctx.rect(R(m0 - INK), 0, R(m1 + INK) - R(m0 - INK), R(top - INK));
+    x = m1 + INK;
+  }
+  if (P.x1 + INK > x) ctx.rect(R(x), 0, R(P.x1 + INK) - R(x), R(P.sill));
+  ctx.clip();
+};
+const drawGarrison = (ctx, D, t, sprites) => {
+  if (!sprites) return;
+  const k = WALL_S * D / PX;
+  WALL.posts.forEach((p, i) => {
+    const m = wallMan(p, i, t), cv = sprites[m.key];
+    if (!cv) return;
+    ctx.save();
+    wallClip(ctx, D, p.on);
+    ctx.drawImage(cv, Math.round(m.x * D) - Math.round(m.box.ax * PX * k), Math.round(p.on.feet * D) - Math.round(m.box.ay * PX * k), Math.round(cv.width * k), Math.round(cv.height * k));
+    ctx.restore();
+  });
 };
 
 // the birds: wheel over the keep, and now and then one drops onto a merlon
@@ -212,18 +287,8 @@ const birdAt = (i, t) => {
 function renderLife(ctx, D, t, life = LIFE, o = {}) {
   if (!life) return;
   const LIFE = life;
-  // the sentry, seen only between the merlons of the wall walk
-  if (o.sentry !== false) {
-  const s = sentryAt(t), W = CL.walk;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect((W.x0 - 8) * D, 0, (W.x1 - W.x0 + 16) * D, (W.top - 0.6) * D);
-  for (const [g0, g1] of W.gaps) ctx.rect((g0 + 0.5) * D, (W.top - 1) * D, (g1 - g0 - 1) * D, (W.y - W.top + 1) * D);
-  ctx.clip();
-  const fr = s.moving ? Math.floor(s.ph / (9.2 * SENTRY_S / 4)) % 4 : (Math.floor(t / 2.2) % 3 === 2 ? 2 : 0);
-  stamp(ctx, D, "knight", "walk", fr, s.x, W.y + 2.6, SENTRY_S, s.face, 1, false);
-  ctx.restore();
-  }
+  // the garrison behind the front towers' parapets (not on the app icon)
+  if (o.sentry !== false) drawGarrison(ctx, D, t, LIFE.wall);
   // the standard, the turret pennants, the gate's banners
   const [fx, fy] = CL.standard;
   put(ctx, D, LIFE.standard[Math.floor(t * 6) % 4], fx, fy, 1, 1.5);
@@ -413,11 +478,11 @@ export function startCrowd(canvas, { still = false } = {}) {
   document.addEventListener("visibilitychange", onVis);
   // bake the frames a handful at a time, so the menu never stutters
   let i = 0;
-  const lb = LIFE ? [] : lifeBakes(), life = {};
+  const lb = LIFE ? [] : [...lifeBakes(), ...wallBakes()], life = { wall: {} };
   const warm = () => {
     if (!alive) return;
     if (i < NEEDED.length) for (const end = Math.min(NEEDED.length, i + 4); i < end; i++) rigFrame(...NEEDED[i]);
-    else if (lb.length) Object.assign(life, lb.shift()());
+    else if (lb.length) { const { wall, ...rest } = lb.shift()(); Object.assign(life, rest); Object.assign(life.wall, wall); }
     if (i < NEEDED.length || lb.length) bake = setTimeout(warm, 0);
     else { if (!LIFE) LIFE = life; ready = true; go(); }
   };
@@ -435,4 +500,7 @@ export function startCrowd(canvas, { still = false } = {}) {
 export const castleLifeSprites = () => Object.assign({}, ...lifeBakes().map((f) => f()));
 export const drawCastleLife = (ctx, D, t, life) => renderLife(ctx, D, t, life, { sentry: false, still: true });
 
-export const crowdDebug = { at, sAt, LEN, step, render, bakeLife: () => { LIFE = LIFE || Object.assign({}, ...lifeBakes().map((f) => f())); } };
+export const crowdDebug = {
+  at, sAt, LEN, step, render,
+  bakeLife: () => { LIFE = LIFE || { ...Object.assign({}, ...lifeBakes().map((f) => f())), wall: Object.assign({}, ...wallBakes().map((f) => f().wall)) }; },
+};

@@ -72,6 +72,39 @@ Xcode, so keep edits under `ios/` few and plain, and say they're unbuilt).
   No support page yet (it needs a contact the owner picks).
 - To check on a device: sound vs the silent switch, Copy/Share of the save
   code, speed on an older iPhone, the notch's safe areas, iPadOS 26 windows.
+## Sprite concepts, round 1; the castle pass (2026-11-12, owner request)
+
+The owner wants the sprites "a little more premium": readable body parts
+and faces, "more fluid and natural animations", spell light on casters,
+and asked for "a couple rounds of concepts" BEFORE a new sprite animation
+system is built. **Round 1 is with the owner; nothing in the game uses the
+new sprites yet. Ask what they chose before building on it.**
+- The kit and six concept figures live in `concept/` (Sir Aldric, Wren, a
+  Spire mage, goblin, orc, necromancer), shown on `concept-sheet.html`;
+  read `art/STYLE-GUIDE.md` "Sprite concepts: the pixel sculptor" first. The
+  sheet was published to the owner as a private Artifact page ("Crownguard
+  Sprite Concepts"); rebuild it with `node scripts/build-concept-sheet.mjs`.
+- Put to the owner, no answer yet: proportions (the concepts are ~3.8 heads
+  tall; today's rigs 4.5, and the style guide says "never big-headed"), the
+  outline (2 px ink ring | 1 px ink | 1 px tinted), one sun for both facings
+  (a second bake per figure), spell light (and whether towers and torches
+  cast it), and which figure is closest / furthest.
+- The measured answer to "how feasible is more fidelity": the board has no
+  spare pixels (an art pixel is 1 to 1.3 screen pixels); the gain is better
+  pixels and more frames, plus 2x sculpts for menus and the title screen.
+- How it ran: the lead wrote the kit and the first figure (the mage), then
+  two artists drew the goblin + orc and the necromancer against it as the
+  worked example, each in its own `fig-*.js`.
+- **The same day, two castle fixes** (owner: soldiers on the home screen
+  "entirely obscured by the walls in front of them"; board walls "weirdly
+  clippy" or not making sense geometrically): the title castle's garrison now
+  stands in the crenels (style guide, "The title screen": "Nobody hides
+  behind a wall"), and the board castle got an audit pass (style guide, "The
+  castle": three values, leaning south-face details, stair turrets on the
+  flags, a tall gate arch with a portcullis, crews standing clear of
+  merlons). `wallSlots` / `towerDeck` moved a few px (where the wall's arrows
+  and bolts start; 22 of 68 realms have one walk slot fewer, the spare
+  bowmen stand on tower decks). Both pending the owner's look.
 
 ## Fifteen levels a chapter (2026-10-03, owner request)
 

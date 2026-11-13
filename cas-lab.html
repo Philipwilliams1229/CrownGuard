@@ -52,7 +52,25 @@
         for (const hp of [1, 0.1]) { drawCastle(c, 0, hp); const t = performance.now(); for (let i = 0; i < 300; i++) drawCastle(c, i * 0.016, hp); out.push("frame@" + hp + ":" + ((performance.now() - t) / 300).toFixed(3) + "ms"); }
         document.title = "BENCH " + out.join(" ");
       }
-      const job = new URLSearchParams(location.search).get("job");
+      // ?audit=<tag>[&set=full|quick|gw|tiers|realms][&crew=0]: the standard
+      // review strips without a long ?job= (6x strips of the wall, x 640..840,
+      // saved as <tag>_<realm>[_tN|_bare|_1x].png)
+      const Q = new URLSearchParams(location.search);
+      const auditJob = (tag, set = "full") => {
+        const crew = { archers: 3, ballista: 2, guards: 3, masons: 2 }, C = [640, 0, 200, 560, 3], B = [0, 0, 840, 560, 1];
+        const one = (name, realm, lives = 20, c = crew, crop = C) => [`${tag}_${name}`, realm, [], c ? { lives, castle: c } : { lives }, crop];
+        const sets = {
+          gw: [one("gw", "greenwood")],
+          quick: [one("gw", "greenwood"), one("ff", "frostfang"), one("gw_1x", "greenwood", 20, crew, B)],
+          tiers: [one("gw_t1", "greenwood", 14), one("gw_t2", "greenwood", 9), one("gw_t3", "greenwood", 4)],
+          realms: [one("cit", "citadel"), one("wight", "wightwood", 14), one("rime", "skaldhold"), one("thorn", "thornbrook"), one("ember", "ember")],
+          full: [one("gw", "greenwood"), one("gw_bare", "greenwood", 20, null), one("gw_t2", "greenwood", 9), one("gw_t3", "greenwood", 4),
+            one("ff", "frostfang"), one("cit", "citadel"), one("wight", "wightwood", 14), one("rime", "skaldhold"),
+            one("gw_1x", "greenwood", 20, crew, B), one("ff_1x", "frostfang", 20, crew, B), one("cit_1x", "citadel", 20, crew, B)],
+        };
+        return JSON.stringify(sets[set] || sets.full);
+      };
+      const job = Q.get("job") || (Q.get("audit") && auditJob(Q.get("audit"), Q.get("set") || "full"));
       if (job) {
         const list = JSON.parse(job), key = "caslab:" + location.search;
         let i = +(sessionStorage.getItem(key) || 0);
