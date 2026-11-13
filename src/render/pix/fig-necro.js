@@ -306,3 +306,14 @@ export const CLIPS = {
     ], ph),
   },
 };
+
+// The raise, ON THE MARCH (the game: wherever the fallen lie he calls them up, every few
+// seconds, without breaking step). Walk-shaped: the very legs of `walk`, frame for frame,
+// under a staff thrust high and a blazing shard, so the board can swap it in for `walk`.
+CLIPS.raise = {
+  n: 8, ms: 960, loop: true, lag: 0.09,
+  pose: (ph) => {
+    const w = CLIPS.walk.pose(ph), s = Math.sin(ph * Math.PI * 4);
+    return { ...w, sx: null, hy: (w.hy || 0) - 1.2, aF: [2.05, 0.9, 0], aN: [1.25, 0.86, 0], staff: -0.08 + 0.03 * s, lift: 14, glow: 1.05 + 0.2 * s, claw: 1, eye: 1, flare: s > 0.4 ? 1 : 0, sway: s * 0.6 };
+  },
+};

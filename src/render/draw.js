@@ -339,6 +339,11 @@ export function draw(g, canvas, bufRef) {
     const k = Math.min(1, b.on * 1.4) * fl, ca = Math.cos(b.ang), sa = Math.sin(b.ang), r = b.len * 0.42 + 16;
     for (const q of [0.4, 0.7, 1]) addLight(t.x + ca * b.len * q, t.y + sa * b.len * q, r, "#ffb040", k);
   }
+  // ...and burning ground (lava pools, the Inferno Throne's fire) glows up at whoever stands in it
+  if (prefs.spellLight !== false) for (const gr of g.grounds) if (gr.kind === "lava" || gr.kind === "fire") {
+    const left = gr.until - g.time * 1000;
+    if (left > 0) addLight(gr.x, gr.y, gr.r + 20, "#ff9a3c", Math.min(1, left / 500) * [0.8, 0.7, 0.76, 0.66][Math.floor(g.time * 12 + gr.x) & 3]);
+  }
   for (const d of DECOR) drawables.push({ y: d.y + 14, fn: () => drawTree(ctx, d, g.time) });
   // the tower you're about to buy, standing on the spot at half weight
   if (g.buildMode && g.hover) {

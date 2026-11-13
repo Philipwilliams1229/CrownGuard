@@ -104,6 +104,9 @@ export const bandArrowFrom = (u, hero) => {
   const s = hero ? 1 : 21 / 22, f = u.face < 0 ? -1 : 1;
   // a Crossbow Company crossbowman (rigs-iron.js errantBow): the arbalest's nose, further out
   if (u.rig === "errantBow") return [u.x + f * 13, u.y + 9 - 18];
+  // Wren herself is the redrawn figure now (render/pix/fig-archer.js): her bow hand at the loose,
+  // 7.3 out and 14.3 up (solve(CLIPS.attack.pose(0.62)).hdF, in board units)
+  if (hero) return [u.x + f * 7.3, u.y + 9 - 14.3];
   return [u.x + f * 6.9 * s, u.y + 9 - 16.6 * s];
 };
 

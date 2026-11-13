@@ -49,7 +49,8 @@ export const PIX = {
   heroHunter: { fig: mk("archer", archer), atk: "attack", hit: 0.62, legacy: [7, 9, 10, 12], sky: [0, 1, 2, 3], fx: false },
   goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 2.3, legacy: [0, 4, 5, 6], fx: true },
   orc: { fig: mk("orc", orc), atk: "attack", hit: 0.55, per: 2.4, legacy: [0, 6, 7, 9], fx: true },
-  necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 2.9, legacy: [0, 5, 6, 8], fx: true },
+  // (his raise: the engine resets raiseCd to raiseEvery when the dead get up, and holds it at 0 while there are none)
+  necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 2.9, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
 };
 export const hasPix = (type) => prefs.newSprites !== false && Object.prototype.hasOwnProperty.call(PIX, type);
 
