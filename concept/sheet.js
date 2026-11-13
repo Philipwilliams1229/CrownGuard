@@ -244,7 +244,8 @@ const faces = () => {
 // ---- 4. Wren's hood ------------------------------------------------------------------
 const hood = () => {
   const host = $("#hood"), a = FIGS.archer;
-  [["ranger", "A"], ["down", "B"], ["cap", "C"], ["kerchief", "D"]].forEach(([v, letter]) => bust(host, a, v, `${letter} · ${a.SKETCHES[v]}`, "&nbsp;", { y: 51 }));
+  bust(host, a, "", "Wren", "the hunting cap and feather, auburn hair in a ponytail", { y: 53 });
+  bust(host, a, "", "Facing left", "re-lit: the sun is still upper left", { y: 53, dir: -1 });
 };
 
 // ---- 5. the cast ---------------------------------------------------------------------
