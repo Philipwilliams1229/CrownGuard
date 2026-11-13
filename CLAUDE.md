@@ -1270,7 +1270,11 @@ Provisional, pending the owner's playtest.
 
 The owner often runs several Claude sessions in this folder at the same
 time. They all share ONE working tree, one git index and one dev server, so:
-- **Look first.** Start with `ListAgents` and `git status`. Modified files
+- **Look first.** Start with `git fetch origin` (the cloud sessions push to
+  GitHub, so a folder on the owner's Mac can be weeks behind: on 2026-11-12 it
+  was 121 commits; `git rev-list --count HEAD..origin/main` says how far, and
+  `git show origin/main:CLAUDE.md` is then the current guide), then
+  `ListAgents` and `git status`. Modified files
   you did not touch belong to another session: leave them alone.
 - **Never move others' work.** No `git stash`, `git checkout -- <file>`,
   `git restore`, `git reset`, `git pull`/rebase over a dirty tree, and no

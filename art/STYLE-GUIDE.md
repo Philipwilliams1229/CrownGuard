@@ -1269,10 +1269,19 @@ game's rigs move over.
   2 px ring: the sheet lets the owner compare.
 - **Looking at it:** `concept-strip.html?fig=<name>&clips=idle,walk&zoom=10&frames=0,2,5&crop=x,y,w,h&tag=<shot>`
   (frames of a figure, saved to `.shots/`; `&flip=1`, `&line=`, `&bg=`),
-  `concept-sheet.html` (the owner's sheet, live), `concept-now.html` (saves
+  `node scripts/concept-render.mjs fig=<name> clips=idle,walk zoom=10 frames=0,2,5 tag=<shot>`
+  (the same strip with no browser; `ext=1` prints pixel extents for sizing a
+  `BOX`), `concept-sheet.html` (the owner's sheet, live), `concept-now.html` (saves
   today's rigs as the strip the sheet's "today" column reads), and `node
   scripts/build-concept-sheet.mjs` (one self-contained page in
   `concept/dist/`, for publishing).
+- **Asked for by the artists, not built yet:** export `ik` from rig.js (or a
+  pose field "this hand goes to that point") for two-handed weapons; a floor
+  of tone 1 under cast shadows on dark materials (they read as holes); an
+  ink line between parts of the SAME dark material (a sleeve on a robe); more
+  than one extra light a frame; an fx layer drawn BEHIND the figure; `F.at(ph)`
+  for effects that need earlier poses; a staff helper (tilt, lift, a fixed
+  shaft sliding through the fist).
 - **Traps:** a lab page must import a figure by its plain path (a
   cache-busting `?v=` gives it its own copy of `pix.js`, with an empty
   material table); a `requestAnimationFrame` clock can start slightly

@@ -1,0 +1,33 @@
+<!doctype html>
+<!--
+  Concept helper: the game's CURRENT rigs as one transparent strip (walk 0-3,
+  fight 0-3 per type, native art pixels), for the concept sheet's "today"
+  column. Saves .shots/cpt_now.png and prints the cell metrics as JSON.
+    /concept-now.html?types=heroKnight,heroHunter,goblin,orc,necro,heroStorm
+-->
+<html>
+  <head><meta charset="utf-8" /><title>concept now</title></head>
+  <body style="background:#405030;color:#e8e0c8;font-family:monospace">
+    <pre id="out">painting</pre>
+    <script type="module">
+      import { rigFrame } from "/src/render/rigs.js";
+      const q = new URLSearchParams(location.search);
+      const types = (q.get("types") || "heroKnight,heroHunter,goblin,orc,necro,heroStorm").split(",");
+      const cells = [["walk", 0], ["walk", 1], ["walk", 2], ["walk", 3], ["fight", 0], ["fight", 1], ["fight", 2], ["fight", 3]];
+      const rows = types.map((t) => cells.map(([s, f]) => rigFrame(t, s, f)));
+      const cw = Math.max(...rows.flat().map((f) => f.cv.width)), ch = Math.max(...rows.flat().map((f) => f.cv.height));
+      const cv = document.createElement("canvas"); cv.width = cw * cells.length; cv.height = ch * rows.length;
+      const ctx = cv.getContext("2d");
+      const meta = { cw, ch, types: {} };
+      rows.forEach((r, j) => {
+        // every frame of a type shares its anchor: feet at (ax, ay) art px in the cell
+        meta.types[types[j]] = { row: j, ax: r[0].ax * 2, ay: r[0].ay * 2 };
+        r.forEach((f, i) => ctx.drawImage(f.cv, i * cw, j * ch));
+      });
+      document.body.append(cv);
+      await fetch("/__shot?name=cpt_now", { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      document.getElementById("out").textContent = JSON.stringify(meta);
+      document.title = "DONE";
+    </script>
+  </body>
+</html>
