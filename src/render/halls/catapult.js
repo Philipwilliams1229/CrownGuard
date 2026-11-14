@@ -25,6 +25,14 @@ import { drawCrew, CREW_FOLK, CREW_FRAMES, frameOf } from "../folk.js";
 import { getStats } from "../../engine/towers.js";
 import * as engineerFig from "../pix/fig-engineer.js";
 import { crew, crewOn, drawCrewPix, loopFrame, fracFrame, markOf, crewMark } from "../pix/crews.js";
+import * as catHall from "../pix/hall-catapult.js";
+import { hallOn, hallPix, drawHallBack, drawHallFront, stampPix, pixSprite } from "../pix/halls.js";
+
+// the new machine ("New sprites" on): pix/hall-catapult.js, built round `spec` below. The hall
+// asks for the GAME's cut of it: only what stands still, in two pictures (behind and over the
+// arm or the log), no ground pad (stamped here on its own, so the bed can hop without it).
+const CAT_GAME = { BOX: catHall.BOX, build: (o) => catHall.build({ ...o, game: true }) };
+const CAT_WEST = { BOX: catHall.BOX, build: (o) => catHall.build({ ...o, game: true, west: true }) };   // facing west: its flag flies west
 
 // the new engineer ("New sprites" on): fig-engineer.js. Its winch clips ride WINCH's
 // circle and its lever clips hold LEVER's end (the same numbers, in art pixels).
@@ -409,6 +417,14 @@ export const drawCatapult = (ctx, t, time) => {
   // the new engineer's clip and frame (null: the old crew, or no crew), and where his fists hold the handle
   const now = !t.noFolk && crewOn() ? engineerNow(t, time, s, r, anim) : null;
   const grip = now ? crewMark(ENG, now.clip, now.f, "grip", f, "engineer") : null;
+  // ---- the new machine (render/pix/hall-catapult.js), while "New sprites" is on: its BACK picture
+  // here, its FRONT (the near frame and wheels, the ramp's near rail) over the arm or the log. It
+  // faces +x; a hall that faces west is baked with flip and drawn mirrored, so the sun stays put.
+  // The arm, stone, counterweight and log are its own small pictures, stamped live below at the
+  // old pivot and angles; the ropes, sling, chock, lever, dust and the engineer are as before.
+  const flip = f < 0, fo = { level: t.level, branch: t.branch || null, rank4: t.rank4 || null };
+  const H = bake && hallOn() ? hallPix("catapult", flip ? CAT_WEST : CAT_GAME, fo, 0, { flip }) : null;
+  const pic = (name, make) => pixSprite(`cat${name}|${form}`, make);
   const layer = (name, fn) => {
     if (!bake) { fn(ctx, t, x, y, f); return; }
     const cv = cache.get(`${name}|${form}|${name === "g" ? id5 : 0}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => fn(c, { ...t, id: id5 }, BOX.left, BOX.up, f));
@@ -416,8 +432,15 @@ export const drawCatapult = (ctx, t, time) => {
   };
   // the whole bed hops when the arm lets go
   const jolt = anim > 0.72 ? -1 : 0;
-  layer("g", paintGround);
-  layer("b", paintBack);
+  if (H) {
+    if (H.shadow) stampPix(ctx, H.shadow, x, y);
+    stampPix(ctx, pic("ground", () => catHall.ground(fo, flip)), x, y, f);
+    drawHallBack(ctx, H.still || (H.still = { ...H, shadow: null }), x, y + jolt, time, { id: t.id, dir: f });
+  } else {
+    layer("g", paintGround);
+    layer("b", paintBack);
+  }
+  const frontLayer = () => { if (H) drawHallFront(ctx, H, x, y + jolt, time, { id: t.id, dir: f }); else layer("f", paintFront); };
 
   if (s.roller) {
     const { lx, ly, rr } = logSpot(t, x, y, f, s);
@@ -427,9 +450,10 @@ export const drawCatapult = (ctx, t, time) => {
     if (loaded) {
       const k = Math.min(1, (r - 0.55) / 0.25);
       const back = (1 - k) * 7;
-      const cv = bake ? cache.get(`log|${t.rank4}`, 30, 40, (c) => paintLog(c, 15, 30, rr, r4)) : null;
+      const cv = bake && !H ? cache.get(`log|${t.rank4}`, 30, 40, (c) => paintLog(c, 15, 30, rr, r4)) : null;
       const shake = !t._idle && r > 0.93 ? (Math.sin(time * 38) > 0 ? 0.5 : 0) : 0;
-      if (cv) stamp(ctx, cv, lx - f * back + shake, ly - back * 0.45 + jolt, 15, 30, f);
+      if (H) stampPix(ctx, pic("log", () => catHall.log(fo, flip)), lx - f * back + shake, ly - back * 0.45 + jolt, f);
+      else if (cv) stamp(ctx, cv, lx - f * back + shake, ly - back * 0.45 + jolt, 15, 30, f);
       else paintLog(ctx, lx, ly, rr, r4);
       // the Powder Keg Run lights its fuse at the last moment
       if (r4 === "bb" && (r > 0.9 || t._idle)) {
@@ -443,7 +467,7 @@ export const drawCatapult = (ctx, t, time) => {
       const R = RAMP(x, y, f, hw);
       for (let i = 0; i < 3; i++) soft(ctx, R.bx + f * (4 + i * 4) * (1 - anim + 0.3), R.by + 1 - i, 4 - i, 2.5 - i * 0.5, [[0, `rgba(190,170,130,${0.55 * anim})`], [1, "rgba(190,170,130,0)"]]);
     }
-    layer("f", paintFront);
+    frontLayer();
     // the chock and its lever: set, or knocked out
     const R = RAMP(x, y, f, hw);
     const cx = lx + f * (rr + 1.5), cy = rampY(R, cx) - 2;
@@ -475,7 +499,8 @@ export const drawCatapult = (ctx, t, time) => {
         ctx.beginPath(); ctx.arc(px, py, rr, f > 0 ? a0 : a1, f > 0 ? a1 - 0.12 : a0, false); ctx.stroke();
       }
     }
-    if (bake) stamp(ctx, armSprite(t, s, deg), px, py, 40, 40, f);
+    if (H) stampPix(ctx, pixSprite(catHall.armKey(fo, deg, flip), () => catHall.arm(fo, deg, flip)), px, py, f);
+    else if (bake) stamp(ctx, armSprite(t, s, deg), px, py, 40, 40, f);
     const loaded = anim === 0 && r > 0.8;
     if (s.treb) {
       // the sling: hanging from the tip while it winds and while it waits
@@ -490,27 +515,30 @@ export const drawCatapult = (ctx, t, time) => {
       rope(ctx, tx, ty, sx, sy, anim > 0 ? 0 : 1.5, ROPE, 0.8);
       ball(ctx, sx, sy, 2.2, 1.6, "#6a4a2e", { hi: 0.35, lo: 0.4 });
       if (loaded) {
-        if (bake) stamp(ctx, cache.get(`shot|${s.key}`, 10, 10, (c) => boulder(c, 5, 5, s.key === "aa" ? 3 : 2.6, s.key === "aa" ? GRANITE : "#8e8c94", 2)), sx, sy - 1.8, 5, 5);
+        if (H) stampPix(ctx, pic("shot", () => catHall.shot(fo, flip)), sx, sy - 1.8, f);
+        else if (bake) stamp(ctx, cache.get(`shot|${s.key}`, 10, 10, (c) => boulder(c, 5, 5, s.key === "aa" ? 3 : 2.6, s.key === "aa" ? GRANITE : "#8e8c94", 2)), sx, sy - 1.8, 5, 5);
         if (r4 === "ab") comet(ctx, sx, sy - 1.8, time);
       }
       // the winch rope to the arm while it cocks: it takes the arm near the
       // pivot, so it leans in toward the engine, clear of the engineer's face
       if (anim === 0) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * ROPE_AT, py + uy * s.L * ROPE_AT, 0.5, ROPE, 0.7);
     } else {
-      if (loaded && bake) stamp(ctx, cache.get(`shot|${s.key}`, 10, 10, (c) => boulder(c, 5, 5, 2.5, "#8e8c94", 1)), tx - uy * f * 0.5, ty - 2.2, 5, 5);
+      if (loaded && H) stampPix(ctx, pic("shot", () => catHall.shot(fo, flip)), tx - uy * f * 0.5, ty - 2.2, f);
+      else if (loaded && bake) stamp(ctx, cache.get(`shot|${s.key}`, 10, 10, (c) => boulder(c, 5, 5, 2.5, "#8e8c94", 1)), tx - uy * f * 0.5, ty - 2.2, 5, 5);
       // the winch rope takes the arm near the pivot, so it leans in toward
       // the engine with air in front of the engineer's face, never across
       // it to the cup
       if (anim === 0 && r < 0.95) rope(ctx, x - f * (hw - 3), y - WINCH_DY + jolt, px + ux * s.L * ROPE_AT, py + uy * s.L * ROPE_AT, 0.3, ROPE, 0.7);
     }
-    layer("f", paintFront);
+    frontLayer();
     // (the trebuchet's standard goes up before its counterweight, so the
     // weight swings in front of the pole instead of the pole cutting it)
-    if (s.treb) pennant(ctx, x + f * (hw - 1), y - 36, 28, r4 === "aa" ? "#8a8a94" : r4 === "ab" ? "#d0602a" : "#6a86b0", time, t.id, f);
+    if (s.treb && !H) pennant(ctx, x + f * (hw - 1), y - 36, 28, r4 === "aa" ? "#8a8a94" : r4 === "ab" ? "#d0602a" : "#6a86b0", time, t.id, f);
     // the counterweight hangs plumb from the short end, out in front
     if (s.treb) {
       const wx = px - ux * s.butt, wy = py - uy * s.butt;
-      if (bake) stamp(ctx, cache.get(`weight|${s.key}`, 24, 22, (c) => paintWeight(c, 12, 2, s.key)), wx, wy, 12, 2);
+      if (H) stampPix(ctx, pic("weight", () => catHall.weight(fo, flip)), wx, wy, f);
+      else if (bake) stamp(ctx, cache.get(`weight|${s.key}`, 24, 22, (c) => paintWeight(c, 12, 2, s.key)), wx, wy, 12, 2);
       else paintWeight(ctx, wx, wy, s.key);
     }
     if (!s.treb && anim === 0 && r >= 0.95 && !t._idle) {
@@ -523,11 +551,11 @@ export const drawCatapult = (ctx, t, time) => {
   }
   // the standard, at the front of the bed
   const pc = s.treb ? (r4 === "aa" ? "#8a8a94" : r4 === "ab" ? "#d0602a" : "#6a86b0") : s.roller ? (r4 === "ba" ? "#5c626e" : r4 === "bb" ? "#c05848" : "#a0603a") : "#a04a3f";
-  if ((t.level >= 2 || t.branch) && !s.treb) pennant(ctx, x + f * (hw - 1), y - (s.treb ? 36 : 26), s.treb ? 28 : 18, pc, time, t.id, f);
+  if (!H && (t.level >= 2 || t.branch) && !s.treb) pennant(ctx, x + f * (hw - 1), y - (s.treb ? 36 : 26), s.treb ? 28 : 18, pc, time, t.id, f);
   // Comet Sling: the cauldron smokes and glows under
   if (r4 === "ab") {
     const cx = x - f * (hw - 2);
-    glow(ctx, cx, y - 9, 4 + Math.sin(time * 7 + t.id), "#f08a3a", 0.8);
+    if (!H) glow(ctx, cx, y - 9, 4 + Math.sin(time * 7 + t.id), "#f08a3a", 0.8);   // (the new machine has a flame of its own there, and its light on the timbers)
     for (let i = 0; i < 2; i++) { const k = ((time * 0.6 + i * 0.5 + t.id * 0.1) % 1); soft(ctx, cx + Math.sin(time + i) * 2, y - 18 - k * 14, 2 + k * 3, 2 + k * 3, [[0, `rgba(60,52,58,${0.4 * (1 - k)})`], [1, "rgba(60,52,58,0)"]]); }
   }
   // ---- the engineer, at the winch behind the bed

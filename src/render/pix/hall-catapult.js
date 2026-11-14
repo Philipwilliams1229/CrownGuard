@@ -19,7 +19,7 @@
 // grey timbers, granite chocks and cracked ground (aa), the Comet Sling's charred frame,
 // pitch cauldron and pots (ab); the Log Roller's ramp and spare logs (b), the Iron Drum's
 // iron-bound grey ramp and hoops (ba), the Powder Keg Run's kegs and fuse cord (bb).
-//   build({ level, branch, rank4, seed, style, game })
+//   build({ level, branch, rank4, seed, style, game, west })
 // game: true (the hall file) = only what stands still, split in two pictures: BACK behind
 // the throwing arm or the log, FRONT (the near frame and wheels, the ramp's near rail) over
 // it; no ground pad (the hall file stamps `ground` itself, so the bed can hop without it).
@@ -206,8 +206,9 @@ const armInto = (px, cx, cy, deg, G, F, z) => {
   }
   if (lvl === 1) for (const fr of [0.3, 0.7]) lash(px, cx + ux * L * fr, cy + uy * L * fr, 5, 5, z + 0.2);
   // the cup: a leather sling-bucket at one, iron after, its hollow turned to the sky
-  px.part(); px.ellipse(tx, ty, 6.2, 5.8, lvl === 1 ? LEATHER : IRON, z + 0.4, { round: 0.9 });
-  px.ellipse(tx - uy * 1.8, ty + ux * 1.8 - 0.8, 3.8, 2.4, DARK, z + 0.5, { cast: 0 });
+  // (a mid iron and a small hollow: all dark, the empty cup read as a stone still in it)
+  px.part(); px.ellipse(tx, ty, 6.2, 5.8, lvl === 1 ? LEATHER : TYRE, z + 0.4, { round: 0.9 });
+  px.ellipse(tx - uy * 1.8, ty + ux * 1.8 - 0.8, 3.2, 1.8, DARK, z + 0.5, { cast: 0 });
 };
 const formKey = (o) => `${o.level || 3}|${o.branch || ""}|${o.rank4 || ""}`;
 export const armKey = (o, deg, flip) => `catarm|${formKey(o)}|${deg}|${flip ? 1 : 0}`;
@@ -350,7 +351,11 @@ export const build = (o = {}) => (back, front) => {
   }
   // what moves: the standard at the front of the bed, the Comet Sling's fire under its cauldron
   const live = [], lights = [];
-  if (F.level >= 2 || F.br) live.push({ kind: "pennant", x: HW - 2, y: -16, col: FLAG_OF[F.key], pole: G.treb ? 49 : 29, len: 12, h: 7, layer: "front" });
+  // (it flies AWAY from the machine, as the old one did: o.west is the hall that faces west, drawn
+  // mirrored, whose flag would otherwise blow back across the stop and the arm)
+  const fly = o.west ? -1 : 1;
+  if (G.roller) live.push({ kind: "pennant", x: HW - 2, y: -16, col: FLAG_OF[F.key], pole: 29, len: 12, h: 7, dir: fly, layer: "front" });
+  else if (F.level >= 2 || F.br) live.push({ kind: "pennant", x: HW + 2, y: -10, col: FLAG_OF[F.key], pole: G.treb ? 55 : 35, len: 12, h: 7, dir: fly, layer: "front" });
   if (F.r4 === "ab") { live.push({ kind: "flame", x: -(HW - 4), y: -12, w: 5, h: 7 }); lights.push({ key: "torch", x: -(HW - 4), y: -18, r: 22, col: "#ffa040", a: 0.8 }); }
   return {
     live, lights,
