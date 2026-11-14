@@ -36,7 +36,7 @@ const S_STONE = mat("#8a8478"), S_LIGHT = mat("#a19b90"), BRICK = mat("#9a5a44")
 const OAK = mat("#6f4a2a"), OAK_D = mat("#553820"), TIMBER = mat("#8a6238"), TIMBER_L = mat("#a37a48");
 const IRON = mat("#4a4c56"), IRON_L = mat("#8a909c", { contrast: 1.2 }), STEEL = mat("#c4c8d0", { contrast: 1.2 }), STEELP = mat("#6a6a74", { contrast: 1.2 });
 const GOLD = mat("#d8b34a", { contrast: 1.15 }), GOLD_L = mat("#f0c850", { contrast: 1.15 }), EARTH = mat("#7c6242"), SOOT = mat("#5a4c46"), MOUND = mat("#8a7a5a");
-const WHET = mat("#a8a49a"), COALM = mat("#2e2a30"), BARK = mat("#6e4c2c"), BARK_D = mat("#523820");
+const WHET = mat("#b3a488"), COALM = mat("#2e2a30"), BARK = mat("#6e4c2c"), BARK_D = mat("#523820");
 const DARK = flat("#2a1c18"), HOT = flat("#f8c860", { emis: true }), COAL = flat("#e8703a", { emis: true }), EMBER = flat("#e85a2a", { emis: true });
 const FLAG_OF = { l2: "#a04a3f", l3: "#a04a3f", b: "#c05a28", ba: "#e8c14a", bb: "#e8703a" };
 const norm = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
@@ -165,15 +165,20 @@ export const build = (o = {}) => (back) => {
 
   // the windmill's mast and its brace stand behind the drum
   if (gale) {
-    beam(back, 16, -4, 22, -88, 6, r4 === "aa" ? STEELP : OAK, -5, { bands: [0.3, 0.7], bandM: r4 === "aa" ? GOLD : IRON, seed: 4, grain: r4 !== "aa" });
-    beam(back, 26, -2, 22, -78, 4.6, r4 === "aa" ? IRON : OAK_D, -5.2, { grain: false });
+    // (both feet behind the drum: at the ground nothing may show past the narrow footprint)
+    beam(back, 15, -4, 22, -88, 6, r4 === "aa" ? STEELP : OAK, -5, { bands: [0.3, 0.7], bandM: r4 === "aa" ? GOLD : IRON, seed: 4, grain: r4 !== "aa" });
+    beam(back, 20.5, -4, 23, -74, 4.4, r4 === "aa" ? IRON : OAK_D, -5.2, { grain: false });
   }
 
   if (post1) {
     // a mound ringed with stakes: the far ones behind it, the near ones before it
-    const stake = (i, z) => { const a = (i / 7) * Math.PI * 2 + 0.3, sx = Math.cos(a) * 18, sy = -2 + Math.sin(a) * 7.2; beam(back, sx, sy + 3, sx + Math.cos(a) * 2.4, sy - 11, 3.6, Math.cos(a) > 0.3 ? OAK_D : TIMBER, z, { grain: false }); back.dot(sx + Math.cos(a) * 2.4, sy - 12, TIMBER_L, z, { cast: 0 }); };
+    const stake = (i, z) => {
+      const a = (i / 7) * Math.PI * 2 + 0.3, sx = Math.cos(a) * 20, sy = -1 + Math.sin(a) * 7.6, ln = Math.cos(a) * 2.2;   // sharpened, leaning out
+      back.part(); back.poly([[sx - 2.2, sy + 3], [sx - 1.8 + ln, sy - 9], [sx + ln, sy - 14], [sx + 1.8 + ln, sy - 9], [sx + 2.2, sy + 3]], z < 0 ? OAK : TIMBER, z, { round: 0.85 });
+      back.tone(sx + ln, sy - 12.5, 1); back.tone(sx + ln - 0.6, sy - 10.5, 1);
+    };
     for (let i = 0; i < 7; i++) if (Math.sin((i / 7) * Math.PI * 2 + 0.3) < 0) stake(i, -1);
-    back.part(); back.ellipse(0, 2, 20, 7.2, MOUND, 0, { round: 0.8 });
+    back.part(); back.ellipse(0, 2, 16, 6.4, MOUND, 0, { round: 0.8 });
     for (const [x, y] of [[-9, 0], [6, -2], [11, 3], [-3, 5]]) back.tone(x, y, -1);
     for (let i = 0; i < 7; i++) if (Math.sin((i / 7) * Math.PI * 2 + 0.3) >= 0) stake(i, 1);
   } else {
@@ -193,7 +198,7 @@ export const build = (o = {}) => (back) => {
     // the wheel's shadow lies on the cap
     shade(back, 5, T + 3, s.rr * 1.5, s.rr * 0.62, -1, back._pid);
     if (fire) grate(back, 8, -11, 14, 13);
-    else if (st.moss && r4 !== "aa") ivy(back, 17, 8, tall ? 12 : 8, 3, { seed: seed + 4, side: -1, spread: 2 });
+    else if (st.moss && !tall) ivy(back, 17, 8, 9, 3, { seed: seed + 4, side: -1, spread: 2 });   // the taller drums keep that corner for the whetstone
   }
 
   // the post, standing ON the cap (or in the mound), its iron collars
@@ -219,7 +224,9 @@ export const build = (o = {}) => (back) => {
   if (tall && !fire) {
     // a whetstone on its frame, for the blades
     beam(back, 14, 17, 17, 6, 2.4, OAK, 6, { grain: false }); beam(back, 20, 17, 17, 6, 2.4, OAK_D, 6, { grain: false });
-    back.part(); back.ellipse(17.5, 5.5, 4.2, 6.2, WHET, 6.2, { round: 0.9 }); back.dot(17, 5, IRON, 6.3, { cast: 0 });
+    back.part(); back.ellipse(17, 6, 5.2, 5.6, WHET, 6.2, { round: 0.55 });
+    ringTone(back, 17, 6, 4.2, 1.08, -1, back._pid); back.rect(16, 5, 2, 2, IRON, 6.3, { n: [0, 0, 1], cast: 0 });
+    back.part(); back.line(18, 6, 21, 3, IRON, 6.4, { cast: 0 }); back.dot(21.5, 2.5, IRON_L, 6.4, { cast: 0 });   // its handle
   }
   if (fire) {
     // the coal heap, an ember or two in it

@@ -23,6 +23,8 @@ import { masonry } from "../buildkit.js";
 import { drawCrew, crankAt, CREW_FOLK, CREW_FRAMES, frameOf } from "../folk.js";
 import * as engineerFig from "../pix/fig-engineer.js";
 import { crew, crewOn, drawCrewPix, loopFrame, crewMark } from "../pix/crews.js";
+import * as spikerHall from "../pix/hall-spiker.js";
+import { hallOn, hallPix, drawHallBack, drawHallFront, stampPix, pixSprite } from "../pix/halls.js";
 
 // the new wheelwright ("New sprites" on): fig-engineer.js. Its `wheel` clips ride this
 // hall's crank (CRANK from crewSpot, CRANK_RX / RY) and its `bar` clips the level-one
@@ -247,19 +249,30 @@ export const drawBladewheel = (ctx, t, time) => {
   const bake = canBake();
   const r = readiness(t), anim = t.anim || 0;
   const id5 = t.id % 5;
-  if (fire) glow(ctx, x, y + 2, 20, r4 === "bb" ? "#f07a3a" : "#e8a03a", 0.14 + 0.06 * Math.sin(time * 3 + t.id));
+  // the new building ("New sprites" on): pix/hall-spiker.js through pix/halls.js. It bakes what
+  // stands still; the wheel, the sails and the sun are its sprites, stamped live below at the
+  // old hub, radius and phases. Everything else that moves is painted here as before.
+  const H = bake && hallOn() ? hallPix("spiker", spikerHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, t.id % 3) : null;
+  if (fire && !H) glow(ctx, x, y + 2, 20, r4 === "bb" ? "#f07a3a" : "#e8a03a", 0.14 + 0.06 * Math.sin(time * 3 + t.id));
 
   // the sails turn behind everything, fast when the wheel is working
   if (gale) {
     const sp = time * (t._idle ? 0.8 : 3.2) + t.id;
     const k = Math.floor((sp / (Math.PI / 2)) * 3) % 3;
-    const cv = bake ? cache.get(`sails|${t.rank4}|${k}`, 40, 40, (c) => paintSails(c, 20, 20, (k / 3) * (Math.PI / 2), r4)) : null;
-    if (cv) stamp(ctx, cv, x + 11, y - 42, 20, 20);
+    const cv = bake && !H ? cache.get(`sails|${t.rank4}|${k}`, 40, 40, (c) => paintSails(c, 20, 20, (k / 3) * (Math.PI / 2), r4)) : null;
+    if (cv && !H) stamp(ctx, cv, x + 11, y - 42, 20, 20);
   }
-  if (bake) stamp(ctx, cache.get(`base|${lvl}|${t.branch}|${t.rank4}|${id5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBase(c, { ...t, id: id5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
+  // the fire ring's light on the post and the furnace top swells with the flames
+  if (H) drawHallBack(ctx, H, x, y, time, { id: t.id, k: { ring: t._idle ? 0.5 : Math.min(1, 0.45 + r * 0.35 + anim * 0.5) } });
+  else if (bake) stamp(ctx, cache.get(`base|${lvl}|${t.branch}|${t.rank4}|${id5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBase(c, { ...t, id: id5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   else paintBase(ctx, t, x, y);
   // the furnace grate glows
-  if (fire) { glow(ctx, x + GRATE, y - 3, 6 + Math.sin(time * 5 + t.id), "#f0903a", 0.85); ctx.fillStyle = "#f4c060"; ctx.fillRect(x + GRATE - 3, y - 1.5, 6, 1.2); }
+  if (H && gale) {
+    // the sails turn on the mast's head, before the wheel
+    const sp = time * (t._idle ? 0.8 : 3.2) + t.id, k3 = Math.floor((sp / (Math.PI / 2)) * 3) % 3;
+    stampPix(ctx, pixSprite(`bw|sails|${t.rank4 || ""}|${k3}`, () => spikerHall.sailsPix(r4, k3)), x + 11, y - 42);
+  }
+  if (fire && !H) { glow(ctx, x + GRATE, y - 3, 6 + Math.sin(time * 5 + t.id), "#f0903a", 0.85); ctx.fillStyle = "#f4c060"; ctx.fillRect(x + GRATE - 3, y - 1.5, 6, 1.2); }
 
   // the wheel: it winds up (rises, quickens) before it bites, and kicks down
   const wind = t._idle ? 0 : r > 0.85 ? (r - 0.85) / 0.15 : 0;
@@ -267,16 +280,19 @@ export const drawBladewheel = (ctx, t, time) => {
   const spin = time * speed + t.id;
   const step = (Math.PI * 2) / n;
   const k = Math.floor(((spin % step) + step) % step / step * PHASES);
-  const wy = y - s.wy - wind * 1.5 + anim * 2.5;
+  const wy0 = y - s.wy - wind * 1.5 + anim * 2.5;
+  const wy = H ? Math.round(wy0 * 2) / 2 : wy0;   // the new wheel moves by whole art pixels
   const side = rr + 9;
-  if (bake) stamp(ctx, cache.get(`wheel|${lvl}|${t.branch}|${t.rank4}|${k}`, side * 2, side * 2, (c) => paintWheel(c, t, side, side, (k / PHASES) * step)), x, wy, side, side);
+  if (H) stampPix(ctx, pixSprite(`bw|wheel|${s.key}|${k}`, () => spikerHall.wheelPix(s, k)), x, wy);
+  else if (bake) stamp(ctx, cache.get(`wheel|${lvl}|${t.branch}|${t.rank4}|${k}`, side * 2, side * 2, (c) => paintWheel(c, t, side, side, (k / PHASES) * step)), x, wy, side, side);
   else paintWheel(ctx, t, x, wy, spin);
   if (r4 === "aa") {
     // the Steel Tempest's second wheel, counter-turning above
     const k2 = PHASES - 1 - k;
     const s2 = side * 0.7;
-    beam(ctx, x, wy - 1, x, wy - 7, 2.4, "#6a6a74", { grain: false });
-    if (bake) stamp(ctx, cache.get(`wheel2|${k2}`, s2 * 2, s2 * 2, (c) => paintWheel(c, t, s2, s2, (k2 / PHASES) * (Math.PI * 2 / 8), true)), x, wy - 7, s2, s2);
+    if (H) stampPix(ctx, pixSprite(`bw|wheel2|${k2}`, () => spikerHall.wheelPix(s, k2, true)), x, wy - 7);   // its shaft is in the sprite
+    else beam(ctx, x, wy - 1, x, wy - 7, 2.4, "#6a6a74", { grain: false });
+    if (H) { /* stamped above */ } else if (bake) stamp(ctx, cache.get(`wheel2|${k2}`, s2 * 2, s2 * 2, (c) => paintWheel(c, t, s2, s2, (k2 / PHASES) * (Math.PI * 2 / 8), true)), x, wy - 7, s2, s2);
   }
   if (r4 === "ab") {
     // barbed chains flung out from the rim, hooks on the ends
@@ -310,7 +326,8 @@ export const drawBladewheel = (ctx, t, time) => {
   if (r4 === "ba") {
     const sy = wy - 18 + Math.sin(time * 2 + t.id) * 0.6;
     glow(ctx, x, sy, 14, "#f8d870", 0.3 + 0.15 * r);
-    if (bake) stamp(ctx, cache.get("sun", 26, 38, (c) => paintSun(c, 13, 13)), x, sy, 13, 13);
+    if (H) stampPix(ctx, pixSprite("bw|sun", () => spikerHall.sunPix()), x, Math.round(sy * 2) / 2);
+    else if (bake) stamp(ctx, cache.get("sun", 26, 38, (c) => paintSun(c, 13, 13)), x, sy, 13, 13);
   }
   if (r4 === "bb") {
     // the flames are awake: two imps hop the rim (they wake with the crew)
@@ -387,11 +404,13 @@ export const drawBladewheel = (ctx, t, time) => {
     if (bake) stamp(ctx, cache.get(key, 28, 30, (c) => drawCrew(c, 12, 27, 1, fire ? STOKER : CREW_FOLK.engineer, 0, { ...P, phase: fr / CREW_FRAMES, pose })), cx0, cy0, 12, 27, 1);
     else drawCrew(ctx, cx0, cy0, 1, fire ? STOKER : CREW_FOLK.engineer, 0, { ...P, phase: fr / CREW_FRAMES, pose });
   }
+  if (H) drawHallFront(ctx, H, x, y, time, { id: t.id });
   // idle: a whetstone spark now and then
   if (t._idle && Math.sin(time * 3.1 + t.id * 1.9) > 0.9) glow(ctx, x + rr - 2, wy - 2, 2.5, "#ffffff", 0.9);
   if (!fire && Math.sin(time * 1.9 + t.id * 2.1) > 0.97) glint(ctx, x - rr * 0.6, wy - rr * 0.3, 1, 0.9);
   const bc = r4 === "aa" ? "#c4c8d0" : r4 === "ab" ? "#8a4a3a" : r4 === "ba" ? "#e8c14a" : r4 === "bb" ? "#e8703a" : gale ? "#7a94b8" : fire ? "#c05a28" : "#a04a3f";
-  if ((lvl >= 2 || t.branch) && !gale) pennant(ctx, x + 11, y - (fire ? 31 : 30), 20, bc, time, t.id, 1);
+  if (H) { /* the new hall flies its own pennant */ }
+  else if ((lvl >= 2 || t.branch) && !gale) pennant(ctx, x + 11, y - (fire ? 31 : 30), 20, bc, time, t.id, 1);
 };
 
 const STOKER = { skin: "#e8b990", hood: "#3a3028", coat: "#6a3a2a", boots: "#2e2420", trim: "#3a2a20" };
