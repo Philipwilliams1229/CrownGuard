@@ -156,6 +156,38 @@ next one.
   and bolts start; 22 of 68 realms have one walk slot fewer, the spare
   bowmen stand on tower decks). Both pending the owner's look.
 
+## The tower BUILDINGS: a concept round (2026-11-13, owner request)
+
+"I want the towers to get a visual upgrade too": the halls themselves, to match
+the new figures. **Nothing in the game has changed; the owner has not picked yet.**
+- The concept page is a private Artifact, "Crownguard Tower Concepts" (its own
+  page, not the sprite sheet's): Archer hall, Wizard Spire and Catapult, each as
+  today | A (today's design, thin tinted line, one sun, cast shadows) | B (A plus
+  stone by stone, weathering, ivy, lit windows, torch and spell light on the
+  stone; the lead's recommendation) | C (B on bolder shapes), enlarged and at
+  battle size, the Archer hall and Spire across levels 1-3, a film strip of a
+  cast lighting the crown, and costs measured on the viewer's device.
+- Files, all new and read by nothing in the game: `src/render/pix/hall-kit.js`
+  (round masonry in the 3/4 camera with stonework as tone, parapets split into
+  BACK and FRONT pictures so the crew is never roofed in, timber, wheels,
+  windows, banners, ivy, live frames for pennants / flames / orbs, `wallLight`
+  overlays, `bakeHall`), `hall-archer.js`, `hall-spire.js`, `hall-catapult.js`
+  (`build({ level, style })`), `concept/halls.js` + `hall-concepts.html` (the
+  page, live on the dev server), `hall-now.html` (saves today's halls as
+  `.shots/hallc_now.png`), `node scripts/build-hall-concepts.mjs` (one page in
+  `concept/dist/`), `node scripts/hall-render.mjs hall=archer styles=A,B,C
+  levels=1,2,3 zoom=4 tag=x` (a look with no browser).
+- Measured: a hall bakes in ~4-5 ms warm (tens of ms cold) on the dev Mac; 90
+  concept halls with every flag, flame, light and crew drew in ~11 ms on a
+  board-sized canvas (~7-9 ms for the buildings alone). The concept towers are
+  sized to today's (deck heights within a few px).
+- When the owner picks: the halls' own files (`src/render/halls/*.js`) are the
+  crews session's until its work is on main (it landed 2026-11-13); message
+  that session first. Known follow-ons whatever the pick: `buildcut.js` cuts a
+  hall "along its ink lines" and must learn the tinted line; `noFolk`,
+  portraits and muzzle points must hold; the catapult mirrors by aim, so it
+  needs a `flip` bake for one sun; the castle and scenery then look oldest.
+
 ## Fifteen levels a chapter (2026-10-03, owner request)
 
 Each chapter grew from 11 to 15 levels: Greenwood gullwick, millrace,

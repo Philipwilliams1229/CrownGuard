@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crownguard Tower Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jersey+15&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* One visual world (the game's own dusk plum and parchment), single theme by choice.
+     Layout: a reading column of text, with art breaking out to the full measure. */
+  :root {
+    color-scheme: dark;
+    --bg: #1c1a24;
+    --panel: #28252f;
+    --rim: #3a3546;
+    --text: #ece4d0;
+    --muted: #aaa3b6;
+    --gold: #d8b34a;
+    --grass: #82b256;
+    --display: "Jersey 15", "Courier New", monospace;
+    --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/1.55 var(--body); }
+  main { max-width: 1060px; margin: 0 auto; padding: 28px 16px 72px; display: flex; flex-direction: column; gap: 44px; }
+  header h1 { font: 400 clamp(40px, 8vw, 64px)/0.95 var(--display); letter-spacing: 0.02em; margin: 0 0 6px; color: var(--gold); text-wrap: balance; }
+  header p.kicker { font: 400 20px/1 var(--display); color: var(--muted); margin: 0 0 14px; letter-spacing: 0.04em; }
+  h2 { font: 400 30px/1 var(--display); letter-spacing: 0.03em; margin: 0 0 6px; text-wrap: balance; }
+  p { margin: 0; max-width: 66ch; }
+  p + p { margin-top: 10px; }
+  .lede { font-size: 18px; }
+  .note { color: var(--muted); font-size: 14.5px; }
+  section { display: flex; flex-direction: column; gap: 14px; }
+  .head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 20px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; }
+  canvas.px { image-rendering: pixelated; display: block; }
+  canvas.soft { display: block; }
+  .stage { background: var(--panel); border: 2px solid var(--rim); padding: 10px; display: flex; justify-content: center; overflow: hidden; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); gap: 12px; }
+  .grid.three { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .grid.four { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(324px, 1fr)); gap: 12px; }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+  figure.card { margin: 0; background: var(--panel); border: 2px solid var(--rim); padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+  figure.card canvas { max-width: 100%; }
+  figure.card.wide { align-items: flex-start; overflow-x: auto; }
+  figcaption { width: 100%; display: flex; flex-direction: column; gap: 1px; font-size: 13.5px; line-height: 1.35; color: var(--muted); }
+  figcaption.two { flex-direction: row; gap: 12px; }
+  figcaption.two span { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+  figcaption b { font: 400 19px/1.1 var(--display); letter-spacing: 0.03em; color: var(--text); }
+  .seg { display: inline-flex; border: 2px solid var(--rim); background: var(--panel); }
+  .seg button { font: 400 18px/1 var(--display); letter-spacing: 0.04em; color: var(--muted); background: none; border: 0; padding: 9px 14px; min-height: 40px; cursor: pointer; }
+  .seg button + button { border-left: 2px solid var(--rim); }
+  .seg button.on { background: var(--gold); color: #241a26; }
+  #bench-go { color: var(--text); }
+  figure.card.pick { border-color: var(--gold); }
+  figure.card.pick figcaption b::after { content: "  recommended"; font: 600 11px/1 var(--body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); margin-left: 6px; }
+  .grid.halls { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 560px) { .grid.halls { grid-template-columns: 1fr; } }
+  ul.plain { margin: 0; padding-left: 20px; max-width: 68ch; display: flex; flex-direction: column; gap: 8px; }
+  ul.plain b { color: var(--text); font-weight: 600; }
+  table.cost { border-collapse: collapse; width: 100%; max-width: 760px; font-size: 14.5px; }
+  table.cost th, table.cost td { text-align: left; vertical-align: top; padding: 9px 12px; border: 2px solid var(--rim); }
+  table.cost th { font: 400 19px/1.1 var(--display); letter-spacing: 0.03em; color: var(--text); background: var(--panel); }
+  table.cost td { color: var(--muted); }
+  table.cost td b { color: var(--text); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  .seg button:focus-visible { outline: 2px solid var(--text); outline-offset: -4px; }
+  .ask { background: var(--panel); border: 2px solid var(--rim); border-left: 6px solid var(--gold); padding: 14px 16px; }
+  .ask ol { margin: 8px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; max-width: 68ch; }
+  .ask b { color: var(--gold); font-weight: 600; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .fact { background: var(--panel); border: 2px solid var(--rim); padding: 12px 14px; font-size: 14.5px; color: var(--muted); }
+  .fact b { display: block; font: 400 34px/1 var(--display); color: var(--text); font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="kicker">Crownguard · tower concepts · round 1</p>
+    <h1>The towers, in the new style</h1>
+    <p class="lede">You asked for the towers themselves to get the same lift as the people on them. Here are three of them (the Archer hall, the Wizard Spire and the Catapult), each drawn three ways beside the one in the game today. Nothing in the game has changed yet. Pick a letter and I build the rest to match.</p>
+  </header>
+
+  <section>
+    <div class="head"><div><h2>Today, and where it could go</h2><p class="note">Left: the Archer tower in the game right now, with the new archers already standing on it. Right: the same tower redrawn (treatment B).</p></div></div>
+    <div class="stage" id="lead"></div>
+    <p>The new people are drawn with a thin outline in each material's own dark colour, lit by one sun from the upper left. Today's towers still carry the older, heavier black outline and flatter shading, so new people on old towers look like two different games. That is the first thing every option below fixes.</p>
+    <ul class="plain">
+      <li><b>Line.</b> The heavy black ring becomes the same thin tinted line the figures have. Stone joints stop being black lines and become lighter and darker stones.</li>
+      <li><b>Light.</b> One sun. Each tower gets a lit side, a shaded side and a little bounce light on its far edge, so it reads as round. The crown throws a real shadow onto the wall under it.</li>
+      <li><b>Materials.</b> Stone, timber, slate, iron and gilt each get their own five shades, so they stop looking like the same thing in different colours.</li>
+      <li><b>Life.</b> Flags ripple, torches flicker and light the wall beside them, windows glow, and a spell lights the stone as it is cast.</li>
+    </ul>
+    <p class="note">One honest limit, the same one the figures had: the board has no spare pixels. A tower cannot get more detailed than this at battle size. The gain is better pixels and more life, not more of them.</p>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>The Archer hall</h2><p class="note">Level 3. The crew shoot now and then so you can see them against the stone.</p></div><div class="bar" id="archer-bar"></div></div>
+    <div class="grid halls" id="archer"></div>
+    <p class="note">C adds a sloped foot, a wider crown on deeper brackets and a blue-capped stair turret. It never roofs the archers in.</p>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>The Wizard Spire</h2><p class="note">Level 3. Watch the crown and the top of the wall as he casts: the orb's light falls on the stone.</p></div><div class="bar" id="spire-bar"></div></div>
+    <div class="grid halls" id="spire"></div>
+    <p class="note">C narrows the shaft under a wide crown, sets a round glowing window in it and stands a slim pinnacle behind his shoulder.</p>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>The Catapult</h2><p class="note">Level 3. A machine is all timber and iron, so the three differ less here than on the stone towers.</p></div><div class="bar" id="catapult-bar"></div></div>
+    <div class="grid halls" id="catapult"></div>
+    <p class="note">B shows the grain, iron bands and rope lashings. C is a heavier engine: bigger iron-shod wheels, a painted shield board, the crown's red along the bed. The arm, rope and stone would still swing exactly as they do today.</p>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>Growing with each level</h2><p class="note">Levels 1, 2 and 3 of the Archer hall and the Spire. Switch the treatment to compare.</p></div><div class="bar" id="growth-bar"></div></div>
+    <div class="stage" id="growth"></div>
+    <p class="note">Each level keeps what today's has (the timber platform, then the stone foot under a timber gallery, then the full stone tower) so a player still knows a tower's level at a glance.</p>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>Spell light on the stone</h2><p class="note">Six moments of one cast, treatment B. The light is the same trick the figures use: a see-through second drawing, stamped on top.</p></div></div>
+    <div class="stage" id="strip"></div>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>At battle size</h2><p class="note">About the size an iPad shows them. Columns, left to right: today, A, B, C.</p></div></div>
+    <div class="stage" id="board"></div>
+    <p class="note">This is the view that matters most, and two honest things show in it. At this size A and B are closer than they look enlarged: B's extra work reads as texture and warmth more than as separate stones. And the thin line is softer against the grass than today's black ring, exactly as it was for the figures you approved; the towers hold their shape through light and shadow instead.</p>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>What it costs in game speed</h2><p class="note">Measured just now on the device you are holding.</p></div><div class="bar"><div class="seg"><button type="button" id="bench-go">Measure again</button></div></div></div>
+    <div class="facts" id="bench"><div class="fact"><b>…</b>Measuring.</div></div>
+    <p>A tower is drawn once, the first time it appears, and kept as a picture. After that it is a stamp, exactly as today. The moving parts (a flag, a flame, a patch of light) are small pictures made ahead of time and stamped on top. So all three options run at about the speed the towers run at now. The only new cost is the first drawing of each kind of tower, which the game can do quietly in spare moments, as it already does for the new figures.</p>
+  </section>
+
+  <section>
+    <div class="head"><div><h2>What it costs in time</h2><p class="note">For all 13 halls, nine forms each. A "day" here means a working day like the one the goblin horde took, with several artists at once.</p></div></div>
+    <div class="scroll"><table class="cost">
+      <tr><th>Option</th><th>What you get</th><th>Time</th><th>Risk</th></tr>
+      <tr><td><b>A · Clean</b></td><td>Today's towers, same shapes, matching the new people in line and light.</td><td>About 2 days</td><td>Lowest. Nothing about a tower's shape changes.</td></tr>
+      <tr><td><b>B · Worked</b></td><td>A, plus real stonework, weathering, ivy, lit windows, torch and spell light.</td><td>About 3 days</td><td>Low. Same shapes; more to check on each one.</td></tr>
+      <tr><td><b>C · Bolder</b></td><td>B on new outlines for every hall.</td><td>About 5 days, plus a look from you at each hall's new shape</td><td>Highest. It changes what the towers are, and 117 forms each need a design.</td></tr>
+    </table></div>
+    <p class="note">Whichever you pick, two things come with it: the little building animation (the scaffold and the pieces going up) has to learn the new towers, and the castle wall and scenery will then be the oldest-looking things on the board, so they would be next.</p>
+  </section>
+
+  <section class="ask">
+    <h2>Your choice</h2>
+    <ol>
+      <li><b>My recommendation: B.</b> It keeps the towers you already like, which is what you asked for ("I like the art direction we have now, I just want it to look a little more premium"), and it is where the light and the materials do the most.</li>
+      <li><b>A</b> if you want the towers to match the new people and nothing more, sooner.</li>
+      <li><b>C</b> if you want the towers themselves redesigned. You can also mix: B everywhere, with C's shape for one or two halls you name.</li>
+      <li>Anything you want changed on these three (a colour, the turret, less ivy, more glow) tell me in plain words and I will do one more round before building the rest.</li>
+    </ol>
+  </section>
+</main>
+<script>
+  window.HALL_NOW_META = {"cw":220,"ch":260,"ax":110,"ay":197,"cells":{"archer1":0,"archer2":1,"archer3":2,"spire1":3,"spire2":4,"spire3":5,"spire3cast":6,"catapult3":7}};
+  window.HALL_NOW_SRC = "/.shots/hallc_now.png";
+</script>
+<script type="module" src="/concept/halls.js"></script>
+</body>
+</html>

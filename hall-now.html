@@ -1,0 +1,38 @@
+<!doctype html>
+<!--
+  Concept helper (tower buildings): today's halls as one transparent strip, native art
+  pixels (two to a board unit), for the "today" column of hall-concepts.html.
+  Saves .shots/hallc_now.png and prints the cell metrics as JSON (paste into the page's
+  window.HALL_NOW_META if the cells change).
+    /hall-now.html
+-->
+<html>
+  <head><meta charset="utf-8" /><title>hall now</title></head>
+  <body style="background:#405030;color:#e8e0c8;font-family:monospace">
+    <pre id="out">painting</pre>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import * as T from "/src/render/towers.js";
+      selectRealm("greenwood");
+      const P = { archer: T.drawArcherTower, wizard: T.drawWizardSpire, catapult: T.drawCatapult };
+      // [key, kind, level, firing, lastAim]
+      const cells = [["archer1", "archer", 1, 0, 0.3], ["archer2", "archer", 2, 0, 0.3], ["archer3", "archer", 3, 0, 0.3], ["spire1", "wizard", 1, 0, 0.3], ["spire2", "wizard", 2, 0, 0.3], ["spire3", "wizard", 3, 0, 0.3], ["spire3cast", "wizard", 3, 1, 0.3], ["catapult3", "catapult", 3, 0, 2.6]];
+      const CW = 110, CH = 130, R = 2, TX = CW / 2, TY = CH * 0.72;
+      const cv = document.createElement("canvas"); cv.width = CW * R * cells.length; cv.height = CH * R;
+      const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+      const meta = { cw: CW * R, ch: CH * R, ax: TX * R, ay: (TY + 7) * R, cells: {} };
+      cells.forEach(([key, kind, level, firing, lastAim], i) => {
+        meta.cells[key] = i;
+        ctx.save(); ctx.beginPath(); ctx.rect(i * CW * R, 0, CW * R, CH * R); ctx.clip();
+        ctx.setTransform(R, 0, 0, R, i * CW * R, 0);
+        const t = { id: i + 3, kind, x: TX, y: TY, level, branch: null, rank4: null, cd: 0, aim: "first", lastAim, anim: firing ? 0.9 : 0, shotIdx: 0, critIdx: 0, invested: 0, units: [], rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: !firing, charges: 3, ramp: 2, mAnim: firing ? 0.9 : 0, eagle: null };
+        try { P[kind](ctx, t, 3.2); } catch (e) { console.error(e); }
+        ctx.restore();
+      });
+      document.body.append(cv);
+      await fetch("/__shot?name=hallc_now", { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      document.getElementById("out").textContent = JSON.stringify(meta);
+      document.title = "DONE";
+    </script>
+  </body>
+</html>
