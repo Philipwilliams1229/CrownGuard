@@ -26,6 +26,8 @@ import { getStats } from "../../engine/towers.js";
 import * as standerFig from "../pix/fig-stander.js";
 import * as bomberFig from "../pix/fig-bomber.js";
 import { crew, crewOn, drawCrewPix, fracFrame, loopFrame, shotFrame, markOf, crewMark } from "../pix/crews.js";
+import * as goldHall from "../pix/hall-goldworks.js";
+import { hallOn, hallPix, drawHallBack, drawHallFront, stampPix, pixSprite } from "../pix/halls.js";
 
 // the new sprites' clerk (pix/fig-stander.js, the "clerk" look)
 const CLERK = crew("stander", standerFig);
@@ -275,11 +277,18 @@ export const drawGoldworks = (ctx, t, time) => {
   const id5 = t.id % 5;
   const r = readiness(t), anim = t.anim || 0;
   if (r4 === "bb") glow(ctx, x, y + 4, 22, "#e8c14a", 0.12 + 0.05 * Math.sin(time * 2 + t.id));
-  if (bake) stamp(ctx, cache.get(`house|${t.level}|${t.branch}|${t.rank4}|${id5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintHouse(c, { ...t, id: id5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
+  // ---- the new building (render/pix/hall-goldworks.js), while "New sprites" is on: its BACK picture
+  // here (the house, the trade's still parts, what stands behind the crew's feet), its FRONT after
+  // the crew. It brings its own ground shadow, pennant, furnace flame and the furnace's light on
+  // the wall, so the old house, glow and pennant stand down; the smoke, glints, bubbles, the
+  // floating stone, the gun's recoil, the crew and their coins are painted here as before.
+  const br = 0.6 + 0.4 * Math.sin(time * 2.2 + t.id);   // the furnace breathes
+  const H = bake && hallOn() ? hallPix("goldworks", goldHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, t.id % 3) : null;
+  const HK = H ? { id: t.id, k: { furnace: 0.45 + 0.55 * br, stone: 0.75 + 0.25 * Math.sin(time * 3), vat: 0.8 + 0.2 * Math.sin(time * 2 + t.id) } } : null;
+  if (H) drawHallBack(ctx, H, x, y, time, HK);
+  else if (bake) stamp(ctx, cache.get(`house|${t.level}|${t.branch}|${t.rank4}|${id5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintHouse(c, { ...t, id: id5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   else paintHouse(ctx, t, x, y);
-  // the furnace breathes
-  const br = 0.6 + 0.4 * Math.sin(time * 2.2 + t.id);
-  if (r4 !== "aa") {   // (the hoard has buried the furnace mouth)
+  if (!H && r4 !== "aa") {   // (the hoard has buried the furnace mouth)
     const g = y - LIFT;
     glow(ctx, hx - 3.5, g - 1.5, 5 + br * 2, "#f0903a", 0.85 * br);
     ctx.fillStyle = "#f4c060"; ctx.fillRect(hx - 6.5, g, 6, 1.2);
@@ -303,12 +312,16 @@ export const drawGoldworks = (ctx, t, time) => {
   if (r4 === "ab") {
     const sy = y - 9.5 + Math.sin(time * 2 + t.id) * 1.6;
     glow(ctx, x + 11, sy, 8, "#e04070", 0.35 + 0.1 * Math.sin(time * 3));
-    ball(ctx, x + 11, sy, 2.8, 3, "#d8305a", { hi: 0.6, lo: 0.35 });
-    ctx.fillStyle = "#fff3d2"; ctx.fillRect(x + 10, sy - 1.6, 1, 1);
+    if (H) stampPix(ctx, pixSprite("goldworks|stone", goldHall.stone), x + 11, Math.round(sy * 2) / 2);   // whole art pixels, or its edges swim
+    else {
+      ball(ctx, x + 11, sy, 2.8, 3, "#d8305a", { hi: 0.6, lo: 0.35 });
+      ctx.fillStyle = "#fff3d2"; ctx.fillRect(x + 10, sy - 1.6, 1, 1);
+    }
     for (let i = 0; i < 3; i++) { const a = time * 1.8 + (i / 3) * Math.PI * 2; glint(ctx, x + 11 + Math.cos(a) * 6, sy + Math.sin(a) * 2, 0.5, 0.8); }
   }
   if (alch) {
-    if (bake) stamp(ctx, cache.get("alembic", 40, 40, (c) => paintAlembic(c, 20, 20)), x, y, 20, 20);
+    if (H) stampPix(ctx, pixSprite("goldworks|alembic", goldHall.alembic), x, y);
+    else if (bake) stamp(ctx, cache.get("alembic", 40, 40, (c) => paintAlembic(c, 20, 20)), x, y, 20, 20);
     else paintAlembic(ctx, x, y);
   }
   if (alch) { const bub = (time * 3 + t.id) % 1; glow(ctx, x - 12, y - 6.5 - bub * 6, 1.4, "#c8f0d8", 1 - bub); }
@@ -320,7 +333,8 @@ export const drawGoldworks = (ctx, t, time) => {
   if (r4 === "ba") {
     // the gilded gun: it kicks back on the shot
     const kick = anim > 0.5 ? 2 : anim > 0.2 ? 1 : 0;
-    if (bake) stamp(ctx, cache.get("gun", 20, 12, (c) => paintGun(c, 4, 8)), x + 7 - kick, y - 2, 4, 8);
+    if (H) stampPix(ctx, pixSprite("goldworks|gun", goldHall.gun), x + 7 - kick, y - 2);   // the new barrel, the old anchor and kick
+    else if (bake) stamp(ctx, cache.get("gun", 20, 12, (c) => paintGun(c, 4, 8)), x + 7 - kick, y - 2, 4, 8);
     if (anim > 0.4) { soft(ctx, x + 22, y - 6, 4 + (1 - anim) * 5, 3 + (1 - anim) * 4, [[0, `rgba(240,230,210,${anim * 0.8})`], [1, "rgba(240,230,210,0)"]]); glow(ctx, x + 21, y - 5.5, 3, "#f8d870", anim); }
     if (Math.sin(time * 1.4 + t.id) > 0.92) glint(ctx, x + 15, y - 5, 0.9, 0.9);
   }
@@ -419,8 +433,10 @@ export const drawGoldworks = (ctx, t, time) => {
     } else if (Math.sin(time * 3 + t.id) > 0.3) glint(ctx, hx - 0.4, hy - 0.8, 0.6, 0.8);
   }
   // the takings and wares that stand in front of him
-  if (bake) stamp(ctx, cache.get(`front|${t.level}|${t.branch}|${t.rank4}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintFrontProps(c, t, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
+  if (H) drawHallFront(ctx, H, x, y, time, HK);
+  else if (bake) stamp(ctx, cache.get(`front|${t.level}|${t.branch}|${t.rank4}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintFrontProps(c, t, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   else paintFrontProps(ctx, t, x, y);
   const pc = alch ? "#8ad0a0" : r4 === "aa" ? "#c04a30" : r4 === "ab" ? "#8a5ab0" : mint ? "#3a5a8a" : GOLD;
-  if (lvl >= 2 || t.branch) pennant(ctx, hx - hw + 2, y - LIFT - bh - (lvl >= 3 ? 16 : 12), 14, pc, time, t.id, -1);
+  if (H) { /* the new hall flies its own pennant */ }
+  else if (lvl >= 2 || t.branch) pennant(ctx, hx - hw + 2, y - LIFT - bh - (lvl >= 3 ? 16 : 12), 14, pc, time, t.id, -1);
 };

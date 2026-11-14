@@ -76,7 +76,7 @@ const live = (ctx, H, x, y, time, layer, id, dir = 1) => {
   for (const l of H.spec.live || []) {
     if ((l.layer || "back") !== layer) continue;
     let fr, dy = 0;
-    if (l.kind === "pennant") { const fs = framesOf(`pen|${l.col}|${l.len}|${l.pole}|${l.h || 0}|${l.dir || 1}`, () => pennantFrames(l.col, l)); fr = fs[Math.floor(time * 9 + id * 3) % fs.length]; }
+    if (l.kind === "pennant") { const fs = framesOf(`pen|${l.col}|${l.len}|${l.pole}|${l.h || 0}|${l.dir || 1}|${l.swallow ? 1 : 0}`, () => pennantFrames(l.col, l)); fr = fs[Math.floor(time * 9 + id * 3) % fs.length]; }
     else if (l.kind === "flame") { const fs = framesOf(`flame|${l.w || 0}|${l.h || 0}`, () => flameFrames(l)); fr = fs[Math.floor(time * 11 + id) % fs.length]; }
     else if (l.kind === "spark") { if (prefs.spellLight === false) continue; const fs = framesOf(`spark|${l.col}`, () => sparkFrames(l.col)); fr = fs[Math.floor(time * 7 + (l.ph || 0) + id) % fs.length]; }
     else if (l.kind === "orb") { const fs = framesOf(`orb|${l.col}`, () => orbFrames(l.col)); fr = fs[Math.floor(time * 8) % fs.length]; }

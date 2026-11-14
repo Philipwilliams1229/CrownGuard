@@ -35,6 +35,8 @@ import {
   groundBed, footClip, footHalf, footing, ashlar, planks, beam, door, banner, flame, torchBracket, rock, posy, merlons,
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
+import * as knightHall from "../pix/hall-knight.js";
+import { hallOn, hallPix, drawHallBack } from "../pix/halls.js";
 
 const CACHE = new Map();
 export const resetGarrisonBakes = () => CACHE.clear();
@@ -539,6 +541,31 @@ export const drawGarrison = (ctx, t, time) => {
   const form = `${lvl}|${t.branch}|${t.rank4}`, v = t.id % 3, tv = { ...t, id: v };
 
   const canBake = typeof document !== "undefined";
+  const Y = yard(x, y);
+  // ---- the new building (render/pix/hall-knight.js), while "New sprites" is on: one picture
+  // (the hall has no crew to stand behind a front piece) that brings its own ground, shadow,
+  // standard, pennons, campfire and torch flames and their light, so the old still parts and
+  // their live lights below stand down. The door, the yard's spots and the chimney are where
+  // the old hall has them; the smoke, the basilica's runes and the rally flag stay painted here.
+  const H = canBake && hallOn() ? hallPix("knight", knightHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, v) : null;
+  const dg = 0.45 + 0.15 * Math.sin(time * 1.9 + t.id);
+  if (H) {
+    drawHallBack(ctx, H, x, y, time, { id: t.id, k: { rose: dg + 0.2, hammer: 0.5 + 0.3 * Math.sin(time * 2 + t.id), dome: 0.45 + 0.25 * Math.sin(time * 1.4 + t.id) } });
+    if (r4 === "ab") {
+      // the holy runes turn on the gold ring baked in the yard: over the earth, so the ring
+      // is drawn wide enough to pass in front of the fire and the rack, and a rune behind
+      // the footing is hidden by the hall
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + time * 0.25;
+        const ry = y + 9 + Math.sin(a) * 5.5;
+        if (ry < y + 6.2) continue;
+        const on = 0.5 + 0.5 * Math.sin(time * 2.5 + i * 1.7);
+        ctx.fillStyle = rgba("#f8e08a", 0.35 + on * 0.6);
+        const rx = x + Math.cos(a) * 16;
+        ctx.fillRect(rx - 0.5, ry - 1.5, 1, 3); ctx.fillRect(rx - 1.5, ry - 0.5, 3, 1);
+      }
+    }
+  } else {
   if (canBake) {
     const g = baked(`ground|${form}|${v}`, BOX.left + BOX.right, 44, (c) => paintGround(c, tv, BOX.left, 16), false);
     ctx.drawImage(g, x - BOX.left, y - 16, g.width / PX, g.height / PX);
@@ -558,18 +585,19 @@ export const drawGarrison = (ctx, t, time) => {
     const cv = baked(`hall|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintHall(c, tv, BOX.left, BOX.up));
     ctx.drawImage(cv, x - BOX.left, y - BOX.up, cv.width / PX, cv.height / PX);
   } else paintHall(ctx, t, x, y);
+  }
 
   // ---- fire: the campfire
-  const Y = yard(x, y);
-  if (grown && r4 !== "ba" && r4 !== "bb") flame(ctx, Y.fireX, Y.fireY - 0.6, 0.72, time, t.id);
+  if (!H && grown && r4 !== "ba" && r4 !== "bb") flame(ctx, Y.fireX, Y.fireY - 0.6, 0.72, time, t.id);
   // the chimney's smoke
   if (!ber && r4 !== "ab") for (let i = 0; i < 4; i++) {
     const t2 = (time * 9 + i * 5 + t.id * 2) % 20;
     const drift = Math.sin(time * 1.6 + i) * 3 + t2 * 0.25;
     soft(ctx, x + hw * 0.5 + drift, wallTop - roofH * 0.55 - 9 - t2, 2 + t2 / 7, 2 + t2 / 7, [[0, `rgba(198,198,190,${Math.max(0, 0.45 - t2 * 0.022)})`], [1, "rgba(198,198,190,0)"]]);
   }
-  // torchlight at the door and in the windows
-  const dg = 0.45 + 0.15 * Math.sin(time * 1.9 + t.id);
+  // torchlight at the door and in the windows (the new hall brings its own flames, light and flags)
+  if (H) { /* nothing more to light or fly */ }
+  else {
   if (lvl >= 2 && !pal && !ber) flame(ctx, x + 5, baseY - 11.5, 0.4, time, t.id + 2);
   if (r4 === "bb") for (const s of [-1, 1]) flame(ctx, x + s * 4.8, baseY - 4 - 5.5 - 5, 0.38, time, t.id + 2 + s);
   if (pal) glow(ctx, x, wallTop - 1, 4, "#f8e8a0", dg);
@@ -583,6 +611,7 @@ export const drawGarrison = (ctx, t, time) => {
   }
   // the standard on the ridge
   if (r4 !== "ba") pennant(ctx, x, wallTop - roofH - (r4 === "ab" ? 18 : 12), 1, col.flag, time, t.id, 1);
+  }
   // rally flag
   if (t.rally) {
     const rx = t.rally.x, ry = t.rally.y;

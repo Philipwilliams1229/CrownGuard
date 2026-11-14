@@ -73,7 +73,7 @@ const boards = (seed, pw = 6) => (u, v) => {
   return hash(k, seed) > 0.74 ? 1 : 0;
 };
 // the roof's shadow on the wall under it (the resolve adds two more pixels of cast shadow)
-const eaveShade = (wt) => (x, y) => (y < wt + 5 + (x > 0 ? 1 : 0) ? -1 : 0);
+const eaveShade = (wt) => (x, y) => (y < wt + 4 + (x > 0 ? 1 : 0) ? -1 : 0);
 
 // A hip roof seen from the south and above: the front slope, the west hip in the sun, the east
 // hip in shade, tile courses as tone, a fascia at the eave.
@@ -94,9 +94,9 @@ const hipRoof = (px, o) => {
       if (ax <= xi) {
         const sx = Math.floor(x + (row & 1) * 3 + 200), k = Math.floor(sx / 6), hv = hash(row, k, seed);
         if (fr < 1) b -= 1;                                                    // each course laps the next
-        else if (sx % 6 === 0 && hash(row, k, seed + 9) < 0.45) b -= 1;        // a joint here and there
-        else if (hv > 0.8 && x < E * 0.45) b += 1;                             // a tile catching the light
-        else if (hv < 0.1) b -= 1;
+        else if (sx % 6 === 0 && hash(row, k, seed + 9) < 0.22) b -= 1;        // a joint here and there
+        else if (hv > 0.88 && x < E * 0.45) b += 1;                             // a tile catching the light
+        else if (hv < 0.05) b -= 1;
         if (t > 0.94) b = 1;                                                   // the ridge
         if (ax > xi - 1.2 && x < 0 && t < 0.94) b = Math.max(b, 0) + 1;        // the hip's edge toward the sun
       } else if (x < 0) { n = N_W; if (fr < 1 && hash(row, seed + 2) < 0.7) b -= 1; }
@@ -170,8 +170,8 @@ const rack = (px, x, y, shield, z) => {
   beam(px, x - 6, y, x - 6, y - 18, 3, OAK, z, { grain: false }); beam(px, x + 5, y, x + 5, y - 18, 3, OAK, z, { grain: false, same: true });
   beam(px, x - 8, y - 15, x + 7, y - 15, 3, TIMBER, z + 0.1, { grain: false });
   for (let i = 0; i < 3; i++) {
-    const sx = x - 3 + i * 3.6;
-    px.part(); px.line(sx, y - 1, sx, y - 30, OAK_D, z + 0.2, { cast: 0 }); px.poly([[sx - 1.5, y - 30], [sx + 0.5, y - 37], [sx + 2.5, y - 30]], STEEL, z + 0.3, { n: [-0.3, -0.3, 0.9] });
+    const sx = x - 4 + i * 4, top = y - 27 - ((i * 2) % 3) * 3;
+    px.part(); px.line(sx, y - 1, sx, top, OAK_D, z + 0.2, { cast: 0 }); px.poly([[sx - 1, top], [sx + 0.5, top - 6], [sx + 2, top]], STEEL, z + 0.3, { n: [-0.3, -0.3, 0.9] });
   }
   if (shield) { px.part(); px.ellipse(x - 7, y - 6, 5, 5.6, shield, z + 0.4, { round: 0.75 }); px.dot(x - 7.5, y - 6.5, GOLD, z + 0.5, { fix: 4, cast: 0 }); px.dot(x - 6.5, y - 6.5, GOLD, z + 0.5, { fix: 3, cast: 0 }); }
 };
@@ -250,9 +250,10 @@ const butt = (px, x, y, z) => {
 };
 // a pavise: the tall shield a crossbowman shelters behind, propped on a stay
 const pavise = (px, x, y, z, i) => {
-  beam(px, x + 1, y - 16, x + 4, y, 2, OAK_D, z - 0.1, { grain: false });
-  px.part(); px.poly([[x - 3, y - 19], [x + 3, y - 19], [x + 4, y - 17], [x + 4, y], [x - 4, y], [x - 4, y - 17]], GREEN, z, { round: 0.65 });
-  px.rect(x - 3, y - 18, 6, 1, BRASS, z + 0.1, { n: N_F, cast: 0 }); px.rect(x - 4, y - 2, 8, 1, BRASS, z + 0.1, { n: N_F, cast: 0 });
+  y -= i % 2;                                                        // the row is not dressed to a line
+  beam(px, x + 1, y - 14, x + 4, y, 2, OAK_D, z - 0.1, { grain: false });
+  px.part(); px.poly([[x - 2, y - 19], [x + 2, y - 19], [x + 3, y - 17], [x + 3, y], [x - 3, y], [x - 3, y - 17]], GREEN, z, { round: 0.8 });
+  px.rect(x - 2, y - 18, 4, 1, BRASS, z + 0.1, { n: N_F, cast: 0 }); px.rect(x - 3, y - 2, 6, 1, BRASS, z + 0.1, { n: N_F, cast: 0 });
   for (let j = 16; j > 3; j--) px.dot(x, y - j, CREAM, z + 0.1, { cast: 0 });
   px.rect(x - 1.5, y - 11 - (i % 2), 3, 3, BRASS, z + 0.2, { n: N_F, cast: 0 });
 };
@@ -337,9 +338,10 @@ export const build = (o = {}) => (back) => {
   else {
     // wattle and daub between oak framing
     face(back, -W, wt, 2 * W, wb - wt, DAUB, 0, N_F, (u, v) => (hash(Math.floor(u / 3), Math.floor(v / 2), seed) > 0.9 ? -1 : 0), { shade });
-    for (const fx of [-W + 2, -W * 0.45, W * 0.45, W - 2]) beam(back, fx, wt + 2, fx, wb, 4, OAK, 0.3, { grain: false });
-    beam(back, -W, wt + 4, W, wt + 4, 4, OAK_D, 0.3, { grain: false });
-    beam(back, -W + 3, wb - 2, -W * 0.45 - 1, wt + 6, 3, OAK, 0.25, { grain: false }); beam(back, W - 3, wb - 2, W * 0.45 + 1, wt + 6, 3, OAK, 0.25, { grain: false });
+    for (const fx of [-W + 1.5, W - 1.5]) beam(back, fx, wt + 2, fx, wb, 3, OAK, 0.3, { grain: false });
+    for (const fx of [-W * 0.45, W * 0.45]) beam(back, fx, wt + 2, fx, wb, 2, OAK, 0.3, { grain: false });
+    beam(back, -W, wt + 3.5, W, wt + 3.5, 3, OAK, 0.3, { grain: false }); beam(back, -W, wb - 1, W, wb - 1, 2, OAK_D, 0.3, { grain: false });
+    beam(back, -W + 3, wb - 2, -W * 0.45 - 2, wt + 6, 2, OAK, 0.25, { grain: false }); beam(back, W - 3, wb - 2, W * 0.45 + 2, wt + 6, 2, OAK, 0.25, { grain: false });
   }
   const footM = pal ? PALE_F : ber ? GUN : GREY;
   face(back, -(W + 4), wb, 2 * W + 8, 10 - wb, footM, 0.5, N_F, stones(seed + 1, 4, 9), { shade: (x, y) => (y < wb + 1 ? 1 : y > 9 ? -1 : x > W ? -1 : 0) });
@@ -351,9 +353,9 @@ export const build = (o = {}) => (back) => {
   face(back, -10, wb, 20, 3, footM, 1.2, N_TOP, null, { cast: 0 });
   if (!pal && !ber) {
     // the kingdom's shield beside the door
-    kite(back, -Math.round(hw * 1.44), wt + 7, 12, 14, 1.5, 0, RED, mat("#c86a5a"));
+    kite(back, -Math.round(hw * 1.44), wt + 7, 10, 13, 1.5, 0, RED, mat("#c86a5a"));
     for (let i = -2; i <= 2; i++) { back.dot(-Math.round(hw * 1.44) + i, wt + 11.5, CREAM, 1.8, { cast: 0 }); back.dot(-Math.round(hw * 1.44), wt + 11.5 + i * 1.4 + 1, CREAM, 1.8, { cast: 0 }); }
-    if (level >= 2) { torch(back, 10, -12, 1.5); live.push({ kind: "flame", x: 10, y: -12, w: 4, h: 7 }); lights.push({ key: "torch", x: 10, y: -15, r: 15, col: "#ffa040", a: 0.6 }); }
+    if (level >= 2) { torch(back, 10, -12, 1.5); live.push({ kind: "flame", x: 10, y: -12, w: 4, h: 7 }); lights.push({ key: "torch", x: 10, y: -15, r: 13, col: "#ffa040", a: 0.45 }); }
   }
   if (ber && !r4) [-24.5, -17.5, -10.5].forEach((sx, i) => kite(back, sx, wt + 8, 7, 13, 1.5, i + seed));   // three kites left of the door
   if (r4 === "ba") kite(back, 16.5, wt + 8, 8, 13, 1.5, seed + 1);
@@ -361,7 +363,7 @@ export const build = (o = {}) => (back) => {
     wallBanner(back, -16.5, wt + 8, 9, 14, GREEN, BRASS, 1.5, { device: BOLT, deviceY: 3, tail: "point" });
     crossbowRack(back, 10, wt + 8, 17, 14, 1.5);
     for (const s of [-1, 1]) { torch(back, s * 9.5, -18, 1.6); live.push({ kind: "flame", x: s * 9.5, y: -18, w: 4, h: 7 }); }
-    lights.push({ key: "torch", x: 0, y: -21, r: 20, col: "#ffa040", a: 0.6 });
+    lights.push({ key: "torch", x: 0, y: -17, r: 14, col: "#ffa040", a: 0.45 });
   }
   if (pal) for (const s of [-1, 1]) wallBanner(back, Math.round(s * hw * 1.24), wt + 8, 9, 16, r4 === "aa" ? PALE_W : BLUE, GOLD, 1.5, { device: SUN, deviceY: 4, tail: "point" });
 

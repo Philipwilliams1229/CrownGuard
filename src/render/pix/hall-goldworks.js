@@ -61,6 +61,7 @@ const put = (px, x, y, m, z, n, o) => px._put(Math.floor(x + px.ox), Math.floor(
 //   sh      shear: the face climbs as it runs east (the side wall)      shade  the quiet, shadowed side
 //   eave    rows under an overhang that lie in its shadow               quoin  dressed blocks at both ends
 //   soot    (x, y) => extra tone (the stain over the furnace)           lip    a sunlit top edge (a plinth)
+//   calm    no stone a tone down (a narrow stack: one dark stone reads as a hole)
 const face = (px, x0, y0, w, h, m, z, o = {}) => {
   px.part();
   const { seed = 1, course = 5, sw = 9, n = N_FRONT, sh = 0, shade = false, plain = false, eave = 0 } = o;
@@ -73,7 +74,7 @@ const face = (px, x0, y0, w, h, m, z, o = {}) => {
     else if (plain) bias = 0;
     else if (shade) { if (fy === course - 1 && hm < 0.6) bias -= 1; }
     else {
-      if (hv < 0.14) bias -= 1; else if (hv > 0.68) bias += 1;
+      if (hv < 0.14 && !o.calm) bias -= 1; else if (hv > 0.68) bias += 1;
       if ((fy === course - 1 || fx >= sw - 1) && hm < 0.72) bias -= 1;
       else if ((fy === 0 || fx < 1) && hv > 0.45 && hv <= 0.68) bias += 1;
     }
@@ -112,7 +113,7 @@ const hipRoof = (px, o) => {
 
 // A square stack: a lit front, a shaded east side, a dark flue; `cap`: a band of darker stone round its head.
 const chimney = (px, cx, top, bot, m, mCap, z, cap, seed) => {
-  face(px, cx - 6, top, 12, bot - top, m, z, { course: 4, sw: 6, seed, eave: cap ? 6 : 0 });
+  face(px, cx - 6, top, 12, bot - top, m, z, { course: 4, sw: 6, seed, eave: cap ? 6 : 0, calm: true });
   face(px, cx + 6, top, 4, bot - top, m, z - 0.1, { sh: SH, shade: true, n: N_SIDE, course: 4, seed });
   const hw = cap ? 8 : 6, t = cap ? top - 1 : top;
   if (cap) {
@@ -240,7 +241,7 @@ export const build = (o = {}) => (back, front) => {
   chimney(back, cc, ctop, lvl === 1 ? wy - 4 : E - 8, SD, SC, lvl === 1 ? 1.6 : -3, lvl >= 2, seed + 3);
 
   // ---- the house: the front wall, the east wall, the footing
-  const soot = r4 === "aa" ? null : (x, y) => (y < -24 && y > -36 && Math.abs(x + 13) < 8 - (-24 - y) * 0.55 && hash(Math.floor(x), Math.floor(y), 3) > 0.25 ? -1 : 0);
+  const soot = r4 === "aa" ? null : (x, y) => (y < -24 && y > -28 && Math.abs(x + 13) < 8 - (-24 - y) * 1.6 ? -1 : 0);
   const wst = rich ? {} : { plain: true };
   face(back, L, wy, HW * 2, -1 - wy, S, 0, { ...wst, seed, eave: 7, quoin: lvl >= 2, soot });
   face(back, R, wy, DEPTH, -1 - wy, S, -0.5, { ...wst, seed: seed + 9, sh: SH, shade: true, n: N_SIDE, eave: 7 });
