@@ -41,11 +41,13 @@ const shadowOf = (sh) => {
 
 // A hall's baked record. name: the kind (the cache's key); mod: its module ({ BOX, build });
 // form: { level, branch, rank4 }; seed: the stonework variant (t.id % 3).
-export const hallPix = (name, mod, form, seed = 0) => {
-  const key = `${name}|${form.level}|${form.branch || ""}|${form.rank4 || ""}|${seed}`;
+// o.flip: bake it for a hall drawn MIRRORED (a machine that turns to its target: pass the same
+// record to drawHallBack / drawHallFront with dir: -1), so the sun stays in the upper left.
+export const hallPix = (name, mod, form, seed = 0, o = {}) => {
+  const key = `${name}|${form.level}|${form.branch || ""}|${form.rank4 || ""}|${seed}|${o.flip ? 1 : 0}`;
   let H = BAKES.get(key);
   if (H) return H;
-  const b = bakeHall(mod.BOX, mod.build({ level: form.level, branch: form.branch || null, rank4: form.rank4 || null, seed, style: "B" }));
+  const b = bakeHall(mod.BOX, mod.build({ level: form.level, branch: form.branch || null, rank4: form.rank4 || null, seed, style: "B" }), { flip: !!o.flip });
   H = {
     box: mod.BOX, spec: b.spec, back: toCanvas(b.back), front: b.front ? toCanvas(b.front) : null, shadow: shadowOf(b.spec.shadow),
     glows: b.glows.map((g) => ({ key: g.key, back: toCanvas(g.back), front: g.front ? toCanvas(g.front) : null })),
@@ -63,8 +65,14 @@ export const stampPix = (ctx, s, x, y, dir = 1) => {
 // a one-off picture a hall bakes for itself (a machine in two states): cached by key
 export const pixSprite = (key, make) => { let s = FRAMES.get("one|" + key); if (!s) FRAMES.set("one|" + key, (s = sprite(make()))); return s; };
 
+// one of a hall's box-sized pictures, mirrored about the anchor when dir < 0
+const lay = (ctx, cv, H, x, y, dir) => {
+  const B = H.box;
+  if (dir >= 0) { ctx.drawImage(cv, x - B.ox / 2, y - B.oy / 2, B.w / 2, B.h / 2); return; }
+  ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.drawImage(cv, -B.ox / 2, -B.oy / 2, B.w / 2, B.h / 2); ctx.restore();
+};
 const FLICK = [1, 0.84, 0.94, 0.78, 1, 0.9, 0.74, 0.96];
-const live = (ctx, H, x, y, time, layer, id) => {
+const live = (ctx, H, x, y, time, layer, id, dir = 1) => {
   for (const l of H.spec.live || []) {
     if ((l.layer || "back") !== layer) continue;
     let fr, dy = 0;
@@ -73,19 +81,19 @@ const live = (ctx, H, x, y, time, layer, id) => {
     else if (l.kind === "spark") { if (prefs.spellLight === false) continue; const fs = framesOf(`spark|${l.col}`, () => sparkFrames(l.col)); fr = fs[Math.floor(time * 7 + (l.ph || 0) + id) % fs.length]; }
     else if (l.kind === "orb") { const fs = framesOf(`orb|${l.col}`, () => orbFrames(l.col)); fr = fs[Math.floor(time * 8) % fs.length]; }
     else if (l.kind === "book") { fr = framesOf("book", () => bookFrames())[0]; dy = Math.round(Math.sin(time * 1.9 + id) * 1.6) / 2; }
-    if (fr) stampPix(ctx, fr, x + l.x / 2, y + l.y / 2 + dy);
+    if (fr) stampPix(ctx, fr, x + (dir < 0 ? -1 : 1) * l.x / 2, y + l.y / 2 + dy);     // a mirrored hall moves its flag across; the flag still flies with the wind
   }
 };
 // light on the stone: each baked overlay at its strength now. o.k: { key: 0..1 } for lights the
 // hall drives itself (a caster's orb); a torch flickers on its own. "Spell light" off = none.
-const glows = (ctx, H, x, y, time, side, o, id) => {
+const glows = (ctx, H, x, y, time, side, o, id, dir = 1) => {
   if (prefs.spellLight === false) return;
   for (const g of H.glows) {
     if (!g[side]) continue;
     const k = o.k && o.k[g.key] != null ? o.k[g.key] : g.key === "torch" ? FLICK[Math.floor(time * 12 + id) % 8] : 1;
     if (k < 0.04) continue;
     const a = ctx.globalAlpha; ctx.globalAlpha = a * Math.min(1, k);
-    ctx.drawImage(g[side], x - H.box.ox / 2, y - H.box.oy / 2, H.box.w / 2, H.box.h / 2);
+    lay(ctx, g[side], H, x, y, dir);
     ctx.globalAlpha = a;
   }
 };
@@ -93,17 +101,18 @@ const glows = (ctx, H, x, y, time, side, o, id) => {
 // Everything BEHIND the crew: the ground shadow, the building, its flags and flames, light on it.
 //   o.id   the tower's id (staggers flags and flicker between neighbours)
 //   o.k    light strengths the hall sets (see glows)
+//   o.dir  -1: the hall drawn mirrored (bake it with hallPix's flip)
 export const drawHallBack = (ctx, H, x, y, time, o = {}) => {
-  const id = o.id || 0, B = H.box;
+  const id = o.id || 0, dir = o.dir < 0 ? -1 : 1;
   if (H.shadow) stampPix(ctx, H.shadow, x, y);
-  ctx.drawImage(H.back, x - B.ox / 2, y - B.oy / 2, B.w / 2, B.h / 2);
-  live(ctx, H, x, y, time, "back", id);
-  glows(ctx, H, x, y, time, "back", o, id);
+  lay(ctx, H.back, H, x, y, dir);
+  live(ctx, H, x, y, time, "back", id, dir);
+  glows(ctx, H, x, y, time, "back", o, id, dir);
 };
 // What stands IN FRONT of the crew: the near parapet or rail, light on it, front-layer live pieces.
 export const drawHallFront = (ctx, H, x, y, time, o = {}) => {
-  const id = o.id || 0, B = H.box;
-  if (H.front) ctx.drawImage(H.front, x - B.ox / 2, y - B.oy / 2, B.w / 2, B.h / 2);
-  glows(ctx, H, x, y, time, "front", o, id);
-  live(ctx, H, x, y, time, "front", id);
+  const id = o.id || 0, dir = o.dir < 0 ? -1 : 1;
+  if (H.front) lay(ctx, H.front, H, x, y, dir);
+  glows(ctx, H, x, y, time, "front", o, id, dir);
+  live(ctx, H, x, y, time, "front", id, dir);
 };
