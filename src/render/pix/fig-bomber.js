@@ -22,7 +22,7 @@ const shade = (h, k) => "#" + hex(h).map((v) => Math.round(Math.max(0, Math.min(
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
 const EYE = flat("#2a1c2c"), GOLD = mat("#d8b34a", { contrast: 1.15 }), LEATHER = mat("#7a5232"), LEATHER_D = mat("#5a3c26");
-const IRON = mat("#3a3a46", { contrast: 1.35 }), FUSE = flat("#b89a68"), SPARK = flat("#fff3d2", { emis: true, line: "#e8923a" }), EMBER = flat("#ffb347", { emis: true, line: "#c85a28" });
+const IRON = mat("#4a4a58", { contrast: 1.5 }), FUSE = flat("#b89a68"), SPARK = flat("#fff3d2", { emis: true, line: "#e8923a" }), EMBER = flat("#ffb347", { emis: true, line: "#c85a28" });
 const GLASS = mat("#6ac090", { contrast: 1.2 }), GLASS_N = mat("#c8e8d8"), CORK = mat("#a88a68"), SHINE = flat("#e8fff0");
 const PLATE_K = flat("#6a4a1e"), PLATE_O = flat("#e86a2a");
 const SMEAR = flat("#fff3d2", { emis: true, line: "#d8cdb0" }), SMEAR2 = flat("#d8c8a8", { emis: true, line: "#a89a80" });
@@ -105,7 +105,7 @@ const lookOf = (v) => {
   const SKIN = mat(c.skin), HAIR = mat(c.hair), HAT = mat(c.hood, { contrast: 1.15 });
   L = {
     vial: !!c.vial, SKIN,
-    COAT: mat(c.coat), SLEEVE: mat(shade(c.coat, 0.1)), BREECH: mat(shade(c.coat, -0.14)), BOOT: mat(c.boots), BELT: mat(shade(c.trim, -0.15)),
+    COAT: mat(c.coat), SLEEVE: mat(shade(c.coat, 0.1)), BREECH: mat(shade(c.coat, -0.14)), BOOT: mat(c.boots), BOOT_N: mat(shade(c.boots, 0.14)), BELT: mat(shade(c.trim, -0.15)),
     STRAP: mat(c.vial ? c.trim : shade(c.trim, -0.1)), SCARF: mat(c.scarf), BAG: mat("#8a2f2a"),
     head: c.vial ? HEAD_ALCH : HEAD, blink: c.vial ? BLINK_ALCH : BLINK, hat: c.vial ? CHAPERON : FURCAP,
     leg: {
@@ -133,8 +133,9 @@ const leg = (px, L, h, k, an, z, b) => {
   px.part();
   px.capsule(h[0], h[1], 2.7, k[0], k[1], 2.3, L.BREECH, z, { bias: b, floor: 1 });
   px.capsule(k[0], k[1], 2.2, an[0], an[1] - 2.5, 1.9, L.BREECH, z, { bias: b, floor: 1 });
-  px.capsule(k[0] * 0.55 + an[0] * 0.45, k[1] * 0.55 + an[1] * 0.45, 2.3, an[0], an[1], 2, L.BOOT, z + 0.02, { bias: b, floor: 1 });
-  px.ellipse(an[0] + 1.4, an[1] + 1.1, 3.1, 1.6, L.BOOT, z + 0.03, { bias: b, floor: 1 });
+  const BT = b ? L.BOOT : L.BOOT_N;
+  px.capsule(k[0] * 0.5 + an[0] * 0.5, k[1] * 0.5 + an[1] * 0.5, 2.3, an[0], an[1], 2, BT, z + 0.02, { bias: b, floor: 1 });
+  px.ellipse(an[0] + 1.4, an[1] + 1.1, 3.1, 1.6, BT, z + 0.03, { bias: b, floor: 1 });
 };
 
 // the charge in his hand: an iron ball with its fuse (lit: a spark on its tip), or the
@@ -218,8 +219,9 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   // the near arm over it all (cocked back it passes BEHIND the head, so the face stays open)
   const az = back ? 5.5 : 8;
   px.part();
-  px.capsule(sN[0], sN[1] + 0.3, 2.5, eN[0], eN[1], 2.3, L.SLEEVE, az, { cast: 2, floor: 1 });
-  px.capsule(eN[0], eN[1], 2.3, hdN[0], hdN[1], 1.9, L.SLEEVE, az, { cast: 2, floor: 1 });
+  const ac = open ? 1 : 2;   // (thrown up past his ear it must not shade his face)
+  px.capsule(sN[0], sN[1] + 0.3, 2.5, eN[0], eN[1], 2.3, L.SLEEVE, az, { cast: ac, floor: 1 });
+  px.capsule(eN[0], eN[1], 2.3, hdN[0], hdN[1], 1.9, L.SLEEVE, az, { cast: ac, floor: 1 });
   px.capsule(eN[0] * 0.4 + hdN[0] * 0.6, eN[1] * 0.4 + hdN[1] * 0.6, 2.2, eN[0] * 0.12 + hdN[0] * 0.88, eN[1] * 0.12 + hdN[1] * 0.88, 2.1, LEATHER, az + 0.02);
   const fl = Math.hypot(hdN[0] - eN[0], hdN[1] - eN[1]) || 1, fd = [(hdN[0] - eN[0]) / fl, (hdN[1] - eN[1]) / fl];
   px.part();
@@ -249,13 +251,13 @@ export const fx = (px, F, info, clip) => {
   const a0 = Math.atan2(h0[1] - oy, h0[0] - ox), r0 = Math.hypot(h0[0] - ox, h0[1] - oy);
   let a1 = Math.atan2(h1[1] - oy, h1[0] - ox); if (a1 < a0) a1 += Math.PI * 2;
   const r1 = Math.hypot(h1[0] - ox, h1[1] - oy), n = 10;
-  const at = (t, d) => { const a = a0 + (a1 - a0) * t, r = r0 + (r1 - r0) * t + d; return [ox + Math.cos(a) * r, oy + Math.sin(a) * r]; };
+  const at = (t, d) => { const a = a0 + (a1 - a0) * t, r = r0 + (r1 - r0) * t + 3.5 * Math.sin(Math.PI * t) + d; return [ox + Math.cos(a) * r, oy + Math.sin(a) * r]; };
   const arc = (t0, wMax, m, z) => {
     const out = [], inn = [];
-    for (let i = 0; i <= n; i++) { const t = t0 + (0.96 - t0) * (i / n), w = wMax * ((t - t0) / (0.96 - t0)) ** 1.3; out.push(at(t, w)); inn.unshift(at(t, -w)); }
+    for (let i = 0; i <= n; i++) { const t = t0 + (0.9 - t0) * (i / n), w = wMax * ((t - t0) / (0.9 - t0)) ** 1.3; out.push(at(t, w)); inn.unshift(at(t, -w)); }
     px.poly([...out, ...inn], m, z, { noLine: true });
   };
-  arc(0.25, 3, SMEAR2, 20); arc(0.55, 1.7, SMEAR, 20.1);
+  arc(0.2, 2.6, SMEAR2, 20); arc(0.5, 1.4, SMEAR, 20.1);
 };
 
 // every key carries the whole bag of extras (a key cannot unset one between keys):
@@ -267,14 +269,14 @@ const K = (f, e, p) => ({ t: f / (N_THROW - 1), e, p: { ...HOLD, ...p } });
 const THROW = [
   K(0, "io", {}),
   K(1, "io", { lean: 0.02, rise: 0.4, aN: [1.2, 0.76, 0], aF: [1.02, 0.82, 0], hy: 0.3 }),
-  K(3, "io", { rx: -1.4, drop: 0.4, lean: -0.05, twist: -0.6, aN: [-0.75, 0.9, 0], aF: [1.25, 0.8, 0], cx: -1.2, cy: 1.6, hot: 0.5 }),
+  K(3, "io", { rx: -1.4, drop: 0.4, lean: -0.05, twist: -0.6, aN: [-0.62, 0.95, 0], aF: [1.25, 0.8, 0], cx: -1.2, cy: 1.6, hot: 0.5 }),
   K(5, "out", { rx: -2.2, drop: 0.7, lean: -0.11, twist: -1, rise: 0.5, hy: -0.4, aN: [-2.2, 0.66, 1], aF: [1.58, 0.92, 0], fF: [4, 0], back: 1, cx: -1.5, cy: -2.6, hot: 1 }),
   K(6, "io", { rx: -2.5, drop: 0.9, lean: -0.13, twist: -1.1, rise: 0.7, hy: -0.5, aN: [-2.28, 0.68, 1], aF: [1.62, 0.94, 0], fF: [4, 0], back: 1, cx: -1.5, cy: -2.6, hot: 1 }),
   // the release: he has lunged under the arm, so it passes his ear and cap and the face stays open
-  K(7, "in3", { rx: 6, drop: 2, lean: 0.23, twist: -0.4, hx: 2.3, hy: 0.3, aN: [2.626, 0.95, 0], aF: [-0.5, 0.85, 0], fN: [-3.4, 0], fF: [7.6, 0], has: 0, lit: 0, open: 1 }),
-  K(8, "out", { rx: 6.4, drop: 2.6, lean: 0.36, twist: 1.4, hx: 1.4, hy: 0.8, aN: [0.9, 0.96, 0], aF: [-0.9, 0.8, 0], fN: [-3.4, 0], fF: [7.6, 0], has: 0, lit: 0, open: 1 }),
-  K(9, "io", { rx: 4.6, drop: 1.6, lean: 0.22, twist: 0.8, hx: 0.5, hy: 0.3, aN: [0.35, 0.9, 0], aF: [-0.5, 0.8, 0], fN: [-3.4, 0], fF: [7.2, 0], has: 0, lit: 0, open: 1 }),
-  K(10, "io", { rx: 1.4, drop: 0.4, lean: 0.06, twist: -0.2, aN: [-0.3, 0.66, 0], aF: [0.5, 0.8, 0], fF: [5, 1.2], has: 0, lit: 0 }),
+  K(7, "in3", { rx: 6, drop: 2, lean: 0.23, twist: -1.2, hx: 2.3, hy: 0.3, aN: [2.59, 0.985, 0], aF: [-0.42, 0.95, 0], fN: [-3.4, 0], fF: [7.6, 0], has: 0, lit: 0, open: 1 }),
+  K(8, "out", { rx: 6.4, drop: 2.6, lean: 0.36, twist: 1.4, hx: 1.4, hy: 0.8, aN: [0.9, 0.96, 0], aF: [-0.62, 0.95, 0], fN: [-3.4, 0], fF: [7.6, 0], has: 0, lit: 0, open: 1 }),
+  K(9, "io", { rx: 4.6, drop: 1.6, lean: 0.22, twist: 0.8, hx: 0.5, hy: 0.3, aN: [0.35, 0.9, 0], aF: [-0.32, 0.93, 0], fN: [-3.4, 0], fF: [7.2, 0], has: 0, lit: 0, open: 1 }),
+  K(10, "io", { rx: 1.4, drop: 0.4, lean: 0.06, twist: -0.2, aN: [-0.12, 0.76, 0], aF: [0.5, 0.8, 0], fF: [5, 1.2], has: 0, lit: 0 }),
   K(11, "io", { rx: 0.5, lean: 0.05, twist: 0.3, aN: [0.7, 0.68, 0], aF: [0.75, 0.84, 0], has: 1, lit: 0, cx: 1.6, cy: -2.8 }),
   K(12, "io", { rise: 0.3, aN: [1.05, 0.8, 0], aF: [1.2, 0.74, 0], strike: 1 }),
   K(13, "io", {}),
@@ -284,7 +286,7 @@ export const CLIPS = {
     n: 8, ms: 2200, loop: true, lag: 0.1,
     pose: (ph) => {
       const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 1);
-      return { ...HOLD, rise: 0.5 + 0.5 * b, aN: [1.05 - 0.025 * b2, 0.8, 0], aF: [0.9 - 0.02 * b2, 0.86, 0], sway: b2 * 0.8, hot: 0.15 + 0.15 * b, blink: ph > 0.55 && ph < 0.68 ? 1 : 0 };
+      return { ...HOLD, rx: 0.3 + 0.35 * b2, rise: 0.5 + 0.5 * b, aN: [1.05 - 0.025 * b2, 0.8, 0], aF: [0.9 - 0.02 * b2, 0.86, 0], sway: b2 * 0.8, hot: 0.15 + 0.15 * b, blink: ph > 0.55 && ph < 0.68 ? 1 : 0 };
     },
   },
   // hit: the charge leaves his fingers on frame 7; frame 6 (cocked behind his head) is the one he waits on

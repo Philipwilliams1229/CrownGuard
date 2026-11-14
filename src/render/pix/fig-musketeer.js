@@ -25,16 +25,16 @@ const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
 // folk CREW_FOLK.musketeer: skin #e8b990, hood #2c2a36, coat #3a4a6a, boots #2a2a30, trim #c8b070
-const SKIN = mat("#e8b990"), HAIR = mat("#5a3a26"), EYE = flat("#2a1c2c"), BROW = mat("#6a4a30");
+const SKIN = mat("#e8b990"), HAIR = mat("#5a3a26"), EYE = flat("#2a1c2c"), BROW = mat("#6a4a30"), BEARD = mat("#7a5234");
 const HAT = mat("#2c2a36", { contrast: 1.25 }), BAND = mat("#c8b070"), COAT = mat("#3a4a6a"), SLEEVE = mat("#44567a"), BREECH = mat("#33405a");
-const BOOT = mat("#2a2a30", { contrast: 1.2 }), BUFF = mat("#c8b070"), LINEN = mat("#e2d8c0"), GOLD = mat("#d8b34a", { contrast: 1.15 }), LEATHER = mat("#7a5232");
+const BOOT = mat("#2a2a30", { contrast: 1.2 }), BOOT_N = mat("#3c3c44", { contrast: 1.2 }), BUFF = mat("#c8b070"), LINEN = mat("#e2d8c0"), GOLD = mat("#d8b34a", { contrast: 1.15 }), LEATHER = mat("#7a5232");
 const WOOD = mat("#6a4a2a", { contrast: 1.15 }), STEEL = mat("#7c828e", { contrast: 1.3 }), BRASS = mat("#c89a48", { contrast: 1.15 }), LENS = flat("#e8d8a8");
 const BELL = mat("#9aa0ac", { contrast: 1.25 }), BORE = flat("#1e1a20"), ROD = flat("#b4b8c2"), FORK = mat("#5f4326");
 const SPARK = flat("#fff3d2", { emis: true, line: "#e8923a" }), EMBER = flat("#ffb347", { emis: true, line: "#c85a28" }), PUFF = flat("#d6d2c8", { emis: true, line: "#a8a498" });
 
 // ---- the head (the hat is drawn over rows 0-3): long hair to the collar, a chin beard.
 // H hair, h hair a tone down, S skin, s skin a tone down, a the ear, b brow, E eye,
-// N nose, l mouth, B beard
+// N nose, M moustache (under the nose only), B the chin beard
 const HEAD = [
   "....HHHHHH...",
   "..HHHHHHHHH..",
@@ -44,18 +44,17 @@ const HEAD = [
   ".HHaSSSSESSE.",
   ".HhaSSSSESSEN",
   ".HHsSSSSSSSS.",
-  ".hHssSSSSll..",
-  ".HhH.ssSBBB..",
-  "..hH...BBB...",
-  ".........B...",
+  ".hHssSSSSMM..",
+  ".HhH.ssSSBB..",
+  "..hH....BB...",
 ];
 const BLINK = HEAD.map((r, i) => (i === 5 ? r.replace(/E/g, "S") : i === 6 ? r.replace(/E/g, "e") : r));
 const LEG = {
   H: { m: HAIR }, h: { m: HAIR, bias: -1 }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, a: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 },
-  b: { m: BROW, fix: 2 }, E: { m: EYE }, e: { m: SKIN, fix: 0 }, l: { m: SKIN, fix: 0 }, B: { m: HAIR, bias: -1 },
+  b: { m: BROW, fix: 2 }, E: { m: EYE }, e: { m: SKIN, fix: 0 }, M: { m: BEARD, fix: 1 }, B: { m: BEARD, fix: 2 },
 };
 
-export const BOX = { w: 64, h: 64, ox: 17, oy: 59 };
+export const BOX = { w: 60, h: 62, ox: 13, oy: 57 };
 export const BONES = scaled(HUMAN, 1.2, { spine: 13, upper: 7.9, fore: 7.7, shN: -2.8, shF: 3 });
 const ARM = BONES.upper + BONES.fore;
 
@@ -93,8 +92,9 @@ const leg = (px, h, k, an, z, b) => {
   px.part();
   px.capsule(h[0], h[1], 2.7, k[0], k[1], 2.3, BREECH, z, { bias: b, floor: 1 });
   px.capsule(k[0], k[1], 2.2, an[0], an[1] - 2.5, 1.9, BREECH, z, { bias: b, floor: 1 });
-  px.capsule(k[0] * 0.5 + an[0] * 0.5, k[1] * 0.5 + an[1] * 0.5, 2.3, an[0], an[1], 2, BOOT, z + 0.02, { bias: b, floor: 1 });
-  px.ellipse(an[0] + 1.4, an[1] + 1.1, 3.1, 1.6, BOOT, z + 0.03, { bias: b, floor: 1 });
+  const BT = b ? BOOT : BOOT_N;
+  px.capsule(k[0] * 0.5 + an[0] * 0.5, k[1] * 0.5 + an[1] * 0.5, 2.3, an[0], an[1], 2, BT, z + 0.02, { bias: b, floor: 1 });
+  px.ellipse(an[0] + 1.4, an[1] + 1.1, 3.1, 1.6, BT, z + 0.03, { bias: b, floor: 1 });
 };
 const arm = (px, s, t, z, b, side = 1) => {
   const r = ik(s[0], s[1], t[0], t[1], BONES.upper, BONES.fore, side), e = r.mid, h = r.end;
@@ -161,7 +161,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   // the broad hat: a tall crown with its buff band, the brim dipping a beat behind him
   const bx = hx - 1, by = hyy - 9.2, tp = cl(vx * 2 + vx2 * 1.4, -2, 2.5) - sway * 0.4;
   px.part();
-  px.poly([[bx - 5.2, by + 0.6], [bx - 4.8, by - 4.6], [bx - 2.6 - tp * 0.3, by - 8.6], [bx + 1.4 - tp * 0.3, by - 9.2], [bx + 4, by - 5.6], [bx + 5, by + 0.6]], HAT, 6.4, { round: 0.92, floor: 1 });
+  px.poly([[bx - 5.2, by + 0.6], [bx - 4.8, by - 4.6], [bx - 3 - tp * 0.3, by - 8.6], [bx + 2 - tp * 0.3, by - 9], [bx + 4.2, by - 5.6], [bx + 5, by + 0.6]], HAT, 6.4, { round: 0.92, floor: 1 });
   px.poly([[bx - 5.2, by - 1.6], [bx + 4.9, by - 1.6], [bx + 5, by + 0.6], [bx - 5.2, by + 0.6]], BAND, 6.45, { round: 0.92 });
   px.dot(bx + 2.6, by - 0.8, GOLD, 6.46, { fix: 4 });
   px.part();
@@ -219,7 +219,7 @@ const AIM = { ...BASE, rx: 4.4, drop: 1.6, lean: 0.12, twist: -0.3, hx: 1.2, hy:
 // gun's own space is the old one's, so every barrel length lands on its old muzzle
 const KICK_BUTT = [1.383, -30.716], KICK_ANG = -0.3;
 const kickW = (() => { const c = Math.cos(KICK_ANG), s = Math.sin(KICK_ANG); return [KICK_BUTT[0] - (G_BUTT[0] * c - G_BUTT[1] * s), KICK_BUTT[1] - (G_BUTT[0] * s + G_BUTT[1] * c)]; })();
-const GROUND = { ga: -1.3, gx: 4.59, gy: -11.99 };   // the butt on the deck by his front foot
+const GROUND = { ga: -1.45, gx: 10.03, gy: -11.81 };   // the butt on the deck at his front toe, the gun standing clear of him
 const K = (f, e, p) => ({ t: f / (N_SHOT - 1), e, p: { ...BASE, ...p } });
 const SHOT = [
   K(0, "io", { ...AIM, rise: 0.4 }),
@@ -227,11 +227,11 @@ const SHOT = [
   K(2, "in3", { rx: 3.6, drop: 1.6, lean: -0.05, twist: -0.3, rise: 0.4, hx: 0.2, hy: 0.4, ga: KICK_ANG, gs: 0, gx: kickW[0], gy: kickW[1] }),
   K(3, "out", { ...AIM, rx: 3.9, lean: 0.03, hx: 0.6, hy: 0.9, ga: -0.15, bx: 1.2 }),
   K(4, "io", { rx: 2.4, drop: 1, lean: 0.03, ga: -0.9, gx: 9, gy: -27 }),
-  K(5, "io", { rx: 2, drop: 0.9, lean: 0.08, twist: 0.6, hy: 0.6, ...GROUND, ram: 1, rod: 8 }),
-  K(6, "out", { rx: 2.2, drop: 1.3, lean: 0.12, twist: 0.8, hy: 1, ...GROUND, ram: 1, rod: 2 }),
-  K(7, "io", { rx: 2, drop: 0.8, lean: 0.07, twist: 0.6, hy: 0.5, ...GROUND, ram: 1, rod: 8.5 }),
-  K(8, "out", { rx: 2.2, drop: 1.4, lean: 0.13, twist: 0.8, hy: 1, ...GROUND, ram: 1, rod: 1.6 }),
-  K(9, "io", { rx: 2, drop: 0.8, lean: 0.06, twist: 0.6, hy: 0.4, ...GROUND, ram: 1, rod: 9 }),
+  K(5, "io", { rx: 2.6, drop: 0.9, lean: 0.07, twist: 0.6, hy: 0.6, ...GROUND, ram: 1, rod: 8 }),
+  K(6, "out", { rx: 2.8, drop: 1.3, lean: 0.11, twist: 0.8, hy: 1, ...GROUND, ram: 1, rod: 2 }),
+  K(7, "io", { rx: 2.6, drop: 0.8, lean: 0.07, twist: 0.6, hy: 0.5, ...GROUND, ram: 1, rod: 8.5 }),
+  K(8, "out", { rx: 2.8, drop: 1.4, lean: 0.12, twist: 0.8, hy: 1, ...GROUND, ram: 1, rod: 1.6 }),
+  K(9, "io", { rx: 2.6, drop: 0.8, lean: 0.06, twist: 0.6, hy: 0.4, ...GROUND, ram: 1, rod: 9 }),
   K(10, "io", { rx: 2, drop: 0.9, lean: 0.04, twist: 0.2, ga: -0.8, gx: 8, gy: -24 }),
   K(11, "io", { rx: 2.2, drop: 1, lean: 0.06, hy: 1, ga: -0.4, gx: 8.5, gy: -25, prime: 1 }),
   K(12, "io", { rx: 2.4, drop: 1, lean: 0.07, hy: 0.8, ga: -0.36, gx: 8.5, gy: -25.4, prime: 0.6 }),
@@ -245,7 +245,7 @@ export const CLIPS = {
     n: 8, ms: 2300, loop: true, lag: 0.1,
     pose: (ph) => {
       const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 1);
-      return fit({ ...PORT, rise: 0.5 + 0.5 * b, gy: -28 - 0.5 - 0.5 * b, ga: -1.05 + 0.02 * b2, sway: b2 * 0.8, blink: ph > 0.6 && ph < 0.73 ? 1 : 0 });
+      return fit({ ...PORT, rx: 0.6 + 0.35 * b2, rise: 0.5 + 0.5 * b, gy: -28 - 0.5 - 0.5 * b, ga: -1.05 + 0.02 * b2, sway: b2 * 0.8, blink: ph > 0.6 && ph < 0.73 ? 1 : 0 });
     },
   },
   // hit: the shot kicks on frame 2; frame 1 (the aim, cheek on the stock) is the one he waits on

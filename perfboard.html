@@ -34,7 +34,10 @@ const enemies = Array.from({ length: N }, (_, j) => {
 const g = { time: 7.3, cam: { zoom: 1, x: 0, y: 0 }, shake: 0, lives: 20, wave: 120, towers, projectiles: [], effects: [], grounds: [], corpses: [], spawnQueue: [], enemies, phase: "combat", buildMode: null, hover: null, selectedId: null, banner: null, paused: false, buildUntil: null, bands: [] };
 const cv = document.createElement("canvas"); cv.width = W * RES; cv.height = H * RES; const buf = { current: null };
 const tb = performance.now();
-for (let k = 0; k < 8; k++) { g.time += 0.016; draw(g, cv, buf); }
+// &warm=N: frames drawn before the measure (default 8). The new sprites bake each frame the first
+// time it shows, so a steady-state figure needs a few hundred (e.g. &warm=300).
+const WARMF = Number(q.get("warm")) || 8;
+for (let k = 0; k < WARMF; k++) { g.time += 0.016; draw(g, cv, buf); }
 cv.getContext("2d").getImageData(0, 0, 1, 1);
 const warm = performance.now() - tb;
 const t0 = performance.now();
@@ -66,6 +69,6 @@ g.enemies = foes; const a1 = performance.now(); for (let j = 0; j < 10; j++) { g
 per.foesOnly = +((performance.now() - a1) / 10).toFixed(2);
 console.log(JSON.stringify(per));
 document.body.dataset.per = JSON.stringify(per);
-const r = `PERF ${towers.length} towers, ${N} foes: ${((performance.now() - t0) / 30).toFixed(2)} ms/frame (first 8 incl. bakes ${warm.toFixed(0)} ms)`;
+const r = `PERF ${towers.length} towers, ${N} foes: ${((performance.now() - t0) / 30).toFixed(2)} ms/frame (first ${WARMF} incl. bakes ${warm.toFixed(0)} ms)`;
 document.title = r; document.getElementById("out").textContent = r;
 </script></body></html>

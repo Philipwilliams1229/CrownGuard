@@ -25,7 +25,7 @@ import { mat, flat } from "./pix.js";
 import { sampleKeys, solve, ik, HUMAN, scaled } from "./rig.js";
 
 const K = 1.3;
-export const BOX = { w: 44, h: 74, ox: 17, oy: 70 };
+export const BOX = { w: 40, h: 74, ox: 17, oy: 70 };
 export const BONES = scaled(HUMAN, K, { shN: 0.6, shF: 2.6, upper: 8.4, fore: 8 });
 const ARM = BONES.upper + BONES.fore;
 
@@ -93,14 +93,16 @@ const bellArm = (px, s, e, h, M, CUFF, SKIN, z, o = {}) => {
   if ((o.bare || 0) > 0.05) px.capsule(c[0], c[1], 1.7, h[0], h[1], 1.8, SKIN, z - 0.02, { bias: o.bias || 0 });
 };
 
-// Pose fields of his own (beside the rig's): tilt (the staff tipped forward on its foot, away from
-// his face, as the near hand comes up between them), lift (its foot off the step), droop /
+// He must fit the hall's arch: its pillars' inner edges stand 8 units (16 px) either side of his
+// feet and are drawn OVER him, so nothing of his reaches past x = 16 (the staff stands at 10.6,
+// a pixel and a half clear of his nose; the blessing hand rises just in front of it).
+// Pose fields of his own (beside the rig's): tilt (the staff's lean), lift (its foot off the step), droop /
 // bare (the near sleeve), open (the near hand open), glow (the light), blink.
 export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   const L = lookOf(o.variant || "base"), { ROBE, SLEEVE, HAT, TRIM, TRIM_DK, METAL, WOOD, GEM, SKIN } = L;
   const { p, P, C, N, sF, eF, hdN, hdF, B } = sk;
   // (the bell sleeve hangs off the shoulder: its arm starts a little under the rig's, so a raised arm never crosses his chin)
-  const sN = [sk.sN[0], sk.sN[1] + 2.6], eN = ik(sN[0], sN[1], hdN[0], hdN[1], B.upper, B.fore, 1).mid;
+  const sN = [sk.sN[0], sk.sN[1] + 1.6], eN = ik(sN[0], sN[1], hdN[0], hdN[1], B.upper, B.fore, 1).mid;
   const g = p.glow || 0;
   // what trails: the hem and the stole's ends sway after the body, the sleeve after the hand
   const vx = cl((C[0] - lag1.C[0]) * 2 + (C[1] - lag1.C[1]) * -0.6, -1.6, 1.6);
@@ -152,7 +154,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.capsule(foot[0], foot[1], 1, topS[0], topS[1], 1, WOOD, 5, { edge: true });
   px.part();
   px.capsule(topS[0] - d[0] * 0.6, topS[1] - d[1] * 0.6, 1.7, topS[0] + d[0] * 0.8, topS[1] + d[1] * 0.8, 1.9, METAL, 5.05);
-  px.ellipse(charm[0], charm[1], 4, 4, METAL, 5.06);
+  px.ellipse(charm[0], charm[1], 3.8, 3.8, METAL, 5.06);
   px.part();
   px.ellipse(charm[0], charm[1], 2.5, 2.5, GEM, 5.1, { bias: g > 0.5 ? 1 : 0 });
   px.dot(charm[0] - 1.2, charm[1] - 1.4, SHINE, 5.2);
@@ -195,17 +197,17 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 // ---- the poses (hands as POINTS, art px from the feet: N the near hand, F the far fist) ----
 const armAt = (pose, far, [tx, ty]) => { const s = solve(pose, BONES), sh = far ? s.sF : s.sN, dx = tx - sh[0], dy = ty - sh[1]; return [Math.atan2(dx, dy), Math.min(1, Math.hypot(dx, dy) / ARM), 0]; };
 const hands = (pose, h) => ({ ...pose, aF: armAt(pose, true, h.F), aN: armAt(pose, false, h.N) });
-const BASE = { tilt: 0.012, lift: 0, droop: 2, bare: 0, open: 0, glow: 0, blink: 0, fN: [-2.2, 0], fF: [2.4, 0] };
-const FOLD = hands(BASE, { N: [11.5, -26.5], F: [11.6, -31.5] });
-const LIFT = hands({ ...BASE, rise: 0.4, twist: 0.3, tilt: 0.035, lift: 0.3, droop: 3.4, glow: 0.2 }, { N: [12.4, -31.2], F: [12.6, -32] });
-const RISE = hands({ ...BASE, rise: 0.6, twist: 0.7, hx: -0.2, tilt: 0.07, lift: 0.6, droop: 3.6, bare: 0.18, open: 1, glow: 0.6 }, { N: [12, -38], F: [13.8, -32.6] });
-const RAISED = hands({ ...BASE, rise: 0.8, twist: 1, hx: -0.4, hy: -0.3, tilt: 0.092, lift: 0.8, droop: 2.4, bare: 0.4, open: 1, glow: 1 }, { N: [11.2, -44], F: [14.6, -33.2] });
-const CREST = hands({ ...BASE, rise: 1.3, twist: 1.1, hx: -0.5, hy: -0.5, tilt: 0.1, lift: 1.2, droop: 1, bare: 0.46, open: 1, glow: 1.15 }, { N: [11, -45.8], F: [14.9, -33.7] });
+const BASE = { hx: -1, tilt: 0.012, lift: 0, droop: 2, bare: 0, open: 0, glow: 0, blink: 0, fN: [-2.2, 0], fF: [2.4, 0] };
+const FOLD = hands(BASE, { N: [10.5, -26.5], F: [10.6, -31.5] });
+const LIFT = hands({ ...BASE, rise: 0.4, twist: 0.4, tilt: 0.016, lift: 0.4, droop: 3.4, glow: 0.2 }, { N: [12.2, -31], F: [10.7, -32] });
+const RISE = hands({ ...BASE, rise: 0.6, twist: 0.9, hx: -1.2, tilt: 0.02, lift: 0.8, droop: 3.6, bare: 0.18, open: 1, glow: 0.6 }, { N: [13.8, -37.6], F: [10.7, -32.6] });
+const RAISED = hands({ ...BASE, rise: 0.8, twist: 1.3, hx: -1.4, hy: -0.3, tilt: 0.024, lift: 1.2, droop: 2.4, bare: 0.4, open: 1, glow: 1 }, { N: [13.6, -43.6], F: [10.8, -33.2] });
+const CREST = hands({ ...BASE, rise: 1.3, twist: 1.4, hx: -1.5, hy: -0.5, tilt: 0.026, lift: 1.8, droop: 1, bare: 0.46, open: 1, glow: 1.15 }, { N: [13.4, -45.4], F: [10.8, -33.8] });
 
 export const CLIPS = {
   idle: {
     n: 8, ms: 3300, loop: true, lag: 0.1,
-    pose: (ph) => { const b = 0.5 + 0.5 * Math.sin(ph * Math.PI * 2); return hands({ ...BASE, rise: 0.9 * b, blink: ph > 0.6 && ph < 0.72 ? 1 : 0 }, { N: [11.5, -26.5 - 0.5 * b], F: [11.6, -31.5 - 0.5 * b] }); },
+    pose: (ph) => { const b = 0.5 + 0.5 * Math.sin(ph * Math.PI * 2); return hands({ ...BASE, rise: 0.9 * b, blink: ph > 0.6 && ph < 0.72 ? 1 : 0 }, { N: [10.5, -26.5 - 0.5 * b], F: [10.6, -31.5 - 0.5 * b] }); },
   },
   // (frame 6 is RAISED exactly: the hall runs 0..6 by how far the blessing is up, then 7-9 once at the top)
   bless: {
@@ -223,7 +225,7 @@ export const CLIPS = {
     n: 8, ms: 1900, loop: true, lag: 0.1,
     pose: (ph) => {
       const b = 0.5 + 0.5 * Math.sin(ph * Math.PI * 2), q = Math.max(0, Math.sin(ph * Math.PI * 2 - 0.9)) ** 2;   // q: the palm pressed forward, once a loop
-      return hands({ ...BASE, rise: 0.8 + 0.5 * b, twist: 1 + 0.2 * q, hx: -0.4, hy: -0.3, tilt: 0.092, lift: 0.8, droop: 2.4 + 0.6 * q, bare: 0.4, open: 1, glow: 1 + 0.1 * q }, { N: [11.2 + 1.3 * q, -44 - 0.5 * b - 0.3 * q], F: [14.6, -33.2 - 0.4 * b] });
+      return hands({ ...BASE, rise: 0.8 + 0.5 * b, twist: 1.3 + 0.1 * q, hx: -1.4, hy: -0.3, tilt: 0.024, lift: 1.2, droop: 2.4 + 0.6 * q, bare: 0.4, open: 1, glow: 1 + 0.1 * q }, { N: [13.6 + 0.9 * q, -43.6 - 0.5 * b - 0.3 * q], F: [10.8, -33.2 - 0.4 * b] });
     },
   },
 };

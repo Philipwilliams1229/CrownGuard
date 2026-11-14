@@ -1233,8 +1233,9 @@ Greenwood horde followed on 2026-11-13** (four artists, a file each):
 `troll`, `shaman`, `hobgoblin` (fig-warchief.js), `wolf`, `boarrider` and
 its riderless `boarMount` (fig-boar.js), `bat`, `dragon`. Every other
 type still draws its old rig, and "New sprites" on the Settings window's
-Display tab turns the new ones off. The Spire mage is drawn (fig-mage.js)
-but tower crews are a separate system and still the old ones.
+Display tab turns the new ones off. **The tower crews followed the same
+day** (owner: "Lets go ahead and do the towers"): every person on a hall is
+a pix figure now, drawn through `pix/crews.js` (see "Tower crews" below).
 
 - **How the board uses them** (`src/render/pix/pixrigs.js`, header has the
   whole contract): `PIX` maps a rig type to its figure. `rigs.js` asks
@@ -1303,9 +1304,67 @@ but tower crews are a separate system and still the old ones.
   fifths. To make something else cast light (burning ground, a blast, a
   torch), `addLight(x, y, r, col, k)` it in the same place. "Spell light" on
   the Display tab turns it all off (`prefs.spellLight`).
+- **Tower crews** (2026-11-13; six artists, a hall group each). A hall keeps
+  its old crew call under an `else` and draws the new figure beside it:
+  `crew(name, figModule)`, `crewOn()`, `drawCrewPix(ctx, FIG, x, y, dir, clip,
+  frame, { variant, glow, fx })`, `loopFrame`, `fracFrame`, `shotFrame`,
+  `markOf(rec, key, dir)` (`pix/crews.js`; its header is the contract). With
+  "New sprites" off every hall draws exactly as before (checked: all eleven
+  crewed halls' sheets came out byte-identical).
+  - Figures: `fig-mage.js` (Wizard Spire: variant `"<level>|<livery key>"`,
+    clips idle / cast / hold / level / breath), `fig-priest.js` (Warden),
+    `fig-bowman.js` (Archer hall: `"<key>"` or `"<key>|long"`, clips shoot /
+    shootLong / stow), `fig-engineer.js` (Catapult, Bladewheel, the Ballista:
+    one clip family per machine, the fists solved onto its handle),
+    `fig-smith.js` (Trapsmith), `fig-bomber.js` (Powder Works' bombardier, and
+    as `"alch"` the Gold Works' alchemist), `fig-musketeer.js` (`plain | sharp
+    | grape`: the variant is the gun), `fig-hooded.js` (Covert: `c | g`),
+    `fig-mistress.js` (Falconry: `mews | court | royal`), `fig-stander.js`
+    (`clerk`, `watch`, `watch|a`, `watch|b`). `fig-halberdier.js` is drawn
+    (guard / sentry) but NOT wired: castle.js, titleCrowd.js and the
+    `halberdier` rig still draw the old one.
+  - Size: crews are `scaled(HUMAN, 1.2)` (casters 1.3), about 46-48 px to the
+    crown, the old crews' height, feet where the old feet stood.
+  - A SHOT clip carries `hit` (the phase where the shot leaves); `shotFrame`
+    lands that frame on the hall's shot clock (`t.cd`, the form's rate), plays
+    the follow-through after it, and before a shot winds up to the frame
+    BEFORE the hit and waits there. A wait that should breathe is its own loop
+    the hall switches to when `t.cd <= 0` (the mage's `hold`); a crew that
+    should stand easy with nothing to shoot switches to `idle` (the falconer).
+  - **Marks:** a figure's `draw` returns `marks: { name: [x, y] }` (art px from
+    the feet, facing +x) and the hall draws its live things there (`markOf`):
+    the Spire's orb at `tip`, the musket's flash at `muzzle`, the bird on the
+    `glove`, the fuse's spark, the clerk's coin. `concept-render.mjs marks=1`
+    prints them.
+  - **The engine's shot points did not move** (`engine/muzzles.js` still reads
+    the old pose tables, so the sims are unchanged): each shot clip's hit
+    frame puts its mark within a unit of the old point (most within 0.2).
+    Change a pose and that must still hold.
+  - Looks are `o.variant` strings; build a variant's materials ONCE (a cache
+    keyed by the string). A clip's `pose(ph)` cannot see the variant, so a
+    look that changes where the hands go (a longer musket, a level's staff)
+    solves those arms in `draw` with `ik`, and `pix-lab.html` then shows the
+    pose's arms, not the drawn ones (each artist left a `joints.mjs` in the
+    session scratchpad instead; the rules belong in a shared script).
+  - crews.js draws no ground shadow: a hall that needs one adds its own.
+  - Weak spots the artists named (fix when a figure is next opened): the
+    priest's raised hand reads as gripping the staff high; the mage's
+    wind-up has the staff's foot off the walk; the bowman's low-ready arrow
+    pokes past the parapet in the Master's dead time; the engineer and smith
+    are brown on brown machines; the musketeer's ramrod barely shows and the
+    Sharpshooters' rest stands in front of the bombardier when he faces
+    across him; the hooded master is dark on a dark tent (his face is open,
+    not masked: a face had to read); the falconer's perched bird hides her
+    gauntlet. Asked of the kit by nearly every artist: a pose field for "this
+    hand goes to that point", and a `mat()` that holds hue in the lights of
+    very dark cloth.
+  - Cost (perfboard.html, 64 halls + 350 foes, `&warm=300` so first-time
+    bakes are out of it): about a tenth more than the old sprites on that
+    packed board.
 - **Still to move over:** every other rig (the crown's soldiers, Iron,
-  Hollow, Rime), tower crews starting with the Spire mage. `pix-lab.html`
-  is bipeds only: beasts and fliers have no joint lab yet.
+  Hollow, Rime), the castle's people (wall bowmen, halberdiers, masons), the
+  build crew, the title crowd. `pix-lab.html` is bipeds only: beasts and
+  fliers have no joint lab yet.
 - **What the horde's artists found weak** (nothing here blocks; fix when a
   figure is next opened): the troll's club flips from front to back in one
   frame late in its recovery and his far arm reads as a tube; the Ironclad's

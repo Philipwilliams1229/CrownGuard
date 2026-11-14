@@ -31,6 +31,7 @@ import { crew, crewOn, drawCrewPix, loopFrame, markOf } from "../pix/crews.js";
 
 // the new sprites' warden (pix/fig-priest.js; "New sprites" off draws the old one below)
 const PRIEST = crew("priest", priestFig);
+const PIX_BACK = 0.5;
 
 const CACHE = new Map();
 export const resetWardenBakes = () => CACHE.clear();
@@ -360,14 +361,17 @@ export const drawSupportTower = (ctx, t, time) => {
     else if (v < 1) { clip = "bless"; f = Math.round(v * 6); }
     else if (work < 1 && s >= 0.45 && s < 0.75) { clip = "bless"; f = Math.min(9, 7 + Math.floor(((s - 0.45) / 0.3) * 3)); }
     else f = loopFrame(PRIEST, "held", time, t.id);
-    prec = drawCrewPix(ctx, PRIEST, x, py, dir, clip, f, { variant: key, glow: working ? 1 : 0.7 });
+    // (PIX_BACK: he stands half a unit back from the old spot, so his staff's charm and his raised
+    // hand keep inside the arch's pillar, which is drawn over him)
+    prec = drawCrewPix(ctx, PRIEST, x - dir * PIX_BACK, py, dir, clip, f, { variant: key, glow: working ? 1 : 0.7 });
   }
   else if (canBake) {
     const pcv = baked(`priest|${key}|${frame}`, 26, 38, (c) => drawPriest(c, 13, 35, 1, pal, frame));
     stamp(ctx, pcv, x, py, 13, 35, dir);
   } else drawPriest(ctx, x, py, dir, pal, frame);
   // (the new figure marks its own palm, charm and head, and its frame's light.k is the pose's glow)
-  const lt = prec ? { palm: markOf(prec, "palm", 1), charm: markOf(prec, "charm", 1), head: markOf(prec, "head", 1), k: prec.light ? prec.light.k : 0 } : priestLight(frame);
+  const pm = (k) => { const m = markOf(prec, k, 1); return [m[0] - PIX_BACK, m[1]]; };
+  const lt = prec ? { palm: pm("palm"), charm: pm("charm"), head: pm("head"), k: prec.light ? prec.light.k : 0 } : priestLight(frame);
   if (lt.k > 0 && !t.noFolk) {
     const strong = working ? 1 : 0.6;
     glow(ctx, x + dir * lt.palm[0], py + lt.palm[1], (working ? 3.4 : 2.4) * Math.min(1, lt.k), auraCol, Math.min(0.9, (working ? 0.8 : 0.5) * lt.k));

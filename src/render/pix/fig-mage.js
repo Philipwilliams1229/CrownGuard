@@ -21,7 +21,7 @@ import { mat, flat } from "./pix.js";
 import { walkPose, sampleKeys, solve, ik, HUMAN, scaled } from "./rig.js";
 
 const K = 1.3;
-export const BOX = { w: 68, h: 72, ox: 24, oy: 67 };
+export const BOX = { w: 64, h: 72, ox: 24, oy: 67 };
 export const BONES = scaled(HUMAN, K, { shN: -3.7, shF: 3.9 });
 const ARM = BONES.upper + BONES.fore;
 
@@ -249,7 +249,7 @@ const WIND = hands({ ...BASE, rx: -1.6, lean: -0.12, rise: 1.2, hy: -0.4, staff:
 // the strike: the staff driven at the foe, the body stepping in under it. Its fork's cup
 // lands on the old figure's staff head (mageTip(level, "strike"): [26.4, -43] art px for the
 // staffs, [25.6, -42.6] for the apprentice's orb), where the engine starts the real orb.
-const STRIKE = hands({ ...BASE, rx: 2.4, drop: 1.2, lean: 0.17, hx: 0.6, fF: [6, 0], staff: 0.698, gnd: 0, above: 11.2, glow: 1, oA: [4.8, -2.6], palm: 1, aN: [-0.75, 0.9, 0] }, { F: [19.4, -34.4], A: [20.8, -40] });
+const STRIKE = hands({ ...BASE, rx: 2.4, drop: 1.2, lean: 0.17, hx: 0.6, fF: [6, 0], staff: 0.698, gnd: 0, above: 11.2, glow: 1, oA: [4.8, -2.6], palm: 1, aN: [-0.58, 0.95, 0] }, { F: [19.4, -34.4], A: [20.8, -40] });
 // Dragonbreath's brace: both hands on a levelled staff, feet apart, shuddering against the
 // blast. Its fork lands on the old brace's staff head ([31.6, -38.5]): the jet's mouth.
 const brace = (ph) => {
@@ -276,7 +276,7 @@ export const CLIPS = {
       { t: 0.22, e: "out", p: hands({ ...BASE, rx: -0.8, lean: -0.06, rise: 0.6, staff: 0.02, lift: 2.5, above: 24, glow: 0.55, palm: 1 }, { F: [13.4, -27.5], N: [8, -32], A: [11.5, -27.5], B: [5.5, -29] }) },
       { t: 6 / 13, e: "io", p: WIND },
       { t: 7 / 13, e: "in3", p: STRIKE },
-      { t: 8 / 13, e: "out", p: hands({ ...BASE, rx: 3, drop: 1.6, lean: 0.22, hx: 0.8, fF: [6, 0], staff: 0.87, gnd: 0, above: 10.6, glow: 0.6, oA: [5.5, -1.5], aN: [-0.95, 0.9, 0] }, { F: [20.2, -32.6], A: [21, -36] }) },
+      { t: 8 / 13, e: "out", p: hands({ ...BASE, rx: 3, drop: 1.6, lean: 0.22, hx: 0.8, fF: [6, 0], staff: 0.87, gnd: 0, above: 10.6, glow: 0.6, oA: [5.5, -1.5], aN: [-0.64, 0.95, 0] }, { F: [20.2, -32.6], A: [21, -36] }) },
       { t: 0.82, e: "io", p: hands({ ...BASE, rx: 0.8, drop: 0.4, lean: 0.05, fF: [3.5, 0], staff: 0.3, gnd: 0.5, lift: 2, above: 20, glow: 0.35, aN: [0.1, 0.84, 0] }, { F: [15.5, -27.5], A: [14, -27] }) },
       { t: 1, e: "io", p: READY },
     ], ph),

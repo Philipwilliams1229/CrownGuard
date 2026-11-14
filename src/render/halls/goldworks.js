@@ -24,10 +24,13 @@ import {
 import { drawStander, drawBomber, bomberFrame, bomberCharge, STANDER_FRAMES, JOINTS, CREW_FOLK } from "../folk.js";
 import { getStats } from "../../engine/towers.js";
 import * as standerFig from "../pix/fig-stander.js";
-import { crew, crewOn, drawCrewPix, fracFrame, markOf, crewMark } from "../pix/crews.js";
+import * as bomberFig from "../pix/fig-bomber.js";
+import { crew, crewOn, drawCrewPix, fracFrame, loopFrame, shotFrame, markOf, crewMark } from "../pix/crews.js";
 
 // the new sprites' clerk (pix/fig-stander.js, the "clerk" look)
 const CLERK = crew("stander", standerFig);
+// the alchemist is the Powder Works' bombardier in another look (the same name: one frame cache)
+const ALCH = crew("bomber", bomberFig);
 const coinAt = (ctx, cx, cy, time) => {
   ctx.fillStyle = "#241a26"; ctx.fillRect(cx - 1.4, cy - 1.1, 2.8, 2.2);
   ctx.fillStyle = Math.sin(time * 20) > 0 ? "#f8e08a" : "#b08a3a"; ctx.fillRect(cx - 0.9, cy - 0.6, 1.8, 1.2);
@@ -333,12 +336,25 @@ export const drawGoldworks = (ctx, t, time) => {
     const rate = getStats(t).rate || 1300;
     const pose = t._idle ? bomberFrame(Infinity, 0, rate, clock) : bomberFrame(t.cd > 0 ? rate - t.cd : Infinity, t.cd || 0, rate, clock);
     const [ax, ay] = crewSpot(t, x, y);
-    if (bake) stamp(ctx, cache.get(`alch|${pose}`, 32, 36, (c) => drawBomber(c, 13, 32, 1, ALCHEMIST, pose, { vial: true })), ax, ay, 13, 32, -1);
-    else drawBomber(ctx, ax, ay, -1, ALCHEMIST, pose, { vial: true });
-    const ch = bomberCharge(pose);
-    if (ch) {
-      const hot = pose === "cock" || pose === "whip" || pose === "back";
-      glow(ctx, ax - ch.x, ay + ch.y, hot ? 4 : 2.6, "#8ad0a0", hot ? 0.5 + 0.2 * Math.sin(time * 10) : 0.25 + 0.1 * Math.sin(time * 3 + t.id));
+    if (crewOn()) {
+      // the new alchemist (fig-bomber.js, the "alch" look): the throw lands on the shot clock;
+      // a lab's bare t.anim (4/s) stands in when cd is 0. The flask's glow rides his `bomb` mark.
+      const until = t.cd > 0 ? t.cd : (t.anim || 0) > 0 ? rate - ((1 - t.anim) / 4) * 1000 : 0;
+      const clip = t._idle ? "idle" : "throw";
+      const rec = drawCrewPix(ctx, ALCH, ax, ay, -1, clip, t._idle ? loopFrame(ALCH, "idle", clock, t.id) : shotFrame(ALCH, "throw", until, rate), { variant: "alch" });
+      const ch = markOf(rec, "bomb", -1);   // the flask's centre; null once it has left his hand
+      if (ch) {
+        const hot = clip === "throw" && rec.ph > 0.2 && rec.ph < 0.5;   // swung back and cocked
+        glow(ctx, ax + ch[0], ay + ch[1], hot ? 4 : 2.6, "#8ad0a0", hot ? 0.5 + 0.2 * Math.sin(time * 10) : 0.25 + 0.1 * Math.sin(time * 3 + t.id));
+      }
+    } else {
+      if (bake) stamp(ctx, cache.get(`alch|${pose}`, 32, 36, (c) => drawBomber(c, 13, 32, 1, ALCHEMIST, pose, { vial: true })), ax, ay, 13, 32, -1);
+      else drawBomber(ctx, ax, ay, -1, ALCHEMIST, pose, { vial: true });
+      const ch = bomberCharge(pose);
+      if (ch) {
+        const hot = pose === "cock" || pose === "whip" || pose === "back";
+        glow(ctx, ax - ch.x, ay + ch.y, hot ? 4 : 2.6, "#8ad0a0", hot ? 0.5 + 0.2 * Math.sin(time * 10) : 0.25 + 0.1 * Math.sin(time * 3 + t.id));
+      }
     }
   } else if (crewOn()) {
     // the clerk at the door, in the new sprites. His round, phased by t.id: he thumbs a

@@ -102,11 +102,30 @@ next one.
   The shaman's chant, the warchief's horn and the necromancer's raise show
   on the march (`casts` in `PIX`); the dragon's fire-breath clip is drawn
   but unused (the boss has no blow).
+- **The tower crews are in** (2026-11-13, owner: "So sick! Lets go ahead and
+  do the towers instead"): every person on a hall (mage, priest, bowmen,
+  engineers, smith, bombardier, musketeer, alchemist, hooded master,
+  falconer, clerk, watchman) is a pix figure drawn through
+  `src/render/pix/crews.js`; each hall keeps its old crew under an `else`
+  for "New sprites" off. The engine's shot points (`engine/muzzles.js`) did
+  not move. Style guide, "Tower crews", has the contract, the variants and
+  the artists' list of weak spots. NOT yet seen by the owner. Six artists by
+  hall group on one brief; the usage limit cut all six off mid-pass (a WIP
+  commit, then `SendMessage`, brought each back), and the dev server had
+  been stopped by the app meanwhile (check it answers before resuming
+  artists who need the browser). Artists used the built-in browser in their
+  own tabs for `hallshot.html` / `hallstrip.html`.
+- **The tower BUILDINGS** (owner, same day: "yeah I want the towers to get a
+  visual upgrade too!"): a separate session, "Tower buildings: visual
+  upgrade", is making a concept round first (new files only; it must not
+  edit `src/render/halls/*.js` until its concepts are approved). Until then
+  new-style people stand on old-style halls, as old and new figures share
+  the board.
 - **Next, in the order agreed with the owner:** the rest of the rigs a few
   at a time (crown soldiers, then Iron, Hollow, Rime) (keep each chapter's colours: style guide, "The three armies'
-  colours"), tower crews starting with the Spire mage (`fig-mage.js` is drawn,
-  with a `breath` clip for Dragonbreath), then the joint lab on the new
-  skeleton. Ask before changing a figure the owner has already approved.
+  colours"), the castle's people and the build crew (`fig-halberdier.js` is
+  drawn, not wired), then the joint lab on the new skeleton. Ask before
+  changing a figure the owner has already approved.
 - The concept sheet is still published to the owner as a private Artifact
   page ("Crownguard Sprite Concepts"); `node scripts/build-concept-sheet.mjs`
   rebuilds it from `concept-sheet.html` + `concept/sheet.js`.
