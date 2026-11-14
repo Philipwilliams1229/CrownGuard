@@ -35,8 +35,8 @@ const IRON = mat("#4a4c56"), IRON_L = mat("#8a909c", { contrast: 1.2 }), STEEL =
 const STONE = mat("#8a8478"), STONE_L = mat("#9e988a"), STONE_D = mat("#6a655c"), GRIND = mat("#a8a49a");
 const BRICK = mat("#9a5a44"), BRICK_L = mat("#b06c52"), CANVAS = mat("#d8c8a0"), SHINGLE = mat("#6a5a4e"), PLANK = mat("#8a6238");
 const WALL2 = mat("#73522f"), WALL3 = mat("#54463a"), EARTH = mat("#7c6242"), FLAGS = mat("#8e8676");
-const LEATHER = mat("#7a4a2e"), ROPE = mat("#b89a64"), RED_W = mat("#6a3a2a"), RED_WD = mat("#5a2e22");
-const KEG = mat("#6a4a2e"), BAG = mat("#b8a078"), BRASS = mat("#d8b04a", { contrast: 1.2 }), BRASS_D = mat("#8a6a22"), PARCH = mat("#d8c8a0"), CALT = mat("#6a707c");
+const LEATHER = mat("#7a4a2e"), ROPE = mat("#b89a64"), RED_W = mat("#8a4030"), RED_WD = mat("#6a3226");
+const KEG = mat("#6a4a2e"), BAG = mat("#b8a078"), BAG_D = mat("#a08a62"), MOSS = mat("#5f8a44"), BRASS = mat("#d8b04a", { contrast: 1.2 }), BRASS_D = mat("#8a6a22"), PARCH = mat("#d8c8a0"), CALT = mat("#6a707c");
 const BLOCK = mat("#4a4a52"), CUT = mat("#d8b888"), BOMB = mat("#2e2e36", { contrast: 1.3 }), BALLOON = mat("#c05848"), CREAM = mat("#e8dcc0"), BASKET = mat("#8a6238");
 const DARK = flat("#2a1c18"), HOLE = flat("#3a3c46"), ASH = flat("#3a2a26"), PIN = flat("#c03a2a"), MARK = flat("#c05848");
 const COAL = flat("#d8582a", { emis: true }), COAL_L = flat("#f4a040", { emis: true });
@@ -48,6 +48,7 @@ const box = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
 
 // A flat face (any shape with one span a row) whose tone is worked pixel by pixel:
 // fn(x, y) -> tone steps up or down (null leaves the pixel out). n: the face's normal.
+// o.edge: it darkens whatever it lies on, all round (a part that must part from its like behind).
 const face = (px, pts, m, z, n, fn, o = {}) => {
   if (!o.same) px.part();
   let y0 = 1e9, y1 = -1e9;
@@ -59,7 +60,7 @@ const face = (px, pts, m, z, n, fn, o = {}) => {
     xs.sort((a, b) => a - b);
     for (let i = Math.ceil(xs[0] - 0.5); i <= Math.floor(xs[xs.length - 1] - 0.5); i++) {
       const b = fn ? fn(i + 0.5, py) : 0; if (b == null) continue;
-      px._put(i + px.ox, j + px.oy, m, z, n[0], n[1], n[2], { cast: o.cast ?? 1, floor: o.floor || 0, bias: (o.bias || 0) + b, noLine: o.noLine });
+      px._put(i + px.ox, j + px.oy, m, z, n[0], n[1], n[2], { cast: o.cast ?? 1, floor: o.floor || 0, bias: (o.bias || 0) + b, noLine: o.noLine, edge: o.edge });
     }
   }
   return px;
@@ -95,9 +96,11 @@ const keg = (px, x, y, z) => {
   px.part();                                                         // the bomb mark burnt on its staves
   px.ellipse(x - 0.5, y - 7, 2.1, 2.1, MARK, z + 0.2, { cast: 0 }); px.dot(x + 1, y - 9.5, MARK, z + 0.2, { cast: 0 });
 };
-const sandbag = (px, x, y, z) => {
-  px.part(); px.ellipse(x, y - 1, 5.6, 3.7, BAG, z, { round: 0.9 });
-  px.toneLine(x - 0.5, y - 4, x - 0.5, y + 2, -1); px.dot(x + 5.5, y - 2.5, BAG, z, { bias: 1 });
+const sandbag = (px, x, y, z, m = BAG) => {
+  px.part(); px.ellipse(x, y - 1, 5.2, 3.5, m, z, { round: 0.95, edge: true, bias: -1 });
+  for (let i = -4; i <= 4; i++) px.tone(x + i, y + 1.5, -1);                               // its sagging belly, in its own shade
+  px.toneLine(x - 0.5, y - 3, x - 0.5, y + 1, -1);
+  px.dot(x + 4.5, y - 3.5, m, z + 0.05, { cast: 0 }); px.dot(x + 5.5, y - 4.5, ROPE, z + 0.05, { cast: 0 });   // its tied ear
 };
 // the anvil on its block (a stump at level one, an iron block after): the face in the sun,
 // the horn to the right, a waist, a foot. Today's outline, row by row.
@@ -179,7 +182,7 @@ const shed = (px, stone, seed, E, ridge) => {
 
   // the forge: brick at two, stone with a hood and a chimney at three
   if (stone) {
-    drum(px, { cx: 20, top: -93, bot: -38, r: 6.5, sq: 0.3, m: STONE, z: -8, st: STYLES.B, seed: seed + 5, course: 5, stoneW: 0.7 });
+    drum(px, { cx: 20, top: -93, bot: -38, r: 6.5, sq: 0.3, m: STONE, z: -8, st: STYLES.B, seed: seed + 5, course: 5, stoneW: 0.7, stain: (x, h) => (h < -85 && Math.abs(x + 1) < 3.5 ? -1 : 0) });   // soot under the cap
     drum(px, { cx: 20, top: -96, bot: -92.5, r: 8.5, sq: 0.3, m: STONE_D, z: -7.9, st: STYLES.A, course: 99 });
     disc(px, { cx: 20, y: -96, r: 8.5, sq: 0.3, m: STONE_L, z: -7.8 });
     px.part(); px.ellipse(20, -96, 5.2, 1.5, flat("#2a2030"), -7.7, { cast: 0 });
@@ -211,6 +214,7 @@ const shed = (px, stone, seed, E, ridge) => {
     if (stone && hash(Math.floor(x / 5), Math.floor((y - ridge) / 4), seed + 40) > 0.93) b -= 1;   // a slipped or mossy shingle
     return b;
   });
+  if (stone) { px.part(); for (let i = 0; i < 11; i++) { const mx = 6 + hash(seed, i, 61) * 30, my = E - 2 - hash(seed, i, 67) * 9; px.dot(mx, my, MOSS, -1.95, { n: SLOPE, cast: 0, bias: i % 3 ? 0 : -1 }); if (i % 2) px.dot(mx + 1, my, MOSS, -1.95, { n: SLOPE, cast: 0 }); } }   // moss gathering toward the eave
   beam(px, -44.5, E, -36.5, ridge, 2.6, stone ? OAK : TIMBER_L, -1.8, { grain: false });
   beam(px, 40.5, E, 32.5, ridge, 2.6, OAK_D, -1.8, { grain: false });
   beam(px, -37, ridge, 33, ridge, 2.6, stone ? STONE_D : OAK, -1.7, { grain: false });
@@ -226,15 +230,16 @@ const grindstone = (px) => {
   beam(px, 31.2, 15, 31.2, -1, 3, OAK, 4, { grain: false });
 };
 const guillotine = (px) => {
-  beam(px, 18, 8, 18, -47, 4, RED_W, 3, { grain: false });
-  px.part(); px.poly([[20, -42], [30, -42], [30, -32], [20, -27.6]], STEEL, 3.2, { n: [-0.3, -0.25, 0.92] });
-  px.toneLine(20, -28.5, 30, -33, 1);                                // the edge
+  // its own red-stained timber, edged so it parts from the shed's post behind it
+  face(px, box(16, -47, 4, 55), RED_W, 3, LIT, (x) => (x < 17 ? 1 : 0), { edge: true });
+  px.part(); px.poly([[20, -42], [30, -42], [30, -32], [20, -27.6]], STEEL, 3.2, { n: FRONT, edge: true });
+  px.toneLine(20.5, -41, 20.5, -30, 1); px.toneLine(20, -28.4, 30, -32.8, 2); px.toneLine(20, -29.4, 30, -33.8, 1);   // the ground edge, gleaming
   px.rect(20, -45, 10, 3, IRON, 3.3, { n: LIT });
-  face(px, box(17, 1, 16, 7), RED_W, 3.4, FRONT, (x, y) => (y < 2 ? 1 : 0));
-  px.part(); px.ellipse(25, 2.4, 2.8, 2.2, DARK, 3.5, { cast: 0 });
-  beam(px, 32, 8, 32, -47, 4, RED_W, 3.6, { grain: false });
-  beam(px, 14, -47, 36, -47, 5, RED_WD, 3.8, { grain: false });
-  px.part(); px.line(33, -44, 35, -2, ROPE, 3.9, { cast: 0 });
+  face(px, box(15, 1, 20, 7), RED_WD, 3.4, FRONT, (x, y) => (y < 2 ? 1 : 0), { edge: true });
+  px.part(); px.ellipse(25, 2.2, 3, 2.4, DARK, 3.5, { cast: 0 });
+  face(px, box(30, -47, 4, 55), RED_W, 3.6, LIT, (x) => (x < 31 ? 1 : 0), { edge: true });
+  face(px, box(13, -50, 24, 5), RED_WD, 3.8, LIT, (x, y) => (y < -49 ? 1 : 0), { edge: true });
+  px.part(); px.line(35, -45, 36, -2, ROPE, 3.9, { cast: 0 });
 };
 const hopper = (px, seed) => {
   beam(px, 17, 8, 18.6, -24, 3, OAK, 3, { grain: false }); beam(px, 33, 8, 31.4, -24, 3, OAK, 3, { grain: false });
@@ -263,11 +268,11 @@ const mapBoard = (px) => {
   px.part(); for (const [x, y] of [[-30, 6], [-21, 7]]) px.ellipse(x, y, 5, 1.8, EARTH, -0.5, { bias: -2, cast: 0, noLine: true, n: UP });
 };
 const windlass = (px) => {
-  for (const x of [20.6, 33.4]) beam(px, x, 8, x, -13, 3.2, OAK, 3, { grain: false });
-  px.part(); px.capsule(19.5, -10, 4, 34.5, -10, 4, OAK, 3.4);
-  px.part(); px.capsule(23.5, -10, 4.6, 30.5, -10, 4.6, ROPE, 3.5, { cast: 0 });
-  for (let x = 23; x < 32; x += 2) px.toneLine(x, -14, x, -6, -1);
-  px.part(); px.line(36, -10, 39, -15, IRON, 3.6, { cast: 0 }); px.dot(40, -16, OAK_D, 3.6); px.dot(40, -15, OAK_D, 3.6);
+  px.part(); px.capsule(21, -9, 3.6, 33, -9, 3.6, OAK_D, 3);                                   // the barrel
+  px.part(); px.rect(24.5, -13, 5, 8, ROPE, 3.1, { n: [0, -0.3, 0.95], cast: 0 });            // the tether's turns on it
+  px.toneLine(26, -13, 26, -5, -1); px.toneLine(28, -13, 28, -5, -1); px.toneLine(24.5, -6, 29.5, -6, -1);
+  for (const x of [19, 32]) { face(px, box(x, -16, 4, 24), OAK, 3.4, LIT, (xx) => (xx < x + 1 ? 1 : 0), { edge: true }); px.dot(x + 1.5, -9, IRON, 3.5, { cast: 0 }); px.dot(x + 2.5, -9, IRON, 3.5, { cast: 0 }); }
+  px.part(); px.line(36, -9, 39, -14, IRON, 3.6, { cast: 0 }); px.dot(40, -15, OAK_D, 3.6); px.dot(40, -14, OAK_D, 3.6);   // the crank
 };
 
 // build(o) -> (back, front) => spec     o: { level, branch, rank4, seed, style }
@@ -289,7 +294,7 @@ export const build = (o = {}) => (back) => {
   if (r4 === "ba") { horn(back); mapBoard(back); }
   if (blast) for (const [x, y] of r4 === "bb" ? [[17, 5]] : r4 ? [[24, 6]] : [[20, 5], [30, 7]]) keg(back, x, y, 2 + y * 0.01);
   if (r4 === "bb") windlass(back);
-  if (blast) for (const [x, y] of [[11, 18], [19, 17], [26, 14]]) sandbag(back, x, y, 5 + x * 0.01);
+  if (blast) for (const [x, y] of [[11, 18], [19, 17], [26, 14]]) sandbag(back, x, y, 5 + x * 0.04, x === 19 ? BAG_D : BAG);
   if (r4 !== "ba") rack(back);
 
   // what moves: the forge's flame and its light on the wall, the pennant on the ridge

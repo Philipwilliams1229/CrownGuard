@@ -24,6 +24,8 @@ import {
 import { drawSmith, smithHammer, SMITH_IMPACT, CREW_FOLK } from "../folk.js";
 import * as smithFig from "../pix/fig-smith.js";
 import { crew, crewOn, drawCrewPix, loopFrame, crewMark } from "../pix/crews.js";
+import * as trapHall from "../pix/hall-trapsmith.js";
+import { hallOn, hallPix, drawHallBack, drawHallFront, stampPix, pixSprite } from "../pix/halls.js";
 
 // the new smith ("New sprites" on): fig-smith.js, on the same beat as the old one
 const SMITH = crew("smith", smithFig);
@@ -256,17 +258,26 @@ export const drawTrapsmith = (ctx, t, time) => {
   const { lvl, r4, spring, blast } = spec(t);
   const bake = canBake();
   const id5 = t.id % 5;
-  if (bake) stamp(ctx, cache.get(`shed|${t.level}|${t.branch}|${t.rank4}|${id5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintShed(c, { ...t, id: id5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
-  else paintShed(ctx, t, x, y);
+  // the new building ("New sprites" on): pix/hall-trapsmith.js, built round the smith's old spot
+  const H = bake && hallOn() ? hallPix("trapsmith", trapHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, t.id % 3) : null;
   // the forge (or fire ring) glows, the bellows breathing it up
   const br = Math.sin(time * 3 + t.id);
-  if (lvl === 1) { const fx = x + FIRE1[0], fy = y + FIRE1[1]; glow(ctx, fx, fy - 1, 5 + br, "#f0903a", 0.85); ctx.fillStyle = "#f4a040"; ctx.fillRect(fx - 2, fy - 1.2, 4, 1); ctx.fillStyle = "#ffe08a"; ctx.fillRect(fx - 1 + (br > 0 ? 1 : 0), fy - 2, 1, 1); }
+  if (H) drawHallBack(ctx, H, x, y, time, { id: t.id, k: { forge: 0.8 + 0.2 * br } });   // its own flame; the light on the wall breathes with the bellows
+  else if (bake) stamp(ctx, cache.get(`shed|${t.level}|${t.branch}|${t.rank4}|${id5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintShed(c, { ...t, id: id5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
+  else paintShed(ctx, t, x, y);
+  if (H) { /* the new forge burns in the hall's own live list */ }
+  else if (lvl === 1) { const fx = x + FIRE1[0], fy = y + FIRE1[1]; glow(ctx, fx, fy - 1, 5 + br, "#f0903a", 0.85); ctx.fillStyle = "#f4a040"; ctx.fillRect(fx - 2, fy - 1.2, 4, 1); ctx.fillStyle = "#ffe08a"; ctx.fillRect(fx - 1 + (br > 0 ? 1 : 0), fy - 2, 1, 1); }
   else { glow(ctx, x + 9, y - 8.5, 6 + br, "#f0903a", 0.85); ctx.fillStyle = "#f4a040"; ctx.fillRect(x + 5.6, y - 7.6, 6.8, 1.2); ctx.fillStyle = "#ffe08a"; ctx.fillRect(x + 7 + (br > 0 ? 2 : 0), y - 8.4, 1.4, 0.8); }
   if (lvl >= 3) for (let i = 0; i < 2; i++) { const k = ((time * 0.45 + i * 0.5 + t.id * 0.1) % 1); soft(ctx, x + 10 + Math.sin(time + i) * 1.5, y - 50 - k * 14, 1.6 + k * 3, 1.6 + k * 3, [[0, `rgba(170,164,160,${0.4 * (1 - k)})`], [1, "rgba(170,164,160,0)"]]); }
   // hung traps on the rack, one per ready charge
   const charges = Math.min(4, t.charges || 0);
   const kind = spring ? "a" : blast ? "b" : "s";
-  if (r4 !== "ba") for (let i = 0; i < 4; i++) hungTrap(ctx, x - 14.2, y - 18 + i * 5, kind, i < charges);
+  if (H) {
+    // the new traps, at the old hooks (an empty hook is part of the baked rack); the Doctrine's pile the same
+    const trap = (k) => pixSprite(`trap|${k}`, () => trapHall.trapPix(k));
+    if (r4 !== "ba") { for (let i = 0; i < charges; i++) stampPix(ctx, trap(kind), x - 14.2, y - 18 + i * 5); }
+    else for (let i = 0; i < MINES.length; i++) if (i < Math.max(charges, 1)) stampPix(ctx, trap("m"), x + MINES[i][0], y + MINES[i][1] - 2);
+  } else if (r4 !== "ba") for (let i = 0; i < 4; i++) hungTrap(ctx, x - 14.2, y - 18 + i * 5, kind, i < charges);
   else {
     // the Doctrine stacks its mines in a pyramid instead
     // (stacked at the left rear, behind the smith, on the rack's old ground)
@@ -278,8 +289,9 @@ export const drawTrapsmith = (ctx, t, time) => {
     // it rides off the right of the chimney, its bomb clear of the ridge
     const bx = x + 19.5 + Math.sin(time * 0.9 + t.id) * 1.2, by = y - 61 + Math.sin(time * 1.4 + t.id) * 2;
     rope(ctx, x + WINCH[0], y - 5, bx, by + 12, 1, "#5a4a3a", 0.6);
-    const cv = bake ? cache.get("balloon", 20, 30, (c) => paintBalloon(c, 10, 10)) : null;
-    if (cv) stamp(ctx, cv, bx, by, 10, 10);
+    const cv = bake && !H ? cache.get("balloon", 20, 30, (c) => paintBalloon(c, 10, 10)) : null;
+    if (H) stampPix(ctx, pixSprite("trap|balloon", () => trapHall.balloonPix()), bx, by);   // the new balloon, the same bob and tether
+    else if (cv) stamp(ctx, cv, bx, by, 10, 10);
     else paintBalloon(ctx, bx, by);
     if (Math.sin(time * 9) > 0) { ctx.fillStyle = "#f4c060"; ctx.fillRect(bx + 1.8, by + 16.6, 1, 1); }
   }
@@ -327,7 +339,8 @@ export const drawTrapsmith = (ctx, t, time) => {
     }
   }
   const pc = r4 === "aa" ? "#8a2f2a" : r4 === "ab" ? "#8a8f9a" : r4 === "ba" ? "#d8b34a" : r4 === "bb" ? "#c05848" : spring ? "#7a94b8" : blast ? "#c05848" : "#8a8f9a";
-  if (lvl >= 2 || t.branch) pennant(ctx, x - 17, y - (lvl >= 3 ? 44 : 40), 14, pc, time, t.id, -1);
+  if (H) drawHallFront(ctx, H, x, y, time, { id: t.id });   // nothing stands in front of the smith; the new hall flies its own pennant
+  else if (lvl >= 2 || t.branch) pennant(ctx, x - 17, y - (lvl >= 3 ? 44 : 40), 14, pc, time, t.id, -1);
 };
 
 const paintBalloon = (ctx, x, y) => {
