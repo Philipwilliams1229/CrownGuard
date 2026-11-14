@@ -142,8 +142,8 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   // the string arm: a sleeve, a bare hand. Behind the head while it is over the shoulder.
   const nearArm = (z) => {
     px.part();
-    px.capsule(sN[0], sN[1] + 0.3, 2.5, eN[0], eN[1], 2.2, K.SLEEVE, z, { cast: 1 });
-    px.capsule(eN[0], eN[1], 2.2, hdN[0], hdN[1], 1.8, K.SLEEVE, z, { cast: 1 });
+    px.capsule(sN[0], sN[1] + 0.3, 2.5, eN[0], eN[1], 2.2, K.SLEEVE, z, { cast: 1, vb: -0.22 });
+    px.capsule(eN[0], eN[1], 2.2, hdN[0], hdN[1], 1.8, K.SLEEVE, z, { cast: 1, vb: -0.22 });
     // the cape lies over the near shoulder
     px.part(); px.ellipse(sN[0] + 0.4, sN[1] - 0.9, 3.2, 2.5, K.HOOD, z + 0.1, { cast: 1, fix: 2 });
     px.part(); px.ellipse(hdN[0], hdN[1], 1.9, 1.9, K.SKIN, z + 0.2);
@@ -218,21 +218,21 @@ const shot = (T, o = {}) => {
   const keys = [
     { t: 0, p: ready(0.5) },
     // set: the bow up, the arm still soft, the string elbow raised to take the weight
-    { t: 0.133, e: "io", p: mk({ rx: rx * 0.5, lean: -0.02 + lean, twist: 0.3, rise: 0.4 + rise * 0.6 }, [T[0] - 5.6, T[1] + 1.6], 0.14 + aim, "nock", { str: 1, arrow: 1 }) },
+    { t: 0.0667, e: "io", p: mk({ rx: rx * 0.5, lean: -0.02 + lean, twist: 0.3, rise: 0.4 + rise * 0.6 }, [T[0] - 5.6, T[1] + 1.6], 0.14 + aim, "nock", { str: 1, arrow: 1 }) },
     // full draw: the bow arm pushed out straight, the string hand at the chin, the elbow high behind
-    { t: 0.267, e: "out", p: mk({ rx: -0.6 + rx, lean: -0.08 + lean, twist: -0.8, rise: 0.5 + rise }, [T[0] - 0.5, T[1] + 0.2], aim, chin, { str: 1, arrow: 1 }) },
-    // the hold (the frame he waits on): settled into the weight
+    { t: 0.2, e: "out", p: mk({ rx: -0.6 + rx, lean: -0.08 + lean, twist: -0.8, rise: 0.5 + rise }, [T[0] - 0.5, T[1] + 0.2], aim, chin, { str: 1, arrow: 1 }) },
+    // the hold (the last of it is the frame he waits on): settling into the weight, three frames at full draw (the aim)
     { t: 0.333, e: "io", p: mk({ rx: -0.8 + rx, lean: -0.1 + lean, twist: -0.86, rise: 0.9 + rise }, [T[0] - 0.4, T[1]], aim, chin, { str: 1, arrow: 1 }) },
     // the loose: the string gone, the fingers open and back along the jaw, the bow arm driving on, the bow rolling
-    { t: 0.4, e: "in3", p: mk({ rx: -0.1 + rx, lean: -0.03 + lean, twist: -1.05, rise: 0.6 + rise }, T, aim + 0.16, (s) => [s.N[0] - 2.8, s.N[1] - 0.4, 1], { shiver: 1, open: 1 }) },
+    { t: 0.4, e: "in3", p: mk({ rx: -0.1 + rx, lean: -0.03 + lean, twist: -1.05, rise: 0.6 + rise }, T, aim + 0.16, (s) => [s.N[0] - 2.8, s.N[1] - 3.6, 1], { shiver: 1, open: 1 }) },
     // the follow-through: the hand past the ear, the bow rolled on and settling
-    { t: 0.467, e: "out", p: mk({ rx: rx * 0.7, lean: lean * 0.6, twist: -0.9, rise: 0.3 + rise * 0.7 }, [T[0] - 0.8, T[1] + 1.2], aim + 0.34, (s) => [s.N[0] - 5.6, s.N[1] + 0.4, 1], { shiver: 0.3, open: 1 }) },
+    { t: 0.467, e: "out", p: mk({ rx: rx * 0.7, lean: lean * 0.6, twist: -0.9, rise: 0.3 + rise * 0.7 }, [T[0] - 0.8, T[1] + 1.2], aim + 0.34, (s) => [s.N[0] - 5.4, s.N[1] - 3.4, 1], { shiver: 0.3, open: 1 }) },
     // over the shoulder to the quiver: the hand on the fletchings behind the nape; the bow arm eases down
-    { t: 0.6, e: "io", p: mk({ rx: rx * 0.4, lean: 0.03, twist: -0.5, rise: rise * 0.4 }, [T[0] - 3.4, T[1] + 4.6], 0.3 + aim * 0.5, (s) => [s.C[0] - 10.4, s.C[1] - 3.4, 0], { nb: 1 }) },
+    { t: 0.6, e: "io", p: mk({ rx: rx * 0.4, lean: 0.03, twist: -0.5, rise: rise * 0.4 }, [T[0] - 3.4, T[1] + 4.6], 0.3 + aim * 0.5, (s) => [s.C[0] - 9.6, s.C[1] - 4.6, 0], { nb: 1 }) },
     // the arrow drawn up out of it
     { t: 0.667, e: "out", p: mk({ rx: rx * 0.3, lean: 0.02, twist: -0.4, rise: 0.6 + rise * 0.3 }, [T[0] - 4.4, T[1] + 6], 0.34 + aim * 0.4, (s) => [s.C[0] - 9.6, s.C[1] - 7.4, 0], { nb: 1, carry: 1, aa: 1 }) },
     // down over the shoulder, the arrow still behind him (so nothing crosses his face)
-    { t: 0.733, e: "io", p: mk({ rx: rx * 0.15, lean: 0.02, twist: -0.2, rise: 0.4 }, [(T[0] - 4.4 + 10.4) / 2, (T[1] + 6 - 24) / 2], 0.37 + aim * 0.2, (s) => [s.sN[0] + 3.2, s.sN[1] - 0.6, 0], { nb: 1, carry: 1, aa: 1 }) },
+    { t: 0.733, e: "io", p: mk({ rx: rx * 0.15, lean: 0.02, twist: -0.2, rise: 0.4 }, [(T[0] - 4.4 + 10.4) / 2, (T[1] + 6 - 24) / 2], 0.37 + aim * 0.2, (s) => [s.sN[0] + 5.4, s.sN[1] + 1.2, 0], { nb: 1, carry: 1, aa: 1 }) },
     // brought down and round before him, head first, the hand under the chin
     { t: 0.8, e: "io", p: mk({ rx: 0, lean: 0.02, twist: 0, rise: 0.3 }, [10.4, -24], 0.4, (s) => [s.C[0] + 7.6, s.C[1] + 3, 0], { carry: 1, aa: 0.5 }) },
     // onto the string
@@ -247,11 +247,11 @@ const shot = (T, o = {}) => {
 const STOW = unwrap([
   { t: 0, p: ready(0.5) },
   { t: 0.25, e: "io", p: mk({ rise: 0.3, twist: 0 }, [9.4, -22], 0.44, (s) => [s.C[0] + 7.6, s.C[1] + 3, 0], { nb: 1, carry: 1, aa: 0.5 }) },
-  { t: 0.375, e: "io", p: mk({ rise: 0.4, twist: -0.2 }, [9.2, -21.5], 0.45, (s) => [s.sN[0] + 3.2, s.sN[1] - 0.6, 0], { nb: 1, carry: 1, aa: 1 }) },
+  { t: 0.375, e: "io", p: mk({ rise: 0.4, twist: -0.2 }, [9.2, -21.5], 0.45, (s) => [s.sN[0] + 5.4, s.sN[1] + 1.2, 0], { nb: 1, carry: 1, aa: 1 }) },
   { t: 0.5, e: "io", p: mk({ rise: 0.6, twist: -0.4, lean: 0.02 }, [9, -21], 0.46, (s) => [s.C[0] - 9.6, s.C[1] - 7.4, 0], { nb: 1, carry: 1, aa: 1 }) },
-  { t: 0.625, e: "io", p: mk({ rise: 0.2, twist: -0.4, lean: 0.02 }, [8.6, -20.4], 0.48, (s) => [s.C[0] - 10.4, s.C[1] - 3.4, 0], { nb: 1 }) },
-  { t: 0.75, e: "io", p: mk({ rise: 0.2, twist: -0.2 }, [8.4, -20], 0.5, (s) => [s.sN[0] - 0.6, s.sN[1] - 2.6, 0], { nb: 1 }) },
-  { t: 0.875, e: "io", p: mk({ rise: 0.3, twist: 0 }, [8.2, -19.8], 0.5, (s) => [s.sN[0] + 2, s.sN[1] + 6, 0]) },
+  { t: 0.625, e: "io", p: mk({ rise: 0.2, twist: -0.4, lean: 0.02 }, [8.6, -20.4], 0.48, (s) => [s.C[0] - 9.6, s.C[1] - 4.6, 0], { nb: 1 }) },
+  { t: 0.75, e: "io", p: mk({ rise: 0.2, twist: -0.2 }, [8.4, -20], 0.5, (s) => [s.sN[0] + 3.5, s.sN[1] - 4.4, 0], { nb: 1 }) },
+  { t: 0.875, e: "io", p: mk({ rise: 0.3, twist: 0 }, [8.2, -19.8], 0.5, (s) => [s.sN[0] + 3, s.sN[1] + 9.6, 0]) },
   { t: 1, e: "out", p: ease(0.5, -0.84) },
 ], 6);
 // the engine's points (engine/muzzles.js bowHand: folk-archer.js "loose", g + lean; x1.15 for the big bow), in art px

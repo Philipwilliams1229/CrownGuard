@@ -614,7 +614,7 @@ export const drawArcherTower = (ctx, t, time) => {
     // ---- the new sprites: each archer's own moment mapped onto the figure's shot clip
     // (crews.js shotFrame: the loose on his arrow, the reload after it, then the draw and
     // the HOLD at full draw until his next loose); a longbow is the "|long" look and clip
-    const pix = crewOn();
+    const pix = canBake && crewOn();
     const clip = big ? "shootLong" : "shoot", look = big ? `${key}|long` : key;
     const CL = BOWMAN.CLIPS[clip], hitF = Math.round((CL.hit ?? 0.5) * (CL.n - 1));
     for (const sp of spots) {
