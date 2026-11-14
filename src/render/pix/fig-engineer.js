@@ -77,7 +77,7 @@ const HEAD = [
 ];
 const BLINK = HEAD.map((r, i) => (i === 6 ? r.replace(/E/g, "S") : i === 7 ? r.replace(/E/g, "e") : r));
 
-export const BOX = { w: 38, h: 55, ox: 14, oy: 52 };
+export const BOX = { w: 38, h: 56, ox: 15, oy: 53 };
 // as tall as the old winch crew (crown ~47 art px), a long workman's body
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.8, shin: 9.2, spine: 12, neck: 1.8, shN: -2.8, shF: 3, hipN: -1.7, hipF: 1.9 });
 
@@ -85,7 +85,7 @@ const leg = (px, L, h, k, an, z, b) => {
   px.part();
   px.capsule(h[0], h[1], 3, k[0], k[1], 2.5, L.LEGC, z, { bias: b, floor: 1 });
   px.capsule(k[0], k[1], 2.4, an[0], an[1] - 2.4, 2, L.LEGC, z, { bias: b, floor: 1 });
-  px.capsule(k[0] * 0.3 + an[0] * 0.7, k[1] * 0.3 + an[1] * 0.7, 2.3, an[0], an[1], 2.1, L.BOOT, z + 0.02, { bias: b, floor: 1 });
+  px.capsule(k[0] * 0.25 + an[0] * 0.75, k[1] * 0.25 + an[1] * 0.75, 2.1, an[0], an[1] - 0.6, 2, L.BOOT, z + 0.02, { bias: b, floor: 1 });
   px.ellipse(an[0] + 1.4, an[1] + 1, 3.2, 1.5, L.BOOT, z + 0.03, { bias: b, floor: 1 });
 };
 
@@ -170,11 +170,11 @@ const turning = (m, ph) => {
 const resting = (g, ph, o = {}) => {
   const b = Math.sin(ph * TAU), b2 = Math.sin(ph * TAU - 1.1);
   return {
-    ...STANCE, rx: (o.rx ?? 0.2) + 0.35 * b2, drop: 0.1 - 0.1 * b, rise: 0.45 + 0.45 * b, lean: (o.lean ?? 0) - 0.015 * b, twist: o.twist ?? 1.2,
+    ...STANCE, rx: (o.rx ?? 0.2) + 0.35 * b2, drop: -0.35 - 0.1 * b, rise: 0.45 + 0.45 * b, lean: (o.lean ?? 0) - 0.015 * b, twist: o.twist ?? 1.2,
     gN: g, gF: far(g), grip: g, blink: ph > 0.56 && ph < 0.7 ? 1 : 0,
   };
 };
-const hold = (g, o = {}) => ({ ...STANCE, rx: 0.2, drop: 0.1, rise: 0.45, lean: 0, twist: 1.2, gN: g, gF: far(g), grip: g, ...o });
+const hold = (g, o = {}) => ({ ...STANCE, rx: 0.2, drop: -0.35, rise: 0.45, lean: 0, twist: 1.2, gN: g, gF: far(g), grip: g, ...o });
 
 const W = MACHINES.winch, W0 = gripAt(W, W.at), PEG = [W.hub[0] + 2.8, W.hub[1] - 3.6];
 const LEV = { rx: 1.2, lean: 0.05 }, LEV_UP = { rx: 0.8, lean: -0.05 };
@@ -201,7 +201,7 @@ export const CLIPS = {
     n: 8, ms: 620, loop: false, hit: 0.58,
     pose: (ph) => sampleKeys([
       { t: 0, p: hold(W0) },
-      { t: 0.4, e: "io", p: hold(W0, { gN: [PEG[0] + 0.7, PEG[1] - 4.4], rx: 0.8, lean: -0.03, rise: 0.8, twist: 1.3 }) },
+      { t: 0.4, e: "io", p: hold(W0, { gN: [PEG[0] - 0.4, PEG[1] - 7], rx: 0.9, lean: -0.04, rise: 0.9, twist: 1.4, hy: -0.4 }) },
       { t: 0.58, e: "in3", p: hold(W0, { gN: PEG, rx: 1.4, lean: 0.06, drop: 1, rise: 0.2, twist: 1.35, hy: 0.4 }) },
       { t: 0.74, e: "out", p: hold(W0, { gN: [PEG[0] + 0.4, PEG[1] - 1.8], rx: 1.2, lean: 0.04, twist: 1.3 }) },
       { t: 1, e: "io", p: hold(W0) },
@@ -242,7 +242,7 @@ export const CLIPS = {
     pose: (ph) => {
       const u = 0.5 - 0.5 * Math.cos(ph * TAU), m = MACHINES.bow, a = Math.PI + u * Math.PI, g = [m.hub[0] + Math.cos(a) * m.rx, m.hub[1] + Math.sin(a) * m.ry];
       const fwd = Math.cos(a + 0.45);
-      return { ...STANCE, rx: 0.9 + 1.1 * fwd, drop: 0.8, lean: 0.05 + 0.09 * fwd, twist: 1.2 + 0.2 * fwd, hx: 0.3 * fwd, gN: g, gF: far(g), grip: g };
+      return { ...STANCE, rx: 0.9 + 1.1 * fwd, drop: 0.3, lean: 0.05 + 0.09 * fwd, twist: 1.2 + 0.2 * fwd, hx: 0.3 * fwd, gN: g, gF: far(g), grip: g };
     },
   },
   bowIdle: { n: 8, ms: 2600, loop: true, pose: (ph) => resting(gripAt(MACHINES.bow, MACHINES.bow.at), ph, { rx: 0.8 }) },

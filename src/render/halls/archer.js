@@ -24,10 +24,12 @@ import {
 import { bakeSprite, PX } from "../paint.js";
 import { drawArcherFrame, drawCrew, ARCHER_FOLK } from "../folk.js";
 import * as bowmanFig from "../pix/fig-bowman.js";
+import * as engineerFig from "../pix/fig-engineer.js";
 import { crew, crewOn, drawCrewPix, loopFrame, shotFrame, fracFrame } from "../pix/crews.js";
 
 // the new archer (render/pix/fig-bowman.js), drawn while "New sprites" is on
 const BOWMAN = crew("bowman", bowmanFig);
+const ENG = crew("engineer", engineerFig);   // the Ballista's man; the same name as catapult.js / spiker.js: one shared frame cache
 // standing down, in seconds: an arrow on the string is eased off (the draw run backwards);
 // a man caught reloading finishes nocking; the arrow goes back in the quiver (the "stow" clip); then the idle
 const PIX_EASE = 0.45, PIX_NOCK = 0.4, PIX_STOW = bowmanFig.CLIPS.stow.ms / 1000;
@@ -598,9 +600,15 @@ export const drawArcherTower = (ctx, t, time) => {
         ctx.beginPath(); ctx.moveTo(wx - Math.cos(a) * 2.6, wy - Math.sin(a) * 2.6); ctx.lineTo(wx + Math.cos(a) * 2.6, wy + Math.sin(a) * 2.6); ctx.stroke();
       }
     }
-    const work = t._idle ? 1 : Math.round((Math.sin(time * 6 + t.id) + 1) * 1.5);   // 0..3
-    const ccv = canBake && !t.noFolk ? baked(`crew|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, ARCHER_FOLK.crew, (work - 1.5) * 0.4)) : null;
-    if (ccv) stamp(ctx, ccv, x - dir * (pw - 3), dy + 1, 12, 27, dir);
+    if (!t.noFolk && canBake && crewOn()) {
+      // the new engineer (fig-engineer.js): his hands rock over the stock as the old crew's did
+      const clip = t._idle ? "bowIdle" : "bow";
+      drawCrewPix(ctx, ENG, x - dir * (pw - 3), dy + 1, dir, clip, loopFrame(ENG, clip, time, t.id), { variant: "engineer" });
+    } else {
+      const work = t._idle ? 1 : Math.round((Math.sin(time * 6 + t.id) + 1) * 1.5);   // 0..3
+      const ccv = canBake && !t.noFolk ? baked(`crew|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, ARCHER_FOLK.crew, (work - 1.5) * 0.4)) : null;
+      if (ccv) stamp(ctx, ccv, x - dir * (pw - 3), dy + 1, 12, 27, dir);
+    }
   } else if (!t.noFolk) {
     const pal = ARCHER_FOLK[key] || ARCHER_FOLK.base;
     const bowCol = r4 === "bb" ? "#8a2f24" : master ? "#3a2a1e" : "#4a3018";

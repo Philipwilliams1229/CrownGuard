@@ -57,7 +57,7 @@ const LEG = {
   H: { m: HAIR, fix: 1 }, b: { m: HAIR, fix: 2 }, D: { m: BEARD, fix: 2 }, d: { m: BEARD, fix: 1 },
 };
 
-export const BOX = { w: 44, h: 64, ox: 12, oy: 61 };
+export const BOX = { w: 42, h: 60, ox: 14, oy: 57 };
 // the engineer's height, a broader back and thicker arms
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.8, shin: 9.2, spine: 12, neck: 1.8, upper: 7.6, fore: 7.1, shN: -3.2, shF: 3.2, hipN: -1.6, hipF: 1.8 });
 
@@ -65,7 +65,7 @@ const leg = (px, h, k, an, z, b) => {
   px.part();
   px.capsule(h[0], h[1], 3.1, k[0], k[1], 2.6, LEGC, z, { bias: b, floor: 1 });
   px.capsule(k[0], k[1], 2.5, an[0], an[1] - 2.4, 2.1, LEGC, z, { bias: b, floor: 1 });
-  px.capsule(k[0] * 0.3 + an[0] * 0.7, k[1] * 0.3 + an[1] * 0.7, 2.4, an[0], an[1], 2.2, BOOT, z + 0.02, { bias: b, floor: 1 });
+  px.capsule(k[0] * 0.25 + an[0] * 0.75, k[1] * 0.25 + an[1] * 0.75, 2.1, an[0], an[1] - 0.6, 2, BOOT, z + 0.02, { bias: b, floor: 1 });
   px.ellipse(an[0] + 1.4, an[1] + 1, 3.2, 1.5, BOOT, z + 0.03, { bias: b, floor: 1 });
 };
 
@@ -152,11 +152,11 @@ export const fx = (px, F, info, clip) => {
 // ---- the blow ------------------------------------------------------------------
 const HIT = 0.5, TOP_T = 0.42;
 const STANCE = { fN: [-3.8, 0], fF: [3.6, 0] };
-const REST = { ...STANCE, rx: 0.6, drop: 0.3, rise: 0.4, lean: 0.05, twist: 1.3, gN: [13.3, -27.9], gF: TONGS, haft: -0.06 };
+const REST = { ...STANCE, rx: 0.6, drop: -0.2, rise: 0.4, lean: 0.05, twist: 1.3, gN: [13.3, -27.9], gF: TONGS, haft: -0.06 };
 export const CLIPS = {
   idle: {
     n: 8, ms: 2400, loop: true,
-    pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 1.1); return { ...REST, rx: 0.6 + 0.3 * b2, drop: 0.3 - 0.1 * b, rise: 0.4 + 0.45 * b, lean: 0.05 - 0.015 * b, blink: ph > 0.56 && ph < 0.7 ? 1 : 0 }; },
+    pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 1.1); return { ...REST, rx: 0.6 + 0.3 * b2, drop: -0.2 - 0.1 * b, rise: 0.4 + 0.45 * b, lean: 0.05 - 0.015 * b, blink: ph > 0.56 && ph < 0.7 ? 1 : 0 }; },
   },
   hammer: {
     n: 12, ms: 1000, loop: true, hit: HIT,
@@ -172,7 +172,7 @@ export const CLIPS = {
       // the bounce off the iron
       { t: 0.6, e: "out", p: { ...STANCE, rx: 0.8, drop: 1.1, rise: 0.1, lean: 0.09, twist: 1.3, hy: 0.4, gN: [13, -30.6], gF: TONGS, haft: -0.3 } },
       // the settle: the head resting on the iron
-      { t: 0.76, e: "io", p: { ...REST, drop: 0.6, rise: 0.2, lean: 0.07 } },
+      { t: 0.76, e: "io", p: { ...REST, drop: 0.4, rise: 0.2, lean: 0.07 } },
       { t: 1, e: "io", p: REST },
     ], ph),
   },
