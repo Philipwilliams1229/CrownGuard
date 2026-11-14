@@ -41,7 +41,8 @@ export const LABEL = "Warden Mage";
 
 // the narrow footprint, in art pixels from the anchor
 const FOOT = { cy: 6, rx: 26, ry: 18 };
-const inFoot = (x, y) => (x / FOOT.rx) ** 2 + ((y - FOOT.cy) / FOOT.ry) ** 2 <= 1;
+// (a pixel of margin: the outline is drawn one pixel outside whatever is clipped here)
+const inFoot = (x, y) => (x / (FOOT.rx - 1.2)) ** 2 + ((y - FOOT.cy) / (FOOT.ry - 1.2)) ** 2 <= 1;
 
 const STONE_OF = { base: "#948c80", a: "#9aa8b0", aa: "#b0c4d0", ab: "#8a9cac", b: "#9a9480", ba: "#c8c0a8", bb: "#b8b0a0" };
 const AURA_OF = { base: "#7cd4d4", a: "#7cd4d4", aa: "#b8f0f8", ab: "#8cd8f8", b: "#8ce08c", ba: "#e8d47a", bb: "#f0d060" };
@@ -125,6 +126,7 @@ const lintel = (px, LT, m, z, seed, gold) => {
         else if (hv > 0.75) bias += 1; else if (hv < 0.18) bias -= 1;
         if (d === 2 && bias < 1) bias += 1;                                                 // the upper arris
         if (d === 8) bias -= 1;                                                             // the soffit
+        if (d === 6 && !gold) bias = Math.min(bias, 0) - (hash(i, seed) < 0.85 ? 1 : 0);    // a fascia cut along the arch
         if (x > 17) bias = clamp(bias, -1, 0);
         if (gold && (d === 5 || d === 6)) { mm = GOLD; bias = d === 5 ? 1 : 0; }
       }
@@ -180,7 +182,7 @@ const ground = (px, G) => {
     const RUNE = flat(mixHex(G.aura, G.earth, ice ? 0.15 : 0.4));
     for (let a = 0.1; a < Math.PI - 0.1; a += 0.04) { if (Math.floor(a * 10) % 4 === 3) continue; put(px, Math.cos(a) * 21, 11 + Math.sin(a) * 7.5, RUNE, -49, [0, 0, 1], { noLine: true, cast: 0 }); }
   }
-  for (const [sx, sy, r] of [[-rx + 5, 15, 2.4], [rx - 8, 17, 2], [-6, 19, 1.8]]) if (!ice && inFoot(sx + r, sy)) { px.part(); px.ellipse(sx, sy - 1, r, r * 0.6, mat("#a89c88"), -45, { round: 0.8, cast: 1 }); }   // a few stones at its rim
+  for (const [sx, sy, r] of [[-Math.min(rx - 5, 19), 15, 2.4], [Math.min(rx - 8, 17), 17, 2], [-6, 19, 1.8]]) if (!ice && inFoot(Math.abs(sx) + r, sy)) { px.part(); px.ellipse(sx, sy - 1, r, r * 0.6, mat("#a89c88"), -45, { round: 0.8, cast: 1 }); }   // a few stones at its rim
 };
 
 // ---- the tall things behind the warden -------------------------------------------------------
@@ -270,7 +272,7 @@ export const build = (o = {}) => (back, front) => {
     snow(back, -pw + 3, -1, 0.8, 4, 1.6); snow(back, pw - 4, -1.5, 0.8, 3.4, 1.4);
   }
   if (life) {
-    ivy(back, -pw - 5, 13, 13, 2, { seed: seed + 1, side: 1 }); ivy(back, pw + 5, 13, 11, 2, { seed: seed + 4, side: -1 });
+    ivy(back, -pw - 3, 12, 12, 2, { seed: seed + 1, side: 1, spread: 2 }); ivy(back, pw + 3, 12, 10, 2, { seed: seed + 4, side: -1, spread: 2 });
     for (const [fx, fy] of [[pw + 4, 6], [pw + 6, 10], [-pw - 6, 8]]) back.dot(fx, fy, YELLOW, 2.2, { cast: 0 });
   }
   if (!br && level === 1) {                                                         // a crystal out in the grass
@@ -297,6 +299,8 @@ export const build = (o = {}) => (back, front) => {
       if (ice) { snow(front, cx, ptop - 6.5, 2.5, 5, 1.6); if (r4) snow(front, cx + 1, 4.5, 2.4, 4, 1.4); }
       if (life) {
         ivy(front, cx + s * 2, 5, 3 - ptop, 3, { seed: seed + 5 + s, side: -s, spread: 2.2 });
+        ivy(front, cx - s * 3, 5, (3 - ptop) * 0.55, 3, { seed: seed + 9 + s, side: s, spread: 1.6, col: "#5a9a44" });
+        for (let i = 0; i < 5; i++) { front.part(); front.ellipse(cx + s * (3.5 - (i % 2) * 1.5), -2 - i * ((-ptop - 8) / 5) - hash(i, s + 2, seed) * 5, 2.6, 2, i % 2 ? LEAF : LEAF2, 3.05 + i * 0.01, { round: 0.8 }); }   // clumps of leaf down its outer side
         for (let i = 0; i < 4; i++) front.dot(cx + s * 2 + (hash(i, s, seed) - 0.5) * 6, -6 - i * ((-ptop - 14) / 4) - hash(i, seed) * 4, i % 2 ? PINK : YELLOW, 3.2, { cast: 0 });
       }
     }
