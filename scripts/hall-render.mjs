@@ -2,6 +2,7 @@
 // no browser: each hall on turf with its ground shadow, its crew (the new figures) between
 // its back and front pictures, frame 0 of whatever moves, its torch light laid on.
 //   node scripts/hall-render.mjs hall=archer styles=A,B,C levels=3 zoom=4 tag=hc_archer
+//   node scripts/hall-render.mjs hall=archer styles=B forms=1,2,3,a,aa,ab,b,ba,bb zoom=3 tag=hc_forms   (seed=0|1|2)
 //   crew=0 (no figures)  glow=0.8 (torch / spell light strength)  bg=grass|road|dark
 //   crop=x,y,w,h (art px inside the hall's BOX)  line=tint|ink|ink2
 import zlib from "node:zlib";
@@ -16,8 +17,12 @@ const styles = (q.styles || "A,B,C").split(","), levels = (q.levels || "3").spli
 const Z = Number(q.zoom) || 4, GLOW = q.glow == null ? 0.8 : Number(q.glow);
 const bg = { grass: [0x82, 0xb2, 0x56], road: [0xc8, 0xa4, 0x6c], dark: [0x2a, 0x2e, 0x3a] }[q.bg || "grass"];
 const B = hall.BOX, [cx0, cy0, cw, ch] = q.crop ? q.crop.split(",").map(Number) : [0, 0, B.w, B.h];
-const cells = []; for (const lv of levels) for (const st of styles) cells.push([lv, st]);
-const cols = Number(q.cols) || styles.length, rowsN = Math.ceil(cells.length / cols);
+// forms=1,2,3,a,aa,ab,b,ba,bb : the game's nine forms (a level, a path, a final) instead of levels=
+const formOf = (f) => (/^\d$/.test(f) ? { level: Number(f) } : { level: 3, branch: f[0], rank4: f[1] || null });
+const cells = [];
+if (q.forms) for (const f of q.forms.split(",")) for (const st of styles) cells.push([formOf(f), st]);
+else for (const lv of levels) for (const st of styles) cells.push([{ level: lv }, st]);
+const cols = Number(q.cols) || (q.forms ? Math.min(cells.length, 9) : styles.length), rowsN = Math.ceil(cells.length / cols);
 const W = cols * cw, H = rowsN * ch, buf = new Float32Array(W * H * 3);
 for (let k = 0; k < W * H; k++) { buf[k * 3] = bg[0]; buf[k * 3 + 1] = bg[1]; buf[k * 3 + 2] = bg[2]; }
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -48,7 +53,7 @@ let t0 = performance.now(), bakeMs = [];
 for (const [ci, [lv, st]] of cells.entries()) {
   const ox = (ci % cols) * cw, oy = Math.floor(ci / cols) * ch, clip = [ox, oy, cw, ch], ax = ox + B.ox - cx0, ay = oy + B.oy - cy0;
   const tb = performance.now();
-  const baked = kit.bakeHall(B, hall.build({ level: lv, style: st, ...(q.opt ? JSON.parse(q.opt) : {}) }), { line: q.line });
+  const baked = kit.bakeHall(B, hall.build({ ...lv, style: st, seed: Number(q.seed) || 0, ...(q.opt ? JSON.parse(q.opt) : {}) }), { line: q.line });
   bakeMs.push(performance.now() - tb);
   const sp = baked.spec, sh = sp.shadow;
   if (sh) for (const [y, x0, x1] of kit.groundShadow(sh.rx, sh.ry, sh)) for (let x = x0; x <= x1; x++) { const X = ax + x, Y = ay + y; if (X >= ox && X < ox + cw && Y >= oy && Y < oy + ch) px1(X, Y, [42, 28, 44], 0.3); }

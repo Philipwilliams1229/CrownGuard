@@ -67,6 +67,7 @@ const hallOf = (name, level, style) => {
     box: mod.BOX, spec: b.spec, back: toCanvas(b.back), front: b.front ? toCanvas(b.front) : null,
     glows: b.glows.map((g) => ({ key: g.key, col: g.col, back: toCanvas(g.back), front: g.front ? toCanvas(g.front) : null })),
     shadow: b.spec.shadow ? kit.groundShadow(b.spec.shadow.rx, b.spec.shadow.ry, b.spec.shadow) : [],
+    dy: mod.SHEET_DY || 0,          // a hall drawn from the game's anchor, not from its base (hall-archer.js)
   };
   BAKED.set(key, H);
   return H;
@@ -90,6 +91,7 @@ const line1 = (ctx, x0, y0, x1, y1, col) => { ctx.fillStyle = col; const n = Mat
 //   o.frame  { clip, f }: hold every crew figure on one frame (the film strip)
 const drawHall = (ctx, H, x, y, t, o = {}) => {
   const B = H.box, sp = H.spec, lit = o.light !== false;
+  y += H.dy;
   ctx.fillStyle = SHADOW; for (const [yy, x0, x1] of H.shadow) ctx.fillRect(x + x0, y + yy, x1 - x0 + 1, 1);
   ctx.drawImage(H.back, x - B.ox, y - B.oy);
   const live = (layer) => {

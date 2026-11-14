@@ -52,7 +52,7 @@ copy what the rebuilt pieces do.
 | Anything not in the files above (the generic rig) | `src/render/rigs.js` | entries in the rig files above override these |
 | Tower crews (archer, engineer, mage, priest, smith, falconer, bombardier, musketeer…) | `src/render/folk-kit.js` (the body: head, torso, `legs`, `arm` with its elbow solver, timing helpers) and one file per crew: `folk-archer.js` (eight key poses; `ARCHER_FRAMES` / `drawArcherFrame` name every frame the halls and the castle's bowmen stamp; each pose's `back` puts the string arm wholly behind the head or wholly in front, see "Limbs and layers" — the lab can't judge that, look), `folk-casters.js` (mage, priest — their poses are joint-target tables and their timing lives there too: `MAGE_CYCLE`/`magePoseAt`, `mageIdlePose`, `mageBreathPose`, `priestPose`/`priestLight`; the halls only pick frames through them), `folk-workers.js` (winch crew on its crank circle `CREW_FRAMES`/`crankAt`, the smith's blow `SMITH_FRAMES`/`smithHammer`, standers `STANDER_FRAMES` with a spyglass option, the wall's halberdier `HALBERD_FRAMES`/`HALBERD_WALK` and mason `MASON_FRAMES`), `folk-gunners.js` (bombardier/alchemist `bomberFrame`/`bomberCharge`, musketeer `musketFrame`/`musketMuzzle`, falcon-mistress `mistressFrame`/`mistressGlove`, hooded blade `hoodedFrame` — the halls place fuses, flasks, flashes and birds from these, never at fixed offsets); `folk.js` re-exports them all and keeps the build crew | the new body: slim, jointed arms, small hands, each limb one inked part (`limb2`); joints per "Joints and motion" |
 | Crew headwear (the trade on every head) | `src/render/folk-kit.js` `hat(ctx, x, y, kind, pal, o)` — kinds in `HAT_KINDS`: `"falconer"` (bycocket, barred hawk feather, braid; `o.plume`), `"wrap"` (the Covert's skull wrap and face scarf; `o.tails`, `o.maskCol`), `"grenadier"` (the bombardier's fur cap, bag and grenade plate; `o.bag`), `"chaperon"` (the alchemist's roundlet) — and `cap()` (smith, hod carrier, setter; the musketeer's broad hat with `wide`/`tall`); `folk-workers.js` `engineerHead` / `clerkHead` / `watchHead` (drawStander's `o.hat`: `"beret"` or `"kettle"`) | drawn over a bare head (`head(..., { hood: false })`) at the same point inside the same nod, so it rides every tilt (folk-gunners.js `onHead`). Sweep options turn a piece about its root the way the head tilts: + lifts what trails back, − lays it flat. Rules in "Crews' headwear" |
-| Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js` |
+| Halls (towers) | `src/render/halls/<kind>.js` | helpers in `buildkit.js` and `halls/kitB.js`; the NEW buildings are `src/render/pix/hall-<kind>.js` through `pix/halls.js` (see "The new halls"), a hall at a time: the Archer hall so far |
 | Scenery (trees, rocks, spawn mouth, sign) | `src/render/scenery.js` | decor baked per type; `IRON_ART.flat` / `HOLLOW_ART.flat` list pieces baked without the 2px ring |
 | The gate's crag (the hill the Greenwood/old realms' cave is cut into) | `src/data/gatecrag.js` (`gateCrag`, `hillAt`, `cragBlocks`) | pure data: scenery.js paints from it AND `buildableAt` refuses halls on it — change its shape only here, then scan that no buildable point lies on opaque gate pixels |
 | Weather (every zone) | `src/render/weatherfx.js` (the painters, keyed by kind; `drawWeatherGround` for the ground half — puddles, scorches, a rock's shadow — called in draw.js right after the cloud shadows; the toast, hall fires, daze stars) and `src/render/weatherbake.js` (every bake: noise, stepped dither layers, sprites — done once per realm in idle slices) | read-only on game state; one full-board layer per kind, near rain/snow as sparse stamps; check with `wfx-lab.html` (`&weather=kind:strength`, `&bench=N` frame cost, `&burn=N`, `&daze=1`). The storm's rain (2026-11-08): `rain-lab.html` runs the real engine at the real RES (its header lists the parameters). Far and mid rain streaks live in the 1-unit layer as whole-unit strokes so they survive a downscaled screen; near drops are two art pixels wide with a dark side pixel so they show on pale road; big per-frame layers go through plain canvases, never a `willReadFrequently` grid canvas (CPU-backed: ~3 ms); `w.wet` drives the ground (wet road, puddles, floods, a silted river) and `k` the sky. Bridge decks stay dry (an arch sheds its water; muddy pools at each end), standing water is clipped off them, and the rain runs on past the board (`rainedge-lab.html`) |
@@ -1485,6 +1485,87 @@ a pix figure now, drawn through `pix/crews.js` (see "Tower crews" below).
   cache-busting `?v=` gives it its own copy of `pix.js`, with an empty
   material table); a `requestAnimationFrame` clock can start slightly
   negative: clamp it before picking a frame.
+
+## The new halls: buildings in the pixel sculptor (2026-11-14)
+
+The owner asked for the tower BUILDINGS to match the new figures, saw three
+halls in three treatments (the private Artifact "Crownguard Tower Concepts")
+and picked **B, "worked"**: today's designs, redrawn with the figures' thin
+tinted line and one sun, real cast shadows, stonework shown stone by stone as
+TONE (never ink), weathering and ivy, lit windows, torch and spell light on
+the stone. **The Archer hall is in the game** (all nine forms); every other
+hall still draws its old painter. "New sprites" (Settings > Display) switches
+the new buildings off with the new figures.
+
+- **The seam is `src/render/pix/halls.js`** (header has the pattern; it is to
+  buildings what `crews.js` is to crews). A hall file keeps everything it
+  has and adds: `const H = hallOn() ? hallPix("<kind>", mod, { level, branch,
+  rank4 }, t.id % 3) : null;` then `drawHallBack(ctx, H, x, y, time, { id })`
+  in place of the old ground + body stamps and their live lights, the crew
+  exactly as before, `drawHallFront(...)` in place of the old front rail, and
+  the old pennant skipped. `halls/archer.js` is the worked example: six small
+  edits. A machine the hall still draws live (the Ballista's siege bow) is a
+  `pixSprite(key, make)` stamped with `stampPix`, baked with `flip` for the
+  mirrored side so the sun stays put.
+- **A hall module is `src/render/pix/hall-<kind>.js`**: `BOX` (art px, the
+  anchor inside it) and `build({ level, branch, rank4, seed, style })`
+  returning `(back, front) => spec`. It draws into TWO buffers, BACK (behind
+  the crew) and FRONT (over their shins: the near parapet or rail), and
+  returns `{ live: [{ kind: "pennant" | "flame" | "spark" | "orb" | "book", x,
+  y, ... }], lights: [{ key, x, y, r, col, a }], shadow: { rx, ry, dx, dy },
+  crew: [...] }` (`crew` is only for the lab pages). `hall-archer.js` is the
+  worked example; `hall-spire.js` and `hall-catapult.js` are still the
+  CONCEPT sheet's (base-line coordinates, levels only) and must be rebuilt
+  the same way before they go in.
+- **The crew decides the building.** Coordinates are art pixels (two to a
+  board unit) from the hall's ANCHOR (`t.x`, `t.y`), y down; the footing
+  meets the turf at +14. The engine starts every shot from where the old
+  hall stands its crew (`engine/muzzles.js`, `archerLayout` and the like), so
+  a new building reads those same numbers and is built round them: the walk's
+  height and width, each man's feet, a machine's pivot. Never move a crew
+  spot to suit a drawing. A man on a round deck needs the deck's near wall to
+  top out at about his feet in a crenel (`SQ` 0.38 for the Archer hall's
+  rings: at 0.3 the front men stood inside the wall).
+- **The kit is `src/render/pix/hall-kit.js`:** `drum` (round masonry in the
+  3/4 camera: courses sag toward the viewer, stones narrow toward the
+  silhouette; `st` picks how much stonework shows; `under` + `bandEdge` lay
+  an overhang's shadow on it; `strings` are string courses or iron hoops;
+  `boards` makes it a timber wall), `disc` (a deck; `lip` = the far wall's
+  shadow on it), `parapet(back, front, ...)` (merlons, or `rail: true` for
+  posts and a top rail; a corbel table; a string course at deck height),
+  `cone`, `beam`, `wheel`, `archWindow` / `loop` / `door`, `wallBanner` (a
+  `device` grid), `ivy`, `boulder`, and what moves as small baked frames:
+  `pennantFrames` (`dir: -1` flies it west), `flameFrames`, `orbFrames`,
+  `sparkFrames`, `bookFrames`. `wallLight` is a building's light overlay
+  (gentler than the figures' `lightLayer`, or the stonework drowns; `a`
+  scales a small lamp down); `bakeHall` resolves the two pictures and one
+  overlay per light.
+- **Rules that came of it.** The old halls' rules all stand ("Rules for
+  halls": never roof the crew in, every form different, the footprint, yard
+  props, `noFolk`). Keep every form's identity: the same parts in the same
+  places as the old painter (a level's storeys, a path's roof, banner,
+  trophy, props at `PROPS`), in the old palette. Stonework is tone: a stone a
+  tone up or down, broken mortar, a bevel on the lit side; the shadow side
+  stays quiet and the brightest strip is never cut up. One squash (`SQ`) for
+  every ring of a hall. What moves is never baked (flags, flames, anything
+  the hall animates): it goes in `live`, or stays in the hall file.
+- **Looking at it:** `node scripts/hall-render.mjs hall=archer styles=B
+  forms=1,2,3,a,aa,ab,b,ba,bb zoom=3 tag=<shot>` (no browser; `seed=0|1|2`,
+  `crop=`, `crew=0`), then `hallshot.html?kind=<kind>&tag=<shot>&scale=2`
+  (the real hall file, both switches of the crew), `raise-lab.html?how=build,
+  level,branch&kinds=<kind>` (the build animation cuts the hall's picture
+  into pieces: it works on the new halls; the Archer build's hand-over shows
+  14 hard pixels for one frame, 6 of them the pennant) and `shotlab.html`.
+- **Measured** (dev Mac, 90 Archer halls of all nine forms with their crews on
+  a board-sized canvas): 12.2 ms new against 12.0 ms old; a form bakes in
+  about 5 ms the first time it is drawn (72 ms when all 27 variants appear in
+  one frame, which the game never does; an idle-time warm-up like `warmPix`
+  is the fix if a hitch ever shows).
+- **Weak spots to fix when next opened:** the rangers' awning reads as a flat
+  green slab (it wants leaf clumps); the Dragonslayer's skull is small and
+  the string course crosses it; the Ballista's engineer stands at the deck's
+  rim; the old hawks and the cauldron's live bubbles are still the old
+  painter's on a new building.
 
 ## AI-generated art (Gemini / Nano Banana)
 

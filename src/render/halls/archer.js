@@ -26,6 +26,8 @@ import { drawArcherFrame, drawCrew, ARCHER_FOLK } from "../folk.js";
 import * as bowmanFig from "../pix/fig-bowman.js";
 import * as engineerFig from "../pix/fig-engineer.js";
 import { crew, crewOn, drawCrewPix, loopFrame, shotFrame, fracFrame } from "../pix/crews.js";
+import * as archerHall from "../pix/hall-archer.js";
+import { hallOn, hallPix, drawHallBack, drawHallFront, stampPix, pixSprite } from "../pix/halls.js";
 
 // the new archer (render/pix/fig-bowman.js), drawn while "New sprites" is on
 const BOWMAN = crew("bowman", bowmanFig);
@@ -543,15 +545,21 @@ export const drawArcherTower = (ctx, t, time) => {
   const canBake = typeof document !== "undefined";
   const tv = { ...t, id: v };
 
+  // ---- the new building (render/pix/hall-archer.js), while "New sprites" is on: its BACK picture
+  // here, its FRONT after the crew; it brings its own shadow, pennant, torch flame and torchlight,
+  // so the old still parts and their live lights below stand down. The crew and their spots are
+  // the same either way (the new building is built round archerLayout).
+  const H = canBake && hallOn() ? hallPix("archer", archerHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, v) : null;
   // ---- the still parts, baked
-  if (canBake) {
+  if (H) drawHallBack(ctx, H, x, y, time, { id: t.id });
+  else if (canBake) {
     stamp(ctx, baked(`ground|${form}|${v}`, BOX.left + BOX.right, 36, (c) => paintGround(c, tv, BOX.left, 14), false), x, y, BOX.left, 14);
     stamp(ctx, baked(`body|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBody(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   } else paintBody(ctx, t, x, y);
 
   // ---- torchlight: the slits breathe, the door torch flickers
   const master = t.branch === "b";
-  if (lvl >= 3 || t.branch) {
+  if (!H && (lvl >= 3 || t.branch)) {
     const slits = master ? [dy + 30, dy + 17] : [dy + 26];
     for (const [i, sy] of slits.entries()) if (!t._idle || Math.sin(time * 1.7 + t.id + i * 2) > -0.5) glow(ctx, x, sy + 3, 3, "#ffd070", 0.7);
     flame(ctx, x - (master ? 5 : 6.5), base - 16.5, 0.45, time, t.id);
@@ -587,8 +595,9 @@ export const drawArcherTower = (ctx, t, time) => {
   if (r4 === "ba") {
     const loosed = t.anim > 0.3 ? 1 : 0;
     const dir = aimDir;   // at rest, still the way of the last bolt
-    const bcv = canBake ? baked(`siege|${loosed}`, 50, 40, (c) => siegeBow(c, 22, 34, loosed)) : null;
-    if (bcv) stamp(ctx, bcv, x - dir * 2, dy + 1, 22, 34, dir); else siegeBow(ctx, x, dy + 1, loosed);
+    const bcv = canBake && !H ? baked(`siege|${loosed}`, 50, 40, (c) => siegeBow(c, 22, 34, loosed)) : null;
+    if (H) stampPix(ctx, pixSprite(`siege|${loosed}|${dir}`, () => archerHall.siegeBow(loosed, dir < 0)), x - dir * 2, dy + 1, dir);   // the new siege bow, the same geometry
+    else if (bcv) stamp(ctx, bcv, x - dir * 2, dy + 1, 22, 34, dir); else siegeBow(ctx, x, dy + 1, loosed);
     // the winch's spokes turn while it cocks
     if (!t._idle && t.anim < 0.3) {
       // the winch hub sits at (-13, 0.5) on the stock, which is tipped -0.2
@@ -679,12 +688,14 @@ export const drawArcherTower = (ctx, t, time) => {
   }
 
   // ---- the rail the crew stand behind
-  if (canBake) stamp(ctx, baked(`front|${form}|${v}`, FRONT.left + FRONT.right, FRONT.up + FRONT.down, (c) => paintFront(c, tv, FRONT.left, FRONT.up)), x, y, FRONT.left, FRONT.up);
+  if (H) drawHallFront(ctx, H, x, y, time, { id: t.id });
+  else if (canBake) stamp(ctx, baked(`front|${form}|${v}`, FRONT.left + FRONT.right, FRONT.up + FRONT.down, (c) => paintFront(c, tv, FRONT.left, FRONT.up)), x, y, FRONT.left, FRONT.up);
   else paintFront(ctx, t, x, y);
 
   // ---- the standard, flying from the back corner of the walk
   const flag = FLAGS[key] || FLAGS.base;
-  if (!t.branch) {
+  if (H) { /* the new hall flies its own pennant */ }
+  else if (!t.branch) {
     const top = lvl === 1 ? dy - 20 : lvl === 2 ? dy - 26 : dy - 34;
     pennant(ctx, x + pw - 2.4, top, 1, flag, time, t.id, 1);
   } else if (master && r4 !== "ba") pennant(ctx, x - pw + 3, dy - 40, 1, flag, time, t.id, -1);

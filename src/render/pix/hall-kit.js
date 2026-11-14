@@ -78,6 +78,7 @@ export const drum = (px, o) => {
     const sc = strings.find((s) => q.h >= s[0] && q.h < s[0] + s[1]);
     if (sc) { mm = sc[2] ?? o.mTrim ?? m; bias += q.h < sc[0] + 1 ? 1 : 0; }
     else if (strings.some((s) => q.h >= s[0] + s[1] && q.h < s[0] + s[1] + 1.2)) bias -= 1;   // the moulding's own shadow
+    else if (o.boards) { if (frac(Math.asin(q.u) / o.boards) < 0.16 && Math.abs(q.u) < 0.93) bias -= 1; else if (hash(Math.floor(Math.asin(q.u) / o.boards), seed) > 0.75 && q.u < 0.3) bias += 1; }
     else if (st.stones === 2) {
       if (hv < 0.15) bias -= 1; else if (hv > 0.8) bias += 1;
       if ((eB || eR) && hm < 0.72) bias -= 1;
@@ -137,8 +138,9 @@ export const parapet = (back, front, o) => {
     for (let j = Math.floor(deck - wall - mer.h - ry) - 1; j <= Math.ceil(deck); j++) for (let i = -Math.ceil(r); i <= Math.ceil(r); i++) {
       const x = i + 0.5, y = j + 0.5, u = x / r;
       if (Math.abs(u) >= 1) continue;
-      const s = Math.sqrt(1 - u * u), h = y + ry * s, a = Math.PI - Math.asin(u), M = isMer(a), topH = deck - wall - (M ? mer.h : 0);
+      const s = Math.sqrt(1 - u * u), h = y + ry * s, a = Math.PI - Math.asin(u), M = isMer(a), topH = deck - wall - (M || o.rail ? mer.h : 0);
       if (h < topH || h > deck) continue;
+      if (o.rail && !M && h >= topH + 2 && h < deck - wall) continue;                     // open between the posts, under the top rail
       let bias = -1, ny = 0;
       if (h < topH + 1.5) { ny = -0.85; bias = 0; }                                       // the wall's top, in the sun
       else if (M) bias -= merEdge(a) < 0 ? 0 : merEdge(a) > 0 ? 1 : 0;
@@ -152,8 +154,9 @@ export const parapet = (back, front, o) => {
   for (let j = Math.floor(deck - wall - mer.h) - 1; j <= Math.ceil(deck + band + ry) + 1; j++) for (let i = -Math.ceil(r); i <= Math.ceil(r); i++) {
     const x = i + 0.5, y = j + 0.5, u = x / r;
     if (Math.abs(u) >= 1) continue;
-    const s = Math.sqrt(1 - u * u), h = y - ry * s, a = Math.asin(u), M = isMer(a), topH = deck - wall - (M ? mer.h : 0);
+    const s = Math.sqrt(1 - u * u), h = y - ry * s, a = Math.asin(u), M = isMer(a), topH = deck - wall - (M || o.rail ? mer.h : 0);
     if (h < topH || h > deck + band) continue;
+    if (o.rail && !M && h >= topH + 2 && h < deck - wall) continue;
     let bias = 0, ny = -0.04, mm = m;
     if (h < topH + 1.6) { ny = -0.85; }                                                   // tops catch the sun
     else if (h < deck - wall && M) { const e = merEdge(a); bias += e < 0 ? 1 : e > 0 ? -1 : 0; }
@@ -163,7 +166,8 @@ export const parapet = (back, front, o) => {
       const f = frac(a / cStep + 0.25);
       if (f > 0.55 && h > deck + band - 2.6) continue;
       if (f > 0.55) bias -= 1; else if (f < 0.14) bias += 1;
-    } else if (st.stones === 2) {
+    } else if (o.boards) { if (frac(a / o.boards) < 0.16 && Math.abs(u) < 0.93) bias -= 1; }   // upright boards
+    else if (st.stones === 2) {
       const c = Math.floor((h - deck) / 5), k = Math.floor(a / 0.5 + (c & 1) * 0.5), hv = hash(c, k, seed);
       if (hv < 0.2 && u < 0.4) bias -= 1; else if (hv > 0.8 && u < 0.3) bias += 1;
     }
@@ -319,10 +323,10 @@ export const wallBanner = (px, x, y, w, h, m, mTrim, z, o = {}) => {
 // A pennant on a pole, rippling: `n` frames, each a small resolved picture with
 // the pole's foot at its anchor. Live in the game: one stamp a flag a frame.
 export const pennantFrames = (col, o = {}) => {
-  const n = o.n || 8, len = o.len || 13, hgt = o.h || 7, pole = o.pole ?? 16, M = mat(col), MP = mat("#6f4a2a"), MG = mat("#d8b34a");
+  const n = o.n || 8, len = o.len || 13, hgt = o.h || 7, pole = o.pole ?? 16, d = o.dir < 0 ? -1 : 1, M = mat(col), MP = mat("#6f4a2a"), MG = mat("#d8b34a");
   const frames = [];
   for (let f = 0; f < n; f++) {
-    const px = new Pix(len + 8, pole + hgt + 6, 3, pole + hgt + 3), ph = (f / n) * Math.PI * 2;
+    const px = new Pix(len + 8, pole + hgt + 6, d < 0 ? len + 5 : 3, pole + hgt + 3), ph = (f / n) * Math.PI * 2;
     px.part();
     if (pole) { px.capsule(0.5, 0, 0.8, 0.5, -pole - hgt, 0.7, MP, 0, { cast: 0 }); px.dot(0.5, -pole - hgt - 1.5, MG, 1, { fix: 3 }); px.dot(0.5, -pole - hgt - 0.5, MG, 1); }
     px.part();
@@ -331,7 +335,7 @@ export const pennantFrames = (col, o = {}) => {
       const cy = -pole - hgt / 2 + wave + t * 1.5, slope = Math.cos(t * 5.2 - ph);
       for (let j = Math.round(cy - half); j <= Math.round(cy + half); j++) {
         if (o.swallow && t > 0.72 && Math.abs(j - cy) < (t - 0.72) * hgt * 0.9) continue;
-        px._put(Math.floor(1.5 + i + px.ox), Math.floor(j + px.oy), M, 2, clamp(slope * 0.75, -0.9, 0.9), -0.2, 0.6, { bias: slope < -0.55 ? 0 : 0, cast: 0 });
+        px._put(Math.floor((d < 0 ? -0.5 - i : 1.5 + i) + px.ox), Math.floor(j + px.oy), M, 2, clamp(slope * 0.75 * d, -0.9, 0.9), -0.2, 0.6, { cast: 0 });
       }
     }
     frames.push(px.resolve({ line: o.line || "tint" }));
@@ -403,7 +407,7 @@ export const groundShadow = (rx, ry, o = {}) => {
 // light's colour in three stepped strengths, strongest near it and on what faces it.
 // Stamped over the picture at whatever strength the moment calls for (a flicker, a cast).
 export const wallLight = (px, img, lt) => {
-  const { w, h } = px, out = new Uint8ClampedArray(w * h * 4), c = [1, 3, 5].map((i) => parseInt(lt.col.slice(i, i + 2), 16)), A = [0, 40, 84, 132];
+  const { w, h } = px, out = new Uint8ClampedArray(w * h * 4), c = [1, 3, 5].map((i) => parseInt(lt.col.slice(i, i + 2), 16)), A = [0, 40, 84, 132].map((v) => Math.round(v * (lt.a ?? 1)));   // lt.a: a gentler lamp
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const k = j * w + i; if (!img.data[k * 4 + 3]) continue;
     let dx = lt.x + px.ox - (i + 0.5), dy = lt.y + px.oy - (j + 0.5); const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;

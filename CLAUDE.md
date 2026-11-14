@@ -116,11 +116,9 @@ next one.
   artists who need the browser). Artists used the built-in browser in their
   own tabs for `hallshot.html` / `hallstrip.html`.
 - **The tower BUILDINGS** (owner, same day: "yeah I want the towers to get a
-  visual upgrade too!"): a separate session, "Tower buildings: visual
-  upgrade", is making a concept round first (new files only; it must not
-  edit `src/render/halls/*.js` until its concepts are approved). Until then
-  new-style people stand on old-style halls, as old and new figures share
-  the board.
+  visual upgrade too!"): see "The tower BUILDINGS" below. The owner picked
+  treatment B; the Archer hall is in, the other twelve follow a hall at a
+  time, so new-style people still stand on some old-style halls.
 - **Next, in the order agreed with the owner:** the rest of the rigs a few
   at a time (crown soldiers, then Iron, Hollow, Rime) (keep each chapter's colours: style guide, "The three armies'
   colours"), the castle's people and the build crew (`fig-halberdier.js` is
@@ -156,37 +154,36 @@ next one.
   and bolts start; 22 of 68 realms have one walk slot fewer, the spare
   bowmen stand on tower decks). Both pending the owner's look.
 
-## The tower BUILDINGS: a concept round (2026-11-13, owner request)
+## The tower BUILDINGS (2026-11-13/14, owner request)
 
 "I want the towers to get a visual upgrade too": the halls themselves, to match
-the new figures. **Nothing in the game has changed; the owner has not picked yet.**
-- The concept page is a private Artifact, "Crownguard Tower Concepts" (its own
-  page, not the sprite sheet's): Archer hall, Wizard Spire and Catapult, each as
-  today | A (today's design, thin tinted line, one sun, cast shadows) | B (A plus
-  stone by stone, weathering, ivy, lit windows, torch and spell light on the
-  stone; the lead's recommendation) | C (B on bolder shapes), enlarged and at
-  battle size, the Archer hall and Spire across levels 1-3, a film strip of a
-  cast lighting the crown, and costs measured on the viewer's device.
-- Files, all new and read by nothing in the game: `src/render/pix/hall-kit.js`
-  (round masonry in the 3/4 camera with stonework as tone, parapets split into
-  BACK and FRONT pictures so the crew is never roofed in, timber, wheels,
-  windows, banners, ivy, live frames for pennants / flames / orbs, `wallLight`
-  overlays, `bakeHall`), `hall-archer.js`, `hall-spire.js`, `hall-catapult.js`
-  (`build({ level, style })`), `concept/halls.js` + `hall-concepts.html` (the
-  page, live on the dev server), `hall-now.html` (saves today's halls as
-  `.shots/hallc_now.png`), `node scripts/build-hall-concepts.mjs` (one page in
-  `concept/dist/`), `node scripts/hall-render.mjs hall=archer styles=A,B,C
-  levels=1,2,3 zoom=4 tag=x` (a look with no browser).
-- Measured: a hall bakes in ~4-5 ms warm (tens of ms cold) on the dev Mac; 90
-  concept halls with every flag, flame, light and crew drew in ~11 ms on a
-  board-sized canvas (~7-9 ms for the buildings alone). The concept towers are
-  sized to today's (deck heights within a few px).
-- When the owner picks: the halls' own files (`src/render/halls/*.js`) are the
-  crews session's until its work is on main (it landed 2026-11-13); message
-  that session first. Known follow-ons whatever the pick: `buildcut.js` cuts a
-  hall "along its ink lines" and must learn the tinted line; `noFolk`,
-  portraits and muzzle points must hold; the catapult mirrors by aim, so it
-  needs a `flip` bake for one sun; the castle and scenery then look oldest.
+the new figures. A concept round (the private Artifact "Crownguard Tower
+Concepts": Archer hall, Wizard Spire and Catapult as today | A clean | B worked
+| C bolder) and **the owner picked B, "worked"** (2026-11-14): today's designs,
+thin tinted line, one sun, stone by stone, weathering and ivy, lit windows,
+torch and spell light on the stone.
+- **In the game: the Archer hall, all nine forms** (`src/render/pix/hall-archer.js`
+  through the seam `src/render/pix/halls.js`; `halls/archer.js` asks for it
+  while "New sprites" is on and keeps its old painter under the switch). NOT
+  yet seen in the game by the owner. The other twelve halls still draw their
+  old painters, so old and new buildings share the board for now.
+- **How to do the next hall** is in the style guide, "The new halls": the
+  contract, the kit (`hall-kit.js`), the rules, the labs. The one rule that
+  bites: THE CREW DECIDES THE BUILDING. The engine starts shots from the old
+  hall's crew spots, so a new building reads those numbers and is built round
+  them; never move a spot.
+- `hall-spire.js` and `hall-catapult.js` are still the concept sheet's
+  versions (levels only, base-line coordinates): rebuild them like
+  `hall-archer.js` before wiring. The concept page (`hall-concepts.html`,
+  `concept/halls.js`, `node scripts/build-hall-concepts.mjs`) still runs;
+  the published Artifact is the record of what the owner chose from.
+- Measured: 90 new Archer halls with crews 12.2 ms against 12.0 ms old; a form
+  bakes in ~5 ms on first sight. The build animation works on the new hall
+  (`raise-lab.html`: 14 hard pixels for one frame at the hand-over).
+- Estimates given to the owner: about 3 working days for all 13 halls in B.
+  Told to the owner as follow-ons: the castle wall and scenery will then look
+  oldest; the hawks, the cauldron's bubbles and other live bits the hall
+  files still paint are old-style until each is redrawn.
 
 ## Fifteen levels a chapter (2026-10-03, owner request)
 
