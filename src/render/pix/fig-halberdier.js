@@ -15,7 +15,7 @@ import { solve, sampleKeys, walkPose, HUMAN, scaled, lerp, clamp } from "./rig.j
 
 // the same build as the other standers (fig-stander.js): 47 px to the crown under the helm
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.8, shin: 9.2, ankle: 2.4, spine: 13.6, neck: 1.8, shN: -2.6, shF: 3, hipN: -1.4, hipF: 1.6 });
-export const BOX = { w: 90, h: 80, ox: 20, oy: 76 };
+export const BOX = { w: 102, h: 82, ox: 32, oy: 78 };
 const ARM = BONES.upper + BONES.fore, SHAFT = 64, SPIKE = 6;
 
 const SKIN = mat("#e8b990"), EYE = flat("#2a1c2c"), LIP = flat("#b0705a"), BROW = mat("#6a4a30");
@@ -117,7 +117,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.part();
   px.capsule(...at(-11.5, 0), 1.25, ...at(0, 0), 1.25, STEEL, 7.05);
   px.capsule(...at(0, 0), 1.0, ...at(SPIKE, 0), 0.35, BLADE, 7.05);
-  px.poly([at(-9.6, 0.6), at(-11.4, 5.4), at(-6.2, 6.6), at(-0.8, 5.2), at(-2.6, 0.6)], BLADE, 7.06, { n: [-0.35, -0.45, 0.82] });
+  px.poly([at(-9.6, 0.6), at(-11.4, 5.4), at(-6.2, 6.6), at(-0.8, 5.2), at(-2.6, 0.6)], STEEL, 7.06, { n: [0.1, 0.2, 0.95] });
   px.line(...at(-10.6, 5.6), ...at(-1.6, 5.4), BLADE, 7.07, { fix: 4 });                    // the edge
   px.poly([at(-7.8, -0.6), at(-6.4, -4.4), at(-4.4, -0.6)], STEEL, 7.06, { n: [-0.3, -0.4, 0.86] });
   if (two) { px.part(); px.ellipse(hdF[0], hdF[1], 1.6, 1.7, SKIN, 7.3, { bias: -1 }); }
@@ -179,9 +179,9 @@ export const CLIPS = {
       const k = sampleKeys([
         { t: 0, p: REST },
         { t: 0.2, e: "io", p: { n: [3, -27], ha: 1.0, hg: 24, two: 1, fd: 13, rx: -1, lean: -0.05, twist: 0.2, drop: 0.2 } },
-        { t: 0.4, e: "out", p: { n: [-2, -27.5], ha: 1.5, hg: 20, two: 1, fd: 13.5, rx: -2.2, lean: -0.1, twist: -0.6, drop: 0.6, fF: [3.2, 0] } },
-        { t: 0.5, e: "in3", p: { n: [9, -28.5], ha: 1.58, hg: 18, two: 1, fd: 11, rx: 3.2, lean: 0.2, twist: 0.9, drop: 1.4, hx: 0.5, fF: [7.4, 0] } },
-        { t: 0.62, e: "out", p: { n: [10, -28.2], ha: 1.6, hg: 18, two: 1, fd: 11, rx: 3.6, lean: 0.21, twist: 0.9, drop: 1.5, hx: 0.5, fF: [7.4, 0] } },
+        { t: 0.4, e: "out", p: { n: [-4, -27.5], ha: 1.5, hg: 24, two: 1, fd: 13.5, rx: -2.4, lean: -0.1, twist: -0.6, drop: 0.6, fF: [3.2, 0] } },
+        { t: 0.5, e: "in3", p: { n: [9.5, -28.5], ha: 1.58, hg: 16, two: 1, fd: 11, rx: 3.2, lean: 0.2, twist: 0.9, drop: 1.4, hx: 0.5, fF: [7.4, 0] } },
+        { t: 0.62, e: "out", p: { n: [10.5, -28.2], ha: 1.6, hg: 16, two: 1, fd: 11, rx: 3.6, lean: 0.21, twist: 0.9, drop: 1.5, hx: 0.5, fF: [7.4, 0] } },
         { t: 0.82, e: "io", p: { n: [5, -29], ha: 0.9, hg: 26, two: 1, fd: 12, rx: 0.6, lean: 0.03, twist: 0.4, drop: 0.3, fF: [3.6, 0] } },
         { t: 1, e: "io", p: REST },
       ], ph);

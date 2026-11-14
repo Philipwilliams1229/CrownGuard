@@ -269,7 +269,8 @@ const watchman = (body, u = 0, ga = -0.04, sh = 0) => {
   p.gl = clamp(u * 1.5, 0, 1); p.ga = lerp(0.42 + (p.gsw || 0), ga, e);
   const fu = clamp((u - 0.3) / 0.7, 0, 1);
   p.aF = mixA(FAR_REST, aim(s.sF, farEye), EASE.io(fu)); p.two = u > 0.45 ? 1 : 0;
-  if (sh > 0) { p.aF = mixA(FAR_REST, aim(s.sF, [hx + 8.2, hy - 7.2], 1), sh); p.aF[2] = sh > 0.25 ? 1 : 0; p.shade = sh > 0.6 ? 1 : 0; }
+  // the hand comes up close to his chest (the reach folds midway), not out at arm's length
+  if (sh > 0) { p.aF = mixA(FAR_REST, aim(s.sF, [hx + 8.2, hy - 7.2], 1), sh); p.aF[1] *= 1 - 0.32 * Math.sin(Math.PI * sh); p.aF[2] = sh > 0.25 ? 1 : 0; p.shade = sh > 0.6 ? 1 : 0; }
   return p;
 };
 
