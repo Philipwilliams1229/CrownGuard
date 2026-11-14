@@ -23,6 +23,15 @@ import {
 } from "./kitB.js";
 import { drawStander, drawBomber, bomberFrame, bomberCharge, STANDER_FRAMES, JOINTS, CREW_FOLK } from "../folk.js";
 import { getStats } from "../../engine/towers.js";
+import * as standerFig from "../pix/fig-stander.js";
+import { crew, crewOn, drawCrewPix, fracFrame, markOf, crewMark } from "../pix/crews.js";
+
+// the new sprites' clerk (pix/fig-stander.js, the "clerk" look)
+const CLERK = crew("stander", standerFig);
+const coinAt = (ctx, cx, cy, time) => {
+  ctx.fillStyle = "#241a26"; ctx.fillRect(cx - 1.4, cy - 1.1, 2.8, 2.2);
+  ctx.fillStyle = Math.sin(time * 20) > 0 ? "#f8e08a" : "#b08a3a"; ctx.fillRect(cx - 0.9, cy - 0.6, 1.8, 1.2);
+};
 
 const cache = spriteCache();
 export const resetGoldworksBakes = () => cache.clear();
@@ -330,6 +339,46 @@ export const drawGoldworks = (ctx, t, time) => {
     if (ch) {
       const hot = pose === "cock" || pose === "whip" || pose === "back";
       glow(ctx, ax - ch.x, ay + ch.y, hot ? 4 : 2.6, "#8ad0a0", hot ? 0.5 + 0.2 * Math.sin(time * 10) : 0.25 + 0.1 * Math.sin(time * 3 + t.id));
+    }
+  } else if (crewOn()) {
+    // the clerk at the door, in the new sprites. His round, phased by t.id: he thumbs a
+    // coin up off his hand and catches it (`flip`), takes the quill from his beret and
+    // enters it in the ledger (`write`), then stands easy over the book (`idle`). When the
+    // works pays out (the engine adds to t.paidTotal as a wave is held) a coin is tossed to
+    // him from the furnace mouth and he throws a hand up to catch it (`pay`, its `hit` the
+    // catch). The ledger and quill are in the figure; only the coins are live.
+    const [kx, ky] = crewSpot(t, x, y);
+    shadow(ctx, kx - 1, ky + 0.4, 5, 1.8, 0.3);
+    const paid = t.paidTotal || 0;
+    if (t._paidSeen == null || paid < t._paidSeen) t._paidSeen = paid;
+    else if (paid > t._paidSeen) { t._paidSeen = paid; t._payAt = time; }
+    const PAY = CLERK.CLIPS.pay, payPh = t._payAt != null ? ((time - t._payAt) * 1000) / PAY.ms : -1;
+    let clip = "idle", ph = 0;
+    if (payPh >= 0 && payPh < 1) { clip = "pay"; ph = payPh; }
+    else {
+      const u = cycOf(time / 9.6 + t.id * 0.37, 1);
+      if (u < 0.25) { clip = "flip"; ph = u / 0.25; }
+      else if (u < 0.6) { clip = "write"; ph = (u - 0.25) / 0.35; }
+      else ph = (((u - 0.6) / 0.4) * 2) % 1;   // two breaths, from and back to the pose every clip starts at
+    }
+    const n = CLERK.CLIPS[clip].n;
+    const f = clip === "idle" ? Math.floor(ph * n) % n : fracFrame(CLERK, clip, ph);
+    drawCrewPix(ctx, CLERK, kx, ky, -1, clip, f, { variant: "clerk" });
+    if (clip === "flip" && ph > standerFig.FLIP_UP && ph < standerFig.FLIP_DOWN) {
+      // the coin: up off his thumb, turning, down into the hand again
+      const [mx, my] = crewMark(CLERK, "flip", fracFrame(CLERK, "flip", 0.5), "coin", -1, "clerk");
+      const k = (ph - standerFig.FLIP_UP) / (standerFig.FLIP_DOWN - standerFig.FLIP_UP);
+      coinAt(ctx, kx + mx - 0.6 * Math.sin(k * Math.PI), ky + my - Math.sin(k * Math.PI) * 9, time);
+    } else if (clip === "pay") {
+      const hitF = Math.round(PAY.hit * (PAY.n - 1)), [mx, my] = crewMark(CLERK, "pay", hitF, "coin", -1, "clerk");
+      if (ph < PAY.hit) {
+        // the works' coin, tossed from the furnace mouth (from the top of the hoard, which has buried it)
+        const k = ph / PAY.hit, sx = r4 === "aa" ? x - 7 : hx - 3.5, sy = r4 === "aa" ? y - 9 : y - LIFT - 2;
+        coinAt(ctx, sx + (kx + mx - sx) * k, sy + (ky + my - sy) * k - Math.sin(k * Math.PI) * 11, time);
+      } else if (ph < PAY.hit + 0.22) {
+        const [gx, gy] = crewMark(CLERK, "pay", f, "coin", -1, "clerk");
+        glint(ctx, kx + gx, ky + gy, 1, 1 - (ph - PAY.hit) / 0.22);
+      }
     }
   } else {
     // the clerk at the door (the workers' stander, at ease: a breath, his

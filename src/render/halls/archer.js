@@ -23,6 +23,14 @@ import {
 } from "../buildkit.js";
 import { bakeSprite, PX } from "../paint.js";
 import { drawArcherFrame, drawCrew, ARCHER_FOLK } from "../folk.js";
+import * as bowmanFig from "../pix/fig-bowman.js";
+import { crew, crewOn, drawCrewPix, loopFrame, shotFrame, fracFrame } from "../pix/crews.js";
+
+// the new archer (render/pix/fig-bowman.js), drawn while "New sprites" is on
+const BOWMAN = crew("bowman", bowmanFig);
+// standing down, in seconds: an arrow on the string is eased off (the draw run backwards);
+// a man caught reloading finishes nocking; the arrow goes back in the quiver (the "stow" clip); then the idle
+const PIX_EASE = 0.45, PIX_NOCK = 0.4, PIX_STOW = bowmanFig.CLIPS.stow.ms / 1000;
 
 const FLAGS = {
   base: "#a04a3f", a: "#5c8a44", aa: "#8e2f3a", ab: "#9fc4dc", b: "#3f5a8c", ba: "#6c727e", bb: "#a8302a",
@@ -603,7 +611,32 @@ export const drawArcherTower = (ctx, t, time) => {
     // easy instead of dropping straight to rest
     if (!t._idle) t._arcBusy = time;
     const down = t._idle && t._arcBusy != null && time >= t._arcBusy ? time - t._arcBusy : Infinity;
+    // ---- the new sprites: each archer's own moment mapped onto the figure's shot clip
+    // (crews.js shotFrame: the loose on his arrow, the reload after it, then the draw and
+    // the HOLD at full draw until his next loose); a longbow is the "|long" look and clip
+    const pix = crewOn();
+    const clip = big ? "shootLong" : "shoot", look = big ? `${key}|long` : key;
+    const CL = BOWMAN.CLIPS[clip], hitF = Math.round((CL.hit ?? 0.5) * (CL.n - 1));
     for (const sp of spots) {
+      if (pix) {
+        const fx = x + sp.dx, fy = dy + 3 + sp.dy;
+        if (!t._idle) {
+          // ms since HIS own loose and his own cycle, exactly as the old crew reads them below
+          let el, own = rate;
+          if (t.branch === "a") { const ph = (sp.i - t.shotIdx + n) % n; el = ((n - ph) % n) * rate + since; own = rate * n; }
+          else { el = since - sp.i * 90; if (el < 0) el += rate; }
+          const f = shotFrame(BOWMAN, clip, own - el, own);
+          (t._bowSeen ||= [])[sp.i] = f;
+          drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, clip, f, { variant: look });
+          continue;
+        }
+        const f0 = t._bowSeen?.[sp.i] ?? 0, d = Math.max(0, down - sp.i * 0.08);
+        const ease = f0 < hitF ? PIX_EASE * (f0 / Math.max(1, hitF - 1)) : PIX_NOCK * ((CL.n - 1 - f0) / Math.max(1, CL.n - 1 - hitF));
+        if (d < ease) drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, clip, Math.round(f0 < hitF ? f0 * (1 - d / ease) : f0 + (CL.n - 1 - f0) * (d / ease)), { variant: look });
+        else if (d - ease < PIX_STOW) drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, "stow", fracFrame(BOWMAN, "stow", (d - ease) / PIX_STOW), { variant: look });
+        else drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, "idle", loopFrame(BOWMAN, "idle", time, t.id + sp.i * 1.7), { variant: look });   // at ease, still facing the last shot
+        continue;
+      }
       let frame, dir;
       // an arrow on the string is eased off; a man caught reloading just lowers the bow
       const armed = LETDOWN_FROM.has(t._arcSeen?.[sp.i]);

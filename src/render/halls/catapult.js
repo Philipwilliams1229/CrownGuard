@@ -22,6 +22,13 @@ import {
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { drawCrew, CREW_FOLK, CREW_FRAMES, frameOf } from "../folk.js";
+import { getStats } from "../../engine/towers.js";
+import * as engineerFig from "../pix/fig-engineer.js";
+import { crew, crewOn, drawCrewPix, loopFrame, fracFrame, markOf, crewMark } from "../pix/crews.js";
+
+// the new engineer ("New sprites" on): fig-engineer.js. Its winch clips ride WINCH's
+// circle and its lever clips hold LEVER's end (the same numbers, in art pixels).
+const ENG = crew("engineer", engineerFig);
 
 const cache = spriteCache();
 export const resetCatapultBakes = () => cache.clear();
@@ -334,6 +341,48 @@ const paintWeight = (ctx, x, y, key) => {
   }
 };
 
+// ---- the new engineer's moment ----------------------------------------------------
+// Which clip and frame he is in, from the same clocks the engine's picture runs on:
+// t.cd (ms to the next shot), the form's rate, t.anim, readiness r.
+//   The mangonel / trebuchet: the shot lands on `winchLoose`'s hit frame (he knocks the
+// handle back, is thrown upright, watches the stone go); then he winds (`winch`: a turn
+// is 8 frames, picked by the old crank phase) until the arm is down (r 0.8); then he
+// stands on the handle (`winchIdle`) and, as the shot comes due, braces on it and waits.
+//   The Log Roller: `heave` lands on the roll; he stands on the raised lever (`leverUp`)
+// while the ramp is empty, leans it down as the chock is set (`reset`, at r 0.55), stands
+// on it (`lever`) and crouches over it as the roll comes due.
+//   At ease: `winchIdle` / `lever`, and at the winch two raps on a peg now and then.
+const frac = (v) => v - Math.floor(v);
+const shotPart = (clip, cd, since) => {
+  const c = ENG.CLIPS[clip], n1 = c.n - 1, hitF = Math.round(c.hit * n1), pre = c.hit * c.ms, post = (1 - c.hit) * c.ms;
+  if (since < post) return { clip, f: Math.min(n1, hitF + Math.round((n1 - hitF) * (since / post))) };   // the release and its follow-through
+  if (cd <= pre) return { clip, f: Math.max(0, Math.round((hitF - 1) * (1 - cd / pre))) };                // braced, waiting
+  return null;
+};
+const engineerNow = (t, time, s, r, anim) => {
+  const idle = !!t._idle, rate = getStats(t).rate || 1000, cd = Math.max(0, t.cd || 0);
+  const since = !idle && cd > 0 ? rate - cd : Infinity;   // ms since the last shot
+  const loop = (clip) => ({ clip, f: loopFrame(ENG, clip, time, t.id) });
+  if (s.roller) {
+    if (idle) return loop("lever");
+    const C = ENG.CLIPS, H = C.heave;
+    if (since < (1 - H.hit) * H.ms) return shotPart("heave", cd, since);
+    if (anim > 0 || r < 0.55) return loop("leverUp");
+    const set = (r - 0.55) * rate;                        // ms since the chock was set again
+    if (cd > 0 && set < C.reset.ms) return { clip: "reset", f: fracFrame(ENG, "reset", set / C.reset.ms) };
+    return shotPart("heave", cd, Infinity) || loop("lever");
+  }
+  if (idle) {
+    const u = frac(time / 7 + t.id * 0.29);
+    if (u > 0.62 && u < 0.8) { const q = frac((u - 0.62) / 0.09); return { clip: "winchRap", f: fracFrame(ENG, "winchRap", q) }; }
+    return loop("winchIdle");
+  }
+  const L = ENG.CLIPS.winchLoose;
+  if (since < (1 - L.hit) * L.ms) return shotPart("winchLoose", cd, since);
+  if (anim === 0 && r < 0.8) return { clip: "winch", f: Math.floor(frac(time * 1.45 + t.id * 0.37) * ENG.CLIPS.winch.n) % ENG.CLIPS.winch.n };
+  return shotPart("winchLoose", cd, Infinity) || loop("winchIdle");
+};
+
 // ---- per-frame -----------------------------------------------------------------
 const armAngle = (t, s, r) => {
   if (t.anim > 0) {
@@ -357,6 +406,9 @@ export const drawCatapult = (ctx, t, time) => {
   const anim = t.anim || 0;
   const id5 = t.id % 5;
   const form = `${t.level}|${t.branch}|${t.rank4}|${f}`;
+  // the new engineer's clip and frame (null: the old crew, or no crew), and where his fists hold the handle
+  const now = !t.noFolk && crewOn() ? engineerNow(t, time, s, r, anim) : null;
+  const grip = now ? crewMark(ENG, now.clip, now.f, "grip", f, "engineer") : null;
   const layer = (name, fn) => {
     if (!bake) { fn(ctx, t, x, y, f); return; }
     const cv = cache.get(`${name}|${form}|${name === "g" ? id5 : 0}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => fn(c, { ...t, id: id5 }, BOX.left, BOX.up, f));
@@ -400,7 +452,8 @@ export const drawCatapult = (ctx, t, time) => {
     if (!out) { ctx.fillRect(cx - 1.4, cy - 3, 2.8, 3.6); ctx.fillStyle = "#6a4a2e"; ctx.fillRect(cx - 1.4, cy - 3, 1, 3.6); }
     else { ctx.fillRect(cx - 2, cy + 0.5, 3.6, 1.8); }
     // (the lever ends in the engineer's hands: no engineer, no lever)
-    const hx = x - f * (hw + 1 - LEVER[0]), hy = y + CREW_DY + LEVER[1] + (out ? -3 : 0);
+    let hx = x - f * (hw + 1 - LEVER[0]), hy = y + CREW_DY + LEVER[1] + (out ? -3 : 0);
+    if (grip) { hx = x - f * (hw + 1) + grip[0]; hy = y + CREW_DY + grip[1]; }   // the new engineer: the lever ends in his fists, wherever they are
     if (!t.noFolk) {
       ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.8; ctx.lineCap = "round";
       ctx.beginPath(); ctx.moveTo(cx - f * 1, cy + 1); ctx.lineTo(hx, hy); ctx.stroke();
@@ -485,6 +538,23 @@ export const drawCatapult = (ctx, t, time) => {
   // peg home on the drum (it sparks on the rap).
   if (t.noFolk) return;
   const ex = x - f * (hw + 1), ey = y + CREW_DY;
+  if (now) {
+    if (!s.roller) {
+      // the winch's crank and its handle, at the turn his fists are on
+      const ax = x - f * (hw - 3), ay = y - WINCH_DY, gx = ex + grip[0], gy = ey + grip[1];
+      ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.2; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(gx, gy); ctx.stroke();
+      ctx.fillStyle = "#241a26"; ctx.fillRect(gx - 1, gy - 1, 2, 2);
+      ctx.fillStyle = "#8a909c"; ctx.fillRect(gx - 0.5, gy - 0.5, 1, 1);
+    }
+    const rec = drawCrewPix(ctx, ENG, ex, ey, f, now.clip, now.f, { variant: "engineer" });
+    if (now.clip === "winchRap") {
+      // the rap sparks where his fist lands on the peg
+      const R = ENG.CLIPS.winchRap, hitF = Math.round(R.hit * (R.n - 1));
+      if (now.f === hitF || now.f === hitF + 1) { const m = markOf(rec, "fist", f); glow(ctx, ex + m[0], ey + m[1], 2.5, "#ffe08a", 0.9); }
+    }
+    return;
+  }
   let key, opt;
   if (s.roller) {
     const out = anim > 0 || r < 0.55;

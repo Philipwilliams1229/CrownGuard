@@ -26,6 +26,11 @@ import { bakeSprite, PX } from "../paint.js";
 import { getStats } from "../../engine/towers.js";
 import { FOOT_NARROW } from "./kitB.js";
 import { drawPriest, priestPose, priestLight, PRIEST_FOLK } from "../folk.js";
+import * as priestFig from "../pix/fig-priest.js";
+import { crew, crewOn, drawCrewPix, loopFrame, markOf } from "../pix/crews.js";
+
+// the new sprites' warden (pix/fig-priest.js; "New sprites" off draws the old one below)
+const PRIEST = crew("priest", priestFig);
 
 const CACHE = new Map();
 export const resetWardenBakes = () => CACHE.clear();
@@ -341,12 +346,28 @@ export const drawSupportTower = (ctx, t, time) => {
   const pal = PRIEST_FOLK[key] || PRIEST_FOLK.base;
   const dir = Math.cos(t.lastAim || 0) >= 0 ? 1 : -1;   // at rest, still the way he last faced
   const py = y - 1;
+  // The new sprites' warden, on the same clocks as priestPose: a blessing every five
+  // seconds (up over 0.45 s, a crest at the top, held, lowered over 0.5 s; phased by id),
+  // and `work` holds it up while the aura bites. `bless` frames 0-6 are how far the hand
+  // is up (run backward to lower it), 7-9 the crest; `held` is the raised loop.
+  let prec = null;
   if (t.noFolk) { /* no warden yet: nor his hands' light, nor his halo */ }
+  else if (crewOn()) {
+    const s = ((((time / 5 + t.id * 0.37) % 1) + 1) % 1) * 5;
+    const v = Math.max(s < 0.45 ? s / 0.45 : s < 1.9 ? 1 : s < 2.4 ? 1 - (s - 1.9) / 0.5 : 0, work);
+    let clip = "held", f = 0;
+    if (v <= 0.02) { clip = "idle"; f = loopFrame(PRIEST, "idle", time, t.id); }
+    else if (v < 1) { clip = "bless"; f = Math.round(v * 6); }
+    else if (work < 1 && s >= 0.45 && s < 0.75) { clip = "bless"; f = Math.min(9, 7 + Math.floor(((s - 0.45) / 0.3) * 3)); }
+    else f = loopFrame(PRIEST, "held", time, t.id);
+    prec = drawCrewPix(ctx, PRIEST, x, py, dir, clip, f, { variant: key, glow: working ? 1 : 0.7 });
+  }
   else if (canBake) {
     const pcv = baked(`priest|${key}|${frame}`, 26, 38, (c) => drawPriest(c, 13, 35, 1, pal, frame));
     stamp(ctx, pcv, x, py, 13, 35, dir);
   } else drawPriest(ctx, x, py, dir, pal, frame);
-  const lt = priestLight(frame);
+  // (the new figure marks its own palm, charm and head, and its frame's light.k is the pose's glow)
+  const lt = prec ? { palm: markOf(prec, "palm", 1), charm: markOf(prec, "charm", 1), head: markOf(prec, "head", 1), k: prec.light ? prec.light.k : 0 } : priestLight(frame);
   if (lt.k > 0 && !t.noFolk) {
     const strong = working ? 1 : 0.6;
     glow(ctx, x + dir * lt.palm[0], py + lt.palm[1], (working ? 3.4 : 2.4) * Math.min(1, lt.k), auraCol, Math.min(0.9, (working ? 0.8 : 0.5) * lt.k));

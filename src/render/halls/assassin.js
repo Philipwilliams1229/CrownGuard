@@ -21,6 +21,18 @@ import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { drawHooded, hoodedFrame, hoodedGlint, CREW_FOLK } from "../folk.js";
+import * as hoodedFig from "../pix/fig-hooded.js";
+import { crew, crewOn, drawCrewPix, loopFrame, fracFrame, markOf } from "../pix/crews.js";
+
+// the new sprites' hooded master (pix/fig-hooded.js): arms folded, a knife in the near hand
+const HOODED = crew("hooded", hoodedFig);
+// What he is doing on his own clock (seconds, phased by the hall as hoodedFrame's is): the
+// same 9.5 s round as the old blade's hand-to-hilt, 0.62 to 0.84 of it; there he turns the
+// knife over (`turn`, played by phase), the rest of it he stands folded and breathing.
+const watching = (clock) => {
+  const c = (((clock / 9.5) % 1) + 1) % 1;
+  return c > 0.62 && c < 0.84 ? ["turn", fracFrame(HOODED, "turn", (c - 0.62) / 0.22)] : ["idle", loopFrame(HOODED, "idle", clock)];
+};
 
 const cache = spriteCache();
 export const resetAssassinBakes = () => cache.clear();
@@ -248,8 +260,10 @@ export const drawAssassin = (ctx, t, time) => {
     else drawHooded(ctx, hx, hy, dir, pal, pose);
   };
   // the second hood waits in the doorway from three, half in the dark
+  const variant = s.guild ? "g" : "c";   // (the new figure's look: fig-hooded.js LOOKS)
   if (s.lvl >= 3 && !t.noFolk) {
-    hood(x - f * 2, y + 2.5, f, s.guild ? "g" : "c", hoodedFrame(time + t.id * 2.3 + 4.1));
+    if (crewOn()) { const [clip, fr] = watching(time + t.id * 2.3 + 4.1); drawCrewPix(ctx, HOODED, x - f * 2, y + 2.5, f, clip, fr, { variant }); }
+    else hood(x - f * 2, y + 2.5, f, s.guild ? "g" : "c", hoodedFrame(time + t.id * 2.3 + 4.1));
   }
   // live: the lantern's shaded light; the vats bubble; the pods breathe
   if (s.lvl >= 2 && !s.guild) glow(ctx, x + f * (LANTERN - 2.5), y - 9.5, 3.5, s.court ? "#f0c060" : "#b0a0e0", 0.55 + 0.15 * Math.sin(time * 3 + t.id));
@@ -269,7 +283,12 @@ export const drawAssassin = (ctx, t, time) => {
   const anim = t.anim || 0;
   if (t.noFolk) return;   // (him, his glint, his smoke and his streak: the build puts him in last)
   const key = s.guild ? "g" : "c";
-  if (anim <= 0.4) {
+  if (anim <= 0.4 && crewOn()) {
+    const [clip, fr] = watching(time + t.id * 1.37);
+    const rec = drawCrewPix(ctx, HOODED, wx, wy, f, clip, fr, { variant });
+    const [gx, gy] = markOf(rec, "glint", f);
+    if (Math.sin(time * 2.3 + t.id) > 0.92) glow(ctx, wx + gx, wy + gy, 2, "#ffffff", 0.9);   // the edge of the knife in his hand glints
+  } else if (anim <= 0.4) {
     const pose = hoodedFrame(time + t.id * 1.37);
     hood(wx, wy, f, key, pose);
     const [gx, gy] = hoodedGlint(pose);
@@ -277,7 +296,12 @@ export const drawAssassin = (ctx, t, time) => {
   } else {
     // he drops into a crouch, blade half out, and the smoke takes him
     const k = (anim - 0.4) / 0.6, p = 1 - k;
-    if (anim > 0.75) { ctx.save(); ctx.globalAlpha = Math.min(1, (anim - 0.75) / 0.17); hood(wx, wy, f, key, "crouch"); ctx.restore(); }
+    if (anim > 0.75) {
+      ctx.save(); ctx.globalAlpha = Math.min(1, (anim - 0.75) / 0.17);
+      if (crewOn()) drawCrewPix(ctx, HOODED, wx, wy, f, "vanish", fracFrame(HOODED, "vanish", (1 - anim) / 0.25), { variant });   // he drops as he fades
+      else hood(wx, wy, f, key, "crouch");
+      ctx.restore();
+    }
     for (let i = 0; i < 4; i++) {
       const a = i * 1.7 + t.id, r = 2 + p * 5;
       soft(ctx, wx + Math.cos(a) * r, wy - 8 - i * 3 - p * 4, 4 + p * 3, 4 + p * 2.5, [[0, `rgba(34,26,40,${0.75 * k})`], [0.6, `rgba(52,42,60,${0.45 * k})`], [1, "rgba(52,42,60,0)"]]);

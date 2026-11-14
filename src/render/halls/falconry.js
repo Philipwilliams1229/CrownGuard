@@ -23,6 +23,12 @@ import {
 import { getStats } from "../../engine/towers.js";
 import { wheelAt, falconCount } from "../../engine/muzzles.js";
 import { drawMistress, mistressFrame, mistressGlove, CREW_FOLK } from "../folk.js";
+import * as mistressFig from "../pix/fig-mistress.js";
+import { crew, crewOn, drawCrewPix, crewMark, loopFrame, shotFrame, markOf } from "../pix/crews.js";
+
+// the new sprites' falconer (pix/fig-mistress.js); the frame of her `cast` on which the bird leaves
+const MISTRESS = crew("mistress", mistressFig);
+const CAST_F = Math.round(MISTRESS.CLIPS.cast.hit * (MISTRESS.CLIPS.cast.n - 1));
 
 const cache = spriteCache();
 export const resetFalconryBakes = () => cache.clear();
@@ -207,13 +213,18 @@ export const drawFalconry = (ctx, t, time) => {
   // the glove in a pose (world), and a bird sitting on it (its centre)
   const glove = (pose) => { const [gx, gy] = mistressGlove(pose); return [x + dir * gx, my + gy]; };
   const onGloveAt = (pose) => { const [gx, gy] = glove(pose); return [gx + dir * 1, gy - 3.1]; };
+  // the new falconer (Settings > Display > New sprites): her look, and the same two points off her own `glove` mark
+  const pix = crewOn(), variant = court ? "court" : aviary ? "royal" : "mews";
+  const pixGlove = (g) => [x + g[0], my + g[1]];
+  const pixBird = (g) => [x + g[0] + dir * 1, my + g[1] - 3.1];
   if (t.noFolk) {
     // the build lays the roost bare: no mistress, no bird on the glove or the wing
   } else if (nest) {
     // she rides the eagle; only when it is down does she wait here, glove up, whistling for it
     if (t.eagle && t.eagle.respawn > 0) {
-      mistress("royal", "present");
-      const [gx, gy] = glove("present");
+      let gx, gy;
+      if (pix) [gx, gy] = pixGlove(markOf(drawCrewPix(ctx, MISTRESS, x, my, dir, "call", loopFrame(MISTRESS, "call", time, t.id), { variant: "royal" }), "glove", dir));
+      else { mistress("royal", "present"); [gx, gy] = glove("present"); }
       if (Math.sin(time * 6) > 0) glow(ctx, gx - dir * 1.4, gy - 2.6, 2, "#ffffff", 0.9);
     }
   } else {
@@ -226,10 +237,19 @@ export const drawFalconry = (ctx, t, time) => {
     const rate = t.castRate || st.rate || 1300, clock = time + t.id * 0.83;   // (bird 0's own clock: update.js flyFalcons)
     const perchedIdle = t._idle && ((time / 11) + t.id * 0.71) % 1 < 0.45;
     const pose = mistressFrame(t.cd > 0 ? rate - t.cd : Infinity, t.cd || 0, rate, { idle: t._idle, perched: perchedIdle, clock });
+    // The new falconer, off the same clocks: at ease (t._idle), or ready with nothing to strike
+    // (t.cd spent), she stands with the glove at her chest (`idle`); with a cast coming, `cast`
+    // is timed to it (shotFrame: t.cd to bird 0's next cast, its rate), its hit frame on the cast.
+    let clip = "idle", fr = 0;
+    if (pix) {
+      if (t._idle || !(t.cd > 0)) fr = loopFrame(MISTRESS, "idle", time, t.id);
+      else { clip = "cast"; fr = shotFrame(MISTRESS, "cast", t.cd, rate); }
+    }
+    const winding = clip === "cast" && fr > 0 && fr < CAST_F;   // glove presented, then the fist drawn back: the bird is on it
     // a bird cast at a foe is away until it is back on the wheel (update.js
     // sets t.falconsAway; birds.js flies it there from her glove and home)
     const away = new Set((t.falconsAway || []).filter((a) => a.back > time).map((a) => a.b));
-    const onGlove = !away.has(0) && (t._idle ? perchedIdle : pose === "present" || pose === "draw" || !(t.cd > 0));
+    const onGlove = !away.has(0) && (t._idle ? perchedIdle : (pix ? winding : pose === "present" || pose === "draw") || !(t.cd > 0));
     // The wheel (muzzles.js wheelAt: where a cast bird leaves from and flies
     // home to) crosses its near side at her face's height, so EVERY bird on
     // it is drawn under her, her glove and the bird on it: a near bird passes
@@ -244,18 +264,20 @@ export const drawFalconry = (ctx, t, time) => {
       // the Storm Falcons crackle as they fly
       if (r4 === "ab" && Math.sin(time * 7 + wx) > 0.7) { ctx.fillStyle = "#d8f0ff"; ctx.fillRect(wx - 5, wy + 1, 1, 1); }
     }
-    mistress(court ? "court" : aviary ? "royal" : "mews", pose);
+    let rec = null;
+    if (pix) rec = drawCrewPix(ctx, MISTRESS, x, my, dir, clip, fr, { variant });
+    else mistress(court ? "court" : aviary ? "royal" : "mews", pose);
     if (onGlove) {
-      const [px, py] = onGloveAt(pose);
+      const [px, py] = pix ? pixBird(markOf(rec, "glove", dir)) : onGloveAt(pose);
       // the bird mantles, wings half open, as she draws back to cast it
-      if (pose === "draw") bird(px, py - 1.5, 2, kindOf(0));
+      if (pix ? winding && fr >= CAST_F - 2 : pose === "draw") bird(px, py - 1.5, 2, kindOf(0));
       else {
         const cv = bake ? cache.get(`perched|${kindOf(0)}`, 12, 12, (c) => paintPerched(c, 6, 8, kindOf(0))) : null;
         if (cv) stamp(ctx, cv, px, py, 6, 8, dir); else paintPerched(ctx, px, py, kindOf(0));
       }
     }
     // the Storm Falcons leave her hand in a crackle of blue
-    if (r4 === "ab" && anim > 0.3) { const [sx, sy] = onGloveAt("cast"); glow(ctx, sx + dir * 3, sy + 2, 5 * anim, "#b8e0ff", anim); }
+    if (r4 === "ab" && anim > 0.3) { const [sx, sy] = pix ? pixBird(crewMark(MISTRESS, "cast", CAST_F, "glove", dir, variant)) : onGloveAt("cast"); glow(ctx, sx + dir * 3, sy + 2, 5 * anim, "#b8e0ff", anim); }
   }
   // a drifting feather now and then (the birds', so not under noFolk)
   const fc = ((time / 7) + t.id * 0.53) % 1;

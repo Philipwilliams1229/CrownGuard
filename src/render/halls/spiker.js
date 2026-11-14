@@ -21,6 +21,13 @@ import {
 } from "./kitB.js";
 import { masonry } from "../buildkit.js";
 import { drawCrew, crankAt, CREW_FOLK, CREW_FRAMES, frameOf } from "../folk.js";
+import * as engineerFig from "../pix/fig-engineer.js";
+import { crew, crewOn, drawCrewPix, loopFrame, crewMark } from "../pix/crews.js";
+
+// the new wheelwright ("New sprites" on): fig-engineer.js. Its `wheel` clips ride this
+// hall's crank (CRANK from crewSpot, CRANK_RX / RY) and its `bar` clips the level-one
+// hand-bar (BAR): the same numbers, in art pixels. A turn is 8 frames.
+const ENG = crew("engineer", engineerFig);
 
 const cache = spriteCache();
 export const resetSpikerBakes = () => cache.clear();
@@ -342,7 +349,27 @@ export const drawBladewheel = (ctx, t, time) => {
   }
   const hand = crankAt(P.hub, P.rx, P.ry, fr / CREW_FRAMES);
   const hx = cx0 + hand[0], hy = cy0 + hand[1];
-  if (!t.noFolk) {
+  if (!t.noFolk && crewOn()) {
+    // the new wheelwright: the same turn of the crank (8 frames a turn), or at ease on the still
+    // handle; the bar / crank arm is drawn to where his fists hold it (the frame's `grip` mark)
+    const variant = fire ? "stoker" : "engineer";
+    const clip = turning ? (lvl1 ? "bar" : "wheel") : lvl1 ? "barIdle" : "wheelIdle", n = ENG.CLIPS[clip].n;
+    const turn = time * (gale ? 12 : 8) / (2 * Math.PI) + t.id * 0.37;
+    const cf = turning ? Math.floor((turn - Math.floor(turn)) * n) % n : loopFrame(ENG, clip, time, t.id);
+    const g = crewMark(ENG, clip, cf, "grip", 1, variant), gx = cx0 + g[0], gy = cy0 + g[1];
+    if (lvl1) {
+      ctx.strokeStyle = "#241a26"; ctx.lineWidth = 2.2; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x, cy0 - 13); ctx.lineTo(gx, gy); ctx.stroke();
+      ctx.strokeStyle = "#8a6238"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, cy0 - 13); ctx.lineTo(gx, gy); ctx.stroke();
+    } else {
+      ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.2; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x + CRANK.x, y + CRANK.y); ctx.lineTo(gx, gy); ctx.stroke();
+      ctx.fillStyle = "#241a26"; ctx.fillRect(gx - 1, gy - 1, 2, 2);
+      ctx.fillStyle = "#8a909c"; ctx.fillRect(gx - 0.5, gy - 0.5, 1, 1);
+    }
+    drawCrewPix(ctx, ENG, cx0, cy0, 1, clip, cf, { variant });
+  } else if (!t.noFolk) {
     if (lvl1) {
       // the hand-bar through the post, its end in his fists
       ctx.strokeStyle = "#241a26"; ctx.lineWidth = 2.2; ctx.lineCap = "round";

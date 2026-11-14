@@ -37,6 +37,11 @@ import {
 import { bakeSprite, PX } from "../paint.js";
 import { drawMage, mageTip, magePoseAt, mageIdlePose, mageBreathPose, MAGE_FOLK } from "../folk.js";
 import { stormCloud, stormSpots, stormBolt } from "../stormcloud.js";
+import * as mageFig from "../pix/fig-mage.js";
+import { crew, crewOn, drawCrewPix, loopFrame, shotFrame, fracFrame, markOf } from "../pix/crews.js";
+
+// the new sprites' mage (pix/fig-mage.js; "New sprites" off draws the old one below)
+const MAGE = crew("mage", mageFig);
 
 const CACHE = new Map();
 export const resetWizardBakes = () => CACHE.clear();
@@ -387,7 +392,20 @@ export const drawWizardSpire = (ctx, t, time) => {
   const stormNext = r4 === "aa" && !idle && (t.poolIdx || 0) === 4;
   const stormGone = r4 === "aa" && !idle && (t.poolIdx || 0) === 0 && t.anim > 0.05;
   const pose = idle ? mageIdlePose(time, t.id) : r4 === "ab" ? mageBreathPose(on, time, t.id) : magePoseAt(charge);
-  const mcv = canBake ? baked(`mage|${key}|${level}|${pose}`, 34, 40, (c) => drawMage(c, 14, 37, 1, pal, level, { pose })) : null;
+  // The new sprites' mage: the same clocks pick a clip and a frame. Between waves he idles;
+  // in a wave he gathers and winds up as the cooldown runs out (cast, timed so its strike
+  // shows on the frame the orb leaves), and with the spell ready and no one in reach he
+  // holds the wind-up, breathing (hold). Dragonbreath swings the staff level with the
+  // breath (level, by `on`) and stands braced behind it while it pours (breath).
+  const pixOn = crewOn();
+  let pclip = "idle", pf = 0, prec = null;
+  if (pixOn) {
+    if (idle) pf = loopFrame(MAGE, "idle", time, t.id);
+    else if (r4 === "ab") { if (on >= 0.55) { pclip = "breath"; pf = loopFrame(MAGE, "breath", time, t.id); } else { pclip = "level"; pf = fracFrame(MAGE, "level", on / 0.55); } }
+    else if ((t.cd || 0) <= 0) { pclip = "hold"; pf = loopFrame(MAGE, "hold", time, t.id); }
+    else { pclip = "cast"; pf = shotFrame(MAGE, "cast", t.cd || 0, rate); }
+  }
+  const mcv = canBake && !pixOn ? baked(`mage|${key}|${level}|${pose}`, 34, 40, (c) => drawMage(c, 14, 37, 1, pal, level, { pose })) : null;
   // star-charms from level three; the back arc passes behind the mage
   const stars = [];
   if (grown && !t.noFolk) {
@@ -407,7 +425,8 @@ export const drawWizardSpire = (ctx, t, time) => {
   }
   // Dragonbreath braced against his own blast: robe hem and sleeve stream
   // back from him, whipping in the heat
-  if (on > 0.2 && !t.noFolk) {
+  // (the new figure's own hat and hem stream back in its breath clip)
+  if (on > 0.2 && !t.noFolk && !pixOn) {
     const back = -dir;
     for (const [hy, len, w, ph] of [[-2.5, 9, 3, 0], [-7.5, 7.5, 2.4, 1.7], [-14.5, 6, 2, 3.1]]) {
       const flick = Math.sin(time * 19 + ph + t.id) * 1.1, L = len * on;
@@ -417,7 +436,11 @@ export const drawWizardSpire = (ctx, t, time) => {
       ctx.fillStyle = pal.trim; ctx.fillRect(x0 + back * L - (back > 0 ? 1 : 0), y0 + flick * 1.4 - 0.4, 1, 0.8);
     }
   }
-  if (!t.noFolk) { if (mcv) stamp(ctx, mcv, x, my, 14, 37, dir); else drawMage(ctx, x, my, dir, pal, level, { pose }); }
+  if (!t.noFolk) {
+    // (fx off: the engine flies the real orb; the figure's own light follows its pose)
+    if (pixOn) prec = drawCrewPix(ctx, MAGE, x, my, dir, pclip, pf, { variant: `${level}|${key}`, fx: false });
+    else if (mcv) stamp(ctx, mcv, x, my, 14, 37, dir); else drawMage(ctx, x, my, dir, pal, level, { pose });
+  }
   if (canBake) stamp(ctx, baked(`front|${form}`, FRONT.left + FRONT.right, FRONT.up + FRONT.down, (c) => paintFront(c, tv, FRONT.left, FRONT.up)), x, y, FRONT.left, FRONT.up);
   else paintFront(ctx, t, x, y);
 
@@ -425,8 +448,11 @@ export const drawWizardSpire = (ctx, t, time) => {
   // apprentice's floats over his palm): small at rest, swelling with the
   // charge, a flash and a ring as it flies. It rides the staff still while
   // he drives it at the foe, and floats a little in the fork otherwise.
-  const [tx, ty] = mageTip(level, pose);
-  const driven = pose === "strike" || pose === "follow" || pose === "level" || pose === "brace" || pose === "brace2";
+  // (the new figure marks the cup of its staff's fork, the apprentice's palm: `tip`)
+  const [tx, ty] = (prec && markOf(prec, "tip", 1)) || mageTip(level, pose);
+  const hitF = Math.round(MAGE.CLIPS.cast.hit * (MAGE.CLIPS.cast.n - 1));
+  const driven = prec ? pclip === "level" || pclip === "breath" || (pclip === "cast" && pf >= hitF && pf <= hitF + 2)
+    : pose === "strike" || pose === "follow" || pose === "level" || pose === "brace" || pose === "brace2";
   const bob = driven ? 0 : Math.sin(time * 2.5 + t.id) * (level >= 2 ? 0.8 : 1.2);
   const orbX = x + dir * tx, orbY = my + ty + bob;
   const rBase = level >= 3 ? 3.4 : level === 2 ? 2.8 : 2.3;

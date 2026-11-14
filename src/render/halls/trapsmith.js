@@ -22,6 +22,12 @@ import {
   lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
 } from "./kitB.js";
 import { drawSmith, smithHammer, SMITH_IMPACT, CREW_FOLK } from "../folk.js";
+import * as smithFig from "../pix/fig-smith.js";
+import { crew, crewOn, drawCrewPix, loopFrame, crewMark } from "../pix/crews.js";
+
+// the new smith ("New sprites" on): fig-smith.js, on the same beat as the old one
+const SMITH = crew("smith", smithFig);
+const SMITH_HIT = Math.round(smithFig.CLIPS.hammer.hit * smithFig.CLIPS.hammer.n);   // the frame the hammer's face is on the iron
 
 const cache = spriteCache();
 export const resetTrapsmithBakes = () => cache.clear();
@@ -46,6 +52,15 @@ const smithBeat = (t, time) => {
   while (fr > 0 && p < at[fr]) fr--;
   const end = fr + 1 < at.length ? at[fr + 1] : 1;
   return { fr, k: (p - at[fr]) / (end - at[fr]) };
+};
+// The new smith on the same beat: his `hammer` clip is one whole blow (1 s). At work
+// (a 1 s beat) it loops; at ease (2.2 s) he strikes once, then rests the hammer on the
+// iron and breathes (`idle`) until the next beat. `k` is how far through the frame.
+const smithNow = (t, time) => {
+  const H = SMITH.CLIPS.hammer, secs = BEAT[t._idle ? "ease" : "work"][0];
+  const p = (((time / secs + t.id * 0.37) % 1) + 1) % 1, u = (p * secs * 1000) / H.ms;
+  if (u < 1) { const g = u * H.n, f = Math.min(H.n - 1, Math.floor(g)); return { clip: "hammer", f, k: g - f }; }
+  return { clip: "idle", f: loopFrame(SMITH, "idle", (u - 1) * H.ms / 1000), k: 0 };
 };
 // where the hammer's face meets the iron, from the smith's feet
 const STRIKE = (() => { const H = smithHammer(SMITH_IMPACT); return [H.head[0] + Math.cos(H.ang + Math.PI / 2) * 2.0, H.head[1] + Math.sin(H.ang + Math.PI / 2) * 2.0]; })();
@@ -270,11 +285,30 @@ export const drawTrapsmith = (ctx, t, time) => {
   }
   // the hot iron on the anvil (under his hammer and tongs), brighter as it's struck
   const sm = smithBeat(t, time);
-  ctx.fillStyle = sm.fr === SMITH_IMPACT ? "#ffd070" : "#f4a040"; ctx.fillRect(x + 0.5, y - 8.2, 4, 0.9);
+  const pix = crewOn() && !t.noFolk ? smithNow(t, time) : null;   // the new smith's moment
+  const struck = pix ? pix.clip === "hammer" && pix.f === SMITH_HIT : sm.fr === SMITH_IMPACT;
+  ctx.fillStyle = struck ? "#ffd070" : "#f4a040"; ctx.fillRect(x + 0.5, y - 8.2, 4, 0.9);
   // the smith, hammer on the beat: lift, top, strike, impact, rebound,
   // settle; sparks fly on the impact frame (neither under noFolk)
   const sx = x - 6.5, sy = y + 4;
-  if (!t.noFolk) {
+  if (pix) {
+    // the new smith; the sparks start at his hammer's face (the `strike` mark of the frame it lands on)
+    drawCrewPix(ctx, SMITH, sx, sy, 1, pix.clip, pix.f);
+    const m = crewMark(SMITH, "hammer", SMITH_HIT, "strike", 1), px = sx + m[0], py = sy + m[1];
+    const blow = pix.clip === "hammer" ? pix.f - SMITH_HIT : -1;
+    if (blow === 0) {
+      glow(ctx, px, py, 3.5 - pix.k, "#ffd070", 0.85);
+      for (let i = 0; i < 5; i++) {
+        const a = -0.25 - i * 0.62, d = 1.5 + pix.k * 4.5;
+        ctx.fillStyle = i % 2 ? "#ffe08a" : "#fff3d2"; ctx.fillRect(px + Math.cos(a) * d * 1.4, py + Math.sin(a) * d, 0.9, 0.9);
+      }
+    } else if (blow === 1) {
+      for (let i = 0; i < 3; i++) {
+        const a = -0.5 - i * 0.9, d = 5.5 + pix.k * 2;
+        ctx.fillStyle = `rgba(255,224,138,${0.8 - pix.k * 0.6})`; ctx.fillRect(px + Math.cos(a) * d * 1.4, py + Math.sin(a) * d + pix.k * 2.5, 0.8, 0.8);
+      }
+    }
+  } else if (!t.noFolk) {
     if (bake) stamp(ctx, cache.get(`smith|${sm.fr}`, 30, 37, (c) => drawSmith(c, 12, 34, 1, CREW_FOLK.smith, 0, { frame: sm.fr })), sx, sy, 12, 34, 1);
     else drawSmith(ctx, sx, sy, 1, CREW_FOLK.smith, 0, { frame: sm.fr });
     const px = sx + STRIKE[0], py = sy + STRIKE[1];

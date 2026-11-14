@@ -22,6 +22,11 @@ import {
 } from "./kitB.js";
 import { drawStander } from "../folk.js";
 import { clipToWater } from "../waterreach.js";
+import * as standerFig from "../pix/fig-stander.js";
+import { crew, crewOn, drawCrewPix, loopFrame, fracFrame, markOf } from "../pix/crews.js";
+
+// the new sprites' watchman (pix/fig-stander.js, the "watch" looks: a coat a branch)
+const WATCHMAN = crew("stander", standerFig);
 
 const cache = spriteCache();
 export const resetRiverwatchBakes = () => cache.clear();
@@ -190,6 +195,17 @@ const watchPose = (t, time) => {
   return [0, v < 0.18 ? 3 : v < 0.45 ? 2 : Math.sin(time * 1.3 + t.id) > 0.55 ? 1 : 0];
 };
 
+// The same habits for the new sprites' watchman, as [clip, phase 0..1, the time the stretch
+// began]: `glass` over the stretch the glass is up, `glance` (a hand to his brim) where the
+// old one glanced up and out, `watch` (standing easy) between.
+const watchClip = (t, time) => {
+  const [secs, open] = t._idle ? [6, 0.4] : [3, 0.6];
+  const c = time / secs + t.id * 0.3, u = ((c % 1) + 1) % 1, began = (Math.floor(c) - t.id * 0.3) * secs;
+  if (u < open) return ["glass", u / open, began];
+  const v = (((time / 9 + t.id * 0.41) % 1) + 1) % 1;
+  return v < 0.18 ? ["glance", v / 0.18, began] : ["watch", 0, began];
+};
+
 export const drawRiverwatchHall = (ctx, t, time) => {
   // t.noFolk (the build, buildanim.js): the hall without its people
   const x = t.x, y = t.y;
@@ -235,7 +251,19 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   const dir = Math.sin(time * 0.4 + t.id) >= 0 ? 1 : -1;
   const [glass, fr] = watchPose(t, time);
   if (t.noFolk) { /* no watchman yet, nor his glass */ }
-  else if (bake) stamp(ctx, cache.get(`watch|${t.branch}|${glass}|${fr}`, 26, 30, (c) => drawStander(c, 12, 27, 1, pal, { glass, frame: fr })), wx, wy, 12, 27, dir);
+  else if (crewOn()) {
+    // the new sprites: the glass is in the figure. He is the one crew figure who looks
+    // about at rest (he never aims): he turns as today, but only as a stretch begins, so
+    // never with the glass at his eye.
+    const [clip, ph, began] = watchClip(t, time);
+    const d = Math.sin(began * 0.4 + t.id) >= 0 ? 1 : -1;
+    shadow(ctx, wx + d, wy + 0.4, 5, 1.8, 0.3);
+    const f = clip === "watch" ? loopFrame(WATCHMAN, "watch", time, t.id) : fracFrame(WATCHMAN, clip, ph);
+    const rec = drawCrewPix(ctx, WATCHMAN, wx, wy, d, clip, f, { variant: t.branch ? "watch|" + t.branch : "watch" });
+    // the lens catches the light while it is on the river
+    const lens = clip === "glass" && ph > 0.2 && ph < 0.84 && Math.sin(time * 5 + t.id) > 0.55 ? markOf(rec, "lens", d) : null;
+    if (lens) glint(ctx, wx + lens[0], wy + lens[1], 0.7, 0.9);
+  } else if (bake) stamp(ctx, cache.get(`watch|${t.branch}|${glass}|${fr}`, 26, 30, (c) => drawStander(c, 12, 27, 1, pal, { glass, frame: fr })), wx, wy, 12, 27, dir);
   else drawStander(ctx, wx, wy, dir, pal, { glass, frame: fr });
   // pennants: the admiral's is long and gold-crowned
   if (r4 === "aa") {
