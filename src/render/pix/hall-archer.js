@@ -23,7 +23,7 @@
 // bow below, the hawks, the cauldron's bubbles).
 import { Pix, mat, flat } from "./pix.js";
 import { archerLayout } from "../../engine/towers.js";
-import { STYLES, drum, disc, parapet, bandEdge, cone, beam, door, loop, archWindow, wallBanner, ivy, boulder, WARM } from "./hall-kit.js";
+import { STYLES, drum, disc, parapet, bandEdge, cone, beam, door, loop, archWindow, wallBanner, ivy, boulder, WARM, hash } from "./hall-kit.js";
 
 export const BOX = { w: 104, h: 258, ox: 52, oy: 222 };
 export const LABEL = "Archer hall";
@@ -182,10 +182,13 @@ const tower = (back, front, G, st, F) => {
       back.part(); back.rect(-8, DY - 88, 16, 8, TIMBER, -7.5, { n: [-0.2, -0.1, 0.97] }); back.toneLine(-8, DY - 85, 8, DY - 85, -1); back.toneLine(-8, DY - 88, 8, DY - 88, 1);
       wallBanner(back, -11, DY - 97, 6, 13, mat("#9fc4dc"), WHITE, -7.4, { tail: "point" });
     }
+    // the thatch: a dark slab under courses of leaf clumps, each course lapping the one below, a ragged eave
     back.part();
-    back.poly([[-R - 2, DY - 28], [-R + 4, DY - 54], [R - 4, DY - 54], [R + 2, DY - 28]], RF, -6, { n: [-0.25, -0.55, 0.8] });
-    for (let y = DY - 32, i = 0; y > DY - 54; y -= 6, i++) { back.toneLine(-R - 1, y, R + 1, y, -1); for (let x = -R + 2 + (i % 2) * 4; x < R - 2; x += 8) { back.tone(x, y - 3, 1); back.tone(x + 1, y - 3, 1); } }
-    for (let i = 0; i < 10; i++) { const x = -R + (i / 9) * R * 2; back.part(); back.ellipse(x, DY - 27 + (i % 2), 4, 3, i % 3 ? RF : RF2, -5.8 + i * 0.01, { round: 0.8 }); }
+    back.poly([[-R - 2, DY - 28], [-R + 4, DY - 54], [R - 4, DY - 54], [R + 2, DY - 28]], mat(lightenHex(roof, -0.0)), -6, { n: [-0.25, -0.55, 0.8], bias: -1 });
+    for (let row = 0; row < 5; row++) {
+      const y = DY - 51 + row * 5.6, half = R - 5 + row * 1.4;
+      for (let x = -half + (row % 2) * 3; x <= half; x += 6) { const hv = hash(row, Math.round(x), seed + 31); back.part(); back.ellipse(x + (hv - 0.5) * 2, y, 3.9, 3, hv > 0.62 ? RF2 : RF, -5.9 + row * 0.02, { round: 0.85, cast: 1 }); }
+    }
     if (r4 === "aa") for (let i = 0; i < 5; i++) back.dot(-R + 6 + i * ((R * 2 - 12) / 4), DY - 29 + (i % 2), BERRY, -5, { fix: 3, cast: 0 });
     disc(back, { y: deck, r: R - 1, sq: SQ, m: TIMBER_L, z: 0.5, lip: 5, planks: 5 });
     parapet(back, front, { ...P, m: TIMBER, mTrim: OAK_D, st: STYLES.A, rail: true, boards: 0.16, wall: 1, mer: { n: 14, duty: 0.24, h: 9, ph: 0.4 } });
