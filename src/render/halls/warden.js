@@ -28,6 +28,8 @@ import { FOOT_NARROW } from "./kitB.js";
 import { drawPriest, priestPose, priestLight, PRIEST_FOLK } from "../folk.js";
 import * as priestFig from "../pix/fig-priest.js";
 import { crew, crewOn, drawCrewPix, loopFrame, markOf } from "../pix/crews.js";
+import * as supportHall from "../pix/hall-support.js";
+import { hallOn, hallPix, drawHallBack, drawHallFront, stampPix, pixSprite } from "../pix/halls.js";
 
 // the new sprites' warden (pix/fig-priest.js; "New sprites" off draws the old one below)
 const PRIEST = crew("priest", priestFig);
@@ -60,6 +62,13 @@ const narrowClip = (ctx, x, y) => {
   ctx.beginPath(); ctx.ellipse(x, y + FOOT_NARROW.dy, FOOT_NARROW.rx, FOOT_NARROW.ry, 0, 0, Math.PI * 2); ctx.clip();
 };
 const archH = (t) => (t.rank4 ? 36 : 32);
+// the Permafrost Heart's double pulse, 0..1 (the heart's size, its glow, its light on the ice)
+const beatOf = (time, id) => {
+  const ph = (time * 1.1 + id * 0.3) % 1;
+  return ph < 0.12 ? ph / 0.12 : ph < 0.24 ? 1 - (ph - 0.12) / 0.12 : ph < 0.34 ? (ph - 0.24) / 0.1 * 0.6 : ph < 0.46 ? 0.6 - (ph - 0.34) / 0.12 * 0.6 : 0;
+};
+// a light's strength for the new building's overlays, stepped in fifths
+const fifth = (v) => Math.round(Math.max(0, Math.min(1, v)) * 5) / 5;
 
 // A crystal of ice: a long hexagonal prism with a pointed head, lit left.
 const crystal = (ctx, x, bottom, w, h, lean = 0) => part(ctx, (c) => {
@@ -276,7 +285,22 @@ export const drawSupportTower = (ctx, t, time) => {
     ctx.beginPath(); ctx.arc(x, y, pr, 0, 7); ctx.stroke();
     ctx.lineWidth = 1;
   }
-  if (canBake) {
+  // The new building (pix/hall-support.js; "New sprites" off keeps the old painter below): its
+  // BACK picture is the ground, the steps and everything tall behind the warden, its FRONT the
+  // pillars and the arch. HK: how strongly each of its lights lies on the stone now. The rune
+  // and the keystone's gem ("aura") burn low at rest and full while the aura works (eased with
+  // the warden's own hand, a frame behind); the rest pulse as the old glows over them do.
+  const H = canBake && hallOn() ? hallPix("support", supportHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, v) : null;
+  const HK = !H ? null : {
+    aura: fifth(0.4 + 0.6 * (t._blessW ?? (live > 0 ? 1 : 0))),
+    heart: r4 === "ab" ? fifth(0.4 + 0.6 * beatOf(time, t.id)) : 0,
+    rose: r4 === "bb" ? fifth(0.75 + 0.25 * Math.sin(time * 1.3 + t.id)) : 0,
+    ward: r4 === "ba" ? fifth(0.57 + 0.43 * Math.sin(time * 2.2 + t.id)) : 0,
+    spire: r4 === "aa" ? fifth(0.71 + 0.29 * Math.sin(time * 1.5 + t.id)) : 0,
+    lamp: r4 === "aa" || r4 === "ab" ? fifth(0.71 + 0.29 * Math.sin(time * 2)) : 0,
+  };
+  if (H) drawHallBack(ctx, H, x, y, time, { id: t.id, k: HK });
+  else if (canBake) {
     stamp(ctx, baked(`ground|${form}|${v}`, BOX.left + BOX.right, 40, (c) => paintGround(c, tv, BOX.left, 14), false), x, y, BOX.left, 14);
     stamp(ctx, baked(`back|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBack(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   } else paintBack(ctx, t, x, y);
@@ -284,15 +308,18 @@ export const drawSupportTower = (ctx, t, time) => {
   // ---- live things behind the warden
   if (r4 === "ab") {
     // the heart beats: a double pulse, a glow that swells with it
-    const ph = (time * 1.1 + t.id * 0.3) % 1;
-    const beat = ph < 0.12 ? ph / 0.12 : ph < 0.24 ? 1 - (ph - 0.12) / 0.12 : ph < 0.34 ? (ph - 0.24) / 0.1 * 0.6 : ph < 0.46 ? 0.6 - (ph - 0.34) / 0.12 * 0.6 : 0;
+    const beat = beatOf(time, t.id);
     const hx = x, hy = y - 45, s = 1 + beat * 0.15;
     glow(ctx, hx, hy, 12 + beat * 6, "#6ad0f8", 0.35 + beat * 0.3);
+    const hs = Math.round(beat * 3);                    // the new heart: four sizes of one sculpted piece
+    if (H) stampPix(ctx, pixSprite(`wheart|${hs}`, () => supportHall.heart(hs)), hx, hy);
+    else {
     ctx.fillStyle = "#3a90c8";
     ctx.beginPath(); ctx.moveTo(hx, hy + 7 * s); ctx.bezierCurveTo(hx - 9 * s, hy + 1 * s, hx - 7 * s, hy - 7 * s, hx, hy - 3 * s); ctx.bezierCurveTo(hx + 7 * s, hy - 7 * s, hx + 9 * s, hy + 1 * s, hx, hy + 7 * s); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#8ce0f8";
     ctx.beginPath(); ctx.moveTo(hx, hy + 5 * s); ctx.bezierCurveTo(hx - 6.5 * s, hy + 0.5 * s, hx - 5 * s, hy - 5 * s, hx, hy - 2 * s); ctx.bezierCurveTo(hx + 5 * s, hy - 5 * s, hx + 6.5 * s, hy + 0.5 * s, hx, hy + 5 * s); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#e8fbff"; ctx.fillRect(hx - 4 * s, hy - 3 * s, 1.5, 1.5); ctx.fillRect(hx - 3, hy - 1, 1, 1);
+    }
   }
   if (r4 === "bb") {
     // light through the rose window, and the bell swinging in the belfry
@@ -381,10 +408,11 @@ export const drawSupportTower = (ctx, t, time) => {
   if (grown && !t.noFolk) glow(ctx, x + dir * (lt.head[0] - 0.4), py - 30 + (lt.head[1] + 20.5) + Math.sin(time * 2 + t.id) * 1.2, 5, auraCol, 0.4);
 
   // ---- the arch and pillars, framing him
-  if (canBake) stamp(ctx, baked(`front|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintFront(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
+  if (H) drawHallFront(ctx, H, x, y, time, { id: t.id, k: HK });
+  else if (canBake) stamp(ctx, baked(`front|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintFront(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   else paintFront(ctx, t, x, y);
-  // candle flames on the pillars below level three
-  if ((lvl >= 2 || t.branch) && !arch && r4 !== "aa" && r4 !== "ab") {
+  // candle flames on the pillars below level three (the new building burns its own)
+  if (!H && (lvl >= 2 || t.branch) && !arch && r4 !== "aa" && r4 !== "ab") {
     for (const s of [-1, 1]) flame(ctx, x + s * px0, y - 18, 0.45, time, t.id + s);
   }
   if (r4 === "aa" || r4 === "ab") for (const s of [-1, 1]) {

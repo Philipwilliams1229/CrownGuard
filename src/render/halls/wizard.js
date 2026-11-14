@@ -28,6 +28,12 @@
 //
 // Three baked layers per form (ground, body, front lip); lights, fire,
 // lightning, runes and the mage are live.
+//
+// While "New sprites" is on the BUILDING is the pixel sculptor's
+// (pix/hall-wizard.js through pix/halls.js: see `const H =` below), built
+// round the same spireH / shaftW, so the mage, his orb and everything the
+// engine reads stand where they did; the painters above are the old hall,
+// kept whole for the switch.
 
 import { getStats } from "../../engine/towers.js";
 import {
@@ -39,6 +45,8 @@ import { drawMage, mageTip, magePoseAt, mageIdlePose, mageBreathPose, MAGE_FOLK 
 import { stormCloud, stormSpots, stormBolt } from "../stormcloud.js";
 import * as mageFig from "../pix/fig-mage.js";
 import { crew, crewOn, drawCrewPix, loopFrame, shotFrame, fracFrame, markOf } from "../pix/crews.js";
+import * as wizardHall from "../pix/hall-wizard.js";
+import { hallOn, hallPix, drawHallBack, drawHallFront, stampPix, pixSprite } from "../pix/halls.js";
 
 // the new sprites' mage (pix/fig-mage.js; "New sprites" off draws the old one below)
 const MAGE = crew("mage", mageFig);
@@ -341,38 +349,67 @@ export const drawWizardSpire = (ctx, t, time) => {
   // above the ring), the Tempest mage's hat tip against his grey-blue one
   if (r4 === "bb") cloud(ctx, x, top, time, t, "sovereign");
   if (r4 === "ba") cloud(ctx, x, top, time, t, "tempest");
-  if (canBake) {
-    stamp(ctx, baked(`ground|${form}|${v}`, BOX.left + BOX.right, 40, (c) => paintGround(c, tv, BOX.left, 14), false), x, y, BOX.left, 14);
-    stamp(ctx, baked(`spire|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBody(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
-  } else paintBody(ctx, t, x, y);
   const aimDir = Math.cos(t.lastAim) >= 0 ? 1 : -1;
   const dir = aimDir;   // at rest he keeps facing the way of his last cast
   // Dragonbreath's breath, 0..1 (eased by the engine)
   const on = r4 === "ab" && !idle && t.breath ? t.breath.on : 0;
+  const st = getStats(t);
+  const rate = st.rate || 1000;
+  // how far the spell has gathered: 0 at the shot, 1 ready
+  // (Dragonbreath never fires an orb: its glow follows the breath)
+  const charge = idle ? 0 : r4 === "ab" ? on : Math.max(0, Math.min(1, 1 - (t.cd || 0) / rate));
+
+  // ---- the new building (render/pix/hall-wizard.js), while "New sprites" is on: its BACK picture
+  // here, its FRONT after the mage; it brings its own shadow, lit windows, brazier and fire-bowl
+  // flames and the light on its stone, so the old still parts and those live lights below stand
+  // down. The mage stands where he always did (the new building is built round spireH / shaftW).
+  const H = canBake && hallOn() ? hallPix("wizard", wizardHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, v) : null;
+  // The light on the stone, in fifths so it steps like the pixels do: the orb's rises with the
+  // charge and flashes on the cast, on the side he faces; the finals' own lights follow what
+  // the hall paints live (the throne's crown ready, the skulls' heat, the coils' arc, the strike)
+  let hk = null;
+  if (H) {
+    const fifth = (k) => Math.round(Math.max(0, Math.min(1, k)) * 5) / 5;
+    const kOrb = t.noFolk ? 0 : fifth((idle ? 0.3 : 0.35 + charge * 0.45) + (t.anim > 0.05 && r4 !== "ab" ? t.anim * 0.4 : 0));
+    hk = { orb: dir > 0 ? kOrb : 0, orbW: dir < 0 ? kOrb : 0 };
+    if (r4 === "aa") { const gone = !idle && (t.poolIdx || 0) === 0 && t.anim > 0.05, ready = !idle && (gone || (t.poolIdx || 0) === 4); hk.throne = ready ? fifth(gone ? 0.4 + t.anim * 0.6 : 0.6) : 0.2; }
+    if (r4 === "ab") hk.skull = fifth(0.4 + on * 0.5);
+    if (r4 === "ba") hk.coil = Math.sin(time * 9 + t.id) > -0.3 || t.anim > 0.3 ? 0.8 : 0.4;
+    if (r4 === "bb") hk.crown = ((time * 0.7 + t.id * 0.3) % 1) < 0.08 || t.anim > 0.6 ? 1 : 0.2;
+  }
+  if (H) drawHallBack(ctx, H, x, y, time, { id: t.id, k: hk });
+  else if (canBake) {
+    stamp(ctx, baked(`ground|${form}|${v}`, BOX.left + BOX.right, 40, (c) => paintGround(c, tv, BOX.left, 14), false), x, y, BOX.left, 14);
+    stamp(ctx, baked(`spire|${form}|${v}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBody(c, tv, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
+  } else paintBody(ctx, t, x, y);
 
   // ---- lights in the stone
   const winCol = el === "fire" ? "#ffa040" : el === "storm" ? "#a8e8ff" : "#ffd070";
   const breath = 0.6 + 0.25 * Math.sin(time * 1.7 + t.id);
-  glow(ctx, x, top + 13, 4, winCol, breath);
-  if (bodyH >= 30) glow(ctx, x, top + 23, 3, winCol, breath * 0.8);
+  if (!H) {
+    glow(ctx, x, top + 13, 4, winCol, breath);
+    if (bodyH >= 30) glow(ctx, x, top + 23, 3, winCol, breath * 0.8);
+  }
   if (el === "storm") for (const s of [-1, 1]) {
     const on = 0.4 + 0.5 * Math.max(0, Math.sin(time * 3 + s * 1.3 + t.id));
     glow(ctx, x + s * RUNE_DX, base + 2, 3, "#8ce8f0", on);
     ctx.fillStyle = rgba("#e8fcff", on); ctx.fillRect(x + s * RUNE_DX - 0.5, base + 0.8, 1, 2.5);
   }
   // ---- fire at the corners and round the foot
-  if (el === "fire" && grown && r4 !== "ab") for (const s of [-1, 1]) flame(ctx, x + s * (pw - 2), top - 19.5, r4 ? 0.9 : 0.7, time, t.id + s * 3);
+  if (!H && el === "fire" && grown && r4 !== "ab") for (const s of [-1, 1]) flame(ctx, x + s * (pw - 2), top - 19.5, r4 ? 0.9 : 0.7, time, t.id + s * 3);
   if (r4 === "aa") {
-    for (const s of [-1, 1]) flame(ctx, x + s * BOWL_DX, base + BOWL_FOOT - BOWL_H - 2, 0.8, time, t.id + 7 + s * 2);
+    if (!H) for (const s of [-1, 1]) flame(ctx, x + s * BOWL_DX, base + BOWL_FOOT - BOWL_H - 2, 0.8, time, t.id + 7 + s * 2);
     // the crown of flames counts the shots to the firestorm: one flame lit
     // per shot since the last (t.poolIdx), all five when the next is it;
     // on the firestorm itself all five flare and die back
     const storm = !idle && (t.poolIdx || 0) === 0 && t.anim > 0.05;
     const lit = idle ? 5 : storm ? 5 : (t.poolIdx || 0) + 1;
     const ready = !idle && lit === 5;
-    if (ready) glow(ctx, x, top - THRONE_Y - 4, THRONE_R + 8, "#ff9a3a", storm ? 0.25 + t.anim * 0.35 : 0.22 + 0.08 * Math.sin(time * 6));
+    if (ready && !H) glow(ctx, x, top - THRONE_Y - 4, THRONE_R + 8, "#ff9a3a", storm ? 0.25 + t.anim * 0.35 : 0.22 + 0.08 * Math.sin(time * 6));
     throneCups(x, top).forEach(([cx, cy], i) => {
-      if (i < lit) flame(ctx, cx, cy - 1.8, idle ? 0.75 : storm ? 0.9 + t.anim * 0.6 : ready ? 1.1 : 0.8, time, t.id + i * 5);
+      // (the new building's crown burns in pixel flames, three sizes: lit, ready, the firestorm's)
+      if (i < lit && H) { const size = idle ? 0 : storm ? 2 : ready ? 1 : 0, f = Math.floor(Math.max(0, time) * 11 + t.id + i * 2) % 6; stampPix(ctx, pixSprite(`wizcrown|${size}|${f}`, () => wizardHall.crownFlame(size, f)), cx, cy - 1.5); }
+      else if (i < lit) flame(ctx, cx, cy - 1.8, idle ? 0.75 : storm ? 0.9 + t.anim * 0.6 : ready ? 1.1 : 0.8, time, t.id + i * 5);
       else { glow(ctx, cx, cy - 2, 2.4, "#d8482a", 0.35); ctx.fillStyle = "#d8482a"; ctx.fillRect(cx - 1, cy - 2.4, 2, 0.8); }
     });
   }
@@ -384,10 +421,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   const level = t.branch ? 3 : lvl;
   const pal = MAGE_FOLK[key] || MAGE_FOLK.base;
   const my = top - 7;
-  const st = getStats(t);
-  const rate = st.rate || 1000;
-  // (Dragonbreath never fires an orb: its glow follows the breath)
-  const charge = idle ? 0 : r4 === "ab" ? on : Math.max(0, Math.min(1, 1 - (t.cd || 0) / rate));
+  // (st, rate and charge: worked out above, before the building is drawn)
   // the Inferno Throne's fifth shot is the firestorm: its orb swells for it
   const stormNext = r4 === "aa" && !idle && (t.poolIdx || 0) === 4;
   const stormGone = r4 === "aa" && !idle && (t.poolIdx || 0) === 0 && t.anim > 0.05;
@@ -420,6 +454,7 @@ export const drawWizardSpire = (ctx, t, time) => {
   if (lvl === 2 && !t.branch) for (const s of [-1, 1]) {
     const cy = top - 17 + Math.sin(time * 2 + s + t.id) * 1.2, cx = x + s * (pw - 2);
     glow(ctx, cx, cy, 4, orbCol, 0.35);
+    if (H) { stampPix(ctx, pixSprite("wizcrystal", () => wizardHall.crystal(orbCol)), cx, Math.round(cy * 2) / 2); continue; }   // the new building's crystal, on whole pixels
     ctx.fillStyle = orbCol; ctx.beginPath(); ctx.moveTo(cx, cy - 3); ctx.lineTo(cx + 1.6, cy); ctx.lineTo(cx, cy + 3); ctx.lineTo(cx - 1.6, cy); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#fffaf0"; ctx.fillRect(cx - 0.6, cy - 1.5, 0.8, 1.5);
   }
@@ -441,7 +476,8 @@ export const drawWizardSpire = (ctx, t, time) => {
     if (pixOn) prec = drawCrewPix(ctx, MAGE, x, my, dir, pclip, pf, { variant: `${level}|${key}`, fx: false });
     else if (mcv) stamp(ctx, mcv, x, my, 14, 37, dir); else drawMage(ctx, x, my, dir, pal, level, { pose });
   }
-  if (canBake) stamp(ctx, baked(`front|${form}`, FRONT.left + FRONT.right, FRONT.up + FRONT.down, (c) => paintFront(c, tv, FRONT.left, FRONT.up)), x, y, FRONT.left, FRONT.up);
+  if (H) drawHallFront(ctx, H, x, y, time, { id: t.id, k: hk });
+  else if (canBake) stamp(ctx, baked(`front|${form}`, FRONT.left + FRONT.right, FRONT.up + FRONT.down, (c) => paintFront(c, tv, FRONT.left, FRONT.up)), x, y, FRONT.left, FRONT.up);
   else paintFront(ctx, t, x, y);
 
   // ---- the orb at the staff tip (mageTip is its centre, in the fork; the
@@ -546,10 +582,13 @@ export const drawWizardSpire = (ctx, t, time) => {
   // between battles a tome hangs open by the spire, pages flicking
   if (idle && !t.noFolk && ((time / 9) + t.id * 0.37) % 1 < 0.45) {
     const ty2 = top - 22 + Math.sin(time * 1.6) * 2;
-    ctx.fillStyle = "#d8ceb4";
-    ctx.fillRect(x + 12, ty2, 3.5, 4.5); ctx.fillRect(x + 16, ty2, 3.5, 4.5);
-    ctx.fillStyle = "#a89c7c";
-    ctx.fillRect(x + 15.4 + (Math.sin(time * 7) > 0.6 ? 0.6 : 0), ty2, 0.8, 4.5);
+    if (H) stampPix(ctx, pixSprite(`wiztome|${key}`, () => wizardHall.tome(key)), x + 16, Math.round(ty2 * 2) / 2 + 3);   // the new building's tome: a pixel spellbook, bobbing on whole pixels
+    else {
+      ctx.fillStyle = "#d8ceb4";
+      ctx.fillRect(x + 12, ty2, 3.5, 4.5); ctx.fillRect(x + 16, ty2, 3.5, 4.5);
+      ctx.fillStyle = "#a89c7c";
+      ctx.fillRect(x + 15.4 + (Math.sin(time * 7) > 0.6 ? 0.6 : 0), ty2, 0.8, 4.5);
+    }
   }
 };
 
