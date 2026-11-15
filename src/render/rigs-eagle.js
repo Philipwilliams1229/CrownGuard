@@ -333,3 +333,13 @@ export const eagle = (ctx, p) => {
   ball(ctx, hdx, hdy, 1.3 * s, 1.3 * s, darken(steel, 0.1), { hi: 0.4, lo: 0.4 });
   ctx.restore();
 };
+
+// ---- the new war-eagle (Settings > Display > New sprites) ----------------------------------------
+// The sculpted eagle and falconer (pix/bird-eagle.js) stands in for the painter above wherever the
+// game draws the "eagle" rig, through the PIX table (pix/pixrigs.js: both facings baked with one
+// sun, spell light on it). The old painter stays for the switch. walk frames 0..3 are the
+// cruise's wingbeats; the old fight frames 0..3 (dive, strike, follow-through, climb) are the
+// attack clip's four frames, so draw.js's strafing passes play as before.
+import { PIX } from "./pix/pixrigs.js";
+import * as eagleFig from "./pix/bird-eagle.js";
+PIX.eagle = { fig: { ...eagleFig, NAME: "eagle" }, atk: "attack", hit: 0.5, legacy: [0, 1, 2, 3], fx: false };

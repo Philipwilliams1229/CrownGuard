@@ -17,6 +17,14 @@
 // The Skyknight's war-eagle is a rig ("eagle" in rigs.js).
 
 import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
+import { prefs } from "../data/prefs.js";
+import { toCanvas } from "./pix/pix.js";
+import { falconImage, perchedImage } from "./pix/bird-falcon.js";
+
+// "New sprites" (Settings > Display) on: the birds are the pixel sculptor's (pix/bird-falcon.js),
+// baked per pose, heading and plumage, once for each facing so the sun stays upper left. Off: the
+// old painters below, untouched.
+const pixOn = () => typeof document !== "undefined" && prefs.newSprites !== false;
 
 // ---- palettes --------------------------------------------------------------
 // One per bird of the mews, matching the wheel's birds (halls/falconry.js
@@ -192,7 +200,8 @@ const paintHawk = (c, pose) => {
 
 const HAWK = 19;                       // baked square, world units
 const STEP = Math.PI / 12;             // 15-degree headings
-const hawkSprite = (pose, idx, kind = "hawk") => memo(`hawk|${kind}|${pose}|${idx}`, () => {
+const hawkSprite = (pose, idx, kind = "hawk", flip = false) => memo(`hawk|${kind}|${pose}|${idx}|${pixOn() ? "p" + (flip ? 1 : 0) : ""}`, () => {
+  if (pixOn()) { const img = falconImage(pose, idx, kind, flip); return { pix: true, cv: toCanvas(img), ox: img.ox, oy: img.oy }; }
   const was = K;
   K = PALS[kind] || PALS.hawk;
   try { return bake(HAWK, (c) => { c.rotate(idx * STEP); paintHawk(c, pose); }); } finally { K = was; }
@@ -204,12 +213,33 @@ export const stampHawk = (ctx, pose, x, y, dx, dy, pitchCap = 5, kind = "hawk") 
   const flip = dx < 0;
   const ang = Math.atan2(dy, Math.abs(dx) || 0.0001);
   const idx = Math.max(-pitchCap, Math.min(pitchCap, Math.round(ang / STEP)));
-  const cv = hawkSprite(pose, idx, kind);
+  const cv = hawkSprite(pose, idx, kind, flip);
   const X = Math.round(x * PX) / PX, Y = Math.round(y * PX) / PX;
   ctx.save(); ctx.translate(X, Y);
   if (flip) ctx.scale(-1, 1);
-  ctx.drawImage(cv, -HAWK / 2, -HAWK / 2, HAWK, HAWK);
+  if (cv.pix) ctx.drawImage(cv.cv, -cv.ox / 2, -cv.oy / 2, cv.cv.width / 2, cv.cv.height / 2);
+  else ctx.drawImage(cv, -HAWK / 2, -HAWK / 2, HAWK, HAWK);
   ctx.restore();
+};
+
+// For the hall file (halls/falconry.js), which owns where they are drawn: a bird of the wheel
+// (wing 0 down, 1 level, 2 raised, as its `paintBird` took it) and a bird sitting on the glove or
+// the T-perch (hood: asleep under the falconer's hood). Both return false under "New sprites" off,
+// and the hall paints its old bird. The point is the bird's centre, as the old stamps took it.
+export const wheelBird = (ctx, wing, x, y, kind = "hawk") => {
+  if (!pixOn()) return false;
+  stampHawk(ctx, wing === 2 ? "up" : wing === 1 ? "mid" : "down", x, y, 1, 0, 5, kind);
+  return true;
+};
+export const perchedBird = (ctx, x, y, dir = 1, kind = "hawk", hood = false) => {
+  if (!pixOn()) return false;
+  const cv = memo(`perch|${kind}|${hood ? 1 : 0}|${dir < 0 ? 1 : 0}`, () => { const img = perchedImage(kind, hood, dir < 0); return { cv: toCanvas(img), ox: img.ox, oy: img.oy }; });
+  const X = Math.round(x * 2) / 2, Y = Math.round(y * 2) / 2;
+  ctx.save(); ctx.translate(X, Y);
+  if (dir < 0) ctx.scale(-1, 1);
+  ctx.drawImage(cv.cv, -cv.ox / 2, -cv.oy / 2, cv.cv.width / 2, cv.cv.height / 2);
+  ctx.restore();
+  return true;
 };
 
 // ---- shadow, flash and feathers --------------------------------------------

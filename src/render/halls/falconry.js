@@ -25,6 +25,7 @@ import { wheelAt, falconCount } from "../../engine/muzzles.js";
 import { drawMistress, mistressFrame, mistressGlove, CREW_FOLK } from "../folk.js";
 import * as mistressFig from "../pix/fig-mistress.js";
 import { crew, crewOn, drawCrewPix, crewMark, loopFrame, shotFrame, markOf } from "../pix/crews.js";
+import { wheelBird, perchedBird } from "../birds.js";
 import * as falconryHall from "../pix/hall-falconry.js";
 import { hallOn, hallPix, drawHallBack, drawHallFront } from "../pix/halls.js";
 
@@ -212,6 +213,7 @@ export const drawFalconry = (ctx, t, time) => {
   const my = y - h - 2 + (lvl === 1 ? -1 : 0);
   const kindOf = (b) => r4 === "ab" ? "storm" : (r4 === "ba" && b === 0) ? "king" : "hawk";
   const bird = (bx, by, wing, kind) => {
+    if (wheelBird(ctx, wing, bx, by, kind)) return;      // the new falcon (birds.js) while "New sprites" is on
     const cv = bake ? cache.get(`bird|${wing}|${kind}`, 22, 14, (c) => paintBird(c, 11, 7, wing, kind)) : null;
     if (cv) stamp(ctx, cv, bx, by, 11, 7, 1); else paintBird(ctx, bx, by, wing, kind);
   };
@@ -280,7 +282,7 @@ export const drawFalconry = (ctx, t, time) => {
       const [px, py] = pix ? pixBird(markOf(rec, "glove", dir)) : onGloveAt(pose);
       // the bird mantles, wings half open, as she draws back to cast it
       if (pix ? winding && fr >= CAST_F - 2 : pose === "draw") bird(px, py - 1.5, 2, kindOf(0));
-      else {
+      else if (!perchedBird(ctx, px, py, dir, kindOf(0))) {
         const cv = bake ? cache.get(`perched|${kindOf(0)}`, 12, 12, (c) => paintPerched(c, 6, 8, kindOf(0))) : null;
         if (cv) stamp(ctx, cv, px, py, 6, 8, dir); else paintPerched(ctx, px, py, kindOf(0));
       }
