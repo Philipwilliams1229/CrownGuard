@@ -191,8 +191,6 @@ const tower = (back, front, G, st, F) => {
       for (let x = -half + (row % 2) * 3; x <= half; x += 6) { const hv = hash(row, Math.round(x), seed + 31); back.part(); back.ellipse(x + (hv - 0.5) * 2, y, 3.9, 3, hv > 0.62 ? RF2 : RF, -5.9 + row * 0.02, { round: 0.85, cast: 1 }); }
     }
     if (r4 === "aa") for (let i = 0; i < 5; i++) back.dot(-R + 6 + i * ((R * 2 - 12) / 4), DY - 29 + (i % 2), BERRY, -5, { fix: 3, cast: 0 });
-    disc(back, { y: deck, r: R - 1, sq: SQ, m: TIMBER_L, z: 0.5, lip: 5, planks: 5 });
-    parapet(back, front, { ...P, m: TIMBER, mTrim: OAK_D, st: STYLES.A, rail: true, boards: 0.16, wall: 1, mer: { n: 14, duty: 0.24, h: 9, ph: 0.4 } });
     if (r4 === "aa") for (let i = 0; i < 5; i++) { const x = -R + 6 + i * ((R * 2 - 12) / 4), y = deck - 6 + R * SQ * Math.sqrt(Math.max(0, 1 - (x / R) ** 2)); beam(front, x, y, x + (i < 2 ? -4 : i > 2 ? 4 : 0), y - 15, 2, mat("#5a4028"), 11, { grain: false }); }   // briar stakes
   } else {
     if (master && r4 === "ba") {
@@ -213,6 +211,12 @@ const tower = (back, front, G, st, F) => {
         back.part(); back.line(px, DY - 72, px, DY - 80, tipM, -6.4, { cast: 0 }); back.ellipse(px, DY - 73, 1.6, 1.6, tipM, -6.3, { round: 0.9 });
       }
     }
+  }
+  // the top: level 3 keeps the timber deck and rail of levels 1-2; every path wears the stone crenellated walk
+  if (!br && level === 3 && !bold) {
+    disc(back, { y: deck, r: R - 1, sq: SQ, m: TIMBER_L, z: 0.5, lip: 5, planks: 5 });
+    parapet(back, front, { ...P, m: TIMBER, mTrim: OAK_D, st: STYLES.A, rail: true, boards: 0.16, wall: 1, mer: { n: 14, duty: 0.24, h: 9, ph: 0.4 } });
+  } else {
     disc(back, { y: deck, r: R - 1, sq: SQ, m: SL, z: 0.5, lip: 7 });
     parapet(back, front, { ...P, m: S, mTrim: SL, st, seed: seed + 3, mer: { n: master ? 10 : bold ? 12 : 14, duty: 0.56, h: master ? 6 : 7, ph: 0.22 } });
   }
