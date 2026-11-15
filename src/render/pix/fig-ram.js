@@ -50,8 +50,7 @@ const wheel = (px, x, y, roll, z, dim) => {
 const crewLeg = (px, hx, foot, z, bias) => {
   const hip = [hx, -12.4], lg = ik(hip[0], hip[1], foot[0], foot[1] - 1.2, 6.8, 6.4, -1);
   px.part();
-  px.capsule(hip[0], hip[1], 2.8, lg.mid[0], lg.mid[1], 2.3, HOSE, z, { bias, floor: 1 });
-  px.capsule(lg.mid[0], lg.mid[1], 2.2, lg.end[0], lg.end[1], 1.8, HOSE, z, { bias, floor: 1 });
+  px.limb([hip, lg.mid, lg.end], [2.8, 2.25, 1.8], HOSE, z, { bias, floor: 1 });
   px.line(lg.mid[0] - 1.6, lg.mid[1] + 3, lg.mid[0] + 1.8, lg.mid[1] + 3.2, BRASS, z + 0.02, { bias, fix: 2 });   // a garter
   px.capsule(lg.end[0] - 0.4, lg.end[1] + 0.4, 2, lg.end[0] + 3.4, foot[1] - 0.8, 1.5, BOOT, z + 0.03, { bias, floor: 1 });
 };

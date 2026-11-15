@@ -76,7 +76,12 @@ const shape = (wp) => {
 
 // one wing from its root R: leading edge in plate, the primaries spread at the tips (a beat late),
 // the secondaries trailing to the flank
-const wing = (px, R, wp, wp1, wp2, z, far, steelOn) => {
+// z may be a number, or [root, tip]: the wing then runs from behind the body at its root (the barrel's
+// own depth and under the saddle) to in front of the knight at its tip, by distance from the root.
+const wing = (px, R, wp, wp1, wp2, zIn, far, steelOn) => {
+  const z = Array.isArray(zIn) ? zIn[0] : zIn, span = Array.isArray(zIn) ? 30 : 0;
+  const zAt = (x, y) => (span ? zIn[0] + (zIn[1] - zIn[0]) * Math.min(1, Math.max(0, (Math.hypot(x - R[0], y - R[1]) - 4) / span)) : z);
+  const zo = span ? { zOf: zAt } : {};
   const A = shape(wp), A1 = shape(wp1), A2 = shape(wp2), bias = far ? -1 : 0, sc = far ? 0.9 : 1;
   const P = (v) => [R[0] + v[0] * sc, R[1] + v[1] * sc];
   const E = P(A.E), W = P(A.W), B = P(A2.B);
@@ -93,21 +98,22 @@ const wing = (px, R, wp, wp1, wp2, z, far, steelOn) => {
   }
   out.push(B);
   px.part(); const id = px._pid;
-  px.poly(out, WING, z, { n: [-0.12, -0.3, 0.95], cast: far ? 0 : 1, bias });
+  px.poly(out, WING, z, { n: [-0.12, -0.3, 0.95], cast: far || span ? 0 : 1, bias, ...zo });
   // the dark primaries toward the tips, a pale bar of coverts along the arm, the secondaries a tone down
-  px.poly([mix(W, T[0], 0.7), ...T.map((t) => mix(W, t, 1.0)), mix(W, T[4], 0.7), ...T.slice().reverse().map((t) => mix(W, t, 0.72))], WING, z + 0.01, { fix: 1, bias, noLine: true });
-  px.poly([R, E, W, mix(W, T[2], 0.3), mix(E, T2[4], 0.5), mix(R, B, 0.3)], WING, z + 0.02, { fix: far ? 2 : 3, bias, noLine: true });
+  px.poly([mix(W, T[0], 0.7), ...T.map((t) => mix(W, t, 1.0)), mix(W, T[4], 0.7), ...T.slice().reverse().map((t) => mix(W, t, 0.72))], WING, z + 0.01, { fix: 1, bias, noLine: true, ...(span ? { zOf: (x, y) => zAt(x, y) + 0.01 } : {}) });
+  px.poly([R, E, W, mix(W, T[2], 0.3), mix(E, T2[4], 0.5), mix(R, B, 0.3)], WING, z + 0.02, { fix: far ? 2 : 3, bias, noLine: true, ...(span ? { zOf: (x, y) => zAt(x, y) + 0.02 } : {}) });
   for (let i = 0; i < 4; i++) px.toneLine(...mix(mix(T[i], T[i + 1], 0.5), W, 0.2), ...mix(mix(T[i], T[i + 1], 0.5), W, 0.62), -1, id);
   for (let i = 1; i < 5; i++) { const e = mix(T2[4], B, i / 5); px.toneLine(e[0], e[1], ...mix(e, E, 0.4), -1, id); }
   if (steelOn) {
     // plate down the leading edge: lames and a cop at the wrist
     px.part();
-    px.capsule(...mix(R, E, 0.1), 2.4 * sc, ...E, 2.1 * sc, STEEL, z + 0.1, { cast: 1, bias });
-    px.capsule(...E, 2.1 * sc, ...W, 1.9 * sc, STEEL, z + 0.1, { cast: 1, bias });
+    const m1 = mix(R, E, 0.1);
+    px.capsule(...m1, 2.4 * sc, ...E, 2.1 * sc, STEEL, zAt(...m1) + 0.1, { cast: 1, bias, zb: zAt(...E) + 0.1 });
+    px.capsule(...E, 2.1 * sc, ...W, 1.9 * sc, STEEL, zAt(...E) + 0.1, { cast: 1, bias, zb: zAt(...W) + 0.1 });
     for (const t of [0.45]) { const m = mix(R, E, t); px.line(m[0] - 1.6, m[1], m[0] + 1.6, m[1] + 0.5, IRONK, z + 0.12, { fix: 0, noLine: true }); }
     for (const t of [0.4, 0.75]) { const m = mix(E, W, t); px.line(m[0] - 1.6, m[1], m[0] + 1.6, m[1] + 0.4, IRONK, z + 0.12, { fix: 0, noLine: true }); }
-    px.ellipse(W[0], W[1], 1.9 * sc, 1.9 * sc, STEELB, z + 0.14, { cast: 1, bias });
-    px.dot(W[0] - 0.6, W[1] - 0.8, STEELB, z + 0.16, { fix: 4, noLine: true });
+    px.ellipse(W[0], W[1], 1.9 * sc, 1.9 * sc, STEELB, zAt(...W) + 0.14, { cast: 1, bias });
+    px.dot(W[0] - 0.6, W[1] - 0.8, STEELB, zAt(...W) + 0.16, { fix: 4, noLine: true });
   }
   return { W, T };
 };
@@ -148,8 +154,7 @@ const rider = (px, F, B, info) => {
   const hp = [H[0] - 0.6, H[1] + 0.6], ft = [H[0] + 2.6 + (p.knee ?? 0), H[1] + 12.4];
   const lg = ik(hp[0], hp[1], ft[0], ft[1], RB.thigh, RB.shin, -1);
   px.part();
-  px.capsule(hp[0], hp[1], 2.9, lg.mid[0], lg.mid[1], 2.4, IRON, 8, { cast: 1 });
-  px.capsule(lg.mid[0], lg.mid[1], 2.3, lg.end[0], lg.end[1] - 1, 1.9, IRON, 8, { cast: 1 });
+  px.limb([hp, lg.mid, [lg.end[0], lg.end[1] - 1]], [2.9, 2.35, 1.9], IRON, 8, { cast: 1 });
   px.part();
   px.ellipse(lg.mid[0] + 0.5, lg.mid[1], 2.6, 2.4, IRON, 8.02, { cast: 1 });
   px.dot(lg.mid[0] + 0.6, lg.mid[1] - 0.6, STEELB, 8.04, { fix: 4 });
@@ -159,8 +164,7 @@ const rider = (px, F, B, info) => {
   const grip = add(B, [9.4 + (p.hx ?? 0) * 0.4, -11 + (p.hy ?? 0) * 0.5]);
   const fa = ik(sF[0], sF[1], grip[0], grip[1], RB.upper, RB.fore, 1);
   px.part();
-  px.capsule(sF[0], sF[1], 2.2, fa.mid[0], fa.mid[1], 2, IRON, 7.6, { bias: -1 });
-  px.capsule(fa.mid[0], fa.mid[1], 2, fa.end[0], fa.end[1], 1.7, IRON, 7.6, { bias: -1 });
+  px.limb([sF, fa.mid, fa.end], [2.2, 2, 1.7], IRON, 7.6, { bias: -1 });
   px.part(); px.ellipse(fa.end[0], fa.end[1], 1.8, 1.8, LEATHER, 7.7, { bias: -1 });
 
   // the trunk: a breastplate under an oxblood surcoat that falls over the thighs and the saddle
@@ -212,8 +216,7 @@ const rider = (px, F, B, info) => {
   px.line(...at(30, 2), ...at(22.4, 3.6 + fl), BRASS, 10.24, { noLine: true });
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.4, 2.2, IRON, 10.4, { cast: 0, bias: 1 });
-  px.capsule(sN[0], sN[1] + 0.6, 2.4, na.mid[0], na.mid[1], 2.1, IRON, 10.5, { cast: 1 });
-  px.capsule(na.mid[0], na.mid[1], 2.1, hd[0], hd[1], 1.7, IRON, 10.5, { cast: 1 });
+  px.limb([[sN[0], sN[1] + 0.6], na.mid, hd], [2.4, 2.1, 1.7], IRON, 10.5, { cast: 1 });
   px.ellipse(na.mid[0], na.mid[1], 2, 1.9, IRON, 10.55, { cast: 1 });
   px.part();
   px.ellipse(hd[0], hd[1], 1.9, 1.9, LEATHER, 10.7);
@@ -245,47 +248,44 @@ export const draw = (px, F, o = {}) => {
   const lg = p.leg ?? 0.5, tl = p.talon ?? 0.5;
   const hind = (ox, oy, z, far) => {
     const bias = far ? -1 : 0, hp = rel(-11 + ox, 5 + oy), kn = rel(-13 + ox - lg * 0.8, 9.4 + oy), hk = rel(-16.4 + ox - lg * 3.4, 9 + oy + lg * 0.6), pw = rel(-19.6 + ox - lg * 4.6, 8.4 + oy + lg * 1.8);
-    px.part();
-    px.capsule(hp[0], hp[1], 4.2, kn[0], kn[1], 2.8, TAWNY, z, { bias, cast: 1 });
-    px.capsule(kn[0], kn[1], 2.8, hk[0], hk[1], 2, TAWNY, z, { bias, cast: 1 });
-    px.capsule(hk[0], hk[1], 2, pw[0], pw[1], 1.8, TAWNY, z, { bias, cast: 1 });
+    // the lion's hind leg: ONE welded limb (hip, knee, hock, paw) of the beast's one body
+    px.limb([hp, kn, hk, pw], [4.2, 2.8, 2, 1.8], TAWNY, z, { bias, cast: 1, weld: far ? 0 : 3, weldRoot: far ? 0 : 5 });
     px.ellipse(pw[0] - 0.6, pw[1] + 0.4, 2.1, 1.5, TAWNY, z + 0.01, { bias, rot: 0.3, floor: 1 });
     for (let i = 0; i < 3; i++) px.dot(pw[0] - 2.8 - i * 0.2, pw[1] + 0.4 + i * 0.8, IRONK, z + 0.02, { noLine: true });
   };
   const fore = (ox, oy, z, far) => {
     const bias = far ? -1 : 0, th = rel(7.6 + ox, 4 + oy);
     const kn = rel(7.4 + ox + tl * 3.4, 9 + oy - tl * 2), ft = rel(8.6 + ox + tl * 7.4, 12.4 + oy - tl * 8 + (p.rake ?? 0) * 7);
-    px.part();
-    px.capsule(th[0], th[1], 4, kn[0], kn[1], 2.9, MANE, z, { bias, cast: 1 });
-    px.capsule(kn[0], kn[1], 2.4, ft[0], ft[1], 1.5, GOLD, z, { bias, cast: 1 });
+    // the eagle's foreleg: a feathered thigh, then the golden shank, wrapped over the same limb
+    px.limb([th, kn, ft], [4, 2.9, 1.5], MANE, z, { bias, cast: 1, weld: far ? 0 : 3, weldRoot: far ? 0 : 5 });
+    px.capsule(kn[0], kn[1], 2.4, ft[0], ft[1], 1.5, GOLD, z + 0.01, { bias, wrap: true });
     px.dot(kn[0] + 0.4, kn[1] + 1.4, GOLD, z + 0.02, { fix: 4, noLine: true });
     talons(px, ft, cl(tl - 0.4, 0, 1), z + 0.02, bias);
   };
+  // the beast is one body: no part shadows or edges another (plate, cloth, head and wings keep theirs)
+  const BID = px.body(1);
   hind(1.6, -0.8, 2, true);
   fore(2.4, -0.4, 2, true);
 
   // the lion's tail, a dark tuft at its end, trailing a beat late
   const tw = (p.tail ?? 0) + tlag;
   const tp = [rel(-15.6, -1.6), rel(-21, -1.8 + tw * 0.4), rel(-27, -3.4 + tw * 1), rel(-32, -6.4 + tw * 1.8)];
-  px.part();
   px.capsule(tp[0][0], tp[0][1], 2.3, tp[1][0], tp[1][1], 1.9, TAWNY, 2.5, { cast: 1 });
   px.capsule(tp[1][0], tp[1][1], 1.9, tp[2][0], tp[2][1], 1.5, TAWNY, 2.5, { cast: 1 });
   px.capsule(tp[2][0], tp[2][1], 1.5, tp[3][0], tp[3][1], 1.3, TAWNY, 2.5, { cast: 1 });
-  px.part();
   px.ellipse(tp[3][0] - 1.4, tp[3][1] - 1, 3.2, 2.6, MANE, 2.6, { rot: -0.6, cast: 1, floor: 1 });
   px.poly([[tp[3][0] - 2, tp[3][1] - 2.4], [tp[3][0] - 5.2, tp[3][1] - 4.4 + tw * 0.4], [tp[3][0] - 3.4, tp[3][1] + 0.6], [tp[3][0] - 6.4, tp[3][1] - 0.2 + tw * 0.3]], MANE, 2.62, { floor: 1 });
 
   // the lion's barrel and haunch, the feathered eagle breast, a paler belly
-  px.part(); const body = px._pid;
+  const body = BID;
   px.capsule(...rel(5, -0.2), 7.2, ...rel(-9, 0.8), 6.2, TAWNY, 4, { cast: 1 });
   px.ellipse(...rel(-11, 1.2), 6.2, 6.6, TAWNY, 4, { cast: 1, rot: 0.2 });
   px.ellipse(...rel(7.6, -1), 7.6, 8.2, MANE, 4.1, { cast: 1 });
   for (const [x, y] of [[4, -6], [7, -6.6], [10, -5], [5.4, -2.6], [8.4, -1.4], [11, 0.6], [4.4, 2.4], [7.6, 3.4]]) px.toneLine(...rel(x - 1.4, y), ...rel(x + 0.2, y + 1.6), -1, body);
-  px.part();
   px.capsule(...rel(2, 5.4), 1.5, ...rel(-9, 5.8), 1.2, CREAM, 4.05, { cast: 0 });
   px.dot(...rel(-8, -3), TAWNY, 4.2, { fix: 4, noLine: true });
   // the crupper plate over the rump
-  px.part();
+  px.body(0); px.part();
   px.poly([rel(-7.4, -6), rel(-14, -5.6), rel(-17.6, -1), rel(-15.8, 1.6), rel(-11, 0), rel(-8.4, -2.6)], STEEL, 4.5, { round: 0.6, cast: 1 });
   px.line(...rel(-9.6, -5.6), ...rel(-11.4, -1), IRONK, 4.52, { fix: 0, noLine: true });
   px.dot(...rel(-8.8, -4.6), BRASS, 4.54, { fix: 3, noLine: true }); px.dot(...rel(-14, -3.8), BRASS, 4.54, { fix: 3, noLine: true });
@@ -298,9 +298,9 @@ export const draw = (px, F, o = {}) => {
 
   // the neck: cream feathers, a steel crinet of lames down its back
   const hh = [14.4 + (p.hx ?? 0), -12.4 + (p.hy ?? 0)];
-  px.part();
+  px.body(1);
   px.capsule(...rel(8.4, -4), 6, ...rel(hh[0] - 1.6, hh[1] + 3.2), 4.4, CREAM, 4.3, { cast: 1 });
-  px.part();
+  px.body(0); px.part();
   for (const t of [0.15, 0.5, 0.85]) {
     const a = mix([8.4, -4], [hh[0] - 1.6, hh[1] + 3.2], t);
     px.capsule(...rel(a[0] - 2.2, a[1] - 4.2), 1.6, ...rel(a[0] + 0.4, a[1] - 4.8), 1.4, STEEL, 4.5, { cast: 1 });
@@ -322,11 +322,13 @@ export const draw = (px, F, o = {}) => {
   px.dot(...rel(sd[0] - 1.6, sd[1] + 0.8), GREY, 6.1, { fix: 3 }); px.dot(...rel(sd[0] + 0.4, sd[1] + 0.8), GREY, 6.1, { fix: 3 });
 
   // the near legs
+  px.body(1);
   hind(0, 0, 5, false);
   fore(0, 0, 5, false);
+  px.body(0);
 
   // the near wing, then the knight in front of it
-  const nw = wing(px, rel(3.4, -7.4), p.wp, p1.wp, p2.wp, 5.4, false, true);
+  const nw = wing(px, rel(3.4, -7.4), p.wp, p1.wp, p2.wp, [3.6, 9.2], false, true);
   info.wing = nw;
   if (loose) {
     // no one up: the stirrup swinging free, the reins thrown back from the bit

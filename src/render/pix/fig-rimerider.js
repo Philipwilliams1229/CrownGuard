@@ -16,7 +16,7 @@
 // axe's smear and the jaws' snap.
 import { mat, flat } from "./pix.js";
 import { HUMAN, sampleKeys, ik, solve } from "./rig.js";
-import { QUAD, beastFrames, solveBeast, tailPts, gallop } from "./beast.js";
+import { QUAD, beastFrames, solveBeast, tailPts, gallop, legChain } from "./beast.js";
 
 // the wolf
 const FUR = mat("#d6dde6"), PALE = mat("#f2f5f8"), MANE = mat("#8294ae"), BONE = mat("#ece0c4");
@@ -82,21 +82,22 @@ const R = { thigh: 7, shin: 6.4, spine: 8.6, upper: 6.2, fore: 5.8 };
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
+// A leg is one welded limb of the wolf's one body (pix.js body / limb): shoulder or hip, wrist or hock,
+// pad joint in a single tube with one radius at each joint, a near leg's root fading into the barrel's
+// own shading; the shoulder's muscle and the haunch are welded in, never lit shapes of their own.
 const leg = (px, l, z, bias) => {
-  const { j, k, a } = l, o = { bias, cast: 1 };
-  px.part();
+  const { j, k, a } = l, near = !l.far, o = { bias, cast: 1, weld: near ? 3 : 0, weldRoot: near ? 5 : 0 }, ow = { ...o, weld: 3, weldRoot: 0 };
   if (l.fore) {
-    if (!l.far) px.ellipse(j[0] - 0.4, j[1] - 0.6, 3.5, 4.2, FUR, z, { ...o, rot: 0.3 });
-    px.capsule(j[0], j[1], 2.8, k[0], k[1], 1.9, FUR, z, o);
+    px.limb(legChain(l), [2.8, 1.9, 1.35], FUR, z, o);
+    if (near) px.ellipse(j[0] - 0.4, j[1] - 0.6, 3.5, 4.2, FUR, z + 0.01, { ...ow, rot: 0.3 });
   } else {
     const mx = (j[0] + k[0]) / 2, my = (j[1] + k[1]) / 2, dx = k[0] - j[0], dy = k[1] - j[1], d = Math.hypot(dx, dy) || 1;
-    px.capsule(j[0], j[1], 4.1, k[0], k[1], 1.7, FUR, z, o);
-    px.ellipse(mx + (dy / d) * 2.7 - (dx / d) * 1.6, my - (dx / d) * 2.7 - (dy / d) * 1.6, 3.2, 3.2, FUR, z, o);
+    px.limb(legChain(l), [4.1, 1.7, 1.35], FUR, z, o);
+    if (near) px.ellipse(mx + (dy / d) * 2.7 - (dx / d) * 1.6, my - (dx / d) * 2.7 - (dy / d) * 1.6, 3.2, 3.2, FUR, z + 0.01, ow);
   }
-  px.capsule(k[0], k[1], 1.7, a[0], a[1], 1.35, FUR, z, o);
   // the pad, with a little feather of fur over it
   const up = cl(l.lift / 3, 0, 1), pa = 0.1 + up * (Math.atan2(a[1] - k[1], a[0] - k[0]) - 0.55 - 0.1);
-  px.capsule(a[0], a[1] + 0.3, 1.35, a[0] + Math.cos(pa) * 2.9, a[1] + 0.3 + Math.sin(pa) * 2.6 + (1 - up) * 0.2, 1.15, FUR, z, o);
+  px.capsule(a[0], a[1] + 0.3, 1.35, a[0] + Math.cos(pa) * 2.9, a[1] + 0.3 + Math.sin(pa) * 2.6 + (1 - up) * 0.2, 1.15, FUR, z, { ...o, weld: 0, weldRoot: 0 });
 };
 
 const TUFTS = [[1.2, 0.5], [2.6, 1], [1.6, 0.7], [3, 1.2], [2, 1], [1.2, 0.6]];
@@ -141,6 +142,8 @@ const wolf = (px, b, b1, b2, rider) => {
   const hx = Math.round(b.K[0]), hy = Math.round(b.K[1]);
   const vx = cl(b.K[0] - b1.K[0], -3, 3), wx = cl(b.W[0] - b1.W[0], -3, 3), wy = cl(b.W[1] - b1.W[1], -2, 2);
 
+  // the wolf is one body: no part shadows or edges another (the head's grid and the ears keep theirs)
+  const BID = px.body(1);
   leg(px, b.FH, 1, -1);
   leg(px, b.FF, 1.2, -1);
 
@@ -157,7 +160,7 @@ const wolf = (px, b, b1, b2, rider) => {
   px.ellipse(ch[0], ch[1], 7.6, 6.8, FUR, 4, { rot: b.ang(0.26) });
   px.capsule(ch[0] - 1, ch[1] - 0.8, 5.7, wa[0], wa[1], 3.6, FUR, 4);
   px.ellipse(hn[0], hn[1], 5.5, 5, FUR, 4);
-  const bodyId = px._pid;
+  const bodyId = BID;
   const be0 = b.at(0.36, 0, 10), be1 = b.at(0.04, 0, 8.4), cf = b.at(0.5, 0.8, 7.4);
   px.capsule(be0[0], be0[1], 2.3, be1[0], be1[1], 1.3, PALE, 4.02);
   px.ellipse(cf[0], cf[1], 3.3, 3.9, PALE, 4.02);
@@ -166,12 +169,14 @@ const wolf = (px, b, b1, b2, rider) => {
   const n0 = b.at(0.42, 0, 3.8), n1 = [b.K[0] - 1.5, b.K[1] + 1];
   px.capsule(n0[0], n0[1], 5.9, n1[0], n1[1], 4.8, FUR, 4.3);
   px.capsule(n0[0] + 3.6, n0[1] + 4, 2.7, n1[0] + 1, n1[1] + 3.2, 2.5, PALE, 4.32);
+  px.body(0);
   // the breast strap: teal, studded with bone, across the chest
   px.part();
   const bs0 = b.at(0.4, 0, 1), bs1 = b.at(0.36, 0, 9.6);
   px.capsule(bs0[0] + 2.4, bs0[1], 0.95, bs1[0] + 4.4, bs1[1] - 0.6, 0.95, TEAL, 4.4, { floor: 1 });
   for (const u of [0.3, 0.62]) { const q = mix([bs0[0] + 2.4, bs0[1]], [bs1[0] + 4.4, bs1[1] - 0.6], u); px.dot(q[0], q[1], BONE, 4.45, { fix: 3 }); }
 
+  px.body(1);
   // the ruff: slate fur over the neck and down the shoulder, its hackles standing (idle) or laid back and streaming
   const hk = p.hackle ?? 0;
   const m0 = [b.K[0] - 3, b.K[1] - 2.6], m1 = b.at(0.47, 0, 0.4), m2 = b.at(0.08, 0, 0.2), sj = b.NF.j;
@@ -186,9 +191,12 @@ const wolf = (px, b, b1, b2, rider) => {
     px.poly([[x - 1.6, y + 1.4], [x + 1.6, y + 1.2], [x - bk, y - up + wy * (i % 2 ? 0.9 : 0.5)]], MANE, 4.6, { fix: 1, cast: 0 });
     if (i % 2 === 0) px.dot(x - bk * 0.4, y - up * 0.7, FROST, 4.65, { noLine: true });      // rime on the tips
   });
+  px.body(0);
+  px.body(1);
   // the dark saddle down the back (under the cloth, it shows fore and aft)
   for (let u = -0.42; u < 0.1; u += 0.04) { const q = b.at(u, 0, 0.3); px.tone(q[0], q[1], -1, bodyId); }
 
+  px.body(0);
   // the saddle cloth: teal, hanging each side of the spine, an ochre hem and a bone toggle
   px.part();
   const A0 = b.at(0.3, 0, -1.2), A1 = b.at(0.3, 0, 6.8), B0 = b.at(-0.12, 0, -1.2), B1 = b.at(-0.14, 0, 7.4), M1 = b.at(0.08, 0, 8.4);
@@ -217,6 +225,11 @@ const wolf = (px, b, b1, b2, rider) => {
   px.part();
   if (back) px.stamp(EAR_BACK, hx - ev, hy - 3, EARLEG, 6.5, { ax: 5, ay: 2 });
   else px.stamp(EAR_UP, hx, hy - 4 + (p.twitch ? 1 : 0), EARLEG, 6.5, { ax: 2, ay: 5 });
+  // the near legs, in front of it all (they were missing: the white wolf ran on two)
+  px.body(1);
+  leg(px, b.NH, 7, 0);
+  leg(px, b.NF, 7.2, 0);
+  px.body(0);
 };
 
 const raider = (px, b, b1, b2) => {

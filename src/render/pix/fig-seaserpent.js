@@ -154,7 +154,7 @@ export const draw = (px, F) => {
   const nk = [[k.nk[0] * S, k.nk[1] * S + dep], [k.nk[2] * S, k.nk[3] * S + dep], [k.nk[4] * S, k.nk[5] * S + dep]];
   const all = pts.concat(spline([base, ...nk], 4).slice(1));
   const rs = all.map((_, i) => (i < nb ? 3.8 + 4.2 * Math.pow(i / (nb - 1), 0.7) : 8 - 2.2 * ((i - nb) / (all.length - nb))));
-  const nrm = (i) => { const a = all[Math.max(0, i - 1)], b = all[Math.min(all.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; let n = [dy / l, -dx / l]; if (n[1] > 0) n = [-n[0], -n[1]]; return n; };
+  const nrm = (i) => { const a = all[Math.max(0, i - 1)], b = all[Math.min(all.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [dy / l, -dx / l]; };   // always the left of the way to the head: the back stays on one side, round the upright neck too
   // the frill down the back
   px.part();
   for (let i = 4; i < all.length - 3; i += 3) { const n = nrm(i), r = rs[i], a = [all[i][0] + n[0] * r * 0.8, all[i][1] + n[1] * r * 0.8], bb = [a[0] + n[0] * 4.4 - 1.4, a[1] + n[1] * 4.4]; cap(px, a, bb, 1.4, 0.3, FRILL, 1, { bias: 1 }); }
@@ -163,13 +163,18 @@ export const draw = (px, F) => {
   const t0 = all[0];
   if (k.fluke) { const u = [t0[0] - 3, t0[1] - 10 * k.fluke - 6]; cap(px, t0, u, 3, 1.6, SCALE, 1.2); cap(px, u, [u[0] - 5, u[1] - 7], 5, 0.8, FRILL, 1.3, { bias: 1 }); cap(px, u, [u[0] + 4, u[1] - 7], 4, 0.8, FRILL, 1.3, { bias: 1 }); }
   else { cap(px, t0, [t0[0] - 8, t0[1] - 3], 3, 0.6, FRILL, 1.2, { bias: 1 }); cap(px, t0, [t0[0] - 8, t0[1] + 3.4], 3, 0.6, FRILL, 1.2, { bias: 1 }); }
-  // the body: dark back, scaled sides, a pale belly down the underside
-  px.part();
-  for (let i = 0; i + 1 < all.length; i++) cap(px, all[i], all[i + 1], rs[i], rs[i + 1], SCALE, 2, { cast: 1 });
-  px.part();
-  for (let i = 0; i + 1 < all.length; i++) { const n0 = nrm(i), n1 = nrm(i + 1), a = [all[i][0] - n0[0] * rs[i] * 0.55, all[i][1] - n0[1] * rs[i] * 0.55], bb = [all[i + 1][0] - n1[0] * rs[i + 1] * 0.55, all[i + 1][1] - n1[1] * rs[i + 1] * 0.55]; cap(px, a, bb, rs[i] * 0.42, rs[i + 1] * 0.42, BELLY, 2.2, { bias: -0.5 }); }
-  px.part();
-  for (let i = 0; i + 1 < all.length; i++) { const n0 = nrm(i), n1 = nrm(i + 1), a = [all[i][0] + n0[0] * rs[i] * 0.62, all[i][1] + n0[1] * rs[i] * 0.62], bb = [all[i + 1][0] + n1[0] * rs[i + 1] * 0.62, all[i + 1][1] + n1[1] * rs[i + 1] * 0.62]; cap(px, a, bb, rs[i] * 0.3, rs[i + 1] * 0.3, BACK, 2.1, { bias: -0.5, floor: 1 }); }
+  // the body: ONE welded tube (pix.js body / limb) of the creature's one body, so the light runs on along the humps and the neck;
+  // the pale belly and the dark back are wrapped over it (the same normal, their own colour)
+  px.body(1);
+  px.limb(all, rs, SCALE, 2, { cast: 1 });
+  const side = (f) => all.map((q, i) => { const n = nrm(i); return [q[0] + n[0] * rs[i] * f, q[1] + n[1] * rs[i] * f]; });
+  // (one short piece a link, as the side's normal flips where the neck stands upright: a long chain would zigzag)
+  const sb = side(-0.55), sk = side(0.62);
+  for (let i = 0; i + 1 < all.length; i++) {
+    px.capsule(sb[i][0], sb[i][1], rs[i] * 0.42, sb[i + 1][0], sb[i + 1][1], rs[i + 1] * 0.42, BELLY, 2.2, { bias: -0.5, wrap: true });
+    px.capsule(sk[i][0], sk[i][1], rs[i] * 0.3, sk[i + 1][0], sk[i + 1][1], rs[i + 1] * 0.3, BACK, 2.1, { bias: -0.5, floor: 1, wrap: true });
+  }
+  px.body(0);
   // scale flecks
   for (let i = 3; i < all.length - 2; i += 2) { const n = nrm(i), q = [all[i][0] - n[0] * rs[i] * 0.1, all[i][1] - n[1] * rs[i] * 0.1]; px.dot(q[0], q[1], SCALE, 2.5, { bias: 1.5, noLine: true }); }
 

@@ -22,7 +22,7 @@
 // the lance hauled back and up, then the weight is thrown forward down the lance).
 import { mat, flat } from "./pix.js";
 import { HUMAN, sampleKeys, ik } from "./rig.js";
-import { QUAD, beastFrames, tailPts, gallop } from "./beast.js";
+import { QUAD, beastFrames, tailPts, gallop, legChain } from "./beast.js";
 
 const COAT = mat("#51444c", { contrast: 1.15 }), SOCK = mat("#d8d0c0"), MANE = mat("#2a2228", { contrast: 1.1 }), HOOF = mat("#2e2428", { floor: 1 });
 const MUZ = mat("#7a6a72"), EYE = flat("#e8b84a"), GLINT = flat("#fff4c0"), NOSTRIL = flat("#241a20"), WHITE = flat("#f2ecdc"), FLARE = flat("#c85a5a");
@@ -76,24 +76,20 @@ const R = { thigh: 7.2, shin: 6.4, spine: 9.6, upper: 5.6, fore: 5.4 };
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
-// one leg: the muscle at the top, a thin cannon, the white feathered sock, the hoof
+// one leg, a welded limb of the horse's one body (pix.js body / limb): the muscle at the top, a thin
+// cannon, one radius at each joint, a near leg's root fading into the barrel's own shading; the white
+// feathered sock is wrapped on (same normal, own colour), then the hoof.
 const leg = (px, l, z, bias) => {
-  const { j, k, a } = l, o = { bias, cast: 1 };
-  px.part();
-  if (l.fore) {
-    if (!l.far) px.ellipse(j[0] - 0.4, j[1] - 1.6, 5.2, 6.2, COAT, z, { ...o, rot: 0.2 });
-    px.capsule(j[0], j[1], 4.2, k[0], k[1], 2.5, COAT, z, o);
-  } else {
-    if (!l.far) px.ellipse(j[0] + 0.9, j[1] - 1.6, 6.6, 7.4, COAT, z, { ...o, rot: -0.25 });
-    px.capsule(j[0], j[1], 4.5, k[0], k[1], 2.2, COAT, z, o);
+  const { j, k, a } = l, near = !l.far, o = { bias, cast: 1, weld: near ? 3 : 0, weldRoot: near ? 6 : 0 };
+  px.limb(legChain(l), l.fore ? [4.2, 2.5, 1.9] : [4.5, 2.2, 1.9], COAT, z, o);
+  if (near) {
+    if (l.fore) px.ellipse(j[0] - 0.4, j[1] - 1.6, 5.2, 6.2, COAT, z + 0.005, { ...o, rot: 0.2, weld: 3, weldRoot: 0 });
+    else px.ellipse(j[0] + 0.9, j[1] - 1.6, 6.6, 7.4, COAT, z + 0.005, { ...o, rot: -0.25, weld: 3, weldRoot: 0 });
   }
-  px.capsule(k[0], k[1], 2.2, a[0], a[1], 1.9, COAT, z, o);
   const s0 = mix(k, a, 0.5);
-  px.part();
-  px.capsule(s0[0], s0[1], 2.0, a[0], a[1] + 0.2, 2.4, SOCK, z + 0.01, { bias });
+  px.capsule(s0[0], s0[1], 2.0, a[0], a[1] + 0.2, 2.4, SOCK, z + 0.01, { bias, wrap: true });
   // the hoof: square on the ground, pointed down the leg's own line in the air
   const up = cl(l.lift / 3, 0, 1), pa = 0.5 + up * (Math.atan2(a[1] - k[1], a[0] - k[0]) - 0.3 - 0.5);
-  px.part();
   px.capsule(a[0], a[1] + 0.5, 2.4, a[0] + Math.cos(pa) * 1.9, a[1] + 0.5 + Math.sin(pa) * 1.5, 1.9, HOOF, z + 0.02, { bias, floor: 1 });
 };
 
@@ -102,6 +98,8 @@ const horse = (px, b, b1, b2, o) => {
   const p = b.p, bolt = o.variant === "bolt", L = o.L;
   const vx = cl(b.W[0] - b1.W[0], -3, 3), vy = cl(b.W[1] - b1.W[1], -3, 3);
 
+  // the horse is one body: no part shadows or edges another; armour, cloth and tack stand outside it
+  const BID = px.body(1);
   leg(px, b.FH, 1, -1);
   leg(px, b.FF, 1.2, -1);
 
@@ -117,7 +115,7 @@ const horse = (px, b, b1, b2, o) => {
 
   // the body: the barrel, the chest, the hindquarters
   const bf = b.at(0.3, 0, 8.8), bb = b.at(-0.3, 0, 8.6), ru = b.at(-0.36, 0, 9), ch = b.at(0.42, 1.2, 9.6);
-  px.part(); const bodyId = px._pid;
+  px.part(); const bodyId = BID;
   px.capsule(bf[0], bf[1], 8.7, bb[0], bb[1], 8.5, COAT, 4);
   px.ellipse(ru[0], ru[1], 9.9, 9.9, COAT, 4);
   px.ellipse(ch[0], ch[1], 8.8, 9.9, COAT, 4);
@@ -126,7 +124,7 @@ const horse = (px, b, b1, b2, o) => {
 
   // the neck: thick at the withers, a crest of mane above it, the crinet's lames on the near side
   const n0 = [b.N0[0] - 1.5, b.N0[1] + 2.5], K = b.K;
-  px.part(); const neckId = px._pid;
+  px.part(); const neckId = BID;
   px.capsule(n0[0], n0[1], 7.6, K[0], K[1] + 1, 4.4, COAT, 4.3);
   const nd = (() => { const dx = K[0] - n0[0], dy = K[1] - n0[1], l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; })(), nn = [nd[1], -nd[0]];    // along the neck, and up off it
   const sway = cl(-vx * 0.9, -2.4, 2.4), tos = bolt ? 1.6 : 0;
@@ -140,6 +138,7 @@ const horse = (px, b, b1, b2, o) => {
     const q = mp(u, 5.8), w = ln + tos * 1.2;
     px.poly([[q[0] - 1.6, q[1] - 0.4], [q[0] + 1.4, q[1] - 1.4], [q[0] - w + sway, q[1] + 1.2 + (u > 0.5 ? 1 : 0)], [q[0] - w * 0.7 + sway, q[1] + 3.4]], MANE, 4.45, { floor: 1, round: 0.5 });
   }
+  px.body(0);
   // the crinet: steel lames lapped down the crest, a brass rivet on each
   px.part();
   for (let i = 0; i < 5; i++) {
@@ -188,10 +187,12 @@ const horse = (px, b, b1, b2, o) => {
     const tip = [eb[0] + dx + 1.4 - earA * 3.2 + (bolt ? 0.8 : 0), eb[1] - 5.8 + earA * 1.6];
     px.poly([[eb[0] + dx - 1.4, eb[1] + 0.8], [eb[0] + dx + 1.3, eb[1] - 0.4], tip], COAT, z, { bias, round: 0.5, cast: 1 });
   };
+  px.body(1);
   ear(-1.2, 5.6, -1);
   px.part(); px.capsule(...H(-0.6, 0), 4.5, ...H(5.2, 0), 4, COAT, 6, { cast: 1 });                // the skull
   px.capsule(...H(4.4, 0.2), 3.5, ...H(11, 0.6), 2.9, MUZ, 6.02, { cast: 1 });                         // the muzzle, paler
   px.ellipse(...H(3.4, -2.4), 3, 2.6, COAT, 6.03, { bias: -1, cast: 0 });                           // the cheek
+  px.body(0);
   // the chanfron: a steel plate down the face, ridged, a brass boss between the eyes
   px.part();
   px.poly([H(0.6, 3.6), H(9.4, 2.8), H(10, 0.8), H(8.4, 0.4), H(0.8, 1.2)], L.IRON, 6.1, { round: 0.6, cast: 1 });
@@ -207,15 +208,19 @@ const horse = (px, b, b1, b2, o) => {
   px.dot(ns[0], ns[1], bolt ? FLARE : NOSTRIL, 6.2, { fix: 0 });
   if (bolt) px.dot(ns[0] - 1, ns[1], NOSTRIL, 6.22, { fix: 0 });
   // the near ear on top of the skull
+  px.body(1);
   ear(1.4, 6.5, 0);
+  px.body(0);
   // the bridle: a cheek strap, the bit at the mouth's corner
   px.part();
   px.line(...H(4.6, 2.4), ...bit, LEATHER, 6.3, { noLine: true });
   px.line(...H(7.4, 1.8), ...H(7.8, -2), LEATHER, 6.3, { noLine: true });
   px.dot(bit[0], bit[1], BRASS, 6.34, { fix: 3 });
 
+  px.body(1);
   leg(px, b.NH, 7, 0);
   leg(px, b.NF, 7.2, 0);
+  px.body(0);
   return { bit, M, K };
 };
 
@@ -236,8 +241,7 @@ const rider = (px, b, b1, b2, h, L) => {
   const hp = [Hp[0] - 0.6, Hp[1] + 0.6], ft = [Hp[0] + 2.4 + (p.rKnee ?? 0), Hp[1] + 12.8];
   const lg = ik(hp[0], hp[1], ft[0], ft[1], R.thigh, R.shin, -1);
   px.part();
-  px.capsule(hp[0], hp[1], 2.9, lg.mid[0], lg.mid[1], 2.4, L.IRON, 8, { cast: 1 });
-  px.capsule(lg.mid[0], lg.mid[1], 2.3, lg.end[0], lg.end[1] - 1, 1.9, L.IRON, 8, { cast: 1 });
+  px.limb([hp, lg.mid, [lg.end[0], lg.end[1] - 1]], [2.9, 2.35, 1.9], L.IRON, 8, { cast: 1 });
   px.part();
   px.ellipse(lg.mid[0] + 0.5, lg.mid[1], 2.6, 2.4, L.IRON, 8.02, { cast: 1 });
   px.dot(lg.mid[0] + 0.6, lg.mid[1] - 0.6, STEELB, 8.04, { fix: 4 });
@@ -249,8 +253,7 @@ const rider = (px, b, b1, b2, h, L) => {
   const sc = [C[0] + 6.4 + (p.shx ?? 0), C[1] + 3.6];
   const fa = ik(sF[0], sF[1], sc[0] - 1.6, sc[1] - 0.6, R.upper, R.fore, 1);
   px.part();
-  px.capsule(sF[0], sF[1], 2.2, fa.mid[0], fa.mid[1], 2, L.IRON, 7.6, { bias: -1 });
-  px.capsule(fa.mid[0], fa.mid[1], 2, fa.end[0], fa.end[1], 1.7, L.IRON, 7.6, { bias: -1 });
+  px.limb([sF, fa.mid, fa.end], [2.2, 2, 1.7], L.IRON, 7.6, { bias: -1 });
 
   // the trunk: a breastplate under an oxblood surcoat that falls over the thighs and the saddle
   const hemY = Hp[1] + 5.8, sw = cl(-vx * 1.1, -2.4, 2.4);
@@ -326,8 +329,7 @@ const rider = (px, b, b1, b2, h, L) => {
   px.line(...at(30, 2), ...at(22.4, 3.6 + fl), BRASS, 10.24, { noLine: true });
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.4, 2.2, L.IRON, 10.4, { cast: 0, bias: 1 });
-  px.capsule(sN[0], sN[1] + 0.6, 2.4, na.mid[0], na.mid[1], 2.1, L.IRON, 10.5, { cast: 1 });
-  px.capsule(na.mid[0], na.mid[1], 2.1, hd[0], hd[1], 1.7, L.IRON, 10.5, { cast: 1 });
+  px.limb([[sN[0], sN[1] + 0.6], na.mid, hd], [2.4, 2.1, 1.7], L.IRON, 10.5, { cast: 1 });
   px.ellipse(na.mid[0], na.mid[1], 2, 1.9, L.IRON, 10.55, { cast: 1 });
   px.part();
   px.ellipse(hd[0], hd[1], 1.9, 1.9, LEATHER, 10.7);

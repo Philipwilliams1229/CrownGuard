@@ -9,7 +9,7 @@
 // (crouch, a lunging snap, a shake, back).
 import { mat, flat } from "./pix.js";
 import { HUMAN, sampleKeys } from "./rig.js";
-import { QUAD, beastFrames, solveBeast, tailPts, gallop } from "./beast.js";
+import { QUAD, beastFrames, solveBeast, tailPts, gallop, legChain } from "./beast.js";
 
 const FUR = mat("#8f929c"), PALE = mat("#aab0ba"), MANE = mat("#585b6b"), BONE = mat("#ece0c4");
 const SNAP = flat("#f6f1e2"), SNAP2 = flat("#cfccc8");
@@ -59,23 +59,24 @@ const Q = { ...QUAD, spine: 19, height: 23.5, foreU: 9.5, foreL: 8.5, hindU: 11,
 
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
+// A leg is one welded limb of the wolf's one body (pix.js body / limb): shoulder or hip, wrist or hock,
+// pad joint in a single tube with one radius at each joint, a near leg's root fading into the barrel's
+// own shading. The shoulder's muscle and the haunch are wrapped on, never a lit shape of their own.
 const leg = (px, l, z, bias) => {
-  const { j, k, a } = l, o = { bias, cast: 1 };
-  px.part();
+  const { j, k, a } = l, near = !l.far, o = { bias, cast: 1, weld: near ? 3 : 0, weldRoot: near ? 5 : 0 };
   if (l.fore) {
-    // the shoulder's muscle on the chest, then the upper leg
-    if (!l.far) px.ellipse(j[0] - 0.4, j[1] - 0.6, 3.3, 4, FUR, z, { ...o, rot: 0.3 });
-    px.capsule(j[0], j[1], 2.6, k[0], k[1], 1.8, FUR, z, o);
+    px.limb(legChain(l), [2.6, 1.8, 1.25], FUR, z, o);
+    // the shoulder's muscle on the chest
+    if (near) px.ellipse(j[0] - 0.4, j[1] - 0.6, 3.3, 4, FUR, z + 0.01, { ...o, rot: 0.3, weld: 3, weldRoot: 0 });
   } else {
     // the haunch: a broad thigh whose muscle stands forward of the hip-to-hock line
     const mx = (j[0] + k[0]) / 2, my = (j[1] + k[1]) / 2, dx = k[0] - j[0], dy = k[1] - j[1], d = Math.hypot(dx, dy) || 1;
-    px.capsule(j[0], j[1], 3.9, k[0], k[1], 1.6, FUR, z, o);
-    px.ellipse(mx + (dy / d) * 2.6 - (dx / d) * 1.6, my - (dx / d) * 2.6 - (dy / d) * 1.6, 3, 3, FUR, z, o);
+    px.limb(legChain(l), [3.9, 1.6, 1.25], FUR, z, o);
+    px.ellipse(mx + (dy / d) * 2.6 - (dx / d) * 1.6, my - (dx / d) * 2.6 - (dy / d) * 1.6, 3, 3, FUR, z + 0.01, { ...o, weld: 3, weldRoot: 0 });
   }
-  px.capsule(k[0], k[1], 1.6, a[0], a[1], 1.25, FUR, z, o);
   // the pad: flat on the ground; in the air it carries on down the leg's own line, the toes turned a little forward
   const up = cl(l.lift / 3, 0, 1), pa = 0.1 + up * (Math.atan2(a[1] - k[1], a[0] - k[0]) - 0.55 - 0.1);
-  px.capsule(a[0], a[1] + 0.3, 1.25, a[0] + Math.cos(pa) * 2.7, a[1] + 0.3 + Math.sin(pa) * 2.5 + (1 - up) * 0.2, 1.05, FUR, z, o);
+  px.capsule(a[0], a[1] + 0.3, 1.25, a[0] + Math.cos(pa) * 2.7, a[1] + 0.3 + Math.sin(pa) * 2.5 + (1 - up) * 0.2, 1.05, FUR, z, { ...o, weld: 0, weldRoot: 0 });
 };
 
 // the hackles' heights and leans, front to back: uneven on purpose (an even row reads as a comb)
@@ -87,6 +88,8 @@ export const draw = (px, F) => {
   // how the head and the withers moved over the last beat: what hangs trails by that
   const vx = cl(b.K[0] - b1.K[0], -3, 3), wx = cl(b.W[0] - b1.W[0], -3, 3), wy = cl(b.W[1] - b1.W[1], -2, 2);
 
+  // the wolf is one body: no part shadows or edges another (the muzzle's grid and the ears keep theirs)
+  const BID = px.body(1);
   // the far legs, a tone down
   leg(px, b.FH, 1, -1);
   leg(px, b.FF, 1.2, -1);
@@ -104,7 +107,7 @@ export const draw = (px, F) => {
   px.ellipse(ch[0], ch[1], 7.2, 6.4, FUR, 4, { rot: b.ang(0.26) });
   px.capsule(ch[0] - 1, ch[1] - 0.8, 5.4, wa[0], wa[1], 3.4, FUR, 4);
   px.ellipse(hn[0], hn[1], 5.2, 4.8, FUR, 4);
-  const bodyId = px._pid;
+  const bodyId = BID;
   const be0 = b.at(0.36, 0, 9.6), be1 = b.at(0.04, 0, 8), cf = b.at(0.5, 0.8, 7.2);
   px.capsule(be0[0], be0[1], 2.2, be1[0], be1[1], 1.2, PALE, 4.02);
   px.ellipse(cf[0], cf[1], 3.2, 3.8, PALE, 4.02);
@@ -131,7 +134,8 @@ export const draw = (px, F) => {
   // the dark saddle down the back
   for (let u = -0.42; u < 0.1; u += 0.04) { const q = b.at(u, 0, 0.3); px.tone(q[0], q[1], -1, bodyId); }
 
-  // the head, with its ears
+  // the head, with its ears: the grid casts on the neck, so it stands outside the body
+  px.body(0);
   const back = (p.ear ?? 0) > 0.5;
   const grid = p.blink ? BLINK : p.jaw > 0.8 ? BITE : p.clamp > 0.5 ? CLAMP : p.jaw > 0.4 ? (p.lip ? SNARL2 : SNARL) : HEAD;
   const ev = Math.round(vx * 0.4);
@@ -145,8 +149,10 @@ export const draw = (px, F) => {
   else px.stamp(EAR_UP, hx, hy - 4 + (p.twitch ? 1 : 0), EARLEG, 6.5, { ax: 2, ay: 5 });
 
   // the near legs, in front of it all
+  px.body(1);
   leg(px, b.NH, 7, 0);
   leg(px, b.NF, 7.2, 0);
+  px.body(0);
   return {};
 };
 

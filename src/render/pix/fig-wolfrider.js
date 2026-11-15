@@ -64,10 +64,9 @@ export const draw = (px, F, o = {}) => {
   // the far arm: its fist twisted in the ruff before him
   const grip = b.at(0.4, 1.4, 1.2), fa = ik(sF[0], sF[1], grip[0], grip[1], R.upper, R.fore, 1);
   px.part();
-  px.capsule(sF[0], sF[1], 1.9, fa.mid[0], fa.mid[1], 1.7, SKIN, 7.6, { bias: -1 });
-  px.capsule(fa.mid[0], fa.mid[1], 1.7, fa.end[0], fa.end[1], 1.6, SKIN, 7.6, { bias: -1 });
+  px.limb([sF, fa.mid, fa.end], [1.9, 1.7, 1.6], SKIN, 7.6, { bias: -1 });
   const fw = mix(fa.mid, fa.end, 0.6);
-  px.capsule(fw[0], fw[1], 1.85, fa.end[0], fa.end[1], 1.75, LEATHER, 7.62, { bias: -1, floor: 1 });
+  px.capsule(fw[0], fw[1], 1.85, fa.end[0], fa.end[1], 1.75, LEATHER, 7.62, { bias: -1, floor: 1, wrap: true });
 
   // the near leg: the knee forward and gripping the ribs, the shin and boot back down the flank
   const hp = [H[0] - 0.6, H[1] + 0.4], ft = [H[0] + 3 + (p.rKnee ?? 0), H[1] + 9.4];
@@ -112,10 +111,9 @@ export const draw = (px, F, o = {}) => {
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.3, 2.1, BROWN, 10.3, { cast: 0, bias: 1 });
   px.part();
-  px.capsule(sN[0], sN[1] + 0.6, 1.9, na.mid[0], na.mid[1], 1.7, SKIN, 10.5, { cast: 1 });
-  px.capsule(na.mid[0], na.mid[1], 1.7, hd[0], hd[1], 1.6, SKIN, 10.5, { cast: 1 });
+  px.limb([[sN[0], sN[1] + 0.6], na.mid, hd], [1.9, 1.7, 1.6], SKIN, 10.5, { cast: 1 });
   const w0 = mix(na.mid, hd, 0.56);
-  px.capsule(w0[0], w0[1], 1.9, hd[0], hd[1], 1.75, LEATHER, 10.55, { cast: 1, floor: 1 });
+  px.capsule(w0[0], w0[1], 1.9, hd[0], hd[1], 1.75, LEATHER, 10.55, { cast: 1, floor: 1, wrap: true });
   px.part();
   px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 10.7);
   return { ...info, axe: { hd, d, nn } };

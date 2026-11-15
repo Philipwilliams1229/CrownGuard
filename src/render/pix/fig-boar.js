@@ -15,7 +15,7 @@
 // lance is thrust). fx: the snort's breath, the tusks' smear.
 import { mat, flat } from "./pix.js";
 import { HUMAN, sampleKeys, ik } from "./rig.js";
-import { QUAD, beastFrames, tailPts, gallop } from "./beast.js";
+import { QUAD, beastFrames, tailPts, gallop, legChain } from "./beast.js";
 
 const HIDE = mat("#6e4a38"), BELLY = mat("#96725c"), CREST = mat("#3a2620"), TUSK = mat("#ece0c4"), HOOF = mat("#2e2422");
 const SNOUT = mat("#b98e78"), BEYE = flat("#e05248"), BGLINT = flat("#ffb0a0"), NOSTRIL = flat("#2c1a22"), BMOUTH = flat("#2c1a22");
@@ -89,21 +89,18 @@ const R = { thigh: 6, shin: 5.5, spine: 7.5, upper: 5.2, fore: 5.2 };
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
+// A leg is one welded limb of the boar's one body (pix.js body / limb): shoulder or hip, wrist or hock,
+// pad joint as a single tube with one radius at each joint, a near leg's root fading into the barrel's
+// own shading; the shoulder's muscle and the ham are welded in, not lit shapes of their own.
 const leg = (px, l, z, bias) => {
-  const { j, k, a } = l, o = { bias, cast: 1 };
-  px.part();
-  if (l.fore) {
-    if (!l.far) px.ellipse(j[0] - 0.5, j[1] - 2, 4.6, 5.4, HIDE, z, { ...o, rot: 0.2 });
-    px.capsule(j[0], j[1], 3.3, k[0], k[1], 2.2, HIDE, z, o);
-  } else {
-    // the ham
-    if (!l.far) px.ellipse(j[0] + 0.6, j[1] - 1.6, 5, 5.6, HIDE, z, { ...o, rot: -0.25 });
-    px.capsule(j[0], j[1], 3.5, k[0], k[1], 2.1, HIDE, z, o);
+  const { j, k, a } = l, near = !l.far, o = { bias, cast: 1, weld: near ? 3 : 0, weldRoot: near ? 6 : 0 };
+  px.limb(legChain(l), l.fore ? [3.3, 2.2, 1.5] : [3.5, 2.1, 1.5], HIDE, z, o);
+  if (near) {
+    if (l.fore) px.ellipse(j[0] - 0.5, j[1] - 2, 4.6, 5.4, HIDE, z + 0.01, { ...o, rot: 0.2, weld: 3, weldRoot: 0 });
+    else px.ellipse(j[0] + 0.6, j[1] - 1.6, 5, 5.6, HIDE, z + 0.01, { ...o, rot: -0.25, weld: 3, weldRoot: 0 });   // the ham
   }
-  px.capsule(k[0], k[1], 2, a[0], a[1], 1.5, HIDE, z, o);
   // the cloven hoof: square on the ground, pointed down the leg's own line in the air
   const up = cl(l.lift / 2.5, 0, 1), pa = 0.5 + up * (Math.atan2(a[1] - k[1], a[0] - k[0]) - 0.3 - 0.5);
-  px.part();
   px.capsule(a[0], a[1] + 0.5, 1.6, a[0] + Math.cos(pa) * 1.5, a[1] + 0.5 + Math.sin(pa) * 1.3, 1.3, HOOF, z + 0.02, { bias, floor: 1 });
 };
 
@@ -117,6 +114,8 @@ const boar = (px, b, b1, b2) => {
   const hx = Math.round(b.K[0]), hy = Math.round(b.K[1]);
   const vx = cl(b.K[0] - b1.K[0], -3, 3), wx = cl(b.W[0] - b1.W[0], -3, 3), wy = cl(b.W[1] - b1.W[1], -2, 2);
 
+  // the boar is one body: no part shadows or edges another (the head's grid and the ears keep theirs)
+  const BID = px.body(1);
   leg(px, b.FH, 1, -1);
   leg(px, b.FF, 1.2, -1);
 
@@ -132,7 +131,7 @@ const boar = (px, b, b1, b2) => {
   const hu = b.at(0.2, 0, 6.6), ru = b.at(-0.42, 0, 8.8), ba = b.at(-0.1, 0, 8.4);
   px.part();
   px.ellipse(ru[0], ru[1], 9, 8, HIDE, 4);
-  const bodyId = px._pid;
+  const bodyId = BID;
   px.capsule(hu[0], hu[1] + 0.6, 9.6, ba[0], ba[1], 8.4, HIDE, 4);
   px.ellipse(hu[0], hu[1], 11.4, 10.4, HIDE, 4, { rot: b.ang(0.2) - 0.12 });
   const be0 = b.at(0.2, 0, 15.6), be1 = b.at(-0.3, 0, 15.4);
@@ -158,6 +157,7 @@ const boar = (px, b, b1, b2) => {
   });
 
   // the head and its ears
+  px.body(0);
   const back = (p.ear ?? 0) > 0.5, ev = Math.round(vx * 0.4);
   px.part();
   if (back) px.stamp(BEAR_BACK, hx + 3 - ev, hy - 4, BEARLEG_F, 5.5, { ax: 6, ay: 3 });
@@ -168,8 +168,10 @@ const boar = (px, b, b1, b2) => {
   if (back) px.stamp(BEAR_BACK, hx - 1 - ev, hy - 3, BEARLEG, 6.5, { ax: 6, ay: 3 });
   else px.stamp(BEAR_UP, hx + 1, hy - 4 + (p.twitch ? 1 : 0), BEARLEG, 6.5, { ax: 3, ay: 5 });
 
+  px.body(1);
   leg(px, b.NH, 7, 0);
   leg(px, b.NF, 7.2, 0);
+  px.body(0);
 };
 
 const rider = (px, b, b1, b2) => {
@@ -189,15 +191,13 @@ const rider = (px, b, b1, b2) => {
   const grip = b.at(0.46, 0, -3);
   const fa = ik(sF[0], sF[1], grip[0], grip[1], R.upper, R.fore, 1);
   px.part();
-  px.capsule(sF[0], sF[1], 1.6, fa.mid[0], fa.mid[1], 1.5, SKIN, 7.6, { bias: -1 });
-  px.capsule(fa.mid[0], fa.mid[1], 1.5, fa.end[0], fa.end[1], 1.4, SKIN, 7.6, { bias: -1 });
+  px.limb([sF, fa.mid, fa.end], [1.6, 1.5, 1.4], SKIN, 7.6, { bias: -1 });
 
   // the near leg: the knee forward and gripping, the shin back down the flank
   const hp = [H[0] - 0.6, H[1] + 0.4], ft = [H[0] + 3.6 + (p.rKnee ?? 0), H[1] + 9.6];
   const lg = ik(hp[0], hp[1], ft[0], ft[1], R.thigh, R.shin, -1);
   px.part();
-  px.capsule(hp[0], hp[1], 2.1, lg.mid[0], lg.mid[1], 1.8, SKIN, 8, { cast: 1 });
-  px.capsule(lg.mid[0], lg.mid[1], 1.7, lg.end[0], lg.end[1], 1.3, SKIN, 8, { cast: 1 });
+  px.limb([hp, lg.mid, lg.end], [2.1, 1.75, 1.3], SKIN, 8, { cast: 1 });
   px.capsule(lg.end[0] - 0.4, lg.end[1] + 0.6, 1.2, lg.end[0] + 3, lg.end[1] + 1.5, 1, SKIN, 8, { cast: 1 });
 
   // the jerkin and its belt
@@ -234,8 +234,7 @@ const rider = (px, b, b1, b2) => {
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.5, 2.3, JERK, 10.4, { cast: 0, bias: 1 });
   px.part();
-  px.capsule(sN[0], sN[1] + 0.6, 1.7, na.mid[0], na.mid[1], 1.6, SKIN, 10.5, { cast: 1 });
-  px.capsule(na.mid[0], na.mid[1], 1.6, hd[0], hd[1], 1.5, SKIN, 10.5, { cast: 1 });
+  px.limb([[sN[0], sN[1] + 0.6], na.mid, hd], [1.7, 1.6, 1.5], SKIN, 10.5, { cast: 1 });
   const w0 = mix(na.mid, hd, 0.6), w1 = mix(na.mid, hd, 0.74);
   px.capsule(w0[0], w0[1], 1.65, w1[0], w1[1], 1.65, DARK, 10.55, { cast: 1, floor: 1 });
   px.part();
