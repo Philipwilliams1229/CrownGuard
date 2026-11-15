@@ -640,6 +640,12 @@ agent with a tool-call budget instead of starting a fresh one.
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **WISHLIST, after the graphics pass (owner, 2026-11-14): archers aim at their target.**
+  "Get things like archers to actually move their arms to aim at the enemies they are
+  targeting. Right now they shoot at 90 degrees and sometimes the arrows fly sideways out of
+  the bows. But that can come later. Lets finish graphics first." Covers the hall bowmen,
+  Wren, the castle's wall bowmen and foe archers: the bow arm should pitch to the target's
+  angle and the arrow leave along the bow. Shot points come from `engine/muzzles.js`.
 - **BEFORE PUBLISHING (owner, 2026-11-07): no "Retry Wave" in the campaign.**
   "Makes it more challenging. Keep it how it is for now, but before publishing
   I'll want that change." Not done yet on purpose. The button is on the defeat
