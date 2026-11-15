@@ -19,6 +19,7 @@ details.fig{margin:6px 8px;background:#1f2330}details.fig summary{font-weight:60
 .fr .lb{font-size:11px;text-align:center;color:#aab;min-height:16px}.fr.on .lb{color:#ff8a8a;font-weight:700}
 .fr input{display:none;width:100%;min-width:90px;height:32px;font-size:13px;background:#0e1016;color:#fff;border:1px solid #f66;border-radius:4px;padding:0 4px}
 .fr.on input{display:block}
+.play{display:flex;flex-direction:column;align-items:center;margin-left:10px;padding-left:10px;border-left:2px dashed #3a4160}.play .im{border:3px solid #3a4160;border-radius:4px;image-rendering:pixelated;background-repeat:no-repeat;box-sizing:content-box}.play .lb{font-size:11px;color:#9fd18a;font-weight:700;min-height:16px}.play .gs{margin-top:6px;image-rendering:pixelated;background-repeat:no-repeat}
 .tag{font-weight:400;color:#8b93b3;font-size:12px}
 </style></head><body>
 <div id="bar"><input id="q" type="search" placeholder="Search figures..."><span id="count">0 frames flagged</span><button id="copy">Copy</button><button id="clear">Clear</button><textarea id="fallback" readonly></textarea></div>
@@ -27,6 +28,17 @@ details.fig{margin:6px 8px;background:#1f2330}details.fig summary{font-weight:60
 const M = /*MANIFEST*/[];
 const SCALE = 0.67, ORDER = ["Heroes","Your soldiers","Iron","Hollow","Rime","Greenwood horde","Other"];
 let flags = {};
+const players = [];
+const HOLD = 350; // a clip that does not loop holds its last frame a moment, then plays again
+const tick = (now) => {
+  for (const p of players) {
+    const c = p.c, per = c.ms / c.n, span = c.ms + (c.loop ? 0 : HOLD);
+    let i = Math.floor((now % span) / per); if (i >= c.n) i = c.n - 1;
+    p.pim.style.backgroundPosition = `${-i * p.pw}px 0px`; p.gs.style.backgroundPosition = `${-i * p.gw}px 0px`;
+  }
+  requestAnimationFrame(tick);
+};
+requestAnimationFrame(tick);
 try { flags = JSON.parse(localStorage.getItem("cg-frame-flags") || "{}"); } catch (e) {}
 const save = () => { try { localStorage.setItem("cg-frame-flags", JSON.stringify(flags)); } catch (e) {} };
 const root = document.getElementById("root"), count = document.getElementById("count");
@@ -63,6 +75,14 @@ for (const g of ORDER) {
           d.onclick = () => { if (key in flags) { delete flags[key]; d.classList.remove("on"); note.value = ""; } else { flags[key] = ""; d.classList.add("on"); } upd(); };
           d.append(im, lb, note); d.dataset.key = key; fr.appendChild(d);
         }
+        // the clip in motion, at the frames' size and at about the game's size
+        const pw = Math.round(c.cellW * SCALE), ph = Math.round(c.cellH * SCALE), gw = Math.round(c.cellW / 3), gh = Math.round(c.cellH / 3);
+        const pd = el("div", "play"), pim = el("div", "im"), gs = el("div", "gs");
+        pim.style.cssText = `width:${pw}px;height:${ph}px;background-image:url(${c.file});background-size:${pw * c.n}px ${ph}px`;
+        gs.style.cssText = `width:${gw}px;height:${gh}px;background-image:url(${c.file});background-size:${gw * c.n}px ${gh}px`;
+        pd.append(pim, el("div", "lb", "\u25B6 in motion"), gs, el("div", "lb", "game size"));
+        players.push({ c, pim, gs, pw, gw });
+        fr.appendChild(pd);
         cd.appendChild(fr); fd.appendChild(cd);
       }
     };

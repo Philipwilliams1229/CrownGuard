@@ -107,7 +107,7 @@ for (const e of entries) {
         if (a && !/shoot|loose|fire|attack/.test(clipName) ) continue;
         if (a && clipName !== (e.type.startsWith("hero") ? "attack" : "shoot") && !fig.CLIPS.shoot) continue;
         if (a && fig.CLIPS.shoot && clipName !== "shoot") continue;
-        jobs.push({ clipName, aim: a, imgs: bake(fig, clipName, (e.variant || "") + a) });
+        jobs.push({ clipName, aim: a, ms: fig.CLIPS[clipName].ms || 800, loop: fig.CLIPS[clipName].loop !== false, imgs: bake(fig, clipName, (e.variant || "") + a) });
       }
     }
     const box = [1e9, 1e9, -1, -1];
@@ -116,7 +116,7 @@ for (const e of entries) {
     for (const j of jobs) {
       const s = strip(j.imgs, box, fig), file = `${e.type}_${j.clipName}${j.aim ? "_a" + j.aim.slice(1) : ""}.png`;
       fs.writeFileSync(`${OUT}/${file}`, s.file); bytes += s.file.length;
-      manifest.push({ fig: e.type, name: nameOf(e.type), group: groupOf(e.type), clip: j.clipName, aim: j.aim ? j.aim.slice(1) : "", file, cellW: s.cellW, cellH: s.cellH, n: j.imgs.length });
+      manifest.push({ fig: e.type, name: nameOf(e.type), group: groupOf(e.type), clip: j.clipName, aim: j.aim ? j.aim.slice(1) : "", file, cellW: s.cellW, cellH: s.cellH, n: j.imgs.length, ms: j.ms, loop: j.loop });
     }
   } catch (err) { failed.push(e.type + ": " + String(err.message).split("\n")[0]); }
 }
