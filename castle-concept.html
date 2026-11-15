@@ -1,0 +1,74 @@
+<!doctype html>
+<!--
+  Castle concept lab: a real Greenwood board's ground drawn by the game, then the
+  castle over the band: today's (src/render/castle.js) and the three concept looks
+  (concept/castle-concept.js: a clean | b worked | c bolder). Nothing in the game
+  reads the concept. Static, painted once (no rAF), saved by the dev server:
+    /castle-concept.html?realm=thornbrook&tag=
+  writes .shots/ccx_sheet.png (A | B | C | today, the gate crop 220x420 at 2x),
+  ccx_a/b/c.png (the same crop alone), ccx_<look>_full.png (220x560),
+  ccx_gate.png (the gate at 4x, one per look side by side).
+-->
+<html>
+  <head><meta charset="utf-8" /><title>castle concept</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { W, H } from "/src/data/constants.js";
+      const q = new URLSearchParams(location.search);
+      selectRealm(q.get("realm") || "thornbrook");
+      const { groundLayer } = await import("/src/render/world.js");
+      const { PTS } = await import("/src/engine/path.js");
+      const today = await import("/src/render/castle.js");
+      const conc = await import("/concept/castle-concept.js");
+      const [, gy] = PTS[PTS.length - 1];
+      const R = 2, X0 = 620, CW = 220;
+      const Y0 = Math.max(0, Math.min(H - 420, Math.round(gy - 210))), CH = 420;
+      const TIME = 3.2;
+      const paint = (look) => {
+        const cv = document.createElement("canvas"); cv.width = W * R; cv.height = H * R;
+        const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+        c.drawImage(groundLayer(), 0, 0, cv.width, cv.height);
+        c.save(); c.scale(R, R);
+        const M = look === "today" ? today : conc;
+        if (look !== "today") conc.setLook(look); else today.resetCastleBakes();
+        try { M.drawCastleGround(c, TIME, 1); M.drawCastle(c, TIME, 1); } catch (e) { console.error(e); document.title = "ERR " + e.message; }
+        c.restore();
+        return cv;
+      };
+      const crop = (cv, x, y, w, h, sc = 1) => {
+        const o = document.createElement("canvas"); o.width = w * R * sc; o.height = h * R * sc;
+        const k = o.getContext("2d"); k.imageSmoothingEnabled = false;
+        k.drawImage(cv, x * R, y * R, w * R, h * R, 0, 0, o.width, o.height);
+        return o;
+      };
+      const save = (name, cv) => fetch("/__shot?name=" + name, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      const order = ["a", "b", "c", "today"], names = { a: "A  CLEAN", b: "B  WORKED", c: "C  BOLDER", today: "TODAY (unchanged)" };
+      const boards = {}, crops = {};
+      for (const l of order) { boards[l] = paint(l); crops[l] = crop(boards[l], X0, Y0, CW, CH); }
+      const GAP = 12, HEAD = 30, cw = CW * R, ch = CH * R;
+      const sheet = document.createElement("canvas");
+      sheet.width = order.length * cw + (order.length + 1) * GAP; sheet.height = ch + HEAD + GAP;
+      const s = sheet.getContext("2d"); s.imageSmoothingEnabled = false;
+      s.fillStyle = "#20242c"; s.fillRect(0, 0, sheet.width, sheet.height);
+      s.font = "bold 16px monospace"; s.fillStyle = "#e8e0c8";
+      order.forEach((l, i) => { const x = GAP + i * (cw + GAP); s.fillText(names[l], x, 20); s.drawImage(crops[l], x, HEAD); });
+      await save("ccx_sheet", sheet);
+      for (const l of ["a", "b", "c"]) {
+        await save("ccx_" + l, crops[l]);
+        await save("ccx_" + l + "_full", crop(boards[l], X0, 0, CW, H));
+      }
+      // the gate at 8 px a unit (nearest-neighbour on the 2x paint)
+      const gw = 46, gh = 84, G4 = 4;
+      const gate = document.createElement("canvas"); gate.width = 3 * gw * R * G4 + 4 * 8; gate.height = gh * R * G4 + 8;
+      const g = gate.getContext("2d"); g.imageSmoothingEnabled = false; g.fillStyle = "#20242c"; g.fillRect(0, 0, gate.width, gate.height);
+      ["a", "b", "c"].forEach((l, i) => g.drawImage(crop(boards[l], 727, gy - 42, gw, gh, G4), 8 + i * (gw * R * G4 + 8), 4));
+      await save("ccx_gate", gate);
+      document.title = "DONE";
+      document.getElementById("status").textContent = "saved ccx_* gy=" + gy + " Y0=" + Y0;
+      document.body.appendChild(sheet);
+    </script>
+  </body>
+</html>
