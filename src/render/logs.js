@@ -13,6 +13,14 @@
 // and turns with `spin`, so it visibly rolls. Dust, chips and embers are laid
 // down by distance rolled, so they stay put on the road behind it.
 // Cost: ~60-250 fillRects per log; only a few logs are ever alive.
+//
+// "New sprites" (prefs.newSprites, the default): the barrel is still solved in its own
+// frame, but onto a small offscreen picture at one art pixel a pixel, which is then
+// resampled into WORLD-aligned art pixels (no rotated, half-blended pixels), given a
+// one-pixel outline TINTED from the colour it borders (not a fat black line), and a hard
+// stepped shadow. Off: the old painting, kept below exactly as it was.
+
+import { prefs } from "../data/prefs.js";
 
 const INK = "#241a26";
 const K = 0.55;                                     // screen lift per unit of height
@@ -41,6 +49,57 @@ const KEG = {
   dust: "120,108,104", chip: ["#fff3d2", "#f8d868", "#f09838"],
 };
 
+// ---- the new look: resample the unturned barrel into world-aligned art pixels ----
+let OFF = null, OFFC = null, OUT = null, OUTC = null;
+const INKRGB = [36, 26, 38];
+const roundBox = (lx, ly, hx, hy, r) => {
+  const qx = Math.abs(lx) - (hx - r), qy = Math.abs(ly) - (hy - r);
+  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+};
+function composeNew(ctx, B, OS, X, Y, EXT, a, L, hl, R, drum, ue) {
+  const src = B.getImageData(0, 0, OS, OS).data;
+  const N = EXT * 4;                                  // the world bitmap: 2 pixels a unit, EXT each side
+  if (!OUT || OUT.width < N) { OUT = document.createElement("canvas"); OUT.width = OUT.height = Math.max(N, 96); OUTC = OUT.getContext("2d"); }
+  const img = OUTC.createImageData(N, N), d = img.data;
+  const th = a + Math.PI / 2, c = Math.cos(th), s = Math.sin(th);
+  const mask = new Uint8Array(N * N);
+  const half = OS / 2;
+  for (let j = 0; j < N; j++) {
+    const dy = (j + 0.5) / 2 - EXT;
+    for (let i = 0; i < N; i++) {
+      const dx = (i + 0.5) / 2 - EXT;
+      const lx = dx * c + dy * s, ly = -dx * s + dy * c;
+      const u = Math.floor(lx * 2 + half), v = Math.floor(ly * 2 + half);
+      const o = (j * N + i) * 4;
+      if (u >= 0 && v >= 0 && u < OS && v < OS) {
+        const k = (v * OS + u) * 4;
+        if (src[k + 3] > 128) { d[o] = src[k]; d[o + 1] = src[k + 1]; d[o + 2] = src[k + 2]; d[o + 3] = 255; mask[j * N + i] = 1; continue; }
+      }
+      // not the barrel: its shadow, two stepped tones thrown down and to the right
+      const sx = dx - 1.5, sy = dy - 2;
+      const lx2 = sx * c + sy * s, ly2 = -sx * s + sy * c;
+      let al = 0;
+      if (roundBox(lx2, ly2, hl + 2, R * 0.95, R * 0.8) <= 0) al += 0.16;
+      if (roundBox(lx2, ly2, hl + 0.5, R * 0.6, R * 0.5) <= 0) al += drum ? 0.3 : 0.22;
+      if (al > 0) { d[o] = INKRGB[0]; d[o + 1] = INKRGB[1]; d[o + 2] = INKRGB[2]; d[o + 3] = Math.round(al * 255); }
+    }
+  }
+  // the one-pixel line, tinted from the body it borders: half its colour, half the ink
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    if (mask[j * N + i]) continue;
+    let nb = -1;
+    if (i > 0 && mask[j * N + i - 1]) nb = (j * N + i - 1) * 4;
+    else if (j > 0 && mask[(j - 1) * N + i]) nb = ((j - 1) * N + i) * 4;
+    else if (i < N - 1 && mask[j * N + i + 1]) nb = (j * N + i + 1) * 4;
+    else if (j < N - 1 && mask[(j + 1) * N + i]) nb = ((j + 1) * N + i) * 4;
+    if (nb < 0) continue;
+    const o = (j * N + i) * 4;
+    d[o] = d[nb] * 0.42 + INKRGB[0] * 0.58; d[o + 1] = d[nb + 1] * 0.42 + INKRGB[1] * 0.58; d[o + 2] = d[nb + 2] * 0.42 + INKRGB[2] * 0.58; d[o + 3] = 255;
+  }
+  OUTC.putImageData(img, 0, 0);
+  ctx.drawImage(OUT, 0, 0, N, N, X - EXT, Y - EXT, N / 2, N / 2);
+}
+
 export const drawLog = (ctx, lg, time) => {
   const drum = !!lg.stun, keg = !drum && !!lg.blast;
   const P = drum ? DRUM : keg ? KEG : LOG;
@@ -62,8 +121,10 @@ export const drawLog = (ctx, lg, time) => {
   const spinA = lg.spin / (0.09 * R);                // rolled without slipping
   const X = snap(lg.x), Y = snap(lg.y);
   const sp = lg.speed || 118, dist = lg.spin / 0.09;
+  const NEWP = typeof document !== "undefined" && prefs.newSprites !== false;
 
   // ---- on the road: contact shadow, then the dust it leaves behind ----
+  if (!NEWP) {
   ctx.save();
   ctx.translate(X + 1.5, Y + 2);
   ctx.rotate(a + Math.PI / 2);
@@ -72,6 +133,7 @@ export const drawLog = (ctx, lg, time) => {
   ctx.fillStyle = drum ? "rgba(36,26,38,0.3)" : "rgba(36,26,38,0.22)";
   ctx.beginPath(); ctx.roundRect(-hl - 0.5, -R * 0.6, L + 1, R * 1.2, [R * 0.5]); ctx.fill();
   ctx.restore();
+  }
   const W = (lx, back, lift) => [X + ux * lx - ca * back, Y + uy * lx - sa * back - lift];
   const dot = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(snap(x), snap(y), w, h); };
   {
@@ -92,10 +154,21 @@ export const drawLog = (ctx, lg, time) => {
   }
 
   // ---- the barrel, in its own frame ----
-  ctx.save();
-  ctx.translate(X, Y);
-  ctx.rotate(a + Math.PI / 2);
-  const rr = (x0, x1, y, c) => { const p = snap(x0), q = snap(x1); if (q > p) { ctx.fillStyle = c; ctx.fillRect(p, y, q - p, 0.5); } };
+  // old: painted straight onto the board, turned. new: painted unturned onto a small
+  // offscreen picture (2 pixels to the unit), resampled below.
+  const EXT = Math.ceil(hl + R + K * R + 6), OS = EXT * 4;       // offscreen side in pixels
+  let B = ctx;
+  if (NEWP) {
+    if (!OFF || OFF.width < OS) { OFF = document.createElement("canvas"); OFF.width = OFF.height = Math.max(OS, 96); OFFC = OFF.getContext("2d", { willReadFrequently: true }); }
+    B = OFFC;
+    B.setTransform(1, 0, 0, 1, 0, 0); B.clearRect(0, 0, OFF.width, OFF.height);
+    B.setTransform(2, 0, 0, 2, OS / 2, OS / 2);
+  } else {
+    ctx.save();
+    ctx.translate(X, Y);
+    ctx.rotate(a + Math.PI / 2);
+  }
+  const rr = (x0, x1, y, c) => { const p = snap(x0), q = snap(x1); if (q > p) { B.fillStyle = c; B.fillRect(p, y, q - p, 0.5); } };
   const xo = (rho, ps) => -K * (R + rho * Math.cos(ps)) * ue;     // shear: height leans along the barrel
   const yOf = (rho, ps) => cy + rho * M * Math.sin(ps - dl);
   const front = (ps) => Math.cos(ps - dl);                         // > 0 on the side we see
@@ -117,8 +190,9 @@ export const drawLog = (ctx, lg, time) => {
     return z < 0.2 ? 0 : b > 0.5 ? 3 : b > 0.1 ? 2 : 1;
   };
   const psHi = Math.atan2(vL, LZ);                  // where the sun glints
-  // 1. ink: the silhouette, fattened by one world unit (two art pixels)
-  for (const [x0, x1, rho] of segs) {
+  // 1. ink: the silhouette, fattened by one world unit (two art pixels); the new look
+  // outlines the finished bitmap instead (below)
+  if (!NEWP) for (const [x0, x1, rho] of segs) {
     const capHere = (sg > 0 && x1 === hl) || (sg < 0 && x0 === -hl);
     rows(rho, 1, (y, pf, pb) => {
       let lo = x0 + xo(rho, pf), hi = x1 + xo(rho, pf);
@@ -256,7 +330,8 @@ export const drawLog = (ctx, lg, time) => {
     }
     disc(endR * 0.16, P.rim);                            // the bung, where the fuse goes in
   }
-  ctx.restore();
+  if (NEWP) composeNew(ctx, B, OS, X, Y, EXT, a, L, hl, R, drum, ue);
+  else ctx.restore();
 
   // ---- back in the world: fuse and sparks, flames, flying bits ----
   const toW = (lx, ly) => [X + ux * lx + vx * ly, Y + uy * lx + vy * ly];

@@ -14,6 +14,7 @@ import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
 import { drawFireGround } from "./flames.js";
 import { hasRig, rigFrame } from "./rigs.js";
 import { canvasFont, typeEpoch } from "../ui/fonts.js";
+import * as PJ from "./pix/proj-sprites.js";
 
 // ---- palette ---------------------------------------------------------
 const col = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -1019,7 +1020,9 @@ const flight = (p) => {
 export const drawProjectile = (ctx, p, time) => {
   const ang = p.angle ?? Math.atan2(p.ty - p.y, p.tx - p.x);
   const dx = Math.cos(ang), dy = Math.sin(ang);
+  const NEW = PJ.projOn();
   if (p.kind === "ball") {
+    if (NEW) { put(ctx, PJ.ballSprite(dirOf(ang)), p.x, p.y); return; }
     put(ctx, rotSprite("mb", dirOf(ang), 30, ballShape, pal("#a4a4b0", "#34343e"), INK_LINE, [4, 26, col("#fff3d2"), 230]), p.x, p.y);
     return;
   }
@@ -1035,7 +1038,7 @@ export const drawProjectile = (ctx, p, time) => {
     groundShadow(ctx, p.x, p.y + 2, 3.4 * (1 - h / 60));
     const f = Math.floor(prog * 10 + (p.src || 0)) & 3;
     const y = p.y - h;
-    put(ctx, shellSprite(f), p.x, y);
+    put(ctx, NEW ? PJ.shellSprite(f) : shellSprite(f), p.x, y);
     // the fuse spits
     const a = f * (Math.PI / 2) - 2.2, fx = p.x + Math.cos(a) * 5, fy = y + Math.sin(a) * 5;
     const hot = Math.sin(time * 40 + p.x) > 0;
@@ -1060,12 +1063,12 @@ export const drawProjectile = (ctx, p, time) => {
         speck(ctx, px, py, i === 1 ? 1 : 0.5, i === 1 ? "#a48a64" : "#cdb68a");
       }
     }
-    put(ctx, rockSprite(size, Math.floor(prog * 12 + (p.id || 0)) & 3), p.x, p.y - h);
+    put(ctx, (NEW ? PJ.rockSprite : rockSprite)(size, Math.floor(prog * 12 + (p.id || 0)) & 3), p.x, p.y - h);
     return;
   }
   if (p.kind === "arrow") {
     const v = p.poison ? "poison" : p.big ? "big" : p.pierce ? "pierce" : "plain";
-    put(ctx, arrowSprite(v, dirOf(ang)), p.x, p.y);
+    put(ctx, (NEW ? PJ.arrowSprite : arrowSprite)(v, dirOf(ang)), p.x, p.y);
     if (p.burn) {
       // a pitch-soaked head, burning in flight
       const hot = Math.sin(time * 36 + p.id) > 0;
@@ -1076,6 +1079,7 @@ export const drawProjectile = (ctx, p, time) => {
   }
   if (p.kind === "spike") {
     const k = p.slow ? "ice" : p.hitsLeft > 1 ? "gold" : "steel";
+    if (NEW) { put(ctx, PJ.spikeSprite(k, dirOf(ang)), p.x + dx * 3, p.y + dy * 3); return; }
     put(ctx, rotSprite(`spk|${k}`, dirOf(ang), 26, spikeShape, SPIKE[k], INK_LINE, [16, 10, col(p.slow ? "#d4f2fa" : "#f4ecd8"), 110]), p.x + dx * 3, p.y + dy * 3);
     return;
   }
@@ -1086,7 +1090,7 @@ export const drawProjectile = (ctx, p, time) => {
     const rise = el === "fire" ? -i * 0.6 : el === "frost" ? i * 0.25 : 0;
     speck(ctx, p.x - dx * (3 + i * 2.4) - dy * wob, p.y - dy * (3 + i * 2.4) + dx * wob + rise, i < 4 ? 1 : 0.5, T[Math.min(3, i >> 1)]);
   }
-  put(ctx, orbSprite(el, Math.floor(time * 12 + (p.id || 0)) & 3, p.big ? 1 : 0), p.x, p.y);
+  put(ctx, (NEW ? PJ.orbSprite : orbSprite)(el, Math.floor(time * 12 + (p.id || 0)) & 3, p.big ? 1 : 0), p.x, p.y);
 };
 
 // a quarrel or harpoon (the "bolt" effect that carries x/tx, not pts)
@@ -1096,7 +1100,7 @@ export const drawQuarrel = (ctx, fx) => {
   const ang = Math.atan2(fx.ty - fx.y, fx.tx - fx.x);
   const u = Math.min(1, prog * 1.25);
   const hx = fx.x + (fx.tx - fx.x) * u, hy = fx.y + (fx.ty - fx.y) * u;
-  if (u < 1) put(ctx, arrowSprite(fx.arrow || "quarrel", dirOf(ang)), hx, hy);
+  if (u < 1) put(ctx, (PJ.projOn() ? PJ.arrowSprite : arrowSprite)(fx.arrow || "quarrel", dirOf(ang)), hx, hy);
   else put(ctx, sparkSprite("white", Math.min(2, Math.floor((prog - 0.8) * 15))), fx.tx, fx.ty);
 };
 

@@ -715,7 +715,14 @@ Bring these up with the owner; don't act on them unasked.
   **rough joint connections on the big figures, "particularly on the elephants" (the Rime
   Jarl's war-mammoth, fig-mammoth.js) "and other large guys"** (frost giant, troll, Hollow
   King, amalgam, crypt warden, the Marshal...); none of it seen by the owner on a real
-  phone or iPad. The kraken is parked (may not ship). The recap page is the private
+  phone or iPad. Also (same day, later): the falcons (pix/bird-falcon.js, birds.js,
+  halls/falconry.js) and the Skyknight's war-eagle (pix/bird-eagle.js, `PIX.eagle` set from
+  rigs-eagle.js) are redrawn; the Eyrie's wheel birds still show as brown hawks, not the
+  king plumage (check what kind the hall passes); the projectiles (pix/proj-sprites.js:
+  32 headings, world-space sun; fx.js drawProjectile / drawQuarrel) and logs (logs.js:
+  resampled to art pixels each frame, ~6k pixel reads a log: watch it on an older iPhone)
+  are redrawn; the Archer hall's level 3 is timber-topped, its green path stone-topped.
+  The kraken is parked (may not ship). The recap page is the private
   Artifact "Crownguard: the graphics pass, before and after".
 - **Shooters aim; shots fly straight (owner, 2026-11-14): DONE, pending the owner's look.**
   The rules are `art/briefs/aim-contract.md`. `src/engine/aim.js` (aimDeg / quantAim, 10-degree
