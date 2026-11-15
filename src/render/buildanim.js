@@ -78,7 +78,14 @@ const rect = (ctx, x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(sn(x)
 const INK = "#241a26";
 // fresh-cut scaffold timber, paler than any hall's seasoned oak so it reads apart
 const WOOD_HI = "#e8c486", WOOD = "#c49a5c", WOOD_LO = "#94693a";
-const STONE = "#a19a8a", STONE_HI = "#c8c0ac";
+const STONE = "#a19a8a", STONE_HI = "#c8c0ac", STONE_LO = "#7c7668";
+// the new style's line is tinted from the material (one art pixel, mixed
+// toward ink): warm brown round fresh timber, cool grey round dressed stone;
+// the lit edge a little lighter than the shaded one
+const WINK = "#5a3a26", WINK_LIT = "#7a5236", WINK_DK = "#3a2418";
+const SINK = "#4a4650", SINK_LIT = "#6a6670";
+const GRAIN = "#a67a44", END = "#f0d9a4", END_RING = "#b98a4e";
+const ROPE = "#dcc78e", ROPE_LO = "#9a7c4a";
 const GOLD = "#d8b34a", GOLD_HI = "#f4d878", CREAM = "#fff3d2";
 const DUST_HI = "#efe4c8", DUST = "#d4c6a6", DUST_LO = "#b3a386";
 const FOAM = "#eef6f4";
@@ -149,28 +156,55 @@ const paintGlow = (ctx, paint, f, a, draw = () => paint(f)) => {
 };
 
 // ---- timber ----------------------------------------------------------------
-// A pole standing on (x, foot), h tall: ink, a lit left edge, the wood.
+// A pole standing on (x, foot), h tall: a tinted one-pixel line (lit on the
+// left), the wood with a lit edge, a few dark grain flecks fixed to the
+// ground (so they hold still as it rises), and the cut end's rings at the tip.
 const pole = (ctx, x, foot, h) => {
   if (h <= 0.5) return;
-  rect(ctx, x - 1, foot - h, 2, h + 0.5, INK);
-  rect(ctx, x - 0.5, foot - h + 0.5, 0.5, h - 0.5, WOOD_HI);
-  rect(ctx, x, foot - h + 0.5, 0.5, h - 0.5, WOOD_LO);
+  const top = foot - h;
+  rect(ctx, x - 1, top, 0.5, h + 0.5, WINK_LIT);
+  rect(ctx, x + 0.5, top, 0.5, h + 0.5, WINK_DK);
+  rect(ctx, x - 0.5, top, 1, 0.5, WINK);                      // the cap's line
+  rect(ctx, x - 0.5, top + 0.5, 0.5, h - 0.5, WOOD_HI);
+  rect(ctx, x, top + 0.5, 0.5, h - 0.5, WOOD_LO);
+  // grain: short dark dashes down the shaded column, one in the lit
+  const k = Math.round(x * 4);
+  for (let yy = foot - 1.5 - ((k * 3) % 3) * 0.5; yy > top + 1.5; yy -= 3.5 + ((k + Math.round(yy * 2)) % 3) * 0.5) {
+    rect(ctx, x, yy, 0.5, 1, GRAIN);
+    if ((Math.round(yy * 2) + k) % 5 === 0) rect(ctx, x - 0.5, yy - 1, 0.5, 0.5, WOOD);
+  }
+  // the sawn end: pale wood with its ring
+  if (h > 2) { rect(ctx, x - 0.5, top + 0.5, 1, 0.5, END); rect(ctx, x, top + 0.5, 0.5, 0.5, END_RING); }
 };
-// A ledger across from x0 to x1 at y (its middle).
+// A ledger across from x0 to x1 at y (its middle). The thin ledgers are
+// lashed to the poles with rope at each end.
 const ledger = (ctx, x0, x1, y, thick = false) => {
-  const h = thick ? 3 : 2;
-  rect(ctx, x0 - 0.5, y - h / 2, x1 - x0 + 1, h, INK);
-  rect(ctx, x0, y - h / 2 + 0.5, x1 - x0, 0.5, WOOD_HI);
-  rect(ctx, x0, y - h / 2 + 1, x1 - x0, h - 1.5, thick ? WOOD : WOOD_LO);
-  if (thick) for (let xx = x0 + 3; xx < x1 - 1; xx += 5) rect(ctx, xx, y - 1, 0.5, 2, WOOD_LO);   // plank joints
+  const h = thick ? 3 : 2, t0 = y - h / 2, w = x1 - x0;
+  rect(ctx, x0 - 0.5, t0, w + 1, h, WINK_DK);                 // the line, under it all
+  rect(ctx, x0 - 0.5, t0, w + 1, 0.5, WINK_LIT);              // sunward edge
+  rect(ctx, x0, t0 + 0.5, w, 0.5, WOOD_HI);
+  rect(ctx, x0, t0 + 1, w, h - 1.5, thick ? WOOD : WOOD_LO);
+  // grain along the beam
+  const g = thick ? t0 + 1.5 : t0 + 1;
+  for (let xx = x0 + 1 + ((Math.round(x0 * 2) * 7) % 5) * 0.5; xx < x1 - 1; xx += 4 + ((Math.round(xx * 2)) % 4) * 0.5) rect(ctx, xx, g, 1.5, 0.5, thick ? GRAIN : WINK);
+  if (thick) {
+    for (let xx = x0 + 3; xx < x1 - 1; xx += 5) rect(ctx, xx, y - 1, 0.5, 2, WOOD_LO);   // plank joints
+    rect(ctx, x0 - 0.5, t0, 0.5, h, END_RING); rect(ctx, x1, t0, 0.5, h, END_RING);        // the planks' sawn ends
+  } else {
+    for (const lx of [x0, x1]) {
+      rect(ctx, lx - 1, t0, 2, h, WINK_DK);
+      rect(ctx, lx - 0.5, t0, 1, h, ROPE);
+      rect(ctx, lx - 0.5, t0 + 0.5, 0.5, 0.5, ROPE_LO); rect(ctx, lx, t0, 0.5, 0.5, ROPE_LO);
+    }
+  }
 };
-// A diagonal brace, stepped in art pixels.
+// A diagonal brace, stepped in art pixels: tinted line, a lit core with a
+// grain pixel every other step.
 const brace = (ctx, x0, y0, x1, y1) => {
   const n = Math.max(2, Math.round(Math.abs(x1 - x0) * PX));
-  ctx.fillStyle = INK;
+  ctx.fillStyle = WINK;
   for (let i = 0; i <= n; i++) { const u = i / n; ctx.fillRect(sn(x0 + (x1 - x0) * u) - 0.75, sn(y0 + (y1 - y0) * u) - 0.75, 1.5, 1.5); }
-  ctx.fillStyle = WOOD;
-  for (let i = 1; i < n; i++) { const u = i / n; ctx.fillRect(sn(x0 + (x1 - x0) * u) - 0.25, sn(y0 + (y1 - y0) * u) - 0.25, 0.5, 0.5); }
+  for (let i = 1; i < n; i++) { const u = i / n; ctx.fillStyle = i % 3 === 0 ? WOOD_LO : i % 2 ? WOOD : WOOD_HI; ctx.fillRect(sn(x0 + (x1 - x0) * u) - 0.25, sn(y0 + (y1 - y0) * u) - 0.25, 0.5, 0.5); }
 };
 
 // ---- dust puffs --------------------------------------------------------------
@@ -423,15 +457,18 @@ const stakes = (ctx, P, time) => {
   const h = Math.max(1, sn(4 * eo(u)));
   if (u >= 1) {
     const yb = P.fB - 3, yf = P.fF - 3;
-    ctx.fillStyle = DUST_HI;
+    ctx.fillStyle = ROPE;
     ctx.fillRect(P.xl, yb, P.xr - P.xl, 0.5);
     ctx.fillRect(P.xl, yf, P.xr - P.xl, 0.5);
     ctx.fillRect(P.xl, yb, 0.5, yf - yb);
     ctx.fillRect(P.xr, yb, 0.5, yf - yb);
   }
   for (const [sx, sy, k] of [[P.xl, P.fB, 2], [P.xr, P.fB, 3], [P.xl, P.fF, 0], [P.xr, P.fF, 1]]) {
-    rect(ctx, sx - 0.5, sy - h, 1.5, h + 0.5, INK);
+    rect(ctx, sx - 0.5, sy - h, 1.5, h + 0.5, WINK);
+    rect(ctx, sx - 0.5, sy - h, 0.5, h + 0.5, WINK_LIT);
     rect(ctx, sx, sy - h + 0.5, 0.5, h - 0.5, WOOD_HI);
+    if (h > 1.5) rect(ctx, sx, sy - h + 0.5, 0.5, 0.5, END);
+    if (h > 2.5) rect(ctx, sx, sy - 1.5, 0.5, 0.5, GRAIN);
     if (P.wet[k]) rect(ctx, sx - 1.5, sy, 3.5, 0.5, FOAM);
   }
 };
@@ -447,8 +484,21 @@ const pile = (ctx, P, time) => {
   const px = P.pile.x, py = P.pile.y;
   ctx.fillStyle = "rgba(42,28,44,0.28)";
   ctx.fillRect(sn(px - 5), sn(py), 11, 1);
-  const plank = (x, y) => { rect(ctx, x - 5, y - 2, 10, 2.5, INK); rect(ctx, x - 4.5, y - 1.5, 9, 0.5, WOOD_HI); rect(ctx, x - 4.5, y - 1, 9, 1, WOOD); };
-  const block = (x, y) => { rect(ctx, x - 2, y - 3, 4.5, 3.5, INK); rect(ctx, x - 1.5, y - 2.5, 3.5, 2.5, STONE); rect(ctx, x - 1.5, y - 2.5, 3.5, 0.5, STONE_HI); };
+  // a plank: tinted line, lit top, grain streaks, the sawn end's rings on the
+  // right; a block: tinted grey line, lit top and left, shaded right, a chisel mark
+  const plank = (x, y) => {
+    rect(ctx, x - 5, y - 2, 10, 2.5, WINK_DK); rect(ctx, x - 5, y - 2, 10, 0.5, WINK_LIT);
+    rect(ctx, x - 4.5, y - 1.5, 9, 0.5, WOOD_HI); rect(ctx, x - 4.5, y - 1, 9, 1, WOOD);
+    for (let q = 0; q < 4; q++) rect(ctx, x - 4 + q * 2.2 + (Math.round(y * 2) % 3) * 0.5, y - 0.5, 1.5, 0.5, GRAIN);
+    rect(ctx, x + 3.5, y - 1.5, 1, 1.5, END); rect(ctx, x + 4, y - 1, 0.5, 0.5, END_RING);
+    rect(ctx, x - 0.5, y - 1.5, 0.5, 2, ROPE_LO);                                   // the cord that bound the stack
+  };
+  const block = (x, y) => {
+    rect(ctx, x - 2, y - 3, 4.5, 3.5, SINK); rect(ctx, x - 2, y - 3, 4.5, 0.5, SINK_LIT); rect(ctx, x - 2, y - 3, 0.5, 3.5, SINK_LIT);
+    rect(ctx, x - 1.5, y - 2.5, 3.5, 2.5, STONE); rect(ctx, x - 1.5, y - 2.5, 3.5, 0.5, STONE_HI); rect(ctx, x - 1.5, y - 2.5, 0.5, 2.5, STONE_HI);
+    rect(ctx, x + 1.5, y - 2, 0.5, 2, STONE_LO); rect(ctx, x - 1, y - 0.5, 3, 0.5, STONE_LO);
+    rect(ctx, x - 0.5, y - 1.5, 1, 0.5, STONE_LO);
+  };
   const items = [() => plank(px, py), () => plank(px + 0.5, py - 2), () => block(px - 2.5, py - 4), () => block(px + 2, py - 4), () => plank(px, py - 6.5)];
   for (let i = 0; i < left; i++) items[i]();
 };
@@ -530,9 +580,14 @@ const scaffold = (ctx, P, time, front) => {
     const rise = seg(time, P.arrive + 0.08, P.arrive + 0.18);
     const tp = sn(P.fF - (P.fF - top) * rise);
     if (P.fF - tp > 2) {
-      rect(ctx, lx - 2.5, tp, 1.5, P.fF - tp + 0.5, INK); rect(ctx, lx + 1.5, tp, 1.5, P.fF - tp + 0.5, INK);
-      rect(ctx, lx - 2, tp + 0.5, 0.5, P.fF - tp - 0.5, WOOD_HI); rect(ctx, lx + 2, tp + 0.5, 0.5, P.fF - tp - 0.5, WOOD);
-      for (let yy = P.fF - 2; yy > tp + 1; yy -= 3) { rect(ctx, lx - 1, yy - 0.5, 2.5, 1, INK); rect(ctx, lx - 1, yy - 0.5, 2.5, 0.5, WOOD); }
+      rect(ctx, lx - 2.5, tp, 1.5, P.fF - tp + 0.5, WINK); rect(ctx, lx + 1.5, tp, 1.5, P.fF - tp + 0.5, WINK_DK);
+      rect(ctx, lx - 2.5, tp, 0.5, P.fF - tp + 0.5, WINK_LIT);
+      rect(ctx, lx - 2, tp + 0.5, 0.5, P.fF - tp - 0.5, WOOD_HI); rect(ctx, lx + 2, tp + 0.5, 0.5, P.fF - tp - 0.5, WOOD_LO);
+      rect(ctx, lx - 2, tp + 0.5, 0.5, 0.5, END); rect(ctx, lx + 2, tp + 0.5, 0.5, 0.5, END_RING);   // sawn tips
+      for (let yy = P.fF - 2; yy > tp + 1; yy -= 3) {
+        rect(ctx, lx - 1, yy - 0.5, 2.5, 1, WINK_DK); rect(ctx, lx - 1, yy - 0.5, 2.5, 0.5, WOOD_HI); rect(ctx, lx - 1, yy, 2.5, 0.5, WOOD_LO);
+        rect(ctx, lx - 2, yy - 0.5, 0.5, 0.5, ROPE); rect(ctx, lx + 2, yy - 0.5, 0.5, 0.5, ROPE_LO);        // lashed at the rails
+      }
     }
   }
 };

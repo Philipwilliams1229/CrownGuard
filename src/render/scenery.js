@@ -1479,6 +1479,14 @@ const bakeGate = (kind) => {
         // and a whole carpet of it where the patch is thickest
         // (snow the same way, a little more freely, not on every ledge)
         else if (moss && !dn && !rt && ((up || up2 || (up3 && hash(px, seed + 14) < 0.5)) && patch > (mat.snow ? 0.42 : 0.58) || patch > 0.72 && (mat.snow || hash(px >> 1, py >> 1) < 0.85))) col = moss[Math.min(2, Math.max(0, (up ? 0 : 1) + castPx[i]))];
+        // weathering on the open face: a pit with a lit lip, lichen flecks
+        // on the sunward stone (a few sparse pixels, never along a seam)
+        if (!dn && !rt && !dn2 && col === rock[t] && t <= 2) {
+          const hv = hash(px * 7 + seed, py * 13 + 1);
+          if (hv < 0.012) col = rock[Math.min(4, t + 2)];
+          else if (hv > 0.989 && t <= 1) col = mat.snow ? rock[0] : rgb("#b9b98e");
+          else if (hv > 0.978 && t <= 1 && !mat.snow) col = rock[0];
+        }
         put(i, col);
       } else {
         // turf (or snow, or ash) on top: flecked where the sun lands
@@ -1562,6 +1570,7 @@ const bakeGate = (kind) => {
     }
     // the mouth's rim: ink round the hole, a lit edge on the upper left of
     // the arch, rough teeth of rock biting into the dark
+    const rimPx = new Uint8Array(PW * PH);
     for (let py = qy0; py < qy1; py++) for (let px = qx0; px < qx1; px++) {
       const i = py * PW + px;
       if (mouth[i]) continue;
@@ -1569,12 +1578,16 @@ const bakeGate = (kind) => {
       if (!nb) continue;
       const [s, z] = toFace(wx(px), wy(py));
       if (z < 1.2) continue;      // the threshold stays open to the road
-      put(i, ink);
+      // the one-pixel line, tinted from the rock it edges (darker where the
+      // dark swallows it, a touch lighter on the sunward lip)
+      rimPx[i] = 1;
+      const o4 = i * 4, lipLit = mouth[i + 1] || mouth[i + PW] ? 0.5 : 0.72;
+      put(i, [Math.round(dd[o4] * (1 - lipLit) + ink[0] * lipLit), Math.round(dd[o4 + 1] * (1 - lipLit) + ink[1] * lipLit), Math.round(dd[o4 + 2] * (1 - lipLit) + ink[2] * lipLit)]);
     }
     for (let py = qy0; py < qy1; py++) for (let px = qx0; px < qx1; px++) {
       const i = py * PW + px;
       if (mouth[i] || !kindPx[i]) continue;
-      if (dd[i * 4] === ink[0] && dd[i * 4 + 1] === ink[1] && dd[i * 4 + 2] === ink[2]) continue;
+      if (rimPx[i]) continue;
       let near2 = false;
       for (let q = -2; q <= 2 && !near2; q++) for (let r2 = -2; r2 <= 2; r2++) if (mouth[i + q * PW + r2]) { near2 = true; break; }
       if (!near2) continue;
@@ -1634,7 +1647,21 @@ const bakeGate = (kind) => {
       // grass against grass, a line there reads as a scratch)
       if ((solidK(i - 1) && zPx[i - 1] - z0 > 2.2) || (solidK(i + 1) && zPx[i + 1] - z0 > 2.2) || (solidK(i - PW) && zPx[i - PW] - z0 > 2.2) || (solidK(i + PW) && kindPx[i + PW] !== 2 && zPx[i + PW] - z0 > 2.2)) out[i] = 1;
     }
-    for (let i = 0; i < PW * PH; i++) if (out[i]) put(i, ink, 235);
+    // (the new style's line: ONE pixel, tinted from the stone or turf it
+    // edges and mixed toward ink; lighter on the edges the sun reaches)
+    const outC = [];
+    for (let i = 0; i < PW * PH; i++) {
+      if (!out[i]) continue;
+      let r = 0, g = 0, b = 0, n = 0, lit = 0;
+      for (const [j, l] of [[i - 1, 0], [i + 1, 1], [i - PW, 0], [i + PW, 1]]) {
+        if (!solidK(j)) continue;
+        r += dd[j * 4]; g += dd[j * 4 + 1]; b += dd[j * 4 + 2]; n++; lit += l;
+      }
+      if (!n) { outC.push(i, ink[0], ink[1], ink[2]); continue; }
+      const m = lit * 2 >= n ? 0.42 : 0.6;
+      outC.push(i, Math.round(r / n * (1 - m) + ink[0] * m), Math.round(g / n * (1 - m) + ink[1] * m), Math.round(b / n * (1 - m) + ink[2] * m));
+    }
+    for (let k = 0; k < outC.length; k += 4) put(outC[k], [outC[k + 1], outC[k + 2], outC[k + 3]], 245);
     // the foot of the crag sits in its own shade
     for (let py = 0; py < PH - 2; py++) for (let px = 0; px < PW; px++) {
       const i = py * PW + px;
