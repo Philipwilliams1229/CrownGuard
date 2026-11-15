@@ -42,6 +42,9 @@ import * as huscarl from "./fig-huscarl.js";
 import * as rimeseer from "./fig-rimeseer.js";
 import * as skald from "./fig-skald.js";
 import * as rimejarl from "./fig-rimejarl.js";
+import * as rimerider from "./fig-rimerider.js";
+import * as frostgiant from "./fig-frostgiant.js";
+import * as icedrake from "./fig-icedrake.js";
 import * as risen from "./fig-risen.js";
 import * as friar from "./fig-friar.js";
 import * as captain from "./fig-captain.js";
@@ -67,6 +70,9 @@ import * as bonearcher from "./fig-bonearcher.js";
 import * as ghoul from "./fig-ghoul.js";
 import * as ghast from "./fig-ghast.js";
 import * as gravecaller from "./fig-gravecaller.js";
+import * as hollowking from "./fig-hollowking.js";
+import * as amalgam from "./fig-amalgam.js";
+import * as crypt from "./fig-crypt.js";
 
 const mk = (NAME, mod) => ({ ...mod, NAME });
 // fig     the figure
@@ -141,6 +147,11 @@ export const PIX = {
   ghast: { fig: mk("ghast", ghast), atk: "attack", hit: 0.54, per: 4.7, legacy: [0, 3, 5, 8], fx: true },
   // (his bell: summonCd runs down to each toll and is reset to summonEvery)
   gravecaller: { fig: mk("gravecaller", gravecaller), atk: "strike", hit: 0.54, per: 3.8, legacy: [0, 4, 5, 7], fx: true, casts: [{ clip: "toll", clock: "summonCd", every: "summonEvery", lead: 900, hold: 900 }] },
+  // (the Barrow Wight: a figure of its own inside fig-wraith.js, a third bigger with slower clips)
+  wight: { fig: mk("wight", wraith.WIGHT), atk: "attack", hit: 0.56, legacy: [0, 3, 5, 7], fx: true },
+  hollowking: { fig: mk("hollowking", hollowking), atk: "attack", hit: 0.54, per: 3.6, legacy: [0, 4, 8, 10], fx: true, casts: [{ clip: "toll", clock: "summonCd", every: "summonEvery", lead: 900, hold: 900 }] },
+  amalgam: { fig: mk("amalgam", amalgam), atk: "attack", hit: 0.56, per: 2.8, legacy: [0, 4, 8, 10], fx: false },
+  crypt: { fig: mk("crypt", crypt), atk: "attack", hit: 0.54, per: 3.2, legacy: [0, 4, 8, 10], fx: false },
   // ---- the Rime Clans (owner's pick, 2026-11-14: look C) ----
   thrall: { fig: mk("thrall", thrall), atk: "attack", hit: 0.55, per: 4.2, legacy: [0, 3, 6, 8], fx: true },
   berserker: { fig: mk("berserker", berserker), atk: "attack", hit: 0.52, per: 4.4, legacy: [0, 3, 6, 8], fx: true },
@@ -152,6 +163,11 @@ export const PIX = {
   // (his "chant" clip is drawn, unused: the engine keeps no clock for the war-chant)
   skald: { fig: mk("skald", skald), atk: "attack", hit: 0.54, per: 3.2, legacy: [0, 4, 6, 8], fx: true },
   rimejarlfoot: { fig: mk("rimejarl", rimejarl), atk: "attack", hit: 0.56, per: 2.6, legacy: [0, 6, 7, 9], fx: true, casts: [{ clip: "song", clock: "freezeCd", every: "freezeEvery", lead: 800, hold: 900 }] },
+  rimerider: { fig: mk("rimerider", rimerider), atk: "attack", hit: 0.5, per: 2.65, legacy: [0, 4, 6, 7], fx: true },
+  rimewolf: { fig: mk("rimerider", rimerider), variant: "loose", atk: "attack", hit: 0.5, per: 2.65, legacy: [0, 4, 6, 7], fx: true },
+  frostgiant: { fig: mk("frostgiant", frostgiant), atk: "attack", hit: 0.5625, per: 3.8, legacy: [0, 5, 8, 10], fx: true },
+  // (its frost breath is drawn, unused: the drake has no blow the engine plays)
+  icedrake: { fig: mk("icedrake", icedrake), atk: "attack", hit: 0.52, legacy: [0, 3, 5, 6], fx: false },
   necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 3, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
 };
 export const hasPix = (type) => prefs.newSprites !== false && Object.prototype.hasOwnProperty.call(PIX, type);

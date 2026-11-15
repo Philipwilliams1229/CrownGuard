@@ -7,12 +7,16 @@
 // The look is the owner's pick: the storied one (rents and a rusted chain in the shroud, wisps for a hem,
 // a cold teal glow in the hood and motes off the hem).
 // Clips: idle and walk (the drift, one loop driven by time like the bat's wingbeat), attack (a lunging rake). `fx` lays the glow.
+// THE BARROW WIGHT is `variant: "wight"` of this same figure, a third bigger (the whole painter drawn through a
+// scaling wrapper, `big`), barrow-dark, with cold blue eyes, bronze weed and a tarnished circlet on the hood. It has
+// its own box and slower, heavier clips, so it is also exported whole as `WIGHT` (BOX, BONES, CLIPS, draw, fx):
+// the board wears it as mk("wight", wraith.WIGHT). The wraith's own pixels are untouched (hash-compared).
 import { mat, flat } from "./pix.js";
 import { HUMAN, sampleKeys, EASE } from "./rig.js";
 
 const SHR = mat("#4e6278", { contrast: 1.05 });
 const SHR2 = mat("#43614c");
-const BONED = mat("#8a8672"), HAND = mat("#b4c6c8"), CHAIN = mat("#5e6662", { contrast: 1.2 }), RUSTM = mat("#7a5a40"), BONE = mat("#d8d4c0"), BRONZE = mat("#5e8a74", { contrast: 1.1 });
+const BONED = mat("#8a8672"), HANDM = mat("#b4c6c8"), CHAIN = mat("#5e6662", { contrast: 1.2 }), RUSTM = mat("#7a5a40"), BONE = mat("#d8d4c0"), BRONZE = mat("#5e8a74", { contrast: 1.1 });
 const VOID = flat("#0c0a14"), EYE = flat("#7ce0b8", { emis: true }), EYE_H = flat("#e0fff4", { emis: true });
 const GL = flat("#7ce0b8", { emis: true, line: "#2f8a72" }), GL_D = flat("#3a9c86", { emis: true, line: "#1f5a52" }), GL_H = flat("#d8fff0", { emis: true, line: "#7ce0b8" });
 // the hood, facing +x, a quarter turned: H cloth (h a tone down, K the lit lip), I the dark inside,
@@ -30,6 +34,36 @@ const HOOD = [
   ".hHHHHHKKK.",
   "..hhHHHH...",
 ];
+// the wight's hood, a size up (14 x 14): the same turn, the tarnished circlet (R) riding the brow
+const WHOOD = [
+  "...R..R..R.R..",
+  "...RR.RRRRRR..",
+  "...RRRRRRRRRR.",
+  "..HHHHHHHHKKK.",
+  ".HHHHHHHHKKIII",
+  ".HHHHHHKKIIIII",
+  "HHHHHHKIIIIIII",
+  "HHHHHHKIeEIIeE",
+  "HHHHHHKIeEIIeE",
+  "hHHHHHKIIIIIII",
+  "hHHHHHHKIIIIIK",
+  "hhHHHHHHKKIIK.",
+  ".hhHHHHHHKKK..",
+  "..hhhHHHH.....",
+];
+const WSHR = mat("#42506a", { contrast: 1.05 }), WSHR2 = mat("#4e4630"), WHAND = mat("#a8b4bc"), WCROWN = mat("#c09a48", { contrast: 1.15 }), WWEED = mat("#6e6034");
+const WEYE = flat("#9cd4ff", { emis: true });
+const WGL = flat("#8cc8ff", { emis: true, line: "#3a6aa8" }), WGL_D = flat("#4a86c8", { emis: true, line: "#24467a" });
+const wlegend = (m) => ({ H: { m }, h: { m, bias: -1 }, K: { m, bias: 1 }, I: { m: VOID }, e: { m: VOID }, E: { m: WEYE }, R: { m: WCROWN, fix: 2 } });
+const SC = 1.33;
+// a drawing surface that scales every coordinate and radius by k (the wight is the wraith a third bigger)
+const big = (px, k) => ({
+  part: () => px.part(),
+  capsule: (ax, ay, ra, bx, by, rb, m, z, o) => px.capsule(ax * k, ay * k, ra * k, bx * k, by * k, rb * k, m, z, o),
+  poly: (pts, m, z, o) => px.poly(pts.map(([x, y]) => [x * k, y * k]), m, z, o),
+  line: (ax, ay, bx, by, m, z, o) => px.line(ax * k, ay * k, bx * k, by * k, m, z, o),
+  dot: (x, y, m, z, o) => px.dot(x * k, y * k, m, z, o),
+});
 const legend = (m) => ({ H: { m }, h: { m, bias: -1 }, K: { m, bias: 1 }, I: { m: VOID }, e: { m: VOID }, E: { m: EYE } });
 
 export const BOX = { w: 64, h: 58, ox: 30, oy: 44 };
@@ -37,10 +71,11 @@ export const BONES = HUMAN;            // unused: a flier poses itself
 const HOVER = 17;
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
-export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
-    const p = sk.p, p1 = lag1.p, p2 = lag2.p;
+export const draw = (px0, { sk, lag1, lag2 }, o = {}) => {
+  const W = o.variant === "wight", px = W ? big(px0, SC) : px0;
+  const p = sk.p, p1 = lag1.p, p2 = lag2.p;
   const B = [Math.round(p.bx || 0), Math.round(-HOVER + (p.by || 0))];     // the chest
-  const m = SHR, m2 = SHR2, sw1 = (p1.t || 0), sw2 = (p2.t || 0);
+  const m = W ? WSHR : SHR, m2 = W ? WSHR2 : SHR2, HAND = W ? WHAND : HANDM, sw1 = (p1.t || 0), sw2 = (p2.t || 0);
   const lean = p.lean || 0;
   const H = [B[0] + 2 + lean * 2, B[1] - 9];                 // the hood's centre
 
@@ -85,13 +120,14 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
     // a rusted chain hung from the shoulder, and weed
     px.part();
     for (let i = 0; i < 6; i++) { const x = B[0] - 2 + i * 1.2 + Math.sin(i * 1.2 + (p.ph || 0) * 6.28) * 0.6, y = B[1] - 8 + i * 2.2; px.dot(x, y, i % 2 ? CHAIN : RUSTM, 3, { fix: i % 2 ? 2 : 1 }); }
-    px.dot(B[0] + 2, B[1] + 6, m2, 3); px.dot(B[0] - 1, B[1] + 8, m2, 3); px.dot(B[0] - 4, B[1] + 5, m2, 3);
+    { const wd = W ? WWEED : m2; px.dot(B[0] + 2, B[1] + 6, wd, 3); px.dot(B[0] - 1, B[1] + 8, wd, 3); px.dot(B[0] - 4, B[1] + 5, wd, 3); }
   }
 
   // ---- the hood, and in it the eyes (whole pixels)
   const hx = Math.round(H[0]), hy = Math.round(H[1]);
-  px.part();
-  px.stamp(HOOD, hx + 1, hy + 2, legend(m), 5, { ax: 5, ay: 6, ball: [5.5, 5.5, 6, 6], cast: 1 });
+  px0.part();
+  if (W) px0.stamp(WHOOD, Math.round(hx * SC) + 1, Math.round(hy * SC) + 4, wlegend(m), 5, { ax: 6, ay: 8, ball: [7, 8, 7.6, 8.6], cast: 1 });
+  else px.stamp(HOOD, hx + 1, hy + 2, legend(m), 5, { ax: 5, ay: 6, ball: [5.5, 5.5, 6, 6], cast: 1 });
 
   // ---- the near arm: a long shoulder, a long forearm, and the claw
   const reach = p.reach || 0, near = [B[0] + 11 + reach * 5, B[1] - 3 + (p.reachY || 0) - reach * 1];
@@ -103,17 +139,20 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   const claws = [[3.2, -1.4], [3.6, 0.4], [3, 1.9]];
   px.part();
   for (const [dx, dy] of claws) { px.line(near[0], near[1], near[0] + dx * (0.5 + 0.5 * sp), near[1] + dy * sp, HAND, 6.2, { fix: 3 }); px.dot(near[0] + dx * (0.5 + 0.5 * sp) + 0.6, near[1] + dy * sp + (dy > 0 ? 0.6 : -0.2), BONE, 6.25, { fix: 4 }); }
-  return { glow: { hood: [hx + 3, hy] }, B, H: [hx, hy] };
+  return { glow: { hood: [hx + 3, hy] }, B, H: [hx, hy], W, near, reach: p.reach || 0 };
 };
 
-// the cold glow: teal over the hood's dark and (c) the core; a pulse with the breath
+// the cold glow: teal over the hood's dark and (c) the core; a pulse with the breath. The wight's is blue, scaled
+// up, and in its blow a few motes stream off the claw back to the hood: the life it drinks.
 export const fx = (px, F, info, clip) => {
   if (!info || !info.glow) return;
-  const [hx, hy] = info.glow.hood, k = 0.5 + 0.5 * Math.sin((F.sk.p.ph || 0) * 6.283);
-  
-  {
-    px.dot(hx - 3, hy - 3, GL_D, 9); px.dot(hx - 2, hy + 6, GL_D, 9);
-    for (let i = 0; i < 3; i++) px.dot(info.B[0] - 3 - i * 2, info.B[1] + 5 + i + (k > 0.5 ? 1 : 0), GL, 9);      // motes drifting off the hem
+  const W = info.W, k = 0.5 + 0.5 * Math.sin((F.sk.p.ph || 0) * 6.283), S = W ? SC : 1;
+  const [hx, hy] = info.glow.hood, G = W ? WGL : GL, GD = W ? WGL_D : GL_D;
+  px.dot(hx * S - 3, hy * S - 3, GD, 9); px.dot(hx * S - 2, hy * S + 6, GD, 9);
+  for (let i = 0; i < 3; i++) px.dot((info.B[0] - 3 - i * 2) * S, (info.B[1] + 5 + i + (k > 0.5 ? 1 : 0)) * S, G, 9);      // motes drifting off the hem
+  if (W && clip === "attack" && info.reach > 0.9) {
+    const [nx, ny] = info.near, hxx = hx * S, hyy = hy * S;
+    for (let i = 1; i <= 4; i++) { const t = i / 5; px.dot(nx * S + (hxx - nx * S) * t, ny * S + (hyy - ny * S) * t - Math.sin(t * Math.PI) * 4, i % 2 ? WGL_D : WGL, 9); }
   }
 };
 
@@ -134,5 +173,30 @@ export const CLIPS = {
       { t: 0.85, e: "io", p: { ...HOLD, bx: 2, by: 0, lean: 0.3, reach: 0.4, spread: 0.9, stream: 0 } },
       { t: 1, e: "io", p: HOLD },
     ], ph),
+  },
+};
+
+// ---- the Barrow Wight, whole: its own (larger) box and slow, heavy clips (a blow every 1800 ms, a drift, not a lunge)
+const WBOX = { w: 88, h: 78, ox: 40, oy: 60 };
+const wdrift = (ph) => ({ ...drift(ph), by: -1.2 * Math.sin(ph * Math.PI * 2), stream: 0.8 * Math.sin(ph * Math.PI * 2 + 0.6) + 0.8 });
+export const WIGHT = {
+  BOX: WBOX, BONES, fx,
+  draw: (px, F, o = {}) => draw(px, F, { ...o, variant: "wight" }),
+  CLIPS: {
+    idle: { n: 8, ms: 2000, loop: true, lag: 0.12, pose: wdrift },
+    walk: { n: 8, ms: 1400, loop: true, lag: 0.12, pose: (ph) => ({ ...wdrift(ph), lean: 0.3, bx: 0.8, stream: 2 + 1.2 * Math.sin(ph * Math.PI * 2 + 0.6) }) },
+    // the heavy blow: the whole king hauled up and back, held, then dragged down through the foe
+    attack: {
+      n: 12, ms: 1300, loop: false, lag: 0.09,
+      pose: (ph) => sampleKeys([
+        { t: 0, p: HOLD },
+        { t: 0.32, e: "out", p: { ...HOLD, bx: -4, by: 2, lean: -0.8, reach: -0.9, reachY: -7, spread: 1.3, rf: -4, stream: 3.5 } },
+        { t: 0.46, e: "io", p: { ...HOLD, bx: -5, by: 2.4, lean: -1, reach: -1, reachY: -8, spread: 1.4, rf: -4.5, stream: 4 } },
+        { t: 0.56, e: "in3", p: { ...HOLD, bx: 5, by: 2, lean: 1, reach: 1.9, reachY: 5, spread: 1.5, rf: 2, stream: -2.5 } },
+        { t: 0.7, e: "out", p: { ...HOLD, bx: 6.4, by: 2.4, lean: 1.1, reach: 2.1, reachY: 6, spread: 1.5, rf: 2.4, stream: -3 } },
+        { t: 0.9, e: "io", p: { ...HOLD, bx: 2, by: 0.4, lean: 0.3, reach: 0.4, spread: 0.9, stream: 0 } },
+        { t: 1, e: "io", p: HOLD },
+      ], ph),
+    },
   },
 };
