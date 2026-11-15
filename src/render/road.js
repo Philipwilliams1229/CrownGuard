@@ -203,8 +203,12 @@ const lookOf = (R) => {
     // packed snow: nearly every pixel one of two pale tones; the darker ones
     // are kept for the bank's shadow and the grooves
     const snow = mix(R.GRASS_LT, "#f6fafc", 0.5);
-    L.tones = [mix(dk, edge, 0.28), mix(main, dk, 0.55), main, mix(main, R.GRASS, 0.45), mix(main, snow, 0.62)];
-    L.bankDk = mix(edge, dk, 0.35); L.bankMid = mix(dk, main, 0.4); L.bankLt = mix(snow, "#ffffff", 0.4);
+    // look C (owner's pick): the trodden track is a blue-violet plane a step darker than the
+    // drifts either side, its upper bank white in the sun, its lower lee deep violet; the
+    // realm's own PATH colour still sets the middle tone
+    const vio = (c, t) => mix(c, "#4a5aa8", t);
+    L.tones = [vio(mix(dk, edge, 0.28), 0.7), vio(mix(main, dk, 0.55), 0.55), vio(main, 0.42), vio(mix(main, R.GRASS, 0.45), 0.32), mix(vio(mix(main, snow, 0.62), 0.12), "#e4eeff", 0.4)];
+    L.bankDk = mix(vio(edge, 0.55), dk, 0.3); L.bankMid = vio(mix(dk, main, 0.4), 0.4); L.bankLt = mix(snow, "#ffffff", 0.7);
     L.worn = snow; L.wornT = 0.55;
     L.crown = 0.08; L.ruts = 0; L.grassCrown = false; L.puddles = 3; L.prints = 9; L.roots = false; L.pebbles = 0.3;
     L.stone = mix(edge, "#6a7280", 0.5); L.pebble = mix(R.PEBBLE, edge, 0.35);

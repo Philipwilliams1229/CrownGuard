@@ -57,10 +57,13 @@ import { SEA_ICE } from "./coast.js";
 
 // ---- the Rimewater's colours -------------------------------------------------
 const INK = "#241a26";
-const SNOW = "#e6eef2", SNOW_LT = "#f8fbfc", SNOW_SH = "#b8c8d8", SNOW_DK = "#90a6bc";
-const ROCK = ["#1c1b22", "#28272f", "#36353e", "#47464f", "#5c5a64", "#74727c"];
+// look C (owner's pick, 2026-11-14): snow is bright where the sun reaches it and
+// deep blue-violet where it does not; rock keeps a violet-black body with a lit facet
+const SNOW = "#ecf5ff", SNOW_LT = "#ffffff", SNOW_SH = "#9aaee2", SNOW_DK = "#6f82c0";
+const VIO = "rgba(44,50,128,";                      // cast-shadow ink (alpha appended)
+const ROCK = ["#16152a", "#24223c", "#34325a", "#4a4878", "#6a68a0", "#8e8cc4"];
 const ICE = ["#4e7690", "#6f96ae", "#93bacd", "#b8d8e6", "#dcf0f6"];
-const SPRUCE = ["#1f3a34", "#284840", "#33584c", "#3f6a5a"];
+const SPRUCE = ["#0f3a3c", "#1b5e54", "#2a7e68", "#34987a"];
 const TEAL = "#2f7f7a", TEAL_LT = "#4fa59a", TEAL_DK = "#1e5452";
 const OCHRE = "#c8902e", OCHRE_LT = "#e2b452", OCHRE_DK = "#8e6020";
 const FROST = "#a8d8f0";
@@ -72,6 +75,8 @@ const SEAL = "#9a9084", SEAL_LT = "#c0b6a6", SEAL_DK = "#5e564e";
 
 const ap = (v) => Math.round(v * PX) / PX;
 const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
+// a cast shadow in look C's blue-violet, long toward the lower right
+const rShadow = (c, x, y, rx, ry, a = 0.3) => soft(c, x, y, rx, ry, [[0, `${VIO}${Math.min(0.9, a * 1.7)})`], [0.62, `${VIO}${Math.min(0.9, a * 1.2)})`], [1, `${VIO}0)`]]);
 const poly = (c, pts) => { c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py))); c.closePath(); };
 const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -111,7 +116,14 @@ const rimeTurf = (ctx, kit) => {
   const R = REALM, seed = (R.seed | 0) % 100000;
   const cv = ctx.canvas, PW = cv.width, PHh = cv.height, K = PW / W;
   const img = ctx.getImageData(0, 0, PW, PHh), d = img.data;
-  const T = turfTones(R).meadow;          // [r, g, b] at tone * 3 + temp
+  const T0 = turfTones(R).meadow;         // [r, g, b] at tone * 3 + temp
+  // look C on top of the realm's ramp: the lee (temp 0) sinks into blue-violet, the lit crests (temp 2) brighten
+  const T = T0.map((c, k) => {
+    const tp = k % 3, tn = (k / 3) | 0, m = (a, b, t) => [0, 1, 2].map((q) => Math.round(a[q] + (b[q] - a[q]) * t));
+    if (tp === 0) return m(c, [58, 70, 168], 0.26 + (6 - tn) * 0.03);
+    if (tp === 2 && tn >= 3) return m(c, [255, 255, 255], 0.12 + tn * 0.03);
+    return c;
+  });
   const sand = COAST ? (COAST.sand ?? 22) : 0;
   // ---- the fields, every FS units, eased between
   const FS = 2, FW = Math.ceil(W / FS) + 3, FH = Math.ceil(H / FS) + 3;
@@ -150,16 +162,16 @@ const rimeTurf = (ctx, kit) => {
       const sun = Math.max(-1, Math.min(1, -(gx * 0.42 + gy * 0.58) * 42));
       const lee = (gx * WC + gy * WS) * 60;                 // < 0: falling away downwind
       const dz = streak(px, py) - 0.5, dz2 = streak(px + 37, py + 3) - 0.5;
-      let tt = 0.52 + (D - 0.5) * 0.55 + sun * 0.3 + dz * 0.1;
-      let tn = tt < 0.3 ? 2 : tt < 0.69 ? 3 : tt < 0.86 ? 4 : 5;
+      let tt = 0.5 + (D - 0.5) * 0.95 + sun * 0.5 + dz * 0.05;
+      let tn = tt < 0.2 ? 1 : tt < 0.36 ? 2 : tt < 0.68 ? 3 : tt < 0.84 ? 4 : 5;
       let tp = lee + dz2 * 0.5 < -0.55 ? 0 : sun + dz2 * 0.4 > 0.35 ? 2 : 1;
       if (lee + dz2 * 0.4 < -1.15 && tn > 2) tn--;          // the deep lee, one step down and blue
       // wind ripples on the drifts' backs: fine lines across the wind
       const m = at(rip, x, y) * sstep(0.38, 0.62, D);
-      if (m > 0.42) {
+      if (m > 0.62) {
         const u = windU(x, y), v = windV(x, y);
         const ph = (v + 2.2 * Math.sin(u * 0.045 + D * 7)) / 4.5, f = ph - Math.floor(ph);
-        const dash = hash(Math.floor((u + hash(Math.floor(ph), seed) * 20) / (5 + (Math.floor(ph) & 3) * 2)), Math.floor(ph) + seed) < 0.55 + (m - 0.42) * 1.2;
+        const dash = hash(Math.floor((u + hash(Math.floor(ph), seed) * 20) / (5 + (Math.floor(ph) & 3) * 2)), Math.floor(ph) + seed) < 0.45 + (m - 0.62) * 1.2;
         if (dash) {
           if (f < 0.11) { tn = Math.min(6, tn + 1); tp = 2; } else if (f < 0.22) { tn = Math.max(1, tn - 1); tp = 0; }
         }
@@ -265,7 +277,7 @@ const rimeTurf = (ctx, kit) => {
   }
 
   // ---- sastrugi: sharp ridges carved by the wind, in clusters
-  const nSas = 6 + (rng() * 5 | 0);
+  const nSas = 4 + (rng() * 4 | 0);
   for (let n = 0; n < nSas; n++) {
     const at0 = spot(14);
     if (!at0) continue;
@@ -334,8 +346,8 @@ const rimeRoad = (ctx) => {
   const cv = ctx.canvas, PW = cv.width, PHh = cv.height, K = PW / W;
   const img = ctx.getImageData(0, 0, PW, PHh), d = img.data;
   // the old flags: a cool grey only a few steps below the trodden snow
-  const STN = ["#8e989e", "#9aa4aa", "#a6b0b5", "#b2bbbf", "#c8d0d4"].map(hexRGB);
-  const DUST = [hexRGB("#d8e2e8"), hexRGB("#e8f0f4")];
+  const STN = ["#4e5a94", "#6272a4", "#7888b4", "#94a4c8", "#bccaea"].map(hexRGB);
+  const DUST = [hexRGB("#cddcf4"), hexRGB("#eaf4ff")];
   const GRIT = [hexRGB("#8a8270"), hexRGB("#6e6656")];
   const put = (px, py, c) => { if (px < 0 || py < 0 || px >= PW || py >= PHh) return; const o = (py * PW + px) << 2; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; };
   const half = PATH_HALF - 5;
@@ -343,7 +355,7 @@ const rimeRoad = (ctx) => {
   const bendy = (dd) => { const a0 = angleAt(Math.max(0, dd - 16)), a1 = angleAt(Math.min(TOTAL_LEN, dd + 16)); let da = Math.abs(a1 - a0); if (da > Math.PI) da = 2 * Math.PI - da; return da > 0.06; };
   // courses: boundaries along the road
   const courses = [];
-  for (let s = 0, k = 0; s < TOTAL_LEN; k++) { courses.push(s); s += 6 + hash(k, seed + 3) * 5; }
+  for (let s = 0, k = 0; s < TOTAL_LEN; k++) { courses.push(s); s += 8 + hash(k, seed + 3) * 8; }
   let ci = 0;
   for (let dd = 70; dd < TOTAL_LEN - 50; dd += 0.5 / K * 2) {
     const patch = vn(dd / 60, 0.5, seed + 31);
@@ -354,10 +366,10 @@ const rimeRoad = (ctx) => {
     for (let o = -half; o <= half; o += 0.5) {
       // stones across this course: widths 5-9, the joints staggered by course
       let acc = -half - hash(ci, seed) * 6, si = 0, w = 0;
-      while (acc <= o) { w = 5 + hash(ci * 13 + si, seed + 9) * 4; acc += w; si++; }
+      while (acc <= o) { w = 7 + hash(ci * 13 + si, seed + 9) * 7; acc += w; si++; }
       // only some stones show at all: the rest lie under the snow
       const sid = ci * 31 + si;
-      const want = (patch - 0.72) * 2.6 + 0.1 - Math.pow(Math.abs(o) / half, 2) * 0.4;
+      const want = (patch - 0.72) * 2.2 - 0.05 - Math.pow(Math.abs(o) / half, 2) * 0.4;
       if (hash(sid, seed + 17) > want) continue;
       const fo = (o - (acc - w)) / w;
       // each stone's edge broken: corners rounded off, a ragged snow line
@@ -404,12 +416,12 @@ const groundDrift = (c, x, gy, w, sd) => {
 // Narrow and dark, its tiers drooping under the snow: each tier a skirt lit on
 // its west side, a white load along its top that slumps over the tip, a blue
 // underside. The edge wood darkens it by depth (band 0-2).
-const SPR_BAND = [["#2e544a", "#3c6858", "#1f3a34"], ["#264840", "#33594c", "#1a322e"], ["#1e3b36", "#284a40", "#14282a"]];
+const SPR_BAND = [["#1b5e54", "#34987a", "#0f3a3c"], ["#17544c", "#2b8a6e", "#0c3236"], ["#134a46", "#237a64", "#0a2a30"]];
 const rmspruce = (ctx, x, y, s, o) => {
   const gy = y + 8, band = o.forest ? o.band || 0 : 0, sd = o.seed;
   const [mid, lit, dk] = SPR_BAND[band];
-  const h = (38 + (o.v % 2) * 6) * s, w0 = (10.5 + hash(sd, 1) * 2) * s, lean = (hash(sd, 2) - 0.5) * 1.6 * s;
-  if (!o.forest) shadow(ctx, x + 7 * s, gy + 1, w0 * 1.1, 3.4 * s, 0.3);
+  const h = (42 + (o.v % 2) * 6) * s, w0 = (11.6 + hash(sd, 1) * 2) * s, lean = (hash(sd, 2) - 0.5) * 1.6 * s;
+  if (!o.forest) rShadow(ctx, x + 10 * s, gy + 1.5, w0 * 1.5, 3.8 * s, 0.3);
   part(ctx, (c) => { c.fillStyle = WOOD_DK; c.fillRect(ap(x - 1.2 * s), gy - 6 * s, 2.4 * s, 6 * s); c.fillStyle = WOOD; c.fillRect(ap(x - 1.2 * s), gy - 6 * s, 1, 6 * s); });
   const N = 6;
   part(ctx, (c) => {
@@ -424,14 +436,20 @@ const rmspruce = (ctx, x, y, s, o) => {
       // the snow load: on the upper half of the rim each tier shows below
       // the next, heaviest in the middle, thin toward the tips; the drooping
       // lower edge stays dark green
-      const band = (h - 6 * s) / N, sy0 = by - band * 0.95, load = 0.3 + hash(sd, i + 60) * 0.35, sy1 = by + droop * 0.15 - band * (0.75 - load);
-      const ws = 0.55 + hash(sd, i + 70) * 0.45, wo = (hash(sd, i + 80) - 0.5) * 0.3;
+      const bandH = (h - 6 * s) / N, sy0 = by - bandH * 0.95, load = 0.42 + hash(sd, i + 60) * 0.3, sy1 = by + droop * 0.15 - bandH * (0.75 - load);
+      const ws = 0.7 + hash(sd, i + 70) * 0.4, wo = (hash(sd, i + 80) - 0.5) * 0.3;
       const X = (k) => cx + w * (k * ws + wo);
-      const sl = [[X(-0.85), by + droop * 0.05 - band * 0.25], [X(-0.5), sy0], [X(0.42), sy0 + 0.4 * s], [X(0.8), by - band * 0.3],
+      const sl = [[X(-0.85), by + droop * 0.05 - bandH * 0.25], [X(-0.5), sy0], [X(0.42), sy0 + 0.4 * s], [X(0.8), by - bandH * 0.3],
         [X(0.42), sy1 + 0.4 * s], [X(0), sy1 + Math.sin(i * 2.1 + sd) * 0.6 * s], [X(-0.45), sy1 - 0.3 * s]];
-      poly(c, sl); c.fillStyle = band === 2 ? "#c4d2de" : SNOW; c.fill();
-      c.fillStyle = band === 2 ? "#a8bccc" : SNOW_SH; c.fillRect(ap(cx + w * 0.05), ap(sy1), w * 0.4, 0.5);
-      c.fillStyle = band === 2 ? "#dce6ee" : SNOW_LT; c.fillRect(ap(cx - w * 0.45), ap(sy0 + 0.3), w * 0.45, 0.5);
+      poly(c, sl); c.fillStyle = band === 2 ? "#b4c4ec" : SNOW; c.fill();
+      // the load in two planes: lit on the sunward half, its lee in blue-violet
+      c.save(); poly(c, sl); c.clip();
+      c.fillStyle = band === 2 ? "#8c9ed4" : SNOW_SH; c.fillRect(ap(cx + w * 0.02), ap(sy0), w * 1.2, (sy1 - sy0) + 1);
+      c.fillStyle = band === 2 ? "#6f82c0" : SNOW_DK; c.fillRect(ap(cx + w * 0.02), ap(sy1 - 0.5), w * 1.2, 1.5);
+      c.fillStyle = band === 2 ? "#d8e4f8" : SNOW_LT; c.fillRect(ap(cx - w * 0.9), ap(sy0), w * 0.9, (sy1 - sy0) * 0.55);
+      c.restore();
+      // a dark violet-green underside under each skirt, so the tiers read apart
+      c.fillStyle = dk; c.fillRect(ap(cx - w * 0.7), ap(by + droop * 0.95), w * 1.3, 0.5);
     }
     // the leader, snow on its tip
     c.fillStyle = dk; c.fillRect(ap(x + lean - 0.5), gy - h - 1.5 * s, 1, 3 * s);
@@ -460,14 +478,17 @@ const blackRock = (c, x, gy, w, h, sd, v, snowy = 1) => {
     cc.fillStyle = ROCK[4]; cc.fill();
     cc.fillStyle = ROCK[5];
     for (let k = 1; k < 5; k++) px1(cc, pts[k][0] + 0.5, pts[k][1] + 0.6, 1.5, 0.5);
+    cc.fillStyle = ROCK[4]; poly(cc, [[x - w * 0.95, gy - h * 0.1], [x - w * 0.7, gy - h * 0.55], [x - w * 0.35, gy - h * 0.2]]); cc.fill();
+    cc.fillStyle = ROCK[0]; poly(cc, [[x + w * 0.1, gy + 1], [x + w * 0.35, gy - h * 0.5], [x + w * 1.1, gy - h * 0.1], [x + w, gy + 1]]); cc.fill();
     cc.fillStyle = ROCK[0];
     for (let k = 0; k < 3; k++) { const cx = x + (hash(sd, k + 40) - 0.3) * w * 1.2; for (let t = 0; t < h * 0.6; t += 0.5) px1(cc, cx + Math.sin(t + k) * 0.6, gy - t - 0.5); }
     // snow: on the top and banked on the windward (west) flank
     if (snowy) {
       cc.fillStyle = SNOW;
-      poly(cc, [...pts.slice(0, 7).map(([px, py], i) => [px, py - 0.3]), [pts[6][0] - w * 0.15, pts[6][1] + h * 0.22], [x - w * 0.2, gy - h * 0.5 + 1.5], [x - w * 0.75, gy - h * 0.1], [x - w * 1.05, gy + 1]]);
+      poly(cc, [...pts.slice(0, 7).map(([px, py], i) => [px, py - 0.3]), [pts[6][0] - w * 0.15, pts[6][1] + h * 0.12], [x - w * 0.15, gy - h * 0.62], [x - w * 0.6, gy - h * 0.34], [x - w * 0.92, gy - h * 0.12]]);
       cc.fill();
-      cc.fillStyle = SNOW_SH; for (let k = 2; k < 7; k++) px1(cc, pts[k][0], pts[k][1] + h * 0.18 + hash(sd, k) * 1.5, 1.5, 0.5);
+      cc.fillStyle = SNOW_SH; for (let k = 2; k < 7; k++) px1(cc, pts[k][0], pts[k][1] + h * 0.1 + hash(sd, k) * 1.2, 2, 0.5);
+      cc.fillStyle = SNOW_DK; for (let k = 3; k < 7; k++) px1(cc, pts[k][0] + 0.5, pts[k][1] + h * 0.2 + hash(sd, k + 3) * 1.2, 1.5, 0.5);
       cc.fillStyle = SNOW_LT; for (let k = 1; k < 4; k++) px1(cc, pts[k][0], pts[k][1] + 0.2, 1.5, 0.5);
     }
     cc.restore();
@@ -475,7 +496,7 @@ const blackRock = (c, x, gy, w, h, sd, v, snowy = 1) => {
 };
 const rmrock = (ctx, x, y, s, o) => {
   const gy = y + 8, v = o.v % 4, w = (9 + v * 1.5) * s, h = (8 + (v === 1 ? 4 : 0)) * s;
-  shadow(ctx, x + 4 * s, gy + 1, w * 1.15, 3.2 * s, 0.32);
+  rShadow(ctx, x + 4 * s, gy + 1, w * 1.15, 3.2 * s, 0.32);
   blackRock(ctx, x, gy, w, h, o.seed, v);
   groundDrift(ctx, x - w * 0.6, gy + 0.5, w * 0.55, o.seed);
 };
@@ -483,7 +504,7 @@ const rmrock = (ctx, x, y, s, o) => {
 // ---- a cairn of black stones ----------------------------------------------------
 const rmcairn = (ctx, x, y, s, o) => {
   const gy = y + 8, sd = o.seed;
-  shadow(ctx, x + 4 * s, gy + 1, 9 * s, 3 * s, 0.3);
+  rShadow(ctx, x + 4 * s, gy + 1, 9 * s, 3 * s, 0.3);
   // flat slabs of black stone, each course narrower, set a little askew
   const courses = [[9, 3], [7.5, 2.6], [6, 2.4], [4.4, 2.2], [3, 2]];
   let yy = gy;
@@ -524,7 +545,7 @@ const slab = (c, x, gy, w, h, col, sd, head = 0) => {
 };
 const rmrunestone = (ctx, x, y, s, o) => {
   const gy = y + 8, w = 5.5 * s, h = 21 * s, sd = o.seed, col = "#7e7c80";
-  shadow(ctx, x + 5 * s, gy + 1, 8 * s, 2.8 * s, 0.3);
+  rShadow(ctx, x + 5 * s, gy + 1, 8 * s, 2.8 * s, 0.3);
   part(ctx, (c) => {
     slab(c, x, gy, w, h, col, sd);
     c.save(); c.clip();
@@ -546,7 +567,7 @@ const rmrunestone = (ctx, x, y, s, o) => {
 };
 const rmskaldstone = (ctx, x, y, s, o) => {
   const gy = y + 8, w = 5.2 * s, h = 30 * s, sd = o.seed, col = "#8a8278";
-  shadow(ctx, x + 6 * s, gy + 1, 9 * s, 3 * s, 0.3);
+  rShadow(ctx, x + 6 * s, gy + 1, 9 * s, 3 * s, 0.3);
   part(ctx, (c) => {
     slab(c, x, gy, w, h, col, sd, 1);
     c.save(); c.clip();
@@ -582,7 +603,7 @@ const rmwhale = (ctx, x, y, s, o) => {
   if (v === 0) {
     // the ribs: curved bones hooking up out of the snow from a buried spine,
     // all bowed the same way, tallest at the chest; the far row paler
-    shadow(ctx, x + 5 * s, gy + 1, 26 * s, 4 * s, 0.26);
+    rShadow(ctx, x + 5 * s, gy + 1, 26 * s, 4 * s, 0.26);
     const n = 6;
     for (const row of [1, 0]) for (let k = 0; k < n; k++) {
       const t = k / (n - 1), bx = x - 18 * s + t * 32 * s + row * 3 * s, by = gy - 2.5 * s + t * 2 * s - row * 3 * s;
@@ -601,7 +622,7 @@ const rmwhale = (ctx, x, y, s, o) => {
     groundDrift(ctx, x - 20 * s, gy, 8 * s, sd); groundDrift(ctx, x + 8 * s, gy + 1, 9 * s, sd + 1);
   } else {
     // the skull: a long flat rostrum ending in the brain-case, the jaw beside
-    shadow(ctx, x + 4 * s, gy + 1, 24 * s, 4 * s, 0.3);
+    rShadow(ctx, x + 4 * s, gy + 1, 24 * s, 4 * s, 0.3);
     part(ctx, (c) => {
       poly(c, [[x - 22 * s, gy - 3 * s], [x - 4 * s, gy - 6.5 * s], [x + 8 * s, gy - 10 * s], [x + 15 * s, gy - 8 * s], [x + 16 * s, gy - 1 * s], [x + 6 * s, gy], [x - 8 * s, gy - 0.5 * s], [x - 22 * s, gy - 1.5 * s]]);
       c.fillStyle = lin(c, 0, gy - 10 * s, 0, gy, [[0, "#f2ecdc"], [0.5, BONE], [1, BONE_DK]]); c.fill();
@@ -633,7 +654,7 @@ const strakes = (c, x0, x1, top, bot, n, col, f) => {
 };
 const rmboat = (ctx, x, y, s, o) => {
   const gy = y + 8 + 2 * s, L = 13 * s, H = 5 * s, dir = o.v % 2 ? -1 : 1, sd = o.seed;
-  shadow(ctx, x + 4 * s, gy + 1, L * 1.25, 3 * s, 0.32);
+  rShadow(ctx, x + 4 * s, gy + 1, L * 1.25, 3 * s, 0.32);
   // the stones it rests on
   part(ctx, (c) => { for (const k of [-0.6, 0.55]) ball(c, x + k * L, gy - 0.6, 2.2 * s, 1.4 * s, ROCK[3]); });
   part(ctx, (c) => {
@@ -662,7 +683,7 @@ const rmlongship = (ctx, x, y, s, o) => {
   const X = (u) => x + u * L * dir;                         // u -1 stern .. 1 bow
   const keel = (u) => gy - 1.5 * s - Math.pow(Math.abs(u), 3) * 4 * s;
   const rail = (u) => gy - 1.5 * s - H - Math.pow(Math.abs(u), 2.4) * 3.5 * s;
-  shadow(ctx, x + 6 * s, gy + 1.5, L * 1.15, 4 * s, 0.32);
+  rShadow(ctx, x + 6 * s, gy + 1.5, L * 1.15, 4 * s, 0.32);
   // rollers under the keel
   part(ctx, (c) => { for (const u of [-0.55, 0, 0.55]) { c.fillStyle = WOOD; c.fillRect(ap(X(u) - 1.2 * s), ap(gy - 1.2 * s), 2.4 * s, 2.4 * s); c.fillStyle = WOOD_LT; c.fillRect(ap(X(u) - 1.2 * s), ap(gy - 1.2 * s), 2.4 * s, 0.5); } });
   part(ctx, (c) => {
@@ -718,7 +739,7 @@ const rmlongship = (ctx, x, y, s, o) => {
 // ---- a fish-drying rack ----------------------------------------------------------
 const rmrack = (ctx, x, y, s, o) => {
   const gy = y + 8, span = 14 * s, hh = 15 * s, sd = o.seed;
-  shadow(ctx, x + 6 * s, gy + 1, span * 1.1, 3 * s, 0.26);
+  rShadow(ctx, x + 6 * s, gy + 1, span * 1.1, 3 * s, 0.26);
   part(ctx, (c) => {
     for (const e of [-1, 1]) {
       c.strokeStyle = WOOD_DK; c.lineWidth = 1.4 * s; c.lineCap = "round";
@@ -747,7 +768,7 @@ const rmrack = (ctx, x, y, s, o) => {
 // ---- frozen waterfall / ice crag ------------------------------------------------------
 const rmicefall = (ctx, x, y, s, o) => {
   const gy = y + 8, sd = o.seed, v = o.v % 2;
-  shadow(ctx, x + 7 * s, gy + 1.5, 20 * s, 4 * s, 0.32);
+  rShadow(ctx, x + 7 * s, gy + 1.5, 20 * s, 4 * s, 0.32);
   if (v === 0) {
     // a black crag, a curtain of ice frozen down its south face into a pool
     const w = 17 * s, h = 26 * s;
@@ -813,7 +834,7 @@ const seal = (c, x, y, s, dir, sd, up) => {
 };
 const rmsealrock = (ctx, x, y, s, o) => {
   const gy = y + 8, sd = o.seed, w = 15 * s, h = 5.5 * s;
-  shadow(ctx, x + 4 * s, gy + 1, w * 1.1, 3.4 * s, 0.32);
+  rShadow(ctx, x + 4 * s, gy + 1, w * 1.1, 3.4 * s, 0.32);
   blackRock(ctx, x, gy, w, h, sd, 2, 0);
   part(ctx, (c) => {
     c.fillStyle = SNOW; ellipse(c, x - w * 0.6, gy - h * 0.5, w * 0.3, 1.5 * s); c.fill();
