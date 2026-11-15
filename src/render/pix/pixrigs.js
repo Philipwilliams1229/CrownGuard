@@ -44,6 +44,10 @@ import * as captain from "./fig-captain.js";
 import * as storm from "./fig-storm.js";
 import * as levy from "./fig-levy.js";
 import * as magister from "./fig-magister.js";
+import * as garrison from "./fig-garrison.js";
+import * as paladin from "./fig-paladin.js";
+import * as squire from "./fig-squire.js";
+import * as farmer from "./fig-farmer.js";
 import * as wraith from "./fig-wraith.js";
 
 const mk = (NAME, mod) => ({ ...mod, NAME });
@@ -70,6 +74,12 @@ export const PIX = {
   heroFriar: { fig: mk("friar", friar), atk: "attack", hit: 0.56, legacy: [0, 4, 7, 9], fx: true },
   heroCaptain: { fig: mk("captain", captain), atk: "attack", hit: 0.52, legacy: [0, 4, 6, 8], sweep: [0, 1, 2, 3, 4, 5], fx: true },
   heroStorm: { fig: mk("storm", storm), atk: "attack", hit: 0.6, legacy: [0, 7, 8, 11], sky: [0, 1, 2, 3], fx: true },
+  // the crown's soldiers (walk by time, so no per)
+  knight: { fig: mk("garrison", garrison), atk: "attack", hit: 0.5, legacy: [0, 4, 6, 7], fx: true },
+  paladin: { fig: mk("paladin", paladin), atk: "attack", hit: 0.5, legacy: [0, 4, 6, 7], fx: true },
+  squire: { fig: mk("squire", squire), atk: "attack", hit: 0.5, legacy: [0, 4, 6, 7], fx: true },
+  farmer: { fig: mk("farmer", farmer), atk: "attack", hit: 0.52, legacy: [0, 3, 5, 7], fx: true },
+  yeoman: { fig: mk("farmer", farmer), variant: "yeoman", atk: "attack", hit: 0.52, legacy: [0, 3, 5, 7], fx: true },
   // ---- the Greenwood horde ----
   goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
   goblinBare: { fig: mk("goblin", goblin), variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },
