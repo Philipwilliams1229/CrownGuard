@@ -25,6 +25,8 @@ import { wheelAt, falconCount } from "../../engine/muzzles.js";
 import { drawMistress, mistressFrame, mistressGlove, CREW_FOLK } from "../folk.js";
 import * as mistressFig from "../pix/fig-mistress.js";
 import { crew, crewOn, drawCrewPix, crewMark, loopFrame, shotFrame, markOf } from "../pix/crews.js";
+import * as falconryHall from "../pix/hall-falconry.js";
+import { hallOn, hallPix, drawHallBack, drawHallFront } from "../pix/halls.js";
 
 // the new sprites' falconer (pix/fig-mistress.js); the frame of her `cast` on which the bird leaves
 const MISTRESS = crew("mistress", mistressFig);
@@ -181,16 +183,23 @@ export const drawFalconry = (ctx, t, time) => {
   const { lvl, r4, aviary, court, nest, h } = spec(t);
   const bake = canBake();
   const r = readiness(t), anim = t.anim || 0;
-  if (bake) stamp(ctx, cache.get(`roost|${t.level}|${t.branch}|${t.rank4}|${t.id % 5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintRoost(c, { ...t, id: t.id % 5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
+  // the new building (Settings > Display > New sprites): pix/hall-falconry.js, built round the same
+  // perch (muzzles.js falconPerch); the old roost below stays for the switch. Its lights: the golden
+  // eye pulses with the eye painted here, the rod's lights the stone when it crackles.
+  const H = bake && hallOn() ? hallPix("falconry", falconryHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, t.id % 3) : null;
+  const crackle = r4 === "ab" && Math.sin(time * 5.3 + t.id) > 0.6;
+  const hk = { id: t.id, k: { eye: 0.72 + Math.sin(time * 3) * 0.28, rod: crackle ? 1 : 0 } };
+  if (H) drawHallBack(ctx, H, x, y, time, hk);
+  else if (bake) stamp(ctx, cache.get(`roost|${t.level}|${t.branch}|${t.rank4}|${t.id % 5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintRoost(c, { ...t, id: t.id % 5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   else paintRoost(ctx, t, x, y);
-  if (lvl >= 2 && Math.sin(time * 1.7 + t.id) > -0.4) glow(ctx, x, y - h + 14.5, 3, "#ffd070", 0.7);
+  if (!H && lvl >= 2 && Math.sin(time * 1.7 + t.id) > -0.4) glow(ctx, x, y - h + 14.5, 3, "#ffd070", 0.7);
   if (r4 === "ba") {
     // the golden eye that never closes
     const ex = x - 7.5, ey = y - h - 26.4;
     glow(ctx, ex, ey, 4 + Math.sin(time * 3) * 0.8, "#f8d870", 0.8);
     ctx.fillStyle = "#fff3d2"; ctx.fillRect(ex - 0.6, ey - 0.6, 1.2, 1.2);
   }
-  if (r4 === "ab" && Math.sin(time * 5.3 + t.id) > 0.6) {
+  if (crackle) {
     // the rod crackles
     const rx = x - 9, ry = y - h - 38;
     ctx.strokeStyle = "rgba(200,230,255,0.95)"; ctx.lineWidth = 0.8;
@@ -279,11 +288,13 @@ export const drawFalconry = (ctx, t, time) => {
     // the Storm Falcons leave her hand in a crackle of blue
     if (r4 === "ab" && anim > 0.3) { const [sx, sy] = pix ? pixBird(crewMark(MISTRESS, "cast", CAST_F, "glove", dir, variant)) : onGloveAt("cast"); glow(ctx, sx + dir * 3, sy + 2, 5 * anim, "#b8e0ff", anim); }
   }
+  if (H) drawHallFront(ctx, H, x, y, time, hk);   // the near rim, over her boots
   // a drifting feather now and then (the birds', so not under noFolk)
   const fc = ((time / 7) + t.id * 0.53) % 1;
   if (fc < 0.5 && !t.noFolk) { ctx.fillStyle = "#e8dfc6"; ctx.fillRect(x + 10 + Math.sin(fc * 12) * 4, my - 20 + fc * 40, 1.6, 0.8); }
   const pc = court ? (r4 === "bb" ? "#7a2a4a" : PURPLE) : aviary ? (r4 === "ab" ? STORM : "#3a5a8a") : "#a06a3a";
-  if (r4 === "ba") pennant(ctx, x + 12, y - h - 14, 13, pc, time, t.id, 1);
+  if (H) { /* the new hall flies its own pennant */ }
+  else if (r4 === "ba") pennant(ctx, x + 12, y - h - 14, 13, pc, time, t.id, 1);
   else pennant(ctx, x - 12, y - h - (lvl === 1 ? 10 : 14), lvl === 1 ? 11 : 13, pc, time, t.id, -1);
 };
 
