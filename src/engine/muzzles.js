@@ -22,6 +22,7 @@ import * as bonearcherFig from "../render/pix/fig-bonearcher.js";
 import * as crossbowFig from "../render/pix/fig-crossbow.js";
 import * as errantbowFig from "../render/pix/fig-errantbow.js";
 import * as musketeerFig from "../render/pix/fig-musketeer.js";
+import * as engineerFig from "../render/pix/fig-engineer.js";
 export { MUSKET_LIFE } from "../render/musketfx.js";
 
 export const facing = (t) => (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
@@ -185,7 +186,7 @@ export const flaskFrom = (t) => {
 // AIM export is picked up the moment it exists.
 const AIM_OF = {
   bow: () => bowmanFig.AIM, long: () => bowmanFig.AIM_LONG, hero: () => archerFig.AIM, field: () => fieldbowFig.AIM,
-  bone: () => bonearcherFig.AIM, crossbow: () => crossbowFig.AIM, errant: () => errantbowFig.AIM,
+  siege: () => engineerFig.SIEGE_AIM, bone: () => bonearcherFig.AIM, crossbow: () => crossbowFig.AIM, errant: () => errantbowFig.AIM,
 };
 const musketAim = (gun) => { const a = musketeerFig.AIM; return a && !a.pivot ? a[gun] || a.plain : a; };
 const aimOn = () => typeof document !== "undefined" && prefs.newSprites !== false;
@@ -196,11 +197,12 @@ const tableOf = (key) => (key.startsWith("musket") ? musketAim(key.slice(7) || "
 // `foe` is led for a shot of `speed` (or `mark`, a plain [x, y] to aim at with no lead); `old` is
 // today's muzzle (used when no table is there). Returns { mx, my, ax, ay, deg }: the muzzle the
 // shot leaves, the point it flies to, and the quantized aim the figure holds.
-export const planShot = (foe, tms, feet, f, key, old, speed, mark) => {
+export const planShot = (foe, tms, feet, f, key, old, speed, mark, hold) => {
   const T = aimOn() ? tableOf(key) : null;
   const piv = T ? [feet[0] + f * T.pivot[0] / 2, feet[1] + T.pivot[1] / 2] : old;
   const [ax, ay] = mark || leadPoint(foe, piv[0], piv[1], speed, tms);
-  const deg = quantAim(aimDeg(Math.atan2(ay - piv[1], ax - piv[0]), f));
+  // `hold`: the shooter's eased (tracking) angle; the shot leaves the bow as it is DRAWN, then flies straight to the aim point
+  const deg = hold != null ? quantAim(hold) : quantAim(aimDeg(Math.atan2(ay - piv[1], ax - piv[0]), f));
   if (!T) return { mx: old[0], my: old[1], ax, ay, deg };
   const [rx, ry] = rotAbout(T.pivot, T.muzzle, deg);
   return { mx: feet[0] + f * rx / 2, my: feet[1] + ry / 2, ax, ay, deg };

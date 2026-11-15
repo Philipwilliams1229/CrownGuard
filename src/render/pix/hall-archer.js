@@ -22,6 +22,7 @@
 // (the torch on the wall), and what the hall file still paints itself (the crew, the siege
 // bow below, the hawks, the cauldron's bubbles).
 import { Pix, mat, flat } from "./pix.js";
+export { SIEGE_AIM } from "./fig-engineer.js";
 import { archerLayout } from "../../engine/towers.js";
 import { STYLES, drum, disc, parapet, bandEdge, cone, beam, door, loop, archWindow, wallBanner, ivy, boulder, WARM, hash } from "./hall-kit.js";
 
@@ -252,10 +253,15 @@ export const build = (o = {}) => (back, front) => {
 // Today's geometry x2, so the bolt still leaves the nose the engine knows: a banded stock on a
 // yoked post, tipped up 0.2 rad, a steel stave round the nose, the string hauled back to the
 // nut, a bolt in the groove. Facing +x; `flip` bakes it for the mirrored draw (one sun).
-export const SIEGE_BOX = { w: 100, h: 84, ox: 44, oy: 70 };
-export const siegeBow = (loosed, flip = false) => {
+export const SIEGE_BOX = { w: 100, h: 104, ox: 44, oy: 70 };   // taller: the nose dips below the deck at a steep downward aim
+// the winch hub on the stock (art px from the bow's origin), at an aim: the hall spins its spokes there
+export const siegeHub = (aim = 0) => { const k = Math.cos(-0.2), n = Math.sin(-0.2), x = -26 * k - n, y = -26 * n + k - 24, r = (aim * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r); return aim ? [x * c - (y + 24) * sn, x * sn + (y + 24) * c - 24] : [x, y]; };
+// aim: degrees, + down the screen (engine/aim.js): the stock, stave, string, bolt and winch pitch about the stock's
+// mounting point (0, -24) while the base and the yoke stay put
+export const siegeBow = (loosed, flip = false, aim = 0) => {
   const px = new Pix(SIEGE_BOX.w, SIEGE_BOX.h, SIEGE_BOX.ox, SIEGE_BOX.oy), cs = Math.cos(-0.2), sn = Math.sin(-0.2);
-  const T = (x, y) => [x * cs - y * sn, x * sn + y * cs - 24], STR = flat("#f2ead4", { line: "#6a5a48" });
+  const ar = (aim * Math.PI) / 180, ac = Math.cos(ar), as = Math.sin(ar);
+  const T = (x, y) => { const bx = x * cs - y * sn, by = x * sn + y * cs; return aim ? [bx * ac - by * as, bx * as + by * ac - 24] : [bx, by - 24]; }, STR = flat("#f2ead4", { line: "#6a5a48" });
   px.part(); px.rect(-5, -18, 10, 18, OAK, 0, { n: [-0.2, -0.1, 0.97] }); px.rect(-5, -8, 10, 2, IRON, 0.1, { n: [0, 0, 1], cast: 0 }); px.rect(-8, -3, 16, 3, IRON, 0.1, { n: [0, -0.5, 0.8] });
   px.part(); px.rect(-7, -25, 3, 8, IRON, 0.2, { n: [0, 0, 1] }); px.rect(4, -25, 3, 8, IRON, 0.2, { n: [0, 0, 1] }); px.rect(-7, -19, 14, 2.4, IRON, 0.2, { n: [0, -0.4, 0.9] });   // the yoke
   const a = T(-28, 0), b = T(30, 0);

@@ -51,9 +51,12 @@ const aimed = (sk, deg) => {
   const w = sk.p.aw || 0, d = deg * w;
   if (!d) return sk;
   const r = (q) => rotAbout(sk.sF, q, d), eF = r(sk.eF), hdF = r(sk.hdF), tgt = r(sk.hdN), want = r(sk.eN);
-  const a = ik(sk.sN[0], sk.sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, 1), b = ik(sk.sN[0], sk.sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, -1);
+  // the upper body turns into the shot about the bow shoulder (so the pivot stays put): the chest and head lean up to
+  // 8 degrees, the near shoulder swings round with the aim so the string arm has the reach to stay on the string
+  const lean = d * (8 / 70), tw = d * 0.45 + lean, sN = rotAbout(sk.sF, sk.sN, tw), C = rotAbout(sk.sF, sk.C, lean), N = rotAbout(sk.sF, sk.N, lean);
+  const a = ik(sN[0], sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, 1), b = ik(sN[0], sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, -1);
   const pick = Math.hypot(a.mid[0] - want[0], a.mid[1] - want[1]) <= Math.hypot(b.mid[0] - want[0], b.mid[1] - want[1]) ? a : b;
-  return { ...sk, eF, hdF, eN: pick.mid, hdN: pick.end, aimRad: d * RAD };
+  return { ...sk, eF, hdF, sN, C, N, eN: pick.mid, hdN: pick.end, aimRad: d * RAD };
 };
 // the engine's muzzle at aim 0: the bow hand at the frame the shot is loosed on (the pivot is the bow shoulder)
 const aimAt = (clip, hit) => { const f = Math.round(hit * (clip.n - 1)), s = solve(clip.pose(f / (clip.n - 1)), BONES); return { pivot: [s.sF[0], s.sF[1]], muzzle: [s.hdF[0], s.hdF[1]] }; };
@@ -142,7 +145,7 @@ export const draw = (px, { sk: sk0, lag1, lag2 }, o = {}) => {
   else { px.part(); px.line(top[0], top[1], bot[0], bot[1], STRING, 1.3, { noLine: true }); }
   if (p.arrow > 0.5) {
     // the shaft lies from the nock across the bow hand
-    const a0 = nock || R(-2.6, 0), ax = hdF[0] + 0.6 - a0[0], ay = hdF[1] - 0.8 - a0[1], l = Math.hypot(ax, ay) || 1, ux = ax / l, uy = ay / l, L = Math.max(l + 3.5, 15);
+    const a0 = nock || R(-2.6, 0), ar = sk.aimRad || 0, ax = hdF[0] + 0.6 * Math.cos(ar) + 0.8 * Math.sin(ar) - a0[0], ay = hdF[1] + 0.6 * Math.sin(ar) - 0.8 * Math.cos(ar) - a0[1], l = Math.hypot(ax, ay) || 1, ux = ax / l, uy = ay / l, L = Math.max(l + 3.5, 15);
     px.part();
     px.line(a0[0], a0[1], a0[0] + ux * L, a0[1] + uy * L, BOW, 7.6, { fix: 3 });
     px.capsule(a0[0] + ux * L, a0[1] + uy * L, 0.9, a0[0] + ux * (L + 2.2), a0[1] + uy * (L + 2.2), 0.4, STEEL, 7.62);

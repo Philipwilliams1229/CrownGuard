@@ -595,14 +595,15 @@ export const drawArcherTower = (ctx, t, time) => {
   if (r4 === "ba") {
     const loosed = t.anim > 0.3 ? 1 : 0;
     const dir = aimDir;   // at rest, still the way of the last bolt
+    const sAim = t.bowAim?.[0] || 0;   // the machine pitches to its last shot's quantized aim (engine/aim.js), the old pixels when level
     const bcv = canBake && !H ? baked(`siege|${loosed}`, 50, 40, (c) => siegeBow(c, 22, 34, loosed)) : null;
-    if (H) stampPix(ctx, pixSprite(`siege|${loosed}|${dir}`, () => archerHall.siegeBow(loosed, dir < 0)), x - dir * 2, dy + 1, dir);   // the new siege bow, the same geometry
+    if (H) stampPix(ctx, pixSprite(`siege|${loosed}|${dir}|${sAim}`, () => archerHall.siegeBow(loosed, dir < 0, sAim)), x - dir * 2, dy + 1, dir);   // the new siege bow, the same geometry
     else if (bcv) stamp(ctx, bcv, x - dir * 2, dy + 1, 22, 34, dir); else siegeBow(ctx, x, dy + 1, loosed);
     // the winch's spokes turn while it cocks
     if (!t._idle && t.anim < 0.3) {
       // the winch hub sits at (-13, 0.5) on the stock, which is tipped -0.2
       const spin = time * 5;
-      const wx = x - dir * 2 - dir * 12.64, wy = dy + 1 - 12 + 3.07;
+      const sh = H ? archerHall.siegeHub(sAim) : [-25.28, -17.86], wx = x - dir * 2 + dir * sh[0] / 2, wy = dy + 1 + sh[1] / 2;
       ctx.strokeStyle = "#c4c8d0"; ctx.lineWidth = 0.6;
       for (let i = 0; i < 2; i++) {
         const a = spin + (i / 2) * Math.PI;
@@ -612,7 +613,7 @@ export const drawArcherTower = (ctx, t, time) => {
     if (!t.noFolk && canBake && crewOn()) {
       // the new engineer (fig-engineer.js): his hands rock over the stock as the old crew's did
       const clip = t._idle ? "bowIdle" : "bow";
-      drawCrewPix(ctx, ENG, x - dir * (pw - 3), dy + 1, dir, clip, loopFrame(ENG, clip, time, t.id), { variant: "engineer" });
+      drawCrewPix(ctx, ENG, x - dir * (pw - 3), dy + 1, dir, clip, loopFrame(ENG, clip, time, t.id), { variant: sAim ? `engineer@${sAim}` : "engineer" });
     } else {
       const work = t._idle ? 1 : Math.round((Math.sin(time * 6 + t.id) + 1) * 1.5);   // 0..3
       const ccv = canBake && !t.noFolk ? baked(`crew|${work}`, 28, 30, (c) => drawCrew(c, 12, 27, 1, ARCHER_FOLK.crew, (work - 1.5) * 0.4)) : null;

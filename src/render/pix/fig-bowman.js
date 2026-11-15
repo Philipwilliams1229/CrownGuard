@@ -89,9 +89,12 @@ const aimed = (sk, deg) => {
   const w = sk.p.aw || 0, d = deg * w;
   if (!d) return sk;
   const r = (q) => rotAbout(sk.sF, q, d), eF = r(sk.eF), hdF = r(sk.hdF), tgt = r(sk.hdN), want = r(sk.eN);
-  const a = ik(sk.sN[0], sk.sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, 1), b = ik(sk.sN[0], sk.sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, -1);
+  // the upper body turns into the shot about the bow shoulder (so the pivot stays put): the chest and head lean up to
+  // 8 degrees, the near shoulder swings round with the aim so the string arm has the reach to stay on the string
+  const lean = d * (8 / 70), tw = d * 0.45 + lean, sN = rotAbout(sk.sF, sk.sN, tw), C = rotAbout(sk.sF, sk.C, lean), N = rotAbout(sk.sF, sk.N, lean);
+  const a = ik(sN[0], sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, 1), b = ik(sN[0], sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, -1);
   const pick = Math.hypot(a.mid[0] - want[0], a.mid[1] - want[1]) <= Math.hypot(b.mid[0] - want[0], b.mid[1] - want[1]) ? a : b;
-  return { ...sk, eF, hdF, eN: pick.mid, hdN: pick.end, aimRad: d * RAD };
+  return { ...sk, eF, hdF, sN, C, N, eN: pick.mid, hdN: pick.end, aimRad: d * RAD };
 };
 // the engine's muzzle at aim 0: the bow hand at the frame the shot is loosed on (the pivot is the bow shoulder)
 const aimAt = (clip, hit) => { const f = Math.round(hit * (clip.n - 1)), s = solve(clip.pose(f / (clip.n - 1)), BONES); return { pivot: [s.sF[0], s.sF[1]], muzzle: [s.hdF[0], s.hdF[1]] }; };

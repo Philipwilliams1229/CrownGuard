@@ -35,6 +35,19 @@ export const rotAbout = ([px, py], [mx, my], deg) => {
   return [px + dx * c - dy * s, py + dx * s + dy * c];
 };
 
+// Ease a held aim toward `want` the short way at AIM_RATE degrees a second (a shooter tracks its target
+// between shots instead of snapping). `store[key]` keeps the raw angle; the first call takes `want` whole.
+// `wrap`: the angles are world angles (a ballista), so the short way may cross +-180.
+export const AIM_RATE = 240;
+export const easeAim = (store, key, want, dt, wrap = false) => {
+  const c = store[key];
+  if (c == null) return (store[key] = want);
+  let d = want - c;
+  if (wrap) { while (d > 180) d -= 360; while (d <= -180) d += 360; }
+  const s = AIM_RATE * dt;
+  return (store[key] = Math.abs(d) <= s ? want : c + Math.sign(d) * s);
+};
+
 // A foe is "going somewhere" unless something holds it.
 const moving = (e, tms) => !!e && !e.dead && e.speed > 0 && e.dist != null && e.blockedBy == null && !e.aiming
   && !e.seized && !(e.stunUntil > tms);

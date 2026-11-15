@@ -713,8 +713,13 @@ Bring these up with the owner; don't act on them unasked.
   fig-crossbow, fig-errantbow, fig-musketeer, fig-engineer (`engineer@deg` on the siege bow's
   handles, though halls/archer.js does not yet pitch the machine itself); the castle's
   ballistae pitch to `castleCd.balAim`. Not aimed on purpose: the Wizard Spire's curving
-  bolts, catapult, bombardier, skiffs, Sunforge, falcons, Ysolde. Weak spots: at +-70 the
-  bow's string hand stays near the face; a figure holds its last shot's angle until the next.
+  bolts, catapult, bombardier, skiffs, Sunforge, falcons, Ysolde. Follow-ups (same day):
+  every aimed shooter TRACKS its target between shots (`easeAim`, 240 deg/s, aim.js; the
+  shot leaves from the eased angle); bowmen turn the upper body and lean up to 8 degrees so
+  the string hand stays on the nock at every aim; the Ballista path's siege bow pitches
+  (`siegeBow(loosed, flip, aim)`, hall-archer.js; `SIEGE_AIM` in fig-engineer.js, read by
+  planShot's "siege" key) and its engineer follows. Weak spot: the tracked mark is sticky,
+  re-picked in the last 500 ms before a shot.
 - **BEFORE PUBLISHING (owner, 2026-11-07): no "Retry Wave" in the campaign.**
   "Makes it more challenging. Keep it how it is for now, but before publishing
   I'll want that change." Not done yet on purpose. The button is on the defeat

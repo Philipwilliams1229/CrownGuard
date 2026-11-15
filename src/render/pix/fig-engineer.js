@@ -165,6 +165,13 @@ const rotAbout = (c, pt, th) => { const k = Math.cos(th), n = Math.sin(th), dx =
 // its origin x = 18 art px ahead of him on the Ballista's deck, the stock's axis 24 up). Change it here if the hall turns
 // the machine about another point.
 export const BOW_PIVOT = [18, -24];
+// The siege bow itself (hall-archer.js siegeBow, which turns about its own origin's (0, -24)). Its origin sits at
+// the hall's feet (x, y - h) + (-2 facing, +1) board units = (-4, +2) art px, so the machine's pivot and its nose
+// as the ENGINE wants them (art px from the hall's feet at the siege bow's own spot, facing +x, aim 0) are:
+//   pivot  the stock's mounting point; muzzle  where the bolt leaves, the nose of the stock's groove.
+// planShot rotates the muzzle about the pivot by the quantized aim, as the bow is drawn.
+export const SIEGE_LOCAL = { pivot: [0, -24], tilt: -0.2 };
+export const SIEGE_AIM = { pivot: [-4, -22], muzzle: [26.4, -32.9] };
 
 // ---- the machines (art px from his feet, facing +x: the halls' own numbers x2) ----
 //   hub, rx, ry   the handle's circle (ry < rx: a crank laid flat)
