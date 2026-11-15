@@ -1,0 +1,104 @@
+<!doctype html>
+<!--
+  FX concept lab (2026-11-15): one row per combat effect, TODAY (the game's own fx.js / rings.js code) beside
+  concept A clean / B worked / C bold (concept/fx-concepts.js) and B on a dark Hollow ground. Each strip is
+  saved as fxc_<row>_<col>.png (zoom 3, one art pixel = 3 screen pixels). Build the viewer afterwards with
+  node scripts/build-fx-concepts.mjs  ->  .shots/fx-concepts/index.html.   /fx-concepts.html[?only=burn,heal]
+-->
+<html><head><meta charset="utf-8" /><title>fx concepts</title></head>
+<body style="background:#14171d;color:#e8e0c8;font-family:monospace;margin:12px"><div id="status">painting</div>
+<script type="module">
+import { rigFrame, rigPixels } from "/src/render/rigs.js";
+import { drawStatus, drawBlast, drawSpark, drawPoof } from "/src/render/fx.js";
+import { drawRingFx } from "/src/render/rings.js";
+import { PX } from "/src/render/paint.js";
+import { ROWS } from "/concept/fx-concepts.js";
+
+const Z = 3, out = document.getElementById("status");
+const only = new URLSearchParams(location.search).get("only")?.split(",");
+const H = (a, b = 0) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+const mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+
+// the foe: a goblin walk, measured once
+// rigFrame answers in world units for the anchor (ax, ay); the concepts work in art pixels
+const foe = (f, v) => { const s = rigFrame("goblin", "walk", ((f % 8) + 8) % 8, v || ""); return { cv: s.cv, ax: s.ax * PX, ay: s.ay * PX }; };
+const s0 = foe(0), d0 = s0.cv.getContext("2d").getImageData(0, 0, s0.cv.width, s0.cv.height).data;
+let top = s0.cv.height, HW = 0, xl = 1e9, xr = -1e9;
+for (let y = 0; y < s0.cv.height; y++) for (let x = 0; x < s0.cv.width; x++) if (d0[(y * s0.cv.width + x) * 4 + 3] > 20) { top = Math.min(top, y); xl = Math.min(xl, x - s0.ax); xr = Math.max(xr, x - s0.ax); }
+const T = s0.ay - top;
+const PXW = rigPixels("goblin", ""), PXS = PXW.map(([dx, dy, col]) => [dx * PX, dy * PX, col]);
+HW = (xr - xl) / 2;
+const BASE = { foe, pixels: () => PXS, T, HW: Math.round(HW * 0.9), cx: Math.round((xl + xr) / 2) };
+
+const ground = (c, w, h, dark) => {
+  const [b, d, l] = dark ? ["#3c4535", "#323a2d", "#485140"] : ["#7eab54", "#6f9a4a", "#92bf62"];
+  c.fillStyle = b; c.fillRect(0, 0, w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const v = H(x * 1.3, y * 0.7 + 4); if (v > 0.93) { c.fillStyle = d; c.fillRect(x, y, 1, 1); } else if (v < 0.035) { c.fillStyle = l; c.fillRect(x, y, 1, 1); } }
+};
+
+// ---- TODAY: the game's own painters, in world units (1 world unit = PX art pixels) ----------------------
+const W = (c, fn) => { c.save(); c.scale(PX, PX); fn(); c.restore(); };
+const foeAt = (c, e, f = e.i, v) => { const s = foe(f, v); c.drawImage(s.cv, -s.ax, -s.ay); };
+const stat = (e, extra) => ({ x: 0, y: 0, id: 1, size: 15, type: "goblin", sprite: "goblin", face: 1, ...extra });
+const TMS = 100000;
+const status = (extra, frame0) => (c, e) => { foeAt(c, e, frame0 ? 0 : e.i); const es = stat(e, extra(e)); W(c, () => drawStatus(c, es, 5 + e.i * 0.1, TMS + e.i * 100, 0, -e.T / PX)); };
+const FAR = TMS * 9;
+const fxd = (c, fx, layer) => W(c, () => drawBlast(c, fx, layer));
+const TODAY = {
+  burn: status(() => ({ burnUntil: FAR })),
+  poison: status(() => ({ poisonUntil: FAR })),
+  slow: status(() => ({ slowUntil: FAR, slowPct: 0.4 })),
+  frozen: status(() => ({ frozenUntil: FAR, _frzTo: FAR, _frzAt: TMS }), true),
+  stun: status(() => ({ stunUntil: FAR }), true),
+  crack: status(() => ({ brittleUntil: FAR }), true),
+  shield: (c, e) => { foeAt(c, e); W(c, () => { const y = -e.T / PX - 0.6; c.fillStyle = "#9ab6d8"; for (let k = 0; k < 3; k++) { if (k === 2 && e.i >= 6) continue; const gx = -(3 * 6 - 2) / 2 + k * 6; c.fillRect(gx, y, 1, 1); c.fillRect(gx + 1, y + 1, 0.5, 0.5); } }); },
+  phys: (c, e) => { foeAt(c, e, 0); const f = e.i - 1; if (f >= 0 && f < 3) W(c, () => drawSpark(c, { x: 0, y: -e.T * 0.5 / PX, ttl: 220 * (1 - f / 3), life: 220 }, "hit", 220)); },
+  magic: (c, e) => { const f = e.i - 1; const fx = { type: "arcane", x: 0, y: -e.T * 0.3 / PX, r: 9, life: 320, ttl: 320 * (1 - f / 6) }; foeAt(c, e, 0); if (f >= 0 && f < 6) { fxd(c, fx, "g"); fxd(c, fx, "a"); } },
+  splash: (c, e) => { const fx = { type: "boom", x: 0, y: 0, r: 17, life: 420, ttl: 420 * (1 - e.p) }; if (e.p < 1) { fxd(c, fx, "g"); fxd(c, fx, "a"); } },
+  shrapnel: (c, e) => {
+    const p = e.p, fx = { type: "keg", x: 0, y: -2, r: 14, life: 320, ttl: 320 * (1 - Math.min(0.99, p * 1.6)) };
+    if (p * 1.6 < 1) { fxd(c, fx, "g"); fxd(c, fx, "a"); }
+    // draw.js's shrapnel loop, copied: fling out, then rain down
+    W(c, () => { const a = Math.min(1, 1.4 * (1 - p)); for (let i = 0; i < 7; i++) { const ang = i * 0.9 + 0.35, dist = p * (22 + (i % 3) * 9), fall = p * p * 26 - p * 12;
+      c.fillStyle = i % 2 ? `rgba(184,184,192,${a})` : `rgba(138,138,146,${a})`; c.fillRect(Math.round((Math.cos(ang) * dist) * 2) / 2, Math.round((Math.sin(ang) * dist * 0.6 + fall) * 2) / 2, i % 3 === 0 ? 3 : 2, 2); } });
+  },
+  raise: (c, e) => {
+    const life = 1400, fx = { type: "raise", x: 0, y: 0, life, ttl: life * (1 - e.p) }, frac = Math.max(0, Math.min(1, (e.p - 0.2) / 0.6));
+    W(c, () => drawRingFx(c, fx, 1, {}, "g"));
+    c.save(); c.beginPath(); c.rect(-e.ax, -e.ay, e.cw, e.ay + 1); c.clip(); const s = foe(0, "revived"); c.drawImage(s.cv, -s.ax, -s.ay + Math.round((1 - frac) * (e.T + 4))); c.restore();
+    W(c, () => drawRingFx(c, fx, 1, {}, "a"));
+  },
+  heal: (c, e) => { const fx = { type: "healwave", x: 0, y: 0, r: 19, life: 550, ttl: 550 * (1 - e.p) }; W(c, () => drawRingFx(c, fx, Math.min(1, fx.ttl / 300), {}, "g")); foeAt(c, e, 0); W(c, () => drawRingFx(c, fx, Math.min(1, fx.ttl / 300), {}, "a")); },
+  death: (c, e) => { // draw.js's rigged death, copied: flash white, then come apart pixel by pixel
+    const prog = e.p;
+    if (prog < 0.22) { const s = foe(0, "white"); c.globalAlpha = 0.9; c.drawImage(s.cv, -s.ax, -s.ay); c.globalAlpha = 1; return; }
+    const p2 = (prog - 0.22) / 0.78; c.globalAlpha = 1 - p2;
+    W(c, () => { for (let i = 0; i < PXW.length; i++) { const [dx, dy, col] = PXW[i], hh = ((i * 7919) % 13) / 13; if (hh < p2 * 1.15) continue; const sc = p2 * (hh - 0.5) * 26, fall = p2 * p2 * (18 + hh * 22); c.fillStyle = col; c.fillRect(Math.floor(dx + sc), Math.floor(dy + fall), 1, 1); } });
+    c.globalAlpha = 1;
+  },
+  rings: (c, e) => { const fx = { type: "firenova", x: 0, y: 0, r: 20, life: 450, ttl: 450 * (1 - e.p) }; W(c, () => { drawRingFx(c, fx, 1, {}, "g"); drawRingFx(c, fx, 1, {}, "a"); }); },
+  rings2: (c, e) => { const fx = { type: "frostnova", x: 0, y: 0, r: 20, life: 500, ttl: 500 * (1 - e.p) }; W(c, () => { drawRingFx(c, fx, 1, {}, "g"); drawRingFx(c, fx, 1, {}, "a"); }); },
+};
+
+const post = (name, cv) => fetch("/__shot?name=" + name, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+const errs = [];
+for (const row of ROWS) {
+  if (only && !only.includes(row.id)) continue;
+  const cols = row.cols2 ? [["today", TODAY.rings, false], ["today2", TODAY.rings2, false]]
+    : [["today", TODAY[row.id], false], ["A", row.A, false], ["B", row.B, false], ["C", row.C, false], ["Bdark", row.B, true]];
+  for (const [key, fn, dark] of cols) {
+    const strip = mk(row.cw * Z * row.N, row.ch * Z), sx = strip.getContext("2d"); sx.imageSmoothingEnabled = false;
+    for (let i = 0; i < row.N; i++) {
+      const cell = mk(row.cw, row.ch), c = cell.getContext("2d"); c.imageSmoothingEnabled = false;
+      ground(c, row.cw, row.ch, dark); c.save(); c.translate(row.ax, row.ay);
+      const e = { ...BASE, i, N: row.N, t: i / row.N, p: i / (row.N - 1), cw: row.cw, ch: row.ch, ax: row.ax, ay: row.ay, ground: dark ? "dark" : "grass" };
+      try { fn(c, e); } catch (err) { errs.push(row.id + "/" + key + "/" + i + ": " + err.message); }
+      c.restore();
+      sx.drawImage(cell, i * row.cw * Z, 0, row.cw * Z, row.ch * Z);
+    }
+    await post("fxc_" + row.id + "_" + key, strip);
+  }
+  out.textContent = "saved " + row.id;
+}
+document.title = "DONE"; out.textContent = "DONE T=" + T + " HW=" + HW + " errors: " + JSON.stringify(errs.slice(0, 12));
+</script></body></html>
