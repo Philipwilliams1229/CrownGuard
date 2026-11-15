@@ -237,7 +237,13 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   const four = (rigDef(rig)?.fightN || 2) === 4;
   const lurk = four && u.state === "rally";
   const bladeF = !fighting ? 0 : four ? fightFrame4(u, getStats(t).rate) : u.swing > 0 ? 1 : 0;
-  drawRig(ctx, rig, u.x, u.y + 9, u.face, fighting || lurk ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 9 + u.id) % 4 : bladeF);
+  if (hasPix(rig)) {
+    // the new blade (fig-blade.js): a smooth walk, a real idle at the tent, and the cut
+    // timed off his own attack clock as the soldiers' blows are
+    const sheet = u.state === "moving" ? "walk" : fighting ? "atk" : "idle";
+    const fr = u.state === "moving" ? walkByTime(rig, time, u.id) : fighting ? atkFrac(rig, u.atkCd, getStats(t).rate) : time + u.id * 1.3;
+    drawRig(ctx, rig, u.x, u.y + 9, u.face, sheet, fr);
+  } else drawRig(ctx, rig, u.x, u.y + 9, u.face, fighting || lurk ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 9 + u.id) % 4 : bladeF);
   // the Plague Bearer's censer breathes: a spore or two drifting up off it
   if (r4 === "bb") {
     for (let i = 0; i < 2; i++) {
