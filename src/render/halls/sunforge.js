@@ -19,6 +19,8 @@
 import { spriteCache, stamp, canBake } from "../buildkit.js";
 import { GOLD, foot, padB, skirtB, beam, lighten, darken, rgba, soft, shadow, ball, glow, cylinder, hash, lin, part } from "./kitB.js";
 import { getStats } from "../../engine/towers.js";
+import * as sunforgeHall from "../pix/hall-sunforge.js";
+import { hallOn, hallPix, drawHallBack, stampPix, pixSprite } from "../pix/halls.js";
 
 const cache = spriteCache();
 export const resetSunforgeBakes = () => cache.clear();
@@ -158,7 +160,10 @@ export const drawSunforge = (ctx, t, time) => {
     if (!bake) { fn(ctx, t, x, y); return; }
     stamp(ctx, cache.get(`${name}|${s.key}|${s.lvl}|${name === "g" ? id5 : 0}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => fn(c, { ...t, id: id5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   };
-  layer("g", paintGround);
+  // The new building (render/pix/hall-sunforge.js) while "New sprites" is on: its dais, horns,
+  // mirrors and the light on its stone replace the baked ground and altar. Nobody stands here,
+  // so there is no front picture. The shard, halos, orbits and beam stay painted live below.
+  const H = bake && hallOn() ? hallPix("sunforge", sunforgeHall, { level: s.lvl, branch: t.branch, rank4: t.rank4 }, t.id % 3) : null;
   const sy = y - SY + Math.round(Math.sin(time * 1.6 + t.id) * 1);
   // the Gravity Well's ring: the far half of the orbit goes behind the dais art
   const orbit = (front) => {
@@ -176,19 +181,33 @@ export const drawSunforge = (ctx, t, time) => {
     ctx.beginPath(); ctx.ellipse(x, sy, 14, 4.8, -0.14, front ? 0 : Math.PI, front ? Math.PI : Math.PI * 2); ctx.stroke();
   };
   if (r4 === "ba") { glow(ctx, x, sy, 14, "#2a1a3a", 0.5); ring(false); orbit(false); }
-  layer("a", paintAltar);
-  // the channel's light
-  glow(ctx, x, y + 1, 9, col, 0.3 + heat * 0.35);
+  if (H) {
+    // light on the stone, in fifths: the shard's rises with the focus and flashes with each
+    // pulse of the held beam; the finals' own lights follow what is painted live below
+    const fifth = (k) => Math.round(Math.max(0, Math.min(1, k)) * 5) / 5;
+    const pulse = live ? Math.max(0, 1 - ((time * 1.6 + t.id * 0.3) % 1) * 3) : 0;
+    const hk = { sun: fifth((t._idle ? 0.25 : 0.4) + heat * 0.4 + pulse * 0.2), chan: fifth(0.4 + heat * 0.6) };
+    if (r4 === "aa") hk.corona = fifth(0.4 + heat * 0.5 + Math.sin(time * 3) * 0.1);
+    if (r4 === "ab") hk.lens = fifth(0.4 + heat * 0.5);
+    if (r4 === "ba") hk.well = fifth(0.4 + heat * 0.5);
+    if (r4 === "bb") { const c = Math.cos(time * 0.7 + t.id); hk.sunW = c < 0 ? 1 : 0; hk.sunE = c >= 0 ? 1 : 0; }
+    drawHallBack(ctx, H, x, y, time, { id: t.id, k: hk });
+  } else {
+    layer("g", paintGround);
+    layer("a", paintAltar);
+    // the channel's light
+    glow(ctx, x, y + 1, 9, col, 0.3 + heat * 0.35);
+  }
   // Noon Eternal: the corona flares round the shard
   if (r4 === "aa") {
-    glow(ctx, x, sy, 17 + heat * 6 + Math.sin(time * 3) * 1.5, "#ffb838", 0.35 + heat * 0.3);
+    if (!H) glow(ctx, x, sy, 17 + heat * 6 + Math.sin(time * 3) * 1.5, "#ffb838", 0.35 + heat * 0.3);
     for (let i = 0; i < 6; i++) { const a = time * 0.6 + (i / 6) * Math.PI * 2; const r = 15 + Math.sin(time * 5 + i) * 1.5; ctx.fillStyle = "rgba(255,240,180,0.85)"; ctx.fillRect(x + Math.cos(a) * r - 0.6, sy + Math.sin(a) * r - 0.6, 1.2, 1.2); }
   }
   // the Sun Spear: light climbs the spire to the lens
   if (r4 === "ab") {
     const k = (time * (0.6 + heat) + t.id * 0.2) % 1;
     glow(ctx, x, y - 20 - k * 20, 2.5, core, 0.8 * (1 - k));
-    glow(ctx, x, y - 40, 4 + heat * 3, col, 0.4 + heat * 0.4);
+    if (!H) glow(ctx, x, y - 40, 4 + heat * 3, col, 0.4 + heat * 0.4);
   }
   // the Eclipse: a sun and a moon wheel round each other over the horns
   const pair = (front) => {
@@ -197,8 +216,8 @@ export const drawSunforge = (ctx, t, time) => {
       const sn = Math.sin(a + k);
       if ((sn > 0) !== front) continue;
       const ox = x + Math.cos(a + k) * 9, oy = y - 38 + sn * 2.5;
-      if (isSun) { glow(ctx, ox, oy, 7, "#f4c050", 0.55); ball(ctx, ox, oy, 3.6, 3.6, "#f4c050", { hi: 0.6, lo: 0.3 }); }
-      else { glow(ctx, ox, oy, 6, "#a8c8f0", 0.4); ball(ctx, ox, oy, 3.4, 3.4, "#2a2638", { hi: 0.2, lo: 0.3 }); ctx.fillStyle = "#dce8fa"; ctx.fillRect(ox - 3.4, oy - 1.5, 1, 3); ctx.fillRect(ox - 2.8, oy - 2.6, 1, 1); ctx.fillRect(ox - 2.8, oy + 1.6, 1, 1); }
+      if (isSun) { if (!H) glow(ctx, ox, oy, 7, "#f4c050", 0.55); ball(ctx, ox, oy, 3.6, 3.6, "#f4c050", { hi: 0.6, lo: 0.3 }); }
+      else { if (!H) glow(ctx, ox, oy, 6, "#a8c8f0", 0.4); ball(ctx, ox, oy, 3.4, 3.4, "#2a2638", { hi: 0.2, lo: 0.3 }); ctx.fillStyle = "#dce8fa"; ctx.fillRect(ox - 3.4, oy - 1.5, 1, 3); ctx.fillRect(ox - 2.8, oy - 2.6, 1, 1); ctx.fillRect(ox - 2.8, oy + 1.6, 1, 1); }
     }
   };
   if (r4 === "bb") { pair(false); pair(true); }
@@ -207,10 +226,15 @@ export const drawSunforge = (ctx, t, time) => {
   const spin = time * (1.2 + heat * 3) + t.id;
   const w = 2.5 + Math.round(Math.abs(Math.cos(spin)) * 3);
   const shard = (hw, hh, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x, sy - hh); ctx.lineTo(x + hw, sy); ctx.lineTo(x, sy + hh); ctx.lineTo(x - hw, sy); ctx.closePath(); ctx.fill(); };
-  shard(w + 1, 8, "#241a26");
-  shard(w, 7, s.moon ? "#7aa0d8" : "#e0a040");
-  shard(w * 0.6, 5, col);
-  shard(w * 0.3, 3, core);
+  if (H) {
+    const wi = Math.round(Math.abs(Math.cos(spin)) * 3);
+    stampPix(ctx, pixSprite(`sunshard|${s.moon ? 1 : 0}|${wi}`, () => sunforgeHall.shard(s.moon, wi)), x, Math.round(sy * 2) / 2);
+  } else {
+    shard(w + 1, 8, "#241a26");
+    shard(w, 7, s.moon ? "#7aa0d8" : "#e0a040");
+    shard(w * 0.6, 5, col);
+    shard(w * 0.3, 3, core);
+  }
   // when the beam is held: light drawn in from the horns to the shard
   if (live) for (const sg of [-1, 1]) {
     const k = (time * 2.2 + (sg > 0 ? 0.5 : 0) + t.id * 0.1) % 1;
