@@ -16,6 +16,7 @@ import { drawFireGround } from "./flames.js";
 import { hasRig, rigFrame } from "./rigs.js";
 import { canvasFont, typeEpoch } from "../ui/fonts.js";
 import * as PJ from "./pix/proj-sprites.js";
+import { statusBurn, statusPoison, statusSlow, statusMist, statusStun, statusCrack } from "./statusfx.js";   // look B
 
 // ---- palette ---------------------------------------------------------
 const col = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -1399,23 +1400,12 @@ export const drawStatus = (ctx, e, time, tms, feet, top) => {
     if (grow >= 1 || grow < 0) put(ctx, iceShell(wb, hb, f), bx, feet);
     else putRise(ctx, iceShell(wb, hb, f), bx, feet, 0.25 + grow * 0.75);
     put(ctx, crustSprite(sizeBucket(Math.max(sz, wb * 0.8))), bx, feet);
+    statusMist(ctx, { x: bx, id, size: sz }, time, feet, hr, wb);
   }
-  if (e.brittleUntil > tms) put(ctx, crackSprite(sb), e.x, feet - hr * 0.48);
-  if (e.burnUntil > tms) {
-    const f0 = Math.floor(time * 12);
-    const XS = [-0.3, 0.04, 0.34], YS = [0.3, 0.6, 0.42];
-    for (let i = 0; i < 3; i++) put(ctx, flameSprite((f0 + i * 3 + id) & 3), e.x + XS[i] * sz, feet - hr * YS[i]);
-    // an ember lifting off
-    const q = (time * 1.6 + id * 0.37) % 1;
-    speck(ctx, e.x + (hash(id, 3) - 0.5) * sz * 0.6 + Math.sin(q * 9) * 1.5, feet - hr * 0.7 - q * 10, 0.5, q < 0.5 ? "#f8d868" : "#d8683a");
-  }
-  if (e.poisonUntil > tms) {
-    for (let i = 0; i < 3; i++) {
-      const q = (time * 1.3 + i * 0.33 + id * 0.29) % 1;
-      const x = e.x + (i - 1) * 0.32 * sz + Math.sin(q * 7 + i) * 1.2;
-      put(ctx, bubbleSprite(q > 0.3), x, top + hr * 0.45 - q * 10);
-    }
-  }
+  if (e.brittleUntil > tms) statusCrack(ctx, e, time, feet, hr);
+  if (e.burnUntil > tms) statusBurn(ctx, e, time, feet, hr);
+  if (e.poisonUntil > tms) statusPoison(ctx, e, time, feet, hr);
+  if (!frozen && lv) statusSlow(ctx, e, time, feet, hr);
   if (e.healedFlash > tms) {
     for (let i = 0; i < 2; i++) {
       const q = (time * 1.2 + i * 0.5 + id * 0.13) % 1;
@@ -1425,8 +1415,7 @@ export const drawStatus = (ctx, e, time, tms, feet, top) => {
   // over the crown: the stun's ring, or else the slow's wheel of stars (the
   // harder the slow, the more stars and the lazier they turn)
   if (stunned) {
-    const f = Math.floor(time * 24 + id * 0.37) % STUN_N;
-    put(ctx, stunRing(sb, f), e.x + ((f >> 1) & 1 ? 0.5 : -0.5), top + 1.5);   // rattling
+    statusStun(ctx, e, time, feet, hr);
   } else if (lv && !frozen) {
     const turn = time / (1.3 + slow * 1.7) + ((id * 0.618) % 1);
     put(ctx, starWheel(lv + 1, sb, Math.floor(turn * STAR_N) % STAR_N), e.x, top - 0.5);

@@ -14,6 +14,7 @@ import { getStats } from "../engine/towers.js";
 import { PX } from "./paint.js";
 import { shadow as softShadow } from "./paint.js";
 import { drawStatus } from "./fx.js";
+import { statusShield } from "./statusfx.js";
 import { canvasFont } from "../ui/fonts.js";
 import { HEROES } from "../data/bands.js";
 import { heroPose } from "./heroes/index.js";
@@ -174,15 +175,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // raised shields / chaplain and magister wards: one pip per blow still to
   // be swallowed whole, sitting just under the health bar so you can see
   // them being spent
-  if (e.guard > 0) {
-    ctx.fillStyle = e.guardFlash > tms ? "#eaf2ff" : "#9ab6d8";
-    const n = Math.min(4, e.guard);
-    for (let i = 0; i < n; i++) {
-      const gx = e.x - (n * 6 - 2) / 2 + i * 6;
-      ctx.fillRect(S(gx), S(barY + 4), CELL * 2, CELL * 2);
-      ctx.fillRect(S(gx + 1), S(barY + 6), CELL, CELL);
-    }
-  }
+  if (e.guard > 0) statusShield(ctx, e, time, tms, e.y + e.size * 0.55 + hover, headroom(skin));
   if (emerging || rise < 1) ctx.globalAlpha = 1;
 };
 
