@@ -706,6 +706,17 @@ agent with a tool-call budget instead of starting a fresh one.
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
+  check them out later"):** the ram, cavalier and gryphon draw smaller than their old rigs
+  (the ram about half); bushes, the gate threshold and a few Rime props (longhouse, rack,
+  whale bones, ship) still old style; the skald's chant clip never plays (no engine clock);
+  Hale's crossbowmen wear the Iron crossbowman; at the steepest aims the siege bow stands
+  almost upright and a shooter may turn fast if it switches mark just before a shot;
+  **rough joint connections on the big figures, "particularly on the elephants" (the Rime
+  Jarl's war-mammoth, fig-mammoth.js) "and other large guys"** (frost giant, troll, Hollow
+  King, amalgam, crypt warden, the Marshal...); none of it seen by the owner on a real
+  phone or iPad. The kraken is parked (may not ship). The recap page is the private
+  Artifact "Crownguard: the graphics pass, before and after".
 - **Shooters aim; shots fly straight (owner, 2026-11-14): DONE, pending the owner's look.**
   The rules are `art/briefs/aim-contract.md`. `src/engine/aim.js` (aimDeg / quantAim, 10-degree
   steps, +-70) and `muzzles.js planShot` (the muzzle = `rotAbout(AIM.pivot, AIM.muzzle, deg)`
