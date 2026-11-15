@@ -20,7 +20,8 @@
 // pass under the crowd can call drawRingFx(ctx, fx, a, g, "g") and the air
 // pass "a".
 
-import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
+import { PX, INK_LINE, hash } from "./paint.js";
+import { inkTint as inkOutline } from "./inktint.js";
 import { ringPx } from "./fx.js";
 
 // ---- palette -------------------------------------------------------------

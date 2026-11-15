@@ -11,6 +11,7 @@
 // of a blast on screen is one or two blits, whatever it looks like.
 
 import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
+import { inkTint } from "./inktint.js";
 import { drawFireGround } from "./flames.js";
 import { hasRig, rigFrame } from "./rigs.js";
 import { canvasFont, typeEpoch } from "../ui/fonts.js";
@@ -43,7 +44,7 @@ const grid = (w, h) => {
     d[i] = k[0]; d[i + 1] = k[1]; d[i + 2] = k[2]; d[i + 3] = a;
   };
   const rect = (x, y, w, h, k, a) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) set(x + i, y + j, k, a); };
-  const done = (ink = null, passes = 1) => { c.putImageData(img, 0, 0); if (ink) inkOutline(cv, ink, passes); return cv; };
+  const done = (ink = null, passes = 1, flat = false) => { c.putImageData(img, 0, 0); if (ink) (flat ? inkOutline : inkTint)(cv, ink, passes); return cv; };
   return { cv, W, H, set, rect, done };
 };
 
@@ -819,7 +820,7 @@ const rotSprite = (key, d, reach, shape, tones, ink, streak) => memo(`${key}|${d
     const k = shape(dx * c + dy * s, -dx * s + dy * c);
     if (k >= 0) G.set(x, y, tones[k]);
   }
-  const cv = G.done(ink);
+  const cv = G.done(ink, 1, true);
   if (streak) {
     // the motion streak sits behind, un-inked and fading
     const [from, len, k, a0] = streak;
@@ -903,7 +904,7 @@ const bakeShard = (heat, v, d) => {
     else if (ch === "t") E.set(x, y, tones[0]);
     else if (ch === "e") E.set(x, y, tones[2]);
   }
-  const cv = G.done(INK_LINE), cx = cv.getContext("2d");
+  const cv = G.done(INK_LINE, 1, true), cx = cv.getContext("2d");
   cx.drawImage(E.done(), 0, 0);                            // the point and the tail, un-inked
   for (let i = 0; i < SHARD_TRAIL; i++) {
     const lx = -tail - i;
@@ -964,7 +965,7 @@ const rockSprite = (size, f) => memo(`rk|${size}|${f}`, () => {
     const x = c + Math.cos(a) * d, y = c + Math.sin(a) * d;
     G.set(x, y, STONE[3]); if (size !== "mini") { G.set(x + 1, y, STONE[2]); G.set(x, y - 1, STONE[0]); }
   }
-  return { cv: G.done(INK_LINE), ax: c, ay: c };
+  return { cv: G.done(INK_LINE, 1, true), ax: c, ay: c };
 });
 
 // the bombardier's shell: an iron ball with a lit fuse
@@ -978,7 +979,7 @@ const shellSprite = (f) => memo(`sh|${f}`, () => {
   }
   const a = f * (Math.PI / 2) - 2.2;
   for (let i = 0; i < 3; i++) G.set(c + Math.cos(a) * (r + i), c + Math.sin(a) * (r + i), col("#c8a060"));
-  return { cv: G.done(INK_LINE), ax: c, ay: c };
+  return { cv: G.done(INK_LINE, 1, true), ax: c, ay: c };
 });
 
 // a flat pixel shadow on the ground under something in the air
@@ -1157,7 +1158,7 @@ const textSprite = (text, big, red) => memo(`tx|${text}|${big ? 1 : 0}|${red ? 1
         }
       });
     });
-    const cv = G.done(INK_LINE, 2);
+    const cv = G.done(INK_LINE, 2, true);
     return { cv, ax: cv.width >> 1, ay: cv.height >> 1 };
   }
   // anything else (banners, notices): the board face (fonts.js), thresholded to hard

@@ -8,7 +8,8 @@
 // Called by draw.js with the trapsmith's work, flush with the road, under the
 // crowd.
 
-import { INK_LINE, inkOutline, hash } from "./paint.js";
+import { INK_LINE, hash } from "./paint.js";
+import { inkTint as inkOutline } from "./inktint.js";
 import { lanePos } from "../engine/path.js";
 
 const A = 2;
@@ -28,28 +29,39 @@ const P = (c, x, y, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.
 // a stake from (x0,y0) (its foot, at the hub) to (x1,y1) (its point): `w` thick
 // at the foot, tapering to a pale point over its last `tip` px; lit on the
 // upper-left face, shaded on the lower-right
-const stake = (c, x0, y0, x1, y1, w, tip = 6, cut = 1) => {
-  const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) * cut, ex = x0 + (dx / Math.hypot(dx, dy)) * len, ey = y0 + (dy / Math.hypot(dx, dy)) * len;
-  const ux = (ex - x0) / len, uy = (ey - y0) / len;
+const stake = (c, x0, y0, x1, y1, w, tip = 6, cut = 1, seed = 0) => {
+  const dx = x1 - x0, dy = y1 - y0, full = Math.hypot(dx, dy), len = full * cut, ex = x0 + (dx / full) * len, ey = y0 + (dy / full) * len;
+  const ux = dx / full, uy = dy / full;
   let nx = -uy, ny = ux;
   if (ny > 0 || (ny === 0 && nx > 0)) { nx = -nx; ny = -ny; }          // normal on the lit (up / left) side
+  const broken = cut < 1;
   for (let y = Math.floor(Math.min(y0, ey) - w); y <= Math.ceil(Math.max(y0, ey) + w); y++) {
     for (let x = Math.floor(Math.min(x0, ex) - w); x <= Math.ceil(Math.max(x0, ex) + w); x++) {
       const px = x + 0.5 - x0, py = y + 0.5 - y0;
-      const t = (px * ux + py * uy) / len;
-      if (t < 0 || t > 1) continue;
+      const d = px * ux + py * uy, t = d / full;
+      if (t < 0 || d > len) continue;
       const s = px * nx + py * ny;                                      // across the stake
-      const half = (w / 2) * Math.min(1, Math.max(0.12, (1 - t) * (len / tip)));
+      // a whole stake tapers to its point; a snapped one stays blunt, with a ragged top
+      const half = (w / 2) * Math.min(1, Math.max(0.12, (1 - t) * (full / tip)));
       if (Math.abs(s) > half) continue;
-      const point = t > 1 - tip / len;
+      if (broken && d > len - 2.2 && hash(x + seed * 3, y * 5) < 0.4 + (len - d) * 0.15) continue;
+      const point = !broken && t > 1 - tip / full;
       const k = s / half;
       const C = point ? PALE : OAK;
-      P(c, x, y, k < -0.35 ? C.hi : k < 0.35 ? C.lt : point ? C.md : C.md);
-      if (!point && k > 0.62) P(c, x, y, OAK.dk);
+      let col = k < -0.35 ? C.hi : k < 0.35 ? C.lt : C.md;
+      if (!point && k > 0.62) col = OAK.dk;
+      // grain: dark streaks along the length, broken up by the hash
+      if (!point && k > -0.6 && k < 0.8 && hash(Math.round(s * 1.6) + seed * 7, Math.floor(d / 4)) > 0.7) col = k < 0.35 ? OAK.md : OAK.dk;
+      // the iron band that holds the stake to its hub
+      if (!point && d > 5.2 && d < 7.4) col = d < 6.2 ? STEEL.lt : STEEL.dk;
+      // a snapped end shows pale heartwood
+      if (broken && d > len - 1.6) col = k < 0.2 ? PALE.lt : PALE.md;
+      P(c, x, y, col);
     }
   }
-  // the point's glint
-  P(c, ex - ux * 0.5, ey - uy * 0.5, GLINT);
+  // the point's glint, or a splinter hanging off a snapped end
+  if (!broken) P(c, ex - ux * 0.5, ey - uy * 0.5, GLINT);
+  else { P(c, ex + ux * 1.4 + nx, ey + uy * 1.4 + ny, PALE.md); P(c, ex - nx * 1.2, ey - ny * 1.2 + 1, OAK.dk); }
 };
 const soilShade = (c, cx, cy, rx, ry) => {
   for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) {
@@ -70,9 +82,9 @@ const bakeLook = (look) => {
   const back = [[HX, HY, 5, 5], [HX, HY, W_ - 6, 6]];
   const front = [[HX, HY, 7, H_ - 6], [HX, HY, W_ - 8, H_ - 7]];
   const cuts = look === 0 ? [1, 1, 1, 1] : look === 1 ? [1, 0.85, 1, 0.5] : [0.55, 0, 1, 0.4];
-  back.forEach(([x0, y0, x1, y1], i) => { if (cuts[i] > 0) stake(b, x0, y0, x1, y1, 4, 7, cuts[i]); });
-  stake(b, HX, HY, HX, 3, 4, 8, look === 2 ? 0.45 : 1);                   // the upright
-  front.forEach(([x0, y0, x1, y1], i) => { if (cuts[2 + i] > 0) stake(b, x0, y0, x1, y1, 4.5, 7, cuts[2 + i]); });
+  back.forEach(([x0, y0, x1, y1], i) => { if (cuts[i] > 0) stake(b, x0, y0, x1, y1, 4, 7, cuts[i], i); });
+  stake(b, HX, HY, HX, 3, 4, 8, look === 2 ? 0.45 : 1, 5);                   // the upright
+  front.forEach(([x0, y0, x1, y1], i) => { if (cuts[2 + i] > 0) stake(b, x0, y0, x1, y1, 4.5, 7, cuts[2 + i], 8 + i); });
   // the iron hub and its band
   for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) {
     const d = Math.hypot(x, y * 1.1);

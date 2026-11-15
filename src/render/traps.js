@@ -10,7 +10,8 @@
 // its tether, the bomb's fuse spark. The dirt round each trap takes the
 // realm's own road colours, so it sits IN the road on any ground.
 
-import { INK_LINE, inkOutline, hash, mix, lighten, darken, rgba } from "./paint.js";
+import { INK_LINE, hash, mix, lighten, darken, rgba } from "./paint.js";
+import { inkTint as inkOutline } from "./inktint.js";
 import { REALM } from "../data/maps.js";
 
 // ---- iron, oak and cloth -------------------------------------------------------
