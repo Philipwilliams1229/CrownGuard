@@ -23,6 +23,11 @@ import { sampleKeys, HUMAN, scaled, solve, ik } from "./rig.js";
 
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
+// ---- the aim (art/briefs/aim-contract.md): the variant is "<gun>@<deg>" (+ is down the screen, facing +x).
+// While he holds the aim (`p.aimW` 1: the aim, the kick, the raise to the aim) the gun and BOTH arms turn
+// rigidly about the near shoulder; the loading clips and the idle ignore it. No "@": today's pixels.
+const aimOf = (v) => { const a = parseFloat(String(v || "").split("@")[1]); return Number.isFinite(a) ? (a * Math.PI) / 180 : 0; };
+const rotAbout = (c, pt, th) => { const k = Math.cos(th), n = Math.sin(th), dx = pt[0] - c[0], dy = pt[1] - c[1]; return [c[0] + dx * k - dy * n, c[1] + dx * n + dy * k]; };
 
 // folk CREW_FOLK.musketeer: skin #e8b990, hood #2c2a36, coat #3a4a6a, boots #2a2a30, trim #c8b070
 const SKIN = mat("#e8b990"), HAIR = mat("#5a3a26"), EYE = flat("#2a1c2c"), BROW = mat("#6a4a30"), BEARD = mat("#7a5234");
@@ -54,14 +59,14 @@ const LEG = {
   b: { m: BROW, fix: 2 }, E: { m: EYE }, e: { m: SKIN, fix: 0 }, M: { m: BEARD, fix: 1 }, B: { m: BEARD, fix: 2 },
 };
 
-export const BOX = { w: 60, h: 62, ox: 13, oy: 57 };
+export const BOX = { w: 60, h: 90, ox: 13, oy: 85 };   // taller: the barrel rises well above the hat at a steep upward aim
 export const BONES = scaled(HUMAN, 1.2, { spine: 13, upper: 7.9, fore: 7.7, shN: -2.8, shF: 3 });
 const ARM = BONES.upper + BONES.fore;
 
 // ---- the gun ----------------------------------------------------------------
 const G_BUTT = [-10, 3.2];
 const GUNS = { plain: { len: 15, lip: 0 }, sharp: { len: 27, lip: 0 }, grape: { len: 16, lip: 2.4 } };
-const gunKey = (v) => (GUNS[v] ? v : "plain");
+const gunKey = (v) => { const k = String(v || "").split("@")[0]; return GUNS[k] ? k : "plain"; };
 // where the pose puts it. gs 1: shouldered, the butt at the near shoulder + (bx, by);
 // gs 0: its wrist at (gx, gy); ga the barrel's angle (- is up).
 const gunOf = (p, sN) => {
@@ -109,7 +114,7 @@ const arm = (px, s, t, z, b, side = 1) => {
 // where the Sharpshooters' rest forks: under the barrel as it lies at the aim (found once)
 let REST = null;
 const restAt = () => {
-  if (!REST) { const p = { ...AIM }, s = solve(p, BONES); REST = gunOf(p, s.sN).at(13, 2.6); }
+  if (!REST) { const p = { ...AIMPOSE }, s = solve(p, BONES); REST = gunOf(p, s.sN).at(13, 2.6); }
   return REST;
 };
 
@@ -117,7 +122,10 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   const kind = gunKey(o.variant), { len, lip } = GUNS[kind];
   const { p, P, C, N, sN, sF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5), sway = p.sway || 0;
-  const g = gunOf(p, sN), H = handsOn(p, g, len, sN), ram = (p.ram || 0) > 0.5;
+  const th = aimOf(o.variant) * (p.aimW || 0), rot = (pt) => (th ? rotAbout(sN, pt, th) : pt);
+  const g0 = gunOf(p, sN), H0 = handsOn(p, g0, len, sN), ram = (p.ram || 0) > 0.5;
+  const g = th ? { ...g0, at: (u, v = 0) => rot(g0.at(u, v)) } : g0;
+  const H = th ? { ...H0, near: rot(H0.near), far: rot(H0.far) } : H0;
 
   // the far arm, behind the body, its hand under the fore-stock
   arm(px, sF, H.far, 1, -1);
@@ -127,9 +135,9 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the Sharpshooters' forked rest, standing on the deck
   if (kind === "sharp") {
-    const [fx, fy] = restAt();
+    const [fx, fy] = rot(restAt()), foot = restAt()[0];   // the fork follows the barrel, its foot stays on the deck
     px.part();
-    px.capsule(fx - 5, -0.6, 0.9, fx, fy + 0.6, 0.8, FORK, 3.4);
+    px.capsule(foot - 5, -0.6, 0.9, fx, fy + 0.6, 0.8, FORK, 3.4);
     px.capsule(fx, fy + 0.6, 0.8, fx - 2, fy - 3, 0.6, FORK, 3.4);
     px.capsule(fx, fy + 0.6, 0.8, fx + 2.4, fy - 2.8, 0.6, FORK, 3.4);
   }
@@ -212,8 +220,8 @@ export const fx = (px, F, info, clip) => {
 // Every key carries the whole bag (a key cannot unset a field between keys):
 //   ga gun angle; gs shouldered (bx, by from the near shoulder) or carried (gx, gy the wrist);
 //   ram the rod in hand (rod: its head above the muzzle); prime the near hand at the pan; fu the far hand's place
-const BASE = { fN: [-5.5, 0], fF: [6.5, 0], rx: 0, drop: 0.9, lean: 0, twist: 0, rise: 0, hx: 0, hy: 0, ga: -1.05, gs: 0, bx: 1.5, by: 0, gx: 8, gy: -28, ram: 0, rod: 6, prime: 0, fu: 7 };
-const AIM = { ...BASE, rx: 4.4, drop: 1.6, lean: 0.12, twist: -0.3, hx: 1.2, hy: 1.4, ga: -0.05, gs: 1, bx: 1.5, by: 0 };
+const BASE = { aimW: 0, fN: [-5.5, 0], fF: [6.5, 0], rx: 0, drop: 0.9, lean: 0, twist: 0, rise: 0, hx: 0, hy: 0, ga: -1.05, gs: 0, bx: 1.5, by: 0, gx: 8, gy: -28, ram: 0, rod: 6, prime: 0, fu: 7 };
+const AIMPOSE = { ...BASE, aimW: 1, rx: 4.4, drop: 1.6, lean: 0.12, twist: -0.3, hx: 1.2, hy: 1.4, ga: -0.05, gs: 1, bx: 1.5, by: 0 };
 // the kick: the engine starts the ball where the OLD figure's muzzle is as the shot kicks
 // (folk-gunners.js MUSK.kick: its butt at 0.69, -15.36 units, the barrel at -0.3); the
 // gun's own space is the old one's, so every barrel length lands on its old muzzle
@@ -222,10 +230,10 @@ const kickW = (() => { const c = Math.cos(KICK_ANG), s = Math.sin(KICK_ANG); ret
 const GROUND = { ga: -1.45, gx: 10.03, gy: -11.81 };   // the butt on the deck at his front toe, the gun standing clear of him
 const K = (f, e, p) => ({ t: f / (N_SHOT - 1), e, p: { ...BASE, ...p } });
 const SHOT = [
-  K(0, "io", { ...AIM, rise: 0.4 }),
-  K(1, "io", { ...AIM, hy: 1.6 }),
-  K(2, "in3", { rx: 3.6, drop: 1.6, lean: -0.05, twist: -0.3, rise: 0.4, hx: 0.2, hy: 0.4, ga: KICK_ANG, gs: 0, gx: kickW[0], gy: kickW[1] }),
-  K(3, "out", { ...AIM, rx: 3.9, lean: 0.03, hx: 0.6, hy: 0.9, ga: -0.15, bx: 1.2 }),
+  K(0, "io", { ...AIMPOSE, rise: 0.4 }),
+  K(1, "io", { ...AIMPOSE, hy: 1.6 }),
+  K(2, "in3", { aimW: 1, rx: 3.6, drop: 1.6, lean: -0.05, twist: -0.3, rise: 0.4, hx: 0.2, hy: 0.4, ga: KICK_ANG, gs: 0, gx: kickW[0], gy: kickW[1] }),
+  K(3, "out", { ...AIMPOSE, rx: 3.9, lean: 0.03, hx: 0.6, hy: 0.9, ga: -0.15, bx: 1.2 }),
   K(4, "io", { rx: 2.4, drop: 1, lean: 0.03, ga: -0.9, gx: 9, gy: -27 }),
   K(5, "io", { rx: 2.6, drop: 0.9, lean: 0.07, twist: 0.6, hy: 0.6, ...GROUND, ram: 1, rod: 8 }),
   K(6, "out", { rx: 2.8, drop: 1.3, lean: 0.11, twist: 0.8, hy: 1, ...GROUND, ram: 1, rod: 2 }),
@@ -235,9 +243,9 @@ const SHOT = [
   K(10, "io", { rx: 2, drop: 0.9, lean: 0.04, twist: 0.2, ga: -0.8, gx: 8, gy: -24 }),
   K(11, "io", { rx: 2.2, drop: 1, lean: 0.06, hy: 1, ga: -0.4, gx: 8.5, gy: -25, prime: 1 }),
   K(12, "io", { rx: 2.4, drop: 1, lean: 0.07, hy: 0.8, ga: -0.36, gx: 8.5, gy: -25.4, prime: 0.6 }),
-  K(13, "io", { ...AIM, rx: 3.4, drop: 1.2, lean: 0.06, hx: 0.4, hy: 0.4, ga: -0.5, bx: 1.6, by: 2.6 }),
-  K(14, "out", { ...AIM, rx: 4.1, lean: 0.1, hx: 0.9, hy: 1, ga: -0.16, bx: 1.5, by: 0.6 }),
-  K(15, "io", { ...AIM, rise: 0.4 }),
+  K(13, "io", { ...AIMPOSE, rx: 3.4, drop: 1.2, lean: 0.06, hx: 0.4, hy: 0.4, ga: -0.5, bx: 1.6, by: 2.6 }),
+  K(14, "out", { ...AIMPOSE, rx: 4.1, lean: 0.1, hx: 0.9, hy: 1, ga: -0.16, bx: 1.5, by: 0.6 }),
+  K(15, "io", { ...AIMPOSE, rise: 0.4 }),
 ];
 const PORT = { ...BASE, rx: 0.6, drop: 0.9, lean: 0.02, ga: -1.05, gx: 8, gy: -28 };
 export const CLIPS = {
@@ -251,3 +259,14 @@ export const CLIPS = {
   // hit: the shot kicks on frame 2; frame 1 (the aim, cheek on the stock) is the one he waits on
   shot: { n: N_SHOT, ms: 1900, loop: false, lag: 0.04, hit: HIT_F / (N_SHOT - 1), pose: (ph) => fit(sampleKeys(SHOT, ph)) },
 };
+
+// ---- the aim contract: the pivot (near shoulder) and the muzzle at aim 0, art px from the feet facing +x, at the
+// frame the game shows at the shot (the kick, frame HIT_F). One entry a gun (AIMS.plain | sharp | grape); AIM is
+// the plain gun's. The engine turns the muzzle with rotAbout(pivot, muzzle, aim); the drawn gun and arms turn
+// about the same shoulder, so they agree to the pixel.
+export const AIMS = (() => {
+  const p = CLIPS.shot.pose(HIT_F / (N_SHOT - 1)), s = solve(p, BONES), g = gunOf(p, s.sN), out = {};
+  for (const k of Object.keys(GUNS)) out[k] = { pivot: [s.sN[0], s.sN[1]], muzzle: g.at(GUNS[k].len + GUNS[k].lip, -0.4) };
+  return out;
+})();
+export const AIM = AIMS.plain;

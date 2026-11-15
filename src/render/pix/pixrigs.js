@@ -222,9 +222,12 @@ const clipFrame = (d, sheet, frame) => {
   const name = C[sheet] && C[sheet].loop ? sheet : "walk", c = C[name]; return [name, Math.floor(frac(f / 4) * c.n) % c.n];
 };
 // the baked frame record (bake.js) for what the game asked; left: the figure faces left
-export const pixRec = (type, sheet, frame, left = false) => {
+// `aim` (degrees in the figure's own frame, engine/aim.js) turns a shooter's bow or gun to its mark: the
+// figure reads it as "<variant>@<deg>" (art/briefs/aim-contract.md); only the shooting clip takes it
+export const pixRec = (type, sheet, frame, left = false, aim = 0) => {
   const d = PIX[type], [clip, f] = clipFrame(d, sheet, frame);
-  return bakeFrame(d.fig, clip, f, { flip: left, variant: d.variant });
+  const v = aim && clip === d.atk ? `${d.variant || ""}@${aim}` : d.variant;
+  return bakeFrame(d.fig, clip, f, { flip: left, variant: v });
 };
 
 // Baking ahead. A frame is baked the first time the board asks for it: under a

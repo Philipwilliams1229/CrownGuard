@@ -23,7 +23,8 @@ import { isBuilt, fights, shocked } from "./build.js";
 import { rimeTick, seaborne } from "./rime.js";
 import { registerSeaTools, seaHold } from "./serpent.js";
 import { tickWeather, WX, canSee, floodFoe, floodUnit } from "./weather.js";
-import { arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE, syncBirds } from "./muzzles.js";
+import { leadPoint } from "./aim.js";
+import { facing, musketFacing, planShot, bowFeet, wallFeet, bandFeet, foeFeet, musketFeet, bandKey, foeKey, arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE, syncBirds } from "./muzzles.js";
 
 // ---- the Falconry's stoops ------------------------------------------------------
 // A cast bird reaches its prey STOOP_HIT ms later (following it down) and is
@@ -751,7 +752,8 @@ const runRangedBand = (g, b, st, slots, sdtAll, tms) => {
     const [bx0, by0] = bandArrowFrom(u, b.kind === "hero");   // from the bow hand
     const own = b.kind === "hero" ? heroHook(b.hero)?.shoot : null;
     if (own) { own(g, b, u, best, tms); return; }
-    const shoot = (e) => g.projectiles.push({ id: nextId(), x: bx0, y: by0, targetId: e.id, tx: e.x, ty: e.y, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0, kind: "arrow", src: b.id });
+    // a straight flight to where the foe will be (aim.js); the shooter's angle is kept for the figure (`u.aimDeg`)
+    const shoot = (e) => { const P = planShot(e, tms, bandFeet(u), u.face, bandKey(u, b.kind === "hero"), [bx0, by0], 440); if (e === best) u.aimDeg = P.deg; g.projectiles.push({ id: nextId(), x: P.mx, y: P.my, straight: true, targetId: e.id, tx: P.ax, ty: P.ay, speed: 440, delay: 0, dmg: st.dmg * (1 + (u.atkBuff || 0)), dtype: "phys", pierce: !!st.pierce, splash: 0, burn: 0, burnDur: 0, slow: st.slow || 0, slowDur: st.slowDur || 0, kind: "arrow", src: b.id }); };
     shoot(best);
     // Split Shot: now and then a second arrow for the next-nearest foe
     if (st.split && Math.random() < st.split) {
@@ -2071,7 +2073,9 @@ export function updateGame(g, dt) {
             e.atkAnim = 220;
             e.face = mark.x >= e.x ? 1 : -1;
             const [qx, qy] = foeShotFrom(e);   // from the crossbow's nose / the bow hand
-            g.effects.push({ type: "bolt", x: qx, y: qy, tx: mark.x, ty: mark.y - 8, ttl: 170, arrow: e.type === "bonearcher" ? "grave" : undefined });
+            const P = planShot(null, tms, foeFeet(e), e.face, foeKey(e), [qx, qy], 0, [mark.x, mark.y - 8]);   // (aimed; `e.aimDeg` is what its figure holds)
+            e.aimDeg = P.deg;
+            g.effects.push({ type: "bolt", x: P.mx, y: P.my, tx: P.ax, ty: P.ay, ttl: 170, arrow: e.type === "bonearcher" ? "grave" : undefined });
             sfx.play("enemyBolt");
             if (mark.shield) {
               mark.shield = false; mark.shieldCd = 6500;
@@ -2167,7 +2171,10 @@ export function updateGame(g, dt) {
             // next shot while there is something to shoot, and at ease after
             (cd.loosed || (cd.loosed = []))[cd.shot % spots.length] = tms;
             const [wx, wy] = wallArrowFrom(BOW_X, sy, !!bows.pierce);   // from his bow hand
-            g.projectiles.push({ id: nextId(), x: wx, y: wy, targetId: best.id, tx: best.x, ty: best.y, speed: 460, delay: 0, dmg: bows.dmg, dtype: "phys", pierce: !!bows.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: !!bows.pierce });
+            // aimed: `cd.aimDeg[slot]` is the angle the wall bowman at that slot holds (castle.js draws it)
+            const P = planShot(best, tms, wallFeet(BOW_X, sy), -1, bows.pierce ? "long" : "bow", [wx, wy], 460);
+            (cd.aimDeg || (cd.aimDeg = []))[cd.shot % spots.length] = P.deg;
+            g.projectiles.push({ id: nextId(), x: P.mx, y: P.my, straight: true, targetId: best.id, tx: P.ax, ty: P.ay, speed: 460, delay: 0, dmg: bows.dmg, dtype: "phys", pierce: !!bows.pierce, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: !!bows.pierce });
             sfx.play("arrow");
           }
         }
@@ -2183,7 +2190,10 @@ export function updateGame(g, dt) {
             cd.shot = (cd.shot + 1) % 2;
             // the bolt leaves the ballista drawn on the gate tower's open top
             const [bx, by] = ballistaMuzzle(ballistaSpots(gy, bal.twin)[bal.twin ? cd.shot : 0]);
-            g.projectiles.push({ id: nextId(), x: bx, y: by, targetId: best.id, tx: best.x, ty: best.y, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: bal.burn || 0, burnDur: bal.burnDur || 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true });
+            // aimed straight at where the foe will be; `cd.balAim[slot]` is the world angle of its line (castle.js)
+            const [lax, lay2] = leadPoint(best, bx, by, 560, tms);
+            (cd.balAim || (cd.balAim = []))[bal.twin ? cd.shot : 0] = Math.atan2(lay2 - by, lax - bx);
+            g.projectiles.push({ id: nextId(), x: bx, y: by, straight: true, targetId: best.id, tx: lax, ty: lay2, speed: 560, delay: 0, dmg: bal.dmg, dtype: "phys", pierce: true, splash: 0, burn: bal.burn || 0, burnDur: bal.burnDur || 0, slow: 0, slowDur: 0, kind: "arrow", src: null, big: true });
             sfx.play("bolt");
           }
         }
@@ -2373,8 +2383,12 @@ export function updateGame(g, dt) {
           // hall never turns: each man faces his own last shot (muzzles.js).
           // the Long Muskets: his mark is the bombardier's next target
           if (st.spot) { t.spotId = far.id; t.spotUntil = tms + st.mRate + 200; }
-          const [mzx, mzy] = muzzleFrom(t);
-          const aim0 = Math.atan2(far.y - mzy, far.x - mzx);
+          const gunKey = "musket:" + (t.rank4 === "ba" ? "sharp" : t.rank4 === "bb" ? "grape" : "plain");
+          const fm = musketFacing(t);   // (he faces his own last shot, set just above)
+          const PM = planShot(far, tms, musketFeet(t), fm, gunKey, muzzleFrom(t), 620);
+          t.mDeg = PM.deg;              // what his figure holds (gunpowder.js)
+          const [mzx, mzy] = [PM.mx, PM.my];
+          const aim0 = Math.atan2(PM.ay - mzy, PM.ax - mzx);
           for (let i = 0; i < balls; i++) {
             const spread = balls > 1 ? (i - (balls - 1) / 2) * (st.mSpread || 0.2) : 0;
             const a2 = aim0 + spread;
@@ -2710,9 +2724,14 @@ export function updateGame(g, dt) {
         // its nose): muzzles.js arrowFrom
         offs.forEach((spot, i) => {
           const [ax, ay] = arrowFrom(t, spot);
+          // aimed: each bowman holds his own angle (`t.bowAim[spot]`, archer.js draws it) and the
+          // shot flies straight to where the foe will be; the Ballista's bolt keeps its nose
+          const spd = st.bolt ? 560 : 460, siege = t.branch === "b" && t.rank4 === "a";
+          const P = planShot(target, tms, bowFeet(t, spot), facing(t), siege ? "siege" : t.branch === "b" ? "long" : "bow", [ax, ay], spd);
+          (t.bowAim || (t.bowAim = []))[archerLayout(t).spots.indexOf(spot)] = P.deg;
           g.projectiles.push({
-            id: nextId(), x: ax, y: ay, targetId: target.id,
-            tx: target.x, ty: target.y, speed: st.bolt ? 560 : 460, delay: i * 90,
+            id: nextId(), x: P.mx, y: P.my, targetId: target.id, straight: true,
+            tx: P.ax, ty: P.ay, speed: spd, delay: i * 90,
             dmg: Math.round(per * dmgMul), dtype: st.dtype, pierce: !!st.pierce, splash: 0,
             burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: t.id,
             big: !!st.bolt || dmgMul > 1,
@@ -2968,7 +2987,7 @@ export function updateGame(g, dt) {
       }
       // (a shard, a spike and a ball fly to a point: no mark to follow)
       const target = p.targetId == null ? null : g.enemies.find((e) => e.id === p.targetId && !e.dead);
-      if (target) { p.tx = target.x; p.ty = target.y; }
+      if (target && !p.straight) { p.tx = target.x; p.ty = target.y; }   // (a straight shot flies on to the point it was aimed at)
       const dx = p.tx - p.x, dy = p.ty - p.y;
       const d = Math.hypot(dx, dy);
       const stepLen = p.speed * WX.shotSpeed * sdt;   // (WX.shotSpeed: a squall slows every shot, weather.js)
@@ -3055,9 +3074,10 @@ export function updateGame(g, dt) {
               if (dd <= p.chainRange && dd < nd) { nd = dd; next = e; }
             }
             if (next) {
+              const [cx2, cy2] = leadPoint(next, p.tx, p.ty, 460, tms);
               g.projectiles.push({
-                id: nextId(), x: p.tx, y: p.ty, targetId: next.id,
-                tx: next.x, ty: next.y, speed: 460, delay: 0,
+                id: nextId(), x: p.tx, y: p.ty, targetId: next.id, straight: true,
+                tx: cx2, ty: cy2, speed: 460, delay: 0,
                 dmg: Math.max(1, Math.round(p.dmg * 0.6)), dtype: p.dtype, pierce: p.pierce, splash: 0,
                 burn: 0, burnDur: 0, slow: 0, slowDur: 0, kind: "arrow", src: p.src,
                 poison: p.poison, poisonDur: p.poisonDur, poisonCap: p.poisonCap,

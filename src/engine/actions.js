@@ -21,7 +21,7 @@ import { sfx } from "../audio/sfx.js";
 import { SANDBOX, tierOpen } from "../data/sandbox.js";
 import { tierGate, addTowerXp, xpForKill, ASSIST_SHARE, HARM_XP } from "../data/towerxp.js";
 import { buildClock } from "./build.js";
-import { bandArrowFrom } from "./muzzles.js";
+import { bandArrowFrom, planShot, bandFeet } from "./muzzles.js";
 import { queueLanding } from "./rime.js";
 import { heroHook, HERO_HOOKS } from "./heroes/index.js";
 
@@ -740,8 +740,11 @@ export const fireHeroAbility = (g, id, x, y) => {
     if (!mark) return false;                 // nothing there: keep the arrow
     u.face = mark.x >= u.x ? 1 : -1;
     const [hx, hy] = bandArrowFrom(u, true);   // from her bow hand
+    // aimed like her ordinary arrows: a straight flight to where the mark will be (aim.js)
+    const PH = planShot(mark, tms, bandFeet(u), u.face, "hero", [hx, hy], 720);
+    u.aimDeg = PH.deg;
     g.projectiles.push({
-      id: nextId(), x: hx, y: hy, targetId: mark.id, tx: mark.x, ty: mark.y, speed: 720, delay: 0,
+      id: nextId(), x: PH.mx, y: PH.my, straight: true, targetId: mark.id, tx: PH.ax, ty: PH.ay, speed: 720, delay: 0,
       dmg: a.dmg, dtype: "phys", pierce: true, splash: 0, burn: 0, burnDur: 0, slow: 0, slowDur: 0,
       kind: "arrow", src: b.id, big: true, poison: 0, poisonDur: 0, poisonCap: 0, chain: 0, chainRange: 0,
     });

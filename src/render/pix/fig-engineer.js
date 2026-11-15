@@ -22,7 +22,7 @@
 // Looks (o.variant): "engineer" (CREW_FOLK.engineer; also ARCHER_FOLK.crew, the
 // same colours) and "stoker" (the Brazier Wheel's man, sooty).
 import { mat, flat } from "./pix.js";
-import { sampleKeys, HUMAN, scaled, ik } from "./rig.js";
+import { sampleKeys, HUMAN, scaled, ik, solve } from "./rig.js";
 
 const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const mix = (a, b, t) => { const x = rgb(a), y = rgb(b); return "#" + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
@@ -37,6 +37,7 @@ export const VARIANTS = { engineer: "Siege engineer", stoker: "Furnace stoker" }
 const EYE = flat("#2a1c2c"), BRASS = mat("#d8b34a", { contrast: 1.15 }), LENS = flat("#2e3a48"), GLINT = flat("#bfe6f0");
 const LOOKS = new Map();
 const lookOf = (v) => {
+  v = String(v || "").split("@")[0];
   const key = FOLK[v] ? v : "engineer";
   let L = LOOKS.get(key);
   if (L) return L;
@@ -89,8 +90,27 @@ const leg = (px, L, h, k, an, z, b) => {
   px.ellipse(an[0] + 1.4, an[1] + 1, 3.2, 1.5, L.BOOT, z + 0.03, { bias: b, floor: 1 });
 };
 
-export const draw = (px, { sk }, o = {}) => {
+export const draw = (px, { sk: sk0 }, o = {}) => {
   const L = lookOf(o.variant);
+  // the Ballista's machine turns to its target (the variant ends "@<deg>", + down the screen): in the bow clips
+  // (`p.bowTurn`) the handle he grips swings about the machine's pivot with it, and he leans or steps in to keep both
+  // fists on it (his feet stay planted: only the body moves, the legs bend to it). No "@": today's pixels.
+  let sk = sk0;
+  const th = aimOf(o.variant);
+  if (th && sk0.p.bowTurn) {
+    const B0 = sk0.B, rt = (g) => rotAbout(BOW_PIVOT, g, th);
+    const q = { ...sk0.p, gN: rt(sk0.p.gN), gF: rt(sk0.p.gF), grip: rt(sk0.p.grip || sk0.p.gN) };
+    sk = solve(q, B0);
+    for (let i = 0; i < 12; i++) {
+      const dN = [q.gN[0] - sk.sN[0], q.gN[1] - (sk.sN[1] + 0.3)], dF = [q.gF[0] - sk.sF[0], q.gF[1] - sk.sF[1]], reach = (B0.upper + B0.fore) * 0.95;
+      const over = Math.max(Math.hypot(...dN) - reach, Math.hypot(...dF) - reach);
+      if (over <= 0) break;
+      const d = Math.hypot(...dN) || 1, k = Math.min(1, (over + 0.4) / d);
+      q.rx = Math.max(-7, Math.min(7, (q.rx || 0) + dN[0] * k));
+      if (dN[1] > 0) q.drop = Math.min(8, (q.drop || 0) + dN[1] * k); else q.rise = Math.min(8, Math.max(0, (q.rise || 0) - dN[1] * k));
+      sk = solve(q, B0);
+    }
+  }
   const { p, P, C, N, sN, sF, hN, hF, kN, kF, anN, anF, B } = sk;
   // the fists go to the handle; the elbows are solved (they hang down and back)
   const gN = p.gN || sk.hdN, gF = p.gF || sk.hdF;
@@ -138,6 +158,14 @@ export const draw = (px, { sk }, o = {}) => {
   return { marks: { grip: p.grip || gN, fist: hdN, far: hdF } };
 };
 
+// ---- the aim: the machine turns, the handle goes with it
+const aimOf = (v) => { const a = parseFloat(String(v || "").split("@")[1]); return Number.isFinite(a) ? (a * Math.PI) / 180 : 0; };
+const rotAbout = (c, pt, th) => { const k = Math.cos(th), n = Math.sin(th), dx = pt[0] - c[0], dy = pt[1] - c[1]; return [c[0] + dx * k - dy * n, c[1] + dx * n + dy * k]; };
+// the siege bow's pivot, art px from his feet facing +x: the stock's mounting point on the yoke (hall-archer.js siegeBow:
+// its origin x = 18 art px ahead of him on the Ballista's deck, the stock's axis 24 up). Change it here if the hall turns
+// the machine about another point.
+export const BOW_PIVOT = [18, -24];
+
 // ---- the machines (art px from his feet, facing +x: the halls' own numbers x2) ----
 //   hub, rx, ry   the handle's circle (ry < rx: a crank laid flat)
 //   at            where the handle stops when he rests on it (a phase round it)
@@ -171,7 +199,7 @@ const resting = (g, ph, o = {}) => {
   const b = Math.sin(ph * TAU), b2 = Math.sin(ph * TAU - 1.1);
   return {
     ...STANCE, rx: (o.rx ?? 0.2) + 0.35 * b2, drop: -0.35 - 0.1 * b, rise: 0.45 + 0.45 * b, lean: (o.lean ?? 0) - 0.015 * b, twist: o.twist ?? 1.2,
-    gN: g, gF: far(g), grip: g, blink: ph > 0.56 && ph < 0.7 ? 1 : 0,
+    gN: g, gF: far(g), grip: g, blink: ph > 0.56 && ph < 0.7 ? 1 : 0, bowTurn: o.bowTurn || 0,
   };
 };
 const hold = (g, o = {}) => ({ ...STANCE, rx: 0.2, drop: -0.35, rise: 0.45, lean: 0, twist: 1.2, gN: g, gF: far(g), grip: g, ...o });
@@ -242,10 +270,10 @@ export const CLIPS = {
     pose: (ph) => {
       const u = 0.5 - 0.5 * Math.cos(ph * TAU), m = MACHINES.bow, a = Math.PI + u * Math.PI, g = [m.hub[0] + Math.cos(a) * m.rx, m.hub[1] + Math.sin(a) * m.ry];
       const fwd = Math.cos(a + 0.45);
-      return { ...STANCE, rx: 0.9 + 1.1 * fwd, drop: 0.3, lean: 0.05 + 0.09 * fwd, twist: 1.2 + 0.2 * fwd, hx: 0.3 * fwd, gN: g, gF: far(g), grip: g };
+      return { ...STANCE, rx: 0.9 + 1.1 * fwd, drop: 0.3, lean: 0.05 + 0.09 * fwd, twist: 1.2 + 0.2 * fwd, hx: 0.3 * fwd, gN: g, gF: far(g), grip: g, bowTurn: 1 };
     },
   },
-  bowIdle: { n: 8, ms: 2600, loop: true, pose: (ph) => resting(gripAt(MACHINES.bow, MACHINES.bow.at), ph, { rx: 0.8 }) },
+  bowIdle: { n: 8, ms: 2600, loop: true, pose: (ph) => resting(gripAt(MACHINES.bow, MACHINES.bow.at), ph, { rx: 0.8, bowTurn: 1 }) },
 };
 // the contract's plain idle: standing by at the winch
 CLIPS.idle = CLIPS.winchIdle;

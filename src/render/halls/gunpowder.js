@@ -324,8 +324,9 @@ export const drawGunpowder = (ctx, t, time) => {
       // kick frame's muzzle was; the idle glint sits at "bore".
       const until = t.mCd > 0 ? t.mCd : mA > 0 ? mRate - ((1 - mA) / 3.2) * 1000 : 0;
       const clip = t._idle ? "idle" : "shot";
-      const rec = drawCrewPix(ctx, MUSKETEER, mx, my, fm, clip, t._idle ? loopFrame(MUSKETEER, "idle", time, t.id + 5) : shotFrame(MUSKETEER, "shot", until, mRate, { rest: 1 }), { variant: gun });
-      const m = rec.marks.muzzle, b = rec.marks.bore, at = crewMark(MUSKETEER, "shot", MUSKET_HIT, "muzzle", fm, gun);
+      const mVar = t.mDeg && !t._idle ? `${gun}@${t.mDeg}` : gun;   // his gun turns to his last mark (engine: t.mDeg, aim.js)
+      const rec = drawCrewPix(ctx, MUSKETEER, mx, my, fm, clip, t._idle ? loopFrame(MUSKETEER, "idle", time, t.id + 5) : shotFrame(MUSKETEER, "shot", until, mRate, { rest: 1 }), { variant: mVar });
+      const m = rec.marks.muzzle, b = rec.marks.bore, at = crewMark(MUSKETEER, "shot", MUSKET_HIT, "muzzle", fm, mVar);
       tipX = mx + fm * m[0] / 2; tipY = my + m[1] / 2; mAng = Math.atan2(m[1] - b[1], m[0] - b[0]);
       smokeX = mx + at[0]; smokeY = my + at[1];
       glintAt = [mx + fm * b[0] / 2, my + b[1] / 2];

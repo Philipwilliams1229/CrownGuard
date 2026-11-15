@@ -702,12 +702,19 @@ agent with a tool-call budget instead of starting a fresh one.
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
-- **WISHLIST, after the graphics pass (owner, 2026-11-14): archers aim at their target.**
-  "Get things like archers to actually move their arms to aim at the enemies they are
-  targeting. Right now they shoot at 90 degrees and sometimes the arrows fly sideways out of
-  the bows. But that can come later. Lets finish graphics first." Covers the hall bowmen,
-  Wren, the castle's wall bowmen and foe archers: the bow arm should pitch to the target's
-  angle and the arrow leave along the bow. Shot points come from `engine/muzzles.js`.
+- **Shooters aim; shots fly straight (owner, 2026-11-14): DONE, pending the owner's look.**
+  The rules are `art/briefs/aim-contract.md`. `src/engine/aim.js` (aimDeg / quantAim, 10-degree
+  steps, +-70) and `muzzles.js planShot` (the muzzle = `rotAbout(AIM.pivot, AIM.muzzle, deg)`
+  from the figure's exported `AIM`; old tables with "New sprites" off and in the sims). Shots
+  that aim (arrows, crossbow and ballista bolts, musket balls, foe arrows) carry `straight`,
+  fly to a led aim point (`leadPoint`), never home, and still hit a live target on arrival
+  (no new misses: gw1 / ir3 `--endure` within noise). Figures read `"<variant>@<deg>"`:
+  fig-bowman (hall + castle wall), fig-archer (Wren), fig-fieldbow, fig-bonearcher,
+  fig-crossbow, fig-errantbow, fig-musketeer, fig-engineer (`engineer@deg` on the siege bow's
+  handles, though halls/archer.js does not yet pitch the machine itself); the castle's
+  ballistae pitch to `castleCd.balAim`. Not aimed on purpose: the Wizard Spire's curving
+  bolts, catapult, bombardier, skiffs, Sunforge, falcons, Ysolde. Weak spots: at +-70 the
+  bow's string hand stays near the face; a figure holds its last shot's angle until the next.
 - **BEFORE PUBLISHING (owner, 2026-11-07): no "Retry Wave" in the campaign.**
   "Makes it more challenging. Keep it how it is for now, but before publishing
   I'll want that change." Not done yet on purpose. The button is on the defeat

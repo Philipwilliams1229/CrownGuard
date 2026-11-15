@@ -637,6 +637,9 @@ export const drawArcherTower = (ctx, t, time) => {
     for (const sp of spots) {
       if (pix) {
         const fx = x + sp.dx, fy = dy + 3 + sp.dy;
+        // his bow turns to the foe he last loosed at (the engine keeps each bowman's quantized
+        // angle in t.bowAim, aim.js); no aim = the plain look, so a level shot is the old pixels
+        const aimV = t.bowAim?.[sp.i] ? `${look}@${t.bowAim[sp.i]}` : look;
         if (!t._idle) {
           // ms since HIS own loose and his own cycle, exactly as the old crew reads them below
           let el, own = rate;
@@ -644,12 +647,12 @@ export const drawArcherTower = (ctx, t, time) => {
           else { el = since - sp.i * 90; if (el < 0) el += rate; }
           const f = shotFrame(BOWMAN, clip, own - el, own);
           (t._bowSeen ||= [])[sp.i] = f;
-          drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, clip, f, { variant: look });
+          drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, clip, f, { variant: aimV });
           continue;
         }
         const f0 = t._bowSeen?.[sp.i] ?? 0, d = Math.max(0, down - sp.i * 0.08);
         const ease = f0 < hitF ? PIX_EASE * (f0 / Math.max(1, hitF - 1)) : PIX_NOCK * ((CL.n - 1 - f0) / Math.max(1, CL.n - 1 - hitF));
-        if (d < ease) drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, clip, Math.round(f0 < hitF ? f0 * (1 - d / ease) : f0 + (CL.n - 1 - f0) * (d / ease)), { variant: look });
+        if (d < ease) drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, clip, Math.round(f0 < hitF ? f0 * (1 - d / ease) : f0 + (CL.n - 1 - f0) * (d / ease)), { variant: aimV });
         else if (d - ease < PIX_STOW) drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, "stow", fracFrame(BOWMAN, "stow", (d - ease) / PIX_STOW), { variant: look });
         else drawCrewPix(ctx, BOWMAN, fx, fy, aimDir, "idle", loopFrame(BOWMAN, "idle", time, t.id + sp.i * 1.7), { variant: look });   // at ease, still facing the last shot
         continue;

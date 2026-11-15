@@ -14,6 +14,7 @@ import * as masonFig from "./pix/fig-mason.js";
 import { crew, crewOn, drawCrewPix, loopFrame, shotFrame, fracFrame } from "./pix/crews.js";
 import { ballistaPix, PITCHES } from "./pix/castle-ballista.js";
 import { pixSprite, stampPix } from "./pix/halls.js";
+import { wallFeet } from "../engine/muzzles.js";
 import { REALM } from "../data/maps.js";
 import * as TERRAIN from "../data/terrain.js";
 import { groundKind } from "./groundblend.js";
@@ -2315,13 +2316,12 @@ const workFrame = (key, w, h, fn) => {
 // Where each gate ballista points: the foe the engine would pick (most health within reach of the gate),
 // eased so the bow swings rather than snaps; at rest it keeps its last aim. Returns an index into PITCHES.
 const AIM = [{ p: 0, t: -1 }, { p: 0, t: -1 }];
-const ballistaAim = (g, k, spot, gate, range, time) => {
+const ballistaAim = (g, k, spot, gate, range, time, wa) => {
   const A = AIM[k], dt = time < A.t || A.t < 0 ? 0 : Math.min(0.2, time - A.t);
   A.t = time;
-  let best = null, bh = -1;
-  for (const e of g.enemies || []) { if (e.dead) continue; if (Math.hypot(e.x - gate[0], e.y - gate[1]) < range && e.hp > bh) { bh = e.hp; best = e; } }
-  if (best) {
-    const [mx, my] = ballistaMuzzle(spot), want = Math.max(-0.42, Math.min(0.42, Math.atan2(my - best.y, Math.max(20, mx - best.x))));
+  // the engine's own line (castleCd.balAim: the bolt's world angle), seen from the west-facing bow as nose-up
+  if (wa != null) {
+    const want = Math.max(-0.42, Math.min(0.42, Math.atan2(-Math.sin(wa), -Math.cos(wa))));
     A.p += Math.max(-dt * 3, Math.min(dt * 3, want - A.p));
   } else if (dt === 0) A.p = 0;
   let ix = 0;
@@ -2390,12 +2390,14 @@ export const drawCastleWorks = (ctx, g) => {
         // the new bowman (pix/fig-bowman.js, the crown's crimson): his shot clip runs off his own
         // last loose, as the halls' crews run off theirs (crews.js shotFrame); an arrow nocked and
         // drawn waits at full draw for the next shot, then he stows it and stands at ease
-        const clip = big ? "shootLong" : "shoot", variant = big ? "wall|long" : "wall", rate = bows.rate;
+        const clip = big ? "shootLong" : "shoot", base = big ? "wall|long" : "wall", rate = bows.rate;
+        const dg = cd.aimDeg?.[i];
+        const variant = since < rate * 1.35 && dg ? `${base}@${dg}` : base;
         let name = "idle", f;
         if (since < rate * 1.35) { name = clip; f = shotFrame(BOWMAN, clip, rate - since, rate); }
         else if (since < rate * 1.35 + BOWMAN.CLIPS.stow.ms) { name = "stow"; f = fracFrame(BOWMAN, "stow", (since - rate * 1.35) / BOWMAN.CLIPS.stow.ms); }
         else f = loopFrame(BOWMAN, "idle", time + (spots[i] % 7) * 0.3, i);
-        drawCrewPix(ctx, BOWMAN, BOW_X + 2 + stepBack, y, -1, name, f, { variant });
+        drawCrewPix(ctx, BOWMAN, ...wallFeet(BOW_X, spots[i]), -1, name, f, { variant: name === clip ? variant : base });
         continue;
       }
       let key = "rest";
@@ -2424,7 +2426,7 @@ export const drawCastleWorks = (ctx, g) => {
       if (crewOn()) {
         // the new ballista (pix/castle-ballista.js), turned to the target the engine will pick (the
         // most health in reach), its string drawn back by the winch between this tower's shots
-        const pitch = ballistaAim(g, k, spots[k], [gx, gy], bal.range, time);
+        const pitch = ballistaAim(g, k, spots[k], [gx, gy], bal.range, time, cd.balAim?.[bal.twin ? k : 0]);
         const period = bal.rate / (bal.twin ? 2 : 1), mine = bal.twin ? (cd.shot ?? 0) === k : true;
         const since = left <= 0 ? 1e9 : mine ? period - left : 2 * period - left;
         const state = since < 140 ? 0 : Math.min(4, 1 + Math.floor(((since - 140) / Math.max(200, bal.rate * 0.7 - 140)) * 3.2));

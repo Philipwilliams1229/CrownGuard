@@ -7,10 +7,10 @@
 // `shoot` (raise to the cheek, aim, LOOSE at `hit`, the prod snaps and the stock kicks, lower the
 // nose, crank the string back, seat the next bolt). `attack` is the same clip.
 import { mat, flat } from "./pix.js";
-import { solve, sampleKeys, walkPose, HUMAN, scaled, clamp } from "./rig.js";
+import { solve, sampleKeys, walkPose, HUMAN, scaled, clamp, ik } from "./rig.js";
 
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.8, shin: 9.2, ankle: 2.4, spine: 13.6, neck: 1.8, shN: -2.6, shF: 3, hipN: -1.4, hipF: 1.6 });
-export const BOX = { w: 72, h: 58, ox: 20, oy: 52 };
+export const BOX = { w: 72, h: 80, ox: 20, oy: 74 };   // taller: the stock rises well above the head at a steep upward aim
 const ARM = BONES.upper + BONES.fore;
 
 const SKIN = mat("#e0b088"), EYE = flat("#2a1c2c"), LIP = flat("#a8685a"), BROW = mat("#4a3426");
@@ -41,6 +41,12 @@ const LEG = {
 };
 
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+// ---- the aim (art/briefs/aim-contract.md): the variant may end "@<deg>" (+ is down the screen, facing +x).
+// In the shoot clip (and the hold before the loose, `p.aimW` 1) the arbalest and BOTH arms that hold it
+// turn rigidly about the rear (near) shoulder; every other clip ignores it. No "@": today's pixels.
+const aimOf = (v) => { const a = parseFloat(String(v || "").split("@")[1]); return Number.isFinite(a) ? (a * Math.PI) / 180 : 0; };
+const rotAbout = (c, pt, th) => { const k = Math.cos(th), n = Math.sin(th), dx = pt[0] - c[0], dy = pt[1] - c[1]; return [c[0] + dx * k - dy * n, c[1] + dx * n + dy * k]; };
+const STOCK_L = 25;   // the arbalest's length from butt to nose (draw's L)
 const leg = (px, h, k, an, z, b) => {
   px.part();
   px.capsule(h[0], h[1], 2.3, k[0], k[1], 2.0, HOSE, z, { bias: b, floor: 1 });
@@ -50,8 +56,15 @@ const leg = (px, h, k, an, z, b) => {
   px.rect(an[0] - 1.6, an[1] - 5.2, 3.6, 1, LEATHER, z + 0.04, { fix: 2, noLine: true });   // the turned boot cuff
 };
 
-export const draw = (px, { sk, lag1, lag2 }) => {
-  const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
+export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
+  const { p, P, C, N, sN, sF, hN, hF, kN, kF, anN, anF } = sk;
+  let { eN, eF, hdN, hdF } = sk;
+  const th = aimOf(o.variant) * (p.aimW || 0);
+  if (th) {   // both hands turn about the rear shoulder with the stock; the elbows fold the same way
+    hdN = rotAbout(sN, hdN, th); hdF = rotAbout(sN, hdF, th);
+    eN = ik(sN[0], sN[1], hdN[0], hdN[1], BONES.upper, BONES.fore, 1).mid; eF = ik(sF[0], sF[1], hdF[0], hdF[1], BONES.upper, BONES.fore, 1).mid;
+    hdF = ik(sF[0], sF[1], hdF[0], hdF[1], BONES.upper, BONES.fore, 1).end;
+  }
   const vx = cl(C[0] - lag1.C[0], -2, 2), vx2 = cl(lag1.C[0] - lag2.C[0], -2, 2);
   const hx = Math.round(N[0]), hy = Math.round(N[1]);
 
@@ -97,7 +110,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.dot(hx + 2, hy - 10.6, BRASS, 6.1, { fix: 3 }); px.dot(hx + 3, hy - 8, STEELB, 6.1, { fix: 4 });
 
   // ---- the arbalest: a wooden stock under the near hand, the steel prod across its nose
-  const ca = p.ca ?? 0.5, u = [Math.cos(ca), -Math.sin(ca)], w = [-Math.sin(ca), -Math.cos(ca)], gb = p.gb ?? 8, L = 25;
+  const ca = (p.ca ?? 0.5) - th, u = [Math.cos(ca), -Math.sin(ca)], w = [-Math.sin(ca), -Math.cos(ca)], gb = p.gb ?? 8, L = 25;
   const butt = [hdN[0] - u[0] * gb, hdN[1] - u[1] * gb], tip = [butt[0] + u[0] * L, butt[1] + u[1] * L];
   const at = (a, b) => [butt[0] + u[0] * a + w[0] * b, butt[1] + u[1] * a + w[1] * b];
   const z = 7;
@@ -136,14 +149,16 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.capsule(eN[0], eN[1], 2.1, hdN[0], hdN[1], 1.8, PAD, zn, { cast: 2 });
   px.capsule(eN[0] * 0.3 + hdN[0] * 0.7, eN[1] * 0.3 + hdN[1] * 0.7, 1.9, eN[0] * 0.14 + hdN[0] * 0.86, eN[1] * 0.14 + hdN[1] * 0.86, 1.9, LEATHER, zn + 0.02);
   px.part(); px.ellipse(hdN[0], hdN[1], 1.8, 1.8, LEATHER, zn + 0.2);
-  return { C, hand: hdN, muzzle: at(L + 2, 1.5), flash: p.flash || 0, ca };
+  const muzzle = at(L + 2, 1.5);
+  return { C, hand: hdN, muzzle, flash: p.flash || 0, ca, th, marks: { muzzle, hand: hdN } };
 };
 
 // the loose: the string's snap and a thin streak off the nose
 export const fx = (px, { ph }, info, clip) => {
   if (!info.muzzle || !(info.flash > 0.1)) return;
   const [x, y] = info.muzzle, k = info.flash, NL = { noLine: true }, F = flat("#fff3d2", { emis: true, line: "#c8ccd8" });
-  px.line(x + 1, y, x + 5 + 5 * k, y, F, 20, NL);
+  const c = Math.cos(info.th || 0), n = Math.sin(info.th || 0);   // the streak runs along the aim
+  px.line(x + c, y + n, x + c * (5 + 5 * k), y + n * (5 + 5 * k), F, 20, NL);
   px.dot(x + 1, y - 1, F, 20.1, NL);
 };
 
@@ -153,8 +168,8 @@ const aim = (s, t) => { const dx = t[0] - s[0], dy = t[1] - s[1]; return [Math.a
 const STAND = { fN: [-2.8, 0], fF: [3.4, 0] };
 // b.n: the trigger hand, b.f: the fore hand, b.ca: the stock's rise (rad), b.str: the string, b.bolt
 const hold = (b) => { const p = { ...STAND, ...b }, s = solve(p, BONES); p.aN = aim(s.sN, b.n); p.aF = aim(s.sF, b.f); return p; };
-const READY = { n: [9.4, -26.5], f: [16.5, -30.5], ca: 0.66, gb: 8, str: 1, bolt: 1, twist: 0.3, lean: 0.03, flash: 0, blink: 0 };
-const AIM = { n: [10, -33.5], f: [20, -35.2], ca: 0.03, gb: 8.5, str: 1, bolt: 1, twist: 0.55, lean: 0.02, hx: 1.2, hy: 0.4, rx: -0.2, flash: 0 };
+const READY = { aimW: 0, n: [9.4, -26.5], f: [16.5, -30.5], ca: 0.66, gb: 8, str: 1, bolt: 1, twist: 0.3, lean: 0.03, flash: 0, blink: 0 };
+const AIMPOSE = { aimW: 1, n: [10, -33.5], f: [20, -35.2], ca: 0.03, gb: 8.5, str: 1, bolt: 1, twist: 0.55, lean: 0.02, hx: 1.2, hy: 0.4, rx: -0.2, flash: 0 };
 
 export const CLIPS = {
   idle: {
@@ -174,11 +189,11 @@ export const CLIPS = {
     n: 16, ms: 1000, loop: false, lag: 0.06, hit: 0.44,
     pose: (ph) => hold(sampleKeys([
       { t: 0, p: READY },
-      { t: 0.2, e: "io", p: { ...AIM, ca: 0.3, n: [9.4, -30.5], f: [18, -33], hx: 0.6, twist: 0.45 } },
-      { t: 0.34, e: "out", p: AIM },
-      { t: 0.43, e: "io", p: { ...AIM, hx: 1.3, hy: 0.5 } },
-      { t: 0.47, e: "out", p: { ...AIM, str: 0, bolt: 0, ca: 0.14, rx: -1.4, flash: 1, n: [9, -32], f: [19, -33.5], hx: 0.8, lean: -0.02 } },
-      { t: 0.56, e: "io", p: { ...AIM, str: 0, bolt: 0, ca: 0.1, rx: -0.8, flash: 0.2, n: [9, -31.5], f: [19, -33], hx: 0.4 } },
+      { t: 0.2, e: "io", p: { ...AIMPOSE, ca: 0.3, n: [9.4, -30.5], f: [18, -33], hx: 0.6, twist: 0.45 } },
+      { t: 0.34, e: "out", p: AIMPOSE },
+      { t: 0.43, e: "io", p: { ...AIMPOSE, hx: 1.3, hy: 0.5 } },
+      { t: 0.47, e: "out", p: { ...AIMPOSE, str: 0, bolt: 0, ca: 0.14, rx: -1.4, flash: 1, n: [9, -32], f: [19, -33.5], hx: 0.8, lean: -0.02 } },
+      { t: 0.56, e: "io", p: { ...AIMPOSE, str: 0, bolt: 0, ca: 0.1, rx: -0.8, flash: 0.2, n: [9, -31.5], f: [19, -33], hx: 0.4 } },
       { t: 0.68, e: "io", p: { ...READY, str: 0, bolt: 0, ca: -0.75, n: [6, -22], f: [14.5, -18.5], twist: 0.1, drop: 0.6, lean: 0.12, hx: 0.8, hy: 1.4 } },
       { t: 0.8, e: "io", p: { ...READY, str: 1, bolt: 0, ca: -0.9, n: [-1, -22.5], f: [14.5, -18], twist: -0.1, drop: 0.8, lean: 0.14, hx: 0.8, hy: 1.4 } },
       { t: 0.9, e: "io", p: { ...READY, str: 1, bolt: 1, ca: -0.1, n: [8, -25], f: [16, -26], twist: 0.2, drop: 0.3, lean: 0.06, hy: 0.6 } },
@@ -187,3 +202,13 @@ export const CLIPS = {
   },
 };
 CLIPS.attack = CLIPS.shoot;
+
+// ---- the aim contract: the pivot (rear shoulder) and the muzzle (the bolt's head) at aim 0, art px from the
+// feet facing +x, at the frame the game shows at the loose (shoot's `hit`). The engine turns the muzzle with
+// rotAbout(pivot, muzzle, aim): the drawn stock and arms turn about the same point, so they agree to the pixel.
+export const AIM = (() => {
+  const c = CLIPS.shoot, f = Math.round(c.hit * (c.n - 1)), p = c.pose(f / (c.n - 1)), s = solve(p, BONES);
+  const ca = p.ca ?? 0.5, u = [Math.cos(ca), -Math.sin(ca)], w = [-Math.sin(ca), -Math.cos(ca)], gb = p.gb ?? 8;
+  const butt = [s.hdN[0] - u[0] * gb, s.hdN[1] - u[1] * gb];
+  return { pivot: [s.sN[0], s.sN[1]], muzzle: [butt[0] + u[0] * (STOCK_L + 2) + w[0] * 1.5, butt[1] + u[1] * (STOCK_L + 2) + w[1] * 1.5] };
+})();

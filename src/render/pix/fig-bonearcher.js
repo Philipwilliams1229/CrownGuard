@@ -7,7 +7,7 @@
 // nock, draw to the cheek, loose, the string hand flying back, reach for the next arrow.
 // Clips: idle, walk (8 frames, the bow held low and ready), shoot (14 frames).
 import { mat, flat } from "./pix.js";
-import { walkPose, sampleKeys, scaled, HUMAN } from "./rig.js";
+import { walkPose, sampleKeys, ik, solve, scaled, HUMAN } from "./rig.js";
 
 const BONE = mat("#e0d8c4"), RAG = mat("#4a5a50", { contrast: 0.9 }), RAG2 = mat("#3a4640", { contrast: 0.9 });
 const YEW = mat("#4a3018", { contrast: 1.2 }), GRIP = mat("#6a4c34"), DARKM = mat("#3a3228"), IRON = mat("#9a968a", { contrast: 1.2 });
@@ -38,7 +38,25 @@ export const BONES = scaled(HUMAN, 0.94, { shN: -2.1, shF: 2.3 });
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
+// ---- the aim (art/briefs/aim-contract.md) -------------------------------------------------
+// "<variant>@<deg>": the shot's angle in his own frame (0 level, + down the screen). While a clip's
+// `aw` (aim weight) is up, the bow and both arms turn RIGIDLY about the bow shoulder `sF`; the string
+// hand is re-solved from its own shoulder so the elbow still folds the same way. aw 0 = no change.
+const RAD = Math.PI / 180;
+const rotAbout = (pv, q, deg) => { const a = deg * RAD, c = Math.cos(a), s = Math.sin(a), x = q[0] - pv[0], y = q[1] - pv[1]; return [pv[0] + x * c - y * s, pv[1] + x * s + y * c]; };
+const aimed = (sk, deg) => {
+  const w = sk.p.aw || 0, d = deg * w;
+  if (!d) return sk;
+  const r = (q) => rotAbout(sk.sF, q, d), eF = r(sk.eF), hdF = r(sk.hdF), tgt = r(sk.hdN), want = r(sk.eN);
+  const a = ik(sk.sN[0], sk.sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, 1), b = ik(sk.sN[0], sk.sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, -1);
+  const pick = Math.hypot(a.mid[0] - want[0], a.mid[1] - want[1]) <= Math.hypot(b.mid[0] - want[0], b.mid[1] - want[1]) ? a : b;
+  return { ...sk, eF, hdF, eN: pick.mid, hdN: pick.end, aimRad: d * RAD };
+};
+// the engine's muzzle at aim 0: the bow hand at the frame the shot is loosed on (the pivot is the bow shoulder)
+const aimAt = (clip, hit) => { const f = Math.round(hit * (clip.n - 1)), s = solve(clip.pose(f / (clip.n - 1)), BONES); return { pivot: [s.sF[0], s.sF[1]], muzzle: [s.hdF[0], s.hdF[1]] }; };
+
+export const draw = (px, { sk: sk0, lag1, lag2 }, o = {}) => {
+  const sk = aimed(sk0, Number((o.variant || "").split("@")[1]) || 0);
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(N[0] - lag1.N[0], -2, 2), vx2 = cl(lag1.N[0] - lag2.N[0], -2, 2);
   const u = (() => { const dx = P[0] - C[0], dy = P[1] - C[1], l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; })();
@@ -60,7 +78,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.ellipse(eF[0], eF[1], 1.3, 1.3, BONE, 1.02, { bias: -1 });
 
   // ---- the bow: two limbs sprung from the grip; bw tilts it (+ top toward the foe)
-  const bw = p.bow ?? 0.25, dr = p.draw || 0, cs = Math.cos(bw), sn = Math.sin(bw);
+  const bw = (p.bow ?? 0.25) + (sk.aimRad || 0), dr = p.draw || 0, cs = Math.cos(bw), sn = Math.sin(bw);
   const R = (x, y) => [hdF[0] + x * cs - y * sn, hdF[1] + x * sn + y * cs];
   const flex = dr * 1.7;
   const top = R(-2.6 - flex, -12 + flex * 0.4), bot = R(-2.6 - flex, 12 - flex * 0.4);
@@ -134,7 +152,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.ellipse(hdN[0], hdN[1], 1.5, 1.4, BONE, 8.3);
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1], 1.7, 1.6, BONE, 8, { floor: 1 });
-  return { bowHand: hdF };
+  return { bowHand: hdF, marks: { muzzle: [hdF[0], hdF[1]] } };
 };
 
 // the arrow in flight, a short streak behind it (the game flies the real one; this is for the lab)
@@ -156,15 +174,18 @@ export const CLIPS = {
     pose: (ph) => sampleKeys([
       { t: 0, p: { ...READY, arrow: 1 } },
       // raise the bow, the nock to the string
-      { t: 0.14, e: "io", p: { ...READY, aF: [1.1, 0.88, 0], bow: 0.1, aN: [1.25, 0.58, 0], draw: 0.15, arrow: 1, twist: -0.2, lean: 0.06, drop: 0.6 } },
+      { t: 0.14, e: "io", p: { aw: 0.4, ...READY, aF: [1.1, 0.88, 0], bow: 0.1, aN: [1.25, 0.58, 0], draw: 0.15, arrow: 1, twist: -0.2, lean: 0.06, drop: 0.6 } },
       // the draw, the arm back to the cheek
-      { t: 0.4, e: "out", p: { ...READY, rx: -0.6, drop: 0.5, lean: -0.04, twist: -0.7, rise: 0.6, aF: [1.5, 1, 0], bow: 0, aN: [1.8, 0.38, 1], draw: 1, arrow: 1, fN: [-2.6, 0], fF: [2.8, 0] } },
-      { t: 0.58, e: "io", p: { ...READY, rx: -0.8, drop: 0.5, lean: -0.06, twist: -0.8, rise: 1, aF: [1.52, 1, 0], bow: 0, aN: [1.82, 0.42, 1], draw: 1, arrow: 1, fN: [-2.6, 0], fF: [2.8, 0] } },
+      { t: 0.4, e: "out", p: { aw: 1, ...READY, rx: -0.6, drop: 0.5, lean: -0.04, twist: -0.7, rise: 0.6, aF: [1.5, 1, 0], bow: 0, aN: [1.8, 0.38, 1], draw: 1, arrow: 1, fN: [-2.6, 0], fF: [2.8, 0] } },
+      { t: 0.58, e: "io", p: { aw: 1, ...READY, rx: -0.8, drop: 0.5, lean: -0.06, twist: -0.8, rise: 1, aF: [1.52, 1, 0], bow: 0, aN: [1.82, 0.42, 1], draw: 1, arrow: 1, fN: [-2.6, 0], fF: [2.8, 0] } },
       // the loose: the string hand flying back, the bow springing, the jaw dropped
-      { t: 0.64, e: "in3", p: { ...READY, rx: -0.3, drop: 0.6, lean: 0, twist: -1, rise: 0.6, aF: [1.46, 1, 0], bow: 0.16, aN: [2.75, 0.62, 1], draw: 0, arrow: 0, snarl: 1, fN: [-2.6, 0], fF: [2.8, 0] } },
-      { t: 0.78, e: "out", p: { ...READY, twist: -0.8, aF: [1.3, 0.96, 0], bow: 0.24, aN: [3.1, 0.6, 1], draw: 0, arrow: 0, fN: [-2.6, 0], fF: [2.8, 0] } },
+      { t: 0.64, e: "in3", p: { aw: 1, ...READY, rx: -0.3, drop: 0.6, lean: 0, twist: -1, rise: 0.6, aF: [1.46, 1, 0], bow: 0.16, aN: [2.75, 0.62, 1], draw: 0, arrow: 0, snarl: 1, fN: [-2.6, 0], fF: [2.8, 0] } },
+      { t: 0.78, e: "out", p: { aw: 0.4, ...READY, twist: -0.8, aF: [1.3, 0.96, 0], bow: 0.24, aN: [3.1, 0.6, 1], draw: 0, arrow: 0, fN: [-2.6, 0], fF: [2.8, 0] } },
       // the reach for the next shaft
       { t: 1, e: "io", p: { ...READY, arrow: 0 } },
     ], ph),
   },
 };
+
+// the aim contract: the bow hand at the loose (PIX hit 0.64) and the bow shoulder it turns about (art px from the feet, aim 0)
+export const AIM = aimAt(CLIPS.shoot, 0.64);

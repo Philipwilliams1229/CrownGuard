@@ -15,7 +15,7 @@
 //   marks     hand = the bow hand on the grip (where the engine starts the arrow:
 //             engine/muzzles.js bowHand), nock = where the arrow sits on the string
 import { mat, flat } from "./pix.js";
-import { sampleKeys, solve, HUMAN, scaled } from "./rig.js";
+import { sampleKeys, solve, ik, HUMAN, scaled } from "./rig.js";
 import { ARCHER_FOLK } from "../folk-archer.js";
 
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -27,14 +27,16 @@ const lighten = (h, k) => hex(rgb(h).map((v) => v + (255 - v) * k));
 // ---- the looks: one set of materials a variant, built once ------------------------
 const EYE = flat("#2a1c2c"), STRING = flat("#f2ead4", { line: "#6a5a48" }), GOLD = mat("#d8b34a"), STEEL = mat("#c4c8d0", { contrast: 1.2 });
 const SHAFT = mat("#8a6a44"), QUIVER = mat("#553622"), BRACER = mat("#6a4628");
+// the castle's own liveries (render/folk-workers.js WALL_FOLK.bowman: a crimson jerkin, gold trim)
+const WALL_LIVERY = { wall: { skin: "#e8b990", hood: "#5a4a3a", coat: "#7c3f4a", boots: "#3e2a1a", trim: "#d8b34a" } };
 const LOOKS = new Map();
 const lookOf = (variant) => {
   const v = variant || "base";
   let L = LOOKS.get(v);
   if (L) return L;
-  const [key, bow] = v.split("|"), pal = ARCHER_FOLK[key] || ARCHER_FOLK.base, long = bow === "long";
+  const [key, bow] = v.split("|"), pal = ARCHER_FOLK[key] || WALL_LIVERY[key] || ARCHER_FOLK.base, long = bow === "long";
   // the hall's own choices (halls/archer.js): the Dragonslayer's red yew, the master's dark stave; whose fletchings
-  const bowCol = key === "bb" ? "#8a2f24" : key === "b" ? "#3a2a1e" : "#4a3018";
+  const bowCol = key === "wall" && long ? "#3a3a44" : key === "bb" ? "#8a2f24" : key === "b" ? "#3a2a1e" : "#4a3018";
   const fl = key === "bb" ? "#d8b34a" : key === "ab" ? "#9fc4dc" : "#e8e0c8";
   const HOOD = mat(pal.hood), SKIN = mat(pal.skin), LIP = flat(darken(pal.skin, 0.4));
   const head = (flip) => ({
@@ -77,6 +79,23 @@ export const BOX = { w: 61, h: 66, ox: 19, oy: 62 };
 export const BONES = scaled(HUMAN, 1.2, { upper: 7.8, fore: 7.4, shN: -3, shF: 3.2, hipN: -1.4, hipF: 1.6 });
 const L_ARM = BONES.upper + BONES.fore, BRACE = 3.2;
 
+// ---- the aim (art/briefs/aim-contract.md) -------------------------------------------------
+// "<variant>@<deg>": the shot's angle in his own frame (0 level, + down the screen). While a clip's
+// `aw` (aim weight) is up, the bow and both arms turn RIGIDLY about the bow shoulder `sF`; the string
+// hand is re-solved from its own shoulder so the elbow still folds the same way. aw 0 = no change.
+const RAD = Math.PI / 180;
+const rotAbout = (pv, q, deg) => { const a = deg * RAD, c = Math.cos(a), s = Math.sin(a), x = q[0] - pv[0], y = q[1] - pv[1]; return [pv[0] + x * c - y * s, pv[1] + x * s + y * c]; };
+const aimed = (sk, deg) => {
+  const w = sk.p.aw || 0, d = deg * w;
+  if (!d) return sk;
+  const r = (q) => rotAbout(sk.sF, q, d), eF = r(sk.eF), hdF = r(sk.hdF), tgt = r(sk.hdN), want = r(sk.eN);
+  const a = ik(sk.sN[0], sk.sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, 1), b = ik(sk.sN[0], sk.sN[1], tgt[0], tgt[1], BONES.upper, BONES.fore, -1);
+  const pick = Math.hypot(a.mid[0] - want[0], a.mid[1] - want[1]) <= Math.hypot(b.mid[0] - want[0], b.mid[1] - want[1]) ? a : b;
+  return { ...sk, eF, hdF, eN: pick.mid, hdN: pick.end, aimRad: d * RAD };
+};
+// the engine's muzzle at aim 0: the bow hand at the frame the shot is loosed on (the pivot is the bow shoulder)
+const aimAt = (clip, hit) => { const f = Math.round(hit * (clip.n - 1)), s = solve(clip.pose(f / (clip.n - 1)), BONES); return { pivot: [s.sF[0], s.sF[1]], muzzle: [s.hdF[0], s.hdF[1]] }; };
+
 const leg = (px, K, h, k, an, z, b) => {
   px.part();
   px.capsule(h[0], h[1], 2.6, k[0], k[1], 2.2, K.HOSE, z, { bias: b, floor: 1 });
@@ -85,8 +104,9 @@ const leg = (px, K, h, k, an, z, b) => {
   px.ellipse(an[0] + 1.4, an[1] + 1.1, 3.1, 1.7, K.BOOT, z + 0.03, { bias: b, floor: 1 });
 };
 
-export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
-  const K = lookOf(o.variant);
+export const draw = (px, { sk: sk0, lag1, lag2 }, o = {}) => {
+  const [vname, aimS] = (o.variant || "").split("@"), aim = Number(aimS) || 0, sk = aimed(sk0, aim);
+  const K = lookOf(vname);
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5), vy = cl(C[1] - lag1.C[1], -2, 2), sway = p.sway || 0;
   const back = (p.nb || 0) >= 0.5;                                   // the string arm behind the head (over the shoulder to the quiver)
@@ -107,7 +127,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the bow, its grip in the bow hand; bw rolls it (+ = the top toward the foe). The limbs
   // bend by how far the string hand has pulled the string off its brace.
-  const bw = p.bow ?? 0.3, cs = Math.cos(bw), sn = Math.sin(bw), H = K.H;
+  const bw = (p.bow ?? 0.3) + (sk.aimRad || 0), cs = Math.cos(bw), sn = Math.sin(bw), H = K.H;
   const R = (x, y) => [hdF[0] + x * cs - y * sn, hdF[1] + x * sn + y * cs];
   const held = (p.str || 0) > 0.5;
   const pull = held ? -((hdN[0] - hdF[0]) * cs + (hdN[1] - hdF[1]) * sn) - BRACE : 0;
@@ -178,7 +198,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   }
   if (!back) nearArm(8);
 
-  return { marks: { hand: [hdF[0], hdF[1]], nock: [nock[0], nock[1]] } };
+  return { marks: { hand: [hdF[0], hdF[1]], nock: [nock[0], nock[1]], muzzle: [hdF[0], hdF[1]] } };
 };
 
 // ---- the poses -------------------------------------------------------------------
@@ -239,6 +259,8 @@ const shot = (T, o = {}) => {
     { t: 0.933, e: "io", p: mk({ rise: 0.2, twist: 0.1 }, [9, -21], 0.45, "nock", { str: 1, arrow: 1 }) },
     { t: 1, e: "io", p: ready(0.5) },
   ];
+  // the aim weight: how much of the variant's aim each key takes (the set, the draw, the hold, the loose)
+  [0, 0.4, 1, 1, 1, 0.6].forEach((w, i) => { keys[i].p.aw = w; });
   unwrap(keys);
   return (ph) => sampleKeys(keys, ph);
 };
@@ -267,3 +289,6 @@ export const CLIPS = {
   // the war bow: the same shot aimed high, the chest lifted into it, a slower, weightier draw
   shootLong: { n: 16, ms: 1500, loop: false, lag: 0.05, hit: 0.4, pose: shot(T_LONG, { aim: -0.1, rx: 3, rise: 2, lean: -0.04 }) },
 };
+
+// the aim contract: the bow hand at the loose and the bow shoulder it turns about (art px from the feet, aim 0)
+export const AIM = aimAt(CLIPS.shoot, 0.4), AIM_LONG = aimAt(CLIPS.shootLong, 0.4);

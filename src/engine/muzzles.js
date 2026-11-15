@@ -12,7 +12,16 @@ import { mageTip } from "../render/folk-casters.js";
 import { musketMuzzle, mistressGlove } from "../render/folk-gunners.js";
 import { skiffMuzzle, SKIFF_LIFT, skiffBob } from "../render/rigs-skiff.js";
 import { archerLayout } from "./towers.js";
+import { prefs } from "../data/prefs.js";
 import { nearestOnPath, SEGS } from "./path.js";
+import { aimDeg, quantAim, rotAbout, leadPoint } from "./aim.js";
+import * as bowmanFig from "../render/pix/fig-bowman.js";
+import * as archerFig from "../render/pix/fig-archer.js";
+import * as fieldbowFig from "../render/pix/fig-fieldbow.js";
+import * as bonearcherFig from "../render/pix/fig-bonearcher.js";
+import * as crossbowFig from "../render/pix/fig-crossbow.js";
+import * as errantbowFig from "../render/pix/fig-errantbow.js";
+import * as musketeerFig from "../render/pix/fig-musketeer.js";
 export { MUSKET_LIFE } from "../render/musketfx.js";
 
 export const facing = (t) => (Math.cos(t.lastAim || 0) >= 0 ? 1 : -1);
@@ -166,3 +175,42 @@ export const flaskFrom = (t) => {
   if (t.rank4 === "a") return [t.x + 21, t.y - 5.5];
   return [t.x + (t.rank4 ? -8 : 4), t.y - 14];
 };
+
+// ---- AIMED SHOTS (art/briefs/aim-contract.md) ----------------------------------------------
+// A figure that aims exports `AIM = { pivot: [x, y], muzzle: [x, y] }` (art px from the feet, facing
+// +x, aim 0; an art pixel is half a board unit). The muzzle at any aim is rotAbout(pivot, muzzle,
+// aim), so the shot leaves exactly where the drawn bow or gun points. A figure with no AIM yet (or
+// "New sprites" off, or a sim with no screen) keeps today's muzzle tables: only the angle (for
+// the figure to turn to) and the straight line are new. The tables are read lazily, so an artist's
+// AIM export is picked up the moment it exists.
+const AIM_OF = {
+  bow: () => bowmanFig.AIM, long: () => bowmanFig.AIM_LONG, hero: () => archerFig.AIM, field: () => fieldbowFig.AIM,
+  bone: () => bonearcherFig.AIM, crossbow: () => crossbowFig.AIM, errant: () => errantbowFig.AIM,
+};
+const musketAim = (gun) => { const a = musketeerFig.AIM; return a && !a.pivot ? a[gun] || a.plain : a; };
+const aimOn = () => typeof document !== "undefined" && prefs.newSprites !== false;
+// the AIM table of a shooter: key as above, or "musket:<gun>"
+const tableOf = (key) => (key.startsWith("musket") ? musketAim(key.slice(7) || "plain") : AIM_OF[key]?.());
+
+// Plan one aimed shot. `feet` [x, y] and `f` (+1 / -1) place the figure; `key` names its AIM table;
+// `foe` is led for a shot of `speed` (or `mark`, a plain [x, y] to aim at with no lead); `old` is
+// today's muzzle (used when no table is there). Returns { mx, my, ax, ay, deg }: the muzzle the
+// shot leaves, the point it flies to, and the quantized aim the figure holds.
+export const planShot = (foe, tms, feet, f, key, old, speed, mark) => {
+  const T = aimOn() ? tableOf(key) : null;
+  const piv = T ? [feet[0] + f * T.pivot[0] / 2, feet[1] + T.pivot[1] / 2] : old;
+  const [ax, ay] = mark || leadPoint(foe, piv[0], piv[1], speed, tms);
+  const deg = quantAim(aimDeg(Math.atan2(ay - piv[1], ax - piv[0]), f));
+  if (!T) return { mx: old[0], my: old[1], ax, ay, deg };
+  const [rx, ry] = rotAbout(T.pivot, T.muzzle, deg);
+  return { mx: feet[0] + f * rx / 2, my: feet[1] + ry / 2, ax, ay, deg };
+};
+// the feet of each shooter (the same standing points the painters use)
+export const bowFeet = (t, [dx, dy]) => { const lay = archerLayout(t); return [t.x + dx, t.y - lay.h + dy + 3]; };
+export const wallFeet = (bowX, slotY) => [bowX + 2 + (Math.round(slotY / 24) % 2 ? 4 : -1), slotY + 8];
+export const bandFeet = (u) => [u.x, u.y + 9];
+export const foeFeet = (e) => [e.x, e.y + (e.size || 14) * 0.55];
+export const musketFeet = (t) => { const lvl = t.branch ? 3 : t.level; return [t.x + powderHome(t) * 6.5, t.y - 9 - lvl - 2.5]; };
+// which table a band shooter / foe archer uses
+export const bandKey = (u, hero) => (hero ? "hero" : u.rig === "errantBow" ? "errant" : u.rig === "crossbow" ? "crossbow" : "field");
+export const foeKey = (e) => (e.type === "bonearcher" ? "bone" : "crossbow");

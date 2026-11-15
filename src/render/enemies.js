@@ -155,8 +155,10 @@ export const drawEnemy = (ctx, e, time, tms) => {
       if (rsheet === "walk") { pf = def.fly ? walkByTime(skin, time, e.id) : walkByGait(skin, e.gait, e.id); if (!def.fly) ps = marchSheet(skin, e, tms); }
       else { ps = "atk"; pf = clocked ? atkFrac(skin, e.meleeCd, e.atkRate) : (time * 1.1 + e.id * 0.37) % 1; }
     }
-    drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, variant);
-    if (e.hitFlash > tms) drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, "white", 0.7);
+    // a foe archer's bow or crossbow turns to its last mark (engine: e.aimDeg, aim.js)
+    const aim = e.rangedAtk && e.aimDeg ? e.aimDeg : 0;
+    drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, variant, 1, aim);
+    if (e.hitFlash > tms) drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, "white", 0.7, aim);
   } else {
     drawSprite(ctx, sheet, pal, frame, e.x + lunge, e.y + hover, e.face < 0);
     // white flash on solid hits
@@ -499,7 +501,8 @@ export const drawBandUnit = (ctx, u, b, time) => {
   }
   // seized by a sea monster (engine/serpent.js): lifted in its coils, wriggling
   const lift = u.seizedBy ? 2.5 + Math.sin(time * 9 + u.id) * 0.8 : 0;
-  drawRig(ctx, kind, u.x, u.y + 9 - lift, u.face, psheet, frame);
+  // a bowman turns his bow to the foe he last loosed at (engine: u.aimDeg, aim.js)
+  drawRig(ctx, kind, u.x, u.y + 9 - lift, u.face, psheet, frame, "", 1, u.aimDeg || 0);
   // the huntress at the string: a short pull when she has just loosed
   if (u.healGlow > 0) { ctx.fillStyle = "rgba(150,224,150,0.5)"; ctx.fillRect(S(u.x - 4), S(u.y - 26), CELL * 4, CELL); }
   // health: the hero always shows his, a farmer only once hurt
