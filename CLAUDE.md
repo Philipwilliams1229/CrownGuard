@@ -165,6 +165,9 @@ C bold for three heroes, two figures per army and the ground. The owner picked, 
 - **Rime:** thrall **C**; berserker **C**.
 - **Ground and trees: C** (bolder), "but don't make the lanes in the road so obvious".
   The castle wall in that sheet was a stand-in: the castle gets its own concept round.
+- **The other chapters' ground** (second concept page, "Crownguard Environment Concepts: Iron,
+  Hollow, Rime"; renderers `concept/scenery-{iron,hollow,rime}.js`): **Iron B, Hollow B,
+  Rime C.** look-c.js's `turf` (Iron) and `marsh` (Hollow) dials were eased to half the push.
 The rest of each army follows its picks (Iron leans B, Hollow A-B, Rime C).
 **The whole roster is in** (2026-11-14, Sonnet artists in two waves, the lead wiring `PIX`
 and checking each group with `rigshot.html`): every hero, the crown's soldiers (garrison,

@@ -12,8 +12,10 @@ const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 
 // by groundKind (groundblend.js)
 export const LOOK_C = {
   grass: { sat: 1.38, spread: 1.4, hue: 14, dark: 0.04 },
-  turf: { sat: 1.2, spread: 1.26, hue: 8, dark: 0.015 },
-  marsh: { sat: 1.32, spread: 1.32, hue: 8 },
+  // the Iron Marches and the Hollow fen took look B (owner, 2026-11-14): half the push
+  // (their tone patches and tufts stay); the Greenwood and the Rime took C
+  turf: { sat: 1.1, spread: 1.13, hue: 4, dark: 0.008 },
+  marsh: { sat: 1.16, spread: 1.16, hue: 4 },
   snow: { sat: 1.7, spread: 1.5, hue: 0 },
   ash: { sat: 1.1, spread: 1.2, hue: 0 },
 };
