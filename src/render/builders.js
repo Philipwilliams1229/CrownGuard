@@ -31,6 +31,8 @@
 import { buildPlan, pumpCut, retirePlan } from "./buildanim.js";
 import { drawWorker, BUILDER_FOLK, drawBuilderBlock } from "./folk.js";
 import { bakeSprite, PX, hash, shadow } from "./paint.js";
+import * as builderFig from "./pix/fig-builder.js";
+import { crew, crewOn, crewRec } from "./pix/crews.js";
 import { RIVERS, PONDS, BRIDGES, bridgeLift, seaDepthAt } from "../data/terrain.js";
 
 const ROLES = ["mason", "hod", "setter"];
@@ -48,12 +50,26 @@ const cl = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 // ---- sprites ---------------------------------------------------------------
 const SPR = new Map();
+// "New sprites" on: the three are pix figures (pix/fig-builder.js), baked into the same
+// box (the art is two pixels to a unit, so the canvas is 2x where the old one is PX x)
+const BUILDER = crew("builder", builderFig);
+const clipOf = (look, pose, load) => (pose === "run" ? (look === "mason" ? "runM" : !load ? "run" : look === "hod" ? "runH" : "runS") : pose);
 // A worker's baked frame facing `dir` (a mirrored copy of the +x bake).
 export const workerSprite = (look, pose, frame, load, dir = 1) => {
-  const key = `${look}|${pose}|${frame}|${load ? 1 : 0}|${dir < 0 ? -1 : 1}`;
+  const pix = crewOn();
+  const key = `${pix ? "p" : "o"}|${look}|${pose}|${frame}|${load ? 1 : 0}|${dir < 0 ? -1 : 1}`;
   let cv = SPR.get(key);
   if (cv) return cv;
-  if (dir < 0) {
+  if (pix) {
+    // a left-facing frame is baked for the light from the right, then mirrored: the sun stays upper-left
+    const clip = clipOf(look, pose, load), n = builderFig.CLIPS[clip].n;
+    const src = crewRec(BUILDER, clip, frame % n, dir < 0, look).cv;
+    if (dir < 0) {
+      cv = document.createElement("canvas"); cv.width = src.width; cv.height = src.height;
+      const c = cv.getContext("2d");
+      c.translate(cv.width, 0); c.scale(-1, 1); c.drawImage(src, 0, 0);
+    } else cv = src;
+  } else if (dir < 0) {
     const src = workerSprite(look, pose, frame, load, 1);
     cv = document.createElement("canvas"); cv.width = src.width; cv.height = src.height;
     const c = cv.getContext("2d");
@@ -142,7 +158,11 @@ const ringCv = (front, f, wide) => bit(`rg${front ? 1 : 0}${f}${wide ? 1 : 0}`, 
   }
   if (front) { c.fillStyle = SPRAY_LO; c.fillRect(7 - rx * 0.6, 3 + ry + a, rx * 1.2, a); }   // the wet shadow under the lip
 });
-const blockCv = () => bit("blk", 8, 7, (c) => drawBuilderBlock(c, 4, 3.5), true);
+const blockCv = () => {
+  if (!crewOn()) return bit("blk", 8, 7, (c) => drawBuilderBlock(c, 4, 3.5), true);
+  return crewRec(BLOCK, "fly", 0).cv;                    // 16 x 14 art pixels, stamped at the same 8 x 7 units
+};
+const BLOCK = crew("block", builderFig.BLOCK);
 
 // ---- water on the way ------------------------------------------------------
 // how deep (x, y) is for a wader (0 on dry land) and how far a bridge's deck
@@ -416,7 +436,7 @@ const drawBuilder = (C, B) => {
     const wide = B.pose === "run" || B.pose === "land";
     stamp(ctx, ringCv(false, ring, wide), x - 7, y - 3, 14, 6);
     const keep = AY - wet;
-    ctx.drawImage(cv, 0, 0, cv.width, Math.round(keep * PX), x - AX, y + wet - AY, BW, sn(keep));
+    ctx.drawImage(cv, 0, 0, cv.width, Math.round(keep * (cv.width / BW)), x - AX, y + wet - AY, BW, sn(keep));
     stamp(ctx, ringCv(true, ring, wide), x - 7, y - 3, 14, 6);
   } else {
     if (B.shadow) {
