@@ -26,6 +26,7 @@ const LEG = {
 };
 
 export const BOX = { w: 108, h: 96, ox: 44, oy: 86 };
+export const MUST = [["axe", "sameSide", "nearHand"], ["shield", "visible", 0.4]];   // the great shield sits behind the body (z 1.5); the axe lies over it on recovery by design (the axe is nearer the viewer)
 export const BONES = scaled(HUMAN, 1.2, { shN: -3.6, shF: 3.6, hipN: -1.6, hipF: 1.8, neck: 1.4 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];

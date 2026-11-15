@@ -30,6 +30,7 @@ const LEG = {
 };
 
 export const BOX = { w: 92, h: 84, ox: 36, oy: 74 };
+export const MUST = [["axe", "sameSide", "nearHand"], ["shield", "visible", 0.4]];   // the buckler sits behind the body (z 1.5); the axe and its hand always in front
 export const BONES = scaled(HUMAN, 1.08, { shN: -3.2, shF: 3.2, hipN: -1.4, hipF: 1.6, neck: 1.5 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];

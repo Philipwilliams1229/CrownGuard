@@ -2,6 +2,7 @@
 // figure's frames to .shots/<tag>.png with no browser. ext=1 prints each clip's pixel extents
 // (for sizing a figure's BOX).
 // marks=1 prints each frame's named points (a crew figure's staff head, bow hand, muzzle: art px from the feet).
+// mod=bird-eagle loads src/render/pix/bird-eagle.js (any module there) instead of fig-<fig>.js; fig= is then unused.
 //   node scripts/concept-render.mjs fig=goblin clips=idle,walk zoom=10 frames=0,2,4 crop=x,y,w,h bg=grass flip=1 tag=cptg_x
 import zlib from "node:zlib";
 import fs from "node:fs";
@@ -9,7 +10,7 @@ const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const q = Object.fromEntries(process.argv.slice(2).map((a) => a.split("=")));
 const { Pix } = await import(ROOT + "/src/render/pix/pix.js");
 const { frameAt } = await import(ROOT + "/src/render/pix/rig.js");
-const fig = await import(`${ROOT}/src/render/pix/fig-${q.fig}.js?${Date.now()}`);
+const fig = await import(`${ROOT}/src/render/pix/${q.mod || "fig-" + q.fig}.js?${Date.now()}`);
 const clips = (q.clips || Object.keys(fig.CLIPS).join(",")).split(",");
 const Z = Number(q.zoom) || 5, bg = { grass: [0x82, 0xb2, 0x56], road: [0xc8, 0xa4, 0x6c], dark: [0x2a, 0x2e, 0x3a] }[q.bg || "grass"];
 const only = q.frames ? q.frames.split(",").map(Number) : null;

@@ -32,6 +32,7 @@ const HEAD = [
 const LEG = { M: { m: IVORY }, W: { m: IVORY, bias: 1 }, m: { m: IVORY, bias: -1 }, G: { m: GOLD, fix: 3 }, K: { m: SLIT }, c: { m: IVMAIL } };
 
 export const BOX = { w: 84, h: 72, ox: 34, oy: 62 };
+export const MUST = [["nearHand", "over", "mace"]];
 export const BONES = scaled(HUMAN, 1.02, { shN: -3.1, shF: 3.1, hipN: -1.4, hipF: 1.6, neck: 1.4 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 

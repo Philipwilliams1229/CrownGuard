@@ -6,9 +6,12 @@
 // Facing +x. Clips: `idle` (the blade carried low, the heater up), `walk` (8 frames, a heavy
 // tread), `attack` (the sword raised over the shoulder behind, shield tucked in, a hard cut
 // down through the foe, recover; `hit` is the cut going home).
-import { mat, flat } from "./pix.js";
+import { mat, flat, layers } from "./pix.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, clamp } from "./rig.js";
 
+// shield, sword, arm and pauldron, back to front (the sword always crosses the shield with its hand)
+const LAYER = layers(["shield", "device", "sword", "nearArm", "pauldron"], [], { z0: 8.4, step: 0.3 });
+export const MUST = [["sword", "sameSide", "nearHand"], ["shield", "visible", 0.4]];
 export const BONES = scaled(HUMAN, 1.28, { thigh: 10.2, shin: 9.6, ankle: 2.5, spine: 14.2, neck: 1.8, shN: -3, shF: 3.4, hipN: -1.5, hipF: 1.7 });
 export const BOX = { w: 84, h: 80, ox: 30, oy: 74 };
 const ARM = BONES.upper + BONES.fore;
@@ -103,30 +106,31 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.stamp(p.blink ? blink(HEAD) : HEAD, hx, hy, LEG, 6, { ax: 7, ay: 14, cast: 2, ball: [8, 6, 8, 7] });
   px.dot(hx + 9, hy - 6.4, BRASS, 6.1, { fix: 3 }); px.dot(hx + 9, hy - 3.6, BRASS, 6.1, { fix: 3 });   // the slot's brass studs
 
+  const ZS = LAYER(p);
   // ---- the heater shield on the far arm: oxblood field, iron rim, a boss, a brass chief, the tower
   const shc = [hdF[0] + 4.4 + (p.shx || 0), hdF[1] - 1.4 + (p.shy || 0)];
   const sx = shc[0], sy = shc[1], hw = 7.2;
   const heater = (k) => [[sx - hw * k, sy - 9 * k], [sx + hw * k, sy - 9 * k], [sx + hw * k, sy + 0.4 * k], [sx + hw * 0.55 * k, sy + 6 * k], [sx, sy + 10 * k], [sx - hw * 0.55 * k, sy + 6 * k], [sx - hw * k, sy + 0.4 * k]];
   px.part(); const hid = px._pid;
-  px.poly(heater(1), IRON, 8.5, { round: 0.7 });
-  px.poly(heater(0.84), OX, 8.52, { round: 0.8 });
+  px.poly(heater(1), IRON, ZS.shield, { round: 0.7 });
+  px.poly(heater(0.84), OX, ZS.shield + 0.02, { round: 0.8 });
   px.toneLine(sx - 2.4, sy - 7, sx - 2.4, sy + 6, -1, hid);
-  px.rect(sx - hw * 0.84, sy - 7.6, hw * 1.68, 2.4, BRASS, 8.55, { fix: 3, noLine: true });       // the chief
+  px.rect(sx - hw * 0.84, sy - 7.6, hw * 1.68, 2.4, BRASS, ZS.shield + 0.04, { fix: 3, noLine: true });       // the chief
   px.part();
-  px.rect(sx - 2.6, sy - 3.4, 5.2, 5.6, GREY, 8.6, { fix: 3 });
-  px.dot(sx - 2.6, sy - 4.4, GREY, 8.6, { fix: 3 }); px.dot(sx - 0.6, sy - 4.4, GREY, 8.6, { fix: 3 }); px.dot(sx + 1.4, sy - 4.4, GREY, 8.6, { fix: 3 });
-  px.rect(sx - 0.6, sy - 0.2, 1.2, 2.4, OXK, 8.62, { noLine: true });
-  px.part(); px.ellipse(sx, sy + 4.2, 1.5, 1.3, STEELB, 8.7, { cast: 1 });                            // the boss
-  for (const [dx, dy] of [[-5.4, -4], [5.2, -4], [-4.6, 1.4], [4.4, 1.4], [-2.6, 5.6], [2.4, 5.6]]) px.dot(sx + dx, sy + dy, STEELB, 8.7, { fix: 4 });
-  px.line(sx + 2, sy - 6.4, sx + 5, sy - 1.6, OXK, 8.66, { noLine: true });                          // the scar across the field
-  px.line(sx - 5, sy + 0.8, sx - 3, sy + 3, GREY, 8.66, { noLine: true, fix: 2 });
+  px.rect(sx - 2.6, sy - 3.4, 5.2, 5.6, GREY, ZS.device, { fix: 3 });
+  px.dot(sx - 2.6, sy - 4.4, GREY, ZS.device, { fix: 3 }); px.dot(sx - 0.6, sy - 4.4, GREY, ZS.device, { fix: 3 }); px.dot(sx + 1.4, sy - 4.4, GREY, ZS.device, { fix: 3 });
+  px.rect(sx - 0.6, sy - 0.2, 1.2, 2.4, OXK, ZS.device + 0.02, { noLine: true });
+  px.part(); px.ellipse(sx, sy + 4.2, 1.5, 1.3, STEELB, ZS.device + 0.1, { cast: 1 });                            // the boss
+  for (const [dx, dy] of [[-5.4, -4], [5.2, -4], [-4.6, 1.4], [4.4, 1.4], [-2.6, 5.6], [2.4, 5.6]]) px.dot(sx + dx, sy + dy, STEELB, ZS.device + 0.1, { fix: 4 });
+  px.line(sx + 2, sy - 6.4, sx + 5, sy - 1.6, OXK, ZS.device + 0.06, { noLine: true });                          // the scar across the field
+  px.line(sx - 5, sy + 0.8, sx - 3, sy + 3, GREY, ZS.device + 0.06, { noLine: true, fix: 2 });
   px.part(); px.ellipse(hdF[0] + 0.2, hdF[1] + 0.4, 1.9, 1.9, PLATEK, 6.8, { bias: -1 });
 
   // ---- the longsword: a leather grip, a brass pommel, a steel crossguard, a long blade
   const ha = p.ha ?? 1, hg = 4, ux = Math.sin(ha), uy = -Math.cos(ha), vxn = Math.cos(ha), vyn = Math.sin(ha);
   const Hs = [hdN[0] - ux * hg, hdN[1] - uy * hg];
   const at = (a, b) => [Hs[0] + ux * a + vxn * b, Hs[1] + uy * a + vyn * b];
-  const zs = 9.2;
+  const zs = ZS.sword;
   px.part();
   px.capsule(...at(0, 0), 1.0, ...at(hg + 1, 0), 1.0, GRIP, zs, { edge: true });
   px.ellipse(...at(-1, 0), 1.7, 1.7, BRASS, zs + 0.02);
@@ -135,15 +139,15 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.line(...at(hg + 3, 0), ...at(hg + 26, 0), IRON, zs + 0.06, { fix: 1, noLine: true });             // the fuller
   // the near arm: a plated arm, the pauldron layered and riveted on top
   px.part();
-  px.capsule(sN[0], sN[1] + 0.3, 2.6, eN[0], eN[1], 2.3, PAD, 9.4, { cast: 2 });
-  px.capsule(eN[0], eN[1], 2.3, hdN[0], hdN[1], 2.0, PLATE, 9.4, { cast: 2 });
-  px.ellipse(eN[0], eN[1], 2.2, 2.2, PLATE, 9.45, { cast: 1 });                                          // the couter
-  px.capsule(eN[0] * 0.28 + hdN[0] * 0.72, eN[1] * 0.28 + hdN[1] * 0.72, 2.2, eN[0] * 0.14 + hdN[0] * 0.86, eN[1] * 0.14 + hdN[1] * 0.86, 2.2, PLATEK, 9.47);   // the gauntlet cuff
-  px.part(); px.ellipse(hdN[0], hdN[1], 2.0, 2.0, PLATEK, 9.6);
+  px.capsule(sN[0], sN[1] + 0.3, 2.6, eN[0], eN[1], 2.3, PAD, ZS.nearArm, { cast: 2 });
+  px.capsule(eN[0], eN[1], 2.3, hdN[0], hdN[1], 2.0, PLATE, ZS.nearArm, { cast: 2 });
+  px.ellipse(eN[0], eN[1], 2.2, 2.2, PLATE, ZS.nearArm + 0.05, { cast: 1 });                                          // the couter
+  px.capsule(eN[0] * 0.28 + hdN[0] * 0.72, eN[1] * 0.28 + hdN[1] * 0.72, 2.2, eN[0] * 0.14 + hdN[0] * 0.86, eN[1] * 0.14 + hdN[1] * 0.86, 2.2, PLATEK, ZS.nearArm + 0.07);   // the gauntlet cuff
+  px.part(); px.ellipse(hdN[0], hdN[1], 2.0, 2.0, PLATEK, ZS.nearArm + 0.2);
   px.part();
-  for (const [k, dz] of [[1, 0], [0.74, 0.02]]) px.ellipse(sN[0] + 0.4, sN[1] + 0.8 + (1 - k) * 2.2, 4.6 * k, 3.9 * k, PLATE, 9.8 + dz, { cast: 1 });
-  px.line(sN[0] - 4.6, sN[1] + 1.8, sN[0] + 5, sN[1] + 1.8, BRASS, 9.85, { noLine: true });
-  px.dot(sN[0] + 0.8, sN[1] - 1.4, STEELB, 9.9, { fix: 4 }); px.dot(sN[0] - 2.4, sN[1] - 0.6, STEELB, 9.9, { fix: 4 });
+  for (const [k, dz] of [[1, 0], [0.74, 0.02]]) px.ellipse(sN[0] + 0.4, sN[1] + 0.8 + (1 - k) * 2.2, 4.6 * k, 3.9 * k, PLATE, ZS.pauldron + dz, { cast: 1 });
+  px.line(sN[0] - 4.6, sN[1] + 1.8, sN[0] + 5, sN[1] + 1.8, BRASS, ZS.pauldron + 0.05, { noLine: true });
+  px.dot(sN[0] + 0.8, sN[1] - 1.4, STEELB, ZS.pauldron + 0.1, { fix: 4 }); px.dot(sN[0] - 2.4, sN[1] - 0.6, STEELB, ZS.pauldron + 0.1, { fix: 4 });
   return { H: { at }, hg };
 };
 

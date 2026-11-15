@@ -8,7 +8,7 @@
 // behind it, and in the thrust the shield drops so the shaft passes over its rim.
 // Clips: `idle` (planted spear), `walk` (8 frames, spear carried), `attack` (shield drops, the
 // spear drawn back level and driven home; `hit` is the point going home).
-import { mat, flat } from "./pix.js";
+import { mat, flat, layers } from "./pix.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, lerp, clamp } from "./rig.js";
 
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.8, shin: 9.2, ankle: 2.4, spine: 13.6, neck: 1.8, shN: -2.6, shF: 3, hipN: -1.4, hipF: 1.6 });
@@ -44,6 +44,13 @@ const LEG = {
   b: { m: BROW, fix: 1 }, E: { m: EYE }, e: { m: SKIN, fix: 0 }, l: { m: LIP }, z: { m: SKIN, fix: 0 }, T: { m: LEATHER },
 };
 
+// The shield, the spear and the near arm, back to front. The spear and its hand are ONE
+// layer group: the shaft, head, pennon, arm and fist always cross the shield together (the old
+// `over` flip put the shaft behind the shield while its hand and head were in front, and hid the
+// carried spear in the walk). The shield is the far arm's, held back of the near hand's grip.
+// `over` (the thrust) still lets the group lift a half step more, clear of the shield's rivets.
+const LAYER = layers(["shield", "device", "spear", "nearArm"], [], { z0: 8.4, step: 0.3 });
+export const MUST = [["shaft", "sameSide", "nearHand"], ["shield", "visible", 0.4]];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const unit = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
 const leg = (px, h, k, an, z, b, c) => {
@@ -118,27 +125,28 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   if (B) { px.dot(hx + 2, hy - 10.6, BRASS, 6.1, { fix: 3 }); px.dot(hx + 3, hy - 8, STEELB, 6.1, { fix: 4 }); }   // the hat's rivets
   if (Cc) { px.part(); px.line(hx + 1.4, hy - 11.2, hx + 1.4, hy - 6.4, IRONK, 6.2, { noLine: true }); }
 
+  const ZS = LAYER(p);
   // ---- the shield, held up before him on the far arm, over the near arm and the shaft
   const sc = [hdF[0] + 3.7, hdF[1] - 1.2 + (p.shy || 0)];
   px.part(); const sid = px._pid;
   {
     const rx = 7.4, ry = 9;
-    px.ellipse(sc[0], sc[1], rx, ry, IRON, 8.5, { round: 0.7 });
-    px.ellipse(sc[0], sc[1], rx - 1.2, ry - 1.2, OX, 8.52, { round: 0.8 });
+    px.ellipse(sc[0], sc[1], rx, ry, IRON, ZS.shield, { round: 0.7 });
+    px.ellipse(sc[0], sc[1], rx - 1.2, ry - 1.2, OX, ZS.shield + 0.02, { round: 0.8 });
     px.toneLine(sc[0] - 1.6, sc[1] - ry + 1, sc[0] - 2, sc[1] + ry - 1, -1, sid);
     // the tower: a squat keep with its battlements
     px.part();
     const tx = sc[0] - 2.6, ty = sc[1] - 4.6;
-    px.rect(tx, ty + 1.6, 5.2, 6, GREY, 8.6, { fix: 3 });
-    px.dot(tx, ty + 0.6, GREY, 8.6, { fix: 3 }); px.dot(tx + 2, ty + 0.6, GREY, 8.6, { fix: 3 }); px.dot(tx + 4, ty + 0.6, GREY, 8.6, { fix: 3 });
-    px.rect(tx + 2, ty + 5, 1.2, 2.6, OXK, 8.62, { noLine: true });
-    px.part(); px.ellipse(sc[0], sc[1] + 6, 1.6, 1.4, STEELB, 8.7, { cast: 1 });
+    px.rect(tx, ty + 1.6, 5.2, 6, GREY, ZS.device, { fix: 3 });
+    px.dot(tx, ty + 0.6, GREY, ZS.device, { fix: 3 }); px.dot(tx + 2, ty + 0.6, GREY, ZS.device, { fix: 3 }); px.dot(tx + 4, ty + 0.6, GREY, ZS.device, { fix: 3 });
+    px.rect(tx + 2, ty + 5, 1.2, 2.6, OXK, ZS.device + 0.02, { noLine: true });
+    px.part(); px.ellipse(sc[0], sc[1] + 6, 1.6, 1.4, STEELB, ZS.device + 0.1, { cast: 1 });
     if (B) {
       // rivets round the rim, a scar across the field and a dent in the rim
-      for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 + 0.3; px.dot(sc[0] + Math.cos(a) * (rx - 0.5), sc[1] + Math.sin(a) * (ry - 0.5), STEELB, 8.7, { fix: 4 }); }
-      px.line(sc[0] + 1, sc[1] - 6, sc[0] + 4.4, sc[1] - 1.6, OXK, 8.65, { noLine: true });
-      px.line(sc[0] - 5, sc[1] + 3, sc[0] - 2.6, sc[1] + 5.6, GREY, 8.65, { noLine: true, fix: 2 });
-      px.dot(sc[0] + 5.6, sc[1] + 2.4, IRONK, 8.7, { fix: 0 });
+      for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 + 0.3; px.dot(sc[0] + Math.cos(a) * (rx - 0.5), sc[1] + Math.sin(a) * (ry - 0.5), STEELB, ZS.device + 0.1, { fix: 4 }); }
+      px.line(sc[0] + 1, sc[1] - 6, sc[0] + 4.4, sc[1] - 1.6, OXK, ZS.device + 0.05, { noLine: true });
+      px.line(sc[0] - 5, sc[1] + 3, sc[0] - 2.6, sc[1] + 5.6, GREY, ZS.device + 0.05, { noLine: true, fix: 2 });
+      px.dot(sc[0] + 5.6, sc[1] + 2.4, IRONK, ZS.device + 0.1, { fix: 0 });
     }
   }
   // the far hand's grip at the shield's rim
@@ -149,7 +157,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   const butt = [hdN[0] - u[0] * hg, hdN[1] - u[1] * hg], top = [butt[0] + u[0] * LONG, butt[1] + u[1] * LONG];
   const at = (a, b) => [top[0] + u[0] * a + v[0] * b, top[1] + u[1] * a + v[1] * b];
   px.part();
-  const ov = (p.over || 0) > 0.5, zs = ov ? 8.6 : 7;
+  const zs = ZS.spear;
   px.capsule(butt[0], butt[1], 0.95, top[0], top[1], 0.95, WOOD, zs, { edge: true });
   px.capsule(butt[0], butt[1], 1.1, butt[0] + u[0] * 1.8, butt[1] + u[1] * 1.8, 1.1, IRON, zs + 0.01);
   px.part();
@@ -166,7 +174,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   }
 
   // the near arm: under the shield, over it while the shaft is out over the rim
-  const zn = ov ? 8.9 : 8;
+  const zn = ZS.nearArm;
   px.part();
   px.capsule(sN[0], sN[1] + 0.3, 2.3, eN[0], eN[1], 2.1, PAD, zn, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.1, hdN[0], hdN[1], 1.8, PAD, zn, { cast: 2 });

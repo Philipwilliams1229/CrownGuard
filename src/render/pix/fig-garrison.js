@@ -43,6 +43,7 @@ const LEG = {
 };
 
 export const BOX = { w: 84, h: 72, ox: 34, oy: 62 };
+export const MUST = [["shield", "visible", 0.4], ["nearHand", "over", "sword"]];   // the shield is the far arm's, behind the tabard (z 3.5); the sword flips behind the body only while hauled back (nb)
 export const BONES = scaled(HUMAN, 1.0, { shN: -3, shF: 3, hipN: -1.3, hipF: 1.5, neck: 1.4 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 

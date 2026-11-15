@@ -10,7 +10,7 @@
 // holds him there for `dropStun`), walk (a slow plated march, sword carried up), attack (a
 // short back-step, the blade hauled behind the shoulder, a heavy cut down across, recover;
 // `hit` is the blade coming through).
-import { mat, flat } from "./pix.js";
+import { mat, flat, layers } from "./pix.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, clamp } from "./rig.js";
 
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.6, shin: 9.2, ankle: 2.4, spine: 13.4, neck: 1.8, shN: -2.8, shF: 3.2, hipN: -1.5, hipF: 1.7 });
@@ -51,6 +51,11 @@ const LEG = {
 
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+// shield, sword and near arm, back to front. The sword and its hand are ONE group that always
+// crosses the shield together (the old `over` flip left the blade behind the rim while the hand
+// was in front of it).
+const LAYER = layers(["shield", "device", "sword", "nearArm"], [], { z0: 8.4, step: 0.3 });
+export const MUST = [["sword", "sameSide", "nearHand"], ["shield", "visible", 0.4]];
 const axes = (ha) => ({ u: [Math.sin(ha), -Math.cos(ha)], v: [Math.cos(ha), Math.sin(ha)] });
 
 // the leg in plate: a cuisse, a knee cop, a greave, a sabaton
@@ -128,25 +133,26 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.stamp(p.blink ? blink(SALLET) : (p.dazed ?? 0) > 0.5 ? DAZED : SALLET, hx, hy, LEG, 6, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] });
   px.dot(hx + 2, hy - 10.6, BRASS, 6.1, { fix: 3 });                      // a rivet
 
+  const ZS = LAYER(p);
   // ---- the heater shield on the far arm, held up before him: an iron rim, an oxblood field
   const sc = [hdF[0] + 3.2, hdF[1] - 1.6 + (p.shy || 0)], sw = 5.6;
   px.part(); const sid = px._pid;
   const S = (x, y) => [sc[0] + x, sc[1] + y];
-  px.poly([S(-sw, -7), S(sw, -7), S(sw + 0.4, 0.8), S(0, 9), S(-sw - 0.4, 0.8)], IRON, 8.5, { round: 0.6, cast: 2 });
-  px.poly([S(-sw + 1.2, -5.8), S(sw - 1.2, -5.8), S(sw - 1, 0.4), S(0, 7.2), S(-sw + 1, 0.4)], OX, 8.52, { round: 0.7, cast: 0 });
+  px.poly([S(-sw, -7), S(sw, -7), S(sw + 0.4, 0.8), S(0, 9), S(-sw - 0.4, 0.8)], IRON, ZS.shield, { round: 0.6, cast: 2 });
+  px.poly([S(-sw + 1.2, -5.8), S(sw - 1.2, -5.8), S(sw - 1, 0.4), S(0, 7.2), S(-sw + 1, 0.4)], OX, ZS.shield + 0.02, { round: 0.7, cast: 0 });
   px.toneLine(...S(-1.8, -5.6), ...S(-1.6, 5.6), -1, sid);
   px.part();
-  px.rect(sc[0] - 2.2, sc[1] - 3.6, 4.4, 5, GREY, 8.6, { fix: 3 });                // the tower
-  px.dot(sc[0] - 2.2, sc[1] - 4.6, GREY, 8.6, { fix: 3 }); px.dot(sc[0], sc[1] - 4.6, GREY, 8.6, { fix: 3 }); px.dot(sc[0] + 2, sc[1] - 4.6, GREY, 8.6, { fix: 3 });
-  px.rect(sc[0] - 0.6, sc[1] - 1.2, 1.2, 2.4, OXK, 8.62, { noLine: true });
-  px.line(sc[0] + 1.6, sc[1] - 6, sc[0] + 4.2, sc[1] - 1.4, OXK, 8.65, { noLine: true });   // the dent from the fall
-  for (const [x, y] of [[-4.6, -6], [4.6, -6], [-5, 0.4], [5, 0.4]]) px.dot(sc[0] + x, sc[1] + y, STEELB, 8.7, { fix: 4 });
+  px.rect(sc[0] - 2.2, sc[1] - 3.6, 4.4, 5, GREY, ZS.device, { fix: 3 });                // the tower
+  px.dot(sc[0] - 2.2, sc[1] - 4.6, GREY, ZS.device, { fix: 3 }); px.dot(sc[0], sc[1] - 4.6, GREY, ZS.device, { fix: 3 }); px.dot(sc[0] + 2, sc[1] - 4.6, GREY, ZS.device, { fix: 3 });
+  px.rect(sc[0] - 0.6, sc[1] - 1.2, 1.2, 2.4, OXK, ZS.device + 0.02, { noLine: true });
+  px.line(sc[0] + 1.6, sc[1] - 6, sc[0] + 4.2, sc[1] - 1.4, OXK, ZS.device + 0.05, { noLine: true });   // the dent from the fall
+  for (const [x, y] of [[-4.6, -6], [4.6, -6], [-5, 0.4], [5, 0.4]]) px.dot(sc[0] + x, sc[1] + y, STEELB, ZS.device + 0.1, { fix: 4 });
   px.part(); px.ellipse(hdF[0] + 0.2, hdF[1] + 0.4, 1.7, 1.7, IRON, 6.8, { bias: -1 });
 
   // ---- the arming sword: a straight steel blade, a brass cross, a wheel pommel; the near hand on the grip
   const ha = p.ha ?? 0, { u, v } = axes(ha);
   const at = (a, b = 0) => [hdN[0] + u[0] * a + v[0] * b, hdN[1] + u[1] * a + v[1] * b];
-  const z = (p.over ?? 0) > 0.5 ? 8.6 : 7;
+  const z = ZS.sword;
   px.part();
   px.capsule(...at(-3), 0.9, ...at(0.4), 0.9, LEATHER, z, {});
   px.dot(...at(-3.6), BRASS, z + 0.02, { fix: 3 });
@@ -156,7 +162,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.line(...at(4, 0.2), ...at(22, 0.2), IRON, z + 0.07, { fix: 1, noLine: true });
 
   // the near arm in plate, over the shield while the sword is out over its rim
-  const zn = z > 8 ? 8.9 : 8;
+  const zn = ZS.nearArm;
   px.part();
   px.capsule(sN[0], sN[1] + 0.3, 2.5, eN[0], eN[1], 2.2, IRON, zn, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.2, hdN[0], hdN[1], 1.8, IRON, zn, { cast: 2 });
