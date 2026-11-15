@@ -758,7 +758,13 @@ Bring these up with the owner; don't act on them unasked.
   ends with a box that plays it). **Hero swings (2026-11-15, four rounds, then the owner:
   "ALDRIC IS PERFECT ... Same for Osric"):** Aldric's and Osric's attacks are APPROVED as of
   commit 2ee808b (near arm never behind the head, weapon locked to the hand; style guide,
-  "Arms and the head"). Hale's attack is being redone as a sweep, not a chop (Fable plans).
+  "Arms and the head"). Hale's attack is a rising sweep (owner: "a lot better ... leave it for
+  now"). The same rules were then applied across the armies (`art/briefs/arms-weapons-sweep.md`,
+  five Sonnet artists by army, 2026-11-15), NOT yet seen by the owner. Left: the frost giant's
+  dragged club (a fixed grip can't both drag it and chop), the levy's spear and the cavalier /
+  gryphon lances (couched poles, still free), the shaman's swat (wrist widened), the troll's
+  wind-up arm covers most of his face. The audit's `eyes` rule only bites on figures whose head
+  goes through `stampFace` (heroes, crown, Iron); on the others it reports "rules checked none".
   **Old-style sweep (2026-11-15):** `art/briefs/old-style-sweep.md` lists what still drew
   old; `art/briefs/props-artist.md` is the brief. Done that day: every decor piece's ring
   is the tinted one-pixel line (scenery.js decorSprite, `tintRing` in scenery-gwpix.js;
