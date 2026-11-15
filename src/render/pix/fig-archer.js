@@ -5,6 +5,7 @@
 // the near one. Clips: idle, walk, attack (raise and draw,
 // hold, loose, the string hand flying back, reach for the next arrow).
 import { mat, flat } from "./pix.js";
+import { bowZ, stampFace, drawLimbs } from "./bowlayers.js";
 import { walkPose, sampleKeys, ik, solve, HUMAN, scaled } from "./rig.js";
 
 const RANGER = mat("#3d7448"), TUNIC = mat("#5a8c44"), CLOAK = mat("#335a30"), SKIN = mat("#eccaa4"), HAIR = mat("#b5623a");
@@ -61,106 +62,114 @@ const aimed = (sk, deg) => {
 // the engine's muzzle at aim 0: the bow hand at the frame the shot is loosed on (the pivot is the bow shoulder)
 const aimAt = (clip, hit) => { const f = Math.round(hit * (clip.n - 1)), s = solve(clip.pose(f / (clip.n - 1)), BONES); return { pivot: [s.sF[0], s.sF[1]], muzzle: [s.hdF[0], s.hdF[1]] }; };
 
+// a leg: ONE welded tube (thigh, knee, shin share radii), the boot a wrapped colour change, then the foot
 const leg = (px, h, k, an, z, b) => {
-  px.part();
-  px.capsule(h[0], h[1], 2.2, k[0], k[1], 1.9, LEG_C, z, { bias: b });
-  px.capsule(k[0], k[1], 1.8, an[0], an[1] - 2.5, 1.6, LEG_C, z, { bias: b });
-  px.capsule(k[0] * 0.25 + an[0] * 0.75, k[1] * 0.25 + an[1] * 0.75, 1.9, an[0], an[1], 1.7, BOOT, z + 0.02, { bias: b });
-  px.ellipse(an[0] + 1.2, an[1] + 0.9, 2.6, 1.4, BOOT, z + 0.03, { bias: b });
+  px.limb([h, k, an], [2.2, 1.85, 1.65], LEG_C, z, { bias: b, weld: 2, weldRoot: 4 });
+  px.capsule(k[0] * 0.25 + an[0] * 0.75, k[1] * 0.25 + an[1] * 0.75, 1.6, an[0], an[1], 1.5, BOOT, z + 0.01, { bias: b, wrap: true });
+  px.ellipse(an[0] + 1.2, an[1] + 0.9, 2.6, 1.4, BOOT, z + 0.03, { bias: b, weld: 1.5 });
+};
+// an arm: one sleeve tube, the forearm's cuff and bracer wrapped on it (a colour change, not a second lit shape)
+const arm = (px, sh, e, hd, z, o, cuff, bracer, r) => {
+  px.limb([sh, e, hd], [r[0], r[1], r[2]], TUNIC, z, o);
+  px.capsule(e[0], e[1], r[1] - 0.1, hd[0], hd[1], r[2] - 0.1, SHIRT, z + 0.01, { ...o, weld: 0, weldRoot: 0, wrap: true });
+  px.capsule(e[0] * 0.5 + hd[0] * 0.5, e[1] * 0.5 + hd[1] * 0.5, r[1] - 0.15, e[0] * 0.15 + hd[0] * 0.85, e[1] * 0.15 + hd[1] * 0.85, r[2] - 0.05, LEATHER, z + 0.02, { ...o, weld: 0, weldRoot: 0, wrap: true });
 };
 
 export const draw = (px, { sk: sk0, lag1, lag2 }, o = {}) => {
-  const sk = aimed(sk0, Number((o.variant || "").split("@")[1]) || 0);
+  const aimDeg = Number((o.variant || "").split("@")[1]) || 0, sk = aimed(sk0, aimDeg);
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5), sway = p.sway || 0;
+  const Z = bowZ(p, (sk.aimRad || 0) / RAD);                 // the shared layer order for this pose and aim (bowlayers.js)
 
   // the cloak down her back, its tail a beat behind
   const t1 = -vx * 1.5 + sway * 0.5, t2 = -vx * 2.2 - vx2 * 1.6 + sway;
-  px.part();
+  px.tag("deep"); px.part();
   px.poly([[C[0] - 3.2, C[1] - 1.8], [C[0] + 1.6, C[1] - 1.8], [P[0] - 0.6, P[1] + 2], [P[0] - 2.6 + t2 * 0.6, -9.4], [P[0] - 4.6 + t2, -11.4], [P[0] - 6.8 + t2, -9],
-    [P[0] - 6.6 + t1, P[1] + 1], [C[0] - 5.4, C[1] + 3.5]], CLOAK, 0.5, { round: 0.85 });
+    [P[0] - 6.6 + t1, P[1] + 1], [C[0] - 5.4, C[1] + 3.5]], CLOAK, Z.deep, { round: 0.85 });
   px.toneLine(C[0] - 4.2, C[1] + 4, P[0] - 5.2 + t2 * 0.8, -11.5, -1, px._pid);
   // the quiver on her back, three fletchings standing out of it
   const q0 = [C[0] - 2.6, C[1] + 7], q1 = [C[0] - 6, C[1] - 2.4];
+  px.tag("quiver"); px.part();
+  px.capsule(q0[0], q0[1], 1.9, q1[0], q1[1], 1.9, LEATHER, Z.quiver);
+  px.line(q1[0] - 1.6, q1[1] + 0.8, q1[0] + 1.6, q1[1] - 0.4, GOLD, Z.quiver + 0.02);
   px.part();
-  px.capsule(q0[0], q0[1], 1.9, q1[0], q1[1], 1.9, LEATHER, 0.8);
-  px.line(q1[0] - 1.6, q1[1] + 0.8, q1[0] + 1.6, q1[1] - 0.4, GOLD, 0.82);
-  px.part();
-  for (const [dx, m] of [[-0.9, FLETCH], [1.1, FLETCH]]) px.capsule(q1[0] + dx - 0.4, q1[1] - 1.6, 0.8, q1[0] + dx - 1.2, q1[1] - 4, 0.7, m, 0.78);
+  for (const [dx, m] of [[-0.9, FLETCH], [1.1, FLETCH]]) px.capsule(q1[0] + dx - 0.4, q1[1] - 1.6, 0.8, q1[0] + dx - 1.2, q1[1] - 4, 0.7, m, Z.quiver - 0.02);
 
+  // ONE BODY (joint kit): arms, legs, tunic, mantle and head share a part id, so none shadows or edges another
   // the far arm (the bow arm), a tone down
-  px.part();
-  px.capsule(sF[0], sF[1], 1.9, eF[0], eF[1], 1.8, TUNIC, 1, { bias: -1 });
-  px.capsule(eF[0], eF[1], 1.8, hdF[0], hdF[1], 1.6, SHIRT, 1, { bias: -1 });
-  px.capsule(eF[0] * 0.45 + hdF[0] * 0.55, eF[1] * 0.45 + hdF[1] * 0.55, 1.8, eF[0] * 0.15 + hdF[0] * 0.85, eF[1] * 0.15 + hdF[1] * 0.85, 1.7, LEATHER, 1.02, { bias: -1 });
+  px.tag("farArm"); px.body(1);
+  arm(px, sF, eF, hdF, Z.farArm, { bias: -1, weld: 0 }, SHIRT, LEATHER, [1.9, 1.8, 1.6]);
+  px.body(0);
 
-  // the bow: two limbs sprung from the grip; bw tilts it (+ top toward the foe)
+  // the bow: two limbs sprung from the grip (bowlayers' drawLimbs, each limb its own tagged layer); bw tilts it
   const bw = (p.bow ?? 0.25) + (sk.aimRad || 0), dr = p.draw || 0, cs = Math.cos(bw), sn = Math.sin(bw);
   const R = (x, y) => [hdF[0] + x * cs - y * sn, hdF[1] + x * sn + y * cs];
   const flex = dr * 1.6;                                   // drawn, the tips come back
   const top = R(-2.6 - flex, -12.5 + flex * 0.4), bot = R(-2.6 - flex, 12.5 - flex * 0.4);
-  px.part();
-  px.capsule(...R(0.3, -1.6), 1.05, ...R(0.9, -6.5), 0.95, BOW, 1.4, { edge: true }); px.capsule(...R(0.9, -6.5), 0.95, ...top, 0.6, BOW, 1.4, { edge: true });
-  px.capsule(...R(0.3, 1.6), 1.05, ...R(0.9, 6.5), 0.95, BOW, 1.4, { edge: true }); px.capsule(...R(0.9, 6.5), 0.95, ...bot, 0.6, BOW, 1.4, { edge: true });
-  px.capsule(...R(0.3, -1.8), 1.2, ...R(0.3, 1.8), 1.2, LEATHER, 1.42);
-  px.part(); px.ellipse(hdF[0], hdF[1], 1.6, 1.7, SKIN, 1.6, { bias: -1 });
+  drawLimbs(px, R, { g: 1.6, rg: 1.05, mid: [0.9, 6.5], rm: 0.95, tip: [-2.6 - flex, 12.5 - flex * 0.4], rt: 0.6, gripR: 1.2, gripHalf: 1.8 }, BOW, LEATHER, Z);
+  px.tag("farHand"); px.part(); px.ellipse(hdF[0], hdF[1], 1.6, 1.7, SKIN, Z.farHand, { bias: -1 });
 
   // legs, then the tunic: belted, skirted to mid-thigh
-  leg(px, hF, kF, anF, 2, -1);
-  leg(px, hN, kN, anN, 3, 0);
+  px.tag("legFar"); px.body(1); leg(px, hF, kF, anF, Z.legFar, -1); px.body(0);
+  px.tag("legNear"); px.body(1); leg(px, hN, kN, anN, Z.legNear, 0); px.body(0);
   const hemB = P[0] - 5.2 - vx * 1.1, hemF = P[0] + 5 - vx * 0.7, hy = P[1] + 2.8;
-  px.part(); const tun = px._pid;
-  px.poly([[C[0] - 4, C[1] - 1.8], [C[0] + 4.2, C[1] - 1.8], [C[0] + 5, C[1] + 3], [P[0] + 3.9, P[1] - 3], [hemF, hy], [hemF - 2.6, hy + 0.9], [P[0] - vx, hy], [hemB + 2.4, hy + 0.9], [hemB, hy], [P[0] - 4.2, P[1] - 3], [C[0] - 5, C[1] + 3]], TUNIC, 4, { round: 0.92, cast: 2 });
+  px.tag("torso"); const tun = px.body(1);
+  px.poly([[C[0] - 4, C[1] - 1.8], [C[0] + 4.2, C[1] - 1.8], [C[0] + 5, C[1] + 3], [P[0] + 3.9, P[1] - 3], [hemF, hy], [hemF - 2.6, hy + 0.9], [P[0] - vx, hy], [hemB + 2.4, hy + 0.9], [hemB, hy], [P[0] - 4.2, P[1] - 3], [C[0] - 5, C[1] + 3]], TUNIC, Z.torso, { round: 0.92 });
   px.toneLine(P[0] + 0.8, P[1] - 0.5, P[0] + 0.6 - vx, hy - 0.5, -1, tun);
-  px.poly([[P[0] - 4.3, P[1] - 4.4], [P[0] + 4, P[1] - 4.4], [P[0] + 4, P[1] - 2.6], [P[0] - 4.3, P[1] - 2.6]], LEATHER, 4.05, { round: 0.92 });
-  px.rect(P[0] + 1, P[1] - 4.4, 2, 2, GOLD, 4.06, { fix: 3 });
+  px.poly([[P[0] - 4.3, P[1] - 4.4], [P[0] + 4, P[1] - 4.4], [P[0] + 4, P[1] - 2.6], [P[0] - 4.3, P[1] - 2.6]], LEATHER, Z.torso + 0.05, { round: 0.92 });
+  px.rect(P[0] + 1, P[1] - 4.4, 2, 2, GOLD, Z.torso + 0.06, { fix: 3 });
   // the quiver's strap across the chest
   px.toneLine(C[0] - 3.4, C[1] - 0.6, P[0] + 3, P[1] - 5, -1, tun);
 
   // the mantle: a short green cape over both shoulders, to a point on the chest with a gold pin
   const hx = Math.round(N[0]), hyy = Math.round(N[1]), tp = cl(vx * 2 + vx2 * 1.4, -2, 3) - sway * 0.4;
-  px.part();
-  px.poly([[C[0] - 5.4, C[1] - 2.6], [C[0] + 5.2, C[1] - 2.6], [C[0] + 6.2, C[1] + 1.4], [C[0] + 3.4, C[1] + 3.2], [C[0] + 0.6 - vx * 0.5, C[1] + 4.6], [C[0] - 2.6, C[1] + 3], [C[0] - 6.4, C[1] + 1.8]], RANGER, 5, { round: 0.9, cast: 1 });
-  px.line(C[0] + 0.6 - vx * 0.5, C[1] + 2.4, C[0] + 0.6 - vx * 0.5, C[1] + 2.4, GOLD, 5.02, { fix: 3 });
+  px.tag("cape");
+  px.poly([[C[0] - 5.4, C[1] - 2.6], [C[0] + 5.2, C[1] - 2.6], [C[0] + 6.2, C[1] + 1.4], [C[0] + 3.4, C[1] + 3.2], [C[0] + 0.6 - vx * 0.5, C[1] + 4.6], [C[0] - 2.6, C[1] + 3], [C[0] - 6.4, C[1] + 1.8]], RANGER, Z.cape, { round: 0.9 });
+  px.line(C[0] + 0.6 - vx * 0.5, C[1] + 2.4, C[0] + 0.6 - vx * 0.5, C[1] + 2.4, GOLD, Z.cape + 0.02, { fix: 3 });
+  px.body(0);
   // the ponytail, tied with gold, swinging a beat behind
-  px.part();
-  px.capsule(hx - 4.8, hyy - 6.4, 1.8, hx - 7.8 - tp * 0.7, hyy - 3.6, 1.5, HAIR, 5.9);
-  px.capsule(hx - 7.8 - tp * 0.7, hyy - 3.6, 1.5, hx - 8.8 - tp, hyy + 1.8, 0.7, HAIR, 5.9);
-  // her head
-  px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hyy, LEG, 6, { ax: 7, ay: 10, cast: 2 });
-  px.dot(hx - 5.4, hyy - 5.6, GOLD, 6.02, { fix: 3 });
+  px.tag("hoodTail"); px.part();
+  px.capsule(hx - 4.8, hyy - 6.4, 1.8, hx - 7.8 - tp * 0.7, hyy - 3.6, 1.5, HAIR, Z.hoodTail);
+  px.capsule(hx - 7.8 - tp * 0.7, hyy - 3.6, 1.5, hx - 8.8 - tp, hyy + 1.8, 0.7, HAIR, Z.hoodTail);
+  // her head (the face above the string, arrow and bow: nothing of the weapon crosses it)
+  px.tag("head"); px.body(1);
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.hood, Z.face, { ax: 7, ay: 10, cast: 0 }, "SsNeEm", "E", Math.max(Z.face, Z.nearArm, Z.nearHand) + 0.75);
+  px.tag("hood"); px.dot(hx - 5.4, hyy - 5.6, GOLD, Z.hood + 0.02, { fix: 3 });
+  px.body(0);
   // the hunting cap: a feather raked back (it trails a beat behind), the crown, a long brim to a point over her brow
   px.part();
-  px.capsule(hx - 1.6, hyy - 10.6, 0.9, hx - 5 - tp * 0.5, hyy - 13.8, 0.9, FLETCH, 6.35);
-  px.capsule(hx - 5 - tp * 0.5, hyy - 13.8, 0.9, hx - 7.4 - tp, hyy - 15, 0.6, FLETCH_R, 6.35);
+  px.capsule(hx - 1.6, hyy - 10.6, 0.9, hx - 5 - tp * 0.5, hyy - 13.8, 0.9, FLETCH, Z.hood + 0.35);
+  px.capsule(hx - 5 - tp * 0.5, hyy - 13.8, 0.9, hx - 7.4 - tp, hyy - 15, 0.6, FLETCH_R, Z.hood + 0.35);
   px.part();
-  px.poly([[hx - 4.6, hyy - 8.4], [hx + 5.2, hyy - 8.4], [hx + 2.6, hyy - 12.6], [hx - 3.4, hyy - 12]], RANGER, 6.4, { round: 0.9 });
+  px.poly([[hx - 4.6, hyy - 8.4], [hx + 5.2, hyy - 8.4], [hx + 2.6, hyy - 12.6], [hx - 3.4, hyy - 12]], RANGER, Z.hood + 0.4, { round: 0.9 });
   px.part();
-  px.poly([[hx - 5.6, hyy - 7.2], [hx + 9.2, hyy - 7], [hx + 4.8, hyy - 9.4], [hx - 5.2, hyy - 9.6]], RANGER, 6.5, { round: 0.6, bias: -1, cast: 2 });
+  px.poly([[hx - 5.6, hyy - 7.2], [hx + 9.2, hyy - 7], [hx + 4.8, hyy - 9.4], [hx - 5.2, hyy - 9.6]], RANGER, Z.hood + 0.5, { round: 0.6, bias: -1, cast: 2 });
 
   // the string (through the near fingers once she draws) and the arrow on it
   const nock = dr > 0.12 ? hdN : null;
-  if (nock) { px.part(); px.line(top[0], top[1], nock[0], nock[1], STRING, 7.5, { noLine: true }); px.line(nock[0], nock[1], bot[0], bot[1], STRING, 7.5, { noLine: true }); }
-  else { px.part(); px.line(top[0], top[1], bot[0], bot[1], STRING, 1.3, { noLine: true }); }
+  px.tag("string"); px.part();
+  if (nock) { px.line(top[0], top[1], nock[0], nock[1], STRING, Z.string, { noLine: true }); px.line(nock[0], nock[1], bot[0], bot[1], STRING, Z.string, { noLine: true }); }
+  else px.line(top[0], top[1], bot[0], bot[1], STRING, Math.min(Z.bowUpper, Z.bowLower) - 0.5, { noLine: true });
   if (p.arrow > 0.5) {
     // the shaft lies from the nock across the bow hand
     const a0 = nock || R(-2.6, 0), ar = sk.aimRad || 0, ax = hdF[0] + 0.6 * Math.cos(ar) + 0.8 * Math.sin(ar) - a0[0], ay = hdF[1] + 0.6 * Math.sin(ar) - 0.8 * Math.cos(ar) - a0[1], l = Math.hypot(ax, ay) || 1, ux = ax / l, uy = ay / l, L = Math.max(l + 3.5, 15);
-    px.part();
-    px.line(a0[0], a0[1], a0[0] + ux * L, a0[1] + uy * L, BOW, 7.6, { fix: 3 });
-    px.capsule(a0[0] + ux * L, a0[1] + uy * L, 0.9, a0[0] + ux * (L + 2.2), a0[1] + uy * (L + 2.2), 0.4, STEEL, 7.62);
-    px.capsule(a0[0] + ux * 0.6, a0[1] + uy * 0.6 - 0.6, 0.9, a0[0] + ux * 2.8, a0[1] + uy * 2.8 - 0.6, 0.7, FLETCH, 7.62);
+    px.tag("arrow"); px.part();
+    px.line(a0[0], a0[1], a0[0] + ux * L, a0[1] + uy * L, BOW, Z.arrow, { fix: 3 });
+    px.capsule(a0[0] + ux * L, a0[1] + uy * L, 0.9, a0[0] + ux * (L + 2.2), a0[1] + uy * (L + 2.2), 0.4, STEEL, Z.arrow + 0.02);
+    px.capsule(a0[0] + ux * 0.6, a0[1] + uy * 0.6 - 0.6, 0.9, a0[0] + ux * 2.8, a0[1] + uy * 2.8 - 0.6, 0.7, FLETCH, Z.arrow + 0.02);
   }
 
   // the near arm: a rolled green sleeve, a pale shirt cuff, a leather bracer
-  px.part();
-  px.capsule(sN[0], sN[1] + 0.3, 2.1, eN[0], eN[1], 1.9, TUNIC, 8, { cast: 2 });
-  px.capsule(eN[0], eN[1], 1.9, hdN[0], hdN[1], 1.6, SHIRT, 8, { cast: 2 });
-  px.capsule(eN[0] * 0.5 + hdN[0] * 0.5, eN[1] * 0.5 + hdN[1] * 0.5, 1.9, eN[0] * 0.15 + hdN[0] * 0.85, eN[1] * 0.15 + hdN[1] * 0.85, 1.8, LEATHER, 8.02);
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.6, 1.6, SKIN, 8.2);
+  px.tag("nearArm"); px.body(1);
+  arm(px, [sN[0], sN[1] + 0.3], eN, hdN, Z.nearArm, { weld: 2, weldRoot: 4 }, SHIRT, LEATHER, [2.1, 1.9, 1.6]);
+  px.body(0);
+  px.tag("nearHand"); px.part(); px.ellipse(hdN[0], hdN[1], 1.6, 1.6, SKIN, Z.nearHand);
+  px.tag(null);
 
   return { bowHand: hdF, marks: { muzzle: [hdF[0], hdF[1]] } };
 };
+
+export const MUST = [["string", "notOver", "face"], ["arrow", "notOver", "face"], ["bowUpper", "notOver", "face"], ["bowLower", "notOver", "face"], ["bowGrip", "notOver", "face"], ["nearArm", "notOver", "eyes"], ["nearHand", "notOver", "eyes"]];
 
 // the arrow in flight, a short streak behind it
 export const fx = (px, { ph, sk }, info, clip) => {
@@ -173,7 +182,7 @@ export const fx = (px, { ph, sk }, info, clip) => {
   px.capsule(x - 6, y - 0.2, 0.9, x - 3.8, y - 0.2, 0.7, FLETCH, 20.3);
 };
 
-const READY = { aF: [0.72, 0.78, 0], bow: 0.32, aN: [0.42, 0.74, 0], draw: 0, arrow: 0, fN: [-1.8, 0], fF: [2, 0] };
+const READY = { aw: 0, aF: [0.72, 0.78, 0], bow: 0.32, aN: [0.42, 0.74, 0], draw: 0, arrow: 0, fN: [-1.8, 0], fF: [2, 0] };
 const SKY = [
   { aF: [2.2, 1, 0], bow: -0.66, aN: [2.55, 0.42, 1], draw: 1, arrow: 1, lean: -0.1, twist: -0.7, rise: 0.8, hy: -0.6 },
   { aF: [2.15, 1, 0], bow: -0.52, aN: [3.25, 0.6, 1], draw: 0, arrow: 0, lean: -0.06, twist: -0.9, rise: 0.5, hy: -0.6 },

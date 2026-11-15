@@ -4,7 +4,7 @@
 // Clips: idle (low guard, breathing), walk (sword on the shoulder), attack
 // (wind-up over the shoulder, a fast cut, follow-through, back to guard).
 import { mat, flat } from "./pix.js";
-import { walkPose, sampleKeys, HUMAN, scaled } from "./rig.js";
+import { walkPose, sampleKeys, HUMAN, scaled, armChain, legChain } from "./rig.js";
 
 const STEEL = mat("#98a2b6", { contrast: 1.18 }), MAIL = mat("#6c7488", { contrast: 1.1 }), GOLD = mat("#d8b34a", { contrast: 1.15 });
 const RED = mat("#b03440"), RED_D = mat("#7e2434"), SKIN = mat("#e8b990"), HAIR = mat("#6a4a30"), LEATHER = mat("#5a3c28");
@@ -81,12 +81,10 @@ export const BONES = scaled(HUMAN, 1.08, { shN: -3.2, shF: 3.2, hipN: -1.4, hipF
 const CROWN = ["G.G.G", "GGGGG", "GGGGG"];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
-// a plated leg: cuisse, knee cop, greave, sabaton
+// a plated leg, ONE welded tube (cuisse, knee, greave share radii at the joints), then the knee cop and sabaton
 const leg = (px, h, k, an, z, b) => {
-  px.part();
-  px.capsule(h[0], h[1], 2.5, k[0], k[1], 2.1, STEEL, z, { bias: b });
-  px.capsule(k[0], k[1], 2, an[0], an[1], 1.7, STEEL, z, { bias: b });
-  px.ellipse(k[0] + 0.6, k[1], 2, 1.9, STEEL, z + 0.02, { bias: b, vb: 0.25 });
+  px.limb([h, k, an], [2.5, 2.05, 1.7], STEEL, z, { bias: b, weld: 2, weldRoot: 5 });
+  px.ellipse(k[0] + 0.6, k[1], 2, 1.9, STEEL, z + 0.02, { bias: b, vb: 0.25, weld: 2 });
   px.ellipse(an[0] + 1.2, an[1] + 0.9, 2.8, 1.4, MAIL, z + 0.03, { bias: b });
 };
 
@@ -104,9 +102,10 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.toneLine(C[0] - 4.6, C[1] + 4, P[0] - 6 + t2 * 0.8, -8.5, -1, px._pid);
 
   // the far arm and its kite shield
-  px.part();
-  px.capsule(sF[0], sF[1], 2.1, eF[0], eF[1], 2, STEEL, 1, { bias: -1 });
-  px.capsule(eF[0], eF[1], 2, hdF[0], hdF[1], 1.8, STEEL, 1, { bias: -1 });
+  // ONE BODY (joint kit): plate, limbs, head share a part id, so none shadows or edges another
+  const BID = px.body(1);
+  px.limb([sF, eF, hdF], [2.1, 2, 1.8], STEEL, 1, { bias: -1 });
+  px.body(0);
   const sx = hdF[0] * 0.7 + eF[0] * 0.3 + 0.8, sy = hdF[1] * 0.7 + eF[1] * 0.3 + 0.6, tl = p.shield ?? 0.08, cs = Math.cos(tl), sn = Math.sin(tl);
   const S = (x, y) => [sx + x * cs - y * sn, sy + x * sn + y * cs];
   px.part();
@@ -116,15 +115,15 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.stamp(CROWN, sx - 2, sy - 3, { G: { m: GOLD, fix: 3 } }, 3.55, { cast: 0 });
 
   // legs
+  px.body(1);
   leg(px, hF, kF, anF, 2, -1);
   leg(px, hN, kN, anN, 3, 0);
 
   // the body: breastplate, then the surcoat's skirt over the hips, belt
-  px.part();
-  px.poly([[C[0] - 4.8, C[1] - 1.6], [C[0] + 5, C[1] - 1.6], [C[0] + 6.2, C[1] + 3.5], [P[0] + 4.8, P[1] - 2.6], [P[0] - 4.8, P[1] - 2.6], [C[0] - 6, C[1] + 3.5]], STEEL, 4, { round: 0.92, ny: -0.12, cast: 2 });
+  px.poly([[C[0] - 4.8, C[1] - 1.6], [C[0] + 5, C[1] - 1.6], [C[0] + 6.2, C[1] + 3.5], [P[0] + 4.8, P[1] - 2.6], [P[0] - 4.8, P[1] - 2.6], [C[0] - 6, C[1] + 3.5]], STEEL, 4, { round: 0.92, ny: -0.12, weld: 2 });
   const sk0 = [P[0] - 4.9, P[1] - 3], sk1 = [P[0] + 4.7, P[1] - 3], hemB = P[0] - 6 - vx * 1.2, hemF = P[0] + 5.8 - vx * 0.8, hy = P[1] + 3.6;
-  px.part(); const skirt = px._pid;
-  px.poly([sk0, sk1, [hemF, hy], [hemF - 2.4, hy + 0.9], [P[0] + 0.4 - vx, hy], [hemB + 2.6, hy + 0.9], [hemB, hy]], RED, 4.2, { round: 0.9, cast: 2 });
+  const skirt = BID;
+  px.poly([sk0, sk1, [hemF, hy], [hemF - 2.4, hy + 0.9], [P[0] + 0.4 - vx, hy], [hemB + 2.6, hy + 0.9], [hemB, hy]], RED, 4.2, { round: 0.9, cast: 0 });
   px.toneLine(P[0] + 0.6, P[1] - 0.5, P[0] + 0.5 - vx, hy - 0.6, -1, skirt);
   px.poly([sk0, sk1, [sk1[0] + 0.1, sk1[1] + 2], [sk0[0] - 0.1, sk0[1] + 2]], LEATHER, 4.25, { round: 0.9 });
   px.rect(P[0] + 1.2, P[1] - 3, 2, 2, GOLD, 4.3, { fix: 3 });
@@ -133,8 +132,8 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the head
   const hx = Math.round(N[0]), hyy = Math.round(N[1]);
-  px.part();
-  px.stamp(p.blink ? BLINKS[face] : HEADS[face], hx, hyy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2 });
+  px.stamp(p.blink ? BLINKS[face] : HEADS[face], hx, hyy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 0 });
+  px.body(0);
   // the plume: red, rooted on the crown, streaming back a beat behind
   const pl = cl(vx * 2 + vx2 * 1.5, -3, 3) - sway * 0.5, rx0 = hx + 0.5, ry0 = hyy - 10;
   px.part();
@@ -157,14 +156,13 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   // the near arm over it all: pauldron, vambrace, gauntlet on the grip
   // (cocked back over the shoulder it passes BEHIND the helm, so the face stays open)
   const az = (p.nb || 0) > 0.5 ? 5.5 : 8;
-  px.part();
-  px.capsule(sN[0], sN[1] + 0.5, 2.2, eN[0], eN[1], 2.1, STEEL, az, { cast: 2 });
-  px.capsule(eN[0], eN[1], 2.1, hdN[0], hdN[1], 1.9, STEEL, az, { cast: 2 });
-  px.ellipse(eN[0], eN[1], 1.8, 1.8, STEEL, az + 0.02, { vb: 0.25 });
-  px.part();
-  px.ellipse(sN[0] - 0.2, sN[1] - 0.4, 3.7, 3.2, STEEL, 8.1, { cast: 2 });
+  px.body(1);
+  px.limb([[sN[0], sN[1] + 0.5], eN, hdN], [2.2, 2.1, 1.9], STEEL, az, { weld: 2, weldRoot: 4 });
+  px.ellipse(eN[0], eN[1], 1.8, 1.8, STEEL, az + 0.02, { vb: 0.25, weld: 2 });
+  px.ellipse(sN[0] - 0.2, sN[1] - 0.4, 3.7, 3.2, STEEL, 8.1, { weld: 2 });
   px.line(sN[0] - 3, sN[1] + 2.2, sN[0] + 2.6, sN[1] + 2.2, GOLD, 8.12);
-  px.part(); px.ellipse(hdN[0], hdN[1], 2, 1.9, MAIL, az + 0.2);
+  px.ellipse(hdN[0], hdN[1], 2, 1.9, MAIL, az + 0.2, { weld: 1.5 });
+  px.body(0);
 
   return { hand: hdN, sw: a };
 };
