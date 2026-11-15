@@ -17,6 +17,7 @@
 // (guard, coil, a lunge and thrust, follow-through; `hit` 0.5).
 // Marks: tip (the blade's point, art pixels from the feet).
 import { mat, flat } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { sampleKeys, walkPose, scaled, HUMAN } from "./rig.js";
 
 // today's palettes (rigs.js assassinUnit*): cloak, leathers, hood, accent (scarf and sash), steel,
@@ -85,12 +86,24 @@ const HEAD = [
 ];
 const BLINK = HEAD.map((r, i) => (i === 6 ? r.replace(/E/g, "s") : i === 7 ? r.replace(/E/g, "d") : r));
 // the gilt mask rides higher (a half-face): the eye holes stay
+// the near arm may pass in front of the cowl, never behind it (static layers: the head z 9, the near arm 9.4)
+export const MUST = [["nearArm", "notOver", "eyes"]];
+export const MUST_VARIANTS = ["base", "a", "b", "aa", "ab", "ba", "bb"];
 export const BOX = { w: 84, h: 72, ox: 34, oy: 62 };
 export const BONES = scaled(HUMAN, 1.0, { shN: -2.6, shF: 3.0, hipN: -1.3, hipF: 1.5 });
 
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 const TAU = Math.PI * 2;
+
+// THE GRIP. A knife is held in a closed fist: its angle is DERIVED from the solved forearm (elbow -> hand), never
+// posed on its own: knife = forearm + GRIP * (1 - thr) + wrist. At guard the blade stands up out of the fist (GRIP,
+// about 60 degrees off the forearm: the stalker's blade is carried a little forward); in a stab (`thr` 1) it lies along
+// the forearm, the line of the thrust. `wrist` is the only other freedom, clamped to +-0.35. The far knife of the
+// twin-bladed forms follows the far forearm the same way (`thrF`, `wristF`).
+export const GRIP_K = -1.05;
+export const WRIST = 0.35;
+const bladeAt = (hand, elbow, thr, wrist) => Math.atan2(hand[1] - elbow[1], hand[0] - elbow[0]) + GRIP_K * (1 - cl(thr || 0, 0, 1)) + cl(wrist || 0, -WRIST, WRIST);
 
 const leg = (px, K, h, k, an, z, b) => {
   const o = { bias: b - 1, floor: 1 }, c = [k[0] * 0.4 + an[0] * 0.6, k[1] * 0.4 + an[1] * 0.6];
@@ -118,7 +131,7 @@ const knife = (px, K, hd, a, len, z, o = {}) => {
 };
 
 export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
-  const K = kitOf(o.variant), L = K.L, LEG = K.head[o.flip ? 1 : 0];
+  const K = kitOf(String(o.variant || "").split("@")[0]), L = K.L, LEG = K.head[o.flip ? 1 : 0];
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5);
   const vy = cl(C[1] - lag1.C[1], -2, 2), sway = p.sway || 0, sway2 = lag2.p.sway || 0;
@@ -146,7 +159,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.part();
   px.capsule(sF[0], sF[1], 2.2, eF[0], eF[1], 2.1, K.SLEEVE, 1, { bias: -3, floor: 1 });
   px.capsule(eF[0], eF[1], 2.0, hdF[0], hdF[1], 1.8, K.SLEEVE, 1, { bias: -3, floor: 1 });
-  if (L.twin) knife(px, K, hdF, p.kf ?? -1.2, p.kfl ?? 6.4, 1.2);
+  if (L.twin) knife(px, K, hdF, bladeAt(hdF, eF, p.thrF, p.wristF), p.kfl ?? 6.4, 1.2);
   else { px.part(); px.ellipse(hdF[0], hdF[1], 1.6, 1.6, SKIN, 1.2, { bias: -1 }); }
   // the Plague Bearer's censer swings from the far fist on a chain
   if (L.censer) {
@@ -185,13 +198,13 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.poly([[C[0] - 5.4, C[1] - 3], [C[0] + 5.2, C[1] - 3], [C[0] + 6.2, C[1] + 1.2], [C[0] + 4.4, C[1] + 3], [C[0] + 0.6 - vx * 0.4, C[1] + 4], [C[0] - 3.6, C[1] + 3.4], [C[0] - 6.6, C[1] + 1.8]], K.COWL, 5, { round: 0.9, cast: 1, bias: -2, floor: 1 });
   px.toneLine(C[0] - 6.2, C[1] + 2.2, C[0] - 3.6, C[1] + 3.4, -1, man);
   px.toneLine(C[0] - 3.6, C[1] + 3.4, C[0] + 0.6 - vx * 0.4, C[1] + 4, -1, man);
-  if (K.PAUL) { px.part(); px.ellipse(sN[0] - 0.2, sN[1] - 0.4, 3.4, 2.8, K.PAUL, 8.3, { cast: 1 }); px.line(sN[0] - 2.4, sN[1] + 1.8, sN[0] + 2.2, sN[1] + 1.8, K.TRIM, 8.32); }
+  if (K.PAUL) { px.part(); px.ellipse(sN[0] - 0.2, sN[1] - 0.4, 3.4, 2.8, K.PAUL, 9.5, { cast: 1 }); px.line(sN[0] - 2.4, sN[1] + 1.8, sN[0] + 2.2, sN[1] + 1.8, K.TRIM, 9.52); }
 
   // ---- the head in its cowl; the scarf's turn at his throat
   px.part();
   px.poly([[hx - 4, hy - 0.4], [hx + 3.6, hy - 0.2], [hx + 3, hy + 1.8], [hx - 4, hy + 1.6]], K.SASH, 8.9, { round: 0.8 });
   px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hy, LEG, 9, { ax: 7, ay: 13, cast: 1 });
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hy, LEG, 9, 9, { ax: 7, ay: 13, cast: 1 }, "dsSNnEeKk");
   // a gilt rim to the lip of the Kingslayer's hood
   if (L.gild) px.line(hx - 1, hy - 9.4, hx + 6, hy - 9.4, K.GOLD, 9.3);
   // the Widow's lace veil drops from the brim over the lower face
@@ -219,13 +232,15 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   }
 
   // ---- the near arm and its knife over it all
-  const ka = p.kn ?? -1.2, kl = L.blade === "long" ? 12 : L.blade === "needle" ? 11 : L.blade === "hanger" ? 9.6 : 8.2;
-  const tip = knife(px, K, hdN, ka, kl, 7.5, { w: L.blade === "needle" ? 0.8 : 1.1 });
-  px.part();
-  px.capsule(sN[0], sN[1] + 0.4, 2.4, eN[0], eN[1], 2.2, K.SLEEVE, 8, { cast: 2, bias: -2, floor: 1 });
-  px.capsule(eN[0], eN[1], 2.2, hdN[0], hdN[1], 1.9, K.SLEEVE, 8, { cast: 2, bias: -2, floor: 1 });
-  { const a = mix(eN, hdN, 0.56), b = mix(eN, hdN, 0.84); px.capsule(a[0], a[1], 2.1, b[0], b[1], 1.9, K.WRAP, 8.02, { bias: -1 }); }
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, 8.2, { cast: 1 });
+  const ka = bladeAt(hdN, eN, p.thr, p.wrist), kl = L.blade === "long" ? 12 : L.blade === "needle" ? 11 : L.blade === "hanger" ? 9.6 : 8.2;
+  px.tag("knife");
+  const tip = knife(px, K, hdN, ka, kl, 9.3, { w: L.blade === "needle" ? 0.8 : 1.1 });
+  px.tag(null);
+  px.part(); px.tag("nearArm");
+  px.capsule(sN[0], sN[1] + 0.4, 2.4, eN[0], eN[1], 2.2, K.SLEEVE, 9.4, { cast: 2, bias: -2, floor: 1 });
+  px.capsule(eN[0], eN[1], 2.2, hdN[0], hdN[1], 1.9, K.SLEEVE, 9.4, { cast: 2, bias: -2, floor: 1 });
+  { const a = mix(eN, hdN, 0.56), b = mix(eN, hdN, 0.84); px.capsule(a[0], a[1], 2.1, b[0], b[1], 1.9, K.WRAP, 9.42, { bias: -1 }); }
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, 9.6, { cast: 1 }); px.tag(null);
 
   return { marks: { tip, hand: [hdN[0], hdN[1]] } };
 };
@@ -241,13 +256,13 @@ export const fx = (px, F, info, clip) => {
 
 // ---- the clips ----------------------------------------------------------------
 // guard: a low crouch, the knife up before the chest, the empty hand forward
-const GUARD = { rx: 0, drop: 1.7, lean: 0.22, twist: 0.5, hx: 0.5, hy: 0, aN: [1.0, 0.7, 0], aF: [1.2, 0.66, 0], fN: [-2.2, 0], fF: [2.8, 0], kn: -1.25, kf: -1.15, sway: 0, fly: 0, cz: 0.1 };
+const GUARD = { rx: 0, drop: 1.7, lean: 0.22, twist: 0.5, hx: 0.5, hy: 0, aN: [1.0, 0.7, 0], aF: [1.2, 0.66, 0], fN: [-2.2, 0], fF: [2.8, 0], thr: 0, wrist: 0, thrF: 0.45, wristF: 0, sway: 0, fly: 0, cz: 0.1 };
 export const CLIPS = {
   idle: {
     n: 8, ms: 2200, loop: true, lag: 0.12,
     pose: (ph) => {
       const b = Math.sin(ph * TAU), u = 0.5 + 0.5 * b, w = Math.sin(ph * TAU - 1.1);
-      return { ...GUARD, drop: 1.7 + 0.35 * u, rise: 0.3 * u, lean: 0.22 + 0.015 * b, kn: -1.25 + 0.12 * w, kf: -1.15 - 0.1 * w, aN: [1.0 + 0.03 * w, 0.7, 0], sway: Math.sin(ph * TAU - 2), cz: Math.sin(ph * TAU - 1) * 0.5, blink: ph > 0.62 && ph < 0.72 ? 1 : 0 };
+      return { ...GUARD, drop: 1.7 + 0.35 * u, rise: 0.3 * u, lean: 0.22 + 0.015 * b, wrist: 0.12 * w, wristF: -0.1 * w, aN: [1.0 + 0.03 * w, 0.7, 0], sway: Math.sin(ph * TAU - 2), cz: Math.sin(ph * TAU - 1) * 0.5, blink: ph > 0.62 && ph < 0.72 ? 1 : 0 };
     },
   },
   // a stalker's gait: low, leaning in, up on the toes a little, the knife carried reversed along the forearm
@@ -255,7 +270,7 @@ export const CLIPS = {
     n: 8, ms: 640, loop: true, lag: 0.09,
     pose: (ph) => {
       const w = walkPose(ph, { stride: 5.4, lift: 2.6, swing: 0.32, bob: 1.0, lean: 0.2 }), a = Math.cos(ph * TAU);
-      return { ...w, drop: w.drop + 1.0, hx: 0.6, aN: [0.7 + 0.12 * a, 0.78, 0], aF: [0.8 - 0.1 * a, 0.8, 0], kn: -0.2 + 0.12 * a, kf: -0.6, cz: a * 0.8, sway: a * 0.8, fly: 0.15 };
+      return { ...w, drop: w.drop + 1.0, hx: 0.6, aN: [0.7 + 0.12 * a, 0.78, 0], aF: [0.8 - 0.1 * a, 0.8, 0], thr: 0.62, wrist: 0.12 * a, thrF: 0.45, wristF: 0, cz: a * 0.8, sway: a * 0.8, fly: 0.15 };
     },
   },
   // guard, the coil (weight back, the knife to the hip, the empty hand reaching), the lunge (the front
@@ -264,11 +279,11 @@ export const CLIPS = {
     n: 12, ms: 560, loop: false, lag: 0.07, hit: 0.5,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
-      { t: 0.3, e: "out", p: { ...GUARD, rx: -1.0, drop: 2.5, lean: 0.14, twist: -0.4, aN: [-0.85, 0.74, 0], kn: -0.35, aF: [1.45, 0.82, 0], kf: -0.5, fN: [-2.2, 0], fF: [2.8, 0], fly: 0.1 } },
-      { t: 0.4, e: "io", p: { ...GUARD, rx: -1.3, drop: 2.7, lean: 0.12, twist: -0.6, aN: [-0.95, 0.74, 0], kn: -0.2, aF: [1.5, 0.84, 0], kf: -0.4, fN: [-2.4, 0], fF: [2.8, 0], fly: 0.1 } },
-      { t: 0.5, e: "in3", p: { ...GUARD, rx: 2.8, drop: 2.2, lean: 0.44, twist: 0.9, hx: 0.9, aN: [1.42, 1.0, 0], kn: 0.0, aF: [-0.7, 0.7, 0], kf: 1.2, fN: [-2.8, 0.4], fF: [6.4, 0], fly: 0.5 } },
-      { t: 0.64, e: "out", p: { ...GUARD, rx: 3.2, drop: 2.7, lean: 0.5, twist: 0.8, hx: 0.9, aN: [1.15, 0.92, 0], kn: 0.5, aF: [-0.5, 0.7, 0], kf: 1.0, fN: [-2.8, 0.2], fF: [6.4, 0], fly: 0.6 } },
-      { t: 0.8, e: "io", p: { ...GUARD, rx: 1.8, drop: 2.2, lean: 0.36, twist: 0.5, aN: [0.9, 0.8, 0], kn: -0.5, aF: [0.6, 0.7, 0], kf: -0.3, fN: [-2.6, 0], fF: [4.6, 0], fly: 0.4 } },
+      { t: 0.3, e: "out", p: { ...GUARD, rx: -1.0, drop: 2.5, lean: 0.14, twist: -0.4, aN: [0.05, 0.62, 0], thr: 1, wrist: 0, aF: [1.45, 0.82, 0], thrF: 0.3, fN: [-2.2, 0], fF: [2.8, 0], fly: 0.1 } },
+      { t: 0.4, e: "io", p: { ...GUARD, rx: -1.3, drop: 2.7, lean: 0.12, twist: -0.6, aN: [-0.05, 0.6, 0], thr: 1, wrist: 0, aF: [1.5, 0.84, 0], thrF: 0.3, fN: [-2.4, 0], fF: [2.8, 0], fly: 0.1 } },
+      { t: 0.5, e: "in3", p: { ...GUARD, rx: 2.8, drop: 2.2, lean: 0.44, twist: 0.9, hx: 0.9, aN: [1.42, 1.0, 0], thr: 1, wrist: 0.05, aF: [-0.7, 0.7, 0], thrF: 1, fN: [-2.8, 0.4], fF: [6.4, 0], fly: 0.5 } },
+      { t: 0.64, e: "out", p: { ...GUARD, rx: 3.2, drop: 2.7, lean: 0.5, twist: 0.8, hx: 0.9, aN: [1.15, 0.92, 0], thr: 1, wrist: 0.3, aF: [-0.5, 0.7, 0], thrF: 1, fN: [-2.8, 0.2], fF: [6.4, 0], fly: 0.6 } },
+      { t: 0.8, e: "io", p: { ...GUARD, rx: 1.8, drop: 2.2, lean: 0.36, twist: 0.5, aN: [0.9, 0.8, 0], thr: 0.7, wrist: 0, aF: [0.6, 0.7, 0], thrF: 0.7, fN: [-2.6, 0], fF: [4.6, 0], fly: 0.4 } },
       { t: 1, e: "io", p: GUARD },
     ], ph),
   },

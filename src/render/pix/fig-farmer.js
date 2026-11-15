@@ -9,6 +9,7 @@
 // fork carried slanted ahead), attack (drawn back, a two-handed jab driven home, hauled up
 // again). The blow's `hit` is the point going in, 0.52. Facing +x.
 import { mat, flat } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, clamp } from "./rig.js";
 
 const SKIN = mat("#e8b990"), EYE = flat("#2a1c2c"), STUB = mat("#b88c6a"), BROW = mat("#6a4a2e");
@@ -42,10 +43,23 @@ const LEG = {
   E: { m: EYE }, e: { m: SKIN, fix: 0 }, z: { m: STUB, fix: 1 }, l: { m: STUB, fix: 2 }, r: { m: HAIRN },
 };
 
+// the near arm may pass in front of the hat, never behind it (static layers: head z 6, near arm 8 / 8.9)
+export const MUST = [["nearArm", "notOver", "eyes"]];
+export const MUST_VARIANTS = ["", "yeoman"];
 export const BONES = scaled(HUMAN, 0.95, { shN: -2.8, shF: 2.8, hipN: -1.3, hipF: 1.5, neck: 1.35 });
 export const BOX = { w: 100, h: 72, ox: 30, oy: 62 };
 const ARM = BONES.upper + BONES.fore, LONG = 42;
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+// THE YEOMAN'S GRIP. His sword is held in a closed fist: its angle is DERIVED from the solved forearm, never posed on
+// its own. A blow is a stab, so `thr` (0 at rest and on the march, 1 in the thrust) turns the blade from standing up
+// out of the fist (about 94 degrees from the forearm) to lying along it, the line of the thrust; `wrist` is the only
+// other freedom, clamped to +-0.35. (The pitchfork's two hands stay on its haft: its `ha` is where both of them hold.)
+export const GRIP = -1.64;
+export const WRIST = 0.35;
+const swordAngle = (sk) => {
+  const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])), thr = clamp(sk.p.thr || 0, 0, 1);
+  return f + GRIP * (1 - thr) + cl(sk.p.wrist || 0, -WRIST, WRIST);
+};
 const axes = (ha) => ({ u: [Math.sin(ha), -Math.cos(ha)], v: [Math.cos(ha), Math.sin(ha)] });
 
 const leg = (px, h, k, an, z, b) => {
@@ -58,7 +72,7 @@ const leg = (px, h, k, an, z, b) => {
 };
 
 export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
-  const yeo = o.variant === "yeoman";
+  const yeo = String(o.variant || "").split("@")[0] === "yeoman";
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2, 2), vx2 = cl(lag1.C[0] - lag2.C[0], -2, 2);
   const hx = Math.round(N[0]), hy = Math.round(N[1]);
@@ -85,10 +99,10 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the head and its hat
   px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hy, LEG, 6, { ax: 7, ay: 12, ball: [7.5, 5.5, 6.4, 6.4], cast: 2 });
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hy, LEG, 6, 6, { ax: 7, ay: 12, ball: [7.5, 5.5, 6.4, 6.4], cast: 2 }, "SsNEeBzl");
 
   // the weapon: from the near hand along the haft
-  const ha = p.ha ?? 0, hg = p.hg ?? 17, { u, v } = axes(ha);
+  const ha = yeo ? swordAngle(sk) : (p.ha ?? 0), hg = p.hg ?? 17, { u, v } = axes(ha);
   const ov = (p.over || 0) > 0.5, zs = ov ? 8.6 : 7;
   let info = {};
   if (!yeo) {
@@ -126,11 +140,11 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the near arm: rolled sleeve, bare forearm, the fist on the haft (over the haft in the jab)
   const zn = ov ? 8.9 : 8;
-  px.part();
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.3, 2.2, eN[0], eN[1], 1.9, JERKIN, zn, { cast: 2 });
   px.capsule(eN[0], eN[1], 1.9, hdN[0], hdN[1], 1.6, SKIN, zn, { cast: 2 });
   px.capsule(eN[0] * 0.8 + sN[0] * 0.2, eN[1] * 0.8 + sN[1] * 0.2, 2.0, eN[0] * 0.72 + sN[0] * 0.28, eN[1] * 0.72 + sN[1] * 0.28, 2.0, SHIRT, zn + 0.02);
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.8, 1.7, SKIN, zn + 0.2);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.8, 1.7, SKIN, zn + 0.2); px.tag(null);
   if (!yeo) { px.part(); px.ellipse(hdF[0], hdF[1], 1.6, 1.5, SKIN, 6.8, { bias: -1 }); }
   return info;
 };
@@ -153,7 +167,7 @@ const hold = (b) => {
   p.aF = aim(s.sF, [b.n[0] + u[0] * fd + v[0] * (b.fs ?? 0), b.n[1] + u[1] * fd + v[1] * (b.fs ?? 0)]);
   return p;
 };
-const REST = { n: [11, -19], ha: 0.08, hg: 17, fd: 6, fs: 0.4, twist: 0.45, rx: 0, lean: 0.02, drop: 0, hx: 0 };
+const REST = { thr: 0, wrist: 0, n: [11, -19], ha: 0.08, hg: 17, fd: 6, fs: 0.4, twist: 0.45, rx: 0, lean: 0.02, drop: 0, hx: 0 };
 
 export const CLIPS = {
   // the weapon grounded beside him: a breath, a blink, the weight shifting a hair
@@ -166,7 +180,7 @@ export const CLIPS = {
     n: 8, ms: 760, loop: true, lag: 0.08,
     pose: (ph) => {
       const w = walkPose(ph, { stride: 5.2, lift: 2.8, swing: 0.3, bob: 1.2, lean: 0.08 }), a = Math.cos(ph * TAU), d = w.drop;
-      return hold({ ...w, twist: 0.4 + w.twist * 0.25, n: [9.5, -20 + d], ha: 0.5 + 0.03 * a, hg: 17, fd: 6.5, fs: 0.2, blink: 0 });
+      return hold({ ...w, thr: 0, wrist: 0.35, twist: 0.4 + w.twist * 0.25, n: [9.5, -20 + d], ha: 0.5 + 0.03 * a, hg: 17, fd: 6.5, fs: 0.2, blink: 0 });
     },
   },
   // drawn back, held a beat, the two-handed jab driven out level, held, hauled up again
@@ -174,11 +188,11 @@ export const CLIPS = {
     n: 11, ms: 800, loop: false, lag: 0.06, hit: 0.52,
     pose: (ph) => hold(sampleKeys([
       { t: 0, p: REST },
-      { t: 0.26, e: "io", p: { n: [3, -24], ha: 1.15, hg: 15, fd: 8, fs: 0.3, rx: -1.3, lean: -0.08, twist: -0.1, drop: 0.5 } },
-      { t: 0.42, e: "out", p: { n: [0.5, -24.5], ha: 1.3, hg: 15, fd: 8, fs: 0.3, rx: -2, lean: -0.13, twist: -0.4, drop: 0.8 } },
-      { t: 0.52, e: "in3", p: { n: [13, -25], ha: 1.5, hg: 12, fd: 8, fs: 0.3, over: 1, rx: 2.8, lean: 0.2, twist: 0.8, drop: 1.5, hx: 0.5, fF: [6.4, 0] } },
-      { t: 0.64, e: "out", p: { n: [14, -25], ha: 1.52, hg: 12, fd: 8, fs: 0.3, over: 1, rx: 3.1, lean: 0.21, twist: 0.8, drop: 1.6, hx: 0.6, fF: [6.4, 0] } },
-      { t: 0.84, e: "io", p: { n: [8, -21], ha: 0.6, hg: 17, fd: 6, fs: 0.3, over: 0, rx: 0.6, lean: 0.05, twist: 0.4, drop: 0.3, fF: [4, 0] } },
+      { t: 0.26, e: "io", p: { thr: 0.9, wrist: 0.25, n: [3, -24], ha: 1.15, hg: 15, fd: 8, fs: 0.3, rx: -1.3, lean: -0.08, twist: -0.1, drop: 0.5 } },
+      { t: 0.42, e: "out", p: { thr: 0.9, wrist: 0.25, n: [0.5, -24.5], ha: 1.3, hg: 15, fd: 8, fs: 0.3, rx: -2, lean: -0.13, twist: -0.4, drop: 0.8 } },
+      { t: 0.52, e: "in3", p: { thr: 1, wrist: 0.35, n: [13, -25], ha: 1.5, hg: 12, fd: 8, fs: 0.3, over: 1, rx: 2.8, lean: 0.2, twist: 0.8, drop: 1.5, hx: 0.5, fF: [6.4, 0] } },
+      { t: 0.64, e: "out", p: { thr: 1, wrist: 0.35, n: [14, -25], ha: 1.52, hg: 12, fd: 8, fs: 0.3, over: 1, rx: 3.1, lean: 0.21, twist: 0.8, drop: 1.6, hx: 0.6, fF: [6.4, 0] } },
+      { t: 0.84, e: "io", p: { thr: 0.6, wrist: 0, n: [8, -21], ha: 0.6, hg: 17, fd: 6, fs: 0.3, over: 0, rx: 0.6, lean: 0.05, twist: 0.4, drop: 0.3, fF: [4, 0] } },
       { t: 1, e: "io", p: REST },
     ], ph)),
   },

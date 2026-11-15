@@ -8,7 +8,8 @@
 //              also the Levy's top-tier knights)
 // Clips: idle (guard, breathing), walk (sword on the shoulder), attack (wind-up over the
 // shoulder, a fast cut, follow-through, back to guard). The blow's `hit` is 0.5.
-import { mat, flat } from "./pix.js";
+import { mat, flat, layers } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { walkPose, sampleKeys, HUMAN, scaled } from "./rig.js";
 
 export const STEEL = mat("#98a2b6", { contrast: 1.18 }), MAIL = mat("#6c7488", { contrast: 1.1 }), BLADE = mat("#d4dae4", { contrast: 1.35 });
@@ -43,9 +44,19 @@ const LEG = {
 };
 
 export const BOX = { w: 84, h: 72, ox: 34, oy: 62 };
-export const MUST = [["shield", "visible", 0.4], ["nearHand", "over", "sword"]];   // the shield is the far arm's, behind the tabard (z 3.5); the sword flips behind the body only while hauled back (nb)
+export const MUST = [["nearArm", "notOver", "eyes"], ["shield", "visible", 0.4]];   // the shield is the far arm's, behind the tabard (z 3.5); the near arm may pass in front of the head, never behind it
 export const BONES = scaled(HUMAN, 1.0, { shN: -3, shF: 3, hipN: -1.3, hipF: 1.5, neck: 1.4 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// THE GRIP (as Sir Aldric's, fig-knight.js). The sword is held in a closed fist: its angle is DERIVED from the solved
+// forearm, never posed on its own. weapon angle (from upright, + toward the foe) = forearm direction (elbow -> hand)
+// + GRIP + wrist; the blade stands up out of the thumb side of the fist, about 97 degrees from the forearm.
+export const GRIP = -1.7;
+export const WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const swordAngle = (sk) => forearm(sk) + GRIP + cl(sk.p.wrist || 0, -WRIST, WRIST);
+// Depth order, STATIC: the head, the sword, the near arm (in front of the head, never behind it).
+export const KZ = layers(["head", "sword", "arm"], [], { z0: 5, step: 0.45 });
 
 // a plated leg: cuisse, knee cop, greave, sabaton
 export const plateLeg = (px, h, k, an, z, b) => {
@@ -101,30 +112,33 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.capsule(rx0, ry0 - 0.5, 1.3, rx0 - 2 - pl * 0.4, ry0 - 2.4, 1.8, L.plume, 6.5);
   px.capsule(rx0 - 2 - pl * 0.4, ry0 - 2.4, 1.8, rx0 - 4.8 - pl, ry0 - 1.2 + Math.abs(pl) * 0.3, 1.2, L.plume, 6.5);
   px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hyy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2 });
+  const Z = KZ({});
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2 }, "SsNEelb");
 
   // the sword through the near fist: sw is the blade's angle from upright (+ toward the foe)
-  const a = p.sw ?? 2.3, d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
+  const a = swordAngle(sk), d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
   const B = (t, s = 0) => [hdN[0] + d[0] * t + nrm[0] * s, hdN[1] + d[1] * t + nrm[1] * s];
   px.part();
-  const bz = (p.nb || 0) > 0.5 ? 5.4 : 7;
+  const bz = Z.sword;
+  px.tag("sword");
   px.capsule(...B(2.5), 1.2, ...B(14.5), 1.0, BLADE, bz, { edge: true });
   px.capsule(...B(14.5), 1.0, ...B(16.6), 0.3, BLADE, bz, { edge: true });
   px.part();
   px.capsule(...B(-3), 0.9, ...B(1), 0.9, LEATHER, bz + 0.02);
   px.capsule(...B(1.8, -2.6), 0.8, ...B(1.8, 2.6), 0.8, STEEL, bz + 0.05, { edge: true });
   px.ellipse(...B(-3.6), 1.1, 1.1, BRASS, bz + 0.05);
+  px.tag(null);
 
   // the near arm over it all: pauldron, vambrace, gauntlet on the grip
-  const az = (p.nb || 0) > 0.5 ? 5.5 : 8;
-  px.part();
+  const az = Z.arm;
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.5, 2.1, eN[0], eN[1], 2.0, STEEL, az, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.0, hdN[0], hdN[1], 1.8, STEEL, az, { cast: 2 });
   px.ellipse(eN[0], eN[1], 1.7, 1.7, STEEL, az + 0.02, { vb: 0.25 });
-  px.part();
+  px.part(); px.tag(null);
   px.ellipse(sN[0] - 0.2, sN[1] - 0.4, 3.5, 3.0, STEEL, 8.1, { cast: 2 });
   px.line(sN[0] - 2.8, sN[1] + 2.1, sN[0] + 2.4, sN[1] + 2.1, L.coat, 8.12);
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.9, 1.8, MAIL, az + 0.2);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 2.2, MAIL, az + 0.2, { rot: -a });   // the fist wraps the hilt: long axis along it
 
   return { hand: hdN, sw: a };
 };
@@ -132,7 +146,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 // the cut's smear: on the fastest frames the blade leaves a fan of light behind it
 export const fx = (px, F, info, clip) => {
   if (clip !== "attack") return;
-  const a1 = F.sk.p.sw, a0 = F.lag1.p.sw;
+  const a1 = swordAngle(F.sk), a0 = swordAngle(F.lag1);
   if (!(a1 - a0 > 0.5)) return;
   const [hx, hy] = F.sk.hdN, [gx, gy] = F.lag1.hdN, n = 10;
   const at = (t, r) => { const a = a0 + (a1 - a0) * t, x = gx + (hx - gx) * t, y = gy + (hy - gy) * t; return [x + Math.sin(a) * r, y - Math.cos(a) * r]; };
@@ -140,26 +154,31 @@ export const fx = (px, F, info, clip) => {
   arc(0, 9, SMEAR2, 20); arc(0.45, 13, SMEAR, 20.1);
 };
 
-// Aldric's guard and cut, a little less flourish: a soldier's drilled blow
-const GUARD = { aN: [0.42, 0.86, 0], aF: [0.55, 0.72, 0], sw: 2.25, shield: 0.06, fN: [-2, 0], fF: [2.4, 0] };
+// Aldric's guard and cut (the approved poses: the forearm drives the sword, see GRIP), a soldier's drilled blow
+const GUARD = { aN: [1.1, 0.95, 0], aF: [0.55, 0.72, 0], wrist: 0.35, shield: 0.06, fN: [-2, 0], fF: [2.4, 0] };
 export const CLIPS = {
   idle: {
     n: 8, ms: 1800, loop: true, lag: 0.1,
-    pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 0.9); return { ...GUARD, rise: 0.5 + 0.5 * b, aN: [0.42, 0.86 - 0.03 * (0.5 + 0.5 * b), 0], sw: 2.25 + 0.03 * b2, sway: b2 * 0.8, blink: ph > 0.6 && ph < 0.72 ? 1 : 0 }; },
+    pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 0.9); return { ...GUARD, rise: 0.5 + 0.5 * b, aN: [1.1, 0.95 - 0.03 * (0.5 + 0.5 * b), 0], wrist: 0.35 + 0.03 * b2, sway: b2 * 0.8, blink: ph > 0.6 && ph < 0.72 ? 1 : 0 }; },
   },
   walk: {
     n: 8, ms: 720, loop: true, lag: 0.08,
-    pose: (ph) => { const w = walkPose(ph, { stride: 5.2, lift: 2.7, swing: 0.4, bob: 1.1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, aN: [0.7 + 0.06 * a, 0.56, 0], sw: -0.42 + 0.05 * a, aF: [0.5 + 0.18 * a, 0.72, 0], shield: 0.06 + 0.05 * a }; },
+    pose: (ph) => { const w = walkPose(ph, { stride: 5.2, lift: 2.7, swing: 0.4, bob: 1.1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, aN: [1.1 + 0.05 * a, 0.9, 0], wrist: 0.3 + 0.05 * a, aF: [0.5 + 0.18 * a, 0.72, 0], shield: 0.06 + 0.05 * a }; },
   },
   attack: {
     n: 12, ms: 760, loop: false, lag: 0.07, hit: 0.5,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
-      { t: 0.3, e: "out", p: { rx: -1.3, drop: 0.6, lean: -0.12, twist: -0.7, rise: 0.4, aN: [3.4, 0.8, 1], nb: 1, sw: -1.05, aF: [1.0, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.38, e: "io", p: { rx: -1.5, drop: 0.7, lean: -0.14, twist: -0.8, rise: 0.5, aN: [3.5, 0.82, 1], nb: 1, sw: -1.2, aF: [1.05, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.5, e: "in3", p: { rx: 2.3, drop: 1.5, lean: 0.2, twist: 0.8, hx: 0.5, aN: [1.02, 1, 0], nb: 0, sw: 1.95, aF: [0.2, 0.8, 0], shield: 0.25, fN: [-2.6, 0], fF: [6, 0] } },
-      { t: 0.62, e: "out", p: { rx: 2.9, drop: 1.9, lean: 0.25, twist: 0.9, hx: 0.6, aN: [0.5, 0.96, 0], sw: 2.75, aF: [0.05, 0.82, 0], shield: 0.3, fN: [-2.6, 0], fF: [6, 0] } },
-      { t: 0.74, e: "io", p: { rx: 2.5, drop: 1.5, lean: 0.2, twist: 0.6, hx: 0.4, aN: [0.46, 0.94, 0], sw: 2.62, aF: [0.15, 0.8, 0], shield: 0.25, fN: [-2.6, 0], fF: [6, 0] } },
+      // the lift: the fist comes up the front to the chest and the blade stands up out of it; then the elbow
+      // goes back and the forearm stands up behind the helm, the blade level behind the head (wrist cocked);
+      // the down-swing carries the forearm over (the blade follows it round), the strike ends forearm forward-down
+      { t: 0.09, e: "out", p: { rx: -0.4, drop: 0.25, lean: -0.04, twist: -0.2, rise: 0.15, aN: [1.1, 0.8, 0], wrist: 0.35, aF: [0.5, 0.75, 0], shield: -0.02, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.18, e: "out", p: { rx: -1.1, drop: 0.55, lean: -0.1, twist: -0.6, rise: 0.35, hx: 0.6, aN: [3.4, 1, 0], wrist: 0.35, aF: [0.9, 0.8, 0], shield: -0.08, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.38, e: "io", p: { rx: -1.6, drop: 0.8, lean: -0.15, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.5, 1, 0], wrist: 0.35, aF: [1.05, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.45, e: "out", p: { rx: 0.4, drop: 1.0, lean: 0.05, twist: 0.1, rise: 0.2, hx: 0.6, aN: [1.7, 0.95, 0], wrist: 0.2, aF: [0.5, 0.8, 0], shield: 0.1, fN: [-2.4, 0], fF: [4, 0] } },
+      { t: 0.5, e: "in3", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, hx: 0.5, aN: [0.6, 1, 0], wrist: 0.35, aF: [0.2, 0.8, 0], shield: 0.25, fN: [-2.6, 0], fF: [6, 0] } },
+      { t: 0.62, e: "out", p: { rx: 3, drop: 2, lean: 0.27, twist: 0.9, hx: 0.6, aN: [0.3, 0.96, 0], wrist: 0.1, aF: [0.05, 0.82, 0], shield: 0.3, fN: [-2.6, 0], fF: [6, 0] } },
+      { t: 0.74, e: "io", p: { rx: 2.6, drop: 1.6, lean: 0.2, twist: 0.6, hx: 0.4, aN: [0.5, 0.94, 0], wrist: 0.1, aF: [0.15, 0.8, 0], shield: 0.25, fN: [-2.6, 0], fF: [6, 0] } },
       { t: 1, e: "io", p: GUARD },
     ], ph),
   },

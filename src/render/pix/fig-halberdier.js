@@ -11,10 +11,13 @@
 // (`hg`), and whether the far hand is on the haft too (`two`, `fd` further up it). Marks:
 // `tip` (the spike's point), `butt`, `grip`.
 import { mat, flat } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, lerp, clamp } from "./rig.js";
 
 // the same build as the other standers (fig-stander.js): 47 px to the crown under the helm
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.8, shin: 9.2, ankle: 2.4, spine: 13.6, neck: 1.8, shN: -2.6, shF: 3, hipN: -1.4, hipF: 1.6 });
+// the near arm may pass in front of the head, never behind it (static layers: head z 6, near arm 8; both hands stay on the haft)
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 102, h: 82, ox: 32, oy: 78 };
 const ARM = BONES.upper + BONES.fore, SHAFT = 64, SPIKE = 6;
 
@@ -106,7 +109,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.poly([[C[0] - 5.4, C[1] - 2.8], [C[0] + 5.3, C[1] - 2.8], [C[0] + 6.2, C[1] + 0.8], [C[0] + 2.6, C[1] + 2.2], [C[0] - 2.6, C[1] + 2], [C[0] - 6.3, C[1] + 1.2]], MAIL, 5, { round: 0.9, cast: 1 });
 
   px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hy, LEG, 6, { ax: 6, ay: 12, cast: 2, ball: [6.5, 4, 7, 7] });
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hy, LEG, 6, 6, { ax: 6, ay: 12, cast: 2, ball: [6.5, 4, 7, 7] }, "SsNEelb");
 
   // the halberd: an ash haft, a steel socket, the axe blade toward the foe, a fluke behind, a spike
   const H = halberdOf(hdN, p), { u, v, butt, top, tip } = H;
@@ -123,11 +126,11 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   if (two) { px.part(); px.ellipse(hdF[0], hdF[1], 1.6, 1.7, SKIN, 7.3, { bias: -1 }); }
 
   // the near arm over it all: mail, a leather glove's cuff, his fist on the haft
-  px.part();
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.3, 2.3, eN[0], eN[1], 2.1, MAIL, 8, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.1, hdN[0], hdN[1], 1.8, MAIL, 8, { cast: 2 });
   px.capsule(eN[0] * 0.28 + hdN[0] * 0.72, eN[1] * 0.28 + hdN[1] * 0.72, 1.9, eN[0] * 0.16 + hdN[0] * 0.84, eN[1] * 0.16 + hdN[1] * 0.84, 1.9, LEATHER, 8.02);
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, 8.2);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, 8.2); px.tag(null);
   return { marks: { tip, butt, grip: [hdN[0], hdN[1]] }, H };
 };
 

@@ -9,7 +9,8 @@
 // shoulder, a cut, follow-through, back to guard). The blow's `hit` is 0.5.
 import { mat, flat } from "./pix.js";
 import { walkPose, sampleKeys, HUMAN, scaled } from "./rig.js";
-import { SKIN, HAIR, LEATHER, EYE, BLADE, CLIPS as GCLIPS, fx as gfx } from "./fig-garrison.js";
+import { stampFace } from "./bowlayers.js";
+import { SKIN, HAIR, LEATHER, EYE, BLADE, CLIPS as GCLIPS, fx as gfx, swordAngle, KZ } from "./fig-garrison.js";
 
 const PLATE = mat("#68738a", { contrast: 1.2 }), MAIL = mat("#474f5e", { contrast: 1.1 }), BRASS = mat("#c9a24a", { contrast: 1.2 });
 const GREEN = mat("#2f6b3f", { contrast: 1.15 }), GREENK = mat("#1f4a2c"), PLUME = mat("#e8e2d0", { contrast: 1.2 });
@@ -36,6 +37,8 @@ const LEG = {
   S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 }, e: { m: SKIN, fix: 0 }, E: { m: EYE }, b: { m: HAIR, fix: 2 }, l: { m: SKIN, fix: 0 },
 };
 
+// the near arm may pass in front of the head, never behind it (the garrison's rules: fig-garrison.js, "THE GRIP")
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 84, h: 74, ox: 34, oy: 62 };
 export const BONES = scaled(HUMAN, 1.02, { shN: -3.1, shF: 3.1, hipN: -1.35, hipF: 1.55, neck: 1.4 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -92,30 +95,33 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.capsule(rx0 - 1.2 - pl * 0.3, ry0 - 3.4, 1.9, rx0 - 4 - pl * 0.8, ry0 - 3.8 + Math.abs(pl) * 0.2, 1.7, PLUME, 6.5);
   px.capsule(rx0 - 4 - pl * 0.8, ry0 - 3.8 + Math.abs(pl) * 0.2, 1.7, rx0 - 7.4 - pl * 1.3, ry0 - 1.4 + Math.abs(pl) * 0.4, 1.0, PLUME, 6.5);
   px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hyy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2 });
+  const Z = KZ({});
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2 }, "SsNEelb");
 
   // the sword through the near fist (sw: the blade's angle from upright, + toward the foe)
-  const a = p.sw ?? 2.3, d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
+  const a = swordAngle(sk), d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
   const B = (t, s = 0) => [hdN[0] + d[0] * t + nrm[0] * s, hdN[1] + d[1] * t + nrm[1] * s];
   px.part();
-  const bz = (p.nb || 0) > 0.5 ? 5.4 : 7;
+  const bz = Z.sword;
+  px.tag("sword");
   px.capsule(...B(2.5), 1.25, ...B(14.5), 1.05, BLADE, bz, { edge: true });
   px.capsule(...B(14.5), 1.05, ...B(16.8), 0.3, BLADE, bz, { edge: true });
   px.part();
   px.capsule(...B(-3), 0.9, ...B(1), 0.9, LEATHER, bz + 0.02);
   px.capsule(...B(1.8, -2.8), 0.8, ...B(1.8, 2.8), 0.8, BRASS, bz + 0.05, { edge: true });
   px.ellipse(...B(-3.6), 1.15, 1.15, BRASS, bz + 0.05);
+  px.tag(null);
 
   // the near arm over it all: a brass-edged pauldron, vambrace, gauntlet on the grip
-  const az = (p.nb || 0) > 0.5 ? 5.5 : 8;
-  px.part();
+  const az = Z.arm;
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.5, 2.2, eN[0], eN[1], 2.0, PLATE, az, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.0, hdN[0], hdN[1], 1.8, PLATE, az, { cast: 2 });
   px.ellipse(eN[0], eN[1], 1.7, 1.7, PLATE, az + 0.02, { vb: 0.25 });
-  px.part();
+  px.part(); px.tag(null);
   px.ellipse(sN[0] - 0.2, sN[1] - 0.4, 3.6, 3.1, PLATE, 8.1, { cast: 2 });
   px.line(sN[0] - 2.9, sN[1] + 2.1, sN[0] + 2.5, sN[1] + 2.1, BRASS, 8.12);
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.9, 1.8, MAIL, az + 0.2);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 2.2, MAIL, az + 0.2, { rot: -a });
 
   return { hand: hdN, sw: a };
 };
