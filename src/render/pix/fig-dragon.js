@@ -295,8 +295,9 @@ export const draw = (px, { sk }, o = {}) => {
   wing(px, wingAt([12, -46 + b], false, w, amp, 1), [-18, -40 + b], 0.5, false);
 
   // ---- the far legs, a tone down
-  // tucked for flight: the hind legs trail back under the tail's root, the forelegs fold under the chest
-  const hind = (ox, oy) => [[-17 + ox, -23 + oy + b], [-10.5 + ox - dang * 0.3, -15.5 + oy + b + dang * 0.4], [-21 + ox - dang * 0.8, -13 + oy + b + dang], [-27 + ox - dang, -12.4 + oy + b + dang * 1.3]];
+  // tucked for flight: knee forward, hock back, the hind foot's toes pointing FORWARD (owner: the old
+  // trailing foot read as a leg on backwards); the forelegs fold under the chest
+  const hind = (ox, oy) => [[-17 + ox, -23 + oy + b], [-10.5 + ox - dang * 0.3, -15.5 + oy + b + dang * 0.4], [-19.5 + ox - dang * 0.8, -12.6 + oy + b + dang], [-12.5 + ox - dang * 0.6, -12 + oy + b + dang * 1.3]];
   const fore = (ox, oy) => [[16 + ox, -22 + oy + b], [10 + ox - dang * 0.3, -16 + oy + b + dang * 0.4], [17 + ox - dang * 0.6, -14.4 + oy + b + dang], [21.5 + ox - dang * 0.7, -13 + oy + b + dang * 1.2]];
   leg(px, hind(7, -2.5), [5, 3.7, 2.6, 2.2], 1, -1);
   leg(px, fore(7, -2.5), [4.4, 3.3, 2.4, 2], 1, -1);
