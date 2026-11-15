@@ -17,6 +17,7 @@
 // the knight sits back and draws the lance in, the downstroke drives it out level, the talons
 // rake, the wings sweep back up; `hit` is the lance landing).
 import { mat, flat } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { HUMAN, sampleKeys, ik } from "./rig.js";
 
 const TAWNY = mat("#b08850"), CREAM = mat("#e8e0cc"), MANE = mat("#8a6a3e"), WING = mat("#7a5a3c"), WINGD = mat("#4e3828"), GOLD = mat("#d8a838", { contrast: 1.2 });
@@ -195,7 +196,7 @@ const rider = (px, F, B, info) => {
   px.part();
   px.poly([[hx - 4, hy - 11.4], [hx + 3, hy - 11.8], [hx + 3.2, hy - 14], [hx - 3.4 + tuft * 0.5, hy - 15 + tv * 0.4], [hx - 9 + tuft * 1.7, hy - 12 + tv], [hx - 11.6 + tuft * 2.3, hy - 7.4 + tv], [hx - 10.2 + tuft * 1.5, hy - 3.2], [hx - 7.4 + tuft, hy - 5.8], [hx - 5.4, hy - 8.8]], OX, 9.4, { round: 0.85, cast: 1 });
   px.part();
-  px.stamp(p.rBlink ? blink(SALLET) : SALLET, hx, hy, SLEG, 9.5, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] });
+  stampFace(px, p.rBlink ? blink(SALLET) : SALLET, hx, hy, SLEG, 9.5, 9.5, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] }, "SsNEelb");
   px.dot(hx + 2, hy - 10.6, BRASS, 9.6, { fix: 3 });
 
   // the near arm and the lance: banded oxblood and cream, a steel head, a pennon streaming
@@ -216,10 +217,12 @@ const rider = (px, F, B, info) => {
   px.line(...at(30, 2), ...at(22.4, 3.6 + fl), BRASS, 10.24, { noLine: true });
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.4, 2.2, IRON, 10.4, { cast: 0, bias: 1 });
+  px.tag("nearArm");
   px.limb([[sN[0], sN[1] + 0.6], na.mid, hd], [2.4, 2.1, 1.7], IRON, 10.5, { cast: 1 });
   px.ellipse(na.mid[0], na.mid[1], 2, 1.9, IRON, 10.55, { cast: 1 });
   px.part();
   px.ellipse(hd[0], hd[1], 1.9, 1.9, LEATHER, 10.7);
+  px.tag(null);
   info.lance = { hd, d, nn };
 };
 
@@ -233,6 +236,7 @@ const talons = (px, ft, spread, z, bias, dark) => {
   void dark;
 };
 
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const draw = (px, F, o = {}) => {
   const { sk, lag1, lag2 } = F, p = sk.p, p1 = lag1.p, p2 = lag2.p;
   const loose = o.variant === "loose" || o.variant === "riderless";

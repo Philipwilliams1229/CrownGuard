@@ -7,11 +7,19 @@
 // tread), `attack` (the sword raised over the shoulder behind, shield tucked in, a hard cut
 // down through the foe, recover; `hit` is the cut going home).
 import { mat, flat, layers } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, clamp } from "./rig.js";
 
 // shield, sword, arm and pauldron, back to front (the sword always crosses the shield with its hand)
 const LAYER = layers(["shield", "device", "sword", "nearArm", "pauldron"], [], { z0: 8.4, step: 0.3 });
-export const MUST = [["sword", "sameSide", "nearHand"], ["shield", "visible", 0.4]];
+export const MUST = [["sword", "sameSide", "nearHand"], ["shield", "visible", 0.4], ["nearArm", "notOver", "eyes"]];
+// THE GRIP. The sword is held in a closed fist; its angle is DERIVED from the solved forearm: blade angle (from upright,
+// + toward the foe) = forearm direction (elbow -> hand) + GRIP + wrist (clamped to +-0.35). The blade stands up out of
+// the top of the fist, about 95 degrees from the forearm.
+export const GRIP_A = -1.65;
+const WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const swordAngle = (sk) => forearm(sk) + GRIP_A + clamp(sk.p.wrist || 0, -WRIST, WRIST);
 export const BONES = scaled(HUMAN, 1.28, { thigh: 10.2, shin: 9.6, ankle: 2.5, spine: 14.2, neck: 1.8, shN: -3, shF: 3.4, hipN: -1.5, hipF: 1.7 });
 export const BOX = { w: 84, h: 80, ox: 30, oy: 74 };
 const ARM = BONES.upper + BONES.fore;
@@ -103,7 +111,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the head: no crest on the barbute, a rim of brass
   px.part();
-  px.stamp(p.blink ? blink(HEAD) : HEAD, hx, hy, LEG, 6, { ax: 7, ay: 14, cast: 2, ball: [8, 6, 8, 7] });
+  stampFace(px, p.blink ? blink(HEAD) : HEAD, hx, hy, LEG, 6, 6, { ax: 7, ay: 14, cast: 2, ball: [8, 6, 8, 7] }, "SsNEelz");
   px.dot(hx + 9, hy - 6.4, BRASS, 6.1, { fix: 3 }); px.dot(hx + 9, hy - 3.6, BRASS, 6.1, { fix: 3 });   // the slot's brass studs
 
   const ZS = LAYER(p);
@@ -127,23 +135,25 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.part(); px.ellipse(hdF[0] + 0.2, hdF[1] + 0.4, 1.9, 1.9, PLATEK, 6.8, { bias: -1 });
 
   // ---- the longsword: a leather grip, a brass pommel, a steel crossguard, a long blade
-  const ha = p.ha ?? 1, hg = 4, ux = Math.sin(ha), uy = -Math.cos(ha), vxn = Math.cos(ha), vyn = Math.sin(ha);
+  const ha = swordAngle(sk), hg = 4, ux = Math.sin(ha), uy = -Math.cos(ha), vxn = Math.cos(ha), vyn = Math.sin(ha);
   const Hs = [hdN[0] - ux * hg, hdN[1] - uy * hg];
   const at = (a, b) => [Hs[0] + ux * a + vxn * b, Hs[1] + uy * a + vyn * b];
   const zs = ZS.sword;
-  px.part();
+  px.part(); px.tag("sword");
   px.capsule(...at(0, 0), 1.0, ...at(hg + 1, 0), 1.0, GRIP, zs, { edge: true });
   px.ellipse(...at(-1, 0), 1.7, 1.7, BRASS, zs + 0.02);
   px.capsule(...at(hg + 1.2, -4.2), 0.9, ...at(hg + 1.2, 4.2), 0.9, STEELB, zs + 0.04, { edge: true });      // the crossguard
   px.poly([at(hg + 1.8, -1.5), at(hg + 1.8, 1.5), at(hg + 25, 1.3), at(hg + 29, 0), at(hg + 25, -1.3)], BLADE, zs + 0.05, { n: [0.1, 0.1, 0.95] });
   px.line(...at(hg + 3, 0), ...at(hg + 26, 0), IRON, zs + 0.06, { fix: 1, noLine: true });             // the fuller
+  px.tag(null);
   // the near arm: a plated arm, the pauldron layered and riveted on top
-  px.part();
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.3, 2.6, eN[0], eN[1], 2.3, PAD, ZS.nearArm, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.3, hdN[0], hdN[1], 2.0, PLATE, ZS.nearArm, { cast: 2 });
   px.ellipse(eN[0], eN[1], 2.2, 2.2, PLATE, ZS.nearArm + 0.05, { cast: 1 });                                          // the couter
   px.capsule(eN[0] * 0.28 + hdN[0] * 0.72, eN[1] * 0.28 + hdN[1] * 0.72, 2.2, eN[0] * 0.14 + hdN[0] * 0.86, eN[1] * 0.14 + hdN[1] * 0.86, 2.2, PLATEK, ZS.nearArm + 0.07);   // the gauntlet cuff
-  px.part(); px.ellipse(hdN[0], hdN[1], 2.0, 2.0, PLATEK, ZS.nearArm + 0.2);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.8, 2.3, PLATEK, ZS.nearArm + 0.2, { rot: -ha });
+  px.tag(null);
   px.part();
   for (const [k, dz] of [[1, 0], [0.74, 0.02]]) px.ellipse(sN[0] + 0.4, sN[1] + 0.8 + (1 - k) * 2.2, 4.6 * k, 3.9 * k, PLATE, ZS.pauldron + dz, { cast: 1 });
   px.line(sN[0] - 4.6, sN[1] + 1.8, sN[0] + 5, sN[1] + 1.8, BRASS, ZS.pauldron + 0.05, { noLine: true });
@@ -165,18 +175,18 @@ const aim = (s, t) => { const dx = t[0] - s[0], dy = t[1] - s[1]; return [Math.a
 const STAND = { fN: [-3, 0], fF: [3.6, 0] };
 // b.n: the sword hand, b.ha: the blade's angle from upright (+ toward the foe, 1.57 level), b.f: the shield hand
 const hold = (b) => { const p = { ...STAND, ...b }, s = solve(p, BONES); p.aN = aim(s.sN, b.n); p.aF = aim(s.sF, b.f); return p; };
-const REST = { n: [4.5, -33], ha: -0.95, f: [13.5, -29.5], twist: 0.4, lean: 0.03, shx: 0, shy: 0, blink: 0 };
+const REST = { n: [4.5, -33], wrist: 0.3, f: [13.5, -29.5], twist: 0.4, lean: 0.03, shx: 0, shy: 0, blink: 0 };
 
 export const CLIPS = {
   idle: {
     n: 8, ms: 2400, loop: true, lag: 0.1,
-    pose: (ph) => { const b = 0.5 - 0.5 * Math.cos(ph * TAU); return hold({ ...REST, rise: 0.8 * b, n: [4.5, -33 + 0.4 * b], ha: -0.95 + 0.03 * b, f: [13.5, -29.5 - 0.4 * b], blink: ph > 0.62 && ph < 0.72 ? 1 : 0 }); },
+    pose: (ph) => { const b = 0.5 - 0.5 * Math.cos(ph * TAU); return hold({ ...REST, rise: 0.8 * b, n: [4.5, -33 + 0.4 * b], wrist: 0.3 + 0.03 * b, f: [13.5, -29.5 - 0.4 * b], blink: ph > 0.62 && ph < 0.72 ? 1 : 0 }); },
   },
   walk: {
     n: 8, ms: 860, loop: true, lag: 0.08,
     pose: (ph) => {
       const w = walkPose(ph, { stride: 5.6, lift: 2.8, swing: 0.28, bob: 1.3, lean: 0.07 }), a = Math.cos(ph * TAU), d = w.drop;
-      return hold({ ...w, ...REST, twist: 0.4 + w.twist * 0.25, n: [4.5, -33 + d * 0.8], ha: -0.95 + 0.07 * a, f: [13.5, -29.5 + d * 0.9], lean: 0.07 });
+      return hold({ ...w, ...REST, twist: 0.4 + w.twist * 0.25, n: [4.5, -33 + d * 0.8], wrist: 0.3 + 0.05 * a, f: [13.5, -29.5 + d * 0.9], lean: 0.07 });
     },
   },
   // the heater is tucked up, the sword drawn up behind the shoulder; the cut comes down hard and
@@ -185,11 +195,11 @@ export const CLIPS = {
     n: 13, ms: 900, loop: false, lag: 0.06, hit: 0.5,
     pose: (ph) => hold(sampleKeys([
       { t: 0, p: REST },
-      { t: 0.18, e: "io", p: { ...REST, n: [2.5, -37], ha: -0.7, f: [14, -30.5], rx: -0.8, lean: -0.04, twist: -0.1, drop: 0.3 } },
-      { t: 0.38, e: "out", p: { ...REST, n: [-3.4, -46], ha: -0.55, f: [14.5, -32], rx: -2.2, lean: -0.14, twist: -0.7, drop: 0.7, hy: -0.4, fF: [3, 0] } },
-      { t: 0.5, e: "in3", p: { ...REST, n: [15, -29], ha: 2.1, f: [13, -29], rx: 3, lean: 0.26, twist: 0.9, drop: 1.7, hx: 0.8, fF: [7.6, 0], shx: 0.8 } },
-      { t: 0.64, e: "out", p: { ...REST, n: [16.5, -23], ha: 2.4, f: [13, -28.5], rx: 3.4, lean: 0.28, twist: 0.9, drop: 1.8, hx: 0.8, fF: [7.6, 0], shx: 0.8 } },
-      { t: 0.84, e: "io", p: { ...REST, n: [12, -24], ha: 1.5, f: [13, -29.5], rx: 1, lean: 0.1, twist: 0.5, drop: 0.5, fF: [4.4, 0] } },
+      { t: 0.18, e: "io", p: { ...REST, n: [-2, -36.5], wrist: 0.35, f: [14, -30.5], rx: -0.8, lean: -0.04, twist: -0.1, drop: 0.3 } },
+      { t: 0.38, e: "out", p: { ...REST, n: [-6.5, -47.5], wrist: 0.35, f: [14.5, -32], rx: -2.2, lean: -0.14, twist: -0.7, drop: 0.7, hy: -0.4, fF: [3, 0] } },
+      { t: 0.5, e: "in3", p: { ...REST, n: [15, -29], wrist: 0.35, f: [13, -29], rx: 3, lean: 0.26, twist: 0.9, drop: 1.7, hx: 0.8, fF: [7.6, 0], shx: 0.8 } },
+      { t: 0.64, e: "out", p: { ...REST, n: [16.5, -23], wrist: 0.1, f: [13, -28.5], rx: 3.4, lean: 0.28, twist: 0.9, drop: 1.8, hx: 0.8, fF: [7.6, 0], shx: 0.8 } },
+      { t: 0.84, e: "io", p: { ...REST, n: [12, -24], wrist: 0.1, f: [13, -29.5], rx: 1, lean: 0.1, twist: 0.5, drop: 0.5, fF: [4.4, 0] } },
       { t: 1, e: "io", p: REST },
     ], ph)),
   },

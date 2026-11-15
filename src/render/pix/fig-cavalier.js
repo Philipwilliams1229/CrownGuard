@@ -21,6 +21,7 @@
 // walk (its CHARGE: a heavy one-flight gallop, the lance couched), attack (the horse rears,
 // the lance hauled back and up, then the weight is thrown forward down the lance).
 import { mat, flat } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { HUMAN, sampleKeys, ik } from "./rig.js";
 import { QUAD, beastFrames, tailPts, gallop, legChain } from "./beast.js";
 
@@ -284,7 +285,7 @@ const rider = (px, b, b1, b2, h, L) => {
   px.part();
   px.poly([[hx - 4, hy - 11.4], [hx + 3, hy - 11.8], [hx + 3.2, hy - 14], [hx - 3.4 + tuft * 0.5, hy - 15 + tv * 0.4], [hx - 9 + tuft * 1.7, hy - 12 + tv], [hx - 11.6 + tuft * 2.3, hy - 7.4 + tv], [hx - 10.2 + tuft * 1.5, hy - 3.2], [hx - 7.4 + tuft, hy - 5.8], [hx - 5.4, hy - 8.8]], L.CREST, 9.4, { round: 0.85, cast: 1 });
   px.part();
-  px.stamp(p.rBlink ? blink(SALLET) : SALLET, hx, hy, L.LEG, 9.5, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] });
+  stampFace(px, p.rBlink ? blink(SALLET) : SALLET, hx, hy, L.LEG, 9.5, 9.5, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] }, "SsNEelb");
   px.dot(hx + 2, hy - 10.6, BRASS, 9.6, { fix: 3 });
 
   // the heater shield, held up before his chest on the far arm
@@ -329,14 +330,17 @@ const rider = (px, b, b1, b2, h, L) => {
   px.line(...at(30, 2), ...at(22.4, 3.6 + fl), BRASS, 10.24, { noLine: true });
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.4, 2.2, L.IRON, 10.4, { cast: 0, bias: 1 });
+  px.tag("nearArm");
   px.limb([[sN[0], sN[1] + 0.6], na.mid, hd], [2.4, 2.1, 1.7], L.IRON, 10.5, { cast: 1 });
   px.ellipse(na.mid[0], na.mid[1], 2, 1.9, L.IRON, 10.55, { cast: 1 });
   px.part();
   px.ellipse(hd[0], hd[1], 1.9, 1.9, LEATHER, 10.7);
+  px.tag(null);
   h.lance = { hd, d, nn, tip: at(44) };
   h.hand = hd;
 };
 
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const draw = (px, F, o = {}) => {
   const { b, b1, b2 } = beastFrames(F, Q);
   const v = o.variant || "";

@@ -10,6 +10,7 @@
 // shield leading), attack (shield out, the blade hauled up and back, a fast
 // overhead cut with a step, follow-through, back behind the shield).
 import { mat, flat } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { walkPose, sampleKeys, HUMAN, scaled } from "./rig.js";
 
 const SKIN = mat("#5a8a3c"), PLATE = mat("#7a808c", { contrast: 1.3 }), IRON = mat("#4a4e58", { contrast: 1.1 });
@@ -56,12 +57,21 @@ export const BONES = scaled(HUMAN, 1.1, { thigh: 8.5, shin: 8, ankle: 2.2, spine
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
-// the falchion through the near fist: sw is the blade's angle from upright (+ toward the foe); the belly leads the cut
+// THE GRIP. The falchion is held in a closed fist and its angle is DERIVED from the solved forearm, never posed:
+// blade angle (from upright, + toward the foe) = forearm direction (elbow -> hand) + GRIP + wrist. The blade stands
+// up out of the top (thumb side) of the fist, about 95 degrees from the forearm; `wrist` is the pose's only
+// freedom, clamped to a real wrist's +-0.35.
 const LEN = 23;
+export const GRIP = -1.65;
+export const WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const bladeAngle = (sk) => forearm(sk) + GRIP + cl(sk.p.wrist || 0, -WRIST, WRIST);
 const bladeOf = (sk) => {
-  const a = sk.p.sw ?? -2.5, h = sk.hdN, d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)];
+  const a = bladeAngle(sk), h = sk.hdN, d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)];
   return (t, s = 0) => [h[0] + d[0] * t + n[0] * s, h[1] + d[1] * t + n[1] * s];
 };
+// the near arm may pass in front of the head, never over the eyes. Depth is STATIC: head, blade, near arm.
+export const MUST = [["nearArm", "notOver", "eyes"]];
 
 export const draw = (px, { sk, lag1, lag2 }) => {
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, hN, hF, kN, kF, anN, anF } = sk;
@@ -135,7 +145,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the head, low between the shoulders
   const hx = Math.round(N[0]), hy = Math.round(N[1]);
   px.part();
-  px.stamp(p.blink ? BLINK : p.roar > 0.5 ? ROAR : HEAD, hx, hy, LEG, 6, { ax: 7, ay: 12, ball: [7.5, 6, 8, 10], cast: 1 });
+  stampFace(px, p.blink ? BLINK : p.roar > 0.5 ? ROAR : HEAD, hx, hy, LEG, 6, 6, { ax: 7, ay: 12, ball: [7.5, 6, 8, 10], cast: 1 }, "YVE");
 
   // the topknot pulled through the helm's crown, whipping a beat behind the head
   const top = hy - 12, sway = cl(vx * 1.8 + vx2 * 1.4, -3, 3.5), hop = cl(vy * 1.4 + vy2, -2, 2);
@@ -148,7 +158,8 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.capsule(k0[0] - 1.2, k0[1] - 0.6, 0.9, k0[0] + 1, k0[1] - 0.8, 0.9, BAND, 6.4);
 
   // the falchion: a broad crude blade, the belly forward, a clipped point (raised over the head it passes behind the helm)
-  const B = bladeOf(sk), back = (p.nb || 0) > 0.5, bz = back ? 5.4 : 7;
+  const B = bladeOf(sk), bz = 7;
+  px.tag("blade");
   px.part();
   px.poly([B(5, -1.1), B(19.8, -1.5), B(LEN, 0.3), B(21.8, 2.3), B(15, 2.5), B(5, 1.4)], BLADE, bz, { fix: 2, edge: true });
   px.poly([B(5, 0.6), B(15, 1.7), B(21.6, 1.4), B(21.8, 2.3), B(15, 2.5), B(5, 1.4)], BLADE, bz + 0.01, { fix: 4 });
@@ -157,10 +168,11 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.capsule(...B(-3.2), 1, ...B(3.4), 1, LEATHER, bz + 0.02);
   px.capsule(...B(4.2, -3), 1, ...B(4.2, 3.6), 1, IRON, bz + 0.05, { edge: true });
   px.ellipse(...B(-3.8), 1.4, 1.4, IRON, bz + 0.05);
+  px.tag(null);
 
   // the near arm over it all: bare above the elbow, a riveted vambrace, a green fist
-  const az = back ? 5.5 : 7.9;
-  px.part();
+  const az = 7.9, ang = bladeAngle(sk);
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 1, 4.4, eN[0], eN[1], 3.8, SKIN, az, { cast: 1 });
   px.capsule(eN[0], eN[1], 3.6, hdN[0], hdN[1], 3.7, SKIN, az, { cast: 1 });
   const v0 = mix(eN, hdN, 0.36), v1 = mix(eN, hdN, 0.8);
@@ -168,7 +180,8 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.capsule(v0[0], v0[1], 4, v1[0], v1[1], 4.1, PLATE, az + 0.05, { cast: 1 });
   px.dot(...mix(v0, v1, 0.2), IRON, az + 0.06, { fix: 0 }); px.dot(...mix(v0, v1, 0.85), IRON, az + 0.06, { fix: 0 });
   px.part();
-  px.ellipse(hdN[0], hdN[1], 3.2, 3.2, SKIN, az + 0.4);
+  px.ellipse(hdN[0], hdN[1], 2.9, 3.5, SKIN, az + 0.4, { rot: -ang });
+  px.tag(null);
   // the pauldron: two lapped plates and a crude spike
   px.part();
   px.ellipse(sN[0] - 1, sN[1] + 2, 5.2, 3.4, PLATE, 7.98, { bias: -1, cast: 1 });
@@ -184,7 +197,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 // the cut's smear: one solid two-tone crescent behind the blade on its fastest frames
 export const fx = (px, F, info, clip) => {
   if (clip !== "attack") return;
-  const a1 = F.sk.p.sw, a0 = F.lag1.p.sw;
+  const a1 = bladeAngle(F.sk), a0 = bladeAngle(F.lag1);
   if (!(a1 - a0 > 0.6) || a1 > 3) return;
   const [hx, hy] = F.sk.hdN, [gx, gy] = F.lag1.hdN, n = 10, R = LEN + 0.5;
   const at = (t, r) => { const a = a0 + (a1 - a0) * t, x = gx + (hx - gx) * t, y = gy + (hy - gy) * t; return [x + Math.sin(a) * r, y - Math.cos(a) * r]; };
@@ -193,40 +206,42 @@ export const fx = (px, F, info, clip) => {
 };
 
 const TAU = Math.PI * 2, HIT = 7 / 12;      // the blow lands on frame 7 of 13
-const GUARD = { drop: 1.6, lean: 0.2, twist: 0, hx: 3.2, hy: 1.4, rise: 0, aN: [-0.2, 0.93, 0], aF: [0.85, 0.62, 0], fN: [-3.6, 0], fF: [4, 0], sw: -2.5, shield: 0.1, nb: 0, roar: 0 };
+const GUARD = { drop: 1.6, lean: 0.2, twist: 0, hx: 3.2, hy: 1.4, rise: 0, aN: [1.1, 0.9, 0], wrist: 0.3, aF: [0.85, 0.62, 0], fN: [-3.6, 0], fF: [4, 0], shield: 0.1, roar: 0 };
 export const CLIPS = {
   idle: {
     n: 8, ms: 2100, loop: true, lag: 0.1,
     pose: (ph) => {
       const b = Math.sin(ph * TAU), u = 0.5 + 0.5 * b, s = Math.sin(ph * TAU - 1.2);
-      return { ...GUARD, rise: 1.3 * u, rx: 0.6 * s, hy: 1.4 + 0.5 * (1 - u), aF: [0.85 + 0.03 * s, 0.62 + 0.02 * u, 0], shield: 0.1 + 0.03 * s, aN: [-0.2 - 0.02 * b, 0.93 - 0.05 * u, 0], sw: -2.5 - 0.04 * u, blink: ph >= 0.8 && ph < 0.92 ? 1 : 0 };
+      return { ...GUARD, rise: 1.3 * u, rx: 0.6 * s, hy: 1.4 + 0.5 * (1 - u), aF: [0.85 + 0.03 * s, 0.62 + 0.02 * u, 0], shield: 0.1 + 0.03 * s, aN: [1.1 - 0.02 * b, 0.9 - 0.03 * u, 0], wrist: 0.3 + 0.04 * s, blink: ph >= 0.8 && ph < 0.92 ? 1 : 0 };
     },
   },
   walk: {
     n: 8, ms: 1050, loop: true, lag: 0.09,
     pose: (ph) => {
       const w = walkPose(ph, { stride: 4, lift: 2, swing: 0.2, bob: 1.7, lean: 0.2 }), a = Math.cos(ph * TAU);
-      return { ...w, drop: w.drop + 1.4, twist: -a * 0.5, hx: 3.2, hy: 1.4, aF: [0.85 + 0.06 * a, 0.62, 0], shield: 0.1 + 0.05 * a, aN: [-0.2 - a * 0.2, 0.92, 0], sw: -2.3 + a * 0.14, nb: 0, roar: 0 };
+      return { ...w, drop: w.drop + 1.4, twist: -a * 0.5, hx: 3.2, hy: 1.4, aF: [0.85 + 0.06 * a, 0.62, 0], shield: 0.1 + 0.05 * a, aN: [1.1 + 0.05 * a, 0.9, 0], wrist: 0.3 + 0.05 * a, roar: 0 };
     },
   },
   attack: {
     n: 13, ms: 950, loop: false, lag: 0.06,
-    // the arm and the blade each turn ONE way through the whole clip (back and up, over the top, down
-    // before him, back to trail), so their angles run on past a full turn and the eases never unwind them
+    // the near arm lifts up the FRONT (never back behind the shoulder), the forearm cocks beside the back of the helm
+    // with the blade lying back behind the head, then the arm comes down straight and the blade follows it round
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
-      // the shield shoved out, the blade starting up behind him
-      { t: 0.12, e: "io", p: { ...GUARD, rx: 0.8, lean: 0.26, aF: [1.1, 0.84, 0], shield: 0, aN: [-0.8, 0.86, 0], sw: -2 } },
-      // hauled up and back, the weight on the back foot
-      { t: 0.36, e: "out", p: { ...GUARD, rx: -2.2, drop: 0.8, rise: 0.8, lean: 0, twist: -0.6, hx: 2.8, hy: 1, aF: [1.15, 0.86, 0], shield: -0.06, aN: [-2.9, 0.84, 0], nb: 1, sw: -0.55, fF: [3.8, 1.6] } },
-      { t: 0.5, e: "io", p: { ...GUARD, rx: -2.8, drop: 0.6, rise: 1.2, lean: -0.06, twist: -0.7, hx: 2.6, hy: 0.8, aF: [1.15, 0.86, 0], shield: -0.08, aN: [-3.02, 0.88, 0], nb: 1, sw: -1.05, fF: [4, 2.6], roar: 1 } },
-      // the cut (one frame): a step in, the blade comes over and down, the shield swept aside
-      { t: HIT, e: "in3", p: { ...GUARD, rx: 3.4, drop: 2, lean: 0.34, twist: 2, hx: 4.6, hy: 2.2, aF: [0.5, 0.5, 0], shield: 0.22, aN: [1.25 - TAU, 1, 0], nb: 0, sw: 2.0, fF: [8.6, 0], roar: 1 } },
-      { t: 0.68, e: "out", p: { ...GUARD, rx: 4, drop: 2.6, lean: 0.4, twist: 2.3, hx: 5, hy: 2.6, aF: [0.45, 0.5, 0], shield: 0.26, aN: [0.8 - TAU, 0.98, 0], sw: 2.5, fF: [8.6, 0], roar: 1 } },
-      { t: 0.8, e: "io", p: { ...GUARD, rx: 3.6, drop: 2.2, lean: 0.36, twist: 1.8, hx: 4.6, hy: 2.4, aF: [0.5, 0.52, 0], shield: 0.22, aN: [0.76 - TAU, 0.96, 0], sw: 2.44, fF: [8.6, 0] } },
-      // back behind the shield, the blade swinging down past the leg to trail again
-      { t: 0.91, e: "io", p: { ...GUARD, rx: 1.2, drop: 1.8, lean: 0.24, twist: 0.5, aF: [0.75, 0.58, 0], shield: 0.14, aN: [0.15 - TAU, 0.62, 0], sw: 3.25, fF: [6, 1.2] } },
-      { t: 1, e: "io", p: { ...GUARD, aN: [-0.2 - TAU, 0.93, 0], sw: -2.5 + TAU } },
+      // the shield shoved out, the fist rising up the front
+      { t: 0.12, e: "io", p: { ...GUARD, rx: 0.8, lean: 0.26, aF: [1.1, 0.84, 0], shield: 0, aN: [1.35, 0.7, 0], wrist: 0.35 } },
+      // hauled up, the forearm standing beside the helm, the weight on the back foot
+      { t: 0.27, e: "out", p: { ...GUARD, rx: -1.6, drop: 0.8, rise: 0.8, lean: -0.02, twist: -0.5, hx: 2.8, aF: [1.15, 0.86, 0], shield: -0.06, aN: [3.3, 0.93, 0], wrist: 0.35, fF: [3.8, 1.6] } },
+      { t: 0.44, e: "io", p: { ...GUARD, rx: -2.4, drop: 0.6, rise: 1.2, lean: -0.06, twist: -0.7, hx: 2.6, hy: 0.8, aF: [1.15, 0.86, 0], shield: -0.08, aN: [3.4, 0.95, 0], wrist: 0.35, fF: [4, 2.6], roar: 1 } },
+      { t: 0.5, e: "io", p: { ...GUARD, rx: -0.6, drop: 1, rise: 1, lean: 0.02, twist: -0.3, hx: 2.4, hy: 0.6, aF: [1, 0.8, 0], shield: 0.05, aN: [2.75, 1, 0], wrist: 0.35, fF: [4.6, 1.6], roar: 1 } },
+      { t: 0.53, e: "out", p: { ...GUARD, rx: 0.8, drop: 1.4, rise: 0.6, lean: 0.12, twist: 0.2, hx: 3.2, aF: [0.9, 0.7, 0], shield: 0.1, aN: [1.9, 1, 0], wrist: 0.2, fF: [5, 1], roar: 1 } },
+      // the cut (one frame): a step in, the arm straight down before him, the shield swept aside
+      { t: HIT, e: "in3", p: { ...GUARD, rx: 3.4, drop: 2, lean: 0.34, twist: 2, hx: 4.6, hy: 2.2, aF: [0.5, 0.5, 0], shield: 0.22, aN: [0.6, 1, 0], wrist: 0.35, fF: [8.6, 0], roar: 1 } },
+      { t: 0.68, e: "out", p: { ...GUARD, rx: 4, drop: 2.6, lean: 0.4, twist: 2.3, hx: 5, hy: 2.6, aF: [0.45, 0.5, 0], shield: 0.26, aN: [0.3, 0.96, 0], wrist: 0.1, fF: [8.6, 0], roar: 1 } },
+      { t: 0.8, e: "io", p: { ...GUARD, rx: 3.6, drop: 2.2, lean: 0.36, twist: 1.8, hx: 4.6, hy: 2.4, aF: [0.5, 0.52, 0], shield: 0.22, aN: [0.5, 0.94, 0], wrist: 0.1, fF: [8.6, 0] } },
+      // back behind the shield
+      { t: 0.91, e: "io", p: { ...GUARD, rx: 1.2, drop: 1.8, lean: 0.24, twist: 0.5, aF: [0.75, 0.58, 0], shield: 0.14, aN: [0.8, 0.8, 0], wrist: 0.3, fF: [6, 1.2] } },
+      { t: 1, e: "io", p: GUARD },
     ], ph),
   },
 };

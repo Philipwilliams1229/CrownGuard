@@ -7,6 +7,7 @@
 // upright), `attack` (the lance reared back over the shoulder, brought down like a blow with the
 // banner snapping forward, recover; `hit` is the head going home).
 import { mat, flat } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, clamp } from "./rig.js";
 
 export const BONES = scaled(HUMAN, 1.5, { thigh: 11.6, shin: 11, ankle: 3, spine: 16, neck: 2, shN: -3.6, shF: 4, hipN: -1.8, hipF: 2 });
@@ -43,6 +44,8 @@ const LEG = {
   M: { m: PLATE }, W: { m: PLATE, bias: 1 }, m: { m: PLATEK }, K: { m: BRASS }, Y: { m: BRASS, bias: 1 }, E: { m: EYE },
 };
 
+// both fists stay on the haft (the far fist is placed ON the shaft below the near one), so the lance is always locked to the hands
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const leg = (px, h, k, an, z, b) => {
   // one welded tube in hose; the cuisse, greave and sabaton are plate wrapped over it (the joint kit)
@@ -113,7 +116,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.poly([[hx - 1, hy - 13.4], [hx + 4.6, hy - 13.6], [hx + 5, hy - 17.4 + dr * 0.3], [hx + 0.4 + tr * 0.1, hy - 21.6 + dr * 0.6], [hx - 6 + tr * 0.6, hy - 22.6 + dr], [hx - 13 + tr, hy - 19.6 + dr * 1.1], [hx - 17.6 + tr * 1.6, hy - 14 + dr * 1.2], [hx - 15.6 + tr * 1.6, hy - 9 + dr], [hx - 10 + tr, hy - 13 + dr * 0.8], [hx - 5, hy - 12.4]], PLUME, 5.8, { round: 0.8, cast: 1 });
   px.toneLine(hx + 1, hy - 14, hx - 11 + tr, hy - 16.4 + dr, -1, px._pid);
   px.part();
-  px.stamp(p.blink ? blink(HEAD) : HEAD, hx, hy, LEG, 6, { ax: 7, ay: 14, cast: 2, ball: [8, 6, 8, 7] });
+  stampFace(px, p.blink ? blink(HEAD) : HEAD, hx, hy, LEG, 6, 6, { ax: 7, ay: 14, cast: 2, ball: [8, 6, 8, 7] }, "E");
   px.dot(hx + 2, hy - 9, STEELB, 6.1, { fix: 4 });
 
   // ---- the war-banner: a lance in both fists, the banner behind it (before it only in the strike)
@@ -148,13 +151,13 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the far fist grips the lance low, the near fist above; both arms over the plate
   px.part(); px.ellipse(hdF[0], hdF[1], 2.2, 2.2, PLATEK, zf + 0.3, { bias: -1 });
   const zn = 9;
-  px.body(1);
+  px.body(1); px.tag("nearArm");
   px.limb([[sN[0], sN[1] + 0.3], eN, hdN], [3, 2.7, 2.35], PAD, zn);
   px.capsule(eN[0], eN[1], 2.7, hdN[0], hdN[1], 2.3, PLATE, zn + 0.01, { wrap: true });
   px.ellipse(eN[0], eN[1], 2.7, 2.7, PLATE, zn + 0.05, { weld: 2 });
   px.capsule(eN[0] * 0.28 + hdN[0] * 0.72, eN[1] * 0.28 + hdN[1] * 0.72, 2.6, eN[0] * 0.14 + hdN[0] * 0.86, eN[1] * 0.14 + hdN[1] * 0.86, 2.6, PLATEK, zn + 0.07, { wrap: true });
   px.ellipse(hdN[0], hdN[1], 2.4, 2.4, PLATEK, zn + 0.2, { weld: 2 });
-  px.body(0);
+  px.tag(null); px.body(0);
   // the pauldrons: two layers, spiked, brass-edged
   px.part();
   for (const [k, dz, dy] of [[1, 0, 0], [0.74, 0.02, 3]]) px.ellipse(sN[0] + 0.4, sN[1] + 0.2 + dy * 0.8, 6.2 * k, 5.2 * k, PLATE, zn + 0.3 + dz, { cast: 1 });
@@ -205,7 +208,7 @@ export const CLIPS = {
     pose: (ph) => hold(sampleKeys([
       { t: 0, p: REST },
       { t: 0.22, e: "io", p: { ...REST, n: [6, -47], ha: -0.4, hg: 27, rx: -1, lean: -0.05, twist: -0.2, drop: 0.3, flut: 1.4 } },
-      { t: 0.4, e: "out", p: { ...REST, n: [-1, -52], ha: -0.95, hg: 24, rx: -2.6, lean: -0.15, twist: -0.8, drop: 0.8, hy: -0.4, fF: [4, 0], flut: 2.6, gap: 8 } },
+      { t: 0.4, e: "out", p: { ...REST, n: [-10, -47], ha: -0.95, hg: 24, rx: -2.6, lean: -0.15, twist: -0.8, drop: 0.8, hy: -0.4, fF: [4, 0], flut: 2.6, gap: 8 } },
       { t: 0.5, e: "in3", p: { ...REST, n: [17, -42], ha: 1.65, hg: 18, front: 1, rx: 3.4, lean: 0.27, twist: 0.9, drop: 2, hx: 0.9, fF: [9, 0], flut: -2.4, gap: -5 } },
       { t: 0.64, e: "out", p: { ...REST, n: [18.5, -38], ha: 1.95, hg: 18, front: 1, rx: 3.8, lean: 0.3, twist: 0.9, drop: 2.2, hx: 0.9, fF: [9, 0], flut: -1.2, gap: -3 } },
       { t: 0.84, e: "io", p: { ...REST, n: [14, -41], ha: 0.7, hg: 28, rx: 1.2, lean: 0.1, twist: 0.5, drop: 0.6, fF: [5, 0], flut: 1.4 } },

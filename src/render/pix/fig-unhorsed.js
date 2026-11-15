@@ -11,6 +11,7 @@
 // short back-step, the blade hauled behind the shoulder, a heavy cut down across, recover;
 // `hit` is the blade coming through).
 import { mat, flat, layers } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, clamp } from "./rig.js";
 
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.6, shin: 9.2, ankle: 2.4, spine: 13.4, neck: 1.8, shN: -2.8, shF: 3.2, hipN: -1.5, hipF: 1.7 });
@@ -55,7 +56,13 @@ const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 // crosses the shield together (the old `over` flip left the blade behind the rim while the hand
 // was in front of it).
 const LAYER = layers(["shield", "device", "sword", "nearArm"], [], { z0: 8.4, step: 0.3 });
-export const MUST = [["sword", "sameSide", "nearHand"], ["shield", "visible", 0.4]];
+export const MUST = [["sword", "sameSide", "nearHand"], ["shield", "visible", 0.4], ["nearArm", "notOver", "eyes"]];
+// THE GRIP. The sword is held in a closed fist; its angle is DERIVED from the solved forearm: blade angle (from upright,
+// + toward the foe) = forearm direction (elbow -> hand) + GRIP + wrist (clamped to +-0.35).
+export const GRIP_A = -1.65;
+const WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const swordAngle = (sk) => forearm(sk) + GRIP_A + Math.max(-WRIST, Math.min(WRIST, sk.p.wrist || 0));
 const axes = (ha) => ({ u: [Math.sin(ha), -Math.cos(ha)], v: [Math.cos(ha), Math.sin(ha)] });
 
 // the leg in plate: a cuisse, a knee cop, a greave, a sabaton
@@ -130,7 +137,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
     px.line(hx - 2.8, hy - 11.6, hx - 5.8 + tuft, hy - 17, OXK, 5.97, { noLine: true });
   }
   px.part();
-  px.stamp(p.blink ? blink(SALLET) : (p.dazed ?? 0) > 0.5 ? DAZED : SALLET, hx, hy, LEG, 6, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] });
+  stampFace(px, p.blink ? blink(SALLET) : (p.dazed ?? 0) > 0.5 ? DAZED : SALLET, hx, hy, LEG, 6, 6, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] }, "SsNEelb");
   px.dot(hx + 2, hy - 10.6, BRASS, 6.1, { fix: 3 });                      // a rivet
 
   const ZS = LAYER(p);
@@ -150,24 +157,26 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.part(); px.ellipse(hdF[0] + 0.2, hdF[1] + 0.4, 1.7, 1.7, IRON, 6.8, { bias: -1 });
 
   // ---- the arming sword: a straight steel blade, a brass cross, a wheel pommel; the near hand on the grip
-  const ha = p.ha ?? 0, { u, v } = axes(ha);
+  const ha = swordAngle(sk), { u, v } = axes(ha);
   const at = (a, b = 0) => [hdN[0] + u[0] * a + v[0] * b, hdN[1] + u[1] * a + v[1] * b];
   const z = ZS.sword;
-  px.part();
+  px.part(); px.tag("sword");
   px.capsule(...at(-3), 0.9, ...at(0.4), 0.9, LEATHER, z, {});
   px.dot(...at(-3.6), BRASS, z + 0.02, { fix: 3 });
   px.part();
   px.line(...at(1.4, -2.2), ...at(1.4, 2.2), BRASS, z + 0.05, { fix: 3 });
   px.poly([at(1.8, -1.3), at(2.8, 1.6), at(21, 1.7), at(25.4, 0), at(21, -1.7), at(2.8, -1.6)], STEELB, z + 0.06, { n: [0.1, 0.1, 0.95] });
   px.line(...at(4, 0.2), ...at(22, 0.2), IRON, z + 0.07, { fix: 1, noLine: true });
+  px.tag(null);
 
   // the near arm in plate, over the shield while the sword is out over its rim
   const zn = ZS.nearArm;
-  px.part();
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.3, 2.5, eN[0], eN[1], 2.2, IRON, zn, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.2, hdN[0], hdN[1], 1.8, IRON, zn, { cast: 2 });
   px.part(); px.ellipse(eN[0], eN[1], 2.1, 2, IRON, zn + 0.1, { cast: 1 });            // the couter
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.9, 1.9, LEATHER, zn + 0.2);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 2.2, LEATHER, zn + 0.2, { rot: -ha });
+  px.tag(null);
   return { H: { u, v, at: [hdN[0], hdN[1]] }, marks: { tip: at(25.4), grip: at(0) } };
 };
 
@@ -189,7 +198,7 @@ const hold = (b) => {
   p.aN = aim(s.sN, b.n, b.nf ?? 0); p.aF = aim(s.sF, b.f);
   return p;
 };
-const REST = { n: [11, -23], ha: 0.4, f: [12, -28], twist: 0.4, rx: 0, lean: 0.03, drop: 0, hx: 0, hy: 0, shy: 0, dazed: 0 };
+const REST = { n: [11, -23], wrist: 0.3, f: [12, -28], twist: 0.4, rx: 0, lean: 0.03, drop: 0, hx: 0, hy: 0, shy: 0, dazed: 0 };
 
 export const CLIPS = {
   // dazed: swaying on his feet, the head hung, the sword's point dragging, the shield low
@@ -197,7 +206,7 @@ export const CLIPS = {
     n: 8, ms: 2000, loop: true, lag: 0.1,
     pose: (ph) => {
       const s = Math.sin(ph * TAU), c = Math.cos(ph * TAU);
-      return hold({ ...REST, n: [7 + 0.8 * s, -19], ha: 2.5 + 0.06 * s, f: [8.5 - 0.6 * s, -23], rx: 1.2 * s, lean: 0.17 + 0.05 * c, hy: 2.2, hx: 0.8, twist: 0.2 + 0.2 * s, drop: 0.5 + 0.3 * c,
+      return hold({ ...REST, n: [7 + 0.8 * s, -19], wrist: 0.2 + 0.1 * s, f: [8.5 - 0.6 * s, -23], rx: 1.2 * s, lean: 0.17 + 0.05 * c, hy: 2.2, hx: 0.8, twist: 0.2 + 0.2 * s, drop: 0.5 + 0.3 * c,
         dazed: 1, blink: 0, fN: [-2.8 - 0.8 * s, 0], fF: [3.4 - 0.8 * s, 0] });
     },
   },
@@ -206,20 +215,22 @@ export const CLIPS = {
     n: 8, ms: 760, loop: true, lag: 0.08,
     pose: (ph) => {
       const w = walkPose(ph, { stride: 5, lift: 2.4, swing: 0.25, bob: 0.9, lean: 0.05 }), a = Math.cos(ph * TAU), d = w.drop;
-      return hold({ ...w, twist: 0.35 + w.twist * 0.25, n: [12 + 0.4 * a, -29 + d], ha: 0.3 + 0.04 * a, f: [12, -28.4 + d * 0.9 + 0.3 * Math.cos(ph * TAU * 2)], blink: 0, dazed: 0 });
+      return hold({ ...w, twist: 0.35 + w.twist * 0.25, n: [12 + 0.4 * a, -29 + d], wrist: 0.3 + 0.04 * a, f: [12, -28.4 + d * 0.9 + 0.3 * Math.cos(ph * TAU * 2)], blink: 0, dazed: 0 });
     },
   },
   // a back-step, the blade hauled behind the shoulder, then the cut thrown down across the shield's rim
   attack: {
     n: 12, ms: 900, loop: false, lag: 0.06, hit: 0.5,
     pose: (ph) => hold(sampleKeys([
-      { t: 0, p: { ...REST, n: [12, -29], ha: 0.4, f: [12, -28] } },
-      { t: 0.24, e: "io", p: { n: [-1, -41], ha: -0.5, nf: 1, f: [12, -29], rx: -1.8, lean: -0.1, twist: -0.1, drop: 0.5, fF: [3.4, 0] } },
-      { t: 0.38, e: "out", p: { n: [-2.4, -43], ha: -0.7, nf: 1, f: [11.5, -28.6], rx: -2.6, lean: -0.15, twist: -0.4, drop: 0.8 } },
-      { t: 0.5, e: "in3", p: { n: [12, -28], ha: 1.9, over: 1, f: [10, -22], rx: 3, lean: 0.24, twist: 0.8, drop: 1.6, hx: 0.6, fF: [7.2, 0], shy: 1.2 } },
-      { t: 0.62, e: "out", p: { n: [13.5, -22], ha: 2.3, over: 1, f: [10.5, -22], rx: 3.4, lean: 0.27, twist: 0.8, drop: 1.8, hx: 0.6, fF: [7.2, 0], shy: 1.2 } },
-      { t: 0.84, e: "io", p: { n: [9, -27], ha: 1.0, over: 0, f: [12, -27], rx: 0.8, lean: 0.07, twist: 0.4, drop: 0.4, fF: [4, 0] } },
-      { t: 1, e: "io", p: { ...REST, n: [12, -29], ha: 0.4, f: [12, -28] } },
+      { t: 0, p: { ...REST, n: [12, -29], wrist: 0.3, f: [12, -28] } },
+      { t: 0.1, e: "out", p: { n: [-6, -31], wrist: 0.35, f: [12, -29], rx: -0.5, lean: -0.04, twist: -0.1, drop: 0.2 } },
+      { t: 0.19, e: "io", p: { n: [-9, -45], wrist: 0.35, f: [12, -29], rx: -1.8, lean: -0.1, twist: -0.1, hx: 0.8, drop: 0.5, fF: [3.4, 0] } },
+      { t: 0.38, e: "out", p: { n: [-9, -46], wrist: 0.35, f: [11.5, -28.6], rx: -2.6, lean: -0.15, twist: -0.4, hx: 1, drop: 0.8 } },
+      { t: 0.45, e: "io", p: { n: [-5, -47], wrist: 0.35, f: [11, -26], rx: 0, lean: 0.08, twist: 0.2, hx: 0.8, drop: 1.2 } },
+      { t: 0.5, e: "in3", p: { n: [12, -28], wrist: 0.35, over: 1, f: [10, -22], rx: 3, lean: 0.24, twist: 0.8, drop: 1.6, hx: 0.6, fF: [7.2, 0], shy: 1.2 } },
+      { t: 0.62, e: "out", p: { n: [13.5, -22], wrist: 0.1, over: 1, f: [10.5, -22], rx: 3.4, lean: 0.27, twist: 0.8, drop: 1.8, hx: 0.6, fF: [7.2, 0], shy: 1.2 } },
+      { t: 0.84, e: "io", p: { n: [9, -27], wrist: 0.1, over: 0, f: [12, -27], rx: 0.8, lean: 0.07, twist: 0.4, drop: 0.4, fF: [4, 0] } },
+      { t: 1, e: "io", p: { ...REST, n: [12, -29], wrist: 0.3, f: [12, -28] } },
     ], ph)),
   },
 };

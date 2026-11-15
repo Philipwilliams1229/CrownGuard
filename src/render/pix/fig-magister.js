@@ -10,6 +10,7 @@
 // pips bursting off the crystal), and `ward`: a walk-shaped clip (same legs and body as `walk`)
 // worn on the march while the aegis charges, the staff held high with the crystal lit.
 import { mat, flat } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { walkPose, sampleKeys, scaled, HUMAN } from "./rig.js";
 
 const ROBE = mat("#2e3038", { contrast: 0.95, floor: 1 }), OX = mat("#7a2a2c", { contrast: 1.1 }), OXD = mat("#561c20", { floor: 1 }), HOOD = mat("#7a2a2c", { contrast: 1.1 });
@@ -49,6 +50,7 @@ const legend = (eye) => ({
 const LEG = legend(EYE), LEG_DIM = legend(flat("#5a7090", { emis: true }));
 
 export const BOX = { w: 104, h: 102, ox: 22, oy: 93 };
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BONES = scaled(HUMAN, 1.2, { shN: -2.7, shF: 2.9, upper: 7.9, fore: 7.7 });
 
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -133,24 +135,25 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // ---- the near arm: a belled robe sleeve, an oxblood cuff, the open hand
   const u = unit(eN, hdN), n = [-u[1], u[0]], wr = mix(eN, hdN, 0.76);
-  px.part();
-  px.capsule(sN[0], sN[1], 2.4, eN[0], eN[1], 2.3, ROBE, 8, { cast: 2, floor: 1 });
-  px.capsule(eN[0], eN[1], 2.3, wr[0], wr[1], 3, ROBE, 8, { cast: 2, floor: 1 });
-  px.poly([[wr[0] + n[0] * 3.2, wr[1] + n[1] * 3.2], [wr[0] - n[0] * 3.2, wr[1] - n[1] * 3.2], [wr[0] - n[0] * 3.2 + u[0] * 1.6, wr[1] - n[1] * 3.2 + u[1] * 1.6], [wr[0] + n[0] * 3.2 + u[0] * 1.6, wr[1] + n[1] * 3.2 + u[1] * 1.6]], OX, 8.02, { bias: 1 });
+  px.part(); px.tag("nearArm");
+  px.capsule(sN[0], sN[1], 2.4, eN[0], eN[1], 2.3, ROBE, 8.6, { cast: 2, floor: 1 });
+  px.capsule(eN[0], eN[1], 2.3, wr[0], wr[1], 3, ROBE, 8.6, { cast: 2, floor: 1 });
+  px.poly([[wr[0] + n[0] * 3.2, wr[1] + n[1] * 3.2], [wr[0] - n[0] * 3.2, wr[1] - n[1] * 3.2], [wr[0] - n[0] * 3.2 + u[0] * 1.6, wr[1] - n[1] * 3.2 + u[1] * 1.6], [wr[0] + n[0] * 3.2 + u[0] * 1.6, wr[1] + n[1] * 3.2 + u[1] * 1.6]], OX, 8.62, { bias: 1 });
   // the pauldron: a steel cap on the near shoulder, brass-edged (b studs it)
   px.part();
-  px.ellipse(sN[0] + 0.4, sN[1] - 0.2, 4.4, 3.8, STEEL, 8.3, { cast: 1 });
-  px.line(sN[0] - 3.6, sN[1] + 2, sN[0] + 4.4, sN[1] + 2, BRASS, 8.32, { noLine: true });
-  px.part(); px.ellipse(wr[0] + u[0] * 2.4, wr[1] + u[1] * 2.4, 1.9, 1.7, SKIN, 8.5, { cast: 1 });
-  if ((p.palm || 0) > 0.3) { const h = [wr[0] + u[0] * 4.4, wr[1] + u[1] * 4.4]; px.part(); px.poly(pipPts(h[0], h[1] - 2, 0.7), GLOW, 8.6, { cast: 0 }); }
+  px.ellipse(sN[0] + 0.4, sN[1] - 0.2, 4.4, 3.8, STEEL, 8.7, { cast: 1 });
+  px.line(sN[0] - 3.6, sN[1] + 2, sN[0] + 4.4, sN[1] + 2, BRASS, 8.72, { noLine: true });
+  px.part(); px.ellipse(wr[0] + u[0] * 2.4, wr[1] + u[1] * 2.4, 1.9, 1.7, SKIN, 8.9, { cast: 1 });
+  px.tag(null);
+  if ((p.palm || 0) > 0.3) { const h = [wr[0] + u[0] * 4.4, wr[1] + u[1] * 4.4]; px.part(); px.poly(pipPts(h[0], h[1] - 2, 0.7), GLOW, 9, { cast: 0 }); }
 
   // ---- the hood: its peak sweeps back and trails the head
   const hx = Math.round(N[0]), hy = Math.round(N[1]);
   const gx = hx - 7, gy = hy - 13, bend = cl(vx * 2.2 + vx2 * 1.6 + (p.sway || 0) * 0.6, -2, 3), dr = cl(-vy * 1.3, -1.2, 1.8);
   px.part();
   px.poly([[gx + 0.4, gy + 5.5], [gx + 0.6, gy + 1.4], [gx + 1.8 - bend * 0.3, gy - 1.8 + dr * 0.3], [gx - 0.8 - bend * 0.8, gy - 3.8 + dr * 0.7], [gx - 4.2 - bend, gy - 3.6 + Math.abs(bend) * 0.4 + dr],
-    [gx - 0.6 - bend * 0.8, gy - 5.8 + dr * 0.7], [gx + 3 - bend * 0.4, gy - 4.8 + dr * 0.3], [gx + 6, gy - 1.6], [gx + 11.5, gy + 1.6], [gx + 11, gy + 4]], HOOD, 8.95, { round: 0.85, ny: -0.2 });
-  px.stamp(p.eye < -0.5 ? HEAD.map((r) => r) : HEAD, hx, hy, p.eye < -0.5 ? LEG_DIM : LEG, 9, { ax: 7, ay: 13, ball: [6, 7, 8.5, 9], cast: 1 });
+    [gx - 0.6 - bend * 0.8, gy - 5.8 + dr * 0.7], [gx + 3 - bend * 0.4, gy - 4.8 + dr * 0.3], [gx + 6, gy - 1.6], [gx + 11.5, gy + 1.6], [gx + 11, gy + 4]], HOOD, 7.95, { round: 0.85, ny: -0.2 });
+  stampFace(px, p.eye < -0.5 ? HEAD.map((r) => r) : HEAD, hx, hy, p.eye < -0.5 ? LEG_DIM : LEG, 8, 8, { ax: 7, ay: 13, ball: [6, 7, 8.5, 9], cast: 1 }, "sSNEeHB");
   const k = cl(g, 0, 1.4);
   return {
     light: k > 0.05 ? { x: ce[0], y: ce[1], r: 20 + 26 * cl(k, 0, 1), col: "#9ab6d8", k: k * 0.4 } : null,

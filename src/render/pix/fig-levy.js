@@ -9,6 +9,7 @@
 // Clips: `idle` (planted spear), `walk` (8 frames, spear carried), `attack` (shield drops, the
 // spear drawn back level and driven home; `hit` is the point going home).
 import { mat, flat, layers } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, lerp, clamp } from "./rig.js";
 
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.8, shin: 9.2, ankle: 2.4, spine: 13.6, neck: 1.8, shN: -2.6, shF: 3, hipN: -1.4, hipF: 1.6 });
@@ -50,7 +51,7 @@ const LEG = {
 // carried spear in the walk). The shield is the far arm's, held back of the near hand's grip.
 // `over` (the thrust) still lets the group lift a half step more, clear of the shield's rivets.
 const LAYER = layers(["shield", "device", "spear", "nearArm"], [], { z0: 8.4, step: 0.3 });
-export const MUST = [["shaft", "sameSide", "nearHand"], ["shield", "visible", 0.4]];
+export const MUST = [["shaft", "sameSide", "nearHand"], ["shield", "visible", 0.4], ["nearArm", "notOver", "eyes"]];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const unit = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
 const leg = (px, h, k, an, z, b, c) => {
@@ -121,7 +122,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   }
   px.part();
   const rows = KETTLE;
-  px.stamp(p.blink ? blink(rows) : rows, hx, hy, LEG, 6, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] });
+  stampFace(px, p.blink ? blink(rows) : rows, hx, hy, LEG, 6, 6, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] }, "SsNbElz");
   if (B) { px.dot(hx + 2, hy - 10.6, BRASS, 6.1, { fix: 3 }); px.dot(hx + 3, hy - 8, STEELB, 6.1, { fix: 4 }); }   // the hat's rivets
   if (Cc) { px.part(); px.line(hx + 1.4, hy - 11.2, hx + 1.4, hy - 6.4, IRONK, 6.2, { noLine: true }); }
 
@@ -175,11 +176,12 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the near arm: under the shield, over it while the shaft is out over the rim
   const zn = ZS.nearArm;
-  px.part();
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.3, 2.3, eN[0], eN[1], 2.1, PAD, zn, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.1, hdN[0], hdN[1], 1.8, PAD, zn, { cast: 2 });
   px.capsule(eN[0] * 0.28 + hdN[0] * 0.72, eN[1] * 0.28 + hdN[1] * 0.72, 1.9, eN[0] * 0.16 + hdN[0] * 0.84, eN[1] * 0.16 + hdN[1] * 0.84, 1.9, LEATHER, zn + 0.02);
   px.part(); px.ellipse(hdN[0], hdN[1], 1.8, 1.8, LEATHER, zn + 0.2);
+  px.tag(null);
   return { H: { u, v, top }, marks: { tip: at(Lh, 0), butt } };
 };
 

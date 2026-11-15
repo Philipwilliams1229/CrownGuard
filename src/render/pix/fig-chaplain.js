@@ -8,6 +8,7 @@
 // `heal`: a walk-shaped clip (same legs and body as `walk`) worn on the march while his prayer
 // gathers, the reliquary lifted high and burning, motes rising round it.
 import { mat, flat } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { walkPose, sampleKeys, scaled, HUMAN } from "./rig.js";
 
 export const BONES = scaled(HUMAN, 1.16, { shN: -2.8, shF: 3, upper: 7.3, fore: 7 });
@@ -44,6 +45,14 @@ const LEG = {
 };
 LEG.B = { m: BEARD };
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+// THE GRIP. The mace is held in a closed fist; its angle is DERIVED from the solved forearm: mace angle (from
+// upright, + toward the foe) = forearm direction (elbow -> hand) + GRIP + wrist (clamped to a real wrist's +-0.35).
+// The haft stands up out of the top of the fist, about 80 degrees from the forearm. Depth is static: head, mace, arm.
+export const GRIP = -1.42;
+export const WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const maceAngle = (sk) => forearm(sk) + GRIP + cl(sk.p.wrist || 0, -WRIST, WRIST);
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 export const draw = (px, { sk, lag1, lag2 }) => {
@@ -92,7 +101,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // ---- the head
   px.part();
-  px.stamp(p.blink ? blink(HEAD) : HEAD, hx, hy, LEG, 6, { ax: 7, ay: 14, cast: 2, ball: [6.5, 5, 7, 6.5] });
+  stampFace(px, p.blink ? blink(HEAD) : HEAD, hx, hy, LEG, 6, 6, { ax: 7, ay: 14, cast: 2, ball: [6.5, 5, 7, 6.5] }, "SsNEeb");
   // the mitre's two lappets trailing behind
   const lap = cl(-vx * 1.4 - vx2 * 1.0 + sway * 0.6, -2.4, 2.4);
   px.part();
@@ -100,10 +109,10 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.dot(hx + 1, hy - 14 + 6.4, BRASS, 6.1, { fix: 3 });          // the mitre's brass stud on the band
 
   // ---- the mace through the near fist: a black-iron head with four flanges
-  const a = p.mc ?? 0.5, d = [Math.sin(a), -Math.cos(a)], nr = [-d[1], d[0]];
+  const a = maceAngle(sk), d = [Math.sin(a), -Math.cos(a)], nr = [-d[1], d[0]];
   const B = (t, s = 0) => [hdN[0] + d[0] * t + nr[0] * s, hdN[1] + d[1] * t + nr[1] * s];
   const hd = B(15);
-  px.part();
+  px.part(); px.tag("mace");
   px.capsule(...B(-4), 1.15, ...B(13), 1.05, IRONK, 7, { edge: true });
   px.capsule(...B(-0.4), 1.3, ...B(3.6), 1.3, OX, 7.02);
   px.ellipse(...B(-4.6), 1.4, 1.4, BRASS, 7.05);
@@ -111,13 +120,15 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   for (const s of [-1, 1]) px.poly([[hd[0] + nr[0] * s * 2, hd[1] + nr[1] * s * 2], [hd[0] + nr[0] * s * 5 + d[0] * 1.5, hd[1] + nr[1] * s * 5 + d[1] * 1.5], [hd[0] + nr[0] * s * 2 + d[0] * 4, hd[1] + nr[1] * s * 2 + d[1] * 4]], IRONK, 7.12, { cast: 0 });
   px.capsule(...B(17.6), 0.9, ...B(19.4), 0.3, IRON, 7.12, { edge: true });
   px.dot(hd[0] + d[0] * 1, hd[1] + d[1] * 1, STEELB, 7.15, { fix: 4 });
+  px.tag(null);
 
   // ---- the near arm: a mail sleeve, a gloved fist
-  px.part();
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.3, 2.4, eN[0], eN[1], 2.3, MAIL, 8, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.3, hdN[0], hdN[1], 1.9, MAIL, 8, { cast: 2 });
   px.capsule(eN[0] * 0.3 + hdN[0] * 0.7, eN[1] * 0.3 + hdN[1] * 0.7, 2.1, eN[0] * 0.15 + hdN[0] * 0.85, eN[1] * 0.15 + hdN[1] * 0.85, 2.1, CREAMK, 8.02);
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.8, 1.8, SKIN, 8.2);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.6, 2.1, SKIN, 8.2, { rot: -a });
+  px.tag(null);
 
   // ---- the reliquary: a brass house on its chain, windows lit as the prayer burns
   px.part(); chain(7.5);
@@ -148,32 +159,36 @@ export const fx = (px, { ph }, info, clip) => {
 
 // ---- poses ---------------------------------------------------------------------------------
 const TAU = Math.PI * 2;
-const READY = { aN: [0.62, 0.8, 0], aF: [0.5, 0.9, 0], mc: 0.45, fN: [-2, 0], fF: [2.4, 0], lean: 0.04, glow: 0.15, sway: 0, lift: 0, flash: 0, blink: 0 };
+const READY = { aN: [0.62, 0.8, 0], aF: [0.5, 0.9, 0], wrist: 0.03, fN: [-2, 0], fF: [2.4, 0], lean: 0.04, glow: 0.15, sway: 0, lift: 0, flash: 0, blink: 0 };
 const march = (ph) => walkPose(ph, { stride: 4.6, lift: 2.4, swing: 0.3, bob: 0.9, lean: 0.06 });
 export const CLIPS = {
   idle: {
     n: 8, ms: 2200, loop: true, lag: 0.1,
-    pose: (ph) => { const b = Math.sin(ph * TAU), b2 = Math.sin(ph * TAU - 0.9); return { ...READY, rise: 0.7 * (0.5 + 0.5 * b), mc: 0.45 + 0.03 * b2, sway: b2 * 0.8, glow: 0.18 + 0.12 * Math.max(0, b2), blink: ph > 0.62 && ph < 0.74 ? 1 : 0 }; },
+    pose: (ph) => { const b = Math.sin(ph * TAU), b2 = Math.sin(ph * TAU - 0.9); return { ...READY, rise: 0.7 * (0.5 + 0.5 * b), wrist: 0.03 + 0.03 * b2, sway: b2 * 0.8, glow: 0.18 + 0.12 * Math.max(0, b2), blink: ph > 0.62 && ph < 0.74 ? 1 : 0 }; },
   },
   walk: {
     n: 8, ms: 800, loop: true, lag: 0.08,
-    pose: (ph) => { const w = march(ph), a = Math.cos(ph * TAU); return { ...READY, ...w, aN: [0.62 + 0.04 * a, 0.8, 0], mc: 0.4 + 0.05 * a, aF: [0.2 - 0.3 * a, 0.94, 0], sway: a * 1.3, glow: 0.12 }; },
+    pose: (ph) => { const w = march(ph), a = Math.cos(ph * TAU); return { ...READY, ...w, aN: [0.62 + 0.04 * a, 0.8, 0], wrist: 0.05 * a, aF: [0.2 - 0.3 * a, 0.94, 0], sway: a * 1.3, glow: 0.12 }; },
   },
   // the prayer on the march: the reliquary lifted high in the far fist and burning, the mace held low and out
   heal: {
     n: 8, ms: 800, loop: true, lag: 0.08,
-    pose: (ph) => { const w = march(ph), b = Math.sin(ph * TAU); return { ...READY, ...w, aN: [0.4, 0.86, 0], mc: 0.9, aF: [1.95, 0.88, 0], lift: 1, sway: b * 0.5, glow: 0.9 + 0.2 * b, hy: -0.4, rise: 0.4 }; },
+    pose: (ph) => { const w = march(ph), b = Math.sin(ph * TAU); return { ...READY, ...w, aN: [0.4, 0.86, 0], wrist: 0.12, aF: [1.95, 0.88, 0], lift: 1, sway: b * 0.5, glow: 0.9 + 0.2 * b, hy: -0.4, rise: 0.4 }; },
   },
   // the reliquary raised, the mace swung up behind the head and brought down in a burst of light
   attack: {
     n: 13, ms: 880, loop: false, lag: 0.07, hit: 0.54,
     pose: (ph) => sampleKeys([
       { t: 0, p: READY },
-      { t: 0.3, e: "out", p: { ...READY, rx: -1.2, drop: 0.7, lean: -0.12, twist: -0.6, rise: 0.4, hy: 0.4, aN: [3.2, 0.82, 1], mc: -0.95, aF: [1.7, 0.84, 0], lift: 1, glow: 0.8 } },
-      { t: 0.42, e: "io", p: { ...READY, rx: -1.6, drop: 0.9, lean: -0.15, twist: -0.8, rise: 0.5, hy: 0.5, aN: [3.4, 0.84, 1], mc: -1.1, aF: [1.9, 0.86, 0], lift: 1, glow: 1.1 } },
-      { t: 0.54, e: "in3", p: { ...READY, rx: 2.6, drop: 1.8, lean: 0.24, twist: 0.8, hx: 0.5, aN: [1.1, 1, 0], mc: 2.1, aF: [1.5, 0.84, 0], lift: 1, glow: 1.3, flash: 1, fF: [6, 0], fN: [-2.6, 0] } },
-      { t: 0.68, e: "out", p: { ...READY, rx: 3, drop: 2, lean: 0.27, twist: 0.9, hx: 0.6, aN: [0.6, 0.96, 0], mc: 2.5, aF: [1.1, 0.84, 0], glow: 0.7, flash: 0.5, fF: [6, 0], fN: [-2.6, 0] } },
-      { t: 0.84, e: "io", p: { ...READY, rx: 2.2, drop: 1.4, lean: 0.18, twist: 0.5, aN: [0.55, 0.94, 0], mc: 2.2, aF: [0.7, 0.88, 0], glow: 0.3, flash: 0.1, fF: [5, 0], fN: [-2.2, 0] } },
+      // the fist comes up the FRONT, the elbow above the shoulder and the forearm beside the back of the mitre; the mace
+      // lies back behind the head; then the arm comes down straight and the mace follows it round
+      { t: 0.09, e: "out", p: { ...READY, rx: -0.4, drop: 0.25, lean: -0.04, twist: -0.2, rise: 0.15, aN: [1.35, 0.62, 0], wrist: 0.35, aF: [1.2, 0.84, 0], lift: 1, glow: 0.6 } },
+      { t: 0.19, e: "out", p: { ...READY, rx: -1.2, drop: 0.7, lean: -0.12, twist: -0.6, rise: 0.4, hy: 0.4, hx: 0.5, aN: [3.35, 0.92, 0], wrist: 0.35, aF: [1.7, 0.84, 0], lift: 1, glow: 0.8 } },
+      { t: 0.42, e: "io", p: { ...READY, rx: -1.6, drop: 0.9, lean: -0.15, twist: -0.8, rise: 0.5, hy: 0.5, hx: 0.6, aN: [3.45, 0.94, 0], wrist: 0.35, aF: [1.9, 0.86, 0], lift: 1, glow: 1.1 } },
+      { t: 0.49, e: "out", p: { ...READY, rx: 0.4, drop: 1.0, lean: 0.05, twist: 0.1, rise: 0.2, hx: 0.6, aN: [1.9, 1, 0], wrist: 0.2, aF: [1.7, 0.85, 0], lift: 1, glow: 1.2 } },
+      { t: 0.54, e: "in3", p: { ...READY, rx: 2.6, drop: 1.8, lean: 0.24, twist: 0.8, hx: 0.5, aN: [0.6, 1, 0], wrist: 0.35, aF: [1.5, 0.84, 0], lift: 1, glow: 1.3, flash: 1, fF: [6, 0], fN: [-2.6, 0] } },
+      { t: 0.68, e: "out", p: { ...READY, rx: 3, drop: 2, lean: 0.27, twist: 0.9, hx: 0.6, aN: [0.3, 0.96, 0], wrist: 0.1, aF: [1.1, 0.84, 0], glow: 0.7, flash: 0.5, fF: [6, 0], fN: [-2.6, 0] } },
+      { t: 0.84, e: "io", p: { ...READY, rx: 2.2, drop: 1.4, lean: 0.18, twist: 0.5, aN: [0.5, 0.94, 0], wrist: 0.1, aF: [0.7, 0.88, 0], glow: 0.3, flash: 0.1, fF: [5, 0], fN: [-2.2, 0] } },
       { t: 1, e: "io", p: READY },
     ], ph),
   },
