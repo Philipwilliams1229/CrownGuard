@@ -80,6 +80,8 @@ import * as hollowking from "./fig-hollowking.js";
 import * as amalgam from "./fig-amalgam.js";
 import * as crypt from "./fig-crypt.js";
 import * as halberdier from "./fig-halberdier.js";
+import * as blade from "./fig-blade.js";
+import * as skiff from "./fig-skiff.js";
 
 const mk = (NAME, mod) => ({ ...mod, NAME });
 // fig     the figure
@@ -118,6 +120,18 @@ export const PIX = {
   // the Gate Guard's halberdiers on the road before the gate (the castle works; the wall sentry is drawn by castle.js)
   halberdier: { fig: mk("halberdier", halberdier), variant: "guard", atk: "thrust", hit: 0.5, legacy: [0, 3, 6, 9], fx: true },
   bowman: { fig: mk("fieldbow", fieldbow), atk: "shoot", hit: 0.62, legacy: [7, 9, 10, 12], fx: false },
+  // the Assassin's Covert blades, one figure and a look per form (fig-blade.js)
+  assassinUnit: { fig: mk("blade", blade), variant: "base", atk: "attack", hit: 0.5, legacy: [0, 4, 6, 8], fx: true },
+  assassinUnitA: { fig: mk("blade", blade), variant: "a", atk: "attack", hit: 0.5, legacy: [0, 4, 6, 8], fx: true },
+  assassinUnitB: { fig: mk("blade", blade), variant: "b", atk: "attack", hit: 0.5, legacy: [0, 4, 6, 8], fx: true },
+  assassinUnitAA: { fig: mk("blade", blade), variant: "aa", atk: "attack", hit: 0.5, legacy: [0, 4, 6, 8], fx: true },
+  assassinUnitAB: { fig: mk("blade", blade), variant: "ab", atk: "attack", hit: 0.5, legacy: [0, 4, 6, 8], fx: true },
+  assassinUnitBA: { fig: mk("blade", blade), variant: "ba", atk: "attack", hit: 0.5, legacy: [0, 4, 6, 8], fx: true },
+  assassinUnitBB: { fig: mk("blade", blade), variant: "bb", atk: "attack", hit: 0.5, legacy: [0, 4, 6, 8], fx: true },
+  // the River Watch's skiff, a look per hall branch; the frame is "<gun pose>.<row 0-4>" (fig-skiff.js)
+  skiff: { fig: mk("skiff", skiff), variant: "base", atk: "kick", hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
+  skiffA: { fig: mk("skiff", skiff), variant: "a", atk: "kick", hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
+  skiffB: { fig: mk("skiff", skiff), variant: "b", atk: "kick", hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
   // ---- the Greenwood horde ----
   goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
   goblinBare: { fig: mk("goblin", goblin), variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },

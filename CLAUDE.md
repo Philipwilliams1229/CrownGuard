@@ -722,7 +722,23 @@ Bring these up with the owner; don't act on them unasked.
   32 headings, world-space sun; fx.js drawProjectile / drawQuarrel) and logs (logs.js:
   resampled to art pixels each frame, ~6k pixel reads a log: watch it on an older iPhone)
   are redrawn; the Archer hall's level 3 is timber-topped, its green path stone-topped.
-  The kraken is parked (may not ship). The recap page is the private
+  The kraken is parked (may not ship).
+  **Old-style sweep (2026-11-15):** `art/briefs/old-style-sweep.md` lists what still drew
+  old; `art/briefs/props-artist.md` is the brief. Done that day: every decor piece's ring
+  is the tinted one-pixel line (scenery.js decorSprite, `tintRing` in scenery-gwpix.js;
+  `inkTint` in inktint.js for traps / rings / effects; bridge.js and coast.js likewise);
+  Greenwood rocks, mushrooms, dead trees, Gullwick tower; Iron camp, tents, wagons, pikes,
+  standards, King's tower, ruins, drill field, salt works, eyrie, quay; Hollow trees,
+  graves, fence, barrows, water relics; Rime gate poles, longhouse, longship, rack, whale
+  bones, boats, stones, spruce; the build crew (fig-builder.js); barricades; corpses; the
+  Covert's blades (fig-blade.js, 7 forms) and the River Watch skiffs (fig-skiff.js). Props
+  re-sculpted into a chapter's `flat` list have NO "New sprites off" fallback (a board's
+  decor bakes once). STILL OLD: the Greenwood cave mouth (`drawGate`), the Hollow shrine,
+  bell-stones, throne and weir, the Rime rocks, icefall, seal rocks, floes and the landing
+  longship (rimefx.js), the build scaffold (buildanim.js), the campaign map, the old
+  `part()` inner lines in paint.js (a bake-time tinted ink there would finish many pieces
+  at once). The blades' cut still plays by old frame numbers (switch drawAssassinUnit to
+  "atk" + atkFrac to time it to the clock); the skiff gunner reads a bit large. The recap page is the private
   Artifact "Crownguard: the graphics pass, before and after".
 - **Shooters aim; shots fly straight (owner, 2026-11-14): DONE, pending the owner's look.**
   The rules are `art/briefs/aim-contract.md`. `src/engine/aim.js` (aimDeg / quantAim, 10-degree
