@@ -38,6 +38,8 @@ import * as bat from "./fig-bat.js";
 import * as dragon from "./fig-dragon.js";
 import * as thrall from "./fig-thrall.js";
 import * as berserker from "./fig-berserker.js";
+import * as risen from "./fig-risen.js";
+import * as wraith from "./fig-wraith.js";
 
 const mk = (NAME, mod) => ({ ...mod, NAME });
 // fig     the figure
@@ -74,6 +76,9 @@ export const PIX = {
   bat: { fig: mk("bat", bat), atk: "attack", hit: 0.56, legacy: [0, 2, 4, 5], fx: false },
   dragon: { fig: mk("dragon", dragon), atk: "attack", hit: 0.4, legacy: [0, 4, 6, 9], fx: true },
   // (his raise: the engine resets raiseCd to raiseEvery when the dead get up, and holds it at 0 while there are none)
+  // ---- the Hollow Court (owner's pick, 2026-11-14: Risen A, wraith B) ----
+  skeleton: { fig: mk("risen", risen), atk: "attack", hit: 0.52, per: 3.5, legacy: [0, 3, 5, 7], fx: false },
+  wraith: { fig: mk("wraith", wraith), atk: "attack", hit: 0.56, legacy: [0, 3, 5, 7], fx: true },
   // ---- the Rime Clans (owner's pick, 2026-11-14: look C) ----
   thrall: { fig: mk("thrall", thrall), atk: "attack", hit: 0.55, per: 4.2, legacy: [0, 3, 6, 8], fx: true },
   berserker: { fig: mk("berserker", berserker), atk: "attack", hit: 0.52, per: 4.4, legacy: [0, 3, 6, 8], fx: true },
