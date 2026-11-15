@@ -52,6 +52,7 @@ import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 // zone IV placeholders: longships, ice shells, landing telegraphs, the blizzard
 import { drawShip, drawFrostShells, drawSea, ZONE_FX } from "./rimefx.js";
 import { drawWeather, drawWeatherGround, flierDrop } from "./weatherfx.js";
+import { drawHit, drawDeathPoof } from "./statusfx.js";
 import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
 import { prefs } from "../data/prefs.js";
@@ -103,6 +104,8 @@ function drawBanner(ctx, g) {
   ctx.restore();
 }
 
+// a hit effect keeps the life it started with (the engine only counts ttl down)
+const lifeOfHit = (fx) => fx._l || (fx._l = Math.max(fx.ttl, 220));
 export function draw(g, canvas, bufRef) {
   const cv = canvas;
   if (!cv) return;
@@ -617,8 +620,7 @@ export function draw(g, canvas, bufRef) {
       if (fx.lite) {
         // a crowd's worth of deaths: a white blink and a puff, no crumble
         if (prog < 0.3) drawRig(ctx, fx.etype, fx.x, feet, fx.face, "walk", 0, "white", 0.9 * (1 - prog / 0.3));
-        ctx.fillStyle = `rgba(220,214,200,${0.5 * (1 - prog)})`;
-        ctx.beginPath(); ctx.ellipse(fx.x, feet - 3, 5 + prog * 8, 2.5 + prog * 3, 0, 0, 7); ctx.fill();
+        drawDeathPoof(ctx, fx, feet, ENEMIES[fx.etype]?.size || 15, prog);
       } else if (prog < 0.22) drawRig(ctx, fx.etype, fx.x, feet, fx.face, "walk", 0, "white", 0.9);
       else {
         const p2 = (prog - 0.22) / 0.78;
@@ -634,6 +636,7 @@ export function draw(g, canvas, bufRef) {
           ctx.fillRect(fx.x + dx * fx.face + scatter, feet + dy + fall, 1, 1);
         }
         ctx.globalAlpha = 1;
+        drawDeathPoof(ctx, fx, feet, ENEMIES[fx.etype]?.size || 15, prog);
       }
     } else if (fx.type === "death") {
       // flash white, then crumble into drifting pixels
@@ -684,7 +687,7 @@ export function draw(g, canvas, bufRef) {
     } else if (fx.type === "poof") {
       drawPoof(ctx, fx);
     } else if (fx.type === "hit") {
-      drawSpark(ctx, fx, "hit", 220);
+      drawHit(ctx, fx, lifeOfHit(fx));
     } else if (fx.type === "spark") {
       drawSpark(ctx, fx, fx.gold ? "gold" : "white", 200);
     } else if (fx.type === "burst") {

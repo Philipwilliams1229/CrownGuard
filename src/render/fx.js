@@ -528,6 +528,8 @@ BLAST.shrapnelhit = BLAST.dust;
 BLAST.keg = {
   g(G, cx, cy, R, ry, p, seed) {
     const gy = cy + R * 0.3;                         // the mark's feet, under the pop
+    // look B: the burst lights the ground round it, fading as the shards fly
+    if (p < 0.9) wash(G, cx, gy, R * 0.95, ry * 0.8, FIRE[2], 80 * (1 - p));
     if (p < 0.3) {
       wash(G, cx, gy, R * 0.55, ry * 0.5, FIRE[1], 110 * (1 - p / 0.3));
       wash(G, cx, gy, R * 0.28, ry * 0.26, CREAM, 150 * (1 - p / 0.3));
@@ -556,6 +558,8 @@ BLAST.keg = {
         : [FIRE[1], FIRE[2], FIRE[3], FIRE[4]];
       cloud(G, lobes(cx, by, Rf * 0.75, 4, seed + f, s, 0.6), tones, seed * 3 + f, { heat: true });
     }
+    // look B: a quick ring of heat thrown off the pop
+    if (p < 0.3) ring(G, cx, by, R * (0.25 + p * 1.4), R * (0.15 + p * 0.8), 1, FIRE, 1 - p * 2.5);
     // the first instant: a few short hard rays (hashed from the seed — the
     // shards themselves are their own shots, drawProjectile "frag")
     if (p < 0.25) {
@@ -914,7 +918,11 @@ export const drawProjectile = (ctx, p, time) => {
   if (p.kind === "frag") {
     // a shard flies out at the height of the blast, dropping as it spends itself
     const [prog] = flight(p);
-    put(ctx, shardSprite(p.hot ? "hot" : "iron", p.v || 0, dirOf(ang)), p.x, p.y - 4 + prog * prog * 3);
+    const sy = p.y - 4 + prog * prog * 3;
+    // look B: a short fading tail of sparks behind each shard
+    const tx = Math.cos(ang), ty = Math.sin(ang);
+    for (let i = 3; i >= 1; i--) speck(ctx, p.x - tx * i * 2.2, sy - ty * i * 2.2, 0.5, p.hot ? (i < 2 ? "#f0a040" : "#9a3a30") : (i < 2 ? "#7e8694" : "#4a505e"));
+    put(ctx, shardSprite(p.hot ? "hot" : "iron", p.v || 0, dirOf(ang)), p.x, sy);
     return;
   }
   if (p.kind === "shell") {

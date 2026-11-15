@@ -145,28 +145,17 @@ const burnSprite = (hw, T, f) => memo(`burn|${hw}|${T}|${f}`, () => {
     });
 });
 
-// ---- POISON: a green slick, drips down the body, rising bubbles, spores -------------------
+// ---- POISON (concept A): three sickly bubbles rising off the body, popping into specks ---
 const poisonSprite = (hw, T, f) => memo(`poi|${hw}|${T}|${f}`, () => {
-  const t = f / FX_N;
-  return bake(hw, T,
-    (c) => { pool(c, 0, 1, hw + 10, 5.5, TOX[3], 0.6); ell(c, 0, 1, hw + 7, 4, TOX[4], { a: 0.6, dens: 0.6 }); ring(c, 0, 1, hw + 9, 5, TOX[1], { a: 0.75, dens: 0.75 }); },
-    (g) => {
-      for (let k = 0; k < 4; k++) {
-        const q = (t + k * 0.25) % 1, x = (k - 1.5) * (hw * 0.5 + 2) + Math.sin(q * 7 + k) * 1.4, y = -T * 0.5 - q * 18, r = 2.4 + (k % 2) * 1.1 + q;
-        if (q > 0.88) continue;
-        ell(g, x, y, r, r, TOX[1]); ell(g, x + 0.5, y + 0.8, r * 0.6, r * 0.6, TOX[2]); px(g, x - 1, y - 1, TOX[0]); px(g, x - 1, y - 2, TOX[0]);
-      }
-    },
-    (c) => {
-      // drips run down the body, one dropping to the ground
-      for (let k = 0; k < 3; k++) {
-        const x = Math.round((k - 1) * hw * 0.8), q = (t + k * 0.37) % 1, y0 = -Math.round(T * (0.5 - 0.1 * k));
-        line(c, x, y0, x, y0 + Math.round(q * -y0 * 0.7), TOX[2]);
-        if (q > 0.7) px(c, x, y0 + Math.round(((q - 0.7) / 0.3) * -y0), TOX[1]);
-        if (q > 0.93) { px(c, x - 1, 0, TOX[1]); px(c, x + 1, 0, TOX[1]); }
-      }
-      for (let k = 0; k < 4; k++) { const q = (t + k * 0.25) % 1; px(c, (k - 1.5) * 6 + Math.sin(q * 6) * 2, -T - q * 8, TOX[1], 1 - q); }
-    });
+  const t = f / FX_N, k0 = Math.max(1, hw / 14);
+  return bake(hw, T, null, (g) => {
+    for (let k = 0; k < 3; k++) {
+      const q = (t * 1 + k * 0.33) % 1, x = Math.round((k - 1) * 6 * k0 + Math.sin(q * 7 + k) * 1.2), y = -T * 0.55 - q * 14;
+      if (q > 0.86) { for (const [dx, dy] of [[-2, -1], [2, -1], [0, -3], [0, 2]]) px(g, x + dx * 1.5, y + dy * 1.5, TOX[1]); continue; }
+      ell(g, x, y, 4, 4, TOX[2]); ell(g, x + 0.5, y + 1, 2.4, 2.2, TOX[3], { a: 0.8 });
+      px(g, x - 1, y - 1, TOX[0]); px(g, x - 2, y - 1, TOX[0]); px(g, x - 1, y - 2, TOX[0]); px(g, x, y - 1, TOX[1]);
+    }
+  });
 });
 
 // ---- SLOW / CHILL: a frost ring on the ground, rime tufts at the feet, falling motes ------
@@ -191,55 +180,35 @@ const mistSprite = (hw, T, f) => memo(`mist|${hw}|${T}|${f}`, () => {
   });
 });
 
-// ---- STUN: four gold stars on trailing arcs round the crown, rattle ticks on the flanks ----
+// ---- STUN (concept A): three gold stars wheeling round the crown ---------------------------
 const stunSprite = (hw, T, f) => memo(`stn|${hw}|${T}|${f}`, () => {
   const t = f / FX_N, R = Math.max(9, Math.min(22, Math.round(hw * 0.8) + 4));
-  return bake(hw, T, null,
-    (g) => {
-      for (let k = 0; k < 4; k++) { const a = t * TAU + (k * TAU) / 4; star4(g, Math.round(Math.cos(a) * R), Math.round(-T - 2 + Math.sin(a) * R * 0.31), 3, [HOLY[1], HOLY[2], HOLY[3]]); }
-    },
-    (c) => {
-      for (let k = 0; k < 4; k++) {
-        const a = t * TAU + (k * TAU) / 4;
-        for (let tr = 4; tr >= 1; tr--) { const aa = a - tr * 0.28; px(c, Math.cos(aa) * R, -T - 2 + Math.sin(aa) * R * 0.31, HOLY[tr > 2 ? 3 : 2], 1 - tr * 0.2); }
-      }
-      for (const s of [-1, 1]) { line(c, s * (hw + 3), -T * 0.7, s * (hw + 6), -T * 0.75 - (f & 1), HOLY[1]); line(c, s * (hw + 3), -T * 0.55, s * (hw + 7), -T * 0.55, HOLY[1]); }
-      if (f % 4 === 0) { ell(c, -hw, 1, 4, 1.5, DUST[1], { a: 0.6, dens: 0.6 }); ell(c, hw, 1, 4, 1.5, DUST[1], { a: 0.6, dens: 0.6 }); }
-    });
+  const items = [];
+  for (let k = 0; k < 3; k++) { const a = t * TAU + (k * TAU) / 3; items.push([Math.cos(a) * R, -T - 2 + Math.sin(a) * R * 0.31, Math.sin(a)]); }
+  items.sort((p, q) => p[2] - q[2]);
+  return bake(hw, T, null, (g) => { for (const [x, y] of items) star4(g, Math.round(x), Math.round(y), 3, [HOLY[1], HOLY[2], HOLY[3]]); });
 });
 
-// ---- ARMOR CRACK: a glowing split in the plate with branches and shards dropping off ------
+// ---- ARMOR CRACK (concept A): a jagged split in the plate, a few chips dropping off ---------
 const CRACK = [[0, -7], [-2, -4], [1, -2], [-2, 1], [1, 3], [-1, 6]];
-const BR1 = [[1, -2], [5, -4], [8, -3]], BR2 = [[-2, 1], [-6, 2], [-8, 5]];
 const crackSprite = (hw, T, f) => memo(`crk|${hw}|${T}|${f}`, () => {
-  const t = f / FX_N, y = Math.round(-T * 0.48), pulse = 0.5 + 0.5 * Math.sin(t * TAU), K = Math.max(1, Math.min(2.2, T / 40));
-  const sc = (pts) => pts.map(([a, b]) => [a * K, b * K]);
+  const y = Math.round(-T * 0.48), K = Math.max(1, Math.min(2.2, T / 40)), pts = CRACK.map(([a, b]) => [a * K, b * K]), t = f / FX_N;
   return bake(hw, T, null, null, (c) => {
     c.save(); c.translate(0, y);
-    ell(c, 0, 0, 7 * K, 9 * K, ICE[2], { a: 0.14 + 0.1 * pulse, dens: 0.5 });
-    jag(c, sc(CRACK), 1, ICE[0], ICE[4]); jag(c, sc(BR1), 1, ICE[1], ICE[4]); jag(c, sc(BR2), 1, ICE[1], ICE[4]);
-    for (let k = 0; k < 4; k++) {
-      const q = (t + k * 0.25) % 1, sx = (k % 2 ? 1 : -1) * (3 + q * 9) * K, sy = (q * q * 14 - 4 * q + k) * K;
-      px(c, sx, sy - 1, k % 2 ? ICE[1] : "#b4bac6"); px(c, sx, sy, ICE[3]);
-    }
+    jag(c, pts, 1, ICE[1], ICE[4]);
+    jag(c, pts.map(([a, b]) => [a + 1, b]), 1, ICE[1]);
+    for (let k = 0; k < 2; k++) { const q = (t + k * 0.5) % 1; px(c, (k ? 4 : -4) * K * 0.8, 3 * K + q * 10, k ? ICE[1] : ICE[2]); }
     c.restore();
   });
 });
 
-// ---- SHIELD: a faint bubble round the foe, and heater-shaped pips, one a blow still owed ----
-const shieldSprite = (hw, T, f) => memo(`shd|${hw}|${T}|${f}`, () => {
-  const t = f / FX_N, rw = hw + 5, rh = (T + 8) / 2, cy = -T / 2 + 1;
-  return bake(hw, T, null, null, (c) => {
-    ring(c, 0, cy, rw, rh, SH[1], { a: 0.4, dens: 0.7 }); ell(c, 0, cy, rw, rh, SH[0], { a: 0.07, dens: 0.5 });
-    for (let k = 0; k < 7; k++) { const a = -2.3 + t * 3.4 + k * 0.045; px(c, Math.cos(a) * rw, cy + Math.sin(a) * rh, SH[0], 0.85); }
-  });
-});
-const PIP = ["1111111", "1222221", "1222221", "1222221", ".12221.", ".12221.", "..131..", "...3..."];
+// ---- SHIELD PIPS (concept A): a small shield-blue pip per blow still owed, in a row --------
+const PIP = ["..1..", ".111.", "12221", "12221", ".121.", "..3.."];
 const pipSprite = (n, flash) => memo(`pip|${n}|${flash ? 1 : 0}`, () => {
-  const gap = 11, cw = n * gap + 6, ch = 14, ax = cw >> 1, ay = 7;
+  const gap = 8, cw = n * gap + 6, ch = 12, ax = cw >> 1, ay = 6;
   const cv = mk(cw, ch), g = cv.getContext("2d", { willReadFrequently: true });
   for (let i = 0; i < n; i++) {
-    const x0 = Math.round(ax + (i - (n - 1) / 2) * gap) - 3;
+    const x0 = Math.round(ax + (i - (n - 1) / 2) * gap) - 2;
     stamp(g, PIP, flash ? { 1: "#fff", 2: SH[0], 3: SH[1] } : { 1: SH[0], 2: SH[1], 3: SH[2] }, x0, 2);
   }
   inkTint(cv, "#1c2a4c", 1);
@@ -257,8 +226,51 @@ export const statusStun = (ctx, e, time, feet, hr) => {
   stampAt(ctx, stunSprite(bucketHW(e.size), bucketT(hr), f), e.x + ((f >> 1) & 1 ? 0.5 : -0.5), feet);
 };
 export const statusCrack = (ctx, e, time, feet, hr) => stampAt(ctx, crackSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
-// the shield: its bubble, then the pips at the crown (just under the health bar)
+// the shield: pips at the crown (just under the health bar)
 export const statusShield = (ctx, e, time, tms, feet, hr) => {
-  stampAt(ctx, shieldSprite(bucketHW(e.size), bucketT(hr), frameOf(time, e.id || 0, 6)), e.x, feet);
-  stampAt(ctx, pipSprite(Math.max(1, Math.min(4, e.guard | 0)), e.guardFlash > tms), e.x, feet - hr + 3);
+  stampAt(ctx, pipSprite(Math.max(1, Math.min(4, Math.ceil(e.guard))), e.guardFlash > tms), e.x, feet - hr + 3);
+};
+
+// ---- PHYSICAL HIT (concept B): a hard white pop, steel and ember sparks flung out, a slash, dust ----
+const STEEL = ["#f2f4f8", "#b4bac6", "#7e8694", "#4a505e"];
+export const HIT_N = 4;
+const hitSprite = (f) => memo(`hit|${f}`, () => {
+  const cw = 44, ax = 22, ay = 22, cv = mk(cw, cw), c = cv.getContext("2d");
+  c.translate(ax, ay);
+  const d = 5 + f * 5, L = [13, 18, 11, 0][f];
+  if (L) { line(c, -7, -8, -7 + L, -8 + L * 0.9, STEEL[0]); line(c, -6, -8, -6 + L, -8 + L * 0.9, STEEL[1], 0.7); }
+  for (let k = 0; k < 8; k++) { const a = (k / 8) * TAU + 0.3; px(c, Math.cos(a) * d, Math.sin(a) * d, k % 2 ? STEEL[0] : FIRE[1]); if (f < 2) px(c, Math.cos(a) * (d + 1.2), Math.sin(a) * (d + 1.2), k % 2 ? STEEL[2] : FIRE[3]); }
+  if (f === 0) { c.fillStyle = "#fff"; c.fillRect(-3, -3, 6, 6); }
+  const q = f / 3;
+  for (let k = 0; k < 3; k++) px(c, 5 + k * 3 + q * 4, 3 + q * q * 18 + k, DUST[2 - (k & 1)]);
+  ell(c, 0, 10, 6 + f * 3, 2 + f, DUST[1], { a: 0.5 - f * 0.1, dens: 0.5 });
+  return { cv, ax, ay };
+});
+export const drawHit = (ctx, fx, life) => {
+  const p = 1 - fx.ttl / life;
+  if (p >= 1) return;
+  stampAt(ctx, hitSprite(Math.min(HIT_N - 1, Math.floor(p * HIT_N))), fx.x, fx.y);
+};
+
+// ---- DEATH POOF (concept B): a soft shadow, grey smoke puffs, dust and a wisp, under/over the crumble ----
+export const DEATH_N = 8;
+const deathSprite = (hw, T, f) => memo(`dth|${hw}|${T}|${f}`, () => {
+  const p = (f + 0.5) / DEATH_N;
+  return bake(hw, T, null, null, (c) => {
+    ell(c, 0, 1, hw + 4 + p * 8, 3.5 + p * 2, "#000", { a: 0.2 * (1 - p), dens: 0.7 });
+    if (p > 0.1 && p < 0.97) for (let k = 0; k < 4; k++) {
+      const q = Math.min(1, Math.max(0, (p - 0.1 - k * 0.04) / 0.8));
+      ell(c, (k - 1.5) * (hw * 0.4 + 2) + Math.sin(q * 5 + k) * 3, -T * 0.35 - q * 14, 4.5 + q * 6, 3.5 + q * 5, SMOKE[q < 0.4 ? 0 : 1], { a: 0.9 * (1 - q * 0.8), dens: 1 - q * 0.4 });
+    }
+    if (p > 0.2 && p < 0.97) {
+      const q = (p - 0.2) / 0.75;
+      ell(c, 0, 1, 5 + q * 14, 2 + q * 5, DUST[1], { a: 0.5 * (1 - q), dens: 0.5 });
+      const y = -T * 0.6 - q * 22, x = Math.sin(q * 6) * 3;
+      px(c, x, y, "#dff4ff"); px(c, x, y + 1, "#9fd4e8", 0.7); px(c, x, y + 2, "#9fd4e8", 0.4);
+    }
+  });
+});
+// feet = the foe's ground line, size = its world size; prog 0..1 of the death
+export const drawDeathPoof = (ctx, fx, feet, size, prog) => {
+  stampAt(ctx, deathSprite(bucketHW(size), bucketT(size * 1.5), Math.min(DEATH_N - 1, Math.floor(prog * DEATH_N))), fx.x, feet);
 };

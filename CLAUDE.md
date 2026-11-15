@@ -159,12 +159,14 @@ next one.
 "Apply a graphics pass to the effects ... status effects, splash damage, raising dead ... I do like
 the flashing rings of the magic spells." Concept page: private Artifact "Crownguard Effects
 Concepts" (`fx-concepts.html` + `concept/fx-concepts.js`; `node scripts/build-fx-concepts.mjs`
-writes `.shots/fx-concepts/` with Today / A / B / C pick buttons). **Owner's picks so far: B
-("worked") for the STATUS marks** (burn, poison, slow, frozen, stun, shield pips, crack), now in
-the game: `src/render/statusfx.js` bakes each mark per kind / size bucket / frame (8) and blits it
-(cache cap 900); fx.js `drawStatus` and enemies.js's pips call it. Measured drawStatus for 200
-foes 1.30 -> 0.79 ms. No body tint (it would need tinted rigs); poison on grass is moderate
-contrast. Hits, blasts, shrapnel, raise, heal and death: NOT yet picked, still today's look.
+writes `.shots/fx-concepts/` with Today / A / B / C pick buttons). **The owner's picks (all in the
+game):** burn B, poison A, slow B, frozen B, stun A, shield pips A, crack A, physical hit B,
+shrapnel B, heal wave B, death poof B; magic hit, catapult / keg blast and raising the dead kept
+as they were. `src/render/statusfx.js` bakes each mark / hit / death poof per kind, size bucket
+and frame and blits it (cache cap 900); fx.js `drawStatus`, enemies.js's pips and draw.js's `hit`
+and `death` branches call it; the shrapnel tail is in fx.js, the heal swell in rings.js. Measured:
+drawStatus for 200 foes 1.30 -> 0.79 ms; 300 hits + 50 shards + 50 poofs 0.30 -> 0.26 ms. No body
+tint (it would need tinted rigs); the death smoke is easy to miss in a crowd.
 
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 

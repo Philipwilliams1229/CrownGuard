@@ -861,7 +861,10 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       ctx.save();
       ctx.globalAlpha *= A;
       if (GR) {
-        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 4), dither(ctx, HEAL[1], 0.5));
+        // look B: the whole swell is lit, a clearer heart inside it
+        disc(ctx, fx.x, fx.y, r, 0, dither(ctx, HEAL[2], 0.3));
+        disc(ctx, fx.x, fx.y, r * 0.6, 0, dither(ctx, HEAL[1], 0.22));
+        disc(ctx, fx.x, fx.y, r, Math.max(0, r - 3), dither(ctx, HEAL[1], 0.5));
       }
       if (AIR) {
         ringPx(ctx, fx.x, fx.y, r, r, 1.5, HEAL[1]);
