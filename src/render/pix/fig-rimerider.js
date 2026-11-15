@@ -73,9 +73,10 @@ const RLEG = {
   E: { m: EYER }, H: { m: FLAX }, B: { m: FLAX, fix: 2 }, X: { m: MOUTH },
 };
 
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 118, h: 86, ox: 54, oy: 76 };
 export const BONES = HUMAN;               // unused: the wolf stands on beast.js's bones
-const Q = { ...QUAD, spine: 21, height: 25.5, foreU: 10, foreL: 9, hindU: 11.5, hindL: 10, hindX: -4.5, tail: [6, 6, 5], sh: [-1, 5.5], hip: [1, 4.5] };
+export const Q = { ...QUAD, spine: 21, height: 25.5, foreU: 10, foreL: 9, hindU: 11.5, hindL: 10, hindX: -4.5, tail: [6, 6, 5], sh: [-1, 5.5], hip: [1, 4.5] };
 // the rider's bones
 const R = { thigh: 7, shin: 6.4, spine: 8.6, upper: 6.2, fore: 5.8 };
 
@@ -104,7 +105,7 @@ const TUFTS = [[1.2, 0.5], [2.6, 1], [1.6, 0.7], [3, 1.2], [2, 1], [1.2, 0.6]];
 
 // ---- the rider's joints, from the wolf's frame and the pose's rider fields -------------------
 // Shared by the drawing and the axe's smear (fx asks it for earlier moments).
-const rideOf = (b, b1, b2) => {
+export const rideOf = (b, b1, b2) => {
   const p = b.p;
   const s0 = b.at(0.06, 0, -1.8), s1 = b1.at(0.06, 0, -1.8), s2 = b2.at(0.06, 0, -1.8);
   const late = s1[1] * 0.65 + s2[1] * 0.35, air = cl(s0[1] - late, 0, 2.5), press = cl(late - s0[1], 0, 2);
@@ -118,7 +119,11 @@ const rideOf = (b, b1, b2) => {
   return { H, C, N, sN, sF, na, lean, air, press };
 };
 
-// the long bearded Dane axe: a = 0 haft straight up, PI/2 level before him
+// THE GRIP: the rider's axe angle (from upright, + toward the foe) is DERIVED from his solved forearm (elbow -> hand) + GRIP +
+// a wrist of +-0.35, never posed on its own. Measured from his ready pose (-1.7).
+export const GRIP = -1.7, WRIST = 0.35;
+export const axeAngleR = (na, wrist = 0) => { const f = Math.atan2(na.end[0] - na.mid[0], -(na.end[1] - na.mid[1])); return (f < -1.9 ? f + Math.PI * 2 : f) + GRIP + Math.max(-WRIST, Math.min(WRIST, wrist)); };
+// the long bearded Dane, PI/2 level before him
 const axe = (px, h, a, z) => {
   const L = 17, k = 1.5, d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)];
   const at = (f, s) => [h[0] + d[0] * f + n[0] * s, h[1] + d[1] * f + n[1] * s];
@@ -295,16 +300,21 @@ const raider = (px, b, b1, b2) => {
 
   // the near arm and the axe in the fist, a fur cuff at the wrist
   const hd = na.end;
-  axe(px, hd, p.axe ?? -0.4, 10);
+  px.part(); px.tag("axe");
+  axe(px, hd, axeAngleR(na, p.wrist), 10);
+  px.tag(null);
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 3.6, 3.2, FURW, 10.4, { cast: 0, bias: 1 });
   px.part();
+  px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.6, 2.1, na.mid[0], na.mid[1], 1.9, TEAL, 10.5, { cast: 1 });
   px.capsule(na.mid[0], na.mid[1], 1.9, hd[0], hd[1], 1.7, TEAL, 10.5, { cast: 1 });
   const w0 = mix(na.mid, hd, 0.66);
   px.capsule(w0[0], w0[1], 1.9, hd[0], hd[1], 1.8, LEATHER, 10.55, { cast: 1 });
-  px.part();
-  px.ellipse(hd[0], hd[1], 1.9, 1.9, SKIN, 10.7);
+  px.tag(null);
+  px.part(); px.tag("nearHand");
+  px.ellipse(hd[0], hd[1], 1.7, 2.2, SKIN, 10.7, { rot: -axeAngleR(na, p.wrist) });
+  px.tag(null);
   void lean;
 };
 
@@ -325,7 +335,7 @@ export const fx = (px, F, info, clip) => {
     const pts = [];
     for (let i = 0; i < 5; i++) {
       const q = Math.max(T0, Math.min(ph, T1 + 0.03) - i * 0.012), sb = (x) => solveBeast(F.at(x).p, Q), bb = sb(q), r = rideOf(bb, sb(q - 0.08), sb(q - 0.16));
-      const a = bb.p.axe ?? -0.4, d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)], h = r.na.end, L = 17;
+      const a = axeAngleR(r.na, bb.p.wrist), d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)], h = r.na.end, L = 17;
       pts.push([[h[0] + d[0] * (L + 2) + n[0] * 3.4, h[1] + d[1] * (L + 2) + n[1] * 3.4], [h[0] + d[0] * (L - 3.4) + n[0] * 5, h[1] + d[1] * (L - 3.4) + n[1] * 5]]);
     }
     for (let i = 0; i + 1 < pts.length; i++) px.poly([pts[i][0], pts[i + 1][0], pts[i + 1][1], pts[i][1]], SMEAR, 20 - i, { noLine: true });
@@ -344,7 +354,7 @@ export const fx = (px, F, info, clip) => {
 
 const STAND = { drop: 0.6, pitch: 0.05, arch: 0.06, neck: 0.02, hx: 0, hy: 0, jaw: 0.5, tail: -0.62, curl: 0.2, hackle: 1, ear: 0, clamp: 0,
   fNF: [-0.5, 0], fFF: [3, 0], fNH: [-2, 0], fFH: [3, 0],
-  rLean: 0.12, rArm: [0.95, 0.56], axe: -0.5, rTwist: 0, rHx: 0, rHy: 0, rKnee: 0, rBlink: 0, rRoar: 0 };
+  rLean: 0.12, rArm: [0.95, 0.56], rTwist: 0, rHx: 0, rHy: 0, rKnee: 0, rBlink: 0, rRoar: 0 };
 export const CLIPS = {
   idle: {
     n: 8, ms: 1500, loop: true, lag: 0.1,
@@ -352,7 +362,7 @@ export const CLIPS = {
       const s = Math.sin(ph * Math.PI * 2), s2 = Math.sin(ph * Math.PI * 2 - 1.1);
       return { ...STAND, drop: 0.6 + 0.5 * (0.5 + 0.5 * s), neck: 0.02 - 0.06 * (0.5 + 0.5 * s2), hackle: 0.85 + 0.15 * s, tail: -0.62 + 0.2 * s2, curl: 0.2 + 0.12 * s,
         lip: ph >= 0.2 && ph < 0.55 ? 1 : 0, blink: ph >= 0.74 && ph < 0.86 ? 1 : 0, twitch: ph >= 0.36 && ph < 0.5 ? 1 : 0,
-        rLean: 0.12 + 0.03 * s2, rArm: [0.95 + 0.03 * s, 0.56], axe: -0.5 + 0.05 * s2, rBlink: ph >= 0.86 && ph < 0.98 ? 1 : 0 };
+        rLean: 0.12 + 0.03 * s2, rArm: [0.95 + 0.03 * s, 0.56], rBlink: ph >= 0.86 && ph < 0.98 ? 1 : 0 };
     },
   },
   walk: {
@@ -360,7 +370,7 @@ export const CLIPS = {
     pose: (ph) => {
       const g = gallop(ph, { travel: 60, duty: 0.24, lift: 5.5, flex: 0.56, flexBias: 0.3, rock: 0.14, bob: 1.6, kick: [16, 9], reach: [12, 5], foreX: 2, hindX: 4 });
       return { ...STAND, ...g, drop: g.drop + 1.2, neck: 0.1 + g.nod, hx: -g.g * 1.2, hy: 0, jaw: 0, hackle: 0.1, ear: 1, tail: 0.3 - g.g * 0.12, curl: -0.04 - g.g * 0.08,
-        rLean: 0.46 + g.g * 0.05, rArm: [1.25, 0.55], axe: 0.85 - g.pitch * 0.5, rTwist: 0.2, rHx: 0.5, rHy: 0.4, rRoar: 1 };
+        rLean: 0.46 + g.g * 0.05, rArm: [1.25, 0.55], rTwist: 0.2, rHx: 0.5, rHy: 0.4, rRoar: 1 };
     },
   },
   attack: {
@@ -369,18 +379,18 @@ export const CLIPS = {
       { t: 0, p: STAND },
       // the crouch: weight back on the haunches, the chest to the ground, the axe hauled up behind his head
       { t: 0.22, e: "out", p: { ...STAND, rx: -3, drop: 4, pitch: 0.2, arch: 0.3, neck: 0.02, hy: 1, ear: 1, tail: -0.5, curl: 0.1,
-        rLean: 0.0, rArm: [2.9, 0.95], axe: -0.8, rTwist: -0.5, rRoar: 1 } },
+        rLean: 0.0, rArm: [2.9, 0.95], rTwist: -0.5, rRoar: 1 } },
       { t: T0, e: "io", p: { ...STAND, rx: -3.8, drop: 4.6, pitch: 0.22, arch: 0.36, neck: 0, hy: 1, ear: 1, tail: -0.4, curl: 0.1,
-        rLean: -0.1, rArm: [3.15, 0.97], axe: -1.0, rTwist: -0.65, rHx: -0.4, rRoar: 1 } },
+        rLean: -0.1, rArm: [3.15, 0.97], rTwist: -0.65, rHx: -0.4, rRoar: 1 } },
       // the lunge: the wolf off its haunches, the jaws wide; the axe comes down across them
       { t: T1, e: "in3", p: { ...STAND, rx: 6.5, drop: 0.4, pitch: -0.2, arch: -0.26, neck: 0.42, hx: 3, hy: 0, jaw: 1, ear: 1, hackle: 0.3, tail: 0.3, curl: 0,
-        fNF: [30, 12], fFF: [27, 14], fNH: [-1, 0], fFH: [3.5, 0], rLean: 0.68, rArm: [1.6, 1], axe: 1.65, rTwist: 0.6, rHx: 1, rHy: 0.8, rRoar: 1 } },
+        fNF: [30, 12], fFF: [27, 14], fNH: [-1, 0], fFH: [3.5, 0], rLean: 0.68, rArm: [1.0, 1], rTwist: 0.6, rHx: 1, rHy: 0.8, rRoar: 1 } },
       // the snap and the follow-through: the blade low before the wolf's shoulder
       { t: 0.6, e: "out", p: { ...STAND, rx: 7.5, drop: 1.6, pitch: 0, arch: -0.12, neck: 0.3, hx: 4, hy: 1, jaw: 0, clamp: 1, ear: 1, hackle: 0.3, tail: 0.2, curl: 0,
-        fNF: [9, 0], fFF: [7, 0], fNH: [1, 0], fFH: [3.5, 0], rLean: 0.74, rArm: [1.4, 1], axe: 2.15, rTwist: 0.7, rHx: 1.2, rHy: 1, rRoar: 1 } },
+        fNF: [9, 0], fFF: [7, 0], fNH: [1, 0], fFH: [3.5, 0], rLean: 0.74, rArm: [0.9, 1], rTwist: 0.7, rHx: 1.2, rHy: 1, rRoar: 1 } },
       { t: 0.74, e: "io", p: { ...STAND, rx: 5, drop: 1.2, pitch: -0.06, arch: 0.1, neck: 0.5, hx: 1, hy: -1, jaw: 0, clamp: 1, ear: 1, hackle: 0.6, tail: -0.2, curl: 0.2,
-        fNF: [9, 0], fFF: [7, 0], fNH: [1, 0], fFH: [3.5, 0], rLean: 0.5, rArm: [1.1, 0.8], axe: 1.5, rTwist: 0.3, rRoar: 0 } },
-      { t: 0.88, e: "io", p: { ...STAND, rx: 1.5, drop: 0.2, neck: 0.2, fNF: [4, 2.4], fFF: [2, 1.2], fNH: [0, 1.2], fFH: [2, 0], ear: 0.6, rLean: 0.26, rArm: [1.0, 0.64], axe: 0.2 } },
+        fNF: [9, 0], fFF: [7, 0], fNH: [1, 0], fFH: [3.5, 0], rLean: 0.5, rArm: [1.1, 0.8], rTwist: 0.3, rRoar: 0 } },
+      { t: 0.88, e: "io", p: { ...STAND, rx: 1.5, drop: 0.2, neck: 0.2, fNF: [4, 2.4], fFF: [2, 1.2], fNH: [0, 1.2], fFH: [2, 0], ear: 0.6, rLean: 0.26, rArm: [1.0, 0.64]} },
       { t: 1, e: "out", p: STAND },
     ], ph),
   },

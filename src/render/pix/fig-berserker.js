@@ -35,12 +35,20 @@ const legend = (rage) => ({
 });
 const LEG = { false: legend(false), true: legend(true) };
 
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 108, h: 94, ox: 46, oy: 84 };
+// THE GRIP: each axe's angle (from upright, + toward the foe) is DERIVED from its own solved forearm: forearm direction
+// (elbow -> hand) + GRIP + a wrist of +-0.35, never posed on its own. The haft stands out of the top of the fist, near 90 degrees to it.
+export const GRIP = -1.6, WRIST = 0.35;
+const fore = (e, h) => { const f = Math.atan2(h[0] - e[0], -(h[1] - e[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+const wr = (w) => Math.max(-WRIST, Math.min(WRIST, w || 0));
+export const axeAngle = (sk) => fore(sk.eN, sk.hdN) + GRIP + wr(sk.p.wrist);
+export const axeAngleF = (sk) => fore(sk.eF, sk.hdF) + GRIP + wr(sk.p.wristF);
 export const BONES = scaled(HUMAN, 1.18, { shN: -4, shF: 4, hipN: -1.8, hipF: 2, neck: 1.2 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
-// a hand axe: a = 0 haft up, PI/2 level before him
+// a hand, PI/2 level before him
 const axe = (px, h, a, v, z) => {
   const big = v === "c", L = big ? 17 : 12.5, k = big ? 1.4 : 1, d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)];
   const at = (f, s) => [h[0] + d[0] * f + n[0] * s, h[1] + d[1] * f + n[1] * s];
@@ -75,9 +83,12 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   px.capsule(eF[0], eF[1], 2.2, hdF[0], hdF[1], 1.9, skin, 1, { bias: -1 });
   const w0 = mix(eF, hdF, 0.6);
   px.capsule(w0[0], w0[1], 2.2, hdF[0], hdF[1], 2, LEATHER, 1.05, { bias: -1 });
-  axe(px, hdF, p.axeF ?? 1.3, v, 1.3);
+  const axF = axeAngleF(sk);
+  px.part(); px.tag("farArm");
+  axe(px, hdF, axF, v, 1.3);
   px.part();
-  px.ellipse(hdF[0], hdF[1], 2.1, 2.1, skin, 1.4, { bias: -1 });
+  px.ellipse(hdF[0], hdF[1], 1.9, 2.4, skin, 1.4, { bias: -1, rot: -axF });
+  px.tag(null);
 
   // legs: fur-wrapped, barefoot-looking boots of hide
   for (const [h, k, a, z, b] of [[hF, kF, anF, 2, -1], [hN, kN, anN, 3, 0]]) {
@@ -149,15 +160,20 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   }
 
   // the near arm over it all, a band at the wrist, the axe in the fist
-  px.part();
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.8, 2.7, eN[0], eN[1], 2.3, skin, 7.9, { cast: 1 });
   px.capsule(eN[0], eN[1], 2.3, hdN[0], hdN[1], 2, skin, 7.9, { cast: 1 });
   const c0 = mix(eN, hdN, 0.62);
   px.capsule(c0[0], c0[1], 2.3, hdN[0], hdN[1], 2.1, LEATHER, 7.95, { cast: 1 });
   if (sto || big) { const m0 = mix(sN, eN, 0.55); px.capsule(m0[0], m0[1], 2.6, m0[0] + 0.3, m0[1] + 0.7, 2.6, BRASS, 7.93, { fix: 3 }); }
-  axe(px, hdN, p.axe ?? 0.9, v, 8.1);
-  px.part();
-  px.ellipse(hdN[0], hdN[1], 2.2, 2.2, skin, 8.3);
+  px.tag(null);
+  const ax = axeAngle(sk);
+  px.part(); px.tag("axe");
+  axe(px, hdN, ax, v, 8.1);
+  px.tag(null);
+  px.part(); px.tag("nearHand");
+  px.ellipse(hdN[0], hdN[1], 2.0, 2.5, skin, 8.3, { rot: -ax });
+  px.tag(null);
   // pelt over the near shoulder
   px.part();
   px.ellipse(sN[0] - 0.4, sN[1] - 0.2, big ? 5.6 : 4.2, big ? 4.6 : 3.4, PELT, 8, { cast: 1 });
@@ -177,30 +193,30 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
 const T0 = 0.4, T1 = 0.52;
 export const fx = (px, { ph }, info, clip) => {
   if (clip !== "attack" || ph < T0 || ph > T1 + 0.14) return;
-  for (const [key, ak, L] of [["hdN", "axe", 12.5], ["hdF", "axeF", 12.5]]) {
+  for (const [key, ak, L] of [["hdN", axeAngle, 12.5], ["hdF", axeAngleF, 12.5]]) {
     const pts = [];
     for (let i = 0; i < 4; i++) {
-      const q = Math.max(T0, Math.min(ph, T1 + 0.03) - i * 0.01), s = solve(CLIPS.attack.pose(q), BONES), a = s.p[ak] ?? 0.9, d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)], h = s[key];
+      const q = Math.max(T0, Math.min(ph, T1 + 0.03) - i * 0.01), s = solve(CLIPS.attack.pose(q), BONES), a = ak(s), d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)], h = s[key];
       pts.push([h[0] + d[0] * (L + 2) + n[0] * 4.4, h[1] + d[1] * (L + 2) + n[1] * 4.4]);
     }
     for (let i = 0; i + 1 < pts.length; i += 1) if (i !== 1) px.line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], SMEAR, 20, { noLine: true });
   }
 };
 
-const GUARD = { drop: 2.4, lean: 0.24, hx: 2.4, hy: 1.2, aN: [0.5, 0.9, 0], aF: [0.85, 0.88, 0], fN: [-4, 0], fF: [4.4, 0], axe: 0.8, axeF: 1.2, roar: 0 };
+const GUARD = { drop: 2.4, lean: 0.24, hx: 2.4, hy: 1.2, aN: [0.5, 0.9, 0], aF: [0.85, 0.88, 0], fN: [-4, 0], fF: [4.4, 0], roar: 0 };
 export const CLIPS = {
   idle: {
     n: 8, ms: 1200, loop: true, lag: 0.09,
     pose: (ph) => {
       const b = Math.sin(ph * Math.PI * 2), u = 0.5 + 0.5 * b, s = Math.sin(ph * Math.PI * 2 - 1);
-      return { ...GUARD, rise: 0.9 * u, drop: 2.4 + 0.6 * (1 - u), rx: 0.7 * s, aN: [0.5 + 0.08 * b, 0.9, 0], aF: [0.85 - 0.08 * b, 0.88, 0], axe: 0.8 + 0.1 * b, axeF: 1.2 - 0.1 * b, hx: 2.4 + 0.5 * s, blink: ph >= 0.84 && ph < 0.94 ? 1 : 0 };
+      return { ...GUARD, rise: 0.9 * u, drop: 2.4 + 0.6 * (1 - u), rx: 0.7 * s, aN: [0.5 + 0.08 * b, 0.9, 0], aF: [0.85 - 0.08 * b, 0.88, 0], hx: 2.4 + 0.5 * s, blink: ph >= 0.84 && ph < 0.94 ? 1 : 0 };
     },
   },
   walk: {
     n: 8, ms: 930, loop: true, lag: 0.09,
     pose: (ph) => {
       const w = walkPose(ph, { stride: 4.8, lift: 2.6, swing: 0.5, bob: 1.5, lean: 0.24 }), a = Math.cos(ph * Math.PI * 2);
-      return { ...w, drop: w.drop + 1.8, hx: 2.4, aN: [-a * 0.5 + 0.7, 0.9, 0], aF: [a * 0.5 + 0.9, 0.9, 0], axe: 1.55 - a * 0.2, axeF: 1.35 + a * 0.2 };
+      return { ...w, drop: w.drop + 1.8, hx: 2.4, aN: [-a * 0.5 + 0.7, 0.9, 0], aF: [a * 0.5 + 0.9, 0.9, 0]};
     },
   },
   attack: {
@@ -208,12 +224,12 @@ export const CLIPS = {
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
       // both axes hauled up and back, a roar, the weight on the back foot
-      { t: 0.24, e: "out", p: { ...GUARD, rx: -2.4, drop: 2.6, lean: 0.02, twist: -0.5, hx: 0.6, aN: [2.8, 0.94, 0], aF: [2.6, 0.94, 0], axe: -0.5, axeF: -0.3, fF: [4, 1.6], roar: 1 } },
-      { t: T0, e: "io", p: { ...GUARD, rx: -3.2, drop: 2, lean: -0.1, twist: -0.6, hx: 0.2, aN: [3.1, 0.96, 0], aF: [2.9, 0.96, 0], axe: -0.7, axeF: -0.5, fF: [4, 2.6], roar: 1 } },
+      { t: 0.24, e: "out", p: { ...GUARD, rx: -2.4, drop: 2.6, lean: 0.02, twist: -0.5, hx: 0.6, aN: [2.8, 0.94, 0], aF: [2.6, 0.94, 0], fF: [4, 1.6], roar: 1 } },
+      { t: T0, e: "io", p: { ...GUARD, rx: -3.2, drop: 2, lean: -0.1, twist: -0.6, hx: 0.2, aN: [3.1, 0.96, 0], aF: [2.9, 0.96, 0], fF: [4, 2.6], roar: 1 } },
       // the chop: a lunge, the near axe straight down, the far one crossing
-      { t: T1, e: "in3", p: { ...GUARD, rx: 3.6, drop: 3.6, lean: 0.56, twist: 0.5, hx: 3, hy: 1.4, aN: [1.4, 1, 0], aF: [1.2, 1, 0], axe: 2.0, axeF: 2.3, fF: [9, 0], roar: 1 } },
-      { t: 0.64, e: "out", p: { ...GUARD, rx: 4.2, drop: 4, lean: 0.62, twist: 0.6, hx: 3.2, hy: 1.6, aN: [1.3, 1, 0], aF: [1.1, 1, 0], axe: 2.1, axeF: 2.4, fF: [9, 0], roar: 1 } },
-      { t: 0.84, e: "io", p: { ...GUARD, rx: 1.6, drop: 2.6, lean: 0.3, aN: [0.8, 0.9, 0], aF: [0.9, 0.9, 0], axe: 1.3, axeF: 1.5, fF: [6.4, 1.8], roar: 0 } },
+      { t: T1, e: "in3", p: { ...GUARD, rx: 3.6, drop: 3.6, lean: 0.56, twist: 0.5, hx: 3, hy: 1.4, aN: [0.75, 1, 0], aF: [0.7, 1, 0], fF: [9, 0], roar: 1 } },
+      { t: 0.64, e: "out", p: { ...GUARD, rx: 4.2, drop: 4, lean: 0.62, twist: 0.6, hx: 3.2, hy: 1.6, aN: [0.65, 1, 0], aF: [0.6, 1, 0], fF: [9, 0], roar: 1 } },
+      { t: 0.84, e: "io", p: { ...GUARD, rx: 1.6, drop: 2.6, lean: 0.3, aN: [0.8, 0.9, 0], aF: [0.9, 0.9, 0], fF: [6.4, 1.8], roar: 0 } },
       { t: 1, e: "out", p: GUARD },
     ], ph),
   },

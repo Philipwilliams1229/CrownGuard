@@ -37,7 +37,13 @@ const LEG = {
   H: { m: HAIR, fix: 2 }, B: { m: OCHRE, fix: 3 }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 }, E: { m: EYE }, R: { m: HAIR, fix: 1 }, G: { m: BRASS, fix: 3 }, M: { m: MOUTH },
 };
 
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 100, h: 88, ox: 40, oy: 78 };
+// THE GRIP: the beater's angle (from upright, + toward the foe) is DERIVED from the solved near forearm: forearm direction
+// (elbow -> hand) + GRIP + a wrist of +-0.35, never posed on its own. A drumstick is held lower than a club's 90 degrees so it can reach the drum.
+export const GRIP = -1.1, WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const beatAngle = (sk) => forearm(sk) + GRIP + Math.max(-WRIST, Math.min(WRIST, sk.p.wrist || 0));
 export const BONES = scaled(HUMAN, 1.06, { shN: -3.2, shF: 3.2, hipN: -1.4, hipF: 1.6, neck: 1.4 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
@@ -112,19 +118,21 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.stamp(p.chant > 0.5 ? CHANT : p.blink ? BLINK : HEAD, hx, hy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 1 });
 
   // the near arm over it all: sleeve, a leather cuff, the beater in the fist
-  px.part();
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.6, 2.2, eN[0], eN[1], 2, TUNIC_L, 7.9, { cast: 1 });
   px.capsule(eN[0], eN[1], 2, hdN[0], hdN[1], 1.8, TUNIC_L, 7.9, { cast: 1 });
   const c0 = mix(eN, hdN, 0.68);
   px.capsule(c0[0], c0[1], 2, hdN[0], hdN[1], 1.9, LEATHER, 7.95, { cast: 1 });
   {
-    const a = p.beat ?? 0.8, d = [Math.sin(a), -Math.cos(a)], at = (f) => [hdN[0] + d[0] * f, hdN[1] + d[1] * f];
-    px.part();
+    const a = beatAngle(sk), d = [Math.sin(a), -Math.cos(a)], at = (f) => [hdN[0] + d[0] * f, hdN[1] + d[1] * f];
+    px.tag(null);
+    px.part(); px.tag("weapon");
     px.capsule(...at(-2), 0.8, ...at(8.4), 0.8, WOOD, 8.1, { edge: true });
     px.ellipse(...at(9.2), 1.9, 1.9, BONE, 8.12);
+    px.part(); px.tag("nearHand");
+    px.ellipse(hdN[0], hdN[1], 1.7, 2.2, SKIN, 8.3, { rot: -a });
+    px.tag(null);
   }
-  px.part();
-  px.ellipse(hdN[0], hdN[1], 1.9, 1.9, SKIN, 8.3);
 
   return { drum: [dx, dy], hand: hdN, head: [hx, hy] };
 };
@@ -148,16 +156,16 @@ export const fx = (px, F, info, clip) => {
 };
 
 const TAU = Math.PI * 2;
-const GUARD = { drop: 0.8, lean: 0.1, hx: 0.6, hy: 0, aN: [0.9, 0.78, 0], aF: [1.2, 0.7, 0], fN: [-3, 0], fF: [3.2, 0], beat: 0.9, dlift: 0 };
+const GUARD = { drop: 0.8, lean: 0.1, hx: 0.6, hy: 0, aN: [0.9, 0.78, 0], aF: [1.2, 0.7, 0], fN: [-3, 0], fF: [3.2, 0], dlift: 0 };
 // the beater falls on each contact (twice a cycle): 0 = struck, 1 = raised
-const beatPose = (ph) => { const u = 0.5 + 0.5 * Math.cos((ph * 2 - 0.02) * TAU); return { aN: [1.0 + 0.45 * u, 0.82, 0], beat: 0.6 + 0.6 * u }; };
+const beatPose = (ph) => { const u = 0.5 + 0.5 * Math.cos((ph * 2 - 0.02) * TAU); return { aN: [1.0 + 0.45 * u, 0.82, 0]}; };
 const march = (ph) => { const w = walkPose(ph, { stride: 4.2, lift: 2.4, swing: 0.2, bob: 1.2, lean: 0.1 }); return { ...w, drop: w.drop + 0.6 }; };
 export const CLIPS = {
   idle: {
     n: 8, ms: 1800, loop: true, lag: 0.09,
     pose: (ph) => {
       const b = Math.sin(ph * TAU), u = 0.5 + 0.5 * b;
-      return { ...GUARD, rise: 0.6 * u, drop: 0.8 + 0.3 * (1 - u), aN: [0.9 + 0.06 * b, 0.78, 0], aF: [1.2 - 0.04 * b, 0.7, 0], beat: 0.9 + 0.1 * b, blink: ph >= 0.84 && ph < 0.96 ? 1 : 0 };
+      return { ...GUARD, rise: 0.6 * u, drop: 0.8 + 0.3 * (1 - u), aN: [0.9 + 0.06 * b, 0.78, 0], aF: [1.2 - 0.04 * b, 0.7, 0], blink: ph >= 0.84 && ph < 0.96 ? 1 : 0 };
     },
   },
   walk: {
@@ -167,19 +175,19 @@ export const CLIPS = {
   // the war-chant on the march: the same legs as walk, the head thrown back, the drum and beater raised
   chant: {
     n: 8, ms: 780, loop: true, lag: 0.09,
-    pose: (ph) => { const b = beatPose(ph); return { ...march(ph), hx: -0.8, hy: -1.4, aF: [1.5, 0.76, 0], aN: [1.5 + (b.aN[0] - 1.0) * 0.4, 0.86, 0], beat: b.beat - 0.1, dlift: 0.6, chant: 1 }; },
+    pose: (ph) => { const b = beatPose(ph); return { ...march(ph), hx: -0.8, hy: -1.4, aF: [1.5, 0.76, 0], aN: [1.5 + (b.aN[0] - 1.0) * 0.4, 0.86, 0], dlift: 0.6, chant: 1 }; },
   },
   attack: {
     n: 11, ms: 760, loop: false, lag: 0.06,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
       // the drum swung out to shove, the beater drawn back
-      { t: 0.24, e: "out", p: { ...GUARD, rx: -1.8, drop: 1.4, lean: 0.02, aF: [1.45, 0.9, 0], aN: [2.4, 0.9, 0], beat: -0.5, fF: [3.4, 1] } },
-      { t: T0, e: "io", p: { ...GUARD, rx: -2.4, drop: 1.4, lean: -0.04, twist: -0.4, aF: [1.4, 0.9, 0], aN: [2.8, 0.94, 0], beat: -0.8, fF: [3.4, 1.6] } },
+      { t: 0.24, e: "out", p: { ...GUARD, rx: -1.8, drop: 1.4, lean: 0.02, aF: [1.45, 0.9, 0], aN: [2.4, 0.9, 0], fF: [3.4, 1] } },
+      { t: T0, e: "io", p: { ...GUARD, rx: -2.4, drop: 1.4, lean: -0.04, twist: -0.4, aF: [1.4, 0.9, 0], aN: [2.8, 0.94, 0], fF: [3.4, 1.6] } },
       // the club: a step in, the knob brought down
-      { t: T1, e: "in3", p: { ...GUARD, rx: 3, drop: 2.2, lean: 0.46, twist: 0.4, hx: 2, hy: 0.5, aF: [1.5, 0.9, 0], aN: [1.5, 0.96, 0], beat: 1.9, fF: [7.4, 0] } },
-      { t: 0.66, e: "out", p: { ...GUARD, rx: 3.4, drop: 2.5, lean: 0.5, twist: 0.5, hx: 2.2, aF: [1.5, 0.9, 0], aN: [1.4, 0.96, 0], beat: 2.0, fF: [7.4, 0] } },
-      { t: 0.84, e: "io", p: { ...GUARD, rx: 1.4, drop: 1.2, lean: 0.2, beat: 1.3, fF: [5.6, 1.4] } },
+      { t: T1, e: "in3", p: { ...GUARD, rx: 3, drop: 2.2, lean: 0.46, twist: 0.4, hx: 2, hy: 0.5, aF: [1.5, 0.9, 0], aN: [0.3, 0.96, 0], fF: [7.4, 0] } },
+      { t: 0.66, e: "out", p: { ...GUARD, rx: 3.4, drop: 2.5, lean: 0.5, twist: 0.5, hx: 2.2, aF: [1.5, 0.9, 0], aN: [0.25, 0.96, 0], fF: [7.4, 0] } },
+      { t: 0.84, e: "io", p: { ...GUARD, rx: 1.4, drop: 1.2, lean: 0.2, fF: [5.6, 1.4] } },
       { t: 1, e: "out", p: GUARD },
     ], ph),
   },

@@ -38,6 +38,7 @@ const LEG = {
   h: { m: HOOD }, F: { m: FURW }, f: { m: FURB, bias: -1 }, H: { m: HAIR, fix: 2 }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 }, E: { m: EYE }, r: { m: RUNE, fix: 0 },
 };
 
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 116, h: 88, ox: 40, oy: 78 };
 export const BONES = scaled(HUMAN, 1.1, { shN: -3, shF: 3, hipN: -1.4, hipF: 1.6, neck: 1.4 });
 const STAFF = 38;
@@ -47,9 +48,14 @@ const lerp = (a, b, t) => a + (b - a) * t;
 
 // the staff in the far fist: planted (`sx`, its foot's x) it leans from foot to hand;
 // carried, `staff` is its tilt (0 upright, + toward the foe), held `grip` px up from the foot
+// THE GRIP: a CARRIED staff's tilt is derived from the solved far forearm (elbow -> hand) + GRIP + a wrist of +-0.35, never
+// posed on its own (a planted staff, `sx`, leans from its foot to the hand instead). Measured from his rest (-1.65).
+export const GRIP = -1.65, WRIST = 0.35;
+const foreF = (sk) => { const f = Math.atan2(sk.hdF[0] - sk.eF[0], -(sk.hdF[1] - sk.eF[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const staffTilt = (sk) => foreF(sk) + GRIP + cl(sk.p.wrist || 0, -WRIST, WRIST);
 const staffOf = (sk) => {
   const p = sk.p, h = sk.hdF, hgt = Math.max(2, -h[1] - (p.lift || 0));
-  const tl = p.sx != null ? Math.atan2(h[0] - p.sx, hgt) : (p.staff ?? 0);
+  const tl = p.sx != null ? Math.atan2(h[0] - p.sx, hgt) : staffTilt(sk);
   const d = [Math.sin(tl), -Math.cos(tl)], nn = [Math.cos(tl), Math.sin(tl)];
   const lo = lerp(cl(hgt / Math.max(0.3, Math.cos(tl)), 5, STAFF - 6), p.grip ?? 16, p.sx != null ? 0 : (p.gk || 0));
   const foot = [h[0] - d[0] * lo, h[1] - d[1] * lo], tip = [foot[0] + d[0] * STAFF, foot[1] + d[1] * STAFF];
@@ -151,10 +157,11 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // ---- the near arm over it all: sleeve, fur cuff, the palm raised when she gathers
   {
     const wr = mix(eN, hdN, 0.74), c0 = mix(eN, hdN, 0.58);
-    px.part();
+    px.part(); px.tag("nearArm");
     px.capsule(sN[0], sN[1] + 0.4, 2.2, eN[0], eN[1], 2.2, SLEEVE, 7.9, { cast: 2 });
     px.capsule(eN[0], eN[1], 2.2, wr[0], wr[1], 2.7, SLEEVE, 7.9, { cast: 2 });
     px.capsule(c0[0], c0[1], 2.6, wr[0], wr[1], 2.8, FURW, 7.95, { cast: 2 });
+    px.tag(null);
     px.part();
     px.ellipse(hdN[0] + (hdN[0] - eN[0]) * 0.1, hdN[1] + (hdN[1] - eN[1]) * 0.1, 1.8, 1.8, SKIN, 8.3);
     if (p.palm > 0.5) px.ellipse(hdN[0] + 2, hdN[1] - 1, 2.4, 2.4, GLOW, 8.4);
@@ -237,8 +244,8 @@ export const CLIPS = {
       // raise: the staff high, frost on the palm
       { t: T0, e: "io", p: { ...READY, rx: -1.4, drop: 1, lean: -0.02, hx: 0.2, aF: [1.9, 0.92, 0], aN: [1.6, 0.8, 0], staff: -0.1, gk: 1, grip: 12, glow: 0.9, palm: 1, cast: 1 } },
       // release: a step in, the staff thrust at the hall
-      { t: T1, e: "in3", p: { ...READY, rx: 2.2, drop: 1.6, lean: 0.46, hx: 2.2, hy: 0.6, aF: [1.5, 1, 0], aN: [1.2, 0.9, 0], fF: [5.6, 0], staff: 1.25, gk: 1, grip: 12, glow: 1.3, cast: 1, palm: 1 } },
-      { t: 0.7, e: "out", p: { ...READY, rx: 2.6, drop: 1.8, lean: 0.5, hx: 2.4, hy: 0.8, aF: [1.45, 1, 0], aN: [1.1, 0.9, 0], fF: [5.6, 0], staff: 1.3, gk: 1, grip: 12, glow: 0.8, cast: 1 } },
+      { t: T1, e: "in3", p: { ...READY, rx: 2.2, drop: 1.6, lean: 0.46, hx: 2.2, hy: 0.6, aF: [0.4, 1, 0], aN: [1.2, 0.9, 0], fF: [5.6, 0], staff: 1.25, gk: 1, grip: 12, glow: 1.3, cast: 1, palm: 1 } },
+      { t: 0.7, e: "out", p: { ...READY, rx: 2.6, drop: 1.8, lean: 0.5, hx: 2.4, hy: 0.8, aF: [0.35, 1, 0], aN: [1.1, 0.9, 0], fF: [5.6, 0], staff: 1.3, gk: 1, grip: 12, glow: 0.8, cast: 1 } },
       { t: 0.88, e: "io", p: { ...READY, rx: 0.8, drop: 0.8, lean: 0.24, aF: [1.1, 0.9, 0], staff: 0.5, gk: 0.6, grip: 14, glow: 0.3 } },
       { t: 1, e: "io", p: READY },
     ], ph),

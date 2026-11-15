@@ -37,7 +37,13 @@ const LEG = {
   M: { m: IRON }, m: { m: IRON, bias: -1 }, D: { m: IRON_D, fix: 1 }, B: { m: SILVER, fix: 3 }, H: { m: BLOND, fix: 2 }, S: { m: SKIN }, s: { m: SKIN, bias: -1 }, N: { m: SKIN, bias: 1 }, E: { m: EYE }, R: { m: BLOND, fix: 2 },
 };
 
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 150, h: 124, ox: 60, oy: 114 };
+// THE GRIP: the Dane axe's angle (from upright, + toward the foe) is DERIVED from the solved near forearm: forearm direction
+// (elbow -> hand) + GRIP + a wrist of +-0.35, never posed on its own (both hands stay on the haft: the far fist follows it).
+export const GRIP = -1.35, WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const axeAngle = (sk) => forearm(sk) + GRIP + Math.max(-WRIST, Math.min(WRIST, sk.p.wrist || 0));
 export const BONES = scaled(HUMAN, 1.52, { shN: -4.6, shF: 4.6, hipN: -2, hipF: 2.2, neck: 1.4 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
@@ -68,7 +74,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.part(); horn(hx - 3.6, hy - 8.6, -1, 0.7);
 
   // the far arm, fixed to the haft: the second hand up the shaft (an elbow solved by hand)
-  const at = axeAt(hdN, p.axe ?? 0.5);
+  const at = axeAt(hdN, axeAngle(sk));
   const gF = at(-p.span || -8.5), eFx = [(sF[0] + gF[0]) / 2 - 1.4, Math.max(sF[1], gF[1]) * 0.3 + (sF[1] + gF[1]) * 0.35 + 3];
   // ONE BODY (the joint kit): arms and legs are welded tubes; wraps, greaves and fur cuffs are wrapped on them
   const BID = px.body(1);
@@ -117,9 +123,11 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // the near arm and the axe, both hands on the haft; its blade furred with rime
   px.body(1);
+  px.tag("nearArm");
   px.limb([[sN[0], sN[1] + 0.6], eN, hdN], [2.7, 2.4, 2.3], MAIL, 7.9, { weld: 2, weldRoot: 3 });
   const c0 = mix(eN, hdN, 0.7);
   px.capsule(c0[0], c0[1], 2.4, hdN[0], hdN[1], 2.3, FURW, 7.95, { wrap: true });
+  px.tag(null);
   px.body(0);
   {
     const k = 1.55;
@@ -150,7 +158,7 @@ export const fx = (px, { ph }, info, clip) => {
   if (clip === "attack" && ph >= T0 && ph <= T1 + 0.14) {
     const pts = [];
     for (let i = 0; i < 5; i++) {
-      const q = Math.max(T0, Math.min(ph, T1 + 0.03) - i * 0.012), s = solve(CLIPS.attack.pose(q), BONES), a = s.p.axe ?? 0.5, d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)], h = s.hdN;
+      const q = Math.max(T0, Math.min(ph, T1 + 0.03) - i * 0.012), s = solve(CLIPS.attack.pose(q), BONES), a = axeAngle(s), d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)], h = s.hdN;
       pts.push([[h[0] + d[0] * (L + 2) + n[0] * 3, h[1] + d[1] * (L + 2) + n[1] * 3], [h[0] + d[0] * (L - 5) + n[0] * 5, h[1] + d[1] * (L - 5) + n[1] * 5]]);
     }
     for (let i = 0; i + 1 < pts.length; i++) px.poly([pts[i][0], pts[i + 1][0], pts[i + 1][1], pts[i][1]], SMEAR, 20 - i, { noLine: true });
@@ -166,20 +174,20 @@ export const fx = (px, { ph }, info, clip) => {
 };
 
 const TAU = Math.PI * 2;
-const GUARD = { drop: 1.6, lean: 0.1, hx: 0.8, hy: 0, aN: [0.7, 0.9, 0], aF: [0.9, 0.8, 0], fN: [-3.8, 0], fF: [4, 0], axe: 0.7, glow: 0.16, span: 8.5 };
+const GUARD = { drop: 1.6, lean: 0.1, hx: 0.8, hy: 0, aN: [0.7, 0.9, 0], aF: [0.9, 0.8, 0], fN: [-3.8, 0], fF: [4, 0], glow: 0.16, span: 8.5 };
 export const CLIPS = {
   idle: {
     n: 8, ms: 2000, loop: true, lag: 0.1,
     pose: (ph) => {
       const b = Math.sin(ph * TAU), u = 0.5 + 0.5 * b;
-      return { ...GUARD, rise: 0.8 * u, drop: 1.6 + 0.4 * (1 - u), aN: [0.7 + 0.04 * b, 0.9, 0], axe: 0.7 + 0.04 * b, glow: 0.16 + 0.12 * u, blink: ph >= 0.84 && ph < 0.96 ? 1 : 0 };
+      return { ...GUARD, rise: 0.8 * u, drop: 1.6 + 0.4 * (1 - u), aN: [0.7 + 0.04 * b, 0.9, 0], glow: 0.16 + 0.12 * u, blink: ph >= 0.84 && ph < 0.96 ? 1 : 0 };
     },
   },
   walk: {
     n: 8, ms: 1000, loop: true, lag: 0.09,
     pose: (ph) => {
       const w = walkPose(ph, { stride: 5, lift: 2.6, swing: 0.2, bob: 1.2, lean: 0.1 }), a = Math.cos(ph * TAU);
-      return { ...w, drop: w.drop + 1.2, aN: [0.8 - a * 0.1, 0.9, 0], aF: [1.0, 0.8, 0], axe: -1.1 - a * 0.07, span: 8.5, glow: 0.14 };
+      return { ...w, drop: w.drop + 1.2, aN: [0.8 - a * 0.1, 0.9, 0], aF: [1.0, 0.8, 0], span: 8.5, glow: 0.14 };
     },
   },
   // his frost song on the march: the same legs as walk, the axe held high, the head thrown back, the stones blazing
@@ -187,7 +195,7 @@ export const CLIPS = {
     n: 8, ms: 1000, loop: true, lag: 0.09,
     pose: (ph) => {
       const w = walkPose(ph, { stride: 5, lift: 2.6, swing: 0.2, bob: 1.2, lean: 0.1 }), b = Math.sin(ph * TAU * 2);
-      return { ...w, drop: w.drop + 1.2, hx: -0.6, hy: -1.2, aN: [1.9 + 0.06 * b, 0.94, 0], aF: [1.9, 0.9, 0], axe: 0.15 + 0.06 * b, span: 8.5, glow: 1.1 + 0.25 * b };
+      return { ...w, drop: w.drop + 1.2, hx: -0.6, hy: -1.2, aN: [1.9 + 0.06 * b, 0.94, 0], aF: [1.9, 0.9, 0], span: 8.5, glow: 1.1 + 0.25 * b };
     },
   },
   attack: {
@@ -195,12 +203,12 @@ export const CLIPS = {
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
       // the great axe hauled up and back over the shoulder, the weight on the back foot
-      { t: 0.28, e: "out", p: { ...GUARD, rx: -2.6, drop: 2.4, lean: 0.0, twist: -0.4, hx: 0.3, aN: [2.8, 0.92, 0], aF: [2.6, 0.9, 0], axe: -0.5, fF: [4, 1.4], glow: 0.4 } },
-      { t: T0, e: "io", p: { ...GUARD, rx: -3.2, drop: 2, lean: -0.08, twist: -0.5, hx: 0.2, aN: [3.0, 0.94, 0], aF: [2.8, 0.94, 0], axe: -0.7, fF: [4, 2.4], glow: 0.5 } },
+      { t: 0.28, e: "out", p: { ...GUARD, rx: -2.6, drop: 2.4, lean: 0.0, twist: -0.4, hx: 0.3, aN: [2.8, 0.92, 0], aF: [2.6, 0.9, 0], fF: [4, 1.4], glow: 0.4 } },
+      { t: T0, e: "io", p: { ...GUARD, rx: -3.2, drop: 2, lean: -0.08, twist: -0.5, hx: 0.2, aN: [3.0, 0.94, 0], aF: [2.8, 0.94, 0], fF: [4, 2.4], glow: 0.5 } },
       // the chop: a long step in, the blade comes down before him
-      { t: T1, e: "in3", p: { ...GUARD, rx: 4, drop: 3.4, lean: 0.5, twist: 0.5, hx: 2.6, hy: 0.6, aN: [1.4, 1, 0], aF: [1.5, 0.9, 0], axe: 2.0, fF: [9.4, 0], glow: 0.9 } },
-      { t: 0.68, e: "out", p: { ...GUARD, rx: 4.6, drop: 3.8, lean: 0.56, twist: 0.6, hx: 2.8, hy: 0.8, aN: [1.3, 1, 0], aF: [1.5, 0.9, 0], axe: 2.15, fF: [9.4, 0], glow: 0.6 } },
-      { t: 0.86, e: "io", p: { ...GUARD, rx: 1.8, drop: 1.8, lean: 0.24, aN: [0.9, 0.85, 0], axe: 1.2, fF: [7, 1.6], glow: 0.3 } },
+      { t: T1, e: "in3", p: { ...GUARD, rx: 4, drop: 3.4, lean: 0.5, twist: 0.5, hx: 2.6, hy: 0.6, aN: [0.75, 1, 0], aF: [1.5, 0.9, 0], fF: [9.4, 0], glow: 0.9 } },
+      { t: 0.68, e: "out", p: { ...GUARD, rx: 4.6, drop: 3.8, lean: 0.56, twist: 0.6, hx: 2.8, hy: 0.8, aN: [0.65, 1, 0], aF: [1.5, 0.9, 0], fF: [9.4, 0], glow: 0.6 } },
+      { t: 0.86, e: "io", p: { ...GUARD, rx: 1.8, drop: 1.8, lean: 0.24, aN: [0.9, 0.85, 0], fF: [7, 1.6], glow: 0.3 } },
       { t: 1, e: "out", p: GUARD },
     ], ph),
   },
