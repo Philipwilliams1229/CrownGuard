@@ -733,12 +733,15 @@ Bring these up with the owner; don't act on them unasked.
   bones, boats, stones, spruce; the build crew (fig-builder.js); barricades; corpses; the
   Covert's blades (fig-blade.js, 7 forms) and the River Watch skiffs (fig-skiff.js). Props
   re-sculpted into a chapter's `flat` list have NO "New sprites off" fallback (a board's
-  decor bakes once). STILL OLD: the Greenwood cave mouth (`drawGate`), the Hollow shrine,
-  bell-stones, throne and weir, the Rime rocks, icefall, seal rocks, floes and the landing
-  longship (rimefx.js), the build scaffold (buildanim.js), the campaign map, the old
-  `part()` inner lines in paint.js (a bake-time tinted ink there would finish many pieces
-  at once). The blades' cut still plays by old frame numbers (switch drawAssassinUnit to
-  "atk" + atkFrac to time it to the clock); the skiff gunner reads a bit large. The recap page is the private
+  decor bakes once). The leftovers followed the same day: the cave mouth's line and rim,
+  the build scaffold (buildanim.js), the Hollow shrine / bell-stones / candles / throne /
+  weir, the Rime rocks, icefall, seal rocks, floes, bergs, skerries and the landing longship
+  (rimefx.js, a striped sail), the campaign map's lines (mapArt.js: tinted, nothing moved;
+  its towns and castles were not re-sculpted), and the blades' cut timed off the attack
+  clock. STILL OLD: the `part()` inner lines in paint.js on older painters (a bake-time
+  tinted ink there would finish many pieces at once), the reed beds and bog pools (judged
+  fine). Weak: the skiff gunner reads a bit large; the scaffold costs ~+1 ms a frame while
+  a hall is being built. The recap page is the private
   Artifact "Crownguard: the graphics pass, before and after".
 - **Shooters aim; shots fly straight (owner, 2026-11-14): DONE, pending the owner's look.**
   The rules are `art/briefs/aim-contract.md`. `src/engine/aim.js` (aimDeg / quantAim, 10-degree

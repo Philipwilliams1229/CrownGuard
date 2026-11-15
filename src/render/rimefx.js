@@ -28,6 +28,7 @@
 
 import { S, CELL } from "../data/constants.js";
 import { RIGS, drawRig } from "./rigs.js";
+import { Pix, mat, toCanvas } from "./pix/pix.js";
 // the sea monsters' own frame mapping (waterlines, the arm's grab, the sinks)
 import { drawSeaRig, armSinkFx, krakenSinkFx, drawSeaHold, drawKrakenDeepRig } from "./rigs-rimebeasts.js";
 
@@ -41,8 +42,67 @@ for (const [type, like] of [
   if (!RIGS[type] && RIGS[like]) RIGS[type] = RIGS[like];
 }
 
-const HULL = "#4a3420", HULL_LT = "#7a5634", HULL_DK = "#2a1c12", SAIL = "#e8e0cc", STRIPE = "#a8382c";
+const HULL_DK = "#2a1c12";
 
+// ---- the longship, sculpted (pix/pix.js): the beached longship's clinker hull, shield row, dragon prow and
+// striped sail, here under sail with oars out. Baked once per facing and sail state; the oars and wake are live.
+// Art pixels (2 to a board unit) from the ship's centre (x, y); the keel sits ~6 units under it.
+const Q = 0.5, LH = 50;
+const SHIPS = new Map();
+const shipSprite = (face, sail) => {
+  const key = face * 2 + (sail ? 1 : 0);
+  let sp = SHIPS.get(key);
+  if (sp) return sp;
+  const ob = new Pix(2 * (LH + 34), 120, LH + 34, 84);
+  const M = {
+    hull: mat("#6e5440"), hull2: mat("#5a4636"), wood: mat("#76583c"), woodDk: mat("#4a3426"), teal: mat("#2f8a84"),
+    ochre: mat("#d49a30"), red: mat("#bd4a3e"), steel: mat("#c4c8d0"), cloth: mat("#e4dcc4"), rope: mat("#8a7a58"),
+  };
+  const dir = face, X = (u) => u * LH * dir;
+  const keel = (u) => 12 - Math.pow(Math.abs(u), 3) * 8, rail = (u) => -4 - Math.pow(Math.abs(u), 2.4) * 7;
+  const N = 24, mats = [M.teal, M.hull, M.hull2, M.hull, M.hull2];
+  for (let b = 0; b < mats.length; b++) {
+    const t0 = b / mats.length, t1 = (b + 1) / mats.length, up = [], dn = [];
+    for (let k = 0; k <= N; k++) { const u = -1 + 2 * k / N, ya = rail(u), yb = keel(u); up.push([X(u), ya + (yb - ya) * t0]); dn.push([X(u), ya + (yb - ya) * t1 + 0.5]); }
+    ob.part(); ob.poly([...up, ...dn.reverse()], mats[b], 2 - b * 0.3, { n: [0, -0.2, 0.9], ny: -0.2 });
+  }
+  const bez = (a, b, c, d) => (t) => { const m = 1 - t; return [m * m * m * a[0] + 3 * m * m * t * b[0] + 3 * m * t * t * c[0] + t * t * t * d[0], m * m * m * a[1] + 3 * m * m * t * b[1] + 3 * m * t * t * c[1] + t * t * t * d[1]]; };
+  const along = (p, n, r0, r1, m, z) => { let a = p(0); for (let k = 1; k <= n; k++) { const c = p(k / n); ob.part(); ob.capsule(a[0], a[1], r0 + (r1 - r0) * ((k - 1) / n), c[0], c[1], r0 + (r1 - r0) * (k / n), m, z, { round: 0.8 }); a = c; } };
+  along((t) => [X(-1 + 2 * t), rail(-1 + 2 * t) - 0.5], 30, 1.3, 1.3, M.wood, 4);
+  for (const end of [1, -1]) {
+    const u = end * 0.97, bx = X(u), by = rail(u), up = end === 1 ? 20 : 15, k = end * dir;
+    along(bez([bx - k * 6, by + 6], [bx + k * 9, by + 3], [bx + k * 9, by - up * 0.55], [bx + k * 4, by - up]), 10, 3.4, 2, M.hull2, 3);
+    if (end === 1) {
+      const hx = bx + k * 4, hy = by - up;
+      ob.part(); ob.poly([[hx - k * 5, hy - 6], [hx + k * 17, hy - 2], [hx + k * 16, hy + 4.5], [hx - k * 1, hy + 6.5]], M.ochre, 4, { round: 0.5, ny: -0.2 });
+      ob.part(); ob.dot(hx + k * 3, hy - 1, M.teal, 5, {}); ob.part(); ob.dot(hx + k * 3 + 1, hy - 1, M.teal, 5, {});
+      for (let q = 0; q < 3; q++) { ob.part(); ob.ellipse(hx - k * (3 + q * 3), hy - (4.5 + q * 2), 1.8, 1.8, M.woodDk, 3.5, {}); }
+    } else { ob.part(); ob.ellipse(bx + k * 3, by - up - 1, 3.6, 3.6, M.ochre, 4, { round: 1 }); }
+  }
+  // the mast, stepped amidships; the yard and the striped sail hanging from it, belled by the wind
+  const yy = -60, foot = -22;
+  ob.part(); ob.capsule(0, -4, 1.7, 0, yy - 4, 1.2, M.woodDk, 2.5, {});
+  for (const e of [1, -1]) along(bez([0, yy - 3], [X(e * 0.3), yy + 8], [X(e * 0.7), -18], [X(e * 0.93), rail(e * 0.93)]), 12, 0.5, 0.5, M.rope, 3);
+  if (sail) {
+    const W2 = 25, cnt = 8;
+    for (let k = 0; k < cnt; k++) {
+      const x0 = -W2 + k * (2 * W2 / cnt), x1 = x0 + 2 * W2 / cnt, bell = (x) => Math.sin((x + W2) / (2 * W2) * Math.PI) * 5 * dir;
+      ob.part(); ob.poly([[x0, yy + 2], [x1, yy + 2], [x1 + bell(x1) * 0.2, foot + 3], [x1 + bell(x1) * 0.2, foot - 1 + Math.abs(bell(x1)) * 0.3], [x0 + bell(x0) * 0.2, foot - 1 + Math.abs(bell(x0)) * 0.3]], k % 2 ? M.cloth : M.red, 2.8, { n: [0.1 * dir, 0.1, 0.9], round: 0.55 });
+    }
+  } else { ob.part(); ob.capsule(-W2f(), foot - 18, 1, W2f(), foot - 18, 1, M.cloth, 3, { round: 0.7 }); }
+  ob.part(); ob.capsule(-27, yy + 1, 1.5, 27, yy + 1, 1.5, M.wood, 4, { round: 1 });
+  // the shield row along the rail, on the hull's side
+  for (let k = 0; k < 9; k++) {
+    const u = -0.68 + k * 0.17, cx = X(u), cy = rail(u) + 6;
+    ob.part(); ob.ellipse(cx, cy, 4.3, 4.3, k % 2 ? M.teal : M.ochre, 5, { round: 1 });
+    ob.part(); ob.ellipse(cx - 0.2, cy - 0.2, 1.3, 1.3, M.steel, 6, { round: 1 });
+  }
+  const img = ob.resolve({ line: "tint" });
+  sp = { cv: toCanvas(img), x: -img.ox * Q, y: -img.oy * Q, w: img.w * Q, h: img.h * Q };
+  SHIPS.set(key, sp);
+  return sp;
+};
+const W2f = () => 22;
 // the hull, sail and oars of a longship centred on (x, y), facing `face`,
 // tilted by `tilt` (radians) and sunk by `sink` px (both for the wreck)
 const longship = (ctx, x, y, face, t, { tilt = 0, sink = 0, sail = true, oars = true, alpha = 1 } = {}) => {
@@ -50,27 +110,27 @@ const longship = (ctx, x, y, face, t, { tilt = 0, sink = 0, sail = true, oars = 
   ctx.globalAlpha *= alpha;
   ctx.translate(S(x), S(y + sink));
   ctx.rotate(tilt);
-  ctx.scale(face, 1);
-  // wake
-  if (oars) { ctx.fillStyle = "rgba(226,240,246,0.45)"; for (let i = 0; i < 3; i++) ctx.fillRect(-30 - i * 8, 5 + (i % 2) * 2, 10, CELL); }
-  // oars, beating
+  // wake: pale foam rows trailing astern, a bow wave at the prow
   if (oars) {
-    ctx.fillStyle = HULL_DK;
-    const sw = Math.sin(t * 6) * 3;
-    for (let i = -2; i <= 2; i++) { ctx.fillRect(i * 7 - 1 + sw * 0.4, 4, CELL, 7); }
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = `rgba(226,240,246,${0.55 - i * 0.1})`;
+      const wx = -face * (26 + i * 9) + Math.sin(t * 3 + i) * 1;
+      ctx.fillRect(Math.round(Math.min(wx, wx + face * -8) * 2) / 2 - (face > 0 ? 0 : -0), 5 + (i % 2) * 1.5 + 1, 8, 0.5);
+    }
+    ctx.fillStyle = "rgba(226,240,246,0.7)";
+    for (let i = 0; i < 3; i++) ctx.fillRect(face * (24 + i * 2) - 1, 6 + i * 1.5, 3, 0.5);
   }
-  // hull: a long low boat, prow and stern curling up
-  ctx.fillStyle = HULL_DK; ctx.fillRect(-24, 0, 48, 6);
-  ctx.fillStyle = HULL; ctx.fillRect(-22, -2, 44, 6);
-  ctx.fillStyle = HULL_LT; ctx.fillRect(-22, -2, 44, CELL);
-  ctx.fillStyle = HULL; ctx.fillRect(22, -8, 4, 8); ctx.fillRect(-26, -7, 4, 7);
-  ctx.fillStyle = HULL_LT; ctx.fillRect(24, -10, 2, 2); ctx.fillRect(-26, -9, 2, 2);
-  // shields along the rail
-  for (let i = -3; i <= 3; i++) { ctx.fillStyle = i % 2 ? "#c8b060" : "#5a7890"; ctx.fillRect(i * 6 - 2, -4, 4, 4); }
-  if (sail) {
-    ctx.fillStyle = HULL_DK; ctx.fillRect(-1, -30, CELL, 28);
-    ctx.fillStyle = SAIL; ctx.fillRect(-12, -28, 24, 18);
-    ctx.fillStyle = STRIPE; for (let i = 0; i < 4; i++) ctx.fillRect(-12 + i * 6, -28, 3, 18);
+  const sp = shipSprite(face, sail);
+  ctx.drawImage(sp.cv, sp.x, sp.y, sp.w, sp.h);
+  // oars, beating: stroked from the rail to the water in half-unit steps
+  if (oars) {
+    const sw = Math.sin(t * 6);
+    for (let i = -2; i <= 2; i++) {
+      const ox = i * 9 * face + face * 1, ph = Math.sin(t * 6 + i * 0.5), x1 = ox + face * (3 + ph * 4), y1 = 11 + ph * 1.5;
+      ctx.fillStyle = HULL_DK;
+      for (let k = 0; k <= 12; k++) { const f = k / 12; ctx.fillRect(Math.round((ox + (x1 - ox) * f) * 2) / 2, Math.round((5 + (y1 - 5) * f) * 2) / 2, 0.5, 0.5); }
+      ctx.fillStyle = "#2f8a84"; ctx.fillRect(Math.round(x1 * 2) / 2 - 0.5, Math.round(y1 * 2) / 2, 1.5, 1);
+    }
   }
   ctx.restore();
 };

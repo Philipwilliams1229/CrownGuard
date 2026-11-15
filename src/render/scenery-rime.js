@@ -447,40 +447,6 @@ const rockShape = (x, gy, w, h, sd, v) => {
   }
   return pts;
 };
-const blackRock = (c, x, gy, w, h, sd, v, snowy = 1) => {
-  const pts = rockShape(x, gy, w, h, sd, v);
-  part(c, (cc) => {
-    poly(cc, [...pts, [x + w, gy + 1], [x - w, gy + 1]]);
-    cc.fillStyle = lin(cc, x - w, gy - h, x + w, gy, [[0, ROCK[4]], [0.4, ROCK[3]], [0.75, ROCK[2]], [1, ROCK[1]]]); cc.fill();
-    cc.save(); cc.clip();
-    // facets: a lit top plane, dark cracks running down
-    poly(cc, [...pts.slice(1, 6).map(([px, py]) => [px, py]), [x + w * 0.1, gy - h * 0.35], [x - w * 0.6, gy - h * 0.25]]);
-    cc.fillStyle = ROCK[4]; cc.fill();
-    cc.fillStyle = ROCK[5];
-    for (let k = 1; k < 5; k++) px1(cc, pts[k][0] + 0.5, pts[k][1] + 0.6, 1.5, 0.5);
-    cc.fillStyle = ROCK[4]; poly(cc, [[x - w * 0.95, gy - h * 0.1], [x - w * 0.7, gy - h * 0.55], [x - w * 0.35, gy - h * 0.2]]); cc.fill();
-    cc.fillStyle = ROCK[0]; poly(cc, [[x + w * 0.1, gy + 1], [x + w * 0.35, gy - h * 0.5], [x + w * 1.1, gy - h * 0.1], [x + w, gy + 1]]); cc.fill();
-    cc.fillStyle = ROCK[0];
-    for (let k = 0; k < 3; k++) { const cx = x + (hash(sd, k + 40) - 0.3) * w * 1.2; for (let t = 0; t < h * 0.6; t += 0.5) px1(cc, cx + Math.sin(t + k) * 0.6, gy - t - 0.5); }
-    // snow: on the top and banked on the windward (west) flank
-    if (snowy) {
-      cc.fillStyle = SNOW;
-      poly(cc, [...pts.slice(0, 7).map(([px, py], i) => [px, py - 0.3]), [pts[6][0] - w * 0.15, pts[6][1] + h * 0.12], [x - w * 0.15, gy - h * 0.62], [x - w * 0.6, gy - h * 0.34], [x - w * 0.92, gy - h * 0.12]]);
-      cc.fill();
-      cc.fillStyle = SNOW_SH; for (let k = 2; k < 7; k++) px1(cc, pts[k][0], pts[k][1] + h * 0.1 + hash(sd, k) * 1.2, 2, 0.5);
-      cc.fillStyle = SNOW_DK; for (let k = 3; k < 7; k++) px1(cc, pts[k][0] + 0.5, pts[k][1] + h * 0.2 + hash(sd, k + 3) * 1.2, 1.5, 0.5);
-      cc.fillStyle = SNOW_LT; for (let k = 1; k < 4; k++) px1(cc, pts[k][0], pts[k][1] + 0.2, 1.5, 0.5);
-    }
-    cc.restore();
-  });
-};
-const rmrock = (ctx, x, y, s, o) => {
-  const gy = y + 8, v = o.v % 4, w = (9 + v * 1.5) * s, h = (8 + (v === 1 ? 4 : 0)) * s;
-  rShadow(ctx, x + 4 * s, gy + 1, w * 1.15, 3.2 * s, 0.32);
-  blackRock(ctx, x, gy, w, h, o.seed, v);
-  groundDrift(ctx, x - w * 0.6, gy + 0.5, w * 0.55, o.seed);
-};
-
 // ============ LOOK C PIECES, SCULPTED (the pixel sculptor, pix/pix.js) ============
 // The clans' props re-sculpted the way the Iron's irspruce / ircrag are: each piece is built from parts
 // in art pixels (RES per board unit) round its foot, shaded under ONE sun from the upper left, inked in a
@@ -491,7 +457,9 @@ const Q = 1 / RES, U = 2;                                   // one art pixel in 
 const PXM = {};
 const MM = () => PXM.snow ? PXM : Object.assign(PXM, {
   snow: mat("#cddcf4", { contrast: 1.85 }), snowB: mat("#a9c0e6", { contrast: 1.3 }),
-  rock: mat("#4a4878", { contrast: 0.95 }), rockDk: mat("#2c2a4c"),
+  rock: mat("#4a4878", { contrast: 0.95 }), rockDk: mat("#3c3a64"), rockLt: mat("#6e6caa", { contrast: 0.9 }),
+  iceB: mat("#8fb8cc", { contrast: 1.4 }), iceLt: mat("#cfe8f2", { contrast: 1.2 }), iceDk: mat("#4e7690"), wet: mat("#1f3a4a", { contrast: 0.8 }),
+  seal: mat("#a49c94", { contrast: 1.7 }), sealDk: mat("#5e5660", { contrast: 1.2 }), sealHd: mat("#6a626c", { contrast: 1.5 }), eye: flat("#1a1618"),
   stone: mat("#8c8a98", { contrast: 1.4 }), wallA: mat("#7e7a88"), wallB: mat("#64606f"),
   wood: mat("#76583c"), woodDk: mat("#4a3426"), log: mat("#8e6e48"), logEnd: mat("#c9a574"),
   hull: mat("#6e5440"), hull2: mat("#5a4636"), tar: mat("#3a3234"),
@@ -735,85 +703,82 @@ const rmrack = (ctx, x, y, s, o) => {
   }, ctx, x, gy);
 };
 
-// ---- frozen waterfall / ice crag ------------------------------------------------------
-const rmicefall = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed, v = o.v % 2;
-  rShadow(ctx, x + 7 * s, gy + 1.5, 20 * s, 4 * s, 0.32);
-  if (v === 0) {
-    // a black crag, a curtain of ice frozen down its south face into a pool
-    const w = 17 * s, h = 26 * s;
-    part(ctx, (c) => {
-      poly(c, [[x - w, gy], [x - w * 0.95, gy - h * 0.55], [x - w * 0.6, gy - h * 0.9], [x - w * 0.1, gy - h], [x + w * 0.45, gy - h * 0.86], [x + w * 0.9, gy - h * 0.5], [x + w, gy]]);
-      c.fillStyle = lin(c, x - w, 0, x + w, 0, [[0, ROCK[4]], [0.45, ROCK[2]], [1, ROCK[1]]]); c.fill();
-      c.save(); c.clip();
-      c.fillStyle = ROCK[0]; for (let k = 0; k < 5; k++) { const cx = x - w * 0.8 + k * w * 0.4; for (let t = 0; t < h * 0.7; t += 0.5) px1(c, cx + Math.sin(t * 0.4 + k) * 1.2, gy - t); }
-      snowCap(c, [[x - w * 0.98, gy - h * 0.56], [x - w * 0.6, gy - h * 0.92], [x - w * 0.1, gy - h * 1.02], [x + w * 0.45, gy - h * 0.88], [x + w * 0.9, gy - h * 0.52], [x + w * 0.4, gy - h * 0.74], [x - w * 0.2, gy - h * 0.8], [x - w * 0.7, gy - h * 0.6]]);
-      c.restore();
-    });
-    part(ctx, (c) => {
-      // the ice curtain: columns of blue ice, lit edges, icicle tips
-      const top = gy - h * 0.78;
-      for (let k = 0; k < 9; k++) {
-        const cx = x - 6 * s + k * 1.5 * s, len = h * 0.78 - hash(sd, k) * 3 * s, wd = (1.3 + hash(sd, k + 9)) * s, t0 = top + hash(sd, k + 3) * 2;
-        // each column: pale ice, a blue depth down its middle, a lit left
-        // edge and a dark right one, tapering to an icicle's tip
-        c.fillStyle = k % 3 === 0 ? ICE[3] : ICE[2]; c.fillRect(ap(cx), t0, wd, len - 1.5 * s);
-        c.fillStyle = k % 3 === 1 ? ICE[0] : ICE[1]; c.fillRect(ap(cx + wd * 0.4), t0 + len * 0.3, 0.5, len * 0.55);
-        c.fillStyle = ICE[4]; c.fillRect(ap(cx), t0 + 1, 0.5, len * 0.7);
-        c.fillStyle = ICE[1]; c.fillRect(ap(cx + wd - 0.5), t0 + 2, 0.5, len * 0.6);
-        c.fillStyle = ICE[2]; c.fillRect(ap(cx + wd * 0.25), t0 + len - 1.5 * s, Math.max(0.5, wd * 0.5), 1.5 * s);   // the tip
-        if (hash(sd, k + 20) < 0.5) { c.fillStyle = ICE[1]; c.fillRect(ap(cx + wd * 0.25), ap(t0 + len), 0.5, 0.5); }
-      }
-      // the frozen pool at its foot: a sheet with a dark window, cracks, snow at its rim
-      c.fillStyle = ICE[1]; ellipse(c, x + 0.5, gy + 0.8, 9.5 * s, 2.6 * s); c.fill();
-      c.fillStyle = ICE[3]; ellipse(c, x, gy, 9 * s, 2.4 * s); c.fill();
-      c.fillStyle = mix(ICE[0], "#1f3a4a", 0.55); ellipse(c, x + 2 * s, gy + 0.4, 3.2 * s, 1 * s); c.fill();
-      c.fillStyle = ICE[1]; c.fillRect(ap(x + 1 * s), ap(gy + 0.3), 2 * s, 0.5);
-      c.fillStyle = ICE[0]; for (let k = 0; k < 5; k++) px1(c, x - 7 * s + k * 1.6 * s, gy - 0.5 + Math.sin(k * 1.7) * 0.7, 1.5, 0.5);
-      c.fillStyle = ICE[4]; for (let k = 0; k < 5; k += 2) px1(c, x - 7.5 * s + k * 1.6 * s, gy - 1 + Math.sin(k * 1.7) * 0.7, 1, 0.5);
-      c.fillStyle = SNOW; c.fillRect(ap(x - 8 * s), ap(gy - 1.8), 3 * s, 0.5); c.fillRect(ap(x + 4 * s), ap(gy - 1.5), 3.5 * s, 0.5);
-      c.fillStyle = ICE[1]; c.fillRect(ap(x + 2 * s), ap(gy + 1.5), 5 * s, 0.5);
-    });
-  } else {
-    // an ice crag: seracs of blue ice, snow on their tops, dark cracks
-    const spires = [[-9, 14, 4.5], [-2, 22, 5.5], [6, 17, 5], [12, 10, 4]];
-    spires.forEach(([dx, hh, wd], i) => part(ctx, (c) => {
-      const cx = x + dx * s, h = hh * s * (0.9 + hash(sd, i) * 0.2), w = wd * s;
-      poly(c, [[cx - w, gy], [cx - w * 0.8, gy - h * 0.7], [cx - w * 0.2, gy - h], [cx + w * 0.5, gy - h * 0.88], [cx + w, gy - h * 0.3], [cx + w, gy]]);
-      c.fillStyle = lin(c, cx - w, 0, cx + w, 0, [[0, ICE[4]], [0.35, ICE[3]], [0.7, ICE[2]], [1, ICE[1]]]); c.fill();
-      c.save(); c.clip();
-      c.fillStyle = ICE[0]; for (let t = 0; t < h * 0.6; t += 0.5) px1(c, cx + Math.sin(t * 0.5 + i) * w * 0.3, gy - t * 1.2);
-      snowCap(c, [[cx - w * 0.85, gy - h * 0.7], [cx - w * 0.2, gy - h * 1.02], [cx + w * 0.55, gy - h * 0.9], [cx + w * 0.2, gy - h * 0.78], [cx - w * 0.4, gy - h * 0.7]]);
-      c.restore();
-    }));
+// ---- black scoured rock, sculpted: a dark body, a lit west facet, a dark east flank, a snow cap that sits on top
+const rockSculpt = (ob, M, w, h, sd, v, snow) => {
+  const pts = rockShape(0, 0, w, h, sd, v), n = pts.length - 1;
+  ob.part(); ob.poly([...pts, [w * 0.97, 0], [-w * 0.97, 0]], M.rock, 0, { round: 0.7, ny: -0.2 });
+  ob.part(); ob.poly([pts[1], pts[2], pts[3], [w * 0.05, -h * 0.4], [-w * 0.55, -h * 0.2], [-w * 0.8, -h * 0.1]], M.rockLt, 1, { n: [-0.6, -0.55, 0.6] });
+  ob.part(); ob.poly([[w * 0.15, 0], [w * 0.4, -h * 0.5], [w * 0.88, -h * 0.12], [w * 0.9, 0]], M.rockDk, 1, { n: [0.7, -0.1, 0.7] });
+  for (let k = 0; k < 3; k++) { const cx = (hash(sd, k + 40) - 0.3) * w * 1.1, l = h * (0.3 + hash(sd, k + 50) * 0.3); ob.part(); ob.capsule(cx, -1, 0.55, cx + (k - 1) * 1.2, -l, 0.4, M.rockDk, 1.5, {}); }
+  if (snow) {
+    const top = pts.slice(1, n - 2), low = top.map(([px, py], i) => [px * 0.96, py + h * (0.24 + hash(sd, i + 70) * 0.18)]).reverse();
+    ob.part(); ob.poly([...top.map(([px, py]) => [px, py - 0.4]), ...low], M.snow, 3, SNOW_N);
+    ob.part(); ob.ellipse(-w * 0.62, -0.5, w * 0.34, 2.2, M.snow, 4, { round: 0.8 });
   }
-  groundDrift(ctx, x - 14 * s, gy + 1, 6 * s, sd);
+};
+const rmrock = (ctx, x, y, s, o) => {
+  const gy = y + 8, v = o.v % 4, w = (9 + v * 1.5) * s * U, h = (8 + (v === 1 ? 4 : 0)) * s * U;
+  vShade(ctx, x, gy, w * 0.25, 1, w * 1.15, 3.2 * s * U / 1.4, 0.3);
+  sculpt(Math.ceil(w * 2) + 24, Math.ceil(h * 1.2) + 14, 10, (ob, M) => rockSculpt(ob, M, w, h, o.seed, v, true), ctx, x, gy);
 };
 
-// ---- a seal colony on a shore rock ------------------------------------------------
-const seal = (c, x, y, s, dir, sd, up) => {
-  const L = 5.4 * s;
-  c.fillStyle = SEAL_DK; ellipse(c, x + 0.4, y + 0.4, L, 1.8 * s); c.fill();
-  c.fillStyle = lin(c, 0, y - 2 * s, 0, y + 1.5 * s, [[0, SEAL_LT], [0.6, SEAL], [1, SEAL_DK]]); ellipse(c, x, y, L, 1.7 * s); c.fill();
-  // head (raised or down), flippers, mottling
-  const hx = x + dir * L * 0.9, hy = y - (up ? 2.2 : 0.8) * s;
-  c.fillStyle = SEAL; ellipse(c, hx, hy, 1.5 * s, 1.3 * s); c.fill();
-  c.fillStyle = "#1a1618"; px1(c, hx + dir * 0.6 * s, hy - 0.3 * s); px1(c, hx + dir * 1.3 * s, hy + 0.3 * s);
-  c.fillStyle = SEAL_DK; px1(c, x - dir * L, y - 0.6 * s, 1.5, 1); px1(c, x - dir * (L + 0.8 * s), y + 0.2 * s, 1.5, 1);
-  c.fillStyle = SEAL_LT; for (let k = 0; k < 3; k++) px1(c, x + (hash(sd, k) - 0.5) * L, y - 1 * s + hash(sd, k + 3) * 1.2, 0.5, 0.5);
+// ---- frozen waterfall / ice crag, sculpted ------------------------------------------------------
+const rmicefall = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed, v = o.v % 2, S = s * U;
+  vShade(ctx, x, gy, 7 * S / 1.4, 1, 20 * S / 1.4, 4 * S / 1.8, 0.3);
+  sculpt(Math.ceil(46 * S) + 24, Math.ceil(34 * S) + 16, 12, (ob, M) => {
+    if (v === 0) {
+      const w = 17 * S, h = 26 * S;
+      ob.part(); ob.poly([[-w, 0], [-w * 0.95, -h * 0.55], [-w * 0.6, -h * 0.9], [-w * 0.1, -h], [w * 0.45, -h * 0.86], [w * 0.9, -h * 0.5], [w, 0]], M.rock, 0, { round: 0.7, ny: -0.2 });
+      ob.part(); ob.poly([[-w * 0.97, 0], [-w * 0.93, -h * 0.55], [-w * 0.6, -h * 0.88], [-w * 0.3, -h * 0.6], [-w * 0.5, 0]], M.rockLt, 1, { n: [-0.6, -0.55, 0.6] });
+      ob.part(); ob.poly([[w * 0.55, 0], [w * 0.5, -h * 0.7], [w * 0.88, -h * 0.5], [w * 0.98, 0]], M.rockDk, 1, { n: [0.7, -0.1, 0.7] });
+      for (let k = 0; k < 4; k++) { const cx = (-0.8 + k * 0.5) * w; ob.part(); ob.capsule(cx, -1, 0.5, cx + Math.sin(k) * 2, -h * (0.35 + hash(sd, k) * 0.25), 0.4, M.rockDk, 1.5, {}); }
+      ob.part(); ob.poly([[-w * 0.95, -h * 0.57], [-w * 0.6, -h * 0.91], [-w * 0.1, -h * 1.01], [w * 0.45, -h * 0.87], [w * 0.88, -h * 0.52], [w * 0.4, -h * 0.72], [-w * 0.2, -h * 0.78], [-w * 0.7, -h * 0.62]], M.snow, 3, SNOW_N);
+      // the frozen pool at its foot, then the ice curtain frozen down the face
+      ob.part(); ob.ellipse(0, -0.5, 9 * S, 2.6 * S, M.iceB, 2, { round: 0.4, ny: -0.3 });
+      ob.part(); ob.ellipse(2 * S, 0, 3.2 * S, 1 * S, M.wet, 2.5, { round: 0.3 });
+      const top = -h * 0.78;
+      for (let k = 0; k < 9; k++) {
+        const cx = (-6 + k * 1.5) * S, len = h * 0.78 - hash(sd, k) * 3 * S, wd = (1.3 + hash(sd, k + 9)) * S, t0 = top + hash(sd, k + 3) * 2;
+        ob.part(); ob.poly([[cx, t0], [cx + wd, t0], [cx + wd, t0 + len * 0.85], [cx + wd * 0.5, t0 + len], [cx, t0 + len * 0.85]], k % 3 === 0 ? M.iceLt : k % 3 === 1 ? M.iceB : M.iceDk, 4 + k * 0.05, { round: 0.9 });
+      }
+      ob.part(); ob.ellipse(-8 * S, -1, 3 * S, 1.4, M.snow, 5, { round: 0.8 });
+    } else {
+      const spires = [[-9, 14, 4.5], [-2, 22, 5.5], [6, 17, 5], [12, 10, 4]];
+      spires.forEach(([dx, hh, wd], i) => {
+        const cx = dx * S, h = hh * S * (0.9 + hash(sd, i) * 0.2), w = wd * S, z = i * 0.4;
+        ob.part(); ob.poly([[cx - w, 0], [cx - w * 0.8, -h * 0.7], [cx - w * 0.2, -h], [cx + w * 0.5, -h * 0.88], [cx + w, -h * 0.3], [cx + w, 0]], M.iceB, z, { round: 0.7 });
+        ob.part(); ob.poly([[cx - w * 0.95, 0], [cx - w * 0.78, -h * 0.7], [cx - w * 0.2, -h * 0.97], [cx - w * 0.05, -h * 0.5], [cx - w * 0.4, 0]], M.iceLt, z + 0.1, { n: [-0.6, -0.5, 0.6] });
+        ob.part(); ob.poly([[cx + w * 0.4, 0], [cx + w * 0.4, -h * 0.55], [cx + w * 0.95, -h * 0.3], [cx + w * 0.95, 0]], M.iceDk, z + 0.1, { n: [0.7, -0.1, 0.7] });
+        ob.part(); ob.capsule(cx + w * 0.1, -2, 0.45, cx + w * 0.1 + Math.sin(i * 2) * 1.5, -h * 0.55, 0.35, M.iceDk, z + 0.2, {});
+        ob.part(); ob.poly([[cx - w * 0.82, -h * 0.7], [cx - w * 0.2, -h * 1.02], [cx + w * 0.5, -h * 0.9], [cx + w * 0.2, -h * 0.76], [cx - w * 0.4, -h * 0.68]], M.snow, z + 0.3, SNOW_N);
+      });
+    }
+    ob.part(); ob.ellipse(-14 * S, 0, 6 * S, 1.8, M.snow, 6, { round: 0.8 });
+  }, ctx, x, gy);
+};
+
+// ---- a seal: body, raised or lowered head, tail flippers (art pixels)
+const sealS = (ob, M, x, y, S, dir, up, z = 8) => {
+  const L = 5.4 * S;
+  ob.part(); ob.ellipse(x, y, L, 1.8 * S, M.seal, z, { round: 0.9 });
+  ob.part(); ob.ellipse(x + dir * L * 0.92, y - (up ? 2.2 : 0.8) * S, 1.6 * S, 1.4 * S, M.sealHd, z + 0.1, { round: 0.9 });
+  for (let k = 0; k < 3; k++) { ob.part(); ob.dot(x + (k - 1) * L * 0.4, y - 0.6 * S + (k % 2) * S * 0.7, M.sealDk, z + 0.05, {}); }
+  ob.part(); ob.dot(x + dir * (L * 0.92 + 1.2 * S), y - (up ? 2.5 : 1.1) * S, M.eye, z + 0.2, {});
+  ob.part(); ob.poly([[x - dir * L * 0.9, y], [x - dir * (L + 2 * S), y - 1.2 * S], [x - dir * (L + 2.4 * S), y + 0.8 * S]], M.sealDk, z - 0.1, {});
+  ob.part(); ob.ellipse(x - dir * 1 * S, y + 0.8 * S, L * 0.45, 0.7 * S, M.sealDk, z + 0.05, { round: 0.5 });
 };
 const rmsealrock = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed, w = 15 * s, h = 5.5 * s;
-  rShadow(ctx, x + 4 * s, gy + 1, w * 1.1, 3.4 * s, 0.32);
-  blackRock(ctx, x, gy, w, h, sd, 2, 0);
-  part(ctx, (c) => {
-    c.fillStyle = SNOW; ellipse(c, x - w * 0.6, gy - h * 0.5, w * 0.3, 1.5 * s); c.fill();
-    c.fillStyle = "#e8e4d8"; for (let k = 0; k < 7; k++) px1(c, x + (hash(sd, k + 20) - 0.5) * w * 1.4, gy - h * 0.4 - hash(sd, k + 30) * h * 0.4, 0.5, 0.5);
-  });
-  part(ctx, (c) => seal(c, x - 6 * s, gy - h * 0.7, s, 1, sd, true));
-  part(ctx, (c) => seal(c, x + 6 * s, gy - h * 0.55, s * 0.95, -1, sd + 1, false));
-  part(ctx, (c) => seal(c, x + 1 * s, gy - 1.2 * s, s * 0.9, 1, sd + 2, true));
-  if (o.v % 2) part(ctx, (c) => seal(c, x - 13 * s, gy - 0.8 * s, s * 0.75, -1, sd + 3, true));
+  const gy = y + 8, sd = o.seed, S = s * U, w = 15 * S, h = 8 * S;
+  vShade(ctx, x, gy, 4 * S, 1, w * 1.1, 3.4 * S / 1.8, 0.3);
+  sculpt(Math.ceil(w * 2) + 40, Math.ceil(h) + 40 * s, 10, (ob, M) => {
+    rockSculpt(ob, M, w, h, sd, 0, false);
+    ob.part(); ob.ellipse(-w * 0.6, -h * 0.5, w * 0.3, 2.4, M.snow, 3, { round: 0.8 });
+    sealS(ob, M, -6 * S, -h * 0.7, S, 1, true);
+    sealS(ob, M, 6 * S, -h * 0.55, S * 0.95, -1, false);
+    sealS(ob, M, 1 * S, -1.2 * S, S * 0.9, 1, true, 9);
+    if (o.v % 2) sealS(ob, M, -13 * S, -0.8 * S, S * 0.75, -1, true, 9);
+  }, ctx, x, gy);
 };
 
 // ---- a tussock of dead grass in its drift (flat: it carries its own underline)
@@ -1493,77 +1458,49 @@ const floeSprite = (f) => {
   let sp = FLOE_SP.get(key);
   if (sp) return sp;
   const wa = REALM.water || {}, deep = wa.deep || "#1f3a4a", edge = wa.edge || "#2c5266";
-  const hw = Math.ceil(26 * s), top = Math.ceil(26 * s), bot = Math.ceil(10 * s);
+  const hw = Math.ceil(26 * s), top = Math.ceil(26 * s), bot = Math.ceil(10 * s), S = s * U, sd = v * 31 + s * 10;
+  // the water's part (the pale skirt under the ice, its dark reflection) is baked flat; the ice itself is sculpted over it
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
-    const x = hw, y = top, sd = v * 31 + s * 10;
-    const blob = (rx, ry, k, n = 12) => { const pts = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, j = 1 + (hash(sd + k, i) - 0.5) * 0.4; pts.push([x + Math.cos(a) * rx * j, y + Math.sin(a) * ry * j]); } return pts; };
+    const x = hw, y = top;
     const skirt = (rx, ry) => { c.fillStyle = rgba(mix(edge, ICE[2], 0.45), 0.85); ellipse(c, x, y + 1.2, rx, ry); c.fill(); };
     const reflect = (rx, ry, dx = 1.5) => { c.fillStyle = rgba(deep, 0.75); ellipse(c, x + dx, y + ry * 0.9 + 1, rx * 0.85, ry * 0.55); c.fill(); };
-    if (f.t === "floe" || f.t === "seals") {
-      const big = f.t === "seals", rx = (big ? 13 : 8 + v * 1.5) * s, ry = rx * 0.42, th = (big ? 2.2 : 1.6) * s;
-      skirt(rx * 1.22, ry * 1.5);
-      reflect(rx, ry + th);
-      const pts = blob(rx, ry, 2);
-      part(c, (cc) => {
-        // the side face down to the waterline, the dark line of water along it
-        poly(cc, pts.map(([px, py]) => [px, py + th])); cc.fillStyle = ICE[1]; cc.fill();
-        cc.fillStyle = rgba(deep, 0.9); cc.fillRect(ap(x - rx * 0.9), ap(y + ry + th - 0.5), rx * 1.6, 0.5);
-        cc.fillStyle = ICE[2]; cc.fillRect(ap(x - rx * 0.95), ap(y + ry * 0.2 + th * 0.5), rx * 0.5, 0.5);
-      });
-      part(c, (cc) => {
-        // the top: pale ice, snow drifted over its windward (left) half, a lit rim, a clear window
-        poly(cc, pts); cc.fillStyle = ICE[3]; cc.fill();
-        cc.save(); cc.clip();
-        cc.fillStyle = SNOW; ellipse(cc, x - rx * 0.3, y - ry * 0.1, rx * 0.75, ry * 0.8); cc.fill();
-        cc.fillStyle = SNOW_LT; cc.fillRect(ap(x - rx * 0.8), ap(y - ry * 0.55), rx * 0.9, 0.5);
-        cc.fillStyle = SNOW_SH; cc.fillRect(ap(x - rx * 0.1), ap(y + ry * 0.35), rx * 0.5, 0.5);
-        cc.fillStyle = mix(deep, ICE[1], 0.3); cc.fillRect(ap(x + rx * 0.35), ap(y - ry * 0.1), 2.5 * s, 1 * s);
-        cc.fillStyle = ICE[4]; px1(cc, x + rx * 0.4, y - ry * 0.1, 1, 0.5);
-        cc.fillStyle = ICE[1]; for (let i = 0; i < 3; i++) px1(cc, x + (hash(sd, i) - 0.2) * rx, y + (hash(sd, i + 9) - 0.5) * ry, 1.5, 0.5);
-        cc.restore();
-      });
-      if (big) {
-        part(c, (cc) => seal(cc, x - 5 * s, y - ry * 0.3, s * 0.9, 1, sd, true));
-        part(c, (cc) => seal(cc, x + 4 * s, y - ry * 0.05, s * 0.85, -1, sd + 1, false));
-        if (v % 2) part(c, (cc) => seal(cc, x - 1 * s, y + ry * 0.45, s * 0.7, 1, sd + 2, true));
-      }
-    } else if (f.t === "berg") {
-      const rx = (9 + v) * s, hh = (13 + v * 2) * s;
-      skirt(rx * 1.35, 4.2 * s);
-      // its shadow in the water, long and to the right
-      c.fillStyle = rgba(deep, 0.78); ellipse(c, x + rx * 0.4, y + 2.4 * s, rx * 1.1, 2.6 * s); c.fill();
-      const P = [[x - rx, y], [x - rx * 0.8, y - hh * 0.55], [x - rx * 0.35, y - hh], [x + rx * 0.2, y - hh * 0.8], [x + rx * 0.55, y - hh * 0.92], [x + rx, y - hh * 0.3], [x + rx * 0.9, y]];
-      part(c, (cc) => {
-        poly(cc, P); cc.fillStyle = lin(cc, x - rx, 0, x + rx, 0, [[0, ICE[4]], [0.3, ICE[3]], [0.62, ICE[2]], [1, ICE[1]]]); cc.fill();
-        cc.save(); cc.clip();
-        // the shaded face on the right, a blue depth in its cleft, lit edges on the left
-        poly(cc, [[x + rx * 0.2, y - hh * 0.8], [x + rx * 0.55, y - hh * 0.92], [x + rx, y - hh * 0.3], [x + rx * 0.9, y], [x + rx * 0.25, y]]); cc.fillStyle = ICE[1]; cc.fill();
-        cc.fillStyle = ICE[0]; for (let t = 0; t < hh * 0.72; t += 0.5) { px1(cc, x + rx * 0.22 + Math.sin(t * 0.4) * 1.2, y - t); }
-        cc.fillStyle = ICE[1]; for (let t = 0; t < hh * 0.5; t += 0.5) px1(cc, x - rx * 0.45 + Math.sin(t * 0.5 + 2) * 0.8, y - t * 0.8);
-        cc.fillStyle = ICE[4]; for (let t = 0; t < hh * 0.5; t += 0.5) px1(cc, x - rx * 0.8 + t * 0.45 * (rx / hh) * 1.6, y - hh * 0.55 - t * 0.8);
-        snowCap(cc, [[x - rx * 0.85, y - hh * 0.55], [x - rx * 0.35, y - hh * 1.02], [x + rx * 0.2, y - hh * 0.82], [x + rx * 0.55, y - hh * 0.95], [x + rx * 0.8, y - hh * 0.55], [x + rx * 0.3, y - hh * 0.7], [x - rx * 0.4, y - hh * 0.72]]);
-        // the waterline: the ice gone dark and wet where the sea laps it, foam above
-        cc.fillStyle = mix(deep, ICE[0], 0.5); cc.fillRect(x - rx, ap(y - 1.4 * s), rx * 2, 1.4 * s);
-        cc.fillStyle = ICE[4]; for (let i = 0; i < 6; i++) if (hash(sd, i + 40) < 0.7) px1(cc, x - rx * 0.9 + i * rx * 0.33, y - 1.6 * s, 1.5, 0.5);
-        cc.restore();
-      });
-    } else {
-      // a skerry: black rock awash, wet and dark at the waterline, rime on its north side, gull-streaked
-      const rx = 10 * s, ry = 5 * s;
-      c.fillStyle = rgba(mix(edge, "#5a6a70", 0.3), 0.8); ellipse(c, x, y + 1, rx * 1.25, ry * 0.9); c.fill();
-      c.fillStyle = rgba(deep, 0.7); ellipse(c, x + 2, y + ry * 0.55 + 1, rx * 0.9, ry * 0.5); c.fill();
-      blackRock(c, x, y + 1, rx, ry * 1.3, sd, 2, 0);
-      part(c, (cc) => {
-        // the wet band at the waterline, a sheen pixel or two on it
-        cc.fillStyle = rgba("#101418", 0.55); cc.fillRect(x - rx * 0.95, ap(y - 1.2 * s), rx * 1.9, 1.6 * s);
-        cc.fillStyle = rgba(ICE[3], 0.7); px1(cc, x - rx * 0.5, y - 1.2 * s, 2, 0.5); px1(cc, x + rx * 0.3, y - 0.9 * s, 1.5, 0.5);
-        // rime: frost on the cold north face, on the rock's top edges
-        cc.fillStyle = SNOW_LT; for (let i = 0; i < 7; i++) { const px = x - rx * 0.8 + i * rx * 0.26; px1(cc, px, y - ry * 1.15 - hash(sd, i + 50) * ry * 0.9, 1.5 + hash(sd, i + 60), 0.5); }
-        cc.fillStyle = SNOW; ellipse(cc, x - rx * 0.45, y - ry * 0.75, rx * 0.35, 1.2 * s); cc.fill();
-        cc.fillStyle = "#e8e4d8"; for (let i = 0; i < 5; i++) px1(cc, x + (hash(sd, i + 20) - 0.5) * rx * 1.3, y - ry * 0.4 - hash(sd, i + 30) * ry * 0.5, 0.5, 1);
-      });
+    if (f.t === "floe" || f.t === "seals") { const rx = (f.t === "seals" ? 13 : 8 + v * 1.5) * s, ry = rx * 0.42, th = (f.t === "seals" ? 2.2 : 1.6) * s; skirt(rx * 1.22, ry * 1.5); reflect(rx, ry + th); }
+    else if (f.t === "berg") { const rx = (9 + v) * s; skirt(rx * 1.35, 4.2 * s); c.fillStyle = rgba(deep, 0.78); ellipse(c, x + rx * 0.4, y + 2.4 * s, rx * 1.1, 2.6 * s); c.fill(); }
+    else { const rx = 10 * s, ry = 5 * s; c.fillStyle = rgba(mix(edge, "#5a6a70", 0.3), 0.8); ellipse(c, x, y + 1, rx * 1.25, ry * 0.9); c.fill(); c.fillStyle = rgba(deep, 0.7); ellipse(c, x + 2, y + ry * 0.55 + 1, rx * 0.9, ry * 0.5); c.fill(); }
+  }, false);
+  const ob = new Pix(cv.width, cv.height, hw * PX, top * PX), M = MM();
+  const wet = mat(deep, { contrast: 0.8 });
+  if (f.t === "floe" || f.t === "seals") {
+    const big = f.t === "seals", rx = (big ? 13 : 8 + v * 1.5) * S, ry = rx * 0.42, th = (big ? 2.2 : 1.6) * S;
+    const pts = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, j = 1 + (hash(sd + 2, i) - 0.5) * 0.4; pts.push([Math.cos(a) * rx * j, Math.sin(a) * ry * j]); }
+    ob.part(); ob.poly(pts.map(([px, py]) => [px, py + th]), M.iceDk, 0, { n: [0.2, 0.3, 0.8] });
+    ob.part(); ob.rect(-rx * 0.9, ry + th - 1, rx * 1.6, 1.2, wet, 0.5, {});
+    ob.part(); ob.poly(pts, M.iceB, 1, { round: 0.35, ny: -0.3 });
+    ob.part(); ob.ellipse(-rx * 0.3, -ry * 0.1, rx * 0.68, ry * 0.7, M.snow, 2, { round: 0.85 });
+    ob.part(); ob.ellipse(rx * 0.42, -ry * 0.1, 2.6 * S, 1 * S, wet, 1.5, { round: 0.2 });
+    for (let i = 0; i < 3; i++) { ob.part(); ob.rect((hash(sd, i) - 0.2) * rx, (hash(sd, i + 9) - 0.5) * ry, 3, 1, M.iceDk, 1.6, {}); }
+    if (big) {
+      sealS(ob, M, -5 * S, -ry * 0.3, S * 0.9, 1, true, 6);
+      sealS(ob, M, 4 * S, -ry * 0.05, S * 0.85, -1, false, 6);
+      if (v % 2) sealS(ob, M, -1 * S, ry * 0.45, S * 0.7, 1, true, 6.5);
     }
-  }, true);
+  } else if (f.t === "berg") {
+    const rx = (9 + v) * S, hh = (13 + v * 2) * S;
+    ob.part(); ob.poly([[-rx, 0], [-rx * 0.8, -hh * 0.55], [-rx * 0.35, -hh], [rx * 0.2, -hh * 0.8], [rx * 0.55, -hh * 0.92], [rx, -hh * 0.3], [rx * 0.9, 0]], M.iceB, 1, { round: 0.6, ny: -0.1 });
+    ob.part(); ob.poly([[-rx * 0.98, 0], [-rx * 0.78, -hh * 0.55], [-rx * 0.35, -hh * 0.96], [-rx * 0.15, -hh * 0.5], [-rx * 0.4, 0]], M.iceLt, 1.2, { n: [-0.6, -0.5, 0.6] });
+    ob.part(); ob.poly([[rx * 0.25, 0], [rx * 0.22, -hh * 0.78], [rx * 0.55, -hh * 0.9], [rx * 0.98, -hh * 0.3], [rx * 0.88, 0]], M.iceDk, 1.2, { n: [0.7, -0.1, 0.7] });
+    ob.part(); ob.capsule(rx * 0.1, -2, 0.5, rx * 0.15, -hh * 0.6, 0.4, M.iceDk, 1.5, {});
+    ob.part(); ob.poly([[-rx * 0.8, -hh * 0.57], [-rx * 0.35, -hh * 1.02], [rx * 0.2, -hh * 0.82], [rx * 0.55, -hh * 0.95], [rx * 0.78, -hh * 0.58], [rx * 0.3, -hh * 0.7], [-rx * 0.4, -hh * 0.72]], M.snow, 3, SNOW_N);
+    ob.part(); ob.rect(-rx * 0.99, -1.4 * S, rx * 1.95, 1.4 * S, wet, 2, { round: 0.2 });
+  } else {
+    const rx = 10 * S, ry = 7.5 * S;
+    rockSculpt(ob, M, rx, ry, sd, 0, false);
+    ob.part(); ob.rect(-rx * 0.95, -1.2 * S, rx * 1.9, 1.2 * S, M.rockDk, 2, { round: 0.2 });
+    ob.part(); ob.ellipse(-rx * 0.45, -ry * 0.6, rx * 0.35, 2, M.snow, 3, { round: 0.8 });
+    for (let i = 0; i < 4; i++) { ob.part(); ob.rect(-rx * 0.8 + i * rx * 0.45, -ry * (1.0 + hash(sd, i) * 0.1), 2 + hash(sd, i + 60) * 2, 1, M.snow, 3, {}); }
+  }
+  const img = ob.resolve({ line: "tint" }), over = toCanvas(img);
+  { const c2 = cv.getContext("2d"); c2.setTransform(1, 0, 0, 1, 0, 0); c2.drawImage(over, 0, 0); }
   sp = { cv, hw, top, bot };
   FLOE_SP.set(key, sp);
   return sp;
@@ -1601,7 +1538,7 @@ const drawRimeGate = (ctx, time) => {
 // ============ THE REGISTRY ============
 export const RIME_ART = {
   // baked without the 2px ring: the tussock carries its own underline
-  flat: ["rmtussock", "rmice", "rmcairn", "rmrunestone", "rmskaldstone", "rmwhale", "rmboat", "rmlongship", "rmrack", "rmlonghouse", "rmspruce"],
+  flat: ["rmicefall", "rmsealrock", "rmrock", "rmtussock", "rmice", "rmcairn", "rmrunestone", "rmskaldstone", "rmwhale", "rmboat", "rmlongship", "rmrack", "rmlonghouse", "rmspruce"],
   decor: {
     rmspruce, rmrock, rmcairn, rmrunestone, rmskaldstone, rmwhale, rmboat, rmlongship, rmrack,
     rmicefall, rmsealrock, rmtussock, rmlonghouse, rmgate, rmice,
