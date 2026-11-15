@@ -19,7 +19,9 @@ const STEEL = mat("#b8bcc4", { contrast: 1.3 }), STEELD = mat("#8a8e98", { contr
 const EYE = flat("#e8a030", { emis: true }), PUPIL = flat("#2a2230"), CLAW = flat("#2a2230"), BROW = mat("#4a4050", { floor: 1 }), RIDEYE = flat("#2a2230");
 
 // the near wing's depth: root behind the thigh (4.1) and saddle (6), tip over everything of the bird
-const WZ = { root: 4.15, tip: 9 };
+const WZ = { root: 4.6, tip: 9 };
+// the wing roots sit up the back, toward the withers and shoulders (units): the root and trailing root lift most, wrist and tip follow
+const ROOT_UP = [1.8, -3], HAND_UP = [1, -2.2];
 export const MUST = [["nearWing", "behind", "rider"], ["nearWing", "behind", "saddle"]];
 export const BOX = { w: 128, h: 116, ox: 64, oy: 92 };
 export const BONES = HUMAN;                  // unused: a flier poses itself
@@ -85,7 +87,7 @@ export const draw = (px, F) => {
 
   // one wing: membrane under, five long primaries fanned off the hand, secondaries down the arm, lit coverts
   const wingOf = (pts, far, z0) => {
-    const [S, Wr, T, R] = pts.map(at), b = far ? -1 : 0;
+    const [S, Wr, T, R] = pts.map((p, i) => at(i === 1 || i === 2 ? [p[0] + HAND_UP[0], p[1] + HAND_UP[1]] : [p[0] + ROOT_UP[0], p[1] + ROOT_UP[1]])), b = far ? -1 : 0;
     const dx = T[0] - Wr[0], dy = T[1] - Wr[1], dl = Math.hypot(dx, dy) || 1;
     let nx = -dy / dl, ny = dx / dl;
     if (nx * (R[0] - Wr[0]) + ny * (R[1] - Wr[1]) < 0) { nx = -nx; ny = -ny; }
@@ -183,7 +185,7 @@ export const draw = (px, F) => {
   // her cape streams off her shoulders
   px.part();
   { const [cc, ct, cb] = k.cape, p0 = R([0, -15]);
-    px.poly([p0, at(cc), at(ct), at(cb), R([-3, -8]), R([1, -12])], CAPE, 12, { round: 0.5, cast: 1 }); }
+    px.poly([p0, at(cc), at(ct), at(cb), R([-3, -8]), R([1, -12])], CAPE, 4.4, { round: 0.5, cast: 1 }); }
   // seated: thigh forward along the saddle, boot in the stirrup
   px.part();
   px.capsule(...at([1, -6.5]), 2.8, ...at([5.5, -4]), 2.5, STEELD, 12.5, { cast: 1 });

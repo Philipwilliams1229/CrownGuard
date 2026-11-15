@@ -67,8 +67,22 @@ const POSE = {
   ramB: { hip: [0.2, 0.5], lean: 0.06, head: [0, 0], hold: 4.5, rod: 0.6 },
   raise: { hip: [0.1, 0.3], lean: 0.02, head: [0.2, 0.3], grip: [-0.9, 0.9], rest: [2.6, 0.9] },
 };
-const drawGunner = (px, K, gun) => {
-  const p = POSE[gun] || POSE.port, [gx, gy] = GUNNER_AT, at = (u, v) => { const m = musketPoint(gun, GUN_LEN, u, v); return [gx + m.x, gy + m.y]; };
+// Why he stood still: the clip's pose carried only the gun name, so every frame of a clip drew the same
+// gunner (only the oarsman's row changed). `row` (the frame) now drives his body: a bob with the boat,
+// breath and sway, shouldering on aim / raise, a kick on recoil / kick, a pump on the rammer. The gun,
+// and so the muzzle mark, stays on musketPoint's points: only the body moves.
+const MOTION = (gun, row) => {
+  const t = (row / 4) * Math.PI * 2, bob = Math.sin(t) * 0.35, sway = Math.cos(t) * 0.3, breath = Math.sin(t + 1) * 0.15;
+  let m = { dx: sway, dy: bob + breath, lean: sway * 0.04, hx: sway * 0.5, hy: breath };
+  if (gun === "aim" || gun === "raise") { const s = [0, 0.5, 1, 0.8, 1][row] || 0; m.lean += 0.05 * s; m.hx += 0.5 * s; m.dx += 0.3 * s; }
+  if (gun === "kick" || gun === "recoil") { const s = [1, 0.6, 0.3, 0.1, 0][row] || 0; m.lean -= 0.12 * s; m.dx -= 0.9 * s; m.hx -= 0.6 * s; m.hy += 0.3 * s; m.dy += 0.3 * s; }
+  if (gun === "ramA" || gun === "ramB") { const s = Math.sin(t + (gun === "ramB" ? Math.PI : 0)); m.dy += 0.25 * s; m.lean += 0.04 * s; m.dx += 0.3 * s; }
+  return m;
+};
+const drawGunner = (px, K, gun, row = 4) => {
+  const M = MOTION(gun, row);
+  const p0 = POSE[gun] || POSE.port, p = { ...p0, hip: [p0.hip[0] + M.dx, p0.hip[1] + M.dy], lean: p0.lean + M.lean, head: [p0.head[0] + M.hx, p0.head[1] + M.hy] };
+  const [gx, gy] = GUNNER_AT, at = (u, v) => { const m = musketPoint(gun, GUN_LEN, u, v); return [gx + m.x, gy + m.y]; };
   const hip = [gx + p.hip[0], gy - 8.4 + p.hip[1]], sh = rot(p.lean, 1.8, -7.2).map((v, i) => v + hip[i]), nk = [sh[0] + 0.4 + p.head[0], sh[1] - 2.6 + p.head[1]];
   const hd = [nk[0] + 0.3, nk[1] - 2.0];
   const farSh = [sh[0] - 2.6, sh[1] + 0.4];
@@ -142,7 +156,7 @@ export const draw = (px, F, o = {}) => {
   for (let x = -10; x <= 11; x += 3.5) px.line(...W(x, -6.4 + Math.abs(x) * 0.06), ...W(x, -4.7), WOODD, 1.2, { noLine: true });
   polyline(px, fr, RAIL, 1.5, {});
   drawRower(px, row);
-  const muzzle = drawGunner(px, K, gun);
+  const muzzle = drawGunner(px, K, gun, row);
   // her near side: the hull below the rail, wet-dark under the water, a lapped seam, a cream strake, a pale rail
   const hull = [...nr, ...quad([15, -5.9], [13.4, 1.6], [8, 3.1], 6).map(([x, y]) => W(x, y)).slice(1), ...[[-9, 3.1]].map(([x, y]) => W(x, y)), ...quad([-9, 3.1], [-13.1, 2.7], [-13.7, 0.4], 5).map(([x, y]) => W(x, y)).slice(1)];
   px.part(); const hid = px._pid;
