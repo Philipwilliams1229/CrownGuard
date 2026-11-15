@@ -14,9 +14,9 @@ export const CROWN_FIGHT_FRAMES = Object.fromEntries([
 // engine/heroes/ysolde.js starts every bolt there, and the sims run with no canvas, so these are
 // numbers, measured off her staff's pose when the painter was retired. sheet "walk" | "fight" |
 // "sky", frame 0-3 (0 ready, 1 release, 2 recoil, 3 recover; the sky sheet 0 raise ... 3 hold).
-const STORM_TIP = {
-  walk: [[5, -22.6], [5.9, -23.2], [7.2, -22.5], [5.9, -23.2]],
-  fight: [[6.4, -24.1], [20.6, -20], [12.4, -26], [8.2, -24.2]],
-  sky: [[10.1, -25.2], [8.4, -27.5], [8.1, -27.6], [8.7, -27.4]], // 2026-11-15: the staff held out in front (+2.9, +2.1)
+const STORM_TIP = { // re-measured 2026-11-15 (round 4: the staff locked to her hand), figure px x 0.2
+  walk: [[5.1, -22.5], [6.4, -22.9], [8.1, -22], [6.4, -22.9]],
+  fight: [[6.4, -24.1], [20.1, -17.9], [11.6, -23.8], [8.2, -24.2]],
+  sky: [[11, -24.9], [10.4, -26.9], [10.2, -27], [10.7, -26.8]],
 };
 export const stormStaffTip = (sheet = "fight", frame = 1) => (STORM_TIP[sheet] || STORM_TIP.fight)[Math.max(0, Math.min(3, Math.floor(frame) || 0))];

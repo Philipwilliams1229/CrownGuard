@@ -48,6 +48,14 @@ const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 // slides: GRIP behind the near hand when carried, the butt on the ground when planted.
 const LEN = 58, GRIP = 20, K = 0.72;
 
+// THE GRIP. The haft's angle is DERIVED from the solved near forearm, never posed on its own: halberd angle
+// (from upright, + toward the foe) = forearm direction (elbow -> hand) + HAFT + wrist, where HAFT is the one fixed
+// angle of a pole in a closed fist (measured from his guard: -1.2) and `wrist` the pose's only freedom (+-0.35).
+export const HAFT = -1.2;
+export const WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const haftAngle = (sk) => forearm(sk) + HAFT + cl(sk.p.wrist || 0, -WRIST, WRIST);
+
 // Depth order, back to front, STATIC: the head, the halberd, the far fist, the near arm (the far ARM is drawn at z 1).
 const CZ = layers(["head", "halb", "farHand", "nearArm"], [], { z0: 5, step: 0.45 });
 
@@ -71,7 +79,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.toneLine(C[0] - 4.8, C[1] + 4, P[0] - 6 + t2 * 0.8, -8, -1, cp);
 
   // the halberd's line: grounded at rest, in two hands when it swings
-  const a = p.hb ?? 0.12, d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
+  const a = haftAngle(sk), d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
   const B = (t, s = 0) => [hdN[0] + d[0] * t + nrm[0] * s, hdN[1] + d[1] * t + nrm[1] * s];
   const plantedButt = cl(hdN[1] / Math.max(0.3, Math.cos(a)) + 0.6, -30, -8), pl0 = cl(p.plant || 0, 0, 1);
   const butt = -GRIP + (plantedButt + GRIP) * pl0, tipT = butt + LEN;
@@ -158,7 +166,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 // the chop's smear: on the fastest frames the blade leaves a fan of light behind it
 export const fx = (px, F, info, clip) => {
   if (clip !== "attack" && clip !== "sweep") return;
-  const a1 = F.sk.p.hb, a0 = F.lag1.p.hb;
+  const a1 = haftAngle(F.sk), a0 = haftAngle(F.lag1);
   if (!(a1 - a0 > 0.5)) return;
   const [hx, hy] = F.sk.hdN, [gx, gy] = F.lag1.hdN, n = 10, R = Math.hypot(info.tip[0] - hx, info.tip[1] - hy) * 0.85;
   const at = (t, r) => { const a = a0 + (a1 - a0) * t, x = gx + (hx - gx) * t, y = gy + (hy - gy) * t; return [x + Math.sin(a) * r, y - Math.cos(a) * r]; };
@@ -166,26 +174,26 @@ export const fx = (px, F, info, clip) => {
   arc(0, R * 0.5, SMEAR2, 20); arc(0.45, R * 0.7, SMEAR, 20.1);
 };
 
-const GUARD = { nb: 0, aN: [0.62, 0.8, 0], aF: [0.2, 0.9, 0], hb: 0.52, plant: 1, hip: 1, grip: 7, fN: [-2, 0], fF: [2.4, 0] };
+const GUARD = { nb: 0, aN: [0.65, 0.75, 0], aF: [0.2, 0.9, 0], plant: 1, hip: 1, grip: 7, fN: [-2, 0], fF: [2.4, 0] };
 // the sweep's six poses: planted feet, both hands on the haft
 const SW = { rx: 0, drop: 1, fN: [-2.6, 0], fF: [5, 0], plant: 0, hip: 0, grip: -10 };
 const SWEEP = [
-  { ...SW, aN: [0.9, 0.9, 0], hb: 0.7, lean: 0.05, twist: 0.1 },
-  { ...SW, rx: -1.2, lean: -0.12, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.75, 0.82, 0], hb: -0.48 },
-  { ...SW, rx: 0.4, lean: 0.02, twist: -0.2, rise: 0.4, aN: [1.5, 1, 0], hb: 1.35 },
-  { ...SW, rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, aN: [1.2, 1, 0], hb: 1.7 },
-  { ...SW, rx: 3, drop: 2, lean: 0.25, twist: 0.9, aN: [0.8, 0.96, 0], hb: 2.1 },
-  { ...SW, rx: 1.4, drop: 1.2, lean: 0.12, twist: 0.4, aN: [0.9, 0.9, 0], hb: 1.4 },
+  { ...SW, aN: [0.9, 0.95, 0], lean: 0.05, twist: 0.1 },
+  { ...SW, rx: -1.2, lean: -0.12, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.7, 0.6, 1], wrist: 0.35 },
+  { ...SW, rx: 0.4, lean: 0.02, twist: -0.2, rise: 0.4, aN: [1.35, 0.75, 1] },
+  { ...SW, rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, aN: [1, 0.75, 1] },
+  { ...SW, rx: 3, drop: 2, lean: 0.25, twist: 0.9, aN: [0.6, 0.75, 1] },
+  { ...SW, rx: 1.4, drop: 1.2, lean: 0.12, twist: 0.4, aN: [0.9, 0.95, 1] },
 ];
 export const CLIPS = {
   idle: {
     n: 8, ms: 1800, loop: true, lag: 0.1,
-    pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 0.9); return { ...GUARD, rise: 0.5 + 0.5 * b, hb: 0.52 + 0.015 * b2, sway: b2 * 0.9, blink: ph > 0.6 && ph < 0.72 ? 1 : 0 }; },
+    pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 0.9); return { ...GUARD, rise: 0.5 + 0.5 * b,  sway: b2 * 0.9, blink: ph > 0.6 && ph < 0.72 ? 1 : 0 }; },
   },
   // the march: the halberd carried leaning forward, butt off the ground, the far hand on his hip
   walk: {
     n: 8, ms: 780, loop: true, lag: 0.08,
-    pose: (ph) => { const w = walkPose(ph, { stride: 5.4, lift: 2.8, swing: 0.3, bob: 1.1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, nb: 0, aN: [0.8 + 0.05 * a, 0.8, 0], hb: 0.5 + 0.06 * a, plant: 0, hip: 1, grip: 7, sway: a * 1.2 }; },
+    pose: (ph) => { const w = walkPose(ph, { stride: 5.4, lift: 2.8, swing: 0.3, bob: 1.1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, nb: 0, aN: [0.8 + 0.05 * a, 0.8, 0], plant: 0, hip: 1, grip: 7, sway: a * 1.2 }; },
   },
   attack: {
     n: 12, ms: 900, loop: false, lag: 0.07,
@@ -193,13 +201,13 @@ export const CLIPS = {
       { t: 0, p: GUARD },
       // the wind-up carries the halberd back over the REAR shoulder, hand low behind the neck, the haft upright
       // behind him and clear of the head; the far hand rests on his hip until the chop
-      { t: 0.09, e: "out", p: { rx: -0.4, drop: 0.25, lean: -0.04, twist: -0.2, rise: 0.15, aN: [1.5, 0.7, 0], hb: 0.25, plant: 0, hip: 0, grip: -10, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.18, e: "out", p: { rx: -1.0, drop: 0.5, lean: -0.08, twist: -0.6, rise: 0.35, hx: 0.6, aN: [3.6, 0.8, 0], hb: -0.3, plant: 0, hip: 0, grip: -10, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.4, e: "io", p: { rx: -1.5, drop: 0.8, lean: -0.12, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.75, 0.82, 0], hb: -0.48, plant: 0, hip: 0, grip: -10, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.46, e: "out", p: { rx: 0.4, drop: 1.0, lean: 0.05, twist: 0.1, rise: 0.2, hx: 0.6, aN: [1.8, 1, 0], hb: 0.7, plant: 0, hip: 0, grip: -10, fN: [-2.4, 0], fF: [4, 0] } },
-      { t: 0.52, e: "in3", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, hx: 0.5, aN: [1.1, 1, 0], hb: 1.7, plant: 0, hip: 0, grip: -10, fN: [-2.6, 0], fF: [6, 0] } },
-      { t: 0.64, e: "out", p: { rx: 3, drop: 2, lean: 0.25, twist: 0.9, hx: 0.6, aN: [0.8, 0.96, 0], hb: 2.2, plant: 0, hip: 0, grip: -10, fN: [-2.6, 0], fF: [6, 0] } },
-      { t: 0.78, e: "io", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.6, hx: 0.4, aN: [0.7, 0.94, 0], hb: 2.1, plant: 0, hip: 0, grip: -10, fN: [-2.6, 0], fF: [6, 0] } },
+      { t: 0.09, e: "out", p: { rx: -0.4, drop: 0.25, lean: -0.04, twist: -0.2, rise: 0.15, aN: [1.35, 0.95, 0], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.18, e: "out", p: { rx: -1.0, drop: 0.5, lean: -0.08, twist: -0.6, rise: 0.35, hx: 0.6, aN: [3.6, 0.6, 1], wrist: 0.35, plant: 0, hip: 0, grip: -10, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.4, e: "io", p: { rx: -1.5, drop: 0.8, lean: -0.12, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.7, 0.6, 1], wrist: 0.35, plant: 0, hip: 0, grip: -10, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.46, e: "out", p: { rx: 0.4, drop: 1.0, lean: 0.05, twist: 0.1, rise: 0.2, hx: 0.6, aN: [1.5, 0.95, 1], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2.4, 0], fF: [4, 0] } },
+      { t: 0.52, e: "in3", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, hx: 0.5, aN: [1, 0.75, 1], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2.6, 0], fF: [6, 0] } },
+      { t: 0.64, e: "out", p: { rx: 3, drop: 2, lean: 0.25, twist: 0.9, hx: 0.6, aN: [0.6, 0.7, 1], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2.6, 0], fF: [6, 0] } },
+      { t: 0.78, e: "io", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.6, hx: 0.4, aN: [0.6, 0.75, 1], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2.6, 0], fF: [6, 0] } },
       { t: 1, e: "io", p: GUARD },
     ], ph),
   },

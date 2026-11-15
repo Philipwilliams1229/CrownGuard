@@ -38,6 +38,14 @@ export const BOX = { w: 96, h: 84, ox: 36, oy: 72 };
 export const BONES = scaled(HUMAN, 1, { thigh: 8.6, shin: 8.1, shN: -2.5, shF: 2.5, hipN: -1.2, hipF: 1.3 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
+// THE GRIP. The staff's angle is DERIVED from the solved forearm, never posed on its own: staff angle (from
+// upright, + toward the foe) = forearm direction (elbow -> hand) + GRIP + wrist. GRIP is the staff's fixed angle in
+// her fist (measured from her idle: -1.1); `wrist` is the pose's only freedom, clamped to +-0.35.
+export const GRIP = -1.1;
+export const WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const staffAngle = (sk) => forearm(sk) + GRIP + cl(sk.p.wrist || 0, -WRIST, WRIST);
+
 // Depth order of her head, the staff and the staff arm (back to front). Raised, or with the hand up beside
 // her head, the arm and the staff pass BEHIND it (the head's edge keeps them apart); otherwise they are in front.
 const YZ = layers(["head", "staff", "arm"], [
@@ -50,7 +58,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   const hx = Math.round(N[0]), hyy = Math.round(N[1]), g = p.glow || 0;
   const Z = YZ({});
   // the staff's own line: st is its angle from upright (+ toward the foe)
-  const a = p.st ?? 0.5, d = [Math.sin(a), -Math.cos(a)], nr = [-d[1], d[0]];
+  const a = staffAngle(sk), d = [Math.sin(a), -Math.cos(a)], nr = [-d[1], d[0]];
   const at = (t, s = 0) => [hdN[0] + d[0] * t + nr[0] * s, hdN[1] + d[1] * t + nr[1] * s];
   const cx = at(22.6);
 
@@ -124,13 +132,13 @@ export const fx = (px, F, info) => {
   for (let i = 0; i < 4; i++) { const an = hash(seed + i) * 6.28, r = 3.6 + hash(seed + i * 3) * 3 * info.crackle; px.line(x + Math.cos(an) * 3.4, y + Math.sin(an) * 3.4, x + Math.cos(an) * r, y + Math.sin(an) * r, SPARK, 21, { noLine: true }); }
 };
 
-const READY = { aN: [1.0, 0.86, 0], aF: [0.1, 0.9, 0], st: 0.5, glow: 0.1, crackle: 0, bolt: 0, nb: 0, fN: [-1.8, 0], fF: [2, 0] };
+const READY = { aN: [1.0, 0.86, 0], aF: [0.1, 0.9, 0], glow: 0.1, crackle: 0, bolt: 0, nb: 0, fN: [-1.8, 0], fF: [2, 0] };
 // the Thunderclap's four poses, the staff raised overhead
 const SKY = [
-  { aN: [1.3, 0.95, 0], nb: 0, st: 0.2, aF: [1.0, 0.85, 0], glow: 0.7, rise: 0.4, lean: 0.03, twist: 0.2 },
-  { aN: [1.45, 1, 0], nb: 0, st: 0.08, aF: [1.2, 0.9, 0], glow: 1.0, rise: 0.7, lean: 0.04, twist: 0.3 },
-  { aN: [1.45, 1, 0], nb: 0, st: 0.05, aF: [1.3, 0.95, 0], glow: 1.4, crackle: 1, rise: 0.8, lean: 0.04, twist: 0.3 },
-  { aN: [1.45, 1, 0], nb: 0, st: 0.08, aF: [1.2, 0.9, 0], glow: 1.2, crackle: 0.6, rise: 0.7, lean: 0.04, twist: 0.3 },
+  { aN: [1.3, 0.95, 0], nb: 0, aF: [1.0, 0.85, 0], glow: 0.7, rise: 0.4, lean: 0.03, twist: 0.2 },
+  { aN: [1.45, 1, 0], nb: 0, aF: [1.2, 0.9, 0], glow: 1.0, rise: 0.7, lean: 0.04, twist: 0.3 },
+  { aN: [1.45, 1, 0], nb: 0, aF: [1.3, 0.95, 0], glow: 1.4, crackle: 1, rise: 0.8, lean: 0.04, twist: 0.3 },
+  { aN: [1.45, 1, 0], nb: 0, aF: [1.2, 0.9, 0], glow: 1.2, crackle: 0.6, rise: 0.7, lean: 0.04, twist: 0.3 },
 ];
 export const CLIPS = {
   idle: {
@@ -139,7 +147,7 @@ export const CLIPS = {
   },
   walk: {
     n: 8, ms: 760, loop: true, lag: 0.08,
-    pose: (ph) => { const w = walkPose(ph, { stride: 5, lift: 2.4, swing: 0.3, bob: 1 }), a = Math.cos(ph * Math.PI * 2); return { ...READY, ...w, aN: [0.9 + 0.05 * a, 0.86, 0], st: 0.45 + 0.05 * a, aF: [0.1 - 0.4 * a, 0.93, 0], glow: 0.18, sway: a * 1.3 }; },
+    pose: (ph) => { const w = walkPose(ph, { stride: 5, lift: 2.4, swing: 0.3, bob: 1 }), a = Math.cos(ph * Math.PI * 2); return { ...READY, ...w, aN: [0.9 + 0.05 * a, 0.86, 0], aF: [0.1 - 0.4 * a, 0.93, 0], glow: 0.18, sway: a * 1.3 }; },
   },
   // the cast: ready, the staff drawn up, the thrust the bolt leaves from, recoil, recover
   attack: {
@@ -147,11 +155,11 @@ export const CLIPS = {
     pose: (ph) => sampleKeys([
       { t: 0, p: READY },
       // the staff is held OUT in front of her (never up by her head) as the light gathers
-      { t: 0.09, e: "out", p: { ...READY, rx: -0.1, lean: 0.01, twist: 0.1, rise: 0.3, aN: [1.2, 0.9, 0], nb: 0, st: 0.3, aF: [0.9, 0.85, 0], glow: 0.3, fN: [-2, 0], fF: [2.2, 0] } },
-      { t: 0.3, e: "out", p: { ...READY, rx: 0, lean: 0.03, twist: 0.2, rise: 0.6, aN: [1.4, 0.98, 0], nb: 0, st: 0.12, aF: [1.1, 0.9, 0], glow: 0.7, fN: [-2.2, 0], fF: [2.4, 0] } },
-      { t: 0.5, e: "io", p: { ...READY, rx: 0.2, lean: 0.04, twist: 0.3, rise: 0.8, aN: [1.45, 1, 0], nb: 0, st: 0.05, aF: [1.3, 0.95, 0], glow: 1.1, crackle: 1, fN: [-2.2, 0], fF: [2.4, 0] } },
-      { t: 0.6, e: "in3", p: { ...READY, rx: 1.8, drop: 1, lean: 0.2, twist: 0.7, hx: 0.4, aN: [1.7, 0.86, 0], nb: 0, st: 1.2, aF: [1.6, 1, 0], glow: 1.5, crackle: 1, fN: [-2.6, 0], fF: [5, 0] } },
-      { t: 0.74, e: "out", p: { ...READY, rx: 2.2, drop: 1.2, lean: 0.24, twist: 0.8, hx: 0.5, aN: [1.6, 0.9, 0], nb: 0, st: 1.35, aF: [1.5, 1, 0], glow: 1.1, crackle: 0.5, fN: [-2.6, 0], fF: [5, 0] } },
+      { t: 0.09, e: "out", p: { ...READY, rx: -0.1, lean: 0.01, twist: 0.1, rise: 0.3, aN: [1.2, 0.9, 0], nb: 0, aF: [0.9, 0.85, 0], glow: 0.3, fN: [-2, 0], fF: [2.2, 0] } },
+      { t: 0.3, e: "out", p: { ...READY, rx: 0, lean: 0.03, twist: 0.2, rise: 0.6, aN: [1.4, 0.98, 0], nb: 0, aF: [1.1, 0.9, 0], glow: 0.7, fN: [-2.2, 0], fF: [2.4, 0] } },
+      { t: 0.5, e: "io", p: { ...READY, rx: 0.2, lean: 0.04, twist: 0.3, rise: 0.8, aN: [1.45, 1, 0], nb: 0, aF: [1.3, 0.95, 0], glow: 1.1, crackle: 1, fN: [-2.2, 0], fF: [2.4, 0] } },
+      { t: 0.6, e: "in3", p: { ...READY, rx: 1.8, drop: 1, lean: 0.2, twist: 0.7, hx: 0.4, aN: [0.8, 1, 0], nb: 0, aF: [1.6, 1, 0], glow: 1.5, crackle: 1, fN: [-2.6, 0], fF: [5, 0] } },
+      { t: 0.74, e: "out", p: { ...READY, rx: 2.2, drop: 1.2, lean: 0.24, twist: 0.8, hx: 0.5, aN: [0.6, 1, 0], nb: 0, aF: [1.5, 1, 0], glow: 1.1, crackle: 0.5, fN: [-2.6, 0], fF: [5, 0] } },
       { t: 1, e: "io", p: READY },
     ], ph),
   },

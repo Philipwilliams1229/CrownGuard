@@ -39,6 +39,15 @@ export const BOX = { w: 92, h: 78, ox: 38, oy: 66 };
 export const BONES = scaled(HUMAN, 1, { shN: -3, shF: 3, hipN: -1.4, hipF: 1.6, neck: 1.5 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
+// THE GRIP. The mace is held in a closed fist: its angle is DERIVED from the solved forearm, never posed on its
+// own. weapon angle (from upright, + toward the foe) = forearm direction (elbow -> hand) + GRIP + wrist.
+// GRIP is the haft's one fixed angle in the fist (the mace stands up out of the thumb side, about 97 degrees
+// from the forearm); `wrist` is the pose's only freedom, clamped to a real wrist's +-0.35.
+export const GRIP = -1.7;
+export const WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const maceAngle = (sk) => forearm(sk) + GRIP + cl(sk.p.wrist || 0, -WRIST, WRIST);
+
 // Depth order, back to front, STATIC: the head, the mace, the near arm (in front of the head, never behind it).
 const FZ = layers(["head", "mace", "arm"], [], { z0: 5, step: 0.45 });
 
@@ -77,7 +86,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 7, ay: 10, ball: [6.5, 5, 6.5, 6], cast: 2, edge: true }, "SsNEem");
 
   // the mace through the near fist; mc is its angle from upright (+ toward the foe)
-  const a = p.mc ?? 0.3, d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
+  const a = maceAngle(sk), d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
   const B = (t, s = 0) => [hdN[0] + d[0] * t + nrm[0] * s, hdN[1] + d[1] * t + nrm[1] * s];
   const hz = Z.mace;
   const hd = B(13);
@@ -98,7 +107,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.5, 2.7, eN[0], eN[1], 2.6, HABIT, az, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.6, hdN[0], hdN[1], 2.1, HABIT, az, { cast: 2 });
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, az + 0.2); px.tag(null);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.5, 2.1, SKIN, az + 0.2, { rot: -a });   // the fist wraps the haft: long axis along it px.tag(null);
 
   // holy light: a flash on the smash
   const k = p.flash || 0, lights = [];
@@ -116,29 +125,30 @@ export const fx = (px, F, info) => {
   }
 };
 
-const GUARD = { nb: 0, aN: [0.5, 0.8, 0], aF: [0.62, 0.9, 0], mc: 1.15, fN: [-2, 0], fF: [2.4, 0], flash: 0 };
+const GUARD = { nb: 0, aN: [1.1, 0.95, 0], aF: [0.62, 0.9, 0], wrist: 0.35, fN: [-2, 0], fF: [2.4, 0], flash: 0 };
 export const CLIPS = {
   idle: {
     n: 8, ms: 1800, loop: true, lag: 0.1,
-    pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 0.9); return { ...GUARD, aF: [0.05, 0.95, 0], rise: 0.5 + 0.5 * b, mc: 1.15 + 0.03 * b2, sway: b2 * 0.9, blink: ph > 0.62 && ph < 0.74 ? 1 : 0 }; },
+    pose: (ph) => { const b = Math.sin(ph * Math.PI * 2), b2 = Math.sin(ph * Math.PI * 2 - 0.9); return { ...GUARD, aF: [0.05, 0.95, 0], rise: 0.5 + 0.5 * b, wrist: 0.35 + 0.03 * b2, sway: b2 * 0.9, blink: ph > 0.62 && ph < 0.74 ? 1 : 0 }; },
   },
   // the march: short steps under the robe, the mace carried upright before his face
   walk: {
     n: 8, ms: 800, loop: true, lag: 0.08,
-    pose: (ph) => { const w = walkPose(ph, { stride: 4.6, lift: 2.2, swing: 0.3, bob: 1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, nb: 0, aN: [0.55 + 0.04 * a, 0.8, 0], mc: 0.75 + 0.05 * a, aF: [0.12 - 0.35 * a, 0.94, 0], sway: a * 1.2, flash: 0 }; },
+    pose: (ph) => { const w = walkPose(ph, { stride: 4.6, lift: 2.2, swing: 0.3, bob: 1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, nb: 0, aN: [1.1 + 0.05 * a, 0.9, 0], wrist: 0.3 + 0.05 * a, aF: [0.12 - 0.35 * a, 0.94, 0], sway: a * 1.2, flash: 0 }; },
   },
   attack: {
     n: 12, ms: 860, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
-      // the wind-up carries the mace back over the REAR shoulder, hand low behind the neck: nothing near the head
-      { t: 0.09, e: "out", p: { rx: -0.4, drop: 0.28, lean: -0.04, twist: -0.2, rise: 0.14, aN: [1.35, 0.62, 0], nb: 0, flash: 0, mc: 0.55, aF: [0.6, 0.85, 0], fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.19, e: "out", p: { rx: -1.1, drop: 0.6, lean: -0.1, twist: -0.6, rise: 0.35, hx: 0.6, aN: [3.7, 0.8, 0], nb: 0, flash: 0, mc: -0.6, aF: [0.9, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.42, e: "io", p: { rx: -1.7, drop: 0.9, lean: -0.16, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.85, 0.82, 0], nb: 0, flash: 0, mc: -0.95, aF: [1.05, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.46, e: "out", p: { rx: 0.5, drop: 1.1, lean: 0.05, twist: 0.1, rise: 0.2, hx: 0.6, aN: [1.9, 1, 0], nb: 0, mc: 0.6, aF: [0.5, 0.8, 0], fN: [-2.4, 0], fF: [4, 0], flash: 0 } },
-      { t: 0.56, e: "in3", p: { rx: 2.6, drop: 1.8, lean: 0.24, twist: 0.8, hx: 0.5, aN: [1.05, 1, 0], nb: 0, mc: 2.05, aF: [0.2, 0.8, 0], fN: [-2.6, 0], fF: [6, 0], flash: 1 } },
-      { t: 0.68, e: "out", p: { rx: 3, drop: 2, lean: 0.27, twist: 0.9, hx: 0.6, aN: [0.6, 0.96, 0], mc: 2.5, aF: [0.1, 0.82, 0], fN: [-2.6, 0], fF: [6, 0], flash: 0.6 } },
-      { t: 0.82, e: "io", p: { rx: 2.2, drop: 1.4, lean: 0.18, twist: 0.5, aN: [0.5, 0.94, 0], mc: 2.3, aF: [0.2, 0.84, 0], fN: [-2.6, 0], fF: [5, 0], flash: 0.15 } },
+      // lift (fist to the chest, mace standing up out of it), cocked (forearm up behind the helm, mace level behind
+      // the head), the forearm carried over, the smash (forearm forward-down, mace forward)
+      { t: 0.09, e: "out", p: { rx: -0.4, drop: 0.28, lean: -0.04, twist: -0.2, rise: 0.14, aN: [1.1, 0.8, 0], nb: 0, flash: 0, wrist: 0.35, aF: [0.6, 0.85, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.19, e: "out", p: { rx: -1.1, drop: 0.6, lean: -0.1, twist: -0.6, rise: 0.35, hx: 0.6, aN: [3.4, 1, 0], nb: 0, flash: 0, wrist: 0.35, aF: [0.9, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.42, e: "io", p: { rx: -1.7, drop: 0.9, lean: -0.16, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.5, 1, 0], nb: 0, flash: 0, wrist: 0.35, aF: [1.05, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.46, e: "out", p: { rx: 0.5, drop: 1.1, lean: 0.05, twist: 0.1, rise: 0.2, hx: 0.6, aN: [1.7, 0.95, 0], nb: 0, wrist: 0.2, aF: [0.5, 0.8, 0], fN: [-2.4, 0], fF: [4, 0], flash: 0 } },
+      { t: 0.56, e: "in3", p: { rx: 2.6, drop: 1.8, lean: 0.24, twist: 0.8, hx: 0.5, aN: [0.6, 1, 0], nb: 0, wrist: 0.35, aF: [0.2, 0.8, 0], fN: [-2.6, 0], fF: [6, 0], flash: 1 } },
+      { t: 0.68, e: "out", p: { rx: 3, drop: 2, lean: 0.27, twist: 0.9, hx: 0.6, aN: [0.3, 0.96, 0], wrist: 0.1, aF: [0.1, 0.82, 0], fN: [-2.6, 0], fF: [6, 0], flash: 0.6 } },
+      { t: 0.82, e: "io", p: { rx: 2.2, drop: 1.4, lean: 0.18, twist: 0.5, aN: [0.5, 0.94, 0], wrist: 0.1, aF: [0.2, 0.84, 0], fN: [-2.6, 0], fF: [5, 0], flash: 0.15 } },
       { t: 1, e: "io", p: GUARD },
     ], ph),
   },

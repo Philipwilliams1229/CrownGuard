@@ -1590,6 +1590,12 @@ the front to a fist beside the back of the helm, elbow above the shoulder (`aN[0
 the forearm, its tip no more than ~55 degrees behind upright. Two-handed weapons keep both hands
 on the haft; the far arm is one dark limb under the body with only its fist over the haft. Worked
 numbers: `art/briefs/hero-swing-recipe.md`.
+**A held weapon is locked to the hand** (owner, round 4): its angle is never posed on its own.
+Weapon angle = forearm direction (elbow to hand) + a fixed GRIP + a wrist clamped to +-0.35
+(`swordAngle` / `maceAngle` / `haftAngle` / `staffAngle` in the hero files). A one-handed sword
+or mace stands at about 77-90 degrees to the forearm, rising from the top of the fist, never
+continuing the forearm in a line ("looks like an extension of his arm"); so on the wind-up the
+blade lies back behind the head. The fist is an ellipse long along the hilt, turned with it.
 
 ## The new halls: buildings in the pixel sculptor (2026-11-14)
 
