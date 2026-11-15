@@ -1,0 +1,7 @@
+YOUR HALL: the Falconry. Kind `falconry`. Old painter: `src/render/halls/falconry.js`. You write the NEW file `src/render/pix/hall-falconry.js` and wire it into `src/render/halls/falconry.js`. Those are the only two files you may edit. Shot prefix: `nfa`.
+
+Specific to this hall:
+- A mews: a perch tower / hawk house with the falcon-mistress standing on it (fig-mistress.js through crews.js). She, her glove and the wheel of birds over her head are fixed by the engine: `wheelAt` in `src/engine/muzzles.js` is where a cast bird leaves from and flies home to, and the style guide ("The Falconry's wheel") says how it clears her hat. Do not move her, the glove or the wheel; every bird (wheeling, on the glove, perched, the stoop, the Skyknight's war-eagle) stays painted live by the hall file and `src/render/birds.js`.
+- Read falconry.js for all nine forms (three levels and both paths with their finals: Royal Aviary, Warhawk Court, Storm Falcons, Talon Rain, Kingsight, the Skyknight and so on: name them from the code) and keep each form's parts, perches, banners and colours. Perches the live birds sit on must stay exactly where the hall file puts the birds.
+- Build it from the kit: `drum` for a round perch tower, `beam` for perches, masts and frames, `cone` or poly roofs with tile rows as tone, `wallBanner`, `pennantFrames` through `live`. Lantern or brazier light if the old design has one.
+

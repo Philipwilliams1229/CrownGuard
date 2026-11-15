@@ -1,0 +1,8 @@
+YOUR HALL: the Assassin's Covert. Kind `assassin`. Old painter: `src/render/halls/assassin.js`. You write the NEW file `src/render/pix/hall-assassin.js` and wire it into `src/render/halls/assassin.js`. Those are the only two files you may edit. Shot prefix: `nas`.
+
+Specific to this hall:
+- A covert: a dark tent / hideout with the hooded master at it (fig-hooded.js through crews.js); its blades wait beside the tent off the road and are drawn by the rigs, not by you. Read assassin.js for all nine forms (three levels and both paths with their finals) and keep each one's parts, cloth, lanterns, trophies, censers, purses and colours. Neither the master nor the tent's centre may move: the engine rings the blades' reach round the tent (`t.x`, `t.y`) and musters them at `coverSlots` in `src/engine/towers.js`.
+- Seven halls are already done this way; besides hall-archer.js, look at `src/render/pix/hall-trapsmith.js` and `src/render/pix/hall-knight.js` (buildings made of flat faces, cloth and timber rather than round masonry) and their hall files for the wiring. Cloth wants folds as tone and a lit and a shaded side; a tent is not stone.
+- Whatever it animates (lantern flames, smoke, a swaying censer, glints) stays live in the hall file or goes in `live` (flames, sparks), with `lights` for a lantern on the cloth.
+- To check the old painter still draws with the switch off WITHOUT touching saved prefs: in your own tab, `(await import('/src/data/prefs.js')).prefs.newSprites = false` sets it in memory only; redraw with the page's own modules, then set it back. Never call setPrefs and never touch localStorage.
+

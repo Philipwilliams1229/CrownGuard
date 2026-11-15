@@ -1,0 +1,9 @@
+YOUR HALL: the Powder Works. Kind `gunpowder`. Old painter: `src/render/halls/gunpowder.js`. You write the NEW file `src/render/pix/hall-gunpowder.js` and wire it into `src/render/halls/gunpowder.js`. Those are the only two files you may edit. Shot prefix: `npw`.
+
+Specific to this hall:
+- A powder store with TWO men who aim on their own: the bombardier (fig-bomber.js) and the musketeer (fig-musketeer.js), both through crews.js. The building NEVER turns: it keeps one facing for good (`powderHome`: toward the road it watches; style guide, "A hall with two crew who aim on their own never turns as a whole") while each man faces his own last shot. Read gunpowder.js and `src/engine/muzzles.js` (`bomberFacing`, `musketFacing`, the muzzle and the throwing hand) and do not move either man, the muzzle or the hand. If the store is mirrored by `powderHome`, bake with `hallPix(..., { flip })` and draw with `{ dir }` so the sun stays in the upper left.
+- Read gunpowder.js for all nine forms (three levels and both paths with their finals: Bombard Yard, Grand Battery, Dragon's Breath, Long Muskets, Sharpshooters, Grapeshot Crew and so on: name them from the code) and keep each one's parts, kegs, racks, mortars, sandbags, flags and colours.
+- Seven halls are already done this way; besides hall-archer.js, look at `src/render/pix/hall-trapsmith.js` and `src/render/pix/hall-goldworks.js` (buildings made of flat faces and timber) and their hall files for the wiring.
+- Muzzle flashes, fuses, smoke, the charge in the hand and anything else that moves stay live in the hall file. A slow-match or lantern may be a `live` flame with a `lights` entry.
+- To check the old painter still draws with the switch off WITHOUT touching saved prefs: in your own tab, `(await import('/src/data/prefs.js')).prefs.newSprites = false` sets it in memory only; redraw with the page's own modules, then set it back. Never call setPrefs and never touch localStorage.
+

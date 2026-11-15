@@ -1,0 +1,9 @@
+YOUR HALL: the Sunforge. Kind `sunforge`. Old painter: `src/render/halls/sunforge.js`. You write the NEW file `src/render/pix/hall-sunforge.js` and wire it into `src/render/halls/sunforge.js`. Those are the only two files you may edit. Shot prefix: `nsf`.
+
+Specific to this hall:
+- A sun-temple that fires a beam from a shard / lens / mirror at its top. The beam leaves the shard: the engine reads that point (`src/engine/muzzles.js` and sunforge.js): do not move it. The beam, the shard's glow, the charge-up (`t.ramp`), rays, halos and anything that turns stay live in the hall file. If the hall has no crew, only the BACK picture is needed.
+- Read sunforge.js for all nine forms (three levels and both paths with their finals: Solar Crown, Moon Prism and so on: name them from the code) and keep each one's parts, gilding, mirrors, obelisks, braziers and colours. Gold and polished stone want their own materials with a strong highlight (see GOLD in `src/render/pix/hall-wizard.js`).
+- LIGHT is this hall's whole character: give the spec a light at the shard (`{ key: "sun", x, y, r, col }`, the moon forms in their own colour) and have the hall file pass its strength as `k: { sun: 0..1 }` to `drawHallBack` / `drawHallFront`, rising with the ramp and flashing as it fires, stepped in fifths, so the temple's own stone lights up as it charges.
+- Seven halls are already done this way; besides hall-archer.js, look at `src/render/pix/hall-wizard.js` (a round tower with driven lights) and `src/render/pix/hall-support.js` (a shrine of dressed stone with pillars, crystals and several driven lights) and their hall files for the wiring.
+- To check the old painter still draws with the switch off WITHOUT touching saved prefs: in your own tab, `(await import('/src/data/prefs.js')).prefs.newSprites = false` sets it in memory only; redraw with the page's own modules, then set it back. Never call setPrefs and never touch localStorage.
+

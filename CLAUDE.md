@@ -663,6 +663,27 @@ Bring these up with the owner; don't act on them unasked.
 - **Type:** a device that once opened a `?type=` link keeps that option
   (localStorage `cg-type`); `?type=tidy3` returns it to the default.
 
+## Who does what: Opus leads, Sonnet builds, Fable advises (2026-11-14, owner)
+
+The owner was burning usage fast: in the tower-buildings pass all twelve artists ran on
+Fable 5.2 (up to ~140 calls each). From now on:
+- **Lead = Opus 5.5** (the main session). Splits the work, writes briefs, reviews shots,
+  commits, pushes, keeps the guides. Does not draw whole figures or halls itself.
+- **Artists = Sonnet 5.5**: always spawn them as `subagent_type: "artist"`
+  (`.claude/agents/artist.md`, `model: sonnet`), never as general-purpose agents (those
+  inherit the lead's model; a session started before the profile existed can't see it yet:
+  pass `model: "sonnet"` on the Agent call instead). One piece of art each, a tool-call budget in every brief.
+- **Advisor = Fable 5.2**: `subagent_type: "advisor"` (`.claude/agents/advisor.md`,
+  read-only), asked ONE specific hard question (a design that failed review twice, an engine
+  decision), then done. Never in the daily loop, never drawing.
+- Briefs live in the repo: `art/briefs/hall-artist.md` (the shared hall brief) plus
+  `art/briefs/halls/<kind>.md` (each hall's specifics). Reuse and extend them instead of
+  rewriting long prompts; a new kind of job gets its own shared brief there.
+- Cheap looks: render scripts (`hall-render.mjs`, `concept-render.mjs`) cropped, at most two
+  look-fix passes, the browser once at the end. The lead checks shots before the owner sees
+  them; only finished work goes to the owner.
+- Fewer leads: one Opus lead per area at a time; archive finished lead sessions.
+
 ## Default way of working: a team of parallel agents
 
 The owner likes seeing many pieces worked on at once, so for any job with

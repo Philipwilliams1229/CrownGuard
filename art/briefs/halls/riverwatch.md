@@ -1,0 +1,10 @@
+YOUR HALL: the River Watch. Kind `riverwatch`. Old painter: `src/render/halls/riverwatch.js`. You write the NEW file `src/render/pix/hall-riverwatch.js` and wire it into `src/render/halls/riverwatch.js`. Those are the only two files you may edit. Shot prefix: `nrw`.
+
+Specific to this hall:
+- A dock: a boathouse / watch hut standing at the water's edge on piles, with a watchman on it (fig-stander.js through crews.js; he glances about, he never aims). Its skiffs row the water and are drawn elsewhere (`src/render/rigs-skiff.js`), not by you. The hall's piles stand in the water and are clipped to it by `src/render/waterreach.js` (`clipToWater`, `drawWatchStation`): read how riverwatch.js draws what stands in the water and keep that behaviour (if the old painter draws piles through a clip or in a separate pass, your new building needs the same split: tell the lead in your report if the seam in halls.js cannot do it, and leave the old piles live rather than break the clip).
+- Read riverwatch.js for all nine forms (three levels and both paths with their finals: harpooners, fireships, the Hellburner and so on: name them from the code) and keep each one's parts, lanterns, nets, harpoon racks, flags and colours. The watchman must not move.
+- hallshot.html draws on dry grass by default; add `&realm=<a board with a river>` if the page supports it (read hallshot.html), and say in your report what you could and could not see at the water's edge.
+- Seven halls are already done this way; besides hall-archer.js, look at `src/render/pix/hall-trapsmith.js` and `src/render/pix/hall-knight.js` (buildings made of flat faces and timber) and their hall files for the wiring.
+- Lantern flames go in `live` with a `lights` entry; anything else that moves stays live in the hall file.
+- To check the old painter still draws with the switch off WITHOUT touching saved prefs: in your own tab, `(await import('/src/data/prefs.js')).prefs.newSprites = false` sets it in memory only; redraw with the page's own modules, then set it back. Never call setPrefs and never touch localStorage.
+
