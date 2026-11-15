@@ -52,7 +52,7 @@
 // cloth2, hair, cape, eyes) so revive() and the white hit-flash reach them.
 
 import { lighten, darken, mix, lin, part, shadow, glow, bakeSprite, PX } from "./paint.js";
-import { weapon, drawRig } from "./rigs.js";
+import { weapon, drawRig, hasPix } from "./rigs.js";
 import { BEAST_PAINTERS } from "./rigs-beasts.js";
 import { rimeJarlRider, RIME_JARL } from "./rigs-rime.js";
 import { logJoint } from "./folk-kit.js";
@@ -1142,7 +1142,9 @@ export const drawSeaRig = (ctx, e, g) => {
   if (!f) return false;
   if (f.skip) return true;
   const y = e.y + (SEA_LIFT[e.sea] || 4);
-  drawRig(ctx, f.type, e.x, y, e.face || 1, f.sheet, f.frame);
+  // a new figure is opaque: the serpent swimming under is laid on faint, as the old painter drew it
+  const under = hasPix(f.type) && typeof f.frame === "string" && f.frame.startsWith("sub.") ? 0.55 : undefined;
+  drawRig(ctx, f.type, e.x, y, e.face || 1, f.sheet, f.frame, undefined, under);
   if (e.hitFlash > g.time * 1000 && !e.submerged) drawRig(ctx, f.type, e.x, y, e.face || 1, f.sheet, f.frame, "white", 0.6);
   return true;
 };
@@ -1197,7 +1199,7 @@ const krakenDeep = (ctx, p, f) => {
     c.fillRect(q(16 - f), -7.5, 1, 0.5); c.fillRect(q(14 + f), 7, 1, 0.5);
   }, 0.4);
 };
-export const drawKrakenDeepRig = (ctx, e, g) => drawRig(ctx, "kraken", e.x, e.y, e.face || 1, "walk", `deep.${Math.floor(g.time * 3 + (e.id || 0)) % 4}`);
+export const drawKrakenDeepRig = (ctx, e, g) => drawRig(ctx, "kraken", e.x, e.y, e.face || 1, "walk", `deep.${Math.floor(g.time * 3 + (e.id || 0)) % 4}`, undefined, hasPix("kraken") ? 0.4 : undefined);
 
 // ---- what a sea monster holds ------------------------------------------------------
 // A kraken's arm seizes a creature (a raider or a soldier: engine/serpent.js

@@ -45,6 +45,10 @@ import * as rimejarl from "./fig-rimejarl.js";
 import * as rimerider from "./fig-rimerider.js";
 import * as frostgiant from "./fig-frostgiant.js";
 import * as icedrake from "./fig-icedrake.js";
+import * as mammoth from "./fig-mammoth.js";
+import * as seaserpent from "./fig-seaserpent.js";
+import * as kraken from "./fig-kraken.js";
+import * as krakenarm from "./fig-krakenarm.js";
 import * as risen from "./fig-risen.js";
 import * as friar from "./fig-friar.js";
 import * as captain from "./fig-captain.js";
@@ -57,6 +61,10 @@ import * as chaplain from "./fig-chaplain.js";
 import * as marshal from "./fig-marshal.js";
 import * as cavalier from "./fig-cavalier.js";
 import * as unhorsed from "./fig-unhorsed.js";
+import * as gryphon from "./fig-gryphon.js";
+import * as ram from "./fig-ram.js";
+import * as wolfrider from "./fig-wolfrider.js";
+import * as rafter from "./fig-rafter.js";
 import * as garrison from "./fig-garrison.js";
 import * as paladin from "./fig-paladin.js";
 import * as squire from "./fig-squire.js";
@@ -139,6 +147,9 @@ export const PIX = {
   loosehorse: { fig: mk("cavalier", cavalier), variant: "bolt", atk: "attack", hit: 0.5, per: 5.0, legacy: [0, 3, 6, 7], fx: true },
   unhorsed: { fig: mk("unhorsed", unhorsed), atk: "attack", hit: 0.5, per: 3.4, legacy: [0, 3, 6, 9], fx: true },
   unseated: { fig: mk("unhorsed", unhorsed), variant: "gryphon", atk: "attack", hit: 0.5, per: 3.6, legacy: [0, 3, 6, 9], fx: true },
+  gryphon: { fig: mk("gryphon", gryphon), atk: "attack", hit: 0.5, legacy: [0, 2, 8, 11], fx: true },
+  gryphonMount: { fig: mk("gryphon", gryphon), variant: "loose", atk: "attack", hit: 0.5, legacy: [0, 2, 8, 11], fx: true },
+  ram: { fig: mk("ram", ram), atk: "attack", hit: 0.5, per: 1.74, legacy: [0, 1, 6, 8], fx: true },
   // ---- the Hollow Court (owner's pick, 2026-11-14: Risen A, wraith B) ----
   skeleton: { fig: mk("risen", risen), atk: "attack", hit: 0.52, per: 3.5, legacy: [0, 3, 5, 7], fx: false },
   wraith: { fig: mk("wraith", wraith), atk: "attack", hit: 0.56, legacy: [0, 3, 5, 7], fx: true },
@@ -152,6 +163,9 @@ export const PIX = {
   hollowking: { fig: mk("hollowking", hollowking), atk: "attack", hit: 0.54, per: 3.6, legacy: [0, 4, 8, 10], fx: true, casts: [{ clip: "toll", clock: "summonCd", every: "summonEvery", lead: 900, hold: 900 }] },
   amalgam: { fig: mk("amalgam", amalgam), atk: "attack", hit: 0.56, per: 2.8, legacy: [0, 4, 8, 10], fx: false },
   crypt: { fig: mk("crypt", crypt), atk: "attack", hit: 0.54, per: 3.2, legacy: [0, 4, 8, 10], fx: false },
+  // the rest of the horde's rigs
+  wolfrider: { fig: mk("wolfrider", wolfrider), atk: "attack", hit: 0.52, per: 3.4, legacy: [0, 3, 4, 6], fx: true },
+  rafter: { fig: mk("rafter", rafter), atk: "attack", hit: 0.5, per: 3.5, legacy: [0, 3, 6, 8], fx: true },
   // ---- the Rime Clans (owner's pick, 2026-11-14: look C) ----
   thrall: { fig: mk("thrall", thrall), atk: "attack", hit: 0.55, per: 4.2, legacy: [0, 3, 6, 8], fx: true },
   berserker: { fig: mk("berserker", berserker), atk: "attack", hit: 0.52, per: 4.4, legacy: [0, 3, 6, 8], fx: true },
@@ -168,6 +182,13 @@ export const PIX = {
   frostgiant: { fig: mk("frostgiant", frostgiant), atk: "attack", hit: 0.5625, per: 3.8, legacy: [0, 5, 8, 10], fx: true },
   // (its frost breath is drawn, unused: the drake has no blow the engine plays)
   icedrake: { fig: mk("icedrake", icedrake), atk: "attack", hit: 0.52, legacy: [0, 3, 5, 6], fx: false },
+  // the Jarl on his war-mammoth (the boss), his frost song on the march
+  rimejarl: { fig: mk("mammoth", mammoth), atk: "attack", hit: 0.5, per: 2.3, legacy: [0, 4, 7, 10], fx: true, casts: [{ clip: "song", clock: "freezeCd", every: "freezeEvery", lead: 800, hold: 900 }] },
+  // the sea monsters (drawn at the waterline by rigs-rimebeasts.js drawSeaRig; seized victims
+  // are still painted by its old drawSeaHold)
+  seaserpent: { fig: mk("seaserpent", seaserpent), atk: "attack", hit: 0.55, legacy: [0, 4, 5, 7], fx: false },
+  kraken: { fig: mk("kraken", kraken), atk: "attack", hit: 0.55, legacy: [0, 2, 4, 6], fx: false },
+  krakenarm: { fig: mk("krakenarm", krakenarm), atk: "attack", hit: 0.5, legacy: [0, 2, 4, 6], fx: true },
   necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 3, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
 };
 export const hasPix = (type) => prefs.newSprites !== false && Object.prototype.hasOwnProperty.call(PIX, type);
@@ -188,6 +209,8 @@ export const marchSheet = (type, e, tms = 0) => {
 // (sheet, frame) as the game gives them -> [clip, frame index]
 const clipFrame = (d, sheet, frame) => {
   const C = d.fig.CLIPS, f = typeof frame === "number" ? frame : 0;
+  // the sea monsters ask for named frames ("sub.2", "rise.0": rigs-rimebeasts.js seaFrame)
+  if (typeof frame === "string") { const [nm, i] = frame.split("."); if (C[nm]) return [nm, (+i || 0) % C[nm].n]; }
   if (sheet === "idle") { const c = C.idle; return ["idle", Math.floor(frac((f * 1000) / c.ms) * c.n) % c.n]; }
   if (sheet === "atk") { const c = C[d.atk]; return [d.atk, Math.max(0, Math.min(c.n - 1, Math.round(f * (c.n - 1))))]; }
   if (sheet === "sky" && d.sky) return ["sky", d.sky[(f | 0) % d.sky.length]];
