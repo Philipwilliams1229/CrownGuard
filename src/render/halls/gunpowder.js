@@ -27,10 +27,20 @@ import { getStats } from "../../engine/towers.js";
 import { powderHome, bomberFacing, musketFacing } from "../../engine/muzzles.js";
 import * as bomberFig from "../pix/fig-bomber.js";
 import * as musketeerFig from "../pix/fig-musketeer.js";
+import * as powderHall from "../pix/hall-gunpowder.js";
+import { hallOn, hallPix, drawHallBack, drawHallFront, stampPix } from "../pix/halls.js";
+import { toCanvas } from "../pix/pix.js";
 import { crew, crewOn, drawCrewPix, loopFrame, shotFrame, markOf, crewMark } from "../pix/crews.js";
 
 // the new sprites' two men (pix/crews.js): "New sprites" off draws the old pair below, untouched
 const BOMBER = crew("bomber", bomberFig), MUSKETEER = crew("musketeer", musketeerFig);
+const PENS = new Map();   // the new store's pennant frames, as stampable pictures
+const penOf = (col, dir, i) => {
+  const k = col + dir + (i % powderHall.PENNANT_N);
+  let p = PENS.get(k);
+  if (!p) { const img = powderHall.pennantOf(col, dir, i); PENS.set(k, (p = { cv: toCanvas(img), ox: img.ox, oy: img.oy })); }
+  return p;
+};
 const MUSKET_HIT = Math.round(MUSKETEER.CLIPS.shot.hit * (MUSKETEER.CLIPS.shot.n - 1));   // the frame the shot kicks on
 
 const cache = spriteCache();
@@ -242,14 +252,21 @@ export const drawGunpowder = (ctx, t, time) => {
     if (!bake) { fn(ctx, t, x, y, f); return; }
     stamp(ctx, cache.get(`${name}|${form}|${name === "g" ? id5 : 0}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => fn(c, { ...t, id: id5 }, BOX.left, BOX.up, f)), x, y, BOX.left, BOX.up);
   };
-  layer("g", paintGround);
-  layer("s", paintStore);
+  // the new store (render/pix/hall-gunpowder.js) while "New sprites" is on: built facing east,
+  // baked mirrored (seed + 3) and drawn mirrored for a store that faces west, so the sun stays
+  // upper left. It brings its own ground, shadow, brazier flame and lamp light; the old layers
+  // stand down. The two men, the muzzle and the hand are exactly as before.
+  const H = bake && hallOn() ? hallPix("gunpowder", powderHall, { level: s.lvl, branch: t.branch, rank4: t.rank4 }, (t.id % 3) + (f < 0 ? 3 : 0), { flip: f < 0 }) : null;
+  if (H) drawHallBack(ctx, H, x, y, time, { id: t.id, dir: f });
+  else { layer("g", paintGround); layer("s", paintStore); }
   const anim = t.anim || 0, mA = t.mAnim || 0;
   // the pennant at the rear corner (the Battery flies its banner instead)
-  if (s.r4 !== "aa") pennant(ctx, x - f * 10.5, dY - 22, 13, s.dragon ? "#c8502a" : s.musket ? "#3a4a6a" : s.bomb ? "#a04a3f" : "#5a4a3c", time, t.id, -f);
+  if (H) {
+    if (s.r4 !== "aa") { const col = s.dragon ? powderHall.FLAG_OF.dragon : s.musket ? powderHall.FLAG_OF.b : s.bomb ? powderHall.FLAG_OF.a : powderHall.FLAG_OF.base; stampPix(ctx, penOf(col, -f, Math.floor(time * 9 + t.id * 3)), x - f * ((s.lvl >= 2 ? 26 : 24) - 3) / 2, y + (-18 - 2 * s.lvl - 38) / 2); }
+  } else if (s.r4 !== "aa") pennant(ctx, x - f * 10.5, dY - 22, 13, s.dragon ? "#c8502a" : s.musket ? "#3a4a6a" : s.bomb ? "#a04a3f" : "#5a4a3c", time, t.id, -f);
   // Dragon's Breath: the brazier burns, the pitch smokes
   if (s.dragon) {
-    flame(ctx, x + f * 12, y + 3.4, 0.7, time, t.id);
+    if (!H) flame(ctx, x + f * 12, y + 3.4, 0.7, time, t.id);
     for (let i = 0; i < 2; i++) { const k = (time * 0.5 + i * 0.5 + t.id * 0.13) % 1; soft(ctx, x + f * 12 + Math.sin(time + i) * 1.5, y - 3 - k * 16, 2 + k * 3, 2 + k * 3, [[0, `rgba(52,44,50,${0.4 * (1 - k)})`], [1, "rgba(52,44,50,0)"]]); }
   }
   // ---- the bombardier, rear side: the charge at his belt with its fuse
@@ -329,7 +346,7 @@ export const drawGunpowder = (ctx, t, time) => {
       for (let i = 0; i < (gun === "grape" ? 3 : 2); i++) soft(ctx, sx + fm * (3 + p * 7 + i * 3), sy - p * 4 - i * 1.5 + (gun === "grape" ? (i - 1) * 2 : 0), 2.5 + p * 4, 2.2 + p * 3, [[0, `rgba(214,210,200,${0.6 * mA})`], [1, "rgba(214,210,200,0)"]]);
     }
   }
-  layer("r", paintRail);
+  if (H) drawHallFront(ctx, H, x, y, time, { id: t.id, dir: f }); else layer("r", paintRail);
   // the mortars bark with the throw: a flash and a ball of smoke at each mouth
   if (s.bomb && anim > 0.4) mortarSpots(s, x, y, f).forEach(([ox, gy], i) => {
     const [ux, uy] = mouthOf(ox, gy, f), k = (anim - 0.4) / 0.6, p = 1 - k;
