@@ -5,9 +5,15 @@
 
 import { W, H, PATH_HALF } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
-import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_N, GATE_TOWER_S, GATE_HALF, TOWER, ballistaSpots } from "../data/castle.js";
+import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_N, GATE_TOWER_S, GATE_HALF, TOWER, ballistaSpots, ballistaMuzzle } from "../data/castle.js";
 import { drawArcherFrame, drawHalberdier, drawMason, WALL_FOLK, MASON_FRAMES, HALBERD_WALK, frameOf } from "./folk.js";
 import { ballista } from "./halls/archer.js";
+import * as bowmanFig from "./pix/fig-bowman.js";
+import * as halberdierFig from "./pix/fig-halberdier.js";
+import * as masonFig from "./pix/fig-mason.js";
+import { crew, crewOn, drawCrewPix, loopFrame, shotFrame, fracFrame } from "./pix/crews.js";
+import { ballistaPix, PITCHES } from "./pix/castle-ballista.js";
+import { pixSprite, stampPix } from "./pix/halls.js";
 import { REALM } from "../data/maps.js";
 import * as TERRAIN from "../data/terrain.js";
 import { groundKind } from "./groundblend.js";
@@ -2186,6 +2192,7 @@ export const drawCastle = (ctx, time, hpPct) => {
 // A sentry pacing the inner wall's walk, birds on the battlements that take
 // off when the horde comes near. All of it a stamp or a handful of pixels a
 // frame.
+const HALB = crew("halberdier", halberdierFig), BOWMAN = crew("bowman", bowmanFig), MASON = crew("mason", masonFig);
 const SENTRY = { ...WALL_FOLK.guard, coat: "#3a5474", trim: "#d8b34a" };
 const BIRDS = { calm: true, since: -99, flushed: -99, last: 0 };
 
@@ -2245,8 +2252,15 @@ const drawIdleLife = (ctx, g, gy) => {
     // he looks out (frame 2); facing the horde he stands, breathing (0 / 1)
     const o = moving ? { walk: Math.floor(time * 4) % HALBERD_WALK }
       : !near && L > 4 ? { frame: 2 } : { frame: Math.sin(time * 1.3) > 0.4 ? 1 : 0 };
-    const cv = workFrame(`sentry|${dir}|${moving ? "w" + o.walk : "f" + o.frame}`, 28, 42, (c) => drawHalberdier(c, 16, 40, dir, SENTRY, o));
-    if (cv) ctx.drawImage(cv, SENTRY_X - 16, S2(y) - 40, 28, 42);
+    if (crewOn()) {
+      // the new halberdier (pix/fig-halberdier.js): walking, a cycle of 8 frames takes ~12 units of the beat
+      const clip = moving ? "walk" : "idle";
+      const f = moving ? Math.floor(((time * v) / 12 % 1) * 8) % 8 : loopFrame(HALB, "idle", time);
+      drawCrewPix(ctx, HALB, SENTRY_X, S2(y), dir, clip, f, { variant: "sentry" });
+    } else {
+      const cv = workFrame(`sentry|${dir}|${moving ? "w" + o.walk : "f" + o.frame}`, 28, 42, (c) => drawHalberdier(c, 16, 40, dir, SENTRY, o));
+      if (cv) ctx.drawImage(cv, SENTRY_X - 16, S2(y) - 40, 28, 42);
+    }
   }
   // the birds on the battlements
   const perches = CASTLE.perches || [];
@@ -2298,6 +2312,22 @@ const workFrame = (key, w, h, fn) => {
   if (!cv && typeof document !== "undefined") { cv = bakeSprite(w, h, fn); WORKS.set(key, cv); }
   return cv;
 };
+// Where each gate ballista points: the foe the engine would pick (most health within reach of the gate),
+// eased so the bow swings rather than snaps; at rest it keeps its last aim. Returns an index into PITCHES.
+const AIM = [{ p: 0, t: -1 }, { p: 0, t: -1 }];
+const ballistaAim = (g, k, spot, gate, range, time) => {
+  const A = AIM[k], dt = time < A.t || A.t < 0 ? 0 : Math.min(0.2, time - A.t);
+  A.t = time;
+  let best = null, bh = -1;
+  for (const e of g.enemies || []) { if (e.dead) continue; if (Math.hypot(e.x - gate[0], e.y - gate[1]) < range && e.hp > bh) { bh = e.hp; best = e; } }
+  if (best) {
+    const [mx, my] = ballistaMuzzle(spot), want = Math.max(-0.42, Math.min(0.42, Math.atan2(my - best.y, Math.max(20, mx - best.x))));
+    A.p += Math.max(-dt * 3, Math.min(dt * 3, want - A.p));
+  } else if (dt === 0) A.p = 0;
+  let ix = 0;
+  for (let i = 1; i < PITCHES.length; i++) if (Math.abs(PITCHES[i] - A.p) < Math.abs(PITCHES[ix] - A.p)) ix = i;
+  return ix;
+};
 export const drawCastleWorks = (ctx, g) => {
   const works = g.castle;
   if (!PTS.length) return;
@@ -2334,9 +2364,12 @@ export const drawCastleWorks = (ctx, g) => {
     ctx.fillStyle = "#d8d0c0"; ctx.fillRect(bx + 1, y - 12, 6, 1.2);
     // lay, draw the mortar along, lift, scoop from the hawk, carry, set
     // (folk-workers.js MASON_FRAMES), each man on his own 2.4 s round
-    const fr = frameOf(time / 2.4 + k * 0.37, MASON_FRAMES);
-    const cv = workFrame(`mason|${dir}|${fr}`, 30, 36, (c) => drawMason(c, dir > 0 ? 12 : 18, 33, dir, WALL_FOLK.mason, fr));
-    if (cv) ctx.drawImage(cv, fx - (dir > 0 ? 12 : 18), y - 33, 30, 36);
+    if (crewOn()) drawCrewPix(ctx, MASON, fx, y, dir, "work", loopFrame(MASON, "work", time, k));
+    else {
+      const fr = frameOf(time / 2.4 + k * 0.37, MASON_FRAMES);
+      const cv = workFrame(`mason|${dir}|${fr}`, 30, 36, (c) => drawMason(c, dir > 0 ? 12 : 18, 33, dir, WALL_FOLK.mason, fr));
+      if (cv) ctx.drawImage(cv, fx - (dir > 0 ? 12 : 18), y - 33, 30, 36);
+    }
   }
   if (bows) {
     const big = !!bows.pierce;
@@ -2352,6 +2385,19 @@ export const drawCastleWorks = (ctx, g) => {
       // stands at ease, bow down, breathing, now and then a hand to the
       // quiver — the wall is not firing at nothing.
       const since = tms - (cd.loosed?.[i] ?? -1e9);
+      const stepBack = Math.round(spots[i] / 24) % 2 ? 4 : -1;           // every other man stands a step back
+      if (crewOn()) {
+        // the new bowman (pix/fig-bowman.js, the crown's crimson): his shot clip runs off his own
+        // last loose, as the halls' crews run off theirs (crews.js shotFrame); an arrow nocked and
+        // drawn waits at full draw for the next shot, then he stows it and stands at ease
+        const clip = big ? "shootLong" : "shoot", variant = big ? "wall|long" : "wall", rate = bows.rate;
+        let name = "idle", f;
+        if (since < rate * 1.35) { name = clip; f = shotFrame(BOWMAN, clip, rate - since, rate); }
+        else if (since < rate * 1.35 + BOWMAN.CLIPS.stow.ms) { name = "stow"; f = fracFrame(BOWMAN, "stow", (since - rate * 1.35) / BOWMAN.CLIPS.stow.ms); }
+        else f = loopFrame(BOWMAN, "idle", time + (spots[i] % 7) * 0.3, i);
+        drawCrewPix(ctx, BOWMAN, BOW_X + 2 + stepBack, y, -1, name, f, { variant });
+        continue;
+      }
       let key = "rest";
       if (since < bows.rate * 1.35) {
         const u = since * (WALL_DRAW.at / bows.rate);
@@ -2365,7 +2411,7 @@ export const drawCastleWorks = (ctx, g) => {
       }
       const cv = workFrame(`bow|${big ? 1 : 0}|${key}`, 36, 36, (c) => drawArcherFrame(c, 23, 33, -1, WALL_FOLK.bowman, key, { big, bowCol: big ? "#3a3a44" : undefined, quiver: "#7a5334" }));
       // shoulder to shoulder they'd hide each other: every other man stands a step back
-      if (cv) ctx.drawImage(cv, BOW_X + 2 - 23 + (Math.round(spots[i] / 24) % 2 ? 4 : -1), y - 33, 36, 36);
+      if (cv) ctx.drawImage(cv, BOW_X + 2 - 23 + stepBack, y - 33, 36, 36);
     }
   }
   const bal = workTier(works, "ballista");
@@ -2375,6 +2421,18 @@ export const drawCastleWorks = (ctx, g) => {
     for (let k = 0; k < spots.length; k++) {
       const [x, y] = spots[k];
       const left = cd.ballista ?? 0;
+      if (crewOn()) {
+        // the new ballista (pix/castle-ballista.js), turned to the target the engine will pick (the
+        // most health in reach), its string drawn back by the winch between this tower's shots
+        const pitch = ballistaAim(g, k, spots[k], [gx, gy], bal.range, time);
+        const period = bal.rate / (bal.twin ? 2 : 1), mine = bal.twin ? (cd.shot ?? 0) === k : true;
+        const since = left <= 0 ? 1e9 : mine ? period - left : 2 * period - left;
+        const state = since < 140 ? 0 : Math.min(4, 1 + Math.floor(((since - 140) / Math.max(200, bal.rate * 0.7 - 140)) * 3.2));
+        const sp = pixSprite(`cbal|${state}|${pitch}|${bal.burn ? 1 : 0}`, () => ballistaPix(state, pitch, !!bal.burn));
+        stampPix(ctx, sp, x + (state === 0 && since < 70 ? 1 : 0), y, -1);
+        if (bal.burn) glow(ctx, x - 7, y - 26, 3.5, "#ffa040", 0.5 + 0.3 * Math.sin(time * 9 + k));
+        continue;
+      }
       const recoil = Math.max(0, 1 - (bal.rate - left) / 400);
       const fr = Math.round(recoil * 2);
       const cv = workFrame(`bal|${fr}`, 44, 48, (c) => ballista(c, 22, 44, -1, fr / 2));

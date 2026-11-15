@@ -79,6 +79,7 @@ import * as gravecaller from "./fig-gravecaller.js";
 import * as hollowking from "./fig-hollowking.js";
 import * as amalgam from "./fig-amalgam.js";
 import * as crypt from "./fig-crypt.js";
+import * as halberdier from "./fig-halberdier.js";
 
 const mk = (NAME, mod) => ({ ...mod, NAME });
 // fig     the figure
@@ -114,6 +115,8 @@ export const PIX = {
   errantBow: { fig: mk("errantbow", errantbow), atk: "shoot", hit: 0.44, legacy: [6, 7, 9, 13], fx: true },
   errantRider: { fig: mk("cavalier", cavalier), variant: "errant", atk: "attack", hit: 0.5, per: 3.4, legacy: [0, 3, 6, 7], fx: true },
   champion: { fig: mk("champion", champion), atk: "attack", hit: 0.52, legacy: [0, 4, 7, 8], fx: true },
+  // the Gate Guard's halberdiers on the road before the gate (the castle works; the wall sentry is drawn by castle.js)
+  halberdier: { fig: mk("halberdier", halberdier), variant: "guard", atk: "thrust", hit: 0.5, legacy: [0, 3, 6, 9], fx: true },
   bowman: { fig: mk("fieldbow", fieldbow), atk: "shoot", hit: 0.62, legacy: [7, 9, 10, 12], fx: false },
   // ---- the Greenwood horde ----
   goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
