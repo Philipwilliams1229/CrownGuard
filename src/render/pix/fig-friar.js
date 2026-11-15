@@ -33,19 +33,14 @@ const LEG = {
   e: { m: SKIN, fix: 0 }, E: { m: EYE }, b: { m: HAIR, fix: 2 }, m: { m: LIP },
 };
 
-// the smashing arm and the mace never pass over the face (they go behind the head)
-export const MUST = [["nearArm", "notOver", "face"], ["mace", "notOver", "face"], ["nearArm", "notOver", "eyes"]];
+// the near arm may pass in front of the head, but never over the eyes
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 92, h: 78, ox: 38, oy: 66 };
 export const BONES = scaled(HUMAN, 1, { shN: -3, shF: 3, hipN: -1.4, hipF: 1.6, neck: 1.5 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
-// Depth order of the head, the mace and the smashing arm (back to front). Cocked up and back (`nb`), or
-// with the hand up beside the head (`hi`), the arm and mace pass BEHIND the head (the head's edge keeps
-// them apart); a mace standing up before the face also goes behind it; otherwise the arm is foremost.
-const FZ = layers(["head", "mace", "arm"], [
-  { when: (p) => p.maceBack, put: "mace", below: "head" },
-  { when: (p) => p.behind, put: "head", above: "arm" },
-], { z0: 5, step: 0.45 });
+// Depth order, back to front, STATIC: the head, the mace, the near arm (in front of the head, never behind it).
+const FZ = layers(["head", "mace", "arm"], [], { z0: 5, step: 0.45 });
 
 export const draw = (px, { sk, lag1, lag2 }) => {
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, anN, anF } = sk;
@@ -78,8 +73,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // the head
   px.part();
-  const behind = (p.nb || 0) >= 0.5 || (hdN[1] < N[1] + 3 && Math.abs(hdN[0] - N[0]) < 7);
-  const Z = FZ({ behind, maceBack: behind || (p.mc ?? 0.3) < 0.2 });
+  const Z = FZ({});
   stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 7, ay: 10, ball: [6.5, 5, 6.5, 6], cast: 2, edge: true }, "SsNEem");
 
   // the mace through the near fist; mc is its angle from upright (+ toward the foe)
@@ -138,10 +132,10 @@ export const CLIPS = {
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
       // the wind-up carries the mace back over the REAR shoulder, hand low behind the neck: nothing near the head
-      { t: 0.09, e: "out", p: { rx: -0.45, drop: 0.28, lean: -0.05, twist: -0.25, rise: 0.14, hy: 0.2, aN: [-1.0, 0.9, 0], nb: 0, flash: 0, mc: -0.45, aF: [0.6, 0.85, 0], fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.32, e: "out", p: { rx: -1.4, drop: 0.8, lean: -0.14, twist: -0.7, rise: 0.4, hy: 0.6, aN: [-1.5, 0.95, 0], nb: 0, flash: 0, mc: -0.55, aF: [1.0, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.42, e: "io", p: { rx: -1.7, drop: 0.9, lean: -0.16, twist: -0.8, rise: 0.5, hy: 0.7, aN: [-1.55, 0.95, 0], nb: 0, flash: 0, mc: -0.7, aF: [1.05, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.48, e: "out", p: { rx: 0.5, drop: 1.1, lean: 0.05, twist: 0.1, rise: 0.2, aN: [0.1, 0.95, 0], nb: 0, mc: 1.35, aF: [0.5, 0.8, 0], fN: [-2.4, 0], fF: [4, 0], flash: 0 } },
+      { t: 0.09, e: "out", p: { rx: -0.4, drop: 0.28, lean: -0.04, twist: -0.2, rise: 0.14, aN: [1.35, 0.62, 0], nb: 0, flash: 0, mc: 0.55, aF: [0.6, 0.85, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.19, e: "out", p: { rx: -1.1, drop: 0.6, lean: -0.1, twist: -0.6, rise: 0.35, hx: 0.6, aN: [3.7, 0.8, 0], nb: 0, flash: 0, mc: -0.6, aF: [0.9, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.42, e: "io", p: { rx: -1.7, drop: 0.9, lean: -0.16, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.85, 0.82, 0], nb: 0, flash: 0, mc: -0.95, aF: [1.05, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.46, e: "out", p: { rx: 0.5, drop: 1.1, lean: 0.05, twist: 0.1, rise: 0.2, hx: 0.6, aN: [1.9, 1, 0], nb: 0, mc: 0.6, aF: [0.5, 0.8, 0], fN: [-2.4, 0], fF: [4, 0], flash: 0 } },
       { t: 0.56, e: "in3", p: { rx: 2.6, drop: 1.8, lean: 0.24, twist: 0.8, hx: 0.5, aN: [1.05, 1, 0], nb: 0, mc: 2.05, aF: [0.2, 0.8, 0], fN: [-2.6, 0], fF: [6, 0], flash: 1 } },
       { t: 0.68, e: "out", p: { rx: 3, drop: 2, lean: 0.27, twist: 0.9, hx: 0.6, aN: [0.6, 0.96, 0], mc: 2.5, aF: [0.1, 0.82, 0], fN: [-2.6, 0], fF: [6, 0], flash: 0.6 } },
       { t: 0.82, e: "io", p: { rx: 2.2, drop: 1.4, lean: 0.18, twist: 0.5, aN: [0.5, 0.94, 0], mc: 2.3, aF: [0.2, 0.84, 0], fN: [-2.6, 0], fF: [5, 0], flash: 0.15 } },

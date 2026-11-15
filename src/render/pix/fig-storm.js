@@ -32,8 +32,8 @@ const LEG = {
   e: { m: SKIN, fix: 0 }, E: { m: EYE }, m: { m: LIP },
 };
 
-// the staff and its arm never pass over her face (they go behind her head)
-export const MUST = [["staff", "notOver", "face"], ["nearArm", "notOver", "face"], ["nearArm", "notOver", "eyes"], ["staff", "notOver", "eyes"]];
+// the near arm may pass in front of the head, but never over the eyes
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 96, h: 84, ox: 36, oy: 72 };
 export const BONES = scaled(HUMAN, 1, { thigh: 8.6, shin: 8.1, shN: -2.5, shF: 2.5, hipN: -1.2, hipF: 1.3 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -41,7 +41,6 @@ const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 // Depth order of her head, the staff and the staff arm (back to front). Raised, or with the hand up beside
 // her head, the arm and the staff pass BEHIND it (the head's edge keeps them apart); otherwise they are in front.
 const YZ = layers(["head", "staff", "arm"], [
-  { when: (p) => p.behind, put: "head", above: "arm" },
 ], { z0: 5, step: 0.45 });
 const hash = (n) => { const s = Math.sin(n * 91.7 + 13.1) * 43758.5453; return s - Math.floor(s); };
 
@@ -49,8 +48,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5), sway = p.sway || 0;
   const hx = Math.round(N[0]), hyy = Math.round(N[1]), g = p.glow || 0;
-  const behind = (p.nb || 0) >= 0.5 || (hdN[1] < N[1] + 3 && Math.abs(hdN[0] - N[0]) < 7);
-  const Z = YZ({ behind });
+  const Z = YZ({});
   // the staff's own line: st is its angle from upright (+ toward the foe)
   const a = p.st ?? 0.5, d = [Math.sin(a), -Math.cos(a)], nr = [-d[1], d[0]];
   const at = (t, s = 0) => [hdN[0] + d[0] * t + nr[0] * s, hdN[1] + d[1] * t + nr[1] * s];

@@ -77,20 +77,16 @@ const LEG = {
   N: { m: SKIN, bias: 1 }, e: { m: SKIN, fix: 0 }, E: { m: EYE }, B: { m: HAIR }, b: { m: HAIR, fix: 2 }, l: { m: SKIN, fix: 0 },
 };
 
-// the sword arm and the blade never pass over the face (they go behind the helm when cocked)
-export const MUST = [["nearArm", "notOver", "face"], ["sword", "notOver", "face"], ["nearArm", "notOver", "eyes"]];
+// the near arm may pass in front of the head, but never over the eyes
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 84, h: 72, ox: 34, oy: 62 };
 export const BONES = scaled(HUMAN, 1.08, { shN: -3.2, shF: 3.2, hipN: -1.4, hipF: 1.6, neck: 1.5 });
 const CROWN = ["G.G.G", "GGGGG", "GGGGG"];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
-// Depth order of the head and the sword arm (back to front). While the sword is cocked up and back
-// (`nb`), or the hand is up beside the head (`hi`), the arm, the grip and the blade pass BEHIND the
-// helm, and the helm's edge keeps them apart; low, the arm is the foremost thing.
-const KZ = layers(["head", "sword", "arm"], [
-  { when: (p) => p.swBack, put: "sword", below: "head" },     // a blade standing up passes behind the helm
-  { when: (p) => p.behind, put: "head", above: "arm" },
-], { z0: 5, step: 0.45 });
+// Depth order, back to front, STATIC: the head, then the sword, then the near arm (it may pass in front of the
+// head, never behind it). Nothing re-orders.
+const KZ = layers(["head", "sword", "arm"], [], { z0: 5, step: 0.45 });
 
 // a plated leg, ONE welded tube (cuisse, knee, greave share radii at the joints), then the knee cop and sabaton
 const leg = (px, h, k, an, z, b) => {
@@ -143,8 +139,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the head
   const hx = Math.round(N[0]), hyy = Math.round(N[1]);
-  const behind = (p.nb || 0) >= 0.5 || (hdN[1] < N[1] + 3 && Math.abs(hdN[0] - N[0]) < 7);
-  const Z = KZ({ behind, swBack: behind || (p.sw ?? 2.3) < 1.3 });
+  const Z = KZ({});
   stampFace(px, p.blink ? BLINKS[face] : HEADS[face], hx, hyy, LEG, Z.head, Z.head, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 0, edge: true }, "SsNEelBb");
   px.body(0);
   // the plume: red, rooted on the crown, streaming back a beat behind
@@ -210,10 +205,10 @@ export const CLIPS = {
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
       // the wind-up carries the sword back over the REAR shoulder, hand low behind the neck: nothing near the head
-      { t: 0.09, e: "out", p: { rx: -0.5, drop: 0.25, lean: -0.05, twist: -0.25, rise: 0.15, aN: [-0.8, 0.9, 0], sw: 0.1, aF: [0.5, 0.75, 0], shield: -0.02, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.3, e: "out", p: { rx: -1.4, drop: 0.7, lean: -0.13, twist: -0.7, rise: 0.4, aN: [-1.5, 0.95, 0], sw: -0.55, aF: [1.0, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.38, e: "io", p: { rx: -1.6, drop: 0.8, lean: -0.15, twist: -0.8, rise: 0.5, aN: [-1.55, 0.95, 0], sw: -0.7, aF: [1.05, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.45, e: "out", p: { rx: 0.4, drop: 1.0, lean: 0.05, twist: 0.1, rise: 0.2, aN: [0.1, 0.95, 0], sw: 1.35, aF: [0.5, 0.8, 0], shield: 0.1, fN: [-2.4, 0], fF: [4, 0] } },
+      { t: 0.09, e: "out", p: { rx: -0.4, drop: 0.25, lean: -0.04, twist: -0.2, rise: 0.15, aN: [1.35, 0.62, 0], sw: 0.55, aF: [0.5, 0.75, 0], shield: -0.02, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.18, e: "out", p: { rx: -1.1, drop: 0.55, lean: -0.1, twist: -0.6, rise: 0.35, hx: 0.6, aN: [3.7, 0.8, 0], sw: -0.6, aF: [0.9, 0.8, 0], shield: -0.08, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.38, e: "io", p: { rx: -1.6, drop: 0.8, lean: -0.15, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.85, 0.82, 0], sw: -0.95, aF: [1.05, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.45, e: "out", p: { rx: 0.4, drop: 1.0, lean: 0.05, twist: 0.1, rise: 0.2, hx: 0.6, aN: [1.9, 1, 0], sw: 0.6, aF: [0.5, 0.8, 0], shield: 0.1, fN: [-2.4, 0], fF: [4, 0] } },
       { t: 0.5, e: "in3", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, hx: 0.5, aN: [1.02, 1, 0], nb: 0, sw: 1.95, aF: [0.2, 0.8, 0], shield: 0.25, fN: [-2.6, 0], fF: [6, 0] } },
       { t: 0.62, e: "out", p: { rx: 3, drop: 2, lean: 0.25, twist: 0.9, hx: 0.6, aN: [0.5, 0.96, 0], sw: 2.75, aF: [0.05, 0.82, 0], shield: 0.3, fN: [-2.6, 0], fF: [6, 0] } },
       { t: 0.74, e: "io", p: { rx: 2.6, drop: 1.6, lean: 0.2, twist: 0.6, hx: 0.4, aN: [0.46, 0.94, 0], sw: 2.62, aF: [0.15, 0.8, 0], shield: 0.25, fN: [-2.6, 0], fF: [6, 0] } },

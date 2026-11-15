@@ -1581,6 +1581,16 @@ and fails on any broken rule (`must=0` skips it). Tag the parts a rule names wit
 `node scripts/pix-regress.mjs` hashes every figure's frames and marks: run it before and
 after any kit or figure change and expect only the figures you meant to change to differ.
 
+**Arms and the head** (owner, 2026-11-15, after three rounds on the heroes): the NEAR
+(viewer-facing) arm and what it holds may pass in FRONT of the head, NEVER behind it; the far arm
+sits under the torso and head. So weapon figures use a STATIC order (`head`, weapon, near arm;
+far arm at z 1, `bias: -1`) with no pose flips. An overhead blow is a cocked chop: the arm lifts up
+the front to a fist beside the back of the helm, elbow above the shoulder (`aN[0]` never below
+-0.7: swinging the arm level behind the back reads as an upside-down hand), the weapon continuing
+the forearm, its tip no more than ~55 degrees behind upright. Two-handed weapons keep both hands
+on the haft; the far arm is one dark limb under the body with only its fist over the haft. Worked
+numbers: `art/briefs/hero-swing-recipe.md`.
+
 ## The new halls: buildings in the pixel sculptor (2026-11-14)
 
 The owner asked for the tower BUILDINGS to match the new figures, saw three
