@@ -22,6 +22,8 @@ import {
 } from "./kitB.js";
 import { drawHooded, hoodedFrame, hoodedGlint, CREW_FOLK } from "../folk.js";
 import * as hoodedFig from "../pix/fig-hooded.js";
+import * as assHall from "../pix/hall-assassin.js";
+import { hallOn, hallPix, drawHallBack } from "../pix/halls.js";
 import { crew, crewOn, drawCrewPix, loopFrame, fracFrame, markOf } from "../pix/crews.js";
 
 // the new sprites' hooded master (pix/fig-hooded.js): arms folded, a knife in the near hand
@@ -250,8 +252,10 @@ export const drawAssassin = (ctx, t, time) => {
     if (!bake) { fn(ctx, t, x, y, f); return; }
     stamp(ctx, cache.get(`${name}|${s.key}|${s.lvl}|${f}|${name === "g" ? id5 : 0}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => fn(c, { ...t, id: id5 }, BOX.left, BOX.up, f)), x, y, BOX.left, BOX.up);
   };
-  layer("g", paintGround);
-  layer("c", paintCovert);
+  // the new tent ("New sprites" on): pix/hall-assassin.js, built round the master's doorway; mirrored to the last strike with the sun kept
+  const H = bake && hallOn() ? hallPix("assassin", assHall, { level: s.lvl, branch: t.branch, rank4: t.rank4 }, t.id % 3, { flip: f < 0 }) : null;
+  if (H) drawHallBack(ctx, H, x, y, time, { id: t.id, dir: f, k: { lamp: 0.75 + 0.25 * Math.sin(time * 3 + t.id) } });
+  else { layer("g", paintGround); layer("c", paintCovert); }
   const pal = s.guild ? CREW_FOLK.bladeGuild : CREW_FOLK.blade;
   // a blade on watch (hoodedFrame: arms folded, the weight shifting, now and
   // then a hand dropped to the hilt), each phased on his own clock
@@ -266,7 +270,7 @@ export const drawAssassin = (ctx, t, time) => {
     else hood(x - f * 2, y + 2.5, f, s.guild ? "g" : "c", hoodedFrame(time + t.id * 2.3 + 4.1));
   }
   // live: the lantern's shaded light; the vats bubble; the pods breathe
-  if (s.lvl >= 2 && !s.guild) glow(ctx, x + f * (LANTERN - 2.5), y - 9.5, 3.5, s.court ? "#f0c060" : "#b0a0e0", 0.55 + 0.15 * Math.sin(time * 3 + t.id));
+  if (!H && s.lvl >= 2 && !s.guild) glow(ctx, x + f * (LANTERN - 2.5), y - 9.5, 3.5, s.court ? "#f0c060" : "#b0a0e0", 0.55 + 0.15 * Math.sin(time * 3 + t.id));
   if (r4 === "ba") for (const [vx, vy, i] of [[x - f * 9, y + 6.4, 0], [x - f * 2.5, y + 9.4, 1]]) {
     const k = (time * 1.3 + i * 0.5 + t.id * 0.2) % 1;
     glow(ctx, vx, vy, 3, VENOM, 0.35);

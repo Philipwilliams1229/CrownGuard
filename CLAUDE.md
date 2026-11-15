@@ -162,6 +162,12 @@ Concepts": Archer hall, Wizard Spire and Catapult as today | A clean | B worked
 | C bolder) and **the owner picked B, "worked"** (2026-11-14): today's designs,
 thin tinted line, one sun, stone by stone, weathering and ivy, lit windows,
 torch and spell light on the stone.
+- **All thirteen halls are in** (2026-11-14): every hall's building draws through
+  `src/render/pix/hall-<kind>.js` while "New sprites" is on, old painters kept under the
+  switch. The last five (Falconry, Powder Works, River Watch, Sunforge, Covert) were finished
+  by Sonnet artists under the new workflow ("Who does what"). NOT yet seen in the game by the
+  owner. Unchecked: the River Watch at a real river's edge (hallshot draws no water); the
+  Covert's level-1 pup tent and the Kingslayer's banner crown are its artist's weak spots.
 - **In the game: the Archer hall, all nine forms** (`src/render/pix/hall-archer.js`
   through the seam `src/render/pix/halls.js`; `halls/archer.js` asks for it
   while "New sprites" is on and keeps its old painter under the switch). NOT
