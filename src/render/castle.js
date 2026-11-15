@@ -135,7 +135,7 @@ const inRiverAt = (x, y) => TERRAIN.inRiver(x, y, 1);
 // (One scratch layer, reused: resizing it clears it, and a canvas made per
 // piece was a good part of the bake.)
 const LAYER = { cv: null, k: null };
-const piece = (c, [x0, y0, x1, y1], fn) => {
+export const piece = (c, [x0, y0, x1, y1], fn) => {
   if (!PIXEL || STYLE.inner <= 0 || typeof document === "undefined") { fn(c); return; }
   const m = c.getTransform();
   const dx0 = Math.floor(m.a * x0 + m.e), dy0 = Math.floor(m.d * y0 + m.f);
@@ -2482,7 +2482,7 @@ const px5 = (k, x, y, col) => { k.fillStyle = col; k.fillRect(S2(x), S2(y), 0.5,
 
 // stone by stone, as tone: a lit top and west edge and a shaded foot on every
 // block, now and then a chipped corner, a pale replaced stone
-const blockEdges = (k, x, y, w, h, S1, base, seed, west) => {
+export const blockEdges = (k, x, y, w, h, S1, base, seed, west) => {
   const E = LK.edge;
   if (w < 1 || h < 1.5) return;
   if (hash(seed, 9) < 0.07 * LK.chip) box(k, x, y, w, h, tone(S1, base + 0.1));
@@ -2576,7 +2576,7 @@ const archRing = (col, joint, z, yw, m0, m1, gy, zAt, S1, ring) => {
 // After the stone is baked: the look's grade, the light that pools on the stone
 // (lit slits, the gate's torches), then the look's own line.
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const finishStone = (cv, getInfo, x0, y0) => {
+export const finishStone = (cv, getInfo, x0, y0) => {
   if (LK.grade > 0 || LK.pool > 0) {
     const c = cv.getContext("2d"), w = cv.width, h = cv.height, img = c.getImageData(0, 0, w, h), d = img.data;
     const info = getInfo() || {};

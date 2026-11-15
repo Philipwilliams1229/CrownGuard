@@ -958,6 +958,17 @@ actions.js `buildableAt`).
 
 ## The title screen (`src/ui/titleArt.js`)
 
+- **Look B, like the board's castle (2026-11-14):** the title castle is inked with the
+  board's tinted one-pixel line and finished with castle.js's own `finishStone`,
+  `blockEdges` and `piece` (exported for it): block-by-block stone, chips, streaks, ivy at
+  the foot, tiled roofs, an arch with voussoirs and keystone, lit slits and torch light
+  pooling on the stone. Its east parapets mirror the west ones exactly and merlon heights
+  follow distance from a parapet's middle, so both sides of the gate match; the keep is
+  centred. The garrison (bowmen `fig-bowman` "wall", halberdiers `fig-halberdier` "guard")
+  draws through pix/crews.js, still in the crenels; crowd walkers play all eight walk
+  frames and a real idle. Old painters stay under "New sprites" off. The app icon's PNGs
+  were baked from the old castle: re-save with `icon-lab.html?save=1` if the icon should match.
+
 - **Its ground follows the board, never its own copy** (as the apron does):
   the turf is `turfTones(REALMS.greenwood)` from world.js in the Greenwood's
   light, its tone edges frayed in world.js's `DITH` blade dither (never a

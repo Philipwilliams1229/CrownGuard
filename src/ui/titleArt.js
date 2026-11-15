@@ -8,7 +8,7 @@
 import {
   hash, rgb, rgba, hex, mix, lighten, darken, blobBall, ball, cone, inkOutline, bakeSprite, tuft, part, cylinder, SUN,
 } from "../render/paint.js";
-import { ashlar, merlons, footing, torchBracket } from "../render/buildkit.js";
+import { finishStone, blockEdges, piece } from "../render/castle.js";
 import { DITH, turfTones } from "../render/world.js";
 import { pixelTuft, strawOf } from "../render/groundblend.js";
 import { REALMS } from "../data/maps.js";
@@ -915,21 +915,92 @@ const G = CS.g, CX = CS.cx, CURTAIN_GAP = 3.8;
 const PASS = { raise: 12.5, depth: 4, far: 3 };
 const sx = (x) => CS.x - CS.cx + x, sy = (y) => CS.y - CS.g + y;   // sprite -> scene
 
-// an arrow loop: a dark slit, a few with torchlight low inside
-const slit = (c, x, y, h, lit = true) => part(c, (cc) => {
-  cc.fillStyle = "#2a2230"; cc.fillRect(x - 0.9, y, 1.8, h);
-  cc.fillRect(x - 0.4, y - 0.5, 0.8, 0.5);
-  if (lit) { cc.fillStyle = "#e89a48"; cc.fillRect(x - 0.4, y + h * 0.45, 0.8, h * 0.4); cc.fillStyle = "#ffd070"; cc.fillRect(x - 0.4, y + h * 0.65, 0.8, h * 0.2); }
-});
+// ---- the worked look (treatment B, as the board's castle) ----------------------
+// Stone laid block by block as tone (a lit top and west edge and a shaded foot on
+// every stone, now and then a chip or a paler replaced one), a thin tinted line
+// round every piece, ivy and rain streaks, tiled roofs, an arch whose voussoirs
+// read, and the grade and the light pooled round the lit slits and torches done
+// by castle.js's own finishStone. Pieces are inked with castle.js's `piece`.
+const S2 = (v) => Math.round(v * 2) / 2;                     // snap to the art pixel (a half unit)
+const tn = (c, v) => (v >= 0 ? lighten(c, Math.min(1, v * 1.12)) : darken(c, Math.min(1, -v * 1.15)));
+const bx = (c, x, y, w, h, col) => {
+  const x0 = S2(x), y0 = S2(y), w2 = S2(x + w) - x0, h2 = S2(y + h) - y0;
+  if (w2 <= 0 || h2 <= 0) return;
+  c.fillStyle = col; c.fillRect(x0, y0, w2, h2);
+};
+const BB = [-3, -3, CS.w + 3, CS.h + 3];
+const ink = (c, fn) => piece(c, BB, fn);
+
+// a face of coursed stone
+const stone = (k, x0, top, w, h, col, seed, o = {}) => {
+  const ch = o.course ?? 3.5, bw = o.block ?? 5.5, rows = Math.max(1, Math.ceil(h / ch));
+  k.save(); k.beginPath(); k.rect(x0, top, w, h); k.clip();
+  bx(k, x0, top, w, h, darken(col, 0.5));                                       // the mortar
+  for (let r = 0; r < rows; r++) {
+    const yb = top + h - r * ch, yt = Math.max(top, yb - ch), base = (o.base ?? 0.0) - 0.12 * (r / rows);
+    let x = x0 - hash(seed, r) * bw, i = 0;
+    while (x < x0 + w) {
+      const len = bw * (0.8 + Math.floor(hash(seed + 1 + r, i) * 3) * 0.2);
+      bx(k, x + 0.5, yt + 0.5, len - 0.5, yb - yt - 0.5, tn(col, base + (hash(seed + 2 + r, i) - 0.5) * 0.16));
+      blockEdges(k, x + 0.5, yt + 0.5, len - 0.5, yb - yt - 0.5, col, base, seed + r * 13 + i, false);
+      x += len; i++;
+    }
+  }
+  // the face turning from the light: a lit west strip, a shaded east one
+  if (!o.flat) {
+    k.fillStyle = "rgba(255,243,210,0.10)"; k.fillRect(S2(x0), top, Math.min(2, w / 4), h);
+    k.fillStyle = "rgba(34,24,52,0.15)"; k.fillRect(S2(x0 + w - Math.min(3, w / 3)), top, Math.min(3, w / 3), h);
+  }
+  // rain streaks down from the top
+  const n = Math.round((h * w) / 700 * (o.streak ?? 1));
+  for (let i = 0; i < n; i++) {
+    const sx0 = x0 + 1 + hash(seed + i, 71) * (w - 2), y0 = top + hash(seed + i, 72) * h * 0.55, len = 2 + hash(seed + i, 73) * 5;
+    k.fillStyle = "rgba(28,20,40,0.17)"; k.fillRect(S2(sx0), S2(y0), 0.5, Math.min(len, top + h - y0));
+    k.fillStyle = "rgba(255,243,210,0.07)"; k.fillRect(S2(sx0) + 0.5, S2(y0), 0.5, Math.min(len * 0.6, top + h - y0));
+  }
+  k.restore();
+};
+
+// 2-D value noise (castle.js's vnoise, whose own is not exported)
+const vn = (x, y, cell, seed) => {
+  const gx = x / cell, gy = y / cell, i = Math.floor(gx), j = Math.floor(gy), fx = smooth(gx - i), fy = smooth(gy - j);
+  const h = (a, b) => hash(a * 57 + seed, b);
+  return (h(i, j) * (1 - fx) + h(i + 1, j) * fx) * (1 - fy) + (h(i, j + 1) * (1 - fx) + h(i + 1, j + 1) * fx) * fy;
+};
+
+// ivy: a pixel field where dens(x, y) (0..1) says how thick, three leaf tones,
+// the north-west rim of every clump lit, the south-east in shade (castle.js's
+// ivyFill, in the Greenwood's own greens: the title is always the Greenwood)
+const ivy = (k, x0, y0, x1, y1, dens, seed) => {
+  const g = REALMS.greenwood, base = mix(g.GRASS_DK || "#628f3d", "#2a4a2c", 0.5);
+  const lit = lighten(mix(g.GRASS || "#82b256", "#3a6a30", 0.25), 0.16), dk = darken(base, 0.35), mid = base;
+  const on = (x, y) => { const d = dens(x, y); return d > 0 && hash(Math.round(x * 2) + seed * 13, Math.round(y * 2)) < d * 0.92 + (d > 0.7 ? 0.1 : 0); };
+  for (let y = Math.floor(y0 * 2) / 2; y < y1; y += 0.5) for (let x = Math.floor(x0 * 2) / 2; x < x1; x += 0.5) {
+    if (!on(x, y)) continue;
+    const nw = !on(x - 0.5, y) || !on(x, y - 0.5), se = !on(x + 0.5, y) || !on(x, y + 0.5);
+    const h = hash(Math.round(x * 2) + 5, Math.round(y * 2) + seed);
+    k.fillStyle = nw ? (h > 0.45 ? lit : mid) : se ? dk : h > 0.8 ? lit : h > 0.35 ? mid : dk;
+    k.fillRect(x, y, 0.5, 0.5);
+  }
+};
+// a clump of ivy climbing a face from its foot at (x, foot), `w` wide, `reach` tall
+const ivyAt = (c, x, foot, w, reach, seed) => ivy(c, x - w / 2 - 1, foot - reach - 1, x + w / 2 + 1, foot, (px, py) => {
+  const u = Math.abs(px - x) / (w / 2), up = (foot - py) / (reach * (0.55 + 0.45 * Math.pow(1 - Math.min(1, u), 0.7)) * (0.7 + 0.6 * vn(px, py, 5, seed + 1)));
+  return u > 1 || up > 1 ? 0 : Math.pow(1 - up, 0.8) * (vn(px * 0.7, py, 3, seed + 2) > 0.3 ? 1 : 0.35);
+}, seed);
+
+// an arrow loop: a dark slit, a few lit with torchlight low inside (the lit ones
+// pool their light on the stone: `info.slits`)
+const slit = (c, x, y, h, lit, info) => {
+  bx(c, x - 1.5, y + h, 3, 0.5, "rgba(255,243,210,0.28)");                       // a lit sill
+  bx(c, x - 1, y, 2, h, "#2a2230"); bx(c, x - 0.5, y - 0.5, 1, 0.5, "#2a2230");
+  if (lit) { bx(c, x - 0.5, y + h * 0.45, 1, h * 0.4, "#e89a48"); bx(c, x - 0.5, y + h * 0.65, 1, h * 0.2, "#ffd070"); info.slits.push([x, y + h * 0.6]); }
+};
 
 // merlons spread evenly across a parapet [x0, x1], tops `h` over `y`
 const crenels = (x0, x1, mw = 4, gap = 2.6) => {
   const n = Math.max(2, Math.round((x1 - x0 - mw) / (mw + gap)) + 1);
   return { x0, x1, mw, step: (x1 - x0 - mw) / (n - 1), n };
-};
-const crenelRow = (c, cr, y, col, seed, h = 5) => {
-  if (!cr.xs) return merlons(c, (cr.x0 + cr.x1) / 2, y, (cr.x1 - cr.x0) / 2, col, { step: cr.step, w: cr.mw, h, seed });
-  cr.xs.forEach((x, i) => merlons(c, x + cr.mw / 2, y, cr.mw / 2, col, { w: cr.mw, h, seed: seed + i * 7 }));
 };
 // a manned parapet's merlons, each set on a whole art pixel (`xs`: their left
 // edges), so a man in a crenel stands between crisp stone edges
@@ -937,37 +1008,46 @@ const mannedCrenels = (x0, x1, mw, n) => {
   const snap = (v) => Math.round(v * 2) / 2, step = (x1 - x0 - mw) / (n - 1);
   return { x0, x1, mw, n, xs: Array.from({ length: n }, (_, i) => snap(x0 + i * step)) };
 };
+// the same parapet seen in a mirror about the gate (the castle is symmetric)
+const mirrorCr = (cr) => ({ ...cr, x0: 2 * CX - cr.x1, x1: 2 * CX - cr.x0, xs: cr.xs.map((x) => 2 * CX - x - cr.mw).reverse() });
+const merlonXs = (cr) => cr.xs ?? Array.from({ length: cr.n }, (_, i) => cr.x0 + i * cr.step);
+// a merlon's height over the sill: all alike but a half unit now and then, the
+// same either side of the parapet's middle so the castle reads as a mirror
+const merlonH = (seed, i, n, h) => h + (hash(seed, Math.min(i, n - 1 - i) * 7) > 0.6 ? 0.5 : 0);
+const merlonRow = (k, cr, y, col, seed, h) => merlonXs(cr).forEach((x, i) => {
+  const hh = merlonH(seed, i, cr.n, h);
+  bx(k, x, y - hh, cr.mw, hh + 1, tn(col, -0.02));
+  blockEdges(k, x, y - hh, cr.mw, hh + 1, col, 0.02, seed + i * 5, false);
+  bx(k, x, y - hh, cr.mw, 0.5, tn(col, 0.2));
+});
 
-// a pyramid roof in shingle rows, the sunward half lit, a gold knop on top
-const pyramid = (ctx, x, eave, hw, h, col) => {
-  part(ctx, (c) => {
-    c.fillStyle = lighten(col, 0.1);
-    c.beginPath(); c.moveTo(x - hw, eave); c.lineTo(x, eave - h); c.lineTo(x + 0.3, eave); c.closePath(); c.fill();
-    c.fillStyle = darken(col, 0.28);
-    c.beginPath(); c.moveTo(x + 0.3, eave); c.lineTo(x, eave - h); c.lineTo(x + hw, eave); c.closePath(); c.fill();
-    c.fillStyle = rgba(darken(col, 0.55), 0.55);
-    for (let k = 1; k < 4; k++) { const y = eave - (h * k) / 4, w = hw * (1 - k / 4); c.fillRect(x - w, y, w * 2, 0.5); }
-    c.fillStyle = rgba("#fff3d2", 0.35); c.fillRect(x - 0.6, eave - h + 1, 0.5, h - 1.5);
-    c.fillStyle = darken(col, 0.5); c.fillRect(x - hw, eave - 0.6, hw * 2, 0.6);
+// a pyramid roof in tiles, the sunward half lit, a gold knop on top
+const pyramid = (ctx, x, eave, hw, h, col, seed = 0) => {
+  ink(ctx, (k) => {
+    k.save(); k.beginPath(); k.moveTo(x - hw, eave); k.lineTo(x, eave - h); k.lineTo(x + hw, eave); k.closePath(); k.clip();
+    bx(k, x - hw - 1, eave - h - 1, hw * 2 + 2, h + 2, darken(col, 0.4));
+    for (let y = S2(eave - h), r = 0; y < eave; y += 1.5, r++) for (let tx = x - hw - 2 + (r % 2); tx < x + hw + 2; tx += 2) {
+      const base = tx + 1 <= x ? lighten(col, 0.22) : darken(col, 0.32), v = (hash(seed + r, Math.round(tx)) - 0.5) * 0.26;
+      bx(k, tx + 0.5, y, 1.5, 1, tn(base, v)); bx(k, tx + 0.5, y, 1.5, 0.5, tn(base, v + 0.12)); bx(k, tx + 0.5, y + 0.5, 1.5, 0.5, tn(base, v - 0.18));
+    }
+    k.restore();
+    bx(k, x - hw, eave - 0.5, hw * 2, 0.5, darken(col, 0.5));
+    ball(k, x, eave - h, 1.1, 1.1, "#d8b34a", { hi: 0.5, lo: 0.3 });
   });
-  part(ctx, (c) => ball(c, x, eave - h, 1.1, 1.1, "#d8b34a", { hi: 0.5, lo: 0.3 }));
 };
 
 // a square tower (or wall block) with a corbelled parapet and merlons
-// (`o.cr` a crenel layout of its own, `o.mh` the merlons' height)
+// (`o.cr` a crenel layout of its own, `o.mh` the merlons' height, `o.ms` their seed)
 const block = (c, x, top, w, bottom, col, seed, o = {}) => {
   const x0 = x - w / 2, lip = o.lip ?? 1.2, band = o.band ?? 5;
-  ashlar(c, x0, top + band, w, bottom - top - band, col, seed, { course: 3.6, block: 5.5, moss: o.moss, r: 0.8, lo: 0.5 });
-  // corbels under the jutting parapet
-  if (lip > 0) part(c, (cc) => {
-    for (let px = x0 + 1; px < x0 + w - 1; px += 3.2) {
-      cc.fillStyle = darken(col, 0.35); cc.fillRect(px, top + band, 1.8, 1.6);
-      cc.fillStyle = darken(col, 0.6); cc.fillRect(px, top + band + 1.6, 1.8, 0.6);
-    }
-  });
-  ashlar(c, x0 - lip, top, w + lip * 2, band, lighten(col, 0.06), seed + 9, { course: 2.5, block: 5, r: 0.5, hi: 0.35 });
   const cr = o.cr ?? crenels(x0 - lip, x0 + w + lip, 4, o.gap ?? 2.6);
-  crenelRow(c, cr, top + 0.5, lighten(col, 0.12), seed, o.mh ?? 5);
+  ink(c, (k) => {
+    stone(k, x0, top + band, w, bottom - top - band, col, seed, o);
+    // corbels under the jutting parapet
+    for (let px = x0 + 1; px < x0 + w - 1; px += 3.2) { bx(k, px, top + band, 1.5, 1.5, darken(col, 0.4)); bx(k, px, top + band + 1.5, 1.5, 0.5, darken(col, 0.62)); }
+    stone(k, x0 - lip, top, w + lip * 2, band, tn(col, 0.05), seed + 9, { course: 2.5, block: 5, base: 0.05, flat: true, streak: 0.4 });
+    merlonRow(k, cr, top + 0.5, tn(col, 0.1), o.ms ?? seed, o.mh ?? 5);
+  });
   return cr;
 };
 
@@ -988,107 +1068,138 @@ const L = {
 //   corner towers: 4 merlons, 3 crenels 4-4.5 wide; gate towers: a merlon at
 //   each corner and one shooting bay 6 wide between
 const MAN_H = 4, MAN_FEET = 2.4, LIP = { corner: 1.6, gateTower: 1.4 }, SEED = { corner: 70, gateTower: 60 };
-const PAR = {
-  corner: L.corner.map(([x, , w]) => mannedCrenels(x - w / 2 - LIP.corner, x + w / 2 + LIP.corner, 3.5, 4)),
-  gateTower: L.gateTower.map(([x, , w]) => mannedCrenels(x - w / 2 - LIP.gateTower, x + w / 2 + LIP.gateTower, 4.5, 2)),
-};
+const PAR = (() => {
+  // the west tower's parapet is laid out, the east one is its mirror about the gate
+  const [wc, wg] = [L.corner[0], L.gateTower[0]];
+  const corner = mannedCrenels(wc[0] - wc[2] / 2 - LIP.corner, wc[0] + wc[2] / 2 + LIP.corner, 3.5, 4);
+  const gateTower = mannedCrenels(wg[0] - wg[2] / 2 - LIP.gateTower, wg[0] + wg[2] / 2 + LIP.gateTower, 4.5, 2);
+  return { corner: [corner, mirrorCr(corner)], gateTower: [gateTower, mirrorCr(gateTower)] };
+})();
 
-const castleS = () => bakeSprite(CS.w, CS.h, (c) => {
-  const back = darken(ST, 0.1), rear = darken(ST, 0.2);
-  // the keep: chimney and stair turret on its deck, then its body
-  const [kx, kt, kw] = L.keep;
-  part(c, (cc) => cylinder(cc, L.chimney[0] - 2, L.chimney[1], 4, kt - L.chimney[1] + 2, darken(ST, 0.05), { r: 0.5, hi: 0.35, lo: 0.5 }));
-  part(c, (cc) => { cc.fillStyle = "#3a3038"; cc.fillRect(L.chimney[0] - 2.4, L.chimney[1] - 0.6, 4.8, 1.4); });
-  const [tx, tt, tw] = L.keepTurret;
-  ashlar(c, tx - tw / 2, tt, tw, kt - tt + 4, back, 31, { course: 3.2, block: 4, r: 0.5 });
-  slit(c, tx, tt + 3.5, 4, false);
-  pyramid(c, tx, tt + 0.5, tw / 2 + 1.4, 11, ROOF);
-  // the royal standard's pole (its flag flies live)
-  part(c, (cc) => cylinder(cc, kx - 10.8, G - 122, 1.4, 32, "#6a4a2e", { r: 0.6, hi: 0.3, lo: 0.5 }));
-  block(c, kx, kt, kw, G - 30, back, 3, { lip: 1.4 });
-  slit(c, kx - 7, kt + 13, 6); slit(c, kx + 7, kt + 13, 6, false);
-  slit(c, kx, kt + 26, 7, false);
-  // rear towers either side of the keep
-  for (const [x, t, w] of L.rear) { block(c, x, t, w, G - 30, rear, 40 + x, { lip: 1 }); slit(c, x, t + 12, 5, x > CX); }
-  // the corner towers' stair turrets, behind their parapets
-  for (const [x, t, w] of L.cornerTurret) {
-    ashlar(c, x - w / 2, t, w, 16, back, 50 + x, { course: 3.2, block: 4, r: 0.5 });
-    pyramid(c, x, t + 0.5, w / 2 + 1.3, 10, ROOF);
-  }
-  // the curtain wall, its merlons against the keep's foot
-  const [c0, c1, ct] = L.curtain;
-  block(c, (c0 + c1) / 2, ct, c1 - c0, G, darken(ST, 0.07), 11, { lip: 0.8, moss: 0.5, gap: CURTAIN_GAP, mh: MAN_H });
-  // the gatehouse: the wall over the gate, then its two towers (a bowman's
-  // shooting bay on each)
-  const [gx, gt, gw] = L.gateWall;
-  block(c, gx, gt, gw, G, darken(ST, 0.04), 21, { lip: 1, mh: MAN_H });
-  L.gateTower.forEach(([x, t, w], i) => {
-    block(c, x, t, w, G, ST, SEED.gateTower + x, { lip: LIP.gateTower, moss: 0.6, cr: PAR.gateTower[i], mh: MAN_H });
-    slit(c, x, t + 32, 6);
-  });
-  // the arch, its ring of voussoirs, the dark passage and the portcullis
-  const [ax, ay, ar] = L.arch;
-  part(c, (cc) => {
-    cc.fillStyle = "#e0d8c4";
-    cc.beginPath(); cc.moveTo(ax - ar - 2, G); cc.lineTo(ax - ar - 2, ay); cc.arc(ax, ay, ar + 2, Math.PI, 0); cc.lineTo(ax + ar + 2, G); cc.closePath(); cc.fill();
-    cc.fillStyle = darken(ST, 0.45);
-    for (let k = 0; k <= 6; k++) { const a = Math.PI + (k / 6) * Math.PI; cc.fillRect(ax + Math.cos(a) * (ar + 1) - 0.25, ay + Math.sin(a) * (ar + 1) - 0.25, 0.5, 0.5); }
-    cc.fillStyle = "#1e1822";
-    cc.beginPath(); cc.moveTo(ax - ar, G); cc.lineTo(ax - ar, ay); cc.arc(ax, ay, ar, Math.PI, 0); cc.lineTo(ax + ar, G); cc.closePath(); cc.fill();
-    // down the passage: its floor running in to the courtyard, lit by the
-    // morning at the far end
-    const fw = PASS.far, fy = G - PASS.depth;
-    cc.fillStyle = "#2e2428"; cc.fillRect(ax - ar + 1.2, fy - 7, 1.2, 7); cc.fillRect(ax + ar - 2.4, fy - 7, 1.2, 7);
-    cc.fillStyle = "#5a4642"; cc.fillRect(ax - fw, fy - 5, fw * 2, 5);                 // the courtyard's far wall
-    cc.fillStyle = "#7a6052"; cc.fillRect(ax - fw, fy - 5, fw * 0.8, 5);
-    cc.fillStyle = "#e8b878"; cc.fillRect(ax - fw, fy - 1.5, fw * 2, 1.5);             // sunlit flags
-    cc.fillStyle = "#ffe0a0"; cc.fillRect(ax - fw, fy - 1.5, fw, 0.5);
-    cc.fillStyle = "#3a2e30";
-    cc.beginPath(); cc.moveTo(ax - ar, G); cc.lineTo(ax - fw, fy); cc.lineTo(ax + fw, fy); cc.lineTo(ax + ar, G); cc.closePath(); cc.fill();
-    cc.fillStyle = "#5a4640";
-    for (let k = 1; k < 4; k++) { const t = k / 4, y = fy + (G - fy) * t, w = fw + (ar - fw) * t; cc.fillRect(ax - w, y, w * 2, 0.5); }
-    cc.fillStyle = rgba("#e8b878", 0.35); cc.fillRect(ax - fw, fy, fw * 2, 1);
-  });
-  // the portcullis, raised to a man's height over the sill: bars, cross
-  // bands, iron teeth along its foot, and the chains it hangs from
-  part(c, (cc) => {
-    const pb = G - PASS.raise;
-    cc.save(); cc.beginPath(); cc.moveTo(ax - ar, pb); cc.lineTo(ax - ar, ay); cc.arc(ax, ay, ar, Math.PI, 0); cc.lineTo(ax + ar, pb); cc.closePath(); cc.clip();
-    for (let px = ax - ar + 1.6; px < ax + ar; px += 2.6) { cc.fillStyle = "#3e424c"; cc.fillRect(px - 0.5, ay - ar, 1, pb - ay + ar); cc.fillStyle = "#6a707c"; cc.fillRect(px - 0.5, ay - ar, 0.5, pb - ay + ar); }
-    for (let py = ay - ar + 2; py < pb - 1; py += 2.8) { cc.fillStyle = "#4a4e5a"; cc.fillRect(ax - ar, py, ar * 2, 0.8); }
-    cc.fillStyle = "#34363e"; cc.fillRect(ax - ar, pb - 1.2, ar * 2, 1.2);
-    cc.restore();
-    for (let px = ax - ar + 1.6; px < ax + ar; px += 2.6) {
-      cc.fillStyle = "#8a909c";
-      cc.beginPath(); cc.moveTo(px - 0.7, pb); cc.lineTo(px + 0.7, pb); cc.lineTo(px, pb + 1.6); cc.closePath(); cc.fill();
+const castleS = () => {
+  const info = { slits: [], torches: [] };
+  const cv = bakeSprite(CS.w, CS.h, (c) => {
+    const back = darken(ST, 0.1), rear = darken(ST, 0.2);
+    // the keep: chimney and stair turret on its deck, then its body
+    const [kx, kt, kw] = L.keep;
+    ink(c, (k) => {
+      stone(k, L.chimney[0] - 2, L.chimney[1], 4, kt - L.chimney[1] + 2, darken(ST, 0.05), 5, { course: 3, block: 2.6, flat: true, streak: 0.3 });
+      bx(k, L.chimney[0] - 2.5, L.chimney[1] - 0.5, 5, 1, darken(ST, 0.3)); bx(k, L.chimney[0] - 2.5, L.chimney[1] - 0.5, 5, 0.5, "#3a3038");
+    });
+    const [tx, tt, tw] = L.keepTurret;
+    ink(c, (k) => stone(k, tx - tw / 2, tt, tw, kt - tt + 4, back, 31, { course: 3.2, block: 4 }));
+    slit(c, tx, tt + 3.5, 4, false, info);
+    pyramid(c, tx, tt + 0.5, tw / 2 + 1.4, 11, ROOF, 3);
+    // the royal standard's pole (its flag flies live)
+    ink(c, (k) => { bx(k, kx - 10.8, G - 122, 1.5, 32, "#6a4a2e"); bx(k, kx - 10.8, G - 122, 0.5, 32, "#9a7448"); });
+    block(c, kx, kt, kw, G - 30, back, 3, { lip: 1.4 });
+    slit(c, kx - 7, kt + 13, 6, true, info); slit(c, kx + 7, kt + 13, 6, true, info);
+    slit(c, kx, kt + 26, 7, false, info);
+    // rear towers either side of the keep
+    for (const [x, t, w] of L.rear) { block(c, x, t, w, G - 30, rear, 40 + x, { lip: 1, ms: 40 + L.rear[0][0] }); slit(c, x, t + 12, 5, true, info); }
+    // the corner towers' stair turrets, behind their parapets
+    for (const [x, t, w] of L.cornerTurret) {
+      ink(c, (k) => stone(k, x - w / 2, t, w, 16, back, 50 + x, { course: 3.2, block: 4 }));
+      pyramid(c, x, t + 0.5, w / 2 + 1.3, 10, ROOF, x);
     }
-    for (const x of [ax - ar + 0.6, ax + ar - 0.6]) for (let y = ay - ar + 3; y < pb - 1; y += 1.4) { cc.fillStyle = y % 2.8 < 1.4 ? "#8a909c" : "#4a4e5a"; cc.fillRect(x - 0.4, y, 0.8, 1); }
-  });
-  // torches at the gate (their flames burn live)
-  for (const x of [ax - ar - 3.6, ax + ar + 3.6]) torchBracket(c, x, G - 17);
-  // the corner towers (the sentry's beat on one, a watchman on the other)
-  L.corner.forEach(([x, t, w], i) => {
-    block(c, x, t, w, G, ST, SEED.corner + x, { lip: LIP.corner, moss: 0.8, cr: PAR.corner[i], mh: MAN_H });
-    slit(c, x, t + 16, 7, false); slit(c, x, t + 38, 7, x < CX);
-  });
-  // the footing course the whole castle stands on, broken by the gate
-  footing(c, (1 + ax - ar - 2) / 2, G, (ax - ar - 2 - 1) / 2 - 2, darken(ST, 0.14), 5, 4.5);
-  footing(c, (ax + ar + 2 + 131) / 2, G, (131 - ax - ar - 2) / 2 - 2, darken(ST, 0.14), 9, 4.5);
-});
+    // the curtain wall, its merlons against the keep's foot
+    const [c0, c1, ct] = L.curtain;
+    block(c, (c0 + c1) / 2, ct, c1 - c0, G, darken(ST, 0.07), 11, { lip: 0.8, gap: CURTAIN_GAP, mh: MAN_H });
+    // the gatehouse: the wall over the gate, then its two towers (a bowman's
+    // shooting bay on each)
+    const [gx, gt, gw] = L.gateWall;
+    block(c, gx, gt, gw, G, darken(ST, 0.04), 21, { lip: 1, mh: MAN_H });
+    L.gateTower.forEach(([x, t, w], i) => {
+      block(c, x, t, w, G, ST, SEED.gateTower + x, { lip: LIP.gateTower, cr: PAR.gateTower[i], mh: MAN_H, ms: SEED.gateTower });
+      slit(c, x, t + 32, 6, true, info);
+    });
+    // the arch: a ring of voussoirs round a dark mouth, a pale keystone, the
+    // passage running in to a lit courtyard, then the portcullis
+    const [ax, ay, ar] = L.arch, R = ar + 2.4, NV = 9, PALE = "#d8d0bc";
+    ink(c, (k) => {
+      for (let y = ay - R - 1; y < G; y += 0.5) for (let x = ax - R; x < ax + R; x += 0.5) {
+        const dx = x + 0.25 - ax, dy = y + 0.25 - ay, r = Math.hypot(dx, dy);
+        let tone, joint = false;
+        if (y + 0.25 < ay) {
+          const key = Math.abs(dx) < 1.1 && r < R + 1;                                   // the keystone stands a little proud
+          if (r >= R + (key ? 1 : 0) || r < ar) continue;
+          const a = Math.atan2(-dy, dx), idx = Math.min(NV - 1, Math.floor(((Math.PI - a) / Math.PI) * NV)), u = (((Math.PI - a) / Math.PI) * NV) % 1;
+          joint = (u < 0.07 || u > 0.93) && !key && Math.abs(idx - 4) > 0.5;
+          tone = key ? 0.34 : idx & 1 ? 0.04 : -0.07;
+        } else {
+          if (Math.abs(dx) < ar || Math.abs(dx) >= R) continue;
+          const row = Math.floor((G - y) / 3.5);
+          joint = (G - y) % 3.5 < 0.5;
+          tone = row & 1 ? 0.04 : -0.07;
+        }
+        bx(k, x, y, 0.5, 0.5, joint ? darken(ST, 0.34) : tn(PALE, tone));
+      }
+      const fw = PASS.far, fy = G - PASS.depth;
+      k.save(); k.beginPath(); k.moveTo(ax - ar, G); k.lineTo(ax - ar, ay); k.arc(ax, ay, ar, Math.PI, 0); k.lineTo(ax + ar, G); k.closePath(); k.clip();
+      k.fillStyle = "#1e1822"; k.fillRect(ax - ar - 1, ay - ar - 1, ar * 2 + 2, G - ay + ar + 2);
+      // down the passage: its floor running in to the courtyard, lit by the morning at the far end
+      k.fillStyle = "#2e2428"; k.fillRect(ax - ar + 1.2, fy - 7, 1.2, 7); k.fillRect(ax + ar - 2.4, fy - 7, 1.2, 7);
+      k.fillStyle = "#5a4642"; k.fillRect(ax - fw, fy - 5, fw * 2, 5);                 // the courtyard's far wall
+      k.fillStyle = "#7a6052"; k.fillRect(ax - fw, fy - 5, fw * 0.8, 5);
+      k.fillStyle = "#e8b878"; k.fillRect(ax - fw, fy - 1.5, fw * 2, 1.5);             // sunlit flags
+      k.fillStyle = "#ffe0a0"; k.fillRect(ax - fw, fy - 1.5, fw, 0.5);
+      k.fillStyle = "#3a2e30";
+      k.beginPath(); k.moveTo(ax - ar, G); k.lineTo(ax - fw, fy); k.lineTo(ax + fw, fy); k.lineTo(ax + ar, G); k.closePath(); k.fill();
+      k.fillStyle = "#5a4640";
+      for (let j = 1; j < 4; j++) { const t = j / 4, y = fy + (G - fy) * t, w = fw + (ar - fw) * t; k.fillRect(ax - w, y, w * 2, 0.5); }
+      k.fillStyle = rgba("#e8b878", 0.35); k.fillRect(ax - fw, fy, fw * 2, 1);
+      k.restore();
+    });
+    // the portcullis, raised to a man's height over the sill: bars, cross
+    // bands, iron teeth along its foot, and the chains it hangs from
+    ink(c, (k) => {
+      const pb = G - PASS.raise;
+      k.save(); k.beginPath(); k.moveTo(ax - ar, pb); k.lineTo(ax - ar, ay); k.arc(ax, ay, ar, Math.PI, 0); k.lineTo(ax + ar, pb); k.closePath(); k.clip();
+      for (let px = ax - ar + 1.6; px < ax + ar; px += 2.6) { k.fillStyle = "#3e424c"; k.fillRect(px - 0.5, ay - ar, 1, pb - ay + ar); k.fillStyle = "#6a707c"; k.fillRect(px - 0.5, ay - ar, 0.5, pb - ay + ar); }
+      for (let py = ay - ar + 2; py < pb - 1; py += 2.8) { k.fillStyle = "#4a4e5a"; k.fillRect(ax - ar, py, ar * 2, 0.8); }
+      k.fillStyle = "#34363e"; k.fillRect(ax - ar, pb - 1.2, ar * 2, 1.2);
+      k.restore();
+      for (let px = ax - ar + 1.6; px < ax + ar; px += 2.6) {
+        k.fillStyle = "#8a909c";
+        k.beginPath(); k.moveTo(px - 0.7, pb); k.lineTo(px + 0.7, pb); k.lineTo(px, pb + 1.6); k.closePath(); k.fill();
+      }
+      for (const x of [ax - ar + 0.6, ax + ar - 0.6]) for (let y = ay - ar + 3; y < pb - 1; y += 1.4) { k.fillStyle = y % 2.8 < 1.4 ? "#8a909c" : "#4a4e5a"; k.fillRect(x - 0.4, y, 0.8, 1); }
+    });
+    // torches at the gate (their flames burn live, their light is pooled on the stone)
+    for (const x of [ax - ar - 3.6, ax + ar + 3.6]) {
+      ink(c, (k) => { bx(k, x - 1.5, G - 17, 3, 1, "#4a4c56"); bx(k, x - 0.5, G - 19, 1, 3, "#4a4c56"); bx(k, x - 1, G - 22, 2, 4, "#6a4a2e"); bx(k, x - 1.5, G - 23.5, 3, 1.5, "#3a2420"); });
+      info.torches.push([x, G - 23]);
+    }
+    // the corner towers (the sentry's beat on one, a watchman on the other)
+    L.corner.forEach(([x, t, w], i) => {
+      block(c, x, t, w, G, ST, SEED.corner + x, { lip: LIP.corner, cr: PAR.corner[i], mh: MAN_H, ms: SEED.corner });
+      slit(c, x, t + 16, 7, false, info); slit(c, x, t + 38, 7, true, info);
+    });
+    // the footing course the whole castle stands on, broken by the gate
+    const foot = (xa, xb, seed) => ink(c, (k) => {
+      stone(k, xa, G - 4.5, xb - xa, 4.5, darken(ST, 0.14), seed, { course: 4.5, block: 7, base: -0.06, flat: true, streak: 0 });
+      bx(k, xa, G - 4.5, xb - xa, 0.5, tn(darken(ST, 0.14), 0.18));
+    });
+    foot(1, ax - ar - 2, 5); foot(ax + ar + 2, 131, 9);
+    // ivy climbing from the foot in a few places, a little more on the sunless east
+    ivyAt(c, 9, G - 4, 12, 16, 3); ivyAt(c, 36, G - 4, 10, 8, 7); ivyAt(c, 87, G - 4, 8, 9, 11); ivyAt(c, 123, G - 4, 14, 19, 17); ivyAt(c, 100, G - 4, 9, 6, 23);
+  }, false);
+  return finishStone(cv, () => info, 0, 0);
+};
 
 // Where the live bits go, in scene units (see titleCrowd.js).
 // A manned parapet for the live layer: where a man's feet go, the sill that
 // hides his legs, and each merlon [x0, x1, top] (buildkit's merlons() makes
 // some half a unit taller, by the same hash).
-const merlonTop = (top, seed, i, h = MAN_H) => top + 0.5 - h - (hash(seed, i) > 0.6 ? 0.5 : 0);
+const merlonTop = (top, seed, i, n, h = MAN_H) => top + 0.5 - merlonH(seed, i, n, h);
 const parapet = (cr, top, seed) => ({
   x0: sx(cr.x0), x1: sx(cr.x1), sill: sy(top) - 0.5, feet: sy(top) - 0.5 + MAN_FEET,
-  mer: cr.xs.map((x, i) => [sx(x), sx(x + cr.mw), sy(merlonTop(top, seed + i * 7, 0))]),
+  mer: cr.xs.map((x, i) => [sx(x), sx(x + cr.mw), sy(merlonTop(top, seed, i, cr.n))]),
 });
 const crenelMid = (P, i) => (P.mer[i][1] + P.mer[i + 1][0]) / 2;
 const GARRISON = (() => {
-  const [wc, ec] = L.corner.map(([x, t], i) => parapet(PAR.corner[i], t, SEED.corner + x));
-  const [wg, eg] = L.gateTower.map(([x, t], i) => parapet(PAR.gateTower[i], t, SEED.gateTower + x));
+  const [wc, ec] = L.corner.map(([x, t], i) => parapet(PAR.corner[i], t, SEED.corner));
+  const [wg, eg] = L.gateTower.map(([x, t], i) => parapet(PAR.gateTower[i], t, SEED.gateTower));
   return {
     s: 0.36,                                                            // a wall man's size (the gate knights are 0.4)
     posts: [
@@ -1102,7 +1213,7 @@ const GARRISON = (() => {
 // a merlon's top, for a bird to settle on: merlon `i` of the block at
 // [x, top, w] with lip `lip` and seed `seed` (as castleS paints it)
 const perchOn = ([x, top, w], lip, seed, i, cr = crenels(x - w / 2 - lip, x + w / 2 + lip)) =>
-  [sx(cr.x0 + i * cr.step + cr.mw / 2), sy(merlonTop(top, seed, i, 5)) - 0.1];
+  [sx(cr.x0 + i * cr.step + cr.mw / 2), sy(merlonTop(top, seed, i, cr.n, 5)) - 0.1];
 export const CASTLE_LIFE = {
   gate: [CS.x, CS.y],
   // the gate's opening under the raised portcullis, and the passage floor's
@@ -1122,7 +1233,7 @@ export const CASTLE_LIFE = {
   // rear towers, the keep's west corner)
   perches: [
     [(GARRISON.posts[1].on.mer[3][0] + GARRISON.posts[1].on.mer[3][1]) / 2, GARRISON.posts[1].on.mer[3][2] - 0.1], perchOn(L.rear[0], 1, 40 + L.rear[0][0], 1),
-    perchOn(L.rear[1], 1, 40 + L.rear[1][0], 0), perchOn(L.keep, 1.4, 3, 0),
+    perchOn(L.rear[1], 1, 40 + L.rear[0][0], 0), perchOn(L.keep, 1.4, 3, 0),
   ],
 };
 

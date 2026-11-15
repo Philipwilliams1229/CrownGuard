@@ -14,7 +14,10 @@
 // Cost per frame: one clear of the road's box and two stamps a figure
 // (shadow, body), about a dozen figures; ticks at ~30 fps.
 
-import { rigFrame } from "../render/rigs.js";
+import { rigFrame, hasPix } from "../render/rigs.js";
+import * as halberdierFig from "../render/pix/fig-halberdier.js";
+import * as bowmanFig from "../render/pix/fig-bowman.js";
+import { crew, crewOn, crewRec, loopFrame, fracFrame } from "../render/pix/crews.js";
 import { PX, bakeSprite, part, lighten, darken, blobBall, cylinder, hash } from "../render/paint.js";
 import { flame } from "../render/buildkit.js";
 import { drawHalberdier, drawArcherFrame, WALL_FOLK } from "../render/folk.js";
@@ -64,7 +67,9 @@ const STAYERS = [
 
 // idle: now and then shift the weight to the other foot (walk frame 0 <-> 2)
 // and glance back over the shoulder, like the rallied soldiers on the board
-const idle = (t, seed) => {
+const idle = (t, seed, type) => {
+  // the new figures have a real idle clip (frame = seconds into it); the old ones shift weight between walk frames
+  if (type && hasPix(type)) return { sheet: "idle", frame: t + seed * 0.37, glance: (t / (5.5 + (seed % 4) * 0.9) + seed * 0.618) % 1 < 0.14 };
   const shift = Math.floor(t / (4.5 + (seed % 3) * 1.3) + seed * 0.37) % 2;
   const g = (t / (5.5 + (seed % 4) * 0.9) + seed * 0.618) % 1;
   return { sheet: "walk", frame: shift ? 2 : 0, glance: g < 0.14 };
@@ -72,15 +77,18 @@ const idle = (t, seed) => {
 // the militiaman at the hay: wind up, pitch, heave it over, three times,
 // then a breather (the farmer's fight sheet: 0 ready, 1 wind-up, 2 the
 // thrust, 3 the heave)
-const pitch = (t, seed) => {
+const pitch = (t, seed, type) => {
   const c = (t + seed) % 8;
+  // the new farmer: his own attack clip, played through once a heave (0..1 along it)
+  if (c < 3.6 && type && hasPix(type)) return { sheet: "atk", frame: (c % 1.2) / 1.2, glance: false };
   if (c < 3.6) { const k = c % 1.2; return { sheet: "fight", frame: k < 0.55 ? 1 : k < 0.72 ? 2 : k < 0.95 ? 3 : 0, glance: false }; }
-  return idle(t, seed);
+  return idle(t, seed, type);
 };
 
 // the frames the crowd uses, baked a few at a time before it starts
 const NEEDED = [];
-for (const t of TYPES) for (let f = 0; f < 4; f++) NEEDED.push([t, "walk", f]);
+// (a new figure walks all eight frames of its clip: a phase 0..4 in half steps; an old rig floors it to its four)
+for (const t of TYPES) for (let f = 0; f < 8; f++) NEEDED.push([t, "walk", f / 2]);
 for (let f = 0; f < 4; f++) NEEDED.push(["farmer", "fight", f]);
 
 // a contact shadow: a plum ellipse, hard-edged, baked once
@@ -195,21 +203,26 @@ const put = (ctx, D, cv, x, y, ax = 0, ay = 0, face = 1) => {
 const WALL = CL.garrison, WALL_S = WALL.s;
 const HALB_PAL = WALL_FOLK.guard, BOW_PAL = { ...WALL_FOLK.bowman, coat: "#3a5474" };
 // sprite boxes and anchors (the feet), in the figures' own units
-const HALB = { w: 32, h: 48, ax: 16, ay: 44 }, BOW = { w: 40, h: 36, ax: 20, ay: 32 };
+const HALB = { w: 32, h: 48, ax: 16, ay: 44 }, BOW = { w: 40, h: 36, ax: 20, ay: 32 };   // (the old painters' boxes)
 const BOW_KEYS = ["rest", "rest1", "lift", "test0", "test1"];
 // the frames, baked a few at a time: h<dir>f0-2 (at ease, a breath, a look
 // out), h<dir>w0-3 (a pacing step), a<dir><key> (the bowman at ease, and
 // trying his string)
-const wallBakes = () => {
+// (the old painters, for "New sprites" off: baked on first need, not at the start)
+const WALL_OLD = {};
+const wallJobs = () => {
   const jobs = [];
   for (const dir of [1, -1]) {
     for (let f = 0; f < 3; f++) jobs.push([`h${dir}f${f}`, () => bakeSprite(HALB.w, HALB.h, (c) => drawHalberdier(c, HALB.ax, HALB.ay, dir, HALB_PAL, { frame: f }))]);
     for (let w = 0; w < 4; w++) jobs.push([`h${dir}w${w}`, () => bakeSprite(HALB.w, HALB.h, (c) => drawHalberdier(c, HALB.ax, HALB.ay, dir, HALB_PAL, { walk: w }))]);
     for (const k of BOW_KEYS) jobs.push([`a${dir}${k}`, () => bakeSprite(BOW.w, BOW.h, (c) => drawArcherFrame(c, BOW.ax, BOW.ay, dir, BOW_PAL, k, { quiver: "#7a5334" }))]);
   }
-  const out = [];
-  for (let i = 0; i < jobs.length; i += 4) out.push(() => ({ wall: Object.fromEntries(jobs.slice(i, i + 4).map(([k, f]) => [k, f()])) }));
-  return out;
+  return Object.fromEntries(jobs);
+};
+let OLD_JOBS = null;
+const oldWall = (key) => {
+  if (!WALL_OLD[key]) { OLD_JOBS = OLD_JOBS || wallJobs(); WALL_OLD[key] = OLD_JOBS[key]?.(); }
+  return WALL_OLD[key];
 };
 
 // the sentry: paces his beat, stopping in the crenel at each end to look out
@@ -222,8 +235,32 @@ const sentryAt = (t, [x0, x1]) => {
   if (u < 2 * pause + leg) return { x: x1, face: 1, moving: false, u: u - pause - leg };
   return { x: x1 - (u - 2 * pause - leg) * v, face: -1, moving: true, ph: (u - 2 * pause - leg) * v };
 };
+// The new wall folk (render/pix/fig-halberdier.js, fig-bowman.js, as the board's
+// castle stamps them through crews.js): a halberdier in the gate guard's crimson,
+// a bowman in the crown's crimson and gold ("wall"), standing in the crenels.
+const HALB_FIG = crew("halberdier", halberdierFig), BOW_FIG = crew("bowman", bowmanFig);
+const STEP_NEW = 12 * WALL_S;           // one walk cycle (8 frames) carries him 12 board units of beat
 // who stands where, and in which frame, at time t
 const wallMan = (p, i, t) => {
+  if (crewOn()) {
+    if (p.who === "sentry") {
+      const s = sentryAt(t, p.beat);
+      if (s.moving) return { fig: HALB_FIG, clip: "walk", f: Math.floor(((s.ph / STEP_NEW) % 1) * 8) % 8, x: s.x, face: s.face, variant: "guard" };
+      return { fig: HALB_FIG, clip: "idle", f: loopFrame(HALB_FIG, "idle", t, i), x: s.x, face: s.face, variant: "guard" };
+    }
+    if (p.who === "guard") return { fig: HALB_FIG, clip: "idle", f: loopFrame(HALB_FIG, "idle", t, i + 2), x: p.x, face: p.face, variant: "guard" };
+    // a bowman: at ease, breathing; then he nocks and draws and holds a while, stows the arrow and stands easy again
+    const P = 14 + i * 2.5, u = (t + i * 5.3) % P, up = P - 6, draw = BOW_FIG.CLIPS.shoot.hit, stow = BOW_FIG.CLIPS.stow.ms / 1000;
+    const base = { fig: BOW_FIG, x: p.x, face: p.face, variant: "wall" };
+    if (u < up) return { ...base, clip: "idle", f: loopFrame(BOW_FIG, "idle", t, i) };
+    if (u < up + 1.6) return { ...base, clip: "shoot", f: fracFrame(BOW_FIG, "shoot", draw * 0.92 * Math.min(1, (u - up) / 1.1)) };
+    if (u < up + 3.6) return { ...base, clip: "shoot", f: fracFrame(BOW_FIG, "shoot", draw * 0.92) };
+    if (u < up + 3.6 + stow) return { ...base, clip: "stow", f: fracFrame(BOW_FIG, "stow", (u - up - 3.6) / stow) };
+    return { ...base, clip: "idle", f: loopFrame(BOW_FIG, "idle", t, i) };
+  }
+  return wallManOld(p, i, t);
+};
+const wallManOld = (p, i, t) => {
   if (p.who === "sentry") {
     const s = sentryAt(t, p.beat);
     // halted: grounds the halberd, then looks out over the field
@@ -233,8 +270,6 @@ const wallMan = (p, i, t) => {
     const u = (t + i * 3.7) % 11;
     return { box: HALB, x: p.x, key: `h${p.face}` + (u > 7.5 ? "f2" : Math.sin(t * 1.3 + i) > 0.4 ? "f1" : "f0") };
   }
-  // a bowman: at ease, breathing; then he brings the bow up and stands with
-  // it ready a while, and tries his string before he lowers it again
   const P = 12 + i * 2.5, u = (t + i * 5.3) % P, up = P - 7, test = ["test0", "test1", "test1", "test0"], k = Math.floor((u - up - 3) / 0.22);
   const key = u < up ? (Math.sin(t * 1.1 + i * 2) > 0.3 ? "rest1" : "rest") : k >= 0 && k < test.length ? test[k] : "lift";
   return { box: BOW, x: p.x, key: `a${p.face}${key}` };
@@ -253,15 +288,22 @@ const wallClip = (ctx, D, P) => {
   if (P.x1 + INK > x) ctx.rect(R(x), 0, R(P.x1 + INK) - R(x), R(P.sill));
   ctx.clip();
 };
-const drawGarrison = (ctx, D, t, sprites) => {
-  if (!sprites) return;
+const drawGarrison = (ctx, D, t) => {
   const k = WALL_S * D / PX;
   WALL.posts.forEach((p, i) => {
-    const m = wallMan(p, i, t), cv = sprites[m.key];
-    if (!cv) return;
+    const m = wallMan(p, i, t);
     ctx.save();
     wallClip(ctx, D, p.on);
-    ctx.drawImage(cv, Math.round(m.x * D) - Math.round(m.box.ax * PX * k), Math.round(p.on.feet * D) - Math.round(m.box.ay * PX * k), Math.round(cv.width * k), Math.round(cv.height * k));
+    if (m.fig) {
+      // a new figure: sculpted two art pixels to a unit, its feet on the post (a left-facer is a bake for that side, mirrored)
+      const rec = crewRec(m.fig, m.clip, m.f, m.face < 0, m.variant), kk = WALL_S * D / 2;
+      ctx.translate(Math.round(m.x * D), Math.round(p.on.feet * D));
+      if (m.face < 0) ctx.scale(-1, 1);
+      ctx.drawImage(rec.cv, -Math.round(rec.ox * kk), -Math.round(rec.oy * kk), Math.round(rec.cv.width * kk), Math.round(rec.cv.height * kk));
+    } else {
+      const cv = oldWall(m.key);
+      if (cv) ctx.drawImage(cv, Math.round(m.x * D) - Math.round(m.box.ax * PX * k), Math.round(p.on.feet * D) - Math.round(m.box.ay * PX * k), Math.round(cv.width * k), Math.round(cv.height * k));
+    }
     ctx.restore();
   });
 };
@@ -288,7 +330,7 @@ function renderLife(ctx, D, t, life = LIFE, o = {}) {
   if (!life) return;
   const LIFE = life;
   // the garrison behind the front towers' parapets (not on the app icon)
-  if (o.sentry !== false) drawGarrison(ctx, D, t, LIFE.wall);
+  if (o.sentry !== false) drawGarrison(ctx, D, t);
   // the standard, the turret pennants, the gate's banners
   const [fx, fy] = CL.standard;
   put(ctx, D, LIFE.standard[Math.floor(t * 6) % 4], fx, fy, 1, 1.5);
@@ -420,14 +462,14 @@ function render(state, canvas) {
   const t = state.t, list = [];
   renderLife(ctx, D, t);
   STAYERS.forEach(([type, x, y, face, what], i) => {
-    const pose = what === "hay" ? pitch(t, i * 2.3) : idle(t, i * 3 + 1);
+    const pose = what === "hay" ? pitch(t, i * 2.3, type) : idle(t, i * 3 + 1, type);
     // the talkers turn to each other; one looks off now and then
     list.push({ type, x, y, face: pose.glance && what !== "guard" ? -face : face, sheet: pose.sheet, frame: pose.frame, a: 1 });
   });
   for (const w of state.walkers) {
     const p = at(w.d, w.lane);
     const moving = !w.blocked && !(w.paused > 0);
-    const pose = moving ? { sheet: "walk", frame: Math.floor(w.phase) % 4, glance: false } : idle(t, w.seed);
+    const pose = moving ? { sheet: "walk", frame: w.phase % 4, glance: false } : idle(t, w.seed, w.type);
     const face = (w.toGate ? 1 : -1) * (pose.glance ? -1 : 1);
     // in the passage: fading into (or out of) its dark, behind the jambs
     // (first the dark takes them, then they're gone)
@@ -478,11 +520,11 @@ export function startCrowd(canvas, { still = false } = {}) {
   document.addEventListener("visibilitychange", onVis);
   // bake the frames a handful at a time, so the menu never stutters
   let i = 0;
-  const lb = LIFE ? [] : [...lifeBakes(), ...wallBakes()], life = { wall: {} };
+  const lb = LIFE ? [] : lifeBakes(), life = {};
   const warm = () => {
     if (!alive) return;
     if (i < NEEDED.length) for (const end = Math.min(NEEDED.length, i + 4); i < end; i++) rigFrame(...NEEDED[i]);
-    else if (lb.length) { const { wall, ...rest } = lb.shift()(); Object.assign(life, rest); Object.assign(life.wall, wall); }
+    else if (lb.length) Object.assign(life, lb.shift()());
     if (i < NEEDED.length || lb.length) bake = setTimeout(warm, 0);
     else { if (!LIFE) LIFE = life; ready = true; go(); }
   };
@@ -502,5 +544,5 @@ export const drawCastleLife = (ctx, D, t, life) => renderLife(ctx, D, t, life, {
 
 export const crowdDebug = {
   at, sAt, LEN, step, render,
-  bakeLife: () => { LIFE = LIFE || { ...Object.assign({}, ...lifeBakes().map((f) => f())), wall: Object.assign({}, ...wallBakes().map((f) => f().wall)) }; },
+  bakeLife: () => { LIFE = LIFE || Object.assign({}, ...lifeBakes().map((f) => f())); },
 };
