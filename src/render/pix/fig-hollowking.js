@@ -41,6 +41,14 @@ const legend = (eye) => ({
 });
 const LEG = legend(EYE), LEG_HOT = legend(EYE_HOT);
 
+// THE GRIP. The great sword is held in a closed fist: its angle is DERIVED from the solved forearm (elbow -> hand), never
+// posed on its own: forearm + GRIP + a wrist clamped to +-0.35.
+export const GRIP = -1.3;
+export const WRIST = 0.35;
+const forearm = (sk) => { const f = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])); return f < -1.9 ? f + Math.PI * 2 : f; };
+export const swordAngle = (sk) => forearm(sk) + GRIP + Math.max(-WRIST, Math.min(WRIST, sk.p.wrist || 0));
+// the near arm may pass in front of the head, never over the eyes
+export const MUST = [["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 108, h: 98, ox: 46, oy: 88 };
 export const BONES = scaled(HUMAN, 1.42, { shN: -3.6, shF: 3.8 });
 
@@ -58,7 +66,7 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   const tk = p.toll || 0, fl = p.fire ?? 0.5;
 
   // ---- the great sword's frame: the hands on the grip, the blade along `sword` (0 up, + leaning forward)
-  const sa = p.sword ?? 0.3, d = [Math.sin(sa), -Math.cos(sa)], nn = [-d[1], d[0]];
+  const sa = swordAngle(sk), d = [Math.sin(sa), -Math.cos(sa)], nn = [-d[1], d[0]];
   const at2 = (f, s) => [hdN[0] + d[0] * f + nn[0] * s, hdN[1] + d[1] * f + nn[1] * s];
 
   // ---- the cape, behind it all: long, torn, streaming
@@ -154,13 +162,14 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   px.line(...at2(2.6, -1.5), ...at2(BL - 1.6, -0.9), F_TEAL, 8.3, { noLine: true });
   px.dot(...at2(BL - 1.2, -0.3), F_PALE, 8.35, { noLine: true });
   // the near arm over all: the violet sleeve, the bone forearm, the hand on the grip
-  px.body(1);
+  px.body(1); px.tag("nearArm");
   px.limb([[sN[0], sN[1] + 0.6], eN, hdN], [2.2, 2.0, 1.2], ROBE, 8.4, { floor: 1, weld: 2, weldRoot: 3 });
   const nf = mix(eN, hdN, 0.3);
   px.capsule(nf[0], nf[1], 1.8, hdN[0], hdN[1], 1.2, BONE, 8.45, { wrap: true });
   px.ellipse(eN[0] + 0.2, eN[1], 2.0, 1.9, ROBE, 8.42, { floor: 1, weld: 2 });
   px.line(eN[0] - 1.6, eN[1] + 2, eN[0] + 1.4, eN[1] + 2.4, GOLD, 8.48, { fix: 2 });
   px.ellipse(hdN[0], hdN[1], 1.7, 1.6, BONE, 8.6, { weld: 1.5 });
+  px.tag(null);
   px.body(0);
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1], 2.1, 1.9, ROBE, 8.3, { floor: 1 });
@@ -193,28 +202,31 @@ export const fx = (px, F, info, clip) => {
 };
 
 const TAU = Math.PI * 2;
-const GUARD = { drop: 1.0, lean: 0.1, hx: 0.6, hy: 0, aN: [1.2, 0.84, 0], aF: [1.2, 0.84, 0], fN: [-2.6, 0], fF: [2.8, 0], sword: 0.3, snarl: 0, eye: 0, toll: 0, tollR: 0, fire: 0.5 };
+const GUARD = { drop: 1.0, lean: 0.1, hx: 0.6, hy: 0, aN: [1.2, 0.84, 0], aF: [1.2, 0.84, 0], fN: [-2.6, 0], fF: [2.8, 0], wrist: 0.2, snarl: 0, eye: 0, toll: 0, tollR: 0, fire: 0.5 };
 const march = (ph) => walkPose(ph, { stride: 4.6, lift: 2.2, swing: 0.1, bob: 1.0, lean: 0.12 });
 export const CLIPS = {
   idle: {
     n: 8, ms: 2200, loop: true, lag: 0.1,
-    pose: (ph) => { const b = Math.sin(ph * TAU), u = 0.5 + 0.5 * b; return { ...GUARD, rise: 0.5 * u, drop: 1.0 + 0.4 * (1 - u), sword: 0.3 + 0.05 * b, aN: [1.2, 0.84 + 0.02 * b, 0], hy: 0.2 * b, fire: u, eye: ph > 0.74 && ph < 0.8 ? 1 : 0 }; },
+    pose: (ph) => { const b = Math.sin(ph * TAU), u = 0.5 + 0.5 * b; return { ...GUARD, rise: 0.5 * u, drop: 1.0 + 0.4 * (1 - u), wrist: 0.2 + 0.05 * b, aN: [1.2, 0.84 + 0.02 * b, 0], hy: 0.2 * b, fire: u, eye: ph > 0.74 && ph < 0.8 ? 1 : 0 }; },
   },
   // a slow, regal march: the sword held up before him, a little sway to the cape
   walk: {
     n: 8, ms: 1200, loop: true, lag: 0.09,
-    pose: (ph) => { const w = march(ph), a = Math.cos(ph * TAU); return { ...GUARD, ...w, drop: w.drop + 0.8, hx: 0.9, hy: 0.3 * a, aN: [1.2 + 0.05 * a, 0.84, 0], sword: 0.28 + 0.06 * a, fire: 0.5 + 0.5 * Math.sin(ph * TAU) }; },
+    pose: (ph) => { const w = march(ph), a = Math.cos(ph * TAU); return { ...GUARD, ...w, drop: w.drop + 0.8, hx: 0.9, hy: 0.3 * a, aN: [1.2 + 0.05 * a, 0.84, 0], wrist: 0.2 + 0.1 * a, fire: 0.5 + 0.5 * Math.sin(ph * TAU) }; },
   },
-  // the blow: the sword heaved up behind the crown, a held beat, a step in, one great cut down through the foe
+  // the blow, both hands on the grip: up the front, the forearm cocked beside the back of the crown with the blade
+  // lying back behind it, a held beat, a step in, one great cut down through the foe
   attack: {
     n: 14, ms: 1000, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
-      { t: 0.3, e: "out", p: { ...GUARD, rx: -2.4, drop: 1.8, lean: -0.1, hx: -0.4, hy: -0.4, aN: [2.8, 0.9, 0], aF: [2.8, 0.9, 0], sword: -0.55, fN: [-3.4, 0], fF: [3.4, 0], fire: 1 } },
-      { t: 0.42, e: "io", p: { ...GUARD, rx: -3, drop: 2, lean: -0.16, hx: -0.6, hy: -0.5, aN: [2.95, 0.92, 0], aF: [2.95, 0.92, 0], sword: -0.85, fire: 1, eye: 1 } },
-      { t: 0.54, e: "in3", p: { ...GUARD, rx: 3.6, drop: 2.6, lean: 0.5, hx: 2.2, hy: 0.8, aN: [1.5, 1, 0], aF: [1.5, 1, 0], sword: 1.9, fF: [7.6, 0], snarl: 1, eye: 1, fire: 1 } },
-      { t: 0.64, e: "out", p: { ...GUARD, rx: 4.2, drop: 2.8, lean: 0.58, hx: 2.6, hy: 1, aN: [1.3, 1, 0], aF: [1.3, 1, 0], sword: 2.25, fF: [8, 0], snarl: 1, eye: 1, fire: 1 } },
-      { t: 0.84, e: "io", p: { ...GUARD, rx: 1.2, drop: 1.0, lean: 0.24, aN: [1.1, 0.9, 0], sword: 1.3, fire: 0.7 } },
+      { t: 0.18, e: "out", p: { ...GUARD, rx: -1, drop: 1.4, lean: 0.0, twist: -0.3, aN: [1.6, 0.84, 0], aF: [1.6, 0.84, 0], wrist: 0.35, fire: 1 } },
+      { t: 0.32, e: "out", p: { ...GUARD, rx: -2.4, drop: 1.8, lean: -0.12, twist: -0.7, hx: 0.5, hy: -0.3, aN: [3.4, 0.95, 0], aF: [3.4, 0.95, 0], wrist: 0.35, fN: [-3.4, 0], fF: [3.4, 0], fire: 1 } },
+      { t: 0.42, e: "io", p: { ...GUARD, rx: -3, drop: 2, lean: -0.16, twist: -0.8, hx: 0.6, hy: -0.3, aN: [3.5, 0.95, 0], aF: [3.5, 0.95, 0], wrist: 0.35, fire: 1, eye: 1 } },
+      { t: 0.48, e: "out", p: { ...GUARD, rx: 0.4, drop: 2.2, lean: 0.14, twist: 0.1, hx: 0.9, aN: [1.9, 0.95, 0], aF: [1.9, 0.95, 0], wrist: 0.2, fF: [4, 0], fire: 1, eye: 1 } },
+      { t: 0.54, e: "in3", p: { ...GUARD, rx: 3.6, drop: 2.6, lean: 0.5, twist: 0.7, hx: 2.2, hy: 0.8, aN: [0.8, 1, 0], aF: [0.8, 1, 0], wrist: 0.35, fF: [7.6, 0], snarl: 1, eye: 1, fire: 1 } },
+      { t: 0.64, e: "out", p: { ...GUARD, rx: 4.2, drop: 2.8, lean: 0.58, twist: 0.8, hx: 2.6, hy: 1, aN: [0.5, 1, 0], aF: [0.5, 1, 0], wrist: 0.1, fF: [8, 0], snarl: 1, eye: 1, fire: 1 } },
+      { t: 0.84, e: "io", p: { ...GUARD, rx: 1.2, drop: 1.0, lean: 0.24, aN: [0.8, 0.9, 0], wrist: 0.1, fire: 0.7 } },
       { t: 1, e: "out", p: GUARD },
     ], ph),
   },
@@ -226,6 +238,6 @@ CLIPS.toll = {
   n: 8, ms: 1200, loop: true, lag: 0.09,
   pose: (ph) => {
     const w = march(ph), a = Math.cos(ph * TAU), sg = Math.sin(ph * TAU * 2);
-    return { ...GUARD, ...w, drop: w.drop + 0.8, hx: 0.9, hy: -0.5, aN: [2.55 + 0.05 * sg, 0.9, 0], aF: [2.55, 0.9, 0], sword: 0.02 + 0.07 * sg, eye: 1, fire: 1, toll: 1, tollR: (ph * 2) % 1 };
+    return { ...GUARD, ...w, drop: w.drop + 0.8, hx: 0.9, hy: -0.5, aN: [1.9 + 0.05 * sg, 0.9, 0], aF: [1.9, 0.9, 0], wrist: 0.2 + 0.15 * sg, eye: 1, fire: 1, toll: 1, tollR: (ph * 2) % 1 };
   },
 };
