@@ -16,6 +16,7 @@
 // No dependencies: the lab page and the published concept sheet share it.
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const smooth = (x) => { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
 
 // ---- colour: OKLab ramps -------------------------------------------------------
 export const hex2rgb = (h) => { h = h.replace("#", ""); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; };
@@ -66,6 +67,49 @@ export const flat = (base, o = {}) => {
   return MATS.length - 1;
 };
 
+// two materials of one creature (the same colour family: hide and its shag, a leg's skin and the
+// barrel's): the audit's guess at "one body", since a figure that has not welded says nothing
+const FAM = new Map();
+export const sameFamily = (a, b) => {
+  if (a === b) return true;
+  const key = a < b ? a * 65536 + b : b * 65536 + a;
+  let v = FAM.get(key);
+  if (v === undefined) {
+    const A = MATS[a], B = MATS[b];
+    if (A.flat || B.flat || A.emis || B.emis) v = false;
+    else { const la = rgb2lab(hex2rgb(A.base)), lb = rgb2lab(hex2rgb(B.base)); v = Math.hypot(la[0] - lb[0], la[1] - lb[1], la[2] - lb[2]) < 0.17; }
+    FAM.set(key, v);
+  }
+  return v;
+};
+
+// ---- named depth layers --------------------------------------------------------
+// Replaces bare z numbers and `p.over > 0.5 ? 8.6 : 7` flips. `names` runs back to front; each
+// gets z0 + index * step. `rules` are plain data that reorder them for a pose:
+//   { when: (pose, aim) => bool, put: "string", above: "head" }     (or below: "face")
+// applied in the order written. Returns (pose, aim) => { name: z, ... }. A part that must cross
+// another smoothly (an arm that goes from behind the chest to in front of it) takes `zb`.
+//   const Z = layers(["farArm", "bowFar", "torso", "head", "bowNear", "nearArm", "string"], [
+//     { when: (p, aim) => aim < -15, put: "bowNear", above: "head" } ])(p, aim);
+//   px.capsule(..., Z.nearArm);
+export const layers = (names, rules = [], o = {}) => {
+  const z0 = o.z0 ?? 1, step = o.step ?? 1;
+  return (pose = {}, aim = 0) => {
+    const order = names.slice();
+    for (const r of rules) {
+      if (!r.when(pose, aim)) continue;
+      const from = order.indexOf(r.put); if (from < 0) continue;
+      order.splice(from, 1);
+      const ref = r.above ?? r.below, at = order.indexOf(ref);
+      if (at < 0) { order.splice(from, 0, r.put); continue; }
+      order.splice(r.above !== undefined ? at + 1 : at, 0, r.put);
+    }
+    const Z = {};
+    order.forEach((n, i) => { Z[n] = z0 + i * step; });
+    return Z;
+  };
+};
+
 // ---- the buffers ---------------------------------------------------------------
 const F_EDGE = 1, F_NOLINE = 2;
 const TH = [0.06, 0.5, 0.86];          // light value -> tones 1 | 2 | 3 | 4
@@ -81,21 +125,57 @@ export class Pix {
     this.fix = new Int8Array(n).fill(-1);
     this.pid = new Int16Array(n); this.cast = new Uint8Array(n); this.flag = new Uint8Array(n);
     this.floor = new Uint8Array(n);
-    this._pid = 0;
+    this._pid = 0; this._body = 0; this._tag = 0; this.tg = null; this.tagNames = null;
   }
   // start a new part: shapes of one part never shadow or line each other
   part() { this._pid++; return this; }
-  _put(i, j, m, z, nx, ny, nz, o) {
+  // ONE BODY (the joint kit; off until a figure asks): every shape drawn between body(id) and
+  // body(0) shares one part id, so none casts a shadow or an edge on another. Returns that id,
+  // for tone() / toneLine(). A shape drawn with { weld: px } also blends its normal and tone
+  // into the same-body pixel beneath it over that many px from its rim, so a limb grows out of
+  // the barrel instead of lying on it. { weldRoot: px } on a capsule / limb fades the weld in
+  // over that far from the start of the limb (its root takes the body's own shading).
+  body(id) { this._body = id ? 20000 + (id | 0) : 0; return this._body || this._pid; }
+  // label every pixel written from here on (audit only; tag(null) stops)
+  tag(name) {
+    if (!this.tg) { this.tg = new Int16Array(this.w * this.h); this.tagNames = [""]; }
+    let ix = 0;
+    if (name) { ix = this.tagNames.indexOf(name); if (ix < 0) { this.tagNames.push(name); ix = this.tagNames.length - 1; } }
+    this._tag = ix; return this;
+  }
+  // dep: how far inside the shape's rim this pixel lies; alo: 0..1 root fade of the weld
+  _put(i, j, m, z, nx, ny, nz, o, dep, alo) {
     if (i < 0 || j < 0 || i >= this.w || j >= this.h) return;
     const k = j * this.w + i;
     if (z < this.z[k]) return;
+    const pid = this._body || this._pid;
+    // wrap: a new material over what is there, keeping its normal, depth and part (fur, a bracer, a mail sleeve)
+    if (o.wrap && this.m[k] >= 0) {
+      this.m[k] = m; this.bias[k] += o.bias || 0;
+      if (o.floor) this.floor[k] = o.floor;
+      if (o.fix !== undefined) this.fix[k] = o.fix;
+      if (o.noLine) this.flag[k] |= F_NOLINE;
+      if (this.tg) this.tg[k] = this._tag;
+      return;
+    }
+    let bias = o.bias || 0;
+    if (o.weld && dep !== undefined && this.pid[k] === pid && this.m[k] >= 0) {
+      let s = clamp(dep / o.weld, 0, 1); s = s * s * (3 - 2 * s);
+      if (alo !== undefined) s *= alo;
+      nx = this.nx[k] + (nx - this.nx[k]) * s; ny = this.ny[k] + (ny - this.ny[k]) * s; nz = this.nz[k] + (nz - this.nz[k]) * s;
+      const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+      bias = this.bias[k] + (bias - this.bias[k]) * s;
+    }
     this.m[k] = m; this.z[k] = z; this.nx[k] = nx; this.ny[k] = ny; this.nz[k] = nz;
-    this.bias[k] = o.bias || 0; this.vb[k] = o.vb || 0; this.fix[k] = o.fix ?? -1;
-    this.pid[k] = this._pid; this.cast[k] = o.cast ?? 1;
+    this.bias[k] = bias; this.vb[k] = o.vb || 0; this.fix[k] = o.fix ?? -1;
+    this.pid[k] = pid; this.cast[k] = o.cast ?? 1;
+    if (this.tg) this.tg[k] = this._tag;
     this.floor[k] = o.floor || 0;      // the darkest tone shadows may push this pixel to (dark cloth: floor 1, or a shadow reads as a hole)
     this.flag[k] = (o.edge ? F_EDGE : 0) | (o.noLine ? F_NOLINE : 0);
   }
   // a limb: a capsule from a (radius ra) to b (radius rb), round in section
+  //   o.zb: the depth at b (z runs from a to b along the part: an arm that leaves the shoulder
+  //   behind the chest and reaches the hand in front);  o.weld / o.weldRoot: see body()
   capsule(ax, ay, ra, bx, by, rb, m, z, o = {}) {
     const R = Math.max(ra, rb) + 1, x0 = Math.floor(Math.min(ax, bx) - R + this.ox), x1 = Math.ceil(Math.max(ax, bx) + R + this.ox);
     const y0 = Math.floor(Math.min(ay, by) - R + this.oy), y1 = Math.ceil(Math.max(ay, by) + R + this.oy);
@@ -107,7 +187,34 @@ export class Pix {
       const vx = px - cx, vy = py - cy, d = Math.hypot(vx, vy);
       if (d > r) continue;
       const nx = (vx / r) * rnd, ny = (vy / r) * rnd;
-      this._put(i, j, m, z, nx, ny, Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny)), o);
+      this._put(i, j, m, o.zb === undefined ? z : z + (o.zb - z) * t, nx, ny, Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny)), o, r - d, o.weldRoot ? smooth(t * Math.sqrt(len2) / o.weldRoot) : undefined);
+    }
+    return this;
+  }
+  // A LIMB: one chain of capsules as ONE tube. pts [[x, y], ...], radii a number or one per point
+  // (so a joint has one radius, not two that disagree). Every pixel is lit by the nearest point
+  // on the chain, so the light band runs on past the elbow or knee. o.zb: the depth at the last
+  // point;  o.weld / o.weldRoot as capsule (weldRoot fades the weld in from the first point).
+  limb(pts, radii, m, z, o = {}) {
+    const n = pts.length - 1, rs = Array.isArray(radii) ? radii : pts.map(() => radii), rnd = o.round ?? 1;
+    const cum = [0], len2 = [];
+    for (let s = 0; s < n; s++) { const dx = pts[s + 1][0] - pts[s][0], dy = pts[s + 1][1] - pts[s][1]; len2.push(dx * dx + dy * dy || 1e-6); cum.push(cum[s] + Math.sqrt(len2[s])); }
+    const total = cum[n] || 1;
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, R = 0;
+    for (let s = 0; s <= n; s++) { x0 = Math.min(x0, pts[s][0]); x1 = Math.max(x1, pts[s][0]); y0 = Math.min(y0, pts[s][1]); y1 = Math.max(y1, pts[s][1]); R = Math.max(R, rs[s]); }
+    R += 1;
+    for (let j = Math.floor(y0 - R + this.oy); j <= Math.ceil(y1 + R + this.oy); j++) for (let i = Math.floor(x0 - R + this.ox); i <= Math.ceil(x1 + R + this.ox); i++) {
+      const px = i + 0.5 - this.ox, py = j + 0.5 - this.oy;
+      let best = 1e9, bt = 0, bs = -1, bvx = 0, bvy = 0, bd = 0, br = 1;
+      for (let s = 0; s < n; s++) {
+        const a = pts[s], dx = pts[s + 1][0] - a[0], dy = pts[s + 1][1] - a[1];
+        const t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / len2[s], 0, 1);
+        const vx = px - (a[0] + dx * t), vy = py - (a[1] + dy * t), d = Math.hypot(vx, vy), r = rs[s] + (rs[s + 1] - rs[s]) * t;
+        if (d - r < best) { best = d - r; bt = t; bs = s; bvx = vx; bvy = vy; bd = d; br = r; }
+      }
+      if (bs < 0 || best > 0) continue;
+      const nx = (bvx / br) * rnd, ny = (bvy / br) * rnd, arc = cum[bs] + bt * Math.sqrt(len2[bs]);
+      this._put(i, j, m, o.zb === undefined ? z : z + (o.zb - z) * (arc / total), nx, ny, Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny)), o, br - bd, o.weldRoot ? smooth(arc / o.weldRoot) : undefined);
     }
     return this;
   }
@@ -119,12 +226,13 @@ export class Pix {
       const u = (px * cs + py * sn) / rx, v = (-px * sn + py * cs) / ry;
       if (u * u + v * v > 1) continue;
       const nx = (u * cs - v * sn) * rnd, ny = (u * sn + v * cs) * rnd;
-      this._put(i, j, m, z, nx, ny, Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny)), o);
+      this._put(i, j, m, z, nx, ny, Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny)), o, o.weld ? (1 - Math.sqrt(u * u + v * v)) * Math.min(rx, ry) : undefined);
     }
     return this;
   }
   // a polygon. o.round: bulge it like a cylinder across each row (0..1);
-  // o.n: one flat normal for the whole face; o.ny: a tilt up (-) or down (+)
+  // o.n: one flat normal for the whole face; o.ny: a tilt up (-) or down (+);
+  // o.zOf(x, y): the depth at each point (a wing that runs from behind the rider at its root to in front at its tip)
   poly(pts, m, z, o = {}) {
     let y0 = 1e9, y1 = -1e9;
     for (const p of pts) { y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
@@ -144,7 +252,7 @@ export class Pix {
           let nx, ny, nz;
           if (n) [nx, ny, nz] = n;
           else { nx = clamp(((px - mid) / half) * rnd, -0.98, 0.98); ny = tilt; nz = Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny)); }
-          this._put(i, j, m, z, nx, ny, nz, o);
+          this._put(i, j, m, o.zOf ? o.zOf(px, py) : z, nx, ny, nz, o, o.weld ? Math.min(px - xs[s], xs[s + 1] - px) : undefined);
         }
       }
     }
@@ -210,8 +318,10 @@ export class Pix {
   // o.flip   light from the upper RIGHT (bake this for a sprite drawn mirrored)
   // o.line   "tint" (1px, local dark, lighter sunward) | "ink" (1px ink) | "ink2" (the old 2px ring) | "none"
   // o.lights [{ x, y, r, col: "#hex", k }] extra lights laid over the frame
+  // o.stats  { cast: 0, edge: 0 } counts the shadows and edges that fell between two parts of one
+  //          creature (like materials); o.keepLv keeps the tones in px._lv. For scripts/pix-audit.mjs.
   resolve(o = {}) {
-    const { w, h } = this, n = w * h, f = o.flip ? -1 : 1, mode = o.line || "tint";
+    const { w, h } = this, n = w * h, f = o.flip ? -1 : 1, mode = o.line || "tint", st = o.stats || null;
     const L = [-0.6 * f, -0.62, 0.5], ll = Math.hypot(...L); L[0] /= ll; L[1] /= ll; L[2] /= ll;
     const out = new Uint8ClampedArray(n * 4), lv = new Int8Array(n);
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
@@ -227,11 +337,11 @@ export class Pix {
           const qi = i - f * s, qj = j - s;
           if (qi < 0 || qi >= w || qj < 0) break;
           const q = qj * w + qi;
-          if (this.m[q] >= 0 && this.pid[q] !== this.pid[k] && this.z[q] > this.z[k] + 0.2 && this.cast[q] >= s) { t -= 1; break; }
+          if (this.m[q] >= 0 && this.pid[q] !== this.pid[k] && this.z[q] > this.z[k] + 0.2 && this.cast[q] >= s) { t -= 1; if (st && sameFamily(this.m[q], m)) st.cast++; break; }
         }
         // a part that asks for an edge darkens whatever it lies on, all round
         const nb = [k - 1, k + 1, k - w, k + w];
-        for (const q of nb) if (q >= 0 && q < n && this.m[q] >= 0 && (this.flag[q] & F_EDGE) && this.pid[q] !== this.pid[k] && this.z[q] > this.z[k] + 0.2) { t -= 1; break; }
+        for (const q of nb) if (q >= 0 && q < n && this.m[q] >= 0 && (this.flag[q] & F_EDGE) && this.pid[q] !== this.pid[k] && this.z[q] > this.z[k] + 0.2) { t -= 1; if (st && sameFamily(this.m[q], m)) st.edge++; break; }
       }
       lv[k] = clamp(t, this.fix[k] >= 0 ? 0 : this.floor[k], 4);
       const c = MATS[m].c[lv[k]];
@@ -265,6 +375,7 @@ export class Pix {
       if (mode === "ink2") pass(solid, INK);
     }
     this._ring = ring;
+    if (st || o.keepLv) this._lv = lv;       // the tone each pixel resolved to (the audit reads it)
     // extra lights: each is an overlay (lightLayer) laid over the frame
     for (const lt of o.lights || []) {
       if (!lt.k) continue;

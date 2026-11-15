@@ -102,6 +102,9 @@ export const solveBeast = (pose, Q = QUAD) => {
     NF: leg(true, false, p.fNF), FF: leg(true, true, p.fFF), NH: leg(false, false, p.fNH), FH: leg(false, true, p.fFH) };
 };
 
+// a solved leg (b.NF, b.FH ...) as the points of a px.limb chain: [shoulder or hip, wrist or hock, pad joint]
+export const legChain = (l) => [l.j, l.k, l.a];
+
 // the beast now and one and two beats ago, from a frame of rig.js's frameAt
 export const beastFrames = (F, Q = QUAD) => ({ b: solveBeast(F.sk.p, Q), b1: solveBeast(F.lag1.p, Q), b2: solveBeast(F.lag2.p, Q) });
 

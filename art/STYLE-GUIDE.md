@@ -1515,6 +1515,44 @@ a pix figure now, drawn through `pix/crews.js` (see "Tower crews" below).
   material table); a `requestAnimationFrame` clock can start slightly
   negative: clamp it before picking a frame.
 
+### The joint kit: one body, welded limbs, wrapped fur, named layers (2026-11-15)
+
+Why joints looked rough: every shape was lit as its own solid, parts cast shadows and
+edges on each other, and a limb's shag or armour was a second shape with its own ramp.
+The kit fixes that. ALL of it is off until a figure asks (`scripts/pix-regress.mjs` proves
+every other figure is pixel-identical); the mammoth is the worked example.
+- **One body.** `const BID = px.body(1)` ... `px.body(0)`: every shape drawn in between
+  shares one part id, so none casts a shadow or an edge on another. Keep weapons, tusks,
+  shields and riders OUTSIDE (body(0)) so they still cast. `BID` is the id for
+  `px.toneLine(..., BID)`.
+- **Weld a limb.** `px.limb(points, radii, mat, z, { weld, weldRoot, zb, bias })`: a chain
+  (`legChain(l)` in beast.js; `armChain(sk, near)` / `legChain(sk, near)` in rig.js) drawn as
+  ONE tube, one radius per point (so a knee has one radius), lit by the nearest point of the
+  chain so the light runs on past the bend. `weld: 3-5` blends its normal and tone into the
+  same-body pixel beneath over that many px from its rim; `weldRoot: 8-12` fades that in
+  from the first point so the root takes the barrel's own shading. Silhouette, z and
+  material do not move. Far limbs: `bias: -1` on the whole chain, no weld needed. `weld`
+  also works on `capsule`, `ellipse` and `poly` (e.g. a skull `weld: 4` into the neck).
+- **Fur, bracers, sleeves.** `{ wrap: true }` lays a new material over what is there and
+  keeps its normal, depth and part (no second lit shape). Shag on a thigh is tone strokes:
+  `px.toneLine(x0, y0, x1, y1, -1, BID)`, plus a few wrapped tufts. Never a SHAG capsule.
+- **Depth along a part.** `capsule(..., { zb })` / `limb(..., { zb })` run z from the first
+  point to the last (an arm that leaves the shoulder behind the chest and arrives in front);
+  `poly(..., { zOf: (x, y) => z })` for a wing from behind the rider at its root to in front
+  at its tip.
+- **Order layers by name.** `const layer = layers(["farArm", "bowFar", "torso", "head",
+  "bowNear", "nearArm", "string"], [{ when: (pose, aim) => aim < -15, put: "bowNear", above:
+  "head" }], { z0: 1, step: 1 }); const Z = layer(pose, aim);` then `Z.nearArm`. Rules are
+  data, applied in order; no `p.over > 0.5 ? 8.6 : 7` flips. Aim-dependent rules are
+  covered by the variant string in the bake key.
+- **`px.tag("shield")`** labels every pixel written afterwards (`px.tg`, `px.tagNames`),
+  for the audit's layer rules; free when unused.
+- **Check.** `node scripts/pix-audit.mjs [only=troll] [by=rel]` ranks figures by seam score
+  (neighbouring same-colour-family pixels 2+ tones apart + shadows and edges between parts
+  of one creature; worst first); lower after your pass, never higher. `node
+  scripts/pix-regress.mjs hash out=a.json root=<HEAD copy>` then the same on the repo and
+  `diff a.json b.json`: only the figures you meant to change may differ.
+
 ## The new halls: buildings in the pixel sculptor (2026-11-14)
 
 The owner asked for the tower BUILDINGS to match the new figures, saw three

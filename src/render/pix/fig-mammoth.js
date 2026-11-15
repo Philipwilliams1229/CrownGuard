@@ -14,7 +14,7 @@
 // hauled up, forefeet down in a burst of ice as the axe comes down, the tusk sweep).
 import { mat, flat } from "./pix.js";
 import { HUMAN, sampleKeys, ik } from "./rig.js";
-import { QUAD, beastFrames, tailPts, walkGait } from "./beast.js";
+import { QUAD, beastFrames, tailPts, walkGait, legChain } from "./beast.js";
 
 // the mammoth
 const HIDE = mat("#6e5442", { contrast: 1.1 }), SHAG = mat("#3e2e24", { contrast: 1.15 }), RIMEHAIR = mat("#e8eef0"), TUSK = mat("#ece2c6", { contrast: 1.2 });
@@ -67,16 +67,15 @@ const trunkPts = (root, a0, curl, len, n = 9) => {
   return pts;
 };
 
-const leg = (px, l, z, bias, near) => {
-  const { j, k, a } = l, o = { bias, cast: 1 };
-  px.part();
-  // the pillar: a thick thigh, the knee, the shin and a broad pad; shaggy hair down the front
-  cap(px, j, k, 9.6, 8, HIDE, z, o);
-  cap(px, k, a, 8, 6.6, HIDE, z, o);
-  const hair = mix(j, k, 0.35);
-  cap(px, hair, mix(j, k, 0.9), 9.8, 8.4, SHAG, z + 0.02, { bias: bias - 0.5, cast: 0, floor: 1 });
-  for (const t of [0.15, 0.5]) { const m = mix(k, a, t); px.dot(m[0] - 5, m[1] + 1, SHAG, z + 0.03, { noLine: true }); px.dot(m[0] + 4, m[1] + 2, SHAG, z + 0.03, { noLine: true }); }
-  px.part();
+// A leg is ONE welded limb of the mammoth's one body (pix.js body / limb): a single tube from the
+// shoulder or hip to the pad, one radius at the knee, its root fading into the barrel's own shading
+// (near legs; a far leg is covered by the barrel anyway). The thigh's shag is tone strokes down
+// the hide and a few wrapped tufts, never a second lit shape. Far legs stay a tone down, whole.
+const leg = (px, l, z, bias, near, BID) => {
+  const { j, k, a } = l;
+  px.limb(legChain(l), [9.6, 8, 6.6], HIDE, z, { bias, cast: 1, weld: near ? 5 : 0, weldRoot: near ? 11 : 0 });
+  for (const [t0, t1, dx] of [[0.2, 0.7, -5], [0.3, 0.95, -1.5], [0.25, 0.85, 2.5], [0.4, 1.0, 5.5]]) { const q0 = mix(j, k, t0), q1 = mix(j, k, t1); px.toneLine(q0[0] + dx, q0[1], q1[0] + dx, q1[1], -1, BID); }
+  for (const t of [0.15, 0.5]) { const m = mix(k, a, t); px.dot(m[0] - 5, m[1] + 1, SHAG, z + 0.03, { noLine: true, wrap: true }); px.dot(m[0] + 4, m[1] + 2, SHAG, z + 0.03, { noLine: true, wrap: true }); }
   const up = cl(l.lift / 4, 0, 1);
   px.ellipse(a[0] + 0.6, a[1] + 0.2 - up * 0.6, 8.4, 3.6, PADM, z + 0.04, { bias, floor: 1, rot: up * 0.2 });
   for (const dx of [-3.8, -0.4, 3.2]) px.dot(a[0] + dx + 2, a[1] - 0.4 + up * 0.2, TOENAIL, z + 0.06, { fix: near ? 3 : 2, noLine: true });
@@ -97,9 +96,10 @@ export const draw = (px, F) => {
   const p = b.p, g = p.glow || 0, hot = g > 0.6;
   const wx = cl(b.W[0] - b1.W[0], -3, 3), wy = cl(b.W[1] - b1.W[1], -2, 2);
 
-  // ---- the mammoth ----
-  leg(px, b.FH, 1, -1, false);
-  leg(px, b.FF, 1.2, -1, false);
+  // ---- the mammoth: one body, so no part shadows or edges another ----
+  const BID = px.body(1);
+  leg(px, b.FH, 1, -1, false, BID);
+  leg(px, b.FF, 1.2, -1, false, BID);
 
   // the long tail, a tuft at its end
   const t = tailPts(b, b1, b2);
@@ -110,7 +110,7 @@ export const draw = (px, F) => {
 
   // the body: the barrel, the hump over the shoulders, the sloping rump
   const hu = b.at(0.26, 0, 0), ru = b.at(-0.38, 0, 5), ba = b.at(-0.1, 0, 8), fr = b.at(0.34, 0, 10);
-  px.part(); const bodyId = px._pid;
+  const bodyId = BID;
   px.ellipse(ru[0], ru[1], 17, 18, HIDE, 4);
   cap(px, hu, ba, 22, 21, HIDE, 4);
   px.ellipse(hu[0], hu[1] - 1, 21, 19.5, HIDE, 4, { rot: b.ang(0.26) - 0.1 });
@@ -139,8 +139,8 @@ export const draw = (px, F) => {
   const nk0 = b.at(0.46, 0, 0);
   cap(px, nk0, hc, 17, 14, HIDE, 4.2);
   px.part(); const hid = px._pid;
-  px.ellipse(hc[0], hc[1], 14.5, 17.5, HIDE, 6, { rot: 0.18 });
-  px.ellipse(hc[0] + 6, hc[1] + 7, 8.5, 9, HIDE, 6.1);                          // the face, down to the trunk's root
+  px.ellipse(hc[0], hc[1], 14.5, 17.5, HIDE, 6, { rot: 0.18, weld: 4 });
+  px.ellipse(hc[0] + 6, hc[1] + 7, 8.5, 9, HIDE, 6.1, { weld: 3 });                          // the face, down to the trunk's root
   px.ellipse(hc[0] - 2, hc[1] - 14, 6, 3, HIDE, 6.2, { bias: 1, cast: 0 });  // the crown of the dome
   for (const [dx, dy] of [[-6, -15], [-2, -17], [3, -16.5], [-9, -11], [6, -14]]) px.dot(hc[0] + dx, hc[1] + dy, RIMEHAIR, 6.3, { fix: 3 });
   // the throat hair
@@ -162,18 +162,20 @@ export const draw = (px, F) => {
     const o = [root[0] - 5 + dx, root[1] - 2];
     const pts = [o, [o[0] + 8, o[1] + 8 - tp * 2], [o[0] + 19, o[1] + 11 - tp * 5], [o[0] + 28, o[1] + 6 - tp * 8], [o[0] + 33, o[1] - 5 - tp * 9], [o[0] + 33.5, o[1] - 13 - tp * 8]];
     const w = [4.4, 4, 3.4, 2.6, 1.6, 0.7];
-    px.part();
+    px.body(0); px.part();
     for (let i = 0; i + 1 < pts.length; i++) cap(px, pts[i], pts[i + 1], w[i], w[i + 1], m, z, { bias, cast: 1 });
+    px.body(1);
     return pts;
   };
   tusk(-2.4, 0, 5.4, TUSK, -1);
   const tr = trunkPts(root, p.tA ?? 1.45, p.tC ?? 0.1, p.tL ?? 42);
-  px.part(); const trId = px._pid;
-  tr.forEach((q, i) => { if (i) cap(px, tr[i - 1], q, 6.4 - (i - 1) * 0.5, 6.4 - i * 0.5, HIDE, 6.6, { cast: 1 }); });
+  const trId = BID;
+  px.limb(tr, tr.map((q, i) => 6.4 - i * 0.5), HIDE, 6.6, { weld: 4, weldRoot: 7 });
   for (let i = 2; i < tr.length - 1; i += 2) { const q = tr[i]; px.toneLine(q[0] - 4, q[1] - 1, q[0] + 4, q[1] + 1, -1, trId); }
   px.dot(tr[tr.length - 1][0], tr[tr.length - 1][1] + 0.5, SHAG, 6.7, { floor: 1 });
   const tusks = tusk(0, 0, 6.8, TUSK, 0);
   band(px, tusks, 1, 3.6, 7); band(px, tusks, 2, 3.2, 7);
+  px.body(0);
 
   // ---- the saddle cloth, the howdah, the shields, the banner ----
   const cA = b.at(-0.42, 0, -12), cB = b.at(0.46, 0, -12), cC = b.at(0.42, 0, 9), cD = b.at(-0.4, 0, 9);
@@ -302,8 +304,10 @@ export const draw = (px, F) => {
   });
 
   // the near legs last, in front
-  leg(px, b.NH, 12, 0, true);
-  leg(px, b.NF, 12.2, 0, true);
+  px.body(1);
+  leg(px, b.NH, 12, 0, true, BID);
+  leg(px, b.NF, 12.2, 0, true, BID);
+  px.body(0);
 
   const k = cl(g, 0, 1.4);
   return { light: k > 0.05 ? { x: hx, y: hy - 5, r: 18 + 24 * cl(k, 0, 1), col: "#9ad8f2", k: Math.min(k, 0.45) } : null, axeAt: at, head: [hx, hy], foot: b.NF.a, foot2: b.FF.a, tip: tr[tr.length - 1] };

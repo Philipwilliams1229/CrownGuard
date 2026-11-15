@@ -127,3 +127,11 @@ export const frameAt = (clip, f, B) => {
   // `at(ph)`: the skeleton at any other moment of the clip (for an effect that must know where a hand WAS)
   return { ph, sk: at(ph), lag1: at(ph - (clip.lag ?? 0.07)), lag2: at(ph - (clip.lag ?? 0.07) * 2), at };
 };
+
+// ---- limb chains for px.limb (pix.js): the solved skeleton's points, root to tip ----
+// armChain(sk, true) the near arm [shoulder, elbow, hand]; false the far one
+// legChain(sk, true) the near leg [hip, knee, ankle]
+export const armChain = (sk, near = true) => (near ? [sk.sN, sk.eN, sk.hdN] : [sk.sF, sk.eF, sk.hdF]);
+export const legChain = (sk, near = true) => (near ? [sk.hN, sk.kN, sk.anN] : [sk.hF, sk.kF, sk.anF]);
+// a radius for each point of a chain, easing from r0 at the root to r1 at the tip
+export const radii = (n, r0, r1 = r0) => Array.from({ length: n }, (_, i) => r0 + (r1 - r0) * (n > 1 ? i / (n - 1) : 0));
