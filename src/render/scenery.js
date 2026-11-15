@@ -9,16 +9,11 @@
 // unless a carpenter made it.
 
 import { rich } from "./look-c.js";
-import { prefs } from "../data/prefs.js";
 import { pixRock, pixMushroom, pixDeadTree, tintRing, baking, pixTowerBody } from "./scenery-gwpix.js";
-const PIXON = () => prefs.newSprites !== false;
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { PTS, SEGS, TOTAL_LEN, posAt, angleAt, nearestOnPath } from "../engine/path.js";
 import { FOREST, DECOR, COAST, forestDepthAt, seaDepthAt, inRiver, archAt, BRIDGE_HALF } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
-import { workTier, bowmenSpots, masonSpots } from "../data/castle.js";
-import { drawArcher, drawHalberdier, drawMason, WALL_FOLK } from "./folk.js";
-import { ballista } from "./halls/archer.js";
 import { drawCastle, drawCastleWorks, resetWorksBakes, resetCastleBakes } from "./castle.js";
 import { IRON_ART } from "./scenery-iron.js";
 import { gateCrag, hasCrag, vnoise, sstep } from "../data/gatecrag.js";
@@ -28,7 +23,7 @@ import { VALE_ART } from "./scenery-vale.js";
 import { RIME_ART } from "./scenery-rime.js";
 import {
   lighten, darken, mix, rgb, rgba, soft, shadow, ball, glow, roundRect, cylinder, cone,
-  blade, tuft, stone, strokePts, blobPath, blobBall, masonry, hash, ellipse, SUN, lin, rad, bakeSprite, inkOutline, PIXEL, PX, part } from "./paint.js";
+  blade, tuft, stone, strokePts, blobPath, blobBall, hash, ellipse, SUN, lin, rad, bakeSprite, inkOutline, PIXEL, PX, part } from "./paint.js";
 
 // ---- palettes ---------------------------------------------------------
 const OAK = { leaf: "#5e9f45", trunk: "#7a5334" };
@@ -313,21 +308,6 @@ const pineTree = (ctx, x, y, s, leaf, trunk, seed, caps = null) => {
   }
 };
 
-// A stone that sits ON the ground: a flat footing, shoulders and a faceted
-// crown — a lit top plane, a shaded front-right face, the base sinking into
-// its own contact shade — with moss (or snow) on the top and a crack or two.
-const roundPoly = (c, pts, k = 0.3) => {
-  const n = pts.length;
-  c.beginPath();
-  for (let i = 0; i < n; i++) {
-    const p = pts[i], a = pts[(i + n - 1) % n], b = pts[(i + 1) % n];
-    const p0 = [p[0] + (a[0] - p[0]) * k, p[1] + (a[1] - p[1]) * k];
-    const p1 = [p[0] + (b[0] - p[0]) * k, p[1] + (b[1] - p[1]) * k];
-    if (i === 0) c.moveTo(p0[0], p0[1]); else c.lineTo(p0[0], p0[1]);
-    c.quadraticCurveTo(p[0], p[1], p1[0], p1[1]);
-  }
-  c.closePath();
-};
 // A stone cut into flat facets: the intersection of a dozen planes laid
 // round an ellipsoid (some cut a little deeper, so it looks chipped), drawn
 // column by column the way the camera sees it — tops and south faces — each
@@ -511,36 +491,7 @@ const inkedStone = (buf, BW, BH, m, x, gy, w, d, h, col, seed, o) => {
     if (on(i - 1, j) || on(i + 1, j) || on(i, j - 1) || on(i, j + 1)) { buf[o2] = INK_RGB[0]; buf[o2 + 1] = INK_RGB[1]; buf[o2 + 2] = INK_RGB[2]; buf[o2 + 3] = 255; }
   }
 };
-// (kept for the kit: a stone standing on the ground at (x, gy))
-const rockBody = (ctx, x, gy, w, h, col, cap, seed) => {
-  facetStone(ctx, x, gy, w, w * 0.55, h, col, seed, { shade: true });
-  rockPiece(ctx, x, gy, w, w * 0.55, h, col, seed, { cap });
-};
 
-// Rocks come in four kinds: a shouldered boulder with a stone at its foot, a
-// low slab half sunk in the turf, a tall split stone, and a knot of three.
-// Each is a few faceted stones, their shadows laid first, then each stone
-// back to front.
-const boulder = (ctx, x, y, s, base, cap, seed, v = 0, o = {}) => {
-  const gy = y + 8;
-  const w = (9 + hash(seed, 1) * 2) * s;
-  const st = [];
-  if (v === 1) st.push([x, gy - 0.5 * s, w * 1.15, w * 0.62, 8 * s, base, seed]);
-  else if (v === 3) {
-    st.push([x - w * 0.45, gy - 1.5 * s, w * 0.62, w * 0.45, 10 * s, darken(base, 0.04), seed + 1]);
-    st.push([x + w * 0.5, gy - 0.8 * s, w * 0.55, w * 0.4, 8 * s, base, seed + 2]);
-    st.push([x - w * 0.02, gy + 1.8 * s, w * 0.46, w * 0.34, 5.5 * s, lighten(base, 0.05), seed + 3]);
-  } else if (v === 2) {
-    st.push([x - w * 0.12, gy - 0.5 * s, w * 0.7, w * 0.48, 17 * s, base, seed]);
-    st.push([x + w * 0.62, gy + 0.8 * s, w * 0.42, w * 0.32, 7 * s, darken(base, 0.06), seed + 7]);
-  } else {
-    st.push([x, gy - 0.5 * s, w, w * 0.6, 12 * s, base, seed]);
-    st.push([x + w * 0.95, gy + 1.2 * s, w * 0.4, w * 0.3, 5 * s, darken(base, 0.06), seed + 7]);
-  }
-  for (const [sx, sy, sw, sd, sh, , sd2] of st) facetStone(ctx, sx, sy, sw, sd, sh, base, sd2, { shade: true });
-  st.sort((p, q) => p[1] - q[1]);
-  for (const [sx, sy, sw, sd, sh, col, sd2] of st) rockPiece(ctx, sx, sy, sw, sd, sh, col, sd2, { cap: sh > 6 * s ? cap : null, ...o });
-};
 
 // Low things tucked round a piece's foot once it's inked: the realm's own
 // grass — the meadow's pixel clumps (groundblend.js), singed stalks on ash,
@@ -648,52 +599,6 @@ const limbFill = (c, pts, w0, w1, col) => {
 };
 const limb = (ctx, pts, w0, w1, col, box) => leafPart(ctx, (c) => limbFill(c, pts, w0, w1, col), INK, box, null);
 
-// A dead tree: a flared, leaning trunk snapped off at the top, a few crooked
-// limbs forking into twigs. Where the country burns, the wood is charred
-// black and a seam or two still glows.
-const deadTree = (ctx, x, y, s, seed = 1) => {
-  const H = (i) => hash(seed, i);
-  const base = y + 10;
-  const burnt = REALM.ambient === "embers";
-  const col = burnt ? "#3e3432" : "#6e5a4a";
-  shadow(ctx, x + 6 * s, base - 1, 10 * s, 3.2 * s, 0.26);
-  shadow(ctx, x + 1.5 * s, base, 5 * s, 1.8 * s, 0.3);
-  const lean = (H(1) - 0.5) * 5 * s, tall = (30 + H(2) * 8) * s;
-  const tp = (k) => [x + lean * k * k + Math.sin(k * 5 + seed) * 1.2 * s, base - tall * k];
-  const box = [x - 24 * s, base - tall - 12 * s, x + 24 * s, base + 3];
-  // the whole tree is one piece, so its limbs grow out of it without seams
-  leafPart(ctx, (c) => {
-    limbFill(c, [[x - 1, base - 3 * s], [x - 4 * s, base - 0.5 * s], [x - 6.5 * s, base + 0.5]], 1.6 * s, 0.5 * s, col);
-    limbFill(c, [[x + 1, base - 3 * s], [x + 4.5 * s, base - 0.5 * s], [x + 7 * s, base + 0.5]], 1.5 * s, 0.5 * s, col);
-    const trunk = [];
-    for (let k = 0; k <= 6; k++) trunk.push(tp(k / 6));
-    // limbs: out and up, each with a twig forking off
-    const nL = 3 + Math.floor(H(3) * 2);
-    for (let i = 0; i < nL; i++) {
-      const k = 0.42 + (i / nL) * 0.5 + (H(i + 10) - 0.5) * 0.08;
-      const side = i % 2 ? 1 : -1;
-      const [sx, sy] = tp(k);
-      const len = (9 + H(i + 20) * 7) * s * (1.1 - k * 0.4), rise = (5 + H(i + 30) * 7) * s;
-      const ex = sx + side * len, ey = sy - rise;
-      const mx2 = sx + side * len * 0.5, my2 = sy - rise * 0.25 + (H(i + 40) - 0.5) * 3 * s;
-      limbFill(c, [[sx, sy], [mx2, my2], [ex, ey]], 1.05 * s, 0.35 * s, col);
-      const tx2 = mx2 + side * len * 0.2, ty2 = my2 - rise * 0.9;
-      limbFill(c, [[mx2, my2], [(mx2 + tx2) / 2 + side * 0.5 * s, (my2 + ty2) / 2], [tx2, ty2]], 0.6 * s, 0.25 * s, col);
-      limbFill(c, [[ex, ey], [ex + side * 2.5 * s, ey - 3.5 * s]], 0.4 * s, 0.25 * s, col);
-    }
-    limbFill(c, trunk, 2.8 * s, 1.2 * s, col);
-  }, INK, box, null);
-  // the snapped top: a pale splinter of bare wood
-  const [kx, ky] = tp(1);
-  ctx.fillStyle = burnt ? "#6a5a52" : "#c8b08a";
-  ctx.fillRect(ap(kx - 0.5), ap(ky - 1), 1, 1); ctx.fillRect(ap(kx), ap(ky - 2), 0.5, 1);
-  // bark: a few dark seams down the trunk; embers in the burnt wood
-  for (let i = 0; i < 4; i++) {
-    const [bx, by] = tp(0.12 + H(i + 60) * 0.7);
-    ctx.fillStyle = darken(col, 0.45); ctx.fillRect(ap(bx + (H(i + 70) - 0.3) * 2 * s), ap(by), 0.5, 1.5 + H(i + 80) * 2);
-    if (burnt && H(i + 90) < 0.5) { ctx.fillStyle = H(i + 95) < 0.5 ? "#e8703a" : "#f0a04a"; ctx.fillRect(ap(bx - 0.5), ap(by + 1), 0.5, 1); }
-  }
-};
 
 // A weeping willow: a short trunk, a crown of leaf clumps, and curtains of
 // hanging strands falling nearly to the ground, lit on the sunny side.
@@ -763,38 +668,7 @@ const willow = (ctx, x, y, s, sway, seed = 1) => {
 // Their bodies bake with the rest of the decor; only a pulse, a glint or a
 // rising ember is drawn live over the stamp (LIVE_BITS below).
 
-// A toadstool ring: one big cap and two small ones, pale spots on purple.
-const CAP = "#9a56c0";
-const toadstool = (ctx, x, gy, r, h, cap, lean = 0) => {
-  part(ctx, (c) => {
-    // the stem, a little flared at the foot
-    c.beginPath();
-    c.moveTo(x - r * 0.3, gy - h); c.lineTo(x - r * 0.36 + lean, gy - 0.5); c.lineTo(x - r * 0.46, gy + 0.3); c.lineTo(x + r * 0.46, gy + 0.3); c.lineTo(x + r * 0.34 + lean, gy - 0.5); c.lineTo(x + r * 0.3, gy - h); c.closePath();
-    c.fillStyle = lin(c, x - r * 0.4, 0, x + r * 0.4, 0, [[0, "#f0e8d4"], [0.5, "#d8cfb8"], [1, "#a89a88"]]);
-    c.fill();
-  });
-  part(ctx, (c) => {
-    const cy = gy - h;
-    // gills under the rim, then the dome
-    c.beginPath(); c.ellipse(x, cy, r, r * 0.34, 0, 0, Math.PI * 2); c.fillStyle = darken(cap, 0.5); c.fill();
-    c.beginPath(); c.ellipse(x, cy - 0.3, r, r * 0.72, 0, Math.PI, Math.PI * 2); c.lineTo(x + r, cy - 0.3);
-    c.ellipse(x, cy - 0.3, r, r * 0.22, 0, 0, Math.PI); c.closePath();
-    c.fillStyle = lin(c, x - r * 0.7, cy - r * 0.8, x + r * 0.8, cy + r * 0.2, [[0, lighten(cap, 0.38)], [0.45, cap], [1, darken(cap, 0.38)]]);
-    c.fill();
-    // a lit arc on the upper left
-    c.fillStyle = lighten(cap, 0.58);
-    for (let a = 3.5; a < 4.4; a += 0.18) c.fillRect(ap(x + Math.cos(a) * r * 0.62), ap(cy - 0.3 + Math.sin(a) * r * 0.5), 0.5, 0.5);
-  });
-};
 const mushSpots = (x, gy, s) => [[-4, -12.5, 1.5], [1.5, -14, 1.5], [4.5, -11.5, 1], [-1, -11, 1]].map(([dx, dy, r]) => [x + dx * s, gy + dy * s, r * s]);
-const mushroom = (ctx, x, y, s) => {
-  const gy = y + 9;
-  shadow(ctx, x + 4 * s, gy, 10 * s, 2.6 * s, 0.24);
-  toadstool(ctx, x - 7 * s, gy + 0.5, 3 * s, 3.5 * s, darken(CAP, 0.08), -0.3);
-  toadstool(ctx, x, gy - 0.5, 8 * s, 9 * s, CAP, 0.4);
-  toadstool(ctx, x + 7 * s, gy + 1, 3.8 * s, 4.5 * s, lighten(CAP, 0.05), 0.2);
-  for (const [sx, sy, r] of mushSpots(x, gy - 0.5, s)) { ctx.fillStyle = "#eedaf6"; ctx.fillRect(ap(sx - r / 2), ap(sy - r / 3), ap(r), Math.max(0.5, ap(r * 0.6))); }
-};
 const mushroomLive = (ctx, x, y, s, time) => {
   const pulse = 0.5 + 0.5 * Math.sin(time * 1.8 + x);
   ctx.globalAlpha = 0.25 + pulse * 0.6;
@@ -999,16 +873,9 @@ const obelisk = (ctx, x, y, s, time) => {
 };
 
 const watchtower = (ctx, x, y, s, time) => {
-  const w2 = 7 * s, hh = 20 * s;
+  const hh = 20 * s;
   shadow(ctx, x + 5 * s, y + 10, 11 * s, 4 * s, 0.32);
-  if (PIXON()) pixTowerBody(ctx, x, y, s, CASTLE_STONE);
-  else {
-    masonry(ctx, x - w2, y + 8 - hh, w2 * 2, hh + 8, CASTLE_STONE, { course: 5, block: 7 });
-    for (let i = 0; i < 3; i++) {
-      const cx2 = x - w2 + i * (w2 - 1.5) + 0.5;
-      cylinder(ctx, cx2, y + 8 - hh - 5, 4.5, 6, CASTLE_STONE, { r: 1 });
-    }
-  }
+  pixTowerBody(ctx, x, y, s, CASTLE_STONE);
   const lit = Math.sin(time * 1.9 + x * 2) > -0.5;
   ctx.fillStyle = "#2a2430";
   roundRect(ctx, x - 1.6, y - 6 * s, 3.2, 9, 1.2); ctx.fill();
@@ -1092,19 +959,14 @@ const paintDecor = (ctx, d, time) => {
   switch (d.t) {
     case "pine": pineTree(ctx, x, y, s, d.forest ? WOOD_PINE[band][v % 3] : PINE_TINTS[v % 4], PINE.trunk, seed); break;
     case "snowpine": pineTree(ctx, x, y, s, SNOWPINE.leaf, SNOWPINE.trunk, seed, "#eef5f8"); break;
-    case "rock": if (PIXON()) { pixRock(ctx, x, y, s, "#a6a296", mix("#557f35", REALM.GRASS_DK, 0.35), seed, v, { lichen: "#c4c49a" }); break; }
-      boulder(ctx, x, y, s, "#a6a296", mix("#557f35", REALM.GRASS_DK, 0.35), seed, v, { lichen: "#c4c49a" }); break;
-    case "icerock": if (PIXON()) { pixRock(ctx, x, y, s, "#9fb6c6", "#eef5f8", seed, v, { snow: true }); break; }
-      boulder(ctx, x, y, s, "#9fb6c6", "#eef5f8", seed, v, { snow: true }); break;
-    case "obsidian": if (PIXON()) { pixRock(ctx, x, y, s, "#3c3448", null, seed, v, { gloss: true }); break; }
-      boulder(ctx, x, y, s, "#3c3448", null, seed, v, { gloss: true }); break;
+    case "rock": pixRock(ctx, x, y, s, "#a6a296", mix("#557f35", REALM.GRASS_DK, 0.35), seed, v, { lichen: "#c4c49a" }); break;
+    case "icerock": pixRock(ctx, x, y, s, "#9fb6c6", "#eef5f8", seed, v, { snow: true }); break;
+    case "obsidian": pixRock(ctx, x, y, s, "#3c3448", null, seed, v, { gloss: true }); break;
     case "crystal": crystal(ctx, x, y, s); break;
-    case "deadtree": if (PIXON()) { pixDeadTree(ctx, x, y, s, seed, REALM.ambient === "embers"); break; }
-      deadTree(ctx, x, y, s, seed); break;
+    case "deadtree": pixDeadTree(ctx, x, y, s, seed, REALM.ambient === "embers"); break;
     case "vent": vent(ctx, x, y, s); break;
     case "willow": willow(ctx, x, y, s, sway, seed); break;
-    case "mushroom": if (PIXON()) { pixMushroom(ctx, x, y, s, seed); break; }
-      mushroom(ctx, x, y, s); break;
+    case "mushroom": pixMushroom(ctx, x, y, s, seed); break;
     case "reeds": reeds(ctx, x, y, s, time); break;
     case "gravestone": gravestone(ctx, x, y, s, seed); break;
     case "cairn": cairn(ctx, x, y, s); break;
@@ -1114,8 +976,7 @@ const paintDecor = (ctx, d, time) => {
     case "tent": tent(ctx, x, y, s); break;
     case "banner": banner(ctx, x, y, s, time); break;
     case "tree": oakTree(ctx, x, y, s, d.forest ? WOOD_OAK[band][v % 3] : OAK_TINTS[v % 4], OAK.trunk, seed); break;
-    default: if (PIXON()) { pixRock(ctx, x, y, s, "#a6a296", "#6a9440", seed, v, { lichen: "#c4c49a" }); break; }
-      boulder(ctx, x, y, s, "#a6a296", "#6a9440", seed, v, { lichen: "#c4c49a" });
+    default: pixRock(ctx, x, y, s, "#a6a296", "#6a9440", seed, v, { lichen: "#c4c49a" });
   }
 };
 // What gets tucked in around a piece's foot once it's inked.
@@ -1143,8 +1004,8 @@ const variantOf = (d) => {
 const decorSprite = (d) => {
   const { v, band, s, sd } = variantOf(d);
   const OWNLINE = new Set(["rock", "icerock", "obsidian", "mushroom", "deadtree"]);
-  const NEWRING = prefs.newSprites !== false && !reg().flat.has(d.t) && !OWNLINE.has(d.t);
-  const key = `${d.t}|${s}|${v}|${band}|${sd}|${d.forest ? "f" : ""}|${REALM.GRASS}|${NEWRING ? "n" : "o"}`;
+  const NEWRING = !reg().flat.has(d.t) && !OWNLINE.has(d.t);
+  const key = `${d.t}|${s}|${v}|${band}|${sd}|${d.forest ? "f" : ""}|${REALM.GRASS}`;
   let sp = SPRITES.get(key);
   if (sp) return sp;
   const tall = d.t === "tree" || d.t === "pine" || d.t === "snowpine" || d.t === "deadtree" || d.t === "willow";
@@ -1154,7 +1015,7 @@ const decorSprite = (d) => {
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
     BAKE_CV = c.canvas; const was = baking(true);
     try { paintDecor(c, { ...d, x: hw, y: top, s, v, band, seed }, 0); } finally { BAKE_CV = null; baking(was); }
-  }, !reg().flat.has(d.t) && !NEWRING && !(prefs.newSprites !== false && OWNLINE.has(d.t)));
+  }, false);
   if (NEWRING) tintRing(cv);
   const dress = DRESS[d.t] || reg().dress[d.t];
   if (dress) {
@@ -1775,4 +1636,4 @@ export const warmScenery = () => {
 // Re-export the odd helper the render lab likes to borrow.
 export { tuft, drawCastle, drawCastleWorks, resetWorksBakes };
 // the shared kit, for scenery-iron.js / scenery-hollow.js
-export { leafPart, leafClump, oakTree, pineTree, rockBody, boulder, groundDress, deadTree, willow, reeds, gravestone, cairn, boneheap, obelisk, watchtower, tent, banner, eyes };
+export { leafPart, leafClump, oakTree, pineTree, groundDress, willow, reeds, gravestone, cairn, boneheap, obelisk, watchtower, tent, banner, eyes };

@@ -2,8 +2,7 @@
 // Boulders, toadstools and dead trees sculpted with the pixel sculptor
 // (src/render/pix/pix.js) like the Iron `ircrag`: one sun from the upper left,
 // a one-pixel line tinted from the stone, lit facets, a dark right face,
-// moss in the crevices. Footprints are the old pieces' own; the old painters
-// stay in scenery.js under "New sprites" off. Everything is baked once into
+// moss in the crevices. Footprints are the old pieces' own. Everything is baked once into
 // the decor sprite (scenery.js `decorSprite`).
 import { RES } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
@@ -154,8 +153,7 @@ export const pixDeadTree = (ctx, x, y, s, seed = 1, burnt = false) => {
 
 // The new style's outline for a baked decor piece: ONE art pixel, tinted from
 // the piece's own edge colour (mixed toward ink), lighter on the edges the sun
-// reaches (upper left). Replaces the 2-px near-black ring (kept under "New
-// sprites" off).
+// reaches (upper left).
 export const tintRing = (cv) => {
   const c = cv.getContext("2d");
   const w = cv.width, h = cv.height;
@@ -183,7 +181,7 @@ export const tintRing = (cv) => {
 
 // ---- a part() that inks with the tinted one-pixel line ---------------------------
 // paint.js `part` inks each piece of a baking sprite with the near-black INK_LINE;
-// the Vale's pieces use this instead while "New sprites" is on and a decor / body
+// the Vale's pieces use this while a decor / body
 // bake is running (`baking(true)`), so a piece's inner lines join the new style.
 let BAKING = false;
 export const baking = (on) => { const was = BAKING; BAKING = on; return was; };

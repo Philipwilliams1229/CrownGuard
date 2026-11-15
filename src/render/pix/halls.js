@@ -1,27 +1,23 @@
 // ============ PIX HALLS: the new buildings on the board ============
-// The pixel sculptor's halls (hall-kit.js, hall-<kind>.js) standing in for the old painters
-// (render/halls/<kind>.js), a hall at a time, the way crews.js brought in the new crews. A
-// hall file keeps its old painting and adds the new one beside it:
+// The pixel sculptor's halls (hall-kit.js, hall-<kind>.js) on the board. A hall file
+// (render/halls/<kind>.js) bakes its building here and paints only what moves:
 //
 //   import * as archerHall from "../pix/hall-archer.js";
-//   import { hallOn, hallPix, drawHallBack, drawHallFront } from "../pix/halls.js";
+//   import { hallPix, drawHallBack, drawHallFront } from "../pix/halls.js";
 //   ...
-//   const H = hallOn() ? hallPix("archer", archerHall, { level, branch, rank4 }, t.id % 3) : null;
-//   if (H) drawHallBack(ctx, H, x, y, time); else { ...the old ground, body and their live lights... }
-//   ...the crew, exactly as before (the building is built round the crew's old spots)...
-//   if (H) drawHallFront(ctx, H, x, y, time); else { ...the old front rail, the old pennant... }
+//   const H = typeof document !== "undefined" ? hallPix("archer", archerHall, { level, branch, rank4 }, t.id % 3) : null;
+//   if (H) drawHallBack(ctx, H, x, y, time);
+//   ...the crew (the building is built round the crew's spots in engine/muzzles.js)...
+//   if (H) drawHallFront(ctx, H, x, y, time);
 //
 // Units: a hall file draws in board units; a pix hall is sculpted in art pixels, two to a
 // unit, from the hall's anchor (t.x, t.y). Everything here is a stamp of something baked
 // once: the two pictures (BACK behind the crew, FRONT over their shins), the ground shadow,
 // each light's overlay, and the frames of what moves (a pennant, a flame). One form bakes in
 // a few milliseconds the first time it is drawn (three stonework variants a form, t.id % 3).
-// "New sprites" off (Settings > Display) = the old halls, untouched.
 import { prefs } from "../../data/prefs.js";
 import { toCanvas } from "./pix.js";
 import { bakeHall, groundShadow, pennantFrames, flameFrames, sparkFrames, orbFrames, bookFrames } from "./hall-kit.js";
-
-export const hallOn = () => typeof document !== "undefined" && prefs.newSprites !== false;
 
 const BAKES = new Map(), FRAMES = new Map();
 export const resetHallBakes = () => { BAKES.clear(); FRAMES.clear(); };

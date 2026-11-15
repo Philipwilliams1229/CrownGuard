@@ -157,9 +157,18 @@ next one.
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 
 "You can take out the use old sprites thing": the switch is gone from Settings' Display tab
-and `prefs.newSprites` is forced true at load (a saved false is ignored). Every old painter
-kept "under New sprites off" is now dead code, left in place for a later cleanup; notes
-below that mention the switch describe that dead path.
+and `prefs.newSprites` is forced true at load (a saved false is ignored). **The old
+painters were then deleted** (same day, `art/briefs/cleanup-old-sprites.md`): every hall's
+old building and crew, the old rig painters (rigs-horde / beasts / iron / ironmounts /
+hollow / hollowbeasts / rime / covert.js and folk-workers.js are gone; `RIGS` is built
+from `PIX` plus the kraken and its arm; rigs-crown.js keeps `CROWN_FIGHT_FRAMES` and a
+measured `stormStaffTip`), the old castle crews, title garrison, projectile shapes, decor
+rings and scenery painters. KEPT on purpose: what the engine and sims read
+(muzzles.js: `archerPose`, `mageTip`, `musketMuzzle`, `musketPoint`, `mistressGlove`, the
+skiff functions; checked identical to before), the kraken's old rigs, src/sprites/ (icons,
+draw.js). Removed labs that only showed the old drawings: joint-lab.html, joint-sets/,
+crew-lab.html, sheet.html. Notes below that mention "New sprites off" or the old rigs
+describe code that no longer exists.
 
 ## The roster and scenery concept round (2026-11-14, owner's picks)
 

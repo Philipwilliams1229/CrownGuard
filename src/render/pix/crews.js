@@ -28,8 +28,8 @@ import { lightAt, pixRim } from "./pixrigs.js";
 
 // a hall's handle on its figure (the name keys the frame cache: one per figure module)
 export const crew = (name, mod) => ({ ...mod, NAME: "crew-" + name });
-// are the new crews drawn? (Settings > Display > New sprites)
-export const crewOn = () => prefs.newSprites !== false;
+// are the new crews drawn? Always (the old crews are gone); halls and the castle still ask
+export const crewOn = () => true;
 
 const frac = (v) => v - Math.floor(v);
 // a looping clip's frame from the clock: `seconds` of game time, `id` staggers neighbours

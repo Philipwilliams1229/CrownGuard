@@ -812,68 +812,8 @@ export const drawFlash = (ctx, fx) => {
 // shape, so the result is crisp pixels at any angle, not a rotated blur.
 const DIRS = 32;
 const dirOf = (ang) => ((Math.round((ang / (Math.PI * 2)) * DIRS) % DIRS) + DIRS) % DIRS;
-const rotSprite = (key, d, reach, shape, tones, ink, streak) => memo(`${key}|${d}`, () => {
-  const a = (d / DIRS) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
-  const half = Math.ceil(reach) + 3, G = grid(half * 2, half * 2);
-  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
-    const dx = x + 0.5 - half, dy = y + 0.5 - half;
-    const k = shape(dx * c + dy * s, -dx * s + dy * c);
-    if (k >= 0) G.set(x, y, tones[k]);
-  }
-  const cv = G.done(ink, 1, true);
-  if (streak) {
-    // the motion streak sits behind, un-inked and fading
-    const [from, len, k, a0] = streak;
-    const S2 = grid(half * 2, half * 2);
-    for (let i = 0; i < len; i++) {
-      const lx = -from - i;
-      S2.set(half + lx * c, half + lx * s, k, Math.round(a0 * (1 - i / len)));
-    }
-    const cx = cv.getContext("2d");
-    cx.globalCompositeOperation = "destination-over";
-    cx.drawImage(S2.done(), 0, 0);
-    cx.globalCompositeOperation = "source-over";
-  }
-  return { cv, ax: half, ay: half };
-});
 
-// an arrow along +x, head at the origin: steel head, shaft, fletching
-const arrowShape = (L, hw = 0.46) => (lx, ly) => {
-  const ay = Math.abs(ly);
-  if (lx > 0.6 || lx < -L - 1) return -1;
-  if (lx > -5) return ay <= -lx * hw + 0.35 ? (ly < 0 ? 0 : 1) : -1;
-  const back = lx + L + 1;                                // 0 at the nock
-  if (back < 6 && ay > 0.6 && ay <= 0.6 + (6 - back) * 0.38) return ly < 0 ? 3 : 4;
-  return ay <= 0.62 ? 2 : -1;
-};
-const ARROW = {
-  plain: [pal("#eef0f4", "#9aa0ac", "#c49a64", "#f0ece0", "#c8483c"), 9],
-  poison: [pal("#d8f0c0", "#6a9a4a", "#b89060", "#b8e08a", "#4a8a34"), 9],
-  pierce: [pal("#fff3d2", "#c89a30", "#c49a64", "#f8e08a", "#c89a30"), 9],
-  big: [pal("#eef0f4", "#8a909c", "#8a6444", "#f0ece0", "#a8483c"), 13],
-  quarrel: [pal("#dfe2e8", "#8a909c", "#5a4436", "#bab4aa", "#7a746c"), 7],
-  // a barrow archer's black arrow: a bone head, a grave-black shaft, teal fletching
-  grave: [pal("#f4eee0", "#b8ae96", "#2e2a30", "#9ce8cc", "#4aa888"), 9],
-};
-const STREAK = { plain: "#f4ecd8", poison: "#c8f0a0", pierce: "#f8e08a", big: "#f4ecd8", quarrel: "#e8e2d4", grave: "#9ce8cc" };
-const arrowSprite = (v, d) => {
-  const [tones, len] = ARROW[v], L = len * PX;
-  return rotSprite(`ar|${v}`, d, L + 22, arrowShape(L, v === "big" ? 0.55 : 0.46), tones, INK_LINE, [L + 2, v === "big" ? 20 : 14, col(STREAK[v]), v === "pierce" ? 170 : 110]);
-};
 
-const SPIKE = { steel: pal("#eef0f4", "#9aa0ac", "#6a5040"), ice: pal("#f0fcff", "#6ab8d8", "#3a6a98"), gold: pal("#fff0a0", "#c08e2a", "#7a5a2a") };
-// a thrown spike: a long needle blade, a collar, and a stub of a grip
-const spikeShape = (lx, ly) => {
-  const ay = Math.abs(ly);
-  if (lx > 0.5 || lx < -15) return -1;
-  if (lx > -10) return ay <= -lx * 0.16 + 0.3 ? (ly < 0 ? 0 : 1) : -1;
-  if (lx > -12) return ay <= 2.1 ? 2 : -1;
-  return ay <= 0.8 ? 2 : -1;
-};
-const ballShape = (lx, ly) => {
-  const d = Math.hypot(lx + 1, ly);
-  return d <= 2.2 ? (lx > -1 && ly < 0 ? 0 : 1) : -1;
-};
 
 // the Powder Works' shrapnel: four cuts of jagged iron sliver in art pixels,
 // flying +x — 0 a cream glint on the lit top face, 1 steel, 2 iron, 3 the
@@ -922,65 +862,10 @@ const shardSprite = (heat, v, d) => {
   return B[k] || (B[k] = bakeShard(heat, v & 3, d));
 };
 
-// orbs: a lit core in a dithered halo that breathes over four frames
-const ORB = {
-  arcane: pal("#fff3d2", "#e4d0fc", "#b08ad8", "#6a4a9a"),
-  fire: pal("#fff3d2", "#f8d868", "#e8803a", "#9a3a30"),
-  frost: pal("#ffffff", "#d4f2fa", "#8ccce4", "#3a7aa8"),
-  gold: pal("#fff3d2", "#f8e088", "#d8b34a", "#8a6a2a"),
-};
-// (big: the Inferno Throne's firestorm, every fifth shot — flames.js)
-const orbSprite = (el, f, big = 0) => memo(`orb|${el}|${f}|${big}`, () => {
-  const S = big ? 54 : 38, T = ORB[el], G = grid(S, S), c = S / 2, r0 = big ? 10.5 : 7, halo = (big ? 9 : 6) + [0, 1, 2, 1][f];
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const dx = x + 0.5 - c, dy = y + 0.5 - c, d = Math.hypot(dx, dy);
-    if (d <= r0) {
-      const dl = Math.hypot(dx + r0 * 0.31, dy + r0 * 0.31) / r0;
-      let k = dl < 0.42 ? 0 : dl < 0.95 ? 1 : 2;
-      if (d > r0 - 1.2 && dx + dy > 1) k = 3;
-      G.set(x, y, T[k]);
-    } else if (d < r0 + halo && bay(x, y) < 0.6 * (1 - (d - r0) / halo)) G.set(x, y, T[d < r0 + 2 ? 1 : 2], 190);
-  }
-  // two glints wheeling round the rim
-  const a = f * (Math.PI / 2) + 0.4;
-  for (const s of [0, Math.PI]) G.set(c + Math.cos(a + s) * (r0 + 3), c + Math.sin(a + s) * (r0 + 3), T[0]);
-  return { cv: G.done(), ax: c, ay: c };
-});
 
 // boulders: a lumpy lit stone that tumbles through four turns
 const ROCK_R = { mini: 2.3, rock: 3.9, big: 5.6 };
-const rockSprite = (size, f) => memo(`rk|${size}|${f}`, () => {
-  const r = ROCK_R[size] * PX, n = Math.ceil(r * 1.3) + 3, G = grid(n * 2, n * 2), c = n;
-  const rot = f * (Math.PI / 2);
-  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
-    const dx = x + 0.5 - c, dy = y + 0.5 - c, d = Math.hypot(dx, dy), th = Math.atan2(dy, dx);
-    const R = r * (0.9 + 0.1 * Math.sin(3 * th + rot + 1) + 0.06 * Math.sin(5 * th - rot * 2));
-    if (d > R) continue;
-    const l = -(dx * 0.55 + dy * 0.64) / R;
-    G.set(x, y, STONE[l > 0.3 ? 0 : l > -0.25 ? 1 : 2]);
-  }
-  // pits and a crack that turn with the stone
-  for (let k = 0; k < 3; k++) {
-    const a = rot + k * 2.1 + 0.3, d = r * 0.45;
-    const x = c + Math.cos(a) * d, y = c + Math.sin(a) * d;
-    G.set(x, y, STONE[3]); if (size !== "mini") { G.set(x + 1, y, STONE[2]); G.set(x, y - 1, STONE[0]); }
-  }
-  return { cv: G.done(INK_LINE, 1, true), ax: c, ay: c };
-});
 
-// the bombardier's shell: an iron ball with a lit fuse
-const shellSprite = (f) => memo(`sh|${f}`, () => {
-  const T = pal("#a4a8b8", "#5e6070", "#34343e"), r = 6.4, G = grid(22, 22), c = 11;
-  for (let y = 0; y < 22; y++) for (let x = 0; x < 22; x++) {
-    const dx = x + 0.5 - c, dy = y + 0.5 - c, d = Math.hypot(dx, dy);
-    if (d > r) continue;
-    const dl = Math.hypot(dx + 2, dy + 2) / r;
-    G.set(x, y, T[dl < 0.5 ? 0 : d > r - 1.3 && dx + dy > 0 ? 2 : 1]);
-  }
-  const a = f * (Math.PI / 2) - 2.2;
-  for (let i = 0; i < 3; i++) G.set(c + Math.cos(a) * (r + i), c + Math.sin(a) * (r + i), col("#c8a060"));
-  return { cv: G.done(INK_LINE, 1, true), ax: c, ay: c };
-});
 
 // a flat pixel shadow on the ground under something in the air
 const shadowSprite = (rx2) => memo(`sd|${rx2}`, () => {
@@ -1021,10 +906,8 @@ const flight = (p) => {
 export const drawProjectile = (ctx, p, time) => {
   const ang = p.angle ?? Math.atan2(p.ty - p.y, p.tx - p.x);
   const dx = Math.cos(ang), dy = Math.sin(ang);
-  const NEW = PJ.projOn();
   if (p.kind === "ball") {
-    if (NEW) { put(ctx, PJ.ballSprite(dirOf(ang)), p.x, p.y); return; }
-    put(ctx, rotSprite("mb", dirOf(ang), 30, ballShape, pal("#a4a4b0", "#34343e"), INK_LINE, [4, 26, col("#fff3d2"), 230]), p.x, p.y);
+    put(ctx, PJ.ballSprite(dirOf(ang)), p.x, p.y);
     return;
   }
   if (p.kind === "frag") {
@@ -1039,7 +922,7 @@ export const drawProjectile = (ctx, p, time) => {
     groundShadow(ctx, p.x, p.y + 2, 3.4 * (1 - h / 60));
     const f = Math.floor(prog * 10 + (p.src || 0)) & 3;
     const y = p.y - h;
-    put(ctx, NEW ? PJ.shellSprite(f) : shellSprite(f), p.x, y);
+    put(ctx, PJ.shellSprite(f), p.x, y);
     // the fuse spits
     const a = f * (Math.PI / 2) - 2.2, fx = p.x + Math.cos(a) * 5, fy = y + Math.sin(a) * 5;
     const hot = Math.sin(time * 40 + p.x) > 0;
@@ -1064,12 +947,12 @@ export const drawProjectile = (ctx, p, time) => {
         speck(ctx, px, py, i === 1 ? 1 : 0.5, i === 1 ? "#a48a64" : "#cdb68a");
       }
     }
-    put(ctx, (NEW ? PJ.rockSprite : rockSprite)(size, Math.floor(prog * 12 + (p.id || 0)) & 3), p.x, p.y - h);
+    put(ctx, PJ.rockSprite(size, Math.floor(prog * 12 + (p.id || 0)) & 3), p.x, p.y - h);
     return;
   }
   if (p.kind === "arrow") {
     const v = p.poison ? "poison" : p.big ? "big" : p.pierce ? "pierce" : "plain";
-    put(ctx, (NEW ? PJ.arrowSprite : arrowSprite)(v, dirOf(ang)), p.x, p.y);
+    put(ctx, PJ.arrowSprite(v, dirOf(ang)), p.x, p.y);
     if (p.burn) {
       // a pitch-soaked head, burning in flight
       const hot = Math.sin(time * 36 + p.id) > 0;
@@ -1080,8 +963,7 @@ export const drawProjectile = (ctx, p, time) => {
   }
   if (p.kind === "spike") {
     const k = p.slow ? "ice" : p.hitsLeft > 1 ? "gold" : "steel";
-    if (NEW) { put(ctx, PJ.spikeSprite(k, dirOf(ang)), p.x + dx * 3, p.y + dy * 3); return; }
-    put(ctx, rotSprite(`spk|${k}`, dirOf(ang), 26, spikeShape, SPIKE[k], INK_LINE, [16, 10, col(p.slow ? "#d4f2fa" : "#f4ecd8"), 110]), p.x + dx * 3, p.y + dy * 3);
+    put(ctx, PJ.spikeSprite(k, dirOf(ang)), p.x + dx * 3, p.y + dy * 3);
     return;
   }
   // an orb: sparks trailing off it in its element, then the orb itself
@@ -1091,7 +973,7 @@ export const drawProjectile = (ctx, p, time) => {
     const rise = el === "fire" ? -i * 0.6 : el === "frost" ? i * 0.25 : 0;
     speck(ctx, p.x - dx * (3 + i * 2.4) - dy * wob, p.y - dy * (3 + i * 2.4) + dx * wob + rise, i < 4 ? 1 : 0.5, T[Math.min(3, i >> 1)]);
   }
-  put(ctx, (NEW ? PJ.orbSprite : orbSprite)(el, Math.floor(time * 12 + (p.id || 0)) & 3, p.big ? 1 : 0), p.x, p.y);
+  put(ctx, PJ.orbSprite(el, Math.floor(time * 12 + (p.id || 0)) & 3, p.big ? 1 : 0), p.x, p.y);
 };
 
 // a quarrel or harpoon (the "bolt" effect that carries x/tx, not pts)
@@ -1101,7 +983,7 @@ export const drawQuarrel = (ctx, fx) => {
   const ang = Math.atan2(fx.ty - fx.y, fx.tx - fx.x);
   const u = Math.min(1, prog * 1.25);
   const hx = fx.x + (fx.tx - fx.x) * u, hy = fx.y + (fx.ty - fx.y) * u;
-  if (u < 1) put(ctx, (PJ.projOn() ? PJ.arrowSprite : arrowSprite)(fx.arrow || "quarrel", dirOf(ang)), hx, hy);
+  if (u < 1) put(ctx, PJ.arrowSprite(fx.arrow || "quarrel", dirOf(ang)), hx, hy);
   else put(ctx, sparkSprite("white", Math.min(2, Math.floor((prog - 0.8) * 15))), fx.tx, fx.ty);
 };
 

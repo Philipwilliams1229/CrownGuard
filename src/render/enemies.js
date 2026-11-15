@@ -4,8 +4,8 @@
 
 import { INK, CELL, S } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
-import { SPRITES, KNIGHT_PALS, UNDEAD_PALS, drawSprite, whitePal, ASSASSIN_PALS } from "../sprites/sprites.js";
-import { hasRig, rigDef, drawRig, rigFrame, hasPix } from "./rigs.js";
+import { ASSASSIN_PALS } from "../sprites/sprites.js";
+import { hasRig, rigDef, drawRig, rigFrame } from "./rigs.js";
 import { atkFrac, walkByGait, walkByTime, marchSheet } from "./pix/pixrigs.js";
 import { skiffGunPose, skiffRowFrame, skiffBlade, skiffBob, SKIFF_LIFT } from "./rigs-skiff.js";
 import { fillWet } from "./waterreach.js";
@@ -50,6 +50,13 @@ const headroom = (skin) => {
   return h;
 };
 
+// how fast a type's feet fall, for the dust it kicks up (steps a second; 4 unless listed)
+const FOOT_RATE = {
+  troll: 3, hollowking: 3, orc: 5, hobgoblin: 5, chaplain: 5, ram: 5, ghast: 5, skiff: 5,
+  shaman: 6, levy: 6, crossbow: 6, sergeant: 6, rafter: 6, skeleton: 7, bonearcher: 7, dragon: 8, gryphon: 8,
+  goblin: 9, goblinBare: 9, boarrider: 9, marshal: 9, cavalier: 10, ghoul: 10, wolf: 12, bat: 12,
+};
+
 // how long and from how high an unseated rider falls (engine: splitDrop)
 const DROP_MS = 420, DROP_H = 17;
 
@@ -58,24 +65,11 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // wears their type's sheet; a berserker past half health wears his
   // frenzied sheet (his rage grows as he is wounded: engine/rime.js)
   const skin = e.sprite || (e.type === "berserker" && e.hp < e.maxHp * 0.5 && hasRig("berserkerRage") ? "berserkerRage" : e.type);
-  const rigged = hasRig(skin);
-  const spr = SPRITES[skin] || { frames: [[""]], rate: 6 };
-  // necromancer-raised foes wear grave-pale colors with witch-fire eyes
-  const pal = e.revived && UNDEAD_PALS[skin] ? UNDEAD_PALS[skin] : spr.pal;
   const fighting = e.blockedBy && e.engaged;
   // anything flying rides the air the way the dragon always has: no footfall,
   // no fight cycle, a slow bob, and a shadow that stays down on the road
   const airborne = !!e.flying;
-  // sprites may define any number of walk frames (spr.frames), an optional
-  // dedicated fight cycle (spr.fight), and their own animation rate (spr.rate)
-  const walkRate = spr.rate || (e.type === "wolf" ? 8 : e.type === "goblin" || e.type === "orc" ? 5 : 4);
-  let sheet = spr, frame;
-  if (fighting && !airborne) {
-    if (spr.fight) { sheet = { frames: spr.fight, px: spr.px }; frame = Math.floor(time * 7 + e.id) % spr.fight.length; }
-    else frame = Math.floor(time * 8) % spr.frames.length;
-  } else {
-    frame = Math.floor(time * walkRate + e.id) % spr.frames.length;
-  }
+  const walkRate = FOOT_RATE[skin] || 4;
   // dust first, so the shadow sits on top of it and the foot stays grounded
   if (!fighting && !airborne && !e.swimming) {
     footfall(ctx, e.x, e.y + e.size * 0.55, e.face, walkRate, e.id, e.size >= 15 || e.boss ? 0.55 : 0.28, time);
@@ -92,12 +86,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
     ctx.fillStyle = "rgba(180,214,228,0.55)";
     ctx.fillRect(S(e.x - 9), S(e.y + 7), 18, CELL);
   }
-  if (rigged) softShadow(ctx, e.x + 1.5, e.y + e.size * 0.55, e.size * (airborne ? 0.45 : 0.62), e.size * 0.22, airborne ? 0.22 : 0.3);
-  else {
-    ctx.fillStyle = airborne ? "rgba(20,20,26,0.22)" : "rgba(20,20,26,0.3)";
-    const shw = Math.round(e.size * (airborne ? 0.45 : 0.6) / CELL) * CELL;
-    ctx.fillRect(S(e.x - shw), S(e.y + e.size * 0.55), shw * 2, CELL * 2);
-  }
+  softShadow(ctx, e.x + 1.5, e.y + e.size * 0.55, e.size * (airborne ? 0.45 : 0.62), e.size * 0.22, airborne ? 0.22 : 0.3);
   // Fresh arrivals resolve out of the shadow of the wood over a third of a
   // second, so nothing ever simply blinks into being at the spawn point.
   const age = e.born === undefined ? 999 : tms - e.born;
@@ -121,60 +110,37 @@ export const drawEnemy = (ctx, e, time, tms) => {
     const p = (tms - e.dropAt) / DROP_MS;
     hover -= p < 0.8 ? S(DROP_H * (1 - (p / 0.8) ** 2)) : S(Math.sin((p - 0.8) / 0.2 * Math.PI) * 1.5);
   }
-  if (!rigged && (e.type === "goblin" || e.type === "wolf" || e.type === "ghoul") && frame % 2 === 1 && !fighting) hover -= CELL;
   // seized by a sea monster (engine/serpent.js): lifted a little off the
   // ground in its coils, wriggling
   if (e.seized) hover -= S(2.5 + Math.sin(time * 9 + e.id) * 0.8);
-  if (rigged) {
-    // rigged foes: baked frames, feet on the ground line, mirrored to face
-    // (a gryphon at war with a war-eagle fights in the air: e.airFight)
-    const rsheet = (fighting && !airborne) || e.airFight ? "fight" : "walk";
-    const def = rigDef(skin);
-    const n = rsheet === "fight" ? def.fightN || 2 : 4;
-    // walkers step to the ground they cover; fliers and fighters keep time.
-    // A foe held in a melee trades blows on its own clock (engine meleeCd,
-    // reset to atkRate at each blow, atkAnim 200 ms from it): a two-frame
-    // rig winds up (0) over the last 45% of the wait and strikes (1, with
-    // the lunge) from the blow on; a rig with `fightN: 4` guards (0), winds
-    // up (1), strikes (2) and follows through (3) into the next wait.
-    const clocked = rsheet === "fight" && e.atkRate > 0 && (e.meleeCd > 0 || e.atkAnim > 0);
-    const rframe = rsheet === "walk" && !def.fly
-      ? Math.floor((e.gait || 0) * (def.kind === "beast" ? 1.6 : 1.2) + e.id) % n
-      : clocked ? (n === 4
-        ? (e.atkAnim > 110 ? 2 : e.atkAnim > 0 || e.meleeCd > e.atkRate * 0.8 ? 3 : e.meleeCd < e.atkRate * 0.45 ? 1 : 0)
-        : (e.atkAnim > 0 || e.meleeCd > e.atkRate * 0.45 ? 1 : 0))
-      : Math.floor(time * (rsheet === "fight" ? 5 : 8) + e.id) % n;
-    const feet = e.y + e.size * 0.55 + hover;
-    const variant = e.revived ? "revived" : "";
-    // a redrawn figure (render/pix) takes a phase, not one of four frames: its
-    // walk from the ground covered, its blow timed off the same attack clock so
-    // the clip's strike lands on the engine's
-    let ps = rsheet, pf = rframe;
-    if (hasPix(skin)) {
-      // (a flier's "walk" is its wingbeat, on the clock; a walker may be mid-chant or sounding a horn)
-      if (rsheet === "walk") { pf = def.fly ? walkByTime(skin, time, e.id) : walkByGait(skin, e.gait, e.id); if (!def.fly) ps = marchSheet(skin, e, tms); }
-      else { ps = "atk"; pf = clocked ? atkFrac(skin, e.meleeCd, e.atkRate) : (time * 1.1 + e.id * 0.37) % 1; }
-    }
-    // a foe archer's bow or crossbow turns to its last mark (engine: e.aimDeg, aim.js)
-    const aim = e.rangedAtk && e.aimDeg ? e.aimDeg : 0;
-    drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, variant, 1, aim);
-    if (e.hitFlash > tms) drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, "white", 0.7, aim);
-  } else {
-    drawSprite(ctx, sheet, pal, frame, e.x + lunge, e.y + hover, e.face < 0);
-    // white flash on solid hits
-    if (e.hitFlash > tms) {
-      ctx.globalAlpha = 0.7 * baseAlpha;
-      drawSprite(ctx, sheet, whitePal(pal), frame, e.x + lunge, e.y + hover, e.face < 0);
-      ctx.globalAlpha = baseAlpha;
-    }
-  }
+  // rigged foes: baked frames, feet on the ground line, mirrored to face
+  // (a gryphon at war with a war-eagle fights in the air: e.airFight)
+  const rsheet = (fighting && !airborne) || e.airFight ? "fight" : "walk";
+  const def = rigDef(skin);
+  // walkers step to the ground they cover; fliers keep time. A foe held in a melee trades blows
+  // on its own clock (engine meleeCd, reset to atkRate at each blow, atkAnim 200 ms from it);
+  // a figure's blow is timed off it so the clip's strike lands on the engine's.
+  const clocked = rsheet === "fight" && e.atkRate > 0 && (e.meleeCd > 0 || e.atkAnim > 0);
+  const feet = e.y + e.size * 0.55 + hover;
+  const variant = e.revived ? "revived" : "";
+  // a redrawn figure (render/pix) takes a phase, not one of four frames: its
+  // walk from the ground covered, its blow timed off the same attack clock so
+  // the clip's strike lands on the engine's
+  let ps = rsheet, pf;
+  // (a flier's "walk" is its wingbeat, on the clock; a walker may be mid-chant or sounding a horn)
+  if (rsheet === "walk") { pf = def.fly ? walkByTime(skin, time, e.id) : walkByGait(skin, e.gait, e.id); if (!def.fly) ps = marchSheet(skin, e, tms); }
+  else { ps = "atk"; pf = clocked ? atkFrac(skin, e.meleeCd, e.atkRate) : (time * 1.1 + e.id * 0.37) % 1; }
+  // a foe archer's bow or crossbow turns to its last mark (engine: e.aimDeg, aim.js)
+  const aim = e.rangedAtk && e.aimDeg ? e.aimDeg : 0;
+  drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, variant, 1, aim);
+  if (e.hitFlash > tms) drawRig(ctx, skin, e.x + lunge, feet, e.face, ps, pf, "white", 0.7, aim);
   // Status tells — slow's stars, a freeze's ice, a stun's ring, cracks,
   // licking flames, poison bubbles, mending motes — each a few cached sprites
   // (render/fx.js), cheap enough for a crowd of three hundred all on fire.
   {
     const feetY = e.y + e.size * 0.55 + hover;
     // (a shielded foe shrugs every status off, so none is shown on it)
-    if (!(e.guard > 0)) drawStatus(ctx, e, time, tms, feetY, rigged ? feetY - headroom(skin) : e.y - e.size * 0.8);
+    if (!(e.guard > 0)) drawStatus(ctx, e, time, tms, feetY, feetY - headroom(skin));
   }
   // the falconer's mark: four gold corners closing on the prey
   if (e.markUntil > tms) {
@@ -192,7 +158,7 @@ export const drawEnemy = (ctx, e, time, tms) => {
   // it has been hurt — a fresh crowd of two hundred shows two hundred goblins,
   // not two hundred bars. Bosses always wear theirs.
   const pct = Math.max(0, e.hp / e.maxHp);
-  const barY = rigged ? Math.round(e.y + e.size * 0.55 + hover - headroom(skin) - 5) : e.y - e.size - 12;
+  const barY = Math.round(e.y + e.size * 0.55 + hover - headroom(skin) - 5);
   if (pct < 0.999 || e.boss) {
     const w = e.boss ? 40 : Math.max(14, Math.min(22, Math.round(e.size * 1.1)));
     const x0 = Math.round(e.x - w / 2);
@@ -231,19 +197,11 @@ const drawAssassinUnit = (ctx, u, t, time) => {
   const fighting = u.state === "fighting", f = u.face < 0 ? -1 : 1;
   if (u.state === "moving") footfall(ctx, u.x, u.y + 9, u.face, 9, u.id, 0.18, time);
   softShadow(ctx, u.x + 1, u.y + 9, 5.5, 2, 0.24);
-  // a blade with four fight frames (its rig's fightN) plays them off its
-  // attack clock like the garrison (fightFrame); two-frame ones lunge on the
-  // cut. Waiting at the muster, a four-frame blade crouches in its guard.
-  const four = (rigDef(rig)?.fightN || 2) === 4;
-  const lurk = four && u.state === "rally";
-  const bladeF = !fighting ? 0 : four ? fightFrame4(u, getStats(t).rate) : u.swing > 0 ? 1 : 0;
-  if (hasPix(rig)) {
-    // the new blade (fig-blade.js): a smooth walk, a real idle at the tent, and the cut
-    // timed off his own attack clock as the soldiers' blows are
-    const sheet = u.state === "moving" ? "walk" : fighting ? "atk" : "idle";
-    const fr = u.state === "moving" ? walkByTime(rig, time, u.id) : fighting ? atkFrac(rig, u.atkCd, getStats(t).rate) : time + u.id * 1.3;
-    drawRig(ctx, rig, u.x, u.y + 9, u.face, sheet, fr);
-  } else drawRig(ctx, rig, u.x, u.y + 9, u.face, fighting || lurk ? "fight" : "walk", u.state === "moving" ? Math.floor(time * 9 + u.id) % 4 : bladeF);
+  // the blade (fig-blade.js): a smooth walk, a real idle at the tent, and the cut
+  // timed off his own attack clock as the soldiers' blows are
+  const sheet = u.state === "moving" ? "walk" : fighting ? "atk" : "idle";
+  const fr = u.state === "moving" ? walkByTime(rig, time, u.id) : fighting ? atkFrac(rig, u.atkCd, getStats(t).rate) : time + u.id * 1.3;
+  drawRig(ctx, rig, u.x, u.y + 9, u.face, sheet, fr);
   // the Plague Bearer's censer breathes: a spore or two drifting up off it
   if (r4 === "bb") {
     for (let i = 0; i < 2; i++) {
@@ -325,8 +283,7 @@ const drawSkiff = (ctx, u, t, time) => {
   const since = u.atkCd > 0 ? rate - u.atkCd : Infinity;
   const gun = skiffGunPose(since, rate, { hunting, clock: time + u.id * 1.37, turned: time - m.turned });
   const row = underway ? skiffRowFrame(time + u.id * 0.29) : "rest";
-  if (hasPix("skiff")) drawRig(ctx, t.branch === "a" ? "skiffA" : t.branch === "b" ? "skiffB" : "skiff", u.x, ay, u.face, "walk", `${gun}.${row === "rest" ? 4 : row}`);
-  else drawRig(ctx, "skiff", u.x, ay, u.face, "walk", `${t.branch || "base"}.${gun}.${row}`);
+  drawRig(ctx, t.branch === "a" ? "skiffA" : t.branch === "b" ? "skiffB" : "skiff", u.x, ay, u.face, "walk", `${gun}.${row === "rest" ? 4 : row}`);
   // the water the near oar works (live: foam takes no ink; none over dry ground)
   const bl = skiffBlade(row), bx = u.x + u.face * bl.x, by = ay + bl.y;
   if (bl.wet >= 1) {
@@ -389,8 +346,6 @@ export const drawKnightUnit = (ctx, u, t, time) => {
   const giant = r4 === "aa";
   const rider = r4 === "ba";
   const bow = !!u.bow;                       // a Crossbow Company crossbowman
-  const pal = giant ? KNIGHT_PALS.champion : paladin ? KNIGHT_PALS.paladin : errant ? KNIGHT_PALS.errant : KNIGHT_PALS.base;
-  const frame = u.state === "moving" ? Math.floor(time * 8 + u.id) % 2 : 0;
   // Bored soldiers: a rallied knight with nothing to fight will, every so
   // often, stoop for a blade of grass, toe a pebble down the field, or
   // glance back over his shoulder. Kids at the far end of the pitch.
@@ -416,7 +371,7 @@ export const drawKnightUnit = (ctx, u, t, time) => {
   }
   {
     const want = bow ? "errantBow" : rider ? "errantRider" : giant ? "champion" : paladin ? "paladin" : errant ? "errant" : "knight";
-    const kind = hasRig(want) ? want : "knight";
+    const kind = want;
     const fighting = u.state === "fighting";
     const rsheet = fighting ? "fight" : "walk";
     const st = getStats(t);
@@ -473,7 +428,6 @@ export const drawKnightUnit = (ctx, u, t, time) => {
   }
 };
 
-
 // ---- the bands: militia farmers and the hero ----
 export const drawBandUnit = (ctx, u, b, time) => {
   if (u.state === "dead") return;
@@ -488,12 +442,11 @@ export const drawBandUnit = (ctx, u, b, time) => {
   const sheet = own ? own.sheet : sky >= 0 ? "sky" : fighting ? "fight" : "walk";
   // a swordsman winds up then strikes; the huntress holds at full draw and
   // flings the string hand back for the moment after she looses
-  let frame = own ? own.frame : sky >= 0 ? sky : u.state === "moving" ? Math.floor(time * 7 + u.id) % 4
-    : fighting ? fightFrame(kind, u, u.bow ? b.st.bow.rate : b.st?.rate, !!(b.st?.ranged || u.bow)) : 0;
+  let frame = own ? own.frame : sky >= 0 ? sky : 0;
   // a redrawn figure (render/pix): a real idle while standing, a smooth march,
   // and a blow timed off the attack clock
   let psheet = sheet;
-  if (hasPix(kind) && !own && sky < 0) {
+  if (!own && sky < 0) {
     if (u.state === "moving") frame = walkByTime(kind, time, u.id);
     else if (fighting) { psheet = "atk"; frame = atkFrac(kind, u.atkCd, u.bow ? b.st.bow.rate : b.st?.rate); }
     else { psheet = "idle"; frame = time + u.id * 1.3; }

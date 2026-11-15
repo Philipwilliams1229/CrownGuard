@@ -50,7 +50,7 @@ import { PTS, TOTAL_LEN, posAt, angleAt, nearestOnPath } from "../engine/path.js
 import { COAST, PONDS, RIVERS, inSea, seaDepthAt, coastLine, inRiver, forestDepthAt, DECOR } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
 import {
-  lighten, darken, mix, rgb, rgba, soft, shadow, ball, glow, cylinder, hash, ellipse, lin, bakeSprite, inkOutline, part, PX,
+  lighten, darken, mix, rgb, rgba, shadow, ball, glow, cylinder, hash, ellipse, lin, bakeSprite, inkOutline, part, PX,
 } from "./paint.js";
 import { turfTones, groundLayer } from "./world.js";
 import { SEA_ICE } from "./coast.js";
@@ -64,20 +64,9 @@ const SNOW = "#ecf5ff", SNOW_LT = "#ffffff", SNOW_SH = "#9aaee2", SNOW_DK = "#6f
 const VIO = "rgba(44,50,128,";                      // cast-shadow ink (alpha appended)
 const ROCK = ["#16152a", "#24223c", "#34325a", "#4a4878", "#6a68a0", "#8e8cc4"];
 const ICE = ["#4e7690", "#6f96ae", "#93bacd", "#b8d8e6", "#dcf0f6"];
-const SPRUCE = ["#0f3a3c", "#1b5e54", "#2a7e68", "#34987a"];
-const TEAL = "#2f7f7a", TEAL_LT = "#4fa59a", TEAL_DK = "#1e5452";
-const OCHRE = "#c8902e", OCHRE_LT = "#e2b452", OCHRE_DK = "#8e6020";
-const FROST = "#a8d8f0";
-const WOOD = "#5a4430", WOOD_LT = "#7e6244", WOOD_DK = "#3a2a1e", TAR = "#2e2a2c";
-const TURF = "#5c6448", TURF_LT = "#7c8458", TURF_DK = "#3e4432";
 const STRAW = ["#5e5236", "#8a7646", "#b49a5c", "#d6c08a"];
-const BONE = "#ddd6c4", BONE_DK = "#a49c88";
-const SEAL = "#9a9084", SEAL_LT = "#c0b6a6", SEAL_DK = "#5e564e";
 
 const ap = (v) => Math.round(v * PX) / PX;
-const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
-// a cast shadow in look C's blue-violet, long toward the lower right
-const rShadow = (c, x, y, rx, ry, a = 0.3) => soft(c, x, y, rx, ry, [[0, `${VIO}${Math.min(0.9, a * 1.7)})`], [0.62, `${VIO}${Math.min(0.9, a * 1.2)})`], [1, `${VIO}0)`]]);
 const poly = (c, pts) => { c.beginPath(); pts.forEach(([px, py], i) => (i ? c.lineTo(px, py) : c.moveTo(px, py))); c.closePath(); };
 const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -397,27 +386,7 @@ const rimeRoad = (ctx) => {
   ctx.putImageData(img, 0, 0);
 };
 
-// ============ THE PIECES ============
-// Painted with paths into baked sprites (scenery.js inks the silhouette);
-// feet at (x, y + 8). Sun from the upper left: lit west faces, shaded east,
-// snow on every top, a cool contact shadow down-right.
-const snowCap = (c, pts, sh = true) => {
-  poly(c, pts); c.fillStyle = SNOW; c.fill();
-  if (sh) { c.save(); c.clip(); c.fillStyle = SNOW_LT; const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]); c.fillRect(Math.min(...xs), Math.min(...ys), (Math.max(...xs) - Math.min(...xs)) * 0.45, 1); c.restore(); }
-};
-const groundDrift = (c, x, gy, w, sd) => {
-  // a little drift banked round a foot: lit crest, blue lee to the east
-  c.fillStyle = SNOW_SH; ellipse(c, x + w * 0.25, gy + 0.6, w * 1.05, 1.9); c.fill();
-  c.fillStyle = SNOW; ellipse(c, x - w * 0.1, gy, w * 0.95, 1.6); c.fill();
-  c.fillStyle = SNOW_LT; c.fillRect(ap(x - w * 0.8), ap(gy - 1.2), w * 0.8, 0.5);
-  if (hash(sd, 9) < 0.6) { c.fillStyle = STRAW[2]; px1(c, x - w * 0.7, gy - 1.5, 0.5, 1.5); px1(c, x - w * 0.6, gy - 2, 0.5, 2); }
-};
 
-// ---- the snow-laden spruce --------------------------------------------------
-// Narrow and dark, its tiers drooping under the snow: each tier a skirt lit on
-// its west side, a white load along its top that slumps over the tip, a blue
-// underside. The edge wood darkens it by depth (band 0-2).
-const SPR_BAND = [["#1b5e54", "#34987a", "#0f3a3c"], ["#17544c", "#2b8a6e", "#0c3236"], ["#134a46", "#237a64", "#0a2a30"]];
 const rmspruce = (ctx, x, y, s, o) => {
   const gy = y + 8, band = o.forest ? o.band || 0 : 0, sd = o.seed | 0, S = s * U;
   const H = (42 + (o.v % 2) * 6) * S, w0 = (11.6 + hash(sd, 1) * 2) * S, lean = (hash(sd, 2) - 0.5) * 3 * s;

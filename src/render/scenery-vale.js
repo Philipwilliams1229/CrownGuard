@@ -32,7 +32,6 @@ import {
 import { REALM } from "../data/maps.js";
 import { vnoise } from "../data/gatecrag.js";
 import { rich } from "./look-c.js";
-import { prefs } from "../data/prefs.js";
 import { tintRing, tintedPart, baking } from "./scenery-gwpix.js";
 
 // Look C cast shadow: a ragged, hard-edged blob thrown lower right (same
@@ -61,17 +60,16 @@ const moss = () => mix("#5d8f3a", REALM.GRASS_DK, 0.35);
 
 // A still body baked once (inked), then stamped — for the live pieces, whose
 // wheel or smoke is painted over it every frame.
-const part = (ctx, fn, o) => (prefs.newSprites !== false ? tintedPart(plainPart)(ctx, fn, o) : plainPart(ctx, fn, o));
+const part = (ctx, fn, o) => tintedPart(plainPart)(ctx, fn, o);
 const BODIES = new Map();
 const body = (key, hw, top, bot, paint) => {
-  const NEW = prefs.newSprites !== false;
-  const k = `${key}|${REALM.GRASS}|${NEW ? "n" : "o"}`;
+  const k = `${key}|${REALM.GRASS}`;
   let sp = BODIES.get(k);
   if (!sp) {
     const was = baking(true);
     let cv;
-    try { cv = bakeSprite(hw * 2, top + bot, (c) => paint(c, hw, top), !NEW); } finally { baking(was); }
-    if (NEW) tintRing(cv);
+    try { cv = bakeSprite(hw * 2, top + bot, (c) => paint(c, hw, top), false); } finally { baking(was); }
+    tintRing(cv);
     sp = { cv, hw, top, bot };
     BODIES.set(k, sp);
   }

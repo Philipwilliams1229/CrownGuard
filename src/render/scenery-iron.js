@@ -57,9 +57,8 @@ const WOOD = "#6a4a2e", WOOD_LT = "#8a6440", WOOD_DK = "#46301e";
 const CANVAS = "#d6ccb2";
 const GRIT = "#8e8c86";            // highland crag stone, cool
 const ASHLAR = "#a6a296";          // the Kingdom's dressed stone
-const HEATH = "#7a5a72", HEATH_LT = "#9a7a90", HEATH_DK = "#503c4e", HEATH_FL = "#bc98b2";
+const HEATH_DK = "#503c4e";
 const BRACK = "#a6683a", BRACK_LT = "#c88c4c", BRACK_DK = "#6a4226";
-const PINE_LEAF = "#3e6450", SCOTS_BARK = "#b0663e";
 // the wood, by depth: the treeline takes what light there is, the rows behind go dark and cold
 const WOOD_SPRUCE = [["#44705a", "#4a745a", "#406a56"], ["#385f4e", "#355a4c", "#3b624e"], ["#2d4e44", "#2b4a42", "#305246"]];
 const WOOD_SCOTS = [["#46705a", "#4c7658", "#426c58"], ["#3a624e", "#38604e", "#3e654e"], ["#2f5046", "#2d4c44", "#325448"]];
@@ -422,41 +421,6 @@ const heatherClump = (ctx, x, y, s, o) => {
   if (o.v === 2) stampLow(ctx, "bracken", 3, x - 11 * s, gy + 3, 1);
 };
 
-// A drystone wall: stones stacked dry in courses, a row of upright copes on
-// top, a stretch of it tumbled. v: 0 straight, 1 tumbled gap, 2 corner, 3 with a stile.
-const wallRun = (c, x0, y0, x1, y1, s, seed, hgt = 8) => {
-  const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.round(len / (4.2 * s)));
-  const H = (i) => hash(seed, i);
-  const at = (t, up) => [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t - up];
-  // the dark body the stones sit in, and its top seen from above
-  c.beginPath();
-  c.moveTo(x0, y0); c.lineTo(x1, y1); c.lineTo(x1, y1 - hgt * s); c.lineTo(x0, y0 - hgt * s); c.closePath();
-  c.fillStyle = darken(GRIT, 0.5); c.fill();
-  c.beginPath();
-  c.moveTo(x0, y0 - hgt * s); c.lineTo(x1, y1 - hgt * s); c.lineTo(x1 + 0.5, y1 - hgt * s - 2 * s); c.lineTo(x0 + 0.5, y0 - hgt * s - 2 * s); c.closePath();
-  c.fillStyle = darken(GRIT, 0.28); c.fill();
-  // three courses of rough stones, the lowest biggest
-  [[1.7, 2.3], [4.3, 2.0], [6.6, 1.7]].forEach(([up, r], row) => {
-    for (let i = 0; i < n + 1; i++) {
-      const t = (i + (row % 2) * 0.5) / n;
-      if (t > 1.02) continue;
-      const [sx, sy] = at(Math.min(1, t), up * s);
-      const h = H(row * 50 + i);
-      const tone = h < 0.3 ? lighten(GRIT, 0.16) : h < 0.6 ? GRIT : h < 0.85 ? darken(GRIT, 0.12) : mix(GRIT, "#a08a6a", 0.35);
-      const rx = (r + H(row * 50 + i + 7) * 0.6) * s * (len / (n * 4.2 * s)) * 0.95;
-      ball(c, sx, sy, Math.max(1.2, rx), 1.25 * s, tone, { hi: 0.45, lo: 0.45 });
-    }
-  });
-  // copes: slabs on edge along the top, tall and short in turn ("cock and hen"), lit on the left
-  const m = Math.round(len / (1.9 * s));
-  for (let i = 0; i < m; i++) {
-    const [sx, sy] = at((i + 0.5) / m, hgt * s);
-    const hh = (i % 2 ? 1.3 : 2.3) * s + H(i + 300) * 0.5;
-    c.fillStyle = darken(GRIT, 0.22); c.fillRect(ap(sx - 0.5), ap(sy - hh), 1.5, hh + 0.5);
-    c.fillStyle = lighten(GRIT, 0.25); c.fillRect(ap(sx - 0.5), ap(sy - hh), 0.5, hh);
-    c.fillStyle = lighten(GRIT, 0.4); c.fillRect(ap(sx - 0.5), ap(sy - hh), 1.5, 0.5);
-  }
-};
 // A gibbet at the crossroads: a post, an arm, an iron cage hanging empty, a crow.
 const gibbet = (ctx, x, y, s, o) => {
   const gy = y + 8, hh = 34 * s;
@@ -646,91 +610,6 @@ const pikes = (ctx, x, y, s, o) => {
   brackenFan(ctx, x + 12 * s, gy + 2, 0.55 * s, sd + 2);
 };
 
-// The Kingdom's war tents: oxblood canvas, an iron-grey valance, a brass finial.
-const warTent = (ctx, x, y, s, o) => {
-  const gy = y + 8, v = o.v % 4, sd = o.seed;
-  shadow(ctx, x + 6 * s, gy + 0.5, 19 * s, 4.4 * s, 0.3);
-  if (v === 0 || v === 2) {
-    // a bell tent: round walls, a cone of roof, the door flap tied back
-    const R = 13 * s, wh = 9 * s, rh = 16 * s;
-    part(ctx, (c) => {
-      c.beginPath(); c.moveTo(x - R, gy - wh); c.lineTo(x - R, gy); c.quadraticCurveTo(x, gy + 3 * s, x + R, gy); c.lineTo(x + R, gy - wh); c.closePath();
-      c.fillStyle = lin(c, x - R, 0, x + R, 0, [[0, OX_LT], [0.45, OX], [1, OX_DK]]); c.fill();
-      // the door: dark mouth, a cream lining on the tied-back flap
-      c.beginPath(); c.moveTo(x - 1 * s, gy - wh - 1); c.lineTo(x + 4 * s, gy + 1.5 * s); c.lineTo(x - 5 * s, gy + 1.5 * s); c.closePath();
-      c.fillStyle = "#1e1618"; c.fill();
-      c.beginPath(); c.moveTo(x - 1 * s, gy - wh - 1); c.lineTo(x - 5 * s, gy + 1.5 * s); c.lineTo(x - 7 * s, gy + 1.3 * s); c.closePath();
-      c.fillStyle = CANVAS; c.fill();
-    });
-    part(ctx, (c) => {
-      c.beginPath(); c.moveTo(x, gy - wh - rh); c.lineTo(x + R + 1.5 * s, gy - wh + 0.5); c.quadraticCurveTo(x, gy - wh + 3 * s, x - R - 1.5 * s, gy - wh + 0.5); c.closePath();
-      c.fillStyle = lin(c, x - R, gy - wh - rh, x + R, gy - wh, [[0, lighten(OX, 0.28)], [0.5, OX], [1, OX_DK]]); c.fill();
-      c.save(); c.clip();
-      c.fillStyle = rgba("#2a1c2c", 0.25);
-      for (let k = 1; k < 4; k++) { c.beginPath(); c.moveTo(x, gy - wh - rh); c.lineTo(x - R + k * R * 0.5 - 0.3, gy - wh + 2); c.lineTo(x - R + k * R * 0.5 + 0.3, gy - wh + 2); c.fill(); }
-      c.restore();
-      // the valance: iron-grey scallops round the eaves
-      for (let k = 0; k < 6; k++) {
-        const vx = x - R + (k + 0.5) * (R * 2 / 6);
-        ellipse(c, vx, gy - wh + 1.3 * s + Math.sin((k / 5) * Math.PI) * 1.2 * s, 1.9 * s, 1.5 * s);
-        c.fillStyle = k < 3 ? STEEL : darken(STEEL, 0.2); c.fill();
-      }
-    });
-    part(ctx, (c) => {
-      c.fillStyle = WOOD_DK; c.fillRect(ap(x - 0.5), gy - wh - rh - 5 * s, 1, 5 * s);
-      ball(c, x, gy - wh - rh - 5 * s, 1.1 * s, 1.1 * s, BRASS, { hi: 0.5, lo: 0.3 });
-      c.fillStyle = OX; c.fillRect(ap(x + 0.5), ap(gy - wh - rh - 4.5 * s), 5 * s, 1.5 * s);
-      c.fillStyle = OX_DK; c.fillRect(ap(x + 3 * s), ap(gy - wh - rh - 3.5 * s), 2.5 * s, 0.5);
-    });
-    // guy ropes and pegs
-    ctx.strokeStyle = rgba("#d8ccb0", 0.8); ctx.lineWidth = 0.5;
-    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + sx * R * 0.9, gy - wh); ctx.lineTo(x + sx * (R + 5 * s), gy + 1); ctx.stroke(); ctx.fillStyle = WOOD_DK; ctx.fillRect(ap(x + sx * (R + 5 * s)), gy, 1, 1.5); }
-    if (v === 2) {
-      // a weapons rack beside: spears and a shield
-      part(ctx, (c) => {
-        const rx = x + R + 5 * s;
-        cylinder(c, rx - 5 * s, gy - 7 * s, 1.2, 7 * s, WOOD, { r: 0.4 });
-        cylinder(c, rx + 4 * s, gy - 7 * s, 1.2, 7 * s, WOOD, { r: 0.4 });
-        c.fillStyle = WOOD_LT; c.fillRect(rx - 5 * s, gy - 6 * s, 10 * s, 1);
-        c.strokeStyle = WOOD_LT; c.lineWidth = 0.8;
-        for (let k = 0; k < 3; k++) { c.beginPath(); c.moveTo(rx - 3 * s + k * 3 * s, gy); c.lineTo(rx - 2 * s + k * 3 * s, gy - 16 * s); c.stroke(); c.fillStyle = STEEL_LT; c.fillRect(ap(rx - 2.5 * s + k * 3 * s), ap(gy - 18 * s), 1, 2); }
-      });
-    }
-  } else {
-    // a ridge tent for the rank and file: the long roof slope facing us under
-    // a short ridge, grey gable ends slanting away at either side
-    const L = 13 * s, hh = 12 * s, rl = L - 5 * s;
-    part(ctx, (c) => {
-      // the far gable end (left), in shade
-      c.beginPath(); c.moveTo(x - rl, gy - hh); c.lineTo(x - L - 1 * s, gy); c.lineTo(x - L + 5 * s, gy - 1); c.closePath();
-      c.fillStyle = darken(STEEL, 0.35); c.fill();
-      // the roof slope
-      c.beginPath(); c.moveTo(x - rl, gy - hh); c.lineTo(x + rl, gy - hh); c.lineTo(x + L + 1 * s, gy); c.lineTo(x - L - 1 * s, gy); c.closePath();
-      c.fillStyle = lin(c, 0, gy - hh, 0, gy, [[0, lighten(OX, 0.25)], [0.5, OX], [1, OX_DK]]); c.fill();
-      c.fillStyle = rgba("#2a1c2c", 0.28);
-      for (let k = -1; k <= 1; k++) { c.beginPath(); c.moveTo(x + k * rl * 0.5 - 0.3, gy - hh); c.lineTo(x + k * L * 0.55 - 0.4, gy); c.lineTo(x + k * L * 0.55 + 0.4, gy); c.lineTo(x + k * rl * 0.5 + 0.3, gy - hh); c.fill(); }
-      c.fillStyle = OX_LT; c.fillRect(x - rl, gy - hh, rl * 2, 1);
-      c.fillStyle = STEEL; c.fillRect(x - L - 0.5 * s, gy - 1.5, L * 2 + 1 * s, 1.5);
-    });
-    part(ctx, (c) => {
-      // the near gable end (right) with its open door
-      c.beginPath(); c.moveTo(x + rl, gy - hh); c.lineTo(x + L + 1 * s, gy); c.lineTo(x + L + 6 * s, gy - 1); c.closePath();
-      c.fillStyle = darken(STEEL, 0.1); c.fill();
-      c.beginPath(); c.moveTo(x + rl + 2 * s, gy - hh * 0.55); c.lineTo(x + L + 1.5 * s, gy); c.lineTo(x + L + 4.5 * s, gy - 0.5); c.closePath();
-      c.fillStyle = "#1e1618"; c.fill();
-      cylinder(c, x + rl - 0.6, gy - hh - 3 * s, 1.2, 3 * s, WOOD_DK, { r: 0.4 });
-      cylinder(c, x - rl - 0.6, gy - hh - 3 * s, 1.2, 3 * s, WOOD_DK, { r: 0.4 });
-    });
-    if (v === 3) {
-      // a cold campfire: a ring of stones, charred ends
-      part(ctx, (c) => {
-        const fx = x - L - 7 * s, fy = gy + 1;
-        for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2; ball(c, fx + Math.cos(a) * 3.5 * s, fy + Math.sin(a) * 1.8 * s, 1.2 * s, 0.9 * s, GRIT, { hi: 0.4, lo: 0.4 }); }
-        c.fillStyle = "#2a2226"; c.fillRect(fx - 2 * s, fy - 0.5, 4 * s, 1);
-      });
-    }
-  }
-};
 
 // A standard of the Kingdom: a tall pole and crossbar, the long oxblood cloth
 // with the grey iron tower. The pole is baked; the cloth sways live.
@@ -768,55 +647,6 @@ const ashlar = (c, x, top, w, h, col, seed) => {
       c.fillStyle = darken(col, 0.38); c.fillRect(ap(bx), ap(cy - ch) + 0.5, 0.5, ch - 0.5);
     }
   }
-};
-const towerBody = (c, x, y, s, v) => {
-  const gy = y + 8, w2 = 9 * s, hh = 40 * s, top = gy - hh;
-  shadow(c, x + 9 * s, gy, 17 * s, 4.5 * s, 0.32);
-  part(c, (cc) => {
-    // the batter at the foot, then the shaft; the east face in shade
-    cc.fillStyle = darken(ASHLAR, 0.42);
-    cc.beginPath(); cc.moveTo(x + w2, top + 4); cc.lineTo(x + w2 + 3.5 * s, top + 1.5); cc.lineTo(x + w2 + 3.5 * s, gy - 3); cc.lineTo(x + w2, gy); cc.closePath(); cc.fill();
-    ashlar(cc, x - w2, top + 4, w2 * 2, hh - 4, ASHLAR, 11 + v);
-    cc.fillStyle = darken(ASHLAR, 0.1);
-    cc.beginPath(); cc.moveTo(x - w2 - 1.5 * s, gy); cc.lineTo(x - w2, gy - 6 * s); cc.lineTo(x + w2, gy - 6 * s); cc.lineTo(x + w2 + 1.5 * s, gy); cc.closePath(); cc.fill();
-    cc.fillStyle = lighten(ASHLAR, 0.2); cc.fillRect(x - w2, gy - 6 * s, w2 * 2, 0.5);
-    // moss creeping up from the foot
-    cc.fillStyle = "#6a7a4a"; cc.fillRect(x - w2 - 1, gy - 1.5, 5 * s, 1.5); cc.fillRect(x - w2, gy - 2.5, 2 * s, 1);
-  });
-  part(c, (cc) => {
-    // the parapet: corbelled out, merlons along the front, the deck behind
-    const pt = top - 3 * s;
-    cc.fillStyle = darken(ASHLAR, 0.55); cc.fillRect(x - w2 - 1, pt - 2.5 * s, w2 * 2 + 2 + 3 * s, 3 * s);
-    cc.fillStyle = darken(ASHLAR, 0.15);
-    for (let k = 0; k < 4; k++) cc.fillRect(x - w2 - 1 + k * (w2 * 2 + 2) / 4 + 1, pt - 4.5 * s, (w2 * 2 + 2) / 4 - 2.5, 2.5 * s);
-    ashlar(cc, x - w2 - 1, pt, w2 * 2 + 2, 7 * s, lighten(ASHLAR, 0.04), 7);
-    for (let k = 0; k < 4; k++) {
-      const mx = x - w2 - 1 + k * (w2 * 2 + 2) / 4 + 0.5, mw = (w2 * 2 + 2) / 4 - 1.5;
-      cc.fillStyle = lighten(ASHLAR, 0.1); cc.fillRect(mx, pt - 3.5 * s, mw, 3.5 * s + 0.5);
-      cc.fillStyle = lighten(ASHLAR, 0.4); cc.fillRect(mx, pt - 3.5 * s, mw, 0.5);
-      cc.fillStyle = darken(ASHLAR, 0.3); cc.fillRect(mx + mw - 0.5, pt - 3.5 * s, 0.5, 3.5 * s);
-    }
-    // corbels under it
-    cc.fillStyle = darken(ASHLAR, 0.45);
-    for (let k = 0; k < 5; k++) cc.fillRect(ap(x - w2 + 0.5 + k * (w2 * 2 - 1) / 4), pt + 7 * s, 1, 1.5);
-    // the east side of the parapet
-    cc.fillStyle = darken(ASHLAR, 0.38); cc.fillRect(x + w2 + 1, pt - 1.5 * s, 2.5 * s, 8.5 * s);
-  });
-  part(c, (cc) => {
-    // the door, iron-studded, and arrow slits
-    cc.fillStyle = "#1c1618";
-    cc.beginPath(); cc.moveTo(x - 3 * s, gy - 0.5); cc.lineTo(x - 3 * s, gy - 7 * s); cc.quadraticCurveTo(x, gy - 10.5 * s, x + 3 * s, gy - 7 * s); cc.lineTo(x + 3 * s, gy - 0.5); cc.closePath(); cc.fill();
-    cc.fillStyle = WOOD_DK; cc.fillRect(x - 2.5 * s, gy - 7 * s, 5 * s, 6.5 * s);
-    cc.fillStyle = IRON; for (const yy of [2.5, 5.5]) cc.fillRect(x - 2.5 * s, ap(gy - yy * s), 5 * s, 0.8);
-    cc.fillStyle = BRASS; cc.fillRect(ap(x + 1.2 * s), ap(gy - 4 * s), 1, 1);
-    cc.fillStyle = "#1c1618";
-    cc.fillRect(ap(x - 5.5 * s), ap(top + 20 * s), 1, 4 * s);
-    cc.fillRect(ap(x + 5 * s), ap(top + 20 * s), 1, 4 * s);
-  });
-  // the Kingdom's banner hung down the face
-  part(c, (cc) => cloth(cc, ap(x - 3.5 * s), ap(top + 6 * s), Math.round(7 * s * 2) / 2, 11 * s, 0));
-  // the pennant's pole on the deck
-  part(c, (cc) => { cylinder(cc, x - 0.6, top - 20 * s, 1.2, 17 * s, WOOD_DK, { r: 0.4 }); ball(cc, x, top - 20 * s, 1, 1, BRASS, { hi: 0.5, lo: 0.3 }); });
 };
 // A ruin of an older border tower: the shaft broken off in a jagged line,
 // its hollow inside showing, rubble and a fallen block at the foot, moss.
@@ -857,12 +687,6 @@ const ruin = (ctx, x, y, s, o) => {
   heatherMound(ctx, x - w2 - 3 * s, gy + 1, 0.8 * s, sd + 4);
 };
 
-const kingTower = (ctx, x, y, s, o) => {
-  const sp = body(`tower|${s}|${o.v % 2}`, Math.ceil(16 * s + 4), Math.ceil(56 * s + 4), 10, (c, bx, by) => towerBody(c, bx, by, s, o.v % 2));
-  stampBody(ctx, sp, x, y);
-  const top = y + 8 - 40 * s;
-  pennant(ctx, x + 0.6, top - 19.5 * s, 10 * s, 3.5 * s, o.time, x * 0.3);
-};
 
 // ---- the gate the Iron army comes out of ------------------------------------
 // The Kingdom's forward camp lies off the board's edge in the pines, and the
@@ -2269,7 +2093,6 @@ const ironRoad = (ctx, kit) => {
 // painted under 0.43 alpha, so the bake's ink ring passes it by.
 const R = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(ap(x), ap(y), Math.max(0.5, ap(w)), Math.max(0.5, ap(h))); };
 const SALT = "#f0ece2", SALT_SH = "#c8c4cc", SALT_PK = "#e8cfca";
-const BRINE = "#6a8694", BRINE_LT = "#9ab4be", BRINE_DK = "#4a6474";
 const CLAY = "#8a7658", CLAY_LT = "#a8936e", CLAY_DK = "#5c4a3a";
 const SLATE = "#5c606a", SLATE_LT = "#7e828c", SLATE_DK = "#3a3c46";
 const BASALT = "#56545c", TAR = "#3a302e";
@@ -2442,134 +2265,7 @@ const sluice = (ctx, x, y, s, o) => {
 // the east end, casks of salt at the door. Live: smoke, steam, the fire.
 const SALTHOUSE = { w2: 15, wh: 9, rf: 11, stack: 12 };
 const RUBBLE = mix(ASHLAR, GRIT, 0.5);
-const saltHouseBody = (c, x, y, s) => {
-  const gy = y + 8, w2 = SALTHOUSE.w2 * s, wh = SALTHOUSE.wh * s, rf = SALTHOUSE.rf * s, wTop = gy - wh;
-  shadow(c, x + 9 * s, gy + 0.5, 25 * s, 4.6 * s, 0.3);
-  // the coal store on the east end: a plank front, open, its roof one slope of boards
-  part(c, (cc) => {
-    const lx = x + w2 - 0.5, lw = 9 * s;
-    R(cc, lx, gy - 7 * s, lw, 7 * s, WOOD);
-    R(cc, lx + 1.5 * s, gy - 5.5 * s, lw - 3 * s, 5.5 * s, "#1e1c22");
-    ball(cc, lx + lw / 2, gy - 0.5, 3 * s, 2.6 * s, "#4a4852", { hi: 0.7, lo: 0.3 });
-    for (let k = 0; k < 4; k++) R(cc, lx + 2 * s + hash(k, 7) * (lw - 4 * s), gy - 2 * s + hash(k, 8) * 1.5 * s, 0.5, 0.5, "#8a8894");
-    R(cc, lx, gy - 7 * s, 1.5 * s, 7 * s, WOOD); R(cc, lx + lw - 1.5 * s, gy - 7 * s, 1.5 * s, 7 * s, darken(WOOD_DK, 0.2));
-    R(cc, lx - 0.5, gy - 12 * s, lw + 1.5, 5 * s, WOOD);
-    for (let k = 1; k < 5; k++) R(cc, lx - 0.5, gy - 12 * s + k * s, lw + 1.5, 0.5, WOOD_DK);
-    R(cc, lx - 0.5, gy - 12 * s, lw + 1.5, 0.5, WOOD_LT);
-  });
-  part(c, (cc) => {
-    // the south wall, rubble in courses, lit from the west
-    ashlar(cc, x - w2, wTop, w2 * 2, wh, RUBBLE, 5);
-    R(cc, x - w2, gy - 1.5, w2 * 2, 1.5, darken(RUBBLE, 0.35));
-    R(cc, x - w2 - 1, gy - 1.5, 4 * s, 1.5, "#6a7a4a");
-  });
-  part(c, (cc) => {
-    // the roof's south slope seen from above: slate courses, eaves, a lit ridge
-    const ex = 1.5 * s;
-    cc.beginPath();
-    cc.moveTo(x - w2 - ex, wTop + 0.5); cc.lineTo(x + w2 + ex, wTop + 0.5); cc.lineTo(x + w2 + ex * 0.4, wTop - rf); cc.lineTo(x - w2 - ex * 0.4, wTop - rf); cc.closePath();
-    cc.fillStyle = lin(cc, 0, wTop - rf, 0, wTop, [[0, SLATE_LT], [0.35, SLATE], [1, darken(SLATE, 0.18)]]); cc.fill();
-    cc.save(); cc.clip();
-    let row = 0;
-    for (let yy = wTop - rf + 2; yy < wTop; yy += 1.5, row++) {
-      R(cc, x - w2 - ex, yy, w2 * 2 + ex * 2, 0.5, SLATE_DK);
-      for (let xx = x - w2 - ex + (row % 2) * 1.5 + hash(row, 3) * 2; xx < x + w2 + ex; xx += 3 + hash(row, Math.round(xx)) * 1.5) R(cc, xx, yy + 0.5, 0.5, 1, darken(SLATE, 0.3));
-    }
-    for (let i = 0; i < 10; i++) R(cc, x - w2 + hash(i, 41) * w2 * 2, wTop - rf + 2 + hash(i, 43) * (rf - 3), 1, 0.5, i % 3 ? SLATE_LT : "#7a8460");
-    cc.restore();
-    R(cc, x - w2 - ex * 0.4, wTop - rf - 1, w2 * 2 + ex * 0.8, 1.5, lighten(SLATE, 0.3));
-    R(cc, x - w2 - ex, wTop, w2 * 2 + ex * 2, 0.5, SLATE_DK);
-  });
-  part(c, (cc) => {
-    // the louvre on the ridge: a slatted box under its own little roof
-    const lx = x + 4 * s, ly = wTop - rf - 1;
-    R(cc, lx - 3 * s, ly - 3.5 * s, 6 * s, 3.5 * s, WOOD_DK);
-    for (let k = 0; k < 3; k++) R(cc, lx - 3 * s, ly - 3 * s + k * s, 6 * s, 0.5, WOOD_LT);
-    R(cc, lx - 3.8 * s, ly - 5 * s, 7.6 * s, 1.5 * s, SLATE); R(cc, lx - 3.8 * s, ly - 5 * s, 7.6 * s, 0.5, SLATE_LT);
-  });
-  part(c, (cc) => {
-    // the door (the fire's glow in it) and a small window
-    const dx = x - 3 * s;
-    cc.fillStyle = "#1c1618";
-    cc.beginPath(); cc.moveTo(dx - 3 * s, gy - 0.5); cc.lineTo(dx - 3 * s, gy - 5.5 * s); cc.quadraticCurveTo(dx, gy - 8 * s, dx + 3 * s, gy - 5.5 * s); cc.lineTo(dx + 3 * s, gy - 0.5); cc.closePath(); cc.fill();
-    R(cc, dx - 2 * s, gy - 3 * s, 4 * s, 2.5 * s, "#7a3a20");
-    R(cc, dx - 1.5 * s, gy - 2 * s, 3 * s, 1.5 * s, "#d8742c");
-    R(cc, x + 6 * s, wTop + 2.5 * s, 3 * s, 2.5 * s, "#1c1618");
-    R(cc, x + 6 * s, wTop + 4 * s, 3 * s, 1, "#a8522a");
-  });
-  part(c, (cc) => {
-    // the stack, dressed stone, up past the roof; its east face in shade, a dark mouth
-    const cx = x - w2 + 3.5 * s, cw = 5 * s, ct = wTop - rf - SALTHOUSE.stack * s;
-    const SC = darken(RUBBLE, 0.12);
-    ashlar(cc, cx - cw / 2, ct, cw, gy - ct, SC, 9);
-    R(cc, cx + cw / 2, ct + 1, 1.5 * s, gy - ct - 2, darken(SC, 0.45));
-    for (let k = 0; k < 6; k++) R(cc, cx - cw / 2 + hash(k, 5) * cw, ct + k * 0.5, cw * 0.4, 0.5, mix(SC, "#2a2426", 0.6 - k * 0.08));   // soot at the mouth
-    R(cc, cx - cw / 2 - 0.5, ct - 1.5, cw + 1.5 * s + 1, 1.5, darken(SC, 0.25));
-    R(cc, cx - cw / 2 + 0.5, ct - 1.5, cw - 1, 0.5, "#1c1618");
-  });
-  // casks of salt by the door, one open
-  part(c, (cc) => keg(cc, x + 1.5 * s, gy + 2.5 * s, 0.75 * s, true));
-  part(c, (cc) => keg(cc, x - w2 - 4 * s, gy + 1.5 * s, 0.8 * s));
-  part(c, (cc) => sackL(cc, x + 8 * s, gy + 2.5 * s, 0.7 * s));
-};
-const saltHouse = (ctx, x, y, s, o) => {
-  const sp = body(`salthouse|${s}`, Math.ceil(34 * s + 4), Math.ceil((SALTHOUSE.wh + SALTHOUSE.rf + SALTHOUSE.stack + 4) * s + 6), 12, (c, bx, by) => saltHouseBody(c, bx, by, s));
-  stampBody(ctx, sp, x, y);
-  const gy = y + 8, t = o.time, ph = (x * 0.13) % 1;
-  const f = 0.5 + 0.5 * Math.sin(t * 9 + x) * Math.sin(t * 5.3);
-  glow(ctx, x - 3 * s, gy - 2.5 * s, 4.5 * s, "#ff9a40", 0.14 + f * 0.1);
-  ctx.fillStyle = f > 0.55 ? "#ffd070" : "#f0a040"; ctx.fillRect(ap(x - 3.5 * s), ap(gy - 1.5 * s), 1, 0.5);
-  const cTop = gy - (SALTHOUSE.wh + SALTHOUSE.rf + SALTHOUSE.stack) * s - 2;
-  smoke(ctx, x - SALTHOUSE.w2 * s + 3.5 * s, cTop, t, ph, s, "120,120,132", 0.42);
-  smoke(ctx, x + 4 * s, gy - (SALTHOUSE.wh + SALTHOUSE.rf + 6) * s, t * 1.3, ph + 0.5, s * 0.75, "240,240,244", 0.36);
-};
 
-// Salt waiting for the carts. v: 0 a covered heap and casks, 1 a stack of
-// sacks, 2 a barrow by a heap, 3 a row of casks, one open.
-const saltStore = (ctx, x, y, s, o) => {
-  const gy = y + 8, v = o.v % 4, sd = o.seed;
-  shadow(ctx, x + 4 * s, gy + 0.5, 13 * s, 2.8 * s, 0.24);
-  if (v === 0 || v === 2) {
-    part(ctx, (c) => heap(c, x - 3 * s, gy, 7.5 * s));
-    // a shovel stuck in the heap
-    part(ctx, (c) => {
-      c.strokeStyle = WOOD_LT; c.lineWidth = 0.9; c.lineCap = "round";
-      c.beginPath(); c.moveTo(x - 1 * s, gy - 3 * s); c.lineTo(x + 2.5 * s, gy - 12 * s); c.stroke();
-      R(c, x + 1.5 * s, gy - 12.5 * s, 2.5 * s, 0.8, WOOD_DK);
-    });
-  }
-  if (v === 0) {
-    // a hide thrown over the heap's far side against the weather
-    part(ctx, (c) => {
-      c.beginPath(); c.moveTo(x - 9 * s, gy - 2 * s); c.quadraticCurveTo(x - 7 * s, gy - 8 * s, x - 3 * s, gy - 7.5 * s); c.lineTo(x - 5 * s, gy - 1 * s); c.closePath();
-      c.fillStyle = darken(CANVAS, 0.25); c.fill(); R(c, x - 7.5 * s, gy - 6 * s, 1, 1, lighten(CANVAS, 0.1));
-    });
-    part(ctx, (c) => keg(c, x + 7 * s, gy, 0.8 * s));
-    part(ctx, (c) => keg(c, x + 11 * s, gy + 1.5 * s, 0.75 * s, true));
-  } else if (v === 1) {
-    for (const [dx, dy] of [[-7, 0], [1, 0.5], [9, 0], [-3, -3.6], [5, -3.4], [1, -7]]) part(ctx, (c) => sackL(c, x + dx * s, gy + dy * s, s, (dx + dy) % 2 ? CANVAS : BURLAP));
-  } else if (v === 2) {
-    // a wheelbarrow of salt, its legs down
-    part(ctx, (c) => {
-      const bx = x + 8 * s;
-      c.strokeStyle = WOOD_DK; c.lineWidth = 0.9;
-      c.beginPath(); c.moveTo(bx - 2 * s, gy - 4 * s); c.lineTo(bx + 9 * s, gy - 2 * s); c.stroke();
-      c.beginPath(); c.moveTo(bx + 1 * s, gy - 3 * s); c.lineTo(bx + 1.5 * s, gy); c.stroke();
-      c.beginPath(); c.moveTo(bx - 6 * s, gy - 6 * s); c.lineTo(bx - 4 * s, gy - 1 * s); c.lineTo(bx + 3 * s, gy - 1.5 * s); c.lineTo(bx + 4 * s, gy - 6.5 * s); c.closePath();
-      c.fillStyle = WOOD; c.fill();
-      R(c, bx - 6 * s, gy - 6.5 * s, 10 * s, 0.5, WOOD_LT);
-      ellipse(c, bx - 1 * s, gy - 6.6 * s, 4.6 * s, 1.6 * s); c.fillStyle = SALT; c.fill();
-      R(c, bx - 1 * s, gy - 7.5 * s, 2 * s, 0.5, "#fffaf0");
-      ellipse(c, bx - 6.5 * s, gy - 1.6 * s, 1.8 * s, 1.8 * s); c.fillStyle = WOOD_DK; c.fill();
-    });
-  } else {
-    part(ctx, (c) => keg(c, x - 7 * s, gy - 1 * s, 0.9 * s));
-    part(ctx, (c) => keg(c, x, gy, 0.9 * s, true));
-    part(ctx, (c) => keg(c, x + 7 * s, gy + 1 * s, 0.9 * s));
-    part(ctx, (c) => { cylinder(c, x - 3 * s, gy + 1 * s, 7 * s, 2.6 * s, "#8a6036", { r: 1 }); R(c, x - 1.5 * s, gy + 1 * s, 0.8, 2.6 * s, IRON); R(c, x + 2 * s, gy + 1 * s, 0.8, 2.6 * s, IRON); });
-  }
-  if (hash(sd, 3) > 0.5) tuft(ctx, x - 12 * s, gy + 1.5, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
-};
 
 // A boat hauled up on the strand, lying with her bow to the east (the water
 // side): clinker strakes, thwarts, oars. v: 0 upright with her oars, 1 keel-up
@@ -2582,65 +2278,6 @@ const hull = (c, cx, cy, L, Wd) => {
   c.quadraticCurveTo(cx + L * 0.55, cy + Wd, cx, cy + Wd);
   c.quadraticCurveTo(cx - L * 0.55, cy + Wd, cx - L, cy);
   c.closePath();
-};
-const beachedBoat = (ctx, x, y, s, o) => {
-  const gy = y + 8, v = o.v % 4, sd = o.seed;
-  const cx = x + 10 * s, cy = gy - 2.5 * s, L = 8.5 * s, Wd = 3.4 * s;
-  shadow(ctx, cx + 3 * s, gy + 1, 16 * s, 3.4 * s, 0.26);
-  if (v === 2) {
-    // two poles and a net slung between them, cork floats along its head
-    part(ctx, (c) => {
-      for (const px of [x - 4 * s, x + 22 * s]) cylinder(c, px - 0.6, gy - 16 * s, 1.2, 15 * s, WOOD_DK, { r: 0.4 });
-      c.strokeStyle = "#5a5246"; c.lineWidth = 0.6;
-      for (let k = 0; k < 4; k++) { c.beginPath(); c.moveTo(x - 4 * s, gy - 15 * s + k * 2.5 * s); c.quadraticCurveTo(x + 9 * s, gy - 10 * s + k * 2.5 * s, x + 22 * s, gy - 15 * s + k * 2.5 * s); c.stroke(); }
-      for (let k = 0; k <= 10; k++) { const t = k / 10, px = x - 4 * s + t * 26 * s, sag = Math.sin(t * Math.PI) * 5 * s; c.beginPath(); c.moveTo(px, gy - 15 * s + sag); c.lineTo(px + 0.5, gy - 7.5 * s + sag); c.stroke(); }
-      for (let k = 1; k < 10; k += 2) { const t = k / 10; R(c, x - 4 * s + t * 26 * s - 0.5, gy - 15.5 * s + Math.sin(t * Math.PI) * 5 * s, 1, 1, "#c8a060"); }
-    });
-  }
-  if (v === 1) {
-    part(ctx, (c) => {
-      hull(c, cx, cy, L, Wd);
-      c.fillStyle = lin(c, 0, cy - Wd, 0, cy + Wd, [[0, lighten(TAR, 0.25)], [0.45, TAR], [1, darken(TAR, 0.35)]]); c.fill();
-      c.save(); c.clip();
-      for (const k of [-0.55, 0.4]) { c.strokeStyle = darken(TAR, 0.4); c.lineWidth = 0.5; c.beginPath(); c.moveTo(cx - L, cy + k * Wd * 0.3); c.quadraticCurveTo(cx, cy + k * Wd * 1.6, cx + L, cy - Wd * 0.15 + k * Wd * 0.3); c.stroke(); }
-      R(c, cx - L, cy - 0.5, L * 2, 1, lighten(TAR, 0.4));        // the keel, lit
-      c.restore();
-      R(c, cx - L - 1, cy - 1, 1.5, 2.5 * s, WOOD_DK); R(c, cx + L - 1, cy - 1.5, 1.5, 2.5 * s, WOOD_DK);   // the props under her gunwale
-    });
-  } else {
-    part(ctx, (c) => {
-      // her side (south strakes) below the gunwale, then the gunwale and her inside
-      c.save(); c.translate(0, 2 * s); hull(c, cx, cy, L, Wd); c.restore();
-      c.fillStyle = darken(WOOD, 0.25); c.fill();
-      hull(c, cx, cy, L, Wd); c.fillStyle = WOOD_LT; c.fill();
-      c.save(); hull(c, cx, cy, L * 0.9, Wd * 0.72); c.clip();
-      c.fillStyle = lin(c, 0, cy - Wd, 0, cy + Wd, [[0, darken(WOOD, 0.35)], [0.5, WOOD], [1, lighten(WOOD, 0.1)]]); c.fillRect(cx - L, cy - Wd, L * 2, Wd * 2);
-      for (const k of [-0.4, 0, 0.4]) R(c, cx - L, cy + k * Wd * 1.2, L * 2, 0.5, darken(WOOD, 0.4));
-      for (const t of [-0.45, 0.05, 0.5]) { R(c, cx + t * L - 0.75, cy - Wd, 1.5, Wd * 2, WOOD_LT); R(c, cx + t * L + 0.75, cy - Wd, 0.5, Wd * 2, WOOD_DK); }
-      c.restore();
-      for (let k = -2; k <= 2; k++) R(c, cx + k * L * 0.4, cy + Wd * 0.75 + 0.5, 0.5, 1.5 * s, darken(WOOD, 0.5));   // strake lands
-      R(c, cx - L * 0.6, cy - Wd + 0.5, L * 1.2, 0.5, lighten(WOOD_LT, 0.3));
-    });
-    if (v === 0) {
-      part(ctx, (c) => {
-        c.strokeStyle = WOOD_LT; c.lineWidth = 0.9; c.lineCap = "round";
-        for (const k of [-1, 1]) { c.beginPath(); c.moveTo(cx - L * 0.8, cy + k * 0.8); c.lineTo(cx + L * 0.75, cy + k * 1.6 - 1.5); c.stroke(); }
-        R(c, cx + L * 0.55, cy - 2, 3 * s, 1.5, WOOD); R(c, cx + L * 0.55, cy + 0.5, 3 * s, 1.5, WOOD);
-      });
-    } else if (v === 3) {
-      part(ctx, (c) => {
-        cylinder(c, cx - L * 1.1, cy - 1, L * 2.1, 1.4, WOOD_DK, { r: 0.6 });
-        roundRect(c, cx - L * 0.8, cy - 2.5, L * 1.4, 2.6, 1.2);
-        c.fillStyle = lin(c, 0, cy - 2.5, 0, cy, [[0, OX_LT], [0.5, OX], [1, OX_DK]]); c.fill();
-        for (let k = 0; k < 4; k++) R(c, cx - L * 0.6 + k * L * 0.35, cy - 2.5, 0.5, 2.6, OX_DK);
-      });
-    }
-  }
-  // stones and a hank of weed at her foot
-  stone(ctx, cx - L - 2 * s, gy + 0.5, 1.4 * s, 1 * s, GRIT);
-  stone(ctx, cx + L * 0.4, gy + 1.5, 1.2 * s, 0.9 * s, lighten(GRIT, 0.1));
-  ctx.fillStyle = "#4e5a34"; ctx.fillRect(ap(cx + L * 0.7), ap(gy + 0.5), 3, 0.5); ctx.fillRect(ap(cx + L * 0.75), ap(gy), 1.5, 0.5);
-  if (hash(sd, 2) > 0.5) tuft(ctx, x - 2 * s, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
 };
 
 // The bones of a ship the dyke-men broke up long ago, heeled over on her
@@ -2804,76 +2441,6 @@ const quintain = (ctx, x, y, s, o) => {
   ctx.fillStyle = STEEL; ctx.fillRect(ap(x - 1), ap(py - 1), 2, 1.5);
 };
 
-// Practice men. v: 0 a straw man on a cross, an oxblood rag for a sash; 1 a
-// pell, a hacked post with chips at its foot and a wooden sword against it;
-// 2 a straw man in an old kettle hat and tabard; 3 one leaning, shot full of arrows.
-const dummy = (ctx, x, y, s, o) => {
-  const gy = y + 8, v = o.v % 4, sd = o.seed;
-  shadow(ctx, x + 4 * s, gy + 0.5, 7 * s, 2.2 * s, 0.26);
-  if (v === 1) {
-    part(ctx, (c) => {
-      cylinder(c, x - 2 * s, gy - 14 * s, 4 * s, 14 * s, WOOD, { r: 1.2, hi: 0.35 });
-      for (let k = 0; k < 6; k++) {
-        const ny = gy - 4 * s - k * 1.7 * s - hash(sd, k) * s;
-        R(c, x - 2 * s + hash(sd, k + 9) * 1.5 * s, ny, 2 * s, 0.5, WOOD_DK);
-        R(c, x - 2 * s + hash(sd, k + 9) * 1.5 * s, ny + 0.5, 2 * s, 0.5, WOOD_LT);
-      }
-      ellipse(c, x, gy - 14 * s, 2 * s, 0.8 * s); c.fillStyle = WOOD_LT; c.fill();
-    });
-    part(ctx, (c) => {
-      c.strokeStyle = WOOD_LT; c.lineWidth = 1; c.lineCap = "round";
-      c.beginPath(); c.moveTo(x + 3 * s, gy); c.lineTo(x + 5 * s, gy - 9 * s); c.stroke();
-      R(c, x + 3 * s, gy - 2.5 * s, 3.5 * s, 0.8, WOOD_DK);
-    });
-    for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? WOOD_LT : "#c8a878"; ctx.fillRect(ap(x - 5 * s + hash(sd, i + 20) * 10 * s), ap(gy + hash(sd, i + 30) * 2.5), 1, 0.5); }
-    return;
-  }
-  ctx.save();
-  if (v === 3) { ctx.translate(x, gy); ctx.rotate(0.16); ctx.translate(-x, -gy); }
-  part(ctx, (c) => cylinder(c, x - 0.8 * s, gy - 15 * s, 1.6 * s, 15 * s, WOOD_DK, { r: 0.5 }));
-  part(ctx, (c) => {
-    // the arms: a crossbar, straw bursting from its ends
-    R(c, x - 6.5 * s, gy - 13.5 * s, 13 * s, 1.5 * s, WOOD); R(c, x - 6.5 * s, gy - 13.5 * s, 13 * s, 0.5, WOOD_LT);
-    for (const k of [-1, 1]) for (let j = 0; j < 3; j++) R(c, x + k * (6.5 * s + 0.5) - (k < 0 ? 1 : 0), gy - 14 * s + j * 0.8, 1, 0.5, j % 2 ? STRAW : STRAW_LT);
-  });
-  part(ctx, (c) => {
-    // the body: a straw-stuffed sack bound at the waist
-    roundRect(c, x - 3.6 * s, gy - 14 * s, 7.2 * s, 8.5 * s, 2 * s);
-    c.fillStyle = lin(c, x - 3.6 * s, 0, x + 3.6 * s, 0, [[0, lighten(BURLAP, 0.25)], [0.5, BURLAP], [1, darken(BURLAP, 0.3)]]); c.fill();
-    if (v === 2) {
-      roundRect(c, x - 3.8 * s, gy - 13.5 * s, 7.6 * s, 7.5 * s, 1.5 * s);
-      c.fillStyle = lin(c, x - 3.6 * s, 0, x + 3.6 * s, 0, [[0, OX_LT], [0.5, OX], [1, OX_DK]]); c.fill();
-      device(c, x, gy - 12 * s, 0.6 * s);
-    } else {
-      c.strokeStyle = OX; c.lineWidth = 1.2 * s;
-      c.beginPath(); c.moveTo(x - 3.2 * s, gy - 13 * s); c.lineTo(x + 3.2 * s, gy - 8 * s); c.stroke();
-    }
-    R(c, x - 3.6 * s, gy - 8.5 * s, 7.2 * s, 0.8, STRAW_DK);
-    for (let j = 0; j < 4; j++) R(c, x - 2.5 * s + j * 1.6 * s, gy - 6 * s, 0.5, 1 + (j % 2) * 0.5, STRAW_LT);
-  });
-  part(ctx, (c) => {
-    // the head: a straw bundle tied off at the neck
-    ball(c, x, gy - 16.2 * s, 2.5 * s, 2.3 * s, STRAW, { hi: 0.4, lo: 0.4 });
-    R(c, x - 1.2 * s, gy - 14.2 * s, 2.4 * s, 0.5, WOOD_DK);
-    if (v === 2) {
-      ellipse(c, x, gy - 17 * s, 3.8 * s, 1.2 * s); c.fillStyle = STEEL_DK; c.fill();
-      ball(c, x, gy - 17.8 * s, 2.5 * s, 1.8 * s, STEEL, { hi: 0.5, lo: 0.4 });
-    } else {
-      R(c, x - 1 * s, gy - 18.6 * s, 0.5, 1, STRAW_LT); R(c, x + 0.5 * s, gy - 18.8 * s, 0.5, 1, STRAW_LT);
-    }
-  });
-  if (v === 3) {
-    part(ctx, (c) => {
-      for (const [ax, ay, dx] of [[-1.5, -11, 3], [1.5, -9, 3.5], [0, -16, 2.5]]) {
-        c.strokeStyle = WOOD_LT; c.lineWidth = 0.6;
-        c.beginPath(); c.moveTo(x + ax * s, gy + ay * s); c.lineTo(x + (ax + dx) * s, gy + (ay + 1.6) * s); c.stroke();
-        R(c, x + (ax + dx) * s - 0.5, gy + (ay + 1.2) * s, 1.5, 1, "#ece4d0");
-      }
-    });
-  }
-  ctx.restore();
-  for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? STRAW : STRAW_DK; ctx.fillRect(ap(x - 4 * s + hash(sd, i + 40) * 8 * s), ap(gy + 0.5 + hash(sd, i + 44) * 2), 1, 0.5); }
-};
 
 // Archery butts: two straw bosses on a trestle against a turf bank, their
 // faces cream and oxblood with a gold clout, arrows in them, a sheaf on a stake.
@@ -3025,36 +2592,6 @@ const streaks = (ctx, lx, ly, w, s, seed) => {
     ctx.fillStyle = "rgba(232,228,220,0.45)"; ctx.fillRect(ap(sx), ap(ly + len * 0.6), 0.5, ap(len * 0.4) + 0.5);
     if (i % 2) { ctx.fillStyle = "#f2efe8"; ctx.fillRect(ap(sx - 0.5), ap(ly - 0.5), 1.5, 0.5); }
   }
-};
-const seaStack = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed, v = o.v % 4, col = BASALT;
-  shadow(ctx, x + 6 * s, gy, 16 * s, 4.2 * s, 0.3);
-  let tops;
-  if (v === 0) {
-    facet(ctx, x - 6 * s, gy - 1 * s, 7 * s, 15 * s, darken(col, 0.04), sd + 1);
-    facet(ctx, x + 3 * s, gy, 7.5 * s, 26 * s, col, sd + 2);
-    facet(ctx, x + 11 * s, gy + 1.5 * s, 4.5 * s, 7 * s, darken(col, 0.08), sd + 3, { flat: true });
-    tops = [[x - 6 * s, gy - 15 * s, 8 * s], [x + 3 * s, gy - 25 * s, 9 * s]];
-  } else if (v === 1) {
-    facet(ctx, x - 7 * s, gy, 5 * s, 20 * s, col, sd + 1, { flat: true });
-    facet(ctx, x, gy - 1 * s, 5 * s, 25 * s, lighten(col, 0.04), sd + 2, { flat: true });
-    facet(ctx, x + 7 * s, gy + 1 * s, 5 * s, 16 * s, darken(col, 0.06), sd + 3, { flat: true });
-    tops = [[x - 7 * s, gy - 19 * s, 6 * s], [x, gy - 25 * s, 6 * s], [x + 7 * s, gy - 14.5 * s, 6 * s]];
-  } else if (v === 2) {
-    facet(ctx, x + 1 * s, gy - 2 * s, 12 * s, 17 * s, darken(col, 0.03), sd + 1, { flat: true });
-    facet(ctx, x - 4 * s, gy + 1 * s, 13 * s, 8 * s, col, sd + 2, { flat: true });
-    tops = [[x + 1 * s, gy - 18.5 * s, 14 * s], [x - 4 * s, gy - 6.5 * s, 14 * s]];
-  } else {
-    facet(ctx, x - 2 * s, gy, 12 * s, 12 * s, col, sd + 1, { flat: true });
-    facet(ctx, x + 9 * s, gy + 1 * s, 5 * s, 9 * s, darken(col, 0.05), sd + 2);
-    tops = [[x - 2 * s, gy - 11.5 * s, 13 * s]];
-  }
-  tops.forEach(([tx, ty, tw], i) => streaks(ctx, tx, ty + 1.5 * s, tw, s, sd + i * 13));
-  const [gx, gy2] = tops[(sd % tops.length + tops.length) % tops.length];
-  part(ctx, (c) => gull(c, gx - 1 * s, gy2 + 1 * s, 0.8 * s, hash(sd, 3) > 0.5 ? 1 : -1));
-  if (tops.length > 1 && hash(sd, 4) > 0.45) { const [hx, hy] = tops[(sd + 1) % tops.length]; part(ctx, (c) => gull(c, hx + 1.5 * s, hy + 1 * s, 0.75 * s, -1)); }
-  brackenFan(ctx, x - 13 * s, gy + 2, 0.6 * s, sd + 9);
-  if (hash(sd, 8) > 0.5) heatherTuft(ctx, x + 14 * s, gy + 2.5, 0.8 * s, sd + 5);
 };
 
 // The eyrie: a great basalt stack on the cliff-top, a nest of sticks on it
@@ -3291,102 +2828,7 @@ const quay = (ctx, x, y, s, o) => {
   tuft(ctx, x, qy0 + 4, 0.45, REALM.TUFT, REALM.GRASS_LT, sd + 4, { n: 3 });
 };
 
-// Mooring piles at the water's edge (east), a rowing boat tied to them, an
-// anchor and a coil of rope ashore.
-const mooring = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed, bx = x + 18 * s, by = gy - 4 * s;
-  ctx.fillStyle = WET(0.2); ctx.fillRect(ap(bx - 3 * s), ap(by - 4 * s), ap(8 * s), ap(11 * s));
-  for (let i = 0; i < 4; i++) { ctx.fillStyle = GLINT(0.2); ctx.fillRect(ap(bx + 4 * s + hash(sd, i) * 2), ap(by - 4 * s + hash(sd, i + 4) * 10 * s), ap(2.5 * s), 0.5); }
-  shadow(ctx, x + 3 * s, gy + 0.5, 7 * s, 2 * s, 0.24);
-  // the boat, lying along the stream
-  part(ctx, (c) => {
-    const L = 6 * s, Wd = 2.8 * s;
-    c.beginPath(); c.moveTo(bx, by - L); c.quadraticCurveTo(bx + Wd, by - L * 0.5, bx + Wd, by + L * 0.4); c.lineTo(bx + Wd * 0.7, by + L); c.lineTo(bx - Wd * 0.7, by + L); c.lineTo(bx - Wd, by + L * 0.4); c.quadraticCurveTo(bx - Wd, by - L * 0.5, bx, by - L); c.closePath();
-    c.fillStyle = WOOD_LT; c.fill();
-    c.beginPath(); c.moveTo(bx, by - L + 1.5); c.quadraticCurveTo(bx + Wd - 1, by - L * 0.5, bx + Wd - 1, by + L * 0.4); c.lineTo(bx + Wd * 0.7 - 1, by + L - 1); c.lineTo(bx - Wd * 0.7 + 1, by + L - 1); c.lineTo(bx - Wd + 1, by + L * 0.4); c.quadraticCurveTo(bx - Wd + 1, by - L * 0.5, bx, by - L + 1.5); c.closePath();
-    c.fillStyle = darken(WOOD, 0.15); c.fill();
-    R(c, bx - Wd + 1, by - 1 * s, Wd * 2 - 2, 1, WOOD_LT); R(c, bx - Wd + 1, by + 2.5 * s, Wd * 2 - 2, 1, WOOD_LT);
-    R(c, bx - Wd * 0.7, by + L, Wd * 1.4, 1.5 * s, darken(WOOD, 0.35));
-    R(c, bx - Wd * 0.7, by + L + 1.5 * s - 0.5, Wd * 1.4, 0.5, TAR);
-  });
-  // the piles, each with its glint at the waterline, and the painter line
-  part(ctx, (c) => {
-    for (const [px, py] of [[x + 9 * s, gy - 9 * s], [x + 10 * s, gy - 3 * s], [x + 9.5 * s, gy + 2 * s]]) {
-      cylinder(c, px - 1 * s, py - 4 * s, 2 * s, 5 * s, WOOD_DK, { r: 0.6 });
-      ellipse(c, px, py - 4 * s, 1 * s, 0.5 * s); c.fillStyle = WOOD_LT; c.fill();
-    }
-    c.strokeStyle = "#c8b48a"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(x + 10 * s, gy - 5 * s); c.quadraticCurveTo(x + 13 * s, gy - 6 * s, bx - 1 * s, by - 5 * s); c.stroke();
-  });
-  ctx.fillStyle = GLINT(0.3); for (const py of [gy - 4 * s, gy + 2 * s, gy + 7 * s]) ctx.fillRect(ap(x + 10.5 * s), ap(py), ap(2 * s), 0.5);
-  // ashore: the anchor and a coil of rope
-  part(ctx, (c) => {
-    c.strokeStyle = IRON; c.lineWidth = 1; c.lineCap = "round";
-    c.beginPath(); c.moveTo(x - 4 * s, gy - 4 * s); c.lineTo(x + 2 * s, gy); c.stroke();
-    c.beginPath(); c.arc(x + 1 * s, gy - 1.5 * s, 2.4 * s, 0.2, 2.2); c.stroke();
-    R(c, x - 4.8 * s, gy - 5 * s, 2 * s, 0.8, IRON);
-  });
-  part(ctx, (c) => { ellipse(c, x + 4 * s, gy + 1.5, 2.2 * s, 1.1 * s); c.fillStyle = "#c8b48a"; c.fill(); ellipse(c, x + 4 * s, gy + 1.5, 1 * s, 0.5 * s); c.fillStyle = WOOD_DK; c.fill(); });
-  if (hash(sd, 1) > 0.4) tuft(ctx, x - 6 * s, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
-};
 
-// The toll-house at the bridge foot where the Kingdom takes its due of every
-// cargo: dressed stone under a hipped slate roof, the oxblood cloth on its
-// face, a lantern at the door, a strongbox, a striped toll-bar raised beside
-// it and the board of dues on its post.
-const tollHouse = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed, w2 = 9 * s, wh = 9 * s, rf = 9 * s, wTop = gy - wh;
-  shadow(ctx, x + 8 * s, gy + 0.5, 17 * s, 4 * s, 0.3);
-  // the toll-bar, raised on its pivot post east of the house
-  part(ctx, (c) => {
-    const px = x + w2 + 7 * s;
-    cylinder(c, px - 1.2 * s, gy - 9 * s, 2.4 * s, 9 * s, WOOD_DK, { r: 0.6 });
-    const ang = -1.05, len = 20 * s;
-    for (let k = 0; k < 8; k++) {
-      const a0 = k / 8, a1 = (k + 1) / 8;
-      c.strokeStyle = k % 2 ? "#e8dcc0" : OX; c.lineWidth = 1.5 * s; c.lineCap = "butt";
-      c.beginPath(); c.moveTo(px + Math.cos(ang) * len * a0 - 2 * s, gy - 8 * s + Math.sin(ang) * len * a0); c.lineTo(px + Math.cos(ang) * len * a1 - 2 * s, gy - 8 * s + Math.sin(ang) * len * a1); c.stroke();
-    }
-    R(c, px - 2.5 * s, gy - 9 * s, 3 * s, 2.5 * s, IRON);
-    ball(c, px + 2 * s, gy - 6.5 * s, 1.6 * s, 1.6 * s, GRIT, { hi: 0.4, lo: 0.4 });   // the counterweight stone
-  });
-  part(ctx, (c) => {
-    ashlar(c, x - w2, wTop, w2 * 2, wh, ASHLAR, 13);
-    R(c, x - w2, gy - 1.5, w2 * 2, 1.5, darken(ASHLAR, 0.35));
-    R(c, x - w2 - 0.5, gy - 1.5, 3 * s, 1.5, "#6a7a4a");
-  });
-  part(ctx, (c) => {
-    // the hipped roof: a short ridge, the south slope, the two hips
-    const ex = 1.5 * s, rt = wTop - rf;
-    c.beginPath(); c.moveTo(x - w2 - ex, wTop + 0.5); c.lineTo(x + w2 + ex, wTop + 0.5); c.lineTo(x + 3.5 * s, rt); c.lineTo(x - 3.5 * s, rt); c.closePath();
-    c.fillStyle = lin(c, 0, rt, 0, wTop, [[0, SLATE_LT], [0.4, SLATE], [1, darken(SLATE, 0.2)]]); c.fill();
-    c.save(); c.clip();
-    for (let yy = rt + 1.5, row = 0; yy < wTop; yy += 1.5, row++) R(c, x - w2 - ex, yy, w2 * 2 + ex * 2, 0.5, SLATE_DK);
-    c.beginPath(); c.moveTo(x + 3.5 * s, rt); c.lineTo(x + w2 + ex, wTop + 0.5); c.lineTo(x + w2 + ex, rt); c.closePath(); c.fillStyle = darken(SLATE, 0.3); c.fill();
-    c.restore();
-    R(c, x - 3.5 * s, rt - 0.5, 7 * s, 1, lighten(SLATE, 0.35));
-    R(c, x - w2 - ex, wTop, w2 * 2 + ex * 2, 0.5, SLATE_DK);
-    // a small chimney at the ridge's east end
-    R(c, x + 2 * s, rt - 4 * s, 2.5 * s, 4.5 * s, ASHLAR); R(c, x + 3.5 * s, rt - 4 * s, 1 * s, 4.5 * s, darken(ASHLAR, 0.35)); R(c, x + 2 * s, rt - 4.5 * s, 3 * s, 0.8, darken(ASHLAR, 0.2));
-  });
-  // the door, a lantern, the Kingdom's cloth hung on the face
-  part(ctx, (c) => {
-    c.fillStyle = "#1c1618";
-    c.beginPath(); c.moveTo(x + 1 * s, gy - 0.5); c.lineTo(x + 1 * s, gy - 5.5 * s); c.quadraticCurveTo(x + 3.5 * s, gy - 7.5 * s, x + 6 * s, gy - 5.5 * s); c.lineTo(x + 6 * s, gy - 0.5); c.closePath(); c.fill();
-    R(c, x + 1.5 * s, gy - 5.5 * s, 4 * s, 5 * s, WOOD_DK); R(c, x + 1.5 * s, gy - 3.5 * s, 4 * s, 0.8, IRON);
-    R(c, x + 7 * s, gy - 7 * s, 1.5 * s, 2 * s, "#ffcf78"); R(c, x + 7 * s, gy - 7.5 * s, 1.5 * s, 0.5, IRON);
-  });
-  part(ctx, (c) => cloth(c, ap(x - 6.5 * s), ap(wTop + 1 * s), Math.round(5 * s * 2) / 2, 7 * s, 0));
-  // the strongbox by the door and the board of dues on its post
-  part(ctx, (c) => { R(c, x - 2 * s, gy - 1 * s, 5 * s, 3.5 * s, "#6a4a2e"); R(c, x - 2 * s, gy - 1 * s, 5 * s, 1.2 * s, "#8a6440"); R(c, x - 2 * s, gy + 0.5, 5 * s, 0.6, IRON); R(c, x + 0.3 * s, gy, 0.8, 1, BRASS); });
-  part(ctx, (c) => {
-    const bx = x - w2 - 6 * s;
-    cylinder(c, bx - 0.7, gy - 12 * s, 1.4, 12 * s, WOOD_DK, { r: 0.4 });
-    R(c, bx - 4 * s, gy - 14 * s, 8 * s, 6 * s, "#2e2a2c"); R(c, bx - 4 * s, gy - 14 * s, 8 * s, 0.5, "#5a5254");
-    for (let r = 0; r < 3; r++) R(c, bx - 3 * s, gy - 12.5 * s + r * 1.6 * s, (4 + hash(sd, r) * 2) * s, 0.5, "#d8ccb0");
-    R(c, bx + 2.5 * s, gy - 12.5 * s, 0.8, 0.8, OX_LT);
-  });
-  tuft(ctx, x - w2 - 1, gy + 1.5, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
-};
 
 // ---- the camp's own pieces, sculpted (look B "worked"; footprints as before) --------
 // Materials for the camp, asked for inside painters only.

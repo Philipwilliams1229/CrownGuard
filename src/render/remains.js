@@ -5,16 +5,14 @@
 // When the wave is cleared they dissolve piece by piece (fadeAt/fadeMs, set
 // by update.js dissolveCorpses).
 //
-// New sprites (the default): each piece (spine, three ribs, the skull, a long
+// Each piece (spine, three ribs, the skull, a long
 // bone) is painted ONCE as a little pixel sprite at art resolution (PX per
 // world unit): lit from the upper left in four bone tones, with a one-pixel
 // edge tinted umber, and stamped with one drawImage. A corpse is five blits
-// and a dithered shadow row, whatever it looks like. "New sprites" off keeps
-// the old flat rects below.
+// and a dithered shadow row, whatever it looks like.
 import { PX, hash } from "./paint.js";
-import { prefs } from "../data/prefs.js";
 
-const BONE = "#e6dcbc", BONE_DK = "#a99d7c", SHADE = "rgba(34,22,34,0.3)";
+const SHADE = "rgba(34,22,34,0.3)";
 const HI = "#f8f0d6", LT = "#e6dcbc", MD = "#c4b794", DK = "#9a8e6e", EDGE = "#4a3a30", SOCK = "#2a2028";
 
 // ---- the new pieces ----------------------------------------------------------
@@ -74,24 +72,8 @@ export const drawRemains = (ctx, g) => {
   const cs = g.corpses;
   if (!cs || !cs.length) return;
   const now = g.time * 1000;
-  const NEW = typeof document !== "undefined" && prefs.newSprites !== false;
   for (const c of cs) {
     const p = c.fadeMs ? Math.max(0, Math.min(1, (now - c.fadeAt) / c.fadeMs)) : 0;
-    if (NEW) { drawNewCorpse(ctx, c, p); continue; }
-    const k = Math.max(0.7, Math.min(1.5, (c.size || 14) / 15));
-    const x = Math.round(c.x), y = Math.round(c.y + 2), s = hash(Math.round(c.x), Math.round(c.y));
-    // a wave's end sets the bones dissolving: each piece drops out, one by one, at its own moment
-    let n = 0;
-    const bit = (fill, rx, ry, w, h) => {
-      n++;
-      if (p > 0 && hash(x + n * 13, y + n * 7) < p) return;
-      ctx.fillStyle = fill;
-      ctx.fillRect(rx, ry, w, h);
-    };
-    bit(SHADE, x - 5 * k, y + 1, 10 * k, 2);
-    bit(BONE_DK, x - 4 * k, y - 1, 8 * k, 1);               // spine
-    for (let i = -1; i <= 1; i++) bit(BONE, x + i * 2 * k, y - 2 + (i & 1), 1, 3);   // ribs
-    bit(BONE, x + (s < 0.5 ? 4 : -6) * k, y - 2, 2, 2);   // the skull
-    bit(BONE, x + (s < 0.5 ? -6 : 3) * k, y + 1, 3, 1);   // a stray long bone
+    drawNewCorpse(ctx, c, p);
   }
 };

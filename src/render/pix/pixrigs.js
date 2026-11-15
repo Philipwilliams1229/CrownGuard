@@ -206,7 +206,7 @@ export const PIX = {
   // (krakenarm: fig-krakenarm.js is drawn but held back: the seized-victim coil (drawSeaHold) is still the old painter, and the body needs another pass)
   necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 3, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
 };
-export const hasPix = (type) => prefs.newSprites !== false && Object.prototype.hasOwnProperty.call(PIX, type);
+export const hasPix = (type) => Object.prototype.hasOwnProperty.call(PIX, type);
 
 // the rig's box for a pix type (world units, as RIGS' boxes are): symmetric about the feet
 export const pixBox = (type) => { const { w, h, ox, oy } = PIX[type].fig.BOX; return { hw: Math.max(ox, w - ox) / 2, up: oy / 2, down: (h - oy) / 2 }; };
@@ -251,7 +251,7 @@ export const pixRec = (type, sheet, frame, left = false, aim = 0) => {
 // biggest figures first, both facings. Anything not reached yet still bakes on demand.
 let warming = false;
 export const warmPix = () => {
-  if (warming || typeof document === "undefined" || prefs.newSprites === false) return;
+  if (warming || typeof document === "undefined") return;
   warming = true;
   const jobs = [];
   for (const type of Object.keys(PIX).sort((a, b) => PIX[b].fig.BOX.w * PIX[b].fig.BOX.h - PIX[a].fig.BOX.w * PIX[a].fig.BOX.h)) {

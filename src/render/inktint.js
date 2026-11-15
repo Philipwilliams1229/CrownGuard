@@ -2,17 +2,12 @@
 // The new style's outline (the owner's pick, "outline C"): not near-black but
 // the darkest of the piece's own colour mixed with the ink, so a rusted spike
 // has a dark-rust edge and a bone a dark-umber one. `inkTint` is a drop-in
-// for paint.js inkOutline: the same arguments (cv, ink, passes, only) and, with
-// "New sprites" off (prefs.newSprites === false at bake time), exactly the old
-// flat ink. Pieces are baked once, so a changed switch shows from the next
-// bake (a reload), as for the other baked art.
-import { inkOutline, INK_LINE } from "./paint.js";
-import { prefs } from "../data/prefs.js";
+// for paint.js inkOutline: the same arguments (cv, ink, passes, only).
+import { INK_LINE } from "./paint.js";
 
 const K = 0.4;                 // how much of the piece's own colour the line keeps
 
 export const inkTint = (cv, ink = INK_LINE, passes = 1, only = null) => {
-  if (prefs.newSprites === false) return inkOutline(cv, ink, passes, only);
   const c = cv.getContext("2d");
   const w = cv.width, h = cv.height;
   const img = c.getImageData(0, 0, w, h), d = img.data;

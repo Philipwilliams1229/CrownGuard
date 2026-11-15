@@ -14,27 +14,18 @@
 // at a few phases of one blade's turn, so it spins in crisp steps. Flames,
 // sparks and chains are painted live.
 
-import { OAKWOOD, pennant, spriteCache, stamp, canBake } from "../buildkit.js";
-import {
-  IRON, STEEL, GOLD, ROPE, FOOT_NARROW, readiness, foot, padB, skirtB, beam, planks, barrel, rope, boulder, glint,
-  lighten, darken, rgba, soft, shadow, ball, glow, roundRect, cylinder, hash, lin, part,
-} from "./kitB.js";
-import { masonry } from "../buildkit.js";
-import { drawCrew, crankAt, CREW_FOLK, CREW_FRAMES, frameOf } from "../folk.js";
+import { canBake } from "../buildkit.js";
+import { readiness, glint, rgba, glow } from "./kitB.js";
 import * as engineerFig from "../pix/fig-engineer.js";
-import { crew, crewOn, drawCrewPix, loopFrame, crewMark } from "../pix/crews.js";
+import { crew, drawCrewPix, loopFrame, crewMark } from "../pix/crews.js";
 import * as spikerHall from "../pix/hall-spiker.js";
-import { hallOn, hallPix, drawHallBack, drawHallFront, stampPix, pixSprite } from "../pix/halls.js";
+import { hallPix, drawHallBack, drawHallFront, stampPix, pixSprite } from "../pix/halls.js";
 
-// the new wheelwright ("New sprites" on): fig-engineer.js. Its `wheel` clips ride this
+// the wheelwright: fig-engineer.js. Its `wheel` clips ride this
 // hall's crank (CRANK from crewSpot, CRANK_RX / RY) and its `bar` clips the level-one
 // hand-bar (BAR): the same numbers, in art pixels. A turn is 8 frames.
 const ENG = crew("engineer", engineerFig);
 
-const cache = spriteCache();
-export const resetSpikerBakes = () => cache.clear();
-const BOX = { left: 36, right: 36, up: 64, down: 18 };
-const STONE = "#8a8478", BRICK = "#9a5a44";
 const SQ = 0.5, PHASES = 4;
 // The wheelwright stands on open ground before the drum (whose front edge is
 // at y + 5), feet inside FOOT_NARROW; the crank he turns sits at his hands.
@@ -43,7 +34,6 @@ const CRANK = { x: -4, y: -5 };   // the crank's hub, from (x, y)
 const CRANK_RX = 1.9, CRANK_RY = 1.1;   // its handle's throw (a crank laid flat)
 // the level-one hand-bar's end, from the wheelwright's feet, and its stroke
 const BAR = { hub: [6.4, -13.4], rx: 0.9, ry: 0.5, push: true };
-const GRATE = 4;                   // the furnace grate's centre, right of x
 
 const spec = (t) => {
   const lvl = t.level, r4 = t.rank4 ? t.branch + t.rank4 : null;
@@ -55,182 +45,6 @@ const spec = (t) => {
     wy: 22 + lvl + (t.branch ? 2 : 0),        // how high the wheel rides
     key: r4 || t.branch || "l" + lvl,
   };
-};
-
-// ---- the base: footing, post, gearbox ------------------------------------
-const paintBase = (ctx, t, x, y) => {
-  const s = spec(t), { lvl, r4, gale, fire } = s;
-  // a narrow footprint (kitB FOOT_NARROW): the hall may stand 42 from the
-  // road's centreline, so nothing it puts on the ground reaches past rx 13
-  padB(ctx, x, y, t.id, { hw: 12, foot: FOOT_NARROW });
-  if (fire) soft(ctx, x, y + 5, 12, 4, [[0, "rgba(40,30,34,0.3)"], [1, "rgba(40,30,34,0)"]]);   // soot
-  // the windmill's mast stands at the back
-  if (gale) {
-    const mx = x + 11;
-    beam(ctx, mx - 3, y - 2, mx, y - 44, 3, r4 === "aa" ? "#6a6a74" : OAKWOOD, { bands: [0.3, 0.7] });
-    beam(ctx, mx + 1.5, y - 1, mx, y - 40, 2.4, darken(OAKWOOD, 0.2));
-  }
-  // the footing: stakes at one, a stone drum after, a brick furnace for fire
-  // (the drum and furnace keep their front edge at y + 5, inside FOOT_NARROW)
-  if (fire) {
-    part(ctx, (c) => masonry(c, x - 12, y - 9, 24, 14, BRICK, { r: 2, course: 3.2, block: 5, hi: 0.3, lo: 0.45 }));
-    part(ctx, (c) => cylinder(c, x - 13, y - 11, 26, 3, "#5a4a44", { r: 1.2, hi: 0.35, lo: 0.4 }));
-    // the grate, right of the crank so the wheelwright doesn't hide it
-    part(ctx, (c) => { c.fillStyle = "#2a1c18"; roundRect(c, x + GRATE - 4.5, y - 6, 9, 7, 2); c.fill(); });
-    part(ctx, (c) => { c.fillStyle = IRON; for (let i = 0; i < 4; i++) c.fillRect(x + GRATE - 3.7 + i * 2.4, y - 6, 0.8, 7); });
-  } else if (lvl === 1 && !t.branch) {
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * Math.PI * 2 + 0.3, sx = x + Math.cos(a) * 9, sy = y - 1 + Math.sin(a) * 3.6;
-      if (Math.sin(a) < 0) beam(ctx, sx, sy + 1, sx + Math.cos(a) * 1.2, sy - 6, 1.8, darken(OAKWOOD, 0.1), { grain: false });
-    }
-    part(ctx, (c) => ball(c, x, y + 1, 10, 3.6, "#8a7a5a", { hi: 0.3, lo: 0.45 }));
-  } else {
-    const hh = lvl >= 3 || t.branch ? 12 : 9;
-    part(ctx, (c) => masonry(c, x - 12, y - hh + 2, 24, hh + 3, STONE, { r: 2, course: 3.6, block: 6.5, hi: 0.3, lo: 0.45 }));
-    part(ctx, (c) => cylinder(c, x - 13, y - hh, 26, 3, lighten(STONE, 0.15), { r: 1.4, hi: 0.35, lo: 0.4 }));
-    if (lvl >= 3 || t.branch) part(ctx, (c) => { c.fillStyle = IRON; for (const dx of [-11, -2, 7]) c.fillRect(x + dx, y - hh, 1.6, 3); });
-  }
-  // the post: it stands ON the drum's cap (or in the level-one mound), never
-  // down across the drum's face
-  const hh = lvl >= 3 || t.branch ? 12 : 9;
-  const top = y - s.wy + 1, foot0 = fire ? y - 10 : lvl === 1 && !t.branch ? y + 0.5 : y - hh + 1.5;
-  if (r4 === "bb") {
-    // a living trunk, gnarled, with roots over the brick
-    part(ctx, (c) => {
-      c.beginPath();
-      c.moveTo(x - 8, foot0 + 2); c.quadraticCurveTo(x - 3, foot0 - 5, x - 4.5, top + 1); c.lineTo(x + 4.5, top + 1);
-      c.quadraticCurveTo(x + 3, foot0 - 5, x + 9, foot0 + 2); c.closePath();
-      c.fillStyle = lin(c, x - 8, 0, x + 9, 0, [[0, "#8a6a44"], [0.5, "#5e4428"], [1, "#3a2818"]]); c.fill();
-      c.strokeStyle = rgba("#2a1c14", 0.55); c.lineWidth = 0.6;
-      c.beginPath(); c.moveTo(x - 1, foot0 - 1); c.quadraticCurveTo(x - 1.5, foot0 - 8, x - 0.5, top + 4); c.stroke();
-    });
-    for (const [dx, dy, s2] of [[-7, 2, -1], [8, 3, 1]]) beam(ctx, x + dx * 0.5, foot0, x + dx + s2 * 3, foot0 + dy + 3, 2, "#5e4428", { grain: false });
-    // leaves still sprouting from it, some singed
-    for (const [dx, dy, col] of [[-7, -7, "#5a8a3a"], [-8.5, -4, "#4a7a34"], [7.5, -9, "#8a7a2a"], [9, -6, "#5a8a3a"], [6, -12, "#a0602a"]]) part(ctx, (c) => ball(c, x + dx, foot0 + dy, 2.4, 1.6, col, { hi: 0.45, lo: 0.4 }));
-  } else {
-    const pc = fire ? IRON : r4 === "aa" ? "#6a6a74" : OAKWOOD;
-    part(ctx, (c) => cylinder(c, x - 2.4, top, 4.8, foot0 - top + 1, pc, { r: 1.4, hi: 0.35, lo: 0.5 }));
-    const collars = t.branch ? 3 : lvl;
-    for (let i = 0; i < collars; i++) part(ctx, (c) => cylinder(c, x - 3.3, foot0 - 3 - i * 4, 6.6, 2.2, r4 === "ba" ? GOLD : IRON, { r: 1, hi: 0.45, lo: 0.4 }));
-  }
-  // the gearbox and its crank, where the wheelwright works
-  // (bolted to the drum's face at his hand height, clear of its foot)
-  if (!(lvl === 1 && !t.branch)) {
-    part(ctx, (c) => cylinder(c, x + CRANK.x - 3.5, y + CRANK.y + 0.5, 7, 5, fire ? "#4a4a52" : darken(OAKWOOD, 0.1), { r: 1.2, hi: 0.3, lo: 0.45 }));
-    part(ctx, (c) => ball(c, x + CRANK.x, y + CRANK.y, 2.4, 2.4, IRON, { hi: 0.45, lo: 0.4 }));
-  }
-  // dressings on the ground before the drum: each foot below its front
-  // edge (y + 5), with its own shadow, inside FOOT_NARROW
-  if (lvl >= 3 || t.branch) {
-    if (!fire) {
-      // a whetstone on its frame, for the blades
-      foot(ctx, x + 8.6, y + 8, 2);
-      beam(ctx, x + 8, y + 8, x + 8, y + 2, 1.4, OAKWOOD, { grain: false });
-      part(ctx, (c) => ball(c, x + 9.3, y + 2, 1.3, 3.2, "#a8a49a", { hi: 0.4, lo: 0.45 }));
-    } else {
-      // the coal heap
-      foot(ctx, x + 6.6, y + 9.2, 3.6);
-      for (const [dx, dy, r] of [[5.5, 7.8, 2], [8.2, 7.6, 1.4], [6.8, 6.3, 1.5]]) part(ctx, (c) => ball(c, x + dx, y + dy, r, r * 0.8, "#2e2a30", { hi: 0.35, lo: 0.4 }));
-    }
-  }
-  if (r4 === "ab") {
-    // snares staked on the ground before it
-    for (const [dx, dy] of [[-1.5, 10.8], [4.2, 10]]) part(ctx, (c) => {
-      c.strokeStyle = IRON; c.lineWidth = 0.8; c.beginPath(); c.ellipse(x + dx, y + dy, 2.8, 1.1, 0, 0, Math.PI * 2); c.stroke();
-      c.fillStyle = OAKWOOD; c.fillRect(x + dx + 2.4, y + dy - 3, 1, 3.5);
-    });
-  }
-  if (r4 === "aa") for (const dx of [3, 5]) {
-    // spare steel blades stood in the ground
-    const b = y + 8 + (dx - 3) * 0.3;
-    foot(ctx, x + dx + 0.5, b, 1.2);
-    part(ctx, (c) => { c.fillStyle = STEEL; c.fillRect(x + dx, b - 10, 1, 10); c.fillStyle = "#8a909c"; c.fillRect(x + dx - 0.5, b - 3, 2, 1.2); });
-  }
-  skirtB(ctx, x, y, t.id, 4, FOOT_NARROW);
-};
-
-// ---- the windmill's sails, baked at a few turns -----------------------------
-const paintSails = (ctx, cx, cy, ph, r4) => {
-  const cloth = r4 === "aa" ? "#d8dce4" : r4 === "ab" ? "#c8a888" : "#e8dcc0";
-  const frame = r4 === "aa" ? "#6a6a74" : OAKWOOD;
-  for (let i = 0; i < 4; i++) {
-    const a = ph + (i / 4) * Math.PI * 2, ux = Math.cos(a), uy = Math.sin(a);
-    const vx = -uy, vy = ux;   // across the sail
-    part(ctx, (c) => {
-      c.beginPath();
-      c.moveTo(cx + ux * 4, cy + uy * 4);
-      c.lineTo(cx + ux * 16, cy + uy * 16);
-      c.lineTo(cx + ux * 16 + vx * 5, cy + uy * 16 + vy * 5);
-      c.lineTo(cx + ux * 5 + vx * 3.5, cy + uy * 5 + vy * 3.5);
-      c.closePath();
-      c.fillStyle = i % 2 ? darken(cloth, 0.12) : cloth; c.fill();
-      c.strokeStyle = rgba(darken(cloth, 0.45), 0.6); c.lineWidth = 0.5;
-      for (const k of [0.45, 0.7]) { c.beginPath(); c.moveTo(cx + ux * 16 * k, cy + uy * 16 * k); c.lineTo(cx + ux * 16 * k + vx * 4.4, cy + uy * 16 * k + vy * 4.4); c.stroke(); }
-      if (r4 === "ab" && i === 1) { c.fillStyle = "#a07858"; c.fillRect(cx + ux * 11 + vx * 2 - 1, cy + uy * 11 + vy * 2 - 1, 2.4, 2); }   // a patch
-    });
-    beam(ctx, cx, cy, cx + ux * 17, cy + uy * 17, 1.3, frame, { grain: false });
-  }
-  part(ctx, (c) => ball(c, cx, cy, 2.4, 2.4, r4 === "aa" ? GOLD : IRON, { hi: 0.5, lo: 0.4 }));
-};
-
-// ---- the wheel, flat, squashed for the 3/4 view ------------------------------
-const paintWheel = (ctx, t, cx, cy, ph, small = false) => {
-  const s = spec(t), { lvl, r4, fire } = s;
-  const rr = small ? s.rr * 0.66 : s.rr, n = small ? 8 : s.n;
-  const step = (Math.PI * 2) / n;
-  const tip = r4 === "aa" ? "#e8ecf2" : r4 === "ab" ? "#b8a898" : "#dde2ea";
-  const len = r4 === "aa" ? 7 : 5;
-  const at = (a, r) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r * SQ];
-  // the rim's edge, below the top face
-  part(ctx, (c) => ball(c, cx, cy + 1.8, rr, rr * SQ, "#2e3038", { hi: 0.25, lo: 0.4 }));
-  if (!fire) {
-    // blades, lit on the sunward side
-    for (let i = 0; i < n; i++) {
-      const a = ph + i * step, lit = -Math.cos(a) * 0.42 - Math.sin(a) * 0.58;
-      part(ctx, (c) => {
-        const [bx0, by0] = at(a - 0.16, rr - 0.5), [bx1, by1] = at(a + 0.1, rr - 0.5), [tx, ty] = at(a + (r4 === "ab" ? 0.18 : 0.02), rr + len);
-        c.beginPath(); c.moveTo(bx0, by0); c.lineTo(tx, ty); c.lineTo(bx1, by1); c.closePath();
-        c.fillStyle = lit > 0 ? lighten(tip, lit * 0.35) : darken(tip, -lit * 0.35); c.fill();
-        if (r4 === "ab") { c.fillStyle = "#8a4a3a"; const [hx, hy] = at(a + 0.25, rr + len - 1.5); c.fillRect(hx - 0.6, hy - 0.6, 1.2, 1.2); }   // the barb
-      });
-    }
-  }
-  // the top face
-  const face = fire ? "#4a4046" : r4 === "aa" ? "#5a5e6a" : "#4a4e58";
-  part(ctx, (c) => {
-    ball(c, cx, cy, rr, rr * SQ, face, { hi: 0.35, lo: 0.45 });
-    c.strokeStyle = rgba(STEEL, 0.55); c.lineWidth = 0.8;
-    c.beginPath(); c.ellipse(cx, cy, rr - 1.2, (rr - 1.2) * SQ, 0, 0, Math.PI * 2); c.stroke();
-    // spokes, so the turn shows
-    c.strokeStyle = rgba(darken(face, 0.5), 0.8); c.lineWidth = 0.8;
-    for (let i = 0; i < 4; i++) { const a = ph * 1 + (i / 4) * Math.PI * 2; const [sx, sy] = at(a, rr - 1.6); c.beginPath(); c.moveTo(cx, cy); c.lineTo(sx, sy); c.stroke(); }
-  });
-  if (!small && (lvl >= 3 || t.branch) && !fire) part(ctx, (c) => {
-    c.strokeStyle = r4 === "aa" ? GOLD : "#c4c8d0"; c.lineWidth = 1.1;
-    c.beginPath(); c.ellipse(cx, cy, rr * 0.6, rr * 0.6 * SQ, 0, 0, Math.PI * 2); c.stroke();
-  });
-  if (fire) {
-    // the fire pots round the rim
-    for (let i = 0; i < n; i++) {
-      const [px, py] = at(ph + i * step, rr + 0.5);
-      part(ctx, (c) => { ball(c, px, py, 2.2, 1.6, r4 === "ba" ? "#b08a3a" : "#3a3440", { hi: 0.4, lo: 0.45 }); ball(c, px, py - 0.7, 1.4, 0.6, "#e8703a", { hi: 0.5, lo: 0.2 }); });
-    }
-  }
-  part(ctx, (c) => ball(c, cx, cy - 0.5, rr * 0.26, rr * 0.26 * 0.8, r4 === "aa" || r4 === "ba" ? GOLD : "#8a909c", { hi: 0.5, lo: 0.4 }));
-};
-
-// The Solar Crown's gilded sun, standing over the wheel.
-const paintSun = (ctx, cx, cy) => {
-  beam(ctx, cx, cy + 12, cx, cy + 2, 1.8, GOLD, { grain: false });
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2, l = i % 2 ? 8.5 : 10.5;
-    part(ctx, (c) => {
-      c.beginPath(); c.moveTo(cx + Math.cos(a - 0.2) * 4.5, cy + Math.sin(a - 0.2) * 4.5); c.lineTo(cx + Math.cos(a) * l, cy + Math.sin(a) * l); c.lineTo(cx + Math.cos(a + 0.2) * 4.5, cy + Math.sin(a + 0.2) * 4.5); c.closePath();
-      c.fillStyle = i % 2 ? "#e8c14a" : "#f4d878"; c.fill();
-    });
-  }
-  part(ctx, (c) => ball(c, cx, cy, 5, 5, "#f0c850", { hi: 0.6, lo: 0.4 }));
-  part(ctx, (c) => { c.fillStyle = "#b07a2a"; c.fillRect(cx - 2, cy - 1, 1, 1); c.fillRect(cx + 1, cy - 1, 1, 1); c.fillRect(cx - 1, cy + 1.6, 2, 0.8); });   // a sun's face
 };
 
 // A tongue of fire: two stacked pixel flames that flicker.
@@ -248,31 +62,18 @@ export const drawBladewheel = (ctx, t, time) => {
   const s = spec(t), { lvl, r4, gale, fire, rr, n } = s;
   const bake = canBake();
   const r = readiness(t), anim = t.anim || 0;
-  const id5 = t.id % 5;
-  // the new building ("New sprites" on): pix/hall-spiker.js through pix/halls.js. It bakes what
+  // the building: pix/hall-spiker.js through pix/halls.js. It bakes what
   // stands still; the wheel, the sails and the sun are its sprites, stamped live below at the
   // old hub, radius and phases. Everything else that moves is painted here as before.
-  const H = bake && hallOn() ? hallPix("spiker", spikerHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, t.id % 3) : null;
-  if (fire && !H) glow(ctx, x, y + 2, 20, r4 === "bb" ? "#f07a3a" : "#e8a03a", 0.14 + 0.06 * Math.sin(time * 3 + t.id));
+  const H = bake ? hallPix("spiker", spikerHall, { level: lvl, branch: t.branch, rank4: t.rank4 }, t.id % 3) : null;
 
-  // the sails turn behind everything, fast when the wheel is working
-  if (gale) {
-    const sp = time * (t._idle ? 0.8 : 3.2) + t.id;
-    const k = Math.floor((sp / (Math.PI / 2)) * 3) % 3;
-    const cv = bake && !H ? cache.get(`sails|${t.rank4}|${k}`, 40, 40, (c) => paintSails(c, 20, 20, (k / 3) * (Math.PI / 2), r4)) : null;
-    if (cv && !H) stamp(ctx, cv, x + 11, y - 42, 20, 20);
-  }
   // the fire ring's light on the post and the furnace top swells with the flames
   if (H) drawHallBack(ctx, H, x, y, time, { id: t.id, k: { ring: t._idle ? 0.5 : Math.min(1, 0.45 + r * 0.35 + anim * 0.5) } });
-  else if (bake) stamp(ctx, cache.get(`base|${lvl}|${t.branch}|${t.rank4}|${id5}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintBase(c, { ...t, id: id5 }, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
-  else paintBase(ctx, t, x, y);
-  // the furnace grate glows
   if (H && gale) {
     // the sails turn on the mast's head, before the wheel
     const sp = time * (t._idle ? 0.8 : 3.2) + t.id, k3 = Math.floor((sp / (Math.PI / 2)) * 3) % 3;
     stampPix(ctx, pixSprite(`bw|sails|${t.rank4 || ""}|${k3}`, () => spikerHall.sailsPix(r4, k3)), x + 11, y - 42);
   }
-  if (fire && !H) { glow(ctx, x + GRATE, y - 3, 6 + Math.sin(time * 5 + t.id), "#f0903a", 0.85); ctx.fillStyle = "#f4c060"; ctx.fillRect(x + GRATE - 3, y - 1.5, 6, 1.2); }
 
   // the wheel: it winds up (rises, quickens) before it bites, and kicks down
   const wind = t._idle ? 0 : r > 0.85 ? (r - 0.85) / 0.15 : 0;
@@ -281,18 +82,12 @@ export const drawBladewheel = (ctx, t, time) => {
   const step = (Math.PI * 2) / n;
   const k = Math.floor(((spin % step) + step) % step / step * PHASES);
   const wy0 = y - s.wy - wind * 1.5 + anim * 2.5;
-  const wy = H ? Math.round(wy0 * 2) / 2 : wy0;   // the new wheel moves by whole art pixels
-  const side = rr + 9;
+  const wy = Math.round(wy0 * 2) / 2;   // the new wheel moves by whole art pixels
   if (H) stampPix(ctx, pixSprite(`bw|wheel|${s.key}|${k}`, () => spikerHall.wheelPix(s, k)), x, wy);
-  else if (bake) stamp(ctx, cache.get(`wheel|${lvl}|${t.branch}|${t.rank4}|${k}`, side * 2, side * 2, (c) => paintWheel(c, t, side, side, (k / PHASES) * step)), x, wy, side, side);
-  else paintWheel(ctx, t, x, wy, spin);
   if (r4 === "aa") {
     // the Steel Tempest's second wheel, counter-turning above
     const k2 = PHASES - 1 - k;
-    const s2 = side * 0.7;
     if (H) stampPix(ctx, pixSprite(`bw|wheel2|${k2}`, () => spikerHall.wheelPix(s, k2, true)), x, wy - 7);   // its shaft is in the sprite
-    else beam(ctx, x, wy - 1, x, wy - 7, 2.4, "#6a6a74", { grain: false });
-    if (H) { /* stamped above */ } else if (bake) stamp(ctx, cache.get(`wheel2|${k2}`, s2 * 2, s2 * 2, (c) => paintWheel(c, t, s2, s2, (k2 / PHASES) * (Math.PI * 2 / 8), true)), x, wy - 7, s2, s2);
   }
   if (r4 === "ab") {
     // barbed chains flung out from the rim, hooks on the ends
@@ -327,7 +122,6 @@ export const drawBladewheel = (ctx, t, time) => {
     const sy = wy - 18 + Math.sin(time * 2 + t.id) * 0.6;
     glow(ctx, x, sy, 14, "#f8d870", 0.3 + 0.15 * r);
     if (H) stampPix(ctx, pixSprite("bw|sun", () => spikerHall.sunPix()), x, Math.round(sy * 2) / 2);
-    else if (bake) stamp(ctx, cache.get("sun", 26, 38, (c) => paintSun(c, 13, 13)), x, sy, 13, 13);
   }
   if (r4 === "bb") {
     // the flames are awake: two imps hop the rim (they wake with the crew)
@@ -349,25 +143,16 @@ export const drawBladewheel = (ctx, t, time) => {
   }
 
   // ---- the wheelwright at the crank (from level two; the post is turned by
-  // hand-bar at one). Turning, his hands ride the handle round (CREW_FRAMES
-  // baked turns, the body hauling from the hips) and the handle is drawn at
+  // hand-bar at one). Turning, his hands ride the handle round (eight frames a
+  // turn, the body hauling from the hips) and the handle is drawn at
   // the same turn; at one he leans into the bar and drives it. At ease his
   // hands rest on the still handle and he breathes and looks about.
   const lvl1 = lvl === 1 && !t.branch;
   const turning = !t._idle;
   const [cdx, cdy] = crewSpot(s), cx0 = x + cdx, cy0 = y + cdy;   // his feet stay inside the narrow footprint
   const P = lvl1 ? BAR : { hub: [CRANK.x - cdx, CRANK.y - cdy], rx: CRANK_RX, ry: CRANK_RY };
-  let fr, pose;
-  if (turning) { fr = frameOf(time * (gale ? 12 : 8) / (2 * Math.PI) + t.id * 0.37, CREW_FRAMES); pose = "crank"; }
-  else {
-    fr = 1;
-    const u = (((time / 6 + t.id * 0.23) % 1) + 1) % 1;
-    pose = u > 0.55 && u < 0.72 ? "glance" : Math.sin(time * 1.3 + t.id) > 0.6 ? "breath" : "rest";
-  }
-  const hand = crankAt(P.hub, P.rx, P.ry, fr / CREW_FRAMES);
-  const hx = cx0 + hand[0], hy = cy0 + hand[1];
-  if (!t.noFolk && crewOn()) {
-    // the new wheelwright: the same turn of the crank (8 frames a turn), or at ease on the still
+  if (!t.noFolk) {
+    // the wheelwright: the same turn of the crank (8 frames a turn), or at ease on the still
     // handle; the bar / crank arm is drawn to where his fists hold it (the frame's `grip` mark)
     const variant = fire ? "stoker" : "engineer";
     const clip = turning ? (lvl1 ? "bar" : "wheel") : lvl1 ? "barIdle" : "wheelIdle", n = ENG.CLIPS[clip].n;
@@ -386,31 +171,9 @@ export const drawBladewheel = (ctx, t, time) => {
       ctx.fillStyle = "#8a909c"; ctx.fillRect(gx - 0.5, gy - 0.5, 1, 1);
     }
     drawCrewPix(ctx, ENG, cx0, cy0, 1, clip, cf, { variant });
-  } else if (!t.noFolk) {
-    if (lvl1) {
-      // the hand-bar through the post, its end in his fists
-      ctx.strokeStyle = "#241a26"; ctx.lineWidth = 2.2; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(x, cy0 - 13); ctx.lineTo(hx, hy); ctx.stroke();
-      ctx.strokeStyle = "#8a6238"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, cy0 - 13); ctx.lineTo(hx, hy); ctx.stroke();
-    } else {
-      // the crank arm and its handle, at the turn his hands are on
-      ctx.strokeStyle = "#241a26"; ctx.lineWidth = 1.2; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(x + CRANK.x, y + CRANK.y); ctx.lineTo(hx, hy); ctx.stroke();
-      ctx.fillStyle = "#241a26"; ctx.fillRect(hx - 1, hy - 1, 2, 2);
-      ctx.fillStyle = "#8a909c"; ctx.fillRect(hx - 0.5, hy - 0.5, 1, 1);
-    }
-    const key = `crew|${fire ? "s" : "w"}|${lvl1 ? "b" : "c"}|${pose}|${fr}`;
-    if (bake) stamp(ctx, cache.get(key, 28, 30, (c) => drawCrew(c, 12, 27, 1, fire ? STOKER : CREW_FOLK.engineer, 0, { ...P, phase: fr / CREW_FRAMES, pose })), cx0, cy0, 12, 27, 1);
-    else drawCrew(ctx, cx0, cy0, 1, fire ? STOKER : CREW_FOLK.engineer, 0, { ...P, phase: fr / CREW_FRAMES, pose });
   }
   if (H) drawHallFront(ctx, H, x, y, time, { id: t.id });
   // idle: a whetstone spark now and then
   if (t._idle && Math.sin(time * 3.1 + t.id * 1.9) > 0.9) glow(ctx, x + rr - 2, wy - 2, 2.5, "#ffffff", 0.9);
   if (!fire && Math.sin(time * 1.9 + t.id * 2.1) > 0.97) glint(ctx, x - rr * 0.6, wy - rr * 0.3, 1, 0.9);
-  const bc = r4 === "aa" ? "#c4c8d0" : r4 === "ab" ? "#8a4a3a" : r4 === "ba" ? "#e8c14a" : r4 === "bb" ? "#e8703a" : gale ? "#7a94b8" : fire ? "#c05a28" : "#a04a3f";
-  if (H) { /* the new hall flies its own pennant */ }
-  else if ((lvl >= 2 || t.branch) && !gale) pennant(ctx, x + 11, y - (fire ? 31 : 30), 20, bc, time, t.id, 1);
 };
-
-const STOKER = { skin: "#e8b990", hood: "#3a3028", coat: "#6a3a2a", boots: "#2e2420", trim: "#3a2a20" };

@@ -1,7 +1,6 @@
 // ============ PIX PROJECTILES: what flies, in the new look ============
 // Arrows, bolts, musket balls, thrown spikes, the bombardier's shell, catapult stones and the
-// wizard's orbs, drawn for the "New sprites" switch (fx.js drawProjectile / drawQuarrel asks
-// here first; off, fx.js paints the old ones). The standard of the figures and halls:
+// wizard's orbs (fx.js drawProjectile / drawQuarrel asks here). The standard of the figures and halls:
 //   - ONE sun, upper left: a shot's lit side is chosen in WORLD space from its heading, so the
 //     bright flank of a shaft never swaps sides when it turns round (the old shapes always lit
 //     "up" in their own frame, so a shot flying left was lit from below);
@@ -12,9 +11,6 @@
 // Sizes, anchors and colour families are the old ones (so the engine's reach for each kind and
 // the trail / spark meanings in fx.js are unchanged). Keep shots STRAIGHT: the aim contract
 // (art/briefs/aim-contract.md) draws arrows along their line, which is what the heading is.
-import { prefs } from "../../data/prefs.js";
-
-export const projOn = () => typeof document !== "undefined" && prefs.newSprites !== false;
 
 const PXS = 2;                                       // art pixels to a world unit (render/paint.js PX)
 const DIRS = 32;

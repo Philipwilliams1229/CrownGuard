@@ -35,7 +35,6 @@
 
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
-import { prefs } from "../data/prefs.js";
 import { tintRing } from "./scenery-gwpix.js";
 import { PTS } from "../engine/path.js";
 import { DECOR, RIVERS, FOREST, COAST, forestDepthAt, seaDepthAt } from "../data/terrain.js";
@@ -262,8 +261,7 @@ const riversOut = () => RIVERS.map((rv, i) => {
 // dresses the wood's hem). Baked once per tint.
 const BUSHES = new Map();
 const bushSprite = (leaf, v) => {
-  const NEW = prefs.newSprites !== false;
-  const key = leaf + v + (NEW ? "n" : "o");
+  const key = leaf + v;
   if (BUSHES.has(key)) return BUSHES.get(key);
   const cv = bakeSprite(28, 20, (c) => {
     shadow(c, 16, 15, 11, 3, 0.26);
@@ -271,8 +269,8 @@ const bushSprite = (leaf, v) => {
     lobes.forEach(([x, y, r], i) => part(c, (cc) => blobBall(cc, x + (hash(v, i) - 0.5) * 2, y, r, r * 0.8, i === 2 ? lighten(leaf, 0.08) : leaf, v * 9 + i, { hi: 0.45, lo: 0.5, wobble: 0.2, n: 9 }), { ink: "under" }));
     c.fillStyle = lighten(leaf, 0.4);
     for (let i = 0; i < 5; i++) c.fillRect(Math.round((9 + hash(v, i + 5) * 9) * PX) / PX, Math.round((6 + hash(v, i + 9) * 5) * PX) / PX, 1, 0.5);
-  }, !NEW);
-  if (NEW) tintRing(cv);
+  }, false);
+  tintRing(cv);
   BUSHES.set(key, cv);
   return cv;
 };

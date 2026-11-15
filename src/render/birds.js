@@ -17,14 +17,11 @@
 // The Skyknight's war-eagle is a rig ("eagle" in rigs.js).
 
 import { PX, INK_LINE, inkOutline, hash } from "./paint.js";
-import { prefs } from "../data/prefs.js";
 import { toCanvas } from "./pix/pix.js";
 import { falconImage, perchedImage } from "./pix/bird-falcon.js";
 
-// "New sprites" (Settings > Display) on: the birds are the pixel sculptor's (pix/bird-falcon.js),
-// baked per pose, heading and plumage, once for each facing so the sun stays upper left. Off: the
-// old painters below, untouched.
-const pixOn = () => typeof document !== "undefined" && prefs.newSprites !== false;
+// The birds are the pixel sculptor's (pix/bird-falcon.js), baked per pose, heading and plumage,
+// once for each facing so the sun stays upper left.
 
 // ---- palettes --------------------------------------------------------------
 // One per bird of the mews, matching the wheel's birds (halls/falconry.js
@@ -70,7 +67,6 @@ const poly = (c, pts, col) => {
 };
 const oval = (c, x, y, rx, ry, rot, col) => { c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); c.fillStyle = col; c.fill(); };
 const line = (c, x0, y0, x1, y1, w, col) => { c.strokeStyle = col; c.lineWidth = w; c.lineCap = "round"; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); };
-const L = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 // Canvas edges come out soft; the art is hard pixels. Every art pixel is
 // either there or not, then inked round with a single line.
@@ -100,111 +96,11 @@ const memo = (key, make) => {
   return v;
 };
 
-// ---- the hawk --------------------------------------------------------------
-// Facing +x, body centred on the origin, world units. A wing is its shoulder
-// (s), wrist (w), tip (t) and the root of its trailing edge on the body (r).
-const WINGS = {
-  tuck: {
-    far: { s: [1.2, -0.6], w: [-0.2, -2.7], t: [-6.8, -2.0], r: [-2.4, -0.4] },
-    near: { s: [1.2, 0.6], w: [-0.2, 2.8], t: [-6.8, 2.2], r: [-2.4, 0.5] },
-  },
-  up: {
-    far: { s: [0.5, -0.7], w: [-0.7, -3.9], t: [-3.8, -6.6], r: [-2.3, -0.6] },
-    near: { s: [0.5, -0.1], w: [-1.0, -3.0], t: [-4.6, -5.0], r: [-2.4, 0] },
-  },
-  mid: {
-    far: { s: [0.6, -0.6], w: [0.1, -3.7], t: [-2.4, -6.8], r: [-2.3, -0.5] },
-    near: { s: [0.6, 0.6], w: [0.2, 3.7], t: [-2.2, 6.8], r: [-2.3, 0.5] },
-  },
-  down: {
-    far: { s: [0.5, -0.5], w: [-0.4, -2.0], t: [-2.9, -2.6], r: [-2.2, -0.4] },
-    near: { s: [0.6, 0.6], w: [0.8, 3.5], t: [-0.6, 7.0], r: [-2.0, 0.6] },
-  },
-  strike: {
-    far: { s: [0.3, -0.6], w: [1.0, -3.7], t: [-0.4, -7.1], r: [-2.2, -0.5] },
-    near: { s: [0.2, -0.1], w: [1.6, -2.7], t: [0.7, -6.0], r: [-2.3, 0] },
-  },
-};
-
-const wing = (c, g, far) => {
-  const { s, w, t, r } = g;
-  const q = L(t, r, 0.42);                          // where the long flight feathers end
-  // the whole wing, then the dark primaries at the hand, then the lit coverts
-  poly(c, [s, w, t, q, r], far ? K.backD : K.back);
-  poly(c, [L(w, t, 0.08), t, q, L(w, q, 0.25)], far ? K.prim : K.primL);
-  poly(c, [s, w, L(w, t, 0.14), L(s, r, 0.45)], far ? K.back : K.backL);
-  // the trailing edge's feather gaps
-  for (const k of [0.25, 0.55]) { const a = L(t, q, k), b = L(w, s, 0.2 + k * 0.4); line(c, a[0], a[1], L(a, b, 0.4)[0], L(a, b, 0.4)[1], 0.45, far ? K.edge : K.prim); }
-  if (!far) {
-    c.strokeStyle = K.edge; c.lineWidth = 0.5;
-    c.beginPath(); c.moveTo(s[0], s[1]); c.lineTo(w[0], w[1]); c.lineTo(t[0], t[1]); c.stroke();
-  }
-};
-
-const tail = (c, fan) => {
-  const sp = fan ? 1.9 : 0.6, ln = fan ? 5.0 : 5.0;
-  const tipU = [-ln, -sp], tipD = [-ln, sp + (fan ? 0.6 : 0)], mid = [-ln - 0.3, fan ? 0.4 : 0];
-  poly(c, [[-2.4, -0.6], tipU, mid, tipD, [-2.4, 0.7]], K.tail);
-  // the dark band and pale tip of a falcon's tail
-  poly(c, [L([-2.4, -0.6], tipU, 0.72), L([-2.4, -0.6], tipU, 0.86), L([-2.4, 0.7], tipD, 0.86), L([-2.4, 0.7], tipD, 0.72)], K.band);
-  line(c, tipU[0], tipU[1], mid[0], mid[1], 0.45, K.creamD);
-  line(c, mid[0], mid[1], tipD[0], tipD[1], 0.45, K.creamD);
-};
-
-const body = (c, pose) => {
-  oval(c, 0, 0, 3.1, 1.5, 0, K.back);
-  oval(c, 0.4, 0.55, 2.6, 0.95, 0, K.cream);                       // pale breast and belly
-  for (const [bx, by] of [[-0.4, 0.8], [0.6, 1.0], [1.4, 0.7], [-1.2, 0.6]]) c.fillStyle = K.bar, c.fillRect(bx, by, 0.5, 0.5);
-  oval(c, -0.4, -0.7, 2.0, 0.55, 0, K.backL);                      // the sun on the mantle
-  if (pose === "strike") {
-    // talons thrown forward at the mark
-    oval(c, 0.9, 0.9, 1.0, 0.8, 0.5, K.cream);
-    line(c, 1.3, 1.2, 3.4, 2.3, 0.7, K.foot);
-    line(c, 1.0, 1.4, 2.9, 3.0, 0.6, K.foot);
-    // open feet: yellow toes spread, a dark hook on each
-    for (const [fx, fy] of [[3.4, 2.3], [2.9, 3.0]]) {
-      for (const [tx, ty] of [[1.1, -0.6], [1.3, 0.3], [0.5, 1.0]]) {
-        line(c, fx, fy, fx + tx, fy + ty, 0.5, K.foot);
-        c.fillStyle = K.claw; c.fillRect(fx + tx * 1.15 - 0.25, fy + ty * 1.15 - 0.25, 0.5, 0.5);
-      }
-    }
-  } else if (pose !== "tuck") {
-    c.fillStyle = K.foot; c.fillRect(-1.9, 0.8, 1.0, 0.6);           // feet tucked under the tail
-  }
-};
-
-const head = (c, pose) => {
-  const hx = pose === "tuck" ? 3.4 : pose === "strike" ? 2.5 : 3.0;
-  const hy = pose === "strike" ? -0.9 : -0.3;
-  oval(c, hx, hy, 1.4, 1.2, 0, K.cap);
-  oval(c, hx + 0.3, hy + 0.55, 0.8, 0.55, 0, K.cream);             // pale cheek and throat
-  c.fillStyle = K.cap; c.fillRect(hx + 0.1, hy - 0.1, 0.5, 1.0);   // the falcon's moustache
-  c.fillStyle = K.eye; c.fillRect(hx + 0.55, hy - 0.55, 0.5, 0.5);
-  c.fillStyle = K.cere; c.fillRect(hx + 1.1, hy - 0.5, 0.5, 0.5);
-  // the hooked beak
-  poly(c, [[hx + 1.2, hy - 0.6], [hx + 2.3, hy - 0.2], [hx + 2.25, hy + 0.55], [hx + 1.8, hy + 0.25], [hx + 1.2, hy + 0.2]], K.beak);
-  c.fillStyle = K.beakL; c.fillRect(hx + 1.3, hy - 0.5, 0.6, 0.4);
-};
-
-const paintHawk = (c, pose) => {
-  const g = WINGS[pose];
-  wing(c, g.far, true);
-  tail(c, pose === "strike" || pose === "up");
-  // a wing below the body line lies behind it; a raised one comes over it
-  const nearOver = pose === "up" || pose === "strike";
-  if (!nearOver) wing(c, g.near, false);
-  body(c, pose);
-  if (nearOver) wing(c, g.near, false);
-  head(c, pose);
-};
-
-const HAWK = 19;                       // baked square, world units
+                       // baked square, world units
 const STEP = Math.PI / 12;             // 15-degree headings
-const hawkSprite = (pose, idx, kind = "hawk", flip = false) => memo(`hawk|${kind}|${pose}|${idx}|${pixOn() ? "p" + (flip ? 1 : 0) : ""}`, () => {
-  if (pixOn()) { const img = falconImage(pose, idx, kind, flip); return { pix: true, cv: toCanvas(img), ox: img.ox, oy: img.oy }; }
-  const was = K;
-  K = PALS[kind] || PALS.hawk;
-  try { return bake(HAWK, (c) => { c.rotate(idx * STEP); paintHawk(c, pose); }); } finally { K = was; }
+const hawkSprite = (pose, idx, kind = "hawk", flip = false) => memo(`hawk|${kind}|${pose}|${idx}|p${flip ? 1 : 0}`, () => {
+  const img = falconImage(pose, idx, kind, flip);
+  return { cv: toCanvas(img), ox: img.ox, oy: img.oy };
 });
 
 // Stamp the hawk heading along (dx, dy) on screen. Flights to the left are
@@ -217,22 +113,19 @@ export const stampHawk = (ctx, pose, x, y, dx, dy, pitchCap = 5, kind = "hawk") 
   const X = Math.round(x * PX) / PX, Y = Math.round(y * PX) / PX;
   ctx.save(); ctx.translate(X, Y);
   if (flip) ctx.scale(-1, 1);
-  if (cv.pix) ctx.drawImage(cv.cv, -cv.ox / 2, -cv.oy / 2, cv.cv.width / 2, cv.cv.height / 2);
-  else ctx.drawImage(cv, -HAWK / 2, -HAWK / 2, HAWK, HAWK);
+  ctx.drawImage(cv.cv, -cv.ox / 2, -cv.oy / 2, cv.cv.width / 2, cv.cv.height / 2);
   ctx.restore();
 };
 
 // For the hall file (halls/falconry.js), which owns where they are drawn: a bird of the wheel
 // (wing 0 down, 1 level, 2 raised, as its `paintBird` took it) and a bird sitting on the glove or
-// the T-perch (hood: asleep under the falconer's hood). Both return false under "New sprites" off,
-// and the hall paints its old bird. The point is the bird's centre, as the old stamps took it.
+// the T-perch (hood: asleep under the falconer's hood). Both return true (the old birds are gone).
+// The point is the bird's centre, as the old stamps took it.
 export const wheelBird = (ctx, wing, x, y, kind = "hawk") => {
-  if (!pixOn()) return false;
   stampHawk(ctx, wing === 2 ? "up" : wing === 1 ? "mid" : "down", x, y, 1, 0, 5, kind);
   return true;
 };
 export const perchedBird = (ctx, x, y, dir = 1, kind = "hawk", hood = false) => {
-  if (!pixOn()) return false;
   const cv = memo(`perch|${kind}|${hood ? 1 : 0}|${dir < 0 ? 1 : 0}`, () => { const img = perchedImage(kind, hood, dir < 0); return { cv: toCanvas(img), ox: img.ox, oy: img.oy }; });
   const X = Math.round(x * 2) / 2, Y = Math.round(y * 2) / 2;
   ctx.save(); ctx.translate(X, Y);
