@@ -49,6 +49,10 @@ import * as paladin from "./fig-paladin.js";
 import * as squire from "./fig-squire.js";
 import * as farmer from "./fig-farmer.js";
 import * as wraith from "./fig-wraith.js";
+import * as bonearcher from "./fig-bonearcher.js";
+import * as ghoul from "./fig-ghoul.js";
+import * as ghast from "./fig-ghast.js";
+import * as gravecaller from "./fig-gravecaller.js";
 
 const mk = (NAME, mod) => ({ ...mod, NAME });
 // fig     the figure
@@ -103,6 +107,11 @@ export const PIX = {
   // ---- the Hollow Court (owner's pick, 2026-11-14: Risen A, wraith B) ----
   skeleton: { fig: mk("risen", risen), atk: "attack", hit: 0.52, per: 3.5, legacy: [0, 3, 5, 7], fx: false },
   wraith: { fig: mk("wraith", wraith), atk: "attack", hit: 0.56, legacy: [0, 3, 5, 7], fx: true },
+  bonearcher: { fig: mk("bonearcher", bonearcher), atk: "shoot", hit: 0.64, per: 3.7, legacy: [8, 9, 11, 2], fx: false },
+  ghoul: { fig: mk("ghoul", ghoul), atk: "attack", hit: 0.54, per: 3.35, legacy: [0, 3, 5, 7], fx: false },
+  ghast: { fig: mk("ghast", ghast), atk: "attack", hit: 0.54, per: 4.7, legacy: [0, 3, 5, 8], fx: true },
+  // (his bell: summonCd runs down to each toll and is reset to summonEvery)
+  gravecaller: { fig: mk("gravecaller", gravecaller), atk: "strike", hit: 0.54, per: 3.8, legacy: [0, 4, 5, 7], fx: true, casts: [{ clip: "toll", clock: "summonCd", every: "summonEvery", lead: 900, hold: 900 }] },
   // ---- the Rime Clans (owner's pick, 2026-11-14: look C) ----
   thrall: { fig: mk("thrall", thrall), atk: "attack", hit: 0.55, per: 4.2, legacy: [0, 3, 6, 8], fx: true },
   berserker: { fig: mk("berserker", berserker), atk: "attack", hit: 0.52, per: 4.4, legacy: [0, 3, 6, 8], fx: true },
