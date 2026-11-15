@@ -106,15 +106,15 @@ const cloth = (c, x, top, w, len, sway, dev = true) => {
   const rows = Math.round(len * 2);
   const at = (r) => ap(sway * Math.pow(r / rows, 1.4));
   // ink first, one unit proud all round
-  c.fillStyle = INK;
-  for (let r = -2; r < rows + 2; r++) {
+  c.fillStyle = "#34161c";
+  for (let r = -1; r < rows + 1; r++) {
     const rr = Math.max(0, Math.min(rows - 1, r));
     const notch = r >= rows - 4 ? (r - (rows - 4)) * 0.5 : 0;
     const dx = at(rr);
     if (notch > 0 && r < rows) {
-      c.fillRect(x - 1 + dx, top + r * 0.5, w / 2 - notch + 1, 0.5);
-      c.fillRect(x + w / 2 + notch + dx, top + r * 0.5, w / 2 - notch + 1, 0.5);
-    } else c.fillRect(x - 1 + dx, top + r * 0.5, w + 2, 0.5);
+      c.fillRect(x - 0.5 + dx, top + r * 0.5, w / 2 - notch + 0.5, 0.5);
+      c.fillRect(x + w / 2 + notch + dx, top + r * 0.5, w / 2 - notch + 0.5, 0.5);
+    } else c.fillRect(x - 0.5 + dx, top + r * 0.5, w + 1, 0.5);
   }
   for (let r = 0; r < rows; r++) {
     const dx = at(r), y = top + r * 0.5;
@@ -3388,17 +3388,879 @@ const tollHouse = (ctx, x, y, s, o) => {
   tuft(ctx, x - w2 - 1, gy + 1.5, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
 };
 
+// ---- the camp's own pieces, sculpted (look B "worked"; footprints as before) --------
+// Materials for the camp, asked for inside painters only.
+let CM_ = null;
+const CM = () => CM_ || (CM_ = {
+  wood: mat(WOOD), woodL: mat(WOOD_LT), woodD: mat(WOOD_DK), ox: mat(OX), oxD: mat(OX_DK, { contrast: 0.9 }), oxL: mat(OX_LT),
+  iron: mat("#4a4e5a"), steel: mat(STEEL), steelL: mat(STEEL_LT), steelD: mat(STEEL_DK), brass: mat(BRASS),
+  canvas: mat(CANVAS), cvD: mat(darken(CANVAS, 0.3)), barrel: mat("#8a6036"), dark: mat("#1e1618", { contrast: 0.5 }),
+  grit: CRAG_MAT(), moss: mat("#5e7a4a"), sack: mat("#b49a6a"), ash: mat(ASHLAR),
+});
+// a baked still body for a live piece: sculpted, 1-px tinted line, no ring
+const sbodies = new Map();
+const sbody = (key, hw, top, bot, build, after) => {
+  let sp = sbodies.get(key);
+  if (!sp) {
+    const cv = bakeSprite(hw * 2, top + bot, (c) => {
+      const w = Math.ceil(hw * 2 * RES) + 4, h = Math.ceil((top + bot) * RES) + 4, obj = new Pix(w, h, w >> 1, h - 12);
+      build(obj);
+      stampSculpt(c, obj, hw, top + 8);
+      if (after) after(c, hw, top);
+    }, false);
+    sp = { cv, hw, top, bot };
+    sbodies.set(key, sp);
+  }
+  return sp;
+};
+// a spoked wheel, side on
+const wheelX = (o, wx, wy, r, z, sd) => {
+  const m = CM();
+  o.part(); o.ellipse(wx, wy, r, r, m.iron, z, { round: 0.5 });
+  o.part(); o.ellipse(wx, wy, r - 1.6, r - 1.6, m.woodD, z + 0.1, { round: 0.3 });
+  for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + sd; o.part(); o.line(wx, wy, wx + Math.cos(a) * (r - 2), wy + Math.sin(a) * (r - 2), m.woodL, z + 0.3, { noLine: true }); }
+  o.part(); o.ellipse(wx, wy, 2.6, 2.6, m.wood, z + 0.5, { round: 0.9 });
+  o.part(); o.dot(wx, wy, m.iron, z + 0.7, { noLine: true });
+};
+// a hooped barrel standing on its foot at (bx, by = its base), w wide, h tall
+const barrelX = (o, bx, by, w, h, z) => {
+  const m = CM();
+  o.part(); o.poly([[bx - w * 0.42, by], [bx - w * 0.5, by - h * 0.5], [bx - w * 0.42, by - h], [bx + w * 0.42, by - h], [bx + w * 0.5, by - h * 0.5], [bx + w * 0.42, by]], m.barrel, z, { round: 0.95 });
+  o.part(); o.ellipse(bx, by - h, w * 0.42, Math.max(1.5, w * 0.16), m.barrel, z + 0.2, { n: [-0.2, -0.7, 0.7], round: 0 });
+  for (const f of [0.22, 0.78]) { o.part(); o.line(bx - w * 0.47, by - h * f, bx + w * 0.47, by - h * f, m.iron, z + 0.3, { noLine: true }); }
+};
+
+// A supply wagon, halted: oxblood sideboards strapped with iron, a canvas tilt over hoops
+// (or an open bed of barrels and pikes), the shafts down on the turf, a barrel beside.
+const wagonX = (ctx, x, y, s, o) => {
+  const gy = y + 8, v = o.v % 4, sd = o.seed | 0, m = CM(), L = 32 * s;
+  pixShade(ctx, x, gy, 8 * s, 1, L + 12 * s, 4.2 * s, 0.3, false, sd);
+  sculpt(Math.ceil(150 * s) + 10, Math.ceil(66 * s) + 24, (b) => {
+    // the shafts on the ground ahead, the axle between the wheels
+    b.part(); b.capsule(L - 2, -17 * s, 1.5, L + 24 * s, -2, 1.4, m.woodD, -1, { round: 0.9 });
+    b.part(); b.capsule(L - 2, -21 * s, 1.5, L + 22 * s, -6, 1.4, m.wood, 0, { round: 0.9 });
+    b.part(); b.capsule(-L + 12 * s, -9 * s, 1.4, L - 12 * s, -9 * s, 1.4, m.woodD, 0, { round: 0.9 });
+    // the bed: planks of oxblood with a seam each, iron straps, the rim
+    for (let r = 0; r < 3; r++) {
+      b.part(); b.rect(-L, -26 * s + r * 5.3 * s, L * 2, 5.3 * s, r === 0 ? m.ox : m.ox, 1, { n: [0, 0.18 + r * 0.1, 0.95], bias: r === 0 ? 0.4 : 0, noLine: r > 0 });
+    }
+    b.toneLine(-L + 1, -20.7 * s, L - 1, -20.7 * s, -1); b.toneLine(-L + 1, -15.4 * s, L - 1, -15.4 * s, -1);
+    b.part(); b.rect(-L - 1, -28.5 * s, L * 2 + 2, 2.6 * s, m.woodL, 1.4, { n: [0, -0.5, 0.85] });
+    for (const dx of [-L + 2, -L * 0.33, L * 0.33, L - 4]) { b.part(); b.rect(dx, -26 * s, 2.5, 16 * s, m.iron, 1.6, { n: [0, 0.2, 0.95], noLine: true }); b.dot(dx + 1, -22 * s, m.brass, 1.8, { noLine: true }); b.dot(dx + 1, -14 * s, m.brass, 1.8, { noLine: true }); }
+    b.part(); b.rect(-L, -10 * s, L * 2, 1.6, m.woodD, 1.3, { n: [0, 0.4, 0.9], noLine: true });
+    // the load
+    if (v === 0 || v === 2) {
+      const t0 = -L + 3, t1 = L * (v === 2 ? 0.34 : 0.62), top = -50 * s, mid = -38 * s;
+      b.part(); b.poly([[t0, -28 * s], [t0 + 1, mid], [t0 + 8, top + 3], [t1 - 8, top + 3], [t1 - 1, mid], [t1, -28 * s]], m.canvas, 2, { n: [0, 0.05, 0.99] });
+      b.part(); b.poly([[t0 + 1, mid], [t0 + 4, top + 1], [t0 + 9, top], [t1 - 9, top], [t1 - 4, top + 1], [t1 - 1, mid], [t1 - 2, mid + 4], [t0 + 2, mid + 4]], m.canvas, 2.2, { n: [-0.15, -0.62, 0.77], noLine: true });
+      b.part(); b.rect(t0 + 1, -31 * s, t1 - t0 - 2, 3 * s, m.canvas, 2.1, { n: [0.1, 0.55, 0.8], noLine: true });
+      for (let k = 1; k < 5; k++) { const hx = t0 + (t1 - t0) * k / 5; b.toneLine(hx, top + 3, hx, -29 * s, -1); }
+      b.toneLine(t0 + 6, top + 3, t1 - 6, top + 3, 1);
+      b.part(); b.rect(t1 - 5, -43 * s, 5, 15 * s, m.dark, 2.6, { n: [0, 0, 1] });
+      b.part(); b.rect(t1 - 7, -45 * s, 2, 16 * s, m.cvD, 2.4, { noLine: true });
+    }
+    if (v !== 0) {
+      const nb = v === 2 ? 1 : 2;
+      for (let k = 0; k < nb; k++) barrelX(b, v === 2 ? L * 0.66 : -L * 0.5 + k * 17 * s, -28 * s, 13 * s, 15 * s, 2.5 + k * 0.1);
+      if (v !== 2) for (let k = 0; k < 3; k++) {
+        b.part(); b.capsule(-L * 0.1 + k * 2, -28 * s, 0.9, L * 0.92 + k * 2, -46 * s + k * 2, 0.9, m.woodL, 2.2, { round: 0.9 });
+        b.part(); b.poly([[L * 0.92 + k * 2 - 1, -46 * s + k * 2], [L * 0.92 + k * 2 + 1, -46 * s + k * 2 - 1], [L * 0.92 + k * 2 + 4, -50 * s + k * 2 - 2]], m.steelL, 2.3, { noLine: true });
+      }
+    }
+    // the near wheels, and a barrel beside the cart
+    wheelX(b, -L + 10, -10 * s, 10 * s, 3, sd); wheelX(b, L - 10, -10 * s, 10 * s, 3, sd + 1);
+    barrelX(b, -L - 11 * s, 0, 12 * s, 14 * s, 3);
+  }, ctx, x, gy);
+};
+
+// Pikes in a stook, a cheval-de-frise, a shield propped against the stook.
+const pikesX = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed | 0, v = o.v % 4, m = CM();
+  pixShade(ctx, x, gy, 8 * s, 1, 17 * s, 3 * s, 0.28, false, sd);
+  sculpt(Math.ceil(80 * s) + 10, Math.ceil(84 * s) + 20, (b) => {
+    if (v !== 3) {
+      // the stook: pikes leaning in to a tie, heads fanned above it
+      const n = 6;
+      for (let i = n - 1; i >= 0; i--) {
+        const u = i / (n - 1) - 0.5, fx = u * 24 * s, tx = 2 * s - u * 18 * s, ty = -66 * s + Math.abs(u) * 6 * s;
+        b.part(); b.capsule(fx, 0, 1, tx, ty + 8 * s, 0.8, i % 2 ? m.wood : m.woodL, i * 0.2, { round: 0.9 });
+        b.part(); b.poly([[tx - 1.6 * s, ty + 8 * s], [tx, ty], [tx + 1.6 * s, ty + 8 * s]], m.steelL, i * 0.2 + 0.1, { n: [-0.3, -0.2, 0.9] });
+        b.line(tx, ty + 3 * s, tx, ty + 8 * s, m.steelD, i * 0.2 + 0.15, { noLine: true });
+      }
+      b.part(); b.rect(-6 * s, -44 * s, 14 * s, 3, m.canvas, 2, { n: [0, 0.3, 0.9] });
+      b.part(); b.rect(-2 * s, -44 * s, 3, 5, m.cvD, 2.1, { noLine: true });
+    }
+    if (v === 1 || v === 3) {
+      const cx = v === 3 ? 0 : 20 * s;
+      b.part(); b.capsule(cx - 22 * s, -5 * s, 2.6 * s, cx + 22 * s, -5 * s, 2.6 * s, m.wood, 3, { round: 0.95 });
+      for (let k = 0; k < 5; k++) {
+        const kx = cx - 18 * s + k * 9 * s;
+        b.part(); b.capsule(kx - 8 * s, 0, 1.2, kx + 6 * s, -20 * s, 1, m.woodL, 3.2, { round: 0.9 });
+        b.part(); b.capsule(kx + 8 * s, 0, 1.2, kx - 6 * s, -20 * s, 1, m.wood, 3.4, { round: 0.9 });
+        b.dot(kx + 6 * s, -21 * s, m.steelL, 3.6, { noLine: true }); b.dot(kx - 6 * s, -21 * s, m.steelL, 3.6, { noLine: true });
+      }
+    }
+    if (v === 2) {
+      const sx = -16 * s, sy = -24 * s;
+      b.part(); b.poly([[sx - 8 * s, sy], [sx + 8 * s, sy], [sx + 8 * s, sy + 10 * s], [sx + 6 * s, sy + 18 * s], [sx, sy + 24 * s], [sx - 6 * s, sy + 18 * s], [sx - 8 * s, sy + 10 * s]], m.ox, 3, { round: 0.7, ny: 0.1 });
+      b.part(); b.rect(sx - 8 * s, sy, 16 * s, 2, m.iron, 3.2, { noLine: true });
+      b.part(); b.rect(sx - 2.5, sy + 5 * s, 5, 6, m.steelL, 3.3, { noLine: true });
+      b.dot(sx - 2.5, sy + 5 * s - 1, m.steelL, 3.3, { noLine: true }); b.dot(sx, sy + 5 * s - 1, m.steelL, 3.3, { noLine: true }); b.dot(sx + 2, sy + 5 * s - 1, m.steelL, 3.3, { noLine: true });
+    }
+  }, ctx, x, gy);
+  brackenFan(ctx, x + 12 * s, gy + 2, 0.55 * s, sd + 2);
+};
+
+// The Kingdom's war tents: oxblood canvas, an iron-grey valance, a brass finial.
+const warTentX = (ctx, x, y, s, o) => {
+  const gy = y + 8, v = o.v % 4, sd = o.seed | 0, m = CM();
+  pixShade(ctx, x, gy, 10 * s, 1, 21 * s, 4.6 * s, 0.3, false, sd);
+  sculpt(Math.ceil(110 * s) + 10, Math.ceil(80 * s) + 26, (b) => {
+    if (v === 0 || v === 2) {
+      // a bell tent: round walls, a cone of roof, the door flap tied back
+      const R = 26 * s, wh = 18 * s, rh = 32 * s;
+      b.part(); b.poly([[-R, -wh], [-R, 0], [-R * 0.5, 2.5], [R * 0.5, 2.5], [R, 0], [R, -wh]], m.ox, 0, { round: 0.95, ny: 0.1 });
+      b.part(); b.poly([[1 * s, -wh - 2], [8 * s, 3], [-10 * s, 3]], m.dark, 0.6, { n: [0, 0, 1] });
+      b.part(); b.poly([[1 * s, -wh - 2], [-10 * s, 3], [-14 * s, 2.5]], m.canvas, 0.8, { n: [-0.4, 0, 0.9] });
+      // the roof: lit panels left, shaded right, seams between
+      const tip = [0, -wh - rh];
+      b.part(); b.poly([tip, [R + 3 * s, -wh + 1], [0, -wh + 6 * s], [-R - 3 * s, -wh + 1]], m.ox, 1, { n: [0, -0.2, 0.95] });
+      b.part(); b.poly([tip, [-R - 3 * s, -wh + 1], [-R * 0.1, -wh + 5 * s]], m.oxL, 1.2, { n: [-0.55, -0.35, 0.75], noLine: true });
+      b.part(); b.poly([tip, [R + 3 * s, -wh + 1], [R * 0.3, -wh + 5 * s]], m.oxD, 1.2, { n: [0.6, 0.0, 0.8], noLine: true });
+      for (let k = 1; k < 4; k++) b.toneLine(tip[0], tip[1] + 2, -R - 2 + k * (R * 2 + 4) / 4, -wh + 2, -1);
+      for (let k = 0; k < 7; k++) {
+        const vx = -R + (k + 0.5) * (R * 2 / 7), vy = -wh + 2 + Math.sin((k / 6) * Math.PI) * 2 * s;
+        b.part(); b.ellipse(vx, vy, 2.8 * s, 2.2 * s, k < 4 ? m.steel : m.steelD, 1.5, { round: 0.9 });
+      }
+      b.part(); b.capsule(0, tip[1], 0.6, 0, tip[1] - 8 * s, 0.6, m.woodD, 1.5, {});
+      b.part(); b.ellipse(0, tip[1] - 8 * s, 1.8 * s, 1.8 * s, m.brass, 1.6, { round: 0.95 });
+      b.part(); b.poly([[1, tip[1] - 7 * s], [10 * s, tip[1] - 6 * s], [8 * s, tip[1] - 3.5 * s], [1, tip[1] - 3.5 * s]], m.ox, 1.7, { n: [0, 0.2, 0.95] });
+      for (const sx of [-1, 1]) {
+        b.part(); b.line(sx * R * 0.9, -wh, sx * (R + 10 * s), 1, m.canvas, 1.9, { noLine: true });
+        b.part(); b.rect(sx * (R + 10 * s) - 0.5, 0, 1.5, 3, m.woodD, 1.9, {});
+      }
+      if (v === 2) {
+        const rx = R + 12 * s;
+        b.part(); b.rect(rx - 9 * s, -14 * s, 2.4, 14 * s, m.wood, 2.4, {}); b.part(); b.rect(rx + 8 * s, -14 * s, 2.4, 14 * s, m.wood, 2.4, {});
+        b.part(); b.rect(rx - 9 * s, -12 * s, 20 * s, 2, m.woodL, 2.6, { n: [0, -0.4, 0.9] });
+        for (let k = 0; k < 3; k++) {
+          b.part(); b.capsule(rx - 6 * s + k * 6 * s, 0, 0.8, rx - 4 * s + k * 6 * s, -32 * s, 0.7, m.woodL, 2.5, { round: 0.9 });
+          b.part(); b.poly([[rx - 5.8 * s + k * 6 * s, -32 * s], [rx - 4 * s + k * 6 * s, -37 * s], [rx - 2.2 * s + k * 6 * s, -32 * s]], m.steelL, 2.6, {});
+        }
+      }
+    } else {
+      // a ridge tent for the rank and file: the long slope facing us, gables slanting away at each side
+      const L = 26 * s, hh = 24 * s, rl = L - 10 * s;
+      b.part(); b.poly([[-rl, -hh], [-L - 2 * s, 0], [-L + 10 * s, -2]], m.steelD, 0, { n: [-0.7, 0, 0.7] });
+      b.part(); b.poly([[-rl, -hh], [rl, -hh], [L + 2 * s, 0], [-L - 2 * s, 0]], m.ox, 1, { n: [0, -0.45, 0.88] });
+      b.part(); b.poly([[-rl, -hh], [rl, -hh], [rl, -hh + 4], [-rl, -hh + 4]], m.oxL, 1.2, { n: [0, -0.8, 0.6], noLine: true });
+      for (let k = -1; k <= 1; k++) b.toneLine(k * rl * 0.5, -hh + 3, k * L * 0.55, -1, -1);
+      b.part(); b.rect(-L - 1, -3, L * 2 + 2, 3, m.steel, 1.4, { n: [0, 0.3, 0.9] });
+      b.part(); b.poly([[rl, -hh], [L + 2 * s, 0], [L + 12 * s, -2]], m.steel, 0.5, { n: [0.6, 0, 0.8] });
+      b.part(); b.poly([[rl + 4 * s, -hh * 0.55], [L + 3 * s, 0], [L + 9 * s, -1]], m.dark, 0.9, { n: [0, 0, 1] });
+      b.part(); b.rect(rl - 1, -hh - 6 * s, 2, 6 * s, m.woodD, 1.5, {}); b.part(); b.rect(-rl - 1, -hh - 6 * s, 2, 6 * s, m.woodD, 1.5, {});
+      if (v === 3) {
+        const fx = -L - 14 * s, fy = 3;
+        for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; b.part(); b.ellipse(fx + Math.cos(a) * 7 * s, fy + Math.sin(a) * 3.4 * s, 2.4 * s, 1.8 * s, m.grit, 2, { round: 0.9 }); }
+        b.part(); b.ellipse(fx, fy, 5 * s, 2 * s, m.dark, 1.5, { round: 0.3 });
+      }
+    }
+  }, ctx, x, gy);
+};
+
+// A standard of the Kingdom: a pole and crossbar on a cairn of stones; the long cloth sways live.
+const bannerBodyX = (b, s) => {
+  const m = CM(), hh = 60 * s;
+  for (const [dx, rx, ry] of [[-4.4, 4, 2.6], [4, 3.6, 2.4], [0, 3.2, 3]]) { b.part(); b.ellipse(dx * s, -1, rx * s, ry * s, m.grit, 0.5, { round: 0.9 }); }
+  b.part(); b.capsule(0, -1, 1.5, 0, -hh, 1.3, m.woodD, 1, { round: 0.9 });
+  b.part(); b.rect(-11 * s, -hh + 3 * s, 22 * s, 2.4, m.iron, 1.6, { n: [0, -0.3, 0.9] });
+  b.part(); b.ellipse(0, -hh - 1, 2.6, 2.6, m.brass, 1.7, { round: 0.95 });
+  b.part(); b.rect(-12 * s, -hh + 2.6 * s, 2, 3, m.brass, 1.8, { noLine: true }); b.part(); b.rect(10.5 * s, -hh + 2.6 * s, 2, 3, m.brass, 1.8, { noLine: true });
+};
+const standardX = (ctx, x, y, s, o) => {
+  const sp = sbody(`banner2|${s}`, Math.ceil(10 * s + 4), Math.ceil(33 * s + 4), 8, (b) => bannerBodyX(b, s));
+  stampBody(ctx, sp, x, y);
+  const gy = y + 8, hh = 30 * s;
+  const sway = Math.sin(o.time * 1.7 + x * 0.13) * 1.4 + Math.sin(o.time * 3.1 + x) * 0.4;
+  cloth(ctx, ap(x - 4.5 * s), ap(gy - hh + 3 * s), Math.round(9 * s * 2) / 2, 15 * s, sway);
+};
+
+// ---- the Kingdom's stonework, sculpted ---------------------------------------------
+// Dressed blocks, course by course, a 1-px mortar gap showing a darker backing.
+// yt: the top of the wall (a number, or a function of x for a broken one).
+const blocksX = (b, x0, x1, yb, yt, seed, z, mats, ch = 7) => {
+  const top = (x) => (typeof yt === "function" ? yt(x) : yt);
+  let minTop = 1e9; for (let x = x0; x <= x1; x += 2) minTop = Math.min(minTop, top(x));
+  for (let row = 0, cy = yb; cy > minTop + 1; row++, cy -= ch) {
+    let bx = x0 - (row % 2 ? 5 : 0) - h3(row, seed) * 3;
+    for (let i = 0; bx < x1; i++) {
+      const w = 8 + h3(i, row, seed) * 6, a = Math.max(bx, x0), e = Math.min(bx + w, x1);
+      bx += w;
+      if (e - a < 2) continue;
+      const t = Math.max(cy - ch, top((a + e) / 2));
+      if (cy - t < 2) continue;
+      const k = h3(i * 3, row, seed + 1);
+      b.part(); b.rect(a, t, e - a - 1, cy - t - 1, k > 0.9 ? mats[2] : mats[0], z, { n: [0, 0.1, 0.98], bias: (k - 0.5) * 1.5 + (t === cy - ch ? 0 : 0.4), noLine: true });
+      if (t === cy - ch && k < 0.5) b.dot(a + 1, t, mats[1], z + 0.1, { noLine: true });
+    }
+  }
+};
+const stoneMats = () => [mat(ASHLAR), mat(darken(ASHLAR, 0.24)), mat(mix(ASHLAR, "#6a7a4a", 0.35))];
+
+const towerBodyX = (b, s, v) => {
+  const m = CM(), SM = stoneMats(), w2 = 18 * s, hh = 80 * s, pt = -hh;
+  // the shaded east face, then the front with its blocks
+  b.part(); b.poly([[w2, pt + 4], [w2 + 7 * s, pt + 1], [w2 + 7 * s, -3], [w2, 0]], mat(darken(ASHLAR, 0.1)), -1, { n: [0.85, 0, 0.5] });
+  for (let yy = pt + 10; yy < -4; yy += 7) b.toneLine(w2 + 1, yy, w2 + 7 * s - 1, yy, -1);
+  b.part(); b.poly([[-w2, pt], [w2, pt], [w2, 0], [-w2, 0]], SM[1], 0, { n: [0, 0.1, 0.98] });
+  blocksX(b, -w2, w2, 0, pt + 2, 11 + v, 0.5, SM);
+  b.part(); b.poly([[-w2 - 3 * s, 0], [-w2, -12 * s], [w2, -12 * s], [w2 + 3 * s, 0]], mat(darken(ASHLAR, 0.16)), 0.8, { n: [0, 0.1, 0.98] });
+  b.part(); b.ellipse(-w2 + 4, -2, 5 * s, 2.2, m.moss, 1, { round: 0.6 });
+  // the corbelled parapet, merlons along the front
+  b.part(); b.rect(-w2 - 2, pt - 5 * s, w2 * 2 + 4 + 6 * s, 7 * s, mat(darken(ASHLAR, 0.25)), 1.2, { n: [0, 0.3, 0.9] });
+  for (let k = 0; k < 4; k++) {
+    const mx = -w2 - 2 + k * (w2 * 2 + 4) / 4 + 1, mw = (w2 * 2 + 4) / 4 - 3;
+    b.part(); b.rect(mx, pt - 14 * s, mw, 9 * s, SM[0], 1.5, { n: [0, 0.1, 0.98] });
+    b.part(); b.rect(mx - 0.5, pt - 15 * s, mw + 1, 2.4, mat(lighten(ASHLAR, 0.12)), 1.7, { n: [-0.2, -0.8, 0.55] });
+    b.toneLine(mx + mw - 1, pt - 12 * s, mx + mw - 1, pt - 6 * s, -1);
+  }
+  b.part(); b.rect(w2 + 2, pt - 8 * s, 6 * s, 14 * s, mat(darken(ASHLAR, 0.1)), 1.3, { n: [0.8, 0, 0.6] });
+  for (let k = 0; k < 5; k++) { b.dot(-w2 + 2 + k * (w2 * 2 - 4) / 4, pt + 4 * s, SM[1], 1.8, { noLine: true }); b.dot(-w2 + 2 + k * (w2 * 2 - 4) / 4, pt + 5 * s, SM[1], 1.8, { noLine: true }); }
+  // the door, iron-studded, and the arrow slits
+  b.part(); b.poly([[-6 * s, 0], [-6 * s, -13 * s], [-3 * s, -19 * s], [3 * s, -19 * s], [6 * s, -13 * s], [6 * s, 0]], m.dark, 2, { n: [0, 0, 1], noLine: true });
+  b.part(); b.rect(-5 * s, -13 * s, 10 * s, 13 * s, m.woodD, 2.2, { n: [0, 0.1, 0.98] });
+  b.toneLine(-5 * s, -4 * s, 5 * s - 1, -4 * s, 1); b.toneLine(-5 * s, -10 * s, 5 * s - 1, -10 * s, 1); b.toneLine(0, -13 * s, 0, -1, -1);
+  b.dot(2.4 * s, -8 * s, m.brass, 2.4, { noLine: true });
+  for (const sx of [-11 * s, 10 * s]) { b.part(); b.rect(sx, pt + 40 * s, 2, 8 * s, m.dark, 2, { noLine: true }); }
+  // the pole on the deck
+  b.part(); b.capsule(0, pt - 6 * s, 0.9, 0, pt - 38 * s, 0.8, m.woodD, 2, {});
+  b.part(); b.ellipse(0, pt - 38 * s, 1.5, 1.5, m.brass, 2.2, { round: 0.95 });
+};
+const kingTowerX = (ctx, x, y, s, o) => {
+  const v = o.v % 2;
+  const sp = sbody(`tower2|${s}|${v}`, Math.ceil(16 * s + 4), Math.ceil(56 * s + 4), 10, (b) => towerBodyX(b, s, v), (c, hw, top) => {
+    cloth(c, ap(hw - 3.5 * s), ap(top + 8 - 40 * s + 6 * s), Math.round(7 * s * 2) / 2, 11 * s, 0);
+  });
+  stampBody(ctx, sp, x, y);
+  const t = y + 8 - 40 * s;
+  pennant(ctx, x + 0.6, t - 19.5 * s, 10 * s, 3.5 * s, o.time, x * 0.3);
+};
+// A ruin of an older border tower: the shaft broken off in steps, its hollow showing,
+// rubble and a fallen block at the foot, moss.
+const ruinX = (ctx, x, y, s, o) => {
+  const gy = y + 8, w2 = 18 * s, sd = o.seed | 0, hh = (44 + h3(sd, 1) * 16) * s, top = -hh, m = CM(), SM = stoneMats();
+  pixShade(ctx, x, gy, 14 * s, 1, 28 * s, 4.4 * s, 0.3, false, sd);
+  const jag = (xa) => { const i = Math.max(0, Math.min(7, Math.floor((xa + w2) / (w2 * 2) * 8))); return top + (h3(sd, i + 10) * 14 + (i > 4 ? (i - 4) * 4.4 : 0)) * s; };
+  sculpt(Math.ceil(110 * s) + 10, Math.ceil(80 * s) + 24, (b) => {
+    b.part(); b.poly([[w2, jag(w2 - 1)], [w2 + 6 * s, jag(w2 - 1) - 3], [w2 + 6 * s, -4], [w2, 0]], mat(darken(ASHLAR, 0.1)), -1, { n: [0.85, 0, 0.5] });
+    for (let yy = top + 16; yy < -4; yy += 7) b.toneLine(w2 + 1, yy, w2 + 6 * s - 1, yy, -1);
+    const pts = [[-w2, 0]]; for (let i = 0; i <= 16; i++) { const xa = -w2 + (i / 16) * w2 * 2; pts.push([xa, jag(Math.min(w2 - 0.1, xa))]); } pts.push([w2, 0]);
+    b.part(); b.poly(pts, SM[1], 0, { n: [0, 0.1, 0.98] });
+    blocksX(b, -w2, w2, 0, jag, sd, 0.5, SM);
+    // the hollow seen over the broken front, and a dark doorway
+    b.part(); b.poly([[-w2 + 4, top + 18 * s], ...[2, 3, 4, 5, 6].map((i) => [-w2 + (i / 8) * w2 * 2, jag(-w2 + (i / 8) * w2 * 2 + 1) + 5 * s]), [w2 - 4, top + 18 * s]], mat("#2e2a2e", { contrast: 0.5 }), 0.8, { n: [0, 0, 1], noLine: true });
+    b.part(); b.rect(-3 * s, -18 * s, 6 * s, 18 * s, m.dark, 1.5, { noLine: true });
+    b.part(); b.ellipse(-w2 + 6, -3, 7 * s, 2.4, m.moss, 1, { round: 0.6 });
+    for (let i = 0; i < 4; i++) { b.part(); b.ellipse(-w2 + h3(sd, i + 30) * w2 * 2, top + 18 * s + h3(sd, i + 40) * hh * 0.5, 2.2, 1.4, m.moss, 1, { round: 0.6 }); }
+    // rubble and a fallen block
+    for (let i = 0; i < 7; i++) {
+      const rx = (h3(sd, i + 50) - 0.3) * 60 * s, ry = 2 + h3(sd, i + 60) * 8;
+      if (Math.abs(rx) < w2 && ry < 4) continue;
+      b.part(); b.ellipse(rx, ry, (2.6 + h3(sd, i + 70) * 2.4) * s, 2 * s, i % 2 ? SM[0] : mat(darken(ASHLAR, 0.12)), 2, { round: 0.85 });
+    }
+    const bx = w2 + 16 * s;
+    b.part(); b.poly([[bx - 8 * s, -4], [bx - 6 * s, -10 * s], [bx + 8 * s, -10 * s], [bx + 8 * s, -2], [bx + 6 * s, 2], [bx - 8 * s, 2]], SM[0], 2.5, { round: 0.2, ny: -0.2 });
+    b.part(); b.rect(bx - 6 * s, -10 * s, 14 * s, 2.4, mat(lighten(ASHLAR, 0.15)), 2.6, { n: [-0.2, -0.8, 0.55], noLine: true });
+  }, ctx, x, gy);
+  heatherMound(ctx, x - w2 / 2 - 6 * s, gy + 1, 0.8 * s, sd + 4);
+};
+
+// A gibbet at the crossroads: a post, an arm and brace, an iron cage hanging empty, a crow.
+const gibbetX = (ctx, x, y, s, o) => {
+  const gy = y + 8, hh = 68 * s, m = CM(), sd = o.seed | 0;
+  pixShade(ctx, x, gy, 10 * s, 1, 18 * s, 3 * s, 0.28, false, sd);
+  sculpt(Math.ceil(70 * s) + 10, Math.ceil(78 * s) + 24, (b) => {
+    for (const [dx, rx, ry] of [[-6, 4.6, 2.8], [5, 4.2, 2.6], [0, 4, 3.4]]) { b.part(); b.ellipse(dx * s, -1, rx * s, ry * s, m.grit, 0.5, { round: 0.9 }); }
+    b.part(); b.capsule(0, -1, 3, 0, -hh, 2.7, m.woodD, 1, { round: 0.9 });
+    b.part(); b.rect(-3, -hh, 32 * s, 5, m.woodL, 1.5, { n: [0, -0.5, 0.85] });
+    b.part(); b.line(2, -hh + 14 * s, 12 * s, -hh + 4, m.woodD, 1.4, {}); b.part(); b.line(2, -hh + 15 * s, 12 * s, -hh + 5, m.wood, 1.4, { noLine: true });
+    const cx = 22 * s, ct = -hh + 18 * s;
+    for (let k = 0; k < 6; k++) b.dot(cx, -hh + 5 + k * 2.6 * s, m.iron, 1.6, { noLine: true });
+    b.part(); b.poly([[cx - 3 * s, ct], [cx - 7 * s, ct + 11 * s], [cx - 4 * s, ct + 22 * s], [cx + 4 * s, ct + 22 * s], [cx + 7 * s, ct + 11 * s], [cx + 3 * s, ct]], m.dark, 1.6, { n: [0, 0, 1] });
+    for (const dx of [-5, -1.6, 1.6, 5]) b.part(), b.line(cx + dx * 0.5 * s, ct, cx + dx * 1.2 * s, ct + 11 * s, m.iron, 2, { noLine: true }), b.line(cx + dx * 1.2 * s, ct + 11 * s, cx + dx * 0.7 * s, ct + 22 * s, m.iron, 2, { noLine: true });
+    for (const [f, hw] of [[0.04, 3], [0.5, 7.4], [1, 4.2]]) { b.part(); b.line(cx - hw * s, ct + 22 * s * f, cx + hw * s, ct + 22 * s * f, m.steel, 2.2, { noLine: true }); }
+    // a crow on the arm
+    const bx = 10 * s, by = -hh - 1, CR = mat("#2c2a34");
+    b.part(); b.ellipse(bx, by - 3, 4 * s, 3 * s, CR, 2, { round: 0.9 }); b.part(); b.ellipse(bx + 3.4 * s, by - 6 * s, 2.2 * s, 2 * s, CR, 2.1, { round: 0.9 });
+    b.part(); b.rect(bx - 6 * s, by - 3, 4 * s, 2, CR, 1.9, {}); b.dot(bx + 6 * s, by - 6 * s, mat("#9a8a60"), 2.3, { noLine: true });
+  }, ctx, x, gy);
+  brackenFan(ctx, x - 4 * s, gy + 1.5, 0.6 * s, sd + 4);
+};
+// A beacon: a round ashlar plinth carrying an iron fire-basket (the flame is live).
+const beaconBodyX = (b, s) => {
+  const m = CM(), SM = stoneMats();
+  b.part(); b.poly([[-11 * s, 0], [-11 * s, -24 * s], [11 * s, -24 * s], [11 * s, 0]], SM[0], 0, { round: 0.95, ny: 0.05 });
+  for (const yy of [-8, -16]) b.toneLine(-10 * s, yy * s, 10 * s, yy * s, -1);
+  for (const [xx, yy] of [[-4, -2], [5, -10], [-7, -18], [1, -18]]) b.toneLine(xx * s, (yy - 4) * s, xx * s, yy * s, -1);
+  b.part(); b.ellipse(0, -24 * s, 11 * s, 3.6 * s, mat(lighten(ASHLAR, 0.15)), 0.5, { n: [-0.15, -0.75, 0.6] });
+  b.part(); b.ellipse(-8 * s, -1, 3 * s, 1.4, m.moss, 1, { round: 0.6 });
+  for (const dx of [-8, -3, 3, 8]) { b.part(); b.capsule(dx * 0.55 * s, -25 * s, 0.9, dx * s, -38 * s, 0.9, m.iron, 1, {}); }
+  b.part(); b.line(-8.6 * s, -34 * s, 8.6 * s, -34 * s, m.steel, 1.4, { noLine: true });
+  b.part(); b.ellipse(0, -38 * s, 9.2 * s, 3 * s, mat("#3a2420"), 1.2, { round: 0.3 });
+};
+const beaconX = (ctx, x, y, s, o) => {
+  const sp = sbody(`beacon2|${s}`, Math.ceil(16 * s + 4), Math.ceil(24 * s + 4), 8, (b) => beaconBodyX(b, s));
+  stampBody(ctx, sp, x, y);
+  fire(ctx, x, y + 8 - 19.5 * s, s, o.time, x * 0.37);
+};
+
+// ---- Warden Moor's drill field, sculpted ---------------------------------------------
+let DM_ = null;
+const DM = () => DM_ || (DM_ = {
+  straw: mat(STRAW), strawL: mat(STRAW_LT), strawD: mat(STRAW_DK), burlap: mat(BURLAP), cream: mat("#e8dcc0"), arrow: mat("#ece4d0"),
+  bank: mat(mix(CLAY_DK, REALM.GRASS_DK, 0.35)), turf: mat(mix(REALM.GRASS, REALM.GRASS_DK, 0.3)),
+});
+const quintainBodyX = (b, s) => {
+  const m = CM();
+  b.part(); b.rect(-16 * s, -3 * s, 32 * s, 4 * s, m.woodD, 0, { n: [0, -0.1, 0.99] });
+  b.part(); b.rect(-4 * s, -9 * s, 8 * s, 11 * s, m.wood, 0.5, { n: [0, 0.1, 0.98] });
+  b.part(); b.capsule(0, -2 * s, 2.7 * s, 0, -44 * s, 2.5 * s, m.wood, 1, { round: 0.95 });
+  b.part(); b.rect(-3.4 * s, -47 * s, 6.8 * s, 4 * s, m.iron, 1.5, { n: [0, -0.3, 0.9] });
+  b.part(); b.capsule(8 * s, 4, 1, 26 * s, -2, 1, m.woodL, 1, { round: 0.9 });
+  b.part(); b.capsule(12 * s, 7, 1, 22 * s, 7, 1, m.wood, 1.2, { round: 0.9 });
+  b.dot(25.5 * s, -2, m.arrow, 1.4, { noLine: true }); b.dot(26 * s, -3, m.arrow, 1.4, { noLine: true });
+};
+const quintainX = (ctx, x, y, s, o) => {
+  const sp = sbody(`quintain2|${s}`, Math.ceil(16 * s + 4), Math.ceil(26 * s + 4), 10, (b) => quintainBodyX(b, s));
+  stampBody(ctx, sp, x, y);
+  // the live arm, bag and shield as before (the arm swings; their ink is the thin line now)
+  const gy = y + 8, t = o.time, py = gy - 22.5 * s;
+  const a = 0.35 + 0.22 * Math.sin(t * 0.55 + x * 0.1) + 0.06 * Math.sin(t * 1.7);
+  const La = 11 * s, ex = Math.cos(a) * La, ey = Math.sin(a) * La * 0.42;
+  const shieldEnd = [x + ex, py + ey], bagEnd = [x - ex, py - ey];
+  const sw = 0.18 * Math.sin(t * 1.9 + x), LINE = "#3a1c22", BLINE = "#4a3a22";
+  const drawBag = () => {
+    const [bx, by] = bagEnd, hx = bx + sw * 6 * s, hy = by + 6 * s;
+    ctx.fillStyle = IRON; for (let k = 1; k < 5; k++) ctx.fillRect(ap(bx + (hx - bx) * k / 5), ap(by + (hy - by) * k / 5), 0.5, 0.5);
+    ctx.fillStyle = BLINE; ctx.fillRect(ap(hx - 2 * s) - 0.5, ap(hy) - 0.5, ap(4 * s) + 1, ap(4.5 * s) + 1);
+    ctx.fillStyle = BURLAP; ctx.fillRect(ap(hx - 2 * s), ap(hy), ap(4 * s), ap(4.5 * s));
+    ctx.fillStyle = lighten(BURLAP, 0.3); ctx.fillRect(ap(hx - 2 * s), ap(hy), 1, ap(4 * s));
+    ctx.fillStyle = darken(BURLAP, 0.35); ctx.fillRect(ap(hx + 2 * s) - 0.5, ap(hy + 0.5), 0.5, ap(4 * s));
+    ctx.fillStyle = WOOD_DK; ctx.fillRect(ap(hx - 1 * s), ap(hy), ap(2 * s), 0.5);
+  };
+  const drawShield = () => {
+    const [sx, sy] = shieldEnd, w = Math.max(1.5, ap(5 * s * Math.abs(Math.sin(a + 0.25)) + 1)), h = ap(6.5 * s);
+    ctx.fillStyle = LINE; ctx.fillRect(ap(sx - w / 2) - 0.5, ap(sy - 1) - 0.5, w + 1, h + 1);
+    ctx.fillStyle = OX; ctx.fillRect(ap(sx - w / 2), ap(sy - 1), w, h);
+    ctx.fillStyle = OX_LT; ctx.fillRect(ap(sx - w / 2), ap(sy - 1), 0.5, h);
+    ctx.fillStyle = OX_DK; ctx.fillRect(ap(sx + w / 2) - 0.5, ap(sy - 1), 0.5, h);
+    ctx.fillStyle = "#e4d8bc"; ctx.fillRect(ap(sx - Math.min(w / 2 - 0.5, 1.5)), ap(sy + h * 0.3), ap(Math.min(w - 1, 3)), ap(1.5 * s));
+    ctx.fillStyle = IRON; ctx.fillRect(ap(sx - w / 2), ap(sy - 1), w, 0.5);
+  };
+  if (ey > 0) { drawBag(); bar(ctx, bagEnd[0], bagEnd[1], shieldEnd[0], shieldEnd[1], 1.5, WOOD, WOOD_LT); drawShield(); }
+  else { drawShield(); bar(ctx, shieldEnd[0], shieldEnd[1], bagEnd[0], bagEnd[1], 1.5, WOOD, WOOD_LT); drawBag(); }
+  ctx.fillStyle = IRON; ctx.fillRect(ap(x - 1.5), ap(py - 1.5), 3, 2.5);
+  ctx.fillStyle = STEEL; ctx.fillRect(ap(x - 1), ap(py - 1), 2, 1.5);
+};
+
+// Practice men. v: 0 a straw man on a cross, an oxblood rag for a sash; 1 a pell, a hacked post
+// with chips at its foot and a wooden sword against it; 2 a straw man in a kettle hat and tabard;
+// 3 one leaning, shot full of arrows.
+const dummyX = (ctx, x, y, s, o) => {
+  const gy = y + 8, v = o.v % 4, sd = o.seed | 0, m = CM(), d = DM();
+  pixShade(ctx, x, gy, 4 * s, 1, 9 * s, 2.4 * s, 0.28, false, sd);
+  sculpt(Math.ceil(46 * s) + 10, Math.ceil(46 * s) + 22, (b) => {
+    if (v === 1) {
+      b.part(); b.capsule(0, 0, 4.4 * s, 0, -26 * s, 4 * s, m.wood, 0, { round: 0.95 });
+      b.part(); b.ellipse(0, -27 * s, 4 * s, 1.8 * s, m.woodL, 0.5, { n: [-0.2, -0.7, 0.7] });
+      for (let k = 0; k < 6; k++) { const ny = -8 * s - k * 3.4 * s - h3(sd, k) * 2; b.part(); b.rect(-4 * s + h3(sd, k + 9) * 3, ny, 4 * s, 1.5, m.woodD, 1, { noLine: true }); }
+      b.part(); b.capsule(7 * s, 0, 1.3, 11 * s, -19 * s, 1.2, m.woodL, 1.5, { round: 0.9 });
+      b.part(); b.rect(6 * s, -6 * s, 7 * s, 1.8, m.woodD, 1.7, { noLine: true });
+      for (let i = 0; i < 6; i++) b.dot(-10 * s + h3(sd, i + 20) * 20 * s, 1 + h3(sd, i + 30) * 4, i % 2 ? m.woodL : m.straw, 0.5, { noLine: true });
+      return;
+    }
+    const lean = v === 3 ? 0.14 : 0, X = (yy, xx = 0) => xx + lean * -yy;
+    b.part(); b.capsule(0, 0, 1.8, X(-30 * s), -30 * s, 1.6, m.woodD, 0, { round: 0.9 });
+    b.part(); b.rect(X(-27 * s, -13 * s), -27 * s, 26 * s, 3, m.wood, 0.5, { n: [0, -0.3, 0.9] });
+    for (const k of [-1, 1]) for (let j = 0; j < 4; j++) b.dot(X(-27 * s, k * 13.5 * s) + (j % 2) * k, -27 * s + j, j % 2 ? d.strawD : d.strawL, 0.6, { noLine: true });
+    b.part(); b.poly([[X(-28 * s, -7 * s), -28 * s], [X(-28 * s, 7 * s), -28 * s], [X(-11 * s, 7.4 * s), -11 * s], [X(-11 * s, -7.4 * s), -11 * s]], v === 2 ? m.ox : d.burlap, 1, { round: 0.9 });
+    if (v === 2) { b.part(); b.rect(X(-18 * s, -2.2), -22 * s, 4.4, 5, m.steelL, 1.4, { noLine: true }); for (const dx of [-2.2, 0, 2.2]) b.dot(X(-22 * s, dx), -23 * s, m.steelL, 1.4, { noLine: true }); }
+    else b.part(), b.line(X(-26 * s, -6 * s), -26 * s, X(-17 * s, 6 * s), -17 * s, m.ox, 1.3, { noLine: true }), b.line(X(-26 * s, -6 * s) + 1, -26 * s, X(-17 * s, 6 * s) + 1, -17 * s, m.ox, 1.3, { noLine: true });
+    b.toneLine(X(-17 * s, -7 * s), -17 * s, X(-17 * s, 7 * s), -17 * s, -1);
+    for (let j = 0; j < 4; j++) b.dot(X(-11 * s, -5 * s + j * 3.2 * s), -9 * s + (j % 2), j % 2 ? d.strawL : d.strawD, 1.2, { noLine: true });
+    b.part(); b.ellipse(X(-32 * s, 0), -32 * s, 5 * s, 4.6 * s, d.straw, 1.5, { round: 0.95 });
+    b.part(); b.rect(X(-28 * s, -2.4 * s), -28.6 * s, 4.8 * s, 1.4, m.woodD, 1.7, { noLine: true });
+    if (v === 2) { b.part(); b.ellipse(X(-35 * s, 0), -35 * s, 7.6 * s, 2.4 * s, m.steelD, 1.8, { round: 0.5 }); b.part(); b.ellipse(X(-37 * s, 0), -37 * s, 5 * s, 3.6 * s, m.steel, 1.9, { round: 0.95 }); }
+    else { b.dot(X(-37 * s, -2), -37 * s, d.strawL, 1.7, { noLine: true }); b.dot(X(-37.5 * s, 1), -38 * s, d.strawL, 1.7, { noLine: true }); }
+    if (v === 3) for (const [ax, ay, dx] of [[-3, -22, 6], [3, -18, 7], [0, -32, 5]]) { b.part(); b.line(X(ay * s, ax * s), ay * s, X(ay * s, ax * s) + dx * s, ay * s + 3 * s, m.woodL, 2, { noLine: true }); b.dot(X(ay * s, ax * s) + dx * s, ay * s + 3.2 * s, d.arrow, 2.1, { noLine: true }); }
+  }, ctx, x, gy);
+  for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? STRAW : STRAW_DK; ctx.fillRect(ap(x - 4 * s + hash(sd, i + 40) * 8 * s), ap(gy + 0.5 + hash(sd, i + 44) * 2), 1, 0.5); }
+};
+
+// Archery butts: two straw bosses on a trestle against a turf bank, faces cream and oxblood with a gold clout.
+const buttsX = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed | 0, m = CM(), d = DM();
+  pixShade(ctx, x, gy, 12 * s, 1, 40 * s, 3.6 * s, 0.28, false, sd);
+  sculpt(Math.ceil(100 * s) + 10, Math.ceil(52 * s) + 20, (b) => {
+    b.part(); b.poly([[-38 * s, -2 * s], [-32 * s, -24 * s], [30 * s, -24 * s], [38 * s, -2 * s]], d.bank, 0, { n: [0, 0.3, 0.9] });
+    b.part(); b.poly([[-33 * s, -20 * s], [-30 * s, -28 * s], [28 * s, -28 * s], [32 * s, -20 * s]], d.turf, 0.4, { n: [0, -0.45, 0.85] });
+    for (let i = 0; i < 12; i++) b.dot(-30 * s + h3(sd, i) * 60 * s, -18 * s + h3(sd, i + 9) * 14 * s, i % 2 ? d.bank : m.moss, 0.6, { noLine: true });
+    for (const [dx, k] of [[-14, 0], [14, 1]]) {
+      const bx = dx * s, by = -14 * s, r = 10 * s;
+      b.part(); b.line(bx - r * 0.7, 0, bx - r * 0.2, by, m.woodD, 1, {}); b.part(); b.line(bx + r * 0.7, 0, bx + r * 0.2, by, m.woodD, 1, {});
+      b.part(); b.ellipse(bx, by, r, r * 0.92, d.straw, 2, { round: 0.8 });
+      b.part(); b.ellipse(bx, by, r * 0.8, r * 0.74, d.cream, 2.2, { round: 0.2, noLine: true });
+      b.part(); b.ellipse(bx, by, r * 0.62, r * 0.57, m.ox, 2.3, { round: 0.2, noLine: true });
+      b.part(); b.ellipse(bx, by, r * 0.42, r * 0.39, d.cream, 2.4, { round: 0.2, noLine: true });
+      b.part(); b.ellipse(bx, by, r * 0.22, r * 0.2, m.brass, 2.5, { round: 0.6, noLine: true });
+      for (let i = 0; i < 3; i++) { const ax = bx + (h3(sd, i + k * 10 + 20) - 0.5) * 11 * s, ay = by + (h3(sd, i + k * 10 + 30) - 0.5) * 9 * s; b.part(); b.line(ax, ay, ax + 3 * s, ay + 4 * s, m.woodL, 2.7, { noLine: true }); b.dot(ax + 3 * s, ay + 4.4 * s, i % 2 ? m.oxL : d.arrow, 2.8, { noLine: true }); }
+    }
+    const qx = 32 * s;
+    b.part(); b.capsule(qx, 0, 1.2, qx, -18 * s, 1.1, m.woodD, 1, {});
+    b.part(); b.rect(qx - 3 * s, -18 * s, 6 * s, 10 * s, mat("#6a4a30"), 1.3, { round: 0.8 });
+    for (let k = 0; k < 4; k++) b.part(), b.rect(qx - 3 * s + k * 1.8 * s, -23 * s - (k % 2), 1, 5 * s, k % 2 ? d.arrow : m.oxL, 1.2, { noLine: true });
+  }, ctx, x, gy);
+};
+
+// A weapons rack: two splayed trestles and a rail, spears leaning on it, swords hung by their guards,
+// a round oxblood shield on one end, a kettle hat on the other.
+const rackX = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed | 0, m = CM(), rt = -22 * s;
+  pixShade(ctx, x, gy, 6 * s, 1, 21 * s, 3 * s, 0.28, false, sd);
+  sculpt(Math.ceil(66 * s) + 10, Math.ceil(66 * s) + 22, (b) => {
+    for (let i = 0; i < 6; i++) {
+      const fx = -16 * s + i * 6.4 * s, tx = fx + 5 * s, ty = -48 * s - h3(sd, i) * 4 * s;
+      b.part(); b.capsule(fx - 3 * s, -2, 0.9, tx, ty + 6 * s, 0.8, i % 2 ? m.wood : m.woodL, -1 + i * 0.05, { round: 0.9 });
+      b.part(); b.poly([[tx - 1.7 * s, ty + 6 * s], [tx, ty], [tx + 1.7 * s, ty + 6 * s]], m.steelL, -0.9 + i * 0.05, {});
+    }
+    for (const ex of [-20, 20]) { b.part(); b.capsule((ex - 5) * s, 0, 1.3, ex * s, rt - 3 * s, 1.3, m.woodD, 1, { round: 0.9 }); b.part(); b.capsule((ex + 5) * s, 0, 1.3, ex * s, rt - 3 * s, 1.3, m.woodD, 1, { round: 0.9 }); }
+    b.part(); b.capsule(-22 * s, rt - 1, 1.8 * s, 22 * s, rt - 1, 1.8 * s, m.wood, 2, { round: 0.9 });
+    b.part(); b.capsule(-22 * s, -8 * s, 1.3 * s, 22 * s, -8 * s, 1.3 * s, m.woodD, 2, { round: 0.9 });
+    for (const sx of [-8, 0, 8]) {
+      const bx = (sx + h3(sd, sx + 9)) * s;
+      b.part(); b.rect(bx - 1, rt + 1, 2, 16 * s, m.steelL, 2.4, { n: [-0.3, 0, 0.95], noLine: false });
+      b.part(); b.rect(bx - 3 * s, rt, 6 * s, 1.8, m.brass, 2.5, { noLine: true }); b.part(); b.rect(bx - 1, rt - 5 * s, 2, 5 * s, m.woodD, 2.5, { noLine: true });
+    }
+    const sx = -22 * s, sy = rt + 4 * s;
+    b.part(); b.ellipse(sx, sy, 8 * s, 8 * s, m.iron, 2.6, { round: 0.5 });
+    b.part(); b.ellipse(sx, sy, 6.6 * s, 6.6 * s, m.ox, 2.8, { round: 0.85, noLine: true });
+    b.part(); b.rect(sx - 2.4, sy - 3.4, 5, 5, m.steelL, 2.9, { noLine: true }); for (const dx of [-2.4, 0, 2]) b.dot(sx + dx, sy - 4.4, m.steelL, 2.9, { noLine: true });
+    const hx = 20 * s, hy = rt - 4 * s;
+    b.part(); b.ellipse(hx, hy + 1, 7.2 * s, 2.2 * s, m.steelD, 2.6, { round: 0.5 }); b.part(); b.ellipse(hx, hy - 1, 4.8 * s, 3.6 * s, m.steel, 2.8, { round: 0.95 });
+  }, ctx, x, gy);
+  brackenFan(ctx, x + 14 * s, gy + 2, 0.5 * s, sd + 3);
+};
+
+// The muster post: a tall post, a tally board and a brass horn on its arm, a drum at its foot on a stand.
+const musterX = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed | 0, m = CM(), d = DM();
+  pixShade(ctx, x, gy, 5 * s, 1, 11 * s, 2.6 * s, 0.28, false, sd);
+  sculpt(Math.ceil(50 * s) + 10, Math.ceil(60 * s) + 20, (b) => {
+    b.part(); b.capsule(0, 0, 2.6 * s, 0, -52 * s, 2.3 * s, m.woodD, 0, { round: 0.95 });
+    b.part(); b.rect(-2.4 * s, -46 * s, 18 * s, 3, m.wood, 0.5, { n: [0, -0.4, 0.9] });
+    b.part(); b.ellipse(0, -53 * s, 2.8 * s, 2.4 * s, m.brass, 1, { round: 0.95 });
+    b.part(); b.rect(-7 * s, -34 * s, 14 * s, 14 * s, mat("#8a6a44"), 1, { n: [0, 0.1, 0.98] });
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 4 + (r % 2); k++) b.dot(-5 * s + k * 2.4 * s, -30 * s + r * 4 * s, mat("#3a2a20"), 1.3, { noLine: true });
+    b.part(); b.line(-5.2 * s, -30 * s, 4.8 * s, -30 * s, mat("#3a2a20"), 1.2, { noLine: true });
+    const hx = 12 * s;
+    b.part(); b.line(hx, -43 * s, hx - 2 * s, -34 * s, mat("#5a4232"), 1.2, { noLine: true });
+    b.part(); b.poly([[hx - 6 * s, -32 * s], [hx - 2 * s, -29 * s], [hx + 4 * s, -33 * s], [hx + 7 * s, -35 * s], [hx + 7 * s, -30 * s], [hx + 2 * s, -24 * s], [hx - 5 * s, -29 * s]], m.brass, 1.4, { round: 0.6 });
+    const dx = 10 * s, dt = -14 * s;
+    b.part(); b.line(dx - 6 * s, 0, dx + 4 * s, dt + 8 * s, m.woodD, 1.5, {}); b.part(); b.line(dx + 6 * s, 0, dx - 4 * s, dt + 8 * s, m.woodD, 1.5, {});
+    b.part(); b.poly([[dx - 7 * s, dt], [dx + 7 * s, dt], [dx + 7 * s, dt + 10 * s], [dx - 7 * s, dt + 10 * s]], m.ox, 1.8, { round: 0.95 });
+    for (let k = 0; k < 6; k++) { const px = dx - 7 * s + k * (14 * s / 6); b.part(); b.line(px, dt + (k % 2 ? 9 : 1.5) * s, px + 14 * s / 6, dt + (k % 2 ? 1.5 : 9) * s, d.cream, 2, { noLine: true }); }
+    b.part(); b.ellipse(dx, dt, 7 * s, 2.4 * s, d.cream, 2.2, { n: [-0.2, -0.7, 0.7] });
+  }, ctx, x, gy);
+  if (hash(sd, 4) > 0.3) tuft(ctx, x - 4 * s, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+};
+
+// ---- Brinewick's salt works, sculpted ------------------------------------------------
+let BM_ = null;
+const BMt = () => BM_ || (BM_ = {
+  rub: mat(RUBBLE), rubD: mat(darken(RUBBLE, 0.26)), rubM: mat(mix(RUBBLE, "#6a7a4a", 0.35)),
+  slate: mat(SLATE), slateL: mat(SLATE_LT), slateD: mat(SLATE_DK), salt: mat("#e0dace", { contrast: 0.7 }), saltK: mat("#d8cfc6"),
+  tar: mat("#54484a"), coal: mat("#4a4852"), ember: mat("#d8742c", { emis: true }), glow: mat("#7a3a20"),
+});
+const saltHouseBodyX = (b, s) => {
+  const m = CM(), t = BMt(), w2 = SALTHOUSE.w2 * 2 * s, wh = SALTHOUSE.wh * 2 * s, rf = SALTHOUSE.rf * 2 * s, st = SALTHOUSE.stack * 2 * s, rm = [t.rub, t.rubD, t.rubM];
+  // the coal store on the east end: plank front, open, one slope of boards for a roof
+  const lx = w2 - 1, lw = 18 * s;
+  b.part(); b.rect(lx, -14 * s, lw, 14 * s, m.wood, 0, { n: [0, 0.1, 0.98] });
+  b.part(); b.rect(lx + 3 * s, -11 * s, lw - 6 * s, 11 * s, m.dark, 0.5, { noLine: true });
+  b.part(); b.ellipse(lx + lw / 2, -1, 6 * s, 4.4 * s, t.coal, 1, { round: 0.95 });
+  b.part(); b.rect(lx, -24 * s, lw + 3, 10 * s, m.wood, 1.2, { n: [0, -0.45, 0.88] });
+  for (let k = 1; k < 5; k++) b.toneLine(lx, -24 * s + k * 2 * s, lx + lw + 2, -24 * s + k * 2 * s, -1);
+  // the south wall in rubble courses; the roof's south slope in slate
+  b.part(); b.poly([[-w2, -wh], [w2, -wh], [w2, 0], [-w2, 0]], t.rubD, 0.3, { n: [0, 0.1, 0.98] });
+  blocksX(b, -w2, w2, 0, -wh + 1, 5, 0.6, rm, 5.5);
+  b.part(); b.ellipse(-w2 + 4, -2, 6 * s, 2.4, mat("#6a7a4a"), 1, { round: 0.6 });
+  const ex = 3 * s;
+  b.part(); b.poly([[-w2 - ex, -wh + 1], [w2 + ex, -wh + 1], [w2 + ex * 0.4, -wh - rf], [-w2 - ex * 0.4, -wh - rf]], t.slate, 1, { n: [0, -0.5, 0.86] });
+  for (let yy = -wh - rf + 4, r = 0; yy < -wh; yy += 3, r++) { b.toneLine(-w2 - ex, yy, w2 + ex, yy, -1); for (let xx = -w2 + (r % 2) * 3 + h3(r, 3) * 4; xx < w2; xx += 6 + h3(r, Math.round(xx)) * 3) b.toneLine(xx, yy, xx, yy + 3, -1); }
+  for (let i = 0; i < 10; i++) b.dot(-w2 + h3(i, 41) * w2 * 2, -wh - rf + 4 + h3(i, 43) * (rf - 6), i % 3 ? t.slateL : mat("#7a8460"), 1.1, { noLine: true });
+  b.part(); b.rect(-w2 - ex * 0.4, -wh - rf - 2, w2 * 2 + ex * 0.8, 3, t.slateL, 1.3, { n: [0, -0.8, 0.6] });
+  // the louvre on the ridge
+  const lvx = 8 * s, lvy = -wh - rf - 2;
+  b.part(); b.rect(lvx - 6 * s, lvy - 7 * s, 12 * s, 7 * s, m.woodD, 1.6, { n: [0, 0.1, 0.98] });
+  for (let k = 0; k < 3; k++) b.toneLine(lvx - 6 * s, lvy - 6 * s + k * 2 * s, lvx + 6 * s - 1, lvy - 6 * s + k * 2 * s, 1);
+  b.part(); b.rect(lvx - 7.6 * s, lvy - 10 * s, 15 * s, 3 * s, t.slate, 1.8, { n: [0, -0.5, 0.86] });
+  // the door with the fire in it, a window
+  const dx = -6 * s;
+  b.part(); b.poly([[dx - 6 * s, 0], [dx - 6 * s, -11 * s], [dx - 3 * s, -15 * s], [dx + 3 * s, -15 * s], [dx + 6 * s, -11 * s], [dx + 6 * s, 0]], m.dark, 1.5, { n: [0, 0, 1], noLine: true });
+  b.part(); b.rect(dx - 4 * s, -6 * s, 8 * s, 5 * s, t.glow, 1.7, { noLine: true }); b.part(); b.rect(dx - 3 * s, -4 * s, 6 * s, 3 * s, t.ember, 1.8, { noLine: true });
+  b.part(); b.rect(12 * s, -wh + 5 * s, 6 * s, 5 * s, m.dark, 1.5, { noLine: true }); b.rect(12 * s, -wh + 8 * s, 6 * s, 2, mat("#a8522a"), 1.6, { noLine: true });
+  // the stack: dressed stone up past the roof, its mouth sooted
+  const cx = -w2 + 7 * s, cw = 10 * s, ct = -wh - rf - st;
+  b.part(); b.poly([[cx - cw / 2, ct], [cx + cw / 2, ct], [cx + cw / 2, 0], [cx - cw / 2, 0]], t.rubD, 1.9, { n: [0, 0.1, 0.98] });
+  blocksX(b, cx - cw / 2, cx + cw / 2, 0, ct + 2, 9, 2, [mat(darken(RUBBLE, 0.1)), t.rubD, t.rubM], 6);
+  b.part(); b.rect(cx + cw / 2, ct + 2, 3 * s, -ct - 4, mat(darken(RUBBLE, 0.45)), 1.9, { n: [0.9, 0, 0.4] });
+  b.part(); b.rect(cx - cw / 2 - 1, ct - 3, cw + 3 * s + 2, 3, t.rubD, 2.4, { n: [0, -0.4, 0.9] });
+  b.part(); b.rect(cx - cw / 2 + 1, ct - 3, cw - 2, 1, mat("#1c1618"), 2.6, { noLine: true });
+  // casks and a sack by the door
+  barrelX(b, 3 * s, 5 * s, 10 * s, 11 * s, 3); barrelX(b, -w2 - 8 * s, 3 * s, 11 * s, 12 * s, 3);
+  b.part(); b.ellipse(16 * s, 4 * s, 5 * s, 3 * s, mat(CANVAS), 3, { round: 0.9 }); b.dot(16 * s, 3 * s, m.ox, 3.2, { noLine: true });
+};
+const saltHouseX = (ctx, x, y, s, o) => {
+  const sp = sbody(`salthouse2|${s}`, Math.ceil(34 * s + 4), Math.ceil((SALTHOUSE.wh + SALTHOUSE.rf + SALTHOUSE.stack + 4) * s + 6), 12, (b) => saltHouseBodyX(b, s));
+  stampBody(ctx, sp, x, y);
+  const gy = y + 8, tm = o.time, ph = (x * 0.13) % 1;
+  const f = 0.5 + 0.5 * Math.sin(tm * 9 + x) * Math.sin(tm * 5.3);
+  glow(ctx, x - 6 * s, gy - 2.5 * s, 4.5 * s, "#ff9a40", 0.14 + f * 0.1);
+  ctx.fillStyle = f > 0.55 ? "#ffd070" : "#f0a040"; ctx.fillRect(ap(x - 6.5 * s), ap(gy - 1.5 * s), 1, 0.5);
+  const cTop = gy - (SALTHOUSE.wh + SALTHOUSE.rf + SALTHOUSE.stack) * s - 2;
+  smoke(ctx, x - SALTHOUSE.w2 * s + 3.5 * s, cTop, tm, ph, s, "120,120,132", 0.42);
+  smoke(ctx, x + 8 * s, gy - (SALTHOUSE.wh + SALTHOUSE.rf + 6) * s, tm * 1.3, ph + 0.5, s * 0.75, "240,240,244", 0.36);
+};
+
+// a sack lying on its side, the Kingdom's oxblood stencil on its cheek
+const sackX = (b, sx, sgy, s, col, z) => {
+  const m = CM(), cm = mat(col);
+  b.part(); b.poly([[sx - 8 * s, sgy - 1], [sx - 7 * s, sgy - 8 * s], [sx + 6 * s, sgy - 8 * s], [sx + 8 * s, sgy - 1], [sx + 6 * s, sgy], [sx - 6 * s, sgy]], cm, z, { round: 0.9, ny: -0.1 });
+  b.part(); b.rect(sx - 1, sgy - 5.6 * s, 3, 3, m.ox, z + 0.1, { noLine: true });
+  b.toneLine(sx + 6.4 * s, sgy - 7 * s, sx + 6.4 * s, sgy - 1, -1);
+};
+// Salt waiting for the carts. v: 0 a covered heap and casks, 1 a stack of sacks, 2 a barrow by a heap, 3 a row of casks, one open.
+const saltStoreX = (ctx, x, y, s, o) => {
+  const gy = y + 8, v = o.v % 4, sd = o.seed | 0, m = CM(), t = BMt();
+  pixShade(ctx, x, gy, 8 * s, 1, 26 * s, 2.8 * s, 0.26, false, sd);
+  sculpt(Math.ceil(70 * s) + 10, Math.ceil(44 * s) + 20, (b) => {
+    const heapX = (hx, r) => {
+      b.part(); b.poly([[hx - r, 0], [hx - r * 0.4, -r * 0.8], [hx - r * 0.05, -r], [hx, 0]], t.salt, 0, { n: [-0.65, -0.25, 0.72] });
+      b.part(); b.poly([[hx - r * 0.05, -r], [hx + r * 0.4, -r * 0.8], [hx + r, 0], [hx, 0]], t.saltK, 0.1, { n: [0.65, -0.1, 0.75], noLine: true });
+    };
+    if (v === 0 || v === 2) {
+      heapX(-6 * s, 15 * s);
+      b.part(); b.capsule(-2 * s, -6 * s, 0.9, 5 * s, -24 * s, 0.8, m.woodL, 1, { round: 0.9 }); b.part(); b.rect(3 * s, -26 * s, 5 * s, 2, m.woodD, 1.2, { noLine: true });
+    }
+    if (v === 0) {
+      b.part(); b.poly([[-18 * s, -4 * s], [-14 * s, -16 * s], [-6 * s, -15 * s], [-10 * s, -2 * s]], m.cvD, 0.8, { n: [-0.2, 0.2, 0.95] });
+      barrelX(b, 14 * s, 0, 11 * s, 14 * s, 1); barrelX(b, 22 * s, 3 * s, 10 * s, 13 * s, 1.1);
+      b.part(); b.ellipse(22 * s, -10 * s, 3.4 * s, 1.4 * s, t.salt, 1.5, { n: [0, -0.8, 0.5], noLine: true });
+    } else if (v === 1) {
+      for (const [dx, dy, c] of [[-14, 0, CANVAS], [2, 1, BURLAP], [18, 0, CANVAS], [-6, -7.2, BURLAP], [10, -6.8, CANVAS], [2, -14, BURLAP]]) sackX(b, dx * s, dy * s * 2 / 2, s * 1.1, c, 1 + (-dy) * 0.1);
+    } else if (v === 2) {
+      const bx = 16 * s;
+      b.part(); b.capsule(bx - 4 * s, -8 * s, 1.2, bx + 18 * s, -4 * s, 1.1, m.woodD, 1, { round: 0.9 });
+      b.part(); b.poly([[bx - 12 * s, -12 * s], [bx - 8 * s, -2 * s], [bx + 6 * s, -3 * s], [bx + 8 * s, -13 * s]], m.wood, 1.2, { round: 0.6, ny: -0.1 });
+      b.part(); b.ellipse(bx - 2 * s, -13 * s, 9 * s, 3 * s, t.salt, 1.5, { round: 0.7 });
+      b.part(); b.ellipse(bx - 13 * s, -3 * s, 3.6 * s, 3.6 * s, m.woodD, 1.6, { round: 0.6 });
+    } else {
+      barrelX(b, -14 * s, -2 * s, 12 * s, 16 * s, 1); barrelX(b, 0, 0, 12 * s, 16 * s, 1.1); barrelX(b, 14 * s, 2 * s, 12 * s, 16 * s, 1.2);
+      b.part(); b.ellipse(0, -16 * s, 4.2 * s, 1.8 * s, t.salt, 1.6, { n: [0, -0.8, 0.5], noLine: true });
+      b.part(); b.capsule(-6 * s, 2 * s, 2.6 * s, 8 * s, 2 * s, 2.6 * s, m.barrel, 1.5, { round: 0.95 });
+    }
+  }, ctx, x, gy);
+  if (hash(sd, 3) > 0.5) tuft(ctx, x - 12 * s, gy + 1.5, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+};
+
+// A boat hauled up on the strand, bow to the east: clinker strakes, thwarts, oars.
+// v: 0 upright with her oars, 1 keel-up and tarred, 2 with nets drying on poles, 3 her mast down and sail furled.
+const hullPts = (cx, cy, L, Wd, grow = 1) => {
+  const top = [], bot = [];
+  for (let i = 0; i <= 12; i++) { const tt = -1 + i / 6, f = Math.pow(Math.max(0, 1 - tt * tt), 0.62) * Wd * grow, sh = tt > 0 ? -Wd * 0.18 * tt * grow : 0; top.push([cx + tt * L, cy - f + sh]); bot.push([cx + tt * L, cy + f + sh]); }
+  return top.concat(bot.reverse());
+};
+const beachedBoatX = (ctx, x, y, s, o) => {
+  const gy = y + 8, v = o.v % 4, sd = o.seed | 0, m = CM(), t = BMt();
+  const cx = 20 * s, cy = -6 * s, L = 17 * s, Wd = 7 * s;
+  pixShade(ctx, x + cx / 2, gy, 12 * s, 1, 32 * s, 3.4 * s, 0.26, false, sd);
+  sculpt(Math.ceil(120 * s) + 10, Math.ceil(50 * s) + 20, (b) => {
+    if (v === 2) {
+      for (const px of [-8 * s, 44 * s]) { b.part(); b.capsule(px, 0, 1.2, px, -32 * s, 1.1, m.woodD, 0, { round: 0.9 }); }
+      const NET = mat("#5a5246");
+      for (let k = 0; k < 4; k++) { b.part(); let lx = -8 * s, ly = -30 * s + k * 5 * s; for (let i = 1; i <= 20; i++) { const tt = i / 20, nx = -8 * s + tt * 52 * s, ny = -30 * s + k * 5 * s + Math.sin(tt * Math.PI) * 3 * s; b.line(lx, ly, nx, ny, NET, 1, { noLine: true }); lx = nx; ly = ny; } }
+      for (let k = 0; k <= 10; k++) { const tt = k / 10, px = -8 * s + tt * 52 * s, sag = Math.sin(tt * Math.PI) * 10 * s; b.part(); b.line(px, -30 * s + sag, px + 1, -15 * s + sag, NET, 1, { noLine: true }); }
+      for (let k = 1; k < 10; k += 2) { const tt = k / 10; b.dot(-8 * s + tt * 52 * s, -31 * s + Math.sin(tt * Math.PI) * 10 * s, mat("#c8a060"), 1.2, { noLine: true }); }
+    }
+    if (v === 1) {
+      b.part(); b.poly(hullPts(cx, cy, L, Wd), t.tar, 1, { round: 0.95, ny: 0.1 });
+      for (const k of [-0.55, 0.45]) b.toneLine(cx - L + 2, cy + k * Wd * 0.5, cx + L - 2, cy + k * Wd * 0.5 - 1, -1);
+      b.part(); b.line(cx - L + 2, cy - 1, cx + L - 2, cy - 2, mat(lighten(TAR, 0.3)), 1.3, { noLine: true });
+      b.part(); b.rect(cx - L - 2, cy - 1, 3, 5 * s, m.woodD, 0.9, {}); b.part(); b.rect(cx + L - 2, cy - 2, 3, 5 * s, m.woodD, 0.9, {});
+    } else {
+      const wood = mat(WOOD);
+      b.part(); b.poly(hullPts(cx, cy + 4 * s, L, Wd), mat(darken(WOOD, 0.22)), 0.5, { round: 0.5, ny: 0.2 });
+      for (let k = -2; k <= 2; k++) b.toneLine(cx + k * L * 0.4, cy + Wd * 0.5 + 3, cx + k * L * 0.4, cy + Wd + 4 * s, -1);
+      b.part(); b.poly(hullPts(cx, cy, L, Wd), m.woodL, 1, { n: [-0.1, -0.5, 0.85] });
+      b.part(); b.poly(hullPts(cx, cy + 0.5, L * 0.9, Wd * 0.72), wood, 1.3, { round: 0.6, ny: -0.2, noLine: true });
+      for (const tt of [-0.45, 0.05, 0.5]) { b.part(); b.rect(cx + tt * L - 1.5, cy - Wd * 0.7, 3, Wd * 1.4, m.woodL, 1.6, { n: [0, -0.5, 0.85], noLine: true }); }
+      if (v === 0) for (const k of [-1, 1]) { b.part(); b.line(cx - L * 0.8, cy + k * 1.6, cx + L * 0.75, cy + k * 3.2 - 3, m.woodL, 2, { noLine: true }); b.part(); b.rect(cx + L * 0.55, cy + (k < 0 ? -4 : 1), 6 * s, 3, m.wood, 2, { noLine: true }); }
+      if (v === 3) {
+        b.part(); b.capsule(cx - L * 1.05, cy - 2, 1.4, cx + L * 1.05, cy - 2, 1.4, m.woodD, 2, { round: 0.9 });
+        b.part(); b.poly([[cx - L * 0.8, cy - 5], [cx + L * 0.6, cy - 5], [cx + L * 0.65, cy - 1], [cx - L * 0.85, cy - 1]], m.ox, 2.2, { round: 0.95 });
+        for (let k = 0; k < 4; k++) b.toneLine(cx - L * 0.6 + k * L * 0.35, cy - 5, cx - L * 0.6 + k * L * 0.35, cy - 1, -1);
+      }
+    }
+    for (const [dx, dy, r] of [[cx - L - 5 * s, 1, 2.6], [cx + L * 0.4, 3, 2.2]]) { b.part(); b.ellipse(dx, dy, r * s, r * s * 0.7, m.grit, 2, { round: 0.9 }); }
+    b.part(); b.rect(cx + L * 0.7, 1, 6, 1.5, mat("#4e5a34"), 2, { noLine: true });
+  }, ctx, x, gy);
+  if (hash(sd, 2) > 0.5) tuft(ctx, x - 2 * s, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+};
+
+// ---- Blackcliff: the gryphons' rock, sculpted ----------------------------------------
+let BC_ = null;
+const BCt = () => BC_ || (BC_ = {
+  bas: mat(mix(BASALT, "#7a7684", 0.3), { contrast: 0.9 }), basD: mat(mix(BASALT, "#6a6674", 0.2), { contrast: 0.9 }), gull: mat("#f0ece6"), mantle: mat("#9ea2ac"), tip: mat("#24222a"), guano: mat("#e8e4dc"),
+  nest: [mat("#7a5a3a"), mat("#5a4230"), mat("#8a7458"), mat("#6a4a2e")], nestM: mat("#4a3828"), hollow: mat("#2a2220"), bone: mat("#e0d8c4"),
+  gcol: mat("#b08850"), gbelly: mat("#e8e0cc"), gmane: mat("#8a6a3e"), gwing: mat("#5e4636"), gold: mat("#e8a830"),
+});
+// a basalt column: lit left face, dark right face, a lit slanting top, a crack or two
+const columnX = (b, cx, w, h, z, seed, lean = 0) => {
+  const t = BCt(), l = cx - w / 2, r = cx + w / 2, lt = cx - w * 0.36 + lean, rt = cx + w * 0.36 + lean * 0.6;
+  b.part(); b.poly([[l, 0], [lt, -h], [cx + lean, -h + 1], [cx + 1, 0]], t.bas, z, { n: [-0.5, 0, 0.84] });
+  b.part(); b.poly([[cx + lean, -h + 1], [rt, -h + 3], [r, 0], [cx + 1, 0]], t.basD, z + 0.05, { n: [0.5, 0.05, 0.8], noLine: true });
+  b.part(); b.poly([[lt, -h], [cx - 1 + lean, -h - 3], [rt, -h - 1], [rt, -h + 3], [cx + lean, -h + 1]], t.bas, z + 0.1, { n: [-0.15, -0.72, 0.68], bias: 0.8 });
+  // strata and cracks across the faces
+  for (let j = 1; j < 4; j++) { const yy = -h * (0.2 + 0.2 * j) + (h3(seed, j) - 0.5) * 6; b.toneLine(l + 1, yy, r - 1, yy + (h3(seed, j + 5) - 0.5) * 3, -1); }
+  b.toneLine(cx + lean * 0.5 - 2, -h * 0.7, cx + lean * 0.4 - 1, -h * 0.3, -1);
+  b.toneLine(cx + 4, -h * 0.9, cx + 3, -h * 0.5, -1);
+  for (let i = 0; i < 4; i++) b.tone(l + 2 + h3(seed, i + 20) * (w - 4), -h * (0.1 + h3(seed, i + 30) * 0.8), 1);
+  // the gulls' white streaks down from the ledge
+  for (let i = 0; i < 4; i++) { const sx = l + 3 + h3(seed, i) * (w - 6), len = 4 + h3(seed, i + 7) * 9; b.part(); b.line(sx + lean, -h + 1, sx + lean * 0.9, -h + 1 + len, t.guano, z + 0.3, { noLine: true }); }
+};
+const gullX = (b, gx, gy, s, k, z) => {
+  const t = BCt();
+  b.part(); b.ellipse(gx, gy - 2 * s, 3.6 * s, 2.4 * s, t.gull, z, { round: 0.9 });
+  b.part(); b.rect(gx - 3 * s * k - (k < 0 ? 0 : 1), gy - 4 * s, 4 * s, 1.6 * s, t.mantle, z + 0.1, { noLine: true });
+  b.dot(gx - 4.4 * s * k, gy - 3.2 * s, t.tip, z + 0.15, { noLine: true });
+  b.part(); b.ellipse(gx + 3 * s * k, gy - 5 * s, 1.8 * s, 1.8 * s, t.gull, z + 0.1, { round: 0.9 });
+  b.dot(gx + 4.8 * s * k, gy - 5 * s, mat("#e0b030"), z + 0.2, { noLine: true });
+};
+const seaStackX = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed | 0, v = o.v % 4;
+  pixShade(ctx, x, gy, 12 * s, 1, 32 * s, 4.2 * s, 0.3, false, sd);
+  sculpt(Math.ceil(80 * s) + 10, Math.ceil(64 * s) + 22, (b) => {
+    let tops;
+    if (v === 0) { columnX(b, -12 * s, 14 * s, 30 * s, 0, sd + 1, 1); columnX(b, 7 * s, 15 * s, 52 * s, 0.3, sd + 2, 1); columnX(b, 23 * s, 9 * s, 14 * s, 0.6, sd + 3); tops = [[-12 * s, -30 * s], [7 * s, -52 * s]]; }
+    else if (v === 1) { columnX(b, -14 * s, 10 * s, 40 * s, 0, sd + 1, -1); columnX(b, 0, 10 * s, 50 * s, 0.3, sd + 2); columnX(b, 14 * s, 10 * s, 32 * s, 0.6, sd + 3, 1); tops = [[-14 * s, -40 * s], [0, -50 * s], [14 * s, -32 * s]]; }
+    else if (v === 2) { columnX(b, 2 * s, 24 * s, 36 * s, 0.3, sd + 1); columnX(b, -9 * s, 26 * s, 16 * s, 0.6, sd + 2); tops = [[2 * s, -36 * s], [-9 * s, -16 * s]]; }
+    else { columnX(b, -4 * s, 24 * s, 24 * s, 0, sd + 1); columnX(b, 18 * s, 10 * s, 18 * s, 0.4, sd + 2); tops = [[-4 * s, -24 * s]]; }
+    const [gx, gyy] = tops[(sd % tops.length + tops.length) % tops.length];
+    gullX(b, gx - 2 * s, gyy - 1, 0.8 * s, hash(sd, 3) > 0.5 ? 1 : -1, 4);
+    if (tops.length > 1 && hash(sd, 4) > 0.45) { const [hx, hy] = tops[(sd + 1) % tops.length]; gullX(b, hx + 3 * s, hy - 1, 0.75 * s, -1, 4); }
+  }, ctx, x, gy);
+  brackenFan(ctx, x - 13 * s, gy + 2, 0.6 * s, sd + 9);
+  if (hash(sd, 8) > 0.5) heatherTuft(ctx, x + 14 * s, gy + 2.5, 0.8 * s, sd + 5);
+};
+
+// The eyrie: the great stack with a nest of sticks on it, a gryphon asleep in it. Live: she breathes
+// and now and then lifts her head; the gulls wheel.
+const nestRim = (b, nx, ny, s, a0, a1, n, sd, z) => {
+  const t = BCt();
+  for (let i = 0; i < n; i++) {
+    const a = a0 + (i / n) * (a1 - a0) + (h3(sd, i) - 0.5) * 0.3, r1 = 15 + h3(sd, i + 40) * 8;
+    const px = nx + Math.cos(a) * r1 * s, py = ny + Math.sin(a) * r1 * 0.42 * s;
+    const la = a + Math.PI / 2 + (h3(sd, i + 80) - 0.5) * 1.4, ln = (6 + h3(sd, i + 120) * 8) * s;
+    const dx = Math.cos(la) * ln / 2, dy = Math.sin(la) * ln * 0.42 / 2;
+    b.part(); b.line(px - dx, py - dy, px + dx, py + dy, t.nest[i % 4], z, { noLine: true });
+  }
+};
+const eyrieBodyX = (b, s) => {
+  const t = BCt(), sd = 77, nx = 2 * s, ny = -(EYRIE.top - 3) * 2 * s;
+  columnX(b, -18 * s, 14 * s, 34 * s, 0, sd + 1, 0); columnX(b, 2 * s, 22 * s, EYRIE.top * 2 * s, 0.3, sd + 2, 0); columnX(b, 22 * s, 10 * s, 18 * s, 0.6, sd + 3, 0);
+  b.part(); b.rect(-30 * s, 2, 10 * s, 2, t.bone, 1, { noLine: true }); b.dot(-31 * s, 2, t.bone, 1, { noLine: true });
+  b.part(); b.ellipse(30 * s, 2, 3.6 * s, 2.8 * s, t.bone, 1, { round: 0.9 });
+  b.part(); b.ellipse(nx, ny, 23 * s, 9 * s, t.nestM, 3, { round: 0.6 });
+  b.part(); b.ellipse(nx + 1, ny - 0.6, 15 * s, 5.4 * s, t.hollow, 3.2, { round: 0.2, noLine: true });
+  nestRim(b, nx, ny, s, Math.PI * 0.95, Math.PI * 2.05, 24, sd, 3.4);
+};
+const eyrieFrontX = (b, s) => {
+  const t = BCt(), nx = 2 * s, ny = -(EYRIE.top - 3) * 2 * s;
+  b.part(); b.poly([[nx - 23 * s, ny], [nx - 20 * s, ny + 6 * s], [nx, ny + 9.5 * s], [nx + 20 * s, ny + 6 * s], [nx + 23 * s, ny], [nx + 16 * s, ny + 1.5 * s], [nx, ny + 2.4 * s], [nx - 16 * s, ny + 1.5 * s]], mat("#5a4430"), 6, { round: 0.4, ny: -0.2 });
+  nestRim(b, nx, ny + 1 * s, s, 0.05, Math.PI - 0.05, 22, 91, 6.4);
+  b.part(); b.rect(nx + 6 * s, ny + 6.4 * s, 8 * s, 2, mat("#e8e0cc"), 6.6, { noLine: true });
+};
+const gryphonX = (b, s, f) => {
+  const t = BCt(), nx = 3 * s, ny = -(EYRIE.top - 3) * 2 * s - 2 * s, br = f === 1 ? 1 : 0;
+  b.part(); b.ellipse(nx + 9 * s, ny - 1 * s, 7 * s, 5 * s + br * 0.5, mat(darken("#b08850", 0.08)), 4, { round: 0.95 });
+  b.part(); b.line(nx + 14 * s, ny + 1, nx + 19 * s, ny + 3 * s, t.gcol, 4.2, {}); b.line(nx + 19 * s, ny + 3 * s, nx + 12 * s, ny + 4.8 * s, t.gcol, 4.2, {});
+  b.part(); b.ellipse(nx + 10.4 * s, ny + 5 * s, 2.8 * s, 2 * s, t.gmane, 4.3, { round: 0.9 });
+  b.part(); b.ellipse(nx - 2 * s, ny - 3 * s - br, 11 * s, 6 * s + br, t.gcol, 4.4, { round: 0.95 });
+  const wy = ny - 6 * s - br * 1.5;
+  b.part(); b.poly([[nx - 9 * s, wy - 1], [nx, wy - 6 * s], [nx + 10 * s, wy - 2 * s], [nx + 18 * s, wy + 2 * s], [nx + 10 * s, wy + 4.4 * s], [nx, wy + 6 * s], [nx - 8 * s, wy + 3.6 * s]], t.gwing, 4.6, { n: [-0.2, -0.4, 0.88] });
+  for (let k = 0; k < 4; k++) b.toneLine(nx + 2 * s + k * 3.6 * s, wy - 3 * s + k, nx + 2 * s + k * 3.6 * s, wy + 5 * s, -1);
+  for (let k = 0; k < 4; k++) b.dot(nx + 4 * s + k * 3.6 * s, wy + 3 * s, mat("#c8b08a"), 4.8, { noLine: true });
+  const up = f === 2, hx = up ? nx - 13 * s : nx - 11 * s, hy = up ? ny - 16 * s : ny - 4 * s - br * 0.5;
+  if (up) { b.part(); b.ellipse(nx - 11 * s, ny - 9 * s, 4.4 * s, 6.8 * s, t.gbelly, 4.5, { round: 0.95 }); }
+  b.part(); b.ellipse(hx, hy, 5.2 * s, 4.6 * s, t.gbelly, 4.8, { round: 0.95 });
+  b.part(); b.rect(hx - 1 * s, hy - 4.4 * s, 5 * s, 2, t.gmane, 4.9, { noLine: true });
+  b.part(); b.poly([[hx - 4 * s, hy - 1.2 * s], [hx - 8.8 * s, hy + 0.4 * s], [hx - 7.2 * s, hy + 3.2 * s], [hx - 3.6 * s, hy + 2 * s]], t.gold, 5, {});
+  if (up) { b.dot(hx - 2.4 * s, hy - 1.6 * s, mat("#1c1618"), 5.2, { noLine: true }); } else b.part(), b.rect(hx - 2.8 * s, hy - 0.8 * s, 3, 1, mat("#b0a890"), 5.2, { noLine: true });
+};
+const eggsX = (b, s) => {
+  const nx = 2 * s, ny = -(EYRIE.top - 3) * 2 * s;
+  for (const [dx, dy, k] of [[-4, -1.2, 0], [3.6, -0.4, 1]]) { b.part(); b.ellipse(nx + dx * s, ny + dy * s, 3.4 * s, 2.6 * s, mat(k ? "#e4dcc6" : "#d8d0b4"), 5, { round: 0.95 }); b.dot(nx + (dx + 1.4) * s, ny + (dy + 0.2) * s, mat("#b09a7a"), 5.2, { noLine: true }); }
+};
+const eyrieX = (ctx, x, y, s, o) => {
+  const hw = Math.ceil(22 * s + 4), top = Math.ceil((EYRIE.top + 16) * s + 4), away = o.v % 4 === 3;
+  stampBody(ctx, sbody(`eyrie2|${s}`, hw, top, 10, (b) => eyrieBodyX(b, s)), x, y);
+  const t = o.time + x * 0.05, cyc = t % 13;
+  const f = away ? "eggs" : cyc > 10.5 && cyc < 12.4 ? 2 : (t % 3.4) < 1.5 ? 1 : 0;
+  stampBody(ctx, sbody(`eyriegry2|${s}|${f}`, hw, top, 10, (b) => (away ? eggsX(b, s) : gryphonX(b, s, f))), x, y);
+  stampBody(ctx, sbody(`eyriefront2|${s}`, hw, top, 10, (b) => eyrieFrontX(b, s)), x, y);
+  for (let i = 0; i < 2; i++) {
+    const a = t * (0.45 + i * 0.12) + i * 2.6, gx = x + 4 * s + Math.cos(a) * (24 + i * 8) * s, gy2 = y - (EYRIE.top + 8 + i * 5) * s + Math.sin(a) * 7 * s;
+    const flap = Math.sin(t * 7 + i * 3) > 0 ? 1 : 0;
+    ctx.fillStyle = "#24222a"; ctx.fillRect(ap(gx - 3), ap(gy2 - flap), 1, 0.5); ctx.fillRect(ap(gx + 2.5), ap(gy2 - flap), 1, 0.5);
+    ctx.fillStyle = "#f0ece6"; ctx.fillRect(ap(gx - 2), ap(gy2 - flap * 0.5), 1.5, 0.5); ctx.fillRect(ap(gx + 1), ap(gy2 - flap * 0.5), 1.5, 0.5); ctx.fillRect(ap(gx - 0.5), ap(gy2), 1.5, 1);
+  }
+};
+
+// ---- Ironmouth's waterfront, sculpted -----------------------------------------------
+// a sculpt whose sheet reaches `below` art pixels under the foot (a wharf runs south of its feet)
+const sculptB = (w, h, below, build, ctx, x, gy) => {
+  const obj = new Pix(w, h, w >> 1, h - below);
+  build(obj);
+  stampSculpt(ctx, obj, x, gy);
+};
+const smallBoatX = (b, bx, by, k, z) => {
+  const m = CM(), L = 11 * k / 2, Wd = 5.4 * k / 2;
+  b.part(); b.poly([[bx, by - L], [bx + Wd * 0.85, by - L * 0.5], [bx + Wd, by + L * 0.4], [bx + Wd * 0.7, by + L], [bx - Wd * 0.7, by + L], [bx - Wd, by + L * 0.4], [bx - Wd * 0.85, by - L * 0.5]], m.woodL, z, { n: [0, -0.4, 0.9] });
+  b.part(); b.poly([[bx, by - L + 3], [bx + Wd * 0.7, by - L * 0.5], [bx + Wd * 0.75, by + L * 0.4], [bx + Wd * 0.5, by + L - 2], [bx - Wd * 0.5, by + L - 2], [bx - Wd * 0.75, by + L * 0.4], [bx - Wd * 0.7, by - L * 0.5]], m.wood, z + 0.2, { round: 0.5, noLine: true });
+  b.part(); b.rect(bx - Wd * 0.7, by - 2 * k / 2, Wd * 1.4, 2, m.woodL, z + 0.4, { noLine: true }); b.part(); b.rect(bx - Wd * 0.7, by + 4 * k / 2, Wd * 1.4, 2, m.woodL, z + 0.4, { noLine: true });
+  b.part(); b.rect(bx - Wd * 0.7, by + L - 1, Wd * 1.4, 3, m.woodD, z + 0.3, { noLine: true });
+};
+const quayX = (ctx, x, y, s, o) => {
+  const gy = y + 8, v = o.v % 4, sd = o.seed | 0, m = CM(), t = BMt(), k = 2 * s;
+  const qx0 = 2 * k, qx1 = 24 * k, qy0 = -QUAY.n * k, qy1 = QUAY.sth * k;
+  const bx = 31 * k, bw = 5.5 * k, by0 = -34 * k, by1 = -9 * k, rbx = 30 * k, rby = 2 * k;
+  // on the water: the wharf's shade, the barge's shadow, ripples (translucent, as before)
+  ctx.fillStyle = WET(0.22); ctx.fillRect(ap(x + qx1 / 2), ap(gy + qy0 / 2 + 2), ap(bx / 2 - bw / 2 - qx1 / 2), ap((qy1 - qy0) / 2));
+  ctx.fillStyle = WET(0.22); ctx.fillRect(ap(x + bx / 2 - bw / 2), ap(gy + by0 / 2 + 4), ap(bw + 2.5 * s), ap((by1 - by0) / 2 + 2 * s));
+  ctx.fillStyle = WET(0.2); ctx.fillRect(ap(x + rbx / 2 - 2.5 * s), ap(gy + rby / 2 - 3 * s), ap(6.5 * s), ap(10 * s));
+  for (let i = 0; i < 12; i++) { const ry = gy + by0 / 2 + 2 + hash(sd, i) * (qy1 / 2 - by0 / 2); ctx.fillStyle = GLINT(0.22); ctx.fillRect(ap(x + bx / 2 + bw / 2 + 3 * s + hash(sd, i + 9) * 3 * s), ap(ry), ap(2 + hash(sd, i + 19) * 2.5), 0.5); }
+  pixShade(ctx, x, gy, 6 * s, 0.5, 14 * s, 2.2 * s, 0.22, false, sd);
+  sculptB(Math.ceil(180 * s) + 20, Math.ceil(120 * s) + 40, 24, (b) => {
+    // the barge: tarred sides, a lighter deck of planks, a square stern with a tiller
+    b.part(); b.poly([[bx - bw, by1], [bx - bw, by0 + 10 * s], [bx - bw + 3, by0 + 3], [bx, by0 - 2], [bx + bw - 3, by0 + 3], [bx + bw, by0 + 10 * s], [bx + bw, by1]], t.tar, 1, { round: 0.3 });
+    b.part(); b.poly([[bx - bw + 2, by1 - 2], [bx - bw + 2, by0 + 10 * s], [bx, by0 + 1.5], [bx + bw - 2, by0 + 10 * s], [bx + bw - 2, by1 - 2]], mat("#96744a"), 1.3, { round: 0.7, noLine: true });
+    for (let yy = by0 + 8 * s; yy < by1 - 2; yy += 5 * s) b.toneLine(bx - bw + 2, yy, bx + bw - 3, yy, -1);
+    b.part(); b.rect(bx - bw, by1, bw * 2, 4 * s, t.tar, 1.4, { n: [0, 0.3, 0.9] });
+    b.part(); b.rect(bx - 1, by1 - 6 * s, 2, 8 * s, m.woodD, 1.8, { noLine: true });
+    if (v === 0) for (const [dx, dy] of [[-2.5, -26], [2.5, -25], [-2.5, -19], [2.5, -18], [0, -12]]) barrelX(b, bx + dx * k, dy * k + 8 * s, 8 * s, 9 * s, 2 + (dy + 30) * 0.02);
+    else if (v === 1) for (let j = 0; j < 5; j++) { b.part(); b.capsule(bx - 4.5 * k + j * 1.8 * k, by0 + 10 * s, 1.7 * s, bx - 4.5 * k + j * 1.8 * k, by0 + 44 * s, 1.7 * s, j % 2 ? mat("#a8845a") : mat("#b8946a"), 2, { round: 0.9 }); b.part(); b.rect(bx - 5 * k, by0 + 18 * s, 10 * k, 1.5, m.iron, 2.4, { noLine: true }); }
+    else if (v === 2) {
+      b.part(); b.rect(bx - 4 * k, by0 + 20 * s, 8 * k, 24 * s, m.canvas, 2, { round: 0.9 });
+      b.part(); b.capsule(bx, by0 + 20 * s, 1.4, bx, by0 - 24 * s, 1.3, m.woodD, 2.6, { round: 0.9 });
+      b.part(); b.rect(bx - 6 * k, by0 - 16 * s, 12 * k, 2, m.wood, 2.8, { noLine: true });
+      b.part(); b.poly([[bx - 6 * k, by0 - 15 * s], [bx + 6 * k, by0 - 15 * s], [bx + 6 * k, by0 - 8 * s], [bx - 6 * k, by0 - 8 * s]], m.ox, 2.8, { round: 0.9 });
+      for (let j = 1; j < 4; j++) b.toneLine(bx - 6 * k + j * 3 * k, by0 - 15 * s, bx - 6 * k + j * 3 * k, by0 - 8 * s, -1);
+      b.part(); b.ellipse(bx, by0 - 25 * s, 1.6, 1.6, m.brass, 3, { round: 0.9 });
+    } else { b.part(); b.ellipse(bx, by0 + 28 * s, 9 * s, 18 * s, mat("#3a3840"), 2, { round: 0.95 }); for (let i = 0; i < 8; i++) b.dot(bx - 6 * s + h3(sd, i + 60) * 12 * s, by0 + 18 * s + h3(sd, i + 70) * 36 * s, mat("#6a6874"), 2.4, { noLine: true }); }
+    // the rowing boat at the south end
+    smallBoatX(b, rbx, rby, k, 1);
+    // the wharf: planks across, the face timber, the south edge
+    b.part(); b.rect(qx0, qy0, qx1 - qx0, qy1 - qy0, m.wood, 2, { n: [0, -0.15, 0.98] });
+    for (let yy = qy0 + 3; yy < qy1; yy += 3 * s) { b.toneLine(qx0, yy, qx1 - 1, yy, -1); if (h3(sd, Math.round(yy)) > 0.55) b.toneLine(qx0 + h3(sd, Math.round(yy) + 3) * (qx1 - qx0 - 8), yy + 1, qx0 + h3(sd, Math.round(yy) + 3) * (qx1 - qx0 - 8) + 8, yy + 1, 1); }
+    for (let yy = qy0 + 18 * s; yy < qy1; yy += 18 * s) b.toneLine(qx0 + 8 * s, yy, qx0 + 8 * s, yy + 3 * s, -1);
+    b.part(); b.rect(qx1 - 3 * s, qy0, 3 * s, qy1 - qy0, m.woodD, 2.2, { n: [0.7, 0, 0.7], noLine: true });
+    b.part(); b.rect(qx0, qy1, qx1 - qx0, 3 * s, m.woodD, 2.2, { n: [0, 0.5, 0.85], noLine: true });
+    for (let yy = qy0 + 2 * s; yy < qy1; yy += 12 * s) { b.part(); b.capsule(qx1 - 1 * s, yy, 2.2 * s, qx1 - 1 * s, yy + 9 * s, 2.2 * s, m.woodD, 2.6, { round: 0.9 }); b.part(); b.ellipse(qx1 - 1 * s, yy, 2.2 * s, 1.2 * s, m.woodL, 2.8, { n: [-0.2, -0.7, 0.6] }); }
+    // bollards and the lines out
+    for (const yy of [by0 + 12 * s, by1 - 8 * s, rby]) { b.part(); b.ellipse(qx1 - 8 * s, yy, 2.4 * s, 2.4 * s, mat("#4a4e58"), 3, { round: 0.9 }); const tx = yy === rby ? rbx - 4 * s : bx - bw; b.part(); b.line(qx1 - 6 * s, yy, tx, yy - 3 * s, mat("#c8b48a"), 3, { noLine: true }); }
+    // the jib crane over the barge
+    const px = qx1 - 12 * s, pb = -28 * s, pt = pb - 36 * s, tip = [bx + 2 * s, pt - 6 * s];
+    b.part(); b.rect(px - 6 * s, pb - 2, 12 * s, 4 * s, m.woodD, 3.2, {});
+    b.part(); b.capsule(px, pb, 2.4 * s, px, pt, 2.2 * s, m.wood, 3.4, { round: 0.9 });
+    b.part(); b.capsule(px, pb - 12 * s, 1.6 * s, tip[0], tip[1], 1.4 * s, m.woodL, 3.6, { round: 0.9 });
+    b.part(); b.line(px, pt, tip[0], tip[1], m.woodD, 3.7, { noLine: true });
+    b.part(); b.line(tip[0], tip[1], tip[0], by0 + 20 * s, mat("#c8b48a"), 3.7, { noLine: true });
+    barrelX(b, bx + 2 * s, by0 + 40 * s, 8 * s, 9 * s, 3.8);
+    // on the planking: crates, casks, a sack, a coil of rope
+    b.part(); b.rect(qx0 + 6 * s, qy0 + 12 * s, 12 * s, 12 * s, mat("#9a7448"), 3, { n: [0, 0.1, 0.98] }); b.part(); b.rect(qx0 + 6 * s, qy0 + 12 * s, 12 * s, 4 * s, mat("#b8925e"), 3.1, { n: [0, -0.7, 0.7], noLine: true }); b.toneLine(qx0 + 17 * s, qy0 + 16 * s, qx0 + 17 * s, qy0 + 24 * s - 1, -1);
+    b.part(); b.rect(qx0 + 8 * s, qy0 + 3 * s, 10 * s, 10 * s, mat("#8a6a40"), 3, { n: [0, -0.4, 0.9] });
+    barrelX(b, qx0 + 12 * s, qy0 + 52 * s, 8 * s, 9 * s, 3); barrelX(b, qx0 + 20 * s, qy0 + 56 * s, 8 * s, 9 * s, 3);
+    sackX(b, qx0 + 14 * s, qy1 - 8 * s, 0.9 * s, CANVAS, 3);
+    b.part(); b.ellipse(qx0 + 26 * s, qy1 - 3 * s, 4.8 * s, 2.4 * s, mat("#c8b48a"), 3, { round: 0.8 }); b.part(); b.ellipse(qx0 + 26 * s, qy1 - 3 * s, 2 * s, 1 * s, m.woodD, 3.2, { noLine: true });
+  }, ctx, x, gy);
+  tuft(ctx, x - 1 * s, gy + 2, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+};
+
+// Mooring piles at the water's edge (east), a rowing boat tied to them, an anchor and a coil of rope ashore.
+const mooringX = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed | 0, m = CM(), k = 2 * s, bx = 18 * k, by = -4 * k;
+  ctx.fillStyle = WET(0.2); ctx.fillRect(ap(x + bx / 2 - 3 * s), ap(gy + by / 2 - 4 * s), ap(8 * s), ap(11 * s));
+  for (let i = 0; i < 4; i++) { ctx.fillStyle = GLINT(0.2); ctx.fillRect(ap(x + bx / 2 + 4 * s + hash(sd, i) * 2), ap(gy + by / 2 - 4 * s + hash(sd, i + 4) * 10 * s), ap(2.5 * s), 0.5); }
+  pixShade(ctx, x, gy, 6 * s, 0.5, 12 * s, 2 * s, 0.24, false, sd);
+  sculptB(Math.ceil(80 * s) + 20, Math.ceil(60 * s) + 30, 22, (b) => {
+    smallBoatX(b, bx, by, k * 1.1, 1);
+    for (const [px, py] of [[9 * k, -9 * k], [10 * k, -3 * k], [9.5 * k, 2 * k]]) { b.part(); b.capsule(px, py - 4 * k, 2 * s, px, py, 2 * s, m.woodD, 2, { round: 0.9 }); b.part(); b.ellipse(px, py - 4 * k, 2 * s, 1 * s, m.woodL, 2.2, { n: [-0.2, -0.7, 0.6] }); }
+    b.part(); b.line(10 * k, -5 * k, bx - 2 * s, by - 8 * s, mat("#c8b48a"), 2.4, { noLine: true });
+    b.part(); b.line(-4 * k, -4 * k, 2 * k, 0, m.iron, 2, {}); b.part(); b.line(-8 * s, -6 * s, 5 * s, -6 * s, m.iron, 2, { noLine: true });
+    for (let i = 0; i < 8; i++) { const a = 0.2 + i * 0.28; b.dot(k + Math.cos(a) * 4.8 * s, -3 * s + Math.sin(a) * 4.8 * s, m.iron, 2, { noLine: true }); }
+    b.part(); b.ellipse(4 * k, 3, 4.4 * s, 2.2 * s, mat("#c8b48a"), 2, { round: 0.8 }); b.part(); b.ellipse(4 * k, 3, 2 * s, 1 * s, m.woodD, 2.2, { noLine: true });
+  }, ctx, x, gy);
+  ctx.fillStyle = GLINT(0.3); for (const py of [gy - 4 * s, gy + 2 * s, gy + 7 * s]) ctx.fillRect(ap(x + 10.5 * s), ap(py), ap(2 * s), 0.5);
+  if (hash(sd, 1) > 0.4) tuft(ctx, x - 6 * s, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+};
+
+// The toll-house at the bridge foot: dressed stone under a hipped slate roof, the oxblood cloth on its face,
+// a lantern, a strongbox, a striped toll-bar raised beside it and the board of dues on its post.
+const tollHouseX = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed | 0, m = CM(), t = BMt(), SM = stoneMats(), w2 = 18 * s, wh = 18 * s, rf = 18 * s;
+  pixShade(ctx, x, gy, 16 * s, 1, 34 * s, 4 * s, 0.3, false, sd);
+  sculpt(Math.ceil(100 * s) + 10, Math.ceil(60 * s) + 24, (b) => {
+    // the toll-bar on its pivot post, east of the house
+    const px = w2 + 14 * s;
+    b.part(); b.capsule(px, 0, 2.4 * s, px, -18 * s, 2.2 * s, m.woodD, 0, { round: 0.9 });
+    for (let j = 0; j < 8; j++) { const a0 = j / 8, a1 = (j + 1) / 8, ang = -1.05, len = 40 * s; b.part(); b.line(px + Math.cos(ang) * len * a0 - 4 * s, -16 * s + Math.sin(ang) * len * a0, px + Math.cos(ang) * len * a1 - 4 * s, -16 * s + Math.sin(ang) * len * a1, j % 2 ? mat("#e8dcc0") : m.ox, 0.5, { noLine: j % 2 === 1 }); b.line(px + Math.cos(ang) * len * a0 - 4 * s + 1, -16 * s + Math.sin(ang) * len * a0, px + Math.cos(ang) * len * a1 - 4 * s + 1, -16 * s + Math.sin(ang) * len * a1, j % 2 ? mat("#e8dcc0") : m.ox, 0.5, { noLine: true }); }
+    b.part(); b.rect(px - 5 * s, -18 * s, 6 * s, 5 * s, m.iron, 0.8, {}); b.part(); b.ellipse(px + 4 * s, -13 * s, 3.2 * s, 3.2 * s, m.grit, 1, { round: 0.95 });
+    // walls, roof
+    b.part(); b.poly([[-w2, -wh], [w2, -wh], [w2, 0], [-w2, 0]], SM[1], 0.3, { n: [0, 0.1, 0.98] });
+    blocksX(b, -w2, w2, 0, -wh + 1, 13, 0.6, SM, 6);
+    b.part(); b.ellipse(-w2 + 3, -2, 5 * s, 2, m.moss, 1, { round: 0.6 });
+    const ex = 3 * s, rt = -wh - rf;
+    b.part(); b.poly([[-w2 - ex, -wh + 1], [w2 + ex, -wh + 1], [7 * s, rt], [-7 * s, rt]], t.slate, 1, { n: [0, -0.5, 0.86] });
+    b.part(); b.poly([[7 * s, rt], [w2 + ex, -wh + 1], [w2 * 0.45, -wh + 1]], t.slateD, 1.2, { n: [0.7, -0.2, 0.7], noLine: true });
+    for (let yy = rt + 3, r = 0; yy < -wh; yy += 3, r++) { b.toneLine(-w2 - ex, yy, w2 + ex, yy, -1); for (let xx = -w2 + (r % 2) * 3; xx < w2; xx += 6) b.toneLine(xx, yy, xx, yy + 3, -1); }
+    b.part(); b.rect(-7 * s, rt - 1, 14 * s, 2, t.slateL, 1.4, { n: [0, -0.8, 0.6] });
+    b.part(); b.rect(4 * s, rt - 9 * s, 5 * s, 9 * s, SM[0], 1.6, {}); b.part(); b.rect(7 * s, rt - 9 * s, 2 * s, 9 * s, mat(darken(ASHLAR, 0.35)), 1.7, { noLine: true });
+    // door, lantern, cloth, strongbox, board of dues
+    b.part(); b.poly([[2 * s, 0], [2 * s, -11 * s], [7 * s, -15 * s], [12 * s, -11 * s], [12 * s, 0]], m.dark, 1.8, { noLine: true });
+    b.part(); b.rect(3 * s, -11 * s, 8 * s, 11 * s, m.woodD, 2, { n: [0, 0.1, 0.98] }); b.toneLine(3 * s, -7 * s, 11 * s - 1, -7 * s, 1);
+    b.part(); b.rect(14 * s, -14 * s, 3 * s, 4 * s, mat("#ffcf78", { emis: true }), 2, {});
+    b.part(); b.rect(-4 * s, -2, 10 * s, 7 * s, mat("#6a4a2e"), 2.2, { n: [0, -0.2, 0.95] }); b.toneLine(-4 * s, 1, 6 * s - 1, 1, 1); b.dot(0, 0, m.brass, 2.4, { noLine: true });
+    const bx = -w2 - 12 * s;
+    b.part(); b.capsule(bx, 0, 1.4, bx, -24 * s, 1.3, m.woodD, 0, { round: 0.9 });
+    b.part(); b.rect(bx - 8 * s, -28 * s, 16 * s, 12 * s, mat("#2e2a2c"), 0.5, { n: [0, 0, 1] });
+    for (let r = 0; r < 3; r++) b.part(), b.rect(bx - 6 * s, -25 * s + r * 3.2 * s, (8 + h3(sd, r) * 4) * s, 1, mat("#d8ccb0"), 0.7, { noLine: true });
+    b.dot(bx + 5 * s, -25 * s, m.oxL, 0.8, { noLine: true });
+  }, ctx, x, gy);
+  cloth(ctx, ap(x - 6.5 * s), ap(gy - wh / 2 + 1 * s), Math.round(5 * s * 2) / 2, 7 * s, 0);
+  tuft(ctx, x - 9 * s - 1, gy + 1.5, 0.5, REALM.TUFT, REALM.GRASS_LT, sd, { n: 3 });
+};
+
 // ---- the registry ----------------------------------------------------------------
 export const IRON_ART = {
   // baked without the 2px ring: the heather clump's pixel cushions carry their own underline
-  flat: ["irheather", "irpan", "irsluice", "irwreck", "irpine", "irspruce", "ircrag", "irwall", "irmile"],
+  flat: ["irheather", "irpan", "irsluice", "irwreck", "irpine", "irspruce", "ircrag", "irwall", "irmile", "irwagon", "irpikes", "irtent", "irruin", "irgibbet", "irdummy", "irbutts", "irrack", "irmuster", "irsalt", "irboat", "irstack", "irquay", "irmoor", "irtoll"],
   decor: {
     irpine: scotsPine, irspruce: spruce, ircrag: crag, irheather: heatherClump, irwall: drystone,
-    irgibbet: gibbet, irmile: milestone, irbeacon: beacon, irwagon: wagon, irpikes: pikes,
-    irtent: warTent, irbanner: standard, irtower: kingTower, irgate: ironGate, irruin: ruin,
-    irpan: saltPan, irsluice: sluice, irsalthouse: saltHouse, irsalt: saltStore, irboat: beachedBoat, irwreck: wreck,
-    irquintain: quintain, irdummy: dummy, irbutts: butts, irrack: rack, irmuster: muster,
-    irstack: seaStack, ireyrie: eyrie, irquay: quay, irmoor: mooring, irtoll: tollHouse,
+    irgibbet: gibbetX, irmile: milestone, irbeacon: beaconX, irwagon: wagonX, irpikes: pikesX,
+    irtent: warTentX, irbanner: standardX, irtower: kingTowerX, irgate: ironGate, irruin: ruinX,
+    irpan: saltPan, irsluice: sluice, irsalthouse: saltHouseX, irsalt: saltStoreX, irboat: beachedBoatX, irwreck: wreck,
+    irquintain: quintainX, irdummy: dummyX, irbutts: buttsX, irrack: rackX, irmuster: musterX,
+    irstack: seaStackX, ireyrie: eyrieX, irquay: quayX, irmoor: mooringX, irtoll: tollHouseX,
   },
   live: ["irbeacon", "irbanner", "irtower", "irgate", "irsalthouse", "irquintain", "ireyrie"],
   box: {
