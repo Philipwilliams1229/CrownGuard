@@ -748,6 +748,13 @@ Bring these up with the owner; don't act on them unasked.
   figures (Aldric, Wren, mage, goblin, orc, necromancer: show the owner a before / after
   first; the orc ranks 7th for seams) and the rest of the roster by the audit's ranking
   (ram, eagle body, captain, ironclad, levy's joints...).
+  Owner (2026-11-15), on the approved-figure drafts (scratchpad/apr/, .shots/apr_*.png):
+  "leave this alone for now. A lot of what I'm seeing is the colour between the arm and the
+  body now blend too much" (being worked on in the fork session "Opus-centered workflow
+  optimization (fork)"). So welding can over-blend an arm into the torso: keep arms that
+  cross the body visibly separate (value or outline) when applying the joint kit. The six
+  approved figures stay unchanged until the owner says otherwise. Frame picker: private
+  Artifact "Crownguard Frame Picker" (`node scripts/frame-picker.mjs` rebuilds it).
   **Old-style sweep (2026-11-15):** `art/briefs/old-style-sweep.md` lists what still drew
   old; `art/briefs/props-artist.md` is the brief. Done that day: every decor piece's ring
   is the tinted one-pixel line (scenery.js decorSprite, `tintRing` in scenery-gwpix.js;
