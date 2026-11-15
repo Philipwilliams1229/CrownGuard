@@ -1553,6 +1553,19 @@ every other figure is pixel-identical); the mammoth is the worked example.
   scripts/pix-regress.mjs hash out=a.json root=<HEAD copy>` then the same on the repo and
   `diff a.json b.json`: only the figures you meant to change may differ.
 
+- **The overlap line (owner, 2026-11-15; ON for every figure).** Where an arm or leg passes
+  OVER the body or another limb, its edge pixel on that side is drawn darker (two tones down,
+  toward the material's tinted line): one pixel, never black. A limb is a `px.limb` chain or
+  any `px.capsule` with a radius of 1.8 or more (`{ limb: true / false }` forces it); the
+  root (the shoulder / hip, `weldRoot * 0.5` or about 1.2 radii) stays blended, so the weld
+  is kept. Only a lower-z neighbour counts, so a joint between two parts of one limb at the
+  same z gets no line. Opt out per part with `{ noSeam: true }`; off for a whole bake with
+  `resolve({ seam: false })`. Flat materials never get it.
+- **`{ unlit: true }` (bowstrings).** The pixel draws flat in its own mid colour: no shading,
+  no cast shadow, no edge from others, no outline, and no neighbour's outline over it (the old
+  `noLine` string was painted black wherever it crossed a figure, because the outline pass
+  treated it as empty). Every bow and crossbow string, the siege bow and the castle ballista use it.
+
 ### Layer rules and the MUST check (2026-11-15)
 
 Clipping (a weapon behind a shield, a string across a face) is fixed with named layers, not

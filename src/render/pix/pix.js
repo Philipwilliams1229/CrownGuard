@@ -111,7 +111,7 @@ export const layers = (names, rules = [], o = {}) => {
 };
 
 // ---- the buffers ---------------------------------------------------------------
-const F_EDGE = 1, F_NOLINE = 2;
+const F_EDGE = 1, F_NOLINE = 2, F_UNLIT = 4, F_NOSEAM = 8;
 const TH = [0.06, 0.5, 0.86];          // light value -> tones 1 | 2 | 3 | 4
 
 export class Pix {
@@ -125,6 +125,8 @@ export class Pix {
     this.fix = new Int8Array(n).fill(-1);
     this.pid = new Int16Array(n); this.cast = new Uint8Array(n); this.flag = new Uint8Array(n);
     this.floor = new Uint8Array(n);
+    this.lid = new Int16Array(n); this.larc = new Float32Array(n); this.lroot = new Float32Array(n);   // limb id, arc from its root, root-zone length (the overlap line)
+    this._lid = 0; this._lm = null; this._arc = 0;
     this._pid = 0; this._body = 0; this._tag = 0; this.tg = null; this.tagNames = null;
   }
   // start a new part: shapes of one part never shadow or line each other
@@ -155,6 +157,7 @@ export class Pix {
       if (o.floor) this.floor[k] = o.floor;
       if (o.fix !== undefined) this.fix[k] = o.fix;
       if (o.noLine) this.flag[k] |= F_NOLINE;
+      if (o.unlit) this.flag[k] |= F_NOLINE | F_UNLIT;
       if (this.tg) this.tg[k] = this._tag;
       return;
     }
@@ -171,7 +174,8 @@ export class Pix {
     this.pid[k] = pid; this.cast[k] = o.cast ?? 1;
     if (this.tg) this.tg[k] = this._tag;
     this.floor[k] = o.floor || 0;      // the darkest tone shadows may push this pixel to (dark cloth: floor 1, or a shadow reads as a hole)
-    this.flag[k] = (o.edge ? F_EDGE : 0) | (o.noLine ? F_NOLINE : 0);
+    this.flag[k] = (o.edge ? F_EDGE : 0) | (o.noLine || o.unlit ? F_NOLINE : 0) | (o.unlit ? F_UNLIT : 0) | (o.noSeam ? F_NOSEAM : 0);
+    if (this._lm) { this.lid[k] = this._lm.id; this.larc[k] = this._arc; this.lroot[k] = this._lm.root; } else this.lid[k] = 0;
   }
   // a limb: a capsule from a (radius ra) to b (radius rb), round in section
   //   o.zb: the depth at b (z runs from a to b along the part: an arm that leaves the shoulder
@@ -180,6 +184,9 @@ export class Pix {
     const R = Math.max(ra, rb) + 1, x0 = Math.floor(Math.min(ax, bx) - R + this.ox), x1 = Math.ceil(Math.max(ax, bx) + R + this.ox);
     const y0 = Math.floor(Math.min(ay, by) - R + this.oy), y1 = Math.ceil(Math.max(ay, by) + R + this.oy);
     const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy || 1e-6, rnd = o.round ?? 1;
+    // a thick capsule is a limb for the overlap line (see resolve); o.limb true / false forces it
+    if ((o.limb ?? Math.max(ra, rb) >= 1.8) && !o.wrap) this._lm = { id: ++this._lid, root: o.weldRoot ? o.weldRoot * 0.5 : ra * 1.2 + 0.5 };
+    const lenA = Math.sqrt(len2);
     for (let j = y0; j <= y1; j++) for (let i = x0; i <= x1; i++) {
       const px = i + 0.5 - this.ox, py = j + 0.5 - this.oy;
       const t = clamp(((px - ax) * dx + (py - ay) * dy) / len2, 0, 1);
@@ -187,8 +194,10 @@ export class Pix {
       const vx = px - cx, vy = py - cy, d = Math.hypot(vx, vy);
       if (d > r) continue;
       const nx = (vx / r) * rnd, ny = (vy / r) * rnd;
+      this._arc = t * lenA;
       this._put(i, j, m, o.zb === undefined ? z : z + (o.zb - z) * t, nx, ny, Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny)), o, r - d, o.weldRoot ? smooth(t * Math.sqrt(len2) / o.weldRoot) : undefined);
     }
+    this._lm = null;
     return this;
   }
   // A LIMB: one chain of capsules as ONE tube. pts [[x, y], ...], radii a number or one per point
@@ -203,6 +212,7 @@ export class Pix {
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, R = 0;
     for (let s = 0; s <= n; s++) { x0 = Math.min(x0, pts[s][0]); x1 = Math.max(x1, pts[s][0]); y0 = Math.min(y0, pts[s][1]); y1 = Math.max(y1, pts[s][1]); R = Math.max(R, rs[s]); }
     R += 1;
+    this._lm = { id: ++this._lid, root: o.weldRoot ? o.weldRoot * 0.5 : rs[0] * 1.2 + 0.5 };
     for (let j = Math.floor(y0 - R + this.oy); j <= Math.ceil(y1 + R + this.oy); j++) for (let i = Math.floor(x0 - R + this.ox); i <= Math.ceil(x1 + R + this.ox); i++) {
       const px = i + 0.5 - this.ox, py = j + 0.5 - this.oy;
       let best = 1e9, bt = 0, bs = -1, bvx = 0, bvy = 0, bd = 0, br = 1;
@@ -214,8 +224,10 @@ export class Pix {
       }
       if (bs < 0 || best > 0) continue;
       const nx = (bvx / br) * rnd, ny = (bvy / br) * rnd, arc = cum[bs] + bt * Math.sqrt(len2[bs]);
+      this._arc = arc;
       this._put(i, j, m, o.zb === undefined ? z : z + (o.zb - z) * (arc / total), nx, ny, Math.sqrt(Math.max(0.05, 1 - nx * nx - ny * ny)), o, br - bd, o.weldRoot ? smooth(arc / o.weldRoot) : undefined);
     }
+    this._lm = null;
     return this;
   }
   // a ball or an egg (o.rot turns it)
@@ -344,7 +356,18 @@ export class Pix {
         for (const q of nb) if (q >= 0 && q < n && this.m[q] >= 0 && (this.flag[q] & F_EDGE) && this.pid[q] !== this.pid[k] && this.z[q] > this.z[k] + 0.2) { t -= 1; if (st && sameFamily(this.m[q], m)) st.edge++; break; }
       }
       lv[k] = clamp(t, this.fix[k] >= 0 ? 0 : this.floor[k], 4);
-      const c = MATS[m].c[lv[k]];
+      if (this.flag[k] & F_UNLIT) lv[k] = 2;   // unlit: flat in its own colour, whatever lies near
+      let c = MATS[m].c[lv[k]];
+      // the overlap line: a limb (past its root weld) passing OVER another body or limb gets a one-pixel darker rim on its own side
+      if (o.seam !== false && this.lid[k] && this.larc[k] > this.lroot[k] && !(this.flag[k] & (F_UNLIT | F_NOSEAM)) && !MATS[m].flat) {
+        for (const q of [k - 1, k + 1, k - w, k + w]) {
+          if (q < 0 || q >= n || this.m[q] < 0 || this.lid[q] === this.lid[k] || this.z[q] > this.z[k] - 0.2 || (this.flag[q] & F_UNLIT)) continue;
+          if (MATS[this.m[q]].emis) continue;
+          const lo = MATS[m].c[Math.max(0, lv[k] - 2)];
+          c = mix3(lo, MATS[m].line, 0.55);
+          break;
+        }
+      }
       out[k * 4] = c[0]; out[k * 4 + 1] = c[1]; out[k * 4 + 2] = c[2]; out[k * 4 + 3] = 255;
     }
     // the outline
@@ -356,7 +379,7 @@ export class Pix {
         const add = [];
         for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
           const k = j * w + i;
-          if (src[k]) continue;
+          if (src[k] || (this.flag[k] & F_UNLIT)) continue;
           // the filled neighbour that owns this line pixel: right/below first (then this pixel is on the sunward side)
           const R = i + 1 < w && src[k + 1] ? k + 1 : -1, B = j + 1 < h && src[k + w] ? k + w : -1;
           const Lf = i > 0 && src[k - 1] ? k - 1 : -1, T = j > 0 && src[k - w] ? k - w : -1;

@@ -57,7 +57,7 @@ export const ballistaPix = (state, pitchIx, burn = false, flip = true) => {
   for (const t of [tipA, tipB]) px.rect(t[0] - 1.5, t[1] - 1.5, 3, 3, STEEL, 2.1, { fix: 3 });
   // the string, hauled to the nut
   const n0 = R(nut, -0.5);
-  px.part(); px.line(tipA[0], tipA[1], n0[0], n0[1], STR, 1.6, { cast: 0 }); px.line(n0[0], n0[1], tipB[0], tipB[1], STR, 2.4, { cast: 0 });
+  px.part(); px.line(tipA[0], tipA[1], n0[0], n0[1], STR, 1.6, { cast: 0, unlit: true }); px.line(n0[0], n0[1], tipB[0], tipB[1], STR, 2.4, { cast: 0, unlit: true });
 
   // the bolt in the groove: shaft, steel head, red fletchings; a burning one wears flame at its head
   if (state >= 4) {

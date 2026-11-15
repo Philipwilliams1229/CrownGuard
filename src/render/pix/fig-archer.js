@@ -148,8 +148,8 @@ export const draw = (px, { sk: sk0, lag1, lag2 }, o = {}) => {
   // the string (through the near fingers once she draws) and the arrow on it
   const nock = dr > 0.12 ? hdN : null;
   px.tag("string"); px.part();
-  if (nock) { px.line(top[0], top[1], nock[0], nock[1], STRING, Z.string, { noLine: true }); px.line(nock[0], nock[1], bot[0], bot[1], STRING, Z.string, { noLine: true }); }
-  else px.line(top[0], top[1], bot[0], bot[1], STRING, Math.min(Z.bowUpper, Z.bowLower) - 0.5, { noLine: true });
+  if (nock) { px.line(top[0], top[1], nock[0], nock[1], STRING, Z.string, { unlit: true }); px.line(nock[0], nock[1], bot[0], bot[1], STRING, Z.string, { unlit: true }); }
+  else px.line(top[0], top[1], bot[0], bot[1], STRING, Math.min(Z.bowUpper, Z.bowLower) - 0.5, { unlit: true });
   if (p.arrow > 0.5) {
     // the shaft lies from the nock across the bow hand
     const a0 = nock || R(-2.6, 0), ar = sk.aimRad || 0, ax = hdF[0] + 0.6 * Math.cos(ar) + 0.8 * Math.sin(ar) - a0[0], ay = hdF[1] + 0.6 * Math.sin(ar) - 0.8 * Math.cos(ar) - a0[1], l = Math.hypot(ax, ay) || 1, ux = ax / l, uy = ay / l, L = Math.max(l + 3.5, 15);

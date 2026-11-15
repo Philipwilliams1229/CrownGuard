@@ -275,7 +275,7 @@ export const siegeBow = (loosed, flip = false, aim = 0) => {
   px.part();
   let tipA = null, tipB = null;
   for (let u = 0; u <= 1.001; u += 0.04) { const qx = (1 - u) * (1 - u) * 21 + 2 * (1 - u) * u * 37 + u * u * 21, qy = (1 - u) * (1 - u) * -23 + u * u * 23, p = T(qx, qy); px.ellipse(p[0], p[1], 2.3, 2.3, IRON_L, 2, { round: 0.9 }); if (u < 0.02) tipA = p; tipB = p; }
-  px.part(); px.line(tipA[0], tipA[1], n0[0], n0[1], STR, 1.6, { cast: 0 }); px.line(n0[0], n0[1], tipB[0], tipB[1], STR, 2.4, { cast: 0 });
+  px.part(); px.line(tipA[0], tipA[1], n0[0], n0[1], STR, 1.6, { cast: 0, unlit: true }); px.line(n0[0], n0[1], tipB[0], tipB[1], STR, 2.4, { cast: 0, unlit: true });
   if (loosed < 0.5) {                                                                 // the bolt in the groove
     const s0 = T(nut, -5), s1 = T(nut + 44, -5), h1 = T(nut + 52, -5);
     px.part(); px.line(s0[0], s0[1], s1[0], s1[1], OAK, 2.6, { cast: 0 }); px.line(s0[0], s0[1] + 1, s1[0], s1[1] + 1, OAK, 2.6, { cast: 0, bias: -1 });

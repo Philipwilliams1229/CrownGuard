@@ -185,8 +185,8 @@ export const draw = (px, { sk: sk0, lag1, lag2 }, o = {}) => {
   const nock = held ? hdN : R(-BRACE + (p.shiver || 0) * 1.6, 0);
   const zs = held ? Z.string : Math.min(Z.bowUpper, Z.bowLower) - 0.5;   // unheld, the string lies in the bow's plane, under its limbs
   px.tag("string"); px.part();
-  px.line(top[0], top[1], nock[0], nock[1], STRING, zs, { noLine: true });
-  px.line(nock[0], nock[1], bot[0], bot[1], STRING, zs, { noLine: true });
+  px.line(top[0], top[1], nock[0], nock[1], STRING, zs, { unlit: true });
+  px.line(nock[0], nock[1], bot[0], bot[1], STRING, zs, { unlit: true });
   // the arrow: nocked (from the string out over the bow hand) or carried in the string hand, head first
   const arrow = (a0, ux, uy, z) => {
     const L = K.AL;

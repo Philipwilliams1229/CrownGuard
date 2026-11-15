@@ -142,8 +142,8 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   // the string: drawn back to the nut when cocked, straight across the prod's ends when loosed
   const nut = at(L - 8 + (1 - st) * 7, 0);
   px.tag("string");
-  px.line(...ends[0], ...(st > 0.35 ? nut : at(L - 1, 0)), CORD, z + 0.06, { noLine: true });
-  px.line(...ends[1], ...(st > 0.35 ? nut : at(L - 1, 0)), CORD, z + 0.06, { noLine: true });
+  px.line(...ends[0], ...(st > 0.35 ? nut : at(L - 1, 0)), CORD, z + 0.06, { unlit: true });
+  px.line(...ends[1], ...(st > 0.35 ? nut : at(L - 1, 0)), CORD, z + 0.06, { unlit: true });
   // the bolt laid in its groove with a steel head past the nose
   if ((p.bolt ?? 1) > 0.5) {
     px.tag("bolt"); px.part();
