@@ -62,20 +62,21 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
     px.dot(c[0] + 2.8, c[1] + 4.6, STEEL_D, 1.75, { fix: 0 });
   }
   // ---- the far arm: a pauldron, a bone arm, the steel vambrace, a gauntlet on the lid's edge
-  px.part();
-  px.capsule(sF[0], sF[1], 1.5, eF[0], eF[1], 1.3, BONE, 2, { bias: -1 });
-  px.capsule(eF[0], eF[1], 1.9, hdF[0], hdF[1], 1.6, STEEL_D, 2, { bias: -1 });
-  px.ellipse(hdF[0], hdF[1], 1.7, 1.6, STEEL_D, 2.05, { bias: -1 });
+  // ONE BODY (the joint kit): the bone limbs are welded tubes, the steel on them wrapped over the bone
+  const BID = px.body(1);
+  px.limb([sF, eF, hdF], [1.5, 1.7, 1.6], BONE, 2, { bias: -1 });
+  px.capsule(eF[0], eF[1], 1.9, hdF[0], hdF[1], 1.6, STEEL_D, 2.01, { bias: -1, wrap: true });
+  px.ellipse(hdF[0], hdF[1], 1.7, 1.6, STEEL_D, 2.05, { bias: -1, weld: 1.5 });
 
   // ---- legs: bone, a steel greave over the shin, a bronze-capped knee, a long sabaton
   for (const [hp, kn, an, z, b, st] of [[hF, kF, anF, 3, -1, STEEL_D], [hN, kN, anN, 4, 0, STEEL]]) {
-    px.part();
-    px.capsule(hp[0], hp[1], 1.7, kn[0], kn[1], 1.4, BONE, z, { bias: b });
-    px.capsule(kn[0], kn[1], 2.4, an[0], an[1], 2.0, st, z, { bias: b });
-    px.ellipse(kn[0] + 0.3, kn[1], 2.6, 2.5, st, z + 0.02, { bias: b });
+    px.limb([hp, kn, an], [1.7, 2.2, 2.0], BONE, z, { bias: b });
+    px.capsule(kn[0], kn[1], 2.4, an[0], an[1], 2.0, st, z + 0.01, { bias: b, wrap: true });
+    px.ellipse(kn[0] + 0.3, kn[1], 2.6, 2.5, st, z + 0.02, { bias: b, weld: 2 });
     px.dot(kn[0] + 1, kn[1] - 0.4, BRONZE, z + 0.05, { fix: 2 });
-    px.capsule(an[0] - 0.6, an[1] + 0.8, 1.6, an[0] + 5.6, an[1] + 1, 1.5, st, z, { bias: b });
+    px.capsule(an[0] - 0.6, an[1] + 0.8, 1.6, an[0] + 5.6, an[1] + 1, 1.5, st, z, { bias: b, weld: 1.5 });
   }
+  px.body(0);
 
   // ---- the skirt of lames and the rotten tabard strip, its hem a beat behind
   px.part(); const skid = px._pid;
@@ -86,9 +87,10 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   px.poly([[P[0] + 0.2, P[1] + 2], [P[0] + 3.2, P[1] + 2], [P[0] + 3.8 - vx, P[1] + 9.4], [P[0] + 2.2 - vx * 1.4, P[1] + 8], [P[0] + 1.2 - vx, P[1] + 10], [P[0] - 0.2 - vx, P[1] + 8.4]], ROT, 5.2, { round: 0.8, floor: 1 });
 
   // ---- the spine and the breastplate, stove in over the heart
-  px.part();
+  px.body(1);
   px.capsule(...at(0.04, -4), 1.1, ...at(1.04, -3), 1.1, BONE, 3.9, { bias: -1 });
-  px.part(); const bid = px._pid;
+  px.capsule(...at(-0.1, 0.4), 1.2, N[0], N[1] + 2, 1, BONE, 4.05, { weld: 1.5 });
+  px.body(0); px.part(); const bid = px._pid;
   const rw = 6.6;
   px.poly([at(-0.04, -rw + 0.2), at(-0.04, rw - 0.4), at(0.3, rw + 0.6), at(0.7, rw - 0.4), at(0.84, 0.4), at(0.62, -rw + 0.6)], STEEL, 5.5, { round: 0.65, floor: 1, edge: true });
   px.line(...at(0.1, -rw + 1.6), ...at(0.78, -rw + 1.2), STEEL, 5.52, { fix: 4 });
@@ -104,7 +106,6 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   // drowned weed hung from the shoulders
   px.part();
   px.poly([at(0.02, -rw - 1), at(0.14, -rw - 2.6), at(0.52, -rw - 3 - vx), at(0.7, -rw - 1.2 - vx * 1.4), at(0.4, -rw + 0.4)], WEED, 6.1, { round: 0.7, floor: 1 });
-  px.capsule(...at(-0.1, 0.4), 1.2, N[0], N[1] + 2, 1, BONE, 4.05, {});
 
   // ---- the far pauldron, then the skull in its bascinet
   px.part(); px.ellipse(sF[0] - 0.4, sF[1] - 0.4, 3.8, 3.0, STEEL_D, 5.9, { floor: 1 }); px.line(sF[0] - 3, sF[1] + 0.4, sF[0] + 2.4, sF[1] + 0.6, STEEL, 5.95, { fix: 0 });
@@ -113,10 +114,11 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   px.stamp(p.snarl > 0.5 ? SNARL : SKULL, hx + 1, hy - 1, p.eye > 0.5 ? LEG_HOT : LEG, 6, { ax: 5, ay: 8, ball: [5.5, 5.2, 5.8, 5.6], cast: 1 });
 
   // ---- the near arm over all: pauldron, bone arm, vambrace, and the mace
-  px.part();
-  px.capsule(sN[0], sN[1] + 0.6, 1.8, eN[0], eN[1], 1.5, BONE, 7.9);
-  px.capsule(eN[0], eN[1], 2.0, hdN[0], hdN[1], 1.7, STEEL, 7.95);
-  px.ellipse(hdN[0], hdN[1], 1.8, 1.7, STEEL, 8.4);
+  px.body(1);
+  px.limb([[sN[0], sN[1] + 0.6], eN, hdN], [1.8, 1.8, 1.7], BONE, 7.9, { weld: 1.5, weldRoot: 3 });
+  px.capsule(eN[0], eN[1], 2.0, hdN[0], hdN[1], 1.7, STEEL, 7.95, { wrap: true });
+  px.ellipse(hdN[0], hdN[1], 1.8, 1.7, STEEL, 8.4, { weld: 1.5 });
+  px.body(0);
   px.part();
   px.capsule(...at2(-3.4, 0), 0.9, ...at2(11, 0), 0.9, HAFT, 8.1);
   px.ellipse(...at2(-3.8, 0), 1.2, 1.2, BRONZE, 8.12, { fix: 2 });

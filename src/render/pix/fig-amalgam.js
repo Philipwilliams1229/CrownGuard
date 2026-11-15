@@ -67,6 +67,9 @@ const big = (px, k) => ({
   poly: (pts, m, z, o) => px.poly(pts.map(([x, y]) => [x * k, y * k]), m, z, o),
   line: (ax, ay, bx, by, m, z, o) => px.line(ax * k, ay * k, bx * k, by * k, m, z, o),
   dot: (x, y, m, z, o) => px.dot(x * k, y * k, m, z, o),
+  body: (id) => px.body(id),
+  limb: (pts, radii, m, z, o) => px.limb(pts.map(([x, y]) => [x * k, y * k]), radii.map((r) => r * k), m, z, o),
+  toneLine: (ax, ay, bx, by, d, pid) => px.toneLine(ax * k, ay * k, bx * k, by * k, d, pid),
 });
 const K = 1.25;
 export const draw = (px0, { sk, lag1, ph }, o = {}) => {
@@ -82,43 +85,45 @@ export const draw = (px0, { sk, lag1, ph }, o = {}) => {
   };
   {
     const s0 = M(-7, -22), e0 = M(-11.5, -28 + wav), h0 = M(-13 + wav, -32.5 + wav * 1.5);
-    px.part();
-    px.capsule(s0[0], s0[1], 2.2, e0[0], e0[1], 1.7, HIDE, 1, { bias: -1 }); px.capsule(e0[0], e0[1], 1.7, h0[0], h0[1], 1.3, HIDE, 1, { bias: -1 });
-    px.part(); clawHand(h0, 1.1, -1, -1.4);
+    px.body(1);
+    px.limb([s0, e0, h0], [2.2, 1.7, 1.3], HIDE, 1, { bias: -1 });
+    clawHand(h0, 1.1, -1, -1.4);
+    px.body(0);
   }
   const stump = (hip, lift, m, w, z, bias) => {
     const foot = [hip[0] + 1.0 + lift * 2.4, -1.2 - lift * 3.2], knee = [hip[0] + 1.4 + lift, (hip[1] + foot[1]) * 0.5 - lift * 1.6];
-    px.part();
-    px.capsule(hip[0], hip[1], w, knee[0], knee[1], w * 0.88, m, z, { bias });
-    px.capsule(knee[0], knee[1], w * 0.88, foot[0], foot[1], w * 0.8, m, z, { bias });
-    px.ellipse(foot[0] + 1.2, foot[1] + 0.2, w * 0.95, 1.3, m, z + 0.02, { bias });
+    px.body(1);
+    px.limb([hip, knee, foot], [w, w * 0.88, w * 0.8], m, z, { bias, weld: 2, weldRoot: 3 });
+    px.ellipse(foot[0] + 1.2, foot[1] + 0.2, w * 0.95, 1.3, m, z + 0.02, { bias, weld: 2 });
+    px.body(0);
     for (const t of [0, 1.6]) px.dot(foot[0] + 2.8 + t * 0.6, foot[1] + 0.4, CLAW, z + 0.05, { fix: 3 });
   };
   stump(M(-4, -8), p.legB || 0, mix2(HIDE), 2.3, 2, -1);
   { // the far drag arm under the belly, pawing
     const s1 = M(3, -9), pw = Math.sin(lp + 1.5) * 1.4, h1 = [8 + dx + pw * 1.5, -1.4], e1 = [6.4 + dx + pw, -5];
-    px.part();
-    px.capsule(s1[0], s1[1], 1.5, e1[0], e1[1], 1.2, HIDE, 1.5, { bias: -1 }); px.capsule(e1[0], e1[1], 1.2, h1[0], h1[1], 1.0, HIDE, 1.5, { bias: -1 });
-    px.part(); clawHand([h1[0] - 0.4, h1[1] - 0.8], 1.6, -1);
+    px.body(1);
+    px.limb([s1, e1, h1], [1.5, 1.2, 1.0], HIDE, 1.5, { bias: -1 });
+    clawHand([h1[0] - 0.4, h1[1] - 0.8], 1.6, -1);
+    px.body(0);
   }
 
   // ---- the mound: several bodies' worth of hide, patched, stitched and stapled
   const mound = [M(-14, -7), M(-15.5, -13), M(-14, -19.5), M(-9.5, -24), M(-4, -26.5), M(1.5, -28), M(7, -26.5), M(11, -23), M(13.8, -18.4), M(14.8, -13), M(12.6, -8.4), M(6, -5), M(0, -4.4), M(-7, -4.8)];
-  px.part(); const mid = px._pid;
-  px.poly(mound, HIDE, 4, { round: 0.85, floor: 1, cast: 1 });
+  const mid = px.body(1);
+  px.poly(mound, HIDE, 4, { round: 0.85, floor: 1 });
   // a pale corpse across the flank, a bruised one on top, a rag at the front
   px.part();
-  px.poly([M(-14, -12), M(-9, -15.6), M(-2, -14.4), M(0.4, -9.6), M(-1.4, -5.4), M(-8, -5)], PALE, 4.1, { round: 0.8, floor: 1 });
+  px.poly([M(-14, -12), M(-9, -15.6), M(-2, -14.4), M(0.4, -9.6), M(-1.4, -5.4), M(-8, -5)], PALE, 4.1, { round: 0.8, floor: 1, wrap: true });
   px.part();
-  px.poly([M(-7, -26), M(1, -28), M(6, -24.4), M(3.4, -20), M(-4, -19.4), M(-9, -22.5)], BRUISE, 4.1, { round: 0.8, floor: 1 });
+  px.poly([M(-7, -26), M(1, -28), M(6, -24.4), M(3.4, -20), M(-4, -19.4), M(-9, -22.5)], BRUISE, 4.1, { round: 0.8, floor: 1, wrap: true });
   px.part();
-  px.poly([M(8, -20), M(14.4, -17), M(14.6, -9), M(11, -7), M(10.2, -10.2), M(9.2, -8), M(8.2, -11), M(7, -9.4), M(6.6, -14)], RAG, 4.1, { round: 0.7, floor: 1 });
+  px.poly([M(8, -20), M(14.4, -17), M(14.6, -9), M(11, -7), M(10.2, -10.2), M(9.2, -8), M(8.2, -11), M(7, -9.4), M(6.6, -14)], RAG, 4.1, { round: 0.7, floor: 1, wrap: true });
   // the torn seam in the flank: a dark wound, a puckered lip, two pale ribs in it
   px.part();
-  px.poly([M(-2, -16.4), M(-0.2, -17.6), M(1.4, -17), M(3, -18.2), M(5, -16.6), M(3.6, -15.4), M(2.4, -14), M(1, -14.8), M(-0.6, -14.2)], WOUND, 4.2, { noLine: true });
+  px.poly([M(-2, -16.4), M(-0.2, -17.6), M(1.4, -17), M(3, -18.2), M(5, -16.6), M(3.6, -15.4), M(2.4, -14), M(1, -14.8), M(-0.6, -14.2)], WOUND, 4.2, { noLine: true, wrap: true });
   px.line(...M(0.2, -17.1), ...M(-0.1, -14.8), RIB, 4.25, { fix: 3 }); px.line(...M(2.6, -17.6), ...M(2.2, -14.6), RIB, 4.25, { fix: 3 });
   // the seams, and iron staples across the worst of them
-  px.part();
+  px.body(0); px.part();
   const seam = (pts) => { for (let i = 0; i + 1 < pts.length; i++) { const a = M(...pts[i]), c = M(...pts[i + 1]); for (let t = 0; t < 1; t += 0.34) px.dot(a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t, THREAD, 4.5, { noLine: true }); } };
   seam([[-13, -12], [-9, -15.6], [-2, -14.4], [0.4, -9.6], [-1.4, -5.4]]);
   seam([[-8.6, -22.4], [-4, -19.4], [3.4, -20], [6, -24.4]]);
@@ -136,17 +141,18 @@ export const draw = (px0, { sk, lag1, ph }, o = {}) => {
   head(SMALL, LEG_A, M(-12.6 + Math.sin(lp) * 0.4, -20.4 + Math.cos(lp) * 0.3), 4, 5, 5);
   head(fz ? SMALLW : SMALL, LEG_B, M(-1.6, -27 + Math.sin(lp + 2) * 0.3), 4, 5, 5.2);
   const lead = M(12.2, -20.4);
-  px.part();
-  px.capsule(...M(8, -17.4), 3.2, lead[0] - 0.6, lead[1] + 1.2, 2.6, HIDE, 4.8);
+  px.body(1);
+  px.limb([M(8, -17.4), [lead[0] - 0.6, lead[1] + 1.2]], [3.2, 2.6], HIDE, 4.8, { weld: 3, weldRoot: 4 });
+  px.body(0);
   head(jaw > 0.55 ? WIDE : HEAD, LEG_L, [lead[0] + 1.4, lead[1] + (jaw > 0.55 ? 0 : 0)], 7, 6, 6);
 
   // ---- the great arm, bundled from two, planted ahead and hauling
   {
     const sh = M(10, -14.4), hd = [hand[0], Math.min(hand[1], -1.6)], fold = hd[1] < -20 ? -1 : 1;
     const el = ik2(sh, hd, 10, 10, fold);
-    px.part();
-    px.capsule(sh[0], sh[1], 3.6, el[0], el[1], 3.0, HIDE, 8, { cast: 2 });
-    px.capsule(el[0], el[1], 3.0, hd[0], hd[1], 2.2, HIDE, 8, { cast: 2 });
+    px.body(1);
+    px.limb([sh, el, hd], [3.6, 3.0, 2.2], HIDE, 8, { weld: 3, weldRoot: 5 });
+    px.body(0);
     // a second, thinner arm bound along it, and the iron bands that hold them
     px.part();
     const a1 = mix(sh, el, 0.25), a2 = mix(el, hd, 0.8);
@@ -156,10 +162,11 @@ export const draw = (px0, { sk, lag1, ph }, o = {}) => {
       px.part(); px.line(c[0] - nx * 2.8, c[1] - ny * 2.8, c[0] + nx * 2.8, c[1] + ny * 2.8, IRON, 8.2, { fix: 1 });
       px.line(c[0] - nx * 2.8 + 0.6, c[1] - ny * 2.8, c[0] + nx * 2.8 + 0.6, c[1] + ny * 2.8, IRON, 8.2, { fix: 2 });
     }
-    px.part(); px.ellipse(el[0] - 0.3, el[1] - 0.3, 2.2, 2.0, HIDE, 8.3);
+    px.body(1);
+    px.ellipse(el[0] - 0.3, el[1] - 0.3, 2.2, 2.0, HIDE, 8.3, { weld: 3 });
     // the great hand: a heavy palm and long claws, spread when it grips
-    px.part();
-    px.ellipse(hd[0] + 0.8, hd[1] + 0.2, 2.8, 2.5, HIDE, 8.4);
+    px.ellipse(hd[0] + 0.8, hd[1] + 0.2, 2.8, 2.5, HIDE, 8.4, { weld: 2 });
+    px.body(0);
     const sp = 0.5 + 0.5 * claw;
     for (const [cx, cy] of [[3.6, -2.4 * sp - 0.4], [4.4, 0], [3.8, 2.4 * sp + 0.4], [2.2, 3.8 * sp + 0.6]]) px.line(hd[0] + 1.6, hd[1] + 0.4, hd[0] + 1.6 + cx + 1, hd[1] + 0.4 + cy, CLAW, 8.45, { fix: 3 });
   }
@@ -168,9 +175,10 @@ export const draw = (px0, { sk, lag1, ph }, o = {}) => {
   stump(M(2.4, -6.4), p.legB2 || 0, HIDE, 2.3, 9, 0);
   {
     const hg = jaw > 0.4 ? 1 : Math.sin(lp + 3), s2 = M(-2, -10), h2 = [-0.5 + dx + hg * 1.4 + 1.4, -1.6], e2 = [-0.5 + dx + hg, -5.4];
-    px.part();
-    px.capsule(s2[0], s2[1], 1.7, e2[0], e2[1], 1.3, HIDE, 9.4); px.capsule(e2[0], e2[1], 1.3, h2[0], h2[1], 1.1, HIDE, 9.4);
-    px.part(); clawHand([h2[0] - 0.4, h2[1] - 0.8], 9.5, 0);
+    px.body(1);
+    px.limb([s2, e2, h2], [1.7, 1.3, 1.1], HIDE, 9.4, { weld: 2, weldRoot: 3 });
+    clawHand([h2[0] - 0.4, h2[1] - 0.8], 9.5, 0);
+    px.body(0);
   }
   const eye = M(12.2 + 2.4, -21.6);
   return { light: { x: eye[0] * K, y: eye[1] * K, r: 14, col: "#7ce0b8", k: 0.16 + 0.05 * Math.sin(lp) }, feet: [dx * K, 0] };

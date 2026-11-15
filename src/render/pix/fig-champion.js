@@ -41,11 +41,12 @@ export const BONES = scaled(HUMAN, K, { shN: -4.8, shF: 4.8, hipN: -2.2, hipF: 2
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 
 const leg = (px, h, kn, an, z, b) => {
-  px.part();
-  px.capsule(h[0], h[1], 3.4, kn[0], kn[1], 2.9, IVORY, z, { bias: b });
-  px.capsule(kn[0], kn[1], 2.8, an[0], an[1], 2.3, IVORY, z, { bias: b });
-  px.ellipse(kn[0] + 0.8, kn[1], 2.8, 2.6, GOLD, z + 0.02, { bias: b, vb: 0.25 });
-  px.ellipse(an[0] + 1.6, an[1] + 1.2, 3.9, 1.9, IVMAIL, z + 0.03, { bias: b });
+  // one welded plate tube (the joint kit): one radius at the knee, the gilt knee-cop and sabaton welded on
+  px.body(1);
+  px.limb([h, kn, an], [3.4, 2.85, 2.3], IVORY, z, { bias: b });
+  px.ellipse(kn[0] + 0.8, kn[1], 2.8, 2.6, GOLD, z + 0.02, { bias: b, vb: 0.25, weld: 2 });
+  px.ellipse(an[0] + 1.6, an[1] + 1.2, 3.9, 1.9, IVMAIL, z + 0.03, { bias: b, weld: 2 });
+  px.body(0);
 };
 
 export const draw = (px, { sk, lag1, lag2 }) => {
@@ -67,10 +68,10 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.line(...S(0, -5.4), ...S(0, 6), GOLD, 0.86); px.line(...S(-3, -1.8), ...S(3, -1.8), GOLD, 0.86);
 
   // the far arm, bare of a shield: a fist at the hip
-  px.part();
-  px.capsule(sF[0], sF[1], 3, eF[0], eF[1], 2.8, IVORY, 1, { bias: -1 });
-  px.capsule(eF[0], eF[1], 2.8, hdF[0], hdF[1], 2.4, IVORY, 1, { bias: -1 });
-  px.part(); px.ellipse(hdF[0], hdF[1], 2.4, 2.4, IVMAIL, 1.2, { bias: -1 });
+  px.body(1);
+  px.limb([sF, eF, hdF], [3, 2.8, 2.4], IVORY, 1, { bias: -1 });
+  px.ellipse(hdF[0], hdF[1], 2.4, 2.4, IVMAIL, 1.2, { bias: -1, weld: 1.5 });
+  px.body(0);
 
   leg(px, hF, kF, anF, 2, -1);
   leg(px, hN, kN, anN, 3, 0);
@@ -108,14 +109,14 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // the near arm over it all: a heavy pauldron with a gold rim, vambrace, gauntlet
   const az = (p.nb || 0) > 0.5 ? 5.5 : 8;
-  px.part();
-  px.capsule(sN[0], sN[1] + 0.7, 3.1, eN[0], eN[1], 2.9, IVORY, az, { cast: 2 });
-  px.capsule(eN[0], eN[1], 2.9, hdN[0], hdN[1], 2.5, IVORY, az, { cast: 2 });
-  px.ellipse(eN[0], eN[1], 2.5, 2.5, GOLD, az + 0.02, { vb: 0.25 });
+  px.body(1);
+  px.limb([[sN[0], sN[1] + 0.7], eN, hdN], [3.1, 2.9, 2.5], IVORY, az, { weld: 2, weldRoot: 3 });
+  px.ellipse(eN[0], eN[1], 2.5, 2.5, GOLD, az + 0.02, { vb: 0.25, weld: 2 });
+  px.body(0);
   px.part();
   px.ellipse(sN[0] - 0.3, sN[1] - 0.6, 5.2, 4.4, IVORY, 8.1, { cast: 2 });
   px.line(sN[0] - 4.2, sN[1] + 3.1, sN[0] + 3.6, sN[1] + 3.1, GOLD, 8.12);
-  px.part(); px.ellipse(hdN[0], hdN[1], 2.8, 2.6, IVMAIL, az + 0.2);
+  px.body(1); px.ellipse(hdN[0], hdN[1], 2.8, 2.6, IVMAIL, az + 0.2, { weld: 1.5 }); px.body(0);
 
   return { hand: hdN, sw: a, mace: B(20) };
 };

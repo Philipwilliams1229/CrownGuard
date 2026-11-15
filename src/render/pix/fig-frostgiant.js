@@ -77,25 +77,24 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the far arm, a tone down: it hangs to the knee, or reaches across to the bone
   const tgt = mix(sk.hdF, K(9, 0), g2), fa = ik(sF[0], sF[1], tgt[0], tgt[1], B.upper, B.fore, 1), eF = fa.mid, hdF = fa.end;
   const fz = 1;
-  px.part();
-  px.capsule(sF[0], sF[1] + 1, 5.8, eF[0], eF[1], 4.8, SKIN, fz, { bias: -1 });
-  px.capsule(eF[0], eF[1], 4.6, hdF[0], hdF[1], 5.1, SKIN, fz, { bias: -1 });
+  // ONE BODY (the joint kit): skin, limbs and trunk share a part id, so nothing casts or edges on its own
+  // creature; each arm and leg is one welded tube with one radius at each joint
+  const BID = px.body(1);
+  px.limb([[sF[0], sF[1] + 1], eF, hdF], [5.8, 4.7, 5.1], SKIN, fz, { bias: -1 });
   const cu = mix(eF, hdF, 0.7);
-  px.capsule(cu[0], cu[1], 5.2, hdF[0], hdF[1], 5.2, IRON, fz + 0.05, { bias: -1, floor: 1 });
-  px.part();
+  px.capsule(cu[0], cu[1], 5.2, hdF[0], hdF[1], 5.2, IRON, fz + 0.05, { bias: -1, floor: 1, wrap: true });
   px.ellipse(hdF[0], hdF[1] + 0.4, 4.8, 4.4, SKIN, g2 > 0.5 ? 8.25 : fz + 0.1, { bias: -1 });
 
   // two legs like pillars, bare feet bound in fur: fur wrapped round the shin, pale nails
   for (const [hp, kn, an, z, b] of [[hF, kF, anF, 2, -1], [hN, kN, anN, 3, 0]]) {
-    px.part();
-    px.capsule(hp[0], hp[1], 6, kn[0], kn[1], 4.8, SKIN, z, { bias: b });
-    px.capsule(kn[0], kn[1], 4.6, an[0], an[1], 3.8, SKIN, z, { bias: b });
+    px.limb([hp, kn, an], [6, 4.7, 3.8], SKIN, z, { bias: b });
     const w0 = mix(kn, an, 0.5);
-    px.capsule(w0[0] - 0.2, w0[1], 4.8, an[0], an[1] - 0.6, 4.4, FURB, z + 0.03, { bias: b });
-    px.capsule(an[0] - 2.4, an[1] + 0.6, 3, an[0] + 8, an[1] + 1.3, 2.3, SKIN, z + 0.03, { bias: b });
-    px.capsule(an[0] - 1, an[1] - 0.4, 2.4, an[0] + 3.4, an[1] + 0.4, 2.2, FURB, z + 0.04, { bias: b });
+    px.capsule(w0[0] - 0.2, w0[1], 4.8, an[0], an[1] - 0.6, 4.4, FURB, z + 0.03, { bias: b, wrap: true });
+    px.capsule(an[0] - 2.4, an[1] + 0.6, 3, an[0] + 8, an[1] + 1.3, 2.3, SKIN, z + 0.03, { bias: b, weld: 2 });
+    px.capsule(an[0] - 1, an[1] - 0.4, 2.4, an[0] + 3.4, an[1] + 0.4, 2.2, FURB, z + 0.04, { bias: b, wrap: true });
     for (const x of [5.6, 7.8, 9.8]) px.dot(an[0] + x, an[1] + 2.2, NAIL, z + 0.04, { fix: b ? 2 : 3 });
   }
+  px.body(0);
 
   // the hide kilt, its ragged hem hung with fur, a beat behind the hips
   const kh = P[1] + 10, kf = P[0] + 10.6 - bx * 1.4 - bx2 * 0.8, kb = P[0] - 10.6 - bx * 1.8 - bx2 * 1.2, km = (t) => kb + (kf - kb) * t;
@@ -106,17 +105,17 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   for (const t of [0.12, 0.26, 0.42, 0.58, 0.74, 0.88]) px.dot(km(t), kh + 0.8 + (t * 10 % 2), FURB, 3.65, { fix: 3 });
 
   // the trunk: a broad barrel of chest under a hump of shoulder, the far shoulder showing past the head
-  px.part();
-  px.ellipse(sF[0] - 2, sF[1] + 1.6, 7.6, 7, SKIN, 3.9, { bias: -1 });
-  px.part(); const bodyId = px._pid;
+  px.body(1);
+  px.ellipse(sF[0] - 2, sF[1] + 1.6, 7.6, 7, SKIN, 3.9, { bias: -1, weld: 3 });
+  const bodyId = BID;
   px.poly([[C[0] - 13, C[1] + 2], [C[0] - 9, C[1] - 4.4], [C[0] + 6, C[1] - 4.4], [C[0] + 12.6, C[1] + 1], [C[0] + 14, C[1] + 9], [mix(C, P, 0.5)[0] + 13, mix(C, P, 0.5)[1]],
-    [P[0] + 11, P[1] - 6], [P[0] + 9.6, P[1] + 0.6], [P[0] - 9.4, P[1] + 0.6], [P[0] - 11, P[1] - 8], [mix(C, P, 0.5)[0] - 13, mix(C, P, 0.5)[1]], [C[0] - 14, C[1] + 9]], SKIN, 4, { round: 0.92, cast: 1 });
-  px.ellipse(C[0] - 4, C[1] - 2.4, 10, 6.6, SKIN, 4, { cast: 1 });
+    [P[0] + 11, P[1] - 6], [P[0] + 9.6, P[1] + 0.6], [P[0] - 9.4, P[1] + 0.6], [P[0] - 11, P[1] - 8], [mix(C, P, 0.5)[0] - 13, mix(C, P, 0.5)[1]], [C[0] - 14, C[1] + 9]], SKIN, 4, { round: 0.92 });
+  px.ellipse(C[0] - 4, C[1] - 2.4, 10, 6.6, SKIN, 4, { weld: 4 });
   px.toneLine(C[0] + 3, C[1] + 12.4, C[0] + 12.6, C[1] + 11.4, -1, bodyId);       // under the chest
   const bl = mix(C, P, 0.7);
-  px.part(); const bellyId = px._pid;
-  px.ellipse(bl[0] + 4, bl[1] + 0.6, 9.6, 8.2, BELLY, 4.05, { cast: 1 });
-  px.toneLine(bl[0] - 2, bl[1] + 7, bl[0] + 9, bl[1] + 7.6, -1, bellyId);
+  px.ellipse(bl[0] + 4, bl[1] + 0.6, 9.6, 8.2, BELLY, 4.05, { wrap: true });      // a paler belly wrapped on the barrel
+  px.toneLine(bl[0] - 2, bl[1] + 7, bl[0] + 9, bl[1] + 7.6, -1, BID);
+  px.body(0);
   // the belt: hide and a bone toggle
   px.part();
   px.capsule(P[0] - 10, P[1] - 1.6, 1.4, P[0] + 10.2, P[1] - 1.4, 1.4, KILT_D, 4.08);
@@ -169,12 +168,11 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the near arm over it all: a boulder of shoulder in fur, a forearm thicker than the arm, an iron cuff, a fist like a ham
   // (hauled up over his head the arm passes BEHIND it, so the face stays open)
   const az = (p.nb || 0) > 0.5 ? 5.5 : 7.9;
-  px.part();
-  px.capsule(sN[0], sN[1] + 2, 6.2, eN[0], eN[1], 5, SKIN, az, { cast: 1 });
-  px.capsule(eN[0], eN[1], 4.8, hdN[0], hdN[1], 5.6, SKIN, az, { cast: 1, edge: true });
+  px.body(1);
+  px.limb([[sN[0], sN[1] + 2], eN, hdN], [6.2, 5, 5.6], SKIN, az, { weld: 4, weldRoot: 9 });
   const wc = mix(eN, hdN, 0.7);
-  px.capsule(wc[0], wc[1], 5.4, hdN[0], hdN[1], 5.4, IRON, az + 0.05, { cast: 1, floor: 1 });
-  px.part(); const shId = px._pid;
+  px.capsule(wc[0], wc[1], 5.4, hdN[0], hdN[1], 5.4, IRON, az + 0.05, { floor: 1, wrap: true });
+  px.body(0); px.part(); const shId = px._pid;
   px.ellipse(sN[0] - 0.6, sN[1] + 0.4, 9, 7.8, FUR, 8, { cast: 1 });
   for (const x of [-7, -4.4, -1.8, 0.8, 3.4]) px.dot(sN[0] + x, sN[1] + 7.6 + ((x * 2 | 0) & 1), FUR, 8);
   for (const [x, y] of [[-4.6, -4.6], [-1, -5.8], [2.4, -4.6], [-6.4, -2]]) px.dot(sN[0] + x, sN[1] + y, FROST, 8.05, { noLine: true });
@@ -182,9 +180,10 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.poly([[sN[0] - 5.4, sN[1] - 5.2], [sN[0] - 3.4, sN[1] - 5.8], [sN[0] - 4.6, sN[1] - 11.2]], ICE, 8.1, { fix: 3 });
   px.poly([[sN[0] - 2.6, sN[1] - 6], [sN[0] - 0.4, sN[1] - 6], [sN[0] - 0.8, sN[1] - 9.6]], ICE, 8.1, { fix: 2 });
   px.toneLine(sN[0] - 5, sN[1] + 6.4, sN[0] + 4, sN[1] + 6.6, -1, shId);
-  px.part();
-  px.ellipse(hdN[0], hdN[1] + 0.4, 5.2, 4.8, SKIN, 8.3, { edge: true });
+  px.body(1);
+  px.ellipse(hdN[0], hdN[1] + 0.4, 5.2, 4.8, SKIN, 8.3, { weld: 3 });
   px.dot(hdN[0] + 2.4, hdN[1] - 1, SKIN, 8.31, { fix: 1 }); px.dot(hdN[0] + 3, hdN[1] + 1.4, SKIN, 8.31, { fix: 1 });
+  px.body(0);
 
   return { head: K(CL + 2, 0) };
 };

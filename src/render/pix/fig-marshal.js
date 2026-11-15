@@ -45,15 +45,17 @@ const LEG = {
 
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const leg = (px, h, k, an, z, b) => {
-  px.part();
-  px.capsule(h[0], h[1], 3.2, k[0], k[1], 2.8, HOSE, z, { bias: b, floor: 1 });
-  px.capsule(h[0] * 0.62 + k[0] * 0.38, h[1] * 0.62 + k[1] * 0.38, 3.6, h[0] * 0.18 + k[0] * 0.82, h[1] * 0.18 + k[1] * 0.82, 3.3, PLATE, z + 0.01, { bias: b });
-  px.capsule(k[0], k[1], 2.7, an[0], an[1] - 3, 2.3, PLATE, z + 0.02, { bias: b });
-  px.ellipse(k[0] + 1, k[1], 3, 2.6, PLATE, z + 0.04, { bias: b, cast: 1 });
+  // one welded tube in hose; the cuisse, greave and sabaton are plate wrapped over it (the joint kit)
+  px.body(1);
+  px.limb([h, k, an], [3.5, 3.1, 2.5], HOSE, z, { bias: b, floor: 1 });
+  px.capsule(h[0] * 0.62 + k[0] * 0.38, h[1] * 0.62 + k[1] * 0.38, 3.6, h[0] * 0.18 + k[0] * 0.82, h[1] * 0.18 + k[1] * 0.82, 3.3, PLATE, z + 0.01, { bias: b, wrap: true });
+  px.capsule(k[0], k[1], 2.7, an[0], an[1] - 3, 2.3, PLATE, z + 0.02, { bias: b, wrap: true });
+  px.ellipse(k[0] + 1, k[1], 3, 2.6, PLATE, z + 0.04, { bias: b, weld: 2 });
   px.dot(k[0] + 1.8, k[1] - 0.8, STEELB, z + 0.05, { fix: 4 });
   px.line(k[0] - 2, k[1] + 0.2, k[0] + 3.6, k[1] + 0.2, BRASS, z + 0.06, { noLine: true });
-  px.capsule(k[0] * 0.3 + an[0] * 0.7, k[1] * 0.3 + an[1] * 0.7, 2.8, an[0], an[1], 2.4, PLATEK, z + 0.03, { bias: b });
-  px.ellipse(an[0] + 2, an[1] + 1.4, 4, 1.9, PLATEK, z + 0.04, { bias: b });
+  px.capsule(k[0] * 0.3 + an[0] * 0.7, k[1] * 0.3 + an[1] * 0.7, 2.8, an[0], an[1], 2.4, PLATEK, z + 0.03, { bias: b, wrap: true });
+  px.ellipse(an[0] + 2, an[1] + 1.4, 4, 1.9, PLATEK, z + 0.04, { bias: b, weld: 2 });
+  px.body(0);
 };
 
 export const draw = (px, { sk, lag1, lag2 }) => {
@@ -70,9 +72,10 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.line(C[0] - 12 + cs * 1.4, len - 0.6, C[0] - 2.8 + cs * 0.4, len - 1.6, BRASS, 0.52, { noLine: true });
 
   // the far arm and legs
-  px.part();
-  px.capsule(sF[0], sF[1], 2.7, eF[0], eF[1], 2.6, PAD, 1, { bias: -1 });
-  px.capsule(eF[0], eF[1], 2.6, hdF[0], hdF[1], 2.3, PLATE, 1, { bias: -1 });
+  px.body(1);
+  px.limb([sF, eF, hdF], [2.7, 2.6, 2.3], PAD, 1, { bias: -1 });
+  px.capsule(eF[0], eF[1], 2.6, hdF[0], hdF[1], 2.3, PLATE, 1, { bias: -1, wrap: true });
+  px.body(0);
   leg(px, hF, kF, anF, 2, -1);
   leg(px, hN, kN, anN, 3, 0);
 
@@ -145,12 +148,13 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the far fist grips the lance low, the near fist above; both arms over the plate
   px.part(); px.ellipse(hdF[0], hdF[1], 2.2, 2.2, PLATEK, zf + 0.3, { bias: -1 });
   const zn = 9;
-  px.part();
-  px.capsule(sN[0], sN[1] + 0.3, 3, eN[0], eN[1], 2.7, PAD, zn, { cast: 2 });
-  px.capsule(eN[0], eN[1], 2.7, hdN[0], hdN[1], 2.3, PLATE, zn, { cast: 2 });
-  px.ellipse(eN[0], eN[1], 2.7, 2.7, PLATE, zn + 0.05, { cast: 1 });
-  px.capsule(eN[0] * 0.28 + hdN[0] * 0.72, eN[1] * 0.28 + hdN[1] * 0.72, 2.6, eN[0] * 0.14 + hdN[0] * 0.86, eN[1] * 0.14 + hdN[1] * 0.86, 2.6, PLATEK, zn + 0.07);
-  px.part(); px.ellipse(hdN[0], hdN[1], 2.4, 2.4, PLATEK, zn + 0.2);
+  px.body(1);
+  px.limb([[sN[0], sN[1] + 0.3], eN, hdN], [3, 2.7, 2.35], PAD, zn);
+  px.capsule(eN[0], eN[1], 2.7, hdN[0], hdN[1], 2.3, PLATE, zn + 0.01, { wrap: true });
+  px.ellipse(eN[0], eN[1], 2.7, 2.7, PLATE, zn + 0.05, { weld: 2 });
+  px.capsule(eN[0] * 0.28 + hdN[0] * 0.72, eN[1] * 0.28 + hdN[1] * 0.72, 2.6, eN[0] * 0.14 + hdN[0] * 0.86, eN[1] * 0.14 + hdN[1] * 0.86, 2.6, PLATEK, zn + 0.07, { wrap: true });
+  px.ellipse(hdN[0], hdN[1], 2.4, 2.4, PLATEK, zn + 0.2, { weld: 2 });
+  px.body(0);
   // the pauldrons: two layers, spiked, brass-edged
   px.part();
   for (const [k, dz, dy] of [[1, 0, 0], [0.74, 0.02, 3]]) px.ellipse(sN[0] + 0.4, sN[1] + 0.2 + dy * 0.8, 6.2 * k, 5.2 * k, PLATE, zn + 0.3 + dz, { cast: 1 });

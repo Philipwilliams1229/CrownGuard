@@ -76,19 +76,22 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   // ---- the far arm, a tone down: a violet sleeve, the bone hand on the grip's end
   {
     const hand = at2(-3.6, 0), r = ik(sF[0], sF[1], hand[0], hand[1], 8.1, 7.6, 1);
-    px.part();
-    px.capsule(sF[0], sF[1], 2.0, r.mid[0], r.mid[1], 1.9, ROBE_D, 1, { bias: -1, floor: 1 });
-    px.capsule(r.mid[0], r.mid[1], 1.3, r.end[0], r.end[1], 1.1, BONE, 1.01, { bias: -1 });
-    px.ellipse(r.end[0], r.end[1], 1.5, 1.4, BONE, 1.02, { bias: -1 });
+    // ONE BODY (the joint kit): the sleeve and the bone forearm are one welded tube, the bone wrapped over the sleeve
+    px.body(1);
+    px.limb([sF, r.mid, r.end], [2.0, 1.8, 1.2], ROBE_D, 1, { bias: -1, floor: 1 });
+    const fm = mix(r.mid, r.end, 0.25);
+    px.capsule(fm[0], fm[1], 1.9, r.end[0], r.end[1], 1.2, BONE, 1.01, { bias: -1, wrap: true });
+    px.ellipse(r.end[0], r.end[1], 1.5, 1.4, BONE, 1.02, { bias: -1, weld: 1.5 });
+    px.body(0);
   }
 
   // ---- legs: thigh and shin bones, a knobbed knee, a long foot
   for (const [hp, kn, an, z, b] of [[hF, kF, anF, 2, -1], [hN, kN, anN, 3, 0]]) {
-    px.part();
-    px.capsule(hp[0], hp[1], 1.3, kn[0], kn[1], 1.1, BONE, z, { bias: b });
-    px.capsule(kn[0], kn[1], 1.1, an[0], an[1], 1.0, BONE, z, { bias: b });
-    px.ellipse(kn[0] + 0.2, kn[1], 1.6, 1.5, BONE, z + 0.02, { bias: b });
-    px.capsule(an[0] - 0.4, an[1] + 0.8, 1.2, an[0] + 4.4, an[1] + 1, 0.9, BONE, z, { bias: b });
+    px.body(1);
+    px.limb([hp, kn, an], [1.3, 1.1, 1.0], BONE, z, { bias: b });
+    px.ellipse(kn[0] + 0.2, kn[1], 1.6, 1.5, BONE, z + 0.02, { bias: b, weld: 1.5 });
+    px.capsule(an[0] - 0.4, an[1] + 0.8, 1.2, an[0] + 4.4, an[1] + 1, 0.9, BONE, z, { bias: b, weld: 1.5 });
+    px.body(0);
   }
 
   // ---- the robe: a back skirt and a front panel in tatters, hem swinging a beat behind, gold trim
@@ -108,18 +111,18 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   }
 
   // ---- the pelvis, the girdle, the spine and the rib cage with the witch-fire heart in it
-  px.part();
+  px.body(1);
   px.ellipse(P[0] - 0.2, P[1] - 0.6, 4.2, 2.5, BONE, 4.3, { floor: 1 });
-  px.part();
-  px.rect(P[0] - 4.8, P[1] - 3, 9.6, 1.6, GOLD, 4.4, { fix: 2 });
-  px.dot(P[0] + 2.2, P[1] - 2.2, GEM, 4.45, { fix: 3 });
-  px.part();
   px.capsule(...at(0.04, -4), 1.1, ...at(1.04, -3), 1.1, BONE, 3.9, { bias: -1 });
+  px.capsule(...at(-0.1, 0.4), 1.3, N[0], N[1] + 2, 1.1, BONE, 4.05, { weld: 1.5 });
   const rw = 5.4, pulse = 0.5 + 0.5 * Math.sin(((ph ?? 0) * 2) * Math.PI * 2);
-  px.part();
   px.poly([at(-0.1, -rw + 0.4), at(-0.1, rw - 0.2), at(0.3, rw + 0.2), at(0.62, rw - 1), at(0.78, 0.4), at(0.54, -rw + 1)], BONE, 4.5, { round: 0.7, floor: 1 });
   for (const t of [0.1, 0.26, 0.42, 0.58]) px.line(...at(t, -rw + 0.6), ...at(t + 0.03, rw - 0.8 - t * 1.4), GAP, 4.6);
   px.line(...at(-0.04, 0.8), ...at(0.76, 0.6), BONE, 4.65, { fix: 3 });
+  px.body(0);
+  px.part();
+  px.rect(P[0] - 4.8, P[1] - 3, 9.6, 1.6, GOLD, 4.4, { fix: 2 });
+  px.dot(P[0] + 2.2, P[1] - 2.2, GEM, 4.45, { fix: 3 });
   // the heart: a teal fire between the ribs
   px.part();
   { const h = at(0.38, 1.4); px.ellipse(h[0], h[1], 1.7, 2.0, F_TEAL, 4.7, { noLine: true }); px.dot(h[0], h[1] - (pulse > 0.5 ? 0.6 : 0), F_PALE, 4.75, { noLine: true }); }
@@ -131,7 +134,6 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   for (const s of [-3.4, -0.6, 2.4]) px.dot(...at(0.07, s), CROWN, 5.2, { fix: 2 });
   px.part();
   px.poly([at(0.0, -4), at(-0.08, -5.4), at(0.4, -6.4 - vx), at(0.56, -5.2 - vx * 1.4), at(0.3, -3.8)], WEED, 5.3, { round: 0.7, floor: 1 });
-  px.capsule(...at(-0.1, 0.4), 1.3, N[0], N[1] + 2, 1.1, BONE, 4.05, {});
 
   // ---- the crowned skull
   const hx = Math.round(N[0]), hy = Math.round(N[1]);
@@ -152,13 +154,14 @@ export const draw = (px, { sk, lag1, lag2, ph }, o = {}) => {
   px.line(...at2(2.6, -1.5), ...at2(BL - 1.6, -0.9), F_TEAL, 8.3, { noLine: true });
   px.dot(...at2(BL - 1.2, -0.3), F_PALE, 8.35, { noLine: true });
   // the near arm over all: the violet sleeve, the bone forearm, the hand on the grip
-  px.part();
-  px.capsule(sN[0], sN[1] + 0.6, 2.2, eN[0], eN[1], 2.0, ROBE, 8.4, { cast: 2, floor: 1 });
-  px.capsule(eN[0], eN[1], 1.3, hdN[0], hdN[1], 1.1, BONE, 8.45);
-  px.ellipse(eN[0] + 0.2, eN[1], 2.0, 1.9, ROBE, 8.42, { floor: 1 });
+  px.body(1);
+  px.limb([[sN[0], sN[1] + 0.6], eN, hdN], [2.2, 2.0, 1.2], ROBE, 8.4, { floor: 1, weld: 2, weldRoot: 3 });
+  const nf = mix(eN, hdN, 0.3);
+  px.capsule(nf[0], nf[1], 1.8, hdN[0], hdN[1], 1.2, BONE, 8.45, { wrap: true });
+  px.ellipse(eN[0] + 0.2, eN[1], 2.0, 1.9, ROBE, 8.42, { floor: 1, weld: 2 });
   px.line(eN[0] - 1.6, eN[1] + 2, eN[0] + 1.4, eN[1] + 2.4, GOLD, 8.48, { fix: 2 });
-  px.part();
-  px.ellipse(hdN[0], hdN[1], 1.7, 1.6, BONE, 8.6);
+  px.ellipse(hdN[0], hdN[1], 1.7, 1.6, BONE, 8.6, { weld: 1.5 });
+  px.body(0);
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1], 2.1, 1.9, ROBE, 8.3, { floor: 1 });
 

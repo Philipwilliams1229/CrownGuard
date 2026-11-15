@@ -78,20 +78,18 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the far arm, a tone down: it hangs to the knee, or reaches across to the club
   const tgt = mix(sk.hdF, K(8.5, 0), g2), fa = ik(sF[0], sF[1], tgt[0], tgt[1], B.upper, B.fore, 1), eF = fa.mid, hdF = fa.end;
   const fz = 1;
-  px.part();
-  px.capsule(sF[0], sF[1] + 1, 6, eF[0], eF[1], 5, SKIN, fz, { bias: -1 });
-  px.capsule(eF[0], eF[1], 4.8, hdF[0], hdF[1], 5.4, SKIN, fz, { bias: -1 });
-  px.part();
+  // ONE BODY (the joint kit): skin, limbs and trunk share a part id; each arm and leg is one welded tube
+  const BID = px.body(1);
+  px.limb([[sF[0], sF[1] + 1], eF, hdF], [6, 4.9, 5.4], SKIN, fz, { bias: -1 });
   px.ellipse(hdF[0], hdF[1] + 0.4, 5, 4.6, SKIN, g2 > 0.5 ? 8.25 : fz + 0.1, { bias: -1 });
 
   // short bowed legs, big flat feet with pale nails
   for (const [hp, kn, an, z, b] of [[hF, kF, anF, 2, -1], [hN, kN, anN, 3, 0]]) {
-    px.part();
-    px.capsule(hp[0], hp[1], 6.2, kn[0], kn[1], 5, SKIN, z, { bias: b });
-    px.capsule(kn[0], kn[1], 4.8, an[0], an[1], 4, SKIN, z, { bias: b });
-    px.capsule(an[0] - 2.4, an[1] + 0.6, 2.9, an[0] + 8, an[1] + 1.3, 2.2, SKIN, z + 0.03, { bias: b });
+    px.limb([hp, kn, an], [6.2, 4.9, 4], SKIN, z, { bias: b });
+    px.capsule(an[0] - 2.4, an[1] + 0.6, 2.9, an[0] + 8, an[1] + 1.3, 2.2, SKIN, z + 0.03, { bias: b, weld: 2 });
     for (const x of [5.4, 7.6, 9.6]) px.dot(an[0] + x, an[1] + 2.2, NAIL, z + 0.04, { fix: b ? 2 : 3 });
   }
+  px.body(0);
 
   // the hide rags round the hips, the ragged hem a beat behind
   const kh = P[1] + 8, kf = P[0] + 11 - bx * 1.4 - bx2 * 0.8, kb = P[0] - 11 - bx * 1.8 - bx2 * 1.2, km = (t) => kb + (kf - kb) * t;
@@ -102,19 +100,19 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.toneLine(P[0] + 7, P[1] + 0.4, km(0.86), kh - 1.6, -1, kiltId);
 
   // the trunk: a slab of chest under a hump of back, the far shoulder showing past the head
-  px.part();
-  px.ellipse(sF[0] - 2, sF[1] + 1.6, 8, 7.4, SKIN, 3.9, { bias: -1 });
-  px.part(); const bodyId = px._pid;
+  px.body(1);
+  px.ellipse(sF[0] - 2, sF[1] + 1.6, 8, 7.4, SKIN, 3.9, { bias: -1, weld: 3 });
+  const bodyId = BID;
   px.poly([[C[0] - 15, C[1] + 2], [C[0] - 10, C[1] - 4.6], [C[0] + 7, C[1] - 4.6], [C[0] + 14, C[1] + 1], [C[0] + 15.6, C[1] + 9], [mix(C, P, 0.5)[0] + 15, mix(C, P, 0.5)[1]],
-    [P[0] + 12.6, P[1] - 6], [P[0] + 10.6, P[1] + 0.6], [P[0] - 10.4, P[1] + 0.6], [P[0] - 12.4, P[1] - 8], [mix(C, P, 0.5)[0] - 14.6, mix(C, P, 0.5)[1]], [C[0] - 16, C[1] + 9]], SKIN, 4, { round: 0.92, cast: 1 });
-  px.ellipse(C[0] - 4.6, C[1] - 2.4, 11.4, 7, SKIN, 4, { cast: 1 });
+    [P[0] + 12.6, P[1] - 6], [P[0] + 10.6, P[1] + 0.6], [P[0] - 10.4, P[1] + 0.6], [P[0] - 12.4, P[1] - 8], [mix(C, P, 0.5)[0] - 14.6, mix(C, P, 0.5)[1]], [C[0] - 16, C[1] + 9]], SKIN, 4, { round: 0.92 });
+  px.ellipse(C[0] - 4.6, C[1] - 2.4, 11.4, 7, SKIN, 4, { weld: 4 });
   px.toneLine(C[0] + 3, C[1] + 12.6, C[0] + 14, C[1] + 11.6, -1, bodyId);       // under the chest
   // the pot belly, paler, hanging over the rags
   const bl = mix(C, P, 0.7);
-  px.part(); const bellyId = px._pid;
-  px.ellipse(bl[0] + 4.6, bl[1] + 0.6, 11.6, 9.6, BELLY, 4.05, { cast: 1 });
+  px.ellipse(bl[0] + 4.6, bl[1] + 0.6, 11.6, 9.6, BELLY, 4.05, { wrap: true });
   px.dot(bl[0] + 9.4, bl[1] + 2.4, BELLY, 4.06, { fix: 0 });
-  px.toneLine(bl[0] - 3, bl[1] + 8.4, bl[0] + 10, bl[1] + 9, -1, bellyId);
+  px.toneLine(bl[0] - 3, bl[1] + 8.4, bl[0] + 10, bl[1] + 9, -1, BID);
+  px.body(0);
   // a rope of hide under the belly
   px.part();
   px.capsule(P[0] - 10.6, P[1] - 1.6, 1.1, P[0] + 10.8, P[1] - 1.4, 1.1, HIDE_D, 4.08);
@@ -154,18 +152,17 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the near arm over it all: a boulder of shoulder with moss on it, a forearm thicker than the arm, a fist like a ham
   // (hauled up over his head the arm passes BEHIND it, so the face stays open)
   const az = (p.nb || 0) > 0.5 ? 5.5 : 7.9;
-  px.part();
-  px.capsule(sN[0], sN[1] + 2, 6.6, eN[0], eN[1], 5.4, SKIN, az, { cast: 1 });
-  px.capsule(eN[0], eN[1], 5.2, hdN[0], hdN[1], 6, SKIN, az, { cast: 1, edge: true });
-  px.part(); const shId = px._pid;
-  px.ellipse(sN[0] - 0.6, sN[1] + 0.4, 9.2, 8, SKIN, 8, { cast: 1 });
+  px.body(1);
+  px.limb([[sN[0], sN[1] + 2], eN, hdN], [6.6, 5.3, 6], SKIN, az, { weld: 4, weldRoot: 9 });
+  const shId = BID;
+  px.ellipse(sN[0] - 0.6, sN[1] + 0.4, 9.2, 8, SKIN, 8, { weld: 5 });
   for (const [x, y, t] of [[-4.6, -5.4, 3], [-3.6, -5.6, 2], [-2.6, -5.2, 3], [-5.4, -4.4, 2], [-4.4, -4.4, 3], [-3.4, -4.4, 2], [-6.2, -3.2, 2], [0.6, -6.2, 2], [1.6, -6, 3], [1.2, -5, 2]]) px.dot(sN[0] + x, sN[1] + y, MOSS, 8.01, { fix: t });
   px.dot(sN[0] + 3.4, sN[1] + 1.6, SKIN, 8.01, { fix: 4 }); px.dot(sN[0] + 3.4, sN[1] + 2.6, SKIN, 8.01, { fix: 0 });       // a wart
   px.dot(sN[0] - 3.6, sN[1] + 3.4, SKIN, 8.01, { fix: 4 }); px.dot(sN[0] - 3.6, sN[1] + 4.4, SKIN, 8.01, { fix: 0 });
   px.toneLine(sN[0] - 5, sN[1] + 7.4, sN[0] + 5, sN[1] + 7.6, -1, shId);
-  px.part();
-  px.ellipse(hdN[0], hdN[1] + 0.4, 5.4, 5, SKIN, 8.3, { edge: true });
+  px.ellipse(hdN[0], hdN[1] + 0.4, 5.4, 5, SKIN, 8.3, { weld: 3 });
   px.dot(hdN[0] + 2.4, hdN[1] - 1, SKIN, 8.31, { fix: 1 }); px.dot(hdN[0] + 3, hdN[1] + 1.4, SKIN, 8.31, { fix: 1 });
+  px.body(0);
 
   return { head: K(CL + 2, 0) };
 };

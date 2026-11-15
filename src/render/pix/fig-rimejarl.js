@@ -70,19 +70,18 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the far arm, fixed to the haft: the second hand up the shaft (an elbow solved by hand)
   const at = axeAt(hdN, p.axe ?? 0.5);
   const gF = at(-p.span || -8.5), eFx = [(sF[0] + gF[0]) / 2 - 1.4, Math.max(sF[1], gF[1]) * 0.3 + (sF[1] + gF[1]) * 0.35 + 3];
-  px.part();
-  px.capsule(sF[0], sF[1], 2.7, eFx[0], eFx[1], 2.4, MAIL_D, 1, { bias: -1 });
-  px.capsule(eFx[0], eFx[1], 2.4, gF[0], gF[1], 2, MAIL_D, 1, { bias: -1 });
+  // ONE BODY (the joint kit): arms and legs are welded tubes; wraps, greaves and fur cuffs are wrapped on them
+  const BID = px.body(1);
+  px.limb([sF, eFx, gF], [2.7, 2.4, 2], MAIL_D, 1, { bias: -1 });
   // legs: wool wraps, greaves, fur cuffs
   for (const [h, k, a, z, b] of [[hF, kF, anF, 2, -1], [hN, kN, anN, 3, 0]]) {
-    px.part();
-    px.capsule(h[0], h[1], 3.2, k[0], k[1], 2.6, WOOL, z, { bias: b });
-    px.capsule(k[0], k[1], 2.6, a[0], a[1], 2.1, WOOL, z, { bias: b });
+    px.limb([h, k, a], [3.2, 2.6, 2.3], WOOL, z, { bias: b });
     const w0 = mix(k, a, 0.4);
-    px.capsule(w0[0], w0[1], 2.6, a[0], a[1], 2.3, LEATHER, z + 0.03, { bias: b });
-    px.capsule(a[0] - 0.4, a[1] + 0.5, 1.9, a[0] + 4.2, a[1] + 0.8, 1.4, LEATHER, z + 0.03, { bias: b });
-    px.capsule(w0[0] - 2.2, w0[1] - 0.2, 1.3, w0[0] + 2.2, w0[1] + 0.2, 1.3, FURW, z + 0.05, { bias: b });
+    px.capsule(w0[0], w0[1], 2.6, a[0], a[1], 2.3, LEATHER, z + 0.03, { bias: b, wrap: true });
+    px.capsule(a[0] - 0.4, a[1] + 0.5, 1.9, a[0] + 4.2, a[1] + 0.8, 1.4, LEATHER, z + 0.03, { bias: b, weld: 1.5 });
+    px.capsule(w0[0] - 2.2, w0[1] - 0.2, 1.3, w0[0] + 2.2, w0[1] + 0.2, 1.3, FURW, z + 0.05, { bias: b, wrap: true });
   }
+  px.body(0);
   // the hauberk to the knee, a leather belt with a silver buckle
   const hem = P[1] + 5.6, hF2 = P[0] + 6.6 - vx * 0.8, hB = P[0] - 7 - vx * 1.4 - vx2 * 0.6;
   px.part(); const mId = px._pid;
@@ -117,11 +116,11 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.dot(hx - 0.2, hy - 10, hot ? ICEHOT : STONE, 6.7, { fix: 3 });
 
   // the near arm and the axe, both hands on the haft; its blade furred with rime
-  px.part();
-  px.capsule(sN[0], sN[1] + 0.6, 2.7, eN[0], eN[1], 2.4, MAIL, 7.9, { cast: 1 });
-  px.capsule(eN[0], eN[1], 2.4, hdN[0], hdN[1], 2.1, MAIL, 7.9, { cast: 1 });
+  px.body(1);
+  px.limb([[sN[0], sN[1] + 0.6], eN, hdN], [2.7, 2.4, 2.3], MAIL, 7.9, { weld: 2, weldRoot: 3 });
   const c0 = mix(eN, hdN, 0.7);
-  px.capsule(c0[0], c0[1], 2.4, hdN[0], hdN[1], 2.3, FURW, 7.95, { cast: 1 });
+  px.capsule(c0[0], c0[1], 2.4, hdN[0], hdN[1], 2.3, FURW, 7.95, { wrap: true });
+  px.body(0);
   {
     const k = 1.55;
     px.part();
@@ -136,9 +135,10 @@ export const draw = (px, { sk, lag1, lag2 }) => {
     for (const f of [L - 4.6, L - 1.8, L + 1]) px.dot(...at(f, -1.2), RIME, 8.16, { noLine: true });
     px.dot(...at(L - 6.6, 0), hot ? ICEHOT : STONE, 8.17, { fix: 3 });
   }
-  px.part();
-  px.ellipse(hdN[0], hdN[1], 2.2, 2.2, SKIN, 8.3);
-  px.ellipse(gF[0], gF[1], 2, 2, SKIN, 8.3);
+  px.body(1);
+  px.ellipse(hdN[0], hdN[1], 2.2, 2.2, SKIN, 8.3, { weld: 1.5 });
+  px.ellipse(gF[0], gF[1], 2, 2, SKIN, 8.3, { weld: 1.5 });
+  px.body(0);
 
   const k = cl(g, 0, 1.4);
   return { light: k > 0.05 ? { x: hx, y: hy - 5, r: 18 + 24 * cl(k, 0, 1), col: "#9ad8f2", k: Math.min(k, 0.45) } : null, blade: at(L - 1, 3), head: [hx, hy] };
