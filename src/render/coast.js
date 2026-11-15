@@ -43,7 +43,11 @@ import { REALM } from "../data/maps.js";
 import { nearestOnPath, PTS } from "../engine/path.js";
 import { wallDrums, TOWER, GATE_TOWER_N, GATE_TOWER_S } from "../data/castle.js";
 import { COAST, DECOR, coastLine, forestDepthAt } from "../data/terrain.js";
-import { lighten, darken, mix, rgb, rgba, hash, inkOutline, PX } from "./paint.js";
+import { lighten, darken, mix, rgb, rgba, hash, inkOutline as inkOld, PX } from "./paint.js";
+import { tintRing } from "./scenery-gwpix.js";
+import { prefs } from "../data/prefs.js";
+// New sprites: the one-pixel tinted line; off: the old two-pixel ring.
+const inkOutline = (cv) => (prefs.newSprites !== false ? tintRing(cv) : inkOld(cv));
 // (rivers and their mouths are water.js's; read defensively, it may not export them yet)
 import * as WATER from "./water.js";
 

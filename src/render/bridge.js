@@ -23,6 +23,7 @@
 
 import { BRIDGES, RIVERS, CHEVRONS, archAt, inRiver, BRIDGE_HALF, BRIDGE_RISE } from "../data/terrain.js";
 import { REALM } from "../data/maps.js";
+import { prefs } from "../data/prefs.js";
 import { PX, SUN, INK_LINE, rgb, rgba, hash } from "./paint.js";
 
 // ---- the kinds ---------------------------------------------------------
@@ -207,6 +208,9 @@ const inkData = (img, passes, skip = null, ox = 0, oy = 0) => {
   for (let i = 0; i < n; i++) {
     if (d[i * 4 + 3] > 110) { d[i * 4 + 3] = 255; ring[i] = 1; } else d[i * 4 + 3] = 0;
   }
+  // New sprites: the line is tinted from the stone, plank or beam it hugs,
+  // lighter where the sun reaches (the upper left), as the other props'.
+  const tinted = prefs.newSprites !== false;
   for (let pass = 0; pass < passes; pass++) {
     const next = new Uint8Array(ring);
     for (let y = 0; y < h; y++) {
@@ -216,7 +220,17 @@ const inkData = (img, passes, skip = null, ox = 0, oy = 0) => {
         if ((x > 0 && ring[i - 1]) || (x < w - 1 && ring[i + 1]) || (y > 0 && ring[i - w]) || (y < h - 1 && ring[i + w])) {
           if (skip && skip(ox + x, oy + y)) continue;
           const k = i * 4;
-          d[k] = INK[0]; d[k + 1] = INK[1]; d[k + 2] = INK[2]; d[k + 3] = 235; next[i] = 1;
+          if (tinted) {
+            let r = 0, g = 0, b = 0, c = 0, lit = 0;
+            const take = (j, isLit) => { if (!ring[j]) return; r += d[j * 4]; g += d[j * 4 + 1]; b += d[j * 4 + 2]; c++; if (isLit) lit++; };
+            if (x > 0) take(i - 1, false);
+            if (x < w - 1) take(i + 1, true);
+            if (y > 0) take(i - w, false);
+            if (y < h - 1) take(i + w, true);
+            const m = lit * 2 >= c ? 0.42 : 0.58;
+            d[k] = Math.round(r / c * (1 - m) + 36 * m); d[k + 1] = Math.round(g / c * (1 - m) + 26 * m); d[k + 2] = Math.round(b / c * (1 - m) + 38 * m); d[k + 3] = 240;
+          } else { d[k] = INK[0]; d[k + 1] = INK[1]; d[k + 2] = INK[2]; d[k + 3] = 235; }
+          next[i] = 1;
         }
       }
     }
@@ -1034,7 +1048,7 @@ const bakeSpan = (b0, pal) => {
   drawWing(wingFront);
 
   // everything above is one silhouette: ink it (bare where the road runs on)
-  outlineSpan(S, B, 2);
+  outlineSpan(S, B, prefs.newSprites !== false ? 1 : 2);
 
   // ---- rails and posts / pillars and lamps (thin ink of their own) ---------
   const RL = layerOf(S);
@@ -1716,7 +1730,7 @@ const pillarsStone = (S, R, F, P, posts, stoneT) => {
 // finds them ready); baking another realm's spans lets the old ones go.
 const CACHE = new Map();
 const spriteOf = (b, pal) => {
-  const key = [REALM.id, PX, b.x, b.y, b.a, b.d0, b.d1, pal ? JSON.stringify(pal) : ""].join("|");
+  const key = [REALM.id, PX, b.x, b.y, b.a, b.d0, b.d1, pal ? JSON.stringify(pal) : "", prefs.newSprites !== false ? "n" : "o"].join("|");
   if (b._spr && b._spr.key === key) return b._spr;
   let spr = CACHE.get(key);
   if (!spr) {
