@@ -16,6 +16,7 @@ import { prefs } from "../data/prefs.js";
 import { nearestOnPath, SEGS } from "./path.js";
 import { aimDeg, quantAim, rotAbout, leadPoint } from "./aim.js";
 import * as bowmanFig from "../render/pix/fig-bowman.js";
+import * as skiffFig from "../render/pix/fig-skiff.js";
 import * as archerFig from "../render/pix/fig-archer.js";
 import * as fieldbowFig from "../render/pix/fig-fieldbow.js";
 import * as bonearcherFig from "../render/pix/fig-bonearcher.js";
@@ -101,9 +102,14 @@ export const shellFrom = (t) => {
 // A River Watch skiff's ball at the muzzle as the shot kicks: the gunner in
 // the bow (rigs-skiff.js skiffMuzzle; enemies.js drawSkiff stands the rig
 // SKIFF_LIFT under u.y, bobbing on the water, facing u.face).
-export const skiffShotFrom = (u, time) => {
+// With "New sprites" and an aim (u.aimDeg, quantized, in the skiff's own frame) the ball leaves the gun as
+// it is drawn turned (fig-skiff.js AIM, art/briefs/aim-contract.md); with none, today's fixed muzzle.
+export const skiffFeet = (u, time) => [u.x, u.y + SKIFF_LIFT + skiffBob(time, u.id)];
+export const skiffShotFrom = (u, time, deg = 0) => {
+  const [fx, fy] = skiffFeet(u, time), f = u.face < 0 ? -1 : 1;
+  if (deg && aimOn() && skiffFig.AIM) { const [rx, ry] = rotAbout(skiffFig.AIM.pivot, skiffFig.AIM.muzzle, deg); return [fx + f * rx / 2, fy + ry / 2]; }
   const [mx, my] = skiffMuzzle("kick");
-  return [u.x + (u.face < 0 ? -1 : 1) * mx, u.y + SKIFF_LIFT + skiffBob(time, u.id) + my];
+  return [u.x + f * mx, fy + my];
 };
 
 // A bowman of the bands (Wren, her retinue's archers): the bow hand at full
@@ -186,7 +192,7 @@ export const flaskFrom = (t) => {
 // AIM export is picked up the moment it exists.
 const AIM_OF = {
   bow: () => bowmanFig.AIM, long: () => bowmanFig.AIM_LONG, hero: () => archerFig.AIM, field: () => fieldbowFig.AIM,
-  siege: () => engineerFig.SIEGE_AIM, bone: () => bonearcherFig.AIM, crossbow: () => crossbowFig.AIM, errant: () => errantbowFig.AIM,
+  skiff: () => skiffFig.AIM, siege: () => engineerFig.SIEGE_AIM, bone: () => bonearcherFig.AIM, crossbow: () => crossbowFig.AIM, errant: () => errantbowFig.AIM,
 };
 const musketAim = (gun) => { const a = musketeerFig.AIM; return a && !a.pivot ? a[gun] || a.plain : a; };
 const aimOn = () => typeof document !== "undefined" && prefs.newSprites !== false;

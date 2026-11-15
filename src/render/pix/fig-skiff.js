@@ -79,10 +79,21 @@ const MOTION = (gun, row) => {
   if (gun === "ramA" || gun === "ramB") { const s = Math.sin(t + (gun === "ramB" ? Math.PI : 0)); m.dy += 0.25 * s; m.lean += 0.04 * s; m.dx += 0.3 * s; }
   return m;
 };
-const drawGunner = (px, K, gun, row = 4) => {
+// THE AIM (art/briefs/aim-contract.md): in the shooting clips the gun and both hands turn rigidly about one fixed
+// point by `aim` degrees (0 level, negative up the screen); the body leans a little into it. The pivot is a point in the
+// kick pose by the stock, independent of the body's motion, so AIM below holds at every frame.
+const AIMED = new Set(["aim", "raise", "kick", "recoil"]);
+const turn = ([px, py], [x, y], deg) => { const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r), dx = x - px, dy = y - py; return [px + dx * c - dy * s, py + dx * s + dy * c]; };
+const unitAt = (gun, u, v) => { const m = musketPoint(gun, GUN_LEN, u, v); return [GUNNER_AT[0] + m.x, GUNNER_AT[1] + m.y]; };
+const PIV = unitAt("kick", -2, 0.4);
+// the aim contract's table: pivot and muzzle (kick pose, aim 0), art px from the anchor facing +x
+export const AIM = { pivot: PIV.map((v) => v * 2), muzzle: unitAt("kick", GUN_LEN, -0.2).map((v) => v * 2) };
+const drawGunner = (px, K, gun, row = 4, aim = 0) => {
   const M = MOTION(gun, row);
+  if (!AIMED.has(gun)) aim = 0;
+  M.lean += Math.max(-1, Math.min(1, aim / 50)) * 0.12;
   const p0 = POSE[gun] || POSE.port, p = { ...p0, hip: [p0.hip[0] + M.dx, p0.hip[1] + M.dy], lean: p0.lean + M.lean, head: [p0.head[0] + M.hx, p0.head[1] + M.hy] };
-  const [gx, gy] = GUNNER_AT, at = (u, v) => { const m = musketPoint(gun, GUN_LEN, u, v); return [gx + m.x, gy + m.y]; };
+  const [gx, gy] = GUNNER_AT, at = (u, v) => { const q = unitAt(gun, u, v); return aim ? turn(PIV, q, aim) : q; };
   const hip = [gx + p.hip[0], gy - 8.4 + p.hip[1]], sh = rot(p.lean, 1.8, -7.2).map((v, i) => v + hip[i]), nk = [sh[0] + 0.4 + p.head[0], sh[1] - 2.6 + p.head[1]];
   const hd = [nk[0] + 0.3, nk[1] - 2.0];
   const farSh = [sh[0] - 2.6, sh[1] + 0.4];
@@ -149,14 +160,15 @@ const drawRower = (px, row) => {
 };
 
 export const draw = (px, F, o = {}) => {
-  const K = kitOf(o.variant), p = F.sk.p || {}, gun = p.gun || "port", row = p.row | 0;
+  const [vname, vaim] = (o.variant || "").split("@"), aim = +vaim || 0;
+  const K = kitOf(vname), p = F.sk.p || {}, gun = p.gun || "port", row = p.row | 0;
   // inside her: the far side's planking in shade, its rail catching the light, ribs
   const nr = nearRail(0), fr = farRail();
   px.part(); px.poly([...fr, ...nr.slice().reverse()], INSIDE, 1, { round: 0.3, ny: 0.1 });
   for (let x = -10; x <= 11; x += 3.5) px.line(...W(x, -6.4 + Math.abs(x) * 0.06), ...W(x, -4.7), WOODD, 1.2, { noLine: true });
   polyline(px, fr, RAIL, 1.5, {});
   drawRower(px, row);
-  const muzzle = drawGunner(px, K, gun, row);
+  const muzzle = drawGunner(px, K, gun, row, aim);
   // her near side: the hull below the rail, wet-dark under the water, a lapped seam, a cream strake, a pale rail
   const hull = [...nr, ...quad([15, -5.9], [13.4, 1.6], [8, 3.1], 6).map(([x, y]) => W(x, y)).slice(1), ...[[-9, 3.1]].map(([x, y]) => W(x, y)), ...quad([-9, 3.1], [-13.1, 2.7], [-13.7, 0.4], 5).map(([x, y]) => W(x, y)).slice(1)];
   px.part(); const hid = px._pid;

@@ -9,7 +9,7 @@ Who aims (the owner's list): Archer hall bowmen; the Archer hall's siege bow / B
 the castle wall archers; the castle ballistas; the Powder Works musketeer; Wren; the field
 bowmen (Wren's archers, the Levy's archers); your crossbowmen (Crossbow Company `errantBow`,
 Hale's `crossbow` men); the foe Crossbowmen and Barrow Archers. NOT the Wizard Spire (its
-bolts curve on purpose), the bombardier, the catapult, skiffs, Sunforge, Falconry, Ysolde.
+bolts curve on purpose), the bombardier, the catapult, Sunforge, Falconry, Ysolde.
 
 ## The angle
 - `aim`: the shot's angle in the shooter's OWN facing frame, in degrees: 0 = level ahead,
@@ -61,3 +61,10 @@ bolts curve on purpose), the bombardier, the catapult, skiffs, Sunforge, Falconr
 - Sims: the hit rule is unchanged, only start points and flight lines move: expect the sims
   within noise (run `node scripts/sim.mjs --level gw1 --endure` and `--level ir3 --endure`
   before and after and report).
+
+
+## Added 2026-11-15: the River Watch gunner aims (owner)
+fig-skiff.js reads `@deg` in aim / raise / kick / recoil (gun and hands about one pivot, clamp
++-40 in a boat); `AIM_OF.skiff`, `skiffShotFrom(u, time, deg)`, `u.aimDeg` eased in update.js's
+River Watch loop; pixrigs.js `aimClips` lets a figure take the aim on clips other than `atk`. His
+shot stays instant (the ball is an effect, the damage lands at once), so no lead.

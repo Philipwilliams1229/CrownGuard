@@ -25,7 +25,7 @@ import { registerSeaTools, seaHold } from "./serpent.js";
 import { tickWeather, WX, canSee, floodFoe, floodUnit } from "./weather.js";
 import { leadPoint, easeAim } from "./aim.js";
 import { quantAim, aimDeg } from "./aim.js";
-import { facing, musketFacing, planShot, bowFeet, wallFeet, bandFeet, foeFeet, musketFeet, bandKey, foeKey, arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, MUSKET_LIFE, syncBirds } from "./muzzles.js";
+import { facing, musketFacing, planShot, bowFeet, wallFeet, bandFeet, foeFeet, musketFeet, bandKey, foeKey, arrowFrom, wallArrowFrom, staffFrom, muzzleFrom, shellFrom, flaskFrom, bandArrowFrom, foeShotFrom, falconCount, falconKind, wheelAt, gloveBirdAt, skiffShotFrom, skiffFeet, MUSKET_LIFE, syncBirds } from "./muzzles.js";
 
 // ---- the Falconry's stoops ------------------------------------------------------
 // A cast bird reaches its prey STOOP_HIT ms later (following it down) and is
@@ -2517,8 +2517,11 @@ export function updateGame(g, dt) {
         const [nx] = rt.at(Math.min(rt.total, u.sd + 6));
         u.x = bx; u.y = by;
         u.state = mark ? "moving" : "rally";
-        if (!mark) { u.face = nx >= bx ? 1 : -1; return; }
+        if (!mark) { u.face = nx >= bx ? 1 : -1; u.aimDeg = 0; if (u._ar) u._ar.a = undefined; return; }
         u.face = mark.x >= u.x ? 1 : -1;
+        // the gunner turns his musket to the mark between shots (u.aimDeg, eased; his boat keeps it to +-40)
+        const sar = u._ar || (u._ar = {}), SW = planShot(null, tms, skiffFeet(u, g.time), u.face, "skiff", skiffShotFrom(u, g.time), 0, [mark.x, mark.y - 6]);
+        u.aimDeg = quantAim(Math.max(-40, Math.min(40, easeAim(sar, "a", Math.max(-40, Math.min(40, SW.deg)), sdt))));
         if (Math.hypot(mark.x - u.x, mark.y - u.y) > st.range || u.atkCd > 0) return;
         if (rt._spans.length && underBridge(u.x, u.y)) return;   // no shooting from under the deck
         // the musket goes off from the bow (the Fireships' hot shot bursts in
@@ -2526,7 +2529,7 @@ export function updateGame(g, dt) {
         u.atkCd = st.rate;
         u.swing = 200;
         u.targetId = mark.id;
-        const [mzx, mzy] = skiffShotFrom(u, g.time);
+        const [mzx, mzy] = skiffShotFrom(u, g.time, u.aimDeg || 0);
         g.effects.push({ type: "musket", x: mzx, y: mzy, tx: mark.x, ty: mark.y - 6, ttl: MUSKET_LIFE, life: MUSKET_LIFE, fire: !!st.burn, splash: st.splash || 0 });
         sfx.play(st.splash ? "boom" : "musket");
         dealDamage(g, mark, st.dmg, "phys", !!st.pierce, false, t.id);

@@ -283,7 +283,7 @@ const drawSkiff = (ctx, u, t, time) => {
   const since = u.atkCd > 0 ? rate - u.atkCd : Infinity;
   const gun = skiffGunPose(since, rate, { hunting, clock: time + u.id * 1.37, turned: time - m.turned });
   const row = underway ? skiffRowFrame(time + u.id * 0.29) : "rest";
-  drawRig(ctx, t.branch === "a" ? "skiffA" : t.branch === "b" ? "skiffB" : "skiff", u.x, ay, u.face, "walk", `${gun}.${row === "rest" ? 4 : row}`);
+  drawRig(ctx, t.branch === "a" ? "skiffA" : t.branch === "b" ? "skiffB" : "skiff", u.x, ay, u.face, "walk", `${gun}.${row === "rest" ? 4 : row}`, "", 1, hunting ? u.aimDeg || 0 : 0);
   // the water the near oar works (live: foam takes no ink; none over dry ground)
   const bl = skiffBlade(row), bx = u.x + u.face * bl.x, by = ay + bl.y;
   if (bl.wet >= 1) {

@@ -129,9 +129,9 @@ export const PIX = {
   assassinUnitBA: { fig: mk("blade", blade), variant: "ba", atk: "attack", hit: 0.5, legacy: [0, 4, 6, 8], fx: true },
   assassinUnitBB: { fig: mk("blade", blade), variant: "bb", atk: "attack", hit: 0.5, legacy: [0, 4, 6, 8], fx: true },
   // the River Watch's skiff, a look per hall branch; the frame is "<gun pose>.<row 0-4>" (fig-skiff.js)
-  skiff: { fig: mk("skiff", skiff), variant: "base", atk: "kick", hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
-  skiffA: { fig: mk("skiff", skiff), variant: "a", atk: "kick", hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
-  skiffB: { fig: mk("skiff", skiff), variant: "b", atk: "kick", hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
+  skiff: { fig: mk("skiff", skiff), variant: "base", atk: "kick", aimClips: ["aim", "raise", "recoil"], hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
+  skiffA: { fig: mk("skiff", skiff), variant: "a", atk: "kick", aimClips: ["aim", "raise", "recoil"], hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
+  skiffB: { fig: mk("skiff", skiff), variant: "b", atk: "kick", aimClips: ["aim", "raise", "recoil"], hit: 0.5, legacy: [0, 0, 0, 0], fx: false },
   // ---- the Greenwood horde ----
   goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
   goblinBare: { fig: mk("goblin", goblin), variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },
@@ -240,7 +240,7 @@ const clipFrame = (d, sheet, frame) => {
 // figure reads it as "<variant>@<deg>" (art/briefs/aim-contract.md); only the shooting clip takes it
 export const pixRec = (type, sheet, frame, left = false, aim = 0) => {
   const d = PIX[type], [clip, f] = clipFrame(d, sheet, frame);
-  const v = aim && clip === d.atk ? `${d.variant || ""}@${aim}` : d.variant;
+  const v = aim && (clip === d.atk || d.aimClips?.includes(clip)) ? `${d.variant || ""}@${aim}` : d.variant;
   return bakeFrame(d.fig, clip, f, { flip: left, variant: v });
 };
 
