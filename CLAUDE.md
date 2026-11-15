@@ -168,6 +168,10 @@ C bold for three heroes, two figures per army and the ground. The owner picked, 
 - **The other chapters' ground** (second concept page, "Crownguard Environment Concepts: Iron,
   Hollow, Rime"; renderers `concept/scenery-{iron,hollow,rime}.js`): **Iron B, Hollow B,
   Rime C.** look-c.js's `turf` (Iron) and `marsh` (Hollow) dials were eased to half the push.
+- **The castle: B** (private Artifact "Crownguard Castle Concepts"; `concept/castle-concept.js`,
+  `castle-concept.html`), and the owner's main ask: "the turret being too close to the top
+  of the gate. That's really what I want fixed" (the north gate tower, `GATE_TOWER_N` in
+  data/castle.js). The title castle (`ui/titleArt.js`) follows after the board's.
 The rest of each army follows its picks (Iron leans B, Hollow A-B, Rime C).
 **The whole roster is in** (2026-11-14, Sonnet artists in two waves, the lead wiring `PIX`
 and checking each group with `rigshot.html`): every hero, the crown's soldiers (garrison,
