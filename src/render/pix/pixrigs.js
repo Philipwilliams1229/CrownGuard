@@ -38,6 +38,10 @@ import * as bat from "./fig-bat.js";
 import * as dragon from "./fig-dragon.js";
 import * as thrall from "./fig-thrall.js";
 import * as berserker from "./fig-berserker.js";
+import * as huscarl from "./fig-huscarl.js";
+import * as rimeseer from "./fig-rimeseer.js";
+import * as skald from "./fig-skald.js";
+import * as rimejarl from "./fig-rimejarl.js";
 import * as risen from "./fig-risen.js";
 import * as friar from "./fig-friar.js";
 import * as captain from "./fig-captain.js";
@@ -117,6 +121,12 @@ export const PIX = {
   berserker: { fig: mk("berserker", berserker), atk: "attack", hit: 0.52, per: 4.4, legacy: [0, 3, 6, 8], fx: true },
   // (raging he walks at 0.8 of his pace: per follows)
   berserkerRage: { fig: mk("berserker", berserker), variant: "rage", atk: "attack", hit: 0.52, per: 3.5, legacy: [0, 3, 6, 8], fx: true },
+  huscarl: { fig: mk("huscarl", huscarl), atk: "attack", hit: 0.56, per: 3.2, legacy: [0, 5, 7, 9], fx: true },
+  // (the shroud: freezeCd runs down to each freeze and is reset to freezeEvery)
+  rimeseer: { fig: mk("rimeseer", rimeseer), atk: "attack", hit: 0.56, per: 2.7, legacy: [0, 5, 7, 9], fx: true, casts: [{ clip: "freeze", clock: "freezeCd", every: "freezeEvery", lead: 700, hold: 800 }] },
+  // (his "chant" clip is drawn, unused: the engine keeps no clock for the war-chant)
+  skald: { fig: mk("skald", skald), atk: "attack", hit: 0.54, per: 3.2, legacy: [0, 4, 6, 8], fx: true },
+  rimejarlfoot: { fig: mk("rimejarl", rimejarl), atk: "attack", hit: 0.56, per: 2.6, legacy: [0, 6, 7, 9], fx: true, casts: [{ clip: "song", clock: "freezeCd", every: "freezeEvery", lead: 800, hold: 900 }] },
   necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 3, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
 };
 export const hasPix = (type) => prefs.newSprites !== false && Object.prototype.hasOwnProperty.call(PIX, type);
