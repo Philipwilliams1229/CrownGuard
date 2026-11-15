@@ -7,8 +7,13 @@
 // `hit`, snap, lower, crank, seat the next bolt). `attack` is the same clip.
 import { mat, flat } from "./pix.js";
 import { solve, sampleKeys, walkPose, HUMAN, scaled, clamp, ik } from "./rig.js";
+import { stampFace } from "./bowlayers.js";
 
 export const BONES = scaled(HUMAN, 1.2, { thigh: 9.8, shin: 9.2, ankle: 2.4, spine: 13.6, neck: 1.8, shN: -2.6, shF: 3, hipN: -1.4, hipF: 1.6 });
+// the layer rules (bowlayers.js, the bows'), checked at every aim by scripts/pix-audit.mjs: the arbalest (stock, prod,
+// string, bolt) is never drawn across the face, and no arm or hand covers an eye. The face sits above the stock and
+// below the arms; the eyes sit above everything.
+export const MUST = [["stock", "notOver", "face"], ["prod", "notOver", "face"], ["string", "notOver", "face"], ["bolt", "notOver", "face"], ["farHand", "notOver", "eyes"], ["nearArm", "notOver", "eyes"], ["nearHand", "notOver", "eyes"]];
 export const BOX = { w: 72, h: 86, ox: 20, oy: 80 };   // taller: the stock rises well above the head at a steep upward aim
 const ARM = BONES.upper + BONES.fore;
 
@@ -47,7 +52,7 @@ const aimOf = (v) => { const a = parseFloat(String(v || "").split("@")[1]); retu
 const rotAbout = (c, pt, th) => { const k = Math.cos(th), n = Math.sin(th), dx = pt[0] - c[0], dy = pt[1] - c[1]; return [c[0] + dx * k - dy * n, c[1] + dx * n + dy * k]; };
 const STOCK_L = 25;   // the arbalest's length from butt to nose (draw's L)
 const leg = (px, h, k, an, z, b) => {
-  px.part();
+  px.tag(b < 0 ? "legFar" : "legNear"); px.part();
   px.capsule(h[0], h[1], 2.3, k[0], k[1], 2.0, HOSE, z, { bias: b, floor: 1 });
   px.capsule(k[0], k[1], 1.9, an[0], an[1] - 2.5, 1.6, HOSE, z, { bias: b, floor: 1 });
   px.capsule(k[0] * 0.45 + an[0] * 0.55, k[1] * 0.45 + an[1] * 0.55, 2.0, an[0], an[1], 1.8, BOOT, z + 0.02, { bias: b, floor: 1 });
@@ -68,14 +73,14 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   const hx = Math.round(N[0]), hy = Math.round(N[1]);
 
   // the far arm in its quilted sleeve, behind the body
-  px.part();
+  px.tag("farArm"); px.part();
   px.capsule(sF[0], sF[1], 2.1, eF[0], eF[1], 2.0, PADK, 1, { bias: -1 });
   px.capsule(eF[0], eF[1], 2.0, hdF[0], hdF[1], 1.7, PADK, 1, { bias: -1 });
   leg(px, hF, kF, anF, 2, -1);
   leg(px, hN, kN, anN, 3, 0);
 
   // the bolt box on the back hip, fletchings standing out of it
-  px.part();
+  px.tag("torso"); px.part();
   const bx = P[0] - 7.4 - vx * 0.8, by = P[1] - 0.6;
   px.poly([[bx - 2.4, by - 3], [bx + 2.4, by - 3], [bx + 2.8, by + 3.6], [bx - 2.8, by + 3.6]], LEATHER, 3.5, { round: 0.8, cast: 1 });
   px.rect(bx - 2.4, by - 0.6, 4.8, 0.9, BRASS, 3.52, { noLine: true });
@@ -105,7 +110,8 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the head
   px.part();
-  px.stamp(p.blink ? blink(KETTLE) : KETTLE, hx, hy, LEG, 6, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] });
+  stampFace(px, p.blink ? blink(KETTLE) : KETTLE, hx, hy, LEG, 6, th < -0.6 ? 7.7 : 7.15, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] }, "SsNbElzTe", "E", 7.9);   // the face over the stock, under the arms (over them too when the shot is steeply up: the arms rise past the head); the eyes over all
+  px.tag("head");
   px.dot(hx + 3, hy - 8, BRASS, 6.1, { fix: 3 });
   {   // the plume, rooted on the crown, a beat behind
     const pl = cl(vx * 2 + vx2 * 1.5, -3, 3) * 0.8, rx = hx + 0.5, ry = hy - 11;
@@ -119,12 +125,12 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   const butt = [hdN[0] - u[0] * gb, hdN[1] - u[1] * gb], tip = [butt[0] + u[0] * L, butt[1] + u[1] * L];
   const at = (a, b) => [butt[0] + u[0] * a + w[0] * b, butt[1] + u[1] * a + w[1] * b];
   const z = 7;
-  px.part();
+  px.tag("stock"); px.part();
   px.capsule(...at(0, 0), 1.9, ...at(7, 0), 1.5, WOOD, z, { edge: true });           // the butt and the grip
   px.capsule(...at(7, 0), 1.3, ...at(L, 0), 1.0, WOOD, z, { edge: true });           // the tiller
   px.capsule(...at(L - 4, 0.2), 1.2, ...at(L - 3, 0.2), 1.2, BRASS, z + 0.02);         // the nose cap
   px.capsule(...at(11, 0), 1.35, ...at(13.6, 0), 1.35, IRON, z + 0.03);               // the trigger-box band
-  px.part();
+  px.tag("prod"); px.part();
   const st = p.str ?? 1, flex = 2.6 * st, ends = [-1, 1].map((s) => at(L - 1 - flex, s * 8.4));
   // the prod, a bowed steel lath, thicker at the middle; the stirrup ring forward of it
   px.capsule(...at(L - 1, 0), 1.5, ...at(L - 1 - flex * 0.5, 4.2), 1.2, IRON, z + 0.05, { edge: true });
@@ -135,25 +141,27 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   const ring = at(L + 1.4, 0); px.ellipse(ring[0], ring[1], 1.7, 2.4, IRONK, z + 0.04, { noLine: true });
   // the string: drawn back to the nut when cocked, straight across the prod's ends when loosed
   const nut = at(L - 8 + (1 - st) * 7, 0);
+  px.tag("string");
   px.line(...ends[0], ...(st > 0.35 ? nut : at(L - 1, 0)), CORD, z + 0.06, { noLine: true });
   px.line(...ends[1], ...(st > 0.35 ? nut : at(L - 1, 0)), CORD, z + 0.06, { noLine: true });
   // the bolt laid in its groove with a steel head past the nose
   if ((p.bolt ?? 1) > 0.5) {
-    px.part();
+    px.tag("bolt"); px.part();
     px.line(...at(L - 9, 1.5), ...at(L + 2, 1.5), BOLT, z + 0.1, { noLine: true });
     px.poly([at(L + 2, 1.5), at(L + 0.2, 2.5), at(L + 0.2, 0.5)], STEELB, z + 0.11, { noLine: true });
     px.dot(...at(L - 9, 1.5), FLETCH, z + 0.11, { fix: 3 });
   }
 
   // the far hand under the tiller (the arm runs behind the body)
-  px.part(); px.ellipse(hdF[0], hdF[1], 1.7, 1.7, LEATHER, z + 0.2, { bias: -1 });
+  px.tag("farHand"); px.part(); px.ellipse(hdF[0], hdF[1], 1.7, 1.7, LEATHER, z + 0.2, { bias: -1 });
   // the near arm: a quilted sleeve, a leather wrist guard, the fist on the grip, the trigger finger
   const zn = z + 0.4;
-  px.part();
+  px.tag("nearArm"); px.part();
   px.capsule(sN[0], sN[1] + 0.3, 2.3, eN[0], eN[1], 2.1, PAD, zn, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.1, hdN[0], hdN[1], 1.8, PAD, zn, { cast: 2 });
   px.capsule(eN[0] * 0.3 + hdN[0] * 0.7, eN[1] * 0.3 + hdN[1] * 0.7, 1.9, eN[0] * 0.14 + hdN[0] * 0.86, eN[1] * 0.14 + hdN[1] * 0.86, 1.9, LEATHER, zn + 0.02);
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.8, 1.8, LEATHER, zn + 0.2);
+  px.tag("nearHand"); px.part(); px.ellipse(hdN[0], hdN[1], 1.8, 1.8, LEATHER, zn + 0.2);
+  px.tag(null);
   const muzzle = at(L + 2, 1.5);
   return { C, hand: hdN, muzzle, flash: p.flash || 0, ca, th, marks: { muzzle, hand: hdN } };
 };

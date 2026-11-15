@@ -6,6 +6,10 @@
 //   edge   edge darkening between two parts of one creature
 // seam = pairs + cast + edge, averaged per frame (the default ranking: a big figure has more joints
 // to be rough at); `by=rel` ranks per 1000 figure pixels instead. Worst first. Hand-pixelled cells (fix) are ignored.
+// Part 2: the layer rules. A figure may export `MUST = [["string", "notOver", "face"], ...]`: every clip, frame
+// and aim from -70 to +70 in steps of 10 is baked and each rule checked against the tag buffer (px.tag) and the
+// footprints the figure leaves in `px.foot` (the pixels a part such as the face covers when nothing is on top):
+// "notOver": no pixel of the footprint `b` may be tagged `a`. Any violation fails the run (exit 1), `must=0` skips it.
 //   node scripts/pix-audit.mjs [top=20] [by=rel] [only=mammoth,troll] [root=<dir holding src/>] [json=out.json]
 import fs from "node:fs";
 const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
@@ -42,4 +46,26 @@ const f1 = (x) => x.toFixed(1).padStart(7);
 console.log("rank figure          frames  px/fr   pairs    cast    edge   seam/fr  seam per 1000 px");
 rows.slice(0, top).forEach((r, i) => console.log(String(i + 1).padStart(4), r.fig.padEnd(15), String(r.frames).padStart(6), String(r.px).padStart(6), f1(r.pairs), f1(r.cast), f1(r.edge), f1(r.seam), "  ", r.score.toFixed(2)));
 console.log(`(${rows.length} figures scored)`);
+// ---- part 2: the layer rules (MUST) -------------------------------------------------------
+let broken = 0;
+if (q.must !== "0") for (const fig of L.figs) {
+  if (fig.error || !fig.mod.MUST || (only && !only.some((s) => fig.name.includes(s)))) continue;
+  const { mod } = fig, bad = new Map(), seen = new Set(); let cases = 0;
+  for (const aim of [-70, -60, -50, -40, -30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70]) for (const [cn, clip] of Object.entries(mod.CLIPS)) for (const v of (mod.MUST_VARIANTS || [""])) for (let f = 0; f < clip.n; f++) {
+    const F = L.rig.frameAt(clip, f, mod.BONES), px = new L.Pix(mod.BOX.w, mod.BOX.h, mod.BOX.ox, mod.BOX.oy);
+    mod.draw(px, F, { flip: false, variant: v + "@" + aim }); cases++;
+    for (const [a, rule, b] of mod.MUST) {
+      const ia = px.tagNames ? px.tagNames.indexOf(a) : -1, fp = px.foot && px.foot[b];
+      if (rule !== "notOver" || ia < 1 || !fp) continue;
+      seen.add(a + " " + b);
+      let n = 0; for (const k of fp) if (px.tg[k] === ia) n++;
+      if (n) { const key = `${a} ${rule} ${b}`; (bad.get(key) || bad.set(key, []).get(key)).push(`${cn}#${f}@${aim}${v ? "[" + v + "]" : ""}(${n}px)`); }
+    }
+  }
+  const nb = [...bad.values()].reduce((x, y) => x + y.length, 0); broken += nb;
+  console.log(`MUST ${fig.name.replace(/^fig-/, "")}: ${cases} frames at 15 aims, rules checked ${[...seen].join(", ") || "none"}: ${nb ? nb + " VIOLATIONS" : "all pass"}`);
+  for (const [k, v] of bad) console.log("   ", k, v.length, "frames, e.g.", v.slice(0, 5).join(" "));
+}
 if (q.json) fs.writeFileSync(q.json, JSON.stringify(rows, null, 1));
+
+if (broken) process.exit(1);

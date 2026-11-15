@@ -1553,6 +1553,21 @@ every other figure is pixel-identical); the mammoth is the worked example.
   scripts/pix-regress.mjs hash out=a.json root=<HEAD copy>` then the same on the repo and
   `diff a.json b.json`: only the figures you meant to change may differ.
 
+### Layer rules and the MUST check (2026-11-15)
+
+Clipping (a weapon behind a shield, a string across a face) is fixed with named layers, not
+bare z numbers: `layers(names, rules)(pose, aim)` returns a z per name; rules are plain data
+(`{ when: (p, aim) => aim < -12, put: "bowUpper", above: "hood" }`). The bows share one rule
+set in `pix/bowlayers.js` (bowman, fieldbow, bonearcher; the bow split into bowUpper / bowGrip
+/ bowLower, the face stamped above string and arrow). Feed rules the aim times the pose's aim
+weight (`aw`), so a figure at rest never reorders. Every key of a clip that rotates with aim
+names its own `aw` (a key without one inherits its neighbour's and the weight sticks).
+A figure exports `MUST = [["string","notOver","face"], ["shield","visible",0.4], ...]` (and
+optional `MUST_VARIANTS`); `node scripts/pix-audit.mjs` bakes every clip and frame at 15 aims
+and fails on any broken rule (`must=0` skips it). Tag the parts a rule names with `px.tag`.
+`node scripts/pix-regress.mjs` hashes every figure's frames and marks: run it before and
+after any kit or figure change and expect only the figures you meant to change to differ.
+
 ## The new halls: buildings in the pixel sculptor (2026-11-14)
 
 The owner asked for the tower BUILDINGS to match the new figures, saw three

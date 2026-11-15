@@ -739,6 +739,15 @@ Bring these up with the owner; don't act on them unasked.
   resampled to art pixels each frame, ~6k pixel reads a log: watch it on an older iPhone)
   are redrawn; the Archer hall's level 3 is timber-topped, its green path stone-topped.
   The kraken is parked (may not ship).
+  **Joints and clipping (2026-11-15, Fable's plan `art/briefs/joints-clipping-plan.md`):**
+  the joint kit (one body per creature, welded limb chains, wrap, depth along a part, named
+  layers, tags; style guide "The joint kit") is applied to the mammoth, troll, frost giant,
+  amalgam, crypt warden, Hollow King, Marshal, Rime Jarl, Champion, the horse, boar, wolves,
+  gryphon and sea serpent; clipping fixed on the bows and crossbows (all aims) and the levy,
+  unhorsed knight, sergeant shields and the war-eagle's wing. NOT yet touched: the approved
+  figures (Aldric, Wren, mage, goblin, orc, necromancer: show the owner a before / after
+  first; the orc ranks 7th for seams) and the rest of the roster by the audit's ranking
+  (ram, eagle body, captain, ironclad, levy's joints...).
   **Old-style sweep (2026-11-15):** `art/briefs/old-style-sweep.md` lists what still drew
   old; `art/briefs/props-artist.md` is the brief. Done that day: every decor piece's ring
   is the tinted one-pixel line (scenery.js decorSprite, `tintRing` in scenery-gwpix.js;
