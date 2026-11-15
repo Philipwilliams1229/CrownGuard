@@ -11,6 +11,7 @@
 import { CHAPTERS, LEVELS as ALL_LEVELS, isUnlocked } from "../data/campaign.js";
 import { MAX_STARS } from "../data/profile.js";
 import { hash, darken, rgb, ball, blobBall, cone, inkOutline } from "../render/paint.js";
+import { inkTint } from "../render/inktint.js";
 import { canvasFont, typeEpoch } from "./fonts.js";
 
 export const U = 2;                         // art pixels per map unit
@@ -453,6 +454,9 @@ function* paintBase() {
   const P = BIOME.map((b) => ({ lo: rgb(b.lo), mid: rgb(b.mid), hi: rgb(b.hi), alt: rgb(b.alt), sand: rgb(b.sand), cliff: b.cliff.map(rgb), lip: rgb(darken(b.lo, 0.35)) }));
   const S = { deep: rgb(SEA.deep), mid: rgb(SEA.mid), shal: rgb(SEA.shal), reef: rgb(SEA.reef), foam: rgb(SEA.foam), swell: rgb(SEA.swell), ink: rgb(INK),
     cDeep: rgb(COLD.deep), cMid: rgb(COLD.mid), cShal: rgb(COLD.shal), cReef: rgb(COLD.reef) };
+  // the coast's line is the new style's tinted one: the ink with a share of
+  // the country's own darkest ground in it (the bold chapters keep less ink)
+  const TINT = P.map((p, z) => { const k = z === 0 || z === RZ ? 0.3 : 0.4; return S.ink.map((v, n) => Math.round(v + (p.lip[n] - v) * k)); });
 
   for (let y = 0; y < h; y++) {
   if (y && y % (h >> 3) === 0) yield;   // (in eighths: each stage stays short)
@@ -463,7 +467,7 @@ function* paintBase() {
       const p = P[z];
       // the coast's own ink ring
       const edge = (x > 0 && !land[i - 1] && !cliff[i - 1]) || (x < w - 1 && !land[i + 1] && !cliff[i + 1]) || (y > 0 && !land[i - w]);
-      if (edge) { put(i, S.ink); continue; }
+      if (edge) { put(i, TINT[z]); continue; }
       // the lip where the land turns into its cliff: a dark line
       if (y < h - 1 && cliff[i + w]) { put(i, p.lip); continue; }
       // slope toward the sun lit, away from it dark
@@ -490,8 +494,8 @@ function* paintBase() {
     if (cliff[i]) {
       const p = P[z], j = cliff[i];
       // the bottom of the face meets the sea in ink
-      if (y < h - 1 && !solid[i + w]) { put(i, S.ink); continue; }
-      if (y < h - 2 && !solid[i + 2 * w]) { put(i, S.ink); continue; }
+      if (y < h - 1 && !solid[i + w]) { put(i, TINT[z]); continue; }
+      if (y < h - 2 && !solid[i + 2 * w]) { put(i, TINT[z]); continue; }
       const strata = (vnoise(x, y * 3, 6, 41) > 0.62) ? 1 : 0;
       const tone = j <= 1 ? 0 : j <= 3 ? 1 : 2;
       put(i, p.cliff[Math.min(2, tone + strata)]);
@@ -500,7 +504,7 @@ function* paintBase() {
     // the sea, banded out from the coast
     const dist = sea.D[i];
     const n = vnoise(x, y, 9, 51) * 3;
-    if (dist <= 1.5) { put(i, S.ink); continue; }
+    if (dist <= 1.5) { put(i, TINT[sea.L[i]] || S.ink); continue; }
     // north of the strait the sea turns cold (dithered in), and carries ice
     // (the ice before the surf: no foam on a fast-ice sheet)
     const my = y / U + MAP.y;
@@ -548,7 +552,7 @@ const bake = (w, h, draw, ink = 1) => {
   c.scale(U, U);
   draw(c);
   crisp(cv);
-  if (ink) inkOutline(cv, INK, ink);
+  if (ink) inkTint(cv, INK, ink);
   return cv;
 };
 // A full-map layer drawn in map units, hardened, optionally edged.
@@ -557,7 +561,7 @@ const layer = (draw, edge = null) => {
   toArt(c);
   draw(c);
   crisp(cv);
-  if (edge) inkOutline(cv, edge, 1);
+  if (edge) inkTint(cv, edge, 1);
   return cv;
 };
 // The same, but only a box of the map (x0, y0, w, h in map units): far
@@ -567,7 +571,7 @@ const layerBox = (x0, y0, w, h, draw, edge = null) => {
   c.setTransform(U, 0, 0, U, -x0 * U, -y0 * U); c.imageSmoothingEnabled = false;
   draw(c);
   crisp(cv);
-  if (edge) inkOutline(cv, edge, 1);
+  if (edge) inkTint(cv, edge, 1);
   return cv;
 };
 const artX = (x) => Math.round((x - MAP.x) * U), artY = (y) => Math.round((y - MAP.y) * U);
