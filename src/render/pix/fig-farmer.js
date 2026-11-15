@@ -103,7 +103,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the weapon: from the near hand along the haft
   const ha = yeo ? swordAngle(sk) : (p.ha ?? 0), hg = p.hg ?? 17, { u, v } = axes(ha);
-  const ov = (p.over || 0) > 0.5, zs = ov ? 8.6 : 7;
+  const ov = (p.over || 0) > 0.5, zs = yeo ? 9 : ov ? 8.6 : 7;   // the yeoman's sword and arm stay over his buckler (z 8.5) wherever they cross it
   let info = {};
   if (!yeo) {
     const butt = [hdN[0] - u[0] * hg, hdN[1] - u[1] * hg], top = [butt[0] + u[0] * LONG, butt[1] + u[1] * LONG];
@@ -139,7 +139,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   }
 
   // the near arm: rolled sleeve, bare forearm, the fist on the haft (over the haft in the jab)
-  const zn = ov ? 8.9 : 8;
+  const zn = yeo ? 9.5 : ov ? 8.9 : 8;
   px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.3, 2.2, eN[0], eN[1], 1.9, JERKIN, zn, { cast: 2 });
   px.capsule(eN[0], eN[1], 1.9, hdN[0], hdN[1], 1.6, SKIN, zn, { cast: 2 });

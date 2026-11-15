@@ -107,10 +107,11 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   // the head
   const hx = Math.round(N[0]), hyy = Math.round(N[1]);
   // the plume: a short tuft rooted on the crown, streaming back a beat behind
+  const Z0 = KZ({}).head;   // the plume sits just over the helm, UNDER the near arm and the sword
   const pl = cl(vx * 2 + vx2 * 1.5, -3, 3) - sway * 0.5, rx0 = hx + 0.5, ry0 = hyy - 10;
   px.part();
-  px.capsule(rx0, ry0 - 0.5, 1.3, rx0 - 2 - pl * 0.4, ry0 - 2.4, 1.8, L.plume, 6.5);
-  px.capsule(rx0 - 2 - pl * 0.4, ry0 - 2.4, 1.8, rx0 - 4.8 - pl, ry0 - 1.2 + Math.abs(pl) * 0.3, 1.2, L.plume, 6.5);
+  px.capsule(rx0, ry0 - 0.5, 1.3, rx0 - 2 - pl * 0.4, ry0 - 2.4, 1.8, L.plume, Z0 + 0.02);
+  px.capsule(rx0 - 2 - pl * 0.4, ry0 - 2.4, 1.8, rx0 - 4.8 - pl, ry0 - 1.2 + Math.abs(pl) * 0.3, 1.2, L.plume, Z0 + 0.02);
   px.part();
   const Z = KZ({});
   stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2 }, "SsNEelb");
