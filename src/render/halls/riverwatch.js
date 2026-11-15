@@ -23,6 +23,8 @@ import {
 import { drawStander } from "../folk.js";
 import { clipToWater } from "../waterreach.js";
 import * as standerFig from "../pix/fig-stander.js";
+import * as riverHall from "../pix/hall-riverwatch.js";
+import { hallOn, hallPix, drawHallBack } from "../pix/halls.js";
 import { crew, crewOn, drawCrewPix, loopFrame, fracFrame, markOf } from "../pix/crews.js";
 
 // the new sprites' watchman (pix/fig-stander.js, the "watch" looks: a coat a branch)
@@ -222,23 +224,30 @@ export const drawRiverwatchHall = (ctx, t, time) => {
     if (r4 === "bb") { const r = 2 + ((time * 4) % 4); ctx.beginPath(); ctx.ellipse(x + CAPSTAN, y + 10, r, r * 0.35, 0, 0, 7); ctx.stroke(); }
   }
   ctx.restore();
-  if (bake) stamp(ctx, cache.get(`jetty|${t.level}|${t.branch}|${t.rank4}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintJetty(c, t, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
+  // the new jetty (pix/hall-riverwatch.js): the building, its pennant, beacon flame and cauldron
+  // fire, the lantern's light on the boards; the ripples above, the smoke and the watchman stay
+  // as they were. t.noFolk draws it too (the watchman is the only crew, and he is skipped).
+  const H = bake && hallOn() ? hallPix("riverwatch", riverHall, { level: t.level, branch: t.branch, rank4: t.rank4 }, t.id % 3) : null;
+  const lit = 0.7 + 0.3 * Math.sin(time * 3 + t.id);
+  if (H) drawHallBack(ctx, H, x, y, time, { id: t.id, k: { lamp: lit } });
+  else if (bake) stamp(ctx, cache.get(`jetty|${t.level}|${t.branch}|${t.rank4}`, BOX.left + BOX.right, BOX.up + BOX.down, (c) => paintJetty(c, t, BOX.left, BOX.up)), x, y, BOX.left, BOX.up);
   else paintJetty(ctx, t, x, y);
   // the watch lantern
   const lx = x - hw + 2;
-  const lit = 0.7 + 0.3 * Math.sin(time * 3 + t.id);
-  glow(ctx, lx - 4.2, y - 19, 6, "#e8c14a", 0.55 * lit);
+  if (!H) glow(ctx, lx - 4.2, y - 19, 6, "#e8c14a", 0.55 * lit);
   // fire and smoke
   if (t.branch === "b" && r4 !== "bb") {
     for (let i = 0; i < 3; i++) { const k = ((time * 0.5 + i / 3 + t.id * 0.13) % 1); soft(ctx, x + hw - 5 + Math.sin(time + i * 2) * 2, y - 14 - k * 16, 2 + k * 3.5, 2 + k * 3.5, [[0, `rgba(58,50,56,${0.45 * (1 - k)})`], [1, "rgba(58,50,56,0)"]]); }
-    glow(ctx, x + hw - 5, y - 6, 4, "#f0903a", 0.6 + 0.2 * Math.sin(time * 6));
+    if (!H) glow(ctx, x + hw - 5, y - 6, 4, "#f0903a", 0.6 + 0.2 * Math.sin(time * 6));
   }
   if (r4 === "ba") {
     const fl = Math.sin(time * 13 + t.id);
     const bx = x + BEACON;
-    glow(ctx, bx, y - 44, 11, "#f0903a", 0.45 + fl * 0.1);
-    ctx.fillStyle = "#e8602a"; ctx.beginPath(); ctx.moveTo(bx - 5, y - 42); ctx.quadraticCurveTo(bx - 3 + fl, y - 50, bx + fl, y - 53); ctx.quadraticCurveTo(bx + 3, y - 48, bx + 5, y - 42); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#f8d060"; ctx.beginPath(); ctx.moveTo(bx - 3, y - 42); ctx.quadraticCurveTo(bx, y - 47 - fl, bx + 3, y - 42); ctx.closePath(); ctx.fill();
+    if (!H) {
+      glow(ctx, bx, y - 44, 11, "#f0903a", 0.45 + fl * 0.1);
+      ctx.fillStyle = "#e8602a"; ctx.beginPath(); ctx.moveTo(bx - 5, y - 42); ctx.quadraticCurveTo(bx - 3 + fl, y - 50, bx + fl, y - 53); ctx.quadraticCurveTo(bx + 3, y - 48, bx + 5, y - 42); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#f8d060"; ctx.beginPath(); ctx.moveTo(bx - 3, y - 42); ctx.quadraticCurveTo(bx, y - 47 - fl, bx + 3, y - 42); ctx.closePath(); ctx.fill();
+    }
     for (let i = 0; i < 2; i++) { const k = ((time * 0.4 + i * 0.5 + t.id * 0.1) % 1); soft(ctx, bx + k * 6, y - 56 - k * 16, 3 + k * 4, 3 + k * 4, [[0, `rgba(58,50,56,${0.4 * (1 - k)})`], [1, "rgba(58,50,56,0)"]]); }
   }
   // the watchman out on the boards: now and then he raises a glass to the
@@ -266,7 +275,8 @@ export const drawRiverwatchHall = (ctx, t, time) => {
   } else if (bake) stamp(ctx, cache.get(`watch|${t.branch}|${glass}|${fr}`, 26, 30, (c) => drawStander(c, 12, 27, 1, pal, { glass, frame: fr })), wx, wy, 12, 27, dir);
   else drawStander(ctx, wx, wy, dir, pal, { glass, frame: fr });
   // pennants: the admiral's is long and gold-crowned
-  if (r4 === "aa") {
+  if (H) { if (r4 === "aa" && Math.sin(time * 1.3 + t.id) > 0.9) glint(ctx, lx, y - 58, 1, 0.9); }
+  else if (r4 === "aa") {
     const wv = Math.sin(time * 4 + t.id) * 1.5;
     ctx.fillStyle = "#241a26";
     const mx = lx + 1;   // the pennant flies off the mast (which stands at the lantern post)
