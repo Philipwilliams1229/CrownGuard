@@ -47,8 +47,6 @@ import * as frostgiant from "./fig-frostgiant.js";
 import * as icedrake from "./fig-icedrake.js";
 import * as mammoth from "./fig-mammoth.js";
 import * as seaserpent from "./fig-seaserpent.js";
-import * as kraken from "./fig-kraken.js";
-import * as krakenarm from "./fig-krakenarm.js";
 import * as risen from "./fig-risen.js";
 import * as friar from "./fig-friar.js";
 import * as captain from "./fig-captain.js";
@@ -187,8 +185,8 @@ export const PIX = {
   // the sea monsters (drawn at the waterline by rigs-rimebeasts.js drawSeaRig; seized victims
   // are still painted by its old drawSeaHold)
   seaserpent: { fig: mk("seaserpent", seaserpent), atk: "attack", hit: 0.55, legacy: [0, 4, 5, 7], fx: false },
-  kraken: { fig: mk("kraken", kraken), atk: "attack", hit: 0.55, legacy: [0, 2, 4, 6], fx: false },
-  krakenarm: { fig: mk("krakenarm", krakenarm), atk: "attack", hit: 0.5, legacy: [0, 2, 4, 6], fx: true },
+  // (kraken: fig-kraken.js is drawn but held back: the seized-victim coil (drawSeaHold) is still the old painter, and the body needs another pass)
+  // (krakenarm: fig-krakenarm.js is drawn but held back: the seized-victim coil (drawSeaHold) is still the old painter, and the body needs another pass)
   necro: { fig: mk("necro", necro), atk: "strike", hit: 0.54, per: 3, legacy: [0, 5, 6, 8], fx: true, casts: [{ clip: "raise", clock: "raiseCd", every: "raiseEvery", lead: -1, hold: 900 }] },
 };
 export const hasPix = (type) => prefs.newSprites !== false && Object.prototype.hasOwnProperty.call(PIX, type);

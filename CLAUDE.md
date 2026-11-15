@@ -165,7 +165,22 @@ C bold for three heroes, two figures per army and the ground. The owner picked, 
 - **Rime:** thrall **C**; berserker **C**.
 - **Ground and trees: C** (bolder), "but don't make the lanes in the road so obvious".
   The castle wall in that sheet was a stand-in: the castle gets its own concept round.
-The rest of each army follows its picks (Iron leans B, Hollow A-B, Rime C). Figures in
+The rest of each army follows its picks (Iron leans B, Hollow A-B, Rime C).
+**The whole roster is in** (2026-11-14, Sonnet artists in two waves, the lead wiring `PIX`
+and checking each group with `rigshot.html`): every hero, the crown's soldiers (garrison,
+Paladin, squire, militia farmer/yeoman, Knights Errant, Crossbow Company, Lancers as the
+cavalier's `errant` variant, Champion, field bowmen `fig-fieldbow.js`), all of Iron, Hollow
+and Rime, the war-mammoth, the sea serpent, the gryphon, the ram. NOT yet seen in the game
+by the owner. Held back or left:
+- **The kraken** (body and arm): `fig-kraken.js` / `fig-krakenarm.js` are drawn but NOT in
+  `PIX`: the body still read as a cartoon after two passes, and a seized victim's coil is
+  painted by the old `drawSeaHold` (rigs-rimebeasts.js), which would clash. Redo both together.
+- The skald's `chant` clip is drawn, unused: the engine keeps no clock for his war-chant.
+- Hale's crossbowmen use the Iron `crossbow` figure (they did before too).
+- Still old: the castle's people (wall bowmen, halberdiers: `fig-halberdier.js` drawn, not
+  wired), the build crew, the title crowd, the Covert's blades (rigs-covert.js).
+- Sea monsters ask for named frames (`"sub.2"`): pixrigs.js `clipFrame` reads them, and
+  drawSeaRig lays a new figure's `sub.*` at 0.55 alpha, the kraken's `deep.*` at 0.4. Figures in
 `src/render/pix/fig-{friar,captain,storm,levy,magister,risen,wraith,thrall,berserker}.js`;
 the scenery concept in `concept/scenery.js` + `scripts/scenery-render.mjs`.
 

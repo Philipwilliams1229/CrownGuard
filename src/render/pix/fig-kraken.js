@@ -79,7 +79,7 @@ export const draw = (px, F) => {
 
   // the mantle: a smooth tapering hood leaning back from the head, barnacled and scarred
   px.part(); const mid = px._pid;
-  const m0 = [-4, Y(-26)], m1 = [-14, Y(-H * 0.62)], m2 = [-22, Y(-H * 0.9)];
+  const m0 = [-4, Y(-26)], m1 = [-20, Y(-H * 0.55)], m2 = [-32, Y(-H * 0.86)];
   cap(px, m0, m1, 27, 19, KCOL, 4);
   cap(px, m1, m2, 19, 12, KCOL, 4); px.ellipse(m2[0] + 2, m2[1] + 3, 13, 11, KCOL, 4);
   px.ellipse(4, Y(-22), 31, 21, KCOL, 4.1);
