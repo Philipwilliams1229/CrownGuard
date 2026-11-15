@@ -39,6 +39,11 @@ import * as dragon from "./fig-dragon.js";
 import * as thrall from "./fig-thrall.js";
 import * as berserker from "./fig-berserker.js";
 import * as risen from "./fig-risen.js";
+import * as friar from "./fig-friar.js";
+import * as captain from "./fig-captain.js";
+import * as storm from "./fig-storm.js";
+import * as levy from "./fig-levy.js";
+import * as magister from "./fig-magister.js";
 import * as wraith from "./fig-wraith.js";
 
 const mk = (NAME, mod) => ({ ...mod, NAME });
@@ -48,7 +53,8 @@ const mk = (NAME, mod) => ({ ...mod, NAME });
 //         the foe's speed x the walk clip's seconds / 14, so it steps at the pace it was drawn at
 // legacy  the clip frames that stand for the old four fight frames (melee: guard,
 //         wind-up, strike, follow-through; a bowman: full draw, loose, reach, nock)
-// sky     the same for the old "sky" sheet (Wren's Arrow Volley)
+// sky     the same for the old "sky" sheet (Wren's Arrow Volley, Ysolde's Thunderclap)
+// sweep   the same for Hale's six-frame "sweep" sheet
 // fx      draw the clip's own effect layer (a blade's smear). Off where the
 //         engine already flies the real thing (Wren's arrow).
 // variant a look of the same figure (handed to its draw as o.variant): the bare-headed
@@ -60,6 +66,10 @@ const mk = (NAME, mod) => ({ ...mod, NAME });
 export const PIX = {
   heroKnight: { fig: mk("knight", knight), atk: "attack", hit: 0.5, legacy: [0, 4, 6, 7], fx: true },
   heroHunter: { fig: mk("archer", archer), atk: "attack", hit: 0.62, legacy: [7, 9, 10, 12], sky: [0, 1, 2, 3], fx: false },
+  // the newer heroes (owner's picks, 2026-11-14: Osric A, Hale C without the banner, Ysolde A)
+  heroFriar: { fig: mk("friar", friar), atk: "attack", hit: 0.56, legacy: [0, 4, 7, 9], fx: true },
+  heroCaptain: { fig: mk("captain", captain), atk: "attack", hit: 0.52, legacy: [0, 4, 6, 8], sweep: [0, 1, 2, 3, 4, 5], fx: true },
+  heroStorm: { fig: mk("storm", storm), atk: "attack", hit: 0.6, legacy: [0, 7, 8, 11], sky: [0, 1, 2, 3], fx: true },
   // ---- the Greenwood horde ----
   goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
   goblinBare: { fig: mk("goblin", goblin), variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },
@@ -76,6 +86,10 @@ export const PIX = {
   bat: { fig: mk("bat", bat), atk: "attack", hit: 0.56, legacy: [0, 2, 4, 5], fx: false },
   dragon: { fig: mk("dragon", dragon), atk: "attack", hit: 0.4, legacy: [0, 4, 6, 9], fx: true },
   // (his raise: the engine resets raiseCd to raiseEvery when the dead get up, and holds it at 0 while there are none)
+  // ---- the Iron Kingdom (owner's picks, 2026-11-14: levy B, the magister A with C's staff) ----
+  levy: { fig: mk("levy", levy), atk: "attack", hit: 0.5, per: 3.9, legacy: [0, 3, 5, 8], fx: true },
+  // (his aegis: wardCd runs down to each ward and is reset to wardEvery)
+  magister: { fig: mk("magister", magister), atk: "cast", hit: 0.54, per: 3.15, legacy: [0, 4, 7, 10], fx: true, casts: [{ clip: "ward", clock: "wardCd", every: "wardEvery", lead: 500, hold: 700 }] },
   // ---- the Hollow Court (owner's pick, 2026-11-14: Risen A, wraith B) ----
   skeleton: { fig: mk("risen", risen), atk: "attack", hit: 0.52, per: 3.5, legacy: [0, 3, 5, 7], fx: false },
   wraith: { fig: mk("wraith", wraith), atk: "attack", hit: 0.56, legacy: [0, 3, 5, 7], fx: true },
@@ -107,6 +121,8 @@ const clipFrame = (d, sheet, frame) => {
   if (sheet === "idle") { const c = C.idle; return ["idle", Math.floor(frac((f * 1000) / c.ms) * c.n) % c.n]; }
   if (sheet === "atk") { const c = C[d.atk]; return [d.atk, Math.max(0, Math.min(c.n - 1, Math.round(f * (c.n - 1))))]; }
   if (sheet === "sky" && d.sky) return ["sky", d.sky[(f | 0) % d.sky.length]];
+  // Hale's Halberd Sweep: its own six frames
+  if (sheet === "sweep" && d.sweep) return ["sweep", d.sweep[(f | 0) % d.sweep.length]];
   if (sheet === "fight" || sheet === "sky" || sheet === "sweep") return [d.atk, d.legacy[(f | 0) % 4] ?? 0];
   // "walk", a flier's "fly" (its walk clip is its wingbeat), or a marching cast: all loops in step
   const name = C[sheet] && C[sheet].loop ? sheet : "walk", c = C[name]; return [name, Math.floor(frac(f / 4) * c.n) % c.n];
