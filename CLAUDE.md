@@ -190,8 +190,14 @@ and apron.js read through `punchRamp` / `punchCols` / `toneOf`, plus `rich()` fo
 dirt, stronger worn verge and pebbles, NO grass crown, ruts faint and broken (owner). The
 Greenwood's oaks, pines, willows and vale pieces got bigger lit crowns and ragged cast
 shadows (scenery.js, scenery-vale.js); Iron's trees share `leafClump` / `pineTree` and got
-some of it. Still old: the Iron paving, the fen flags, the Hollow / Rime pieces
-(scenery-iron/hollow/rime.js), bushes (world.js / apron.js `bushSprite`), the gate threshold.
+some of it. Then each chapter in its own pick: Iron B (scenery-iron.js: spruce, Scots pine,
+crags, drystone wall and milestone re-sculpted in pix/pix.js, dappled cast shadows), Hollow B
+(scenery-hollow.js: flags, wet sheen, peat, shadows, stepped wisp glow), Rime C
+(scenery-rime.js + road.js's snow branch: blue-violet lee, bigger snow-laden spruce, rocks
+with a dark body; a forest-depth shade bug fixed). Still old: bushes (world.js / apron.js
+`bushSprite`), the gate threshold, the Rime longhouse / rack / whale bones / ship, the Iron
+wall's stile post. rimewatch / rimefjord are the old Frostfang boards: check the Rime on
+frostwake / whalebone.
 - Sea monsters ask for named frames (`"sub.2"`): pixrigs.js `clipFrame` reads them, and
   drawSeaRig lays a new figure's `sub.*` at 0.55 alpha, the kraken's `deep.*` at 0.4. Figures in
 `src/render/pix/fig-{friar,captain,storm,levy,magister,risen,wraith,thrall,berserker}.js`;

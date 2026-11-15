@@ -46,7 +46,8 @@ import {
   blobPath, blobBall, hash, ellipse, lin, bakeSprite, inkOutline, part, PX,
 } from "./paint.js";
 // the shared kit — called only inside painters, never at module load
-import { leafPart, leafClump, pineTree } from "./scenery.js";
+import { leafPart } from "./scenery.js";
+import { Pix, mat, toCanvas } from "./pix/pix.js";
 
 // ---- the Kingdom's colours and the country's -------------------------------
 const INK = "#241a26";
@@ -240,82 +241,174 @@ const brackenFan = (c, x, y, s, seed, green = false) => {
   }
 };
 
-// ---- trees -----------------------------------------------------------------
-// The highland (Scots) pine: a tall bare trunk, grey-brown below and fox-red
-// above where the bark flakes thin, carrying a few flat, dark pads of needles.
-const scotsPine = (ctx, x, y, s, o) => {
-  const H = (i) => hash(o.seed, i);
-  const base = y + 10;
-  const leaf = o.forest ? WOOD_SCOTS[o.band][o.v % 3] : [PINE_LEAF, "#3a5e4c", "#44684e", "#3c5c50"][o.v % 4];
-  shadow(ctx, x + 9 * s, base - 1, 15 * s, 4.6 * s, 0.24);
-  shadow(ctx, x + 1.5 * s, base, 5 * s, 1.8 * s, 0.3);
-  const lean = (H(1) - 0.5) * 7 * s, th = (27 + H(2) * 6) * s;
-  const tx = x + lean, ty = base - th;
-  // trunk and limbs
-  leafPart(ctx, (c) => {
-    c.beginPath();
-    c.moveTo(x - 2.6 * s, base + 0.5); c.quadraticCurveTo(x - 1.6 * s, base - th * 0.5, tx - 1.1 * s, ty);
-    c.lineTo(tx + 1.1 * s, ty); c.quadraticCurveTo(x + 1.8 * s, base - th * 0.5, x + 2.6 * s, base + 0.5); c.closePath();
-    c.fillStyle = lin(c, 0, ty, 0, base, [[0, SCOTS_BARK], [0.45, mix(SCOTS_BARK, "#6a5040", 0.5)], [1, "#5e4a3c"]]); c.fill();
-    c.save(); c.clip();
-    c.fillStyle = rgba("#2a1c2c", 0.35); c.fillRect(x + 0.3 * s + lean * 0.5, ty, 4 * s, th + 2);
-    c.fillStyle = rgba("#fff3d2", 0.25); c.fillRect(x - 3 * s + lean * 0.3, ty, 1 * s, th * 0.6);
-    for (let i = 0; i < 5; i++) { c.fillStyle = "#4a382e"; px1(c, x - 1 * s + lean * (1 - (i + 1) / 6) + (H(i + 40) - 0.5) * 2 * s, base - th * (0.1 + i * 0.17), 1, 0.5); }
-    c.restore();
-    // limbs out to the pads
-    c.lineCap = "round"; c.strokeStyle = "#6a4a38"; c.lineWidth = 1.4 * s;
-    for (const [dx, dy] of [[-8, 6], [8, 3], [-3, -2]]) { c.beginPath(); c.moveTo(tx, ty + 4 * s); c.quadraticCurveTo(tx + dx * 0.5 * s, ty + dy * 0.2 * s, tx + dx * s, ty + dy * s - 2 * s); c.stroke(); }
-  }, INK, [x - 12 * s, ty - 4, x + 12 * s, base + 2], null);
-  // flat pads of needles: the high one widest and catching the light
-  const pads = [
-    [tx - (8 + H(3) * 3) * s, ty + (4 + H(4) * 3) * s, (7 + H(5) * 2) * s, 0.35],
-    [tx + (8 + H(6) * 3) * s, ty + (1 + H(7) * 3) * s, (7.5 + H(8) * 2) * s, 0.4],
-    [tx + (H(9) - 0.5) * 3 * s, ty - (5 + H(10) * 2) * s, (10 + H(11) * 2.5) * s, 0.85],
-  ];
-  if (H(12) > 0.45) pads.unshift([tx + (H(13) - 0.3) * 6 * s, ty + (10 + H(14) * 3) * s, 5.5 * s, 0.2]);
-  pads.forEach(([px, py, r, lit], i) => {
-    leafPart(ctx, (c) => {
-      c.save(); c.translate(px, py); c.scale(1, 0.62); c.translate(-px, -py);
-      leafClump(c, px, py, r, leaf, o.seed * 3 + i * 17, lit);
-      c.restore();
-    }, darken(leaf, 0.75), [px - r - 3, py - r * 0.7 - 3, px + r + 3, py + r * 0.7 + 3]);
-  });
-};
-
-const spruce = (ctx, x, y, s, o) => {
-  const leaf = o.forest ? WOOD_SPRUCE[o.band][o.v % 3] : ["#3e6a54", "#3a6250", "#44705a", "#365c4c"][o.v % 4];
-  pineTree(ctx, x, y, s * 1.04, leaf, "#5a4232", o.seed);
-};
-
-// ---- crags -------------------------------------------------------------------
-// Four kinds: a pinnacle with a shoulder, a tiered ledge, a split tor, a low
-// broken crag. Heather sits on the ledges; bracken at the foot.
-const crag = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed, v = o.forest ? (o.v % 2 ? 1 : 3) : o.v % 4;
-  const col = o.forest ? mix(darken(GRIT, 0.1 + o.band * 0.08), "#5a6a50", 0.15) : GRIT;
-  shadow(ctx, x + 6 * s, gy, 17 * s, 4.4 * s, 0.28);
-  if (v === 0) {
-    facet(ctx, x - 7 * s, gy - 2 * s, 8 * s, 17 * s, darken(col, 0.05), sd + 1);
-    facet(ctx, x + 2 * s, gy, 8.5 * s, 29 * s, col, sd + 2);
-    facet(ctx, x + 10 * s, gy + 1.5 * s, 5 * s, 8 * s, darken(col, 0.08), sd + 3, { flat: true });
-    heatherMound(ctx, x - 8 * s, gy - 18 * s, 0.8 * s, sd + 4);
-  } else if (v === 1) {
-    facet(ctx, x + 1 * s, gy - 3 * s, 12 * s, 20 * s, darken(col, 0.04), sd + 1, { flat: true });
-    facet(ctx, x - 3 * s, gy + 1 * s, 14 * s, 10 * s, col, sd + 2, { flat: true });
-    heatherMound(ctx, x + 3 * s, gy - 22 * s, 0.9 * s, sd + 3);
-    heatherMound(ctx, x - 9 * s, gy - 10 * s, 0.7 * s, sd + 5, true);
-  } else if (v === 2) {
-    facet(ctx, x - 6 * s, gy, 7 * s, 24 * s, col, sd + 1);
-    facet(ctx, x + 6 * s, gy - 1 * s, 6.5 * s, 19 * s, darken(col, 0.06), sd + 2);
-    facet(ctx, x + 1 * s, gy + 2 * s, 4 * s, 5 * s, lighten(col, 0.04), sd + 3, { flat: true });
-    heatherMound(ctx, x + 6 * s, gy - 20 * s, 0.7 * s, sd + 4);
-  } else {
-    facet(ctx, x - 3 * s, gy, 13 * s, 13 * s, col, sd + 1, { flat: true });
-    facet(ctx, x + 9 * s, gy + 1 * s, 5 * s, 7 * s, darken(col, 0.05), sd + 2);
-    heatherMound(ctx, x - 5 * s, gy - 13 * s, 0.85 * s, sd + 3);
+// ---- look B pieces: sculpted with the pixel sculptor (pix/pix.js) ------------------------
+// The Iron pieces in the owner's pick, look B ("worked"): stone by stone, tinted one-pixel line, scalloped
+// spruce tiers, lit needle clusters, dappled cast shadows (concept/scenery-iron.js, look "b"). Sculpted
+// in art pixels (RES per unit) round the piece's foot, baked into the decor sprite, so the piece keeps
+// its place; the Iron's own cold sage and grey, never the Greenwood's saturation.
+const h3 = (a, b = 0, c = 0) => hash(Math.floor(a * 97) + Math.floor(c * 31) * 7919, Math.floor(b * 89));
+const clampN = (v, a, b) => (v < a ? a : v > b ? b : v);
+const CRAG_MAT = () => mat(mix(GRIT, "#6c7468", 0.35), { contrast: 0.4 });
+// a dappled cast shadow on the turf: rows of whole art pixels, holes letting the turf through
+const pixShade = (ctx, x, gy, cx, cy, rx, ry, a, holes, seed = 1) => {
+  const q = 1 / RES;
+  ctx.fillStyle = rgba("#2a1c2c", a);
+  for (let j = Math.floor(cy - ry); j <= Math.ceil(cy + ry); j++) for (let i = Math.floor(cx - rx); i <= Math.ceil(cx + rx); i++) {
+    const u = (i + 0.5 - cx) / rx, v = (j + 0.5 - cy) / ry;
+    if (u * u + v * v > 1) continue;
+    if (holes && h3(i, j, seed) > 0.86 && Math.hypot(u, v) > 0.35) continue;
+    ctx.fillRect(x + i * q, gy + j * q, q, q);
   }
+};
+// resolve a sculpt and stamp it, its foot (0, 0) on (x, gy)
+const stampSculpt = (ctx, obj, x, gy) => {
+  const img = obj.resolve({ line: "tint" }), cv = toCanvas(img), q = 1 / RES;
+  ctx.drawImage(cv, x - img.ox * q, gy - img.oy * q, img.w * q, img.h * q);
+};
+const sculpt = (w, h, build, ctx, x, gy) => {
+  const obj = new Pix(w, h, w >> 1, h - 12);
+  build(obj);
+  stampSculpt(ctx, obj, x, gy);
+};
+const needleMats = (leaf) => [mix(leaf, "#142a2a", 0.38), mix(leaf, "#142a2a", 0.12), lighten(leaf, 0.16)].map((c) => mat(c));
+
+// spruce: a trunk, tiers of needles stacked to a leader, each tier lit on its left, dark on its right,
+// the hem scalloped, bright needle clusters on the sunward edge
+const spruce = (ctx, x, y, s, o) => {
+  const gy = y + 8, leaf = o.forest ? WOOD_SPRUCE[o.band][o.v % 3] : ["#3e6a54", "#3a6250", "#44705a", "#365c4c"][o.v % 4];
+  const sc = s * 1.7, seed = o.seed | 0, nt = 5, hgt = 46 * sc, wBase = 13 * sc;
+  const NEED = needleMats(leaf), BARK = mat("#6a4a30"), BARK_D = mat("#6a4a30", { contrast: 1.1 });
+  pixShade(ctx, x, gy, 7 * sc, 1.5, wBase * 1.05, 3.6 * sc, o.forest ? 0.3 : 0.34, true, seed);
+  sculpt(Math.ceil(wBase * 2.6) + 8, Math.ceil(hgt * 1.1) + 24, (obj) => {
+    const y0 = 0;
+    obj.part(); obj.capsule(0, y0, 2.6 * sc, 0.4, y0 - 10 * sc, 1.8 * sc, BARK, 0, { round: 0.9 });
+    obj.part(); obj.ellipse(-2.6 * sc, y0 - 0.4, 2 * sc, 1.2, BARK_D, 0.2, {});
+    obj.part(); obj.ellipse(2.8 * sc, y0 - 0.3, 2.2 * sc, 1.3, BARK_D, 0.2, {});
+    for (let t = 0; t < nt; t++) {
+      const f = t / (nt - 1), yb = y0 - 5 * sc - f * (hgt * 0.74), tw = wBase * (1 - f * 0.78), th = hgt * 0.34 * (1 - f * 0.25);
+      const mi = f > 0.66 ? 2 : f > 0.3 ? 1 : 0;
+      const pts = [[-tw * 0.1, yb - th], [tw * 0.12, yb - th], [tw, yb - 1], [tw * 0.5, yb + 1.5], [0, yb + 0.6], [-tw * 0.5, yb + 1.5], [-tw, yb - 1]];
+      obj.part(); obj.poly(pts, NEED[Math.min(1, mi)], -2 + t * 0.6, { round: 0.8, ny: 0.15 });
+      for (let k = 0; k < 5; k++) {
+        const fx = (k / 3.5 - 0.5) * 1.8 * tw, fy = yb + 0.4 + (Math.abs(fx) / tw) * -1.5;
+        obj.part(); obj.ellipse(fx, fy, tw * 0.28, 1.7 * sc, NEED[fx < 0 ? mi : Math.max(0, mi - 1)], -1.4 + t * 0.6, { round: 0.9, bias: fx < -tw * 0.3 ? 1 : 0 });
+      }
+      for (let k = 0; k < 3; k++) {
+        const ax = -tw * (0.15 + h3(k, seed, t) * 0.55), ay = yb - th * (0.15 + h3(k, seed, t + 7) * 0.6);
+        obj.part(); obj.ellipse(ax, ay, 1.6 * Math.max(1, sc * 0.8), 1.1 * Math.max(1, sc * 0.8), NEED[2], -1 + t * 0.6, { round: 0.9, bias: 1 });
+      }
+    }
+    const top = y0 - 5 * sc - hgt * 0.74 - hgt * 0.34;
+    obj.part(); obj.poly([[-0.9, top - 4 * sc], [0.9, top - 4 * sc], [0.4, top + 3]], NEED[2], 1, { round: 0.5 });
+  }, ctx, x, gy);
+};
+
+// Scots pine: a tall bare fox-red trunk and flat pads of needles, the high one widest, light upper left
+const scotsPine = (ctx, x, y, s, o) => {
+  const gy = y + 8, leaf = o.forest ? WOOD_SCOTS[o.band][o.v % 3] : ["#3e6450", "#3a5e4c", "#44684e", "#3c5c50"][o.v % 4];
+  const sc = s * 1.5, seed = o.seed | 0, th = (34+ h3(seed, 2) * 8) * sc, lean = (h3(seed, 1) - 0.5) * 6 * sc;
+  const PIN = needleMats(leaf), PBARK = mat(o.forest ? "#86492c" : "#9a5636", { contrast: 0.9 }), BARK_D = mat("#6a4a30", { contrast: 1.1 });
+  pixShade(ctx, x, gy, 8 * sc, 2, 14 * sc, 3.8 * sc, o.forest ? 0.3 : 0.34, true, seed);
+  sculpt(Math.ceil(34 * sc) + 10, Math.ceil(th * 1.3) + 24, (obj) => {
+    obj.part(); obj.capsule(0, 0, 2.2 * sc, lean, -th, 1.4 * sc, PBARK, 0, { round: 0.9 });
+    obj.part(); obj.ellipse(-2.8 * sc, -0.4, 2.2 * sc, 1.3, BARK_D, 0.2, {});
+    obj.part(); obj.ellipse(3 * sc, -0.3, 2.4 * sc, 1.4, BARK_D, 0.2, {});
+    obj.part(); obj.capsule(1.2, -2, 1.4 * sc, lean + 0.8, -th * 0.8, 0.5 * sc, mat("#a45f3c", { contrast: 1.1 }), 0.3, { round: 0.9, bias: -1 });
+    obj.part(); obj.capsule(lean * 0.5, -th * 0.56, 1.1 * sc, -8 * sc, -th * 0.62, 0.8 * sc, PBARK, 0.4, { round: 0.8 });
+    obj.part(); obj.capsule(lean * 0.8, -th * 0.7, 1.1 * sc, 9 * sc, -th * 0.74, 0.8 * sc, PBARK, 0.4, { round: 0.8 });
+    const pads = [[-9, th * 0.58, 8, 3.4], [8, th * 0.7, 8.5, 3.6], [-2, th * 0.88, 12, 4.4]];
+    if (h3(seed, 3) > 0.45) pads.push([-13, th * 0.8, 6, 2.8]);
+    if (h3(seed, 4) > 0.45) pads.push([12, th * 0.93, 6.5, 3]);
+    for (const [dx, dh, rx, ry] of pads) {
+      const cx = lean + dx * sc, cy = -dh, RX = rx * sc * 0.82, RY = ry * sc * 0.85;
+      obj.part(); obj.ellipse(cx + 0.8, cy + RY * 0.45, RX * 0.92, RY * 0.7, PIN[0], 1, { fix: 0 });
+      for (let i = 0; i < 8; i++) {
+        const ang = h3(i, seed, dx) * 6.28 + i, rad = 0.45 + h3(i, seed, 3) * 0.25;
+        const lx = Math.cos(ang) * RX * rad, ly = Math.sin(ang) * RY * rad * 0.7;
+        const t = clampN((-lx / RX * 0.6 - ly / RY * 0.9) * 0.5 + 0.5 + (h3(lx, ly, seed) - 0.5) * 0.25, 0, 1);
+        obj.part(); obj.ellipse(cx + lx, cy + ly - 0.5, RX * 0.45, RY * 0.52, PIN[t > 0.6 ? 2 : t > 0.3 ? 1 : 0], 2 + ly * 0.1 + h3(i, dx) * 0.4, { round: 0.92, bias: t > 0.5 ? 1 : 0 });
+      }
+      for (let i = 0; i < 3; i++) {
+        const fx = cx - RX * (0.1 + h3(i, seed, dx + 3) * 0.55), fy = cy - RY * (0.1 + h3(i, seed, dx + 9) * 0.55);
+        obj.part(); obj.ellipse(fx, fy, 1.5, 1, PIN[2], 3, { round: 0.9, bias: 1 });
+      }
+    }
+  }, ctx, x, gy);
+};
+
+// crag: faceted grit, a lit top and left face, a dark right face, an arris, a crack, moss in the crevices
+const cragBody = (obj, x, w, h, seed, MOSS) => {
+  const GRIT_M = CRAG_MAT(), J = (i) => h3(i, seed, 5) - 0.5, y = 0;
+  const pk = [[x - w * 0.5, y], [x - w * 0.42, y - h * 0.5 + J(1) * 3], [x - w * 0.12, y - h + J(2) * 2], [x + w * 0.2, y - h * 0.86 + J(3) * 2], [x + w * 0.5, y - h * 0.34 + J(4) * 2], [x + w * 0.5, y]];
+  const tp = pk[2];
+  obj.part(); obj.poly([pk[0], pk[1], tp, [tp[0] + w * 0.12, tp[1] + h * 0.45], [x + w * 0.02, y]], GRIT_M, 0, { n: [-0.38, 0.02, 0.8] });
+  obj.part(); obj.poly([tp, pk[3], pk[4], pk[5], [x + w * 0.02, y], [tp[0] + w * 0.12, tp[1] + h * 0.45]], GRIT_M, 0.2, { n: [0.34, 0.08, 0.78], bias: -1 });
+  obj.part(); obj.poly([tp, pk[3], [tp[0] + w * 0.46, tp[1] + h * 0.3], [tp[0] + w * 0.12, tp[1] + h * 0.45]], GRIT_M, 0.4, { n: [-0.12, -0.5, 0.8], bias: 1 });
+  obj.part(); obj.line(tp[0] + w * 0.12, tp[1] + h * 0.45, x + w * 0.02, y - 1, GRIT_M, 0.6, { bias: -1, noLine: true });
+  obj.part(); obj.line(x - w * 0.3, y - h * 0.25, x - w * 0.12, y - h * 0.6, GRIT_M, 0.6, { bias: -1, noLine: true });
+  obj.part(); obj.ellipse(x - w * 0.2, y - h * 0.08, w * 0.18, h * 0.07, MOSS, 0.8, { round: 0.6 });
+  obj.part(); obj.ellipse(x + w * 0.3, y - h * 0.02, w * 0.14, h * 0.05, MOSS, 0.8, { round: 0.6 });
+};
+const crag = (ctx, x, y, s, o) => {
+  const gy = y + 8, sd = o.seed | 0, v = o.forest ? (o.v % 2 ? 1 : 3) : o.v % 4, sc = s * 2.2;
+  const MOSS = mat(o.forest ? "#4a6a46" : "#5e7a4a");
+  const parts = v === 0 ? [[-4, 17, 27], [9, 12, 15]] : v === 1 ? [[0, 27, 19], [-9, 14, 10]] : v === 2 ? [[-7, 15, 26], [8, 14, 20]] : [[-3, 26, 13], [9, 9, 9]];
+  pixShade(ctx, x, gy, 8 * sc, 1, 21 * sc, 3.2 * sc, 0.32, false, sd);
+  sculpt(Math.ceil(60 * sc) + 10, Math.ceil(34 * sc) + 20, (obj) => {
+    parts.forEach(([dx, w, h], i) => cragBody(obj, dx * sc, w * sc, h * sc, sd + i * 3, MOSS));
+  }, ctx, x, gy);
+  const hm = v === 0 ? [-8, -18, 0.8] : v === 1 ? [3, -22, 0.9] : v === 2 ? [6, -20, 0.7] : [-5, -13, 0.85];
+  heatherMound(ctx, x + hm[0] * s * 1.1, gy + hm[1] * s * 1.1 * 0.9, hm[2] * s, sd + 4);
   brackenFan(ctx, x - 13 * s, gy + 2, 0.7 * s, sd + 9);
   if (hash(sd, 8) > 0.4) brackenFan(ctx, x + 15 * s, gy + 2.5, 0.6 * s, sd + 10, true);
+};
+
+// drystone wall: three rough courses, the lowest biggest, copes on edge cock and hen, moss at the foot
+const wallPix = (obj, x0, x1, y, seed, GRIT_M, GRIT2, MOSS, hC = 3.4) => {
+  for (let course = 0; course < 3; course++) {
+    for (let xx = x0 + (course & 1) * 3; xx < x1;) {
+      const w = 5.8 - course * 0.8 + h3(xx, course, seed) * 3.5, cx = xx + w / 2, cy = y - course * hC * 0.85 - hC * 0.5, t = h3(xx * 1.3, course, seed + 2);
+      obj.part(); obj.ellipse(cx, cy, Math.min(w / 2 + 0.5, x1 - cx + 1), hC * 0.62 + 0.2, t > 0.72 ? GRIT2 : GRIT_M, course * 0.5 + 0.2, { round: 0.85, bias: t < 0.15 ? -1 : t > 0.88 ? 1 : 0 });
+      xx += w;
+    }
+  }
+  for (let xx = x0 + 1, i = 0; xx < x1 - 2; i++) {
+    const tall = i % 2 === 0, w = 3.6 + h3(i, seed, 9) * 1.8, hh = tall ? 4.6 : 3.2;
+    obj.part(); obj.ellipse(xx + w / 2, y - 3 * hC * 0.85 - hh * 0.35, w / 2 + 0.2, hh * 0.55, GRIT_M, 2.2, { round: 0.8, bias: 1 });
+    xx += w + 0.2;
+  }
+  obj.part(); obj.ellipse(x0 + (x1 - x0) * 0.3, y - 0.8, 6, 1.5, MOSS, 3, { round: 0.6 });
+  obj.part(); obj.ellipse(x0 + (x1 - x0) * 0.72, y - 1.2, 4, 1.3, MOSS, 3, { round: 0.6 });
+};
+const drystone = (ctx, x, y, s, o) => {
+  const gy = y + 8, v = o.v % 4, sd = o.seed | 0, L = 72 * s;
+  const GRIT_M = CRAG_MAT(), GRIT2 = mat(mix(GRIT, "#968e98", 0.35)), MOSS = mat("#5e7a4a");
+  pixShade(ctx, x, gy, 2.5, 1.5, L / 2 + 3, 2.4, 0.3, false, sd);
+  sculpt(Math.ceil(L) + 16, 40, (obj) => {
+    if (v === 1) { wallPix(obj, -L / 2, -4, 0, sd, GRIT_M, GRIT2, MOSS); wallPix(obj, 6, L / 2, 0, sd + 1, GRIT_M, GRIT2, MOSS, 2.9); }
+    else wallPix(obj, -L / 2, L / 2, 0, sd, GRIT_M, GRIT2, MOSS);
+    if (v === 3) {
+      obj.part(); obj.rect(-3, -9, 7, 2.4, GRIT_M, 4, { round: 0.3, bias: 1 });
+      obj.part(); obj.rect(1, -15, 7, 2.4, GRIT_M, 4, { round: 0.3, bias: 1 });
+      obj.part(); obj.capsule(9, 0, 1.4, 9, -24, 1.4, mat("#6a4a30"), 4, { round: 0.8 });
+    }
+  }, ctx, x, gy);
+  if (v === 1) for (let i = 0; i < 6; i++) stone(ctx, x + 1 * s + (hash(sd, i + 20) - 0.5) * 9 * s, gy + 1 + hash(sd, i + 26) * 3 * s, 1.5 * s, 1.1 * s, i % 2 ? GRIT : lighten(GRIT, 0.1));
+  for (let i = 0; i < 3; i++) tuft(ctx, x - L / 4 + hash(sd, i + 40) * L / 2 * 1.0, gy + (i % 2) + 1, 0.55, mix(REALM.GRASS_DK, REALM.GRASS, 0.2), lighten(REALM.GRASS_LT, 0.1), sd + i, { n: 3 });
+};
+
+// milestone: a rounded grit stone, an oxblood band and a carved mark
+const milestone = (ctx, x, y, s, o) => {
+  const gy = y + 8, sc = s * 1.35, G = CRAG_MAT(), OXM = mat("#7a2a2c"), OXD = mat("#521a1e"), MOSS = mat("#5e7a4a");
+  pixShade(ctx, x, gy, 4 * sc, 0.8, 5.5 * sc, 1.8 * sc, 0.3, false, o.seed | 0);
+  sculpt(36, 40, (obj) => {
+    obj.part(); obj.poly([[-3.5 * sc, 0], [-3 * sc, -11 * sc], [-1.6 * sc, -13.5 * sc], [1.6 * sc, -13.5 * sc], [3 * sc, -11 * sc], [3.5 * sc, 0]], G, 0, { round: 0.8 });
+    obj.part(); obj.rect(-3.1 * sc, -7 * sc, 6.2 * sc, 1.6 * sc, OXM, 0.5, { n: [0, 0.3, 0.9], noLine: true });
+    obj.part(); obj.rect(-1.2 * sc, -11 * sc, 2.4 * sc, 1, OXD, 0.5, { n: [0, 0.3, 0.9], noLine: true });
+    obj.part(); obj.ellipse(-2 * sc, -0.8, 2 * sc, 0.9, MOSS, 0.8, { round: 0.6 });
+  }, ctx, x, gy);
+  tuft(ctx, x - 4.7 * sc, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, o.seed, { n: 3 });
+  tuft(ctx, x + 5 * sc, gy + 1.5, 0.45, REALM.TUFT, REALM.GRASS_LT, (o.seed | 0) + 1, { n: 3 });
 };
 
 // ---- small pieces --------------------------------------------------------------
@@ -364,35 +457,6 @@ const wallRun = (c, x0, y0, x1, y1, s, seed, hgt = 8) => {
     c.fillStyle = lighten(GRIT, 0.4); c.fillRect(ap(sx - 0.5), ap(sy - hh), 1.5, 0.5);
   }
 };
-const drystone = (ctx, x, y, s, o) => {
-  const gy = y + 8, v = o.v % 4, sd = o.seed;
-  shadow(ctx, x + 4 * s, gy + 1.5, 21 * s, 3.2 * s, 0.26);
-  const W2 = 18 * s, tilt = (hash(sd, 1) - 0.5) * 8 * s;
-  part(ctx, (c) => {
-    if (v === 1) {
-      wallRun(c, x - W2, gy - tilt, x - 3 * s, gy - tilt * 0.2, s, sd);
-      wallRun(c, x + 6 * s, gy + tilt * 0.3, x + W2, gy + tilt, s, sd + 1, 5.5);
-    } else if (v === 2) {
-      wallRun(c, x - W2 + 4 * s, gy - 9 * s, x - W2 + 6 * s, gy, s, sd + 2, 6.5);
-      wallRun(c, x - W2 + 6 * s, gy, x + W2, gy + tilt * 0.5, s, sd);
-    } else wallRun(c, x - W2, gy - tilt, x + W2, gy + tilt, s, sd);
-  });
-  if (v === 1) {
-    // the gap's tumble of stones
-    for (let i = 0; i < 6; i++) stone(ctx, x + 1 * s + (hash(sd, i + 20) - 0.5) * 9 * s, gy + 1 + hash(sd, i + 26) * 3 * s, 1.5 * s, 1.1 * s, i % 2 ? GRIT : lighten(GRIT, 0.1));
-  }
-  if (v === 3) {
-    // a stile: two through-stones jutting from the face, a post
-    part(ctx, (c) => {
-      c.fillStyle = lighten(GRIT, 0.1);
-      c.fillRect(ap(x - 2 * s), ap(gy - 3.5 * s), 4 * s, 1.5 * s);
-      c.fillRect(ap(x + 1 * s), ap(gy - 6.5 * s), 4 * s, 1.5 * s);
-      cylinder(c, x + 5 * s, gy - 13 * s, 2 * s, 13 * s, WOOD, { r: 0.6 });
-    });
-  }
-  for (let i = 0; i < 3; i++) tuft(ctx, x - W2 + hash(sd, i + 40) * W2 * 2, gy + (i % 2) + 1, 0.55, mix(REALM.GRASS_DK, REALM.GRASS, 0.2), lighten(REALM.GRASS_LT, 0.1), sd + i, { n: 3 });
-};
-
 // A gibbet at the crossroads: a post, an arm, an iron cage hanging empty, a crow.
 const gibbet = (ctx, x, y, s, o) => {
   const gy = y + 8, hh = 34 * s;
@@ -431,23 +495,6 @@ const gibbet = (ctx, x, y, s, o) => {
 
 // A milestone: a dressed stone with a rounded head, the Kingdom's tower cut
 // in and picked out in oxblood.
-const milestone = (ctx, x, y, s, o) => {
-  const gy = y + 8, w = 4.2 * s, hh = 10 * s;
-  shadow(ctx, x + 3 * s, gy + 0.5, 6 * s, 2 * s, 0.26);
-  part(ctx, (c) => {
-    c.beginPath();
-    c.moveTo(x - w, gy); c.lineTo(x - w, gy - hh + w); c.quadraticCurveTo(x - w, gy - hh, x, gy - hh); c.quadraticCurveTo(x + w, gy - hh, x + w, gy - hh + w); c.lineTo(x + w, gy); c.closePath();
-    c.fillStyle = lin(c, x - w, 0, x + w, 0, [[0, lighten(ASHLAR, 0.25)], [0.5, ASHLAR], [1, darken(ASHLAR, 0.35)]]); c.fill();
-    c.save(); c.clip();
-    c.fillStyle = OX; c.fillRect(x - w, ap(gy - hh * 0.46), w * 2, 1.5 * s);
-    device(c, x - 0.2, gy - hh + 2.2 * s, 0.62 * s);
-    c.fillStyle = "#7a8a5a"; c.fillRect(x - w, gy - 1.5, w * 2, 1.5);
-    c.restore();
-  });
-  tuft(ctx, x - w - 0.5, gy + 1, 0.5, REALM.TUFT, REALM.GRASS_LT, o.seed, { n: 3 });
-  tuft(ctx, x + w + 1, gy + 1.5, 0.45, REALM.TUFT, REALM.GRASS_LT, o.seed + 1, { n: 3 });
-};
-
 // A beacon: a round stone plinth carrying an iron fire-basket.
 const beaconBody = (c, x, y, s) => {
   const gy = y + 8;
@@ -3344,7 +3391,7 @@ const tollHouse = (ctx, x, y, s, o) => {
 // ---- the registry ----------------------------------------------------------------
 export const IRON_ART = {
   // baked without the 2px ring: the heather clump's pixel cushions carry their own underline
-  flat: ["irheather", "irpan", "irsluice", "irwreck"],
+  flat: ["irheather", "irpan", "irsluice", "irwreck", "irpine", "irspruce", "ircrag", "irwall", "irmile"],
   decor: {
     irpine: scotsPine, irspruce: spruce, ircrag: crag, irheather: heatherClump, irwall: drystone,
     irgibbet: gibbet, irmile: milestone, irbeacon: beacon, irwagon: wagon, irpikes: pikes,
