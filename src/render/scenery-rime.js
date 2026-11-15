@@ -54,6 +54,7 @@ import {
 } from "./paint.js";
 import { turfTones, groundLayer } from "./world.js";
 import { SEA_ICE } from "./coast.js";
+import { Pix, mat, flat, toCanvas } from "./pix/pix.js";
 
 // ---- the Rimewater's colours -------------------------------------------------
 const INK = "#241a26";
@@ -418,43 +419,22 @@ const groundDrift = (c, x, gy, w, sd) => {
 // underside. The edge wood darkens it by depth (band 0-2).
 const SPR_BAND = [["#1b5e54", "#34987a", "#0f3a3c"], ["#17544c", "#2b8a6e", "#0c3236"], ["#134a46", "#237a64", "#0a2a30"]];
 const rmspruce = (ctx, x, y, s, o) => {
-  const gy = y + 8, band = o.forest ? o.band || 0 : 0, sd = o.seed;
-  const [mid, lit, dk] = SPR_BAND[band];
-  const h = (42 + (o.v % 2) * 6) * s, w0 = (11.6 + hash(sd, 1) * 2) * s, lean = (hash(sd, 2) - 0.5) * 1.6 * s;
-  if (!o.forest) rShadow(ctx, x + 10 * s, gy + 1.5, w0 * 1.5, 3.8 * s, 0.3);
-  part(ctx, (c) => { c.fillStyle = WOOD_DK; c.fillRect(ap(x - 1.2 * s), gy - 6 * s, 2.4 * s, 6 * s); c.fillStyle = WOOD; c.fillRect(ap(x - 1.2 * s), gy - 6 * s, 1, 6 * s); });
-  const N = 6;
-  part(ctx, (c) => {
+  const gy = y + 8, band = o.forest ? o.band || 0 : 0, sd = o.seed | 0, S = s * U;
+  const H = (42 + (o.v % 2) * 6) * S, w0 = (11.6 + hash(sd, 1) * 2) * S, lean = (hash(sd, 2) - 0.5) * 3 * s;
+  if (!o.forest) vShade(ctx, x, gy, 10 * S, 3, w0 * 1.5, 4 * S / 1.4, 0.28);
+  sculpt(Math.ceil(w0 * 2.6) + 20, Math.ceil(H) + 26, 12, (ob, M) => {
+    const NEED = mat(["#15504a", "#124640", "#0e3c3a"][band], { contrast: 1.35 }), N = 6;
+    ob.part(); ob.capsule(0, 0, 2.6 * s, lean * 0.2, -10 * s, 2.2 * s, M.wood, 0, { round: 1 });
+    const bandH = (H - 12 * s) / N;
     for (let i = 0; i < N; i++) {
-      const f0 = i / N, f1 = (i + 1.35) / N;
-      const by = gy - 4 * s - (h - 6 * s) * f0, ty = gy - 4 * s - (h - 6 * s) * f1;
-      const cx = x + lean * f0, tx = x + lean * f1, w = w0 * (1 - f0 * 0.82) * (1 + (hash(sd, i + 5) - 0.5) * 0.14);
-      const droop = 2.6 * s * (1 - f0 * 0.5);
-      const L = [cx - w, by + droop * 0.4], Rr = [cx + w * 0.96, by + droop * 0.2];
-      poly(c, [L, [cx - w * 0.55, by + droop * 0.9], [cx, by + droop], [cx + w * 0.5, by + droop * 0.9], Rr, [tx + w * 0.12, ty], [tx - w * 0.12, ty]]);
-      c.fillStyle = lin(c, cx - w, 0, cx + w, 0, [[0, lit], [0.45, mid], [1, dk]]); c.fill();
-      // the snow load: on the upper half of the rim each tier shows below
-      // the next, heaviest in the middle, thin toward the tips; the drooping
-      // lower edge stays dark green
-      const bandH = (h - 6 * s) / N, sy0 = by - bandH * 0.95, load = 0.42 + hash(sd, i + 60) * 0.3, sy1 = by + droop * 0.15 - bandH * (0.75 - load);
-      const ws = 0.7 + hash(sd, i + 70) * 0.4, wo = (hash(sd, i + 80) - 0.5) * 0.3;
-      const X = (k) => cx + w * (k * ws + wo);
-      const sl = [[X(-0.85), by + droop * 0.05 - bandH * 0.25], [X(-0.5), sy0], [X(0.42), sy0 + 0.4 * s], [X(0.8), by - bandH * 0.3],
-        [X(0.42), sy1 + 0.4 * s], [X(0), sy1 + Math.sin(i * 2.1 + sd) * 0.6 * s], [X(-0.45), sy1 - 0.3 * s]];
-      poly(c, sl); c.fillStyle = band === 2 ? "#b4c4ec" : SNOW; c.fill();
-      // the load in two planes: lit on the sunward half, its lee in blue-violet
-      c.save(); poly(c, sl); c.clip();
-      c.fillStyle = band === 2 ? "#8c9ed4" : SNOW_SH; c.fillRect(ap(cx + w * 0.02), ap(sy0), w * 1.2, (sy1 - sy0) + 1);
-      c.fillStyle = band === 2 ? "#6f82c0" : SNOW_DK; c.fillRect(ap(cx + w * 0.02), ap(sy1 - 0.5), w * 1.2, 1.5);
-      c.fillStyle = band === 2 ? "#d8e4f8" : SNOW_LT; c.fillRect(ap(cx - w * 0.9), ap(sy0), w * 0.9, (sy1 - sy0) * 0.55);
-      c.restore();
-      // a dark violet-green underside under each skirt, so the tiers read apart
-      c.fillStyle = dk; c.fillRect(ap(cx - w * 0.7), ap(by + droop * 0.95), w * 1.3, 0.5);
+      const f = i / N, by = -8 * s - (H - 12 * s) * f, cx = lean * f, tw = w0 * (1 - f * 0.82) * (1 + (hash(sd, i + 5) - 0.5) * 0.14), th = bandH * 1.5, z = i * 0.6;
+      ob.part(); ob.poly([[cx - tw * 0.1, by - th], [cx + tw * 0.1, by - th], [cx + tw, by - 1], [cx + tw * 0.5, by + 3.4], [cx, by + 1.6], [cx - tw * 0.5, by + 3.4], [cx - tw, by - 1]], NEED, z, { round: 0.85, ny: -0.1 });
+      const ld = 0.46 + hash(sd, i + 60) * 0.2;
+      ob.part(); ob.poly([[cx - tw * 0.1, by - th - 0.5], [cx + tw * 0.1, by - th - 0.5], [cx + tw * 0.92, by - th * 0.22], [cx + tw * 0.5, by - th * (0.1 + ld * 0.3)], [cx, by - th * 0.2 + Math.sin(i * 2.1 + sd) * 0.8], [cx - tw * 0.5, by - th * (0.12 + ld * 0.3)], [cx - tw * 0.92, by - th * 0.2]], M.snow, z + 0.3, { round: 0.8, ny: -0.35 });
     }
-    // the leader, snow on its tip
-    c.fillStyle = dk; c.fillRect(ap(x + lean - 0.5), gy - h - 1.5 * s, 1, 3 * s);
-    c.fillStyle = SNOW; c.fillRect(ap(x + lean - 1), gy - h - 2 * s, 1.5, 1);
-  });
+    ob.part(); ob.capsule(lean, -H + 2 * s, 0.9, lean, -H - 4, 0.5, M.woodDk, 5, {});
+    ob.part(); ob.ellipse(lean, -H + 0.5, 2.4, 1.6, M.snow, 6, { round: 0.9 });
+  }, ctx, x, gy);
 };
 
 // ---- black scoured rock ------------------------------------------------------
@@ -501,268 +481,258 @@ const rmrock = (ctx, x, y, s, o) => {
   groundDrift(ctx, x - w * 0.6, gy + 0.5, w * 0.55, o.seed);
 };
 
-// ---- a cairn of black stones ----------------------------------------------------
+// ============ LOOK C PIECES, SCULPTED (the pixel sculptor, pix/pix.js) ============
+// The clans' props re-sculpted the way the Iron's irspruce / ircrag are: each piece is built from parts
+// in art pixels (RES per board unit) round its foot, shaded under ONE sun from the upper left, inked in a
+// one-pixel line tinted from its own material, and baked into the decor sprite, so footprints and feet are
+// as they were. Look C "bold": bright snow on every top and lee, deep blue-violet shadow, sea-teal and
+// ochre paint, big snow loads. They are listed in RIME_ART.flat (no 2-px ring); the old painters are gone.
+const Q = 1 / RES, U = 2;                                   // one art pixel in board units; art pixels per unit
+const PXM = {};
+const MM = () => PXM.snow ? PXM : Object.assign(PXM, {
+  snow: mat("#cddcf4", { contrast: 1.85 }), snowB: mat("#a9c0e6", { contrast: 1.3 }),
+  rock: mat("#4a4878", { contrast: 0.95 }), rockDk: mat("#2c2a4c"),
+  stone: mat("#8c8a98", { contrast: 1.4 }), wallA: mat("#7e7a88"), wallB: mat("#64606f"),
+  wood: mat("#76583c"), woodDk: mat("#4a3426"), log: mat("#8e6e48"), logEnd: mat("#c9a574"),
+  hull: mat("#6e5440"), hull2: mat("#5a4636"), tar: mat("#3a3234"),
+  teal: mat("#2f8a84"), ochre: mat("#d49a30"), red: mat("#bd4a3e"),
+  bone: mat("#e8e0cc", { contrast: 1.7 }), boneFar: mat("#c0b8a2", { contrast: 1.5 }), runeGold: flat("#e8b650"), runeTeal: flat("#3aa098"), runeDk: flat("#2c2a3a"), dark: mat("#2a2230"),
+  turf: mat("#66704a"), turfDk: mat("#454e36"), straw: mat("#9a8658", { contrast: 0.7 }),
+  fish: mat("#a8926e"), fishDk: mat("#4e443a"), steel: mat("#c4c8d0"),
+});
+// build a sculpt round the foot (0,0): `above` / `below` art pixels of room, `w` across
+const sculpt = (w, above, below, build, ctx, x, gy) => {
+  const obj = new Pix(w, above + below, w >> 1, above);
+  build(obj, MM());
+  const img = obj.resolve({ line: "tint" }), cv = toCanvas(img);
+  ctx.drawImage(cv, x - img.ox * Q, gy - img.oy * Q, img.w * Q, img.h * Q);
+};
+// the cast shadow in blue-violet: rows of whole art pixels, its rim broken
+const vShade = (ctx, x, gy, cx, cy, rx, ry, a) => {
+  ctx.fillStyle = `${VIO}${a})`;
+  for (let j = Math.floor(cy - ry); j <= Math.ceil(cy + ry); j++) for (let i = Math.floor(cx - rx); i <= Math.ceil(cx + rx); i++) {
+    const u = (i + 0.5 - cx) / rx, v = (j + 0.5 - cy) / ry, d = u * u + v * v;
+    if (d > 1 || (d > 0.62 && (i + j) & 1)) continue;
+    ctx.fillRect(x + i * Q, gy + j * Q, Q, Q);
+  }
+};
+// a chain of capsules along a curve: p(t) -> [x, y], radius r0 -> r1
+const along = (o, p, n, r0, r1, m, z, opt = {}) => {
+  let a = p(0);
+  for (let k = 1; k <= n; k++) {
+    const b = p(k / n);
+    o.capsule(a[0], a[1], r0 + (r1 - r0) * ((k - 1) / n), b[0], b[1], r0 + (r1 - r0) * (k / n), m, z, opt);
+    a = b;
+  }
+};
+const bez = (a, b, c, d) => (t) => { const m = 1 - t; return [m * m * m * a[0] + 3 * m * m * t * b[0] + 3 * m * t * t * c[0] + t * t * t * d[0], m * m * m * a[1] + 3 * m * m * t * b[1] + 3 * m * t * t * c[1] + t * t * t * d[1]]; };
+const SNOW_N = { n: [-0.25, -0.55, 0.8], round: 0.35 };
+// a lump of snow: lit crown, blue lee
+const lump = (o, M, cx, cy, rx, ry, z = 5) => { o.part(); o.ellipse(cx, cy, rx, ry, M.snow, z, { round: 0.85 }); };
+const bank = (o, M, cx, rx, z = 6) => { o.part(); o.ellipse(cx, -0.5, rx, Math.max(2, rx * 0.26), M.snow, z, { round: 0.8 }); };
+const jit = (a, b) => hash(a * 7.31 + b * 3.7, b + 11);
+
+// ---- the cairn ---------------------------------------------------------------------
 const rmcairn = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed;
-  rShadow(ctx, x + 4 * s, gy + 1, 9 * s, 3 * s, 0.3);
-  // flat slabs of black stone, each course narrower, set a little askew
-  const courses = [[9, 3], [7.5, 2.6], [6, 2.4], [4.4, 2.2], [3, 2]];
-  let yy = gy;
-  courses.forEach(([cw, ch], ri) => {
-    const cx = x + (hash(sd, ri) - 0.5) * 1.6 * s, hw = cw * s * (0.9 + hash(sd, ri + 9) * 0.2), hh = ch * s;
-    part(ctx, (c) => {
-      const tl = (hash(sd, ri + 20) - 0.5) * 1.2 * s;
-      poly(c, [[cx - hw, yy], [cx - hw * 0.94, yy - hh + tl], [cx + hw * 0.9, yy - hh - tl], [cx + hw, yy]]);
-      c.fillStyle = lin(c, cx - hw, 0, cx + hw, 0, [[0, ROCK[4]], [0.5, ROCK[3]], [1, ROCK[1]]]); c.fill();
-      c.fillStyle = ROCK[5]; c.fillRect(ap(cx - hw * 0.9), ap(yy - hh + 0.2), hw * 0.8, 0.5);
-      c.fillStyle = ROCK[0]; c.fillRect(ap(cx - hw * (0.3 - hash(sd, ri + 4) * 0.4)), ap(yy - hh + 0.6), 0.5, hh - 0.6);
-      // snow on its top ledge, more on the west
-      c.fillStyle = SNOW; c.fillRect(ap(cx - hw * 0.95), ap(yy - hh - 0.6 + tl * 0.5), hw * (1 + hash(sd, ri + 30) * 0.6), 1);
+  const gy = y + 8, sd = o.seed | 0, S = s * U;
+  vShade(ctx, x, gy, 8 * S, 2, 9 * S, 3.2 * S, 0.26);
+  sculpt(Math.ceil(44 * S) + 16, Math.ceil(34 * S) + 24, 10, (ob, M) => {
+    const courses = [[9, 3], [7.5, 2.6], [6, 2.4], [4.4, 2.2], [3, 2]];
+    let yy = 0;
+    courses.forEach(([cw, ch], ri) => {
+      const cx = (jit(sd, ri) - 0.5) * 3.2 * s, hw = cw * S * (0.9 + jit(sd, ri + 9) * 0.2), hh = ch * S, tl = (jit(sd, ri + 20) - 0.5) * 2.4 * s;
+      ob.part(); ob.poly([[cx - hw, yy], [cx - hw * 0.94, yy - hh + tl], [cx + hw * 0.9, yy - hh - tl], [cx + hw, yy]], ri % 2 ? M.rockDk : M.rock, ri * 0.4, { round: 0.65, ny: -0.1 });
+      ob.part(); ob.rect(cx - hw * (0.3 - jit(sd, ri + 4) * 0.4), yy - hh + 1, 1, hh - 1, M.rockDk, ri * 0.4 + 0.1, { bias: -1 });
+      ob.part(); ob.poly([[cx - hw * 0.98, yy - hh + tl + 0.5], [cx - hw * 0.4, yy - hh + tl - 1.5 - jit(sd, ri) * 1.5], [cx + hw * (0.1 + jit(sd, ri + 30) * 0.7), yy - hh - tl - 0.5], [cx + hw * 0.5, yy - hh - tl + 1]], M.snow, ri * 0.4 + 0.3, SNOW_N);
+      yy -= hh * 0.92;
     });
-    yy -= hh * 0.92;
-  });
-  ctx.fillStyle = SNOW; ctx.fillRect(ap(x - 2.5 * s), ap(yy - 1), 4.5 * s, 1.2);
-  // a clan's teal rag on a stick at the top
-  ctx.fillStyle = WOOD_DK; ctx.fillRect(ap(x + 0.5), yy - 7 * s, 1, 7 * s + 1);
-  ctx.fillStyle = TEAL; ctx.fillRect(ap(x + 1.5), ap(yy - 7 * s), 3 * s, 1.5); ctx.fillStyle = TEAL_LT; ctx.fillRect(ap(x + 1.5), ap(yy - 7 * s), 2 * s, 0.5);
-  groundDrift(ctx, x - 7 * s, gy + 0.5, 4 * s, sd);
+    ob.part(); ob.ellipse(0, yy - 1, 4.4 * s, 1.8, M.snow, 4, { round: 0.8 });
+    // a clan's teal rag on a stick
+    ob.part(); ob.capsule(1, yy, 0.9, 1, yy - 15 * s, 0.8, M.woodDk, 4.5, {});
+    ob.part(); ob.poly([[1.6, yy - 15 * s], [8 * s + 2, yy - 14 * s], [6.5 * s, yy - 12 * s], [8 * s, yy - 10.4 * s], [1.6, yy - 10.6 * s]], M.teal, 5, { n: [-0.3, -0.2, 0.9] });
+    bank(ob, M, -13 * s, 7 * s);
+  }, ctx, x, gy);
 };
 
-// ---- rune stone and skald's stone -------------------------------------------------
-const slab = (c, x, gy, w, h, col, sd, head = 0) => {
-  // an upright slab, rounded crown (head: a mushroom-headed picture stone)
-  c.beginPath();
-  c.moveTo(x - w, gy);
+// ---- rune stone and skald's stone ------------------------------------------------------
+const slabPts = (w, h, head) => {
+  const pts = [[-w, 0]];
   if (head) {
-    c.lineTo(x - w * 0.82, gy - h * 0.62); c.lineTo(x - w * 1.12, gy - h * 0.72);
-    c.quadraticCurveTo(x - w * 1.2, gy - h * 1.02, x, gy - h * 1.02); c.quadraticCurveTo(x + w * 1.2, gy - h * 1.02, x + w * 1.12, gy - h * 0.72);
-    c.lineTo(x + w * 0.82, gy - h * 0.62);
+    pts.push([-w * 0.82, -h * 0.62], [-w * 1.12, -h * 0.72]);
+    for (let k = 0; k <= 8; k++) { const a = Math.PI * (1 + k / 8); pts.push([Math.cos(a) * w * 1.16, -h * 0.74 + Math.sin(a) * h * 0.28]); }
+    pts.push([w * 1.12, -h * 0.72], [w * 0.82, -h * 0.62]);
   } else {
-    c.lineTo(x - w * 0.95, gy - h * 0.72); c.quadraticCurveTo(x - w * 0.9, gy - h * 1.02, x + w * 0.1, gy - h); c.quadraticCurveTo(x + w * 0.95, gy - h * 0.95, x + w * 0.9, gy - h * 0.6);
+    pts.push([-w * 0.96, -h * 0.7]);
+    for (let k = 0; k <= 8; k++) { const a = Math.PI * (1 + k / 8); pts.push([Math.cos(a) * w * 0.94 + w * 0.06, -h * 0.72 + Math.sin(a) * h * 0.3]); }
+    pts.push([w * 0.9, -h * 0.6]);
   }
-  c.lineTo(x + w, gy); c.closePath();
-  c.fillStyle = lin(c, x - w, 0, x + w, 0, [[0, lighten(col, 0.25)], [0.5, col], [1, darken(col, 0.35)]]); c.fill();
+  pts.push([w, 0]);
+  return pts;
 };
 const rmrunestone = (ctx, x, y, s, o) => {
-  const gy = y + 8, w = 5.5 * s, h = 21 * s, sd = o.seed, col = "#7e7c80";
-  rShadow(ctx, x + 5 * s, gy + 1, 8 * s, 2.8 * s, 0.3);
-  part(ctx, (c) => {
-    slab(c, x, gy, w, h, col, sd);
-    c.save(); c.clip();
-    // the serpent band: a ribbon looping down the face, ochre with teal edges
-    c.lineWidth = 1.6 * s; c.strokeStyle = TEAL_DK; c.beginPath();
-    const path = (cc, ox) => { cc.beginPath(); cc.moveTo(x - w * 0.55 + ox, gy - 2 * s); cc.bezierCurveTo(x - w * 0.9 + ox, gy - h * 0.6, x + w * 0.9 + ox, gy - h * 0.55, x + w * 0.4 + ox, gy - h * 0.86); cc.bezierCurveTo(x + w * 0.1 + ox, gy - h * 0.98, x - w * 0.5 + ox, gy - h * 0.82, x - w * 0.2 + ox, gy - h * 0.66); };
-    path(c, 0); c.stroke();
-    c.lineWidth = 0.9 * s; c.strokeStyle = OCHRE; path(c, 0); c.stroke();
-    // runes cut along the band: short dark ticks
-    c.fillStyle = "#3a3840";
-    for (let k = 0; k < 9; k++) { const t = k / 9; px1(c, x - w * 0.55 + Math.sin(t * 5) * w * 0.4, gy - 3 * s - t * h * 0.55, 0.5, 1.2); }
-    // the serpent's head, a teal eye; frost in the cut
-    c.fillStyle = OCHRE_LT; px1(c, x - w * 0.25, gy - h * 0.67, 1.5, 1);
-    c.fillStyle = FROST; px1(c, x - w * 0.6, gy - h * 0.35, 1, 0.5); px1(c, x + w * 0.3, gy - h * 0.5, 0.5, 0.5);
-    c.restore();
-    snowCap(c, [[x - w * 0.85, gy - h * 0.86], [x - w * 0.3, gy - h * 1.01], [x + w * 0.5, gy - h * 0.98], [x + w * 0.85, gy - h * 0.82], [x + w * 0.2, gy - h * 0.88]]);
-  });
-  groundDrift(ctx, x - 4 * s, gy + 0.5, 5 * s, sd);
+  const gy = y + 8, sd = o.seed | 0, w = 5.5 * s * U, h = 21 * s * U;
+  vShade(ctx, x, gy, 9 * s * U, 2, 8 * s * U, 3.2 * s * U / 1.4, 0.26);
+  sculpt(Math.ceil(w * 3.4) + 16, Math.ceil(h * 1.15) + 20, 10, (ob, M) => {
+    ob.part(); ob.poly(slabPts(w, h, 0), M.stone, 0, { round: 1, ny: -0.05 });
+    // the serpent band, cut and painted: teal edge, ochre core, looping down the face
+    const band = (t) => {
+      const q = t * 3.1, bx = Math.sin(q * 2.1 + 0.4) * w * 0.55, by = -3 - t * h * 0.78 + Math.sin(q * 4.2) * 1.4;
+      return [bx, by];
+    };
+    ob.part(); along(ob, band, 28, 2.0, 2.0, M.teal, 1, { round: 0.8 });
+    ob.part(); along(ob, band, 28, 1.0, 1.0, M.runeGold, 2, {});
+    const hd = band(1);
+    ob.part(); ob.ellipse(hd[0], hd[1], 2.8, 2.2, M.ochre, 2.5, { round: 0.9 });
+    ob.part(); ob.dot(hd[0] + 0.5, hd[1] - 0.5, M.teal, 3, {});
+    // runes: short cut ticks beside the band
+    for (let k = 0; k < 9; k++) { const t = (k + 0.5) / 9, b = band(t), d = k % 2 ? 4.2 : -4.2; ob.part(); ob.line(b[0] + d, b[1] - 1.5, b[0] + d, b[1] + 1.5, M.runeDk, 1.5, {}); if (k % 3 === 0) ob.dot(b[0] + d + 1, b[1], M.runeDk, 1.5, {}); }
+    ob.part(); ob.poly([[-w * 0.92, -h * 0.84], [-w * 0.3, -h * 1.03], [w * 0.5, -h * 1.0], [w * 0.92, -h * 0.82], [w * 0.2, -h * 0.9], [-w * 0.3, -h * 0.8]], M.snow, 3, SNOW_N);
+    bank(ob, M, -w * 0.9, 7 * s, 6);
+  }, ctx, x, gy);
 };
 const rmskaldstone = (ctx, x, y, s, o) => {
-  const gy = y + 8, w = 5.2 * s, h = 30 * s, sd = o.seed, col = "#8a8278";
-  rShadow(ctx, x + 6 * s, gy + 1, 9 * s, 3 * s, 0.3);
-  part(ctx, (c) => {
-    slab(c, x, gy, w, h, col, sd, 1);
-    c.save(); c.clip();
-    // panels cut in bands: a sun-wheel in the head, a ship under sail, waves
-    c.fillStyle = darken(col, 0.3); c.fillRect(x - w * 1.2, gy - h * 0.66, w * 2.4, 0.5); c.fillRect(x - w, gy - h * 0.34, w * 2, 0.5);
-    c.strokeStyle = OCHRE; c.lineWidth = 0.6; ellipse(c, x, gy - h * 0.83, w * 0.55, w * 0.55); c.stroke();
-    c.fillStyle = OCHRE_LT; for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; px1(c, x + Math.cos(a) * w * 0.3, gy - h * 0.83 + Math.sin(a) * w * 0.3); }
-    // the ship: teal hull, prow and stern curling, an ochre sail
-    const sy = gy - h * 0.42;
-    c.fillStyle = TEAL; poly(c, [[x - w * 0.8, sy - 1.6], [x + w * 0.8, sy - 1.6], [x + w * 0.5, sy], [x - w * 0.5, sy]]); c.fill();
-    c.fillRect(ap(x - w * 0.85), ap(sy - 3.2), 0.6, 1.8); c.fillRect(ap(x + w * 0.75), ap(sy - 3.2), 0.6, 1.8);
-    c.fillStyle = OCHRE; c.fillRect(ap(x - w * 0.42), ap(sy - 8.5 * s), w * 0.84, 5.5 * s);
-    c.fillStyle = OCHRE_DK; for (let k = 0; k < 3; k++) c.fillRect(ap(x - w * 0.42 + k * w * 0.32), ap(sy - 8.5 * s), 0.5, 5.5 * s);
-    c.fillStyle = WOOD_DK; c.fillRect(ap(x - 0.25), ap(sy - 9.5 * s), 0.5, 8 * s);
-    c.fillStyle = TEAL_LT; for (let k = 0; k < 5; k++) px1(c, x - w * 0.8 + k * w * 0.4, gy - h * 0.2 + (k % 2) * 0.6, 1.2, 0.5);
-    c.restore();
-    snowCap(c, [[x - w * 1.12, gy - h * 0.92], [x - w * 0.4, gy - h * 1.03], [x + w * 0.6, gy - h * 1.02], [x + w * 1.1, gy - h * 0.88], [x, gy - h * 0.94]]);
-    c.fillStyle = SNOW; c.fillRect(ap(x - w * 1.1), ap(gy - h * 0.72), w * 0.7, 0.8);
-  });
-  groundDrift(ctx, x - 4 * s, gy + 0.5, 5.5 * s, sd);
+  const gy = y + 8, sd = o.seed | 0, w = 5.2 * s * U, h = 30 * s * U;
+  vShade(ctx, x, gy, 10 * s * U, 2, 9 * s * U, 3 * s * U / 1.4, 0.26);
+  sculpt(Math.ceil(w * 3.6) + 16, Math.ceil(h * 1.15) + 20, 10, (ob, M) => {
+    ob.part(); ob.poly(slabPts(w, h, 1), M.stone, 0, { round: 1, ny: -0.05 });
+    const pid = ob._pid;
+    for (const f of [0.66, 0.34]) ob.toneLine(-w * 1.0, -h * f, w * 1.0, -h * f, -1, pid);
+    // the sun-wheel in the head: an ochre ring, spokes
+    const wy = -h * 0.84, wr = w * 0.62;
+    ob.part(); for (let k = 0; k < 18; k++) { const a = k / 18 * Math.PI * 2; ob.dot(Math.cos(a) * wr, wy + Math.sin(a) * wr * 0.9, M.runeGold, 2, {}); }
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 4; ob.line(Math.cos(a) * wr, wy + Math.sin(a) * wr * 0.9, -Math.cos(a) * wr, wy - Math.sin(a) * wr * 0.9, M.runeGold, 2, {}); }
+    ob.dot(0, wy, M.runeTeal, 2.5, {});
+    // the ship under sail, teal hull, ochre sail, prow and stern curling
+    const sy = -h * 0.4;
+    ob.part(); ob.poly([[-w * 0.8, sy - 3], [w * 0.8, sy - 3], [w * 0.5, sy], [-w * 0.5, sy]], M.teal, 2, { n: [0, 0.1, 0.95] });
+    ob.part(); ob.line(-w * 0.82, sy - 3, -w * 0.9, sy - 6, M.teal, 2, {}); ob.part(); ob.line(w * 0.82, sy - 3, w * 0.92, sy - 6, M.teal, 2, {});
+    ob.part(); ob.poly([[-w * 0.4, sy - 15], [w * 0.4, sy - 15], [w * 0.34, sy - 5], [-w * 0.34, sy - 5]], M.ochre, 2, { round: 0.6 });
+    ob.toneLine(-w * 0.1, sy - 15, -w * 0.08, sy - 6, -1, ob._pid); ob.toneLine(w * 0.18, sy - 15, w * 0.16, sy - 6, -1, ob._pid);
+    ob.part(); ob.line(0, sy - 17, 0, sy - 3, M.woodDk, 2.5, {});
+    // waves, a row of teal dashes
+    ob.part(); for (let k = 0; k < 5; k++) { ob.line(-w * 0.8 + k * w * 0.4, -h * 0.2 + (k % 2), -w * 0.8 + k * w * 0.4 + 2, -h * 0.2 + (k % 2), M.runeTeal, 2, {}); }
+    ob.part(); ob.poly([[-w * 1.14, -h * 0.9], [-w * 0.4, -h * 1.04], [w * 0.6, -h * 1.03], [w * 1.12, -h * 0.88], [0, -h * 0.94]], M.snow, 3, SNOW_N);
+    ob.part(); ob.poly([[-w * 1.1, -h * 0.72], [-w * 0.5, -h * 0.74], [-w * 0.45, -h * 0.68], [-w * 1.08, -h * 0.66]], M.snow, 3, SNOW_N);
+    bank(ob, M, -w * 0.9, 7 * s, 6);
+  }, ctx, x, gy);
 };
 
-// ---- whale bones -------------------------------------------------------------------
-const boneArc = (c, x0, y0, x1, y1, lift, wid) => {
-  const mx = (x0 + x1) / 2, my = Math.min(y0, y1) - lift;
-  c.lineCap = "round"; c.lineWidth = wid + 1; c.strokeStyle = BONE_DK;
-  c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(mx, my, x1, y1); c.stroke();
-  c.lineWidth = wid; c.strokeStyle = BONE; c.beginPath(); c.moveTo(x0, y0 - 0.3); c.quadraticCurveTo(mx, my - 0.3, x1, y1 - 0.3); c.stroke();
-  c.lineWidth = 0.5; c.strokeStyle = "#f4efe2"; c.beginPath(); c.moveTo(x0, y0 - wid * 0.4); c.quadraticCurveTo(mx, my - wid * 0.4, mx, my - wid * 0.25); c.stroke();
-};
+// ---- whale bones ---------------------------------------------------------------------------
 const rmwhale = (ctx, x, y, s, o) => {
-  const gy = y + 8, sd = o.seed, v = o.v % 2;
-  if (v === 0) {
-    // the ribs: curved bones hooking up out of the snow from a buried spine,
-    // all bowed the same way, tallest at the chest; the far row paler
-    rShadow(ctx, x + 5 * s, gy + 1, 26 * s, 4 * s, 0.26);
-    const n = 6;
-    for (const row of [1, 0]) for (let k = 0; k < n; k++) {
-      const t = k / (n - 1), bx = x - 18 * s + t * 32 * s + row * 3 * s, by = gy - 2.5 * s + t * 2 * s - row * 3 * s;
-      const hgt = (8 + Math.sin(Math.min(1, t * 1.2) * Math.PI) * 10) * s * (row ? 0.85 : 1);
-      part(ctx, (c) => {
-        c.lineCap = "round";
-        const pth = () => { c.beginPath(); c.moveTo(bx, by); c.bezierCurveTo(bx - 2 * s, by - hgt * 0.55, bx, by - hgt, bx + 3 * s, by - hgt * 1.02); };
-        c.lineWidth = 2 * s; c.strokeStyle = row ? BONE_DK : "#b4ac98"; pth(); c.stroke();
-        c.lineWidth = 1.1 * s; c.strokeStyle = row ? "#cfc8b4" : BONE; pth(); c.stroke();
-        c.fillStyle = SNOW; ellipse(c, bx + 0.5, by + 0.5, 2.4 * s, 1.1 * s); c.fill();
-        c.fillStyle = SNOW_LT; px1(c, bx + 3.5 * s, by - hgt * 1.0, 1.5, 0.5);
-      });
+  const gy = y + 8, sd = o.seed | 0, v = o.v % 2, S = s * U;
+  vShade(ctx, x, gy, 8 * S, 2.5, 26 * S, 4.2 * S / 1.2, v ? 0.3 : 0.26);
+  sculpt(Math.ceil(66 * S) + 20, Math.ceil(32 * S) + 24, 16, (ob, M) => {
+    if (v === 0) {
+      // ribs hooking up out of the snow from a buried spine, all bowed one way, tallest at the chest
+      const n = 6;
+      for (const row of [1, 0]) for (let k = 0; k < n; k++) {
+        const t = k / (n - 1), bx = (-18 + t * 32 + row * 3) * S, by = (-2.5 + t * 2 - row * 3) * S;
+        const hg = (8 + Math.sin(Math.min(1, t * 1.2) * Math.PI) * 10) * S * (row ? 0.85 : 1);
+        ob.part(); along(ob, bez([bx, by], [bx - 4 * s, by - hg * 0.55], [bx, by - hg], [bx + 6 * s, by - hg * 1.02]), 9, 1.9 * s, 1.0 * s, row ? M.boneFar : M.bone, row ? 0 : 1, { round: 1 });
+        lump(ob, M, bx + 1, by + 0.5, 5 * s, 2.2 * s, 6 + row);
+      }
+      ob.part(); for (let k = 0; k < 9; k++) ob.ellipse((-20 + k * 4.4) * S, (-2 + k * 0.3) * S, 2.4 * s, 1.8 * s, M.boneFar, 0.5, { round: 0.8 });
+      bank(ob, M, -20 * S, 11 * s, 7); bank(ob, M, 10 * S, 12 * s, 7);
+    } else {
+      // the skull: a long flat rostrum ending in the brain-case, the jaw beside it
+      const P = (a, b) => [a * S, b * S];
+      ob.part(); ob.poly([P(-22, -3), P(-4, -6.5), P(8, -10), P(15, -8), P(16, -1), P(6, 0), P(-8, -0.5), P(-22, -1.5)], M.bone, 1, { round: 0.3, ny: -0.35 });
+      ob.part(); ob.ellipse(9 * S, -4.5 * S, 3.6 * s, 2.6 * s, M.runeDk, 2, {});
+      ob.part(); ob.poly([P(-22, -1.5), P(-8, -0.5), P(6, 0), P(16, -1), P(15, -3), P(2, -2.5), P(-12, -2.2)], M.boneFar, 1.4, { round: 0.2, ny: 0.3 });
+      ob.part(); ob.line(-19 * S, -3.1 * S, -16 * S, -3.3 * S, M.runeDk, 2, {}); ob.line(-6 * S, -5.4 * S, 2 * S, -6.4 * S, M.boneFar, 2, { noLine: true, bias: -1 });
+      ob.toneLine(-20 * S, -2.6 * S, 2 * S, -2.6 * S, -1, ob._pid - 1);
+      ob.part(); ob.poly([P(2, -8), P(8, -10.3), P(14, -8.6), P(8, -8.2)], M.snow, 3, SNOW_N);
+      ob.part(); ob.poly([P(-18, -4), P(-10, -5), P(-6, -5.6), P(-14, -3.4)], M.snow, 3, SNOW_N);
+      ob.part(); along(ob, bez(P(-18, 4), P(-10, 1), P(2, 0.6), P(12, 4.5)), 12, 2.4 * s, 1.6 * s, M.boneFar, 0, { round: 1 });
+      for (let k = 0; k < 8; k++) { const a = bez(P(-18, 4), P(-10, 1), P(2, 0.6), P(12, 4.5))((k + 0.5) / 8); ob.dot(a[0], a[1] - 3 * s - 1, M.bone, 0.5, {}); }
+      bank(ob, M, -16 * S, 9 * s, 7);
     }
-    // the backbone's knuckles in the drift
-    ctx.fillStyle = BONE_DK; for (let k = 0; k < 9; k++) px1(ctx, x - 20 * s + k * 4.4 * s, gy - 2 * s + k * 0.3 * s, 1.5, 1);
-    groundDrift(ctx, x - 20 * s, gy, 8 * s, sd); groundDrift(ctx, x + 8 * s, gy + 1, 9 * s, sd + 1);
-  } else {
-    // the skull: a long flat rostrum ending in the brain-case, the jaw beside
-    rShadow(ctx, x + 4 * s, gy + 1, 24 * s, 4 * s, 0.3);
-    part(ctx, (c) => {
-      poly(c, [[x - 22 * s, gy - 3 * s], [x - 4 * s, gy - 6.5 * s], [x + 8 * s, gy - 10 * s], [x + 15 * s, gy - 8 * s], [x + 16 * s, gy - 1 * s], [x + 6 * s, gy], [x - 8 * s, gy - 0.5 * s], [x - 22 * s, gy - 1.5 * s]]);
-      c.fillStyle = lin(c, 0, gy - 10 * s, 0, gy, [[0, "#f2ecdc"], [0.5, BONE], [1, BONE_DK]]); c.fill();
-      c.fillStyle = "#5a5246"; ellipse(c, x + 9 * s, gy - 4.5 * s, 2.2 * s, 1.5 * s); c.fill();
-      c.fillStyle = BONE_DK; c.fillRect(x - 20 * s, ap(gy - 2.6 * s), 22 * s, 0.5);
-      c.fillStyle = SNOW; poly(c, [[x + 2 * s, gy - 8 * s], [x + 8 * s, gy - 10.3 * s], [x + 14 * s, gy - 8.6 * s], [x + 8 * s, gy - 8.4 * s]]); c.fill();
-    });
-    part(ctx, (c) => {
-      c.lineCap = "round"; c.lineWidth = 2 * s; c.strokeStyle = BONE_DK; c.beginPath(); c.moveTo(x - 18 * s, gy + 4 * s); c.quadraticCurveTo(x - 2 * s, gy + 1 * s, x + 12 * s, gy + 4.5 * s); c.stroke();
-      c.lineWidth = 1.3 * s; c.strokeStyle = BONE; c.beginPath(); c.moveTo(x - 18 * s, gy + 3.6 * s); c.quadraticCurveTo(x - 2 * s, gy + 0.6 * s, x + 12 * s, gy + 4 * s); c.stroke();
-    });
-    groundDrift(ctx, x - 16 * s, gy + 4.5 * s, 6 * s, sd);
-  }
+  }, ctx, x, gy);
 };
 
-// ---- boats ------------------------------------------------------------------------
-// clinker strakes: a hull's side as bands, each lit along its upper lap
-const strakes = (c, x0, x1, top, bot, n, col, f) => {
+// ---- boats ---------------------------------------------------------------------------------
+// a hull's side in clinker: strakes, the upper lap overhanging the lower (higher z) so its shadow falls on the one below
+const clinker = (ob, top, keel, x0, x1, mats, z0, dir = 1) => {
+  const n = mats.length, N = 24;
   for (let b = 0; b < n; b++) {
-    const t0 = b / n, t1 = (b + 1) / n;
-    c.fillStyle = b % 2 ? col : lighten(col, 0.08);
-    c.beginPath();
-    for (let k = 0; k <= 24; k++) { const u = k / 24, xx = x0 + (x1 - x0) * u, [ya, yb] = f(u); c.lineTo(xx, ya + (yb - ya) * t0); }
-    for (let k = 24; k >= 0; k--) { const u = k / 24, xx = x0 + (x1 - x0) * u, [ya, yb] = f(u); c.lineTo(xx, ya + (yb - ya) * t1); }
-    c.closePath(); c.fill();
-    c.fillStyle = lighten(col, 0.3);
-    for (let k = 1; k < 24; k++) { const u = k / 24, [ya, yb] = f(u); px1(c, x0 + (x1 - x0) * u, ya + (yb - ya) * t0); }
+    const t0 = b / n, t1 = (b + 1) / n, up = [], dn = [];
+    for (let k = 0; k <= N; k++) {
+      const u = -1 + 2 * k / N, xx = x0 + (x1 - x0) * (k / N), ya = top(u), yb = keel(u);
+      up.push([xx, ya + (yb - ya) * t0]); dn.push([xx, ya + (yb - ya) * t1 + 0.5]);
+    }
+    ob.part(); ob.poly([...up, ...dn.reverse()], mats[b], z0 - b * 0.3, { n: [0, -0.2, 0.9], ny: -0.2 });
   }
 };
 const rmboat = (ctx, x, y, s, o) => {
-  const gy = y + 8 + 2 * s, L = 13 * s, H = 5 * s, dir = o.v % 2 ? -1 : 1, sd = o.seed;
-  rShadow(ctx, x + 4 * s, gy + 1, L * 1.25, 3 * s, 0.32);
-  // the stones it rests on
-  part(ctx, (c) => { for (const k of [-0.6, 0.55]) ball(c, x + k * L, gy - 0.6, 2.2 * s, 1.4 * s, ROCK[3]); });
-  part(ctx, (c) => {
-    const base = gy - 1.4 * s, prof = (u) => base - H * (1 - u * u);
-    c.beginPath(); c.moveTo(x - L, base + 0.5);
-    for (let k = 0; k <= 24; k++) { const u = -1 + k / 12; c.lineTo(x + u * L, prof(u) - (u * dir > 0.8 ? (u * dir - 0.8) * 6 * s : 0)); }
-    c.lineTo(x + L, base + 0.5); c.closePath(); c.fillStyle = TAR; c.fill(); c.save(); c.clip();
-    strakes(c, x - L, x + L, 0, 0, 3, "#3a3436", (u) => { const uu = u * 2 - 1; return [prof(uu), base]; });
-    c.fillStyle = TEAL; c.fillRect(x - L, ap(base - 1.2 * s), L * 2, 1); c.fillStyle = TEAL_LT; c.fillRect(x - L, ap(base - 1.2 * s), L * 2, 0.5);
-    c.fillStyle = rgba("#2a1c2c", 0.3); c.fillRect(x + L * 0.3, base - H - 4, L, H + 6);
-    c.restore();
-    // snow along the keel
-    c.fillStyle = SNOW; c.beginPath();
-    for (let k = 0; k <= 16; k++) { const u = -0.8 + k / 10; c.lineTo(x + u * L, prof(u) - 0.8); }
-    for (let k = 16; k >= 0; k--) { const u = -0.8 + k / 10; c.lineTo(x + u * L, prof(u) + 0.6 + Math.sin(k * 1.7 + sd) * 0.4); }
-    c.fill();
-  });
-  groundDrift(ctx, x - L * 0.9, gy, 4 * s, sd);
+  const gy = y + 8 + 2 * s, S = s * U, L = 13 * S, H = 5 * S, dir = o.v % 2 ? -1 : 1;
+  vShade(ctx, x, gy, 4 * S, 2, L * 1.25, 3 * S / 1.5, 0.28);
+  sculpt(Math.ceil(L * 2) + 30, Math.ceil(H) + 22, 14, (ob, M) => {
+    const base = -1.4 * S;
+    for (const k of [-0.62, 0.58]) { ob.part(); ob.ellipse(k * L, base + 0.5, 3.4 * s, 2.2 * s, M.rock, 0, { round: 0.9 }); }
+    const prof = (u) => base - H * (1 - u * u) - (u * dir > 0.8 ? (u * dir - 0.8) * 12 * s : 0);
+    const top = (u) => prof(u), bot = () => base + 1;
+    clinker(ob, (u) => top(u), bot, -L, L, [M.hull, M.hull2, M.teal], 2);
+    ob.part(); ob.poly([...Array.from({ length: 17 }, (_, k) => { const u = -0.85 + k * 0.106; return [u * L, prof(u) - 1.4]; }), ...Array.from({ length: 17 }, (_, k) => { const u = 0.85 - k * 0.106; return [u * L, prof(u) + 1.6 + Math.sin(k * 1.7) * 0.4]; })], M.snow, 5, SNOW_N);
+    bank(ob, M, -L * 0.95, 8 * s, 6);
+  }, ctx, x, gy);
 };
-// A longship hauled up on rollers: its long south side in clinker, a row of
-// shields along the rail (teal and ochre), the dragon prow curling up at the
-// bow, the stern post curling at the other end, the mast down along the
-// deck on crutches with its striped sail furled to the yard.
 const rmlongship = (ctx, x, y, s, o) => {
-  const dir = o.v % 2 ? -1 : 1, gy = y + 8 + 6 * s, L = 30 * s, H = 7.5 * s, sd = o.seed;
-  const X = (u) => x + u * L * dir;                         // u -1 stern .. 1 bow
-  const keel = (u) => gy - 1.5 * s - Math.pow(Math.abs(u), 3) * 4 * s;
-  const rail = (u) => gy - 1.5 * s - H - Math.pow(Math.abs(u), 2.4) * 3.5 * s;
-  rShadow(ctx, x + 6 * s, gy + 1.5, L * 1.15, 4 * s, 0.32);
-  // rollers under the keel
-  part(ctx, (c) => { for (const u of [-0.55, 0, 0.55]) { c.fillStyle = WOOD; c.fillRect(ap(X(u) - 1.2 * s), ap(gy - 1.2 * s), 2.4 * s, 2.4 * s); c.fillStyle = WOOD_LT; c.fillRect(ap(X(u) - 1.2 * s), ap(gy - 1.2 * s), 2.4 * s, 0.5); } });
-  part(ctx, (c) => {
-    c.beginPath();
-    for (let k = 0; k <= 40; k++) { const u = -1 + k / 20; c.lineTo(X(u), rail(u)); }
-    for (let k = 40; k >= 0; k--) { const u = -1 + k / 20; c.lineTo(X(u), keel(u)); }
-    c.closePath(); c.fillStyle = "#3a302a"; c.fill(); c.save(); c.clip();
-    const x0 = Math.min(X(-1), X(1)), x1 = Math.max(X(-1), X(1));
-    strakes(c, x0, x1, 0, 0, 4, "#4a3a2e", (t) => { const u = (t * 2 - 1) * dir; return [rail(u), keel(u)]; });
-    c.fillStyle = rgba("#2a1c2c", 0.28); c.fillRect(x0, keel(0) - 2.5 * s, x1 - x0, 4 * s);
-    c.restore();
-  });
-  // prow and stern posts, curling up
-  part(ctx, (c) => {
+  const dir = o.v % 2 ? -1 : 1, gy = y + 8 + 6 * s, S = s * U, L = 30 * S, H = 7.5 * S;
+  const X = (u) => u * L * dir, keel = (u) => -1.5 * S - Math.pow(Math.abs(u), 3) * 4 * S, rail = (u) => -1.5 * S - H - Math.pow(Math.abs(u), 2.4) * 3.5 * S;
+  vShade(ctx, x, gy, 7 * S, 3, L * 1.12, 4.2 * S / 1.5, 0.3);
+  sculpt(Math.ceil(L * 2) + 60, Math.ceil(H + 34 * S) + 28, 14, (ob, M) => {
+    // rollers under the keel
+    for (const u of [-0.55, 0, 0.55]) { ob.part(); ob.ellipse(X(u), 0.6, 1.5 * S, 1.2 * S, M.wood, -1, { round: 0.9 }); }
+    clinker(ob, rail, keel, X(-1), X(1), [M.teal, M.hull, M.hull2, M.hull, M.hull2], 2);
+    ob.part(); along(ob, (t) => { const u = -1 + 2 * t; return [X(u), rail(u) - 0.5]; }, 30, 1.3, 1.3, M.wood, 4, { round: 0.8 });
+    // prow and stern posts curling up; the dragon's head on the prow
     for (const end of [1, -1]) {
-      const bx = X(end * 0.97), by = rail(end * 0.97), up = (end === 1 ? 13 : 10) * s, k = end * dir;
-      c.lineCap = "round"; c.lineWidth = 2.2 * s; c.strokeStyle = "#3a302a";
-      c.beginPath(); c.moveTo(bx - k * 2 * s, by + 3 * s); c.quadraticCurveTo(bx + k * 3 * s, by - up * 0.4, bx + k * 1.5 * s, by - up); c.stroke();
-      c.lineWidth = 1; c.strokeStyle = "#5e4a38"; c.beginPath(); c.moveTo(bx - k * 1.6 * s, by + 2 * s); c.quadraticCurveTo(bx + k * 2.4 * s, by - up * 0.4, bx + k * 1.1 * s, by - up + 0.5); c.stroke();
+      const u = end * 0.97, bx = X(u), by = rail(u), up = (end === 1 ? 13 : 10) * S, k = end * dir;
+      ob.part(); along(ob, bez([bx - k * 4 * s, by + 4 * s], [bx + k * 6 * s, by + 2], [bx + k * 6 * s, by - up * 0.55], [bx + k * 3 * s, by - up]), 10, 2.6 * s, 1.5 * s, M.hull2, 3, { round: 1 });
       if (end === 1) {
-        // the dragon's head: snout forward, ochre jaw, a teal eye, crest
-        const hx = bx + k * 1.5 * s, hy = by - up;
-        c.fillStyle = OCHRE_DK; poly(c, [[hx - k * 1.5 * s, hy - 1.5 * s], [hx + k * 4.5 * s, hy - 0.6 * s], [hx + k * 4.2 * s, hy + 1.2 * s], [hx - k * 0.5 * s, hy + 1.8 * s]]); c.fill();
-        c.fillStyle = OCHRE_LT; c.fillRect(ap(Math.min(hx, hx + k * 4 * s)), ap(hy - 1.2 * s), 4 * s, 0.5);
-        c.fillStyle = TEAL_LT; px1(c, hx + k * 1.2 * s, hy - 0.6 * s, 1, 0.5);
-        c.fillStyle = "#3a302a"; for (let q = 0; q < 3; q++) px1(c, hx - k * (1 + q) * s, hy - (2 + q * 0.6) * s, 1, 1);
-      } else { c.fillStyle = OCHRE; ellipse(c, bx + k * 1.2 * s, by - up - 0.6, 1.4 * s, 1.4 * s); c.fill(); }
+        const hx = bx + k * 3 * s, hy = by - up;
+        ob.part(); ob.poly([[hx - k * 4 * s, hy - 4.4 * s], [hx + k * 13 * s, hy - 1.6 * s], [hx + k * 12 * s, hy + 3.4 * s], [hx - k * 1 * s, hy + 5 * s]], M.ochre, 4, { round: 0.5, ny: -0.2 });
+        ob.part(); ob.dot(hx + k * 2.4 * s, hy - 1 * s, M.teal, 5, {}); ob.part(); ob.dot(hx + k * 2.4 * s + 1, hy - 1 * s, M.teal, 5, {});
+        for (let q = 0; q < 3; q++) { ob.part(); ob.ellipse(hx - k * (2 + q * 2) * s, hy - (3.5 + q * 1.4) * s, 1.4, 1.4, M.woodDk, 3.5, {}); }
+        ob.part(); ob.ellipse(hx + k * 0.5, hy - 4 * s, 3.4 * s, 1.1, M.snow, 5, { round: 0.8 });
+      } else { ob.part(); ob.ellipse(bx + k * 2.4 * s, by - up - 1, 2.8 * s, 2.8 * s, M.ochre, 4, { round: 1 }); }
     }
-  });
-  // the mast and yard along the deck on two crutches; the sail furled, striped
-  part(ctx, (c) => {
-    for (const u of [-0.45, 0.4]) { c.fillStyle = WOOD_DK; c.fillRect(ap(X(u) - 0.5), rail(u) - 6 * s, 1, 6 * s); }
-    const yy = rail(0) - 6 * s;
-    c.fillStyle = WOOD; c.fillRect(Math.min(X(-0.62), X(0.62)), ap(yy - 0.6), L * 1.24, 1.4);
-    for (let k = 0; k < 8; k++) {
-      const u = -0.5 + k * 0.125;
-      c.fillStyle = k % 2 ? OCHRE : "#b84a3c"; c.fillRect(ap(Math.min(X(u), X(u + 0.125))), ap(yy + 0.6), L * 0.125, 2.2 * s);
-    }
-    c.fillStyle = SNOW; c.fillRect(Math.min(X(-0.5), X(0.5)), ap(yy - 1), L, 0.8);
-  });
-  // shields along the rail (drawn last, on the hull's side)
-  part(ctx, (c) => {
+    // the mast and yard along the deck on two crutches, the sail furled and striped
+    const yy = rail(0) - 12 * s;
+    for (const u of [-0.45, 0.4]) { ob.part(); ob.capsule(X(u), rail(u) - 1, 1, X(u), yy + 1, 1, M.woodDk, 2.5, {}); }
+    ob.part(); ob.capsule(X(-0.62), yy, 1.4, X(0.62), yy, 1.4, M.wood, 3, { round: 1 });
+    for (let k = 0; k < 8; k++) { const u0 = X(-0.5 + k * 0.125), u1 = X(-0.5 + (k + 1) * 0.125); ob.part(); ob.poly([[Math.min(u0, u1), yy + 1], [Math.max(u0, u1), yy + 1], [Math.max(u0, u1), yy + 5.5 * s], [Math.min(u0, u1), yy + 5.5 * s]], k % 2 ? M.ochre : M.red, 2.8, { n: [0, 0.2, 0.9], round: 0.2 }); }
+    ob.part(); ob.capsule(X(-0.5), yy - 1.8, 1, X(0.5), yy - 1.8, 1, M.snow, 4, { round: 0.7 });
+    // shields along the rail, on the hull's side
     for (let k = 0; k < 9; k++) {
-      const u = -0.68 + k * 0.17, cx = X(u), cy = rail(u) + 2.2 * s;
-      c.fillStyle = k % 2 ? TEAL : OCHRE; ellipse(c, cx, cy, 2.1 * s, 2.1 * s); c.fill();
-      c.fillStyle = k % 2 ? TEAL_LT : OCHRE_LT; ellipse(c, cx - 0.5, cy - 0.5, 1.1 * s, 1.1 * s); c.fill();
-      c.fillStyle = "#c4c8d0"; px1(c, cx - 0.25, cy - 0.25, 1, 1);
+      const u = -0.68 + k * 0.17, cx = X(u), cy = rail(u) + 4.6 * S / 1.2;
+      ob.part(); ob.ellipse(cx, cy, 4.3 * s, 4.3 * s, k % 2 ? M.teal : M.ochre, 5, { round: 1 });
+      ob.part(); ob.ellipse(cx - 0.2, cy - 0.2, 1.3, 1.3, M.steel, 6, { round: 1 });
     }
-  });
-  groundDrift(ctx, X(-0.9), gy + 0.5, 6 * s, sd);
+    bank(ob, M, X(-0.9), 12 * s, 7);
+  }, ctx, x, gy);
 };
 
-// ---- a fish-drying rack ----------------------------------------------------------
+// ---- a fish-drying rack ---------------------------------------------------------------------
 const rmrack = (ctx, x, y, s, o) => {
-  const gy = y + 8, span = 14 * s, hh = 15 * s, sd = o.seed;
-  rShadow(ctx, x + 6 * s, gy + 1, span * 1.1, 3 * s, 0.26);
-  part(ctx, (c) => {
+  const gy = y + 8, S = s * U, span = 14 * S, hh = 15 * S, sd = o.seed | 0;
+  vShade(ctx, x, gy, 7 * S, 2.5, span * 1.12, 3 * S / 1.3, 0.24);
+  sculpt(Math.ceil(span * 2) + 36, Math.ceil(hh) + 22, 12, (ob, M) => {
     for (const e of [-1, 1]) {
-      c.strokeStyle = WOOD_DK; c.lineWidth = 1.4 * s; c.lineCap = "round";
-      c.beginPath(); c.moveTo(x + e * span - 3 * s, gy); c.lineTo(x + e * span + 1 * s, gy - hh); c.stroke();
-      c.beginPath(); c.moveTo(x + e * span + 3 * s, gy + 0.5); c.lineTo(x + e * span - 1 * s, gy - hh); c.stroke();
+      ob.part(); ob.capsule(e * span - 6 * s, 0, 1.6 * s, e * span + 2 * s, -hh, 1.4 * s, M.woodDk, 0, { round: 1 });
+      ob.part(); ob.capsule(e * span + 6 * s, 1, 1.6 * s, e * span - 2 * s, -hh, 1.4 * s, M.wood, 1, { round: 1 });
     }
-    c.fillStyle = WOOD; c.fillRect(x - span - 2, ap(gy - hh - 0.5), span * 2 + 4, 1.3);
-    c.fillStyle = WOOD_LT; c.fillRect(x - span - 2, ap(gy - hh - 0.5), span * 2 + 4, 0.5);
-  });
-  part(ctx, (c) => {
-    // stockfish hung head-down from the pole, a hand apart: tails tied
-    // over it, bodies tapering to dark heads, a gap between each
+    ob.part(); ob.capsule(-span - 5, -hh, 1.5 * s, span + 5, -hh, 1.5 * s, M.wood, 2, { round: 1 });
+    ob.part(); ob.capsule(-span - 4, -hh - 2.2, 1.1, span + 4, -hh - 2.2, 1.1, M.snow, 5, { round: 0.7 });
+    // stockfish hung head-down from the pole, a hand apart
     for (let k = 0; k < 7; k++) {
-      const fx = x - span + 3 * s + k * (span * 2 - 6 * s) / 6 + (hash(sd, k + 5) - 0.5) * s, len = (6 + hash(sd, k) * 4) * s, top = gy - hh + 0.6;
-      c.fillStyle = "#4a3e32"; c.fillRect(ap(fx - 1), ap(top - 0.5), 2.5, 1);
-      poly(c, [[fx - 0.4, top], [fx + 0.9, top], [fx + 1.4 * s, top + len * 0.7], [fx + 0.9 * s, top + len], [fx - 0.6 * s, top + len], [fx - 0.9 * s, top + len * 0.6]]);
-      c.fillStyle = k % 3 === 1 ? "#7e6e5a" : "#94826a"; c.fill();
-      c.fillStyle = "#c0ae8a"; c.fillRect(ap(fx - 0.6 * s), top + 1, 0.5, len * 0.7);
-      c.fillStyle = "#4e443a"; c.fillRect(ap(fx - 0.6 * s), ap(top + len - 1.5 * s), 1.8 * s, 1.5 * s);
+      const fx = -span + 6 * s + k * (span * 2 - 12 * s) / 6 + (jit(sd, k + 5) - 0.5) * 2 * s, len = (6 + jit(sd, k) * 4) * S, top = -hh + 1.5;
+      ob.part(); ob.poly([[fx - 1, top], [fx + 1.4, top], [fx + 2.8 * s, top + len * 0.7], [fx + 1.8 * s, top + len], [fx - 1.2 * s, top + len], [fx - 1.8 * s, top + len * 0.6]], k % 3 === 1 ? M.boneFar : M.fish, 3, { round: 0.8 });
+      ob.part(); ob.rect(fx - 1.2 * s, top + len - 3 * s, 3.6 * s, 3 * s, M.fishDk, 3.5, { round: 0.4 });
+      ob.part(); ob.rect(fx - 1.6, top - 1, 3.2, 1.6, M.woodDk, 3.5, {});
     }
-    c.fillStyle = SNOW; c.fillRect(x - span - 2, ap(gy - hh - 1.2), span * 2 + 4, 0.8);
-  });
-  groundDrift(ctx, x - span, gy + 0.5, 4 * s, sd);
+    bank(ob, M, -span, 8 * s, 6);
+  }, ctx, x, gy);
 };
 
 // ---- frozen waterfall / ice crag ------------------------------------------------------
@@ -873,98 +843,77 @@ const longhouseBody = (s, v) => {
   if (sp) return sp;
   const hw = Math.ceil(30 * s + 8), top = Math.ceil(38 * s + 8), bot = Math.ceil(12 + 6 * s);
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
-    const x = hw, gy = top + 8, L = 23 * s, dir = v % 2 ? -1 : 1;
-    shadow(c, x + 6 * s, gy + 1.5, L * 1.2, 4.5 * s, 0.32);
-    // the walls: a low south face of stone courses under turf
-    part(c, (cc) => {
-      poly(cc, [[x - L, gy], [x - L - 0.5, gy - 6 * s], [x + L + 0.5, gy - 6 * s], [x + L, gy]]);
-      cc.fillStyle = "#6a6660"; cc.fill(); cc.save(); cc.clip();
-      for (let r = 0; r < 3; r++) for (let k = 0; k < 14; k++) {
-        const sx = x - L + (k + (r % 2) * 0.5) * (L * 2 / 13), sy = gy - 1.8 * s - r * 1.9 * s;
-        cc.fillStyle = hash(k, r + 3) < 0.5 ? "#7e7a72" : "#5e5a56"; cc.fillRect(ap(sx), ap(sy), L * 2 / 13 - 0.5, 1.4 * s);
-        cc.fillStyle = "#948e84"; cc.fillRect(ap(sx), ap(sy), L * 2 / 13 - 1, 0.5);
+    const x = hw, gy = top + 8, dir = v % 2 ? -1 : 1, LA = 46 * s, S = s * U;
+    vShade(c, x, gy, 12 * s, 3, LA * 1.2, 9 * s, 0.28);
+    sculpt(hw * 4, (top + 8) * U + 10, (bot - 8) * U + 6, (ob, M) => {
+      // the low south wall: drystone courses (mortar and block tone, no ink), the stones lit on the west
+      ob.part(); ob.poly([[-LA, 0], [-LA - 1, -13], [LA + 1, -13], [LA, 0]], M.wallA, 0, { n: [0, 0.2, 0.92] });
+      const wp = ob._pid;
+      for (let r = 0; r < 3; r++) {
+        const yy = -4.2 * (r + 1);
+        ob.toneLine(-LA, yy, LA, yy, -1, wp);
+        for (let xx = -LA + 3 + (r % 2) * 5; xx < LA; xx += 8 + jit(r, xx) * 5) { ob.toneLine(xx, yy, xx, yy + 4, -1, wp); ob.tone(xx + 2, yy + 1, jit(xx, r) < 0.5 ? 1 : -1, wp); ob.tone(xx + 3, yy + 1, jit(xx, r) < 0.5 ? 1 : -1, wp); }
       }
-      cc.fillStyle = rgba("#2a1c2c", 0.25); cc.fillRect(x - L, gy - 6 * s, L * 2, 1.2);
-      cc.restore();
-    });
-    // the door, near one end
-    const dx = x - dir * L * 0.55;
-    part(c, (cc) => {
-      cc.fillStyle = WOOD_DK; cc.fillRect(ap(dx - 3 * s), ap(gy - 6.5 * s), 6 * s, 6.5 * s);
-      cc.fillStyle = "#1a1416"; cc.fillRect(ap(dx - 2 * s), ap(gy - 5.2 * s), 4 * s, 5.2 * s);
-      cc.fillStyle = WOOD; cc.fillRect(ap(dx - 1.6 * s), ap(gy - 4.8 * s), 3.2 * s, 4.8 * s);
-      cc.fillStyle = WOOD_LT; cc.fillRect(ap(dx - 1.6 * s), ap(gy - 4.8 * s), 0.5, 4.8 * s);
-      cc.fillStyle = TEAL; cc.fillRect(ap(dx - 3.2 * s), ap(gy - 7 * s), 6.4 * s, 1.2 * s); cc.fillStyle = TEAL_LT; cc.fillRect(ap(dx - 3.2 * s), ap(gy - 7 * s), 6.4 * s, 0.5);
-      cc.fillStyle = OCHRE; px1(cc, dx - 0.5, gy - 6.9 * s, 1, 1);
-    });
-    // the roof: turf, the snow on it, the eave's fringe, the north slope's sliver
-    const eave = (u) => gy - 6 * s + Math.pow(Math.abs(u), 4) * 0.8 * s;
-    const ridge = (u) => gy - 22 * s + u * u * 4.5 * s;
-    const R0 = -0.86, R1 = 0.86;
-    part(c, (cc) => {
-      cc.beginPath();
-      cc.moveTo(x - L - 1.5 * s, eave(-1) + 0.5);
-      for (let k = 0; k <= 20; k++) { const u = R0 + (R1 - R0) * k / 20; cc.lineTo(x + u * L, ridge(u) - 2.6 * s); }
-      cc.lineTo(x + L + 1.5 * s, eave(1) + 0.5);
-      cc.closePath();
-      cc.fillStyle = TURF; cc.fill(); cc.save(); cc.clip();
-      // snow over most of it: lit on the west, blue to the east, ridged along the slope
-      cc.beginPath();
-      cc.moveTo(x - L - 1, eave(-1) - 2.2 * s);
-      for (let k = 0; k <= 20; k++) { const u = R0 + (R1 - R0) * k / 20; cc.lineTo(x + u * L, ridge(u) - 3 * s); }
-      cc.lineTo(x + L + 1, eave(1) - 2.2 * s);
-      for (let k = 20; k >= 0; k--) { const u = -1 + 2 * k / 20; cc.lineTo(x + u * L * 1.02, eave(u) - 2 * s - Math.sin(k * 1.9) * 0.6 * s); }
-      cc.closePath();
-      cc.fillStyle = lin(cc, x - L, 0, x + L, 0, [[0, SNOW_LT], [0.35, SNOW], [0.8, "#d4e0ea"], [1, SNOW_SH]]); cc.fill();
-      // the turf showing through where the wind has scoured it: by the ridge
-      // ends and in a few patches along the slope; drift lines on the snow
-      for (let k = 0; k < 7; k++) {
-        const u = k < 2 ? (k ? 0.72 : -0.74) : -0.6 + hash(k, 41) * 1.2, f = k < 2 ? 0.25 : 0.35 + hash(k, 43) * 0.45;
-        const px = x + u * L, py = ridge(u) + (eave(u) - ridge(u)) * f, rw = (k < 2 ? 4.5 : 2 + hash(k, 47) * 2.5) * s;
-        cc.fillStyle = TURF_DK; ellipse(cc, px, py, rw, rw * 0.4); cc.fill();
-        cc.fillStyle = TURF; ellipse(cc, px - 0.5, py - 0.4, rw * 0.75, rw * 0.28); cc.fill();
-        cc.fillStyle = SNOW_SH; cc.fillRect(ap(px - rw * 0.6), ap(py + rw * 0.4), rw * 1.2, 0.5);
+      // the door near one end, a teal lintel
+      const dx = -dir * LA * 0.55;
+      ob.part(); ob.rect(dx - 5, -12, 10, 12, M.woodDk, 2, { n: [0, 0, 1] });
+      ob.part(); ob.rect(dx - 3.4, -10, 6.8, 10, M.wood, 2.5, { n: [0, 0, 1] });
+      ob.toneLine(dx - 3.4, -10, dx - 3.4, 0, 1, ob._pid); ob.toneLine(dx, -10, dx, 0, -1, ob._pid);
+      ob.part(); ob.rect(dx - 6.6, -14, 13.2, 2.8, M.teal, 3, { n: [0, -0.3, 0.9] });
+      ob.part(); ob.dot(dx + 1.6, -5, M.ochre, 3, {});
+      // the roof: turf under a heavy load of snow, lit on the west, blue to the east
+      const topAt = (u) => -13 - 33 * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(u), 3)), 0.62);
+      const eaveY = -11;
+      const roof = [];
+      for (let k = 0; k <= 36; k++) { const u = -1 + k / 18; roof.push([u * (LA + 4), topAt(u)]); }
+      roof.push([LA + 4, eaveY], [-LA - 4, eaveY]);
+      ob.part(); ob.poly(roof, M.snow, 1, { round: 0.7, ny: -0.12 });
+      const rp = ob._pid;
+      const slope = (u, f) => [u * (LA + 3), topAt(u) + (eaveY - topAt(u)) * f];
+      // wind ridges along the slope: blue lee lines under a lit lip
+      for (let f = 0.28; f < 0.9; f += 0.2) {
+        for (let u = -0.8 + jit(f, 3) * 0.2; u < 0.78; u += 0.3 + jit(u, f) * 0.2) {
+          const a = slope(u, f), b = slope(u + 0.14 + jit(f, u) * 0.1, f + 0.02);
+          ob.toneLine(a[0], a[1], b[0], b[1], -1, rp); ob.toneLine(a[0], a[1] - 1, b[0], b[1] - 1, 1, rp);
+        }
       }
-      cc.fillStyle = "#c8d6e2";
-      for (let k = 0; k < 14; k++) { const u = -0.8 + hash(k, 51) * 1.6, f = 0.2 + hash(k, 53) * 0.6; px1(cc, x + u * L, ridge(u) + (eave(u) - ridge(u)) * f, (3 + hash(k, 55) * 5) * s, 0.5); }
-      cc.fillStyle = "#fffaf0"; for (let k = 0; k <= 30; k++) { const u = -0.85 + k * 0.056; px1(cc, x + u * L, ridge(u) - 2.6 * s, 1, 0.5); }
-      // the turf eave: green-brown, straw hanging
-      cc.fillStyle = TURF_DK; cc.fillRect(x - L - 2, eave(0) - 1.6 * s, L * 2 + 4, 2 * s);
-      cc.fillStyle = TURF_LT; for (let k = 0; k < 40; k++) px1(cc, x - L + k * L / 20, eave(0) - 2 * s + hash(k, 5), 1, 0.5);
-      cc.restore();
-      cc.fillStyle = STRAW[1]; for (let k = 0; k < 30; k++) { const ex = x - L + k * L / 15 + hash(k, 2); px1(cc, ex, eave(0) + 0.3, 0.5, 0.8 + hash(k, 9) * 1.4); }
-    });
-    // the smoke-hole: a little louvred hood on the ridge
-    part(c, (cc) => {
-      const hx = x + dir * L * 0.15, hy = ridge(0.15) - 3.5 * s;
-      cc.fillStyle = WOOD_DK; cc.fillRect(ap(hx - 2.5 * s), ap(hy - 2 * s), 5 * s, 2.5 * s);
-      cc.fillStyle = WOOD; cc.fillRect(ap(hx - 2.5 * s), ap(hy - 2 * s), 5 * s, 0.8);
-      cc.fillStyle = SNOW; cc.fillRect(ap(hx - 3 * s), ap(hy - 2.6 * s), 6 * s, 0.8);
-    });
-    // the gables: barge boards crossed above each ridge end, carved into dragon heads
-    for (const e of [-1, 1]) part(c, (cc) => {
-      const gx = x + e * L * 0.88, gyR = ridge(e * 0.86) - 2.6 * s;
-      cc.lineCap = "round"; cc.lineWidth = 1.4 * s;
-      for (const side of [-1, 1]) {
-        cc.strokeStyle = WOOD_DK; cc.beginPath(); cc.moveTo(gx + side * 3.5 * s, gyR + 7 * s); cc.lineTo(gx - side * 2.5 * s, gyR - 5 * s); cc.stroke();
-        // the head at the board's top end, snout out, ochre
-        const hx = gx - side * 2.5 * s, hy = gyR - 5 * s;
-        cc.fillStyle = OCHRE; poly(cc, [[hx, hy - 1 * s], [hx - side * 3 * s, hy - 0.3 * s], [hx - side * 2.6 * s, hy + 1 * s], [hx + side * 0.4 * s, hy + 1 * s]]); cc.fill();
-        cc.fillStyle = OCHRE_LT; px1(cc, Math.min(hx, hx - side * 2.6 * s), hy - 0.8 * s, 2.4 * s, 0.5);
-        cc.fillStyle = TEAL_LT; px1(cc, hx - side * 1.2 * s, hy - 0.5 * s);
+      // turf where the wind has scoured it: at the ridge ends and in patches
+      const patches = [[-0.74, 0.3, 8], [0.74, 0.3, 8], [-0.3, 0.55, 4], [0.28, 0.6, 5], [0.55, 0.45, 3.4], [-0.55, 0.62, 3.6]];
+      patches.forEach(([u, f, rw], i) => {
+        const [px, py] = slope(u, f);
+        ob.part(); ob.ellipse(px, py, rw, rw * 0.36, M.turfDk, 1.5, { round: 0.8 });
+        ob.part(); ob.ellipse(px - 0.6, py - 0.5, rw * 0.7, rw * 0.22, M.turf, 1.7, { round: 0.8 });
+      });
+      // the turf eave with straw hanging from it
+      ob.part(); ob.poly([[-LA - 4, eaveY - 4], [LA + 4, eaveY - 4], [LA + 4, eaveY + 1], [-LA - 4, eaveY + 1]], M.turfDk, 2, { n: [0, 0.15, 0.95] });
+      for (let k = 0; k < 44; k++) { const ex = -LA - 2 + k * (LA * 2 + 4) / 43 + jit(k, 2); ob.part(); ob.line(ex, eaveY + 1, ex + 0.3, eaveY + 1 + 1 + Math.floor(jit(k, 9) * 3), M.straw, 2.2, {}); }
+      ob.toneLine(-LA - 3, eaveY - 3, LA + 3, eaveY - 3, 1, ob._pid - 44);
+      // the smoke-hole's louvred hood on the ridge, snow on it
+      const hx = dir * LA * 0.15, hy = topAt(dir * 0.15) - 1;
+      ob.part(); ob.rect(hx - 6, hy - 5, 12, 6, M.woodDk, 3, { n: [0, 0.1, 0.95] });
+      ob.toneLine(hx - 4, hy - 3, hx + 4, hy - 3, -1, ob._pid); ob.toneLine(hx - 4, hy - 1, hx + 4, hy - 1, -1, ob._pid);
+      ob.part(); ob.rect(hx - 7, hy - 7.2, 14, 3, M.snow, 4, SNOW_N);
+      // the gables: barge boards crossed over each ridge end, carved into dragon heads
+      for (const e of [-1, 1]) {
+        const gx = e * LA * 0.9, gyR = topAt(e * 0.88);
+        for (const sd2 of [-1, 1]) {
+          ob.part(); ob.capsule(gx + sd2 * 6, gyR + 12, 1.5, gx - sd2 * 4.6, gyR - 10, 1.3, M.woodDk, 4, { round: 1 });
+          const hx2 = gx - sd2 * 4.6, hy2 = gyR - 10;
+          ob.part(); ob.poly([[hx2, hy2 - 2.2], [hx2 - sd2 * 6.4, hy2 - 0.6], [hx2 - sd2 * 5.6, hy2 + 2.4], [hx2 + sd2 * 0.6, hy2 + 2.2]], M.ochre, 5, { round: 0.4, ny: -0.2 });
+          ob.part(); ob.dot(hx2 - sd2 * 2.4, hy2 - 0.6, M.teal, 6, {});
+          ob.part(); ob.ellipse(hx2 - sd2 * 1.5, hy2 - 3, 3, 1.1, M.snow, 6, { round: 0.8 });
+        }
       }
-    });
-    // the woodpile at the far end, snow on it
-    part(c, (cc) => {
-      const wx = x + dir * (L + 3 * s);
+      // the woodpile at the far end, snow on it
+      const wx = dir * (LA + 8);
       for (let r = 0; r < 3; r++) for (let k = 0; k < 3 - (r === 2 ? 1 : 0); k++) {
-        const lx = wx + (k - 1) * 2.2 * s + (r % 2) * 1.1 * s, ly = gy - 1.2 * s - r * 2 * s;
-        cc.fillStyle = WOOD; ellipse(cc, lx, ly, 1.1 * s, 1.1 * s); cc.fill(); cc.fillStyle = "#c4a070"; px1(cc, lx - 0.5, ly - 0.5, 1, 1);
+        const lx = wx + (k - 1) * 4.6 + (r % 2) * 2.3, ly = -2.4 - r * 4.2;
+        ob.part(); ob.ellipse(lx, ly, 2.4, 2.3, M.log, 2, { round: 0.9 }); ob.part(); ob.ellipse(lx - 0.4, ly - 0.4, 1.2, 1.2, M.logEnd, 2.5, { round: 0.7 });
       }
-      cc.fillStyle = SNOW; cc.fillRect(ap(wx - 3 * s), ap(gy - 6.4 * s), 6 * s, 1);
-    });
-    groundDrift(c, x - L - 1, gy + 0.5, 5 * s, 3);
-  });
+      ob.part(); ob.poly([[wx - 6, -12.4], [wx - 3, -14.4], [wx + 3, -14.4], [wx + 6, -12.4], [wx + 4, -10.6], [wx - 4, -10.6]], M.snow, 5, SNOW_N);
+      bank(ob, M, -LA - 2, 10 * s, 7);
+    }, c, x, gy);
+  }, false);
   sp = { cv, hw, top, bot, smoke: [hw + (v % 2 ? -1 : 1) * 23 * s * 0.15, top + 8 - 22 * s - 6 * s] };
   BODIES.set(key, sp);
   return sp;
@@ -1043,42 +992,34 @@ const rimeGeom = () => {
 const toBoard = (G, e, s) => (G.left ? [e, s] : [s, e]);
 export const rimeIceAt = (x, y) => { if (!PTS.length) return 0; const G = rimeGeom(); return G.left ? G.hgt(x, y) : G.hgt(y, x); };
 
-// a carved post: banded teal/ochre, a dragon head on top looking outward
-const gatePost = (c, x, gy, h, out, sd) => {
-  part(c, (cc) => {
-    cc.fillStyle = WOOD_DK; cc.fillRect(ap(x - 2.4), gy - h, 4.8, h);
-    cc.fillStyle = WOOD; cc.fillRect(ap(x - 2.4), gy - h, 1.6, h);
-    cc.fillStyle = "#2a1e16"; cc.fillRect(ap(x + 1.9), gy - h, 0.5, h);
+// a carved post, sculpted: banded teal/ochre, a dragon head on top looking outward (out: +1 / -1)
+const gatePost = (c, x, gy, h, out) => {
+  const H = Math.round(h * RES);
+  sculpt(56, H + 44, 12, (o, M) => {
+    o.part(); o.capsule(0, 0, 4.8, 0, -H, 4.6, M.wood, 0, { round: 1 });
+    o.toneLine(3, -H * 0.05, 3, -H * 0.95, -1, o._pid);
     for (let k = 0; k < 4; k++) {
-      const by = gy - h * (0.22 + k * 0.17);
-      cc.fillStyle = k % 2 ? TEAL : OCHRE; cc.fillRect(ap(x - 2.4), ap(by), 4.8, 2);
-      cc.fillStyle = k % 2 ? TEAL_LT : OCHRE_LT; cc.fillRect(ap(x - 2.4), ap(by), 1.6, 2);
-      cc.fillStyle = WOOD_DK; px1(cc, x - 0.5, by + 0.5, 1, 1);
+      const by = -H * (0.22 + k * 0.17);
+      o.part(); o.capsule(0, by, 5, 0, by - 4, 5, k % 2 ? M.teal : M.ochre, 1, { round: 1 });
+      o.part(); o.dot(-0.5, by - 2, M.woodDk, 2, {});
     }
-    // frost on the windward edge, a drift at the foot
-    cc.fillStyle = FROST; cc.fillRect(ap(x - 2.4), gy - h * 0.9, 0.5, h * 0.6);
-    cc.fillStyle = SNOW; ellipse(cc, x - 0.5, gy, 3.5, 1.3); cc.fill();
-  });
-  part(c, (cc) => {
+    o.part(); o.line(-4, -H * 0.9, -4, -H * 0.3, M.snow, 2, {});
+    o.part(); o.ellipse(-1, -0.5, 8, 2.8, M.snow, 6, { round: 0.8 });
     // the neck curling up and out, the head with an open jaw
-    const nx = x, ny = gy - h;
-    cc.lineCap = "round"; cc.lineWidth = 3.2; cc.strokeStyle = WOOD_DK;
-    cc.beginPath(); cc.moveTo(nx, ny + 1); cc.quadraticCurveTo(nx - out * 0.5, ny - 6, nx + out * 2.5, ny - 7.5); cc.stroke();
-    cc.lineWidth = 1; cc.strokeStyle = WOOD_LT; cc.beginPath(); cc.moveTo(nx - 0.6, ny); cc.quadraticCurveTo(nx - out * 0.9, ny - 5.6, nx + out * 2.2, ny - 8); cc.stroke();
-    const hx = nx + out * 2.5, hy = ny - 7.5;
-    cc.fillStyle = OCHRE_DK; poly(cc, [[hx - out * 1, hy - 1.8], [hx + out * 4.2, hy - 1], [hx + out * 4.4, hy + 0.2], [hx + out * 1.5, hy + 0.3], [hx + out * 3.8, hy + 1.6], [hx - out * 0.3, hy + 1.8]]); cc.fill();
-    cc.fillStyle = OCHRE_LT; cc.fillRect(ap(Math.min(hx, hx + out * 3.8)), ap(hy - 1.4), 3.6, 0.5);
-    cc.fillStyle = TEAL_LT; px1(cc, hx + out * 1.2, hy - 1, 1, 0.5);
-    cc.fillStyle = WOOD_DK; for (let q = 0; q < 3; q++) px1(cc, nx - out * (0.2 + q * 0.6), ny - 2.5 - q * 1.6, 1, 1);
-    cc.fillStyle = SNOW; cc.fillRect(ap(Math.min(hx - out, hx + out * 3)), ap(hy - 2.4), 3.4, 0.7);
-  });
+    o.part(); along(o, bez([0, -H + 2], [-out * 3, -H - 8], [out * 3, -H - 12], [out * 5, -H - 15]), 8, 3.4, 2.4, M.woodDk, 3, { round: 1 });
+    const hx = out * 5, hy = -H - 15;
+    o.part(); o.poly([[hx - out * 2.4, hy - 3.8], [hx + out * 9, hy - 2.2], [hx + out * 9.2, hy], [hx + out * 3.4, hy + 0.2]], M.ochre, 4, { round: 0.4, ny: -0.2 });
+    o.part(); o.poly([[hx + out * 3, hy + 1], [hx + out * 8.4, hy + 0.8], [hx + out * 7.4, hy + 3.2], [hx - out * 0.4, hy + 3.8]], M.ochre, 3.5, { round: 0.3 });
+    o.part(); o.dot(hx + out * 2.4, hy - 2, M.teal, 5, {});
+    for (let q = 0; q < 3; q++) { o.part(); o.ellipse(-out * (0.4 + q * 1.4) + out * 1, -H - 5 - q * 3.2, 1.4, 1.4, M.woodDk, 2.5, {}); }
+    o.part(); o.ellipse(hx + out * 2, hy - 4.6, 4.4, 1.5, M.snow, 5, { round: 0.8 });
+  }, c, x, gy);
 };
 const shield = (c, x, y, rx, ry, k) => {
-  c.fillStyle = k % 2 ? TEAL : OCHRE; ellipse(c, x, y, rx, ry); c.fill();
-  c.fillStyle = k % 2 ? TEAL_DK : OCHRE_DK; ellipse(c, x + rx * 0.25, y + ry * 0.25, rx * 0.7, ry * 0.7); c.fill();
-  c.fillStyle = k % 2 ? TEAL_LT : OCHRE_LT; ellipse(c, x - rx * 0.3, y - ry * 0.3, rx * 0.45, ry * 0.45); c.fill();
-  c.fillStyle = "#c4c8d0"; px1(c, x - 0.25, y - 0.25, 1, 1);
-  c.fillStyle = "#3a3438"; px1(c, x - rx, y, 0.5, 0.5); px1(c, x + rx - 0.5, y, 0.5, 0.5);
+  sculpt(20, 12, 8, (o, M) => {
+    o.part(); o.ellipse(0, 0, rx * 2, ry * 2, k % 2 ? M.teal : M.ochre, 0, { round: 1 });
+    o.part(); o.dot(-0.5, -0.5, M.steel, 1, {});
+  }, c, x, y);
 };
 
 // bake the ice and the gate (once a board)
@@ -1184,26 +1125,28 @@ const bakeRimeGate = () => {
       // the skull: a pale dome, dark eyes, horns curling up
       const [kx, ky] = at(0.55);
       c.fillStyle = "#3a2e26"; c.fillRect(ap(kx), ap(ky), 0.5, 1.5);
-      c.fillStyle = BONE_DK; ellipse(c, kx + 0.5, ky + 3.6, 2.2, 2); c.fill();
-      c.fillStyle = BONE; ellipse(c, kx + 0.1, ky + 3.2, 1.8, 1.6); c.fill();
-      c.fillStyle = "#2a2226"; px1(c, kx - 1, ky + 3.4, 1, 0.5); px1(c, kx + 0.5, ky + 3.4, 1, 0.5);
-      c.strokeStyle = BONE; c.lineWidth = 0.7; c.lineCap = "round";
-      c.beginPath(); c.moveTo(kx - 1.6, ky + 2.6); c.quadraticCurveTo(kx - 4.2, ky + 2.2, kx - 3.4, ky - 0.6); c.stroke();
-      c.beginPath(); c.moveTo(kx + 1.8, ky + 2.6); c.quadraticCurveTo(kx + 4.4, ky + 2.2, kx + 3.6, ky - 0.6); c.stroke();
+      sculpt(40, 30, 12, (o, M) => {
+        for (const e of [-1, 1]) { o.part(); along(o, bez([e * 3, -2], [e * 9, -3], [e * 10, -8], [e * 7, -12]), 7, 1.5, 0.7, M.bone, 0, { round: 1 }); }
+        o.part(); o.ellipse(0, 0, 4.6, 4.2, M.bone, 1, { round: 1 });
+        o.part(); o.rect(-2.6, 2.4, 5.2, 2.6, M.boneFar, 1, { round: 0.3 });
+        o.part(); o.dot(-1.8, -0.2, M.runeDk, 2, {}); o.dot(1.4, -0.2, M.runeDk, 2, {});
+      }, c, kx, ky + 3.6);
     } else {
-      const top = pny - PH_ + 1, lx = Math.min(pnx, psx), rx = Math.max(pnx, psx);
-      c.fillStyle = WOOD_DK; c.fillRect(lx - 2, ap(top - 2.5), rx - lx + 4, 4);
-      c.fillStyle = WOOD; c.fillRect(lx - 2, ap(top - 2.5), rx - lx + 4, 1.2);
-      c.fillStyle = SNOW; c.fillRect(lx - 2, ap(top - 3.2), rx - lx + 4, 1);
+      const top = pny - PH_ + 1, lx = Math.min(pnx, psx), rx = Math.max(pnx, psx), Lw = Math.round((rx - lx + 4) * RES);
+      sculpt(Lw + 16, 22, 10, (o, M) => {
+        o.part(); o.rect(-Lw / 2, -2, Lw, 7, M.wood, 0, { n: [0, 0.25, 0.9] });
+        o.toneLine(-Lw / 2, 3, Lw / 2, 3, -1, o._pid);
+        o.part(); o.poly([[-Lw / 2, -3], [-Lw / 2 + 5, -5.6], [Lw / 2 - 5, -5.6], [Lw / 2, -3]], M.snow, 3, SNOW_N);
+        o.part(); o.ellipse(0, -1, 4.4, 3.2, M.ochre, 3, { round: 1 });
+      }, c, (lx + rx) / 2, top - 0.5);
       for (let k = 0; k < 5; k++) shield(c, lx + 6 + k * (rx - lx - 12) / 4, top + 3.5, 2.6, 2.4, k);
-      c.fillStyle = OCHRE; ellipse(c, (lx + rx) / 2, top - 0.5, 2.2, 1.6); c.fill();
     }
   };
   if (left) {
-    draw(far, (c) => gatePost(c, pnx, pny, PH_, 1, sd));
-    draw(near, (c) => { gatePost(c, psx, psy, PH_, 1, sd + 1); part(c, gate); });
+    draw(far, (c) => gatePost(c, pnx, pny, PH_, 1));
+    draw(near, (c) => { gatePost(c, psx, psy, PH_, 1); part(c, gate); });
   } else {
-    draw(near, (c) => { gatePost(c, pnx, pny, PH_, -1, sd); gatePost(c, psx, psy, PH_, 1, sd + 1); part(c, gate); });
+    draw(near, (c) => { gatePost(c, pnx, pny, PH_, -1); gatePost(c, psx, psy, PH_, 1); part(c, gate); });
   }
   G.far = far; G.near = near; G.box = [bx0, by0, w, h];
   return G;
@@ -1658,7 +1601,7 @@ const drawRimeGate = (ctx, time) => {
 // ============ THE REGISTRY ============
 export const RIME_ART = {
   // baked without the 2px ring: the tussock carries its own underline
-  flat: ["rmtussock", "rmice"],
+  flat: ["rmtussock", "rmice", "rmcairn", "rmrunestone", "rmskaldstone", "rmwhale", "rmboat", "rmlongship", "rmrack", "rmlonghouse", "rmspruce"],
   decor: {
     rmspruce, rmrock, rmcairn, rmrunestone, rmskaldstone, rmwhale, rmboat, rmlongship, rmrack,
     rmicefall, rmsealrock, rmtussock, rmlonghouse, rmgate, rmice,
