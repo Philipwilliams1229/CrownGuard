@@ -48,6 +48,12 @@ import * as captain from "./fig-captain.js";
 import * as storm from "./fig-storm.js";
 import * as levy from "./fig-levy.js";
 import * as magister from "./fig-magister.js";
+import * as crossbow from "./fig-crossbow.js";
+import * as sergeant from "./fig-sergeant.js";
+import * as chaplain from "./fig-chaplain.js";
+import * as marshal from "./fig-marshal.js";
+import * as cavalier from "./fig-cavalier.js";
+import * as unhorsed from "./fig-unhorsed.js";
 import * as garrison from "./fig-garrison.js";
 import * as paladin from "./fig-paladin.js";
 import * as squire from "./fig-squire.js";
@@ -108,6 +114,16 @@ export const PIX = {
   levy: { fig: mk("levy", levy), atk: "attack", hit: 0.5, per: 3.9, legacy: [0, 3, 5, 8], fx: true },
   // (his aegis: wardCd runs down to each ward and is reset to wardEvery)
   magister: { fig: mk("magister", magister), atk: "cast", hit: 0.54, per: 3.15, legacy: [0, 4, 7, 10], fx: true, casts: [{ clip: "ward", clock: "wardCd", every: "wardEvery", lead: 500, hold: 700 }] },
+  crossbow: { fig: mk("crossbow", crossbow), atk: "shoot", hit: 0.44, per: 4.0, legacy: [6, 7, 9, 13], fx: true },
+  sergeant: { fig: mk("sergeant", sergeant), atk: "attack", hit: 0.5, per: 3.7, legacy: [0, 4, 6, 8], fx: true },
+  // (his heal: healCd runs down to each heal and is reset to healEvery)
+  chaplain: { fig: mk("chaplain", chaplain), atk: "attack", hit: 0.54, per: 3.5, legacy: [0, 4, 7, 9], fx: true, casts: [{ clip: "heal", clock: "healCd", every: "healEvery", lead: 500, hold: 700 }] },
+  marshal: { fig: mk("marshal", marshal), atk: "attack", hit: 0.5, per: 3.3, legacy: [0, 5, 6, 8], fx: true },
+  cavalier: { fig: mk("cavalier", cavalier), atk: "attack", hit: 0.5, per: 3.4, legacy: [0, 3, 6, 7], fx: true },
+  cavalierMount: { fig: mk("cavalier", cavalier), variant: "loose", atk: "attack", hit: 0.5, per: 3.4, legacy: [0, 3, 6, 7], fx: true },
+  loosehorse: { fig: mk("cavalier", cavalier), variant: "bolt", atk: "attack", hit: 0.5, per: 5.0, legacy: [0, 3, 6, 7], fx: true },
+  unhorsed: { fig: mk("unhorsed", unhorsed), atk: "attack", hit: 0.5, per: 3.4, legacy: [0, 3, 6, 9], fx: true },
+  unseated: { fig: mk("unhorsed", unhorsed), variant: "gryphon", atk: "attack", hit: 0.5, per: 3.6, legacy: [0, 3, 6, 9], fx: true },
   // ---- the Hollow Court (owner's pick, 2026-11-14: Risen A, wraith B) ----
   skeleton: { fig: mk("risen", risen), atk: "attack", hit: 0.52, per: 3.5, legacy: [0, 3, 5, 7], fx: false },
   wraith: { fig: mk("wraith", wraith), atk: "attack", hit: 0.56, legacy: [0, 3, 5, 7], fx: true },
