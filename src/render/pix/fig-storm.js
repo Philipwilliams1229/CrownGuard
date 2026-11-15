@@ -5,7 +5,8 @@
 // Clips: idle, walk (the staff carried), attack (the ready, the thrust the bolt leaves from,
 // recoil, recover; the engine flies the bolt), sky (the staff raised overhead: raise, hold,
 // crackle, hold: the Thunderclap). `info.marks.tip` is the crystal for the engine's shots.
-import { mat, flat } from "./pix.js";
+import { mat, flat, layers } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { sampleKeys, walkPose, HUMAN, scaled } from "./rig.js";
 
 const ROBE = mat("#3c3a7e"), SILVER = mat("#c8d0e4", { contrast: 1.15 }), SKIN = mat("#ecd0b4"), HAIR = mat("#dfe4f2", { contrast: 1.25 }), HAIR_D = mat("#aeb4cc");
@@ -31,15 +32,25 @@ const LEG = {
   e: { m: SKIN, fix: 0 }, E: { m: EYE }, m: { m: LIP },
 };
 
+// the staff and its arm never pass over her face (they go behind her head)
+export const MUST = [["staff", "notOver", "face"], ["nearArm", "notOver", "face"], ["nearArm", "notOver", "eyes"], ["staff", "notOver", "eyes"]];
 export const BOX = { w: 96, h: 84, ox: 36, oy: 72 };
 export const BONES = scaled(HUMAN, 1, { thigh: 8.6, shin: 8.1, shN: -2.5, shF: 2.5, hipN: -1.2, hipF: 1.3 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// Depth order of her head, the staff and the staff arm (back to front). Raised, or with the hand up beside
+// her head, the arm and the staff pass BEHIND it (the head's edge keeps them apart); otherwise they are in front.
+const YZ = layers(["head", "staff", "arm"], [
+  { when: (p) => p.behind, put: "head", above: "arm" },
+], { z0: 5, step: 0.45 });
 const hash = (n) => { const s = Math.sin(n * 91.7 + 13.1) * 43758.5453; return s - Math.floor(s); };
 
 export const draw = (px, { sk, lag1, lag2 }) => {
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, anN, anF } = sk;
   const vx = cl(C[0] - lag1.C[0], -2.5, 2.5), vx2 = cl(lag1.C[0] - lag2.C[0], -2.5, 2.5), sway = p.sway || 0;
-  const hx = Math.round(N[0]), hyy = Math.round(N[1]), g = p.glow || 0, nb = (p.nb || 0) > 0.5;
+  const hx = Math.round(N[0]), hyy = Math.round(N[1]), g = p.glow || 0;
+  const behind = (p.nb || 0) >= 0.5 || (hdN[1] < N[1] + 3 && Math.abs(hdN[0] - N[0]) < 7);
+  const Z = YZ({ behind });
   // the staff's own line: st is its angle from upright (+ toward the foe)
   const a = p.st ?? 0.5, d = [Math.sin(a), -Math.cos(a)], nr = [-d[1], d[0]];
   const at = (t, s = 0) => [hdN[0] + d[0] * t + nr[0] * s, hdN[1] + d[1] * t + nr[1] * s];
@@ -80,11 +91,11 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // the head
   px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hyy, LEG, 6, { ax: 7, ay: 10, cast: 2 });
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 7, ay: 10, cast: 2, edge: true }, "SsNEem");
 
   // the staff: a plain shaft with silver collars, a claw of silver round the crystal
-  const bz = nb ? 5.4 : 7;
-  px.part();
+  const bz = Z.staff;
+  px.part(); px.tag("staff");
   px.capsule(...at(-11), 0.95, ...at(19), 0.9, WOOD, bz, { edge: true });
   px.capsule(...at(-11), 1.2, ...at(-9.8), 1.2, SILVER, bz + 0.02);
   px.capsule(...at(15.4), 1.4, ...at(17), 1.3, SILVER, bz + 0.03);
@@ -94,14 +105,15 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.ellipse(c0[0], c0[1], 2.3, 2.7, CRYS, bz + 0.08);
   px.dot(cx[0] - 0.6, cx[1] - 0.8, CRYS_C, bz + 0.1);
   if (g > 0.5) px.ellipse(cx[0], cx[1], 1 + g, 1 + g, CRYS_C, bz + 0.12);
+  px.tag(null);
 
   // the near arm: a bell sleeve to the grip, a silver cuff; passes behind the head when raised
-  const az = nb ? 5.5 : 8;
-  px.part();
+  const az = Z.arm;
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.4, 2.2, eN[0], eN[1], 2.3, ROBE, az, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.5, hdN[0], hdN[1], 2, ROBE, az, { cast: 2 });
   px.line(eN[0] * 0.25 + hdN[0] * 0.75 - 1.5, eN[1] * 0.25 + hdN[1] * 0.75, eN[0] * 0.25 + hdN[0] * 0.75 + 1.5, eN[1] * 0.25 + hdN[1] * 0.75, SILVER, az + 0.02);
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, az + 0.2);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, az + 0.2); px.tag(null);
 
   const lights = [{ x: cx[0], y: cx[1], r: 16 + 26 * g, col: "#8ad8ff", k: cl(0.5 * g, 0, 0.7) }];
   return { crystal: cx, crackle: p.crackle || 0, lights, marks: { tip: cx } };
@@ -136,6 +148,7 @@ export const CLIPS = {
     n: 12, ms: 900, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
       { t: 0, p: READY },
+      { t: 0.09, e: "out", p: { ...READY, rx: -0.25, lean: -0.03, twist: -0.2, rise: 0.25, hy: -0.2, aN: [2.7, 0.72, 1], nb: 1, st: -0.2, aF: [0.5, 0.85, 0], glow: 0.3, fN: [-2, 0], fF: [2.2, 0] } },
       { t: 0.3, e: "out", p: { ...READY, rx: -0.8, lean: -0.1, twist: -0.6, rise: 0.8, hy: -0.6, aN: [2.6, 0.7, 1], nb: 1, st: -0.2, aF: [0.9, 0.85, 0], glow: 0.7, fN: [-2.2, 0], fF: [2.4, 0] } },
       { t: 0.5, e: "io", p: { ...READY, rx: -0.4, lean: -0.04, twist: -0.4, rise: 1, hy: -0.8, aN: [2.8, 0.66, 1], nb: 1, st: -0.1, aF: [1.9, 1, 0], glow: 1.1, crackle: 1, fN: [-2.2, 0], fF: [2.4, 0] } },
       { t: 0.6, e: "in3", p: { ...READY, rx: 1.8, drop: 1, lean: 0.2, twist: 0.7, hx: 0.4, aN: [1.7, 0.86, 0], nb: 0, st: 1.2, aF: [1.6, 1, 0], glow: 1.5, crackle: 1, fN: [-2.6, 0], fF: [5, 0] } },

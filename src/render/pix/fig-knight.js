@@ -3,7 +3,8 @@
 // a longsword in the near fist. An open-faced helm so the face reads.
 // Clips: idle (low guard, breathing), walk (sword on the shoulder), attack
 // (wind-up over the shoulder, a fast cut, follow-through, back to guard).
-import { mat, flat } from "./pix.js";
+import { mat, flat, layers } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { walkPose, sampleKeys, HUMAN, scaled, armChain, legChain } from "./rig.js";
 
 const STEEL = mat("#98a2b6", { contrast: 1.18 }), MAIL = mat("#6c7488", { contrast: 1.1 }), GOLD = mat("#d8b34a", { contrast: 1.15 });
@@ -76,10 +77,20 @@ const LEG = {
   N: { m: SKIN, bias: 1 }, e: { m: SKIN, fix: 0 }, E: { m: EYE }, B: { m: HAIR }, b: { m: HAIR, fix: 2 }, l: { m: SKIN, fix: 0 },
 };
 
+// the sword arm and the blade never pass over the face (they go behind the helm when cocked)
+export const MUST = [["nearArm", "notOver", "face"], ["sword", "notOver", "face"], ["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 84, h: 72, ox: 34, oy: 62 };
 export const BONES = scaled(HUMAN, 1.08, { shN: -3.2, shF: 3.2, hipN: -1.4, hipF: 1.6, neck: 1.5 });
 const CROWN = ["G.G.G", "GGGGG", "GGGGG"];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// Depth order of the head and the sword arm (back to front). While the sword is cocked up and back
+// (`nb`), or the hand is up beside the head (`hi`), the arm, the grip and the blade pass BEHIND the
+// helm, and the helm's edge keeps them apart; low, the arm is the foremost thing.
+const KZ = layers(["head", "sword", "arm"], [
+  { when: (p) => p.swBack, put: "sword", below: "head" },     // a blade standing up passes behind the helm
+  { when: (p) => p.behind, put: "head", above: "arm" },
+], { z0: 5, step: 0.45 });
 
 // a plated leg, ONE welded tube (cuisse, knee, greave share radii at the joints), then the knee cop and sabaton
 const leg = (px, h, k, an, z, b) => {
@@ -132,7 +143,9 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
 
   // the head
   const hx = Math.round(N[0]), hyy = Math.round(N[1]);
-  px.stamp(p.blink ? BLINKS[face] : HEADS[face], hx, hyy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 0 });
+  const behind = (p.nb || 0) >= 0.5 || (hdN[1] < N[1] + 3 && Math.abs(hdN[0] - N[0]) < 7);
+  const Z = KZ({ behind, swBack: behind || (p.sw ?? 2.3) < 1.3 });
+  stampFace(px, p.blink ? BLINKS[face] : HEADS[face], hx, hyy, LEG, Z.head, Z.head, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 0, edge: true }, "SsNEelBb");
   px.body(0);
   // the plume: red, rooted on the crown, streaming back a beat behind
   const pl = cl(vx * 2 + vx2 * 1.5, -3, 3) - sway * 0.5, rx0 = hx + 0.5, ry0 = hyy - 10;
@@ -145,23 +158,26 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   const a = p.sw ?? 2.3, d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
   const B = (t, s = 0) => [hdN[0] + d[0] * t + nrm[0] * s, hdN[1] + d[1] * t + nrm[1] * s];
   px.part();
-  const bz = (p.nb || 0) > 0.5 ? 5.4 : 7;
+  const bz = Z.sword;
+  px.tag("sword");
   px.capsule(...B(2.5), 1.25, ...B(15.5), 1.05, BLADE, bz, { edge: true });
   px.capsule(...B(15.5), 1.05, ...B(17.6), 0.3, BLADE, bz, { edge: true });
   px.part();
   px.capsule(...B(-3), 0.9, ...B(1), 0.9, LEATHER, bz + 0.02);
   px.capsule(...B(1.8, -2.8), 0.85, ...B(1.8, 2.8), 0.85, GOLD, bz + 0.05, { edge: true });
   px.ellipse(...B(-3.6), 1.2, 1.2, GOLD, bz + 0.05);
+  px.tag(null);
 
   // the near arm over it all: pauldron, vambrace, gauntlet on the grip
   // (cocked back over the shoulder it passes BEHIND the helm, so the face stays open)
-  const az = (p.nb || 0) > 0.5 ? 5.5 : 8;
-  px.body(1);
+  const az = Z.arm;
+  px.part(); px.tag("nearArm");
   px.limb([[sN[0], sN[1] + 0.5], eN, hdN], [2.2, 2.1, 1.9], STEEL, az, { weld: 2, weldRoot: 4 });
   px.ellipse(eN[0], eN[1], 1.8, 1.8, STEEL, az + 0.02, { vb: 0.25, weld: 2 });
+  px.ellipse(hdN[0], hdN[1], 2, 1.9, MAIL, az + 0.2, { weld: 1.5 });
+  px.tag(null);
   px.ellipse(sN[0] - 0.2, sN[1] - 0.4, 3.7, 3.2, STEEL, 8.1, { weld: 2 });
   px.line(sN[0] - 3, sN[1] + 2.2, sN[0] + 2.6, sN[1] + 2.2, GOLD, 8.12);
-  px.ellipse(hdN[0], hdN[1], 2, 1.9, MAIL, az + 0.2, { weld: 1.5 });
   px.body(0);
 
   return { hand: hdN, sw: a };
@@ -187,12 +203,13 @@ export const CLIPS = {
   },
   walk: {
     n: 8, ms: 720, loop: true, lag: 0.08,
-    pose: (ph) => { const w = walkPose(ph, { stride: 5.4, lift: 2.8, swing: 0.4, bob: 1.2 }), a = Math.cos(ph * Math.PI * 2); return { ...w, aN: [0.7 + 0.06 * a, 0.56, 0], sw: -0.42 + 0.05 * a, aF: [0.5 + 0.18 * a, 0.72, 0], shield: 0.06 + 0.05 * a }; },
+    pose: (ph) => { const w = walkPose(ph, { stride: 5.4, lift: 2.8, swing: 0.4, bob: 1.2 }), a = Math.cos(ph * Math.PI * 2); return { ...w, aN: [0.7 + 0.06 * a, 0.56, 0], sw: -0.95 + 0.05 * a, aF: [0.5 + 0.18 * a, 0.72, 0], shield: 0.06 + 0.05 * a }; },
   },
   attack: {
     n: 12, ms: 760, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
+      { t: 0.09, e: "out", p: { rx: -0.5, drop: 0.25, lean: -0.05, twist: -0.25, rise: 0.15, aN: [3.3, 0.9, 1], nb: 1, sw: 0.3, aF: [0.5, 0.75, 0], shield: -0.02, fN: [-2, 0], fF: [2.4, 0] } },
       { t: 0.3, e: "out", p: { rx: -1.4, drop: 0.7, lean: -0.13, twist: -0.7, rise: 0.4, aN: [3.4, 0.8, 1], nb: 1, sw: -1.05, aF: [1.0, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
       { t: 0.38, e: "io", p: { rx: -1.6, drop: 0.8, lean: -0.15, twist: -0.8, rise: 0.5, aN: [3.5, 0.82, 1], nb: 1, sw: -1.2, aF: [1.05, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
       { t: 0.5, e: "in3", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, hx: 0.5, aN: [1.02, 1, 0], nb: 0, sw: 1.95, aF: [0.2, 0.8, 0], shield: 0.25, fN: [-2.6, 0], fF: [6, 0] } },

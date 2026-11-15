@@ -6,7 +6,8 @@
 // blade drawn back over the shoulder, the chop, follow-through), sweep (his six-frame
 // Halberd Sweep sheet: guard, wind-up, blade coming round, strike, follow-through, recover;
 // feet planted). Plate is smooth bands: one lit line, one dark side, no dither inside a plate.
-import { mat, flat } from "./pix.js";
+import { mat, flat, layers } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { ik, sampleKeys, walkPose, HUMAN, scaled } from "./rig.js";
 
 const STEEL = mat("#98a2b6", { contrast: 1.05 }), STEEL_D = mat("#7a8296", { contrast: 1.05 }), MAIL = mat("#6c7488", { contrast: 1.05 }), GOLD = mat("#e0b84a", { contrast: 1.15 });
@@ -36,9 +37,23 @@ const LEG = {
   e: { m: SKIN, fix: 0 }, E: { m: EYE }, b: { m: HAIR, fix: 2 }, w: { m: HAIR, fix: 2 },
 };
 
+// the haft, blade and arms never pass over the face (they go behind the head)
+export const MUST = [["halb", "notOver", "face"], ["nearArm", "notOver", "face"], ["nearArm", "notOver", "eyes"], ["halb", "notOver", "eyes"]];
 export const BOX = { w: 96, h: 90, ox: 36, oy: 78 };
 export const BONES = scaled(HUMAN, 1.1, { shN: -3.4, shF: 3.4, hipN: -1.5, hipF: 1.7, neck: 1.6 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// The halberd is ONE size in every pose: LEN from butt to tip (a head's height and a third taller than
+// him, grounded), its head a fixed small blade (K scales the old drawing). Only where the hands hold it
+// slides: GRIP behind the near hand when carried, the butt on the ground when planted.
+const LEN = 58, GRIP = 20, K = 0.72;
+
+// Depth order (back to front). Low and forward everything is in front of the head; cocked up and back (nb),
+// or with the hand beside the head, the arms and the haft pass BEHIND it (its edge keeps them apart).
+const CZ = layers(["head", "halb", "farArm", "nearArm"], [
+  { when: (p) => p.haftBack, put: "halb", below: "head" },     // the butt end swinging up past his face
+  { when: (p) => p.behind, put: "head", above: "nearArm" },
+], { z0: 5, step: 0.45 });
 
 const leg = (px, h, k, an, z, b) => {
   px.part();
@@ -62,8 +77,12 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   // the halberd's line: grounded at rest, in two hands when it swings
   const a = p.hb ?? 0.12, d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
   const B = (t, s = 0) => [hdN[0] + d[0] * t + nrm[0] * s, hdN[1] + d[1] * t + nrm[1] * s];
-  const nb = (p.nb || 0) > 0.5, bz = nb ? 5.4 : 7;
-  const butt = p.plant ? Math.min(-8, hdN[1] / Math.max(0.3, Math.cos(a)) + 0.6) : -9;
+  const behind = (p.nb || 0) >= 0.5 || (hdN[1] < N[1] + 3 && Math.abs(hdN[0] - N[0]) < 7);
+  const plantedButt = Math.min(-8, hdN[1] / Math.max(0.3, Math.cos(a)) + 0.6), pl0 = cl(p.plant || 0, 0, 1);
+  const butt = -GRIP + (plantedButt + GRIP) * pl0, tipT = butt + LEN;
+  const bp = [hdN[0] + d[0] * butt, hdN[1] + d[1] * butt], haftBack = behind || (Math.abs(bp[0] - N[0]) < 10 && bp[1] < N[1] + 10) || (Math.abs(hdN[0] - N[0]) < 10 && hdN[1] < N[1] + 8);
+  const Z = CZ({ behind, haftBack }), bz = Z.halb;
+  const H = (t, s = 0) => B(tipT - (31 - t) * K, s * K);
 
   leg(px, hF, kF, anF, 2, -1);
   leg(px, hN, kN, anN, 3, 0);
@@ -91,51 +110,53 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // the head: the sallet, and its horsehair crest streaming back a beat behind
   px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hyy, LEG, 6, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2 });
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 6, ay: 10, ball: [6.5, 5.5, 7, 7], cast: 2, edge: true }, "SsNEewb");
   const pl = cl(vx * 2 + vx2 * 1.5, -3, 3) - sway * 0.5;
   px.part();
   px.poly([[hx + 3, hyy - 10.4], [hx + 0.4, hyy - 13.4], [hx - 3.4 - pl * 0.5, hyy - 14.4], [hx - 8.6 - pl, hyy - 12.4], [hx - 11 - pl * 1.4, hyy - 7.4 + Math.abs(pl) * 0.4], [hx - 6.4 - pl * 0.6, hyy - 9.8], [hx - 2, hyy - 10]], RED, 6.45, { round: 0.8 });
   px.toneLine(hx + 2, hyy - 12, hx - 8 - pl, hyy - 13, -1, px._pid);
 
   // the halberd: shaft, socket, spike, crescent axe blade, back hook, tassel
-  px.part();
-  px.capsule(...B(butt), 1.1, ...B(22), 1.05, WOOD, bz, { edge: true });
+  px.part(); px.tag("halb");
+  px.capsule(...B(butt), 1.1, ...H(22), 1.05, WOOD, bz, { edge: true });
   px.capsule(...B(butt), 1.5, ...B(butt + 1.4), 1.5, STEEL_D, bz + 0.02);
   px.part();
-  px.capsule(...B(18), 1.5, ...B(21.4), 1.4, STEEL_D, bz + 0.05);
-  px.capsule(...B(21), 1.2, ...B(31), 0.2, STEEL, bz + 0.06, { edge: true });
-  px.poly([B(23.6, 0.8), B(25.4, 4), B(24.4, 7.6), B(20.8, 9), B(16.6, 7.4), B(18.8, 6), B(20.6, 5.2), B(20.6, 3.4), B(18.6, 1)], STEEL, bz + 0.07, { round: 0.5, edge: true });
-  px.line(...B(23.8, 2.4), ...B(23.6, 6.6), STEEL, bz + 0.1, { fix: 4, noLine: true });
-  px.line(...B(21, 8.2), ...B(17.6, 6.9), STEEL, bz + 0.1, { fix: 1, noLine: true });
-  px.poly([B(19.4, -0.8), B(21.8, -0.8), B(21.4, -4.6), B(19.6, -6), B(19.6, -3.2)], STEEL, bz + 0.07, { round: 0.5, edge: true });
+  px.capsule(...H(18), 1.5, ...H(21.4), 1.4, STEEL_D, bz + 0.05);
+  px.capsule(...H(21), 1.2, ...H(31), 0.2, STEEL, bz + 0.06, { edge: true });
+  px.poly([H(23.6, 0.8), H(25.4, 4), H(24.4, 7.6), H(20.8, 9), H(16.6, 7.4), H(18.8, 6), H(20.6, 5.2), H(20.6, 3.4), H(18.6, 1)], STEEL, bz + 0.07, { round: 0.5, edge: true });
+  px.line(...H(23.8, 2.4), ...H(23.6, 6.6), STEEL, bz + 0.1, { fix: 4, noLine: true });
+  px.line(...H(21, 8.2), ...H(17.6, 6.9), STEEL, bz + 0.1, { fix: 1, noLine: true });
+  px.poly([H(19.4, -0.8), H(21.8, -0.8), H(21.4, -4.6), H(19.6, -6), H(19.6, -3.2)], STEEL, bz + 0.07, { round: 0.5, edge: true });
   {
-    const w = cl(-vx * 1.4 + sway * 0.8, -3, 3), t0 = B(14.4, 0.4);
+    const w = cl(-vx * 1.4 + sway * 0.8, -3, 3), t0 = H(14.4, 0.4);
     px.part();
     px.capsule(...t0, 0.9, t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, RED, bz + 0.1);
     px.capsule(t0[0] + w * 0.6 - 0.4, t0[1] + 3.2, 1.2, t0[0] + w * 1.1, t0[1] + 7, 0.7, RED_D, bz + 0.1);
   }
+  px.tag(null);
 
   // the far arm: solved to a grip on the shaft, or resting on his hip (grounded halberd, the march)
   const gp = p.hip ? [P[0] + 3.6, P[1] - 4.4] : B(p.grip ?? 8), side = p.hip ? -1 : 1;
   const fa = ik(sF[0], sF[1] + 0.4, gp[0], gp[1], BONES.upper, BONES.fore, side);
   px.part();
-  px.capsule(sF[0], sF[1] + 0.4, 2.3, fa.mid[0], fa.mid[1], 2.2, STEEL, nb ? 5.45 : 7.2, { cast: 0 });
-  px.capsule(fa.mid[0], fa.mid[1], 2.2, fa.end[0], fa.end[1], 1.9, STEEL, nb ? 5.45 : 7.2, { cast: 0 });
-  px.part(); px.ellipse(fa.end[0], fa.end[1], 1.7, 1.7, STEEL_D, nb ? 5.6 : 7.4);
+  px.capsule(sF[0], sF[1] + 0.4, 2.3, fa.mid[0], fa.mid[1], 2.2, STEEL, Z.farArm, { cast: 0 });
+  px.capsule(fa.mid[0], fa.mid[1], 2.2, fa.end[0], fa.end[1], 1.9, STEEL, Z.farArm, { cast: 0 });
+  px.part(); px.ellipse(fa.end[0], fa.end[1], 1.7, 1.7, STEEL_D, Z.farArm + 0.15);
   // the near arm: vambrace, gauntlet on the haft, and the great spiked pauldron
-  const az = nb ? 5.5 : 8;
-  px.part();
+  const az = Z.nearArm;
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.5, 2.3, eN[0], eN[1], 2.2, STEEL, az, { cast: 0 });
   px.capsule(eN[0], eN[1], 2.2, hdN[0], hdN[1], 1.9, STEEL, az, { cast: 0 });
   px.ellipse(eN[0], eN[1], 1.9, 1.9, STEEL, az + 0.02, { vb: 0.25 });
+  px.ellipse(hdN[0], hdN[1], 1.8, 1.7, STEEL_D, az + 0.2);
+  px.tag(null);
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] - 0.4, 4.6, 3.8, STEEL, 8.1, { cast: 1 });
   px.line(sN[0] - 3, sN[1] + 2.2, sN[0] + 2.6, sN[1] + 2.2, GOLD, 8.12);
   px.poly([[sN[0] - 1.8, sN[1] - 2], [sN[0] + 0.8, sN[1] - 2], [sN[0] - 1.6, sN[1] - 7.6]], STEEL, 8.14, { edge: true });
   px.poly([[sN[0] + 1, sN[1] - 1.8], [sN[0] + 3.4, sN[1] - 1.8], [sN[0] + 3.6, sN[1] - 6]], STEEL, 8.14, { edge: true });
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.8, 1.7, STEEL_D, az + 0.2);
 
-  return { tip: B(31), hand: hdN, hb: a };
+  return { tip: B(tipT), hand: hdN, hb: a };
 };
 
 // the chop's smear: on the fastest frames the blade leaves a fan of light behind it
@@ -143,10 +164,10 @@ export const fx = (px, F, info, clip) => {
   if (clip !== "attack" && clip !== "sweep") return;
   const a1 = F.sk.p.hb, a0 = F.lag1.p.hb;
   if (!(a1 - a0 > 0.5)) return;
-  const [hx, hy] = F.sk.hdN, [gx, gy] = F.lag1.hdN, n = 10;
+  const [hx, hy] = F.sk.hdN, [gx, gy] = F.lag1.hdN, n = 10, R = Math.hypot(info.tip[0] - hx, info.tip[1] - hy) * 0.85;
   const at = (t, r) => { const a = a0 + (a1 - a0) * t, x = gx + (hx - gx) * t, y = gy + (hy - gy) * t; return [x + Math.sin(a) * r, y - Math.cos(a) * r]; };
-  const arc = (t0, rIn, m, z) => { const out = [], inn = []; for (let i = 0; i <= n; i++) { const t = t0 + (1 - t0) * (i / n); out.push(at(t, 27)); inn.unshift(at(t, 27 - (27 - rIn) * ((t - t0) / (1 - t0)) ** 1.4)); } px.poly([...out, ...inn], m, z, { noLine: true }); };
-  arc(0, 14, SMEAR2, 20); arc(0.45, 19, SMEAR, 20.1);
+  const arc = (t0, rIn, m, z) => { const out = [], inn = []; for (let i = 0; i <= n; i++) { const t = t0 + (1 - t0) * (i / n); out.push(at(t, R)); inn.unshift(at(t, R - (R - rIn) * ((t - t0) / (1 - t0)) ** 1.4)); } px.poly([...out, ...inn], m, z, { noLine: true }); };
+  arc(0, R * 0.5, SMEAR2, 20); arc(0.45, R * 0.7, SMEAR, 20.1);
 };
 
 const GUARD = { nb: 0, aN: [0.62, 0.8, 0], aF: [0.2, 0.9, 0], hb: 0.52, plant: 1, hip: 1, grip: 7, fN: [-2, 0], fF: [2.4, 0] };
@@ -154,10 +175,10 @@ const GUARD = { nb: 0, aN: [0.62, 0.8, 0], aF: [0.2, 0.9, 0], hb: 0.52, plant: 1
 const SW = { rx: 0, drop: 1, fN: [-2.6, 0], fF: [5, 0], plant: 0, hip: 0, grip: 8 };
 const SWEEP = [
   { ...SW, aN: [0.9, 0.9, 0], hb: 0.7, lean: 0.05, twist: 0.1 },
-  { ...SW, rx: -1.2, lean: -0.14, twist: -0.8, rise: 0.5, aN: [2.9, 0.78, 1], nb: 1, hb: -1.0 },
+  { ...SW, rx: -1.2, lean: -0.14, twist: -0.8, rise: 0.5, aN: [2.9, 0.78, 1], nb: 1, hb: -0.7 },
   { ...SW, rx: 0.4, lean: 0.02, twist: -0.2, rise: 0.8, aN: [2.2, 0.9, 0], hb: 0.5 },
   { ...SW, rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, aN: [1.2, 1, 0], hb: 1.7 },
-  { ...SW, rx: 3, drop: 2, lean: 0.25, twist: 0.9, aN: [0.8, 0.96, 0], hb: 2.5 },
+  { ...SW, rx: 3, drop: 2, lean: 0.25, twist: 0.9, aN: [0.8, 0.96, 0], hb: 2.1 },
   { ...SW, rx: 1.4, drop: 1.2, lean: 0.12, twist: 0.4, aN: [0.9, 0.9, 0], hb: 1.4 },
 ];
 export const CLIPS = {
@@ -174,11 +195,12 @@ export const CLIPS = {
     n: 12, ms: 900, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
-      { t: 0.3, e: "out", p: { rx: -1.4, drop: 0.7, lean: -0.13, twist: -0.8, rise: 0.4, aN: [2.9, 0.78, 1], nb: 1, hb: -0.95, plant: 0, hip: 0, grip: 8, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.4, e: "io", p: { rx: -1.7, drop: 0.8, lean: -0.15, twist: -0.9, rise: 0.5, aN: [3, 0.8, 1], nb: 1, hb: -1.1, plant: 0, hip: 0, grip: 8, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.52, e: "in3", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, hx: 0.5, aN: [1.1, 1, 0], nb: 0, hb: 1.9, plant: 0, hip: 0, grip: 8, fN: [-2.6, 0], fF: [6, 0] } },
-      { t: 0.64, e: "out", p: { rx: 3, drop: 2, lean: 0.25, twist: 0.9, hx: 0.6, aN: [0.8, 0.96, 0], nb: 0, hb: 2.6, plant: 0, hip: 0, grip: 8, fN: [-2.6, 0], fF: [6, 0] } },
-      { t: 0.78, e: "io", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.6, hx: 0.4, aN: [0.7, 0.94, 0], hb: 2.4, plant: 0, hip: 0, grip: 8, fN: [-2.6, 0], fF: [6, 0] } },
+      { t: 0.09, e: "out", p: { rx: -0.5, drop: 0.25, lean: -0.05, twist: -0.25, rise: 0.15, aN: [3.2, 0.85, 1], nb: 1, hb: -0.3, plant: 0, hip: 0, grip: 8, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.3, e: "out", p: { rx: -1.4, drop: 0.7, lean: -0.13, twist: -0.8, rise: 0.4, aN: [2.9, 0.78, 1], nb: 1, hb: -0.65, plant: 0, hip: 0, grip: 8, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.4, e: "io", p: { rx: -1.7, drop: 0.8, lean: -0.15, twist: -0.9, rise: 0.5, aN: [3, 0.8, 1], nb: 1, hb: -0.75, plant: 0, hip: 0, grip: 8, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.52, e: "in3", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, hx: 0.5, aN: [1.1, 1, 0], nb: 0, hb: 1.7, plant: 0, hip: 0, grip: 8, fN: [-2.6, 0], fF: [6, 0] } },
+      { t: 0.64, e: "out", p: { rx: 3, drop: 2, lean: 0.25, twist: 0.9, hx: 0.6, aN: [0.8, 0.96, 0], nb: 0, hb: 2.2, plant: 0, hip: 0, grip: 8, fN: [-2.6, 0], fF: [6, 0] } },
+      { t: 0.78, e: "io", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.6, hx: 0.4, aN: [0.7, 0.94, 0], hb: 2.1, plant: 0, hip: 0, grip: 8, fN: [-2.6, 0], fF: [6, 0] } },
       { t: 1, e: "io", p: GUARD },
     ], ph),
   },

@@ -4,7 +4,8 @@
 // Clips: idle (the mace held forward, breathing), walk (the mace carried upright before him),
 // attack (wind-up behind the head, the smash, a burst of holy light). Sanctuary's lifted mace
 // is the attack's wind-up frame (legacy[1]).
-import { mat, flat } from "./pix.js";
+import { mat, flat, layers } from "./pix.js";
+import { stampFace } from "./bowlayers.js";
 import { sampleKeys, walkPose, HUMAN, scaled } from "./rig.js";
 
 const HABIT = mat("#86502f"), ROPE = mat("#e4dcc4"), CREAM = mat("#e4e0d4");
@@ -32,9 +33,19 @@ const LEG = {
   e: { m: SKIN, fix: 0 }, E: { m: EYE }, b: { m: HAIR, fix: 2 }, m: { m: LIP },
 };
 
+// the smashing arm and the mace never pass over the face (they go behind the head)
+export const MUST = [["nearArm", "notOver", "face"], ["mace", "notOver", "face"], ["nearArm", "notOver", "eyes"]];
 export const BOX = { w: 92, h: 78, ox: 38, oy: 66 };
 export const BONES = scaled(HUMAN, 1, { shN: -3, shF: 3, hipN: -1.4, hipF: 1.6, neck: 1.5 });
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// Depth order of the head, the mace and the smashing arm (back to front). Cocked up and back (`nb`), or
+// with the hand up beside the head (`hi`), the arm and mace pass BEHIND the head (the head's edge keeps
+// them apart); a mace standing up before the face also goes behind it; otherwise the arm is foremost.
+const FZ = layers(["head", "mace", "arm"], [
+  { when: (p) => p.maceBack, put: "mace", below: "head" },
+  { when: (p) => p.behind, put: "head", above: "arm" },
+], { z0: 5, step: 0.45 });
 
 export const draw = (px, { sk, lag1, lag2 }) => {
   const { p, P, C, N, sN, sF, eN, eF, hdN, hdF, anN, anF } = sk;
@@ -67,14 +78,16 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // the head
   px.part();
-  px.stamp(p.blink ? BLINK : HEAD, hx, hyy, LEG, 6, { ax: 7, ay: 10, ball: [6.5, 5, 6.5, 6], cast: 2 });
+  const behind = (p.nb || 0) >= 0.5 || (hdN[1] < N[1] + 3 && Math.abs(hdN[0] - N[0]) < 7);
+  const Z = FZ({ behind, maceBack: behind || (p.mc ?? 0.3) < 0.2 });
+  stampFace(px, p.blink ? BLINK : HEAD, hx, hyy, LEG, Z.head, Z.head, { ax: 7, ay: 10, ball: [6.5, 5, 6.5, 6], cast: 2, edge: true }, "SsNEem");
 
   // the mace through the near fist; mc is its angle from upright (+ toward the foe)
   const a = p.mc ?? 0.3, d = [Math.sin(a), -Math.cos(a)], nrm = [-d[1], d[0]];
   const B = (t, s = 0) => [hdN[0] + d[0] * t + nrm[0] * s, hdN[1] + d[1] * t + nrm[1] * s];
-  const hz = (p.nb || 0) > 0.5 ? 5.4 : 7;
+  const hz = Z.mace;
   const hd = B(13);
-  px.part();
+  px.part(); px.tag("mace");
   px.capsule(...B(-3), 1.15, ...B(11), 1, WOOD, hz, { edge: true });
   px.capsule(...B(-0.5), 1.25, ...B(3.4), 1.25, ROPE, hz + 0.02);
   px.part();
@@ -84,13 +97,14 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.capsule(...B(11.2), 1.5, ...B(11.8), 1.5, IRON, hz + 0.11);
   for (const s of [-1, 1]) px.capsule(hd[0] + nrm[0] * 1.8 * s, hd[1] + nrm[1] * 1.8 * s, 0.9, hd[0] + nrm[0] * 3 * s, hd[1] + nrm[1] * 3 * s, 0.6, GOLD, hz + 0.12, { edge: true });
   px.capsule(...B(15), 0.8, ...B(16.6), 0.3, IRON, hz + 0.12, { edge: true });
+  px.tag(null);
 
   // the near arm over it all: a wide sleeve (raised, it passes BEHIND the head so the face stays open)
-  const az = (p.nb || 0) > 0.5 ? 5.5 : 8;
-  px.part();
+  const az = Z.arm;
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 0.5, 2.7, eN[0], eN[1], 2.6, HABIT, az, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.6, hdN[0], hdN[1], 2.1, HABIT, az, { cast: 2 });
-  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, az + 0.2);
+  px.part(); px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, az + 0.2); px.tag(null);
 
   // holy light: a flash on the smash
   const k = p.flash || 0, lights = [];
@@ -123,6 +137,7 @@ export const CLIPS = {
     n: 12, ms: 860, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
+      { t: 0.09, e: "out", p: { rx: -0.45, drop: 0.28, lean: -0.05, twist: -0.25, rise: 0.14, hy: 0.2, aN: [3.2, 0.9, 1], nb: 1, flash: 0, mc: -0.25, aF: [0.6, 0.85, 0], fN: [-2, 0], fF: [2.4, 0] } },
       { t: 0.32, e: "out", p: { rx: -1.4, drop: 0.8, lean: -0.14, twist: -0.7, rise: 0.4, hy: 0.6, aN: [3.3, 0.8, 1], nb: 1, flash: 0, mc: -1.0, aF: [1.0, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
       { t: 0.42, e: "io", p: { rx: -1.7, drop: 0.9, lean: -0.16, twist: -0.8, rise: 0.5, hy: 0.7, aN: [3.4, 0.82, 1], nb: 1, flash: 0, mc: -1.15, aF: [1.05, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
       { t: 0.56, e: "in3", p: { rx: 2.6, drop: 1.8, lean: 0.24, twist: 0.8, hx: 0.5, aN: [1.05, 1, 0], nb: 0, mc: 2.05, aF: [0.2, 0.8, 0], fN: [-2.6, 0], fF: [6, 0], flash: 1 } },
