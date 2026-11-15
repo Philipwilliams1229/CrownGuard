@@ -53,10 +53,10 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   const hx = Math.round(N[0]), hyy = Math.round(N[1]);
 
   // the far arm: a wide sleeve, the hand bare
-  px.part();
+  px.part(); px.tag("farArm");
   px.capsule(sF[0], sF[1], 2.6, eF[0], eF[1], 2.5, HABIT, 1, { bias: -1 });
   px.capsule(eF[0], eF[1], 2.5, hdF[0], hdF[1], 2.1, HABIT, 1, { bias: -1 });
-  px.part(); px.ellipse(hdF[0], hdF[1], 1.5, 1.5, SKIN, 1.2, { bias: -1 });
+  px.part(); px.ellipse(hdF[0], hdF[1], 1.5, 1.5, SKIN, 1.2, { bias: -1 }); px.tag(null);
 
   // the feet: bare toes in sandals under the hem (a raised foot slips behind the robe)
   px.part();
@@ -137,9 +137,11 @@ export const CLIPS = {
     n: 12, ms: 860, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
-      { t: 0.09, e: "out", p: { rx: -0.45, drop: 0.28, lean: -0.05, twist: -0.25, rise: 0.14, hy: 0.2, aN: [3.2, 0.9, 1], nb: 1, flash: 0, mc: -0.25, aF: [0.6, 0.85, 0], fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.32, e: "out", p: { rx: -1.4, drop: 0.8, lean: -0.14, twist: -0.7, rise: 0.4, hy: 0.6, aN: [3.3, 0.8, 1], nb: 1, flash: 0, mc: -1.0, aF: [1.0, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.42, e: "io", p: { rx: -1.7, drop: 0.9, lean: -0.16, twist: -0.8, rise: 0.5, hy: 0.7, aN: [3.4, 0.82, 1], nb: 1, flash: 0, mc: -1.15, aF: [1.05, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      // the wind-up carries the mace back over the REAR shoulder, hand low behind the neck: nothing near the head
+      { t: 0.09, e: "out", p: { rx: -0.45, drop: 0.28, lean: -0.05, twist: -0.25, rise: 0.14, hy: 0.2, aN: [-1.0, 0.9, 0], nb: 0, flash: 0, mc: -0.45, aF: [0.6, 0.85, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.32, e: "out", p: { rx: -1.4, drop: 0.8, lean: -0.14, twist: -0.7, rise: 0.4, hy: 0.6, aN: [-1.5, 0.95, 0], nb: 0, flash: 0, mc: -0.55, aF: [1.0, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.42, e: "io", p: { rx: -1.7, drop: 0.9, lean: -0.16, twist: -0.8, rise: 0.5, hy: 0.7, aN: [-1.55, 0.95, 0], nb: 0, flash: 0, mc: -0.7, aF: [1.05, 0.8, 0], fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.48, e: "out", p: { rx: 0.5, drop: 1.1, lean: 0.05, twist: 0.1, rise: 0.2, aN: [0.1, 0.95, 0], nb: 0, mc: 1.35, aF: [0.5, 0.8, 0], fN: [-2.4, 0], fF: [4, 0], flash: 0 } },
       { t: 0.56, e: "in3", p: { rx: 2.6, drop: 1.8, lean: 0.24, twist: 0.8, hx: 0.5, aN: [1.05, 1, 0], nb: 0, mc: 2.05, aF: [0.2, 0.8, 0], fN: [-2.6, 0], fF: [6, 0], flash: 1 } },
       { t: 0.68, e: "out", p: { rx: 3, drop: 2, lean: 0.27, twist: 0.9, hx: 0.6, aN: [0.6, 0.96, 0], mc: 2.5, aF: [0.1, 0.82, 0], fN: [-2.6, 0], fF: [6, 0], flash: 0.6 } },
       { t: 0.82, e: "io", p: { rx: 2.2, drop: 1.4, lean: 0.18, twist: 0.5, aN: [0.5, 0.94, 0], mc: 2.3, aF: [0.2, 0.84, 0], fN: [-2.6, 0], fF: [5, 0], flash: 0.15 } },

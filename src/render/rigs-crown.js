@@ -17,6 +17,6 @@ export const CROWN_FIGHT_FRAMES = Object.fromEntries([
 const STORM_TIP = {
   walk: [[5, -22.6], [5.9, -23.2], [7.2, -22.5], [5.9, -23.2]],
   fight: [[6.4, -24.1], [20.6, -20], [12.4, -26], [8.2, -24.2]],
-  sky: [[7.2, -27.3], [5.5, -29.6], [5.2, -29.7], [5.8, -29.5]],
+  sky: [[10.1, -25.2], [8.4, -27.5], [8.1, -27.6], [8.7, -27.4]], // 2026-11-15: the staff held out in front (+2.9, +2.1)
 };
 export const stormStaffTip = (sheet = "fight", frame = 1) => (STORM_TIP[sheet] || STORM_TIP.fight)[Math.max(0, Math.min(3, Math.floor(frame) || 0))];

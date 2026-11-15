@@ -66,11 +66,11 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.capsule(hs - 2.4 - t1 * 0.4, hys + 8, 3, hs - 3.4 - t2 * 0.6, hys + 15.4, 1.6, HAIR_D, 0.8);
 
   // the far arm: a bell sleeve, silver cuff, the hand open (it gestures)
-  px.part();
+  px.part(); px.tag("farArm");
   px.capsule(sF[0], sF[1], 2.1, eF[0], eF[1], 2.2, ROBE, 1, { bias: -1 });
   px.capsule(eF[0], eF[1], 2.4, hdF[0], hdF[1], 2, ROBE, 1, { bias: -1 });
   px.line(eF[0] * 0.25 + hdF[0] * 0.75 - 1.4, eF[1] * 0.25 + hdF[1] * 0.75, eF[0] * 0.25 + hdF[0] * 0.75 + 1.4, eF[1] * 0.25 + hdF[1] * 0.75, SILVER, 1.02);
-  px.part(); px.ellipse(hdF[0], hdF[1], 1.5, 1.5, SKIN, 1.2, { bias: -1 });
+  px.part(); px.ellipse(hdF[0], hdF[1], 1.5, 1.5, SKIN, 1.2, { bias: -1 }); px.tag(null);
 
   // the robe to the ground, its hem cut from where the feet stand, silver at hem, collar and front
   px.part();
@@ -129,10 +129,10 @@ export const fx = (px, F, info) => {
 const READY = { aN: [1.0, 0.86, 0], aF: [0.1, 0.9, 0], st: 0.5, glow: 0.1, crackle: 0, bolt: 0, nb: 0, fN: [-1.8, 0], fF: [2, 0] };
 // the Thunderclap's four poses, the staff raised overhead
 const SKY = [
-  { aN: [2.5, 0.72, 1], nb: 1, st: -0.1, aF: [1.2, 0.8, 0], glow: 0.7, rise: 0.6, hy: -0.4, lean: -0.05, twist: -0.4 },
-  { aN: [2.9, 0.7, 1], nb: 1, st: -0.02, aF: [1.7, 0.95, 0], glow: 1.0, rise: 1, hy: -0.8, lean: -0.08, twist: -0.5 },
-  { aN: [2.9, 0.7, 1], nb: 1, st: 0.02, aF: [1.9, 1, 0], glow: 1.4, crackle: 1, rise: 1.1, hy: -0.8, lean: -0.08, twist: -0.5 },
-  { aN: [2.9, 0.7, 1], nb: 1, st: -0.02, aF: [1.8, 1, 0], glow: 1.2, crackle: 0.6, rise: 1, hy: -0.8, lean: -0.08, twist: -0.5 },
+  { aN: [1.3, 0.95, 0], nb: 0, st: 0.2, aF: [1.0, 0.85, 0], glow: 0.7, rise: 0.4, lean: 0.03, twist: 0.2 },
+  { aN: [1.45, 1, 0], nb: 0, st: 0.08, aF: [1.2, 0.9, 0], glow: 1.0, rise: 0.7, lean: 0.04, twist: 0.3 },
+  { aN: [1.45, 1, 0], nb: 0, st: 0.05, aF: [1.3, 0.95, 0], glow: 1.4, crackle: 1, rise: 0.8, lean: 0.04, twist: 0.3 },
+  { aN: [1.45, 1, 0], nb: 0, st: 0.08, aF: [1.2, 0.9, 0], glow: 1.2, crackle: 0.6, rise: 0.7, lean: 0.04, twist: 0.3 },
 ];
 export const CLIPS = {
   idle: {
@@ -148,9 +148,10 @@ export const CLIPS = {
     n: 12, ms: 900, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
       { t: 0, p: READY },
-      { t: 0.09, e: "out", p: { ...READY, rx: -0.25, lean: -0.03, twist: -0.2, rise: 0.25, hy: -0.2, aN: [2.7, 0.72, 1], nb: 1, st: -0.2, aF: [0.5, 0.85, 0], glow: 0.3, fN: [-2, 0], fF: [2.2, 0] } },
-      { t: 0.3, e: "out", p: { ...READY, rx: -0.8, lean: -0.1, twist: -0.6, rise: 0.8, hy: -0.6, aN: [2.6, 0.7, 1], nb: 1, st: -0.2, aF: [0.9, 0.85, 0], glow: 0.7, fN: [-2.2, 0], fF: [2.4, 0] } },
-      { t: 0.5, e: "io", p: { ...READY, rx: -0.4, lean: -0.04, twist: -0.4, rise: 1, hy: -0.8, aN: [2.8, 0.66, 1], nb: 1, st: -0.1, aF: [1.9, 1, 0], glow: 1.1, crackle: 1, fN: [-2.2, 0], fF: [2.4, 0] } },
+      // the staff is held OUT in front of her (never up by her head) as the light gathers
+      { t: 0.09, e: "out", p: { ...READY, rx: -0.1, lean: 0.01, twist: 0.1, rise: 0.3, aN: [1.2, 0.9, 0], nb: 0, st: 0.3, aF: [0.9, 0.85, 0], glow: 0.3, fN: [-2, 0], fF: [2.2, 0] } },
+      { t: 0.3, e: "out", p: { ...READY, rx: 0, lean: 0.03, twist: 0.2, rise: 0.6, aN: [1.4, 0.98, 0], nb: 0, st: 0.12, aF: [1.1, 0.9, 0], glow: 0.7, fN: [-2.2, 0], fF: [2.4, 0] } },
+      { t: 0.5, e: "io", p: { ...READY, rx: 0.2, lean: 0.04, twist: 0.3, rise: 0.8, aN: [1.45, 1, 0], nb: 0, st: 0.05, aF: [1.3, 0.95, 0], glow: 1.1, crackle: 1, fN: [-2.2, 0], fF: [2.4, 0] } },
       { t: 0.6, e: "in3", p: { ...READY, rx: 1.8, drop: 1, lean: 0.2, twist: 0.7, hx: 0.4, aN: [1.7, 0.86, 0], nb: 0, st: 1.2, aF: [1.6, 1, 0], glow: 1.5, crackle: 1, fN: [-2.6, 0], fF: [5, 0] } },
       { t: 0.74, e: "out", p: { ...READY, rx: 2.2, drop: 1.2, lean: 0.24, twist: 0.8, hx: 0.5, aN: [1.6, 0.9, 0], nb: 0, st: 1.35, aF: [1.5, 1, 0], glow: 1.1, crackle: 0.5, fN: [-2.6, 0], fF: [5, 0] } },
       { t: 1, e: "io", p: READY },

@@ -209,9 +209,11 @@ export const CLIPS = {
     n: 12, ms: 760, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
-      { t: 0.09, e: "out", p: { rx: -0.5, drop: 0.25, lean: -0.05, twist: -0.25, rise: 0.15, aN: [3.3, 0.9, 1], nb: 1, sw: 0.3, aF: [0.5, 0.75, 0], shield: -0.02, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.3, e: "out", p: { rx: -1.4, drop: 0.7, lean: -0.13, twist: -0.7, rise: 0.4, aN: [3.4, 0.8, 1], nb: 1, sw: -1.05, aF: [1.0, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.38, e: "io", p: { rx: -1.6, drop: 0.8, lean: -0.15, twist: -0.8, rise: 0.5, aN: [3.5, 0.82, 1], nb: 1, sw: -1.2, aF: [1.05, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
+      // the wind-up carries the sword back over the REAR shoulder, hand low behind the neck: nothing near the head
+      { t: 0.09, e: "out", p: { rx: -0.5, drop: 0.25, lean: -0.05, twist: -0.25, rise: 0.15, aN: [-0.8, 0.9, 0], sw: 0.1, aF: [0.5, 0.75, 0], shield: -0.02, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.3, e: "out", p: { rx: -1.4, drop: 0.7, lean: -0.13, twist: -0.7, rise: 0.4, aN: [-1.5, 0.95, 0], sw: -0.55, aF: [1.0, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.38, e: "io", p: { rx: -1.6, drop: 0.8, lean: -0.15, twist: -0.8, rise: 0.5, aN: [-1.55, 0.95, 0], sw: -0.7, aF: [1.05, 0.8, 0], shield: -0.1, fN: [-2, 0], fF: [2.4, 0] } },
+      { t: 0.45, e: "out", p: { rx: 0.4, drop: 1.0, lean: 0.05, twist: 0.1, rise: 0.2, aN: [0.1, 0.95, 0], sw: 1.35, aF: [0.5, 0.8, 0], shield: 0.1, fN: [-2.4, 0], fF: [4, 0] } },
       { t: 0.5, e: "in3", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, hx: 0.5, aN: [1.02, 1, 0], nb: 0, sw: 1.95, aF: [0.2, 0.8, 0], shield: 0.25, fN: [-2.6, 0], fF: [6, 0] } },
       { t: 0.62, e: "out", p: { rx: 3, drop: 2, lean: 0.25, twist: 0.9, hx: 0.6, aN: [0.5, 0.96, 0], sw: 2.75, aF: [0.05, 0.82, 0], shield: 0.3, fN: [-2.6, 0], fF: [6, 0] } },
       { t: 0.74, e: "io", p: { rx: 2.6, drop: 1.6, lean: 0.2, twist: 0.6, hx: 0.4, aN: [0.46, 0.94, 0], sw: 2.62, aF: [0.15, 0.8, 0], shield: 0.25, fN: [-2.6, 0], fF: [6, 0] } },
