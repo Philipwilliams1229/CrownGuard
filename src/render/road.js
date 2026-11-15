@@ -168,6 +168,13 @@ const bendFillets = (segs, half, r) => {
   return out;
 };
 
+// Look C: richer saturation. Pushes a colour away from its own grey by f
+// (0.15 = 15% more chroma), keeping its lightness.
+const sat = (c, f) => {
+  const [r, g, b] = rgb(c), y = r * 0.3 + g * 0.59 + b * 0.11, q = (v) => Math.max(0, Math.min(255, Math.round(y + (v - y) * (1 + f))));
+  return "#" + [q(r), q(g), q(b)].map((v) => v.toString(16).padStart(2, "0")).join("");
+};
+
 // ---- each realm's road -------------------------------------------------
 // style: "dirt" (the Greenwood), "snow", "ash", "peat", "fen" (bone-dust
 // under the causeway's flags) or "paved" (the Marches: verge only)
@@ -178,14 +185,16 @@ const lookOf = (R) => {
   const L = {
     style,
     // the five dirt tones, darkest first
-    tones: [mix(dk, edge, 0.3), mix(main, dk, 0.5), main, lighten(main, 0.11), lighten(main, 0.22)],
-    bankDk: mix(dk, edge, 0.6), bankMid: mix(dk, edge, 0.3), bankLt: lighten(mix(main, R.GRASS_LT, 0.25), 0.26),
-    worn: mix(mix(R.GRASS_DK, R.GRASS, 0.5), dk, 0.42), wornT: 0.5,
-    crown: 0.1, drift: 1, bias: 0, grain: 1,
+    // (look C: a bolder, richer dirt: more chroma, a deeper bank shadow, a
+    // stronger lit lip, a worn verge that reads, tone patches that show)
+    tones: [sat(mix(dk, edge, 0.3), 0.14), sat(mix(main, dk, 0.5), 0.16), sat(main, 0.16), sat(lighten(main, 0.12), 0.14), sat(lighten(main, 0.24), 0.1)],
+    bankDk: sat(darken(mix(dk, edge, 0.6), 0.1), 0.12), bankMid: sat(mix(dk, edge, 0.3), 0.12), bankLt: lighten(mix(main, R.GRASS_LT, 0.25), 0.34),
+    worn: mix(mix(R.GRASS_DK, R.GRASS, 0.5), dk, 0.42), wornT: 0.62,
+    crown: 0.1, drift: 1.25, bias: 0, grain: 1,
     // ruts: how much of the road they run along (1 = about half), and
     // whether the groove's floor sinks a tone (the fen's pale dust: walls only)
-    ruts: 1, rutFloor: 1,
-    grassCrown: true, puddles: 3, pool: 1.1, prints: 6, roots: true, tufts: 1, pebbles: 1, sky: 0.5,
+    ruts: 0.55, rutFloor: 1,
+    grassCrown: false, puddles: 3, pool: 1.1, prints: 6, roots: true, tufts: 1, pebbles: 1.5, sky: 0.5,
     pebble: R.PEBBLE, stone: mix(dk, "#8d8478", 0.45),
     tuft: [darken(R.GRASS_DK, 0.18), R.GRASS, lighten(R.GRASS_LT, 0.12)], tuftH: 1,
     water: R.water || { deep: "#3a6a7c", edge: "#4a8094", shine: "#8cc4d8" },
@@ -206,7 +215,7 @@ const lookOf = (R) => {
     L.tones = [mix(dk, edge, 0.5), mix(main, dk, 0.6), mix(main, warm, 0.06), mix(lighten(main, 0.09), warm, 0.13), mix(lighten(main, 0.2), warm, 0.16)];
     L.bankDk = mix(edge, dk, 0.25); L.bankMid = mix(dk, edge, 0.5); L.bankLt = mix(lighten(main, 0.16), warm, 0.15);
     L.worn = mix(R.GRASS_DK, edge, 0.4); L.wornT = 0.55;
-    L.crown = 0.07; L.ruts = 0.55; L.grassCrown = false; L.puddles = 0; L.prints = 3; L.roots = false; L.pebbles = 1;
+    L.crown = 0.07; L.ruts = 0.35; L.grassCrown = false; L.puddles = 0; L.prints = 3; L.roots = false; L.pebbles = 1;
     L.stone = mix(edge, "#3a3236", 0.3); L.pebble = mix(R.PEBBLE, main, 0.3); L.grain = 1.3; L.drift = 0.75;
     L.tuft = [mix(R.GRASS_DK, "#2a2224", 0.3), "#6e6050", "#8e7e66"]; L.tuftH = 0.8;
     L.cracks = true;
@@ -215,7 +224,7 @@ const lookOf = (R) => {
     L.water = { deep: "#262a22", edge: "#4e5242", shine: "#9aac9a" };
     L.tuft = [darken(R.TUFT, 0.25), R.GRASS_DK, lighten(R.GRASS_LT, 0.18)]; L.tuftH = 1.35;
   } else if (style === "fen") {
-    L.puddles = 0; L.prints = 4; L.pebbles = 0.5; L.grassCrown = false; L.rutFloor = 0; L.ruts = 0.8;
+    L.puddles = 0; L.prints = 4; L.pebbles = 0.5; L.grassCrown = false; L.rutFloor = 0; L.ruts = 0.5;
     L.tuft = [darken(R.TUFT, 0.2), R.GRASS_LT, mix(R.GRASS_LT, "#b8b088", 0.5)]; L.tuftH = 1.2;
   } else if (style === "paved") {
     L.worn = mix(mix(R.GRASS_DK, R.GRASS, 0.4), dk, 0.3); L.wornT = 0.42;
@@ -413,7 +422,7 @@ export function paintRoadStrip(ctx, pts, o = {}) {
             }
             // dirt kicked out onto the grass, close to the edge
             const f0 = 1 - (e - bw) / 2.2;
-            if (f0 > 0 && RT[rn ^ 0x3c3c] < 0.16 * f0 * f0) { const c = T[1]; d[o4] = c[0]; d[o4 + 1] = c[1]; d[o4 + 2] = c[2]; continue; }
+            if (f0 > 0 && RT[rn ^ 0x3c3c] < 0.24 * f0 * f0) { const c = T[1]; d[o4] = c[0]; d[o4 + 1] = c[1]; d[o4 + 2] = c[2]; continue; }
           }
           const vw = 2.2 + nVerge(x, y) * 4.2;
           if (e < vw) {
@@ -458,7 +467,7 @@ export function paintRoadStrip(ctx, pts, o = {}) {
             if (raw > 0) {
               const lateral = s < 0.2 && s > -0.2, ws = Math.floor(s >= 0 ? dq : -dq);   // + toward the sun
               if (ws === -1 || ws === 0) idx -= RUT_F;
-              else if (raw > 0.035 && !lateral) idx += ws > 0 ? (raw > 0.07 && RUT_F ? -2 : -1) : 1;
+              else if (raw > 0.035 && !lateral) idx += ws > 0 ? -1 : 1;
             }
           }
         }
@@ -668,7 +677,7 @@ function roadDetail(d, PW, PH, C) {
 
   // pebbles and stones, gathered toward the edges where the wheels throw
   // them, some in little knots of two or three
-  const pal = (col) => ({ L: rgb(lighten(col, 0.42)), B: rgb(col), D: rgb(mix(col, L.tones[0], 0.55)) });
+  const pal = (col) => ({ L: rgb(lighten(col, 0.55)), B: rgb(col), D: rgb(mix(col, L.tones[0], 0.55)) });
   const PB = pal(L.pebble), ST = pal(L.stone), DK = pal(mix(L.tones[0], L.stone, 0.4));
   const ash = L.style === "ash";
   const step = 8 / Math.max(0.2, L.pebbles);
@@ -679,7 +688,7 @@ function roadDetail(d, PW, PH, C) {
     const [x, y] = spot(al, off);
     if (wetHere(x, y, 3) || inPuddle(x, y, 1.5)) continue;
     const sz = rng();
-    const kind = sz < 0.3 ? 0 : sz < 0.48 ? 1 : sz < 0.65 ? 2 : sz < 0.85 ? 3 : sz < 0.97 ? 4 : 5;
+    const kind = sz < 0.22 ? 0 : sz < 0.4 ? 1 : sz < 0.58 ? 2 : sz < 0.8 ? 3 : sz < 0.95 ? 4 : 5;
     const col = rng();
     // (the cinders: clinker, dark lumps)
     const pl = ash && kind >= 2 ? (col < 0.7 ? DK : ST) : kind >= 3 ? (col < 0.6 ? ST : PB) : col < 0.55 ? PB : col < 0.85 ? ST : DK;

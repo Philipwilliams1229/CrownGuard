@@ -44,6 +44,7 @@ import { RIME_ART } from "./scenery-rime.js";
 import { bakeCastleRun } from "./castle.js";
 import { mix, darken, lighten, rgba, hash, tuft, stone, shadow, soft, strokePts, blobBall, bakeSprite, part, PX } from "./paint.js";
 import { turfTones } from "./world.js";
+import { punchCols, toneOf as meadowTone } from "./look-c.js";
 import { groundKind, pixelTuft } from "./groundblend.js";
 import { paintRoadStrip } from "./road.js";
 import { coastTones, coastPixel } from "./coast.js";
@@ -321,7 +322,8 @@ const ptuft = (ctx, x, y, s, cols, seed, n) => {
   ctx.putImageData(img, 0, 0);
 };
 // each kind of country's tuft colours, root to tip (world.js's tuftCols)
-const tuftColsOf = (R, kind) => kind === "drift" ? ["#6e6a5c", "#9a947e", "#c4bca0", "#e2dac4"]
+const tuftColsOf = (R, kind) => punchCols(tuftColsRaw(R, kind), kind === "drift" ? "snow" : kind === "cinder" ? "ash" : kind === "bog" ? "marsh" : "grass");
+const tuftColsRaw = (R, kind) => kind === "drift" ? ["#6e6a5c", "#9a947e", "#c4bca0", "#e2dac4"]
   : kind === "cinder" ? [mix(R.GRASS_DK, "#3a2e22", 0.3), mix(R.GRASS_DK, "#6e6050", 0.5), "#8e7e66", mix(R.GRASS_LT, "#c8a860", 0.4)]
   : kind === "bog" ? [R.TUFT || R.GRASS_DK, mix(R.GRASS, R.TUFT || R.GRASS_DK, 0.3), mix(R.GRASS_LT, "#c8bc88", 0.35), mix(R.GRASS_LT, "#e0d49c", 0.5)]
   : [R.TUFT || R.GRASS_DK, mix(R.TUFT || R.GRASS_DK, R.GRASS, 0.55), mix(R.GRASS, R.GRASS_LT, 0.6), lighten(R.GRASS_LT, 0.22)];
@@ -533,7 +535,7 @@ function paintGround(vx0, vy0, gw, gh, r, dens, road) {
         tn = t + dz * 0.1 < 0.0 ? 1 : 2; rg = 1;
       } else {
         const tt = t + sn * warmth + dz * 0.07;
-        tn = tt < 0.23 ? 1 : tt < 0.36 ? 2 : tt < 0.63 ? 3 : 4;
+        tn = meadowTone(tt, look.patch);   // the board's own bands (world.js)
       }
       const wv = sn + (t - 0.47) * 1.3 + dt * 0.22;
       tn8[i] = tn; reg[i] = rg;

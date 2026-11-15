@@ -20,6 +20,7 @@
 import { REALM } from "../data/maps.js";
 import { TOWERS } from "../data/towers.js";
 import { bakeSprite, PX, hash, mix, lighten, darken } from "./paint.js";
+import { punchCols } from "./look-c.js";
 
 const FEET = {
   wide: { dy: 3, rx: 18, ry: 13 },
@@ -58,7 +59,7 @@ export const pixelTuft = (put, shade, bx, by, s, seed, cols, o = {}) => {
     // the blades rise from one narrow root and fan out as they grow
     const lean = (side - 0.5) * 2.3 + (h1 - 0.5) * 0.5 + wind;
     const mid = 1 - Math.abs(side - 0.5) * 1.1;
-    const len = Math.max(3, Math.round((4 + h2 * 5 + mid * 4) * s * 2 * 0.55));
+    const len = Math.max(3, Math.round((4 + h2 * 5 + mid * 4) * s * 2 * 0.64));
     const ox = Math.round((i - (n - 1) / 2) * spread * 0.26);
     const c = side < 0.5 ? cols : far;
     for (let k = 0; k < len; k++) {
@@ -147,7 +148,7 @@ const clump = (c, kind, x, y, s, seed, r) => {
     }
     return;
   }
-  const cols = [r.TUFT, mix(r.TUFT, r.GRASS, 0.55), mix(r.GRASS, r.GRASS_LT, 0.6), lighten(r.GRASS_LT, 0.22)];
+  const cols = punchCols([r.TUFT, mix(r.TUFT, r.GRASS, 0.55), mix(r.GRASS, r.GRASS_LT, 0.6), lighten(r.GRASS_LT, 0.22)], kind);
   if (kind === "turf") {
     // cropped highland turf: low straw-tipped tufts and a pale pebble
     pixelTuft(put, shade, bx, by, 0.42 * s, seed, [cols[0], cols[1], mix(r.GRASS_LT, "#c8bc88", 0.4), mix(r.GRASS_LT, "#e0d49c", 0.5)], { n: 3 + Math.floor(hash(seed, 3) * 2) });

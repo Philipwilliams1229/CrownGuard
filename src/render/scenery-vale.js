@@ -27,10 +27,19 @@
 //   haywain     a hay cart, loaded, shafts down
 
 import {
-  lighten, darken, mix, rgba, soft, shadow, ball, cylinder, hash, ellipse, lin, bakeSprite, part, PX,
+  lighten, darken, mix, rgba, soft, shadow as softShadow, blobPath, ball, cylinder, hash, ellipse, lin, bakeSprite, part, PX,
 } from "./paint.js";
 import { REALM } from "../data/maps.js";
 import { vnoise } from "../data/gatecrag.js";
+import { rich } from "./look-c.js";
+
+// Look C cast shadow: a ragged, hard-edged blob thrown lower right (same
+// arguments as the soft one it replaces), with a soft pool kept under it
+const shadow = (c, x, y, rx, ry, a = 0.28) => {
+  blobPath(c, x + rx * 0.12, y, rx, ry, Math.round(x * 7 + y * 3), 0.15, 11);
+  c.fillStyle = `rgba(28,20,34,${Math.min(0.4, a * 1.1)})`; c.fill();
+  softShadow(c, x - rx * 0.35, y, rx * 0.45, ry * 0.7, Math.min(0.4, a * 0.9));
+};
 
 const ap = (v) => Math.round(v * PX) / PX;
 const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
@@ -842,7 +851,7 @@ const creels = (ctx, x, y, s0, o) => {
 // Marram on a hummock of blown sand: long blue-green blades, rolled and
 // stiff, leaning with the sea wind; a pale sand cushion under them with its
 // own underline (baked flat, no ink ring).
-const MARRAM = ["#5a7a5c", "#7e9c78", "#a4bc90", "#c8d4a8"];
+const MARRAM = ["#5a7a5c", "#7e9c78", "#a4bc90", "#c8d4a8"].map((c) => rich(c, 1.3));
 const marram = (ctx, x, y, s, o) => {
   const gy = y + 8, v = o.v % 3, sd = o.seed;
   const w = (7 + v * 1.5) * s;
@@ -868,7 +877,7 @@ const marram = (ctx, x, y, s, o) => {
     const col = back ? MARRAM[hash(sd, i + 80) < 0.5 ? 0 : 1] : MARRAM[1 + Math.floor(hash(sd, i + 80) * 3)];
     for (let t = 0; t < len; t += 0.5) {
       const f = t / len, X = bx + lean * t * (0.6 + f * 0.8), Y = by - t + f * f * len * 0.18;
-      ctx.fillStyle = f > 0.8 && !back ? lighten(col, 0.18) : col;
+      ctx.fillStyle = f > 0.8 && !back ? mix(lighten(col, 0.22), "#e6f87c", 0.35) : col;
       ctx.fillRect(ap(X), ap(Y), f < 0.45 ? 1 : 0.5, 0.5);
     }
   }
@@ -881,7 +890,7 @@ const marram = (ctx, x, y, s, o) => {
 
 // A thistle: a rosette of spiny blue-green leaves at the foot, three or four
 // stems, each crowned with a purple brush on a green bulb. Flat, underlined.
-const THISTLE_LEAF = ["#3e5a46", "#5a7a5e", "#7a9a76", "#a4bc96"];
+const THISTLE_LEAF = ["#3e5a46", "#5a7a5e", "#7a9a76", "#a4bc96"].map((c) => rich(c, 1.3));
 const thistle = (ctx, x, y, s0, o) => {
   // (drawn a size up: a thistle has to read at 1x among the crags)
   const s = s0 * 1.5, gy = y + 8, v = o.v % 3, sd = o.seed;
@@ -900,7 +909,7 @@ const thistle = (ctx, x, y, s0, o) => {
     ctx.fillStyle = THISTLE_LEAF[0]; ctx.fillRect(ap(tx - 1), ap(ty), 2, 1.5);
     ctx.fillStyle = THISTLE_LEAF[2]; ctx.fillRect(ap(tx - 1), ap(ty), 1, 0.5); ctx.fillRect(ap(tx - 1.5), ap(ty + 1), 0.5, 0.5); ctx.fillRect(ap(tx + 1), ap(ty + 1), 0.5, 0.5);
     ctx.fillStyle = "#7a3a7a"; ctx.fillRect(ap(tx - 1), ap(ty - 1), 2, 1);
-    ctx.fillStyle = "#b45aa8"; ctx.fillRect(ap(tx - 1), ap(ty - 1.5), 1.5, 0.5); ctx.fillRect(ap(tx - 1.5), ap(ty - 2), 0.5, 0.5); ctx.fillRect(ap(tx + 0.5), ap(ty - 2), 0.5, 0.5);
+    ctx.fillStyle = "#c066b8"; ctx.fillRect(ap(tx - 1), ap(ty - 1.5), 1.5, 0.5); ctx.fillRect(ap(tx - 1.5), ap(ty - 2), 0.5, 0.5); ctx.fillRect(ap(tx + 0.5), ap(ty - 2), 0.5, 0.5);
     ctx.fillStyle = "#e09ad8"; ctx.fillRect(ap(tx - 0.5), ap(ty - 2), 0.5, 0.5);
   }
   // the rosette: spiny leaves fanned along the ground, lit on top

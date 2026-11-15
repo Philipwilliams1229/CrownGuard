@@ -21,6 +21,8 @@ import { bakeWater } from "./water.js";
 import { HOLLOW_ART } from "./scenery-hollow.js";
 import { RIME_ART } from "./scenery-rime.js";
 import { groundKind, pixelTuft, strawOf } from "./groundblend.js";
+import { punchRamp, punchCols, toneOf, LOOK_C } from "./look-c.js";
+export { punchCols, toneOf };
 // a chapter's own ground art, keyed by REALM.groundArt (looked up when the
 // ground is painted, never at load — see the import cycle note in scenery.js)
 const artFor = (part, key) => IRON_ART[part]?.[key] || HOLLOW_ART[part]?.[key] || RIME_ART[part]?.[key];
@@ -112,15 +114,21 @@ export const DITH_WIND = strokeTile(true, 3, 6, 930);
 // streaks, not blades; `lee`: the cool lies only in the lee of the swells
 // (blue drifts under the crests), never in every low patch.
 const LOOKS = {
-  grass: { warm: "#e8d070", cool: "#2a6670", kw: 0.08, kc: 0.13, relief: 1, fleck: 0.34 },
-  turf: { warm: "#dcc47c", cool: "#384c64", kw: 0.07, kc: 0.12, relief: 0.9, fleck: 0.3 },
-  marsh: { warm: "#c8ba72", cool: "#244650", kw: 0.07, kc: 0.14, relief: 0.8, fleck: 0.3 },
+  grass: { warm: "#e8d070", cool: "#2a6670", kw: 0.08, kc: 0.13, relief: 1, fleck: 0.34, patch: true },
+  turf: { warm: "#dcc47c", cool: "#384c64", kw: 0.07, kc: 0.12, relief: 0.9, fleck: 0.3, patch: true },
+  marsh: { warm: "#c8ba72", cool: "#244650", kw: 0.07, kc: 0.14, relief: 0.8, fleck: 0.3, patch: true },
   snow: { warm: "#fff8e8", cool: "#6a86c6", kw: 0.22, kc: 0.1, relief: 1.3, fleck: 0.3, wind: true, lee: true },
   ash: { warm: "#b0a494", cool: "#2e2a3c", kw: 0.06, kc: 0.14, relief: 0.8, fleck: 0.34, wind: true },
 };
+
 // the meadow's ramp: tones 1-4 are the tone map's own bands (as they always
 // were — the apron matches them), 0 is deep shade, 5-6 are lit blade tips
-export const meadowRamp = (R) => [darken(R.GRASS_DK, 0.3), darken(mix(R.GRASS, R.GRASS_DK, 0.85), 0.1), mix(R.GRASS, R.GRASS_DK, 0.4), R.GRASS, mix(R.GRASS, R.GRASS_LT, 0.34), mix(R.GRASS, R.GRASS_LT, 0.74), lighten(R.GRASS_LT, 0.2)];
+export const meadowRamp = (R) => {
+  const kind = groundKind(R), burnt = kind === "grass" && R.ambient === "embers";
+  const ramp = [darken(R.GRASS_DK, 0.3), darken(mix(R.GRASS, R.GRASS_DK, 0.85), 0.1), mix(R.GRASS, R.GRASS_DK, 0.4), R.GRASS, mix(R.GRASS, R.GRASS_LT, 0.34), mix(R.GRASS, R.GRASS_LT, 0.74), lighten(R.GRASS_LT, 0.2)];
+  const k = LOOK_C[kind];
+  return punchRamp(ramp, burnt && k ? { sat: 1.1, spread: 1.2, hue: 0 } : k, 3);
+};
 // the wood's floor: tones 1-3 are the old floor bands, 4-6 leaf litter and
 // sun-flecks
 const floorRamp = (R) => {
@@ -273,7 +281,7 @@ function paintToneMap(ctx, look) {
           r = 1;
         } else {
           const tt = t + sn * warmth + dz * 0.07;
-          tn = tt < 0.23 ? 1 : tt < 0.36 ? 2 : tt < 0.63 ? 3 : 4;
+          tn = toneOf(tt, look.patch);
         }
         const wv = sn + (t - 0.47) * 1.3 + dt * 0.22;
         const tp = (lee ? sn + dt * 0.3 < -0.45 : wv < -0.42) ? 0 : wv > 0.42 ? 2 : 1;
@@ -473,11 +481,15 @@ const flowerHead = (G, x, y, col, big, stemC, centre, seed = 0) => {
   for (let k = 0; k < stem; k++) G.set(cx, cy - k, stemC[k === 0 ? 0 : 1]);
   if (big) {
     G.set(cx + 1, cy - 1, stemC[1]); G.set(cx + 2, cy - 2, stemC[2]); G.set(cx - 1, cy - 2, stemC[1]); G.set(cx - 2, cy - 3, stemC[2]);
-    petalHead(G, cx, cy - stem - (big > 1 ? 3 : 2), col, centre, big > 1 ? 3 : 2);
+    petalHead(G, cx, cy - stem - (big > 1 ? 4 : 3), col, centre, big > 1 ? 4 : 3);
+    G.set(cx - (big > 1 ? 2 : 1), cy - stem - (big > 1 ? 6 : 5), [255, 255, 246]);   // look C: a spark of sun on the lit petal
   } else {
-    stampRows(G, cx - 1, cy - stem - 2, FLOWER_SMALL, { L: rgb(lighten(col, 0.4)), P: rgb(col), D: rgb(darken(col, 0.32)), C: rgb(centre) });
+    stampRows(G, cx - 1, cy - stem - 2, FLOWER_SMALL, { L: rgb(lighten(col, 0.5)), P: rgb(saturate(col)), D: rgb(darken(col, 0.38)), C: rgb(centre) });
+    G.set(cx - 1, cy - stem - 3, [255, 255, 246]);
+    G.set(cx - 1, cy - 1, stemC[2]); G.set(cx + 1, cy - 2, stemC[2]);   // a leaf each side of the stem
   }
 };
+const saturate = (c) => punchRamp([mix(c, c, 0)], LOOK_C.grass, 0)[0];   // mix() normalises any hex to 6 digits
 const DAISY = [".w.", "wYs", ".s."];
 // one mushroom of a fairy ring (or of the wood's floor)
 const mushroom = (G, x, y, big, cols) => {
@@ -883,6 +895,8 @@ function paintDetail(G, look, kind, rng) {
   const tuftLt = kind === "grass" && !burnt ? [C(mix(R.TUFT, R.GRASS, 0.3)), C(mix(R.GRASS, R.GRASS_LT, 0.35)), C(mix(R.GRASS, R.GRASS_LT, 0.8)), C(lighten(R.GRASS_LT, 0.38))]
     : dry ? [C(mix(R.GRASS_DK, "#6a5438", 0.3)), C(mix(R.GRASS, "#8a7450", 0.4)), C(mix(R.GRASS_LT, "#c8a870", 0.55)), C(mix(R.GRASS_LT, "#ecd8a8", 0.6))]
     : tuftCols;
+  // look C: the tufts' colours punched like the ramp (the apron does the same)
+  if (!burnt && kind !== "ash") for (const a of new Set([tuftCols, tuftDk, tuftLt])) { const out = punchCols(a.map((c) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("")), kind).map(C); for (let q = 0; q < 4; q++) a[q] = out[q]; }
   const charred = [C("#2e2622"), C("#4a3e36"), C(mix(R.GRASS_LT, "#7e684c", 0.5)), C(mix(R.GRASS_LT, "#a88a60", 0.5))];
   const dead = dry ? DECOR.filter((d) => d.t === "deadtree") : [];
   // grass in the wood's shade is drawn in the floor's own tones
@@ -925,7 +939,7 @@ function paintDetail(G, look, kind, rng) {
     let cols = own ? tuftLt : i % 4 === 0 ? tuftDk : tuftCols;
     if (dead.length && dead.some((d) => Math.hypot(d.x - x, (d.y - y) * 1.4) < 26 * (d.s || 1))) cols = charred;
     if (FOREST && forestDepthAt(x, y) > -6) cols = floorTuft(x, y);
-    pixTuft(G, x, y, s, i, cols, own ? { n: 5 + (i % 3) } : undefined);
+    pixTuft(G, x, y, s * 1.12, i, cols, own ? { n: 5 + (i % 3) } : { n: 4 + (i % 3) });
   });
 
   // ---- wildflowers, each with a few smaller ones of its kind nearby; and
@@ -945,7 +959,7 @@ function paintDetail(G, look, kind, rng) {
     }
   }
   FLOWERS.forEach((f, i) => {
-    const n = Math.floor(hash(i, 8) * 4);
+    const n = 1 + Math.floor(hash(i, 8) * 4);   // look C: a bigger bloom of each kind
     const [fr, fg, fb] = rgb(f.c);
     const centre = fr > 180 && fg > 150 && fb < 140 ? "#a8642c" : "#f2c744";   // a yellow flower gets a brown eye
     for (let k = 0; k < n; k++) {

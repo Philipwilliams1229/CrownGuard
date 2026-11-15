@@ -8,6 +8,7 @@
 // with soft shadows falling away from one sun. Nothing here is a rectangle
 // unless a carpenter made it.
 
+import { rich } from "./look-c.js";
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { PTS, SEGS, TOTAL_LEN, posAt, angleAt, nearestOnPath } from "../engine/path.js";
 import { FOREST, DECOR, COAST, forestDepthAt, seaDepthAt, inRiver, archAt, BRIDGE_HALF } from "../data/terrain.js";
@@ -38,7 +39,7 @@ const OAK_TINTS = ["#6cad48", "#5e9f45", "#4f9044", "#6a9a3e"];
 const PINE_TINTS = ["#4a8c4d", "#437f4a", "#52905a", "#3f7a4c"];
 // the wood, by how deep in it a tree stands: the treeline takes the sun, the
 // rows behind it cool and darken
-const WOOD_OAK = [["#62a346", "#6aa848", "#579a45"], ["#4f8c44", "#548f47", "#4a8649"], ["#3e7547", "#3a6e4a", "#43784a"]];
+const WOOD_OAK = [["#6cb04a", "#74b64c", "#62a54a"], ["#4f8c44", "#548f47", "#4a8649"], ["#3e7547", "#3a6e4a", "#43784a"]];
 const WOOD_PINE = [["#468a4d", "#4b8e4f", "#418450"], ["#3d7a4c", "#3a744d", "#40794a"], ["#33664a", "#30604b", "#35694c"]];
 
 // While a decor sprite bakes, leaf clumps get their own underline — in a
@@ -76,9 +77,11 @@ const ap = (v) => Math.round(v * PX) / PX;
 // over it — so the shade is a crescent that follows the clump's own lumpy
 // edge rather than a ring — a sunlit cap on the top, and leaf flecks. Small
 // bumps along the rim keep the edge leafy instead of a clean ball.
+// Look C: push a leaf green away from grey (richer), toward a warm yellow-green
+export { rich };   // (lives in look-c.js: scenery-vale.js uses it at load)
 const leafClump = (c, x, y, r, leaf, seed, lit) => {
-  const b = lit > 0.62 ? lighten(leaf, 0.08) : lit > 0.3 ? leaf : darken(leaf, 0.16);
-  const dk = darken(b, 0.34), lt = lighten(b, 0.22), fl = lighten(b, 0.4);
+  const b = lit > 0.62 ? lighten(leaf, 0.1) : lit > 0.3 ? leaf : darken(leaf, 0.2);
+  const dk = darken(b, 0.42), lt = lighten(b, 0.26), fl = mix(lighten(b, 0.35), "#e6f87c", 0.55);
   const ry = r * 0.84;
   const bumps = [];
   for (let i = 0; i < 6; i++) {
@@ -96,16 +99,17 @@ const leafClump = (c, x, y, r, leaf, seed, lit) => {
   shape(0, 0, 1); c.fillStyle = dk; c.fill();
   c.save();
   shape(0, 0, 1); c.clip();
-  shape(-r * 0.16, -r * 0.24, 1); c.fillStyle = b; c.fill();
+  shape(-r * 0.18, -r * 0.3, 1); c.fillStyle = b; c.fill();
   if (lit > 0.3) { shape(-r * 0.36, -r * 0.5, 0.78); c.fillStyle = lt; c.fill(); }
   // leaf flecks: pale ticks where the sun lands, dark notches in the body
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 11; i++) {
     const a = hash(seed, i + 90) * Math.PI * 2, d = Math.sqrt(hash(seed, i + 100)) * r * 0.8;
     const fx = ap(x + Math.cos(a) * d), fy = ap(y + Math.sin(a) * d * 0.84);
     const sunny = Math.cos(a) * SUN.x + Math.sin(a) * SUN.y > 0.15;
     c.fillStyle = sunny ? (lit > 0.3 ? fl : lt) : dk;
-    c.fillRect(fx, fy, 1, 0.5);
-    c.fillRect(fx + (sunny ? 0 : 0.5), fy + 0.5, 0.5, 0.5);
+    c.fillRect(fx, fy, 1, sunny ? 1 : 0.5);
+    c.fillRect(fx + (sunny ? 0 : 0.5), fy + (sunny ? 1 : 0.5), 0.5, 0.5);
+    if (sunny && lit > 0.3 && i % 2 === 0) c.fillRect(fx + 0.5, fy - 0.5, 0.5, 0.5);
   }
   c.restore();
 };
@@ -117,10 +121,15 @@ const leafClump = (c, x, y, r, leaf, seed, lit) => {
 const oakTree = (ctx, x, y, s, leaf, trunk, seed) => {
   const H = (i) => hash(seed, i);
   const base = y + 10;
-  // the crown's shade thrown down-right, and a firmer pool at the roots
-  shadow(ctx, x + 8 * s, base - 1, 17 * s, 5.5 * s, 0.24);
-  shadow(ctx, x + 2 * s, base, 8 * s, 2.4 * s, 0.3);
-  const R = (16 + H(1) * 3.5) * s, Ry = R * (0.84 + H(2) * 0.1);
+  leaf = rich(leaf);
+  // the crown's cast shadow, thrown firm and lower right (a ragged hard-edged
+  // blob, then a pool at the roots)
+  blobPath(ctx, x + 11 * s, base + 0.5, 19 * s, 5.4 * s, seed + 3, 0.16, 11);
+  ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
+  blobPath(ctx, x + 6 * s, base, 11 * s, 3.2 * s, seed + 5, 0.14, 9);
+  ctx.fillStyle = "rgba(28,20,34,0.22)"; ctx.fill();
+  shadow(ctx, x + 1 * s, base, 8 * s, 2.4 * s, 0.34);
+  const R = (18 + H(1) * 3.5) * s, Ry = R * (0.84 + H(2) * 0.1);
   const cx = x + (H(3) - 0.5) * 3 * s, cy = y - 3 * s - Ry;
   // trunk: tapered, leaning a touch, flaring into three roots at the ground
   const tw = (2.3 + H(4) * 0.8) * s, lean = (H(5) - 0.5) * 3 * s;
@@ -152,7 +161,7 @@ const oakTree = (ctx, x, y, s, leaf, trunk, seed) => {
     c.restore();
   }, INK, [x - tw * 3, top - 1, x + tw * 3, base + 2], null);
   // the dark under-crown, showing wherever the clumps part
-  leafPart(ctx, (c) => { blobPath(c, cx + s, cy + Ry * 0.16, R * 0.98, Ry * 0.9, seed + 11, 0.12, 12); c.fillStyle = darken(leaf, 0.55); c.fill(); }, INK, [cx - R * 1.2, cy - Ry, cx + R * 1.3, cy + Ry * 1.3]);
+  leafPart(ctx, (c) => { blobPath(c, cx + s, cy + Ry * 0.2, R * 0.98, Ry * 0.92, seed + 11, 0.12, 12); c.fillStyle = darken(leaf, 0.66); c.fill(); }, INK, [cx - R * 1.2, cy - Ry, cx + R * 1.3, cy + Ry * 1.3]);
   // clumps: a ring around the rim (fuller along the bottom), a heart, and
   // a crown on top — the crown of clumps rounds off into a dome
   const clumps = [];
@@ -162,9 +171,9 @@ const oakTree = (ctx, x, y, s, leaf, trunk, seed) => {
     const a = a0 + (i / n) * Math.PI * 2 + (H(i + 10) - 0.5) * 0.45;
     const rr = 0.5 + H(i + 20) * 0.12;
     const px = Math.cos(a) * R * rr * 1.05, py = Math.sin(a) * Ry * rr;
-    clumps.push([px, py, R * (0.46 + H(i + 30) * 0.1) * (py < 0 ? 0.9 : 1.04)]);
+    clumps.push([px, py, R * (0.5 + H(i + 30) * 0.1) * (py < 0 ? 0.92 : 1.06)]);
   }
-  clumps.push([(H(40) - 0.5) * R * 0.25, Ry * 0.1, R * 0.52]);
+  clumps.push([(H(40) - 0.5) * R * 0.25, Ry * 0.1, R * 0.56]);
   clumps.push([(H(41) - 0.62) * R * 0.3, -Ry * 0.46, R * (0.42 + H(42) * 0.08)]);
   // lowest first, so each clump above overhangs the one below it
   clumps.sort((p, q) => q[1] - p[1]);
@@ -227,8 +236,10 @@ const boughPath = (c, x, top, hem, hw, seed, s) => {
 const pineTree = (ctx, x, y, s, leaf, trunk, seed, caps = null) => {
   const H = (i) => hash(seed, i);
   const base = y + 10;
-  shadow(ctx, x + 6 * s, base - 1, 12 * s, 4.2 * s, 0.24);
-  shadow(ctx, x + 1.5 * s, base, 6 * s, 2 * s, 0.3);
+  leaf = rich(leaf, 1.2);
+  blobPath(ctx, x + 8 * s, base + 0.5, 13 * s, 4 * s, seed + 3, 0.16, 11);
+  ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
+  shadow(ctx, x + 1.5 * s, base, 6 * s, 2 * s, 0.34);
   leafPart(ctx, (c) => {
     c.beginPath();
     c.moveTo(x - 1.6 * s, base - 12 * s);
@@ -366,7 +377,7 @@ const facetStone = (ctx, x, gy, w, d, h, col, seed, o = {}) => {
   };
   const m = ctx.getTransform(), k = m.a;
   const cv = ctx.canvas;
-  const sh = o.shade ? 9 : 1;
+  const sh = o.shade ? 12 : 1;
   const bx0 = Math.max(0, Math.floor(k * (x - w - 1.5) + m.e)), bx1 = Math.min(cv.width, Math.ceil(k * (x + w + 1.5 + sh) + m.e));
   const by0 = Math.max(0, Math.floor(m.d * (gy - d - h - 2) + m.f)), by1 = Math.min(cv.height, Math.ceil(m.d * (gy + d + 1.5 + sh * 0.7) + m.f));
   const BW = bx1 - bx0, BH = by1 - by0;
@@ -382,10 +393,10 @@ const facetStone = (ctx, x, gy, w, d, h, col, seed, o = {}) => {
     for (let cy = 0; cy < BH; cy++) for (let cx = 0; cx < BW; cx++) {
       const z = Z[cy * BW + cx];
       if (z <= 0) continue;
-      for (let t = 0.5; t < 9 && z > t * 1.5; t += 0.5) {
+      for (let t = 0.5; t < 12 && z > t * 1.5; t += 0.5) {
         const qx = cx + Math.round(0.586 * t * k), qy = cy + Math.round(0.81 * t * m.d);
         if (qx >= BW || qy >= BH) break;
-        const j = qy * BW + qx, a = t < 1.1 ? 0.4 : 0.26;
+        const j = qy * BW + qx, a = t < 1.1 ? 0.48 : 0.32;
         if (A[j] < a) A[j] = a;
       }
     }
@@ -449,7 +460,7 @@ const facetStone = (ctx, x, gy, w, d, h, col, seed, o = {}) => {
       else if (rim[cx]) { c = ICE_RIM; rim[cx] = 0; }
     }
     // lichen: a few pale crusts on the sides, a couple of pixels each
-    if (o.lichen && nz < 0.75 && t <= 3 && vnoise((cx + bx0) / 3, (cy + by0) / 2, seed + 17) > 0.93) c = rgb(t <= 1 ? lighten(o.lichen, 0.2) : o.lichen);
+    if (o.lichen && nz < 0.75 && t <= 3 && vnoise((cx + bx0) / 3, (cy + by0) / 2, seed + 17) > 0.9) c = rgb(t <= 1 ? lighten(o.lichen, 0.2) : o.lichen);
     // glass: one lit edge along the top and left of each lit plane, and a
     // single hot glint where it's brightest
     if (gl && t <= 1) {
@@ -686,9 +697,10 @@ const deadTree = (ctx, x, y, s, seed = 1) => {
 const willow = (ctx, x, y, s, sway, seed = 1) => {
   const H = (i) => hash(seed, i);
   const base = y + 12;
-  const leaf = "#5f8a44";
-  shadow(ctx, x + 7 * s, base - 1, 16 * s, 5 * s, 0.24);
-  shadow(ctx, x + 2 * s, base, 7 * s, 2.2 * s, 0.3);
+  const leaf = rich("#5f8a44");
+  blobPath(ctx, x + 10 * s, base + 0.5, 18 * s, 5 * s, seed + 3, 0.16, 11);
+  ctx.fillStyle = "rgba(28,20,34,0.3)"; ctx.fill();
+  shadow(ctx, x + 1 * s, base, 7 * s, 2.2 * s, 0.34);
   const box = [x - 26 * s, y - 34 * s, x + 26 * s, base + 3];
   limb(ctx, [[x - 0.5, base], [x + 0.5 * s, base - 7 * s], [x + 1.5 * s, base - 14 * s]], 2.8 * s, 1.8 * s, "#5a4230", box);
   limb(ctx, [[x - 1, base - 1], [x - 5 * s, base + 0.3]], 1.4 * s, 0.4 * s, "#5a4230", box);

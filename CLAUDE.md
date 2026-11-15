@@ -179,6 +179,16 @@ by the owner. Held back or left:
 - Hale's crossbowmen use the Iron `crossbow` figure (they did before too).
 - Still old: the castle's people (wall bowmen, halberdiers: `fig-halberdier.js` drawn, not
   wired), the build crew, the title crowd, the Covert's blades (rigs-covert.js).
+**The ground in look C** (2026-11-14, three Sonnet artists, pending the owner's look):
+`src/render/look-c.js` (a leaf module: no imports) holds the per-kind dials `LOOK_C`
+(grass / turf / marsh / snow / ash: sat, spread, hue, dark) that world.js, groundblend.js
+and apron.js read through `punchRamp` / `punchCols` / `toneOf`, plus `rich()` for leaves
+(scenery.js re-exports it). Too loud? lower `grass.sat` / `grass.spread`. road.js: richer
+dirt, stronger worn verge and pebbles, NO grass crown, ruts faint and broken (owner). The
+Greenwood's oaks, pines, willows and vale pieces got bigger lit crowns and ragged cast
+shadows (scenery.js, scenery-vale.js); Iron's trees share `leafClump` / `pineTree` and got
+some of it. Still old: the Iron paving, the fen flags, the Hollow / Rime pieces
+(scenery-iron/hollow/rime.js), bushes (world.js / apron.js `bushSprite`), the gate threshold.
 - Sea monsters ask for named frames (`"sub.2"`): pixrigs.js `clipFrame` reads them, and
   drawSeaRig lays a new figure's `sub.*` at 0.55 alpha, the kraken's `deep.*` at 0.4. Figures in
 `src/render/pix/fig-{friar,captain,storm,levy,magister,risen,wraith,thrall,berserker}.js`;
