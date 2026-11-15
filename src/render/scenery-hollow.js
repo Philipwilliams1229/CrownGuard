@@ -39,7 +39,8 @@ import { lighten, darken, mix, rgba, soft, shadow as softShadow, ball, glow, bla
 import { REALM } from "../data/maps.js";
 import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "../engine/path.js";
 import { PONDS, RIVERS, BRIDGES, FOREST, forestDepthAt, inRiver } from "../data/terrain.js";
-import { W, H, PATH_HALF, WALL_W, MX, MY } from "../data/constants.js";
+import { W, H, PATH_HALF, WALL_W, MX, MY, RES } from "../data/constants.js";
+import { Pix, mat, flat as pixFlat, toCanvas } from "./pix/pix.js";
 import { vnoise as cnoise } from "../data/gatecrag.js";
 import { gateGeom, fullMound } from "../data/barrowgate.js";
 
@@ -2999,7 +3000,7 @@ const relicSprite = (r) => {
   if (sp) return sp;
   const [paint, bw0, up0, R0] = RELIC_KIT[r.t];
   const hw = Math.ceil(bw0 * s) + 4, top = Math.ceil(up0 * s) + 4, R = Math.ceil(R0 * s);
-  const cv = bakeSprite(hw * 2, top + 6, (c) => paint(c, hw, top, s, v, seed));
+  const cv = bakeSprite(hw * 2, top + 6, (c) => paint(c, hw, top, s, v, seed), false);
   sp = { cv: waterCut(cv, Math.round(top * PX), Math.round(R * PX), seed, r.x - hw, r.y - top), hw, top, h: top + R };
   RELIC_SPR.set(key, sp);
   return sp;
@@ -3785,3 +3786,688 @@ const drawBarrowGate = (ctx, time) => {
 HOLLOW_ART.spawn.barrowgate = drawBarrowGate;
 // bake the gate ahead of the board's first frame (scenery.js warmScenery may call it)
 HOLLOW_ART.warmGate = () => { if (PTS.length && REALM.spawn === "barrowgate") bakeGate(); };
+
+// ======================================================================
+// LOOK B, sculpted (2026-11-15, the props pass). The fen's trees, graves,
+// fences, barrows and standing stones re-drawn with the pixel sculptor
+// (pix/pix.js), as the Iron's spruce and crag are: baked into the decor
+// sprite with no 2-px ring (`flat`), a tinted one-pixel line, one sun from
+// the upper left, a hard dappled shadow to the lower right. Footprints, boxes
+// and dress are the old pieces' own. Coordinates inside a sculpt are ART
+// pixels (RES per unit) from the foot, y down; `u` below is one unit.
+// The old painters above still stand in the file for reference but the
+// registry below replaces them (no "New sprites" switch: a decor bake
+// is shared by the whole board, as the Iron's).
+// ======================================================================
+const hq = (a, b = 0, c = 0) => hash(Math.floor(a * 97) + Math.floor(c * 31) * 7919, Math.floor(b * 89));
+const pxShade = (ctx, x, gy, cx, cy, rx, ry, a, holes, seed = 1) => {
+  const q = 1 / RES;
+  ctx.fillStyle = rgba("#1c1a26", a);
+  for (let j = Math.floor(cy - ry); j <= Math.ceil(cy + ry); j++) for (let i = Math.floor(cx - rx); i <= Math.ceil(cx + rx); i++) {
+    const u = (i + 0.5 - cx) / rx, v = (j + 0.5 - cy) / ry;
+    if (u * u + v * v > 1) continue;
+    if (holes && hq(i, j, seed) > 0.86 && Math.hypot(u, v) > 0.35) continue;
+    ctx.fillRect(x + i * q, gy + j * q, q, q);
+  }
+};
+const pxSculpt = (ctx, x, gy, w, h, build) => {
+  const obj = new Pix(w, h, w >> 1, h - 12);
+  build(obj);
+  const img = obj.resolve({ line: "tint" }), cv = toCanvas(img), q = 1 / RES;
+  ctx.drawImage(cv, x - img.ox * q, gy - img.oy * q, img.w * q, img.h * q);
+};
+const fenMat = (c, k = 0.7) => mat(c, { contrast: k });
+// an irregular standing slab: front face points (x, y up-negative), a lit top
+// edge `t` art px deep, a one-pixel lean; returns nothing
+const slab = (obj, pts, m, z, t = 2, lean = 0, o = {}) => {
+  const P = pts.map(([px, py]) => [px + lean * -py, py]);
+  obj.part(); obj.poly(P.map(([px, py]) => [px + 0.5, py - t]), m, z, { n: [-0.25, -0.8, 0.55], ...o });
+  obj.poly(P, m, z + 0.1, { ny: 0.1, ...o });
+  return P;
+};
+
+// ---- the drowned dead tree ------------------------------------------------
+const fenDeadS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, u = 2 * s, H = (i) => hash(seed, i);
+  const col = o.forest ? ["#a19c8c", "#8a877b", "#737168"][o.band] : ["#aaa392", "#b2ac9a", "#a29d8e", "#aea694"][v % 4];
+  const kind = o.forest ? (v % 2 ? 3 : 0) : v % 4;
+  const WD = fenMat(col, 0.75), BK = fenMat(darken(col, 0.4), 0.5), WV = fenMat(WEED, 0.8), LI = fenMat(mix(LICHEN, col, 0.3), 0.6);
+  pxShade(ctx, x, gy, 11 * s, 0.6, 20 * s, 3.6 * s, o.forest ? 0.3 : 0.34, true, seed);
+  const tall = (kind === 1 ? 17 : kind === 3 ? 25 : 22) * u;
+  const lean = (kind === 2 ? 5 : (H(1) - 0.5) * 4) * u;
+  pxSculpt(ctx, x, gy, Math.ceil(70 * s) + 24, Math.ceil(tall + 40 * s) + 24, (obj) => {
+    const tips = [], limbs = [];
+    const fork = (x0, y0, ang, len, w, depth, sd, z) => {
+      const x1 = x0 + Math.cos(ang) * len, y1 = y0 + Math.sin(ang) * len, bend = (hash(sd, 1) - 0.5) * len * 0.3;
+      const mx = (x0 + x1) / 2 + bend * 0.6, my = (y0 + y1) / 2;
+      limbs.push([mx, my]);
+      obj.part(); obj.capsule(x0, y0, w, mx, my, w * 0.78, WD, z, { round: 0.95 }); obj.capsule(mx, my, w * 0.78, x1, y1, Math.max(0.8, w * 0.55), WD, z, { round: 0.95 });
+      if (depth <= 0) { tips.push([x1, y1]); return; }
+      fork(x1, y1, ang - 0.38 - hash(sd, 2) * 0.35, len * (0.58 + hash(sd, 3) * 0.18), w * 0.62, depth - 1, sd * 3 + 1, z + 0.2);
+      fork(x1, y1, ang + 0.34 + hash(sd, 4) * 0.35, len * (0.52 + hash(sd, 5) * 0.2), w * 0.6, depth - 1, sd * 3 + 2, z + 0.2);
+    };
+    const up = -Math.PI / 2, topX = lean, topY = -tall;
+    // the wet hollow it drowned in
+    obj.part(); obj.ellipse(1, 1, 8 * u * 0.95, 2.4 * u * 0.9, pixFlat(PEAT), -5, { cast: 0, floor: 2 });
+    // roots and trunk
+    for (const [rx, rl] of [[-1, 6], [1, 5.5], [-0.4, 3.5]]) { obj.part(); obj.capsule(rx * 2.4 * s, -6 * s, 2.4 * s, rx * rl * u, 1, 1, WD, 0, { round: 0.95 }); }
+    obj.part(); obj.capsule(0, 0, 4.6 * s, lean * 0.6 + (H(8) - 0.5) * 3 * s, -tall * 0.55, 3.6 * s, WD, 0.3, { round: 0.95 });
+    obj.capsule(lean * 0.6 + (H(8) - 0.5) * 3 * s, -tall * 0.55, 3.6 * s, topX, topY, 2.6 * s, WD, 0.3, { round: 0.95 });
+    if (kind === 1) {
+      fork(lean * 0.5, -11 * u, up - 0.9, 9 * u, 2.1 * s, 1, seed + 5, 0.6);
+      obj.part(); obj.poly([[topX - 3 * s, topY + 2], [topX - 2 * s, topY - 5 * s], [topX, topY - 0.6], [topX + 1.2 * s, topY - 7 * s], [topX + 2.6 * s, topY + 2]], WD, 0.5, { n: [-0.3, -0.5, 0.8] });
+    } else {
+      fork(topX, topY, up - 0.5 - H(2) * 0.3, (9 + H(3) * 3) * u, 2.4 * s, kind === 3 ? 2 : 1, seed + 7, 0.7);
+      fork(topX, topY, up + 0.45 + H(4) * 0.3, (8 + H(5) * 3) * u, 2.2 * s, 1, seed + 9, 0.6);
+      fork(lean * 0.55, -tall * 0.55, kind === 2 ? up - 1.1 : up + 1.0, (7 + H(6) * 2) * u, 1.8 * s, 1, seed + 11, 0.8);
+      if (kind === 0) fork(topX, topY, up + (H(7) - 0.5) * 0.3, 7 * u, 1.8 * s, 1, seed + 13, 0.5);
+    }
+    // bark seam and a knot on the shaded side, lichen on the lit
+    obj.part(); obj.ellipse(lean * 0.4 + 1.2 * s, -tall * 0.4, 1.4 * s, 2 * s, BK, 1, { round: 0.6 });
+    for (let k = 0; k < 4; k++) { obj.part(); obj.ellipse(lean * 0.25 - 2.4 * s + hq(k, seed) * 2, -6 * s - hq(k, seed, 5) * tall * 0.6, 1.3, 0.9, LI, 1.2, { round: 0.8, bias: 1 }); }
+    // drowned weed hanging in strands
+    const hang = tips.concat(limbs);
+    hang.forEach(([hx, hy], i) => {
+      if (hash(seed, i + 30) > (o.forest ? 0.45 : 0.62)) return;
+      const n = 1 + Math.floor(hash(seed, i + 40) * 3);
+      for (let k = 0; k < n; k++) {
+        const len = (4 + hash(seed, i * 5 + k) * 7) * u, sx = hx + (k - n / 2) * 2.2, sw = (hash(seed, i + k + 60) - 0.5) * 4;
+        obj.part();
+        let px = sx, py = hy;
+        for (let seg = 1; seg <= 3; seg++) {
+          const nx = sx + sw * seg / 3 + (seg % 2 ? 0.8 : -0.5), ny = hy + len * seg / 3;
+          obj.capsule(px, py, 1.1 - seg * 0.18, nx, ny, 1.1 - (seg + 1) * 0.18 + 0.1, WV, 2, { round: 0.8 });
+          px = nx; py = ny;
+        }
+      }
+    });
+  });
+};
+
+// ---- the weeping willow ---------------------------------------------------
+const fenWillowS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, u = 2 * s, H = (i) => hash(seed, i);
+  const leaf = o.forest ? ["#4b6454", "#42594b", "#394e43"][o.band] : ["#4d6858", "#536e5c", "#48625a", "#506a54"][v % 4];
+  const LF = fenMat(leaf, 1.05), LFD = fenMat(darken(leaf, 0.42), 0.8), BK = fenMat("#4d4238", 0.8);
+  const R = (13 + H(1) * 3) * u, Ry = R * 0.7, cx = (H(2) - 0.5) * 3 * u, cy = -30 * u;
+  pxShade(ctx, x, gy, 16 * s, 1, 30 * s, 5.5 * s, 0.3, true, seed);
+  pxSculpt(ctx, x, gy, Math.ceil(R * 3.4) + 24, Math.ceil(-cy + Ry * 1.4) + 30, (obj) => {
+    // the back of the fountain, in its own shade
+    for (let i = 0; i <= 14; i++) {
+      const t = i / 14, ox = (t - 0.5) * 2, x0 = cx + ox * R * 0.7, y0 = cy - Ry * 0.3 + Math.abs(ox) * Ry * 0.4;
+      const x1 = cx + ox * R * 1.28, y1 = -6 - H(i + 10) * 16 * s;
+      obj.part(); let px = x0, py = y0;
+      for (let k = 1; k <= 4; k++) { const f = k / 4, nx = x0 + (x1 - x0) * Math.pow(f, 0.8) + ox * R * 0.4 * Math.sin(f * 2.2) * (1 - f), ny = y0 + (y1 - y0) * f; obj.capsule(px, py, 1.5 - f * 0.5, nx, ny, 1.3 - f * 0.5, LFD, -2 + t * 0.1, { round: 0.8 }); px = nx; py = ny; }
+    }
+    // roots, trunk, the limbs into the crown
+    for (const [rx, rl] of [[-1, 7], [1, 6.5]]) { obj.part(); obj.capsule(rx * 3 * s, -6 * s, 2.6 * s, rx * rl * u, 1, 1, BK, 0, { round: 0.95 }); }
+    obj.part(); obj.capsule(0, 0, 6 * s, -1.6 * s, -26 * s, 4.4 * s, BK, 0.2, { round: 0.95 });
+    obj.capsule(-1.6 * s, -24 * s, 3.2 * s, cx - 12 * s, cy + 4 * s, 1.6 * s, BK, 0.2, { round: 0.95 });
+    obj.capsule(-0.8 * s, -24 * s, 3 * s, cx + 10 * s, cy + 2 * s, 1.5 * s, BK, 0.2, { round: 0.95 });
+    // the crown's dark heart and its leaf masses
+    obj.part(); obj.ellipse(cx + 2, cy + Ry * 0.1, R * 0.95, Ry * 0.95, LFD, 0.5, { round: 0.7 });
+    [[-0.4, -0.2, 0.5], [0.4, -0.15, 0.46], [-0.05, -0.55, 0.46]].forEach(([px, py, r], i) => {
+      obj.part(); obj.ellipse(cx + px * R, cy + py * Ry, r * R, r * R * 0.85, LF, 1 + i * 0.1, { round: 0.95, bias: px < 0 || py < -0.4 ? 1 : 0 });
+      for (let k = 0; k < 3; k++) obj.ellipse(cx + px * R + (hq(k, seed, i) - 0.5) * r * R * 1.1, cy + py * Ry + (hq(k, seed, i + 7) - 0.6) * r * R * 0.9, 2.4, 1.6, LF, 1.5 + i * 0.1, { round: 0.9, bias: 1 });
+    });
+    // the fountain: strands from the whole crown top, arching out and falling
+    const list = [];
+    for (let i = 0; i < 34; i++) {
+      const a = Math.PI * (1.02 + H(i + 40) * 0.96), k = 0.25 + H(i + 41) * 0.75;
+      list.push([cx + Math.cos(a) * R * k * 0.9, cy + Math.sin(a) * Ry * k * 0.9 + Ry * 0.15, i]);
+    }
+    for (let i = 0; i < 10; i++) list.push([cx + (H(i + 90) - 0.5) * R * 1.8, cy + Ry * (0.3 + H(i + 91) * 0.4), i + 50]);
+    list.sort((p, q) => q[1] - p[1]);
+    list.forEach(([x0, y0, i], idx) => {
+      const ox = (x0 - cx) / R, x1 = x0 + ox * R * 0.5 + (H(i + 60) - 0.5) * 4;
+      const low = Math.abs(x1) < 8 * s ? 0.4 : 1;
+      const y1 = Math.min(-6, y0 + (-y0) * (0.5 + H(i + 61) * 0.5) * low);
+      const sun = ox * SUN.x + ((y0 - cy) / Ry) * SUN.y;
+      const m = sun < -0.25 ? LFD : LF, bias = sun > 0.3 ? 1 : sun < -0.1 ? -0.5 : 0;
+      obj.part(); let px = x0, py = y0;
+      for (let k = 1; k <= 4; k++) {
+        const f = k / 4, nx = x0 + (x1 - x0) * Math.pow(f, 0.8) + ox * R * 0.35 * Math.sin(f * 2.2) * (1 - f), ny = y0 + (y1 - y0) * f;
+        obj.capsule(px, py, 1.5 - f * 0.55, nx, ny, 1.35 - f * 0.5, m, 3 + idx * 0.02, { round: 0.85, bias });
+        px = nx; py = ny;
+      }
+    });
+  });
+};
+
+// ---- the broken pale stump ------------------------------------------------
+const fenSnagS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, u = 2 * s;
+  const col = o.forest ? ["#9a9585", "#838075", "#6e6c64"][o.band] : DRIFT;
+  const WD = fenMat(col, 0.75), BK = fenMat(darken(col, 0.4), 0.5), WV = fenMat(WEED, 0.8);
+  const hh = (8 + hash(seed, 1) * 4) * u;
+  pxShade(ctx, x, gy, 7 * s, 0.6, 13 * s, 2.8 * s, 0.32, true, seed);
+  pxSculpt(ctx, x, gy, Math.ceil(30 * s) + 16, Math.ceil(hh + 12 * s) + 16, (obj) => {
+    for (const rx of [-1, 1]) { obj.part(); obj.capsule(rx * 2 * s, -4 * s, 2 * s, rx * 5 * u * 0.9, 1, 0.8, WD, 0, { round: 0.95 }); }
+    obj.part(); obj.capsule(0, 0, 5 * s, 1 * s, -hh, 4 * s, WD, 0.3, { round: 0.95 });
+    obj.part(); obj.poly([[-3.4 * s, -hh + 2], [-2.2 * s, -hh - 5 * s], [-0.4 * s, -hh], [1.6 * s, -hh - 3.4 * s], [4.4 * s, -hh + 2]], WD, 0.5, { n: [-0.3, -0.55, 0.78] });
+    obj.part(); obj.ellipse(2.4 * s, -hh * 0.5, 0.9, hh * 0.3, BK, 0.9, { round: 0.5 });
+    const fcol = v % 2 ? "#b0703e" : "#c8b890";
+    for (let k = 0; k < 3; k++) { obj.part(); obj.ellipse((k % 2 ? 4.4 : -3.6) * s, -(6 + k * 4.8) * s, 4.4 * s - k * 0.6, 1.9 * s, fenMat(fcol, 0.9), 1 + k * 0.1, { round: 0.95, bias: k % 2 ? 0 : 1 }); }
+    if (v > 1) { obj.part(); obj.capsule(-3 * s, -hh + 2, 1, -4 * s, -hh + 14 * s, 0.6, WV, 1.5, { round: 0.8 }); }
+  });
+};
+
+// ---- headstones -----------------------------------------------------------
+const fenGraveS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, kind = v % 4;
+  const col = mix(STONE, ["#8a8c80", "#90887a", "#7e8480", "#888a7c"][hash(seed, 3) * 4 | 0], 0.5);
+  const ST = fenMat(col, 0.65), ST2 = fenMat(darken(col, 0.12), 0.65), CV = fenMat(darken(col, 0.5), 0.4), MS = fenMat(MOSS, 0.9), LC = fenMat(LICHEN, 0.6);
+  const lean = (hash(seed, 1) - 0.5) * 0.26;
+  pxShade(ctx, x, gy, 9 * s, 0.4, 17 * s, 3 * s, 0.32, false, seed);
+  const round = (obj, cx, k, ln, sd, wd = 5, ht = 14) => {
+    const w = wd * k, h = ht * k, pts = [[-w, 0]];
+    for (let a = Math.PI; a <= Math.PI * 2 + 0.01; a += Math.PI / 8) pts.push([Math.cos(a) * w, -h + w + Math.sin(a) * w]);
+    pts.push([w, 0]);
+    const P = pts.map(([px, py]) => [cx + px + ln * -py * 1, py]);
+    obj.part(); obj.poly(P.map(([px, py]) => [px + 0.5, py - 2]), ST, 1, { n: [-0.25, -0.8, 0.55] }); obj.poly(P, ST, 1.1, { round: 0.18 });
+    if (hash(sd, 5) < 0.5) { // ring cross carved
+      obj.rect(cx - 0.5 + ln * h * 0.65, -h + w * 0.5 + 2, 1, 7 * k, CV, 1.5, { cast: 0 }); obj.rect(cx - 3 * k + ln * h * 0.7, -h + w * 0.9 + 3, 6 * k, 1, CV, 1.5, { cast: 0 });
+    } else for (let r = 0; r < 3; r++) obj.rect(cx - (4 - r) * k * 0.9 + ln * h * 0.6, -h + w + 3 + r * 4.4, (8 - r * 2.2) * k, 1, CV, 1.5, { cast: 0 });
+    obj.ellipse(cx - w * 0.6, -h * 0.8, 1.6, 1, LC, 1.6, { bias: 1 });
+    obj.ellipse(cx + w * 0.3, -h * 0.35, 1.2, 0.9, LC, 1.6, {});
+    for (let k2 = 0; k2 < 4; k2++) obj.ellipse(cx - w + k2 * w * 0.55, -1, 2.2, 1.3, MS, 1.7, { round: 0.9 });
+  };
+  pxSculpt(ctx, x, gy, Math.ceil(60 * s) + 24, Math.ceil(46 * s) + 28, (obj) => {
+    if (kind === 0) round(obj, 0, s, lean, seed);
+    else if (kind === 1) {
+      // ring cross standing in its socket stone
+      const k = s, top = -42 * k, rx = lean * 0.5;
+      obj.part(); obj.poly([[-9 * k, 1], [-8 * k, -5 * k], [8 * k, -5 * k], [9 * k, 1]], ST2, 0.5, { n: [-0.2, -0.7, 0.6] });
+      obj.part(); obj.rect(-4 * k + rx * 20, top + 6 * k, 8 * k, -top - 5 * k - 5 * k, ST, 1, { round: 0 });
+      obj.part(); obj.rect(-13 * k + rx * 20, top + 13 * k, 26 * k, 7 * k, ST, 1.1);
+      obj.part(); for (let a = 0; a < 20; a++) { const an = a / 20 * 6.283; obj.ellipse(Math.cos(an) * 9.2 * k + rx * 20, top + 16.4 * k + Math.sin(an) * 9.2 * k, 2.2 * k, 2.2 * k, ST, 1.2, { round: 0.9 }); }
+      obj.part(); obj.ellipse(rx * 20, top + 16.4 * k, 4 * k, 4 * k, CV, 1.6, { round: 0.2, cast: 0 });
+      obj.ellipse(-5 * k, top + 20 * k, 2, 1.2, LC, 1.5, {});
+      for (let k2 = 0; k2 < 3; k2++) obj.ellipse(-6 * k + k2 * 6 * k, -2, 2.6, 1.4, MS, 1.7, { round: 0.9 });
+    } else if (kind === 2) {
+      const w = 5 * s * 2 * 0.5 * 2;
+      slab(obj, [[-w, 0], [-w, -16 * s], [-6 * s, -19 * s], [-2 * s, -14.4 * s], [3 * s, -19.6 * s], [6 * s, -16 * s], [w, -17 * s], [w, 0]], ST, 1, 2);
+      obj.part(); for (let k2 = 0; k2 < 4; k2++) obj.ellipse(-w + k2 * w * 0.6, -1, 2.4, 1.4, MS, 1.7, { round: 0.9 });
+      obj.ellipse(-w * 0.5, -10 * s, 1.5, 1, LC, 1.6, {});
+      // the top lying in the grass, face up
+      obj.part(); obj.poly([[12 * s, 3], [30 * s, -3 * s], [34 * s, 4 * s], [16 * s, 9 * s]], ST, 0.4, { n: [-0.15, -0.9, 0.4] });
+      obj.part(); obj.poly([[16 * s, 9 * s], [34 * s, 4 * s], [34 * s, 7 * s], [16 * s, 12 * s]], ST2, 0.5, {});
+      for (let r = 0; r < 2; r++) obj.rect(18 * s + r * 2, 3 * s - r * 1.8 * s, 9 * s, 1, CV, 0.8, { cast: 0 });
+      obj.ellipse(31 * s, -1 * s, 2, 1.2, MS, 0.9, {});
+    } else {
+      round(obj, -10 * s, s * 0.78, lean - 0.08, seed + 1, 5, 14);
+      round(obj, 10 * s, s * 0.64, lean + 0.14, seed + 2);
+      obj.part(); obj.poly([[-3 * s, 7], [-3 * s, 2], [4 * s, 1.5], [4 * s, 7]], ST2, 0.6, { n: [-0.2, -0.7, 0.6] });
+    }
+  });
+};
+
+// ---- the lychyard fence ---------------------------------------------------
+const fenFenceS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, hw = 26 * s;
+  pxShade(ctx, x, gy, 8 * s, 0.6, 36 * s, 2.4 * s, 0.3, false, seed);
+  const ST = fenMat(STONE, 0.65), CAP = fenMat(lighten(STONE, 0.05), 0.6), MS = fenMat(MOSS, 0.9), LC = fenMat(LICHEN, 0.6);
+  pxSculpt(ctx, x, gy, Math.ceil(hw * 2) + 40 * s, Math.ceil(46 * s) + 24, (obj) => {
+    if (v < 2) {
+      const IR = fenMat("#4a4652", 0.9), RUST = fenMat("#8a5030", 0.6);
+      obj.part(); obj.rect(-hw, -22 * s, hw * 2, 2, IR, 0.5); obj.rect(-hw, -7 * s, hw * 2, 2, IR, 0.5);
+      const n = 5;
+      for (let i = 0; i < n; i++) {
+        const px = -hw + 8 * s + i * ((hw * 2 - 16 * s) / (n - 1)), bent = i === 3 && v === 1 ? 0.25 : 0, tx = px - Math.sin(bent) * 28 * s;
+        obj.part(); obj.capsule(px, 0, 1.4, tx, -28 * s, 1.2, IR, 1, { round: 0.9 });
+        obj.poly([[tx - 2.4, -28 * s], [tx, -33 * s], [tx + 2.4, -28 * s]], IR, 1, { n: [-0.2, -0.3, 0.9] });
+        if (hash(seed, i) < 0.6) obj.ellipse(px + 0.4, -12 * s - hash(seed, i + 9) * 8, 1, 1.2, RUST, 1.3, {});
+      }
+    } else {
+      const WOOD = fenMat("#7c7466", 0.8), WD = fenMat(darken("#7c7466", 0.4), 0.5);
+      const n = 6;
+      for (let i = 0; i < n; i++) {
+        const px = -hw + i * (hw * 2 / (n - 1)), fallen = v === 3 && i === 2, hh = (11 + hash(seed, i) * 3) * 2 * s, lean = fallen ? 1.1 : (hash(seed, i + 5) - 0.5) * 0.16;
+        const tx = px + Math.sin(lean) * hh;
+        obj.part();
+        if (fallen) { obj.capsule(px, -2, 2.6 * s, px + hh * 0.9, -2 + hh * 0.35, 2.4 * s, WOOD, 0.4, { round: 0.9 }); continue; }
+        obj.poly([[px - 2.8 * s, 0], [tx - 2.8 * s, -hh + 3 * s], [tx, -hh], [tx + 2.8 * s, -hh + 3 * s], [px + 2.8 * s, 0]], WOOD, 1, { round: 0.6 });
+        obj.rect(tx + 0.4, -hh + 6, 1, hh - 8, WD, 1.1, { cast: 0 });
+      }
+      obj.part(); obj.capsule(-hw - 2, -16 * s, 1.8, hw + 2, -17 * s, 1.8, WOOD, 1.5, { round: 0.9 });
+    }
+    for (const [sx, top] of [[-hw, true], [hw, false]]) {
+      obj.part(); obj.rect(sx - 5.2 * s, -26 * s, 10.4 * s, 26 * s + 1, ST, 2, { round: 0.25 });
+      obj.part(); obj.poly([[sx - 6.4 * s, -25 * s], [sx - 5.6 * s, -29 * s - 2], [sx + 6 * s, -29 * s - 2], [sx + 6.4 * s, -25 * s]], CAP, 2.2, { n: [-0.2, -0.7, 0.6] });
+      obj.part(); obj.rect(sx - 6.4 * s, -25 * s, 12.8 * s, 3.6 * s, CAP, 2.2, { round: 0.2 });
+      for (let k = 0; k < 3; k++) obj.ellipse(sx - 4 * s + k * 4 * s, -1, 2.2, 1.3, MS, 2.3, { round: 0.9 });
+      obj.ellipse(sx - 3 * s, -14 * s, 1.6, 1, LC, 2.3, { bias: 1 });
+      if (top) {
+        const B = fenMat(BONE, 0.7), EY = pixFlat("#1c1a22");
+        obj.part(); obj.ellipse(sx, -34 * s, 4.6 * s, 4.2 * s, B, 2.5, { round: 0.95 });
+        obj.rect(sx - 2.4 * s, -31.4 * s, 4.8 * s, 3.4 * s, B, 2.5, { round: 0.3 });
+        obj.part(); obj.ellipse(sx - 2 * s, -34 * s, 1.4 * s, 1.5 * s, EY, 2.8, { cast: 0 }); obj.ellipse(sx + 2 * s, -34 * s, 1.4 * s, 1.5 * s, EY, 2.8, { cast: 0 });
+        obj.rect(sx - 1.2 * s, -31.2 * s, 2.4 * s, 1.6 * s, EY, 2.8, { cast: 0 });
+      } else { obj.part(); obj.ellipse(sx, -31.6 * s, 4.4 * s, 4 * s, ST, 2.5, { round: 0.95, bias: 0.3 }); }
+    }
+  });
+};
+
+Object.assign(HOLLOW_ART.decor, { fendead: fenDeadS, fenwillow: fenWillowS, fensnag: fenSnagS, fengrave: fenGraveS, lichfence: fenFenceS });
+HOLLOW_ART.flat = [...(HOLLOW_ART.flat || []), "fendead", "fenwillow", "fensnag", "fengrave", "lichfence"];
+
+// ---- standing stones, the monks' crosses, the barrows -----------------------
+const rotPts = (pts, a, cx = 0, cy = 0) => pts.map(([px, py]) => [cx + (px - cx) * Math.cos(a) - (py - cy) * Math.sin(a), cy + (px - cx) * Math.sin(a) + (py - cy) * Math.cos(a)]);
+// grass flecks on a turf mound: lit toward the upper left, dark away
+const moundFlecks = (obj, cx, cy, rx, ry, T, TL, TD, seed, n = 46) => {
+  for (let i = 0; i < n; i++) {
+    const a = hash(seed, i + 5) * 6.283, d = Math.sqrt(hash(seed, i + 6)) * 0.9, lit = -Math.cos(a) * d * 0.6 - Math.sin(a) * d * 0.8;
+    obj.ellipse(cx + Math.cos(a) * rx * d, cy + Math.sin(a) * ry * d, 1.4, 0.9, lit > 0.15 ? TL : lit > -0.3 ? T : TD, 0.1, { cast: 0, round: 0.2 });
+  }
+};
+const fenStoneS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8;
+  const col = mix(STONE, ["#8e8c80", "#868a82", "#948e80", "#8a8a7c"][v], 0.45);
+  const ST = fenMat(col, 0.7), CV = fenMat(darken(col, 0.5), 0.4), LC = fenMat(LICHEN, 0.6), MS = fenMat(MOSS, 0.9);
+  pxShade(ctx, x, gy, 6 * s, 0.5, 12 * s, 2.8 * s, 0.32, false, seed);
+  const stone1 = (obj, sx, h, w, lean, sd) => {
+    const P = [[-w, 1], [-w * 1.08, -h * 0.55], [-w * 0.7, -h * 0.92], [-w * 0.1, -h], [w * 0.62, -h * 0.9], [w, -h * 0.5], [w * 0.95, 1]].map(([px, py]) => [sx + px + lean * -py, py]);
+    obj.part(); obj.poly(P.map(([px, py]) => [px + 0.5, py - 2.2]), ST, 1, { n: [-0.25, -0.8, 0.55] }); obj.poly(P, ST, 1.1, { round: 0.3 });
+    for (let k = 0; k < 4; k++) obj.rect(sx + w * 0.25 + Math.sin(k * 1.9 + sd) * 1 + lean * h * 0.5, -h * (0.3 + k * 0.13), 1, 3, CV, 1.5, { cast: 0 });
+    obj.ellipse(sx - w * 0.6, -h * 0.7, 1.8, 1.1, LC, 1.6, { bias: 1 }); obj.ellipse(sx - w * 0.3, -h * 0.4, 1.3, 1, LC, 1.6, {});
+    for (let k = 0; k < 3; k++) obj.ellipse(sx - w + k * w * 0.9, -0.5, 2.2, 1.3, MS, 1.7, { round: 0.9 });
+  };
+  pxSculpt(ctx, x, gy, Math.ceil(44 * s) + 24, Math.ceil(46 * s) + 24, (obj) => {
+    if (v === 0) stone1(obj, 0, 40 * s, 6 * s, 0.03, seed);
+    else if (v === 1) {
+      const P = [[-12, 1], [-12.8, -12], [-9.2, -24], [-2, -28], [5.2, -30.8], [10.8, -22], [12, -8], [11.2, 1]].map(([a, b]) => [a * s, b * s]);
+      obj.part(); obj.poly(P.map(([a, b]) => [a + 0.5, b - 2.2]), ST, 1, { n: [-0.25, -0.8, 0.55] }); obj.poly(P, ST, 1.1, { round: 0.3 });
+      obj.part(); obj.ellipse(-0.8 * s, -16.8 * s, 3.8 * s, 3.4 * s, pixFlat("#121216"), 2, { cast: 0 });
+      obj.ellipse(-2.4 * s, -18.4 * s, 1.2, 0.8, ST, 2.1, { bias: 1 });
+      obj.ellipse(-8 * s, -18 * s, 1.8, 1.1, LC, 1.6, { bias: 1 });
+    } else if (v === 2) stone1(obj, -2 * s, 36 * s, 6.8 * s, 0.28, seed);
+    else {
+      stone1(obj, -8 * s, 32 * s, 5.6 * s, -0.04, seed);
+      obj.part(); obj.poly([[2 * s, 5.4], [3.2 * s, -2.8 * s], [26 * s, -1.6 * s], [25 * s, 5.6]], ST, 0.5, { n: [-0.2, -0.85, 0.5] });
+      obj.part(); obj.poly([[2 * s, 5.4], [25 * s, 5.6], [25 * s, 8], [2.4 * s, 8]], fenMat(darken(col, 0.2), 0.6), 0.6, {});
+      obj.ellipse(8 * s, -0.5, 2, 1.1, LC, 1, {});
+    }
+  });
+};
+
+const fenMonksS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, turf = barrowTurf();
+  const col = mix(STONE, "#94907e", 0.45), ST = fenMat(col, 0.7), MS = fenMat(MOSS, 0.9), LC = fenMat(LICHEN, 0.6);
+  const T = fenMat(turf, 0.8), TL = fenMat(lighten(turf, 0.2), 0.8), TD = fenMat(darken(turf, 0.2), 0.8);
+  pxShade(ctx, x, gy, 8 * s, 2, 36 * s, 4.4 * s, 0.26, false, seed);
+  pxSculpt(ctx, x, gy, Math.ceil(70 * s) + 24, Math.ceil(30 * s) + 24, (obj) => {
+    for (let i = 0; i < 4; i++) {
+      const cx = (-12 + i * 8) * 2 * s, cy = -(i % 2) * 1.6 * s;
+      obj.part(); obj.ellipse(cx, cy + 2.4 * s, 6.4 * s, 2.8 * s, T, 0.2, { round: 0.9 });
+      obj.ellipse(cx - 3 * s, cy + 1 * s, 1.4, 0.8, TL, 0.3, { cast: 0 });
+      const fallen = v % 2 === 1 && i === 2, ang = fallen ? 1.35 : i === 1 ? -0.22 : (hash(seed, i) - 0.5) * 0.12;
+      const h = 18 * s, w = 2.2 * s, a = 6.4 * s;
+      const base = [[-w, 0], [-w, -h + a], [-a, -h + a], [-a, -h + a * 0.5], [-w, -h + a * 0.5], [-w, -h], [w, -h], [w, -h + a * 0.5], [a, -h + a * 0.5], [a, -h + a], [w, -h + a], [w, 0]];
+      const P = rotPts(base, ang).map(([px, py]) => fallen ? [cx + 2 * s + px, cy + 2 * s + py] : [cx + px, cy + py]);
+      obj.part(); obj.poly(P, ST, 1, { round: 0.45 });
+      if (hash(seed, i + 10) < 0.6) obj.ellipse(cx - w, cy - 2, 1.6, 1.1, MS, 1.2, {});
+      if (!fallen) obj.ellipse(cx - 4.4 * s, cy - h + a * 0.75, 1.3, 0.8, LC, 1.2, { bias: 1 });
+    }
+  });
+};
+
+// the door barrow (v even sealed, v odd broken open)
+const fenBarrowS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8;
+  const turf = mix(REALM.GRASS, "#56664a", 0.55), col = mix(STONE, "#96948a", 0.3);
+  const ST = fenMat(col, 0.7), STD = fenMat(darken(col, 0.1), 0.7), CV = fenMat(darken(col, 0.5), 0.4), LC = fenMat(LICHEN, 0.6), MS = fenMat(MOSS, 0.9);
+  const T = fenMat(turf, 0.9), TL = fenMat(lighten(turf, 0.2), 0.8), TD = fenMat(darken(turf, 0.25), 0.8);
+  pxShade(ctx, x, gy, 10 * s, 1, 40 * s, 7 * s, 0.32, false, seed);
+  pxSculpt(ctx, x, gy, Math.ceil(80 * s) + 24, Math.ceil(60 * s) + 24, (obj) => {
+    obj.part(); obj.ellipse(0, -14 * s, 36 * s, 22 * s, T, 0, { round: 0.95 });
+    moundFlecks(obj, 0, -16 * s, 32 * s, 17 * s, TL, TL, TD, seed);
+    obj.part(); obj.rect(-8 * s, -20 * s, 16 * s, 20 * s, pixFlat("#0e1010"), 1, { cast: 0 });
+    obj.part(); obj.rect(-14 * s, -20 * s, 6 * s, 21 * s, ST, 1.2, { round: 0.3 });
+    obj.part(); obj.rect(8 * s, -20 * s, 6 * s, 21 * s, STD, 1.2, { round: 0.3 });
+    obj.part(); obj.poly([[-17 * s, -19.2 * s], [-16 * s, -26 * s - 2], [16 * s, -26.4 * s - 2], [17 * s, -19.2 * s]], ST, 1.4, { n: [-0.2, -0.7, 0.6] });
+    obj.part(); obj.rect(-17 * s, -19.2 * s, 34 * s, 3.4 * s, ST, 1.5, { round: 0.2 });
+    for (let a = 0; a < 9; a += 0.5) obj.ellipse(Math.cos(a) * 0.5 * a * s * 1.1, -22.8 * s + Math.sin(a) * 0.4 * a * s, 0.9, 0.7, CV, 1.8, { cast: 0 });
+    if (v % 2 === 0) { obj.part(); obj.poly([[-8.8 * s, 1], [-8.4 * s, -17.2 * s], [8.4 * s, -18 * s], [8.8 * s, 1]], STD, 1.6, { round: 0.2 }); obj.ellipse(0, -9 * s, 2, 1.4, CV, 1.7, { cast: 0 }); }
+    else {
+      obj.part(); obj.poly([[14 * s, 6], [16 * s, -2 * s], [30 * s, 0], [29 * s, 7]], STD, 0.8, { n: [-0.2, -0.8, 0.5] });
+      obj.part(); obj.ellipse(-1 * s, -7 * s, 3.4 * s, 3.2 * s, fenMat(BONE, 0.7), 1.2, { round: 0.95 }); obj.ellipse(-2 * s, -7.4 * s, 1.1, 1.1, pixFlat("#1c1a22"), 1.4, { cast: 0 });
+    }
+    for (let k = 0; k < 4; k++) obj.ellipse((-12 + k * 8) * s, -1, 2.4, 1.4, MS, 2, { round: 0.9 });
+    obj.ellipse(-12 * s, -10 * s, 1.8, 1, LC, 1.8, { bias: 1 });
+  });
+};
+
+const fenLongBarrowS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8;
+  const turf = barrowTurf(), col = mix(STONE, "#96948a", 0.3);
+  const side = v % 2 ? -1 : 1, robbed = v >= 2;
+  const ST = fenMat(col, 0.7), STD = fenMat(darken(col, 0.08), 0.7), CV = fenMat(darken(col, 0.5), 0.4), LC = fenMat(LICHEN, 0.6), MS = fenMat(MOSS, 0.9);
+  const T = fenMat(turf, 0.9), TL = fenMat(lighten(turf, 0.2), 0.8), TD = fenMat(darken(turf, 0.25), 0.8);
+  pxShade(ctx, x, gy, 12 * s, 1, 66 * s, 8 * s, 0.32, false, seed);
+  const rx = 60 * s, fx = side * rx * 0.5;
+  pxSculpt(ctx, x, gy, Math.ceil(150 * s) + 24, Math.ceil(66 * s) + 24, (obj) => {
+    obj.part(); obj.ellipse(0, -13 * s, rx, 20 * s, T, 0, { round: 0.95 });
+    obj.ellipse(side * 18 * s, -17 * s, 36 * s, 17 * s, T, 0.3, { round: 0.95 });   // the high end
+    moundFlecks(obj, 0, -16 * s, rx * 0.9, 16 * s, TL, TL, TD, seed, 90);
+    if (robbed) {
+      const xa = -side * rx * 0.5, xb = side * rx * 0.12, ty = -26 * s;
+      obj.ellipse((xa + xb) / 2, ty, Math.abs(xb - xa) / 2, 3.4 * s, fenMat(darken(turf, 0.5), 0.6), 9.5, { round: 0.6, cast: 0 });
+      obj.ellipse((xa + xb) / 2, ty + 1.6 * s, Math.abs(xb - xa) / 2 - 2, 1.8 * s, fenMat("#4e4838", 0.6), 9.6, { round: 0.5, cast: 0 });
+      const dx = -side * rx * 0.74;
+      obj.part(); obj.rect(dx - 8 * s, -8 * s, 16 * s, 10 * s, pixFlat("#0e1010"), 10, { cast: 0 });
+      obj.part(); obj.rect(dx - 10 * s, -9 * s, 4 * s, 13 * s, ST, 10.5, { round: 0.3 }); obj.rect(dx + 6 * s, -9 * s, 4 * s, 13 * s, STD, 10.5, { round: 0.3 });
+      obj.part(); obj.poly([[dx - 14 * s, -8 * s], [dx - 12 * s, -14.8 * s - 2], [dx + 13 * s, -16 * s - 2], [dx + 15 * s, -8.8 * s]], ST, 11, { n: [-0.2, -0.7, 0.6] }); obj.rect(dx - 14 * s, -8.4 * s, 29 * s, 4.4 * s, ST, 11.1, { round: 0.2 });
+    }
+    // the forecourt slabs, the horns lower; the blocking stone in the middle
+    const fy = -2 * s, slabs = [[-18, 11, 4.8], [-10, 17, 4.4], [10, 17, 4.4], [18, 11, 4.8]];
+    obj.part(); obj.rect(fx - 6 * s, fy - 18 * s, 12 * s, 18 * s, pixFlat("#0e1010"), 9, { cast: 0 });
+    for (const [dx, h, w] of slabs) {
+      const sx = fx + dx * s, sy = fy + Math.abs(dx) * 0.32 * s, hh = h * s, ww = w * s;
+      const P = [[sx - ww, sy + 1], [sx - ww * 0.9, sy - hh], [sx, sy - hh - 2 * s], [sx + ww * 0.9, sy - hh * 0.94], [sx + ww, sy + 1]];
+      obj.part(); obj.poly(P.map(([a, b]) => [a + 0.5, b - 2]), ST, 12, { n: [-0.25, -0.8, 0.55] }); obj.poly(P, ST, 12.1, { round: 0.3 });
+      obj.ellipse(sx - ww * 0.4, sy - hh * 0.6, 1.4, 1, LC, 12.2, { bias: 1 });
+    }
+    if (!robbed) {
+      const P = [[fx - 6.8 * s, fy + 2], [fx - 6.4 * s, fy - 20 * s], [fx - s, fy - 24 * s], [fx + 6.4 * s, fy - 21.2 * s], [fx + 6.8 * s, fy + 2]];
+      obj.part(); obj.poly(P.map(([a, b]) => [a + 0.5, b - 2]), STD, 12.5, { n: [-0.25, -0.8, 0.55] }); obj.poly(P, STD, 12.6, { round: 0.2 });
+      for (let a = 0; a < 8; a += 0.5) obj.ellipse(fx + Math.cos(a) * 0.5 * a * s, fy - 13 * s + Math.sin(a) * 0.4 * a * s, 0.8, 0.7, CV, 12.8, { cast: 0 });
+    } else {
+      obj.part(); obj.poly([[fx + 4 * s, fy + 7], [fx + 6 * s, fy + 1.2], [fx + 24 * s, fy + 2], [fx + 23 * s, fy + 7.6]], STD, 12.5, { n: [-0.2, -0.8, 0.5] });
+      obj.part(); obj.ellipse(fx - 1 * s, fy - 5 * s, 3.4 * s, 3.2 * s, fenMat(BONE, 0.7), 12.5, { round: 0.95 });
+    }
+    for (let i = 0; i < 9; i++) {
+      const u = -0.92 + i * 0.23, kx = u * rx;
+      if (Math.abs(kx - fx) < 24 * s || hash(seed, i + 60) < 0.25) continue;
+      obj.part(); obj.ellipse(kx, 2 + 0.4 * s * (1 - Math.abs(u)) , 3.2 * s, 2.6 * s, STD, 5, { round: 0.9 });
+    }
+  });
+};
+
+const fenRoundBarrowS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8;
+  const turf = barrowTurf(), col = mix(STONE, "#96948a", 0.3);
+  const ST = fenMat(col, 0.7), STD = fenMat(darken(col, 0.08), 0.7), LC = fenMat(LICHEN, 0.6);
+  const T = fenMat(turf, 0.9), TL = fenMat(lighten(turf, 0.2), 0.8), TD = fenMat(darken(turf, 0.25), 0.8), WD = fenMat("#8c8676", 0.75);
+  // the ditch round it and the bank outside (translucent: a ditch is no object)
+  blobPath(ctx, x + 1, gy - 1.5 * s, 23 * s, 9 * s, seed + 5, 0.05, 16); ctx.fillStyle = rgba(lighten(REALM.GRASS, 0.3), 0.28); ctx.fill();
+  blobPath(ctx, x + 0.5, gy - 1.8 * s, 21 * s, 7.6 * s, seed + 6, 0.05, 16); ctx.fillStyle = "rgba(18,20,16,0.4)"; ctx.fill();
+  blobPath(ctx, x + 0.5, gy - 1.2 * s, 19.5 * s, 6.4 * s, seed + 7, 0.05, 16); ctx.fillStyle = rgba(lighten(REALM.GRASS, 0.2), 0.3); ctx.fill();
+  pxShade(ctx, x, gy, 10 * s, 1, 32 * s, 6.4 * s, 0.32, false, seed);
+  const cy = -9 * s, topY = cy - 5 * s;
+  pxSculpt(ctx, x, gy, Math.ceil(70 * s) + 24, Math.ceil(80 * s) + 24, (obj) => {
+    obj.part(); obj.ellipse(0, cy, 30 * s, 17 * s, T, 0, { round: 0.95 });
+    moundFlecks(obj, 0, cy - 2 * s, 26 * s, 13 * s, TL, TL, TD, seed, 50);
+    if (v === 0) {
+      const P = [[-5.2 * s, topY + 3 * s], [-5.6 * s, topY - 18 * s], [-2 * s, topY - 26 * s], [3.6 * s, topY - 24 * s], [5.6 * s, topY - 14 * s], [5.2 * s, topY + 3 * s]];
+      obj.part(); obj.poly(P.map(([a, b]) => [a + 0.5, b - 2]), ST, 10, { n: [-0.25, -0.8, 0.55] }); obj.poly(P, ST, 10.1, { round: 0.3 });
+      obj.ellipse(-3 * s, topY - 14 * s, 1.5, 1, LC, 10.3, { bias: 1 });
+    } else if (v === 1) {
+      obj.ellipse(-1 * s, topY + 1, 12 * s, 5.2 * s, pixFlat("#16181a"), 9.5, { cast: 0 });
+      obj.ellipse(-1 * s, topY + 2.4, 12 * s - 2, 3.2 * s, fenMat("#3e3a30", 0.6), 9.6, { cast: 0 });
+      for (let k = 0; k < 6; k++) obj.ellipse((hash(seed, k + 30) - 0.5) * 28 * s, topY + 6 * s + hash(seed, k + 31) * 3, 1.4, 0.8, fenMat("#6a6250", 0.6), 9.7, { cast: 0 });
+      obj.part(); obj.capsule(10 * s, topY + 6.4 * s, 1.6 * s, 18 * s, topY + 8 * s, 1.6 * s, fenMat(BONE, 0.7), 10, { round: 0.9 });
+      obj.part(); obj.ellipse(-13 * s, topY + 6.8 * s, 3 * s, 2.8 * s, fenMat(BONE, 0.7), 10, { round: 0.95 });
+    } else if (v === 2) {
+      const lb = (x0, y0, w0, x1, y1, w1, z) => { obj.part(); obj.capsule(x0, y0, w0, x1, y1, w1, WD, z, { round: 0.95 }); };
+      lb(2 * s, topY + 2, 4.4 * s, -2 * s, topY - 20 * s, 2.6 * s, 10);
+      lb(-1.2 * s, topY - 14 * s, 2.4 * s, -14 * s, topY - 26 * s, 1.1 * s, 10.5);
+      lb(-1.6 * s, topY - 18 * s, 2.2 * s, 10 * s, topY - 32 * s, 1.1 * s, 10.5);
+      lb(-8 * s, topY - 21 * s, 1.3 * s, -10 * s, topY - 30 * s, 0.8 * s, 10.8);
+      lb(5.2 * s, topY - 24 * s, 1.3 * s, 15 * s, topY - 25 * s, 0.8 * s, 10.8);
+      obj.part(); obj.capsule(-12 * s, topY - 25 * s, 1, -11.6 * s, topY - 16 * s, 0.6, fenMat(WEED, 0.8), 11, { round: 0.8 });
+    } else {
+      for (let i = 0; i < 8; i++) {
+        const a = Math.PI * (0.06 + i * 0.125), kx = -Math.cos(a) * 30.6 * s, ky = cy + Math.sin(a) * 10.6 * s + 4;
+        if (hash(seed, i + 70) < 0.2) continue;
+        obj.part(); obj.ellipse(kx, ky, 3 * s, 2.6 * s, STD, 8, { round: 0.9 });
+      }
+      obj.part(); obj.rect(-6.8 * s, topY - 2.8 * s, 13.6 * s, 6 * s, pixFlat("#121414"), 9.5, { cast: 0 });
+      obj.part(); obj.poly([[6 * s, topY + 5.2 * s], [7.2 * s, topY - 0.8 * s], [22 * s, topY + 1.2 * s], [20.8 * s, topY + 6.8 * s]], ST, 10, { n: [-0.2, -0.85, 0.5] });
+    }
+  });
+};
+
+Object.assign(HOLLOW_ART.decor, { fenstone: fenStoneS, fenmonks: fenMonksS, fenbarrow: fenBarrowS, fenlongbarrow: fenLongBarrowS, fenroundbarrow: fenRoundBarrowS });
+HOLLOW_ART.flat.push("fenstone", "fenmonks", "fenbarrow", "fenlongbarrow", "fenroundbarrow");
+
+// ---- the drowned relics, sculpted ---------------------------------------------
+// Same signature and footprints as the old painters (c, x, wl, s, v, seed):
+// the sculpt's foot is the waterline; waterCut then cuts, stains and reflects it.
+const bellDark = () => pixFlat("#0f1113");
+const belltowerRelicS = (c, x, wl, s, v, seed) => {
+  const col = mix(STONE, "#8e8a7e", 0.35), K = 2 * s, lean = 0.035;
+  const ST = fenMat(col, 0.7), PIL = fenMat(lighten(col, 0.18), 0.6), SL = fenMat("#5a6068", 0.8), CV = fenMat(darken(col, 0.32), 0.4), MS = fenMat(MOSS, 0.9), BR = fenMat(BRONZE, 0.8), GRN = fenMat("#3e6a5a", 0.9);
+  const hw = 11 * K, top = -26 * K, snap = top - 24 * K, D = bellDark();
+  const sh = (pts) => pts.map(([a, b]) => [a + lean * -b, b]);
+  pxSculpt(c, x, wl, Math.ceil(hw * 3) + 24, Math.ceil(-snap + 30 * K) + 24, (obj) => {
+    // the spire behind the parapet, its point snapped, a hole in the shaded side
+    obj.part(); obj.poly(sh([[-hw + 2, top + 2], [-2.4 * K, snap], [-1 * K, snap - 1.6 * K], [0.4 * K, snap + 0.4 * K], [2 * K, snap - 0.8 * K], [3 * K, snap + 1 * K], [hw - 2, top + 2]]), SL, 0.5, { round: 0.55 });
+    for (let k = 1; k < 9; k++) { const yy = top + 2 - k * 2.6 * K * 0.5 * 2, f = (yy - snap) / (top + 2 - snap), half = (hw - 2) * Math.max(0, f); if (half > 3) obj.rect(-half + 3 + lean * -yy, yy, half * 2 - 5, 1, CV, 0.6, { cast: 0 }); }
+    obj.poly(sh([[1.4 * K, top - 3 * K], [2.6 * K, top - 14 * K], [4.6 * K, top - 10 * K], [7.6 * K, top - 5.4 * K], [7 * K, top - 1.6 * K]]), D, 0.7, { cast: 0 });
+    obj.capsule(1.8 * K + lean * -(top - 2.4 * K), top - 2.4 * K, 0.9, 3.4 * K + lean * -(top - 13 * K), top - 13 * K, 0.9, fenMat("#8a7458", 0.7), 0.8, {});
+    obj.capsule(4.6 * K + lean * -(top - 2 * K), top - 2 * K, 0.9, 5.4 * K + lean * -(top - 9 * K), top - 9 * K, 0.9, fenMat("#8a7458", 0.7), 0.8, {});
+    // the bent iron cross in the snapped point
+    obj.part(); obj.capsule(-0.6 * K, snap, 1, -4 * K, snap - 10 * K, 1, fenMat("#4a3c38", 0.8), 1, { round: 0.8 }); obj.capsule(-6 * K, snap - 8 * K, 0.9, -1.6 * K, snap - 7 * K, 0.9, fenMat("#4a3c38", 0.8), 1, {});
+    // the south face: ashlar courses, pilasters, the string course
+    obj.part(); obj.poly(sh([[-hw, top], [hw, top], [hw, 6], [-hw, 6]]), ST, 1, { round: 0.25 });
+    for (let r = 0; r * 2.8 * K < -top + 6; r++) {
+      const yy = top + 3 + r * 2.8 * K; obj.rect(-hw + lean * -yy, yy, hw * 2, 1, CV, 1.1, { cast: 0 });
+      for (let q = 0; q < 5; q++) obj.rect(-hw + lean * -yy + ((q * 5.2 + (r % 2) * 2.6) % (hw * 2 / K)) * K + hash(seed, r * 5 + q) * 2, yy - 2.3 * K * 0.5 * 2 + 1.5, 1, 4.4 * K * 0.5 * 2 / 2, CV, 1.1, { cast: 0 });
+    }
+    obj.rect(-hw + lean * -top, top, 2.6 * K, -top + 6, PIL, 1.2, { cast: 0, bias: 1 });
+    obj.rect(hw - 2.6 * K + lean * -top, top, 2.6 * K, -top + 6, ST, 1.2, { cast: 0, bias: -1 });
+    obj.rect(-hw - 1, -7.5 * K, hw * 2 + 2, 2, PIL, 1.3, { cast: 0, bias: 1 });
+    obj.ellipse(-4 * K, -5 * K, 3 * K, 4 * K, D, 1.4, { cast: 0, round: 0 });
+    obj.ellipse(-hw + 5, top + 6, 2.4, 1.1, MS, 1.5, {});
+    // the lancets, the bell glimpsed in the left one
+    for (const lx of [-4.4, 4.4]) {
+      const cx = lx * K, w2 = 2.3 * K, y0 = -21.5 * K, y1 = -10 * K;
+      obj.part(); obj.poly(sh([[cx - w2, y1], [cx - w2, y0 + 2 * K], [cx - w2 * 0.6, y0 - 0.6 * K], [cx, y0 - 2.4 * K], [cx + w2 * 0.6, y0 - 0.6 * K], [cx + w2, y0 + 2 * K], [cx + w2, y1]]), D, 2, { cast: 0 });
+      obj.rect(cx + w2 - 1 + lean * -y0, y0 + 2 * K, 1, y1 - y0 - 2 * K, PIL, 2.1, { cast: 0 });
+      if (lx < 0) { obj.ellipse(cx + lean * -(y0 + 5 * K), y0 + 5.6 * K, 2 * K, 3 * K, GRN, 2.2, { round: 0.9 }); obj.rect(cx - 2 * K + lean * -(y0 + 7.6 * K), y0 + 7.6 * K * 1, 4 * K, 1.6, BR, 2.3, { cast: 0 }); }
+    }
+    // the parapet, the east corner broken away
+    obj.part(); for (let k = 0; k < 4; k++) { const mx = -hw + k * 4.6 * K, h = (k === 3 ? 1.8 : 3) * K; obj.poly(sh([[mx, top + 1], [mx, top - h], [mx + 3 * K, top - h], [mx + 3 * K, top + 1]]), ST, 3, { round: 0.2 }); }
+    obj.poly(sh([[hw - 3 * K, top + 1], [hw - 2.6 * K, top - 1 * K], [hw, top - 0.4 * K], [hw, top + 1]]), ST, 3, {});
+    // weed trailing from the sills
+    for (const [wx, wy, wl2] of [[-6.6, -10, 5], [2.4, -10, 7], [7.6, -7, 4], [-9.6, -7, 6]]) { obj.part(); obj.capsule(wx * K + lean * -(wy * K), wy * K, 1.1, (wx + 0.4) * K + lean * -((wy + wl2) * K), (wy + wl2) * K, 0.6, fenMat(WEED, 0.8), 4, { round: 0.8 }); }
+  });
+};
+
+const arcadeRelicS = (c, x, wl, s, v, seed) => {
+  const col = mix(STONE, "#9a9486", 0.4), K = 2 * s, broken = v % 2 === 0;
+  const ST = fenMat(col, 0.7), PIL = fenMat(lighten(col, 0.12), 0.7), CV = fenMat(darken(col, 0.32), 0.4), D = pixFlat("#121416"), MS = fenMat(MOSS, 0.9);
+  const capY = -13 * K, topY = -22 * K;
+  pxSculpt(c, x, wl, Math.ceil(80 * K) + 24, Math.ceil(30 * K) + 24, (obj) => {
+    // the wall over the arches, ragged where it fell
+    const xr = broken ? 4 * K : 17 * K, pts = [[-17 * K, capY], [-17 * K, topY]];
+    for (let k = 1; k <= 8; k++) pts.push([-17 * K + (xr + 17 * K) * k / 8, topY + (v % 2 || k > 5 ? hash(seed, k) * 4 * K : 0) + (broken && k > 5 ? (k - 5) * 2.4 * K : 0)]);
+    pts.push([xr, capY - 2 * K]);
+    obj.part(); obj.poly(pts, ST, 0.5, { round: 0.2 });
+    obj.poly([[-17 * K, topY - 2], [xr, topY - 2], [xr, topY + 1], [-17 * K, topY + 1]].filter((_, i) => !broken || true), PIL, 0.6, { n: [-0.2, -0.8, 0.5] });
+    for (let r = 0; r < 3; r++) obj.rect(-17 * K, topY + 4 * K * 0.5 * 2 / 2 + r * 2.6 * K, xr + 17 * K, 1, CV, 0.7, { cast: 0 });
+    // the arches, a ring of voussoirs round each
+    const arch = (ax, half, whole) => {
+      const ap2 = []; const n = 12, end = whole ? Math.PI : Math.PI * 0.58;
+      ap2.push([ax - half, 4]);
+      for (let i = 0; i <= n; i++) { const a = Math.PI + (i / n) * end; ap2.push([ax + Math.cos(a) * half, capY + Math.sin(a) * half]); }
+      ap2.push(whole ? [ax + half, 4] : [ax + 1.4 * K, capY + 2], whole ? [ax + half, 4] : [ax + 1.4 * K, 4]);
+      obj.part(); obj.poly(ap2, D, 1, { cast: 0 });
+      obj.part(); for (let i = 0; i <= n; i++) { const a = Math.PI + (i / n) * end; obj.ellipse(ax + Math.cos(a) * (half + 2 * K * 0.5), capY + Math.sin(a) * (half + K), 2.2, 2.2, PIL, 1.5, { round: 0.8, bias: Math.cos(a) < 0 ? 1 : 0 }); }
+    };
+    arch(-7 * K, 5.2 * K, true); arch(7 * K, 5.2 * K, !broken);
+    // the columns and their cushion capitals
+    [-14, 0, 14].forEach((dx, i) => {
+      const cx = dx * K, snapped = broken && i === 2, cy = snapped ? -7 * K : capY;
+      obj.part(); obj.rect(cx - 1.4 * K, cy, 2.8 * K, -cy + 6, ST, 2, { round: 0.9 });
+      if (snapped) { obj.poly([[cx - 1.4 * K, cy + 1], [cx - 0.6 * K, cy - 2.4 * K], [cx + 0.4 * K, cy - 0.4 * K], [cx + 1.4 * K, cy - 3.2 * K], [cx + 1.4 * K, cy + 1]], PIL, 2.1, { n: [-0.2, -0.7, 0.6] }); return; }
+      obj.part(); obj.poly([[cx - 2.6 * K, cy - 2.2 * K], [cx + 2.6 * K, cy - 2.2 * K], [cx + 1.6 * K, cy + 1], [cx - 1.6 * K, cy + 1]], PIL, 2.5, { round: 0.4 });
+      obj.rect(cx - 1.4 * K, -5 * K, 2.8 * K, 1, CV, 2.1, { cast: 0 });
+    });
+    if (broken) { obj.part(); obj.ellipse(19 * K, 2, 3.4 * K, 2.2 * K, ST, 2, { round: 0.9 }); obj.ellipse(16.4 * K, 0, 1.2 * K, 2 * K, PIL, 2.1, { round: 0.6 }); }
+    obj.ellipse(-12 * K, -17 * K, 2.4, 1.1, MS, 1, {});
+    for (const [wx, wy, ln] of [[-7, -13, 6], [6, -14, 5], [-15, -18, 7]]) { obj.part(); obj.capsule(wx * K, wy * K, 1.1, (wx + 0.4) * K, (wy + ln) * K, 0.6, fenMat(WEED, 0.8), 4, { round: 0.8 }); }
+  });
+};
+
+const columnRelicS = (c, x, wl, s, v, seed) => {
+  const col = mix(STONE, "#9a9486", 0.4), K = 2 * s, ST = fenMat(col, 0.7), PIL = fenMat(lighten(col, 0.12), 0.7), CV = fenMat(darken(col, 0.32), 0.4);
+  pxSculpt(c, x, wl, Math.ceil(40 * K) + 24, Math.ceil(34 * K) + 24, (obj) => {
+    if (v === 3) { obj.part(); obj.ellipse(0, 2, 5.4 * K, 2.6 * K, ST, 1, { round: 0.9 }); obj.ellipse(-4.6 * K, 1, 1.2 * K, 2.2 * K, PIL, 1.1, { round: 0.6 }); return; }
+    const h = [20, 8, 15][v] * K, lean = v === 2 ? 0.3 : 0.02, L = (a, b) => [a + lean * -b, b];
+    obj.part(); obj.poly([[-1.6 * K, 6], [-1.6 * K, -h], [1.6 * K, -h], [1.6 * K, 6]].map(([a, b]) => L(a, b)), ST, 1, { round: 0.9 });
+    for (let k = 1; k * 4.4 * K < h; k++) obj.rect(L(-1.6 * K, -k * 4.4 * K)[0], -k * 4.4 * K, 3.2 * K, 1, CV, 1.1, { cast: 0 });
+    if (v === 0) {
+      obj.part(); obj.poly([[-3 * K, -h - 2.4 * K], [3 * K, -h - 2.4 * K], [1.8 * K, -h + 1], [-1.8 * K, -h + 1]].map(([a, b]) => L(a, b)), PIL, 2, { round: 0.4 });
+      obj.part(); obj.poly([[-3 * K, -h - 2.4 * K], [-3 * K, -h - 5 * K], [2 * K, -h - 6 * K], [6.4 * K, -h - 8.6 * K], [7.4 * K, -h - 6.4 * K], [3 * K, -h - 2.4 * K]].map(([a, b]) => L(a, b)), ST, 2.1, { round: 0.3 });
+    } else { obj.part(); obj.poly([[-1.6 * K, -h + 1], [-0.8 * K, -h - 2 * K], [0.2 * K, -h - 0.4 * K], [1.6 * K, -h - 3 * K], [1.6 * K, -h + 1]].map(([a, b]) => L(a, b)), PIL, 2, { n: [-0.2, -0.7, 0.6] }); }
+    obj.part(); obj.capsule(-1 * K, -h * 0.7, 1.1, -0.8 * K, -h * 0.7 + 10 * s, 0.6, fenMat(WEED, 0.8), 3, { round: 0.8 });
+  });
+};
+
+const sunkkingRelicS = (c, x, wl, s, v, seed) => {
+  const col = mix(STONE, "#62665e", 0.5), K = 2 * s, bowed = v % 2 === 1, hy = -(bowed ? 19 : 21) * K;
+  const ST = fenMat(col, 0.75), CV = fenMat(darken(col, 0.4), 0.4), VR = fenMat(VERDI, 0.8), BR = fenMat(BRONZE, 0.8), EY = pixFlat("#16141a");
+  pxSculpt(c, x, wl, Math.ceil(36 * K) + 24, Math.ceil(30 * K) + 24, (obj) => {
+    obj.part(); obj.poly([[-12 * K, 6], [-12 * K, -6 * K], [-10 * K, -11 * K], [-5 * K, -13 * K], [5 * K, -13 * K], [10 * K, -11 * K], [12 * K, -6 * K], [12 * K, 6]], ST, 1, { round: 0.5 });
+    for (const fx of [-8, -5, 5, 8]) obj.rect(fx * K, -9 * K, 1, 9 * K, CV, 1.1, { cast: 0 });
+    obj.rect(-1 * K, -12.4 * K, 2 * K, 2, BR, 1.2, { cast: 0 });
+    // the sword, the guard across his chest, his hands
+    obj.part(); obj.rect(-0.9 * K, -6 * K, 1.8 * K, 6 * K + 6, fenMat(lighten(col, 0.25), 0.6), 2, { round: 0.8 });
+    obj.part(); obj.poly([[-6 * K, -7.4 * K], [6 * K, -7.4 * K], [6.6 * K, -6.2 * K], [-6.6 * K, -6.2 * K]], VR, 2.2, { round: 0.6 });
+    for (const [hx, hy2] of [[-1.6, -10], [1.4, -8.6]]) { obj.part(); obj.ellipse(hx * K, hy2 * K, 2.4 * K, 1.8 * K, ST, 2.5, { round: 0.95, bias: 1 }); }
+    obj.part(); obj.ellipse(0, -12.4 * K, 1.2 * K, 1.2 * K, VR, 2.6, { round: 0.9 });
+    // the long face, the beard, the crown
+    obj.part(); obj.poly([[-3 * K, -13 * K], [-3.6 * K, hy + 4 * K], [-3 * K, hy - 1 * K], [3 * K, hy - 1 * K], [3.6 * K, hy + 4 * K], [3 * K, -13 * K], [1.6 * K, -10.6 * K], [0, -11 * K], [-1.6 * K, -10.6 * K]], ST, 3, { round: 0.6, bias: 0.3 });
+    obj.rect(-2.2 * K, hy + 2.4 * K, 1.5 * K, bowed ? 1 : 2, EY, 3.1, { cast: 0 }); obj.rect(0.8 * K, hy + 2.4 * K, 1.5 * K, bowed ? 1 : 2, EY, 3.1, { cast: 0 });
+    obj.rect(-0.5, hy + 3.4 * K, 1, 3 * K, CV, 3.1, { cast: 0 });
+    const cy = hy - 1.2 * K, cp = bowed
+      ? [[-3.8 * K, cy + 3 * K], [-4 * K, cy - 3 * K], [-2.6 * K, cy - 0.4 * K], [-1.4 * K, cy - 5 * K], [-0.2 * K, cy - 0.8 * K], [1.2 * K, cy - 2 * K], [2.2 * K, cy + 0.4 * K], [3.8 * K, cy - 0.8 * K], [3.8 * K, cy + 3 * K]]
+      : [[-3.8 * K, cy + 3 * K], [-4 * K, cy - 3.6 * K], [-2.6 * K, cy - 0.4 * K], [-1.3 * K, cy - 5.6 * K], [0, cy - 0.8 * K], [1.3 * K, cy - 5.6 * K], [2.6 * K, cy - 0.4 * K], [4 * K, cy - 3.6 * K], [3.8 * K, cy + 3 * K]];
+    obj.part(); obj.poly(cp, VR, 3.4, { round: 0.5, bias: 0.4 });
+    for (const [wx, wy, ln] of [[-10, -9, 6], [9, -10, 7], [-3, -11, 5], [2.6, -12, 6]]) { obj.part(); obj.capsule(wx * K, wy * K, 1.1, (wx + 0.4) * K, (wy + ln) * K, 0.6, fenMat(WEED, 0.8), 4, { round: 0.8 }); }
+  });
+};
+
+const lanternpostRelicS = (c, x, wl, s, v, seed) => {
+  const K = 2 * s, wood = "#6a6050", WD = fenMat(wood, 0.8), IR = fenMat("#4a4448", 0.8), CG = fenMat("#3a3438", 0.8), GL = pixFlat("#1a2420");
+  const [lx0, ly0] = LANTERN_AT, lx = lx0 * K, ly = ly0 * K;
+  pxSculpt(c, x, wl, Math.ceil(30 * K) + 24, Math.ceil(34 * K) + 24, (obj) => {
+    obj.part(); obj.capsule(0.8 * s, 6, 2.8 * K * 0.7, -1.6 * s, -24 * K, 1.8 * K * 0.7, WD, 1, { round: 0.95 });
+    obj.capsule(-1.2 * s, -21 * K, 1.4 * K * 0.7, 7.6 * K, -23.4 * K, 1 * K * 0.7, WD, 1.1, { round: 0.95 });
+    obj.rect(-1.4 * K, -9 * K, 2.8 * K, 2, IR, 1.2, { cast: 0 });
+    for (let k = 0; k < 3; k++) obj.rect(lx - 0.5, -23 * K + k * 2.2, 1, 1.2, IR, 1.2, { cast: 0 });
+    obj.part(); obj.poly([[lx - 2.8 * K, ly - 2.8 * K], [lx, ly - 4.8 * K], [lx + 2.8 * K, ly - 2.8 * K]], CG, 2, { round: 0.3 });
+    obj.part(); obj.rect(lx - 2.2 * K, ly - 3 * K, 4.4 * K, 5.4 * K, GL, 2, { cast: 0 });
+    obj.part(); obj.rect(lx - 2.6 * K, ly + 2.2 * K, 5.2 * K, 2, CG, 2.3, {});
+    for (const bx of [-2.2, 1.8, -0.25]) obj.rect(lx + bx * K, ly - 2.8 * K, 1, 5.2 * K, IR, 2.4, { cast: 0 });
+    obj.part(); obj.capsule(-1.2 * K, -9 * K, 1.1, -1 * K, -4 * K, 0.6, fenMat(WEED, 0.8), 3, { round: 0.8 });
+  });
+};
+Object.assign(RELIC_KIT, {
+  belltower: [belltowerRelicS, ...RELIC_KIT.belltower.slice(1)], arcade: [arcadeRelicS, ...RELIC_KIT.arcade.slice(1)],
+  column: [columnRelicS, ...RELIC_KIT.column.slice(1)], sunkking: [sunkkingRelicS, ...RELIC_KIT.sunkking.slice(1)],
+  lanternpost: [lanternpostRelicS, ...RELIC_KIT.lanternpost.slice(1)],
+});
+
+// ---- cairns and bones -----------------------------------------------------
+const fenCairnS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, K = 2 * s;
+  pxShade(ctx, x, gy, 9 * s, 0.5, 24 * s, 3.8 * s, 0.32, true, seed);
+  const MS = fenMat(MOSS, 0.9), LC = fenMat(LICHEN, 0.6);
+  pxSculpt(ctx, x, gy, Math.ceil(50 * s) + 24, Math.ceil(46 * s) + 24, (obj) => {
+    const tiers = [[0, 9.5, 3.4], [-0.6, 8, 3.1], [0.9, 6.4, 2.9], [-0.4, 5, 2.6], [0.4, 3.6, 2.2]];
+    let yy = -2.6 * K;
+    tiers.forEach(([dx, wr, hr], i) => {
+      const cx = dx * K + (hash(seed, i) - 0.5) * 2.4 * s, col = mix(STONE, i % 2 ? "#9a9484" : "#7e8478", 0.4);
+      const M = fenMat(col, 0.8);
+      obj.part(); obj.ellipse(cx, yy, wr * K, hr * K * 1.15, M, i * 0.5, { round: 0.95, bias: i % 2 ? 0.3 : 0 });
+      obj.ellipse(cx - wr * 0.3 * K, yy - hr * K * 0.35, wr * K * 0.5, hr * K * 0.5, M, i * 0.5 + 0.1, { round: 0.9, bias: 1 });
+      if (i < 2) { obj.ellipse(cx - wr * 0.5 * K, yy + hr * K * 0.5, 2.4, 1.2, MS, i * 0.5 + 0.2, {}); obj.ellipse(cx + wr * 0.3 * K, yy + hr * K * 0.6, 1.8, 1, MS, i * 0.5 + 0.2, {}); }
+      obj.ellipse(cx - wr * 0.3 * K, yy - hr * K * 0.5, 1.4, 0.9, LC, i * 0.5 + 0.3, {});
+      yy -= hr * K * 1.25;
+    });
+    if (v % 2) { obj.part(); obj.ellipse(0.4 * K, yy - 1 * K, 2.6 * K, 2.4 * K, fenMat(BONE, 0.7), 5, { round: 0.95 }); obj.ellipse(-0.8 * K, yy - 1.2 * K, 1, 1, pixFlat("#1c1a22"), 5.2, { cast: 0 }); obj.ellipse(1.6 * K, yy - 1.2 * K, 1, 1, pixFlat("#1c1a22"), 5.2, { cast: 0 }); }
+    else { obj.part(); obj.poly([[-1.8 * K, yy + 3], [-2 * K, yy - 5 * K], [-0.4 * K, yy - 7 * K], [1.8 * K, yy - 5.5 * K], [2 * K, yy + 3]], fenMat(STONE, 0.7), 5, { round: 0.5 }); }
+  });
+};
+
+const fenBonesS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 7, K = 2 * s, flip = v % 2 ? -1 : 1;
+  ctx.fillStyle = rgba(PEAT, 0.55); blobPath(ctx, x + 1, gy + 1, 12 * s, 4 * s, seed, 0.2, 10); ctx.fill();
+  pxShade(ctx, x, gy, 4 * s, 3, 18 * s, 3 * s, 0.22, false, seed);
+  const B = fenMat(BONE, 0.75), BD = fenMat(darken(BONE, 0.25), 0.75), EY = pixFlat("#1c1a22");
+  const skull = (obj, cx, cy, r) => { obj.part(); obj.ellipse(cx, cy, r, r * 0.92, B, 3, { round: 0.95 }); obj.rect(cx - r * 0.5, cy + r * 0.5, r, r * 0.7, B, 3, { round: 0.3 }); obj.ellipse(cx - r * 0.4, cy - 0.2, 1, 1.1, EY, 3.2, { cast: 0 }); obj.ellipse(cx + r * 0.4, cy - 0.2, 1, 1.1, EY, 3.2, { cast: 0 }); };
+  pxSculpt(ctx, x, gy, Math.ceil(56 * s) + 24, Math.ceil(46 * s) + 24, (obj) => {
+    obj.part(); obj.capsule(flip * -6 * K, 1, 1 * K, flip * 5 * K, 0.4, 1 * K, BD, 0, { round: 0.9 });
+    for (let i = 0; i < 4; i++) {
+      const bx = flip * (-4.5 + i * 3) * K, h = (6.5 - Math.abs(i - 1.2) * 1.1) * K;
+      for (const sd of [1, -1]) { obj.part(); obj.capsule(bx, 1, 0.8, bx + sd * 3.4 * K, -h * 0.55, 0.8, sd > 0 ? BD : B, 1 + i * 0.05, { round: 0.9 }); obj.capsule(bx + sd * 3.4 * K, -h * 0.55, 0.8, bx + sd * 1.2 * K, -h, 0.6, sd > 0 ? BD : B, 1 + i * 0.05, { round: 0.9 }); }
+    }
+    const lb = (x0, y0, x1, y1) => { obj.part(); obj.capsule(x0, y0, 1.3 * s, x1, y1, 1.3 * s, B, 1, { round: 0.9 }); obj.ellipse(x0, y0, 2 * s, 1.8 * s, B, 1.1, { round: 0.9 }); obj.ellipse(x1, y1, 2 * s, 1.8 * s, B, 1.1, { round: 0.9 }); };
+    lb(flip * -7 * K, 2.4, flip * 5 * K, 3.6); lb(flip * 2 * K, 8 * s, flip * 10 * K, 5 * s);
+    if (v === 1 || v === 2) {
+      const hx = flip * 8 * K, hy = -2.4 * s;
+      obj.part(); obj.ellipse(hx, hy, 3.6 * K, 3 * K, fenMat("#6a5a4c", 0.9), 2, { round: 0.95, bias: 0.5 });
+      obj.rect(hx - 2.2 * K, hy, 4.4 * K, 2, pixFlat("#2a2226"), 2.2, { cast: 0 });
+      obj.ellipse(hx - 2 * K, hy - 2.4 * K, 1.4, 0.8, fenMat("#8a5a36", 0.7), 2.3, {});
+    } else if (v === 3) {
+      const sx = flip * 9 * K, RUST = fenMat("#8a5a36", 0.7);
+      obj.part(); obj.poly([[sx - 1.8 * s, 2], [sx - 1.6 * s, -22 * s], [sx, -24.4 * s], [sx + 1.6 * s, -22 * s], [sx + 1.8 * s, 2]], fenMat("#8a8a88", 0.8), 2, { round: 0.9 });
+      obj.ellipse(sx, -10 * s, 1, 1.4, RUST, 2.1, {});
+      obj.part(); obj.rect(sx - 6.4 * s, -27.2 * s, 12.8 * s, 2.6 * s, fenMat(BRONZE, 0.8), 2.2, { round: 0.8 });
+      obj.part(); obj.rect(sx - 1.4 * s, -34 * s, 2.8 * s, 7.2 * s, fenMat("#5a4030", 0.8), 2.2, { round: 0.9 });
+      obj.part(); obj.ellipse(sx, -34.8 * s, 2.2 * s, 2 * s, fenMat(BRONZE, 0.8), 2.4, { round: 0.95 });
+    }
+    skull(obj, flip * -9.5 * K, -1.4 * K, 3.1 * K * 0.8);
+  });
+};
+Object.assign(HOLLOW_ART.decor, { fencairn: fenCairnS, fenbones: fenBonesS });
+HOLLOW_ART.flat.push("fencairn", "fenbones");
+
+// ---- the drowned king ------------------------------------------------------
+const fenStatueS = (ctx, x, y, s, o) => {
+  const { seed, v } = o, gy = y + 8, K = 2 * s;
+  const col = mix(STONE, "#a09c8c", 0.45);
+  const ST = fenMat(col, 0.75), CV = fenMat(darken(col, 0.5), 0.4), VR = fenMat(VERDI, 0.8), BR = fenMat(BRONZE, 0.8), MS = fenMat(MOSS, 0.9), EY = pixFlat("#16141a");
+  // the pool he stands in
+  pxShade(ctx, x, gy, 12 * s, 2, 30 * s, 5 * s, 0.26, false, seed);
+  ctx.fillStyle = mix(PEAT, MOSS, 0.3); blobPath(ctx, x, gy, 15 * s, 5.2 * s, seed, 0.12, 12); ctx.fill();
+  ctx.fillStyle = BOGW; blobPath(ctx, x + 0.5, gy, 13 * s, 4.2 * s, seed + 1, 0.12, 12); ctx.fill();
+  ctx.fillStyle = rgba(BOGW_LT, 0.9); px1(ctx, x - 10 * s, gy - 1.5, 5, 0.5); px1(ctx, x + 6 * s, gy + 2, 3, 0.5);
+  pxSculpt(ctx, x, gy, Math.ceil(44 * s) + 24, Math.ceil(52 * s) + 24, (obj) => {
+    if (v % 2 === 0) {
+      const lean = (hash(seed, 1) - 0.5) * 0.2 + (v === 2 ? -0.14 : 0.1), L = (pts) => pts.map(([a, b]) => [a + lean * -b, b]);
+      obj.part(); obj.poly(L([[-8.4 * K, 1], [-9 * K, -8 * K], [-7.6 * K, -12 * K], [-3 * K, -13.6 * K], [3 * K, -13.6 * K], [7.6 * K, -12 * K], [9 * K, -8 * K], [8.4 * K, 1]]), ST, 1, { round: 0.5 });
+      for (const fx of [-6.5, -4.5, 5, 7]) obj.rect(fx * K + lean * 7 * K, -7 * K, 1, 7 * K, CV, 1.1, {});
+      // the sword point-down and his hands on the pommel
+      obj.part(); obj.poly(L([[-0.9 * K, -7 * K], [0.9 * K, -7 * K], [0.7 * K, 1], [-0.7 * K, 1]]), fenMat(lighten(col, 0.12), 0.7), 2, { round: 0.8 });
+      obj.part(); obj.poly(L([[-3.8 * K, -8.2 * K], [3.8 * K, -8.2 * K], [3.8 * K, -6.7 * K], [-3.8 * K, -6.7 * K]]), ST, 2.1, { round: 0.6 });
+      for (const sd of [-1, 1]) { obj.part(); obj.capsule(sd * 6.8 * K + lean * 11 * K, -11.5 * K, 3 * s, sd * 1.4 * K + lean * 9 * K, -9.4 * K, 2.4 * s, ST, 2.3, { round: 0.95 }); obj.ellipse(sd * 1.1 * K + lean * 9.6 * K, -9.6 * K, 1.6 * K, 1.4 * K, ST, 2.5, { round: 0.95, bias: 0.5 }); }
+      // the head, square beard and the crown gone green
+      const hx = lean * 17 * K;
+      obj.part(); obj.ellipse(hx, -17.2 * K, 4 * K, 4.3 * K, ST, 3, { round: 0.95, bias: 0.3 });
+      obj.poly(L([[-3 * K, -16 * K], [3 * K, -16 * K], [2.6 * K, -12.6 * K], [-2.6 * K, -12.6 * K]]), ST, 3.1, { round: 0.4 });
+      for (const bx of [-1.6, 0, 1.6]) obj.rect(hx + bx * K, -15 * K, 1, 2 * K, CV, 3.2, {});
+      obj.rect(hx - 2.6 * K, -18.6 * K, 2 * K, 1, CV, 3.2, {}); obj.rect(hx + 0.8 * K, -18.6 * K, 2 * K, 1, CV, 3.2, {});
+      obj.rect(hx - 2 * K, -18 * K, 2, 2, EY, 3.3, {}); obj.rect(hx + 1.2 * K, -18 * K, 2, 2, EY, 3.3, {});
+      const cy = -21.2 * K;
+      obj.part(); obj.poly(L([[-3.9 * K, cy + 3], [-4 * K, cy - 1.8 * K], [-2.6 * K, cy - 0.3 * K], [-1.3 * K, cy - 2.8 * K], [0, cy - 0.5 * K], [1.3 * K, cy - 2.8 * K], [2.6 * K, cy - 0.3 * K], [4 * K, cy - 1.8 * K], [3.9 * K, cy + 3]]), VR, 3.5, { round: 0.5, bias: 0.4 });
+      obj.rect(hx - 1, cy + 1, 2, 2, BR, 3.6, {});
+      for (let k = 0; k < 5; k++) obj.ellipse((-7 + k * 3.2) * K, -2 * K - hash(seed, k) * 4 * K, 1.8, 1, MS, 1.5, {});
+      for (let k = 0; k < 4; k++) { obj.part(); obj.capsule((-8 + k * 5) * K, 0, 1, (-8 + k * 5) * K + 2, -5 * K, 0.5, fenMat(WEED, 0.8), 4, { round: 0.8 }); }
+    } else {
+      // the fallen head, crown slipping off, one eye above the water
+      obj.part(); obj.ellipse(0, -7 * K, 11 * K, 9 * K, ST, 1, { round: 0.95 });
+      obj.poly([[-6 * K, -9.5 * K], [-1 * K, -11 * K], [-1 * K, -10 * K], [-6 * K, -8.6 * K]], CV, 1.5, {}); obj.poly([[1.5 * K, -11.2 * K], [6 * K, -10.6 * K], [6 * K, -9.6 * K], [1.5 * K, -10.4 * K]], CV, 1.5, {});
+      obj.poly([[-0.4 * K, -9.5 * K], [1.4 * K, -5 * K], [-1.2 * K, -4.6 * K]], fenMat(darken(col, 0.25), 0.7), 1.5, {});
+      obj.rect(-2.5 * K, -2.6 * K, 5 * K, 1, CV, 1.5, {});
+      for (let k = 0; k < 6; k++) obj.ellipse((-8 + k * 2.6) * K, -15 * K + Math.abs(k - 2.5) * 1.6, 1.8, 1, MS, 1.6, {});
+      const cx = 7 * K, cy = -14 * K, rot = 0.55, rp = (a, b) => [cx + a * Math.cos(rot) - b * Math.sin(rot), cy + a * Math.sin(rot) + b * Math.cos(rot)];
+      obj.part(); obj.poly([[-5, 2], [-5.2, -2], [-3.4, -0.4], [-1.7, -3], [0, -0.6], [1.7, -3], [3.4, -0.4], [5.2, -2], [5, 2]].map(([a, b]) => rp(a * K, b * K)), VR, 3, { round: 0.5, bias: 0.4 });
+      for (let k = 0; k < 3; k++) { obj.part(); obj.capsule((-11 + k) * K, 1, 1, (-12 + k * 1.2) * K, -7 * K, 0.5, fenMat("#5c6a44", 0.8), 4, { round: 0.8 }); }
+    }
+  });
+};
+Object.assign(HOLLOW_ART.decor, { fenstatue: fenStatueS });
+HOLLOW_ART.flat.push("fenstatue");
