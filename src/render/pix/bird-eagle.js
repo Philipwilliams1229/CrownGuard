@@ -9,7 +9,7 @@
 //   walk    the cruise, four frames: wings up, level, down, rising (draw.js picks 0..3)
 //   attack  the lance pass, four frames: 0 the dive, 1 the strike, 2 follow-through, 3 the climb
 // Registered into PIX by rigs-eagle.js (legacy [0, 1, 2, 3]).
-import { mat, flat } from "./pix.js";
+import { mat, flat, layers } from "./pix.js";
 import { HUMAN } from "./rig.js";
 
 const BODY = mat("#7a5234", { contrast: 1.1 }), THIGH = mat("#6a4428"), WING = mat("#6e4a2c", { contrast: 1.1 }), WINGP = mat("#4a321e", { contrast: 1.2 }), WINGC = mat("#8c6440");
@@ -18,6 +18,9 @@ const SADDLE = mat("#3a5474", { contrast: 1.15 }), GOLD = mat("#d8b34a", { contr
 const STEEL = mat("#b8bcc4", { contrast: 1.3 }), STEELD = mat("#8a8e98", { contrast: 1.3 }), SKIN = mat("#e8b990"), CAPE = mat("#a0303a", { contrast: 1.1 }), PLUME = mat("#e8e2d0"), LANCE = mat("#dde2ea", { contrast: 1.3 });
 const EYE = flat("#e8a030", { emis: true }), PUPIL = flat("#2a2230"), CLAW = flat("#2a2230"), BROW = mat("#4a4050", { floor: 1 }), RIDEYE = flat("#2a2230");
 
+// the near wing's depth: root behind the thigh (4.1) and saddle (6), tip over everything of the bird
+const WZ = { root: 4.15, tip: 9 };
+export const MUST = [["nearWing", "behind", "rider"], ["nearWing", "behind", "saddle"]];
 export const BOX = { w: 128, h: 116, ox: 64, oy: 92 };
 export const BONES = HUMAN;                  // unused: a flier poses itself
 
@@ -88,25 +91,32 @@ export const draw = (px, F) => {
     if (nx * (R[0] - Wr[0]) + ny * (R[1] - Wr[1]) < 0) { nx = -nx; ny = -ny; }
     const angT = Math.atan2(dy, dx), angN = Math.atan2(ny, nx);
     let d = angN - angT; d = ((d + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+    // DEPTH ALONG THE WING (near wing only): the root lies just over the body and BEHIND the thigh,
+    // saddle, cape and rider, so their edges cross it cleanly; the tip is free in front of the
+    // thigh and tail, so a downstroke never slabs over them from the root. The far wing keeps one layer.
+    const zr = far ? z0 : WZ.root, zt = far ? z0 : WZ.tip, D = Math.hypot(T[0] - S[0], T[1] - S[1]) || 1;
+    const sm = (t) => t * t * (3 - 2 * t), zAt = (x, y) => zr + (zt - zr) * sm(clamp(Math.hypot(x - S[0], y - S[1]) / D / 0.55, 0, 1));
+    if (!far) px.body(2);
     px.part();
-    px.poly([S, Wr, T, [Wr[0] + (R[0] - Wr[0]) * 0.55 + dx * 0.35, Wr[1] + (R[1] - Wr[1]) * 0.55 + dy * 0.35], R], WING, z0, { round: 0.5, bias: b - 1, cast: 1, floor: 1 });
+    px.poly([S, Wr, T, [Wr[0] + (R[0] - Wr[0]) * 0.55 + dx * 0.35, Wr[1] + (R[1] - Wr[1]) * 0.55 + dy * 0.35], R], WING, z0, { round: 0.5, bias: b - 1, cast: 1, floor: 1, zOf: far ? undefined : (x, y) => zAt(x, y) });
     for (let i = 5; i >= 0; i--) {
       const kk = i / 5, bx = Wr[0] + dx * 0.12 * kk + nx * kk * 4.4, by = Wr[1] + dy * 0.12 * kk + ny * kk * 4.4;
       const a = angT + d * kk * 0.42, len = dl * (1 - kk * 0.22);
       px.part();
-      px.capsule(bx, by, 2.1, bx + Math.cos(a) * len, by + Math.sin(a) * len, 0.95, i % 2 ? WING : WINGP, z0 + 0.1 + (5 - i) * 0.01, { bias: b + (i % 2 ? 0 : -1), floor: 1, cast: 1, round: 0.8 });
+      px.capsule(bx, by, 2.1, bx + Math.cos(a) * len, by + Math.sin(a) * len, 0.95, i % 2 ? WING : WINGP, zAt(bx, by) + 0.6 + (5 - i) * 0.01, { zb: zAt(bx + Math.cos(a) * len, by + Math.sin(a) * len) + 0.6 + (5 - i) * 0.01, bias: b + (i % 2 ? 0 : -1), floor: 1, cast: 1, round: 0.8 });
     }
     for (let i = 0; i < 5; i++) {
       const kk = (i + 0.5) / 5, bx = S[0] + (Wr[0] - S[0]) * kk + (R[0] - S[0]) * (1 - kk) * 0.6, by = S[1] + (Wr[1] - S[1]) * kk + (R[1] - S[1]) * (1 - kk) * 0.6;
       const a = angN - d * 0.28;
       px.part();
-      px.capsule(bx, by, 2.5, bx + Math.cos(a) * 12, by + Math.sin(a) * 12, 1.3, i % 2 ? WINGP : WING, z0 + 0.2 + i * 0.01, { bias: b + (i % 2 ? -1 : 0), floor: 1, cast: 1, round: 0.8 });
-      px.dot(bx + Math.cos(a) * 12, by + Math.sin(a) * 12, WINGC, z0 + 0.26, { fix: far ? 2 : 3, noLine: true });
+      px.capsule(bx, by, 2.5, bx + Math.cos(a) * 12, by + Math.sin(a) * 12, 1.3, i % 2 ? WINGP : WING, zAt(bx, by) + 1.2 + i * 0.01, { zb: zAt(bx + Math.cos(a) * 12, by + Math.sin(a) * 12) + 1.2 + i * 0.01, bias: b + (i % 2 ? -1 : 0), floor: 1, cast: 1, round: 0.8 });
+      px.dot(bx + Math.cos(a) * 12, by + Math.sin(a) * 12, WINGC, zAt(bx + Math.cos(a) * 12, by + Math.sin(a) * 12) + 1.3, { fix: far ? 2 : 3, noLine: true });
     }
     px.part();
     const hx = Wr[0] + dx * 0.2, hy = Wr[1] + dy * 0.2;
-    px.poly([S, [(S[0] + Wr[0]) / 2 - nx * 3, (S[1] + Wr[1]) / 2 - ny * 3], Wr, [hx, hy], [hx + nx * 4.8, hy + ny * 4.8], [(Wr[0] + R[0]) / 2 + nx * 2.4, (Wr[1] + R[1]) / 2 + ny * 2.4], R], WINGC, z0 + 0.4, { round: 0.7, bias: b, cast: 1 });
-    for (let i = 1; i < 4; i++) { const kk = i / 4; px.dot(S[0] + (Wr[0] - S[0]) * kk + nx * 3.2, S[1] + (Wr[1] - S[1]) * kk + ny * 3.2, HEAD, z0 + 0.45, { fix: far ? 2 : 3, noLine: true }); }
+    px.poly([S, [(S[0] + Wr[0]) / 2 - nx * 3, (S[1] + Wr[1]) / 2 - ny * 3], Wr, [hx, hy], [hx + nx * 4.8, hy + ny * 4.8], [(Wr[0] + R[0]) / 2 + nx * 2.4, (Wr[1] + R[1]) / 2 + ny * 2.4], R], WINGC, z0 + 0.4, { round: 0.7, bias: b, cast: 1, zOf: far ? undefined : (x, y) => zAt(x, y) + 1.8 });
+    for (let i = 1; i < 4; i++) { const kk = i / 4; px.dot(S[0] + (Wr[0] - S[0]) * kk + nx * 3.2, S[1] + (Wr[1] - S[1]) * kk + ny * 3.2, HEAD, zAt(S[0] + (Wr[0] - S[0]) * kk + nx * 3.2, S[1] + (Wr[1] - S[1]) * kk + ny * 3.2) + 1.9, { fix: far ? 2 : 3, noLine: true }); }
+    px.body(0);
   };
   wingOf(W.far, true, 1);
 
