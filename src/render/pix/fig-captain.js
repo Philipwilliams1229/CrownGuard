@@ -2,8 +2,8 @@
 // A crested sallet with a tall red horsehair crest, a grey moustache, steel plate with spiked
 // pauldrons over a navy tabard and cloak, a halberd with a crescent axe blade, a back hook, a
 // spike and a red tassel. (The owner's pick of three, 2026-11-14: "C", without the banner.)
-// Clips: idle (the halberd grounded), walk (the halberd carried, butt raised), attack (the
-// blade drawn back over the shoulder, the chop, follow-through), sweep (his six-frame
+// Clips: idle (the halberd grounded), walk (the halberd carried, butt raised), attack (a rising
+// sweep: the blade low before his feet, skimmed forward and carried up to a high finish), sweep (his six-frame
 // Halberd Sweep sheet: guard, wind-up, blade coming round, strike, follow-through, recover;
 // feet planted). Plate is smooth bands: one lit line, one dark side, no dither inside a plate.
 import { mat, flat, layers } from "./pix.js";
@@ -163,12 +163,15 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   return { tip: B(tipT), hand: hdN, hb: a };
 };
 
-// the chop's smear: on the fastest frames the blade leaves a fan of light behind it
+// the blade's smear: on the fastest frames the blade leaves a fan of light behind it
 export const fx = (px, F, info, clip) => {
   if (clip !== "attack" && clip !== "sweep") return;
-  const a1 = haftAngle(F.sk), a0 = haftAngle(F.lag1);
-  if (!(a1 - a0 > 0.5)) return;
-  const [hx, hy] = F.sk.hdN, [gx, gy] = F.lag1.hdN, n = 10, R = Math.hypot(info.tip[0] - hx, info.tip[1] - hy) * 0.85;
+  // the attack sweeps UP (the angle falls) and its smear reaches a little further back, so the fan runs from the
+  // ground to the finish over its two fast frames; the Halberd Sweep comes down (the angle rises)
+  const up = clip === "attack", L = up ? F.at(F.ph - 0.1) : F.lag1;
+  const a1 = haftAngle(F.sk), a0 = haftAngle(L);
+  if (!((up ? a0 - a1 : a1 - a0) > 0.5)) return;
+  const [hx, hy] = F.sk.hdN, [gx, gy] = L.hdN, n = 10, R = Math.hypot(info.tip[0] - hx, info.tip[1] - hy) * 0.85;
   const at = (t, r) => { const a = a0 + (a1 - a0) * t, x = gx + (hx - gx) * t, y = gy + (hy - gy) * t; return [x + Math.sin(a) * r, y - Math.cos(a) * r]; };
   const arc = (t0, rIn, m, z) => { const out = [], inn = []; for (let i = 0; i <= n; i++) { const t = t0 + (1 - t0) * (i / n); out.push(at(t, R)); inn.unshift(at(t, R - (R - rIn) * ((t - t0) / (1 - t0)) ** 1.4)); } px.poly([...out, ...inn], m, z, { noLine: true }); };
   arc(0, R * 0.5, SMEAR2, 20); arc(0.45, R * 0.7, SMEAR, 20.1);
@@ -195,20 +198,27 @@ export const CLIPS = {
     n: 8, ms: 780, loop: true, lag: 0.08,
     pose: (ph) => { const w = walkPose(ph, { stride: 5.4, lift: 2.8, swing: 0.3, bob: 1.1 }), a = Math.cos(ph * Math.PI * 2); return { ...w, nb: 0, aN: [0.8 + 0.05 * a, 0.8, 0], plant: 0, hip: 1, grip: 7, sway: a * 1.2 }; },
   },
+  // the basic blow is a rising SWEEP (owner, 2026-11-15: "more of a sweeping motion instead of a chop"): he sinks and
+  // coils with the blade low before his feet, skims it forward through the foe's legs and carries it up and over to a
+  // high finish. Both hands on the haft from the gather to the recover; the far hand slips toward the butt as it rises.
   attack: {
     n: 12, ms: 900, loop: false, lag: 0.07,
     pose: (ph) => sampleKeys([
-      { t: 0, p: GUARD },
-      // the wind-up carries the halberd back over the REAR shoulder, hand low behind the neck, the haft upright
-      // behind him and clear of the head; the far hand rests on his hip until the chop
-      { t: 0.09, e: "out", p: { rx: -0.4, drop: 0.25, lean: -0.04, twist: -0.2, rise: 0.15, aN: [1.35, 0.95, 0], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.18, e: "out", p: { rx: -1.0, drop: 0.5, lean: -0.08, twist: -0.6, rise: 0.35, hx: 0.6, aN: [3.6, 0.6, 1], wrist: 0.35, plant: 0, hip: 0, grip: -10, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.4, e: "io", p: { rx: -1.5, drop: 0.8, lean: -0.12, twist: -0.8, rise: 0.5, hx: 0.7, aN: [3.7, 0.6, 1], wrist: 0.35, plant: 0, hip: 0, grip: -10, fN: [-2, 0], fF: [2.4, 0] } },
-      { t: 0.46, e: "out", p: { rx: 0.4, drop: 1.0, lean: 0.05, twist: 0.1, rise: 0.2, hx: 0.6, aN: [1.5, 0.95, 1], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2.4, 0], fF: [4, 0] } },
-      { t: 0.52, e: "in3", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.8, hx: 0.5, aN: [1, 0.75, 1], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2.6, 0], fF: [6, 0] } },
-      { t: 0.64, e: "out", p: { rx: 3, drop: 2, lean: 0.25, twist: 0.9, hx: 0.6, aN: [0.6, 0.7, 1], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2.6, 0], fF: [6, 0] } },
-      { t: 0.78, e: "io", p: { rx: 2.4, drop: 1.6, lean: 0.2, twist: 0.6, hx: 0.4, aN: [0.6, 0.75, 1], wrist: 0, plant: 0, hip: 0, grip: -10, fN: [-2.6, 0], fF: [6, 0] } },
-      { t: 1, e: "io", p: GUARD },
+      { t: 0, p: { ...GUARD, wrist: 0 } },
+      // the gather: both hands on, the head tips forward and falls
+      { t: 0.1, e: "out", p: { rx: -0.4, drop: 0.8, lean: 0.04, twist: -0.2, aN: [0.9, 1, 1], wrist: 0, plant: 0, hip: 0, grip: -8, fN: [-2, 0], fF: [2.4, 0] } },
+      // the coil: he sinks and turns away, hands drawn in to the belt, the blade low before his feet
+      { t: 0.2, e: "out", p: { rx: -1.4, drop: 1.8, lean: 0.08, twist: -0.5, hx: 0.3, aN: [0.7, 0.72, 1], wrist: -0.15, plant: 0, hip: 0, grip: -8, fN: [-2.4, 0], fF: [2.8, 0] } },
+      { t: 0.37, e: "io", p: { rx: -2.4, drop: 2.6, lean: 0.12, twist: -0.8, hx: 0.3, aN: [0.45, 0.7, 1], wrist: -0.35, plant: 0, hip: 0, grip: -6, fN: [-2.4, 0], fF: [2.8, 0] } },
+      // the skim: the hips drive through and the hands push out, the blade running forward along the ground
+      { t: 0.455, e: "in", p: { rx: 1.2, drop: 2.4, lean: 0.22, twist: 0, hx: 0.4, aN: [0.75, 0.9, 1], wrist: 0.1, plant: 0, hip: 0, grip: -8, fN: [-2.6, 0], fF: [4.5, 0] } },
+      // the blow lands as the blade lifts through the foe (t 0.52)
+      { t: 0.52, e: "lin", p: { rx: 2.4, drop: 1.8, lean: 0.22, twist: 0.5, hx: 0.5, aN: [1.2, 0.85, 1], wrist: 0, plant: 0, hip: 0, grip: -8, fN: [-2.8, 0], fF: [6, 0] } },
+      // the arm straightens as it passes (so the elbow turns over unseen), then the blade carries up and over
+      { t: 0.57, e: "lin", p: { rx: 2.8, drop: 1.2, lean: 0.16, twist: 0.8, rise: 0.3, hx: 0.5, aN: [1.45, 1, 0.5], wrist: 0, plant: 0, hip: 0, grip: -8, fN: [-2.8, 0], fF: [6, 0] } },
+      { t: 0.64, e: "out", p: { rx: 3, drop: 0.6, lean: 0.06, twist: 0.9, rise: 0.6, hx: 0.4, aN: [1.5, 0.85, 0], wrist: -0.05, plant: 0, hip: 0, grip: -6, fN: [-2.8, 0], fF: [6, 0] } },
+      { t: 0.8, e: "io", p: { rx: 2.2, drop: 0.8, lean: 0.04, twist: 0.6, rise: 0.3, hx: 0.3, aN: [1.3, 0.8, 0], wrist: 0.1, plant: 0, hip: 0, grip: -8, fN: [-2.6, 0], fF: [5, 0] } },
+      { t: 1, e: "io", p: { ...GUARD, wrist: 0 } },
     ], ph),
   },
   // the Halberd Sweep's six poses (frame i is sheet frame i)

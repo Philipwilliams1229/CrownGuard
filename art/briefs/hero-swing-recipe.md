@@ -67,3 +67,14 @@ aF [0.6,0.85,0] on the first).
 ## 4. Optional
 The fist as an ellipse turned with the weapon (`px.ellipse(hd, 1.5, 2.1, MAT, z, { rot: a })`:
 short axis along the grip) so the hand reads wrapped round the haft at every angle.
+
+## 5. Hale's attack became a rising sweep (owner, 2026-11-15: "more of a sweeping motion instead of a chop")
+Section 3's chop keys are superseded for the ATTACK clip (the grip, far arm and value notes
+stand). Fable's design, ported whole: low to high, all in front of him, about 120 degrees. Guard
+(haft 0.54) -> gather -> coil with the blade low before his feet (frames 2-4, haft ~1.9, hips back
+and sunk, shoulders turned away) -> skim forward along the ground (5) -> strike rising through
+the foe at chest height (6, `hit` 0.52 unchanged) -> high finish just past upright (7) -> recover.
+Near elbow high (flip 1) through coil and strike, turning over through a straight-arm key at t
+0.57; far hand on the haft frames 1-9 at grip -8 (-6 at the deepest coil and the finish). The
+smear fires on a RISING blade for this clip. A flat horizontal sweep is impossible side-on with a
+constant-length haft; over the top is the chop the owner rejected.
