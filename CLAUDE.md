@@ -154,6 +154,13 @@ next one.
   and bolts start; 22 of 68 realms have one walk slot fewer, the spare
   bowmen stand on tower decks). Both pending the owner's look.
 
+## "New sprites" is no longer a setting (owner, 2026-11-15)
+
+"You can take out the use old sprites thing": the switch is gone from Settings' Display tab
+and `prefs.newSprites` is forced true at load (a saved false is ignored). Every old painter
+kept "under New sprites off" is now dead code, left in place for a later cleanup; notes
+below that mention the switch describe that dead path.
+
 ## The roster and scenery concept round (2026-11-14, owner's picks)
 
 The private Artifact "Crownguard Roster and Scenery Concepts" showed A faithful / B storied /

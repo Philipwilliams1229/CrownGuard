@@ -9,8 +9,9 @@
 //           (draw.js), and the sums that float off the gold and castle chips
 //           (hud.css .cg-float)
 //
-//   newSprites  the redrawn figures (render/pix/pixrigs.js) stand in for the
-//           old rigs wherever one exists; off, every figure is the old one
+//   newSprites  always true now (owner, 2026-11-15: the switch is gone from
+//           Settings; a saved false is ignored). The old painters behind it are
+//           still in the code, unused, for a later cleanup.
 //   spellLight  spells and fires light the redrawn figures near them (one
 //           more stamp per lit figure; off for a device that struggles)
 //
@@ -25,6 +26,7 @@ function load() {
     const raw = JSON.parse((typeof localStorage !== "undefined" && localStorage.getItem(KEY)) || "{}");
     const out = { ...DEFAULTS };
     for (const k of Object.keys(DEFAULTS)) if (typeof raw[k] === "boolean") out[k] = raw[k];
+    out.newSprites = true;
     return out;
   } catch {
     return { ...DEFAULTS };
