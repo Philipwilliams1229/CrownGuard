@@ -154,6 +154,21 @@ next one.
   and bolts start; 22 of 68 realms have one walk slot fewer, the spare
   bowmen stand on tower decks). Both pending the owner's look.
 
+## The roster and scenery concept round (2026-11-14, owner's picks)
+
+The private Artifact "Crownguard Roster and Scenery Concepts" showed A faithful / B storied /
+C bold for three heroes, two figures per army and the ground. The owner picked, per figure:
+- **Osric A**; **Hale C without the banner on the halberd**; **Ysolde A**.
+- **Iron:** levy **B** ("they all have some shield clipping issues": fix the shield); Aegis
+  Magister **A with C's caged-crystal staff**.
+- **Hollow:** Risen **A**; wraith **B**.
+- **Rime:** thrall **C**; berserker **C**.
+- **Ground and trees: C** (bolder), "but don't make the lanes in the road so obvious".
+  The castle wall in that sheet was a stand-in: the castle gets its own concept round.
+The rest of each army follows its picks (Iron leans B, Hollow A-B, Rime C). Figures in
+`src/render/pix/fig-{friar,captain,storm,levy,magister,risen,wraith,thrall,berserker}.js`;
+the scenery concept in `concept/scenery.js` + `scripts/scenery-render.mjs`.
+
 ## The tower BUILDINGS (2026-11-13/14, owner request)
 
 "I want the towers to get a visual upgrade too": the halls themselves, to match
