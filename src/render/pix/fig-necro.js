@@ -51,6 +51,7 @@ export const BONES = scaled(HUMAN, 1.2, { shN: -2.7, shF: 2.9, upper: 7.9, fore:
 const STAFF = 43;                      // the shaft, foot to the collar under the prongs
 
 const edgeX = (a, b, y) => a[0] + ((y - a[1]) / (b[1] - a[1])) * (b[0] - a[0]);
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 const unit = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
@@ -146,7 +147,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // ---- the near arm: long and thin in a belled sleeve with a violet cuff
   const u = unit(eN, hdN), n = [-u[1], u[0]], wr = mix(eN, hdN, 0.76);
-  px.part();
+  px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1], 2.4, eN[0], eN[1], 2.3, COWL, 8, { cast: 2 });
   px.capsule(eN[0], eN[1], 2.3, wr[0], wr[1], 3.1, COWL, 8, { cast: 2 });
   {
@@ -178,6 +179,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
     }
   }
 
+  px.tag(null);
   const k = cl(g, 0, 1.4);
   return {
     light: k > 0.05 ? { x: orb[0], y: orb[1], r: 22 + 34 * cl(k, 0, 1), col: p.flare > 0.5 ? "#a8f4d0" : "#b388ff", k } : null,
@@ -263,8 +265,8 @@ export const CLIPS = {
       { t: 0, p: READY },
       { t: 0.3, e: "out", p: { ...READY, rx: -1.4, lean: -0.02, aF: [0.55, 0.7, 0], aN: [0.9, 0.7, 0], staff: -0.26, lift: 3, glow: 0.4, claw: 0.6, eye: 1 } },
       { t: 0.42, e: "io", p: { ...READY, rx: -1.8, lean: -0.05, aF: [0.46, 0.72, 0], aN: [1, 0.72, 0], staff: -0.34, lift: 3.6, glow: 0.55, claw: 0.7, eye: 1 } },
-      { t: 0.54, e: "in3", p: { ...READY, rx: 2.2, drop: 1, lean: 0.3, hx: 2.6, hy: 1.4, aF: [1.25, 1, 0], aN: [-0.4, 0.85, 0], fF: [5, 0], staff: 0.9, lift: 7, glow: 0.95, claw: 0.3, eye: 1, gust: 0.6 } },
-      { t: 0.66, e: "out", p: { ...READY, rx: 2.6, drop: 1.2, lean: 0.34, hx: 2.8, hy: 1.6, aF: [1.15, 1, 0], aN: [-0.55, 0.85, 0], fF: [5, 0], staff: 1.05, lift: 7, glow: 0.6, eye: 1 } },
+      { t: 0.54, e: "in3", p: { ...READY, rx: 2.2, drop: 1, lean: 0.3, hx: 2.6, hy: 1.4, aF: [1.25, 1, 0], aN: [0.1, 0.85, 0], fF: [5, 0], staff: 0.9, lift: 7, glow: 0.95, claw: 0.3, eye: 1, gust: 0.6 } },
+      { t: 0.66, e: "out", p: { ...READY, rx: 2.6, drop: 1.2, lean: 0.34, hx: 2.8, hy: 1.6, aF: [1.15, 1, 0], aN: [0.05, 0.85, 0], fF: [5, 0], staff: 1.05, lift: 7, glow: 0.6, eye: 1 } },
       { t: 1, e: "io", p: READY },
     ], ph),
   },

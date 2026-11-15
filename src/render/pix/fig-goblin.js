@@ -69,6 +69,9 @@ const LEG = {
 export const BOX = { w: 48, h: 48, ox: 18, oy: 42 };
 export const BONES = { thigh: 6, shin: 5.5, ankle: 1.8, spine: 8, neck: 1, upper: 5.2, fore: 5.2, shN: -2.8, shF: 2.6, hipN: -1.7, hipF: 1.8 };
 
+// the knife is locked to the fist: forearm direction + this grip (about 40 degrees up from the forearm) + a small wrist
+const GRIP = -0.7;
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
@@ -163,13 +166,13 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   }
 
   // the near arm over it all: a wiry arm, a leather wristband, the knife in its fist
-  const ka = p.knife ?? 1.2, d = [Math.sin(ka), -Math.cos(ka)], nn = [-d[1], d[0]];
+  const fa = Math.atan2(hdN[0] - eN[0], -(hdN[1] - eN[1])), ka = fa + GRIP + cl(p.wrist || 0, -0.35, 0.35), d = [Math.sin(ka), -Math.cos(ka)], nn = [-d[1], d[0]];
   const at = (f, s) => [hdN[0] + d[0] * f + nn[0] * s, hdN[1] + d[1] * f + nn[1] * s];
-  px.part();
+  px.part(); px.tag("weapon");
   px.poly([at(1.4, -1), at(1.4, 1.3), at(5.4, 1.7), at(9, 0.1), at(5, -0.9)], STEEL, 8.1, { fix: 3 });
   px.line(...at(1.6, 1.2), ...at(5.6, 1.5), STEEL, 8.12, { fix: 4 });
   px.line(...at(1.6, -0.8), ...at(4.6, -0.8), STEEL, 8.12, { fix: 1 });
-  px.part();
+  px.tag(null); px.part(); px.tag("nearArm");
   px.capsule(...at(-2.2, 0), 0.8, ...at(1, 0), 0.8, DARK, 8.1);
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.5, 2.3, jerk, 8, { cast: 0, bias: 1 });
@@ -180,6 +183,7 @@ export const draw = (px, { sk, lag1, lag2 }, o = {}) => {
   px.capsule(b0[0], b0[1], 1.65, b1[0], b1[1], 1.65, DARK, 7.95, { cast: 1 });
   px.part();
   px.ellipse(hdN[0], hdN[1], 1.7, 1.7, SKIN, 8.3);
+  px.tag(null);
 
   return {};
 };
@@ -206,8 +210,8 @@ export const CLIPS = {
     pose: (ph) => sampleKeys([
       { t: 0, p: GUARD },
       // crouch back and coil: the knife cocked up behind him, the shield thrust out
-      { t: 0.24, e: "out", p: { ...GUARD, rx: -2.4, drop: 3, lean: 0.2, twist: -0.5, hx: 0.6, hy: 0.4, aN: [-0.9, 0.7, 0], aF: [1.3, 0.94, 0], bF: [1.45, 0.9, 0], knife: 0.5 } },
-      { t: 0.36, e: "io", p: { ...GUARD, rx: -2.9, drop: 3.3, lean: 0.16, twist: -0.6, hx: 0.4, hy: 0.5, aN: [-1.1, 0.74, 0], aF: [1.34, 0.94, 0], bF: [1.55, 0.95, 0], knife: 0.3 } },
+      { t: 0.24, e: "out", p: { ...GUARD, rx: -2.4, drop: 3, lean: 0.2, twist: -0.5, hx: 0.6, hy: 0.4, aN: [0.9, 0.62, 0], aF: [1.3, 0.94, 0], bF: [1.45, 0.9, 0], knife: 0.5 } },
+      { t: 0.36, e: "io", p: { ...GUARD, rx: -2.9, drop: 3.3, lean: 0.16, twist: -0.6, hx: 0.4, hy: 0.5, aN: [1.0, 0.6, 0], aF: [1.34, 0.94, 0], bF: [1.55, 0.95, 0], knife: 0.3 } },
       // the lunge: a step in, the whole arm thrown out, the shield flung back for balance
       { t: 0.47, e: "in3", p: { ...GUARD, rx: 3.6, drop: 2.2, lean: 0.62, twist: 0.6, hx: 2.6, hy: 0.6, aN: [1.42, 1, 0], aF: [0.75, 0.85, 0], bF: [-1.4, 1, 0], fF: [8, 0], knife: 1.5, snarl: 1 } },
       { t: 0.58, e: "out", p: { ...GUARD, rx: 4.3, drop: 2.5, lean: 0.68, twist: 0.7, hx: 2.8, hy: 0.8, aN: [1.3, 1, 0], aF: [0.68, 0.85, 0], bF: [-1.58, 1, 0], fF: [8, 0], knife: 1.62, snarl: 1 } },

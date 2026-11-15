@@ -74,6 +74,7 @@ export const BOX = { w: 108, h: 98, ox: 35, oy: 90 };
 export const BONES = scaled(HUMAN, 1.25, { spine: 14, neck: 1.6, upper: 8.4, fore: 8, shN: -5.2, shF: 4.8, hipN: -2.4, hipF: 2.6 });
 const TOT = 54;                        // the pole, foot to the crossbar
 
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -245,7 +246,8 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   {
     const tgt = blow ? hornHand : mix(sk.hdN, at(tt.lo - 6.5), g2);
     const r = ik(sN[0], sN[1], tgt[0], tgt[1], B.upper, B.fore, 1), eN = r.mid, hdN = r.end;
-    const up = hdN[1] < sN[1] - 6 && !blow, az = up ? 5.6 : 7.9;      // raised overhead it passes behind the helm
+    const az = 7.9;      // the near arm always passes in front of the helm, never behind it
+    px.tag("nearArm");
     px.part();
     px.capsule(sN[0], sN[1] + 0.8, 3.2, eN[0], eN[1], 2.9, SKIN, az, { cast: 1 });
     px.capsule(eN[0], eN[1], 2.8, hdN[0], hdN[1], 2.7, SKIN, az, { cast: 1 });
@@ -261,7 +263,8 @@ export const draw = (px, { sk, lag1, lag2 }) => {
     for (const x of [-3.4, -1.2, 1, 3.2]) { px.dot(sN[0] - 0.2 + x, sN[1] + 2 - Math.abs(x) * 0.2, FUR, 8); px.dot(sN[0] - 0.2 + x, sN[1] + 3 - Math.abs(x) * 0.2, FUR, 8); }
     px.dot(sN[0] - 2.2, sN[1] - 2.2, FUR, 8.01, { fix: 3 }); px.dot(sN[0] + 0.8, sN[1] - 2.8, FUR, 8.01, { fix: 3 }); px.dot(sN[0] - 0.4, sN[1] - 0.6, FUR, 8.01, { fix: 1 });
     px.part();
-    px.ellipse(hdN[0], hdN[1], 2.7, 2.7, SKIN, blow ? 8.3 : up ? 5.7 : 8.3);
+    px.ellipse(hdN[0], hdN[1], 2.7, 2.7, SKIN, 8.3);
+    px.tag(null);
   }
 
   return { bell, head: at(TOT + 6.2, 0.6) };

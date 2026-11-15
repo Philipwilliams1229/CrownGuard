@@ -44,6 +44,9 @@ export const BONES = wolf.BONES;
 const Q = { ...QUAD, spine: 19, height: 23.5, foreU: 9.5, foreL: 8.5, hindU: 11, hindL: 9.5, hindX: -4.5, tail: [6, 6, 5] };
 const R = { thigh: 6.2, shin: 5.6, spine: 7.6, upper: 5.2, fore: 5.2 };
 
+// the axe is locked to the fist: the forearm's direction + GRIP + a small wrist
+const GRIP = -0.8;
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
@@ -99,9 +102,9 @@ export const draw = (px, F, o = {}) => {
   // the near arm and the axe: a long ash haft, a bearded steel head on it
   const [ang, reach] = p.rArm ?? [1.0, 0.7], len = R.upper + R.fore;
   const na = ik(sN[0], sN[1], sN[0] + Math.sin(ang) * reach * len, sN[1] + Math.cos(ang) * reach * len, R.upper, R.fore, 1);
-  const hd = na.end, la = p.axe ?? -1.1, d = [Math.cos(la), Math.sin(la)], nn = [-d[1], d[0]];
+  const hd = na.end, fAng = Math.atan2(hd[1] - na.mid[1], hd[0] - na.mid[0]), la = fAng + GRIP + cl(p.wrist || 0, -0.35, 0.35), d = [Math.cos(la), Math.sin(la)], nn = [-d[1], d[0]];
   const at = (f, s = 0) => [hd[0] + d[0] * f + nn[0] * s, hd[1] + d[1] * f + nn[1] * s];
-  px.part();
+  px.part(); px.tag("weapon");
   px.capsule(...at(-4), 0.8, ...at(17), 0.8, WOOD, 10, { cast: 1 });
   px.part();
   px.poly([at(14.4, 0.4), at(13, 4.6), at(16.2, 6), at(19.6, 4.2), at(19.2, 0.4)], STEEL, 10.05, { fix: 2 });
@@ -110,13 +113,14 @@ export const draw = (px, F, o = {}) => {
   px.poly([at(13.6, -0.8), at(19.6, -0.8), at(19.6, 1), at(13.6, 1)], IRONK, 10.1, { fix: 1 });
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.3, 2.1, BROWN, 10.3, { cast: 0, bias: 1 });
-  px.part();
+  px.tag(null); px.part(); px.tag("nearArm");
   px.limb([[sN[0], sN[1] + 0.6], na.mid, hd], [1.9, 1.7, 1.6], SKIN, 10.5, { cast: 1 });
   const w0 = mix(na.mid, hd, 0.56);
   px.capsule(w0[0], w0[1], 1.9, hd[0], hd[1], 1.75, LEATHER, 10.55, { cast: 1, floor: 1, wrap: true });
   px.part();
   px.ellipse(hd[0], hd[1], 1.8, 1.8, SKIN, 10.7);
-  return { ...info, axe: { hd, d, nn } };
+  px.tag(null);
+  return { ...info, axe: { hd, d, nn }, foreMid: na.mid };
 };
 
 // the wolf's own snap, and the axe's chop on the frames it comes down
@@ -139,12 +143,12 @@ const RIDE = {
   attack: (ph) => sampleKeys([
     { t: 0, p: SEAT },
     // the crouch: the rider low over the neck, the axe hauled up and back
-    { t: 0.2, e: "out", p: { ...SEAT, rLean: 0.5, rTwist: -0.4, rHx: 0.4, rHy: 0.6, rArm: [-0.4, 0.74], axe: -2.2 } },
-    { t: 0.34, e: "io", p: { ...SEAT, rLean: 0.4, rTwist: -0.6, rHx: 0.2, rHy: 0.4, rArm: [-0.5, 0.76], axe: -2.5 } },
+    { t: 0.2, e: "out", p: { ...SEAT, rLean: 0.5, rTwist: -0.4, rHx: 0.4, rHy: 0.6, rArm: [2.3, 0.74] } },
+    { t: 0.34, e: "io", p: { ...SEAT, rLean: 0.4, rTwist: -0.6, rHx: 0.2, rHy: 0.4, rArm: [3.1, 0.8] } },
     // the lunge: thrown forward with the wolf, the axe brought over and down across its head
-    { t: 0.48, e: "in3", p: { ...SEAT, rLean: 0.74, rTwist: 0.6, rHx: 1.6, rHy: 0.8, rArm: [1.7, 0.95], axe: 0.9, rRoar: 1, rChop: 1 } },
-    { t: 0.58, e: "out", p: { ...SEAT, rLean: 0.8, rTwist: 0.7, rHx: 1.8, rHy: 1, rArm: [1.9, 0.95], axe: 1.4, rRoar: 1, rChop: 0 } },
-    { t: 0.82, e: "io", p: { ...SEAT, rLean: 0.4, rArm: [1.2, 0.7], axe: -0.5 } },
+    { t: 0.48, e: "in3", p: { ...SEAT, rLean: 0.74, rTwist: 0.6, rHx: 1.6, rHy: 0.8, rArm: [0.5, 0.95], rRoar: 1, rChop: 1 } },
+    { t: 0.58, e: "out", p: { ...SEAT, rLean: 0.8, rTwist: 0.7, rHx: 1.8, rHy: 1, rArm: [0.4, 0.95], rRoar: 1, rChop: 0 } },
+    { t: 0.82, e: "io", p: { ...SEAT, rLean: 0.4, rArm: [1.3, 0.7] } },
     { t: 1, e: "out", p: SEAT },
   ], ph),
 };

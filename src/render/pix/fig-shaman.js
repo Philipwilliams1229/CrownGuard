@@ -60,8 +60,9 @@ const LEG = {
 
 export const BOX = { w: 78, h: 74, ox: 22, oy: 66 };
 export const BONES = scaled(HUMAN, 0.75, { spine: 8, neck: 1, upper: 5.2, fore: 5.2, shN: -2.8, shF: 2.6, hipN: -1.7, hipF: 1.8 });
-const STAFF = 36;                      // the shaft, foot to the collar under the claw
+const STAFF = 36, SGRIP = -1.4;                      // the shaft, foot to the collar under the claw
 
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -72,7 +73,9 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // puts it (`gk` 0: the foot `lift` px off the ground).
 const staffOf = (sk) => {
   const p = sk.p, h = sk.hdF, hgt = Math.max(2, -h[1] - (p.lift || 0));
-  const tl = p.sx != null ? Math.atan2(h[0] - p.sx, hgt) : (p.staff ?? 0);
+  // carried, the staff is locked to the fist: the far forearm's direction + SGRIP, the keyed `staff` only a wrist (+-0.35) off it
+  const fa = Math.atan2(h[0] - sk.eF[0], -(h[1] - sk.eF[1])), nm = (x) => Math.atan2(Math.sin(x), Math.cos(x)), lock = fa + SGRIP;
+  const tl = p.sx != null ? Math.atan2(h[0] - p.sx, hgt) : lock + cl(nm((p.staff ?? 0) - lock), -0.35 - (p.wr || 0), 0.35 + (p.wr || 0));
   const d = [Math.sin(tl), -Math.cos(tl)], nn = [Math.cos(tl), Math.sin(tl)];
   const lo = lerp(cl(hgt / Math.max(0.3, Math.cos(tl)), 5, STAFF - 5), p.grip ?? 14, p.sx != null ? 0 : (p.gk || 0));
   const foot = [h[0] - d[0] * lo, h[1] - d[1] * lo], tip = [foot[0] + d[0] * STAFF, foot[1] + d[1] * STAFF];
@@ -200,6 +203,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
 
   // ---- the near arm over it all: a wide sleeve to the wrist, a gold cuff, the hand
   {
+    px.tag("nearArm");
     const wr = mix(eN, hdN, 0.74), c0 = mix(eN, hdN, 0.6);
     px.part();
     px.capsule(sN[0], sN[1] + 0.4, 2.1, eN[0], eN[1], 2.1, SLEEVE, 7.9, { cast: 2 });
@@ -208,6 +212,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
       px.poly([[c0[0] + n[0] * 2.6, c0[1] + n[1] * 2.6], [c0[0] - n[0] * 2.6, c0[1] - n[1] * 2.6], [wr[0] - n[0] * 2.7 + u[0] / l * 0.6, wr[1] - n[1] * 2.7 + u[1] / l * 0.6], [wr[0] + n[0] * 2.7 + u[0] / l * 0.6, wr[1] + n[1] * 2.7 + u[1] / l * 0.6]], GOLD, 7.95, { round: 0.8 }); }
     px.part();
     px.ellipse(hdN[0] + (hdN[0] - eN[0]) * 0.12, hdN[1] + (hdN[1] - eN[1]) * 0.12, 1.8, 1.8, SKIN, 8.3);
+    px.tag(null);
   }
 
   const k = cl(g, 0, 1.4);
@@ -252,7 +257,7 @@ export const fx = (px, F, info, clip) => {
 };
 
 const TAU = Math.PI * 2;
-const READY = { drop: 0.6, lean: 0.3, hx: 1.6, hy: 0.2, aF: [1.12, 0.86, 0], aN: [0.3, 0.8, 0], fN: [-2.2, 0], fF: [2.4, 0], staff: 0.18, lift: 0, gk: 0, grip: 14, glow: 0.12, sway: 0, chant: 0, snarl: 0, blink: 0 };
+const READY = { drop: 0.6, lean: 0.3, hx: 1.6, hy: 0.2, aF: [1.12, 0.86, 0], aN: [0.3, 0.8, 0], fN: [-2.2, 0], fF: [2.4, 0], staff: 0.18, lift: 0, gk: 0, grip: 14, glow: 0.12, sway: 0, chant: 0, snarl: 0, blink: 0, wr: 0 };
 // the march both `walk` and `chant` are built on: ONE call, so their legs and body height are the same frame for frame
 const march = (ph) => { const w = walkPose(ph, { stride: 3.3, lift: 2.2, swing: 0.12, bob: 1.2, lean: 0.32 }); return { ...w, drop: w.drop + 0.6 }; };
 export const CLIPS = {
@@ -290,8 +295,8 @@ export const CLIPS = {
       { t: 0.27, e: "out", p: { ...READY, rx: -1.2, drop: 1, lean: 0.16, hx: 1, aF: [1.5, 0.74, 0], aN: [0.9, 0.7, 0], staff: -0.55, gk: 1, grip: 12, glow: 0.3 } },
       { t: T0, e: "io", p: { ...READY, rx: -1.6, drop: 1.2, lean: 0.12, hx: 0.8, aF: [1.62, 0.76, 0], aN: [1, 0.72, 0], staff: -0.7, gk: 1, grip: 12, glow: 0.35 } },
       // the swat: a step in, the staff's head brought down on him
-      { t: T1, e: "in3", p: { ...READY, rx: 2.2, drop: 1.6, lean: 0.54, hx: 2.4, hy: 0.8, aF: [1.3, 1, 0], aN: [-0.6, 0.85, 0], fF: [5.6, 0], staff: 1.32, gk: 1, grip: 12, glow: 0.45, snarl: 1 } },
-      { t: 0.64, e: "out", p: { ...READY, rx: 2.6, drop: 1.9, lean: 0.58, hx: 2.6, hy: 1, aF: [1.2, 1, 0], aN: [-0.75, 0.85, 0], fF: [5.6, 0], staff: 1.46, gk: 1, grip: 12, glow: 0.3, snarl: 1 } },
+      { t: T1, e: "in3", p: { ...READY, rx: 2.2, drop: 1.6, lean: 0.54, hx: 2.4, hy: 0.8, aF: [1.3, 1, 0], aN: [0.05, 0.85, 0], fF: [5.6, 0], staff: 1.32, wr: 2, gk: 1, grip: 12, glow: 0.45, snarl: 1 } },
+      { t: 0.64, e: "out", p: { ...READY, rx: 2.6, drop: 1.9, lean: 0.58, hx: 2.6, hy: 1, aF: [1.2, 1, 0], aN: [0.0, 0.85, 0], fF: [5.6, 0], staff: 1.46, wr: 2, gk: 1, grip: 12, glow: 0.3, snarl: 1 } },
       { t: 0.84, e: "io", p: { ...READY, rx: 0.8, drop: 0.8, lean: 0.34, aF: [1.05, 0.8, 0], aN: [0.1, 0.8, 0], fF: [3.6, 1.4], staff: 0.5, gk: 0.6, grip: 13, glow: 0.15 } },
       { t: 1, e: "io", p: READY },
     ], ph),

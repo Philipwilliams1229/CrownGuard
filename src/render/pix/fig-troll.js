@@ -59,9 +59,11 @@ const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 // the club: 0 = straight up, PI/2 = level before him, minus = behind him. CL from the fist to the middle of
 // its head. Its head never sinks into the ground: asked to, it lies ON it (that is how it drags and rests).
-const CL = 27, FLOOR = 5.2;
+const CL = 27, FLOOR = 5.2, GRIP = -1.2;
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const clubOf = (sk) => {
-  let a = sk.p.club ?? -1.9;
+  // locked to the fist: the forearm's direction + GRIP + a small wrist (p.wrist)
+  let a = Math.atan2(sk.hdN[0] - sk.eN[0], -(sk.hdN[1] - sk.eN[1])) + GRIP + cl(sk.p.wrist || 0, -0.35, 0.35);
   const h = sk.hdN, c = (h[1] + FLOOR) / CL;
   if (c > -1 && h[1] - Math.cos(a) * CL > -FLOOR) a = (Math.sin(a) >= 0 ? 1 : -1) * Math.acos(Math.min(1, c));
   const d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)];
@@ -150,10 +152,9 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.toneLine(...K(20, -0.4), ...K(26, 0.2), -1, clubId);
 
   // the near arm over it all: a boulder of shoulder with moss on it, a forearm thicker than the arm, a fist like a ham
-  // (hauled up over his head the arm passes BEHIND it, so the face stays open)
-  const az = (p.nb || 0) > 0.5 ? 5.5 : 7.9;
-  px.body(1);
-  px.limb([[sN[0], sN[1] + 2], eN, hdN], [6.6, 5.3, 6], SKIN, az, { weld: 4, weldRoot: 9 });
+  // (hauled up the front to a fist beside the back of his head; it never goes behind it)
+  px.body(1); px.tag("nearArm");
+  px.limb([[sN[0], sN[1] + 2], eN, hdN], [6.6, 5.3, 6], SKIN, 7.9, { weld: 4, weldRoot: 9 });
   const shId = BID;
   px.ellipse(sN[0] - 0.6, sN[1] + 0.4, 9.2, 8, SKIN, 8, { weld: 5 });
   for (const [x, y, t] of [[-4.6, -5.4, 3], [-3.6, -5.6, 2], [-2.6, -5.2, 3], [-5.4, -4.4, 2], [-4.4, -4.4, 3], [-3.4, -4.4, 2], [-6.2, -3.2, 2], [0.6, -6.2, 2], [1.6, -6, 3], [1.2, -5, 2]]) px.dot(sN[0] + x, sN[1] + y, MOSS, 8.01, { fix: t });
@@ -162,7 +163,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.toneLine(sN[0] - 5, sN[1] + 7.4, sN[0] + 5, sN[1] + 7.6, -1, shId);
   px.ellipse(hdN[0], hdN[1] + 0.4, 5.4, 5, SKIN, 8.3, { weld: 3 });
   px.dot(hdN[0] + 2.4, hdN[1] - 1, SKIN, 8.31, { fix: 1 }); px.dot(hdN[0] + 3, hdN[1] + 1.4, SKIN, 8.31, { fix: 1 });
-  px.body(0);
+  px.body(0); px.tag(null);
 
   return { head: K(CL + 2, 0) };
 };
@@ -236,20 +237,20 @@ export const CLIPS = {
       const p = sampleKeys([
         { t: 0, p: GUARD },
         // he sinks and takes the weight of it: its head leaves the ground behind him
-        { t: 0.12, e: "io", p: { ...GUARD, rx: -2, drop: 4, lean: 0.38, aN: [-0.3, 0.9, 0], aF: [0.5, 0.8, 0], club: -1.5 } },
-        { t: 0.24, e: "io", p: { ...GUARD, rx: -3.6, drop: 2.6, lean: 0.16, twist: -0.3, aN: [-1.25, 0.46, 0], aF: [1.2, 0.7, 0], club: -1.1, grip2: 0.4 } },
+        { t: 0.12, e: "io", p: { ...GUARD, rx: -2, drop: 4, lean: 0.38, aN: [0.3, 0.9, 0], aF: [0.5, 0.8, 0], club: -1.5 } },
+        { t: 0.24, e: "io", p: { ...GUARD, rx: -3.6, drop: 2.6, lean: 0.16, twist: -0.3, aN: [1.2, 0.6, 0], aF: [1.2, 0.7, 0], club: -1.1, grip2: 0.4 } },
         // the heave: up and back with the whole of his weight, both hands on it, the front foot off the ground
-        { t: 0.38, e: "out", p: { ...GUARD, rx: -5, drop: 0.6, rise: 2, lean: -0.1, twist: -0.6, hx: 6, hy: -1, aN: [2.9 - TAU, 0.5, 0], nb: 1, fF: [6, 3], club: -0.95, grip2: 1 } },
+        { t: 0.38, e: "out", p: { ...GUARD, rx: -5, drop: 0.6, rise: 2, lean: -0.1, twist: -0.6, hx: 6, hy: -1, aN: [3.3, 0.5, 0], fF: [6, 3], club: -0.95, grip2: 1 } },
         // ... and held there, still tipping back
-        { t: T0, e: "io", p: { ...GUARD, rx: -6, drop: 0.2, rise: 2.8, lean: -0.16, twist: -0.8, hx: 5.6, hy: -1.4, aN: [3.02 - TAU, 0.53, 0], nb: 1, fF: [6.4, 4.4], club: -1.25, grip2: 1, roar: 1 } },
+        { t: T0, e: "io", p: { ...GUARD, rx: -6, drop: 0.2, rise: 2.8, lean: -0.16, twist: -0.8, hx: 5.6, hy: -1.4, aN: [3.4, 0.53, 0], fF: [6.4, 4.4], club: -1.25, grip2: 1, roar: 1 } },
         // the smash, in one frame: a step in and everything comes down
-        { t: HIT, e: "in3", p: { ...GUARD, rx: 2, drop: 4.4, lean: 0.4, twist: 1.5, hx: 8, hy: 1.6, aN: [0.3 - TAU, 0.76, 0], fF: [11, 0], club: 2.0, grip2: 1, roar: 1 } },
+        { t: HIT, e: "in3", p: { ...GUARD, rx: 2, drop: 4.4, lean: 0.4, twist: 1.5, hx: 8, hy: 1.6, aN: [0.3, 0.76, 0], fF: [11, 0], club: 2.0, grip2: 1, roar: 1 } },
         // the recoil: the limb bounces, he sinks behind it
-        { t: 0.67, e: "out", p: { ...GUARD, rx: 2.6, drop: 5.4, lean: 0.44, twist: 1.6, hx: 8.4, hy: 2.2, aN: [0.36 - TAU, 0.72, 0], fF: [11, 0], club: 1.84, grip2: 1, roar: 1 } },
-        { t: 0.76, e: "io", p: { ...GUARD, rx: 2.2, drop: 4.6, lean: 0.4, twist: 1.5, hx: 8, hy: 1.8, aN: [0.3 - TAU, 0.76, 0], fF: [11, 0], club: 2.0, grip2: 1 } },
+        { t: 0.67, e: "out", p: { ...GUARD, rx: 2.6, drop: 5.4, lean: 0.44, twist: 1.6, hx: 8.4, hy: 2.2, aN: [0.36, 0.72, 0], fF: [11, 0], club: 1.84, grip2: 1, roar: 1 } },
+        { t: 0.76, e: "io", p: { ...GUARD, rx: 2.2, drop: 4.6, lean: 0.4, twist: 1.5, hx: 8, hy: 1.8, aN: [0.3, 0.76, 0], fF: [11, 0], club: 2.0, grip2: 1 } },
         // he straightens, dragging it back to his feet, and lets it swing on past his leg
-        { t: 0.9, e: "io", p: { ...GUARD, rx: -1, drop: 2.6, lean: 0.34, twist: 0.4, hy: 0.6, aN: [0.1 - TAU, 0.62, 0], fF: [8.4, 0.8], club: 2.9, grip2: 0 } },
-        { t: 1, e: "out", p: { ...GUARD, aN: [-0.08 - TAU, 0.97, 0], club: -1.9 + TAU } },
+        { t: 0.9, e: "io", p: { ...GUARD, rx: -1, drop: 2.6, lean: 0.34, twist: 0.4, hy: 0.6, aN: [0.1, 0.62, 0], fF: [8.4, 0.8], club: 2.9, grip2: 0 } },
+        { t: 1, e: "out", p: { ...GUARD, aN: [-0.08, 0.97, 0], club: -1.9 } },
       ], ph);
       // the blow comes back up his arms
       if (ph > HIT + 0.01 && ph < 0.8) { const k = (0.8 - ph) / 0.2, s = Math.sin(ph * 110); p.hx += s * 0.8 * k; p.twist += s * 0.3 * k; }

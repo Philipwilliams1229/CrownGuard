@@ -59,9 +59,13 @@ const elbow = (s, t, l1, l2) => {
 };
 
 // the axe: 0 = the haft straight up, PI/2 = level before him; the beard leads the swing
-const LEN = 25;
+const LEN = 25, AGRIP = -1.3;
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const axeOf = (sk) => {
-  const a = sk.p.axe ?? 2.3, g = sk.p.grip ?? 9, h = sk.hdN;
+  // one-handed (idle, walk) the axe is locked to the fist: the forearm's direction + AGRIP + a wrist; the more the far
+  // hand takes the haft (grip2) the more the two hands decide its angle (the keyed `axe`)
+  const h = sk.hdN, fa = Math.atan2(h[0] - sk.eN[0], -(h[1] - sk.eN[1])), lock = fa + AGRIP + cl(sk.p.wrist || 0, -0.35, 0.35);
+  const g2 = cl(sk.p.grip2 || 0, 0, 1), key = sk.p.axe ?? 2.3, a = lock + Math.atan2(Math.sin(key - lock), Math.cos(key - lock)) * g2, g = sk.p.grip ?? 9;
   const d = [Math.sin(a), -Math.cos(a)], n = [Math.cos(a), Math.sin(a)];
   return { g, H: LEN - 4 - g, at: (f, s) => [h[0] + d[0] * f + n[0] * s, h[1] + d[1] * f + n[1] * s] };
 };
@@ -138,7 +142,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.capsule(k0[0] - 1.2, k0[1] - 0.8, 0.9, k0[0] + 1, k0[1] - 1, 0.9, BAND, 6.4);
 
   // the axe: an oak haft, a bearded steel head; the near fist closes over it
-  px.part();
+  px.part(); px.tag("weapon");
   px.capsule(...ax.at(-ax.g, 0), 1.05, ...ax.at(ax.H + 3.4, 0), 1.05, WOOD, 8.1, { edge: true });
   px.part();
   const H = ax.H;
@@ -149,7 +153,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.poly([ax.at(H - 2.4, -1.2), ax.at(H + 2.8, -1.2), ax.at(H + 2.8, 1.2), ax.at(H - 2.4, 1.2)], IRON, 8.14, { fix: 1 });
 
   // the near arm over it all: a hide pauldron, a slab of forearm in a studded bracer
-  px.part();
+  px.tag(null); px.part(); px.tag("nearArm");
   px.capsule(sN[0], sN[1] + 1, 4.4, eN[0], eN[1], 3.8, SKIN, 7.9, { cast: 1 });
   px.capsule(eN[0], eN[1], 3.6, hdN[0], hdN[1], 3.9, SKIN, 7.9, { cast: 1 });
   const b0 = mix(eN, hdN, 0.34), b1 = mix(eN, hdN, 0.78);
@@ -161,6 +165,7 @@ export const draw = (px, { sk, lag1, lag2 }) => {
   px.dot(sN[0] - 2.6, sN[1] - 1.4, IRON, 8.01, { fix: 4 }); px.dot(sN[0] + 1.4, sN[1] - 2.4, IRON, 8.01, { fix: 4 });
   px.part();
   px.ellipse(hdN[0], hdN[1], 3.2, 3.2, SKIN, 8.3);
+  px.tag(null);
 
   return { bite: ax.at(ax.H, 8) };
 };

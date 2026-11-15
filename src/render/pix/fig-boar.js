@@ -86,6 +86,8 @@ const Q = { ...QUAD, spine: 24, height: 29, sh: [-2, 13], hip: [2, 12.5], foreU:
 // the rider's bones (the goblin's)
 const R = { thigh: 6, shin: 5.5, spine: 7.5, upper: 5.2, fore: 5.2 };
 
+// the lance is locked to the fist: along the forearm (a thrust keeps its haft on the line), a small wrist at most
+export const MUST = [["nearArm", "notOver", "eyes"]];
 const cl = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
@@ -222,9 +224,9 @@ const rider = (px, b, b1, b2) => {
   // the near arm and the lance under it: a long ash shaft, a steel head
   const [ang, reach] = p.rArm ?? [0.9, 0.62], len = R.upper + R.fore;
   const na = ik(sN[0], sN[1], sN[0] + Math.sin(ang) * reach * len, sN[1] + Math.cos(ang) * reach * len, R.upper, R.fore, 1);
-  const hd = na.end, la = (p.lance ?? 0) + vy * 0.03, d = [Math.cos(la), Math.sin(la)], nn = [-d[1], d[0]];
+  const hd = na.end, la = Math.atan2(hd[1] - na.mid[1], hd[0] - na.mid[0]) + cl(p.wrist || 0, -0.35, 0.35), d = [Math.cos(la), Math.sin(la)], nn = [-d[1], d[0]];
   const at = (f, s = 0) => [hd[0] + d[0] * f + nn[0] * s, hd[1] + d[1] * f + nn[1] * s];
-  px.part();
+  px.part(); px.tag("weapon");
   px.capsule(...at(-11), 0.75, ...at(25), 0.75, WOOD, 10, { cast: 1 });
   px.part();
   px.poly([at(24, -1.1), at(26.5, -1.9), at(32.5, 0), at(26.5, 1.9), at(24, 1.1)], STEEL, 10.1, { fix: 3 });
@@ -233,18 +235,20 @@ const rider = (px, b, b1, b2) => {
   px.capsule(...at(22.6), 1.1, ...at(24), 1.1, DARK, 10.1, { floor: 1 });
   px.part();
   px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.5, 2.3, JERK, 10.4, { cast: 0, bias: 1 });
-  px.part();
+  px.tag(null); px.part(); px.tag("nearArm");
   px.limb([[sN[0], sN[1] + 0.6], na.mid, hd], [1.7, 1.6, 1.5], SKIN, 10.5, { cast: 1 });
   const w0 = mix(na.mid, hd, 0.6), w1 = mix(na.mid, hd, 0.74);
   px.capsule(w0[0], w0[1], 1.65, w1[0], w1[1], 1.65, DARK, 10.55, { cast: 1, floor: 1 });
   px.part();
   px.ellipse(hd[0], hd[1], 1.7, 1.7, SKIN, 10.7);
+  px.tag(null);
+  return { wp: { hd, d, nn }, foreMid: na.mid };
 };
 
 export const draw = (px, F, o = {}) => {
   const { b, b1, b2 } = beastFrames(F, Q);
   boar(px, b, b1, b2);
-  if (o.variant !== "loose") rider(px, b, b1, b2);
+  if (o.variant !== "loose") return rider(px, b, b1, b2);
   return {};
 };
 
@@ -300,9 +304,9 @@ export const CLIPS = {
       { t: 0, p: STAND },
       // the head down and back, the rider hauling the lance back with it
       { t: 0.22, e: "out", p: { ...STAND, rx: -2.6, drop: 1.6, pitch: 0.1, arch: 0.14, neck: -0.62, hy: 2, bristle: 1, ear: 1, tail: 0.2, curl: 0.2,
-        rLean: 0.12, rArm: [0.35, 0.72], lance: -0.06, rTwist: -0.5 } },
+        rLean: 0.12, rArm: [0.9, 0.72], lance: -0.06, rTwist: -0.5 } },
       { t: 0.34, e: "io", p: { ...STAND, rx: -3.2, drop: 2, pitch: 0.12, arch: 0.16, neck: -0.66, hy: 2.4, bristle: 1, ear: 1, tail: 0.3, curl: 0.2,
-        rLean: 0.08, rArm: [0.25, 0.74], lance: -0.04, rTwist: -0.6 } },
+        rLean: 0.08, rArm: [0.85, 0.74], lance: -0.04, rTwist: -0.6 } },
       // the hook: the tusks ripped up and forward off the forelegs; the lance thrown out to the arm's length
       { t: 0.47, e: "in3", p: { ...STAND, rx: 4.6, drop: -0.4, pitch: -0.25, arch: -0.08, neck: -0.08, hx: 2.6, hy: 0, jaw: 1, bristle: 0.5, ear: 1, tail: 0.7, curl: 0.3,
         fNF: [3.5, 2.6], fFF: [5, 1.2], rLean: 0.62, rArm: [1.5, 1], lance: -0.04, rTwist: 0.6, rHx: 1, rSnarl: 1 } },
