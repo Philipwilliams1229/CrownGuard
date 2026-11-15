@@ -172,6 +172,14 @@ C bold for three heroes, two figures per army and the ground. The owner picked, 
   `castle-concept.html`), and the owner's main ask: "the turret being too close to the top
   of the gate. That's really what I want fixed" (the north gate tower, `GATE_TOWER_N` in
   data/castle.js). The title castle (`ui/titleArt.js`) follows after the board's.
+  DONE on the board (2026-11-14, pending the owner's look): castle.js IS look B now (tinted
+  one-pixel ink, block edges, ivy/moss/streaks where the ground suits, tile roofs, arch
+  voussoirs, baked torch and slit light pools; `bakeCastleRun` matches). The north gate
+  tower stands `gateTowerN(gy)` from the gate: -80 where the board has room, less on the
+  four high-gate boards so its ballista deck stays 40 below the top edge (never nearer
+  than the old -58); `DRUM_FROM_N` -58 keeps the wall drums where they were. 46 of 68
+  realms have one wall slot fewer. First-sight castle bake ~+30 ms. Labs:
+  `castle-compare.html` (before | after; `concept/castle-before.js` is the old file).
 The rest of each army follows its picks (Iron leans B, Hollow A-B, Rime C).
 **The whole roster is in** (2026-11-14, Sonnet artists in two waves, the lead wiring `PIX`
 and checking each group with `rigshot.html`): every hero, the crown's soldiers (garrison,

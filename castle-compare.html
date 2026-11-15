@@ -1,0 +1,73 @@
+<!doctype html>
+<!--
+  Castle before/after lab (2026-11-14, look B carried onto src/render/castle.js and
+  the north gate tower moved from -58 to -80). BEFORE is concept/castle-before.js (the
+  old file, its tower at -58), AFTER is the game's own src/render/castle.js. Static,
+  saved to .shots/ccb_*.png by the dev server:
+    /castle-compare.html?realms=thornbrook,ironford,graveroad,frostwake&hp=1
+  per realm: ccb_<realm>_band.png (before | after, x 620..840, full height, 2 px a unit)
+             ccb_<realm>_gate.png (before | after, the north tower and the arch at 8 px a unit)
+  plus ccb_damaged_<realm>.png at hp=0.2 (tier 3) and bake times in document.title.
+-->
+<html>
+  <head><meta charset="utf-8" /><title>castle compare</title>
+  <style>body { background: #20242c; color: #e8e0c8; font-family: monospace; padding: 12px; }</style></head>
+  <body>
+    <div id="status">painting…</div>
+    <script type="module">
+      import { selectRealm } from "/src/data/maps.js";
+      import { W, H } from "/src/data/constants.js";
+      const q = new URLSearchParams(location.search);
+      const realms = (q.get("realms") || "thornbrook,ironford,graveroad,frostwake").split(",");
+      const { groundLayer } = await import("/src/render/world.js");
+      const { PTS } = await import("/src/engine/path.js");
+      const after = await import("/src/render/castle.js");
+      const before = await import("/concept/castle-before.js");
+      const R = 2, TIME = 3.2;
+      const times = [];
+      const paint = (M, hp, tag) => {
+        const cv = document.createElement("canvas"); cv.width = W * R; cv.height = H * R;
+        const c = cv.getContext("2d"); c.imageSmoothingEnabled = false;
+        c.drawImage(groundLayer(), 0, 0, cv.width, cv.height);
+        c.save(); c.scale(R, R);
+        M.resetCastleBakes();
+        const t0 = performance.now();
+        M.drawCastleGround(c, TIME, hp); M.drawCastle(c, TIME, hp);
+        const t1 = performance.now();
+        const run = M.bakeCastleRun(-150, 0); const t2 = performance.now();
+        times.push(`${tag}:${(t1 - t0).toFixed(0)}ms+run${(t2 - t1).toFixed(0)}`);
+        c.restore();
+        return cv;
+      };
+      const crop = (cv, x, y, w, h, sc = 1) => {
+        const o = document.createElement("canvas"); o.width = w * R * sc; o.height = h * R * sc;
+        const k = o.getContext("2d"); k.imageSmoothingEnabled = false;
+        k.drawImage(cv, x * R, y * R, w * R, h * R, 0, 0, o.width, o.height);
+        return o;
+      };
+      const pair = (a, b, la, lb) => {
+        const o = document.createElement("canvas"), G = 12, HD = 26;
+        o.width = a.width + b.width + 3 * G; o.height = a.height + HD + G;
+        const k = o.getContext("2d"); k.fillStyle = "#20242c"; k.fillRect(0, 0, o.width, o.height);
+        k.font = "bold 15px monospace"; k.fillStyle = "#e8e0c8";
+        k.fillText(la, G, 18); k.fillText(lb, 2 * G + a.width, 18);
+        k.drawImage(a, G, HD); k.drawImage(b, 2 * G + a.width, HD);
+        return o;
+      };
+      const save = (name, cv) => fetch("/__shot?name=" + name, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      for (const id of realms) {
+        selectRealm(id);
+        const gy = PTS[PTS.length - 1][1];
+        // warm-up bake is timed too: the first paint is the first sight
+        const b = paint(before, 1, id + "-before"), a = paint(after, 1, id + "-after");
+        await save(`ccb_${id}_band`, pair(crop(b, 620, 0, 220, H), crop(a, 620, 0, 220, H), "BEFORE", "AFTER"));
+        const y0 = Math.max(0, gy - 125);
+        await save(`ccb_${id}_gate`, pair(crop(b, 722, y0, 78, 190, 3), crop(a, 722, y0, 78, 190, 3), "BEFORE (tower -58)", "AFTER (tower -80)"));
+        const bd = paint(before, 0.2, id + "-before-dmg"), ad = paint(after, 0.2, id + "-after-dmg");
+        await save(`ccb_damaged_${id}`, pair(crop(bd, 620, Math.max(0, gy - 200), 220, 400), crop(ad, 620, Math.max(0, gy - 200), 220, 400), "BEFORE hp 20%", "AFTER hp 20%"));
+      }
+      document.title = "DONE " + times.join(" ");
+      document.getElementById("status").textContent = document.title;
+    </script>
+  </body>
+</html>

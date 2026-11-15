@@ -131,7 +131,13 @@ export const worksBonusHp = (works, ranks = null) => {
 // tower, at most at a tower's foot in front of it, never on or behind it.
 // Positions are the towers' FEET in world y; the renderer draws them from
 // the same list.
-export const GATE_TOWER_N = -58, GATE_TOWER_S = 90;   // gate towers' feet, from gy
+// (the north one was -58 until 2026-11-14: its deck sat right on the arch's top; -80 leaves the gate block's wall between them)
+export const GATE_TOWER_N = -80, GATE_TOWER_S = 90;   // gate towers' feet, from gy
+// the north gate tower stands 80 up from the gate (owner, 2026-11-14: clear of the arch's
+// top) where the board has room; on the few boards whose gate sits high (gullwick,
+// coldwater, blackcliff, bergwater) it comes down so its ballista deck stays 40 below the
+// board's top edge, never nearer the arch than the old 58
+export const gateTowerN = (gy) => Math.max(GATE_TOWER_N, Math.min(-58, 61 - gy));
 // Every tower on the wall is square, with an open fighting platform on top.
 // Its footprint on the ground runs from `foot - n` to `foot + s` down the
 // wall, its west face stands at x0; it stands `h` tall, so its platform is
@@ -150,16 +156,18 @@ export const towerDeck = (foot) => [771, foot - 21];
 // The Gate Ballista stands on the gate towers' platforms: the north one
 // first, the south one too once there are two. Feet positions, and where
 // the bolt leaves the bow.
-export const ballistaSpots = (gy, twin) => (twin ? [GATE_TOWER_N, GATE_TOWER_S] : [GATE_TOWER_N]).map((d) => towerDeck(gy + d));
+export const ballistaSpots = (gy, twin) => (twin ? [gateTowerN(gy), GATE_TOWER_S] : [gateTowerN(gy)]).map((d) => towerDeck(gy + d));
 export const ballistaMuzzle = ([x, y]) => [x - 2, y - 26];
 // where the bowmen on the walk stand (and loose from), in x
 export const BOW_X = 778;
-const DRUM_EDGE_N = 34, DRUM_EDGE_S = H - 16, DRUM_STEP = 105, DRUM_MIN = 80;
+const DRUM_FROM_N = -58, DRUM_EDGE_N = 34, DRUM_EDGE_S = H - 16, DRUM_STEP = 105, DRUM_MIN = 80;
 const CULVERT_X = 748;
 const wet = (foot) => { for (let y = foot - 14; y <= foot + 14; y += 2) if (inRiver(CULVERT_X, y, 2)) return true; return false; };
 export const wallDrums = (gy) => {
   const out = [];
-  for (const [from, to, dir] of [[gy + GATE_TOWER_N, DRUM_EDGE_N, -1], [gy + GATE_TOWER_S, DRUM_EDGE_S, 1]]) {
+  // (the drums keep the places they had when the north gate tower stood at
+  // DRUM_FROM_N: moving that tower must not re-space every drum on the wall)
+  for (const [from, to, dir, real] of [[gy + DRUM_FROM_N, DRUM_EDGE_N, -1, gy + gateTowerN(gy)], [gy + GATE_TOWER_S, DRUM_EDGE_S, 1, gy + GATE_TOWER_S]]) {
     const span = (to - from) * dir;
     if (span < DRUM_MIN) continue;
     // an even step near 105, held to 90-120; the last drum lands near the edge
@@ -172,7 +180,7 @@ export const wallDrums = (gy) => {
       if (wet(foot)) {
         let best = null;
         for (let d = 2; d <= 44 && best === null; d += 2) for (const f of [foot - d, foot + d]) {
-          if (best !== null || wet(f) || (f - from) * dir < 56 || f < 20 || f > H - 8) continue;
+          if (best !== null || wet(f) || (f - real) * dir < 56 || f < 20 || f > H - 8) continue;
           if (run.some((q) => Math.abs(q - f) < 64)) continue;
           best = f;
         }
@@ -195,7 +203,7 @@ export const wallSlots = (gy) => {
   // of a tower the first slot is 28 below its foot: he stands on the walk
   // just out of its door, his head no higher than the lintel.)
   // (and north of the gate the ballista rises off its tower: stand clear of that too)
-  const runs = [[26, gy + GATE_TOWER_N - 67], [gy + GATE_TOWER_S + 30, H - 12]];
+  const runs = [[26, gy + gateTowerN(gy) - 67], [gy + GATE_TOWER_S + 30, H - 12]];
   const blocked = wallDrums(gy).map((f) => [f - TOWER.n - TOWER.h - 17, f + 28]);
   const out = [];
   for (const [a0, b0] of runs) {

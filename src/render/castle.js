@@ -5,7 +5,7 @@
 
 import { W, H, PATH_HALF } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
-import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_N, GATE_TOWER_S, TOWER, ballistaSpots } from "../data/castle.js";
+import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, gateTowerN, GATE_TOWER_S, TOWER, ballistaSpots } from "../data/castle.js";
 import { drawArcherFrame, drawHalberdier, drawMason, WALL_FOLK, MASON_FRAMES, HALBERD_WALK, frameOf } from "./folk.js";
 import { ballista } from "./halls/archer.js";
 import { REALM } from "../data/maps.js";
@@ -13,9 +13,12 @@ import * as TERRAIN from "../data/terrain.js";
 import { groundKind } from "./groundblend.js";
 import {
   lighten, darken, mix, rgba, soft, shadow, ball, glow, cylinder,
-  blade, tuft, hash, lin, bakeSprite, PX, PIXEL, INK_LINE, inkOutline, STYLE } from "./paint.js";
+  blade, tuft, hash, lin, bakeSprite, PX, PIXEL, inkOutline, STYLE } from "./paint.js";
 
-const CASTLE_STONE = "#aca494";          // warm grey dressed stone, as on the title screen
+// the castle's stone in look B (owner's pick, 2026-11-14): a cool-warm grey
+// and a one-pixel line tinted from it, not the near-black of the other sprites
+const CASTLE_STONE = "#aba18f";
+const INK_LINE = mix(CASTLE_STONE, "#1c1426", 0.74);          // warm grey dressed stone, as on the title screen
 const ROOF = "#a8505c";
 
 // ---- the castle -------------------------------------------------------
@@ -100,7 +103,7 @@ const towerGeo = (foot, gate = 0) => {
   return { h, x0, x1: S2(x0 + h * LEAN), tN, tS, yN: tN + h, yS: tS + h };
 };
 
-const tone = (c, v) => (v >= 0 ? lighten(c, v) : darken(c, -v));
+const tone = (c, v) => (v >= 0 ? lighten(c, Math.min(1, v * LK.kl)) : darken(c, Math.min(1, -v * LK.kd)));
 const box = (c, x, y, w, h, col) => {
   const x0 = S2(x), y0 = S2(y), w2 = S2(x + w) - x0, h2 = S2(y + h) - y0;
   if (w2 <= 0 || h2 <= 0) return;
@@ -161,14 +164,16 @@ const westFace = (c, a, b, y0, y1, clip, seed, o = {}) => piece(c, [a - 1, y0 - 
     let y = y0 - hash(seed + col, 1) * 12, i = 0;
     while (y < y1) {
       const len = 7 + Math.floor(hash(seed + col * 31, i + 5) * 4) * 2;
-      box(k, x + 0.5, y + 0.5, cw - 0.5, len - 0.5, tone(S1, base + (hash(seed + col * 7, i * 3 + 2) - 0.5) * 0.1));
+      box(k, x + 0.5, y + 0.5, cw - 0.5, len - 0.5, tone(S1, base + (hash(seed + col * 7, i * 3 + 2) - 0.5) * 0.1 * LK.var));
+      if (LK.work) blockEdges(k, x + 0.5, y + 0.5, cw - 0.5, len - 0.5, S1, base, seed + col * 5 + i, true);
       y += len; i++;
     }
   }
   // the long mortar seams between the courses, half filled with grime
-  k.fillStyle = rgba(darken(S1, 0.3), 0.6);
+  k.fillStyle = rgba(darken(S1, 0.3), 0.6 * LK.grime);
   for (let col = 1; col < n; col++) for (let y = y0; y < y1; y += 4) if (hash(seed + col, Math.floor(y)) < 0.3) k.fillRect(S2(a + col * cw), S2(y), 0.5, 4);
   if (o.foot) mossUp(k, a, y0, y1, seed);
+  if (LK.work) westWork(k, a, b, y0, y1, seed, o);
   // the corner where it turns into its south face (whose foot is at o.corner)
   // catches the sun: a thin lit line up the corner, on this side of it
   if (o.corner != null) for (let z = 0; z < (b - a) / LEAN; z++) box(k, a + z * LEAN, o.corner - z - 2, 0.5, 1, "rgba(255,243,210,0.34)");
@@ -221,10 +226,12 @@ const southFace = (c, x0, yS, h, clip, bb, seed) => piece(c, bb, (k) => {
     let x = x0 + zb * LEAN - hash(seed, r) * 9, i = 0;
     while (x < XE) {
       const len = 7 + Math.floor(hash(seed + 1 + r, i) * 3) * 2;
-      box(k, x + 0.5, yt + 0.5, len - 0.5, yb - yt - 0.5, tone(S1, -0.36 + (zb / h) * 0.08 + (hash(seed + 2 + r, i) - 0.5) * 0.1));
+      box(k, x + 0.5, yt + 0.5, len - 0.5, yb - yt - 0.5, tone(S1, -0.36 + (zb / h) * 0.08 + (hash(seed + 2 + r, i) - 0.5) * 0.1 * LK.var));
+      if (LK.work) blockEdges(k, x + 0.5, yt + 0.5, len - 0.5, yb - yt - 0.5, S1, -0.36 + (zb / h) * 0.08, seed + r * 13 + i, false);
       x += len; i++;
     }
   }
+  if (LK.work) southWork(k, x0, yS, h, bb, seed);
   k.restore();
 });
 
@@ -320,8 +327,9 @@ const walkFlags = (k, x0, x1, y0, y1, seed, lift = -0.1, anchor = null) => {
       for (let x = x0 + 8 + off; x < x1 - 4; x += 12 + hash(seed + row, cuts.length) * 6) cuts.push(x);
       cuts.push(x1);
       for (let i = 0; i < cuts.length - 1; i++) {
-        const v = (hash(seed + row * 3, i + 1) - 0.5) * 0.12;
+        const v = (hash(seed + row * 3, i + 1) - 0.5) * 0.12 * LK.var;
         box(k, cuts[i] + 0.5, Math.max(y0, y) + 0.5, cuts[i + 1] - cuts[i] - 0.5, Math.min(y1, y + h) - Math.max(y0, y) - 0.5, tone(S1, lift + v));
+        if (LK.work) blockEdges(k, cuts[i] + 0.5, Math.max(y0, y) + 0.5, cuts[i + 1] - cuts[i] - 0.5, Math.min(y1, y + h) - Math.max(y0, y) - 0.5, S1, lift + v, seed + row * 9 + i, false);
       }
     }
     y += h; row++;
@@ -460,6 +468,7 @@ const pyramidRoof = (c, x0, x1, yb, depth, rise, broken, seed, ax = 0) => {
     tri([[x0, yN], [x0, yb], [cx, apex]], lighten(ROOF, 0.22));
     tri([[x1, yN], [x1, yb], [cx, apex]], darken(ROOF, 0.32));
     tri([[x0, yb], [x1, yb], [cx, apex]], ROOF);
+    if (LK.work) roofTiles(k, x0, x1, yN, yb, cx, apex, seed);
     // tile courses across the south facet, and a lit ridge down its west edge
     k.strokeStyle = darken(ROOF, 0.3); k.lineWidth = 0.5;
     for (const t of [0.45, 0.75]) { const y = apex + (yb - apex) * t; k.beginPath(); k.moveTo(cx + (x0 - cx) * t, y); k.lineTo(cx + (x1 - cx) * t, y); k.stroke(); }
@@ -512,11 +521,12 @@ const merlonAt = (k, x, y, w, d, face) => {
   box(k, x, y - d, w, 0.5, tone(S1, 0.6));
   box(k, x, y, w, face, tone(S1, -0.06));
   box(k, x + w - 1, y, 1, face, tone(S1, -0.24));
+  if (LK.work) { box(k, x, y - d, 0.5, d + face, tone(S1, 0.66)); box(k, x + w - 0.5, y - d, 0.5, d, tone(S1, 0.1)); box(k, x, y + face - 0.5, w, 0.5, tone(S1, -0.34)); }
 };
 
 // The towers' and the keep's flagged tops: a shade warmer and lighter than
 // the walks, so at a glance a tower reads apart from the wall it binds.
-const DECK = mix(CASTLE_STONE, "#d2bc94", 0.3);
+const DECK = mix(CASTLE_STONE, "#d6bf94", 0.3);
 const OAK = "#7a5334";
 // a flagged top x1..E by tN..tS: a sunlit rim round a sunken floor of flags,
 // in shade under its north parapet, snow on it on the snow realms
@@ -535,7 +545,11 @@ const flagTop = (k, x1, E, tN, tS, seed) => {
     while (x < f1) {
       const len = 6 + Math.floor(hash(seed + 23 + row, i) * 3) * 1.5;
       const a = Math.max(f0, x), b = Math.min(f1, x + len);
-      if (b - a > 1) box(k, a + 0.5, y + 0.5, b - a - 0.5, Math.min(g1, y + rh) - y - 0.5, tone(D, 0.02 + (hash(seed + 24 + row, i) - 0.5) * 0.12));
+      if (b - a > 1) {
+        const v = 0.02 + (hash(seed + 24 + row, i) - 0.5) * 0.12 * LK.var;
+        box(k, a + 0.5, y + 0.5, b - a - 0.5, Math.min(g1, y + rh) - y - 0.5, tone(D, v));
+        if (LK.work) blockEdges(k, a + 0.5, y + 0.5, b - a - 0.5, Math.min(g1, y + rh) - y - 0.5, D, v, seed + row * 11 + i, false);
+      }
       x += len; i++;
     }
     y += rh;
@@ -704,7 +718,7 @@ const tower = (c, foot, o) => {
     // the bowmen who stand out toward the parapet)
     door(c, 786, yS - HC, 7, 9);
     [[770, yS - 26], [782, yS - 26]].forEach(([sx, sy], i) => {
-      const lit = hash(seed + 51, i) > 0.45;
+      const lit = hash(seed + 51, i) > 0.45 - LK.lit;
       slit(c, sx, sy, lit);
       if (lit) slits.push([sx, sy]);
     });
@@ -734,7 +748,7 @@ let CASTLE = { key: "", cv: null, x0: 0, y0: 0, w: 0, h: 0, slits: [], flags: []
 // the passage, where the guards and the cauldron stand.
 const gateBlock = (c, gy, tier, hurt, out) => {
   const S1 = CASTLE_STONE, x0 = GATE.face0, x1 = GATE.face1, lean = (x1 - x0) / HG;
-  const NT = towerGeo(gy + GATE_TOWER_N, -1), K = keepGeo(gy);
+  const NT = towerGeo(gy + gateTowerN(gy), -1), K = keepGeo(gy);
   const yN = NT.yS, yS = gy + GH;
   const tN = yN - HG, tS = yS - HG;
   const m0 = gy - ARCH.half, m1 = gy + ARCH.half, ring = 2.5;
@@ -756,7 +770,7 @@ const gateBlock = (c, gy, tier, hurt, out) => {
   // draws no line across the road at the threshold: the road runs in and the
   // dark deepens with every step inside.
   const top = ARCH.sp + ARCH.rise, zp = ARCH.grid, floor = [];
-  const warm = mix(S1, "#e0a060", 0.3), iron = "#5a606c", ironLt = "#9aa0ac", pale = lighten(S1, 0.34);
+  const warm = mix(S1, "#e0a060", 0.3), iron = LK.work ? "#68707e" : "#5a606c", ironLt = LK.work ? "#b4bccb" : "#9aa0ac", pale = lighten(S1, 0.34);
   piece(c, [x0 - 1, m0 - top - 2 * ring - 3, x1 + 2, m1 + ring + 2], (k) => {
     for (let sy = S2(m0 - top - 2 * ring) - 1; sy < m1 + ring; sy += 0.5) for (let sx = x0; sx < x0 + (top + ring) * lean + 0.5; sx += 0.5) {
       const z = (sx + 0.25 - x0) / lean, yw = sy + 0.25 + z;
@@ -766,6 +780,7 @@ const gateBlock = (c, gy, tier, hurt, out) => {
         // the ring: joints across the jambs' quoins and between the head's voussoirs
         const joint = z < ARCH.sp ? z % 3.5 < 0.5 : (yw - m0 + 40) % 4.5 < 0.6;
         col = joint ? darken(S1, 0.1) : z > zAt(yw, 0) + ring * 0.55 || yw < m0 - ring * 0.55 || yw > m1 + ring * 0.55 ? pale : tone(S1, 0.2);
+        if (LK.work) col = archRing(col, joint, z, yw, m0, m1, gy, zAt, S1, ring);
       } else {
         const bar = (yw - m0 + 1) % 5 < 1.2;                   // on one of the grid's uprights
         if (z >= zp) col = z - zp < 1 ? (bar ? ironLt : iron) : bar || (z - zp) % 3.5 < 1 ? iron : "rgba(14,10,14,0.95)";
@@ -793,7 +808,8 @@ const gateBlock = (c, gy, tier, hurt, out) => {
       const cuts = [x1];
       for (let x = x1 + 9 + off; x < XE - 4; x += 11 + hash(64, row * 5 + cuts.length) * 5) cuts.push(x);
       cuts.push(XE);
-      for (let i = 0; i < cuts.length - 1; i++) box(k, cuts[i] + 0.5, y + 0.5, cuts[i + 1] - cuts[i] - 0.5, Math.min(tS, y + h) - y - 0.5, tone(DECK, -0.02 + (hash(63 + row, i) - 0.5) * 0.12));
+      for (let i = 0; i < cuts.length - 1; i++) box(k, cuts[i] + 0.5, y + 0.5, cuts[i + 1] - cuts[i] - 0.5, Math.min(tS, y + h) - y - 0.5, tone(DECK, -0.02 + (hash(63 + row, i) - 0.5) * 0.12 * LK.var));
+      if (LK.work) for (let i = 0; i < cuts.length - 1; i++) blockEdges(k, cuts[i] + 0.5, y + 0.5, cuts[i + 1] - cuts[i] - 0.5, Math.min(tS, y + h) - y - 0.5, DECK, -0.02, 600 + row * 7 + i, false);
       y += h;
     }
     const cy = gy - HG, wx = x1 + 14;
@@ -957,7 +973,7 @@ const stairDown = (c, yc, seed) => {
 // Every tower down the wall, the gate towers included, as [foot, gate]
 // sorted north to south: the board's own (data/castle.js places the works'
 // crews from the same list)...
-const towersOf = (gy) => [...wallDrums(gy).map((f) => [f, 0]), [gy + GATE_TOWER_N, -1], [gy + GATE_TOWER_S, 1]].sort((a, b) => a[0] - b[0]);
+const towersOf = (gy) => [...wallDrums(gy).map((f) => [f, 0]), [gy + gateTowerN(gy), -1], [gy + GATE_TOWER_S, 1]].sort((a, b) => a[0] - b[0]);
 // ...and, for painting ya..yb, more past the board's ends at RUN_STEP, so the
 // wall carries on (the first and last stand clear outside ya..yb)
 const towersFor = (gy, ya, yb) => {
@@ -996,7 +1012,7 @@ const stretch = (ctx, yg, y1, G, seed, tier, hurt, out, wet) => {
   for (const [a, b] of underWall(wet, yg, G.yN)) culvert(ctx, WALL.face0, a, b);
   for (let y = yg + 16 + hash(seed, 60) * 10, i = 0; y < vis - 10; y += 30 + hash(seed + i, 61) * 14, i++) {
     if (wet.some(([a, b]) => y > a - 8 && y < b + 8)) continue;
-    const lit = hash(seed + i, 62) > 0.6;
+    const lit = hash(seed + i, 62) > 0.6 - LK.lit;
     slitAcross(ctx, WALL.face0 + 1, y, lit);
     if (lit) out.slits.push([WALL.face0 + 2.5, y]);
   }
@@ -1072,7 +1088,7 @@ const paintCastleStone = (ctx, gx, gy, tier, ya = TOP, yb = BOT) => {
     }
   }
   // shadows thrown down-right across the walls south and east of each tower
-  const sh = (x, y, w, h, a) => { ctx.fillStyle = `rgba(30,22,32,${a})`; ctx.fillRect(S2(x), S2(y), S2(w), S2(h)); };
+  const sh = (x, y, w, h, a) => { ctx.fillStyle = `rgba(30,22,32,${Math.min(0.9, a * LK.sh)})`; ctx.fillRect(S2(x), S2(y), S2(w), S2(h)); };
   for (const [foot, gate] of towers) {
     const G = towerGeo(foot, gate);
     if (!on(G.tN, G.yS + 10)) continue;
@@ -1118,7 +1134,7 @@ export const bakeCastleRun = (ya, yb) => {
   const x0 = 700, w = XE + 2 - x0, h = yb - ya, P = groundPal(), towers = towersFor(gy, ya, yb);
   const layer = (fn, ink = false) => bakeSprite(w, h, (c) => { c.translate(-x0, -ya); fn(c); }, ink);
   let info = null;
-  const stone = layer((c) => { info = paintCastleStone(c, gx, gy, 0, ya, yb); }, true);
+  const stone = finishStone(layer((c) => { info = paintCastleStone(c, gx, gy, 0, ya, yb); }, false), () => info, x0, ya);
   const cv = layer((c) => {
     footRows(c, P, ya, yb, gy, towers);
     c.drawImage(stone, x0, ya, w, h);
@@ -1839,7 +1855,7 @@ const paintGroundOver = (c, gx, gy, tier, out, B, cracks = []) => {
   if (tier >= 3) {
     // (the burnt ones, as paintCastleStone picks them: along their feet)
     const plain = towersOf(gy).filter(([, g]) => !g), mid = (G) => (G.yN + G.yS) / 2;
-    heaps.push([mid(towerGeo(gy + GATE_TOWER_N, -1)), 1.3]);
+    heaps.push([mid(towerGeo(gy + gateTowerN(gy), -1)), 1.3]);
     if (plain.length) heaps.push([mid(towerGeo(plain[0][0], 0)), 1.3]);
   }
   heaps.forEach(([y0, big], hI) => {
@@ -2101,7 +2117,7 @@ export const drawCastle = (ctx, time, hpPct) => {
   if (CASTLE.key !== key && typeof document !== "undefined") {
     const x0 = 724, y0 = TOP, w = XE + 2 - x0, h = BOT - TOP;
     let info = null;
-    const cv = bakeSprite(w, h, (c) => { c.translate(-x0, -y0); info = paintCastleStone(c, gx, gy, tier); });
+    const cv = finishStone(bakeSprite(w, h, (c) => { c.translate(-x0, -y0); info = paintCastleStone(c, gx, gy, tier); }, false), () => info, x0, y0);
     // the passage's floor seen through the gate's mouth: the road's own
     // earth going into the dark, laid under the stone (no ink of its own)
     const M = info.mouth, dirt = REALM.PATH_DK || "#8a6a44";
@@ -2179,7 +2195,7 @@ const BIRDS = { calm: true, since: -99, flushed: -99, last: 0 };
 // at x SENTRY_X.
 const SENTRY_X = 824, BEAT = 150;
 const sentryBeat = (gy) => {
-  const NT = towerGeo(gy + GATE_TOWER_N, -1);
+  const NT = towerGeo(gy + gateTowerN(gy), -1);
   // north of the gate block's top, and south of where its south face meets the inner walk
   const runs = [[22, NT.yS - HG - 4], [gy + GH - HI + 8, H - 6]];
   let best = null;
@@ -2387,3 +2403,160 @@ export const drawCastleWorks = (ctx, g) => {
 export const resetWorksBakes = () => WORKS.clear();
 
 export const resetCastleBakes = () => { CASTLE.key = ""; GROUND.key = ""; GROUND.tier = -1; WORKS.clear(); BANNERS.clear(); };
+
+
+// ======================================================================
+// THE WORKED LOOK (treatment B, as the halls)
+// ======================================================================
+// A thin tinted line; one sun upper left; stone by stone as tone (a lit top
+// and west edge and a shaded foot on every block, now and then a chip or a
+// paler replaced stone); cool violet shade and warm light; ivy and moss at the
+// foot where the ground suits it, rain streaks; lit slits that pool light on
+// the stone; a gate arch whose voussoirs read. Geometry is untouched.
+const LK = {
+  work: 1, line: 1, kl: 1.12, kd: 1.15, sh: 1.15, var: 1.6, grime: 1, lit: 0.3, ivy: 0.6, streak: 1.2,
+  grade: 0.6, sat: 1.05, pool: 1, edge: 1.3, chip: 1.2,
+};
+
+const px5 = (k, x, y, col) => { k.fillStyle = col; k.fillRect(S2(x), S2(y), 0.5, 0.5); };
+
+// stone by stone, as tone: a lit top and west edge and a shaded foot on every
+// block, now and then a chipped corner, a pale replaced stone
+const blockEdges = (k, x, y, w, h, S1, base, seed, west) => {
+  const E = LK.edge;
+  if (w < 1 || h < 1.5) return;
+  if (hash(seed, 9) < 0.07 * LK.chip) box(k, x, y, w, h, tone(S1, base + 0.1));
+  box(k, x, y, w, 0.5, tone(S1, base + 0.16 * E));
+  if (!west) box(k, x, y, 0.5, h, tone(S1, base + 0.08 * E));
+  box(k, x, y + h - 0.5, w, 0.5, tone(S1, base - 0.13 * E));
+  if (hash(seed, 7) < 0.3 * LK.chip) px5(k, x + 0.5 + hash(seed, 8) * (w - 1.5), y + 0.5 + hash(seed, 6) * (h - 1.5), tone(S1, base - 0.24));
+  if (hash(seed, 5) < 0.18 * LK.chip) px5(k, x + 0.5 + hash(seed, 4) * (w - 1.5), y + 0.5 + hash(seed, 3) * (h - 1.5), tone(S1, base + 0.2));
+};
+
+// ivy: a pixel field where dens(x, y) (0..1) says how thick, three leaf tones,
+// the north-west rim of every clump lit, the south-east in shade
+const ivyFill = (k, x0, y0, x1, y1, dens, seed) => {
+  const kind = groundKind();
+  if (kind === "snow" || kind === "ash") return;
+  const base = mix(REALM.GRASS_DK || "#628f3d", "#2a4a2c", 0.5);
+  const lit = lighten(mix(REALM.GRASS || "#82b256", "#3a6a30", 0.25), 0.16), dk = darken(base, 0.35), mid = base;
+  const on = (x, y) => { const d = dens(x, y); return d > 0 && hash(Math.round(x * 2) + seed * 13, Math.round(y * 2)) < d * 0.92 + (d > 0.7 ? 0.1 : 0); };
+  for (let y = Math.floor(y0 * 2) / 2; y < y1; y += 0.5) for (let x = Math.floor(x0 * 2) / 2; x < x1; x += 0.5) {
+    if (!on(x, y)) continue;
+    const nw = !on(x - 0.5, y) || !on(x, y - 0.5), se = !on(x + 0.5, y) || !on(x, y + 0.5);
+    const h = hash(Math.round(x * 2) + 5, Math.round(y * 2) + seed);
+    px5(k, x, y, nw ? (h > 0.45 ? lit : mid) : se ? dk : h > 0.8 ? lit : h > 0.35 ? mid : dk);
+  }
+};
+
+const westWork = (k, a, b, y0, y1, seed, o) => {
+  // rain streaks down from the top, along the courses' fall
+  const n = Math.round((y1 - y0) / 13 * LK.streak);
+  for (let i = 0; i < n; i++) {
+    const y = y0 + hash(seed + i, 71) * (y1 - y0), len = (b - a) * (0.3 + 0.5 * hash(seed + i, 72));
+    k.fillStyle = "rgba(28,20,40,0.17)"; k.fillRect(S2(b - len), S2(y), len, 0.5);
+    k.fillStyle = "rgba(255,243,210,0.07)"; k.fillRect(S2(b - len), S2(y + 0.5), len * 0.6, 0.5);
+  }
+  if (o.foot && LK.ivy > 0) {
+    const reach = (y) => LK.ivy * (0.1 + 0.5 * Math.pow(vnoise(0, y, 15, seed + 1), 1.4));
+    ivyFill(k, a, y0, b, y1, (x, y) => {
+      const u = (x - a) / (b - a), r = reach(y);
+      return u < r ? Math.pow(1 - u / r, 0.7) * (vnoise(x * 0.7, y, 3, seed + 2) > 0.3 ? 1 : 0.35) : 0;
+    }, seed);
+  }
+};
+
+const southWork = (k, x0, yS, h, bb, seed) => {
+  const n = Math.round(9 * LK.streak);
+  for (let i = 0; i < n; i++) {
+    const xs = x0 + 4 + hash(seed + i, 81) * (XE - x0 - 8), z0 = h * (0.5 + 0.45 * hash(seed + i, 82)), L = h * (0.15 + 0.35 * hash(seed + i, 83));
+    for (let z = z0; z > z0 - L; z -= 0.5) px5(k, xs + S2(z * LEAN), yS - z, `rgba(28,20,40,${0.2 - (z0 - z) / L * 0.1})`);
+  }
+  if (LK.ivy > 0) {
+    // creeping up off the wall tops where they meet the tower
+    const zb = (x) => (x < WALL.walk1 + 4 ? HC : HI);
+    ivyFill(k, bb[0], bb[1], bb[2], bb[3], (x, y) => {
+      const z = yS - y, zz = z - zb(x);
+      if (zz < -0.5) return 0;
+      const reach = LK.ivy * (2 + 13 * Math.pow(vnoise(x, 0, 13, seed + 3), 1.5));
+      return zz < reach ? Math.pow(1 - Math.max(0, zz) / reach, 0.8) * (vnoise(x, y, 3, seed + 4) > 0.3 ? 1 : 0.3) : 0;
+    }, seed);
+  }
+};
+
+// roof tile by tile: staggered rows, a lit lip and a shadow line under each
+const roofTiles = (k, x0, x1, yN, yb, cx, apex, seed) => {
+  const tiles = (pts, base, cw, rh, lean) => {
+    k.save(); k.beginPath(); k.moveTo(...pts[0]); for (const p of pts.slice(1)) k.lineTo(...p); k.closePath(); k.clip();
+    const ya = Math.min(...pts.map((p) => p[1])), yb2 = Math.max(...pts.map((p) => p[1]));
+    for (let y = S2(ya), r = 0; y < yb2; y += rh, r++) for (let x = x0 - 3 + (r % 2) * cw / 2; x < x1 + 3; x += cw) {
+      const v = (hash(seed + r, Math.round(x)) - 0.5) * 0.16 * LK.var;
+      box(k, x + 0.5, y, cw - 0.5, rh - 0.5, tone(base, v));
+      box(k, x + 0.5, y, cw - 0.5, 0.5, tone(base, v + 0.12));
+      box(k, x + 0.5, y + rh - 1, cw - 0.5, 0.5, tone(base, v - 0.18));
+    }
+    k.restore();
+  };
+  tiles([[x0, yb], [x1, yb], [cx, apex]], ROOF, 2, 1.5);
+  tiles([[x0, yN], [x0, yb], [cx, apex]], lighten(ROOF, 0.22), 2, 1.5);
+  tiles([[x1, yN], [x1, yb], [cx, apex]], darken(ROOF, 0.32), 2, 1.5);
+};
+
+// the arch's dressed ring: voussoirs of alternating tone, dark joints, a
+// shaded reveal where the ring turns into the mouth, a pale keystone
+const archRing = (col, joint, z, yw, m0, m1, gy, zAt, S1, ring) => {
+  const idx = z < ARCH.sp ? Math.floor(z / 3.5) : Math.floor((yw - m0 + 40) / 4.5);
+  if (joint) return darken(S1, 0.34);
+  const z0 = zAt(yw, 0);
+  if ((z > z0 && z <= z0 + 0.9) || (yw < m0 && yw >= m0 - 0.9) || (yw > m1 && yw <= m1 + 0.9)) return darken(S1, 0.5);
+  if (z > ARCH.sp && Math.abs(yw - gy) < 2.2 && z < zAt(yw, ring)) return Math.abs(yw - gy) > 1.6 ? darken(S1, 0.3) : lighten(S1, 0.52);
+  return tone(col, (idx & 1 ? 0.06 : -0.05));
+};
+
+// After the stone is baked: the look's grade, the light that pools on the stone
+// (lit slits, the gate's torches), then the look's own line.
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const finishStone = (cv, getInfo, x0, y0) => {
+  if (LK.grade > 0 || LK.pool > 0) {
+    const c = cv.getContext("2d"), w = cv.width, h = cv.height, img = c.getImageData(0, 0, w, h), d = img.data;
+    const info = getInfo() || {};
+    const lights = LK.pool ? [
+      ...(info.slits || []).map(([x, y]) => [x, y, 7 * LK.pool, 0.62]),
+      ...(info.torches || []).map(([x, y]) => [x, y, 15 * LK.pool, 0.9]),
+    ] : [];
+    // each light visits only its own square of the sprite
+    const lit = lights.length ? new Float32Array(w * h) : null;
+    for (const [lx, ly, lr, st] of lights) {
+      const cx = (lx - x0) * PX, cy = (ly - y0) * PX, rr = lr * PX;
+      for (let py = Math.max(0, Math.floor(cy - rr * 1.15)); py <= Math.min(h - 1, Math.ceil(cy + rr * 1.15)); py++) {
+        for (let pxl = Math.max(0, Math.floor(cx - rr)); pxl <= Math.min(w - 1, Math.ceil(cx + rr)); pxl++) {
+          const dx = pxl - cx, dy = (py - cy) * 1.15, dist = Math.hypot(dx, dy) / PX;
+          if (dist >= lr) continue;
+          const f = 1 - dist / lr, v = f * f * st * 4 + BAYER[(py & 3) * 4 + (pxl & 3)] / 16 - 0.5;
+          const q = Math.max(0, Math.min(1, Math.floor(v) / 3));
+          if (q > lit[py * w + pxl]) lit[py * w + pxl] = q;
+        }
+      }
+    }
+    const G = LK.grade, S = LK.sat;
+    for (let py = 0; py < h; py++) for (let pxl = 0; pxl < w; pxl++) {
+      const i = (py * w + pxl) * 4;
+      if (d[i + 3] < 200) continue;
+      let r = d[i], g = d[i + 1], b = d[i + 2];
+      const l = (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+      if (S !== 1) { const y = l * 255; r = y + (r - y) * S; g = y + (g - y) * S; b = y + (b - y) * S; }
+      if (G > 0) {
+        const t = Math.max(0, Math.min(1, (0.62 - l) / 0.4)) * G * 0.3, u = Math.max(0, Math.min(1, (l - 0.68) / 0.25)) * G * 0.2;
+        r += (70 - r) * t + (255 - r) * u; g += (58 - g) * t + (232 - g) * u; b += (122 - b) * t + (176 - b) * u;
+      }
+      if (lit && lit[py * w + pxl] > 0 && l > 0.1) {
+        const a = Math.min(0.6, lit[py * w + pxl] * 0.62);
+        r += (255 - r) * a; g += (176 - g) * a; b += (84 - b) * a;
+      }
+      d[i] = Math.max(0, Math.min(255, r)); d[i + 1] = Math.max(0, Math.min(255, g)); d[i + 2] = Math.max(0, Math.min(255, b));
+    }
+    c.putImageData(img, 0, 0);
+  }
+  if (PIXEL && LK.line > 0) inkOutline(cv, INK_LINE, LK.line);
+  return cv;
+};
