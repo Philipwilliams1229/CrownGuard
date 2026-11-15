@@ -27,11 +27,13 @@
 //   haywain     a hay cart, loaded, shafts down
 
 import {
-  lighten, darken, mix, rgba, soft, shadow as softShadow, blobPath, ball, cylinder, hash, ellipse, lin, bakeSprite, part, PX,
+  lighten, darken, mix, rgba, soft, shadow as softShadow, blobPath, ball, cylinder, hash, ellipse, lin, bakeSprite, part as plainPart, PX,
 } from "./paint.js";
 import { REALM } from "../data/maps.js";
 import { vnoise } from "../data/gatecrag.js";
 import { rich } from "./look-c.js";
+import { prefs } from "../data/prefs.js";
+import { tintRing, tintedPart, baking } from "./scenery-gwpix.js";
 
 // Look C cast shadow: a ragged, hard-edged blob thrown lower right (same
 // arguments as the soft one it replaces), with a soft pool kept under it
@@ -59,12 +61,17 @@ const moss = () => mix("#5d8f3a", REALM.GRASS_DK, 0.35);
 
 // A still body baked once (inked), then stamped — for the live pieces, whose
 // wheel or smoke is painted over it every frame.
+const part = (ctx, fn, o) => (prefs.newSprites !== false ? tintedPart(plainPart)(ctx, fn, o) : plainPart(ctx, fn, o));
 const BODIES = new Map();
 const body = (key, hw, top, bot, paint) => {
-  const k = `${key}|${REALM.GRASS}`;
+  const NEW = prefs.newSprites !== false;
+  const k = `${key}|${REALM.GRASS}|${NEW ? "n" : "o"}`;
   let sp = BODIES.get(k);
   if (!sp) {
-    const cv = bakeSprite(hw * 2, top + bot, (c) => paint(c, hw, top));
+    const was = baking(true);
+    let cv;
+    try { cv = bakeSprite(hw * 2, top + bot, (c) => paint(c, hw, top), !NEW); } finally { baking(was); }
+    if (NEW) tintRing(cv);
     sp = { cv, hw, top, bot };
     BODIES.set(k, sp);
   }

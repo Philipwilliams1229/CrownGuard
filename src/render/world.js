@@ -11,6 +11,8 @@ import { W, H, PATH_HALF, RES, WALL_W, MX, MXR, mulberry32 } from "../data/const
 // border widened, so every realm's turf looks as it did
 const SW = W - (MXR - MX);
 import { REALM } from "../data/maps.js";
+import { prefs } from "../data/prefs.js";
+import { tintRing } from "./scenery-gwpix.js";
 import { PTS, nearestOnPath } from "../engine/path.js";
 import { TUFTS, FLOWERS, SPECKS, PONDS, DECOR, inRiver, FOREST, forestDepthAt, COAST, coastLine, inSea, decorFootprint } from "../data/terrain.js";
 import { lighten, darken, mix, rgb, hash, ball, bakeSprite, part, PX } from "./paint.js";
@@ -1028,7 +1030,8 @@ const pixShadow = (put, cx, cy, rx, ry) => {
 const BUSHES = new Map();
 const BUSH_W = [22, 27, 32];
 const bushSprite = (leaf, v, size) => {
-  const key = `${leaf}|${v}|${size}`;
+  const NEW = prefs.newSprites !== false;
+  const key = `${leaf}|${v}|${size}|${NEW ? "n" : "o"}`;
   if (BUSHES.has(key)) return BUSHES.get(key);
   const w = BUSH_W[size], h = Math.round(w * 0.74);
   const T = [lighten(leaf, 0.4), lighten(leaf, 0.2), leaf, darken(leaf, 0.2), darken(leaf, 0.4)];
@@ -1077,7 +1080,8 @@ const bushSprite = (leaf, v, size) => {
         put(x, y, col[0]); put(x + 1, y, col[1]); put(x, y + 1, col[1]); put(x + 1, y + 1, col[2]);
       }
     });
-  });
+  }, !NEW);
+  if (NEW) tintRing(cv);
   BUSHES.set(key, cv);
   return cv;
 };

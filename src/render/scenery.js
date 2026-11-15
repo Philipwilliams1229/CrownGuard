@@ -9,6 +9,9 @@
 // unless a carpenter made it.
 
 import { rich } from "./look-c.js";
+import { prefs } from "../data/prefs.js";
+import { pixRock, pixMushroom, pixDeadTree, tintRing, baking, pixTowerBody } from "./scenery-gwpix.js";
+const PIXON = () => prefs.newSprites !== false;
 import { W, H, RES, PATH_HALF, WALL_W } from "../data/constants.js";
 import { PTS, SEGS, TOTAL_LEN, posAt, angleAt, nearestOnPath } from "../engine/path.js";
 import { FOREST, DECOR, COAST, forestDepthAt, seaDepthAt, inRiver, archAt, BRIDGE_HALF } from "../data/terrain.js";
@@ -998,10 +1001,13 @@ const obelisk = (ctx, x, y, s, time) => {
 const watchtower = (ctx, x, y, s, time) => {
   const w2 = 7 * s, hh = 20 * s;
   shadow(ctx, x + 5 * s, y + 10, 11 * s, 4 * s, 0.32);
-  masonry(ctx, x - w2, y + 8 - hh, w2 * 2, hh + 8, CASTLE_STONE, { course: 5, block: 7 });
-  for (let i = 0; i < 3; i++) {
-    const cx2 = x - w2 + i * (w2 - 1.5) + 0.5;
-    cylinder(ctx, cx2, y + 8 - hh - 5, 4.5, 6, CASTLE_STONE, { r: 1 });
+  if (PIXON()) pixTowerBody(ctx, x, y, s, CASTLE_STONE);
+  else {
+    masonry(ctx, x - w2, y + 8 - hh, w2 * 2, hh + 8, CASTLE_STONE, { course: 5, block: 7 });
+    for (let i = 0; i < 3; i++) {
+      const cx2 = x - w2 + i * (w2 - 1.5) + 0.5;
+      cylinder(ctx, cx2, y + 8 - hh - 5, 4.5, 6, CASTLE_STONE, { r: 1 });
+    }
   }
   const lit = Math.sin(time * 1.9 + x * 2) > -0.5;
   ctx.fillStyle = "#2a2430";
@@ -1086,14 +1092,19 @@ const paintDecor = (ctx, d, time) => {
   switch (d.t) {
     case "pine": pineTree(ctx, x, y, s, d.forest ? WOOD_PINE[band][v % 3] : PINE_TINTS[v % 4], PINE.trunk, seed); break;
     case "snowpine": pineTree(ctx, x, y, s, SNOWPINE.leaf, SNOWPINE.trunk, seed, "#eef5f8"); break;
-    case "rock": boulder(ctx, x, y, s, "#a6a296", mix("#557f35", REALM.GRASS_DK, 0.35), seed, v, { lichen: "#c4c49a" }); break;
-    case "icerock": boulder(ctx, x, y, s, "#9fb6c6", "#eef5f8", seed, v, { snow: true }); break;
-    case "obsidian": boulder(ctx, x, y, s, "#3c3448", null, seed, v, { gloss: true }); break;
+    case "rock": if (PIXON()) { pixRock(ctx, x, y, s, "#a6a296", mix("#557f35", REALM.GRASS_DK, 0.35), seed, v, { lichen: "#c4c49a" }); break; }
+      boulder(ctx, x, y, s, "#a6a296", mix("#557f35", REALM.GRASS_DK, 0.35), seed, v, { lichen: "#c4c49a" }); break;
+    case "icerock": if (PIXON()) { pixRock(ctx, x, y, s, "#9fb6c6", "#eef5f8", seed, v, { snow: true }); break; }
+      boulder(ctx, x, y, s, "#9fb6c6", "#eef5f8", seed, v, { snow: true }); break;
+    case "obsidian": if (PIXON()) { pixRock(ctx, x, y, s, "#3c3448", null, seed, v, { gloss: true }); break; }
+      boulder(ctx, x, y, s, "#3c3448", null, seed, v, { gloss: true }); break;
     case "crystal": crystal(ctx, x, y, s); break;
-    case "deadtree": deadTree(ctx, x, y, s, seed); break;
+    case "deadtree": if (PIXON()) { pixDeadTree(ctx, x, y, s, seed, REALM.ambient === "embers"); break; }
+      deadTree(ctx, x, y, s, seed); break;
     case "vent": vent(ctx, x, y, s); break;
     case "willow": willow(ctx, x, y, s, sway, seed); break;
-    case "mushroom": mushroom(ctx, x, y, s); break;
+    case "mushroom": if (PIXON()) { pixMushroom(ctx, x, y, s, seed); break; }
+      mushroom(ctx, x, y, s); break;
     case "reeds": reeds(ctx, x, y, s, time); break;
     case "gravestone": gravestone(ctx, x, y, s, seed); break;
     case "cairn": cairn(ctx, x, y, s); break;
@@ -1103,7 +1114,8 @@ const paintDecor = (ctx, d, time) => {
     case "tent": tent(ctx, x, y, s); break;
     case "banner": banner(ctx, x, y, s, time); break;
     case "tree": oakTree(ctx, x, y, s, d.forest ? WOOD_OAK[band][v % 3] : OAK_TINTS[v % 4], OAK.trunk, seed); break;
-    default: boulder(ctx, x, y, s, "#a6a296", "#6a9440", seed, v, { lichen: "#c4c49a" });
+    default: if (PIXON()) { pixRock(ctx, x, y, s, "#a6a296", "#6a9440", seed, v, { lichen: "#c4c49a" }); break; }
+      boulder(ctx, x, y, s, "#a6a296", "#6a9440", seed, v, { lichen: "#c4c49a" });
   }
 };
 // What gets tucked in around a piece's foot once it's inked.
@@ -1127,9 +1139,12 @@ const variantOf = (d) => {
   const dep = forestDepthAt(d.x, d.y);
   return { v: Math.floor(hv * 2), band: dep > 46 ? 2 : dep > 16 ? 1 : 0, s: Math.round((d.s || 1) * 4) / 4, sd: 0 };
 };
+
 const decorSprite = (d) => {
   const { v, band, s, sd } = variantOf(d);
-  const key = `${d.t}|${s}|${v}|${band}|${sd}|${d.forest ? "f" : ""}|${REALM.GRASS}`;
+  const OWNLINE = new Set(["rock", "icerock", "obsidian", "mushroom", "deadtree"]);
+  const NEWRING = prefs.newSprites !== false && !reg().flat.has(d.t) && !OWNLINE.has(d.t);
+  const key = `${d.t}|${s}|${v}|${band}|${sd}|${d.forest ? "f" : ""}|${REALM.GRASS}|${NEWRING ? "n" : "o"}`;
   let sp = SPRITES.get(key);
   if (sp) return sp;
   const tall = d.t === "tree" || d.t === "pine" || d.t === "snowpine" || d.t === "deadtree" || d.t === "willow";
@@ -1137,9 +1152,10 @@ const decorSprite = (d) => {
   const hw = Math.ceil(bw * s + (tall ? 6 : 8)), top = Math.ceil(bt * s + (tall ? 6 : 8)), bot = Math.ceil(12 + 6 * s);
   const seed = 7 + v * 131 + band * 1009 + Math.round(s * 10) * 17 + d.t.length * 29 + sd * 577;
   const cv = bakeSprite(hw * 2, top + bot, (c) => {
-    BAKE_CV = c.canvas;
-    try { paintDecor(c, { ...d, x: hw, y: top, s, v, band, seed }, 0); } finally { BAKE_CV = null; }
-  }, !reg().flat.has(d.t));
+    BAKE_CV = c.canvas; const was = baking(true);
+    try { paintDecor(c, { ...d, x: hw, y: top, s, v, band, seed }, 0); } finally { BAKE_CV = null; baking(was); }
+  }, !reg().flat.has(d.t) && !NEWRING && !(prefs.newSprites !== false && OWNLINE.has(d.t)));
+  if (NEWRING) tintRing(cv);
   const dress = DRESS[d.t] || reg().dress[d.t];
   if (dress) {
     const c = cv.getContext("2d");
