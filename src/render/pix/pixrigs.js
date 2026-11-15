@@ -58,6 +58,10 @@ import * as garrison from "./fig-garrison.js";
 import * as paladin from "./fig-paladin.js";
 import * as squire from "./fig-squire.js";
 import * as farmer from "./fig-farmer.js";
+import * as errant from "./fig-errant.js";
+import * as errantbow from "./fig-errantbow.js";
+import * as champion from "./fig-champion.js";
+import * as fieldbow from "./fig-fieldbow.js";
 import * as wraith from "./fig-wraith.js";
 import * as bonearcher from "./fig-bonearcher.js";
 import * as ghoul from "./fig-ghoul.js";
@@ -94,6 +98,11 @@ export const PIX = {
   squire: { fig: mk("squire", squire), atk: "attack", hit: 0.5, legacy: [0, 4, 6, 7], fx: true },
   farmer: { fig: mk("farmer", farmer), atk: "attack", hit: 0.52, legacy: [0, 3, 5, 7], fx: true },
   yeoman: { fig: mk("farmer", farmer), variant: "yeoman", atk: "attack", hit: 0.52, legacy: [0, 3, 5, 7], fx: true },
+  errant: { fig: mk("errant", errant), atk: "attack", hit: 0.5, legacy: [0, 4, 6, 7], fx: true },
+  errantBow: { fig: mk("errantbow", errantbow), atk: "shoot", hit: 0.44, legacy: [6, 7, 9, 13], fx: true },
+  errantRider: { fig: mk("cavalier", cavalier), variant: "errant", atk: "attack", hit: 0.5, per: 3.4, legacy: [0, 3, 6, 7], fx: true },
+  champion: { fig: mk("champion", champion), atk: "attack", hit: 0.52, legacy: [0, 4, 7, 8], fx: true },
+  bowman: { fig: mk("fieldbow", fieldbow), atk: "shoot", hit: 0.62, legacy: [7, 9, 10, 12], fx: false },
   // ---- the Greenwood horde ----
   goblin: { fig: mk("goblin", goblin), atk: "attack", hit: 0.47, per: 3.5, legacy: [0, 4, 5, 6], fx: true },
   goblinBare: { fig: mk("goblin", goblin), variant: "bare", atk: "attack", hit: 0.47, per: 3.05, legacy: [0, 4, 5, 6], fx: true },

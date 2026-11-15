@@ -13,6 +13,10 @@
 //                            hang. All three clips work.
 //   o.variant === "bolt":    the loose horse in a panic (`loosehorse`): the same, head flung up,
 //                            the eye ringed white, the nostril flared, the reins and mane streaming.
+//   o.variant === "errant": the Lancer Order (`errantRider`, the Knights Errant's mounted path): the same
+//                            horse and seat in the crown's errant livery: a forest-green caparison and
+//                            surcoat, gunmetal plate, brass, a brass chevron where the tower was, and an
+//                            off-white plume on the sallet. The cavalier's own looks are unchanged.
 // Clips: idle (breathing, one forefoot pawing, a tail swish, the plume and pennon stirring),
 // walk (its CHARGE: a heavy one-flight gallop, the lance couched), attack (the horse rears,
 // the lance hauled back and up, then the weight is thrown forward down the lance).
@@ -28,6 +32,15 @@ const LEATHER = mat("#5a3c28"), SADDLE = mat("#4a3022"), GREY = mat("#a8aeb8", {
 const SKIN = mat("#e0b088"), EYEH = flat("#2a1c2c"), BROW = mat("#4a3426"), BOOT = mat("#2a2a30", { contrast: 1.2, floor: 1 });
 const SMEAR = flat("#fff3d2", { emis: true, line: "#c8ccd8" }), SMEAR2 = flat("#c8d2e4", { emis: true, line: "#9aa4bc" });
 const DUST = flat("#cdb894"), DUST2 = flat("#b09c7c");
+
+// the two liveries: the Iron cavalier's (the first, every material as it always was) and the Lancer
+// Order's errant green over gunmetal (the draws below read L.OX the caparison and surcoat, L.OXK its dark,
+// L.IRON the plate, L.GREY the emblem's metal, L.CREST the sallet's crest)
+const GREEN = mat("#2f6b3f", { contrast: 1.15 }), GREENK = mat("#1f4a2c"), GUN = mat("#68738a", { contrast: 1.2 }), PLUME = mat("#e8e2d0", { contrast: 1.2 });
+const LOOKS = {
+  cavalier: { errant: false, OX, OXK, IRON, GREY, CREST: OX },
+  errant: { errant: true, OX: GREEN, OXK: GREENK, IRON: GUN, GREY: BRASS, CREST: PLUME },
+};
 
 // the rider's sallet, facing +x (as fig-unhorsed.js): M iron, W glint, m brim underside, B bevor,
 // S skin, s a tone down, N nose, b brow, E eye (e shut)
@@ -51,6 +64,8 @@ const LEG = {
   b: { m: BROW, fix: 1 }, E: { m: EYEH }, e: { m: SKIN, fix: 0 },
 };
 
+LOOKS.cavalier.LEG = LEG;
+LOOKS.errant.LEG = { ...LEG, M: { m: GUN }, W: { m: GUN, bias: 1 }, B: { m: GUN, bias: -1 } };
 export const BOX = { w: 132, h: 100, ox: 52, oy: 90 };
 export const BONES = HUMAN;               // unused: the horse stands on beast.js's bones
 const Q = { ...QUAD, spine: 30, height: 30, sh: [-1.8, 9], hip: [1.8, 8.4], foreU: 11.4, foreL: 10.8, hindU: 11.9, hindL: 11.4, paw: 1.7,
@@ -84,7 +99,7 @@ const leg = (px, l, z, bias) => {
 
 // the horse: far legs, tail, body, caparison, neck, head, near legs. Returns the head's points for the reins.
 const horse = (px, b, b1, b2, o) => {
-  const p = b.p, bolt = o.variant === "bolt";
+  const p = b.p, bolt = o.variant === "bolt", L = o.L;
   const vx = cl(b.W[0] - b1.W[0], -3, 3), vy = cl(b.W[1] - b1.W[1], -3, 3);
 
   leg(px, b.FH, 1, -1);
@@ -129,7 +144,7 @@ const horse = (px, b, b1, b2, o) => {
   px.part();
   for (let i = 0; i < 5; i++) {
     const u = 0.1 + i * 0.19, c = mp(u, 2.0), c2 = mp(u + 0.1, 2.6), f = mp(u, -2.4);
-    px.poly([c, c2, [c2[0] + nd[0] * 0.4 - nn[0] * 2, c2[1] + nd[1] * 0.4 - nn[1] * 2], f], IRON, 4.6, { round: 0.6, cast: 1 });
+    px.poly([c, c2, [c2[0] + nd[0] * 0.4 - nn[0] * 2, c2[1] + nd[1] * 0.4 - nn[1] * 2], f], L.IRON, 4.6, { round: 0.6, cast: 1 });
     px.dot(c[0] - nn[0] * 0.6, c[1] - nn[1] * 0.6, BRASS, 4.62, { fix: 3 });
   }
 
@@ -139,17 +154,22 @@ const horse = (px, b, b1, b2, o) => {
   const dags = [[0.32, 15.4], [0.24, 13], [0.16, 15.8], [0.07, 13.2], [-0.02, 16], [-0.1, 13.4], [-0.19, 16.2], [-0.27, 13.6], [-0.34, 15.2]];
   dags.forEach(([s, d], i) => { const q = b.at(s, 0, d); hem.push([q[0] + sw(i), q[1] + (i % 2 ? -0.4 : 0.6)]); });
   px.part(); const capId = px._pid;
-  px.poly([b.at(0.3, 0.4, -0.8), b.at(0.35, 1.2, 6), ...hem, b.at(-0.38, -1, 6), b.at(-0.33, -0.5, -0.8)], OX, 5, { round: 0.85, cast: 2 });
+  px.poly([b.at(0.3, 0.4, -0.8), b.at(0.35, 1.2, 6), ...hem, b.at(-0.38, -1, 6), b.at(-0.33, -0.5, -0.8)], L.OX, 5, { round: 0.85, cast: 2 });
   const e0 = b.at(0.3, 0, 14.4), e1 = b.at(-0.32, 0, 14.6);
   px.line(e0[0] + sw(0), e0[1] - 0.2, e1[0] + sw(9), e1[1] - 0.2, BRASS, 5.04);                   // the brass line above the hem
   px.toneLine(b.at(0.06, 0, 1)[0], b.at(0.06, 0, 1)[1], b.at(0.0, 0, 14)[0], b.at(0.0, 0, 14)[1], -1, capId);
   px.toneLine(b.at(-0.2, 0, 1)[0], b.at(-0.2, 0, 1)[1], b.at(-0.22, 0, 14)[0], b.at(-0.22, 0, 14)[1], 1, capId);
-  // the tower of the Iron Kingdom on the flank
+  // the tower of the Iron Kingdom on the flank (the Lancer Order's brass chevron)
   px.part();
   const tw = b.at(-0.17, 0, 8.6);
-  px.rect(tw[0] - 2.6, tw[1] - 1.6, 5.2, 6.4, GREY, 5.1, { fix: 3 });
-  for (const x of [-2.6, -0.4, 1.8]) px.dot(tw[0] + x, tw[1] - 2.6, GREY, 5.1, { fix: 3 });
-  px.rect(tw[0] - 0.6, tw[1] + 1.8, 1.2, 3, OXK, 5.12, { noLine: true });
+  if (L.errant) {
+    px.line(tw[0] - 2.8, tw[1] - 0.6, tw[0], tw[1] + 2.4, L.GREY, 5.1); px.line(tw[0], tw[1] + 2.4, tw[0] + 2.8, tw[1] - 0.6, L.GREY, 5.1);
+    px.line(tw[0] - 2.8, tw[1] + 1.6, tw[0], tw[1] + 4.6, L.GREY, 5.1); px.line(tw[0], tw[1] + 4.6, tw[0] + 2.8, tw[1] + 1.6, L.GREY, 5.1);
+  } else {
+    px.rect(tw[0] - 2.6, tw[1] - 1.6, 5.2, 6.4, L.GREY, 5.1, { fix: 3 });
+    for (const x of [-2.6, -0.4, 1.8]) px.dot(tw[0] + x, tw[1] - 2.6, L.GREY, 5.1, { fix: 3 });
+    px.rect(tw[0] - 0.6, tw[1] + 1.8, 1.2, 3, L.OXK, 5.12, { noLine: true });
+  }
   // the saddle: cantle and pommel round the seat, a girth strap
   px.part();
   const sd0 = b.at(0.13, 0, -1.2), sd1 = b.at(-0.1, 0, -1.2), sd2 = b.at(-0.12, 0, 3.4), sd3 = b.at(0.14, 0, 3.4);
@@ -174,7 +194,7 @@ const horse = (px, b, b1, b2, o) => {
   px.ellipse(...H(3.4, -2.4), 3, 2.6, COAT, 6.03, { bias: -1, cast: 0 });                           // the cheek
   // the chanfron: a steel plate down the face, ridged, a brass boss between the eyes
   px.part();
-  px.poly([H(0.6, 3.6), H(9.4, 2.8), H(10, 0.8), H(8.4, 0.4), H(0.8, 1.2)], IRON, 6.1, { round: 0.6, cast: 1 });
+  px.poly([H(0.6, 3.6), H(9.4, 2.8), H(10, 0.8), H(8.4, 0.4), H(0.8, 1.2)], L.IRON, 6.1, { round: 0.6, cast: 1 });
   px.line(...H(1.6, 2.5), ...H(9, 2.1), STEELB, 6.12, { fix: 4, noLine: true });
   px.dot(...H(1.8, 2.2), BRASS, 6.14, { fix: 3 });
   // the eye (ringed white when it bolts) and the nostril
@@ -200,7 +220,7 @@ const horse = (px, b, b1, b2, o) => {
 };
 
 // the knight: hip on the saddle, a beat behind the back under him
-const rider = (px, b, b1, b2, h) => {
+const rider = (px, b, b1, b2, h, L) => {
   const p = b.p;
   const s0 = b.at(0.01, 0, -1.4), s1 = b1.at(0.01, 0, -1.4), s2 = b2.at(0.01, 0, -1.4);
   const late = s1[1] * 0.65 + s2[1] * 0.35, air = cl(s0[1] - late, 0, 2.5), press = cl(late - s0[1], 0, 2);
@@ -216,10 +236,10 @@ const rider = (px, b, b1, b2, h) => {
   const hp = [Hp[0] - 0.6, Hp[1] + 0.6], ft = [Hp[0] + 2.4 + (p.rKnee ?? 0), Hp[1] + 12.8];
   const lg = ik(hp[0], hp[1], ft[0], ft[1], R.thigh, R.shin, -1);
   px.part();
-  px.capsule(hp[0], hp[1], 2.9, lg.mid[0], lg.mid[1], 2.4, IRON, 8, { cast: 1 });
-  px.capsule(lg.mid[0], lg.mid[1], 2.3, lg.end[0], lg.end[1] - 1, 1.9, IRON, 8, { cast: 1 });
+  px.capsule(hp[0], hp[1], 2.9, lg.mid[0], lg.mid[1], 2.4, L.IRON, 8, { cast: 1 });
+  px.capsule(lg.mid[0], lg.mid[1], 2.3, lg.end[0], lg.end[1] - 1, 1.9, L.IRON, 8, { cast: 1 });
   px.part();
-  px.ellipse(lg.mid[0] + 0.5, lg.mid[1], 2.6, 2.4, IRON, 8.02, { cast: 1 });
+  px.ellipse(lg.mid[0] + 0.5, lg.mid[1], 2.6, 2.4, L.IRON, 8.02, { cast: 1 });
   px.dot(lg.mid[0] + 0.6, lg.mid[1] - 0.6, STEELB, 8.04, { fix: 4 });
   px.capsule(lg.end[0] - 0.4, lg.end[1] - 0.2, 2, lg.end[0] + 3.2, lg.end[1] + 0.6, 1.6, BOOT, 8.05, { floor: 1 });
   px.line(lg.end[0] - 1.2, lg.end[1] + 1.8, lg.end[0] + 3, lg.end[1] + 1.8, BRASS, 8.08, { fix: 3 });          // the stirrup's tread
@@ -229,14 +249,14 @@ const rider = (px, b, b1, b2, h) => {
   const sc = [C[0] + 6.4 + (p.shx ?? 0), C[1] + 3.6];
   const fa = ik(sF[0], sF[1], sc[0] - 1.6, sc[1] - 0.6, R.upper, R.fore, 1);
   px.part();
-  px.capsule(sF[0], sF[1], 2.2, fa.mid[0], fa.mid[1], 2, IRON, 7.6, { bias: -1 });
-  px.capsule(fa.mid[0], fa.mid[1], 2, fa.end[0], fa.end[1], 1.7, IRON, 7.6, { bias: -1 });
+  px.capsule(sF[0], sF[1], 2.2, fa.mid[0], fa.mid[1], 2, L.IRON, 7.6, { bias: -1 });
+  px.capsule(fa.mid[0], fa.mid[1], 2, fa.end[0], fa.end[1], 1.7, L.IRON, 7.6, { bias: -1 });
 
   // the trunk: a breastplate under an oxblood surcoat that falls over the thighs and the saddle
   const hemY = Hp[1] + 5.8, sw = cl(-vx * 1.1, -2.4, 2.4);
   px.part(); const tab = px._pid;
   px.poly([[C[0] - 4.8, C[1] - 1.8], [C[0] + 4.8, C[1] - 1.8], [C[0] + 5.4, C[1] + 3], [Hp[0] + 5, Hp[1] - 1], [Hp[0] + 6.2, hemY - 0.4], [Hp[0] + 4, hemY + 1.6], [Hp[0] + 1.8, hemY - 0.2],
-    [Hp[0] - 0.6, hemY + 1.8], [Hp[0] - 2.6 + sw, hemY - 0.2], [Hp[0] - 4.8 + sw, hemY + 1.6], [Hp[0] - 6.4 + sw, hemY - 0.4], [Hp[0] - 5, Hp[1] - 2], [C[0] - 5.6, C[1] + 3]], OX, 8.5, { round: 0.92, cast: 1 });
+    [Hp[0] - 0.6, hemY + 1.8], [Hp[0] - 2.6 + sw, hemY - 0.2], [Hp[0] - 4.8 + sw, hemY + 1.6], [Hp[0] - 6.4 + sw, hemY - 0.4], [Hp[0] - 5, Hp[1] - 2], [C[0] - 5.6, C[1] + 3]], L.OX, 8.5, { round: 0.92, cast: 1 });
   px.toneLine(Hp[0] + 1.4, Hp[1] - 2, Hp[0] + 1.2, hemY - 1.4, -1, tab);
   px.toneLine(Hp[0] - 2.4, Hp[1] - 2, Hp[0] - 2.6 + sw * 0.7, hemY - 1.4, 1, tab);
   px.line(Hp[0] - 5.6 + sw, hemY - 1.2, Hp[0] + 5.6, hemY - 1.2, BRASS, 8.54);
@@ -244,13 +264,14 @@ const rider = (px, b, b1, b2, h) => {
   px.rect(Hp[0] + 1.4, Hp[1] - 3.6, 2, 2, BRASS, 8.56, { fix: 3 });
   px.part();
   const c0 = [C[0] + 1, C[1] + 3.4];                                   // the tower on his breast
-  px.rect(c0[0], c0[1], 2, 3, GREY, 8.6, { fix: 3 }); px.dot(c0[0], c0[1] - 1, GREY, 8.6, { fix: 3 }); px.dot(c0[0] + 1, c0[1] - 1, GREY, 8.6, { fix: 3 });
+  if (L.errant) { px.line(c0[0] - 2.2, c0[1] - 0.4, c0[0] + 0.6, c0[1] + 2, L.GREY, 8.6); px.line(c0[0] + 0.6, c0[1] + 2, c0[0] + 3.6, c0[1] - 0.4, L.GREY, 8.6); }
+  else { px.rect(c0[0], c0[1], 2, 3, L.GREY, 8.6, { fix: 3 }); px.dot(c0[0], c0[1] - 1, L.GREY, 8.6, { fix: 3 }); px.dot(c0[0] + 1, c0[1] - 1, L.GREY, 8.6, { fix: 3 }); }
   px.part();
-  px.poly([[C[0] - 5.2, C[1] - 3.4], [C[0] + 5.2, C[1] - 3.4], [C[0] + 5.6, C[1] + 0.2], [C[0] - 5.6, C[1] + 0.4]], IRON, 8.7, { round: 0.9, cast: 1 });
+  px.poly([[C[0] - 5.2, C[1] - 3.4], [C[0] + 5.2, C[1] - 3.4], [C[0] + 5.6, C[1] + 0.2], [C[0] - 5.6, C[1] + 0.4]], L.IRON, 8.7, { round: 0.9, cast: 1 });
   px.line(C[0] - 4.8, C[1] + 0.6, C[0] + 5, C[1] + 0.4, IRONK, 8.72, { fix: 1 });
   for (const [s, zz, bs] of [[sF, 7.7, -1], [sN, 9.2, 0]]) {                                           // round pauldrons
     px.part();
-    px.ellipse(s[0] + 0.2, s[1] + 0.2, 4.2, 3.7, IRON, zz, { bias: bs, cast: 1 });
+    px.ellipse(s[0] + 0.2, s[1] + 0.2, 4.2, 3.7, L.IRON, zz, { bias: bs, cast: 1 });
     px.line(s[0] - 3.2, s[1] + 1.6, s[0] + 3.4, s[1] + 1.6, IRONK, zz + 0.01, { bias: bs });
     px.dot(s[0] + 0.6, s[1] - 1.6, STEELB, zz + 0.02, { fix: 4 });
   }
@@ -258,21 +279,27 @@ const rider = (px, b, b1, b2, h) => {
   // the head: the crest streams back, a beat late
   const tuft = cl(-vx * 1.5, -2.4, 2.4), tv = cl(-vy * 1.0, -1.4, 1.4);
   px.part();
-  px.poly([[hx - 4, hy - 11.4], [hx + 3, hy - 11.8], [hx + 3.2, hy - 14], [hx - 3.4 + tuft * 0.5, hy - 15 + tv * 0.4], [hx - 9 + tuft * 1.7, hy - 12 + tv], [hx - 11.6 + tuft * 2.3, hy - 7.4 + tv], [hx - 10.2 + tuft * 1.5, hy - 3.2], [hx - 7.4 + tuft, hy - 5.8], [hx - 5.4, hy - 8.8]], OX, 9.4, { round: 0.85, cast: 1 });
+  px.poly([[hx - 4, hy - 11.4], [hx + 3, hy - 11.8], [hx + 3.2, hy - 14], [hx - 3.4 + tuft * 0.5, hy - 15 + tv * 0.4], [hx - 9 + tuft * 1.7, hy - 12 + tv], [hx - 11.6 + tuft * 2.3, hy - 7.4 + tv], [hx - 10.2 + tuft * 1.5, hy - 3.2], [hx - 7.4 + tuft, hy - 5.8], [hx - 5.4, hy - 8.8]], L.CREST, 9.4, { round: 0.85, cast: 1 });
   px.part();
-  px.stamp(p.rBlink ? blink(SALLET) : SALLET, hx, hy, LEG, 9.5, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] });
+  px.stamp(p.rBlink ? blink(SALLET) : SALLET, hx, hy, L.LEG, 9.5, { ax: 7, ay: 12, cast: 2, ball: [8, 6, 8, 7] });
   px.dot(hx + 2, hy - 10.6, BRASS, 9.6, { fix: 3 });
 
   // the heater shield, held up before his chest on the far arm
   const S = (x, y) => [sc[0] + x, sc[1] + y];
   px.part(); const sid = px._pid;
-  px.poly([S(-4.8, -5.8), S(4.8, -5.8), S(5.2, 0.8), S(0, 8.2), S(-5.2, 0.8)], IRON, 9, { round: 0.6, cast: 2 });
-  px.poly([S(-3.6, -4.6), S(3.6, -4.6), S(3.9, 0.4), S(0, 6.4), S(-3.9, 0.4)], OX, 9.02, { round: 0.7, cast: 0 });
+  px.poly([S(-4.8, -5.8), S(4.8, -5.8), S(5.2, 0.8), S(0, 8.2), S(-5.2, 0.8)], L.IRON, 9, { round: 0.6, cast: 2 });
+  px.poly([S(-3.6, -4.6), S(3.6, -4.6), S(3.9, 0.4), S(0, 6.4), S(-3.9, 0.4)], L.OX, 9.02, { round: 0.7, cast: 0 });
   px.toneLine(...S(-1.4, -4.4), ...S(-1.2, 4.6), -1, sid);
   px.part();
-  px.rect(sc[0] - 1.8, sc[1] - 3, 3.6, 4.4, GREY, 9.1, { fix: 3 });
-  px.dot(sc[0] - 1.8, sc[1] - 3.8, GREY, 9.1, { fix: 3 }); px.dot(sc[0], sc[1] - 3.8, GREY, 9.1, { fix: 3 }); px.dot(sc[0] + 1.8, sc[1] - 3.8, GREY, 9.1, { fix: 3 });
-  px.rect(sc[0] - 0.5, sc[1] - 0.8, 1, 2.2, OXK, 9.12, { noLine: true });
+  if (L.errant) {
+    px.line(sc[0] - 3, sc[1] - 2.4, sc[0], sc[1] + 1, L.GREY, 9.1); px.line(sc[0], sc[1] + 1, sc[0] + 3, sc[1] - 2.4, L.GREY, 9.1);
+    px.dot(sc[0], sc[1] + 3.4, L.GREY, 9.1, { fix: 3 });
+  } else {
+    px.rect(sc[0] - 1.8, sc[1] - 3, 3.6, 4.4, L.GREY, 9.1, { fix: 3 });
+    px.dot(sc[0] - 1.8, sc[1] - 3.8, L.GREY, 9.1, { fix: 3 }); px.dot(sc[0], sc[1] - 3.8, L.GREY, 9.1, { fix: 3 }); px.dot(sc[0] + 1.8, sc[1] - 3.8, L.GREY, 9.1, { fix: 3 });
+    px.rect(sc[0] - 0.5, sc[1] - 0.8, 1, 2.2, L.OXK, 9.12, { noLine: true });
+
+  }
   for (const [x, y] of [[-4, -5], [4, -5], [-4.2, 0.4], [4.2, 0.4]]) px.dot(sc[0] + x, sc[1] + y, STEELB, 9.2, { fix: 4 });
 
   // the near arm and the lance couched under it: banded, a steel head, a pennon streaming
@@ -285,7 +312,7 @@ const rider = (px, b, b1, b2, h) => {
   const LANCE_BACK = -11, LANCE_FWD = 36;
   for (let f = LANCE_BACK, i = 0; f < LANCE_FWD - 0.01; f += 3.6, i++) {
     const f1 = Math.min(LANCE_FWD, f + 3.6);
-    px.capsule(...at(f), 1.05, ...at(f1), 1.05, i % 2 ? CREAM : OX, 10, { cast: 1 });
+    px.capsule(...at(f), 1.05, ...at(f1), 1.05, i % 2 ? CREAM : L.OX, 10, { cast: 1 });
   }
   px.part();
   px.poly([at(35, -1.2), at(37.4, -2), at(44, 0), at(37.4, 2), at(35, 1.2)], STEELB, 10.1, { fix: 3 });
@@ -295,13 +322,13 @@ const rider = (px, b, b1, b2, h) => {
   // the pennon: two tails of oxblood and cream under the head
   const fl = cl(-vx * 1.4 + (p.flut || 0), -2.6, 2.6);
   px.part();
-  px.poly([at(31.6, 0.6), at(31, 4 + fl * 0.3), at(24.6, 5.4 + fl), at(20, 3.6 + fl * 1.3), at(23.6, 2.4 + fl * 0.6), at(26.4, 0.8)], OX, 10.2, { round: 0.6, cast: 1 });
+  px.poly([at(31.6, 0.6), at(31, 4 + fl * 0.3), at(24.6, 5.4 + fl), at(20, 3.6 + fl * 1.3), at(23.6, 2.4 + fl * 0.6), at(26.4, 0.8)], L.OX, 10.2, { round: 0.6, cast: 1 });
   px.line(...at(30, 2), ...at(22.4, 3.6 + fl), BRASS, 10.24, { noLine: true });
   px.part();
-  px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.4, 2.2, IRON, 10.4, { cast: 0, bias: 1 });
-  px.capsule(sN[0], sN[1] + 0.6, 2.4, na.mid[0], na.mid[1], 2.1, IRON, 10.5, { cast: 1 });
-  px.capsule(na.mid[0], na.mid[1], 2.1, hd[0], hd[1], 1.7, IRON, 10.5, { cast: 1 });
-  px.ellipse(na.mid[0], na.mid[1], 2, 1.9, IRON, 10.55, { cast: 1 });
+  px.ellipse(sN[0] - 0.2, sN[1] + 0.2, 2.4, 2.2, L.IRON, 10.4, { cast: 0, bias: 1 });
+  px.capsule(sN[0], sN[1] + 0.6, 2.4, na.mid[0], na.mid[1], 2.1, L.IRON, 10.5, { cast: 1 });
+  px.capsule(na.mid[0], na.mid[1], 2.1, hd[0], hd[1], 1.7, L.IRON, 10.5, { cast: 1 });
+  px.ellipse(na.mid[0], na.mid[1], 2, 1.9, L.IRON, 10.55, { cast: 1 });
   px.part();
   px.ellipse(hd[0], hd[1], 1.9, 1.9, LEATHER, 10.7);
   h.lance = { hd, d, nn, tip: at(44) };
@@ -311,10 +338,11 @@ const rider = (px, b, b1, b2, h) => {
 export const draw = (px, F, o = {}) => {
   const { b, b1, b2 } = beastFrames(F, Q);
   const v = o.variant || "";
-  const h = horse(px, b, b1, b2, { variant: v });
+  const L = LOOKS[v] || LOOKS.cavalier;
+  const h = horse(px, b, b1, b2, { variant: v, L });
   const info = {};
   if (v !== "loose" && v !== "bolt") {
-    rider(px, b, b1, b2, info);
+    rider(px, b, b1, b2, info, L);
   } else {
     // no one on the saddle: the stirrup irons swing, the reins hang from the bit and trail
     const bolt = v === "bolt", sd = b.at(0.04, 0, 3.4), vx = cl(b.W[0] - b1.W[0], -3, 3);
