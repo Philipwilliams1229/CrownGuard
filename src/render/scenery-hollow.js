@@ -35,7 +35,7 @@
 //   fencandle  corpse-candles: a lantern on a crooked stake, a skull of candles (live)
 //   lichfence  a run of lychyard fence: iron pales on stone posts, or wood
 
-import { lighten, darken, mix, rgba, soft, shadow, ball, glow, blade, tuft, stone, hash, lin, rad, blobPath, part, bakeSprite, inkOutline, roundRect, ellipse, PX, SUN } from "./paint.js";
+import { lighten, darken, mix, rgba, soft, shadow as softShadow, ball, glow, blade, tuft, stone, hash, lin, rad, blobPath, part, bakeSprite, inkOutline, roundRect, ellipse, PX, SUN } from "./paint.js";
 import { REALM } from "../data/maps.js";
 import { PTS, nearestOnPath, posAt, angleAt, TOTAL_LEN } from "../engine/path.js";
 import { PONDS, RIVERS, BRIDGES, FOREST, forestDepthAt, inRiver } from "../data/terrain.js";
@@ -64,6 +64,18 @@ const DRIFT = "#aaa392";           // drowned wood, bleached
 const WEED = "#4e5e4c";
 
 const ap = (v) => Math.round(v * PX) / PX;
+// look B: a cast shadow with a body to it. The soft fall-off paint.js lays, a
+// third stronger, and a hard stepped core (rows of whole art pixels, no edge
+// blur) so a stone's shadow reads as a shape on the ground, not a smudge.
+const shadow = (ctx, x, y, rx, ry, a = 0.28) => {
+  softShadow(ctx, x, y, rx, ry, Math.min(0.5, a * 1.3));
+  const cr = rx * 0.62, cy = ry * 0.6, step = 1 / PX;
+  ctx.fillStyle = "rgba(28,20,30," + (a * 0.55).toFixed(3) + ")";
+  for (let v = -cy; v < cy; v += step) {
+    const w = cr * Math.sqrt(Math.max(0, 1 - ((v + step / 2) / cy) ** 2));
+    if (w > 0.3) ctx.fillRect(ap(x - w), ap(y + v), ap(w * 2), step);
+  }
+};
 const px1 = (c, x, y, w = 0.5, h = 0.5) => c.fillRect(ap(x), ap(y), w, h);
 
 // A piece painted on its own layer with a 1px line of its own dark along
@@ -412,6 +424,11 @@ const bogPool = (ctx, x, y, s, o) => {
   soft(ctx, x - rx * 0.25, gy - ry * 0.1, rx * 0.6, ry * 0.45, [[0, rgba(BOGW_LT, 0.9)], [1, rgba(BOGW_LT, 0)]]);
   ctx.fillStyle = rgba("#9ab4ac", 0.7);
   px1(ctx, x - rx * 0.5, gy - ry * 0.15, 4, 0.5); px1(ctx, x - rx * 0.1, gy + ry * 0.2, 2.5, 0.5);
+  // look B, the wet sheen: broken horizontal glints, fading along their length
+  for (let q = 0; q < 6; q++) {
+    const gx = x - rx * 0.8 + hash(seed, q + 60) * rx * 1.5, gyy = gy - ry * 0.7 + hash(seed, q + 66) * ry * 1.4, len = 2 + Math.floor(hash(seed, q + 72) * 4);
+    for (let i = 0; i < len; i++) { ctx.fillStyle = rgba("#9ab4ac", 0.5 * (1 - i / (len + 1))); px1(ctx, gx + i * 0.5, gyy, 0.5, 0.5); }
+  }
   ctx.restore();
   // lily pads
   const np = 2 + (v % 3);
@@ -447,7 +464,7 @@ const weather = (c, x, y, w, h, seed, mossy = 0.5) => {
   for (let k = 0; k < 3; k++) px1(c, x - w * 0.4 + hash(seed, k + 1) * w * 0.7, y - h * (0.3 + hash(seed, k + 4) * 0.6), 1, 0.5);
   c.fillStyle = "#c8a860";
   px1(c, x - w * 0.2 + hash(seed, 9) * w * 0.4, y - h * 0.55, 0.5, 0.5);
-  if (hash(seed, 10) < mossy) {
+  if (hash(seed, 10) < Math.min(1, mossy * 1.3 + 0.1)) {
     c.fillStyle = MOSS;
     for (let k = 0; k < 4; k++) px1(c, x - w * 0.5 + k * w * 0.22, y - 0.8 - hash(seed, k + 12) * 2.2, 1, 0.5 + hash(seed, k + 14) * 1.5);
     c.fillStyle = MOSS_LT;
@@ -1160,7 +1177,14 @@ const wispLight = (ctx, x, y, s, t, ph, gy, water = false) => {
       ctx.fillRect(ap(px - w + Math.sin(t * 1.8 + q * 2 + ph) * 0.8), ap(gy + 1 + q * 1.5), ap(w * 2), 0.5);
     }
     soft(ctx, px, gy + 2, 12 * s, 3.4 * s, [[0, rgba(TEAL, 0.2 * fade)], [1, rgba(TEAL, 0)]]);
-  } else soft(ctx, px + 1, gy + 0.5, 13 * s, 3.8 * s, [[0, rgba(TEAL, 0.22 * fade)], [1, rgba(TEAL, 0)]]);
+  } else {
+    // (look B: its light on the turf in three hard steps, a pool of cold air)
+    for (const [f, al] of [[1, 0.1], [0.62, 0.11], [0.3, 0.14]]) {
+      ctx.fillStyle = rgba(TEAL, al * fade);
+      const ry = 3.6 * s * f, rx = 12 * s * f;
+      for (let v = -ry; v < ry; v += 0.5) { const w = rx * Math.sqrt(1 - ((v + 0.25) / ry) ** 2); ctx.fillRect(ap(px + 1 - w), ap(gy + 0.5 + v), ap(w * 2), 0.5); }
+    }
+  }
   glow(ctx, px, py, 15 * s, TEAL, 0.26 * fade);
   glow(ctx, px, py, 6 * s, "#c8fff0", 0.42 * fade);
   // a crisp ring of teal round the heart
@@ -1938,6 +1962,13 @@ function paintFenTurf(ctx, kit) {
     }
   }
 
+  // look B, peat patches: wet dark ground in blotches on the open turf
+  for (let i = 0; i < 24; i++) {
+    const x = 24 + H0(i, 170) * (SW - 48), y = 20 + H0(i, 171) * (H - 40), rx = 9 + H0(i, 172) * 11, ry = 4 + H0(i, 173) * 3.5;
+    if (x > W - WALL_W - 24 || !clear(x, y, ry + 4) || !clear(x - rx, y, 3) || !clear(x + rx, y, 3)) continue;
+    hollow(x, y, rx, ry, i + 1700, 0.3, false);
+  }
+
   // sphagnum in colonies over the open turf, fewer
   for (let i = 0; i < 26; i++) {
     const cx = H0(i, 34) * SW, cy = H0(i, 35) * H, n = 1 + Math.floor(H0(i, 36) * 3);
@@ -1990,13 +2021,13 @@ function paintFenTurf(ctx, kit) {
   }
 
   // lone sedge, gathered into loose drifts by a slow noise
-  for (let i = 0; i < 140; i++) {
+  for (let i = 0; i < 185; i++) {
     const x = H0(i, 50) * SW, y = H0(i, 51) * H;
     if (vnoise(x, y, 90, seed + 3) < 0.52 || !clear(x, y, 4)) continue;
     pixSedge(K, x, y, 0.55 + H0(i, 52) * 0.45, i + 700, 3 + Math.floor(H0(i, 53) * 3), H0(i, 54) < 0.25 ? SEDGE_PALE : SEDGE);
   }
   // bog-cotton in drifts, the fen's white flowers
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 32; i++) {
     const cx = H0(i, 60) * SW, cy = H0(i, 61) * H, n = 3 + Math.floor(H0(i, 62) * 4);
     for (let k = 0; k < n; k++) {
       const x = cx + (H0(i * 7 + k, 63) - 0.5) * 28, y = cy + (H0(i * 7 + k, 64) - 0.5) * 12;
@@ -2072,6 +2103,7 @@ const SLAB = ["#7d7f70", "#858370", "#76796b", "#8a8674", "#72766a"].map(hexC), 
 const LICHEN_C = hexC("#a8a66e"), MOSS_J = [hexC("#4c6434"), hexC("#5e783e")];
 // drowned boards, bleached nearly to the dust's own grey
 const PLANK = { lit: hexC("#9a927e"), a: hexC("#7a7262"), b: hexC("#827a68"), c: hexC("#76705e"), dk: hexC("#5a5244"), grain: hexC("#6c6556"), nail: hexC("#3e3834"), rust: hexC("#7a5c44") };
+const BG_WET = hexC("#22302c");
 const MUD = [hexC("#4a4436"), hexC("#544c3c"), hexC("#2c3a34")];
 
 function paintFenRoad(ctx) {
@@ -2211,7 +2243,7 @@ function paintFenRoad(ctx) {
           const hx = Math.max(...q.map(([x, y]) => (x - cx) * ux + (y - cy) * uy));
           cover = { ux, uy, cx, cy, c: hx * (1 - 2 * f) };
         }
-        slabs.push({ q, v, sd, wet, sgn, pool, cover, T: tone3(col, 0.2, 0.26), crack: H0(sd, 19) < 0.22, lichen: H0(sd, 20) < 0.14, edge });
+        slabs.push({ q, v, sd, wet, sgn, pool, cover, T: tone3(col, 0.27, 0.34), crack: H0(sd, 19) < 0.22, lichen: H0(sd, 20) < 0.14, edge });
       }
     }
     d = d1;
@@ -2285,7 +2317,7 @@ function paintFenRoad(ctx) {
           }
           let c = T[1];
           const hh = hash(i * 3 + s.sd, j);
-          if (!up) c = T[0];
+          if (!up) c = mixC(T[0], SUNL, 0.14);             // the pale lip
           else if (!dn || !rt) c = T[2];
           else if (!lf) c = mixC(T[0], T[1], 0.5);
           else {
@@ -2300,6 +2332,13 @@ function paintFenRoad(ctx) {
           if (crack.has(p) && up && dn) c = mixC(T[2], DUSK, 0.15);
           if (up && dn && lf && rt && Math.abs(i - lx) + Math.abs(j - ly) * 1.5 < 2.2 + hash(i, j + 3)) c = mixC(T[1], LICHEN_C, 0.6);
           if (s.wet > 0.3 && !dn && hash(i, j + 7) < s.wet * 0.5) c = MOSS_J[0];
+          // look B, the wet sheen: a drowned flag is darker where the water
+          // lies in its worn hollows, with a short pale glint on one of them
+          if (s.wet > 0.22 && up && dn && lf && rt) {
+            const sh = vnoise(i / k + s.sd * 3, j / k, 1.8, seed + 63);
+            if (sh > 0.78 - s.wet * 0.2) c = mixC(c, BG_WET, 0.36);
+            if (sh > 0.82 && hash(i, j + 91) < 0.18) c = mixC(c, TEAL_C, 0.32);
+          }
           // the drift lying over the rest of it throws a little shade
           if ((up && !VIS[p - PW]) || (lf && !VIS[p - 1])) c = mixC(c, T[2], 0.5);
           K.set(i, j, c);
@@ -2319,8 +2358,9 @@ function paintFenRoad(ctx) {
           done[p] = 1;
           if (isPool(p - PW)) { K.shift(i, j, 0.16); continue; }
           const src = slabs[SID[below ? (nb(p - PW) ? p - PW : p - 1) : (nb(p + PW) ? p + PW : p + 1)] - 1];
-          if (hash(i + src.sd, j * 3) < 0.1 + src.wet * 0.35 + (src.edge ? 0.12 : 0)) K.set(i, j, MOSS_J[hash(i, j) < 0.5 ? 0 : 1]);
-          else K.shift(i, j, below ? -0.22 : -0.08);
+          if (hash(i + src.sd, j * 3) < 0.15 + src.wet * 0.4 + (src.edge ? 0.14 : 0)) K.set(i, j, MOSS_J[hash(i, j) < 0.5 ? 0 : 1]);
+          else if (hash(i * 5, j + src.sd) < 0.12) continue;      // a broken joint: dust has filled it
+          else K.shift(i, j, below ? -0.3 : -0.1);
         }
       }
     }
