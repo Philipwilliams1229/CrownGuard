@@ -1,0 +1,51 @@
+<!doctype html>
+<!--
+  Recap lab: every figure's OLD rig beside its NEW pix figure (walk, and the blow), one
+  sheet per group. The old look is drawn with "New sprites" switched off IN MEMORY only
+  (prefs.newSprites), then switched back. Saves .shots/rig_recap_<group>.png.
+  /recap-figs.html
+-->
+<html>
+  <head><meta charset="utf-8" /><title>recap figs</title></head>
+  <body style="background:#14171d;color:#e8e0c8;font-family:monospace;margin:12px">
+    <div id="status">painting</div>
+    <script type="module">
+      import { rigFrame } from "/src/render/rigs.js";
+      import { prefs } from "/src/data/prefs.js";
+      const GROUPS = {
+        heroes: ["heroKnight", "heroHunter", "heroFriar", "heroCaptain", "heroStorm"],
+        soldiers: ["knight", "paladin", "squire", "farmer", "yeoman", "errant", "errantBow", "errantRider", "champion", "bowman", "halberdier"],
+        iron: ["levy", "crossbow", "sergeant", "chaplain", "magister", "cavalier", "unhorsed", "gryphon", "ram", "marshal"],
+        hollow: ["skeleton", "bonearcher", "ghoul", "ghast", "wraith", "wight", "gravecaller", "crypt", "amalgam", "hollowking"],
+        rime: ["thrall", "berserker", "huscarl", "rimeseer", "skald", "rimerider", "frostgiant", "icedrake", "rimejarlfoot", "rimejarl", "seaserpent"],
+        horde: ["goblin", "orc", "armored", "troll", "shaman", "hobgoblin", "wolf", "boarrider", "bat", "dragon", "necro"],
+      };
+      const SC = 3, CELLS = [["walk", 0], ["fight", 2]];
+      const grab = (t, on) => { prefs.newSprites = on; return CELLS.map(([s, f]) => { try { return rigFrame(t, s, f, "").cv; } catch (e) { return null; } }); };
+      const keep = prefs.newSprites;
+      for (const [name, types] of Object.entries(GROUPS)) {
+        const rows = types.map((t) => ({ t, old: grab(t, false), now: grab(t, true) }));
+        const all = rows.flatMap((r) => [...r.old, ...r.now]).filter(Boolean);
+        const cw = Math.max(...all.map((c) => c.width)) + 6, rh = Math.max(...all.map((c) => c.height)) + 6;
+        const cv = document.createElement("canvas");
+        cv.width = (cw * 4 + 14) * SC + 150; cv.height = (rh * rows.length) * SC + 40;
+        const x = cv.getContext("2d"); x.imageSmoothingEnabled = false;
+        x.fillStyle = "#1d2027"; x.fillRect(0, 0, cv.width, cv.height);
+        x.fillStyle = "#d9b25a"; x.font = "bold 22px monospace";
+        x.fillText("BEFORE", 150 + cw * SC - 40, 28); x.fillText("AFTER", 150 + (cw * 3 + 14) * SC - 36, 28);
+        rows.forEach((r, i) => {
+          const y = 40 + i * rh * SC;
+          x.fillStyle = "#e8e0c8"; x.font = "15px monospace"; x.fillText(r.t, 6, y + rh * SC / 2);
+          [...r.old, ...r.now].forEach((c, j) => {
+            const cx = 150 + (j * cw + (j >= 2 ? 14 : 0)) * SC;
+            x.fillStyle = (i + j) % 2 ? "#86b35a" : "#7eab54"; x.fillRect(cx, y, cw * SC, rh * SC);
+            if (c) x.drawImage(c, cx + (cw - c.width) / 2 * SC, y + (rh - c.height - 3) * SC, c.width * SC, c.height * SC);
+          });
+        });
+        await fetch("/__shot?name=rig_recap_" + name, { method: "POST", body: cv.toDataURL("image/png").slice(22) });
+      }
+      prefs.newSprites = keep;
+      document.title = "DONE"; document.getElementById("status").textContent = "saved rig_recap_*";
+    </script>
+  </body>
+</html>

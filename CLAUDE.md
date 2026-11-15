@@ -188,6 +188,7 @@ Paladin, squire, militia farmer/yeoman, Knights Errant, Crossbow Company, Lancer
 cavalier's `errant` variant, Champion, field bowmen `fig-fieldbow.js`), all of Iron, Hollow
 and Rime, the war-mammoth, the sea serpent, the gryphon, the ram. NOT yet seen in the game
 by the owner. Held back or left:
+- (Owner, 2026-11-14: "the kraken might not make it into the final game": don't spend more on it unasked.)
 - **The kraken** (body and arm): `fig-kraken.js` / `fig-krakenarm.js` are drawn but NOT in
   `PIX`: the body still read as a cartoon after two passes, and a seized victim's coil is
   painted by the old `drawSeaHold` (rigs-rimebeasts.js), which would clash. Redo both together.
@@ -211,6 +212,9 @@ with a dark body; a forest-depth shade bug fixed). Still old: bushes (world.js /
 `bushSprite`), the gate threshold, the Rime longhouse / rack / whale bones / ship, the Iron
 wall's stile post. rimewatch / rimefjord are the old Frostfang boards: check the Rime on
 frostwake / whalebone.
+- The recap (private Artifact "Crownguard: the graphics pass, before and after") was built with
+  `recap-figs.html` (old vs new figure sheets, "New sprites" flipped in memory) and
+  `hallshot.html?tag=recap`. Spotted then: the new ram, cavalier and gryphon draw smaller than the old.
 - Sea monsters ask for named frames (`"sub.2"`): pixrigs.js `clipFrame` reads them, and
   drawSeaRig lays a new figure's `sub.*` at 0.55 alpha, the kraken's `deep.*` at 0.4. Figures in
 `src/render/pix/fig-{friar,captain,storm,levy,magister,risen,wraith,thrall,berserker}.js`;
