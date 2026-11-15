@@ -5,7 +5,7 @@
 
 import { W, H, PATH_HALF } from "../data/constants.js";
 import { PTS } from "../engine/path.js";
-import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, gateTowerN, GATE_TOWER_S, TOWER, ballistaSpots } from "../data/castle.js";
+import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_N, GATE_TOWER_S, GATE_HALF, TOWER, ballistaSpots } from "../data/castle.js";
 import { drawArcherFrame, drawHalberdier, drawMason, WALL_FOLK, MASON_FRAMES, HALBERD_WALK, frameOf } from "./folk.js";
 import { ballista } from "./halls/archer.js";
 import { REALM } from "../data/maps.js";
@@ -76,15 +76,14 @@ const S2 = (v) => Math.round(v * 2) / 2;          // snap to the art pixel
 // The arch is in a WEST face, so it shows as a strip only LEAN x its height
 // wide: it has to be tall (ARCH) for the gate to read from across the field.
 const GATE = { face0: 741, face1: S2(741 + HG * LEAN) };
-const GH = 40;                           // the gatehouse's south face, below the gate's centreline
+const GH = GATE_HALF;                    // the gatehouse's ends, either side of the gate's centreline (the gate towers stand against them)
 // the gate arch: half its width (the lanes pass well inside it; stone piers
 // stand either side of it for the torches), the height its jambs spring at,
 // the rise of its head above that, and how low the portcullis hangs
 const ARCH = { half: 27, sp: 12, rise: 9, grid: 13 };
-const GATE_H = 35;                       // the north gate tower: low enough that its foot clears the arch
-// the keep: its west face's foot on the gate block's top (screen x), and its
-// north end, north of the gate's centreline; its south face is the gate's
-const KEEP = { b: 798, n: 6 };
+// the keep: its west face's foot on the gate block's top (screen x), and how far
+// it runs either side of the gate's centreline (it stands in the middle of the block)
+const KEEP = { b: 798, half: 24 };
 const GOLD = "#d8b34a", BANNER = "#34508e";
 const MERLON = 15;
 // past the board's ends the towers carry on this far apart
@@ -98,7 +97,7 @@ const ANCHOR = -4096;
 // the ground (yN..yS) and its west face (x0 at the foot, x1 at the deck).
 // gate: -1 the north gate tower, 1 the south one, 0 a tower on the wall.
 const towerGeo = (foot, gate = 0) => {
-  const h = gate < 0 ? GATE_H : TOWER.h, x0 = gate ? TOWER.x0 - 2 : TOWER.x0;
+  const h = TOWER.h, x0 = gate ? TOWER.x0 - 2 : TOWER.x0;
   const tN = foot - TOWER.n - TOWER.h, tS = foot + TOWER.s - TOWER.h;
   return { h, x0, x1: S2(x0 + h * LEAN), tN, tS, yN: tN + h, yS: tS + h };
 };
@@ -748,8 +747,8 @@ let CASTLE = { key: "", cv: null, x0: 0, y0: 0, w: 0, h: 0, slits: [], flags: []
 // the passage, where the guards and the cauldron stand.
 const gateBlock = (c, gy, tier, hurt, out) => {
   const S1 = CASTLE_STONE, x0 = GATE.face0, x1 = GATE.face1, lean = (x1 - x0) / HG;
-  const NT = towerGeo(gy + gateTowerN(gy), -1), K = keepGeo(gy);
-  const yN = NT.yS, yS = gy + GH;
+  const K = keepGeo(gy);
+  const yN = gy - GH, yS = gy + GH;
   const tN = yN - HG, tS = yS - HG;
   const m0 = gy - ARCH.half, m1 = gy + ARCH.half, ring = 2.5;
   plinth(c, x0, yN + 1, m0 - ring, 44);
@@ -838,34 +837,34 @@ const gateBlock = (c, gy, tier, hurt, out) => {
     // the north gate tower's shadow along its foot, and down its east side
     k.fillStyle = "rgba(30,22,32,0.36)"; k.fillRect(S2(x1), S2(tN), TOWER_E - x1, 4);
     k.fillStyle = "rgba(30,22,32,0.16)"; k.fillRect(S2(x1 + 3), S2(tN + 4), TOWER_E - x1 - 3, 2.5);
+    // the keep's shadow on the deck under its south face
+    k.fillStyle = "rgba(30,22,32,0.36)"; k.fillRect(S2(K.b), S2(K.fS), XE - K.b, 4);
+    k.fillStyle = "rgba(30,22,32,0.16)"; k.fillRect(S2(K.b + 3), S2(K.fS + 4), XE - K.b - 3, 2.5);
   });
   // its south face: down to the grass where it stands proud of the curtain,
-  // down to the outer walk behind that, and a step above the inner walk —
-  // and at its far end on up, sheer, as the keep's
-  const vis = [[x0, yS], [x1, tS], [K.b, tS], [K.x1, K.tS], [XE, K.tS], [XE, yS - HI], [WALL.face2, yS - HI], [WALL.walk1, yS - HC], [WALL.face1, yS - HC], [WALL.face0, yS]];
-  southFace(c, x0, yS, HK, vis, [x0 - 1, K.tS - 1, XE + 1, yS + 1], 81);
-  string(c, x0, x1, HG, yN, yS, HC);
-  door(c, 772, yS - HC, 6.5, 8);
-  corbels(c, x1 - 1.5, K.b, tS, [tN + 1, tS + 2.5]);
-  // battlements down its west rim and along its south rim, to the keep's foot
+  // down to the outer walk behind that, and a step above the inner walk. The south
+  // gate tower stands against this end (x < 812), so only the part east of it
+  // shows; the keep's own south face stands on the deck above.
+  const vis = [[x0, yS], [x1, tS], [XE, tS], [XE, yS - HI], [WALL.face2, yS - HI], [WALL.walk1, yS - HC], [WALL.face1, yS - HC], [WALL.face0, yS]];
+  southFace(c, x0, yS, HG, vis, [x0 - 1, tS - 1, XE + 1, yS + 1], 81);
+  corbels(c, x1 - 1.5, x1 + 1, tS, [tN + 1, tS + 2.5]);
+  corbels(c, TOWER_E, XE, tS);
+  // battlements down its west rim and, east of the south tower, along its south rim
   const shade = battlement(c, x1, x1 + 7, tN, tS - 5, tN + 3, tier, 47, hurt);
   c.fillStyle = "rgba(34,24,38,0.3)";
   c.fillRect(x1 + 7, tN + 4, 3, tS - tN - 9);
   for (const y of shade) c.fillRect(x1 + 10, y + 3, 3, 8);
   for (const y of shade) out.perches.push([x1 + 5, y + 2.5]);
-  piece(c, [x1 - 1, tS - 10, K.b + 1, tS + 1], (k) => {
-    box(k, x1, tS - 5, K.b - x1, 5, darken(S1, 0.45));
-    box(k, x1 + 0.5, tS - 4.5, K.b - x1 - 0.5, 1.5, tone(S1, 0.3));
-    box(k, x1 + 0.5, tS - 3, K.b - x1 - 0.5, 2.5, tone(S1, -0.12));
-    for (let x = x1 + 1; x < K.b - 5; x += 10) {
+  piece(c, [TOWER_E - 1, tS - 10, XE + 1, tS + 1], (k) => {
+    box(k, TOWER_E, tS - 5, XE - TOWER_E, 5, darken(S1, 0.45));
+    box(k, TOWER_E + 0.5, tS - 4.5, XE - TOWER_E - 0.5, 1.5, tone(S1, 0.3));
+    box(k, TOWER_E + 0.5, tS - 3, XE - TOWER_E - 0.5, 2.5, tone(S1, -0.12));
+    for (let x = TOWER_E + 1; x < XE - 5; x += 10) {
       if (tier >= 2 && hash(71, x) < (tier >= 3 ? 0.35 : 0.2)) { hurt.push([x + 2, tS - 12]); continue; }
       box(k, x, tS - 9, 6, 5, tone(S1, 0.4));
       box(k, x, tS - 4, 6, 3.5, tone(S1, -0.3));
-      if (x > x1 + 20) out.perches.push([x + 3, tS - 7]);
     }
   });
-  slit(c, 791.5, tS + 10, true);
-  out.slits.push([791.5, tS + 10]);
   // A torch on each pier beside the arch, on an iron bracket standing out
   // from the face over the road: its plate on the stone, the arm, the cup.
   for (const yw of [(yN + m0 - ring) / 2, (m1 + ring + yS) / 2]) {
@@ -879,7 +878,7 @@ const gateBlock = (c, gy, tier, hurt, out) => {
     out.torches.push([tx - 3.75, ty - 2]);
   }
   if (tier >= 1) crackAcross(c, x0 + 0.5, yN + 2, 9, 70);
-  if (tier >= 2) { crackAcross(c, x0 + 0.5, yS - 4, 8, 71); crack(c, 764, tS + 6, 8, 72); soot(c, 776, tS + 4, 10, 10, 73); }
+  if (tier >= 2) crackAcross(c, x0 + 0.5, yS - 4, 8, 71);
   keep(c, gy, tier, out);
   return { tN, tS };
 };
@@ -892,13 +891,16 @@ const gateBlock = (c, gy, tier, hurt, out) => {
 // guardroom chimney, the crown's banners down its south face and the royal
 // standard over it all.
 const keepGeo = (gy) => {
-  const yN = gy - KEEP.n, yS = gy + GH, b = KEEP.b;
+  const yN = gy - KEEP.half, yS = gy + KEEP.half, b = KEEP.b;
   // b: its west face's foot on the gate block's top; x1: its top's west edge;
   // X: its south-west corner at the ground (where its south face's rows start)
   return { b, x1: S2(b + (HK - HG) * LEAN), X: b - HG * LEAN, yN, yS, fN: yN - HG, fS: yS - HG, tN: yN - HK, tS: yS - HK };
 };
 const keep = (c, gy, tier, out) => {
-  const S1 = CASTLE_STONE, { b, x1, fN, fS, tN, tS } = keepGeo(gy), E = XE;
+  const S1 = CASTLE_STONE, K = keepGeo(gy), { b, x1, fN, fS, tN, tS } = K, E = XE;
+  // its south face stands on the gate deck, free: rows from its own ground corner (X, yS)
+  // up to the top, the part above the deck in sight
+  southFace(c, K.X, K.yS, HK, [[b, fS], [x1, tS], [E, tS], [E, fS]], [K.X - 1, tS - 1, E + 1, K.yS + 1], 81);
   westFace(c, b, x1, tN, fS, [[b, fN], [x1, tN], [x1, tS], [b, fS]], 91, { dark: -0.04, corner: fS });
   // its foot on the gate top, a dark seam
   c.fillStyle = "rgba(30,22,32,0.4)";
@@ -973,7 +975,7 @@ const stairDown = (c, yc, seed) => {
 // Every tower down the wall, the gate towers included, as [foot, gate]
 // sorted north to south: the board's own (data/castle.js places the works'
 // crews from the same list)...
-const towersOf = (gy) => [...wallDrums(gy).map((f) => [f, 0]), [gy + gateTowerN(gy), -1], [gy + GATE_TOWER_S, 1]].sort((a, b) => a[0] - b[0]);
+const towersOf = (gy) => [...wallDrums(gy).map((f) => [f, 0]), [gy + GATE_TOWER_N, -1], [gy + GATE_TOWER_S, 1]].sort((a, b) => a[0] - b[0]);
 // ...and, for painting ya..yb, more past the board's ends at RUN_STEP, so the
 // wall carries on (the first and last stand clear outside ya..yb)
 const towersFor = (gy, ya, yb) => {
@@ -1073,14 +1075,14 @@ const paintCastleStone = (ctx, gx, gy, tier, ya = TOP, yb = BOT) => {
   // in under, the next stretch starting against that one's south face
   for (let i = 0; i < towers.length; i++) {
     const [foot, gate] = towers[i], G = towerGeo(foot, gate);
-    if (i > 0) {
+    if (i > 0 && !(gate > 0 && towers[i - 1][1] < 0)) {   // (the south gate tower stands against the block's end: no curtain between)
       const [pf, pg] = towers[i - 1], yg = pg < 0 ? gy + GH : towerGeo(pf, pg).yS;
       if (on(yg - HI - 4, G.yS + 2)) { stretch(ctx, yg, G.yS, G, seedAt(pf), tier, hurt, out, wet); fallen(); }
     }
     if (on(G.tN - 16, (gate < 0 ? gy + GH : G.yS) + 8)) {
       const seed = gate ? (gate < 0 ? 7 : 9) : foot;
       const burnt = torched.includes(foot) || (tier >= 3 && gate < 0);
-      const res = tower(ctx, foot, { gate, seed, tier, broken: burnt, flag: gate > 0 ? false : undefined, wet });
+      const res = tower(ctx, foot, { gate, seed, tier, broken: burnt, wet });
       if (res.flag && res.flag[1] > ya && res.flag[1] - 20 < yb) out.flags.push([...res.flag, gate ? 1 : 0]);
       out.slits.push(...res.slits);
       if (tier >= 2 && (gate < 0 || burnt)) out.burn.push(res.smoke);
@@ -1094,9 +1096,10 @@ const paintCastleStone = (ctx, gx, gy, tier, ya = TOP, yb = BOT) => {
     if (!on(G.tN, G.yS + 10)) continue;
     // east of it, on the inner walk it rises above (the north gate tower's
     // as far as the gate block)
-    const e = gate < 0 ? G.yS - HG : G.yS - HI + 2;
-    sh(TOWER_E, G.tN + 2, 5, e - G.tN - 2, 0.3);
-    sh(TOWER_E + 5, G.tN + 5, 2.5, e - G.tN - 5, 0.14);
+    // (the north one's stops where the keep's top begins)
+    const e = gate < 0 ? Math.min(G.yS - HG, keepGeo(gy).tN) : G.yS - HI + 2;
+    if (e - G.tN - 2 > 0) sh(TOWER_E, G.tN + 2, 5, e - G.tN - 2, 0.3);
+    if (e - G.tN - 5 > 0) sh(TOWER_E + 5, G.tN + 5, 2.5, e - G.tN - 5, 0.14);
     if (gate < 0) continue;
     // on the outer face, in the corner under the tower's flank
     ctx.save();
@@ -1115,8 +1118,6 @@ const paintCastleStone = (ctx, gx, gy, tier, ya = TOP, yb = BOT) => {
   if (on(gy - 70, gy + GH + 10)) {
     // and the gate block's, a step above the outer walk; the keep's, long,
     // across the inner walk below it
-    sh(GATE.face1, gy + GH - HC, WALL.walk1 - GATE.face1, 5, 0.34);
-    sh(WALL.face2, gy + GH - HI, TOWER_E - WALL.face2, 2.5, 0.26);
     sh(TOWER_E, gy + GH - HI, XE - TOWER_E, 6, 0.32);
     sh(TOWER_E + 3, gy + GH - HI + 6, XE - TOWER_E - 3, 3, 0.15);
   }
@@ -1855,7 +1856,7 @@ const paintGroundOver = (c, gx, gy, tier, out, B, cracks = []) => {
   if (tier >= 3) {
     // (the burnt ones, as paintCastleStone picks them: along their feet)
     const plain = towersOf(gy).filter(([, g]) => !g), mid = (G) => (G.yN + G.yS) / 2;
-    heaps.push([mid(towerGeo(gy + gateTowerN(gy), -1)), 1.3]);
+    heaps.push([mid(towerGeo(gy + GATE_TOWER_N, -1)), 1.3]);
     if (plain.length) heaps.push([mid(towerGeo(plain[0][0], 0)), 1.3]);
   }
   heaps.forEach(([y0, big], hI) => {
@@ -2195,9 +2196,8 @@ const BIRDS = { calm: true, since: -99, flushed: -99, last: 0 };
 // at x SENTRY_X.
 const SENTRY_X = 824, BEAT = 150;
 const sentryBeat = (gy) => {
-  const NT = towerGeo(gy + gateTowerN(gy), -1);
   // north of the gate block's top, and south of where its south face meets the inner walk
-  const runs = [[22, NT.yS - HG - 4], [gy + GH - HI + 8, H - 6]];
+  const runs = [[22, gy - GH - HG - 4], [gy + GH - HI + 8, H - 6]];
   let best = null;
   for (const [a, b] of runs) {
     if (b - a < 34) continue;

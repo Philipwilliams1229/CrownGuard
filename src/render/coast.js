@@ -41,7 +41,7 @@
 import { W, H, PATH_HALF, WALL_W } from "../data/constants.js";
 import { REALM } from "../data/maps.js";
 import { nearestOnPath, PTS } from "../engine/path.js";
-import { wallDrums, TOWER, gateTowerN, GATE_TOWER_S } from "../data/castle.js";
+import { wallDrums, TOWER, GATE_TOWER_N, GATE_TOWER_S } from "../data/castle.js";
 import { COAST, DECOR, coastLine, forestDepthAt } from "../data/terrain.js";
 import { lighten, darken, mix, rgb, rgba, hash, inkOutline, PX } from "./paint.js";
 // (rivers and their mouths are water.js's; read defensively, it may not export them yet)
@@ -125,7 +125,7 @@ const faces = () => {
   // rounded corner (a quarter ellipse RF long), so the collar, its lace and
   // the aerated water curve round the foot instead of stepping in a box
   const RF = 6, xt = TOWER.x0 - 4;
-  for (const foot of [...wallDrums(gy), gy + gateTowerN(gy), gy + GATE_TOWER_S]) {
+  for (const foot of [...wallDrums(gy), gy + GATE_TOWER_N, gy + GATE_TOWER_S]) {
     const a = foot - TOWER.n, b = foot + TOWER.s + 2;
     for (let k = Math.max(0, Math.floor((a - RF) * 2)); k <= Math.min(H * 2 + 1, Math.ceil((b + RF) * 2)); k++) {
       const y = k / 2, d = y < a ? a - y : y > b ? y - b : 0;

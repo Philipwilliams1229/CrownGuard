@@ -1043,8 +1043,7 @@ actions.js `buildableAt`).
   course of stone is `COURSE` (3.5) high: a west face has one column per
   course (1.75 wide) and a south face one row per course, so the courses
   meet round the corners. Heights: outer walk `HC` 14, inner walk `HI` 28,
-  gate block `HG` 31.5, towers `TOWER.h` 38.5 (the north gate tower 35, so
-  its foot clears the arch), keep `HK` 56.
+  gate block `HG` 31.5, towers `TOWER.h` 38.5 (both gate towers too), keep `HK` 56.
 - **Towers are built in, never pasted on.** A tower rises from the grass
   proud of the outer face (foot at `TOWER.x0` 741, the curtain's at 749) and
   runs back into the inner wall's parapet; the inner walk passes on behind
@@ -1088,10 +1087,24 @@ actions.js `buildableAt`).
   5 clear of the merlons) and start 28 below a tower's foot (`wallSlots`);
   `towerDeck` is `foot - 21`. The sentry walks x 824; stairs open from
   x 830.5. No figure's feet ever lie on a merlon.
-- **The gate:** one gate block through both walls; its south face runs on
-  up, sheer, as the keep's (one face, one piece — no ledge). The keep is the
-  castle's landmark: crown banners and a lit slit down its face, turret,
-  chimney (the smoke) and the royal standard on top. The oil cauldron (with
+- **The gate is a mirror** (2026-11-14, owner: "symmetry on the castle walls on the top and
+  the bottom ... the big tower in the back should be centered"): one gate block through both
+  walls, `GATE_HALF` 40 (= `GH`) either side of the gate's centreline, with a gate tower
+  standing flush against each end: the north tower's footprint gy-72..gy-40 (foot
+  `GATE_TOWER_N` = -(GATE_HALF + TOWER.s) = -66.5), the block gy-40..gy+40, the south tower
+  gy+40..gy+72 (foot `GATE_TOWER_S` = GATE_HALF + TOWER.n = 45.5); both are `TOWER.h` tall,
+  both piers beside the arch are 10.5, and a ballista stands on each deck (feet gy-87.5 and
+  gy+24.5). The towers are written as formulas, so they can never drift off the block. The
+  south tower paints over the block's south end (nothing of the block's south face, door,
+  slit or battlement shows west of x 812; no curtain is painted between them), and the
+  block's own south face is plain, height `HG`, with merlons east of x 812. The keep is
+  centred on the gate (`KEEP.half` 24: gy-24..gy+24) and stands FREE on the block's deck: its
+  south face is its own (`southFace` from its ground corner `K.X`, `K.yS`, clipped to what is
+  above the deck, `K.fS`) with a shadow strip on the deck under it, so there is a ledge.
+  The keep is the castle's landmark: crown banners and a lit slit down its face, turret,
+  chimney (the smoke) and the royal standard on top. Plan: `art/briefs/castle-symmetry-plan.md`.
+  The first two bowmen stand on the gate block's deck (`GATE_BOWS`, feet gy-55.5 and gy-7.5),
+  the rest on the walk slots nearest the gate, alternating north and south. The oil cauldron (with
   its own shadow) sits by the murder holes on the gate top. The Gate Guard's
   halberdiers are NOT on the castle: they are a band on the road before the
   gate (`guardSpots`, x 722, in `data/castle.js`), fighting as knights do
@@ -1104,6 +1117,11 @@ actions.js `buildableAt`).
   walk behind the towers farthest from the gate. Weather lies on the stone:
   snow on decks, gate, keep and walks (drifted in the parapets' lee), ash
   or moss in the walks' joints (`snowOn`, `walkWeather`).
+- **The comparison lab** (`castle-compare.html?realms=a,b&prefix=csym&works=1`) paints
+  `concept/castle-before.js` (the castle before the symmetric gate, with its own frozen copy
+  of the crews' spots) beside the game's own, with the works bought; it saves
+  `<prefix>_band_<realm>.png` and `<prefix>_gate_<realm>.png` (x 730..848, gy-125..gy+85 at
+  8 px a unit) to `.shots/`. Read `PTS` through the module namespace there too.
 - **Gameplay fixes the decks:** the crews' spots (`wallSlots`, `bowmenSpots`,
   `ballistaSpots` → `towerDeck`, x 771) are laid out from `foot - n - h` and
   `foot + s - h`, so keep `n + h` = 44 and `s - h` = -12 when changing a

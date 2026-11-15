@@ -5,7 +5,8 @@
 
 import { W, H, PATH_HALF } from "../src/data/constants.js";
 import { PTS } from "../src/engine/path.js";
-import { workTier, bowmenSpots, masonSpots, wallDrums, BOW_X, GATE_TOWER_S, TOWER, ballistaSpots } from "../src/data/castle.js";
+import { workTier, BOW_X } from "../src/data/castle.js";
+import { inRiver } from "../src/data/terrain.js";
 import { drawArcherFrame, drawHalberdier, drawMason, WALL_FOLK, MASON_FRAMES, HALBERD_WALK, frameOf } from "../src/render/folk.js";
 import { ballista } from "../src/render/halls/archer.js";
 import { REALM } from "../src/data/maps.js";
@@ -16,6 +17,95 @@ import {
   blade, tuft, hash, lin, bakeSprite, PX, PIXEL, INK_LINE, inkOutline, STYLE } from "../src/render/paint.js";
 
 const GATE_TOWER_N = -58;   // the castle as it stood before 2026-11-14 (a comparison copy)
+// ---- the data the castle stood on before 2026-11-14, frozen here so the comparison page keeps its "before" ----
+const H_ = H;
+const GATE_TOWER_S = 90;
+const TOWER = { x0: 741, n: 5.5, s: 26.5, h: 38.5 };
+// the platform a tower's crew stands on, as [x, feet y]
+// (toward its south-west, clear of the stair turret toward the back)
+// (its feet stand 9 clear of the platform's south edge at foot - 12, so the
+// flags show below them and the south merlons stand wholly in front)
+const towerDeck = (foot) => [771, foot - 21];
+// The Gate Ballista stands on the gate towers' platforms: the north one
+// first, the south one too once there are two. Feet positions, and where
+// the bolt leaves the bow.
+const ballistaSpots = (gy, twin) => (twin ? [GATE_TOWER_N, GATE_TOWER_S] : [GATE_TOWER_N]).map((d) => towerDeck(gy + d));
+const _ballistaMuzzle = ([x, y]) => [x - 2, y - 26];
+// where the bowmen on the walk stand (and loose from), in x
+const _BOW_X = 778;
+const DRUM_FROM_N = -58, DRUM_EDGE_N = 34, DRUM_EDGE_S = H_ - 16, DRUM_STEP = 105, DRUM_MIN = 80;
+const CULVERT_X = 748;
+const wet = (foot) => { for (let y = foot - 14; y <= foot + 14; y += 2) if (inRiver(CULVERT_X, y, 2)) return true; return false; };
+const wallDrums = (gy) => {
+  const out = [];
+  // (the drums keep the places they had when the north gate tower stood at
+  // DRUM_FROM_N: moving that tower must not re-space every drum on the wall)
+  for (const [from, to, dir, real] of [[gy + DRUM_FROM_N, DRUM_EDGE_N, -1, gy + GATE_TOWER_N], [gy + GATE_TOWER_S, DRUM_EDGE_S, 1, gy + GATE_TOWER_S]]) {
+    const span = (to - from) * dir;
+    if (span < DRUM_MIN) continue;
+    // an even step near 105, held to 90-120; the last drum lands near the edge
+    const n = Math.max(1, Math.round(span / DRUM_STEP)), step = Math.min(120, Math.max(90, span / n));
+    const run = [];
+    for (let k = 1; k <= n; k++) {
+      let foot = Math.round(from + dir * k * step);
+      if (foot < 14 || foot > H + 6) continue;
+      // a river under the wall: slide the drum off the culvert, or leave it out
+      if (wet(foot)) {
+        let best = null;
+        for (let d = 2; d <= 44 && best === null; d += 2) for (const f of [foot - d, foot + d]) {
+          if (best !== null || wet(f) || (f - real) * dir < 56 || f < 20 || f > H - 8) continue;
+          if (run.some((q) => Math.abs(q - f) < 64)) continue;
+          best = f;
+        }
+        if (best === null) continue;
+        foot = best;
+      }
+      run.push(foot);
+    }
+    out.push(...run);
+  }
+  return out.sort((a, b) => a - b);
+};
+const wallSlots = (gy) => {
+  // the stretches of walk crews may use: clear of the gate towers
+  // (a crew's feet land 8 below its slot. The walk runs on BEHIND the tower
+  // south of it, whose raised platform hides it from foot - n - h - 4 down —
+  // its north merlons' tops: a man must stand wholly north of that with a
+  // few flags showing below his boots, or he reads as standing on the
+  // merlons. So the last slot is 17 above the platform: feet 9 clear. South
+  // of a tower the first slot is 28 below its foot: he stands on the walk
+  // just out of its door, his head no higher than the lintel.)
+  // (and north of the gate the ballista rises off its tower: stand clear of that too)
+  const runs = [[26, gy + GATE_TOWER_N - 67], [gy + GATE_TOWER_S + 30, H_ - 12]];
+  const blocked = wallDrums(gy).map((f) => [f - TOWER.n - TOWER.h - 17, f + 28]);
+  const out = [];
+  for (const [a0, b0] of runs) {
+    // split the run by the drums standing in it
+    let gaps = [[a0, b0]];
+    for (const [ba, bb] of blocked) gaps = gaps.flatMap(([a, b]) => (bb <= a || ba >= b ? [[a, b]] : [[a, ba], [bb, b]]));
+    for (const [a, b] of gaps) {
+      if (b < a) continue;
+      const n = Math.floor((b - a) / 24) + 1, step = n > 1 ? (b - a) / (n - 1) : 0;
+      for (let i = 0; i < n; i++) out.push(Math.round(n > 1 ? a + i * step : (a + b) / 2));
+    }
+  }
+  return out.sort((a, b) => Math.abs(a - gy) - Math.abs(b - gy));
+};
+// The bowmen stand nearest the gate, alternating sides; the masons at the far ends.
+const bowmenSpots = (gy, count) => {
+  const slots = wallSlots(gy);
+  const n = slots.filter((y) => y < gy), s = slots.filter((y) => y > gy);
+  const out = [];
+  for (let i = 0; out.length < count && (n.length || s.length); i++) {
+    const pick = (i % 2 === 0 ? n : s).shift() ?? (i % 2 === 0 ? s : n).shift();
+    if (pick != null) out.push(pick);
+  }
+  // a short wall: the rest go up onto the open tops of the towers nearest the gate
+  for (const f of wallDrums(gy).sort((p, q) => Math.abs(p - gy) - Math.abs(q - gy))) if (out.length < count) out.push(towerDeck(f)[1] - 8);
+  return out;
+};
+const masonSpots = (gy, count) => wallSlots(gy).reverse().slice(0, count);
+
 const CASTLE_STONE = "#aca494";          // warm grey dressed stone, as on the title screen
 const ROOF = "#a8505c";
 

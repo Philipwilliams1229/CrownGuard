@@ -175,10 +175,11 @@ C bold for three heroes, two figures per army and the ground. The owner picked, 
   DONE on the board (2026-11-14, pending the owner's look): castle.js IS look B now (tinted
   one-pixel ink, block edges, ivy/moss/streaks where the ground suits, tile roofs, arch
   voussoirs, baked torch and slit light pools; `bakeCastleRun` matches). The north gate
-  tower stands `gateTowerN(gy)` from the gate: -80 where the board has room, less on the
-  four high-gate boards so its ballista deck stays 40 below the top edge (never nearer
-  than the old -58); `DRUM_FROM_N` -58 keeps the wall drums where they were. 46 of 68
-  realms have one wall slot fewer. First-sight castle bake ~+30 ms. Labs:
+  tower stood at `gateTowerN(gy)` (-80, clamped) from the gate until the same day's symmetry
+  pass, which undid it: see "The gate is a mirror" in the style guide's castle section
+  (gate block +-40, a gate tower flush against each end at -66.5 / 45.5, the keep centred,
+  both ballistae on a deck, the first two bowmen on the block's deck; the drums re-space,
+  `DRUM_MIN` 90, and no board has a crew spot off it). Pending the owner's look. First-sight castle bake ~+30 ms. Labs:
   `castle-compare.html` (before | after; `concept/castle-before.js` is the old file).
 The rest of each army follows its picks (Iron leans B, Hollow A-B, Rime C).
 **The whole roster is in** (2026-11-14, Sonnet artists in two waves, the lead wiring `PIX`
