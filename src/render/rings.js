@@ -1067,13 +1067,14 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
     case "midas": {
       // The golden mistake: a flash of mint-light, a thin gold ring, coins
       // spinning up and tumbling back, sparkles winking all round.
-      if (!AIR) return true;
       const life = fx.life || 650, p = lifeP(fx, life), age = p * life, sd = seedOf(fx);
       const r = 26 * easeOut(p * 1.2);
       ctx.save();
       ctx.globalAlpha *= stepA(a);
-      ringPx(ctx, fx.x, fx.y, r, r * 0.8, 1.5, rgba(GOLD[3], 0.8));
-      dash(ctx, fx.x, fx.y, r, r * 0.8, 0.5, 1.2, GOLD[0]);
+      // the ring round the foe: back half under it, front half over
+      arcPx(ctx, fx.x, fx.y, r, r * 0.8, 1.5, rgba(GOLD[3], 0.8), GR, AIR);
+      dashArc(ctx, fx.x, fx.y, r, r * 0.8, 0.5, 1.2, GOLD[0], GR, AIR);
+      if (!AIR) { ctx.restore(); return true; }
       if (p < 0.34) put(ctx, burstS("gold", Math.min(3, Math.floor(p / 0.085))), fx.x, fx.y - 8);
       for (let i = 0; i < 8; i++) {
         const [gx, gy, z] = fling(sd, i, p, 18, 3.2, 3.6);

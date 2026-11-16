@@ -53,7 +53,7 @@ import { drawCloudShadows, drawAmbient, drawGrade } from "./atmosphere.js";
 import { drawShip, drawFrostShells, drawSea, ZONE_FX } from "./rimefx.js";
 import { drawWeather, drawWeatherGround, flierDrop } from "./weatherfx.js";
 import { drawHit, drawDeathPoof } from "./statusfx.js";
-import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx } from "./fx.js";
+import { drawGround, isBlast, drawBlast, drawScorch, drawProjectile, drawChain, drawQuarrel, drawSpark, drawPoof, drawFlash, drawFloatText, ringPx, ringHalf } from "./fx.js";
 import { canvasFont } from "../ui/fonts.js";
 import { prefs } from "../data/prefs.js";
 
@@ -193,6 +193,17 @@ export function draw(g, canvas, bufRef) {
     if (isBlast(fx.type)) drawBlast(ctx, fx, "g");
     // the ground half of the area effects (rime, scorch, cracks, stains)
     else drawRingFx(ctx, fx, Math.min(1, fx.ttl / 300), g, "g");
+  }
+
+  // Wren's arrow-volley zone: its back half goes under the crowd (the front half is drawn with the volley)
+  if (g.volleys) {
+    const tmsV = g.time * 1000;
+    for (const v of g.volleys) {
+      const fade = Math.max(0, Math.min(1, (v.until - tmsV) / 450));
+      ctx.save(); ctx.globalAlpha = 0.35 * Math.min(fade, Math.max(0.3, Math.min(1, (tmsV - v.t0) / 300)));
+      ringHalf(ctx, v.x, v.y, v.r, v.r * 0.62, 1, "#e8dcb4", "b");
+      ctx.restore();
+    }
   }
 
   // lingering ground effects: lava pools, the ghasts' plague, spore clouds
@@ -544,7 +555,7 @@ export function draw(g, canvas, bufRef) {
       const ox = -ux * 34, oy = -uy * 20 - 66, ol = Math.hypot(ox, oy);
       const fade = Math.max(0, Math.min(1, (v.until - tmsV) / 450));
       ctx.save(); ctx.globalAlpha = 0.35 * Math.min(fade, Math.max(0.3, Math.min(1, (tmsV - v.t0) / 300)));
-      ringPx(ctx, v.x, v.y, v.r, v.r * 0.62, 1, "#e8dcb4");
+      ringHalf(ctx, v.x, v.y, v.r, v.r * 0.62, 1, "#e8dcb4", "f");
       ctx.restore();
       const up = v.flight * 0.42, down = v.flight * 0.45;
       for (let k = 0; k < v.beats; k++) {

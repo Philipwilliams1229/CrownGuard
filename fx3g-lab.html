@@ -22,7 +22,7 @@ const q = new URLSearchParams(location.search);
 const TAG = q.get("tag") || "x";
 const realm = q.get("realm") || "greenwood";
 const TMS = 100000;
-const ALL = ["frostnova", "firenova", "slam", "reticle", "healwave", "silence", "shadowstep", "midas", "toll", "plagueburst", "wardwave", "wardwave-aegis", "raise", "levelup", "evolve"];
+const ALL = ["frostnova", "firenova", "slam", "reticle", "healwave", "silence", "shadowstep", "midas", "toll", "plagueburst", "wardwave", "wardwave-aegis", "raise", "levelup", "evolve", "boom", "arcane", "keg", "frost"];
 const LIST = q.get("fx") ? q.get("fx").split(",") : ALL;
 const Z3 = (q.get("z3") ?? "0,1,2,3").split(",").filter(Boolean).map(Number);
 const PROG = [0.15, 0.4, 0.65, 0.9];
@@ -39,8 +39,8 @@ const foe = (type, x, y, o = {}) => {
   };
 };
 // the effect as the engine pushes it, at progress p, centred on (x, y)
-const LIFE = { frostnova: 500, firenova: 450, slam: 450, reticle: 700, healwave: 550, silence: 900, shadowstep: 260, midas: 650, toll: 550, plagueburst: 500, wardwave: 550, "wardwave-aegis": 800, raise: 600, levelup: 600, evolve: 900 };
-const RAD = { frostnova: 140, firenova: 112, slam: 62, healwave: 64, toll: 46, plagueburst: 44, wardwave: 82, "wardwave-aegis": 140 };
+const LIFE = { frostnova: 500, firenova: 450, slam: 450, reticle: 700, healwave: 550, silence: 900, shadowstep: 260, midas: 650, toll: 550, plagueburst: 500, wardwave: 550, "wardwave-aegis": 800, raise: 600, levelup: 600, evolve: 900, boom: 420, arcane: 320, keg: 320, frost: 320, volley: 1 };
+const RAD = { boom: 44, arcane: 44, keg: 36, frost: 44, frostnova: 140, firenova: 112, slam: 62, healwave: 64, toll: 46, plagueburst: 44, wardwave: 82, "wardwave-aegis": 140 };
 const TW = [];
 const make = (type, x, y, p, en) => {
   if (type === 'levelup' || type === 'evolve') TW.push({ id: 90 + TW.length, kind: q.get('hall') || 'archer', x, y, level: 3, branch: type === 'evolve' ? 'a' : null, rank4: null, cd: 0, aim: 'first', lastAim: Math.PI, anim: 0, shotIdx: 0, critIdx: 0, invested: 0, units: [], rally: null, kills: 0, dmgOut: 0, liveTime: 1, _idle: true, charges: 3, ramp: 2, mAnim: 0, eagle: null, readyAt: 0 });
@@ -54,6 +54,8 @@ const make = (type, x, y, p, en) => {
   if (type === "shadowstep") { Object.assign(f, { x1: x - 36, y1: y - 8, x2: x + 10, y2: y - 4, prey: p > 0.6 }); en.push(foe("goblin", x + 10, y)); }
   if (type === "raise") en.push(foe("goblin", x, y, { revived: true }));
   if (type === "midas") en.push(foe("goblin", x, y));
+  if (type === "boom" || type === "arcane" || type === "keg" || type === "frost") en.push(foe("goblin", x - 10, y + 12), foe("goblin", x + 18, y - 14), foe("goblin", x + 6, y + 26));
+  if (type === "midas") en.push(foe("goblin", x + 14, y - 8));
   if (type === "slam" || type === "healwave" || type === "wardwave" || type === "wardwave-aegis" || type === "toll" || type === "plagueburst")
     en.push(foe("goblin", x - 18, y + 6), foe("goblin", x + 22, y - 10));
   if (type === "frostnova" || type === "firenova")

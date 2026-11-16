@@ -602,7 +602,24 @@ export const drawBlast = (ctx, fx, layer) => {
   const r = fx.r || (fx.type === "shrapnelhit" ? 9 : 16);
   // one painting per type and size, mirrored for half the blasts
   const flip = !!(((Math.floor(fx.x) * 7 + Math.floor(fx.y) * 3) >>> 0) & 2);
-  put(ctx, blastSprite(fx.type, bucket(r), Math.min(NF - 1, Math.floor(p * NF)), layer, 0), fx.x, fx.y, flip);
+  const f = Math.min(NF - 1, Math.floor(p * NF));
+  if (fx.type === "dust" || fx.type === "shrapnelhit") { put(ctx, blastSprite(fx.type, bucket(r), f, layer, 0), fx.x, fx.y, flip); return; }
+  // the occlusion rule: the ground half of a blast (its shockwave ring and wash)
+  // is cut at its centre line; the BACK half (above) draws under the actors, the
+  // FRONT half (below) over them, so a figure in the blast stands inside the ring
+  const gs = blastSprite(fx.type, bucket(r), f, "g", 0), cut = gs.ay;
+  const w = gs.cv.width, h = gs.cv.height;
+  const X = Math.round(fx.x * PX) / PX, Y = Math.round(fx.y * PX) / PX;
+  const part = (y0, y1) => {
+    if (y1 <= y0) return;
+    if (!flip) { ctx.drawImage(gs.cv, 0, y0, w, y1 - y0, X - gs.ax / PX, Y - gs.ay / PX + y0 / PX, w / PX, (y1 - y0) / PX); return; }
+    ctx.save(); ctx.translate(X, Y); ctx.scale(-1, 1);
+    ctx.drawImage(gs.cv, 0, y0, w, y1 - y0, -gs.ax / PX, -gs.ay / PX + y0 / PX, w / PX, (y1 - y0) / PX);
+    ctx.restore();
+  };
+  if (layer === "g") { part(0, cut); return; }
+  part(cut, h);
+  put(ctx, blastSprite(fx.type, bucket(r), f, "a", 0), fx.x, fx.y, flip);
 };
 
 // ---- scorch & rime -----------------------------------------------------
@@ -686,6 +703,21 @@ export const ringPx = (ctx, x, y, rx, ry, th, color) => {
   ctx.fillStyle = color;
   ctx.beginPath();
   for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    ctx.rect(Math.round((x + Math.cos(a) * rx - th / 2) * PX) / PX, Math.round((y + Math.sin(a) * ry - th / 2) * PX) / PX, th, th);
+  }
+  ctx.fill();
+};
+
+// One half of that ring: "b" the back (above the centre), "f" the front, for
+// the occlusion rule (back under the actors, front over them).
+export const ringHalf = (ctx, x, y, rx, ry, th, color, half) => {
+  if (rx < 1) return;
+  const n = Math.max(16, Math.ceil((Math.PI * 2 * Math.max(rx, ry)) / (th * 0.6)));
+  const i0 = half === "b" ? Math.ceil(n / 2) : 0, i1 = half === "b" ? n : Math.ceil(n / 2);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = i0; i < i1; i++) {
     const a = (i / n) * Math.PI * 2;
     ctx.rect(Math.round((x + Math.cos(a) * rx - th / 2) * PX) / PX, Math.round((y + Math.sin(a) * ry - th / 2) * PX) / PX, th, th);
   }

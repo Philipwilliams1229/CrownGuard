@@ -1169,6 +1169,19 @@ actions.js `buildableAt`).
 - A coastal level's waypoint on the campaign map stands by its country's
   shore (`scripts/check-map-water.mjs` checks it).
 
+## Effects on the ground: rings go BEHIND what stands in them (owner, 2026-11-16)
+
+"The circle should disappear behind the tower where you wouldn't be able to see it. Helps us keep
+that 3d feel ... other circle effects, like the magic ring, the shockwave from projectiles, etc,
+should all work the same way." Every ring, wave or wash on the ground round a hall, a figure or an
+impact draws its BACK half (y < its centre) in the ground layer `"g"` (draw.js, before the halls and
+figures) and its FRONT half in the air layer `"a"` (after them). Helpers: `arcPx` / `dashArc`
+(rings.js), `ringHalf` (fx.js), and `drawBlast` cuts a blast's baked ground sprite at its centre
+line. Not split: stains (scorch, raise, pools), puffs, rings at head height, UI rings (range,
+reticle). A new ring effect follows the same rule. The effects' looks are in CLAUDE.md "The effects
+pass"; the concept pages' C option now means LIT (light thrown on the ground), not chunky icons
+(owner: the bold C's were "pretty far off").
+
 ## Performance (target: iPad mini 6)
 
 - Bake anything static. Per frame, keep to stamps and small live bits.

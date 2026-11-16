@@ -174,7 +174,14 @@ owner's mix, the original violet / green witch-fire over concept B's ground (rin
 (builders.js `workerSprite`) on the scaffold knocking twice, `RAISE_SECS.level` 0.45 -> 0.72 s
 (buildanim.js `raiseLevel`). Concepts for the bell toll, plague burst, level up, path / final,
 fire on a foe (again) and burning ground: private Artifact "Crownguard Effects Concepts, Round 2"
-(`node scripts/build-fx-concepts.mjs round2` -> `.shots/fx-concepts-round2/`). Awaiting the owner's picks.
+(`node scripts/build-fx-concepts.mjs round2` -> `.shots/fx-concepts-round2/`). The owner picked (same day): **toll B, plague burst B** (bubbles of many sizes that slowly pop; its
+effect now lasts 1.4 s), **level up A, path / final A** (now `case "levelup"/"evolve"` in rings.js;
+the green / gold dot `burst` pushes are gone from actions.js), and **fire on a foe between A and B**
+(statusfx.js `burnSprite`: joined flame clusters on the back and at the feet, face clear, ground glow,
+embers, a wisp; 200 burning foes 1.36 -> 1.24 ms). Every ground ring now hides its back half behind
+what stands in it (style guide, "Effects on the ground"). Burning ground was redone (take 2): private
+Artifact "Crownguard Effects Concepts, Burning Ground" (`build-fx-concepts.mjs round3`), awaiting
+the owner's pick. `fx3g-lab.html` shows the rings with a real hall and foes standing in them.
 
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 
