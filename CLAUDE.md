@@ -752,6 +752,9 @@ agent with a tool-call budget instead of starting a fresh one.
 ## Open threads (as of 2026-09-29)
 
 Bring these up with the owner; don't act on them unasked.
+- **The novas need another look** (owner, 2026-11-16: "we will need to come back to look at the
+  novas"): the fire and frost novas (rings.js `firenova` / `frostnova`) were kept as they were in the
+  effects pass; they now lie under the foes and flash them white. Ask what they want changed.
 - **TO DO / WORTH A LOOK after the graphics pass (owner, 2026-11-14: "keep that ... I'll
   check them out later"):** the ram, cavalier and gryphon draw smaller than their old rigs
   (the ram about half); bushes, the gate threshold and a few Rime props (longhouse, rack,
