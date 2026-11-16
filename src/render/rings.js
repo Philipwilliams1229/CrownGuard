@@ -598,19 +598,36 @@ const cracksS = (rb) => memo(`cr|${rb}`, () => {
   for (let i = 0; i < ink.length; i += 2) G.set(ink[i], ink[i + 1], EARTH[5], 235);
   return { cv: G.done(), ax: Math.round(c), ay: Math.round(c) };
 });
-// a grave broken open: turned soil round a pit that glows witch-violet
-const graveS = () => memo("grave", () => {
-  const G = grid(34, 20), cx = 17, cy = 10;
+// a grave broken open (look B's ground): a faint violet pool, dark broken earth,
+// cracks radiating out (three growth stages), then green grave-mist and clods
+const graveS = (lv = 3) => memo(`grave|${lv}|${PX}`, () => {
+  const S = PX, G = grid(48 * S, 26 * S), cx = 24 * S, cy = 13 * S;
   for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
-    const n = Math.hypot((x + 0.5 - cx) / 15, (y + 0.5 - cy) / 8) + (vnoise(x, y, 3, 7) - 0.5) * 0.35;
-    if (n > 1) continue;
-    const b = bay(x, y);
-    if (n < 0.38) G.set(x, y, b < 0.5 ? VIOLET[4] : SHADE[3]);
-    else if (n < 0.5) G.set(x, y, b < 0.5 ? VIOLET[2] : VIOLET[3]);
-    else if (n < 0.8) G.set(x, y, vnoise(x, y, 2, 3) > 0.55 ? EARTH[3] : EARTH[4]);
-    else if (b < 0.5) G.set(x, y, EARTH[5], 200);
+    const d = Math.hypot((x + 0.5 - cx) / (21 * S), (y + 0.5 - cy) / (10.5 * S));
+    if (d < 1 && bay(x, y) < 0.3 * (1 - d * 0.6)) G.set(x, y, VIOLET[3], 120);
   }
+  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
+    const n = Math.hypot((x + 0.5 - cx) / (13 * S), (y + 0.5 - cy) / (5.6 * S)) + (vnoise(x, y, 3 * S, 7) - 0.5) * 0.4;
+    if (n > 1) continue;
+    G.set(x, y, n < 0.45 ? "#120c0a" : n < 0.8 ? "#1e1612" : bay(x, y) < 0.6 ? "#2a1e16" : "#1e1612", n > 0.85 ? 210 : 255);
+  }
+  const cr = lv / 3;
+  for (let k = 0; k < 7; k++) {
+    const a = (k / 7) * TAU + 0.3, L = (6 + 8 * hash(k, 3)) * cr;
+    for (let t = 3.6; t < 4 + L; t += 0.5 / S) {
+      const w = Math.sin(t * 1.3 + k) * 0.5;
+      G.set(cx + (Math.cos(a) * t + w) * S, cy + (Math.sin(a) * t * 0.42 + w * 0.3) * S, t < 7 ? "#4a3322" : "#3a2818");
+    }
+  }
+  for (let k = 0; k < 5; k++) { const a = hash(k, 9) * TAU, r = 1 + hash(k, 5) * 3; G.set(cx + Math.cos(a) * r * S, cy + Math.sin(a) * r * 0.45 * S, VIOLET[2]); }
   return { cv: G.done(), ax: cx, ay: cy };
+});
+const mistS = (v, f) => memo(`gmist|${v}|${f}|${PX}`, () => {
+  const S = PX * 0.5, R = (7 + f) * S, G = grid(2 * R + 6 * S, 2 * R + 4 * S), cx = G.W / 2, cy = G.H / 2;
+  const dens = [0.5, 0.42, 0.32, 0.22][f];
+  const P = [[-3.5, 0.5, 3.6], [3.5, 0.8, 3.2], [0, -1.2, 4.2]];
+  for (let i = 0; i < 3; i++) lump(G, cx + P[i][0] * S * (1 + hash(v, i) * 0.3), cy + P[i][1] * S, P[i][2] * S * (0.9 + 0.3 * hash(v, i + 4)) * (1 + f * 0.15), ["#b8f088", "#7cc85c", "#4a9040", "#2a5a34"], v * 3 + i, dens, 0.3, 0.7);
+  return { cv: G.done(), ax: Math.round(cx), ay: Math.round(cy) };
 });
 
 // ---- the effects -----------------------------------------------------------
@@ -1075,10 +1092,23 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       ctx.save();
       ctx.globalAlpha *= stepA(a);
       if (GR) {
-        put(ctx, graveS(), fx.x, fx.y + 2);
-        const gr = 16 * (1 - p * 0.4);
-        ringPx(ctx, fx.x, fx.y + 2, gr, gr * 0.5, 1.5, rgba(VIOLET[3], 0.8));
-        dash(ctx, fx.x, fx.y + 2, gr, gr * 0.5, 0.5, 1, VIOLET[1]);
+        const sd = seedOf(fx);
+        
+        put(ctx, graveS(p < 0.12 ? 1 : p < 0.3 ? 2 : 3), fx.x, fx.y + 6);
+        for (let k = 0; k < 4; k++) {
+          const q = ((age / 1250) + k * 0.25 + hash(sd, k) * 0.1) % 1, f = Math.min(3, Math.floor(q * 4));
+          if (p > 0.92 && q > 0.5) continue;
+          // low, thin and to the sides: the risen figure stays clear of it
+          ctx.globalAlpha = stepA(a) * 0.55 * (1 - q);
+          put(ctx, mistS((sd + k) % 5, f), fx.x + (k - 1.5) * 9 + Math.sin(q * 5 + k) * 3, fx.y + 7 - q * 12);
+          ctx.globalAlpha = stepA(a);
+        }
+        for (let k = 0; k < 6; k++) {
+          const q = clamp01((p - 0.1 - k * 0.04) / 0.6);
+          if (q <= 0 || q >= 1) continue;
+          const an = hash(sd, k + 4) * TAU, v = 7 + hash(sd, k + 6) * 9;
+          put(ctx, clodS((k + sd) % 6), fx.x + Math.cos(an) * v * q, fx.y - Math.sin(q * Math.PI) * 14 + q * q * 8 + 6);
+        }
       }
       if (AIR) {
         const v1 = [], v2 = [], v3 = [];

@@ -48,11 +48,12 @@ import { BUILD, buildClock } from "../engine/build.js";
 import { W, WALL_W } from "../data/constants.js";
 import { inRiver, inSea, PONDS } from "../data/terrain.js";
 import { drawTowerPortrait } from "./towers.js";
+import { workerSprite } from "./builders.js";   // a cycle (builders.js reads this file too): only used inside draws, after both have loaded
 import { cutSteps, REST } from "./buildcut.js";
 
 // build: a nominal length only — a build's real length depends on how far
 // the crew has to run (buildPlan / raiseSecs)
-export const RAISE_SECS = { build: 2.4, level: 0.45, branch: 0.7, ascend: 0.8 };
+export const RAISE_SECS = { build: 2.4, level: 0.72, branch: 0.7, ascend: 0.8 };
 
 // ---- small maths -----------------------------------------------------------
 const sn = (v) => Math.round(v * PX) / PX;            // snap to the art grid
@@ -682,7 +683,9 @@ const raiseBuild = (ctx, t, P, time, paint) => {
 };
 
 // ======================================================================
-// LEVEL: a scaffold and a hammer round the old form, then the new pops.
+// LEVEL: a scaffold round the old form with a mason on a plank, knocking twice; he drops
+// away at the switch and the new form pops. The mason is the build crew's own pix figure
+// (builders.js bakes him; this only stamps his frames).
 const raiseLevel = (ctx, t, p, dur, time, paint) => {
   const def = TOWERS[t.kind] || {};
   const prev = { ...t, ...(t.raised.prev || {}) };
@@ -691,13 +694,16 @@ const raiseLevel = (ctx, t, p, dur, time, paint) => {
   const water = !!def.water, narrow = !!def.roadClear;
   const rx = narrow ? 10 : Math.min(18, Math.max(11, bo.hw + 1)), fF = sn(by + (narrow ? 4 : 5.5));
   const xl = sn(x - rx), xr = sn(x + rx);
-  const SW = 0.4;                                                   // the switch to the new form
+  const SW = 0.5;                                                   // the switch to the new form
+  const POP = 0.1;                                                  // the mason's climb onto the plank
   const s = t.id * 23 + 11;
-  // the scaffold: two front poles and a ledger, springing up; sinks at the switch
-  const hS = Math.min(-bo.top * 0.55, 28) * eo(seg(p, 0, 0.16));
+  // the scaffold: two front poles, a ledger and the mason's plank, springing up; sinks at the switch
+  const hS = Math.min(-bo.top * 0.55, 28) * eo(seg(p, 0, 0.14));
   const sink = seg(p, SW, SW + 0.14) ** 2 * (hS + 3);
-  const knocks = [0.15, 0.29];
+  const knocks = [0.22, 0.4];
   const knockAt = knocks.find((k) => p >= k && p < k + 0.05);
+  const plankH = Math.max(5, Math.min(hS - 3, 13));                 // the plank's height over the feet
+  const mx = water ? sn(x + bo.hw + 4) : sn(xr - 5), plankY = sn(fF - plankH);
   const scaffold = () => {
     if (water || hS < 1 || sink >= hS + 2) return;
     ctx.save();
@@ -706,50 +712,67 @@ const raiseLevel = (ctx, t, p, dur, time, paint) => {
     pole(ctx, xl, fF, hS); pole(ctx, xr, fF, hS);
     if (hS > 8) ledger(ctx, xl - 1, xr + 1, fF - hS + 3, true);
     if (hS > 12) brace(ctx, xl + 1, fF - 1, xr - 1, fF - hS + 5);
+    if (hS > 7) ledger(ctx, xr - 12, xr + 1, plankY, true);       // the mason's plank
+    ctx.restore();
+  };
+  // on water there are no poles: two piles carry a short plank off the hall's flank
+  const stage = () => {
+    if (!water || p < 0.02 || sink >= 14) return;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x - 40, fF - 80, 90, 80.5); ctx.clip();
+    ctx.translate(0, sn(sink));
+    const h = 4 + 6 * eo(seg(p, 0.02, 0.12));
+    pole(ctx, mx - 7, fF, h); pole(ctx, mx + 3, fF, h);
+    ledger(ctx, mx - 9, mx + 5, sn(fF - h + 2), true);
+    ctx.restore();
+  };
+  // the mason: pops up beside the pole, knocks twice in time with the chips, drops away with the scaffold
+  const mason = () => {
+    if (p < 0.02 || sink >= 14) return;
+    const base = water ? sn(fF - 8) : plankY;                       // the plank he stands on
+    let pose = "stand", fr = 0, dy = 0;
+    if (p < SW) {
+      const up = seg(p, 0.02, POP);
+      dy = (1 - eo(up)) * 24;                                       // climbs up past the plank's edge
+      if (up < 1) { pose = "climb"; fr = Math.floor(up * 8) % 4; }
+      else {
+        pose = "hammer";
+        const k = knocks.find((q) => p >= q - 0.04 && p < q + 0.05);
+        fr = k === undefined ? 0 : p < k ? 1 : 2;
+      }
+    } else {
+      pose = "jump"; fr = Math.min(2, Math.floor(seg(p, SW, SW + 0.1) * 3));
+      dy = sink;
+    }
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x - 40, fF - 80, 90, (p < SW && dy > 0 ? base : fF) - (fF - 80) + 0.5); ctx.clip();   // up the climb he is cut at the plank, after it at the ground
+    const cv = workerSprite("mason", pose, fr, false, -1);
+    ctx.drawImage(cv, mx - 18, sn(base + dy) - 37, 36, 42);
     ctx.restore();
   };
   if (p < SW) {
     paintScaled(ctx, paint, prev, x, by, 1, 1, bo.hw, by - (t.y + bo.top), 0, knockAt !== undefined ? 0.5 : 0);
-    scaffold();
-    // the hammer, at the right-hand pole's top, knocking twice
-    const hx = water ? x + bo.hw + 3 : xr + 3, hy = water ? sn(by - (by - t.y - bo.top) * 0.45) : fF - hS + 1;
-    if (hS > 6) hammer(ctx, hx, hy, knockAt !== undefined ? 1 : p < 0.1 ? 0.5 : 0);
+    scaffold(); stage(); mason();
+    // chips off the stone where his mallet lands
+    const hx = mx - 13, hy = (water ? fF - 8 : plankY) - 14;
     for (const k of knocks) {
-      if (p >= k && p < k + 0.07) twinkle(ctx, hx - 4, hy + 2, p < k + 0.035 ? 3 : 2, CREAM);
-      chips(ctx, s + k * 100, 3, k, p, dur, hx - 4, hy + 2, 2, fF + 3, { life: 0.2, wide: 0.7 });
+      if (p >= k && p < k + 0.07) twinkle(ctx, hx, hy + 2, p < k + 0.035 ? 3 : 2, CREAM);
+      chips(ctx, s + k * 100, 3, k, p, dur, hx, hy + 2, 2, fF + 3, { life: 0.2, wide: 0.7 });
     }
   } else {
     const sy = keys(p, [[SW, 0.86], [SW + 0.1, 1.1], [SW + 0.22, 0.95], [SW + 0.34, 1.03], [SW + 0.44, 1]]);
     const sx = keys(p, [[SW, 1.1], [SW + 0.1, 0.94], [SW + 0.22, 1.04], [SW + 0.34, 0.99], [SW + 0.44, 1]]);
     paintScaled(ctx, paint, t, x, by, sx, sy, bn.hw, by - (t.y + bn.top));
-    scaffold();
+    scaffold(); stage(); mason();
     chips(ctx, s + 5, 7, SW, p, dur, x, by - 6, rx * 1.6, fF + 3, { life: 0.2, wide: 1.2 });
     if (!water) { puff(ctx, xl - 1, fF + 1, 3, seg(p, SW, SW + 0.4)); puff(ctx, xr + 1, fF + 1, 3, seg(p, SW + 0.03, SW + 0.43)); }
     // a sparkle on the new top, and one lower on the far side
     const topY = t.y + bn.top;
-    const tw1 = seg(p, SW + 0.12, SW + 0.42), tw2 = seg(p, SW + 0.22, SW + 0.52);
+    const tw1 = seg(p, SW + 0.12, SW + 0.42), tw2 = seg(p, SW + 0.22, SW + 0.5);
     if (tw1 > 0 && tw1 < 1) twinkle(ctx, x + bn.hw * 0.35, topY + 3, Math.round(Math.sin(tw1 * Math.PI) * 4));
     if (tw2 > 0 && tw2 < 1) twinkle(ctx, x - bn.hw * 0.6, topY + (by - topY) * 0.4, Math.round(Math.sin(tw2 * Math.PI) * 3));
   }
 };
-// A mallet in art pixels, its head at (x, y) and the handle running out to
-// the right: pose 0 raised, 0.5 coming down, 1 struck.
-const hammer = (ctx, x, y, pose) => {
-  const ang = pose >= 1 ? -0.2 : pose > 0 ? 0.5 : 1.05;         // the head's lift above the grip
-  const ca = Math.cos(ang), sa = Math.sin(ang), a = 1 / PX;
-  // swinging about the grip: the grip stays put, the head arcs
-  const gx = x + 8, gy = y + 1.5;
-  const hx = gx - ca * 8, hy = gy - sa * 8;
-  const pts = [];
-  for (let i = 0; i <= 15; i++) pts.push([gx - ca * i * a, gy - sa * i * a, i < 5 ? WOOD_LO : WOOD]);
-  for (let i = -4; i <= 4; i++) for (let j = -2; j <= 3; j++) {
-    pts.push([hx - ca * j * a - sa * i * a, hy - sa * j * a + ca * i * a, i < -2 ? "#dde0e6" : i > 2 ? "#6a6e78" : "#a4a8b2"]);
-  }
-  ctx.fillStyle = INK;
-  for (const [px, py] of pts) ctx.fillRect(sn(px) - a, sn(py) - a, 3 * a, 3 * a);
-  for (const [px, py, c] of pts) { ctx.fillStyle = c; ctx.fillRect(sn(px), sn(py), a, a); }
-};
-
 // ======================================================================
 // BRANCH / ASCEND: a column of gold light takes the old form; the new one
 // shoots up out of it and a ring of gold motes rolls out round its feet.
