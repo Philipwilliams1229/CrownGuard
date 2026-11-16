@@ -180,8 +180,9 @@ the green / gold dot `burst` pushes are gone from actions.js), and **fire on a f
 (statusfx.js `burnSprite`: joined flame clusters on the back and at the feet, face clear, ground glow,
 embers, a wisp; 200 burning foes 1.36 -> 1.24 ms). Every ground ring now hides its back half behind
 what stands in it (style guide, "Effects on the ground"). Burning ground was redone (take 2): private
-Artifact "Crownguard Effects Concepts, Burning Ground" (`build-fx-concepts.mjs round3`), awaiting
-the owner's pick. `fx3g-lab.html` shows the rings with a real hall and foes standing in them.
+Artifact "Crownguard Effects Concepts, Burning Ground" (`build-fx-concepts.mjs round3`): the owner
+picked **B**, now in the game (flames.js `drawFireGround` + `drawFireFront`, the front tongues drawn
+after the figures in draw.js; baked per radius bucket, shape and frame; `fxfire-lab.html`). `fx3g-lab.html` shows the rings with a real hall and foes standing in them.
 
 ## "New sprites" is no longer a setting (owner, 2026-11-15)
 

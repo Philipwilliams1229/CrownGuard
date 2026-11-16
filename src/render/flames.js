@@ -49,7 +49,8 @@ const grid = (w, h) => {
     d[i] = k[0]; d[i + 1] = k[1]; d[i + 2] = k[2]; d[i + 3] = a;
   };
   const done = () => { c.putImageData(img, 0, 0); return cv; };
-  return { cv, W, H, set, done };
+  const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : d[(Math.floor(y) * W + Math.floor(x)) * 4 + 3]);
+  return { cv, W, H, set, done, d, at };
 };
 const SPR = new Map();
 const memo = (key, make) => {
@@ -297,100 +298,123 @@ export const drawBreath = (ctx, t, time) => {
   ctx.restore();
 };
 
-// ---- the Inferno Throne's burning ground --------------------------------------
-// Scorched earth — a soot patch with ember-lit cracks and a few winking coals —
-// under a sparse crown of LOW flame tongues. Baked per size bucket, four
-// flicker frames, three layouts, two strengths (full; and low, as it catches and as it dies).
-// Quieter than the Hellburner's lava: dark and mostly earth-coloured, the
-// fire kept to small licks that stand at the patch's edge-to-middle.
-const fireGroundS = (rb, v, f, low) => memo(`fg|${rb}|${v}|${f}|${low ? 1 : 0}`, () => {
-  const R = rb * PX, ry = R * 0.6, top = 16;
-  const G = grid(2 * R + 8, 2 * ry + 8 + top), cx = G.W >> 1, cy = (G.H + top) >> 1;
-  const seed = 41 + v * 17;
-  for (let y = 0; y < G.H; y++) for (let x = 0; x < G.W; x++) {
-    const nx = (x + 0.5 - cx) / R, ny = (y + 0.5 - cy) / ry;
-    const edge = Math.sqrt(nx * nx + ny * ny) + (vnoise(x, y, Math.max(3, R * 0.28), seed) - 0.5) * 0.45;
-    if (edge > 1) continue;
-    const b = bay(x, y);
-    // cracks: thin contours of a second noise field, lit from below
-    const cr = Math.abs(vnoise(x, y, Math.max(3, R * 0.2), seed + 5) - 0.5);
-    if (edge < 0.66 && cr < 0.03 && vnoise(x, y, Math.max(3, R * 0.16), seed + 13) > 0.52) {
-      const hot = hash(x * 3 + f, y) < (low ? 0.1 : 0.25);
-      G.set(x, y, FIRE[hot ? 3 : 4], 230);
-      continue;
+// ---- the Inferno Throne's burning ground (owner's pick, "Burning ground, take 2: B") ----------
+// The pool LIES IN the ground: a char heart, the ground's own colour scorched and browned round it,
+// dithered and ragged, no outline; a few forking hairline fissures with embers living in them; and
+// patches of 2-4 flame tongues sharing a root, each patch on its own clock, inked with the tinted
+// one-pixel line. Baked per (size bucket, shape variant, frame): the ground (embers), the flames and
+// smoke behind a foe standing in it ("back", drawn in the ground layer) and the tongues rooted in the
+// pool's front half ("front", drawn by drawFireFront after the figures). It catches over ~0.5 s, the
+// flames shrink first as it dies (embers last).
+const HF = (a, b = 0) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+const smt = (t) => t * t * (3 - 2 * t);
+const vn = (x, y, s, sd = 0) => { const gx = x / s, gy = y / s, ix = Math.floor(gx), iy = Math.floor(gy), fx = smt(gx - ix), fy = smt(gy - iy);
+  const a = HF(ix, iy + sd), b = HF(ix + 1, iy + sd), c = HF(ix, iy + 1 + sd), d = HF(ix + 1, iy + 1 + sd); return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; };
+const blobEdge = (x, y, R, ry, sd) => { const a = Math.atan2(y / ry, x / R);
+  const r = 1 + 0.16 * Math.sin(3 * a + sd) + 0.11 * Math.sin(5 * a + 2 * sd + 1) + 0.06 * Math.sin(9 * a + sd * 3) + (a > 2.2 || a < -2.6 ? 0.1 : 0);
+  return Math.hypot(x / R, y / ry) / r; };
+const FS = [FIRE[0], FIRE[1], FIRE[2], FIRE[3], FIRE[4]];
+const FNF = 8;                                   // frames in the loop
+const FLT = [0, 0.25, 0.55, 1];                  // flame strength by tier
+const PATCH = [[-12, -4, 0.0, 1.3, 4], [10, 7, 0.3, 1.1, 3], [24, -6, 0.62, 0.8, 3], [-30, 8, 0.8, 0.7, 2], [2, -14, 0.45, 0.8, 2]];
+const fireGeom = (rb) => { const R = rb * PX * 0.93, ry = R * 0.59, top = Math.ceil(R * 0.75) + 14, hx = Math.ceil(R * 1.5) + 3, hy = Math.ceil(ry * 1.5) + 3; return { R, ry, top, hx, hy }; };
+const ellA = (G, cx, cy, rx, ry, col, al, dens) => { for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+  const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry; if (nx * nx + ny * ny > 1 || bay(x, y) >= dens) continue; G.set(x, y, col, al * 255); } };
+const fireFlame = (G, x, y, h, w, ph, sway) => {
+  for (let j = 0; j < h; j++) {
+    const p = j / Math.max(1, h - 1), prof = p < 0.25 ? 0.62 + p * 1.5 : Math.pow(Math.cos(((p - 0.25) / 0.75) * (Math.PI / 2)), 0.85);
+    const hw = Math.max(0.6, (w / 2) * prof), off = Math.sin(ph + p * 3.2) * sway * p;
+    for (let dx = -Math.ceil(hw); dx <= Math.ceil(hw); dx++) {
+      if (Math.abs(dx) > hw + 0.2) continue;
+      const d = Math.abs(dx) / hw;
+      G.set(x + dx + off, y - j, d > 0.72 ? FS[3] : d > 0.42 || p > 0.8 ? FS[2] : p < 0.55 && d < 0.2 ? FS[0] : FS[1]);
     }
-    // smouldering beds under the ash, breathing a little frame to frame
-    const bed = vnoise(x + (f & 1), y - (f >> 1), Math.max(3, R * 0.18), seed + 21);
-    if (edge < 0.5 && bed > (low ? 0.8 : 0.72)) { G.set(x, y, FIRE[bed > 0.8 && !low ? 4 : 5], 170); continue; }
-    // soot in flat see-through washes, ash-grey where it lies thick; the rim frays
-    const ash = vnoise(x, y, Math.max(2, R * 0.12), seed + 9);
-    if (edge < 0.55) G.set(x, y, ash > 0.66 ? ASH : SOOT[edge < 0.3 ? 0 : 1], 150);
-    else if (edge < 0.84) G.set(x, y, ash > 0.7 ? ASH : SOOT[2], 115);
-    else if (b < 0.25) G.set(x, y, SOOT[3], 100);
   }
-  // coals that wink across the frames
-  const nC = Math.round(R / 5);
-  for (let k = 0; k < nC; k++) {
-    const an = hash(seed, k) * TAU, d = Math.sqrt(hash(seed, k + 20)) * 0.7;
-    const x = cx + Math.cos(an) * R * d, y = cy + Math.sin(an) * ry * d;
-    const lit = (k + f) % 4;
-    if (lit === 3) continue;
-    G.set(x, y, FIRE[lit === 0 && !low ? 1 : 2]); G.set(x + 1, y, FIRE[3]);
+};
+const inkPass = (G) => { const { d, W, H } = G, out = new Uint8ClampedArray(d);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (d[i + 3] > 40) continue; let n = -1;
+    if (x > 0 && d[i - 1] > 40) n = i - 4; else if (x < W - 1 && d[i + 7] > 40) n = i + 4; else if (y > 0 && d[i - W * 4 + 3] > 40) n = i - W * 4; else if (y < H - 1 && d[i + W * 4 + 3] > 40) n = i + W * 4;
+    if (n < 0) continue; out[i] = d[n] * 0.4 + 10; out[i + 1] = d[n + 1] * 0.32 + 4; out[i + 2] = d[n + 2] * 0.46 + 18; out[i + 3] = 255; }
+  d.set(out); };
+const firePatches = (G, g, f, v, tier, front) => { const sc = g.R / 56, cx = G.cx, cy = G.cy;
+  PATCH.forEach(([x, y, ph, sz, n], k) => { y = Math.round(y * sc); if ((y > 5 * sc) !== front) return;
+    const env = Math.pow(Math.sin(((f / FNF + ph + v * 0.21) % 1) * Math.PI), 0.7) * FLT[tier]; if (env < 0.12) return;
+    for (let j = 0; j < n; j++) { const off = Math.round(((j - (n - 1) / 2) * 5 + (HF(k, j) - 0.5) * 2) * sc), h = Math.round((8 + 14 * HF(k, j + 3 + v)) * sz * env * (j === 1 ? 1.3 : 1) * 1.15 * sc); if (h < 4) continue;
+      fireFlame(G, cx + Math.round(x * sc) + off, cy + y - (j & 1), h, Math.max(3, Math.min(Math.round(h * 0.6), Math.round(7 * sc))), f * 0.9 + k * 2 + j, 1.2 * sc); } }); };
+// the ground: glow, char with its scorched fringe, fissures, embers
+const fireBaseS = (rb, v, f) => memo(`fb|${rb}|${v}|${f}`, () => {
+  const g = fireGeom(rb), { R, ry } = g, G = grid(2 * g.hx, 2 * g.hy + g.top), cx = g.hx, cy = g.hy + g.top, sd = 1.3 + v * 2.1;
+  G.cx = cx; G.cy = cy;
+  ellA(G, cx, cy, R * 1.1, ry * 1.1, FS[2], 0.1 + 0.02 * Math.sin(f * 0.8), 0.5); ellA(G, cx, cy, R * 0.66, ry * 0.66, FS[2], 0.2 + 0.04 * Math.sin(f * 0.8), 0.5);
+  for (let y = -g.hy; y <= g.hy; y++) for (let x = -g.hx; x <= g.hx; x++) {
+    const d = blobEdge(x, y, R, ry, sd) + (vn(x, y, 5, 4) - 0.5) * 0.4 + (HF(x, y) - 0.5) * 0.12;
+    if (d > 1.45) continue;
+    if (d < 0.62) { G.set(cx + x, cy + y, vn(x, y, 6, 2) > 0.6 ? "#2a1c20" : "#20161a"); continue; }
+    const k = (d - 0.62) / 0.83;
+    if (bay(x, y) >= Math.min(1, (1 - k) * 1.25 + 0.05)) continue;
+    G.set(cx + x, cy + y, k < 0.25 ? "#2a1c1c" : k < 0.6 ? "#3a2a1e" : "#4a3a28", (k < 0.6 ? 0.95 : 0.7) * 255);
+    if (k > 0.6 && HF(x * 3, y) > 0.7) G.set(cx + x, cy + y, "#1e1a16", 0.6 * 255);
   }
-  // low flame clumps: a main tongue and a smaller one or two at its side,
-  // mostly orange-red, their heat a gold root; a warm stain under each
-  const tongue = (bx, by, hgt, w, sway) => {
-    for (let yy = 0; yy <= hgt; yy++) {
-      const u = yy / hgt, hw = w * (u < 0.3 ? 0.8 + u : (1 - u) * 1.55);
-      const ox = sway * u * u * 1.8;
-      for (let xx = -Math.ceil(hw); xx <= Math.ceil(hw); xx++) {
-        const q = Math.abs(xx - ox) / Math.max(0.5, hw);
-        if (q > 1) continue;
-        const tone = u > 0.8 ? 4 : u > 0.55 || q > 0.72 ? 3 : u < 0.3 && q < 0.4 && !low ? 1 : 2;
-        G.set(bx + xx, by - yy, FIRE[tone]);
-      }
-    }
-  };
-  const nT = Math.round(R / (low ? 18 : 11));
-  for (let k = 0; k < nT; k++) {
-    // spread like seeds in a sunflower, so the licks never bunch to one side
-    const an = k * 2.4 + hash(seed, k + 50) * 0.9, d = 0.1 + 0.6 * Math.sqrt((k + 0.5) / nT) * (0.85 + 0.2 * hash(seed, k + 60));
-    const bx = Math.round(cx + Math.cos(an) * R * d), by = Math.round(cy + Math.sin(an) * ry * d);
-    for (let yy = -3; yy <= 3; yy++) for (let xx = -9; xx <= 9; xx++) {
-      if ((xx / 9) ** 2 + (yy / 3) ** 2 <= 1 && bay(bx + xx, by + yy) < 0.6) G.set(bx + xx, by + yy, FIRE[4], 150);
-    }
-    const hk = hash(k * 5 + f, seed);
-    const sway = (f % 2 ? 1 : -1) * (k % 2 ? 1 : -1);
-    const hgt = (low ? 7 : 11) + hk * (low ? 4 : 9), w = 3.4 + hash(seed, k + 70) * 1.6;
-    const side = hash(seed, k + 80) < 0.5 ? -1 : 1;
-    tongue(bx + side * 4, by, Math.round(hgt * (0.45 + 0.25 * hash(k + f, 9))), w * 0.7, sway);
-    if (!low) tongue(bx - side * 4, by + 1, Math.round(hgt * (0.35 + 0.2 * hash(k + f, 11))), w * 0.6, -sway);
-    if (hk > 0.1) tongue(bx, by + 1, Math.round(hgt), w, sway);   // the main lick gutters now and then
-  }
+  // fissures: random walks that fork, the same every frame; the embers in them breathe
+  const sc = R / 56, walk = (x, y, ang, len, depth, my) => { for (let i = 0; i < len; i++) { ang += (HF(my * 7 + i, sd) - 0.5) * 0.9; x += Math.cos(ang); y += Math.sin(ang) * 0.6;
+    if (blobEdge(x, y, R, ry, sd) > 0.88) break; const X = Math.round(x), Y = Math.round(y), lit = 0.5 + 0.5 * Math.sin((f / FNF) * TAU + my * 2.1);
+    if ((X + Y) % 2 === 0) { G.set(cx + X, cy + Y - 1, FS[4], 0.45 * 255); G.set(cx + X + 1, cy + Y, FS[4], 0.35 * 255); }
+    G.set(cx + X, cy + Y, lit > 0.75 ? FS[1] : lit > 0.4 ? FS[2] : FS[3]); // warm, never white (the lead, 2026-11-16)
+    if (depth < 2 && HF(my + i, sd + 5) > 0.93) walk(x, y, ang + (HF(i, my) > 0.5 ? 0.8 : -0.8), (len * 0.6) | 0, depth + 1, my * 3 + i); } };
+  for (let k = 0; k < 8; k++) { const a = HF(k, sd + 1) * TAU, dd = 0.08 + 0.35 * HF(k, sd + 2); walk(Math.cos(a) * R * dd, Math.sin(a) * ry * dd, HF(k, sd + 3) * TAU, ((22 + 20 * HF(k, sd + 4)) * Math.max(0.6, sc)) | 0, 0, k); }
+  for (let y = -g.hy; y <= g.hy; y++) for (let x = -g.hx; x <= g.hx; x++) if (blobEdge(x, y, R, ry, sd) < 0.7 && HF(x * 2.1, y * 1.7) > 0.985) G.set(cx + x, cy + y, FS[(f + x) & 1 ? 2 : 3]);
   return { cv: G.done(), ax: cx, ay: cy };
+});
+// the flames (and, behind, the smoke): back = tongues rooted in the back half, front = the front half
+const fireFlamesS = (rb, v, f, tier, front) => memo(`ff|${rb}|${v}|${f}|${tier}|${front ? 1 : 0}`, () => {
+  const g = fireGeom(rb), G = grid(2 * g.hx, 2 * g.hy + g.top);
+  G.cx = g.hx; G.cy = g.hy + g.top;
+  firePatches(G, g, f, v, tier, front);
+  inkPass(G);
+  if (!front && tier > 0) PATCH.slice(0, 3).forEach(([x, y, ph], k) => { const q = (f / FNF * 0.8 + ph) % 1, sc = g.R / 56, sx = G.cx + Math.round(x * sc) + Math.sin(q * 6 + k) * 3, sy = G.cy + Math.round(y * sc) - (24 + q * 26) * sc;
+    const rx = (3 + q * 5) * sc, ry2 = (1.6 + q * 3) * sc, col = q < 0.5 ? "#9c969a" : "#6a666e", al = 0.55 * (1 - q) * FLT[tier], dn = 0.85 - q * 0.4;
+    for (let yy = Math.floor(sy - ry2); yy <= Math.ceil(sy + ry2); yy++) for (let xx = Math.floor(sx - rx); xx <= Math.ceil(sx + rx); xx++) { const nx = (xx + 0.5 - sx) / rx, ny = (yy + 0.5 - sy) / ry2;
+      if (nx * nx + ny * ny > 1 || bay(xx, yy) >= dn || G.at(xx, yy) > 0) continue; G.set(xx, yy, col, al * 255); } });
+  let any = false; for (let i = 3; i < G.d.length; i += 4) if (G.d[i]) { any = true; break; }
+  return { cv: G.done(), ax: G.cx, ay: G.cy, empty: !any };
 });
 
 const FG = new Float32Array(6 * 3);
-export const drawFireGround = (ctx, gr, time, tms) => {
+const fireState = (gr, time, tms) => {
   const left = gr.until - tms, age = gr.born != null ? tms - gr.born : 1e9;
-  const a = stepA(Math.min(1, left / 700, age / 320), 4);
-  if (a <= 0) return;
-  const r = Math.max(12, gr.r || 36);
-  const rb = Math.round(r / 4) * 4;
-  const f = Math.floor(time * 7 + (gr.x + gr.y) * 0.1) & 3;
-  const low = age < 420 || left < 1100;
-  if (a < 1) { ctx.save(); ctx.globalAlpha *= a; }
-  put(ctx, fireGroundS(rb, (Math.floor(gr.x) * 7 + Math.floor(gr.y) * 13) % 3, f, low), gr.x, gr.y);
-  // a few sparks lifting off it, and a thread of smoke
+  const a = stepA(Math.min(1, left / 900, age / 240), 4);
+  const tier = Math.min(age < 250 ? 1 : age < 500 ? 2 : 3, left < 500 ? 0 : left < 1200 ? 1 : left < 2000 ? 2 : 3);
+  const r = Math.max(12, gr.r || 36), rb = Math.round(r / 4) * 4;
+  const v = ((Math.floor(gr.x) * 7 + Math.floor(gr.y) * 13) % 4 + 4) % 4;
+  const f = (Math.floor(time * 5 + (Math.floor(gr.x) * 3 + Math.floor(gr.y)) * 0.37) % FNF + FNF) % FNF;
+  return { a, tier, r, rb, v, f };
+};
+export const drawFireGround = (ctx, gr, time, tms) => {
+  const q = fireState(gr, time, tms);
+  if (q.a <= 0) return;
+  if (q.a < 1) { ctx.save(); ctx.globalAlpha *= q.a; }
+  put(ctx, fireBaseS(q.rb, q.v, q.f), gr.x, gr.y);
+  if (q.tier > 0) put(ctx, fireFlamesS(q.rb, q.v, q.f, q.tier, false), gr.x, gr.y);
+  // a few sparks lifting off it
   let n = 0;
-  for (let i = 0; i < 5; i++) {
+  if (q.tier > 0) for (let i = 0; i < 5; i++) {
     const ph = (time * 0.9 + i * 0.29 + gr.x * 0.013) % 1;
-    const an = i * 2.3 + gr.y * 0.07, d = r * (0.2 + 0.12 * i);
+    const an = i * 2.3 + gr.y * 0.07, d = q.r * (0.15 + 0.07 * i);
     FG[n++] = gr.x + Math.cos(an) * d + Math.sin(time * 4 + i) * 1.5;
-    FG[n++] = gr.y + Math.sin(an) * d * 0.6 - 3 - ph * 16;
+    FG[n++] = gr.y + Math.sin(an) * d * 0.6 - 3 - ph * 22;
     FG[n++] = ph < 0.35 ? 1 : 0.5;
-    if (low && i >= 2) break;
+    if (q.tier < 3 && i >= 2) break;
   }
   dots(ctx, FG, n, ((time * 3) | 0) % 2 ? FIRE[2] : FIRE[3]);
-  if (a < 1) ctx.restore();
+  if (q.a < 1) ctx.restore();
+};
+// the tongues rooted in the pool's front half: drawn after the figures (draw.js)
+export const drawFireFront = (ctx, gr, time, tms) => {
+  const q = fireState(gr, time, tms);
+  if (q.a <= 0 || q.tier <= 0) return;
+  const s = fireFlamesS(q.rb, q.v, q.f, q.tier, true);
+  if (s.empty) return;
+  if (q.a < 1) { ctx.save(); ctx.globalAlpha *= q.a; }
+  put(ctx, s, gr.x, gr.y);
+  if (q.a < 1) ctx.restore();
 };

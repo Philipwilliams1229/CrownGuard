@@ -38,7 +38,7 @@ const VOLLEY_SHAFTS = 6;
 import { drawStoop } from "./birds.js";
 import { drawMusketShot } from "./musketfx.js";
 import { drawRingFx } from "./rings.js";
-import { drawBreath } from "./flames.js";
+import { drawBreath, drawFireFront } from "./flames.js";
 import { beginLights, addLight, warmPix } from "./pix/pixrigs.js";
 import { drawRaising, raiseSecs, raiseHidesPips } from "./buildanim.js";
 import { builderDrawables } from "./builders.js";
@@ -593,6 +593,7 @@ export function draw(g, canvas, bufRef) {
 
   // the newer heroes' bolts, rings and flashes (render/heroes/<key>.js)
   drawHeroFx(ctx, g);
+  if (g.grounds) for (const gr of g.grounds) if (gr.kind === "fire") drawFireFront(ctx, gr, g.time, g.time * 1000);   // tongues in a pool's front half, over the figures
 
   for (const fx of g.effects) {
     const a = Math.min(1, fx.ttl / 300);
