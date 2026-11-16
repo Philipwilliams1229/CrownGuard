@@ -617,8 +617,9 @@ export const drawBlast = (ctx, fx, layer) => {
     ctx.drawImage(gs.cv, 0, y0, w, y1 - y0, -gs.ax / PX, -gs.ay / PX + y0 / PX, w / PX, (y1 - y0) / PX);
     ctx.restore();
   };
-  if (layer === "g") { part(0, cut); return; }
-  part(cut, h);
+  // (owner, 2026-11-16: the ring never draws over a foe's body, so the whole ground
+  // half goes under the actors; a foe on its front arc covers it, the right depth)
+  if (layer === "g") { part(0, h); return; }
   put(ctx, blastSprite(fx.type, bucket(r), f, "a", 0), fx.x, fx.y, flip);
 };
 

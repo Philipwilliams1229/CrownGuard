@@ -186,11 +186,15 @@ const dash = (ctx, x, y, rx, ry, sz, gap, style) => {
 // A ring on the ground round something standing: its BACK half (y above the
 // centre, angles pi..2pi) belongs to the ground layer, drawn before the halls
 // and figures, so they hide it; its FRONT half to the air layer, drawn after.
-const sideOf = (GR, AIR, an) => (GR && AIR) || (Math.sin(an) < 0 ? GR : AIR);
-const halfRange = (GR, AIR) => (GR && AIR ? [0, TAU] : GR ? [Math.PI, TAU] : [0, Math.PI]);
-const arcPx = (ctx, x, y, rx, ry, th, color, GR, AIR) => {
+// Owner, 2026-11-16: a ring round FOES must never draw over their bodies, so by
+// default the whole ring is ground layer (a foe standing on its front arc covers it,
+// which is the right depth for a flat ring); only a ring round a HALL (`split`: level
+// up, path / final) keeps its front half over the hall's base.
+const sideOf = (GR, AIR, an, split = false) => (GR && AIR) || (!split ? GR : Math.sin(an) < 0 ? GR : AIR);
+const halfRange = (GR, AIR, split) => (GR && AIR ? [0, TAU] : !split ? (GR ? [0, TAU] : [0, 0]) : GR ? [Math.PI, TAU] : [0, Math.PI]);
+const arcPx = (ctx, x, y, rx, ry, th, color, GR, AIR, split = false) => {
   if (rx < 1) return;
-  const [a0, a1] = halfRange(GR, AIR);
+  const [a0, a1] = halfRange(GR, AIR, split);
   const n = Math.max(16, Math.ceil((TAU * Math.max(rx, ry)) / (th * 0.6)));
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -200,9 +204,9 @@ const arcPx = (ctx, x, y, rx, ry, th, color, GR, AIR) => {
   }
   ctx.fill();
 };
-const dashArc = (ctx, x, y, rx, ry, sz, gap, style, GR, AIR) => {
+const dashArc = (ctx, x, y, rx, ry, sz, gap, style, GR, AIR, split = false) => {
   if (rx < 1) return;
-  const [a0, a1] = halfRange(GR, AIR);
+  const [a0, a1] = halfRange(GR, AIR, split);
   const n = Math.max(8, Math.round((TAU * Math.max(rx, ry)) / gap));
   ctx.fillStyle = style;
   ctx.beginPath();
@@ -1222,18 +1226,18 @@ export const drawRingFx = (ctx, fx, a, g, layer = "both") => {
       ctx.globalAlpha *= A;
       ctx.globalAlpha *= stepA(gold ? 1 - p * 0.6 : 1 - p * 0.7, 5);
       const ink = gold ? "#4a3018" : "#1a3d2a";
-      arcPx(ctx, fx.x, fx.y, r, r * SQ, 2, ink, GR, AIR);
-      arcPx(ctx, fx.x, fx.y, r, r * SQ, 1, TN[2], GR, AIR);
+      arcPx(ctx, fx.x, fx.y, r, r * SQ, 2, ink, GR, AIR, true);
+      arcPx(ctx, fx.x, fx.y, r, r * SQ, 1, TN[2], GR, AIR, true);
       ctx.globalAlpha = A * stepA(1 - p);
-      dashArc(ctx, fx.x, fx.y, r - 1.5, (r - 1.5) * SQ, 0.5, 1.4, TN[0], GR, AIR);
+      dashArc(ctx, fx.x, fx.y, r - 1.5, (r - 1.5) * SQ, 0.5, 1.4, TN[0], GR, AIR, true);
       if (gold) {
         const r2 = r * 0.62;
-        arcPx(ctx, fx.x, fx.y, r2, r2 * SQ, 1, TN[1], GR, AIR);
+        arcPx(ctx, fx.x, fx.y, r2, r2 * SQ, 1, TN[1], GR, AIR, true);
         const sa = [], sb = [];
         for (let k = 0; k < 10; k += 2) {
           const an = (k / 10) * TAU + p * 3;
-          if (sideOf(GR, AIR, an)) sa.push(fx.x + Math.cos(an) * r * 0.9, fx.y + Math.sin(an) * r * 0.9 * SQ, 0.5);
-          if (sideOf(GR, AIR, an + 0.2)) sb.push(fx.x + Math.cos(an + 0.2) * r * 0.9, fx.y + Math.sin(an + 0.2) * r * 0.9 * SQ, 0.5);
+          if (sideOf(GR, AIR, an, true)) sa.push(fx.x + Math.cos(an) * r * 0.9, fx.y + Math.sin(an) * r * 0.9 * SQ, 0.5);
+          if (sideOf(GR, AIR, an + 0.2, true)) sb.push(fx.x + Math.cos(an + 0.2) * r * 0.9, fx.y + Math.sin(an + 0.2) * r * 0.9 * SQ, 0.5);
         }
         dots(ctx, sa, TN[0]); dots(ctx, sb, TN[1]);
       }

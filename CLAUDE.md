@@ -178,8 +178,8 @@ fire on a foe (again) and burning ground: private Artifact "Crownguard Effects C
 effect now lasts 1.4 s), **level up A, path / final A** (now `case "levelup"/"evolve"` in rings.js;
 the green / gold dot `burst` pushes are gone from actions.js), and **fire on a foe between A and B**
 (statusfx.js `burnSprite`: joined flame clusters on the back and at the feet, face clear, ground glow,
-embers, a wisp; 200 burning foes 1.36 -> 1.24 ms). Every ground ring now hides its back half behind
-what stands in it (style guide, "Effects on the ground"). Burning ground was redone (take 2): private
+embers, a wisp; 200 burning foes 1.36 -> 1.24 ms). Ground rings never draw over a body, only under it;
+the rings round a hall keep their front half over its base (style guide, "Effects on the ground"). Burning ground was redone (take 2): private
 Artifact "Crownguard Effects Concepts, Burning Ground" (`build-fx-concepts.mjs round3`): the owner
 picked **B**, now in the game (flames.js `drawFireGround` + `drawFireFront`, the front tongues drawn
 after the figures in draw.js; baked per radius bucket, shape and frame; `fxfire-lab.html`). `fx3g-lab.html` shows the rings with a real hall and foes standing in them.

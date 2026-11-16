@@ -1169,18 +1169,19 @@ actions.js `buildableAt`).
 - A coastal level's waypoint on the campaign map stands by its country's
   shore (`scripts/check-map-water.mjs` checks it).
 
-## Effects on the ground: rings go BEHIND what stands in them (owner, 2026-11-16)
+## Effects on the ground: rings never cross a body (owner, 2026-11-16)
 
-"The circle should disappear behind the tower where you wouldn't be able to see it. Helps us keep
-that 3d feel ... other circle effects, like the magic ring, the shockwave from projectiles, etc,
-should all work the same way." Every ring, wave or wash on the ground round a hall, a figure or an
-impact draws its BACK half (y < its centre) in the ground layer `"g"` (draw.js, before the halls and
-figures) and its FRONT half in the air layer `"a"` (after them). Helpers: `arcPx` / `dashArc`
-(rings.js), `ringHalf` (fx.js), and `drawBlast` cuts a blast's baked ground sprite at its centre
-line. Not split: stains (scorch, raise, pools), puffs, rings at head height, UI rings (range,
-reticle). A new ring effect follows the same rule. The effects' looks are in CLAUDE.md "The effects
-pass"; the concept pages' C option now means LIT (light thrown on the ground), not chunky icons
-(owner: the bold C's were "pretty far off").
+First "the circle should disappear behind the tower where you wouldn't be able to see it. Helps us
+keep that 3d feel", then, on the blasts: "the enemies at the front still get covered by the ring. I
+think it should just not ever go over enemy bodies." So a ring, wave or wash on the GROUND draws
+wholly in the ground layer `"g"` (draw.js, before the halls and figures): whoever stands on it
+covers it, at the back or the front, which is the right depth for a flat ring. The one exception is
+a ring round a HALL (level up, path / final): its front half draws in the air layer (`split` on
+`arcPx` / `dashArc` / `sideOf` in rings.js) so it passes in front of the hall's base. Particles
+that rise (motes, leaves, sparks, smoke) may still draw in front. `drawBlast` (fx.js) puts a
+blast's whole ground sprite under the actors and only its fireball / smoke over them. A new ring
+effect follows the same rule. The concept pages' C option now means LIT (light thrown on the
+ground), not chunky icons (owner: the bold C's were "pretty far off").
 
 ## Performance (target: iPad mini 6)
 
